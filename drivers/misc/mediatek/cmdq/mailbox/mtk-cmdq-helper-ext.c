@@ -2304,9 +2304,9 @@ static void cmdq_pkt_err_irq_dump(struct cmdq_pkt *pkt)
 				pc > CMDQ_BUF_ADDR(buf) + CMDQ_CMD_BUFFER_SIZE) {
 				size -= CMDQ_CMD_BUFFER_SIZE;
 				cmdq_util_user_msg(client ? client->chan : NULL,
-					"buffer %u:%p va:0x%p pa:%pa iova:%pa alloc_time:%#llu",
+					"buf %u:%p va:0x%p pa:%pa iova:%pa time:%#llu pool:%d",
 					cnt, buf, buf->va_base, &buf->pa_base,
-					&buf->iova_base, buf->alloc_time);
+					&buf->iova_base, buf->alloc_time, buf->use_pool);
 				cnt++;
 				continue;
 			}
@@ -2317,7 +2317,7 @@ static void cmdq_pkt_err_irq_dump(struct cmdq_pkt *pkt)
 				size = CMDQ_CMD_BUFFER_SIZE;
 
 			cmdq_util_user_msg(client ? client->chan : NULL,
-				"err irq buf %u:%p va:0x%p pa:%pa iova:%pa alloc_time:%#llu pool:%d",
+				"err irq buf %u:%p va:0x%p pa:%pa iova:%pa time:%#llu pool:%d",
 				cnt, buf, buf->va_base, &buf->pa_base,
 				&buf->iova_base, buf->alloc_time, buf->use_pool);
 			cmdq_buf_cmd_parse(buf->va_base, CMDQ_NUM_CMD(size),
@@ -2354,8 +2354,10 @@ static void cmdq_flush_async_cb(struct cmdq_cb_data data)
 
 	cmdq_log("%s pkt:%p", __func__, pkt);
 
-	if (data.err == -EINVAL)
+	if (data.err == -EINVAL) {
 		cmdq_pkt_err_irq_dump(pkt);
+		BUG_ON(1);
+	}
 
 	if (item->cb)
 		item->cb(user_data);
@@ -3241,9 +3243,9 @@ s32 cmdq_pkt_dump_buf(struct cmdq_pkt *pkt, dma_addr_t curr_pa)
 			size = CMDQ_CMD_BUFFER_SIZE;
 		}
 		cmdq_util_user_msg(client ? client->chan : NULL,
-			"buffer %u:%p va:0x%p pa:%pa iova:%pa alloc_time:%#llu",
+			"buffer %u:%p va:0x%p pa:%pa iova:%pa alloc_time:%#llu pool:%d",
 			cnt, buf, buf->va_base, &buf->pa_base,
-			&buf->iova_base, buf->alloc_time);
+			&buf->iova_base, buf->alloc_time, buf->use_pool);
 		if (buf->va_base && client) {
 			cmdq_buf_cmd_parse(buf->va_base, CMDQ_NUM_CMD(size),
 				CMDQ_BUF_ADDR(buf), curr_pa, NULL, client->chan);

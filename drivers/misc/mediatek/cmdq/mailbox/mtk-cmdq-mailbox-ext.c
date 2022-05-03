@@ -1097,7 +1097,6 @@ static void cmdq_thread_irq_handler(struct cmdq *cmdq,
 				curr_task->pkt, thread->idx, err);
 			cmdq_buf_dump_schedule(task, false, curr_pa);
 			cmdq_task_exec_done(task, err);
-			BUG_ON(1);
 			cmdq_task_handle_error(curr_task);
 			spin_lock_irqsave(&cmdq->irq_removes_lock, flags);
 			list_add_tail(&task->list_entry, &cmdq->irq_removes);
