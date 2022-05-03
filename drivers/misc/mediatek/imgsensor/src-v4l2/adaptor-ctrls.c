@@ -63,6 +63,35 @@ static int g_pd_pixel_region(struct adaptor_ctx *ctx, struct v4l2_ctrl *ctrl)
 }
 #endif
 
+static void dump_perframe_info(struct adaptor_ctx *ctx, struct mtk_hdr_ae *ae_ctrl)
+{
+	dev_info(ctx->dev,
+			"sensor_idx %d, req id %d, exposure[LLLE->SSSE] %d %d %d %d %d ana_gain[LLLE->SSSE] %d %d %d %d %d, sub_tag:%u, fl:%u, min_fl:%u, flick_en:%u, mode:(line_time:%u, margin:%u, scen:%u; STG:(readout_l:%u, read_margin:%u, ext_fl:%u, fast_mode:%u))\n",
+			ctx->idx,
+			ae_ctrl->req_id,
+			ae_ctrl->exposure.le_exposure,
+			ae_ctrl->exposure.me_exposure,
+			ae_ctrl->exposure.se_exposure,
+			ae_ctrl->exposure.sse_exposure,
+			ae_ctrl->exposure.ssse_exposure,
+			ae_ctrl->gain.le_gain,
+			ae_ctrl->gain.me_gain,
+			ae_ctrl->gain.se_gain,
+			ae_ctrl->gain.sse_gain,
+			ae_ctrl->gain.ssse_gain,
+			ae_ctrl->subsample_tags,
+			ctx->subctx.frame_length,
+			ctx->subctx.min_frame_length,
+			ctx->subctx.autoflicker_en,
+			CALC_LINE_TIME_IN_NS(ctx->subctx.pclk, ctx->subctx.line_length),
+			ctx->subctx.margin,
+			ctx->subctx.current_scenario_id,
+			ctx->subctx.readout_length,
+			ctx->subctx.read_margin,
+			ctx->subctx.extend_frame_length_en,
+			ctx->subctx.fast_mode_on);
+}
+
 static int set_hdr_exposure_tri(struct adaptor_ctx *ctx, struct mtk_hdr_exposure *info)
 {
 	union feature_para para;
@@ -145,22 +174,6 @@ static int do_set_ae_ctrl(struct adaptor_ctx *ctx,
 	while (exp_count < IMGSENSOR_STAGGER_EXPOSURE_CNT &&
 		ae_ctrl->exposure.arr[exp_count] != 0)
 		exp_count++;
-	dev_info(ctx->dev,
-			"sensor_idx %d, req id %d, exposure[LLLE->SSSE] %d %d %d %d %d ana_gain[LLLE->SSSE] %d %d %d %d %d, sub_tag:%u\n",
-			ctx->idx,
-			ae_ctrl->req_id,
-			ae_ctrl->exposure.le_exposure,
-			ae_ctrl->exposure.me_exposure,
-			ae_ctrl->exposure.se_exposure,
-			ae_ctrl->exposure.sse_exposure,
-			ae_ctrl->exposure.ssse_exposure,
-			ae_ctrl->gain.le_gain,
-			ae_ctrl->gain.me_gain,
-			ae_ctrl->gain.se_gain,
-			ae_ctrl->gain.sse_gain,
-			ae_ctrl->gain.ssse_gain,
-			ae_ctrl->subsample_tags);
-
 
 	switch (exp_count) {
 	case 3:
@@ -220,7 +233,7 @@ static int do_set_ae_ctrl(struct adaptor_ctx *ctx,
 	ctx->exposure->val = ae_ctrl->exposure.le_exposure;
 	ctx->analogue_gain->val = ae_ctrl->gain.le_gain;
 	ctx->subctx.ae_ctrl_gph_en = 0;
-
+	dump_perframe_info(ctx, ae_ctrl);
 	return 0;
 }
 
