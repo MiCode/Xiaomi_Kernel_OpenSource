@@ -605,6 +605,9 @@ static void mtk_vdec_dump_addr_reg(
 		mtk_v4l2_err("hw_id %d not support !!", hw_id);
 		return;
 	}
+	if (vdec_hw_ipm == VCODEC_IPM_V1)
+		lat_vld_addr = vld_addr; // for ipm v1 input buffer
+
 	ctx = dev->curr_dec_ctx[hw_id];
 	if (ctx)
 		fourcc = ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc;
@@ -618,8 +621,7 @@ static void mtk_vdec_dump_addr_reg(
 		return;
 	}
 
-	if (hw_id == MTK_VDEC_CORE && fourcc != V4L2_PIX_FMT_AV1 &&
-			dev->dec_reg_base[VDEC_BASE] != NULL)
+	if (hw_id == MTK_VDEC_CORE && fourcc != V4L2_PIX_FMT_AV1 && (ufo_addr - 0x800) != NULL)
 		is_ufo = (readl(ufo_addr + 0x08C) & 0x1) == 0x1;
 
 	switch (type) {
@@ -646,6 +648,8 @@ static void mtk_vdec_dump_addr_reg(
 				mtk_v4l2_err("[CORE][MC] 0x%x(%d) = 0x%lx",
 					output_ufo_mc_reg[i], output_ufo_mc_reg[i]/4, value);
 			}
+			if ((ufo_addr - 0x800) == NULL)
+				break;
 			for (i = 0; i < OUTPUT_UFO_NUM; i++) {
 				value = readl(ufo_addr + output_ufo_reg[i]);
 				mtk_v4l2_err("[CORE][UFO] 0x%x(%d) = 0x%lx",
@@ -722,27 +726,31 @@ static void mtk_vdec_dump_addr_reg(
 		break;
 	case DUMP_VDEC_UBE_BUF:
 		if (hw_id == MTK_VDEC_LAT) {
-			if (lat_wdma_addr == NULL || rctrl_addr == NULL)
-				break;
-			value = readl(lat_wdma_addr + 0x50);
-			mtk_v4l2_err("[LAT][WDMA] 0x%x(%d) = 0x%lx",
-				0x50, 0x50/4, value);
-			value = readl(lat_wdma_addr + 0x44);
-			mtk_v4l2_err("[LAT][WDMA] 0x%x(%d) = 0x%lx",
-				0x44, 0x44/4, value);
-			value = readl(rctrl_addr + 0x78);
-			mtk_v4l2_err("[RACING_CTRL] 0x%x(%d) = 0x%lx",
-				0x78, 0x78/4, value);
+			if ((lat_wdma_addr - 0x800) != NULL) {
+				value = readl(lat_wdma_addr + 0x50);
+				mtk_v4l2_err("[LAT][WDMA] 0x%x(%d) = 0x%lx",
+					0x50, 0x50/4, value);
+				value = readl(lat_wdma_addr + 0x44);
+				mtk_v4l2_err("[LAT][WDMA] 0x%x(%d) = 0x%lx",
+					0x44, 0x44/4, value);
+			}
+			if (rctrl_addr != NULL) {
+				value = readl(rctrl_addr + 0x78);
+				mtk_v4l2_err("[RACING_CTRL] 0x%x(%d) = 0x%lx",
+					0x78, 0x78/4, value);
+			}
 		} else {
-			if (vld_addr == NULL || rctrl_addr == NULL)
-				break;
-			value = readl(rctrl_addr + 0x7C);
-			mtk_v4l2_err("[RACING_CTRL] 0x%x(%d) = 0x%lx",
-				0x7C, 0x7C/4, value);
-			for (i = 0; i < UBE_CORE_VLD_NUM; i++) {
-				value = readl(vld_addr + ube_core_vld_reg[i]);
-				mtk_v4l2_err("[CORE][VLD] 0x%x(%d) = 0x%lx",
-					ube_core_vld_reg[i], ube_core_vld_reg[i]/4, value);
+			if (rctrl_addr != NULL) {
+				value = readl(rctrl_addr + 0x7C);
+				mtk_v4l2_err("[RACING_CTRL] 0x%x(%d) = 0x%lx",
+					0x7C, 0x7C/4, value);
+			}
+			if (vld_addr != NULL) {
+				for (i = 0; i < UBE_CORE_VLD_NUM; i++) {
+					value = readl(vld_addr + ube_core_vld_reg[i]);
+					mtk_v4l2_err("[CORE][VLD] 0x%x(%d) = 0x%lx",
+					    ube_core_vld_reg[i], ube_core_vld_reg[i]/4, value);
+				}
 			}
 		}
 		break;
