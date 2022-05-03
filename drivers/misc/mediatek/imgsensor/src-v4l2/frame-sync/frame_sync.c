@@ -2123,7 +2123,8 @@ void fs_update_tg(unsigned int ident, unsigned int tg)
 #endif // USING_CCU
 
 	/* 0-1 convert cammux id to ccu tg id */
-	tg = frm_convert_cammux_tg_to_ccu_tg(tg);
+	// tg = frm_convert_cammux_tg_to_ccu_tg(tg);
+	tg = frm_convert_cammux_id_to_ccu_tg_id(tg);
 
 
 	/* 1. update the fs_streaming_st data */
@@ -2255,7 +2256,8 @@ unsigned int fs_streaming(
 
 		/* convert cammux id to ccu tg id */
 		sensor_info->tg =
-			frm_convert_cammux_tg_to_ccu_tg(sensor_info->tg);
+			// frm_convert_cammux_tg_to_ccu_tg(sensor_info->tg);
+			frm_convert_cammux_id_to_ccu_tg_id(sensor_info->tg);
 
 		/* set data to frm, fs algo, and frame recorder */
 		frm_init_frame_info_st_data(idx,

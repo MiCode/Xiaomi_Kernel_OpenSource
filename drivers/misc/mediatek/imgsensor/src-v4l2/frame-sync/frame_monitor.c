@@ -129,6 +129,16 @@ struct FrameMonitorInst {
 };
 static struct FrameMonitorInst frm_inst;
 
+
+#if defined(FS_UT)
+static const int ut_tg_mapping[23] = {
+	-1, -1, -1, 0, 1,
+	2, 3, 4, 5, 10,
+	11, 12, 13, 14, 15,
+	-1, -1, -1, -1, 6,
+	7, 8, 9
+};
+#endif
 /******************************************************************************/
 
 
@@ -1030,6 +1040,63 @@ unsigned int frm_convert_cammux_tg_to_ccu_tg(unsigned int tg)
 		tg, frm_inst.camsv0_tg, camsv_id, tg_mapped);
 
 	return tg_mapped;
+}
+
+
+static int frm_get_camsv_id(unsigned int id)
+{
+#if !defined(FS_UT)
+
+	struct device_node *dev_node = NULL;
+	unsigned int camsv_id, cammux_id;
+	int ret = -1;
+
+	do {
+		dev_node = of_find_compatible_node(dev_node, NULL,
+			"mediatek,camsv");
+
+		if (dev_node) {
+			if (of_property_read_u32(dev_node,
+					"mediatek,camsv-id", &camsv_id)
+				|| of_property_read_u32(dev_node,
+					"mediatek,cammux-id", &cammux_id)) {
+				/* property not found */
+				continue;
+			}
+
+			if (cammux_id == (id - 1)) {
+				ret = camsv_id;
+				break;
+			}
+		}
+	} while (dev_node);
+
+#if !defined(REDUCE_FRM_LOG)
+	LOG_MUST(
+		"get cammux_id:%u(from 1), camsv_id:%u(from 0), cammux_id:%u, ret:%d\n",
+		id, camsv_id, cammux_id, ret);
+#endif
+
+	return ret;
+
+#else
+	return ut_tg_mapping[id-1];
+#endif // FS_UT
+}
+
+
+unsigned int frm_convert_cammux_id_to_ccu_tg_id(unsigned int cammux_id)
+{
+	int camsv_id = frm_get_camsv_id(cammux_id);
+	unsigned int ccu_tg_id;
+
+	ccu_tg_id = (camsv_id >= 0) ? (camsv_id + CAMSV_TG_MIN) : cammux_id;
+
+	LOG_MUST(
+		"get cammux_id:%u(from 1), camsv_id:%d(from 0), ccu_tg_id:%u(CAMSV_TG_MIN:%u, CAMSV_TG_MAX:%u)\n",
+		cammux_id, camsv_id, ccu_tg_id, CAMSV_TG_MIN, CAMSV_TG_MAX);
+
+	return ccu_tg_id;
 }
 
 

@@ -17,7 +17,7 @@
 #define CCU_CAM_TG_MAX 4
 
 /* Sync To: "ccu_platform.h" */
-#define CAMSV_MAX       (10)
+#define CAMSV_MAX       (16)
 #define CAMSV_TG_MIN    (5)
 #define CAMSV_TG_MAX    (CAMSV_TG_MIN+CAMSV_MAX)
 #define FM_TG_CNT       (CAMSV_TG_MAX)
@@ -70,6 +70,7 @@ void frm_init_frame_info_st_data(
 void frm_reset_frame_info(unsigned int idx);
 
 unsigned int frm_convert_cammux_tg_to_ccu_tg(unsigned int tg);
+unsigned int frm_convert_cammux_id_to_ccu_tg_id(unsigned int cammux_id);
 
 void frm_update_tg(unsigned int idx, unsigned int tg);
 
