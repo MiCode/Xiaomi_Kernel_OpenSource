@@ -1181,7 +1181,7 @@ static int clkbuf_dcxo_dts_init_xo(struct device_node *node)
 		ret = of_property_read_u32_index(node,
 				CLKBUF_XO_SUPPORT_PROP_NAME, i, &tmp);
 		if (ret) {
-			pr_notice("get xo support%d with err: %d\n", ret);
+			pr_notice("get xo %d support with err: %d\n", i, ret);
 			return ret;
 		}
 		dcxo->xo_bufs[i].support = tmp;
@@ -1190,7 +1190,7 @@ static int clkbuf_dcxo_dts_init_xo(struct device_node *node)
 		ret = of_property_read_string_index(node, CLKBUF_XO_NAME_PROP,
 				i, &dcxo->xo_bufs[i].xo_name);
 		if (ret) {
-			pr_notice("get xo name%d with err: %d\n", ret);
+			pr_notice("get xo %d name with err: %d\n", i, ret);
 			return ret;
 		}
 
@@ -1200,7 +1200,7 @@ static int clkbuf_dcxo_dts_init_xo(struct device_node *node)
 				CLKBUF_XO_ALLOW_CONTROL,
 				i, &tmp);
 		if (ret) {
-			pr_notice("get xo controllable%d with err: %d\n", ret);
+			pr_notice("get xo %d controllable with err: %d\n", i, ret);
 			return ret;
 		}
 		dcxo->xo_bufs[i].controllable = tmp;
