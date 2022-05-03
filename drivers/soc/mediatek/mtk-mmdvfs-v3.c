@@ -107,8 +107,8 @@ static int mtk_mmdvfs_set_rate(struct clk_hw *hw, unsigned long rate,
 
 	level = (i == mmdvfs_clk->freq_num) ? (i-1) : i;
 	opp = (mmdvfs_clk->freq_num - level - 1);
-	MMDVFS_DBG("%s: rate=%lu parent_rate=%lu freq=%lu old_opp=%d new_opp=%d\n",
-		__func__, rate, parent_rate, mmdvfs_clk->freqs[level], mmdvfs_clk->opp, opp);
+	MMDVFS_DBG("user:%u freq=%lu old_opp=%d new_opp=%d\n",
+		mmdvfs_clk->user_id, rate, mmdvfs_clk->opp, opp);
 	if (mmdvfs_clk->opp == opp)
 		return 0;
 	mmdvfs_clk->opp = opp;
@@ -128,15 +128,14 @@ static int mtk_mmdvfs_set_rate(struct clk_hw *hw, unsigned long rate,
 	ret = mmdvfs_vcp_ipi_send(FUNC_SET_OPP, mmdvfs_clk->user_id, pwr_opp, MAX_OPP);
 
 	slot = *(struct mmdvfs_ipi_data *)(u32 *)&ret;
-	MMDVFS_DBG("%s ipi:%d slot:%#x idx:%hhu opp:%hhu",
-		__func__, ret, slot, slot.idx, slot.ack);
+	MMDVFS_DBG("ipi:%d slot:%#x idx:%hhu opp:%hhu", ret, slot, slot.idx, slot.ack);
 	return 0;
 }
 
 static long mtk_mmdvfs_round_rate(struct clk_hw *hw, unsigned long rate,
 			       unsigned long *parent_rate)
 {
-	MMDVFS_DBG("%s: rate=%lu parent_rate=%lu\n", __func__, rate, *parent_rate);
+	MMDVFS_DBG("rate=%lu parent_rate=%lu\n", rate, *parent_rate);
 
 	return rate;
 }
@@ -150,7 +149,7 @@ static unsigned long mtk_mmdvfs_recalc_rate(struct clk_hw *hw,
 
 	level = (mmdvfs_clk->opp == MAX_OPP) ? 0 : (mmdvfs_clk->freq_num - mmdvfs_clk->opp - 1);
 	ret = mmdvfs_clk->freqs[level];
-	MMDVFS_DBG("%s: parent_rate=%lu freq=%lu\n", __func__, parent_rate, ret);
+	MMDVFS_DBG("parent_rate=%lu freq=%lu\n", parent_rate, ret);
 	return ret;
 }
 
@@ -189,8 +188,8 @@ static int mtk_mmdvfs_register_clks(int num_clks,
 		if (IS_ERR_OR_NULL(clk_data->clks[i])) {
 			clk = mtk_mmdvfs_register_clk(i, &mtk_mmdvfs_clks[i]);
 			if (IS_ERR(clk)) {
-				MMDVFS_DBG("%s: failed to register clk %s: %ld\n",
-				       __func__, mtk_mmdvfs_clks[i].name, PTR_ERR(clk));
+				MMDVFS_DBG("failed to register clk %s: %ld\n",
+				       mtk_mmdvfs_clks[i].name, PTR_ERR(clk));
 				continue;
 			}
 
@@ -399,14 +398,14 @@ static int mmdvfs_v3_probe(struct platform_device *pdev)
 
 	elem_num = of_property_count_strings(node, MMDVFS_CLK_NAMES);
 
-	if (!elem_num) {
-		MMDVFS_DBG("%s: no clk definition found!\n", __func__);
+	if (elem_num <= 0) {
+		MMDVFS_DBG("no clk definition found!\n");
 		return 0;
 	}
 
 	mtk_mmdvfs_clks = kcalloc(elem_num, sizeof(*mtk_mmdvfs_clks), GFP_KERNEL);
 	if (!mtk_mmdvfs_clks) {
-		MMDVFS_DBG("%s: no memory for mtk_mmdvfs_clks\n", __func__);
+		MMDVFS_DBG("no memory for mtk_mmdvfs_clks\n");
 		return -ENOMEM;
 	}
 
@@ -419,7 +418,7 @@ static int mmdvfs_v3_probe(struct platform_device *pdev)
 		ret = of_property_read_u32_index(node, MMDVFS_CLKS,
 				idx * ARG_NUM + ARG_PWR_ID, &value);
 		if (ret) {
-			MMDVFS_DBG("%s: idx(%u) cannot get pwr_id\n", __func__, idx);
+			MMDVFS_DBG("idx(%u) cannot get pwr_id\n", idx);
 			return -EINVAL;
 		}
 		mtk_mmdvfs_clks[max_mmdvfs_num].pwr_id = value;
@@ -427,7 +426,7 @@ static int mmdvfs_v3_probe(struct platform_device *pdev)
 		ret = of_property_read_u32_index(node, MMDVFS_CLKS,
 				idx * ARG_NUM + ARG_USER_ID, &value);
 		if (ret) {
-			MMDVFS_DBG("%s: idx(%u) cannot get user_id\n", __func__, idx);
+			MMDVFS_DBG("idx(%u) cannot get user_id\n", idx);
 			return -EINVAL;
 		}
 		mtk_mmdvfs_clks[max_mmdvfs_num].user_id = value;
@@ -435,7 +434,7 @@ static int mmdvfs_v3_probe(struct platform_device *pdev)
 		ret = of_property_read_u32_index(node, MMDVFS_CLKS,
 				idx * ARG_NUM + ARG_SPECIAL_TYPE, &value);
 		if (ret) {
-			MMDVFS_DBG("%s: idx(%u) cannot get special_type\n", __func__, idx);
+			MMDVFS_DBG("idx(%u) cannot get special_type\n", idx);
 			return -EINVAL;
 		}
 		mtk_mmdvfs_clks[max_mmdvfs_num].special_type = value;
@@ -443,7 +442,7 @@ static int mmdvfs_v3_probe(struct platform_device *pdev)
 		ret = of_property_read_u32_index(node, MMDVFS_CLKS,
 				idx * ARG_NUM + ARG_IPI_TYPE, &value);
 		if (ret) {
-			MMDVFS_DBG("%s: idx(%u) cannot get ipi type\n", __func__, idx);
+			MMDVFS_DBG("idx(%u) cannot get ipi type\n", idx);
 			return -EINVAL;
 		}
 		mtk_mmdvfs_clks[max_mmdvfs_num].ipi_type = value;
@@ -451,7 +450,7 @@ static int mmdvfs_v3_probe(struct platform_device *pdev)
 		ret = of_property_read_u32_index(node, MMDVFS_CLKS,
 				idx * ARG_NUM + ARG_OPP_TABLE, &opp_table_ph);
 		if (ret) {
-			MMDVFS_DBG("%s: idx(%u) cannot get opp_table\n", __func__, idx);
+			MMDVFS_DBG("idx(%u) cannot get opp_table\n", idx);
 			return -EINVAL;
 		}
 
@@ -480,7 +479,7 @@ static int mmdvfs_v3_probe(struct platform_device *pdev)
 			mtk_mmdvfs_clks[max_mmdvfs_num].opp);
 
 		for (i = 0; i < mtk_mmdvfs_clks[max_mmdvfs_num].freq_num; i++)
-			MMDVFS_DBG("%s i=%d freq=%llu\n", __func__, i,
+			MMDVFS_DBG("i=%d freq=%llu\n", i,
 				mtk_mmdvfs_clks[max_mmdvfs_num].freqs[i]);
 		max_mmdvfs_num++;
 	}
@@ -495,11 +494,10 @@ static int mmdvfs_v3_probe(struct platform_device *pdev)
 
 	kthr = kthread_run(mmdvfs_vcp_init_thread, NULL, "mmdvfs-vcp");
 
-	MMDVFS_DBG("%s is called!\n", __func__);
+	MMDVFS_DBG("probe done\n");
 
 	if (ret)
-		MMDVFS_DBG("%s(): could not register clock provider: %d\n",
-				__func__, ret);
+		MMDVFS_DBG("could not register clock provider: %d\n", ret);
 
 	return ret;
 }
