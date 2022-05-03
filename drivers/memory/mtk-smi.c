@@ -1823,24 +1823,12 @@ static int __maybe_unused mtk_smi_larb_resume(struct device *dev)
 {
 	struct mtk_smi_larb *larb = dev_get_drvdata(dev);
 	const struct mtk_smi_larb_gen *larb_gen = larb->larb_gen;
-	int ret, i;
+	int ret;
 
 	atomic_inc(&larb->smi.ref_count);
 	if (log_level & 1 << log_config_bit)
 		pr_info("[SMI]larb:%d callback get ref_count:%d\n",
 			larb->larbid, atomic_read(&larb->smi.ref_count));
-
-	/* enable related SMI common port */
-	for (i = 0; i < LARB_MAX_COMMON; i++) {
-		struct mtk_smi *common;
-
-		if (larb->comm_port_id[i] >= 0 && larb->smi_common_dev[i]) {
-			common = dev_get_drvdata(larb->smi_common_dev[i]);
-
-			writel(1 << larb->comm_port_id[i],
-				common->base + SMI_CLAMP_EN_CLR);
-		}
-	}
 
 	ret = mtk_smi_clk_enable(&larb->smi);
 	if (ret < 0) {
@@ -1986,11 +1974,37 @@ static int mtk_smi_pd_callback(struct notifier_block *nb,
 	return NOTIFY_OK;
 }
 
+void mtk_smi_larb_clamp(struct device *larbdev, bool on)
+{
+	struct mtk_smi_larb *larb = dev_get_drvdata(larbdev);
+	int i;
+	u32 clamp_reg = on ? SMI_CLAMP_EN_SET : SMI_CLAMP_EN_CLR;
+
+	if (unlikely(!larb))
+		return;
+	/* disable/enable related SMI common port */
+	for (i = 0; i < LARB_MAX_COMMON; i++) {
+		struct mtk_smi *common;
+
+		if (larb->comm_port_id[i] >= 0 && larb->smi_common_dev[i]) {
+			common = dev_get_drvdata(larb->smi_common_dev[i]);
+
+			writel(1 << larb->comm_port_id[i],
+				common->base + clamp_reg);
+
+			if (log_level & 1 << log_pd_callback)
+				pr_notice("[smi] %s on:%d larb%d, comm%d clamp: %#x = %#x\n",
+					__func__, on, larb->larbid, common->commid, SMI_CLAMP_EN,
+					readl(common->base + SMI_CLAMP_EN));
+		}
+	}
+}
+EXPORT_SYMBOL_GPL(mtk_smi_larb_clamp);
+
 static int __maybe_unused mtk_smi_larb_suspend(struct device *dev)
 {
 	struct mtk_smi_larb *larb = dev_get_drvdata(dev);
 	const struct mtk_smi_larb_gen *larb_gen = larb->larb_gen;
-	int i;
 
 	atomic_dec(&larb->smi.ref_count);
 	if (log_level & 1 << log_config_bit)
@@ -2010,17 +2024,6 @@ static int __maybe_unused mtk_smi_larb_suspend(struct device *dev)
 		larb_gen->sleep_ctrl(dev, true);
 
 	mtk_smi_clk_disable(&larb->smi);
-	/* disable related SMI common port */
-	for (i = 0; i < LARB_MAX_COMMON; i++) {
-		struct mtk_smi *common;
-
-		if (larb->comm_port_id[i] >= 0 && larb->smi_common_dev[i]) {
-			common = dev_get_drvdata(larb->smi_common_dev[i]);
-
-			writel(1 << larb->comm_port_id[i],
-				common->base + SMI_CLAMP_EN_SET);
-		}
-	}
 	return 0;
 }
 
