@@ -189,6 +189,7 @@ static void set_comm_icc_bw(struct common_node *comm_node)
 	u64 normalize_peak_bw;
 	unsigned long smi_clk = 0;
 	u32 volt, i, j, comm_id;
+	s32 ret;
 
 	list_for_each_entry(comm_port_node, &comm_node->comm_port_list, list) {
 		mutex_lock(&comm_port_node->bw_lock);
@@ -232,15 +233,22 @@ static void set_comm_icc_bw(struct common_node *comm_node)
 					"comm(%d) max_bw=%u smi_clk=%u volt=%u\n",
 					comm_id, max_bw, smi_clk, volt);
 			}
-			if (IS_ERR_OR_NULL(comm_node->comm_reg))
-				dev_notice(comm_node->comm_dev,
-					"regulator is not ready\n");
-			else if (regulator_set_voltage(comm_node->comm_reg,
+			if (IS_ERR_OR_NULL(comm_node->comm_reg)) {
+				if (IS_ERR_OR_NULL(comm_node->clk))
+					dev_notice(comm_node->comm_dev,
+						"mmdvfs clk is not ready\n");
+				else {
+					ret = clk_set_rate(comm_node->clk, smi_clk);
+					if (ret)
+						dev_notice(comm_node->comm_dev,
+							"clk_set_rate failed:%d\n", ret);
+				}
+			} else if (regulator_set_voltage(comm_node->comm_reg,
 					volt, INT_MAX))
 				dev_notice(comm_node->comm_dev,
 					"regulator_set_voltage failed volt=%lu\n", volt);
-			else
-				comm_node->volt = volt;
+			comm_node->volt = volt;
+
 		}
 		comm_node->smi_clk = smi_clk;
 	}
@@ -624,13 +632,12 @@ int mtk_mmqos_probe(struct platform_device *pdev)
 				pr_notice("comm(%d) pdev is null\n",
 					  MASK_8(node->id));
 			comm_node->comm_reg =
-				devm_regulator_get(comm_node->comm_dev,
-						   "dvfsrc-vcore");
-			if (IS_ERR_OR_NULL(comm_node->comm_reg)) {
+				devm_regulator_get_optional(comm_node->comm_dev,
+						   "mmdvfs-dvfsrc-vcore");
+			if (IS_ERR_OR_NULL(comm_node->comm_reg))
 				pr_notice("get common(%d) reg fail\n",
 				  MASK_8(node->id));
-				break;
-			}
+
 			dev_pm_opp_of_add_table(comm_node->comm_dev);
 			comm_node->base = base_node;
 			node->data = (void *)comm_node;
