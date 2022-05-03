@@ -130,6 +130,7 @@ static void mrdump_cblock_update(enum AEE_REBOOT_MODE reboot_mode,
 		break;
 	case AEE_REBOOT_MODE_WDT:
 		aee_rr_rec_exp_type(AEE_EXP_TYPE_HWT);
+		break;
 	default:
 		/* Don't print anything */
 		aee_rr_rec_exp_type(AEE_EXP_TYPE_KE);
