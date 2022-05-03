@@ -5,9 +5,8 @@
 
 #ifndef _VCP_IPI_H_
 #define _VCP_IPI_H_
-
-#include "vcp_ipi_wrapper.h"
 #include "vcp.h"
+#include "vcp_ipi_table.h"
 
 struct vcp_ipi_wrapper {
 	uint32_t out_id_0;
@@ -23,6 +22,5 @@ struct vcp_ipi_wrapper {
 extern struct mtk_mbox_device vcp_mboxdev;
 extern struct mtk_ipi_device vcp_ipidev;
 extern struct mtk_mbox_info *vcp_mbox_info;
-extern struct vcp_ipi_wrapper vcp_ipi_legacy_id[1];
 
 #endif
