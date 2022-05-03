@@ -22,7 +22,8 @@
 #define XGF_MAX_SPID_LIST_LENGTH 20
 #define DEFAULT_DFRC 60
 #define TARGET_FPS_LEVEL 10
-#define MAX_DEP_PATH_NUM 70
+#define MAX_DEP_PATH_NUM 50
+#define MAX_DEP_TASK_NUM 100
 #define N 8
 
 enum XGF_ERROR {
@@ -110,14 +111,36 @@ struct xgf_runtime_sect {
 	unsigned long long end_ts;
 };
 
+struct xgf_dep_task {
+	pid_t tid;
+	pid_t caller_tid;
+	unsigned long long ts;
+};
+
+struct xgf_render_dep {
+	int finish_flag;
+
+	struct xgf_dep_task xdt_arr[MAX_DEP_TASK_NUM];
+	int xdt_arr_idx;
+
+	int track_tid;
+	unsigned long long track_ts;
+	int raw_head_index;
+	int raw_tail_index;
+	unsigned long long raw_head_ts;
+	unsigned long long raw_tail_ts;
+
+	int specific_flag;
+};
+
 struct xgf_render {
 	struct hlist_node hlist;
 	pid_t parent;
 	pid_t render;
 	unsigned long long bufID;
 
-	struct hlist_head render_dep_head;
-	int render_dep_num;
+	struct xgf_render_dep xrd_arr[MAX_DEP_PATH_NUM];
+	int xrd_arr_idx;
 	int l_num;
 	int r_num;
 
@@ -129,8 +152,6 @@ struct xgf_render {
 	unsigned long long prev_queue_end_ts;
 
 	int frame_count;
-	int u_wake_r;
-	int u_wake_r_count;
 
 	struct rb_root deps_list;
 	struct rb_root out_deps_list;
@@ -177,29 +198,6 @@ struct xgf_spid {
 	int tid;
 	unsigned long long bufID;
 	int action;
-};
-
-struct xgf_render_dep {
-	struct hlist_node hlist;
-	int sector_id;
-	int finish_flag;
-	struct hlist_head path_head;
-
-	int track_tid;
-	unsigned long long track_ts;
-	int raw_head_index;
-	int raw_tail_index;
-	unsigned long long raw_head_ts;
-	unsigned long long raw_tail_ts;
-
-	int specific_flag;
-};
-
-struct xgf_dep_task {
-	struct hlist_node hlist;
-	pid_t tid;
-	pid_t caller_tid;
-	unsigned long long ts;
 };
 
 struct fpsgo_trace_event {
@@ -250,11 +248,14 @@ int xgf_get_task_wake_cpu(struct task_struct *t);
 int xgf_get_task_pid(struct task_struct *t);
 long xgf_get_task_state(struct task_struct *t);
 void notify_xgf_ko_ready(void);
+void xgf_get_runtime(pid_t tid, u64 *runtime);
 unsigned long long xgf_get_time(void);
 unsigned long long xgf_calculate_sqrt(unsigned long long x);
 int xgf_dep_frames_mod(struct xgf_render *render, int pos);
 struct xgf_dep *xgf_get_dep(pid_t tid, struct xgf_render *render,
 	int pos, int force);
+void xgf_update_deps_list(struct xgf_render *render, int pos);
+void xgf_duplicate_deps_list(struct xgf_render *render);
 void xgf_clean_deps_list(struct xgf_render *render, int pos);
 
 void fpsgo_ctrl2xgf_switch_xgf(int val);

@@ -34,7 +34,6 @@ static DEFINE_MUTEX(fstb_ko_lock);
 static DEFINE_MUTEX(xgff_frames_lock);
 static int xgf_enable;
 int xgf_trace_enable;
-EXPORT_SYMBOL(xgf_trace_enable);
 static int xgf_log_trace_enable;
 static int xgf_ko_ready;
 static int xgf_nr_cpus __read_mostly;
@@ -677,22 +676,17 @@ out:
 
 static void xgf_render_dep_reset(struct xgf_render *render)
 {
-	struct xgf_render_dep *xrd;
-	struct xgf_dep_task *xdt;
-	struct hlist_node *h1, *h2;
+	int i, total;
 
-	hlist_for_each_entry_safe(xrd, h1, &render->render_dep_head, hlist) {
-		hlist_for_each_entry_safe(xdt, h2, &xrd->path_head, hlist) {
-			hlist_del(&xdt->hlist);
-			xgf_free(xdt);
-		}
-		INIT_HLIST_HEAD(&xrd->path_head);
+	if (render->xrd_arr_idx < 0 || render->xrd_arr_idx > MAX_DEP_PATH_NUM)
+		total = MAX_DEP_PATH_NUM;
+	else
+		total = render->xrd_arr_idx;
 
-		hlist_del(&xrd->hlist);
-		xgf_free(xrd);
-	}
-	INIT_HLIST_HEAD(&render->render_dep_head);
-	render->render_dep_num = 0;
+	for (i = 0; i < total; i++)
+		render->xrd_arr[i].xdt_arr_idx = 0;
+
+	render->xrd_arr_idx = 0;
 	render->l_num = 0;
 	render->r_num = 0;
 }
@@ -800,6 +794,7 @@ struct xgf_dep *xgf_get_dep(
 	xd->tid = tid;
 	xd->render_dep = 1;
 	xd->frame_idx = xgf_dep_frames_mod(render, pos);
+	xd->action = 0;
 
 	rb_link_node(&xd->rb_node, parent, p);
 	rb_insert_color(&xd->rb_node, r);
@@ -807,6 +802,59 @@ struct xgf_dep *xgf_get_dep(
 	return xd;
 }
 EXPORT_SYMBOL(xgf_get_dep);
+
+void xgf_update_deps_list(struct xgf_render *render, int pos)
+{
+	struct xgf_dep *xd;
+	struct rb_root *prev_r;
+	struct xgf_dep *prev_iter;
+	struct rb_root *out_r;
+	struct xgf_dep *out_iter;
+	struct rb_node *n;
+	int prev_frame_index = xgf_dep_frames_mod(render, PREVI_DEPS);
+	int curr_frame_index = xgf_dep_frames_mod(render, OUTER_DEPS);
+
+	if (pos != PREVI_DEPS)
+		return;
+
+	prev_r = &render->prev_deps_list;
+	n = rb_first(prev_r);
+	while (n) {
+		prev_iter = rb_entry(n, struct xgf_dep, rb_node);
+		if (prev_iter->frame_idx == curr_frame_index) {
+			rb_erase(n, prev_r);
+			n = rb_first(prev_r);
+			xgf_free(prev_iter);
+		} else
+			n = rb_next(n);
+	}
+
+	out_r = &render->out_deps_list;
+	for (n = rb_first(out_r); n; n = rb_next(n)) {
+		out_iter = rb_entry(n, struct xgf_dep, rb_node);
+		xd = xgf_get_dep(out_iter->tid, render, PREVI_DEPS, 0);
+		if (xd)
+			xd->frame_idx = prev_frame_index;
+		else
+			xd = xgf_get_dep(out_iter->tid, render, PREVI_DEPS, 1);
+	}
+}
+EXPORT_SYMBOL(xgf_update_deps_list);
+
+void xgf_duplicate_deps_list(struct xgf_render *render)
+{
+	struct xgf_dep *xd;
+	struct rb_root *r;
+	struct xgf_dep *iter;
+	struct rb_node *n;
+
+	r = &render->deps_list;
+	for (n = rb_first(r); n != NULL; n = rb_next(n)) {
+		iter = rb_entry(n, struct xgf_dep, rb_node);
+		xd = xgf_get_dep(iter->tid, render, OUTER_DEPS, 1);
+	}
+}
+EXPORT_SYMBOL(xgf_duplicate_deps_list);
 
 static void xgf_ema2_free(struct xgf_ema2_predictor *pt)
 {
@@ -902,7 +950,7 @@ static int xgf_get_render(pid_t rpid, unsigned long long bufID, struct xgf_rende
 		put_task_struct(tsk);
 
 		iter->bufID = bufID;
-		iter->render_dep_num = 0;
+		iter->xrd_arr_idx = 0;
 		iter->l_num = 0;
 		iter->r_num = 0;
 		iter->curr_index = 0;
@@ -912,8 +960,6 @@ static int xgf_get_render(pid_t rpid, unsigned long long bufID, struct xgf_rende
 		iter->event_count = 0;
 		iter->prev_queue_end_ts = queue_end_ts;
 		iter->frame_count = 0;
-		iter->u_wake_r = 0;
-		iter->u_wake_r_count = 0;
 		iter->queue.start_ts = 0;
 		iter->queue.end_ts = 0;
 		iter->deque.start_ts = 0;
@@ -924,8 +970,6 @@ static int xgf_get_render(pid_t rpid, unsigned long long bufID, struct xgf_rende
 		iter->hwui_flag = hwui_flag;
 		iter->ema2_pt = NULL;
 	}
-
-	INIT_HLIST_HEAD(&iter->render_dep_head);
 	hlist_add_head(&iter->hlist, &xgf_renders);
 
 	iter->ema2_pt = xgf_ema2_get_pred();
@@ -1606,30 +1650,37 @@ static void xgf_print_critical_path_info(struct xgf_render *r)
 {
 	char total_pid_list[1024] = {"\0"};
 	char pid[20] = {"\0"};
+	int i, j;
 	int overflow = 0;
 	int len = 0;
 	struct xgf_render_dep *xrd;
 	struct xgf_dep_task *xdt;
-	struct hlist_node *h1, *h2;
 
-	hlist_for_each_entry_safe(xrd, h1, &r->render_dep_head, hlist) {
+	if (r->xrd_arr_idx < 0 || r->xrd_arr_idx > MAX_DEP_PATH_NUM)
+		goto error;
+
+	for (i = 0; i < r->xrd_arr_idx; i++) {
+		xrd = &r->xrd_arr[i];
+
 		if (strlen(total_pid_list) == 0)
-			len = snprintf(pid, sizeof(pid), "%dth", xrd->sector_id+1);
+			len = snprintf(pid, sizeof(pid), "%dth", i+1);
 		else
-			len = snprintf(pid, sizeof(pid), "|%dth", xrd->sector_id+1);
-
+			len = snprintf(pid, sizeof(pid), "|%dth", i+1);
 		if (len < 0 || len >= sizeof(pid))
 			goto error;
 
 		overflow = 0;
 		xgf_strcat(total_pid_list, pid,
 			sizeof(total_pid_list), &overflow);
-
 		if (overflow)
 			goto out;
 
-		hlist_for_each_entry_safe(xdt, h2,
-			&xrd->path_head, hlist) {
+		if (xrd->xdt_arr_idx < 0 || xrd->xdt_arr_idx > MAX_DEP_TASK_NUM)
+			goto error;
+
+		for (j = 0; j < xrd->xdt_arr_idx; j++) {
+			xdt = &xrd->xdt_arr[j];
+
 			len = snprintf(pid, sizeof(pid), ",%d", xdt->tid);
 
 			if (len < 0 || len >= sizeof(pid))
@@ -1721,7 +1772,7 @@ int fpsgo_fstb2xgf_notify_recycle(int pid, unsigned long long bufID)
 	return ret;
 }
 
-static void xgf_get_runtime(pid_t tid, u64 *runtime)
+void xgf_get_runtime(pid_t tid, u64 *runtime)
 {
 	struct task_struct *p;
 
@@ -1741,6 +1792,7 @@ static void xgf_get_runtime(pid_t tid, u64 *runtime)
 	*runtime = (u64)fpsgo_task_sched_runtime(p);
 	put_task_struct(p);
 }
+EXPORT_SYMBOL(xgf_get_runtime);
 
 static int xgf_get_spid(struct xgf_render *render)
 {
@@ -1863,7 +1915,7 @@ int fpsgo_comp2xgf_qudeq_notify(int rpid, unsigned long long bufID, int cmd,
 
 	case XGF_QUEUE_START:
 		rrender = &r;
-		if (xgf_get_render(rpid, bufID, rrender, 0, hwui_flag, 0)) {
+		if (xgf_get_render(rpid, bufID, rrender, 0, hwui_flag, ts)) {
 			ret = XGF_THREAD_NOT_FOUND;
 			goto qudeq_notify_err;
 		}
@@ -1991,7 +2043,7 @@ int fpsgo_comp2xgf_qudeq_notify(int rpid, unsigned long long bufID, int cmd,
 
 	case XGF_DEQUEUE_START:
 		rrender = &r;
-		if (xgf_get_render(rpid, bufID, rrender, 0, hwui_flag, 0)) {
+		if (xgf_get_render(rpid, bufID, rrender, 0, hwui_flag, ts)) {
 			ret = XGF_THREAD_NOT_FOUND;
 			goto qudeq_notify_err;
 		}
@@ -2000,7 +2052,7 @@ int fpsgo_comp2xgf_qudeq_notify(int rpid, unsigned long long bufID, int cmd,
 
 	case XGF_DEQUEUE_END:
 		rrender = &r;
-		if (xgf_get_render(rpid, bufID, rrender, 0, hwui_flag, 0)) {
+		if (xgf_get_render(rpid, bufID, rrender, 0, hwui_flag, ts)) {
 			ret = XGF_THREAD_NOT_FOUND;
 			goto qudeq_notify_err;
 		}
@@ -2097,7 +2149,7 @@ static int xgff_new_frame(pid_t tID, unsigned long long bufID,
 		xriter->parent = iter->parent;
 		xriter->render = iter->tid;
 		xriter->bufID = iter->bufid;
-		xriter->render_dep_num = 0;
+		xriter->xrd_arr_idx = 0;
 		xriter->l_num = 0;
 		xriter->r_num = 0;
 		xriter->prev_index = 0;
@@ -2107,8 +2159,6 @@ static int xgff_new_frame(pid_t tID, unsigned long long bufID,
 		xriter->event_count = 0;
 		xriter->prev_queue_end_ts = ts;
 		xriter->frame_count = 0;
-		xriter->u_wake_r = 0;
-		xriter->u_wake_r_count = 0;
 		xriter->deque.start_ts = 0;
 		xriter->deque.end_ts = 0;
 		xriter->queue.start_ts = 0;
@@ -2118,8 +2168,6 @@ static int xgff_new_frame(pid_t tID, unsigned long long bufID,
 		xriter->dep_frames = xgf_prev_dep_frames;
 		xriter->hwui_flag = 0;
 		xriter->ema2_pt = NULL;
-
-		INIT_HLIST_HEAD(&xriter->render_dep_head);
 	}
 
 	if (ret)
@@ -2344,6 +2392,8 @@ static ssize_t deplist_show(struct kobject *kobj,
 	return scnprintf(buf, PAGE_SIZE, "%s", temp);
 }
 
+static KOBJ_ATTR_RO(deplist);
+
 static ssize_t runtime_show(struct kobject *kobj,
 		struct kobj_attribute *attr,
 		char *buf)
@@ -2428,7 +2478,7 @@ Reget:
 }
 
 static void fstb_buffer_record_waking_timer(int cpu, int event,
-	int data, int note, int state, unsigned long long ts)
+	int data, int note, unsigned long long ts)
 {
 	int index;
 	struct fpsgo_trace_event *fte;
@@ -2461,7 +2511,6 @@ Reget:
 	fte->cpu = cpu;
 	fte->event = event;
 	fte->note = note;
-	fte->state = state;
 	fte->pid = data;
 }
 
@@ -2538,7 +2587,7 @@ static void xgf_sched_waking_tracer(void *ignore, struct task_struct *p)
 	xgf_buffer_record_irq_waking_switch(c_wake_cpu, SCHED_WAKING,
 		p_pid, c_pid, 512, ts);
 	fstb_buffer_record_waking_timer(c_wake_cpu, SCHED_WAKING,
-		p_pid, c_pid, 512, ts);
+		p_pid, c_pid, ts);
 }
 
 static void xgf_hrtimer_expire_entry_tracer(void *ignore,
@@ -2549,7 +2598,7 @@ static void xgf_hrtimer_expire_entry_tracer(void *ignore,
 	int c_pid = xgf_get_task_pid(current);
 
 	fstb_buffer_record_waking_timer(c_wake_cpu, HRTIMER_ENTRY,
-		0, c_pid, 512, ts);
+		0, c_pid, ts);
 
 }
 
@@ -2560,7 +2609,7 @@ static void xgf_hrtimer_expire_exit_tracer(void *ignore, struct hrtimer *hrtimer
 	int c_pid = xgf_get_task_pid(current);
 
 	fstb_buffer_record_waking_timer(c_wake_cpu, HRTIMER_EXIT,
-		0, c_pid, 512, ts);
+		0, c_pid, ts);
 }
 
 struct tracepoints_table {
@@ -2816,8 +2865,6 @@ int __init init_xgf_ko(void)
 
 	return 0;
 }
-
-static KOBJ_ATTR_RO(deplist);
 
 int __init init_xgf(void)
 {
