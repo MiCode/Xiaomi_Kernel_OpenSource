@@ -19,10 +19,11 @@
 #define MML_IR_WIDTH_2K		(2560 + 30)
 #define MML_IR_HEIGHT_2K	(1440 + 30)
 #define MML_IR_2K		(MML_IR_WIDTH_2K * MML_IR_HEIGHT_2K)
-/* fhd size and pixel as lower bound */
-#define MML_IR_WIDTH		320
-#define MML_IR_HEIGHT		480
-#define MML_IR_SD		(MML_IR_WIDTH * MML_IR_HEIGHT)
+/* hd size and pixel as lower bound */
+#define MML_IR_WIDTH		1080
+#define MML_IR_HEIGHT		720
+#define MML_IR_MIN		(MML_IR_WIDTH * MML_IR_HEIGHT)
+#define MML_IR_RSZ_MIN_RATIO	375	/* resize must lower than this ratio */
 
 #define MML_IR_MAX_OPP		1	/* use OPP index 0(229Mhz) 1(273Mhz) */
 
@@ -684,7 +685,16 @@ static enum mml_mode tp_query_mode(struct mml_dev *mml, struct mml_frame_info *i
 		goto decouple;
 	if (info->dest[0].crop.r.width < MML_IR_WIDTH ||
 		info->dest[0].crop.r.height < MML_IR_HEIGHT ||
-		pixel < MML_IR_SD)
+		pixel < MML_IR_MIN)
+		goto decouple;
+
+	/* destination width must cross display pipe width */
+	if (info->dest[0].data.width < MML_IR_HEIGHT)
+		goto decouple;
+
+	if (info->dest[0].data.width * info->dest[0].data.height * 1000 /
+		info->dest[0].crop.r.width / info->dest[0].crop.r.height <
+		MML_IR_RSZ_MIN_RATIO)
 		goto decouple;
 
 	return MML_MODE_RACING;
