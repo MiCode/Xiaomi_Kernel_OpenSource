@@ -7,6 +7,7 @@
 #include <linux/kthread.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
+#include <linux/sched/clock.h>
 #include <linux/slab.h>
 
 #include "clk-mtk.h"
@@ -18,12 +19,12 @@
 static const char *MMDVFS_CLKS = "mediatek,mmdvfs_clocks";
 static const char *MMDVFS_CLK_NAMES = "mediatek,mmdvfs_clk_names";
 
-
 static struct mtk_mmdvfs_clk *mtk_mmdvfs_clks;
 static u8 max_mmdvfs_num;
 static u8 mmdvfs_pwr_opp[MAX_PWR_NUM];
 static struct mtk_ipi_device *vcp_ipi_dev;
 static u32 mmdvfs_vcp_ipi_data;
+static DEFINE_MUTEX(mmdvfs_vcp_ipi_mutex);
 
 static inline struct mtk_mmdvfs_clk *to_mtk_mmdvfs_clk(struct clk_hw *hw)
 {
@@ -140,23 +141,35 @@ static int mmdvfs_vcp_is_ready(void)
 	return 1;
 }
 
-static int mmdvfs_vcp_ipi_send(const u8 func_id, const u8 user_id, const u8 opp)
+static int mmdvfs_vcp_ipi_send(const u8 func, const u8 idx, const u8 opp,
+	const u8 ack) // ap > vcp
 {
-	struct mmdvfs_ipi_data slot = {func_id, user_id, opp, 0};
-	int ret = 0;
-	//ktime_t time;
+	struct mmdvfs_ipi_data slot = {func, idx, opp, ack};
+	int ret;
 
 	if (!mmdvfs_vcp_is_ready())
 		return -ETIMEDOUT;
-	MMDVFS_DBG(
-		"ipi_id:%d func_id:%hhu user_id:%hhu opp:%hhu slot:%#x size:%d ret:%d",
-		IPI_OUT_MMDVFS, func_id, user_id, opp, slot,
-		PIN_OUT_SIZE_MMDVFS, ret);
 
-	//time = ktime_get();
+	mutex_lock(&mmdvfs_vcp_ipi_mutex);
+	mmdvfs_vcp_ipi_data =
+		(func << 0) | (idx << 8) | (opp << 16) | (ack << 24);
+
 	ret = mtk_ipi_send(vcp_get_ipidev(), IPI_OUT_MMDVFS, IPI_SEND_WAIT,
 		&slot, PIN_OUT_SIZE_MMDVFS, IPI_TIMEOUT_MS);
-	//MMDVFS_DBG("ipi time=%u\n", ktime_us_delta(ktime_get(), time));
+
+	if (ret != IPI_ACTION_DONE) {
+		MMDVFS_ERR("mtk_ipi_send failed:%d slot:%#x data:%#x",
+			ret, slot, mmdvfs_vcp_ipi_data);
+
+		mutex_unlock(&mmdvfs_vcp_ipi_mutex);
+		return ret;
+	}
+
+	while ((mmdvfs_vcp_ipi_data & 0xff) == func)
+		udelay(100);
+
+	ret = mmdvfs_vcp_ipi_data;
+	mutex_unlock(&mmdvfs_vcp_ipi_mutex);
 	return ret;
 }
 
@@ -170,35 +183,123 @@ static int mmdvfs_vcp_ipi_cb(unsigned int ipi_id, void *prdata, void *data,
 
 	slot = *(struct mmdvfs_ipi_data *)data;
 
-	MMDVFS_DBG(
-		"ipi_id:%u slot:%#x func_id:%hhu user_id:%hhu freq_opp:%hhu data_ack:%hhu",
-		ipi_id, slot,
-		slot.func_id, slot.user_id, slot.freq_opp, slot.data_ack);
+	MMDVFS_DBG("ipi_id:%u slot:%#x func:%hhu idx:%hhu opp:%hhu ack:%hhu",
+		ipi_id, slot, slot.func, slot.idx, slot.opp, slot.ack);
 
 	return 0;
 }
 
-int set_vote_step(const char *val, const struct kernel_param *kp)
+int mmdvfs_camera_notify(const bool enable)
 {
+	struct mmdvfs_ipi_data slot;
 	int ret;
-	int vote_step;
 
-	ret = kstrtoint(val, 0, &vote_step);
-	if (ret) {
-		MMDVFS_DBG("mmdvfs set vote step failed: %d\n", ret);
+	ret = mmdvfs_vcp_ipi_send(FUNC_CAM_ON, enable, MAX_OPP, MAX_OPP);
+
+	slot = *(struct mmdvfs_ipi_data *)(u32 *)&ret;
+	MMDVFS_DBG("ipi:%d slot:%#x ena:%hhu", ret, slot, slot.ack);
+
+	return 0;
+}
+EXPORT_SYMBOL(mmdvfs_camera_notify);
+
+int mmdvfs_set_force_step(const char *val, const struct kernel_param *kp)
+{
+	struct mmdvfs_ipi_data slot;
+	u16 idx = 0, opp = 0;
+	int ret;
+
+	ret = sscanf(val, "%d %d", &idx, &opp);
+	if (ret != 2 || idx >= POWER_NUM || opp >= MAX_OPP) {
+		MMDVFS_ERR("failed:%d idx:%hu opp:%hu", ret, idx, opp);
 		return ret;
 	}
 
-	mmdvfs_vcp_ipi_send(FUNC_SET_OPP, USER_DISP0_AP, vote_step);
+	ret = mmdvfs_vcp_ipi_send(FUNC_FORCE_OPP, idx, opp, MAX_OPP);
+
+	slot = *(struct mmdvfs_ipi_data *)(u32 *)&ret;
+	MMDVFS_DBG("ipi:%d slot:%#x idx:%hhu opp:%hhu",
+		ret, slot, slot.idx, slot.ack);
 
 	return 0;
 }
 
-static struct kernel_param_ops set_vote_step_ops = {
-	.set = set_vote_step,
+static struct kernel_param_ops mmdvfs_set_force_step_ops = {
+	.set = mmdvfs_set_force_step,
 };
-module_param_cb(vote_step, &set_vote_step_ops, NULL, 0644);
+module_param_cb(force_step, &mmdvfs_set_force_step_ops, NULL, 0644);
+MODULE_PARM_DESC(force_step, "force mmdvfs to specified step");
+
+int mmdvfs_set_vote_step(const char *val, const struct kernel_param *kp)
+{
+	struct mmdvfs_ipi_data slot;
+	u16 idx = 0, opp = 0;
+	int ret;
+
+	ret = sscanf(val, "%d %d", &idx, &opp);
+	if (ret != 2 || idx >= USER_NUM || opp >= MAX_OPP) {
+		MMDVFS_ERR("failed:%d idx:%hu opp:%hu", ret, idx, opp);
+		return ret;
+	}
+
+	ret = mmdvfs_vcp_ipi_send(FUNC_SET_OPP, idx, opp, MAX_OPP);
+
+	slot = *(struct mmdvfs_ipi_data *)(u32 *)&ret;
+	MMDVFS_DBG("ipi:%d slot:%#x idx:%hhu opp:%hhu",
+		ret, slot, slot.idx, slot.ack);
+
+	return 0;
+}
+
+static struct kernel_param_ops mmdvfs_set_vote_step_ops = {
+	.set = mmdvfs_set_vote_step,
+};
+module_param_cb(vote_step, &mmdvfs_set_vote_step_ops, NULL, 0644);
 MODULE_PARM_DESC(vote_step, "vote mmdvfs to specified step");
+
+int mmdvfs_dump_setting(char *buf, const struct kernel_param *kp)
+{
+	struct mmdvfs_ipi_data slot;
+	int i, len = 0, ret;
+
+	len += snprintf(buf + len, PAGE_SIZE - len, "user request opp");
+	for (i = 0; i < USER_NUM; i += 3) {
+		ret = mmdvfs_vcp_ipi_send(FUNC_GET_OPP, i, i + 1, i + 2);
+
+		slot = *(struct mmdvfs_ipi_data *)(u32 *)&ret;
+		MMDVFS_DBG("slot:%#x i:%d opp:%hhu %hhu %hhu",
+			slot, i, slot.idx, slot.opp, slot.ack);
+
+		if (i + 1 >= USER_NUM) {
+			len += snprintf(buf + len, PAGE_SIZE - len,
+				", %hhu", slot.idx);
+			break;
+		}
+
+		if (i + 2 >= USER_NUM) {
+			len += snprintf(buf + len, PAGE_SIZE - len,
+				", %hhu, %hhu", slot.idx, slot.opp);
+			break;
+		}
+
+		len += snprintf(buf + len, PAGE_SIZE - len,
+			", %hhu, %hhu, %hhu", slot.idx, slot.opp, slot.ack);
+	}
+	len += snprintf(buf + len, PAGE_SIZE - len, "\n");
+
+	if (len >= PAGE_SIZE) {
+		len = PAGE_SIZE - 1;
+		buf[len] = '\n';
+	}
+
+	return len;
+}
+
+static struct kernel_param_ops mmdvfs_dump_setting_ops = {
+	.get = mmdvfs_dump_setting,
+};
+module_param_cb(dump_setting, &mmdvfs_dump_setting_ops, NULL, 0444);
+MODULE_PARM_DESC(dump_setting, "dump mmdvfs current setting");
 
 static const struct of_device_id of_match_mmdvfs_v3[] = {
 	{

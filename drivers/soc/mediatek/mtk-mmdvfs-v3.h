@@ -21,7 +21,9 @@
 #define IPI_TIMEOUT_MS 200U
 
 #define MMDVFS_DBG(fmt, args...) \
-	pr_notice("[mmdvfs]%s: "fmt"\n", __func__, ##args)
+	pr_notice("[mmdvfs][dbg]%s: "fmt"\n", __func__, ##args)
+#define MMDVFS_ERR(fmt, args...) \
+	pr_notice("[mmdvfs][err]%s: "fmt"\n", __func__, ##args)
 
 struct mtk_mmdvfs_clk {
 	const char *name;
@@ -44,24 +46,11 @@ enum {
 	ARG_NUM
 };
 
-struct mmdvfs_ipi_data {
-	uint8_t func_id;
-	uint8_t user_id;
-	uint8_t freq_opp;
-	uint8_t data_ack;
-};
+/* sync with vcp */
 
 enum {
-	FUNC_SET_OPP,
-	FUNC_DUMP_OPP,
-	FUNC_NUM
-};
-
-enum {
-	USER_DISP0, // uP
-	USER_DISP0_AP,
-	USER_DISP1, // uP
-	USER_DISP1_AP,
+	USER_DISP, // uP
+	USER_DISP_AP,
 	USER_MDP,
 	USER_MML,
 	USER_MMINFRA,
@@ -69,10 +58,31 @@ enum {
 	USER_JPEGENC,
 	USER_VDEC, // uP
 	USER_VFMT,
-	USER_CAM,
-	USER_SENIF,
-	USER_IMG,
+	// USER_CAM,
+	// USER_SENIF,
+	// USER_IMG,
 	USER_NUM
+};
+
+enum {
+	POWER_VCORE,
+	POWER_VMM,
+	POWER_NUM
+};
+
+enum {
+	FUNC_GET_OPP, /* user, user, user */
+	FUNC_SET_OPP, /* user, opp */
+	FUNC_FORCE_OPP, /* power, opp */
+	FUNC_CAM_ON, /* on */
+	FUNC_NUM
+};
+
+struct mmdvfs_ipi_data {
+	uint8_t func;
+	uint8_t idx;
+	uint8_t opp;
+	uint8_t ack;
 };
 
 #endif /* __DRV_CLK_MMDVFS_V3_H */
