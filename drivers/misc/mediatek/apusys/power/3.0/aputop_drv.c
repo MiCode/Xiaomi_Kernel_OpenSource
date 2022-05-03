@@ -242,6 +242,9 @@ const struct apupwr_plat_data mt6895_plat_data;
 #ifndef MT6985_PLAT_DATA
 const struct apupwr_plat_data mt6985_plat_data;
 #endif
+#ifndef MT6886_PLAT_DATA
+const struct apupwr_plat_data mt6886_plat_data;
+#endif
 #ifndef MT8188_PLAT_DATA
 const struct apupwr_plat_data mt8188_plat_data;
 #endif
@@ -251,6 +254,7 @@ static const struct of_device_id of_match_apu_top[] = {
 	{ .compatible = "mt6879,apu_top_3", .data = &mt6879_plat_data},
 	{ .compatible = "mt6895,apu_top_3", .data = &mt6895_plat_data},
 	{ .compatible = "mt6985,apu_top_3", .data = &mt6985_plat_data},
+	{ .compatible = "mt6886,apu_top_3", .data = &mt6886_plat_data},
 	{ .compatible = "mt8188,apu_top_3", .data = &mt8188_plat_data},
 	{ /* end of list */},
 };
