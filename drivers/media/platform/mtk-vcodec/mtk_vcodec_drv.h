@@ -550,7 +550,6 @@ struct mtk_vcodec_ctx {
 
 	bool is_flushing;
 	unsigned int eos_type;
-	void *dec_eos_vb;
 	u64 early_eos_ts;
 
 	int int_cond[MTK_VDEC_HW_NUM];

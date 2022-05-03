@@ -212,7 +212,6 @@ struct vdec_fb *mtk_vcodec_get_fb(struct mtk_vcodec_ctx *ctx)
 	struct mtk_video_dec_buf *dst_buf_info;
 	struct vb2_v4l2_buffer *dst_vb2_v4l2;
 	int i;
-	unsigned int num_rdy_bufs;
 
 	if (!ctx) {
 		mtk_v4l2_err("Ctx is NULL!");
@@ -221,22 +220,8 @@ struct vdec_fb *mtk_vcodec_get_fb(struct mtk_vcodec_ctx *ctx)
 
 	mtk_v4l2_debug_enter();
 	dst_vb2_v4l2 = v4l2_m2m_next_dst_buf(ctx->m2m_ctx);
-	if (dst_vb2_v4l2 != NULL) {
+	if (dst_vb2_v4l2 != NULL)
 		dst_buf = &dst_vb2_v4l2->vb2_buf;
-		if (ctx->dec_eos_vb == (void *)dst_vb2_v4l2) {
-			num_rdy_bufs = v4l2_m2m_num_dst_bufs_ready(ctx->m2m_ctx);
-			mtk_v4l2_debug(8, "[%d] Find EOS framebuffer in v4l2 (num_rdy_bufs %d), get next",
-				ctx->id, num_rdy_bufs);
-			if (num_rdy_bufs > 1) {
-				dst_vb2_v4l2 = v4l2_m2m_dst_buf_remove(ctx->m2m_ctx);
-				v4l2_m2m_buf_queue_check(
-					ctx->m2m_ctx, dst_vb2_v4l2);
-				dst_vb2_v4l2 = v4l2_m2m_next_dst_buf(ctx->m2m_ctx);
-				dst_buf = &dst_vb2_v4l2->vb2_buf;
-			} else
-				dst_buf = NULL;
-		}
-	}
 	if (dst_buf != NULL) {
 		dst_buf_info = container_of(
 			dst_vb2_v4l2, struct mtk_video_dec_buf, vb);
