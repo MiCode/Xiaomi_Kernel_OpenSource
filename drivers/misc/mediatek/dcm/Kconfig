@@ -27,6 +27,16 @@ config MTK_DCM_MT6853
 	  Select "y" if you want to change mt6853 dcm setting.
 	  Select "n" if you do not need to change
 
+config MTK_DCM_MT6886
+	tristate "Mediatek MT6886 DCM control"
+	depends on ARCH_MEDIATEK && OF
+	select MTK_DCM_COMMON
+	help
+	  For Mediatek MT6886 Dynamic Clock Management HW control. Only enable when you
+	  neet to change mt6886 dcm setting. Setting will not keep after reboot
+	  Select "y" if you want to change mt6983 dcm setting.
+	  Select "n" if you do not need to change
+
 config MTK_DCM_MT6983
 	tristate "Mediatek MT6983 DCM control"
 	depends on ARCH_MEDIATEK && OF
