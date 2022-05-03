@@ -2071,6 +2071,13 @@ int gen7_hwsched_submit_cmdobj(struct adreno_device *adreno_dev, struct kgsl_dra
 	if (ret)
 		return ret;
 
+	/*
+	 * If the MARKER object is retired, it doesn't need to be dispatched to GMU. Simply trigger
+	 * any pending fences that are less than/equal to this object's timestamp.
+	 */
+	if (test_bit(CMDOBJ_MARKER_EXPIRED, &cmdobj->priv))
+		return process_hw_fence_queue(adreno_dev, drawctxt, drawobj->timestamp);
+
 	/* Add a *issue_ib struct for each IB */
 	if (cmdobj->numibs > HWSCHED_MAX_DISPATCH_NUMIBS ||
 		test_bit(CMDOBJ_SKIP, &cmdobj->priv))

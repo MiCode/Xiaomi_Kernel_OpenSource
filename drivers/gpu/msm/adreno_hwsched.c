@@ -112,7 +112,8 @@ static bool _marker_expired(struct kgsl_drawobj_cmd *markerobj)
 		markerobj->marker_timestamp);
 }
 
-static void _retire_timestamp(struct kgsl_drawobj *drawobj)
+/* Only retire the timestamp. The drawobj will be destroyed later */
+static void _retire_timestamp_only(struct kgsl_drawobj *drawobj)
 {
 	struct kgsl_context *context = drawobj->context;
 	struct kgsl_device *device = context->device;
@@ -134,14 +135,31 @@ static void _retire_timestamp(struct kgsl_drawobj *drawobj)
 
 	/* Retire pending GPU events for the object */
 	kgsl_process_event_group(device, &context->events);
+}
+
+static void _retire_timestamp(struct kgsl_drawobj *drawobj)
+{
+	_retire_timestamp_only(drawobj);
 
 	kgsl_drawobj_destroy(drawobj);
 }
 
-static int _retire_markerobj(struct kgsl_drawobj_cmd *cmdobj,
+static int _retire_markerobj(struct adreno_device *adreno_dev, struct kgsl_drawobj_cmd *cmdobj,
 	struct adreno_context *drawctxt)
 {
+	struct adreno_hwsched *hwsched = &adreno_dev->hwsched;
+
 	if (_marker_expired(cmdobj)) {
+		set_bit(CMDOBJ_MARKER_EXPIRED, &cmdobj->priv);
+		/*
+		 * There may be pending hardware fences that need to be signaled upon retiring
+		 * this MARKER object. Hence, send it to the target specific layers to trigger
+		 * the hardware fences.
+		 */
+		if (test_bit(ADRENO_HWSCHED_HW_FENCE, &hwsched->flags)) {
+			_retire_timestamp_only(DRAWOBJ(cmdobj));
+			return 1;
+		}
 		_pop_drawobj(drawctxt);
 		_retire_timestamp(DRAWOBJ(cmdobj));
 		return 0;
@@ -243,7 +261,7 @@ static struct kgsl_drawobj *_process_drawqueue_get_next_drawobj(
 			ret = _retire_syncobj(SYNCOBJ(drawobj), drawctxt);
 			break;
 		case MARKEROBJ_TYPE:
-			ret = _retire_markerobj(CMDOBJ(drawobj), drawctxt);
+			ret = _retire_markerobj(adreno_dev, CMDOBJ(drawobj), drawctxt);
 			/* Special case where marker needs to be sent to GPU */
 			if (ret == 1)
 				return drawobj;
@@ -494,10 +512,15 @@ static int hwsched_sendcmd(struct adreno_device *adreno_dev,
 		kref_get(&drawobj->refcount);
 	}
 
-	drawctxt->internal_timestamp = drawobj->timestamp;
-
-	obj->cmdobj = cmdobj;
-	list_add_tail(&obj->node, &hwsched->cmd_list);
+	/* If this MARKER object is already retired, we can destroy it here */
+	if ((test_bit(CMDOBJ_MARKER_EXPIRED, &cmdobj->priv))) {
+		kmem_cache_free(obj_cache, obj);
+		kgsl_drawobj_destroy(drawobj);
+	} else {
+		drawctxt->internal_timestamp = drawobj->timestamp;
+		obj->cmdobj = cmdobj;
+		list_add_tail(&obj->node, &hwsched->cmd_list);
+	}
 
 	adreno_hwsched_process_hw_fence_list(adreno_dev);
 
