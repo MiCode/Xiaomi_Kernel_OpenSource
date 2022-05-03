@@ -208,11 +208,17 @@ void jpeg_drv_hybrid_dec_prepare_dvfs(unsigned int id)
 		return;
 	}
 
-	gJpegqDev.jpeg_reg[id] = devm_regulator_get(gJpegqDev.pDev[id],
-						"dvfsrc-vcore");
-	if (gJpegqDev.jpeg_reg[id] == 0) {
+	gJpegqDev.jpeg_reg[id] = devm_regulator_get_optional(gJpegqDev.pDev[id],
+						"mmdvfs-dvfsrc-vcore");
+	if (IS_ERR_OR_NULL(gJpegqDev.jpeg_reg[id])) {
 		JPEG_LOG(0, "Failed to get regulator");
-		return;
+		gJpegqDev.jpeg_reg[id] = NULL;
+		gJpegqDev.jpeg_dvfs[id] = devm_clk_get(gJpegqDev.pDev[id], "mmdvfs_clk");
+		if (IS_ERR_OR_NULL(gJpegqDev.jpeg_dvfs[id])) {
+			JPEG_LOG(0, "Failed to get mmdvfs clk");
+			gJpegqDev.jpeg_dvfs[id] = NULL;
+			return;
+		}
 	}
 
 	gJpegqDev.jpeg_freq_cnt[id] = dev_pm_opp_get_opp_count(gJpegqDev.pDev[id]);
@@ -236,7 +242,7 @@ void jpeg_drv_hybrid_dec_start_dvfs(unsigned int id)
 	int volt = 0;
 	int ret = 0;
 
-	if (gJpegqDev.jpeg_reg[id] != 0) {
+	if (gJpegqDev.jpeg_reg[id]) {
 		JPEG_LOG(1, "request freq %lu",
 				gJpegqDev.jpeg_freqs[id][gJpegqDev.jpeg_freq_cnt[id]-1]);
 		opp = dev_pm_opp_find_freq_ceil(gJpegqDev.pDev[id],
@@ -249,6 +255,15 @@ void jpeg_drv_hybrid_dec_start_dvfs(unsigned int id)
 			JPEG_LOG(0, "Failed to set regulator voltage %d",
 			volt);
 		}
+	} else if (gJpegqDev.jpeg_dvfs[id]) {
+		JPEG_LOG(1, "request freq %lu",
+				gJpegqDev.jpeg_freqs[id][gJpegqDev.jpeg_freq_cnt[id]-1]);
+		ret = clk_set_rate(gJpegqDev.jpeg_dvfs[id],
+			gJpegqDev.jpeg_freqs[id][gJpegqDev.jpeg_freq_cnt[id]-1]);
+		if (ret) {
+			JPEG_LOG(0, "Failed to set freq %d",
+			gJpegqDev.jpeg_freqs[id][gJpegqDev.jpeg_freq_cnt[id]-1]);
+		}
 	}
 
 }
@@ -259,7 +274,7 @@ void jpeg_drv_hybrid_dec_end_dvfs(unsigned int id)
 	int volt = 0;
 	int ret = 0;
 
-	if (gJpegqDev.jpeg_reg[id] != 0) {
+	if (gJpegqDev.jpeg_reg[id]) {
 		JPEG_LOG(1, "request freq %lu", gJpegqDev.jpeg_freqs[id][0]);
 		opp = dev_pm_opp_find_freq_ceil(gJpegqDev.pDev[id],
 					&gJpegqDev.jpeg_freqs[id][0]);
@@ -271,6 +286,11 @@ void jpeg_drv_hybrid_dec_end_dvfs(unsigned int id)
 			JPEG_LOG(0, "Failed to set regulator voltage %d",
 			volt);
 		}
+	} else if (gJpegqDev.jpeg_dvfs[id]) {
+		JPEG_LOG(1, "request freq 0");
+		ret = clk_set_rate(gJpegqDev.jpeg_dvfs[id], 0);
+		if (ret)
+			JPEG_LOG(0, "Failed to set freq 0");
 	}
 }
 
