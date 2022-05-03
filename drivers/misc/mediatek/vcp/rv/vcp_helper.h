@@ -231,8 +231,8 @@ extern unsigned int vcp_set_reset_status(void);
 extern void vcp_enable_sram(void);
 extern void vcp_reset_awake_counts(void);
 extern void vcp_awake_init(void);
-extern void vcp_enable_pm_clk(enum feature_id id);
-extern void vcp_disable_pm_clk(enum feature_id id);
+extern int vcp_enable_pm_clk(enum feature_id id);
+extern int vcp_disable_pm_clk(enum feature_id id);
 
 #if VCP_RECOVERY_SUPPORT
 extern unsigned int vcp_reset_by_cmd;

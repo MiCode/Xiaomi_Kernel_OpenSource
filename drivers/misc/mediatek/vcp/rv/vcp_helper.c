@@ -699,12 +699,12 @@ uint32_t vcp_wait_ready_sync(enum feature_id id)
 #ifdef VCP_CLK_FMETER
 extern unsigned int mt_get_fmeter_freq(unsigned int id, enum FMETER_TYPE type);
 #endif
-void vcp_enable_pm_clk(enum feature_id id)
+int vcp_enable_pm_clk(enum feature_id id)
 {
 	int ret = 0;
 
 	if (!vcp_support)
-		return;
+		return -1;
 
 	mutex_lock(&vcp_pw_clk_mutex);
 	if (is_suspending) {
@@ -717,16 +717,16 @@ void vcp_enable_pm_clk(enum feature_id id)
 	}
 
 	if (pwclkcnt == 0) {
-		ret = clk_prepare_enable(vcp26m);
+		ret |= clk_prepare_enable(vcp26m);
 		if (ret)
 			pr_debug("[VCP] %s: clk_prepare_enable vcp26m\n", __func__);
-		ret = clk_prepare_enable(vcpclk);
+		ret |= clk_prepare_enable(vcpclk);
 		if (ret)
 			pr_debug("[VCP] %s: clk_prepare_enable vcpclk\n", __func__);
-		ret = clk_prepare_enable(vcpsel);
+		ret |= clk_prepare_enable(vcpsel);
 		if (ret)
 			pr_debug("[VCP] %s: clk_prepare_enable vcpsel\n", __func__);
-		ret = pm_runtime_get_sync(vcp_io_devs[VCP_IOMMU_256MB1]);
+		ret |= pm_runtime_get_sync(vcp_io_devs[VCP_IOMMU_256MB1]);
 		if (ret)
 			pr_debug("[VCP] %s: pm_runtime_get_sync\n", __func__);
 
@@ -742,18 +742,18 @@ void vcp_enable_pm_clk(enum feature_id id)
 		pwclkcnt, mt_get_fmeter_freq(10, CKGEN));
 #endif
 	mutex_unlock(&vcp_pw_clk_mutex);
-
+	return ret;
 }
 EXPORT_SYMBOL_GPL(vcp_enable_pm_clk);
 
-void vcp_disable_pm_clk(enum feature_id id)
+int vcp_disable_pm_clk(enum feature_id id)
 {
 	int ret = 0;
 	int i = 0;
 	uint32_t waitCnt = 0;
 
 	if (!vcp_support)
-		return;
+		return -1;
 
 	mutex_lock(&vcp_pw_clk_mutex);
 	if (is_suspending) {
@@ -813,6 +813,7 @@ void vcp_disable_pm_clk(enum feature_id id)
 	}
 	mutex_unlock(&vcp_pw_clk_mutex);
 
+	return 0;
 }
 EXPORT_SYMBOL_GPL(vcp_disable_pm_clk);
 
@@ -1725,27 +1726,41 @@ void set_vcp_mpu(void)
 }
 #endif
 
-void vcp_register_feature(enum feature_id id)
+int vcp_register_feature(enum feature_id id)
 {
 	uint32_t i;
+	int ret = 0;
 
 	/* because feature_table is a global variable,
 	 * use mutex lock to protect it from accessing in the same time
 	 */
+	if (id >= NUM_FEATURE_ID) {
+		pr_info("[VCP][Warning] %s unsupported feature id %d\n",
+			__func__, id);
+		return -1;
+	}
 	mutex_lock(&vcp_feature_mutex);
 	for (i = 0; i < NUM_FEATURE_ID; i++) {
 		if (feature_table[i].feature == id)
 			feature_table[i].enable++;
 	}
-	vcp_enable_pm_clk(id);
+	ret = vcp_enable_pm_clk(id);
 	mutex_unlock(&vcp_feature_mutex);
+
+	return ret;
 }
 EXPORT_SYMBOL_GPL(vcp_register_feature);
 
-void vcp_deregister_feature(enum feature_id id)
+int vcp_deregister_feature(enum feature_id id)
 {
 	uint32_t i;
+	int ret = 0;
 
+	if (id >= NUM_FEATURE_ID) {
+		pr_info("[VCP][Warning] %s unsupported feature id %d\n",
+			__func__, id);
+		return -1;
+	}
 	mutex_lock(&vcp_feature_mutex);
 	for (i = 0; i < NUM_FEATURE_ID; i++) {
 		if (feature_table[i].feature == id) {
@@ -1753,13 +1768,15 @@ void vcp_deregister_feature(enum feature_id id)
 				pr_info("[VCP][Warning] %s unbalanced feature id %d enable cnt %d\n",
 					__func__, id, feature_table[i].enable);
 				mutex_unlock(&vcp_feature_mutex);
-				return;
+				return -1;
 			}
 			feature_table[i].enable--;
 		}
 	}
-	vcp_disable_pm_clk(id);
+	ret = vcp_disable_pm_clk(id);
 	mutex_unlock(&vcp_feature_mutex);
+
+	return ret;
 }
 EXPORT_SYMBOL_GPL(vcp_deregister_feature);
 

@@ -26,6 +26,7 @@
 #else
 #define IPI_TIMEOUT_MS          (5000U + ((mtk_vcodec_dbg | mtk_v4l2_dbg_level) ? 5000U : 0U))
 #endif
+#define IPI_POLLING_INTERVAL_US    10
 
 struct vcp_dec_mem_list {
 	struct vcodec_mem_obj mem;
@@ -109,6 +110,10 @@ static int vdec_vcp_ipi_send(struct vdec_inst *inst, void *msg, int len, bool is
 	struct mutex *msg_mutex;
 	unsigned int *msg_signaled;
 	wait_queue_head_t *msg_wq;
+	int ipi_wait_type = IPI_SEND_WAIT;
+
+	if (preempt_count())
+		ipi_wait_type = IPI_SEND_POLLING;
 
 	if (inst->vcu.abort || inst->vcu.daemon_pid != get_vcp_generation())
 		return -EIO;
@@ -170,7 +175,7 @@ static int vdec_vcp_ipi_send(struct vdec_inst *inst, void *msg, int len, bool is
 
 	mtk_v4l2_debug(2, "id %d len %d msg 0x%x is_ack %d %d", obj.id, obj.len, *(u32 *)msg,
 		is_ack, *msg_signaled);
-	ret = mtk_ipi_send(&vcp_ipidev, IPI_OUT_VDEC_1, IPI_SEND_WAIT, &obj,
+	ret = mtk_ipi_send(&vcp_ipidev, IPI_OUT_VDEC_1, ipi_wait_type, &obj,
 		ipi_size, IPI_TIMEOUT_MS);
 
 	if (is_ack)
@@ -189,7 +194,18 @@ static int vdec_vcp_ipi_send(struct vdec_inst *inst, void *msg, int len, bool is
 wait_ack:
 		/* wait for VCP's ACK */
 		timeout = msecs_to_jiffies(IPI_TIMEOUT_MS);
-		ret = wait_event_timeout(*msg_wq, *msg_signaled, timeout);
+		if (ipi_wait_type == IPI_SEND_POLLING) {
+			ret = IPI_TIMEOUT_MS * 1000;
+			while ((*msg_signaled) == false) {
+				udelay(IPI_POLLING_INTERVAL_US);
+				ret -= IPI_POLLING_INTERVAL_US;
+				if (ret < 0) {
+					ret = 0;
+					break;
+				}
+			}
+		} else
+			ret = wait_event_timeout(*msg_wq, *msg_signaled, timeout);
 		*msg_signaled = false;
 
 		if (ret == 0 || inst->vcu.failure) {

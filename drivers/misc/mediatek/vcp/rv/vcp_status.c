@@ -65,19 +65,19 @@ phys_addr_t vcp_get_reserve_mem_virt_ex(enum vcp_reserve_mem_id_t id)
 }
 EXPORT_SYMBOL_GPL(vcp_get_reserve_mem_virt_ex);
 
-void vcp_register_feature_ex(enum feature_id id)
+int vcp_register_feature_ex(enum feature_id id)
 {
 	if (!vcp_fp || !vcp_fp->vcp_register_feature)
-		return;
-	vcp_fp->vcp_register_feature(id);
+		return -1;
+	return vcp_fp->vcp_register_feature(id);
 }
 EXPORT_SYMBOL_GPL(vcp_register_feature_ex);
 
-void vcp_deregister_feature_ex(enum feature_id id)
+int vcp_deregister_feature_ex(enum feature_id id)
 {
 	if (!vcp_fp || !vcp_fp->vcp_deregister_feature)
-		return;
-	vcp_fp->vcp_deregister_feature(id);
+		return -1;
+	return vcp_fp->vcp_deregister_feature(id);
 }
 EXPORT_SYMBOL_GPL(vcp_deregister_feature_ex);
 

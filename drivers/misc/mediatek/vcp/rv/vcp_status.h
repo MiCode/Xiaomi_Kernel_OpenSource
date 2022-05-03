@@ -10,8 +10,8 @@
 
 typedef phys_addr_t (*vcp_get_reserve_mem_phys_fp)(enum vcp_reserve_mem_id_t id);
 typedef phys_addr_t (*vcp_get_reserve_mem_virt_fp)(enum vcp_reserve_mem_id_t id);
-typedef void (*vcp_register_feature_fp)(enum feature_id id);
-typedef void (*vcp_deregister_feature_fp)(enum feature_id id);
+typedef int (*vcp_register_feature_fp)(enum feature_id id);
+typedef int (*vcp_deregister_feature_fp)(enum feature_id id);
 typedef unsigned int (*is_vcp_ready_fp)(enum vcp_core_id id);
 typedef void (*vcp_A_register_notify_fp)(struct notifier_block *nb);
 typedef void (*vcp_A_unregister_notify_fp)(struct notifier_block *nb);
@@ -34,8 +34,8 @@ void vcp_set_ipidev(struct mtk_ipi_device *ipidev);
 struct mtk_ipi_device *vcp_get_ipidev(void);
 phys_addr_t vcp_get_reserve_mem_phys_ex(enum vcp_reserve_mem_id_t id);
 phys_addr_t vcp_get_reserve_mem_virt_ex(enum vcp_reserve_mem_id_t id);
-void vcp_register_feature_ex(enum feature_id id);
-void vcp_deregister_feature_ex(enum feature_id id);
+int vcp_register_feature_ex(enum feature_id id);
+int vcp_deregister_feature_ex(enum feature_id id);
 unsigned int is_vcp_ready_ex(enum vcp_core_id id);
 void vcp_A_register_notify_ex(struct notifier_block *nb);
 void vcp_A_unregister_notify_ex(struct notifier_block *nb);

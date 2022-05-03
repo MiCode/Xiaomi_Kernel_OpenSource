@@ -76,8 +76,13 @@ static int fops_vcodec_open(struct file *file)
 		return -ENOMEM;
 	}
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
-	if (mtk_vcodec_vcp & (1 << MTK_INST_ENCODER))
-		vcp_register_feature(VENC_FEATURE_ID);
+	if (mtk_vcodec_vcp & (1 << MTK_INST_ENCODER)) {
+		ret = vcp_register_feature(VENC_FEATURE_ID);
+		if (ret) {
+			mtk_v4l2_err("Failed to vcp_register_feature");
+			return -EPERM;
+		}
+	}
 #endif
 
 	mutex_lock(&dev->dev_mutex);
@@ -171,6 +176,7 @@ static int fops_vcodec_release(struct file *file)
 {
 	struct mtk_vcodec_dev *dev = video_drvdata(file);
 	struct mtk_vcodec_ctx *ctx = fh_to_ctx(file->private_data);
+	int ret = 0;
 
 	mtk_v4l2_debug(0, "[%d] encoder", ctx->id);
 	mutex_lock(&dev->dev_mutex);
@@ -190,8 +196,13 @@ static int fops_vcodec_release(struct file *file)
 		dev->enc_cnt--;
 	mutex_unlock(&dev->dev_mutex);
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
-	if (mtk_vcodec_vcp & (1 << MTK_INST_ENCODER))
-		vcp_deregister_feature(VENC_FEATURE_ID);
+	if (mtk_vcodec_vcp & (1 << MTK_INST_ENCODER)) {
+		ret = vcp_deregister_feature(VENC_FEATURE_ID);
+		if (ret) {
+			mtk_v4l2_err("Failed to vcp_deregister_feature");
+			return -EPERM;
+		}
+	}
 #endif
 
 	return 0;
