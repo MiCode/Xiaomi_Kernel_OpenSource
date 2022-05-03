@@ -230,6 +230,8 @@ int cb_fsync_mgr_set_framelength(void *p_ctx,
 		fsync_mgr_s_frame_length(ctx);
 
 		/* update sensor current fl_lc to Frame-Sync */
+		pf_ctrl.sensor_id = ctx->subdrv->id;
+		pf_ctrl.sensor_idx = ctx->idx;
 		pf_ctrl.out_fl_lc = ctx->subctx.frame_length;
 		ctx->fsync_mgr->fs_update_shutter(&pf_ctrl);
 
