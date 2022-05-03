@@ -1302,14 +1302,17 @@ static void mtk_atomic_mml(struct drm_device *dev,
 	}
 
 	for_each_oldnew_crtc_in_state(state, crtc, old_crtc_state, new_crtc_state, i) {
+		struct mtk_crtc_state *s = to_mtk_crtc_state(new_crtc_state);
+
 		if (drm_atomic_crtc_needs_modeset(new_crtc_state) &&
 		    drm_atomic_crtc_effectively_active(old_crtc_state)) {
-			struct mtk_crtc_state *s = to_mtk_crtc_state(new_crtc_state);
 
 			if (s->lye_state.scn[i] == MML || s->lye_state.scn[i] == MML_SRAM_ONLY) {
 				s->lye_state.scn[i] = NONE;
 				DDPMSG("%s:%d clear MML scn after suspend\n", __func__, __LINE__);
 			}
+		} else if (s->lye_state.scn[i] == MML && !mtk_crtc->is_mml) {
+			DDPMSG("%s:%d scn is not align to plane property\n", __func__, __LINE__);
 		}
 	}
 }

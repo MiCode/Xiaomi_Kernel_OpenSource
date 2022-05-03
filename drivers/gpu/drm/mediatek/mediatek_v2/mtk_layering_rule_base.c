@@ -70,6 +70,13 @@ static struct {
 	{LYE_OPT_CLEAR_LAYER, 0, "LYE_OPT_CLEAR_LAYER"},
 };
 
+struct debug_gles_range {
+	int head;
+	int tail;
+	char msg[256];
+	int written;
+};
+
 void mtk_set_layering_opt(enum LYE_HELPER_OPT opt, int value)
 {
 	if (opt >= LYE_OPT_NUM) {
@@ -478,6 +485,20 @@ static void dump_disp_info(struct drm_mtk_layering_info *disp_info,
 			}
 		}
 	}
+}
+
+static void check_gles_change(struct debug_gles_range *dbg_gles, const int line, const bool print)
+{
+	if (dbg_gles->head != layering_info.gles_head[0] ||
+	    dbg_gles->tail != layering_info.gles_tail[0]) {
+		dbg_gles->head = layering_info.gles_head[0];
+		dbg_gles->tail = layering_info.gles_tail[0];
+		dbg_gles->written +=
+		    scnprintf(dbg_gles->msg + dbg_gles->written, 256 - dbg_gles->written,
+			      "(%d:%d,%d)", line, dbg_gles->head, dbg_gles->tail);
+	}
+	if (print && dbg_gles->written)
+		DDPINFO("%s:%s\n", __func__, &dbg_gles->msg);
 }
 
 static void dump_disp_trace(struct drm_mtk_layering_info *disp_info)
@@ -2932,6 +2953,7 @@ static int layering_rule_start(struct drm_mtk_layering_info *disp_info_user,
 	unsigned int scn_decision_flag = 0;
 	int crtc_num, crtc_mask;
 	int disp_idx = 0;
+	struct debug_gles_range dbg_gles = {-1, -1};
 
 	DRM_MMP_EVENT_START(layering, (unsigned long)disp_info_user,
 			(unsigned long)dev);
@@ -2959,6 +2981,7 @@ static int layering_rule_start(struct drm_mtk_layering_info *disp_info_user,
 		return -EFAULT;
 	}
 
+	check_gles_change(&dbg_gles, __LINE__, false);
 	print_disp_info_to_log_buffer(&layering_info);
 #ifdef HRT_DEBUG_LEVEL1
 	DDPMSG("[Input data]\n");
@@ -3001,12 +3024,14 @@ static int layering_rule_start(struct drm_mtk_layering_info *disp_info_user,
 		mtk_rollback_all_resize_layer_to_GPU(&layering_info,
 			HRT_THIRD);
 	}
+	check_gles_change(&dbg_gles, __LINE__, false);
 
 	/* Check can do MML or not */
 	if (layering_info.layer_num[HRT_PRIMARY] > 0) {
 		check_is_mml_layer(disp_idx, &layering_info,
 			dev, &scn_decision_flag, l_rule_info->hrt_idx);
 	}
+	check_gles_change(&dbg_gles, __LINE__, false);
 
 	/* fbdc_rule should be after resizing_rule
 	 * for optimizing secondary display BW
@@ -3034,6 +3059,7 @@ static int layering_rule_start(struct drm_mtk_layering_info *disp_info_user,
 
 	/* GLES adjustment and ext layer checking */
 	ret = filter_by_ovl_cnt(dev, &layering_info);
+	check_gles_change(&dbg_gles, __LINE__, false);
 
 	/*
 	 * 2.Overlapping
@@ -3072,10 +3098,12 @@ static int layering_rule_start(struct drm_mtk_layering_info *disp_info_user,
 		layering_info.hrt_num = HRT_LEVEL_LEVEL0;
 		layering_info.hrt_weight = 400;
 	}
+	check_gles_change(&dbg_gles, __LINE__, false);
 
 	lyeblob_ids = kzalloc(sizeof(struct mtk_drm_lyeblob_ids), GFP_KERNEL);
 
 	dispatch_gles_range(&layering_info, dev);
+	check_gles_change(&dbg_gles, __LINE__, true);
 
 	/* adjust scenario after dispatch gles range */
 	scale_num = get_scale_cnt(&layering_info);
