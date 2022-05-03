@@ -81,6 +81,7 @@ struct mtk_slbc {
 }
 
 struct slbc_common_ops {
+	int (*slbc_status)(struct slbc_data *d);
 	int (*slbc_request)(struct slbc_data *d);
 	int (*slbc_release)(struct slbc_data *d);
 	int (*slbc_power_on)(struct slbc_data *d);

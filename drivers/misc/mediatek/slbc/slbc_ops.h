@@ -138,6 +138,7 @@ extern char *slbc_uid_str[UID_MAX];
 extern int popcount(unsigned int x);
 
 #if IS_ENABLED(CONFIG_MTK_SLBC)
+extern int slbc_status(struct slbc_data *d);
 extern int slbc_request(struct slbc_data *d);
 extern int slbc_release(struct slbc_data *d);
 extern int slbc_power_on(struct slbc_data *d);
@@ -149,6 +150,10 @@ extern void slbc_update_mic_num(unsigned int num);
 extern void slbc_update_inner(unsigned int inner);
 extern void slbc_update_outer(unsigned int outer);
 #else
+__weak int slbc_status(struct slbc_data *d)
+{
+	return -EDISABLED;
+};
 __weak int slbc_request(struct slbc_data *d)
 {
 	return -EDISABLED;

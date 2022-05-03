@@ -199,6 +199,40 @@ int _slbc_release_cache_scmi(void *ptr)
 }
 EXPORT_SYMBOL_GPL(_slbc_release_cache_scmi);
 
+int _slbc_buffer_status_scmi(void *ptr)
+{
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_SCMI)
+	struct slbc_ipi_data slbc_ipi_d;
+	struct slbc_data *d = (struct slbc_data *)ptr;
+	struct scmi_tinysys_status rvalue = {0};
+	int ret = 0;
+
+	slbc_ipi_d.cmd = SLBC_IPI(IPI_SLBC_BUFFER_STATUS, d->uid);
+	slbc_ipi_d.arg = slbc_data_to_ui(d);
+	if (d->type == TP_BUFFER) {
+		ret = slbc_scmi_get(&slbc_ipi_d, 1, &rvalue);
+		if (!ret) {
+			ret = rvalue.r1;
+			pr_info("#@# %s(%d) uid %d return ref(%d)\n",
+					__func__, __LINE__, d->uid, ret);
+		} else {
+			pr_info("#@# %s(%d) return fail(%d)\n",
+					__func__, __LINE__, ret);
+			ret = -1;
+		}
+	} else {
+		pr_info("#@# %s(%d) wrong type(0x%x)\n",
+				__func__, __LINE__, d->type);
+		ret = -1;
+	}
+
+	return ret;
+#else
+	return 0;
+#endif /* CONFIG_MTK_L3C_PART */
+}
+EXPORT_SYMBOL_GPL(_slbc_buffer_status_scmi);
+
 int _slbc_request_buffer_scmi(void *ptr)
 {
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_SCMI)

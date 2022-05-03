@@ -32,6 +32,7 @@ enum {
 	IPI_SLBC_MEM_BARRIER,
 	IPI_SLB_DISABLE,
 	IPI_SLC_DISABLE,
+	IPI_SLBC_BUFFER_STATUS,
 	NR_IPI_SLBC,
 };
 
@@ -67,6 +68,7 @@ extern int slbc_inner_cmd(unsigned int inner);
 extern int slbc_outer_cmd(unsigned int outer);
 extern int _slbc_request_cache_scmi(void *ptr);
 extern int _slbc_release_cache_scmi(void *ptr);
+extern int _slbc_buffer_status_scmi(void *ptr);
 extern int _slbc_request_buffer_scmi(void *ptr);
 extern int _slbc_release_buffer_scmi(void *ptr);
 extern void slbc_register_ipi_ops(struct slbc_ipi_ops *ops);
@@ -85,6 +87,7 @@ __weak int slbc_inner_cmd(unsigned int inner) {}
 __weak int slbc_outer_cmd(unsigned int outer) {}
 __weak int _slbc_request_cache_scmi(void *ptr) {}
 __weak int _slbc_release_cache_scmi(void *ptr) {}
+__weak int _slbc_buffer_status_scmi(void *ptr) {}
 __weak int _slbc_request_buffer_scmi(void *ptr) {}
 __weak int _slbc_release_buffer_scmi(void *ptr) {}
 __weak void slbc_register_ipi_ops(struct slbc_ipi_ops *ops) {}

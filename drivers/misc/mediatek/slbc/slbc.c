@@ -89,6 +89,15 @@ void slbc_sram_write(u32 offset, u32 val)
 }
 EXPORT_SYMBOL_GPL(slbc_sram_write);
 
+int slbc_status(struct slbc_data *d)
+{
+	if (common_ops && common_ops->slbc_status)
+		return common_ops->slbc_status(d);
+	else
+		return -ENODEV;
+}
+EXPORT_SYMBOL_GPL(slbc_status);
+
 int slbc_request(struct slbc_data *d)
 {
 	if (common_ops && common_ops->slbc_request)
