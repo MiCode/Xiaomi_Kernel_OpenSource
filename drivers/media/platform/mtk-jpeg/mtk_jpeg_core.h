@@ -109,6 +109,7 @@ struct mtk_jpeg_dev {
 	struct icc_path *path_qtbl;
 	struct icc_path *path_bsdma;
 	struct regulator *jpegenc_reg;
+	struct clk *jpegenc_mmdvfs_clk;
 	int freq_cnt;
 	unsigned long freqs[MTK_JPEG_MAX_FREQ];
 };

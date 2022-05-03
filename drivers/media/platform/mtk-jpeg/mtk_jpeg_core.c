@@ -607,11 +607,18 @@ static void mtk_jpeg_prepare_dvfs(struct mtk_jpeg_dev *jpeg)
 		return;
 	}
 
-	jpeg->jpegenc_reg = devm_regulator_get(jpeg->dev,
-						"dvfsrc-vcore");
-	if (jpeg->jpegenc_reg == 0) {
+	jpeg->jpegenc_reg = devm_regulator_get_optional(jpeg->dev,
+						"mmdvfs-dvfsrc-vcore");
+	if (IS_ERR_OR_NULL(jpeg->jpegenc_reg)) {
 		pr_info("Failed to get regulator\n");
-		return;
+		jpeg->jpegenc_reg = NULL;
+		jpeg->jpegenc_mmdvfs_clk = devm_clk_get(jpeg->dev,
+							"mmdvfs_clk");
+		if (IS_ERR_OR_NULL(jpeg->jpegenc_mmdvfs_clk)) {
+			pr_info("Failed to get mmdvfs clk\n");
+			jpeg->jpegenc_mmdvfs_clk = NULL;
+			return;
+		}
 	}
 
 	jpeg->freq_cnt = dev_pm_opp_get_opp_count(jpeg->dev);
@@ -693,7 +700,7 @@ static void mtk_jpeg_dvfs_begin(struct mtk_jpeg_ctx *ctx)
 
 	active_freq = jpeg->freqs[jpeg->freq_cnt - 1];
 
-	if (jpeg->jpegenc_reg != 0) {
+	if (jpeg->jpegenc_reg) {
 		opp = dev_pm_opp_find_freq_ceil(jpeg->dev,
 					&active_freq);
 		volt = dev_pm_opp_get_voltage(opp);
@@ -704,10 +711,16 @@ static void mtk_jpeg_dvfs_begin(struct mtk_jpeg_ctx *ctx)
 			pr_info("%s Failed to set regulator voltage %d\n",
 				 __func__, volt);
 		}
+		pr_info("%s  volt: %d\n", __func__, volt);
+	} else if (jpeg->jpegenc_mmdvfs_clk) {
+		pr_info("%s set mmdvfs clk\n");
+		ret = clk_set_rate(jpeg->jpegenc_mmdvfs_clk, active_freq);
+		if (ret) {
+			pr_info("%s Failed to set freq %lu\n",
+				 __func__, active_freq);
+		}
+		pr_info("%s  freq: %lu\n", __func__, active_freq);
 	}
-
-	pr_info("%s  volt: %d\n", __func__, volt);
-
 }
 
 static void mtk_jpeg_dvfs_end(struct mtk_jpeg_ctx *ctx)
@@ -721,7 +734,7 @@ static void mtk_jpeg_dvfs_end(struct mtk_jpeg_ctx *ctx)
 	pr_info("%s  ++\n", __func__);
 	active_freq = jpeg->freqs[0];
 
-	if (jpeg->jpegenc_reg != 0) {
+	if (jpeg->jpegenc_reg) {
 		opp = dev_pm_opp_find_freq_ceil(jpeg->dev,
 					&active_freq);
 		volt = dev_pm_opp_get_voltage(opp);
@@ -732,10 +745,15 @@ static void mtk_jpeg_dvfs_end(struct mtk_jpeg_ctx *ctx)
 			pr_info("%s Failed to set regulator voltage %d\n",
 				 __func__, volt);
 		}
+		pr_info("%s  volt: %d --\n", __func__, volt);
+	} else if (jpeg->jpegenc_mmdvfs_clk) {
+		ret = clk_set_rate(jpeg->jpegenc_mmdvfs_clk, active_freq);
+		if (ret) {
+			pr_info("%s Failed to set freq %lu\n",
+				 __func__, active_freq);
+		}
+		pr_info("%s  freq: %lu\n", __func__, active_freq);
 	}
-
-	pr_info("%s  volt: %d --\n", __func__, volt);
-
 }
 static int mtk_jpeg_qbuf(struct file *file, void *priv, struct v4l2_buffer *buf)
 {
@@ -1636,7 +1654,6 @@ err_dev_register:
 err_clk_init:
 
 err_req_irq:
-
 	return ret;
 }
 
