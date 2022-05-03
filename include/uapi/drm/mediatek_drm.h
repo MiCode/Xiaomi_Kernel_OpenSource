@@ -413,6 +413,15 @@ struct DISP_DITHER_PARAM {
 	uint32_t mode;
 };
 
+struct DISP_AAL_TRIG_STATE {
+	int curAli;
+	int aliThreshold;
+	unsigned int dre_frm_trigger;
+	unsigned int dre3_en_state;
+	unsigned int dre3_krn_flag;
+};
+
+
 #define DRM_MTK_GEM_CREATE		0x00
 #define DRM_MTK_GEM_MAP_OFFSET		0x01
 #define DRM_MTK_GEM_SUBMIT		0x02
@@ -459,6 +468,8 @@ struct DISP_DITHER_PARAM {
 #define DRM_MTK_AAL_EVENTCTL	0x33
 #define DRM_MTK_AAL_INIT_DRE30	0x34
 #define DRM_MTK_AAL_GET_SIZE	0x35
+
+#define DRM_MTK_AAL_SET_TRIGGER_STATE 0x5F
 
 #define DRM_MTK_HDMI_GET_DEV_INFO	0x3A
 #define DRM_MTK_HDMI_AUDIO_ENABLE	0x3B
@@ -1274,6 +1285,9 @@ struct DISP_AAL_HIST {
 
 #define DRM_IOCTL_MTK_AAL_GET_SIZE	DRM_IOWR(DRM_COMMAND_BASE + \
 			DRM_MTK_AAL_GET_SIZE, struct DISP_AAL_DISPLAY_SIZE)
+
+#define DRM_IOCTL_MTK_AAL_SET_TRIGGER_STATE	DRM_IOWR(DRM_COMMAND_BASE + \
+			DRM_MTK_AAL_SET_TRIGGER_STATE, struct DISP_AAL_TRIG_STATE)
 
 #define DRM_IOCTL_MTK_HDMI_GET_DEV_INFO     DRM_IOWR(DRM_COMMAND_BASE + \
 		DRM_MTK_HDMI_GET_DEV_INFO, struct mtk_dispif_info)
