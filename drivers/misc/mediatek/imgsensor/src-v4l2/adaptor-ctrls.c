@@ -472,11 +472,13 @@ static int imgsensor_try_ctrl(struct v4l2_ctrl *ctrl)
 			info->grab_w = mode->width;
 		}
 
+#if IMGSENSOR_LOG_MORE
 		dev_dbg(ctx->dev,
 				"%s [scenario %d]:fps: %d vb: %d hb: %d pixelrate: %d cust_pixel_rate: %d, w %d, h %d\n",
 				__func__, info->scenario_id, info->fps, info->vblank,
 				info->hblank, info->pixelrate, info->cust_pixelrate,
 				info->grab_w, info->grab_h);
+#endif
 	}
 		break;
 	default:
