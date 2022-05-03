@@ -183,12 +183,17 @@ void mtk_drm_fb_gem_release(struct drm_device *dev)
 {
 	struct mtk_drm_private *priv = dev->dev_private;
 	struct mtk_drm_gem_obj *mtk_gem = priv->fb_info.fb_gem;
+	struct sg_table *sg = mtk_gem->sg;
 
-	sg_free_table(mtk_gem->sg);
+	dma_unmap_sg_attrs(dev->dev, sg->sgl, sg->nents,
+			DMA_BIDIRECTIONAL, DMA_ATTR_SKIP_CPU_SYNC);
+	sg_free_table(sg);
+	vunmap(mtk_gem->kvaddr);
 	drm_gem_object_release(&mtk_gem->base);
 
 	kfree(mtk_gem->sg);
 	kfree(mtk_gem);
+	priv->fb_info.fb_gem = NULL;
 }
 
 struct mtk_drm_gem_obj *mtk_drm_gem_create(struct drm_device *dev, size_t size,
