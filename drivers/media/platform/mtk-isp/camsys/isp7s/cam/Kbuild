@@ -38,6 +38,7 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/tee_gp/include
 $(CAM_MODULE)-objs := \
     mtk_cam.o \
     mtk_cam-raw.o \
+    mtk_cam-raw_pipeline.o \
     mtk_cam-pool.o \
     mtk_cam_pm.o \
     mtk_cam-video.o \

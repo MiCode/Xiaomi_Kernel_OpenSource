@@ -9,6 +9,9 @@
 #include "mtk_cam.h"
 #include "mtk_camera-v4l2-controls.h"
 
+struct mtk_raw_pipeline;
+struct mtk_cam_request_stream_data;
+
 void
 mtk_cam_tg_flash_req_update(struct mtk_raw_pipeline *pipe,
 			    struct mtk_cam_request_stream_data *s_data);
