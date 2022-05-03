@@ -2493,6 +2493,7 @@
 			reg = <0 0x1e801000 0 0x1000>;
 			mediatek,smi = <&smi_infra_disp_subcommon0 &smi_infra_disp_subcommon1>;
 			mediatek,common-id = <0>;
+			mmdvfs-dvfsrc-vcore-supply = <&dvfsrc_vcore>;
 			smi-common;
 			operating-points-v2 = <&opp_table_mminfra>;
 			power-domains = <&scpsys MT6983_POWER_DOMAIN_MM_INFRA>;
@@ -2541,6 +2542,7 @@
 			reg = <0 0x1e80f000 0 0x1000>;
 			mediatek,smi = <&smi_mdp_subcommon4 &smi_mdp_subcommon5>;
 			mediatek,common-id = <1>;
+			mmdvfs-dvfsrc-vcore-supply = <&dvfsrc_vcore>;
 			smi-common;
 			operating-points-v2 = <&opp_table_mminfra>;
 			power-domains = <&scpsys MT6983_POWER_DOMAIN_MM_INFRA>;
