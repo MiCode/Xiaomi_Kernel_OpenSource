@@ -265,7 +265,7 @@ static unsigned long long get_w_ptr(void)
 		 */
 		/* only print the first error */
 		if (!err_log)
-			HWLOGR_WARN("st_addr = 0x%x, t_size = 0x%x\n",
+			HWLOGR_WARN("st_addr = 0x%llx, t_size = 0x%x\n",
 				st_addr, t_size);
 		err_log = true;
 		return 0;
@@ -277,7 +277,7 @@ static unsigned long long get_w_ptr(void)
 
 	/* print when back to normal */
 	if (err_log) {
-		HWLOGR_INFO("[ok] w_ptr = 0x%x, st_addr = 0x%x, t_size = 0x%x\n",
+		HWLOGR_INFO("[ok] w_ptr = 0x%llx, st_addr = 0x%llx, t_size = 0x%x\n",
 			w_ptr, st_addr, t_size);
 		err_log = false;
 	}
@@ -733,7 +733,7 @@ static ssize_t set_debuglv(struct file *flip,
 						   const char __user *buffer,
 						   size_t count, loff_t *f_pos)
 {
-	char *tmp, *cursor;
+	char *tmp;
 	int ret;
 	unsigned int input = 0;
 
@@ -743,14 +743,16 @@ static ssize_t set_debuglv(struct file *flip,
 
 	ret = copy_from_user(tmp, buffer, count);
 	if (ret) {
-		HWLOGR_ERR("copy_from_user failed, ret=%d\n", ret);
-		kfree(tmp);
-		return count;
+		HWLOGR_ERR("copy_from_user failed (%d)\n", ret);
+		goto out;
 	}
 
 	tmp[count] = '\0';
-	cursor = tmp;
-	ret = kstrtouint(cursor, 0, &input);
+	ret = kstrtouint(tmp, 0, &input);
+	if (ret) {
+		HWLOGR_ERR("kstrtouint failed (%d)\n", ret);
+		goto out;
+	}
 
 	HWLOGR_INFO("set uP debug lv = 0x%x\n", input);
 
@@ -758,10 +760,9 @@ static ssize_t set_debuglv(struct file *flip,
 
 	ret = apu_ipi_send(g_apu, APU_IPI_LOG_LEVEL,
 			&hw_ipi_loglv_data, sizeof(hw_ipi_loglv_data), 1000);
-
 	if (ret)
 		HWLOGR_ERR("Failed for hw_logger log level send.\n");
-
+out:
 	kfree(tmp);
 
 	return count;
@@ -862,7 +863,7 @@ static ssize_t set_debugAttr(struct file *flip,
 							const char __user *buffer,
 							size_t count, loff_t *f_pos)
 {
-	char *tmp, *cursor;
+	char *tmp;
 	int ret;
 	unsigned int input = 0;
 
@@ -872,18 +873,20 @@ static ssize_t set_debugAttr(struct file *flip,
 
 	ret = copy_from_user(tmp, buffer, count);
 	if (ret) {
-		HWLOGR_ERR("copy_from_user failed, ret=%d\n", ret);
-		kfree(tmp);
-		return count;
+		HWLOGR_ERR("copy_from_user failed (%d)\n", ret);
+		goto out;
 	}
 
 	tmp[count] = '\0';
-	cursor = tmp;
-	ret = kstrtouint(cursor, 10, &input);
+	ret = kstrtouint(tmp, 10, &input);
+	if (ret) {
+		HWLOGR_ERR("kstrtouint failed (%d)\n", ret);
+		goto out;
+	}
 
 	if (input <= DBG_LOG_DEBUG)
 		g_hw_logger_log_lv = input;
-
+out:
 	kfree(tmp);
 
 	return count;

@@ -260,7 +260,7 @@ static ssize_t set_debuglv(struct file *flip,
 						   const char __user *buffer,
 						   size_t count, loff_t *f_pos)
 {
-	char *tmp, *cursor;
+	char *tmp;
 	int ret;
 	unsigned int input = 0;
 
@@ -270,14 +270,16 @@ static ssize_t set_debuglv(struct file *flip,
 
 	ret = copy_from_user(tmp, buffer, count);
 	if (ret) {
-		LOGGER_ERR("copy_from_user failed, ret=%d\n", ret);
-		kfree(tmp);
-		return count;
+		LOGGER_ERR("copy_from_user failed (%d)\n", ret);
+		goto out;
 	}
 
 	tmp[count] = '\0';
-	cursor = tmp;
-	ret = kstrtouint(cursor, 0, &input);
+	ret = kstrtouint(tmp, 0, &input);
+	if (ret) {
+		LOGGER_ERR("kstrtouint failed (%d)\n", ret);
+		goto out;
+	}
 
 	LOGGER_INFO("set uP debug lv = 0x%x\n", input);
 
@@ -288,7 +290,7 @@ static ssize_t set_debuglv(struct file *flip,
 
 	if (ret)
 		LOGGER_ERR("Failed for sw_logger log level send.\n");
-
+out:
 	kfree(tmp);
 
 	return count;
@@ -338,7 +340,7 @@ static ssize_t set_debugAttr(struct file *flip,
 						     const char __user *buffer,
 						     size_t count, loff_t *f_pos)
 {
-	char *tmp, *cursor;
+	char *tmp;
 	int ret;
 	unsigned int input = 0;
 
@@ -348,20 +350,22 @@ static ssize_t set_debugAttr(struct file *flip,
 
 	ret = copy_from_user(tmp, buffer, count);
 	if (ret) {
-		LOGGER_ERR("copy_from_user failed, ret=%d\n", ret);
-		kfree(tmp);
-		return count;
+		LOGGER_ERR("copy_from_user failed (%d)\n", ret);
+		goto out;
 	}
 
 	tmp[count] = '\0';
-	cursor = tmp;
-	ret = kstrtouint(cursor, 10, &input);
+	ret = kstrtouint(tmp, 10, &input);
+	if (ret) {
+		LOGGER_ERR("kstrtouint failed (%d)\n", ret);
+		goto out;
+	}
 
 	LOGGER_INFO("set debug lv = %d\n", input);
 
 	if (input <= DEBUG_LOG_DEBUG)
 		g_sw_logger_log_lv = input;
-
+out:
 	kfree(tmp);
 
 	return count;
@@ -401,11 +405,8 @@ static void *seq_start(struct seq_file *s, loff_t *pos)
 	} else {
 		r_ptr = g_log_r_ptr;
 	}
-	/*
-	 * Since we dump full log,
-	 * skip overflow_flg = ioread32(LOG_OV_FLG);
-	 */
-	overflow_flg = 0;
+
+	overflow_flg = ioread32(LOG_OV_FLG);
 	spin_unlock_irqrestore(&sw_logger_spinlock, flags);
 
 	sw_logger_buf_invalidate();
