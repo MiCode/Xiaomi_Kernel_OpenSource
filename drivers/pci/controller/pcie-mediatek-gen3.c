@@ -17,6 +17,7 @@
 #include <linux/module.h>
 #include <linux/msi.h>
 #include <linux/of.h>
+#include <linux/of_address.h>
 #include <linux/of_platform.h>
 #include <linux/pci.h>
 #include <linux/phy/phy.h>
@@ -26,6 +27,11 @@
 #include <linux/reset.h>
 
 #include "../pci.h"
+
+#define PEXTP_PWRCTL_0                 0x40
+#define PCIE_HW_MTCMOS_EN_P0           BIT(0)
+#define PEXTP_PWRCTL_1                 0x44
+#define PCIE_HW_MTCMOS_EN_P1           BIT(0)
 
 #define PCIE_SETTING_REG		0x80
 #define PCIE_PCI_IDS_1			0x9c
@@ -82,8 +88,12 @@
 #define PCIE_ICMD_PM_REG		0x198
 #define PCIE_TURN_OFF_LINK		BIT(4)
 
+#define PCIE_ISTATUS_PM			0x19C
+#define PCIE_L1PM_SM			GENMASK(10, 8)
+
 #define PCIE_MISC_CTRL_REG		0x348
-#define PCIE_DISABLE_DVFSRC_VLT_REQ	BIT(1)
+#define PCIE_DVFS_REQ_FORCE_ON		BIT(1)
+#define PCIE_DVFS_REQ_FORCE_OFF		BIT(12)
 
 #define PCIE_TRANS_TABLE_BASE_REG	0x800
 #define PCIE_ATR_SRC_ADDR_MSB_OFFSET	0x4
@@ -103,6 +113,11 @@
 #define PCIE_ATR_TLP_TYPE_MEM		PCIE_ATR_TLP_TYPE(0)
 #define PCIE_ATR_TLP_TYPE_IO		PCIE_ATR_TLP_TYPE(2)
 
+enum mtk_pcie_suspend_link_state {
+	LINK_STATE_L12 = 0,
+	LINK_STATE_L2,
+};
+
 /**
  * struct mtk_msi_set - MSI information for each set
  * @base: IO mapped register base
@@ -119,12 +134,16 @@ struct mtk_msi_set {
  * struct mtk_pcie_port - PCIe port information
  * @dev: pointer to PCIe device
  * @base: IO mapped register base
+ * @pextpcfg: pextpcfg_ao(pcie HW MTCMOS) IO mapped register base
  * @reg_base: physical register base
  * @mac_reset: MAC reset control
  * @phy_reset: PHY reset control
  * @phy: PHY controller block
  * @clks: PCIe clocks
  * @num_clks: PCIe clocks count for this port
+ * @port_num: serial number of pcie port
+ * @suspend_mode: pcie enter low poer mode when the system enter suspend
+ * @dvfs_req: pcie wait request to reply ack when pcie exit from P2 state
  * @irq: PCIe controller interrupt number
  * @saved_irq_state: IRQ enable state saved at suspend time
  * @irq_lock: lock protecting IRQ register access
@@ -138,6 +157,7 @@ struct mtk_msi_set {
 struct mtk_pcie_port {
 	struct device *dev;
 	void __iomem *base;
+	void __iomem *pextpcfg;
 	phys_addr_t reg_base;
 	struct reset_control *mac_reset;
 	struct reset_control *phy_reset;
@@ -145,6 +165,9 @@ struct mtk_pcie_port {
 	struct clk_bulk_data *clks;
 	int num_clks;
 
+	u32 port_num;
+	u32 suspend_mode;
+	bool dvfs_req_en;
 	int irq;
 	u32 saved_irq_state;
 	raw_spinlock_t irq_lock;
@@ -303,9 +326,13 @@ static int mtk_pcie_startup_port(struct mtk_pcie_port *port)
 	val &= ~PCIE_INTX_ENABLE;
 	writel_relaxed(val, port->base + PCIE_INT_ENABLE_REG);
 
-	/* Disable DVFSRC voltage request */
+	/* DVFSRC voltage request state */
 	val = readl_relaxed(port->base + PCIE_MISC_CTRL_REG);
-	val |= PCIE_DISABLE_DVFSRC_VLT_REQ;
+	val |= PCIE_DVFS_REQ_FORCE_ON;
+	if (!port->dvfs_req_en) {
+		val &= ~PCIE_DVFS_REQ_FORCE_ON;
+		val |= PCIE_DVFS_REQ_FORCE_OFF;
+	}
 	writel_relaxed(val, port->base + PCIE_MISC_CTRL_REG);
 
 	/* Assert all reset signals */
@@ -724,6 +751,7 @@ static int mtk_pcie_parse_port(struct mtk_pcie_port *port)
 	struct device *dev = port->dev;
 	struct platform_device *pdev = to_platform_device(dev);
 	struct resource *regs;
+	struct device_node *pextp_node;
 	int ret;
 
 	regs = platform_get_resource_byname(pdev, IORESOURCE_MEM, "pcie-mac");
@@ -736,6 +764,28 @@ static int mtk_pcie_parse_port(struct mtk_pcie_port *port)
 	}
 
 	port->reg_base = regs->start;
+
+	port->port_num = of_get_pci_domain_nr(dev->of_node);
+	if (port->port_num >= 0)
+		dev_info(dev, "host bridge domain number %d\n", port->port_num);
+
+	port->dvfs_req_en = true;
+	ret = of_property_read_bool(dev->of_node, "mediatek,dvfs-req-dis");
+	if (ret)
+		port->dvfs_req_en = false;
+
+	pextp_node = of_find_compatible_node(NULL, NULL,
+					     "mediatek,mt6985-pextpcfg_ao");
+	if (pextp_node) {
+		port->pextpcfg = of_iomap(pextp_node, 0);
+		if (IS_ERR(port->pextpcfg))
+			return PTR_ERR(port->pextpcfg);
+	}
+
+	port->suspend_mode = LINK_STATE_L2;
+	ret = of_property_read_bool(dev->of_node, "mediatek,suspend-mode-l12");
+	if (ret)
+		port->suspend_mode = LINK_STATE_L12;
 
 	port->phy_reset = devm_reset_control_get_optional_exclusive(dev, "phy");
 	if (IS_ERR(port->phy_reset)) {
@@ -1035,22 +1085,39 @@ static int __maybe_unused mtk_pcie_suspend_noirq(struct device *dev)
 	int err;
 	u32 val;
 
-	/* Trigger link to L2 state */
-	err = mtk_pcie_turn_off_link(port);
-	if (err) {
-		dev_err(port->dev, "cannot enter L2 state\n");
-		return err;
+	if (port->suspend_mode == LINK_STATE_L12) {
+		val = readl_relaxed(port->base + PCIE_LTSSM_STATUS_REG);
+		dev_info(port->dev, "pcie LTSSM=%#x\n", val);
+		val = readl_relaxed(port->base + PCIE_ISTATUS_PM);
+		dev_info(port->dev, "pcie L1SS_pm=%#x\n", val);
+
+		if (port->port_num == 0) {
+			val = readl_relaxed(port->pextpcfg + PEXTP_PWRCTL_0);
+			val |= PCIE_HW_MTCMOS_EN_P0;
+			writel_relaxed(val, port->pextpcfg + PEXTP_PWRCTL_0);
+		} else if (port->port_num == 1) {
+			val = readl_relaxed(port->pextpcfg + PEXTP_PWRCTL_1);
+			val |= PCIE_HW_MTCMOS_EN_P1;
+			writel_relaxed(val, port->pextpcfg + PEXTP_PWRCTL_1);
+		}
+	} else {
+		/* Trigger link to L2 state */
+		err = mtk_pcie_turn_off_link(port);
+		if (err) {
+			dev_info(port->dev, "cannot enter L2 state\n");
+			return err;
+		}
+
+		/* Pull down the PERST# pin */
+		val = readl_relaxed(port->base + PCIE_RST_CTRL_REG);
+		val |= PCIE_PE_RSTB;
+		writel_relaxed(val, port->base + PCIE_RST_CTRL_REG);
+
+		dev_dbg(port->dev, "entered L2 states successfully");
+
+		mtk_pcie_irq_save(port);
+		mtk_pcie_power_down(port);
 	}
-
-	/* Pull down the PERST# pin */
-	val = readl_relaxed(port->base + PCIE_RST_CTRL_REG);
-	val |= PCIE_PE_RSTB;
-	writel_relaxed(val, port->base + PCIE_RST_CTRL_REG);
-
-	dev_dbg(port->dev, "entered L2 states successfully");
-
-	mtk_pcie_irq_save(port);
-	mtk_pcie_power_down(port);
 
 	return 0;
 }
@@ -1059,18 +1126,31 @@ static int __maybe_unused mtk_pcie_resume_noirq(struct device *dev)
 {
 	struct mtk_pcie_port *port = dev_get_drvdata(dev);
 	int err;
+	u32 val;
 
-	err = mtk_pcie_power_up(port);
-	if (err)
-		return err;
+	if (port->suspend_mode == LINK_STATE_L12) {
+		if (port->port_num == 0) {
+			val = readl_relaxed(port->pextpcfg + PEXTP_PWRCTL_0);
+			val &= ~PCIE_HW_MTCMOS_EN_P0;
+			writel_relaxed(val, port->pextpcfg + PEXTP_PWRCTL_0);
+		} else if (port->port_num == 1) {
+			val = readl_relaxed(port->pextpcfg + PEXTP_PWRCTL_1);
+			val &= ~PCIE_HW_MTCMOS_EN_P1;
+			writel_relaxed(val, port->pextpcfg + PEXTP_PWRCTL_1);
+		}
+	} else {
+		err = mtk_pcie_power_up(port);
+		if (err)
+			return err;
 
-	err = mtk_pcie_startup_port(port);
-	if (err) {
-		mtk_pcie_power_down(port);
-		return err;
+		err = mtk_pcie_startup_port(port);
+		if (err) {
+			mtk_pcie_power_down(port);
+			return err;
+		}
+
+		mtk_pcie_irq_restore(port);
 	}
-
-	mtk_pcie_irq_restore(port);
 
 	return 0;
 }
@@ -1082,6 +1162,7 @@ static const struct dev_pm_ops mtk_pcie_pm_ops = {
 
 static const struct of_device_id mtk_pcie_of_match[] = {
 	{ .compatible = "mediatek,mt8192-pcie" },
+	{ .compatible = "mediatek,mt6985-pcie" },
 	{},
 };
 MODULE_DEVICE_TABLE(of, mtk_pcie_of_match);
