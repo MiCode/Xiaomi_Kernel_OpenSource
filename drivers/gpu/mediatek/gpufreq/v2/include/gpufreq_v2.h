@@ -89,6 +89,12 @@ enum gpufreq_power_state {
 	POWER_ON,
 };
 
+enum gpufreq_feat_mode {
+	FEAT_DISABLE = 0,
+	FEAT_ENABLE,
+	DFD_FORCE_DUMP,
+};
+
 enum gpuppm_reserved_idx {
 	GPUPPM_DEFAULT_IDX = -1,
 	GPUPPM_RESET_IDX = -2,
@@ -266,8 +272,9 @@ struct gpufreq_platform_fp {
 	void (*check_bus_idle)(void);
 	void (*dump_infra_status)(void);
 	void (*update_debug_opp_info)(void);
-	void (*set_margin_mode)(unsigned int mode);
-	void (*set_gpm_mode)(unsigned int version, unsigned int mode);
+	void (*set_margin_mode)(enum gpufreq_feat_mode mode);
+	void (*set_gpm_mode)(unsigned int version, enum gpufreq_feat_mode mode);
+	void (*set_dfd_mode)(enum gpufreq_feat_mode mode);
 	struct gpufreq_core_mask_info *(*get_core_mask_table)(void);
 	unsigned int (*get_core_num)(void);
 	void (*pdca_config)(enum gpufreq_power_state power);
@@ -318,7 +325,7 @@ struct gpuppm_platform_fp {
 		int ceiling_info, int floor_info);
 	int (*switch_limit)(enum gpufreq_target target, enum gpuppm_limiter limiter,
 		int c_enable, int f_enable);
-	void (*set_stress_test)(unsigned int mode);
+	void (*set_stress_test)(enum gpufreq_feat_mode mode);
 	int (*get_ceiling)(void);
 	int (*get_floor)(void);
 	unsigned int (*get_c_limiter)(void);
@@ -384,9 +391,10 @@ int gpufreq_switch_limit(enum gpufreq_target target,
 int gpufreq_fix_target_oppidx(enum gpufreq_target target, int oppidx);
 int gpufreq_fix_custom_freq_volt(enum gpufreq_target target,
 	unsigned int freq, unsigned int volt);
-int gpufreq_set_stress_test(unsigned int mode);
-int gpufreq_set_margin_mode(unsigned int mode);
-int gpufreq_set_gpm_mode(unsigned int version, unsigned int mode);
-int gpufreq_set_test_mode(unsigned int mode);
+int gpufreq_set_stress_test(enum gpufreq_feat_mode mode);
+int gpufreq_set_margin_mode(enum gpufreq_feat_mode mode);
+int gpufreq_set_gpm_mode(unsigned int version, enum gpufreq_feat_mode mode);
+int gpufreq_set_dfd_mode(enum gpufreq_feat_mode mode);
+int gpufreq_set_test_mode(unsigned int value);
 
 #endif /* __GPUFREQ_V2_H__ */

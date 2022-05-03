@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0
+/* SPDX-License-Identifier: GPL-2.0 */
 /*
  * Copyright (C) 2021 MediaTek Inc.
  */
@@ -20,7 +20,10 @@ TRACE_EVENT(gpu_hardstop,
 		unsigned int stack_volt,
 		unsigned int stack_vsram
 	),
-	TP_ARGS(string, sub_string, gpu_freq, gpu_volt, gpu_vsram, stack_freq, stack_volt, stack_vsram),
+	TP_ARGS(string, sub_string,
+		gpu_freq, gpu_volt, gpu_vsram,
+		stack_freq, stack_volt, stack_vsram
+	),
 	TP_STRUCT__entry(__string(str0, string)
 		__string(str1, sub_string)
 		__field(unsigned int, gpu_freq)

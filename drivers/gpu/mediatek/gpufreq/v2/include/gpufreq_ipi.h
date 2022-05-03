@@ -37,8 +37,9 @@ static char *gpufreq_ipi_cmd_name[] = {
 	"CMD_SET_STRESS_TEST",        // 12
 	"CMD_SET_MARGIN_MODE",        // 13
 	"CMD_SET_GPM_MODE",           // 14
-	"CMD_SET_TEST_MODE",          // 15
-	"CMD_NUM",                    // 16
+	"CMD_SET_DFD_MODE",           // 15
+	"CMD_SET_TEST_MODE",          // 16
+	"CMD_NUM",                    // 17
 };
 
 enum gpufreq_ipi_cmd {
@@ -59,8 +60,9 @@ enum gpufreq_ipi_cmd {
 	CMD_SET_STRESS_TEST           = 12,
 	CMD_SET_MARGIN_MODE           = 13,
 	CMD_SET_GPM_MODE              = 14,
-	CMD_SET_TEST_MODE             = 15,
-	CMD_NUM                       = 16,
+	CMD_SET_DFD_MODE              = 15,
+	CMD_SET_TEST_MODE             = 16,
+	CMD_NUM                       = 17,
 };
 
 /**************************************************
@@ -77,6 +79,7 @@ struct gpufreq_ipi_data {
 		unsigned int power;
 		unsigned int power_state;
 		unsigned int mode;
+		unsigned int value;
 		struct {
 			unsigned long long base;
 			unsigned int size;

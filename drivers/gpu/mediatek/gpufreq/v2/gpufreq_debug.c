@@ -22,7 +22,6 @@
 
 #include <gpufreq_v2.h>
 #include <gpufreq_debug.h>
-#include <gpu_misc.h>
 #include <gpufreq_history_debug.h>
 
 /**
@@ -171,9 +170,9 @@ static ssize_t gpufreq_status_proc_write(struct file *file,
 	if (sscanf(buf, "%8x", &value) == 1) {
 		ret = gpufreq_set_test_mode(value);
 		if (!ret)
-			g_test_mode = true;
+			g_test_mode = FEAT_ENABLE;
 		else
-			g_test_mode = false;
+			g_test_mode = FEAT_DISABLE;
 	}
 
 	mutex_unlock(&gpufreq_debug_lock);
@@ -724,7 +723,7 @@ static ssize_t mfgsys_config_proc_write(struct file *file,
 	int ret = GPUFREQ_SUCCESS;
 	char buf[64], cmd[32], conf[32];
 	unsigned int len = 0;
-	unsigned int mode = false;
+	enum gpufreq_feat_mode mode = FEAT_DISABLE;
 
 	len = (count < (sizeof(buf) - 1)) ? count : (sizeof(buf) - 1);
 	if (copy_from_user(buf, buffer, len)) {
@@ -735,12 +734,14 @@ static ssize_t mfgsys_config_proc_write(struct file *file,
 
 	mutex_lock(&gpufreq_debug_lock);
 
-	if (sscanf(buf, "%7s %6s", cmd, conf) == 2) {
+	if (sscanf(buf, "%10s %6s", cmd, conf) == 2) {
 		/* parse mode */
 		if (sysfs_streq(cmd, "enable"))
-			mode = true;
+			mode = FEAT_ENABLE;
 		else if (sysfs_streq(cmd, "disable"))
-			mode = false;
+			mode = FEAT_DISABLE;
+		else if (sysfs_streq(cmd, "force_dump"))
+			mode = DFD_FORCE_DUMP;
 		else
 			goto done;
 
@@ -753,6 +754,8 @@ static ssize_t mfgsys_config_proc_write(struct file *file,
 			}
 		} else if (sysfs_streq(conf, "gpm1"))
 			gpufreq_set_gpm_mode(1, mode);
+		else if (sysfs_streq(conf, "dfd"))
+			gpufreq_set_dfd_mode(mode);
 	}
 
 	mutex_unlock(&gpufreq_debug_lock);
@@ -838,10 +841,10 @@ void gpufreq_debug_init(unsigned int dual_buck, unsigned int gpueb_support,
 	g_dual_buck = dual_buck;
 	g_gpueb_support = gpueb_support;
 	g_debug_power_state = POWER_OFF;
-	g_debug_margin_mode = true;
+	g_debug_margin_mode = FEAT_ENABLE;
 	/* always enable test mode when AP mode */
 	if (!g_gpueb_support)
-		g_test_mode = true;
+		g_test_mode = FEAT_ENABLE;
 	/* take every info of mfgsys from shared status */
 	if (shared_status)
 		g_shared_status = shared_status;

@@ -335,7 +335,7 @@ static void __gpuppm_update_gpuppm_info(void)
 	memcpy(g_shared_status->limit_table, g_limit_table, copy_size);
 }
 
-void gpuppm_set_stress_test(unsigned int mode)
+void gpuppm_set_stress_test(enum gpufreq_feat_mode mode)
 {
 	g_stress_test = mode;
 }

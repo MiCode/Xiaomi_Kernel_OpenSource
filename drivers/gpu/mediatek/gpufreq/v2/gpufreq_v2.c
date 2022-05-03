@@ -26,7 +26,6 @@
 #include <gpufreq_v2.h>
 #include <gpufreq_ipi.h>
 #include <gpufreq_debug.h>
-#include <gpu_misc.h>
 #include <gpueb_ipi.h>
 #include <gpueb_reserved_mem.h>
 #include <gpueb_debug.h>
@@ -714,9 +713,6 @@ int gpufreq_power_control(enum gpufreq_power_state power)
 	}
 
 done:
-	/* control DFD */
-	gpufreq_config_dfd(power);
-
 	if (unlikely(ret < 0))
 		GPUFREQ_LOGE("fail to control power state: %s (%d)",
 			power ? "POWER_ON" : "POWER_OFF", ret);
@@ -1186,7 +1182,7 @@ done:
  * Function Name      : gpufreq_set_stress_test
  * Description        : Only for GPUFREQ internal debug purpose
  ***********************************************************************************/
-int gpufreq_set_stress_test(unsigned int mode)
+int gpufreq_set_stress_test(enum gpufreq_feat_mode mode)
 {
 	struct gpufreq_ipi_data send_msg = {};
 	int ret = GPUFREQ_SUCCESS;
@@ -1214,7 +1210,7 @@ int gpufreq_set_stress_test(unsigned int mode)
  * Function Name      : gpufreq_set_margin_mode
  * Description        : Only for GPUFREQ internal debug purpose
  ***********************************************************************************/
-int gpufreq_set_margin_mode(unsigned int mode)
+int gpufreq_set_margin_mode(enum gpufreq_feat_mode mode)
 {
 	struct gpufreq_ipi_data send_msg = {};
 	int ret = GPUFREQ_SUCCESS;
@@ -1242,7 +1238,7 @@ int gpufreq_set_margin_mode(unsigned int mode)
  * Function Name      : gpufreq_set_gpm_mode
  * Description        : Only for GPUFREQ internal debug purpose
  ***********************************************************************************/
-int gpufreq_set_gpm_mode(unsigned int version, unsigned int mode)
+int gpufreq_set_gpm_mode(unsigned int version, enum gpufreq_feat_mode mode)
 {
 	struct gpufreq_ipi_data send_msg = {};
 	int ret = GPUFREQ_SUCCESS;
@@ -1268,10 +1264,38 @@ int gpufreq_set_gpm_mode(unsigned int version, unsigned int mode)
 }
 
 /***********************************************************************************
+ * Function Name      : gpufreq_set_dfd_mode
+ * Description        : Only for GPUFREQ internal debug purpose
+ ***********************************************************************************/
+int gpufreq_set_dfd_mode(enum gpufreq_feat_mode mode)
+{
+	struct gpufreq_ipi_data send_msg = {};
+	int ret = GPUFREQ_SUCCESS;
+
+	/* implement on EB */
+	if (g_gpueb_support) {
+		send_msg.cmd_id = CMD_SET_DFD_MODE;
+		send_msg.u.mode = mode;
+
+		ret = gpufreq_ipi_to_gpueb(send_msg);
+	/* implement on AP */
+	} else {
+		if (gpufreq_fp && gpufreq_fp->set_dfd_mode)
+			gpufreq_fp->set_dfd_mode(mode);
+		else {
+			ret = GPUFREQ_ENOENT;
+			GPUFREQ_LOGE("null gpufreq platform function pointer (ENOENT)");
+		}
+	}
+
+	return ret;
+}
+
+/***********************************************************************************
  * Function Name      : gpufreq_set_test_mode
  * Description        : Only for GPUFREQ internal debug purpose
  ***********************************************************************************/
-int gpufreq_set_test_mode(unsigned int mode)
+int gpufreq_set_test_mode(unsigned int value)
 {
 	struct gpufreq_ipi_data send_msg = {};
 	int ret = GPUFREQ_SUCCESS;
@@ -1279,7 +1303,7 @@ int gpufreq_set_test_mode(unsigned int mode)
 	/* implement only on EB */
 	if (g_gpueb_support) {
 		send_msg.cmd_id = CMD_SET_TEST_MODE;
-		send_msg.u.mode = mode;
+		send_msg.u.value = value;
 
 		if (!gpufreq_ipi_to_gpueb(send_msg))
 			ret = g_recv_msg.u.return_value;

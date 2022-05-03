@@ -31,7 +31,6 @@
 #include <gpuppm.h>
 #include <gpufreq_common.h>
 #include <gpufreq_mt6983.h>
-#include <gpudfd_mt6983.h>
 #include <mtk_gpu_utility.h>
 
 #if IS_ENABLED(CONFIG_MTK_BATTERY_OC_POWER_THROTTLING)
@@ -5107,13 +5106,6 @@ static int __gpufreq_pdrv_probe(struct platform_device *pdev)
 		goto done;
 	}
 
-	/* init gpu dfd*/
-	ret = gpudfd_init(pdev);
-	if (unlikely(ret)) {
-		GPUFREQ_LOGE("fail to init gpudfd (%d)", ret);
-		goto done;
-	}
-
 	/* init pmic regulator */
 	ret = __gpufreq_init_pmic(pdev);
 	if (unlikely(ret)) {
@@ -5123,7 +5115,7 @@ static int __gpufreq_pdrv_probe(struct platform_device *pdev)
 
 	/* skip most of probe in EB mode */
 	if (g_gpueb_support) {
-		GPUFREQ_LOGI("gpufreq platform probe only init reg_base/dfd/pmic/fp in EB mode");
+		GPUFREQ_LOGI("gpufreq platform probe only init reg_base/pmic/fp in EB mode");
 		goto register_fp;
 	}
 
