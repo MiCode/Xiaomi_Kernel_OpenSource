@@ -1485,18 +1485,6 @@ bool mhal_DPTx_AuxRead_Bytes(struct mtk_dp *mtk_dp, BYTE ubCmd,
 		AUX_TX_REQUEST_READY_AUX_TX_P0_FLDMASK);
 
 	while (--WaitReplyCount) {
-		if ((msReadByte(mtk_dp, REG_3618_AUX_TX_P0)
-			& AUX_RX_FIFO_WRITE_POINTER_AUX_TX_P0_FLDMASK)) {
-			bVaildCmd = true;
-			break;
-		}
-
-		if ((msRead2Byte(mtk_dp, REG_3618_AUX_TX_P0)
-			& AUX_RX_FIFO_FULL_AUX_TX_P0_FLDMASK)) {
-			bVaildCmd = true;
-			break;
-		}
-
 		uAuxIrqStatus = msReadByte(mtk_dp, REG_3640_AUX_TX_P0) & 0xFF;
 		if (uAuxIrqStatus & AUX_RX_RECV_COMPLETE_IRQ_TX_P0_FLDMASK) {
 			bVaildCmd = true;
