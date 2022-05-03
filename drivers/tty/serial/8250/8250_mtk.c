@@ -36,6 +36,10 @@
 #define MTK_UART_IER_XOFFI	0x20	/* Enable XOFF character interrupt */
 #define MTK_UART_IER_RTSI	0x40	/* Enable RTS Modem status interrupt */
 #define MTK_UART_IER_CTSI	0x80	/* Enable CTS Modem status interrupt */
+#define MTK_UART_XON1		0X28
+#define MTK_UART_XOFF1		0X2A
+#define MTK_UART_XON2		0X29
+#define MTK_UART_XOFF2		0X2B
 
 #define MTK_UART_DLL  0x24
 #define MTK_UART_DLH  0x25
@@ -52,7 +56,7 @@
 #define MTK_UART_DMA_EN_TX	0x2
 #define MTK_UART_DMA_EN_RX	0x5
 
-#define MTK_UART_ESCAPE_CHAR	0x77	/* Escape char added under sw fc */
+#define MTK_UART_ESCAPE_CHAR	0xdb	/* Escape char added under sw fc */
 #define MTK_UART_RX_SIZE	0x8000
 #define MTK_UART_TX_TRIGGER	1
 #define MTK_UART_RX_TRIGGER	MTK_UART_RX_SIZE
@@ -275,9 +279,10 @@ static void mtk8250_set_flow_ctrl(struct uart_8250_port *up, int mode)
 		serial_out(up, MTK_UART_EFR, MTK_UART_EFR_XON1_XOFF1 |
 			(serial_in(up, MTK_UART_EFR) &
 			(~(MTK_UART_EFR_HW_FC | MTK_UART_EFR_SW_FC_MASK))));
-
-		serial_out(up, UART_XON1, START_CHAR(port->state->port.tty));
-		serial_out(up, UART_XOFF1, STOP_CHAR(port->state->port.tty));
+		serial_out(up, MTK_UART_XON1,  START_CHAR(port->state->port.tty));
+		serial_out(up, MTK_UART_XOFF1, STOP_CHAR(port->state->port.tty));
+		serial_out(up, MTK_UART_XON2,  START_CHAR(port->state->port.tty));
+		serial_out(up, MTK_UART_XOFF2, STOP_CHAR(port->state->port.tty));
 		serial_out(up, MTK_UART_FEATURE_SEL, 0);
 		mtk8250_disable_intrs(up, MTK_UART_IER_CTSI|MTK_UART_IER_RTSI);
 		mtk8250_enable_intrs(up, MTK_UART_IER_XOFFI);
