@@ -33,7 +33,9 @@ endif
 ifneq ($(wildcard $(srctree)/$(src)/mt6985/Makefile),)
 obj-$(CONFIG_SND_SOC_MT6985) += mt6985/
 endif
-
+ifneq ($(wildcard $(srctree)/$(src)/mt6886/Makefile),)
+obj-$(CONFIG_SND_SOC_MT6886) += mt6886/
+endif
 # vow related code
 obj-$(CONFIG_MTK_VOW_SUPPORT) += vow/
 
