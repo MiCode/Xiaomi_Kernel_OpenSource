@@ -107,16 +107,16 @@ static const struct mtk_gate_regs mminfra_config_1_hwv_regs = {
 	}
 
 static struct mtk_gate mminfra_config_clks[] = {
-	GATE_MMINFRA_CONFIG_0(CLK_MMINFRA_CONFIG_GCE_D /* CLK ID */,
+	GATE_HWV_MMINFRA_CONFIG_0(CLK_MMINFRA_CONFIG_GCE_D /* CLK ID */,
 		"mminfra_config_gce_d" /* name */,
 		"fmminfra_ck" /* parent */, 0 /* bit */),
-	GATE_MMINFRA_CONFIG_0(CLK_MMINFRA_CONFIG_GCE_M /* CLK ID */,
+	GATE_HWV_MMINFRA_CONFIG_0(CLK_MMINFRA_CONFIG_GCE_M /* CLK ID */,
 		"mminfra_config_gce_m" /* name */,
 		"fmminfra_ck" /* parent */, 1 /* bit */),
 	GATE_MMINFRA_CONFIG_0_DUMMY(CLK_MMINFRA_CONFIG_SMI /* CLK ID */,
 		"mminfra_config__smi" /* name */,
 		"fmminfra_ck" /* parent */, 2 /* bit */),
-	GATE_MMINFRA_CONFIG_1(CLK_MMINFRA_CONFIG_GCE_26M /* CLK ID */,
+	GATE_HWV_MMINFRA_CONFIG_1(CLK_MMINFRA_CONFIG_GCE_26M /* CLK ID */,
 		"mminfra_config_gce_26m" /* name */,
 		"fmminfra_ck" /* parent */, 17 /* bit */),
 };
