@@ -5027,6 +5027,8 @@ static const struct drm_ioctl_desc mtk_ioctls[] = {
 			  DRM_UNLOCKED),
 	DRM_IOCTL_DEF_DRV(MTK_SET_PQ_CAPS, mtk_drm_ioctl_set_pq_caps,
 			  DRM_UNLOCKED),
+	DRM_IOCTL_DEF_DRV(MTK_AAL_SET_TRIGGER_STATE, mtk_drm_ioctl_aal_set_trigger_state,
+			  DRM_UNLOCKED),
 };
 
 static const struct file_operations mtk_drm_fops = {

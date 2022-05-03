@@ -173,6 +173,8 @@ struct mtk_aal_feature_option {
 static struct mtk_disp_aal *g_aal_data;
 static struct mtk_disp_aal *g_aal1_data;
 static struct mtk_aal_feature_option *g_aal_fo;
+static bool gDre30Enabled;
+static unsigned int g_aal_dre30_en;
 
 static inline struct mtk_disp_aal *comp_to_aal(struct mtk_ddp_comp *comp)
 {
@@ -425,15 +427,14 @@ void disp_aal_refresh_by_kernel(void)
 		spin_lock_irqsave(&g_aal_irq_en_lock, flags);
 		atomic_set(&g_aal_force_enable_irq, 1);
 
-		if (spin_trylock_irqsave(&g_aal_clock_lock, clockflags)) {
-			if (atomic_read(&g_aal_data->is_clock_on) != 1)
-				AALFLOW_LOG("aal clock is off\n");
-			else if (isDualPQ && atomic_read(&g_aal1_data->is_clock_on) != 1)
-				AALFLOW_LOG("aal1 clock is off\n");
-			else
-				disp_aal_set_interrupt(NULL, true);
-			spin_unlock_irqrestore(&g_aal_clock_lock, clockflags);
-		}
+		spin_lock_irqsave(&g_aal_clock_lock, clockflags);
+		if (atomic_read(&g_aal_data->is_clock_on) != 1)
+			AALFLOW_LOG("aal clock is off\n");
+		else if (isDualPQ && atomic_read(&g_aal1_data->is_clock_on) != 1)
+			AALFLOW_LOG("aal1 clock is off\n");
+		else
+			disp_aal_set_interrupt(NULL, true);
+		spin_unlock_irqrestore(&g_aal_clock_lock, clockflags);
 
 		spin_unlock_irqrestore(&g_aal_irq_en_lock, flags);
 		/* Backlight or Kernel API latency should be smallest */
@@ -445,6 +446,11 @@ void disp_aal_notify_backlight_changed(int trans_backlight, int max_backlight)
 {
 	unsigned long flags;
 	unsigned int service_flags;
+
+	if (default_comp == NULL || default_comp->mtk_crtc == NULL) {
+		AALERR("%s null pointer!\n", __func__);
+		return;
+	}
 
 	AALAPI_LOG("%d/%d\n", trans_backlight, max_backlight);
 	disp_aal_notify_backlight_log(trans_backlight);
@@ -549,8 +555,20 @@ int mtk_drm_ioctl_aal_eventctl(struct drm_device *dev, void *data,
 	int ret = 0;
 	unsigned long flags;
 	int *enabled = (int *)data;
+	int retry = 5;
 
 	AALFLOW_LOG("%d\n", *enabled);
+
+	if (*enabled) {
+		mtk_drm_idlemgr_kick(__func__,
+				&default_comp->mtk_crtc->base, 1);
+		mtk_crtc_check_trigger(comp->mtk_crtc, true, true);
+
+		while ((atomic_read(&aal_data->is_clock_on) != 1) && (retry != 0)) {
+			usleep_range(500, 1000);
+			retry--;
+		}
+	}
 
 	spin_lock_irqsave(&g_aal_irq_en_lock, flags);
 	if (atomic_read(&g_aal_force_enable_irq) == 1) {
@@ -578,11 +596,12 @@ int mtk_drm_ioctl_aal_eventctl(struct drm_device *dev, void *data,
  *		}
  *	}
  */
-	if (*enabled) {
-		mtk_drm_idlemgr_kick(__func__,
-			&default_comp->mtk_crtc->base, 1);
-		mtk_crtc_check_trigger(comp->mtk_crtc, true, true);
-	}
+/*	if (*enabled) {
+ *		mtk_drm_idlemgr_kick(__func__,
+ *			&default_comp->mtk_crtc->base, 1);
+ *		mtk_crtc_check_trigger(comp->mtk_crtc, true, true);
+ *	}
+ */
 
 	return ret;
 }
@@ -605,7 +624,7 @@ void disp_aal_flip_sram(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 	u32 hist_apb = 0, hist_int = 0, sram_cfg = 0;
 	phys_addr_t dre3_pa = mtk_aal_dre3_pa(comp);
 
-	if (!g_aal_fo->mtk_dre30_support)
+	if (!g_aal_fo->mtk_dre30_support || !gDre30Enabled)
 		return;
 
 	if (aal_sram_method != AAL_SRAM_SOF)
@@ -865,7 +884,7 @@ static int disp_aal_copy_hist_to_user(struct DISP_AAL_HIST *hist)
 	/* We assume only one thread will call this function */
 	spin_lock_irqsave(&g_aal_hist_lock, flags);
 
-	if (g_aal_fo->mtk_dre30_support)
+	if (g_aal_fo->mtk_dre30_support && gDre30Enabled)
 		memcpy(&g_aal_dre30_hist_db, &g_aal_dre30_hist,
 			sizeof(g_aal_dre30_hist));
 
@@ -894,12 +913,12 @@ static int disp_aal_copy_hist_to_user(struct DISP_AAL_HIST *hist)
 
 	spin_unlock_irqrestore(&g_aal_hist_lock, flags);
 
-	if (g_aal_fo->mtk_dre30_support)
+	if (g_aal_fo->mtk_dre30_support && gDre30Enabled)
 		g_aal_hist_db.dre30_hist = g_aal_init_dre30.dre30_hist_addr;
 
 	memcpy(hist, &g_aal_hist_db, sizeof(g_aal_hist_db));
 
-	if (g_aal_fo->mtk_dre30_support)
+	if (g_aal_fo->mtk_dre30_support && gDre30Enabled)
 		ret = copy_to_user(AAL_U32_PTR(g_aal_init_dre30.dre30_hist_addr),
 			&g_aal_dre30_hist_db, sizeof(g_aal_dre30_hist_db));
 
@@ -1324,7 +1343,7 @@ static int disp_aal_write_param_to_reg(struct mtk_ddp_comp *comp,
 // controlled by DREGainFltStatus, not cabc_gainlmt, so need to
 // set DREGainFltStatus to hw whether DRE3.5 or 2.5
 	disp_aal_write_dre_to_reg(comp, handle, param);
-	if (g_aal_fo->mtk_dre30_support) {
+	if (g_aal_fo->mtk_dre30_support && gDre30Enabled) {
 		disp_aal_write_dre3_to_reg(comp, handle, param);
 		disp_aal_write_cabc_to_reg(comp, handle, param);
 	} else {
@@ -2564,7 +2583,7 @@ void disp_aal_on_end_of_frame(struct mtk_ddp_comp *comp)
 		return;
 	}
 
-	if (g_aal_fo->mtk_dre30_support)
+	if (g_aal_fo->mtk_dre30_support && gDre30Enabled)
 		disp_aal_dre3_irq_handle(comp);
 	else
 		disp_aal_single_pipe_hist_update(comp);
@@ -2655,7 +2674,7 @@ void disp_aal_on_start_of_frame(void)
 	if (!default_comp)
 		return;
 
-	if (!g_aal_fo->mtk_dre30_support) {
+	if (!g_aal_fo->mtk_dre30_support || !gDre30Enabled) {
 		if (isDualPQ) {
 			if (atomic_read(&g_aal0_dre20_hist_is_ready) &&
 				atomic_read(&g_aal1_dre20_hist_is_ready)) {
@@ -2698,13 +2717,14 @@ static int mtk_aal_sof_irq_trigger(void *data)
 static irqreturn_t mtk_disp_aal_irq_handler(int irq, void *dev_id)
 {
 	unsigned long flags;
-	unsigned int val;
+	unsigned int val = 0;
 	irqreturn_t ret = IRQ_NONE;
 	struct mtk_disp_aal *priv = dev_id;
 	struct mtk_ddp_comp *comp = &priv->ddp_comp;
 	struct mtk_disp_aal *aal_data = comp_to_aal(comp);
 
-	val = readl(comp->regs + DISP_AAL_INTSTA);
+	if (atomic_read(&aal_data->is_clock_on) == 1)
+		val = readl(comp->regs + DISP_AAL_INTSTA);
 
 	DRM_MMP_MARK(IRQ, irq, val);
 	if (comp->id == DDP_COMPONENT_AAL0)
@@ -2712,15 +2732,15 @@ static irqreturn_t mtk_disp_aal_irq_handler(int irq, void *dev_id)
 	else if (comp->id == DDP_COMPONENT_AAL1)
 		DRM_MMP_MARK(aal1, val, 0);
 
-	if (spin_trylock_irqsave(&g_aal_clock_lock, flags)) {
-		if (atomic_read(&aal_data->is_clock_on) != 1)
-			AALIRQ_LOG("clock is off\n");
-		else {
-			disp_aal_on_end_of_frame(comp);
-			ret = IRQ_HANDLED;
-		}
-		spin_unlock_irqrestore(&g_aal_clock_lock, flags);
+	spin_lock_irqsave(&g_aal_clock_lock, flags);
+	if (atomic_read(&aal_data->is_clock_on) != 1)
+		AALIRQ_LOG("clock is off\n");
+	else {
+		disp_aal_on_end_of_frame(comp);
+		ret = IRQ_HANDLED;
 	}
+	spin_unlock_irqrestore(&g_aal_clock_lock, flags);
+
 	if (comp->id == DDP_COMPONENT_AAL0)
 		DRM_MMP_MARK(aal0, val, 1);
 	else if (comp->id == DDP_COMPONENT_AAL1)
@@ -2779,6 +2799,14 @@ static int mtk_disp_aal_probe(struct platform_device *pdev)
 			AALERR("comp_id: %d, mtk_dre30_support = %d\n",
 				comp_id, g_aal_fo->mtk_dre30_support);
 			g_aal_fo->mtk_dre30_support = 0;
+		} else {
+			if (g_aal_fo->mtk_dre30_support) {
+				if (of_property_read_u32(dev->of_node, "aal_dre3_en",
+					&g_aal_dre30_en)) {
+					gDre30Enabled = true;
+				} else
+					gDre30Enabled = (g_aal_dre30_en == 1) ? true : false;
+			}
 		}
 	}
 
@@ -3205,4 +3233,49 @@ void disp_aal_set_bypass(struct drm_crtc *crtc, int bypass)
 	ret = mtk_crtc_user_cmd(crtc, default_comp, BYPASS_AAL, &bypass);
 
 	DDPINFO("%s : ret = %d", __func__, ret);
+}
+
+int mtk_drm_ioctl_aal_set_trigger_state(struct drm_device *dev, void *data,
+	struct drm_file *file_priv)
+{
+	unsigned long flags;
+	unsigned int dre3EnState;
+
+	struct DISP_AAL_TRIG_STATE *trigger_state = (struct DISP_AAL_TRIG_STATE *)data;
+
+	dre3EnState = trigger_state->dre3_en_state;
+
+	AALFLOW_LOG("dre3EnState: 0x%x, trigger_state: %d, ali: %d, aliThres: %d\n",
+			dre3EnState,
+			trigger_state->dre_frm_trigger,
+			trigger_state->curAli, trigger_state->aliThreshold);
+
+	if (dre3EnState & 0x2) {
+		AALFLOW_LOG("dre change to open!\n");
+
+		spin_lock_irqsave(&g_aal_hist_lock, flags);
+		if ((g_aal_fo->mtk_dre30_support) && (!gDre30Enabled))
+			gDre30Enabled = true;
+		spin_unlock_irqrestore(&g_aal_hist_lock, flags);
+
+		trigger_state->dre3_krn_flag = gDre30Enabled ? 1 : 0;
+
+		return 0;
+	}
+
+	if (dre3EnState & 0x1) {
+		spin_lock_irqsave(&g_aal_hist_lock, flags);
+		if (trigger_state->dre_frm_trigger == 0) {
+			if ((g_aal_fo->mtk_dre30_support) && gDre30Enabled) {
+				gDre30Enabled = false;
+
+				AALFLOW_LOG("dre change to close!\n");
+			}
+		}
+
+		trigger_state->dre3_krn_flag = gDre30Enabled ? 1 : 0;
+		spin_unlock_irqrestore(&g_aal_hist_lock, flags);
+	}
+
+	return 0;
 }
