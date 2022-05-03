@@ -830,7 +830,7 @@ void fs_alg_setup_frame_monitor_fmeas_data(unsigned int idx)
 static inline void fs_alg_dump_streaming_data(unsigned int idx)
 {
 	LOG_MUST(
-		"[%u] ID:%#x(sidx:%u), tg:%u, fl_delay:%u, fl_lc(def/max):%u/%u, def_shut_lc:%u, hdr_exp: c(%u/%u/%u/%u/%u, %u/%u), prev(%u/%u/%u/%u/%u, %u/%u), cnt:(mode/ae)\n",
+		"[%u] ID:%#x(sidx:%u), tg:%u, fl_delay:%u, fl_lc(def/max):%u/%u, def_shut_lc:%u, lineTime:%u(linelength:%u/pclk:%u), hdr_exp: c(%u/%u/%u/%u/%u, %u/%u), prev(%u/%u/%u/%u/%u, %u/%u), cnt:(mode/ae)\n",
 		idx,
 		fs_inst[idx].sensor_id,
 		fs_inst[idx].sensor_idx,
@@ -839,6 +839,9 @@ static inline void fs_alg_dump_streaming_data(unsigned int idx)
 		fs_inst[idx].def_min_fl_lc,
 		fs_inst[idx].max_fl_lc,
 		fs_inst[idx].def_shutter_lc,
+		fs_inst[idx].lineTimeInNs,
+		fs_inst[idx].linelength,
+		fs_inst[idx].pclk,
 		fs_inst[idx].hdr_exp.exp_lc[0],
 		fs_inst[idx].hdr_exp.exp_lc[1],
 		fs_inst[idx].hdr_exp.exp_lc[2],
@@ -1045,8 +1048,17 @@ static inline void fs_alg_sa_dump_dynamic_para(unsigned int idx)
 // fs algo operation functions (set information data)
 /******************************************************************************/
 #ifdef SUPPORT_FS_NEW_METHOD
+static inline void fs_alg_sa_sync_settings_for_dynamic_paras(
+	const unsigned int idx, struct FrameSyncDynamicPara *p_para)
+{
+	p_para->f_tag = fs_inst[idx].frame_tag;
+	p_para->f_cell = fs_inst[idx].frame_cell_size;
+}
+
+
 static inline void fs_alg_sa_init_new_ctrl(
-	unsigned int idx, int m_idx, struct FrameSyncDynamicPara *p_para)
+	const unsigned int idx, const int m_idx,
+	struct FrameSyncDynamicPara *p_para)
 {
 	/* generate new ctrl serial number */
 	p_para->magic_num = ++fs_sa_inst.magic_num[idx];
@@ -1054,81 +1066,226 @@ static inline void fs_alg_sa_init_new_ctrl(
 	p_para->master_idx = m_idx;
 
 	/* sync current settings */
-	p_para->f_tag = fs_inst[idx].frame_tag;
-	p_para->f_cell = fs_inst[idx].frame_cell_size;
+	fs_alg_sa_sync_settings_for_dynamic_paras(idx, p_para);
+}
+
+
+static inline void fs_alg_reset_fs_sa_inst(const unsigned int idx)
+{
+	struct FrameSyncDynamicPara clear_st = {0};
+
+	fs_sa_inst.magic_num[idx] = 0;
+
+	fs_sa_inst.dynamic_paras[idx] = clear_st;
+
+
+#if !defined(REDUCE_FS_ALGO_LOG)
+	LOG_INF("clear idx:%u data. (all to zero)\n", idx);
+#endif // REDUCE_FS_ALGO_LOG
+}
+
+
+static unsigned int fs_alg_sa_calc_f_tag_diff(
+	const unsigned int idx, const unsigned int f_tag)
+{
+	unsigned int f_cell = 0, fdelay = 0;
+	unsigned int fl = 0;
+
+
+	f_cell = get_valid_frame_cell_size(idx);
+	fdelay = fs_inst[idx].fl_active_delay;
+	fl = fs_inst[idx].output_fl_us;
+
+
+	return (f_cell > 1)
+		? (fl * ((f_cell - (fdelay-1) + (f_cell - f_tag)) % (f_cell)))
+		: 0;
 }
 
 
 /*
- * return:
- *     0: check passed / non-0: non-valid data is detected
- *     1: last timestamp is zero
- *     2: sensor frame_time_delay_frame value is non-valid
+ * special API return equivelent prdicted frame length
+ * according to fdelay, target (current/next), f_cell size.
+ *
+ * be careful:
+ *     for sensor that N+1 FL activate,
+ *     this API only calculate to current predicted frame length.
+ *
+ * input:
+ *     pred_fl_us: predicted frame length
+ *     stable_fl_us: if not change register setting, FL is this value for all frame
+ *     fdelay: frame length activate delay
+ *     target: current/next predicted => 0/1
+ *     f_cell: for algorithm, treat f_cell frame as one frame to give predicted FL
+ *
+ * output:
+ *     u_int: according to input return corresponding predicted frame length
  */
-static unsigned int fs_alg_sa_dynamic_paras_checker(
-	unsigned int s_idx, unsigned int m_idx,
-	struct FrameSyncDynamicPara *p_para_s,
-	struct FrameSyncDynamicPara *p_para_m)
+static unsigned int fs_alg_sa_calc_target_pred_fl_us(
+	unsigned int pred_fl_us[], const unsigned int stable_fl_us,
+	const unsigned int fdelay, const unsigned int target,
+	unsigned int f_cell)
 {
-	unsigned int ret = 0;
-	unsigned int query_ts_idx[2] = {s_idx, m_idx};
-	unsigned int fdelay_s = fs_inst[s_idx].fl_active_delay;
-	unsigned int fdelay_m = fs_inst[m_idx].fl_active_delay;
+	unsigned int i = 0, cnt = 0, val = 0;
+	unsigned int pred_fl = 0;
 
 
-	/* check if last timestamp equal to zero */
-	if (check_fs_inst_vsync_data_valid(query_ts_idx, 2) == 0
-		|| p_para_m->last_ts == 0
-		|| p_para_s->last_ts == 0) {
-
+	/* fdelay must only be 2 or 3 */
+	if (!((fdelay == 2) || (fdelay == 3))) {
 		LOG_MUST(
-			"NOTICE: [%u] ID:%#x(sidx:%u), #%u/#%u(m_idx:%u), latest timestamp is/are ZERO (s:%u/m:%u), fs_inst(s(%u/%u/%u/%u), m(%u/%u/%u/%u)), p_para_ts(s:%u/m:%u)\n",
-			s_idx,
-			fs_inst[s_idx].sensor_id,
-			fs_inst[s_idx].sensor_idx,
-			p_para_s->magic_num,
-			p_para_m->magic_num,
-			m_idx,
-			fs_inst[s_idx].last_vts,
-			fs_inst[m_idx].last_vts,
-			fs_inst[s_idx].timestamps[0],
-			fs_inst[s_idx].timestamps[1],
-			fs_inst[s_idx].timestamps[2],
-			fs_inst[s_idx].timestamps[3],
-			fs_inst[m_idx].timestamps[0],
-			fs_inst[m_idx].timestamps[1],
-			fs_inst[m_idx].timestamps[2],
-			fs_inst[m_idx].timestamps[3],
-			p_para_s->last_ts,
-			p_para_m->last_ts
+			"get non valid frame_time_delay_frame:%u value\n",
+			fdelay
+		);
+	}
+
+	/* N+1 FL activate, only calculate to current predicted frame length */
+	if ((fdelay == 2) && (target == 1))
+		return 0;
+
+	/* for the logic of this function, min f_cell is 1, */
+	/* through at normal Frame-Sync case f_cell is 0 */
+	if (f_cell < 1)
+		f_cell = 1;
+
+
+	i = (target * f_cell);
+	cnt = (target * f_cell) + f_cell;
+
+	if ((target == 0) || (target == 1)) {
+		/* calculate curr/next predicted frame length */
+		for (; i < cnt; ++i) {
+			val = (i < 2) ? pred_fl_us[i] : stable_fl_us;
+
+			pred_fl += val;
+		}
+
+	} else {
+		LOG_INF(
+			"ERROR: request to calculate invalid target:%u (0:curr/1:next/unknown)\n",
+			target
 		);
 
-		ret = 1;
+		return 0;
 	}
 
 
-	/* check sensor fl_active_delay value */
-	/* in this time predicted frame length are equal to zero */
-	if ((fdelay_s < 2 || fdelay_s > 3) || (fdelay_m < 2 || fdelay_m > 3)) {
-		LOG_MUST(
-			"ERROR: [%u] ID:%#x(sidx:%u), frame_time_delay_frame is/are not valid (must be 2 or 3), s:%u/m:%u\n",
-			s_idx,
-			fs_inst[s_idx].sensor_id,
-			fs_inst[s_idx].sensor_idx,
-			fs_inst[s_idx].fl_active_delay,
-			fs_inst[m_idx].fl_active_delay
-		);
-
-		ret = 2;
-	}
-
-
-	return ret;
+	return pred_fl;
 }
 
 
-static inline unsigned int fs_alg_sa_get_timestamp_info(
-	unsigned int idx, struct FrameSyncDynamicPara *p_para)
+static unsigned int fs_alg_sa_get_flk_diff_and_fl(const unsigned int idx,
+	unsigned int *fl_us, const unsigned int sync_flk_en)
+{
+	unsigned int flk_diff = 0, fl_us_old = 0;
+
+	fl_us_old = *fl_us;
+
+	if (fs_inst[idx].flicker_en || sync_flk_en) {
+		*fl_us = get_anti_flicker_fl(fl_us_old);
+		flk_diff = *fl_us - fl_us_old;
+	}
+
+
+#if !defined(REDUCE_FS_ALGO_LOG)
+	LOG_INF(
+		"[%u] ID:%#x(sidx:%u), +flk:%u, fl_us:%u   [flk_en:%u/sync_flk_en:%u]\n",
+		idx,
+		fs_inst[idx].sensor_id,
+		fs_inst[idx].sensor_idx,
+		flk_diff,
+		*fl_us,
+		fs_inst[idx].flicker_en,
+		sync_flk_en
+	);
+#endif // REDUCE_FS_ALGO_LOG
+
+
+	return flk_diff;
+}
+
+
+static void fs_alg_sa_update_pred_fl_and_ts_bias(const unsigned int idx,
+	struct FrameSyncDynamicPara *p_para)
+{
+	unsigned int ts_bias_lc = 0;
+
+	/* calculate and get predicted frame length */
+	calc_predicted_frame_length(idx);
+	p_para->pred_fl_us[0] =
+		fs_inst[idx].predicted_fl_us[0];
+	p_para->pred_fl_us[1] =
+		fs_inst[idx].predicted_fl_us[1];
+
+	/* calculate and get timestamp bias */
+	ts_bias_lc = calc_vts_sync_bias(idx);
+	p_para->ts_bias_us =
+		convert2TotalTime(fs_inst[idx].lineTimeInNs, ts_bias_lc);
+
+
+#if defined(FS_UT)
+	/* update frame monitor current predicted framelength data */
+	frm_update_next_vts_bias_us(idx, p_para->ts_bias_us);
+#endif // FS_UT
+
+
+	/* for N:1 FrameSync case, calculate and get tag bias */
+	p_para->tag_bias_us = fs_alg_sa_calc_f_tag_diff(
+		idx, fs_inst[idx].frame_tag);
+
+
+#if !defined(REDUCE_FS_ALGO_LOG)
+	LOG_INF(
+		"[%u] ID:%#x(sidx:%u), #%u, pred_fl(c:%u(%u), n:%u(%u))(%u), bias(exp:%u/tag:%u), fdelay:%u\n",
+		idx,
+		fs_inst[idx].sensor_id,
+		fs_inst[idx].sensor_idx,
+		p_para->magic_num,
+		p_para->pred_fl_us[0],
+		fs_inst[idx].predicted_fl_lc[0],
+		p_para->pred_fl_us[1],
+		fs_inst[idx].predicted_fl_lc[1],
+		fs_inst[idx].lineTimeInNs,
+		p_para->ts_bias_us,
+		p_para->tag_bias_us,
+		fs_inst[idx].fl_active_delay);
+#endif // REDUCE_FS_ALGO_LOG
+}
+
+
+static void fs_alg_sa_prepare_dynamic_para(const unsigned int idx,
+	struct FrameSyncDynamicPara *p_para)
+{
+	unsigned int i = 0;
+
+	/* update predicted frame length and ts_bias */
+	fs_alg_sa_update_pred_fl_and_ts_bias(idx, p_para);
+
+	/* calculate predicted total delta (without timestamp diff) */
+	p_para->delta = (p_para->ts_bias_us + p_para->tag_bias_us);
+	for (i = 0; i < 2; ++i) {
+		p_para->delta +=
+			fs_alg_sa_calc_target_pred_fl_us(
+				p_para->pred_fl_us, p_para->stable_fl_us,
+				fs_inst[idx].fl_active_delay, i, 1);
+	}
+}
+
+
+static void fs_alg_sa_update_fl_us(const unsigned int idx,
+	const unsigned int us, struct FrameSyncDynamicPara *p_para)
+{
+	set_fl_us(idx, us);
+
+	p_para->stable_fl_us = us;
+
+	/* for correctly showing info */
+	/* update fl also update all related variable */
+	fs_alg_sa_prepare_dynamic_para(idx, p_para);
+}
+
+
+static unsigned int fs_alg_sa_get_timestamp_info(const unsigned int idx,
+	struct FrameSyncDynamicPara *p_para)
 {
 #if !defined(QUERY_CCU_TS_AT_SOF)
 	unsigned int query_ts_idx[1] = {0};
@@ -1160,6 +1317,121 @@ static inline unsigned int fs_alg_sa_get_timestamp_info(
 }
 
 
+static void fs_alg_sa_pre_set_dynamic_paras(const unsigned int idx,
+	struct FrameSyncDynamicPara *p_para)
+{
+	unsigned int fl_us = convert2TotalTime(
+		fs_inst[idx].lineTimeInNs,
+		*fs_inst[idx].recs[0].framelength_lc);
+
+	/* sync current settings */
+	fs_alg_sa_sync_settings_for_dynamic_paras(idx, p_para);
+
+	fs_alg_sa_update_fl_us(idx, fl_us, p_para);
+	fs_alg_sa_get_timestamp_info(idx, p_para);
+
+	LOG_MUST(
+		"NOTICE: #%u, out_fl:%u(%u), frec(0:%u/%u), %u, pr_fl(c:%u(%u)/n:%u(%u)), ts_bias(exp:%u/tag:%u(%u/%u)), delta:%u(fdelay:%u), tg:%u, ts(%u/%u/%u)\n",
+		p_para->magic_num,
+		p_para->stable_fl_us,
+		convert2LineCount(
+			fs_inst[idx].lineTimeInNs,
+			p_para->stable_fl_us),
+		*fs_inst[idx].recs[0].framelength_lc,
+		*fs_inst[idx].recs[0].shutter_lc,
+		fs_inst[idx].lineTimeInNs,
+		p_para->pred_fl_us[0],
+		convert2LineCount(
+			fs_inst[idx].lineTimeInNs,
+			p_para->pred_fl_us[0]),
+		p_para->pred_fl_us[1],
+		convert2LineCount(
+			fs_inst[idx].lineTimeInNs,
+			p_para->pred_fl_us[1]),
+		p_para->ts_bias_us,
+		p_para->tag_bias_us,
+		p_para->f_tag,
+		p_para->f_cell,
+		p_para->delta,
+		fs_inst[idx].fl_active_delay,
+		fs_inst[idx].tg,
+		p_para->last_ts,
+		p_para->cur_tick,
+		p_para->vsyncs);
+}
+
+
+/*
+ * return:
+ *     0: check passed / non-0: non-valid data is detected
+ *     bit 1: last timestamp is zero
+ *     bit 2: sensor frame_time_delay_frame value is non-valid
+ */
+static unsigned int fs_alg_sa_dynamic_paras_checker(
+	const unsigned int s_idx, const unsigned int m_idx,
+	struct FrameSyncDynamicPara *p_para_s,
+	struct FrameSyncDynamicPara *p_para_m)
+{
+	unsigned int ret = 0;
+	unsigned int query_ts_idx[2] = {s_idx, m_idx};
+	unsigned int fdelay_s = fs_inst[s_idx].fl_active_delay;
+	unsigned int fdelay_m = fs_inst[m_idx].fl_active_delay;
+
+
+	/* check if last timestamp equal to zero */
+	if (check_fs_inst_vsync_data_valid(query_ts_idx, 2) == 0) {
+		LOG_MUST(
+			"NOTICE: [%u] ID:%#x(sidx:%u), #%u/#%u(m_idx:%u), set shutter before first vsync, latest timestamp is/are ZERO (s:%u/m:%u), fs_inst(s(%u/%u/%u/%u), m(%u/%u/%u/%u)), p_para_ts(s:%u/m:%u)\n",
+			s_idx,
+			fs_inst[s_idx].sensor_id,
+			fs_inst[s_idx].sensor_idx,
+			p_para_s->magic_num,
+			p_para_m->magic_num,
+			m_idx,
+			fs_inst[s_idx].last_vts,
+			fs_inst[m_idx].last_vts,
+			fs_inst[s_idx].timestamps[0],
+			fs_inst[s_idx].timestamps[1],
+			fs_inst[s_idx].timestamps[2],
+			fs_inst[s_idx].timestamps[3],
+			fs_inst[m_idx].timestamps[0],
+			fs_inst[m_idx].timestamps[1],
+			fs_inst[m_idx].timestamps[2],
+			fs_inst[m_idx].timestamps[3],
+			p_para_s->last_ts,
+			p_para_m->last_ts
+		);
+
+		ret |= 1U << 1;
+	}
+
+
+	/* check sensor fl_active_delay value */
+	/* in this time predicted frame length are equal to zero */
+	if ((fdelay_s < 2 || fdelay_s > 3) || (fdelay_m < 2 || fdelay_m > 3)) {
+		LOG_MUST(
+			"ERROR: [%u] ID:%#x(sidx:%u), frame_time_delay_frame is/are not valid (must be 2 or 3), s:%u/m:%u\n",
+			s_idx,
+			fs_inst[s_idx].sensor_id,
+			fs_inst[s_idx].sensor_idx,
+			fs_inst[s_idx].fl_active_delay,
+			fs_inst[m_idx].fl_active_delay
+		);
+
+		ret |= 1U << 2;
+	}
+
+
+	/* for first req ctrl, slave get ctrl faster than master, */
+	/* so gen a pre set dynamic para data for slave adjust diff */
+	if (!ret && (p_para_m->last_ts == 0 && fs_inst[m_idx].last_vts != 0))
+		fs_alg_sa_pre_set_dynamic_paras(m_idx, p_para_m);
+
+
+	return ret;
+}
+
+
 /*
  * input:
  *     p_para_m: a pointer to dynamic para structure of master sensor
@@ -1174,9 +1446,9 @@ static inline unsigned int fs_alg_sa_get_timestamp_info(
  *     Tick is uint_32_t, so for correct calculation
  *         all data type should also uint32_t.
  */
-static inline void fs_alg_sa_calc_m_s_ts_diff(
-	struct FrameSyncDynamicPara *p_para_m,
-	struct FrameSyncDynamicPara *p_para_s,
+static void fs_alg_sa_calc_m_s_ts_diff(
+	const struct FrameSyncDynamicPara *p_para_m,
+	const struct FrameSyncDynamicPara *p_para_s,
 	long long *p_ts_diff_m, long long *p_ts_diff_s)
 {
 	unsigned int cur_tick = 0;
@@ -1228,177 +1500,9 @@ static inline void fs_alg_sa_calc_m_s_ts_diff(
 }
 
 
-/*
- * special API return equivelent prdicted frame length
- * according to fdelay, target (current/next), f_cell size.
- *
- * be careful:
- *     for sensor that N+1 FL activate,
- *     this API only calculate to current predicted frame length.
- *
- * input:
- *     pred_fl_us: predicted frame length
- *     stable_fl_us: if not change register setting, FL is this value for all frame
- *     fdelay: frame length activate delay
- *     target: current/next predicted => 0/1
- *     f_cell: for algorithm, treat f_cell frame as one frame to give predicted FL
- *
- * output:
- *     u_int: according to input return corresponding predicted frame length
- */
-static inline unsigned int fs_alg_sa_calc_target_pred_fl_us(
-	unsigned int pred_fl_us[], unsigned int stable_fl_us,
-	unsigned int fdelay, unsigned int target, unsigned int f_cell)
-{
-	unsigned int i = 0, cnt = 0, val = 0;
-	unsigned int pred_fl = 0;
-
-
-	/* fdelay must only be 2 or 3 */
-	if (!((fdelay == 2) || (fdelay == 3))) {
-		LOG_INF(
-			"Invalid frame_time_delay_frame:%u value\n",
-			fdelay
-		);
-	}
-
-	/* N+1 FL activate, only calculate to current predicted frame length */
-	if ((fdelay == 2) && (target == 1))
-		return 0;
-
-	/* for the logic of this function, min f_cell is 1, */
-	/* through at normal Frame-Sync case f_cell is 0 */
-	if (f_cell < 1)
-		f_cell = 1;
-
-
-	i = (target * f_cell);
-	cnt = (target * f_cell) + f_cell;
-
-	if ((target == 0) || (target == 1)) {
-		/* calculate curr/next predicted frame length */
-		for (; i < cnt; ++i) {
-			val = (i < 2) ? pred_fl_us[i] : stable_fl_us;
-
-			pred_fl += val;
-		}
-
-	} else {
-		LOG_INF(
-			"ERROR: request to calculate invalid target:%u (0:curr/1:next/unknown)\n",
-			target
-		);
-
-		return 0;
-	}
-
-
-	return pred_fl;
-}
-
-
-static inline unsigned int fs_alg_sa_calc_f_tag_diff(
-	unsigned int idx, unsigned int f_tag)
-{
-	unsigned int f_cell = 0, fdelay = 0;
-	unsigned int fl = 0;
-
-
-	f_cell = get_valid_frame_cell_size(idx);
-	fdelay = fs_inst[idx].fl_active_delay;
-	fl = fs_inst[idx].output_fl_us;
-
-
-	return (f_cell > 1)
-		? (fl * ((f_cell - (fdelay-1) + (f_cell - f_tag)) % (f_cell)))
-		: 0;
-}
-
-
-static inline unsigned int fs_alg_sa_get_flk_diff_and_fl(
-	unsigned int idx, unsigned int *fl_us, unsigned int sync_flk_en)
-{
-	unsigned int flk_diff = 0, fl_us_old = 0;
-
-
-	fl_us_old = *fl_us;
-
-	if (fs_inst[idx].flicker_en || sync_flk_en) {
-		*fl_us = get_anti_flicker_fl(fl_us_old);
-		flk_diff = *fl_us - fl_us_old;
-	}
-
-
-#if !defined(REDUCE_FS_ALGO_LOG)
-	LOG_INF(
-		"[%u] ID:%#x(sidx:%u), +flk:%u, fl_us:%u   [flk_en:%u/sync_flk_en:%u]\n",
-		idx,
-		fs_inst[idx].sensor_id,
-		fs_inst[idx].sensor_idx,
-		flk_diff,
-		*fl_us,
-		fs_inst[idx].flicker_en,
-		sync_flk_en
-	);
-#endif // REDUCE_FS_ALGO_LOG
-
-
-	return flk_diff;
-}
-
-
-static inline void fs_alg_sa_update_pred_fl_and_ts_bias(
-	unsigned int idx, struct FrameSyncDynamicPara *p_para)
-{
-	unsigned int ts_bias_lc = 0;
-
-
-	/* calculate and get predicted frame length */
-	calc_predicted_frame_length(idx);
-	p_para->pred_fl_us[0] =
-		fs_inst[idx].predicted_fl_us[0];
-	p_para->pred_fl_us[1] =
-		fs_inst[idx].predicted_fl_us[1];
-
-	/* calculate and get timestamp bias */
-	ts_bias_lc = calc_vts_sync_bias(idx);
-	p_para->ts_bias_us =
-		convert2TotalTime(fs_inst[idx].lineTimeInNs, ts_bias_lc);
-
-
-#if defined(FS_UT)
-	/* update frame monitor current predicted framelength data */
-	frm_update_next_vts_bias_us(idx, p_para->ts_bias_us);
-#endif // FS_UT
-
-
-	/* for N:1 FrameSync case, calculate and get tag bias */
-	p_para->tag_bias_us = fs_alg_sa_calc_f_tag_diff(
-		idx, fs_inst[idx].frame_tag);
-
-
-#if !defined(REDUCE_FS_ALGO_LOG)
-	LOG_INF(
-		"[%u] ID:%#x(sidx:%u), #%u, pred_fl(c:%u(%u), n:%u(%u))(%u), bias(exp:%u/tag:%u), fdelay:%u\n",
-		idx,
-		fs_inst[idx].sensor_id,
-		fs_inst[idx].sensor_idx,
-		p_para->magic_num,
-		p_para->pred_fl_us[0],
-		fs_inst[idx].predicted_fl_lc[0],
-		p_para->pred_fl_us[1],
-		fs_inst[idx].predicted_fl_lc[1],
-		fs_inst[idx].lineTimeInNs,
-		p_para->ts_bias_us,
-		p_para->tag_bias_us,
-		fs_inst[idx].fl_active_delay);
-#endif // REDUCE_FS_ALGO_LOG
-}
-
-
 static inline long long fs_alg_sa_calc_adjust_diff_master(
-	unsigned int m_idx, long long adjust_diff_s,
-	struct FrameSyncDynamicPara *p_para_m)
+	const unsigned int m_idx, const long long adjust_diff_s,
+	const struct FrameSyncDynamicPara *p_para_m)
 {
 	unsigned int f_cell_m = 1;
 
@@ -1411,10 +1515,10 @@ static inline long long fs_alg_sa_calc_adjust_diff_master(
 
 
 static long long fs_alg_sa_calc_adjust_diff_slave(
-	unsigned int m_idx, unsigned int s_idx,
-	long long ts_diff_m, long long ts_diff_s,
-	struct FrameSyncDynamicPara *p_para_m,
-	struct FrameSyncDynamicPara *p_para_s)
+	const unsigned int m_idx, const unsigned int s_idx,
+	const long long ts_diff_m, const long long ts_diff_s,
+	const struct FrameSyncDynamicPara *p_para_m,
+	const struct FrameSyncDynamicPara *p_para_s)
 {
 	unsigned int f_cell_m = get_valid_frame_cell_size(m_idx);
 	unsigned int f_cell_s = get_valid_frame_cell_size(s_idx);
@@ -1487,9 +1591,8 @@ static long long fs_alg_sa_calc_adjust_diff_slave(
 
 
 static inline unsigned int fs_alg_sa_calc_sync_delay(
-	unsigned int idx,
-	long long adjust_diff,
-	struct FrameSyncDynamicPara *p_para)
+	const unsigned int idx, const long long adjust_diff,
+	const struct FrameSyncDynamicPara *p_para)
 {
 	unsigned int f_cell = get_valid_frame_cell_size(idx);
 
@@ -1502,8 +1605,8 @@ static inline unsigned int fs_alg_sa_calc_sync_delay(
 
 
 static unsigned int fs_alg_sa_adjust_slave_diff_resolver(
-	unsigned int m_idx, unsigned int s_idx,
-	struct FrameSyncDynamicPara *p_para_m,
+	const unsigned int m_idx, const unsigned int s_idx,
+	const struct FrameSyncDynamicPara *p_para_m,
 	struct FrameSyncDynamicPara *p_para_s)
 {
 	long long adjust_diff_m = 0, adjust_diff_s = 0;
@@ -1633,7 +1736,7 @@ static unsigned int fs_alg_sa_adjust_slave_diff_resolver(
 
 
 static inline void fs_alg_sa_get_dynamic_para(
-	unsigned int idx, struct FrameSyncDynamicPara *p_para)
+	const unsigned int idx, struct FrameSyncDynamicPara *p_para)
 {
 	FS_MUTEX_LOCK(&fs_algo_sa_proc_mutex_lock);
 
@@ -1644,7 +1747,7 @@ static inline void fs_alg_sa_get_dynamic_para(
 
 
 static inline void fs_alg_sa_update_dynamic_para(
-	unsigned int idx, struct FrameSyncDynamicPara *p_para)
+	const unsigned int idx, struct FrameSyncDynamicPara *p_para)
 {
 	FS_MUTEX_LOCK(&fs_algo_sa_proc_mutex_lock);
 
@@ -1679,59 +1782,6 @@ static void fs_alg_sa_query_all_min_fl_us(
 
 	FS_MUTEX_UNLOCK(&fs_algo_sa_proc_mutex_lock);
 }
-
-
-static inline void fs_alg_sa_prepare_dynamic_para(
-	unsigned int idx, struct FrameSyncDynamicPara *p_para)
-{
-	unsigned int i = 0;
-
-
-	/* update predicted frame length and ts_bias */
-	fs_alg_sa_update_pred_fl_and_ts_bias(idx, p_para);
-
-
-	/* calculate predicted total delta (without timestamp diff) */
-	p_para->delta = p_para->ts_bias_us + p_para->tag_bias_us;
-
-	for (i = 0; i < 2; ++i) {
-		p_para->delta +=
-			fs_alg_sa_calc_target_pred_fl_us(
-				p_para->pred_fl_us, p_para->stable_fl_us,
-				fs_inst[idx].fl_active_delay, i, 1);
-	}
-}
-
-
-static inline void fs_alg_sa_update_fl_us(
-	unsigned int idx, unsigned int us,
-	struct FrameSyncDynamicPara *p_para)
-{
-	set_fl_us(idx, us);
-
-	p_para->stable_fl_us = us;
-
-	/* for correctly showing info */
-	/* update fl also update all related variable */
-	fs_alg_sa_prepare_dynamic_para(idx, p_para);
-}
-
-
-static inline void fs_alg_reset_fs_sa_inst(unsigned int idx)
-{
-	struct FrameSyncDynamicPara clear_st = {0};
-
-	fs_sa_inst.magic_num[idx] = 0;
-
-	fs_sa_inst.dynamic_paras[idx] = clear_st;
-
-
-#if !defined(REDUCE_FS_ALGO_LOG)
-	LOG_INF("clear idx:%u data. (all to zero)\n", idx);
-#endif // REDUCE_FS_ALGO_LOG
-}
-
-
 #endif // SUPPORT_FS_NEW_METHOD
 
 
@@ -2273,7 +2323,7 @@ void fs_alg_set_sync_with_diff(unsigned int idx, unsigned int diff_us)
 {
 	fs_inst[idx].custom_bias_us = diff_us;
 
-	LOG_INF(
+	LOG_MUST(
 		"NOTICE: [%u] ID:%#x(sidx:%u), set sync with diff:%u (us)\n",
 		idx,
 		fs_inst[idx].sensor_id,
@@ -2293,12 +2343,16 @@ void fs_alg_set_streaming_st_data(
 	fs_inst[idx].max_fl_lc = pData->max_fl_lc;
 	fs_inst[idx].def_shutter_lc = pData->def_shutter_lc;
 
+	fs_inst[idx].pclk = pData->pclk;
+	fs_inst[idx].linelength = pData->linelength;
+	fs_inst[idx].lineTimeInNs = pData->lineTimeInNs;
+
 
 	if (fs_inst[idx].fl_active_delay < 2
 		|| fs_inst[idx].fl_active_delay > 3) {
 
-		LOG_INF(
-			"ERROR: [%u] ID:%#x(sidx:%u), get non valid frame_time_delay_frame:%u (must be 2 or 3)\n",
+		LOG_MUST(
+			"ERROR: [%u] ID:%#x(sidx:%u), get non valid frame_time_delay_frame:%u (must be 2 or 3), plz check sensor driver for getting correct value\n",
 			idx,
 			fs_inst[idx].sensor_id,
 			fs_inst[idx].sensor_idx,
@@ -2340,7 +2394,8 @@ void fs_alg_set_perframe_st_data(
 
 
 	if (fs_inst[idx].margin_lc == 0) {
-		LOG_INF("WARNING: [%u] ID:%#x(sidx:%u), margin_lc:%u\n",
+		LOG_MUST(
+			"WARNING: [%u] ID:%#x(sidx:%u), get non valid margin_lc:%u, plz check sensor driver for getting correct value\n",
 			idx,
 			fs_inst[idx].sensor_id,
 			fs_inst[idx].sensor_idx,
@@ -2450,15 +2505,8 @@ void fs_alg_set_frame_record_st_data(
 
 void fs_alg_sa_notify_setup_all_frame_info(unsigned int idx)
 {
-	unsigned int m_idx = FS_ATOMIC_READ(&fs_sa_inst.master_idx);
-
-
 	// fs_alg_sa_dump_dynamic_para(idx);
 	fs_alg_setup_frame_monitor_fmeas_data(idx);
-
-
-	if (idx != m_idx)
-		frm_timestamp_checker(fs_inst[m_idx].tg, fs_inst[idx].tg);
 }
 
 
@@ -3321,12 +3369,6 @@ unsigned int fs_alg_solve_frame_length_sa(
 
 	/* X. update dynamic para for sharing to other sensor */
 	fs_alg_sa_update_dynamic_para(idx, &para);
-
-
-#if !defined(TWO_STAGE_FS)
-	if (idx != m_idx)
-		frm_timestamp_checker(fs_inst[m_idx].tg, fs_inst[idx].tg);
-#endif // TWO_STAGE_FS
 
 
 	return 0;

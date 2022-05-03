@@ -98,9 +98,6 @@ void frm_get_curr_frame_mesurement_and_ts_data(
 	unsigned int *p_act_fl_us, unsigned int *p_ts_arr);
 
 
-int frm_timestamp_checker(unsigned int m_tg, unsigned int s_tg);
-
-
 #ifdef FS_UT
 /*******************************************************************************
  * !!! please only use bellow function on software debug or ut_test !!!
@@ -114,6 +111,10 @@ void frm_update_next_vts_bias_us(unsigned int idx, unsigned int vts_bias);
 
 void frm_set_sensor_curr_fl_us(unsigned int idx, unsigned int fl_us);
 
+void frm_update_predicted_fl_us(
+	unsigned int idx,
+	unsigned int curr_fl_us, unsigned int next_fl_us);
+
 unsigned int frm_get_predicted_curr_fl_us(unsigned int idx);
 
 void frm_get_predicted_fl_us(
@@ -121,6 +122,8 @@ void frm_get_predicted_fl_us(
 	unsigned int fl_us[], unsigned int *sensor_curr_fl_us);
 
 void frm_get_next_vts_bias_us(unsigned int idx, unsigned int *vts_bias);
+
+void frm_debug_copy_frame_info_vsync_rec_data(struct vsync_rec *p_vsync_res);
 
 void frm_debug_set_last_vsync_data(struct vsync_rec *v_rec);
 #endif // FS_UT

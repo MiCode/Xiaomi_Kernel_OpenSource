@@ -315,6 +315,13 @@ void notify_fsync_mgr_streaming(struct adaptor_ctx *ctx, unsigned int flag)
 	s_info.def_shutter_lc = ctx->subctx.shutter;
 
 
+	/* sensor mode info */
+	s_info.pclk = ctx->subctx.pclk;
+	s_info.linelength = ctx->subctx.line_length;
+	s_info.lineTimeInNs =
+		CALC_LINE_TIME_IN_NS(s_info.pclk, s_info.linelength);
+
+
 	/* callback data */
 	s_info.func_ptr = cb_fsync_mgr_set_framelength;
 	s_info.p_ctx = ctx;
@@ -331,13 +338,16 @@ void notify_fsync_mgr_streaming(struct adaptor_ctx *ctx, unsigned int flag)
 
 #if !defined(REDUCE_FSYNC_CTRLS_LOG)
 	dev_info(ctx->dev,
-		"%s: sidx:%d, tg:%u, fl_delay:%u(must be 3 or 2), fl(def/max):%u/%u, def_exp:%u, hw_sync_mode:%u(N:0/M:1/S:2)\n",
+		"%s: sidx:%d, tg:%u, fl_delay:%u(must be 3 or 2), fl(def/max):%u/%u, def_exp:%u, lineTime:%u(pclk:%u/linelength:%u), hw_sync_mode:%u(N:0/M:1/S:2)\n",
 		__func__, ctx->idx,
 		s_info.tg,
 		s_info.fl_active_delay,
 		s_info.def_fl_lc,
 		s_info.max_fl_lc,
 		s_info.def_shutter_lc,
+		s_info.lineTimeInNs,
+		s_info.pclk,
+		s_info.linelength,
 		s_info.sync_mode);
 #endif
 }

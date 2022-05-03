@@ -137,6 +137,11 @@ struct fs_streaming_st {
 
 	struct fs_hdr_exp_st hdr_exp;    // hdr exposure settings
 
+	/* sensor mode info */
+	unsigned int pclk;
+	unsigned int linelength;
+	unsigned int lineTimeInNs;
+
 	/* callback function */
 	callback_set_framelength func_ptr;
 	void *p_ctx;

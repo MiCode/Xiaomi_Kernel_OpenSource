@@ -26,6 +26,9 @@ struct fs_streaming_st imx586 = {
 	.def_fl_lc = 3068,
 	.max_fl_lc = 0xffff,
 	.def_shutter_lc = 0x3D0,
+	.pclk = 752000000,
+	.linelength = 7872,
+	.lineTimeInNs = 10469,
 };
 
 
@@ -37,6 +40,9 @@ struct fs_streaming_st s5k3m5sx = {
 	.def_fl_lc = 3314,
 	.max_fl_lc = 0xffff,
 	.def_shutter_lc = 0x3D0,
+	.pclk = 482000000,
+	.linelength = 4848,
+	.lineTimeInNs = 10059,
 };
 
 
@@ -48,6 +54,9 @@ struct fs_streaming_st imx481 = {
 	.def_fl_lc = 3776,
 	.max_fl_lc = 0xffff,
 	.def_shutter_lc = 0x3D0,
+	.pclk = 580000000,
+	.linelength = 5120,
+	.lineTimeInNs = 8828,
 };
 
 
@@ -59,6 +68,9 @@ struct fs_streaming_st imx766 = {
 	.def_fl_lc = 4844,
 	.max_fl_lc = 0xffff,
 	.def_shutter_lc = 0x3D0,
+	.pclk = 1281600000,
+	.linelength = 8816,
+	.lineTimeInNs = 6879,
 };
 
 

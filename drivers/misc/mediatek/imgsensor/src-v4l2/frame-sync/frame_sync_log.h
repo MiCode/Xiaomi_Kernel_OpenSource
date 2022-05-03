@@ -33,7 +33,7 @@ extern unsigned int pf_log_tracer;
 
 #define DY_INFO(tracer, format, args...) \
 do { \
-	if (tracer) { \
+	if (unlikely(tracer)) { \
 		pr_info(PFX "[%s] " format, __func__, ##args); \
 	} \
 } while (0)
