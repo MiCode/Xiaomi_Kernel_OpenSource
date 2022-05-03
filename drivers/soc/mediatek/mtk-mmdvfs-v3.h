@@ -74,8 +74,19 @@ enum {
 	FUNC_GET_OPP, /* user, user, user */
 	FUNC_SET_OPP, /* user, opp */
 	FUNC_FORCE_OPP, /* power, opp */
-	FUNC_CAM_ON, /* on */
+	FUNC_CAMERA_ON, /* on */
+	FUNC_LOG,
 	FUNC_NUM
+};
+
+enum {
+	LOG_DEBUG_ON,
+	LOG_IPI_IN,
+	LOG_IPI_OUT,
+	LOG_CLOCK,
+	LOG_POWER,
+	LOG_HOPPING,
+	LOG_NUM
 };
 
 struct mmdvfs_ipi_data {

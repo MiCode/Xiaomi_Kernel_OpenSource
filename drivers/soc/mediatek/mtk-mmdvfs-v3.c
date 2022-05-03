@@ -206,7 +206,7 @@ int mmdvfs_camera_notify(const bool enable)
 	struct mmdvfs_ipi_data slot;
 	int ret;
 
-	ret = mmdvfs_vcp_ipi_send(FUNC_CAM_ON, enable, MAX_OPP, MAX_OPP);
+	ret = mmdvfs_vcp_ipi_send(FUNC_CAMERA_ON, enable, MAX_OPP, MAX_OPP);
 
 	slot = *(struct mmdvfs_ipi_data *)(u32 *)&ret;
 	MMDVFS_DBG("ipi:%d slot:%#x ena:%hhu", ret, slot, slot.ack);
@@ -312,6 +312,47 @@ static struct kernel_param_ops mmdvfs_dump_setting_ops = {
 };
 module_param_cb(dump_setting, &mmdvfs_dump_setting_ops, NULL, 0444);
 MODULE_PARM_DESC(dump_setting, "dump mmdvfs current setting");
+
+int mmdvfs_get_vcp_log(char *buf, const struct kernel_param *kp)
+{
+	struct mmdvfs_ipi_data slot;
+	int len = 0, ret;
+
+	ret = mmdvfs_vcp_ipi_send(FUNC_LOG, LOG_NUM, MAX_OPP, MAX_OPP);
+
+	slot = *(struct mmdvfs_ipi_data *)(u32 *)&ret;
+	len += snprintf(
+		buf + len, PAGE_SIZE - len, "mmdvfs vcp log:%#x", slot.ack);
+
+	return len;
+}
+
+int mmdvfs_set_vcp_log(const char *val, const struct kernel_param *kp)
+{
+	struct mmdvfs_ipi_data slot;
+	u16 log = 0;
+	int ret;
+
+	ret = kstrtou16(val, 0, &log);
+	if (ret || log >= LOG_NUM) {
+		MMDVFS_ERR("failed:%d log:%hu", ret, log);
+		return ret;
+	}
+
+	ret = mmdvfs_vcp_ipi_send(FUNC_LOG, log, MAX_OPP, MAX_OPP);
+
+	slot = *(struct mmdvfs_ipi_data *)(u32 *)&ret;
+	MMDVFS_DBG("ipi:%d slot:%#x log:%hu log:%#x", ret, slot, log, slot.ack);
+
+	return 0;
+}
+
+static struct kernel_param_ops mmdvfs_set_vcp_log_ops = {
+	.get = mmdvfs_get_vcp_log,
+	.set = mmdvfs_set_vcp_log,
+};
+module_param_cb(vcp_log, &mmdvfs_set_vcp_log_ops, NULL, 0644);
+MODULE_PARM_DESC(vcp_log, "mmdvfs vcp log");
 
 static const struct of_device_id of_match_mmdvfs_v3[] = {
 	{
