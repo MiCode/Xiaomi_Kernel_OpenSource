@@ -21,6 +21,8 @@
 
 #include <dt-bindings/power/mt6983-power.h>
 
+#define MT_HWV_DISABLE	0
+
 /* Define MTCMOS Bus Protect Mask */
 #define ADSP_INFRA_PROT_STEP1_0_MASK     ((0x1 << 18) | (0x1 << 19) | \
 					(0x1 << 22) | (0x1 << 26) | (0x1 << 27) | (0x1 << 28) | \
@@ -276,6 +278,7 @@ static const struct scp_domain_data scp_domain_data_mt6983[] = {
 		},
 		.caps = MTK_SCPD_IS_PWR_CON_ON | MTK_SCPD_BYPASS_INIT_ON,
 	},
+#if MT_HWV_DISABLE
 	[MT6983_POWER_DOMAIN_MM_INFRA] = {
 		.name = "mm_infra",
 		.sta_mask = GENMASK(31, 30),
@@ -308,6 +311,20 @@ static const struct scp_domain_data scp_domain_data_mt6983[] = {
 		},
 		.caps = MTK_SCPD_IS_PWR_CON_ON | MTK_SCPD_BYPASS_INIT_ON,
 	},
+#else
+	[MT6983_POWER_DOMAIN_MM_INFRA] = {
+		.name = "mm_infra",
+		.hwv_set_ofs = 0x198,
+		.hwv_clr_ofs = 0x19C,
+		.hwv_done_ofs = 0x141C,
+		.hwv_en_ofs = 0x1410,
+		.hwv_set_sta_ofs = 0x146C,
+		.hwv_clr_sta_ofs = 0x1470,
+		.hwv_shift = 4,
+		.basic_clk_name = {"mm_infra_0"},
+		.caps = MTK_SCPD_BYPASS_INIT_ON | MTK_SCPD_HWV_OPS,
+	},
+#endif
 	[MT6983_POWER_DOMAIN_MFG0_DORMANT] = {
 		.name = "mfg0_dormant",
 		.sta_mask = GENMASK(31, 30),
