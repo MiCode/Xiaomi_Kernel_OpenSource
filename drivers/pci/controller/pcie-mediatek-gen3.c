@@ -403,7 +403,19 @@ static int mtk_pcie_startup_port(struct mtk_pcie_port *port)
 static int mtk_pcie_set_affinity(struct irq_data *data,
 				 const struct cpumask *mask, bool force)
 {
-	return -EINVAL;
+	struct mtk_pcie_port *port = data->domain->host_data;
+	struct irq_data *port_data = irq_get_irq_data(port->irq);
+	struct irq_chip *port_chip = irq_data_get_irq_chip(port_data);
+	int ret;
+
+	if (!port_chip || !port_chip->irq_set_affinity)
+		return -EINVAL;
+
+	ret = port_chip->irq_set_affinity(port_data, mask, force);
+
+	irq_data_update_effective_affinity(data, mask);
+
+	return ret;
 }
 
 static void mtk_pcie_msi_irq_mask(struct irq_data *data)
