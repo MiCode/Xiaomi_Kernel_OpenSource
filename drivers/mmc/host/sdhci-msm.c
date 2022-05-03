@@ -3,7 +3,7 @@
  * drivers/mmc/host/sdhci-msm.c - Qualcomm SDHCI Platform driver
  *
  * Copyright (c) 2013-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -4787,8 +4787,6 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 	}
 
 	sdhci_msm_set_caps(msm_host);
-
-	msm_host->pltfm_init_done = true;
 
 	sdhci_msm_setup_pm(pdev, msm_host);
 
