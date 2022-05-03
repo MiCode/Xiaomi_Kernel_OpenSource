@@ -102,6 +102,28 @@ struct mt6363_regulator_info {
 	.op_en_reg = MT6363_BUCK_##_name##_OP_EN_0,		\
 }
 
+#define MT6363_SSHUB(_name, min, max, step, volt_ranges,	\
+		     _enable_reg, _vsel_reg, _vsel_mask)	\
+[MT6363_ID_##_name] = {						\
+	.desc = {						\
+		.name = #_name,					\
+		.of_match = of_match_ptr(#_name),		\
+		.of_parse_cb = mt6363_of_parse_cb,		\
+		.regulators_node = "regulators",		\
+		.ops = &mt6363_sshub_ops,			\
+		.type = REGULATOR_VOLTAGE,			\
+		.id = MT6363_ID_##_name,			\
+		.owner = THIS_MODULE,				\
+		.n_voltages = ((max) - (min)) / (step) + 1,	\
+		.linear_ranges = volt_ranges,			\
+		.n_linear_ranges = ARRAY_SIZE(volt_ranges),	\
+		.enable_reg = _enable_reg,			\
+		.enable_mask = BIT(0),				\
+		.vsel_reg = _vsel_reg,				\
+		.vsel_mask = _vsel_mask,			\
+	},							\
+}
+
 #define MT6363_LDO_LINEAR1(_name, min, max, step, volt_ranges,	\
 			   _enable_reg, en_bit, _vsel_reg,	\
 			   _vsel_mask, _lp_mode_reg, lp_bit)	\
@@ -517,6 +539,18 @@ static const struct regulator_ops mt6363_buck_ops = {
 	.set_load = mt6363_regulator_set_load,
 };
 
+/* for sshub */
+static const struct regulator_ops mt6363_sshub_ops = {
+	.list_voltage = regulator_list_voltage_linear_range,
+	.map_voltage = regulator_map_voltage_linear_range,
+	.set_voltage_sel = regulator_set_voltage_sel_regmap,
+	.get_voltage_sel = regulator_get_voltage_sel_regmap,
+	.set_voltage_time_sel = regulator_set_voltage_time_sel,
+	.enable = regulator_enable_regmap,
+	.disable = regulator_disable_regmap,
+	.is_enabled = regulator_is_enabled_regmap,
+};
+
 static const struct regulator_ops mt6363_volt_range_ops = {
 	.list_voltage = regulator_list_voltage_linear_range,
 	.map_voltage = regulator_map_voltage_linear_range,
@@ -735,6 +769,18 @@ static struct mt6363_regulator_info mt6363_regulators[] = {
 		    MT6363_RG_BUCK_VS3_LP_SHIFT,
 		    MT6363_RG_VS3_FCCM_ADDR,
 		    MT6363_RG_VS3_FCCM_SHIFT),
+	MT6363_SSHUB(VBUCK1_SSHUB, 0, 1193750, 6250, mt_volt_range1,
+		     MT6363_RG_BUCK_VBUCK1_SSHUB_EN_ADDR,
+		     MT6363_RG_BUCK_VBUCK1_SSHUB_VOSEL_ADDR,
+		     MT6363_RG_BUCK_VBUCK1_SSHUB_VOSEL_MASK),
+	MT6363_SSHUB(VBUCK2_SSHUB, 0, 1193750, 6250, mt_volt_range1,
+		     MT6363_RG_BUCK_VBUCK2_SSHUB_EN_ADDR,
+		     MT6363_RG_BUCK_VBUCK2_SSHUB_VOSEL_ADDR,
+		     MT6363_RG_BUCK_VBUCK2_SSHUB_VOSEL_MASK),
+	MT6363_SSHUB(VBUCK4_SSHUB, 0, 1193750, 6250, mt_volt_range1,
+		     MT6363_RG_BUCK_VBUCK4_SSHUB_EN_ADDR,
+		     MT6363_RG_BUCK_VBUCK4_SSHUB_VOSEL_ADDR,
+		     MT6363_RG_BUCK_VBUCK4_SSHUB_VOSEL_MASK),
 	MT6363_LDO_LINEAR1(VSRAM_DIGRF, 400000, 1193750, 6250, mt_volt_range3,
 			   MT6363_RG_LDO_VSRAM_DIGRF_EN_ADDR,
 			   MT6363_RG_LDO_VSRAM_DIGRF_EN_SHIFT,
