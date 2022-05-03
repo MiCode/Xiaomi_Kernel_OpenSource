@@ -291,8 +291,8 @@ struct mdw_cmd {
 	struct list_head u_item;
 	struct list_head map_invokes; // mdw_cmd_map_invoke
 
-	struct timespec64 start_ts;
-	struct timespec64 end_ts;
+	uint64_t start_ts;
+	uint64_t end_ts;
 
 	struct mdw_fpriv *mpriv;
 	int (*complete)(struct mdw_cmd *c, int ret);

@@ -151,7 +151,7 @@ static struct mdw_rv_cmd *mdw_rv_cmd_create(struct mdw_fpriv *mpriv,
 	c->rvid = (uint64_t)&rc->s_msg;
 	init_completion(&rc->s_msg.cmplt);
 	/* set start timestamp */
-	rc->start_ts_ns = c->start_ts.tv_sec * 1000000000 + c->start_ts.tv_nsec;
+	rc->start_ts_ns = c->start_ts;
 
 	/* calc size and offset */
 	rc->c = c;

@@ -6,6 +6,7 @@
 #include <linux/uaccess.h>
 #include <linux/slab.h>
 #include <linux/sync_file.h>
+#include <linux/sched/clock.h>
 
 #include "mdw_trace.h"
 #include "mdw_cmn.h"
@@ -535,7 +536,7 @@ static int mdw_cmd_run(struct mdw_fpriv *mpriv, struct mdw_cmd *c)
 	mdw_cmd_show(c, mdw_cmd_debug);
 	mutex_lock(&c->mtx);
 
-	ktime_get_ts64(&c->start_ts);
+	c->start_ts = sched_clock();
 	ret = mdev->dev_funcs->run_cmd(mpriv, c);
 	if (ret) {
 		mdw_drv_err("s(0x%llx) run cmd(0x%llx) fail(%d)\n",
@@ -608,11 +609,8 @@ static int mdw_cmd_complete(struct mdw_cmd *c, int ret)
 {
 	mutex_lock(&c->mtx);
 
-	ktime_get_ts64(&c->end_ts);
-	c->einfos->c.total_us =
-		(c->end_ts.tv_sec - c->start_ts.tv_sec) * 1000000;
-	c->einfos->c.total_us +=
-		((c->end_ts.tv_nsec - c->start_ts.tv_nsec) / 1000);
+	c->end_ts = sched_clock();
+	c->einfos->c.total_us = (c->end_ts - c->start_ts) / 1000;
 	mdw_flw_debug("s(0x%llx) c(0x%llx/0x%llx/0x%llx) ret(%d) sc_rets(0x%llx) complete, pid(%d/%d)(%d)\n",
 		(uint64_t)c->mpriv, c->uid, c->kid, c->rvid,
 		ret, c->einfos->c.sc_rets,
