@@ -428,6 +428,17 @@ static void imgsys_traw_dump_drzh2n(struct mtk_imgsys_dev *a_pDev,
 	/* rzh1n2t_t1 tile protocal */
 	DbgCmd = 0x0008C201;
 	ExeDbgCmd(a_pDev, a_pRegBA, a_DdbSel, a_DbgOut, DbgCmd);
+
+	/* drzf2n_t1 g data */
+	DbgCmd = 0x00024D01;
+	ExeDbgCmd(a_pDev, a_pRegBA, a_DdbSel, a_DbgOut, DbgCmd);
+	/* drzf2n_t1 r data */
+	DbgCmd = 0x00034D01;
+	ExeDbgCmd(a_pDev, a_pRegBA, a_DdbSel, a_DbgOut, DbgCmd);
+	/* drzf2n_t1 b data */
+	DbgCmd = 0x00044D01;
+	ExeDbgCmd(a_pDev, a_pRegBA, a_DdbSel, a_DbgOut, DbgCmd);
+
 }
 
 static void imgsys_traw_dump_smto(struct mtk_imgsys_dev *a_pDev,
