@@ -568,11 +568,6 @@ int vcu_dec_start(struct vdec_vcu_inst *vcu,
 	return err;
 }
 
-int vcu_dec_end(struct vdec_vcu_inst *vcu)
-{
-	return vcodec_send_ap_ipi(vcu, AP_IPIMSG_DEC_END);
-}
-
 int vcu_dec_deinit(struct vdec_vcu_inst *vcu)
 {
 	int err = 0;

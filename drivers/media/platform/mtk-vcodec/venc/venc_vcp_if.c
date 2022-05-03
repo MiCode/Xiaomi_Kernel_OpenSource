@@ -48,7 +48,7 @@ static void handle_enc_init_msg(struct venc_vcu_inst *vcu, void *data)
 		return;
 
 	mtk_vcodec_debug(vcu, "+ venc_inst = 0x%lx, vcu_inst_addr = 0x%x, id = %d",
-		(uintptr_t)msg->venc_inst, msg->vcu_inst_addr, msg->msg_id);
+		(uintptr_t)msg->ap_inst_addr, msg->vcu_inst_addr, msg->msg_id);
 
 	vcu->inst_addr = msg->vcu_inst_addr;
 	vcu->vsi = (void *)((__u64)vcp_get_reserve_mem_virt(VENC_MEM_ID) + inst_offset);
@@ -189,7 +189,7 @@ static int venc_vcp_ipi_send(struct venc_inst *inst, void *msg, int len, bool is
 
 static void handle_venc_mem_alloc(struct venc_vcu_ipi_mem_op *msg)
 {
-	struct venc_vcu_inst *vcu = (struct venc_vcu_inst *)msg->venc_inst;
+	struct venc_vcu_inst *vcu = (struct venc_vcu_inst *)msg->ap_inst_addr;
 	struct venc_inst *inst = NULL;
 	struct device *dev = NULL;
 	struct vcp_enc_mem_list *tmp = NULL;
@@ -248,7 +248,7 @@ static void handle_venc_mem_alloc(struct venc_vcu_ipi_mem_op *msg)
 
 static void handle_venc_mem_free(struct venc_vcu_ipi_mem_op *msg)
 {
-	struct venc_vcu_inst *vcu = (struct venc_vcu_inst *)msg->venc_inst;
+	struct venc_vcu_inst *vcu = (struct venc_vcu_inst *)msg->ap_inst_addr;
 	struct venc_inst *inst = NULL;
 	struct device *dev = NULL;
 	struct vcp_enc_mem_list *tmp = NULL;
@@ -421,7 +421,7 @@ int vcp_enc_ipi_handler(void *arg)
 		msg = (struct venc_vcu_ipi_msg_common *)obj->share_buf;
 
 		if (msg == NULL ||
-		   (struct venc_vcu_inst *)(unsigned long)msg->venc_inst == NULL) {
+		   (struct venc_vcu_inst *)(unsigned long)msg->ap_inst_addr == NULL) {
 			mtk_v4l2_err(" msg invalid %lx\n", msg);
 			kfree(mq_node);
 			continue;
@@ -432,9 +432,9 @@ int vcp_enc_ipi_handler(void *arg)
 			shem_msg = (struct venc_vcu_ipi_mem_op *)obj->share_buf;
 			if (shem_msg->mem.type == MEM_TYPE_FOR_SHM) {
 				handle_venc_mem_alloc((void *)shem_msg);
-				shem_msg->reserved[0] = (__u32)VCP_PACK_IOVA(
+				shem_msg->vcp_addr[0] = (__u32)VCP_PACK_IOVA(
 					vcp_get_reserve_mem_phys(VENC_SET_PROP_MEM_ID));
-				shem_msg->reserved[1] = (__u32)VCP_PACK_IOVA(
+				shem_msg->vcp_addr[1] = (__u32)VCP_PACK_IOVA(
 					vcp_get_reserve_mem_phys(VENC_VCP_LOG_INFO_ID));
 				shem_msg->msg_id = AP_IPIMSG_ENC_MEM_ALLOC_DONE;
 				ret = mtk_ipi_send(&vcp_ipidev, IPI_OUT_VENC_0, IPI_SEND_WAIT, obj,
@@ -446,7 +446,7 @@ int vcp_enc_ipi_handler(void *arg)
 			}
 		}
 
-		vcu = (struct venc_vcu_inst *)(unsigned long)msg->venc_inst;
+		vcu = (struct venc_vcu_inst *)(unsigned long)msg->ap_inst_addr;
 
 		/* Check IPI inst is valid */
 		mutex_lock(&dev->ctx_mutex);
@@ -479,6 +479,7 @@ int vcp_enc_ipi_handler(void *arg)
 			msg->msg_id, atomic_read(&dev->mq.cnt), (unsigned long)vcu, msg->status);
 
 		ctx = vcu->ctx;
+		msg->ctx_id = ctx->id;
 		switch (msg->msg_id) {
 		case VCU_IPIMSG_ENC_INIT_DONE:
 			handle_enc_init_msg(vcu, (void *)obj->share_buf);
@@ -624,7 +625,8 @@ static int venc_vcp_backup(struct venc_inst *inst)
 
 	memset(&msg, 0, sizeof(msg));
 	msg.msg_id = AP_IPIMSG_ENC_BACKUP;
-	msg.venc_inst = inst->vcu_inst.inst_addr;
+	msg.ap_inst_addr = inst->vcu_inst.inst_addr;
+	msg.ctx_id = inst->ctx->id;
 
 	err = venc_vcp_ipi_send(inst, &msg, sizeof(msg), 0);
 	mtk_vcodec_debug(inst, "- ret=%d", err);
@@ -845,6 +847,7 @@ int vcp_enc_encode(struct venc_inst *inst, unsigned int bs_mode,
 	memset(&out, 0, sizeof(out));
 	out.msg_id = AP_IPIMSG_ENC_ENCODE;
 	out.vcu_inst_addr = inst->vcu_inst.inst_addr;
+	out.ctx_id = inst->ctx->id;
 	out.bs_mode = bs_mode;
 	if (frm_buf) {
 		out.fb_num_planes = frm_buf->num_planes;
@@ -1052,7 +1055,8 @@ static int venc_vcp_init(struct mtk_vcodec_ctx *ctx, unsigned long *handle)
 
 	memset(&out, 0, sizeof(out));
 	out.msg_id = AP_IPIMSG_ENC_INIT;
-	out.venc_inst = (unsigned long)&inst->vcu_inst;
+	out.ctx_id = inst->ctx->id;
+	out.ap_inst_addr = (unsigned long)&inst->vcu_inst;
 	(*handle) = (unsigned long)inst;
 	inst->vcu_inst.daemon_pid = get_vcp_generation();
 	ret = venc_vcp_ipi_send(inst, &out, sizeof(out), 0);
@@ -1208,6 +1212,7 @@ static int venc_vcp_get_param(unsigned long handle,
 		msg.id = type;
 		msg.ap_inst_addr = (uintptr_t)&inst->vcu_inst;
 		msg.ap_data_addr = (uintptr_t)out;
+		msg.ctx_id = inst->ctx->id;
 		inst->vcu_inst.daemon_pid = get_vcp_generation();
 		ret = venc_vcp_ipi_send(inst, &msg, sizeof(msg), 0);
 		break;
@@ -1293,6 +1298,7 @@ int vcp_enc_set_param(struct venc_inst *inst,
 	memset(&out, 0, sizeof(out));
 	out.msg_id = AP_IPIMSG_ENC_SET_PARAM;
 	out.vcu_inst_addr = inst->vcu_inst.inst_addr;
+	out.ctx_id = inst->ctx->id;
 	out.param_id = id;
 	switch (id) {
 	case VENC_SET_PARAM_ENC:
@@ -1583,6 +1589,7 @@ static int venc_vcp_deinit(unsigned long handle)
 	memset(&out, 0, sizeof(out));
 	out.msg_id = AP_IPIMSG_ENC_DEINIT;
 	out.vcu_inst_addr = inst->vcu_inst.inst_addr;
+	out.ctx_id = inst->ctx->id;
 
 	mtk_vcodec_debug_enter(inst);
 	ret = venc_vcp_ipi_send(inst, &out, sizeof(out), 0);

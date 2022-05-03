@@ -1810,7 +1810,7 @@ static int vidioc_venc_qbuf(struct file *file, void *priv,
 				}
 			}
 		}
-		dma_buf_vunmap(mtkbuf->frm_buf.metabuffer_dma, meta_va);
+		dma_buf_vunmap(mtkbuf->frm_buf.metabuffer_dma, &meta_map);
 		dma_buf_unmap_attachment(meta_buf_att, meta_sgt, DMA_TO_DEVICE);
 		dma_buf_detach(mtkbuf->frm_buf.metabuffer_dma, meta_buf_att);
 	}

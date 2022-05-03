@@ -63,16 +63,6 @@ int vcu_dec_start(struct vdec_vcu_inst *vcu,
 	struct mtk_vcodec_mem *bs, struct vdec_fb *fb);
 
 /**
- * vcu_dec_end - end decoding, basically the function will be invoked once
- *               when HW decoding done interrupt received successfully. The
- *               decoder in VCU will continute to do referene frame management
- *               and check if there is a new decoded frame available to display.
- *
- * @vcu : instance for vdec_vcu_inst
- */
-int vcu_dec_end(struct vdec_vcu_inst *vcu);
-
-/**
  * vcu_dec_deinit - deinit decoder instance and resource freed in VCU.
  *
  * @vcu: instance for vdec_vcu_inst

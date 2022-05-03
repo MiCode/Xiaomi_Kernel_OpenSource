@@ -50,7 +50,6 @@ enum vdec_ipi_msg_status {
 enum vdec_ipi_msg_id {
 	AP_IPIMSG_DEC_INIT = AP_IPIMSG_VDEC_SEND_BASE,
 	AP_IPIMSG_DEC_START,
-	AP_IPIMSG_DEC_END,
 	AP_IPIMSG_DEC_DEINIT,
 	AP_IPIMSG_DEC_RESET,
 	AP_IPIMSG_DEC_SET_PARAM,
@@ -60,11 +59,11 @@ enum vdec_ipi_msg_id {
 
 	VCU_IPIMSG_DEC_INIT_DONE = VCU_IPIMSG_VDEC_ACK_BASE,
 	VCU_IPIMSG_DEC_START_DONE,
-	VCU_IPIMSG_DEC_DONE,
 	VCU_IPIMSG_DEC_DEINIT_DONE,
 	VCU_IPIMSG_DEC_RESET_DONE,
 	VCU_IPIMSG_DEC_SET_PARAM_DONE,
 	VCU_IPIMSG_DEC_QUERY_CAP_DONE,
+	VCU_IPIMSG_DEC_DONE,
 	VCU_IPIMSG_DEC_BACKUP_DONE,
 
 	VCU_IPIMSG_DEC_PUT_FRAME_BUFFER = VCU_IPIMSG_VDEC_SEND_BASE,
@@ -170,6 +169,11 @@ enum vdec_set_param_type {
 	SET_PARAM_CROP_INFO,
 };
 
+#define VDEC_MSG_AP_SEND_PREFIX	\
+	__u32 msg_id;	\
+	__u32 ctx_id;	\
+	__u64 vcu_inst_addr
+
 #ifndef CONFIG_64BIT
 #define VDEC_MSG_PREFIX	\
 	__u32 msg_id;	\
@@ -195,9 +199,7 @@ enum vdec_set_param_type {
  * @vcu_inst_addr       : VCU decoder instance address
  */
 struct vdec_ap_ipi_cmd {
-	__u32 msg_id;
-	__u32 ctx_id;
-	__u64 vcu_inst_addr;
+	VDEC_MSG_AP_SEND_PREFIX;
 	__u32 drain_type;
 	__u32 reserved;
 };
@@ -234,8 +236,7 @@ struct vdec_vcu_ipi_mem_op {
  * @ap_inst_addr        : AP video decoder instance address
  */
 struct vdec_ap_ipi_init {
-	__u32 msg_id;
-	__u32 ctx_id;
+	VDEC_MSG_AP_SEND_PREFIX;
 #ifndef CONFIG_64BIT
 	union {
 		__u64 ap_inst_addr_64;
@@ -267,9 +268,7 @@ struct vdec_vcu_ipi_init_ack {
  * @ack msg use vdec_vcu_ipi_ack
  */
 struct vdec_ap_ipi_dec_start {
-	__u32 msg_id;
-	__u32 ctx_id;
-	__u64 vcu_inst_addr;
+	VDEC_MSG_AP_SEND_PREFIX;
 	__u32 data[6];
 };
 
@@ -281,9 +280,7 @@ struct vdec_ap_ipi_dec_start {
  * @data          : param data
  */
 struct vdec_ap_ipi_set_param {
-	__u32 msg_id;
-	__u32 ctx_id;
-	__u64 vcu_inst_addr;
+	VDEC_MSG_AP_SEND_PREFIX;
 	__u32 id;
 	__u32 reserved;
 	__u32 data[10];

@@ -122,6 +122,30 @@ enum venc_set_param_type {
 	VENC_SET_PARAM_TEMPORAL_LAYER_CNT
 };
 
+#define VENC_MSG_AP_SEND_PREFIX	\
+	__u32 msg_id;	\
+	__u32 ctx_id;	\
+	__u64 vcu_inst_addr
+
+#ifndef CONFIG_64BIT
+#define VENC_MSG_PREFIX	\
+	__u32 msg_id;	\
+	__u32 ctx_id;	\
+	union {	\
+		__u64 ap_inst_addr_64;		\
+		__u32 ap_inst_addr;	\
+	};	\
+	__s32 status;	\
+	__u32 reserved
+#else
+#define VENC_MSG_PREFIX	\
+	__u32 msg_id;	\
+	__u32 ctx_id;	\
+	__u64 ap_inst_addr;	\
+	__s32 status;	\
+	__u32 reserved
+#endif
+
 /**
  * struct venc_ap_ipi_msg_init - AP to VCU init cmd structure
  * @msg_id:     message id (AP_IPIMSG_XXX_ENC_INIT)
@@ -132,9 +156,15 @@ enum venc_set_param_type {
  *              (struct venc_vp8_inst/venc_h264_inst *)
  */
 struct venc_ap_ipi_msg_init {
-	__u32 msg_id;
-	__u32 reserved;
-	__u64 venc_inst;
+	VENC_MSG_AP_SEND_PREFIX;
+#ifndef CONFIG_64BIT
+	union {
+		__u64 ap_inst_addr_64;
+		__u32 ap_inst_addr;
+	};
+#else
+	__u64 ap_inst_addr;
+#endif
 };
 
 /**
@@ -144,21 +174,16 @@ struct venc_ap_ipi_msg_init {
  * @vdec_inst     : AP query data address
  */
 struct venc_ap_ipi_query_cap {
-	__u32 msg_id;
-	__u32 id;
+	VENC_MSG_PREFIX;
 #ifndef CONFIG_64BIT
-	union {
-		__u64 ap_inst_addr_64;
-		__u32 ap_inst_addr;
-	};
 	union {
 		__u64 ap_data_addr_64;
 		__u32 ap_data_addr;
 	};
 #else
-	__u64 ap_inst_addr;
 	__u64 ap_data_addr;
 #endif
+	__u32 id;
 };
 
 /**
@@ -169,25 +194,17 @@ struct venc_ap_ipi_query_cap {
  * @vcu_data_addr  : VCU query data address
  */
 struct venc_vcu_ipi_query_cap_ack {
-	__u32 msg_id;
-	__s32 status;
+	VENC_MSG_PREFIX;
 #ifndef CONFIG_64BIT
-	union {
-		__u64 ap_inst_addr_64;
-		__u32 ap_inst_addr;
-	};
-	__u32 id;
 	union {
 		__u64 ap_data_addr_64;
 		__u32 ap_data_addr;
 	};
 #else
-	__u64 ap_inst_addr;
 	__u64 ap_data_addr;
-	__u32 id;
-	__u32 reserved;
 #endif
 	__u64 vcu_data_addr;
+	__u32 id;
 };
 
 /**
@@ -200,12 +217,11 @@ struct venc_vcu_ipi_query_cap_ack {
  * @data[8]:    data array to store the set parameters
  */
 struct venc_ap_ipi_msg_set_param {
-	__u32 msg_id;
-	__u32 reserved;
-	__u64 vcu_inst_addr;
+	VENC_MSG_AP_SEND_PREFIX;
 	__u32 param_id;
 	__u32 data_item;
 	__u32 data[8];
+	__u32 reserved;
 };
 
 /**
@@ -222,9 +238,8 @@ struct venc_ap_ipi_msg_set_param {
  * @fb_num_planes:      image buffer plane number
  */
 struct venc_ap_ipi_msg_enc {
-	__u32 msg_id;
+	VENC_MSG_AP_SEND_PREFIX;
 	__u32 input_size[3];
-	__u64 vcu_inst_addr;
 	__u32 bs_size;
 	__u32 data_offset[3];
 	__u8 fb_num_planes;
@@ -240,9 +255,8 @@ struct venc_ap_ipi_msg_enc {
  *                      (struct venc_vp8_vsi/venc_h264_vsi *)
  */
 struct venc_ap_ipi_msg_deinit {
-	__u32 msg_id;
+	VENC_MSG_AP_SEND_PREFIX;
 	__u32 reserved;
-	__u64 vcu_inst_addr;
 };
 
 /**
@@ -260,11 +274,8 @@ enum venc_ipi_msg_status {
  * @venc_inst:  AP encoder instance (struct venc_vp8_inst/venc_h264_inst *)
  */
 struct venc_vcu_ipi_msg_common {
-	__u32 msg_id;
-	__s32 status;
-	__u64 venc_inst;
+	VENC_MSG_PREFIX;
 	__s32 codec_id;
-	__s32 reserved;
 };
 
 /**
@@ -274,9 +285,7 @@ struct venc_vcu_ipi_msg_common {
  * @venc_inst:  AP encoder instance (struct venc_vp8_inst/venc_h264_inst *)
  */
 struct venc_vcu_ipi_msg_trace {
-	__u32 msg_id;
-	__s32 status;
-	__u64 venc_inst;
+	VENC_MSG_PREFIX;
 	__u32 trace_id;
 	__u32 flag;
 };
@@ -293,9 +302,7 @@ struct venc_vcu_ipi_msg_trace {
  *              will be different between kernel and vcu
  */
 struct venc_vcu_ipi_msg_init {
-	__u32 msg_id;
-	__s32 status;
-	__u64 venc_inst;
+	VENC_MSG_PREFIX;
 	__u64 vcu_inst_addr;
 };
 
@@ -309,9 +316,7 @@ struct venc_vcu_ipi_msg_init {
  * @data[6]:    data array to store the return result
  */
 struct venc_vcu_ipi_msg_set_param {
-	__u32 msg_id;
-	__s32 status;
-	__u64 venc_inst;
+	VENC_MSG_PREFIX;
 	__u32 param_id;
 	__u32 data_item;
 	__u32 data[6];
@@ -344,13 +349,10 @@ enum venc_ipi_msg_enc_state {
  *              will be different between kernel and vcu
  */
 struct venc_vcu_ipi_msg_enc {
-	__u32 msg_id;
-	__s32 status;
-	__u64 venc_inst;
+	VENC_MSG_PREFIX;
 	__u32 state;
 	__u32 is_key_frm;
 	__u32 bs_size;
-	__u32 reserved;
 };
 
 /**
@@ -360,9 +362,7 @@ struct venc_vcu_ipi_msg_enc {
  * @venc_inst:  AP encoder instance (struct venc_vp8_inst/venc_h264_inst *)
  */
 struct venc_vcu_ipi_msg_deinit {
-	__u32 msg_id;
-	__s32 status;
-	__u64 venc_inst;
+	VENC_MSG_PREFIX;
 };
 
 /**
@@ -374,21 +374,16 @@ struct venc_vcu_ipi_msg_deinit {
  * @timeout: 1 indicate encode timeout, 0 indicate no error
  */
 struct venc_vcu_ipi_msg_waitisr {
-	__u32 msg_id;
-	__s32 status;
-	__u64 venc_inst;
+	VENC_MSG_PREFIX;
 	__u32 irq_status;
 	__u32 timeout;
 };
 
 struct venc_vcu_ipi_msg_get_bs {
-	__u32 msg_id;
-	__s32 status;
-	__u64 venc_inst;
+	VENC_MSG_PREFIX;
 	__u64 bs_addr;
 	__u32 bs_size;
 	__s16 bs_fd;
-	__s16 reserved;
 };
 
 /**
@@ -399,11 +394,9 @@ struct venc_vcu_ipi_msg_get_bs {
  * @struct vcodec_mem_obj: encoder memories
  */
 struct venc_vcu_ipi_mem_op {
-	__u32 msg_id;
-	__s32 status;
-	__u64 venc_inst;
+	VENC_MSG_PREFIX;
 	struct vcodec_mem_obj mem;
-	__u32 reserved[2];
+	__u32 vcp_addr[2];
 };
 
 /*
@@ -517,7 +510,6 @@ struct venc_info {
 	__u32 qpmap;
 	__u32 reserved;
 };
-
 
 /**
  * struct ring_input_list - ring input buffer list

@@ -163,12 +163,12 @@ int vcu_enc_ipi_handler(void *data, unsigned int len, void *priv)
 	VCU_FPTR(vcu_get_task)(&task, 0);
 	if (msg == NULL || task == NULL ||
 	   task->tgid != current->tgid ||
-	   (struct venc_vcu_inst *)(unsigned long)msg->venc_inst == NULL) {
+	   (struct venc_vcu_inst *)(unsigned long)msg->ap_inst_addr == NULL) {
 		ret = -EINVAL;
 		return ret;
 	}
 
-	vcu = (struct venc_vcu_inst *)(unsigned long)msg->venc_inst;
+	vcu = (struct venc_vcu_inst *)(unsigned long)msg->ap_inst_addr;
 	if ((vcu != priv) && (msg->msg_id < VCU_IPIMSG_VENC_SEND_BASE)) {
 		pr_info("%s, vcu:%p != priv:%p\n", __func__, vcu, priv);
 		return 1;
@@ -397,7 +397,8 @@ int vcu_enc_init(struct venc_vcu_inst *vcu)
 
 	memset(&out, 0, sizeof(out));
 	out.msg_id = AP_IPIMSG_ENC_INIT;
-	out.venc_inst = (unsigned long)vcu;
+	out.ap_inst_addr = (unsigned long)vcu;
+	out.ctx_id = vcu->ctx->id;
 
 	vcu_enc_set_pid(vcu);
 	status = vcu_enc_send_msg(vcu, &out, sizeof(out));
@@ -444,6 +445,7 @@ int vcu_enc_query_cap(struct venc_vcu_inst *vcu, unsigned int id, void *out)
 	msg.id = id;
 	msg.ap_inst_addr = (uintptr_t)vcu;
 	msg.ap_data_addr = (uintptr_t)out;
+	msg.ctx_id = vcu->ctx->id;
 
 	vcu_enc_set_pid(vcu);
 	err = vcu_enc_send_msg(vcu, &msg, sizeof(msg));
@@ -468,6 +470,7 @@ int vcu_enc_set_param(struct venc_vcu_inst *vcu,
 	memset(&out, 0, sizeof(out));
 	out.msg_id = AP_IPIMSG_ENC_SET_PARAM;
 	out.vcu_inst_addr = vcu->inst_addr;
+	out.ctx_id = vcu->ctx->id;
 	out.param_id = id;
 	switch (id) {
 	case VENC_SET_PARAM_ENC:
@@ -619,6 +622,7 @@ int vcu_enc_encode(struct venc_vcu_inst *vcu, unsigned int bs_mode,
 	memset(&out, 0, sizeof(out));
 	out.msg_id = AP_IPIMSG_ENC_ENCODE;
 	out.vcu_inst_addr = vcu->inst_addr;
+	out.ctx_id = vcu->ctx->id;
 	out.bs_mode = bs_mode;
 	if (frm_buf) {
 		out.fb_num_planes = frm_buf->num_planes;
@@ -711,6 +715,7 @@ int vcu_enc_deinit(struct venc_vcu_inst *vcu)
 	memset(&out, 0, sizeof(out));
 	out.msg_id = AP_IPIMSG_ENC_DEINIT;
 	out.vcu_inst_addr = vcu->inst_addr;
+	out.ctx_id = vcu->ctx->id;
 
 	mutex_lock(vcu->ctx_ipi_lock);
 	ret = vcu_enc_send_msg(vcu, &out, sizeof(out));
