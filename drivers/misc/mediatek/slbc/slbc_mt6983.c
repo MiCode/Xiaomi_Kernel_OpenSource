@@ -756,15 +756,15 @@ static ssize_t dbg_slbc_proc_write(struct file *file,
 			mutex_unlock(&slbc_ops_lock);
 		}
 	} else if (!strcmp(cmd, "slb_disable")) {
-		pr_info("slb disable %d\n", val_1);
+		pr_info("slb disable %ld\n", val_1);
 		slb_disable = val_1;
 		slbc_sspm_slb_disable((int)!!val_1);
 	} else if (!strcmp(cmd, "slc_disable")) {
-		pr_info("slc disable %d\n", val_1);
+		pr_info("slc disable %ld\n", val_1);
 		slc_disable = val_1;
 		slbc_sspm_slc_disable((int)!!val_1);
 	} else if (!strcmp(cmd, "slbc_scmi_enable")) {
-		pr_info("slbc scmi enable %d\n", val_1);
+		pr_info("slbc scmi enable %ld\n", val_1);
 		slbc_sspm_enable((int)!!val_1);
 	} else if (!strcmp(cmd, "slbc_uid_used")) {
 		slbc_uid_used = val_1;
@@ -818,7 +818,7 @@ static ssize_t dbg_slbc_proc_write(struct file *file,
 		print_hex_dump(KERN_INFO, "SLBC: ", DUMP_PREFIX_OFFSET,
 				16, 4, slbc->sram_vaddr, slbc->regsize, 1);
 	} else {
-		pr_info("#@# %s(%d) wrong cmd %s val %d\n",
+		pr_info("#@# %s(%d) wrong cmd %s val %ld\n",
 				__func__, __LINE__, cmd, val_1);
 	}
 
