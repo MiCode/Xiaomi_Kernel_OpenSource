@@ -3924,6 +3924,36 @@ static const struct mtk_disp_ovl_data mt6895_ovl_driver_data = {
 	.source_bpc = 10,
 };
 
+static const struct compress_info compr_info_mt6886  = {
+	.name = "AFBC_V1_2_MTK_1",
+	.l_config = &compr_l_config_AFBC_V1_2,
+};
+
+static const struct mtk_disp_ovl_data mt6886_ovl_driver_data = {
+	.addr = DISP_REG_OVL_ADDR_BASE,
+	.el_addr_offset = 0x10,
+	.el_hdr_addr = 0xfb4,
+	.el_hdr_addr_offset = 0x10,
+	.fmt_rgb565_is_0 = true,
+	.fmt_uyvy = 4U << 12,
+	.fmt_yuyv = 5U << 12,
+	.compr_info = &compr_info_mt6886,
+	.support_shadow = false,
+	.need_bypass_shadow = false,
+	/* dc mode setting align mt6895 */
+	.preultra_th_dc = 0x15e,
+	.fifo_size = 768,
+	.issue_req_th_dl = 383,
+	.issue_req_th_dc = 15,
+	.issue_req_th_urg_dl = 191,
+	.issue_req_th_urg_dc = 15,
+	.greq_num_dl = 0xbbbb,
+	.is_support_34bits = true,
+	//.aid_sel_mapping = &mtk_ovl_aid_sel_MT6886,
+	//.mmsys_mapping = &mtk_ovl_mmsys_mapping_MT6886,
+	.source_bpc = 10,
+};
+
 static const struct compress_info compr_info_mt6873  = {
 	.name = "AFBC_V1_2_MTK_1",
 	.l_config = &compr_l_config_AFBC_V1_2,
@@ -4089,6 +4119,8 @@ static const struct of_device_id mtk_disp_ovl_driver_dt_match[] = {
 	 .data = &mt6985_ovl_driver_data},
 	{.compatible = "mediatek,mt6895-disp-ovl",
 	 .data = &mt6895_ovl_driver_data},
+	{.compatible = "mediatek,mt6886-disp-ovl",
+	 .data = &mt6886_ovl_driver_data},
 	{.compatible = "mediatek,mt6873-disp-ovl",
 	 .data = &mt6873_ovl_driver_data},
 	{.compatible = "mediatek,mt6853-disp-ovl",

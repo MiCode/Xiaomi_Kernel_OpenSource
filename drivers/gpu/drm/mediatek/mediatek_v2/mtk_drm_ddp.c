@@ -3468,6 +3468,13 @@ static const struct mtk_disp_ddp_data mt6895_ddp_driver_data = {
 	.dispsys_map = mt6895_dispsys_map,
 };
 
+static const struct mtk_disp_ddp_data mt6886_ddp_driver_data = {
+	.mutex_mod = mt6895_mutex_mod,
+	.mutex_sof = mt6895_mutex_sof,
+	.mutex_mod_reg = MT6895_DISP_MUTEX0_MOD0,
+	.mutex_sof_reg = MT6895_DISP_MUTEX0_SOF,
+};
+
 static const struct mtk_disp_ddp_data mt6873_ddp_driver_data = {
 	.mutex_mod = mt6873_mutex_mod,
 	.mutex_sof = mt6873_mutex_sof,
@@ -3556,6 +3563,11 @@ const struct mtk_mmsys_reg_data mt6895_mmsys_reg_data = {
 	// To-Do
 	.rdma0_sout_sel_in = MT6895_DISP_RDMA0_SEL_IN,
 	.dispsys_map = mt6895_dispsys_map,
+};
+
+const struct mtk_mmsys_reg_data mt6886_mmsys_reg_data = {
+	// To-Do
+	.rdma0_sout_sel_in = MT6895_DISP_RDMA0_SEL_IN,
 };
 
 const struct mtk_mmsys_reg_data mt6873_mmsys_reg_data = {
@@ -12853,6 +12865,9 @@ mtk_ddp_get_mmsys_reg_data(enum mtk_mmsys_id mmsys_id)
 	case MMSYS_MT6895:
 		data = &mt6895_mmsys_reg_data;
 		break;
+	case MMSYS_MT6886:
+		data = &mt6886_mmsys_reg_data;
+		break;
 	case MMSYS_MT6873:
 		data = &mt6873_mmsys_reg_data;
 		break;
@@ -16247,6 +16262,8 @@ static const struct of_device_id ddp_driver_dt_match[] = {
 	 .data = &mt6985_ddp_driver_data},
 	{.compatible = "mediatek,mt6895-disp-mutex",
 	 .data = &mt6895_ddp_driver_data},
+	{.compatible = "mediatek,mt6886-disp-mutex",
+	 .data = &mt6886_ddp_driver_data},
 	{.compatible = "mediatek,mt6873-disp-mutex",
 	 .data = &mt6873_ddp_driver_data},
 	{.compatible = "mediatek,mt6853-disp-mutex",

@@ -8075,6 +8075,25 @@ static const struct mtk_dsi_driver_data mt6895_dsi_driver_data = {
 	.mmclk_by_datarate = mtk_dsi_set_mmclk_by_datarate_V2,
 };
 
+static const struct mtk_dsi_driver_data mt6886_dsi_driver_data = {
+	.reg_cmdq0_ofs = 0xd00,
+	.reg_cmdq1_ofs = 0xd04,
+	.reg_vm_cmd_con_ofs = 0x200,
+	.reg_vm_cmd_data0_ofs = 0x208,
+	.reg_vm_cmd_data10_ofs = 0x218,
+	.reg_vm_cmd_data20_ofs = 0x228,
+	.reg_vm_cmd_data30_ofs = 0x238,
+	.poll_for_idle = mtk_dsi_poll_for_idle,
+	.irq_handler = mtk_dsi_irq_status,
+	.esd_eint_compat = "mediatek, DSI_TE-eint",
+	.support_shadow = false,
+	.need_bypass_shadow = false,
+	.need_wait_fifo = false,
+	.dsi_buffer = true,
+	.max_vfp = 0xffe,
+	.mmclk_by_datarate = mtk_dsi_set_mmclk_by_datarate_V1,
+};
+
 static const struct mtk_dsi_driver_data mt6873_dsi_driver_data = {
 	.reg_cmdq0_ofs = 0x200,
 	.reg_cmdq1_ofs = 0x204,
@@ -8193,6 +8212,7 @@ static const struct of_device_id mtk_dsi_of_match[] = {
 	{.compatible = "mediatek,mt6983-dsi", .data = &mt6983_dsi_driver_data},
 	{.compatible = "mediatek,mt6985-dsi", .data = &mt6985_dsi_driver_data},
 	{.compatible = "mediatek,mt6895-dsi", .data = &mt6895_dsi_driver_data},
+	{.compatible = "mediatek,mt6886-dsi", .data = &mt6886_dsi_driver_data},
 	{.compatible = "mediatek,mt6873-dsi", .data = &mt6873_dsi_driver_data},
 	{.compatible = "mediatek,mt6853-dsi", .data = &mt6853_dsi_driver_data},
 	{.compatible = "mediatek,mt6833-dsi", .data = &mt6833_dsi_driver_data},

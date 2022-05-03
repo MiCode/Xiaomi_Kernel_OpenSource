@@ -1826,6 +1826,7 @@ static const enum mtk_ddp_comp_id mt6895_mtk_ddp_dual_main[] = {
 #endif
 };
 
+/* mt6886 is the same as mt6895 */
 static const enum mtk_ddp_comp_id mt6895_mtk_ddp_main_wb_path[] = {
 	// todo ..
 	//DDP_COMPONENT_OVL0,	DDP_COMPONENT_OVL0_VIRTUAL0,
@@ -1855,6 +1856,11 @@ static const enum mtk_ddp_comp_id mt6895_mtk_ddp_third[] = {
 	DDP_COMPONENT_SUB_OVL_DISP0_PQ0_VIRTUAL, DDP_COMPONENT_WDMA1,
 };
 
+static const enum mtk_ddp_comp_id mt6886_mtk_ddp_third[] = {
+	DDP_COMPONENT_OVL0_2L, DDP_COMPONENT_OVL0_2L_VIRTUAL0,
+	DDP_COMPONENT_SUB_OVL_DISP0_PQ0_VIRTUAL, DDP_COMPONENT_WDMA1,
+};
+
 static const enum mtk_ddp_comp_id mt6886_mtk_ddp_main[] = {
 	DDP_COMPONENT_OVL1_2L,
 	DDP_COMPONENT_OVL0, DDP_COMPONENT_OVL0_VIRTUAL0,
@@ -1875,12 +1881,6 @@ static const enum mtk_ddp_comp_id mt6886_mtk_ddp_main[] = {
 	/* the chist connect by customer config*/
 	DDP_COMPONENT_CHIST0,
 #endif
-};
-
-static const enum mtk_ddp_comp_id mt6886_mtk_ddp_main_wb_path[] = {
-	// todo ..
-	//DDP_COMPONENT_OVL0,	DDP_COMPONENT_OVL0_VIRTUAL0,
-	//DDP_COMPONENT_WDMA0,
 };
 
 static const struct mtk_addon_module_data addon_rsz_data[] = {
@@ -1930,6 +1930,7 @@ static const struct mtk_addon_module_data mt6983_addon_wdma2_data_v2[] = {
 	{DISP_WDMA2_v2, ADDON_AFTER, DDP_COMPONENT_OVL1_VIRTUAL0},
 };
 
+/* mt6886 is the same as mt6895 */
 static const struct mtk_addon_module_data mt6895_addon_wdma0_data[] = {
 	{DISP_WDMA0, ADDON_AFTER, DDP_COMPONENT_SPR0},
 };
@@ -2217,6 +2218,44 @@ static const struct mtk_addon_scenario_data mt6895_addon_ext[ADDON_SCN_NR] = {
 		.module_num = 0,
 		.hrt_type = HRT_TB_TYPE_GENERAL0,
 	},
+};
+
+static const struct mtk_addon_scenario_data mt6886_addon_ext[ADDON_SCN_NR] = {
+	[NONE] = {
+		.module_num = 0,
+		.hrt_type = HRT_TB_TYPE_GENERAL0,
+	},
+	[TRIPLE_DISP] = {
+		.module_num = 0,
+		.hrt_type = HRT_TB_TYPE_GENERAL0,
+	},
+};
+
+static const struct mtk_addon_scenario_data mt6886_addon_main[ADDON_SCN_NR] = {
+		[NONE] = {
+				.module_num = 0,
+				.hrt_type = HRT_TB_TYPE_GENERAL1,
+			},
+		[ONE_SCALING] = {
+				.module_num = ARRAY_SIZE(addon_rsz_data_v5),
+				.module_data = addon_rsz_data_v5,
+				.hrt_type = HRT_TB_TYPE_RPO_L0,
+			},
+		[TWO_SCALING] = {
+				.module_num = ARRAY_SIZE(addon_rsz_data_v5),
+				.module_data = addon_rsz_data_v5,
+				.hrt_type = HRT_TB_TYPE_GENERAL1,
+			},
+		[WDMA_WRITE_BACK] = {
+				.module_num = ARRAY_SIZE(mt6895_addon_wdma0_data),
+				.module_data = mt6895_addon_wdma0_data,
+				.hrt_type = HRT_TB_TYPE_GENERAL1,
+			},
+		[MML_SRAM_ONLY] = {
+				.module_num = ARRAY_SIZE(addon_mml_sram_only_data),
+				.module_data = addon_mml_sram_only_data,
+				.hrt_type = HRT_TB_TYPE_RPO_L0,
+			},
 };
 
 static const enum mtk_ddp_comp_id mt6873_mtk_ddp_main[] = {
@@ -2735,13 +2774,19 @@ static const struct mtk_crtc_path_data mt6895_mtk_third_path_data = {
 	.addon_data = mt6895_addon_ext,
 };
 
+static const struct mtk_crtc_path_data mt6886_mtk_third_path_data = {
+	.path[DDP_MAJOR][0] = mt6886_mtk_ddp_third,
+	.path_len[DDP_MAJOR][0] = ARRAY_SIZE(mt6886_mtk_ddp_third),
+	.addon_data = mt6886_addon_ext,
+};
+
 static const struct mtk_crtc_path_data mt6886_mtk_main_path_data = {
 	.path[DDP_MAJOR][0] = mt6886_mtk_ddp_main,
 	.path_len[DDP_MAJOR][0] = ARRAY_SIZE(mt6886_mtk_ddp_main),
 	.path_req_hrt[DDP_MAJOR][0] = true,
-	.wb_path[DDP_MAJOR] = mt6886_mtk_ddp_main_wb_path,
-	.wb_path_len[DDP_MAJOR] = ARRAY_SIZE(mt6886_mtk_ddp_main_wb_path),
-	//.addon_data = mt6886_addon_main,
+	.wb_path[DDP_MAJOR] = mt6895_mtk_ddp_main_wb_path,
+	.wb_path_len[DDP_MAJOR] = ARRAY_SIZE(mt6895_mtk_ddp_main_wb_path),
+	.addon_data = mt6886_addon_main,
 };
 
 static const struct mtk_crtc_path_data mt2701_mtk_main_path_data = {
@@ -3327,11 +3372,21 @@ static const struct mtk_mmsys_driver_data mt6895_mmsys_driver_data = {
 
 static const struct mtk_mmsys_driver_data mt6886_mmsys_driver_data = {
 	.main_path_data = &mt6886_mtk_main_path_data,
-	/* mt6886 not support dp path(mt6895_mtk_ext_path_data)
-	 * ext_path_data will be third path
+	/*
+	 * mt6886 not support dp path will use third path as ext_path_data
+	 * to avoid crtc_id is 1 for third path
 	 */
-	//.ext_path_data = &mt6895_mtk_ext_path_data,
+	.ext_path_data = &mt6886_mtk_third_path_data,
+	/* WFD path */
+	.third_path_data = &mt6886_mtk_third_path_data,
+	//.fake_eng_data = &mt6886_fake_eng_data,
 	.mmsys_id = MMSYS_MT6886,
+	//.mode_tb = mt6886_mode_tb,
+	//.sodi_config = mt6886_mtk_sodi_config,
+	.has_smi_limitation = false,
+	//.doze_ctrl_pmic = true,
+	.can_compress_rgb565 = true,
+	//.bypass_infra_ddr_control = true,
 };
 
 static const struct mtk_mmsys_driver_data mt6873_mmsys_driver_data = {
