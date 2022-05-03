@@ -206,6 +206,24 @@
 				regulator-always-on;
 				regulator-allow-set-load;
 			};
+			mt6363_vbuck1_sshub: VBUCK1_SSHUB {
+				regulator-compatible = "VBUCK1_SSHUB";
+				regulator-name = "mt6363_vbuck1_sshub";
+				regulator-min-microvolt = <300000>;
+				regulator-max-microvolt = <1193750>;
+			};
+			mt6363_vbuck2_sshub: VBUCK2_SSHUB {
+				regulator-compatible = "VBUCK2_SSHUB";
+				regulator-name = "mt6363_vbuck2_sshub";
+				regulator-min-microvolt = <300000>;
+				regulator-max-microvolt = <1193750>;
+			};
+			mt6363_vbuck4_sshub: VBUCK4_SSHUB {
+				regulator-compatible = "VBUCK4_SSHUB";
+				regulator-name = "mt6363_vbuck4_sshub";
+				regulator-min-microvolt = <300000>;
+				regulator-max-microvolt = <1193750>;
+			};
 			mt6363_vsram_digrf: VSRAM_DIGRF {
 				regulator-compatible = "VSRAM_DIGRF";
 				regulator-name = "mt6363_vsram_digrf";
