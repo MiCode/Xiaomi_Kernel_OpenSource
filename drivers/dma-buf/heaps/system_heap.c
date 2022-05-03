@@ -692,12 +692,20 @@ static struct dma_buf *system_heap_do_allocate(struct dma_heap *heap,
 		 */
 		if (fatal_signal_pending(current)) {
 			ret = -EINTR;
+			pr_info("%s, %d, %s, current process fatal_signal_pending\n",
+				__func__, __LINE__, dma_heap_get_name(heap));
 			goto free_buffer;
 		}
 
 		page = alloc_largest_available(size_remaining, max_order);
-		if (!page)
+		if (!page) {
+			if (fatal_signal_pending(current)) {
+				ret = -EINTR;
+				pr_info("%s, %d, %s, current process fatal_signal_pending\n",
+					__func__, __LINE__, dma_heap_get_name(heap));
+			}
 			goto free_buffer;
+		}
 
 		list_add_tail(&page->lru, &pages);
 		size_remaining -= page_size(page);
