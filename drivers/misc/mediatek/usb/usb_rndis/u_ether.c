@@ -836,16 +836,6 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 		/* ignores USB_CDC_PACKET_TYPE_DIRECTED */
 	}
 
-	/*
-	 * No buffer copies needed, unless the network stack did it
-	 * or the hardware can't use skb buffers or there's not
-	 * enough space for extra headers we need.
-	 */
-	spin_lock_irqsave(&dev->lock, flags);
-	if (dev->wrap && dev->port_usb)
-		skb = dev->wrap(dev->port_usb, skb);
-	spin_unlock_irqrestore(&dev->lock, flags);
-
 	if (!skb) {
 		if (!dev->port_usb->supports_multi_frame)
 			dev->net->stats.tx_dropped++;
@@ -911,6 +901,24 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 	if (dev->port_usb == NULL) {
 		dev_kfree_skb_any(skb);
 		U_ETHER_DBG("port_usb NULL\n");
+		return NETDEV_TX_OK;
+	}
+
+	/*
+	 * No buffer copies needed, unless the network stack did it
+	 * or the hardware can't use skb buffers or there's not enough
+	 * space for extra headers we need.
+	 */
+	spin_lock_irqsave(&dev->lock, flags);
+	if (dev->wrap && dev->port_usb)
+		skb = dev->wrap(dev->port_usb, skb);
+	spin_unlock_irqrestore(&dev->lock, flags);
+
+	if (!skb) {
+		if (!dev->port_usb->supports_multi_frame)
+			dev->net->stats.tx_dropped++;
+		/* no error code for dropped packets */
+		U_ETHER_DBG("%s - skb dropped\n", __func__);
 		return NETDEV_TX_OK;
 	}
 
