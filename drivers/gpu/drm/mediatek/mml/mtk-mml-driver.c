@@ -137,11 +137,19 @@ static void mml_qos_init(struct mml_dev *mml)
 	dev_pm_opp_of_add_table(dev);
 
 	/* Get regulator instance by name. */
-	tp->reg = devm_regulator_get(dev, "dvfsrc-vcore");
-	if (IS_ERR(tp->reg)) {
-		mml_log("%s not support dvfs %d", __func__, (int)PTR_ERR(tp->reg));
+	tp->reg = devm_regulator_get_optional(dev, "mmdvfs-dvfsrc-vcore");
+	if (IS_ERR_OR_NULL(tp->reg)) {
 		tp->reg = NULL;
-		return;
+		tp->dvfs_clk = devm_clk_get(dev, "mmdvfs_clk");
+		if (IS_ERR_OR_NULL(tp->dvfs_clk)) {
+			mml_err("%s get mmdvfs clk failed %d",
+				__func__, (int)PTR_ERR(tp->dvfs_clk));
+			tp->dvfs_clk = NULL;
+			return;
+		}
+		mml_log("%s support mmdvfs clk", __func__);
+	} else {
+		mml_log("%s support mmdvfs regulator", __func__);
 	}
 
 	num = dev_pm_opp_get_opp_count(dev); /* number of available opp */
@@ -191,11 +199,22 @@ u32 mml_qos_update_tput(struct mml_dev *mml)
 	}
 	i = min(i, tp->opp_cnt - 1);
 	volt = tp->opp_volts[i];
-	ret = regulator_set_voltage(tp->reg, volt, INT_MAX);
-	if (ret)
-		mml_err("%s fail to set volt %d", __func__, volt);
-	else
-		mml_msg("%s volt %d (%u) tput %u", __func__, volt, i, tput);
+	if (tp->reg) {
+		ret = regulator_set_voltage(tp->reg, volt, INT_MAX);
+		if (ret)
+			mml_err("%s fail to set volt %d", __func__, volt);
+		else
+			mml_msg("%s volt %d (%u) tput %u", __func__, volt, i, tput);
+	} else if (tp->dvfs_clk) {
+		/* set dvfs clock rate by unit Hz */
+		ret = clk_set_rate(tp->dvfs_clk, tp->opp_speeds[i] * 1000000);
+		if (ret)
+			mml_err("%s fail to set rate %uMHz error %d",
+				__func__, tp->opp_speeds[i], ret);
+		else
+			mml_msg("%s rate %uMHz (%u) tput %u",
+				__func__, tp->opp_speeds[i], i, tput);
+	}
 
 	return tp->opp_speeds[i];
 }

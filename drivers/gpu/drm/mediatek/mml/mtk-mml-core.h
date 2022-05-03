@@ -261,6 +261,7 @@ struct mml_topology_cache {
 	struct mml_topology_path paths[MML_MAX_PATH_CACHES];
 	struct mml_path_client path_clts[MML_MAX_CMDQ_CLTS];
 	struct regulator *reg;
+	struct clk *dvfs_clk;
 	u32 opp_cnt;
 	u32 opp_speeds[MML_MAX_OPPS];
 	int opp_volts[MML_MAX_OPPS];
