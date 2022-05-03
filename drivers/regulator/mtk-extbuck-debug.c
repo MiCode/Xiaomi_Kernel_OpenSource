@@ -28,7 +28,7 @@ static ssize_t extbuck_access_store(struct device *dev,
 				    const char *buf,
 				    size_t size)
 {
-	struct extbuck_consumer_data *data = dev_get_drvdata(dev);
+	struct extbuck_consumer_data *data;
 	int ret = 0;
 	char *pvalue = NULL, *addr, *val;
 	unsigned int reg_val = 0;

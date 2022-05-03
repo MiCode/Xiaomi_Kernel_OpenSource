@@ -38,7 +38,7 @@ static struct low_battery_callback_table lbcb_tb[LBCB_MAX_NUM] = { {0} };
 int register_low_battery_notify(low_battery_callback lb_cb,
 				enum LOW_BATTERY_PRIO_TAG prio_val)
 {
-	if (prio_val >= LBCB_MAX_NUM || prio_val < 0) {
+	if (prio_val >= LBCB_MAX_NUM) {
 		pr_notice("[%s] prio_val=%d, out of boundary\n",
 			  __func__, prio_val);
 		return -EINVAL;

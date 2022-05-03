@@ -132,7 +132,7 @@ static int __regmap_read(struct regmap *regmap, const struct reg_t *reg,
 void register_battery_oc_notify(battery_oc_callback oc_cb,
 				enum BATTERY_OC_PRIO_TAG prio_val)
 {
-	if (prio_val >= OCCB_MAX_NUM || prio_val < 0) {
+	if (prio_val >= OCCB_MAX_NUM) {
 		pr_info("[%s] prio_val=%d, out of boundary\n",
 			__func__, prio_val);
 		return;
