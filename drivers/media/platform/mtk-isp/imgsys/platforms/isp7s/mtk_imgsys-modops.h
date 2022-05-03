@@ -15,9 +15,9 @@
 #include "modules/mtk_imgsys-traw.h"
 #include "modules/mtk_imgsys-pqdip.h"
 #include "modules/mtk_imgsys-wpe.h"
-//#include "modules/mtk_imgsys-me.h"
+#include "modules/mtk_imgsys-me.h"
 #include "modules/mtk_imgsys-adl.h"
-#include "mtk-ipesys-me.h"
+//#include "mtk-ipesys-me.h"
 #include "mtk_imgsys-debug.h"
 
 const struct module_ops imgsys_isp7_modules[] = {

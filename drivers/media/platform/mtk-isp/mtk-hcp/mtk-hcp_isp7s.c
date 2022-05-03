@@ -551,6 +551,7 @@ int isp7s_allocate_working_buffer(struct mtk_hcp *hcp_dev, unsigned int mode)
 					return ret;
 				}
 				mblock[id].start_virt = (void *)map.vaddr;
+				mblock[id].map = map;
 				mblock[id].fd =
 				dma_buf_fd(mblock[id].d_buf,
 				O_RDWR | O_CLOEXEC);
@@ -614,6 +615,7 @@ int isp7s_allocate_working_buffer(struct mtk_hcp *hcp_dev, unsigned int mode)
 					return ret;
 				}
 				mblock[id].start_virt = (void *)map.vaddr;
+				mblock[id].map = map;
 				mblock[id].fd = dma_buf_fd(mblock[id].d_buf, O_RDWR | O_CLOEXEC);
 				dma_buf_get(mblock[id].fd);
 				break;
@@ -647,7 +649,7 @@ static void gce_release(struct kref *ref)
 	struct mtk_hcp_reserve_mblock *mblock =
 		container_of(ref, struct mtk_hcp_reserve_mblock, kref);
 
-	dma_buf_vunmap(mblock->d_buf, mblock->start_virt);
+	dma_buf_vunmap(mblock->d_buf, &mblock->map);
 	/* free iova */
 	dma_buf_unmap_attachment(mblock->attach, mblock->sgt, DMA_BIDIRECTIONAL);
 	dma_buf_detach(mblock->d_buf, mblock->attach);
@@ -699,8 +701,7 @@ int isp7s_release_working_buffer(struct mtk_hcp *hcp_dev)
 				break;
 			default:
 				/* free va */
-				dma_buf_vunmap(mblock[id].d_buf,
-				mblock[id].start_virt);
+				dma_buf_vunmap(mblock[id].d_buf, &mblock[id].map);
 				/* free iova */
 				dma_buf_unmap_attachment(mblock[id].attach,
 				mblock[id].sgt, DMA_TO_DEVICE);

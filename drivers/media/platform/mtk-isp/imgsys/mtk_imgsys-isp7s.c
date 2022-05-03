@@ -8,7 +8,7 @@
 #include <linux/of_device.h>
 #include <linux/pm.h>
 #include <linux/platform_device.h>
-#include "mtk_imgsys-data.h"
+#include "./platforms/isp7s/mtk_imgsys-data-7s.h"
 #include "mtk_imgsys-probe.h"
 
 static const struct dev_pm_ops mtk_imgsys_pm_ops = {
