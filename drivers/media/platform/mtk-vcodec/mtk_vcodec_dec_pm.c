@@ -27,6 +27,10 @@
 #include "iommu_debug.h"
 #endif
 
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
+extern void vdec_dump_mem_buf(unsigned long h_vdec);
+#endif
+
 void mtk_dec_init_ctx_pm(struct mtk_vcodec_ctx *ctx)
 {
 	ctx->input_driven = 0;
@@ -841,6 +845,61 @@ static int mtk_vdec_translation_fault_callback(
 
 	return 0;
 }
+
+static int mtk_vdec_uP_translation_fault_callback(
+	int port, dma_addr_t mva, void *data)
+{
+	struct mtk_vcodec_dev *dev = (struct mtk_vcodec_dev *)data;
+	struct mtk_vcodec_ctx *ctx, *dec_ctx[MTK_VDEC_HW_NUM];
+	u32 dec_fourcc[MTK_VDEC_HW_NUM];
+	char dec_codec_name[MTK_VDEC_HW_NUM][5];
+	int dec_ctx_id[MTK_VDEC_HW_NUM];
+	enum mtk_vcodec_ipm vdec_hw_ipm;
+	int hw_id, i;
+	struct list_head *list_ptr, *tmp;
+
+	if (dev->pm.mtkdev == NULL) {
+		mtk_v4l2_err("fail to get vdec_hw_ipm");
+		vdec_hw_ipm = VCODEC_IPM_V2;
+	} else {
+		vdec_hw_ipm = dev->pm.mtkdev->vdec_hw_ipm;
+	}
+
+	for (hw_id = 0; hw_id < MTK_VDEC_HW_NUM; hw_id++) {
+		dec_ctx[hw_id] = dev->curr_dec_ctx[hw_id];
+		if (dec_ctx[hw_id]) {
+			dec_ctx_id[hw_id] = dec_ctx[hw_id]->id;
+			dec_fourcc[hw_id] = dec_ctx[hw_id]->q_data[MTK_Q_DATA_SRC].fmt->fourcc;
+			for (i = 0; i < 4; i++)
+				dec_codec_name[hw_id][i] = (dec_fourcc[hw_id] >> (i * 8)) & 0xFF;
+		} else {
+			dec_ctx_id[hw_id] = 0;
+			dec_fourcc[hw_id] = 0;
+			sprintf(dec_codec_name[hw_id], "NULL");
+		}
+		dec_codec_name[hw_id][4] = '\0';
+	}
+
+	mtk_v4l2_err("larb %d port VIDEO_uP(%x) translation fault, mva 0x%llx",
+		MTK_M4U_TO_LARB(port), port, (u64)mva);
+	mtk_v4l2_err("current dec ctx: LAT ctx_id %d codec:%s(0x%08x), CORE ctx_id %d codec:0x%08x(%s) (ipm v%d)",
+		dec_ctx_id[MTK_VDEC_LAT], dec_codec_name[MTK_VDEC_LAT], dec_fourcc[MTK_VDEC_LAT],
+		dec_ctx_id[MTK_VDEC_CORE], dec_codec_name[MTK_VDEC_CORE],
+		dec_fourcc[MTK_VDEC_CORE], vdec_hw_ipm);
+
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
+	mtk_v4l2_err("dec working buffer:");
+	mutex_lock(&dev->ctx_mutex);
+	list_for_each_safe(list_ptr, tmp, &dev->ctx_list) {
+		ctx = list_entry(list_ptr, struct mtk_vcodec_ctx, list);
+		if (ctx != NULL && ctx->state != MTK_STATE_ABORT)
+			vdec_dump_mem_buf(ctx->drv_handle);
+	}
+	mutex_unlock(&dev->ctx_mutex);
+#endif
+
+	return 0;
+}
 #endif
 
 int mtk_vdec_m4u_port_name_to_index(const char *name)
@@ -889,6 +948,14 @@ int mtk_vdec_m4u_port_name_to_index(const char *name)
 		return VDEC_M4U_PORT_LAT0_UFO;
 	else if (!strcmp(MTK_VDEC_M4U_PORT_NAME_LAT0_UFO_ENC_C, name))
 		return VDEC_M4U_PORT_LAT0_UFO_C;
+	else if (!strcmp(MTK_VDEC_M4U_PORT_NAME_UP_1, name))
+		return VDEC_M4U_PORT_UP_1;
+	else if (!strcmp(MTK_VDEC_M4U_PORT_NAME_UP_2, name))
+		return VDEC_M4U_PORT_UP_2;
+	else if (!strcmp(MTK_VDEC_M4U_PORT_NAME_UP_3, name))
+		return VDEC_M4U_PORT_UP_3;
+	else if (!strcmp(MTK_VDEC_M4U_PORT_NAME_UP_4, name))
+		return VDEC_M4U_PORT_UP_4;
 	else
 		return -1;
 }
@@ -900,9 +967,12 @@ void mtk_vdec_translation_fault_callback_setting(
 	int i;
 
 	for (i = 0; i < NUM_MAX_VDEC_M4U_PORT; i++) {
-		if (dev->dec_m4u_ports[i] != 0)
+		if (dev->dec_m4u_ports[i] != 0 && i < VDEC_M4U_PORT_UP_1)
 			mtk_iommu_register_fault_callback(dev->dec_m4u_ports[i],
 				mtk_vdec_translation_fault_callback, (void *)dev, false);
+		if (dev->dec_m4u_ports[i] != 0 && i >= VDEC_M4U_PORT_UP_1)
+			mtk_iommu_register_fault_callback(dev->dec_m4u_ports[i],
+				mtk_vdec_uP_translation_fault_callback, (void *)dev, false);
 	}
 #endif
 }

@@ -407,6 +407,22 @@ static void handle_vdec_mem_free(struct vdec_vcu_ipi_mem_op *msg)
 			msg->mem.iova, msg->mem.len,  msg->mem.type);
 }
 
+void vdec_dump_mem_buf(unsigned long h_vdec)
+{
+	struct vdec_inst *inst = (struct vdec_inst *)h_vdec;
+	struct list_head *list_ptr, *tmp;
+	struct vcp_dec_mem_list *mem_list = NULL;
+
+	mutex_lock(inst->vcu.ctx_ipi_lock);
+	list_for_each_safe(list_ptr, tmp, &inst->vcu.bufs) {
+		mem_list = list_entry(list_ptr, struct vcp_dec_mem_list, list);
+		mtk_v4l2_err("[%d] working buffer va 0x%llx pa 0x%llx iova 0x%llx len %d type %d",
+			inst->ctx->id, mem_list->mem.va, mem_list->mem.pa,
+			mem_list->mem.iova, mem_list->mem.len,  mem_list->mem.type);
+	}
+	mutex_unlock(inst->vcu.ctx_ipi_lock);
+}
+
 static int check_codec_id(struct vdec_vcu_ipi_ack *msg, unsigned int fmt, unsigned int svp)
 {
 	int codec_id = 0, ret = 0;
