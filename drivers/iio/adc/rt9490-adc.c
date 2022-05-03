@@ -30,7 +30,8 @@
 
 #define RT9490_ADCDONE_MASK	BIT(7)
 #define RT9490_ONESHOT_ENVAL	(BIT(7) | BIT(6))
-#define RT9490_ADCCONV_TIMEUS	2200
+#define RT9490_ADCCONV_TIMEUS	5860
+#define RT9490_ADC_SIGN_BIT	BIT(15)
 
 struct rt9490_adc_data {
 	struct device *dev;
@@ -44,6 +45,7 @@ static int rt9490_read_channel(struct rt9490_adc_data *data, const struct iio_ch
 	__le16 chan_enable;
 	__be16 chan_raw_data;
 	unsigned int status;
+	u16 tmp;
 	int ret;
 
 	mutex_lock(&data->lock);
@@ -79,7 +81,13 @@ static int rt9490_read_channel(struct rt9490_adc_data *data, const struct iio_ch
 		goto out_read;
 	}
 
-	*val = (s16)be16_to_cpu(chan_raw_data);
+	tmp = be16_to_cpu(chan_raw_data);
+	if (tmp & RT9490_ADC_SIGN_BIT) {
+		tmp &= ~RT9490_ADC_SIGN_BIT;
+		*val = (s16)(~tmp + 1);
+	} else
+		*val = tmp;
+
 	ret = IIO_VAL_INT;
 
 out_read:
@@ -87,41 +95,12 @@ out_read:
 	return ret;
 }
 
-static int rt9490_read_scale(struct rt9490_adc_data *data, const struct iio_chan_spec *chan,
-			     int *val, int *val2)
-{
-	if (chan->channel == RT9490_CHAN_TDIE) {
-		*val = 5;
-		*val2 = 10;
-		return IIO_VAL_FRACTIONAL;
-	}
-
-	*val = 1;
-	return IIO_VAL_INT;
-}
-
-static int rt9490_read_offset(struct rt9490_adc_data *data, const struct iio_chan_spec *chan,
-			      int *val)
-{
-	*val = chan->channel == RT9490_CHAN_TDIE ? -80 : 0;
-	return IIO_VAL_INT;
-}
-
 static int rt9490_adc_read_raw(struct iio_dev *iio_dev, const struct iio_chan_spec *chan,
 			       int *val, int *val2, long mask)
 {
 	struct rt9490_adc_data *data = iio_priv(iio_dev);
 
-	switch (mask) {
-	case IIO_CHAN_INFO_RAW:
-		return rt9490_read_channel(data, chan, val);
-	case IIO_CHAN_INFO_SCALE:
-		return rt9490_read_scale(data, chan, val, val2);
-	case IIO_CHAN_INFO_OFFSET:
-		return rt9490_read_offset(data, chan, val);
-	}
-
-	return -EINVAL;
+	return rt9490_read_channel(data, chan, val);
 }
 
 static const struct iio_info rt9490_adc_info = {
@@ -136,9 +115,7 @@ static const struct iio_info rt9490_adc_info = {
 	.address = RT9490_REG_##_ch_name##ADC, \
 	.scan_index = _sc_idx, \
 	.indexed = 1, \
-	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) | \
-			      BIT(IIO_CHAN_INFO_SCALE) | \
-			      BIT(IIO_CHAN_INFO_OFFSET), \
+	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW), \
 }
 
 static const struct iio_chan_spec rt9490_adc_channels[] = {

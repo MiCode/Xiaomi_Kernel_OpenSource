@@ -258,9 +258,6 @@ static int rt9758_set_charge_enable(struct rt9758_priv *priv,
 	else
 		q0ctrl_val = RT9758_Q0CTRL_OFF;
 
-	if (priv->enable_gpio)
-		gpiod_set_value(priv->enable_gpio, !chgen);
-
 	ret = regmap_field_write(priv->rm_field[F_Q0_CTRL], q0ctrl_val);
 	if (ret)
 		return ret;
@@ -273,6 +270,9 @@ static int rt9758_set_charge_enable(struct rt9758_priv *priv,
 	if (ret)
 		return ret;
 
+	if (priv->enable_gpio)
+		gpiod_set_value(priv->enable_gpio, !chgen);
+	mdelay(1);
 
 	priv->charge_enabled = chgen;
 
@@ -596,6 +596,8 @@ static int rt9758_dump_registers(struct charger_device *chg_dev)
 	}
 
 	dev_info(priv->dev, "%s %s\n", __func__, buf);
+	dev_info(priv->dev, "%s enable_gpio = %d\n", __func__,
+		 gpiod_get_value(priv->enable_gpio));
 	return 0;
 }
 

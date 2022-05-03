@@ -19,6 +19,9 @@
 static int log_level = HVBP_DBG_LEVEL;
 module_param(log_level, int, 0644);
 
+static bool algo_waiver_test;
+module_param(algo_waiver_test, bool, 0644);
+
 int hvbp_get_log_level(void)
 {
 	return log_level;
@@ -3350,8 +3353,8 @@ static bool hvbp_is_algo_running(struct chg_alg_device *alg)
 	struct hvbp_algo_data *data = info->data;
 	bool running = true;
 
-	if (!mutex_trylock(&data->lock))
-		goto out;
+	mutex_lock(&data->lock);
+
 	if (!data->inited) {
 		running = false;
 		goto out_unlock;
@@ -3360,7 +3363,7 @@ static bool hvbp_is_algo_running(struct chg_alg_device *alg)
 	HVBP_DBG("running = %d\n", running);
 out_unlock:
 	mutex_unlock(&data->lock);
-out:
+
 	return running;
 }
 
@@ -3371,6 +3374,9 @@ static int hvbp_is_algo_ready(struct chg_alg_device *alg)
 	struct hvbp_algo_info *info = chg_alg_dev_get_drvdata(alg);
 	struct hvbp_algo_data *data = info->data;
 	struct hvbp_algo_desc *desc = info->desc;
+
+	if (algo_waiver_test)
+		return ALG_WAIVER;
 
 	if (hvbp_is_algo_running(info->alg))
 		return ALG_RUNNING;
@@ -3406,13 +3412,13 @@ static int hvbp_is_algo_ready(struct chg_alg_device *alg)
 		if (soc > 0) {
 			HVBP_INFO("soc(%d) not in range(%d~%d)\n", soc,
 				  desc->start_soc_min, desc->start_soc_max);
-			ret = ALG_NOT_READY;
+			ret = ALG_WAIVER;
 			goto out;
 		}
 		if (soc == -1 && data->ref_vbat > data->vbat_threshold) {
 			HVBP_INFO("soc(%d) not in range(%d~%d)\n", soc,
 				  desc->start_soc_min, desc->start_soc_max);
-			ret = ALG_NOT_READY;
+			ret = ALG_WAIVER;
 			goto out;
 		}
 	}

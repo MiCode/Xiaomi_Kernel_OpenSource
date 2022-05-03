@@ -368,6 +368,9 @@ struct mtk_charger {
 	struct battery_thermal_protection_data thermal;
 
 	struct chg_alg_device *alg[MAX_ALG_NO];
+	int lst_rnd_alg_idx;
+	bool alg_new_arbitration;
+	bool alg_unchangeable;
 	struct notifier_block chg_alg_nb;
 	bool enable_hv_charging;
 

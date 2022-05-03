@@ -72,7 +72,10 @@ module_param(dbg_log_en, bool, 0644);
 #define RT9490_OTG_MAXUV	22000000
 #define RT9490_OTG_N_VOLTAGES	1920
 #define RT9490_AICR_WAITUS	4000
+#define RT9490_VMIVR_MAXUV	22000000
 
+#define NORMAL_CHARGING_CURR_UA	500000
+#define FAST_CHARGING_CURR_UA	1500000
 enum {
 	RT9490_STAT_NOT_CHARGING = 0,
 	RT9490_STAT_TRICKLE_CHARGE,
@@ -82,6 +85,17 @@ enum {
 	RT9490_STAT_IEOC,
 	RT9490_STAT_BACKGROUND_CHARGE,
 	RT9490_STAT_CHARGE_DONE,
+};
+
+/* map with mtk_chg_type_det.c */
+enum attach_type {
+	ATTACH_TYPE_NONE,
+	ATTACH_TYPE_PWR_RDY,
+	ATTACH_TYPE_TYPEC,
+	ATTACH_TYPE_PD,
+	ATTACH_TYPE_PD_SDP,
+	ATTACH_TYPE_PD_DCP,
+	ATTACH_TYPE_PD_NONSTD,
 };
 
 enum rt9490_fields {
@@ -113,7 +127,7 @@ enum rt9490_fields {
 	F_TOTP,
 	F_JEITA_DIS,
 	F_MIVR_STAT,
-	F_VBUS_GD_RDY,
+	F_VAC1_PG,
 	F_VBUS_PG,
 	F_CHG_STAT,
 	F_VBUS_STAT,
@@ -263,7 +277,7 @@ static struct reg_field rt9490_reg_fields[] = {
 	[F_TOTP]	= REG_FIELD(RT9490_REG_THREG_CTRL, 4, 5),
 	[F_JEITA_DIS]	= REG_FIELD(RT9490_REG_JEITA_CTRL1, 0, 0),
 	[F_MIVR_STAT]	= REG_FIELD(RT9490_REG_CHG_STAT0, 6, 6),
-	[F_VBUS_GD_RDY]	= REG_FIELD(RT9490_REG_CHG_STAT0, 3, 3),
+	[F_VAC1_PG]	= REG_FIELD(RT9490_REG_CHG_STAT0, 1, 1),
 	[F_VBUS_PG]	= REG_FIELD(RT9490_REG_CHG_STAT0, 0, 0),
 	[F_CHG_STAT]	= REG_FIELD(RT9490_REG_CHG_STAT1, 5, 7),
 	[F_VBUS_STAT]	= REG_FIELD(RT9490_REG_CHG_STAT1, 1, 4),
@@ -300,6 +314,7 @@ static const enum power_supply_property rt9490_charger_properties[] = {
 	POWER_SUPPLY_PROP_ONLINE,
 	POWER_SUPPLY_PROP_VOLTAGE_NOW,
 	POWER_SUPPLY_PROP_CURRENT_NOW,
+	POWER_SUPPLY_PROP_CURRENT_MAX,
 	POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT,
 	POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX,
 	POWER_SUPPLY_PROP_CONSTANT_CHARGE_VOLTAGE,
@@ -512,6 +527,7 @@ static int rt9490_charger_get_usb_type(struct rt9490_chg_data *data,
 {
 	mutex_lock(&data->lock);
 	val->intval = data->usb_type;
+	dev_info(data->dev, "%s: usb_type=%d\n", __func__, data->usb_type);
 	mutex_unlock(&data->lock);
 
 	return 0;
@@ -566,17 +582,38 @@ static int rt9490_charger_get_manufacturer(struct rt9490_chg_data *data,
 
 static void rt9490_chg_attach_pre_process(struct rt9490_chg_data *data,
 					  enum rt9490_attach_trigger trig,
-					  bool attach)
+					  int attach)
 {
-	dev_info(data->dev, "trig=%s,attach=%d\n",
-		 rt9490_attach_trig_names[trig], attach);
+	bool bc12_dn;
+	int ret;
+
+	ret = regmap_field_read(data->rm_field[F_VAC1_PG], &data->vbus_ready);
+	if (ret) {
+		dev_info(data->dev, "%s failed to get F_VAC1_PG(%d)\n",
+			__func__, ret);
+		return;
+	}
+
+	dev_info(data->dev, "trig=%s,attach=%d,vbus_ready=%d\n",
+		 rt9490_attach_trig_names[trig], attach, data->vbus_ready);
+	dev_info(data->dev, "data_bc12_dn=%d\n", data->bc12_dn);
 	/* if attach trigger is not match, ignore it */
 	if (data->attach_trig != trig) {
 		dev_notice(data->dev, "trig=%s ignore\n",
 			   rt9490_attach_trig_names[trig]);
 		return;
 	}
-	atomic_set(&data->attach, attach);
+
+	if (attach == ATTACH_TYPE_NONE)
+		data->bc12_dn = false;
+
+	bc12_dn = data->bc12_dn;
+	if (!bc12_dn)
+		atomic_set(&data->attach, attach);
+
+	if (attach > ATTACH_TYPE_PD && bc12_dn)
+		return;
+
 	if (!queue_work(data->wq, &data->bc12_work))
 		dev_notice(data->dev, "bc12 work already queued\n");
 }
@@ -652,6 +689,12 @@ static int rt9490_charger_get_property(struct power_supply *psy,
 		return rt9490_charger_get_adc(data, RT9490_ADC_VBUS, val);
 	case POWER_SUPPLY_PROP_CURRENT_NOW:
 		return rt9490_charger_get_adc(data, RT9490_ADC_IBUS, val);
+	case POWER_SUPPLY_PROP_CURRENT_MAX:
+		if (data->chg_desc.type == POWER_SUPPLY_TYPE_USB)
+			val->intval = NORMAL_CHARGING_CURR_UA;
+		else if (data->chg_desc.type == POWER_SUPPLY_TYPE_USB_DCP)
+			val->intval = FAST_CHARGING_CURR_UA;
+		return 0;
 	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT:
 		return rt9490_charger_get_ichg(data, val);
 	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX:
@@ -688,8 +731,10 @@ static int rt9490_charger_set_property(struct power_supply *psy,
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_ONLINE:
+		mutex_lock(&data->lock);
 		rt9490_chg_attach_pre_process(data, ATTACH_TRIG_TYPEC,
 					      val->intval);
+		mutex_unlock(&data->lock);
 		return 0;
 	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT:
 		return rt9490_charger_set_ichg(data, val);
@@ -734,21 +779,31 @@ static int rt9490_psy_prop_ops(struct rt9490_chg_data *data, bool is_set,
 static int rt9490_plug_in(struct charger_device *chgdev)
 {
 	struct rt9490_chg_data *data = charger_get_data(chgdev);
-	uint32_t value = 1;
 
 	dev_info(data->dev, "%s: ++\n", __func__);
-	return rt9490_psy_prop_ops(data, true, POWER_SUPPLY_PROP_ONLINE,
-				   &value);
+
+	/* Set WDT 40s */
+	return regmap_field_write(data->rm_field[F_WATCHDOG], 5);
 }
 
 static int rt9490_plug_out(struct charger_device *chgdev)
 {
 	struct rt9490_chg_data *data = charger_get_data(chgdev);
 	uint32_t value = 0;
+	int ret;
 
 	dev_info(data->dev, "%s: ++\n", __func__);
 	atomic_set(&data->aicc_once, 0);
-	regmap_field_write(data->rm_field[F_EN_AICC], 0);
+	ret = regmap_field_write(data->rm_field[F_EN_AICC], 0);
+	if (ret) {
+		dev_info(data->dev, "Failed to disable aicc\n");
+		return ret;
+	}
+	regmap_field_write(data->rm_field[F_WATCHDOG], 0);
+	if (ret) {
+		dev_info(data->dev, "Failed to disable watchdog\n");
+		return ret;
+	}
 	return rt9490_psy_prop_ops(data, true, POWER_SUPPLY_PROP_ONLINE,
 				   &value);
 }
@@ -771,6 +826,15 @@ static int rt9490_is_charging_enable(struct charger_device *chgdev, bool *en)
 static int rt9490_init_chip(struct charger_device *chg_dev)
 {
 	return 0;
+}
+
+static int rt9490_kick_wdt(struct charger_device *chgdev)
+{
+	struct rt9490_chg_data *data = charger_get_data(chgdev);
+
+	dev_info(data->dev, "%s: ++\n", __func__);
+	/* Trigger watchdog time reset */
+	return regmap_field_write(data->rm_field[F_WDRST], 1);
 }
 
 #define DUMP_REG_BUF_SIZE	1024
@@ -869,7 +933,12 @@ static int rt9490_dump_registers(struct charger_device *chgdev)
 	}
 
 	dev_info(data->dev, "%s %s", __func__, buf);
-	return 0;
+
+	ret = rt9490_kick_wdt(chgdev);
+	if (ret)
+		dev_info(data->dev, "Failed to kick watchdog\n");
+
+	return ret;
 }
 
 static int rt9490_enable_charging(struct charger_device *chgdev, bool en)
@@ -943,16 +1012,6 @@ static int rt9490_set_cv(struct charger_device *chgdev, uint32_t cv)
 	return rt9490_psy_prop_ops(data, true,
 				   POWER_SUPPLY_PROP_CONSTANT_CHARGE_VOLTAGE,
 				   &cv);
-}
-
-static int rt9490_kick_wdt(struct charger_device *chgdev)
-{
-	struct rt9490_chg_data *data = charger_get_data(chgdev);
-	unsigned int status;
-
-	dev_info(data->dev, "%s: ++\n", __func__);
-	/* Any IO read can trigger watchdog time reset */
-	return regmap_field_read(data->rm_field[F_CHG_STAT], &status);
 }
 
 static int rt9490_set_mivr(struct charger_device *chgdev, uint32_t mivr)
@@ -1086,9 +1145,10 @@ static int rt9490_is_safety_timer_enable(
 static int rt9490_enable_power_path(struct charger_device *chgdev, bool en)
 {
 	struct rt9490_chg_data *data = charger_get_data(chgdev);
+	u32 mivr = (en ? 4500000 : RT9490_VMIVR_MAXUV);
 
 	dev_info(data->dev, "%s: en = %d\n", __func__, en);
-	return rt9490_enable_hz(chgdev, !en);
+	return rt9490_set_mivr(chgdev, mivr);
 }
 
 static int rt9490_is_power_path_enable(struct charger_device *chgdev, bool *en)
@@ -1443,9 +1503,12 @@ out:
 static int rt9490_enable_chg_type_det(struct charger_device *chgdev, bool en)
 {
 	struct rt9490_chg_data *data = charger_get_data(chgdev);
+	int attach = en ? ATTACH_TYPE_TYPEC : ATTACH_TYPE_NONE;
 
 	dev_info(data->dev, "%s en=d\n", __func__, en);
-	rt9490_chg_attach_pre_process(data, ATTACH_TRIG_TYPEC, en);
+	mutex_lock(&data->lock);
+	rt9490_chg_attach_pre_process(data, ATTACH_TRIG_TYPEC, attach);
+	mutex_unlock(&data->lock);
 	return 0;
 }
 
@@ -1716,7 +1779,7 @@ static int rt9490_do_charger_init(struct rt9490_chg_data *data)
 	if (ret)
 		return ret;
 
-	ret = regmap_field_read(data->rm_field[F_VBUS_GD_RDY], &vbus_ready);
+	ret = regmap_field_read(data->rm_field[F_VAC1_PG], &vbus_ready);
 	if (ret)
 		return ret;
 
@@ -1732,7 +1795,7 @@ static int rt9490_do_charger_init(struct rt9490_chg_data *data)
 	if (data->vbus_ready == vbus_ready)
 		return 0;
 
-	return regmap_field_write(data->rm_field[F_EN_BC12], 1);
+	return ret;
 }
 
 static int rt9490_get_all_adcs(struct rt9490_chg_data *data)
@@ -1790,7 +1853,7 @@ static bool is_usb_rdy(struct device *dev)
 
 static int rt9490_chg_enable_bc12(struct rt9490_chg_data *data, bool en)
 {
-	int i, ret;
+	int i, ret, attach;
 	static const int max_wait_cnt = 250;
 
 	dev_info(data->dev, "%s en=%d\n", __func__, en);
@@ -1800,9 +1863,15 @@ static int rt9490_chg_enable_bc12(struct rt9490_chg_data *data, bool en)
 		for (i = 0; i < max_wait_cnt; i++) {
 			if (is_usb_rdy(data->dev))
 				break;
-			if (!atomic_read(&data->attach))
-				return 0;
-			msleep(100);
+			attach = atomic_read(&data->attach);
+			if (attach == ATTACH_TYPE_TYPEC)
+				msleep(100);
+			else {
+				dev_notice(data->dev, "Change attach:%d, disable bc12\n",
+					   attach);
+				en = false;
+				break;
+			}
 		}
 		if (i == max_wait_cnt)
 			dev_notice(data->dev, "CDP timeout\n");
@@ -1817,77 +1886,96 @@ static int rt9490_chg_enable_bc12(struct rt9490_chg_data *data, bool en)
 
 static void rt9490_chg_bc12_work_func(struct work_struct *work)
 {
-	int ret;
+	int ret, attach;
 	bool bc12_ctrl = true, bc12_en = false, rpt_psy = true;
 	struct rt9490_chg_data *data = container_of(work,
 						    struct rt9490_chg_data,
 						    bc12_work);
-	unsigned int result;
-	bool attach;
+	u32 result = 0;
 
 	mutex_lock(&data->lock);
 	attach = atomic_read(&data->attach);
-	if (attach) {
-		if (data->boot_mode == 5) {
-			/* skip bc12 to speed up ADVMETA_BOOT */
-			dev_notice(data->dev, "Force SDP in meta mode\n");
-			data->chg_desc.type = POWER_SUPPLY_TYPE_USB;
-			data->usb_type = POWER_SUPPLY_USB_TYPE_SDP;
-			data->bc12_dn = false;
-			goto out;
-		}
+	if (attach > ATTACH_TYPE_NONE && data->boot_mode == 5) {
+		/* skip bc12 to speed up ADVMETA_BOOT */
+		dev_notice(data->dev, "Force SDP in meta mode\n");
+		data->chg_desc.type = POWER_SUPPLY_TYPE_USB;
+		data->usb_type = POWER_SUPPLY_USB_TYPE_SDP;
+		data->bc12_dn = false;
+		goto out;
+	}
+
+	switch (attach) {
+	case ATTACH_TYPE_NONE:
+		data->chg_desc.type = POWER_SUPPLY_TYPE_USB;
+		data->usb_type = POWER_SUPPLY_USB_TYPE_UNKNOWN;
+		goto out;
+	case ATTACH_TYPE_TYPEC:
+		dev_info(data->dev, "data_bc12_dn=%d\n", data->bc12_dn);
 		if (!data->bc12_dn) {
 			bc12_en = true;
 			rpt_psy = false;
 			goto out;
 		}
-		data->bc12_dn = false;
 		ret = regmap_field_read(data->rm_field[F_VBUS_STAT], &result);
 		if (ret) {
 			dev_err(data->dev, "Failed to get vbus stat\n");
 			rpt_psy = false;
 			goto out;
 		}
-		switch (result) {
-		case RT9490_CABLE_USB_SDP:
-		case RT9490_CABLE_NSTD:
-			data->chg_desc.type = POWER_SUPPLY_TYPE_USB;
-			data->usb_type = POWER_SUPPLY_USB_TYPE_SDP;
-			break;
-		case RT9490_CABLE_USB_CDP:
-			data->chg_desc.type = POWER_SUPPLY_TYPE_USB_CDP;
-			data->usb_type = POWER_SUPPLY_USB_TYPE_CDP;
-			break;
-		case RT9490_CABLE_USB_DCP:
-			data->chg_desc.type = POWER_SUPPLY_TYPE_USB_DCP;
-			data->usb_type = POWER_SUPPLY_USB_TYPE_DCP;
-			bc12_en = true;
-			break;
-		case RT9490_CABLE_UNKNOWN_DCP:
-			/* HVDCP case, please implement it */
-			data->chg_desc.type = POWER_SUPPLY_TYPE_USB_DCP;
-			data->usb_type = POWER_SUPPLY_USB_TYPE_DCP;
-			bc12_en = true;
-			break;
-		case RT9490_CABLE_APPLE_TA:
-			data->chg_desc.type = POWER_SUPPLY_TYPE_APPLE_BRICK_ID;
-			data->usb_type = POWER_SUPPLY_USB_TYPE_APPLE_BRICK_ID;
-			break;
-		default:
-			data->chg_desc.type = POWER_SUPPLY_TYPE_UNKNOWN;
-			data->usb_type = POWER_SUPPLY_USB_TYPE_UNKNOWN;
-			bc12_ctrl = false;
-			rpt_psy = false;
-			dev_err(data->dev, "Unknown port stat %d\n", result);
-			goto out;
-		}
-		dev_info(data->dev, "port stat = %s\n",
-			 rt9490_port_stat_names[result]);
-	} else {
-		data->bc12_dn = false;
-		data->chg_desc.type = POWER_SUPPLY_TYPE_USB;
-		data->usb_type = POWER_SUPPLY_USB_TYPE_UNKNOWN;
+		break;
+	case ATTACH_TYPE_PD_SDP:
+		result = RT9490_CABLE_USB_SDP;
+		break;
+	case ATTACH_TYPE_PD_DCP:
+		/* not to enable bc12 */
+		data->chg_desc.type = POWER_SUPPLY_TYPE_USB_DCP;
+		data->usb_type = POWER_SUPPLY_USB_TYPE_DCP;
+		goto out;
+	case ATTACH_TYPE_PD_NONSTD:
+		result = RT9490_CABLE_NSTD;
+		break;
+	default:
+		dev_info(data->dev, "Using traditional bc12 flow!\n");
+		break;
 	}
+
+	switch (result) {
+	case RT9490_CABLE_USB_SDP:
+		data->chg_desc.type = POWER_SUPPLY_TYPE_USB;
+		data->usb_type = POWER_SUPPLY_USB_TYPE_SDP;
+		break;
+	case RT9490_CABLE_NSTD:
+		data->chg_desc.type = POWER_SUPPLY_TYPE_USB;
+		data->usb_type = POWER_SUPPLY_USB_TYPE_DCP;
+		break;
+	case RT9490_CABLE_USB_CDP:
+		data->chg_desc.type = POWER_SUPPLY_TYPE_USB_CDP;
+		data->usb_type = POWER_SUPPLY_USB_TYPE_CDP;
+		break;
+	case RT9490_CABLE_USB_DCP:
+		data->chg_desc.type = POWER_SUPPLY_TYPE_USB_DCP;
+		data->usb_type = POWER_SUPPLY_USB_TYPE_DCP;
+		bc12_en = true;
+		break;
+	case RT9490_CABLE_UNKNOWN_DCP:
+		/* HVDCP case, please implement it */
+		data->chg_desc.type = POWER_SUPPLY_TYPE_USB_DCP;
+		data->usb_type = POWER_SUPPLY_USB_TYPE_DCP;
+		bc12_en = true;
+		break;
+	case RT9490_CABLE_APPLE_TA:
+		data->chg_desc.type = POWER_SUPPLY_TYPE_APPLE_BRICK_ID;
+		data->usb_type = POWER_SUPPLY_USB_TYPE_APPLE_BRICK_ID;
+		break;
+	default:
+		data->chg_desc.type = POWER_SUPPLY_TYPE_UNKNOWN;
+		data->usb_type = POWER_SUPPLY_USB_TYPE_UNKNOWN;
+		bc12_ctrl = false;
+		rpt_psy = false;
+		dev_info(data->dev, "Unknown port stat %d\n", result);
+		goto out;
+	}
+	dev_info(data->dev, "port stat = %s\n", rt9490_port_stat_names[result]);
 out:
 	mutex_unlock(&data->lock);
 	if (bc12_ctrl && (rt9490_chg_enable_bc12(data, bc12_en) < 0))
@@ -1900,21 +1988,11 @@ static irqreturn_t rt9490_vbus_ready_handler(int irqno, void *priv)
 {
 	struct rt9490_chg_data *data = priv;
 	int ret;
-	unsigned int is_hz_en = false;
 
+	dev_info(data->dev, "%s ++\n", __func__);
 	mutex_lock(&data->lock);
 
-	ret = regmap_field_read(data->rm_field[F_EN_HZ], &is_hz_en);
-	if (ret) {
-		mutex_unlock(&data->lock);
-		return IRQ_NONE;
-	} else if (is_hz_en) {
-		dev_info(data->dev, "%s: EN_HZ = %d, ignore\n", is_hz_en);
-		mutex_unlock(&data->lock);
-		return IRQ_HANDLED;
-	}
-
-	ret = regmap_field_read(data->rm_field[F_VBUS_GD_RDY],
+	ret = regmap_field_read(data->rm_field[F_VAC1_PG],
 				&data->vbus_ready);
 	if (ret) {
 		mutex_unlock(&data->lock);
@@ -1922,7 +2000,8 @@ static irqreturn_t rt9490_vbus_ready_handler(int irqno, void *priv)
 	}
 
 	rt9490_chg_attach_pre_process(data, ATTACH_TRIG_PWR_RDY,
-				      data->vbus_ready);
+				      data->vbus_ready ?
+				      ATTACH_TYPE_PWR_RDY : ATTACH_TYPE_NONE);
 	mutex_unlock(&data->lock);
 
 	return IRQ_HANDLED;
@@ -1931,11 +2010,14 @@ static irqreturn_t rt9490_vbus_ready_handler(int irqno, void *priv)
 static irqreturn_t rt9490_bc12_done_handler(int irqno, void *priv)
 {
 	struct rt9490_chg_data *data = priv;
+	int attach;
 
+	dev_info(data->dev, "%s ++\n", __func__);
 	mutex_lock(&data->lock);
 	data->bc12_dn = true;
+	attach = atomic_read(&data->attach);
 	mutex_unlock(&data->lock);
-	if (!queue_work(data->wq, &data->bc12_work))
+	if (attach < ATTACH_TYPE_PD && !queue_work(data->wq, &data->bc12_work))
 		dev_notice(data->dev, "%s bc12 work already queued\n",
 			   __func__);
 	return IRQ_HANDLED;
@@ -1946,6 +2028,7 @@ static irqreturn_t rt9490_wdt_handler(int irqno, void *priv)
 	struct rt9490_chg_data *data = priv;
 	int ret;
 
+	dev_info(data->dev, "%s ++\n", __func__);
 	ret = regmap_field_write(data->rm_field[F_WDRST], 1);
 	if (ret)
 		dev_err(data->dev, "Failed to do watchdog reset\n");
@@ -1957,6 +2040,7 @@ static irqreturn_t rt9490_aicc_handler(int irqno, void *priv)
 {
 	struct rt9490_chg_data *data = priv;
 
+	dev_info(data->dev, "%s ++\n", __func__);
 	complete(&data->aicc_done);
 	return IRQ_HANDLED;
 }

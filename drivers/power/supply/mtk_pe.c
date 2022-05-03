@@ -45,6 +45,9 @@
 
 static int pe_dbg_level = PE_DEBUG_LEVEL;
 
+static bool algo_waiver_test;
+module_param(algo_waiver_test, bool, 0644);
+
 int pe_get_debug_level(void)
 {
 	return pe_dbg_level;
@@ -435,6 +438,11 @@ static int _pe_is_algo_ready(struct chg_alg_device *alg)
 	int ret_value = 0, uisoc;
 
 	pe = dev_get_drvdata(&alg->dev);
+
+	if (algo_waiver_test) {
+		ret_value = ALG_WAIVER;
+		goto skip;
+	}
 	pe_dbg("%s state:%s\n", __func__,
 		pe_state_to_str(pe->state));
 
@@ -451,7 +459,7 @@ static int _pe_is_algo_ready(struct chg_alg_device *alg)
 		} else if ((uisoc < pe->ta_start_battery_soc &&
 			    pe->ref_vbat > pe->vbat_threshold) ||
 			uisoc >= pe->ta_stop_battery_soc) {
-			ret_value = ALG_NOT_READY;
+			ret_value = ALG_WAIVER;
 		} else {
 			ret_value = ALG_READY;
 		}
@@ -468,7 +476,7 @@ static int _pe_is_algo_ready(struct chg_alg_device *alg)
 	default:
 		break;
 	}
-
+skip:
 	return ret_value;
 }
 

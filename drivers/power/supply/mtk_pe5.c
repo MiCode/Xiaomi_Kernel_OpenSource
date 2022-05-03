@@ -19,6 +19,9 @@
 static int log_level = PE50_INFO_LEVEL;
 module_param(log_level, int, 0644);
 
+static bool algo_waiver_test;
+module_param(algo_waiver_test, bool, 0644);
+
 int pe50_get_log_level(void)
 {
 	return log_level;
@@ -3671,8 +3674,8 @@ static bool pe50_is_algo_running(struct chg_alg_device *alg)
 	struct pe50_algo_data *data = info->data;
 	bool running = true;
 
-	if (!mutex_trylock(&data->lock))
-		goto out;
+	mutex_trylock(&data->lock);
+
 	if (!data->inited) {
 		running = false;
 		goto out_unlock;
@@ -3681,7 +3684,7 @@ static bool pe50_is_algo_running(struct chg_alg_device *alg)
 	PE50_DBG("running = %d\n", running);
 out_unlock:
 	mutex_unlock(&data->lock);
-out:
+
 	return running;
 }
 
@@ -3692,6 +3695,9 @@ static int pe50_is_algo_ready(struct chg_alg_device *alg)
 	struct pe50_algo_info *info = chg_alg_dev_get_drvdata(alg);
 	struct pe50_algo_data *data = info->data;
 	struct pe50_algo_desc *desc = info->desc;
+
+	if (algo_waiver_test)
+		return ALG_WAIVER;
 
 	if (pe50_is_algo_running(info->alg))
 		return ALG_RUNNING;
@@ -3727,13 +3733,13 @@ static int pe50_is_algo_ready(struct chg_alg_device *alg)
 		if (soc > 0) {
 			PE50_INFO("soc(%d) not in range(%d~%d)\n", soc,
 				  desc->start_soc_min, desc->start_soc_max);
-			ret = ALG_NOT_READY;
+			ret = ALG_WAIVER;
 			goto out;
 		}
 		if (soc == -1 && data->ref_vbat > data->vbat_threshold) {
 			PE50_INFO("soc(%d) not in range(%d~%d)\n", soc,
 				  desc->start_soc_min, desc->start_soc_max);
-			ret = ALG_NOT_READY;
+			ret = ALG_WAIVER;
 			goto out;
 		}
 	}

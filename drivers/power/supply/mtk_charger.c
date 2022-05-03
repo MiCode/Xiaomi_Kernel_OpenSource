@@ -220,6 +220,8 @@ static void mtk_charger_parse_dt(struct mtk_charger *info,
 			of_property_read_bool(np, "enable_sw_safety_timer");
 	info->sw_safety_timer_setting = info->enable_sw_safety_timer;
 	info->disable_aicl = of_property_read_bool(np, "disable_aicl");
+	info->alg_new_arbitration = of_property_read_bool(np, "alg_new_arbitration");
+	info->alg_unchangeable = of_property_read_bool(np, "alg_unchangeable");
 
 	/* common */
 
@@ -866,6 +868,32 @@ static ssize_t fast_chg_indicator_store(struct device *dev, struct device_attrib
 }
 
 static DEVICE_ATTR_RW(fast_chg_indicator);
+
+static ssize_t alg_unchangeable_show(struct device *dev, struct device_attribute *attr,
+					       char *buf)
+{
+	struct mtk_charger *pinfo = dev->driver_data;
+
+	chr_debug("%s: %d\n", __func__, pinfo->alg_unchangeable);
+	return sprintf(buf, "%d\n", pinfo->alg_unchangeable);
+}
+
+static ssize_t alg_unchangeable_store(struct device *dev, struct device_attribute *attr,
+						const char *buf, size_t size)
+{
+	struct mtk_charger *pinfo = dev->driver_data;
+	unsigned int temp;
+
+	if (kstrtouint(buf, 10, &temp) == 0)
+		pinfo->alg_unchangeable = temp;
+	else
+		chr_err("%s: format error!\n", __func__);
+
+	_wake_up_charger(pinfo);
+	return size;
+}
+
+static DEVICE_ATTR_RW(alg_unchangeable);
 
 static ssize_t enable_meta_current_limit_show(struct device *dev, struct device_attribute *attr,
 					       char *buf)
@@ -2906,6 +2934,10 @@ static int mtk_charger_setup_files(struct platform_device *pdev)
 		goto _out;
 
 	ret = device_create_file(&(pdev->dev), &dev_attr_fast_chg_indicator);
+	if (ret)
+		goto _out;
+
+	ret = device_create_file(&(pdev->dev), &dev_attr_alg_unchangeable);
 	if (ret)
 		goto _out;
 

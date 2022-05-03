@@ -63,6 +63,8 @@
 static int pd_dbg_level = PD_DEBUG_LEVEL;
 #define PD_VBUS_IR_DROP_THRESHOLD 1200
 
+static bool algo_waiver_test;
+module_param(algo_waiver_test, bool, 0644);
 
 int pd_get_debug_level(void)
 {
@@ -150,6 +152,11 @@ static int _pd_is_algo_ready(struct chg_alg_device *alg)
 	int ret_value;
 	int uisoc;
 
+	if (algo_waiver_test) {
+		ret_value = ALG_WAIVER;
+		goto skip;
+	}
+
 	pd_dbg("%s %d\n", __func__, pd->state);
 	switch (pd->state) {
 	case PD_HW_UNINIT:
@@ -163,10 +170,11 @@ static int _pd_is_algo_ready(struct chg_alg_device *alg)
 			if (pd->input_current_limit1 != -1 ||
 				pd->charging_current_limit1 != -1 ||
 				pd->input_current_limit2 != -1 ||
-				pd->charging_current_limit2 != -1 ||
-				uisoc >= pd->pd_stop_battery_soc ||
-				(uisoc == -1 && pd->ref_vbat > pd->vbat_threshold))
+				pd->charging_current_limit2 != -1)
 				ret_value = ALG_NOT_READY;
+			else if (uisoc >= pd->pd_stop_battery_soc ||
+				(uisoc == -1 && pd->ref_vbat > pd->vbat_threshold))
+				ret_value = ALG_WAIVER;
 		} else if (ret_value == ALG_TA_NOT_SUPPORT)
 			pd->state = PD_TA_NOT_SUPPORT;
 		else if (ret_value == ALG_TA_CHECKING)
@@ -188,7 +196,7 @@ static int _pd_is_algo_ready(struct chg_alg_device *alg)
 		ret_value = ALG_INIT_FAIL;
 		break;
 	}
-
+skip:
 	return ret_value;
 }
 
@@ -891,6 +899,11 @@ static int _pd_start_algo(struct chg_alg_device *alg)
 
 	mutex_lock(&pd->access_lock);
 
+	if (algo_waiver_test) {
+		ret_value = ALG_WAIVER;
+		goto skip;
+	}
+
 	do {
 		pd_info("%s state:%d %s %d\n", __func__,
 			pd->state,
@@ -912,10 +925,11 @@ static int _pd_start_algo(struct chg_alg_device *alg)
 				if (pd->input_current_limit1 != -1 ||
 					pd->charging_current_limit1 != -1 ||
 					pd->input_current_limit2 != -1 ||
-					pd->charging_current_limit2 != -1 ||
-					uisoc >= pd->pd_stop_battery_soc ||
-					(uisoc == -1 && pd->ref_vbat > pd->vbat_threshold))
+					pd->charging_current_limit2 != -1)
 					ret_value = ALG_NOT_READY;
+				else if (uisoc >= pd->pd_stop_battery_soc ||
+					(uisoc == -1 && pd->ref_vbat > pd->vbat_threshold))
+					ret_value = ALG_WAIVER;
 				else {
 					pd->state = PD_RUN;
 					again = true;
@@ -936,7 +950,7 @@ static int _pd_start_algo(struct chg_alg_device *alg)
 			break;
 		}
 	} while (again == true);
-
+skip:
 	mutex_unlock(&pd->access_lock);
 
 	return ret_value;

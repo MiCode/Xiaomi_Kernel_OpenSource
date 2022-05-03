@@ -369,6 +369,7 @@ static int do_algorithm(struct mtk_charger *info)
 	int i;
 	int ret, ret2, ret3;
 	int val = 0;
+	int lst_rnd_alg_idx = info->lst_rnd_alg_idx;
 
 	pdata = &info->chg_data[CHG1_SETTING];
 	charger_dev_is_charging_done(info->chg1_dev, &chg_done);
@@ -409,6 +410,12 @@ static int do_algorithm(struct mtk_charger *info)
 				continue;
 			}
 
+			if (info->alg_new_arbitration && info->alg_unchangeable &&
+				(lst_rnd_alg_idx != -1)) {
+				if (lst_rnd_alg_idx != i)
+					continue;
+			}
+
 			if (chg_done != info->is_chg_done) {
 				if (chg_done) {
 					notify.evt = EVT_FULL;
@@ -431,6 +438,13 @@ static int do_algorithm(struct mtk_charger *info)
 			if (ret == ALG_INIT_FAIL || ret == ALG_TA_NOT_SUPPORT) {
 				/* try next algorithm */
 				continue;
+			} else if (ret == ALG_WAIVER) {
+				if (info->alg_new_arbitration)
+					continue; /* try next algorithm */
+				else {
+					is_basic = true;
+					break;
+				}
 			} else if (ret == ALG_TA_CHECKING || ret == ALG_DONE ||
 						ret == ALG_NOT_READY) {
 				/* wait checking , use basic first */
@@ -438,8 +452,13 @@ static int do_algorithm(struct mtk_charger *info)
 				break;
 			} else if (ret == ALG_READY || ret == ALG_RUNNING) {
 				is_basic = false;
-				//chg_alg_set_setting(alg, &info->setting);
+				if (info->alg_new_arbitration && !info->alg_unchangeable &&
+					(lst_rnd_alg_idx != -1)) {
+					if (lst_rnd_alg_idx != i)
+						chg_alg_stop_algo(info->alg[lst_rnd_alg_idx]);
+				}
 				chg_alg_start_algo(alg);
+				info->lst_rnd_alg_idx = i;
 				break;
 			} else {
 				chr_err("algorithm ret is error");
@@ -472,6 +491,7 @@ static int do_algorithm(struct mtk_charger *info)
 			pdata->input_current_limit);
 		charger_dev_set_charging_current(info->chg1_dev,
 			pdata->charging_current_limit);
+		info->lst_rnd_alg_idx = -1;
 
 		chr_debug("%s:old_cv=%d,cv=%d, vbat_mon_en=%d\n",
 			__func__,
@@ -698,6 +718,7 @@ int mtk_basic_charger_init(struct mtk_charger *info)
 	info->algo.do_dvchg2_event = dvchg2_dev_event;
 	info->algo.do_hvdvchg1_event = hvdvchg1_dev_event;
 	info->algo.do_hvdvchg2_event = hvdvchg2_dev_event;
+	info->lst_rnd_alg_idx = -1;
 	//info->change_current_setting = mtk_basic_charging_current;
 	return 0;
 }

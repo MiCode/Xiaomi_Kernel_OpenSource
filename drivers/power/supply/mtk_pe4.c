@@ -66,6 +66,9 @@
 
 static int pe4_dbg_level = PE4_DEBUG_LEVEL;
 
+static bool algo_waiver_test;
+module_param(algo_waiver_test, bool, 0644);
+
 int pe4_get_debug_level(void)
 {
 	return pe4_dbg_level;
@@ -185,6 +188,11 @@ static int _pe4_is_algo_ready(struct chg_alg_device *alg)
 	__pm_stay_awake(pe4->suspend_lock);
 	oldstate = pe4->state;
 
+	if (algo_waiver_test) {
+		ret_value = ALG_WAIVER;
+		goto skip;
+	}
+
 	switch (pe4->state) {
 	case PE4_HW_UNINIT:
 	case PE4_HW_FAIL:
@@ -211,11 +219,12 @@ static int _pe4_is_algo_ready(struct chg_alg_device *alg)
 				pe4->charging_current_limit1 != -1 ||
 				pe4->input_current_limit2 != -1 ||
 				pe4->charging_current_limit2 != -1 ||
-				(uisoc == -1 && pe4->ref_vbat > pe4->vbat_threshold) ||
-				uisoc > pe4->pe40_stop_battery_soc ||
 				tmp > pe4->high_temp_to_enter_pe40 ||
 				tmp < pe4->low_temp_to_enter_pe40) {
 				ret_value = ALG_NOT_READY;
+			} else if ((uisoc == -1 && pe4->ref_vbat > pe4->vbat_threshold) ||
+					uisoc > pe4->pe40_stop_battery_soc) {
+				ret_value = ALG_WAIVER;
 			}
 		} else if (ret == ALG_TA_NOT_SUPPORT)
 			pe4->state = PE4_TA_NOT_SUPPORT;
@@ -232,7 +241,7 @@ static int _pe4_is_algo_ready(struct chg_alg_device *alg)
 		ret_value = ALG_INIT_FAIL;
 		break;
 	}
-
+skip:
 	pe4_dbg("%s state:%s=>%s ret:%d\n", __func__,
 		pe4_state_to_str(oldstate),
 		pe4_state_to_str(pe4->state),
@@ -1530,6 +1539,11 @@ static int _pe4_start_algo(struct chg_alg_device *alg)
 	mutex_lock(&pe4->access_lock);
 	__pm_stay_awake(pe4->suspend_lock);
 
+	if (algo_waiver_test) {
+		ret_value = ALG_WAIVER;
+		goto skip;
+	}
+
 	do {
 		pe4_info("%s state:%d %s %d\n", __func__,
 			pe4->state,
@@ -1553,18 +1567,19 @@ static int _pe4_start_algo(struct chg_alg_device *alg)
 					pe4->charging_current_limit1 != -1 ||
 					pe4->input_current_limit2 != -1 ||
 					pe4->charging_current_limit2 != -1 ||
-					(uisoc == -1 && pe4->ref_vbat > pe4->vbat_threshold) ||
-					uisoc > pe4->pe40_stop_battery_soc ||
 					tmp > pe4->high_temp_to_enter_pe40 ||
 					tmp < pe4->low_temp_to_enter_pe40) {
 					ret_value = ALG_NOT_READY;
-					pe4_info("%d %d %d %d %d %d\n",
+					pe4_info("%d %d %d %d %d\n",
 						pe4->input_current_limit1,
 						pe4->charging_current_limit1,
 						pe4->pe40_stop_battery_soc,
 						pe4->high_temp_to_enter_pe40,
-						pe4->low_temp_to_enter_pe40,
-						pe4->ref_vbat);
+						pe4->low_temp_to_enter_pe40);
+				} else if ((uisoc == -1 && pe4->ref_vbat > pe4->vbat_threshold) ||
+						uisoc > pe4->pe40_stop_battery_soc) {
+					ret_value = ALG_WAIVER;
+					pe4_info("%d\n", pe4->ref_vbat);
 				} else {
 					again = true;
 					pe4->state = PE4_INIT;
@@ -1595,6 +1610,7 @@ static int _pe4_start_algo(struct chg_alg_device *alg)
 			break;
 		}
 	} while (again == true);
+skip:
 	__pm_relax(pe4->suspend_lock);
 	mutex_unlock(&pe4->access_lock);
 

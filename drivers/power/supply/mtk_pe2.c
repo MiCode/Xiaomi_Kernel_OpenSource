@@ -60,6 +60,8 @@
 #include "mtk_pe2.h"
 #include "mtk_charger_algorithm_class.h"
 
+static bool algo_waiver_test;
+module_param(algo_waiver_test, bool, 0644);
 
 static int pe2_dbg_level = PE2_DEBUG_LEVEL;
 
@@ -619,6 +621,11 @@ static int _pe2_is_algo_ready(struct chg_alg_device *alg)
 
 	mutex_lock(&pe2->access_lock);
 	__pm_stay_awake(pe2->suspend_lock);
+
+	if (algo_waiver_test) {
+		ret_value = ALG_WAIVER;
+		goto skip;
+	}
 	pe2_dbg("%s state:%s\n", __func__,
 		pe2_state_to_str(pe2->state));
 
@@ -632,12 +639,13 @@ static int _pe2_is_algo_ready(struct chg_alg_device *alg)
 		if (pe2_hal_get_charger_type(alg) !=
 			POWER_SUPPLY_TYPE_USB_DCP) {
 			ret_value = ALG_TA_NOT_SUPPORT;
-		} else if ((uisoc < pe2->ta_start_battery_soc &&
-			    pe2->ref_vbat > pe2->vbat_threshold) ||
-			uisoc >= pe2->ta_stop_battery_soc ||
-			pe2->charging_current_limit1 != -1 ||
+		} else if (pe2->charging_current_limit1 != -1 ||
 			pe2->charging_current_limit2 != -1) {
 			ret_value = ALG_NOT_READY;
+		} else if ((uisoc < pe2->ta_start_battery_soc &&
+			pe2->ref_vbat > pe2->vbat_threshold) ||
+			uisoc >= pe2->ta_stop_battery_soc) {
+			ret_value = ALG_WAIVER;
 		} else {
 			ret_value = ALG_READY;
 		}
@@ -654,6 +662,7 @@ static int _pe2_is_algo_ready(struct chg_alg_device *alg)
 		ret_value = ALG_INIT_FAIL;
 		break;
 	}
+skip:
 	__pm_relax(pe2->suspend_lock);
 	mutex_unlock(&pe2->access_lock);
 
