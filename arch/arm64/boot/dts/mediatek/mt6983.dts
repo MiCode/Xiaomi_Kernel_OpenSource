@@ -10609,6 +10609,11 @@
 		clock-names = "btifc","apdmac";
 	};
 
+	connv3: connv3 {
+		compatible = "mediatek,mt6983-connv3";
+		status = "disabled";
+	};
+
 	consys: consys@18000000 {
 		compatible = "mediatek,mt6983-consys-atf";
 		#thermal-sensor-cells = <0>;
