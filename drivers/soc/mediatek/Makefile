@@ -1,5 +1,8 @@
 # SPDX-License-Identifier: GPL-2.0-only
+ccflags-y += -I$(srctree)/drivers/clk/mediatek/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/mailbox
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/vcp/include/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/vcp/rv/
 obj-$(CONFIG_MTK_CMDQ) += mtk-cmdq-helper.o
 obj-$(CONFIG_MTK_DVFSRC) += mtk-dvfsrc.o mtk-dvfsrc-start.o
 obj-$(CONFIG_MTK_IPI) += mtk_tinysys_ipi.o
@@ -16,6 +19,6 @@ endif
 obj-$(CONFIG_MTK_MMSYS) += mtk-mmsys.o
 obj-$(CONFIG_MTK_DEVAPC) += devapc/
 obj-$(CONFIG_MTK_DEVMPU) += devmpu/
-obj-$(CONFIG_MTK_MMDVFS) += mtk-mmdvfs.o
+obj-$(CONFIG_MTK_MMDVFS) += mtk-mmdvfs.o mtk-mmdvfs-v3.o
 obj-$(CONFIG_MTK_MMSYS) += mtk-mutex.o
 obj-$(CONFIG_MTK_SOCINFO) += mtk-socinfo.o
