@@ -6576,6 +6576,7 @@ void mtk_crtc_prepare_instr(struct drm_crtc *crtc)
 		priv->data->mmsys_id == MMSYS_MT6985 ||
 		priv->data->mmsys_id == MMSYS_MT6879 ||
 		priv->data->mmsys_id == MMSYS_MT6895 ||
+		priv->data->mmsys_id == MMSYS_MT6886 ||
 		priv->data->mmsys_id == MMSYS_MT6855) {
 		handle = cmdq_pkt_create(mtk_crtc->gce_obj.client[CLIENT_CFG]);
 		mtk_crtc_exec_atf_prebuilt_instr(mtk_crtc, handle);

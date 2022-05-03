@@ -2838,6 +2838,7 @@ static const unsigned int mt6985_mutex_mod[DDP_COMPONENT_ID_MAX] = {
 	[DDP_COMPONENT_Y2R1] = MT6985_MUTEX_MOD1_DISP_Y2R0,
 };
 
+/* mt6886 is the same as mt6895  exclude dual pipe */
 static const unsigned int mt6895_mutex_mod[DDP_COMPONENT_ID_MAX] = {
 		[DDP_COMPONENT_DMDP_AAL0] = MT6895_MUTEX_MOD0_DISP_MDP_AAL0,
 		[DDP_COMPONENT_DMDP_AAL1] = MT6895_MUTEX_MOD0_DISP_MDP_AAL0,
@@ -3412,6 +3413,7 @@ static const unsigned int mt6985_mutex_sof[DDP_MUTEX_SOF_MAX] = {
 			MT6983_MUTEX_SOF_DPI1 | MT6983_MUTEX_EOF_DPI1,
 };
 
+/* mt6886 is the same as mt6895  exclude dual pipe */
 static const unsigned int mt6895_mutex_sof[DDP_MUTEX_SOF_MAX] = {
 		[DDP_MUTEX_SOF_SINGLE_MODE] = MT6895_MUTEX_SOF_SINGLE_MODE,
 		[DDP_MUTEX_SOF_DSI0] =
@@ -15215,6 +15217,7 @@ REDUMP:
 	}
 }
 
+/* mt6886 is the same as mt6895  exclude dual pipe */
 void mutex_dump_analysis_mt6895(struct mtk_disp_mutex *mutex)
 {
 	struct mtk_ddp *ddp =
@@ -15658,6 +15661,7 @@ void mmsys_config_dump_reg_mt6985(void __iomem *config_regs)
 		mtk_serial_dump_reg(config_regs, off, 4);
 }
 
+/* mt6886 is the same as mt6895  exclude dual pipe */
 void mmsys_config_dump_reg_mt6895(void __iomem *config_regs)
 {
 	unsigned int off = 0;

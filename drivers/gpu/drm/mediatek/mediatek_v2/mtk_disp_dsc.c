@@ -222,7 +222,8 @@ static void mtk_dsc_prepare(struct mtk_ddp_comp *comp)
 	if (dsc->data->need_bypass_shadow) {
 		if (priv->data->mmsys_id == MMSYS_MT6983 ||
 			priv->data->mmsys_id == MMSYS_MT6985 ||
-			priv->data->mmsys_id == MMSYS_MT6895)
+			priv->data->mmsys_id == MMSYS_MT6895 ||
+			priv->data->mmsys_id == MMSYS_MT6886)
 			mtk_ddp_write_mask_cpu(comp, DSC_BYPASS_SHADOW,
 				MT6983_DISP_REG_SHADOW_CTRL, DSC_BYPASS_SHADOW);
 		else
@@ -806,6 +807,13 @@ static const struct mtk_disp_dsc_data mt6895_dsc_driver_data = {
 	.dsi_buffer = true,
 };
 
+static const struct mtk_disp_dsc_data mt6886_dsc_driver_data = {
+	.support_shadow     = false,
+	.need_bypass_shadow = false,
+	.need_obuf_sw = false,
+	.dsi_buffer = true,
+};
+
 static const struct mtk_disp_dsc_data mt6873_dsc_driver_data = {
 	.support_shadow     = false,
 	.need_bypass_shadow = true,
@@ -837,6 +845,8 @@ static const struct of_device_id mtk_disp_dsc_driver_dt_match[] = {
 	  .data = &mt6983_dsc_driver_data},
 	{ .compatible = "mediatek,mt6895-disp-dsc",
 	  .data = &mt6895_dsc_driver_data},
+	{ .compatible = "mediatek,mt6886-disp-dsc",
+	  .data = &mt6886_dsc_driver_data},
 	{ .compatible = "mediatek,mt6873-disp-dsc",
 	  .data = &mt6873_dsc_driver_data},
 	{ .compatible = "mediatek,mt6853-disp-dsc",

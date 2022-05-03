@@ -3675,7 +3675,8 @@ static const struct mtk_mmsys_driver_data mt6886_mmsys_driver_data = {
 	//.fake_eng_data = &mt6886_fake_eng_data,
 	.mmsys_id = MMSYS_MT6886,
 	//.mode_tb = mt6886_mode_tb,
-	//.sodi_config = mt6886_mtk_sodi_config,
+	/* sodi is same as mt6895 */
+	.sodi_config = mt6895_mtk_sodi_config,
 	.has_smi_limitation = false,
 	//.doze_ctrl_pmic = true,
 	.can_compress_rgb565 = true,
@@ -6481,18 +6482,6 @@ static int __init mtk_drm_init(void)
 	int i;
 
 	DDPINFO("%s+\n", __func__);
-#ifdef CONFIG_FPGA_EARLY_PORTING
-	for (i = 0; i < ARRAY_SIZE(mtk_mt6985_drm_drivers); i++) {
-		DDPINFO("%s register mt6985 %s driver\n",
-			__func__, mtk_mt6985_drm_drivers[i]->driver.name);
-		ret = platform_driver_register(mtk_mt6985_drm_drivers[i]);
-		if (ret < 0) {
-			DDPPR_ERR("Failed to register mt6985 %s driver: %d\n",
-				  mtk_mt6985_drm_drivers[i]->driver.name, ret);
-			goto err;
-		}
-	}
-#else
 	for (i = 0; i < ARRAY_SIZE(mtk_drm_drivers); i++) {
 		DDPINFO("%s register %s driver\n",
 			__func__, mtk_drm_drivers[i]->driver.name);
@@ -6503,7 +6492,6 @@ static int __init mtk_drm_init(void)
 			goto err;
 		}
 	}
-#endif
 	DDPINFO("%s-\n", __func__);
 
 	return 0;

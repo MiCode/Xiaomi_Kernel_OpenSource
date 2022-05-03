@@ -779,7 +779,8 @@ CONFIG_REG:
 	//MIPI_TX_MT6983
 	if (priv->data->mmsys_id == MMSYS_MT6983 ||
 		priv->data->mmsys_id == MMSYS_MT6985 ||
-		priv->data->mmsys_id == MMSYS_MT6895) {
+		priv->data->mmsys_id == MMSYS_MT6895 ||
+		priv->data->mmsys_id == MMSYS_MT6886) {
 		lpx = (lpx % 2) ? lpx + 1 : lpx; //lpx must be even
 		hs_prpr = (hs_prpr % 2) ? hs_prpr + 1 : hs_prpr; //hs_prpr must be even
 		hs_prpr = hs_prpr >= 6 ? hs_prpr : 6; //hs_prpr must be more than 6
@@ -886,6 +887,7 @@ static unsigned int mtk_dsi_default_rate(struct mtk_dsi *dsi)
 	if ((priv->data->mmsys_id == MMSYS_MT6983 ||
 		priv->data->mmsys_id == MMSYS_MT6985 ||
 		priv->data->mmsys_id == MMSYS_MT6895 ||
+		priv->data->mmsys_id == MMSYS_MT6886 ||
 		priv->data->mmsys_id == MMSYS_MT6879 ||
 		priv->data->mmsys_id == MMSYS_MT6855) &&
 		(dsi->d_rate != 0)) {
@@ -1115,7 +1117,8 @@ static int mtk_dsi_poweron(struct mtk_dsi *dsi)
 			if (dsi->ext->params->is_cphy)
 				if (priv->data->mmsys_id == MMSYS_MT6983 ||
 					priv->data->mmsys_id == MMSYS_MT6985 ||
-					priv->data->mmsys_id == MMSYS_MT6895) {
+					priv->data->mmsys_id == MMSYS_MT6895 ||
+					priv->data->mmsys_id == MMSYS_MT6886) {
 					mtk_mipi_tx_cphy_lane_config_mt6983(dsi->phy, dsi->ext,
 								     !!dsi->slave_dsi);
 				} else {
@@ -1125,7 +1128,8 @@ static int mtk_dsi_poweron(struct mtk_dsi *dsi)
 			else
 				if (priv->data->mmsys_id == MMSYS_MT6983 ||
 					priv->data->mmsys_id == MMSYS_MT6985 ||
-					priv->data->mmsys_id == MMSYS_MT6895) {
+					priv->data->mmsys_id == MMSYS_MT6895 ||
+					priv->data->mmsys_id == MMSYS_MT6886) {
 					mtk_mipi_tx_dphy_lane_config_mt6983(dsi->phy, dsi->ext,
 								     !!dsi->slave_dsi);
 				} else {
@@ -1197,7 +1201,8 @@ static void mtk_dsi_clk_hs_mode(struct mtk_dsi *dsi, bool enter)
 	//MIPI_TX_MT6983
 	if (priv->data->mmsys_id == MMSYS_MT6983 ||
 		priv->data->mmsys_id == MMSYS_MT6985 ||
-		priv->data->mmsys_id == MMSYS_MT6895) {
+		priv->data->mmsys_id == MMSYS_MT6895 ||
+		priv->data->mmsys_id == MMSYS_MT6886) {
 		if (dsi->ext && dsi->ext->params->is_cphy)
 			writel(0xAA, dsi->regs + DSI_PHY_LCPAT);
 		else
@@ -1796,6 +1801,7 @@ static u16 mtk_get_gpr(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 	case MMSYS_MT6985:
 	case MMSYS_MT6879:
 	case MMSYS_MT6895:
+	case MMSYS_MT6886:
 	case MMSYS_MT6855:
 		if (handle->cl == (void *)client)
 			return ((drm_crtc_index(crtc) == 0) ? CMDQ_GPR_R03 : CMDQ_GPR_R05);
@@ -3299,7 +3305,7 @@ int mtk_dsi_dump(struct mtk_ddp_comp *comp)
 			readl(dsi->regs + k + 0x8),
 			readl(dsi->regs + k + 0xc));
 	}
-
+	DDPDUMP("shadow reg 0xc04:0x%x\n", readl(dsi->regs + 0xc04));
 	DDPDUMP("- DSI CMD REGS:0x%x -\n", comp->regs_pa);
 	for (k = 0; k < 512; k += 16) {
 		DDPDUMP("0x%04x: 0x%08x 0x%08x 0x%08x 0x%08x\n", k,
@@ -3604,7 +3610,8 @@ static void mtk_dsi_config_trigger(struct mtk_ddp_comp *comp,
 		if (!ext->params->lp_perline_en &&
 			mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base)) {
 			if (priv->data->mmsys_id == MMSYS_MT6855 ||
-				priv->data->mmsys_id == MMSYS_MT6985)
+			    priv->data->mmsys_id == MMSYS_MT6886 ||
+			    priv->data->mmsys_id == MMSYS_MT6985)
 				cmdq_pkt_write(handle, comp->cmdq_base,
 						comp->regs_pa + DSI_CON_CTRL,
 						DSI_CM_MODE_WAIT_DATA_EVERY_LINE_EN,

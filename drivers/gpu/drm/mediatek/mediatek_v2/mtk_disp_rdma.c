@@ -490,6 +490,7 @@ static void mtk_rdma_start(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 		}
 		break;
 	case MMSYS_MT6895:
+	case MMSYS_MT6886:
 		/* mmsys0 consider dsi ultra signal if dsi buffer is enabled
 		 * mmsys1 ignore dsi ultra signal since HW unconnected
 		 */
@@ -535,6 +536,7 @@ static void mtk_rdma_stop(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 		}
 		break;
 	case MMSYS_MT6895:
+	case MMSYS_MT6886:
 		/*consider dsi ultra signal if dsi buffer is enabled*/
 		if ((rdma->data->dsi_buffer == true) &&
 		    (comp->id == DDP_COMPONENT_RDMA0))
@@ -1672,8 +1674,9 @@ static const struct mtk_disp_rdma_data mt6886_rdma_driver_data = {
 	.ultra_high_us = 250,
 	.urgent_low_us = 110,
 	.urgent_high_us = 120,
-	//.sodi_config = mt6886_mtk_sodi_config,
-	.shadow_update_reg = 0x00b8,
+	/* sodi is same as mt6895 */
+	.sodi_config = mt6895_mtk_sodi_config,
+	.shadow_update_reg = 0x00bc,
 	.support_shadow = false,
 	.need_bypass_shadow = false,
 	.has_greq_urg_num = true,
