@@ -117,6 +117,7 @@ int vdec_if_get_param(struct mtk_vcodec_ctx *ctx, enum vdec_get_param_type type,
 		if (inst == NULL)
 			return -ENOMEM;
 		inst->ctx = ctx;
+		inst->vcu.ctx = ctx;
 		ctx->drv_handle = (unsigned long)(inst);
 		ctx->dec_if = get_data_path_ptr();
 		mtk_vcodec_add_ctx_list(ctx);
@@ -148,6 +149,7 @@ int vdec_if_set_param(struct mtk_vcodec_ctx *ctx, enum vdec_set_param_type type,
 		if (inst == NULL)
 			return -ENOMEM;
 		inst->ctx = ctx;
+		inst->vcu.ctx = ctx;
 		ctx->drv_handle = (unsigned long)(inst);
 		ctx->dec_if = get_data_path_ptr();
 		mtk_vcodec_add_ctx_list(ctx);
