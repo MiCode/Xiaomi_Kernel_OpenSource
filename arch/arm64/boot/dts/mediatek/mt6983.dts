@@ -10861,6 +10861,9 @@
 		emi-max-addr = <0xC0000000>;
 	};
 
+	wifi_page_pool: wifi_page_pool {
+	};
+
 	mdpsys_config: mdpsys_config@1f000000 {
 		compatible = "mediatek,mdpsys_config";
 		reg = <0 0x1f000000 0 0x1000>;
