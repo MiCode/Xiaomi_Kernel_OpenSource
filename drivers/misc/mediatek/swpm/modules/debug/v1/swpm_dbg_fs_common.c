@@ -44,10 +44,10 @@ static ssize_t gpu_debug_read(char *ToUser, size_t sz, void *priv)
 	swpm_dbg_log("SWPM gpu_debug is %s\n",
 		(swpm_gpu_debug == true) ? "enabled" : "disabled");
 
-	/* if (swpm_gpu_debug == true) { */
-	/* TODO: TBD */
-	/* } */
-
+	if (swpm_gpu_debug == true) {
+		/* TODO: */
+		/* TBD */
+	}
 	return p - ToUser;
 }
 
@@ -86,7 +86,7 @@ static ssize_t swpm_arm_dsu_pmu_read(char *ToUser, size_t sz, void *priv)
 	if (!ToUser)
 		return -EINVAL;
 
-	val = swpm_arm_pmu_get_status();
+	val = swpm_arm_dsu_pmu_get_status();
 
 	swpm_dbg_log("SWPM arm dsu pmu is %s\n",
 		     (val) ? "enabled" : "disabled");

@@ -262,7 +262,7 @@ int swpm_arm_dsu_pmu_enable(unsigned int enable)
 		ret |= swpm_dsu_pmu_enable(!!enable);
 
 	if (!ret)
-		swpm_arm_dsu_pmu_status = !!enable;
+		swpm_arm_dsu_pmu_status = !!enable && pmu_dsu_support;
 
 	return ret;
 }
