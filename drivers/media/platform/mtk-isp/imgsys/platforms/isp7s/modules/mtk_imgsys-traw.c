@@ -37,7 +37,7 @@
 
 #define TRAW_HW_SET		2
 
-#if IF_0_DEFINE //YWTBD K DBG
+#if IOMMU_TF_CB_SUPPORT //YWTBD K DBG
 #define TRAW_L28_PORT_CNT	25
 #define TRAW_L9_PORT_CNT	16
 #endif
@@ -52,59 +52,61 @@ const struct mtk_imgsys_init_array
 
 #if IF_0_DEFINE //YWTBD K DBG
 static struct TRAWDmaDebugInfo g_DMADbgIfo[] = {
-	{"IMGI", TRAW_ORI_RDMA_DEBUG},
-	{"IMGI_UFD", TRAW_ORI_RDMA_UFD_DEBUG},
-	{"IMGBI", TRAW_ORI_RDMA_DEBUG},
-	{"IMGBI_UFD", TRAW_ORI_RDMA_UFD_DEBUG},
-	{"IMGCI", TRAW_ORI_RDMA_DEBUG},
-	{"IMGCI_UFD", TRAW_ORI_RDMA_UFD_DEBUG},
-	{"UFDI", TRAW_ORI_RDMA_DEBUG},
-	{"SMTI_T1", TRAW_ULC_RDMA_DEBUG},
-	{"SMTI_T2", TRAW_ULC_RDMA_DEBUG},
-	{"SMTI_T3", TRAW_ULC_RDMA_DEBUG},
-	{"SMTI_T4", TRAW_ULC_RDMA_DEBUG},
-	{"SMTI_T5", TRAW_ULC_RDMA_DEBUG},
-	{"SMTCI_T1", TRAW_ULC_RDMA_DEBUG},
-	{"SMTCI_T4", TRAW_ULC_RDMA_DEBUG},
-	{"CACI_T1", TRAW_ULC_RDMA_DEBUG},
-	{"TNCSTI_T1", TRAW_ULC_RDMA_DEBUG},
-	{"TNCSTI_T2", TRAW_ULC_RDMA_DEBUG},
-	{"TNCSTI_T3", TRAW_ULC_RDMA_DEBUG},
-	{"TNCSTI_T4", TRAW_ULC_RDMA_DEBUG},
-	{"TNCSTI_T5", TRAW_ULC_RDMA_DEBUG},
-	{"LTMSTI_T1", TRAW_ULC_RDMA_DEBUG},
-	{"LTMSTI_T2", TRAW_ULC_RDMA_DEBUG},
-	{"TIMGO_T1", TRAW_ORI_WDMA_DEBUG},
-	{"YUVO_T1", TRAW_ORI_WDMA_DEBUG},
-	{"YUVBO_T1", TRAW_ORI_WDMA_DEBUG},
-	{"YUVCO_T1", TRAW_ORI_WDMA_DEBUG},
-	{"YUVDO_T1", TRAW_ORI_WDMA_DEBUG},
-	{"YUVO_T2", TRAW_ULC_WDMA_DEBUG},
-	{"YUVBO_T2", TRAW_ULC_WDMA_DEBUG},
-	{"YUVO_T3", TRAW_ULC_WDMA_DEBUG},
-	{"YUVBO_T3", TRAW_ULC_WDMA_DEBUG},
-	{"YUVO_T4", TRAW_ULC_WDMA_DEBUG},
-	{"YUVBO_T4", TRAW_ULC_WDMA_DEBUG},
-	{"YUVO_T5", TRAW_ULC_WDMA_DEBUG},
-	{"TNCSO_T1", TRAW_ULC_WDMA_DEBUG},
-	{"TNCSBO_T1", TRAW_ULC_WDMA_DEBUG},
-	{"TNCSHO_T1", TRAW_ULC_WDMA_DEBUG},
-	{"TNCSYO_T1", TRAW_ULC_WDMA_DEBUG},
-	{"TNCSTO_T1", TRAW_ULC_WDMA_DEBUG},
-	{"TNCSTO_T2", TRAW_ULC_WDMA_DEBUG},
-	{"TNCSTO_T3", TRAW_ULC_WDMA_DEBUG},
-	{"SMTO_T1", TRAW_ULC_WDMA_DEBUG},
-	{"SMTO_T2", TRAW_ULC_WDMA_DEBUG},
-	{"SMTO_T3", TRAW_ULC_WDMA_DEBUG},
-	{"SMTO_T4", TRAW_ULC_WDMA_DEBUG},
-	{"SMTO_T5", TRAW_ULC_WDMA_DEBUG},
-	{"SMTCO_T1", TRAW_ULC_WDMA_DEBUG},
-	{"SMTCO_T4", TRAW_ULC_WDMA_DEBUG},
-	{"DRZS4NO_T1", TRAW_ULC_WDMA_DEBUG},
-	{"LTMSO_T1", TRAW_ULC_WDMA_DEBUG},
-	{"LTMSHO_T1", TRAW_ULC_WDMA_DEBUG},
-	{"LTMSTO_T1", TRAW_ULC_WDMA_DEBUG},
-	{"LTMSTO_T2", TRAW_ULC_WDMA_DEBUG},
+	{"IMGI", TRAW_ORI_RDMA_DEBUG, EVEN_ODD_MODE(1)},
+	{"IMGI_UFD", TRAW_ORI_RDMA_UFD_DEBUG, EVEN_ODD_MODE(0)},
+	{"UFDI", TRAW_ORI_RDMA_DEBUG, EVEN_ODD_MODE(1)},
+	{"IMGBI", TRAW_ORI_RDMA_DEBUG, EVEN_ODD_MODE(1)},
+	{"IMGBI_UFD", TRAW_ORI_RDMA_UFD_DEBUG, EVEN_ODD_MODE(0)},
+	{"IMGCI", TRAW_ORI_RDMA_DEBUG, EVEN_ODD_MODE(1)},
+	{"IMGCI_UFD", TRAW_ORI_RDMA_UFD_DEBUG, EVEN_ODD_MODE(0)},
+	{"SMTI_T1", TRAW_ULC_RDMA_DEBUG, EVEN_ODD_MODE(0)},
+	{"SMTI_T2", TRAW_ULC_RDMA_DEBUG, EVEN_ODD_MODE(0)},
+	{"SMTI_T3", TRAW_ULC_RDMA_DEBUG, EVEN_ODD_MODE(0)},
+	{"SMTI_T4", TRAW_ULC_RDMA_DEBUG, EVEN_ODD_MODE(0)},
+	{"SMTI_T5", TRAW_ULC_RDMA_DEBUG, EVEN_ODD_MODE(0)},
+	{"CACI_T1", TRAW_ULC_RDMA_DEBUG, EVEN_ODD_MODE(0)},
+	{"TNCSTI_T1", TRAW_ULC_RDMA_DEBUG, EVEN_ODD_MODE(0)},
+	{"TNCSTI_T2", TRAW_ULC_RDMA_DEBUG, EVEN_ODD_MODE(0)},
+	{"TNCSTI_T3", TRAW_ULC_RDMA_DEBUG, EVEN_ODD_MODE(0)},
+	{"TNCSTI_T4", TRAW_ULC_RDMA_DEBUG, EVEN_ODD_MODE(0)},
+	{"TNCSTI_T5", TRAW_ULC_RDMA_DEBUG, EVEN_ODD_MODE(0)},
+	{"YUVO_T1", TRAW_ORI_WDMA_DEBUG, EVEN_ODD_MODE(1)},
+	{"YUVBO_T1", TRAW_ORI_WDMA_DEBUG, EVEN_ODD_MODE(1)},
+	{"TIMGO_T1", TRAW_ORI_WDMA_DEBUG, EVEN_ODD_MODE(0)},
+	{"YUVCO_T1", TRAW_ORI_WDMA_DEBUG, EVEN_ODD_MODE(1)},
+	{"YUVDO_T1", TRAW_ORI_WDMA_DEBUG, EVEN_ODD_MODE(1)},
+	{"YUVO_T2", TRAW_ULC_WDMA_DEBUG, EVEN_ODD_MODE(0)},
+	{"YUVBO_T2", TRAW_ULC_WDMA_DEBUG, EVEN_ODD_MODE(0)},
+	{"YUVO_T3", TRAW_ULC_WDMA_DEBUG, EVEN_ODD_MODE(0)},
+	{"YUVBO_T3", TRAW_ULC_WDMA_DEBUG, EVEN_ODD_MODE(0)},
+	{"YUVO_T4", TRAW_ULC_WDMA_DEBUG, EVEN_ODD_MODE(0)},
+	{"YUVBO_T4", TRAW_ULC_WDMA_DEBUG, EVEN_ODD_MODE(0)},
+	{"YUVO_T5", TRAW_ULC_WDMA_DEBUG, EVEN_ODD_MODE(0)},
+	{"TNCSO_D1", TRAW_ULC_WDMA_DEBUG, EVEN_ODD_MODE(0)},
+	{"TNCSBO_D1", TRAW_ULC_WDMA_DEBUG, EVEN_ODD_MODE(0)},
+	{"TNCSHO_D1", TRAW_ULC_WDMA_DEBUG, EVEN_ODD_MODE(0)},
+	{"TNCSYO_D1", TRAW_ULC_WDMA_DEBUG, EVEN_ODD_MODE(0)},
+	{"SMTO_T1", TRAW_ULC_WDMA_DEBUG, EVEN_ODD_MODE(0)},
+	{"SMTO_T2", TRAW_ULC_WDMA_DEBUG, EVEN_ODD_MODE(0)},
+	{"SMTO_T3", TRAW_ULC_WDMA_DEBUG, EVEN_ODD_MODE(0)},
+	{"SMTO_T4", TRAW_ULC_WDMA_DEBUG, EVEN_ODD_MODE(0)},
+	{"SMTO_T5", TRAW_ULC_WDMA_DEBUG, EVEN_ODD_MODE(0)},
+	{"TNCSTO_T1", TRAW_ULC_WDMA_DEBUG, EVEN_ODD_MODE(0)},
+	{"TNCSTO_T2", TRAW_ULC_WDMA_DEBUG, EVEN_ODD_MODE(0)},
+	{"TNCSTO_T3", TRAW_ULC_WDMA_DEBUG, EVEN_ODD_MODE(0)},
+	{"SMTCI_T1", TRAW_ULC_RDMA_DEBUG, EVEN_ODD_MODE(0)},
+	{"SMTCI_T4", TRAW_ULC_RDMA_DEBUG, EVEN_ODD_MODE(0)},
+	{"SMTCO_T1", TRAW_ULC_WDMA_DEBUG, EVEN_ODD_MODE(0)},
+	{"SMTCO_T4", TRAW_ULC_WDMA_DEBUG, EVEN_ODD_MODE(0)},
+	{"LTMSTI_T1", TRAW_ULC_RDMA_DEBUG, EVEN_ODD_MODE(0)},
+	{"LTMSTI_T2", TRAW_ULC_RDMA_DEBUG, EVEN_ODD_MODE(0)},
+	{"LTMSO_T1", TRAW_ULC_WDMA_DEBUG, EVEN_ODD_MODE(0)},
+	{"LTMSHO_T1", TRAW_ULC_WDMA_DEBUG, EVEN_ODD_MODE(0)},
+	{"LTMSTO_T1", TRAW_ULC_WDMA_DEBUG, EVEN_ODD_MODE(0)},
+	{"LTMSTO_T2", TRAW_ULC_WDMA_DEBUG, EVEN_ODD_MODE(0)},
+	{"DRZS4NO_T1", TRAW_ULC_WDMA_DEBUG, EVEN_ODD_MODE(0)},
+	{"IMGI_N_UFD", TRAW_ORI_RDMA_UFD_DEBUG, EVEN_ODD_MODE(1)},
+	{"IMGBI_N_UFD", TRAW_ORI_RDMA_UFD_DEBUG, EVEN_ODD_MODE(1)},
 };
 #endif
 
@@ -115,7 +117,7 @@ static void __iomem *g_trawRegBA, *g_ltrawRegBA;
 static unsigned int g_IOMMUDumpPort;
 
 #ifndef CONFIG_FPGA_EARLY_PORTING
-#if IF_0_DEFINE //YWTBD K DBG
+#if IOMMU_TF_CB_SUPPORT //YWTBD K DBG
 static unsigned int g_IOMMUL9Def[TRAW_L9_PORT_CNT] = {
 	MTK_M4U_PORT_ID(0, 0, 9, 0),	/* IMGI_T1_A */
 	MTK_M4U_PORT_ID(0, 0, 9, 1),	/* UFDI_T1_A */
@@ -195,7 +197,7 @@ static void imgsys_traw_dump_dma(struct mtk_imgsys_dev *a_pDev,
 	unsigned int DmaDegInfoSize = sizeof(struct TRAWDmaDebugInfo);
 	unsigned int DebugCnt = sizeof(g_DMADbgIfo)/DmaDegInfoSize;
 	enum TRAWDmaDebugType DbgTy = TRAW_ORI_RDMA_DEBUG;
-
+	char even_odd = 0;
 	/* Dump DMA Debug Info */
 	for (Idx = 0; Idx < DebugCnt; Idx++) {
 		/* state_checksum */
@@ -207,6 +209,20 @@ static void imgsys_traw_dump_dma(struct mtk_imgsys_dev *a_pDev,
 		/* line_pix_cnt */
 		DbgCmd = TRAW_IMGI_LINE_PIX_CNT + Idx;
 		ExeDbgCmd(a_pDev, a_pRegBA, a_DdbSel, a_DbgOut, DbgCmd);
+
+		/* even_odd */
+		even_odd = g_DMADbgIfo[Idx].even_odd_mode;
+		if (g_DMADbgIfo[Idx].even_odd_mode) {
+			/* state_checksum */
+			DbgCmd = (TRAW_IMGI_STATE_CHECKSUM|EVEN_ODD_SEL) + Idx;
+			ExeDbgCmd(a_pDev, a_pRegBA, a_DdbSel, a_DbgOut, DbgCmd);
+			/* line_pix_cnt_tmp */
+			DbgCmd = (TRAW_IMGI_LINE_PIX_CNT_TMP|EVEN_ODD_SEL) + Idx;
+			ExeDbgCmd(a_pDev, a_pRegBA, a_DdbSel, a_DbgOut, DbgCmd);
+			/* line_pix_cnt */
+			DbgCmd = (TRAW_IMGI_LINE_PIX_CNT|EVEN_ODD_SEL) + Idx;
+			ExeDbgCmd(a_pDev, a_pRegBA, a_DdbSel, a_DbgOut, DbgCmd);
+		}
 
 		DbgTy = g_DMADbgIfo[Idx].DMADebugType;
 
@@ -225,6 +241,10 @@ static void imgsys_traw_dump_dma(struct mtk_imgsys_dev *a_pDev,
 			DbgCmd = TRAW_IMGI_SMI_DEBUG_DATA_CASE0 + Idx;
 			ExeDbgCmd(a_pDev, a_pRegBA, a_DdbSel, a_DbgOut,
 			DbgCmd);
+			if (even_odd) {
+				DbgCmd = (TRAW_IMGI_SMI_DEBUG_DATA_CASE0|EVEN_ODD_SEL) + Idx;
+				ExeDbgCmd(a_pDev, a_pRegBA, a_DdbSel, a_DbgOut, DbgCmd);
+			}
 		}
 
 		/* ULC_RDMA or ULC_WDMA */
@@ -255,6 +275,12 @@ static void imgsys_traw_dump_dma(struct mtk_imgsys_dev *a_pDev,
 			DbgCmd = TRAW_IMGI_FIFO_DEBUG_DATA_CASE3 + Idx;
 			ExeDbgCmd(a_pDev, a_pRegBA, a_DdbSel, a_DbgOut,
 				DbgCmd);
+			if (even_odd) {
+				DbgCmd = (TRAW_IMGI_FIFO_DEBUG_DATA_CASE1|EVEN_ODD_SEL) + Idx;
+				ExeDbgCmd(a_pDev, a_pRegBA, a_DdbSel, a_DbgOut, DbgCmd);
+				DbgCmd = (TRAW_IMGI_FIFO_DEBUG_DATA_CASE3|EVEN_ODD_SEL) + Idx;
+				ExeDbgCmd(a_pDev, a_pRegBA, a_DdbSel, a_DbgOut, DbgCmd);
+			}
 		}
 
 		/* ORI_WDMA */
@@ -434,20 +460,20 @@ static void imgsys_traw_dump_dl(struct mtk_imgsys_dev *a_pDev,
 
 	/* wpe_wif_t1_debug */
 	/* sot_st,eol_st,eot_st,sof,sot,eol,eot,req,rdy,7b0,checksum_out */
-	DbgCmd = 0x00000006;
+	DbgCmd = 0x00000106;
 	DbgData = ExeDbgCmd(a_pDev, a_pRegBA, a_DdbSel, a_DbgOut, DbgCmd);
 	DbgRdy = ((DbgData & 0x800000) > 0) ? 1 : 0;
 	DbgReq = ((DbgData & 0x1000000) > 0) ? 1 : 0;
 	pr_info("[wpe_wif_t1_debug]checksum(0x%X),rdy(%d) req(%d)\n",
 		DbgData & 0xFFFF, DbgRdy, DbgReq);
 	/* line_cnt[15:0],  pix_cnt[15:0] */
-	DbgCmd = 0x00000007;
+	DbgCmd = 0x00000107;
 	DbgData = ExeDbgCmd(a_pDev, a_pRegBA, a_DdbSel, a_DbgOut, DbgCmd);
 	DbgLineCnt = (DbgData & 0xFFFF0000) / 0xFFFF;
 	pr_info("[wpe_wif_t1_debug]pix_cnt(0x%X),line_cnt(0x%X)\n",
 		DbgData & 0xFFFF, DbgLineCnt);
 	/* line_cnt_reg[15:0], pix_cnt_reg[15:0] */
-	DbgCmd = 0x00000008;
+	DbgCmd = 0x00000108;
 	DbgData = ExeDbgCmd(a_pDev, a_pRegBA, a_DdbSel, a_DbgOut, DbgCmd);
 	DbgLineCntReg = (DbgData & 0xFFFF0000) / 0xFFFF;
 	pr_info("[wpe_wif_t1_debug]pix_cnt_reg(0x%X),line_cnt_reg(0x%X)\n",
@@ -455,20 +481,20 @@ static void imgsys_traw_dump_dl(struct mtk_imgsys_dev *a_pDev,
 
 	/* wpe_wif_t2_debug */
 	/* sot_st,eol_st,eot_st,sof,sot,eol,eot,req,rdy,7b0,checksum_out */
-	DbgCmd = 0x00000106;
+	DbgCmd = 0x00000206;
 	DbgData = ExeDbgCmd(a_pDev, a_pRegBA, a_DdbSel, a_DbgOut, DbgCmd);
 	DbgRdy = ((DbgData & 0x800000) > 0) ? 1 : 0;
 	DbgReq = ((DbgData & 0x1000000) > 0) ? 1 : 0;
 	pr_info("[wpe_wif_t2_debug]checksum(0x%X),rdy(%d) req(%d)\n",
 		DbgData & 0xFFFF, DbgRdy, DbgReq);
 	/* line_cnt[15:0],  pix_cnt[15:0] */
-	DbgCmd = 0x00000107;
+	DbgCmd = 0x00000207;
 	DbgData = ExeDbgCmd(a_pDev, a_pRegBA, a_DdbSel, a_DbgOut, DbgCmd);
 	DbgLineCnt = (DbgData & 0xFFFF0000) / 0xFFFF;
 	pr_info("[wpe_wif_t2_debug]pix_cnt(0x%X),line_cnt(0x%X)\n",
 		DbgData & 0xFFFF, DbgLineCnt);
 	/* line_cnt_reg[15:0], pix_cnt_reg[15:0] */
-	DbgCmd = 0x00000108;
+	DbgCmd = 0x00000208;
 	DbgData = ExeDbgCmd(a_pDev, a_pRegBA, a_DdbSel, a_DbgOut, DbgCmd);
 	DbgLineCntReg = (DbgData & 0xFFFF0000) / 0xFFFF;
 	pr_info("[wpe_wif_t2_debug]pix_cnt_reg(0x%X),line_cnt_reg(0x%X)\n",
@@ -476,20 +502,20 @@ static void imgsys_traw_dump_dl(struct mtk_imgsys_dev *a_pDev,
 
 	/* traw_dip_d1_debug */
 	/* sot_st,eol_st,eot_st,sof,sot,eol,eot,req,rdy,7b0,checksum_out */
-	DbgCmd = 0x00000206;
+	DbgCmd = 0x00000006;
 	DbgData = ExeDbgCmd(a_pDev, a_pRegBA, a_DdbSel, a_DbgOut, DbgCmd);
 	DbgRdy = ((DbgData & 0x800000) > 0) ? 1 : 0;
 	DbgReq = ((DbgData & 0x1000000) > 0) ? 1 : 0;
 	pr_info("[traw_dip_d1_debug]checksum(0x%X),rdy(%d) req(%d)\n",
 		DbgData & 0xFFFF, DbgRdy, DbgReq);
 	/* line_cnt[15:0],  pix_cnt[15:0] */
-	DbgCmd = 0x00000207;
+	DbgCmd = 0x00000007;
 	DbgData = ExeDbgCmd(a_pDev, a_pRegBA, a_DdbSel, a_DbgOut, DbgCmd);
 	DbgLineCnt = (DbgData & 0xFFFF0000) / 0xFFFF;
 	pr_info("[traw_dip_d1_debug]pix_cnt(0x%X),line_cnt(0x%X)\n",
 		DbgData & 0xFFFF, DbgLineCnt);
 	/* line_cnt_reg[15:0], pix_cnt_reg[15:0] */
-	DbgCmd = 0x00000208;
+	DbgCmd = 0x00000008;
 	DbgData = ExeDbgCmd(a_pDev, a_pRegBA, a_DdbSel, a_DbgOut, DbgCmd);
 	DbgLineCntReg = (DbgData & 0xFFFF0000) / 0xFFFF;
 	pr_info("[traw_dip_d1_debug]pix_cnt_reg(0x%X),line_cnt_reg(0x%X)\n",
@@ -516,73 +542,73 @@ static void imgsys_traw_dump_dl(struct mtk_imgsys_dev *a_pDev,
 	pr_info("[wpe_wif_t3_debug]pix_cnt_reg(0x%X),line_cnt_reg(0x%X)\n",
 		DbgData & 0xFFFF, DbgLineCntReg);
 
-	/* adl_wif_t4_debug */
+	/* wpe_wif_t4_debug */
 	/* sot_st,eol_st,eot_st,sof,sot,eol,eot,req,rdy,7b0,checksum_out */
 	DbgCmd = 0x00000406;
 	DbgData = ExeDbgCmd(a_pDev, a_pRegBA, a_DdbSel, a_DbgOut, DbgCmd);
 	DbgRdy = ((DbgData & 0x800000) > 0) ? 1 : 0;
 	DbgReq = ((DbgData & 0x1000000) > 0) ? 1 : 0;
-	pr_info("[adl_wif_t4_debug]checksum(0x%X),rdy(%d) req(%d)\n",
+	pr_info("[wpe_wif_t4_debug]checksum(0x%X),rdy(%d) req(%d)\n",
 		DbgData & 0xFFFF, DbgRdy, DbgReq);
 	/* line_cnt[15:0],  pix_cnt[15:0] */
 	DbgCmd = 0x00000407;
 	DbgData = ExeDbgCmd(a_pDev, a_pRegBA, a_DdbSel, a_DbgOut, DbgCmd);
 	DbgLineCnt = (DbgData & 0xFFFF0000) / 0xFFFF;
-	pr_info("[adl_wif_t4_debug]pix_cnt(0x%X),line_cnt(0x%X)\n",
+	pr_info("[wpe_wif_t4_debug]pix_cnt(0x%X),line_cnt(0x%X)\n",
 		DbgData & 0xFFFF, DbgLineCnt);
 	/* line_cnt_reg[15:0], pix_cnt_reg[15:0] */
 	DbgCmd = 0x00000408;
 	DbgData = ExeDbgCmd(a_pDev, a_pRegBA, a_DdbSel, a_DbgOut, DbgCmd);
 	DbgLineCntReg = (DbgData & 0xFFFF0000) / 0xFFFF;
-	pr_info("[adl_wif_t4_debug]pix_cnt_reg(0x%X),line_cnt_reg(0x%X)\n",
+	pr_info("[wpe_wif_t4_debug]pix_cnt_reg(0x%X),line_cnt_reg(0x%X)\n",
 		DbgData & 0xFFFF, DbgLineCntReg);
 
-	/* adl_wif_t4n_debug */
+	/* wpe_wif_t4n_debug */
 	/* sot_st,eol_st,eot_st,sof,sot,eol,eot,req,rdy,7b0,checksum_out */
 	DbgCmd = 0x00000506;
 	DbgData = ExeDbgCmd(a_pDev, a_pRegBA, a_DdbSel, a_DbgOut, DbgCmd);
 	DbgRdy = ((DbgData & 0x800000) > 0) ? 1 : 0;
 	DbgReq = ((DbgData & 0x1000000) > 0) ? 1 : 0;
-	pr_info("[adl_wif_t4n_debug]checksum(0x%X),rdy(%d) req(%d)\n",
+	pr_info("[wpe_wif_t4n_debug]checksum(0x%X),rdy(%d) req(%d)\n",
 		DbgData & 0xFFFF, DbgRdy, DbgReq);
 	/* line_cnt[15:0],  pix_cnt[15:0] */
 	DbgCmd = 0x00000507;
 	DbgData = ExeDbgCmd(a_pDev, a_pRegBA, a_DdbSel, a_DbgOut, DbgCmd);
 	DbgLineCnt = (DbgData & 0xFFFF0000) / 0xFFFF;
-	pr_info("[adl_wif_t4n_debug]pix_cnt(0x%X),line_cnt(0x%X)\n",
+	pr_info("[wpe_wif_t4n_debug]pix_cnt(0x%X),line_cnt(0x%X)\n",
 		DbgData & 0xFFFF, DbgLineCnt);
 	/* line_cnt_reg[15:0], pix_cnt_reg[15:0] */
 	DbgCmd = 0x00000508;
 	DbgData = ExeDbgCmd(a_pDev, a_pRegBA, a_DdbSel, a_DbgOut, DbgCmd);
 	DbgLineCntReg = (DbgData & 0xFFFF0000) / 0xFFFF;
-	pr_info("[adl_wif_t4n_debug]pix_cnt_reg(0x%X),line_cnt_reg(0x%X)\n",
+	pr_info("[wpe_wif_t4n_debug]pix_cnt_reg(0x%X),line_cnt_reg(0x%X)\n",
 		DbgData & 0xFFFF, DbgLineCntReg);
 
-	/* adl_wif_t5_debug */
+	/* wpe_wif_t5_debug */
 	/* sot_st,eol_st,eot_st,sof,sot,eol,eot,req,rdy,7b0,checksum_out */
 	DbgCmd = 0x00000606;
 	DbgData = ExeDbgCmd(a_pDev, a_pRegBA, a_DdbSel, a_DbgOut, DbgCmd);
 	DbgRdy = ((DbgData & 0x800000) > 0) ? 1 : 0;
 	DbgReq = ((DbgData & 0x1000000) > 0) ? 1 : 0;
-	pr_info("[adl_wif_t5_debug]checksum(0x%X),rdy(%d) req(%d)\n",
+	pr_info("[wpe_wif_t5_debug]checksum(0x%X),rdy(%d) req(%d)\n",
 		DbgData & 0xFFFF, DbgRdy, DbgReq);
 	/* line_cnt[15:0],  pix_cnt[15:0] */
 	DbgCmd = 0x00000607;
 	DbgData = ExeDbgCmd(a_pDev, a_pRegBA, a_DdbSel, a_DbgOut, DbgCmd);
 	DbgLineCnt = (DbgData & 0xFFFF0000) / 0xFFFF;
-	pr_info("[adl_wif_t5_debug]pix_cnt(0x%X),line_cnt(0x%X)\n",
+	pr_info("[wpe_wif_t5_debug]pix_cnt(0x%X),line_cnt(0x%X)\n",
 		DbgData & 0xFFFF, DbgLineCnt);
 	/* line_cnt_reg[15:0], pix_cnt_reg[15:0] */
 	DbgCmd = 0x00000608;
 	DbgData = ExeDbgCmd(a_pDev, a_pRegBA, a_DdbSel, a_DbgOut, DbgCmd);
 	DbgLineCntReg = (DbgData & 0xFFFF0000) / 0xFFFF;
-	pr_info("[adl_wif_t5_debug]pix_cnt_reg(0x%X),line_cnt_reg(0x%X)\n",
+	pr_info("[wpe_wif_t5_debug]pix_cnt_reg(0x%X),line_cnt_reg(0x%X)\n",
 		DbgData & 0xFFFF, DbgLineCntReg);
 }
 #endif
 
 #ifndef CONFIG_FPGA_EARLY_PORTING
-#if IF_0_DEFINE //YWTBD K DBG
+#if IOMMU_TF_CB_SUPPORT //YWTBD K DBG
 static int GetFaultDMAAddr(unsigned int port, unsigned int *pStartAddr, unsigned int *pEndAddr)
 {
 	int Result = 1;
@@ -736,7 +762,7 @@ static int imgsys_traw_iommu_cb(int port, dma_addr_t mva, void *cb_data)
 static void imgsys_traw_reg_iommu_cb(void)
 {
 #ifndef CONFIG_FPGA_EARLY_PORTING
-#if IF_0_DEFINE //YWTBD K DBG
+#if IOMMU_TF_CB_SUPPORT //YWTBD K DBG
 	unsigned int i = 0;
 
 	/* Reg Traw L28 Port Callback */

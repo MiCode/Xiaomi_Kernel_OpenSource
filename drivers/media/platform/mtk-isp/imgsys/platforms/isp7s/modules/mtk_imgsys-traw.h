@@ -26,7 +26,8 @@
 #define TRAW_A_BASE_ADDR	0x15700000
 #define TRAW_B_BASE_ADDR	0x15040000
 
-#define IF_0_DEFINE 0
+#define IF_0_DEFINE 1
+#define IOMMU_TF_CB_SUPPORT (0)
 
 #define TRAW_DMA_NAME_MAX_SIZE	20
 
@@ -50,6 +51,7 @@
 #define TRAW_IMGI_FIFO_DEBUG_DATA_CASE3		(0x30600)
 #define TRAW_YUVO_T1_FIFO_DEBUG_DATA_CASE1	(0x10700)
 #define TRAW_YUVO_T1_FIFO_DEBUG_DATA_CASE3	(0x30700)
+
 #endif
 
 #define	TRAW_DMA_IMGI_ADDR		(0x4100)
@@ -91,7 +93,11 @@ enum TRAWDmaDebugType {
 struct TRAWDmaDebugInfo {
 	char DMAName[TRAW_DMA_NAME_MAX_SIZE];
 	enum TRAWDmaDebugType DMADebugType;
+	char even_odd_mode;
 };
+
+#define EVEN_ODD_MODE(x) (x)
+#define EVEN_ODD_SEL (0x1000)
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 // Public Functions
