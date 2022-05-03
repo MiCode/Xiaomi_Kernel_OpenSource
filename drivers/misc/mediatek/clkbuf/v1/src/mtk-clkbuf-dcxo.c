@@ -818,9 +818,6 @@ int clkbuf_dcxo_pmic_store(const char *cmd, const char *arg1, const char *arg2)
 		return ret;
 	}
 
-	if (ret)
-		return ret;
-
 	xo_id = clkbuf_dcxo_get_xo_id_by_name(arg1);
 	if (xo_id < 0) {
 		pr_notice("unknown xo name: %s\n", arg1);
