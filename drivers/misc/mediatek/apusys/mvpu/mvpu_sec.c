@@ -71,7 +71,7 @@ uint32_t get_ptn_size(uint32_t hash)
 		ptn_hash = mvpu_algo_img[shift];
 
 		// check hash
-		if (ptn_hash == hash) {
+		if ((ptn_hash & MPVU_BATCH_MASK) == (hash & MPVU_BATCH_MASK)) {
 			ptn_size = mvpu_algo_img[shift + KER_SIZE_OFFSET];
 			break;
 		}
@@ -83,7 +83,7 @@ uint32_t get_ptn_size(uint32_t hash)
 		ptn_size_offset = ptn_size_offset + 4 - (ptn_size_offset % 4);
 	}
 
-	if (ptn_hash != hash)
+	if ((ptn_hash & MPVU_BATCH_MASK) != (hash & MPVU_BATCH_MASK))
 		pr_info("[MVPU][Sec] PTN HASH: 0x%08x not found\n", hash);
 
 	//printf("[SEC_IMG] get PTN HASH: 0x%08x, img addr 0x%08x,
@@ -106,7 +106,7 @@ bool get_ptn_hash(uint32_t hash)
 		ptn_hash = mvpu_algo_img[shift];
 
 		// check hash
-		if (ptn_hash == hash)
+		if ((ptn_hash & MPVU_BATCH_MASK) == (hash & MPVU_BATCH_MASK))
 			return true;
 
 		// count ptn.bin size to shift
@@ -174,7 +174,7 @@ void get_ker_info(uint32_t hash, uint32_t *ker_bin_offset, uint32_t *ker_bin_num
 		}
 
 		// check hash
-		if (ker_hash == hash) {
+		if ((ker_hash & MPVU_BATCH_MASK) == (hash & MPVU_BATCH_MASK)) {
 			if (mvpu_loglvl_sec >= APUSYS_MVPU_LOG_DBG)
 				pr_info("[MVPU][IMG] Get KNL HASH 0x%08x\n", hash);
 
@@ -834,6 +834,9 @@ bool get_hash_info(void *session,
 						uint32_t *hash_id,
 						uint32_t buf_num)
 {
+	if (batch_name_hash == 0x0)
+		return false;
+
 	*session_id = get_saved_session_id(session);
 
 	if (*session_id == -1)

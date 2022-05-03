@@ -103,6 +103,8 @@ static int mvpu_validation(void *hnd)
 	uint32_t ker_bin_num = 0;
 	uint32_t *ker_bin_each_iova = NULL;
 
+	uint32_t check_buf_size = 0;
+
 	uint32_t session_id = -1;
 	uint32_t hash_id = -1;
 	bool algo_in_pool = false;
@@ -160,6 +162,12 @@ static int mvpu_validation(void *hnd)
 		pr_info("[MVPU][Sec] DRV set batch: 0x%08x\n", batch_name_hash);
 		pr_info("[MVPU][Sec] buf_num %d\n", buf_num);
 		pr_info("[MVPU][Sec] rp_num %d\n", rp_num);
+	}
+
+	if ((batch_name_hash & MPVU_BATCH_MASK) == 0x0) {
+		pr_info("[MVPU][IMG] [ERROR] get wrong HASH 0x%08x\n", batch_name_hash);
+		ret = -1;
+		goto END;
 	}
 
 	algo_in_img = get_ptn_hash(batch_name_hash);
@@ -426,19 +434,25 @@ static int mvpu_validation(void *hnd)
 				sec_buf_size[i]);
 		}
 
-		if (sec_chk_addr[i] == 0) {
-			buf_cmd_cnt++;
-			if (buf_cmd_cnt == MVPU_MIN_CMDBUF_NUM) {
-				buf_cmd_kreg = i;
-				buf_cmd_next = i + 1;
+		if (mem_use_iova(sec_chk_addr[i]) == false) {
+			if (sec_chk_addr[i] == 0) {
+				buf_cmd_cnt++;
+				if (buf_cmd_cnt == MVPU_MIN_CMDBUF_NUM) {
+					buf_cmd_kreg = i;
+					buf_cmd_next = i + 1;
+				}
 			}
-
 			continue;
 		}
 
 		// check buffer integrity
+		if (sec_buf_attr[i] == BUF_IO)
+			check_buf_size = 0;
+		else
+			check_buf_size = sec_buf_size[i];
+
 		if (apusys_mem_validate_by_cmd(cmd_hnd->session, cmd_hnd->cmd,
-				(uint64_t)sec_chk_addr[i], sec_buf_size[i]) != 0) {
+				(uint64_t)sec_chk_addr[i], check_buf_size) != 0) {
 			pr_info("[MVPU][Sec] buf[%3d]: 0x%08x integrity checked FAIL\n",
 						i, sec_chk_addr[i]);
 			buf_int_check_pass = 0;
