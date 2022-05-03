@@ -121,6 +121,7 @@ struct mml_pq_param {
 	uint32_t metadata_mem_id;
 	struct mml_pq_video_param video_param;
 	uint32_t user_info;
+	uint32_t app_hint;
 };
 
 struct mml_frame_data {
