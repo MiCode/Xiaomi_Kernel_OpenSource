@@ -20,6 +20,7 @@
 #define GPUFREQ_FORCE_WDT_ENABLE        (1)
 #define GPUFREQ_MAX_OPP_NUM             (70)
 #define GPUFREQ_MAX_ADJ_NUM             (10)
+#define GPUFREQ_MAX_REG_NUM             (70)
 
 /**************************************************
  * GPUFREQ Log Setting
@@ -258,6 +259,7 @@ struct gpufreq_shared_status {
 	unsigned int segment_id;
 	unsigned int power_time_h;
 	unsigned int power_time_l;
+	struct gpufreq_reg_info reg_mfgsys[GPUFREQ_MAX_REG_NUM];
 	struct gpufreq_reg_info reg_stack_sel;
 	struct gpufreq_reg_info reg_del_sel;
 	struct gpufreq_asensor_info asensor_info;
