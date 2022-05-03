@@ -810,7 +810,7 @@ CONFIG_REG:
 		writel(value, dsi->regs + DSI_PHY_TIMECON1);
 	if (handle)
 		cmdq_pkt_write((struct cmdq_pkt *)handle, comp->cmdq_base,
-			comp->regs_pa+DSI_PHY_TIMECON0, 0x012c003, ~0);
+			comp->regs_pa+DSI_CPHY_CON0, 0x012c0003, ~0);
 	else
 		writel(0x012c0003, dsi->regs + DSI_CPHY_CON0);
 }
