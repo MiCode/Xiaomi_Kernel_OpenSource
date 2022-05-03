@@ -132,6 +132,27 @@ unsigned int gpufreq_power_ctrl_enable(void)
 EXPORT_SYMBOL(gpufreq_power_ctrl_enable);
 
 /***********************************************************************************
+ * Function Name      : gpufreq_active_idle_ctrl_enable
+ * Inputs             : -
+ * Outputs            : -
+ * Returns            : status - Current status of active-idle control
+ * Description        : Check whether active-idle control of GPU HW is enable
+ *                      If it's disabled, GPU HW is always active
+ ***********************************************************************************/
+unsigned int gpufreq_active_idle_ctrl_enable(void)
+{
+	unsigned int active_idle_control = false;
+
+	if (g_shared_status)
+		active_idle_control = g_shared_status->active_idle_control;
+	else
+		GPUFREQ_LOGE("null gpufreq shared memory (ENOENT)");
+
+	return active_idle_control;
+}
+EXPORT_SYMBOL(gpufreq_active_idle_ctrl_enable);
+
+/***********************************************************************************
  * Function Name      : gpufreq_get_power_state
  * Inputs             : -
  * Outputs            : -
@@ -141,11 +162,16 @@ EXPORT_SYMBOL(gpufreq_power_ctrl_enable);
 unsigned int gpufreq_get_power_state(void)
 {
 	enum gpufreq_power_state power_state = POWER_OFF;
-	int power_count = 0;
+	int power_count = 0, active_count = 0;
 
 	if (g_shared_status) {
 		power_count = g_shared_status->power_count;
-		power_state = power_count > 0 ? POWER_ON : POWER_OFF;
+		active_count = g_shared_status->active_count;
+		if (gpufreq_active_idle_ctrl_enable())
+			power_state = ((power_count > 0) && (active_count > 0)) ?
+				POWER_ON : POWER_OFF;
+		else
+			power_state = power_count > 0 ? POWER_ON : POWER_OFF;
 	} else
 		GPUFREQ_LOGE("null gpufreq shared memory (ENOENT)");
 
@@ -722,6 +748,59 @@ done:
 	return ret;
 }
 EXPORT_SYMBOL(gpufreq_power_control);
+
+/***********************************************************************************
+ * Function Name      : gpufreq_active_idle_control
+ * Inputs             : power          - Target power state
+ * Outputs            : -
+ * Returns            : active_count   - Success
+ *                      GPUFREQ_EINVAL - Failure
+ *                      GPUFREQ_ENOENT - Null implementation
+ * Description        : Control runtime active-idle state of GPU
+ ***********************************************************************************/
+int gpufreq_active_idle_control(enum gpufreq_power_state power)
+{
+	struct gpufreq_ipi_data send_msg = {};
+	int ret = GPUFREQ_SUCCESS;
+
+	GPUFREQ_TRACE_START("power=%d", power);
+
+	if (!gpufreq_active_idle_ctrl_enable()) {
+		GPUFREQ_LOGD("active-idle control is disabled");
+		ret = GPUFREQ_SUCCESS;
+		goto done;
+	}
+
+	/* implement on EB */
+	if (g_gpueb_support) {
+		send_msg.cmd_id = CMD_ACTIVE_IDLE_CONTROL;
+		send_msg.u.power_state = power;
+
+		if (!gpufreq_ipi_to_gpueb(send_msg))
+			ret = g_recv_msg.u.return_value;
+		else
+			ret = GPUFREQ_EINVAL;
+		goto done;
+	}
+
+	/* implement on AP */
+	if (gpufreq_fp && gpufreq_fp->active_idle_control) {
+		ret = gpufreq_fp->active_idle_control(power, LOCK_PROT);
+	} else {
+		ret = GPUFREQ_ENOENT;
+		GPUFREQ_LOGE("null gpufreq platform function pointer (ENOENT)");
+	}
+
+done:
+	if (unlikely(ret < 0))
+		GPUFREQ_LOGE("fail to control active-idle state: %s (%d)",
+			power ? "ACTIVE" : "IDLE", ret);
+
+	GPUFREQ_TRACE_END();
+
+	return ret;
+}
+EXPORT_SYMBOL(gpufreq_active_idle_control);
 
 /***********************************************************************************
  * Function Name      : gpufreq_commit

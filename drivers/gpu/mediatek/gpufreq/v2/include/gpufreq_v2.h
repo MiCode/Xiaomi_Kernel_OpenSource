@@ -75,6 +75,7 @@ enum gpufreq_dvfs_state {
 	DVFS_DEBUG_KEEP = BIT(2), /* 0000 0100 */
 	DVFS_AVS_KEEP   = BIT(3), /* 0000 1000 */
 	DVFS_AGING_KEEP = BIT(4), /* 0001 0000 */
+	DVFS_IDLE       = BIT(5), /* 0010 0000 */
 };
 
 enum gpufreq_target {
@@ -93,6 +94,11 @@ enum gpufreq_feat_mode {
 	FEAT_DISABLE = 0,
 	FEAT_ENABLE,
 	DFD_FORCE_DUMP,
+};
+
+enum gpufreq_lock_mode {
+	NO_LOCK_PROT = 0,
+	LOCK_PROT,
 };
 
 enum gpuppm_reserved_idx {
@@ -200,6 +206,7 @@ struct gpufreq_shared_status {
 	int buck_count;
 	int mtcmos_count;
 	int cg_count;
+	int active_count;
 	unsigned int cur_fgpu;
 	unsigned int cur_fstack;
 	unsigned int cur_con1_fgpu;
@@ -229,6 +236,7 @@ struct gpufreq_shared_status {
 	unsigned int temperature;
 	unsigned int temp_compensate;
 	unsigned int power_control;
+	unsigned int active_idle_control;
 	unsigned int dvfs_state;
 	unsigned int shader_present;
 	unsigned int asensor_enable;
@@ -263,11 +271,13 @@ struct gpufreq_platform_fp {
 	/* Common */
 	unsigned int (*bringup)(void);
 	unsigned int (*power_ctrl_enable)(void);
+	unsigned int (*active_idle_ctrl_enable)(void);
 	unsigned int (*get_power_state)(void);
 	unsigned int (*get_dvfs_state)(void);
 	unsigned int (*get_shader_present)(void);
 	unsigned int (*get_segment_id)(void);
 	int (*power_control)(enum gpufreq_power_state power);
+	int (*active_idle_control)(enum gpufreq_power_state power, enum gpufreq_lock_mode lock);
 	void (*set_timestamp)(void);
 	void (*check_bus_idle)(void);
 	void (*dump_infra_status)(void);
@@ -349,6 +359,7 @@ extern int (*mtk_get_gpu_cur_oppidx_fp)(enum gpufreq_target target);
 /* Common */
 unsigned int gpufreq_bringup(void);
 unsigned int gpufreq_power_ctrl_enable(void);
+unsigned int gpufreq_active_idle_ctrl_enable(void);
 unsigned int gpufreq_get_power_state(void);
 unsigned int gpufreq_get_dvfs_state(void);
 unsigned int gpufreq_get_shader_present(void);
@@ -375,6 +386,7 @@ int gpufreq_set_limit(enum gpufreq_target target,
 int gpufreq_get_cur_limit_idx(enum gpufreq_target target,enum gpuppm_limit_type limit);
 unsigned int gpufreq_get_cur_limiter(enum gpufreq_target target, enum gpuppm_limit_type limit);
 int gpufreq_power_control(enum gpufreq_power_state power);
+int gpufreq_active_idle_control(enum gpufreq_power_state power);
 int gpufreq_commit(enum gpufreq_target target, int oppidx);
 struct gpufreq_core_mask_info *gpufreq_get_core_mask_table(void);
 unsigned int gpufreq_get_core_num(void);

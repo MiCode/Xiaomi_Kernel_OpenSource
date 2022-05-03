@@ -101,9 +101,10 @@ static int gpufreq_status_proc_show(struct seq_file *m, void *v)
 	power_time = g_shared_status->power_time_h;
 	power_time = (power_time << 32) | g_shared_status->power_time_l;
 	seq_printf(m,
-		"%-15s PowerCount: %d, CG: %d, MTCMOS: %d, BUCK: %d, Timestamp: %lld\n",
+		"%-15s PowerCount: %d, Active: %d, CG: %d, MTCMOS: %d, BUCK: %d, Time: %lld\n",
 		"[Common-Power]",
 		g_shared_status->power_count,
+		g_shared_status->active_count,
 		g_shared_status->cg_count,
 		g_shared_status->mtcmos_count,
 		g_shared_status->buck_count,

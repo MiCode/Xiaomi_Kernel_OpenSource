@@ -28,18 +28,19 @@ static char *gpufreq_ipi_cmd_name[] = {
 	"CMD_GET_LEAKAGE_POWER",      // 4
 	"CMD_SET_LIMIT",              // 5
 	"CMD_POWER_CONTROL",          // 6
-	"CMD_COMMIT",                 // 7
+	"CMD_ACTIVE_IDLE_CONTROL",    // 7
+	"CMD_COMMIT",                 // 8
 	/* Debug */
-	"CMD_UPDATE_DEBUG_OPP_INFO",  // 8
-	"CMD_SWITCH_LIMIT",           // 9
-	"CMD_FIX_TARGET_OPPIDX",      // 10
-	"CMD_FIX_CUSTOM_FREQ_VOLT",   // 11
-	"CMD_SET_STRESS_TEST",        // 12
-	"CMD_SET_MARGIN_MODE",        // 13
-	"CMD_SET_GPM_MODE",           // 14
-	"CMD_SET_DFD_MODE",           // 15
-	"CMD_SET_TEST_MODE",          // 16
-	"CMD_NUM",                    // 17
+	"CMD_UPDATE_DEBUG_OPP_INFO",  // 9
+	"CMD_SWITCH_LIMIT",           // 10
+	"CMD_FIX_TARGET_OPPIDX",      // 11
+	"CMD_FIX_CUSTOM_FREQ_VOLT",   // 12
+	"CMD_SET_STRESS_TEST",        // 13
+	"CMD_SET_MARGIN_MODE",        // 14
+	"CMD_SET_GPM_MODE",           // 15
+	"CMD_SET_DFD_MODE",           // 16
+	"CMD_SET_TEST_MODE",          // 17
+	"CMD_NUM",                    // 18
 };
 
 enum gpufreq_ipi_cmd {
@@ -51,18 +52,19 @@ enum gpufreq_ipi_cmd {
 	CMD_GET_LEAKAGE_POWER         = 4,
 	CMD_SET_LIMIT                 = 5,
 	CMD_POWER_CONTROL             = 6,
-	CMD_COMMIT                    = 7,
+	CMD_ACTIVE_IDLE_CONTROL       = 7,
+	CMD_COMMIT                    = 8,
 	/* Debug */
-	CMD_UPDATE_DEBUG_OPP_INFO     = 8,
-	CMD_SWITCH_LIMIT              = 9,
-	CMD_FIX_TARGET_OPPIDX         = 10,
-	CMD_FIX_CUSTOM_FREQ_VOLT      = 11,
-	CMD_SET_STRESS_TEST           = 12,
-	CMD_SET_MARGIN_MODE           = 13,
-	CMD_SET_GPM_MODE              = 14,
-	CMD_SET_DFD_MODE              = 15,
-	CMD_SET_TEST_MODE             = 16,
-	CMD_NUM                       = 17,
+	CMD_UPDATE_DEBUG_OPP_INFO     = 9,
+	CMD_SWITCH_LIMIT              = 10,
+	CMD_FIX_TARGET_OPPIDX         = 11,
+	CMD_FIX_CUSTOM_FREQ_VOLT      = 12,
+	CMD_SET_STRESS_TEST           = 13,
+	CMD_SET_MARGIN_MODE           = 14,
+	CMD_SET_GPM_MODE              = 15,
+	CMD_SET_DFD_MODE              = 16,
+	CMD_SET_TEST_MODE             = 17,
+	CMD_NUM                       = 18,
 };
 
 /**************************************************
