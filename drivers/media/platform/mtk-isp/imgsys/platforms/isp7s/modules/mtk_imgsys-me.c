@@ -18,8 +18,8 @@
 #include <linux/of_irq.h>
 #include <linux/of_address.h>
 #include <linux/clk.h>
-#include "mtk_imgsys-engine.h"
-#include "mtk-ipesys-me.h"
+#include "./../mtk_imgsys-engine.h"
+#include "mtk_imgsys-me.h"
 #ifdef TF_DUMP
 #include "mtk_iommu_ext.h"
 #include <dt-bindings/memory/mt8195-larb-port.h>
