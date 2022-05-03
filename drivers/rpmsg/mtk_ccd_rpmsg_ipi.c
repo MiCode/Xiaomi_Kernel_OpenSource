@@ -222,7 +222,7 @@ void ccd_worker_read(struct mtk_ccd *ccd,
 	struct mtk_rpmsg_rproc_subdev *mtk_subdev =
 		to_mtk_subdev(ccd->rpmsg_subdev);
 
-	dev_info(ccd->dev, "%s, src: %d, %p\n", __func__,
+	dev_dbg(ccd->dev, "%s, src: %d, %p\n", __func__,
 		 read_obj->src, mtk_subdev);
 
 	/* use the src addr to fetch the callback of the appropriate user */
@@ -243,7 +243,7 @@ void ccd_worker_read(struct mtk_ccd *ccd,
 	mutex_unlock(&mtk_subdev->endpoints_lock);
 
 	mept = to_mtk_rpmsg_endpoint(srcmdev->rpdev.ept);
-	dev_info(ccd->dev, "mept: %p src: %d id: %d\n",
+	dev_dbg(ccd->dev, "mept: %p src: %d id: %d\n",
 		 mept, mept->mchinfo.chinfo.src, mept->mchinfo.id);
 
 	if (atomic_read(&mept->ccd_mep_state) == CCD_MENDPOINT_DESTROY) {
@@ -267,7 +267,7 @@ void ccd_worker_read(struct mtk_ccd *ccd,
 			goto err_ret;
 		}
 	} else {
-		dev_info(ccd->dev, "ccd_cmd_sent is not null(%d)\n",
+		dev_dbg(ccd->dev, "ccd_cmd_sent is not null(%d)\n",
 			atomic_read(&mept->ccd_cmd_sent));
 	}
 
@@ -320,7 +320,7 @@ void ccd_worker_write(struct mtk_ccd *ccd,
 	mutex_unlock(&mtk_subdev->endpoints_lock);
 
 	mept = to_mtk_rpmsg_endpoint(srcmdev->rpdev.ept);
-	dev_info(ccd->dev, "mept: %p src: %d id: %d\n",
+	dev_dbg(ccd->dev, "mept: %p src: %d id: %d\n",
 		 mept, mept->mchinfo.chinfo.src, mept->mchinfo.id);
 
 	if (atomic_read(&mept->ccd_mep_state) == CCD_MENDPOINT_DESTROY) {
@@ -331,7 +331,7 @@ void ccd_worker_write(struct mtk_ccd *ccd,
 
 	ept = srcmdev->rpdev.ept;
 
-	dev_info(ccd->dev, "%s, src: %d, ept: %p\n", __func__,
+	dev_dbg(ccd->dev, "%s, src: %d, ept: %p\n", __func__,
 		 write_obj->src, ept);
 
 	mutex_lock(&ept->cb_lock);
