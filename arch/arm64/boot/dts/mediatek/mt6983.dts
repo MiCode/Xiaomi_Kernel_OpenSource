@@ -26,6 +26,7 @@
 #include <dt-bindings/pinctrl/mt6983-pinfunc.h>
 #include <dt-bindings/interconnect/mtk,mt6873-emi.h>
 #include <dt-bindings/mml/mml-mt6983.h>
+#include <dt-bindings/clock/mt6983-mmdvfs-clk.h>
 
 / {
 	model = "MT6983";
@@ -7138,6 +7139,23 @@
 					<&dvfsrc MT6873_MASTER_HRT_MMSYS
 					 &dvfsrc MT6873_SLAVE_HRT_DDR_EMI>;
 			interconnect-names = "icc-bw", "icc-hrt-bw";
+	};
+
+	mmdvfs_clk: mmdvfs_clk@0x1e820000 {
+		compatible = "mediatek,mtk-mmdvfs-v3";
+		#clock-cells = <1>;
+		mediatek,mmdvfs_clocks = <PWR_VCORE USER_MMDVFS_DISP0 0 0 &opp_table_disp0>,
+					<PWR_VCORE USER_MMDVFS_DISP1 0 0 &opp_table_disp1>,
+					<PWR_VCORE USER_MMDVFS_MDP0 0 0 &opp_table_mdp0>,
+					<PWR_VCORE USER_MMDVFS_MDP1 0 0 &opp_table_mdp1>,
+					<PWR_OTHER USER_MMDVFS_CAM 1 0 &opp_table_cam>,
+					<PWR_OTHER USER_MMDVFS_SENIF 1 0 &opp_table_cam>,
+					<PWR_OTHER USER_MMDVFS_IMG 1 1 &opp_table_img>,
+					<PWR_VCORE USER_MMDVFS_MMINFRA 0 0 &opp_table_mminfra>,
+					<PWR_VCORE USER_MMDVFS_VFMT 0 0 &opp_table_vdec>,
+					<PWR_VCORE USER_MMDVFS_JPEGENC 0 0 &opp_table_venc>;
+		mediatek,mmdvfs_clk_names = "disp0", "disp1", "mdp0", "mdp1", "cam", "senif",
+			"img", "mminfra", "vfmt", "jpegenc";
 	};
 
 	mminfra-debug@0x1e827000 {
