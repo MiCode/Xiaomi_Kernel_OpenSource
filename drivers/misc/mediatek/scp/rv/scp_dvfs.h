@@ -253,6 +253,7 @@ struct scp_dvfs_hw {
 	int cur_dbg_core;
 	u32 core_nums;
 	unsigned int secure_access_scp;
+	bool bypass_pmic_rg_access;
 };
 
 extern int scp_pll_ctrl_set(unsigned int pll_ctrl_flag, unsigned int pll_sel);
