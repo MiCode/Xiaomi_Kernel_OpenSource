@@ -1271,11 +1271,49 @@ s32 mml_drm_racing_stop_sync(struct mml_drm_ctx *ctx, struct cmdq_pkt *pkt)
 }
 EXPORT_SYMBOL_GPL(mml_drm_racing_stop_sync);
 
+enum split_side {
+	rect_left,
+	rect_top,
+	rect_right,
+	rect_bottom
+};
+
+static void mml_check_boundary_w(struct mml_frame_data *src,
+	struct mml_frame_dest *dest, u8 *lrtb)
+{
+	if (!(dest->crop.r.width & 1))
+		return;
+
+	dest->crop.r.width += 1;
+	if (dest->crop.r.left + dest->crop.r.width > src->width) {
+		dest->crop.r.left -= 1;
+		lrtb[rect_left] = 1;
+	} else {
+		lrtb[rect_right] = 1;
+	}
+}
+
+static void mml_check_boundary_h(struct mml_frame_data *src,
+	struct mml_frame_dest *dest, u8 *lrtb)
+{
+	if (!(dest->crop.r.height & 1))
+		return;
+
+	dest->crop.r.height += 1;
+	if (dest->crop.r.top + dest->crop.r.height > src->height) {
+		dest->crop.r.top -= 1;
+		lrtb[rect_top] = 1;
+	} else {
+		lrtb[rect_bottom] = 1;
+	}
+}
+
 void mml_drm_split_info(struct mml_submit *submit, struct mml_submit *submit_pq)
 {
 	struct mml_frame_info *info = &submit->info;
 	struct mml_frame_info *info_pq = &submit_pq->info;
 	struct mml_frame_dest *dest = &info->dest[0];
+	u8 lrtb[4] = {0};
 	u32 i;
 
 	/* display layer pixel */
@@ -1298,9 +1336,9 @@ void mml_drm_split_info(struct mml_submit *submit, struct mml_submit *submit_pq)
 		dest->compose.height = dest->crop.r.height;
 
 		if (MML_FMT_H_SUBSAMPLE(dest->data.format))
-			dest->crop.r.width = (dest->crop.r.width + 1) & ~1;
+			mml_check_boundary_w(&info->src, dest, lrtb);
 		if (MML_FMT_V_SUBSAMPLE(dest->data.format))
-			dest->crop.r.height = (dest->crop.r.height + 1) & ~1;
+			mml_check_boundary_h(&info->src, dest, lrtb);
 
 		dest->data.width = dest->crop.r.width;
 		dest->data.height = dest->crop.r.height;
@@ -1311,14 +1349,63 @@ void mml_drm_split_info(struct mml_submit *submit, struct mml_submit *submit_pq)
 		dest->compose.height = dest->crop.r.width;
 
 		if (MML_FMT_H_SUBSAMPLE(dest->data.format)) {
-			dest->crop.r.width = (dest->crop.r.width + 1) & ~1;
-			dest->crop.r.height = (dest->crop.r.height + 1) & ~1;
+			mml_check_boundary_w(&info->src, dest, lrtb);
+			mml_check_boundary_h(&info->src, dest, lrtb);
 		} else if (MML_FMT_V_SUBSAMPLE(dest->data.format)) {
-			dest->crop.r.width = (dest->crop.r.width + 1) & ~1;
+			mml_check_boundary_w(&info->src, dest, lrtb);
 		}
 
 		dest->data.width = dest->crop.r.height;
 		dest->data.height = dest->crop.r.width;
+	}
+
+	/* translate padding side to pq crop left/top */
+	if (dest->flip) {
+		switch (dest->rotate) {
+		case MML_ROT_0:
+			info_pq->dest[0].crop.r.left = lrtb[rect_right];
+			info_pq->dest[0].crop.r.top = lrtb[rect_top];
+			break;
+		case MML_ROT_90:
+			info_pq->dest[0].crop.r.left = lrtb[rect_top];
+			info_pq->dest[0].crop.r.top = lrtb[rect_left];
+			break;
+		case MML_ROT_180:
+			info_pq->dest[0].crop.r.left = lrtb[rect_left];
+			info_pq->dest[0].crop.r.top = lrtb[rect_bottom];
+			break;
+		case MML_ROT_270:
+			info_pq->dest[0].crop.r.left = lrtb[rect_bottom];
+			info_pq->dest[0].crop.r.top = lrtb[rect_right];
+			break;
+		default:
+			info_pq->dest[0].crop.r.left = 0;
+			info_pq->dest[0].crop.r.top = 0;
+			break;
+		}
+	} else {
+		switch (dest->rotate) {
+		case MML_ROT_0:
+			info_pq->dest[0].crop.r.left = lrtb[rect_left];
+			info_pq->dest[0].crop.r.top = lrtb[rect_top];
+			break;
+		case MML_ROT_90:
+			info_pq->dest[0].crop.r.left = lrtb[rect_bottom];
+			info_pq->dest[0].crop.r.top = lrtb[rect_left];
+			break;
+		case MML_ROT_180:
+			info_pq->dest[0].crop.r.left = lrtb[rect_right];
+			info_pq->dest[0].crop.r.top = lrtb[rect_bottom];
+			break;
+		case MML_ROT_270:
+			info_pq->dest[0].crop.r.left = lrtb[rect_top];
+			info_pq->dest[0].crop.r.top = lrtb[rect_right];
+			break;
+		default:
+			info_pq->dest[0].crop.r.left = 0;
+			info_pq->dest[0].crop.r.top = 0;
+			break;
+		}
 	}
 
 	dest->data.y_stride = mml_color_get_min_y_stride(
@@ -1328,8 +1415,6 @@ void mml_drm_split_info(struct mml_submit *submit, struct mml_submit *submit_pq)
 	memset(&dest->pq_config, 0, sizeof(dest->pq_config));
 
 	info_pq->src = dest->data;
-	info_pq->dest[0].crop.r.left = 0;
-	info_pq->dest[0].crop.r.top = 0;
 	info_pq->dest[0].crop.r.width = dest->compose.width;
 	info_pq->dest[0].crop.r.height = dest->compose.height;
 	info_pq->dest[0].rotate = 0;
