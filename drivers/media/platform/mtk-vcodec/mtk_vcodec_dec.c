@@ -208,6 +208,9 @@ static struct mtk_video_fmt *mtk_find_fmt_by_pixel(unsigned int pixelformat)
 static struct mtk_q_data *mtk_vdec_get_q_data(struct mtk_vcodec_ctx *ctx,
 	enum v4l2_buf_type type)
 {
+	if (ctx == NULL)
+		return NULL;
+
 	if (V4L2_TYPE_IS_OUTPUT(type))
 		return &ctx->q_data[MTK_Q_DATA_SRC];
 
@@ -2717,16 +2720,16 @@ static int vb2ops_vdec_queue_setup(struct vb2_queue *vq,
 	unsigned int i;
 
 	if (IS_ERR_OR_NULL(vq) || IS_ERR_OR_NULL(nbuffers) ||
-		IS_ERR_OR_NULL(nplanes) || IS_ERR_OR_NULL(alloc_devs) ||
-		(*nplanes) > VB2_MAX_PLANES) {
+	    IS_ERR_OR_NULL(nplanes) || IS_ERR_OR_NULL(alloc_devs)) {
+		mtk_v4l2_err("vq %p, nbuffers %p, nplanes %p, alloc_devs %p",
+			vq, nbuffers, nplanes, alloc_devs);
 		return -EINVAL;
 	}
 
 	ctx = vb2_get_drv_priv(vq);
 	q_data = mtk_vdec_get_q_data(ctx, vq->type);
-
-	if (q_data == NULL) {
-		mtk_v4l2_err("vq->type=%d err\n", vq->type);
+	if (q_data == NULL || (*nplanes) > MTK_VCODEC_MAX_PLANES) {
+		mtk_v4l2_err("vq->type=%d nplanes %d err", vq->type, *nplanes);
 		return -EINVAL;
 	}
 
