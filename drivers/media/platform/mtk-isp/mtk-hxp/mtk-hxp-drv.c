@@ -142,6 +142,8 @@ static int mtk_hxp_release(struct inode *inode, struct file *file)
 
 	//hxp_ctrl_reset(hxp_dev);
 
+	hxp_core_reset(hxp_dev);
+
 	pr_info("%s release hxp driver-\n", __func__);
 
 	return 0;
@@ -260,6 +262,7 @@ static int mtk_hxp_remove(struct platform_device *pdev)
 
 	return 0;
 }
+
 
 static int hxp_runtime_suspend(struct device *dev)
 {

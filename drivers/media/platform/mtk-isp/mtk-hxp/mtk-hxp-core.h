@@ -29,6 +29,7 @@ struct buffer {
 struct hxp_core {
 	struct packet packet;
 
+	atomic_t debug_mode;
 	atomic_t disp_mode;
 
 	wait_queue_head_t scp_queue;
@@ -61,11 +62,6 @@ int hxp_core_init(struct mtk_hxp *device);
 
 struct mtk_hxp *hxp_core_get_device(void);
 
-void chans_pool_dump(struct mtk_hxp *hxp_dev);
-
-bool chan_pool_available(struct mtk_hxp *hxp_dev,
-	int module_id);
-
 int hxp_core_send_cmd(struct mtk_hxp *hxp_dev,
 	uint32_t cmd, void *data, int len, bool ack);
 
@@ -74,6 +70,8 @@ int hxp_core_copy(struct mtk_hxp *hxp_dev,
 
 int hxp_core_poll(struct mtk_hxp *hxp_dev,
 	struct file *file, poll_table *wait);
+
+int hxp_core_reset(struct mtk_hxp *device);
 
 int hxp_core_uninit(struct mtk_hxp *hxp_dev);
 

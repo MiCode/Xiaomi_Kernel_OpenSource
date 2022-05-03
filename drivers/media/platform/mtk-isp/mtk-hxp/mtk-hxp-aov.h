@@ -53,12 +53,15 @@
 #define HXP_MAX_TUNING_SIZE     (2 * 1024)
 #define HXP_MAX_AIE_SIZE        (162 * 1024)
 
-#define HXP_MAX_YUVO1_OUTPUT    (640 * 480 + 640 * 240)  // 640 x 480
-#define HXP_MAX_YUVO2_OUTPUT    (320 * 240 + 320 * 120)  // 320 x 240
+#define HXP_MAX_YUVO1_OUTPUT    (640 * 480 + 640 * 240 + 32)  // 640 x 480
+#define HXP_MAX_YUVO2_OUTPUT    (320 * 240 + 320 * 120 + 32)  // 320 x 240
 #define HXP_MAX_AIE_OUTPUT      (32 * 1024)
-#define HXP_MAX_APU_OUTPUT      (256 * 1024)
-#define HXP_MAX_UISP_DUMP       (4 * 1024)
-#define HXP_MAX_IMGO_OUTPUT     (640 * 480 * 2)
+#define HXP_MAX_APU_OUTPUT      (200 * 1024)
+#define HXP_MAX_IMGO_OUTPUT     (921600 + 32)  // 640 x 480, bayer12
+#define HXP_MAX_AAO_OUTPUT      (158 * 1024)
+#define HXP_MAX_AAHO_OUTPUT     (1 * 1024)
+#define HXP_MAX_META_OUTPUT     (6 * 1024)
+#define HXP_MAX_AWB_OUTPUT      (2 * 1024)
 
 extern void mtk_aie_aov_memcpy(char *buffer);
 
@@ -87,8 +90,17 @@ struct aov_dqevent {
 	uint32_t imgo_stride;
 	void *imgo_output;
 
-	uint32_t uisp_size;
-	void *uisp_dump;
+	uint32_t aao_size;
+	void *aao_output;
+
+	uint32_t aaho_size;
+	void *aaho_output;
+
+	uint32_t meta_size;
+	void *meta_output;
+
+	uint32_t awb_size;
+	void *awb_output;
 };
 
 struct aov_event {
@@ -116,8 +128,17 @@ struct aov_event {
 	uint32_t imgo_stride;
 	uint8_t imgo_output[HXP_MAX_IMGO_OUTPUT];
 
-	uint32_t uisp_size;
-	uint8_t uisp_dump[HXP_MAX_UISP_DUMP];
+	uint32_t aao_size;
+	uint8_t aao_output[HXP_MAX_AAO_OUTPUT];
+
+	uint32_t aaho_size;
+	uint8_t aaho_output[HXP_MAX_AAHO_OUTPUT];
+
+	uint32_t meta_size;
+	uint8_t meta_output[HXP_MAX_META_OUTPUT];
+
+	uint32_t awb_size;
+	uint8_t awb_output[HXP_MAX_AWB_OUTPUT];
 } __aligned(4);
 
 enum aov_log_id {
@@ -137,6 +158,11 @@ enum aov_log_id {
 struct aov_user {
 	uint32_t session;
 	uint32_t sensor_id;
+	int32_t  sensor_orient;
+	uint32_t sensor_face;
+	uint32_t sensor_type;
+	uint32_t sensor_bit;
+	uint32_t format_order;
 	uint32_t frame_format;
 	uint32_t frame_width;
 	uint32_t frame_height;
@@ -171,7 +197,12 @@ struct aie_init {
 struct aov_init {
 	// user parameter
 	uint32_t session;
-	uint32_t sensor_id;
+	int32_t sensor_id;
+	int32_t  sensor_orient;
+	uint32_t sensor_face;
+	uint32_t sensor_type;
+	uint32_t sensor_bit;
+	uint32_t format_order;
 	uint32_t frame_format;
 	uint32_t frame_width;
 	uint32_t frame_height;

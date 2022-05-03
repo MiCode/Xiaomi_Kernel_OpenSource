@@ -53,8 +53,6 @@ struct mtk_hxp {
 	struct class *hcp_class;
 	struct device *hcp_device;
 	bool is_open;
-	struct clk **clks;
-	unsigned int num_clks;
 };
 
 #endif /* MTK_HXP_DRV_H */
