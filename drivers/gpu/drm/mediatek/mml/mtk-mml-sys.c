@@ -485,7 +485,7 @@ static void sys_racing_loop(struct mml_comp *comp, struct mml_task *task,
 	/* wait display frame done before checking next, so disp driver has
 	 * chance to tell mml to entering next task.
 	 */
-	if (task->config->disp_vdo)
+	if (task->config->disp_vdo && sys->event_ir_eof)
 		cmdq_pkt_wfe(task->pkts[0], sys->event_ir_eof);
 
 	/* reserve assign inst for jump addr */
@@ -629,7 +629,8 @@ static void sys_reset(struct mml_comp *comp, struct mml_frame_config *cfg, u32 p
 		cmdq_clear_event(path->clt->chan, sys->event_racing_pipe0);
 		cmdq_clear_event(path->clt->chan, sys->event_racing_pipe1);
 		cmdq_clear_event(path->clt->chan, sys->event_racing_pipe1_next);
-		cmdq_clear_event(path->clt->chan, sys->event_ir_eof);
+		if (sys->event_ir_eof)
+			cmdq_clear_event(path->clt->chan, sys->event_ir_eof);
 	}
 }
 
