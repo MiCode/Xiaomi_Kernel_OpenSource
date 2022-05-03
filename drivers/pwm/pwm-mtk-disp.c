@@ -119,6 +119,7 @@ static int mtk_disp_pwm_apply(struct pwm_chip *chip, struct pwm_device *pwm,
 	 * period = (PWM_CLK_RATE * period_ns) / (10^9 * (clk_div + 1)) - 1
 	 * high_width = (PWM_CLK_RATE * duty_ns) / (10^9 * (clk_div + 1))
 	 */
+	pr_notice("%s duty_cycle[%llu] period[%llu]\n", __func__, state->duty_cycle, state->period);
 	rate = clk_get_rate(mdp->clk_main);
 	clk_div = mul_u64_u64_div_u64(state->period, rate, NSEC_PER_SEC) >>
 			  PWM_PERIOD_BIT_WIDTH;
@@ -137,6 +138,9 @@ static int mtk_disp_pwm_apply(struct pwm_chip *chip, struct pwm_device *pwm,
 
 	high_width = mul_u64_u64_div_u64(state->duty_cycle, rate, div);
 	value = period | (high_width << PWM_HIGH_WIDTH_SHIFT);
+
+	pr_notice("%s rate[%llx] clk_div[%u] div[%llx] high_width[%u] value[%u] period[%u]",
+		__func__, rate, clk_div, div, high_width, value, period);
 
 	mtk_disp_pwm_update_bits(mdp, mdp->data->con0,
 				 PWM_CLKDIV_MASK,
@@ -231,16 +235,22 @@ static int mtk_disp_pwm_probe(struct platform_device *pdev)
 	mdp->data = of_device_get_match_data(&pdev->dev);
 
 	mdp->base = devm_platform_ioremap_resource(pdev, 0);
-	if (IS_ERR(mdp->base))
+	if (IS_ERR(mdp->base)) {
+		pr_notice("%s mdp base null", __func__);
 		return PTR_ERR(mdp->base);
+	}
 
 	mdp->clk_main = devm_clk_get(&pdev->dev, "main");
-	if (IS_ERR(mdp->clk_main))
+	if (IS_ERR(mdp->clk_main)) {
+		pr_notice("%s clk_main is null", __func__);
 		return PTR_ERR(mdp->clk_main);
+	}
 
 	mdp->clk_mm = devm_clk_get(&pdev->dev, "mm");
-	if (IS_ERR(mdp->clk_mm))
+	if (IS_ERR(mdp->clk_mm)) {
+		pr_notice("%s clk_mm is null", __func__);
 		return PTR_ERR(mdp->clk_mm);
+	}
 
 	mdp->chip.dev = &pdev->dev;
 	mdp->chip.ops = &mtk_disp_pwm_ops;
@@ -311,6 +321,7 @@ static const struct of_device_id mtk_disp_pwm_of_match[] = {
 	{ .compatible = "mediatek,mt6595-disp-pwm", .data = &mt8173_pwm_data},
 	{ .compatible = "mediatek,mt6873-disp-pwm", .data = &mt6799_pwm_data},
 	{ .compatible = "mediatek,mt6853-disp-pwm", .data = &mt6799_pwm_data},
+	{ .compatible = "mediatek,mt6985-disp-pwm0", .data = &mt6799_pwm_data},
 	{ .compatible = "mediatek,mt8173-disp-pwm", .data = &mt8173_pwm_data},
 	{ .compatible = "mediatek,mt8183-disp-pwm", .data = &mt8183_pwm_data},
 	{ }
