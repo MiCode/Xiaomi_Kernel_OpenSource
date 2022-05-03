@@ -964,6 +964,7 @@ static int xgf_get_render(pid_t rpid, unsigned long long bufID, struct xgf_rende
 		iter->queue.end_ts = 0;
 		iter->deque.start_ts = 0;
 		iter->deque.end_ts = 0;
+		iter->raw_runtime = 0;
 		iter->ema_runtime = 0;
 		iter->spid = 0;
 		iter->dep_frames = xgf_prev_dep_frames;
@@ -2033,6 +2034,7 @@ int fpsgo_comp2xgf_qudeq_notify(int rpid, unsigned long long bufID, int cmd,
 			}
 		}
 
+		r->raw_runtime = raw_runtime;
 		fpsgo_systrace_c_fbt(rpid, bufID, raw_runtime, "raw_t_cpu");
 		if (xgf_ema2_enable && !xgf_camera_flag &&
 			(r->hwui_flag == RENDER_INFO_HWUI_NONE))
@@ -2409,9 +2411,10 @@ static ssize_t runtime_show(struct kobject *kobj,
 	hlist_for_each_entry_safe(r_iter, r_tmp, &xgf_renders, hlist) {
 		length = scnprintf(temp + pos,
 			FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
-			"rtid:%d bid:0x%llx cpu_runtime:%d\n",
+			"rtid:%d bid:0x%llx cpu_runtime:%d (%d)\n",
 			r_iter->render, r_iter->bufID,
-			r_iter->ema_runtime);
+			r_iter->ema_runtime,
+			r_iter->raw_runtime);
 		pos += length;
 	}
 
