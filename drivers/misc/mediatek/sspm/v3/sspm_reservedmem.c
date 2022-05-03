@@ -46,15 +46,16 @@ static void sspm_reserve_memory_ioremap(struct platform_device *pdev)
 {
 	struct device_node *rmem_node;
 	struct reserved_mem *rmem;
-	unsigned int res_ram_start;
-	unsigned int res_ram_size;
+	unsigned int res_ram_start = 0;
+	unsigned int res_ram_size = 0;
 
 	/* Get reserved memory from dts if have */
-	of_property_read_u32(pdev->dev.of_node, "sspm_res_ram_start"
-						, &res_ram_start);
+	of_property_read_u32(pdev->dev.of_node, "sspm_res_ram_start",
+						 &res_ram_start);
+
 	if (res_ram_start) {
-		of_property_read_u32(pdev->dev.of_node, "sspm_res_ram_size"
-						, &res_ram_size);
+		of_property_read_u32(pdev->dev.of_node, "sspm_res_ram_size",
+							 &res_ram_size);
 
 		sspm_mem_base_phys = (phys_addr_t)res_ram_start;
 		sspm_mem_size = (phys_addr_t)res_ram_size;
