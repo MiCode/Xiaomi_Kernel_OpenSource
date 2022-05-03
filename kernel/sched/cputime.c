@@ -56,6 +56,7 @@ void irqtime_account_irq(struct task_struct *curr, unsigned int offset)
 	unsigned int pc;
 	s64 delta;
 	int cpu;
+	bool irq_start = true;
 
 	if (!sched_clock_irqtime)
 		return;
@@ -71,12 +72,20 @@ void irqtime_account_irq(struct task_struct *curr, unsigned int offset)
 	 * in that case, so as not to confuse scheduler with a special task
 	 * that do not consume any time, but still wants to run.
 	 */
-	if (pc & HARDIRQ_MASK)
+	if (pc & HARDIRQ_MASK) {
 		irqtime_account_delta(irqtime, delta, CPUTIME_IRQ);
-	else if ((pc & SOFTIRQ_OFFSET) && curr != this_cpu_ksoftirqd())
+		irq_start = false;
+	} else if ((pc & SOFTIRQ_OFFSET) && curr != this_cpu_ksoftirqd()) {
 		irqtime_account_delta(irqtime, delta, CPUTIME_SOFTIRQ);
+		irq_start = false;
+	}
 
 	trace_android_rvh_account_irq(curr, cpu, delta);
+
+	if (irq_start)
+		trace_android_rvh_account_irq_start(curr, cpu, delta);
+	else
+		trace_android_rvh_account_irq_end(curr, cpu, delta);
 }
 
 static u64 irqtime_tick_accounted(u64 maxtime)
