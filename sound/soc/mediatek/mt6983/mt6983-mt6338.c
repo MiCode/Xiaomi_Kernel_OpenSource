@@ -570,6 +570,10 @@ SND_SOC_DAILINK_DEFS(capture8,
 	DAILINK_COMP_ARRAY(COMP_CPU("UL8")),
 	DAILINK_COMP_ARRAY(COMP_DUMMY()),
 	DAILINK_COMP_ARRAY(COMP_EMPTY()));
+SND_SOC_DAILINK_DEFS(capture9,
+	DAILINK_COMP_ARRAY(COMP_CPU("UL9")),
+	DAILINK_COMP_ARRAY(COMP_DUMMY()),
+	DAILINK_COMP_ARRAY(COMP_EMPTY()));
 SND_SOC_DAILINK_DEFS(capture_mono_1,
 	DAILINK_COMP_ARRAY(COMP_CPU("UL_MONO_1")),
 	DAILINK_COMP_ARRAY(COMP_DUMMY()),
@@ -1017,6 +1021,15 @@ static struct snd_soc_dai_link mt6983_mt6338_dai_links[] = {
 		.dynamic = 1,
 		.dpcm_capture = 1,
 		SND_SOC_DAILINK_REG(capture8),
+	},
+	{
+		.name = "Capture_9",
+		.stream_name = "Capture_9",
+		.trigger = {SND_SOC_DPCM_TRIGGER_PRE,
+			    SND_SOC_DPCM_TRIGGER_PRE},
+		.dynamic = 1,
+		.dpcm_capture = 1,
+		SND_SOC_DAILINK_REG(capture9),
 	},
 	{
 		.name = "Capture_Mono_1",

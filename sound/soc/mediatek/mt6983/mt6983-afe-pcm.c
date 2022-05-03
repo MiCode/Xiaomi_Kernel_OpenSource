@@ -508,6 +508,18 @@ static struct snd_soc_dai_driver mt6983_memif_dai_driver[] = {
 		.ops = &mt6983_memif_dai_ops,
 	},
 	{
+		.name = "UL9",
+		.id = MT6983_MEMIF_VUL7,
+		.capture = {
+			.stream_name = "UL9",
+			.channels_min = 1,
+			.channels_max = 2,
+			.rates = MTK_PCM_RATES,
+			.formats = MTK_PCM_FORMATS,
+		},
+		.ops = &mt6983_memif_dai_ops,
+	},
+	{
 		.name = "UL_MONO_1",
 		.id = MT6983_MEMIF_MOD_DAI,
 		.capture = {
@@ -1593,6 +1605,20 @@ static const struct snd_kcontrol_new memif_ul8_ch2_mix[] = {
 				    I_ADDA_UL_CH2, 1, 0),
 };
 
+static const struct snd_kcontrol_new memif_ul9_ch1_mix[] = {
+	SOC_DAPM_SINGLE_AUTODISABLE("SRC_1_OUT_CH1", AFE_CONN58_1,
+				    I_SRC_1_OUT_CH1, 1, 0),
+	SOC_DAPM_SINGLE_AUTODISABLE("ADDA_UL_CH1", AFE_CONN58,
+				    I_ADDA_UL_CH1, 1, 0),
+};
+
+static const struct snd_kcontrol_new memif_ul9_ch2_mix[] = {
+	SOC_DAPM_SINGLE_AUTODISABLE("SRC_1_OUT_CH2", AFE_CONN59_1,
+				    I_SRC_1_OUT_CH2, 1, 0),
+	SOC_DAPM_SINGLE_AUTODISABLE("ADDA_UL_CH2", AFE_CONN59,
+				    I_ADDA_UL_CH2, 1, 0),
+};
+
 static const struct snd_kcontrol_new memif_ul_mono_1_mix[] = {
 	SOC_DAPM_SINGLE_AUTODISABLE("PCM_1_CAP_CH1", AFE_CONN12,
 				    I_PCM_1_CAP_CH1, 1, 0),
@@ -1721,6 +1747,11 @@ static const struct snd_soc_dapm_widget mt6983_memif_widgets[] = {
 			   memif_ul8_ch1_mix, ARRAY_SIZE(memif_ul8_ch1_mix)),
 	SND_SOC_DAPM_MIXER("UL8_CH2", SND_SOC_NOPM, 0, 0,
 			   memif_ul8_ch2_mix, ARRAY_SIZE(memif_ul8_ch2_mix)),
+
+	SND_SOC_DAPM_MIXER("UL9_CH1", SND_SOC_NOPM, 0, 0,
+			   memif_ul9_ch1_mix, ARRAY_SIZE(memif_ul9_ch1_mix)),
+	SND_SOC_DAPM_MIXER("UL9_CH2", SND_SOC_NOPM, 0, 0,
+			   memif_ul9_ch2_mix, ARRAY_SIZE(memif_ul9_ch2_mix)),
 
 	SND_SOC_DAPM_MIXER("UL_MONO_1_CH1", SND_SOC_NOPM, 0, 0,
 			   memif_ul_mono_1_mix,
@@ -1882,6 +1913,14 @@ static const struct snd_soc_dapm_route mt6983_memif_routes[] = {
 	{"UL8", NULL, "UL8_CH2"},
 	{"UL8_CH1", "ADDA_UL_CH1", "ADDA_UL_Mux"},
 	{"UL8_CH2", "ADDA_UL_CH2", "ADDA_UL_Mux"},
+
+	{"UL9", NULL, "UL9_CH1"},
+	{"UL9", NULL, "UL9_CH2"},
+
+	{"UL9_CH1", "SRC_1_OUT_CH1", "HW_SRC_1_Out"},
+	{"UL9_CH2", "SRC_1_OUT_CH2", "HW_SRC_1_Out"},
+	{"UL9_CH1", "ADDA_UL_CH1", "ADDA_UL_Mux"},
+	{"UL9_CH2", "ADDA_UL_CH2", "ADDA_UL_Mux"},
 
 	{"DL_TO_DSP", NULL, "Hostless_DSP_DL DL"},
 	{"Hostless_DSP_DL DL", NULL, "DSP_DL"},
@@ -2447,6 +2486,29 @@ static const struct mtk_base_memif_data memif_data[MT6983_MEMIF_NUM] = {
 		.msb_reg = -1,
 		.msb_shift = -1,
 	},
+	[MT6983_MEMIF_VUL7] = {
+		.name = "VUL7",
+		.id = MT6983_MEMIF_VUL7,
+		.reg_ofs_base = AFE_VUL7_BASE,
+		.reg_ofs_cur = AFE_VUL7_CUR,
+		.reg_ofs_end = AFE_VUL7_END,
+		.reg_ofs_base_msb = AFE_VUL7_BASE_MSB,
+		.reg_ofs_cur_msb = AFE_VUL7_CUR_MSB,
+		.reg_ofs_end_msb = AFE_VUL7_END_MSB,
+		.fs_reg = AFE_VUL7_CON0,
+		.fs_shift = VUL7_MODE_SFT,
+		.fs_maskbit = VUL7_MODE_MASK,
+		.mono_reg = AFE_VUL7_CON0,
+		.mono_shift = VUL7_MONO_SFT,
+		.enable_reg = AFE_AGENT_ON,
+		.enable_shift = VUL7_ON_SFT,
+		.hd_reg = AFE_VUL7_CON0,
+		.hd_shift = VUL7_HD_MODE_SFT,
+		.agent_disable_reg = -1,
+		.agent_disable_shift = -1,
+		.msb_reg = -1,
+		.msb_shift = -1,
+	},
 	[MT6983_MEMIF_HDMI] = {
 		.name = "HDMI",
 		.id = MT6983_MEMIF_HDMI,
@@ -2980,6 +3042,7 @@ static const int memif_irq_usage[MT6983_MEMIF_NUM] = {
 	[MT6983_MEMIF_VUL4] = MT6983_IRQ_18,
 	[MT6983_MEMIF_VUL5] = MT6983_IRQ_19,
 	[MT6983_MEMIF_VUL6] = MT6983_IRQ_20,
+	[MT6983_MEMIF_VUL7] = MT6983_IRQ_21,
 	[MT6983_MEMIF_HDMI] = MT6983_IRQ_31,
 };
 
@@ -3127,6 +3190,8 @@ static bool mt6983_is_volatile_reg(struct device *dev, unsigned int reg)
 	case AFE_VUL5_LCH_MON:
 	case AFE_VUL6_RCH_MON:
 	case AFE_VUL6_LCH_MON:
+	case AFE_VUL7_RCH_MON:
+	case AFE_VUL7_LCH_MON:
 	case AFE_DL1_RCH_MON:
 	case AFE_DL1_LCH_MON:
 	case AFE_DL2_RCH_MON:
@@ -3153,6 +3218,9 @@ static bool mt6983_is_volatile_reg(struct device *dev, unsigned int reg)
 	case AFE_VUL6_CUR_MSB:
 	case AFE_VUL6_CUR:
 	case AFE_VUL6_END:
+	case AFE_VUL7_CUR_MSB:
+	case AFE_VUL7_CUR:
+	case AFE_VUL7_END:
 	case AFE_ADDA_DL_SDM_FIFO_MON:
 	case AFE_ADDA_DL_SRC_LCH_MON:
 	case AFE_ADDA_DL_SRC_RCH_MON:
