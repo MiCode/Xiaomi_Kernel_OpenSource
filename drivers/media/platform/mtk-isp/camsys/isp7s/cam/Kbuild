@@ -53,10 +53,6 @@ $(CAM_MODULE)-objs := \
     mtk_cam-raw_debug.o \
     mtk_cam-tg-flash.o \
     mtk_cam-feature.o \
-    mtk_cam-feature-m2m.o \
-    mtk_cam-feature-mstream.o \
-    mtk_cam-feature-smvr.o \
-    mtk_cam-feature-stagger.o \
     mtk_cam-mraw.o\
     mtk_cam-seninf-ca.o \
     mtk_cam-timesync.o \
