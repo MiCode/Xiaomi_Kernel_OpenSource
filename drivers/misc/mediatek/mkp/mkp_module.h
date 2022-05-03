@@ -44,5 +44,6 @@ void module_enable_x(const struct module *mod, uint32_t policy);
 void module_enable_ro(const struct module *mod, bool after_init, uint32_t policy);
 void module_enable_nx(const struct module *mod, uint32_t policy);
 bool drv_skip(char *module_name);
+void __init update_drv_skip_by_dts(struct device_node *node);
 
 #endif

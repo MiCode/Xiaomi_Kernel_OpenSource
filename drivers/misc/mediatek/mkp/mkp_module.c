@@ -5,22 +5,35 @@
  * Copyright (C) 2021 MediaTek Inc.
  */
 
+#include <linux/of.h>
 #include "mkp_module.h"
 #include "mkp_api.h"
 
 #define DRV_NUM_MAX 128
-#define DRV_NAME_MAX 32
+static const char *drv_skip_list[DRV_NUM_MAX] __ro_after_init;
+static int drv_skip_num __ro_after_init;
 
-static char drv_whitelist[DRV_NUM_MAX][DRV_NAME_MAX] = {
-	[0] = "",
-};
+/* mkp_drv_skip="ko_1", "ko_2", "ko_3", ..., "ko_128"; */
+void __init update_drv_skip_by_dts(struct device_node *node)
+{
+	if (!node)
+		return;
+
+	drv_skip_num = of_property_read_string_array(node, "mkp_drv_skip",
+			drv_skip_list, DRV_NUM_MAX);
+
+	if (drv_skip_num < 0 && drv_skip_num >= DRV_NUM_MAX) {
+		pr_info("%s: no valid mkp_drv_skip(%d)\n", __func__, drv_skip_num);
+		drv_skip_num = 0;
+	}
+}
 
 bool drv_skip(char *module_name)
 {
 	int i = 0;
 
-	for (i = 0; i < DRV_NUM_MAX && drv_whitelist[i] != NULL; i++) {
-		if (strcmp(module_name, drv_whitelist[i]) == 0)
+	for (i = 0; i < drv_skip_num; i++) {
+		if (strcmp(module_name, drv_skip_list[i]) == 0)
 			return true;
 	}
 	return false;

@@ -767,6 +767,9 @@ int __init mkp_demo_init(void)
 				pr_info("%s: mkp_panic=off\n", __func__);
 		else
 			pr_info("%s: no mkp_panic node\n", __func__);
+
+		if (mkp_policy & BIT(MKP_POLICY_DRV))
+			update_drv_skip_by_dts(node);
 	} else
 		MKP_WARN("chosen node cannot be found, use default\n");
 
