@@ -48,7 +48,7 @@ static int slb_disable;
 static int slc_disable;
 static int slbc_sram_enable;
 static u32 slbc_force;
-static u32 buffer_ref;
+static int buffer_ref;
 static u32 acp_ref;
 static u32 slbc_ref;
 static u32 slbc_sta;
@@ -70,8 +70,8 @@ static int slbc_mic_num = 3;
 static int slbc_inner = 5;
 static int slbc_outer = 5;
 
-static int req_val_count;
-static int rel_val_count;
+static u64 req_val_count;
+static u64 rel_val_count;
 static u64 req_val_min;
 static u64 req_val_max;
 static u64 req_val_total;
@@ -697,10 +697,10 @@ static int dbg_slbc_proc_show(struct seq_file *m, void *v)
 	mutex_unlock(&slbc_ops_lock);
 
 	if (req_val_count) {
-		seq_printf(m, "stat req count:%ld min:%lld avg:%lld max:%lld\n",
+		seq_printf(m, "stat req count:%lld min:%lld avg:%lld max:%lld\n",
 				req_val_count, req_val_min,
 				req_val_total / req_val_count, req_val_max);
-		seq_printf(m, "stat rel count:%ld min:%lld avg:%lld max:%lld\n",
+		seq_printf(m, "stat rel count:%lld min:%lld avg:%lld max:%lld\n",
 				rel_val_count, rel_val_min,
 				rel_val_total / rel_val_count, rel_val_max);
 	}
