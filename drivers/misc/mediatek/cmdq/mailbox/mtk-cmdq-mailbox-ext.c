@@ -2345,6 +2345,8 @@ static const struct gce_plat gce_plat_v2 = {.thread_nr = 16};
 static const struct gce_plat gce_plat_v4 = {.thread_nr = 24, .shift = 3};
 static const struct gce_plat gce_plat_v5 = {
 	.thread_nr = 32, .shift = 3, .mminfra = BIT(30)};
+static const struct gce_plat gce_plat_v5_1 = {
+	.thread_nr = 32, .shift = 3};
 
 static const struct of_device_id cmdq_of_ids[] = {
 	{.compatible = "mediatek,mt8173-gce", .data = (void *)&gce_plat_v2},
@@ -2362,6 +2364,7 @@ static const struct of_device_id cmdq_of_ids[] = {
 	{.compatible = "mediatek,mt6877-gce", .data = (void *)&gce_plat_v4},
 	{.compatible = "mediatek,mt6879-gce", .data = (void *)&gce_plat_v5},
 	{.compatible = "mediatek,mt6885-gce", .data = (void *)&gce_plat_v4},
+	{.compatible = "mediatek,mt6886-gce", .data = (void *)&gce_plat_v5_1},
 	{.compatible = "mediatek,mt6893-gce", .data = (void *)&gce_plat_v4},
 	{.compatible = "mediatek,mt6895-gce", .data = (void *)&gce_plat_v5},
 	{.compatible = "mediatek,mt6983-gce", .data = (void *)&gce_plat_v5},

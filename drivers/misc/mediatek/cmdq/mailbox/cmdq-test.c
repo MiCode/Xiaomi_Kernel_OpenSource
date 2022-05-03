@@ -1495,6 +1495,18 @@ static void cmdq_test_mbox_vcp(struct cmdq_test *test, const bool reuse)
 		__func__, val[0], val[1], val[2], val[3]);
 }
 
+static void cmdq_test_tf(struct cmdq_test *test)
+{
+	struct cmdq_client	*clt = test->clt;
+	struct cmdq_pkt		*pkt;
+
+	pkt = cmdq_pkt_create(clt);
+	cmdq_pkt_write(pkt, NULL, gce_mminfra + 0, ~0, ~0);
+
+	cmdq_pkt_flush(pkt);
+	cmdq_pkt_destroy(pkt);
+}
+
 static void
 cmdq_test_trigger(struct cmdq_test *test, enum CMDQ_SECURE_STATE_ENUM sec, const s32 id)
 {
@@ -1618,6 +1630,9 @@ cmdq_test_trigger(struct cmdq_test *test, enum CMDQ_SECURE_STATE_ENUM sec, const
 		break;
 	case 23:
 		cmdq_test_mbox_write_dma_cpr(test, sec, 3);
+		break;
+	case 24:
+		cmdq_test_tf(test);
 		break;
 	default:
 		break;
