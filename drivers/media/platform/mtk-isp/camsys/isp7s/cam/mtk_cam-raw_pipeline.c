@@ -794,9 +794,9 @@ mtk_raw_pipeline_get_fmt(struct mtk_raw_pipeline *pipe,
 		return v4l2_subdev_get_try_format(&pipe->subdev, state, padid);
 
 	if (WARN_ON(padid >= pipe->subdev.entity.num_pads))
-		return &pipe->cfg[0].mbus_fmt;
+		return &pipe->pad_cfg[0].mbus_fmt;
 
-	return &pipe->cfg[padid].mbus_fmt;
+	return &pipe->pad_cfg[padid].mbus_fmt;
 }
 
 struct v4l2_rect*
@@ -809,9 +809,9 @@ mtk_raw_pipeline_get_selection(struct mtk_raw_pipeline *pipe,
 		return v4l2_subdev_get_try_crop(&pipe->subdev, state, pad);
 
 	if (WARN_ON(pad >= pipe->subdev.entity.num_pads))
-		return &pipe->cfg[0].crop;
+		return &pipe->pad_cfg[0].crop;
 
-	return &pipe->cfg[pad].crop;
+	return &pipe->pad_cfg[pad].crop;
 }
 
 int
@@ -907,7 +907,7 @@ static int mtk_raw_init_cfg(struct v4l2_subdev *sd,
 	for (i = 0; i < sd->entity.num_pads; i++) {
 		mf = v4l2_subdev_get_try_format(sd, state, i);
 		*mf = mfmt_default;
-		pipe->cfg[i].mbus_fmt = mfmt_default;
+		pipe->pad_cfg[i].mbus_fmt = mfmt_default;
 
 		dev_dbg(mtk_cam_root_dev(), "%s init pad:%d format:0x%x\n",
 			sd->name, i, mf->code);
@@ -3358,7 +3358,7 @@ int mtk_raw_register_entities(struct mtk_raw_pipeline *arr_pipe, int num,
 	for (i = 0; i < num; i++) {
 		struct mtk_raw_pipeline *pipe = arr_pipe + i;
 
-		memset(pipe->cfg, 0, sizeof(*pipe->cfg));
+		memset(pipe->pad_cfg, 0, sizeof(*pipe->pad_cfg));
 
 		ret = mtk_raw_pipeline_register("cam-raw",
 						MTKCAM_SUBDEV_RAW_0 + i,

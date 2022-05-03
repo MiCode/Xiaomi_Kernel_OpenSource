@@ -186,13 +186,10 @@ struct mtk_raw_pipeline {
 	struct v4l2_subdev subdev;
 	struct media_pad pads[MTK_RAW_PIPELINE_PADS_NUM];
 	struct mtk_cam_video_device vdev_nodes[MTK_RAW_TOTAL_NODES];
-	struct mtk_raw *raw;
-	struct mtk_raw_pad_config cfg[MTK_RAW_PIPELINE_PADS_NUM];
-	/* cached settings */
-	unsigned int enabled_raw;
-	unsigned long enabled_dmas;
-	/* resource controls */
+	struct mtk_raw_pad_config pad_cfg[MTK_RAW_PIPELINE_PADS_NUM];
 	struct v4l2_ctrl_handler ctrl_handler;
+
+	/* v4l2 ctrl related data */
 	s64 feature_pending;
 	s64 feature_active;
 	int dynamic_exposure_num_max;

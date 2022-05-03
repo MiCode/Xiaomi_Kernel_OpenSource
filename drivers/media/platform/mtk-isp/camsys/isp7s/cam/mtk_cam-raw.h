@@ -40,13 +40,18 @@ struct mtk_raw_device {
 #ifdef CONFIG_PM_SLEEP
 	struct notifier_block pm_notifier;
 #endif
+	/* larb */
+	struct platform_device *larb_pdev;
 
 	int		fifo_size;
 	void		*msg_buffer;
 	struct kfifo	msg_fifo;
 	atomic_t	is_fifo_overflow;
 
-	struct mtk_raw_pipeline *pipeline;
+	bool enable_hsf;
+	int fps;
+	int subsample_ratio;
+
 	bool is_slave;
 
 	u64 sof_count;
@@ -63,10 +68,8 @@ struct mtk_raw_device {
 	atomic_t vf_en;
 	u32 stagger_en;
 	int overrun_debug_dump_cnt;
-	int default_printk_cnt;
 
-	/* larb */
-	struct platform_device *larb_pdev;
+	int default_printk_cnt;
 };
 
 struct mtk_yuv_device {
@@ -137,12 +140,7 @@ void reset(struct mtk_raw_device *dev);
 void dump_aa_info(struct mtk_cam_ctx *ctx,
 				 struct mtk_ae_debug_data *ae_info);
 
-#ifdef CAMSYS_TF_DUMP_71_1
-int
-mtk_cam_translation_fault_callback(int port,
-				dma_addr_t mva,
-				void *data);
-#endif
+int mtk_cam_translation_fault_callback(int port, dma_addr_t mva, void *data);
 
 extern struct platform_driver mtk_cam_raw_driver;
 extern struct platform_driver mtk_cam_yuv_driver;
