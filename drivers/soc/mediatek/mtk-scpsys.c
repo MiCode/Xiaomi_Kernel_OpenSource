@@ -69,6 +69,11 @@
 #define PWR_CLK_DIS_BIT			BIT(4)
 #define PWR_SRAM_CLKISO_BIT		BIT(5)
 #define PWR_SRAM_ISOINT_B_BIT		BIT(6)
+#define PWR_RTFF_SAVE			BIT(24)
+#define PWR_RTFF_NRESTORE		BIT(25)
+#define PWR_RTFF_CLK_DIS		BIT(28)
+#define PWR_ACK				BIT(30)
+#define PWR_ACK_2ND			BIT(31)
 
 #define PWR_STATUS_CONN			BIT(1)
 #define PWR_STATUS_DISP			BIT(3)
@@ -91,6 +96,20 @@
 #define PWR_STATUS_HIF1			BIT(26)	/* MT7622 */
 #define PWR_STATUS_WB			BIT(27)	/* MT7622 */
 
+enum regmap_type {
+	INVALID_TYPE = 0,
+	IFR_TYPE,
+	VLP_TYPE,
+	BUS_TYPE_NUM,
+};
+
+static const char *bus_list[BUS_TYPE_NUM] = {
+	[INVALID_TYPE] = "invalid",
+	[IFR_TYPE] = "infracfg",
+	[VLP_TYPE] = "vlpcfg",
+};
+
+static bool scpsys_init_flag;
 static BLOCKING_NOTIFIER_HEAD(scpsys_notifier_list);
 
 int register_scpsys_notifier(struct notifier_block *nb)
@@ -113,40 +132,16 @@ void register_apu_callback(struct apu_callbacks *apucb)
 }
 EXPORT_SYMBOL_GPL(register_apu_callback);
 
-static int scpsys_domain_is_on(struct scp_domain *scpd)
+static int __scpsys_domain_is_on(void __iomem *addr, u32 sta_mask)
 {
-	struct scp *scp = scpd->scp;
-
-	u32 status = readl(scp->base + scp->ctrl_reg.pwr_sta_offs) &
-						scpd->data->sta_mask;
-	u32 status2 = readl(scp->base + scp->ctrl_reg.pwr_sta2nd_offs) &
-						scpd->data->sta_mask;
+	u32 status = readl(addr) & sta_mask;
 
 	/*
 	 * A domain is on when both status bits are set. If only one is set
 	 * return an error. This happens while powering up a domain
 	 */
 
-	if (status && status2)
-		return true;
-	if (!status && !status2)
-		return false;
-
-	return -EINVAL;
-}
-
-static int scpsys_pwr_con_is_on(struct scp_domain *scpd)
-{
-	struct scp *scp = scpd->scp;
-	void __iomem *ctl_addr = scp->base + scpd->data->ctl_offs;
-	u32 status = readl(ctl_addr) & scpd->data->sta_mask;
-
-	/*
-	 * A power domain is on when status mask are all set. If only one is set
-	 * return an error. This happens while powering up a domain
-	 */
-
-	if (status == scpd->data->sta_mask)
+	if (status == sta_mask)
 		return true;
 	if (!status)
 		return false;
@@ -154,18 +149,36 @@ static int scpsys_pwr_con_is_on(struct scp_domain *scpd)
 	return -EINVAL;
 }
 
-static int scpsys_md_domain_is_on(struct scp_domain *scpd)
+static int scpsys_sta_is_on(struct scp_domain *scpd)
 {
 	struct scp *scp = scpd->scp;
 
-	u32 status = readl(scp->base + scp->ctrl_reg.pwr_sta_offs) &
-						scpd->data->sta_mask;
-	/*
-	 * A domain is on when the status bit is set.
-	 */
-	if (status)
-		return true;
-	return false;
+	return __scpsys_domain_is_on(scp->base + scp->ctrl_reg.pwr_sta_offs,
+			scpd->data->sta_mask);
+}
+
+static int scpsys_sta_2nd_is_on(struct scp_domain *scpd)
+{
+	struct scp *scp = scpd->scp;
+
+	return __scpsys_domain_is_on(scp->base + scp->ctrl_reg.pwr_sta2nd_offs,
+			scpd->data->sta_mask);
+}
+
+static int scpsys_pwr_ack_is_on(struct scp_domain *scpd)
+{
+	struct scp *scp = scpd->scp;
+
+	return __scpsys_domain_is_on(scp->base + scpd->data->ctl_offs,
+			PWR_ACK);
+}
+
+static int scpsys_pwr_ack_2nd_is_on(struct scp_domain *scpd)
+{
+	struct scp *scp = scpd->scp;
+
+	return __scpsys_domain_is_on(scp->base + scpd->data->ctl_offs,
+			PWR_ACK_2ND);
 }
 
 static int scpsys_regulator_is_enabled(struct scp_domain *scpd)
@@ -380,6 +393,7 @@ static int set_bus_protection(struct regmap *map, struct bus_prot *bp)
 	u32 en_ofs = bp->en_ofs;
 	u32 sta_ofs = bp->sta_ofs;
 	u32 mask = bp->mask;
+	u32 ack_mask = bp->ack_mask;
 	int ret = 0;
 
 	if (set_ofs)
@@ -388,13 +402,14 @@ static int set_bus_protection(struct regmap *map, struct bus_prot *bp)
 		regmap_update_bits(map, en_ofs, mask, mask);
 
 	ret = regmap_read_poll_timeout_atomic(map, sta_ofs,
-			val, (val & mask) == mask,
+			val, (val & ack_mask) == ack_mask,
 			MTK_POLL_DELAY_US, MTK_POLL_TIMEOUT);
 
 	if (ret < 0) {
 		pr_err("%s val=0x%x, mask=0x%x, (val & mask)=0x%x\n",
-			__func__, val, mask, (val & mask));
+			__func__, val, ack_mask, (val & ack_mask));
 	}
+
 	return ret;
 }
 
@@ -405,6 +420,7 @@ static int clear_bus_protection(struct regmap *map, struct bus_prot *bp)
 	u32 en_ofs = bp->en_ofs;
 	u32 sta_ofs = bp->sta_ofs;
 	u32 mask = bp->mask;
+	u32 ack_mask = bp->ack_mask;
 	bool ignore_ack = bp->ignore_clr_ack;
 	int ret = 0;
 
@@ -417,12 +433,12 @@ static int clear_bus_protection(struct regmap *map, struct bus_prot *bp)
 		return 0;
 
 	ret = regmap_read_poll_timeout_atomic(map, sta_ofs,
-			val, !(val & mask),
+			val, !(val & ack_mask),
 			MTK_POLL_DELAY_US, MTK_POLL_TIMEOUT);
 
 	if (ret < 0) {
 		pr_err("%s val=0x%x, mask=0x%x, (val & mask)=0x%x\n",
-			__func__, val, mask, (val & mask));
+			__func__, val, ack_mask, (val & ack_mask));
 	}
 	return ret;
 }
@@ -431,26 +447,19 @@ static int scpsys_bus_protect_disable(struct scp_domain *scpd, unsigned int inde
 {
 	struct scp *scp = scpd->scp;
 	const struct bus_prot *bp_table = scpd->data->bp_table;
-	struct regmap *infracfg = scp->infracfg;
-	struct regmap *smi_common = scp->smi_common;
-	struct regmap *vlpcfg = scp->vlpcfg;
-	struct regmap *mfgrpc = scp->mfgrpc;
 	int i;
 
 	for (i = index; i >= 0; i--) {
-		struct regmap *map = NULL;
+		struct regmap *map;
 		int ret;
 		struct bus_prot bp = bp_table[i];
 
-		if (bp.type == IFR_TYPE)
-			map = infracfg;
-		else if (bp.type == SMI_TYPE)
-			map = smi_common;
-		else if (bp.type == VLP_TYPE)
-			map = vlpcfg;
-		else if (bp.type == MFGRPC_TYPE)
-			map = mfgrpc;
+		if (bp.type > INVALID_TYPE && bp.type < scp->num_bus_type)
+			map = scp->bus_regmap[bp.type];
 		else
+			continue;
+
+		if (!map)
 			continue;
 
 		if (index != (MAX_STEPS - 1)) {
@@ -478,27 +487,19 @@ static int scpsys_bus_protect_enable(struct scp_domain *scpd)
 {
 	struct scp *scp = scpd->scp;
 	const struct bus_prot *bp_table = scpd->data->bp_table;
-	struct regmap *infracfg = scp->infracfg;
-	struct regmap *smi_common = scp->smi_common;
-	struct regmap *vlpcfg = scp->vlpcfg;
-	struct regmap *mfgrpc = scp->mfgrpc;
 	int i;
 
 	for (i = 0; i < MAX_STEPS; i++) {
-		struct regmap *map = NULL;
+		struct regmap *map;
 		int ret;
 		struct bus_prot bp = bp_table[i];
 
-		if (bp.type == IFR_TYPE)
-			map = infracfg;
-		else if (bp.type == SMI_TYPE)
-			map = smi_common;
-		else if (bp.type == VLP_TYPE)
-			map = vlpcfg;
-		else if (bp.type == MFGRPC_TYPE)
-			map = mfgrpc;
+		if (bp.type > INVALID_TYPE && bp.type < scp->num_bus_type)
+			map = scp->bus_regmap[bp.type];
 		else
-			break;
+			continue;
+		if (!map)
+			continue;
 
 		ret = set_bus_protection(map, &bp);
 
@@ -565,30 +566,72 @@ static int scpsys_power_on(struct generic_pm_domain *genpd)
 	val = readl(ctl_addr);
 	val |= PWR_ON_BIT;
 	writel(val, ctl_addr);
-	val |= PWR_ON_2ND_BIT;
-	writel(val, ctl_addr);
-
 	/* wait until PWR_ACK = 1 */
 	if (MTK_SCPD_CAPS(scpd, MTK_SCPD_IS_PWR_CON_ON))
-		ret = readx_poll_timeout_atomic(scpsys_pwr_con_is_on, scpd, tmp, tmp > 0,
+		ret = readx_poll_timeout_atomic(scpsys_pwr_ack_is_on, scpd, tmp, tmp > 0,
 				MTK_POLL_DELAY_US, MTK_POLL_TIMEOUT);
 	else
-		ret = readx_poll_timeout_atomic(scpsys_domain_is_on, scpd, tmp, tmp > 0,
+		ret = readx_poll_timeout_atomic(scpsys_sta_is_on, scpd, tmp, tmp > 0,
 				MTK_POLL_DELAY_US, MTK_POLL_TIMEOUT);
 	if (ret < 0)
 		goto err_pwr_ack;
 
-	udelay(100);
+	udelay(50);
+
+	/* subsys 2nd power on */
+	val |= PWR_ON_2ND_BIT;
+	writel(val, ctl_addr);
+	/* wait until PWR_ACK = 1 */
+	if (MTK_SCPD_CAPS(scpd, MTK_SCPD_IS_PWR_CON_ON))
+		ret = readx_poll_timeout_atomic(scpsys_pwr_ack_2nd_is_on, scpd, tmp, tmp > 0,
+				MTK_POLL_DELAY_US, MTK_POLL_TIMEOUT);
+	else
+		ret = readx_poll_timeout_atomic(scpsys_sta_2nd_is_on, scpd, tmp, tmp > 0,
+				MTK_POLL_DELAY_US, MTK_POLL_TIMEOUT);
+	if (ret < 0)
+		goto err_pwr_ack;
+
+	if (MTK_SCPD_CAPS(scpd, MTK_SCPD_PEXTP_PHY_RTFF)) {
+		val |= PWR_RTFF_CLK_DIS;
+		writel(val, ctl_addr);
+	}
+
 	val &= ~PWR_CLK_DIS_BIT;
 	writel(val, ctl_addr);
 
 	val &= ~PWR_ISO_BIT;
 	writel(val, ctl_addr);
 
+	if (MTK_SCPD_CAPS(scpd, MTK_SCPD_PEXTP_PHY_RTFF))
+		udelay(10);
+
 	val |= PWR_RST_B_BIT;
 	writel(val, ctl_addr);
 
-	if (!MTK_SCPD_CAPS(scpd, MTK_SCPD_BYPASS_CLK)) {
+	if (MTK_SCPD_CAPS(scpd, MTK_SCPD_NON_CPU_RTFF)) {
+		val |= PWR_RTFF_CLK_DIS;
+		writel(val, ctl_addr);
+
+		val &= ~PWR_RTFF_NRESTORE;
+		writel(val, ctl_addr);
+
+		val |= PWR_RTFF_NRESTORE;
+		writel(val, ctl_addr);
+
+		val &= ~PWR_RTFF_CLK_DIS;
+		writel(val, ctl_addr);
+	} else if (MTK_SCPD_CAPS(scpd, MTK_SCPD_PEXTP_PHY_RTFF)) {
+		val |= PWR_RTFF_SAVE;
+		writel(val, ctl_addr);
+
+		val &= ~PWR_RTFF_SAVE;
+		writel(val, ctl_addr);
+
+		val &= ~PWR_RTFF_CLK_DIS;
+		writel(val, ctl_addr);
+	}
+
+	if (!MTK_SCPD_CAPS(scpd, MTK_SCPD_BYPASS_CLK) || scpsys_init_flag) {
 		ret = scpsys_clk_enable(scpd->subsys_clk, MAX_SUBSYS_CLKS);
 		if (ret < 0)
 			goto err_pwr_ack;
@@ -668,8 +711,23 @@ static int scpsys_power_off(struct generic_pm_domain *genpd)
 		scpsys_clk_disable(scpd->subsys_lp_clk, MAX_SUBSYS_CLKS);
 	}
 
-	/* subsys power off */
 	val = readl(ctl_addr);
+
+	if (MTK_SCPD_CAPS(scpd, MTK_SCPD_NON_CPU_RTFF)) {
+		val |= PWR_RTFF_CLK_DIS;
+		writel(val, ctl_addr);
+
+		val |= PWR_RTFF_SAVE;
+		writel(val, ctl_addr);
+
+		val &= ~PWR_RTFF_SAVE;
+		writel(val, ctl_addr);
+
+		val &= ~PWR_RTFF_CLK_DIS;
+		writel(val, ctl_addr);
+	}
+
+	/* subsys power off */
 	val |= PWR_ISO_BIT;
 	writel(val, ctl_addr);
 
@@ -679,18 +737,29 @@ static int scpsys_power_off(struct generic_pm_domain *genpd)
 	val |= PWR_CLK_DIS_BIT;
 	writel(val, ctl_addr);
 
+	/* subsys power off */
 	val &= ~PWR_ON_BIT;
 	writel(val, ctl_addr);
+	/* wait until PWR_ACK = 1 */
+	if (MTK_SCPD_CAPS(scpd, MTK_SCPD_IS_PWR_CON_ON))
+		ret = readx_poll_timeout_atomic(scpsys_pwr_ack_is_on, scpd, tmp, tmp == 0,
+				MTK_POLL_DELAY_US, MTK_POLL_TIMEOUT);
+	else
+		ret = readx_poll_timeout_atomic(scpsys_sta_is_on, scpd, tmp, tmp == 0,
+				MTK_POLL_DELAY_US, MTK_POLL_TIMEOUT);
+	if (ret < 0)
+		goto out;
 
+	/* subsys 2nd power off */
 	val &= ~PWR_ON_2ND_BIT;
 	writel(val, ctl_addr);
 
 	/* wait until PWR_ACK = 0 */
 	if (MTK_SCPD_CAPS(scpd, MTK_SCPD_IS_PWR_CON_ON))
-		ret = readx_poll_timeout_atomic(scpsys_pwr_con_is_on, scpd, tmp, tmp == 0,
+		ret = readx_poll_timeout_atomic(scpsys_pwr_ack_2nd_is_on, scpd, tmp, tmp == 0,
 				MTK_POLL_DELAY_US, MTK_POLL_TIMEOUT);
 	else
-		ret = readx_poll_timeout_atomic(scpsys_domain_is_on, scpd, tmp, tmp == 0,
+		ret = readx_poll_timeout_atomic(scpsys_sta_2nd_is_on, scpd, tmp, tmp == 0,
 				MTK_POLL_DELAY_US, MTK_POLL_TIMEOUT);
 	if (ret < 0)
 		goto out;
@@ -744,7 +813,7 @@ static int scpsys_md_power_on(struct generic_pm_domain *genpd)
 	writel(val, ctl_addr);
 
 	/* wait until PWR_ACK = 1 */
-	ret = readx_poll_timeout_atomic(scpsys_md_domain_is_on, scpd, tmp, tmp > 0,
+	ret = readx_poll_timeout_atomic(scpsys_sta_is_on, scpd, tmp, tmp > 0,
 				 MTK_POLL_DELAY_US, MTK_POLL_TIMEOUT);
 	if (ret < 0)
 		goto err_pwr_ack;
@@ -799,7 +868,7 @@ static int scpsys_md_power_off(struct generic_pm_domain *genpd)
 	writel(val, ctl_addr);
 
 	/* wait until PWR_ACK = 0 */
-	ret = readx_poll_timeout_atomic(scpsys_md_domain_is_on, scpd, tmp, tmp == 0,
+	ret = readx_poll_timeout_atomic(scpsys_sta_is_on, scpd, tmp, tmp == 0,
 				 MTK_POLL_DELAY_US, MTK_POLL_TIMEOUT);
 	if (ret < 0)
 		goto out;
@@ -1130,9 +1199,30 @@ static unsigned int mtk_pd_get_performance(struct generic_pm_domain *genpd,
 	return dev_pm_opp_get_level(opp);
 }
 
+static int mtk_pd_get_regmap(struct platform_device *pdev, struct regmap **regmap,
+			const char *name)
+{
+	*regmap = syscon_regmap_lookup_by_phandle(pdev->dev.of_node, name);
+	if (PTR_ERR(*regmap) == -ENODEV) {
+		dev_notice(&pdev->dev, "%s regmap is null(%d)\n",
+				name, PTR_ERR(*regmap));
+
+		*regmap = NULL;
+	} else if (IS_ERR(*regmap)) {
+		dev_notice(&pdev->dev, "Cannot find %s controller: %ld\n",
+				name, PTR_ERR(*regmap));
+
+		return PTR_ERR(*regmap);
+	}
+
+	return 0;
+}
+
 struct scp *init_scp(struct platform_device *pdev,
 			const struct scp_domain_data *scp_domain_data, int num,
-			const struct scp_ctrl_reg *scp_ctrl_reg)
+			const struct scp_ctrl_reg *scp_ctrl_reg,
+			const char *bus_list[],
+			unsigned int type_num)
 {
 	struct genpd_onecell_data *pd_data;
 	struct resource *res;
@@ -1165,54 +1255,23 @@ struct scp *init_scp(struct platform_device *pdev,
 	if (!pd_data->domains)
 		return ERR_PTR(-ENOMEM);
 
-	scp->infracfg = syscon_regmap_lookup_by_phandle(pdev->dev.of_node,
-			"infracfg");
-	if (IS_ERR(scp->infracfg)) {
-		dev_err(&pdev->dev, "Cannot find infracfg controller: %ld\n",
-				PTR_ERR(scp->infracfg));
-		return ERR_CAST(scp->infracfg);
+	scp->num_bus_type = type_num;
+	scp->bus_regmap = devm_kcalloc(&pdev->dev,
+			type_num, sizeof(*scp->bus_regmap), GFP_KERNEL);
+	if (!scp->bus_regmap)
+		return ERR_PTR(-ENOMEM);
+
+	/* get bus prot regmap from dts node, 0 means invalid bus type */
+	for (i = 1; i < type_num; i++) {
+		ret = mtk_pd_get_regmap(pdev, &scp->bus_regmap[i], bus_list[i]);
+		if (ret)
+			return ERR_PTR(ret);
 	}
 
-	scp->smi_common = syscon_regmap_lookup_by_phandle(pdev->dev.of_node,
-			"smi_comm");
-
-	if (scp->smi_common == ERR_PTR(-ENODEV)) {
-		scp->smi_common = NULL;
-	} else if (IS_ERR(scp->smi_common)) {
-		dev_notice(&pdev->dev, "Cannot find smi_common controller: %ld\n",
-				PTR_ERR(scp->smi_common));
-		return ERR_CAST(scp->smi_common);
-	}
-
-	scp->vlpcfg = syscon_regmap_lookup_by_phandle(pdev->dev.of_node,
-			"vlpcfg");
-	if (scp->vlpcfg == ERR_PTR(-ENODEV)) {
-		scp->vlpcfg = NULL;
-	} else if (IS_ERR(scp->vlpcfg)) {
-		dev_err(&pdev->dev, "Cannot find infracfg controller: %ld\n",
-				PTR_ERR(scp->vlpcfg));
-		return ERR_CAST(scp->vlpcfg);
-	}
-
-	scp->mfgrpc = syscon_regmap_lookup_by_phandle(pdev->dev.of_node,
-			"mfgrpc");
-	if (scp->mfgrpc == ERR_PTR(-ENODEV)) {
-		scp->mfgrpc = NULL;
-	} else if (IS_ERR(scp->mfgrpc)) {
-		dev_notice(&pdev->dev, "Cannot find mfgrpc controller: %ld\n",
-				PTR_ERR(scp->mfgrpc));
-		return ERR_CAST(scp->mfgrpc);
-	}
-
-	scp->hwv_regmap = syscon_regmap_lookup_by_phandle(pdev->dev.of_node,
-			"hw-voter-regmap");
-	if (scp->hwv_regmap == ERR_PTR(-ENODEV)) {
-		scp->hwv_regmap = NULL;
-	} else if (IS_ERR(scp->hwv_regmap)) {
-		dev_notice(&pdev->dev, "Cannot find hw voter controller: %ld\n",
-				PTR_ERR(scp->hwv_regmap));
-		return ERR_CAST(scp->hwv_regmap);
-	}
+	/* get hw voter regmap from dts node */
+	ret = mtk_pd_get_regmap(pdev, &scp->hwv_regmap, "hw-voter-regmap");
+	if (ret)
+		return ERR_PTR(ret);
 
 	for (i = 0; i < num; i++) {
 		struct scp_domain *scpd = &scp->domains[i];
@@ -1303,12 +1362,13 @@ struct scp *init_scp(struct platform_device *pdev,
 }
 EXPORT_SYMBOL(init_scp);
 
-void mtk_register_power_domains(struct platform_device *pdev,
+int mtk_register_power_domains(struct platform_device *pdev,
 				struct scp *scp, int num)
 {
 	struct genpd_onecell_data *pd_data;
-	int i, ret;
+	int i, ret = 0;
 
+	scpsys_init_flag = true;
 	for (i = 0; i < num; i++) {
 		struct scp_domain *scpd = &scp->domains[i];
 		struct generic_pm_domain *genpd = &scpd->genpd;
@@ -1328,6 +1388,8 @@ void mtk_register_power_domains(struct platform_device *pdev,
 		pm_genpd_init(genpd, NULL, !on);
 	}
 
+	scpsys_init_flag = false;
+
 	/*
 	 * We are not allowed to fail here since there is no way to unregister
 	 * a power domain. Once registered above we have to keep the domains
@@ -1339,6 +1401,8 @@ void mtk_register_power_domains(struct platform_device *pdev,
 	ret = of_genpd_add_provider_onecell(pdev->dev.of_node, pd_data);
 	if (ret)
 		dev_err(&pdev->dev, "Failed to add OF provider: %d\n", ret);
+
+	return ret;
 }
 EXPORT_SYMBOL(mtk_register_power_domains);
 
@@ -2508,7 +2572,7 @@ static int scpsys_probe(struct platform_device *pdev)
 
 	soc = of_device_get_match_data(&pdev->dev);
 
-	scp = init_scp(pdev, soc->domains, soc->num_domains, &soc->regs);
+	scp = init_scp(pdev, soc->domains, soc->num_domains, &soc->regs, bus_list, BUS_TYPE_NUM);
 	if (IS_ERR(scp))
 		return PTR_ERR(scp);
 

@@ -24,6 +24,8 @@
 #define MTK_SCPD_L2TCM_SRAM		BIT(9)
 #define MTK_SCPD_BYPASS_CLK		BIT(10)
 #define MTK_SCPD_HWV_OPS		BIT(11)
+#define MTK_SCPD_NON_CPU_RTFF		BIT(12)
+#define MTK_SCPD_PEXTP_PHY_RTFF		BIT(13)
 
 #define MAX_CLKS	3
 #define MAX_SUBSYS_CLKS 10
@@ -114,12 +116,10 @@ struct scp {
 	struct genpd_onecell_data pd_data;
 	struct device *dev;
 	void __iomem *base;
-	struct regmap *infracfg;
-	struct regmap *smi_common;
-	struct regmap *vlpcfg;
-	struct regmap *mfgrpc;
+	struct regmap **bus_regmap;
 	struct regmap *hwv_regmap;
 	struct scp_ctrl_reg ctrl_reg;
+	int num_bus_type;
 };
 
 struct scp_subdomain {
@@ -158,8 +158,10 @@ int unregister_scpsys_notifier(struct notifier_block *nb);
 
 struct scp *init_scp(struct platform_device *pdev,
 			const struct scp_domain_data *scp_domain_data, int num,
-			const struct scp_ctrl_reg *scp_ctrl_reg);
+			const struct scp_ctrl_reg *scp_ctrl_reg,
+			const char *bus_list[],
+			unsigned int type_num);
 
-void mtk_register_power_domains(struct platform_device *pdev,
+int mtk_register_power_domains(struct platform_device *pdev,
 				struct scp *scp, int num);
 #endif /* __MTK_SCPSYS_H__ */

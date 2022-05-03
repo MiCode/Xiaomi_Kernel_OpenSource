@@ -6,25 +6,32 @@
 #define __SOC_MEDIATEK_SCPSYS_H
 
 #define _BUS_PROT(_type, _set_ofs, _clr_ofs,			\
-		_en_ofs, _sta_ofs, _mask, _ignore_clr_ack) {	\
+		_en_ofs, _sta_ofs, _mask, _ack_mask,		\
+		_ignore_clr_ack) {				\
 		.type = _type,					\
 		.set_ofs = _set_ofs,				\
 		.clr_ofs = _clr_ofs,				\
 		.en_ofs = _en_ofs,				\
 		.sta_ofs = _sta_ofs,				\
 		.mask = _mask,					\
+		.ack_mask = _ack_mask,				\
 		.ignore_clr_ack = _ignore_clr_ack,		\
 	}
 
 #define BUS_PROT(_type, _set_ofs, _clr_ofs,		\
 		_en_ofs, _sta_ofs, _mask)		\
 		_BUS_PROT(_type, _set_ofs, _clr_ofs,	\
-		_en_ofs, _sta_ofs, _mask, false)
+		_en_ofs, _sta_ofs, _mask, _mask, false)
 
 #define BUS_PROT_IGN(_type, _set_ofs, _clr_ofs,	\
 		_en_ofs, _sta_ofs, _mask)		\
 		_BUS_PROT(_type, _set_ofs, _clr_ofs,	\
-		_en_ofs, _sta_ofs, _mask, true)
+		_en_ofs, _sta_ofs, _mask, _mask, true)
+
+#define BUS_PROT_CON(_type, _set_ofs, _clr_ofs,	\
+		_en_ofs, _sta_ofs, _mask, _ack_mask)		\
+		_BUS_PROT(_type, 0x0, 0x0,			\
+		_en_ofs, _sta_ofs, _mask, _ack_mask, true)
 
 #define MT2701_TOP_AXI_PROT_EN_MM_M0		BIT(1)
 #define MT2701_TOP_AXI_PROT_EN_CONN_M		BIT(2)
@@ -121,21 +128,14 @@
 #define MT8192_TOP_AXI_PROT_EN_MM_2_MDP_2ND		BIT(13)
 #define MT8192_TOP_AXI_PROT_EN_VDNR_CAM		BIT(21)
 
-enum regmap_type {
-	INVALID_TYPE = 0,
-	IFR_TYPE,
-	SMI_TYPE,
-	VLP_TYPE,
-	MFGRPC_TYPE,
-};
-
 struct bus_prot {
-	enum regmap_type type;
+	u32 type;
 	u32 set_ofs;
 	u32 clr_ofs;
 	u32 en_ofs;
 	u32 sta_ofs;
 	u32 mask;
+	u32 ack_mask;
 	bool ignore_clr_ack;
 };
 

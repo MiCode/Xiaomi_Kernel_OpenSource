@@ -211,6 +211,19 @@
 #define VEN1_PROT_STEP2_1_MASK           ((0x1 << 17))
 #define VEN1_PROT_STEP2_1_ACK_MASK       ((0x1 << 17))
 
+enum regmap_type {
+	INVALID_TYPE = 0,
+	IFR_TYPE,
+	VLP_TYPE,
+	MFGRPC_TYPE,
+	BUS_TYPE_NUM,
+};
+
+static const char *bus_list[BUS_TYPE_NUM] = {
+	[IFR_TYPE] = "infracfg",
+	[VLP_TYPE] = "vlpcfg",
+	[MFGRPC_TYPE] = "mfgrpc",
+};
 
 /*
  * MT6983 power domain support
@@ -906,11 +919,13 @@ static int mt6983_scpsys_probe(struct platform_device *pdev)
 
 	soc = of_device_get_match_data(&pdev->dev);
 
-	scp = init_scp(pdev, soc->domains, soc->num_domains, &soc->regs);
+	scp = init_scp(pdev, soc->domains, soc->num_domains, &soc->regs, bus_list, BUS_TYPE_NUM);
 	if (IS_ERR(scp))
 		return PTR_ERR(scp);
 
-	mtk_register_power_domains(pdev, scp, soc->num_domains);
+	ret = mtk_register_power_domains(pdev, scp, soc->num_domains);
+	if (ret)
+		return ret;
 
 	pd_data = &scp->pd_data;
 
