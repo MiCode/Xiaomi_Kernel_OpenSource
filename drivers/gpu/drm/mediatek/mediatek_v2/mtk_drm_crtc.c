@@ -2897,10 +2897,16 @@ static unsigned int dual_comp_map_mt6985(unsigned int comp_id)
 		ret = DDP_COMPONENT_OVL1;
 		break;
 	case DDP_COMPONENT_OVL0_2L:
-		ret = DDP_COMPONENT_OVL2_2L;
+		ret = DDP_COMPONENT_OVL4_2L;
 		break;
 	case DDP_COMPONENT_OVL1_2L:
-		ret = DDP_COMPONENT_OVL3_2L;
+		ret = DDP_COMPONENT_OVL5_2L;
+		break;
+	case DDP_COMPONENT_OVL2_2L:
+		ret = DDP_COMPONENT_OVL6_2L;
+		break;
+	case DDP_COMPONENT_OVL3_2L:
+		ret = DDP_COMPONENT_OVL7_2L;
 		break;
 	case DDP_COMPONENT_OVL0_2L_NWCG:
 		ret = DDP_COMPONENT_OVL2_2L_NWCG;

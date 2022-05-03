@@ -63,6 +63,9 @@ struct mtk_mmsys_driver_data {
 	const struct mtk_crtc_path_data *ext_path_data;
 	const struct mtk_crtc_path_data *ext_alter_path_data;
 	const struct mtk_crtc_path_data *third_path_data;
+	const struct mtk_crtc_path_data *third_path_data_wo_tdshp;
+	const struct mtk_crtc_path_data *fourth_path_data_secondary;
+	const struct mtk_crtc_path_data *fourth_path_data_discrete;
 	enum mtk_mmsys_id mmsys_id;
 	bool shadow_register;
 	const struct mtk_session_mode_tb *mode_tb;
