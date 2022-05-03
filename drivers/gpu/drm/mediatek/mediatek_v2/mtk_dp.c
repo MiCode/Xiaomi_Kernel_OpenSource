@@ -3836,6 +3836,7 @@ static int mtk_dp_bind(struct device *dev, struct device *master, void *data)
 
 	//mtk_dp->conn.kdev = drm->dev;
 	mtk_dp->aux.dev = mtk_dp->conn.kdev;
+	mtk_dp->aux.drm_dev = mtk_dp->drm_dev;
 	if (drm_dp_aux_register(&mtk_dp->aux))
 		goto err_encoder_init;
 
