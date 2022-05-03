@@ -71,6 +71,11 @@ static ssize_t gpueb_hw_voter_dbg_proc_write(
 	ipi_data.cmd = HW_VOTER_DBG_CMD_TEST;
 
 	channel_id = gpueb_get_send_PIN_ID_by_name("IPI_ID_CCF");
+	if (channel_id < 0) {
+		pr_notice("invalid ipi id %d\n", channel_id);
+		return count;
+	}
+
 	ret = mtk_ipi_send_compl(
 			&gpueb_ipidev,
 			channel_id,
@@ -183,6 +188,11 @@ int gpueb_hw_voter_dbg_init(void)
 	int channel_id = 0;
 
 	channel_id = gpueb_get_send_PIN_ID_by_name("IPI_ID_CCF");
+	if (channel_id < 0) {
+		pr_notice("invalid ipi id %d\n", channel_id);
+		return 0;
+	}
+
 	ret = mtk_ipi_register(
 			&gpueb_ipidev,
 			channel_id,
