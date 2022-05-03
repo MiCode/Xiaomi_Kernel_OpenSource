@@ -66,7 +66,7 @@ int clk_buf_voter_ctrl_by_id(const uint8_t subsys_id, enum RC_CTRL_CMD rc_req)
 		return -ENODEV;
 	}
 
-	if (rc_req > MAX_RC_REQ_NUM) {
+	if (rc_req >= MAX_RC_REQ_NUM) {
 		pr_notice("rc_req exceeds MAX_RC_REQ_NUM!\n");
 		return -EINVAL;
 	}
