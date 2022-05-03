@@ -13535,6 +13535,11 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 		mediatek,ccu_rproc = <&ccu_rproc>;
 	};
 
+	camera_imgsys_ccu {
+		compatible = "mediatek,camera_imgsys_ccu";
+		mediatek,ccu_rproc = <&ccu_rproc>;
+	};
+
 	ccu_rproc: ccu_rproc@1b080000 {
 		compatible = "mediatek,ccu_rproc";
 		reg = <0 0x1b080000 0 0x9000>;
