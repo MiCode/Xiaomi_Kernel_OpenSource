@@ -10034,7 +10034,7 @@
 			<GIC_SPI 453 IRQ_TYPE_LEVEL_HIGH 0>;
 		mediatek,larbs = <&smi_larb7>;
 		operating-points-v2 = <&opp_table_venc>;
-		dvfsrc-vcore-supply = <&dvfsrc_vcore>;
+		mmdvfs-dvfsrc-vcore-supply = <&dvfsrc_vcore>;
 		clocks = <&venc_gcon_clk CLK_VEN1_CKE3_JPGDEC>,
 			<&venc_gcon_clk CLK_VEN1_CKE4_JPGDEC_C1>;
 		clock-names = "MT_CG_VENC_JPGDEC",
