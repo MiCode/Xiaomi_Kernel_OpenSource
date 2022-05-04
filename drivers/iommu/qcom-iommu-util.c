@@ -359,6 +359,17 @@ int qcom_iommu_get_context_bank_nr(struct iommu_domain *domain)
 }
 EXPORT_SYMBOL(qcom_iommu_get_context_bank_nr);
 
+int qcom_iommu_get_asid_nr(struct iommu_domain *domain)
+{
+	struct qcom_iommu_ops *ops = to_qcom_iommu_ops(domain->ops);
+
+	if (unlikely(ops->get_asid_nr == NULL))
+		return -EINVAL;
+
+	return ops->get_asid_nr(domain);
+}
+EXPORT_SYMBOL(qcom_iommu_get_asid_nr);
+
 int qcom_iommu_set_secure_vmid(struct iommu_domain *domain, enum vmid vmid)
 {
 	struct qcom_iommu_ops *ops = to_qcom_iommu_ops(domain->ops);
