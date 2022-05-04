@@ -29,6 +29,9 @@
 
 #include <linux/soc/qcom/battery_charger.h>
 
+#define CREATE_TRACE_POINTS
+#include <trace/events/qcom_haptics.h>
+
 /* status register definitions in HAPTICS_CFG module */
 #define HAP_CFG_REVISION2_REG			0x01
 #define HAP_CFG_V1				0x1
@@ -948,6 +951,17 @@ static int haptics_get_status_data(struct haptics_chip *chip,
 {
 	int rc;
 	u8 mod_sel_val[2];
+	const char *hap_status_name[BRAKE_CAL_SCALAR + 1] = {
+		"CAL_TLRA_CL_STS",
+		"T_WIND_STS",
+		"T_WIND_STS_PREV",
+		"LAST_GOOD_TLRA_CL_STS",
+		"TLRA_CL_ERR_STS",
+		"HAP_DRV_STS",
+		"RNAT_RCAL_INT",
+		"BRAKE_CAL_SCALAR",
+	};
+	const char *name;
 
 	mod_sel_val[0] = sel & 0xff;
 	mod_sel_val[1] = (sel >> 8) & 0xff;
@@ -966,8 +980,15 @@ static int haptics_get_status_data(struct haptics_chip *chip,
 	if (rc < 0)
 		return rc;
 
-	dev_dbg(chip->dev, "Get status data[%x] = (%#x, %#x)\n",
-			sel, data[0], data[1]);
+	if (sel <= BRAKE_CAL_SCALAR)
+		name = hap_status_name[sel];
+	else if (sel == CLAMPED_DUTY_CYCLE_STS)
+		name = "CLAMPED_DUTY_CYCLE_STS";
+	else if (sel == FIFO_REAL_TIME_STS)
+		name = "FIFO_REAL_TIME_STS";
+
+	dev_dbg(chip->dev, "Get status data[%s] = (%#x, %#x)\n", name, data[0], data[1]);
+	trace_qcom_haptics_status(name, data[0], data[1]);
 	return 0;
 }
 
@@ -1157,12 +1178,12 @@ static int haptics_set_vmax_mv(struct haptics_chip *chip, u32 vmax_mv)
 	u8 val, vmax_step;
 
 	if (vmax_mv > chip->max_vmax_mv) {
-		dev_err(chip->dev, "vmax (%d) exceed the max value: %d\n",
+		dev_dbg(chip->dev, "vmax (%d) exceed the max value: %d\n",
 					vmax_mv, chip->max_vmax_mv);
-		return -EINVAL;
+		vmax_mv = chip->max_vmax_mv;
 	}
 
-	if ((chip->clamped_vmax_mv != 0) && (vmax_mv > chip->clamped_vmax_mv))
+	if (vmax_mv > chip->clamped_vmax_mv)
 		vmax_mv = chip->clamped_vmax_mv;
 
 	if (chip->clamp_at_5v && (vmax_mv > CLAMPED_VMAX_MV))
@@ -1435,23 +1456,35 @@ static int haptics_enable_hpwr_vreg(struct haptics_chip *chip, bool en)
 	return 0;
 }
 
-static int haptics_open_loop_drive_config(struct haptics_chip *chip, bool en)
+static int haptics_force_vreg_ready(struct haptics_chip *chip, bool ready)
 {
-	int rc = 0;
-	u8 mask, val;
+	u8 mask;
 
 	mask = FORCE_VREG_RDY_BIT;
 	if (chip->hw_type == HAP525_HV)
 		mask |= FORCE_VSET_ACK_BIT;
 
+	return haptics_masked_write(chip, chip->cfg_addr_base,
+			HAP_CFG_VSET_CFG_REG, mask, ready ? mask : 0);
+}
+
+static int haptics_open_loop_drive_config(struct haptics_chip *chip, bool en)
+{
+	int rc = 0;
+	u8 val;
+
 	if ((is_boost_vreg_enabled_in_open_loop(chip) ||
 			chip->hboost_enabled || is_haptics_external_powered(chip)) && en) {
-		/* Force VREG_RDY */
-		val = mask;
-		rc = haptics_masked_write(chip, chip->cfg_addr_base,
-				HAP_CFG_VSET_CFG_REG, mask, val);
-		if (rc < 0)
-			return rc;
+		/*
+		 * Only set force-VREG-ready here if hBoost is not used by charger firmware.
+		 * In the case of charger firmware enabling hBoost, force-VREG-ready will be
+		 * set/reset based on the VMAX_CLAMP notification.
+		 */
+		if (chip->clamped_vmax_mv == MAX_HV_VMAX_MV) {
+			rc = haptics_force_vreg_ready(chip, true);
+			if (rc < 0)
+				return rc;
+		}
 
 		/* Toggle RC_CLK_CAL_EN if it's in auto mode */
 		rc = haptics_read(chip, chip->cfg_addr_base,
@@ -1478,12 +1511,18 @@ static int haptics_open_loop_drive_config(struct haptics_chip *chip, bool en)
 
 			dev_dbg(chip->dev, "Toggle CAL_EN in open-loop-VREG playing\n");
 		}
-	} else if (!is_haptics_external_powered(chip)) {
-		rc = haptics_masked_write(chip, chip->cfg_addr_base,
-				HAP_CFG_VSET_CFG_REG, mask, 0);
+	} else if (!is_haptics_external_powered(chip) &&
+			(chip->clamped_vmax_mv == MAX_HV_VMAX_MV)) {
+		/*
+		 * Reset force-VREG-ready only when hBoost is not
+		 * used by charger firmware.
+		 */
+		rc = haptics_force_vreg_ready(chip, false);
+		if (rc < 0)
+			return rc;
 	}
 
-	return rc;
+	return 0;
 }
 
 #define BOOST_VREG_OFF_DELAY_SECONDS	2
@@ -1538,6 +1577,7 @@ static int haptics_enable_play(struct haptics_chip *chip, bool en)
 		}
 	}
 
+	trace_qcom_haptics_play(en);
 	return rc;
 }
 
@@ -1755,6 +1795,7 @@ static int haptics_get_fifo_fill_status(struct haptics_chip *chip, u32 *fill)
 {
 	int rc;
 	u8 val[2], fill_status_mask;
+	u32 filled, available;
 	bool empty = false, full = false;
 
 	rc = haptics_get_status_data(chip, FIFO_REAL_TIME_STS, val);
@@ -1777,11 +1818,15 @@ static int haptics_get_fifo_fill_status(struct haptics_chip *chip, u32 *fill)
 		return -EINVAL;
 	}
 
-	*fill = ((val[0] & fill_status_mask) << 8) | val[1];
+	filled = ((val[0] & fill_status_mask) << 8) | val[1];
 	empty = !!(val[0] & FIFO_EMPTY_FLAG_BIT);
 	full = !!(val[0] & FIFO_FULL_FLAG_BIT);
+	available = get_max_fifo_samples(chip) - filled;
 
-	dev_dbg(chip->dev, "filled=%d, full=%d, empty=%d\n", *fill, full, empty);
+	dev_dbg(chip->dev, "filled=%u, available=%u, full=%d, empty=%d\n",
+			filled, available, full, empty);
+	trace_qcom_haptics_fifo_hw_status(filled, available, full, empty);
+	*fill = filled;
 	return 0;
 }
 
@@ -1962,6 +2007,7 @@ static int haptics_set_fifo(struct haptics_chip *chip, struct fifo_cfg *fifo)
 
 	atomic_set(&status->is_busy, 1);
 	status->samples_written = num;
+	trace_qcom_haptics_fifo_prgm_status(fifo->num_s, status->samples_written, num);
 	if (num == fifo->num_s) {
 		fifo_thresh = 0;
 		atomic_set(&status->written_done, 1);
@@ -2970,6 +3016,8 @@ static int haptics_init_vmax_config(struct haptics_chip *chip)
 					MAX_HV_VMAX_MV : MAX_MV_VMAX_MV;
 	}
 
+	/* Set the initial clamped vmax value when hBoost is used by charger firmware */
+	chip->clamped_vmax_mv = MAX_HV_VMAX_MV;
 	/* Config VMAX */
 	return haptics_set_vmax_mv(chip, chip->config.vmax_mv);
 }
@@ -3112,6 +3160,7 @@ static irqreturn_t fifo_empty_irq_handler(int irq, void *data)
 		}
 
 		status->samples_written += num;
+		trace_qcom_haptics_fifo_prgm_status(fifo->num_s, status->samples_written, num);
 		if (status->samples_written == fifo->num_s) {
 			dev_dbg(chip->dev, "FIFO programming is done\n");
 			atomic_set(&chip->play.fifo_status.written_done, 1);
@@ -5131,6 +5180,7 @@ static int haptics_boost_notifier(struct notifier_block *nb, unsigned long event
 {
 	struct haptics_chip *chip = container_of(nb, struct haptics_chip, hboost_nb);
 	u32 vmax_mv;
+	int rc;
 
 	switch (event) {
 	case VMAX_CLAMP:
@@ -5144,6 +5194,9 @@ static int haptics_boost_notifier(struct notifier_block *nb, unsigned long event
 		chip->clamped_vmax_mv = vmax_mv;
 		dev_dbg(chip->dev, "Vmax is clamped at %u mV to support hBoost concurrency\n",
 				vmax_mv);
+		rc = haptics_force_vreg_ready(chip, vmax_mv == MAX_HV_VMAX_MV ? false : true);
+		if (rc < 0)
+			return rc;
 		break;
 	default:
 		break;
