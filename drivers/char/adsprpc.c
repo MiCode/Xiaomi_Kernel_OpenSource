@@ -2243,6 +2243,12 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 
 		if (ctx->attrs && (ctx->attrs[i] & FASTRPC_ATTR_NOMAP))
 			dmaflags = FASTRPC_MAP_FD_NOMAP;
+		VERIFY(err, VALID_FASTRPC_CID(ctx->fl->cid));
+		if (err) {
+			err = -ECHRNG;
+			mutex_unlock(&ctx->fl->map_mutex);
+			goto bail;
+		}
 		dsp_cap_ptr = &gcinfo[ctx->fl->cid].dsp_cap_kernel;
 		// Skip cpu mapping if DMA_HANDLE_REVERSE_RPC_CAP is true.
 		if (!dsp_cap_ptr->dsp_attributes[DMA_HANDLE_REVERSE_RPC_CAP] &&
