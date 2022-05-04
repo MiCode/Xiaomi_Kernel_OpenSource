@@ -736,7 +736,7 @@ int mhi_dev_net_interface_init(void)
 {
 	u32 i = 0, j = 0;
 	int ret_val = 0;
-	bool out_channel_started[MHI_NUM_NW_CLIENT_LIMIT] = {false};
+	uint32_t info_out_ch = 0;
 	struct mhi_dev_net_client *mhi_net_client[MHI_NUM_NW_CLIENT_LIMIT];
 
 	if (mhi_net_ctxt.client_handles[0]) {
@@ -791,10 +791,7 @@ int mhi_dev_net_interface_init(void)
 
 		ret_val = mhi_register_state_cb(mhi_dev_net_state_cb,
 				mhi_net_client[i], mhi_net_client[i]->out_chan);
-		/* -EEXIST indicates success and channel is already open */
-		if (ret_val == -EEXIST)
-			out_channel_started[i] = true;
-		else if (ret_val < 0)
+		if (ret_val < 0 && ret_val != -EEXIST)
 			goto register_state_cb_fail;
 
 		ret_val = mhi_register_state_cb(mhi_dev_net_state_cb,
@@ -811,13 +808,16 @@ int mhi_dev_net_interface_init(void)
 			 * with mhi_dev_net_open_chan_create_netif().
 			 */
 			ret_val = 0;
-			if (out_channel_started[i]) {
-				ret_val = mhi_dev_net_open_chan_create_netif
-								(mhi_net_client[i]);
-				if (ret_val < 0) {
-					mhi_dev_net_log(MHI_ERROR,
-						"Failed to open channels\n");
-					goto channel_open_fail;
+			if (!mhi_ctrl_state_info(mhi_net_client->mhi_net_client[i]->out_chan,
+						&info_out_ch)) {
+				if (info_out_ch == MHI_STATE_CONNECTED) {
+					ret_val = mhi_dev_net_open_chan_create_netif
+							(mhi_net_client[i]);
+					if (ret_val < 0) {
+						mhi_dev_net_log(MHI_ERROR,
+							"Failed to open channels\n");
+						goto channel_open_fail;
+					}
 				}
 			}
 		} else if (ret_val < 0) {
