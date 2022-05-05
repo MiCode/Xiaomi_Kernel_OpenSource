@@ -1073,7 +1073,7 @@ out:
 		bc_dump_buf_append(bc_dump_buf,
 			"success counter cpu: ");
 
-		for_each_possible_cpu(i) {
+		for (i = 0; i < NR_CPUS; i++) {
 			/* to avoid unexpected overrun */
 			if (i >= num_possible_cpus())
 				break;
@@ -1084,7 +1084,7 @@ out:
 		bc_dump_buf_append(bc_dump_buf,
 			"fail counter cpu: ");
 
-		for_each_possible_cpu(i) {
+		for (i = 0; i < NR_CPUS; i++) {
 			/* to avoid unexpected overrun */
 			if (i >= num_possible_cpus())
 				break;
@@ -1095,7 +1095,7 @@ out:
 		bc_dump_buf_append(bc_dump_buf,
 			"interrupt counter cpu: ");
 
-		for_each_possible_cpu(i) {
+		for (i = 0; i < NR_CPUS; i++) {
 			/* to avoid unexpected overrun */
 			if (i >= num_possible_cpus())
 				break;
@@ -1114,8 +1114,12 @@ out:
 			cpumask_pr_args(&_tb_dbg_force_mask));
 		bc_dump_buf_append(bc_dump_buf,
 			", t: ");
-		for_each_possible_cpu(i) {
+		for (i = 0; i < NR_CPUS; i++) {
 			struct tick_device *td;
+
+			/* to avoid unexpected overrun */
+			if (i >= num_possible_cpus())
+				break;
 
 			td = &per_cpu(tick_cpu_device, i);
 			if (!td || !td->evtdev) {
