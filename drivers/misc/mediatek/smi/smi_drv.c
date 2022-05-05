@@ -639,10 +639,10 @@ s32 smi_debug_bus_hang_detect(const bool gce, const char *user)
 	unsigned long flags = 0;
 #endif
 
-#if IS_ENABLED(CONFIG_MTK_EMI) || IS_ENABLED(CONFIG_MTK_EMI_BWL)
-	// TODO-419
-	// dump_emi_outstanding();
+#if IS_ENABLED(CONFIG_MEDIATEK_EMI)
+	mtk_emidbg_dump();
 #endif
+
 #if IS_ENABLED(CONFIG_MTK_IOMMU_V2)
 	//mtk_dump_reg_for_hang_issue();
 #elif IS_ENABLED(CONFIG_MTK_M4U)
