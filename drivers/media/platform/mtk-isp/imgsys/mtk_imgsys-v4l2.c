@@ -1715,7 +1715,7 @@ static int mtkdip_ioc_del_iova(struct v4l2_subdev *subdev, void *arg)
 		dmabuf = dma_buf_get(fd);
 		if (IS_ERR(dmabuf))
 			continue;
-
+		mutex_lock(&pipe->iova_cache.mlock);
 		list_for_each_entry_safe(iova_info, tmp,
 					&pipe->iova_cache.list, list_entry) {
 
@@ -1733,6 +1733,7 @@ static int mtkdip_ioc_del_iova(struct v4l2_subdev *subdev, void *arg)
 			spin_unlock(&pipe->iova_cache.lock);
 			vfree(iova_info);
 		}
+		mutex_unlock(&pipe->iova_cache.mlock);
 		fd_info.fds_size[i] = dmabuf->size;
 		dma_buf_put(dmabuf);
 

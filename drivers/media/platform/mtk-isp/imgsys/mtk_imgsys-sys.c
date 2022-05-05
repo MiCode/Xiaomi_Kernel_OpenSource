@@ -2258,7 +2258,7 @@ int mtk_imgsys_hw_streamoff(struct mtk_imgsys_pipe *pipe)
 			__func__, imgsys_dev->imgsys_stream_cnt);
 
 		flush_fd_kva_list(imgsys_dev);
-
+		mutex_lock(&pipe->iova_cache.mlock);
 		list_for_each_entry_safe(iova_info, tmp,
 					&pipe->iova_cache.list, list_entry) {
 			mtk_imgsys_put_dma_buf(iova_info->dma_buf,
@@ -2270,6 +2270,7 @@ int mtk_imgsys_hw_streamoff(struct mtk_imgsys_pipe *pipe)
 			spin_unlock(&pipe->iova_cache.lock);
 			vfree(iova_info);
 		}
+		mutex_unlock(&pipe->iova_cache.mlock);
 
 	}
 	dev_dbg(pipe->imgsys_dev->dev,

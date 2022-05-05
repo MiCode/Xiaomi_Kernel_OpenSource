@@ -41,6 +41,7 @@ int mtk_imgsys_pipe_init(struct mtk_imgsys_dev *imgsys_dev,
 	INIT_LIST_HEAD(&pipe->pipe_job_running_list);
 	INIT_LIST_HEAD(&pipe->pipe_job_pending_list);
 	INIT_LIST_HEAD(&pipe->iova_cache.list);
+	mutex_init(&pipe->iova_cache.mlock);
 	spin_lock_init(&pipe->iova_cache.lock);
 	hash_init(pipe->iova_cache.hlists);
 	//spin_lock_init(&pipe->job_lock);
