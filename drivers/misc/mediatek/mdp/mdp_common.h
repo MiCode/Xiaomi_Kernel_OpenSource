@@ -113,7 +113,7 @@ typedef void (*MdpQosCheckBWLimit) (u32 thread_id, u32 port, u32 user_bw, u32 se
 
 typedef u32 (*MdpGetGroup) (void);
 
-typedef const char *const (*MdpGetEngineGroupName) (void);
+typedef const char **const (*MdpGetEngineGroupName) (void);
 
 typedef phys_addr_t *(*MdpGetEngineBase) (void);
 

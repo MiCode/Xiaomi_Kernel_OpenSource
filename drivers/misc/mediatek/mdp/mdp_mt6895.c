@@ -465,7 +465,7 @@ int32_t cmdq_mdp_reset_with_mmsys(const uint64_t engineToResetAgain)
 			continue;
 
 		if (engineToResetAgain & (1LL << engineResetBit[i]))
-			reset_bits0 |= (1 << i);
+			reset_bits0 |= (1ULL << i);
 	}
 
 	if (reset_bits0 != 0) {
@@ -1509,9 +1509,6 @@ const char *cmdq_mdp_parse_error_module(const struct cmdqRecStruct *task)
 
 	/* for secure path, use HW flag is sufficient */
 	do {
-		if (module != NULL)
-			break;
-
 		if (!task->secData.is_secure) {
 			/* normal path,
 			 * need parse current running instruciton
@@ -1673,13 +1670,13 @@ static u32 mdp_get_group_mdp(void)
 	return CMDQ_GROUP_MDP;
 }
 
-static const char *const mdp_get_engine_group_name(void)
+static const char **const mdp_get_engine_group_name(void)
 {
 	static const char *const engineGroupName[] = {
 		CMDQ_FOREACH_GROUP(GENERATE_STRING)
 	};
 
-	return (const char *const)engineGroupName;
+	return (const char **const)engineGroupName;
 }
 
 phys_addr_t *mdp_engine_base_get(void)

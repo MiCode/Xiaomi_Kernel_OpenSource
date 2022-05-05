@@ -109,8 +109,11 @@ if (status < 0)		\
 {		\
 do {			\
 	char dispatchedTag[50]; \
-	snprintf(dispatchedTag, 50, "CRDISPATCH_KEY:%s", tag); \
-	pr_notice("[MDP][AEE]"string, ##args); \
+	int ret = snprintf(dispatchedTag, 50, "CRDISPATCH_KEY:%s", tag); \
+	if (unlikely(ret < 0)) \
+		pr_notice("CMDQ_AEE snprintf fail"); \
+	else \
+		pr_notice("[MDP][AEE]"string, ##args); \
 	cmdq_core_save_first_dump("[MDP][AEE]"string, ##args); \
 	aee_kernel_warning_api(__FILE__, __LINE__, \
 		DB_OPT_DEFAULT | DB_OPT_PROC_CMDQ_INFO | \
@@ -130,7 +133,9 @@ do { \
 {		\
 do {			\
 	char dispatchedTag[50]; \
-	snprintf(dispatchedTag, 50, "CRDISPATCH_KEY:%s", tag); \
+	int ret = snprintf(dispatchedTag, 50, "CRDISPATCH_KEY:%s", tag); \
+	if (unlikely(ret < 0)) \
+		pr_notice("CMDQ_AEE snprintf fail"); \
 	pr_debug("[MDP][AEE] AEE not READY!!!"); \
 	pr_debug("[MDP][AEE]"string, ##args); \
 	cmdq_core_save_first_dump("[MDP][AEE]"string, ##args); \

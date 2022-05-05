@@ -28,7 +28,7 @@ static struct cmdqMDPFuncStruct *cmdq_mdp_get_func_priv(void)
 static bool cmdq_core_is_valid_group_priv(u32 engGroup)
 {
 	/* check range */
-	if (engGroup < 0 || engGroup >= cmdq_mdp_get_func_priv()->getGroupMax())
+	if (engGroup >= cmdq_mdp_get_func_priv()->getGroupMax())
 		return false;
 
 	return true;

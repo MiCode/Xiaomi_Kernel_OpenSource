@@ -954,6 +954,11 @@ static s32 cmdq_mdp_consume_handle(void)
 			continue;
 		}
 
+		if (handle->thread < 0) {
+			CMDQ_ERR("%s handle->thread:%d is invalid!!!\n",
+				__func__, handle->thread);
+		}
+
 		/* lock thread for counting and clk */
 		cmdq_mdp_lock_thread(handle);
 		mutex_unlock(&mdp_thread_mutex);
@@ -1182,6 +1187,14 @@ static s32 cmdq_mdp_setup_sec(struct cmdqCommandStruct *desc,
 
 	cmdq_sec_pkt_set_data(handle->pkt, dapc, port,
 		CMDQ_SEC_USER_MDP, meta_type);
+
+	if (desc->secData.addrMetadataCount >=
+		CMDQ_IWC_MAX_ADDR_LIST_LENGTH) {
+		CMDQ_ERR("addrMetadataCount %u reach the max %u\n",
+			 desc->secData.addrMetadataCount,
+			 CMDQ_IWC_MAX_ADDR_LIST_LENGTH);
+		return -EFAULT;
+	}
 
 	cmdq_sec_pkt_assign_metadata(handle->pkt,
 		desc->secData.addrMetadataCount,
@@ -3186,7 +3199,7 @@ static u32 mdp_get_dummy_wpe(void)
 	return 0;
 }
 
-static const char *const mdp_get_engine_group_name(void)
+static const char **const mdp_get_engine_group_name(void)
 {
 	return NULL;
 }

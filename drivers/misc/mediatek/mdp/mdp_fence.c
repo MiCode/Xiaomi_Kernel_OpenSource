@@ -175,7 +175,7 @@ static void timeline_fence_release(struct dma_fence *dma_fence)
 	unsigned long flags;
 
 	spin_lock_irqsave(dma_fence->lock, flags);
-	if (!list_empty(&pt->link)) {
+	if (pt && !list_empty(&pt->link)) {
 		list_del(&pt->link);
 		rb_erase(&pt->node, &parent->pt_tree);
 	}
@@ -201,7 +201,7 @@ static bool timeline_fence_enable_signaling(struct dma_fence *dma_fence)
 static void timeline_fence_value_str(struct dma_fence *dma_fence,
 				    char *str, int size)
 {
-	snprintf(str, size, "%d", dma_fence->seqno);
+	snprintf(str, size, "%llu", dma_fence->seqno);
 }
 
 static void timeline_fence_timeline_value_str(struct dma_fence *dma_fence,

@@ -496,7 +496,7 @@ int32_t cmdq_mdp_reset_with_mmsys(const uint64_t engineToResetAgain)
 			continue;
 
 		if (engineToResetAgain & (1LL << engineResetBit[i]))
-			reset_bits0 |= (1 << i);
+			reset_bits0 |= (1ULL << i);
 	}
 	for (i = 32; i < 48; ++i) {
 		if (engineResetBit[i] < 0)
@@ -2066,13 +2066,13 @@ static u32 mdp_get_group_wpe_plat(void)
 	return CMDQ_GROUP_WPE;
 }
 
-static const char *const mdp_get_engine_group_name(void)
+static const char **const mdp_get_engine_group_name(void)
 {
 	static const char *const engineGroupName[] = {
 		CMDQ_FOREACH_GROUP(GENERATE_STRING)
 	};
 
-	return (const char *const)engineGroupName;
+	return (const char **const)engineGroupName;
 }
 
 phys_addr_t *mdp_engine_base_get(void)
