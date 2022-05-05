@@ -2676,6 +2676,15 @@ static int mtk_mraw_runtime_suspend(struct device *dev)
 
 	disable_irq(mraw_dev->irq);
 
+	if (MRAW_READ_BITS(mraw_dev->base + REG_MRAW_TG_VF_CON,
+		MRAW_TG_VF_CON, TG_M1_VFDATA_EN) == 1) {
+		dev_info(mraw_dev->dev, "%s: VF is on, turn off it when suspending",
+			__func__);
+		MRAW_WRITE_BITS(mraw_dev->base + REG_MRAW_TG_VF_CON,
+			MRAW_TG_VF_CON, TG_M1_VFDATA_EN, 0);
+		mtk_cam_mraw_toggle_tg_db(mraw_dev);
+	}
+
 	dev_dbg(dev, "%s:disable clock\n", __func__);
 	for (i = 0; i < mraw_dev->num_clks; i++)
 		clk_disable_unprepare(mraw_dev->clks[i]);

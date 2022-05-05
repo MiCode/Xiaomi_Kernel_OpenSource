@@ -3037,6 +3037,15 @@ static int mtk_camsv_runtime_suspend(struct device *dev)
 
 	disable_irq(camsv_dev->irq);
 
+	if (CAMSV_READ_BITS(camsv_dev->base + REG_CAMSV_TG_VF_CON,
+		CAMSV_TG_VF_CON, VFDATA_EN) == 1) {
+		dev_info(camsv_dev->dev, "%s: VF is on, turn off it when suspending",
+			__func__);
+		CAMSV_WRITE_BITS(camsv_dev->base + REG_CAMSV_TG_VF_CON,
+			CAMSV_TG_VF_CON, VFDATA_EN, 0);
+		mtk_cam_sv_toggle_tg_db(camsv_dev);
+	}
+
 	dev_info(camsv_dev->dev, "%s:tg_sen_mode:0x%x",
 		__func__,
 		readl_relaxed(camsv_dev->base_inner + REG_CAMSV_TG_SEN_MODE));
