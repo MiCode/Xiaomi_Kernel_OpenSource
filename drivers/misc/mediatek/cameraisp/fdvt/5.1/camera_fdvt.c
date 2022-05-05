@@ -3205,12 +3205,13 @@ static long FDVT_ioctl(struct file *pFile,
 					IRQ_USER_NUM_MAX);
 				irq_info.user_key = 0;
 			}
-
+/*
 			log_inf(
 			"IRQ clear(%d), type(%d), userKey(%d), timeout(%d), status(%d)\n",
 			irq_info.clear, irq_info.type,
 			irq_info.user_key, irq_info.timeout,
 			irq_info.status);
+*/
 			irq_info.process_id = pUserInfo->pid;
 			ret = fdvt_wait_irq(&irq_info);
 
