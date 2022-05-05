@@ -90,7 +90,7 @@ void qos_sram_init(void __iomem *regs, unsigned int bound)
 
 	qos_sram_base = regs;
 	qos_sram_bound = bound;
-	pr_info("qos_sram addr:0x%x len:%d\n",
+	pr_info("qos_sram addr:0x%p len:%d\n",
 		qos_sram_base, qos_sram_bound);
 
 	for (i = 0; i < bound; i += 4)
