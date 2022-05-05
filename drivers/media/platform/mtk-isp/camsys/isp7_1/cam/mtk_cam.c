@@ -1065,6 +1065,8 @@ void mtk_cam_dev_req_cleanup(struct mtk_cam_ctx *ctx, int pipe_id, int buf_state
 		for (i = num_s_data - 1; i >= 0; i--) {
 			s_data = mtk_cam_req_get_s_data(req, pipe_id, i);
 			if (s_data) {
+				/* make sure do not touch req/s_data after vb2_buffe_done */
+				media_request_get(&req->req);
 				clean_s_data[s_data_cnt++] = s_data;
 				if (s_data_cnt >= 18) {
 					dev_info(cam->dev,
@@ -1249,6 +1251,9 @@ STOP_SCAN:
 						pipe_id);
 			}
 		}
+
+		/* make sure do not touch req/s_data after vb2_buffe_done */
+		media_request_put(&req->req);
 	}
 
 	/* all bufs in this node should be returned by req */
