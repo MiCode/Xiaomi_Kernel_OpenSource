@@ -62,7 +62,10 @@
   bitmap_zalloc
   __blk_alloc_disk
   blk_cleanup_disk
+  blk_execute_rq_nowait
+  blk_get_request
   blk_mq_rq_cpu
+  blk_put_request
   blk_queue_flag_clear
   blk_queue_flag_set
   blk_queue_io_min
@@ -71,10 +74,14 @@
   blk_queue_max_discard_sectors
   blk_queue_max_write_zeroes_sectors
   blk_queue_physical_block_size
+  blk_rq_map_user
+  blk_rq_map_user_iov
+  blk_rq_unmap_user
   blocking_notifier_call_chain
   blocking_notifier_chain_register
   blocking_notifier_chain_unregister
   bpf_trace_run1
+  bpf_trace_run10
   bpf_trace_run11
   bpf_trace_run12
   bpf_trace_run2
@@ -100,6 +107,7 @@
   cancel_work_sync
   capable
   cdev_add
+  cdev_alloc
   cdev_del
   cdev_device_add
   cdev_device_del
@@ -119,6 +127,7 @@
   class_destroy
   class_find_device
   class_for_each_device
+  class_interface_unregister
   __class_register
   class_unregister
   cleanup_srcu_struct
@@ -336,6 +345,7 @@
   devm_free_irq
   devm_gpiod_get
   devm_gpiod_get_optional
+  devm_gpio_request
   devm_gpio_request_one
   devm_hwspin_lock_register
   devm_iio_channel_get
@@ -598,6 +608,7 @@
   extcon_set_property_capability
   extcon_set_state
   extcon_set_state_sync
+  fasync_helper
   __fdget
   fd_install
   fget
@@ -644,6 +655,7 @@
   geni_icc_disable
   geni_icc_enable
   geni_icc_get
+  geni_icc_set_bw
   geni_se_clk_freq_match
   geni_se_config_packing
   geni_se_get_qup_hw_version
@@ -688,6 +700,7 @@
   get_pfnblock_flags_mask
   get_pid_task
   get_random_bytes
+  get_sg_io_hdr
   get_slabinfo
   get_state_synchronize_rcu
   get_state_synchronize_srcu
@@ -797,10 +810,12 @@
   idr_find
   idr_for_each
   idr_get_next
+  idr_preload
   idr_remove
   idr_replace
   iio_read_channel_processed
   iio_write_channel_raw
+  import_iovec
   in4_pton
   inc_node_page_state
   inc_zone_page_state
@@ -957,6 +972,7 @@
   kfree_skb_list
   kick_all_cpus_sync
   kill_anon_super
+  kill_fasync
   kimage_vaddr
   kimage_voffset
   __kmalloc
@@ -1082,6 +1098,7 @@
   mempool_free
   mempool_free_slab
   memremap
+  mem_section
   memset
   memset64
   __memset_io
@@ -1103,6 +1120,7 @@
   mod_delayed_work_on
   mod_node_page_state
   mod_timer
+  __module_get
   module_layout
   module_put
   __msecs_to_jiffies
@@ -1233,6 +1251,7 @@
   panic
   panic_notifier_list
   panic_timeout
+  param_array_ops
   param_get_int
   param_get_string
   param_get_ullong
@@ -1441,6 +1460,7 @@
   put_device
   put_iova_domain
   __put_page
+  put_sg_io_hdr
   __put_task_struct
   put_user_ifreq
   pwm_apply_state
@@ -1528,6 +1548,7 @@
   refcount_warn_saturate
   __register_blkdev
   __register_chrdev
+  register_chrdev_region
   register_console
   register_die_notifier
   register_ftrace_export
@@ -1649,7 +1670,20 @@
   scmi_protocol_register
   scmi_protocol_unregister
   scnprintf
+  scsi_autopm_get_device
+  scsi_autopm_put_device
+  scsi_block_when_processing_errors
+  scsi_cmd_allowed
+  scsi_command_size_tbl
+  scsi_device_get
+  scsi_device_put
+  scsi_ioctl
+  scsi_ioctl_block_when_processing_errors
   __scsi_iterate_devices
+  scsi_normalize_sense
+  __scsi_print_sense
+  scsi_register_interface
+  sdev_prefix_printk
   __sdhci_add_host
   sdhci_add_host
   sdhci_cleanup_host
@@ -1664,6 +1698,7 @@
   sdhci_reset
   sdhci_set_bus_width
   sdhci_set_power_noreg
+  __sdhci_set_timeout
   sdhci_setup_host
   select_fallback_rq
   seq_buf_printf
@@ -1862,6 +1897,7 @@
   system_freezable_power_efficient_wq
   system_freezable_wq
   system_highpri_wq
+  system_state
   system_unbound_wq
   system_wq
   task_active_pid_ns
@@ -1873,6 +1909,7 @@
   tasklet_unlock_wait
   tasklist_lock
   task_may_not_preempt
+  __task_pid_nr_ns
   __task_rq_lock
   thermal_cooling_device_register
   thermal_cooling_device_unregister
@@ -2069,6 +2106,7 @@
   unregister_restart_handler
   unregister_rpmsg_driver
   unregister_shrinker
+  unregister_sysctl_table
   update_rq_clock
   up_read
   up_write
@@ -2188,6 +2226,7 @@
   xhci_alloc_erst
   xhci_free_command
   xhci_free_erst
+  xhci_get_endpoint_index
   xhci_queue_stop_endpoint
   xhci_ring_alloc
   xhci_ring_cmd_db
