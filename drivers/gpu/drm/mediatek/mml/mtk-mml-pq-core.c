@@ -109,9 +109,9 @@ static s32 dequeue_msg(struct mml_pq_chan *chan,
 		return -EFAULT;
 	}
 
-	mml_pq_msg("%s temp[%p] temp->result[%p] sub_task->job_id[%d] chan[%p] chan_job_id[%llx]",
+	mml_pq_msg("%s temp[%p] temp->result[%p] sub_task->job_id[%llu] chan[%p] chan_job_id[%llx]",
 		__func__, temp, temp->result, temp->job_id, chan, chan->job_idx);
-	mml_pq_msg("%s chan_job_id[%d] temp->mbox_list[%p] chan->job_list[%p]",
+	mml_pq_msg("%s chan_job_id[%llx] temp->mbox_list[%p] chan->job_list[%p]",
 		__func__, chan->job_idx, &temp->mbox_list, &chan->job_list);
 
 	mutex_lock(&chan->job_lock);
@@ -192,7 +192,7 @@ static s32 find_sub_task(struct mml_pq_chan *chan, u64 job_id,
 	mutex_lock(&chan->job_lock);
 	list_for_each_entry_safe(sub_task, tmp, &chan->job_list, mbox_list) {
 		mml_pq_msg("%s sub_task[%p] chan->job_list[%p] sub_job_id[%llx]",
-			__func__, sub_task, chan->job_list, sub_task->job_id);
+			__func__, sub_task, &chan->job_list, sub_task->job_id);
 		if (sub_task->job_id == job_id) {
 			*out_sub_task = sub_task;
 			mml_pq_msg("%s find sub_task:%p id:%llx",
@@ -630,8 +630,8 @@ static void dump_tile_init(void *data)
 				result->rsz_param[i].vertical_first);
 		mml_pq_dump("[tile][%u] ver_cubic_trunc=%u", i,
 				result->rsz_param[i].ver_cubic_trunc);
+		mml_pq_dump("[tile] count=%u", result->rsz_reg_cnt[i]);
 	}
-	mml_pq_dump("[tile] count=%u", result->rsz_reg_cnt);
 }
 
 int mml_pq_set_tile_init(struct mml_task *task)
@@ -955,6 +955,9 @@ static void handle_tile_init_result(struct mml_pq_chan *chan,
 		goto free_tile_init_result;
 	}
 
+	result->rsz_reg_cnt[0] = result->rsz_reg_cnt[0] > MML_PQ_RSZ_TOTAL_REG ?
+		MML_PQ_RSZ_TOTAL_REG : result->rsz_reg_cnt[0];
+
 	ret = copy_from_user(rsz_regs[0], result->rsz_regs[0],
 		result->rsz_reg_cnt[0] * sizeof(struct mml_pq_reg));
 	if (unlikely(ret)) {
@@ -1091,7 +1094,7 @@ static void handle_comp_config_result(struct mml_pq_chan *chan,
 			job->result_job_id);
 		return;
 	}
-	mml_pq_msg("%s end %d task=%p sub_task->id[%d]", __func__, ret,
+	mml_pq_msg("%s end %d task=%p sub_task->id[%llu]", __func__, ret,
 			sub_task, sub_task->job_id);
 
 	result = kmalloc(sizeof(*result), GFP_KERNEL);
@@ -1127,6 +1130,8 @@ static void handle_comp_config_result(struct mml_pq_chan *chan,
 		goto free_aal_param;
 	}
 
+	result->aal_reg_cnt = result->aal_reg_cnt > AAL_MAX_REG_NUM ?
+		AAL_MAX_REG_NUM : result->aal_reg_cnt;
 	aal_regs = kmalloc_array(result->aal_reg_cnt, sizeof(*aal_regs),
 				 GFP_KERNEL);
 	if (unlikely(!aal_regs)) {
@@ -1156,6 +1161,8 @@ static void handle_comp_config_result(struct mml_pq_chan *chan,
 		goto free_aal_curve;
 	}
 
+	result->hdr_reg_cnt = result->hdr_reg_cnt > HDR_MAX_REG_NUM ?
+		HDR_MAX_REG_NUM : result->hdr_reg_cnt;
 	hdr_regs = kmalloc_array(result->hdr_reg_cnt, sizeof(*hdr_regs),
 				 GFP_KERNEL);
 	if (unlikely(!hdr_regs)) {
@@ -1186,6 +1193,8 @@ static void handle_comp_config_result(struct mml_pq_chan *chan,
 		goto free_hdr_curve;
 	}
 
+	result->ds_reg_cnt = result->ds_reg_cnt > DS_MAX_REG_NUM ?
+		DS_MAX_REG_NUM : result->ds_reg_cnt;
 	ds_regs = kmalloc_array(result->ds_reg_cnt, sizeof(*ds_regs),
 				GFP_KERNEL);
 	if (unlikely(!ds_regs)) {
@@ -1201,6 +1210,8 @@ static void handle_comp_config_result(struct mml_pq_chan *chan,
 		goto free_ds_regs;
 	}
 
+	result->color_reg_cnt = result->color_reg_cnt > COLOR_MAX_REG_NUM ?
+		COLOR_MAX_REG_NUM : result->color_reg_cnt;
 	color_regs = kmalloc_array(result->color_reg_cnt, sizeof(*color_regs),
 				   GFP_KERNEL);
 	if (unlikely(!color_regs)) {
@@ -1568,6 +1579,7 @@ static int mml_pq_hdr_readback_ioctl(unsigned long data)
 		mml_pq_msg("single pipe");
 	}
 
+
 	atomic_dec_if_positive(&new_sub_task->queued);
 	remove_sub_task(chan, new_sub_task->job_id);
 
@@ -1659,7 +1671,7 @@ static long mml_pq_ioctl(struct file *file, unsigned int cmd,
 			  unsigned long arg)
 {
 	mml_pq_msg("%s called %#x", __func__, cmd);
-	mml_pq_msg("%s tile_init=%#x comp_config=%#x",
+	mml_pq_msg("%s tile_init=%#lx comp_config=%#lx",
 		__func__, MML_PQ_IOC_TILE_INIT, MML_PQ_IOC_COMP_CONFIG);
 	switch (cmd) {
 	case MML_PQ_IOC_TILE_INIT:

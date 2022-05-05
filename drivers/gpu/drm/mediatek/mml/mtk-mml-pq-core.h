@@ -27,6 +27,12 @@
 #define TOTAL_RB_BUF_NUM (MML_PQ_RB_ENGINE*MML_PIPE_CNT*MAX_ENG_RB_BUF)
 #define INVALID_OFFSET_ADDR (4096*TOTAL_RB_BUF_NUM)
 
+#define MML_PQ_RSZ_TOTAL_REG (24)
+#define AAL_MAX_REG_NUM (116)
+#define HDR_MAX_REG_NUM (115)
+#define COLOR_MAX_REG_NUM (155)
+#define DS_MAX_REG_NUM (36)
+
 extern int mml_pq_msg;
 
 #define mml_pq_msg(fmt, args...) \
