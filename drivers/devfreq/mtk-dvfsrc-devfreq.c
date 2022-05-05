@@ -194,7 +194,7 @@ static int dvfsrc_devfreq_remove(struct platform_device *pdev)
 	int ret;
 
 	ret = devfreq_remove_device(dvfsrc->devfreq);
-	if (!ret)
+	if (ret)
 		dev_info(&pdev->dev, "failed to remove devfreq device: %d\n", ret);
 
 	dev_pm_opp_remove_all_dynamic(&pdev->dev);
