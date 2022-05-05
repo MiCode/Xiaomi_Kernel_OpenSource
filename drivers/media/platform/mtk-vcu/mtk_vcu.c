@@ -1096,7 +1096,8 @@ static void vcu_gce_flush_callback(struct cmdq_cb_data data)
 			for (k = 0; k < vcu->gce_th_num[VCU_VENC]; k++)
 				cmdq_mbox_disable(vcu->clt_venc[k]->chan);
 
-			cmdq_sec_mbox_disable(vcu->clt_venc_sec[0]->chan);
+			if (vcu->clt_venc_sec[0] != NULL)
+				cmdq_sec_mbox_disable(vcu->clt_venc_sec[0]->chan);
 		} else if (i == VCU_VDEC) {
 			for (k = 0; k < vcu->gce_th_num[VCU_VDEC]; k++)
 				cmdq_mbox_disable(vcu->clt_vdec[k]->chan);
@@ -1261,7 +1262,8 @@ static int vcu_gce_cmd_flush(struct mtk_vcu *vcu,
 			for (k = 0; k < vcu->gce_th_num[VCU_VENC]; k++)
 				cmdq_mbox_enable(vcu->clt_venc[k]->chan);
 
-			cmdq_sec_mbox_enable(vcu->clt_venc_sec[0]->chan);
+			if (vcu->clt_venc_sec[0] != NULL)
+				cmdq_sec_mbox_enable(vcu->clt_venc_sec[0]->chan);
 		} else if (i == VCU_VDEC) {
 			for (k = 0; k < vcu->gce_th_num[VCU_VDEC]; k++)
 				cmdq_mbox_enable(vcu->clt_vdec[k]->chan);
