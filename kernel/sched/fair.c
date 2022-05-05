@@ -6596,6 +6596,173 @@ static int select_idle_sibling(struct task_struct *p, int prev, int target)
 	return target;
 }
 
+/*
+ * @p: the task want to be located at.
+ *
+ * Return:
+ *
+ * cpu id or
+ * -1 if target CPU is not found
+ */
+int find_best_idle_cpu(struct task_struct *p, bool prefer_idle)
+{
+	int i;
+	int best_idle_cpu = -1;
+	struct cpumask *tsk_cpus_allow = &p->cpus_allowed;
+	int min_cap = capacity_orig_of(0);
+	int prefer_big = prefer_idle && (task_util(p) > min_cap);
+	struct perf_order_domain *domain;
+	struct list_head *pos;
+
+	list_for_each(pos, &perf_order_domains) {
+		domain = list_entry(pos, struct perf_order_domain,
+					perf_order_domains);
+		for_each_cpu(i, &domain->possible_cpus) {
+
+			/* tsk with prefer idle to find bigger idle cpu */
+			if (!cpu_online(i) || cpu_isolated(i) ||
+					!cpumask_test_cpu(i, tsk_cpus_allow))
+				continue;
+
+#ifdef CONFIG_MTK_SCHED_INTEROP
+			if (cpu_rq(i)->rt.rt_nr_running &&
+					likely(!is_rt_throttle(i)))
+				continue;
+#endif
+
+			/* favoring tasks that prefer idle cpus
+			 * to improve latency.
+			 */
+			if (idle_cpu(i)) {
+				best_idle_cpu = i;
+				if (!prefer_big)
+					goto find_idle_cpu;
+			}
+		}
+
+	}
+
+find_idle_cpu:
+
+	return best_idle_cpu;
+}
+
+#ifdef CONFIG_ARM64
+static void arch_get_cluster_cpus(struct cpumask *cpus, int cluster_id)
+{
+	unsigned int cpu;
+
+	cpumask_clear(cpus);
+	for_each_possible_cpu(cpu) {
+		struct cpu_topology *cpu_topo = &cpu_topology[cpu];
+
+		if (cpu_topo->package_id == cluster_id)
+			cpumask_set_cpu(cpu, cpus);
+	}
+}
+# else
+static void arch_get_cluster_cpus(struct cpumask *cpus, int socket_id)
+{
+	unsigned int cpu;
+
+	cpumask_clear(cpus);
+	for_each_possible_cpu(cpu) {
+		struct cputopo_arm *cpu_topo = &cpu_topology[cpu];
+
+		if (cpu_topo->socket_id == socket_id)
+			cpumask_set_cpu(cpu, cpus);
+	}
+}
+#endif
+
+
+/* To find a CPU with max spare capacity in the same cluster with target */
+static
+int select_max_spare_capacity(struct task_struct *p, int target)
+{
+	unsigned long max_spare_capacity = 0;
+	int max_spare_cpu = -1;
+	struct cpumask cls_cpus;
+	int cid = arch_cpu_cluster_id(target); /* cid of target CPU */
+	int cpu = task_cpu(p);
+	struct cpumask *tsk_cpus_allow = &p->cpus_allowed;
+
+	/* If the prevous cpu is cache affine and idle, choose it first. */
+	if (cpu != target &&
+		cpus_share_cache(cpu, target) &&
+		idle_cpu(cpu) && !cpu_isolated(cpu))
+		return cpu;
+
+	arch_get_cluster_cpus(&cls_cpus, cid);
+
+	/* Otherwise, find a CPU with max spare-capacity in cluster */
+	for_each_cpu_and(cpu, tsk_cpus_allow, &cls_cpus) {
+		unsigned long new_usage;
+		unsigned long spare_cap;
+
+		if (!cpu_online(cpu))
+			continue;
+
+		if (cpu_isolated(cpu))
+			continue;
+
+#ifdef CONFIG_MTK_SCHED_INTEROP
+		if (cpu_rq(cpu)->rt.rt_nr_running &&
+			likely(!is_rt_throttle(cpu)))
+			continue;
+#endif
+
+#ifdef CONFIG_SCHED_WALT
+		if (walt_cpu_high_irqload(cpu))
+			continue;
+#endif
+
+		if (idle_cpu(cpu))
+			return cpu;
+
+		new_usage = cpu_util(cpu) + task_util(p);
+
+		if (new_usage >= capacity_of(cpu))
+			spare_cap = 0;
+		else    /* consider RT/IRQ capacity reduction */
+			spare_cap = (capacity_of(cpu) - new_usage);
+
+		/* update CPU with max spare capacity */
+		if ((long)spare_cap > (long)max_spare_capacity) {
+			max_spare_cpu = cpu;
+			max_spare_capacity = spare_cap;
+		}
+	}
+
+	/* if max_spare_cpu exist, choose it. */
+	if (max_spare_cpu > -1)
+		return max_spare_cpu;
+	else
+		return task_cpu(p);
+}
+
+static int
+___select_idle_sibling(struct task_struct *p, int prev_cpu, int new_cpu)
+{
+	if (sched_feat(SCHED_MTK_EAS)) {
+#ifdef CONFIG_SCHED_TUNE
+		bool prefer_idle = uclamp_latency_sensitive(p) > 0;
+#else
+		bool prefer_idle = true;
+#endif
+		int idle_cpu;
+
+		idle_cpu = find_best_idle_cpu(p, prefer_idle);
+		if (idle_cpu >= 0)
+			new_cpu = idle_cpu;
+		else
+			new_cpu = select_max_spare_capacity(p, new_cpu);
+	} else
+		new_cpu = select_idle_sibling(p, prev_cpu, new_cpu);
+
+	return new_cpu;
+}
+
 /**
  * Amount of capacity of a CPU that is (estimated to be) used by CFS tasks
  * @cpu: the CPU to get the utilization of
@@ -7611,12 +7778,13 @@ sd_loop:
 
 	if (unlikely(sd)) {
 		/* Slow path */
-		new_cpu = find_idlest_cpu(sd, p, cpu, prev_cpu, sd_flag);
+		//new_cpu = find_idlest_cpu(sd, p, cpu, prev_cpu, sd_flag);
+		___select_idle_sibling(p, prev_cpu, new_cpu);
 		select_reason = LB_IDLEST;
 	} else if (sd_flag & SD_BALANCE_WAKE) { /* XXX always ? */
 		/* Fast path */
-
-		new_cpu = select_idle_sibling(p, prev_cpu, new_cpu);
+		___select_idle_sibling(p, prev_cpu, new_cpu);
+		//new_cpu = select_idle_sibling(p, prev_cpu, new_cpu);
 		select_reason = LB_IDLE_SIBLING;
 
 		if (want_affine)
