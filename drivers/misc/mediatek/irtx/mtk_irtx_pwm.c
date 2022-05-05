@@ -50,7 +50,7 @@ static int mtk_pwm_ir_tx(struct rc_dev *rcdev, unsigned int *txbuf,
 			 unsigned int count)
 {
 	struct mtk_pwm_ir *pwm_ir = rcdev->priv;
-	dma_addr_t wave_phy;
+	dma_addr_t wave_phy = 0;
 	unsigned int *wave_vir;
 	int ret, i, h_l_period;
 	int buf_size = 0;
