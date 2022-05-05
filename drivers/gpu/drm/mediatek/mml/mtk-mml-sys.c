@@ -1371,7 +1371,7 @@ static int bind_mml(struct device *dev, struct device *master,
 {
 	s32 ret;
 
-	if (unlikely(sys)) {
+	if (unlikely(!sys)) {
 		dev_err(dev, "sys is NULL\n");
 		return -EFAULT;
 	}
