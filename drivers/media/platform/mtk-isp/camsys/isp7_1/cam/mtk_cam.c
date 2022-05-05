@@ -7425,15 +7425,6 @@ int mtk_cam_ctx_stream_off(struct mtk_cam_ctx *ctx)
 		ctx->synced = 0;
 	}
 
-	if (!mtk_cam_feature_is_m2m(feature)) {
-		ret = v4l2_subdev_call(ctx->seninf, video, s_stream, 0);
-		if (ret) {
-			dev_info(cam->dev, "failed to stream off %s:%d\n",
-				 ctx->seninf->name, ret);
-			return -EPERM;
-		}
-	}
-
 	// If stagger, need to turn off cam sv in advanced
 	if (mtk_cam_feature_is_stagger(feature))
 		hw_scen = mtk_raw_get_hdr_scen_id(ctx);
@@ -7531,6 +7522,16 @@ int mtk_cam_ctx_stream_off(struct mtk_cam_ctx *ctx)
 		if (ret) {
 			dev_info(cam->dev, "failed to stream off %d: %d\n",
 				 ctx->pipe_subdevs[i]->name, ret);
+			return -EPERM;
+		}
+	}
+
+	/* make sure all raw/camsv/mraw irq is disabled */
+	if (!mtk_cam_feature_is_m2m(feature)) {
+		ret = v4l2_subdev_call(ctx->seninf, video, s_stream, 0);
+		if (ret) {
+			dev_info(cam->dev, "failed to stream off %s:%d\n",
+				 ctx->seninf->name, ret);
 			return -EPERM;
 		}
 	}
