@@ -17,8 +17,8 @@
 #include "mtk_vcodec_enc_pm.h"
 #include "mtk_vcodec_intr.h"
 #include "mtk_vcu.h"
-
-
+#include "mtk_heap.h"
+#include "iommu_pseudo.h"
 
 static unsigned int venc_h265_get_profile(struct venc_inst *inst,
 	unsigned int profile)
@@ -455,6 +455,8 @@ static int venc_set_param(unsigned long handle,
 		inst->vsi->config.p_qp = enc_prm->p_qp;
 		inst->vsi->config.b_qp = enc_prm->b_qp;
 		inst->vsi->config.svp_mode = enc_prm->svp_mode;
+		if (inst->vsi->config.svp_mode)
+			inst->vsi->config.svp_is_hal_secure_handle = is_disable_map_sec();
 		inst->vsi->config.tsvc = enc_prm->tsvc;
 		inst->vsi->config.highquality = enc_prm->highquality;
 		inst->vsi->config.max_qp = enc_prm->max_qp;
