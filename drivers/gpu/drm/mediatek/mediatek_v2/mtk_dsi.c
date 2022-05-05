@@ -2005,6 +2005,8 @@ irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 				mtk_crtc->pf_time = ktime_get();
 				atomic_set(&mtk_crtc->signal_irq_for_pre_fence, 1);
 				wake_up_interruptible(&(mtk_crtc->signal_irq_for_pre_fence_wq));
+				atomic_set(&mtk_crtc->esd_ctx->int_te_event, 1);
+				wake_up_interruptible(&mtk_crtc->esd_ctx->int_te_wq);
 			}
 
 			if (mtk_crtc && mtk_crtc->base.dev)
@@ -2621,7 +2623,7 @@ static int mtk_dsi_wait_cmd_frame_done(struct mtk_dsi *dsi,
 }
 
 static void mtk_output_dsi_disable(struct mtk_dsi *dsi, struct cmdq_pkt *cmdq_handle,
-				   int force_lcm_update)
+				   int force_lcm_update, bool need_wait)
 {
 	bool new_doze_state = mtk_dsi_doze_state(dsi);
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(dsi->encoder.crtc);
@@ -2648,7 +2650,8 @@ static void mtk_output_dsi_disable(struct mtk_dsi *dsi, struct cmdq_pkt *cmdq_ha
 			cmdq_pkt_destroy(cmdq_handle);
 		}
 	} else {
-		mtk_dsi_wait_cmd_frame_done(dsi, force_lcm_update);
+		if (need_wait == true)
+			mtk_dsi_wait_cmd_frame_done(dsi, force_lcm_update);
 	}
 
 	if (dsi->slave_dsi)
@@ -2745,7 +2748,7 @@ static void mtk_dsi_encoder_disable(struct drm_encoder *encoder)
 		mtk_disp_notifier_call_chain(MTK_DISP_EARLY_EVENT_BLANK,
 					&data);
 
-	mtk_output_dsi_disable(dsi, NULL, false);
+	mtk_output_dsi_disable(dsi, NULL, false, true);
 
 	if (index == 0)
 		mtk_disp_notifier_call_chain(MTK_DISP_EVENT_BLANK,
@@ -3051,6 +3054,7 @@ int mtk_dsi_read_gce(struct mtk_ddp_comp *comp, void *handle,
 		return -EAGAIN;
 	}
 
+	mtk_dsi_poll_for_idle(dsi, handle);
 	if (dsi->slave_dsi) {
 		cmdq_pkt_write(handle, dsi->slave_dsi->ddp_comp.cmdq_base,
 				dsi->slave_dsi->ddp_comp.regs_pa + DSI_CON_CTRL,
@@ -3167,7 +3171,7 @@ int mtk_dsi_esd_cmp(struct mtk_ddp_comp *comp, void *handle, void *ptr)
 		if (chk_val == lcm_esd_tb->para_list[0]) {
 			ret = 0;
 		} else {
-			DDPPR_ERR("[DSI]cmp fail:read(0x%x)!=expect(0x%x)\n",
+			DDPPR_ERR("[DSI]esd cmp fail:read(0x%x)!=expect(0x%x)\n",
 				  chk_val, lcm_esd_tb->para_list[0]);
 			ret = -1;
 			break;
@@ -6660,8 +6664,13 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		break;
 	case CONNECTOR_PANEL_DISABLE:
 	{
-		mtk_output_dsi_disable(dsi, handle, true);
+		mtk_output_dsi_disable(dsi, handle, true, true);
 		dsi->doze_enabled = false;
+	}
+		break;
+	case CONNECTOR_PANEL_DISABLE_NOWAIT:
+	{
+		mtk_output_dsi_disable(dsi, handle, true, false);
 	}
 		break;
 	case CONNECTOR_ENABLE:
@@ -7840,7 +7849,7 @@ static int mtk_dsi_remove(struct platform_device *pdev)
 {
 	struct mtk_dsi *dsi = platform_get_drvdata(pdev);
 
-	mtk_output_dsi_disable(dsi, NULL, false);
+	mtk_output_dsi_disable(dsi, NULL, false, true);
 	component_del(&pdev->dev, &mtk_dsi_component_ops);
 
 	mtk_ddp_comp_pm_disable(&dsi->ddp_comp);

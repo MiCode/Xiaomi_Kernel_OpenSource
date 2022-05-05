@@ -316,8 +316,7 @@ static struct mtk_panel_params ext_params = {
 	.cust_esd_check = 0,
 	.esd_check_enable = 1,
 	.lcm_esd_check_table[0] = {
-
-			.cmd = 0x53, .count = 1, .para_list[0] = 0x24,
+			.cmd = 0x53, .count = 1, .para_list[0] = 0x4,
 		},
 	.lcm_color_mode = MTK_DRM_COLOR_MODE_DISPLAY_P3,
 	.physical_width_um = PHYSICAL_WIDTH,
@@ -369,8 +368,7 @@ static struct mtk_panel_params ext_params_mode_1 = {
 	.cust_esd_check = 0,
 	.esd_check_enable = 1,
 	.lcm_esd_check_table[0] = {
-
-			.cmd = 0x53, .count = 1, .para_list[0] = 0x24,
+			.cmd = 0x53, .count = 1, .para_list[0] = 0x4,
 		},
 	.lcm_color_mode = MTK_DRM_COLOR_MODE_DISPLAY_P3,
 	.physical_width_um = PHYSICAL_WIDTH,
@@ -423,8 +421,7 @@ static struct mtk_panel_params ext_params_mode_2 = {
 	.cust_esd_check = 0,
 	.esd_check_enable = 1,
 	.lcm_esd_check_table[0] = {
-
-			.cmd = 0x53, .count = 1, .para_list[0] = 0x24,
+			.cmd = 0x53, .count = 1, .para_list[0] = 0x4,
 		},
 	.lcm_color_mode = MTK_DRM_COLOR_MODE_DISPLAY_P3,
 	.physical_width_um = PHYSICAL_WIDTH,

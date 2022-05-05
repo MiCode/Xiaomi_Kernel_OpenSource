@@ -4552,7 +4552,10 @@ static void ddp_cmdq_cb(struct cmdq_cb_data data)
 #ifdef MTK_DRM_FB_LEAK
 	cmdq_pkt_wait_complete(cb_data->cmdq_handle);
 #endif
-	cmdq_pkt_destroy(cb_data->cmdq_handle);
+	if (IS_ERR_OR_NULL(cb_data->cmdq_handle))
+		DDPPR_ERR("%s,invalid cmdq handle\n", __func__);
+	else
+		cmdq_pkt_destroy(cb_data->cmdq_handle);
 	kfree(cb_data);
 
 	CRTC_MMP_EVENT_END(id, frame_cfg, 0, 0);
@@ -6215,7 +6218,7 @@ void mtk_crtc_prepare_instr(struct drm_crtc *crtc)
 }
 #endif
 
-void mtk_drm_crtc_enable(struct drm_crtc *crtc)
+void mtk_drm_crtc_enable(struct drm_crtc *crtc, bool skip_esd)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_crtc_state *mtk_state = to_mtk_crtc_state(crtc->state);
@@ -6331,7 +6334,7 @@ void mtk_drm_crtc_enable(struct drm_crtc *crtc)
 	drm_crtc_vblank_on(crtc);
 
 	/* 12. enable ESD check */
-	if (mtk_drm_lcm_is_connect())
+	if (skip_esd == false && mtk_drm_lcm_is_connect())
 		mtk_disp_esd_check_switch(crtc, true);
 
 	/* 13. enable fake vsync if need*/
@@ -6422,7 +6425,7 @@ void mtk_drm_crtc_atomic_resume(struct drm_crtc *crtc,
 	/* hold wakelock */
 	mtk_drm_crtc_wk_lock(crtc, 1, __func__, __LINE__);
 
-	mtk_drm_crtc_enable(crtc);
+	mtk_drm_crtc_enable(crtc, false);
 
 	CRTC_MMP_EVENT_END(index, resume,
 			mtk_crtc->enabled, 0);
@@ -6826,7 +6829,7 @@ void mtk_drm_crtc_first_enable(struct drm_crtc *crtc)
 		mtk_drm_top_clk_disable_unprepare(crtc->dev);
 }
 
-void mtk_drm_crtc_disable(struct drm_crtc *crtc, bool need_wait)
+void mtk_drm_crtc_disable(struct drm_crtc *crtc, bool need_wait, bool skip_esd)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	unsigned int crtc_id = drm_crtc_index(&mtk_crtc->base);
@@ -6868,7 +6871,7 @@ void mtk_drm_crtc_disable(struct drm_crtc *crtc, bool need_wait)
 	mtk_drm_fake_vsync_switch(crtc, false);
 
 	/* 3. disable ESD check */
-	if (mtk_drm_lcm_is_connect())
+	if (skip_esd == false && mtk_drm_lcm_is_connect())
 		mtk_disp_esd_check_switch(crtc, false);
 
 	/* 4. stop CRTC */
@@ -6975,7 +6978,7 @@ void mtk_drm_crtc_suspend(struct drm_crtc *crtc)
 		mtk_crtc->sec_on = false;
 	}
 
-	mtk_drm_crtc_disable(crtc, true);
+	mtk_drm_crtc_disable(crtc, true, false);
 
 	mtk_crtc_disable_plane_setting(mtk_crtc);
 
@@ -9814,7 +9817,7 @@ unsigned int mtk_get_plane_slot_idx(struct mtk_drm_crtc *mtk_crtc, unsigned int 
 	return idx;
 }
 
-void mtk_gce_backup_slot_restore(struct mtk_drm_crtc *mtk_crtc)
+void mtk_gce_backup_slot_restore(struct mtk_drm_crtc *mtk_crtc, const char *master)
 {
 	size_t size = 0;
 	struct dummy_mapping *table = NULL;
@@ -9829,9 +9832,11 @@ void mtk_gce_backup_slot_restore(struct mtk_drm_crtc *mtk_crtc)
 
 	for (i = 0; i < size; i++)
 		writel(dummy_data[i], table[i].addr + table[i].offset);
+	DDPDBG("%s, by %s\n", __func__,
+		IS_ERR_OR_NULL(master) ? "unknown" : master);
 }
 
-void mtk_gce_backup_slot_save(struct mtk_drm_crtc *mtk_crtc)
+void mtk_gce_backup_slot_save(struct mtk_drm_crtc *mtk_crtc, const char *master)
 {
 	size_t size = 0;
 	struct dummy_mapping *table = NULL;
@@ -9846,6 +9851,8 @@ void mtk_gce_backup_slot_save(struct mtk_drm_crtc *mtk_crtc)
 
 	for (i = 0; i < size; i++)
 		dummy_data[i] = readl(table[i].addr + table[i].offset);
+	DDPDBG("%s, by %s\n", __func__,
+		IS_ERR_OR_NULL(master) ? "unknown" : master);
 }
 
 /* for platform that store information in register rather than mermory */
@@ -11769,12 +11776,12 @@ int mtk_crtc_path_switch(struct drm_crtc *crtc, unsigned int ddp_mode,
 			need_wait = false;
 		else
 			need_wait = true;
-		mtk_drm_crtc_disable(crtc, need_wait);
+		mtk_drm_crtc_disable(crtc, need_wait, false);
 		goto done;
 	} else if (mtk_crtc->ddp_mode == DDP_NO_USE) {
 		CRTC_MMP_MARK(index, path_switch, 0, 3);
 		mtk_crtc->ddp_mode = ddp_mode;
-		mtk_drm_crtc_enable(crtc);
+		mtk_drm_crtc_enable(crtc, false);
 		goto done;
 	}
 

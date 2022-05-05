@@ -909,8 +909,8 @@ int mtk_crtc_path_switch(struct drm_crtc *crtc, unsigned int path_sel,
 void mtk_need_vds_path_switch(struct drm_crtc *crtc);
 
 void mtk_drm_crtc_first_enable(struct drm_crtc *crtc);
-void mtk_drm_crtc_enable(struct drm_crtc *crtc);
-void mtk_drm_crtc_disable(struct drm_crtc *crtc, bool need_wait);
+void mtk_drm_crtc_enable(struct drm_crtc *crtc, bool skip_esd);
+void mtk_drm_crtc_disable(struct drm_crtc *crtc, bool need_wait, bool skip_esd);
 bool mtk_crtc_with_sub_path(struct drm_crtc *crtc, unsigned int ddp_mode);
 
 void mtk_crtc_ddp_prepare(struct mtk_drm_crtc *mtk_crtc);
@@ -1025,8 +1025,8 @@ int mtk_drm_crtc_hbm_wait(struct drm_crtc *crtc, bool en);
 
 unsigned int mtk_get_mmsys_id(struct drm_crtc *crtc);
 
-void mtk_gce_backup_slot_restore(struct mtk_drm_crtc *mtk_crtc);
-void mtk_gce_backup_slot_save(struct mtk_drm_crtc *mtk_crtc);
+void mtk_gce_backup_slot_restore(struct mtk_drm_crtc *mtk_crtc, const char *master);
+void mtk_gce_backup_slot_save(struct mtk_drm_crtc *mtk_crtc, const char *master);
 
 unsigned int *mtk_get_gce_backup_slot_va(struct mtk_drm_crtc *mtk_crtc,
 			unsigned int slot_index);

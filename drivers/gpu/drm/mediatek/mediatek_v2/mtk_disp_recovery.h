@@ -17,7 +17,9 @@ struct mtk_drm_esd_ctx {
 	struct task_struct *disp_esd_chk_task;
 	wait_queue_head_t check_task_wq;
 	wait_queue_head_t ext_te_wq;
+	wait_queue_head_t int_te_wq;
 	atomic_t ext_te_event;
+	atomic_t int_te_event;
 	atomic_t check_wakeup;
 	atomic_t target_time;
 	int eint_irq;

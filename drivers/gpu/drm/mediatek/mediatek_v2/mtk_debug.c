@@ -2247,6 +2247,7 @@ static void process_dbg_opt(const char *opt)
 		msleep(20);
 		enable = 1;
 		comp->funcs->io_cmd(comp, NULL, LCM_RESET, &enable);
+		DDPMSG("%s, lcm reset\n", __func__);
 	} else if (strncmp(opt, "backlight:", 10) == 0) {
 		unsigned int level;
 		int ret;
