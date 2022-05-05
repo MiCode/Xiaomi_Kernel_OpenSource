@@ -304,6 +304,7 @@ static void __cqhci_enable(struct cqhci_host *cq_host)
 	cqhci_writel(cq_host, upper_32_bits(cq_host->desc_dma_base),
 		     CQHCI_TDLBAU);
 
+	cqhci_writel(cq_host, 0x40, CQHCI_SSC1);
 	cqhci_writel(cq_host, cq_host->rca, CQHCI_SSC2);
 
 	cqhci_set_irqs(cq_host, 0);
