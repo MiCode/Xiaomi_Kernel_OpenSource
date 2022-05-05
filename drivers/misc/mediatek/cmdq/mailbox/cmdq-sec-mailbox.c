@@ -232,7 +232,7 @@ static inline void cmdq_mmp_init(struct cmdq_sec *cmdq)
 
 	len = snprintf(name, sizeof(name), "cmdq_sec_%hhu", cmdq->hwid);
 	if (len >= sizeof(name))
-		cmdq_log("len:%d over name size:%d", len, sizeof(name));
+		cmdq_log("len:%d over name size:%lu", len, sizeof(name));
 
 	cmdq->mmp.cmdq_root = mmprofile_register_event(MMP_ROOT_EVENT, "CMDQ");
 	cmdq->mmp.cmdq = mmprofile_register_event(cmdq->mmp.cmdq_root, name);
@@ -1599,7 +1599,7 @@ static int cmdq_sec_mbox_startup(struct mbox_chan *chan)
 	INIT_WORK(&thread->timeout_work, cmdq_sec_task_timeout_work);
 	len = snprintf(name, sizeof(name), "task_exec_wq_%u", thread->idx);
 	if (len >= sizeof(name))
-		cmdq_log("len:%d over name size:%d", len, sizeof(name));
+		cmdq_log("len:%d over name size:%lu", len, sizeof(name));
 
 	thread->task_exec_wq = create_singlethread_workqueue(name);
 	thread->occupied = true;
@@ -1677,11 +1677,15 @@ static void cmdq_sec_reserved_mem_lookup(struct cmdq_sec_shared_mem *shared_mem)
 	static void *va;
 	char buf[NAME_MAX] = {0};
 	u64 pa = 0;
-	s32 i;
+	s32 i, len;
 
 	for (i = 0; i < 32 && !mem; i++) {
 		memset(buf, 0, sizeof(buf));
-		snprintf(buf, NAME_MAX - 1, "mblock-%d-me_cmdq_reserved", i);
+		len = snprintf(buf, NAME_MAX - 1, "mblock-%d-me_cmdq_reserved", i);
+		if (len < 0 || len >= sizeof(buf)) {
+			cmdq_err("mblock-%d-me_cmdq_reserved failed", i);
+			return;
+		}
 		node.full_name = buf;
 		mem = of_reserved_mem_lookup(&node);
 	}
@@ -1840,7 +1844,8 @@ static s32 cmdq_sec_late_init_wsm(void *data)
 		if (cmdq->context->state == IWC_INIT)
 			cmdq_sec_setup_tee_context_base(cmdq->context);
 
-		err = cmdq_sec_session_init(cmdq->context);
+		if (cmdq->context)
+			err = cmdq_sec_session_init(cmdq->context);
 		mutex_unlock(&cmdq->exec_lock);
 		if (err) {
 			err = -CMDQ_ERR_SEC_CTX_SETUP;

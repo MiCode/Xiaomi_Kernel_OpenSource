@@ -91,7 +91,7 @@ static void cmdq_test_mbox_cb_destroy(struct cmdq_cb_data data)
 		cmdq_err("pkt:%p err:%d", pkt, data.err);
 	cmdq_dump_pkt(pkt, 0, true);
 	cmdq_pkt_destroy(pkt);
-	cmdq_msg("%s: pkt:%#lx", __func__, pkt);
+	cmdq_msg("%s: pkt:%p", __func__, pkt);
 }
 
 static void cmdq_test_mbox_cb_dump(struct cmdq_cb_data data)
@@ -119,8 +119,14 @@ static void cmdq_test_mbox_err_dump(struct cmdq_test *test, const bool sec, cons
 	s32 ret;
 	u64 *inst;
 	dma_addr_t pc;
-	struct cmdq_client *clt = sec ? test->sec : test->clt;
+	struct cmdq_client *clt;
 	size_t wfe_offset;
+
+	if (sec && !test->sec) {
+		cmdq_err("no test->sec");
+		return;
+	}
+	clt = sec ? test->sec : test->clt;
 
 	cmdq_msg("%s sec[%d] aee[%d]", __func__, sec, aee);
 
@@ -341,7 +347,7 @@ u32 *cmdq_test_mbox_polling_timeout_unit(struct cmdq_pkt *pkt,
 }
 
 void cmdq_test_mbox_polling(
-	struct cmdq_test *test, const bool secure, const bool timeout,
+	struct cmdq_test *test, const s32 secure, const bool timeout,
 	const bool aee)
 {
 	unsigned long	va = (unsigned long)(secure ?
@@ -527,7 +533,7 @@ static void cmdq_test_mbox_loop(struct cmdq_test *test)
 	del_timer(&test->timer);
 }
 
-static void cmdq_test_mbox_dma_access(struct cmdq_test *test, const bool secure)
+static void cmdq_test_mbox_dma_access(struct cmdq_test *test, const s32 secure)
 {
 	unsigned long	va = (unsigned long)(secure ?
 		CMDQ_THR_SPR3(test->gce.va, 3) :
@@ -612,12 +618,12 @@ static void cmdq_test_mbox_dma_access(struct cmdq_test *test, const bool secure)
 }
 
 static void cmdq_test_mbox_write_dma(
-	struct cmdq_test *test, const bool secure, u32 cnt)
+	struct cmdq_test *test, const s32 secure, u32 cnt)
 {
 	struct cmdq_client	*clt = secure ? test->sec : test->clt;
 	struct cmdq_pkt		*pkt;
 	u32		*dma_va;
-	dma_addr_t	dma_pa;
+	dma_addr_t	dma_pa = 0;
 	s32 i;
 
 	cmdq_msg("%s in", __func__);
@@ -632,18 +638,24 @@ static void cmdq_test_mbox_write_dma(
 }
 
 static void cmdq_test_mbox_write_dma_cpr(
-	struct cmdq_test *test, const bool secure, u32 cnt)
+	struct cmdq_test *test, const s32 secure, u32 cnt)
 {
 	struct cmdq_client *clt = secure ? test->sec : test->clt;
 	struct cmdq_pkt *pkt;
 	u32 *dma_va;
-	dma_addr_t dma_pa;
+	dma_addr_t dma_pa = 0;
 	s32 i;
 	const u32 pattern = 0xbeef0000;
 
 	cmdq_msg("%s in", __func__);
 	dma_va = cmdq_mbox_buf_alloc(clt, &dma_pa);
 	cmdq_msg("dma pa %#lx", (unsigned long)dma_pa);
+
+	if (!dma_va) {
+		cmdq_err("%s buf alloc null", __func__);
+		return;
+	}
+
 	pkt = cmdq_pkt_create(clt);
 	for (i = 0; i < cnt; i++) {
 		cmdq_pkt_assign_command(pkt, CMDQ_THR_SPR_IDX3, pattern + i);
@@ -869,7 +881,7 @@ static void cmdq_access_sub_impl(struct cmdq_test *test,
 	for (i = 0; i < count; i++) {
 		va[0] = pat_init;
 
-		cmdq_msg("%s idx:%d, addr:%#x = %#x ", __func__, i, regs[i]);
+		cmdq_msg("%s idx:%d, addr:%#x", __func__, i, regs[i]);
 		pa_base = regs[i];
 		va_base = ioremap(pa_base, 0x1000);
 		writel(pat, va_base);
@@ -1079,9 +1091,11 @@ static void cmdq_test_mbox_prebuilt_instr_ext_table(struct cmdq_test *test,
 	struct cmdq_pkt_buffer *buf;
 	struct cmdq_operand lop, rop;
 	u64 *inst[6];
-	s32 mark[6], i;
+	s32 mark[6] = {0}, i;
 
-	cmdq_msg("%s: mod:%hu event:%hu pa0:%#lx pa1:%#lx pas:%#lx",
+	memset(inst, 0, sizeof(inst));
+
+	cmdq_msg("%s: mod:%hu event:%hu pa0:%#x pa1:%#x pas:%#x",
 		__func__, r.mod, event, pa0, pa1, pas);
 
 	pkt = cmdq_pkt_create(test->clt);
@@ -1596,7 +1610,8 @@ cmdq_test_trigger(struct cmdq_test *test, enum CMDQ_SECURE_STATE_ENUM sec, const
 		cmdq_test_mbox_err_dump(test, sec, false);
 		break;
 	case 10:
-		cmdq_test_mbox_handshake_event(test);
+		if (test->loop)
+			cmdq_test_mbox_handshake_event(test);
 		break;
 	case 11:
 		cmdq_test_mbox_subsys_access(test);
@@ -1633,7 +1648,8 @@ cmdq_test_trigger(struct cmdq_test *test, enum CMDQ_SECURE_STATE_ENUM sec, const
 		cmdq_test_mbox_prebuilt(test, CMDQ_PREBUILT_DISP, 1, true);
 		break;
 	case 20:
-		cmdq_test_mbox_tzmp(test, sec, false);
+		if (test->sec)
+			cmdq_test_mbox_tzmp(test, sec, false);
 		break;
 	case 21:
 		cmdq_util_test_set_ostd();
