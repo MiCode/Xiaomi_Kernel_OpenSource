@@ -1028,6 +1028,7 @@ unsigned long long fdvt_get_sec_iova(struct dma_buf *my_dma_buf,
 	}
 	bufinfo->sgt = sgt;
 	iova = sg_dma_address(sgt->sgl);
+	bufinfo->iova = iova;
 	return iova;
 }
 
@@ -2053,26 +2054,19 @@ static signed int config_secure_fdvt_hw(struct fdvt_config *basic_config,
 	if (fdvt_sec_dma.iova_first_time == 0) {
 		dmabuf_metadata.YUVConfig_IOVA =
 			fdvt_get_sec_iova(fdvt_sec_dma.YUVConfig.dmabuf, &fdvt_sec_dma.YUVConfig);
-		fdvt_sec_dma.YUVConfig.iova = dmabuf_metadata.YUVConfig_IOVA;
 		dmabuf_metadata.RSConfig_IOVA =
 			fdvt_get_sec_iova(fdvt_sec_dma.RSConfig.dmabuf, &fdvt_sec_dma.RSConfig);
-		fdvt_sec_dma.RSConfig.iova = dmabuf_metadata.RSConfig_IOVA;
 		dmabuf_metadata.RSOutBuf_IOVA =
 			fdvt_get_sec_iova(fdvt_sec_dma.RSOutBuf.dmabuf, &fdvt_sec_dma.RSOutBuf);
-		fdvt_sec_dma.RSOutBuf.iova = dmabuf_metadata.RSOutBuf_IOVA;
 		dmabuf_metadata.FDConfig_IOVA =
 			fdvt_get_sec_iova(fdvt_sec_dma.FDConfig.dmabuf, &fdvt_sec_dma.FDConfig);
-		fdvt_sec_dma.FDConfig.iova = dmabuf_metadata.FDConfig_IOVA;
 		dmabuf_metadata.FDOutBuf_IOVA =
 			fdvt_get_sec_iova(fdvt_sec_dma.FDOutBuf.dmabuf, &fdvt_sec_dma.FDOutBuf);
-		fdvt_sec_dma.FDOutBuf.iova = dmabuf_metadata.FDOutBuf_IOVA;
 		dmabuf_metadata.FDPOSE_IOVA =
 			fdvt_get_sec_iova(fdvt_sec_dma.FD_POSE.dmabuf, &fdvt_sec_dma.FD_POSE);
-		fdvt_sec_dma.FD_POSE.iova = dmabuf_metadata.FDPOSE_IOVA;
 		dmabuf_metadata.FDResultBuf_MVA =
 			fdvt_get_sec_iova(fdvt_sec_dma.FDResultBuf_MVA.dmabuf,
 					  &fdvt_sec_dma.FDResultBuf_MVA);
-		fdvt_sec_dma.FDResultBuf_MVA.iova = dmabuf_metadata.FDResultBuf_MVA;
 		fdvt_sec_dma.iova_first_time++;
 	} else {
 		dmabuf_metadata.YUVConfig_IOVA = fdvt_sec_dma.YUVConfig.iova;
