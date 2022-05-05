@@ -540,7 +540,7 @@ out:
 
 static int mt6338_get_cali_data(struct device *dev, struct pmic_tz_data *tz_data)
 {
-	unsigned short efuse_buff;
+	unsigned short efuse_buff = 0;
 	int i = 0;
 	struct pmic_tz_cali_data *cali_data = tz_data->cali_data;
 	struct nvmem_device *nvmem_dev;
