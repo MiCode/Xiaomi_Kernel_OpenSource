@@ -5706,8 +5706,12 @@ mtk_cam_raw_pipeline_config(struct mtk_cam_ctx *ctx,
 	}
 
 	ctx->used_raw_dev = pipe->enabled_raw;
-	dev_info(raw->cam_dev, "ctx_id %d used_raw_dev 0x%x pipe_id %d\n",
-		ctx->stream_id, ctx->used_raw_dev, pipe->id);
+	if (ctx->seninf)
+		dev_info(raw->cam_dev, "ctx_id %d seninf:%s used_raw_dev 0x%x pipe_id %d\n",
+			ctx->stream_id, ctx->seninf->name, ctx->used_raw_dev, pipe->id);
+	else
+		dev_info(raw->cam_dev, "ctx_id %d used_raw_dev 0x%x pipe_id %d\n",
+			ctx->stream_id, ctx->used_raw_dev, pipe->id);
 	return 0;
 }
 
@@ -5740,8 +5744,12 @@ mtk_cam_s_data_raw_pipeline_config(struct mtk_cam_request_stream_data *s_data,
 	}
 
 	s_raw_pipe_data->enabled_raw |= s_raw_pipe_data->stagger_select.enabled_raw;
-	dev_info(raw->cam_dev, "ctx_id %d used_raw_dev 0x%x pipe_id %d\n",
-		ctx->stream_id, s_raw_pipe_data->enabled_raw, pipe->id);
+	if (ctx->seninf)
+		dev_info(raw->cam_dev, "ctx_id %d seninf:%s used_raw_dev 0x%x pipe_id %d\n",
+			ctx->stream_id, ctx->seninf->name, ctx->used_raw_dev, pipe->id);
+	else
+		dev_info(raw->cam_dev, "ctx_id %d used_raw_dev 0x%x pipe_id %d\n",
+			ctx->stream_id, s_raw_pipe_data->enabled_raw, pipe->id);
 
 	return 0;
 }
@@ -8000,12 +8008,12 @@ static void mtk_cam_ctx_watchdog_worker(struct work_struct *work)
 						atomic_read(&raw->vf_en),
 						int_en);
 					if (int_en == 0 && ctx->composed_frame_seq_no)
-						aee_kernel_warning_api(
+						aee_kernel_exception_api(
 							__FILE__, __LINE__, DB_OPT_DEFAULT,
 							"Camsys: 1st CQ done timeout",
 							"watchdog timeout");
 					else
-						aee_kernel_warning_api(
+						aee_kernel_exception_api(
 							__FILE__, __LINE__, DB_OPT_DEFAULT,
 							"Camsys: Vsync timeout",
 							"watchdog timeout");
@@ -8019,7 +8027,7 @@ static void mtk_cam_ctx_watchdog_worker(struct work_struct *work)
 						readl_relaxed(
 							raw->base + REG_CTL_RAW_INT_EN));
 
-					aee_kernel_warning_api(
+					aee_kernel_exception_api(
 						__FILE__, __LINE__, DB_OPT_DEFAULT,
 						"Camsys: VF timeout", "watchdog timeout");
 
@@ -8056,7 +8064,7 @@ static void mtk_cam_ctx_watchdog_worker(struct work_struct *work)
 						readl_relaxed(raw->base +
 							REG_CTL_RAW_MOD6_RDY_STAT));
 
-					aee_kernel_warning_api(
+					aee_kernel_exception_api(
 						__FILE__, __LINE__, DB_OPT_DEFAULT,
 						"Camsys: SOF timeout", "watchdog timeout");
 				}
