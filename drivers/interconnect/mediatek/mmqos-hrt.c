@@ -150,7 +150,7 @@ s32 mtk_mmqos_hrt_scen(enum hrt_scen scen, bool is_start)
 	s32 ret = 0;
 
 	if (!mmqos_hrt) {
-		pr_notice("%s: mmqos_hrt not ready\n");
+		pr_notice("%s: mmqos_hrt not ready\n", __func__);
 		return -ENOENT;
 	}
 

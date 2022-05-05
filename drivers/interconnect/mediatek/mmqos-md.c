@@ -53,7 +53,7 @@ int mtk_mmqos_md_probe(struct platform_device *pdev)
 	ret = register_ccci_sys_call_back(MD_SYS1,
 		MD_NR_BAND_ACTIVATE_INFO, mmqos_md_band_req_hdlr);
 	if (ret) {
-		pr_notice("%s: fail to register ccci sys callback(%d)\n", ret);
+		pr_notice("%s: fail to register ccci sys callback(%d)\n", __func__, ret);
 		return ret;
 	}
 
