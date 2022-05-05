@@ -109,7 +109,7 @@ static int rt_spm_trigger_calibration(struct device *dev, void *data)
 
 	ric.type = RTK_IPI_TYPE_CALIBRATION;
 	ric.id = rdc->id;
-	if (tmp < 0 || tmp >= RTK_IPI_CMD_NR)
+	if (tmp >= RTK_IPI_CMD_NR)
 		return -EINVAL;
 	rdc->calib_running = cali_status = 1;
 	switch (tmp) {
