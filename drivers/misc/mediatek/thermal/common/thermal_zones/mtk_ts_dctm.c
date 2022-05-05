@@ -206,8 +206,8 @@ static int tskinTransient(int tpcb)
 		rhs[i] = div_s64(CapMatrix[i] * tn_1[i], SCALE_UNIT_CAP);
 		tn[i] = 0;
 	}
-	rhs[TSKINNODE] += tamb_coef * tamb;
-	rhs[TPCBNODE]  += tpcb_coef * tpcb;
+	rhs[TSKINNODE] += (long long)tamb_coef * tamb;
+	rhs[TPCBNODE]  += (long long)tpcb_coef * tpcb;
 
 	for (i = 0; i < ACNZ; i++)
 		tn[AcMatrixNzRow[i]] += AcMatrixNz[i] *

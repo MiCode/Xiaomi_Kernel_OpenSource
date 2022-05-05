@@ -509,7 +509,7 @@ static int mtk_cl_mdoff_get_cur_state(struct thermal_cooling_device *cdev,
 static int mtk_cl_mdoff_set_cur_state(struct thermal_cooling_device *cdev,
 				unsigned long state)
 {
-	if ((state >= 0) && (state <= 1))
+	if (state <= 1)
 		mtk_cooler_mutt_dprintk(
 			"[%s] %s %lu (0: md on;  1: md off)\n", __func__,
 			cdev->type, state);
@@ -681,7 +681,7 @@ static int mtk_cl_noIMS_set_cur_state(struct thermal_cooling_device *cdev,
 		return 0;
 	}
 
-	if ((state >= 0) && (state <= 1))
+	if (state <= 1)
 		mtk_cooler_mutt_dprintk(
 			"%s() %s %lu (0: md IMS OK;	1: md no IMS)\n",
 			__func__,

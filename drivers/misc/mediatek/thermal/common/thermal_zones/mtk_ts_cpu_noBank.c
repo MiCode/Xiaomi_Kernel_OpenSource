@@ -2240,7 +2240,7 @@ int tscpu_get_cpu_temp_met(enum mtk_thermal_sensor_cpu_id_met id)
 	unsigned long flags;
 	int ret;
 
-	if (id < 0 || id >= MTK_THERMAL_SENSOR_CPU_COUNT)
+	if (id >= MTK_THERMAL_SENSOR_CPU_COUNT)
 		return -127000;
 
 	if (id == ATM_CPU_LIMIT)
