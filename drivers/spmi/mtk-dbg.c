@@ -1369,7 +1369,8 @@ void spmi_dump_pmif_acc_vio_reg(void)
 {
 	struct pmif *arb = spmi_controller_get_drvdata(dbg_ctrl);
 	unsigned int offset, tmp_dat;
-	unsigned int start, end, log_size = 0;
+	unsigned int start, end;
+	int log_size = 0;
 
 	if (arb->dbgver == 2) {
 		start = arb->dbgregs[PMIC_ALL_ACC_VIO_INFO_0];
@@ -1397,7 +1398,8 @@ void spmi_dump_pmic_acc_vio_reg(void)
 {
 	struct pmif *arb = spmi_controller_get_drvdata(dbg_ctrl);
 	unsigned int offset, tmp_dat;
-	unsigned int start, end, log_size = 0;
+	unsigned int start, end;
+	int log_size = 0;
 
 	start = arb->dbgregs[PMIC_ACC_VIO_INFO_0];
 	end = arb->dbgregs[PMIC_ACC_VIO_INFO_5];
@@ -1418,7 +1420,8 @@ static char *get_pmif_busy_reg_dump(void)
 {
 	struct pmif *arb = spmi_controller_get_drvdata(dbg_ctrl);
 	unsigned int offset, tmp_dat;
-	unsigned int start, end, log_size = 0;
+	unsigned int start, end;
+	int log_size = 0;
 
 	start = arb->dbgregs[PMIF_INF_BUSY_STA];
 	end = arb->dbgregs[PMIF_OTHER_BUSY_STA_1];
@@ -1438,7 +1441,8 @@ static char *get_pmif_busy_reg_dump(void)
 static char *get_pmif_swinf_reg_dump(void)
 {
 	struct pmif *arb = spmi_controller_get_drvdata(dbg_ctrl);
-	unsigned int swinf = 0, step, offset, tmp_dat, log_size = 0;
+	unsigned int swinf = 0, step, offset, tmp_dat;
+	int log_size = 0;
 	unsigned int cmd, is_write, slvid, bytecnt, addr;
 	unsigned int wd_31_0, rd_31_0;
 	unsigned int err, sbusy, done, qfillcnt, qfreecnt, qempty, qfull;
@@ -1509,7 +1513,8 @@ static char *get_spmimst_all_reg_dump(void)
 {
 	struct pmif *arb = spmi_controller_get_drvdata(dbg_ctrl);
 	unsigned int offset, tmp_dat;
-	unsigned int start, end, log_size = 0;
+	unsigned int start, end;
+	int log_size = 0;
 	int i = 0;
 
 	start = arb->spmimst_regs[SPMI_OP_ST_CTRL];
@@ -1561,7 +1566,8 @@ static void spmi_dump_pmif_swinf_reg_d(struct seq_file *m)
 void spmi_dump_pmif_all_reg(void)
 {
 	struct pmif *arb = spmi_controller_get_drvdata(dbg_ctrl);
-	unsigned int offset, tmp_dat, log_size = 0;
+	unsigned int offset, tmp_dat;
+	int log_size = 0;
 	unsigned int start, end;
 	int i = 0;
 
@@ -1606,7 +1612,8 @@ void spmi_dump_pmif_record_reg(void)
 	struct pmif *arb = spmi_controller_get_drvdata(dbg_ctrl);
 	unsigned int i = 0, step, offset, tmp_dat;
 	unsigned int chan, cmd, is_write, slvid, bytecnt, addr;
-	unsigned int wd_31_0, log_size = 0;
+	unsigned int wd_31_0;
+	int log_size = 0;
 
 	step = arb->dbgregs[PMIF_MONITOR_RECORD_1_0] -
 		arb->dbgregs[PMIF_MONITOR_RECORD_0_0];
