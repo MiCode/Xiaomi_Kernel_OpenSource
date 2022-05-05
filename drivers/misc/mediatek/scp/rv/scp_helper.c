@@ -1325,7 +1325,7 @@ EXPORT_SYMBOL_GPL(scp_get_reserve_mem_size);
 #if SCP_RESERVED_MEM && defined(CONFIG_OF)
 static int scp_reserve_memory_ioremap(struct platform_device *pdev)
 {
-#define MEMORY_TBL_ELEM_NUM (2)
+#define MEMORY_TBL_ELEM_NUM (3)
 	unsigned int num = (unsigned int)(sizeof(scp_reserve_mblock)
 			/ sizeof(scp_reserve_mblock[0]));
 	enum scp_reserve_mem_id_t id;
@@ -1334,7 +1334,7 @@ static int scp_reserve_memory_ioremap(struct platform_device *pdev)
 	struct reserved_mem *rmem;
 	const char *mem_key;
 	unsigned int scp_mem_num = 0;
-	unsigned int i, m_idx, m_size;
+	unsigned int i, m_idx, m_size, m_alignment;
 	int ret;
 
 	if (num != NUMS_MEM_ID) {
@@ -1406,7 +1406,12 @@ static int scp_reserve_memory_ioremap(struct platform_device *pdev)
 			pr_notice("Cannot get memory index(%d)\n", i);
 			return -1;
 		}
+		if (m_idx >= NUMS_MEM_ID) {
+			pr_notice("[SCP] skip unexpected index, %d\n", m_idx);
+			continue;
+		}
 
+		/* Probe memory size of feature that user register */
 		if (i == 0 && scpreg.secure_dump) {
 			/* secure_dump */
 			ret = of_property_read_u32(pdev->dev.of_node,
@@ -1423,13 +1428,20 @@ static int scp_reserve_memory_ioremap(struct platform_device *pdev)
 			return -1;
 		}
 
-		if (m_idx >= NUMS_MEM_ID) {
-			pr_notice("[SCP] skip unexpected index, %d\n", m_idx);
-			continue;
+		/* Probe memory alignment of feature that user register */
+		ret = of_property_read_u32_index(pdev->dev.of_node,
+				"scp_mem_tbl",
+				(i * MEMORY_TBL_ELEM_NUM) + 2,
+				&m_alignment);
+		if (ret) {
+			pr_notice("Cannot get memory alignment(%d)\n", i);
+			return -1;
 		}
 
+
 		scp_reserve_mblock[m_idx].size = m_size;
-		pr_notice("@@@@ reserved: <%d  %d>\n", m_idx, m_size);
+		scp_reserve_mblock[m_idx].alignment = m_alignment;
+		pr_notice("@@@@ reserved: <%d  %x  %x>\n", m_idx, m_size, m_alignment);
 	}
 
 	scp_mem_base_virt = (phys_addr_t)(size_t)ioremap_wc(scp_mem_base_phys,
@@ -1440,6 +1452,11 @@ static int scp_reserve_memory_ioremap(struct platform_device *pdev)
 		(uint64_t)scp_mem_base_virt, (uint64_t)scp_mem_size);
 
 	for (id = 0; id < NUMS_MEM_ID; id++) {
+		if (scp_reserve_mblock[id].alignment) {
+			accumlate_memory_size = (accumlate_memory_size +
+					scp_reserve_mblock[id].alignment - 1)
+				& ~(scp_reserve_mblock[id].alignment - 1);
+		}
 		scp_reserve_mblock[id].start_phys = scp_mem_base_phys +
 			accumlate_memory_size;
 		scp_reserve_mblock[id].start_virt = scp_mem_base_virt +
