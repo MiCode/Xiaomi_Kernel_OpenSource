@@ -670,6 +670,7 @@ int __gpufreq_power_control(enum gpufreq_power_state power)
 			ret = GPUFREQ_EINVAL;
 			goto done_unlock;
 		}
+
 		__gpufreq_footprint_power_step(GPUFREQ_POWER_STEP_04);
 
 		/* free DVFS when power on */
@@ -2396,7 +2397,7 @@ static void __gpufreq_apply_adjust(struct gpufreq_adj_info *adj_table, int adj_n
 	int opp_num = g_gpu.signed_opp_num;
 
 	GPUFREQ_TRACE_START("adj_table=0x%x, adj_num=%d",
-		adj_table, adj_num, target);
+		adj_table, adj_num);
 
 	if (!adj_table) {
 		GPUFREQ_LOGE("null adjustment table (EINVAL)");
@@ -2683,7 +2684,7 @@ static void __gpufreq_avs_adjustment(void)
 {
 #if GPUFREQ_AVS_ENABLE
 	u32 val = 0;
-	unsigned int temp_volt = 0, temp_freq = 0;
+	unsigned int temp_volt = 0, temp_freq = 0, volt_offset = 0;
 	int i = 0, oppidx = 0;
 	int adj_num = AVS_ADJ_NUM;
 
@@ -2692,18 +2693,27 @@ static void __gpufreq_avs_adjustment(void)
 	 *
 	 * Freq (MHz) | Signedoff Volt (V) | Efuse name | Efuse address
 	 * ============================================================
-	 * 1000       | 0.8                | PTPOD16    | 0x11F1_05C0
-	 * 890        | 0.75               | PTPOD17    | 0x11F1_05C4
-	 * 670        | 0.65               | PTPOD18    | 0x11F1_05C8
-	 * 385        | 0.55               | PTPOD19    | 0x11F1_05CC
+	 * 1100       | 0.85               | PTPOD16    | 0x11C1_05C0
+	 * 700        | 0.65               | PTPOD17    | 0x11C1_05C4
+	 * 390        | 0.575              | PTPOD18    | 0x11C1_05C8
 	 *
-	 * 0.55 will not be lowered, but will increase according to
+	 * 0.575 will not be lowered, but will increase according to
 	 * the binning result for rescue yeild.
 	 */
 
+	/* read AVS efuse and compute Freq and Volt */
 	for (i = 0; i < adj_num; i++) {
 		oppidx = g_avs_adj[i].oppidx;
 		val = readl(g_efuse_base + 0x5C0 + (i * 0x4));
+
+	if (g_mcl50_load) {
+		if (i == 0)
+			val = 0x001C4C79;
+		else if (i == 1)
+			val = 0x0012BC62;
+		else if (i == 2)
+			val = 0x0019865C;
+	}
 
 		/* if efuse value is not set */
 		if (!val)
@@ -2711,12 +2721,8 @@ static void __gpufreq_avs_adjustment(void)
 
 		/* compute Freq from efuse */
 		temp_freq = 0;
-		temp_freq |= (val & 0x00100000) >> 10; // Get freq[10] from efuse[20]
-		temp_freq |= (val & 0x00000C00) >> 2;  // Get freq[9:8] from efuse[11:10]
-		temp_freq |= (val & 0x00000003) << 6;  // Get freq[7:6] from efuse[1:0]
-		temp_freq |= (val & 0x000000C0) >> 2;  // Get freq[5:4] from efuse[7:6]
-		temp_freq |= (val & 0x000C0000) >> 16; // Get freq[3:2] from efuse[19:18]
-		temp_freq |= (val & 0x00003000) >> 12; // Get freq[1:0] from efuse[13:12]
+		temp_freq |= (val & 0x00070000) >> 8;  // Get freq[10:8] from efuse[18:16]
+		temp_freq |= (val & 0x0000FF00) >> 8;  // Get freq[7:0] from efuse[15:8]
 		/* Freq is stored in efuse with MHz unit */
 		temp_freq *= 1000;
 		/* verify with signoff Freq */
@@ -2726,14 +2732,14 @@ static void __gpufreq_avs_adjustment(void)
 				oppidx, i, temp_freq, g_gpu.signed_table[oppidx].freq);
 			return;
 		}
+		g_avs_adj[i].freq = temp_freq;
 
 		/* compute Volt from efuse */
 		temp_volt = 0;
-		temp_volt |= (val & 0x0003C000) >> 14; // Get volt[3:0] from efuse[17:14]
-		temp_volt |= (val & 0x00000030);       // Get volt[5:4] from efuse[5:4]
-		temp_volt |= (val & 0x0000000C) << 4;  // Get volt[7:6] from efuse[3:2]
+		temp_volt |= (val & 0x000000FF);       // Get volt[7:0] from efuse[7:0]
 		/* Volt is stored in efuse with 6.25mV unit */
 		temp_volt *= 625;
+
 		/* clamp to signoff Volt */
 		if (temp_volt > g_gpu.signed_table[oppidx].volt) {
 			GPUFREQ_LOGW("OPP[%02d*]: AVS efuse[%d].volt(%d) > signed-off.volt(%d)",
@@ -2742,15 +2748,58 @@ static void __gpufreq_avs_adjustment(void)
 		} else
 			g_avs_adj[i].volt = temp_volt;
 
-		GPUFREQ_LOGI("OPP[%02d*]: AVS efuse[%d] freq(%d), volt(%d)",
+		GPUFREQ_LOGD("OPP[%02d*]: AVS efuse[%d] freq(%d), volt(%d)",
 			oppidx, i, temp_freq, temp_volt);
+
+		/* AVS is enabled if any OPP is adjusted by AVS */
+		g_avs_enable = true;
 	}
+
+	/* check AVS Volt and update Vsram */
+	for (i = adj_num - 1; i >= 0; i--) {
+		oppidx = g_avs_adj[i].oppidx;
+		/* mV * 100 */
+		if (i == 0)
+			volt_offset = 1250;
+		else if (i == 1)
+			volt_offset = 1250;
+		/* if AVS Volt is not set */
+		if (!g_avs_adj[i].volt)
+			continue;
+
+		/*
+		 * AVS Volt reverse check, start from adj_num -2
+		 * Volt of sign-off[i] should always be larger than sign-off[i+1]
+		 * if not, add Volt offset to sign-off[i]
+		 */
+		if (i != (adj_num - 1)) {
+			if (g_avs_adj[i].volt < g_avs_adj[i+1].volt) {
+				GPUFREQ_LOGW("efuse[%d].volt(%d) < efuse[%d].volt(%d)",
+					i, g_avs_adj[i].volt, i+1, g_avs_adj[i+1].volt);
+				g_avs_adj[i].volt = g_avs_adj[i+1].volt + volt_offset;
+			}
+		}
+
+		/* clamp to signoff Volt */
+		if (g_avs_adj[i].volt > g_gpu.signed_table[oppidx].volt) {
+			GPUFREQ_LOGW("OPP[%d*]: efuse[%d].volt(%d) > signed-off.volt(%d)",
+				oppidx, i, g_avs_adj[i].volt, g_gpu.signed_table[oppidx].volt);
+			g_avs_adj[i].volt = g_gpu.signed_table[oppidx].volt;
+		}
+
+		/* update Vsram */
+		g_avs_adj[i].vsram = __gpufreq_get_vsram_by_vgpu(g_avs_adj[i].volt);
+	}
+
+	for (i = 0; i < adj_num; i++)
+		GPUFREQ_LOGI("OPP[%d*]: efuse[%d]: freq(%d), volt(%d)",
+			g_avs_adj[i].oppidx, i, g_avs_adj[i].freq, g_avs_adj[i].volt);
 
 	/* apply AVS to signed table */
 	__gpufreq_apply_adjust(g_avs_adj, adj_num);
 
 	/* interpolate volt of non-sign-off OPP */
-	__gpufreq_interpolate_volt(TARGET_GPU);
+	__gpufreq_interpolate_volt();
 #endif /* GPUFREQ_AVS_ENABLE */
 }
 
@@ -2838,6 +2887,8 @@ static int __gpufreq_init_opp_table(struct platform_device *pdev)
 	__gpufreq_segment_adjustment(pdev);
 	/* apply aging adjustment to GPU signed table */
 	__gpufreq_aging_adjustment();
+	/* apply AVS adjustment to GPU signed table */
+	__gpufreq_avs_adjustment();
 
 	/* after these, signed table is settled down */
 	g_gpu.working_table = kcalloc(g_gpu.opp_num, sizeof(struct gpufreq_opp_info), GFP_KERNEL);
@@ -3197,7 +3248,7 @@ static int __gpufreq_init_platform_info(struct platform_device *pdev)
 	}
 
 #if GPUFREQ_AVS_ENABLE || GPUFREQ_ASENSOR_ENABLE
-	/* 0x11F10000 */
+	/* 0x11C10000 */
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "efuse");
 	if (unlikely(!res)) {
 		GPUFREQ_LOGE("fail to get resource EFUSE");

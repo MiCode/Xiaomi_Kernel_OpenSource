@@ -151,7 +151,7 @@ struct gpufreq_core_mask_info g_core_mask_table[] = {
 /**************************************************
  * Adaptive Volt Scaling (AVS) Setting
  **************************************************/
-#define GPUFREQ_AVS_ENABLE              (0)
+#define GPUFREQ_AVS_ENABLE              (1)
 
 /**************************************************
  * Aging Sensor Setting
@@ -375,9 +375,8 @@ struct gpufreq_adj_info g_mcl50_adj[] = {
 #define AVS_ADJ_NUM                   ARRAY_SIZE(g_avs_adj)
 struct gpufreq_adj_info g_avs_adj[] = {
 	ADJOP(0,  0, 0, 0, 0),
-	ADJOP(8,  0, 0, 0, 0),
-	ADJOP(24, 0, 0, 0, 0),
-	ADJOP(40, 0, 0, 0, 0),
+	ADJOP(32, 0, 0, 0, 0),
+	ADJOP(44, 0, 0, 0, 0),
 };
 
 /**************************************************
