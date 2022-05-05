@@ -60,12 +60,12 @@ static int debug_seq_get_debug(uint8_t sensor_type, uint8_t *buffer,
 	 */
 	reinit_completion(&debug_done);
 
-	ctrl = kzalloc(sizeof(*ctrl), GFP_KERNEL);
+	ctrl = kzalloc(sizeof(*ctrl) + sizeof(ctrl->data[0]), GFP_KERNEL);
 	ctrl->sensor_type = sensor_type;
 	ctrl->command = SENS_COMM_CTRL_DEBUG_CMD;
 	ctrl->length = sizeof(ctrl->data[0]);
 	/* safe sequence given by atomic, round from 0 to 255 */
-	ctrl->data[0] = atomic_inc_return(&debug_sequence);
+	ctrl->data[0] = (uint8_t)atomic_inc_return(&debug_sequence);
 	ret = sensor_comm_ctrl_send(ctrl, sizeof(*ctrl) + ctrl->length);
 	if (ret < 0) {
 		pr_err("%u send fail %d\n", sensor_type, ret);
