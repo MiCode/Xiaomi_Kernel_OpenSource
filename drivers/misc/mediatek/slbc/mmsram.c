@@ -234,9 +234,9 @@ void mmsram_get_info(struct mmsram_data *data)
 	data->paddr = mmsram->sram_paddr;
 	data->vaddr = mmsram->sram_vaddr;
 	data->size = mmsram->sram_size;
-	pr_notice("%s: pa:%#x va:%#x size:%#lx\n",
-		__func__, data->paddr, data->vaddr,
-		data->size);
+	pr_notice("%s: pa:%#lx va:%#lx size:%#lx\n",
+		__func__, (unsigned long)data->paddr,
+		(unsigned long)data->vaddr, data->size);
 }
 EXPORT_SYMBOL_GPL(mmsram_get_info);
 
