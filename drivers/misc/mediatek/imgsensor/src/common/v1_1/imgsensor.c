@@ -1877,7 +1877,7 @@ static inline int adopt_CAMERA_HW_FeatureControl(void *pBuf)
 			/* buffer size exam */
 			if ((sizeof(kal_uint8) * u4RegLen) >
 			    IMGSENSOR_FEATURE_PARA_LEN_MAX ||
-			    (u4RegLen > LSC_TBL_DATA_SIZE || u4RegLen < 0)) {
+			    (u4RegLen > LSC_TBL_DATA_SIZE)) {
 				kfree(pFeaturePara);
 				PK_PR_ERR(" buffer size (%u) is too large\n",
 					u4RegLen);
