@@ -156,6 +156,7 @@ struct mtk_smi {
 	const struct mtk_smi_common_plat *plat;
 	int			commid;
 	atomic_t		ref_count;
+	atomic_t		api_ref_count;
 };
 
 #define LARB_MAX_COMMON		(2)
@@ -271,12 +272,14 @@ EXPORT_SYMBOL_GPL(mtk_smi_larb_bw_set);
 void mtk_smi_check_comm_ref_cnt(struct device *dev)
 {
 	struct mtk_smi *common = dev_get_drvdata(dev);
-	int ref_count;
+	int ref_count, api_ref_count;
 
 	if (common) {
 		ref_count = atomic_read(&common->ref_count);
-		if (ref_count > 0)
-			pr_notice("%s comm:%u ref_cnt=%d\n", __func__, common->commid, ref_count);
+		api_ref_count = atomic_read(&common->api_ref_count);
+		if ((ref_count > 0) || (api_ref_count > 0))
+			pr_notice("%s comm:%u ref_cnt=%d api_ref_cnt=%d\n",
+				__func__, common->commid, ref_count, api_ref_count);
 	}
 }
 EXPORT_SYMBOL_GPL(mtk_smi_check_comm_ref_cnt);
@@ -284,12 +287,14 @@ EXPORT_SYMBOL_GPL(mtk_smi_check_comm_ref_cnt);
 void mtk_smi_check_larb_ref_cnt(struct device *dev)
 {
 	struct mtk_smi_larb *larb = dev_get_drvdata(dev);
-	int ref_count;
+	int ref_count, api_ref_count;
 
 	if (larb) {
 		ref_count = atomic_read(&larb->smi.ref_count);
-		if (ref_count > 0)
-			pr_notice("%s larb:%u ref_cnt=%d\n", __func__, larb->larbid, ref_count);
+		api_ref_count = atomic_read(&larb->smi.api_ref_count);
+		if ((ref_count > 0) || (api_ref_count > 0))
+			pr_notice("%s larb:%u ref_cnt=%d api_ref_cnt=%d\n",
+				__func__, larb->larbid, ref_count, api_ref_count);
 	}
 }
 EXPORT_SYMBOL_GPL(mtk_smi_check_larb_ref_cnt);
@@ -405,9 +410,11 @@ int mtk_smi_larb_get(struct device *larbdev)
 	if (unlikely(!larb))
 		return -ENODEV;
 
+	atomic_inc(&larb->smi.api_ref_count);
 	if (log_level & 1 << log_config_bit)
-		pr_info("[SMI]larb:%d get ref_count:%d\n",
-			larb->larbid, atomic_read(&larb->smi.ref_count));
+		pr_info("[SMI]larb:%d get ref_count: %d api_ref_count:%d\n",
+			larb->larbid, atomic_read(&larb->smi.ref_count),
+			atomic_read(&larb->smi.api_ref_count));
 	ret = pm_runtime_resume_and_get(larbdev);
 	if (ret < 0) {
 		dev_notice(larbdev, "Unable to enable SMI LARB%d. ret:%d\n",
@@ -430,9 +437,11 @@ void mtk_smi_larb_put(struct device *larbdev)
 	if (unlikely(!larb))
 		return;
 
+	atomic_dec(&larb->smi.api_ref_count);
 	if (log_level & 1 << log_config_bit)
-		pr_info("[SMI]larb:%d put ref_count:%d\n",
-			larb->larbid, atomic_read(&larb->smi.ref_count));
+		pr_info("[SMI]larb:%d put ref_count: %d api_ref_count:%d\n",
+			larb->larbid, atomic_read(&larb->smi.ref_count),
+			atomic_read(&larb->smi.api_ref_count));
 
 	pm_runtime_put_sync(larbdev);
 }
@@ -1837,6 +1846,7 @@ static int mtk_smi_larb_probe(struct platform_device *pdev)
 	}
 	larb->smi.dev = dev;
 	atomic_set(&larb->smi.ref_count, 0);
+	atomic_set(&larb->smi.api_ref_count, 0);
 
 	for (i = 0; i < LARB_MAX_COMMON; i++) {
 		smi_node = of_parse_phandle(dev->of_node, "mediatek,smi", i);
@@ -1925,8 +1935,9 @@ static int __maybe_unused mtk_smi_larb_resume(struct device *dev)
 
 	atomic_inc(&larb->smi.ref_count);
 	if (log_level & 1 << log_config_bit)
-		pr_info("[SMI]larb:%d callback get ref_count:%d\n",
-			larb->larbid, atomic_read(&larb->smi.ref_count));
+		pr_info("[SMI]larb:%d callback get ref_count:%d api_ref_count:%d\n",
+			larb->larbid, atomic_read(&larb->smi.ref_count),
+			atomic_read(&larb->smi.api_ref_count));
 
 	ret = mtk_smi_clk_enable(&larb->smi);
 	if (ret < 0) {
@@ -2106,11 +2117,15 @@ static int __maybe_unused mtk_smi_larb_suspend(struct device *dev)
 
 	atomic_dec(&larb->smi.ref_count);
 	if (log_level & 1 << log_config_bit)
-		pr_info("[SMI]larb:%d callback put ref_count:%d\n",
-			larb->larbid, atomic_read(&larb->smi.ref_count));
-	if (atomic_read(&larb->smi.ref_count)) {
-		dev_notice(dev, "Error: larb(%d) ref count=%d on suspend\n",
-			larb->larbid, atomic_read(&larb->smi.ref_count));
+		pr_info("[SMI]larb:%d callback put ref_count:%d api_ref_count:%d\n",
+			larb->larbid, atomic_read(&larb->smi.ref_count),
+			atomic_read(&larb->smi.api_ref_count));
+	if (atomic_read(&larb->smi.ref_count)
+		|| atomic_read(&larb->smi.api_ref_count)) {
+		dev_notice(dev,
+			"Error: larb(%d) ref_count=%d api_ref_count=%d on suspend\n",
+			larb->larbid, atomic_read(&larb->smi.ref_count),
+			atomic_read(&larb->smi.api_ref_count));
 	}
 
 	if (readl_relaxed(larb->base + SMI_LARB_STAT)) {
@@ -2700,6 +2715,7 @@ static int mtk_smi_common_probe(struct platform_device *pdev)
 	common->dev = dev;
 	common->plat = of_device_get_match_data(dev);
 	atomic_set(&common->ref_count, 0);
+	atomic_set(&common->api_ref_count, 0);
 
 	common->clk_apb = devm_clk_get(dev, "apb");
 	if (IS_ERR(common->clk_apb))
@@ -2869,9 +2885,12 @@ static int __maybe_unused mtk_smi_common_suspend(struct device *dev)
 	mtk_smi_clk_disable(common);
 	atomic_dec(&common->ref_count);
 
-	if (atomic_read(&common->ref_count)) {
-		dev_notice(dev, "Error: comm(%d) ref count=%d on suspend\n",
-			common->commid, atomic_read(&common->ref_count));
+	if (atomic_read(&common->ref_count)
+		|| atomic_read(&common->api_ref_count)) {
+		dev_notice(dev,
+			"Error: comm(%d) ref_count=%d api_ref_count=%d on suspend\n",
+			common->commid, atomic_read(&common->ref_count),
+			atomic_read(&common->api_ref_count));
 	}
 
 	return 0;
