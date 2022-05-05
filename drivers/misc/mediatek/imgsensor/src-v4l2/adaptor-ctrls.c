@@ -70,13 +70,17 @@ int cb_fsync_mgr_set_framelength(void *p_ctx,
 {
 	struct adaptor_ctx *ctx = NULL;
 	enum ACDK_SENSOR_FEATURE_ENUM cmd = 0;
-	union feature_para para;
 	int ret = 0;
+
+#if !defined(TWO_STAGE_FS)
+	union feature_para para;
 	u32 len;
+#endif // TWO_STAGE_FS
 
 	if (p_ctx == NULL) {
 		ret = 1;
-		dev_info(ctx->dev, "p_ctx is a NULL pointer\n");
+		pr_info("p_ctx is NULL, cmd_id:%u, fl:%u, return:%d\n",
+			cmd_id, framelength, ret);
 		return ret;
 	}
 
@@ -88,7 +92,7 @@ int cb_fsync_mgr_set_framelength(void *p_ctx,
 
 #if defined(TWO_STAGE_FS)
 	return ret;
-#endif // TWO_STAGE_FS
+#else
 
 	switch (cmd) {
 	/* for set_frame_length() */
@@ -106,6 +110,8 @@ int cb_fsync_mgr_set_framelength(void *p_ctx,
 	}
 
 	return ret;
+
+#endif // TWO_STAGE_FS
 }
 
 /* notify frame-sync update tg */
@@ -296,8 +302,10 @@ static void notify_fsync_mgr_set_shutter(struct adaptor_ctx *ctx,
 
 
 #if defined(TWO_STAGE_FS)
-	for (i = 0; (i < ae_exp_cnt) && (i < IMGSENSOR_STAGGER_EXPOSURE_CNT); i++)
-		fsync_exp[i] = (u32)(*(ae_exp_arr + i));
+	if (ae_exp_arr != NULL) {
+		for (i = 0; (i < ae_exp_cnt) && (i < IMGSENSOR_STAGGER_EXPOSURE_CNT); i++)
+			fsync_exp[i] = (u32)(*(ae_exp_arr + i));
+	}
 
 	para.u64[0] = (u64)fsync_exp;
 	para.u64[1] = min_t(u32, ae_exp_cnt, (u32)IMGSENSOR_STAGGER_EXPOSURE_CNT);
