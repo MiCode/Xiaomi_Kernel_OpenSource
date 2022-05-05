@@ -327,6 +327,7 @@ static struct LCM_setting_table bl_level[] = {
 
 struct LCM_dfps_cmd_table {
 	bool need_send_cmd;
+	enum LCM_Send_Cmd_Mode sendmode;
 	struct LCM_setting_table prev_f_cmd[DFPS_MAX_CMD_NUM];
 };
 
@@ -336,6 +337,7 @@ static struct LCM_dfps_cmd_table
 /**********level 0 to 0,1 cmd*********************/
 [DFPS_LEVEL0][DFPS_LEVEL0] = {
 	false,
+	LCM_SEND_IN_CMD,
 	/*prev_frame cmd*/
 	{
 	{REGFLAG_END_OF_TABLE, 0x00, {} },
@@ -344,6 +346,7 @@ static struct LCM_dfps_cmd_table
 /*60->90*/
 [DFPS_LEVEL0][DFPS_LEVEL1] = {
 	true,
+	LCM_SEND_IN_CMD,
 	/*prev_frame cmd*/
 	{
 	{0xFF, 1, {0x25} },
@@ -357,6 +360,7 @@ static struct LCM_dfps_cmd_table
 /*90->60*/
 [DFPS_LEVEL1][DFPS_LEVEL0] = {
 	true,
+	LCM_SEND_IN_CMD,
 	/*prev_frame cmd*/
 	{
 	{0xFF, 1, {0x25} },
@@ -368,6 +372,7 @@ static struct LCM_dfps_cmd_table
 
 [DFPS_LEVEL1][DFPS_LEVEL1] = {
 	false,
+	LCM_SEND_IN_CMD,
 	/*prev_frame cmd*/
 	{
 	{REGFLAG_END_OF_TABLE, 0x00, {} },
@@ -799,6 +804,7 @@ static void lcm_dfps_inform_lcm(void *cmdq_handle,
 unsigned int from_level, unsigned int to_level, struct LCM_PARAMS *params)
 {
 	struct LCM_dfps_cmd_table *p_dfps_cmds = NULL;
+	enum LCM_Send_Cmd_Mode sendmode = LCM_SEND_IN_CMD;
 
 	if (from_level == to_level) {
 		LCM_LOGI("%s,same level\n", __func__);
