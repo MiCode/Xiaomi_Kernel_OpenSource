@@ -245,6 +245,10 @@ static int lm3643_enable_ctrl(struct lm3643_flash *flash,
 {
 	int rval;
 
+	if (led_no < 0 || led_no > LM3643_LED_MAX) {
+		pr_info("led_no error\n");
+		return -1;
+	}
 	pr_info_ratelimited("%s led:%d enable:%d", __func__, led_no, on);
 
 	flashlight_kicker_pbm(on);
@@ -278,6 +282,10 @@ static int lm3643_torch_brt_ctrl(struct lm3643_flash *flash,
 	int rval;
 	u8 br_bits;
 
+	if (led_no < 0 || led_no > LM3643_LED_MAX) {
+		pr_info("led_no error\n");
+		return -1;
+	}
 	pr_info_ratelimited("%s %d brt:%u\n", __func__, led_no, brt);
 	if (brt < LM3643_TORCH_BRT_MIN)
 		return lm3643_enable_ctrl(flash, led_no, false);
@@ -309,6 +317,10 @@ static int lm3643_flash_brt_ctrl(struct lm3643_flash *flash,
 	int rval;
 	u8 br_bits;
 
+	if (led_no < 0 || led_no > LM3643_LED_MAX) {
+		pr_info("led_no error\n");
+		return -1;
+	}
 	pr_info("%s %d brt:%u", __func__, led_no, brt);
 	if (brt < LM3643_FLASH_BRT_MIN)
 		return lm3643_enable_ctrl(flash, led_no, false);
@@ -559,6 +571,8 @@ static void lm3643_v4l2_i2c_subdev_init(struct v4l2_subdev *sd,
 		struct i2c_client *client,
 		const struct v4l2_subdev_ops *ops)
 {
+	int ret = 0;
+
 	v4l2_subdev_init(sd, ops);
 	sd->flags |= V4L2_SUBDEV_FL_IS_I2C;
 	/* the owner is the same as the i2c_client's driver owner */
@@ -568,9 +582,11 @@ static void lm3643_v4l2_i2c_subdev_init(struct v4l2_subdev *sd,
 	v4l2_set_subdevdata(sd, client);
 	i2c_set_clientdata(client, sd);
 	/* initialize name */
-	snprintf(sd->name, sizeof(sd->name), "%s %d-%04x",
+	ret = snprintf(sd->name, sizeof(sd->name), "%s %d-%04x",
 		client->dev.driver->name, i2c_adapter_id(client->adapter),
 		client->addr);
+	if (ret < 0)
+		pr_info("snprintf failed\n");
 }
 
 static int lm3643_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
@@ -611,6 +627,10 @@ static int lm3643_subdev_init(struct lm3643_flash *flash,
 	int rval;
 
 	// pr_info("%s %d", __func__, led_no);
+	if (led_no < 0 || led_no > LM3643_LED_MAX) {
+		pr_info("led_no error\n");
+		return -1;
+	}
 
 	lm3643_v4l2_i2c_subdev_init(&flash->subdev_led[led_no],
 				client, &lm3643_ops);
@@ -818,7 +838,7 @@ static int lm3643_cooling_set_cur_state(struct thermal_cooling_device *cdev,
 		return 0;
 
 	flash->target_state = state;
-	pr_info("set thermal current:%d\n", flash->target_state);
+	pr_info("set thermal current:%lu\n", flash->target_state);
 
 	if (flash->target_state == 0) {
 		flash->need_cooler = 0;
@@ -861,7 +881,7 @@ static int lm3643_parse_dt(struct lm3643_flash *flash)
 	struct device_node *np, *cnp;
 	struct device *dev = flash->dev;
 	u32 decouple = 0;
-	int i = 0;
+	int i = 0, ret = 0;
 
 	if (!dev || !dev->of_node)
 		return -ENODEV;
@@ -877,8 +897,11 @@ static int lm3643_parse_dt(struct lm3643_flash *flash)
 		if (of_property_read_u32(cnp,
 					"part", &flash->flash_dev_id[i].part))
 			goto err_node_put;
-		snprintf(flash->flash_dev_id[i].name, FLASHLIGHT_NAME_SIZE,
+		ret = snprintf(flash->flash_dev_id[i].name,
+				FLASHLIGHT_NAME_SIZE,
 				flash->subdev_led[i].name);
+		if (ret < 0)
+			pr_info("snprintf failed\n");
 		flash->flash_dev_id[i].channel = i;
 		flash->flash_dev_id[i].decouple = decouple;
 
