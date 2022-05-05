@@ -423,6 +423,11 @@ void mtk_imgsys_pipe_try_fmt(struct mtk_imgsys_pipe *pipe,
 	fmt->fmt.pix_mp.ycbcr_enc = V4L2_YCBCR_ENC_DEFAULT;
 	fmt->fmt.pix_mp.field = V4L2_FIELD_NONE;
 
+	if (fmt->fmt.pix_mp.num_planes >= VIDEO_MAX_PLANES) {
+		dev_info(pipe->imgsys_dev->dev, "%s: out-of-bound num_planes\n", __func__);
+		return;
+	}
+
 	for (i = 0; i < fmt->fmt.pix_mp.num_planes; ++i) {
 		unsigned int stride;
 		unsigned int sizeimage;
