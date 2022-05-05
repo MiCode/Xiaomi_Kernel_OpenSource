@@ -973,7 +973,9 @@ static void disp_pwm_dump(void)
 
 void disp_pwm_test(const char *cmd, char *debug_output)
 {
-	unsigned long offset, value, mask;
+	unsigned long offset = 0;
+	unsigned long value = 0;
+	unsigned long mask = 0;
 
 	const unsigned long reg_base = pwm_get_reg_base(DISP_PWM0);
 

@@ -1285,7 +1285,7 @@ void disp_aal_on_end_of_frame_by_module(enum disp_aal_id_t id)
 	}
 #endif
 
-	if (id < DISP_AAL0 || id >= DISP_AAL0 + AAL_TOTAL_MODULE_NUM)
+	if (id >= DISP_AAL0 + AAL_TOTAL_MODULE_NUM)
 		return;
 
 	if (atomic_read(&g_aal_force_relay) == 1) {

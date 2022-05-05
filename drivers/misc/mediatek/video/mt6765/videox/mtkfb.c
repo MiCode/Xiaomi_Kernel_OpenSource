@@ -1002,7 +1002,7 @@ static int mtkfb_ioctl(struct fb_info *info, unsigned int cmd,
 	unsigned long arg)
 {
 	void __user *argp = (void __user *)arg;
-	enum DISP_STATUS ret = 0;
+	int ret = 0;
 	int r = 0;
 
 	DISPFUNC();

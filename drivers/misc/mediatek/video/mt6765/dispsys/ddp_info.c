@@ -348,7 +348,7 @@ struct ddp_module ddp_modules[DISP_MODULE_NUM] = {
 
 unsigned int is_ddp_module(enum DISP_MODULE_ENUM module)
 {
-	if (module >= 0 && module < DISP_MODULE_NUM)
+	if (module < DISP_MODULE_NUM)
 		return 1;
 
 	return 0;

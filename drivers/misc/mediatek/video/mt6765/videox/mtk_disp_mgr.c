@@ -635,7 +635,7 @@ static int disp_input_get_dirty_roi(struct disp_frame_cfg_t *cfg)
 		size = cfg->input_cfg[i].dirty_roi_num *
 			sizeof(struct layer_dirty_roi);
 		addr = kmalloc(size, GFP_KERNEL);
-		if (IS_ERR_OR_NULL(addr))
+		if (IS_ERR_OR_NULL(addr) || IS_ERR_OR_NULL(cfg->input_cfg[i].dirty_roi_addr))
 			goto layer_err;
 
 		if (copy_from_user(addr,

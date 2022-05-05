@@ -283,7 +283,7 @@ static int disp_gamma_set_lut
 		kfree(gamma_lut);
 	} else {
 		id = gamma_lut->hw_id;
-		if (id >= 0 && id < DISP_GAMMA_TOTAL) {
+		if (id < DISP_GAMMA_TOTAL) {
 			mutex_lock(&g_gamma_global_lock);
 
 			old_lut = g_disp_gamma_lut[id];
@@ -929,7 +929,7 @@ static int disp_ccorr_set_coef
 		kfree(ccorr);
 	} else {
 		id = ccorr->hw_id;
-		if (id >= 0 && id < DISP_CCORR_TOTAL) {
+		if (id < DISP_CCORR_TOTAL) {
 			mutex_lock(&g_gamma_global_lock);
 
 			old_ccorr = g_disp_ccorr_coef[id];
@@ -1509,10 +1509,11 @@ static void ccorr_dump_reg(void)
 
 void ccorr_test(const char *cmd, char *debug_output)
 {
-	unsigned long offset;
-	unsigned long value, mask;
+	unsigned long offset = 0;
+	unsigned long value = 0;
+	unsigned long mask = 0;
 	enum DISP_MODULE_ENUM module = CCORR0_MODULE_NAMING;
-	int i;
+	int i = 0;
 	int config_module_num = 1;
 
 #if defined(CONFIG_MACH_MT6799)

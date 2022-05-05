@@ -2062,7 +2062,8 @@ static int load_hrt_test_data(struct disp_layer_info *disp_info)
 			DISPWARN("Test case %d is %s\n",
 				(int)test_case, is_test_pass?"Pass":"Fail");
 		} else if (strncmp(line_buf, "[layer_result]", 14) == 0) {
-			long layer_result = 0, layer_id;
+			long layer_result = 0;
+			long layer_id = 0;
 
 			tok = strchr(line_buf, ']');
 			if (!tok)
