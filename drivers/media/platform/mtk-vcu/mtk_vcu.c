@@ -1062,6 +1062,10 @@ static void vcu_gce_flush_callback(struct cmdq_cb_data data)
 		if (buff->cmdq_buff.secure != 0)
 			cmdq_sec_mbox_switch_normal(vcu->clt_venc_sec[0]);
 		}
+		for (i = 0; i < vcu->gce_th_num[VCU_VENC]; i++)
+			cmdq_mbox_disable(vcu->clt_venc[i]->chan);
+
+		cmdq_sec_mbox_disable(vcu->clt_venc_sec[0]->chan);
 	}
 
 	mutex_unlock(&vcu->vcu_gce_mutex[i]);
@@ -1215,6 +1219,10 @@ static int vcu_gce_cmd_flush(struct mtk_vcu *vcu,
 			vcu->cbf.enc_prepare(vcu->gce_info[j].v4l2_ctx,
 				core_id, &vcu->flags[i]);
 		}
+		for (i = 0; i < vcu->gce_th_num[VCU_VENC]; i++)
+			cmdq_mbox_enable(vcu->clt_venc[i]->chan);
+
+		cmdq_sec_mbox_enable(vcu->clt_venc_sec[0]->chan);
 	}
 	vcu_dbg_log("vcu gce_info[%d].v4l2_ctx %p\n",
 		j, vcu->gce_info[j].v4l2_ctx);
