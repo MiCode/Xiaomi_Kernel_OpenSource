@@ -703,9 +703,12 @@ void vcp_enable_pm_clk(enum feature_id id)
 
 	mutex_lock(&vcp_pw_clk_mutex);
 	if (is_suspending) {
-		pr_notice("[VCP] %s return %d %d\n", __func__, pwclkcnt, is_suspending);
+		pr_notice("[VCP] %s blocked %d %d\n", __func__, pwclkcnt, is_suspending);
 		mutex_unlock(&vcp_pw_clk_mutex);
-		return;
+		while (is_suspending)
+			usleep_range(10000, 20000);
+		pr_notice("[VCP] %s exit %d %d\n", __func__, pwclkcnt, is_suspending);
+		mutex_lock(&vcp_pw_clk_mutex);
 	}
 
 	if (pwclkcnt == 0) {
@@ -747,9 +750,12 @@ void vcp_disable_pm_clk(enum feature_id id)
 
 	mutex_lock(&vcp_pw_clk_mutex);
 	if (is_suspending) {
-		pr_notice("[VCP] %s return %d %d\n", __func__, pwclkcnt, is_suspending);
+		pr_notice("[VCP] %s blocked %d %d\n", __func__, pwclkcnt, is_suspending);
 		mutex_unlock(&vcp_pw_clk_mutex);
-		return;
+		while (is_suspending)
+			usleep_range(10000, 20000);
+		pr_notice("[VCP] %s exit %d %d\n", __func__, pwclkcnt, is_suspending);
+		mutex_lock(&vcp_pw_clk_mutex);
 	}
 
 	pr_notice("[VCP] %s id %d entered %d ready %d\n", __func__, id,
@@ -849,6 +855,7 @@ static int vcp_pm_event(struct notifier_block *notifier
 			clk_disable_unprepare(vcp26m);
 		}
 		is_suspending = true;
+		mutex_unlock(&vcp_pw_clk_mutex);
 
 		// SMC call to TFA / DEVAPC
 		// arm_smccc_smc(MTK_SIP_KERNEL_VCP_CONTROL, MTK_TINYSYS_VCP_KERNEL_OP_XXX,
@@ -857,6 +864,7 @@ static int vcp_pm_event(struct notifier_block *notifier
 
 		return NOTIFY_OK;
 	case PM_POST_SUSPEND:
+		mutex_lock(&vcp_pw_clk_mutex);
 		pr_notice("[VCP] PM_POST_SUSPEND entered %d %d\n", pwclkcnt, is_suspending);
 		if (is_suspending && pwclkcnt) {
 			retval = clk_prepare_enable(vcp26m);
