@@ -126,7 +126,7 @@ static long fp_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		/* [11-15] is the length of data */
 		args_len = *((unsigned int *)(args + 12));
 
-		if (args_len + 16 > MICROTRUST_FP_SIZE) {
+		if (args_len > MICROTRUST_FP_SIZE - 16) {
 			IMSG_ERROR("args_len=%d is invalid!.\n", args_len);
 			up(&fp_api_lock);
 			return -EFAULT;

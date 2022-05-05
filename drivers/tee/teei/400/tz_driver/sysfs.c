@@ -177,7 +177,9 @@ static void str_to_uuid(struct TEEC_UUID *uuid, const char *buf)
 
 static inline void uuid_to_str(struct TEEC_UUID *uuid, char *buf)
 {
-	snprintf(buf, UUID_STRING_LENGTH,
+	int ret = 0;
+
+	ret = snprintf(buf, UUID_STRING_LENGTH,
 			"%08x%04x%04x%02x%02x%02x%02x%02x%02x%02x%02x",
 			uuid->timeLow, uuid->timeMid,
 			uuid->timeHiAndVersion,
@@ -185,6 +187,8 @@ static inline void uuid_to_str(struct TEEC_UUID *uuid, char *buf)
 			uuid->clockSeqAndNode[2], uuid->clockSeqAndNode[3],
 			uuid->clockSeqAndNode[4], uuid->clockSeqAndNode[5],
 			uuid->clockSeqAndNode[6], uuid->clockSeqAndNode[7]);
+	if (ret <= 0)
+		IMSG_ERROR("snprintf failed ret %d\n", ret);
 }
 
 static inline void print_uuid(struct TEEC_UUID *uuid)
@@ -637,7 +641,7 @@ static struct device_attribute *attr_list[] = {
 
 void remove_sysfs(struct platform_device *pdev)
 {
-	int i;
+	unsigned int i = 0;
 
 	if (is_context_init)
 		TEEC_FinalizeContext(&ut_drv_context);
@@ -649,7 +653,7 @@ void remove_sysfs(struct platform_device *pdev)
 int init_sysfs(struct platform_device *pdev)
 {
 	int res;
-	int i;
+	unsigned int i = 0;
 
 	for (i = 0; attr_list[i]; i++) {
 		res = device_create_file(&pdev->dev, attr_list[i]);

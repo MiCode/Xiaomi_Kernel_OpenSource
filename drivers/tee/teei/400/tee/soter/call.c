@@ -303,8 +303,8 @@ int soter_close_session(struct tee_context *ctx, u32 session)
 {
 	struct soter_context_data *ctxdata = ctx->data;
 	struct tee_shm *shm;
-	struct optee_msg_arg *msg_arg;
-	phys_addr_t msg_parg;
+	struct optee_msg_arg *msg_arg = NULL;
+	phys_addr_t msg_parg = 0;
 	struct soter_session *sess;
 
 	/* Check that the session is valid and remove it from the list */
@@ -336,8 +336,8 @@ int soter_invoke_func(struct tee_context *ctx, struct tee_ioctl_invoke_arg *arg,
 {
 	struct soter_context_data *ctxdata = ctx->data;
 	struct tee_shm *shm;
-	struct optee_msg_arg *msg_arg;
-	phys_addr_t msg_parg;
+	struct optee_msg_arg *msg_arg = NULL;
+	phys_addr_t msg_parg = 0;
 	struct soter_session *sess;
 	int rc;
 #if IS_ENABLED(CONFIG_MICROTRUST_TZDRIVER_DYNAMICAL_DEBUG)

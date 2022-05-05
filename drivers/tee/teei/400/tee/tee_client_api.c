@@ -129,9 +129,11 @@ TEEC_Result TEEC_InitializeContext(const char *name, struct TEEC_Context *ctx)
 		if (!IS_ERR_OR_NULL(fd)) {
 			ctx->fd = fd;
 			return TEEC_SUCCESS;
-		}
+		} else
+			ctx->fd = fd;
 	}
 
+	ctx->fd = NULL;
 	return TEEC_ERROR_ITEM_NOT_FOUND;
 }
 EXPORT_SYMBOL(TEEC_InitializeContext);

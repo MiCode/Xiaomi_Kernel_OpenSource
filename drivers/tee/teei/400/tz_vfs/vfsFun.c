@@ -142,7 +142,7 @@ static ssize_t tz_vfs_read(struct file *filp, char __user *buf,
 	if (buf == NULL)
 		return -EINVAL;
 
-	if ((size < 0) || (size > VFS_SIZE))
+	if (size > VFS_SIZE)
 		return -EINVAL;
 
 	/*IMSG_DEBUG("read begin cpu[%d]\n",cpu_id);*/
@@ -186,7 +186,7 @@ static ssize_t tz_vfs_write(struct file *filp, const char __user *buf,
 	if (daulOS_VFS_share_mem == NULL)
 		return -EINVAL;
 
-	if ((size < 0) || (size > VFS_SIZE))
+	if (size > VFS_SIZE)
 		return -EINVAL;
 
 	/*IMSG_DEBUG("write begin cpu_id[%d]\n",cpu_id);*/

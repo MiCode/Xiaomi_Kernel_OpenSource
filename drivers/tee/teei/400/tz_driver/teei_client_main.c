@@ -755,6 +755,11 @@ static long teei_config_ioctl(struct file *file,
 			long res;
 			int i;
 
+			if (arg == 0) {
+				IMSG_ERROR("arg is null\n");
+				return -EINVAL;
+			}
+
 			res = copy_from_user(&param, (void *)arg,
 					sizeof(struct init_param));
 			if (res) {
