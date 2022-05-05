@@ -17,5 +17,5 @@ obj-$(CONFIG_MTK_FPSGO) += user/
 obj-$(CONFIG_MTK_FPSGO_V3) += user/
 
 #ifeq ($(CONFIG_MTK_PERFMGR_TOUCH_BOOST),y)
-obj-$(CONFIG_MTK_PPM) += kernel/
+obj-$(CONFIG_MTK_PERFMGR_TOUCH_BOOST) += kernel/
 #endif # CONFIG_MTK_PERFMGR_TOUCH_BOOST
