@@ -816,6 +816,11 @@ int vcorefs_module_init(void)
  */
 void governor_autok_manager(void)
 {
+#ifdef CONFIG_MMC_MTK
+#if defined(CONFIG_MACH_MT6771)
+	return;
+#endif
+#else
 	int r;
 
 	/* notify MM DVFS for msdc autok start */
@@ -829,6 +834,7 @@ void governor_autok_manager(void)
 
 	r = sdio_autok();
 	vcorefs_crit("SDIO autok done: %s\n", (r == 0) ? "Yes" : "No");
+#endif
 }
 
 bool governor_autok_check(int kicker)
