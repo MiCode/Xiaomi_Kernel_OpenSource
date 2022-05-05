@@ -2771,6 +2771,10 @@ static irqreturn_t mt6789_afe_irq_handler(int irq_id, void *dev)
 	unsigned int mcu_en;
 	int ret;
 	int i;
+	struct timespec64 ts64;
+	unsigned long long t1, t2;
+	/* one interrupt period = 5ms */
+	unsigned long long timeout_limit = 5000000;
 
 	/* get irq that is sent to MCU */
 	regmap_read(afe->regmap, AFE_IRQ_MCU_EN, &mcu_en);
@@ -2786,6 +2790,9 @@ static irqreturn_t mt6789_afe_irq_handler(int irq_id, void *dev)
 		goto err_irq;
 	}
 
+	ktime_get_ts64(&ts64);
+	t1 = timespec64_to_ns(&ts64);
+
 	for (i = 0; i < MT6789_MEMIF_NUM; i++) {
 		struct mtk_base_afe_memif *memif = &afe->memif[i];
 
@@ -2799,6 +2806,16 @@ static irqreturn_t mt6789_afe_irq_handler(int irq_id, void *dev)
 
 		if (status_mcu & (1 << irq->irq_data->irq_en_shift))
 			snd_pcm_period_elapsed(memif->substream);
+	}
+
+	ktime_get_ts64(&ts64);
+	t2 = timespec64_to_ns(&ts64);
+	t2 = t2 - t1; /* in ns (10^9) */
+
+	if (t2 > timeout_limit) {
+		dev_warn(afe->dev, "%s(), mcu_en 0x%x, timeout %llu, limit %llu, ret %d\n",
+			 __func__, mcu_en,
+			 t2, timeout_limit, ret);
 	}
 
 err_irq:
