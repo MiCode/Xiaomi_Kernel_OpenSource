@@ -3052,7 +3052,7 @@ static void msm_geni_serial_shutdown(struct uart_port *uport)
 	struct msm_geni_serial_port *msm_port = GET_DEV_PORT(uport);
 	struct device *rx_dev = msm_port->wrapper_dev;
 	struct device *tx_dev = msm_port->wrapper_dev;
-	int ret, i, timeout;
+	int ret = 0, i, timeout;
 
 	UART_LOG_DBG(msm_port->ipc_log_misc, uport->dev, "%s: %d\n", __func__, true);
 	/* Stop the console before stopping the current tx */
