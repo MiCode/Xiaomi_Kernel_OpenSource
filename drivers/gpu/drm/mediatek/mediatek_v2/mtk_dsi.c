@@ -1414,13 +1414,14 @@ static void mtk_dsi_cmd_type1_hs(struct mtk_dsi *dsi)
 static void mtk_dsi_tx_buf_rw(struct mtk_dsi *dsi)
 {
 	u32 mmsys_clk = 208, ps_wc = 0;
-	u32 width, height, tmp, rw_times;
+	u32 width, height, tmp = 0, rw_times;
 	u32 preultra_hi, preultra_lo, ultra_hi, ultra_lo, urgent_hi, urgent_lo;
 	u32 fill_rate, sodi_hi, sodi_lo;
 	struct mtk_panel_ext *ext = mtk_dsi_get_panel_ext(&dsi->ddp_comp);
 	struct mtk_panel_dsc_params *dsc_params = &ext->params->dsc_params;
 	struct mtk_drm_crtc *mtk_crtc = dsi->ddp_comp.mtk_crtc;
 	u32 dsi_buf_bpp = mtk_get_dsi_buf_bpp(dsi);
+	u32 every_line = 1;
 
 	if (!dsi->is_slave) {
 		width = mtk_dsi_get_virtual_width(dsi, dsi->encoder.crtc);
@@ -1436,37 +1437,56 @@ static void mtk_dsi_tx_buf_rw(struct mtk_dsi *dsi)
 		ps_wc = (((dsc_params->chunk_size + 2) / 3) * 3);
 		if (dsc_params->slice_mode == 1)
 			ps_wc *= 2;
-		width = ps_wc / dsi_buf_bpp;
 	}
 
 	if (!ext->params->lp_perline_en &&
 		mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base)) {
-		if ((width * dsi_buf_bpp % 9) == 0)
-			rw_times = (width * dsi_buf_bpp / 9) * height;
-		else
-			rw_times = (width * dsi_buf_bpp / 9 + 1) * height;
+#ifndef CONFIG_FPGA_EARLY_PORTING
+		every_line = 0;
+#endif
+	}
 
+	if (every_line != 0 &&
+	    mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base)) {
+		if (dsc_params->enable != 0) {
+			if ((ps_wc % 9) == 0)
+				rw_times = (ps_wc / 9) * height;
+			else
+				rw_times = (ps_wc / 9 + 1) * height;
+		} else {
+			if ((width * dsi_buf_bpp % 9) == 0)
+				rw_times = (width * dsi_buf_bpp / 9) * height;
+			else
+				rw_times = (width * dsi_buf_bpp / 9 + 1) * height;
+		}
+	} else {
+		if (dsc_params->enable != 0) {
+			if ((ps_wc * height % 9) == 0)
+				rw_times = ps_wc * height / 9;
+			else
+				rw_times = ps_wc * height / 9 + 1;
+		} else {
+			if ((width * height * dsi_buf_bpp % 9) == 0)
+				rw_times = width * height * dsi_buf_bpp / 9;
+			else
+				rw_times = width * height * dsi_buf_bpp / 9 + 1;
+		}
+	}
+
+	if (mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base)) {
 		if (dsi->ext->params->is_cphy) {
 			tmp = 25 * dsi->data_rate * 2 * dsi->lanes / 7 / 18;
 		} else {
 			tmp = 25 * dsi->data_rate * dsi->lanes / 8 / 18;
 		}
-	} else {
-		if ((width * height * dsi_buf_bpp % 9) == 0)
-			rw_times = width * height * dsi_buf_bpp / 9;
-		else
-			rw_times = width * height * dsi_buf_bpp / 9 + 1;
-		tmp = 0;
 	}
 
 	DDPINFO(
-		"%s,mode=0x%x,tmp=0x%x,width=%d,height=%d,bpp:%u,rw_times=%d\n",
-		__func__, dsi->mode_flags, tmp,
-		width, height, dsi_buf_bpp, rw_times);
+		"%s,mode=0x%x,tmp=0x%x,ps=%d,width=%d,height=%d,bpp:%u,rw_times=%d,perline=%d\n",
+		__func__, dsi->mode_flags, tmp, ps_wc,
+		width, height, dsi_buf_bpp, rw_times,
+		ext->params->lp_perline_en);
 
-	/*mtk_dsi_mask(dsi, DSI_CON_CTRL, DSI_CM_MODE_WAIT_DATA_EVERY_LINE_EN,
-	 *		DSI_CM_MODE_WAIT_DATA_EVERY_LINE_EN);
-	 */
 	mtk_dsi_mask(dsi, DSI_BUF_CON1, 0x7fff, tmp);
 	mtk_dsi_mask(dsi, DSI_DEBUG_SEL, MM_RST_SEL, MM_RST_SEL);
 
