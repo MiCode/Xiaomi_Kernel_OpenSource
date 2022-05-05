@@ -5729,7 +5729,6 @@
 			vdec3_base = <0x18050000 26 0xffff0000>;
 			camsys_base = <0x18080000 27 0xffff0000>;
 			camsys1_base = <0x180a0000 28 0xffff0000>;
-			camsys2_base = <0x180b0000 29 0xffff0000>;
 			dip_cq_thread0_frame_done =
 				<CMDQ_EVENT_IMG2_EVENT_TX_FRAME_DONE_0>;
 			dip_cq_thread1_frame_done =
