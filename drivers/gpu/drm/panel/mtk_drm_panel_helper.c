@@ -618,11 +618,11 @@ int parse_lcm_ops_func(struct device_node *np,
 		return 0;
 	} else if ((unsigned int)len < sizeof(table_dts_buf)) {
 		table_dts_buf[len] = '\0';
-		DDPINFO("%s: start to parse:%s, dts_len:%u, phase:0x%x\n",
+		DDPINFO("%s: start to parse:%s, dts_len:%d, phase:0x%x\n",
 			__func__, func, len, phase);
 	} else {
 		table_dts_buf[sizeof(table_dts_buf) - 1] = '\0';
-		DDPMSG("%s: start to parse:%s, len:%u has out of size:%u\n",
+		DDPMSG("%s: start to parse:%s, len:%d has out of size:%lu\n",
 			__func__, func, len, sizeof(table_dts_buf));
 		len = sizeof(table_dts_buf);
 	}
@@ -1429,7 +1429,7 @@ static int mtk_lcm_create_operation_group(struct mtk_panel_para_table *group,
 		data = op->param.cb_id_data.buffer_data;
 		size = op->param.cb_id_data.data_count;
 		if (size > ARRAY_SIZE(group[id].para_list)) {
-			DDPPR_ERR("%s: invalid size:%u\n",
+			DDPPR_ERR("%s: invalid size:%lu\n",
 				__func__, size);
 			return -EINVAL;
 		}
@@ -1442,11 +1442,11 @@ static int mtk_lcm_create_operation_group(struct mtk_panel_para_table *group,
 		case MTK_LCM_CB_TYPE_RUNTIME_INPUT:
 		case MTK_LCM_CB_TYPE_RUNTIME_INPUT_MULTIPLE:
 			if (count == 0) {
-				DDPPR_ERR("%s:invalid func:%u of count:%u\n",
+				DDPPR_ERR("%s:invalid func:%u of count:%lu\n",
 					__func__, op->type, count);
 				break;
 			} else if (count != input_count) {
-				DDPMSG("%s, %d, invalid count:%u, expect:%u\n",
+				DDPMSG("%s, %d, invalid count:%lu, expect:%u\n",
 					__func__, __LINE__, count, input_count);
 				break;
 			} else if (IS_ERR_OR_NULL(input_data)) {
@@ -1500,9 +1500,9 @@ int mtk_panel_execute_callback(void *dsi, dcs_write_gce cb,
 	}
 
 	if (IS_ERR_OR_NULL(master))
-		snprintf(owner, MTK_LCM_NAME_LENGTH - 1, "unknown");
+		ret = snprintf(owner, MTK_LCM_NAME_LENGTH - 1, "unknown");
 	else
-		snprintf(owner, MTK_LCM_NAME_LENGTH - 1, master);
+		ret = snprintf(owner, MTK_LCM_NAME_LENGTH - 1, master);
 	if (ret < 0 || ret >= MTK_LCM_NAME_LENGTH)
 		DDPMSG("%s, failed at snprintf, %d", __func__, ret);
 	ret = 0;
@@ -1527,11 +1527,11 @@ int mtk_panel_execute_callback(void *dsi, dcs_write_gce cb,
 		case MTK_LCM_CB_TYPE_RUNTIME_INPUT:
 		case MTK_LCM_CB_TYPE_RUNTIME_INPUT_MULTIPLE:
 			if (count == 0) {
-				DDPPR_ERR("%s:invalid func:%u of count:%u\n",
+				DDPPR_ERR("%s:invalid func:%u of count:%lu\n",
 					__func__, op->type, count);
 				break;
 			} else if (count != input_count) {
-				DDPMSG("%s, %d, func:%s, invalid count:%u, expect:%u\n",
+				DDPMSG("%s, %d, func:%s, invalid count:%lu, expect:%u\n",
 					__func__, __LINE__, owner, count, input_count);
 				cb(dsi, handle, data, size);
 				break;
@@ -1545,13 +1545,17 @@ int mtk_panel_execute_callback(void *dsi, dcs_write_gce cb,
 			for (j = 0; j < count; j++) {
 				id = op->param.cb_id_data.id[j];
 				if (id >= size) {
-					DDPPR_ERR("%s: func:%s, invalid id:%u of table:%u\n",
+					DDPPR_ERR("%s: func:%s, invalid id:%u of table:%lu\n",
 						__func__, owner, id, size);
 					LCM_KFREE(mask, count);
 					ret = -EINVAL;
 					goto out;
 				}
 
+				if (!mask) {
+					ret = -EINVAL;
+					goto out;
+				}
 				mask[j] = data[id]; //backup backlight mask
 				data[id] &= input_data[j];
 #if MTK_LCM_DEBUG_DUMP

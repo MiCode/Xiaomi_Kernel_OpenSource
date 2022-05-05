@@ -752,6 +752,8 @@ static int mode_switch(struct drm_panel *panel,
 	int ret = 0;
 	struct drm_display_mode *m = get_mode_by_id(connector, dst_mode);
 
+	if (!m)
+		return -EFAULT;
 	if (cur_mode == dst_mode)
 		return ret;
 
