@@ -41,7 +41,7 @@ static int __fh_ctrl_cmd_hdlr(struct pll_dts *array,
 		if (strcmp(pll_name,
 					array->pll_name) == 0) {
 			hdlr = array->hdlr;
-			FHDBG("hdlr<%x>\n", hdlr);
+			FHDBG("hdlr<%lx>\n", (unsigned long)hdlr);
 			break;
 		}
 	}
@@ -51,7 +51,7 @@ static int __fh_ctrl_cmd_hdlr(struct pll_dts *array,
 		return -1;
 	}
 
-	FHDBG("perms<%x,%x,%x>\n",
+	FHDBG("perms<%x,%lx,%lx>\n",
 			array->perms, PERM_DBG_HOP, PERM_DBG_SSC);
 	switch (cmd) {
 	case FH_DBG_CMD_DVFS_API:
@@ -128,7 +128,7 @@ static ssize_t fh_ctrl_proc_write(struct file *file,
 	unsigned int cmd, arg;
 	struct pll_dts *array = file->f_inode->i_private;
 
-	FHDBG("array<%x>\n", array);
+	FHDBG("array<%lx>\n", (unsigned long)array);
 	len = min(count, (sizeof(kbuf) - 1));
 
 	FHDBG("count: %ld", count);
@@ -253,7 +253,7 @@ static int fh_dumpregs_read(struct seq_file *m, void *v)
 	struct pll_dts *array = m->private;
 	int num_pll = array->num_pll;
 
-	FHDBG("array<%x>\n", array);
+	FHDBG("array<%lx>\n", (unsigned long)array);
 	seq_puts(m, "FHCTL dumpregs Read\n");
 
 	for (i = 0; i < num_pll ; i++, array++) {
@@ -325,7 +325,7 @@ int fhctl_debugfs_init(struct pll_dts *array)
 	int i;
 	int num_pll = array->num_pll;
 
-	FHDBG("array<%x>\n", array);
+	FHDBG("array<%lx>\n", (unsigned long)array);
 
 	root = debugfs_create_dir("fhctl", NULL);
 	if (IS_ERR(root)) {

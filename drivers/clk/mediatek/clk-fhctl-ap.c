@@ -244,8 +244,8 @@ static int ap_init_v1(struct pll_dts *array, struct match *match)
 	struct fh_pll_data *data;
 	int mask = BIT(fh_id);
 
-	FHDBG("array<%x>,%s %s, id<%d>\n",
-			array,
+	FHDBG("array<%lx>,%s %s, id<%d>\n",
+			(unsigned long)array,
 			array->pll_name,
 			array->domain,
 			fh_id);

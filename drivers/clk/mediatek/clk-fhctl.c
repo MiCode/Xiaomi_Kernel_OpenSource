@@ -62,10 +62,10 @@ static bool _mtk_fh_set_rate(const char *pll_name, unsigned long dds, int postdi
 				dds, 9999);
 		return true;
 	}
-	FHDBG("pll_name<%s> fh_id<%d> hdlr<%x> perms<%x>",
+	FHDBG("pll_name<%s> fh_id<%d> hdlr<%lx> perms<%x>",
 			array->pll_name,
 			array->fh_id,
-			hdlr,
+			(unsigned long)hdlr,
 			array->perms);
 	return false;
 }
@@ -93,8 +93,8 @@ static struct pll_dts *parse_dt(struct platform_device *pdev)
 
 	size = sizeof(*array)*num_pll;
 	array = kzalloc(size, GFP_KERNEL);
-	FHDBG("array<%x>, num_pll<%d>, comp<%s>, sizeof(*array)=%d, size<%d>\n",
-			array, num_pll,
+	FHDBG("array<%lx>, num_pll<%d>, comp<%s>, sizeof(*array)=%d, size<%d>\n",
+			(unsigned long)array, num_pll,
 			match->compatible, sizeof(*array), size);
 	for_each_child_of_node(root, map) {
 		void __iomem *fhctl_base, *apmixed_base;
@@ -143,7 +143,8 @@ static struct pll_dts *parse_dt(struct platform_device *pdev)
 		}
 
 		FHDBG("domain<%s>, method<%s>\n", domain, method);
-		FHDBG("base<%lx,%lx>\n", fhctl_base, apmixed_base);
+		FHDBG("base<%lx,%lx>\n",
+				(unsigned long)fhctl_base, (unsigned long)apmixed_base);
 		FHDBG("num<%d>\n", num);
 		FHDBG("---------------------\n");
 	}

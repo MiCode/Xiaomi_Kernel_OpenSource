@@ -302,8 +302,8 @@ static int mcupm_init_v1(struct pll_dts *array, struct match *match)
 	struct hdlr_data_v1 *priv_data, *match_data;
 	struct fh_hdlr *hdlr;
 
-	FHDBG("array<%x>, %s\n",
-			array,
+	FHDBG("array<%lx>, %s\n",
+			(unsigned long)array,
 			array->pll_name);
 
 	if (!ipi_inited) {

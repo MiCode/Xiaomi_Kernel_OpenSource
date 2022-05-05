@@ -66,8 +66,11 @@ static int init_v1(struct fh_pll_domain *d,
 		regs->reg_con_pcw = REG_ADDR(apmixed_base,
 				offset->offset_con_pcw);
 
-		FHDBG("pll<%s>, dds_mask<%d>, data<%x> offset<%x> regs<%x>\n",
-				data->name, data->dds_mask, data, offset, regs);
+		FHDBG("pll<%s>, dds_mask<%d>, data<%lx> offset<%lx> regs<%lx>\n",
+				data->name, data->dds_mask,
+				(unsigned long)data,
+				(unsigned long)offset,
+				(unsigned long)regs);
 		data++;
 		offset++;
 		regs++;
