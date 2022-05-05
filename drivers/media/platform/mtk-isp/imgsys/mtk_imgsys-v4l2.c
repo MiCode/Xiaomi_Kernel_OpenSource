@@ -925,6 +925,11 @@ static int mtk_imgsys_vidioc_qbuf(struct file *file, void *priv,
 
 	//support dynamic change size&fmt for std mode flow
 	req = media_request_get_by_fd(&pipe->imgsys_dev->mdev, buf->request_fd);
+	if (IS_ERR(req)) {
+		dev_info(pipe->imgsys_dev->dev, "%s: invalid request_fd\n", __func__);
+		return PTR_ERR(req);
+	}
+
 	imgsys_req = mtk_imgsys_media_req_to_imgsys_req(req);
 	imgsys_req->tstate.time_qbuf = ktime_get_boottime_ns()/1000;
 	media_request_put(req);
