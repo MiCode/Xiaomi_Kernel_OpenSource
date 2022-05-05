@@ -90,7 +90,7 @@ static int mtk_spmi_debug_parse_dt(struct device *dev)
 {
 	struct device_node *node;
 	int err;
-	u32 reg[2];
+	u32 reg[2] = {0};
 
 	if (!dev || !dev->of_node)
 		return -ENODEV;
