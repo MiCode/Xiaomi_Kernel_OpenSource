@@ -1556,6 +1556,8 @@ void fpsgo_comp2fstb_queue_time_update(int pid, unsigned long long bufID,
 	if (iter->bufid == 0)
 		iter->bufid = bufID;
 
+	iter->hwui_flag = hwui_flag;
+
 	if (fstb_is_cam_active)
 		iter->sbe_state = 0;
 	else if (fstb_is_video_active)
