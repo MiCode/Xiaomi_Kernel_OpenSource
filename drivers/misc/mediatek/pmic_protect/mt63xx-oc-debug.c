@@ -164,11 +164,11 @@ static struct reg_oc_debug_t mt6366_reg_oc_debug[] = {
 	REG_OC_DEBUG(vsram_others),
 	REG_OC_DEBUG(vsram_gpu),
 	REG_OC_DEBUG(vdram2),
-	REG_OC_DEBUG(vmc),//
-	REG_OC_DEBUG(vmch),//
+	/*REG_OC_DEBUG(vmc),*/
+	/*REG_OC_DEBUG(vmch),*/
 	REG_OC_DEBUG(vemc),
-	REG_OC_DEBUG(vsim1),//
-	REG_OC_DEBUG(vsim2),//
+	/*REG_OC_DEBUG(vsim1),*/
+	/*REG_OC_DEBUG(vsim2),*/
 	REG_OC_DEBUG(vibr),
 	REG_OC_DEBUG(vusb),
 	REG_OC_DEBUG(vbif28),
