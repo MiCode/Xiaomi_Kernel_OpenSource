@@ -4014,8 +4014,7 @@ static long ISP_REF_CNT_CTRL_FUNC(unsigned long Param)
 	/*      */
 	if (copy_from_user(&ref_cnt_ctrl, (void __user *)Param,
 			   sizeof(struct ISP_REF_CNT_CTRL_STRUCT)) == 0) {
-		if ((ref_cnt_ctrl.id < 0) ||
-		    (ref_cnt_ctrl.id >= ISP_REF_CNT_ID_MAX)) {
+		if (ref_cnt_ctrl.id >= ISP_REF_CNT_ID_MAX) {
 			log_err("[rc] invalid ref_cnt_ctrl.id %d\n",
 				ref_cnt_ctrl.id);
 			return -EFAULT;
@@ -8666,8 +8665,7 @@ static signed int ISP_MARK_IRQ(struct ISP_WAIT_IRQ_STRUCT irqinfo)
 			irqinfo.UserInfo.UserKey, IRQ_USER_NUM_MAX);
 		return 0;
 	}
-	if ((irqinfo.UserInfo.Type >= ISP_IRQ_TYPE_AMOUNT) ||
-	    (irqinfo.UserInfo.Type < 0)) {
+	if (irqinfo.UserInfo.Type >= ISP_IRQ_TYPE_AMOUNT) {
 		log_err("invalid type(%d), max(%d)", irqinfo.UserInfo.Type,
 			ISP_IRQ_TYPE_AMOUNT);
 		return 0;
@@ -8756,8 +8754,7 @@ static signed int ISP_GET_MARKtoQEURY_TIME(struct ISP_WAIT_IRQ_STRUCT *irqinfo)
 		Ret = -EFAULT;
 		return Ret;
 	}
-	if ((irqinfo->UserInfo.Type >= ISP_IRQ_TYPE_AMOUNT) ||
-	    (irqinfo->UserInfo.Type < 0)) {
+	if (irqinfo->UserInfo.Type >= ISP_IRQ_TYPE_AMOUNT) {
 		log_err("invalid type(%d), max(%d)", irqinfo->UserInfo.Type,
 			ISP_IRQ_TYPE_AMOUNT);
 		Ret = -EFAULT;
@@ -8939,8 +8936,7 @@ static signed int ISP_FLUSH_IRQ_V3(struct ISP_WAIT_IRQ_STRUCT irqinfo)
 			irqinfo.UserInfo.UserKey, IRQ_USER_NUM_MAX);
 		return 0;
 	}
-	if ((irqinfo.UserInfo.Type >= ISP_IRQ_TYPE_AMOUNT) ||
-	    (irqinfo.UserInfo.Type < 0)) {
+	if (irqinfo.UserInfo.Type >= ISP_IRQ_TYPE_AMOUNT) {
 		log_err("invalid type(%d), max(%d)\n", irqinfo.UserInfo.Type,
 			ISP_IRQ_TYPE_AMOUNT);
 		return 0;
@@ -9275,8 +9271,7 @@ static signed int ISP_WaitIrq_v3(struct ISP_WAIT_IRQ_STRUCT *WaitIrq)
 			WaitIrq->UserInfo.UserKey, IRQ_USER_NUM_MAX);
 		return 0;
 	}
-	if ((WaitIrq->UserInfo.Type >= ISP_IRQ_TYPE_AMOUNT) ||
-	    (WaitIrq->UserInfo.Type < 0)) {
+	if (WaitIrq->UserInfo.Type >= ISP_IRQ_TYPE_AMOUNT) {
 		log_err("invalid type(%d), max(%d)\n", WaitIrq->UserInfo.Type,
 			ISP_IRQ_TYPE_AMOUNT);
 		return 0;
@@ -13930,7 +13925,7 @@ bool ISP_RegCallback(struct ISP_CALLBACK_STRUCT *pCallback)
 	}
 	/*      */
 	log_dbg("Type(%d)", pCallback->Type);
-	if ((pCallback->Type >= 0) && (pCallback->Type < ISP_CALLBACK_AMOUNT))
+	if (pCallback->Type < ISP_CALLBACK_AMOUNT)
 		IspInfo.Callback[pCallback->Type].Func = pCallback->Func;
 	/*      */
 	return MTRUE;
@@ -13949,7 +13944,7 @@ bool ISP_UnregCallback(enum ISP_CALLBACK_ENUM Type)
 	}
 	/*      */
 	log_dbg("Type(%d)", Type);
-	if ((Type >= 0) && (Type < ISP_CALLBACK_AMOUNT))
+	if (Type < ISP_CALLBACK_AMOUNT)
 		IspInfo.Callback[Type].Func = NULL;
 	/*      */
 	return MTRUE;
