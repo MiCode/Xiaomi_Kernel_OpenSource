@@ -206,6 +206,11 @@ EXPORT_SYMBOL_GPL(mt6855_afe_gpio_request);
 
 bool mt6855_afe_gpio_is_prepared(enum mt6855_afe_gpio type)
 {
+	if (type < 0 || type >= MT6855_AFE_GPIO_GPIO_NUM) {
+		pr_err("%s(), gpio type %d is invalid\n", __func__, type);
+		return false;
+	}
+
 	return aud_gpios[type].gpio_prepare;
 }
 EXPORT_SYMBOL(mt6855_afe_gpio_is_prepared);

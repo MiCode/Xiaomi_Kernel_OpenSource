@@ -134,7 +134,12 @@ int mt6855_dai_set_priv(struct mtk_base_afe *afe, int id,
 	if (priv_data)
 		memcpy(temp_data, priv_data, priv_size);
 
-	afe_priv->dai_priv[id] = temp_data;
+	if (id >= 0 && id < MT6855_DAI_NUM) {
+		afe_priv->dai_priv[id] = temp_data;
+	} else {
+		dev_err(afe->dev, "%s(), id=%d invalid!\n", __func__, id);
+		return -EINVAL;
+	}
 
 	return 0;
 }
@@ -225,8 +230,8 @@ EXPORT_SYMBOL(mt6855_adda_dl_gain_control);
 
 int mt6855_set_adda_predistortion(int hp_impedance)
 {
-	unsigned int read_predis_con0;
-	unsigned int read_predis_con1;
+	unsigned int read_predis_con0 = 0;
+	unsigned int read_predis_con1 = 0;
 
 	dev_info(local_afe->dev, "%s()++\n", __func__);
 

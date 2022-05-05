@@ -96,6 +96,11 @@ int mt6855_set_audio_int_bus_parent(struct mtk_base_afe *afe,
 	struct mt6855_afe_private *afe_priv = afe->platform_priv;
 	int ret;
 
+	if (clk_id < 0 || clk_id >= CLK_NUM) {
+		dev_err(afe->dev, "%s(), clk_id=%d invalid!", __func__, clk_id);
+		return -EINVAL;
+	}
+
 	ret = clk_set_parent(afe_priv->clk[CLK_MUX_AUDIOINTBUS],
 			     afe_priv->clk[clk_id]);
 	if (ret) {
@@ -663,9 +668,18 @@ int mt6855_mck_enable(struct mtk_base_afe *afe, int mck_id, int rate)
 	int apll = mt6855_get_apll_by_rate(afe, rate);
 	int apll_clk_id = apll == MT6855_APLL1 ?
 			  CLK_TOP_MUX_AUD_1 : CLK_TOP_MUX_AUD_2;
-	int m_sel_id = mck_div[mck_id].m_sel_id;
-	int div_clk_id = mck_div[mck_id].div_clk_id;
+	int m_sel_id = 0;
+	int div_clk_id = 0;
 	int ret;
+
+	if (mck_id >= 0 && mck_id < MT6855_MCK_NUM) {
+		m_sel_id = mck_div[mck_id].m_sel_id;
+		div_clk_id = mck_div[mck_id].div_clk_id;
+	} else {
+		dev_err(afe->dev, "%s, mck_id=%d invalid!\n",
+			__func__, mck_id);
+		return -EINVAL;
+	}
 
 	/* select apll */
 	if (m_sel_id >= 0) {
@@ -686,18 +700,24 @@ int mt6855_mck_enable(struct mtk_base_afe *afe, int mck_id, int rate)
 	}
 
 	/* enable div, set rate */
-	ret = clk_prepare_enable(afe_priv->clk[div_clk_id]);
-	if (ret) {
-		dev_err(afe->dev, "%s(), clk_prepare_enable %s fail %d\n",
-			__func__, aud_clks[div_clk_id], ret);
-		return ret;
-	}
-	ret = clk_set_rate(afe_priv->clk[div_clk_id], rate);
-	if (ret) {
-		dev_err(afe->dev, "%s(), clk_set_rate %s, rate %d, fail %d\n",
-			__func__, aud_clks[div_clk_id],
-			rate, ret);
-		return ret;
+	if (div_clk_id >= 0 && div_clk_id < CLK_NUM) {
+		ret = clk_prepare_enable(afe_priv->clk[div_clk_id]);
+		if (ret) {
+			dev_err(afe->dev, "%s(), clk_prepare_enable %s fail %d\n",
+				__func__, aud_clks[div_clk_id], ret);
+			return ret;
+		}
+		ret = clk_set_rate(afe_priv->clk[div_clk_id], rate);
+		if (ret) {
+			dev_err(afe->dev, "%s(), clk_set_rate %s, rate %d, fail %d\n",
+				__func__, aud_clks[div_clk_id],
+				rate, ret);
+			return ret;
+		}
+	} else {
+		dev_err(afe->dev, "%s, div_clk_id=%d invalid!\n",
+			__func__, div_clk_id);
+		return -EINVAL;
 	}
 	/* i2s5 not full support by ccf */
 	if (mck_id != MT6855_I2S5_MCK)
@@ -705,22 +725,28 @@ int mt6855_mck_enable(struct mtk_base_afe *afe, int mck_id, int rate)
 
 	/* enable div, set rate */
 	div_clk_id = mck_div[mck_id].div_msb_clk_id;
-	ret = clk_prepare_enable(afe_priv->clk[div_clk_id]);
-	if (ret) {
-		dev_err(afe->dev, "%s(), clk_prepare_enable %s fail %d\n",
-			__func__, aud_clks[div_clk_id], ret);
-		return ret;
+	if (div_clk_id >= 0 && div_clk_id < CLK_NUM) {
+		ret = clk_prepare_enable(afe_priv->clk[div_clk_id]);
+		if (ret) {
+			dev_err(afe->dev, "%s(), clk_prepare_enable %s fail %d\n",
+				__func__, aud_clks[div_clk_id], ret);
+			return ret;
+		}
+		ret = clk_set_rate(afe_priv->clk[div_clk_id], rate);
+		if (ret) {
+			dev_err(afe->dev, "%s(), clk_set_rate %s, rate %d, fail %d\n",
+				__func__, aud_clks[div_clk_id],
+				rate, ret);
+			return ret;
+		}
+		/* debug when migration */
+		dev_info(afe->dev, "%s, clk_prepare_enable & clk_set_rate %s, rate %d success\n",
+				__func__, aud_clks[div_clk_id], rate);
+	} else {
+		dev_err(afe->dev, "%s, div_clk_id=%d invalid!!\n",
+			__func__, div_clk_id);
+		return -EINVAL;
 	}
-	ret = clk_set_rate(afe_priv->clk[div_clk_id], rate);
-	if (ret) {
-		dev_err(afe->dev, "%s(), clk_set_rate %s, rate %d, fail %d\n",
-			__func__, aud_clks[div_clk_id],
-			rate, ret);
-		return ret;
-	}
-	/* debug when migration */
-	dev_info(afe->dev, "%s, clk_prepare_enable & clk_set_rate %s, rate %d success\n",
-		 __func__, aud_clks[div_clk_id], rate);
 
 	return 0;
 }
@@ -728,8 +754,17 @@ int mt6855_mck_enable(struct mtk_base_afe *afe, int mck_id, int rate)
 void mt6855_mck_disable(struct mtk_base_afe *afe, int mck_id)
 {
 	struct mt6855_afe_private *afe_priv = afe->platform_priv;
-	int m_sel_id = mck_div[mck_id].m_sel_id;
-	int div_clk_id = mck_div[mck_id].div_clk_id;
+	int m_sel_id = 0;
+	int div_clk_id = 0;
+
+	if (mck_id >= 0 && mck_id < MT6855_MCK_NUM) {
+		m_sel_id = mck_div[mck_id].m_sel_id;
+		div_clk_id = mck_div[mck_id].div_clk_id;
+	} else {
+		dev_err(afe->dev, "%s, mck_id=%d invalid!\n",
+			__func__, mck_id);
+		return;
+	}
 
 	clk_disable_unprepare(afe_priv->clk[div_clk_id]);
 	/* i2s5 */

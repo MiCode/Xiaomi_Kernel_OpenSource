@@ -3469,12 +3469,11 @@ static int mt6855_afe_component_probe(struct snd_soc_component *component)
 	mtk_afe_add_sub_dai_control(component);
 	mt6855_add_misc_control(component);
 
-	if (component) {
-		bin_attr_afe_dump.private = (void *)afe;
-		ret = snd_card_add_dev_attr(card, &afe_bin_attr_group);
-		if (ret)
-			pr_info("snd_card_add_dev_attr fail\n");
-	}
+	bin_attr_afe_dump.private = (void *)afe;
+	ret = snd_card_add_dev_attr(card, &afe_bin_attr_group);
+	if (ret)
+		pr_info("snd_card_add_dev_attr fail\n");
+
 	return 0;
 }
 
