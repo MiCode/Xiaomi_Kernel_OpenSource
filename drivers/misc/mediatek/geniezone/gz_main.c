@@ -944,6 +944,7 @@ static TZ_RESULT DMAFd2MemHandle(int buf_fd,
 	secure_handle = dmabuf_to_secure_handle(dbuf);
 	if (!secure_handle) {
 		KREE_ERR("dmabuf_to_secure_handle failed!\n");
+		dma_buf_put(dbuf);
 		*mem_handle = 0;
 		return TZ_RESULT_ERROR_GENERIC;
 	}
