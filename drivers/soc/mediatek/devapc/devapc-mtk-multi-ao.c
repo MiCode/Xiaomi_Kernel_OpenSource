@@ -1805,7 +1805,7 @@ int mtk_devapc_probe(struct platform_device *pdev,
 	mtk_devapc_ctx->devapc_infra_clk = devm_clk_get(&pdev->dev,
 			"devapc-infra-clock");
 	if (IS_ERR(mtk_devapc_ctx->devapc_infra_clk))
-		pr_info(PFX "(Infra) Cannot get devapc clock from CCF (%d)\n",
+		pr_info(PFX "(Infra) Cannot get devapc clock from CCF (%ld)\n",
 				PTR_ERR(mtk_devapc_ctx->devapc_infra_clk));
 
 	proc_create("devapc_dbg", 0664, NULL, &devapc_dbg_fops);
