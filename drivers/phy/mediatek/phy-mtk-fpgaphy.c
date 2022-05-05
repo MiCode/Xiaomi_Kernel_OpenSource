@@ -1113,7 +1113,7 @@ static void dbg_write_reg(struct fpga_phy_instance *instance, const char *buf)
 	u32 value = 0;
 	u32 old_val;
 	u32 new_val;
-	u32 param;
+	int param;
 
 	param = sscanf(buf, "%*s 0x%x 0x%x 0x%x", &i2c_addr, &addr, &value);
 
@@ -1141,7 +1141,7 @@ static void dbg_read_reg(struct fpga_phy_instance *instance, const char *buf)
 	u32 i2c_addr = 0;
 	u32 addr = 0;
 	u32 value = 0;
-	u32 param;
+	int param;
 
 	param = sscanf(buf, "%*s 0x%x 0x%x", &i2c_addr, &addr);
 	if (param >= 0) {
@@ -1161,7 +1161,7 @@ static void dbg_set_pclk(struct fpga_phy_instance *instance, const char *buf)
 {
 	struct device *dev = instance->dev;
 	int pclk;
-	u32 param;
+	int param;
 
 	param = sscanf(buf, "%*s 0x%x", &pclk);
 	if (param >= 0) {
