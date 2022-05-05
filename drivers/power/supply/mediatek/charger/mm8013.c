@@ -433,6 +433,7 @@ static int mm8013_probe(struct i2c_client *client,
 	if (!chip)
 		return -ENOMEM;
 
+	mutex_init(&chip->i2c_rw_lock);
 	chip->client = client;
 
 	i2c_set_clientdata(client, chip);
@@ -456,7 +457,6 @@ static int mm8013_probe(struct i2c_client *client,
 		break;
 	}
 
-	mutex_init(&chip->i2c_rw_lock);
 	_chip = chip;
 	INIT_DELAYED_WORK(&chip->battery_update_work, mm8013_battery_update_work);
 	schedule_delayed_work(&chip->battery_update_work, msecs_to_jiffies(5*1000));
