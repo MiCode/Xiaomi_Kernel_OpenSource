@@ -602,10 +602,12 @@ static void mtk_atomic_force_doze_switch(struct drm_device *dev,
 		/* blocking flush before stop trigger loop */
 		mtk_crtc_pkt_create(&handle, &mtk_crtc->base,
 			mtk_crtc->gce_obj.client[CLIENT_CFG]);
-		if (mtk_crtc_is_frame_trigger_mode(crtc))
+		if (mtk_crtc_is_frame_trigger_mode(crtc)) {
+			/* cmdq sleep 1ms */
+			cmdq_pkt_sleep(handle, 26000, CMDQ_GPR_R03);
 			cmdq_pkt_wait_no_clear(handle,
 				mtk_crtc->gce_obj.event[EVENT_STREAM_EOF]);
-		else
+		} else
 			cmdq_pkt_wait_no_clear(handle,
 				mtk_crtc->gce_obj.event[EVENT_VDO_EOF]);
 		cmdq_pkt_flush(handle);
