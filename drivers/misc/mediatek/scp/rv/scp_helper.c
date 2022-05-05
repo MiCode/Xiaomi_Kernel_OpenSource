@@ -28,6 +28,7 @@
 #include <linux/of_fdt.h>
 #include <linux/ioport.h>
 #include <linux/io.h>
+#include <linux/debugfs.h>
 //#include <mt-plat/sync_write.h>
 //#include <mt-plat/aee.h>
 #include <linux/delay.h>
@@ -63,6 +64,8 @@
 #define SCP_READY_TIMEOUT (3 * HZ) /* 30 seconds*/
 #define SCP_A_TIMER 0
 unsigned int debug_timeout_reset_flag;
+
+#define DEBUG_CMD_BUFFER_SZ  0x40000
 
 /* scp ipi message buffer */
 uint32_t msg_scp_ready0, msg_scp_ready1;
@@ -1163,6 +1166,57 @@ static struct miscdevice scp_device = {
 #endif
 };
 
+static ssize_t scp_debug_read(struct file *filp, char __user *buf,
+			      size_t count, loff_t *pos)
+{
+	char *buffer = NULL;
+	size_t n = 0, size = 0;
+
+	/* use logger memory (offset from end) */
+	buffer = (char *)scp_get_reserve_mem_virt(SCP_A_LOGGER_MEM_ID);
+	size = scp_get_reserve_mem_size(SCP_A_LOGGER_MEM_ID);
+
+	if (buffer && (size > DEBUG_CMD_BUFFER_SZ)) {
+		buffer = buffer + size - DEBUG_CMD_BUFFER_SZ;
+		n = strnlen(buffer, DEBUG_CMD_BUFFER_SZ);
+	}
+
+	return simple_read_from_buffer(buf, count, pos, buffer, n);
+}
+
+static ssize_t scp_debug_write(struct file *filp, const char __user *buffer,
+			       size_t count, loff_t *ppos)
+{
+	char *vaddr = NULL;
+	unsigned int data[2]; /* addr, size */
+	int offset;
+
+	/* use logger memory (offset from end) */
+	vaddr = (char *)scp_get_reserve_mem_virt(SCP_A_LOGGER_MEM_ID);
+	offset = scp_get_reserve_mem_size(SCP_A_LOGGER_MEM_ID) - DEBUG_CMD_BUFFER_SZ;
+
+	if (!vaddr || offset < 0)
+		return -EFAULT;
+
+	if (copy_from_user(vaddr + offset,
+			   buffer, min(count, (size_t)DEBUG_CMD_BUFFER_SZ)))
+		return -EFAULT;
+
+	data[0] = scp_get_reserve_mem_phys(SCP_A_LOGGER_MEM_ID) + offset;
+	data[1] = DEBUG_CMD_BUFFER_SZ;
+
+	if (scp_ready[SCP_A_ID])
+		mtk_ipi_send(&scp_ipidev, IPI_OUT_DEBUG_CMD, 0, data,
+			     PIN_OUT_SIZE_DEBUG_CMD, 0);
+
+	return count;
+}
+
+const struct file_operations scp_debug_ops = {
+	.open = simple_open,
+	.read = scp_debug_read,
+	.write = scp_debug_write,
+};
 
 /*
  * register /dev and /sys files
@@ -1274,6 +1328,10 @@ static int create_files(void)
 		return ret;
 #endif
 
+#if IS_ENABLED(CONFIG_DEBUG_FS)
+	debugfs_create_file("scp_dbg", S_IFREG | 0644, NULL,
+			    NULL, &scp_debug_ops);
+#endif
 	return 0;
 }
 

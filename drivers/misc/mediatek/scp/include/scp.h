@@ -44,6 +44,7 @@
 #define PIN_IN_SIZE_SENSOR_NOTIFY        7
 #define PIN_OUT_SIZE_SCP_CONNSYS         3
 #define PIN_OUT_SIZE_SCP_HWVOTER_DEBUG   2
+#define PIN_OUT_SIZE_DEBUG_CMD           2
 
 /* scp Core ID definition */
 enum scp_core_id {
@@ -92,6 +93,8 @@ enum {
 	IPI_IN_AUDIO_ACCDET_1     = 36,
 	IPI_OUT_SCP_AOD           = 37,
 	IPI_IN_SCP_AOD            = 38,
+	/* reserved 39, 40 for AOV */
+	IPI_OUT_DEBUG_CMD         = 41,
 	SCP_IPI_COUNT
 };
 
