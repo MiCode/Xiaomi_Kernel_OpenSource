@@ -5,6 +5,7 @@
 
 #define pr_fmt(fmt) "[clkdbg] " fmt
 
+#include <linux/device.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/of_platform.h>
@@ -35,11 +36,14 @@
 /* increase this number if encouter BRK issue in dump_genpd */
 #define MAX_DEV_NUM	512
 
+#define genpd_is_irq_safe(genpd)	(genpd->flags & GENPD_FLAG_IRQ_SAFE)
+
 void __attribute__((weak)) clkdbg_set_cfg(void)
 {
 }
 
 static const struct clkdbg_ops *clkdbg_ops;
+static unsigned int num_pds;
 
 void set_clkdbg_ops(const struct clkdbg_ops *ops)
 {
@@ -980,7 +984,6 @@ static int clkdbg_clr_flag(struct seq_file *s, void *v)
 static struct generic_pm_domain **get_all_genpd(void)
 {
 	static struct generic_pm_domain *pds[MAX_PD_NUM];
-	static unsigned int num_pds;
 	const size_t maxpd = ARRAY_SIZE(pds);
 	struct device_node *node;
 	struct platform_device *pdev;
@@ -1006,17 +1009,19 @@ static struct generic_pm_domain **get_all_genpd(void)
 		pa.args_count = 1;
 
 		r = of_genpd_add_device(&pa, &pdev->dev);
-		if (r == -EINVAL)
-			continue;
-		else if (r != 0)
+		if (r == -EINVAL) {
+			pds[num_pds] = NULL;
+			break;
+		} else if (r != 0)
 			pr_warn("%s(): of_genpd_add_device(%d)\n", __func__, r);
+
 		pds[num_pds] = pd_to_genpd(pdev->dev.pm_domain);
 		r = pm_genpd_remove_device(&pdev->dev);
 		if (r != 0)
 			pr_warn("%s(): pm_genpd_remove_device(%d)\n",
 					__func__, r);
 
-		if (IS_ERR(pds[num_pds])) {
+		if (IS_ERR_OR_NULL(pds[num_pds])) {
 			pds[num_pds] = NULL;
 			break;
 		}
@@ -1083,6 +1088,7 @@ static struct generic_pm_domain *genpd_from_name(const char *name)
 
 struct genpd_dev_state {
 	struct device *dev;
+	const char *dev_name;
 	bool active;
 	atomic_t usage_count;
 	unsigned int disable_depth;
@@ -1103,8 +1109,9 @@ static void save_all_genpd_state(struct genpd_state *genpd_states,
 	struct genpd_state *pdst = genpd_states;
 	struct genpd_dev_state *devst = genpd_dev_states;
 	struct generic_pm_domain **pds = get_all_genpd();
+	int i = 0;
 
-	for (; pds != NULL && *pds != NULL; pds++) {
+	for (i = 0; i < num_pds; i++, pds++) {
 		struct pm_domain_data *pdd;
 		struct generic_pm_domain *pd = *pds;
 
@@ -1119,6 +1126,7 @@ static void save_all_genpd_state(struct genpd_state *genpd_states,
 		list_for_each_entry(pdd, &pd->dev_list, list_node) {
 			struct device *d = pdd->dev;
 
+			devst->dev_name = dev_name(d);
 			devst->dev = d;
 			devst->active = pm_runtime_active(d);
 			devst->usage_count = d->power.usage_count;
@@ -1173,12 +1181,21 @@ static void show_genpd_state(struct genpd_state *pdst)
 			struct device *dev = devst->dev;
 			struct platform_device *pdev = to_platform_device(dev);
 
-			pr_info("\t%c (%-19s %3d, %d, %10s)\n",
-				devst->active ? '+' : '-',
-				pdev->name,
-				atomic_read(&dev->power.usage_count),
-				devst->disable_depth,
-				prm_status_name[devst->runtime_status]);
+			if (devst->dev_name)
+				pr_info("\t%c (%-80s %3d, %d, %10s)\n",
+					devst->active ? '+' : '-',
+					devst->dev_name != NULL ? devst->dev_name : "NULL",
+					atomic_read(&dev->power.usage_count),
+					devst->disable_depth,
+					prm_status_name[devst->runtime_status]);
+			else
+				pr_info("\t%c (%-19s %3d, %d, %10s)\n",
+					devst->active ? '+' : '-',
+					pdev->name ? pdev->name : "NULL",
+					atomic_read(&dev->power.usage_count),
+					devst->disable_depth,
+					prm_status_name[devst->runtime_status]);
+
 			mdelay(20);
 		}
 	}
@@ -1186,6 +1203,7 @@ static void show_genpd_state(struct genpd_state *pdst)
 
 static void dump_genpd_state(struct genpd_state *pdst, struct seq_file *s)
 {
+	int j;
 	static const char * const gpd_status_name[] = {
 		"ACTIVE",
 		"POWER_OFF",
@@ -1202,7 +1220,7 @@ static void dump_genpd_state(struct genpd_state *pdst, struct seq_file *s)
 	seq_puts(s, "\tdev_on (dev_name usage_count, disable, status)\n");
 	seq_puts(s, "------------------------------------------------------\n");
 
-	for (; pdst->pd != NULL; pdst++) {
+	for (j = 0; j < num_pds; j++, pdst++) {
 		int i;
 		struct generic_pm_domain *pd = pdst->pd;
 
@@ -1211,7 +1229,7 @@ static void dump_genpd_state(struct genpd_state *pdst, struct seq_file *s)
 			continue;
 		}
 
-		seq_printf(s, "%c [%-9s %11s]\n",
+		seq_printf(s, "%c [%-19s %11s]\n",
 			(pdst->status == GENPD_STATE_ON) ? '+' : '-',
 			pd->name, gpd_status_name[pdst->status]);
 
@@ -1220,14 +1238,24 @@ static void dump_genpd_state(struct genpd_state *pdst, struct seq_file *s)
 			struct device *dev = devst->dev;
 			struct platform_device *pdev = to_platform_device(dev);
 
-			seq_printf(s, "\t%c (%-19s %3d, %10s)\n",
-				devst->active ? '+' : '-',
-				pdev->name ? pdev->name : "NULL",
-				atomic_read(&dev->power.usage_count),
-				devst->disable_depth ? "unsupport" :
-				devst->runtime_error ? "error" :
-				(devst->runtime_status < ARRAY_SIZE(prm_status_name)) ?
-				prm_status_name[devst->runtime_status] : "UFO");
+			if (devst->dev_name)
+				seq_printf(s, "\t%c (%-80s %3d, %10s)\n",
+					devst->active ? '+' : '-',
+					devst->dev_name != NULL ? devst->dev_name : "NULL",
+					atomic_read(&dev->power.usage_count),
+					devst->disable_depth ? "unsupport" :
+					devst->runtime_error ? "error" :
+					(devst->runtime_status < ARRAY_SIZE(prm_status_name)) ?
+					prm_status_name[devst->runtime_status] : "UFO");
+			else
+				seq_printf(s, "\t%c (%-19s %3d, %10s)\n",
+					devst->active ? '+' : '-',
+					pdev->name ? pdev->name : "NULL",
+					atomic_read(&dev->power.usage_count),
+					devst->disable_depth ? "unsupport" :
+					devst->runtime_error ? "error" :
+					(devst->runtime_status < ARRAY_SIZE(prm_status_name)) ?
+					prm_status_name[devst->runtime_status] : "UFO");
 		}
 	}
 }
@@ -1672,8 +1700,6 @@ bool clkdbg_get_power_domain_status(struct device *dev)
 
 		if (IS_ERR_OR_NULL(pd))
 			continue;
-
-		pr_notice("clkdbg: %s\n", pd->name);
 
 		list_for_each_entry(pdd, &pd->dev_list, list_node) {
 			struct platform_device *pdev = to_platform_device(dev);
