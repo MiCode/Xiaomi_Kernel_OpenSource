@@ -1882,9 +1882,8 @@ void mtk_err_recover(struct musb *musb, u8 ep_num, u8 isRx, bool is_len_err)
 					, request->request.zero);
 				request->request.actual =
 					request->request.length;
-#if IS_ENABLED(CONFIG_MTK_MUSB_QMU_PURE_ZLP_SUPPORT)
-				if (request->request.length >= 0) {
-#else
+
+#ifndef CONFIG_MTK_MUSB_QMU_PURE_ZLP_SUPPORT
 				if (request->request.length > 0) {
 #endif
 					mtk_qmu_insert_task(request->epnum,
@@ -1902,12 +1901,13 @@ void mtk_err_recover(struct musb *musb, u8 ep_num, u8 isRx, bool is_len_err)
 					musb_tx_zlp_qmu(musb, request->epnum);
 					musb_g_giveback(musb_ep
 						, &(request->request), 0);
-#endif
+
 				} else {
 					QMU_ERR(
 						"ERR, TX, request->request.length(%d)\n"
 						, request->request.length);
 				}
+#endif
 			} else {
 				QMU_ERR("[RX] gpd=%p, epnum=%d, len=%d\n",
 					Rx_gpd_end[ep_num], ep_num,

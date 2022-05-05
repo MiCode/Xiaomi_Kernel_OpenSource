@@ -562,7 +562,8 @@ static ssize_t musb_speed_write(struct file *file,
 	if (copy_from_user(buf, ubuf, min_t(size_t, sizeof(buf) - 1, count)))
 		return -EFAULT;
 
-	if (kstrtouint(buf, 10, &val) == 0 && val >= 0 && val <= 1)
+	/* unsigned int is always >= 0, no need to compare*/
+	if (kstrtouint(buf, 10, &val) == 0 && val <= 1)
 		musb_speed = val;
 	else
 		return -EINVAL;
@@ -676,6 +677,7 @@ static ssize_t musb_mode_write(struct file *file, const char __user *ubuf,
 	struct musb *musb = sf->private;
 	char buf[16];
 
+	memset(buf, 0x00, sizeof(buf));
 	if (copy_from_user(&buf, ubuf, min_t(size_t, sizeof(buf) - 1, count)))
 		return -EFAULT;
 
@@ -731,6 +733,7 @@ static ssize_t musb_vbus_write(struct file *file, const char __user *ubuf,
 	char buf[16];
 	bool enable;
 
+	memset(buf, 0x00, sizeof(buf));
 	if (copy_from_user(&buf, ubuf, min_t(size_t, sizeof(buf) - 1, count)))
 		return -EFAULT;
 
