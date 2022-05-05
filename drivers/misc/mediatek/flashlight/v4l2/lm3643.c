@@ -10,10 +10,8 @@
 #include <linux/videodev2.h>
 #include <linux/pinctrl/consumer.h>
 #include <media/v4l2-subdev.h>
-// #include <lm3643.h>
 #include <media/v4l2-ctrls.h>
 #include <media/v4l2-device.h>
-#include <linux/pm_runtime.h>
 #include <linux/thermal.h>
 
 #if IS_ENABLED(CONFIG_MTK_FLASHLIGHT)
@@ -144,6 +142,8 @@ static struct lm3643_flash *lm3643_flash_data;
 
 #define to_lm3643_flash(_ctrl, _no)	\
 	container_of(_ctrl->handler, struct lm3643_flash, ctrls_led[_no])
+
+static int lm3643_set_driver(int set);
 
 /* define pinctrl */
 #define LM3643_PINCTRL_PIN_HWEN 0
@@ -591,15 +591,9 @@ static void lm3643_v4l2_i2c_subdev_init(struct v4l2_subdev *sd,
 
 static int lm3643_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 {
-	int ret;
-
 	pr_info("%s\n", __func__);
 
-	ret = pm_runtime_get_sync(sd->dev);
-	if (ret < 0) {
-		pm_runtime_put_noidle(sd->dev);
-		return ret;
-	}
+	lm3643_set_driver(1);
 
 	return 0;
 }
@@ -608,7 +602,7 @@ static int lm3643_close(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 {
 	pr_info("%s\n", __func__);
 
-	pm_runtime_put(sd->dev);
+	lm3643_set_driver(0);
 
 	return 0;
 }
@@ -972,8 +966,6 @@ static int lm3643_probe(struct i2c_client *client,
 	if (rval < 0)
 		return rval;
 
-	pm_runtime_enable(flash->dev);
-
 	rval = lm3643_parse_dt(flash);
 
 	i2c_set_clientdata(client, flash);
@@ -1006,24 +998,7 @@ static int lm3643_remove(struct i2c_client *client)
 		media_entity_cleanup(&flash->subdev_led[i].entity);
 	}
 
-	pm_runtime_disable(&client->dev);
-
-	pm_runtime_set_suspended(&client->dev);
 	return 0;
-}
-
-static int __maybe_unused lm3643_suspend(struct device *dev)
-{
-	pr_info("%s %d", __func__, __LINE__);
-
-	return lm3643_set_driver(0);
-}
-
-static int __maybe_unused lm3643_resume(struct device *dev)
-{
-	pr_info("%s %d", __func__, __LINE__);
-
-	return lm3643_set_driver(1);
 }
 
 static const struct i2c_device_id lm3643_id_table[] = {
@@ -1039,16 +1014,9 @@ static const struct of_device_id lm3643_of_table[] = {
 };
 MODULE_DEVICE_TABLE(of, lm3643_of_table);
 
-static const struct dev_pm_ops lm3643_pm_ops = {
-	SET_SYSTEM_SLEEP_PM_OPS(pm_runtime_force_suspend,
-				pm_runtime_force_resume)
-	SET_RUNTIME_PM_OPS(lm3643_suspend, lm3643_resume, NULL)
-};
-
 static struct i2c_driver lm3643_i2c_driver = {
 	.driver = {
 		   .name = LM3643_NAME,
-		   .pm = &lm3643_pm_ops,
 		   .of_match_table = lm3643_of_table,
 		   },
 	.probe = lm3643_probe,
