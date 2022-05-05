@@ -191,8 +191,12 @@ err_free_opp:
 static int dvfsrc_devfreq_remove(struct platform_device *pdev)
 {
 	struct dvfsrc_devfreq *dvfsrc = platform_get_drvdata(pdev);
+	int ret;
 
-	devfreq_remove_device(dvfsrc->devfreq);
+	ret = devfreq_remove_device(dvfsrc->devfreq);
+	if (!ret)
+		dev_info(&pdev->dev, "failed to remove devfreq device: %d\n", ret);
+
 	dev_pm_opp_remove_all_dynamic(&pdev->dev);
 
 	return 0;
