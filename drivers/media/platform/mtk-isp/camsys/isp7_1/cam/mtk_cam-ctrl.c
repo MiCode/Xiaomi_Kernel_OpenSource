@@ -1044,6 +1044,14 @@ static int mtk_camsys_exp_switch_cam_mux(struct mtk_raw_device *raw_dev,
 	if (type != EXPOSURE_CHANGE_NONE && config_exposure_num == 3) {
 		sv_main_id = get_main_sv_pipe_id(ctx->cam, ctx->pipe->enabled_raw);
 		sv_sub_id = get_sub_sv_pipe_id(ctx->cam, ctx->pipe->enabled_raw);
+		if (sv_main_id < 0 || sv_sub_id < 0) {
+			dev_info(ctx->cam->dev,
+				"[%s] abort switch Req:%d, type:%d enabled_raw:0x%x\n",
+				__func__, req_stream_data->frame_seq_no,
+				type, ctx->pipe->enabled_raw);
+			return 0;
+		}
+
 		switch (type) {
 		case EXPOSURE_CHANGE_3_to_2:
 		case EXPOSURE_CHANGE_1_to_2:
@@ -1126,6 +1134,13 @@ static int mtk_camsys_exp_switch_cam_mux(struct mtk_raw_device *raw_dev,
 		sv_last_id = get_last_sv_pipe_id(ctx->cam, ctx->pipe->enabled_raw);
 		raw_tg = PipeIDtoTGIDX(raw_dev->id);
 
+		if (sv_main_id < 0) {
+			dev_info(ctx->cam->dev,
+				"[%s] abort switch Req:%d, type:%d enabled_raw:0x%x\n",
+				__func__, req_stream_data->frame_seq_no,
+				type, ctx->pipe->enabled_raw);
+			return 0;
+		}
 		sv_main_tg = ctx->cam->sv.pipelines[
 			sv_main_id - MTKCAM_SUBDEV_CAMSV_START].cammux_id;
 
