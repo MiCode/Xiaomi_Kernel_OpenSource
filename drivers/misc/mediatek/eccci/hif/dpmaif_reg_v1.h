@@ -44,6 +44,12 @@ extern struct hif_dpmaif_ctrl *dpmaif_ctrl_v1;
 #define INFRA_TOPAXI_PROTECTEN_1      (0x250)
 #define DPMAIF_SLEEP_PROTECT_CTRL   (0x1<<4)
 #define INFRA_TOPAXI_PROTECT_READY_STA1_1 (0x258)
+
+#define INFRA_TOPAXI_PROTECTEN_1_SET_WA  (0xB84)
+#define INFRA_TOPAXI_PROTECTEN_1_CLR_WA  (0xB88)
+#define INFRA_TOPAXI_PROTECTEN_1_WA      (0xB80)
+#define DPMAIF_SLEEP_PROTECT_CTRL_WA   (0x1<<5)
+#define INFRA_TOPAXI_PROTECT_READY_STA1_1_WA (0xB90)
 #endif
 
 /***********************************************************************

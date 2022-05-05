@@ -37,6 +37,7 @@ struct ccci_dpmaif_platform_ops {
 
 
 extern unsigned int g_dpmaif_ver;
+extern unsigned int g_chip_info;
 extern struct ccci_dpmaif_platform_ops g_plt_ops;
 
 int ccci_dpmaif_init_clk(struct device *dev,

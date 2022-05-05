@@ -4339,20 +4339,12 @@ static int dpmaif_stop_tx_sw(unsigned char hif_id)
 	return 0;
 }
 
-void dpmaif_hw_reset(unsigned char md_id)
+void dpmaif_hw_reset_for_other(unsigned char md_id)
 {
 	unsigned int reg_value;
-#ifndef MT6297
 	int count = 0;
-#endif
 
 	/* pre- DPMAIF HW reset: bus-protect */
-#ifdef MT6297
-	reg_value = dpmaif_read32(infra_ao_mem_base, 0);
-	reg_value &= ~INFRA_PROT_DPMAIF_BIT;
-	dpmaif_write32((void *)infra_ao_mem_base, 0, reg_value);
-	CCCI_REPEAT_LOG(md_id, TAG, "%s:set prot:0x%x\n", __func__, reg_value);
-#else
 	dpmaif_write32((void *)infra_ao_base, INFRA_TOPAXI_PROTECTEN_1_SET,
 		DPMAIF_SLEEP_PROTECT_CTRL);
 
@@ -4367,52 +4359,106 @@ void dpmaif_hw_reset(unsigned char md_id)
 	reg_value = dpmaif_read32(infra_ao_base, INFRA_TOPAXI_PROTECTEN_1);
 	CCCI_NORMAL_LOG(md_id, TAG,
 		"infra_topaxi_protecten_1: 0x%x\n", reg_value);
-#endif
+
 	/* DPMAIF HW reset */
 	CCCI_DEBUG_LOG(md_id, TAG, "%s:rst dpmaif\n", __func__);
+
 	/* reset dpmaif hw: AO Domain */
-#ifdef MT6297
-	reg_value = DPMAIF_AO_RST_MASK;/* so only this bit effective */
-#else
 	reg_value = dpmaif_read32(infra_ao_base, INFRA_RST0_REG_AO);
 	reg_value &= ~(DPMAIF_AO_RST_MASK); /* the bits in reg is WO, */
 	reg_value |= (DPMAIF_AO_RST_MASK);/* so only this bit effective */
-#endif
+
 	dpmaif_write32((void *)infra_ao_base, INFRA_RST0_REG_AO, reg_value);
 	CCCI_BOOTUP_LOG(md_id, TAG, "%s:clear reset\n", __func__);
+
 	/* reset dpmaif clr */
-#ifndef MT6297
 	reg_value = dpmaif_read32(infra_ao_base, INFRA_RST1_REG_AO);
 	reg_value &= ~(DPMAIF_AO_RST_MASK);/* read no use, maybe a time delay */
 	reg_value |= (DPMAIF_AO_RST_MASK);
-#endif
+
 	dpmaif_write32((void *)infra_ao_base, INFRA_RST1_REG_AO, reg_value);
 	CCCI_BOOTUP_LOG(md_id, TAG, "%s:done\n", __func__);
 
 	/* reset dpmaif hw: PD Domain */
-#ifdef MT6297
-	reg_value = DPMAIF_PD_RST_MASK;
-#else
 	reg_value = dpmaif_read32(infra_ao_base, INFRA_RST0_REG_PD);
 	reg_value &= ~(DPMAIF_PD_RST_MASK);
 	reg_value |= (DPMAIF_PD_RST_MASK);
-#endif
+
 	dpmaif_write32((void *)infra_ao_base, INFRA_RST0_REG_PD, reg_value);
 	CCCI_BOOTUP_LOG(md_id, TAG, "%s:clear reset\n", __func__);
+
 	/* reset dpmaif clr */
-#ifndef MT6297
 	reg_value = dpmaif_read32(infra_ao_base, INFRA_RST1_REG_PD);
 	reg_value &= ~(DPMAIF_PD_RST_MASK);
 	reg_value |= (DPMAIF_PD_RST_MASK);
-#endif
+
 	dpmaif_write32((void *)infra_ao_base, INFRA_RST1_REG_PD, reg_value);
 	CCCI_DEBUG_LOG(md_id, TAG, "%s:done\n", __func__);
 
-#ifndef MT6297
 	/* post- DPMAIF HW reset: bus-protect */
 	dpmaif_write32((void *)infra_ao_base, INFRA_TOPAXI_PROTECTEN_1_CLR,
 		DPMAIF_SLEEP_PROTECT_CTRL);
-#endif
+}
+
+void dpmaif_hw_reset_for_6789(unsigned char md_id)
+{
+	unsigned int reg_value;
+	int count = 0;
+
+	/* pre- DPMAIF HW reset: bus-protect */
+	dpmaif_write32((void *)infra_ao_base, INFRA_TOPAXI_PROTECTEN_1_SET_WA,
+		DPMAIF_SLEEP_PROTECT_CTRL_WA);
+
+	while ((dpmaif_read32(infra_ao_base,
+		INFRA_TOPAXI_PROTECT_READY_STA1_1_WA)&(1<<4)) != (1 << 4)) {
+		udelay(1);
+		if (++count >= 1000) {
+			CCCI_ERROR_LOG(0, TAG, "DPMAIF pre-reset timeout\n");
+			break;
+		}
+	}
+	reg_value = dpmaif_read32(infra_ao_base, INFRA_TOPAXI_PROTECTEN_1_WA);
+	CCCI_NORMAL_LOG(md_id, TAG,
+		"infra_topaxi_protecten_1: 0x%x\n", reg_value);
+
+	/* DPMAIF HW reset */
+	CCCI_DEBUG_LOG(md_id, TAG, "%s:rst dpmaif\n", __func__);
+
+	/* reset dpmaif hw: AO Domain */
+	reg_value = dpmaif_read32(infra_ao_base, INFRA_RST0_REG_AO);
+	reg_value &= ~(DPMAIF_AO_RST_MASK); /* the bits in reg is WO, */
+	reg_value |= (DPMAIF_AO_RST_MASK);/* so only this bit effective */
+
+	dpmaif_write32((void *)infra_ao_base, INFRA_RST0_REG_AO, reg_value);
+	CCCI_BOOTUP_LOG(md_id, TAG, "%s:clear reset\n", __func__);
+
+	/* reset dpmaif clr */
+	reg_value = dpmaif_read32(infra_ao_base, INFRA_RST1_REG_AO);
+	reg_value &= ~(DPMAIF_AO_RST_MASK);/* read no use, maybe a time delay */
+	reg_value |= (DPMAIF_AO_RST_MASK);
+
+	dpmaif_write32((void *)infra_ao_base, INFRA_RST1_REG_AO, reg_value);
+	CCCI_BOOTUP_LOG(md_id, TAG, "%s:done\n", __func__);
+
+	/* reset dpmaif hw: PD Domain */
+	reg_value = dpmaif_read32(infra_ao_base, INFRA_RST0_REG_PD);
+	reg_value &= ~(DPMAIF_PD_RST_MASK);
+	reg_value |= (DPMAIF_PD_RST_MASK);
+
+	dpmaif_write32((void *)infra_ao_base, INFRA_RST0_REG_PD, reg_value);
+	CCCI_BOOTUP_LOG(md_id, TAG, "%s:clear reset\n", __func__);
+
+	/* reset dpmaif clr */
+	reg_value = dpmaif_read32(infra_ao_base, INFRA_RST1_REG_PD);
+	reg_value &= ~(DPMAIF_PD_RST_MASK);
+	reg_value |= (DPMAIF_PD_RST_MASK);
+
+	dpmaif_write32((void *)infra_ao_base, INFRA_RST1_REG_PD, reg_value);
+	CCCI_DEBUG_LOG(md_id, TAG, "%s:done\n", __func__);
+
+	/* post- DPMAIF HW reset: bus-protect */
+	dpmaif_write32((void *)infra_ao_base, INFRA_TOPAXI_PROTECTEN_1_CLR_WA,
+		DPMAIF_SLEEP_PROTECT_CTRL_WA);
 }
 
 static int dpmaif_stop(unsigned char hif_id)
@@ -4442,19 +4488,15 @@ static int dpmaif_stop(unsigned char hif_id)
 	if (dpmaif_ctrl->tx_sw_solution_enable)
 		dpmaif_smem_tx_stop();
 
-	#ifdef MT6297
-	/* todo: CG set */
-	ccci_set_clk_by_id(1, 0);
-	ccci_set_clk_by_id(2, 0);
+
 	/* 3. todo: reset IP */
-	dpmaif_hw_reset(dpmaif_ctrl->md_id);
-	#else
-	/* 3. todo: reset IP */
-	dpmaif_hw_reset(dpmaif_ctrl->md_id);
-	/* todo: CG set */
-	//ccci_set_clk_by_id(1, 0);
+	if (g_chip_info == 6789)
+		dpmaif_hw_reset_for_6789(dpmaif_ctrl->md_id);
+	else
+		dpmaif_hw_reset_for_other(dpmaif_ctrl->md_id);
+
 	ccci_dpmaif_set_clk(0, g_clk_tbs);
-	#endif
+
 #ifdef DPMAIF_DEBUG_LOG
 	CCCI_HISTORY_LOG(-1, TAG, "dpmaif:stop end\n");
 #endif
