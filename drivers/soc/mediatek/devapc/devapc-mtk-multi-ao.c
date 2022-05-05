@@ -1729,7 +1729,7 @@ int mtk_devapc_probe(struct platform_device *pdev,
 
 	for (slave_type = 0; slave_type < slave_type_num; slave_type++) {
 		query_devapc_subsys_status(slave_type);
-		pr_info(PFX "subsys_enabled[%d]:%d\n", slave_type,
+		pr_info(PFX "subsys_enabled[%d]:%lu\n", slave_type,
 			mtk_devapc_ctx->subsys_enabled[slave_type]);
 	}
 
