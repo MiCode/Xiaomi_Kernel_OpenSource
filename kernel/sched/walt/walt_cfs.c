@@ -327,8 +327,7 @@ static void walt_find_best_target(struct sched_domain *sd,
 			if (fbt_env->skip_cpu == i)
 				continue;
 
-			if (per_task_boost(cpu_rq(i)->curr) ==
-					TASK_BOOST_STRICT_MAX)
+			if (wrq->num_mvp_tasks > 0)
 				continue;
 
 			/*
@@ -1130,6 +1129,9 @@ static void walt_cfs_account_mvp_runtime(struct rq *rq, struct task_struct *curr
 		trace_walt_cfs_deactivate_mvp_task(curr, wts, limit);
 		return;
 	}
+
+	if (wrq->num_mvp_tasks == 1)
+		return;
 
 	/* slice expired. re-queue the task */
 	list_del(&wts->mvp_list);
