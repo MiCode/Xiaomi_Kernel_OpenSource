@@ -1832,7 +1832,7 @@ int rpmb_req_ioctl_write_data_emmc(struct mmc_card *card,
 	u32 wc = 0xFFFFFFFF;
 	u16 iCnt, total_blkcnt, tran_blkcnt, left_blkcnt;
 	u16 blkaddr;
-	u8 hmac[RPMB_SZ_MAC];
+	u8 hmac[RPMB_SZ_MAC] = {0};
 	u8 *dataBuf, *dataBuf_start;
 	int i, ret = 0;
 #ifdef RPMB_MULTI_BLOCK_ACCESS
