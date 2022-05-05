@@ -3625,7 +3625,7 @@ static const struct mtk_disp_color_data mt6879_color_driver_data = {
 	.support_color21 = true,
 	.support_color30 = false,
 	.reg_table = {0x14009000, 0x1400A000, 0x1400D000, 0x1400E000,
-			0x14010000, 0x0, 0x14007000, 0x14008000},
+			0x14010000, 0x1400B000, 0x14007000, 0x14008000},
 	.color_window = 0x40185E57,
 	.support_shadow = false,
 	.need_bypass_shadow = true,
