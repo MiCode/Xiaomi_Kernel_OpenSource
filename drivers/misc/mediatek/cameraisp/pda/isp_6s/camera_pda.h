@@ -486,6 +486,6 @@ int pda_devm_clk_get(struct platform_device *pdev);
 void pda_clk_prepare_enable(void);
 void pda_clk_disable_unprepare(void);
 void __iomem *pda_get_camsys_address(void);
-unsigned int GetResetBitMask(int PDA_Index);
+unsigned int GetResetBitMask(unsigned int PDA_Index);
 
 #endif/*__MTK_PDA_HW_H__*/

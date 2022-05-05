@@ -93,7 +93,7 @@ static spinlock_t g_PDA_SpinLock;
 wait_queue_head_t g_wait_queue_head;
 
 // PDA HW quantity
-static int g_PDA_quantity;
+static unsigned int g_PDA_quantity;
 
 #ifdef CHECK_IRQ_COUNT
 // Calculate reasonable irq counts
@@ -444,7 +444,7 @@ static void EnableClock(bool En)
 	}
 }
 
-static void pda_reset(int PDA_Index)
+static void pda_reset(unsigned int PDA_Index)
 {
 	unsigned long end = 0;
 
@@ -488,7 +488,7 @@ static void pda_reset(int PDA_Index)
 	LOG_INF("reset PDA%d hw timeout\n", PDA_Index);
 }
 
-static void pda_nontransaction_reset(int PDA_Index)
+static void pda_nontransaction_reset(unsigned int PDA_Index)
 {
 	unsigned int MRAW_reset_value = 0;
 	unsigned int Reset_Bitmask = 0;
@@ -575,7 +575,7 @@ static void pda_put_dma_buffer(struct pda_mmu *mmu)
 static int Get_Input_Addr_From_DMABUF(struct PDA_Data_t_v2 *pda_PdaConfig)
 {
 	int ret = 0;
-	int i = 0;
+	unsigned int i = 0;
 
 	// Left image buffer
 	ret = pda_get_dma_buffer(&g_image_mmu, pda_PdaConfig->FD_L_Image);
@@ -669,7 +669,7 @@ static int Get_Input_Addr_From_DMABUF(struct PDA_Data_t_v2 *pda_PdaConfig)
 static int Get_Output_Addr_From_DMABUF(struct PDA_Data_t_v2 *pda_PdaConfig)
 {
 	int ret = 0;
-	int i = 0;
+	unsigned int i = 0;
 
 	// Output buffer
 	ret = pda_get_dma_buffer(&g_output_mmu, pda_PdaConfig->FD_Output);
@@ -700,7 +700,7 @@ static int Get_Output_Addr_From_DMABUF(struct PDA_Data_t_v2 *pda_PdaConfig)
 
 static void HWDMASettings(struct PDA_Data_t_v2 *pda_PdaConfig)
 {
-	int i;
+	unsigned int i;
 
 	for (i = 0; i < g_PDA_quantity; i++) {
 		// --------- Frame setting part -----------
@@ -830,15 +830,15 @@ static int ProcessROIData(struct PDA_Data_t_v2 *pda_data,
 				unsigned int RoiProcNum,
 				unsigned int ROIIndex,
 				unsigned int isFixROI,
-				int p_index)
+				unsigned int p_index)
 {
-	int i = 0, j = 0;
+	unsigned int i = 0, j = 0;
 	unsigned int xnum = 0, ynum = 0;
 	unsigned int woverlap = 0, hoverlap = 0;
 	unsigned int x_p, y_p, w_p, h_p;
 	unsigned int nWidth = 0, nHeight = 0;
 	int nLocalBufIndex = 0;
-	int nXDirLoopCount = 0;
+	unsigned int nXDirLoopCount = 0;
 
 	if (isFixROI) {
 #ifdef FOR_DEBUG
@@ -968,7 +968,7 @@ static int CheckDesignLimitation(struct PDA_Data_t_v2 *PDA_Data,
 				unsigned int RoiProcNum,
 				unsigned int ROIIndex)
 {
-	int i = 0;
+	unsigned int i = 0;
 	int nROIIndex = 0;
 	int nTempVar = 0;
 
@@ -1082,14 +1082,14 @@ static int CheckDesignLimitation(struct PDA_Data_t_v2 *PDA_Data,
 
 		// ROI can't exceed the image region
 		nTempVar = PDA_Data->PDA_FrameSetting.PDA_CFG_0.Bits.PDA_WIDTH;
-		if (g_rgn_x_buf[i] < 0 || (g_rgn_x_buf[i]+g_rgn_w_buf[i]) > nTempVar) {
+		if ((g_rgn_x_buf[i]+g_rgn_w_buf[i]) > nTempVar) {
 			LOG_INF("ROI_%d ROI exceed the image region\n", nROIIndex);
 			PDA_Data->Status = -11;
 			return -1;
 		}
 
 		nTempVar = PDA_Data->PDA_FrameSetting.PDA_CFG_0.Bits.PDA_HEIGHT;
-		if (g_rgn_y_buf[i] < 0 || (g_rgn_y_buf[i]+g_rgn_h_buf[i]) > nTempVar) {
+		if ((g_rgn_y_buf[i]+g_rgn_h_buf[i]) > nTempVar) {
 			LOG_INF("ROI_%d ROI exceed the image region\n", nROIIndex);
 			PDA_Data->Status = -11;
 			return -1;
@@ -1187,11 +1187,11 @@ static int CheckDesignLimitation(struct PDA_Data_t_v2 *PDA_Data,
 static void FillRegSettings(struct PDA_Data_t_v2 *pda_PdaConfig,
 				unsigned int RoiProcNum,
 				unsigned long OuputAddr,
-				int PDA_Index)
+				unsigned int PDA_Index)
 {
-	int RegIndex = 14;
-	int ROI_MAX_INDEX = RoiProcNum-1;
-	int pair = 0;
+	unsigned int RegIndex = 14;
+	unsigned int ROI_MAX_INDEX = RoiProcNum-1;
+	unsigned int pair = 0;
 
 	// modify roi number register, change [11:6] bit to RoiProcNum
 	pda_PdaConfig->PDA_FrameSetting.PDA_CFG_2.Bits.PDA_RGN_NUM = RoiProcNum;
@@ -1230,7 +1230,7 @@ static void FillRegSettings(struct PDA_Data_t_v2 *pda_PdaConfig,
 #endif
 }
 
-static void LOGHWRegister(int i)
+static void LOGHWRegister(unsigned int i)
 {
 	LOG_INF("CFG_0/1/2/3/4/5/6: 0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x\n",
 		PDA_RD32(PDA_devs[i].m_pda_base + PDA_CFG_0_REG),
@@ -1348,10 +1348,10 @@ static void LOGHWRegister(int i)
 		PDA_RD32(PDA_devs[i].m_pda_base + PDA_PDAO_P1_BASE_ADDR_MSB_REG));
 }
 
-static void TF_dump_log(int hw_trigger_num)
+static void TF_dump_log(unsigned int hw_trigger_num)
 {
-	int i = 0;
-	int sel_index = 0;
+	unsigned int i = 0;
+	unsigned int sel_index = 0;
 
 	unsigned int Debug_Sel[] = {0x00008120, 0x0000400e, 0x0000c000,
 		0x11000000, 0x12000000, 0x13000000, 0x14000000, 0x15000000, 0x16000000,
@@ -1364,7 +1364,7 @@ static void TF_dump_log(int hw_trigger_num)
 		0x44000000, 0x44100000, 0x44200000, 0x44300000, 0x44400000, 0x44500000,
 		0x51000000, 0x52000000, 0x53000000, 0x54000000, 0x55000000,
 		0x54000000, 0x54100000, 0x54200000, 0x54300000, 0x54400000, 0x54500000};
-	int Length_Arr = sizeof(Debug_Sel)/sizeof(*Debug_Sel);
+	unsigned int Length_Arr = sizeof(Debug_Sel)/sizeof(*Debug_Sel);
 
 #ifdef SMI_LOG
 	// SMI log
@@ -1389,9 +1389,9 @@ static void TF_dump_log(int hw_trigger_num)
 	}
 }
 
-static void TimeoutHandler(int hw_trigger_num)
+static void TimeoutHandler(unsigned int hw_trigger_num)
 {
-	int i = 0;
+	unsigned int i = 0;
 
 	TF_dump_log(hw_trigger_num);
 
@@ -1406,7 +1406,7 @@ static void TimeoutHandler(int hw_trigger_num)
 int pda_tfault_callback(int port,
 	dma_addr_t mva, void *data)
 {
-	int i = 0;
+	unsigned int i = 0;
 
 	LOG_INF("User:PDA_PDAI_P1_BASE_ADDR: 0x%lx\n", g_Address_LI);
 	for (i = 0; i < g_PDA_quantity; i++) {
@@ -1462,22 +1462,22 @@ int pda_tfault_callback(int port,
 		g_pda_Pdadata.nNumerousROI);
 
 	LOG_INF("PDA_CFG_0/1/2/3/4/5/6: 0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x\n",
-		g_pda_Pdadata.PDA_FrameSetting.PDA_CFG_0,
-		g_pda_Pdadata.PDA_FrameSetting.PDA_CFG_1,
-		g_pda_Pdadata.PDA_FrameSetting.PDA_CFG_2,
-		g_pda_Pdadata.PDA_FrameSetting.PDA_CFG_3,
-		g_pda_Pdadata.PDA_FrameSetting.PDA_CFG_4,
-		g_pda_Pdadata.PDA_FrameSetting.PDA_CFG_5,
-		g_pda_Pdadata.PDA_FrameSetting.PDA_CFG_6);
+		g_pda_Pdadata.PDA_FrameSetting.PDA_CFG_0.Raw,
+		g_pda_Pdadata.PDA_FrameSetting.PDA_CFG_1.Raw,
+		g_pda_Pdadata.PDA_FrameSetting.PDA_CFG_2.Raw,
+		g_pda_Pdadata.PDA_FrameSetting.PDA_CFG_3.Raw,
+		g_pda_Pdadata.PDA_FrameSetting.PDA_CFG_4.Raw,
+		g_pda_Pdadata.PDA_FrameSetting.PDA_CFG_5.Raw,
+		g_pda_Pdadata.PDA_FrameSetting.PDA_CFG_6.Raw);
 
 	LOG_INF("PDA_CFG_7/8/9/10/11/12/13: 0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x\n",
-		g_pda_Pdadata.PDA_FrameSetting.PDA_CFG_7,
-		g_pda_Pdadata.PDA_FrameSetting.PDA_CFG_8,
-		g_pda_Pdadata.PDA_FrameSetting.PDA_CFG_9,
-		g_pda_Pdadata.PDA_FrameSetting.PDA_CFG_10,
-		g_pda_Pdadata.PDA_FrameSetting.PDA_CFG_11,
-		g_pda_Pdadata.PDA_FrameSetting.PDA_CFG_12,
-		g_pda_Pdadata.PDA_FrameSetting.PDA_CFG_13);
+		g_pda_Pdadata.PDA_FrameSetting.PDA_CFG_7.Raw,
+		g_pda_Pdadata.PDA_FrameSetting.PDA_CFG_8.Raw,
+		g_pda_Pdadata.PDA_FrameSetting.PDA_CFG_9.Raw,
+		g_pda_Pdadata.PDA_FrameSetting.PDA_CFG_10.Raw,
+		g_pda_Pdadata.PDA_FrameSetting.PDA_CFG_11.Raw,
+		g_pda_Pdadata.PDA_FrameSetting.PDA_CFG_12.Raw,
+		g_pda_Pdadata.PDA_FrameSetting.PDA_CFG_13.Raw);
 
 	for (i = 0; i < g_pda_Pdadata.ROInumber; ++i) {
 		LOG_INF("rgn_x/y/h/w/iw[%d]: 0x%x/0x%x/0x%x/0x%x/0x%x\n", i,
@@ -1495,9 +1495,9 @@ int pda_tfault_callback(int port,
 }
 #endif
 
-static void pda_execute(int hw_trigger_num)
+static void pda_execute(unsigned int hw_trigger_num)
 {
-	int i;
+	unsigned int i;
 
 #ifdef FOR_DEBUG
 	LOG_INF("+\n");
@@ -1532,9 +1532,9 @@ static void pda_execute(int hw_trigger_num)
 #endif
 }
 
-static int check_pda_status(int hw_trigger_num)
+static int check_pda_status(unsigned int hw_trigger_num)
 {
-	int i = 0;
+	unsigned int i = 0;
 
 	for (i = 0; i < hw_trigger_num; i++) {
 		if (PDA_devs[i].HWstatus == 0) {
@@ -1552,18 +1552,15 @@ static inline unsigned int pda_ms_to_jiffies(unsigned int ms)
 	return ((ms * HZ + 512) >> 10);
 }
 
-static signed int pda_wait_irq(struct PDA_Data_t_v2 *pda_data, int hw_trigger_num)
+static signed int pda_wait_irq(struct PDA_Data_t_v2 *pda_data, unsigned int hw_trigger_num)
 {
-	int ret = 0, i = 0;
+	int ret = 0;
+	unsigned int i = 0;
 
 	/* start to wait signal */
 	ret = wait_event_interruptible_timeout(g_wait_queue_head,
 						check_pda_status(hw_trigger_num),
 						pda_ms_to_jiffies(pda_data->Timeout));
-
-#ifdef GET_PDA_TIME
-	ktime_get_real_ts64(&time_end);
-#endif
 	if (ret == 0) {
 		TimeoutHandler(hw_trigger_num);
 
@@ -1580,6 +1577,10 @@ static signed int pda_wait_irq(struct PDA_Data_t_v2 *pda_data, int hw_trigger_nu
 		}
 		return -1;
 	}
+
+#ifdef GET_PDA_TIME
+	ktime_get_real_ts64(&time_end);
+#endif
 
 	// pda status
 	pda_data->Status = 1;
@@ -1685,15 +1686,15 @@ static irqreturn_t pda2_irqhandle(signed int Irq, void *DeviceId)
 static int PDAProcessFunction(unsigned int nUserROINumber,
 				unsigned int nROIcount,
 				unsigned int isFixROI,
-				int p_index)
+				unsigned int p_index)
 {
-	int i = 0;
+	unsigned int i = 0;
 	unsigned int nOneRoundProcROI = 0;
-	int hw_trigger_num = 0;
+	unsigned int hw_trigger_num = 0;
 	unsigned int nRemainder = 0, nFactor = 0;
 	unsigned int nCurrentProcRoiIndex = 0;
 	unsigned long nOutputAddr = 0;
-	long nirqRet = 0;
+	int nirqRet = 0;
 	unsigned int CheckAddress = 0, CheckAddressMSB = 0;
 
 	while (nROIcount > 0) {
@@ -1907,7 +1908,7 @@ static long PDA_Ioctl(struct file *a_pstFile,
 	long nRet = 0;
 	int nROIcount = 0;
 	unsigned int nUserROINumber = 0;
-	int i;
+	unsigned int i;
 	int ret = 0;
 	struct PDA_Init_Data Init_Data;
 
@@ -1997,7 +1998,7 @@ static long PDA_Ioctl(struct file *a_pstFile,
 				g_pda_Pdadata.xnum[0],
 				g_pda_Pdadata.OutputSize,
 				g_pda_Pdadata.FD_Output,
-				g_pda_Pdadata.PDA_FrameSetting.PDA_CFG_0,
+				g_pda_Pdadata.PDA_FrameSetting.PDA_CFG_0.Raw,
 				g_pda_Pdadata.Status,
 				g_pda_Pdadata.Timeout);
 			goto EXIT_WITHOUT_FREE_IOVA;
@@ -2065,6 +2066,13 @@ FIX_ROI:
 #ifdef FOR_DEBUG
 		LOG_INF("nNumerousROI:%d\n", g_pda_Pdadata.nNumerousROI);
 #endif
+
+		if (g_pda_Pdadata.nNumerousROI > FIXROIARRAYMAX) {
+			g_pda_Pdadata.Status = -28;
+			LOG_INF("ROI number out of range,nNumerousROI:%d\n",
+				g_pda_Pdadata.nNumerousROI);
+			goto EXIT;
+		}
 
 		for (i = 0; i < g_pda_Pdadata.nNumerousROI; ++i) {
 			nUserROINumber = g_pda_Pdadata.xnum[i]*g_pda_Pdadata.ynum[i];
@@ -2401,7 +2409,6 @@ static int PDA_probe(struct platform_device *pdev)
 	CAMSYS_CONFIG_BASE = of_iomap(camsys_node, 2);
 	if (!CAMSYS_CONFIG_BASE)
 		LOG_INF("base CAMSYS_CONFIG_BASE failed\n");
-	LOG_INF("of_iomap CAMSYS_CONFIG_BASE done (0x%x)\n", CAMSYS_CONFIG_BASE);
 #endif
 
 	// mraw node
@@ -2415,7 +2422,6 @@ static int PDA_probe(struct platform_device *pdev)
 	MRAW_BASE = of_iomap(mraw_node, 0);
 	if (!MRAW_BASE)
 		LOG_INF("base MRAW_BASE failed\n");
-	LOG_INF("of_iomap MRAW_BASE done (0x%x)\n", MRAW_BASE);
 
 	// ======================== here need to be modified =====================
 	if (PDA_devs[0].irq > 0) {

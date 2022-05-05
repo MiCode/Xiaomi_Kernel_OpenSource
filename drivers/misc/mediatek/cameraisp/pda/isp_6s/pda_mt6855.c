@@ -297,7 +297,7 @@ void __iomem *pda_get_camsys_address(void)
 	return of_iomap(camsys_node, 0);
 }
 
-unsigned int GetResetBitMask(int PDA_Index)
+unsigned int GetResetBitMask(unsigned int PDA_Index)
 {
 	unsigned int ret = 0;
 
