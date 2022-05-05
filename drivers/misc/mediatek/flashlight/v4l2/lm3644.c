@@ -245,7 +245,7 @@ static int lm3644_enable_ctrl(struct lm3644_flash *flash,
 {
 	int rval;
 
-	if (led_no < 0 || led_no > LM3644_LED_MAX) {
+	if (led_no < 0 || led_no >= LM3644_LED_MAX) {
 		pr_info("led_no error\n");
 		return -1;
 	}
@@ -282,7 +282,7 @@ static int lm3644_torch_brt_ctrl(struct lm3644_flash *flash,
 	int rval;
 	u8 br_bits;
 
-	if (led_no < 0 || led_no > LM3644_LED_MAX) {
+	if (led_no < 0 || led_no >= LM3644_LED_MAX) {
 		pr_info("led_no error\n");
 		return -1;
 	}
@@ -317,7 +317,7 @@ static int lm3644_flash_brt_ctrl(struct lm3644_flash *flash,
 	int rval;
 	u8 br_bits;
 
-	if (led_no < 0 || led_no > LM3644_LED_MAX) {
+	if (led_no < 0 || led_no >= LM3644_LED_MAX) {
 		pr_info("led_no error\n");
 		return -1;
 	}
@@ -552,6 +552,11 @@ static int lm3644_init_controls(struct lm3644_flash *flash,
 	if (hdl->error)
 		return hdl->error;
 
+	if (led_no < 0 || led_no >= LM3644_LED_MAX) {
+		pr_info("led_no error\n");
+		return -1;
+	}
+
 	flash->subdev_led[led_no].ctrl_handler = hdl;
 	return 0;
 }
@@ -627,7 +632,7 @@ static int lm3644_subdev_init(struct lm3644_flash *flash,
 	int rval;
 
 	// pr_info("%s %d", __func__, led_no);
-	if (led_no < 0 || led_no > LM3644_LED_MAX) {
+	if (led_no < 0 || led_no >= LM3644_LED_MAX) {
 		pr_info("led_no error\n");
 		return -1;
 	}
