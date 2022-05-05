@@ -37,6 +37,12 @@ ccflags-y  += -I$(MTK_TOP)/performance/fpsgo_v3_topology/fstb/
 else ifeq ($(CONFIG_MACH_MT6771),y)
 ccflags-y  += -I$(MTK_TOP)/performance/fpsgo_v3_topology/base/include/
 ccflags-y  += -I$(MTK_TOP)/performance/fpsgo_v3_topology/fstb/
+else ifeq ($(CONFIG_MACH_MT6785),y)
+ccflags-y  += -I$(MTK_TOP)/performance/fpsgo_v3_topology/base/include/
+ccflags-y  += -I$(MTK_TOP)/performance/fpsgo_v3_topology/fstb/
+else ifeq ($(CONFIG_MACH_MT6885),y)
+ccflags-y  += -I$(MTK_TOP)/performance/fpsgo_v3_topology/base/include/
+ccflags-y  += -I$(MTK_TOP)/performance/fpsgo_v3_topology/fstb/
 else
 ccflags-y  += -I$(MTK_TOP)/performance/fpsgo_v3/base/include/
 ccflags-y  += -I$(MTK_TOP)/performance/fpsgo_v3/fstb/

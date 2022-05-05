@@ -56,6 +56,9 @@ ccflags-y += \
 else ifeq ($(CONFIG_MACH_MT6771),y)
 ccflags-y += \
 		-DMTK_K14_DRM_BOOST
+else ifeq ($(CONFIG_MACH_MT6785),y)
+ccflags-y += \
+		-DMTK_K14_DRM_BOOST
 endif
 
 obj-y += dram_ctrl.o

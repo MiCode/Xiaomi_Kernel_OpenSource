@@ -54,6 +54,8 @@ else ifeq ($(CONFIG_MACH_MT6853),y)
 obj-$(CONFIG_MTK_FPSGO_V3) += fpsgo_v3_topology/
 else ifeq ($(CONFIG_MACH_MT6771),y)
 obj-$(CONFIG_MTK_FPSGO_V3) += fpsgo_v3_topology/
+else ifeq ($(CONFIG_MACH_MT6785),y)
+obj-$(CONFIG_MTK_FPSGO_V3) += fpsgo_v3_topology/
 else
 obj-$(CONFIG_MTK_FPSGO_V3) += fpsgo_v3/
 endif

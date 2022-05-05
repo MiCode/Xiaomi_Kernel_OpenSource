@@ -59,6 +59,9 @@ ccflags-y += \
 else ifeq ($(CONFIG_MACH_MT6771),y)
 ccflags-y += \
 		-DMTK_K14_CPU_BOOST
+else ifeq ($(CONFIG_MACH_MT6785),y)
+ccflags-y += \
+		-DMTK_K14_CPU_BOOST
 endif
 
 obj-$(CONFIG_MTK_CPU_CTRL_CFP) += cpu_ctrl_cfp.o
