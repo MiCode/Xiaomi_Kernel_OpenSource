@@ -2264,6 +2264,8 @@ _mtk_crtc_cwb_addon_module_connect(
 
 		if (addon_module->type == ADDON_AFTER &&
 		    addon_module->module == DISP_WDMA0) {
+			cwb_info->src_roi.width = crtc->state->adjusted_mode.hdisplay;
+			cwb_info->src_roi.height = crtc->state->adjusted_mode.vdisplay;
 			buf_idx = cwb_info->buf_idx;
 			addon_config.addon_wdma_config.wdma_src_roi =
 				cwb_info->src_roi;
