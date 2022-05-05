@@ -1169,18 +1169,15 @@ void mtk_cam_qos_bw_reset(struct mtk_cam_ctx *ctx, unsigned int enabled_sv)
 			mtk_icc_set_bw(dvfs_info->qos_req[qos_port_id], 0, 0);
 	}
 
-	if (mtk_cam_is_stagger(ctx) || mtk_cam_is_time_shared(ctx)
-		|| mtk_cam_is_with_w_channel(ctx)) {
-		for (i = MTKCAM_SUBDEV_CAMSV_START ; i < MTKCAM_SUBDEV_CAMSV_END ; i++) {
-			if (enabled_sv & (1 << i)) {
-				qos_port_id =
-					((i - MTKCAM_SUBDEV_CAMSV_START) * sv_qos_port_num) +
-					sv_imgo;
-				dvfs_info->sv_qos_bw_avg[qos_port_id] = 0;
-				dvfs_info->sv_qos_bw_peak[qos_port_id] = 0;
-				if (dvfs_info->sv_qos_req[qos_port_id])
-					mtk_icc_set_bw(dvfs_info->sv_qos_req[qos_port_id], 0, 0);
-			}
+	for (i = MTKCAM_SUBDEV_CAMSV_START ; i < MTKCAM_SUBDEV_CAMSV_END ; i++) {
+		if (enabled_sv & (1 << i)) {
+			qos_port_id =
+				((i - MTKCAM_SUBDEV_CAMSV_START) * sv_qos_port_num) +
+				sv_imgo;
+			dvfs_info->sv_qos_bw_avg[qos_port_id] = 0;
+			dvfs_info->sv_qos_bw_peak[qos_port_id] = 0;
+			if (dvfs_info->sv_qos_req[qos_port_id])
+				mtk_icc_set_bw(dvfs_info->sv_qos_req[qos_port_id], 0, 0);
 		}
 	}
 
