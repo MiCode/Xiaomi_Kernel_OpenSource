@@ -226,6 +226,11 @@ static int index_to_shadow_handle(int index)
 extern unsigned long hyp_nr_cpus;
 
 /*
+ * Track the vcpu most recently loaded on each physical CPU.
+ */
+static DEFINE_PER_CPU(struct kvm_vcpu *, last_loaded_vcpu);
+
+/*
  * Spinlock for protecting the shadow table related state.
  * Protects writes to shadow_table, num_shadow_entries, and next_shadow_alloc,
  * as well as reads and writes to last_shadow_vcpu_lookup.
@@ -267,6 +272,7 @@ struct kvm_vcpu *get_shadow_vcpu(int shadow_handle, unsigned int vcpu_idx)
 {
 	struct kvm_vcpu *vcpu = NULL;
 	struct kvm_shadow_vm *vm;
+	bool flush_context = false;
 
 	hyp_spin_lock(&shadow_lock);
 	vm = find_shadow_by_handle(shadow_handle);
@@ -279,11 +285,27 @@ struct kvm_vcpu *get_shadow_vcpu(int shadow_handle, unsigned int vcpu_idx)
 		vcpu = NULL;
 		goto unlock;
 	}
+
+	/*
+	 * Guarantee that both TLBs and I-cache are private to each vcpu.
+	 * The check below is conservative and could lead to over-invalidation,
+	 * because there is no need to nuke the contexts if the vcpu belongs to
+	 * a different vm.
+	 */
+	if (vcpu != __this_cpu_read(last_loaded_vcpu)) {
+		flush_context = true;
+		__this_cpu_write(last_loaded_vcpu, vcpu);
+	}
+
 	vcpu->arch.pkvm.loaded_on_cpu = true;
 
 	hyp_page_ref_inc(hyp_virt_to_page(vm));
 unlock:
 	hyp_spin_unlock(&shadow_lock);
+
+	/* No need for the lock while flushing the context. */
+	if (flush_context)
+		__kvm_flush_cpu_context(vcpu->arch.hw_mmu);
 
 	return vcpu;
 }
@@ -695,6 +717,7 @@ int __pkvm_teardown_shadow(int shadow_handle)
 	u64 pfn;
 	u64 nr_pages;
 	void *addr;
+	int i;
 
 	/* Lookup then remove entry from the shadow table. */
 	hyp_spin_lock(&shadow_lock);
@@ -707,6 +730,19 @@ int __pkvm_teardown_shadow(int shadow_handle)
 	if (WARN_ON(hyp_page_count(vm))) {
 		err = -EBUSY;
 		goto err_unlock;
+	}
+
+	/*
+	 * Clear the tracking for last_loaded_vcpu for all cpus for this vm in
+	 * case the same addresses for those vcpus are reused for future vms.
+	 */
+	for (i = 0; i < hyp_nr_cpus; i++) {
+		struct kvm_vcpu **last_loaded_vcpu_ptr =
+			per_cpu_ptr(&last_loaded_vcpu, i);
+		struct kvm_vcpu *vcpu = *last_loaded_vcpu_ptr;
+
+		if (vcpu && vcpu->arch.pkvm.shadow_vm == vm)
+			*last_loaded_vcpu_ptr = NULL;
 	}
 
 	/* Ensure the VMID is clean before it can be reallocated */
