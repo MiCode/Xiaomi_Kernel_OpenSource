@@ -46,7 +46,8 @@ static int gpueb_ipi_table_init(struct platform_device *pdev)
 		send_item_num = 3,
 		recv_item_num = 4
 	};
-	u32 i, ret, mbox_id, recv_opt, pin_name_size, cnt_elems;
+	int ret;
+	u32 i, mbox_id, recv_opt, pin_name_size, cnt_elems;
 
 	// Get MBOX num
 	of_property_read_u32(pdev->dev.of_node, "mbox_count",
