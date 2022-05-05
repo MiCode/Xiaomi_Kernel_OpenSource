@@ -399,11 +399,15 @@ static void cat_register(char *buf)
 		RG_SCK32K_CK_PDN_ADDR,
 		accdet_read(RG_SCK32K_CK_PDN_ADDR));
 	strncat(buf, accdet_log_buf, strlen(accdet_log_buf));
+	if (ret < 0)
+		pr_notice("sprintf failed\n");
 
 	ret = sprintf(accdet_log_buf, "[0x%x]=0x%x\n",
 		RG_ACCDET_RST_ADDR,
 		accdet_read(RG_ACCDET_RST_ADDR));
 	strncat(buf, accdet_log_buf, strlen(accdet_log_buf));
+	if (ret < 0)
+		pr_notice("sprintf failed\n");
 
 	ret = sprintf(accdet_log_buf, "[0x%x]=0x%x, [0x%x]=0x%x, [0x%x]=0x%x\n",
 		RG_INT_EN_ACCDET_ADDR,
@@ -413,6 +417,8 @@ static void cat_register(char *buf)
 		RG_INT_STATUS_ACCDET_ADDR,
 		accdet_read(RG_INT_STATUS_ACCDET_ADDR));
 	strncat(buf, accdet_log_buf, strlen(accdet_log_buf));
+	if (ret < 0)
+		pr_notice("sprintf failed\n");
 
 	ret = sprintf(accdet_log_buf, "[0x%x]=0x%x,[0x%x]=0x%x\n",
 		RG_AUDPWDBMICBIAS1_ADDR,
@@ -420,6 +426,8 @@ static void cat_register(char *buf)
 		RG_AUDACCDETMICBIAS0PULLLOW_ADDR,
 		accdet_read(RG_AUDACCDETMICBIAS0PULLLOW_ADDR));
 	strncat(buf, accdet_log_buf, strlen(accdet_log_buf));
+	if (ret < 0)
+		pr_notice("sprintf failed\n");
 
 	ret = sprintf(accdet_log_buf, "[0x%x]=0x%x, [0x%x]=0x%x\n",
 		AUXADC_RQST_CH5_ADDR,
@@ -427,6 +435,8 @@ static void cat_register(char *buf)
 		AUXADC_ACCDET_AUTO_SPL_ADDR,
 		accdet_read(AUXADC_ACCDET_AUTO_SPL_ADDR));
 	strncat(buf, accdet_log_buf, strlen(accdet_log_buf));
+	if (ret < 0)
+		pr_notice("sprintf failed\n");
 
 	ret = sprintf(accdet_log_buf,
 		"dtsInfo:deb0=0x%x,deb1=0x%x,deb3=0x%x,deb4=0x%x\n",
@@ -497,7 +507,7 @@ static ssize_t set_reg_store(struct device_driver *ddri,
 
 	pr_info("%s() set addr[0x%x]=0x%x\n", __func__, addr_tmp, value_tmp);
 
-	if (addr_tmp < TOP0_ANA_ID_ADDR)
+	if (addr_tmp > ACCDET_MON_FLAG_EN_ADDR)
 		pr_notice("%s() Illegal addr[0x%x]!!\n", __func__, addr_tmp);
 	else
 		accdet_write(addr_tmp, value_tmp);

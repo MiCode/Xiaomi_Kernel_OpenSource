@@ -503,7 +503,7 @@ static ssize_t set_reg_store(struct device_driver *ddri,
 
 	pr_info("%s() set addr[0x%x]=0x%x\n", __func__, addr_tmp, value_tmp);
 
-	if (addr_tmp < AUD_TOP_ANA_ID_ADDR)
+	if (addr_tmp > ACCDET_MON_FLAG_EN_ADDR)
 		pr_notice("%s() Illegal addr[0x%x]!!\n", __func__, addr_tmp);
 	else
 		accdet_write(addr_tmp, value_tmp);
