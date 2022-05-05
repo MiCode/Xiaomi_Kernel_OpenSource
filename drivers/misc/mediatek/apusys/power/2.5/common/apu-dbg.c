@@ -55,7 +55,7 @@ static const enum DVFS_USER _apupw_dbg_id2user(int dbg_id)
 	};
 
 	if (dbg_id < 0 || dbg_id >= ARRAY_SIZE(ids)) {
-		pr_info("[%s] not support device id: %d\n", dbg_id);
+		pr_info("Not support device id: %d\n", dbg_id);
 		return -EINVAL;
 	}
 	return ids[dbg_id];
