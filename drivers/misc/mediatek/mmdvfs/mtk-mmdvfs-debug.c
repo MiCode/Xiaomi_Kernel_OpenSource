@@ -31,7 +31,7 @@ static int mmdvfs_debug_probe(struct platform_device *pdev)
 	if (!reg) {
 		reg = devm_regulator_get(dev, "dvfsrc-vcore");
 		if (IS_ERR(reg)) {
-			pr_notice("%s: get regulator fail(%l)\n",
+			pr_notice("%s: get regulator fail(%ld)\n",
 				__func__, PTR_ERR(reg));
 			return PTR_ERR(reg);
 		}
