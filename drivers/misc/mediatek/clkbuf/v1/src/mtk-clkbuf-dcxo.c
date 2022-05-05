@@ -1407,7 +1407,6 @@ static int clkbuf_dcxo_dts_init_xo(struct device_node *node)
 		dcxo->xo_bufs[i].support = tmp;
 
 		/* get xo name */
-		dcxo->xo_bufs[i].xo_name = vmalloc(XO_NAME_LEN);
 		ret = of_property_read_string_index(node, CLKBUF_XO_NAME_PROP,
 				i, &dcxo->xo_bufs[i].xo_name);
 		if (ret) {
