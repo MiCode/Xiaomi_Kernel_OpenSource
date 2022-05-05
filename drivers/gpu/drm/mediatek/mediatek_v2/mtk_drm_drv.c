@@ -137,6 +137,15 @@ EXPORT_SYMBOL(mtk_drm_disp_sec_cb_init);
 struct mtk_drm_disp_mtee_cb disp_mtee_cb;
 EXPORT_SYMBOL(disp_mtee_cb);
 
+void mtk_drm_svp_init(struct drm_device *dev)
+{
+	if (IS_ERR_OR_NULL(dev))
+		DDPMSG("%s, disp debug init with invalid dev\n", __func__);
+	else
+		DDPMSG("%s, disp debug init\n", __func__);
+	disp_mtee_cb.dev = dev;
+}
+
 void **mtk_drm_disp_mtee_cb_init(void)
 {
 	DDPMSG("%s+\n", __func__);
@@ -4592,6 +4601,8 @@ static int mtk_drm_kms_init(struct drm_device *drm)
 	mtk_drm_debugfs_init(drm, private);
 #endif
 	disp_dbg_init(drm);
+	mtk_drm_svp_init(drm);
+
 	PanelMaster_Init(drm);
 	if (mtk_drm_helper_get_opt(private->helper_opt,
 			MTK_DRM_OPT_MMDVFS_SUPPORT))

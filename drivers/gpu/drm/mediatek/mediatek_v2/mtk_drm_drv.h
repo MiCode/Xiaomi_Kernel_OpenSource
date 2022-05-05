@@ -229,6 +229,7 @@ struct mtk_drm_disp_sec_cb {
 };
 
 struct mtk_drm_disp_mtee_cb {
+	struct drm_device *dev;
 	int (*cb)(int value, int fd, struct mtk_drm_gem_obj *mtk_gem_obj,
 	struct cmdq_pkt *handle, struct mtk_ddp_comp *comp, u32 crtc_id,
 	u32 regs_addr, u32 lye_addr, u32 offset, u32 size);

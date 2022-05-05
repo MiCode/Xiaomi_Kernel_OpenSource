@@ -9749,11 +9749,6 @@ static void mtk_crtc_init_gce_obj(struct drm_device *drm_dev,
 		}
 		mtk_crtc->gce_obj.client[i] =
 			cmdq_mbox_create(dev, index);
-
-		if (i != CLIENT_SEC_CFG)
-			continue;
-		if (drm_crtc_index(&mtk_crtc->base) == 0)
-			continue;
 	}
 
 	/* Load CRTC GCE event */

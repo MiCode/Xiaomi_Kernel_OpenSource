@@ -332,13 +332,77 @@ static int mtk_drm_disp_mtee_cb_event(int value, int fd, struct mtk_drm_gem_obj 
 	}
 }
 
+static void mtk_crtc_init_gce_sec_obj(struct drm_device *drm_dev, struct device *dev,
+			struct mtk_drm_crtc *mtk_crtc)
+{
+	int index;
+	unsigned int i = CLIENT_SEC_CFG;
+	unsigned int crtc_id = drm_crtc_index(&mtk_crtc->base);
+
+	/* Load CRTC GCE client */
+	if (crtc_id == 0)
+		index = of_property_match_string(dev->of_node,
+						 "gce-client-names", "CLIENT_SEC_CFG0");
+	else if (crtc_id == 1)
+		index = of_property_match_string(dev->of_node,
+						 "gce-client-names", "CLIENT_SEC_CFG1");
+	else
+		index = of_property_match_string(dev->of_node,
+						 "gce-client-names", "CLIENT_SEC_CFG2");
+
+	if (index < 0) {
+		mtk_crtc->gce_obj.client[i] = NULL;
+		DDPPR_ERR("get index failed\n");
+	} else
+		mtk_crtc->gce_obj.client[i] =
+			cmdq_mbox_create(dev, index);
+
+	/* support DC with color matrix config no more */
+	/* mtk_crtc_init_color_matrix_data_slot(mtk_crtc); */
+	mtk_crtc->gce_obj.base = cmdq_register_device(dev);
+
+	DDPINFO("%s %d-done\n", __func__, index);
+}
+
+static int _drm_crtc_sec_create(struct drm_device *drm_dev, struct device *dev)
+{
+	struct drm_crtc *crtc = NULL;
+	struct mtk_drm_crtc *mtk_crtc = NULL;
+
+	if (IS_ERR_OR_NULL(drm_dev)) {
+		DDPPR_ERR("%s, invalid drm dev\n", __func__);
+		return -1;
+	}
+
+	crtc = list_first_entry(&(drm_dev)->mode_config.crtc_list,
+			typeof(*crtc), head);
+
+	drm_for_each_crtc(crtc, drm_dev) {
+		mtk_crtc = to_mtk_crtc(crtc);
+		if (!mtk_crtc) {
+			DDPPR_ERR("create sec crtc failed\n");
+			return -1;
+		}
+		mtk_crtc_init_gce_sec_obj(drm_dev, dev, mtk_crtc);
+	}
+	return 0;
+}
+
 static int disp_mtee_probe(struct platform_device *pdev)
 {
 	void **ret;
 	struct device *dev = &pdev->dev;
 
 	DDPINFO("%s+\n", __func__);
-	mtee_config.disp_sec_client = cmdq_mbox_create(dev, 0);
+
+	if (IS_ERR_OR_NULL(disp_mtee_cb.dev))
+		DDPPR_ERR("mtee_probe:invalid dev\n");
+	else {
+		if (_drm_crtc_sec_create(disp_mtee_cb.dev, dev) < 0) {
+			DDPPR_ERR("%s:create sec crtc failed\n", __func__);
+			return -1;
+		}
+	}
 
 	ret = mtk_drm_disp_mtee_cb_init();
 	*ret = (void *) mtk_drm_disp_mtee_cb_event;
