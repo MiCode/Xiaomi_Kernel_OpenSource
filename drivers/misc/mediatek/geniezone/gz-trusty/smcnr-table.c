@@ -156,7 +156,7 @@ inline uint32_t get_smcnr_teeid(enum smc_functions fid, enum tee_id_t tee_id)
 {
 	uint32_t smcnr;
 
-	if (unlikely(fid < 0 || fid >= SMCF_END || !is_tee_id(tee_id))) {
+	if (unlikely(fid >= SMCF_END || !is_tee_id(tee_id))) {
 		WARN(1, "ERROR parameters %d, %d\n", fid, tee_id);
 		return SMC_UNDEFINED;
 	}

@@ -1221,6 +1221,7 @@ TZ_RESULT KREE_TeeServiceCallPlus(KREE_SESSION_HANDLE handle, uint32_t command,
 	/* pass cpumask to channel */
 	chan_p->cpumask = cpumask;
 
+	memset(&cparam, 0, sizeof(cparam));
 
 	cparam.command = command;
 	cparam.paramTypes = paramTypes;
