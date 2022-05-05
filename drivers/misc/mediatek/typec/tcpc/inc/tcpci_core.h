@@ -73,7 +73,11 @@
 #define PE_DBG_RESET_VDM_DIS	1
 
 /* sender response timer will sub delta between transmit & tx_success */
+#if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 #define PD_DYNAMIC_SENDER_RESPONSE	1
+#else
+#define PD_DYNAMIC_SENDER_RESPONSE	0
+#endif /* CONFIG_USB_POWER_DELIVERY */
 
 #define PD_BUG_ON(x)	WARN_ON(x)
 
@@ -518,10 +522,8 @@ struct tcpc_device {
 	u32 boot_mode;
 	u32 boot_type;
 	u32 alert_mask;
-#if CONFIG_USB_PD_CHECK_RX_PENDING_IF_SRTOUT
 	struct completion alert_done;
 	long long alert_max_access_time;
-#endif /* CONFIG_USB_PD_CHECK_RX_PENDING_IF_SRTOUT */
 };
 
 #define to_tcpc_device(obj) container_of(obj, struct tcpc_device, dev)

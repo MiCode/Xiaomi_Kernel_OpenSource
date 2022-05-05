@@ -1592,6 +1592,10 @@ static inline int tcpm_dpm_pd_bist_cm2(struct tcpc_device *tcpc,
 {
 	return TCPM_ERROR_NO_IMPLEMENT;
 }
+static inline bool tcpm_is_comm_capable(struct tcpc_device *tcpc)
+{
+	return TCPM_ERROR_NO_IMPLEMENT;
+}
 #endif	/* USB_POWER_DELIVERY_NA */
 
 #ifdef USB_PD_REV30_NA
