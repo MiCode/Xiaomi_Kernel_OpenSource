@@ -506,6 +506,10 @@ static int mtk_ddp_comp_irq_work_init(struct mtk_ddp_comp *ddp_comp, int index)
 {
 	int i;
 
+	if (index < 0 || index >= MTK_IRQ_WORK_MAX) {
+		DDPMSG("%s index %d out of bounds\n", __func__, index);
+		return -EINVAL;
+	}
 	INIT_WORK(&ddp_comp->ts_works[index].work, mtk_irq_time_handle);
 	ddp_comp->ts_works[index].number = 0;
 	ddp_comp->ts_works[index].is_busy = FALSE;

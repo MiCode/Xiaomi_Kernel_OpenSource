@@ -1352,7 +1352,7 @@ int mtk_rdma_analysis(struct mtk_ddp_comp *comp)
 		REG_FLD_VAL_GET(GLOBAL_CON_FLD_SMI_BUSY, global_ctrl),
 		REG_FLD_VAL_GET(GLOBAL_CON_FLD_PIXEL_10_BIT, global_ctrl));
 
-	DDPDUMP("wh(%dx%d),pitch=%d,addr=0x%x\n",
+	DDPDUMP("wh(%dx%d),pitch=%d,addr=0x%llx\n",
 		readl(DISP_REG_RDMA_SIZE_CON_0 + baddr) & 0xfff,
 		readl(DISP_REG_RDMA_SIZE_CON_1 + baddr) & 0xfffff,
 		readl(DISP_REG_RDMA_MEM_SRC_PITCH + baddr),

@@ -875,6 +875,10 @@ void mtk_addon_connect_external(struct drm_crtc *crtc, unsigned int ddp_mode,
 
 	DDPMSG("%s\n", __func__);
 	output_comp = mtk_ddp_comp_request_output(mtk_crtc);
+	if (IS_ERR_OR_NULL(output_comp)) {
+		DDPMSG("%s output_comp is null\n", __func__);
+		return;
+	}
 
 	/* 0. attach subpath to crtc*/
 	/* some comp need crtc info in addon_config or irq */

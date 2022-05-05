@@ -1758,8 +1758,10 @@ static void mml_addon_module_connect(struct drm_crtc *crtc,
 	}
 
 	addon_config->addon_mml_config.config_type.type = ADDON_CONNECT;
-	addon_config->addon_mml_config.mutex.sof_src = (int)output_comp->id;
-	addon_config->addon_mml_config.mutex.eof_src = (int)output_comp->id;
+	if (output_comp) {
+		addon_config->addon_mml_config.mutex.sof_src = (int)output_comp->id;
+		addon_config->addon_mml_config.mutex.eof_src = (int)output_comp->id;
+	}
 	addon_config->addon_mml_config.mutex.is_cmd_mode =
 		mtk_crtc_is_frame_trigger_mode(crtc);
 
@@ -2147,6 +2149,11 @@ _mtk_crtc_wb_addon_module_connect(
 			dst_roi.height = state->prop_val[CRTC_PROP_OUTPUT_HEIGHT];
 			fb = mtk_drm_framebuffer_lookup(crtc->dev,
 				state->prop_val[CRTC_PROP_OUTPUT_FB_ID]);
+			if (IS_ERR_OR_NULL(fb)) {
+				DDPMSG("%s mtk_drm_framebuffer_lookup fail\n",
+					__func__);
+				return;
+			}
 			/* get fb reference conut, put at wb_cmdq_cb */
 //			drm_framebuffer_get(fb);
 
@@ -4322,6 +4329,7 @@ void mtk_crtc_enable_iommu_runtime(struct mtk_drm_crtc *mtk_crtc,
 static ktime_t mtk_check_preset_fence_timestamp(struct drm_crtc *crtc)
 {
 	int id = drm_crtc_index(crtc);
+	int ret = 0;
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	unsigned int vrefresh = 0;
 	bool is_frame_mode;
@@ -4339,11 +4347,13 @@ static ktime_t mtk_check_preset_fence_timestamp(struct drm_crtc *crtc)
 		}
 
 		do {
-			wait_event_interruptible_timeout(
+			ret = wait_event_interruptible_timeout(
 				mtk_crtc->signal_irq_for_pre_fence_wq
 				, atomic_read(&mtk_crtc->signal_irq_for_pre_fence)
 				, msecs_to_jiffies(1000 / vrefresh));
 			atomic_set(&mtk_crtc->signal_irq_for_pre_fence, 0);
+			if (ret <= 0)
+				DDPMSG("%s wait event fail, ret = %d\n", __func__, ret);
 		} while (mtk_crtc->pf_time == prev_time && is_frame_mode);
 
 		cur_time = mtk_crtc->pf_time;
@@ -4408,7 +4418,7 @@ static void ddp_cmdq_cb(struct cmdq_cb_data data)
 	unsigned int is_vfp_period = 0;
 	unsigned int _dsi_state_dbg7 = 0;
 	unsigned int _dsi_state_dbg7_2 = 0;
-	ktime_t pf_time;
+	ktime_t pf_time = 0;
 
 	DDPINFO("crtc_state:%x, atomic_state:%x, crtc:%x\n",
 		crtc_state,
@@ -9014,17 +9024,17 @@ static void mtk_drm_crtc_disable_fake_layer(struct drm_crtc *crtc,
 	DDPINFO("%s\n", __func__);
 
 	ovl_comp_id = mtk_drm_crtc_find_ovl_comp_id(priv, 0, 0);
-	if (ovl_comp_id < 0)
+	if (ovl_comp_id < 0 || ovl_comp_id > DDP_COMPONENT_ID_MAX)
 		ovl_comp_id = DDP_COMPONENT_OVL0;
 	ovl_2l_comp_id = mtk_drm_crtc_find_ovl_comp_id(priv, 1, 0);
-	if (ovl_2l_comp_id < 0)
+	if (ovl_2l_comp_id < 0 || ovl_2l_comp_id > DDP_COMPONENT_ID_MAX)
 		ovl_2l_comp_id = DDP_COMPONENT_OVL0_2L;
 	if (mtk_crtc->is_dual_pipe) {
 		dual_pipe_ovl_comp_id = mtk_drm_crtc_find_ovl_comp_id(priv, 0, 1);
-		if (dual_pipe_ovl_comp_id < 0)
+		if (dual_pipe_ovl_comp_id < 0 || dual_pipe_ovl_comp_id > DDP_COMPONENT_ID_MAX)
 			dual_pipe_ovl_comp_id = DDP_COMPONENT_OVL1;
 		dual_pipe_ovl_2l_comp_id = mtk_drm_crtc_find_ovl_comp_id(priv, 1, 1);
-		if (dual_pipe_ovl_2l_comp_id < 0)
+		if (dual_pipe_ovl_2l_comp_id < 0 || dual_pipe_ovl_2l_comp_id > DDP_COMPONENT_ID_MAX)
 			dual_pipe_ovl_2l_comp_id = DDP_COMPONENT_OVL1_2L;
 	}
 
@@ -11590,7 +11600,7 @@ void mtk_need_vds_path_switch(struct drm_crtc *crtc)
 	int comp_nr = 0;
 
 	if (!(priv && mtk_crtc && (index >= 0))) {
-		DDPPR_ERR("%s:%d:Error Invalid params\n");
+		DDPMSG("%s:%d:Error Invalid params\n", __func__, __LINE__);
 		return;
 	}
 
