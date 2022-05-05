@@ -7030,6 +7030,14 @@
 	regulator-always-on;
 };
 
+&mt6358_vsim1_reg {
+	regulator-min-microvolt = <0>;
+};
+
+&mt6358_vsim2_reg {
+	regulator-min-microvolt = <0>;
+};
+
 &mtk_gauge {
 	charger = <&mt6375_chg>;
 };
