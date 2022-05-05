@@ -10,10 +10,8 @@
 #include "m4u_priv.h"
 
 #ifdef CONFIG_ZONE_DMA32
-#define M4U_GFP_DMA		GFP_DMA32
 #define M4U_SLAB_FLAGS		SLAB_CACHE_DMA32
 #else
-#define M4U_GFP_DMA		GFP_DMA
 #define M4U_SLAB_FLAGS		SLAB_CACHE_DMA
 #endif
 
@@ -556,7 +554,7 @@ int m4u_alloc_pte(struct m4u_domain *domain,
 	/* pte_new_va = (unsigned int)kzalloc(IMU_BYTES_PER_PTE, GFP_KERNEL); */
 	/* pte_new_va = (unsigned int)get_zeroed_page(GFP_KERNEL); */
 	write_unlock_domain(domain);
-	pte_new_va = kmem_cache_zalloc(gM4u_pte_kmem, GFP_KERNEL | M4U_GFP_DMA);
+	pte_new_va = kmem_cache_zalloc(gM4u_pte_kmem, GFP_KERNEL);
 	write_lock_domain(domain);
 	if (unlikely(!pte_new_va)) {
 		m4u_aee_print("%s: fail, nomemory\n", __func__);
