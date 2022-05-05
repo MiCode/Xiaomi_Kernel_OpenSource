@@ -1131,6 +1131,9 @@ static int md_ccif_send(unsigned char hif_id, int channel_id)
 	struct md_ccif_ctrl *md_ctrl =
 		(struct md_ccif_ctrl *)ccci_hif_get_by_id(hif_id);
 
+	if (md_ctrl == NULL)
+		return -1;
+
 	busy = ccif_read32(md_ctrl->ccif_ap_base, APCCIF_BUSY);
 	if (busy & (1 << channel_id)) {
 		CCCI_REPEAT_LOG(md_ctrl->md_id, TAG,
@@ -1908,7 +1911,7 @@ static int ccif_debug(unsigned char hif_id,
 	return ret;
 }
 
-struct ccif_irq_cb_func_info ccif_irq_cb[ID_CCIF_CB_MAX];
+static struct ccif_irq_cb_func_info ccif_irq_cb[ID_CCIF_CB_MAX];
 int register_ccif_irq_cb(unsigned char user_id, void (*func)(unsigned char user_id))
 {
 	if (user_id < ID_CCIF_CB_MAX && (user_id < (CCIF_CH_NUM - AP_MD_DATA_NOTIFY))) {
@@ -1929,6 +1932,9 @@ int ccif_mask_setting(unsigned char user_id, unsigned char mask_set)
 	unsigned int reg_val;
 	unsigned int reg_offset;
 	unsigned long flags;
+
+	if (ccif_ctrl == NULL)
+		return -2;
 
 	switch (user_id) {
 	case ID_CCIF_USER_DATA:
@@ -2305,6 +2311,7 @@ static int ccif_hif_hw_init(struct device *dev, struct md_ccif_ctrl *md_ctrl)
 		md_ctrl->ccif_md_base);
 	CCCI_DEBUG_LOG(-1, TAG, "ccif_irq0:%d,ccif_irq1:%d\n",
 		md_ctrl->ap_ccif_irq0_id, md_ctrl->ap_ccif_irq1_id);
+	spin_lock_init(&md_ctrl->mask_lock);
 	ret = request_irq(md_ctrl->ap_ccif_irq0_id, md_ccif_isr,
 			md_ctrl->ap_ccif_irq0_flags, "CCIF_AP_DATA0", md_ctrl);
 	if (ret) {
