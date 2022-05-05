@@ -1553,7 +1553,7 @@ static void set_sec_phy_layer_dom_cmdq(struct mtk_ddp_comp *comp,
 	cmdq_pkt_write(handle, comp->cmdq_base,
 					comp->regs_pa + OVL_LAYER_DOMAIN,
 					domain_val, domain_mask);
-	DDPINFO("%s:%d,L%dSet dom(0x%x,0x%x,0x%x)\n",
+	DDPINFO("%s:%d,L%dSet dom(0x%llx,0x%x,0x%x)\n",
 					__func__, __LINE__, id,
 					comp->regs_pa + OVL_LAYER_DOMAIN,
 					domain_val, domain_mask);
@@ -1581,7 +1581,7 @@ static void clr_sec_phy_layer_dom_cmdq(struct mtk_ddp_comp *comp,
 	cmdq_pkt_write(handle, comp->cmdq_base,
 					comp->regs_pa + OVL_LAYER_DOMAIN,
 					domain_val, domain_mask);
-	DDPINFO("%s:%d,L%d clr dom(0x%x,0x%x,0x%x)\n",
+	DDPINFO("%s:%d,L%d clr dom(0x%llx,0x%x,0x%x)\n",
 					__func__, __LINE__, id,
 					comp->regs_pa + OVL_LAYER_DOMAIN,
 					domain_val, domain_mask);
@@ -1597,7 +1597,7 @@ static void clr_sec_ext_layer_dom_cmdq(struct mtk_ddp_comp *comp,
 	cmdq_pkt_write(handle, comp->cmdq_base,
 					comp->regs_pa + OVL_LAYER_EXT_DOMAIN,
 					domain_val, domain_mask);
-	DDPINFO("%s:%d,L%d clr dom(0x%x,0x%x,0x%x)\n",
+	DDPINFO("%s:%d,L%d clr dom(0x%llx,0x%x,0x%x)\n",
 					__func__, __LINE__, id,
 					comp->regs_pa + OVL_LAYER_EXT_DOMAIN,
 					domain_val, domain_mask);
@@ -2181,7 +2181,7 @@ static bool compr_l_config_PVRIC_V4_1(struct mtk_ddp_comp *comp,
 		(src_y - src_y_align), (src_y_align + src_h_align - src_y - src_h),
 		lx_clip);
 	DDPINFO(
-		"t_num:0x%x, h_off:0x%x (%d), buf_addr:0x%x, t_off:0x%x, p(0x%x,0x%x,0x%x), addr(0x%llx,0x%llx,0x%llx)\n",
+		"t_num:0x%x, h_off:0x%x (%d), buf_addr:0x%llx, t_off:0x%x, p(0x%x,0x%x,0x%x), addr(0x%llx,0x%llx,0x%llx)\n",
 		src_buf_tile_num, header_offset, PVRIC_V4_1_HEADER_SIZE_PER_TILE_BYTES(Bpp),
 		buf_addr, tile_offset, lx_pitch, lx_pitch_msb, lx_hdr_pitch,
 		(u64)addr, (u64)lx_hdr_addr, (u64)lx_addr);
@@ -3653,7 +3653,7 @@ int mtk_ovl_dump(struct mtk_ddp_comp *comp)
 	if (comp->blank_mode)
 		return 0;
 
-	DDPDUMP("== %s REGS:0x%x ==\n", mtk_dump_comp_str(comp), comp->regs_pa);
+	DDPDUMP("== %s REGS:0x%llx ==\n", mtk_dump_comp_str(comp), comp->regs_pa);
 	if (mtk_ddp_comp_helper_get_opt(comp,
 					MTK_DRM_OPT_REG_PARSER_RAW_DUMP)) {
 		unsigned int i = 0;
@@ -3944,7 +3944,7 @@ int mtk_ovl_analysis(struct mtk_ddp_comp *comp)
 	ext_con = readl(DISP_REG_OVL_DATAPATH_EXT_CON + baddr);
 	addcon = readl(DISP_REG_OVL_ADDCON_DBG + baddr);
 
-	DDPDUMP("== %s ANALYSIS:0x%x ==\n", mtk_dump_comp_str(comp), comp->regs_pa);
+	DDPDUMP("== %s ANALYSIS:0x%llx ==\n", mtk_dump_comp_str(comp), comp->regs_pa);
 	DDPDUMP("ovl_en=%d,layer_en(%d,%d,%d,%d),bg(%dx%d)\n",
 		readl(DISP_REG_OVL_EN + baddr) & 0x1, src_con & 0x1,
 		(src_con >> 1) & 0x1, (src_con >> 2) & 0x1,

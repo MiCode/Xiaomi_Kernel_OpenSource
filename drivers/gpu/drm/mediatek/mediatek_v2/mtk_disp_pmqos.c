@@ -477,7 +477,7 @@ unsigned long mtk_drm_get_mmclk(struct drm_crtc *crtc, const char *caller)
 	else
 		freq = g_freq_steps[0];
 
-	DDPINFO("%s[%d]g_freq_level[idx=%d]: %d (freq=%d)\n",
+	DDPINFO("%s[%d]g_freq_level[idx=%d]: %d (freq=%lu)\n",
 		__func__, __LINE__, idx, g_freq_level[idx], freq);
 
 	return freq;

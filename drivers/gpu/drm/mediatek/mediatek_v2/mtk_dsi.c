@@ -3294,7 +3294,7 @@ int mtk_dsi_dump(struct mtk_ddp_comp *comp)
 	reg_val = (readl(dsi->regs + 0x16C)) & 0x3fffff;
 	DDPDUMP("state9 LINE_COUNTER(cmd mode):%u\n", reg_val);
 
-	DDPDUMP("== %s REGS:0x%x ==\n", mtk_dump_comp_str(comp), comp->regs_pa);
+	DDPDUMP("== %s REGS:0x%llx ==\n", mtk_dump_comp_str(comp), comp->regs_pa);
 	for (k = 0; k < 0x200; k += 16) {
 		DDPDUMP("0x%04x: 0x%08x 0x%08x 0x%08x 0x%08x\n", k,
 			readl(dsi->regs + k),
@@ -3310,7 +3310,7 @@ int mtk_dsi_dump(struct mtk_ddp_comp *comp)
 			readl(dsi->regs + k + 0xc));
 	}
 
-	DDPDUMP("- DSI CMD REGS:0x%x -\n", comp->regs_pa);
+	DDPDUMP("- DSI CMD REGS:0x%llx -\n", comp->regs_pa);
 	for (k = 0; k < 512; k += 16) {
 		DDPDUMP("0x%04x: 0x%08x 0x%08x 0x%08x 0x%08x\n", k,
 			readl(dsi->regs + dsi->driver_data->reg_cmdq0_ofs + k),
@@ -3496,7 +3496,7 @@ int mtk_dsi_analysis(struct mtk_ddp_comp *comp)
 	void __iomem *baddr = comp->regs;
 	unsigned int reg_val;
 
-	DDPDUMP("== %s ANALYSIS:0x%x ==\n", mtk_dump_comp_str(comp), comp->regs_pa);
+	DDPDUMP("== %s ANALYSIS:0x%llx ==\n", mtk_dump_comp_str(comp), comp->regs_pa);
 
 #ifndef CONFIG_FPGA_EARLY_PORTING
 	DDPDUMP("MIPITX Clock:%d\n",

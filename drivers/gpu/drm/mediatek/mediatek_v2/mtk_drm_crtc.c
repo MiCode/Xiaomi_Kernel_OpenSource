@@ -287,11 +287,11 @@ void mtk_drm_crtc_dump(struct drm_crtc *crtc)
 			mtk_dump_reg(comp);
 		break;
 	case MMSYS_MT6895:
-		DDPDUMP("== DISP pipe0 MMSYS_CONFIG REGS:0x%x ==\n",
+		DDPDUMP("== DISP pipe0 MMSYS_CONFIG REGS:0x%llx ==\n",
 					mtk_crtc->config_regs_pa);
 		mmsys_config_dump_reg_mt6895(mtk_crtc->config_regs);
 		if (mtk_crtc->side_config_regs) {
-			DDPDUMP("== DISP pipe1 MMSYS_CONFIG REGS:0x%x ==\n",
+			DDPDUMP("== DISP pipe1 MMSYS_CONFIG REGS:0x%llx ==\n",
 				mtk_crtc->side_config_regs_pa);
 			mmsys_config_dump_reg_mt6895(mtk_crtc->side_config_regs);
 		}
@@ -435,11 +435,11 @@ void mtk_drm_crtc_analysis(struct drm_crtc *crtc)
 		}
 		break;
 	case MMSYS_MT6895:
-		DDPDUMP("== DUMP DISP pipe0 ANALYSIS:0x%x ==\n",
+		DDPDUMP("== DUMP DISP pipe0 ANALYSIS:0x%llx ==\n",
 			mtk_crtc->config_regs_pa);
 		mmsys_config_dump_analysis_mt6895(mtk_crtc->config_regs);
 		if (mtk_crtc->side_config_regs) {
-			DDPDUMP("== DUMP DISP pipe1 ANALYSIS:0x%x ==\n",
+			DDPDUMP("== DUMP DISP pipe1 ANALYSIS:0x%llx ==\n",
 				mtk_crtc->side_config_regs_pa);
 			mmsys_config_dump_analysis_mt6895(mtk_crtc->side_config_regs);
 		}
@@ -2633,7 +2633,7 @@ static void mtk_crtc_free_sram(struct mtk_drm_crtc *mtk_crtc)
 	if (!sram)
 		return;
 
-	DDPMSG("%s address:0x%lx size:0x%lx\n", __func__, sram->paddr, sram->size);
+	DDPMSG("%s address:0x%x size:0x%lx\n", __func__, sram->paddr, sram->size);
 	slbc_power_off(sram);
 	slbc_release(sram);
 	mtk_crtc->mml_ir_sram.data = NULL;

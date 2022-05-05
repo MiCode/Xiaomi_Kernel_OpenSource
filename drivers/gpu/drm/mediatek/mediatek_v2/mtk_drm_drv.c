@@ -1262,7 +1262,7 @@ static void _mtk_atomic_mml_plane(struct drm_device *dev,
 
 			submit_kernel->buffer.src.use_dma = true;
 			submit_kernel->buffer.src.dmabuf[i] = fd_to_dma_buf(fd);
-			DDPINFO("%s:%d dmabuf:0x%x\n", __func__, __LINE__,
+			DDPINFO("%s:%d dmabuf:0x%p\n", __func__, __LINE__,
 				submit_kernel->buffer.src.dmabuf[i]);
 		}
 
@@ -4388,7 +4388,7 @@ struct mml_drm_ctx *mtk_drm_get_mml_drm_ctx(struct drm_device *dev,
 		DDPPR_ERR("mml_drm_get_context fail. mml_ctx:%p\n", mml_ctx);
 	else {
 		priv->mml_ctx = mml_ctx;
-		DDPMSG("%s 2 0x%x", __func__, priv->mml_ctx);
+		DDPMSG("%s 2 0x%p", __func__, priv->mml_ctx);
 		return priv->mml_ctx;
 	}
 

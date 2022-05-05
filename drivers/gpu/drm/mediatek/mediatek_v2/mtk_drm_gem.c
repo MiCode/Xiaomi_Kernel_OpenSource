@@ -928,7 +928,7 @@ int mtk_drm_sec_hnd_to_gem_hnd(struct drm_device *dev, void *data,
 	if (ret == 0)
 		goto out_put;
 
-	DDPDBG("%s+++\n");
+	DDPDBG("%s+++\n", __func__);
 	if (disp_mtee_cb.cb != NULL)
 		sec = disp_mtee_cb.cb(DISP_SEC_FD_TO_SEC_HDL, prime_fd, mtk_gem_obj,
 					NULL, NULL, 0, 0, 0, 0, 0);

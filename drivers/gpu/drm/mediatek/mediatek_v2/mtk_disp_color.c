@@ -3433,7 +3433,7 @@ void mtk_color_dump(struct mtk_ddp_comp *comp)
 {
 	void __iomem *baddr = comp->regs;
 
-	DDPDUMP("== %s REGS:0x%x ==\n", mtk_dump_comp_str(comp), comp->regs_pa);
+	DDPDUMP("== %s REGS:0x%llx ==\n", mtk_dump_comp_str(comp), comp->regs_pa);
 	mtk_serial_dump_reg(baddr, 0x400, 3);
 	mtk_serial_dump_reg(baddr, 0xC50, 2);
 }
