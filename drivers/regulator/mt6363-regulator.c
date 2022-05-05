@@ -410,8 +410,7 @@ static int mt6363_vemc_get_voltage_sel(struct regulator_dev *rdev)
 	default:
 		return -EINVAL;
 	}
-	if (ret)
-		return ret;
+
 	return sel;
 }
 

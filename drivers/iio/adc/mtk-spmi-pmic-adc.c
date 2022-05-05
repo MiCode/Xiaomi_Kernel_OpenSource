@@ -600,7 +600,7 @@ static int auxadc_get_data_from_dt(struct pmic_adc_device *adc_dev,
 			   node->name);
 		return ret;
 	}
-	if (channel < AUXADC_CHAN_MIN || channel > AUXADC_CHAN_MAX) {
+	if (channel > AUXADC_CHAN_MAX) {
 		dev_notice(adc_dev->dev, "invalid channel number %d in node:%s\n",
 			   channel, node->name);
 		return -EINVAL;
