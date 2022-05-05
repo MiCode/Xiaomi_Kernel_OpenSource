@@ -426,6 +426,7 @@ static int pd_get_cap(struct adapter_device *dev,
 	unsigned int i, j;
 	struct mtk_pd_adapter_info *info;
 
+	memset(&pd_cap, 0, sizeof(pd_cap));
 	info = (struct mtk_pd_adapter_info *)adapter_dev_get_drvdata(dev);
 	if (info == NULL || info->tcpc == NULL)
 		return MTK_ADAPTER_ERROR;
@@ -464,15 +465,15 @@ static int pd_get_cap(struct adapter_device *dev,
 			tacap->minwatt[idx] = apdo_cap.min_mv * apdo_cap.ma;
 			tacap->type[idx] = MTK_PD_APDO;
 
-			idx++;
 			pr_notice("pps_boundary[%d], %d mv ~ %d mv, %d ma pl:%d\n",
 				cap_i,
 				apdo_cap.min_mv, apdo_cap.max_mv,
 				apdo_cap.ma, apdo_cap.pwr_limit);
-			if (idx >= ADAPTER_CAP_MAX_NR) {
+			if (idx >= ADAPTER_CAP_MAX_NR - 1) {
 				pr_notice("CAP NR > %d\n", ADAPTER_CAP_MAX_NR);
 				break;
-			}
+			} else
+				idx++;
 		}
 		tacap->nr = idx;
 
@@ -500,7 +501,7 @@ static int pd_get_cap(struct adapter_device *dev,
 			j = 0;
 			pr_notice("adapter cap: nr:%d\n", pd_cap.nr);
 			for (i = 0; i < pd_cap.nr; i++) {
-				if (pd_cap.type[i] == 0 &&
+				if (!pd_cap.type[i] &&
 					j >= 0 &&
 					j < ADAPTER_CAP_MAX_NR) {
 					tacap->type[j] = MTK_PD;
@@ -540,7 +541,7 @@ static int pd_get_cap(struct adapter_device *dev,
 static int pd_authentication(struct adapter_device *dev,
 			     struct adapter_auth_data *data)
 {
-	int ret = 0, apdo_idx = -1, i;
+	int ret = 0, ret_check = 0, apdo_idx = -1, i;
 	struct mtk_pd_adapter_info *info = adapter_dev_get_drvdata(dev);
 	struct tcpm_power_cap_val apdo_cap;
 	struct tcpm_power_cap_val selected_apdo_cap;
@@ -567,16 +568,13 @@ static int pd_authentication(struct adapter_device *dev,
 	/* select TA boundary */
 	cap_idx = 0;
 	while (1) {
-		ret = tcpm_inquire_pd_source_apdo(info->tcpc,
+		ret_check = (int)tcpm_inquire_pd_source_apdo(info->tcpc,
 						  TCPM_POWER_CAP_APDO_TYPE_PPS,
 						  &cap_idx, &apdo_cap);
-		if (ret != (int)TCP_DPM_RET_SUCCESS) {
-			if (apdo_idx == -1) {
+		if (ret_check != (int)TCPM_SUCCESS) {
+			if (apdo_idx == -1)
 				pr_info("%s inquire pd apdo fail(%d)\n",
-				       __func__, ret);
-				ret = (int)MTK_ADAPTER_ERROR;
-			} else
-				ret = (int)MTK_ADAPTER_OK;
+				       __func__, ret_check);
 			break;
 		}
 
@@ -612,9 +610,9 @@ static int pd_authentication(struct adapter_device *dev,
 		data->vta_step = 20;
 		data->ita_step = 50;
 		data->ita_gap_per_vstep = 200;
-		ret = tcpm_dpm_pd_get_source_cap_ext(info->tcpc, NULL,
+		ret_check = tcpm_dpm_pd_get_source_cap_ext(info->tcpc, NULL,
 						     &src_cap_ext);
-		if (ret != (int)TCP_DPM_RET_SUCCESS) {
+		if (ret_check != (int)TCP_DPM_RET_SUCCESS) {
 			pr_info("%s inquire pdp fail(%d)\n", __func__, ret);
 			if (data->pwr_lmt) {
 				for (i = 0; i < apdo_pps_cnt; i++) {
