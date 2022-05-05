@@ -2689,14 +2689,14 @@
 			/* 0x44: epon offset; */
 			/* 0x06: once a value[1] exist, means in l2sram */
 			/* value[1] not exist means in mddbgsys. the value(6) has no meaningful */
-			mediatek,offset_epon_md1 = <0x44 0x06>;
+			mediatek,offset_epon_md1 = <0x24 0x06>;
 			mediatek,cldma_capability = <6>;
 			/* bit0:srcclkena|1:srclken_o1_on|2:revert_sequencer */
 			/* 3:md_pll_setting|4:skip_topclk */
 			mediatek,power_flow_config = <0x12>; //bit0~4:01001
 			/* srclken_o1 set value |= 1<<21 */
 			mediatek,srclken_o1 = <0x200000>;
-			reg = <0 0x0d124000 0 0x2000>; /* l2sram base address */
+			reg = <0 0x0d0cf000 0 0x1000>; /* l2sram base address */
 			interrupts = <GIC_SPI 110 IRQ_TYPE_EDGE_RISING 0>, /*MDWDT 142-32*/
 				     <GIC_SPI 226 IRQ_TYPE_LEVEL_HIGH 0>,
 				     <GIC_SPI 227 IRQ_TYPE_LEVEL_HIGH 0>;
