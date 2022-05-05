@@ -1319,6 +1319,7 @@ struct dwc3 {
 	u8			rx_max_burst_prd;
 	u8			tx_thr_num_pkt_prd;
 	u8			tx_max_burst_prd;
+	u8			clear_stall_protocol;
 
 	const char		*hsphy_interface;
 

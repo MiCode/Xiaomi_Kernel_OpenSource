@@ -9,7 +9,7 @@
  * Copyright 2007, Michael Wu <flamingice@sourmilk.net>
  * Copyright 2007-2010, Intel Corporation
  * Copyright(c) 2015-2017 Intel Deutschland GmbH
- * Copyright (C) 2018 - 2019 Intel Corporation
+ * Copyright (C) 2018 - 2021 Intel Corporation
  */
 
 #include <linux/ieee80211.h>
@@ -106,7 +106,7 @@ static void ieee80211_send_addba_request(struct ieee80211_sub_if_data *sdata,
 	mgmt->u.action.u.addba_req.start_seq_num =
 					cpu_to_le16(start_seq_num << 4);
 
-	ieee80211_tx_skb(sdata, skb);
+	ieee80211_tx_skb_tid(sdata, skb, tid);
 }
 
 void ieee80211_send_bar(struct ieee80211_vif *vif, u8 *ra, u16 tid, u16 ssn)
@@ -213,6 +213,8 @@ ieee80211_agg_start_txq(struct sta_info *sta, int tid, bool enable)
 	struct ieee80211_txq *txq = sta->sta.txq[tid];
 	struct txq_info *txqi;
 
+	lockdep_assert_held(&sta->ampdu_mlme.mtx);
+
 	if (!txq)
 		return;
 
@@ -290,7 +292,6 @@ static void ieee80211_remove_tid_tx(struct sta_info *sta, int tid)
 	ieee80211_assign_tid_tx(sta, tid, NULL);
 
 	ieee80211_agg_splice_finish(sta->sdata, tid);
-	ieee80211_agg_start_txq(sta, tid, false);
 
 	kfree_rcu(tid_tx, rcu_head);
 }
@@ -448,58 +449,13 @@ static void sta_addba_resp_timer_expired(struct timer_list *t)
 	ieee80211_stop_tx_ba_session(&sta->sta, tid);
 }
 
-void ieee80211_tx_ba_session_handle_start(struct sta_info *sta, int tid)
+static void ieee80211_send_addba_with_timeout(struct sta_info *sta,
+					      struct tid_ampdu_tx *tid_tx)
 {
-	struct tid_ampdu_tx *tid_tx;
-	struct ieee80211_local *local = sta->local;
 	struct ieee80211_sub_if_data *sdata = sta->sdata;
-	struct ieee80211_ampdu_params params = {
-		.sta = &sta->sta,
-		.action = IEEE80211_AMPDU_TX_START,
-		.tid = tid,
-		.buf_size = 0,
-		.amsdu = false,
-		.timeout = 0,
-	};
-	int ret;
+	struct ieee80211_local *local = sta->local;
+	u8 tid = tid_tx->tid;
 	u16 buf_size;
-
-	tid_tx = rcu_dereference_protected_tid_tx(sta, tid);
-
-	/*
-	 * Start queuing up packets for this aggregation session.
-	 * We're going to release them once the driver is OK with
-	 * that.
-	 */
-	clear_bit(HT_AGG_STATE_WANT_START, &tid_tx->state);
-
-	ieee80211_agg_stop_txq(sta, tid);
-
-	/*
-	 * Make sure no packets are being processed. This ensures that
-	 * we have a valid starting sequence number and that in-flight
-	 * packets have been flushed out and no packets for this TID
-	 * will go into the driver during the ampdu_action call.
-	 */
-	synchronize_net();
-
-	params.ssn = sta->tid_seq[tid] >> 4;
-	ret = drv_ampdu_action(local, sdata, &params);
-	if (ret) {
-		ht_dbg(sdata,
-		       "BA request denied - HW unavailable for %pM tid %d\n",
-		       sta->sta.addr, tid);
-		spin_lock_bh(&sta->lock);
-		ieee80211_agg_splice_packets(sdata, tid_tx, tid);
-		ieee80211_assign_tid_tx(sta, tid, NULL);
-		ieee80211_agg_splice_finish(sdata, tid);
-		spin_unlock_bh(&sta->lock);
-
-		ieee80211_agg_start_txq(sta, tid, false);
-
-		kfree_rcu(tid_tx, rcu_head);
-		return;
-	}
 
 	/* activate the timer for the recipient's addBA response */
 	mod_timer(&tid_tx->addba_resp_timer, jiffies + ADDBA_RESP_INTERVAL);
@@ -525,8 +481,64 @@ void ieee80211_tx_ba_session_handle_start(struct sta_info *sta, int tid)
 
 	/* send AddBA request */
 	ieee80211_send_addba_request(sdata, sta->sta.addr, tid,
-				     tid_tx->dialog_token, params.ssn,
+				     tid_tx->dialog_token, tid_tx->ssn,
 				     buf_size, tid_tx->timeout);
+}
+
+void ieee80211_tx_ba_session_handle_start(struct sta_info *sta, int tid)
+{
+	struct tid_ampdu_tx *tid_tx;
+	struct ieee80211_local *local = sta->local;
+	struct ieee80211_sub_if_data *sdata = sta->sdata;
+	struct ieee80211_ampdu_params params = {
+		.sta = &sta->sta,
+		.action = IEEE80211_AMPDU_TX_START,
+		.tid = tid,
+		.buf_size = 0,
+		.amsdu = false,
+		.timeout = 0,
+	};
+	int ret;
+
+	tid_tx = rcu_dereference_protected_tid_tx(sta, tid);
+
+	/*
+	 * Start queuing up packets for this aggregation session.
+	 * We're going to release them once the driver is OK with
+	 * that.
+	 */
+	clear_bit(HT_AGG_STATE_WANT_START, &tid_tx->state);
+
+	ieee80211_agg_stop_txq(sta, tid);
+
+	/*
+	 * Make sure no packets are being processed. This ensures that
+	 * we have a valid starting sequence number and that in-flight
+	 * packets have been flushed out and no packets for this TID
+	 * will go into the driver during the ampdu_action call.
+	 */
+	synchronize_net();
+
+	params.ssn = sta->tid_seq[tid] >> 4;
+	ret = drv_ampdu_action(local, sdata, &params);
+	tid_tx->ssn = params.ssn;
+	if (ret) {
+		ht_dbg(sdata,
+		       "BA request denied - HW unavailable for %pM tid %d\n",
+		       sta->sta.addr, tid);
+		spin_lock_bh(&sta->lock);
+		ieee80211_agg_splice_packets(sdata, tid_tx, tid);
+		ieee80211_assign_tid_tx(sta, tid, NULL);
+		ieee80211_agg_splice_finish(sdata, tid);
+		spin_unlock_bh(&sta->lock);
+
+		ieee80211_agg_start_txq(sta, tid, false);
+
+		kfree_rcu(tid_tx, rcu_head);
+		return;
+	}
+
+	ieee80211_send_addba_with_timeout(sta, tid_tx);
 }
 
 /*
@@ -571,7 +583,8 @@ int ieee80211_start_tx_ba_session(struct ieee80211_sta *pubsta, u16 tid,
 		 "Requested to start BA session on reserved tid=%d", tid))
 		return -EINVAL;
 
-	if (!pubsta->ht_cap.ht_supported)
+	if (!pubsta->ht_cap.ht_supported &&
+	    sta->sdata->vif.bss_conf.chandef.chan->band != NL80211_BAND_6GHZ)
 		return -EINVAL;
 
 	if (WARN_ON_ONCE(!local->ops->ampdu_action))
@@ -860,6 +873,7 @@ void ieee80211_stop_tx_ba_cb(struct sta_info *sta, int tid,
 {
 	struct ieee80211_sub_if_data *sdata = sta->sdata;
 	bool send_delba = false;
+	bool start_txq = false;
 
 	ht_dbg(sdata, "Stopping Tx BA session for %pM tid %d\n",
 	       sta->sta.addr, tid);
@@ -877,9 +891,13 @@ void ieee80211_stop_tx_ba_cb(struct sta_info *sta, int tid,
 		send_delba = true;
 
 	ieee80211_remove_tid_tx(sta, tid);
+	start_txq = true;
 
  unlock_sta:
 	spin_unlock_bh(&sta->lock);
+
+	if (start_txq)
+		ieee80211_agg_start_txq(sta, tid, false);
 
 	if (send_delba)
 		ieee80211_send_delba(sdata, sta->sta.addr, tid,

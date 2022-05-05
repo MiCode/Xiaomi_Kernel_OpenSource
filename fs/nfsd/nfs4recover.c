@@ -2177,6 +2177,7 @@ static struct notifier_block nfsd4_cld_block = {
 int
 register_cld_notifier(void)
 {
+	WARN_ON(!nfsd_net_id);
 	return rpc_pipefs_notifier_register(&nfsd4_cld_block);
 }
 

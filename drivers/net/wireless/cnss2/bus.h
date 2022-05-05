@@ -72,4 +72,6 @@ int cnss_bus_get_msi_assignment(struct cnss_plat_data *plat_priv,
 				u32 *user_base_data,
 				u32 *base_vector);
 bool cnss_bus_is_smmu_s1_enabled(struct cnss_plat_data *plat_priv);
+int cnss_bus_dsp_link_control(struct cnss_plat_data *plat_priv,
+			      bool link_enable);
 #endif /* _CNSS_BUS_H */
