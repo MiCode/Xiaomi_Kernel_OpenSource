@@ -294,7 +294,12 @@ static int mt_usb_role_sx_set(struct device *dev, enum usb_role role)
 	if (!!(otg_sx->sw_state & MUSB_VBUS_VALID) ^ vbus_event) {
 		if (vbus_event) {
 			dev_info(dev, "%s: if vbus_event true\n", __func__);
+#ifdef CONFIG_MACH_MT6761
+			// phy_set_mode(glue->phy, PHY_MODE_USB_DEVICE);
+			set_usb_phy_clear();
+#else
 			phy_set_mode(glue->phy, PHY_MODE_USB_DEVICE);
+#endif
 			phy_power_on(glue->phy);
 			mt_usb_set_mailbox(otg_sx, MUSB_VBUS_VALID);
 		} else {

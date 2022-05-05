@@ -893,6 +893,33 @@ static bool cmode_effect_on(void)
 	return effect;
 }
 
+static void set_usb_phy_mode(int mode)
+{
+	switch (mode) {
+	case PHY_MODE_USB_DEVICE:
+	/* VBUSVALID=1, AVALID=1, BVALID=1, SESSEND=0, IDDIG=1, IDPULLUP=1 */
+		USBPHY_CLR32(0x6C, (0x10<<0));
+		USBPHY_SET32(0x6C, (0x2F<<0));
+		USBPHY_SET32(0x6C, (0x3F<<8));
+		break;
+	case PHY_MODE_USB_HOST:
+	/* VBUSVALID=1, AVALID=1, BVALID=1, SESSEND=0, IDDIG=0, IDPULLUP=1 */
+		USBPHY_CLR32(0x6c, (0x12<<0));
+		USBPHY_SET32(0x6c, (0x2d<<0));
+		USBPHY_SET32(0x6c, (0x3f<<8));
+		break;
+	case PHY_MODE_INVALID:
+	/* VBUSVALID=0, AVALID=0, BVALID=0, SESSEND=1, IDDIG=0, IDPULLUP=1 */
+		USBPHY_SET32(0x6c, (0x11<<0));
+		USBPHY_CLR32(0x6c, (0x2e<<0));
+		USBPHY_SET32(0x6c, (0x3f<<8));
+		break;
+	default:
+		DBG(0, "mode error %d\n", mode);
+	}
+	DBG(0, "force PHY to mode %d, 0x6c=%x\n", mode, USBPHY_READ32(0x6c));
+}
+
 void do_connection_work(struct work_struct *data)
 {
 	unsigned long flags = 0;
@@ -949,6 +976,9 @@ void do_connection_work(struct work_struct *data)
 		/* note this already put SOFTCON */
 		musb_start(mtk_musb);
 		usb_clk_state = OFF_TO_ON;
+
+		/* Set USB phy mode here. */
+		set_usb_phy_mode(PHY_MODE_USB_DEVICE);
 
 	} else if (mtk_musb->power && (usb_on == false)) {
 		/* disable usb */

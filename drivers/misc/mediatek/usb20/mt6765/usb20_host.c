@@ -223,6 +223,13 @@ void mt_usb_host_connect(int delay)
 }
 EXPORT_SYMBOL(mt_usb_host_connect);
 
+void set_usb_phy_clear(void)
+{
+	/* Clear USB phy U2PHYDTM1 */
+	USBPHY_CLR32(0x6c, (0xFFFF));
+	DBG(0, "Clear PHY setting, 0x6c=%x\n", USBPHY_READ32(0x6c));
+}
+
 void mt_usb_host_disconnect(int delay)
 {
 	typec_req_host = false;

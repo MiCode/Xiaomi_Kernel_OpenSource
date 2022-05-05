@@ -13,6 +13,23 @@
 #include <linux/interrupt.h>
 #include <musb.h>
 
+#ifdef USB2_PHY_V2
+#define USB_PHY_OFFSET 0x300
+#else
+#define USB_PHY_OFFSET 0x800
+#endif
+
+#define USBPHY_READ32(offset) \
+	readl((void __iomem *)(((unsigned long)\
+		mtk_musb->xceiv->io_priv)+USB_PHY_OFFSET+offset))
+#define USBPHY_WRITE32(offset, value) \
+	writel(value, (void __iomem *)\
+		(((unsigned long)mtk_musb->xceiv->io_priv)+USB_PHY_OFFSET+offset))
+#define USBPHY_SET32(offset, mask) \
+	USBPHY_WRITE32(offset, (USBPHY_READ32(offset)) | (mask))
+#define USBPHY_CLR32(offset, mask) \
+	USBPHY_WRITE32(offset, (USBPHY_READ32(offset)) & (~(mask)))
+
 struct mt_usb_work {
 	struct delayed_work dwork;
 	int ops;
@@ -117,6 +134,7 @@ extern bool usb_enable_clock(bool enable);
 extern bool usb_prepare_clock(bool enable);
 extern void usb_prepare_enable_clock(bool enable);
 extern void mt_usb_dev_disconnect(void);
+extern void set_usb_phy_clear(void);
 
 /* usb host mode wakeup */
 #define USB_WAKEUP_DEC_CON1	0x404
