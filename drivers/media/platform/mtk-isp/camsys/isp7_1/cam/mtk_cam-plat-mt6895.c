@@ -5,8 +5,6 @@
 #include <linux/module.h>
 #include <linux/init.h>
 
-#include <clkchk-mt6895.h>
-
 #include "mtk_cam.h"
 #include "mtk_cam-raw.h"
 #include "mtk_cam-video.h"
@@ -216,32 +214,6 @@ static bool camsys_support_AFO_independent(unsigned long fps)
 	return true;
 }
 
-static bool camsys_dump_raw_hw_debug_info(u32 raw_id)
-{
-	print_subsys_reg_mt6895(cam_m);
-	switch (raw_id) {
-	case MTKCAM_SUBDEV_RAW_0:
-		print_subsys_reg_mt6895(cam_ra);
-		print_subsys_reg_mt6895(cam_ya);
-		break;
-	case MTKCAM_SUBDEV_RAW_1:
-		print_subsys_reg_mt6895(cam_rb);
-		print_subsys_reg_mt6895(cam_yb);
-		break;
-	case MTKCAM_SUBDEV_RAW_2:
-		print_subsys_reg_mt6895(cam_rc);
-		print_subsys_reg_mt6895(cam_yc);
-		break;
-	default:
-		pr_debug("%s: no support raw_id(%d)\n", __func__, raw_id);
-	}
-	print_subsys_reg_mt6895(top);
-	print_subsys_reg_mt6895(apmixed);
-	print_subsys_reg_mt6895(spm);
-
-	return true;
-}
-
 static struct camsys_plat_fp plat_fp = {
 	.get_meta_version = camsys_get_meta_version,
 	.get_meta_size = camsys_get_meta_size,
@@ -253,7 +225,6 @@ static struct camsys_plat_fp plat_fp = {
 	.get_port_bw = camsys_get_port_bw,
 	.get_timestamp_addr = camsys_get_timestamp_addr,
 	.support_AFO_independent = camsys_support_AFO_independent,
-	.dump_raw_hw_debug_info = camsys_dump_raw_hw_debug_info,
 };
 
 static int __init plat_module_init(void)
