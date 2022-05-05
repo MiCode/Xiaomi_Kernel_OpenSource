@@ -36,35 +36,42 @@ mtk_gpufreq_wrapper-y := \
 	gpu_misc.o
 
 mtk_gpufreq_mt6789-y := \
+	gpufreq_history_common.o \
 	gpuppm.o \
 	gpufreq_mt6789.o \
 	gpudfd_mt6789.o
 
 mtk_gpufreq_mt6833-y := \
+	gpufreq_history_common.o \
 	gpuppm.o \
 	gpufreq_mt6833.o \
 	gpudfd_mt6833.o
 
 mtk_gpufreq_mt6855-y := \
+	gpufreq_history_common.o \
 	gpuppm.o \
 	gpufreq_mt6855.o \
 	gpudfd_mt6855.o
 
 mtk_gpufreq_mt6879-y := \
+	gpufreq_history_common.o \
 	gpuppm.o \
 	gpufreq_mt6879.o \
 	gpudfd_mt6879.o
 
 mtk_gpufreq_mt6893-y := \
+	gpufreq_history_common.o \
 	gpuppm.o \
 	gpufreq_mt6893.o \
 	gpudfd_mt6893.o
 
 mtk_gpufreq_mt6895-y := \
+	gpufreq_history_common.o \
 	gpuppm.o \
 	gpufreq_mt6895.o
 
 mtk_gpufreq_mt6983-y := \
+	gpufreq_history_common.o \
 	gpuppm.o \
 	gpufreq_mt6983.o \
 	gpudfd_mt6983.o
