@@ -8104,8 +8104,8 @@
 		compatible = "mediatek,mt6895-vcodec-enc";
 		mediatek,platform = "platform:mt6895";
 		mediatek,ipm = <2>;
-		reg = <0 0x17020000 0 0x2000>,
-			<0 0x17820000 0 0x2000>;
+		reg = <0 0x17020000 0 0x6000>,
+			<0 0x17820000 0 0x6000>;
 		reg-names = "VENC_SYS",
 			"VENC_C1_SYS";
 		iommus = <&mdp_iommu M4U_LARB8_PORT0>,
