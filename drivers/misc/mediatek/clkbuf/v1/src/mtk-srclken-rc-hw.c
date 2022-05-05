@@ -336,8 +336,6 @@ ssize_t rc_trace_ctl_store(struct kobject *kobj,
 		return -EPERM;
 
 	if (!strcmp(cmd, "TRACE_NUM")) {
-		if (val < 0)
-			val = 0;
 		rc_trace_dump_num = val;
 		return count;
 	}
