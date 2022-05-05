@@ -119,6 +119,7 @@
 	ts_int_active: ts_int_active {
 		pins_cmd_dat {
 			pinmux = <PINMUX_GPIO135__FUNC_GPIO135>;
+			bias-pull-up;
 			input-enable;
 		};
 	};
