@@ -116,9 +116,6 @@ int clkbuf_pmif_get_misc_reg(u32 *mode_ctl, u32 *sleep_ctl, u32 pmif_idx)
 
 int clkbuf_pmif_get_inf_en(enum PMIF_INF inf, u32 *en)
 {
-	if (inf >= PMIF_INF_MAX)
-		return -EINVAL;
-
 	if (inf == PMIF_CONN_INF) {
 		return clk_buf_read(&clkbuf_pmif.pmif[0]->hw,
 			&clkbuf_pmif.pmif[0]->_conn_inf_en, en);
