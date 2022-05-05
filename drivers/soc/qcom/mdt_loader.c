@@ -106,7 +106,7 @@ EXPORT_SYMBOL_GPL(qcom_mdt_get_size);
  * Return: pointer to data, or ERR_PTR()
  */
 void *qcom_mdt_read_metadata(struct device *dev, const struct firmware *fw, const char *firmware,
-			     size_t *data_len, dma_addr_t *metadata_phys)
+			     size_t *data_len, bool dma_phys_below_32b, dma_addr_t *metadata_phys)
 {
 	const struct elf32_phdr *phdrs;
 	const struct elf32_hdr *ehdr;
@@ -145,12 +145,16 @@ void *qcom_mdt_read_metadata(struct device *dev, const struct firmware *fw, cons
 	 * non-cachable to avoid XPU violations.
 	 */
 	if (metadata_phys) {
-		scm_dev = qcom_get_scm_device();
-		if (!scm_dev)
-			return ERR_PTR(-EPROBE_DEFER);
-
-		data = dma_alloc_coherent(scm_dev, ehdr_size + hash_size,
-				metadata_phys, GFP_KERNEL);
+		if (!dma_phys_below_32b) {
+			scm_dev = qcom_get_scm_device();
+			if (!scm_dev)
+				return ERR_PTR(-EPROBE_DEFER);
+			data = dma_alloc_coherent(scm_dev, ehdr_size + hash_size,
+					metadata_phys, GFP_KERNEL);
+		} else {
+			data = dma_alloc_coherent(dev, ehdr_size + hash_size,
+						  metadata_phys, GFP_KERNEL);
+		}
 	} else {
 		data = kmalloc(ehdr_size + hash_size, GFP_KERNEL);
 	}
@@ -185,8 +189,12 @@ void *qcom_mdt_read_metadata(struct device *dev, const struct firmware *fw, cons
 
 	return data;
 free_metadata:
-	if (metadata_phys)
-		dma_free_coherent(scm_dev, ehdr_size + hash_size, data, *metadata_phys);
+	if (metadata_phys) {
+		if (!dma_phys_below_32b)
+			dma_free_coherent(scm_dev, ehdr_size + hash_size, data, *metadata_phys);
+		else
+			dma_free_coherent(dev, ehdr_size + hash_size, data, *metadata_phys);
+	}
 	else
 		kfree(data);
 	return ERR_PTR(ret);
@@ -195,7 +203,8 @@ EXPORT_SYMBOL_GPL(qcom_mdt_read_metadata);
 
 static int __qcom_mdt_load(struct device *dev, const struct firmware *fw, const char *firmware,
 			   int pas_id, void *mem_region, phys_addr_t mem_phys, size_t mem_size,
-			   phys_addr_t *reloc_base, bool pas_init, struct qcom_mdt_metadata *mdata)
+			   phys_addr_t *reloc_base, bool pas_init, bool dma_phys_below_32b,
+			   struct qcom_mdt_metadata *mdata)
 {
 	const struct elf32_phdr *phdrs;
 	const struct elf32_phdr *phdr;
@@ -233,9 +242,12 @@ static int __qcom_mdt_load(struct device *dev, const struct firmware *fw, const 
 		return -ENOMEM;
 
 	if (pas_init) {
-		metadata = qcom_mdt_read_metadata(dev, fw, firmware, &metadata_len, &metadata_phys);
+		metadata = qcom_mdt_read_metadata(dev, fw, firmware, &metadata_len,
+						  dma_phys_below_32b, &metadata_phys);
 		if (IS_ERR(metadata)) {
 			ret = PTR_ERR(metadata);
+			dev_err(dev, "error %d reading firmware %s metadata\n",
+					ret, fw_name);
 			goto out;
 		}
 
@@ -352,11 +364,19 @@ deinit:
 		if (ret)
 			qcom_scm_pas_shutdown(pas_id);
 
-		scm_dev = qcom_get_scm_device();
-		if (!scm_dev)
-			goto out;
-		if (mdata)
-			dma_free_coherent(scm_dev, mdata->size, mdata->buf, mdata->buf_phys);
+		if (mdata) {
+			if (!dma_phys_below_32b) {
+				scm_dev = qcom_get_scm_device();
+				if (!scm_dev)
+					goto out;
+
+				dma_free_coherent(scm_dev,
+						mdata->size, mdata->buf, mdata->buf_phys);
+			} else {
+				dma_free_coherent(dev,
+						mdata->size, mdata->buf, mdata->buf_phys);
+			}
+		}
 	}
 out:
 	kfree(fw_name);
@@ -383,7 +403,7 @@ int qcom_mdt_load(struct device *dev, const struct firmware *fw,
 		  phys_addr_t *reloc_base)
 {
 	return __qcom_mdt_load(dev, fw, firmware, pas_id, mem_region, mem_phys,
-			       mem_size, reloc_base, true, NULL);
+			       mem_size, reloc_base, true, false, NULL);
 }
 EXPORT_SYMBOL_GPL(qcom_mdt_load);
 
@@ -406,7 +426,7 @@ int qcom_mdt_load_no_init(struct device *dev, const struct firmware *fw,
 			  size_t mem_size, phys_addr_t *reloc_base)
 {
 	return __qcom_mdt_load(dev, fw, firmware, pas_id, mem_region, mem_phys,
-			       mem_size, reloc_base, false, NULL);
+			       mem_size, reloc_base, false, false, NULL);
 }
 EXPORT_SYMBOL_GPL(qcom_mdt_load_no_init);
 
@@ -429,10 +449,11 @@ EXPORT_SYMBOL_GPL(qcom_mdt_load_no_init);
  */
 int qcom_mdt_load_no_free(struct device *dev, const struct firmware *fw, const char *firmware,
 		  int pas_id, void *mem_region, phys_addr_t mem_phys, size_t mem_size,
-		  phys_addr_t *reloc_base, struct qcom_mdt_metadata *metadata)
+		  phys_addr_t *reloc_base, bool dma_phys_below_32b,
+		  struct qcom_mdt_metadata *metadata)
 {
 	return __qcom_mdt_load(dev, fw, firmware, pas_id, mem_region, mem_phys,
-			       mem_size, reloc_base, true, metadata);
+			       mem_size, reloc_base, true, dma_phys_below_32b, metadata);
 }
 EXPORT_SYMBOL(qcom_mdt_load_no_free);
 
@@ -446,20 +467,24 @@ EXPORT_SYMBOL(qcom_mdt_load_no_free);
  * Free the metadata that was allocated by mdt loader.
  *
  */
-void qcom_mdt_free_metadata(int pas_id, struct qcom_mdt_metadata *mdata,
-			    int err)
+void qcom_mdt_free_metadata(struct device *dev, int pas_id, struct qcom_mdt_metadata *mdata,
+			    bool dma_phys_below_32b, int err)
 {
 	struct device *scm_dev;
 
 	if (err && qcom_scm_pas_shutdown_retry(pas_id))
 		panic("Panicking, failed to shutdown peripheral %d\n", pas_id);
 	if (mdata) {
-		scm_dev = qcom_get_scm_device();
-		if (!scm_dev) {
-			pr_err("%s: scm_dev has not been created!\n", __func__);
-			return;
+		if (!dma_phys_below_32b) {
+			scm_dev = qcom_get_scm_device();
+			if (!scm_dev) {
+				pr_err("%s: scm_dev has not been created!\n", __func__);
+				return;
+			}
+			dma_free_coherent(scm_dev, mdata->size, mdata->buf, mdata->buf_phys);
+		} else {
+			dma_free_coherent(dev, mdata->size, mdata->buf, mdata->buf_phys);
 		}
-		dma_free_coherent(scm_dev, mdata->size, mdata->buf, mdata->buf_phys);
 	}
 }
 EXPORT_SYMBOL(qcom_mdt_free_metadata);
