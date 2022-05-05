@@ -647,7 +647,7 @@ static int rt5512_component_setting(struct snd_soc_component *component)
 		ret |= snd_soc_component_update_bits(component, 0xA1, 0xff18,
 						     0x5b18);
 		ret |= snd_soc_component_write(component, 0x69, 0x0002);
-		ret |= snd_soc_component_write(component, 0x68, 0x000D);
+		ret |= snd_soc_component_write(component, 0x68, 0x000C);
 		ret |= snd_soc_component_write(component, 0x6C, 0x0010);
 		ret |= snd_soc_component_write(component, 0x6D, 0x0008);
 		ret |= snd_soc_component_write(component, 0x30, 0x0002);
@@ -698,7 +698,7 @@ static int rt5512_component_setting(struct snd_soc_component *component)
 		/* RT5512B_RU012D_algorithm_20201110.lua */
 		ret |= snd_soc_component_update_bits(component, 0xA1, 0xff18, 0x5b18);
 		ret |= snd_soc_component_write(component, 0x69, 0x0002);
-		ret |= snd_soc_component_write(component, 0x68, 0x000D);
+		ret |= snd_soc_component_write(component, 0x68, 0x000C);
 		ret |= snd_soc_component_write(component, 0x6C, 0x0010);
 		ret |= snd_soc_component_write(component, 0x6D, 0x0008);
 		ret |= snd_soc_component_write(component, 0x30, 0x0002);
