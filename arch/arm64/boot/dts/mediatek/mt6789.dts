@@ -2648,6 +2648,7 @@
 			clocks = <&infracfg_ao_clk CLK_IFRAO_DPMAIF_MAIN>;
 			clock-names = "infra-dpmaif-clk";
 			mediatek,dpmaif_ver = <1>;
+			mediatek,chip_info = <6789>;
 		};
 
 		ccifdriver:ccifdriver@10209000 {
