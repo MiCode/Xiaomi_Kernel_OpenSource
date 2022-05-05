@@ -827,9 +827,9 @@ static int mtk_panel_ext_param_set(struct drm_panel *panel,
 
 	pr_info("%s+:mode=%d\n", __func__, mode);
 	if (mode == 0)
-		ext_params.pll_clk = 272;
+		ext_params.pll_clk = 275;
 	else if (mode == 1)
-		ext_params.pll_clk = 136;
+		ext_params.pll_clk = 137;
 	else
 		ret = 1;
 
@@ -874,7 +874,7 @@ struct panel_desc {
 static int lcm_get_modes(struct drm_panel *panel)
 {
 	struct drm_display_mode *mode;
-	struct drm_display_mode *mode_2;
+//	struct drm_display_mode *mode_2;
 
 	pr_info("%s+\n", __func__);
 
@@ -890,18 +890,18 @@ static int lcm_get_modes(struct drm_panel *panel)
 	mode->type = DRM_MODE_TYPE_DRIVER | DRM_MODE_TYPE_PREFERRED;
 	drm_mode_probed_add(panel->connector, mode);
 
-	mode_2 = drm_mode_duplicate(panel->drm, &performance_mode_1);
-	if (!mode_2) {
-		dev_info(panel->drm->dev, "failed to add mode %ux%ux@%u\n",
-			performance_mode_1.hdisplay,
-			performance_mode_1.vdisplay,
-			performance_mode_1.vrefresh);
-		return -ENOMEM;
-	}
+//	mode_2 = drm_mode_duplicate(panel->drm, &performance_mode_1);
+//	if (!mode_2) {
+//		dev_info(panel->drm->dev, "failed to add mode %ux%ux@%u\n",
+//			performance_mode_1.hdisplay,
+//			performance_mode_1.vdisplay,
+//			performance_mode_1.vrefresh);
+//		return -ENOMEM;
+//	}
 
-	drm_mode_set_name(mode_2);
-	mode_2->type = DRM_MODE_TYPE_DRIVER;
-	drm_mode_probed_add(panel->connector, mode_2);
+//	drm_mode_set_name(mode_2);
+//	mode_2->type = DRM_MODE_TYPE_DRIVER;
+//	drm_mode_probed_add(panel->connector, mode_2);
 	panel->connector->display_info.width_mm = 129;
 	panel->connector->display_info.height_mm = 64;
 
