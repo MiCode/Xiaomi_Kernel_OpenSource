@@ -709,7 +709,7 @@ static int mtk_cam_seninf_set_fmt(struct v4l2_subdev *sd,
 	struct v4l2_mbus_framefmt *format;
 	char bSinkFormatChanged = 0;
 
-	if (fmt->pad < PAD_SINK || fmt->pad >= PAD_MAXCNT)
+	if (fmt->pad >= PAD_MAXCNT)
 		return -EINVAL;
 
 	format = &ctx->fmt[fmt->pad].format;
@@ -758,7 +758,7 @@ static int mtk_cam_seninf_get_fmt(struct v4l2_subdev *sd,
 	struct seninf_ctx *ctx = sd_to_ctx(sd);
 	struct v4l2_mbus_framefmt *format;
 
-	if (fmt->pad < PAD_SINK || fmt->pad >= PAD_MAXCNT)
+	if (fmt->pad >= PAD_MAXCNT)
 		return -EINVAL;
 
 	format = &ctx->fmt[fmt->pad].format;
