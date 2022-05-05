@@ -2052,6 +2052,7 @@
 
 	mdpm: mdpm {
 		compatible = "mediatek,mt6789-mdpm";
+		mediatek,md_generation = <6295>;
 	};
 
 	cpu_power_throttling: cpu_power_throttling {
