@@ -463,7 +463,7 @@ static bool cam_mem_mmu_get_dma_buffer(
 	/* buffer and iova map */
 	mmu->sgt = dma_buf_map_attachment(mmu->attach, DMA_BIDIRECTIONAL);
 	if (IS_ERR(mmu->sgt)) {
-		LOG_NOTICE("dma_buf_map_attachment failed! memID(%d) size(0x%x)\n",
+		LOG_NOTICE("dma_buf_map_attachment failed! memID(%d) size(0x%zx)\n",
 			IonNode->memID, buf->size);
 		goto err_map;
 	}
@@ -558,7 +558,7 @@ static long cam_mem_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Pa
 			IonNode.dma_pa = mmu.dmaAddr = dmaPa;
 
 			if (unlikely((found_dmaPa != dmaPa) && (found_dmaPa != 0))) {
-				LOG_NOTICE("memID(%d)P(0x%lx)S(0x%x): 1 fd with multi iova:\n",
+				LOG_NOTICE("memID(%d)P(0x%lx)S(0x%zx): 1 fd with multi iova:\n",
 					IonNode.memID, dmaPa, mmu.dmaBuf->size);
 				mutex_lock(&cam_mem_ion_mutex[bucketID]);
 				dumpIonBufferList(&g_ion_buf_list[bucketID], 100, true);
