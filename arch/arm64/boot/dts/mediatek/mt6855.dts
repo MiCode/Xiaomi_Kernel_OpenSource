@@ -6859,6 +6859,7 @@
 			< 8 2 10 0>,/* IPI_IN_SCP_ERROR_INFO_0 */
 			//<12 2  6 0>,/* IPI_IN_SCP_MPOOL_0 */
 			<34 2 16 0>,/* IPI_IN_SCP_CONNSYS */
+			<42 2  8 0>,/* IPI_IN_RV_SPK_PROCESS */
 			< 7 3  2 0>,/* IPI_IN_APCCCI_0 */
 			<28 3  5 0>,/* IPI_IN_AUDIO_ULTRA_SND_0 */
 			<27 3  2 0>,/* IPI_IN_AUDIO_ULTRA_SND_ACK_0 */
@@ -6887,7 +6888,8 @@
 					  <10  22 1>,	/* vow vendor G */
 					  <11  20 1>,	/* vow dual mic */
 					  <12 100 1>,	/* vow dual mic barge in */
-					  <13 200 0>;	/* ultrasound */
+					  <13 200 0>,	/* ultrasound */
+					  <14 100 0>;	/* spk process */
 
 
 			secure_dump = "enable";	/* enable dump via secure world */
@@ -6901,13 +6903,14 @@
 				      < 1 0x4A700  0x0>, /* vow */
 				      < 2 0x100000 0x0>, /* sensor main*/
 				      < 3 0x180000 0x0>, /* logger */
-				      < 4 0x19000  0x0>, /* audio */
+				      < 4 0x200000 0x0>, /* audio 2M*/
 				      < 7 0x19000  0x0>, /* ultrasound*/
 				      < 8 0x10000  0x0>, /* sensor supper*/
 				      < 9 0x1000   0x0>, /* sensor list */
 				      <10 0x2000   0x0>, /* sensor debug */
 				      <11 0x100    0x0>, /* sensor custom writer */
-				      <12 0x100    0x0>; /* sensor custom reader */
+				      <12 0x100    0x0>, /* sensor custom reader */
+				      <13 0x19000  0x0>; /* rv spk, 0x1000(share)+0x18000(memif)*/
 
 			memorydump = <0x100000>, /* l2tcm */
 				     <0x03c000>, /* l1c */
@@ -7300,6 +7303,12 @@
 			compatible = "mediatek,mt6855-mt6369-sound";
 			/* mediatek,headset-codec = <&mt6368_accdet>; */
 			mediatek,platform = <&afe>;
+		};
+
+		snd_scp_audio: snd_scp_audio {
+			compatible = "mediatek,snd_scp_audio";
+			status = "disabled";
+			scp_spk_process_enable = <0x0 0x4 0x10 0x15>;
 		};
 
 		usb: usb0@11210000 {
