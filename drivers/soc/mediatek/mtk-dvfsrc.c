@@ -674,7 +674,7 @@ static int dvfsrc_pm_qos_ddr_notify(struct notifier_block *b,
 	int level;
 
 	qos = container_of(b, struct dvfsrc_qos_data, pm_qos_ddr_notify);
-	if (l > qos->max_dram_opp || l < 0)
+	if (l > qos->max_dram_opp)
 		level = 0;
 	else
 		level = qos->max_dram_opp - l;
@@ -692,7 +692,7 @@ static int dvfsrc_pm_qos_vcore_notify(struct notifier_block *b,
 
 	qos = container_of(b, struct dvfsrc_qos_data, pm_qos_vcore_notify);
 
-	if (l > qos->max_vcore_opp || l < 0)
+	if (l > qos->max_vcore_opp)
 		level = 0;
 	else
 		level = qos->max_vcore_opp - l;
