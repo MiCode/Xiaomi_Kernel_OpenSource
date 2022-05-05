@@ -105,6 +105,8 @@ struct selinux_state {
 	bool initialized;
 	bool policycap[__POLICYDB_CAPABILITY_MAX];
 	bool android_netlink_route;
+	bool android_netlink_getneigh;
+
 	struct selinux_avc *avc;
 	struct selinux_ss *ss;
 };
@@ -182,6 +184,13 @@ static inline bool selinux_android_nlroute_getlink(void)
 	struct selinux_state *state = &selinux_state;
 
 	return state->android_netlink_route;
+}
+
+static inline bool selinux_android_nlroute_getneigh(void)
+{
+	struct selinux_state *state = &selinux_state;
+
+	return state->android_netlink_getneigh;
 }
 
 int security_mls_enabled(struct selinux_state *state);
