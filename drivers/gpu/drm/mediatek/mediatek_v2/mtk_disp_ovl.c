@@ -1047,9 +1047,10 @@ static void mtk_ovl_layer_off(struct mtk_ddp_comp *comp, unsigned int idx,
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			       comp->regs_pa + DISP_REG_OVL_SRC_CON, 0,
 			       BIT(idx));
-		cmdq_pkt_write(handle, comp->cmdq_base,
-			       comp->regs_pa + DISP_REG_OVL_RDMA_CTRL(idx), 0,
-			       ~0);
+		/* TODO: only disable RDMA with valid lye_blob information */
+		//cmdq_pkt_write(handle, comp->cmdq_base,
+		//	       comp->regs_pa + DISP_REG_OVL_RDMA_CTRL(idx), 0,
+		//	       ~0);
 	}
 }
 
