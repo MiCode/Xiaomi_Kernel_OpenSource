@@ -635,9 +635,10 @@ unsigned int _mt_cpufreq_get_cpu_level(void)
 		tag_pr_info("%s fail to get device node\n", __func__);
 		return 0;
 	}
-	pdev = of_platform_device_create(node, NULL, NULL);
+	pdev = of_device_alloc(node, NULL, NULL);
 	if (pdev == NULL) {
 		lv = 0;
+		tag_pr_info("%s alloc device node failed. cpu_lvl 0\n", __func__);
 		goto get_level_end;
 	}
 
