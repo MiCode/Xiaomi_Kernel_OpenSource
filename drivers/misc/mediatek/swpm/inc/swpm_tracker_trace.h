@@ -15,24 +15,24 @@ TRACE_EVENT(swpm_power,
 	TP_PROTO(char *power),
 	TP_ARGS(power),
 	TP_STRUCT__entry(
-		__string(power_str, power)
+		__field(char*, power)
 	),
 	TP_fast_assign(
-		__assign_str(power_str, power);
+		__entry->power = power;
 	),
-	TP_printk("%s", __get_str(power_str))
+	TP_printk("%s", __entry->power)
 );
 
 TRACE_EVENT(swpm_power_idx,
 	TP_PROTO(char *power_idx),
 	TP_ARGS(power_idx),
 	TP_STRUCT__entry(
-		__string(power_idx_str, power_idx)
+		__field(char*, power_idx)
 	),
 	TP_fast_assign(
-		__assign_str(power_idx_str, power_idx);
+		__entry->power_idx = power_idx;
 	),
-	TP_printk("%s", __get_str(power_idx_str))
+	TP_printk("%s", __entry->power_idx)
 );
 
 #endif /* _SWPM_TRACKER_TRACE_H */

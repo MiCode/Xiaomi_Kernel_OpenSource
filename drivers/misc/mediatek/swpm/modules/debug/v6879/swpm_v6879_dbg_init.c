@@ -224,7 +224,7 @@ static ssize_t swpm_pmsr_trigger_write(char *FromUser, size_t sz, void *priv)
 		return -EINVAL;
 
 	if (!kstrtouint(FromUser, 0, &mode)) {
-		if (mode >= 0 && mode < 4) {
+		if (mode < 4) {
 			swpm_pmsr_trigger = mode;
 			swpm_set_update_cnt(0, 0x2 << SWPM_CODE_USER_BIT |
 					    swpm_pmsr_trigger);
