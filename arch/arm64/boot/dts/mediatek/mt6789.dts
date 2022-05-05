@@ -3444,7 +3444,7 @@
 			core_nums = <1>;	/* core number */
 			twohart = <1>;		/* two hart arch */
 
-			mbox_count = <4>;
+			mbox_count = <5>;
 			/* id, mbox, send_size*/
 			send_table =
 			< 0 0  9>, /* IPI_OUT_AUDIO_VOW_1 */
@@ -3455,12 +3455,12 @@
 			<26 1  9>, /* IPI_OUT_AUDIO_ULTRA_SND_0 */
 			<29 2 16>, /* IPI_OUT_SENSOR_CTRL */
 			<31 2  7>, /* IPI_OUT_SENSOR_NOTIFY */
-			<41 2  2>, /* IPI_OUT_DEBUG_CMD */
 			<14 3  1>, /* IPI_OUT_DVFS_SET_FREQ_1 */
 			<15 3  2>, /* IPI_OUT_C_SLEEP_1 */
 			<16 3  1>, /* IPI_OUT_TEST_1 */
 			<17 3  6>, /* IPI_OUT_LOGGER_CTRL */
-			<18 3  2>; /* IPI_OUT_SCPCTL_1 */
+			<18 3  2>, /* IPI_OUT_SCPCTL_1 */
+			<24 4  4>; /* IPI_OUT_SCP_MPOOL_1 */
 
 			/* id, mbox, recv_size, recv_opt */
 			recv_table =
@@ -3480,7 +3480,8 @@
 			<21 3  6 0>, /* IPI_IN_LOGGER_CTRL */
 			<22 3  1 0>, /* IPI_IN_SCP_READY_1 */
 			<23 3  2 0>, /* IPI_IN_SCP_RAM_DUMP_1 */
-			<15 3  1 1>; /* IPI_OUT_C_SLEEP_1 */
+			<15 3  1 1>, /* IPI_OUT_C_SLEEP_1 */
+			<25 4  4 0>; /* IPI_IN_SCP_MPOOL_1 */
 
 			/* feature, frequecy, coreid */
 			scp_feature_tbl =
@@ -3750,18 +3751,6 @@
 			mediatek,platform = <&afe>;
 			mediatek,speaker-codec {
 			};
-		};
-
-		scp_audio_mbox: scp_audio_mbox {
-			compatible = "mediatek,scp_audio_mbox";
-			status = "disabled";
-			reg = <0 0x1c7ff000 0 0x100>, /* Re-use scp hw mbox4 */
-			      <0 0x1c7ff100 0 0x4>,
-			      <0 0x1c7ff10c 0 0x4>;
-
-			reg-names = "mbox0_base", "mbox0_set", "mbox0_clr";
-			interrupts = <GIC_SPI 522 IRQ_TYPE_LEVEL_HIGH 0>;
-			interrupt-names = "mbox0";
 		};
 
 		snd_scp_audio: snd_scp_audio {
