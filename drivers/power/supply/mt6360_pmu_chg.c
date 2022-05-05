@@ -928,11 +928,6 @@ static int __mt6360_get_adc(struct mt6360_chg_info *mci,
 {
 	int ret = 0;
 
-	if ((channel < 0) || (channel >= MT6360_ADC_MAX)) {
-		dev_info(mci->dev,
-			"%s: fail, channel invalid(%d)\n", __func__, channel);
-		return -EINVAL;
-	}
 	ret = iio_read_channel_processed(mci->channels[channel], min);
 	if (ret < 0) {
 		dev_info(mci->dev, "%s: fail(%d)\n", __func__, ret);
@@ -1783,7 +1778,7 @@ static int mt6360_dump_registers(struct charger_device *chg_dev)
 	struct mt6360_chg_info *mci = charger_get_data(chg_dev);
 	int i, ret = 0;
 	int adc_vals[MT6360_ADC_MAX];
-	u32 ichg = 0, aicr = 0, mivr = 0, cv = 0, ieoc = 0;
+	u32 ichg = 0, aicr = 0, mivr = 0, cv = 0, ieoc = 0, idx = 0;
 	enum mt6360_charging_status chg_stat = MT6360_CHG_STATUS_READY;
 	bool chg_en = false;
 	u8 chg_stat1 = 0, chg_ctrl[2] = {0};
@@ -1796,6 +1791,7 @@ static int mt6360_dump_registers(struct charger_device *chg_dev)
 	ret |= mt6360_get_cv(chg_dev, &cv);
 	ret |= mt6360_get_ieoc(mci, &ieoc);
 	ret |= mt6360_get_charging_status(mci, &chg_stat);
+	idx = chg_stat;
 	ret |= mt6360_is_charger_enabled(mci, &chg_en);
 	if (ret < 0) {
 		dev_notice(mci->dev, "%s: parse chg setting fail\n", __func__);
@@ -1835,7 +1831,7 @@ static int mt6360_dump_registers(struct charger_device *chg_dev)
 		 adc_vals[MT6360_ADC_VBAT] / 1000,
 		 adc_vals[MT6360_ADC_IBAT] / 1000);
 	dev_info(mci->dev, "%s: CHG_EN = %d, CHG_STATUS = %s, CHG_STAT1 = 0x%02X\n",
-		 __func__, chg_en, mt6360_chg_status_name[chg_stat], chg_stat1);
+		 __func__, chg_en, mt6360_chg_status_name[idx], chg_stat1);
 	dev_info(mci->dev, "%s: CHG_CTRL1 = 0x%02X, CHG_CTRL2 = 0x%02X\n",
 		 __func__, chg_ctrl[0], chg_ctrl[1]);
 	return 0;
@@ -2788,11 +2784,6 @@ static int mt6360_charger_get_property(struct power_supply *psy,
 	int ret = 0;
 	bool pwr_rdy = false, chg_en = false;
 
-	if (IS_ERR_OR_NULL(mci)) {
-		pr_notice("%s: fail, mci is NULL\n", __func__);
-		return -EINVAL;
-	}
-
 	dev_dbg(mci->dev, "%s: prop = %d\n", __func__, psp);
 	switch (psp) {
 	case POWER_SUPPLY_PROP_ONLINE:
@@ -2851,11 +2842,6 @@ static int mt6360_charger_set_property(struct power_supply *psy,
 {
 	struct mt6360_chg_info *mci = power_supply_get_drvdata(psy);
 	int ret = 0;
-
-	if (IS_ERR_OR_NULL(mci)) {
-		pr_notice("%s: fail, mci is NULL\n", __func__);
-		return -EINVAL;
-	}
 
 	dev_dbg(mci->dev, "%s: prop = %d\n", __func__, psp);
 	switch (psp) {
