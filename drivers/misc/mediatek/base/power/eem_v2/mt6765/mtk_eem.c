@@ -220,10 +220,11 @@ static int get_devinfo(void)
 		return 0;
 	}
 
-	pdev = of_platform_device_create(node, NULL, NULL);
-	if (pdev == NULL)
+	pdev = of_device_alloc(node, NULL, NULL);
+	if (pdev == NULL){
+		eem_error("%s failed to get pdev\n",__func__);
 		goto get_devinfo_end;
-
+	}
 	nvmem_dev = nvmem_device_get(&pdev->dev, "mtk_efuse");
 
 	if (IS_ERR(nvmem_dev)) {
