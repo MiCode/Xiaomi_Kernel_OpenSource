@@ -1174,6 +1174,12 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 			memset(&ctx->ae_memento, 0, sizeof(ctx->ae_memento));
 			memcpy(&ctx->ae_memento, &info->ae_ctrl[0],  sizeof(ctx->ae_memento));
 
+			/* update timeout value upon seamless switch*/
+			ctx->exposure->val = info->ae_ctrl[0].exposure.arr[0];
+			ctx->shutter_for_timeout = info->ae_ctrl[0].exposure.arr[0];
+			if (ctx->cur_mode->fine_intg_line)
+				ctx->shutter_for_timeout /= 1000;
+
 			if (info->target_scenario_id < MODE_MAXCNT)
 				ctx->cur_mode = &ctx->mode[info->target_scenario_id];
 			else {
