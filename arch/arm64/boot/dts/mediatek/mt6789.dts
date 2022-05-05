@@ -3906,14 +3906,17 @@
 				"infra_bcrm";
 			clocks =
 				<&topckgen_clk CLK_TOP_MFG_PLL_SEL>,
+				<&topckgen_clk CLK_TOP_MFG_REF_SEL>,
 				<&topckgen_clk CLK_TOP_MFGPLL>,
 				<&topckgen_clk CLK_TOP_MFG_REF>,
 				<&mfg_top_config_clk CLK_MFGCFG_BG3D>;
 			clock-names =
 				"clk_mux",
+				"clk_ref_mux",
 				"clk_main_parent",
 				"clk_sub_parent",
 				"subsys_bg3d";
+#if 0
 			power-domains =
 				<&scpsys MT6789_POWER_DOMAIN_MFG0>,
 				<&scpsys MT6789_POWER_DOMAIN_MFG1>,
@@ -3924,6 +3927,7 @@
 				"pd_mfg1",
 				"pd_mfg2",
 				"pd_mfg3";
+#endif
 			_vgpu-supply = <&mt6358_vgpu_reg>;
 			_vsram_gpu-supply = <&mt6358_vsram_gpu_reg>;
 			fhctl-supply = <&fhctl>;
