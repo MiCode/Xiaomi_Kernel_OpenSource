@@ -915,7 +915,7 @@
 			thermal-sensors = <&lvts 8>;
 		};
 		gpu2 {
-			polling-delay = <100>; /* milliseconds */
+			polling-delay = <500>; /* milliseconds */
 			polling-delay-passive = <12>; /* milliseconds */
 			thermal-sensors = <&lvts 9>;
 			trips {
