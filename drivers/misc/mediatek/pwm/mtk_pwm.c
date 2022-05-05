@@ -923,11 +923,6 @@ s32 pwm_set_easy_config(struct pwm_easy_config *conf)
 		return -EINVALID;
 	}
 
-	if  (conf->duty < 0) {
-		pr_debug(T "duty parameter is invalid\n");
-		return -EINVALID;
-	}
-
 	pr_debug(T "%s\n", __func__);
 
 	if (conf->duty == 0) {
