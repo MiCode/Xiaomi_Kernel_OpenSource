@@ -2823,7 +2823,7 @@ static int __init rpmb_init(void)
 	int alloc_ret;
 	int cdev_ret = -1;
 	unsigned int major;
-	dev_t dev;
+	dev_t dev = 0;
 	struct device *device = NULL;
 #if IS_ENABLED(CONFIG_TRUSTONIC_TEE_SUPPORT)
 	struct device_node *mobicore_node;
