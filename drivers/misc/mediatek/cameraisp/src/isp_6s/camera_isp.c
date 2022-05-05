@@ -6609,7 +6609,7 @@ static int ISP_probe(struct platform_device *pDev)
 	/*    struct resource *pRes = NULL; */
 	int i = 0, j = 0;
 	unsigned char n;
-	unsigned int irq_info[3]; /* Record interrupts info from device tree */
+	unsigned int irq_info[3] = {0}; /* Record interrupts info from device tree */
 	unsigned int dev_idx = (unsigned int)ISP_DEV_NODE_NUM;
 
 #ifdef CONFIG_OF
