@@ -346,7 +346,7 @@ static inline int of_mml_read_comp_count(const struct device_node *np,
 static int comp_master_init(struct device *dev, struct mml_dev *mml)
 {
 	struct component_match *match = NULL;
-	u32 comp_count;
+	u32 comp_count = 0;
 	ulong i;
 	int ret;
 
@@ -576,6 +576,7 @@ s32 mml_comp_pw_disable(struct mml_comp *comp)
 s32 mml_comp_clk_enable(struct mml_comp *comp)
 {
 	u32 i;
+	int ret;
 
 	comp->clk_cnt++;
 	if (comp->clk_cnt > 1)
@@ -589,7 +590,9 @@ s32 mml_comp_clk_enable(struct mml_comp *comp)
 	for (i = 0; i < ARRAY_SIZE(comp->clks); i++) {
 		if (IS_ERR(comp->clks[i]))
 			break;
-		clk_prepare_enable(comp->clks[i]);
+		ret = clk_prepare_enable(comp->clks[i]);
+		if (ret)
+			mml_err("%s clk_prepare_enable fail %d", __func__, ret);
 	}
 
 	return 0;

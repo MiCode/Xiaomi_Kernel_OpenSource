@@ -49,8 +49,8 @@ struct mml_test_case {
 
 static struct mml_test_case the_case;
 
-int mml_case;
-module_param(mml_case, int, 0644);
+unsigned int mml_case;
+module_param(mml_case, uint, 0644);
 
 /* how many submit for each ut */
 int mml_test_round = 1;
@@ -119,7 +119,14 @@ struct test_case_op {
 static void check_fence(int32_t fd, const char *func)
 {
 	struct dma_fence *fence = sync_file_get_fence(fd);
-	long fret = dma_fence_wait(fence, true);
+	long fret;
+
+	if (unlikely(!fence)) {
+		mml_err("sync_file_get_fence return null");
+		return;
+	}
+
+	fret = dma_fence_wait(fence, true);
 
 	mml_log("[test]%s success fence %d %p ret %ld",
 		func, fd, fence, fret);
@@ -461,7 +468,7 @@ static void setup_nv12(struct mml_submit *task, struct mml_test_case *cur)
 		cur->size_out)
 		mml_err("%s case %d dest size total %u plane %u %u",
 			__func__, mml_case, cur->size_out,
-			task->buffer.dest[0].size[0] + task->buffer.dest[0].size[1]);
+			task->buffer.dest[0].size[0], task->buffer.dest[0].size[1]);
 }
 
 static void case_run_nv12(struct mml_test *test, struct mml_test_case *cur)
@@ -509,7 +516,7 @@ static void setup_block_to_nv12(struct mml_submit *task,
 		cur->size_out)
 		mml_err("%s case %d dest size total %u plane %u %u",
 			__func__, mml_case, cur->size_out,
-			task->buffer.dest[0].size[0] + task->buffer.dest[0].size[1]);
+			task->buffer.dest[0].size[0], task->buffer.dest[0].size[1]);
 }
 
 static void case_run_block_to_nv12(struct mml_test *test, struct mml_test_case *cur)
@@ -798,7 +805,7 @@ static void setup_yv12_yuyv(struct mml_submit *task, struct mml_test_case *cur)
 		cur->size_in)
 		mml_err("%s case %d src size total %u plane %u %u",
 			__func__, mml_case, cur->size_in,
-			task->buffer.src.size[0] + task->buffer.src.size[1]);
+			task->buffer.src.size[0], task->buffer.src.size[1]);
 }
 
 static void case_run_yv12_yuyv(struct mml_test *test, struct mml_test_case *cur)
@@ -907,6 +914,10 @@ static void case_run_read_sram(struct mml_test *test, struct mml_test_case *cur)
 
 	/* hold sram, for wrot out and rdma in */
 	dev = &mml_pdev->dev;
+	if (unlikely(!dev)) {
+		mml_err("%s dev = null", __func__);
+		return;
+	}
 	mml = dev_get_drvdata(dev);
 	mml_sram_get(mml);
 
@@ -967,11 +978,27 @@ static void case_run_wr_sram(struct mml_test *test, struct mml_test_case *cur)
 	int32_t fd = -1;
 
 	/* create context */
+	if (unlikely(!test)) {
+		mml_err("%s test = null", __func__);
+		return;
+	}
 	mml_pdev = mml_get_plat_device(test->pdev);
+	if (unlikely(!mml_pdev)) {
+		mml_err("%s mml_pdev = null", __func__);
+		return;
+	}
 	mml_ctx = mml_drm_get_context(mml_pdev, &disp);
-
+	if (unlikely(!mml_ctx)) {
+		mml_err("%s mml_ctx = null", __func__);
+		return;
+	}
 	/* hold sram, for wrot out and rdma in */
 	dev = &mml_pdev->dev;
+	if (unlikely(!dev)) {
+		mml_drm_put_context(mml_ctx);
+		mml_err("%s dev = null", __func__);
+		return;
+	}
 	mml = dev_get_drvdata(dev);
 	mml_sram_get(mml);
 
@@ -1057,7 +1084,7 @@ static void setup_crop_manual(struct mml_submit *task, struct mml_test_case *cur
 		cur->size_out)
 		mml_err("%s case %d dest size total %u plane %u %u",
 			__func__, mml_case, cur->size_out,
-			task->buffer.dest[0].size[0] + task->buffer.dest[0].size[1]);
+			task->buffer.dest[0].size[0], task->buffer.dest[0].size[1]);
 }
 
 static void case_run_crop_manual(struct mml_test *test, struct mml_test_case *cur)
@@ -1191,6 +1218,7 @@ static ssize_t test_read(struct file *filep, char __user *buf, size_t size,
 	loff_t *offset)
 {
 	u32 len = sizeof(the_case);
+	int ret;
 
 	if (size < sizeof(the_case)) {
 		mml_err("[test] buf size not match %zu %u",
@@ -1205,10 +1233,14 @@ static ssize_t test_read(struct file *filep, char __user *buf, size_t size,
 	else
 		mml_err("[test]no such case %d", mml_case);
 
-	copy_to_user(buf, &the_case, len);
+	ret = copy_to_user(buf, &the_case, len);
+	if (ret) {
+		mml_err("[test]%s copy case fail %d", __func__, ret);
+		return -EFAULT;
+	}
 	*offset += len;
 
-	mml_log("[test]%s format src %#010x dest %#010x size %u stride %u",
+	mml_log("[test]%s format src %#010x dest %#010x",
 		__func__, the_case.cfg_src_format, the_case.cfg_dest_format);
 
 	return 0;

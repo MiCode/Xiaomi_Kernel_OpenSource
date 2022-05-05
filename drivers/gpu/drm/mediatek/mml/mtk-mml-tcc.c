@@ -207,6 +207,9 @@ static int probe(struct platform_device *pdev)
 	priv->comp.config_ops = &tcc_cfg_ops;
 	priv->comp.debug_ops = &tcc_debug_ops;
 
+	if (unlikely(dbg_probed_count < 0))
+		return -EFAULT;
+
 	dbg_probed_components[dbg_probed_count++] = priv;
 
 	ret = component_add(dev, &mml_comp_ops);
@@ -285,6 +288,7 @@ static s32 ut_get(char *buf, const struct kernel_param *kp)
 				"  -      mml_bound: %d\n",
 				dbg_probed_components[i]->comp.bound);
 		}
+		break;
 	default:
 		mml_err("not support read for case_id: %d", ut_case);
 		break;

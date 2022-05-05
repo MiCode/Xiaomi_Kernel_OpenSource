@@ -313,8 +313,13 @@ static s32 rdma_write(struct cmdq_pkt *pkt, phys_addr_t base_pa, u8 hw_pipe,
 static s32 rdma_write_ofst(struct cmdq_pkt *pkt, phys_addr_t base_pa, u8 hw_pipe,
 			   enum cpr_reg_idx lsb_idx, u64 value, bool write_sec)
 {
-	enum cpr_reg_idx msb_idx = lsb_to_msb[lsb_idx];
+	enum cpr_reg_idx msb_idx;
 	s32 ret;
+
+	if (unlikely(lsb_idx < 0))
+		return -EFAULT;
+
+	msb_idx = lsb_to_msb[lsb_idx];
 
 	ret = rdma_write(pkt, base_pa, hw_pipe,
 			 lsb_idx, value & GENMASK_ULL(31, 0), write_sec);
@@ -348,8 +353,13 @@ static s32 rdma_write_addr(struct cmdq_pkt *pkt, phys_addr_t base_pa, u8 hw_pipe
 			   struct mml_pipe_cache *cache,
 			   u16 *label_idx, bool write_sec)
 {
-	enum cpr_reg_idx msb_idx = lsb_to_msb[lsb_idx];
+	enum cpr_reg_idx msb_idx;
 	s32 ret;
+
+	if (unlikely(lsb_idx < 0))
+		return -EFAULT;
+
+	msb_idx = lsb_to_msb[lsb_idx];
 
 	ret = rdma_write_reuse(pkt, base_pa, hw_pipe,
 			       lsb_idx, value & GENMASK_ULL(31, 0),
