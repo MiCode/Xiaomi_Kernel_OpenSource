@@ -701,7 +701,7 @@ static int srclken_rc_broadcast_hw_shift(void)
 	rc_sta._trace_lsb.ofs = BC_TRACE_0_LSB;
 	rc_sta._trace_msb.ofs = BC_TRACE_0_MSB;
 	rc_sta._timer_lsb.ofs = BC_TIMER_0_LSB;
-	rc_sta._timer_lsb.ofs = BC_TIMER_0_MSB;
+	rc_sta._timer_msb.ofs = BC_TIMER_0_MSB;
 
 	return 0;
 }
