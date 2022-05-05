@@ -266,8 +266,11 @@ static ssize_t lock_debug_read(struct file *file,
 	struct dbg_info *di = file->private_data;
 	struct dbg_internal *d = &di->internal;
 	char buf[10];
+	int ret = 0;
 
-	snprintf(buf, sizeof(buf), "%d\n", mutex_is_locked(&d->io_lock));
+	ret = snprintf(buf, sizeof(buf), "%d\n", mutex_is_locked(&d->io_lock));
+	if (ret < 0)
+		pr_debug("%s, ret = %d\n", __func__, ret);
 	return simple_read_from_buffer(user_buf, cnt, loff, buf, strlen(buf));
 }
 
