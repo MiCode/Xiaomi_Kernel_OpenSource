@@ -405,3 +405,11 @@ config MTK_ULTRASND_PROXIMITY
 	  emulate physical proximity sensor. Using
 	  IPI interface to communicate with SCP side and
 	  be controlled by sensor hal.
+
+config MTK_SCP_AUDIO
+	tristate "ASoC support for Mediatek scp audio chip"
+	help
+	  This adds scp audio driver for Mediatek boards
+	  that can be used with other platforms
+	  Select Y if you have such device.
+	  If unsure select "N".

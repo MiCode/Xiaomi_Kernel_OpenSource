@@ -31,6 +31,9 @@
 #if IS_ENABLED(CONFIG_MTK_ULTRASND_PROXIMITY) && !defined(CONFIG_FPGA_EARLY_PORTING)
 #include "../ultrasound/ultra_scp/mtk-scp-ultra-common.h"
 #endif
+#if IS_ENABLED(CONFIG_MTK_SCP_AUDIO)
+#include "../audio_scp/mtk-scp-audio-pcm.h"
+#endif
 /* FORCE_FPGA_ENABLE_IRQ use irq in fpga */
 /* #define FORCE_FPGA_ENABLE_IRQ */
 
@@ -5660,6 +5663,9 @@ static int mt6789_afe_pcm_dev_probe(struct platform_device *pdev)
 
 #if IS_ENABLED(CONFIG_MTK_ULTRASND_PROXIMITY) && !defined(CONFIG_FPGA_EARLY_PORTING)
 	ultra_set_dsp_afe(afe);
+#endif
+#if IS_ENABLED(CONFIG_MTK_SCP_AUDIO)
+	scp_set_audio_afe(afe);
 #endif
 	return 0;
 

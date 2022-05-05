@@ -214,6 +214,9 @@ struct mtk_base_afe_memif {
 	int use_mmap_share_mem;  // 1: dl, 2: ul
 	bool vow_barge_in_enable;
 	bool scp_ultra_enable;
+#if IS_ENABLED(CONFIG_MTK_SCP_AUDIO)
+	int use_scp_share_mem;
+#endif
 };
 
 struct mtk_base_afe_irq {

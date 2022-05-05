@@ -111,9 +111,6 @@ int mtk_dsp_deregister_feature(int id);
 int wait_dsp_ready(void);
 int mtk_audio_register_notify(void);
 
-int mtk_spk_send_ipi_buf_to_dsp(void *data_buffer, uint32_t data_size);
-int mtk_spk_recv_ipi_buf_from_dsp(int8_t *buffer,
-				  int16_t size,
-				  uint32_t *buf_len);
+int mtk_get_ipi_buf_scene_adsp(void);
 
 #endif

@@ -605,6 +605,13 @@ SND_SOC_DAILINK_DEFS(ultra,
 		DAILINK_COMP_ARRAY(COMP_PLATFORM("snd_scp_ultra")));
 #endif
 
+#if IS_ENABLED(CONFIG_MTK_SCP_AUDIO)
+SND_SOC_DAILINK_DEFS(scpspkprocess,
+	DAILINK_COMP_ARRAY(COMP_DUMMY()),
+	DAILINK_COMP_ARRAY(COMP_DUMMY()),
+	DAILINK_COMP_ARRAY(COMP_DUMMY()));
+#endif
+
 static struct snd_soc_dai_link mt6789_mt6366_dai_links[] = {
 	/* Front End DAI links */
 	{
@@ -1061,6 +1068,13 @@ static struct snd_soc_dai_link mt6789_mt6366_dai_links[] = {
 		SND_SOC_DAILINK_REG(ultra),
 	},
 #endif
+#if IS_ENABLED(CONFIG_MTK_SCP_AUDIO)
+	{
+		.name = "SCP_SPK_Process",
+		.stream_name = "SCP_SPK_Process",
+		SND_SOC_DAILINK_REG(scpspkprocess),
+	},
+#endif
 };
 
 static struct snd_soc_card mt6789_mt6366_soc_card = {
@@ -1077,12 +1091,38 @@ static struct snd_soc_card mt6789_mt6366_soc_card = {
 	.num_dapm_routes = ARRAY_SIZE(mt6789_mt6366_routes),
 };
 
+#if IS_ENABLED(CONFIG_MTK_SCP_AUDIO)
+int mtk_update_scp_audio_info(struct snd_soc_card *card,
+			struct platform_device *pdev)
+{
+	struct snd_soc_dai_link *dai_link;
+	int i = 0;
+
+	/* find dai link of SCP_SPK_Process */
+	for_each_card_prelinks(card, i, dai_link) {
+		if (strcmp(dai_link->name, "SCP_SPK_Process") == 0) {
+			dai_link->cpus->name = NULL;
+			dai_link->cpus->dai_name = "audio_task_spk_process";
+			dai_link->platforms->name = "snd_scp_audio";
+			dai_link->platforms->dai_name = NULL;
+			dev_info(&pdev->dev, "scp audio updated\n");
+		}
+	}
+
+	return 0;
+}
+#endif
+
 static int mt6789_mt6366_dev_probe(struct platform_device *pdev)
 {
 	struct snd_soc_card *card = &mt6789_mt6366_soc_card;
 	struct device_node *platform_node, *spk_node;
 	int ret, i;
 	struct snd_soc_dai_link *dai_link;
+#if IS_ENABLED(CONFIG_MTK_SCP_AUDIO)
+	struct device_node *scp_audio_node;
+	int spkProcessEnable = 0;
+#endif
 
 	dev_info(&pdev->dev, "%s()\n", __func__);
 
@@ -1133,6 +1173,28 @@ static int mt6789_mt6366_dev_probe(struct platform_device *pdev)
 			}
 		}
 	}
+
+#if IS_ENABLED(CONFIG_MTK_SCP_AUDIO)
+	/* get scp audio node */
+	scp_audio_node = of_parse_phandle(pdev->dev.of_node,
+					 "mediatek,scp-audio", 0);
+	if (scp_audio_node) {
+		dev_err(&pdev->dev, "got scp audio node\n");
+
+		ret = of_property_read_u32(scp_audio_node,
+					   "scp_spk_process_enable",
+					   &spkProcessEnable);
+		if (ret != 0) {
+			pr_info("%s cannot get spkProcessEnable\n", __func__);
+			spkProcessEnable = 0;
+		}
+		if (spkProcessEnable)
+			mtk_update_scp_audio_info(card, pdev);
+		pr_info("%s spkProcessEnable %d\n", __func__, spkProcessEnable);
+	} else {
+		dev_err(&pdev->dev, "can't find scp audio node\n");
+	}
+#endif
 
 	card->dev = &pdev->dev;
 

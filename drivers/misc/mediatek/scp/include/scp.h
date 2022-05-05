@@ -95,6 +95,7 @@ enum {
 	IPI_IN_SCP_AOD            = 38,
 	/* reserved 39, 40 for AOV */
 	IPI_OUT_DEBUG_CMD         = 41,
+	IPI_IN_RV_SPK_PROCESS     = 42,
 	SCP_IPI_COUNT
 };
 
@@ -136,6 +137,7 @@ enum scp_reserve_mem_id_t {
 	SENS_DEBUG_MEM_ID,
 	SENS_CUSTOM_W_MEM_ID,
 	SENS_CUSTOM_R_MEM_ID,
+	SCP_SPK_MEM_ID,
 	NUMS_MEM_ID,
 };
 
@@ -155,7 +157,8 @@ enum feature_id {
 	VOW_DUAL_MIC_FEATURE_ID = 11,
 	VOW_DUAL_MIC_BARGE_IN_FEATURE_ID = 12,
 	ULTRA_FEATURE_ID = 13,
-	NUM_FEATURE_ID = 14,
+	RVSPKPROCESS_FEATURE_ID = 14,
+	NUM_FEATURE_ID = 15,
 };
 
 extern struct mtk_mbox_device scp_mboxdev;
