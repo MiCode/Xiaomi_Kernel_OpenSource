@@ -387,8 +387,8 @@ static int cpufreq_cci_mode_proc_show(struct seq_file *m, void *v)
 static ssize_t cpufreq_cci_mode_proc_write(struct file *file,
 	const char __user *buffer, size_t count, loff_t *pos)
 {
-	unsigned int mode;
-	unsigned int rc;
+	unsigned int mode = 0;
+	int rc;
 	char *buf = (char *) __get_free_page(GFP_USER);
 
 	if (!buf)
