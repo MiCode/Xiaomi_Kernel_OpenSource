@@ -71,12 +71,12 @@ struct audio_buffer {
 
 struct audio_hw_buffer {
 	struct audio_buffer aud_buffer;
-	int hw_buffer;
-	int audio_memiftype;   /*DL 1,2,3 */
-	int irq_num; /* irq with this hw buffer */
-	int memory_type; /* sram,dram */
+	char hw_buffer;
+	char audio_memiftype;   /*DL 1,2,3 */
+	char irq_num; /* irq with this hw buffer */
+	char memory_type; /* sram,dram */
 	int counter;
-	int ignore_irq;
+	char ignore_irq;
 };
 
 struct audiohw_buffer_ops {
