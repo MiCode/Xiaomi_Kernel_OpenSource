@@ -535,7 +535,9 @@ static int get_vbus_voltage(struct mtk_charger_type *info,
 
 void do_charger_detect(struct mtk_charger_type *info, bool en)
 {
-	union power_supply_propval prop_online, prop_type, prop_usb_type;
+	union power_supply_propval prop_online = {0};
+	union power_supply_propval prop_type = {0};
+	union power_supply_propval prop_usb_type = {0};
 	int ret = 0;
 
 #ifndef CONFIG_TCPC_CLASS
