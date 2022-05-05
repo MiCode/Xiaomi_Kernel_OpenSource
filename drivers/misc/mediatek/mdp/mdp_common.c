@@ -2580,9 +2580,8 @@ static void cmdq_mdp_begin_task_virtual(struct cmdqRecStruct *handle,
 			mdp_list_pmqos = (struct mdp_pmqos *)curTask->prop_addr;
 			pmqos_list_record =
 			    (struct mdp_pmqos_record *)curTask->user_private;
-			total_pixel = mdp_list_pmqos->mdp_total_pixel ?
-				mdp_list_pmqos->mdp_total_pixel :
-				mdp_list_pmqos->isp_total_pixel;
+			total_pixel = max(mdp_list_pmqos->mdp_total_pixel,
+					mdp_list_pmqos->isp_total_pixel);
 
 			if (first_task) {
 				target_pmqos = mdp_list_pmqos;
@@ -2649,9 +2648,8 @@ static void cmdq_mdp_begin_task_virtual(struct cmdqRecStruct *handle,
 	} else {
 		DP_TIMER_GET_DURATION_IN_US(pmqos_curr_record->submit_tm,
 			pmqos_curr_record->end_tm, denominator);
-		total_pixel = mdp_curr_pmqos->mdp_total_pixel ?
-			mdp_curr_pmqos->mdp_total_pixel :
-			mdp_curr_pmqos->isp_total_pixel;
+		total_pixel = max(mdp_curr_pmqos->mdp_total_pixel,
+				mdp_curr_pmqos->isp_total_pixel);
 		pmqos_curr_record->mdp_throughput =
 			total_pixel / denominator;
 		target_pmqos = mdp_curr_pmqos;
@@ -2669,9 +2667,8 @@ static void cmdq_mdp_begin_task_virtual(struct cmdqRecStruct *handle,
 		act_throughput = g_freq_steps[0];
 	else
 		act_throughput = max_throughput;
-	total_pixel = target_pmqos->mdp_total_pixel ?
-		target_pmqos->mdp_total_pixel :
-		target_pmqos->isp_total_pixel;
+	total_pixel = max(target_pmqos->mdp_total_pixel,
+			target_pmqos->isp_total_pixel);
 
 	CMDQ_LOG_PMQOS(
 		"[%d]begin task act_throughput %u total_pixel %u\n",
@@ -2867,9 +2864,8 @@ static void cmdq_mdp_end_task_virtual(struct cmdqRecStruct *handle,
 
 		if (first_task) {
 			target_pmqos = mdp_list_pmqos;
-			curr_pixel_size = mdp_list_pmqos->mdp_total_pixel ?
-				mdp_list_pmqos->mdp_total_pixel :
-				mdp_list_pmqos->isp_total_pixel;
+			curr_pixel_size = max(mdp_list_pmqos->mdp_total_pixel,
+						mdp_list_pmqos->isp_total_pixel);
 			first_task = false;
 		}
 
@@ -2910,9 +2906,8 @@ static void cmdq_mdp_end_task_virtual(struct cmdqRecStruct *handle,
 				(struct mdp_pmqos_record *)
 					curTask->user_private;
 
-			total_pixel = mdp_list_pmqos->mdp_total_pixel ?
-				mdp_list_pmqos->mdp_total_pixel :
-				mdp_list_pmqos->isp_total_pixel;
+			total_pixel = max(mdp_list_pmqos->mdp_total_pixel,
+					mdp_list_pmqos->isp_total_pixel);
 
 			if (first_task) {
 				DP_TIMER_GET_DURATION_IN_US(
