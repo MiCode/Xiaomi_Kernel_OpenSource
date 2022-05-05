@@ -296,7 +296,7 @@ MODULE_PARM_DESC(mminfra_ut, "mminfra ut");
 
 int mtk_mminfra_dbg_hang_detect(const char *user)
 {
-	s32 offset, len, ret;
+	s32 offset, ret, len = 0;
 	u32 val;
 	char buf[LINK_MAX + 1] = {0};
 
@@ -315,17 +315,27 @@ int mtk_mminfra_dbg_hang_detect(const char *user)
 		ret = snprintf(buf + len, LINK_MAX - len, " %#x=%#x,",
 			offset, val);
 		if (ret < 0 || ret >= LINK_MAX - len) {
-			snprintf(buf + len, LINK_MAX - len, "%c", '\0');
+			ret = snprintf(buf + len, LINK_MAX - len, "%c", '\0');
+			if (ret < 0) {
+				pr_notice("%s: snprintf failed:%d\n", __func__, ret);
+				continue;
+			}
 			dev_info(dev, "%s\n", buf);
 
 			len = 0;
 			memset(buf, '\0', sizeof(char) * ARRAY_SIZE(buf));
 			ret = snprintf(buf + len, LINK_MAX - len, " %#x=%#x,",
 				offset, val);
+			if (ret < 0) {
+				pr_notice("%s: snprintf failed:%d\n", __func__, ret);
+				continue;
+			}
 		}
 		len += ret;
 	}
-	snprintf(buf + len, LINK_MAX - len, "%c", '\0');
+	ret = snprintf(buf + len, LINK_MAX - len, "%c", '\0');
+	if (ret < 0)
+		pr_notice("%s: snprintf failed:%d\n", __func__, ret);
 	dev_info(dev, "%s\n", buf);
 
 	pm_runtime_put(dbg->comm_dev);
