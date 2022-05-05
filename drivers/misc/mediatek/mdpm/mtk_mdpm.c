@@ -274,8 +274,7 @@ static int get_shm_idx(enum tx_power_table tx_dbm, int sec_shift, bool get_dbm)
 
 	idx = sec_shift / 32;
 
-	if (idx >= DBM_TABLE_SIZE || idx < 0 || tx_dbm >= TX_DBM_NUM
-		|| tx_dbm < 0) {
+	if (idx >= DBM_TABLE_SIZE || idx < 0 || tx_dbm >= TX_DBM_NUM) {
 		pr_notice("[%s] ERROR, exceed index %d %d %d\n",
 			__func__, idx, sec_shift, tx_dbm);
 			WARN_ON_ONCE(1);
@@ -310,7 +309,7 @@ static int get_shm_idx(enum tx_power_table tx_dbm, int sec_shift, bool get_dbm)
 static int mdpm_shm_write(u32 *share_mem, enum share_mem_mapping mem_idx,
 	u32 value, u32 mask, u32 shift)
 {
-	if (mem_idx < 0 || mem_idx >= SHARE_MEM_SIZE)
+	if (mem_idx >= SHARE_MEM_SIZE)
 		return -EINVAL;
 
 	share_mem[mem_idx] = (share_mem[mem_idx] & (~(mask << shift)))
@@ -322,7 +321,7 @@ static int mdpm_shm_write(u32 *share_mem, enum share_mem_mapping mem_idx,
 static int mdpm_shm_read(u32 *share_mem, enum share_mem_mapping mem_idx,
 	u32 *value, u32 mask, u32 shift)
 {
-	if (mem_idx < 0 || mem_idx >= SHARE_MEM_SIZE)
+	if (mem_idx >= SHARE_MEM_SIZE)
 		return -EINVAL;
 
 	*value = (share_mem[mem_idx] >> shift) & mask;
@@ -374,7 +373,7 @@ static u32 get_rfhw(u32 *share_mem)
 	if (rfhw_check == RF_HW_VALID) {
 		mdpm_shm_read(share_mem, M_RF_HW, &rfhw_version,
 				RF_HW_VERSION_MASK, RF_HW_VERSION_SHIFT);
-		if (rfhw_version >= 0 && rfhw_version < RF_HW_NUM) {
+		if (rfhw_version < RF_HW_NUM) {
 			rfhw_updated = 1;
 			return rfhw_version;
 		} else if (1)
@@ -509,7 +508,7 @@ enum md_scenario get_md1_scenario(u32 share_reg,
 int get_md1_scenario_power(enum md_scenario scenario,
 	enum mdpm_power_type power_type, struct md_power_status *mdpm_pwr_sta)
 {
-	int s_power = 0;
+	int s_power = 0, ret;
 
 	switch (power_type) {
 	case MAX_POWER:
@@ -523,8 +522,11 @@ int get_md1_scenario_power(enum md_scenario scenario,
 		break;
 	}
 	mdpm_pwr_sta->scenario_id = scenario;
-	snprintf(mdpm_pwr_sta->scenario_name, sizeof(mdpm_pwr_sta->scenario_name),
+	ret = snprintf(mdpm_pwr_sta->scenario_name, sizeof(mdpm_pwr_sta->scenario_name),
 			"%s", mdpm_scen[scenario].scenario_name);
+	if (ret < 0)
+		pr_info_ratelimited("%s:%d: copy scenario_name fail %d\n", __func__, __LINE__, ret);
+
 	mdpm_pwr_sta->scanario_power = s_power;
 	mdpm_pwr_sta->power_type = power_type;
 
@@ -541,8 +543,7 @@ static int get_md1_tx_power_by_table(u32 *dbm_mem, u32 *old_dbm_mem,
 	int section, index, offset, i;
 	bool cmp = true;
 
-	if (dbm_type >= TX_DBM_NUM || dbm_type < 0 ||
-		power_type >= POWER_TYPE_NUM || power_type < 0) {
+	if (dbm_type >= TX_DBM_NUM || power_type >= POWER_TYPE_NUM) {
 		pr_notice("error argument dbm_type=%d power_type=%d\n",
 			dbm_type, power_type);
 		return 0;
@@ -632,8 +633,7 @@ static int get_md1_tx_power_by_rat(u32 *dbm_mem, u32 *old_dbm_mem,
 	int power;
 	struct tx_power *tx_pwr = NULL;
 
-	if (rat > RAT_NUM || rat <= 0 ||
-		power_type >= POWER_TYPE_NUM || power_type < 0) {
+	if (rat > RAT_NUM || rat <= 0 || power_type >= POWER_TYPE_NUM) {
 		pr_notice("error argument rat_type=%d power_type=%d\n", rat,
 			power_type);
 		return 0;
@@ -709,7 +709,7 @@ int get_md1_tx_power(enum md_scenario scenario, u32 *share_mem,
 	enum mdpm_power_type power_type,
 	struct md_power_status *mdpm_pwr_sta)
 {
-	int i, rf_ret, tx_power, tx_power_max, usedBytes;
+	int i, rf_ret, tx_power, tx_power_max, usedBytes = 0;
 	enum tx_rat_type rat;
 	struct md_power_status mdpm_power_s_tmp;
 	char log_buffer[128];

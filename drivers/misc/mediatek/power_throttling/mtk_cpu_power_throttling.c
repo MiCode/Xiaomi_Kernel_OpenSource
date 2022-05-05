@@ -30,7 +30,7 @@ static void cpu_pt_low_battery_cb(enum LOW_BATTERY_LEVEL_TAG level)
 	struct cpu_pt_policy *pt_policy;
 	s32 freq_limit;
 
-	if (level <= LOW_BATTERY_LEVEL_2 && level >= LOW_BATTERY_LEVEL_0) {
+	if (level <= LOW_BATTERY_LEVEL_2) {
 		list_for_each_entry(pt_policy, &pt_policy_list, cpu_pt_list) {
 			if (pt_policy->pt_type == LBAT_POWER_THROTTLING) {
 				if (level != LOW_BATTERY_LEVEL_0)
@@ -51,7 +51,7 @@ static void cpu_pt_over_current_cb(enum BATTERY_OC_LEVEL_TAG level)
 	struct cpu_pt_policy *pt_policy;
 	s32 freq_limit;
 
-	if (level <= BATTERY_OC_LEVEL_1 && level >= BATTERY_OC_LEVEL_0) {
+	if (level <= BATTERY_OC_LEVEL_1) {
 		list_for_each_entry(pt_policy, &pt_policy_list, cpu_pt_list) {
 			if (pt_policy->pt_type == OC_POWER_THROTTLING) {
 				if (level != BATTERY_OC_LEVEL_0)
