@@ -170,7 +170,7 @@ static int mdla_cmd_wrong_count_handler(struct mdla_dev *mdla_info,
 int mdla_cmd_run_sync_v2_0_sw_sched(struct mdla_run_cmd_sync *cmd_data,
 				    struct mdla_dev *mdla_info,
 				    struct apusys_cmd_handle *apusys_hd,
-				    int priority)
+				    uint32_t priority)
 {
 	int ret = REASON_MDLA_SUCCESS;
 	unsigned long flags;
