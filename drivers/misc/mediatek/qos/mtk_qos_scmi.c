@@ -57,12 +57,12 @@ int qos_ipi_to_sspm_scmi_command(unsigned int cmd, unsigned int p1, unsigned int
 	struct scmi_tinysys_status rvalue = {0};
 
 	mutex_lock(&qos_ipi_mutex);
-	if (cmd < 0) {
+
+	if (cmd >= NR_QOS_IPI) {
 		pr_info("qos ipi cmd get error %d\n",
 			cmd);
 		goto error;
 	}
-
 	if (qos_sspm_ready != 1) {
 		pr_info("qos ipi not ready, skip cmd=%d\n", cmd);
 		goto error;

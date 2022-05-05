@@ -360,11 +360,6 @@ static int platform_cm_mgr_probe(struct platform_device *pdev)
 				ret * sizeof(u32),
 				GFP_KERNEL);
 
-		if (!ret) {
-			ret = -ENOMEM;
-			goto ERROR;
-		}
-
 #if IS_ENABLED(CONFIG_MTK_DVFSRC)
 		for (i = 0; i < ret; i++) {
 			cm_mgr_perfs[i] =
@@ -409,9 +404,6 @@ static int platform_cm_mgr_probe(struct platform_device *pdev)
 	pr_info("[CM_MGR] platform-cm_mgr_probe Done.\n");
 
 	return 0;
-
-ERROR:
-	return ret;
 }
 
 static int platform_cm_mgr_remove(struct platform_device *pdev)

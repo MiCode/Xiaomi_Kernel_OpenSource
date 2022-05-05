@@ -285,7 +285,7 @@ EXPORT_SYMBOL_GPL(get_qos_bound_apulat_mon);
 
 unsigned short get_qos_bound_emibw_mon(int idx, int master)
 {
-	unsigned short val;
+	unsigned short val = 0;
 
 	if (!is_qos_bound_enabled())
 		return 0;
@@ -296,7 +296,8 @@ unsigned short get_qos_bound_emibw_mon(int idx, int master)
 	if (master < 0 || master >= NR_QOS_EMIBM_TYPE)
 		master = 0;
 
-	val = bound->stats[idx].emibw_mon[master];
+	if (idx >= 0)
+		val = bound->stats[idx].emibw_mon[master];
 
 	return val;
 }
@@ -304,7 +305,7 @@ EXPORT_SYMBOL_GPL(get_qos_bound_emibw_mon);
 
 unsigned short get_qos_bound_smibw_mon(int idx, int master)
 {
-	unsigned short val;
+	unsigned short val = 0;
 
 	if (!is_qos_bound_enabled())
 		return 0;
@@ -315,7 +316,8 @@ unsigned short get_qos_bound_smibw_mon(int idx, int master)
 	if (master < 0 || master >= NR_QOS_SMIBM_TYPE)
 		master = 0;
 
-	val = bound->stats[idx].smibw_mon[master];
+	if (idx >= 0)
+		val = bound->stats[idx].smibw_mon[master];
 
 	return val;
 }
