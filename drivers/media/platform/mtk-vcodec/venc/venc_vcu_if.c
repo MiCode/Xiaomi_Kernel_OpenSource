@@ -115,6 +115,7 @@ int vcu_enc_ipi_handler(void *data, unsigned int len, void *priv)
 	struct venc_vcu_inst *vcu;
 	struct mtk_vcodec_ctx *ctx;
 	int ret = 0;
+	unsigned int core_id;
 	unsigned long flags;
 	struct task_struct *task = NULL;
 	int lock = -1;
@@ -202,12 +203,13 @@ int vcu_enc_ipi_handler(void *data, unsigned int len, void *priv)
 		handle_query_cap_ack_msg(data);
 		break;
 	case VCU_IPIMSG_ENC_WAIT_ISR:
-		if (msg->status == MTK_VENC_CORE_0)
+		core_id = msg->status;
+		if (core_id == MTK_VENC_CORE_0)
 			vcodec_trace_count("VENC_HW_CORE_0", 2);
 		else
 			vcodec_trace_count("VENC_HW_CORE_1", 2);
 
-		if (-1 == mtk_vcodec_wait_for_done_ctx(ctx, msg->status,
+		if (-1 == mtk_vcodec_wait_for_done_ctx(ctx, core_id,
 			MTK_INST_IRQ_RECEIVED,
 			WAIT_INTR_TIMEOUT_MS)) {
 			handle_enc_waitisr_msg(vcu, data, 1);
@@ -216,7 +218,7 @@ int vcu_enc_ipi_handler(void *data, unsigned int len, void *priv)
 		} else
 			handle_enc_waitisr_msg(vcu, data, 0);
 
-		if (msg->status == MTK_VENC_CORE_0)
+		if (core_id == MTK_VENC_CORE_0)
 			vcodec_trace_count("VENC_HW_CORE_0", 1);
 		else
 			vcodec_trace_count("VENC_HW_CORE_1", 1);
