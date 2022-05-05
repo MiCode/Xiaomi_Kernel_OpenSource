@@ -6659,17 +6659,6 @@ void mtk_cam_stop_ctx(struct mtk_cam_ctx *ctx, struct media_entity *entity)
 
 	media_pipeline_stop(entity);
 
-	/* Consider scenario that stop the ctx while the ctx is not streamed on */
-	if (ctx->session_created) {
-		dev_dbg(cam->dev,
-			"%s:ctx(%d): session_created, wait for composer session destroy\n",
-			__func__, ctx->stream_id);
-		if (wait_for_completion_timeout(
-			&ctx->session_complete, msecs_to_jiffies(1000)) == 0)
-			dev_info(cam->dev, "%s:ctx(%d): complete timeout\n",
-			__func__, ctx->stream_id);
-	}
-
 	/* For M2M feature, signal all waiters */
 	if (mtk_cam_is_m2m(ctx))
 		complete_all(&ctx->m2m_complete);
@@ -7425,6 +7414,20 @@ int mtk_cam_ctx_stream_off(struct mtk_cam_ctx *ctx)
 		ctx->synced = 0;
 	}
 
+	if (ctx->used_raw_num)
+		isp_composer_destroy_session_async(ctx);
+
+	/* Consider scenario that stop the ctx while the ctx is not streamed on */
+	if (ctx->session_created) {
+		dev_dbg(cam->dev,
+			"%s:ctx(%d): session_created, wait for composer session destroy\n",
+			__func__, ctx->stream_id);
+		if (wait_for_completion_timeout(
+			&ctx->session_complete, msecs_to_jiffies(300)) == 0)
+			dev_info(cam->dev, "%s:ctx(%d): complete timeout\n",
+			__func__, ctx->stream_id);
+	}
+
 	// If stagger, need to turn off cam sv in advanced
 	if (mtk_cam_feature_is_stagger(feature))
 		hw_scen = mtk_raw_get_hdr_scen_id(ctx);
@@ -7457,7 +7460,7 @@ int mtk_cam_ctx_stream_off(struct mtk_cam_ctx *ctx)
 		dev = mtk_cam_find_raw_dev(cam, ctx->used_raw_dev);
 		if (!dev) {
 			dev_info(cam->dev, "streamoff raw device not found\n");
-			goto fail_stream_off;
+			return -EPERM;
 		}
 		raw_dev = dev_get_drvdata(dev);
 		if (mtk_cam_feature_is_time_shared(feature)) {
@@ -7471,10 +7474,6 @@ int mtk_cam_ctx_stream_off(struct mtk_cam_ctx *ctx)
 						i - MTKCAM_SUBDEV_CAMSV_START].is_occupied = 0;
 					ctx->pipe->enabled_raw &= ~(1 << i);
 					enabled_sv |= (1 << i);
-
-					camsv_dev = get_camsv_dev(cam, &cam->sv.pipelines[
-						i - MTKCAM_SUBDEV_CAMSV_START]);
-					pm_runtime_put_sync(camsv_dev->dev);
 				}
 			}
 			if (mtk_cam_ts_are_all_ctx_off(cam, ctx))
@@ -7516,14 +7515,27 @@ int mtk_cam_ctx_stream_off(struct mtk_cam_ctx *ctx)
 		mtk_cam_qos_bw_reset(ctx, enabled_sv);
 	}
 
-	for (i = 0; i < MAX_PIPES_PER_STREAM && ctx->pipe_subdevs[i]; i++) {
-		ret = v4l2_subdev_call(ctx->pipe_subdevs[i], video,
-				       s_stream, 0);
-		if (ret) {
-			dev_info(cam->dev, "failed to stream off %d: %d\n",
-				 ctx->pipe_subdevs[i]->name, ret);
-			return -EPERM;
+	if (ctx->used_raw_num) {
+		if (ctx->pipe->enabled_raw & MTKCAM_SUBDEV_RAW_MASK)
+			ret = v4l2_subdev_call(&ctx->pipe->subdev, video, s_stream, 0);
+	}
+
+	for (i = 0; i < MAX_SV_PIPES_PER_STREAM && ctx->sv_pipe[i]; i++) {
+		ret = v4l2_subdev_call(&ctx->sv_pipe[i]->subdev,
+			video, s_stream, 0);
+	}
+
+	for (i = MTKCAM_SUBDEV_CAMSV_START ; i < MTKCAM_SUBDEV_CAMSV_END ; i++) {
+		if (enabled_sv & (1 << i)) {
+			camsv_dev = get_camsv_dev(cam, &cam->sv.pipelines[
+				i - MTKCAM_SUBDEV_CAMSV_START]);
+			pm_runtime_put_sync(camsv_dev->dev);
 		}
+	}
+
+	for (i = 0; i < MAX_MRAW_PIPES_PER_STREAM && ctx->mraw_pipe[i] ; i++) {
+		ret = v4l2_subdev_call(&ctx->mraw_pipe[i]->subdev,
+			video, s_stream, 0);
 	}
 
 	/* make sure all raw/camsv/mraw irq is disabled */
@@ -7540,12 +7552,6 @@ int mtk_cam_ctx_stream_off(struct mtk_cam_ctx *ctx)
 		mtk_cam_img_working_buf_pool_release(ctx);
 
 	mtk_camsys_ctrl_stop(ctx);
-
-fail_stream_off:
-#if CCD_READY
-	if (ctx->used_raw_num)
-		isp_composer_destroy_session_async(ctx);
-#endif
 
 	dev_dbg(cam->dev, "streamed off camsys ctx:%d\n", ctx->stream_id);
 
