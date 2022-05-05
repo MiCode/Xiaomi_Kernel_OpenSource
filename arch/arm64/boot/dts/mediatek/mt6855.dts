@@ -6824,7 +6824,7 @@
 			scp_sramSize = <0x00100000>;
 			core_nums = <1>;	/* core number */
 			twohart = <1>;		/* two hart arch */
-			mbox_count = <5>;
+			mbox_count = <4>;
 			/* id, mbox, send_size*/
 			send_table =
 			< 0 0  9>,/* IPI_OUT_AUDIO_VOW_1 */
@@ -6837,13 +6837,14 @@
 			< 4 2  1>,/* IPI_OUT_DVFS_SET_FREQ_0 */
 			< 5 2  2>,/* IPI_OUT_C_SLEEP_0 */
 			< 6 2  1>,/* IPI_OUT_TEST_0 */
+			<41 2  2>,/* IPI_OUT_DEBUG_CMD */
 			//<11 2  6>,/* IPI_OUT_SCP_MPOOL_0 */
 			<33 2 16>,/* IPI_OUT_SCP_CONNSYS */
 			< 3 3  2>,/* IPI_OUT_APCCCI_0 */
 			<26 3  9>,/* IPI_OUT_AUDIO_ULTRA_SND_0 */
 			<35 3  2>,/* IPI_OUT_C_SCP_HWVOTER_DEBUG */
-			<29 4 16>,/* IPI_OUT_SENSOR_CTRL */
-			<31 4  7>;/* IPI_OUT_SENSOR_NOTIFY */
+			<29 3 16>,/* IPI_OUT_SENSOR_CTRL */
+			<31 3  7>;/* IPI_OUT_SENSOR_NOTIFY */
 
 			/* id, mbox, recv_size, recv_opt */
 			recv_table =
@@ -6864,8 +6865,8 @@
 			<28 3  5 0>,/* IPI_IN_AUDIO_ULTRA_SND_0 */
 			<27 3  2 0>,/* IPI_IN_AUDIO_ULTRA_SND_ACK_0 */
 			<35 3  4 1>,/* IPI_OUT_C_SCP_HWVOTER_DEBUG */
-			<30 4  2 0>,/* IPI_IN_SENSOR_CTRL */
-			<32 4  7 0>;/* IPI_IN_SENSOR_NOTIFY */
+			<30 3  2 0>,/* IPI_IN_SENSOR_CTRL */
+			<32 3  7 0>;/* IPI_IN_SENSOR_NOTIFY */
 
 			//legacy_table =<11>, /* out_id_0 IPI_OUT_SCP_MPOOL_0 */
 			//		<24>, /* out_id_1 IPI_OUT_SCP_MPOOL_1 */
@@ -7297,6 +7298,18 @@
 			compatible = "mediatek,snd_scp_ultra";
 			scp_ultra_dl_memif_id = <0x7>;
 			scp_ultra_ul_memif_id = <0xf>;
+		};
+
+		scp_audio_mbox: scp_audio_mbox {
+			compatible = "mediatek,scp_audio_mbox";
+			status = "disabled";
+			reg = <0 0x1c7ff000 0 0x100>, /* Re-use scp hw mbox4 */
+			      <0 0x1c7ff100 0 0x4>,
+			      <0 0x1c7ff10c 0 0x4>;
+
+			reg-names = "mbox0_base", "mbox0_set", "mbox0_clr";
+			interrupts = <GIC_SPI 522 IRQ_TYPE_LEVEL_HIGH 0>;
+			interrupt-names = "mbox0";
 		};
 
 		sound: sound {
