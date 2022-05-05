@@ -477,7 +477,15 @@ static int md_ccif_op_dump_status(unsigned char hif_id,
 	}
 	if (flag & (DUMP_FLAG_CCIF_REG | DUMP_FLAG_REG))
 		md_cd_dump_ccif_reg(hif_id);
+	if (flag & DUMP_FLAG_GET_TRAFFIC) {
+		if (buff && length == 24) { /* u64 * 3 */
+			unsigned long long *dest_buff = (unsigned long long *)buff;
 
+			dest_buff[0] = ccif_ctrl->traffic_info.latest_isr_time;
+			dest_buff[1] = ccif_ctrl->traffic_info.latest_q_rx_isr_time[0];
+			dest_buff[2] = ccif_ctrl->traffic_info.latest_q_rx_time[0];
+		}
+	}
 	return 0;
 }
 

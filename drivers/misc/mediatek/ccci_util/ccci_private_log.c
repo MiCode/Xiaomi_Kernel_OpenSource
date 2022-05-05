@@ -280,7 +280,7 @@ static const struct file_operations ccci_log_fops = {
 #define CCCI_HISTORY_BUF		(4096*128)
 #endif
 
-#define CCCI_REG_DUMP_BUF		(4096*64 * 2)
+#define CCCI_REG_DUMP_BUF		(4096*128 * 2)
 #define CCCI_DPMA_DRB_BUF		(1024 * 16 * 16)
 #define CCCI_DUMP_MD_INIT_BUF		(1024*16)
 #define CCCI_KE_DUMP_BUF                (1024 * 32)

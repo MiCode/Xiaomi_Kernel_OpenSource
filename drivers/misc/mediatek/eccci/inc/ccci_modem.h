@@ -37,6 +37,7 @@ enum MODEM_DUMP_FLAG {
 	DUMP_FLAG_SMEM_CCB_CTRL = (1<<14),
 	DUMP_FLAG_SMEM_CCB_DATA = (1<<15),
 	DUMP_FLAG_PCCIF_REG = (1 << 16),
+	DUMP_FLAG_GET_TRAFFIC = (1 << 18),
 };
 
 enum {
@@ -421,9 +422,6 @@ struct ccci_per_md {
 	int dtr_state; /* only for usb bypass */
 	unsigned int is_in_ee_dump;
 
-	unsigned long long latest_isr_time;
-	unsigned long long latest_q0_isr_time;
-	unsigned long long latest_q0_rx_time;
 #ifdef CCCI_SKB_TRACE
 	unsigned long long netif_rx_profile[8];
 #endif
