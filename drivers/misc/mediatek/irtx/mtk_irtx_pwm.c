@@ -222,7 +222,7 @@ static int mtk_pwm_ir_probe(struct platform_device *pdev)
 	struct mtk_pwm_ir *pwm_ir;
 	struct rc_dev *rcdev;
 	int rc;
-	const char *pwm_str;
+	const char *pwm_str = NULL;
 
 	pwm_ir = devm_kmalloc(&pdev->dev, sizeof(*pwm_ir), GFP_KERNEL);
 	if (!pwm_ir)
