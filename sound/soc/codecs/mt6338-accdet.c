@@ -299,6 +299,8 @@ static void mini_dump_register(void)
 			idx+2, pmic_read(idx+2),
 			idx+3, pmic_read(idx+3));
 	}
+	if (log_size < 0)
+		pr_notice("sprintf failed\n");
 	pr_notice("\naccdet %s %d", accdet_log_buf, log_size);
 }
 
@@ -361,12 +363,15 @@ static void cat_register(char *buf)
 	ret = sprintf(accdet_log_buf, "[Accdet EINTx support][MODE_%d]regs:\n",
 		accdet_dts.mic_mode);
 	strncat(buf, accdet_log_buf, strlen(accdet_log_buf));
-
+	if (ret < 0)
+		pr_notice("sprintf failed\n");
 	dump_reg = true;
 	dump_register();
 	dump_reg = false;
 	ret = sprintf(accdet_log_buf, "ACCDET_RG\n");
 	strncat(buf, accdet_log_buf, strlen(accdet_log_buf));
+	if (ret < 0)
+		pr_notice("sprintf failed\n");
 	st_addr = MT6338_ACCDET_AUXADC_SEL_ADDR;
 	end_addr = MT6338_ACCDET_MON_FLAG_EN_ADDR;
 	for (addr = st_addr; addr <= end_addr; addr += 4) {
@@ -378,9 +383,13 @@ static void cat_register(char *buf)
 			idx+2, pmic_read(idx+2),
 			idx+3, pmic_read(idx+3));
 		strncat(buf, accdet_log_buf, strlen(accdet_log_buf));
+		if (ret < 0)
+			pr_notice("sprintf failed\n");
 	}
 	ret = sprintf(accdet_log_buf, "AUDDEC_ANA_RG\n");
 	strncat(buf, accdet_log_buf, strlen(accdet_log_buf));
+	if (ret < 0)
+		pr_notice("sprintf failed\n");
 	st_addr = MT6338_RG_AUDPREAMPLON_ADDR;
 	end_addr = MT6338_RG_ADCL_CLKMODE_ADDR;
 	for (addr = st_addr; addr <= end_addr; addr += 4) {
