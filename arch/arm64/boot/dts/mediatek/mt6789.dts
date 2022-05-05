@@ -4491,16 +4491,14 @@
 				<&gce 2 0 CMDQ_THR_PRIO_4>,
 				<&gce 3 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_2>,
 				<&gce 4 0 CMDQ_THR_PRIO_4>,
-				<&gce 6 0 CMDQ_THR_PRIO_3>,
-				<&gce_sec 8 0 CMDQ_THR_PRIO_3>;
+				<&gce 6 0 CMDQ_THR_PRIO_3>;
 
 			gce-client-names = "CLIENT_CFG0",
 				"CLIENT_CFG1",
 				"CLIENT_CFG2",
 				"CLIENT_TRIG_LOOP0",
 				"CLIENT_SUB_CFG0",
-				"CLIENT_DSI_CFG0",
-				"CLIENT_SEC_CFG0";
+				"CLIENT_DSI_CFG0";
 
 			gce-subsys = <&gce 0x14000000 SUBSYS_1400XXXX>,
 				<&gce 0x14010000 SUBSYS_1401XXXX>,
@@ -4638,9 +4636,17 @@
 				<0>; /*MTK_DRM_OPT_MML_PRIMARY*/
 		};
 
-		disp_mtee_sec {
+		disp_mtee_sec: disp_mtee_sec {
 			compatible = "mediatek,disp_mtee";
-			mboxes = "&gce_sec 8 0 CMDQ_THR_PRIO_3";
+
+			mediatek,mailbox-gce = <&gce>;
+			mboxes = <&gce_sec 8 0 CMDQ_THR_PRIO_3>,
+				<&gce_sec 9 0 CMDQ_THR_PRIO_3>,
+				<&gce_sec 9 0 CMDQ_THR_PRIO_3>;
+
+			gce-client-names = "CLIENT_SEC_CFG0",
+					"CLIENT_SEC_CFG1",
+					"CLIENT_SEC_CFG2";
 		};
 
 		disp_mutex0: disp_mutex@14001000 {
