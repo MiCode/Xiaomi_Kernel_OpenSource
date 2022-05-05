@@ -1788,42 +1788,42 @@ static struct tx_power mt6789_mdpm_tx_pwr[TX_DBM_NUM] = {
 		.dbm_name = "2G",
 		.shm_dbm_idx = {M_2G_DBM_TABLE, M_2G_DBM_1_TABLE},
 		.shm_sec_idx = {M_2G_SECTION_LEVEL, M_2G_SECTION_1_LEVEL},
-		.rfhw = &rfhw_6855[TX_2G_DBM],
+		.rfhw = &rfhw_6789[TX_2G_DBM],
 	},
 
 	[TX_3G_DBM] = {
 		.dbm_name = "3G",
 		.shm_dbm_idx = {M_3G_DBM_TABLE, M_3G_DBM_1_TABLE},
 		.shm_sec_idx = {M_3G_SECTION_LEVEL, M_3G_SECTION_1_LEVEL},
-		.rfhw = &rfhw_6855[TX_3G_DBM],
+		.rfhw = &rfhw_6789[TX_3G_DBM],
 	},
 
 	[TX_3GTDD_DBM] = {
 		.dbm_name = "3GTDD",
 		.shm_dbm_idx = {M_TDD_DBM_TABLE, M_TDD_DBM_1_TABLE},
 		.shm_sec_idx = {M_TDD_SECTION_LEVEL, M_TDD_SECTION_1_LEVEL},
-		.rfhw = &rfhw_6855[TX_3GTDD_DBM],
+		.rfhw = &rfhw_6789[TX_3GTDD_DBM],
 	},
 
 	[TX_4G_CC0_DBM] = {
 		.dbm_name = "4G_CC0",
 		.shm_dbm_idx = {M_4G_DBM_TABLE, M_4G_DBM_2_TABLE},
 		.shm_sec_idx = {M_4G_SECTION_LEVEL, M_4G_SECTION_9_LEVEL},
-		.rfhw = &rfhw_6855[TX_4G_CC0_DBM],
+		.rfhw = &rfhw_6789[TX_4G_CC0_DBM],
 	},
 
 	[TX_4G_CC1_DBM] = {
 		.dbm_name = "4G_CC1",
 		.shm_dbm_idx = {M_4G_DBM_1_TABLE, M_4G_DBM_3_TABLE},
 		.shm_sec_idx = {M_4G_SECTION_LEVEL, M_4G_SECTION_9_LEVEL},
-		.rfhw = &rfhw_6855[TX_4G_CC1_DBM],
+		.rfhw = &rfhw_6789[TX_4G_CC1_DBM],
 	},
 
 	[TX_C2K_DBM] = {
 		.dbm_name = "C2K",
 		.shm_dbm_idx = {M_C2K_DBM_1_TABLE, M_C2K_DBM_2_TABLE},
 		.shm_sec_idx = {M_C2K_SECTION_1_LEVEL, M_C2K_SECTION_2_LEVEL},
-		.rfhw = &rfhw_6855[TX_C2K_DBM],
+		.rfhw = &rfhw_6789[TX_C2K_DBM],
 	}
 };
 
@@ -1831,184 +1831,184 @@ static struct mdpm_scenario mt6789_mdpm_scen[SCENARIO_NUM] = {
 	[S_STANDBY] = {
 		.scenario_reg = 0,
 		.scenario_name = "S_STANDBY",
-		.scenario_power = &md_scen_power_6855[S_STANDBY],
+		.scenario_power = &md_scen_power_6789[S_STANDBY],
 		.tx_power_rat = {0, 0, 0, 0, 0},
 		.tx_power_rat_sum = false,
 	},
 
 	[S_2G_NON_CONN] = {
-		.scenario_reg = 1,
+		.scenario_reg = 1 << 1,
 		.scenario_name = "S_2G_NON_CONN",
-		.scenario_power = &md_scen_power_6855[S_2G_NON_CONN],
+		.scenario_power = &md_scen_power_6789[S_2G_NON_CONN],
 		.tx_power_rat = {RAT_2G, 0, 0, 0, 0},
 		.tx_power_rat_sum = false,
 	},
 
 	[S_2G_CONN] = {
-		.scenario_reg = 2,
+		.scenario_reg = 1 << 2,
 		.scenario_name = "S_2G_CONN",
-		.scenario_power = &md_scen_power_6855[S_2G_CONN],
+		.scenario_power = &md_scen_power_6789[S_2G_CONN],
 		.tx_power_rat = {RAT_2G, 0, 0, 0, 0},
 		.tx_power_rat_sum = false,
 	},
 
 	[S_3G_TDD_PAGING] = {
-		.scenario_reg = 4,
+		.scenario_reg = 1 << 4,
 		.scenario_name = "S_3G_TDD_PAGING",
-		.scenario_power = &md_scen_power_6855[S_3G_TDD_PAGING],
+		.scenario_power = &md_scen_power_6789[S_3G_TDD_PAGING],
 		.tx_power_rat = {RAT_3GTDD, 0, 0, 0, 0},
 		.tx_power_rat_sum = false,
 	},
 
 	[S_3G_TDD_TALKING] = {
-		.scenario_reg = 5,
+		.scenario_reg = 1 << 5,
 		.scenario_name = "S_3G_TDD_TALKING",
-		.scenario_power = &md_scen_power_6855[S_3G_TDD_TALKING],
+		.scenario_power = &md_scen_power_6789[S_3G_TDD_TALKING],
 		.tx_power_rat = {RAT_3GTDD, 0, 0, 0, 0},
 		.tx_power_rat_sum = false,
 	},
 
 	[S_3G_TDD_DATALINK] = {
-		.scenario_reg = 6,
+		.scenario_reg = 1 << 6,
 		.scenario_name = "S_3G_TDD_DATALINK",
-		.scenario_power = &md_scen_power_6855[S_3G_TDD_DATALINK],
+		.scenario_power = &md_scen_power_6789[S_3G_TDD_DATALINK],
 		.tx_power_rat = {RAT_3GTDD, 0, 0, 0, 0},
 		.tx_power_rat_sum = false,
 	},
 
 	[S_C2K_PAGING] = {
-		.scenario_reg = 8,
+		.scenario_reg = 1 << 8,
 		.scenario_name = "S_C2K_PAGING",
-		.scenario_power = &md_scen_power_6855[S_C2K_PAGING],
+		.scenario_power = &md_scen_power_6789[S_C2K_PAGING],
 		.tx_power_rat = {RAT_C2K, 0, 0, 0, 0},
 		.tx_power_rat_sum = false,
 	},
 
 	[S_C2K_EVDO] = {
-		.scenario_reg = 9,
+		.scenario_reg = 1 << 9,
 		.scenario_name = "S_C2K_EVDO",
-		.scenario_power = &md_scen_power_6855[S_C2K_EVDO],
+		.scenario_power = &md_scen_power_6789[S_C2K_EVDO],
 		.tx_power_rat = {RAT_C2K, 0, 0, 0, 0},
 		.tx_power_rat_sum = false,
 	},
 
 	[S_C2K_SHDR] = {
-		.scenario_reg = 10,
+		.scenario_reg = 1 << 10,
 		.scenario_name = "S_C2K_SHDR",
-		.scenario_power = &md_scen_power_6855[S_C2K_SHDR],
+		.scenario_power = &md_scen_power_6789[S_C2K_SHDR],
 		.tx_power_rat = {RAT_C2K, 0, 0, 0, 0},
 		.tx_power_rat_sum = false,
 	},
 
 	[S_C2K_1X] = {
-		.scenario_reg = 11,
+		.scenario_reg = 1 << 11,
 		.scenario_name = "S_C2K_1X",
-		.scenario_power = &md_scen_power_6855[S_C2K_1X],
+		.scenario_power = &md_scen_power_6789[S_C2K_1X],
 		.tx_power_rat = {RAT_C2K, 0, 0, 0, 0},
 		.tx_power_rat_sum = false,
 	},
 
 	[S_3G_UL1_TALKING] = {
-		.scenario_reg = 12,
+		.scenario_reg = 1 << 12,
 		.scenario_name = "S_3G_UL1_TALKING",
-		.scenario_power = &md_scen_power_6855[S_3G_UL1_TALKING],
+		.scenario_power = &md_scen_power_6789[S_3G_UL1_TALKING],
 		.tx_power_rat = {RAT_3G, 0, 0, 0, 0},
 		.tx_power_rat_sum = false,
 	},
 
 	[S_3G_UL1_PAGING] = {
-		.scenario_reg = 13,
+		.scenario_reg = 1 << 13,
 		.scenario_name = "S_3G_UL1_PAGING",
-		.scenario_power = &md_scen_power_6855[S_3G_UL1_PAGING],
+		.scenario_power = &md_scen_power_6789[S_3G_UL1_PAGING],
 		.tx_power_rat = {RAT_3G, 0, 0, 0, 0},
 		.tx_power_rat_sum = false,
 	},
 
 	[S_3G_UL1_DATA_1C] = {
-		.scenario_reg = 14,
+		.scenario_reg = 1 << 14,
 		.scenario_name = "S_3G_UL1_DATA_1C",
-		.scenario_power = &md_scen_power_6855[S_3G_UL1_DATA_1C],
+		.scenario_power = &md_scen_power_6789[S_3G_UL1_DATA_1C],
 		.tx_power_rat = {RAT_3G, 0, 0, 0, 0},
 		.tx_power_rat_sum = false,
 	},
 
 	[S_3G_UL1_DATA_2C] = {
-		.scenario_reg = 15,
+		.scenario_reg = 1 << 15,
 		.scenario_name = "S_3G_UL1_DATA_2C",
-		.scenario_power = &md_scen_power_6855[S_3G_UL1_DATA_2C],
+		.scenario_power = &md_scen_power_6789[S_3G_UL1_DATA_2C],
 		.tx_power_rat = {RAT_3G, 0, 0, 0, 0},
 		.tx_power_rat_sum = false,
 	},
 
 	[S_4G_0D0U] = {
-		.scenario_reg = 16,
+		.scenario_reg = 1 << 16,
 		.scenario_name = "S_4G_0D0U",
-		.scenario_power = &md_scen_power_6855[S_4G_0D0U],
+		.scenario_power = &md_scen_power_6789[S_4G_0D0U],
 		.tx_power_rat = {RAT_4G, 0, 0, 0, 0},
 		.tx_power_rat_sum = false,
 	},
 
 	[S_4G_1CC] = {
-		.scenario_reg = 17,
+		.scenario_reg = 1 << 17,
 		.scenario_name = "S_4G_1CC",
-		.scenario_power = &md_scen_power_6855[S_4G_1CC],
+		.scenario_power = &md_scen_power_6789[S_4G_1CC],
 		.tx_power_rat = {RAT_4G, 0, 0, 0, 0},
 		.tx_power_rat_sum = false,
 	},
 
 	[S_4G_2CC] = {
-		.scenario_reg = 18,
+		.scenario_reg = 1 << 18,
 		.scenario_name = "S_4G_2CC",
-		.scenario_power = &md_scen_power_6855[S_4G_2CC],
+		.scenario_power = &md_scen_power_6789[S_4G_2CC],
 		.tx_power_rat = {RAT_4G, 0, 0, 0, 0},
 		.tx_power_rat_sum = false,
 	},
 
 	[S_4G_3D1U] = {
-		.scenario_reg = 19,
+		.scenario_reg = 1 << 19,
 		.scenario_name = "S_4G_3D1U",
-		.scenario_power = &md_scen_power_6855[S_4G_3D1U],
+		.scenario_power = &md_scen_power_6789[S_4G_3D1U],
 		.tx_power_rat = {RAT_4G, 0, 0, 0, 0},
 		.tx_power_rat_sum = false,
 	},
 
 	[S_4G_3D2U] = {
-		.scenario_reg = 20,
+		.scenario_reg = 1 << 20,
 		.scenario_name = "S_4G_3D2U",
-		.scenario_power = &md_scen_power_6855[S_4G_3D2U],
+		.scenario_power = &md_scen_power_6789[S_4G_3D2U],
 		.tx_power_rat = {RAT_4G, 0, 0, 0, 0},
 		.tx_power_rat_sum = false,
 	},
 
 	[S_4G_4D1U] = {
-		.scenario_reg = 21,
+		.scenario_reg = 1 << 21,
 		.scenario_name = "S_4G_4D1U",
-		.scenario_power = &md_scen_power_6855[S_4G_4D1U],
+		.scenario_power = &md_scen_power_6789[S_4G_4D1U],
 		.tx_power_rat = {RAT_4G, 0, 0, 0, 0},
 		.tx_power_rat_sum = false,
 	},
 
 	[S_4G_4D2U] = {
-		.scenario_reg = 22,
+		.scenario_reg = 1 << 22,
 		.scenario_name = "S_4G_4D2U",
-		.scenario_power = &md_scen_power_6855[S_4G_4D2U],
+		.scenario_power = &md_scen_power_6789[S_4G_4D2U],
 		.tx_power_rat = {RAT_4G, 0, 0, 0, 0},
 		.tx_power_rat_sum = true,
 	},
 
 	[S_4G_4D3U] = {
-		.scenario_reg = 23,
+		.scenario_reg = 1 << 23,
 		.scenario_name = "S_4G_4D3U",
-		.scenario_power = &md_scen_power_6855[S_4G_4D3U],
+		.scenario_power = &md_scen_power_6789[S_4G_4D3U],
 		.tx_power_rat = {RAT_4G, 0, 0, 0, 0},
 		.tx_power_rat_sum = true,
 	},
 
 
 	[S_4G_POS] = {
-		.scenario_reg = 31,
+		.scenario_reg = 1 << 31,
 		.scenario_name = "S_4G_POS",
-		.scenario_power = &md_scen_power_6855[S_4G_POS],
+		.scenario_power = &md_scen_power_6789[S_4G_POS],
 		.tx_power_rat = {0, 0, 0, 0, 0},
 		.tx_power_rat_sum = false,
 	}

@@ -21,6 +21,7 @@
 static u32 cnted_share_mem[SHARE_MEM_SIZE];
 static u32 rfhw_sel;
 static int mt_mdpm_debug;
+static int md_gen;
 
 static struct md_power_status mdpm_power_sta;
 
@@ -39,6 +40,16 @@ static struct tx_power *mdpm_tx_pwr;
 static struct mdpm_scenario *mdpm_scen;
 static int *scen_priority;
 
+enum mdpm_platform {
+	MT6873_MDPM_DATA,
+	MT6893_MDPM_DATA,
+	MT6983_MDPM_DATA,
+	MT6879_MDPM_DATA,
+	MT6895_MDPM_DATA,
+	MT6855_MDPM_DATA,
+	MT6789_MDPM_DATA
+};
+
 void init_md_section_level(enum pbm_kicker kicker, u32 *share_mem)
 {
 	if (!mdpm_tx_pwr || !mdpm_scen || !scen_priority) {
@@ -53,6 +64,9 @@ void init_md_section_level(enum pbm_kicker kicker, u32 *share_mem)
 #ifdef DBM_RESERVE_OFFSET
 	share_mem += DBM_RESERVE_OFFSET;
 #endif
+	if ((md_gen == 6295) || (md_gen == 6293))
+		share_mem -= DBM_GEN95_OFFSET;
+
 	dbm_share_mem = share_mem;
 	if (kicker == KR_MD1) {
 		init_md1_section_level(dbm_share_mem);
@@ -791,6 +805,7 @@ static int mdpm_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct mdpm_data *mdpm_data;
+	struct device_node *node = dev->of_node;
 
 	mdpm_data = (struct mdpm_data *) of_device_get_match_data(dev);
 
@@ -807,20 +822,14 @@ static int mdpm_probe(struct platform_device *pdev)
 	mdpm_scen = mdpm_data->scenario_power_t;
 	scen_priority = mdpm_data->prority_t;
 
+	if (of_property_read_u32(node,
+		"mediatek,md_generation", &md_gen) != 0)
+		md_gen = 0;
+
 	mt_mdpm_create_procfs();
 
 	return 0;
 }
-
-enum mdpm_platform {
-	MT6873_MDPM_DATA,
-	MT6893_MDPM_DATA,
-	MT6983_MDPM_DATA,
-	MT6879_MDPM_DATA,
-	MT6895_MDPM_DATA,
-	MT6855_MDPM_DATA,
-	MT6789_MDPM_DATA
-};
 
 static struct mdpm_data mt6873_mdpm_data = {
 	.platform = MT6873_MDPM_DATA,
