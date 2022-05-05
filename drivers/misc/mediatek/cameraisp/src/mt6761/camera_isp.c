@@ -8796,9 +8796,7 @@ static signed int ISP_GET_MARKtoQEURY_TIME(struct ISP_WAIT_IRQ_STRUCT *irqinfo)
 		}
 		/*      */
 		if (irqinfo->TimeInfo.passedbySigcnt > 0) {
-			if ((irqinfo->UserInfo.Type >= 0) &&
-				(irqinfo->UserInfo.Type < ISP_IRQ_TYPE_AMOUNT) &&
-				(idx >= 0) &&
+			if ((irqinfo->UserInfo.Type < ISP_IRQ_TYPE_AMOUNT) &&
 				(idx < 32)) {
 				irqinfo->TimeInfo.tLastSig2GetSig_usec =
 					(time_ready2return.tv_usec -
@@ -8837,8 +8835,7 @@ static signed int ISP_GET_MARKtoQEURY_TIME(struct ISP_WAIT_IRQ_STRUCT *irqinfo)
 		Ret = -EFAULT;
 	}
 	spin_unlock_irqrestore(&(IspInfo.SpinLockIrq[eIrq]), flags);
-	if ((irqinfo->UserInfo.Type < 0) || (irqinfo->UserInfo.Type >= ISP_IRQ_TYPE_AMOUNT) ||
-		(idx < 0) || (idx >= 32)) {
+	if ((irqinfo->UserInfo.Type >= ISP_IRQ_TYPE_AMOUNT) || (idx >= 32)) {
 		log_err("Error: invalid index");
 		Ret = -EFAULT;
 		return Ret;
@@ -9514,7 +9511,6 @@ static signed int ISP_WaitIrq_v3(struct ISP_WAIT_IRQ_STRUCT *WaitIrq)
 				      [WaitIrq->UserInfo.Type]) {
 		if ((WaitIrq->UserInfo.UserKey >= 0) &&
 			(WaitIrq->UserInfo.UserKey < IRQ_USER_NUM_MAX) &&
-			(WaitIrq->UserInfo.Type >= 0) &&
 			(WaitIrq->UserInfo.Type < ISP_IRQ_TYPE_AMOUNT) &&
 			(idx >= 0) &&
 			(idx < 32)) {
@@ -9658,7 +9654,6 @@ EXIT:
 			(~WaitIrq->UserInfo.Status);
 		if ((WaitIrq->UserInfo.UserKey >= 0) &&
 			(WaitIrq->UserInfo.UserKey < IRQ_USER_NUM_MAX) &&
-			(WaitIrq->UserInfo.Type >= 0) &&
 			(WaitIrq->UserInfo.Type < ISP_IRQ_TYPE_AMOUNT) &&
 			(idx >= 0) &&
 			(idx < 32)) {
