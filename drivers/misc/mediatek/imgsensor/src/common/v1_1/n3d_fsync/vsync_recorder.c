@@ -124,8 +124,8 @@ static int update_vs1_rec(unsigned int d_tclk)
 		vs1_pos = records[vs1_idx].w_cur_pos;
 		vs2_pos = records[vs2_idx].w_cur_pos;
 
-		if (vs1_pos < -1 || vs1_pos >= MAX_RECORD_NUM ||
-		    vs2_pos < -1 || vs2_pos >= MAX_RECORD_NUM) {
+		if (vs1_pos < 0 || vs1_pos >= MAX_RECORD_NUM ||
+		    vs2_pos < 0 || vs2_pos >= MAX_RECORD_NUM) {
 			// never be here
 			array_oob_detected = 3;
 			return -1;
@@ -158,8 +158,8 @@ static int update_vs2_rec(unsigned int d_tclk)
 		vs1_pos = records[vs1_idx].w_cur_pos;
 		vs2_pos = records[vs2_idx].w_cur_pos;
 
-		if (vs1_pos < -1 || vs1_pos >= MAX_RECORD_NUM ||
-		    vs2_pos < -1 || vs2_pos >= MAX_RECORD_NUM) {
+		if (vs1_pos < 0 || vs1_pos >= MAX_RECORD_NUM ||
+		    vs2_pos < 0 || vs2_pos >= MAX_RECORD_NUM) {
 			// never be here
 			array_oob_detected = 4;
 			return -1;

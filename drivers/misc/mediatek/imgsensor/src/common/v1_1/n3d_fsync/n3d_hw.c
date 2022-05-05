@@ -3,6 +3,9 @@
  * Copyright (c) 2020 MediaTek Inc.
  */
 
+#include <linux/spinlock.h>
+#include <linux/spinlock_types.h>
+
 #include "n3d_hw.h"
 #include "n3d_reg.h"
 #include "n3d_util.h"
@@ -15,6 +18,8 @@
 #else
 #define REC_LOG(format, args...)
 #endif
+
+static DEFINE_SPINLOCK(read_reg_lock);
 
 static int set_n3d_enable(struct base_reg *regs, int enable)
 {
@@ -80,26 +85,35 @@ int read_status(struct base_reg *regs)
 	int result = 0;
 	int period = 0;
 	int ck_cnt = 0;
+	unsigned long flags = 0;
 
+	spin_lock_irqsave(&read_reg_lock, flags);
 	result = SENINF_READ_REG(regs->pseninf_n3d_base[SENINF_N3D_A],
 				 SENINF_N3D_A_INT);
+	spin_unlock_irqrestore(&read_reg_lock, flags);
 
 	if (result & 0x10) {
+		spin_lock_irqsave(&read_reg_lock, flags);
 		period = SENINF_READ_REG(regs->pseninf_n3d_base[SENINF_N3D_A],
 					 SENINF_N3D_A_CNT0);
+		spin_unlock_irqrestore(&read_reg_lock, flags);
 		record_vs1(period);
 		REC_LOG("status(0x%x) sen1 period = %u\n", result, period);
 	}
 	if (result & 0x20) {
+		spin_lock_irqsave(&read_reg_lock, flags);
 		period = SENINF_READ_REG(regs->pseninf_n3d_base[SENINF_N3D_A],
 					 SENINF_N3D_A_CNT1);
+		spin_unlock_irqrestore(&read_reg_lock, flags);
 		record_vs2(period);
 		REC_LOG("status(0x%x) sen2 period = %u\n", result, period);
 	}
 
 	if (result & 0x4) {
+		spin_lock_irqsave(&read_reg_lock, flags);
 		ck_cnt = SENINF_READ_REG(regs->pseninf_n3d_base[SENINF_N3D_A],
 					 SENINF_N3D_A_DIFF_CNT);
+		spin_unlock_irqrestore(&read_reg_lock, flags);
 		record_vs_diff((ck_cnt >> 31) & 0x1, ck_cnt & 0x7FFFFFFF);
 		if (ck_cnt & 0x80000000)
 			REC_LOG("status(0x%x) vs2 after vs1, diff = %u\n",
