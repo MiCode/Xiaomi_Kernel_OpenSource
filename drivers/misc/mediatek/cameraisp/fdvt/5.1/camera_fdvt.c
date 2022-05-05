@@ -1022,7 +1022,7 @@ unsigned long long fdvt_get_sec_iova(struct dma_buf *my_dma_buf,
 	bufinfo->attach = attach;
 	sgt = dma_buf_map_attachment(attach, DMA_BIDIRECTIONAL);
 	if (IS_ERR(sgt)) {
-		log_err("map failed, detach and return: %x\n", my_dma_buf);
+		log_err("map failed, detach and return\n");
 		dma_buf_detach(my_dma_buf, attach);
 		return 0;
 	}
@@ -1538,7 +1538,7 @@ static bool update_fdvt(pid_t *process_id)
 	return bFinishRequest;
 #endif /* FDVT_USE_GCE */
 }
-
+#if CHECK_SERVICE_IF_0
 static bool mmu_get_dma_buffer(struct tee_mmu *mmu, int va)
 {
 	struct dma_buf *buf;
@@ -1586,7 +1586,7 @@ void rsc_cmdq_cb_destroy(struct cmdq_cb_data data)
 		kfree((struct tee_mmu *)data.data);
 	}
 }
-
+#endif
 static signed int config_fdvt_hw(struct fdvt_config *basic_config)
 #if !BYPASS_REG
 {
@@ -1598,6 +1598,7 @@ static signed int config_fdvt_hw(struct fdvt_config *basic_config)
 	int64_t engineFlag = (uint64_t)(1LL << CMDQ_ENG_FDVT);
 #endif /* CMDQ_MAIL_BOX */
 #endif /* FDVT_USE_GCE */
+#if CHECK_SERVICE_IF_0
 	unsigned int success = 0;
 	struct tee_mmu mmu;
 	struct tee_mmu *records = NULL;
@@ -1605,7 +1606,7 @@ static signed int config_fdvt_hw(struct fdvt_config *basic_config)
 	unsigned long *image_buffer_UV = NULL;
 	unsigned int srcbuf32 = 0;
 	dma_addr_t dma_addr;
-
+#endif
 	if (FDVT_DBG_DBGLOG == (FDVT_DBG_DBGLOG & fdvt_info.debug_mask)) {
 		log_dbg("config_fdvt_hw Start!\n");
 		log_dbg("FDVT_YUV2RGB:0x%x!\n",
@@ -1656,6 +1657,7 @@ static signed int config_fdvt_hw(struct fdvt_config *basic_config)
 
 #ifdef CMDQ_MAIL_BOX
 	log_dbg("fdvt use cmdq mail box api\n");
+#if CHECK_SERVICE_IF_0
 	if (basic_config->IS_LEGACY == 0) {
 
 		records = kzalloc(sizeof(struct tee_mmu) * 2, GFP_KERNEL);
@@ -1750,6 +1752,7 @@ static signed int config_fdvt_hw(struct fdvt_config *basic_config)
 			return 0;
 		}
 	}
+#endif
 
 	if (basic_config->FD_MODE == 0) {
 		cmdq_pkt_write(pkt, NULL, FDVT_ENABLE_HW, 0x00000111,
@@ -1853,12 +1856,16 @@ static signed int config_fdvt_hw(struct fdvt_config *basic_config)
 	//cmdq_pkt_flush(pkt);
 	/* release resource */
 	//cmdq_pkt_destroy(pkt);
+#if CHECK_SERVICE_IF_0
 	if (basic_config->IS_LEGACY == 0) {
 		cmdq_pkt_flush_threaded(pkt, rsc_cmdq_cb_destroy, (void *)records);
 	} else {
+#endif
 		cmdq_pkt_flush(pkt);
 		cmdq_pkt_destroy(pkt);
+#if CHECK_SERVICE_IF_0
 	}
+#endif
 #else /* CMDQ_MAIL_BOX */
 	if (basic_config->FD_MODE == 0) {
 		cmdqRecWrite(handle, FDVT_ENABLE_HW, 0x00000111,
@@ -3185,8 +3192,7 @@ static long FDVT_ioctl(struct file *pFile,
 		if (copy_from_user(&irq_info, (void *)Param,
 		    sizeof(FDVT_WAIT_IRQ_STRUCT)) == 0) {
 			/*  */
-			if (irq_info.type >= FDVT_IRQ_TYPE_AMOUNT ||
-			    irq_info.type < 0) {
+			if (irq_info.type >= FDVT_IRQ_TYPE_AMOUNT) {
 				ret = -EFAULT;
 				log_err("invalid type(%d)", irq_info.type);
 				goto EXIT;
@@ -4313,13 +4319,13 @@ static signed int FDVT_probe(struct platform_device *pDev)
 	if (!fdvt_clt)
 		log_err("cmdq mbox create fail\n");
 	else
-		log_inf("cmdq mbox create done:%d\n", fdvt_clt);
+		log_inf("cmdq mbox create done\n");
 
 	fdvt_secure_clt = cmdq_mbox_create(FDVT_dev->dev, 1);
 	if (!fdvt_secure_clt)
 		log_err("cmdq mbox create fail\n");
 	else
-		log_inf("cmdq mbox create done:%d\n", fdvt_secure_clt);
+		log_inf("cmdq sec mbox create done\n");
 
 	of_property_read_u32(pDev->dev.of_node, "fdvt_frame_done",
 			     &fdvt_event_id);
