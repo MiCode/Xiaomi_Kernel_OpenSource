@@ -1902,6 +1902,7 @@ irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 	int i = 0, j = 0;
 	bool find_work = false;
 	static int work_id;
+	ktime_t cur_time;
 
 	if (IS_ERR_OR_NULL(dsi))
 		return IRQ_NONE;
@@ -1923,6 +1924,10 @@ irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 		ret = IRQ_NONE;
 		goto out;
 	}
+	if (dsi->ddp_comp.id == DDP_COMPONENT_DSI0 &&
+	    !mtk_dsi_is_cmd_mode(&dsi->ddp_comp))
+		cur_time = ktime_get();
+
 	IF_DEBUG_IRQ_TS(find_work,
 		dsi->ddp_comp.ts_works[work_id].irq_time, i)
 	mtk_crtc = dsi->ddp_comp.mtk_crtc;
@@ -2039,6 +2044,7 @@ irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 
 		if (status & FRAME_DONE_INT_FLAG) {
 			struct mtk_drm_private *priv = NULL;
+			int vrefresh = 0;
 
 			if (mtk_crtc && mtk_crtc->base.dev)
 				priv = mtk_crtc->base.dev->dev_private;
@@ -2052,8 +2058,22 @@ irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 			}
 
 			if (!mtk_dsi_is_cmd_mode(&dsi->ddp_comp) && mtk_crtc) {
-				if (dsi->ddp_comp.id == DDP_COMPONENT_DSI0)
+				if (dsi->ddp_comp.id == DDP_COMPONENT_DSI0) {
 					atomic_set(&mtk_crtc->flush_count, 0);
+					vrefresh = drm_mode_vrefresh(
+							&mtk_crtc->base.state->adjusted_mode);
+					if (vrefresh > 0 &&
+					    ktime_to_us(cur_time - mtk_crtc->pf_time) >=
+					     (1000000 / vrefresh)) {
+						DRM_MMP_MARK(dsi0, vrefresh,
+							ktime_to_us(cur_time));
+						mtk_crtc->pf_time = cur_time;
+						atomic_set(
+							&mtk_crtc->signal_irq_for_pre_fence, 1);
+						wake_up_interruptible(
+							&(mtk_crtc->signal_irq_for_pre_fence_wq));
+					}
+				}
 
 				if (mtk_crtc->vblank_en) {
 					IF_DEBUG_IRQ_TS(find_work,

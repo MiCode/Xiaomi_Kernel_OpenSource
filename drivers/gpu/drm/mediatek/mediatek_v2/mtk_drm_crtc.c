@@ -4320,20 +4320,18 @@ static ktime_t mtk_check_preset_fence_timestamp(struct drm_crtc *crtc)
 	unsigned int vrefresh = 0;
 	bool is_frame_mode;
 	ktime_t cur_time, prev_time;
-	ktime_t start_time, wait_time;
 
 	is_frame_mode = mtk_crtc_is_frame_trigger_mode(crtc);
 	cur_time = mtk_crtc->pf_time;
 	prev_time = mtk_crtc->prev_pf_time;
 
-	if ((id == 0) && prev_time == cur_time) {
+	if (id == 0) {
 		vrefresh = drm_mode_vrefresh(&crtc->state->adjusted_mode);
 		if (vrefresh == 0) {
 			DDPINFO("%s: invalid fps:%u\n", __func__, vrefresh);
 			vrefresh = 60;
 		}
 
-		start_time = ktime_get();
 		do {
 			wait_event_interruptible_timeout(
 				mtk_crtc->signal_irq_for_pre_fence_wq
@@ -4341,21 +4339,16 @@ static ktime_t mtk_check_preset_fence_timestamp(struct drm_crtc *crtc)
 				, msecs_to_jiffies(1000 / vrefresh));
 			atomic_set(&mtk_crtc->signal_irq_for_pre_fence, 0);
 		} while (mtk_crtc->pf_time == prev_time && is_frame_mode);
-		wait_time = ktime_get();
-
-		if ((start_time - wait_time) / 100000 > vrefresh / 2) {
-			DDPINFO("Wait time over %d, start time %lld wait time %lld\n",
-				(1000 / vrefresh), start_time, wait_time);
-			CRTC_MMP_MARK(id, present_fence_timestamp, start_time, wait_time);
-		}
 
 		cur_time = mtk_crtc->pf_time;
-		DDPINFO("%s:Modify the pf_time to avoid same timestamp.\n", __func__);
+		DDPINFO("%s:fps:%d,report pf time:%lldus, prev:%lldus\n",
+			__func__, vrefresh, ktime_to_us(cur_time),
+			ktime_to_us(prev_time));
 
 		if (prev_time == cur_time) {
 			DDPINFO("%s:The present fence timestamp still same.\n", __func__);
 			CRTC_MMP_MARK(id, present_fence_timestamp_same,
-			prev_time, cur_time);
+				prev_time, cur_time);
 		}
 	}
 
@@ -4471,7 +4464,7 @@ static void ddp_cmdq_cb(struct cmdq_cb_data data)
 		}
 
 	}
-	CRTC_MMP_MARK(id, frame_cfg, ovl_status, 0);
+	CRTC_MMP_MARK(id, frame_cfg, ovl_status, ktime_to_us(pf_time));
 
 	mtk_crtc_release_input_layer_fence(crtc, session_id);
 
