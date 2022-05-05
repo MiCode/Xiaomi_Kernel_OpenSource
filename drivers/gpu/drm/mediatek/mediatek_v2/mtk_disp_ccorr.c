@@ -760,6 +760,9 @@ int disp_ccorr_set_color_matrix(struct mtk_ddp_comp *comp,
 		DDPPR_ERR("%s: cmdq can not be NULL\n", __func__);
 		return -EFAULT;
 	}
+	if (identity_matrix && (disp_ccorr_number == 1) &&
+			(!g_prim_ccorr_force_linear) && (disp_ccorr_linear & 0x01))
+		return ret;
 
 	if (g_disp_ccorr_coef[id] == NULL) {
 		ccorr = kmalloc(sizeof(struct DRM_DISP_CCORR_COEF_T), GFP_KERNEL);
