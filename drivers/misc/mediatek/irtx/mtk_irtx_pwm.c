@@ -232,8 +232,11 @@ static int mtk_pwm_ir_probe(struct platform_device *pdev)
 		&pwm_ir->pwm_ch);
 	of_property_read_u32(pdev->dev.of_node, "pwm_data_invert",
 		&pwm_ir->pwm_data_invert);
-	of_property_read_string(pdev->dev.of_node, "pwm-supply",
-		&pwm_str);
+	if (of_property_read_string(pdev->dev.of_node, "pwm-supply",
+		&pwm_str)) {
+		pr_info("Could not get pwm-supply property form dts");
+		return -ENODEV;
+	}
 
 	pwm_ir->regulator = devm_regulator_get(&pdev->dev, pwm_str);
 	if (IS_ERR(pwm_ir->regulator))
