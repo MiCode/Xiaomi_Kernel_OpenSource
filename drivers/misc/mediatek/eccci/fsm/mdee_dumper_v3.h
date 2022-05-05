@@ -13,7 +13,7 @@
 #define AED_STR_LEN		(2048)/* 0x800 */
 #define EE_BUF_LEN		(256)/* 0x100 */
 /* for Moet md MD_L2SRAM_SIZE is 0x1C00 */
-#define MD_L2SRAM_SIZE_V3 (0x1C00)
+#define MD_L2SRAM_SIZE_V3 (0x1000)
 
 #define MD_CORE_TOTAL_NUM   (8)
 #define MD_CORE_NAME_LEN    (11)
