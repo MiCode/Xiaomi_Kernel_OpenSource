@@ -2185,7 +2185,7 @@ done:
 static void __gpufreq_measure_power(void)
 {
 	unsigned int freq = 0, volt = 0;
-	unsigned int p_total = 0, p_dynamic = 0, p_leakage = 0;
+	unsigned int p_dynamic = 0;
 	int i = 0;
 	struct gpufreq_opp_info *working_table = g_gpu.working_table;
 	int opp_num = g_gpu.opp_num;
@@ -2194,15 +2194,11 @@ static void __gpufreq_measure_power(void)
 		freq = working_table[i].freq;
 		volt = working_table[i].volt;
 
-		p_leakage = __gpufreq_get_lkg_pgpu(volt);
 		p_dynamic = __gpufreq_get_dyn_pgpu(freq, volt);
 
-		p_total = p_dynamic + p_leakage;
+		working_table[i].power = p_dynamic;
 
-		working_table[i].power = p_total;
-
-		GPUFREQ_LOGD("GPU[%02d] power: %d (dynamic: %d, leakage: %d)",
-			i, p_total, p_dynamic, p_leakage);
+		GPUFREQ_LOGD("GPU[%02d] power: %d ", i, p_dynamic);
 	}
 }
 
