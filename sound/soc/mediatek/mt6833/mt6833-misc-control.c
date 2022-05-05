@@ -217,7 +217,7 @@ static int mt6833_sgen_mute_get(struct snd_kcontrol *kcontrol,
 {
 	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
 	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
-	int mute;
+	int mute = 0;
 
 	regmap_read(afe->regmap, AFE_SINEGEN_CON0, &mute);
 

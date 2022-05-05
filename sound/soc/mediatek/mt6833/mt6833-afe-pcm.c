@@ -2826,9 +2826,9 @@ static irqreturn_t mt6833_afe_irq_handler(int irq_id, void *dev)
 {
 	struct mtk_base_afe *afe = dev;
 	struct mtk_base_afe_irq *irq;
-	unsigned int status;
+	unsigned int status = 0;
 	unsigned int status_mcu;
-	unsigned int mcu_en;
+	unsigned int mcu_en = 0;
 	int ret;
 	int i;
 
@@ -3187,12 +3187,11 @@ static int mt6833_afe_component_probe(struct snd_soc_component *component)
 	mtk_afe_add_sub_dai_control(component);
 	mt6833_add_misc_control(component);
 
-	if (component) {
-		bin_attr_afe_dump.private = (void *)afe;
-		ret = snd_card_add_dev_attr(card, &afe_bin_attr_group);
-		if (ret)
-			pr_info("snd_card_add_dev_attr fail\n");
-	}
+	bin_attr_afe_dump.private = (void *)afe;
+	ret = snd_card_add_dev_attr(card, &afe_bin_attr_group);
+	if (ret)
+		pr_info("snd_card_add_dev_attr fail\n");
+
 	return 0;
 }
 
