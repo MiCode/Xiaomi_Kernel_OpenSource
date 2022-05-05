@@ -992,7 +992,7 @@ int get_io_reg_base(void)
 		return 0;
 	}
 
-	node = of_find_compatible_node(NULL, NULL, "mediatek,mt6768-auxadc");
+	node = of_find_compatible_node(NULL, NULL, "mediatek,mt6785-auxadc");
 	WARN_ON_ONCE(node == 0);
 	if (node) {
 		/* Setup IO addresses */
