@@ -272,6 +272,8 @@ static void record_jatm_usage(struct timespec64 now, int elapsed_ms)
 {
 	struct jatm_record *record = kmalloc(sizeof(struct jatm_record), GFP_KERNEL);
 
+	if (record == NULL)
+		return;
 	record->usage = elapsed_ms;
 	record->end_tv = now;
 	list_add_tail(&(record->list), &jatm_record_list);
@@ -318,7 +320,7 @@ static void disable_jatm(enum jatm_stop_reason reason)
 
 	cpu_force_max_freq(0);
 	mutex_unlock(&jatm_mutex);
-	pr_info("stop reason=%s, frame_length=%d, real_usage=%d, remaining=%d\n",
+	pr_info("stop reason=%s, frame_length=%lu, real_usage=%lu, remaining=%d\n",
 		jatm_stop_reason_string[reason], frame_length, real_usage, j_info.budget);
 	trace_jatm_disable(reason, frame_length, real_usage, j_info.budget);
 }

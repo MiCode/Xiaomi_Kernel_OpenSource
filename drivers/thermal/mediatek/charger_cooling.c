@@ -93,11 +93,6 @@ static int cooling_state_to_charger_limit_v1(struct charger_cooling_device *chg)
 	union power_supply_propval prop_s_bat_chr;
 	int ret = -1;
 
-	if (chg->target_state < 0) {
-		pr_info("wrong cooling state\n");
-		return ret;
-	}
-
 	if (chg->chg_psy == NULL || IS_ERR(chg->chg_psy)) {
 		pr_info("Couldn't get chg_psy\n");
 		return ret;

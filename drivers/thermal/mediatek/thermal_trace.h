@@ -75,7 +75,7 @@ TRACE_EVENT(md_tx_pwr_limit,
 		__entry->status = status;
 	),
 
-	TP_printk("tx_pwr_lv=%ld tx_pwr=%d pa_id=%d status=%s",
+	TP_printk("tx_pwr_lv=%u tx_pwr=%u pa_id=%u status=%s",
 		__entry->state, __entry->pwr, __entry->id,
 		show_md_status(__entry->status))
 );
