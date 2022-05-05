@@ -243,14 +243,13 @@ int init_audio_ipi_dma_by_dsp(const uint32_t dsp_id)
 		goto IPI_DMA_INIT_EXIT;
 	}
 
-#if !defined(MTK_AUDIO_CM4_DMA_SUPPORT)
 	if (dsp_id == AUDIO_OPENDSP_USE_CM4_A ||
 	    dsp_id == AUDIO_OPENDSP_USE_CM4_B) {
-		pr_info("dsp_id: %u", dsp_id);
+		pr_info("dsp_id: %u not support audio ipi dma", dsp_id);
 		ret = -ENODEV;
 		goto IPI_DMA_INIT_EXIT;
 	}
-#endif
+
 	ret = get_reserve_mem_size(dsp_id, &mem_id, &size);
 	if (ret != 0 || mem_id == 0xFFFFFFFF || size == 0) {
 		pr_info("dsp_id(%u), mem_id(%u), size(%u) ret %d error!!",
@@ -397,6 +396,7 @@ int audio_ipi_dma_init_dsp(const uint32_t dsp_id)
 	uint8_t task = TASK_SCENE_INVALID;
 	uint64_t payload[2];
 
+	ipi_dbg("+dsp_id: %u, task: %d, ret: %d", dsp_id, task, ret);
 	if (dsp_id >= NUM_OPENDSP_TYPE) {
 		pr_info("dsp_id(%u) invalid!!!", dsp_id);
 		return -ENODEV;
@@ -770,7 +770,7 @@ int audio_ipi_dma_free_region(const uint8_t task)
 		}
 		phy_value = offset_to_phy_addr(region->offset, dsp_id);
 		ipi_dbg("task %d, region[%d] sz 0x%x, offset 0x%x, phy_value 0x%x",
-			task, i, region->size, region->offset, phy_value);
+			task, i, region->size, region->offset, (uint32_t)phy_value);
 
 		gen_pool_free(g_dma_pool[dsp_id],
 			      phy_addr_to_vir_addr_val(phy_value, dsp_id),

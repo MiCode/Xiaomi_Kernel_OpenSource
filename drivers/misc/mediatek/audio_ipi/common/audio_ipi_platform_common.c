@@ -9,8 +9,8 @@
 #include <linux/bug.h>
 
 
-#if IS_ENABLED(CONFIG_MTK_AUDIO_CM4_SUPPORT)
-#include <scp_ipi.h>
+#if IS_ENABLED(CONFIG_MTK_SCP_AUDIO)
+#include <scp_audio_ipi.h>
 #include <scp_helper.h>
 #endif
 
@@ -21,6 +21,7 @@
 #include <audio_task.h>
 
 
+static bool is_audio_scp_ipi_support;
 
 /*
  * =============================================================================
@@ -111,7 +112,7 @@ uint32_t scp_cid_to_ipi_dsp_id(const uint32_t core_id) /* enum scp_core_id */
 {
 	uint32_t dsp_id = AUDIO_OPENDSP_ID_INVALID;
 
-#if !IS_ENABLED(CONFIG_MTK_AUDIO_CM4_SUPPORT)
+#if !IS_ENABLED(CONFIG_MTK_SCP_AUDIO)
 	pr_notice("scp not enabled!! core_id %u", core_id);
 	return dsp_id;
 #else
@@ -120,8 +121,8 @@ uint32_t scp_cid_to_ipi_dsp_id(const uint32_t core_id) /* enum scp_core_id */
 		return AUDIO_OPENDSP_ID_INVALID;
 	}
 
-	dsp_id = core_id + AUDIO_OPENDSP_USE_CM4_A;
-	if (dsp_id > AUDIO_OPENDSP_USE_CM4_B) {
+	dsp_id = core_id + AUDIO_OPENDSP_USE_RV_A;
+	if (dsp_id > NUM_OPENDSP_TYPE) {
 		pr_notice("invalid core_id %u", core_id);
 		return AUDIO_OPENDSP_ID_INVALID;
 	}
@@ -134,16 +135,14 @@ uint32_t ipi_dsp_id_to_scp_cid(const uint32_t dsp_id)
 {
 	uint32_t core_id = 0xFFFFFFFF;
 
-#if !IS_ENABLED(CONFIG_MTK_AUDIO_CM4_SUPPORT)
+#if !IS_ENABLED(CONFIG_MTK_SCP_AUDIO)
 	pr_notice("scp not enabled!! dsp_id %u", dsp_id);
 	return core_id;
 #else
-	if (dsp_id < AUDIO_OPENDSP_USE_CM4_A ||
-	    dsp_id > AUDIO_OPENDSP_USE_CM4_B) {
+	if (dsp_id != AUDIO_OPENDSP_USE_RV_A)
 		return 0xFFFFFFFF;
-	}
 
-	core_id = dsp_id - AUDIO_OPENDSP_USE_CM4_A;
+	core_id = dsp_id - AUDIO_OPENDSP_USE_RV_A;
 	if (core_id >= SCP_CORE_TOTAL) {
 		pr_notice("invalid cid %u, total %u", core_id, SCP_CORE_TOTAL);
 		return 0xFFFFFFFF;
@@ -156,10 +155,13 @@ uint32_t ipi_dsp_id_to_scp_cid(const uint32_t dsp_id)
 
 bool is_audio_use_scp(const uint32_t dsp_id)
 {
-#if !IS_ENABLED(CONFIG_MTK_AUDIO_CM4_SUPPORT)
+#if !IS_ENABLED(CONFIG_MTK_SCP_AUDIO)
 	return false;
 #else
 	if (dsp_id >= NUM_OPENDSP_TYPE)
+		return false;
+
+	if (!is_audio_scp_support())
 		return false;
 
 	if (ipi_dsp_id_to_scp_cid(dsp_id) >= SCP_CORE_TOTAL)
@@ -169,6 +171,23 @@ bool is_audio_use_scp(const uint32_t dsp_id)
 #endif
 }
 
+bool is_audio_scp_support(void)
+{
+	static bool init_flag;
+
+	if (init_flag == false) {
+#if !IS_ENABLED(CONFIG_MTK_SCP_AUDIO)
+		is_audio_scp_ipi_support = false;
+#else
+		is_audio_scp_ipi_support = is_audio_mbox_init_done();
+#endif
+		init_flag = true;
+		pr_info("%s is_audio_mbox_init_done %d",
+			__func__, is_audio_scp_ipi_support);
+	}
+	return is_audio_scp_ipi_support;
+}
+EXPORT_SYMBOL_GPL(is_audio_scp_support);
 /*
  * =============================================================================
  *                     common
@@ -182,7 +201,8 @@ bool is_audio_dsp_support(const uint32_t dsp_id)
 	switch (dsp_id) {
 	case AUDIO_OPENDSP_USE_CM4_A:
 	case AUDIO_OPENDSP_USE_CM4_B:
-#if IS_ENABLED(CONFIG_MTK_AUDIO_CM4_SUPPORT)
+	case AUDIO_OPENDSP_USE_RV_A:
+#if IS_ENABLED(CONFIG_MTK_SCP_AUDIO)
 		ret = is_audio_use_scp(dsp_id);
 #endif
 		break;
@@ -211,7 +231,7 @@ bool is_audio_dsp_ready(const uint32_t dsp_id)
 		ret = (is_adsp_ready(ipi_dsp_id_to_adsp_cid(dsp_id)) == 1);
 #endif
 	} else if (is_audio_use_scp(dsp_id)) {
-#if IS_ENABLED(CONFIG_MTK_AUDIO_CM4_SUPPORT)
+#if IS_ENABLED(CONFIG_MTK_SCP_AUDIO)
 		ret = (is_scp_ready(ipi_dsp_id_to_scp_cid(dsp_id)) == 1);
 #endif
 	} else
@@ -238,8 +258,8 @@ uint32_t audio_get_audio_ipi_id_by_dsp(const uint32_t dsp_id)
 		audio_ipi_id = ADSP_IPI_AUDIO;
 #endif
 	} else if (is_audio_use_scp(dsp_id)) {
-#if IS_ENABLED(CONFIG_MTK_AUDIO_CM4_SUPPORT)
-		audio_ipi_id = IPI_AUDIO;
+#if IS_ENABLED(CONFIG_MTK_SCP_AUDIO)
+		audio_ipi_id = SCP_AUDIO_IPI_AUDIO;
 #endif
 	} else
 		pr_notice("dsp_id %u not support!!", dsp_id);
@@ -257,9 +277,12 @@ uint8_t get_audio_controller_task(const uint32_t dsp_id)
 	uint8_t task = TASK_SCENE_INVALID;
 
 	switch (dsp_id) {
-#if IS_ENABLED(CONFIG_MTK_AUDIO_CM4_SUPPORT)
+#if IS_ENABLED(CONFIG_MTK_SCP_AUDIO)
 	case AUDIO_OPENDSP_USE_CM4_A:
 		task = TASK_SCENE_AUDIO_CONTROLLER_CM4;
+		break;
+	case AUDIO_OPENDSP_USE_RV_A:
+		task = TASK_SCENE_AUDIO_CONTROLLER_RV;
 		break;
 #endif
 #if IS_ENABLED(CONFIG_MTK_AUDIODSP_SUPPORT)
@@ -292,7 +315,8 @@ int get_reserve_mem_size(const uint32_t dsp_id,
 
 	switch (dsp_id) {
 	case AUDIO_OPENDSP_USE_CM4_A:
-#if IS_ENABLED(CONFIG_MTK_AUDIO_CM4_SUPPORT)
+	case AUDIO_OPENDSP_USE_RV_A:
+#if IS_ENABLED(CONFIG_MTK_SCP_AUDIO)
 		*mem_id = AUDIO_IPI_MEM_ID;
 		*size = (uint32_t)scp_get_reserve_mem_size(*mem_id);
 		ret = 0;
@@ -328,7 +352,8 @@ void *get_reserve_mem_virt(const uint32_t dsp_id, const uint32_t mem_id)
 
 	switch (dsp_id) {
 	case AUDIO_OPENDSP_USE_CM4_A:
-#if IS_ENABLED(CONFIG_MTK_AUDIO_CM4_SUPPORT)
+	case AUDIO_OPENDSP_USE_RV_A:
+#if IS_ENABLED(CONFIG_MTK_SCP_AUDIO)
 		addr_mem_virt = (void *)scp_get_reserve_mem_virt(mem_id);
 #endif
 		break;
@@ -354,7 +379,8 @@ phys_addr_t get_reserve_mem_phys(const uint32_t dsp_id, const uint32_t mem_id)
 
 	switch (dsp_id) {
 	case AUDIO_OPENDSP_USE_CM4_A:
-#if IS_ENABLED(CONFIG_MTK_AUDIO_CM4_SUPPORT)
+	case AUDIO_OPENDSP_USE_RV_A:
+#if IS_ENABLED(CONFIG_MTK_SCP_AUDIO)
 		addr_mem_phys = scp_get_reserve_mem_phys(mem_id);
 #endif
 		break;
@@ -382,6 +408,7 @@ uint8_t get_cache_aligned_order(const uint32_t dsp_id)
 		break;
 	case AUDIO_OPENDSP_USE_HIFI3_A:
 	case AUDIO_OPENDSP_USE_HIFI3_B:
+	case AUDIO_OPENDSP_USE_RV_A:
 		order = 7;
 		break;
 	default:

@@ -17,10 +17,12 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/audio_ipi/include
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/adsp/include
 #endif
 
-### for CM4
-ifeq ($(CONFIG_MTK_TINYSYS_SCP_SUPPORT),y)
+### for RV
+#ifeq ($(CONFIG_MTK_SCP_AUDIO),y)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/scp/include
-endif
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/scp/rv
+ccflags-y += -I$(srctree)/sound/soc/mediatek/audio_scp
+#endif
 
 
 

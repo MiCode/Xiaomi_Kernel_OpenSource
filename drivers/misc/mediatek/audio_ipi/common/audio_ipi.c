@@ -26,9 +26,9 @@
 
 #include <audio_ipi_queue.h>
 
-#if IS_ENABLED(CONFIG_MTK_AUDIO_CM4_SUPPORT)
+#if IS_ENABLED(CONFIG_MTK_SCP_AUDIO)
 #include <scp_helper.h>
-#include <scp_ipi.h>
+#include <scp_audio_ipi.h>
 #include <scp_feature_define.h>
 #endif
 
@@ -273,8 +273,8 @@ static int parsing_ipi_msg_from_user_space(
 			wb_dram->data_size = 0;
 			wb_dram->addr_val = dram_buf;
 			ipi_dbg(
-				"hal_wb_buf_addr(%p), wb dram_buf(%u), hal_wb_buf_size(%d)"
-				, hal_wb_buf_addr, dram_buf, hal_wb_buf_size);
+				"hal_wb_buf_addr(%p), wb dram_buf(0x%x), hal_wb_buf_size(%d)"
+				, hal_wb_buf_addr, (uint32_t)dram_buf, hal_wb_buf_size);
 
 			/* force need ack to get dsp info */
 			if (ipi_msg.ack_type != AUDIO_IPI_MSG_NEED_ACK) {
@@ -345,9 +345,9 @@ parsing_exit:
 	}
 	if (dram_buf != 0) {
 		ipi_dbg(
-			"task %d msg 0x%x, free wb buffer %u, hal_wb_buf_size 0x%x"
+			"task %d msg 0x%x, free wb buffer 0x%x, hal_wb_buf_size 0x%x"
 			, ipi_msg.task_scene, ipi_msg.msg_id,
-			dram_buf, hal_wb_buf_size);
+			(uint32_t)dram_buf, hal_wb_buf_size);
 		audio_ipi_dma_free(ipi_msg.task_scene,
 				   dram_buf, hal_wb_buf_size);
 	}
@@ -469,7 +469,7 @@ static int audio_ipi_init_dsp_hifi3(const uint32_t dsp_id)
 }
 #endif
 
-#if IS_ENABLED(CONFIG_MTK_AUDIO_CM4_SUPPORT)
+#if IS_ENABLED(CONFIG_MTK_SCP_AUDIO)
 /* CM4 reboot */
 static int audio_ctrl_event_receive_scp(
 	struct notifier_block *this,
@@ -483,18 +483,16 @@ static int audio_ctrl_event_receive_scp(
 	case SCP_EVENT_STOP:
 		for (scene = 0; scene < TASK_SCENE_SIZE; scene++) {
 			if (audio_get_dsp_id(scene) ==
-			    AUDIO_OPENDSP_USE_CM4_A) {
+			    AUDIO_OPENDSP_USE_RV_A) {
 				handler = get_ipi_queue_handler(scene);
 				if (handler != NULL)
 					flush_ipi_queue_handler(handler);
 			}
 		}
 		break;
-#if defined(MTK_AUDIO_CM4_DMA_SUPPORT)
 	case SCP_EVENT_READY:
-		audio_ipi_dma_init_dsp(AUDIO_OPENDSP_USE_CM4_A);
+		audio_ipi_dma_init_dsp(AUDIO_OPENDSP_USE_RV_A);
 		break;
-#endif
 	default:
 		pr_info("event %lu err", event);
 	}
@@ -505,11 +503,10 @@ static struct notifier_block audio_ctrl_notifier_scp = {
 	.notifier_call = audio_ctrl_event_receive_scp,
 };
 
-static int audio_ipi_init_dsp_cm4(void)
+static int audio_ipi_init_dsp_rv(void)
 {
 	int ret = 0;
 
-#if defined(MTK_AUDIO_CM4_DMA_SUPPORT)
 	struct ipi_msg_t ipi_msg;
 	static bool init_flag;
 
@@ -517,7 +514,7 @@ static int audio_ipi_init_dsp_cm4(void)
 	if (init_flag == false) {
 		init_flag = true;
 		pr_info("phone init");
-		audio_ipi_dma_init_dsp(AUDIO_OPENDSP_USE_CM4_A);
+		audio_ipi_dma_init_dsp(AUDIO_OPENDSP_USE_RV_A);
 		return 0;
 	}
 
@@ -533,7 +530,7 @@ static int audio_ipi_init_dsp_cm4(void)
 	/* CM4 process hal reboot here */
 	ret = audio_send_ipi_msg(
 		      &ipi_msg,
-		      TASK_SCENE_AUDIO_CONTROLLER_CM4,
+		      TASK_SCENE_AUDIO_CONTROLLER_RV,
 		      AUDIO_IPI_LAYER_TO_DSP,
 		      AUDIO_IPI_MSG_ONLY,
 		      AUDIO_IPI_MSG_NEED_ACK,
@@ -543,12 +540,11 @@ static int audio_ipi_init_dsp_cm4(void)
 		      NULL);
 
 	/* release DMA */
-	audio_ipi_dma_free_region_all_task(AUDIO_OPENDSP_USE_CM4_A);
-#endif
+	audio_ipi_dma_free_region_all_task(AUDIO_OPENDSP_USE_RV_A);
 
 	return ret;
 }
-#endif /* end of CONFIG_MTK_AUDIO_CM4_SUPPORT */
+#endif /* end of CONFIG_MTK_SCP_AUDIO */
 
 static long audio_ipi_ioctl(
 	struct file *file, unsigned int cmd, unsigned long arg)
@@ -589,8 +585,9 @@ static long audio_ipi_ioctl(
 
 		}
 #endif
-#if IS_ENABLED(CONFIG_MTK_AUDIO_CM4_SUPPORT)
-		audio_ipi_init_dsp_cm4();
+#if IS_ENABLED(CONFIG_MTK_SCP_AUDIO)
+		if (is_audio_scp_support())
+			audio_ipi_init_dsp_rv();
 #endif
 		/* copy g_audio_task_info to HAL */
 		if (((void __user *)arg) == NULL)
@@ -706,8 +703,9 @@ static int __init audio_ipi_init(void)
 	adsp_register_notify(&audio_ctrl_notifier);
 #endif
 
-#if IS_ENABLED(CONFIG_MTK_AUDIO_CM4_SUPPORT)
-	scp_A_register_notify(&audio_ctrl_notifier_scp);
+#if IS_ENABLED(CONFIG_MTK_SCP_AUDIO)
+	if (is_audio_scp_support())
+		scp_A_register_notify(&audio_ctrl_notifier_scp);
 #endif
 
 	for (task_id = 0; task_id < TASK_SCENE_SIZE; task_id++) {

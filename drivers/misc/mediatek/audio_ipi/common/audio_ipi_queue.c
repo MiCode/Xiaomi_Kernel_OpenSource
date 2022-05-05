@@ -12,8 +12,8 @@
 
 #include <linux/delay.h>
 
-#if IS_ENABLED(CONFIG_MTK_AUDIO_CM4_SUPPORT)
-#include <scp_ipi.h>
+#if IS_ENABLED(CONFIG_MTK_SCP_AUDIO)
+#include <scp_audio_ipi.h>
 #endif
 
 #include "audio_log.h"

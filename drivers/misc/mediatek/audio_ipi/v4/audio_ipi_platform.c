@@ -81,6 +81,10 @@ uint32_t audio_get_dsp_id(const uint8_t task)
 			dsp_id = AUDIO_OPENDSP_ID_INVALID;
 		}
 		break;
+	case TASK_SCENE_AUDIO_CONTROLLER_RV:
+	case TASK_SCENE_RV_SPK_PROCESS:
+		dsp_id = AUDIO_OPENDSP_USE_RV_A;
+		break;
 	default:
 		pr_notice("task %d not support!!", task);
 		dsp_id = AUDIO_OPENDSP_ID_INVALID;
