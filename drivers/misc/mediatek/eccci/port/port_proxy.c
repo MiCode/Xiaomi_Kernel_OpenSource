@@ -51,7 +51,7 @@ atomic_t udc_status = ATOMIC_INIT(0);
 #define CHECK_MD_ID(md_id)
 #define CHECK_HIF_ID(hif_id)
 #define CHECK_QUEUE_ID(queue_id)
-static int port_md_gen;
+int port_md_gen;
 
 struct ccci_proc_user {
 	unsigned int busy;

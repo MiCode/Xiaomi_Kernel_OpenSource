@@ -8,6 +8,7 @@
 #include "ccci_hif.h"
 #include "port_cfg.h"
 
+extern int port_md_gen;
 #define EXP_CTRL_Q		6
 #define DATA_TX_Q		0
 #define DATA_RX_Q		0
@@ -493,14 +494,23 @@ int port_get_cfg(int md_id, struct port_t **ports)
 int mtk_ccci_request_port(char *name)
 {
 	int i;
-
 	for (i = 0; i < ARRAY_SIZE(md1_ccci_ports); i++) {
 		if (!strcmp(md1_ccci_ports[i].name, name))
-			return i;
-
+			break;
 	}
-	CCCI_ERROR_LOG(-1, PORT, "can not find port %s", name);
-	return -1;
+	if (i == ARRAY_SIZE(md1_ccci_ports)) {
+		CCCI_ERROR_LOG(-1, PORT, "can not find port %s", name);
+		return -1;
+	}
+
+	if ((port_md_gen < 6297) && (md1_ccci_ports[i].flags & PORT_F_GEN95_NOT_SUPPORT)) {
+		CCCI_ERROR_LOG(-1, PORT, "%s:not support %s  md_gen = %d\n",
+				__func__, md1_ccci_ports[i].name, port_md_gen);
+		return -1;
+	}
+
+	return i;
+
 }
 EXPORT_SYMBOL(mtk_ccci_request_port);
 
