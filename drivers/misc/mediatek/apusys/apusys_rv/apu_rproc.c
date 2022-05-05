@@ -38,7 +38,7 @@ static void *apu_da_to_va(struct rproc *rproc, u64 da, size_t len, bool *is_iome
 	void *ptr = NULL;
 	struct mtk_apu *apu = (struct mtk_apu *)rproc->priv;
 
-	if (da >= DRAM_OFFSET && da < DRAM_OFFSET + CODE_BUF_SIZE) {
+	if (da < DRAM_OFFSET + CODE_BUF_SIZE) {
 		ptr = apu->code_buf + (da - DRAM_OFFSET);
 		dev_info(apu->dev, "%s: (DRAM): da = 0x%llx, len = 0x%x\n",
 			__func__, da, len);
