@@ -4694,8 +4694,10 @@ static int dpmaif_smem_release_tx_buffer(unsigned int qno)
 
 		if (likely(ccci_md_get_cap_by_id(0) & MODEM_CAP_TXBUSY_STOP)) {
 			if (atomic_read(&txq->tx_budget) > (drb_qinfo->sz / 8))
+				/* mt6789 not use Q2, if stack use Q3, driver will use Q2 for TX */
+				/* if Q2 TX IRQ, use Q3 for broadcast */
 				dpmaif_queue_broadcast_state(dpmaif_ctrl,
-							TX_IRQ, OUT, txq->index);
+					TX_IRQ, OUT, txq->index == 2 ? txq->index+1 : txq->index);
 		}
 
 		if (atomic_cmpxchg(&dpmaif_ctrl->wakeup_src, 1, 0) == 1)
@@ -4881,7 +4883,10 @@ static int dpmaif_handle_skb_data(struct sk_buff *skb, int qno,
 	if (remain_cnt < send_cnt) {
 		/* buffer check: full */
 		if (likely(ccci_md_get_cap_by_id(0)&MODEM_CAP_TXBUSY_STOP))
-			dpmaif_queue_broadcast_state(dpmaif_ctrl, TX_FULL, OUT, txq->index);
+			/* mt6789 not use Q2, if stack use Q3, driver will use Q2 for TX */
+			/* if Q2 TX full, use Q3 for broadcast */
+			dpmaif_queue_broadcast_state(dpmaif_ctrl, TX_FULL, OUT,
+				txq->index == 2 ? txq->index+1 : txq->index);
 #if DPMAIF_TRAFFIC_MONITOR_INTERVAL
 		txq->busy_count++;
 #endif
