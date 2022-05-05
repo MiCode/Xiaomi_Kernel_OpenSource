@@ -11,6 +11,7 @@
 #include "pseudo_m4u.h"
 #endif
 
+#include <linux/dma-buf.h>
 #include <linux/dma-mapping.h>
 #include <asm/mman.h>
 
@@ -60,6 +61,23 @@ static int mdw_mem_ion_check(struct apusys_kmem *mem)
 }
 #endif
 
+static uint32_t mdw_mem_ion_get_size(struct apusys_kmem *mem)
+{
+	uint32_t size = 0;
+	struct dma_buf *db = NULL;
+
+	db = dma_buf_get(mem->fd);
+	if (IS_ERR(db)) {
+		mdw_drv_err("get dmabuf from ion handle fail\n");
+		return 0;
+	}
+
+	size = db->size;
+	dma_buf_put(db);
+
+	return size;
+}
+
 static int mdw_mem_ion_map_kva(struct apusys_kmem *mem)
 {
 #if !defined(CONFIG_MTK_IOMMU_V2)
@@ -67,6 +85,7 @@ static int mdw_mem_ion_map_kva(struct apusys_kmem *mem)
 #else
 	void *buffer = NULL;
 	struct ion_handle *ion_hnd = NULL;
+	uint32_t size = 0;
 	int ret = 0;
 
 	/* check argument */
@@ -79,6 +98,15 @@ static int mdw_mem_ion_map_kva(struct apusys_kmem *mem)
 	ion_hnd = ion_import_dma_buf_fd(ion_ma.client, mem->fd);
 	if (IS_ERR_OR_NULL(ion_hnd))
 		return -EINVAL;
+
+	/* check size */
+	size = mdw_mem_ion_get_size(mem);
+	if (size < mem->size || !size) {
+		mdw_drv_err("buffer size invalid(%u/%u)\n", size, mem->size);
+		ret = -ENOMEM;
+		goto fail_map_kernel;
+	}
+	mdw_mem_debug("mem check size(%u/%u)\n", size, mem->size);
 
 	/* map kernel va*/
 	buffer = ion_map_kernel(ion_ma.client, ion_hnd);
