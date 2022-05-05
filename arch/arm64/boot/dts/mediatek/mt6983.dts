@@ -513,7 +513,7 @@
 
 		cpu0: cpu@000 {
 			device_type = "cpu";
-			compatible = "arm,cortex-a55";
+			compatible = "arm,cortex-a510";
 			reg = <0x0000>;
 			enable-method = "psci";
 			performance-domains = <&performance 0>;
@@ -527,7 +527,7 @@
 
 		cpu1: cpu@001 {
 			device_type = "cpu";
-			compatible = "arm,cortex-a55";
+			compatible = "arm,cortex-a510";
 			reg = <0x0100>;
 			enable-method = "psci";
 			performance-domains = <&performance 0>;
@@ -541,7 +541,7 @@
 
 		cpu2: cpu@002 {
 			device_type = "cpu";
-			compatible = "arm,cortex-a55";
+			compatible = "arm,cortex-a510";
 			reg = <0x0200>;
 			enable-method = "psci";
 			performance-domains = <&performance 0>;
@@ -555,7 +555,7 @@
 
 		cpu3: cpu@003 {
 			device_type = "cpu";
-			compatible = "arm,cortex-a55";
+			compatible = "arm,cortex-a510";
 			reg = <0x0300>;
 			enable-method = "psci";
 			performance-domains = <&performance 0>;
@@ -569,7 +569,7 @@
 
 		cpu4: cpu@100 {
 			device_type = "cpu";
-			compatible = "arm,cortex-a78";
+			compatible = "arm,cortex-a710";
 			reg = <0x0400>;
 			enable-method = "psci";
 			performance-domains = <&performance 1>;
@@ -583,7 +583,7 @@
 
 		cpu5: cpu@101 {
 			device_type = "cpu";
-			compatible = "arm,cortex-a78";
+			compatible = "arm,cortex-a710";
 			reg = <0x0500>;
 			enable-method = "psci";
 			performance-domains = <&performance 1>;
@@ -597,7 +597,7 @@
 
 		cpu6: cpu@102 {
 			device_type = "cpu";
-			compatible = "arm,cortex-a78";
+			compatible = "arm,cortex-a710";
 			reg = <0x0600>;
 			enable-method = "psci";
 			performance-domains = <&performance 1>;
@@ -611,7 +611,7 @@
 
 		cpu7: cpu@200 {
 			device_type = "cpu";
-			compatible = "arm,cortex-a78";
+			compatible = "arm,cortex-x2";
 			reg = <0x0700>;
 			enable-method = "psci";
 			performance-domains = <&performance 2>;
