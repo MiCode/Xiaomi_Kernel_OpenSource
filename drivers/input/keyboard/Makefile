@@ -40,8 +40,12 @@ obj-$(CONFIG_KEYBOARD_MATRIX)		+= matrix_keypad.o
 obj-$(CONFIG_KEYBOARD_MAX7359)		+= max7359_keypad.o
 obj-$(CONFIG_KEYBOARD_MCS)		+= mcs_touchkey.o
 obj-$(CONFIG_KEYBOARD_MPR121)		+= mpr121_touchkey.o
-obj-$(CONFIG_KEYBOARD_MTK)		+= mediatek/
+ifeq (y, $(filter y, $(CONFIG_KEYBOARD_MTK_PMIC)))
+obj-$(CONFIG_KEYBOARD_MTK)	 	+= mtk-kpd.o
 obj-$(CONFIG_KEYBOARD_MTK_PMIC) 	+= mtk-pmic-keys.o
+else
+obj-$(CONFIG_KEYBOARD_MTK)		+= mediatek/
+endif
 obj-$(CONFIG_KEYBOARD_NEWTON)		+= newtonkbd.o
 obj-$(CONFIG_KEYBOARD_NOMADIK)		+= nomadik-ske-keypad.o
 obj-$(CONFIG_KEYBOARD_NSPIRE)		+= nspire-keypad.o
