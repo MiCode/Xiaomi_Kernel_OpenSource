@@ -40,7 +40,7 @@ static void wait_scp_ready_to_reboot(void)
 	}
 
 	if (retry == 0)
-		pr_notice("[SCP] SCP don't stay in wfi c0:%x c1:%x\n", c0, c1);
+		pr_notice("[SCP] SCP don't stay in wfi c0:%lx c1:%lx\n", c0, c1);
 	udelay(10);
 }
 

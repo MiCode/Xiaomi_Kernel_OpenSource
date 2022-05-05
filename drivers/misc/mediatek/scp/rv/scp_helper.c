@@ -468,6 +468,8 @@ void scp_A_register_notify(struct notifier_block *nb)
 	case SCP_EVENT_READY:
 		nb->notifier_call(nb, SCP_EVENT_READY, NULL);
 		pr_debug("%s callback finished\n", __func__);
+		/* when scp ready also need add scp_A_notifier_list to register */
+		fallthrough;
 	case SCP_EVENT_STOP:
 		blocking_notifier_chain_register(&scp_A_notifier_list, nb);
 		pr_debug("%s register finished\n", __func__);
@@ -1507,7 +1509,7 @@ static void scp_control_feature(enum feature_id id, bool enable)
 		return;
 	}
 
-	if (id >= NUM_FEATURE_ID) {
+	if (id < 0 || id >= NUM_FEATURE_ID) {
 		pr_notice("[SCP] %s, invalid feature id:%u, max id:%u\n",
 			__func__, id, NUM_FEATURE_ID - 1);
 		return;
@@ -1612,7 +1614,7 @@ void scp_deregister_sensor(enum feature_id id, int sensor_id)
 		return;
 	}
 
-	if (sensor_id >= NUM_SENSOR_TYPE) {
+	if (sensor_id < 0 || sensor_id >= NUM_SENSOR_TYPE) {
 		pr_info("[SCP] sensor id not in sensor freq table");
 		return;
 	}
