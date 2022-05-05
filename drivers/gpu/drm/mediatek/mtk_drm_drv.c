@@ -787,8 +787,15 @@ static void mtk_atomit_doze_enable_pq(struct drm_crtc *crtc)
 	DDPINFO("%s\n", __func__);
 	mtk_state = to_mtk_crtc_state(crtc->state);
 
-	if (mtk_state->doze_changed &&
-		!mtk_state->prop_val[CRTC_PROP_DOZE_ACTIVE]) {
+	// suspend state will return to avoid cmdq timeout
+	if (!crtc->state->active) {
+		DDPINFO("%s: crtc is not active\n", __func__);
+		return;
+	}
+	/* only current state is not doze, will enable pq
+	 * state change: doze->resume, doze suspend->resume, supsend->resume
+	 */
+	if (!mtk_state->prop_val[CRTC_PROP_DOZE_ACTIVE]) {
 		DDPINFO("%s: disable doze, enable pq\n", __func__);
 
 		cb_data = kmalloc(sizeof(*cb_data), GFP_KERNEL);
