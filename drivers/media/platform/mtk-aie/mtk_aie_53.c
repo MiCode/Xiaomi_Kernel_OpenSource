@@ -1349,15 +1349,32 @@ int mtk_aie_vidioc_qbuf(struct file *file, void *priv,
 				  struct v4l2_buffer *buf)
 {
 	struct mtk_aie_dev *fd = video_drvdata(file);
+	unsigned long long ret = 0;
 	/* dev_info(fd->dev, "[%s] start!:%x %x\n", __func__, buf->length, fd->map_count); */
 
-	if (buf->length) {
+	if (buf->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) { /*IMG & data*/
 		if (!fd->map_count) {
-			int ret = 0;
 
 			fd->dmabuf = dma_buf_get(buf->m.planes[buf->length-1].m.fd);
-			dma_buf_begin_cpu_access(fd->dmabuf, DMA_BIDIRECTIONAL);
-			fd->kva = (u64)dma_buf_vmap(fd->dmabuf);
+			if (IS_ERR(fd->dmabuf) || fd->dmabuf == NULL) {
+				dev_info(fd->dev, "%s, dma_buf_getad failed\n", __func__);
+				return -ENOMEM;
+			}
+
+			ret = dma_buf_begin_cpu_access(fd->dmabuf, DMA_BIDIRECTIONAL);
+			if (ret < 0) {
+				dev_info(fd->dev, "%s, begin_cpu_access failed\n", __func__);
+				ret = -ENOMEM;
+				goto ERROR_PUTBUF;
+			}
+
+			ret = (u64)dma_buf_vmap(fd->dmabuf);
+			if (!ret) {
+				dev_info(fd->dev, "%s, map kernel va failed\n", __func__);
+				ret = -ENOMEM;
+				goto ERROR;
+			}
+			fd->kva = ret;
 			memcpy((char *)&g_user_param, (char *)fd->kva, sizeof(g_user_param));
 			fd->base_para->rpn_anchor_thrd = (signed short)
 						(g_user_param.feature_threshold & 0x0000FFFF);
@@ -1389,9 +1406,17 @@ int mtk_aie_vidioc_qbuf(struct file *file, void *priv,
 		} else {
 			memcpy((char *)&g_user_param, (char *)fd->kva, sizeof(g_user_param));
 		}
+
 	}
 
 	return v4l2_m2m_ioctl_qbuf(file, priv, buf);
+
+ERROR:
+	dma_buf_end_cpu_access(fd->dmabuf, DMA_BIDIRECTIONAL);
+ERROR_PUTBUF:
+	dma_buf_put(fd->dmabuf);
+
+	return ret;
 }
 
 static const struct vb2_ops mtk_aie_vb2_ops = {
