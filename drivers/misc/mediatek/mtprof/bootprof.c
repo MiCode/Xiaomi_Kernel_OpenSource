@@ -443,9 +443,9 @@ static void mt_bootprof_switch(int on)
 	spin_unlock(&bootprof_lock);
 
 	if (tmp) {
-		pr_info("BOOTPROF:%10lld.%06ld: %s%d)\n",
+		pr_info("BOOTPROF:%10lld.%06ld: %s%lld)\n",
 			msec_high(ts), msec_low(ts), on ? "ON (TH:" : "OFF (KO:",
-			on ? msec_high(BOOTPROF_THRESHOLD) : atomic_read(&initcall_num));
+			on ? msec_high(BOOTPROF_THRESHOLD) : (long long)atomic_read(&initcall_num));
 
 		if (on) {
 			timestamp_on = ts;
