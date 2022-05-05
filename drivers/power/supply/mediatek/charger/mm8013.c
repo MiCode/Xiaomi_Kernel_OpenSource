@@ -284,17 +284,17 @@ int mm8013_get_info(enum power_supply_property info_type, int *val)
 
 static int force_get_tbat_mm8013(bool update, int *temp)
 {
-	static int pre_bat_temp = -1000;
+	static int pre_bat_temp = -50;
 	static struct timespec pre_time;
 	struct timespec ctime, dtime;
 	int bat_temp;
 	int ret;
 
-	if (update || pre_bat_temp == -1000) {
+	if (update || pre_bat_temp == -50) {
 		ret = mm8013_get_info(POWER_SUPPLY_PROP_TEMP, &bat_temp);
 		if (ret)
 			return ret;
-		if (pre_bat_temp == -1000) {
+		if (pre_bat_temp == -50) {
 			get_monotonic_boottime(&pre_time);
 		} else {
 			get_monotonic_boottime(&ctime);
@@ -386,11 +386,17 @@ static void mm8013_battery_update_work(struct work_struct *work)
 {
 	struct mm8013_chip *chip = container_of(to_delayed_work(work),
 			struct mm8013_chip, battery_update_work);
-	int battery_temp, cycle_count, capacity;
+	int ret;
+	int battery_temp = 0, cycle_count = 0, capacity = 0;
 
 	bm_notice("[%s] enter\n", __func__);
 
-	force_get_tbat_mm8013(1, &battery_temp);
+	ret = force_get_tbat_mm8013(1, &battery_temp);
+	if (ret) {
+		bm_err("[%s] force_get_tbat_mm8013 fail, ret(%d)\n", __func__, ret);
+		battery_temp = 500;
+	}
+
 	gm.fixed_bat_tmp = (battery_temp / 10);
 	battery_main.BAT_batt_temp = gm.fixed_bat_tmp;
 
