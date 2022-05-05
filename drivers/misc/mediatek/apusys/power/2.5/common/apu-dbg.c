@@ -226,7 +226,7 @@ void apupw_dbg_power_info(struct work_struct *work)
 	/* search the list of dbg_clk_list for this clk */
 	list_for_each_entry_reverse(dbg_clk, &apupw_dbg.clk_list, node)
 		n_pos += snprintf((buffer + n_pos), (LOG_LEN - n_pos),
-				"%u,", TOMHZ(clk_get_rate(dbg_clk->clk)));
+				"%lu,", TOMHZ(clk_get_rate(dbg_clk->clk)));
 
 	n_pos += snprintf((buffer + n_pos), (LOG_LEN - n_pos),
 			"]r[%lx,%lx,", apu_spm_wakeup_value(), apu_rpc_rdy_value());
@@ -602,12 +602,12 @@ static int apupw_dbg_dump_stat(struct seq_file *s)
 
 	seq_printf(s, "[%5lu.%06lu]\n|curr|", (ulong)time, rem_nsec / 1000);
 	list_for_each_entry_reverse(dbg_clk, &apupw_dbg.clk_list, node)
-		seq_printf(s, "%s|", 5, dbg_clk->name);
+		seq_printf(s, "%s|", dbg_clk->name);
 	seq_puts(s, "\n");
 
 	seq_puts(s, "|freq|");
 	list_for_each_entry_reverse(dbg_clk, &apupw_dbg.clk_list, node)
-		seq_printf(s, "%lu|", 5, TOMHZ(clk_get_rate(dbg_clk->clk)));
+		seq_printf(s, "%lu|", TOMHZ(clk_get_rate(dbg_clk->clk)));
 	seq_puts(s, "\n");
 
 	seq_puts(s, "|clk |");
@@ -616,7 +616,7 @@ static int apupw_dbg_dump_stat(struct seq_file *s)
 	seq_puts(s, "\n(unit: MHz)\n\n");
 
 	list_for_each_entry_reverse(dbg_reg, &apupw_dbg.reg_list, node)
-		seq_printf(s, "%s:%lu(mV), ", dbg_reg->name,
+		seq_printf(s, "%s:%u(mV), ", dbg_reg->name,
 			   TOMV(regulator_get_voltage(dbg_reg->reg)));
 	seq_printf(s, "\n\nrpc_intf_rdy:0x%lx, spm_wakeup:0x%lx\n",
 		   apu_rpc_rdy_value(), apu_spm_wakeup_value());

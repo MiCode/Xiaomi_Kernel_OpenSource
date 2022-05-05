@@ -113,7 +113,7 @@ TRACE_EVENT(apupwr_dvfs,
 		__entry->opp = opp;
 		__entry->freq = freq;
 	),
-	TP_printk("[%s] %s->%s[%d/%u]",
+	TP_printk("[%s] %s->%s[%d/%lu]",
 		  __get_str(gov_name), __get_str(p_name), __get_str(c_name),
 		  __entry->opp, __entry->freq)
 );
