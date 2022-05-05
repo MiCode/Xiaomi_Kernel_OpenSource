@@ -1782,20 +1782,22 @@
 		secure_dump_size = <0x280000>;
 
 		scp_mem_key = "mediatek,reserve-memory-scp_share";
+
+		/* feature ID, size, alignment */
 		scp_mem_tbl =
-		< 0 0x0>,      /* secure dump, its size is in secure_dump_size */
-		< 1 0x4E300>,  /* vow, 297KB (2 model size)*/
-		< 2 0x100000>, /* ensor main, 1 MB */
-		< 3 0x180000>, /* logger, 1.5 MB */
-		< 4 0x19000>,  /* audio, 100 KB */
-		< 5 0x5A00>,   /* vow bargein, 22.5KB */
-		< 6 0x100>,    /* scp parames, 256 bytes */
-		< 7 0x19000>,   /* ultrasound */
-		< 8 0x10000>,  /* sensor supper, 64 KB */
-		< 9 0x1000>,   /* sensor list, 4 KB */
-		<10 0x2000>,  /* sensor debug, 8 KB */
-		<11 0x100>,   /* sensor custom writer, 256 bytes */
-		<12 0x100>;   /* sensor custom reader, 256 bytes */
+		< 0 0x0      0x0>,      /* secure dump, its size is in secure_dump_size */
+		< 1 0x4E300  0x0>,  /* vow, 297KB (2 model size)*/
+		< 2 0x100000 0x0>, /* ensor main, 1 MB */
+		< 3 0x180000 0x0>, /* logger, 1.5 MB */
+		< 4 0x19000  0x0>,  /* audio, 100 KB */
+		< 5 0x5A00   0x0>,   /* vow bargein, 22.5KB */
+		< 6 0x100    0x0>,    /* scp parames, 256 bytes */
+		< 7 0x19000  0x0>,   /* ultrasound */
+		< 8 0x10000  0x0>,  /* sensor supper, 64 KB */
+		< 9 0x1000   0x0>,   /* sensor list, 4 KB */
+		<10 0x2000   0x0>,  /* sensor debug, 8 KB */
+		<11 0x100    0x0>,   /* sensor custom writer, 256 bytes */
+		<12 0x100    0x0>;   /* sensor custom reader, 256 bytes */
 
 		memorydump =
 		<0x0c0000>, /* l2tcm */

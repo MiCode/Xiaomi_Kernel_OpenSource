@@ -2234,18 +2234,20 @@
 			secure_dump_size = <0>;
 
 			scp_mem_key = "mediatek,reserve-memory-scp_share";
-			scp_mem_tbl = <0 0x0>, /* secure dump, its size is in secure_dump_size */
-				      <1 0x4cf00>, /* vow */
-				      <2 0x100000>, /* sensor main*/
-				      <3 0x180000>, /* logger */
-				      <4 0x19000>, /* audio */
-				      <5 0xa000>, /* vow bargein */
-				      <7 0x19000>, /* ultrasound*/
-				      <8 0x10000>, /* sensor supper*/
-				      <9 0x1000>, /* sensor list */
-				      <10 0x2000>, /* sensor debug */
-				      <11 0x100>, /* sensor custom writer */
-				      <12 0x100>; /* sensor custom reader */
+			/* feature ID, size, alignment */
+			scp_mem_tbl = < 0 0x0      0x0>, /* secure dump,*/
+							/* its size is in secure_dump_size */
+				      < 1 0x4cf00  0x0>, /* vow */
+				      < 2 0x100000 0x0>, /* sensor main*/
+				      < 3 0x180000 0x0>, /* logger */
+				      < 4 0x19000  0x0>, /* audio */
+				      < 5 0xa000   0x0>, /* vow bargein */
+				      < 7 0x19000  0x0>, /* ultrasound*/
+				      < 8 0x10000  0x0>, /* sensor supper*/
+				      < 9 0x1000   0x0>, /* sensor list */
+				      <10 0x2000   0x0>, /* sensor debug */
+				      <11 0x100    0x0>, /* sensor custom writer */
+				      <12 0x100    0x0>; /* sensor custom reader */
 
 			memorydump =
 			<0x180000>, /* l2tcm */
