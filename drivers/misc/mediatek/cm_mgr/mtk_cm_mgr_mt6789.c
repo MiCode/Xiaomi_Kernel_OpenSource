@@ -43,8 +43,6 @@
 #include "mtk_cm_ipi.h"
 #endif /* CONFIG_MTK_CM_IPI */
 
-/* #define CREATE_TRACE_POINTS */
-/* #include "mtk_cm_mgr_events_mt6789.h" */
 #define trace_CM_MGR__perf_hint(idx, en, opp, base, hint, force_hint)
 
 #include <linux/pm_qos.h>
@@ -361,11 +359,6 @@ static int platform_cm_mgr_probe(struct platform_device *pdev)
 				ret * sizeof(u32),
 				GFP_KERNEL);
 
-		if (!ret) {
-			ret = -ENOMEM;
-			goto ERROR;
-		}
-
 #if IS_ENABLED(CONFIG_MTK_DVFSRC)
 		for (i = 0; i < ret; i++) {
 			cm_mgr_perfs[i] =
@@ -411,9 +404,6 @@ static int platform_cm_mgr_probe(struct platform_device *pdev)
 	pr_info("[CM_MGR] platform-cm_mgr_probe Done.\n");
 
 	return 0;
-
-ERROR:
-	return ret;
 }
 
 static int platform_cm_mgr_remove(struct platform_device *pdev)

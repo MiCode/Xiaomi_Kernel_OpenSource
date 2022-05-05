@@ -8,9 +8,6 @@
 
 #include "mtk_cm_mgr_reg_mt6789.h"
 
-#define CREATE_TRACE_POINTS
-#include "mtk_cm_mgr_events_mt6789.h"
-
 #if IS_ENABLED(CONFIG_MTK_DRAMC)
 #include <soc/mediatek/dramc.h>
 #endif /* CONFIG_MTK_DRAMC */
