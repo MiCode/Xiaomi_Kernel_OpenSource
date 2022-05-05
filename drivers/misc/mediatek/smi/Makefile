@@ -65,6 +65,7 @@ ccflags-y += -DSMI_SYL
 ccflags-y += -DDYNAMIC_DISP_HRT
 ccflags-y += -DMMDVFS_HOOK
 ccflags-y += -DVCORE_READY
+ccflags-y += -DMMDVFS_QOS_SUPPORT
 ccflags-y += -I$(srctree)/drivers/clk/mediatek
 obj-y += mmdvfs_mgr_v3.o
 obj-y += mmdvfs_profile_adaptor.o
