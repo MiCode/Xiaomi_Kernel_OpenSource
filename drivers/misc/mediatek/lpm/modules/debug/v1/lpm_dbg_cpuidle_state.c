@@ -306,7 +306,7 @@ void lpm_cpuidle_state_init(void)
 	mtk_cpuidle_sysfs_sub_entry_add("state", MTK_CPUIDLE_SYS_FS_MODE,
 				NULL, &lpm_entry_cpuidle_state);
 
-	LPM_CPUIDLE_STATE_NODE_INIT(state_enabled, "enabled",
+	LPM_CPUIDLE_STATE_NODE_INIT(state_enabled, node_name[IDLE_PARAM_EN],
 				    IDLE_PARAM_EN);
 	mtk_cpuidle_sysfs_sub_entry_node_add(state_enabled.name,
 					MTK_CPUIDLE_SYS_FS_MODE,
@@ -314,7 +314,7 @@ void lpm_cpuidle_state_init(void)
 					&lpm_entry_cpuidle_state,
 					&state_enabled.handle);
 
-	LPM_CPUIDLE_STATE_NODE_INIT(state_latency, "latency",
+	LPM_CPUIDLE_STATE_NODE_INIT(state_latency, node_name[IDLE_PARAM_LAT],
 				    IDLE_PARAM_LAT);
 	mtk_cpuidle_sysfs_sub_entry_node_add(state_latency.name,
 					MTK_CPUIDLE_SYS_FS_MODE,
@@ -322,7 +322,7 @@ void lpm_cpuidle_state_init(void)
 					&lpm_entry_cpuidle_state,
 					&state_latency.handle);
 
-	LPM_CPUIDLE_STATE_NODE_INIT(state_residency, "residency",
+	LPM_CPUIDLE_STATE_NODE_INIT(state_residency, node_name[IDLE_PARAM_RES],
 				    IDLE_PARAM_RES);
 	mtk_cpuidle_sysfs_sub_entry_node_add(state_residency.name,
 					MTK_CPUIDLE_SYS_FS_MODE,

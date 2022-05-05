@@ -56,13 +56,6 @@ struct lpm_spm_wake_status {
 	u32 mcupm_req_sta;
 };
 
-struct spm_wakesrc_irq_list {
-	unsigned int wakesrc;
-	const char *name;
-	int order;
-	unsigned int irq_no;
-};
-
 int lpm_spm_fs_init(void);
 int lpm_spm_fs_deinit(void);
 

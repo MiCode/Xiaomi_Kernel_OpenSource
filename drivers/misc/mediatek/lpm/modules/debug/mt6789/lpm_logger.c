@@ -76,9 +76,6 @@ const char *wakesrc_str[32] = {
 	[30] = " R12_PCIE_BRIDGE_IRQ",
 	[31] = " R12_PCIE_IRQ",
 };
-/*FIXME*/
-struct spm_wakesrc_irq_list spm_wakesrc_irqs[] = {
-};
 
 #define plat_mmio_read(offset)	__raw_readl(lpm_spm_base + offset)
 u64 ap_pd_count;
@@ -107,37 +104,6 @@ static struct lpm_log_helper log_help = {
 	.cur = 0,
 	.prev = 0,
 };
-
-
-#define IRQ_NUMBER	\
-	(sizeof(spm_wakesrc_irqs)/sizeof(struct spm_wakesrc_irq_list))
-static void lpm_get_spm_wakesrc_irq(void)
-{
-	int i;
-	struct device_node *node = NULL;
-
-	for (i = 0; i < IRQ_NUMBER; i++) {
-		if (spm_wakesrc_irqs[i].name == NULL)
-			continue;
-
-		node = of_find_compatible_node(NULL, NULL,
-			spm_wakesrc_irqs[i].name);
-		if (!node) {
-			pr_info("[name:spm&][SPM] find '%s' node failed\n",
-				spm_wakesrc_irqs[i].name);
-			continue;
-		}
-
-		spm_wakesrc_irqs[i].irq_no =
-			irq_of_parse_and_map(node,
-				spm_wakesrc_irqs[i].order);
-
-		if (!spm_wakesrc_irqs[i].irq_no) {
-			pr_info("[name:spm&][SPM] get '%s' failed\n",
-				spm_wakesrc_irqs[i].name);
-		}
-	}
-}
 
 static int lpm_get_wakeup_status(void)
 {
@@ -267,7 +233,7 @@ static void dump_lp_cond(void)
 	for (i = 1 ; i < PLAT_SPM_COND_MAX ; i++) {
 		blkcg = lpm_smc_spm_dbg(MT_SPM_DBG_SMC_UID_BLOCK_DETAIL, MT_LPM_SMC_ACT_GET, 0, i);
 		if (blkcg != 0)
-			pr_info("suspend warning: CG: %6s = 0x%08lx\n"
+			pr_info("suspend warning: CG: %6s = 0x%08x\n"
 				, spm_cond_cg_str[i], blkcg);
 
 	}
@@ -598,7 +564,7 @@ end:
 static struct lpm_dbg_plat_ops dbg_ops = {
 	.lpm_show_message = lpm_show_message,
 	.lpm_save_sleep_info = lpm_save_sleep_info,
-	.lpm_get_spm_wakesrc_irq = lpm_get_spm_wakesrc_irq,
+	.lpm_get_spm_wakesrc_irq = NULL,
 	.lpm_get_wakeup_status = lpm_get_wakeup_status,
 };
 

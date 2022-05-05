@@ -94,7 +94,7 @@ static ssize_t lpm_cpuidle_control_read(char *ToUserBuf,
 		mode = lpm_smc_cpu_pm(CPU_PM_CTRL, MT_LPM_SMC_ACT_GET,
 			ARMPLL_MODE_CTRL, 0);
 
-		if (mode < 0 || mode > NF_MCUPM_ARMPLL_MODE)
+		if (mode > NF_MCUPM_ARMPLL_MODE)
 			mode = NF_MCUPM_ARMPLL_MODE;
 
 		mtk_dbg_cpuidle_log("armpll mode : %s\n",
@@ -106,7 +106,7 @@ static ssize_t lpm_cpuidle_control_read(char *ToUserBuf,
 		mode = lpm_smc_cpu_pm(CPU_PM_CTRL, MT_LPM_SMC_ACT_GET,
 			BUCK_MODE_CTRL, 0);
 
-		if (mode < 0 || mode > NF_MCUPM_BUCK_MODE)
+		if (mode > NF_MCUPM_BUCK_MODE)
 			mode = NF_MCUPM_BUCK_MODE;
 
 		mtk_dbg_cpuidle_log("Vproc/Vproc_sram buck mode : %s\n",

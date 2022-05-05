@@ -8,6 +8,7 @@
 #include <linux/module.h>
 #include <linux/spinlock.h>
 #include <gs/lpm_pwr_gs.h>
+#include <gs/v1/lpm_power_gs.h>
 
 static DEFINE_SPINLOCK(lpm_gs_locker);
 static struct lpm_gs_cmp *lpm_gs_cmps[LPM_GS_CMP_MAX];
@@ -66,8 +67,11 @@ int lpm_pwr_gs_compare_by_type(int comparer, int user,
 {
 	int ret = 0;
 
-	if ((type < 0) || (type >= LPM_GS_CMP_MAX)
+	if ((comparer < 0) || (comparer >= LPM_GS_CMP_MAX)
 	    || !lpm_gs_cmps[comparer])
+		return -EINVAL;
+
+	if ((user < 0) || (user >= LPM_PWR_GS_TYPE_MAX))
 		return -EINVAL;
 
 	spin_lock(&lpm_gs_locker);

@@ -12,23 +12,23 @@
 #include <lpm_call_type.h>
 #include <gs/lpm_pwr_gs.h>
 #include <gs/v1/lpm_power_gs.h>
-int pwr_gs_set(unsigned int type, const struct lpm_data *val)
+int pwr_gs_set(unsigned int user, const struct lpm_data *val)
 {
 	int ret = 0;
 
 	if (val->d.v_u32 & GS_PMIC)
-		ret = lpm_pwr_gs_compare(LPM_GS_CMP_PMIC, type);
+		ret = lpm_pwr_gs_compare(LPM_GS_CMP_PMIC, user);
 	if (ret)
 		return ret;
 
 	if (val->d.v_u32 & GS_DCM)
 		ret = lpm_pwr_gs_compare_by_type(
-			LPM_GS_CMP_CLK, type, GS_DCM);
+			LPM_GS_CMP_CLK, user, GS_DCM);
 	if (ret)
 		return ret;
 	if (val->d.v_u32 & GS_CG)
 		ret = lpm_pwr_gs_compare_by_type(
-			LPM_GS_CMP_CLK, type, GS_CG);
+			LPM_GS_CMP_CLK, user, GS_CG);
 
 	return ret;
 }
