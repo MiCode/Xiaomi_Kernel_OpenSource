@@ -1831,8 +1831,19 @@ static s32 mdp_get_rdma_idx(u32 eng_base)
 	return rdma_idx;
 }
 
+static bool mdp_check_camin_support_virtual(void)
+{
+	return true;
+}
+
 static bool mdp_svp_support_meta_data(void)
 {
+	return true;
+}
+
+static bool mdp_check_Opp_Special_Usage(void)
+{
+    /* If needed special treatment of opp */
 	return true;
 }
 
@@ -1887,7 +1898,10 @@ void cmdq_mdp_platform_function_setting(void)
 	pFunc->getEngineGroupName = mdp_get_engine_group_name;
 	pFunc->mdpComposeReadback = cmdq_mdp_compose_readback;
 	pFunc->getRDMAIndex = mdp_get_rdma_idx;
+	pFunc->mdpIsCaminSupport = mdp_check_camin_support_virtual;
 	pFunc->mdpSvpSupportMetaData = mdp_svp_support_meta_data;
+
+	pFunc->mdpOppSpecialUsage = mdp_check_Opp_Special_Usage;
 }
 MODULE_LICENSE("GPL");
 

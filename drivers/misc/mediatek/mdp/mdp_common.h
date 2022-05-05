@@ -141,6 +141,8 @@ typedef bool (*MdpSvpSupportMetaData) (void);
 typedef u16 (*MdpGetReadbackEventLock) (void);
 typedef u16 (*MdpGetReadbackEventUnlock) (void);
 
+typedef bool (*MdpOppSpecialUsage) (void);
+
 struct cmdqMDPFuncStruct {
 #ifdef CONFIG_MTK_SMI_EXT
 	CmdqGetRequest getRequest;
@@ -209,6 +211,7 @@ struct cmdqMDPFuncStruct {
 	MdpGetReadbackEventLock mdpGetReadbackEventLock;
 	MdpGetReadbackEventUnlock mdpGetReadbackEventUnlock;
 
+	MdpOppSpecialUsage mdpOppSpecialUsage;
 };
 
 struct mdp_pmqos_record {
