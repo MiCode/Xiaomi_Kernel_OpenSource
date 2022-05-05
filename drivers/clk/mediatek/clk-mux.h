@@ -29,7 +29,7 @@ struct mtk_mux {
 
 	u8 mux_shift;
 	u8 mux_width;
-	u8 gate_shift;
+	s8 gate_shift;
 	s8 upd_shift;
 
 	const struct clk_ops *ops;
