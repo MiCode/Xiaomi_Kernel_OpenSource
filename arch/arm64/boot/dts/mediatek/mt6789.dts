@@ -5377,9 +5377,10 @@
 			dma-ranges = <0x1 0x0 0x1 0x0 0x1 0x0>;
 
 			mediatek,dec_gce_th_num = <1>; /* VDEC GCE HW THREAD NUM*/
-			mediatek,enc_gce_th_num = <1>; /* VENC GCE HW THREAD NUM*/
+			mediatek,enc_gce_th_num = <2>; /* VENC GCE HW THREAD NUM*/
 
 			mboxes = <&gce 7 0 CMDQ_THR_PRIO_1>,
+					<&gce 12 0 CMDQ_THR_PRIO_1>,
 					<&gce 23 0 CMDQ_THR_PRIO_1>,
 					<&gce_sec 12 0 CMDQ_THR_PRIO_1>;
 			gce-event-names = "venc_eof",
