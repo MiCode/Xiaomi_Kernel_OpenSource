@@ -1660,30 +1660,26 @@ int mtk_btag_mictx_get_data(
 		ctx->req.w.size_top >>= 12;
 
 		if (ctx->top_r_pages) {
-			ctx->top_r_pages -= ctx->req.r.size_top;
-
-			if (ctx->top_r_pages > 0) {
+			if (ctx->top_r_pages > ctx->req.r.size_top) {
+				ctx->top_r_pages -= ctx->req.r.size_top;
 				comp = ctx->req.r.size - ctx->req.r.size_top;
-				comp = min_t(int, comp, ctx->top_r_pages);
+				comp = min_t(unsigned long, comp
+						, ctx->top_r_pages);
 				ctx->top_r_pages -= comp;
 				ctx->req.r.size_top += comp;
-			}
-
-			if (ctx->top_r_pages < 0)
+			} else
 				ctx->top_r_pages = 0;
 		}
 
 		if (ctx->top_w_pages) {
-			ctx->top_w_pages -= ctx->req.w.size_top;
-
-			if (ctx->top_w_pages > 0) {
+			if (ctx->top_w_pages > ctx->req.w.size_top) {
+				ctx->top_w_pages -= ctx->req.w.size_top;
 				comp = ctx->req.w.size - ctx->req.w.size_top;
-				comp = min_t(int, comp, ctx->top_w_pages);
+				comp = min_t(unsigned long, comp
+						, ctx->top_w_pages);
 				ctx->top_w_pages -= comp;
 				ctx->req.w.size_top += comp;
-			}
-
-			if (ctx->top_w_pages < 0)
+			} else
 				ctx->top_w_pages = 0;
 		}
 
