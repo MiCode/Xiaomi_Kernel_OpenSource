@@ -1756,21 +1756,11 @@ static int autok_pad_dly_sel(struct AUTOK_REF_INFO *pInfo)
 					}
 
 					/* rising edge sel */
-					if (pBdPrev->Bound_Start +
+					uDlySel_R =
+						pBdPrev->Bound_Start +
 						uBD_width / 2 -
-						cycle_cnt / 2 < 0) {
-						uDlySel_R = 0;
-						uMgLost_R =
-						    cycle_cnt / 2 -
-						    (pBdPrev->Bound_Start +
-							uBD_width / 2);
-					} else {
-						uDlySel_R =
-						    pBdPrev->Bound_Start +
-						    uBD_width / 2 -
-						    cycle_cnt / 2;
+						cycle_cnt / 2;
 						uMgLost_R = 0;
-					}
 				} else {
 					return -1;
 				}
