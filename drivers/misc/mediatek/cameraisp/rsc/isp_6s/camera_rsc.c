@@ -2406,13 +2406,20 @@ static long RSC_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 		{
 			spin_lock_irqsave(
 			&(RSCInfo.SpinLockIrq[RSC_IRQ_TYPE_INT_RSC_ST]), flags);
+			if (g_RSC_ReqRing.ReadIdx < 0) {
+				LOG_ERR("[RSC_DEQUE] ReadId OOB: %d", g_RSC_ReqRing.ReadIdx);
+				break;
+			}
+
 			if ((RSC_REQUEST_STATE_FINISHED ==
 			     g_RSC_ReqRing.RSCReq_Struct[g_RSC_ReqRing.ReadIdx]
 			     .State)
 			    && (g_RSC_ReqRing.RSCReq_Struct[
 				g_RSC_ReqRing.ReadIdx].RrameRDIdx <
 				g_RSC_ReqRing.RSCReq_Struct[
-					g_RSC_ReqRing.ReadIdx].enqueReqNum)) {
+					g_RSC_ReqRing.ReadIdx].enqueReqNum)
+				&& (g_RSC_ReqRing.RSCReq_Struct[
+				g_RSC_ReqRing.ReadIdx].RrameRDIdx >= 0)) {
 				if (RSC_FRAME_STATUS_FINISHED ==
 				    g_RSC_ReqRing.RSCReq_Struct[
 							g_RSC_ReqRing.ReadIdx]
