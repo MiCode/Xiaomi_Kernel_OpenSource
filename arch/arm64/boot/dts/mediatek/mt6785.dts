@@ -2372,6 +2372,7 @@ page_owner=on loop.max_part=7";
 			     <GIC_SPI 135 IRQ_TYPE_LEVEL_LOW>,
 			     <GIC_SPI 136 IRQ_TYPE_LEVEL_LOW>,
 			     <GIC_SPI 137 IRQ_TYPE_LEVEL_LOW>;
+		dma-requests = <4>;
 		clocks = <&infracfg_ao INFRACFG_AO_AP_DMA_CG>;
 		clock-names = "apdma";
 		#dma-cells = <1>;
