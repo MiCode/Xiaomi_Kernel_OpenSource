@@ -42,16 +42,10 @@ MODULE_PARM_DESC(egn_debug, " activates debug info");
 	} while (0)
 
 #define LOG_WRN(format, args...)				 \
-	do {							 \
-		if (egn_debug >= 0)				 \
-			pr_info(MyTag "[%s] " format, __func__, ##args); \
-	} while (0)
+	pr_info(MyTag "[%s] " format, __func__, ##args);
 
 #define LOG_ERR(format, args...)				 \
-	do {							 \
-		if (egn_debug >= 0)				 \
-			pr_info(MyTag "[%s] " format, __func__, ##args); \
-	} while (0)
+	pr_info(MyTag "[%s] " format, __func__, ##args); \
 
 
 /*
@@ -119,7 +113,7 @@ signed int init_request(struct rsc_request *req)
 signed int set_frame_data(struct frame *f, void *engine)
 {
 	if (f == NULL) {
-		LOG_ERR("NULL frame(%p)", (void *)f);
+		LOG_ERR("NULL frame\n");
 		return -1;
 	}
 
