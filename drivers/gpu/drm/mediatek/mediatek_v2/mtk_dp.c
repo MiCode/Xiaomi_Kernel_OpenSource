@@ -3075,6 +3075,9 @@ int mtk_drm_dp_get_dev_info(struct drm_device *dev, void *data,
 	struct mtk_dispif_info *info = data;
 	struct mtk_dp *mtk_dp = g_mtk_dp;
 
+	if (!mtk_dp)
+		return 0;
+
 	info->display_id = mtk_dp->id;
 	info->displayFormat = mtk_dp->info.format;
 	info->displayHeight = mtk_dp->info.DPTX_OUTBL.Vde;
@@ -3094,6 +3097,9 @@ int mtk_drm_dp_audio_enable(struct drm_device *dev, void *data,
 {
 	struct mtk_dp *mtk_dp = g_mtk_dp;
 
+	if (!mtk_dp)
+		return 0;
+
 	mtk_dp->audio_enable = *(bool *)data;
 	DPTXMSG("audio_enable = %d\n", mtk_dp->audio_enable);
 
@@ -3111,6 +3117,9 @@ int mtk_drm_dp_audio_config(struct drm_device *dev, void *data,
 		struct drm_file *file_priv)
 {
 	struct mtk_dp *mtk_dp = g_mtk_dp;
+
+	if (!mtk_dp)
+		return 0;
 
 	mtk_dp->info.audio_config = *(unsigned int *)data;
 	DPTXMSG("audio_config = 0x%x\n", mtk_dp->info.audio_config);
@@ -3132,6 +3141,9 @@ int mtk_drm_dp_get_cap(struct drm_device *dev, void *data,
 	unsigned int fs[5] = {32, 44, 48, 96, 192};
 	unsigned int len[3] = {16, 20, 24};
 	unsigned int *dp_cap = data;
+
+	if (!g_mtk_dp)
+		return 0;
 
 	if (fakecablein) {
 		DPTXMSG("force audio format %dCH, %dkHz, %dbit\n",
