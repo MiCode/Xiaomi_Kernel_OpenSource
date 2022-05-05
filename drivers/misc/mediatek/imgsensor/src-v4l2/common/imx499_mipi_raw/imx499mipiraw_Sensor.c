@@ -2329,7 +2329,7 @@ static kal_uint32 get_sensor_temperature(struct subdrv_ctx *ctx)
 
 	temperature = read_cmos_sensor_8(ctx, 0x013a);
 
-	if (temperature >= 0x0 && temperature <= 0x4F)
+	if (temperature <= 0x4F)
 		temperature_convert = temperature;
 	else if (temperature >= 0x50 && temperature <= 0x7F)
 		temperature_convert = 80;
