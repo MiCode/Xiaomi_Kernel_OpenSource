@@ -5025,7 +5025,8 @@ void cmdq_core_initialize(void)
 	cmdq_test_init_setting();
 #endif
 
-	cmdq_ctx.enableProfile = 1 << CMDQ_PROFILE_EXEC;
+	/* Initialize enableProfile disable */
+	cmdq_ctx.enableProfile = CMDQ_PROFILE_OFF;
 
 	mdp_rb_pool = dma_pool_create("mdp_rb", cmdq_dev_get(),
 		CMDQ_BUF_ALLOC_SIZE, 0, 0);
