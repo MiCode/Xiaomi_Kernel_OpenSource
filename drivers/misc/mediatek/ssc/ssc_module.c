@@ -329,8 +329,7 @@ static int __init ssc_init(void)
 	int ret;
 	unsigned long flags;
 #if IS_ENABLED(CONFIG_ARM_SCMI_PROTOCOL)
-	struct scmi_tinysys_status rvalue;
-	struct scmi_tinysys_info_st *tinfo;
+	struct scmi_tinysys_info_st *tinfo = NULL;
 #endif
 
 	pr_info("[SSC] %s\n", __func__);
@@ -411,8 +410,7 @@ static int __init ssc_init(void)
 	if (ret)
 		ssc_aee_print("[SSC] SCMI common set fail!\n");
 	else
-		pr_info("[SSC] notify done! (r1:%d r2:%d r3:%d)\n",
-				rvalue.r1, rvalue.r2, rvalue.r3);
+		pr_info("[SSC] notify done!\n");
 SKIP_SCMI:
 #endif
 
