@@ -37,6 +37,7 @@ mtk_gpufreq_wrapper-y := \
 
 mtk_gpufreq_mt6789-y := \
 	gpufreq_history_common.o \
+	gpufreq_history_mt6789.o \
 	gpuppm.o \
 	gpufreq_mt6789.o \
 	gpudfd_mt6789.o

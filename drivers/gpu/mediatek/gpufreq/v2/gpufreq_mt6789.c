@@ -28,6 +28,8 @@
 #include <linux/pm_domain.h>
 
 #include <gpufreq_v2.h>
+#include <gpufreq_history_common.h>
+#include <gpufreq_history_mt6789.h>
 #include <gpufreq_debug.h>
 #include <gpuppm.h>
 #include <gpufreq_common.h>
@@ -848,9 +850,17 @@ int __gpufreq_generic_commit_gpu(int target_oppidx, enum gpufreq_dvfs_state key)
 			cur_vsram = opp_table[sb_idx].vsram;
 		}
 	}
-
+#if GPUFREQ_HISTORY_ENABLE
+	if (g_gpu.cur_oppidx != target_oppidx) {
+		g_gpu.cur_oppidx = target_oppidx;
+		/* update history record to shared memory */
+		gpufreq_set_history_state(HISTORY_FREE);
+		__gpufreq_record_history_entry();
+	} else
+		g_gpu.cur_oppidx = target_oppidx;
+#else
 	g_gpu.cur_oppidx = target_oppidx;
-
+#endif /* GPUFREQ_HISTORY_ENABLE */
 	__gpufreq_footprint_oppidx(target_oppidx);
 
 done_unlock:
@@ -1492,6 +1502,12 @@ static int __gpufreq_freq_scale_gpu(unsigned int freq_old, unsigned int freq_new
 
 	/* notify gpu freq change to DDK */
 	mtk_notify_gpu_freq_change(0, freq_new);
+#if GPUFREQ_HISTORY_ENABLE
+	if (freq_old != freq_new) {
+		gpufreq_set_history_state(HISTORY_CHANGE_FREQ_TOP);
+		__gpufreq_record_history_entry();
+	}
+#endif
 
 done:
 	GPUFREQ_TRACE_END();
@@ -1571,6 +1587,14 @@ static int __gpufreq_volt_scale_gpu(
 			__gpufreq_abort(GPUFREQ_PMIC_EXCEPTION, "fail to set VSRAM_G (%d)", ret);
 			goto done;
 		}
+#if GPUFREQ_HISTORY_ENABLE
+		/* update history record to shared memory */
+		if (vsram_new != vsram_old) {
+			gpufreq_set_history_state(HISTORY_VSRAM_PARK);
+			gpufreq_set_history_park_volt(vsram_new);
+			__gpufreq_record_history_entry();
+		}
+#endif
 
 		ret = regulator_set_voltage(
 				g_pmic->reg_vgpu,
@@ -1580,6 +1604,13 @@ static int __gpufreq_volt_scale_gpu(
 			__gpufreq_abort(GPUFREQ_PMIC_EXCEPTION, "fail to set VGPU (%d)", ret);
 			goto done;
 		}
+#if GPUFREQ_HISTORY_ENABLE
+		/* update history record to shared memory */
+		gpufreq_set_history_state(HISTORY_CHANGE_VOLT_TOP);
+		gpufreq_set_history_park_volt(vgpu_new);
+		__gpufreq_record_history_entry();
+#endif
+
 	} else if (vgpu_new < vgpu_old) {
 		/* scale-down volt */
 		t_settle_vgpu =
@@ -1597,6 +1628,12 @@ static int __gpufreq_volt_scale_gpu(
 			__gpufreq_abort(GPUFREQ_PMIC_EXCEPTION, "fail to set VGPU (%d)", ret);
 			goto done;
 		}
+#if GPUFREQ_HISTORY_ENABLE
+		/* update history record to shared memory */
+		gpufreq_set_history_state(HISTORY_CHANGE_VOLT_TOP);
+		gpufreq_set_history_park_volt(vgpu_new);
+		__gpufreq_record_history_entry();
+#endif
 
 		ret = regulator_set_voltage(
 				g_pmic->reg_vsram_gpu,
@@ -1606,6 +1643,14 @@ static int __gpufreq_volt_scale_gpu(
 			__gpufreq_abort(GPUFREQ_PMIC_EXCEPTION, "fail to set VSRAM_GPU (%d)", ret);
 			goto done;
 		}
+#if GPUFREQ_HISTORY_ENABLE
+		/* update history record to shared memory */
+		if (vsram_new != vsram_old)	{
+			gpufreq_set_history_state(HISTORY_VSRAM_PARK);
+			gpufreq_set_history_park_volt(vsram_new);
+			__gpufreq_record_history_entry();
+		}
+#endif
 	} else {
 		/* keep volt */
 		ret = GPUFREQ_SUCCESS;
@@ -3274,6 +3319,11 @@ static int __gpufreq_pdrv_probe(struct platform_device *pdev)
 	/* apply aging volt to working table volt depending on Aging load */
 	g_aging_enable = g_aging_load;
 
+#if GPUFREQ_HISTORY_ENABLE
+	__gpufreq_history_memory_init();
+	gpufreq_set_history_state(HISTORY_FREE);
+	gpufreq_set_history_park_volt(0);
+#endif
 	/* init OPP table */
 	ret = __gpufreq_init_opp_table(pdev);
 	if (unlikely(ret)) {
@@ -3299,6 +3349,9 @@ static int __gpufreq_pdrv_probe(struct platform_device *pdev)
 	__gpufreq_footprint_power_step_reset();
 	__gpufreq_footprint_oppidx_reset();
 	__gpufreq_footprint_power_count_reset();
+#if GPUFREQ_HISTORY_ENABLE
+	__gpufreq_history_memory_reset();
+#endif
 
 register_fp:
 	/*
@@ -3369,6 +3422,9 @@ done:
 static void __exit __gpufreq_exit(void)
 {
 	platform_driver_unregister(&g_gpufreq_pdrv);
+#if GPUFREQ_HISTORY_ENABLE
+	__gpufreq_history_memory_uninit();
+#endif
 }
 
 module_init(__gpufreq_init);
