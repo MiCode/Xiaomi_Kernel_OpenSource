@@ -1059,6 +1059,7 @@ static void vcu_set_gce_readstatus_cmd(struct cmdq_pkt *pkt,
 static void vcu_gce_flush_callback(struct cmdq_cb_data data)
 {
 	int i, j;
+	int k;
 	struct gce_callback_data *buff;
 	struct mtk_vcu *vcu;
 	unsigned int core_id;
@@ -1091,10 +1092,16 @@ static void vcu_gce_flush_callback(struct cmdq_cb_data data)
 		if (buff->cmdq_buff.secure != 0)
 			cmdq_sec_mbox_switch_normal(vcu->clt_venc_sec[0]);
 		}
-		for (i = 0; i < vcu->gce_th_num[VCU_VENC]; i++)
-			cmdq_mbox_disable(vcu->clt_venc[i]->chan);
+		if (i == VCU_VENC) {
+			for (k = 0; k < vcu->gce_th_num[VCU_VENC]; k++)
+				cmdq_mbox_disable(vcu->clt_venc[k]->chan);
 
-		cmdq_sec_mbox_disable(vcu->clt_venc_sec[0]->chan);
+			cmdq_sec_mbox_disable(vcu->clt_venc_sec[0]->chan);
+		} else if (i == VCU_VDEC) {
+			for (k = 0; k < vcu->gce_th_num[VCU_VDEC]; k++)
+				cmdq_mbox_disable(vcu->clt_vdec[k]->chan);
+		}
+
 	}
 
 	mutex_unlock(&vcu->vcu_gce_mutex[i]);
@@ -1155,6 +1162,7 @@ static int vcu_gce_cmd_flush(struct mtk_vcu *vcu,
 	struct mtk_vcu_queue *q, unsigned long arg)
 {
 	int i, j, ret;
+	int k;
 	unsigned char *user_data_addr = NULL;
 	struct gce_callback_data buff;
 	struct cmdq_pkt *pkt_ptr, *pkt;
@@ -1248,10 +1256,17 @@ static int vcu_gce_cmd_flush(struct mtk_vcu *vcu,
 			vcu->cbf.enc_prepare(vcu->gce_info[j].v4l2_ctx,
 				core_id, &vcu->flags[i]);
 		}
-		for (i = 0; i < vcu->gce_th_num[VCU_VENC]; i++)
-			cmdq_mbox_enable(vcu->clt_venc[i]->chan);
 
-		cmdq_sec_mbox_enable(vcu->clt_venc_sec[0]->chan);
+		if (i == VCU_VENC) {
+			for (k = 0; k < vcu->gce_th_num[VCU_VENC]; k++)
+				cmdq_mbox_enable(vcu->clt_venc[k]->chan);
+
+			cmdq_sec_mbox_enable(vcu->clt_venc_sec[0]->chan);
+		} else if (i == VCU_VDEC) {
+			for (k = 0; k < vcu->gce_th_num[VCU_VDEC]; k++)
+				cmdq_mbox_enable(vcu->clt_vdec[k]->chan);
+		}
+
 	}
 	vcu_dbg_log("vcu gce_info[%d].v4l2_ctx %p\n",
 		j, vcu->gce_info[j].v4l2_ctx);
