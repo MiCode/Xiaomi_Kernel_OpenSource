@@ -1076,7 +1076,7 @@ int rtc_nvram_read(void *priv, unsigned int offset, void *val,
 							size_t bytes)
 {
 	struct mt6685_rtc *rtc = dev_get_drvdata(priv);
-	unsigned int ret;
+	int ret;
 	u8 *buf = val;
 
 	mutex_lock(&rtc->lock);
@@ -1099,7 +1099,7 @@ int rtc_nvram_write(void *priv, unsigned int offset, void *val,
 							size_t bytes)
 {
 	struct mt6685_rtc *rtc = dev_get_drvdata(priv);
-	unsigned int ival;
+	int ival;
 	int ret;
 	u8 *buf = val;
 
