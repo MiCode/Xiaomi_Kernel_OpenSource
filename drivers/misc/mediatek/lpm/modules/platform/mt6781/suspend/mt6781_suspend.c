@@ -304,28 +304,11 @@ struct mtk_lpm_model mt6781_model_suspend = {
 };
 
 #ifdef CONFIG_PM
-#define CPU_NUMBER (NR_CPUS)
-
-struct mtk_lpm_abort_control {
-	struct timer_list timer;
-};
-
-static atomic_t in_sleep;
-static struct mtk_lpm_abort_control mtk_lpm_ac[CPU_NUMBER];
-static void lpm_timer_callback(struct timer_list *timer)
-{
-	if (atomic_dec_and_test(&in_sleep)) {
-		pr_info("[name:spm&][LPM] :wakeup system due to not entering suspend.\n");
-		pm_system_wakeup();
-	}
-}
-
 static int mt6781_spm_suspend_pm_event(struct notifier_block *notifier,
 			unsigned long pm_event, void *unused)
 {
 	struct timespec ts;
 	struct rtc_time tm;
-	int i;
 
 	getnstimeofday(&ts);
 	rtc_time_to_tm(ts.tv_sec, &tm);
@@ -342,22 +325,12 @@ static int mt6781_spm_suspend_pm_event(struct notifier_block *notifier,
 		"[name:spm&][SPM] PM: suspend entry %d-%02d-%02d %02d:%02d:%02d.%09lu UTC\n",
 			tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
 			tm.tm_hour, tm.tm_min, tm.tm_sec, ts.tv_nsec);
-		atomic_set(&in_sleep, 1);
-		for_each_online_cpu(i) {
-			timer_setup(&mtk_lpm_ac[i].timer, lpm_timer_callback, 0);
-			mtk_lpm_ac[i].timer.expires = jiffies + msecs_to_jiffies(5000);
-			add_timer_on(&mtk_lpm_ac[i].timer, i);
-		}
 		return NOTIFY_DONE;
 	case PM_POST_SUSPEND:
-		for_each_online_cpu(i)
-			del_timer_sync(&mtk_lpm_ac[i].timer);
-
 		printk_deferred(
 		"[name:spm&][SPM] PM: suspend exit %d-%02d-%02d %02d:%02d:%02d.%09lu UTC\n",
 			tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
 			tm.tm_hour, tm.tm_min, tm.tm_sec, ts.tv_nsec);
-		atomic_set(&in_sleep, 0);
 		return NOTIFY_DONE;
 	}
 	return NOTIFY_OK;

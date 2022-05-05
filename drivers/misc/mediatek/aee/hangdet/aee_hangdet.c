@@ -534,10 +534,11 @@ static void kwdt_process_kick(int local_bit, int cpu,
 		}
 #endif
 		if (dump_timeout == 2)
-			kwdt_dump_func();
+			pm_system_wakeup();
 		else {
 			spin_lock(&lock);
 			if (g_hang_detected && !aee_dump_timer_t) {
+				pm_system_wakeup();
 				aee_dump_timer_t = sched_clock();
 				g_change_tmo = 1;
 				spin_unlock(&lock);
