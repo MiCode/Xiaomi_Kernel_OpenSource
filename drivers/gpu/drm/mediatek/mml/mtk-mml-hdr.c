@@ -671,9 +671,10 @@ static void hdr_readback_cmdq(struct mml_comp *comp, struct mml_task *task,
 	cmdq_pkt_cond_jump_abs(pkt, CMDQ_THR_SPR_IDX0, &lop, &rop,
 		CMDQ_LESS_THAN_AND_EQUAL);
 	condi_inst = (u32 *)cmdq_pkt_get_va_by_offset(pkt, hdr_frm->condi_offset);
-	if (unlikely(!condi_inst))
+	if (unlikely(!condi_inst)) {
 		mml_pq_err("%s wrong offset %u\n", __func__, hdr_frm->condi_offset);
-
+		return;
+	}
 	*condi_inst = (u32)CMDQ_REG_SHIFT_ADDR(begin_pa);
 
 	/* read to value cpr */
@@ -681,11 +682,11 @@ static void hdr_readback_cmdq(struct mml_comp *comp, struct mml_task *task,
 	/* write value spr to dst cpr */
 	cmdq_pkt_write_reg_indriect(pkt, idx_out64, idx_val, U32_MAX);
 
-	mml_pq_rb_msg("%s end job_id[%d] engine_id[%d] va[%p] pa[%08x] pkt[%p]",
+	mml_pq_rb_msg("%s end job_id[%d] engine_id[%d] va[%p] pa[%llx] pkt[%p]",
 		__func__, task->job.jobid, comp->id, task->pq_task->hdr_hist[pipe]->va,
 		task->pq_task->hdr_hist[pipe]->pa, pkt);
 
-	mml_pq_rb_msg("%s end job_id[%d] condi:offset[%u] inst[%p], begin:offset[%u] pa[%08x]",
+	mml_pq_rb_msg("%s end job_id[%d] condi:offset[%u] inst[%p], begin:offset[%u] pa[%llx]",
 		__func__, task->job.jobid, hdr_frm->condi_offset, condi_inst,
 		hdr_frm->begin_offset, begin_pa);
 }
@@ -829,16 +830,17 @@ static s32 hdr_config_repost(struct mml_comp *comp, struct mml_task *task,
 
 		begin_pa = cmdq_pkt_get_pa_by_offset(pkt, hdr_frm->begin_offset);
 		condi_inst = (u32 *)cmdq_pkt_get_va_by_offset(pkt, hdr_frm->condi_offset);
-		if (unlikely(!condi_inst))
+		if (unlikely(!condi_inst)) {
 			mml_pq_err("%s wrong offset %u\n", __func__, hdr_frm->condi_offset);
-
+			return 0;
+		}
 		*condi_inst = (u32)CMDQ_REG_SHIFT_ADDR(begin_pa);
 
-		mml_pq_rb_msg("%s end job_id[%d] engine_id[%d] va[%p] pa[%08x] pkt[%p] ",
+		mml_pq_rb_msg("%s end job_id[%d] engine_id[%d] va[%p] pa[%llx] pkt[%p] ",
 			__func__, task->job.jobid, comp->id, task->pq_task->hdr_hist[pipe]->va,
 			task->pq_task->hdr_hist[pipe]->pa, pkt);
 
-		mml_pq_rb_msg("%s end job_id[%d]condi:offset[%u]inst[%p],begin:offset[%u]pa[%08x]",
+		mml_pq_rb_msg("%s end job_id[%d]condi:offset[%u]inst[%p],begin:offset[%u]pa[%llx]",
 			__func__, task->job.jobid, hdr_frm->condi_offset, condi_inst,
 			hdr_frm->begin_offset, begin_pa);
 	}
@@ -898,7 +900,7 @@ static void hdr_task_done_readback(struct mml_comp *comp, struct mml_task *task,
 
 	offset = vcp ? task->pq_task->hdr_hist[pipe]->va_offset : 0;
 
-	mml_pq_msg("%s job_id[%d] id[%d] pipe[%d] en_hdr[%d] va[%p] pa[%08x]",
+	mml_pq_msg("%s job_id[%d] id[%d] pipe[%d] en_hdr[%d] va[%p] pa[%llx]",
 		__func__, task->job.jobid, comp->id, ccfg->pipe,
 		dest->pq_config.en_hdr, task->pq_task->hdr_hist[pipe]->va,
 		task->pq_task->hdr_hist[pipe]->pa);
