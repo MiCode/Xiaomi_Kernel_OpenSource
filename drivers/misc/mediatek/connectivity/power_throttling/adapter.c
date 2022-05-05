@@ -117,6 +117,7 @@ int conn_pwr_send_msg(enum conn_pwr_drv_type drv, enum conn_pwr_msg_type msg, vo
 		}
 		info.reason = CONN_PWR_ARB_TEMP_CHECK;
 		info.drv = drv;
+		info.status = 0;
 		conn_pwr_arbitrate(&info);
 	} else if (msg == CONN_PWR_MSG_TEMP_RECOVERY) {
 		if (data != NULL) {
@@ -126,6 +127,7 @@ int conn_pwr_send_msg(enum conn_pwr_drv_type drv, enum conn_pwr_msg_type msg, vo
 		}
 		info.reason = CONN_PWR_ARB_TEMP_CHECK;
 		info.drv = drv;
+		info.status = 0;
 		conn_pwr_arbitrate(&info);
 	} else if (msg == CONN_PWR_MSG_GET_TEMP && data != NULL) {
 		struct conn_pwr_event_max_temp *d = (struct conn_pwr_event_max_temp *)data;
@@ -299,6 +301,7 @@ int conn_pwr_set_customer_level(enum conn_pwr_drv_type type, enum conn_pwr_low_b
 	if (updated) {
 		info.reason = CONN_PWR_ARB_CUSTOMER;
 		info.drv = type;
+		info.status = 0;
 		conn_pwr_arbitrate(&info);
 	}
 
@@ -353,7 +356,7 @@ int conn_pwr_notify_event(enum conn_pwr_drv_type drv, enum conn_pwr_event_type e
 	int ret;
 	struct conn_pwr_event_max_temp *d;
 
-	if (drv < 0 || drv >= CONN_PWR_DRV_MAX || event < 0 || event >= CONN_PWR_EVENT_MAX) {
+	if (drv >= CONN_PWR_DRV_MAX || event >= CONN_PWR_EVENT_MAX) {
 		pr_info("drv %d or event %d is out of range.\n", drv, event);
 		return -1;
 	}
