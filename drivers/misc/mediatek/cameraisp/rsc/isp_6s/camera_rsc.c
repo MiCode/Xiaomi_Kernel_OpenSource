@@ -3637,10 +3637,11 @@ static int rsc_reg_read(struct seq_file *m, void *v)
 	return 0;
 }
 
-
+#if CHECK_SERVICE_IF_0
 static ssize_t rsc_reg_write(struct file *file, const char __user *buffer,
 						size_t count, loff_t *data)
 {
+
 	char desc[128];
 	int len = 0;
 	/*char *pEnd;*/
@@ -3748,7 +3749,7 @@ static ssize_t rsc_reg_write(struct file *file, const char __user *buffer,
 
 	return count;
 }
-
+#endif
 static int proc_rsc_reg_open(struct inode *inode, struct file *file)
 {
 	return single_open(file, rsc_reg_read, NULL);
@@ -3758,7 +3759,7 @@ static const struct file_operations rsc_reg_proc_fops = {
 	.owner = THIS_MODULE,
 	.open = proc_rsc_reg_open,
 	.read = seq_read,
-	.write = rsc_reg_write,
+	//.write = rsc_reg_write,
 };
 
 
