@@ -664,8 +664,6 @@ void mtk_disp_esd_check_switch(struct drm_crtc *crtc, bool enable)
 	DDPINFO("%s, esd chk active: %d\n", __func__, enable);
 	esd_ctx->chk_active = enable;
 	atomic_set(&esd_ctx->check_wakeup, enable);
-	if (enable == false)
-		WARN_ON(1);
 	CRTC_MMP_MARK(drm_crtc_index(crtc), esd_check,
 			0xffffffff, enable);
 	if (enable)
