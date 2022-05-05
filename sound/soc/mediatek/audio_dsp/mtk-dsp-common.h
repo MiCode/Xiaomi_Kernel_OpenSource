@@ -91,12 +91,6 @@ int mtk_adsp_allocate_mem(struct snd_pcm_substream *substream,
 			  unsigned int size);
 int mtk_adsp_free_mem(struct snd_pcm_substream *substream);
 
-int mtk_adsp_genpool_allocate_memory(unsigned char **vaddr,
-				     dma_addr_t *paddr,
-				     unsigned int size,
-				     int id);
-int mtk_adsp_genpool_free_memory(unsigned char **vaddr,
-				 size_t *size, int id);
 int afe_get_pcmdir(int dir, struct audio_hw_buffer buf);
 int get_dsp_task_attr(int dsp_id, int task_attr);
 int get_dsp_task_id_from_str(const char *task_name);
