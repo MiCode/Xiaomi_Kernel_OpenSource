@@ -709,7 +709,7 @@ static int dvfsrc_pm_qos_scp_notify(struct notifier_block *b,
 	int level;
 
 	qos = container_of(b, struct dvfsrc_qos_data, pm_qos_scp_notify);
-	if (l > qos->max_vcore_opp || l < 0)
+	if (l > qos->max_vcore_opp)
 		level = 0;
 	else
 		level = l;
