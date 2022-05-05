@@ -452,7 +452,7 @@ static bool cam_mem_mmu_get_dma_buffer(
 
 	mmu->attach = dma_buf_attach(mmu->dmaBuf, cam_mem_dev.dev);
 	if (IS_ERR(mmu->attach)) {
-		LOG_NOTICE("dma_buf_attach failed! memID(%d) size(0x%x)\n",
+		LOG_NOTICE("dma_buf_attach failed! memID(%d) size(0x%zx)\n",
 			IonNode->memID, buf->size);
 		goto err_attach;
 	}

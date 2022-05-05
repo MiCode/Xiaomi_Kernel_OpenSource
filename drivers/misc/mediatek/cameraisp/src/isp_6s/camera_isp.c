@@ -1766,8 +1766,7 @@ void dumpAllRegs(enum ISP_DEV_NODE_ENUM module)
 		irq_type = ISP_IRQ_TYPE_INT_CAM_C_ST;
 		break;
 	default:
-		IRQ_LOG_KEEPER(irq_type,  m_CurrentPPB, _LOG_INF,
-			"%s: Unknown module(0x%x)\n", __func__, module);
+		LOG_NOTICE("%s: Unknown module(0x%x)\n", __func__, module);
 		return;
 	}
 
@@ -1807,8 +1806,7 @@ int STT_FBC_Reset(unsigned int reg_module)
 		irq_type = ISP_IRQ_TYPE_INT_CAM_C_ST;
 		break;
 	default:
-		IRQ_LOG_KEEPER(irq_type,  m_CurrentPPB, _LOG_INF,
-			"Unknown reg_module(0x%x)\n", reg_module);
+		LOG_NOTICE("Unknown reg_module(0x%x)\n", reg_module);
 		return -1;
 	}
 
