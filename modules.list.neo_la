@@ -86,3 +86,4 @@ clk-spmi-pmic-div.ko
 qcom_pm8008-regulator.ko
 bq256xx_charger.ko
 gh_virt_wdt.ko
+minidump.ko
