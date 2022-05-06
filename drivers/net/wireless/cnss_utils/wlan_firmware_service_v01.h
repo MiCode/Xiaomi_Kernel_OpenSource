@@ -283,6 +283,7 @@ enum wlfw_gpio_info_type_v01 {
 enum wlfw_ini_file_type_v01 {
 	WLFW_INI_FILE_TYPE_MIN_VAL_V01 = INT_MIN,
 	WLFW_INI_CFG_FILE_V01 = 0,
+	WLFW_CONN_ROAM_INI_V01 = 1,
 	WLFW_INI_FILE_TYPE_MAX_VAL_V01 = INT_MAX,
 };
 
