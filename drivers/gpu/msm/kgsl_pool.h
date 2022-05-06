@@ -13,6 +13,21 @@ static inline int kgsl_get_page_size(size_t size, unsigned int align)
 {
 	return PAGE_SIZE;
 }
+
+static inline int kgsl_pool_page_count_get(void *data, u64 *val)
+{
+	return 0;
+}
+
+static inline int kgsl_pool_reserved_get(void *data, u64 *val)
+{
+	return 0;
+}
+
+static inline int kgsl_pool_size_total(void)
+{
+	return 0;
+}
 #else
 /**
  * kgsl_pool_free_page - Frees the page and adds it back to pool/system memory
