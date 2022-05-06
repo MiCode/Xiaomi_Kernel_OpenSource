@@ -131,6 +131,7 @@ struct tty_struct;
 #include <linux/list.h>
 #include <linux/lockdep.h>
 #include <linux/seq_file.h>
+#include <linux/android_kabi.h>
 
 /*
  * the semaphore definition
@@ -213,6 +214,9 @@ struct tty_ldisc_ops {
 				const char *fp, int count);
 
 	struct  module *owner;
+
+	ANDROID_KABI_RESERVE(1);
+	ANDROID_KABI_RESERVE(2);
 };
 
 struct tty_ldisc {
