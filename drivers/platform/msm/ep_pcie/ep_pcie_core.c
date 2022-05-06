@@ -2569,7 +2569,7 @@ static int ep_pcie_enumeration(struct ep_pcie_dev_t *dev)
 		EP_PCIE_ERR(&ep_pcie_dev,
 			"PCIe V%d: the input handler is NULL\n",
 			ep_pcie_dev.rev);
-		return EP_PCIE_ERROR;
+		return -ENODEV;
 	}
 
 	EP_PCIE_DBG(dev,
@@ -3795,7 +3795,11 @@ static int ep_pcie_probe(struct platform_device *pdev)
 		ep_pcie_dev.rev, dev_name(&(pdev->dev)));
 
 	ret = ep_pcie_enumeration(&ep_pcie_dev);
-	if (ret && !ep_pcie_debug_keep_resource)
+	if (ret == EP_PCIE_ERROR)
+		EP_PCIE_ERR(&ep_pcie_dev,
+				"PCIe V%d: Enumeration failed in probe, waiting for Perst deassert\n",
+				ep_pcie_dev.rev);
+	if (ret && !ep_pcie_debug_keep_resource & !ep_pcie_dev.perst_enum)
 		goto irq_deinit;
 
 	qcom_edma_init(&pdev->dev);
