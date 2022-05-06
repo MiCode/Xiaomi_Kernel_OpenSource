@@ -1141,6 +1141,7 @@ config HAVE_ARCH_RANDOMIZE_KSTACK_OFFSET
 config RANDOMIZE_KSTACK_OFFSET_DEFAULT
 	bool "Randomize kernel stack offset on syscall entry"
 	depends on HAVE_ARCH_RANDOMIZE_KSTACK_OFFSET
+	depends on INIT_STACK_NONE || !CC_IS_CLANG || CLANG_VERSION >= 140000
 	help
 	  The kernel stack offset can be randomized (after pt_regs) by
 	  roughly 5 bits of entropy, frustrating memory corruption
@@ -1293,6 +1294,15 @@ config ARCH_HAS_PARANOID_L1D_FLUSH
 
 config ARCH_HAVE_TRACE_MMIO_ACCESS
 	bool
+
+config ARCH_HAS_NONLEAF_PMD_YOUNG
+	bool
+	depends on PGTABLE_LEVELS > 2
+	help
+	  Architectures that select this option are capable of setting the
+	  accessed bit in non-leaf PMD entries when using them as part of linear
+	  address translations. Page table walkers that clear the accessed bit
+	  may use this capability to reduce their search space.
 
 source "kernel/gcov/Kconfig"
 

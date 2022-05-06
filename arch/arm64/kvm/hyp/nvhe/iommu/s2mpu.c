@@ -393,15 +393,44 @@ static u32 host_mmio_reg_access_mask(size_t off, bool is_write)
 	const u32 write_only = is_write ? read_write : no_access;
 	u32 masked_off;
 
-	/* IRQ handler can clear interrupts. */
-	if (off == REG_NS_INTERRUPT_CLEAR)
+	switch (off) {
+	/* Allow reading control registers for debugging. */
+	case REG_NS_CTRL0:
+		return read_only & CTRL0_MASK;
+	case REG_NS_CTRL1:
+		return read_only & CTRL1_MASK;
+	case REG_NS_CFG:
+		return read_only & CFG_MASK;
+	/* Allow EL1 IRQ handler to clear interrupts. */
+	case REG_NS_INTERRUPT_CLEAR:
 		return write_only & ALL_VIDS_BITMAP;
-
-	/* IRQ handler can read bitmap of pending interrupts. */
-	if (off == REG_NS_FAULT_STATUS)
+	/* Allow reading number of sets used by MPTC. */
+	case REG_NS_INFO:
+		return read_only & INFO_NUM_SET_MASK;
+	/* Allow EL1 IRQ handler to read bitmap of pending interrupts. */
+	case REG_NS_FAULT_STATUS:
 		return read_only & ALL_VIDS_BITMAP;
+	/*
+	 * Allow reading MPTC entries for debugging. That involves:
+	 *   - writing (set,way) to READ_MPTC
+	 *   - reading READ_MPTC_*
+	 */
+	case REG_NS_READ_MPTC:
+		return write_only & READ_MPTC_MASK;
+	case REG_NS_READ_MPTC_TAG_PPN:
+		return read_only & READ_MPTC_TAG_PPN_MASK;
+	case REG_NS_READ_MPTC_TAG_OTHERS:
+		return read_only & READ_MPTC_TAG_OTHERS_MASK;
+	case REG_NS_READ_MPTC_DATA:
+		return read_only;
+	}
 
-	/* IRQ handler can read fault information. */
+	/* Allow reading L1ENTRY registers for debugging. */
+	if (off >= REG_NS_L1ENTRY_L2TABLE_ADDR(0, 0) &&
+	    off < REG_NS_L1ENTRY_ATTR(NR_VIDS, 0))
+		return read_only;
+
+	/* Allow EL1 IRQ handler to read fault information. */
 	masked_off = off & ~REG_NS_FAULT_VID_MASK;
 	if ((masked_off == REG_NS_FAULT_PA_LOW(0)) ||
 	    (masked_off == REG_NS_FAULT_PA_HIGH(0)) ||
