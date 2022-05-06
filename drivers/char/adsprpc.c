@@ -6636,10 +6636,16 @@ static long fastrpc_device_ioctl(struct file *file, unsigned int ioctl_num,
 	p.inv.perf_dsp = NULL;
 	p.inv.job = NULL;
 
-	err = fastrpc_check_pd_status(fl,
+	if (fl->servloc_name) {
+		err = fastrpc_check_pd_status(fl,
 			AUDIO_PDR_SERVICE_LOCATION_CLIENT_NAME);
-	if (err)
-		goto bail;
+		err |= fastrpc_check_pd_status(fl,
+			SENSORS_PDR_ADSP_SERVICE_LOCATION_CLIENT_NAME);
+		err |= fastrpc_check_pd_status(fl,
+			SENSORS_PDR_SLPI_SERVICE_LOCATION_CLIENT_NAME);
+		if (err)
+			goto bail;
+	}
 
 	spin_lock(&fl->hlock);
 	if (fl->file_close >= FASTRPC_PROCESS_EXIT_START) {
