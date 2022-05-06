@@ -1404,17 +1404,18 @@ static struct qsmmuv500_tbu_device *qtb500_impl_init(struct qsmmuv500_tbu_device
 {
 	int ret;
 	struct qtb500_device *qtb;
+	struct device *dev = tbu->dev;
 
-	qtb = devm_krealloc(tbu->dev, tbu, sizeof(*qtb), GFP_KERNEL);
+	qtb = devm_krealloc(dev, tbu, sizeof(*qtb), GFP_KERNEL);
 	if (!qtb)
 		return ERR_PTR(-ENOMEM);
 
-	ret = of_property_read_u32(tbu->dev->of_node, "qcom,num-qtb-ports", &qtb->num_ports);
+	ret = of_property_read_u32(dev->of_node, "qcom,num-qtb-ports", &qtb->num_ports);
 	if (ret)
 		return ERR_PTR(ret);
 
 	qtb->tbu.impl = &qtb500_impl;
-	qtb->no_halt = of_property_read_bool(tbu->dev->of_node, "qcom,no-qtb-atos-halt");
+	qtb->no_halt = of_property_read_bool(dev->of_node, "qcom,no-qtb-atos-halt");
 
 	return &qtb->tbu;
 }
