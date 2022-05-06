@@ -1255,9 +1255,11 @@
   pin_user_pages_fast
   pin_user_pages_remote
   pktgen_xfrm_outer_mode_output
+  pkvm_iommu_finalize
   pkvm_iommu_resume
   pkvm_iommu_s2mpu_register
   pkvm_iommu_suspend
+  pkvm_iommu_sysmmu_sync_register
   platform_bus_type
   platform_device_add
   platform_device_add_data

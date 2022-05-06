@@ -55,6 +55,7 @@ notrace void start_backtrace(struct stackframe *frame, unsigned long fp,
 	frame->prev_fp = 0;
 	frame->prev_type = STACK_TYPE_UNKNOWN;
 }
+NOKPROBE_SYMBOL(start_backtrace);
 EXPORT_SYMBOL_GPL(start_backtrace);
 
 /*

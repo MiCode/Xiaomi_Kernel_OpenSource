@@ -4473,10 +4473,14 @@ unsigned long shrink_all_memory(unsigned long nr_to_reclaim)
 void kswapd_run(int nid)
 {
 	pg_data_t *pgdat = NODE_DATA(nid);
+	bool skip = false;
 
 	if (pgdat->kswapd)
 		return;
 
+	trace_android_vh_kswapd_per_node(nid, &skip, true);
+	if (skip)
+		return;
 	pgdat->kswapd = kthread_run(kswapd, pgdat, "kswapd%d", nid);
 	if (IS_ERR(pgdat->kswapd)) {
 		/* failure at boot is fatal */
@@ -4493,7 +4497,11 @@ void kswapd_run(int nid)
 void kswapd_stop(int nid)
 {
 	struct task_struct *kswapd = NODE_DATA(nid)->kswapd;
+	bool skip = false;
 
+	trace_android_vh_kswapd_per_node(nid, &skip, false);
+	if (skip)
+		return;
 	if (kswapd) {
 		kthread_stop(kswapd);
 		NODE_DATA(nid)->kswapd = NULL;

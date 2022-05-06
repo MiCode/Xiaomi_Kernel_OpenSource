@@ -530,7 +530,6 @@ static void __fill_map(unsigned long *obj_map, struct kmem_cache *s,
 		set_bit(__obj_to_index(s, addr, p), obj_map);
 }
 
-#if IS_ENABLED(CONFIG_KUNIT)
 static bool slab_add_kunit_errors(void)
 {
 	struct kunit_resource *resource;
@@ -546,9 +545,6 @@ static bool slab_add_kunit_errors(void)
 	kunit_put_resource(resource);
 	return true;
 }
-#else
-static inline bool slab_add_kunit_errors(void) { return false; }
-#endif
 
 /*
  * Determine a map of object in use on a page.

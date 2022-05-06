@@ -343,7 +343,6 @@ static bool report_enabled(void)
 	return !test_and_set_bit(KASAN_BIT_REPORTED, &kasan_flags);
 }
 
-#if IS_ENABLED(CONFIG_KUNIT)
 static void kasan_update_kunit_status(struct kunit *cur_test)
 {
 	struct kunit_resource *resource;
@@ -360,7 +359,6 @@ static void kasan_update_kunit_status(struct kunit *cur_test)
 	WRITE_ONCE(kasan_data->report_found, true);
 	kunit_put_resource(resource);
 }
-#endif /* IS_ENABLED(CONFIG_KUNIT) */
 
 void kasan_report_invalid_free(void *object, unsigned long ip)
 {
@@ -369,10 +367,8 @@ void kasan_report_invalid_free(void *object, unsigned long ip)
 
 	object = kasan_reset_tag(object);
 
-#if IS_ENABLED(CONFIG_KUNIT)
 	if (current->kunit_test)
 		kasan_update_kunit_status(current->kunit_test);
-#endif /* IS_ENABLED(CONFIG_KUNIT) */
 
 	start_report(&flags);
 	pr_err("BUG: KASAN: double-free or invalid-free in %pS\n", (void *)ip);
@@ -389,10 +385,8 @@ void kasan_report_async(void)
 {
 	unsigned long flags;
 
-#if IS_ENABLED(CONFIG_KUNIT)
 	if (current->kunit_test)
 		kasan_update_kunit_status(current->kunit_test);
-#endif /* IS_ENABLED(CONFIG_KUNIT) */
 
 	start_report(&flags);
 	pr_err("BUG: KASAN: invalid-access\n");
@@ -411,10 +405,8 @@ static void __kasan_report(unsigned long addr, size_t size, bool is_write,
 	void *untagged_addr;
 	unsigned long flags;
 
-#if IS_ENABLED(CONFIG_KUNIT)
 	if (current->kunit_test)
 		kasan_update_kunit_status(current->kunit_test);
-#endif /* IS_ENABLED(CONFIG_KUNIT) */
 
 	disable_trace_on_warning();
 
