@@ -73,6 +73,7 @@
 
 #define CORE_DDR_CAL_EN		BIT(0)
 #define CORE_FLL_CYCLE_CNT	BIT(18)
+#define CORE_LOW_FREQ_MODE	BIT(19)
 #define CORE_DLL_CLOCK_DISABLE	BIT(21)
 
 #define DLL_USR_CTL_POR_VAL	0x10800
@@ -863,6 +864,7 @@ static int msm_init_cm_dll(struct sdhci_host *host,
 	struct mmc_host *mmc = host->mmc;
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
 	struct sdhci_msm_host *msm_host = sdhci_pltfm_priv(pltfm_host);
+	struct mmc_ios curr_ios = mmc->ios;
 	int wait_cnt = 50;
 	int rc = 0;
 	unsigned long flags, dll_clock = 0;
@@ -974,6 +976,15 @@ static int msm_init_cm_dll(struct sdhci_host *host,
 				msm_offset->core_dll_config_2)
 				& ~(0xFF << 10)) | (mclk_freq << 10)),
 				host->ioaddr + msm_offset->core_dll_config_2);
+		}
+
+
+		if (curr_ios.timing == MMC_TIMING_UHS_SDR104 &&
+			msm_host->uses_level_shifter) {
+			writel_relaxed((readl_relaxed(host->ioaddr +
+				msm_offset->core_dll_config_2)
+				| CORE_LOW_FREQ_MODE), host->ioaddr +
+				msm_offset->core_dll_config_2);
 		}
 		/* wait for 5us before enabling DLL clock */
 		udelay(5);
@@ -3078,12 +3089,20 @@ static void sdhci_msm_set_timeout(struct sdhci_host *host, struct mmc_command *c
 		host->data_timeout = 22LL * NSEC_PER_SEC;
 }
 
+void sdhci_msm_cqe_sdhci_dumpregs(struct mmc_host *mmc)
+{
+	struct sdhci_host *host = mmc_priv(mmc);
+
+	sdhci_dumpregs(host);
+}
+
 static const struct cqhci_host_ops sdhci_msm_cqhci_ops = {
 	.enable		= sdhci_msm_cqe_enable,
 	.disable	= sdhci_msm_cqe_disable,
 #ifdef CONFIG_MMC_CRYPTO
 	.program_key	= sdhci_msm_program_key,
 #endif
+	.dumpregs		= sdhci_msm_cqe_sdhci_dumpregs,
 };
 
 static int sdhci_msm_cqe_add_host(struct sdhci_host *host,
@@ -3989,6 +4008,7 @@ static void sdhci_msm_hw_reset(struct sdhci_host *host)
 	if (ret)
 		dev_err(&pdev->dev, "%s: core_reset deassert failed, err = %d\n",
 				__func__, ret);
+	usleep_range(200, 210);
 
 	sdhci_msm_registers_restore(host);
 	msm_host->reg_store = false;
@@ -4986,8 +5006,6 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 	}
 
 	sdhci_msm_set_caps(msm_host);
-
-	msm_host->pltfm_init_done = true;
 
 	sdhci_msm_setup_pm(pdev, msm_host);
 

@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 #ifndef __KGSL_GMU_CORE_H
 #define __KGSL_GMU_CORE_H
@@ -91,6 +92,7 @@ enum gmu_pwrctrl_mode {
 #define FENCE_STATUS_WRITEDROPPED0_MASK 0x1
 #define FENCE_STATUS_WRITEDROPPED1_MASK 0x2
 
+#define GMU_MAX_PWRLEVELS	2
 #define GMU_FREQ_MIN   200000000
 #define GMU_FREQ_MAX   500000000
 

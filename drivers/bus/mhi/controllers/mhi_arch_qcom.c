@@ -409,9 +409,17 @@ static struct mhi_driver mhi_bl_driver = {
 void mhi_arch_pcie_deinit(struct mhi_controller *mhi_cntrl)
 {
 	struct mhi_qcom_priv *mhi_priv = mhi_controller_get_privdata(mhi_cntrl);
+	struct pci_dev *pci_dev = to_pci_dev(mhi_cntrl->cntrl_dev);
 	struct arch_info *arch_info = mhi_priv->arch_info;
+	int ret;
 
 	mhi_arch_set_bus_request(mhi_cntrl, 0);
+
+	/* Reset target PCIe link speed to the original device tree entry */
+	ret = msm_pcie_set_target_link_speed(pci_domain_nr(pci_dev->bus), 0,
+					     false);
+	if (ret)
+		MHI_CNTRL_ERR("Failed to set PCIe target link speed\n");
 
 	if (!mhi_priv->driver_remove)
 		return;

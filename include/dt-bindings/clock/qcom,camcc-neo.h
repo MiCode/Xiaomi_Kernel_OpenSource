@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2021, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2022, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _DT_BINDINGS_CLK_QCOM_CAM_CC_NEO_H
@@ -115,6 +115,9 @@
 #define CAM_CC_SLEEP_CLK_SRC					108
 #define CAM_CC_SLOW_AHB_CLK_SRC					109
 #define CAM_CC_XO_CLK_SRC					110
+#define CAM_CC_QDSS_DEBUG_CLK					111
+#define CAM_CC_QDSS_DEBUG_CLK_SRC				112
+#define CAM_CC_QDSS_DEBUG_XO_CLK				113
 
 /* CAM_CC resets */
 #define CAM_CC_BPS_BCR						0

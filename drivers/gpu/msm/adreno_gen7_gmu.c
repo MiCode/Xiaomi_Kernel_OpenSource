@@ -4,7 +4,9 @@
  * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
+#include <dt-bindings/regulator/qcom,rpmh-regulator-levels.h>
 #include <linux/clk.h>
+#include <linux/clk/qcom.h>
 #include <linux/component.h>
 #include <linux/delay.h>
 #include <linux/dma-map-ops.h>
@@ -244,6 +246,35 @@ static void gmu_ao_sync_event(struct adreno_device *adreno_dev)
 	trace_gmu_ao_sync(ticks);
 
 	local_irq_restore(flags);
+}
+
+int gen7_gmu_enable_gdsc(struct adreno_device *adreno_dev)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct gen7_gmu_device *gmu = to_gen7_gmu(adreno_dev);
+	int ret;
+
+	ret = wait_for_completion_timeout(&gmu->gdsc_gate, msecs_to_jiffies(5000));
+	if (!ret) {
+		dev_err(device->dev, "GPU CX wait timeout. Dumping CX votes:\n");
+		/* Dump the cx regulator consumer list */
+		qcom_clk_dump(NULL, gmu->cx_gdsc, false);
+	}
+
+	ret = regulator_enable(gmu->cx_gdsc);
+	if (ret)
+		dev_err(&gmu->pdev->dev,
+			"Failed to enable GMU CX gdsc, error %d\n", ret);
+
+	return ret;
+}
+
+void gen7_gmu_disable_gdsc(struct adreno_device *adreno_dev)
+{
+	struct gen7_gmu_device *gmu = to_gen7_gmu(adreno_dev);
+
+	reinit_completion(&gmu->gdsc_gate);
+	regulator_disable(gmu->cx_gdsc);
 }
 
 int gen7_gmu_device_start(struct adreno_device *adreno_dev)
@@ -1211,7 +1242,7 @@ void gen7_gmu_suspend(struct adreno_device *adreno_dev)
 
 	clk_bulk_disable_unprepare(gmu->num_clks, gmu->clks);
 
-	gen7_cx_regulator_disable_wait(gmu->cx_gdsc, device, 5000);
+	gen7_gmu_disable_gdsc(adreno_dev);
 
 	gen7_rdpm_cx_freq_update(gmu, 0);
 
@@ -1520,36 +1551,23 @@ void gen7_gmu_aop_send_acd_state(struct gen7_gmu_device *gmu, bool flag)
 			"AOP mbox send message failed: %d\n", ret);
 }
 
-int gen7_gmu_enable_gdsc(struct adreno_device *adreno_dev)
-{
-	struct gen7_gmu_device *gmu = to_gen7_gmu(adreno_dev);
-	int ret;
-
-	ret = regulator_enable(gmu->cx_gdsc);
-	if (ret)
-		dev_err(&gmu->pdev->dev,
-			"Failed to enable GMU CX gdsc, error %d\n", ret);
-
-	return ret;
-}
-
 int gen7_gmu_enable_clks(struct adreno_device *adreno_dev)
 {
 	struct gen7_gmu_device *gmu = to_gen7_gmu(adreno_dev);
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	int ret;
 
-	gen7_rdpm_cx_freq_update(gmu, GMU_FREQ_MIN / 1000);
+	gen7_rdpm_cx_freq_update(gmu, gmu->freqs[0] / 1000);
 
 	ret = kgsl_clk_set_rate(gmu->clks, gmu->num_clks, "gmu_clk",
-			GMU_FREQ_MIN);
+			gmu->freqs[0]);
 	if (ret) {
 		dev_err(&gmu->pdev->dev, "Unable to set the GMU clock\n");
 		return ret;
 	}
 
 	ret = kgsl_clk_set_rate(gmu->clks, gmu->num_clks, "hub_clk",
-			150000000);
+			adreno_dev->gmu_hub_clk_freq);
 	if (ret && ret != -ENODEV) {
 		dev_err(&gmu->pdev->dev, "Unable to set the HUB clock\n");
 		return ret;
@@ -1647,8 +1665,7 @@ clks_gdsc_off:
 	clk_bulk_disable_unprepare(gmu->num_clks, gmu->clks);
 
 gdsc_off:
-	/* Poll to make sure that the CX is off */
-	gen7_cx_regulator_disable_wait(gmu->cx_gdsc, device, 5000);
+	gen7_gmu_disable_gdsc(adreno_dev);
 
 	gen7_rdpm_cx_freq_update(gmu, 0);
 
@@ -1720,8 +1737,7 @@ clks_gdsc_off:
 	clk_bulk_disable_unprepare(gmu->num_clks, gmu->clks);
 
 gdsc_off:
-	/* Poll to make sure that the CX is off */
-	gen7_cx_regulator_disable_wait(gmu->cx_gdsc, device, 5000);
+	gen7_gmu_disable_gdsc(adreno_dev);
 
 	gen7_rdpm_cx_freq_update(gmu, 0);
 
@@ -1895,6 +1911,67 @@ static int gen7_gmu_reg_probe(struct adreno_device *adreno_dev)
 	return ret;
 }
 
+static int gen7_gmu_clk_probe(struct adreno_device *adreno_dev)
+{
+	struct gen7_gmu_device *gmu = to_gen7_gmu(adreno_dev);
+	int ret, i;
+	int tbl_size;
+	int num_freqs;
+	int offset;
+
+	ret = devm_clk_bulk_get_all(&gmu->pdev->dev, &gmu->clks);
+	if (ret < 0)
+		return ret;
+
+	/*
+	 * Voting for apb_pclk will enable power and clocks required for
+	 * QDSS path to function. However, if QCOM_KGSL_QDSS_STM is not enabled,
+	 * QDSS is essentially unusable. Hence, if QDSS cannot be used,
+	 * don't vote for this clock.
+	 */
+	if (!IS_ENABLED(CONFIG_QCOM_KGSL_QDSS_STM)) {
+		for (i = 0; i < ret; i++) {
+			if (!strcmp(gmu->clks[i].id, "apb_pclk")) {
+				gmu->clks[i].clk = NULL;
+				break;
+			}
+		}
+	}
+
+	gmu->num_clks = ret;
+
+	/* Read the optional list of GMU frequencies */
+	if (of_get_property(gmu->pdev->dev.of_node,
+		"qcom,gmu-freq-table", &tbl_size) == NULL)
+		goto default_gmu_freq;
+
+	num_freqs = (tbl_size / sizeof(u32)) / 2;
+	if (num_freqs != ARRAY_SIZE(gmu->freqs))
+		goto default_gmu_freq;
+
+	for (i = 0; i < num_freqs; i++) {
+		offset = i * 2;
+		ret = of_property_read_u32_index(gmu->pdev->dev.of_node,
+			"qcom,gmu-freq-table", offset, &gmu->freqs[i]);
+		if (ret)
+			goto default_gmu_freq;
+		ret = of_property_read_u32_index(gmu->pdev->dev.of_node,
+			"qcom,gmu-freq-table", offset + 1, &gmu->vlvls[i]);
+		if (ret)
+			goto default_gmu_freq;
+	}
+	return 0;
+
+default_gmu_freq:
+	/* The GMU frequency table is missing or invalid. Go with a default */
+	gmu->freqs[0] = GMU_FREQ_MIN;
+	gmu->vlvls[0] = RPMH_REGULATOR_LEVEL_LOW_SVS;
+	gmu->freqs[1] = GMU_FREQ_MAX;
+	gmu->vlvls[1] = RPMH_REGULATOR_LEVEL_SVS;
+
+	return 0;
+}
+
 static void gen7_gmu_rdpm_probe(struct gen7_gmu_device *gmu,
 		struct kgsl_device *device)
 {
@@ -1911,9 +1988,31 @@ static void gen7_gmu_rdpm_probe(struct gen7_gmu_device *gmu,
 				res->start, resource_size(res));
 }
 
+static int gmu_cx_gdsc_event(struct notifier_block *nb,
+	unsigned long event, void *data)
+{
+	struct gen7_gmu_device *gmu = container_of(nb, struct gen7_gmu_device, gdsc_nb);
+	struct adreno_device *adreno_dev = gen7_gmu_to_adreno(gmu);
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	u32 val;
+
+	if (!(event & REGULATOR_EVENT_DISABLE))
+		return 0;
+
+	if (kgsl_regmap_read_poll_timeout(&device->regmap, GEN7_GPU_CC_CX_GDSCR,
+		val, !(val & BIT(31)), 100, 100 * 1000))
+		dev_err(device->dev, "GPU CX wait timeout.\n");
+
+	complete_all(&gmu->gdsc_gate);
+
+	return 0;
+}
+
 static int gen7_gmu_regulators_probe(struct gen7_gmu_device *gmu,
 		struct platform_device *pdev)
 {
+	int ret;
+
 	gmu->cx_gdsc = devm_regulator_get(&pdev->dev, "vddcx");
 	if (IS_ERR(gmu->cx_gdsc)) {
 		if (PTR_ERR(gmu->cx_gdsc) != -EPROBE_DEFER)
@@ -1927,6 +2026,17 @@ static int gen7_gmu_regulators_probe(struct gen7_gmu_device *gmu,
 			dev_err(&pdev->dev, "Couldn't get the vdd gdsc\n");
 		return PTR_ERR(gmu->gx_gdsc);
 	}
+
+	gmu->gdsc_nb.notifier_call = gmu_cx_gdsc_event;
+	ret = devm_regulator_register_notifier(gmu->cx_gdsc, &gmu->gdsc_nb);
+
+	if (ret) {
+		dev_err(&pdev->dev, "Failed to register gmu cx gdsc notifier: %d\n", ret);
+		return ret;
+	}
+
+	init_completion(&gmu->gdsc_gate);
+	complete_all(&gmu->gdsc_gate);
 
 	return 0;
 }
@@ -2013,7 +2123,7 @@ int gen7_gmu_probe(struct kgsl_device *device,
 	struct gen7_gmu_device *gmu = to_gen7_gmu(adreno_dev);
 	struct device *dev = &pdev->dev;
 	struct resource *res;
-	int ret, i;
+	int ret;
 
 	gmu->pdev = pdev;
 
@@ -2040,26 +2150,9 @@ int gen7_gmu_probe(struct kgsl_device *device,
 	if (ret)
 		return ret;
 
-	ret = devm_clk_bulk_get_all(&pdev->dev, &gmu->clks);
+	ret = gen7_gmu_clk_probe(adreno_dev);
 	if (ret < 0)
 		return ret;
-
-	/*
-	 * Voting for apb_pclk will enable power and clocks required for
-	 * QDSS path to function. However, if QCOM_KGSL_QDSS_STM is not enabled,
-	 * QDSS is essentially unusable. Hence, if QDSS cannot be used,
-	 * don't vote for this clock.
-	 */
-	if (!IS_ENABLED(CONFIG_QCOM_KGSL_QDSS_STM)) {
-		for (i = 0; i < ret; i++) {
-			if (!strcmp(gmu->clks[i].id, "apb_pclk")) {
-				gmu->clks[i].clk = NULL;
-				break;
-			}
-		}
-	}
-
-	gmu->num_clks = ret;
 
 	/* Set up GMU IOMMU and shared memory with GMU */
 	ret = gen7_gmu_iommu_init(gmu);
@@ -2200,8 +2293,7 @@ static int gen7_gmu_power_off(struct adreno_device *adreno_dev)
 
 	clk_bulk_disable_unprepare(gmu->num_clks, gmu->clks);
 
-	/* Poll to make sure that the CX is off */
-	gen7_cx_regulator_disable_wait(gmu->cx_gdsc, device, 5000);
+	gen7_gmu_disable_gdsc(adreno_dev);
 
 	gen7_rdpm_cx_freq_update(gmu, 0);
 

@@ -330,8 +330,7 @@ clks_gdsc_off:
 	clk_bulk_disable_unprepare(gmu->num_clks, gmu->clks);
 
 gdsc_off:
-	/* Poll to make sure that the CX is off */
-	gen7_cx_regulator_disable_wait(gmu->cx_gdsc, device, 5000);
+	gen7_gmu_disable_gdsc(adreno_dev);
 
 	gen7_rdpm_cx_freq_update(gmu, 0);
 
@@ -399,8 +398,7 @@ clks_gdsc_off:
 	clk_bulk_disable_unprepare(gmu->num_clks, gmu->clks);
 
 gdsc_off:
-	/* Poll to make sure that the CX is off */
-	gen7_cx_regulator_disable_wait(gmu->cx_gdsc, device, 5000);
+	gen7_gmu_disable_gdsc(adreno_dev);
 
 	gen7_rdpm_cx_freq_update(gmu, 0);
 
@@ -487,8 +485,7 @@ static int gen7_hwsched_gmu_power_off(struct adreno_device *adreno_dev)
 
 	clk_bulk_disable_unprepare(gmu->num_clks, gmu->clks);
 
-	/* Poll to make sure that the CX is off */
-	gen7_cx_regulator_disable_wait(gmu->cx_gdsc, device, 5000);
+	gen7_gmu_disable_gdsc(adreno_dev);
 
 	gen7_rdpm_cx_freq_update(gmu, 0);
 
@@ -921,17 +918,17 @@ static void scale_gmu_frequency(struct adreno_device *adreno_dev, int buslevel)
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 	struct gen7_gmu_device *gmu = to_gen7_gmu(adreno_dev);
 	static unsigned long prev_freq;
-	unsigned long freq = GMU_FREQ_MIN;
+	unsigned long freq = gmu->freqs[0];
 
 	if (!gmu->perf_ddr_bw)
 		return;
 
 	/*
 	 * Scale the GMU if DDR is at a CX corner at which GMU can run at
-	 * 500 Mhz
+	 * a higher frequency
 	 */
 	if (pwr->ddr_table[buslevel] >= gmu->perf_ddr_bw)
-		freq = GMU_FREQ_MAX;
+		freq = gmu->freqs[GMU_MAX_PWRLEVELS - 1];
 
 	if (prev_freq == freq)
 		return;

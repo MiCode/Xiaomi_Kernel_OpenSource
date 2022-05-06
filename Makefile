@@ -5,6 +5,10 @@ SUBLEVEL = 81
 EXTRAVERSION =
 NAME = Dare mighty things
 
+# indicate that change "Kbuild: Support nested composite objects" is
+# present in the kernel so that out-of-tree modules can act upon it
+export KERNEL_SUPPORTS_NESTED_COMPOSITES := y
+
 # *DOCUMENTATION*
 # To see a list of typical targets execute "make help"
 # More info can be located in ./README

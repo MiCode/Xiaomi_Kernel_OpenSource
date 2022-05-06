@@ -3,6 +3,7 @@ clk-dummy.ko
 clk-qcom.ko
 deferred-free-helper.ko
 iommu-logger.ko
+debug-regulator.ko
 stub-regulator.ko
 msm_geni_serial.ko
 qcom_iommu_debug.ko
@@ -26,3 +27,14 @@ qcom_ipcc.ko
 gcc-anorak.ko
 zram.ko
 zsmalloc.ko
+qcom_ipc_logging.ko
+qmi_helpers.ko
+qcom_hwspinlock.ko
+qrtr.ko
+smem.ko
+msm_qmp.ko
+qcom_aoss.ko
+ns.ko
+phy-qcom-ufs.ko
+phy-qcom-ufs-qrbtc-sdm845.ko
+ufs_qcom.ko

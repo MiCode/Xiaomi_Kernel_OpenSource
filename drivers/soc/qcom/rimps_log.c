@@ -126,7 +126,7 @@ static void rimps_log_work(struct work_struct *work)
 				}
 			} else {
 				ipc_log_string(info->ipc_log_ctxt,
-						"%s\n", src, c);
+						"%s\n", src);
 			}
 
 			buf_start += cnt;

@@ -799,12 +799,7 @@ static int adspsleepmon_device_release(struct inode *inode, struct file *fp)
 		 *   Stop -> An active session
 		 */
 		if (num_sessions != g_adspsleepmon.audio_stats.num_sessions) {
-			if (num_sessions &&
-				!g_adspsleepmon.audio_stats.num_sessions &&
-				(num_sessions != num_lpi_sessions)) {
-				del_timer(&adspsleep_timer);
-				g_adspsleepmon.timer_pending = false;
-			} else if (!num_sessions ||
+			if (!num_sessions ||
 					(num_sessions == num_lpi_sessions)) {
 
 				if (!num_sessions) {
@@ -825,6 +820,9 @@ static int adspsleepmon_device_release(struct inode *inode, struct file *fp)
 
 				mod_timer(&adspsleep_timer, jiffies + delay * HZ);
 				g_adspsleepmon.timer_pending = true;
+			} else if (g_adspsleepmon.timer_pending) {
+				del_timer(&adspsleep_timer);
+				g_adspsleepmon.timer_pending = false;
 			}
 
 			g_adspsleepmon.audio_stats.num_sessions = num_sessions;
@@ -1010,12 +1008,7 @@ static long adspsleepmon_device_ioctl(struct file *file,
 		 *				   active session)
 		 *   Stop -> An active session
 		 */
-		if (num_sessions &&
-			!g_adspsleepmon.audio_stats.num_sessions &&
-			(num_sessions != num_lpi_sessions)) {
-			del_timer(&adspsleep_timer);
-			g_adspsleepmon.timer_pending = false;
-		} else if (!num_sessions ||
+		if (!num_sessions ||
 				(num_sessions == num_lpi_sessions)) {
 
 			if (!num_sessions) {
@@ -1036,6 +1029,9 @@ static long adspsleepmon_device_ioctl(struct file *file,
 
 			mod_timer(&adspsleep_timer, jiffies + delay * HZ);
 			g_adspsleepmon.timer_pending = true;
+		} else if (g_adspsleepmon.timer_pending) {
+			del_timer(&adspsleep_timer);
+			g_adspsleepmon.timer_pending = false;
 		}
 
 		g_adspsleepmon.audio_stats.num_sessions = num_sessions;

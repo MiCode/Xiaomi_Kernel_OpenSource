@@ -130,6 +130,7 @@ struct msm_hsphy {
 
 	struct clk		*ref_clk_src;
 	struct clk		*cfg_ahb_clk;
+	struct clk		*ref_clk;
 	struct reset_control	*phy_reset;
 
 	struct regulator	*vdd;
@@ -181,6 +182,9 @@ static void msm_hsphy_enable_clocks(struct msm_hsphy *phy, bool on)
 	if (!phy->clocks_enabled && on) {
 		clk_prepare_enable(phy->ref_clk_src);
 
+		if (phy->ref_clk)
+			clk_prepare_enable(phy->ref_clk);
+
 		if (phy->cfg_ahb_clk)
 			clk_prepare_enable(phy->cfg_ahb_clk);
 
@@ -188,6 +192,10 @@ static void msm_hsphy_enable_clocks(struct msm_hsphy *phy, bool on)
 	}
 
 	if (phy->clocks_enabled && !on) {
+
+		if (phy->ref_clk)
+			clk_disable_unprepare(phy->ref_clk);
+
 		if (phy->cfg_ahb_clk)
 			clk_disable_unprepare(phy->cfg_ahb_clk);
 
@@ -535,7 +543,15 @@ static int msm_hsphy_set_suspend(struct usb_phy *uphy, int suspend)
 
 suspend:
 	if (suspend) { /* Bus suspend */
-		if (phy->cable_connected) {
+		/*
+		 * The HUB class drivers calls usb_phy_notify_disconnect() upon a device
+		 * disconnect. Consider a scenario where a USB device is disconnected without
+		 * detaching the OTG cable. phy->cable_connected is marked false due to above
+		 * mentioned call path. Now, while entering low power mode (host bus suspend),
+		 * we come here and turn off regulators thinking no cable is connected. Prevent
+		 * this by not turning off regulators while in host mode.
+		 */
+		if (phy->cable_connected || (phy->phy.flags & PHY_HOST_MODE)) {
 			/* Enable auto-resume functionality during host mode
 			 * bus suspend with some FS/HS peripheral connected.
 			 */
@@ -1323,7 +1339,12 @@ static int msm_hsphy_probe(struct platform_device *pdev)
 		ret = PTR_ERR(phy->ref_clk_src);
 		return ret;
 	}
-
+	phy->ref_clk = devm_clk_get_optional(dev, "ref_clk");
+	if (IS_ERR(phy->ref_clk)) {
+		dev_dbg(dev, "clk get failed for ref_clk\n");
+		ret = PTR_ERR(phy->ref_clk);
+		return ret;
+	}
 	if (of_property_match_string(pdev->dev.of_node,
 				"clock-names", "cfg_ahb_clk") >= 0) {
 		phy->cfg_ahb_clk = devm_clk_get(dev, "cfg_ahb_clk");

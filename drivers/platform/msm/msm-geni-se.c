@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2021-2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/clk.h>
@@ -753,6 +754,14 @@ static int geni_se_rmv_ab_ib(struct geni_se_device *geni_se_dev,
 
 	mutex_lock(&geni_se_dev->geni_dev_lock);
 
+	if (!rsc->is_list_add) {
+		GENI_LOG_ERR(geni_se_dev->log_ctx, true, geni_se_dev->dev,
+			"%s: %s: list del already done\n", __func__,
+			dev_name(rsc->ctrl_dev));
+		mutex_unlock(&geni_se_dev->geni_dev_lock);
+		return ret;
+	}
+
 	list_del_init(&rsc->ab_list);
 	geni_se_dev->cur_ab -= rsc->ab;
 
@@ -819,6 +828,7 @@ static int geni_se_rmv_ab_ib(struct geni_se_device *geni_se_dev,
 			geni_se_dev->cur_ab_noc, geni_se_dev->cur_ib_noc,
 			rsc->ab_noc, rsc->ib_noc, bus_bw_update_noc);
 	}
+	rsc->is_list_add = false;
 	mutex_unlock(&geni_se_dev->geni_dev_lock);
 	return ret;
 }
@@ -905,6 +915,14 @@ static int geni_se_add_ab_ib(struct geni_se_device *geni_se_dev,
 
 	mutex_lock(&geni_se_dev->geni_dev_lock);
 
+	if (rsc->is_list_add) {
+		GENI_LOG_ERR(geni_se_dev->log_ctx, true, geni_se_dev->dev,
+			"%s: %s: list add already done\n", __func__,
+			dev_name(rsc->ctrl_dev));
+		mutex_unlock(&geni_se_dev->geni_dev_lock);
+		return ret;
+	}
+
 	list_add(&rsc->ab_list, &geni_se_dev->ab_list_head);
 	geni_se_dev->cur_ab += rsc->ab;
 
@@ -974,6 +992,7 @@ static int geni_se_add_ab_ib(struct geni_se_device *geni_se_dev,
 			geni_se_dev->cur_ab_noc, geni_se_dev->cur_ib_noc,
 			rsc->ab_noc, rsc->ib_noc, bus_bw_update_noc);
 	}
+	rsc->is_list_add = true;
 	mutex_unlock(&geni_se_dev->geni_dev_lock);
 	return ret;
 }
@@ -1003,6 +1022,7 @@ int se_geni_clks_on(struct se_geni_rsc *rsc)
 
 	ret = geni_se_add_ab_ib(geni_se_dev, rsc);
 	if (ret) {
+		geni_se_rmv_ab_ib(geni_se_dev, rsc);
 		GENI_LOG_ERR(geni_se_dev->log_ctx, false, geni_se_dev->dev,
 			"%s: %s: Error %d during bus_bw_update\n", __func__,
 			dev_name(rsc->ctrl_dev), ret);

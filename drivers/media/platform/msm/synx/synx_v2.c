@@ -427,7 +427,7 @@ int synx_native_signal_core(struct synx_coredata *synx_obj,
 	return rc;
 }
 
-static int synx_native_signal_fence(struct synx_coredata *synx_obj,
+int synx_native_signal_fence(struct synx_coredata *synx_obj,
 	u32 status)
 {
 	int rc = 0;
@@ -2439,6 +2439,29 @@ int synx_ipc_callback(u32 client_id,
 	return SYNX_SUCCESS;
 }
 EXPORT_SYMBOL(synx_ipc_callback);
+
+int synx_recover(enum synx_client_id id)
+{
+	u32 core_id;
+
+	core_id = synx_util_map_client_id_to_core(id);
+	if (core_id >= SYNX_CORE_MAX) {
+		dprintk(SYNX_ERR, "invalid client id %u\n", id);
+		return -SYNX_INVALID;
+	}
+
+	switch (core_id) {
+	case SYNX_CORE_EVA:
+	case SYNX_CORE_IRIS:
+		break;
+	default:
+		dprintk(SYNX_ERR, "recovery not supported on %u\n", id);
+		return -SYNX_NOSUPPORT;
+	}
+
+	return synx_global_recover(core_id);
+}
+EXPORT_SYMBOL(synx_recover);
 
 static int synx_local_mem_init(void)
 {

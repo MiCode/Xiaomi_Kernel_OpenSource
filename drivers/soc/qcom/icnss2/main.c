@@ -447,7 +447,7 @@ static int icnss_send_smp2p(struct icnss_priv *priv,
 	unsigned int value = 0;
 	int ret;
 
-	if (IS_ERR(priv->smp2p_info[smp2p_entry].smem_state))
+	if (IS_ERR_OR_NULL(priv->smp2p_info[smp2p_entry].smem_state))
 		return -EINVAL;
 
 	/* No Need to check FW_DOWN for ICNSS_RESET_MSG */
@@ -2464,11 +2464,6 @@ enable_pdr:
 static int icnss_dev_id_match(struct icnss_priv *priv,
 			      struct device_info *dev_info)
 {
-	if (!dev_info) {
-		icnss_pr_info("WLAN driver devinfo is null, Continue driver loading");
-		return 1;
-	}
-
 	while (dev_info->device_id) {
 		if (priv->device_id == dev_info->device_id)
 			return 1;
@@ -2669,6 +2664,11 @@ int __icnss_register_driver(struct icnss_driver_ops *ops,
 		icnss_pr_err("Driver already registered\n");
 		ret = -EEXIST;
 		goto out;
+	}
+
+	if (!ops->dev_info) {
+		icnss_pr_err("WLAN driver devinfo is null, Reject wlan driver loading");
+		return -EINVAL;
 	}
 
 	if (!icnss_dev_id_match(priv, ops->dev_info)) {

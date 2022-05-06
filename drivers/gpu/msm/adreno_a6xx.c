@@ -186,8 +186,11 @@ int a6xx_fenced_write(struct adreno_device *adreno_dev, u32 offset,
 int a6xx_init(struct adreno_device *adreno_dev)
 {
 	const struct adreno_a6xx_core *a6xx_core = to_a6xx_core(adreno_dev);
+	u64 freq = a6xx_core->gmu_hub_clk_freq;
 
 	adreno_dev->highest_bank_bit = a6xx_core->highest_bank_bit;
+
+	adreno_dev->gmu_hub_clk_freq = freq ? freq : 150000000;
 
 	adreno_dev->cooperative_reset = ADRENO_FEATURE(adreno_dev,
 							ADRENO_COOP_RESET);
@@ -324,21 +327,6 @@ static unsigned int __get_gmu_wfi_config(struct adreno_device *adreno_dev)
 		return 0x00000002;
 
 	return 0x00000000;
-}
-
-void a6xx_cx_regulator_disable_wait(struct regulator *reg,
-				struct kgsl_device *device, u32 timeout)
-{
-	u32 offset;
-
-	offset = (adreno_is_a662(ADRENO_DEVICE(device)) || adreno_is_a621(ADRENO_DEVICE(device)))  ?
-			 A662_GPU_CC_CX_GDSCR : A6XX_GPU_CC_CX_GDSCR;
-
-	if (!adreno_regulator_disable_poll(device, reg, offset, timeout)) {
-		dev_err(device->dev, "GPU CX wait timeout. Dumping CX votes:\n");
-		/* Dump the cx regulator consumer list */
-		qcom_clk_dump(NULL, reg, false);
-	}
 }
 
 static void set_holi_sptprac_clock(struct kgsl_device *device, bool enable)
@@ -501,6 +489,7 @@ static void a6xx_patch_pwrup_reglist(struct adreno_device *adreno_dev)
 
 static void a6xx_llc_configure_gpu_scid(struct adreno_device *adreno_dev);
 static void a6xx_llc_configure_gpuhtw_scid(struct adreno_device *adreno_dev);
+static void a6xx_llc_configure_gpumv_scid(struct adreno_device *adreno_dev);
 static void a6xx_llc_enable_overrides(struct adreno_device *adreno_dev);
 
 static void a6xx_set_secvid(struct kgsl_device *device)
@@ -772,6 +761,7 @@ void a6xx_start(struct adreno_device *adreno_dev)
 	/* Configure LLCC */
 	a6xx_llc_configure_gpu_scid(adreno_dev);
 	a6xx_llc_configure_gpuhtw_scid(adreno_dev);
+	a6xx_llc_configure_gpumv_scid(adreno_dev);
 
 	a6xx_llc_enable_overrides(adreno_dev);
 
@@ -1594,6 +1584,32 @@ static void a6xx_llc_configure_gpuhtw_scid(struct adreno_device *adreno_dev)
 			A6XX_GPU_CX_MISC_SYSTEM_CACHE_CNTL_1,
 			A6XX_GPUHTW_LLC_SCID_MASK,
 			gpuhtw_scid << A6XX_GPUHTW_LLC_SCID_SHIFT);
+}
+
+/*
+ * a6xx_llc_configure_gpumv_scid() - Program the sub-cache ID for CCU block
+ * @adreno_dev: The adreno device pointer
+ */
+static void a6xx_llc_configure_gpumv_scid(struct adreno_device *adreno_dev)
+{
+	uint32_t gpumv_scid = 0;
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct kgsl_mmu *mmu = &device->mmu;
+
+
+	if (IS_ERR_OR_NULL(adreno_dev->gpumv_llc_slice) ||
+		!adreno_dev->gpumv_llc_slice_enable)
+		return;
+
+	if (llcc_slice_activate(adreno_dev->gpumv_llc_slice))
+		return;
+
+	gpumv_scid = llcc_get_slice_id(adreno_dev->gpumv_llc_slice);
+
+	if (mmu->subtype == KGSL_IOMMU_SMMU_V500)
+		kgsl_regrmw(device, A6XX_GBIF_SCACHE_CNTL1,
+			A6XX_GPUMV_LLC_SCID_MASK, FIELD_PREP(GENMASK(19, 15), gpumv_scid));
+
 }
 
 /*

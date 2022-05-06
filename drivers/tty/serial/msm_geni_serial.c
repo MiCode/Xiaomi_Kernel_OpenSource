@@ -96,9 +96,14 @@ module_param(con_enabled, bool, 0644);
 #define UART_START_TX		(0x1)
 #define UART_START_BREAK	(0x4)
 #define UART_STOP_BREAK		(0x5)
+
 /* UART S_CMD OP codes */
-#define UART_START_READ		(0x1)
-#define UART_PARAM		(0x1)
+#define UART_START_READ			(0x1)
+#define UART_PARAM			(0x1)
+/* When set character with framing error is not written in RX fifo */
+#define UART_PARAM_SKIP_FRAME_ERR_CHAR	(BIT(5))
+/* When set break character is not written in RX fifo */
+#define UART_PARAM_SKIP_BREAK_CHAR	(BIT(6))
 #define UART_PARAM_RFR_OPEN		(BIT(7))
 
 /* UART DMA Rx GP_IRQ_BITS */
@@ -243,6 +248,7 @@ struct msm_geni_serial_port {
 	void *ipc_log_rx;
 	void *ipc_log_pwr;
 	void *ipc_log_misc;
+	void *ipc_log_new;
 	void *console_log;
 	void *ipc_log_irqstatus;
 	unsigned int cur_baud;
@@ -699,6 +705,15 @@ static int msm_geni_serial_ioctl(struct uart_port *uport, unsigned int cmd,
 			"%s TIOCFAULT - uart_error_set %d new_uart_error %d",
 			__func__, uart_error, port->uart_error);
 		ret = uart_error;
+
+		/* Do not use previous log file from this issue point */
+		geni_se_dump_dbg_regs(&port->serial_rsc,
+				      uport->membase, port->ipc_log_misc);
+		port->ipc_log_rx = port->ipc_log_new;
+		port->ipc_log_tx = port->ipc_log_new;
+		port->ipc_log_misc = port->ipc_log_new;
+		port->ipc_log_pwr = port->ipc_log_new;
+		port->ipc_log_irqstatus = port->ipc_log_new;
 		break;
 	}
 	default:
@@ -1524,7 +1539,8 @@ static void start_rx_sequencer(struct uart_port *uport)
 {
 	unsigned int geni_status;
 	struct msm_geni_serial_port *port = GET_DEV_PORT(uport);
-	u32 geni_se_param = UART_PARAM_RFR_OPEN;
+	u32 geni_se_param = (UART_PARAM_SKIP_FRAME_ERR_CHAR |
+			     UART_PARAM_SKIP_BREAK_CHAR | UART_PARAM_RFR_OPEN);
 
 	if (port->startup_in_progress)
 		return;
@@ -1551,7 +1567,10 @@ static void start_rx_sequencer(struct uart_port *uport)
 							&port->rx_dma);
 	}
 
-	/* Start RX with the RFR_OPEN to keep RFR in always ready state */
+	/* Start RX with the RFR_OPEN to keep RFR in always ready state.
+	 * Configure for character with Framing error & Break character
+	 * is not written in RX fifo.
+	 */
 	geni_setup_s_cmd(uport->membase, UART_START_READ, geni_se_param);
 	msm_geni_serial_enable_interrupts(uport);
 
@@ -3101,6 +3120,17 @@ static void msm_geni_serial_debug_init(struct uart_port *uport, bool console)
 			if (!msm_port->ipc_log_irqstatus)
 				dev_info(uport->dev, "Err in irqstatus IPC Log\n");
 		}
+
+		/* New set of UART IPC log to avoid overwrite of logging */
+		memset(name, 0, sizeof(name));
+		if (!msm_port->ipc_log_new) {
+			scnprintf(name, sizeof(name), "%s%s",
+				  dev_name(uport->dev), "_new");
+			msm_port->ipc_log_new = ipc_log_context_create(
+						IPC_LOG_MISC_PAGES, name, 0);
+			if (!msm_port->ipc_log_new)
+				dev_info(uport->dev, "Err with New IPC Log\n");
+		}
 	} else {
 		memset(name, 0, sizeof(name));
 		if (!msm_port->console_log) {
@@ -3126,9 +3156,15 @@ static void msm_geni_serial_cons_pm(struct uart_port *uport,
 		se_geni_resources_on(&msm_port->serial_rsc);
 		msm_geni_enable_disable_se_clk(uport, true);
 		atomic_set(&msm_port->is_clock_off, 0);
+		/* Enable Interrupt */
+		IPC_LOG_MSG(msm_port->console_log, "%s Enable IRQ\n", __func__);
+		enable_irq(uport->irq);
 	} else if (new_state == UART_PM_STATE_OFF &&
 			old_state == UART_PM_STATE_ON) {
 		atomic_set(&msm_port->is_clock_off, 1);
+		/* Disable Interrupt */
+		IPC_LOG_MSG(msm_port->console_log, "%s Disable IRQ\n", __func__);
+		disable_irq(uport->irq);
 		msm_geni_enable_disable_se_clk(uport, false);
 		se_geni_resources_off(&msm_port->serial_rsc);
 	}

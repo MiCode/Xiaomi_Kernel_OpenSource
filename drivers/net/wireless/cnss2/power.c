@@ -738,7 +738,7 @@ int cnss_get_pinctrl(struct cnss_plat_data *plat_priv)
 		}
 	}
 
-	if (of_find_property(dev->of_node, HOST_SOL_GPIO, NULL) &&
+	if (of_find_property(dev->of_node, HOST_SOL_GPIO, NULL) ||
 	    of_find_property(dev->of_node, DEV_SOL_GPIO, NULL)) {
 		pinctrl_info->sol_default =
 			pinctrl_lookup_state(pinctrl_info->pinctrl,

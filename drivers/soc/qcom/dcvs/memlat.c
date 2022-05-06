@@ -893,11 +893,11 @@ static inline void apply_adaptive_freq(struct memlat_group *memlat_grp,
 static void calculate_mon_sampling_freq(struct memlat_mon *mon)
 {
 	struct cpu_stats *stats;
-	int cpu, max_cpu = 0;
+	int cpu, max_cpu = cpumask_first(&mon->cpus);
 	u32 max_memfreq, max_cpufreq = 0, max_max_spm_cpufreq = 0, max_spm_cpufreq = 0;
 	u32 max_cpufreq_scaled = 0, ipm_diff, base_vote = 0;
 	u32 hw = mon->memlat_grp->hw_type;
-	u32 max_spm = 0, avg_spm = 0, max_l2miss_ratio = 0;
+	u32 max_spm = 0, avg_spm = 0, min_l2miss_ratio = U32_MAX;
 	u64  max_miss = 0;
 	u32 miss_delta, miss_delta_pct;
 	u32 i, j, vote_idx, spm_max_vote_khz;
@@ -909,7 +909,8 @@ static void calculate_mon_sampling_freq(struct memlat_mon *mon)
 	for_each_cpu(cpu, &mon->cpus) {
 		stats = per_cpu(sampling_stats, cpu);
 		/* these are max of any CPU (for SPM algo) */
-		max_l2miss_ratio = max(stats->l2miss_ratio[hw], max_l2miss_ratio);
+		if (stats->l2miss_ratio[hw])
+			min_l2miss_ratio = min(stats->l2miss_ratio[hw], min_l2miss_ratio);
 		max_miss = max(stats->delta.grp_ctrs[hw][MISS_IDX], max_miss);
 		max_spm_cpufreq = max(max_spm_cpufreq, stats->freq_mhz);
 		if (mon->is_compute || (stats->wb_pct[hw] >= mon->wb_pct_thres
@@ -949,7 +950,7 @@ static void calculate_mon_sampling_freq(struct memlat_mon *mon)
 				mon->sampled_max_cpu_freq[i]);
 		}
 		avg_spm = avg_spm / mon->spm_window_size;
-		if (avg_spm >= mon->spm_thres && ((max_l2miss_ratio && max_l2miss_ratio
+		if (avg_spm >= mon->spm_thres && ((min_l2miss_ratio
 			< L2MISS_RATIO_THRES) || max_spm_cpufreq >= SPM_FREQ_THRES))
 			mon->spm_vote_inc_steps++;
 		else if (avg_spm < mon->disable_spm_value && mon->spm_vote_inc_steps >= 1)
@@ -1010,7 +1011,7 @@ static void calculate_mon_sampling_freq(struct memlat_mon *mon)
 			trace_memlat_spm_update(dev_name(mon->dev),
 				max_spm_cpufreq, max_max_spm_cpufreq, base_vote,
 				max_memfreq, mon->spm_vote_inc_steps,
-				spm_max_vote_khz, avg_spm, max_l2miss_ratio);
+				spm_max_vote_khz, avg_spm, min_l2miss_ratio);
 	}
 
 	mon->cur_freq = max_memfreq;

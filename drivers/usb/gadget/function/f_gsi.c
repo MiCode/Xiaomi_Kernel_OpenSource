@@ -1275,7 +1275,7 @@ static int gsi_ctrl_dev_open(struct inode *ip, struct file *fp)
 
 	if (c_port->is_open) {
 		mutex_unlock(&inst_cur->gsi_lock);
-		log_event_err("%s: Already opened\n", __func__);
+		log_event_dbg("%s: Already opened\n", __func__);
 		return -EBUSY;
 	}
 

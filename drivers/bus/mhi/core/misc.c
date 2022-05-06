@@ -33,6 +33,8 @@ const char * const mhi_log_level_str[MHI_MSG_LVL_MAX] = {
 				     !mhi_log_level_str[level]) ? \
 				     "Mask all" : mhi_log_level_str[level])
 
+#define MHI_DTR_CHANNEL 19
+
 struct mhi_bus mhi_bus;
 
 void mhi_misc_init(void)
@@ -1582,6 +1584,7 @@ void mhi_misc_mission_mode(struct mhi_controller *mhi_cntrl)
 	struct device *dev = &mhi_cntrl->mhi_dev->dev;
 	struct mhi_private *mhi_priv = dev_get_drvdata(dev);
 	struct mhi_sfr_info *sfr_info = mhi_priv->sfr_info;
+	struct mhi_device *dtr_dev;
 	u64 local, remote;
 	int ret = -EIO;
 
@@ -1589,6 +1592,11 @@ void mhi_misc_mission_mode(struct mhi_controller *mhi_cntrl)
 	ret = mhi_get_remote_time_sync(mhi_cntrl->mhi_dev, &local, &remote);
 	if (!ret)
 		MHI_LOG("Timesync: local: %llx, remote: %llx\n", local, remote);
+
+	/* IP_CTRL DTR channel ID */
+	dtr_dev = mhi_get_device_for_channel(mhi_cntrl, MHI_DTR_CHANNEL);
+	if (dtr_dev)
+		mhi_notify(dtr_dev, MHI_CB_DTR_START_CHANNELS);
 
 	/* initialize SFR */
 	if (!sfr_info)
@@ -1721,7 +1729,10 @@ int mhi_get_remote_time_sync(struct mhi_device *mhi_dev,
 	preempt_disable();
 	local_irq_disable();
 
-	*t_host = mhi_tsync->time_get(mhi_cntrl);
+	ret = mhi_read_reg(mhi_cntrl, mhi_tsync->time_reg,
+			   TIMESYNC_TIME_HIGH_OFFSET, &tdev_hi);
+	if (ret)
+		MHI_ERR("Time HIGH register read error\n");
 
 	ret = mhi_read_reg(mhi_cntrl, mhi_tsync->time_reg,
 			   TIMESYNC_TIME_LOW_OFFSET, &tdev_lo);
@@ -1734,6 +1745,7 @@ int mhi_get_remote_time_sync(struct mhi_device *mhi_dev,
 		MHI_ERR("Time HIGH register read error\n");
 
 	*t_dev = (u64) tdev_hi << 32 | tdev_lo;
+	*t_host = mhi_tsync->time_get(mhi_cntrl);
 
 	local_irq_enable();
 	preempt_enable();

@@ -83,6 +83,8 @@ struct adreno_a6xx_core {
 	u32 highest_bank_bit;
 	/** @ctxt_record_size: Size of the preemption record in bytes */
 	u64 ctxt_record_size;
+	/** @gmu_hub_clk_freq: Gmu hub interface clock frequency */
+	u64 gmu_hub_clk_freq;
 };
 
 #define SPTPRAC_POWERON_CTRL_MASK	0x00778000
@@ -221,18 +223,6 @@ static inline bool a6xx_is_smmu_stalled(struct kgsl_device *device)
 
 	return val & BIT(24);
 }
-
-/**
- * a6xx_cx_regulator_disable_wait - Disable a cx regulator and wait for it
- * @reg: A &struct regulator handle
- * @device: kgsl device struct
- * @timeout: Time to wait (in milliseconds)
- *
- * Disable the regulator and wait @timeout milliseconds for it to enter the
- * disabled state.
- */
-void a6xx_cx_regulator_disable_wait(struct regulator *reg,
-				struct kgsl_device *device, u32 timeout);
 
 /* Preemption functions */
 void a6xx_preemption_trigger(struct adreno_device *adreno_dev, bool atomic);

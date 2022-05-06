@@ -489,6 +489,11 @@ static int gpu_cc_neo_probe(struct platform_device *pdev)
 	clk_lucid_ole_pll_configure(&gpu_cc_pll0, regmap, &gpu_cc_pll0_config);
 	clk_lucid_ole_pll_configure(&gpu_cc_pll1, regmap, &gpu_cc_pll1_config);
 
+	/*Keep the clock always-ON
+	 * gpu_cc_demet_clk
+	 */
+	regmap_update_bits(regmap, 0x0900C, BIT(0), BIT(0));
+
 	ret = qcom_cc_really_probe(pdev, &gpu_cc_neo_desc, regmap);
 	if (ret) {
 		dev_err(&pdev->dev, "Failed to register GPU CC clocks\n");

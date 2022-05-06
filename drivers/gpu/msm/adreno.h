@@ -599,6 +599,10 @@ struct adreno_device {
 	bool gpu_llc_slice_enable;
 	void *gpuhtw_llc_slice;
 	bool gpuhtw_llc_slice_enable;
+	/** @gpumv_llc_slice: GPU MV buffer system cache slice descriptor*/
+	void *gpumv_llc_slice;
+	/** @gpumv_llc_slice_enable: To enable GPUMV buffer system cache slice or not */
+	bool gpumv_llc_slice_enable;
 	unsigned int zap_loaded;
 	/**
 	 * @critpkts: Memory descriptor for 5xx critical packets if applicable
@@ -635,6 +639,8 @@ struct adreno_device {
 	 * controls perfcounter ioctl read
 	 */
 	bool perfcounter;
+	/** @gmu_hub_clk_freq: Gmu hub interface clock frequency */
+	u64 gmu_hub_clk_freq;
 };
 
 /**
@@ -1774,19 +1780,6 @@ static inline int adreno_allocate_global(struct kgsl_device *device,
 	*memdesc = kgsl_allocate_global(device, size, padding, flags, priv, name);
 	return PTR_ERR_OR_ZERO(*memdesc);
 }
-
-/**
- * adreno_regulator_disable_poll - Disable the regulator and wait for it to
- * complete
- * @device: A GPU device handle
- * @reg: Pointer to the regulator to disable
- * @offset: Offset of the register to poll for success
- * @timeout: Timeout (in milliseconds)
- *
- * Return: true if the regulator got disabled or false on timeout
- */
-bool adreno_regulator_disable_poll(struct kgsl_device *device,
-		struct regulator *reg, u32 offset, u32 timeout);
 
 static inline void adreno_set_dispatch_ops(struct adreno_device *adreno_dev,
 		const struct adreno_dispatch_ops *ops)
