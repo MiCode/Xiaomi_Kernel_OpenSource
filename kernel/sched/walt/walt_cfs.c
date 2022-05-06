@@ -299,8 +299,6 @@ static void walt_find_best_target(struct sched_domain *sd,
 			long spare_cap;
 			unsigned int idle_exit_latency = UINT_MAX;
 			struct walt_rq *wrq = (struct walt_rq *) cpu_rq(i)->android_vendor_data1;
-			struct task_struct *curr = cpu_rq(i)->curr;
-			bool curr_is_mvp = false;
 
 			trace_sched_cpu_util(i);
 			/* record the prss as we visit cpus in a cluster */
@@ -322,10 +320,7 @@ static void walt_find_best_target(struct sched_domain *sd,
 			if (fbt_env->skip_cpu == i)
 				continue;
 
-			raw_spin_lock(&cpu_rq(i)->lock);
-			curr_is_mvp = is_mvp_task(cpu_rq(i), curr);
-			raw_spin_unlock(&cpu_rq(i)->lock);
-			if (curr_is_mvp)
+			if (wrq->num_mvp_tasks > 0)
 				continue;
 
 			/*
@@ -1126,6 +1121,9 @@ static void walt_cfs_account_mvp_runtime(struct rq *rq, struct task_struct *curr
 		trace_walt_cfs_deactivate_mvp_task(curr, wts, limit);
 		return;
 	}
+
+	if (wrq->num_mvp_tasks == 1)
+		return;
 
 	/* slice expired. re-queue the task */
 	list_del(&wts->mvp_list);
