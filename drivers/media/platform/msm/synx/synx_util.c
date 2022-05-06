@@ -1185,7 +1185,7 @@ static void synx_client_destroy(struct kref *kref)
 {
 	struct synx_client_metadata *client_metadata =
 		container_of(kref, struct synx_client_metadata, refcount);
-	u32 id = client_metadata->client->id;
+	u32 id;
 	struct synx_cleanup_cb *client_cb;
 
 	if (!client_metadata->client) {
