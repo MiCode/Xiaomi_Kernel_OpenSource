@@ -1045,4 +1045,13 @@ config QCOM_VM_ALIVE_LOG_DUMPER
 source "drivers/soc/qcom/mem_buf/Kconfig"
 source "drivers/soc/qcom/tmecom/Kconfig"
 
+config DUMP_XBL_LOG
+	tristate "print xbl log on console from fs"
+	help
+	  This driver is used to capture xbl log from reserved memory  region
+	  defined separately in each device tree and print on console when user
+	  requests. User can perform below command to print xbl log stored in
+	  reserved memory region:
+		cat /sys/kernel/xbl_log/xbl_log
+
 endmenu
