@@ -308,3 +308,6 @@
   dev_pm_opp_put_prop_name
   dev_pm_opp_put_supported_hw
   dev_pm_opp_set_prop_name
+
+# required by disp.ko
+  devm_extcon_dev_free
