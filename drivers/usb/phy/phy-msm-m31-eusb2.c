@@ -220,6 +220,10 @@ struct m31_eusb2_phy {
 
 	/* debugfs entries */
 	struct dentry		*root;
+	u8			xcfgi_39_32;
+	u8			xcfgi_71_64;
+	u8			xcfgi_31_24;
+	u8			xcfgi_7_0;
 
 	struct usb_repeater	*ur;
 
@@ -426,10 +430,31 @@ static void eusb2_phy_write_seq(struct m31_eusb2_phy *phy, u32 *seq, int cnt)
 
 static void msm_m31_eusb2_parameter_override(struct m31_eusb2_phy *phy)
 {
+	const struct eusb_phy_cfg *cfg = phy->cfg;
+	const struct eusb_phy_tbl *tbl = cfg->override_seq;
+
 	/* override init sequence using devicetree based values */
 	eusb2_phy_write_seq(phy, phy->param_override_seq,
 		phy->param_override_seq_cnt);
 	/* override tune params using debugfs based values */
+
+	/* USB_PHY_XCFGI_39_32 */
+	if (phy->xcfgi_39_32 != 0xFF)
+		msm_m31_eusb2_write_readback(phy->base, tbl[0].offset,
+				tbl[0].bit_mask, phy->xcfgi_39_32 << 2);
+	/* USB_PHY_XCFGI_71_64 */
+	if (phy->xcfgi_71_64 != 0xFF)
+		msm_m31_eusb2_write_readback(phy->base, tbl[1].offset,
+				tbl[1].bit_mask, phy->xcfgi_71_64);
+	/* USB_PHY_XCFGI_31_24 */
+	if (phy->xcfgi_31_24 != 0xFF)
+		msm_m31_eusb2_write_readback(phy->base, tbl[2].offset,
+				tbl[2].bit_mask, phy->xcfgi_31_24);
+	/* USB_PHY_XCFGI_7_0 */
+	if (phy->xcfgi_7_0 != 0xFF)
+		msm_m31_eusb2_write_readback(phy->base, tbl[3].offset,
+				tbl[3].bit_mask, phy->xcfgi_7_0);
+
 }
 
 static void msm_m31_eusb2_ref_clk_init(struct usb_phy *uphy)
@@ -638,6 +663,27 @@ static int msm_m31_eusb2_phy_set_power(struct usb_phy *uphy, unsigned int mA)
 	return 0;
 }
 
+static void msm_m31_eusb2_phy_create_debugfs(struct m31_eusb2_phy *phy)
+{
+	phy->root = debugfs_create_dir(dev_name(phy->phy.dev), NULL);
+
+	debugfs_create_x8("xcfgi_39_32", 0644, phy->root,
+					&phy->xcfgi_39_32);
+	phy->xcfgi_39_32 = 0xFF;
+
+	debugfs_create_x8("xcfgi_71_64", 0644, phy->root,
+					&phy->xcfgi_71_64);
+	phy->xcfgi_71_64 = 0xFF;
+
+	debugfs_create_x8("xcfgi_31_24", 0644, phy->root,
+					&phy->xcfgi_31_24);
+	phy->xcfgi_31_24 = 0xFF;
+
+	debugfs_create_x8("xcfgi_7_0", 0644, phy->root,
+					&phy->xcfgi_7_0);
+	phy->xcfgi_7_0 = 0xFF;
+}
+
 static int msm_m31_eusb2_phy_probe(struct platform_device *pdev)
 {
 	struct m31_eusb2_phy *phy;
@@ -794,7 +840,7 @@ static int msm_m31_eusb2_phy_probe(struct platform_device *pdev)
 		goto err_ret;
 
 	INIT_WORK(&phy->vbus_draw_work, msm_m31_eusb2_phy_vbus_draw_work);
-
+	msm_m31_eusb2_phy_create_debugfs(phy);
 	/*
 	 * EUD may be enabled in boot loader and to keep EUD session alive across
 	 * kernel boot till USB phy driver is initialized based on cable status,
@@ -818,6 +864,7 @@ static int msm_m31_eusb2_phy_remove(struct platform_device *pdev)
 	if (phy->usb_psy)
 		power_supply_put(phy->usb_psy);
 
+	debugfs_remove_recursive(phy->root);
 	usb_remove_phy(&phy->phy);
 	if (phy->ref_clk)
 		clk_disable_unprepare(phy->ref_clk);
