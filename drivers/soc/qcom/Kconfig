@@ -1063,6 +1063,7 @@ config QCOM_VM_ALIVE_LOG_DUMPER
 
 source "drivers/soc/qcom/mem_buf/Kconfig"
 source "drivers/soc/qcom/tmecom/Kconfig"
+source "drivers/soc/qcom/gnsssirf/Kconfig"
 
 config DUMP_XBL_LOG
 	tristate "print xbl log on console from fs"
