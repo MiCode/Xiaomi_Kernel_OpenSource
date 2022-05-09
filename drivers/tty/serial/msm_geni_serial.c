@@ -1134,15 +1134,21 @@ static void msm_geni_serial_console_write(struct console *co, const char *s,
 				"%s: tx_cancel failed 0x%x\n",
 				__func__, geni_read_reg_nolog(uport->membase,
 							SE_GENI_STATUS));
-
+			geni_se_dump_dbg_regs(&port->serial_rsc, uport->membase,
+					      port->ipc_log_misc);
 			reinit_completion(&port->m_cmd_timeout);
 			geni_abort_m_cmd(uport->membase);
 			timeout = geni_wait_for_cmd_done(uport, true);
-			if (timeout)
+			if (timeout) {
 				IPC_LOG_MSG(port->console_log,
 				"%s: tx abort failed 0x%x\n", __func__,
 				geni_read_reg_nolog(uport->membase,
 				SE_GENI_STATUS));
+				geni_se_dump_dbg_regs(&port->serial_rsc,
+						      uport->membase,
+						      port->ipc_log_misc);
+			}
+
 			msm_geni_serial_allow_rx(port);
 			geni_write_reg(FORCE_DEFAULT, uport->membase,
 					GENI_FORCE_DEFAULT_REG);
@@ -1281,6 +1287,8 @@ static int msm_geni_serial_prep_dma_tx(struct uart_port *uport)
 			"%s: tx_cancel failed 0x%x\n", __func__,
 			geni_read_reg_nolog(uport->membase, SE_GENI_STATUS));
 			msm_geni_update_uart_error_code(msm_port, UART_ERROR_TX_CANCEL_FAIL);
+			geni_se_dump_dbg_regs(&msm_port->serial_rsc, uport->membase,
+					      msm_port->ipc_log_misc);
 
 			msm_port->m_cmd_done = false;
 			reinit_completion(&msm_port->m_cmd_timeout);
@@ -1299,6 +1307,8 @@ static int msm_geni_serial_prep_dma_tx(struct uart_port *uport)
 				geni_read_reg_nolog(uport->membase,
 							SE_GENI_STATUS));
 				msm_geni_update_uart_error_code(msm_port, UART_ERROR_TX_ABORT_FAIL);
+				geni_se_dump_dbg_regs(&msm_port->serial_rsc, uport->membase,
+						      msm_port->ipc_log_misc);
 			} else {
 				/* Reset the CANCEL error code if abort is success */
 				msm_geni_update_uart_error_code(msm_port, UART_ERROR_DEFAULT);
@@ -1325,7 +1335,8 @@ static int msm_geni_serial_prep_dma_tx(struct uart_port *uport)
 					"%s: tx fsm reset failed\n", __func__);
 					msm_geni_update_uart_error_code(msm_port,
 						UART_ERROR_TX_FSM_RESET_FAIL);
-
+					geni_se_dump_dbg_regs(&msm_port->serial_rsc, uport->membase,
+							      msm_port->ipc_log_misc);
 				} else {
 					/* Reset Cancel/Abort error code if FSM reset is success */
 					msm_geni_update_uart_error_code(msm_port,
@@ -1457,7 +1468,8 @@ static void stop_tx_sequencer(struct uart_port *uport)
 		UART_LOG_DBG(port->ipc_log_misc, uport->dev, "%s: tx_cancel failed 0x%x\n",
 		__func__, geni_read_reg_nolog(uport->membase, SE_GENI_STATUS));
 		msm_geni_update_uart_error_code(port, UART_ERROR_TX_CANCEL_FAIL);
-
+		geni_se_dump_dbg_regs(&port->serial_rsc, uport->membase,
+				      port->ipc_log_misc);
 		port->m_cmd_done = false;
 		reinit_completion(&port->m_cmd_timeout);
 		geni_abort_m_cmd(uport->membase);
@@ -1471,6 +1483,8 @@ static void stop_tx_sequencer(struct uart_port *uport)
 				"%s: tx abort failed 0x%x\n", __func__,
 					geni_read_reg_nolog(uport->membase, SE_GENI_STATUS));
 			msm_geni_update_uart_error_code(port, UART_ERROR_TX_ABORT_FAIL);
+			geni_se_dump_dbg_regs(&port->serial_rsc, uport->membase,
+					      port->ipc_log_misc);
 		}
 		msm_geni_serial_allow_rx(port);
 		geni_write_reg(FORCE_DEFAULT, uport->membase,
