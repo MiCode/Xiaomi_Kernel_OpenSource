@@ -1318,6 +1318,7 @@ static void socinfo_print(void)
 			socinfo->ndefective_parts_array_offset,
 			socinfo->nmodem_supported,
 			sku ? sku : "Unknown");
+		break;
 
 	default:
 		pr_err("Unknown format found: v%u.%u\n", f_maj, f_min);
