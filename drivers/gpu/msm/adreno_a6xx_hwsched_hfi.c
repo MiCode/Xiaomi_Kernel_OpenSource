@@ -1184,7 +1184,8 @@ static int hfi_f2h_main(void *arg)
 	while (!kthread_should_stop()) {
 		wait_event_interruptible(hfi->f2h_wq, !kthread_should_stop() &&
 			!(is_queue_empty(adreno_dev, HFI_MSG_ID) &&
-			is_queue_empty(adreno_dev, HFI_DBG_ID)));
+			is_queue_empty(adreno_dev, HFI_DBG_ID)) &&
+			(hfi->irq_mask & HFI_IRQ_MSGQ_MASK));
 
 		if (kthread_should_stop())
 			break;
