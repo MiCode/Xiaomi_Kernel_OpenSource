@@ -432,6 +432,16 @@ int gen7_start(struct adreno_device *adreno_dev)
 	kgsl_regwrite(device, GEN7_UCHE_WRITE_THRU_BASE_LO, 0xfffff000);
 	kgsl_regwrite(device, GEN7_UCHE_WRITE_THRU_BASE_HI, 0x0001ffff);
 
+	if (adreno_dev->gpucore->gmem_base) {
+		kgsl_regwrite(device, GEN7_UCHE_GMEM_RANGE_MIN_LO,
+				adreno_dev->gpucore->gmem_base);
+		kgsl_regwrite(device, GEN7_UCHE_GMEM_RANGE_MIN_HI, 0x0);
+		kgsl_regwrite(device, GEN7_UCHE_GMEM_RANGE_MAX_LO,
+				adreno_dev->gpucore->gmem_base +
+				adreno_dev->gpucore->gmem_size - 1);
+		kgsl_regwrite(device, GEN7_UCHE_GMEM_RANGE_MAX_HI, 0x0);
+	}
+
 	kgsl_regwrite(device, GEN7_UCHE_CACHE_WAYS, 0x800000);
 
 	kgsl_regwrite(device, GEN7_UCHE_CMDQ_CONFIG,
