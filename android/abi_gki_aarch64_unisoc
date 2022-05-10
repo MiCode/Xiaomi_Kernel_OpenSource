@@ -1133,6 +1133,7 @@
   __traceiter_android_vh_enable_thermal_power_throttle
   __traceiter_android_vh_get_thermal_zone_device
   __traceiter_android_vh_ipi_stop
+  __traceiter_android_vh_mmc_check_status
   __traceiter_android_vh_modify_thermal_request_freq
   __traceiter_android_vh_modify_thermal_target_freq
   __traceiter_android_vh_scheduler_tick
@@ -1196,6 +1197,7 @@
   __tracepoint_android_vh_enable_thermal_power_throttle
   __tracepoint_android_vh_get_thermal_zone_device
   __tracepoint_android_vh_ipi_stop
+  __tracepoint_android_vh_mmc_check_status
   __tracepoint_android_vh_modify_thermal_request_freq
   __tracepoint_android_vh_modify_thermal_target_freq
   __tracepoint_android_vh_scheduler_tick
@@ -1466,6 +1468,8 @@
   seq_release_private
   seq_write
   set_page_dirty_lock
+  sg_copy_from_buffer
+  sg_copy_to_buffer
   strcspn
   system_highpri_wq
   tracepoint_probe_register
