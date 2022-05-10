@@ -117,6 +117,7 @@
   cfg80211_rx_unprot_mlme_mgmt
   cfg80211_stop_iface
   cfg80211_update_owe_info_event
+  cfg80211_vendor_cmd_get_sender
   __cfi_slowpath_diag
   cgroup_taskset_first
   cgroup_taskset_next
