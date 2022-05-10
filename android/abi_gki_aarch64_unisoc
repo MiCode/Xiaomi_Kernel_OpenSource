@@ -1359,6 +1359,10 @@
   usb_role_switch_unregister
   usb_speed_string
 
+# required by sprd_usb_f_serial.ko
+  tty_driver_kref_put
+  tty_wakeup
+
 # required by nu1619_wireless_charger.ko
   regmap_bulk_read
 
