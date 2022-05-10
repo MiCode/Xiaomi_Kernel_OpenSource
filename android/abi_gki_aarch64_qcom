@@ -1781,6 +1781,7 @@
   snd_soc_info_multi_ext
   snd_soc_lookup_component
   snd_soc_rtdcom_lookup
+  snd_timer_interrupt
   snd_usb_autoresume
   snd_usb_autosuspend
   snd_usb_endpoint_close
@@ -2154,10 +2155,14 @@
   uuid_parse
   v4l2_compat_ioctl32
   v4l2_ctrl_find
+  v4l2_ctrl_get_name
+  __v4l2_ctrl_modify_range
+  __v4l2_ctrl_s_ctrl
   __v4l2_device_register_subdev_nodes
   v4l2_event_dequeue
   v4l2_event_pending
   v4l2_fh_release
+  v4l2_s_ctrl
   v4l2_subdev_call_wrappers
   vabits_actual
   vb2_create_bufs
