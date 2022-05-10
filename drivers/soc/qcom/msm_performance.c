@@ -1721,7 +1721,7 @@ static int init_lplh_notif(const char *buf)
 		cp++;
 		cp = strnchr(cp, strlen(cp), ':');	/* skip nClusters */
 		cp++;
-		if (!strlen(cp))
+		if (!cp || !strlen(cp))
 			return -EINVAL;
 
 		for (i = 0; i < nClusters; i++) {
@@ -1752,7 +1752,7 @@ static int init_lplh_notif(const char *buf)
 				total_tokens++;
 				for (j = 0; j < nValues / 2; j++) {
 					value = 0;
-					if (sscanf(token, ",%hu", &value) != 1)
+					if (!token || sscanf(token, ",%hu", &value) != 1)
 						return -EINVAL;
 
 					*ptmp++ = value;
@@ -1762,7 +1762,7 @@ static int init_lplh_notif(const char *buf)
 						return -EINVAL;
 
 					token = strnchr(token, strlen(token), ',');
-					if (sscanf(token, ",%hu", &value) != 1)
+					if (!token || sscanf(token, ",%hu", &value) != 1)
 						return -EINVAL;
 
 					*ptmp++ = value;
