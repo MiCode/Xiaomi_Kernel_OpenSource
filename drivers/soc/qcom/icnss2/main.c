@@ -104,6 +104,9 @@ uint64_t dynamic_feature_mask = ICNSS_DEFAULT_FEATURE_MASK;
 #define RAMDUMP_NUM_DEVICES		256
 #define ICNSS_RAMDUMP_NAME		"icnss_ramdump"
 
+#define WLAN_EN_TEMP_THRESHOLD		5000
+#define WLAN_EN_DELAY			500
+
 static DEFINE_IDA(rd_minor_id);
 
 enum icnss_pdr_cause_index {
@@ -616,6 +619,33 @@ static void register_early_crash_notifications(struct device *dev)
 	priv->fw_early_crash_irq = irq;
 }
 
+static int icnss_get_temperature(struct icnss_priv *priv, int *temp)
+{
+	struct thermal_zone_device *thermal_dev;
+	const char *tsens;
+	int ret;
+
+	ret = of_property_read_string(priv->pdev->dev.of_node,
+				      "tsens",
+				      &tsens);
+	if (ret)
+		return ret;
+
+	icnss_pr_dbg("Thermal Sensor is %s\n", tsens);
+	thermal_dev = thermal_zone_get_zone_by_name(tsens);
+	if (IS_ERR(thermal_dev)) {
+		icnss_pr_err("Fail to get thermal zone. ret: %d",
+			     PTR_ERR(thermal_dev));
+		return PTR_ERR(thermal_dev);
+	}
+
+	ret = thermal_zone_get_temp(thermal_dev, temp);
+	if (ret)
+		icnss_pr_err("Fail to get temperature. ret: %d", ret);
+
+	return ret;
+}
+
 static irqreturn_t fw_soc_wake_ack_handler(int irq, void *ctx)
 {
 	struct icnss_priv *priv = ctx;
@@ -753,6 +783,7 @@ static int icnss_driver_event_server_arrive(struct icnss_priv *priv,
 						 void *data)
 {
 	int ret = 0;
+	int temp = 0;
 	bool ignore_assert = false;
 
 	if (!priv)
@@ -786,6 +817,12 @@ static int icnss_driver_event_server_arrive(struct icnss_priv *priv,
 	}
 
 	if (priv->device_id == WCN6750_DEVICE_ID) {
+		if (!icnss_get_temperature(priv, &temp)) {
+			icnss_pr_dbg("Temperature: %d\n", temp);
+			if (temp < WLAN_EN_TEMP_THRESHOLD)
+				priv->wlan_en_delay_ms = WLAN_EN_DELAY;
+		}
+
 		ret = wlfw_host_cap_send_sync(priv);
 		if (ret < 0)
 			goto fail;
