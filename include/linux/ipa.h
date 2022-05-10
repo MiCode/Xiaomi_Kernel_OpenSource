@@ -28,6 +28,10 @@
 #define BUFF_ABOVE_HIGH_THRESHOLD_FOR_COAL_PIPE           2
 #define BUFF_BELOW_LOW_THRESHOLD_FOR_DEFAULT_PIPE         3
 #define BUFF_BELOW_LOW_THRESHOLD_FOR_COAL_PIPE            4
+#define BUFF_ABOVE_HIGH_THRESHOLD_FOR_LL_PIPE             5
+#define BUFF_BELOW_LOW_THRESHOLD_FOR_LL_PIPE              6
+#define FREE_PAGE_TASK_SCHEDULED                          7
+#define FREE_PAGE_TASK_SCHEDULED_LL                       8
 
 /**
  * the attributes of the socksv5 options
