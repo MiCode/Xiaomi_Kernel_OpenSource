@@ -3997,7 +3997,6 @@ static int get_device_tree_data(struct platform_device *pdev)
 {
 	struct mhi_dev *mhi;
 	int rc = 0;
-	bool is_virt_mhi = false;
 	struct resource *res_mem = NULL;
 
 	mhi = devm_kzalloc(&pdev->dev,
