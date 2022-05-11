@@ -13,7 +13,6 @@
 #include <linux/sizes.h>
 #include <linux/slab.h>
 #include <linux/soc/qcom/smem.h>
-#include <linux/nvmem-consumer.h>
 
 /*
  * The Qualcomm shared memory system is a allocate only heap structure that
@@ -491,26 +490,6 @@ int qcom_smem_alloc(unsigned host, unsigned item, size_t size)
 	return ret;
 }
 EXPORT_SYMBOL(qcom_smem_alloc);
-
-int qcom_smem_get_feature_id(void)
-{
-	void *buf;
-	int val = 0;
-	size_t len;
-	struct nvmem_cell *cell;
-
-	cell = nvmem_cell_get(__smem->dev, "feature_id");
-	if (PTR_ERR_OR_ZERO(cell))
-		return -ENODEV;
-
-	buf = nvmem_cell_read(cell, &len);
-	nvmem_cell_put(cell);
-	memcpy(&val, buf, min(len, sizeof(val)));
-	kfree(buf);
-
-	return val;
-}
-EXPORT_SYMBOL(qcom_smem_get_feature_id);
 
 static void *qcom_smem_get_global(struct qcom_smem *smem,
 				  unsigned item,
