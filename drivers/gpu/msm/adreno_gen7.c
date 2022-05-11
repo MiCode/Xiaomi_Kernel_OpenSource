@@ -409,6 +409,7 @@ int gen7_start(struct adreno_device *adreno_dev)
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	const struct adreno_gen7_core *gen7_core = to_gen7_core(adreno_dev);
 	static bool patch_reglist;
+	u32 bank_bit, mal;
 
 	/* Set up GBIF registers from the GPU core definition */
 	kgsl_regmap_multi_write(&device->regmap, gen7_core->gbif,
@@ -457,18 +458,30 @@ int gen7_start(struct adreno_device *adreno_dev)
 	kgsl_regwrite(device, GEN7_GMU_CX_GMU_POWER_COUNTER_SELECT_1,
 			FIELD_PREP(GENMASK(7, 0), 0x4));
 
+	if (of_property_read_u32(device->pdev->dev.of_node,
+		"qcom,min-access-length", &mal))
+		mal = 32;
+
+	if (!WARN_ON(!adreno_dev->highest_bank_bit))
+		bank_bit = (adreno_dev->highest_bank_bit - 13) & 3;
+	else
+		bank_bit = 1;
+
 	kgsl_regwrite(device, GEN7_RB_NC_MODE_CNTL, BIT(11) | BIT(4) |
-			FIELD_PREP(GENMASK(2, 1), 3));
+			((mal == 64) ? BIT(3) : 0) |
+			FIELD_PREP(GENMASK(2, 1), bank_bit));
 	kgsl_regwrite(device, GEN7_TPL1_NC_MODE_CNTL,
-			FIELD_PREP(GENMASK(2, 1), 3));
+			((mal == 64) ? BIT(3) : 0) |
+			FIELD_PREP(GENMASK(2, 1), bank_bit));
 	kgsl_regwrite(device, GEN7_SP_NC_MODE_CNTL,
+			((mal == 64) ? BIT(3) : 0) |
 			FIELD_PREP(GENMASK(5, 4), 2) |
-			FIELD_PREP(GENMASK(2, 1), 3));
+			FIELD_PREP(GENMASK(2, 1), bank_bit));
 	kgsl_regwrite(device, GEN7_GRAS_NC_MODE_CNTL,
-			FIELD_PREP(GENMASK(8, 5), 3));
+			FIELD_PREP(GENMASK(8, 5), bank_bit));
 
 	kgsl_regwrite(device, GEN7_UCHE_MODE_CNTL,
-			FIELD_PREP(GENMASK(22, 21), 3));
+			FIELD_PREP(GENMASK(22, 21), bank_bit));
 	kgsl_regwrite(device, GEN7_RBBM_INTERFACE_HANG_INT_CNTL, BIT(30) |
 			FIELD_PREP(GENMASK(27, 0),
 				gen7_core->hang_detect_cycles));
