@@ -2121,6 +2121,8 @@
   usb_bus_idr
   usb_bus_idr_lock
   usb_composite_setup_continue
+  usb_control_msg_recv
+  usb_control_msg_send
   usb_debug_root
   usb_decode_ctrl
   usb_ep_alloc_request
