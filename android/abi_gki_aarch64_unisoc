@@ -707,6 +707,7 @@
   sg_miter_stop
   sg_nents
   sg_next
+  shmem_read_mapping_page_gfp
   simple_attr_open
   simple_attr_read
   simple_attr_release
@@ -974,6 +975,7 @@
   alarm_start
   alarmtimer_get_rtcdev
   devm_kasprintf
+  ns_to_kernel_old_timeval
   ns_to_timespec64
   orderly_poweroff
   power_supply_set_property
@@ -1167,6 +1169,7 @@
   __bitmap_weight
   clear_page
   devfreq_add_device
+  devfreq_cooling_em_register
   devfreq_remove_device
   devfreq_resume_device
   devfreq_suspend_device
@@ -1209,6 +1212,8 @@
   strcspn
   system_highpri_wq
   tracepoint_probe_register
+  __traceiter_android_rvh_report_bug
+  __tracepoint_android_rvh_report_bug
   __tracepoint_clock_set_rate
   __tracepoint_android_rvh_tk_based_time_sync
   trace_print_flags_seq
@@ -1254,6 +1259,7 @@
   device_get_next_child_node
   devm_gpiod_get_index
   devm_ioremap
+  devm_pm_opp_set_regulators
   dw_pcie_host_init
   dw_pcie_read_dbi
   dw_pcie_setup_rc
@@ -1350,6 +1356,14 @@
   down_read
   down_write
   drm_dev_unregister
+  drm_gem_cma_vmap
+  drm_gem_objects_lookup
+  drm_gem_shmem_get_pages_sgt
+  drm_gem_shmem_madvise
+  drm_gem_shmem_purge_locked
+  drm_gem_shmem_put_pages
+  drm_of_component_probe
+  drm_timeout_abs_to_jiffies
   fd_install
   fget
   find_vpid
