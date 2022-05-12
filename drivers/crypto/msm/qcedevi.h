@@ -16,12 +16,13 @@
 #include "qce.h"
 #include "qcedev_smmu.h"
 
-#define CACHE_LINE_SIZE 32
+#define CACHE_LINE_SIZE 64
 #define CE_SHA_BLOCK_SIZE SHA256_BLOCK_SIZE
 
 enum qcedev_crypto_oper_type {
 	QCEDEV_CRYPTO_OPER_CIPHER = 0,
 	QCEDEV_CRYPTO_OPER_SHA = 1,
+	QCEDEV_CRYPTO_OPER_OFFLOAD_CIPHER = 2,
 	QCEDEV_CRYPTO_OPER_LAST
 };
 
@@ -56,6 +57,7 @@ struct qcedev_async_req {
 	union {
 		struct qcedev_cipher_op_req	cipher_op_req;
 		struct qcedev_sha_op_req	sha_op_req;
+		struct qcedev_offload_cipher_op_req	offload_cipher_op_req;
 	};
 
 	union {
