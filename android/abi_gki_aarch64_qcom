@@ -1945,7 +1945,8 @@
   trace_event_raw_init
   trace_event_reg
   trace_handle_return
-  __tracepoint_android_rvh_account_irq
+  __tracepoint_android_rvh_account_irq_start
+  __tracepoint_android_rvh_account_irq_end
   __tracepoint_android_rvh_after_dequeue_task
   __tracepoint_android_rvh_after_enqueue_task
   __tracepoint_android_rvh_audio_usb_offload_disconnect
@@ -1969,6 +1970,7 @@
   __tracepoint_android_rvh_sched_cpu_starting
   __tracepoint_android_rvh_sched_exec
   __tracepoint_android_rvh_sched_fork_init
+  __tracepoint_android_rvh_sched_getaffinity
   __tracepoint_android_rvh_sched_newidle_balance
   __tracepoint_android_rvh_sched_nohz_balancer_kick
   __tracepoint_android_rvh_sched_setaffinity
