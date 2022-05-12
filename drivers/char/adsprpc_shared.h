@@ -92,12 +92,6 @@
 /* Set FastRPC session ID to 1 */
 #define FASTRPC_MODE_SESSION     4
 
-/* INIT a new process or attach to guestos */
-#define FASTRPC_INIT_ATTACH      0
-#define FASTRPC_INIT_CREATE      1
-#define FASTRPC_INIT_CREATE_STATIC  2
-#define FASTRPC_INIT_ATTACH_SENSORS 3
-
 /* Retrives number of input buffers from the scalars parameter */
 #define REMOTE_SCALARS_INBUFS(sc)        (((sc) >> 16) & 0x0ff)
 
@@ -276,6 +270,15 @@ struct fastrpc_ioctl_notif_rsp {
 	int domain;					/* Domain of User PD */
 	int session;				/* Session ID of User PD */
 	uint32_t status;			/* Status of the process */
+};
+
+/* INIT a new process or attach to guestos */
+enum fastrpc_init_flags {
+	FASTRPC_INIT_NO_CREATE       = -1,
+	FASTRPC_INIT_ATTACH          = 0,
+	FASTRPC_INIT_CREATE          = 1,
+	FASTRPC_INIT_CREATE_STATIC   = 2,
+	FASTRPC_INIT_ATTACH_SENSORS  = 3,
 };
 
 enum fastrpc_invoke2_type {
@@ -822,8 +825,9 @@ struct fastrpc_static_pd {
 	void *pdrhandle;
 	uint64_t pdrcount;
 	uint64_t prevpdrcount;
-	int ispdup;
+	atomic_t ispdup;
 	int cid;
+	wait_queue_head_t wait_for_pdup;
 };
 
 struct fastrpc_dsp_capabilities {
@@ -865,6 +869,9 @@ struct fastrpc_channel_ctx {
 	struct hlist_head initmems;
 	/* Store gfa structure debug details */
 	struct fastrpc_buf *buf;
+	/* Flags for DSP up mutex */
+	wait_queue_head_t wait_for_rpmsg_ch;
+	atomic_t is_rpmsg_ch_up;
 };
 
 struct fastrpc_apps {
