@@ -386,10 +386,6 @@ static void __tcs_set_trigger(struct rsc_drv *drv, int tcs_id, bool trigger)
 		write_tcs_reg_sync(drv, RSC_DRV_CONTROL, tcs_id, enable);
 		enable |= TCS_AMC_MODE_TRIGGER;
 		write_tcs_reg(drv, RSC_DRV_CONTROL, tcs_id, enable);
-		/* Read and Clear trigger bit */
-		enable = read_tcs_reg(drv, RSC_DRV_CONTROL, tcs_id);
-		enable &= ~TCS_AMC_MODE_TRIGGER;
-		write_tcs_reg(drv, RSC_DRV_CONTROL, tcs_id, enable);
 	}
 }
 
@@ -432,6 +428,12 @@ static irqreturn_t tcs_tx_done(int irq, void *p)
 	const struct tcs_request *req;
 
 	irq_status = readl_relaxed(drv->tcs_base + RSC_DRV_IRQ_STATUS);
+
+	if (bitmap_empty(drv->tcs_in_use, MAX_TCS_NR)) {
+		ipc_log_string(drv->ipc_log_ctx, "Spurious IRQ: status=%lu", irq_status);
+		writel_relaxed(irq_status, drv->tcs_base + RSC_DRV_IRQ_CLEAR);
+		return IRQ_HANDLED;
+	}
 
 	for_each_set_bit(i, &irq_status, BITS_PER_LONG) {
 		req = get_req_from_tcs(drv, i);
