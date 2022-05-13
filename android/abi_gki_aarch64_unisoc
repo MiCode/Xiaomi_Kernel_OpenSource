@@ -1180,8 +1180,8 @@
   __traceiter_android_vh_mmc_check_status
   __traceiter_android_vh_modify_thermal_request_freq
   __traceiter_android_vh_modify_thermal_target_freq
-  __traceiter_android_vh_psci_cpu_suspend
-  __traceiter_android_vh_psci_tos_resident_on
+  __traceiter_android_rvh_psci_cpu_suspend
+  __traceiter_android_rvh_psci_tos_resident_on
   __traceiter_android_vh_scheduler_tick
   __traceiter_android_vh_set_wake_flags
   __traceiter_android_vh_thermal_power_cap
@@ -1250,8 +1250,8 @@
   __tracepoint_android_vh_mmc_check_status
   __tracepoint_android_vh_modify_thermal_request_freq
   __tracepoint_android_vh_modify_thermal_target_freq
-  __tracepoint_android_vh_psci_cpu_suspend
-  __tracepoint_android_vh_psci_tos_resident_on
+  __tracepoint_android_rvh_psci_cpu_suspend
+  __tracepoint_android_rvh_psci_tos_resident_on
   __tracepoint_android_vh_scheduler_tick
   __tracepoint_android_vh_set_wake_flags
   __tracepoint_android_vh_thermal_power_cap
@@ -1541,8 +1541,8 @@
   __traceiter_android_vh_printk_ext_header
   __traceiter_android_rvh_report_bug
   __tracepoint_android_vh_dma_buf_release
-  __tracepoint_android_vh_psci_tos_resident_on
-  __tracepoint_android_vh_psci_cpu_suspend
+  __tracepoint_android_rvh_psci_tos_resident_on
+  __tracepoint_android_rvh_psci_cpu_suspend
   __tracepoint_android_vh_regmap_update
   __tracepoint_android_vh_usb_new_device_added
   __traceiter_android_rvh_tk_based_time_sync
