@@ -3139,6 +3139,19 @@ static int dwc3_device_core_soft_reset(struct dwc3_msm *mdwc)
 	return 0;
 }
 
+static void mdwc3_usb2_phy_soft_reset(struct dwc3_msm *mdwc)
+{
+	u32 val;
+
+	val = dwc3_msm_read_reg(mdwc->base, DWC3_GUSB2PHYCFG(0));
+	dwc3_msm_write_reg(mdwc->base, DWC3_GUSB2PHYCFG(0),
+				val | DWC3_GUSB2PHYCFG_PHYSOFTRST);
+	udelay(20);
+	val = dwc3_msm_read_reg(mdwc->base, DWC3_GUSB2PHYCFG(0));
+	val &= ~DWC3_GUSB2PHYCFG_PHYSOFTRST;
+	dwc3_msm_write_reg(mdwc->base, DWC3_GUSB2PHYCFG(0), val);
+}
+
 void dwc3_msm_notify_event(struct dwc3 *dwc,
 		enum dwc3_notify_event event, unsigned int value)
 {
@@ -3174,8 +3187,15 @@ void dwc3_msm_notify_event(struct dwc3 *dwc,
 		 * SW WA for CV9 RESET DEVICE TEST(TD 9.23) compliance failure.
 		 * Visit eUSB2 phy driver for more details.
 		 */
-		if (mdwc->use_eusb2_phy && (dwc->gadget->speed >= USB_SPEED_SUPER))
+		WARN_ON(mdwc->hs_phy->flags & PHY_HOST_MODE);
+		if (mdwc->use_eusb2_phy &&
+				(dwc->gadget->speed >= USB_SPEED_SUPER)) {
 			usb_phy_notify_connect(mdwc->hs_phy, dwc->gadget->speed);
+			udelay(20);
+			/* Perform usb2 phy soft reset as given workaround */
+			mdwc3_usb2_phy_soft_reset(mdwc);
+		}
+
 		/*
 		 * Add power event if the dbm indicates coming out of L1 by
 		 * interrupt
