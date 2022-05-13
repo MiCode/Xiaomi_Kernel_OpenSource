@@ -53,7 +53,6 @@
 #include <trace/hooks/fips140.h>
 #include <trace/hooks/thermal.h>
 #include <trace/hooks/rwsem.h>
-#include <trace/hooks/audio_usboffload.h>
 
 /*
  * Export tracepoints that act as a bare tracehook (ie: have no trace event
@@ -262,6 +261,3 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_rwsem_init);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_rwsem_wake);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_rwsem_write_finished);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_alter_rwsem_list_add);
-EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_audio_usb_offload_vendor_set);
-EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_audio_usb_offload_ep_action);
-EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_audio_usb_offload_synctype);
