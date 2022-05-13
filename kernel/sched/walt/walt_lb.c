@@ -759,9 +759,6 @@ static bool walt_balance_rt(struct rq *this_rq)
 	if (!p)
 		goto unlock;
 
-	if (!cpumask_test_cpu(this_cpu, p->cpus_ptr))
-		goto unlock;
-
 	wts = (struct walt_task_struct *) p->android_vendor_data1;
 
 	/*
