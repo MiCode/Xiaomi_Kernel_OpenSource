@@ -848,15 +848,23 @@ static int icnss_driver_event_server_arrive(struct icnss_priv *priv,
 		}
 	}
 
+	if (priv->pon_gpio_control) {
+		ret = icnss_hw_power_on(priv);
+		if (ret)
+			goto fail;
+	}
+
 	ret = wlfw_cap_send_sync_msg(priv);
 	if (ret < 0) {
 		ignore_assert = true;
 		goto fail;
 	}
 
-	ret = icnss_hw_power_on(priv);
-	if (ret)
-		goto fail;
+	if (!priv->pon_gpio_control) {
+		ret = icnss_hw_power_on(priv);
+		if (ret)
+			goto fail;
+	}
 
 	if (priv->device_id == WCN6750_DEVICE_ID) {
 		ret = wlfw_device_info_send_msg(priv);
@@ -1085,7 +1093,8 @@ static int icnss_driver_event_fw_ready_ind(struct icnss_priv *priv, void *data)
 
 	icnss_pr_info("WLAN FW is ready: 0x%lx\n", priv->state);
 
-	icnss_hw_power_off(priv);
+	if (!priv->pon_gpio_control)
+		icnss_hw_power_off(priv);
 
 	if (!priv->pdev) {
 		icnss_pr_err("Device is not ready\n");
@@ -4290,6 +4299,10 @@ static int icnss_probe(struct platform_device *pdev)
 	if (ret)
 		goto out_free_resources;
 
+	if (of_property_read_bool(priv->pdev->dev.of_node,
+				  "qcom,pon-gpio-control")) {
+		priv->pon_gpio_control = true;
+	}
 	spin_lock_init(&priv->event_lock);
 	spin_lock_init(&priv->on_off_lock);
 	spin_lock_init(&priv->soc_wake_msg_lock);
@@ -4346,7 +4359,8 @@ static int icnss_probe(struct platform_device *pdev)
 		init_completion(&priv->smp2p_soc_wake_wait);
 		icnss_runtime_pm_init(priv);
 		icnss_aop_mbox_init(priv);
-		set_bit(ICNSS_COLD_BOOT_CAL, &priv->state);
+		if (!priv->pon_gpio_control)
+			set_bit(ICNSS_COLD_BOOT_CAL, &priv->state);
 		priv->bdf_download_support = true;
 		register_trace_android_vh_rproc_recovery_set(rproc_restart_level_notifier, NULL);
 	}
@@ -4362,6 +4376,14 @@ static int icnss_probe(struct platform_device *pdev)
 	}
 
 	INIT_LIST_HEAD(&priv->icnss_tcdev_list);
+
+	if (priv->pon_gpio_control) {
+		ret = icnss_get_pinctrl(priv);
+		if (ret < 0) {
+			icnss_pr_err("Fail to get pmic pinctrl config from dt\n");
+			goto out_unregister_fw_service;
+		}
+	}
 
 	icnss_pr_info("Platform driver probed successfully\n");
 
