@@ -9,9 +9,6 @@
 
 #include <trace/hooks/vendor_hooks.h>
 
-struct usb_interface;
-struct snd_usb_audio;
-
 DECLARE_HOOK(android_vh_audio_usb_offload_vendor_set,
 	TP_PROTO(void *arg),
 	TP_ARGS(arg));
@@ -23,14 +20,6 @@ DECLARE_HOOK(android_vh_audio_usb_offload_ep_action,
 DECLARE_HOOK(android_vh_audio_usb_offload_synctype,
 	TP_PROTO(void *arg, int attr, bool *need_ignore),
 	TP_ARGS(arg, attr, need_ignore));
-
-DECLARE_HOOK(android_vh_audio_usb_offload_connect,
-	TP_PROTO(struct usb_interface *intf, struct snd_usb_audio *chip),
-	TP_ARGS(intf, chip));
-
-DECLARE_RESTRICTED_HOOK(android_rvh_audio_usb_offload_disconnect,
-	TP_PROTO(struct usb_interface *intf),
-	TP_ARGS(intf), 1);
 
 #endif /* _TRACE_HOOK_AUDIO_USBOFFLOAD_H */
 /* This part must be outside protection */
