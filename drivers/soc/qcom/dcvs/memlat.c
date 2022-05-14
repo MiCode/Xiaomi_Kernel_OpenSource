@@ -247,12 +247,21 @@ static ssize_t store_##name(struct kobject *kobj,			\
 	int ret;							\
 	unsigned int val;						\
 	struct memlat_group *grp = to_memlat_grp(kobj);			\
+	const struct scmi_memlat_vendor_ops *ops = memlat_data->memlat_ops;	\
 	ret = kstrtouint(buf, 10, &val);				\
 	if (ret < 0)							\
 		return ret;						\
 	val = max(val, _min);						\
 	val = min(val, _max);						\
 	grp->name = val;						\
+	if (grp->cpucp_enabled && ops) {					\
+		ret = ops->name(memlat_data->ph, grp->hw_type,		\
+				0, grp->name);				\
+		if (ret < 0) {						\
+			pr_err("failed to set grp tunable :%d\n", ret);	\
+			return ret;					\
+		}							\
+	}								\
 	return count;							\
 }									\
 
@@ -1249,9 +1258,23 @@ static int configure_cpucp_grp(struct memlat_group *grp)
 	}
 
 	ret = ops->set_grp_ev_map(memlat_data->ph, grp->hw_type, ev_map, NUM_GRP_EVS);
-	if (ret < 0)
+	if (ret < 0) {
 		pr_err("Failed to configure event map for mem grp %s\n",
 							of_node->name);
+		return ret;
+	}
+
+	ret = ops->adaptive_low_freq(memlat_data->ph, grp->hw_type, 0, grp->adaptive_low_freq);
+	if (ret < 0) {
+		pr_err("Failed to configure grp adaptive low freq for mem grp %s\n",
+								of_node->name);
+		return ret;
+	}
+
+	ret = ops->adaptive_high_freq(memlat_data->ph, grp->hw_type, 0, grp->adaptive_high_freq);
+	if (ret < 0)
+		pr_err("Failed to configure grp adaptive high freq for mem grp %s\n",
+									of_node->name);
 	return ret;
 }
 

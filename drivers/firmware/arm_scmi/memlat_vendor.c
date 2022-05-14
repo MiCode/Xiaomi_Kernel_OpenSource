@@ -21,6 +21,8 @@ enum scmi_memlat_protocol_cmd {
 	MEMLAT_SET_MONITOR,
 	MEMLAT_SET_COMMON_EV_MAP,
 	MEMLAT_SET_GRP_EV_MAP,
+	MEMLAT_ADAPTIVE_LOW_FREQ,
+	MEMLAT_ADAPTIVE_HIGH_FREQ,
 	MEMLAT_IPM_CEIL,
 	MEMLAT_FE_STALL_FLOOR,
 	MEMLAT_BE_STALL_FLOOR,
@@ -216,6 +218,8 @@ scmi_send_cmd(freq_scale_pct, MEMLAT_FREQ_SCALE_PCT);
 scmi_send_cmd(freq_scale_limit_mhz, MEMLAT_FREQ_SCALE_LIMIT_MHZ);
 scmi_send_cmd(min_freq, MEMLAT_SET_MIN_FREQ);
 scmi_send_cmd(max_freq, MEMLAT_SET_MAX_FREQ);
+scmi_send_cmd(adaptive_low_freq, MEMLAT_ADAPTIVE_LOW_FREQ);
+scmi_send_cmd(adaptive_high_freq, MEMLAT_ADAPTIVE_HIGH_FREQ);
 
 static int scmi_send_start_stop(const struct scmi_protocol_handle *ph, u32 msg_id)
 {
@@ -296,6 +300,8 @@ static struct scmi_memlat_vendor_ops memlat_proto_ops = {
 	.set_mon = scmi_set_mon,
 	.set_common_ev_map = scmi_set_common_map,
 	.set_grp_ev_map = scmi_set_grp_map,
+	.adaptive_low_freq = scmi_adaptive_low_freq,
+	.adaptive_high_freq = scmi_adaptive_high_freq,
 	.ipm_ceil = scmi_ipm_ceil,
 	.fe_stall_floor = scmi_fe_stall_floor,
 	.be_stall_floor = scmi_be_stall_floor,
