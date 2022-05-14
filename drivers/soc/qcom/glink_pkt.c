@@ -148,6 +148,11 @@ static int glink_pkt_rpdev_cb(struct rpmsg_device *rpdev, void *buf, int len,
 	unsigned long flags;
 	struct sk_buff *skb;
 
+	if (!gpdev) {
+		GLINK_PKT_ERR("channel is in reset\n");
+		return -ENETRESET;
+	}
+
 	skb = alloc_skb(len, GFP_ATOMIC);
 	if (!skb)
 		return -ENOMEM;
@@ -619,6 +624,10 @@ error:
 static void glink_pkt_release_device(struct device *dev)
 {
 	struct glink_pkt_device *gpdev = dev_to_gpdev(dev);
+
+	GLINK_PKT_INFO("for %s by %s:%d ref_cnt[%d]\n",
+		       gpdev->ch_name, current->comm,
+		       task_pid_nr(current), refcount_read(&gpdev->refcount));
 
 	ida_simple_remove(&glink_pkt_minor_ida, MINOR(gpdev->dev.devt));
 	cdev_del(&gpdev->cdev);
