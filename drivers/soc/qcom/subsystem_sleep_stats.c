@@ -531,7 +531,11 @@ static int subsystem_stats_probe(struct platform_device *pdev)
 							"ddr-freq-update");
 
 	if (config->aosd_hardened) {
-		stats_data->aosd_reg = devm_platform_get_and_ioremap_resource(pdev, 1, NULL);
+		res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+		if (!res)
+			return PTR_ERR(res);
+
+		stats_data->aosd_reg = devm_ioremap(&pdev->dev, stats_base, stats_size);
 		if (!stats_data->aosd_reg) {
 			ret = -ENOMEM;
 			goto fail_device_create;
