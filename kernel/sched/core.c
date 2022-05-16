@@ -2229,7 +2229,7 @@ static inline bool is_cpu_allowed(struct task_struct *p, int cpu)
 		return cpu_online(cpu);
 
 	/* check for all cases */
-	trace_android_rvh_is_cpu_allowed(p, cpu, &allowed);
+	trace_android_rvh_is_cpu_allowed(cpu, &allowed);
 
 	/* Non kernel threads are not allowed during either online or offline. */
 	if (!(p->flags & PF_KTHREAD))
