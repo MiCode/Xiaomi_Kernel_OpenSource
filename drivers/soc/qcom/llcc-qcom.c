@@ -350,6 +350,22 @@ static const struct llcc_slice_config diwali_data[] =  {
 	{LLCC_CPUMTE,   23,  256, 1, 1, 0x0FFF, 0x0,   0, 0, 0, 1, 1, 0, 0 },
 };
 
+static const struct llcc_slice_config anorak_data[] =  {
+	{LLCC_CPUSS,	1,  4096, 1, 1, 0xFFFFFFFF, 0x0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+	{LLCC_VIDSC0,	2,  512,  3, 1,	0xFFFFFFFF, 0x0, 0, 0, 0, 0, 0,	0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+	{LLCC_AUDIO,    6,  1024, 1, 1, 0xFFFFFFFF, 0x0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+	{LLCC_GPUHTW,	11, 1024, 1, 1,	0xFFFFFFFF, 0x0, 0, 0, 0, 0, 0,	0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+	{LLCC_GPU,	9, 5120, 1, 0,	0xFFFFFFFF, 0x0, 0, 0, 0, 0, 0,	1, 1, 0, 0, 0, 0, 0, 0, 0, 0 },
+	{LLCC_MMUHWT,	18, 768,  1, 1,	0xFFFFFFFF, 0x0, 0, 0, 0, 0, 1,	0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+	{LLCC_CVP,	28,  64,  3, 1,	0xFFFFFFFF, 0x0, 0, 0, 0, 0, 0,	0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+	{LLCC_WRTCH,	31, 512,  1, 1,	0xFFFFFFFF, 0x0, 0, 0, 0, 0, 1,	0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+};
+
+static const struct qcom_llcc_config anorak_cfg = {
+	.sct_data       = anorak_data,
+	.size           = ARRAY_SIZE(anorak_data),
+};
+
 static const struct qcom_llcc_config diwali_cfg = {
 	.sct_data       = diwali_data,
 	.size           = ARRAY_SIZE(diwali_data),
@@ -968,6 +984,7 @@ static const struct of_device_id qcom_llcc_of_match[] = {
 	{ .compatible = "qcom,waipio-llcc", .data = &waipio_cfg },
 	{ .compatible = "qcom,diwali-llcc", .data = &diwali_cfg },
 	{ .compatible = "qcom,cape-llcc", .data = &cape_cfg },
+	{ .compatible = "qcom,anorak-llcc", .data = &anorak_cfg },
 	{ }
 };
 
