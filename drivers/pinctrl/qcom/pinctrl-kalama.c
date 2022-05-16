@@ -114,7 +114,7 @@
 #define QUP_I3C(qup_mode, qup_offset)			\
 	{						\
 		.mode = qup_mode,			\
-		.offset = qup_offset,			\
+		.offset = REG_BASE + qup_offset,	\
 	}
 
 #define QUP_I3C_8_MODE_OFFSET	0xEA000
