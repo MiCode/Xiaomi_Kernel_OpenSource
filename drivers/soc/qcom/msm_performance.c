@@ -1255,7 +1255,7 @@ static void gfx_data_notify_cpucp(struct work_struct *dummy)
 	curr_pos.tail = (curr_pos.tail + size) % QUEUE_POOL_SIZE;
 	spin_unlock_irqrestore(&gfx_circ_buff_lock, flags);
 
-	for (idx = 0; idx < size; idx++) {
+	for (idx = 0; idx < size && j < GPLAF_ELEM_SIZE - MAX_GFX_STR_ELEMENTS - 1; idx++) {
 		act_idx = (updated_pos.tail + idx) % QUEUE_POOL_SIZE;
 
 		gfx_data[++j] = gpu_circ_buff[act_idx].pid;
