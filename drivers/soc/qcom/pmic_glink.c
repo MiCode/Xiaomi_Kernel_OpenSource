@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2021, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2022, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #define pr_fmt(fmt)	"PMIC_GLINK: %s: " fmt, __func__
@@ -21,6 +21,7 @@
 #include <linux/remoteproc/qcom_rproc.h>
 #include <linux/soc/qcom/pdr.h>
 #include <linux/soc/qcom/pmic_glink.h>
+#include <trace/events/rproc_qcom.h>
 
 /**
  * struct pmic_glink_dev - Top level data structure for pmic_glink device
@@ -141,10 +142,14 @@ static int pmic_glink_ssr_notifier_cb(struct notifier_block *nb,
 
 	switch (code) {
 	case QCOM_SSR_BEFORE_SHUTDOWN:
+		trace_rproc_qcom_event(pgdev->subsys_name,
+				"QCOM_SSR_BEFORE_SHUTDOWN", "pmic_glink_ssr_notifier-enter");
 		atomic_set(&pgdev->prev_state, code);
 		pmic_glink_notify_clients(pgdev, PMIC_GLINK_STATE_DOWN);
 		break;
 	case QCOM_SSR_AFTER_POWERUP:
+		trace_rproc_qcom_event(pgdev->subsys_name,
+				"QCOM_SSR_AFTER_POWERUP", "pmic_glink_ssr_notifier-enter");
 		/*
 		 * Do not notify PMIC Glink clients here but rather from
 		 * pmic_glink_init_work which will be run only after rpmsg
@@ -155,6 +160,7 @@ static int pmic_glink_ssr_notifier_cb(struct notifier_block *nb,
 		break;
 	}
 
+	trace_rproc_qcom_event(pgdev->subsys_name, "pmic_glink_ssr_notifier", "exit");
 	return NOTIFY_DONE;
 }
 
