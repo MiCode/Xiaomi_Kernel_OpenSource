@@ -214,9 +214,6 @@ struct kvm_arch {
 };
 
 struct kvm_protected_vcpu {
-	/* A unique id to the shadow structs in the hyp shadow area. */
-	int shadow_handle;
-
 	/* A pointer to the host's vcpu. */
 	struct kvm_vcpu *host_vcpu;
 

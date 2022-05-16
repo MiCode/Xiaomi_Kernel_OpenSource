@@ -445,7 +445,6 @@ static int init_shadow_structs(struct kvm *kvm, struct kvm_shadow_vm *vm,
 		shadow_state->vm = vm;
 
 		shadow_vcpu->arch.hw_mmu = &vm->arch.mmu;
-		shadow_vcpu->arch.pkvm.shadow_handle = vm->shadow_handle;
 		shadow_vcpu->arch.pkvm.shadow_vm = vm;
 		shadow_vcpu->arch.power_off = true;
 
