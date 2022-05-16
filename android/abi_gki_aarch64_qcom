@@ -341,6 +341,7 @@
   devm_clk_hw_register
   devm_clk_register
   devm_device_remove_group
+  devm_drm_panel_bridge_add
   devm_extcon_dev_allocate
   devm_extcon_dev_register
   devm_extcon_dev_unregister
@@ -564,6 +565,7 @@
   drm_dp_update_payload_part1
   drm_dp_update_payload_part2
   drm_edid_duplicate
+  drm_edid_is_valid
   drm_event_reserve_init_locked
   drm_framebuffer_lookup
   drm_framebuffer_remove
@@ -780,6 +782,7 @@
   i2c_get_dma_safe_msg_buf
   i2c_put_dma_safe_msg_buf
   i2c_register_driver
+  i2c_smbus_read_i2c_block_data
   i3c_generic_ibi_alloc_pool
   i3c_generic_ibi_free_pool
   i3c_generic_ibi_get_free_slot
@@ -1942,7 +1945,8 @@
   trace_event_raw_init
   trace_event_reg
   trace_handle_return
-  __tracepoint_android_rvh_account_irq
+  __tracepoint_android_rvh_account_irq_start
+  __tracepoint_android_rvh_account_irq_end
   __tracepoint_android_rvh_after_dequeue_task
   __tracepoint_android_rvh_after_enqueue_task
   __tracepoint_android_rvh_audio_usb_offload_disconnect
@@ -1966,6 +1970,7 @@
   __tracepoint_android_rvh_sched_cpu_starting
   __tracepoint_android_rvh_sched_exec
   __tracepoint_android_rvh_sched_fork_init
+  __tracepoint_android_rvh_sched_getaffinity
   __tracepoint_android_rvh_sched_newidle_balance
   __tracepoint_android_rvh_sched_nohz_balancer_kick
   __tracepoint_android_rvh_sched_setaffinity

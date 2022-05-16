@@ -1,0 +1,22 @@
+. ${ROOT_DIR}/${KERNEL_DIR}/build.config.common
+. ${ROOT_DIR}/common-modules/virtual-device/build.config.virtual_device
+. ${ROOT_DIR}/${KERNEL_DIR}/build.config.x86_64
+. ${ROOT_DIR}/${KERNEL_DIR}/build.config.gki
+
+BUILD_SYSTEM_DLKM=1
+MODULES_LIST=${ROOT_DIR}/${KERNEL_DIR}/android/gki_system_dlkm_modules
+BUILD_GKI_CERTIFICATION_TOOLS=1
+
+TRIM_NONLISTED_KMI=""
+KMI_SYMBOL_LIST_STRICT_MODE=""
+
+BUILD_INITRAMFS=1
+LZ4_RAMDISK=1
+DEFCONFIG=vd_x86_64_gce_defconfig
+FRAGMENT_CONFIG=common/arch/x86/configs/x86_64_gce.fragment
+
+PRE_DEFCONFIG_CMDS="KCONFIG_CONFIG=${ROOT_DIR}/${KERNEL_DIR}/arch/x86/configs/${DEFCONFIG} ${ROOT_DIR}/${KERNEL_DIR}/scripts/kconfig/merge_config.sh -m -r ${ROOT_DIR}/${KERNEL_DIR}/arch/x86/configs/gki_defconfig ${ROOT_DIR}/${FRAGMENT_CONFIG} ${ROOT_DIR}/common-modules/virtual-device/virtual_device.fragment"
+POST_DEFCONFIG_CMDS="rm ${ROOT_DIR}/${KERNEL_DIR}/arch/x86/configs/${DEFCONFIG}"
+
+BUILD_GOLDFISH_DRIVERS=m
+EXT_MODULES="common-modules/virtual-device"

@@ -485,7 +485,7 @@ static const char * const fw_path[] = {
 };
 
 static char strpath[PATH_SIZE * CUSTOM_FW_PATH_COUNT];
-static int __init firmware_param_path_set(char *val)
+static int firmware_param_path_set(const char *val, const struct kernel_param *kp)
 {
 	int i;
 	char *path, *end;
@@ -515,7 +515,7 @@ static int __init firmware_param_path_set(char *val)
 		path = ++end;
 	}
 
-	return 1;
+	return 0;
 }
 
 /*
@@ -524,7 +524,12 @@ static int __init firmware_param_path_set(char *val)
  * kernel instead of module. ',' is used as delimiter for setting 10
  * custom paths for firmware loader.
  */
-__setup("firmware_class.path=", firmware_param_path_set);
+
+static const struct kernel_param_ops firmware_param_ops = {
+	.set = firmware_param_path_set,
+};
+module_param_cb(path, &firmware_param_ops, NULL, 0200);
+MODULE_PARM_DESC(path, "customized firmware image search path with a higher priority than default path");
 
 static int
 fw_get_filesystem_firmware(struct device *device, struct fw_priv *fw_priv,
