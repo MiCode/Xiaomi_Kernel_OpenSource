@@ -2245,6 +2245,24 @@ static struct pinctrl_qup kalama_qup_regs[] = {
 static const struct msm_gpio_wakeirq_map kalama_pdc_map[] = {
 	{0, 118}, {2, 90}, {3, 101}, {8, 60}, {9, 67}, {11, 103}, {14, 136},
 	{15, 78}, {16, 138}, {17, 80}, {18, 71}, {19, 59}, {25, 57}, {26, 74},
+	{27, 76}, {28, 62}, {31, 88}, {32, 63}, {35, 124}, {39, 92}, {40, 77},
+	{41, 83}, {43, 86}, {44, 75}, {45, 93}, {46, 96}, {47, 64}, {48, 110},
+	{51, 89}, {55, 95}, {56, 68}, {59, 87}, {60, 65}, {62, 100}, {63, 81},
+	{67, 79}, {71, 102}, {73, 82}, {75, 72}, {79, 140}, {82, 105},
+	{83, 104}, {84, 126}, {85, 142}, {86, 106}, {87, 107}, {88, 61},
+	{89, 111}, {95, 108}, {96, 109}, {98, 97}, {99, 58}, {107, 139},
+	{119, 94}, {120, 135}, {133, 52}, {137, 84}, {148, 66}, {150, 73},
+	{153, 70}, {154, 53}, {155, 69}, {156, 54}, {159, 55}, {162, 56},
+	{166, 116}, {169, 119}, {171, 120}, {172, 85}, {174, 98}, {176, 112},
+	{177, 51}, {181, 114}, {182, 115}, {185, 117}, {187, 91}, {188, 123},
+	{190, 127}, {191, 113}, {192, 128}, {193, 129}, {196, 133}, {197, 134},
+	{198, 50}, {199, 99}, {200, 49}, {201, 48}, {203, 125}, {205, 141},
+	{206, 137}, {207, 47}, {208, 121}, {209, 122},
+};
+
+static const struct msm_gpio_wakeirq_map kalama_pdc_map_v2[] = {
+	{0, 118}, {2, 90}, {3, 101}, {8, 60}, {9, 67}, {11, 103}, {14, 136},
+	{15, 78}, {16, 138}, {17, 80}, {18, 71}, {19, 59}, {25, 57}, {26, 74},
 	{27, 76}, {28, 62}, {31, 111}, {32, 63}, {35, 124}, {39, 92}, {40, 77},
 	{41, 83}, {43, 86}, {44, 75}, {45, 93}, {46, 96}, {47, 64}, {48, 110},
 	{51, 89}, {55, 95}, {56, 68}, {59, 87}, {60, 65}, {62, 100}, {63, 81},
@@ -2274,6 +2292,20 @@ static const struct msm_pinctrl_soc_data kalama_pinctrl = {
 	.nwakeirq_map = ARRAY_SIZE(kalama_pdc_map),
 };
 
+static const struct msm_pinctrl_soc_data kalama_pinctrl_v2 = {
+	.pins = kalama_pins,
+	.npins = ARRAY_SIZE(kalama_pins),
+	.functions = kalama_functions,
+	.nfunctions = ARRAY_SIZE(kalama_functions),
+	.groups = kalama_groups,
+	.ngroups = ARRAY_SIZE(kalama_groups),
+	.ngpios = 211,
+	.qup_regs = kalama_qup_regs,
+	.nqup_regs = ARRAY_SIZE(kalama_qup_regs),
+	.wakeirq_map = kalama_pdc_map_v2,
+	.nwakeirq_map = ARRAY_SIZE(kalama_pdc_map_v2),
+};
+
 static const struct msm_pinctrl_soc_data kalama_vm_pinctrl = {
 	.pins = kalama_pins,
 	.npins = ARRAY_SIZE(kalama_pins),
@@ -2298,6 +2330,7 @@ static int kalama_pinctrl_probe(struct platform_device *pdev)
 
 static const struct of_device_id kalama_pinctrl_of_match[] = {
 	{ .compatible = "qcom,kalama-pinctrl", .data = &kalama_pinctrl},
+	{ .compatible = "qcom,kalama-pinctrl-v2", .data = &kalama_pinctrl_v2},
 	{ .compatible = "qcom,kalama-vm-pinctrl", .data = &kalama_vm_pinctrl},
 	{ },
 };
