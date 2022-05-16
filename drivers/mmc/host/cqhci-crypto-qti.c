@@ -41,55 +41,12 @@ cqhci_host_from_ksm(struct blk_keyslot_manager *ksm)
 	return mmc->cqe_private;
 }
 
-static int get_mmio_data(struct ice_mmio_data *data, struct cqhci_host *host)
+static void get_mmio_data(struct ice_mmio_data *data, struct cqhci_host *host)
 {
-	int err = 0;
-	struct resource *cqhci_ice_memres = NULL;
-	struct resource *hwkm_ice_memres = NULL;
-
-#if IS_ENABLED(CONFIG_MMC_CRYPTO_QTI)
-	cqhci_ice_memres = platform_get_resource_byname(host->pdev,
-							IORESOURCE_MEM,
-							"cqhci_ice");
-	if (!cqhci_ice_memres) {
-		pr_debug("%s ICE not supported\n", __func__);
-		data->ice_base_mmio = NULL;
-		return PTR_ERR(cqhci_ice_memres);
-	}
-
-	data->ice_base_mmio = devm_ioremap(&host->pdev->dev,
-				     cqhci_ice_memres->start,
-				     resource_size(cqhci_ice_memres));
-	if (!data->ice_base_mmio) {
-		pr_err("%s failed to remap ice regs\n", __func__);
-		return PTR_ERR(data->ice_base_mmio);
-	}
-
+	data->ice_base_mmio = host->ice_mmio;
 #if IS_ENABLED(CONFIG_QTI_HW_KEY_MANAGER)
-	hwkm_ice_memres = platform_get_resource_byname(host->pdev,
-						       IORESOURCE_MEM,
-						       "cqhci_ice_hwkm");
-
-	if (!hwkm_ice_memres) {
-		pr_err("%s: Either no entry in dtsi or no memory available for IORESOURCE\n",
-		       __func__);
-		data->ice_hwkm_mmio = NULL;
-		err = PTR_ERR(hwkm_ice_memres);
-		goto out;
-	} else {
-		data->ice_hwkm_mmio = devm_ioremap_resource(&host->pdev->dev,
-						      hwkm_ice_memres);
-		if (IS_ERR(data->ice_hwkm_mmio)) {
-			err = PTR_ERR(data->ice_hwkm_mmio);
-			pr_err("%s: Error = %d mapping HWKM memory\n",
-				__func__, err);
-			return err;
-		}
-	}
-#endif /*CONFIG_QTI_HW_KEY_MANAGER*/
-#endif /*CONFIG_MMC_CRYPTO_QTI*/
-out:
-	return err;
+	data->ice_hwkm_mmio = host->ice_hwkm_mmio;
+#endif
 }
 
 static int cqhci_crypto_qti_keyslot_program(struct blk_keyslot_manager *ksm,
@@ -127,9 +84,7 @@ static int cqhci_crypto_qti_keyslot_program(struct blk_keyslot_manager *ksm,
 	if (WARN_ON(cap_idx < 0))
 		return -EOPNOTSUPP;
 
-	err = get_mmio_data(&mmio_data, cq_host);
-	if (err)
-		pr_err("%s: failed to get mmio data for ice %d\n", __func__, err);
+	get_mmio_data(&mmio_data, cq_host);
 
 	err = crypto_qti_keyslot_program(&mmio_data, key,
 					 slot, data_unit_mask, cap_idx);
@@ -147,9 +102,7 @@ static int cqhci_crypto_qti_keyslot_evict(struct blk_keyslot_manager *ksm,
 	struct cqhci_host *host = cqhci_host_from_ksm(ksm);
 	struct ice_mmio_data mmio_data;
 
-	err = get_mmio_data(&mmio_data, host);
-	if (err)
-		pr_err("%s: failed to get mmio data for ice %d\n", __func__, err);
+	get_mmio_data(&mmio_data, host);
 
 	err = crypto_qti_keyslot_evict(&mmio_data, slot);
 	if (err)

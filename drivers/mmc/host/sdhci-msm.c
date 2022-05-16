@@ -2799,6 +2799,7 @@ static int sdhci_msm_ice_init(struct sdhci_msm_host *msm_host,
 		dev_err(dev, "Failed to map ICE registers; err=%d\n", err);
 		return err;
 	}
+	cq_host->ice_mmio = msm_host->ice_mem;
 
 #if IS_ENABLED(CONFIG_QTI_HW_KEY_MANAGER)
 	ice_hwkm_res = platform_get_resource_byname(msm_host->pdev,
@@ -2814,6 +2815,7 @@ static int sdhci_msm_ice_init(struct sdhci_msm_host *msm_host,
 		dev_err(dev, "Failed to map ICE HWKM registers; err=%d\n", err);
 		return err;
 	}
+	cq_host->ice_hwkm_mmio = msm_host->ice_hwkm_mem;
 #endif
 
 	if (!sdhci_msm_ice_supported(msm_host))
