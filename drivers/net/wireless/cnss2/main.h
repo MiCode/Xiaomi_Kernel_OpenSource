@@ -529,8 +529,8 @@ struct cnss_plat_data {
 	struct mbox_client mbox_client_data;
 	struct mbox_chan *mbox_chan;
 	const char *vreg_ol_cpr, *vreg_ipa;
-	const char **pdc_init_table, **vreg_pdc_map;
-	int pdc_init_table_len, vreg_pdc_map_len;
+	const char **pdc_init_table, **vreg_pdc_map, **pmu_vreg_map;
+	int pdc_init_table_len, vreg_pdc_map_len, pmu_vreg_map_len;
 	bool adsp_pc_enabled;
 	u64 feature_list;
 	u8 charger_mode;
@@ -616,6 +616,8 @@ int cnss_aop_mbox_init(struct cnss_plat_data *plat_priv);
 int cnss_aop_pdc_reconfig(struct cnss_plat_data *plat_priv);
 int cnss_aop_send_msg(struct cnss_plat_data *plat_priv, char *msg);
 void cnss_power_misc_params_init(struct cnss_plat_data *plat_priv);
+int cnss_aop_ol_cpr_cfg_setup(struct cnss_plat_data *plat_priv,
+			      struct wlfw_pmu_cfg_v01 *fw_pmu_cfg);
 int cnss_request_firmware_direct(struct cnss_plat_data *plat_priv,
 				 const struct firmware **fw_entry,
 				 const char *filename);

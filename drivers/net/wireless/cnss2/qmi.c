@@ -535,6 +535,9 @@ int cnss_wlfw_tgt_cap_send_sync(struct cnss_plat_data *plat_priv)
 	if (resp->hwid_bitmap_valid)
 		plat_priv->hwid_bitmap = resp->hwid_bitmap;
 
+	if (resp->ol_cpr_cfg_valid)
+		cnss_aop_ol_cpr_cfg_setup(plat_priv, &resp->ol_cpr_cfg);
+
 	cnss_pr_dbg("Target capability: chip_id: 0x%x, chip_family: 0x%x, board_id: 0x%x, soc_id: 0x%x, otp_version: 0x%x\n",
 		    plat_priv->chip_info.chip_id,
 		    plat_priv->chip_info.chip_family,
