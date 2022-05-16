@@ -23,6 +23,7 @@
 #include <linux/pm_runtime.h>
 #include <linux/slab.h>
 #include <linux/spinlock.h>
+#include <linux/syscore_ops.h>
 #include <linux/wait.h>
 
 #include <soc/qcom/cmd-db.h>
@@ -100,6 +101,7 @@ static const char * const accl_str[] = {
 	"", "", "", "CLK", "VREG", "BUS",
 };
 
+static LIST_HEAD(rpmh_rsc_dev_list);
 static struct rsc_drv *__rsc_drv[MAX_RSC_COUNT];
 static int __rsc_count;
 bool rpmh_standalone;
@@ -1105,6 +1107,65 @@ int rpmh_rsc_update_fast_path(struct rsc_drv *drv,
 	return 0;
 }
 
+static int rpmh_rsc_poweroff_noirq(struct device *dev)
+{
+	return 0;
+}
+
+static void rpmh_rsc_tcs_irq_enable(struct rsc_drv *drv)
+{
+	writel_relaxed(drv->tcs[ACTIVE_TCS].mask, drv->tcs_base + RSC_DRV_IRQ_ENABLE);
+}
+
+static int rpmh_rsc_restore_noirq(struct device *dev)
+{
+	struct rsc_drv *drv = dev_get_drvdata(dev);
+
+	rpmh_rsc_tcs_irq_enable(drv);
+
+	return 0;
+}
+
+static struct rsc_drv_top *rpmh_rsc_get_top_device(const char *name)
+{
+	struct rsc_drv_top *rsc_top;
+	bool rsc_dev_present = false;
+
+	list_for_each_entry(rsc_top, &rpmh_rsc_dev_list, list) {
+		if (!strcmp(name, rsc_top->name)) {
+			rsc_dev_present = true;
+			break;
+		}
+	}
+
+	if (!rsc_dev_present)
+		return ERR_PTR(-ENODEV);
+
+	return rsc_top;
+}
+
+static int rpmh_rsc_syscore_suspend(void)
+{
+	struct rsc_drv_top *rsc_top = rpmh_rsc_get_top_device("apps_rsc");
+
+	if (IS_ERR(rsc_top))
+		return 0;
+
+	if (rpmh_rsc_ctrlr_is_busy(rsc_top->drv))
+		return -EAGAIN;
+
+	return _rpmh_flush(&rsc_top->drv->client);
+}
+
+static void rpmh_rsc_syscore_resume(void)
+{
+}
+
+static struct syscore_ops rpmh_rsc_syscore_ops = {
+	.suspend = rpmh_rsc_syscore_suspend,
+	.resume = rpmh_rsc_syscore_resume,
+};
+
 static int rpmh_probe_tcs_config(struct platform_device *pdev,
 				 struct rsc_drv *drv, void __iomem *base)
 {
@@ -1209,6 +1270,7 @@ static int rpmh_rsc_probe(struct platform_device *pdev)
 	struct rsc_drv *drv;
 	struct resource *res;
 	char drv_id[10] = {0};
+	struct rsc_drv_top *rsc_top;
 	int ret, irq;
 	u32 solver_config;
 	void __iomem *base;
@@ -1238,9 +1300,17 @@ static int rpmh_rsc_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
+	rsc_top = devm_kzalloc(&pdev->dev, sizeof(*rsc_top), GFP_KERNEL);
+	if (!rsc_top)
+		return -ENOMEM;
+
 	drv->name = of_get_property(dn, "label", NULL);
 	if (!drv->name)
 		drv->name = dev_name(&pdev->dev);
+
+	rsc_top->drv = drv;
+	rsc_top->dev = &pdev->dev;
+	scnprintf(rsc_top->name, sizeof(rsc_top->name), "%s", drv->name);
 
 	snprintf(drv_id, ARRAY_SIZE(drv_id), "drv-%d", drv->id);
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, drv_id);
@@ -1283,6 +1353,7 @@ static int rpmh_rsc_probe(struct platform_device *pdev)
 			pr_err("Failed to attach RSC %s to domain ret=%d\n", drv->name, ret);
 			return ret;
 		}
+		register_syscore_ops(&rpmh_rsc_syscore_ops);
 	} else if (!solver_config) {
 		drv->rsc_pm.notifier_call = rpmh_rsc_cpu_pm_callback;
 		cpu_pm_register_notifier(&drv->rsc_pm);
@@ -1307,8 +1378,16 @@ static int rpmh_rsc_probe(struct platform_device *pdev)
 	if (__rsc_count < MAX_RSC_COUNT)
 		__rsc_drv[__rsc_count++] = drv;
 
+	INIT_LIST_HEAD(&rsc_top->list);
+	list_add_tail(&rsc_top->list, &rpmh_rsc_dev_list);
+
 	return devm_of_platform_populate(&pdev->dev);
 }
+
+static const struct dev_pm_ops rpmh_rsc_dev_pm_ops = {
+	.poweroff_noirq = rpmh_rsc_poweroff_noirq,
+	.restore_noirq = rpmh_rsc_restore_noirq,
+};
 
 static const struct of_device_id rpmh_drv_match[] = {
 	{ .compatible = "qcom,rpmh-rsc", },
@@ -1322,6 +1401,7 @@ static struct platform_driver rpmh_driver = {
 	.driver = {
 		  .name = "rpmh",
 		  .of_match_table = rpmh_drv_match,
+		  .pm = &rpmh_rsc_dev_pm_ops,
 		  .suppress_bind_attrs = true,
 	},
 };
