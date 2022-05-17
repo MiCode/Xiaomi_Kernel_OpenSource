@@ -5,6 +5,7 @@
  * Copyright (C) 2016 Linaro Ltd
  * Copyright (C) 2014 Sony Mobile Communications AB
  * Copyright (c) 2012-2013, 2020-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/clk.h>
@@ -441,21 +442,32 @@ static int adsp_start(struct rproc *rproc)
 	ret = qcom_scm_pas_auth_and_reset(adsp->pas_id);
 	if (ret)
 		panic("Panicking, auth and reset failed for remoteproc %s\n", rproc->name);
-	scm_pas_disable_bw();
 
 	if (!timeout_disabled) {
 		ret = qcom_q6v5_wait_for_start(&adsp->q6v5, msecs_to_jiffies(5000));
-		if (rproc->recovery_disabled && ret) {
+		if (rproc->recovery_disabled && ret)
 			panic("Panicking, remoteproc %s failed to bootup.\n", adsp->rproc->name);
-		} else if (ret == -ETIMEDOUT) {
+		else if (ret == -ETIMEDOUT)
 			dev_err(adsp->dev, "start timed out\n");
-			goto disable_regs;
-		}
 	}
 
-	goto free_metadata;
+	qcom_mdt_free_metadata(adsp->dev, adsp->pas_id, adsp->mdata,
+					adsp->dma_phys_below_32b, ret);
+free_firmware:
+	if (!fw)
+		release_firmware(fw);
 
-disable_regs:
+free_metadata_dtb:
+	if (adsp->dtb_pas_id || adsp->dtb_fw_name) {
+		qcom_mdt_free_metadata(adsp->dev, adsp->dtb_pas_id,
+					&adsp->dtb_mdata, adsp->dma_phys_below_32b, ret);
+		release_firmware(adsp->dtb_firmware);
+	}
+
+	scm_pas_disable_bw();
+	if (!ret)
+		goto exit;
+
 	disable_regulators(adsp);
 disable_aggre2_clk:
 	clk_disable_unprepare(adsp->aggre2_clk);
@@ -471,19 +483,7 @@ unscale_bus:
 	do_bus_scaling(adsp, false);
 disable_irqs:
 	qcom_q6v5_unprepare(&adsp->q6v5);
-free_metadata:
-	qcom_mdt_free_metadata(adsp->dev, adsp->pas_id, adsp->mdata,
-				adsp->dma_phys_below_32b, ret);
-free_firmware:
-	release_firmware(fw);
-free_metadata_dtb:
-	if (adsp->dtb_pas_id || adsp->dtb_fw_name) {
-		qcom_mdt_free_metadata(adsp->dev, adsp->dtb_pas_id,
-					&adsp->dtb_mdata,
-					adsp->dma_phys_below_32b, ret);
-		release_firmware(adsp->dtb_firmware);
-	}
-
+exit:
 	trace_rproc_qcom_event(dev_name(adsp->dev), "adsp_start", "exit");
 	return ret;
 }
