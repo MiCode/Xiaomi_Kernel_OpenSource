@@ -13,8 +13,6 @@
 #include <sound/pcm.h>
 #include <sound/pcm_params.h>
 
-#include <trace/hooks/audio_usboffload.h>
-
 #include "usbaudio.h"
 #include "helper.h"
 #include "card.h"
@@ -1482,8 +1480,6 @@ int snd_usb_endpoint_start(struct snd_usb_endpoint *ep)
 		goto fill_rest;
 	}
 
-	trace_android_vh_audio_usb_offload_ep_action(ep, true);
-
 	for (i = 0; i < ep->nurbs; i++) {
 		struct urb *urb = ep->urb[i].urb;
 
@@ -1569,7 +1565,6 @@ void snd_usb_endpoint_stop(struct snd_usb_endpoint *ep, bool keep_pending)
 		if (ep->sync_source)
 			WRITE_ONCE(ep->sync_source->sync_sink, NULL);
 		stop_urbs(ep, false, keep_pending);
-		trace_android_vh_audio_usb_offload_ep_action(ep, false);
 	}
 }
 

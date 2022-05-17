@@ -41,8 +41,6 @@
 #include <sound/pcm_params.h>
 #include <sound/initval.h>
 
-#include <trace/hooks/audio_usboffload.h>
-
 #include "usbaudio.h"
 #include "card.h"
 #include "midi.h"
@@ -754,8 +752,6 @@ static int usb_audio_probe(struct usb_interface *intf,
 	err = snd_usb_apply_boot_quirk(dev, intf, quirk, id);
 	if (err < 0)
 		return err;
-
-	trace_android_vh_audio_usb_offload_vendor_set(intf);
 
 	/*
 	 * found a config.  now register to ALSA

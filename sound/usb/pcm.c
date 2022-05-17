@@ -14,8 +14,6 @@
 #include <sound/pcm.h>
 #include <sound/pcm_params.h>
 
-#include <trace/hooks/audio_usboffload.h>
-
 #include "usbaudio.h"
 #include "card.h"
 #include "quirks.h"
@@ -97,7 +95,6 @@ find_format(struct list_head *fmt_list_head, snd_pcm_format_t format,
 	const struct audioformat *fp;
 	const struct audioformat *found = NULL;
 	int cur_attr = 0, attr;
-	bool need_ignore = false;
 
 	list_for_each_entry(fp, fmt_list_head, list) {
 		if (strict_match) {
@@ -117,11 +114,6 @@ find_format(struct list_head *fmt_list_head, snd_pcm_format_t format,
 				continue;
 		}
 		attr = fp->ep_attr & USB_ENDPOINT_SYNCTYPE;
-
-		trace_android_vh_audio_usb_offload_synctype(subs, attr, &need_ignore);
-		if (need_ignore)
-			continue;
-
 		if (!found) {
 			found = fp;
 			cur_attr = attr;
