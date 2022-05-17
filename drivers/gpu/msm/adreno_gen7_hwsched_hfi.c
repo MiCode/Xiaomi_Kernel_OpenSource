@@ -1584,6 +1584,7 @@ int gen7_hwsched_send_recurring_cmdobj(struct adreno_device *adreno_dev,
 
 	if (test_bit(CMDOBJ_RECURRING_STOP, &cmdobj->priv)) {
 		adreno_hwsched_retire_cmdobj(hwsched, hwsched->recurring_cmdobj);
+		del_timer_sync(&hwsched->lsr_timer);
 		hwsched->recurring_cmdobj = NULL;
 		if (active)
 			adreno_active_count_put(adreno_dev);
@@ -1592,6 +1593,8 @@ int gen7_hwsched_send_recurring_cmdobj(struct adreno_device *adreno_dev,
 	}
 
 	hwsched->recurring_cmdobj = cmdobj;
+	/* Star LSR timer for power stats collection */
+	mod_timer(&hwsched->lsr_timer, jiffies + msecs_to_jiffies(10));
 	return ret;
 }
 
