@@ -467,6 +467,7 @@ static void send_back_notification(uint32_t slav_status_reg,
 	uint16_t slave_fifo_free;
 	uint32_t *ptr;
 	int ret;
+	uint32_t oem_provisioning_status;
 	union helioscom_event_data_type event_data = { .fifo_data = {0} };
 
 	master_fifo_used = (uint16_t)fifo_fill_reg;
@@ -532,6 +533,9 @@ static void send_back_notification(uint32_t slav_status_reg,
 				&event_data);
 		}
 
+		oem_provisioning_status = slav_status_reg & (BIT(23) | BIT(24));
+		oem_provisioning_status = ((oem_provisioning_status<<7)>>30);
+		HELIOSCOM_ERR("Helios OEM prov. status 0x%x\n", oem_provisioning_status);
 
 	}
 
