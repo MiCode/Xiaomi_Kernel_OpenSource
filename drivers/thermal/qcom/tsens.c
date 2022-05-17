@@ -2,7 +2,7 @@
 /*
  * Copyright (c) 2015, The Linux Foundation. All rights reserved.
  * Copyright (c) 2019, 2020, Linaro Ltd.
- * Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2022, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/debugfs.h>
@@ -20,6 +20,7 @@
 #include <linux/slab.h>
 #include <linux/thermal.h>
 #include "tsens.h"
+#include "thermal_zone_internal.h"
 
 /**
  * struct tsens_irq_data - IRQ status and temperature violations
@@ -1089,6 +1090,7 @@ static int tsens_register(struct tsens_priv *priv)
 		priv->sensor[i].tzd = tzd;
 		if (priv->ops->enable)
 			priv->ops->enable(priv, i);
+		qti_update_tz_ops(tzd, true);
 	}
 
 	/* VER_0 require to set MIN and MAX THRESH
@@ -1193,12 +1195,16 @@ static int tsens_probe(struct platform_device *pdev)
 static int tsens_remove(struct platform_device *pdev)
 {
 	struct tsens_priv *priv = platform_get_drvdata(pdev);
+	int i;
 
 	debugfs_remove_recursive(priv->debug_root);
 	tsens_disable_irq(priv);
 	if (priv->ops->disable)
 		priv->ops->disable(priv);
 
+	for (i = 0; i < priv->num_sensors; i++)
+		if (priv->sensor[i].tzd)
+			qti_update_tz_ops(priv->sensor[i].tzd, false);
 	return 0;
 }
 

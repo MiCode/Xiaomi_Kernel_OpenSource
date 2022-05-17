@@ -106,6 +106,7 @@ obj-$(CONFIG_REGULATOR_QCOM_PM8008) += qcom_pm8008-regulator.o
 obj-$(CONFIG_REGULATOR_QCOM_RPM) += qcom_rpm-regulator.o
 obj-$(CONFIG_REGULATOR_QCOM_RPMH) += qcom-rpmh-regulator.o
 obj-$(CONFIG_REGULATOR_QCOM_SMD_RPM) += qcom_smd-regulator.o
+obj-$(CONFIG_REGULATOR_RPM_SMD) += rpm-smd-regulator.o
 obj-$(CONFIG_REGULATOR_QCOM_SPMI) += qcom_spmi-regulator.o
 obj-$(CONFIG_REGULATOR_QCOM_USB_VBUS) += qcom_usb_vbus-regulator.o
 obj-$(CONFIG_REGULATOR_QPNP_AMOLED) += qpnp-amoled-regulator.o
@@ -179,5 +180,6 @@ obj-$(CONFIG_REGULATOR_WM8994) += wm8994-regulator.o
 obj-$(CONFIG_REGULATOR_RPMH) += rpmh-regulator.o
 obj-$(CONFIG_REGULATOR_STUB) += stub-regulator.o
 obj-$(CONFIG_REGULATOR_DEBUG_CONTROL) += debug-regulator.o
+obj-$(CONFIG_REGULATOR_QTI_OCP_NOTIFIER) += qti-ocp-notifier.o
 
 ccflags-$(CONFIG_REGULATOR_DEBUG) += -DDEBUG

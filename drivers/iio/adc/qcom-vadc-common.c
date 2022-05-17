@@ -613,7 +613,9 @@ static const struct vadc_prescale_ratio adc5_prescale_ratios[] = {
 	{.num = 1280, .den = 4100},	/* IIN_SMB_new */
 	{.num = 640, .den = 4100},	/* ICHG_SMB_new */
 	{.num = 1000, .den = 305185},	/* ICHG_FB */
-	{.num = 1000, .den = 610370}	/* ICHG_FB_2X */
+	{.num = 1000, .den = 610370},	/* ICHG_FB_2X */
+	{.num = 1000, .den = 366220},	/* ICHG_FB ADC5_GEN3 */
+	{.num = 1000, .den = 732440}	/* ICHG_FB_2X ADC5_GEN3 */
 };
 
 static int qcom_vadc_scale_hw_calib_volt(

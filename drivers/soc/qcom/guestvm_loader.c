@@ -324,6 +324,11 @@ static ssize_t guestvm_loader_start(struct kobject *kobj,
 					msecs_to_jiffies(priv->guestvm_unisolate_timeout));
 		}
 
+		ret = gh_rm_vm_set_time_base(priv->vmid);
+		if (ret)
+			dev_err(priv->dev, "Failed to set time base for vmid = %d ret = %d\n",
+				priv->vmid, ret);
+
 		ret = gh_rm_vm_start(priv->vmid);
 		if (ret)
 			dev_err(priv->dev, "VM start failed for vmid = %d ret = %d\n",

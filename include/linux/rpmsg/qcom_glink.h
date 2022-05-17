@@ -21,6 +21,7 @@ struct qcom_glink *qcom_glink_smem_register(struct device *parent,
 void qcom_glink_smem_unregister(struct qcom_glink *glink);
 int qcom_glink_smem_start(struct qcom_glink *glink);
 bool qcom_glink_is_wakeup(bool reset);
+void qcom_glink_early_ssr_notify(void *data);
 
 #else
 
@@ -32,6 +33,8 @@ qcom_glink_smem_register(struct device *parent,
 }
 
 static inline void qcom_glink_smem_unregister(struct qcom_glink *glink) {}
+static inline void qcom_glink_ssr_notify(const char *ssr_name) {}
+static inline void qcom_glink_early_ssr_notify(void *data) {}
 
 int qcom_glink_smem_start(struct qcom_glink *glink)
 {

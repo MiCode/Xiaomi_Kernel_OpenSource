@@ -108,6 +108,8 @@
 #define PINCTRL_ACTIVE  "active"
 #define PINCTRL_SLEEP   "sleep"
 
+#define DDR_VOTE_FACTOR		2
+
 #define SPI_LOG_DBG(log_ctx, print, dev, x...) do { \
 GENI_SE_DBG(log_ctx, print, dev, x); \
 if (dev) \
@@ -1105,12 +1107,14 @@ static int spi_geni_prepare_message(struct spi_master *spi,
 		ret = setup_fifo_params(spi_msg->spi, spi);
 	}
 
-	/* Set BW quota for CPU */
+	/* DDR and GENI path vote based on freq, core/core2x - TBD */
+	spi_rsc->icc_paths[GENI_TO_DDR].avg_bw =
+		Bps_to_icc(mas->cur_speed_hz * DDR_VOTE_FACTOR);
 	spi_rsc->icc_paths[CPU_TO_GENI].avg_bw = Bps_to_icc(mas->cur_speed_hz);
 	ret = geni_icc_set_bw(spi_rsc);
 	if (ret) {
 		SPI_LOG_ERR(mas->ipc, true, mas->dev,
-			 "%s: icc set bw failed ret:%d\n",  __func__, ret);
+			"%s: icc set bw failed ret:%d\n",  __func__, ret);
 		return ret;
 	}
 	SPI_LOG_DBG(mas->ipc, false, mas->dev,
@@ -1118,7 +1122,6 @@ static int spi_geni_prepare_message(struct spi_master *spi,
 		__func__, spi_rsc->icc_paths[GENI_TO_CORE].avg_bw,
 		spi_rsc->icc_paths[CPU_TO_GENI].avg_bw,
 		spi_rsc->icc_paths[GENI_TO_DDR].avg_bw);
-
 exit_prepare_message:
 	return ret;
 }
@@ -1944,6 +1947,7 @@ static int spi_geni_probe(struct platform_device *pdev)
 	struct resource *res;
 	bool rt_pri;
 	struct device *dev = &pdev->dev;
+	struct geni_se *spi_rsc;
 
 	spi = spi_alloc_master(&pdev->dev, sizeof(struct spi_geni_master));
 	if (!spi) {
@@ -1976,11 +1980,22 @@ static int spi_geni_probe(struct platform_device *pdev)
 	 * in SPI LE dt.
 	 */
 	if (!geni_mas->is_le_vm) {
-		ret = geni_se_common_resources_init(&geni_mas->spi_rsc, Bps_to_icc(CORE_2X_50_MHZ),
-								GENI_DEFAULT_BW, GENI_DEFAULT_BW);
+		/* set voting values for path: core, config and DDR */
+		spi_rsc = &geni_mas->spi_rsc;
+		ret = geni_se_common_resources_init(spi_rsc,
+			Bps_to_icc(CORE_2X_50_MHZ), GENI_DEFAULT_BW,
+			GENI_DEFAULT_BW);
 		if (ret) {
 			dev_err(&pdev->dev, "Error geni_se_resources_init\n");
 			goto spi_geni_probe_err;
+		}
+
+		/* call set_bw for once, then do icc_enable/disable */
+		ret = geni_icc_set_bw(spi_rsc);
+		if (ret) {
+			dev_err(&pdev->dev, "%s: icc set bw failed ret:%d\n",
+								__func__, ret);
+			return ret;
 		}
 
 		geni_mas->geni_pinctrl = devm_pinctrl_get(&pdev->dev);
@@ -2147,6 +2162,13 @@ static int spi_geni_probe(struct platform_device *pdev)
 	geni_mas->ipc = ipc_log_context_create(4, dev_name(geni_mas->dev), 0);
 	if (!geni_mas->ipc && IS_ENABLED(CONFIG_IPC_LOGGING))
 		dev_err(&pdev->dev, "Error creating IPC logs\n");
+
+	if (!geni_mas->is_le_vm)
+		SPI_LOG_DBG(geni_mas->ipc, false, geni_mas->dev,
+		"%s: GENI_TO_CORE:%d CPU_TO_GENI:%d GENI_TO_DDR:%d\n", __func__,
+		spi_rsc->icc_paths[GENI_TO_CORE].avg_bw,
+		spi_rsc->icc_paths[CPU_TO_GENI].avg_bw,
+		spi_rsc->icc_paths[GENI_TO_DDR].avg_bw);
 
 	ret = spi_register_master(spi);
 	if (ret) {

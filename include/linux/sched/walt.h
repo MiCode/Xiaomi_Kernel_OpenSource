@@ -32,7 +32,13 @@ enum task_boost_type {
 };
 
 #define WALT_NR_CPUS 8
-#define RAVG_HIST_SIZE_MAX 8
+/*
+ * RAVG_HIST_SHIFT trick can only be used if RAVG_HIST_SIZE is a power of 2.
+ */
+#define RAVG_HIST_SIZE 8
+#define RAVG_HIST_SHIFT 3
+#define RAVG_HIST_MASK (RAVG_HIST_SIZE - 1)
+
 /* wts->bucket_bitmask needs to be updated if NUM_BUSY_BUCKETS > 16 */
 #define NUM_BUSY_BUCKETS 16
 #define NUM_BUSY_BUCKETS_SHIFT 4
@@ -90,7 +96,8 @@ struct walt_task_struct {
 	u64				mark_start;
 	u32				sum, demand;
 	u32				coloc_demand;
-	u32				sum_history[RAVG_HIST_SIZE_MAX];
+	u32				sum_history[RAVG_HIST_SIZE];
+	u16				sum_history_util[RAVG_HIST_SIZE];
 	u32				curr_window_cpu[WALT_NR_CPUS];
 	u32				prev_window_cpu[WALT_NR_CPUS];
 	u32				curr_window, prev_window;
@@ -125,6 +132,8 @@ struct walt_task_struct {
 	u64				total_exec;
 	int				mvp_prio;
 	int				cidx;
+	int				load_boost;
+	int64_t				boosted_task_load;
 	u8                              hung_detect_status;
 };
 

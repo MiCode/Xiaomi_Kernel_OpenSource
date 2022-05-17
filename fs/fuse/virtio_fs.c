@@ -972,7 +972,7 @@ static struct virtio_driver virtio_fs_driver = {
 #endif
 };
 
-static void virtio_fs_wake_forget_and_unlock(struct fuse_iqueue *fiq)
+static void virtio_fs_wake_forget_and_unlock(struct fuse_iqueue *fiq, bool sync)
 __releases(fiq->lock)
 {
 	struct fuse_forget_link *link;
@@ -1007,7 +1007,8 @@ __releases(fiq->lock)
 	kfree(link);
 }
 
-static void virtio_fs_wake_interrupt_and_unlock(struct fuse_iqueue *fiq)
+static void virtio_fs_wake_interrupt_and_unlock(struct fuse_iqueue *fiq,
+						bool sync)
 __releases(fiq->lock)
 {
 	/*
@@ -1222,7 +1223,8 @@ out:
 	return ret;
 }
 
-static void virtio_fs_wake_pending_and_unlock(struct fuse_iqueue *fiq)
+static void virtio_fs_wake_pending_and_unlock(struct fuse_iqueue *fiq,
+					      bool sync)
 __releases(fiq->lock)
 {
 	unsigned int queue_id = VQ_REQUEST; /* TODO multiqueue */

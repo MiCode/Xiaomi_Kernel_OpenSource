@@ -4,12 +4,14 @@ iommu-logger.ko
 llcc-qcom.ko
 mem_buf.ko
 mem_buf_dev.ko
+minidump.ko
 msm_qmp.ko
 msm_dma_iommu_mapping.ko
 ns.ko
 pinctrl-msm.ko
 pinctrl-slpi.ko
 pinctrl-sm8150.ko
+pinctrl-sdmshrike.ko
 qcom-dload-mode.ko
 qcom_aoss.ko
 qcom_hwspinlock.ko
@@ -51,3 +53,6 @@ icc-debug.ko
 qcom-cpufreq-hw.ko
 socinfo.ko
 qcom_ipc_logging.ko
+phy-qcom-ufs.ko
+phy-qcom-ufs-qmp-v4.ko
+ufs_qcom.ko

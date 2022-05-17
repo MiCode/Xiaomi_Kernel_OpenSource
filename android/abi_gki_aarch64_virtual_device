@@ -26,6 +26,7 @@
   bt_err
   bt_info
   bt_warn
+  build_skb
   cancel_delayed_work_sync
   cancel_work_sync
   __cfi_slowpath_diag
@@ -80,6 +81,7 @@
   _dev_notice
   dev_queue_xmit
   _dev_warn
+  disable_irq
   dma_alloc_attrs
   dma_buf_export
   dma_fence_context_alloc
@@ -93,18 +95,45 @@
   dma_sync_sg_for_device
   dma_unmap_sg_attrs
   do_trace_netlink_extack
+  down_write
+  drm_add_modes_noedid
+  drm_atomic_get_crtc_state
   drm_atomic_helper_check
+  drm_atomic_helper_check_plane_state
   drm_atomic_helper_commit
+  drm_atomic_helper_connector_destroy_state
+  drm_atomic_helper_connector_duplicate_state
+  drm_atomic_helper_connector_reset
+  drm_atomic_helper_disable_plane
+  drm_atomic_helper_page_flip
+  drm_atomic_helper_set_config
+  drm_atomic_helper_shutdown
+  drm_atomic_helper_update_plane
   drm_compat_ioctl
+  drm_connector_attach_encoder
+  drm_connector_cleanup
+  drm_connector_init
+  drm_crtc_arm_vblank_event
+  drm_crtc_cleanup
+  drm_crtc_handle_vblank
+  drm_crtc_init_with_planes
+  drm_crtc_send_vblank_event
+  drm_crtc_vblank_get
+  drm_crtc_vblank_off
+  drm_crtc_vblank_on
   __drm_dbg
   drm_debugfs_create_files
   drm_dev_alloc
   drm_dev_put
   drm_dev_register
+  drm_dev_unregister
+  __drm_err
+  drm_gem_fb_create
   drm_gem_mmap
   drm_gem_prime_fd_to_handle
   drm_gem_prime_handle_to_fd
   drm_gem_prime_mmap
+  drm_helper_probe_single_connector_modes
   drm_ioctl
   drmm_mode_config_init
   drm_mode_config_reset
@@ -112,8 +141,14 @@
   drm_poll
   drm_read
   drm_release
+  drm_set_preferred_mode
+  drm_simple_encoder_init
+  drm_vblank_init
+  enable_irq
   ether_setup
   ethtool_op_get_link
+  ethtool_op_get_ts_info
+  eth_type_trans
   eth_validate_addr
   event_triggers_call
   fd_install
@@ -138,6 +173,10 @@
   hci_recv_frame
   hci_register_dev
   hci_unregister_dev
+  hrtimer_cancel
+  hrtimer_forward
+  hrtimer_init
+  hrtimer_start_range_ns
   ida_alloc_range
   ida_free
   init_pseudo
@@ -156,6 +195,7 @@
   __ioremap
   iounmap
   iput
+  is_vmalloc_addr
   jiffies
   jiffies_to_msecs
   kasan_flag_enabled
@@ -201,10 +241,18 @@
   module_put
   __msecs_to_jiffies
   msleep
+  msleep_interruptible
   __mutex_init
   mutex_lock
   mutex_lock_interruptible
   mutex_unlock
+  __napi_alloc_skb
+  napi_complete_done
+  napi_disable
+  napi_enable
+  napi_gro_receive
+  __napi_schedule
+  napi_schedule_prep
   __netdev_alloc_skb
   netdev_err
   netdev_info
@@ -214,11 +262,15 @@
   netdev_warn
   netif_carrier_off
   netif_carrier_on
+  netif_device_attach
   netif_device_detach
+  netif_napi_add
   netif_rx
   netif_rx_ni
+  netif_schedule_queue
   netif_tx_stop_all_queues
   netif_tx_wake_queue
+  net_ratelimit
   nf_conntrack_destroy
   no_llseek
   nonseekable_open
@@ -227,6 +279,7 @@
   __num_online_cpus
   of_device_is_compatible
   of_property_read_variable_u32_array
+  param_array_ops
   param_ops_bool
   param_ops_int
   param_ops_uint
@@ -238,10 +291,14 @@
   pci_iounmap
   pci_read_config_byte
   pci_read_config_dword
+  pci_read_config_word
   __pci_register_driver
   pci_release_region
+  pci_release_selected_regions
   pci_request_region
+  pci_request_selected_regions
   pci_set_master
+  pci_set_power_state
   pci_unregister_driver
   __per_cpu_offset
   perf_trace_buf_alloc
@@ -251,6 +308,7 @@
   platform_device_alloc
   platform_device_del
   platform_device_put
+  platform_device_register_full
   platform_device_unregister
   __platform_driver_register
   platform_driver_unregister
@@ -268,7 +326,9 @@
   preempt_schedule
   preempt_schedule_notrace
   prepare_to_wait_event
+  print_hex_dump
   _printk
+  __pskb_pull_tail
   put_device
   __put_page
   __put_task_struct
@@ -335,6 +395,8 @@
   skb_push
   skb_put
   skb_queue_tail
+  skb_trim
+  skb_tstamp_tx
   snd_card_free
   snd_card_new
   snd_card_register
@@ -350,6 +412,7 @@
   snd_pcm_set_managed_buffer_all
   snd_pcm_set_ops
   snprintf
+  softnet_data
   sort
   sprintf
   sscanf
@@ -363,6 +426,7 @@
   strncpy
   strscpy
   sync_file_create
+  synchronize_irq
   synchronize_rcu
   sysfs_create_group
   __sysfs_match_string
@@ -386,6 +450,7 @@
   unregister_shrinker
   unregister_virtio_device
   unregister_virtio_driver
+  up_write
   usb_add_hcd
   usb_alloc_urb
   usb_anchor_urb
@@ -435,6 +500,7 @@
   vring_del_virtqueue
   vring_interrupt
   vring_transport_features
+  vzalloc
   wait_for_completion
   __wake_up
   __warn_printk
@@ -498,9 +564,7 @@
   btbcm_setup_apple
   btbcm_setup_patchram
   device_set_wakeup_capable
-  disable_irq
   disable_irq_nosync
-  enable_irq
   gpiod_get_optional
   gpiod_set_value_cansleep
   hci_recv_diag
@@ -541,6 +605,41 @@
   usb_ep_set_maxpacket_limit
   usb_gadget_giveback_request
   usb_gadget_udc_reset
+
+# required by e1000.ko
+  csum_ipv6_magic
+  csum_tcpudp_nofold
+  dev_driver_string
+  device_set_wakeup_enable
+  dma_map_page_attrs
+  dma_sync_single_for_cpu
+  dma_sync_single_for_device
+  dma_unmap_page_attrs
+  dql_completed
+  dql_reset
+  ethtool_convert_legacy_u32_to_link_mode
+  ethtool_convert_link_mode_to_legacy_u32
+  _find_first_bit
+  _find_next_bit
+  napi_get_frags
+  napi_gro_frags
+  __netdev_alloc_frag_align
+  page_frag_free
+  pci_clear_mwi
+  pci_enable_device_mem
+  pci_enable_wake
+  pci_ioremap_bar
+  pci_save_state
+  pci_select_bars
+  pci_set_mwi
+  pci_wake_from_d3
+  pcix_get_mmrbc
+  pcix_set_mmrbc
+  pskb_expand_head
+  ___pskb_trim
+  skb_copy_bits
+  __skb_pad
+  system_state
 
 # required by failover.ko
   netdev_master_upper_dev_link
@@ -601,10 +700,6 @@
   genl_notify
   genl_register_family
   genl_unregister_family
-  hrtimer_cancel
-  hrtimer_forward
-  hrtimer_init
-  hrtimer_start_range_ns
   ieee80211_alloc_hw_nm
   ieee80211_beacon_cntdwn_is_complete
   ieee80211_beacon_get_tim
@@ -652,7 +747,6 @@
   skb_copy
   skb_copy_expand
   __skb_ext_put
-  skb_trim
   skb_unlink
   unregister_pernet_device
   wiphy_apply_custom_regulatory
@@ -688,23 +782,18 @@
 # required by open-dice.ko
   devm_memremap
   devm_memunmap
+  of_reserved_mem_lookup
+  __platform_driver_probe
+  simple_read_from_buffer
   vm_iomap_memory
 
 # required by pl111_drm.ko
   __clk_get_name
   clk_hw_get_parent
   clk_hw_round_rate
-  drm_crtc_arm_vblank_event
-  drm_crtc_handle_vblank
-  drm_crtc_send_vblank_event
-  drm_crtc_vblank_get
-  drm_crtc_vblank_off
-  drm_crtc_vblank_on
-  drm_dev_unregister
   drm_fb_cma_get_gem_addr
   drm_gem_cma_dumb_create
   drm_gem_cma_prime_import_sg_table
-  drm_gem_fb_create
   drm_kms_helper_poll_init
   drm_of_find_panel_or_bridge
   drm_panel_bridge_add_typed
@@ -712,7 +801,6 @@
   drm_panel_bridge_remove
   drm_simple_display_pipe_attach_bridge
   drm_simple_display_pipe_init
-  drm_vblank_init
   of_find_device_by_node
   of_find_matching_node_and_match
   of_find_node_opts_by_path
@@ -783,7 +871,6 @@
   capable
   hex_asc_upper
   hex_to_bin
-  msleep_interruptible
   tty_hangup
   tty_mode_ioctl
   tty_register_ldisc
@@ -839,6 +926,7 @@
   add_uevent_var
   bus_register
   bus_unregister
+  clocks_calc_mult_shift
   device_add
   device_del
   device_initialize
@@ -865,7 +953,6 @@
 # required by snd-hda-intel.ko
   bpf_trace_run1
   complete_all
-  param_array_ops
   param_get_int
   param_ops_bint
   param_ops_charp
@@ -879,8 +966,6 @@
   pcim_enable_device
   pcim_iomap_regions
   pcim_iomap_table
-  pci_read_config_word
-  pci_set_power_state
   pci_write_config_byte
   pci_write_config_dword
   pci_write_config_word
@@ -904,7 +989,6 @@
 # required by usbip-core.ko
   iov_iter_kvec
   param_ops_ulong
-  print_hex_dump
   sock_recvmsg
 
 # required by vcan.ko
@@ -965,35 +1049,19 @@
   dma_resv_test_signaled
   dma_resv_wait_timeout
   drm_add_edid_modes
-  drm_add_modes_noedid
   drm_aperture_remove_conflicting_pci_framebuffers
-  drm_atomic_get_crtc_state
-  drm_atomic_helper_check_plane_state
-  drm_atomic_helper_connector_destroy_state
-  drm_atomic_helper_connector_duplicate_state
-  drm_atomic_helper_connector_reset
   drm_atomic_helper_crtc_destroy_state
   drm_atomic_helper_crtc_duplicate_state
   drm_atomic_helper_crtc_reset
   drm_atomic_helper_damage_merged
   drm_atomic_helper_dirtyfb
-  drm_atomic_helper_disable_plane
-  drm_atomic_helper_page_flip
   drm_atomic_helper_plane_destroy_state
   drm_atomic_helper_plane_duplicate_state
   drm_atomic_helper_plane_reset
-  drm_atomic_helper_set_config
-  drm_atomic_helper_shutdown
-  drm_atomic_helper_update_plane
   drm_connector_attach_edid_property
-  drm_connector_attach_encoder
-  drm_connector_cleanup
-  drm_connector_init
   drm_connector_register
   drm_connector_unregister
   drm_connector_update_edid_property
-  drm_crtc_cleanup
-  drm_crtc_init_with_planes
   drm_cvt_mode
   drm_dev_enter
   drm_dev_exit
@@ -1002,7 +1070,6 @@
   drm_dev_set_unique
   drm_dev_unplug
   drm_do_get_edid
-  __drm_err
   drm_framebuffer_init
   drm_gem_create_mmap_offset
   drm_gem_dmabuf_mmap
@@ -1037,7 +1104,6 @@
   drm_gem_vm_open
   drm_helper_hpd_irq_event
   drm_helper_mode_fill_fb_struct
-  drm_helper_probe_single_connector_modes
   drm_kms_helper_hotplug_event
   drm_mm_init
   drm_mm_insert_node_in_range
@@ -1048,12 +1114,9 @@
   drm_plane_cleanup
   __drm_printfn_seq_file
   __drm_puts_seq_file
-  drm_set_preferred_mode
-  drm_simple_encoder_init
   drm_universal_plane_init
   __get_task_comm
   iomem_resource
-  is_vmalloc_addr
   kmalloc_order_trace
   memdup_user
   seq_puts
@@ -1147,7 +1210,6 @@
   device_for_each_child
   device_register
   devm_platform_ioremap_resource
-  platform_device_register_full
 
 # required by virtio_net.ko
   bpf_dispatcher_xdp_func
@@ -1157,35 +1219,20 @@
   bpf_prog_sub
   bpf_stats_enabled_key
   bpf_warn_invalid_xdp_action
-  build_skb
   cpumask_next_wrap
   cpus_read_lock
   cpus_read_unlock
   eth_commit_mac_addr_change
   eth_prepare_mac_addr_change
-  ethtool_op_get_ts_info
   ethtool_sprintf
   ethtool_virtdev_set_link_ksettings
-  eth_type_trans
   flow_keys_basic_dissector
-  __napi_alloc_skb
-  napi_complete_done
   napi_consume_skb
-  napi_disable
-  napi_enable
-  napi_gro_receive
-  __napi_schedule
-  napi_schedule_prep
   netdev_notify_peers
-  netif_device_attach
-  netif_napi_add
   __netif_napi_del
-  netif_schedule_queue
   netif_set_real_num_rx_queues
   netif_set_real_num_tx_queues
   __netif_set_xps_queue
-  net_ratelimit
-  __pskb_pull_tail
   _raw_spin_trylock
   sched_clock
   skb_coalesce_rx_frag
@@ -1193,8 +1240,6 @@
   skb_page_frag_refill
   skb_partial_csum_set
   skb_to_sgvec
-  skb_tstamp_tx
-  softnet_data
   synchronize_net
   __traceiter_xdp_exception
   __tracepoint_xdp_exception
@@ -1226,15 +1271,12 @@
   pci_irq_get_affinity
   pci_irq_vector
   pci_vfs_assigned
-  synchronize_irq
   virtio_break_device
   virtio_device_freeze
   virtio_device_restore
 
 # required by virtio_pci_modern_dev.ko
   pci_iomap_range
-  pci_release_selected_regions
-  pci_request_selected_regions
 
 # required by virtio_pmem.ko
   nvdimm_bus_register
@@ -1245,6 +1287,44 @@
   snd_pcm_format_physical_width
   snd_pcm_lib_ioctl
   wait_for_completion_interruptible_timeout
+
+# required by vkms.ko
+  crc32_le
+  __devm_drm_dev_alloc
+  devres_open_group
+  devres_release_group
+  drm_atomic_add_affected_planes
+  drm_atomic_helper_cleanup_planes
+  drm_atomic_helper_commit_hw_done
+  drm_atomic_helper_commit_modeset_disables
+  drm_atomic_helper_commit_modeset_enables
+  drm_atomic_helper_commit_planes
+  __drm_atomic_helper_crtc_destroy_state
+  __drm_atomic_helper_crtc_duplicate_state
+  __drm_atomic_helper_crtc_reset
+  drm_atomic_helper_fake_vblank
+  drm_atomic_helper_wait_for_flip_done
+  drm_calc_timestamping_constants
+  drm_crtc_accurate_vblank_count
+  drm_crtc_add_crc_entry
+  drm_crtc_vblank_put
+  drm_encoder_cleanup
+  drm_gem_cleanup_shadow_fb
+  __drm_gem_destroy_shadow_plane_state
+  __drm_gem_duplicate_shadow_plane_state
+  drm_gem_fb_get_obj
+  drm_gem_fb_vmap
+  drm_gem_fb_vunmap
+  drm_gem_prepare_shadow_fb
+  __drm_gem_reset_shadow_plane
+  drm_gem_shmem_dumb_create
+  drm_gem_shmem_prime_import_sg_table
+  drm_mode_object_get
+  drm_mode_object_put
+  __drmm_universal_plane_alloc
+  drm_writeback_connector_init
+  drm_writeback_queue_job
+  drm_writeback_signal_completion
 
 # required by vmw_vsock_virtio_transport.ko
   sk_error_report
@@ -1303,7 +1383,6 @@
   disk_end_io_acct
   disk_start_io_acct
   down_read
-  down_write
   flush_dcache_page
   free_percpu
   fsync_bdev
@@ -1321,8 +1400,6 @@
   set_capacity
   sysfs_streq
   up_read
-  up_write
-  vzalloc
 
 # required by zsmalloc.ko
   dec_zone_page_state

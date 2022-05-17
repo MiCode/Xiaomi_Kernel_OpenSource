@@ -11,7 +11,7 @@ obj-$(CONFIG_QCOM_OCMEM)	+= ocmem.o
 obj-$(CONFIG_QCOM_PDR_HELPERS)	+= pdr_interface.o
 obj-$(CONFIG_QCOM_QMI_HELPERS)	+= qmi_helpers.o
 qmi_helpers-y	+= qmi_encdec.o qmi_interface.o
-obj-$(CONFIG_MEM_SHARE_QMI_SERVICE)	= memshare/
+obj-$(CONFIG_MEM_SHARE_QMI_SERVICE)	+= memshare/
 obj-$(CONFIG_QCOM_RMTFS_MEM)	+= rmtfs_mem.o
 obj-$(CONFIG_QCOM_RPMH)		+= qcom_rpmh.o
 qcom_rpmh-y			+= rpmh-rsc.o
@@ -68,12 +68,12 @@ obj-$(CONFIG_QCOM_RAMDUMP) += qcom_ramdump.o
 obj-$(CONFIG_QCOM_PANEL_EVENT_NOTIFIER) += panel_event_notifier.o
 obj-$(CONFIG_QCOM_VM_DMESG_DUMPER) += dmesg_dumper.o
 obj-$(CONFIG_QCOM_GUESTVM) += guestvm_loader.o
-obj-$(CONFIG_QCOM_GH_VCPU_SCHED) += gh_vcpu_sched.o
 ifdef CONFIG_DEBUG_FS
 obj-$(CONFIG_MSM_RPM_SMD)   +=  rpm-smd-debug.o
 endif
 obj-$(CONFIG_QTI_SYS_PM_VX) += sys_pm_vx.o
 obj-$(CONFIG_QTI_PLH_SCMI_CLIENT) += plh_scmi.o
+obj-$(CONFIG_QCOM_QDSS_BRIDGE) += qdss_bridge.o
 obj-$(CONFIG_QCOM_CPU_VENDOR_HOOKS) += qcom_cpu_vendor_hooks.o
 obj-$(CONFIG_QCOM_MEM_OFFLINE) += mem-offline.o
 obj-$(CONFIG_QCOM_HYP_CORE_CTL) += hyp_core_ctl.o
@@ -95,3 +95,4 @@ obj-$(CONFIG_QCOM_LOGBUF_VENDOR_HOOKS) += qcom_logbuf_vh.o
 obj-$(CONFIG_MSM_QBT_HANDLER) += qbt_handler.o
 obj-$(CONFIG_QCOM_HUNG_TASK_ENH) += hung_task_enh.o
 obj-$(CONFIG_QCOM_CX_IPEAK) += cx_ipeak.o
+obj-$(CONFIG_DUMP_XBL_LOG) += dump_boot_log.o

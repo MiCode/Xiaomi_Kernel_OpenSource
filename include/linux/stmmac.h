@@ -295,5 +295,9 @@ struct plat_stmmacenet_data {
 		int cmd);
 	void (*request_phy_wol)(void *plat);
 	int (*init_pps)(void *priv);
+	int mac2mac_rgmii_speed;
+	bool mac2mac_en;
+	int mac2mac_link;
+	bool early_eth;
 };
 #endif

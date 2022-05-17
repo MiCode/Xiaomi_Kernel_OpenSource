@@ -44,6 +44,16 @@
 		_IOWR('R', 20, struct compat_fastrpc_ioctl_mem_unmap)
 #define COMPAT_FASTRPC_IOCTL_INVOKE_PERF \
 		_IOWR('R', 21, struct compat_fastrpc_ioctl_invoke_perf)
+#define COMPAT_FASTRPC_IOCTL_DSPSIGNAL_CREATE \
+		_IOWR('R', 23, struct fastrpc_ioctl_dspsignal_create)
+#define COMPAT_FASTRPC_IOCTL_DSPSIGNAL_DESTROY \
+		_IOWR('R', 24, struct fastrpc_ioctl_dspsignal_destroy)
+#define COMPAT_FASTRPC_IOCTL_DSPSIGNAL_SIGNAL \
+		_IOWR('R', 25, struct fastrpc_ioctl_dspsignal_signal)
+#define COMPAT_FASTRPC_IOCTL_DSPSIGNAL_WAIT \
+		_IOWR('R', 26, struct fastrpc_ioctl_dspsignal_wait)
+#define COMPAT_FASTRPC_IOCTL_DSPSIGNAL_CANCEL_WAIT \
+		_IOWR('R', 27, struct fastrpc_ioctl_dspsignal_cancel_wait)
 
 struct compat_remote_buf {
 	compat_uptr_t pv;	/* buffer pointer */
@@ -891,6 +901,66 @@ static inline long compat_fastrpc_mmap_device_ioctl(struct fastrpc_file *fl,
 	}
 }
 
+static long compat_fastrpc_dspsignal_create(struct fastrpc_file *fl, unsigned long arg)
+{
+	struct fastrpc_ioctl_dspsignal_create __user *uc = compat_ptr(arg);
+	struct fastrpc_ioctl_dspsignal_create c;
+	int err = 0;
+
+	err = copy_from_user(&c, uc, sizeof(c));
+	if (err)
+		return -EFAULT;
+	return fastrpc_dspsignal_create(fl, &c);
+}
+
+static long compat_fastrpc_dspsignal_destroy(struct fastrpc_file *fl, unsigned long arg)
+{
+	struct fastrpc_ioctl_dspsignal_destroy __user *uc = compat_ptr(arg);
+	struct fastrpc_ioctl_dspsignal_destroy c;
+	int err = 0;
+
+	err = copy_from_user(&c, uc, sizeof(c));
+	if (err)
+		return -EFAULT;
+	return fastrpc_dspsignal_destroy(fl, &c);
+}
+
+static long compat_fastrpc_dspsignal_signal(struct fastrpc_file *fl, unsigned long arg)
+{
+	struct fastrpc_ioctl_dspsignal_signal __user *uc = compat_ptr(arg);
+	struct fastrpc_ioctl_dspsignal_signal c;
+	int err = 0;
+
+	err = copy_from_user(&c, uc, sizeof(c));
+	if (err)
+		return -EFAULT;
+	return fastrpc_dspsignal_signal(fl, &c);
+}
+
+static long compat_fastrpc_dspsignal_wait(struct fastrpc_file *fl, unsigned long arg)
+{
+	struct fastrpc_ioctl_dspsignal_wait __user *uc = compat_ptr(arg);
+	struct fastrpc_ioctl_dspsignal_wait c;
+	int err = 0;
+
+	err = copy_from_user(&c, uc, sizeof(c));
+	if (err)
+		return -EFAULT;
+	return fastrpc_dspsignal_wait(fl, &c);
+}
+
+static long compat_fastrpc_dspsignal_cancel_wait(struct fastrpc_file *fl, unsigned long arg)
+{
+	struct fastrpc_ioctl_dspsignal_cancel_wait __user *uc = compat_ptr(arg);
+	struct fastrpc_ioctl_dspsignal_cancel_wait c;
+	int err = 0;
+
+	err = copy_from_user(&c, uc, sizeof(c));
+	if (err)
+		return -EFAULT;
+	return fastrpc_dspsignal_cancel_wait(fl, &c);
+}
+
 long compat_fastrpc_device_ioctl(struct file *filp, unsigned int cmd,
 				unsigned long arg)
 {
@@ -995,6 +1065,16 @@ long compat_fastrpc_device_ioctl(struct file *filp, unsigned int cmd,
 		fallthrough;
 	case COMPAT_FASTRPC_IOCTL_MUNMAP:
 		return compat_fastrpc_mmap_device_ioctl(fl, cmd, arg);
+	case COMPAT_FASTRPC_IOCTL_DSPSIGNAL_CREATE:
+		return compat_fastrpc_dspsignal_create(fl, arg);
+	case COMPAT_FASTRPC_IOCTL_DSPSIGNAL_DESTROY:
+		return compat_fastrpc_dspsignal_destroy(fl, arg);
+	case COMPAT_FASTRPC_IOCTL_DSPSIGNAL_SIGNAL:
+		return compat_fastrpc_dspsignal_signal(fl, arg);
+	case COMPAT_FASTRPC_IOCTL_DSPSIGNAL_WAIT:
+		return compat_fastrpc_dspsignal_wait(fl, arg);
+	case COMPAT_FASTRPC_IOCTL_DSPSIGNAL_CANCEL_WAIT:
+		return compat_fastrpc_dspsignal_cancel_wait(fl, arg);
 	default:
 		return -ENOTTY;
 	}

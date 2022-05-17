@@ -55,6 +55,15 @@ config QCOM_COMMAND_DB
 	  resource on a RPM-hardened platform must use this database to get
 	  SoC specific identifier and information for the shared resources.
 
+config QCOM_QDSS_BRIDGE
+	tristate "Configure bridge driver for QTI/Qualcomm Technologies, Inc. MDM"
+	depends on MHI_BUS
+	help
+	  The driver will help route diag traffic from modem side over the QDSS
+	  sub-system to USB on APSS side. The driver acts as a bridge between the
+	  MHI and USB interface.
+	  If unsure, say N.
+
 config QCOM_CPR
 	tristate "QCOM Core Power Reduction (CPR) support"
 	depends on ARCH_QCOM && HAS_IOMEM
@@ -493,6 +502,18 @@ config QTI_PLH_SCMI_CLIENT
 	  driver, and interface driver will use this handle to communicate
 	  with RIMPS PLH.
 
+config MSM_JTAGV8
+	bool "Debug and ETM trace support across power collapse for ARMv8"
+	default y if CORESIGHT_SOURCE_ETM4X
+	depends on QCOM_SCM=y
+	help
+	  Enables support for debugging (specifically breakpoints) and ETM
+	  processor tracing across power collapse both for JTag and OS hosted
+	  software running on ARMv8 target. Enabling this will ensure debug
+	  and ETM registers are saved and restored across power collapse.
+	  If unsure, say 'N' here to avoid potential power, performance and
+	  memory penalty.
+
 config QCOM_SOC_SLEEP_STATS
 	tristate "Qualcomm Technologies, Inc. (QTI) SoC sleep stats driver"
 	depends on ARCH_QCOM || COMPILE_TEST
@@ -877,15 +898,6 @@ config QCOM_GUESTVM
            Resource Manager driver to start the boot of VMs once it has
            successfully loaded the VM images in the designated memory.
 
-config QCOM_GH_VCPU_SCHED
-	tristate "VCPU Scheduling for Secondary VMs"
-	depends on QCOM_GUESTVM
-	help
-	  This driver provides mechanism to schedule/run VCPUs of Secondary VMs
-	  by creating kernel threads for each VCPU that the driver gets when
-	  secondary VMs are booted via Resource Manager driver. It communicates
-	  with Gunyah hypervisor to run the VCPUs as needed.
-
 config QCOM_HYP_CORE_CTL
         tristate "CPU reservation scheme for Hypervisor"
         depends on QCOM_GUESTVM && SCHED_WALT
@@ -1032,5 +1044,14 @@ config QCOM_VM_ALIVE_LOG_DUMPER
 
 source "drivers/soc/qcom/mem_buf/Kconfig"
 source "drivers/soc/qcom/tmecom/Kconfig"
+
+config DUMP_XBL_LOG
+	tristate "print xbl log on console from fs"
+	help
+	  This driver is used to capture xbl log from reserved memory  region
+	  defined separately in each device tree and print on console when user
+	  requests. User can perform below command to print xbl log stored in
+	  reserved memory region:
+		cat /sys/kernel/xbl_log/xbl_log
 
 endmenu

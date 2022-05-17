@@ -821,6 +821,11 @@ static void mhi_runtime_put(struct mhi_controller *mhi_cntrl)
 	pm_runtime_put_noidle(mhi_cntrl->cntrl_dev);
 }
 
+static void mhi_runtime_last_busy(struct mhi_controller *mhi_cntrl)
+{
+	pm_runtime_mark_last_busy(mhi_cntrl->cntrl_dev);
+}
+
 static void mhi_status_cb(struct mhi_controller *mhi_cntrl,
 			  enum mhi_callback reason)
 {
@@ -939,6 +944,7 @@ static int mhi_qcom_register_controller(struct mhi_controller *mhi_cntrl,
 	mhi_cntrl->status_cb = mhi_status_cb;
 	mhi_cntrl->runtime_get = mhi_runtime_get;
 	mhi_cntrl->runtime_put = mhi_runtime_put;
+	mhi_cntrl->runtime_last_busy = mhi_runtime_last_busy;
 	mhi_cntrl->read_reg = mhi_qcom_read_reg;
 	mhi_cntrl->write_reg = mhi_qcom_write_reg;
 

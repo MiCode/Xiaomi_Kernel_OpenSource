@@ -232,7 +232,7 @@ config PINCTRL_SINGLE
 	  This selects the device tree based generic pinctrl driver.
 
 config PINCTRL_SX150X
-	bool "Semtech SX150x I2C GPIO expander pinctrl driver"
+	tristate "Semtech SX150x I2C GPIO expander pinctrl driver"
 	depends on I2C=y
 	select PINMUX
 	select PINCONF

@@ -1163,10 +1163,7 @@ static int pkvm_mem_abort(struct kvm_vcpu *vcpu, phys_addr_t fault_ipa,
 			  unsigned long hva)
 {
 	struct mm_struct *mm = current->mm;
-	unsigned int flags = FOLL_FORCE |
-			     FOLL_HWPOISON |
-			     FOLL_LONGTERM |
-			     FOLL_WRITE;
+	unsigned int flags = FOLL_HWPOISON | FOLL_LONGTERM | FOLL_WRITE;
 	struct kvm_pinned_page *ppage;
 	struct kvm *kvm = vcpu->kvm;
 	struct page *page;
@@ -1195,6 +1192,21 @@ static int pkvm_mem_abort(struct kvm_vcpu *vcpu, phys_addr_t fault_ipa,
 		goto dec_account;
 	} else if (ret != 1) {
 		ret = -EFAULT;
+		goto dec_account;
+	} else if (!PageSwapBacked(page)) {
+		/*
+		 * We really can't deal with page-cache pages returned by GUP
+		 * because (a) we may trigger writeback of a page for which we
+		 * no longer have access and (b) page_mkclean() won't find the
+		 * stage-2 mapping in the rmap so we can get out-of-whack with
+		 * the filesystem when marking the page dirty during unpinning.
+		 *
+		 * Ideally we'd just restrict ourselves to anonymous pages, but
+		 * we also want to allow memfd (i.e. shmem) pages, so check for
+		 * pages backed by swap in the knowledge that the GUP pin will
+		 * prevent try_to_unmap() from succeeding.
+		 */
+		ret = -EIO;
 		goto dec_account;
 	}
 
@@ -1788,6 +1800,13 @@ int kvm_arch_prepare_memory_region(struct kvm *kvm,
 			change != KVM_MR_FLAGS_ONLY)
 		return 0;
 
+	/* In protected mode, cannot modify memslots once a VM has run. */
+	if (is_protected_kvm_enabled() &&
+	    (change == KVM_MR_DELETE || change == KVM_MR_MOVE) &&
+	    kvm->arch.pkvm.shadow_handle) {
+		return -EPERM;
+	}
+
 	/*
 	 * Prevent userspace from creating a memory region outside of the IPA
 	 * space addressable by the KVM guest IPA space.
@@ -1856,6 +1875,10 @@ void kvm_arch_flush_shadow_memslot(struct kvm *kvm,
 {
 	gpa_t gpa = slot->base_gfn << PAGE_SHIFT;
 	phys_addr_t size = slot->npages << PAGE_SHIFT;
+
+	/* Stage-2 is managed by hyp in protected mode. */
+	if (is_protected_kvm_enabled())
+		return;
 
 	spin_lock(&kvm->mmu_lock);
 	unmap_stage2_range(&kvm->arch.mmu, gpa, size);

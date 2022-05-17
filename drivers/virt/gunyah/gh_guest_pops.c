@@ -11,7 +11,6 @@
 #include <linux/input.h>
 #include <linux/notifier.h>
 
-#include <linux/gunyah/gh_vm.h>
 #include <linux/gunyah/gh_rm_drv.h>
 
 #define GH_GUEST_POPS_POFF_BUTTON_HOLD_SHUTDOWN_DELAY_MS	1000

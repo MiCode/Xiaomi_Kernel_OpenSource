@@ -372,7 +372,7 @@ int mhi_dev_add_element(struct mhi_dev_ring *ring,
 		host_addr.size = (ring->ring_size - old_offset) *
 			sizeof(union mhi_dev_ring_element_type);
 
-		if (mhi_ctx->use_ipa) {
+		if (mhi_ctx->use_mhi_dma) {
 			mhi_ctx->write_to_host(ring->mhi_dev, &host_addr,
 				NULL, MHI_DEV_DMA_SYNC);
 		} else {

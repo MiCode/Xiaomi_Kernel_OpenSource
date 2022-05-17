@@ -48,6 +48,25 @@ do {									     \
 	}								     \
 } while (0)
 
+#if IS_ENABLED(CONFIG_RPMSG_QCOM_GLINK_DEBUG)
+#define GLINK_BUG(ctxt, x, ...)						\
+do {									\
+	ipc_log_string(ctxt, "[%s]: ASSERT at line %d: "x,		\
+		       __func__, __LINE__, ##__VA_ARGS__);		\
+	pr_err("[%s]: ASSERT at line %d: "x,				\
+		       __func__, __LINE__, ##__VA_ARGS__);		\
+	BUG();								\
+} while (0)
+#else
+#define GLINK_BUG(ctxt, x, ...)						\
+do {									\
+	ipc_log_string(ctxt, "[%s]: WARN at line %d: "x,		\
+		       __func__, __LINE__, ##__VA_ARGS__);		\
+	pr_err("[%s]: WARN at line %d: "x,				\
+		       __func__, __LINE__, ##__VA_ARGS__);		\
+} while (0)
+#endif
+
 #define GLINK_NAME_SIZE		32
 #define GLINK_VERSION_1		1
 
@@ -202,6 +221,7 @@ enum {
  * @intent_req_completed: Status of intent request completion
  * @intent_req_ack: Waitqueue for @intent_req_acked
  * @intent_req_comp: Waitqueue for @intent_req_completed
+ * @intent_timeout_count: number of times intents have timed out consecutively
  * @lsigs:	local side signals
  * @rsigs:	remote side signals
  */
@@ -239,10 +259,13 @@ struct glink_channel {
 	atomic_t intent_req_completed;
 	wait_queue_head_t intent_req_ack;
 	wait_queue_head_t intent_req_comp;
+	int intent_timeout_count;
 
 	unsigned int lsigs;
 	unsigned int rsigs;
 };
+
+#define MAX_INTENT_TIMEOUTS		2
 
 #define to_glink_channel(_ept) container_of(_ept, struct glink_channel, ept)
 
@@ -296,6 +319,7 @@ static struct glink_channel *qcom_glink_alloc_channel(struct qcom_glink *glink,
 	atomic_set(&channel->intent_req_completed, 0);
 	init_waitqueue_head(&channel->intent_req_ack);
 	init_waitqueue_head(&channel->intent_req_comp);
+	channel->intent_timeout_count = 0;
 
 	INIT_LIST_HEAD(&channel->done_intents);
 	kthread_init_work(&channel->intent_work, qcom_glink_rx_done_work);
@@ -512,6 +536,7 @@ static void qcom_glink_handle_intent_req_ack(struct qcom_glink *glink,
 	}
 
 	channel->intent_req_result = granted;
+	channel->intent_timeout_count = 0;
 	atomic_inc(&channel->intent_req_acked);
 	wake_up(&channel->intent_req_ack);
 	CH_INFO(channel, "\n");
@@ -1618,8 +1643,14 @@ static int qcom_glink_request_intent(struct qcom_glink *glink,
 				 atomic_read(&channel->intent_req_acked) ||
 				 atomic_read(&glink->in_reset), 10 * HZ);
 	if (!ret) {
-		dev_err(glink->dev, "intent request ack timed out\n");
+		channel->intent_timeout_count++;
+		dev_err(glink->dev, "%s: intent request ack timed out (%d)\n",
+			channel->name, channel->intent_timeout_count);
 		ret = -ETIMEDOUT;
+		if (channel->intent_timeout_count >= MAX_INTENT_TIMEOUTS)
+			GLINK_BUG(glink->ilc,
+				  "remoteproc:%s channel:%s unresponsive\n",
+				  glink->name, channel->name);
 	} else if (atomic_read(&glink->in_reset)) {
 		CH_INFO(channel, "ssr detected\n");
 		ret = -ECONNRESET;
@@ -2063,6 +2094,29 @@ static void qcom_glink_work(struct work_struct *work)
 	}
 }
 
+void qcom_glink_early_ssr_notify(void *data)
+{
+	struct qcom_glink *glink = data;
+	struct glink_channel *channel;
+	unsigned long flags;
+	int cid;
+
+	if (!glink)
+		return;
+	atomic_inc(&glink->in_reset);
+
+	/* To wakeup any blocking writers */
+	wake_up_all(&glink->tx_avail_notify);
+
+	spin_lock_irqsave(&glink->idr_lock, flags);
+	idr_for_each_entry(&glink->lcids, channel, cid) {
+		wake_up(&channel->intent_req_ack);
+		wake_up(&channel->intent_req_comp);
+	}
+	spin_unlock_irqrestore(&glink->idr_lock, flags);
+}
+EXPORT_SYMBOL(qcom_glink_early_ssr_notify);
+
 static void qcom_glink_cancel_rx_work(struct qcom_glink *glink)
 {
 	struct glink_defer_cmd *dcmd;
@@ -2126,7 +2180,7 @@ static int qcom_glink_create_chrdev(struct qcom_glink *glink)
 	rpdev->dev.parent = glink->dev;
 	rpdev->dev.release = qcom_glink_device_release;
 
-	return rpmsg_chrdev_register_device(rpdev);
+	return rpmsg_ctrldev_register_device(rpdev);
 }
 
 static void qcom_glink_set_affinity(struct qcom_glink *glink, u32 *arr,
@@ -2143,28 +2197,6 @@ static void qcom_glink_set_affinity(struct qcom_glink *glink, u32 *arr,
 		dev_err(glink->dev, "failed to set irq affinity\n");
 	if (set_cpus_allowed_ptr(glink->task, &glink->cpu_mask))
 		dev_err(glink->dev, "failed to set task affinity\n");
-}
-
-static void qcom_glink_notif_reset(void *data)
-{
-	struct qcom_glink *glink = data;
-	struct glink_channel *channel;
-	unsigned long flags;
-	int cid;
-
-	if (!glink)
-		return;
-	atomic_inc(&glink->in_reset);
-
-	/* To wakeup any blocking writers */
-	wake_up_all(&glink->tx_avail_notify);
-
-	spin_lock_irqsave(&glink->idr_lock, flags);
-	idr_for_each_entry(&glink->lcids, channel, cid) {
-		wake_up(&channel->intent_req_ack);
-		wake_up(&channel->intent_req_comp);
-	}
-	spin_unlock_irqrestore(&glink->idr_lock, flags);
 }
 
 struct qcom_glink *qcom_glink_native_probe(struct device *dev,
@@ -2302,7 +2334,7 @@ void qcom_glink_native_remove(struct qcom_glink *glink)
 	int cid;
 	int ret;
 
-	qcom_glink_notif_reset(glink);
+	qcom_glink_early_ssr_notify(glink);
 	disable_irq(glink->irq);
 	qcom_glink_cancel_rx_work(glink);
 

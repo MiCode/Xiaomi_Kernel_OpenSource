@@ -142,9 +142,15 @@ static inline u64 get_alloc_req_size(struct mem_buf_alloc_req *req)
 static inline void *get_alloc_req_arb_payload(struct mem_buf_alloc_req *req)
 {
 	void *buf = req;
-	size_t nr_acl_entries = req->acl_desc.n_acl_entries;
-	size_t payload_offset = offsetof(struct mem_buf_alloc_req,
-					 acl_desc.acl_entries[nr_acl_entries]);
+	size_t nr_acl_entries;
+	size_t payload_offset;
+
+	nr_acl_entries = req->acl_desc.n_acl_entries;
+	if (nr_acl_entries != 1)
+		return NULL;
+
+	payload_offset = offsetof(struct mem_buf_alloc_req,
+				  acl_desc.acl_entries[nr_acl_entries]);
 
 	return buf + payload_offset;
 }

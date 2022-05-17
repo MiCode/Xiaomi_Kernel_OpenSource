@@ -1097,8 +1097,10 @@ static void geni_i3c_perform_daa(struct geni_i3c_dev *gi3c)
 			goto daa_err;
 		}
 
-		addr = init_dyn_addr = i3cboardinfo->init_dyn_addr;
-		addr = ret = i3c_master_get_free_addr(m, addr);
+		if (i3cboardinfo && i3cboardinfo->init_dyn_addr)
+			addr = init_dyn_addr = i3cboardinfo->init_dyn_addr;
+		else
+			addr = ret = i3c_master_get_free_addr(m, addr);
 
 		if (ret < 0) {
 			I3C_LOG_DBG(gi3c->ipcl, false, gi3c->se.dev,

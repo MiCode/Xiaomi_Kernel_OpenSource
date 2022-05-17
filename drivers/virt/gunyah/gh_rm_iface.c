@@ -8,7 +8,6 @@
 #include <linux/limits.h>
 #include <linux/module.h>
 
-#include <linux/gunyah/gh_vm.h>
 #include <linux/gunyah/gh_msgq.h>
 #include <linux/gunyah/gh_common.h>
 #include <linux/mm.h>
@@ -63,7 +62,7 @@ int gh_update_vm_prop_table(enum gh_vm_names vm_name,
 	if (!vm_prop)
 		return -EINVAL;
 
-	if (vm_prop->vmid < 0)
+	if (vm_prop->vmid < 0 || vm_name < GH_SELF_VM || vm_name > GH_VM_MAX)
 		return -EINVAL;
 
 	spin_lock(&gh_vm_table_lock);
@@ -194,6 +193,11 @@ int gh_rm_get_vminfo(enum gh_vm_names vm_name, struct gh_vminfo *vm)
 		return -EINVAL;
 
 	spin_lock(&gh_vm_table_lock);
+	if (!vm->guid || !vm->uri || !vm->name || !vm->sign_auth
+		|| vm_name < GH_SELF_VM || vm_name > GH_VM_MAX) {
+		spin_unlock(&gh_vm_table_lock);
+		return -EINVAL;
+	}
 
 	vm->guid = gh_vm_table[vm_name].guid;
 	vm->uri = gh_vm_table[vm_name].uri;
@@ -285,6 +289,10 @@ static int gh_rm_vm_lookup_name_uri(gh_rm_msgid_t msg_id, const char *data,
 
 	req_payload_size = sizeof(*req_payload) + round_up(size, 4);
 	req_payload = kzalloc(req_payload_size, GFP_KERNEL);
+
+	if (!req_payload)
+		return -ENOMEM;
+
 	req_payload->size = size;
 	memcpy(req_payload->data, data, size);
 
@@ -1024,6 +1032,178 @@ int gh_rm_vm_dealloc_vmid(gh_vmid_t vmid)
 	return 0;
 }
 EXPORT_SYMBOL(gh_rm_vm_dealloc_vmid);
+
+/**
+ * gh_rm_vm_config_image: Configure the VM properties
+ * @vmid: The vmid of VM configure.
+ * @auth_mech: The kind of authentication mechanism based on VM image
+ * @mem_handle: The handle to the memory lent/donated
+ * @image_offset: Start addr of image relative to memparcel
+ * @image_size: Size of image relative to start addr
+ * @dtb_offset: Base addr of dtb image relative to memparcel
+ * @dtb_size: Size of dtb relative to memparcel
+ *
+ * The function returns 0 on success and a negative error code
+ * upon failure.
+ */
+int gh_rm_vm_config_image(gh_vmid_t vmid, u16 auth_mech, u32 mem_handle,
+	u64 image_offset, u64 image_size, u64 dtb_offset, u64 dtb_size)
+{
+	struct gh_vm_config_image_req_payload req_payload = {
+		.vmid = vmid,
+		.auth_mech = auth_mech,
+		.mem_handle = mem_handle,
+		.image_offset_low = image_offset,
+		.image_offset_high = image_offset >> 32,
+		.image_size_low = image_size,
+		.image_size_high = image_size >> 32,
+		.dtb_offset_low = dtb_offset,
+		.dtb_offset_high = dtb_offset >> 32,
+		.dtb_size_low = dtb_size,
+		.dtb_size_high = dtb_size >> 32,
+	};
+	size_t resp_payload_size;
+	int err, reply_err_code = 0;
+	void *resp;
+
+	resp = gh_rm_call(GH_RM_RPC_MSG_ID_CALL_VM_CONFIG_IMAGE,
+				&req_payload, sizeof(req_payload),
+				&resp_payload_size, &reply_err_code);
+
+	if (IS_ERR(resp)) {
+		pr_err("%s: Unable to send VM_CONFIG_IMAGE to RM: %d\n", __func__,
+			PTR_ERR(resp));
+		return PTR_ERR(resp);
+	}
+
+	if (reply_err_code) {
+		err = reply_err_code;
+		pr_err("%s: VM_CONFIG_IMAGE failed with err: %d\n",
+			__func__, err);
+		return err;
+	}
+
+	if (resp_payload_size) {
+		pr_err("%s: Invalid size received for VM_CONFIG_IMAGE: %u\n",
+			__func__, resp_payload_size);
+		kfree(resp);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(gh_rm_vm_config_image);
+
+/**
+ * gh_rm_vm_auth_image: Request to authenticate the VM
+ * @vmid: The vmid of VM to authenticate.
+ * @n_entries: NUmber of auth_param entries
+ * @entry: Pointer to gh_vm_auth_param_entry structures
+ *
+ * The function returns 0 on success and a negative error code
+ * upon failure.
+ */
+int gh_rm_vm_auth_image(gh_vmid_t vmid, ssize_t n_entries,
+				struct gh_vm_auth_param_entry *entry)
+{
+	struct gh_vm_auth_image_req_payload_hdr *req_payload;
+	struct gh_vm_auth_param_entry *dest_entry;
+	size_t resp_payload_size;
+	size_t req_payload_size;
+	int err, reply_err_code = 0, n_entry;
+	void *req_buf;
+	void *resp;
+
+	req_payload_size = sizeof(*req_payload) + n_entries*sizeof(*entry);
+
+	req_buf = kzalloc(req_payload_size, GFP_KERNEL);
+	if (!req_buf)
+		return -ENOMEM;
+
+	req_payload = req_buf;
+	req_payload->vmid = vmid;
+	req_payload->num_auth_params = n_entries;
+
+	dest_entry = req_buf + sizeof(*req_payload);
+	for (n_entry = 0; n_entry < n_entries; n_entry++) {
+		dest_entry[n_entry].auth_param_type = entry[n_entry].auth_param_type;
+		dest_entry[n_entry].auth_param = entry[n_entry].auth_param;
+	}
+
+	resp = gh_rm_call(GH_RM_RPC_MSG_ID_CALL_VM_AUTH_IMAGE,
+				req_buf, req_payload_size,
+				&resp_payload_size, &reply_err_code);
+
+	if (IS_ERR(resp)) {
+		pr_err("%s: Unable to send VM_AUTH_IMAGE to RM: %d\n", __func__,
+			PTR_ERR(resp));
+		return PTR_ERR(resp);
+	}
+
+	if (reply_err_code) {
+		err = reply_err_code;
+		pr_err("%s: VM_AUTH_IMAGE failed with err: %d\n",
+			__func__, err);
+		kfree(req_buf);
+		return err;
+	}
+
+	if (resp_payload_size) {
+		pr_err("%s: Invalid size received for VM_AUTH_IMAGE: %u\n",
+			__func__, resp_payload_size);
+		kfree(resp);
+		kfree(req_buf);
+		return -EINVAL;
+	}
+
+	kfree(req_buf);
+	return 0;
+}
+EXPORT_SYMBOL(gh_rm_vm_auth_image);
+
+/**
+ * gh_rm_vm_init: Request to allocate resources of the VM
+ * @vmid: The vmid of VM to initialize.
+ *
+ * The function returns 0 on success and a negative error code
+ * upon failure.
+ */
+int gh_rm_vm_init(gh_vmid_t vmid)
+{
+	struct gh_vm_init_req_payload req_payload = {
+		.vmid = vmid,
+	};
+	size_t resp_payload_size;
+	int err, reply_err_code = 0;
+	void *resp;
+
+	resp = gh_rm_call(GH_RM_RPC_MSG_ID_CALL_VM_INIT,
+				&req_payload, sizeof(req_payload),
+				&resp_payload_size, &reply_err_code);
+
+	if (IS_ERR(resp)) {
+		pr_err("%s: Unable to send VM_INIT to RM: %d\n", __func__,
+			PTR_ERR(resp));
+		return PTR_ERR(resp);
+	}
+
+	if (reply_err_code) {
+		err = reply_err_code;
+		pr_err("%s: VM_INIT failed with err: %d\n",
+			__func__, err);
+		return err;
+	}
+
+	if (resp_payload_size) {
+		pr_err("%s: Invalid size received for VM_INIT: %u\n",
+			__func__, resp_payload_size);
+		kfree(resp);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(gh_rm_vm_init);
 
 /**
  * gh_rm_vm_start: Send a request to Resource Manager VM to start a VM.
@@ -2054,3 +2234,52 @@ int gh_rm_mem_notify(gh_memparcel_handle_t handle, u8 flags,
 	return ret;
 }
 EXPORT_SYMBOL(gh_rm_mem_notify);
+
+/**
+ * gh_rm_vm_set_time_base: Send a request to Resource Manager VM to set time base.
+ * @vmid: The vmid of the vm to be started.
+ *
+ * The function encodes the error codes via ERR_PTR. Hence, the caller is
+ * responsible to check it with IS_ERR_OR_NULL().
+ */
+int gh_rm_vm_set_time_base(gh_vmid_t vmid)
+{
+	struct gh_vm_set_time_base_req_payload req_payload = {0};
+	size_t resp_payload_size;
+	struct timespec64 ts_ref;
+	u64 ts_ns_ref;
+	u64 qtime_ref;
+	int reply_err_code = 0;
+	void *resp;
+
+	req_payload.vmid = (gh_vmid_t) vmid;
+
+	local_irq_disable();
+	ktime_get_real_ts64(&ts_ref);
+	qtime_ref = arch_timer_read_counter();
+	local_irq_enable();
+
+	ts_ns_ref = timespec64_to_ns(&ts_ref);
+	req_payload.time_base_low = (u32) ts_ns_ref;
+	req_payload.time_base_high = (u32) (ts_ns_ref >> 32);
+	req_payload.arch_timer_ref_low = (u32) qtime_ref;
+	req_payload.arch_timer_ref_high = (u32) (qtime_ref >> 32);
+
+	resp = gh_rm_call(GH_RM_RPC_MSG_ID_CALL_VM_SET_TIME_BASE,
+				&req_payload, sizeof(req_payload),
+				&resp_payload_size, &reply_err_code);
+	if (reply_err_code) {
+		pr_err("%s: VM_SET_TIME_BASE failed with err: %d\n",
+			__func__, reply_err_code);
+		return reply_err_code;
+	}
+
+	if (resp_payload_size) {
+		pr_err("%s: Invalid size received for VM_SET_TIME_BASE: %u\n",
+			__func__, resp_payload_size);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(gh_rm_vm_set_time_base);

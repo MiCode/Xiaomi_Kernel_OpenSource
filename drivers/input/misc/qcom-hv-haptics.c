@@ -29,6 +29,9 @@
 
 #include <linux/soc/qcom/battery_charger.h>
 
+#define CREATE_TRACE_POINTS
+#include <trace/events/qcom_haptics.h>
+
 /* status register definitions in HAPTICS_CFG module */
 #define HAP_CFG_REVISION2_REG			0x01
 #define HAP_CFG_V1				0x1
@@ -66,7 +69,7 @@
 
 /* Only for HAP525_HV */
 #define HAP_CFG_REAL_TIME_LRA_IMPEDANCE_REG	0x0E
-#define LRA_IMPEDANCE_MOHMS_LSB			200
+#define LRA_IMPEDANCE_MOHMS_LSB			250
 
 #define HAP_CFG_INT_RT_STS_REG			0x10
 #define FIFO_EMPTY_BIT				BIT(1)
@@ -948,6 +951,17 @@ static int haptics_get_status_data(struct haptics_chip *chip,
 {
 	int rc;
 	u8 mod_sel_val[2];
+	const char *hap_status_name[BRAKE_CAL_SCALAR + 1] = {
+		"CAL_TLRA_CL_STS",
+		"T_WIND_STS",
+		"T_WIND_STS_PREV",
+		"LAST_GOOD_TLRA_CL_STS",
+		"TLRA_CL_ERR_STS",
+		"HAP_DRV_STS",
+		"RNAT_RCAL_INT",
+		"BRAKE_CAL_SCALAR",
+	};
+	const char *name;
 
 	mod_sel_val[0] = sel & 0xff;
 	mod_sel_val[1] = (sel >> 8) & 0xff;
@@ -966,8 +980,15 @@ static int haptics_get_status_data(struct haptics_chip *chip,
 	if (rc < 0)
 		return rc;
 
-	dev_dbg(chip->dev, "Get status data[%x] = (%#x, %#x)\n",
-			sel, data[0], data[1]);
+	if (sel <= BRAKE_CAL_SCALAR)
+		name = hap_status_name[sel];
+	else if (sel == CLAMPED_DUTY_CYCLE_STS)
+		name = "CLAMPED_DUTY_CYCLE_STS";
+	else if (sel == FIFO_REAL_TIME_STS)
+		name = "FIFO_REAL_TIME_STS";
+
+	dev_dbg(chip->dev, "Get status data[%s] = (%#x, %#x)\n", name, data[0], data[1]);
+	trace_qcom_haptics_status(name, data[0], data[1]);
 	return 0;
 }
 
@@ -1157,12 +1178,12 @@ static int haptics_set_vmax_mv(struct haptics_chip *chip, u32 vmax_mv)
 	u8 val, vmax_step;
 
 	if (vmax_mv > chip->max_vmax_mv) {
-		dev_err(chip->dev, "vmax (%d) exceed the max value: %d\n",
+		dev_dbg(chip->dev, "vmax (%d) exceed the max value: %d\n",
 					vmax_mv, chip->max_vmax_mv);
-		return -EINVAL;
+		vmax_mv = chip->max_vmax_mv;
 	}
 
-	if ((chip->clamped_vmax_mv != 0) && (vmax_mv > chip->clamped_vmax_mv))
+	if (vmax_mv > chip->clamped_vmax_mv)
 		vmax_mv = chip->clamped_vmax_mv;
 
 	if (chip->clamp_at_5v && (vmax_mv > CLAMPED_VMAX_MV))
@@ -1435,23 +1456,35 @@ static int haptics_enable_hpwr_vreg(struct haptics_chip *chip, bool en)
 	return 0;
 }
 
-static int haptics_open_loop_drive_config(struct haptics_chip *chip, bool en)
+static int haptics_force_vreg_ready(struct haptics_chip *chip, bool ready)
 {
-	int rc = 0;
-	u8 mask, val;
+	u8 mask;
 
 	mask = FORCE_VREG_RDY_BIT;
 	if (chip->hw_type == HAP525_HV)
 		mask |= FORCE_VSET_ACK_BIT;
 
+	return haptics_masked_write(chip, chip->cfg_addr_base,
+			HAP_CFG_VSET_CFG_REG, mask, ready ? mask : 0);
+}
+
+static int haptics_open_loop_drive_config(struct haptics_chip *chip, bool en)
+{
+	int rc = 0;
+	u8 val;
+
 	if ((is_boost_vreg_enabled_in_open_loop(chip) ||
 			chip->hboost_enabled || is_haptics_external_powered(chip)) && en) {
-		/* Force VREG_RDY */
-		val = mask;
-		rc = haptics_masked_write(chip, chip->cfg_addr_base,
-				HAP_CFG_VSET_CFG_REG, mask, val);
-		if (rc < 0)
-			return rc;
+		/*
+		 * Only set force-VREG-ready here if hBoost is not used by charger firmware.
+		 * In the case of charger firmware enabling hBoost, force-VREG-ready will be
+		 * set/reset based on the VMAX_CLAMP notification.
+		 */
+		if (chip->clamped_vmax_mv == MAX_HV_VMAX_MV) {
+			rc = haptics_force_vreg_ready(chip, true);
+			if (rc < 0)
+				return rc;
+		}
 
 		/* Toggle RC_CLK_CAL_EN if it's in auto mode */
 		rc = haptics_read(chip, chip->cfg_addr_base,
@@ -1478,12 +1511,18 @@ static int haptics_open_loop_drive_config(struct haptics_chip *chip, bool en)
 
 			dev_dbg(chip->dev, "Toggle CAL_EN in open-loop-VREG playing\n");
 		}
-	} else if (!is_haptics_external_powered(chip)) {
-		rc = haptics_masked_write(chip, chip->cfg_addr_base,
-				HAP_CFG_VSET_CFG_REG, mask, 0);
+	} else if (!is_haptics_external_powered(chip) &&
+			(chip->clamped_vmax_mv == MAX_HV_VMAX_MV)) {
+		/*
+		 * Reset force-VREG-ready only when hBoost is not
+		 * used by charger firmware.
+		 */
+		rc = haptics_force_vreg_ready(chip, false);
+		if (rc < 0)
+			return rc;
 	}
 
-	return rc;
+	return 0;
 }
 
 #define BOOST_VREG_OFF_DELAY_SECONDS	2
@@ -1538,6 +1577,7 @@ static int haptics_enable_play(struct haptics_chip *chip, bool en)
 		}
 	}
 
+	trace_qcom_haptics_play(en);
 	return rc;
 }
 
@@ -1755,6 +1795,7 @@ static int haptics_get_fifo_fill_status(struct haptics_chip *chip, u32 *fill)
 {
 	int rc;
 	u8 val[2], fill_status_mask;
+	u32 filled, available;
 	bool empty = false, full = false;
 
 	rc = haptics_get_status_data(chip, FIFO_REAL_TIME_STS, val);
@@ -1777,11 +1818,15 @@ static int haptics_get_fifo_fill_status(struct haptics_chip *chip, u32 *fill)
 		return -EINVAL;
 	}
 
-	*fill = ((val[0] & fill_status_mask) << 8) | val[1];
+	filled = ((val[0] & fill_status_mask) << 8) | val[1];
 	empty = !!(val[0] & FIFO_EMPTY_FLAG_BIT);
 	full = !!(val[0] & FIFO_FULL_FLAG_BIT);
+	available = get_max_fifo_samples(chip) - filled;
 
-	dev_dbg(chip->dev, "filled=%d, full=%d, empty=%d\n", *fill, full, empty);
+	dev_dbg(chip->dev, "filled=%u, available=%u, full=%d, empty=%d\n",
+			filled, available, full, empty);
+	trace_qcom_haptics_fifo_hw_status(filled, available, full, empty);
+	*fill = filled;
 	return 0;
 }
 
@@ -1962,6 +2007,7 @@ static int haptics_set_fifo(struct haptics_chip *chip, struct fifo_cfg *fifo)
 
 	atomic_set(&status->is_busy, 1);
 	status->samples_written = num;
+	trace_qcom_haptics_fifo_prgm_status(fifo->num_s, status->samples_written, num);
 	if (num == fifo->num_s) {
 		fifo_thresh = 0;
 		atomic_set(&status->written_done, 1);
@@ -2970,6 +3016,8 @@ static int haptics_init_vmax_config(struct haptics_chip *chip)
 					MAX_HV_VMAX_MV : MAX_MV_VMAX_MV;
 	}
 
+	/* Set the initial clamped vmax value when hBoost is used by charger firmware */
+	chip->clamped_vmax_mv = MAX_HV_VMAX_MV;
 	/* Config VMAX */
 	return haptics_set_vmax_mv(chip, chip->config.vmax_mv);
 }
@@ -3112,6 +3160,7 @@ static irqreturn_t fifo_empty_irq_handler(int irq, void *data)
 		}
 
 		status->samples_written += num;
+		trace_qcom_haptics_fifo_prgm_status(fifo->num_s, status->samples_written, num);
 		if (status->samples_written == fifo->num_s) {
 			dev_dbg(chip->dev, "FIFO programming is done\n");
 			atomic_set(&chip->play.fifo_status.written_done, 1);
@@ -3799,177 +3848,169 @@ exit:
 }
 #endif
 
-static int haptics_parse_per_effect_dt(struct haptics_chip *chip,
+static int haptics_parse_effect_pattern_data(struct haptics_chip *chip,
 		struct device_node *node, struct haptics_effect *effect)
 {
 	struct haptics_hw_config *config = &chip->config;
 	u32 data[SAMPLES_PER_PATTERN * 3];
 	int rc, tmp, i;
 
-	if (!effect)
-		return -EINVAL;
-
-	rc = of_property_read_u32(node, "qcom,effect-id", &effect->id);
-	if (rc < 0) {
-		dev_err(chip->dev, "Read qcom,effect-id failed, rc=%d\n",
-				rc);
-		return rc;
-	}
-
-	effect->vmax_mv = config->vmax_mv;
-	rc = of_property_read_u32(node, "qcom,wf-vmax-mv", &tmp);
-	if (rc < 0)
-		dev_dbg(chip->dev, "Read qcom,wf-vmax-mv failed, rc=%d\n",
-				rc);
-	else
-		effect->vmax_mv = tmp;
-
-	if (effect->vmax_mv > MAX_VMAX_MV) {
-		dev_err(chip->dev, "qcom,wf-vmax-mv (%d) exceed the max value: %d\n",
-				effect->vmax_mv, MAX_VMAX_MV);
-		return -EINVAL;
-	}
-
 	effect->t_lra_us = config->t_lra_us;
 	tmp = of_property_count_elems_of_size(node,
 			"qcom,wf-pattern-data", sizeof(u32));
+	if (tmp <= 0) {
+		dev_dbg(chip->dev, "qcom,wf-pattern-data is not defined properly for effect %d\n",
+				effect->id);
+		return 0;
+	}
+
 	if (tmp > SAMPLES_PER_PATTERN * 3) {
 		dev_err(chip->dev, "Pattern src can only play 8 samples at max\n");
 		return -EINVAL;
 	}
 
-	if (tmp > 0) {
-		effect->pattern = devm_kzalloc(chip->dev,
-				sizeof(*effect->pattern), GFP_KERNEL);
-		if (!effect->pattern)
-			return -ENOMEM;
+	effect->pattern = devm_kzalloc(chip->dev,
+			sizeof(*effect->pattern), GFP_KERNEL);
+	if (!effect->pattern)
+		return -ENOMEM;
 
-		rc = of_property_read_u32_array(node,
-				"qcom,wf-pattern-data", data, tmp);
-		if (rc < 0) {
-			dev_err(chip->dev, "Read wf-pattern-data failed, rc=%d\n",
-					rc);
-			return rc;
+	rc = of_property_read_u32_array(node,
+			"qcom,wf-pattern-data", data, tmp);
+	if (rc < 0) {
+		dev_err(chip->dev, "Read wf-pattern-data failed, rc=%d\n",
+				rc);
+		return rc;
+	}
+
+	for (i = 0; i < tmp / 3; i++) {
+		if (data[3 * i] > 0x1ff || data[3 * i + 1] > T_LRA_X_8
+				|| data[3 * i + 2] > 1) {
+			dev_err(chip->dev, "allowed tuples: [amplitude(<= 0x1ff) period(<=6(T_LRA_X_8)) f_lra_x2(0,1)]\n");
+			return -EINVAL;
 		}
 
-		for (i = 0; i < tmp / 3; i++) {
-			if (data[3 * i] > 0x1ff || data[3 * i + 1] > T_LRA_X_8
-					|| data[3 * i + 2] > 1) {
-				dev_err(chip->dev, "allowed tuples: [amplitude(<= 0x1ff) period(<=6(T_LRA_X_8)) f_lra_x2(0,1)]\n");
-				return -EINVAL;
-			}
+		effect->pattern->samples[i].amplitude =
+			(u16)data[3 * i];
+		effect->pattern->samples[i].period =
+			(enum s_period)data[3 * i + 1];
+		effect->pattern->samples[i].f_lra_x2 =
+			(bool)data[3 * i + 2];
+	}
 
-			effect->pattern->samples[i].amplitude =
-				(u16)data[3 * i];
-			effect->pattern->samples[i].period =
-				(enum s_period)data[3 * i + 1];
-			effect->pattern->samples[i].f_lra_x2 =
-				(bool)data[3 * i + 2];
-		}
-
-		effect->pattern->preload = of_property_read_bool(node,
-				"qcom,wf-pattern-preload");
-		/*
-		 * Use PATTERN1 src by default, effect with preloaded
-		 * pattern will use PATTERN2 by default and only the
-		 * 1st preloaded pattern will be served.
-		 */
-		effect->src = PATTERN1;
-		if (effect->pattern->preload) {
-			if (config->preload_effect != -EINVAL) {
-				dev_err(chip->dev, "effect %d has been defined as preloaded\n",
-						config->preload_effect);
-				effect->pattern->preload = false;
-			} else {
-				config->preload_effect = effect->id;
-				effect->src = PATTERN2;
-			}
+	effect->pattern->preload = of_property_read_bool(node,
+			"qcom,wf-pattern-preload");
+	/*
+	 * Use PATTERN1 src by default, effect with preloaded
+	 * pattern will use PATTERN2 by default and only the
+	 * 1st preloaded pattern will be served.
+	 */
+	effect->src = PATTERN1;
+	if (effect->pattern->preload) {
+		if (config->preload_effect != -EINVAL) {
+			dev_err(chip->dev, "effect %d has been defined as preloaded\n",
+					config->preload_effect);
+			effect->pattern->preload = false;
+		} else {
+			config->preload_effect = effect->id;
+			effect->src = PATTERN2;
 		}
 	}
 
-	tmp = of_property_count_u8_elems(node, "qcom,wf-fifo-data");
-	if (tmp > 0) {
-		effect->fifo = devm_kzalloc(chip->dev,
-				sizeof(*effect->fifo), GFP_KERNEL);
-		if (!effect->fifo)
-			return -ENOMEM;
+	if (config->is_erm)
+		effect->pattern->play_rate_us = DEFAULT_ERM_PLAY_RATE_US;
+	else
+		effect->pattern->play_rate_us = config->t_lra_us;
 
-		effect->fifo->samples = devm_kcalloc(chip->dev,
-				tmp, sizeof(u8), GFP_KERNEL);
-		if (!effect->fifo->samples)
-			return -ENOMEM;
+	rc = of_property_read_u32(node, "qcom,wf-pattern-period-us", &tmp);
+	if (rc < 0)
+		dev_dbg(chip->dev, "Read qcom,wf-pattern-period-us failed, rc=%d\n",
+				rc);
+	else
+		effect->pattern->play_rate_us = tmp;
 
-		rc = of_property_read_u8_array(node, "qcom,wf-fifo-data",
-				effect->fifo->samples, tmp);
-		if (rc < 0) {
-			dev_err(chip->dev, "Read wf-fifo-data failed, rc=%d\n",
-					rc);
-			return rc;
-		}
-
-		effect->fifo->num_s = tmp;
-	}
-
-	if (!effect->pattern && !effect->fifo) {
-		dev_err(chip->dev, "no pattern specified for effect %d\n",
-				effect->id);
+	if (effect->pattern->play_rate_us > TLRA_MAX_US) {
+		dev_err(chip->dev, "qcom,wf-pattern-period-us (%d) exceed the max value: %d\n",
+				effect->pattern->play_rate_us,
+				TLRA_MAX_US);
 		return -EINVAL;
 	}
 
-	if (effect->pattern) {
-		if (config->is_erm)
-			effect->pattern->play_rate_us =
-				DEFAULT_ERM_PLAY_RATE_US;
-		else
-			effect->pattern->play_rate_us = config->t_lra_us;
-
-		rc = of_property_read_u32(node, "qcom,wf-pattern-period-us",
-					&tmp);
-		if (rc < 0)
-			dev_dbg(chip->dev, "Read qcom,wf-pattern-period-us failed, rc=%d\n",
-					rc);
-		else
-			effect->pattern->play_rate_us = tmp;
-
-		if (effect->pattern->play_rate_us > TLRA_MAX_US) {
-			dev_err(chip->dev, "qcom,wf-pattern-period-us (%d) exceed the max value: %d\n",
-					effect->pattern->play_rate_us,
-					TLRA_MAX_US);
-			return -EINVAL;
-		}
-
-		effect->pattern->play_length_us =
-			get_pattern_play_length_us(effect->pattern);
-		if (effect->pattern->play_length_us == -EINVAL) {
-			dev_err(chip->dev, "get pattern play length failed\n");
-			return -EINVAL;
-		}
-
-		if (effect->fifo)
-			dev_dbg(chip->dev, "Ignore FIFO data if pattern is specified!\n");
-
-	} else if (effect->fifo) {
-		effect->fifo->period_per_s = T_LRA;
-		rc = of_property_read_u32(node, "qcom,wf-fifo-period", &tmp);
-		if (tmp > F_48KHZ) {
-			dev_err(chip->dev, "FIFO playing period %d is not supported\n",
-					tmp);
-			return -EINVAL;
-		} else if (!rc) {
-			effect->fifo->period_per_s = tmp;
-		}
-
-		effect->fifo->play_length_us =
-			get_fifo_play_length_us(effect->fifo, config->t_lra_us);
-		if (effect->fifo->play_length_us == -EINVAL) {
-			dev_err(chip->dev, "get fifo play length failed\n");
-			return -EINVAL;
-		}
-
-		effect->src = FIFO;
-		effect->fifo->preload = of_property_read_bool(node,
-						"qcom,wf-fifo-preload");
+	effect->pattern->play_length_us = get_pattern_play_length_us(effect->pattern);
+	if (effect->pattern->play_length_us == -EINVAL) {
+		dev_err(chip->dev, "get pattern play length failed\n");
+		return -EINVAL;
 	}
+
+	return 0;
+}
+
+static int haptics_parse_effect_fifo_data(struct haptics_chip *chip,
+		struct device_node *node, struct haptics_effect *effect)
+{
+	struct haptics_hw_config *config = &chip->config;
+	int rc, tmp;
+
+	if (effect->pattern) {
+		dev_dbg(chip->dev, "ignore parsing FIFO effect when pattern effect is present\n");
+		return 0;
+	}
+
+	tmp = of_property_count_u8_elems(node, "qcom,wf-fifo-data");
+	if (tmp <= 0) {
+		dev_dbg(chip->dev, "qcom,wf-fifo-data is not defined properly for effect %d\n",
+				effect->id);
+		return 0;
+	}
+
+	effect->fifo = devm_kzalloc(chip->dev,
+			sizeof(*effect->fifo), GFP_KERNEL);
+	if (!effect->fifo)
+		return -ENOMEM;
+
+	effect->fifo->samples = devm_kcalloc(chip->dev,
+			tmp, sizeof(u8), GFP_KERNEL);
+	if (!effect->fifo->samples)
+		return -ENOMEM;
+
+	rc = of_property_read_u8_array(node, "qcom,wf-fifo-data",
+			effect->fifo->samples, tmp);
+	if (rc < 0) {
+		dev_err(chip->dev, "Read wf-fifo-data failed, rc=%d\n",
+				rc);
+		return rc;
+	}
+
+	effect->fifo->num_s = tmp;
+	effect->fifo->period_per_s = T_LRA;
+	rc = of_property_read_u32(node, "qcom,wf-fifo-period", &tmp);
+	if (rc < 0) {
+		dev_err(chip->dev, "Get qcom,wf-fifo-period failed, rc=%d\n", rc);
+		return rc;
+	} else if (tmp > F_48KHZ) {
+		dev_err(chip->dev, "FIFO playing period %d is not supported\n",
+				tmp);
+		return -EINVAL;
+	}
+
+	effect->fifo->period_per_s = tmp;
+	effect->fifo->play_length_us =
+		get_fifo_play_length_us(effect->fifo, config->t_lra_us);
+	if (effect->fifo->play_length_us == -EINVAL) {
+		dev_err(chip->dev, "get fifo play length failed\n");
+		return -EINVAL;
+	}
+
+	effect->src = FIFO;
+	effect->fifo->preload = of_property_read_bool(node,
+					"qcom,wf-fifo-preload");
+	return 0;
+}
+
+static int haptics_parse_effect_brake_data(struct haptics_chip *chip,
+		struct device_node *node, struct haptics_effect *effect)
+{
+	struct haptics_hw_config *config = &chip->config;
+	int rc, tmp;
 
 	effect->brake = devm_kzalloc(chip->dev,
 			sizeof(*effect->brake), GFP_KERNEL);
@@ -4024,12 +4065,66 @@ static int haptics_parse_per_effect_dt(struct haptics_chip *chip,
 	effect->brake->play_length_us =
 		get_brake_play_length_us(effect->brake, config->t_lra_us);
 
-	if (config->is_erm)
-		return 0;
+	return 0;
+}
 
-	/* LRA specific per-effect settings are parsed below */
-	effect->auto_res_disable = of_property_read_bool(node,
-			"qcom,wf-auto-res-disable");
+static int haptics_parse_per_effect_dt(struct haptics_chip *chip,
+		struct device_node *node, struct haptics_effect *effect)
+{
+	struct haptics_hw_config *config = &chip->config;
+	int rc, tmp;
+
+	if (!effect)
+		return -EINVAL;
+
+	rc = of_property_read_u32(node, "qcom,effect-id", &effect->id);
+	if (rc < 0) {
+		dev_err(chip->dev, "read qcom,effect-id failed, rc=%d\n",
+				rc);
+		return rc;
+	}
+
+	effect->vmax_mv = config->vmax_mv;
+	rc = of_property_read_u32(node, "qcom,wf-vmax-mv", &tmp);
+	if (rc < 0)
+		dev_dbg(chip->dev, "read qcom,wf-vmax-mv failed, rc=%d\n",
+				rc);
+	else
+		effect->vmax_mv = tmp;
+
+	if (effect->vmax_mv > MAX_VMAX_MV) {
+		dev_err(chip->dev, "qcom,wf-vmax-mv (%d) exceed the max value: %d\n",
+				effect->vmax_mv, MAX_VMAX_MV);
+		return -EINVAL;
+	}
+
+	rc = haptics_parse_effect_pattern_data(chip, node, effect);
+	if (rc < 0) {
+		dev_err(chip->dev, "parse effect PATTERN data failed, rc=%d\n", rc);
+		return rc;
+	}
+
+	rc = haptics_parse_effect_fifo_data(chip, node, effect);
+	if (rc < 0) {
+		dev_err(chip->dev, "parse effect FIFO data failed, rc=%d\n", rc);
+		return rc;
+	}
+
+	if (!effect->pattern && !effect->fifo) {
+		dev_err(chip->dev, "no pattern specified for effect %d\n",
+				effect->id);
+		return -EINVAL;
+	}
+
+	rc = haptics_parse_effect_brake_data(chip, node, effect);
+	if (rc < 0) {
+		dev_err(chip->dev, "parse effect brake data failed, rc=%d\n", rc);
+		return rc;
+	}
+
+	if (!config->is_erm)
+		effect->auto_res_disable = of_property_read_bool(node,
+				"qcom,wf-auto-res-disable");
 
 	return 0;
 }
@@ -5085,6 +5180,7 @@ static int haptics_boost_notifier(struct notifier_block *nb, unsigned long event
 {
 	struct haptics_chip *chip = container_of(nb, struct haptics_chip, hboost_nb);
 	u32 vmax_mv;
+	int rc;
 
 	switch (event) {
 	case VMAX_CLAMP:
@@ -5098,6 +5194,9 @@ static int haptics_boost_notifier(struct notifier_block *nb, unsigned long event
 		chip->clamped_vmax_mv = vmax_mv;
 		dev_dbg(chip->dev, "Vmax is clamped at %u mV to support hBoost concurrency\n",
 				vmax_mv);
+		rc = haptics_force_vreg_ready(chip, vmax_mv == MAX_HV_VMAX_MV ? false : true);
+		if (rc < 0)
+			return rc;
 		break;
 	default:
 		break;

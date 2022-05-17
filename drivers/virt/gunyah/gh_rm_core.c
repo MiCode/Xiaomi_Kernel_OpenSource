@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  */
 
@@ -70,10 +71,11 @@ const static struct {
 static struct task_struct *gh_rm_drv_recv_task;
 static struct gh_msgq_desc *gh_rm_msgq_desc;
 static gh_virtio_mmio_cb_t gh_virtio_mmio_fn;
-static gh_vcpu_affinity_set_cb_t gh_vcpu_affinity_set_fn[GH_VM_MAX];
-static gh_vcpu_affinity_reset_cb_t gh_vcpu_affinity_reset_fn[GH_VM_MAX];
-static gh_vpm_grp_set_cb_t gh_vpm_grp_set_fn[GH_VM_MAX];
-static gh_vpm_grp_reset_cb_t gh_vpm_grp_reset_fn[GH_VM_MAX];
+static gh_vcpu_affinity_set_cb_t gh_vcpu_affinity_set_fn;
+static gh_vcpu_affinity_reset_cb_t gh_vcpu_affinity_reset_fn;
+static gh_vpm_grp_set_cb_t gh_vpm_grp_set_fn;
+static gh_vpm_grp_reset_cb_t gh_vpm_grp_reset_fn;
+static gh_all_res_populated_cb_t gh_all_res_populated_fn;
 
 static DEFINE_MUTEX(gh_rm_call_idr_lock);
 static DEFINE_MUTEX(gh_virtio_mmio_fn_lock);
@@ -855,14 +857,13 @@ int gh_rm_get_vm_id_info(gh_vmid_t vmid)
 		info = kzalloc(entry->id_size % 4 ? entry->id_size + 1 :
 							entry->id_size,
 			GFP_KERNEL);
-		memcpy(info, entry->id_info, entry->id_size);
 
 		if (!info) {
-			pr_err("%s: Couldn't copy id type: %u\n",
-					__func__, entry->id_type);
-			ret = PTR_ERR(info);
-			continue;
+			ret = -ENOMEM;
+			break;
 		}
+
+		memcpy(info, entry->id_info, entry->id_size);
 
 		pr_debug("%s: idx:%d id_info %s\n", __func__, i, info);
 		switch (entry->id_type) {
@@ -890,7 +891,10 @@ int gh_rm_get_vm_id_info(gh_vmid_t vmid)
 
 	if (!ret) {
 		vm_prop.vmid = vmid;
-		vm_name = gh_get_vm_name(vm_prop.name);
+		if (vm_prop.name)
+			vm_name = gh_get_vm_name(vm_prop.name);
+		else
+			vm_name = GH_VM_MAX;
 		if (vm_name == GH_VM_MAX) {
 			pr_err("Invalid vm name %s of VMID %d\n", vm_prop.name,
 			       vmid);
@@ -920,7 +924,6 @@ int gh_rm_populate_hyp_res(gh_vmid_t vmid, const char *vm_name)
 	gh_label_t label;
 	u32 n_res, i;
 	u64 base = 0, size = 0;
-	enum gh_vm_names vm_name_index;
 
 	res_entries = gh_rm_vm_get_hyp_res(vmid, &n_res);
 	if (IS_ERR_OR_NULL(res_entries))
@@ -969,15 +972,8 @@ int gh_rm_populate_hyp_res(gh_vmid_t vmid, const char *vm_name)
 					GH_MSGQ_DIRECTION_RX, linux_irq);
 				break;
 			case GH_RM_RES_TYPE_VCPU:
-				ret = gh_rm_get_vm_name(vmid, &vm_name_index);
-				if (ret) {
-					pr_err("Fail to find vmname index for vmid%d\n",
-					       vmid);
-					break;
-				}
-				if (gh_vcpu_affinity_set_fn[vm_name_index])
-					ret = gh_vcpu_affinity_set_fn
-						[vm_name_index](vmid, label,
+				if (gh_vcpu_affinity_set_fn)
+					ret = (*gh_vcpu_affinity_set_fn)(vmid, label,
 								cap_id, linux_irq);
 				break;
 			case GH_RM_RES_TYPE_DB_TX:
@@ -989,15 +985,8 @@ int gh_rm_populate_hyp_res(gh_vmid_t vmid, const char *vm_name)
 					GH_MSGQ_DIRECTION_RX, linux_irq);
 				break;
 			case GH_RM_RES_TYPE_VPMGRP:
-				ret = gh_rm_get_vm_name(vmid, &vm_name_index);
-				if (ret) {
-					pr_err("Fail to find vmname index for vmid%d\n",
-					       vmid);
-					break;
-				}
-				if (gh_vpm_grp_set_fn[vm_name_index])
-					ret = gh_vpm_grp_set_fn[vm_name_index](
-						vmid, cap_id, linux_irq);
+				if (gh_vpm_grp_set_fn)
+					ret = (*gh_vpm_grp_set_fn)(vmid, cap_id, linux_irq);
 				break;
 			case GH_RM_RES_TYPE_VIRTIO_MMIO:
 				mutex_lock(&gh_virtio_mmio_fn_lock);
@@ -1021,6 +1010,8 @@ int gh_rm_populate_hyp_res(gh_vmid_t vmid, const char *vm_name)
 			goto out;
 	}
 
+	if (gh_all_res_populated_fn)
+		(*gh_all_res_populated_fn)(vmid, true);
 out:
 	kfree(res_entries);
 	return ret;
@@ -1049,7 +1040,6 @@ int gh_rm_unpopulate_hyp_res(gh_vmid_t vmid, const char *vm_name)
 	gh_label_t label;
 	u32 n_res, i;
 	int ret = 0, irq = -1;
-	enum gh_vm_names vm_name_index;
 	gh_capid_t cap_id;
 
 	res_entries = gh_rm_vm_get_hyp_res(vmid, &n_res);
@@ -1057,7 +1047,6 @@ int gh_rm_unpopulate_hyp_res(gh_vmid_t vmid, const char *vm_name)
 		return PTR_ERR(res_entries);
 
 	for (i = 0; i < n_res; i++) {
-
 		label = res_entries[i].resource_label;
 		cap_id = (u64) res_entries[i].cap_id_high << 32 |
 				res_entries[i].cap_id_low;
@@ -1080,29 +1069,16 @@ int gh_rm_unpopulate_hyp_res(gh_vmid_t vmid, const char *vm_name)
 						GH_RM_RES_TYPE_DB_RX, &irq);
 			break;
 		case GH_RM_RES_TYPE_VCPU:
-			ret = gh_rm_get_vm_name(vmid, &vm_name_index);
-			if (ret) {
-				pr_err("Fail to find vmname index for vmid%d\n",
-				       vmid);
-				break;
-			}
-			if (gh_vcpu_affinity_reset_fn[vm_name_index])
-				ret = gh_vcpu_affinity_reset_fn[vm_name_index](
-					vmid, label, cap_id, &irq);
+			if (gh_vcpu_affinity_reset_fn)
+				ret = (*gh_vcpu_affinity_reset_fn)(vmid,
+							label, cap_id, &irq);
 			break;
 		case GH_RM_RES_TYPE_VIRTIO_MMIO:
 			/* Virtio cleanup is handled in gh_virtio_mmio_exit() */
 			break;
 		case GH_RM_RES_TYPE_VPMGRP:
-			ret = gh_rm_get_vm_name(vmid, &vm_name_index);
-			if (ret) {
-				pr_err("Fail to find vmname index for vmid%d\n",
-				       vmid);
-				break;
-			}
-			if (gh_vpm_grp_reset_fn[vm_name_index])
-				ret = gh_vpm_grp_reset_fn[vm_name_index](vmid,
-									 &irq);
+			if (gh_vpm_grp_reset_fn)
+				ret = (*gh_vpm_grp_reset_fn)(vmid, &irq);
 			break;
 		default:
 			pr_err("%s: Unknown resource type: %u\n",
@@ -1115,9 +1091,10 @@ int gh_rm_unpopulate_hyp_res(gh_vmid_t vmid, const char *vm_name)
 
 		if (irq >= 0)
 			gh_rm_put_irq(&res_entries[i], irq);
-
 	}
 
+	if (gh_all_res_populated_fn)
+		(*gh_all_res_populated_fn)(vmid, false);
 out:
 	kfree(res_entries);
 	return ret;
@@ -1171,7 +1148,6 @@ EXPORT_SYMBOL(gh_rm_unset_virtio_mmio_cb);
 
 /**
  * gh_rm_set_vcpu_affinity_cb: Set callback that handles vcpu affinity
- * @vm_name_index: index of VM which will trigger the callback function
  * @fnptr: Pointer to callback function
  *
  * @fnptr callback is invoked providing details of the vcpu resource.
@@ -1181,16 +1157,15 @@ EXPORT_SYMBOL(gh_rm_unset_virtio_mmio_cb);
  *	-EINVAL -> Indicates invalid input argument
  *	-EBUSY	-> Indicates that a callback is already set
  */
-int gh_rm_set_vcpu_affinity_cb(enum gh_vm_names vm_name_index,
-			       gh_vcpu_affinity_set_cb_t fnptr)
+int gh_rm_set_vcpu_affinity_cb(gh_vcpu_affinity_set_cb_t fnptr)
 {
 	if (!fnptr)
 		return -EINVAL;
 
-	if (gh_vcpu_affinity_set_fn[vm_name_index])
+	if (gh_vcpu_affinity_set_fn)
 		return -EBUSY;
 
-	gh_vcpu_affinity_set_fn[vm_name_index] = fnptr;
+	gh_vcpu_affinity_set_fn = fnptr;
 
 	return 0;
 }
@@ -1198,7 +1173,6 @@ EXPORT_SYMBOL(gh_rm_set_vcpu_affinity_cb);
 
 /**
  * gh_rm_reset_vcpu_affinity_cb: Reset callback that handles vcpu affinity
- * @vm_name_index: index of VM which will trigger the callback function
  * @fnptr: Pointer to callback function
  *
  * @fnptr callback is invoked providing details of the vcpu resource.
@@ -1208,16 +1182,15 @@ EXPORT_SYMBOL(gh_rm_set_vcpu_affinity_cb);
  *	-EINVAL -> Indicates invalid input argument
  *	-EBUSY	-> Indicates that a callback is already set
  */
-int gh_rm_reset_vcpu_affinity_cb(enum gh_vm_names vm_name_index,
-				 gh_vcpu_affinity_reset_cb_t fnptr)
+int gh_rm_reset_vcpu_affinity_cb(gh_vcpu_affinity_reset_cb_t fnptr)
 {
 	if (!fnptr)
 		return -EINVAL;
 
-	if (gh_vcpu_affinity_reset_fn[vm_name_index])
+	if (gh_vcpu_affinity_reset_fn)
 		return -EBUSY;
 
-	gh_vcpu_affinity_reset_fn[vm_name_index] = fnptr;
+	gh_vcpu_affinity_reset_fn = fnptr;
 
 	return 0;
 }
@@ -1225,7 +1198,6 @@ EXPORT_SYMBOL(gh_rm_reset_vcpu_affinity_cb);
 
 /**
  * gh_rm_set_vpm_grp_cb: Set callback that handles vpm grp state
- * @vm_name_index: index of VM which will trigger the callback function
  * @fnptr: Pointer to callback function
  *
  * @fnptr callback is invoked providing details of the vcpu grp state IRQ.
@@ -1235,15 +1207,15 @@ EXPORT_SYMBOL(gh_rm_reset_vcpu_affinity_cb);
  *	-EINVAL -> Indicates invalid input argument
  *	-EBUSY	-> Indicates that a callback is already set
  */
-int gh_rm_set_vpm_grp_cb(enum gh_vm_names vm_name_index, gh_vpm_grp_set_cb_t fnptr)
+int gh_rm_set_vpm_grp_cb(gh_vpm_grp_set_cb_t fnptr)
 {
 	if (!fnptr)
 		return -EINVAL;
 
-	if (gh_vpm_grp_set_fn[vm_name_index])
+	if (gh_vpm_grp_set_fn)
 		return -EBUSY;
 
-	gh_vpm_grp_set_fn[vm_name_index] = fnptr;
+	gh_vpm_grp_set_fn = fnptr;
 
 	return 0;
 }
@@ -1251,7 +1223,6 @@ EXPORT_SYMBOL(gh_rm_set_vpm_grp_cb);
 
 /**
  * gh_rm_reset_vpm_grp_cb: Reset callback that handles vpm grp state
- * @vm_name_index: index of VM which will trigger the callback function
  * @fnptr: Pointer to callback function
  *
  * @fnptr callback is invoked providing details of the vcpu grp state IRQ.
@@ -1261,19 +1232,44 @@ EXPORT_SYMBOL(gh_rm_set_vpm_grp_cb);
  *	-EINVAL -> Indicates invalid input argument
  *	-EBUSY	-> Indicates that a callback is already set
  */
-int gh_rm_reset_vpm_grp_cb(enum gh_vm_names vm_name_index, gh_vpm_grp_reset_cb_t fnptr)
+int gh_rm_reset_vpm_grp_cb(gh_vpm_grp_reset_cb_t fnptr)
 {
 	if (!fnptr)
 		return -EINVAL;
 
-	if (gh_vpm_grp_reset_fn[vm_name_index])
+	if (gh_vpm_grp_reset_fn)
 		return -EBUSY;
 
-	gh_vpm_grp_reset_fn[vm_name_index] = fnptr;
+	gh_vpm_grp_reset_fn = fnptr;
 
 	return 0;
 }
 EXPORT_SYMBOL(gh_rm_reset_vpm_grp_cb);
+
+/**
+ * gh_rm_all_res_populated_cb: Set callback that handles all res populated
+ * @fnptr: Pointer to callback function
+ *
+ * @fnptr callback is invoked after all resources are populated/un-pupulated.
+ *
+ * This function returns these values:
+ *	0	-> indicates success
+ *	-EINVAL -> Indicates invalid input argument
+ *	-EBUSY	-> Indicates that a callback is already set
+ */
+int gh_rm_all_res_populated_cb(gh_all_res_populated_cb_t fnptr)
+{
+	if (!fnptr)
+		return -EINVAL;
+
+	if (gh_all_res_populated_fn)
+		return -EBUSY;
+
+	gh_all_res_populated_fn = fnptr;
+
+	return 0;
+}
+EXPORT_SYMBOL(gh_rm_all_res_populated_cb);
 
 static void gh_rm_get_svm_res_work_fn(struct work_struct *work)
 {
@@ -1355,6 +1351,11 @@ static void gh_vm_check_peer(struct device *dev, struct device_node *rm_root)
 
 	peers_cnt = of_property_count_strings(rm_root, "qcom,peers");
 	peers_array = kcalloc(peers_cnt, sizeof(char *), GFP_KERNEL);
+	if (!peers_array) {
+		dev_err(dev, "Failed to allocate memory\n");
+		ret = -ENOMEM;
+		return;
+	}
 
 	ret = of_property_read_string_array(rm_root, "qcom,peers", peers_array,
 					    peers_cnt);

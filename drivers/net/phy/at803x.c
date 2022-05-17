@@ -667,25 +667,7 @@ static int at803x_probe(struct phy_device *phydev)
 			return ret;
 	}
 
-	/* Some bootloaders leave the fiber page selected.
-	 * Switch to the copper page, as otherwise we read
-	 * the PHY capabilities from the fiber side.
-	 */
-	if (phydev->drv->phy_id == ATH8031_PHY_ID) {
-		phy_lock_mdio_bus(phydev);
-		ret = at803x_write_page(phydev, AT803X_PAGE_COPPER);
-		phy_unlock_mdio_bus(phydev);
-		if (ret)
-			goto err;
-	}
-
 	return 0;
-
-err:
-	if (priv->vddio)
-		regulator_disable(priv->vddio);
-
-	return ret;
 }
 
 static void at803x_remove(struct phy_device *phydev)
@@ -786,6 +768,30 @@ static int at803x_config_init(struct phy_device *phydev)
 {
 	int ret;
 
+	if (phydev->drv->phy_id == ATH8031_PHY_ID) {
+		/* Some bootloaders leave the fiber page selected.
+		 * Switch to the copper page, as otherwise we read
+		 * the PHY capabilities from the fiber side.
+		 */
+		phy_lock_mdio_bus(phydev);
+		ret = at803x_write_page(phydev, AT803X_PAGE_COPPER);
+		phy_unlock_mdio_bus(phydev);
+		if (ret)
+			return ret;
+
+		/* Set bits 0 to 3 of Chip Config Register
+		 * to 0 for RGMII mode.
+		 */
+		if (phy_interface_is_rgmii(phydev))
+			__phy_modify(phydev, AT803X_REG_CHIP_CONFIG,
+				     AT803X_MODE_CFG_MASK,
+				     AT803X_MODE_CFG_RGMII);
+
+		ret = at8031_pll_config(phydev);
+		if (ret < 0)
+			return ret;
+	}
+
 	/* The RX and TX delay default is:
 	 *   after HW reset: RX delay enabled and TX delay disabled
 	 *   after SW reset: RX delay enabled, while TX delay retains the
@@ -814,20 +820,6 @@ static int at803x_config_init(struct phy_device *phydev)
 	ret = at803x_clk_out_config(phydev);
 	if (ret < 0)
 		return ret;
-
-	if (phydev->drv->phy_id == ATH8031_PHY_ID) {
-		/* Set bits 0 to 3 of Chip Config Register
-		 * to 0 for RGMII mode.
-		 */
-		if (phy_interface_is_rgmii(phydev))
-			__phy_modify(phydev, AT803X_REG_CHIP_CONFIG,
-				     AT803X_MODE_CFG_MASK,
-				     AT803X_MODE_CFG_RGMII);
-
-		ret = at8031_pll_config(phydev);
-		if (ret < 0)
-			return ret;
-	}
 
 	/* Ar803x extended next page bit is enabled by default. Cisco
 	 * multigig switches read this bit and attempt to negotiate 10Gbps

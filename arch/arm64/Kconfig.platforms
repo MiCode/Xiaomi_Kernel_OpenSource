@@ -238,6 +238,7 @@ config ARCH_WAIPIO
 	help
 	  This enables support for the Qualcomm Technologies, Inc.'s
 	  WAIPIO chipset. If you do not wish to build a kernel that
+	  runs on this chipset or if you are unsure, say 'N' here.
 
 config ARCH_KHAJE
 	bool "Enable Support for Qualcomm Technologies, Inc. KHAJE"
@@ -268,6 +269,14 @@ config ARCH_SA8195
 	help
 	  This enables support for the Qualcomm Technologies, Inc.'s
 	  SA8195 chipset. If you do not wish to build a kernel that
+	  runs on this chipset or if you are unsure, say 'N' here.
+
+config ARCH_SA6155
+        bool "Enable Support for Qualcomm Technologies, Inc. SA6155"
+	depends on ARCH_QCOM
+	help
+	  This enables support for the Qualcomm Technologies, Inc.'s
+	  SA6155 chipset. If you do not wish to build a kernel that
 	  runs on this chipset or if you are unsure, say 'N' here.
 
 config ARCH_REALTEK

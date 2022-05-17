@@ -3,7 +3,7 @@
  * drivers/mmc/host/sdhci-msm.c - Qualcomm SDHCI Platform driver
  *
  * Copyright (c) 2013-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -3904,6 +3904,7 @@ static void sdhci_msm_hw_reset(struct sdhci_host *host)
 	if (ret)
 		dev_err(&pdev->dev, "%s: core_reset deassert failed, err = %d\n",
 				__func__, ret);
+	usleep_range(200, 210);
 
 	sdhci_msm_registers_restore(host);
 	msm_host->reg_store = false;
@@ -4786,8 +4787,6 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 	}
 
 	sdhci_msm_set_caps(msm_host);
-
-	msm_host->pltfm_init_done = true;
 
 	sdhci_msm_setup_pm(pdev, msm_host);
 

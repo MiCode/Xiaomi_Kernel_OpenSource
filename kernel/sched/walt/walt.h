@@ -121,6 +121,7 @@ struct walt_rq {
 	u64			last_cc_update;
 	u64			cycles;
 	struct list_head	mvp_tasks;
+	int                     num_mvp_tasks;
 	u64			latest_clock;
 };
 
@@ -886,11 +887,6 @@ static inline bool walt_fair_task(struct task_struct *p)
 	return p->prio >= MAX_RT_PRIO && !is_idle_task(p);
 }
 
-extern void rt_task_arrival_marker(void *unused, bool preempt,
-	struct task_struct *prev, struct task_struct *next);
-
-extern void long_running_rt_task_notifier(void *unused, struct rq *rq);
-
 extern int sched_long_running_rt_task_ms_handler(struct ctl_table *table, int write,
 		void __user *buffer, size_t *lenp,
 		loff_t *ppos);
@@ -911,7 +907,16 @@ void walt_cfs_tick(struct rq *rq);
 void walt_lb_tick(struct rq *rq);
 
 extern __read_mostly unsigned int walt_scale_demand_divisor;
-#define scale_demand(d) ((d)/walt_scale_demand_divisor)
+
+static inline u64 scale_time_to_util(u64 d)
+{
+	/*
+	 * The denominator at most could be (8 * tick_size) >> SCHED_CAPACITY_SHIFT,
+	 * a value that easily fits a 32bit integer.
+	 */
+	do_div(d, walt_scale_demand_divisor);
+	return d;
+}
 
 #define ASYMCAP_BOOST(cpu)	(sysctl_sched_asymcap_boost && !is_min_cluster_cpu(cpu))
 
@@ -936,9 +941,9 @@ extern int in_sched_bug;
 extern struct rq *__migrate_task(struct rq *rq, struct rq_flags *rf,
 				 struct task_struct *p, int dest_cpu);
 
-extern DEFINE_PER_CPU(u64, rt_task_arrival_time);
+DECLARE_PER_CPU(u64, rt_task_arrival_time);
 extern int walt_get_mvp_task_prio(struct task_struct *p);
-extern void walt_cfs_deactivate_mvp_task(struct task_struct *p);
+extern void walt_cfs_deactivate_mvp_task(struct rq *rq, struct task_struct *p);
 
 enum WALT_DEBUG_FEAT {
 	WALT_BUG_UPSTREAM,

@@ -17,7 +17,7 @@
  * Copyright (c) 2021-2022, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
-#define pr_fmt(fmt)	"gh_vcpu_sched: " fmt
+#define pr_fmt(fmt)	"gh_proxy_sched: " fmt
 
 #include <linux/init.h>
 #include <linux/kthread.h>
@@ -31,21 +31,28 @@
 #include <linux/of.h>
 #include <linux/mutex.h>
 #include <linux/interrupt.h>
+#include <linux/wait.h>
+#include <linux/sched/signal.h>
 
 #include <linux/gunyah/gh_errno.h>
 #include <linux/gunyah/gh_rm_drv.h>
-#include "gh_vcpu_sched.h"
+#include "gh_proxy_sched.h"
 
 #define CREATE_TRACE_POINTS
-#include "gh_vcpu_sched_trace.h"
+#include "gh_proxy_sched_trace.h"
 
-#define GH_MAX_VMS 2
-#define GH_MAX_VCPUS_PER_VM 2
-#define GH_MAX_VCPUS (GH_MAX_VMS * GH_MAX_VCPUS_PER_VM)
+#define GH_MAX_VMS 5
+#define GH_MAX_VCPUS_PER_VM 8
+#define GH_MAX_SYSTEM_VCPUS (GH_MAX_VMS * GH_MAX_VCPUS_PER_VM)
 
-#define GH_VCPU_STATE_RUNNING		0
+/* VCPU is ready to run */
+#define GH_VCPU_STATE_READY		0
+/* VCPU is sleeping until an interrupt arrives */
 #define GH_VCPU_STATE_EXPECTS_WAKEUP	1
-#define GH_VCPU_STATE_POWERED_DOWN	2
+/* VCPU is powered off */
+#define GH_VCPU_STATE_POWERED_OFF	2
+/* VCPU is blocked in EL2 for an unspecified reason */
+#define GH_VCPU_STATE_BLOCKED		3
 
 #define GH_VCPU_SUSPEND_STATE_STANDBY	0
 #define GH_VCPU_SUSPEND_STATE_POWERDOWN	1
@@ -53,27 +60,30 @@
 #define SVM_STATE_RUNNING		1
 #define SVM_STATE_SYSTEM_SUSPENDED	3
 
-struct gh_vcpu {
-	struct gh_vm *vm;
+struct gh_proxy_vcpu {
+	struct gh_proxy_vm *vm;
 	gh_capid_t cap_id;
 	gh_label_t idx;
-	atomic_t abort_sleep;
+	bool abort_sleep;
 	struct task_struct *task;
 	int virq;
+	char irq_name[32];
+	wait_queue_head_t wait_queue;
 };
 
-struct gh_vm {
+struct gh_proxy_vm {
 	gh_vmid_t id;
 	int vcpu_count;
-	struct gh_vcpu vcpu[GH_MAX_VCPUS_PER_VM];
+	struct gh_proxy_vcpu vcpu[GH_MAX_VCPUS_PER_VM];
 	bool is_vcpu_info_populated;
+	bool is_active;
 
 	gh_capid_t vpmg_cap_id;
 	int susp_res_irq;
 	bool is_vpm_group_info_populated;
 };
 
-static struct gh_vm *gh_vms;
+static struct gh_proxy_vm *gh_vms;
 static int nr_vms;
 static int nr_vcpus;
 static bool init_done;
@@ -81,143 +91,48 @@ static DEFINE_MUTEX(gh_vm_mutex);
 static DEFINE_SPINLOCK(gh_vm_lock);
 
 /*
- * Wakes up the kernel thread responsible for running the given vcpu.
- *
- * Returns 0 if the thread was already running, 1 otherwise.
+ * Wakes up the thread responsible for running the given vcpu.
  */
-static int gh_vcpu_wake_up(struct gh_vcpu *vcpu)
+static inline void gh_vcpu_wake_up(struct gh_proxy_vcpu *vcpu)
 {
-	/* Set a flag indicating that the thread should not go to sleep. */
-	atomic_set(&vcpu->abort_sleep, 1);
+	vcpu->abort_sleep = true;
 
-	/* Set the thread to running state. */
-	return wake_up_process(vcpu->task);
+	return wake_up(&vcpu->wait_queue);
 }
 
 /*
  * Puts the current thread to sleep. The current thread must be responsible for
  * running the given vcpu.
- *
- * Going to sleep will fail if gh_vcpu_wake_up() or kthread_stop() was called on
- * this vcpu/thread since the last time it [re]started running.
  */
-static void gh_vcpu_sleep(struct gh_vcpu *vcpu)
+static inline void gh_vcpu_sleep(struct gh_proxy_vcpu *vcpu)
 {
-	int abort;
-
-	set_current_state(TASK_INTERRUPTIBLE);
-
-	/* Check the sleep-abort flag after making thread interruptible. */
-	abort = atomic_read(&vcpu->abort_sleep);
-	if (!abort && !kthread_should_stop())
-		schedule();
-
-	/* Set state back to running on the way out. */
-	set_current_state(TASK_RUNNING);
+	if (!vcpu->abort_sleep && !signal_pending(current))
+		wait_event_interruptible(vcpu->wait_queue, vcpu->abort_sleep);
 }
 
-/*
- * This is the main loop of each vcpu.
- */
-static int gh_vcpu_thread(void *data)
-{
-	struct gh_vcpu *vcpu = data;
-	int ret;
-	ktime_t start_ts, yield_ts;
-	struct gh_hcall_vcpu_run_resp resp = {};
-
-	while (!kthread_should_stop()) {
-		/*
-		 * We're about to run the vcpu, so we can reset the abort-sleep flag.
-		 */
-		atomic_set(&vcpu->abort_sleep, 0);
-
-		start_ts = ktime_get();
-		/* Call into Gunyah to run vcpu. */
-		ret = gh_hcall_vcpu_run(vcpu->cap_id, 0, 0, 0, &resp);
-		yield_ts = ktime_get() - start_ts;
-		trace_gh_hcall_vcpu_run(ret, vcpu->vm->id, vcpu->idx, yield_ts,
-					resp.vcpu_state, resp.vcpu_suspend_state);
-
-		if (ret != GH_ERROR_OK) {
-			if (!kthread_should_stop())
-				schedule();
-		} else {
-			switch (resp.vcpu_state) {
-			/* VCPU is preempted by PVM interrupt. */
-			case GH_VCPU_STATE_RUNNING:
-				if (need_resched())
-					schedule();
-				break;
-
-			/* VCPU in WFI. */
-			case GH_VCPU_STATE_EXPECTS_WAKEUP:
-			case GH_VCPU_STATE_POWERED_DOWN:
-				gh_vcpu_sleep(vcpu);
-				break;
-
-			/* Unknown VCPU state. */
-			default:
-				pr_err("Unknown VCPU STATE: state=%d VCPU=%d of VM=%d\n",
-					resp.vcpu_state, vcpu->idx, vcpu->vm->id);
-				if (!kthread_should_stop())
-					schedule();
-				break;
-			}
-		}
-	}
-
-	return 0;
-}
-
-static void gh_free_vm_resources(struct gh_vm *vm)
+static void gh_init_wait_queues(struct gh_proxy_vm *vm)
 {
 	gh_label_t j;
 
-	for (j = 0; j < vm->vcpu_count; j++) {
-		put_task_struct(vm->vcpu[j].task);
-		kthread_stop(vm->vcpu[j].task);
-	}
+	for (j = 0; j < vm->vcpu_count; j++)
+		init_waitqueue_head(&vm->vcpu[j].wait_queue);
 }
 
-static int gh_start_vm_vcpu_threads(struct gh_vm *vm)
+static inline bool is_vm_supports_proxy(gh_vmid_t gh_vmid)
 {
-	int ret = 0, i;
+	gh_vmid_t vmid;
 
-	for (i = 0; i < vm->vcpu_count; i++) {
-		struct gh_vcpu *vcpu = &vm->vcpu[i];
-
-		atomic_set(&vcpu->abort_sleep, 0);
-		vcpu->task = kthread_run(gh_vcpu_thread, vcpu,
-					"vcpu_thread_%u_%u", vm->id, i);
-		if (IS_ERR(vcpu->task)) {
-			pr_err("Error creating task (vm=%u,vcpu=%u): %ld\n",
-					vm->id, i, PTR_ERR(vcpu->task));
-			ret = PTR_ERR(vcpu->task);
-			goto out;
-		}
-
-		get_task_struct(vcpu->task);
-	}
-
-out:
-	return ret;
-}
-
-static inline bool is_tui_vm(gh_vmid_t vmid)
-{
-	gh_vmid_t tui_vmid;
-
-	if (!gh_rm_get_vmid(GH_TRUSTED_VM, &tui_vmid) && tui_vmid == vmid)
+	if ((!gh_rm_get_vmid(GH_TRUSTED_VM, &vmid) && vmid == gh_vmid) ||
+			(!gh_rm_get_vmid(GH_OEM_VM, &vmid) && vmid == gh_vmid))
 		return true;
 
 	return false;
 }
 
-static inline struct gh_vm *gh_get_vm(gh_vmid_t vmid)
+static inline struct gh_proxy_vm *gh_get_vm(gh_vmid_t vmid)
 {
 	int i;
-	struct gh_vm *vm = NULL;
+	struct gh_proxy_vm *vm = NULL;
 
 	for (i = 0; i < GH_MAX_VMS; i++) {
 		vm = &gh_vms[i];
@@ -228,10 +143,10 @@ static inline struct gh_vm *gh_get_vm(gh_vmid_t vmid)
 	return vm;
 }
 
-static inline struct gh_vcpu *gh_get_vcpu(struct gh_vm *vm, gh_capid_t cap_id)
+static inline struct gh_proxy_vcpu *gh_get_vcpu(struct gh_proxy_vm *vm, gh_capid_t cap_id)
 {
 	int i;
-	struct gh_vcpu *vcpu = NULL;
+	struct gh_proxy_vcpu *vcpu = NULL;
 
 	for (i = 0; i < vm->vcpu_count; i++) {
 		if (vm->vcpu[i].cap_id == cap_id) {
@@ -243,13 +158,14 @@ static inline struct gh_vcpu *gh_get_vcpu(struct gh_vm *vm, gh_capid_t cap_id)
 	return vcpu;
 }
 
-static inline void gh_reset_vm(struct gh_vm *vm)
+static inline void gh_reset_vm(struct gh_proxy_vm *vm)
 {
 	int j;
 
 	vm->id = GH_VMID_INVAL;
 	vm->vcpu_count = 0;
 	vm->is_vcpu_info_populated = false;
+	vm->is_active = false;
 	vm->susp_res_irq = U32_MAX;
 	vm->is_vpm_group_info_populated = false;
 	vm->vpmg_cap_id = GH_CAPID_INVAL;
@@ -258,12 +174,15 @@ static inline void gh_reset_vm(struct gh_vm *vm)
 		vm->vcpu[j].virq = U32_MAX;
 		vm->vcpu[j].idx = U32_MAX;
 		vm->vcpu[j].vm = NULL;
+		vm->vcpu[j].abort_sleep = false;
+		strscpy(vm->vcpu[vm->vcpu_count].irq_name, "",
+				sizeof(vm->vcpu[vm->vcpu_count].irq_name));
 	}
 }
 
 static void gh_init_vms(void)
 {
-	struct gh_vm *vm;
+	struct gh_proxy_vm *vm;
 	int i;
 
 	for (i = 0; i < GH_MAX_VMS; i++) {
@@ -274,13 +193,14 @@ static void gh_init_vms(void)
 
 static irqreturn_t gh_vcpu_irq_handler(int irq, void *data)
 {
-	struct gh_vcpu *vcpu;
+	struct gh_proxy_vcpu *vcpu;
 
 	spin_lock(&gh_vm_lock);
 	vcpu = data;
 	if (!vcpu || !vcpu->vm || !vcpu->vm->is_vcpu_info_populated)
 		goto unlock;
 
+	trace_gh_vcpu_irq_handler(vcpu->vm->id, vcpu->idx);
 	gh_vcpu_wake_up(vcpu);
 
 unlock:
@@ -303,9 +223,9 @@ static inline void gh_get_irq_name(int vmid, int vcpu_num, char *irq_name)
 static int gh_populate_vm_vcpu_info(gh_vmid_t vmid, gh_label_t cpu_idx,
 					gh_capid_t cap_id, int virq_num)
 {
-	struct gh_vm *vm;
+	struct gh_proxy_vm *vm;
 	int ret = 0;
-	char irq_name[32] = "gh_vcpu_irq";
+	char *vcpu_irq_name;
 
 	if (!init_done) {
 		pr_err("Driver probe failed\n");
@@ -313,12 +233,12 @@ static int gh_populate_vm_vcpu_info(gh_vmid_t vmid, gh_label_t cpu_idx,
 		goto out;
 	}
 
-	if (!is_tui_vm(vmid)) {
+	if (!is_vm_supports_proxy(vmid)) {
 		pr_info("Skip populating VCPU affinity info for VM=%d\n", vmid);
 		goto out;
 	}
 
-	if (nr_vcpus >= GH_MAX_VCPUS) {
+	if (nr_vcpus >= GH_MAX_SYSTEM_VCPUS) {
 		pr_err("Exceeded max vcpus in the system %d\n", nr_vcpus);
 		ret = -ENXIO;
 		goto out;
@@ -331,18 +251,23 @@ static int gh_populate_vm_vcpu_info(gh_vmid_t vmid, gh_label_t cpu_idx,
 
 	mutex_lock(&gh_vm_mutex);
 	vm = gh_get_vm(vmid);
-	if (!vm->is_vcpu_info_populated) {
+	if (vm && !vm->is_vcpu_info_populated) {
 		if (vm->vcpu_count >= GH_MAX_VCPUS_PER_VM) {
 			pr_err("Exceeded max vcpus per VM %d\n", vm->vcpu_count);
 			ret = -ENXIO;
 			goto unlock;
 		}
 
-		gh_get_irq_name(vmid, vm->vcpu_count, irq_name);
-		ret = request_irq(virq_num, gh_vcpu_irq_handler, 0, irq_name,
-							&vm->vcpu[vm->vcpu_count]);
+		strscpy(vm->vcpu[vm->vcpu_count].irq_name, "gh_vcpu_irq",
+					sizeof(vm->vcpu[vm->vcpu_count].irq_name));
+		gh_get_irq_name(vmid, vm->vcpu_count, vm->vcpu[vm->vcpu_count].irq_name);
+		ret = request_irq(virq_num, gh_vcpu_irq_handler, 0,
+						vm->vcpu[vm->vcpu_count].irq_name,
+						&vm->vcpu[vm->vcpu_count]);
 		if (ret < 0) {
 			pr_err("%s: IRQ registration failed ret=%d\n", __func__, ret);
+			strscpy(vm->vcpu[vm->vcpu_count].irq_name, "",
+					sizeof(vm->vcpu[vm->vcpu_count].irq_name));
 			goto unlock;
 		}
 
@@ -351,11 +276,12 @@ static int gh_populate_vm_vcpu_info(gh_vmid_t vmid, gh_label_t cpu_idx,
 		vm->vcpu[vm->vcpu_count].virq = virq_num;
 		vm->vcpu[vm->vcpu_count].idx = cpu_idx;
 		vm->vcpu[vm->vcpu_count].vm = vm;
+		vcpu_irq_name = vm->vcpu[vm->vcpu_count].irq_name;
 		vm->vcpu_count++;
 
 		nr_vcpus++;
 		pr_info("vmid=%d cpu_index:%u vcpu_cap_id:%llu virq_num=%d irq_name=%s nr_vcpus:%d\n",
-				vmid, cpu_idx, cap_id, virq_num, irq_name, nr_vcpus);
+				vmid, cpu_idx, cap_id, virq_num, vcpu_irq_name, nr_vcpus);
 	}
 
 unlock:
@@ -367,15 +293,15 @@ out:
 static int gh_unpopulate_vm_vcpu_info(gh_vmid_t vmid, gh_label_t cpu_idx,
 					gh_capid_t cap_id, int *irq)
 {
-	struct gh_vm *vm;
-	struct gh_vcpu *vcpu;
+	struct gh_proxy_vm *vm;
+	struct gh_proxy_vcpu *vcpu;
 
 	if (!init_done) {
 		pr_err("Driver probe failed\n");
 		return -ENXIO;
 	}
 
-	if (!is_tui_vm(vmid)) {
+	if (!is_vm_supports_proxy(vmid)) {
 		pr_info("Skip unpopulating VCPU affinity info for VM=%d\n", vmid);
 		goto out;
 	}
@@ -386,7 +312,7 @@ static int gh_unpopulate_vm_vcpu_info(gh_vmid_t vmid, gh_label_t cpu_idx,
 		vcpu = gh_get_vcpu(vm, cap_id);
 		if (vcpu) {
 			*irq = vcpu->virq;
-			free_irq(vcpu->virq, NULL);
+			free_irq(vcpu->virq, vcpu);
 			vcpu->virq = U32_MAX;
 
 			if (nr_vcpus)
@@ -399,63 +325,10 @@ out:
 	return 0;
 }
 
-static int gh_vm_vcpu_done_populate_info(struct notifier_block *nb,
-						unsigned long cmd, void *data)
-{
-	struct gh_rm_notif_vm_status_payload *vm_status_payload = data;
-	u8 vm_status = vm_status_payload->vm_status;
-	gh_vmid_t vmid = vm_status_payload->vmid;
-	struct gh_vm *vm;
-	int ret;
-
-	if (!is_tui_vm(vmid)) {
-		pr_info("Proxy Scheduling isn't supported for VM=%d\n", vmid);
-		goto out;
-	}
-
-	if (nr_vms >= GH_MAX_VMS) {
-		pr_err("Exceeded max VMs in the system %d\n", nr_vms);
-		return -ENXIO;
-	}
-
-	mutex_lock(&gh_vm_mutex);
-	vm = gh_get_vm(vmid);
-
-	if (cmd == GH_RM_NOTIF_VM_STATUS &&
-			vm_status == GH_RM_VM_STATUS_RUNNING &&
-			vm && vm->vcpu_count && !vm->is_vcpu_info_populated) {
-		ret = gh_start_vm_vcpu_threads(vm);
-		if (ret) {
-			gh_free_vm_resources(vm);
-			gh_reset_vm(vm);
-			goto unlock;
-		}
-
-		nr_vms++;
-		vm->is_vcpu_info_populated = true;
-	} else if (cmd == GH_RM_NOTIF_VM_STATUS &&
-			vm_status == GH_RM_VM_STATUS_RESET &&
-			vm && vm->is_vcpu_info_populated) {
-		gh_free_vm_resources(vm);
-		gh_reset_vm(vm);
-		if (nr_vms)
-			nr_vms--;
-	}
-
-unlock:
-	mutex_unlock(&gh_vm_mutex);
-out:
-	return NOTIFY_DONE;
-}
-
-static struct notifier_block gh_vm_vcpu_nb = {
-	.notifier_call = gh_vm_vcpu_done_populate_info,
-};
-
 static inline void gh_get_vpmg_cap_id(int irq, gh_capid_t *vpmg_cap_id)
 {
 	int i;
-	struct gh_vm *vm;
+	struct gh_proxy_vm *vm;
 
 	for (i = 0; i < GH_MAX_VMS; i++) {
 		vm = &gh_vms[i];
@@ -494,7 +367,7 @@ static irqreturn_t gh_susp_res_irq_handler(int irq, void *data)
 static int gh_populate_vm_vpm_grp_info(gh_vmid_t vmid, gh_capid_t cap_id, int virq_num)
 {
 	int ret = 0;
-	struct gh_vm *vm;
+	struct gh_proxy_vm *vm;
 
 	if (!init_done) {
 		pr_err("%s: Driver probe failed\n", __func__);
@@ -502,7 +375,7 @@ static int gh_populate_vm_vpm_grp_info(gh_vmid_t vmid, gh_capid_t cap_id, int vi
 		goto out;
 	}
 
-	if (!is_tui_vm(vmid)) {
+	if (!is_vm_supports_proxy(vmid)) {
 		pr_info("Skip populating VPM GRP info for VM=%d\n", vmid);
 		goto out;
 	}
@@ -515,7 +388,7 @@ static int gh_populate_vm_vpm_grp_info(gh_vmid_t vmid, gh_capid_t cap_id, int vi
 
 	mutex_lock(&gh_vm_mutex);
 	vm = gh_get_vm(vmid);
-	if (!vm->is_vpm_group_info_populated) {
+	if (vm && !vm->is_vpm_group_info_populated) {
 		ret = request_irq(virq_num, gh_susp_res_irq_handler, 0,
 			"gh_susp_res_irq", NULL);
 		if (ret < 0) {
@@ -536,14 +409,14 @@ out:
 
 static int gh_unpopulate_vm_vpm_grp_info(gh_vmid_t vmid, int *irq)
 {
-	struct gh_vm *vm;
+	struct gh_proxy_vm *vm;
 
 	if (!init_done) {
 		pr_err("%s: Driver probe failed\n", __func__);
 		return -ENXIO;
 	}
 
-	if (!is_tui_vm(vmid)) {
+	if (!is_vm_supports_proxy(vmid)) {
 		pr_info("Skip unpopulating VPM GRP info for VM=%d\n", vmid);
 		goto out;
 	}
@@ -562,52 +435,204 @@ out:
 	return 0;
 }
 
-static int gh_vcpu_sched_reg_rm_cbs(void)
+static void gh_populate_all_res_info(gh_vmid_t vmid, bool res_populated)
+{
+	struct gh_proxy_vm *vm;
+
+	if (!init_done) {
+		pr_err("%s: Driver probe failed\n", __func__);
+		return;
+	}
+
+	if (!is_vm_supports_proxy(vmid)) {
+		pr_info("Proxy Scheduling isn't supported for VM=%d\n", vmid);
+		return;
+	}
+
+	if (nr_vms >= GH_MAX_VMS) {
+		pr_err("Exceeded max VMs in the system %d\n", nr_vms);
+		return;
+	}
+
+	mutex_lock(&gh_vm_mutex);
+	vm = gh_get_vm(vmid);
+	if (!vm)
+		goto unlock;
+
+	if (res_populated && !vm->is_vcpu_info_populated) {
+		gh_init_wait_queues(vm);
+		nr_vms++;
+		vm->is_vcpu_info_populated = true;
+		vm->is_active = true;
+	} else if (!res_populated && vm->is_vcpu_info_populated) {
+		gh_reset_vm(vm);
+		if (nr_vms)
+			nr_vms--;
+	}
+unlock:
+	mutex_unlock(&gh_vm_mutex);
+}
+
+
+int gh_get_nr_vcpus(gh_vmid_t vmid)
+{
+	struct gh_proxy_vm *vm;
+
+	vm = gh_get_vm(vmid);
+	if (vm && vm->is_vcpu_info_populated)
+		return vm->vcpu_count;
+
+	return 0;
+}
+
+/* Gets called from VM EXIT notification */
+void gh_wakeup_all_vcpus(gh_vmid_t vmid)
+{
+	struct gh_proxy_vm *vm;
+	int i;
+
+	vm = gh_get_vm(vmid);
+	if (vm && vm->is_active) {
+		vm->is_active = false;
+
+		for (i = 0; i < vm->vcpu_count; i++)
+			gh_vcpu_wake_up(&vm->vcpu[i]);
+	}
+}
+
+bool gh_vm_supports_proxy_sched(gh_vmid_t vmid)
+{
+	struct gh_proxy_vm *vm;
+
+	vm = gh_get_vm(vmid);
+	if (vm && vm->is_vcpu_info_populated && vm->vcpu_count)
+		return true;
+
+	return false;
+}
+
+int gh_vcpu_run(gh_vmid_t vmid, unsigned int vcpu_id, uint64_t resume_data_0,
+		uint64_t resume_data_1, uint64_t resume_data_2, struct gh_hcall_vcpu_run_resp *resp)
+{
+	struct gh_proxy_vcpu *vcpu;
+	struct gh_proxy_vm *vm;
+	int ret;
+	ktime_t start_ts, yield_ts;
+
+	vm = gh_get_vm(vmid);
+	if (!vm || !vm->is_active)
+		return -EPERM;
+
+	if (vm->vcpu[vcpu_id].cap_id == GH_CAPID_INVAL)
+		return -EPERM;
+
+	vcpu = &vm->vcpu[vcpu_id];
+
+	do {
+		/*
+		 * We're about to run the vcpu, so we can reset the abort-sleep flag.
+		 */
+		vcpu->abort_sleep = false;
+
+		start_ts = ktime_get();
+		/* Call into Gunyah to run vcpu. */
+		ret = gh_hcall_vcpu_run(vcpu->cap_id, resume_data_0,
+					resume_data_1, resume_data_2, resp);
+		yield_ts = ktime_get() - start_ts;
+		trace_gh_hcall_vcpu_run(ret, vcpu->vm->id, vcpu_id, yield_ts,
+					resp->vcpu_state, resp->vcpu_suspend_state);
+
+		if (ret == GH_ERROR_OK) {
+			switch (resp->vcpu_state) {
+			/* VCPU is preempted by PVM interrupt. */
+			case GH_VCPU_STATE_READY:
+				if (need_resched())
+					schedule();
+				break;
+
+			/* VCPU in WFI or suspended/powered down. */
+			case GH_VCPU_STATE_EXPECTS_WAKEUP:
+			case GH_VCPU_STATE_POWERED_OFF:
+				gh_vcpu_sleep(vcpu);
+				break;
+
+			/* VCPU is blocked in EL2 for an unspecified reason */
+			case GH_VCPU_STATE_BLOCKED:
+				schedule();
+				break;
+
+			/* Unknown VCPU state. */
+			default:
+				pr_err("Unknown VCPU STATE: state=%d VCPU=%u of VM=%d state_data_0=0x%llx state_data_1=0x%llx state_data_2=0x%llx\n",
+					resp->vcpu_state, vcpu_id, vcpu->vm->id,
+					resp->state_data_0, resp->state_data_1, resp->state_data_2);
+				schedule();
+				break;
+			}
+		} else if (ret == GH_ERROR_RETRY) {
+			schedule();
+		}
+
+		if (signal_pending(current)) {
+			ret = -EINTR;
+			break;
+		}
+	} while ((ret == GH_ERROR_OK || ret == GH_ERROR_RETRY) && vm->is_active);
+
+	if (ret != -EINTR)
+		ret = gh_remap_error(ret);
+
+	return ret;
+}
+
+static int gh_proxy_sched_reg_rm_cbs(void)
 {
 	int ret = -EINVAL;
 
-	ret = gh_rm_set_vcpu_affinity_cb(GH_TRUSTED_VM, &gh_populate_vm_vcpu_info);
+	ret = gh_rm_set_vcpu_affinity_cb(&gh_populate_vm_vcpu_info);
 	if (ret) {
 		pr_err("fail to set the VM VCPU populate callback\n");
 		return ret;
 	}
 
-	ret = gh_rm_reset_vcpu_affinity_cb(GH_TRUSTED_VM, &gh_unpopulate_vm_vcpu_info);
+	ret = gh_rm_reset_vcpu_affinity_cb(&gh_unpopulate_vm_vcpu_info);
 	if (ret) {
 		pr_err("fail to set the VM VCPU unpopulate callback\n");
 		return ret;
 	}
 
-	ret = gh_rm_set_vpm_grp_cb(GH_TRUSTED_VM, &gh_populate_vm_vpm_grp_info);
+	ret = gh_rm_set_vpm_grp_cb(&gh_populate_vm_vpm_grp_info);
 	if (ret) {
 		pr_err("fail to set the VM VPM GRP populate callback\n");
 		return ret;
 	}
 
-	ret = gh_rm_reset_vpm_grp_cb(GH_TRUSTED_VM, &gh_unpopulate_vm_vpm_grp_info);
+	ret = gh_rm_reset_vpm_grp_cb(&gh_unpopulate_vm_vpm_grp_info);
 	if (ret) {
 		pr_err("fail to set the VM VPM GRP unpopulate callback\n");
+		return ret;
+	}
+
+	ret = gh_rm_all_res_populated_cb(&gh_populate_all_res_info);
+	if (ret) {
+		pr_err("fail to set the all res populate callback\n");
 		return ret;
 	}
 
 	return 0;
 }
 
-static int gh_vcpu_sched_probe(struct platform_device *pdev)
+int gh_proxy_sched_init(void)
 {
 	int ret;
 
-	ret = gh_rm_register_notifier(&gh_vm_vcpu_nb);
-	if (ret)
-		return ret;
-
-	gh_vms = kcalloc(GH_MAX_VMS, sizeof(struct gh_vm), GFP_KERNEL);
+	gh_vms = kcalloc(GH_MAX_VMS, sizeof(struct gh_proxy_vm), GFP_KERNEL);
 	if (!gh_vms) {
 		ret = -ENOMEM;
-		goto unregister_rm_notifier;
+		goto err;
 	}
 
-	ret = gh_vcpu_sched_reg_rm_cbs();
+	ret = gh_proxy_sched_reg_rm_cbs();
 	if (ret)
 		goto free_gh_vms;
 
@@ -618,25 +643,11 @@ static int gh_vcpu_sched_probe(struct platform_device *pdev)
 
 free_gh_vms:
 	kfree(gh_vms);
-unregister_rm_notifier:
-	gh_rm_unregister_notifier(&gh_vm_vcpu_nb);
-
+err:
 	return ret;
 }
 
-static const struct of_device_id gh_vcpu_sched_match_table[] = {
-	{ .compatible = "qcom,gh_vcpu_sched" },
-	{},
-};
-
-static struct platform_driver gh_vcpu_sched_driver = {
-	.probe = gh_vcpu_sched_probe,
-	.driver = {
-		.name = "gh_vcpu_sched",
-		.owner = THIS_MODULE,
-		.of_match_table = gh_vcpu_sched_match_table,
-	 },
-};
-
-builtin_platform_driver(gh_vcpu_sched_driver);
-MODULE_LICENSE("GPL v2");
+void gh_proxy_sched_exit(void)
+{
+	kfree(gh_vms);
+}

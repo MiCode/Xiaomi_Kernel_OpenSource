@@ -14,6 +14,10 @@ CONFIG_DIR=arch/${ARCH}/configs
 BRANCH=msm-kernel
 CONFIG_TARGET=msm.${MSM_ARCH}
 
+
+GKI_KLEAF_SUPPRESS_BUILD_SH_DEPRECATION_WARNING=1
+KLEAF_SUPPRESS_BUILD_SH_DEPRECATION_WARNING=1
+
 ################################################################################
 ##
 function compile_external_dtc() {

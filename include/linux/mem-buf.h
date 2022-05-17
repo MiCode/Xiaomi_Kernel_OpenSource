@@ -81,7 +81,7 @@ int mem_buf_share(struct dma_buf *dmabuf,
 
 
 struct mem_buf_retrieve_kernel_arg {
-	u32 sender_vmid;
+	int sender_vmid;
 	unsigned int nr_acl_entries;
 	int *vmids;
 	int *perms;

@@ -103,6 +103,7 @@
 #define PCIE20_BRIDGE_CTRL (0x3c)
 #define PCIE20_DEVICE_CONTROL_STATUS (0x78)
 #define PCIE20_DEVICE_CONTROL2_STATUS2 (0x98)
+#define PCIE20_PCI_MSI_CAP_ID_NEXT_CTRL_REG (0x50)
 
 #define PCIE20_AUX_CLK_FREQ_REG (0xb40)
 #define PCIE20_ACK_F_ASPM_CTRL_REG (0x70c)
@@ -953,12 +954,6 @@ struct msm_pcie_dev_t {
 	ulong linkdown_counter;
 	ulong link_turned_on_counter;
 	ulong link_turned_off_counter;
-	ulong rc_corr_counter;
-	ulong rc_non_fatal_counter;
-	ulong rc_fatal_counter;
-	ulong ep_corr_counter;
-	ulong ep_non_fatal_counter;
-	ulong ep_fatal_counter;
 	uint64_t l23_rdy_poll_timeout;
 	bool suspending;
 	ulong wake_counter;
@@ -1001,6 +996,7 @@ struct msm_pcie_dev_t {
 
 	bool aer_dump;
 	bool panic_on_aer;
+	struct aer_stats *aer_stats;
 	void (*rumi_init)(struct msm_pcie_dev_t *pcie_dev);
 };
 
@@ -1436,18 +1432,6 @@ static void msm_pcie_show_status(struct msm_pcie_dev_t *dev)
 		dev->perst_delay_us_max);
 	PCIE_DBG_FS(dev, "tlp_rd_size: 0x%x\n",
 		dev->tlp_rd_size);
-	PCIE_DBG_FS(dev, "rc_corr_counter: %lu\n",
-		dev->rc_corr_counter);
-	PCIE_DBG_FS(dev, "rc_non_fatal_counter: %lu\n",
-		dev->rc_non_fatal_counter);
-	PCIE_DBG_FS(dev, "rc_fatal_counter: %lu\n",
-		dev->rc_fatal_counter);
-	PCIE_DBG_FS(dev, "ep_corr_counter: %lu\n",
-		dev->ep_corr_counter);
-	PCIE_DBG_FS(dev, "ep_non_fatal_counter: %lu\n",
-		dev->ep_non_fatal_counter);
-	PCIE_DBG_FS(dev, "ep_fatal_counter: %lu\n",
-		dev->ep_fatal_counter);
 	PCIE_DBG_FS(dev, "linkdown_counter: %lu\n",
 		dev->linkdown_counter);
 	PCIE_DBG_FS(dev, "wake_counter: %lu\n",
@@ -2015,9 +1999,14 @@ static const struct attribute_group msm_pcie_debug_attr_group = {
 		     char *buf)						\
 {									\
 	unsigned int i;							\
-	struct pci_dev *pdev = to_pci_dev(dev);				\
-	u64 *stats = pdev->aer_stats->stats_array;			\
+	u64 *stats;							\
+	struct msm_pcie_dev_t *pcie_dev = dev_get_drvdata(dev);		\
 	size_t len = 0;							\
+									\
+	if (!pcie_dev->aer_stats)					\
+		return -ENODEV;						\
+									\
+	stats = pcie_dev->aer_stats->stats_array;			\
 									\
 	for (i = 0; i < ARRAY_SIZE(strings_array); i++) {		\
 		if (strings_array[i])					\
@@ -2030,7 +2019,7 @@ static const struct attribute_group msm_pcie_debug_attr_group = {
 					     i, stats[i]);		\
 	}								\
 	len += sysfs_emit_at(buf, len, "TOTAL_%s %llu\n", total_string,	\
-			     pdev->aer_stats->total_field);		\
+			     pcie_dev->aer_stats->total_field);		\
 	return len;							\
 }									\
 static DEVICE_ATTR_RO(name)
@@ -2050,8 +2039,12 @@ aer_stats_dev_attr(aer_dev_nonfatal, dev_nonfatal_errs,
 	name##_show(struct device *dev, struct device_attribute *attr,	\
 		     char *buf)						\
 {									\
-	struct pci_dev *pdev = to_pci_dev(dev);				\
-	return sysfs_emit(buf, "%llu\n", pdev->aer_stats->field);	\
+	struct msm_pcie_dev_t *pcie_dev = dev_get_drvdata(dev);		\
+									\
+	if (!pcie_dev->aer_stats)					\
+		return -ENODEV;						\
+									\
+	return sysfs_emit(buf, "%llu\n", pcie_dev->aer_stats->field);	\
 }									\
 static DEVICE_ATTR_RO(name)
 
@@ -2072,28 +2065,9 @@ static struct attribute *msm_aer_stats_attrs[] __ro_after_init = {
 	NULL
 };
 
-static umode_t msm_aer_stats_attrs_are_visible(struct kobject *kobj,
-					   struct attribute *a, int n)
-{
-	struct device *dev = kobj_to_dev(kobj);
-	struct pci_dev *pdev = to_pci_dev(dev);
-
-	if (!pdev->aer_stats)
-		return 0;
-
-	if ((a == &dev_attr_aer_rootport_total_err_cor.attr ||
-	     a == &dev_attr_aer_rootport_total_err_fatal.attr ||
-	     a == &dev_attr_aer_rootport_total_err_nonfatal.attr) &&
-	    ((pci_pcie_type(pdev) != PCI_EXP_TYPE_ROOT_PORT) &&
-	     (pci_pcie_type(pdev) != PCI_EXP_TYPE_RC_EC)))
-		return 0;
-
-	return a->mode;
-}
-
 static const struct attribute_group msm_aer_stats_attr_group = {
+	.name = "aer_stats",
 	.attrs  = msm_aer_stats_attrs,
-	.is_visible = msm_aer_stats_attrs_are_visible,
 };
 
 static void msm_pcie_sysfs_init(struct msm_pcie_dev_t *dev)
@@ -2677,6 +2651,13 @@ static void msm_pcie_config_bandwidth_int(struct msm_pcie_dev_t *dev,
 	struct pci_dev *pci_dev = dev->dev;
 
 	if (enable) {
+		/* Clear INT_EN and PCI_MSI_ENABLE to receive interrupts */
+		msm_pcie_write_mask(dev->dm_core + PCIE20_COMMAND_STATUS,
+				    BIT(10), 0);
+		msm_pcie_write_mask(dev->dm_core +
+				    PCIE20_PCI_MSI_CAP_ID_NEXT_CTRL_REG,
+				    BIT(16), 0);
+
 		msm_pcie_write_reg_field(dev->parf, PCIE20_PARF_INT_ALL_2_MASK,
 				MSM_PCIE_BW_MGT_INT_STATUS, 1);
 		msm_pcie_config_clear_set_dword(pci_dev,
@@ -4492,6 +4473,9 @@ static int msm_pcie_config_device_info(struct pci_dev *pcidev, void *pdev)
 	}
 
 	if (pcie_dev->aer_enable) {
+		if (pci_pcie_type(pcidev) == PCI_EXP_TYPE_ROOT_PORT)
+			pcie_dev->aer_stats = pcidev->aer_stats;
+
 		if (pci_enable_pcie_error_reporting(pcidev))
 			PCIE_ERR(pcie_dev,
 				 "PCIe: RC%d: PCIE error reporting unavailable on %02x:%02x:%01x\n",

@@ -12,21 +12,21 @@
 #define MSEC_TO_NSEC (1000 * 1000)
 
 static DEFINE_PER_CPU(cpumask_var_t, walt_local_cpu_mask);
-DEFINE_PER_CPU(u64, rt_task_arrival_time);
+DEFINE_PER_CPU(u64, rt_task_arrival_time) = 0;
 static bool long_running_rt_task_trace_rgstrd;
 
-void rt_task_arrival_marker(void *unused, bool preempt,
+static void rt_task_arrival_marker(void *unused, bool preempt,
 	struct task_struct *prev, struct task_struct *next)
 {
 	unsigned int cpu = raw_smp_processor_id();
 
-	if (next->policy == SCHED_FIFO)
+	if (next->policy == SCHED_FIFO && next != cpu_rq(cpu)->stop)
 		per_cpu(rt_task_arrival_time, cpu) = rq_clock_task(this_rq());
 	else
 		per_cpu(rt_task_arrival_time, cpu) = 0;
 }
 
-void long_running_rt_task_notifier(void *unused, struct rq *rq)
+static void long_running_rt_task_notifier(void *unused, struct rq *rq)
 {
 	struct task_struct *curr = rq->curr;
 	unsigned int cpu = raw_smp_processor_id();
@@ -37,15 +37,31 @@ void long_running_rt_task_notifier(void *unused, struct rq *rq)
 	if (!per_cpu(rt_task_arrival_time, cpu))
 		return;
 
-	if (rq_clock_task(rq) -
+	if (per_cpu(rt_task_arrival_time, cpu) && curr->policy != SCHED_FIFO) {
+		/*
+		 * It is possible that the scheduling policy for the current
+		 * task might get changed after task arrival time stamp is
+		 * noted during sched_switch of RT task. To avoid such false
+		 * positives, reset arrival time stamp.
+		 */
+		per_cpu(rt_task_arrival_time, cpu) = 0;
+		return;
+	}
+
+	/*
+	 * Since we are called from the main tick, rq clock task must have
+	 * been updated very recently. Use it directly, instead of
+	 * update_rq_clock_task() to avoid warnings.
+	 */
+	if (rq->clock_task -
 		per_cpu(rt_task_arrival_time, cpu)
 			> sysctl_sched_long_running_rt_task_ms * MSEC_TO_NSEC) {
 		printk_deferred("RT task %s (%d) runtime > %u now=%llu task arrival time=%llu runtime=%llu\n",
 				curr->comm, curr->pid,
 				sysctl_sched_long_running_rt_task_ms * MSEC_TO_NSEC,
-				rq_clock_task(rq),
+				rq->clock_task,
 				per_cpu(rt_task_arrival_time, cpu),
-				rq_clock_task(rq) -
+				rq->clock_task -
 				per_cpu(rt_task_arrival_time, cpu));
 		BUG();
 	}

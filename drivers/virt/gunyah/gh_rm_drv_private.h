@@ -76,6 +76,9 @@ struct gh_vm_property {
 #define GH_RM_RPC_MSG_ID_CALL_VM_START			0x56000004
 #define GH_RM_RPC_MSG_ID_CALL_VM_STOP			0x56000005
 #define GH_RM_RPC_MSG_ID_CALL_VM_RESET			0x56000006
+#define GH_RM_RPC_MSG_ID_CALL_VM_CONFIG_IMAGE		0x56000009
+#define GH_RM_RPC_MSG_ID_CALL_VM_AUTH_IMAGE		0x5600000A
+#define GH_RM_RPC_MSG_ID_CALL_VM_INIT			0x5600000B
 
 /* Message IDs: VM Query */
 #define GH_RM_RPC_MSG_ID_CALL_VM_GET_ID			0x56000010
@@ -86,6 +89,9 @@ struct gh_vm_property {
 #define GH_RM_RPC_MSG_ID_CALL_VM_GET_HYP_RESOURCES	0x56000020
 #define GH_RM_RPC_MSG_ID_CALL_VM_LOOKUP_HYP_CAPIDS	0x56000021
 #define GH_RM_RPC_MSG_ID_CALL_VM_LOOKUP_HYP_IRQS	0X56000022
+
+/* Message IDs: vRTC Configuration */
+#define GH_RM_RPC_MSG_ID_CALL_VM_SET_TIME_BASE		0x56000030
 
 /* Message IDs: VM Configuration */
 #define GH_RM_RPC_MSG_ID_CALL_VM_IRQ_ACCEPT		0x56000050
@@ -120,6 +126,33 @@ struct gh_vm_allocate_resp_payload {
 
 /* Call: VM_DEALLOCATE */
 struct gh_vm_deallocate_req_payload {
+	gh_vmid_t vmid;
+	u16 reserved;
+} __packed;
+
+/* Call: VM_CONFIG_IMAGE */
+struct gh_vm_config_image_req_payload {
+	gh_vmid_t vmid;
+	u16 auth_mech;
+	u32 mem_handle;
+	u32 image_offset_low;
+	u32 image_offset_high;
+	u32 image_size_low;
+	u32 image_size_high;
+	u32 dtb_offset_low;
+	u32 dtb_offset_high;
+	u32 dtb_size_low;
+	u32 dtb_size_high;
+} __packed;
+
+/* Call: VM_AUTH_IMAGE */
+struct gh_vm_auth_image_req_payload_hdr {
+	gh_vmid_t vmid;
+	u16 num_auth_params;
+} __packed;
+
+/* Call: VM_INIT */
+struct gh_vm_init_req_payload {
 	gh_vmid_t vmid;
 	u16 reserved;
 } __packed;
@@ -259,6 +292,17 @@ struct gh_vm_get_hyp_res_resp_entry {
 struct gh_vm_get_hyp_res_resp_payload {
 	u32 n_resource_entries;
 	struct gh_vm_get_hyp_res_resp_entry resp_entries[];
+} __packed;
+
+/* Call: VM_SET_TIME_BASE */
+struct gh_vm_set_time_base_req_payload {
+	gh_vmid_t vmid;
+	u8 reserved0;
+	u8 reserved1;
+	u32 time_base_low;
+	u32 time_base_high;
+	u32 arch_timer_ref_low;
+	u32 arch_timer_ref_high;
 } __packed;
 
 /* Call: VM_IRQ_ACCEPT */

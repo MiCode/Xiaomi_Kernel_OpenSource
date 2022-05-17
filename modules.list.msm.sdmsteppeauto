@@ -1,0 +1,6 @@
+cmd-db.ko
+pinctrl-msm.ko
+pinctrl-sm6150.ko
+qcom-pdc.ko
+qcom-scm.ko
+qcom_rpmh.ko

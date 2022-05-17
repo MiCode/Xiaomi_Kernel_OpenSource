@@ -73,5 +73,7 @@ struct scmi_memlat_vendor_ops {
 	int (*start_timer)(const struct scmi_protocol_handle *ph);
 	int (*stop_timer)(const struct scmi_protocol_handle *ph);
 	int (*set_log_level)(const struct scmi_protocol_handle *ph, u32 val);
+	int (*flush_cpucp_log)(const struct scmi_protocol_handle *ph);
+	int (*get_timestamp)(const struct scmi_protocol_handle *ph, void *buf);
 };
 #endif

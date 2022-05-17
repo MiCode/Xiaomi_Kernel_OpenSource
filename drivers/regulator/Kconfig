@@ -1489,6 +1489,17 @@ config REGULATOR_RPMH
 	  control allows for voting on regulator state between multiple
 	  processors within the SoC.
 
+config REGULATOR_RPM_SMD
+	tristate "RPM SMD regulator driver"
+	depends on OF
+	depends on MSM_RPM_SMD
+	help
+	  Compile in support for the RPM SMD regulator driver which is used for
+	  setting voltages and other parameters of the various power rails
+	  supplied by some Qualcomm Technologies Inc. PMICs. The RPM SMD regulator driver should
+	  be used on systems which contain an RPM which communicates with the
+	  application processor over SMD.
+
 config REGULATOR_STUB
 	tristate "Stub Regulator"
 	help
@@ -1498,6 +1509,15 @@ config REGULATOR_STUB
 	  the real hardware based regulator implementation is not yet available.
 	  Consumers can use stub regulator device with proper constraint
 	  checking while the real regulator driver is being developed.
+
+config REGULATOR_QTI_OCP_NOTIFIER
+	tristate "Qualcomm Technologies, Inc. Regulator OCP Notifier Driver"
+	help
+	  This driver provides support for logging and notifying consumers about
+	  regulator over-current (OCP) events on certain Qualcomm Technologies,
+	  Inc. PMIC devices.  This is useful for debugging as well as for
+	  providing a more graceful recovery mechanism than resetting the entire
+	  system.
 
 endif
 

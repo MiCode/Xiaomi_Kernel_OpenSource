@@ -721,6 +721,9 @@ static int ethqos_rgmii_macro_init(struct qcom_ethqos *ethqos)
 		else if (ethqos->emac_ver == EMAC_HW_v2_1_2)
 			rgmii_updatel(ethqos, SDCC_DDR_CONFIG_PRG_RCLK_DLY,
 				      52, SDCC_HC_REG_DDR_CONFIG);
+		else if (ethqos->emac_ver == EMAC_HW_v2_1_1)
+			rgmii_updatel(ethqos, SDCC_DDR_CONFIG_PRG_RCLK_DLY,
+				      130, SDCC_HC_REG_DDR_CONFIG);
 		else
 			rgmii_updatel(ethqos, SDCC_DDR_CONFIG_PRG_RCLK_DLY,
 				      57, SDCC_HC_REG_DDR_CONFIG);
@@ -758,7 +761,8 @@ static int ethqos_rgmii_macro_init(struct qcom_ethqos *ethqos)
 		rgmii_updatel(ethqos, RGMII_CONFIG2_RSVD_CONFIG15,
 			      0, RGMII_IO_MACRO_CONFIG2);
 		if (ethqos->emac_ver == EMAC_HW_v2_3_2_RG ||
-		    ethqos->emac_ver == EMAC_HW_v2_1_2)
+		    ethqos->emac_ver == EMAC_HW_v2_1_2 ||
+			ethqos->emac_ver == EMAC_HW_v2_1_1)
 			rgmii_updatel(ethqos, RGMII_CONFIG2_RX_PROG_SWAP,
 				      RGMII_CONFIG2_RX_PROG_SWAP,
 				      RGMII_IO_MACRO_CONFIG2);
@@ -798,7 +802,8 @@ static int ethqos_rgmii_macro_init(struct qcom_ethqos *ethqos)
 			rgmii_updatel(ethqos, RGMII_CONFIG2_DATA_DIVIDE_CLK_SEL,
 				      0, RGMII_IO_MACRO_CONFIG2);
 		if (ethqos->emac_ver == EMAC_HW_v2_3_2_RG ||
-		    ethqos->emac_ver == EMAC_HW_v2_1_2)
+		    ethqos->emac_ver == EMAC_HW_v2_1_2 ||
+			ethqos->emac_ver == EMAC_HW_v2_1_1)
 			rgmii_updatel(ethqos,
 				      RGMII_CONFIG2_TX_CLK_PHASE_SHIFT_EN,
 				      RGMII_CONFIG2_TX_CLK_PHASE_SHIFT_EN,
@@ -813,7 +818,8 @@ static int ethqos_rgmii_macro_init(struct qcom_ethqos *ethqos)
 		rgmii_updatel(ethqos, RGMII_CONFIG2_RSVD_CONFIG15,
 			      0, RGMII_IO_MACRO_CONFIG2);
 		if (ethqos->emac_ver == EMAC_HW_v2_3_2_RG ||
-		    ethqos->emac_ver == EMAC_HW_v2_1_2)
+		    ethqos->emac_ver == EMAC_HW_v2_1_2 ||
+			ethqos->emac_ver == EMAC_HW_v2_1_1)
 			rgmii_updatel(ethqos, RGMII_CONFIG2_RX_PROG_SWAP,
 				      RGMII_CONFIG2_RX_PROG_SWAP,
 				      RGMII_IO_MACRO_CONFIG2);
@@ -1014,10 +1020,12 @@ static void ethqos_handle_phy_interrupt(struct qcom_ethqos *ethqos)
 		 ethqos_mdio_read(priv, priv->plat->phy_addr,
 				  DWC_ETH_QOS_PHY_INTR_STATUS);
 
-		if (phy_intr_status & LINK_UP_STATE)
-			phylink_mac_change(priv->phylink, LINK_UP);
-		else if (phy_intr_status & LINK_DOWN_STATE)
-			phylink_mac_change(priv->phylink, LINK_DOWN);
+		if (!priv->plat->mac2mac_en) {
+			if (phy_intr_status & LINK_UP_STATE)
+				phylink_mac_change(priv->phylink, LINK_UP);
+			else if (phy_intr_status & LINK_DOWN_STATE)
+				phylink_mac_change(priv->phylink, LINK_DOWN);
+		}
 	}
 }
 
@@ -1168,7 +1176,12 @@ inline bool qcom_ethqos_is_phy_link_up(struct qcom_ethqos *ethqos)
 	 */
 	struct stmmac_priv *priv = qcom_ethqos_get_priv(ethqos);
 
-	return (priv->dev->phydev && priv->dev->phydev->link);
+	if (priv->plat->mac2mac_en) {
+		return priv->plat->mac2mac_link;
+	} else {
+		return (priv->dev->phydev &&
+			priv->dev->phydev->link);
+	}
 }
 
 static void qcom_ethqos_phy_resume_clks(struct qcom_ethqos *ethqos)
@@ -1501,6 +1514,14 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 		}
 	}
 
+	/* Get rgmii interface speed for mac2c from device tree */
+	if (of_property_read_u32(np, "mac2mac-rgmii-speed",
+				 &plat_dat->mac2mac_rgmii_speed))
+		plat_dat->mac2mac_rgmii_speed = -1;
+	else
+		ETHQOSINFO("mac2mac rgmii speed = %d\n",
+			   plat_dat->mac2mac_rgmii_speed);
+
 	if (of_property_read_bool(pdev->dev.of_node,
 				  "emac-core-version")) {
 		/* Read emac core version value from dtsi */
@@ -1522,10 +1543,16 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 	if (ret)
 		goto err_clk;
 
-	if (!ethqos_phy_intr_config(ethqos))
-		ethqos_phy_intr_enable(ethqos);
-	else
-		ETHQOSERR("Phy interrupt configuration failed");
+	pethqos = ethqos;
+	ndev = dev_get_drvdata(&ethqos->pdev->dev);
+	priv = netdev_priv(ndev);
+
+	if (!priv->plat->mac2mac_en) {
+		if (!ethqos_phy_intr_config(ethqos))
+			ethqos_phy_intr_enable(ethqos);
+		else
+			ETHQOSERR("Phy interrupt configuration failed");
+	}
 
 	if (ethqos->emac_ver == EMAC_HW_v2_3_2_RG) {
 		ethqos_pps_irq_config(ethqos);
@@ -1540,11 +1567,6 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 						 AVB_CLASS_B_POLL_DEV_NODE);
 	}
 
-	pethqos = ethqos;
-
-	ndev = dev_get_drvdata(&ethqos->pdev->dev);
-	priv = netdev_priv(ndev);
-
 	if (ethqos->early_eth_enabled) {
 		/* Initialize work*/
 		INIT_WORK(&ethqos->early_eth,
@@ -1554,6 +1576,15 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 		/*Set early eth parameters*/
 		ethqos_set_early_eth_param(priv, ethqos);
 	}
+
+	if (priv->plat->mac2mac_en)
+		priv->plat->mac2mac_link = -1;
+
+#ifdef CONFIG_MSM_BOOT_TIME_MARKER
+
+	place_marker("M - Ethernet probe end");
+#endif
+
 	return ret;
 
 err_clk:

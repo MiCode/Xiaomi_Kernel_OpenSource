@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _SOC_QCOM_LLCC_PERFMON_H_
@@ -20,6 +20,7 @@
 #define FEAC_PROF_FILTER_0_CFG3(v)	(VER_CHK(v) ? 0x4300C : 0x03700C)
 #define FEAC_PROF_FILTER_0_CFG5(v)	(VER_CHK(v) ? 0x43014 : 0x037014)
 #define FEAC_PROF_FILTER_0_CFG6(v)	(VER_CHK(v) ? 0x43018 : 0x037018)
+#define FEAC_PROF_FILTER_0_CFG7(v)	(VER_CHK(v) ? 0x4301C : 0x03701C)
 #define FEAC_PROF_EVENT_n_CFG(v, n)	((VER_CHK(v) ? 0x43060 : 0x037060) \
 					+ 4 * (n))
 #define FEAC_PROF_CFG(v)		(VER_CHK(v) ? 0x430A0 : 0x0370A0)
@@ -142,6 +143,22 @@
 						EVENT_SEL_SHIFT)
 #define EVENT_SEL_MASK7			GENMASK(EVENT_SEL_SHIFT + 6,\
 						EVENT_SEL_SHIFT)
+
+#define MEMTAGOPS_MASK_SHIFT		(12)
+#define MEMTAGOPS_MASK_MASK		GENMASK(MEMTAGOPS_MASK_SHIFT + 2, \
+					MEMTAGOPS_MASK_SHIFT)
+
+#define MEMTAGOPS_MATCH_SHIFT		(10)
+#define MEMTAGOPS_MATCH_MASK		GENMASK(MEMTAGOPS_MATCH_SHIFT + 2, \
+					MEMTAGOPS_MATCH_SHIFT)
+
+#define DIRTYINFO_MASK_SHIFT		(1)
+#define DIRTYINFO_MASK_MASK		GENMASK(DIRTYINFO_MASK_SHIFT + 1, \
+					DIRTYINFO_MASK_SHIFT)
+
+#define DIRTYINFO_MATCH_SHIFT		(0)
+#define DIRTYINFO_MATCH_MASK		GENMASK(DIRTYINFO_MATCH_SHIFT + 1, \
+					DIRTYINFO_MATCH_SHIFT)
 
 #define CACHEALLOC_MASK_SHIFT		(16)
 #define CACHEALLOC_MASK_MASK		GENMASK(CACHEALLOC_MASK_SHIFT + 3, \
@@ -280,7 +297,7 @@
 #define TRP_SCID_STATUS_CURRENT_CAP_SHIFT	(16)
 #define TRP_SCID_STATUS_CURRENT_CAP_MASK	GENMASK( \
 					TRP_SCID_STATUS_CURRENT_CAP_SHIFT \
-					+ 13, \
+					+ 14, \
 					TRP_SCID_STATUS_CURRENT_CAP_SHIFT)
 
 #define MAJOR_VER_MASK			(0xFF000000)

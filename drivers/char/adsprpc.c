@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2012-2022, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 /* Uncomment this block to log an error on every VERIFY failure */
@@ -196,6 +197,7 @@
 #define PERF_CAPABILITY_SUPPORT	(1 << 1)
 #define KERNEL_ERROR_CODE_V1_SUPPORT	1
 #define USERSPACE_ALLOCATION_SUPPORT	1
+#define DSPSIGNAL_SUPPORT		1
 
 #define MD_GMSG_BUFFER (1000)
 
@@ -256,6 +258,10 @@ enum fastrpc_proc_attr {
 		&& (!strcmp(cb_pdname, local_pdname)))
 
 #define IS_ASYNC_FASTRPC_AVAILABLE (1)
+
+/* Use the second definition to enable additional dspsignal debug logging */
+#define DSPSIGNAL_VERBOSE(x, ...)
+/*#define DSPSIGNAL_VERBOSE ADSPRPC_INFO*/
 
 static struct dentry *debugfs_root;
 static struct dentry *debugfs_global_file;
@@ -371,8 +377,10 @@ static uint32_t kernel_capabilities[FASTRPC_MAX_ATTRIBUTES -
 	/* PERF_LOGGING_V2_SUPPORT feature is supported, unsupported = 0 */
 	KERNEL_ERROR_CODE_V1_SUPPORT,
 	/* Fastrpc Driver error code changes present */
-	USERSPACE_ALLOCATION_SUPPORT
+	USERSPACE_ALLOCATION_SUPPORT,
 	/* Userspace allocation allowed for DSP memory request*/
+	DSPSIGNAL_SUPPORT
+	/* Lightweight driver-based signaling */
 };
 
 static inline void fastrpc_pm_awake(struct fastrpc_file *fl, int channel_type);
@@ -2076,8 +2084,13 @@ static void fastrpc_ramdump_collection(int cid)
 				__func__, ret);
 
 		hlist_del_init(&buf->hn_init);
-		if (fl)
-			complete(&fl->work);
+		if (fl) {
+			spin_lock_irqsave(&me->hlock, irq_flags);
+			if (fl->file_close)
+				complete(&fl->work);
+			fl->is_ramdump_pend = false;
+			spin_unlock_irqrestore(&me->hlock, irq_flags);
+		}
 	}
 }
 
@@ -2231,6 +2244,12 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 
 		if (ctx->attrs && (ctx->attrs[i] & FASTRPC_ATTR_NOMAP))
 			dmaflags = FASTRPC_MAP_FD_NOMAP;
+		VERIFY(err, VALID_FASTRPC_CID(ctx->fl->cid));
+		if (err) {
+			err = -ECHRNG;
+			mutex_unlock(&ctx->fl->map_mutex);
+			goto bail;
+		}
 		dsp_cap_ptr = &gcinfo[ctx->fl->cid].dsp_cap_kernel;
 		// Skip cpu mapping if DMA_HANDLE_REVERSE_RPC_CAP is true.
 		if (!dsp_cap_ptr->dsp_attributes[DMA_HANDLE_REVERSE_RPC_CAP] &&
@@ -2751,9 +2770,39 @@ static int fastrpc_invoke_send(struct smq_invoke_ctx *ctx,
 	return err;
 }
 
+/*
+ * fastrpc_get_dsp_status - Reads the property string from device node
+ *                          and updates the cdsp device avialbility status
+ *                          if the node belongs to cdsp device.
+ * @me  : pointer to fastrpc_apps.
+ */
+
+static void fastrpc_get_dsp_status(struct fastrpc_apps *me)
+{
+	int ret = -1;
+	struct device_node *node = NULL;
+	const char *name = NULL;
+
+	do {
+		node = of_find_compatible_node(node, NULL, "qcom,pil-tz-generic");
+		if (node) {
+			ret = of_property_read_string(node, "qcom,firmware-name", &name);
+			if (!strcmp(name, "cdsp")) {
+				ret =  of_device_is_available(node);
+				me->remote_cdsp_status = ret;
+				ADSPRPC_INFO("cdsp node found with ret:%x\n", ret);
+				break;
+			}
+		} else {
+			ADSPRPC_ERR("cdsp node not found\n");
+			break;
+		}
+	} while (1);
+}
+
 static void fastrpc_init(struct fastrpc_apps *me)
 {
-	int i;
+	int i, jj;
 
 	INIT_HLIST_HEAD(&me->drivers);
 	INIT_HLIST_HEAD(&me->maps);
@@ -2769,9 +2818,12 @@ static void fastrpc_init(struct fastrpc_apps *me)
 		me->channel[i].unsigned_support = false;
 		mutex_init(&me->channel[i].smd_mutex);
 		mutex_init(&me->channel[i].rpmsg_mutex);
+		init_waitqueue_head(&me->channel[i].wait_for_rpmsg_ch);
 		spin_lock_init(&me->channel[i].ctxlock);
 		spin_lock_init(&me->channel[i].gmsg_log.lock);
 		INIT_HLIST_HEAD(&me->channel[i].initmems);
+		for (jj = 0; jj < NUM_SESSIONS; jj++)
+			init_waitqueue_head(&me->channel[i].spd[jj].wait_for_pdup);
 	}
 	/* Set CDSP channel to non secure */
 	me->channel[CDSP_DOMAIN_ID].secure = NON_SECURE_CHANNEL;
@@ -3472,7 +3524,7 @@ bail:
 }
 
 static int fastrpc_mmap_remove_pdr(struct fastrpc_file *fl);
-static int fastrpc_channel_open(struct fastrpc_file *fl);
+static int fastrpc_channel_open(struct fastrpc_file *fl, uint32_t flags);
 static int fastrpc_mmap_remove_ssr(struct fastrpc_file *fl, int locked);
 
 /*
@@ -3795,6 +3847,11 @@ static int fastrpc_init_create_static_process(struct fastrpc_file *fl,
 		err = fastrpc_mmap_remove_pdr(fl);
 		if (err)
 			goto bail;
+	} else {
+		ADSPRPC_ERR(
+			"Create static process is failed for proc_name %s",
+			proc_name);
+		goto bail;
 	}
 
 	if (!me->staticpd_flags && !me->legacy_remote_heap) {
@@ -3811,7 +3868,7 @@ static int fastrpc_init_create_static_process(struct fastrpc_file *fl,
 		 * If remote-heap VMIDs are defined in DTSI, then do
 		 * hyp_assign from HLOS to those VMs (LPASS, ADSP).
 		 */
-		if (rhvm->vmid) {
+		if (rhvm->vmid && mem->refs == 1 && size) {
 			err = hyp_assign_phys(phys, (uint64_t)size,
 				hlosvm, 1,
 				rhvm->vmid, rhvm->vmperm, rhvm->vmcount);
@@ -3881,6 +3938,34 @@ bail:
 	return err;
 }
 
+/*
+ * This function is called from fastrpc_channel open to wait
+ * for rpmsg channel in the respective domain. The wait in this
+ * function is done only for CDSP, Audio and Sensors Daemons.
+ */
+int fastrpc_wait_for_rpmsg_interrupt(int cid,
+					unsigned int flags)
+{
+	struct fastrpc_apps *me = &gfa;
+	int err = 0;
+
+	/*
+	 * The flags which are applicable only for daemons are checked.
+	 * Dynamic PDs will fail and return immediately if the
+	 * remote subsystem is not up.
+	 */
+	if (flags == FASTRPC_INIT_ATTACH || flags == FASTRPC_INIT_ATTACH_SENSORS
+		|| flags == FASTRPC_INIT_CREATE_STATIC) {
+		ADSPRPC_INFO("Thread waiting for cid %d rpmsg channel", cid);
+		err = wait_event_interruptible(me->channel[cid].wait_for_rpmsg_ch,
+				atomic_read(&me->channel[cid].is_rpmsg_ch_up));
+		ADSPRPC_INFO("Thread received signal for cid %d rpmsg channel (interrupted %d)",
+			cid, err);
+	}
+
+	return err;
+}
+
 int fastrpc_init_process(struct fastrpc_file *fl,
 				struct fastrpc_ioctl_init_attrs *uproc)
 {
@@ -3916,7 +4001,7 @@ int fastrpc_init_process(struct fastrpc_file *fl,
 		}
 	}
 
-	err = fastrpc_channel_open(fl);
+	err = fastrpc_channel_open(fl, init->flags);
 	if (err)
 		goto bail;
 
@@ -4008,7 +4093,7 @@ int fastrpc_get_info_from_dsp(struct fastrpc_file *fl,
 	if (domain == MDSP_DOMAIN_ID)
 		goto bail;
 
-	err = fastrpc_channel_open(fl);
+	err = fastrpc_channel_open(fl, FASTRPC_INIT_NO_CREATE);
 	if (err)
 		goto bail;
 
@@ -4107,6 +4192,7 @@ static int fastrpc_release_current_dsp_process(struct fastrpc_file *fl)
 	remote_arg_t ra[1];
 	int tgid = 0;
 	int cid = -1;
+	unsigned long irq_flags = 0;
 
 	if (!fl) {
 		err = -EBADF;
@@ -4145,9 +4231,9 @@ static int fastrpc_release_current_dsp_process(struct fastrpc_file *fl)
 	ioctl.perf_kernel = NULL;
 	ioctl.perf_dsp = NULL;
 	ioctl.job = NULL;
-	spin_lock(&fl->apps->hlock);
+	spin_lock_irqsave(&fl->apps->hlock, irq_flags);
 	fl->file_close = FASTRPC_PROCESS_DSP_EXIT_INIT;
-	spin_unlock(&fl->apps->hlock);
+	spin_unlock_irqrestore(&fl->apps->hlock, irq_flags);
 	/*
 	 * Pass 2 for "kernel" arg to send kernel msg to DSP
 	 * with non-zero msg PID for the DSP to directly use
@@ -4155,14 +4241,19 @@ static int fastrpc_release_current_dsp_process(struct fastrpc_file *fl)
 	 */
 	VERIFY(err, 0 == (err = fastrpc_internal_invoke(fl,
 		FASTRPC_MODE_PARALLEL, KERNEL_MSG_WITH_NONZERO_PID, &ioctl)));
-	spin_lock(&fl->apps->hlock);
+	spin_lock_irqsave(&fl->apps->hlock, irq_flags);
 	fl->file_close = FASTRPC_PROCESS_DSP_EXIT_COMPLETE;
-	spin_unlock(&fl->apps->hlock);
+	spin_unlock_irqrestore(&fl->apps->hlock, irq_flags);
 	if (err && fl->dsp_proc_init)
 		ADSPRPC_ERR(
 			"releasing DSP process failed with %d (0x%x) for %s\n",
 			err, err, current->comm);
 bail:
+	if (err && fl && fl->apps) {
+		spin_lock_irqsave(&fl->apps->hlock, irq_flags);
+		fl->file_close = FASTRPC_PROCESS_DSP_EXIT_ERROR;
+		spin_unlock_irqrestore(&fl->apps->hlock, irq_flags);
+	}
 	return err;
 }
 
@@ -4302,7 +4393,7 @@ bail:
 
 static int fastrpc_mmap_on_dsp(struct fastrpc_file *fl, uint32_t flags,
 					uintptr_t va, uint64_t phys,
-					size_t size, uintptr_t *raddr)
+					size_t size, int refs, uintptr_t *raddr)
 {
 	struct fastrpc_ioctl_invoke_async ioctl;
 	struct fastrpc_apps *me = &gfa;
@@ -4368,7 +4459,7 @@ static int fastrpc_mmap_on_dsp(struct fastrpc_file *fl, uint32_t flags,
 		}
 	}
 	if (flags == ADSP_MMAP_REMOTE_HEAP_ADDR
-				&& me->channel[cid].rhvm.vmid) {
+				&& me->channel[cid].rhvm.vmid && refs == 1) {
 		err = hyp_assign_phys(phys, (uint64_t)size,
 				hlosvm, 1, me->channel[cid].rhvm.vmid,
 				me->channel[cid].rhvm.vmperm,
@@ -4570,7 +4661,7 @@ static int fastrpc_mmap_remove_pdr(struct fastrpc_file *fl)
 		err = -EBADR;
 		goto bail;
 	}
-	if (!me->channel[cid].spd[session].ispdup) {
+	if (atomic_read(&me->channel[cid].spd[session].ispdup) == 0) {
 		err = -ENOTCONN;
 		goto bail;
 	}
@@ -4864,12 +4955,18 @@ int fastrpc_internal_mmap(struct fastrpc_file *fl,
 		if (err)
 			goto bail;
 		err = fastrpc_mmap_on_dsp(fl, ud->flags, 0,
-				rbuf->phys, rbuf->size, &raddr);
+				rbuf->phys, rbuf->size, 0, &raddr);
 		if (err)
 			goto bail;
 		rbuf->raddr = raddr;
 	} else {
 		uintptr_t va_to_dsp;
+		if (fl->is_unsigned_pd && ud->flags == ADSP_MMAP_REMOTE_HEAP_ADDR) {
+			err = -EINVAL;
+			ADSPRPC_ERR(
+				"Secure memory allocation is not supported in unsigned PD");
+			goto bail;
+		}
 
 		mutex_lock(&fl->map_mutex);
 		VERIFY(err, !(err = fastrpc_mmap_create(fl, ud->fd, NULL, 0,
@@ -4885,7 +4982,7 @@ int fastrpc_internal_mmap(struct fastrpc_file *fl,
 		else
 			va_to_dsp = (uintptr_t)map->va;
 		VERIFY(err, 0 == (err = fastrpc_mmap_on_dsp(fl, ud->flags,
-			va_to_dsp, map->phys, map->size, &raddr)));
+			va_to_dsp, map->phys, map->size, map->refs, &raddr)));
 		if (err)
 			goto bail;
 		map->raddr = raddr;
@@ -4987,6 +5084,14 @@ static int fastrpc_rpmsg_probe(struct rpmsg_device *rpdev)
 	mutex_lock(&gcinfo[cid].rpmsg_mutex);
 	gcinfo[cid].rpdev = rpdev;
 	mutex_unlock(&gcinfo[cid].rpmsg_mutex);
+
+	/*
+	 * Set atomic variable to 1 when rpmsg channel is up
+	 * and wake up all threads waiting for rpmsg channel
+	 */
+	atomic_set(&gcinfo[cid].is_rpmsg_ch_up, 1);
+	wake_up_interruptible(&gcinfo[cid].wait_for_rpmsg_ch);
+
 	ADSPRPC_INFO("opened rpmsg channel for %s\n",
 		gcinfo[cid].subsys);
 bail:
@@ -5016,12 +5121,68 @@ static void fastrpc_rpmsg_remove(struct rpmsg_device *rpdev)
 	mutex_lock(&gcinfo[cid].rpmsg_mutex);
 	gcinfo[cid].rpdev = NULL;
 	mutex_unlock(&gcinfo[cid].rpmsg_mutex);
+
+	/*
+	 * Set atomic variable to 0 when rpmsg channel is down and
+	 * make threads wait on is_rpmsg_ch_up
+	 */
+	atomic_set(&gcinfo[cid].is_rpmsg_ch_up, 0);
+
 	ADSPRPC_INFO("closed rpmsg channel of %s\n",
 		gcinfo[cid].subsys);
 bail:
 	if (err)
 		ADSPRPC_ERR("rpmsg remove of %s cid %d failed\n",
 			rpdev->dev.parent->of_node->name, cid);
+}
+
+static void handle_signal_rpmsg(uint64_t msg, int cid)
+{
+	struct fastrpc_apps *me = &gfa;
+	uint32_t pid = msg >> 32;
+	uint32_t signal_id = msg & 0xffffffff;
+	struct fastrpc_file *fl = NULL;
+	struct hlist_node *n = NULL;
+	unsigned long irq_flags = 0;
+
+	DSPSIGNAL_VERBOSE("Received queue signal %llx: PID %u, signal %u\n", msg, pid, signal_id);
+
+	if (signal_id >= DSPSIGNAL_NUM_SIGNALS) {
+		ADSPRPC_ERR("Received bad signal %u for PID %u\n", signal_id, pid);
+		return;
+	}
+
+	spin_lock_irqsave(&me->hlock, irq_flags);
+	hlist_for_each_entry_safe(fl, n, &me->drivers, hn) {
+		if ((fl->tgid == pid) && (fl->cid == cid)) {
+			unsigned long fflags = 0;
+
+			spin_lock_irqsave(&fl->dspsignals_lock, fflags);
+			if (fl->signal_groups[signal_id / DSPSIGNAL_GROUP_SIZE]) {
+				struct fastrpc_dspsignal *group =
+					fl->signal_groups[signal_id / DSPSIGNAL_GROUP_SIZE];
+				struct fastrpc_dspsignal *sig =
+					&group[signal_id % DSPSIGNAL_GROUP_SIZE];
+
+				if ((sig->state == DSPSIGNAL_STATE_PENDING) ||
+				    (sig->state == DSPSIGNAL_STATE_SIGNALED)) {
+					DSPSIGNAL_VERBOSE("Signaling signal %u for PID %u\n",
+							  signal_id, pid);
+					complete(&sig->comp);
+					sig->state = DSPSIGNAL_STATE_SIGNALED;
+				} else if (sig->state == DSPSIGNAL_STATE_UNUSED) {
+					ADSPRPC_ERR("Received unknown signal %u for PID %u\n",
+						    signal_id, pid);
+				}
+			} else {
+				ADSPRPC_ERR("Received unknown signal %u for PID %u\n",
+					    signal_id, pid);
+			}
+			spin_unlock_irqrestore(&fl->dspsignals_lock, fflags);
+			break;
+		}
+	}
+	spin_unlock_irqrestore(&me->hlock, irq_flags);
 }
 
 static int fastrpc_rpmsg_callback(struct rpmsg_device *rpdev, void *data,
@@ -5048,7 +5209,14 @@ static int fastrpc_rpmsg_callback(struct rpmsg_device *rpdev, void *data,
 		goto bail;
 	}
 
+	if (len == sizeof(uint64_t)) {
+		// dspsignal message from the DSP
+		handle_signal_rpmsg(*((uint64_t *)data), cid);
+		goto bail;
+	}
+
 	chan = &me->channel[cid];
+
 	if (notif && notif->ctx == FASTRPC_NOTIF_CTX_RESERVED) {
 		VERIFY(err, (notif->type == STATUS_RESPONSE &&
 					 len >= sizeof(*notif)));
@@ -5159,6 +5327,8 @@ static int fastrpc_file_free(struct fastrpc_file *fl)
 	bool is_driver_closed = false;
 	int err = 0;
 	unsigned long irq_flags = 0;
+	bool is_locked = false;
+	int i;
 
 	if (!fl)
 		return 0;
@@ -5178,18 +5348,23 @@ static int fastrpc_file_free(struct fastrpc_file *fl)
 	(void)fastrpc_release_current_dsp_process(fl);
 
 	spin_lock_irqsave(&fl->apps->hlock, irq_flags);
+	is_locked = true;
 	if (!fl->is_ramdump_pend) {
-		spin_unlock_irqrestore(&fl->apps->hlock, irq_flags);
 		goto skip_dump_wait;
 	}
+	is_locked = false;
 	spin_unlock_irqrestore(&fl->apps->hlock, irq_flags);
 	wait_for_completion(&fl->work);
 
 skip_dump_wait:
-	spin_lock_irqsave(&fl->apps->hlock, irq_flags);
+	if (!is_locked) {
+		spin_lock_irqsave(&fl->apps->hlock, irq_flags);
+		is_locked = true;
+	}
 	hlist_del_init(&fl->hn);
 	fl->is_ramdump_pend = false;
 	fl->in_process_create = false;
+	is_locked = false;
 	spin_unlock_irqrestore(&fl->apps->hlock, irq_flags);
 
 	if (!fl->sctx) {
@@ -5237,6 +5412,10 @@ skip_dump_wait:
 		fastrpc_session_free(&fl->apps->channel[cid], fl->sctx);
 	if (!err && fl->secsctx)
 		fastrpc_session_free(&fl->apps->channel[cid], fl->secsctx);
+
+	for (i = 0; i < (DSPSIGNAL_NUM_SIGNALS / DSPSIGNAL_GROUP_SIZE); i++)
+		kfree(fl->signal_groups[i]);
+	mutex_destroy(&fl->signal_create_mutex);
 
 	fastrpc_remote_buf_list_free(fl);
 	mutex_destroy(&fl->map_mutex);
@@ -5503,7 +5682,7 @@ static const struct file_operations debugfs_fops = {
 	.read = fastrpc_debugfs_read,
 };
 
-static int fastrpc_channel_open(struct fastrpc_file *fl)
+static int fastrpc_channel_open(struct fastrpc_file *fl, uint32_t flags)
 {
 	struct fastrpc_apps *me = &gfa;
 	int cid = -1, err = 0;
@@ -5516,6 +5695,10 @@ static int fastrpc_channel_open(struct fastrpc_file *fl)
 		return err;
 	}
 	cid = fl->cid;
+
+	err = fastrpc_wait_for_rpmsg_interrupt(cid, flags);
+	if (err)
+		goto bail;
 
 	mutex_lock(&me->channel[cid].rpmsg_mutex);
 	VERIFY(err, NULL != me->channel[cid].rpdev);
@@ -5632,6 +5815,8 @@ static int fastrpc_device_open(struct inode *inode, struct file *filp)
 	fl->dev_pm_qos_req = kcalloc(me->silvercores.corecount,
 				sizeof(struct dev_pm_qos_request),
 				GFP_KERNEL);
+	spin_lock_init(&fl->dspsignals_lock);
+	mutex_init(&fl->signal_create_mutex);
 
 	return 0;
 }
@@ -5971,8 +6156,15 @@ static int fastrpc_check_pd_status(struct fastrpc_file *fl, char *sloc_name)
 		err = fastrpc_get_spd_session(sloc_name, &session, &cid);
 		if (err || cid != fl->cid)
 			goto bail;
-		if (!me->channel[cid].spd[session].ispdup) {
-			err = -ENOTCONN;
+		if (!strcmp(fl->servloc_name,
+			AUDIO_PDR_SERVICE_LOCATION_CLIENT_NAME) || !strcmp(fl->servloc_name,
+			SENSORS_PDR_ADSP_SERVICE_LOCATION_CLIENT_NAME) ||
+			!strcmp(fl->servloc_name,
+			SENSORS_PDR_SLPI_SERVICE_LOCATION_CLIENT_NAME)) {
+			err = wait_event_interruptible(
+			me->channel[cid].spd[session].wait_for_pdup,
+			atomic_read(&me->channel[cid].spd[session].ispdup));
+			ADSPRPC_INFO("PDR interrupt %d received\n", err);
 			goto bail;
 		}
 	}
@@ -6059,6 +6251,312 @@ static int fastrpc_get_dsp_info(
 bail:
 	return err;
 }
+
+
+int fastrpc_dspsignal_signal(struct fastrpc_file *fl,
+			     struct fastrpc_ioctl_dspsignal_signal *sig)
+{
+	int err = 0, cid = -1;
+	struct fastrpc_channel_ctx *channel_ctx = NULL;
+	uint64_t msg = 0;
+
+	// We don't check if the signal has even been allocated since we don't
+	// track outgoing signals in the driver. The userspace library does a
+	// basic sanity check and any security validation needs to be done by
+	// the recipient.
+	DSPSIGNAL_VERBOSE("Send signal PID %u, signal %u\n",
+			  (unsigned int)fl->tgid, (unsigned int)sig->signal_id);
+	VERIFY(err, sig->signal_id < DSPSIGNAL_NUM_SIGNALS);
+	if (err) {
+		ADSPRPC_ERR("Sending bad signal %u for PID %u",
+			    sig->signal_id, (unsigned int)fl->tgid);
+		err = -EBADR;
+		goto bail;
+	}
+
+	cid = fl->cid;
+	VERIFY(err, VALID_FASTRPC_CID(cid) && fl->sctx != NULL);
+	if (err) {
+		err = -EBADR;
+		goto bail;
+	}
+
+	channel_ctx = &fl->apps->channel[cid];
+	mutex_lock(&channel_ctx->smd_mutex);
+	if (fl->ssrcount != channel_ctx->ssrcount) {
+		err = -ECONNRESET;
+		mutex_unlock(&channel_ctx->smd_mutex);
+		goto bail;
+	}
+
+	mutex_lock(&channel_ctx->rpmsg_mutex);
+	VERIFY(err, !IS_ERR_OR_NULL(channel_ctx->rpdev));
+	if (err) {
+		ADSPRPC_ERR("No rpmsg device for %s\n", current->comm);
+		err = -ENODEV;
+		mutex_unlock(&channel_ctx->rpmsg_mutex);
+		mutex_unlock(&channel_ctx->smd_mutex);
+		goto bail;
+	}
+	msg = (((uint64_t)fl->tgid) << 32) | ((uint64_t)sig->signal_id);
+	err = rpmsg_send(channel_ctx->rpdev->ept, (void *)&msg, sizeof(msg));
+	mutex_unlock(&channel_ctx->rpmsg_mutex);
+	mutex_unlock(&channel_ctx->smd_mutex);
+
+bail:
+	return err;
+}
+
+
+int fastrpc_dspsignal_wait(struct fastrpc_file *fl,
+			   struct fastrpc_ioctl_dspsignal_wait *wait)
+{
+	int err = 0, cid = -1;
+	unsigned long timeout = usecs_to_jiffies(wait->timeout_usec);
+	uint32_t signal_id = wait->signal_id;
+	struct fastrpc_dspsignal *s = NULL;
+	long ret = 0;
+	unsigned long irq_flags = 0;
+
+	DSPSIGNAL_VERBOSE("Wait for signal %u\n", signal_id);
+	VERIFY(err, signal_id < DSPSIGNAL_NUM_SIGNALS);
+	if (err) {
+		ADSPRPC_ERR("Waiting on bad signal %u", signal_id);
+		err = -EINVAL;
+		goto bail;
+	}
+	cid = fl->cid;
+	VERIFY(err, VALID_FASTRPC_CID(cid) && fl->sctx != NULL);
+	if (err) {
+		err = -EBADR;
+		goto bail;
+	}
+
+	spin_lock_irqsave(&fl->dspsignals_lock, irq_flags);
+	if (fl->signal_groups[signal_id / DSPSIGNAL_GROUP_SIZE] != NULL) {
+		struct fastrpc_dspsignal *group =
+			fl->signal_groups[signal_id / DSPSIGNAL_GROUP_SIZE];
+
+		s = &group[signal_id % DSPSIGNAL_GROUP_SIZE];
+	}
+	if ((s == NULL) || (s->state == DSPSIGNAL_STATE_UNUSED)) {
+		spin_unlock_irqrestore(&fl->dspsignals_lock, irq_flags);
+		ADSPRPC_ERR("Unknown signal id %u\n", signal_id);
+		err = -ENOENT;
+		goto bail;
+	}
+	if (s->state != DSPSIGNAL_STATE_PENDING) {
+		if ((s->state == DSPSIGNAL_STATE_CANCELED) || (s->state == DSPSIGNAL_STATE_UNUSED))
+			err = -EINTR;
+		spin_unlock_irqrestore(&fl->dspsignals_lock, irq_flags);
+		DSPSIGNAL_VERBOSE("Signal %u in state %u, complete wait immediately",
+				  signal_id, s->state);
+		goto bail;
+	}
+	spin_unlock_irqrestore(&fl->dspsignals_lock, irq_flags);
+
+	if (timeout != 0xffffffff)
+		ret = wait_for_completion_interruptible_timeout(&s->comp, timeout);
+	else
+		ret = wait_for_completion_interruptible(&s->comp);
+
+	if (ret == 0) {
+		DSPSIGNAL_VERBOSE("Wait for signal %u timed out\n", signal_id);
+		err = -ETIMEDOUT;
+		goto bail;
+	} else if (ret < 0) {
+		ADSPRPC_ERR("Wait for signal %u failed %d\n", signal_id, (int)ret);
+		err = ret;
+		goto bail;
+	}
+
+	spin_lock_irqsave(&fl->dspsignals_lock, irq_flags);
+	if (s->state == DSPSIGNAL_STATE_SIGNALED) {
+		s->state = DSPSIGNAL_STATE_PENDING;
+		DSPSIGNAL_VERBOSE("Signal %u completed\n", signal_id);
+	} else if ((s->state == DSPSIGNAL_STATE_CANCELED) || (s->state == DSPSIGNAL_STATE_UNUSED)) {
+		DSPSIGNAL_VERBOSE("Signal %u cancelled or destroyed\n", signal_id);
+		err = -EINTR;
+	}
+	spin_unlock_irqrestore(&fl->dspsignals_lock, irq_flags);
+
+bail:
+	return err;
+}
+
+
+int fastrpc_dspsignal_create(struct fastrpc_file *fl,
+			     struct fastrpc_ioctl_dspsignal_create *create)
+{
+	int err = 0, cid = -1;
+	uint32_t signal_id = create->signal_id;
+	struct fastrpc_dspsignal *group, *sig;
+	unsigned long irq_flags = 0;
+
+	VERIFY(err, signal_id < DSPSIGNAL_NUM_SIGNALS);
+	if (err) {
+		err = -EINVAL;
+		goto bail;
+	}
+	cid = fl->cid;
+	VERIFY(err, VALID_FASTRPC_CID(cid) && fl->sctx != NULL);
+	if (err) {
+		err = -EBADR;
+		goto bail;
+	}
+
+	// Use a separate mutex for creating signals. This avoids holding on
+	// to a spinlock if we need to allocate a whole group of signals. The
+	// mutex ensures nobody else will allocate the same group.
+	mutex_lock(&fl->signal_create_mutex);
+	spin_lock_irqsave(&fl->dspsignals_lock, irq_flags);
+
+	group = fl->signal_groups[signal_id / DSPSIGNAL_GROUP_SIZE];
+	if (group == NULL) {
+		int i;
+		// Release the spinlock while we allocate a new group but take
+		// it back before taking the group into use. No other code
+		// allocates groups so the mutex is sufficient.
+		spin_unlock_irqrestore(&fl->dspsignals_lock, irq_flags);
+		VERIFY(err, (group = kzalloc(DSPSIGNAL_GROUP_SIZE * sizeof(*group),
+					     GFP_KERNEL)) != NULL);
+		if (err) {
+			ADSPRPC_ERR("Unable to allocate signal group\n");
+			err = -ENOMEM;
+			mutex_unlock(&fl->signal_create_mutex);
+			goto bail;
+		}
+
+		for (i = 0; i < DSPSIGNAL_GROUP_SIZE; i++) {
+			sig = &group[i];
+			init_completion(&sig->comp);
+			sig->state = DSPSIGNAL_STATE_UNUSED;
+		}
+		spin_lock_irqsave(&fl->dspsignals_lock, irq_flags);
+		fl->signal_groups[signal_id / DSPSIGNAL_GROUP_SIZE] = group;
+	}
+
+	sig = &group[signal_id % DSPSIGNAL_GROUP_SIZE];
+	if (sig->state != DSPSIGNAL_STATE_UNUSED) {
+		err = -EBUSY;
+		spin_unlock_irqrestore(&fl->dspsignals_lock, irq_flags);
+		mutex_unlock(&fl->signal_create_mutex);
+		ADSPRPC_ERR("Attempting to create signal %u already in use (state %u)\n",
+			    signal_id, sig->state);
+		goto bail;
+	}
+
+	sig->state = DSPSIGNAL_STATE_PENDING;
+	reinit_completion(&sig->comp);
+
+	spin_unlock_irqrestore(&fl->dspsignals_lock, irq_flags);
+	mutex_unlock(&fl->signal_create_mutex);
+
+	DSPSIGNAL_VERBOSE("Signal %u created\n", signal_id);
+
+bail:
+	return err;
+}
+
+
+int fastrpc_dspsignal_destroy(struct fastrpc_file *fl,
+			      struct fastrpc_ioctl_dspsignal_destroy *destroy)
+{
+	int err = 0, cid = -1;
+	uint32_t signal_id = destroy->signal_id;
+	struct fastrpc_dspsignal *s = NULL;
+	unsigned long irq_flags = 0;
+
+	DSPSIGNAL_VERBOSE("Destroy signal %u\n", signal_id);
+
+	VERIFY(err, signal_id < DSPSIGNAL_NUM_SIGNALS);
+	if (err) {
+		err = -EINVAL;
+		goto bail;
+	}
+	cid = fl->cid;
+	VERIFY(err, VALID_FASTRPC_CID(cid) && fl->sctx != NULL);
+	if (err) {
+		err = -EBADR;
+		goto bail;
+	}
+
+	spin_lock_irqsave(&fl->dspsignals_lock, irq_flags);
+
+	if (fl->signal_groups[signal_id / DSPSIGNAL_GROUP_SIZE] != NULL) {
+		struct fastrpc_dspsignal *group =
+			fl->signal_groups[signal_id / DSPSIGNAL_GROUP_SIZE];
+
+		s = &group[signal_id % DSPSIGNAL_GROUP_SIZE];
+	}
+	if ((s == NULL) || (s->state == DSPSIGNAL_STATE_UNUSED)) {
+		spin_unlock_irqrestore(&fl->dspsignals_lock, irq_flags);
+		ADSPRPC_ERR("Attempting to destroy unused signal %u\n", signal_id);
+		err = -ENOENT;
+		goto bail;
+	}
+
+	s->state = DSPSIGNAL_STATE_UNUSED;
+	complete_all(&s->comp);
+
+	spin_unlock_irqrestore(&fl->dspsignals_lock, irq_flags);
+	DSPSIGNAL_VERBOSE("Signal %u destroyed\n", signal_id);
+
+bail:
+	return err;
+}
+
+
+int fastrpc_dspsignal_cancel_wait(struct fastrpc_file *fl,
+				  struct fastrpc_ioctl_dspsignal_cancel_wait *cancel)
+{
+	int err = 0, cid = -1;
+	uint32_t signal_id = cancel->signal_id;
+	struct fastrpc_dspsignal *s = NULL;
+	unsigned long irq_flags = 0;
+
+	DSPSIGNAL_VERBOSE("Cancel wait for signal %u\n", signal_id);
+
+	VERIFY(err, signal_id < DSPSIGNAL_NUM_SIGNALS);
+	if (err) {
+		err = -EINVAL;
+		goto bail;
+	}
+	cid = fl->cid;
+	VERIFY(err, VALID_FASTRPC_CID(cid) && fl->sctx != NULL);
+	if (err) {
+		err = -EBADR;
+		goto bail;
+	}
+
+	spin_lock_irqsave(&fl->dspsignals_lock, irq_flags);
+
+	if (fl->signal_groups[signal_id / DSPSIGNAL_GROUP_SIZE] != NULL) {
+		struct fastrpc_dspsignal *group =
+			fl->signal_groups[signal_id / DSPSIGNAL_GROUP_SIZE];
+
+		s = &group[signal_id % DSPSIGNAL_GROUP_SIZE];
+	}
+	if ((s == NULL) || (s->state == DSPSIGNAL_STATE_UNUSED)) {
+		spin_unlock_irqrestore(&fl->dspsignals_lock, irq_flags);
+		ADSPRPC_ERR("Attempting to cancel unused signal %u\n", signal_id);
+		err = -ENOENT;
+		goto bail;
+	}
+
+	if (s->state != DSPSIGNAL_STATE_CANCELED) {
+		s->state = DSPSIGNAL_STATE_CANCELED;
+		complete_all(&s->comp);
+	}
+
+	spin_unlock_irqrestore(&fl->dspsignals_lock, irq_flags);
+
+	DSPSIGNAL_VERBOSE("Signal %u cancelled\n", signal_id);
+
+bail:
+	return err;
+}
+
 
 static inline int fastrpc_mmap_device_ioctl(struct fastrpc_file *fl,
 		unsigned int ioctl_num,	union fastrpc_ioctl_param *p,
@@ -6202,10 +6700,16 @@ static long fastrpc_device_ioctl(struct file *file, unsigned int ioctl_num,
 	p.inv.perf_dsp = NULL;
 	p.inv.job = NULL;
 
-	err = fastrpc_check_pd_status(fl,
+	if (fl->servloc_name) {
+		err = fastrpc_check_pd_status(fl,
 			AUDIO_PDR_SERVICE_LOCATION_CLIENT_NAME);
-	if (err)
-		goto bail;
+		err |= fastrpc_check_pd_status(fl,
+			SENSORS_PDR_ADSP_SERVICE_LOCATION_CLIENT_NAME);
+		err |= fastrpc_check_pd_status(fl,
+			SENSORS_PDR_SLPI_SERVICE_LOCATION_CLIENT_NAME);
+		if (err)
+			goto bail;
+	}
 
 	spin_lock(&fl->hlock);
 	if (fl->file_close >= FASTRPC_PROCESS_EXIT_START) {
@@ -6312,6 +6816,62 @@ static long fastrpc_device_ioctl(struct file *file, unsigned int ioctl_num,
 		fallthrough;
 	case FASTRPC_IOCTL_MUNMAP_FD:
 		err = fastrpc_mmap_device_ioctl(fl, ioctl_num, &p, param);
+		break;
+
+	case FASTRPC_IOCTL_DSPSIGNAL_SIGNAL:
+		K_COPY_FROM_USER(err, 0, &p.sig, param,
+					sizeof(struct fastrpc_ioctl_dspsignal_signal));
+		if (err) {
+			err = -EFAULT;
+			goto bail;
+		}
+		VERIFY(err, 0 == (err = fastrpc_dspsignal_signal(fl, &p.sig)));
+		if (err)
+			goto bail;
+		break;
+	case FASTRPC_IOCTL_DSPSIGNAL_WAIT:
+		K_COPY_FROM_USER(err, 0, &p.wait, param,
+					sizeof(struct fastrpc_ioctl_dspsignal_wait));
+		if (err) {
+			err = -EFAULT;
+			goto bail;
+		}
+		VERIFY(err, 0 == (err = fastrpc_dspsignal_wait(fl, &p.wait)));
+		if (err)
+			goto bail;
+		break;
+	case FASTRPC_IOCTL_DSPSIGNAL_CREATE:
+		K_COPY_FROM_USER(err, 0, &p.cre, param,
+					sizeof(struct fastrpc_ioctl_dspsignal_create));
+		if (err) {
+			err = -EFAULT;
+			goto bail;
+		}
+		VERIFY(err, 0 == (err = fastrpc_dspsignal_create(fl, &p.cre)));
+		if (err)
+			goto bail;
+		break;
+	case FASTRPC_IOCTL_DSPSIGNAL_DESTROY:
+		K_COPY_FROM_USER(err, 0, &p.des, param,
+					sizeof(struct fastrpc_ioctl_dspsignal_destroy));
+		if (err) {
+			err = -EFAULT;
+			goto bail;
+		}
+		VERIFY(err, 0 == (err = fastrpc_dspsignal_destroy(fl, &p.des)));
+		if (err)
+			goto bail;
+		break;
+	case FASTRPC_IOCTL_DSPSIGNAL_CANCEL_WAIT:
+		K_COPY_FROM_USER(err, 0, &p.canc, param,
+					sizeof(struct fastrpc_ioctl_dspsignal_cancel_wait));
+		if (err) {
+			err = -EFAULT;
+			goto bail;
+		}
+		VERIFY(err, 0 == (err = fastrpc_dspsignal_cancel_wait(fl, &p.canc)));
+		if (err)
+			goto bail;
 		break;
 	default:
 		err = -ENOTTY;
@@ -6636,11 +7196,12 @@ static void fastrpc_pdr_cb(int state, char *service_path, void *priv)
 			gcinfo[spd->cid].subsys);
 		mutex_lock(&me->channel[spd->cid].smd_mutex);
 		spd->pdrcount++;
-		spd->ispdup = 0;
+		atomic_set(&spd->ispdup, 0);
 		mutex_unlock(&me->channel[spd->cid].smd_mutex);
 		if (!strcmp(spd->servloc_name,
 				AUDIO_PDR_SERVICE_LOCATION_CLIENT_NAME))
 			me->staticpd_flags = 0;
+
 		fastrpc_notify_pdr_drivers(me, spd->servloc_name);
 		break;
 	case SERVREG_SERVICE_STATE_UP:
@@ -6648,7 +7209,8 @@ static void fastrpc_pdr_cb(int state, char *service_path, void *priv)
 			__func__, spd->spdname,
 			spd->servloc_name,
 			gcinfo[spd->cid].subsys);
-		spd->ispdup = 1;
+		atomic_set(&spd->ispdup, 1);
+		wake_up_interruptible(&spd->wait_for_pdup);
 		break;
 	default:
 		break;
@@ -6945,6 +7507,49 @@ bail:
 	return err;
 }
 
+/*
+ * remote_cdsp_status_show - Updates the buffer with remote cdsp status
+ *                           by reading the fastrpc node.
+ * @dev : pointer to device node.
+ * @attr: pointer to device attribute.
+ * @buf : Output parameter to be updated with remote cdsp status.
+ * Return : bytes written to buffer.
+ */
+
+static ssize_t remote_cdsp_status_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct fastrpc_apps *me = &gfa;
+
+	/*
+	 * Default remote DSP status: 0
+	 * driver possibly not probed yet or not the main device.
+	 */
+
+	if (!dev || !dev->driver ||
+		!of_device_is_compatible(dev->of_node, "qcom,msm-fastrpc-compute")) {
+		ADSPRPC_ERR("Driver not probed yet or not the main device\n");
+		return 0;
+	}
+
+	return scnprintf(buf, PAGE_SIZE, "%d",
+			me->remote_cdsp_status);
+}
+
+/* Remote cdsp status attribute declaration as read only */
+static DEVICE_ATTR_RO(remote_cdsp_status);
+
+/* Declaring attribute for remote dsp */
+static struct attribute *msm_remote_dsp_attrs[] = {
+	&dev_attr_remote_cdsp_status.attr,
+	NULL
+};
+
+/* Defining remote dsp attributes in attributes group */
+static struct attribute_group msm_remote_dsp_attr_group = {
+	.attrs = msm_remote_dsp_attrs,
+};
+
 static int fastrpc_probe(struct platform_device *pdev)
 {
 	int err = 0;
@@ -6955,6 +7560,13 @@ static int fastrpc_probe(struct platform_device *pdev)
 
 	if (of_device_is_compatible(dev->of_node,
 					"qcom,msm-fastrpc-compute")) {
+		err = sysfs_create_group(&pdev->dev.kobj, &msm_remote_dsp_attr_group);
+		if (err) {
+			ADSPRPC_ERR(
+				"Initialization of sysfs create group failed with %d\n",
+				err);
+			goto bail;
+		}
 		init_secure_vmid_list(dev, "qcom,adsp-remoteheap-vmid",
 							&gcinfo[0].rhvm);
 		fastrpc_init_privileged_gids(dev, "qcom,fastrpc-gids",
@@ -7120,7 +7732,7 @@ long fastrpc_driver_invoke(struct fastrpc_device *dev, unsigned int invoke_num,
 		}
 		/* Map DMA buffer on DSP*/
 		VERIFY(err, 0 == (err = fastrpc_mmap_on_dsp(fl,
-			map->flags, 0, map->phys, map->size, &raddr)));
+			map->flags, 0, map->phys, map->size, map->refs, &raddr)));
 		if (err) {
 			mutex_unlock(&fl->internal_map_mutex);
 			break;
@@ -7343,6 +7955,7 @@ static int __init fastrpc_device_init(void)
 	}
 	memset(me, 0, sizeof(*me));
 	fastrpc_init(me);
+	fastrpc_get_dsp_status(me);
 	me->dev = NULL;
 	me->legacy_remote_heap = false;
 	err = bus_register(&fastrpc_bus_type);

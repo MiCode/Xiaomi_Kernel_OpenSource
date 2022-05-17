@@ -461,6 +461,7 @@ struct extcon_nb {
 struct dwc3_msm {
 	struct device *dev;
 	void __iomem *base;
+	void __iomem *tcsr_dyn_en_dis;
 	void __iomem *ahb2phy_base;
 	phys_addr_t reg_phys;
 	struct platform_device	*dwc3;
@@ -2624,6 +2625,8 @@ static int msm_ep_setup_ebc_trbs(struct usb_ep *ep, struct usb_request *req)
 	edep->ebc_trb_pool = memremap(phys_base,
 				      num_trbs * sizeof(struct dwc3_trb),
 				      MEMREMAP_WT);
+	if (!edep->ebc_trb_pool)
+		return -ENOMEM;
 
 	for (i = 0; i < num_trbs; i++) {
 		trb = &edep->ebc_trb_pool[i];
@@ -3127,6 +3130,15 @@ static void dwc3_msm_set_clk_sel(struct dwc3_msm *mdwc)
 		dwc3_msm_switch_utmi(mdwc, 1);
 }
 
+static int dwc3_device_core_soft_reset(struct dwc3_msm *mdwc)
+{
+	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
+
+	dwc3_msm_notify_event(dwc, DWC3_GSI_EVT_BUF_SETUP, 0);
+
+	return 0;
+}
+
 void dwc3_msm_notify_event(struct dwc3 *dwc,
 		enum dwc3_notify_event event, unsigned int value)
 {
@@ -3283,6 +3295,9 @@ void dwc3_msm_notify_event(struct dwc3 *dwc,
 				GSI_EN_MASK, 0);
 		}
 		break;
+	case DWC3_CONTROLLER_SOFT_RESET:
+		dwc3_device_core_soft_reset(mdwc);
+		break;
 	default:
 		dev_dbg(mdwc->dev, "unknown dwc3 event\n");
 		break;
@@ -3355,25 +3370,34 @@ static void dwc3_dis_sleep_mode(struct dwc3_msm *mdwc)
 	dwc3_msm_write_reg(mdwc->base, DWC3_GUCTL1, reg);
 }
 
-
-/* Force Gen1 speed on Gen2 controller if required */
-static void dwc3_force_gen1(struct dwc3_msm *mdwc)
-{
-	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
-
-	if (mdwc->force_gen1 && DWC3_IP_IS(DWC31))
-		dwc3_msm_write_reg_field(mdwc->base, DWC3_LLUCTL, DWC3_LLUCTL_FORCE_GEN1, 1);
-}
-
-static void dwc3_msm_power_collapse_por(struct dwc3_msm *mdwc)
+static int dwc3_msm_power_collapse_por(struct dwc3_msm *mdwc)
 {
 	struct dwc3 *dwc = NULL;
 	u32 val;
 
-	if (!mdwc->dwc3)
-		return;
+	if (mdwc->dwc3)
+		dwc = platform_get_drvdata(mdwc->dwc3);
 
-	dwc = platform_get_drvdata(mdwc->dwc3);
+	if (!mdwc->ip)
+		mdwc->ip = DWC3_GSNPS_ID(dwc3_msm_read_reg(mdwc->base, DWC3_GSNPSID));
+
+	/*
+	 * Reading a value on the TCSR_USB_INT_DYN_EN_DIS register deviating
+	 * from 0xF means that TZ caused TCSR to disable USB Interface
+	 */
+	if (mdwc->tcsr_dyn_en_dis) {
+		val = dwc3_msm_read_reg(mdwc->tcsr_dyn_en_dis, 0);
+		if (val != 0xF)
+			return -EINVAL;
+	}
+
+	/*
+	 * Reading from GSNPSID (known read-only register) which is expected
+	 * to show a non-zero value if controller was turned on properly.
+	 */
+	val = dwc3_msm_read_reg(mdwc->base, DWC3_GSNPSID);
+	if (DWC3_GSNPS_ID(val) == 0)
+		return -EINVAL;
 
 	/* Get initial P3 status and enable IN_P3 event */
 	if (mdwc->ip == DWC31_IP)
@@ -3392,14 +3416,17 @@ static void dwc3_msm_power_collapse_por(struct dwc3_msm *mdwc)
 		dwc3_msm_write_reg_field(mdwc->base, DWC3_GCTL,
 				DWC3_GCTL_PRTCAPDIR(DWC3_GCTL_PRTCAP_OTG),
 				DWC3_GCTL_PRTCAPDIR(DWC3_GCTL_PRTCAP_HOST));
-		if (!dwc->dis_enblslpm_quirk)
+		if (dwc && !dwc->dis_enblslpm_quirk)
 			dwc3_en_sleep_mode(mdwc);
 
 		if (mdwc->dis_sending_cm_l1_quirk)
 			mdwc3_dis_sending_cm_l1(mdwc);
 	}
 
-	dwc3_force_gen1(mdwc);
+	/* Force Gen1 speed on Gen2 controller if required */
+	if (mdwc->force_gen1 && mdwc->ip == DWC31_IP)
+		dwc3_msm_write_reg_field(mdwc->base, DWC3_LLUCTL, DWC3_LLUCTL_FORCE_GEN1, 1);
+	return 0;
 }
 
 static int dwc3_msm_prepare_suspend(struct dwc3_msm *mdwc, bool ignore_p3_state)
@@ -4059,7 +4086,15 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 	if (mdwc->lpm_flags & MDWC3_POWER_COLLAPSE) {
 		dev_dbg(mdwc->dev, "%s: exit power collapse\n", __func__);
 
-		dwc3_msm_power_collapse_por(mdwc);
+		ret = dwc3_msm_power_collapse_por(mdwc);
+		if (ret < 0) {
+			dev_err(mdwc->dev, "%s: Controller was not turned on properly\n",
+						__func__);
+			dwc3_clk_enable_disable(mdwc, false,
+				mdwc->lpm_flags & MDWC3_POWER_COLLAPSE);
+			dwc3_msm_config_gdsc(mdwc, 0);
+			goto error;
+		}
 
 		mdwc->lpm_flags &= ~MDWC3_POWER_COLLAPSE;
 	}
@@ -4306,9 +4341,11 @@ static void dwc3_pwr_event_handler(struct dwc3_msm *mdwc)
 	struct dwc3 *dwc = NULL;
 	u32 irq_stat, irq_clear = 0;
 
-	if (!mdwc->dwc3)
-		return;
-	dwc = platform_get_drvdata(mdwc->dwc3);
+	if (mdwc->dwc3)
+		dwc = platform_get_drvdata(mdwc->dwc3);
+
+	if (!mdwc->ip)
+		mdwc->ip = DWC3_GSNPS_ID(dwc3_msm_read_reg(mdwc->base, DWC3_GSNPSID));
 
 	irq_stat = dwc3_msm_read_reg(mdwc->base, PWR_EVNT_IRQ_STAT_REG);
 	dev_dbg(mdwc->dev, "%s irq_stat=%X\n", __func__, irq_stat);
@@ -4319,7 +4356,7 @@ static void dwc3_pwr_event_handler(struct dwc3_msm *mdwc)
 		u32 ls;
 
 		/* Can't tell if entered or exit P3, so check LINKSTATE */
-		if (!DWC3_IP_IS(DWC3))
+		if (mdwc->ip == DWC31_IP)
 			ls = dwc3_msm_read_reg_field(mdwc->base,
 				DWC31_LINK_GDBGLTSSM,
 				DWC3_GDBGLTSSM_LINKSTATE_MASK);
@@ -4347,7 +4384,7 @@ static void dwc3_pwr_event_handler(struct dwc3_msm *mdwc)
 	if (irq_stat & PWR_EVNT_LPM_OUT_L1_MASK) {
 		dev_dbg(mdwc->dev, "%s: handling PWR_EVNT_LPM_OUT_L1_MASK\n",
 				__func__);
-		if (!mdwc->in_host_mode) {
+		if (!mdwc->in_host_mode && dwc) {
 			if (usb_gadget_wakeup(dwc->gadget))
 				dev_err(mdwc->dev, "%s failed to take dwc out of L1\n",
 					__func__);
@@ -4568,9 +4605,25 @@ static int dwc3_msm_vbus_notifier(struct notifier_block *nb,
 	/* detect USB spoof disconnect/connect notification with EUD device */
 	eud_str = strnstr(edev_name, "eud", strlen(edev_name));
 	if (eud_str) {
+		int spoof;
+
+		spoof = extcon_get_state(edev, EXTCON_JIG);
+
 		if (mdwc->eud_active == event)
 			return NOTIFY_DONE;
+
 		mdwc->eud_active = event;
+
+		/*
+		 * In case EUD is enabled by the module param, if DWC3 is
+		 * operating in SS, ignore any connect/disconnect changes.  This
+		 * allows for the link to be uninterrupted, as EUD affects the
+		 * HS path.  Only listen for if there are spoof
+		 * connect/disconnect commands.
+		 */
+		if (dwc && dwc->gadget->speed >= USB_SPEED_SUPER && !spoof)
+			return NOTIFY_DONE;
+
 		mdwc->check_eud_state = true;
 	} else {
 		if (mdwc->vbus_active == event)
@@ -5020,6 +5073,8 @@ static void dwc3_msm_clear_dp_only_params(struct dwc3_msm *mdwc)
 	mdwc->ss_release_called = false;
 	mdwc->ss_phy->flags &= ~PHY_DP_MODE;
 	dwc3_msm_set_max_speed(mdwc, USB_SPEED_UNKNOWN);
+
+	usb_redriver_notify_disconnect(mdwc->redriver);
 }
 
 static void dwc3_msm_set_dp_only_params(struct dwc3_msm *mdwc)
@@ -5164,7 +5219,6 @@ static int dwc3_msm_core_init(struct dwc3_msm *mdwc)
 	struct device_node *node = mdwc->dev->of_node, *dwc3_node;
 	struct dwc3	*dwc;
 	int ret = 0;
-	u32 val;
 
 	if (mdwc->dwc3)
 		return 0;
@@ -5249,11 +5303,6 @@ static int dwc3_msm_core_init(struct dwc3_msm *mdwc)
 	mdwc->xhci_pm_ops = kzalloc(sizeof(struct dev_pm_ops), GFP_ATOMIC);
 	if (!mdwc->xhci_pm_ops)
 		goto free_dwc_pm_ops;
-
-	val = dwc3_msm_read_reg(mdwc->base, DWC3_GSNPSID);
-	mdwc->ip = DWC3_GSNPS_ID(val);
-
-	dwc3_force_gen1(mdwc);
 
 	dwc3_msm_notify_event(dwc, DWC3_GSI_EVT_BUF_ALLOC, 0);
 	pm_runtime_set_autosuspend_delay(dwc->dev, 0);
@@ -5413,6 +5462,17 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "ioremap failed\n");
 		ret = -ENODEV;
 		goto err;
+	}
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "tcsr_dyn_en_dis");
+	if (res) {
+		mdwc->tcsr_dyn_en_dis = devm_ioremap(&pdev->dev, res->start,
+			resource_size(res));
+		if (!mdwc->tcsr_dyn_en_dis) {
+			dev_err(&pdev->dev, "ioremap for tcsr_dyn_en_dis failed\n");
+			ret = -ENODEV;
+			goto err;
+		}
 	}
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
@@ -6011,9 +6071,10 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 		msm_dwc3_perf_vote_update(mdwc, false);
 		cpu_latency_qos_remove_request(&mdwc->pm_qos_req_dma);
 
-		ret = pm_runtime_resume_and_get(mdwc->dev);
+		ret = pm_runtime_resume_and_get(&mdwc->dwc3->dev);
 		if (ret < 0) {
 			dev_err(mdwc->dev, "%s: pm_runtime_resume_and_get failed\n", __func__);
+			pm_runtime_set_suspended(&mdwc->dwc3->dev);
 			pm_runtime_set_suspended(mdwc->dev);
 			return ret;
 		}

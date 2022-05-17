@@ -177,7 +177,7 @@ static void mhi_setup_event_rings(struct mhi_controller *mhi_cntrl, bool add_el)
 		if (add_el) {
 			ring->wp = ring->base + ring->len - ring->el_size;
 			*ring->ctxt_wp =
-				ring->iommu_base + ring->len - ring->el_size;
+				cpu_to_le64(ring->iommu_base + ring->len - ring->el_size);
 			/* Update all cores */
 			smp_wmb();
 		}
