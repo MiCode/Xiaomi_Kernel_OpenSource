@@ -418,6 +418,7 @@ static int adsp_start(struct rproc *rproc)
 		goto disable_aggre2_clk;
 
 	scm_pas_enable_bw();
+	trace_rproc_qcom_event(dev_name(adsp->dev), "dtb_auth_reset", "enter");
 	if (adsp->dtb_pas_id || adsp->dtb_fw_name) {
 		ret = qcom_scm_pas_auth_and_reset(adsp->dtb_pas_id);
 		if (ret)
@@ -425,6 +426,7 @@ static int adsp_start(struct rproc *rproc)
 				 rproc->name);
 	}
 
+	trace_rproc_qcom_event(dev_name(adsp->dev), "Q6_firmware_loading", "enter");
 	ret = request_firmware(&fw, rproc->firmware, adsp->dev);
 	if (ret)
 		goto free_metadata_dtb;
@@ -438,10 +440,12 @@ static int adsp_start(struct rproc *rproc)
 	qcom_pil_info_store(adsp->info_name, adsp->mem_phys, adsp->mem_size);
 
 	adsp_add_coredump_segments(adsp, fw);
+	trace_rproc_qcom_event(dev_name(adsp->dev), "Q6_auth_reset", "enter");
 
 	ret = qcom_scm_pas_auth_and_reset(adsp->pas_id);
 	if (ret)
 		panic("Panicking, auth and reset failed for remoteproc %s\n", rproc->name);
+	trace_rproc_qcom_event(dev_name(adsp->dev), "Q6_auth_reset", "exit");
 
 	if (!timeout_disabled) {
 		ret = qcom_q6v5_wait_for_start(&adsp->q6v5, msecs_to_jiffies(5000));
