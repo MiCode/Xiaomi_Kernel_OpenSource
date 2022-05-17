@@ -49,6 +49,9 @@
 #define QMI_WLFW_MAX_RECV_BUF_SIZE	SZ_8K
 #define IMSPRIVATE_SERVICE_MAX_MSG_LEN	SZ_8K
 #define DMS_QMI_MAX_MSG_LEN		SZ_256
+#define MAX_SHADOW_REG_RESERVED		2
+#define MAX_NUM_SHADOW_REG_V3	(QMI_WLFW_MAX_NUM_SHADOW_REG_V3_USAGE_V01 - \
+				 MAX_SHADOW_REG_RESERVED)
 
 #define QMI_WLFW_MAC_READY_TIMEOUT_MS	50
 #define QMI_WLFW_MAC_READY_MAX_RETRY	200
@@ -1527,16 +1530,31 @@ int cnss_wlfw_wlan_cfg_send_sync(struct cnss_plat_data *plat_priv,
 		req->svc_cfg[i].pipe_num = config->ce_svc_cfg[i].pipe_num;
 	}
 
-	req->shadow_reg_v2_valid = 1;
-	if (config->num_shadow_reg_v2_cfg >
-	    QMI_WLFW_MAX_NUM_SHADOW_REG_V2_V01)
-		req->shadow_reg_v2_len = QMI_WLFW_MAX_NUM_SHADOW_REG_V2_V01;
-	else
-		req->shadow_reg_v2_len = config->num_shadow_reg_v2_cfg;
+	if (plat_priv->device_id != KIWI_DEVICE_ID) {
+		req->shadow_reg_v2_valid = 1;
+		if (config->num_shadow_reg_v2_cfg >
+		    QMI_WLFW_MAX_NUM_SHADOW_REG_V2_V01)
+			req->shadow_reg_v2_len = QMI_WLFW_MAX_NUM_SHADOW_REG_V2_V01;
+		else
+			req->shadow_reg_v2_len = config->num_shadow_reg_v2_cfg;
 
-	memcpy(req->shadow_reg_v2, config->shadow_reg_v2_cfg,
-	       sizeof(struct wlfw_shadow_reg_v2_cfg_s_v01)
-	       * req->shadow_reg_v2_len);
+		memcpy(req->shadow_reg_v2, config->shadow_reg_v2_cfg,
+		       sizeof(struct wlfw_shadow_reg_v2_cfg_s_v01)
+		       * req->shadow_reg_v2_len);
+	} else {
+		cnss_pr_dbg("Shadow reg v3 len: %d\n",
+			    config->num_shadow_reg_v3_cfg);
+		req->shadow_reg_v3_valid = 1;
+		if (config->num_shadow_reg_v3_cfg >
+		    MAX_NUM_SHADOW_REG_V3)
+			req->shadow_reg_v3_len = MAX_NUM_SHADOW_REG_V3;
+		else
+			req->shadow_reg_v3_len = config->num_shadow_reg_v3_cfg;
+
+		memcpy(req->shadow_reg_v3, config->shadow_reg_v3_cfg,
+		       sizeof(struct wlfw_shadow_reg_v3_cfg_s_v01)
+		       * req->shadow_reg_v3_len);
+	}
 
 	ret = qmi_txn_init(&plat_priv->qmi_wlfw, &txn,
 			   wlfw_wlan_cfg_resp_msg_v01_ei, resp);
