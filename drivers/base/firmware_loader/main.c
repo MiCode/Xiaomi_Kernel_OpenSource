@@ -464,22 +464,67 @@ static int fw_decompress_xz(struct device *dev, struct fw_priv *fw_priv,
 #endif /* CONFIG_FW_LOADER_COMPRESS */
 
 /* direct firmware loading support */
-static char fw_path_para[256];
+#define CUSTOM_FW_PATH_COUNT	10
+#define PATH_SIZE		255
+static char fw_path_para[CUSTOM_FW_PATH_COUNT][PATH_SIZE];
 static const char * const fw_path[] = {
-	fw_path_para,
+	fw_path_para[0],
+	fw_path_para[1],
+	fw_path_para[2],
+	fw_path_para[3],
+	fw_path_para[4],
+	fw_path_para[5],
+	fw_path_para[6],
+	fw_path_para[7],
+	fw_path_para[8],
+	fw_path_para[9],
 	"/lib/firmware/updates/" UTS_RELEASE,
 	"/lib/firmware/updates",
 	"/lib/firmware/" UTS_RELEASE,
 	"/lib/firmware"
 };
 
+static char strpath[PATH_SIZE * CUSTOM_FW_PATH_COUNT];
+static int __init firmware_param_path_set(char *val)
+{
+	int i;
+	char *path, *end;
+
+	strcpy(strpath, val);
+	/* Remove leading and trailing spaces from path */
+	path = strim(strpath);
+	for (i = 0; path && i < CUSTOM_FW_PATH_COUNT; i++) {
+		end = strchr(path, ',');
+
+		/* Skip continuous token case, for example ',,,' */
+		if (end == path) {
+			i--;
+			path = ++end;
+			continue;
+		}
+
+		if (end != NULL)
+			*end = '\0';
+		else {
+			/* end of the string reached and no other tockens ','  */
+			strncpy(fw_path_para[i], path, PATH_SIZE);
+			break;
+		}
+
+		strncpy(fw_path_para[i], path, PATH_SIZE);
+		path = ++end;
+	}
+
+	return 1;
+}
+
 /*
- * Typical usage is that passing 'firmware_class.path=$CUSTOMIZED_PATH'
+ * Typical usage is that passing 'firmware_class.path=/vendor,/firwmare_mnt'
  * from kernel command line because firmware_class is generally built in
- * kernel instead of module.
+ * kernel instead of module. ',' is used as delimiter for setting 10
+ * custom paths for firmware loader.
  */
-module_param_string(path, fw_path_para, sizeof(fw_path_para), 0644);
-MODULE_PARM_DESC(path, "customized firmware image search path with a higher priority than default path");
+__setup("firmware_class.path=", firmware_param_path_set);
 
 static int
 fw_get_filesystem_firmware(struct device *device, struct fw_priv *fw_priv,
