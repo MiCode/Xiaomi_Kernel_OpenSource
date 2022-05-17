@@ -153,6 +153,8 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_schedule);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_sched_cpu_starting);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_sched_cpu_dying);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_account_irq);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_account_irq_start);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_account_irq_end);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_place_entity);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_build_perf_domains);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_update_cpu_capacity);
