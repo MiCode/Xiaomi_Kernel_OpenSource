@@ -2237,6 +2237,7 @@
   xhci_alloc_erst
   xhci_free_command
   xhci_free_erst
+  xhci_get_endpoint_index
   xhci_queue_stop_endpoint
   xhci_ring_alloc
   xhci_ring_cmd_db
