@@ -822,6 +822,7 @@
   eventfd_signal
   extcon_get_edev_by_phandle
   extcon_get_edev_name
+  extcon_get_extcon_dev
   extcon_get_property
   extcon_get_state
   extcon_register_notifier
@@ -909,6 +910,7 @@
   get_governor_parent_kobj
   get_option
   get_page_owner_handle
+  get_pfnblock_flags_mask
   get_pid_task
   get_random_bytes
   get_sg_io_hdr
@@ -1142,6 +1144,8 @@
   irq_work_sync
   is_dma_buf_file
   is_vmalloc_addr
+  isolate_and_split_free_page
+  isolate_anon_lru_page
   iterate_fd
   jiffies
   jiffies_to_msecs
@@ -1289,6 +1293,7 @@
   memset64
   memstart_addr
   memunmap
+  migrate_pages
   migrate_swap
   mipi_dsi_dcs_set_tear_off
   misc_deregister
@@ -1621,6 +1626,7 @@
   put_iova_domain
   put_sg_io_hdr
   put_user_ifreq
+  putback_movable_pages
   pwm_apply_state
   pwmchip_add
   pwmchip_remove
@@ -2020,6 +2026,7 @@
   thermal_zone_of_sensor_unregister
   tick_nohz_get_sleep_length
   time64_to_tm
+  timer_unstable_counter_workaround
   topology_clear_scale_freq_source
   topology_set_thermal_pressure
   topology_update_done

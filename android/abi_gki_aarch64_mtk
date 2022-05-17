@@ -1355,7 +1355,6 @@
   perf_trace_buf_alloc
   perf_trace_run_bpf_submit
   pfn_is_map_memory
-  pfn_valid
   phy_attached_info
   phy_connect
   phy_disconnect

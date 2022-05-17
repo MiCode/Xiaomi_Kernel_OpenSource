@@ -40,7 +40,6 @@
   bcmp
   bin2hex
   __bitmap_clear
-  __bitmap_equal
   bitmap_from_arr32
   bitmap_parse
   bitmap_parselist
@@ -465,7 +464,6 @@
   downgrade_write
   down_interruptible
   down_read
-  down_read_trylock
   down_trylock
   down_write
   drain_workqueue
@@ -1030,6 +1028,7 @@
   memdup_user_nul
   memmove
   memremap
+  mem_section
   memset
   memstart_addr
   memunmap
@@ -1114,7 +1113,6 @@
   of_clk_src_onecell_get
   of_count_phandle_with_args
   of_cpu_node_to_id
-  of_devfreq_cooling_register_power
   of_device_get_match_data
   of_device_is_available
   of_device_is_compatible
@@ -1236,7 +1234,6 @@
   perf_trace_buf_alloc
   perf_trace_run_bpf_submit
   pfn_is_map_memory
-  pfn_valid
   phy_init
   phy_power_off
   phy_power_on
@@ -1255,11 +1252,6 @@
   pin_user_pages_fast
   pin_user_pages_remote
   pktgen_xfrm_outer_mode_output
-  pkvm_iommu_finalize
-  pkvm_iommu_resume
-  pkvm_iommu_s2mpu_register
-  pkvm_iommu_suspend
-  pkvm_iommu_sysmmu_sync_register
   platform_bus_type
   platform_device_add
   platform_device_add_data
@@ -1529,7 +1521,6 @@
   sg_next
   __sg_page_iter_next
   __sg_page_iter_start
-  shmem_file_setup
   simple_attr_open
   simple_attr_read
   simple_attr_release
@@ -1639,7 +1630,6 @@
   spi_sync
   spi_sync_locked
   spi_unregister_controller
-  split_page
   sprintf
   sprint_symbol
   srcu_init_notifier_head
@@ -1706,7 +1696,6 @@
   sysrq_mask
   system_freezing_cnt
   system_highpri_wq
-  system_long_wq
   system_state
   system_unbound_wq
   system_wq
@@ -1738,7 +1727,6 @@
   thermal_zone_device_register
   thermal_zone_device_unregister
   thermal_zone_device_update
-  thermal_zone_get_temp
   thermal_zone_of_sensor_register
   thermal_zone_of_sensor_unregister
   thread_group_cputime_adjusted
@@ -1974,9 +1962,6 @@
   v4l2_m2m_release
   vabits_actual
   vb2_buffer_done
-  vb2_common_vm_ops
-  vb2_create_framevec
-  vb2_destroy_framevec
   vb2_dma_sg_memops
   vb2_dqbuf
   vb2_fop_mmap
@@ -2026,9 +2011,6 @@
   vmalloc_user
   vmap
   vmf_insert_pfn_prot
-  vm_map_pages
-  vm_map_ram
-  vm_unmap_ram
   vprintk
   vring_del_virtqueue
   vring_interrupt
@@ -2070,3 +2052,23 @@
   xhci_resume
   xhci_run
   xhci_suspend
+
+# preserved by --additions-only
+  __bitmap_equal
+  down_read_trylock
+  of_devfreq_cooling_register_power
+  pkvm_iommu_finalize
+  pkvm_iommu_resume
+  pkvm_iommu_s2mpu_register
+  pkvm_iommu_suspend
+  pkvm_iommu_sysmmu_sync_register
+  shmem_file_setup
+  split_page
+  system_long_wq
+  thermal_zone_get_temp
+  vb2_common_vm_ops
+  vb2_create_framevec
+  vb2_destroy_framevec
+  vm_map_pages
+  vm_map_ram
+  vm_unmap_ram
