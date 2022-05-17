@@ -3515,9 +3515,9 @@ static int msm_geni_serial_probe(struct platform_device *pdev)
 		} else {
 			line = of_alias_get_id(pdev->dev.of_node, "hsuart");
 			if (line < 0)
-				line = uart_line_id++;
-			else
-				uart_line_id++;
+				line = uart_line_id;
+			else /* for non alias hsuart use uart_line_id in get_port_from_line */
+				line = uart_line_id;
 		}
 	} else {
 		line = pdev->id;
@@ -3525,14 +3525,13 @@ static int msm_geni_serial_probe(struct platform_device *pdev)
 
 	is_console = (drv->cons ? true : false);
 	dev_port = get_port_from_line(line, is_console);
-	dev_port->is_console = is_console;
 	if (IS_ERR_OR_NULL(dev_port)) {
 		ret = PTR_ERR(dev_port);
-		dev_err(&pdev->dev, "Invalid line %d(%d)\n",
-					line, ret);
+		dev_err(&pdev->dev, "Invalid line ret:%d\n", ret);
 		goto exit_geni_serial_probe;
 	}
 
+	dev_port->is_console = is_console;
 	if (drv->cons && !con_enabled) {
 		dev_err(&pdev->dev, "%s, Console Disabled\n", __func__);
 		platform_set_drvdata(pdev, dev_port);
@@ -3552,6 +3551,9 @@ static int msm_geni_serial_probe(struct platform_device *pdev)
 	ret = msm_geni_serial_read_dtsi(pdev, dev_port);
 	if (ret)
 		goto exit_geni_serial_probe;
+
+	if (!drv->cons)
+		uart_line_id++;
 
 	dev_port->tx_fifo_depth = DEF_FIFO_DEPTH_WORDS;
 	dev_port->rx_fifo_depth = DEF_FIFO_DEPTH_WORDS;
