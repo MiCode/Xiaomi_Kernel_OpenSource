@@ -612,10 +612,11 @@ static void cmdq_mdp_lock_thread(struct cmdqRecStruct *handle)
 	u64 engine_flag = handle->engineFlag;
 	s32 thread = handle->thread;
 
-	if (unlikely(thread < 0))
+	if (unlikely(thread < 0)) {
 		CMDQ_ERR("%s invalid thread:%d engine:0x%llx\n",
 			__func__, thread, engine_flag);
-
+		return;
+	}
 	/* engine clocks enable flag decide here but call clock on before flush
 	 * common clock enable here to avoid disable when mdp engines still
 	 * need use for later tasks
@@ -676,10 +677,11 @@ void cmdq_mdp_unlock_thread(struct cmdqRecStruct *handle)
 	u64 engine_flag = handle->engineFlag;
 	s32 thread = handle->thread;
 
-	if (unlikely(thread < 0))
+	if (unlikely(thread < 0)) {
 		CMDQ_ERR("%s invalid thread:%d engine:0x%llx\n",
 			__func__, thread, engine_flag);
-
+		return;
+	}
 	mutex_lock(&mdp_thread_mutex);
 
 	/* get not use engine using engine flag for disable clock. */
@@ -1459,7 +1461,7 @@ void cmdq_mdp_init_secure_id(void *meta_array, u32 count)
 
 		buf = dma_buf_get(secMetadatas[i].baseHandle);
 		sec_id = dmabuf_to_sec_id(buf, &sec_handle);
-		CMDQ_MSG("%s,port:%d,baseHandle:%#llx,sec_id:%d,sec_handle:%#lx",
+		CMDQ_MSG("%s,port:%d,baseHandle:%#llx,sec_id:%d,sec_handle:%#x",
 				__func__, secMetadatas[i].port,
 				secMetadatas[i].baseHandle,
 				sec_id,

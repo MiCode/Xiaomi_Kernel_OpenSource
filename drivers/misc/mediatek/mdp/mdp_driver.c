@@ -644,7 +644,8 @@ s32 cmdq_driver_ioctl_exec_command(struct file *pf, unsigned long param)
 		sizeof(struct cmdqCommandStruct)))
 		return -EFAULT;
 
-	if (command.regRequest.count > CMDQ_MAX_DUMP_REG_COUNT ||
+	if (!command.regRequest.count ||
+		command.regRequest.count > CMDQ_MAX_DUMP_REG_COUNT ||
 		!command.blockSize ||
 		command.blockSize > CMDQ_MAX_COMMAND_SIZE ||
 		command.prop_size > CMDQ_MAX_USER_PROP_SIZE) {
@@ -854,13 +855,13 @@ s32 cmdq_driver_ioctl_async_job_wait_and_close(unsigned long param)
 	 * which contains kernel + user space requests
 	 */
 	userRegValue = CMDQ_U32_PTR(jobResult.regValue.regValues);
-	jobResult.regValue.regValues = (cmdqU32Ptr_t)(unsigned long)(
-		kzalloc(handle->reg_count + sizeof(u32), GFP_KERNEL));
-	jobResult.regValue.count = handle->reg_count;
 	if (!userRegValue) {
 		CMDQ_ERR("no reg value buffer\n");
 		return -ENOMEM;
 	}
+	jobResult.regValue.regValues = (cmdqU32Ptr_t)(unsigned long)(
+		kzalloc(handle->reg_count + sizeof(u32), GFP_KERNEL));
+	jobResult.regValue.count = handle->reg_count;
 
 	/* wait for task done */
 	status = cmdq_mdp_wait(handle, &jobResult.regValue);
