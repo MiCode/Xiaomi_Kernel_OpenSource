@@ -370,7 +370,7 @@ static int mtk_hwv_pll_is_prepared(struct clk_hw *hw)
 static int mtk_hwv_pll_prepare(struct clk_hw *hw)
 {
 	struct mtk_clk_pll *pll = to_mtk_clk_pll(hw);
-	u32 val, val2;
+	u32 val = 0, val2 = 0;
 	int i = 0;
 
 	/* wait for irq idle */
