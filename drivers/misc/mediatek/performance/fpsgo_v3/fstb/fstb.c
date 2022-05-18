@@ -1994,10 +1994,12 @@ void fpsgo_fbt2fstb_query_fps(int pid, unsigned long long bufID,
 				default:
 					*target_fps = iter->target_fps;
 					tolerence_fps = iter->target_fps_margin;
-					if (iter->queue_fps >
-						max_fps_limit * fps_bypass_max / 100 ||
+					if ((iter->queue_fps >
+						fps_levels[0].start * fps_bypass_max / 100 ||
 						iter->queue_fps <
-						min_fps_limit * fps_bypass_min / 100)
+						fps_levels[nr_fps_levels - 1].end *
+						fps_bypass_min / 100) &&
+						iter->queue_fps > 0)
 						*target_fps = -1;
 					break;
 				}
