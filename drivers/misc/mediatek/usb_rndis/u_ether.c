@@ -882,7 +882,7 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 	if (list_empty(&dev->tx_reqs)) {
 		busyCnt++;
 		if (__ratelimit(&ratelimit2))
-			U_ETHER_DBG("okCnt : %u, busyCnt : %u\n",
+			U_ETHER_DBG("okCnt : %lu, busyCnt : %lu\n",
 					okCnt, busyCnt);
 		spin_unlock_irqrestore(&dev->req_lock, flags);
 		rndis_test_tx_busy++;
