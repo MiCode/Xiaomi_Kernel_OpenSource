@@ -4650,10 +4650,11 @@ s32 cmdq_helper_mbox_register(struct device *dev)
 			cmdq_entry = clt;
 	}
 
-	if (unlikely(chan_id < 0))
+	if (chan_id < 0 || chan_id > CMDQ_MAX_THREAD_COUNT)
 		CMDQ_ERR("%s chan_id(%d) is invalid!!!\n", __func__, chan_id);
+	else
+		mbox_dev = cmdq_clients[(u32)chan_id]->chan->mbox->dev;
 
-	mbox_dev = cmdq_clients[(u32)chan_id]->chan->mbox->dev;
 	if (unlikely(!mbox_dev))
 		CMDQ_ERR("%s mbox device is not exist!!!\n", __func__);
 
