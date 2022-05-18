@@ -1079,17 +1079,18 @@ static s32 cmdq_sec_session_reply(const u32 iwc_cmd,
 	struct iwcCmdqMessage_t *iwc_msg, void *data,
 	struct cmdq_sec_task *task)
 {
-	struct iwcCmdqCancelTask_t *cancel = data;
-	struct cmdq_sec_data *sec_data = task->pkt->sec_data;
-
 	if (iwc_cmd == CMD_CMDQ_TL_SUBMIT_TASK) {
 		if (iwc_msg->rsp < 0) {
+			struct cmdq_sec_data *sec_data = task->pkt->sec_data;
+
 			/* submit fail case copy status */
 			memcpy(&sec_data->sec_status, &iwc_msg->secStatus,
 				sizeof(sec_data->sec_status));
 			sec_data->response = iwc_msg->rsp;
 		}
-	} else if (iwc_cmd == CMD_CMDQ_TL_CANCEL_TASK && cancel) {
+	} else if (iwc_cmd == CMD_CMDQ_TL_CANCEL_TASK && data) {
+		struct iwcCmdqCancelTask_t *cancel = data;
+
 		/* cancel case only copy cancel result */
 		memcpy(cancel, &iwc_msg->cancelTask, sizeof(*cancel));
 	}
@@ -1184,8 +1185,6 @@ cmdq_sec_task_submit(struct cmdq_sec *cmdq, struct cmdq_sec_task *task,
 
 	cmdq_log("task:%p iwc_cmd:%u cmdq:%p thrd-idx:%u tgid:%u",
 		task, iwc_cmd, cmdq, thrd_idx, current->tgid);
-	if (iwc_cmd != 4 && !task)
-		cmdq_err("iwc_cmd:%u data:%p task:%p", iwc_cmd, data, task);
 
 #if IS_ENABLED(CONFIG_MMPROFILE)
 	mmprofile_log_ex(cmdq->mmp.submit, MMPROFILE_FLAG_PULSE,
@@ -1234,10 +1233,6 @@ cmdq_sec_task_submit(struct cmdq_sec *cmdq, struct cmdq_sec_task *task,
 			pkt->rec_trigger = sched_clock();
 		err = cmdq_sec_session_send(
 			cmdq->context, task, iwc_cmd, thrd_idx, cmdq, mtee);
-
-		if (iwc_cmd != 4 && (!cmdq->context->mtee_iwc_msg || !task))
-			cmdq_err("iwc_cmd:%u mtee_iwc_msg:%p data:%p task:%p", iwc_cmd,
-				cmdq->context->mtee_iwc_msg, data, task);
 
 		if (err) {
 			cmdq_util_dump_lock();
