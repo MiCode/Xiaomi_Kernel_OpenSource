@@ -57,7 +57,8 @@ static struct iova_buf_list iova_list = {.init_flag = ATOMIC_INIT(0)};
 #if IS_ENABLED(CONFIG_MTK_AEE_FEATURE) && !IOMMU_BRING_UP
 #define m4u_aee_print(string, args...) do {\
 		char m4u_name[150];\
-		snprintf(m4u_name, 150, "[M4U]"string, ##args); \
+		if (snprintf(m4u_name, 150, "[M4U]"string, ##args) < 0) \
+			break; \
 	aee_kernel_warning_api(__FILE__, __LINE__, \
 		DB_OPT_MMPROFILE_BUFFER | DB_OPT_DUMP_DISPLAY, \
 		m4u_name, "[M4U] error"string, ##args); \
@@ -67,7 +68,8 @@ static struct iova_buf_list iova_list = {.init_flag = ATOMIC_INIT(0)};
 #else
 #define m4u_aee_print(string, args...) do {\
 		char m4u_name[150];\
-		snprintf(m4u_name, 150, "[M4U]"string, ##args); \
+		if (snprintf(m4u_name, 150, "[M4U]"string, ##args) < 0) \
+			break; \
 	pr_err("[M4U] error:"string, ##args);  \
 	} while (0)
 #endif
@@ -3585,10 +3587,10 @@ static void mtk_iommu_iova_map_dump(struct seq_file *s, u64 iova, u32 tab_id)
 			list_for_each_entry_safe(plist, n, &map_list.head[i], list_node)
 				if (plist->tab_id == tab_id)
 					iommu_dump(s, "%-6u 0x%-12llx 0x%-8zx %u.%06u\n",
-						   plist->tab_id, plist->iova,
-						   plist->size,
-						   plist->time_high,
-						   plist->time_low);
+						plist->tab_id, plist->iova,
+						plist->size,
+						(unsigned int)plist->time_high,
+						(unsigned int)plist->time_low);
 		}
 		spin_unlock_irqrestore(&map_list.lock, flags);
 		return;
@@ -3600,8 +3602,8 @@ static void mtk_iommu_iova_map_dump(struct seq_file *s, u64 iova, u32 tab_id)
 			iommu_dump(s, "%-6u 0x%-12llx 0x%-8zx %u.%06u\n",
 				plist->tab_id, plist->iova,
 				plist->size,
-				plist->time_high,
-				plist->time_low);
+				(unsigned int)plist->time_high,
+				(unsigned int)plist->time_low);
 	spin_unlock_irqrestore(&map_list.lock, flags);
 }
 
@@ -3990,11 +3992,13 @@ EXPORT_SYMBOL_GPL(peri_tf_analyse);
 
 static int m4u_debug_set(void *data, u64 val)
 {
+	int ret = 0;
+
 	pr_info("%s:val=%llu\n", __func__, val);
 
 	switch (val) {
 	case 1:	/* show help info */
-		mtk_iommu_debug_help(NULL);
+		ret = mtk_iommu_debug_help(NULL);
 		break;
 	case 2: /* mm translation fault test */
 		report_custom_iommu_fault(0, 0, 0x500000f, MM_IOMMU, 0);
@@ -4006,22 +4010,22 @@ static int m4u_debug_set(void *data, u64 val)
 		report_custom_iommu_fault(0, 0, 0x102, PERI_IOMMU, 0);
 		break;
 	case 5:
-		mtk_iommu_sec_bk_init_by_atf(MM_IOMMU, DISP_IOMMU);
+		ret = mtk_iommu_sec_bk_init_by_atf(MM_IOMMU, DISP_IOMMU);
 		break;
 	case 6:
-		mtk_iommu_sec_bk_irq_en_by_atf(MM_IOMMU, DISP_IOMMU, 1);
+		ret = mtk_iommu_sec_bk_irq_en_by_atf(MM_IOMMU, DISP_IOMMU, 1);
 		break;
 	case 7:
-		mtk_iommu_secure_bk_backup_by_atf(MM_IOMMU, DISP_IOMMU);
+		ret = mtk_iommu_secure_bk_backup_by_atf(MM_IOMMU, DISP_IOMMU);
 		break;
 	case 8:
-		mtk_iommu_secure_bk_restore_by_atf(MM_IOMMU, DISP_IOMMU);
+		ret = mtk_iommu_secure_bk_restore_by_atf(MM_IOMMU, DISP_IOMMU);
 		break;
 	case 9:
-		ao_secure_dbg_switch_by_atf(MM_IOMMU, DISP_IOMMU, 1);
+		ret = ao_secure_dbg_switch_by_atf(MM_IOMMU, DISP_IOMMU, 1);
 		break;
 	case 10:
-		ao_secure_dbg_switch_by_atf(MM_IOMMU, DISP_IOMMU, 0);
+		ret = ao_secure_dbg_switch_by_atf(MM_IOMMU, DISP_IOMMU, 0);
 		break;
 	case 11:	/* enable trace log */
 		event_mgr[IOMMU_ALLOC].dump_log = 1;
@@ -4079,10 +4083,10 @@ static int m4u_debug_set(void *data, u64 val)
 		mtk_iommu_dump_bank_base();
 		break;
 	case 20:
-		mtk_iommu_dump_bk0_val(MM_IOMMU, DISP_IOMMU);
+		ret = mtk_iommu_dump_bk0_val(MM_IOMMU, DISP_IOMMU);
 		break;
 	case 21:	/* dump DISP_IOMMU bank1 pagetable */
-		mtk_iommu_sec_bk_pgtable_dump(MM_IOMMU, DISP_IOMMU,
+		ret = mtk_iommu_sec_bk_pgtable_dump(MM_IOMMU, DISP_IOMMU,
 				IOMMU_BK1, 0);
 		break;
 #endif
@@ -4090,6 +4094,9 @@ static int m4u_debug_set(void *data, u64 val)
 		pr_err("%s error,val=%llu\n", __func__, val);
 		break;
 	}
+
+	if (ret)
+		pr_info("%s failed:val=%llu, ret=%d\n", __func__, val, ret);
 
 	return 0;
 }
@@ -4449,7 +4456,7 @@ static void mtk_iommu_iova_alloc_dump_top(struct seq_file *s,
 		   total_cnt, total_size, dom_count, dom_size, tab_id, dom_id, IOVA_DUMP_TOP_MAX);
 	iommu_dump(s, "%6s %6s %8s %10s %3s\n", "tab_id", "dom_id", "count", "size", "dev");
 	list_for_each_entry_safe(p_count_list, n_count, &count_list.head, list_node) {
-		iommu_dump(s, "%6u %6u %8lu %8lluKB %s\n",
+		iommu_dump(s, "%6u %6u %8u %8lluKB %s\n",
 			   p_count_list->tab_id,
 			   p_count_list->dom_id,
 			   p_count_list->count,
@@ -4502,7 +4509,15 @@ static void mtk_iova_dbg_alloc(struct device *dev, struct iova_domain *iovad,
 {
 	struct iova_info *iova_buf;
 	struct iommu_fwspec *fwspec = dev_iommu_fwspec_get(dev);
-	u32 tab_id = MTK_M4U_TO_TAB(fwspec->ids[0]);
+	u32 tab_id;
+
+	if (!fwspec) {
+		pr_info("%s fail, dev(%s) is not iommu-dev\n",
+			__func__, dev_name(dev));
+		return;
+	}
+
+	tab_id = MTK_M4U_TO_TAB(fwspec->ids[0]);
 
 	if (!iova) {
 		pr_info("%s fail! dev:%s, size:0x%zx\n",
