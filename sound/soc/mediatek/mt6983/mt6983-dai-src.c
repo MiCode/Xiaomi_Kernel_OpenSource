@@ -180,16 +180,18 @@ static int mtk_set_src_1_param(struct mtk_base_afe *afe, int id)
 	unsigned int iir_stage;
 	int rate_in = 0;
 	int rate_out = 0;
-	unsigned int out_freq_mode = mtk_get_src_freq_mode(afe,
-							   rate_out);
-	unsigned int in_freq_mode = mtk_get_src_freq_mode(afe,
-							  rate_in);
+	unsigned int out_freq_mode = 0;
+	unsigned int in_freq_mode = 0;
+
 	if (id < 0)
 		return -EINVAL;
 
 	src_priv = afe_priv->dai_priv[id];
 	rate_in = src_priv->dl_rate;
 	rate_out = src_priv->ul_rate;
+
+	out_freq_mode = mtk_get_src_freq_mode(afe, rate_out);
+	in_freq_mode = mtk_get_src_freq_mode(afe, rate_in);
 
 	/* set out freq mode */
 	regmap_update_bits(afe->regmap, AFE_GENERAL1_ASRC_2CH_CON3,
