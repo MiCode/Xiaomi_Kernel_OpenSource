@@ -37,6 +37,7 @@ enum {
 	PMIC_CDAC_FPM,
 	PMIC_CORE_IDAC_FPM,
 	PMIC_AAC_FPM_SWEN,
+	PMIC_HEATER_SEL,
 	PMIC_HW_DTS_NUM, /* Number of HW dependent PMIC properties */
 };
 
@@ -66,6 +67,10 @@ struct pmic_clkbuf_op {
 	int (*pmic_clk_buf_dump_misc_log)(char *buf);
 	void (*pmic_clk_buf_set_cap_id)(u32 capid);
 	void (*pmic_clk_buf_get_cap_id)(u32 *capid);
+	void (*pmic_clk_buf_set_heater)(bool on);
+	void (*pmic_clk_buf_get_heater)(bool *on);
+	void (*pmic_clk_buf_set_cap_id_pre)(void);
+	void (*pmic_clk_buf_set_cap_id_new)(u32 capid);
 };
 
 int get_pmic_clkbuf(struct device_node *node, struct pmic_clkbuf_op **pmic_op);

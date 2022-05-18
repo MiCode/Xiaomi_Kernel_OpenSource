@@ -1016,23 +1016,54 @@ static ssize_t clk_buf_capid_store(struct kobject *kobj,
 	struct kobj_attribute *attr, const char *buf, size_t count)
 {
 	u32 cap_id = 0;
+	const char *capid_buf;
+	int ret = 0;
 
-	if ((kstrtouint(buf, 10, &cap_id))) {
-		pr_info("cap id input error\n");
-		return -EPERM;
-	}
-
-	pr_info("cap id input (%d)\n", cap_id);
-	if (cap_id < 256) {
-		if (default_cap_id == 0x55) {
+	if (buf != NULL && count != 0) {
+		if (!strncmp(buf, "cmd1#", 5)) {
 			if (check_pmic_clkbuf_op())
-				pmic_op->pmic_clk_buf_get_cap_id(
-					&default_cap_id);
+				pmic_op->pmic_clk_buf_set_cap_id_pre();
+		} else if (!strncmp(buf, "cmd2#", 5)) {
+			capid_buf = &buf[5];
+			ret = kstrtouint(capid_buf, 0, &cap_id);
+			if (ret) {
+				pr_info("wrong format!\n");
+				return ret;
+			}
+
+			if (cap_id > 0xFF) {
+				pr_info("offset should be within(%x) %x!\n",
+					0xFF, cap_id);
+				return -EINVAL;
+			}
+
+			if (check_pmic_clkbuf_op())
+				pmic_op->pmic_clk_buf_set_cap_id_new(cap_id);
+
+			mdelay(1);
+		} else {
+			if ((kstrtouint(buf, 10, &cap_id))) {
+				pr_info("cap id input error\n");
+				return -EPERM;
+			}
+
+			pr_info("cap id input (%d)\n", cap_id);
+			if (cap_id < 256) {
+				if (default_cap_id == 0x55) {
+					if (check_pmic_clkbuf_op())
+						pmic_op->pmic_clk_buf_get_cap_id(
+						&default_cap_id);
+				}
+
+				if (check_pmic_clkbuf_op())
+					pmic_op->pmic_clk_buf_set_cap_id(cap_id);
+			} else {
+				return -EPERM;
+			}
 		}
-		if (check_pmic_clkbuf_op())
-			pmic_op->pmic_clk_buf_set_cap_id(cap_id);
 	} else {
-		return -EPERM;
+		pr_info("invalid parameter!\n");
+		return -EINVAL;
 	}
 
 	return count;
@@ -1052,10 +1083,50 @@ static ssize_t clk_buf_capid_show(struct kobject *kobj,
 	return len;
 }
 
+static ssize_t clk_buf_heater_store(struct kobject *kobj,
+	struct kobj_attribute *attr, const char *buf, size_t count)
+{
+	bool on;
+	const char *on_buf;
+	int ret = 0;
+
+	on_buf = &buf[0];
+	ret = kstrtobool(on_buf, &on);
+	if (ret) {
+		pr_info("wrong format!\n");
+		return ret;
+	}
+
+	if (check_pmic_clkbuf_op() && pmic_op->pmic_clk_buf_set_heater) {
+		if (on)
+			pmic_op->pmic_clk_buf_set_heater(true);
+		else
+			pmic_op->pmic_clk_buf_set_heater(false);
+	};
+
+	return count;
+}
+
+static ssize_t clk_buf_heater_show(struct kobject *kobj,
+	struct kobj_attribute *attr, char *buf)
+{
+	bool on;
+	int len = 0;
+
+	if (check_pmic_clkbuf_op() && pmic_op->pmic_clk_buf_get_heater) {
+		pmic_op->pmic_clk_buf_get_heater(&on);
+		len += snprintf(buf+len, PAGE_SIZE-len, "dcxo heater: 0x%x\n", on);
+	}
+
+	return len;
+}
+
+
 DEFINE_ATTR_RW(clk_buf_ctrl);
 DEFINE_ATTR_RW(clk_buf_debug);
 DEFINE_ATTR_RW(clk_buf_bblpm);
 DEFINE_ATTR_RW(clk_buf_capid);
+DEFINE_ATTR_RW(clk_buf_heater);
 
 static struct attribute *clk_buf_attrs[] = {
 	/* for clock buffer control */
@@ -1063,6 +1134,7 @@ static struct attribute *clk_buf_attrs[] = {
 	__ATTR_OF(clk_buf_debug),
 	__ATTR_OF(clk_buf_bblpm),
 	__ATTR_OF(clk_buf_capid),
+	__ATTR_OF(clk_buf_heater),
 
 	/* must */
 	NULL,
