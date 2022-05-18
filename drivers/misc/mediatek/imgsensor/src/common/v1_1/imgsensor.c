@@ -579,7 +579,7 @@ int imgsensor_set_driver(struct IMGSENSOR_SENSOR *psensor)
 
 	imgsensor_i2c_filter_msg(&psensor_inst->i2c_cfg, true);
 
-	while (pimgsensor->psensor_list[i] && i < MAX_NUM_OF_SUPPORT_SENSOR) {
+	while (i < MAX_NUM_OF_SUPPORT_SENSOR && pimgsensor->psensor_list[i]) {
 		if (pimgsensor->psensor_list[i]->init) {
 			pimgsensor->psensor_list[i]->init(&psensor->pfunc);
 
@@ -1939,7 +1939,6 @@ static inline int adopt_CAMERA_HW_FeatureControl(void *pBuf)
 				if (copy_from_user
 					((void *)pData, (void __user *)usr_ptr,
 					sizeof(struct SET_SENSOR_PATTERN_SOLID_COLOR))) {
-					kfree(pData);
 					PK_DBG("[CAMERA_HW]ERROR: copy_from_user fail\n");
 				}
 				//pr_debug("%x %x %x %x",
@@ -2249,8 +2248,9 @@ static long imgsensor_ioctl(
 			PK_DBG("[CAMERA SENSOR] ioctl allocate mem failed\n");
 			i4RetValue = -ENOMEM;
 			goto CAMERA_HW_Ioctl_EXIT;
+		} else {
+			memset(pBuff, 0x0, _IOC_SIZE(a_u4Command));
 		}
-
 		if (_IOC_WRITE & _IOC_DIR(a_u4Command)) {
 			if (copy_from_user(pBuff, (void *)a_u4Param,
 			_IOC_SIZE(a_u4Command))) {
