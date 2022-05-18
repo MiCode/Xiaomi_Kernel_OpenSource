@@ -74,17 +74,19 @@ int mtk_scp_audio_init_mem(void)
 		scp_get_reserve_mem_size(SCP_SPK_MEM_ID);
 
 	if (!scp_audio_rsv_mem->phy_addr) {
-		pr_err("%s(), scp audio rsv mem phy_addr error\n");
+		pr_err("%s(), scp audio rsv mem phy_addr error\n", __func__);
 		return -1;
 	}
 
 	if (!scp_audio_rsv_mem->vir_addr) {
-		pr_err("%s(), scp audio rsv mem phy_addr vir_addr error\n");
+		pr_err("%s(), scp audio rsv mem phy_addr vir_addr error\n",
+		       __func__);
 		return -1;
 	}
 
 	if (!scp_audio_rsv_mem->size) {
-		pr_err("%s(), scp audio rsv mem phy_addr size error\n");
+		pr_err("%s(), scp audio rsv mem phy_addr size error\n",
+		       __func__);
 		return -1;
 	}
 
@@ -96,13 +98,13 @@ int mtk_scp_audio_init_mem(void)
 	task_base = get_taskbase_by_daiid(SCP_AUD_TASK_SPK_PROCESS_ID);
 	vaddr = gen_pool_alloc(scp_audio->genpool, A2D_SHAREMEM_SIZE);
 	if (!vaddr) {
-		pr_err("%s(), alloc ATOD mem vaddr Fail!!!\n");
+		pr_err("%s(), alloc ATOD mem vaddr Fail!!!\n", __func__);
 		return -1;
 	}
 
 	paddr = gen_pool_virt_to_phys(scp_audio->genpool, vaddr);
 	if (paddr < 0) {
-		pr_err("%s(), alloc ATOD mem paddr Fail!!!\n");
+		pr_err("%s(), alloc ATOD mem paddr Fail!!!\n", __func__);
 		return -1;
 	}
 	task_base->msg_atod_share_buf.phy_addr = paddr;
@@ -119,13 +121,13 @@ int mtk_scp_audio_init_mem(void)
 
 	vaddr = gen_pool_alloc(scp_audio->genpool, D2A_SHAREMEM_SIZE);
 	if (!vaddr) {
-		pr_err("%s(), alloc DTOA mem vaddr Fail!!!\n");
+		pr_err("%s(), alloc DTOA mem vaddr Fail!!!\n", __func__);
 		return -1;
 	}
 
 	paddr = gen_pool_virt_to_phys(scp_audio->genpool, vaddr);
 	if (paddr < 0) {
-		pr_err("%s(), alloc DTOA mem paddr Fail!!!\n");
+		pr_err("%s(), alloc DTOA mem paddr Fail!!!\n", __func__);
 		return -1;
 	}
 	task_base->msg_dtoa_share_buf.phy_addr = paddr;
@@ -192,13 +194,13 @@ int scp_audio_allocate_sharemem_ring(struct scp_aud_task_base *taskbase,
 	/* allocate VA with gen pool */
 	vaddr = gen_pool_alloc(genpool, size);
 	if (!vaddr) {
-		pr_err("%s(), alloc pcm mem vaddr Fail!!!\n");
+		pr_err("%s(), alloc pcm mem vaddr Fail!!!\n", __func__);
 		return -1;
 	}
 
 	paddr = gen_pool_virt_to_phys(genpool, vaddr);
 	if (paddr < 0) {
-		pr_err("%s(), alloc pcm mem paddr Fail!!!\n");
+		pr_err("%s(), alloc pcm mem paddr Fail!!!\n", __func__);
 		return -1;
 	}
 
@@ -257,7 +259,7 @@ int mtk_scp_allocate_mem(struct snd_pcm_substream *substream, unsigned int size)
 	if (id != scp_audio->dl_memif &&
 	    id != scp_audio->ul_memif &&
 	    id != scp_audio->ref_memif) {
-		pr_err("%s(), not match scp audio memif\n");
+		pr_err("%s(), not match scp audio memif\n", __func__);
 		return -1;
 	}
 

@@ -244,6 +244,11 @@ int send_task_sharemem_to_scp(struct mtk_scp_audio_base *scp_audio, int daiid)
 
 	task_base = get_taskbase_by_daiid(daiid);
 
+	if (task_base == NULL) {
+		pr_info("%s task_base == NULL\n", __func__);
+		return -1;
+	}
+
 	/* send share message to adsp side */
 	memcpy((void *)task_base->ipi_payload_buf,
 	       (void *)&task_base->msg_atod_share_buf,
@@ -377,6 +382,11 @@ int afe_pcm_ipi_to_scp(int command, struct snd_pcm_substream *substream,
 	task_base = get_taskbase_by_daiid(daiid);
 
 	pr_info("%s(), %s send cmd 0x%x\n", __func__, task_name, command);
+
+	if (task_base == NULL) {
+		pr_info("%s task_base == NULL\n", __func__);
+		return -1;
+	}
 
 	if (task_base->msg_atod_share_buf.phy_addr <= 0 ||
 	    !task_base->msg_atod_share_buf.va_addr) {
@@ -1096,7 +1106,7 @@ static int mtk_scp_audio_pcm_copy(struct snd_soc_component *component,
 
 	if (bytes <= 0) {
 		pr_info(
-			"error %s channel = %d pos = %lu count = %lu bytes = %d\n",
+			"error %s channel = %d pos = %lu count = %lu bytes = %lu\n",
 			__func__, channel, pos, bytes, bytes);
 		return -1;
 	}
@@ -1187,7 +1197,7 @@ static void mtk_scp_aud_dl_consume_handler(struct mtk_scp_audio_base *scp_aud,
 	// handle for no restart pcm, copy audio_hw_buffer from msg payload, others from share mem
 	if ((substream->runtime->stop_threshold > substream->runtime->start_threshold) && ipi_msg) {
 		memcpy((void *)&task_base->temp_work_buf, ipi_msg->payload,
-		       sizeof(struct audio_hw_buffer));
+		       sizeof(struct audio_buffer));
 	} else {
 		unsigned long long read, base, end;
 
@@ -1396,6 +1406,10 @@ static snd_pcm_uframes_t mtk_scp_audio_pcm_pointer_ul
 	struct scp_aud_task_base *task_base = get_taskbase_by_daiid(id);
 	int ptr_bytes;
 
+	if (task_base == NULL) {
+		pr_info("%s task_base == NULL\n", __func__);
+		return 0;
+	}
 #ifdef DEBUG_VERBOSE
 	dump_rbuf_s(__func__, &task_base->ring_buf);
 #endif
@@ -1417,6 +1431,10 @@ static snd_pcm_uframes_t mtk_scp_audio_pcm_pointer_dl
 	spinlock_t *ringbuf_lock = &task_base->ringbuf_lock;
 	unsigned long flags = 0;
 
+	if (task_base == NULL) {
+		pr_info("%s task_base == NULL\n", __func__);
+		return 0;
+	}
 #ifdef DEBUG_VERBOSE
 	dump_rbuf_s("-mtk_dsphw_pcm_pointer_dl", &task_base->ring_buf);
 #endif
@@ -1490,6 +1508,11 @@ static int mtk_scp_audio_probe(struct snd_soc_component *component)
 
 	for (id = 0; id < SCP_AUD_TASK_DAI_NUM; id++) {
 		task_base = get_taskbase_by_daiid(id);
+
+		if (task_base == NULL) {
+			pr_info("%s task_base NULL, id: %d\n", __func__, id);
+			return -1;
+		}
 		spin_lock_init(&task_base->ringbuf_lock);
 		ret = audio_task_register_callback(get_scene_by_daiid(id),
 						   scp_audio_pcm_ipi_recv);
