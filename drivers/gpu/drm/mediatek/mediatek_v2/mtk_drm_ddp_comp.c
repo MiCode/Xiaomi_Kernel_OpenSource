@@ -523,10 +523,15 @@ static int mtk_ddp_comp_irq_work_init(struct mtk_ddp_comp *ddp_comp, int index)
 int mtk_ddp_comp_create_workqueue(struct mtk_ddp_comp *ddp_comp)
 {
 	int i = 0;
+	int ret = 0;
 	char wq_buf[64] = {0};
 
 	memset(wq_buf, 0, sizeof(wq_buf));
-	snprintf(wq_buf, sizeof(wq_buf), "mtk_%s_wq", mtk_dump_comp_str_id(ddp_comp->id));
+	ret = snprintf(wq_buf, sizeof(wq_buf), "mtk_%s_wq", mtk_dump_comp_str_id(ddp_comp->id));
+	if (ret < 0) {
+		/* Handle snprintf() error */
+		return -EINVAL;
+	}
 	DDPMSG("begin mtk_ddp_comp_create %d: %s\n", ddp_comp->id, wq_buf);
 
 	ddp_comp->wq = create_singlethread_workqueue(wq_buf);
@@ -940,7 +945,7 @@ void mtk_ddp_comp_clk_unprepare(struct mtk_ddp_comp *comp)
 void mtk_ddp_comp_iommu_enable(struct mtk_ddp_comp *comp,
 			       struct cmdq_pkt *handle)
 {
-	int port, index, ret;
+	int port = 0, index, ret;
 	struct resource res;
 	struct mtk_drm_private *priv;
 

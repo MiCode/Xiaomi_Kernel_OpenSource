@@ -461,7 +461,7 @@ static void mtk_atomic_disp_rsz_roi(struct drm_device *dev,
 	struct mtk_rect src_layer_roi = {0};
 	struct mtk_rect src_total_roi[MAX_CRTC] = {0};
 	bool rsz_enable[MAX_CRTC] = {false};
-	struct mtk_plane_comp_state comp_state[MAX_CRTC][OVL_LAYER_NR];
+	struct mtk_plane_comp_state comp_state[MAX_CRTC][OVL_LAYER_NR] = {0};
 
 	for_each_old_crtc_in_state(old_state, crtc, old_crtc_state, i) {
 		struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
@@ -486,7 +486,7 @@ static void mtk_atomic_disp_rsz_roi(struct drm_device *dev,
 		int tmp_w = 0, tmp_h = 0;
 		int idx;
 
-		if (!plane_state->crtc)
+		if (!plane_state->crtc || !crtc)
 			continue;
 
 		if (i < OVL_LAYER_NR)
@@ -1130,7 +1130,7 @@ int copy_mml_submit(struct mml_submit *src, struct mml_submit *dst)
 	memcpy(dst, src, sizeof(struct mml_submit));
 
 	if (temp_job) {
-		memcpy(temp_job, dst->job, sizeof(struct mml_job));
+		memmove(temp_job, dst->job, sizeof(struct mml_job));
 		dst->job = temp_job;
 	}
 
@@ -3750,8 +3750,9 @@ int lcm_fps_ctx_init(struct drm_crtc *crtc)
 	unsigned int index;
 
 	if (!crtc || crtc->index >= MAX_CRTC) {
-		DDPPR_ERR("%s:invalid crtc:%d\n",
-			  __func__, crtc->base.id);
+		if (crtc)
+			DDPPR_ERR("%s:invalid crtc:%d\n",
+				__func__, crtc->base.id);
 		return -EINVAL;
 	}
 	index = crtc->index;
@@ -3828,7 +3829,7 @@ int lcm_fps_ctx_update(unsigned long long cur_ns,
 	unsigned long long delta;
 	unsigned long flags = 0;
 
-	if (index > MAX_CRTC)
+	if (index >= MAX_CRTC)
 		return -EINVAL;
 
 	if (!atomic_read(&lcm_fps_ctx[index].is_inited))
