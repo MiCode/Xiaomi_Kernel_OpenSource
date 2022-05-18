@@ -117,7 +117,7 @@ static int ps5169_probe(struct i2c_client *client)
 {
 	struct device *dev = &client->dev;
 	struct ps5169 *ps;
-	struct typec_switch_desc sw_desc;
+	struct typec_switch_desc sw_desc = {};
 	int ret = 0;
 
 	ps = devm_kzalloc(dev, sizeof(*ps), GFP_KERNEL);
