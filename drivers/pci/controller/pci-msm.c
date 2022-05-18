@@ -108,6 +108,7 @@
 #define PCIE20_CAP (0x70)
 #define PCIE20_CAP_DEVCTRLSTATUS (PCIE20_CAP + 0x08)
 #define PCIE20_CAP_LINKCTRLSTATUS (PCIE20_CAP + 0x10)
+#define PCIE20_CAP_ROOT_CAPABILITIES_REG (PCIE20_CAP + 0x1C)
 #define PCIE_CAP_DLL_ACTIVE BIT(29)
 
 #define PCIE20_COMMAND_STATUS (0x04)
@@ -3463,6 +3464,9 @@ static void msm_pcie_config_controller(struct msm_pcie_dev_t *dev)
 
 		PCIE_DBG(dev, "RC's PCIE20_CAP_DEVCTRLSTATUS:0x%x\n",
 			readl_relaxed(dev->dm_core + PCIE20_CAP_DEVCTRLSTATUS));
+
+		msm_pcie_write_mask(dev->dm_core +  PCIE20_CAP_ROOT_CAPABILITIES_REG, 0,
+						BIT(2)|BIT(1)|BIT(0));
 	}
 }
 
