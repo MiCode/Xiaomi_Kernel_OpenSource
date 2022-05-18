@@ -1147,7 +1147,7 @@ static s32 cmdq_mdp_copy_cmd_to_task(struct cmdqRecStruct *handle,
 static void cmdq_mdp_store_debug(struct cmdqCommandStruct *desc,
 	struct cmdqRecStruct *handle)
 {
-	u32 len;
+	long len;
 
 	if (!desc->userDebugStr || !desc->userDebugStrLen)
 		return;
