@@ -131,6 +131,9 @@ struct memory_refresh_request {
 
 static struct section_stat *mem_info;
 
+static int nopasr;
+module_param_named(nopasr, nopasr, uint, 0644);
+
 static void record_stat(unsigned long sec, ktime_t delay, int mode)
 {
 	unsigned int total_sec = end_section_nr - start_section_nr + 1;
@@ -1418,6 +1421,11 @@ static int mem_offline_driver_probe(struct platform_device *pdev)
 	unsigned int total_blks;
 	int ret, i;
 	ktime_t now;
+
+	if (nopasr) {
+		pr_info("mem-offline: nopasr mode enabled. Skipping probe\n");
+		return 0;
+	}
 
 	ret = mem_parse_dt(pdev);
 	if (ret)
