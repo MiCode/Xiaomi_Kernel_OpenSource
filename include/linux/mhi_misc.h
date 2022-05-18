@@ -312,6 +312,12 @@ int mhi_force_reset(struct mhi_controller *mhi_cntrl);
 void mhi_controller_set_loglevel(struct mhi_controller *mhi_cntrl,
 				 enum MHI_DEBUG_LEVEL lvl);
 
+/**
+ * mhi_get_soc_info - Get SoC info before registering mhi controller
+ * @mhi_cntrl: MHI controller
+ */
+int mhi_get_soc_info(struct mhi_controller *mhi_cntrl);
+
 #else
 
 /**
@@ -650,6 +656,15 @@ int mhi_force_reset(struct mhi_controller *mhi_cntrl)
 void mhi_controller_set_loglevel(struct mhi_controller *mhi_cntrl,
 				 enum MHI_DEBUG_LEVEL lvl)
 {
+}
+
+/**
+ * mhi_get_soc_info - Get SoC info before registering mhi controller
+ * @mhi_cntrl: MHI controller
+ */
+int mhi_get_soc_info(struct mhi_controller *mhi_cntrl)
+{
+	return -EINVAL;
 }
 
 #endif /* CONFIG_MHI_BUS_MISC */
