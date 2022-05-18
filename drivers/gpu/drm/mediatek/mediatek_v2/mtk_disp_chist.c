@@ -144,8 +144,24 @@ int mtk_drm_ioctl_get_chist_caps(struct drm_device *dev, void *data,
 	struct mtk_ddp_comp *comp = private->ddp_comp[DDP_COMPONENT_CHIST0];
 	struct drm_mtk_chist_caps *caps_info = data;
 	int i = 0, index = 0;
+	struct drm_crtc *crtc;
+	u32 width = 0, height = 0;
 
-	DDPINFO("%s chist id:%d\n", __func__, caps_info->device_id);
+	crtc = list_first_entry(&(dev)->mode_config.crtc_list,
+		typeof(*crtc), head);
+
+	mtk_drm_crtc_get_panel_original_size(crtc, &width, &height);
+	if (width == 0 || height == 0) {
+		DDPFUNC("panel original size error(%dx%d).\n", width, height);
+		width = crtc->mode.hdisplay;
+		height = crtc->mode.vdisplay;
+	}
+
+	caps_info->lcm_width = width;
+	caps_info->lcm_height = height;
+
+	DDPINFO("%s chist id:%d, w:%d,h:%d\n", __func__, caps_info->device_id,
+		caps_info->lcm_width, caps_info->lcm_height);
 	// just call from pqservice, device_id:low 16bit=module_id, high 16bit=panel_id
 	if (comp_to_chist(comp)->data->module_count > 1 && (caps_info->device_id & 0xffff))
 		index = 1;

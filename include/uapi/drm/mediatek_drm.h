@@ -946,6 +946,8 @@ struct drm_mtk_channel_config {
 struct drm_mtk_chist_caps {
 	unsigned int device_id;
 	unsigned int support_color;
+	unsigned int lcm_width;
+	unsigned int lcm_height;
 	struct drm_mtk_channel_config chist_config[MTK_DRM_DISP_CHIST_CHANNEL_COUNT];
 };
 
