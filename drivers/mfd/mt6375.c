@@ -184,7 +184,8 @@ static void mt6375_irq_lock(struct irq_data *data)
 static void mt6375_irq_sync_unlock(struct irq_data *data)
 {
 	struct mt6375_data *ddata = irq_data_get_irq_chip_data(data);
-	int idx = data->hwirq / 8, ret;
+	int ret = 0;
+	unsigned long idx = data->hwirq / 8;
 
 	ret = regmap_write(ddata->rmap, MT6375_REG_CHG_MSK0 + idx,
 			   ddata->mask_buf[idx]);
