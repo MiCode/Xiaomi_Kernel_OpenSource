@@ -449,6 +449,9 @@ void mtk_find_energy_efficient_cpu(void *data, struct task_struct *p, int prev_c
 			if (!cpumask_test_cpu(cpu, p->cpus_ptr))
 				continue;
 
+			if (cpu_rq(cpu)->rt.rt_nr_running >= 1)
+				continue;
+
 			util = cpu_util_next(cpu, p, cpu);
 			cpu_cap = capacity_of(cpu);
 			spare_cap = cpu_cap;
