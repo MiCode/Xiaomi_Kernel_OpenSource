@@ -191,54 +191,18 @@ bool lpm_plat_is_cluster_off(int cpu)
 	return !lp_dev_cpu[cpu].parent->pwr_on.cluster;
 }
 
-static long lpm_cpuhp_work(void *pData)
-{
-	struct lpm_cpuhp_info *info =
-			(struct lpm_cpuhp_info *)pData;
-
-	if (info) {
-		pr_info("[name:lpm][p] [%u] cpu %u hotplug status: 0x%x\n",
-			info->cpuhp_nb, info->cpu, info->status);
-	}
-	return 0;
-}
-
-static int lpm_cpuhp_protect(struct lpm_cpuhp_info *info)
-{
-	int cpu;
-
-	for_each_online_cpu(cpu) {
-		work_on_cpu(cpu, lpm_cpuhp_work, info);
-	}
-	return 0;
-}
-
 static int __lpm_cpuhp_notify_enter(unsigned int type, unsigned int cpu)
 {
-	struct lpm_cpuhp_info info = {
-		.status = 0x1,
-		.cpuhp_nb = type,
-		.cpu = cpu,
-	};
-
 	pr_info("[name:lpm][p] lpm_cpuhp_notify_enter, type: %u cpu: %u\n", type, cpu);
 	cpuidle_pause_and_lock();
-	lpm_cpuhp_protect(&info);
 	return 0;
 }
 
 static int __lpm_cpuhp_notify_leave(unsigned int type, unsigned int cpu)
 {
-	struct lpm_cpuhp_info info = {
-		.status = 0x0,
-		.cpuhp_nb = type,
-		.cpu = cpu,
-	};
-
 	pr_info("[name:lpm][p] lpm_cpuhp_notify_leave, type: %u cpu: %u\n", type, cpu);
 	lpm_dev_set_cpus_off();
 	lpm_dev_get_cpus_online();
-	lpm_cpuhp_protect(&info);
 	cpuidle_resume_and_unlock();
 	return 0;
 }
