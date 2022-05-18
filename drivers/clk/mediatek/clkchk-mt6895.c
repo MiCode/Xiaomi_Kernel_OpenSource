@@ -780,7 +780,7 @@ static bool is_cg_chk_pwr_on(void)
 
 static void dump_hwv_pll_reg(struct regmap *regmap, u32 shift)
 {
-	u32 val[7];
+	u32 val[7] = { 0 };
 
 	regmap_write(regmap, HWV_DOMAIN_KEY, HWV_SECURE_KEY);
 	regmap_read(regmap, HWV_PLL_SET, &val[0]);

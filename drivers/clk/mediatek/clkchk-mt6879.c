@@ -827,7 +827,7 @@ static enum chk_sys_id hwv_pll_dump_id[] = {
 
 static void dump_hwv_pll_reg(struct regmap *regmap, u32 shift)
 {
-	u32 val[7];
+	u32 val[7] = { 0 };
 
 	regmap_read(regmap, HWV_PLL_SET, &val[0]);
 	regmap_read(regmap, HWV_PLL_CLR, &val[1]);
