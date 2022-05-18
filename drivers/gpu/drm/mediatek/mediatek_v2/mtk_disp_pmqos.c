@@ -32,6 +32,8 @@ void mtk_disp_pmqos_get_icc_path_name(char *buf, int buf_len,
 	int len;
 
 	len = snprintf(buf, buf_len, "%s_%s", mtk_dump_comp_str(comp), qos_event);
+	if (len < 0)
+		DDPPR_ERR("%s:snprintf error: %d\n", __func__, len);
 }
 
 int __mtk_disp_pmqos_slot_look_up(int comp_id, int mode)
@@ -432,7 +434,7 @@ void mtk_drm_set_mmclk_by_pixclk(struct drm_crtc *crtc,
 	}
 	mmclk_status = true;
 	if (freq > g_freq_steps[step_size - 1]) {
-		DDPMSG("%s:error:pixleclk (%d) is to big for mmclk (%llu)\n",
+		DDPMSG("%s:error:pixleclk (%lu) is to big for mmclk (%u)\n",
 			caller, freq, g_freq_steps[step_size - 1]);
 		mtk_drm_set_mmclk(crtc, step_size - 1, caller);
 		ret = step_size - 1;

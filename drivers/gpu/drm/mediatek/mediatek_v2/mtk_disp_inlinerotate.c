@@ -45,7 +45,7 @@ static void mtk_inlinerotate_addon_config(struct mtk_ddp_comp *comp,
 	if (addon_config && addon_config->config_type.type == ADDON_DISCONNECT)
 		return;
 
-	DDPINFO("%s+ handle:0x%x, comp->regs_pa:0x%x\n",
+	DDPINFO("%s+ handle:0x%x, comp->regs_pa:0x%llx\n",
 		__func__, handle, comp->regs_pa);
 
 	cmdq_pkt_write(handle, comp->cmdq_base,
@@ -61,7 +61,7 @@ static void mtk_inlinerotate_addon_config(struct mtk_ddp_comp *comp,
 		comp->regs_pa + DISP_REG_INLINEROT_HEIGHT1,
 		64, ~0);
 
-	DDPINFO("comp->regs_pa:%x", comp->regs_pa);
+	DDPINFO("comp->regs_pa:%llx", comp->regs_pa);
 	DDPINFO("%s -\n", __func__);
 }
 
@@ -69,7 +69,7 @@ void mtk_inlinerotate_dump(struct mtk_ddp_comp *comp)
 {
 	void __iomem *baddr = comp->regs;
 
-	DDPDUMP("== DISP %s REGS:0x%x ==\n", mtk_dump_comp_str(comp), comp->regs_pa);
+	DDPDUMP("== DISP %s REGS:0x%llx ==\n", mtk_dump_comp_str(comp), comp->regs_pa);
 	DDPDUMP("DISP_REG_DISPSYS_SHADOW_CTRL  0x%08x: 0x%08x\n",
 		DISP_REG_DISPSYS_SHADOW_CTRL,
 		readl(baddr + DISP_REG_DISPSYS_SHADOW_CTRL));

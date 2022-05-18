@@ -68,7 +68,7 @@ void mtk_y2r_dump(struct mtk_ddp_comp *comp)
 {
 	void __iomem *baddr = comp->regs;
 
-	DDPDUMP("== DISP %s REGS:0x%x ==\n", mtk_dump_comp_str(comp), comp->regs_pa);
+	DDPDUMP("== DISP %s REGS:0x%llx ==\n", mtk_dump_comp_str(comp), comp->regs_pa);
 	DDPDUMP("0x250: 0x%08x 0x%08x 0x%08x\n", readl(baddr + 0x250),
 		readl(baddr + 0x254), readl(baddr + 0x258));
 }
@@ -116,7 +116,7 @@ static int mtk_disp_y2r_bind(struct device *dev, struct device *master,
 	struct drm_device *drm_dev = data;
 	int ret;
 
-	DDPINFO("%s &priv->ddp_comp:0x%x\n", __func__, &priv->ddp_comp);
+	DDPINFO("%s &priv->ddp_comp:0x%lx\n", __func__, (unsigned long)&priv->ddp_comp);
 	ret = mtk_ddp_comp_register(drm_dev, &priv->ddp_comp);
 	if (ret < 0) {
 		dev_err(dev, "Failed to register component %s: %d\n",
@@ -172,7 +172,7 @@ static int mtk_disp_y2r_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, priv);
 
-	DDPINFO("&priv->ddp_comp:0x%x", &priv->ddp_comp);
+	DDPINFO("&priv->ddp_comp:0x%lx\n", (unsigned long)&priv->ddp_comp);
 
 	mtk_ddp_comp_pm_enable(&priv->ddp_comp);
 

@@ -156,10 +156,10 @@ static void esd_cmdq_timeout_cb(struct cmdq_cb_data data)
 int _mtk_esd_check_read(struct drm_crtc *crtc)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
-	struct mtk_ddp_comp *output_comp;
-	struct mtk_panel_ext *panel_ext;
-	struct cmdq_pkt *cmdq_handle, *cmdq_handle2;
-	struct mtk_drm_esd_ctx *esd_ctx;
+	struct mtk_ddp_comp *output_comp = NULL;
+	struct mtk_panel_ext *panel_ext = NULL;
+	struct cmdq_pkt *cmdq_handle = NULL, *cmdq_handle2 = NULL;
+	struct mtk_drm_esd_ctx *esd_ctx = NULL;
 	int ret = 0;
 
 	DDPINFO("[ESD]ESD read panel\n");
@@ -324,7 +324,7 @@ static int mtk_drm_request_eint(struct drm_crtc *crtc)
 	struct mtk_ddp_comp *output_comp;
 	struct device_node *node;
 	u32 ints[2] = {0, 0};
-	char *compat_str;
+	char *compat_str = NULL;
 	int ret = 0;
 
 	if (unlikely(!esd_ctx)) {
@@ -521,9 +521,9 @@ static int mtk_drm_esd_check_worker_kthread(void *data)
 {
 	struct sched_param param = {.sched_priority = 87};
 	struct drm_crtc *crtc = (struct drm_crtc *)data;
-	struct mtk_drm_private *private = crtc->dev->dev_private;
-	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
-	struct mtk_drm_esd_ctx *esd_ctx = mtk_crtc->esd_ctx;
+	struct mtk_drm_private *private = NULL;
+	struct mtk_drm_crtc *mtk_crtc = NULL;
+	struct mtk_drm_esd_ctx *esd_ctx = NULL;
 	int ret = 0;
 	int i = 0;
 	int recovery_flg = 0;
@@ -536,6 +536,10 @@ static int mtk_drm_esd_check_worker_kthread(void *data)
 
 		return -EINVAL;
 	}
+
+	private = crtc->dev->dev_private;
+	mtk_crtc = to_mtk_crtc(crtc);
+	esd_ctx = mtk_crtc->esd_ctx;
 
 	while (1) {
 		msleep(ESD_CHECK_PERIOD);
@@ -558,14 +562,14 @@ static int mtk_drm_esd_check_worker_kthread(void *data)
 				atomic_read(&esd_ctx->int_te_event) ||
 				atomic_read(&esd_ctx->check_wakeup) == 0,
 				HZ);
-			DDPINFO("%s, wait te time:%llu, esd:%d\n",
+			DDPINFO("%s, wait te time:%d, esd:%d\n",
 				__func__, HZ - ret,  atomic_read(&esd_ctx->check_wakeup));
 			if (ret < 0) {
 				DDPINFO("[ESD]check thread waked up accidently\n");
 				continue;
 			}
 			if (ret == 0 && esd_ctx->chk_active) {
-				DDPPR_ERR("%s: internal TE time out:%llu, ret:%llu, esd:%d\n",
+				DDPPR_ERR("%s: internal TE time out:%d, ret:%llu, esd:%d\n",
 					__func__, HZ, ret,
 					atomic_read(&esd_ctx->check_wakeup));
 				te_timeout = true;

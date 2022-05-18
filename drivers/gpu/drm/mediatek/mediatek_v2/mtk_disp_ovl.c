@@ -1117,11 +1117,6 @@ static unsigned int ovl_fmt_convert(struct mtk_disp_ovl *ovl, unsigned int fmt,
 
 static const char *mtk_ovl_get_transfer_str(enum mtk_ovl_transfer transfer)
 {
-	if (transfer < 0) {
-		DDPPR_ERR("%s: Invalid ovl transfer:%d\n", __func__, transfer);
-		transfer = 0;
-	}
-
 	return mtk_ovl_transfer_str[transfer];
 }
 
@@ -1215,16 +1210,6 @@ static u32 *mtk_get_ovl_csc(enum mtk_ovl_colorspace in,
 {
 	static u32 *ovl_csc[OVL_CS_NUM][OVL_CS_NUM];
 	static bool inited;
-
-	if (out < 0) {
-		DDPPR_ERR("%s: Invalid ovl colorspace in:%d\n", __func__, out);
-		out = 0;
-	}
-
-	if (in < 0) {
-		DDPPR_ERR("%s: Invalid ovl colorspace in:%d\n", __func__, in);
-		in = 0;
-	}
 
 	if (inited)
 		goto done;
@@ -2050,6 +2035,11 @@ static bool compr_l_config_PVRIC_V4_1(struct mtk_ddp_comp *comp,
 		rotate = 1;
 #endif
 
+	if (!Bpp) {
+		DDPPR_ERR("%s wrong Bpp = %d\n", __func__, Bpp);
+		return 0;
+	}
+
 	if (state->comp_state.comp_id) {
 		lye_idx = state->comp_state.lye_id;
 		ext_lye_idx = state->comp_state.ext_lye_id;
@@ -2343,6 +2333,11 @@ static bool compr_l_config_PVRIC_V3_1(struct mtk_ddp_comp *comp,
 		rotate = 1;
 #endif
 
+	if (!Bpp) {
+		DDPPR_ERR("%s wrong Bpp = %d\n", __func__, Bpp);
+		return 0;
+	}
+
 	if (state->comp_state.comp_id) {
 		lye_idx = state->comp_state.lye_id;
 		ext_lye_idx = state->comp_state.ext_lye_id;
@@ -2623,6 +2618,11 @@ bool compr_l_config_AFBC_V1_2(struct mtk_ddp_comp *comp,
 		rotate = 1;
 #endif
 
+	if (!Bpp) {
+		DDPPR_ERR("%s wrong Bpp = %d\n", __func__, Bpp);
+		return 0;
+	}
+
 	if (state->comp_state.comp_id) {
 		lye_idx = state->comp_state.lye_id;
 		ext_lye_idx = state->comp_state.ext_lye_id;
@@ -2657,7 +2657,7 @@ bool compr_l_config_AFBC_V1_2(struct mtk_ddp_comp *comp,
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			(resource_size_t)(0x14021000) + SMI_LARB_NON_SEC_CON + 4*9,
 			0x00000000, GENMASK(19, 16));
-		if (comp->mtk_crtc && comp->mtk_crtc->is_dual_pipe) {
+		if (comp->mtk_crtc->is_dual_pipe) {
 			// setting SMI for read SRAM
 			cmdq_pkt_write(handle, comp->cmdq_base,
 				(resource_size_t)(0x14421000) + SMI_LARB_NON_SEC_CON + 4*9,
@@ -2712,7 +2712,7 @@ bool compr_l_config_AFBC_V1_2(struct mtk_ddp_comp *comp,
 	}
 
 	/* 3. cal OVL_LX_ADDR * OVL_LX_PITCH */
-	lx_addr = buf_addr + tile_offset * tile_body_size;
+	lx_addr = buf_addr + (dma_addr_t)(tile_offset * tile_body_size);
 	lx_pitch = ((pitch * tile_h) & 0xFFFF);
 	lx_pitch_msb = (REG_FLD_VAL((L_PITCH_MSB_FLD_YUV_TRANS), (1)) |
 		REG_FLD_VAL((L_PITCH_MSB_FLD_2ND_SUBBUF), (lx_2nd_subbuf)) |

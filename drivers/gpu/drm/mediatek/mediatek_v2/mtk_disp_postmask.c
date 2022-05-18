@@ -420,7 +420,7 @@ int mtk_postmask_analysis(struct mtk_ddp_comp *comp)
 
 	addr += readl(DISP_POSTMASK_MEM_ADDR + baddr);
 
-	DDPDUMP("mem_addr=0x%x,length=0x%x\n",
+	DDPDUMP("mem_addr=0x%llx,length=0x%x\n",
 		addr, readl(DISP_POSTMASK_MEM_LENGTH + baddr));
 
 	DDPDUMP("status=0x%x,cur_pos=0x%x\n",

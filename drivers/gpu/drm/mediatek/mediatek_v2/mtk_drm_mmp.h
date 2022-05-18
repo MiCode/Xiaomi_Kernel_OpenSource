@@ -158,42 +158,42 @@ int mtk_drm_mmp_cwb_buffer(struct drm_crtc *crtc,
 /* print mmp log for CRTC_MMP_Events */
 #define CRTC_MMP_MARK(id, event, v1, v2)                                       \
 	do {								\
-		if (id >= 0 && id < MMP_CRTC_NUM)                              \
+		if ((unsigned int) id < MMP_CRTC_NUM)                              \
 			mmprofile_log_ex(get_crtc_mmp_events(id)->event,       \
 					 MMPROFILE_FLAG_PULSE, v1, v2);       \
 	} while (0)
 
 #define CRTC_MMP_EVENT_START(id, event, v1, v2)                                \
 	do {								\
-		if (id >= 0 && id < MMP_CRTC_NUM)                              \
+		if ((unsigned int) id < MMP_CRTC_NUM)                              \
 			mmprofile_log_ex(get_crtc_mmp_events(id)->event,       \
 					 MMPROFILE_FLAG_START, v1, v2);       \
 	} while (0)
 
 #define CRTC_MMP_EVENT_END(id, event, v1, v2)                                  \
 	do {								\
-		if (id >= 0 && id < MMP_CRTC_NUM)                              \
+		if ((unsigned int) id < MMP_CRTC_NUM)                              \
 			mmprofile_log_ex(get_crtc_mmp_events(id)->event,       \
 					 MMPROFILE_FLAG_END, v1, v2);       \
 	} while (0)
 
 #define CRTC_MMP_BITMAP_MARK(id, event, data)                                  \
 	do {								\
-		if (id >= 0 && id < MMP_CRTC_NUM)                              \
+		if ((unsigned int) id < MMP_CRTC_NUM)                              \
 			mmprofile_log_meta_bitmap(get_crtc_mmp_events(id)->event,  \
 					 MMPROFILE_FLAG_PULSE, data);       \
 	} while (0)
 
 #define CRTC_MMP_YUV_BITMAP_MARK(id, event, data)                              \
 	do {								\
-		if (id >= 0 && id < MMP_CRTC_NUM)                              \
+		if ((unsigned int) id < MMP_CRTC_NUM)                              \
 			mmprofile_log_meta_yuv_bitmap(get_crtc_mmp_events(id)->event,  \
 					 MMPROFILE_FLAG_PULSE, data);       \
 	} while (0)
 
 #define CRTC_MMP_META_MARK(id, event, data)                                    \
 	do {								\
-		if (id >= 0 && id < MMP_CRTC_NUM)                              \
+		if ((unsigned int) id < MMP_CRTC_NUM)                              \
 			mmprofile_log_meta(get_crtc_mmp_events(id)->event,     \
 					 MMPROFILE_FLAG_PULSE, data);       \
 	} while (0)

@@ -455,8 +455,10 @@ void mtk_dp_inf_video_clock(struct mtk_dp_intf *dp_intf)
 	unsigned int con1_reg;
 	int ret = 0;
 	struct device_node *node;
-	if (dp_intf == NULL)
+	if (dp_intf == NULL) {
 		DDPPR_ERR("%s:input error\n", __func__);
+		return;
+	}
 
 	if (dp_intf->res >= SINK_MAX || dp_intf->res < 0) {
 		DDPPR_ERR("%s:input res error: %d\n", __func__, dp_intf->res);
@@ -482,9 +484,11 @@ void mtk_dp_inf_video_clock(struct mtk_dp_intf *dp_intf)
 	if (clk_apmixed_base == NULL) {
 		node = of_find_compatible_node(NULL, NULL,
 			dp_intf->driver_data->video_clock_cfg->compatible);
-		if (!node)
+		if (!node) {
 			DDPPR_ERR("dp_intf [CLK_APMIXED] find node failed\n");
-			clk_apmixed_base = of_iomap(node, 0);
+			return;
+		}
+		clk_apmixed_base = of_iomap(node, 0);
 		if (clk_apmixed_base == NULL) {
 			DDPPR_ERR("dp_intf [CLK_APMIXED] io map failed\n");
 			return;
@@ -492,7 +496,7 @@ void mtk_dp_inf_video_clock(struct mtk_dp_intf *dp_intf)
 	}
 
 	DDPMSG("clk_apmixed_base clk_apmixed_base 0x%lx!!!,res %d\n",
-		clk_apmixed_base, dp_intf->res);
+		(unsigned long)clk_apmixed_base, dp_intf->res);
 	ret = clk_prepare_enable(dp_intf->pclk);
 	ret = clk_set_parent(dp_intf->pclk, dp_intf->pclk_src[clksrc]);
 
@@ -828,6 +832,11 @@ static int mtk_dp_intf_probe(struct platform_device *pdev)
 	dp_intf->dev = dev;
 
 	of_id = of_match_device(mtk_dp_intf_driver_dt_match, &pdev->dev);
+	if (!of_id) {
+		dev_err(dev, "DP_intf device match failed\n");
+		return -EPROBE_DEFER;
+	}
+
 	dp_intf->driver_data = (struct mtk_dp_intf_driver_data *)of_id->data;
 	DDPMSG("%s:%d\n", __func__, __LINE__);
 
@@ -873,7 +882,7 @@ static int mtk_dp_intf_probe(struct platform_device *pdev)
 			DDPPR_ERR("[CLK_APMIXED] io map failed\n");
 
 		DDPPR_ERR("clk_apmixed_base clk_apmixed_base 0x%lx!!!\n",
-			clk_apmixed_base);
+			(unsigned long)clk_apmixed_base);
 	}
 
 	if (IS_ERR(dp_intf->pclk)

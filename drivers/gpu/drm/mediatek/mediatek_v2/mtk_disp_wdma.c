@@ -420,7 +420,7 @@ static int mtk_wdma_is_busy(struct mtk_ddp_comp *comp)
 	int ret, tmp;
 
 	tmp = readl(comp->regs + DISP_REG_WDMA_FLOW_CTRL_DBG);
-	ret = ((tmp & FLOW_CTRL_DBG_FLD_WDMA_STA_FLOW_CTRL) != 0x1) ? 1 : 0;
+	ret = (REG_FLD_VAL_GET(FLOW_CTRL_DBG_FLD_WDMA_STA_FLOW_CTRL, tmp) != 0x1) ? 1 : 0;
 
 	DDPINFO("%s:%d is:%d regs:0x%x\n", __func__, __LINE__, ret, tmp);
 
@@ -1447,7 +1447,7 @@ int mtk_wdma_analysis(struct mtk_ddp_comp *comp)
 		(readl(baddr + DISP_REG_WDMA_CLIP_COORD) >> 16) & 0x3fff,
 		readl(baddr + DISP_REG_WDMA_CLIP_SIZE) & 0x3fff,
 		(readl(baddr + DISP_REG_WDMA_CLIP_SIZE) >> 16) & 0x3fff);
-	DDPDUMP("pitch=(W=%d,UV=%d),addr=(0x%x,0x%x,0x%x),cfg=0x%x\n",
+	DDPDUMP("pitch=(W=%d,UV=%d),addr=(0x%llx,0x%llx,0x%llx),cfg=0x%x\n",
 		readl(baddr + DISP_REG_WDMA_DST_WIN_BYTE),
 		readl(baddr + DISP_REG_WDMA_DST_UV_PITCH),
 		read_dst_addr(comp, 0),

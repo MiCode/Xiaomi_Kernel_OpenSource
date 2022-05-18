@@ -264,7 +264,7 @@ static irqreturn_t mtk_disp_rdma_irq_handler(int irq, void *dev_id)
 	unsigned int ret = 0;
 	int i = 0, j = 0;
 	bool find_work = false;
-	static int work_id;
+	static unsigned int work_id;
 	static DEFINE_RATELIMIT_STATE(isr_ratelimit, 1 * HZ, 4);
 
 	if (IS_ERR_OR_NULL(priv))

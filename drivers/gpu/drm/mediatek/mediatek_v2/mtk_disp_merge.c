@@ -125,7 +125,7 @@ void mtk_merge_dump(struct mtk_ddp_comp *comp)
 	void __iomem *baddr = comp->regs;
 	int i = 0;
 
-	DDPDUMP("== DISP %s REGS:0x%x ==\n", mtk_dump_comp_str(comp), comp->regs);
+	DDPDUMP("== DISP %s REGS:0x%lx ==\n", mtk_dump_comp_str(comp), (unsigned long)comp->regs);
 	for (i = 0; i < 1; i++) {
 		DDPDUMP("0x%03X: 0x%08x 0x%08x 0x%08x 0x%08x\n", i * 0x10,
 			readl(baddr + i * 0x10), readl(baddr + i * 0x10 + 0x4),
