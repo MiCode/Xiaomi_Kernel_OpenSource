@@ -6183,6 +6183,7 @@ void __exit fbt_cpu_exit(void)
 
 	fbt_cpu_ctrl_exit();
 	exit_fbt_platform();
+	exit_xgf();
 }
 
 int __init fbt_cpu_init(void)
