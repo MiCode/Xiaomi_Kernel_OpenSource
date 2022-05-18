@@ -266,6 +266,9 @@ static void mrdump_mini_add_misc_pa(unsigned long va, unsigned long pa,
 	int i;
 	struct elf_note *note;
 
+	if (!mrdump_mini_ehdr)
+		return;
+
 	for (i = 0; i < MRDUMP_MINI_NR_MISC; i++) {
 		note = &mrdump_mini_ehdr->misc[i].note;
 		if (note->n_type == NT_IPANIC_MISC) {
