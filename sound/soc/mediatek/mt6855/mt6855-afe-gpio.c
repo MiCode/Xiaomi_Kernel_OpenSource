@@ -88,7 +88,7 @@ static int mt6855_afe_gpio_select(struct mtk_base_afe *afe,
 {
 	int ret = 0;
 
-	if (type < 0 || type >= MT6855_AFE_GPIO_GPIO_NUM) {
+	if (type >= MT6855_AFE_GPIO_GPIO_NUM) {
 		dev_err(afe->dev, "%s(), error, invalid gpio type %d\n",
 			__func__, type);
 		return -EINVAL;
@@ -206,7 +206,7 @@ EXPORT_SYMBOL_GPL(mt6855_afe_gpio_request);
 
 bool mt6855_afe_gpio_is_prepared(enum mt6855_afe_gpio type)
 {
-	if (type < 0 || type >= MT6855_AFE_GPIO_GPIO_NUM) {
+	if (type >= MT6855_AFE_GPIO_GPIO_NUM) {
 		pr_err("%s(), gpio type %d is invalid\n", __func__, type);
 		return false;
 	}
