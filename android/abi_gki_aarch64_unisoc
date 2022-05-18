@@ -1167,6 +1167,9 @@
   __traceiter_android_rvh_update_misfit_status
   __traceiter_android_rvh_wake_up_new_task
   __traceiter_android_vh_arch_set_freq_scale
+  __traceiter_android_vh_audio_usb_offload_connect
+  __traceiter_android_vh_audio_usb_offload_ep_action
+  __traceiter_android_vh_audio_usb_offload_synctype
   __traceiter_android_vh_binder_restore_priority
   __traceiter_android_vh_binder_set_priority
   __traceiter_android_vh_binder_transaction_init
@@ -1237,6 +1240,8 @@
   __tracepoint_android_rvh_update_misfit_status
   __tracepoint_android_rvh_wake_up_new_task
   __tracepoint_android_vh_arch_set_freq_scale
+  __tracepoint_android_vh_audio_usb_offload_ep_action
+  __tracepoint_android_vh_audio_usb_offload_synctype
   __tracepoint_android_vh_binder_restore_priority
   __tracepoint_android_vh_binder_set_priority
   __tracepoint_android_vh_binder_transaction_init
