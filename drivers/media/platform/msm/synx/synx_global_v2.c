@@ -452,7 +452,7 @@ static int synx_global_update_status_core(u32 idx,
 	/* notify waiting clients on signal */
 	if (data) {
 		/* notify wait client */
-		for (i = 0; i < SYNX_CORE_MAX; i++) {
+		for (i = 1; i < SYNX_CORE_MAX; i++) {
 			if (!wait_cores[i])
 				continue;
 			dprintk(SYNX_DBG,
