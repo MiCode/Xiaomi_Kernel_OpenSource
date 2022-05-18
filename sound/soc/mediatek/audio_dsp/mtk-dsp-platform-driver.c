@@ -812,13 +812,13 @@ static int mtk_dsp_manage_copybuf(bool action,
 			return -EINVAL;
 		if (dsp_mep->dsp_copy_buf != NULL)
 			return -EINVAL;
-		dsp_mep->dsp_copy_buf = kzalloc(size, GFP_KERNEL);
+		dsp_mep->dsp_copy_buf = vmalloc(size);
 		if (!dsp_mep->dsp_copy_buf)
-			return -EINVAL;
+			return -ENOMEM;
 	} else {
 		if (dsp_mep->dsp_copy_buf == NULL)
 			return -EINVAL;
-		kfree(dsp_mep->dsp_copy_buf);
+		vfree(dsp_mep->dsp_copy_buf);
 		dsp_mep->dsp_copy_buf = NULL;
 	}
 	return 0;
@@ -863,7 +863,7 @@ static int mtk_dsp_pcm_hw_params(struct snd_soc_component *component,
 	}
 
 	/* allocate copy buffer */
-	ret = mtk_dsp_manage_copybuf(true, &dsp->dsp_mem[id], params_buffer_bytes(params));
+	ret = mtk_dsp_manage_copybuf(true, &dsp->dsp_mem[id], params_buffer_bytes(params)/2);
 	if (ret) {
 		pr_info("%s ret = %d\n", __func__, ret);
 		return -1;
