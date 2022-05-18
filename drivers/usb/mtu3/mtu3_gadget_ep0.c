@@ -640,7 +640,7 @@ static int ep0_handle_setup(struct mtu3 *mtu)
 __releases(mtu->lock)
 __acquires(mtu->lock)
 {
-	struct usb_ctrlrequest setup;
+	struct usb_ctrlrequest setup = {};
 	struct mtu3_request *mreq;
 	int handled = 0;
 
