@@ -58,6 +58,19 @@ config NET_REDIRECT
 config SKB_EXTENSIONS
 	bool
 
+config MTK_XFRM_DEBUG
+	bool "Fix xfrm exception due to MTU"
+	help
+	  If it is enabled, two xfrm exceptions caused by MTU will be repaired.
+	  1. Fix the problem caused by MTU returning at least 1280 in IPv6.
+	  When the (P) MTU is 1280 or slightly larger, it will destroy the
+	  calculation of TCP MSS in IPSec transmission mode, resulting in
+	  TCP completely stopping the connection.
+	  2、fix udpv6 sendmsg crash caused by too small MTU.
+	  A Packet Too Big ICMPv6 message received in response to an ESP packet
+	  will prevent all further communication through the tunnel if the
+	  reported MTU minus the ESP overhead is smaller than 1280.
+
 menu "Networking options"
 
 source "net/packet/Kconfig"

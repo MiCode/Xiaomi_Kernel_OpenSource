@@ -17,6 +17,7 @@ f include/linux/printk.h
 f include/trace/events/block.h
 f include/trace/events/mmflags.h
 f include/uapi/linux/v4l2-controls.h
+f include/net/xfrm.h
 f kernel/audit.c
 f kernel/irq_work.c
 f kernel/printk/printk.c
@@ -31,6 +32,10 @@ f kernel/trace/trace_events.c
 f lib/dynamic_debug.c
 f mm/swap.c
 f net/core/rtnetlink.c
+f net/ipv4/esp4.c
+f net/ipv6/esp6.c
+f net/ipv6/ip6_output.c
+f net/xfrm/xfrm_state.c
 f security/selinux/avc.c
 f security/selinux/include/avc.h
 f drivers/iommu/iova.c
