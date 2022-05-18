@@ -58,6 +58,26 @@ struct mdw_mem *mdw_mem_get(struct mdw_fpriv *mpriv, int handle)
 	return NULL;
 }
 
+static struct mdw_mem *mdw_mem_get_by_dbuf(struct mdw_fpriv *mpriv, struct dma_buf *dbuf)
+{
+	struct mdw_device *mdev = mpriv->mdev;
+	struct mdw_mem *m = NULL, *tmp = NULL;
+
+	mutex_lock(&mdev->m_mtx);
+	list_for_each_entry_safe(m, tmp, &mdev->m_list, d_node) {
+		if (m->dbuf == dbuf) {
+			get_dma_buf(dbuf);
+			mutex_unlock(&mdev->m_mtx);
+			return m;
+		}
+	}
+	mutex_unlock(&mdev->m_mtx);
+
+	mdw_mem_debug("dmabuf not belong to apu\n");
+
+	return NULL;
+}
+
 void mdw_mem_all_print(struct mdw_fpriv *mpriv)
 {
 	struct list_head *tmp = NULL, *list_ptr = NULL;
@@ -315,6 +335,15 @@ static int mdw_mem_map_create(struct mdw_fpriv *mpriv, struct mdw_mem *m)
 	get_dma_buf(m->dbuf);
 	if (m->map) {
 		mdw_drv_err("mem(0x%llx) already map\n", (uint64_t)m->map);
+		ret = -EINVAL;
+		goto out;
+	}
+
+	/* check size */
+	if (m->size > m->dbuf->size) {
+		mdw_drv_err("m(0x%llx/0x%llx/%d/0x%llx) size not match(%u/%u)\n",
+			(uint64_t)m->mpriv, (uint64_t)m, m->handle, (uint64_t)m->dbuf,
+			m->size, m->dbuf->size);
 		ret = -EINVAL;
 		goto out;
 	}
@@ -667,7 +696,7 @@ static int mdw_mem_ioctl_map(struct mdw_fpriv *mpriv,
 	mutex_lock(&mpriv->mtx);
 
 	/* query mem from apu's mem list */
-	m = mdw_mem_get(mpriv, handle);
+	m = mdw_mem_get_by_dbuf(mpriv, dbuf);
 	if (!m) {
 		m = mdw_mem_create(mpriv);
 		if (!m) {
