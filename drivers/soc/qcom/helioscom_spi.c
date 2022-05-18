@@ -617,6 +617,61 @@ static void helios_irq_tasklet_hndlr_l(void)
 	g_slav_status_reg = slave_status_reg;
 }
 
+static int helioscom_suspend_l(void *handle)
+{
+	struct helios_context *cntx;
+	int ret = 0;
+	uint32_t cmnd_reg = 0;
+	struct spi_device *spi = get_spi_device();
+
+	if (handle == NULL)
+		return -EINVAL;
+
+	cntx = (struct helios_context *)handle;
+
+	/* if client is outside helioscom scope and
+	 * handle is provided before HELIOSCOM probed
+	 */
+	if (cntx->state == HELIOSCOM_PROB_WAIT) {
+		HELIOSCOM_INFO("handle is provided before HELIOSCOM probed\n");
+		if (!is_helioscom_ready())
+			return -EAGAIN;
+		cntx->helios_spi = container_of(helios_com_drv,
+						struct helios_spi_priv, lhandle);
+		cntx->state = HELIOSCOM_PROB_SUCCESS;
+	}
+
+	if (!(g_slav_status_reg & BIT(31))) {
+		HELIOSCOM_ERR("Helios boot is not complete, skip SPI suspend\n");
+		return 0;
+	}
+
+	if (atomic_read(&state) == HELIOSCOM_STATE_SUSPEND)
+		return 0;
+
+	cmnd_reg |= HELIOS_OK_SLP_RBSC;
+
+	(!atomic_read(&helios_is_spi_active)) ? pm_runtime_get_sync(&spi->dev)
+			: HELIOSCOM_INFO("spi is already active, skip get_sync...\n");
+
+	ret = helioscom_reg_write_cmd(cntx, HELIOS_CMND_REG, 1, &cmnd_reg);
+
+	(!atomic_read(&helios_is_spi_active)) ? pm_runtime_put_sync(&spi->dev)
+			: HELIOSCOM_INFO("spi is already active, skip put_sync...\n");
+
+	sleep_time_start = ktime_get();
+
+	HELIOSCOM_INFO("reg write status: %d\n", ret);
+
+	atomic_set(&state, HELIOSCOM_STATE_SUSPEND);
+	atomic_set(&helios_is_spi_active, 0);
+	atomic_set(&helios_is_runtime_suspend, 0);
+	atomic_set(&ok_to_sleep, 1);
+
+	HELIOSCOM_INFO("suspended\n");
+	return ret;
+}
+
 /* Returns 1, if the helios spi is active */
 static int is_helios_resume(void *handle)
 {
@@ -1354,6 +1409,53 @@ int helioscom_close(void **handle)
 	return 0;
 }
 EXPORT_SYMBOL(helioscom_close);
+
+int get_helios_sleep_state(void)
+{
+	int ret = atomic_read(&ok_to_sleep);
+
+	HELIOSCOM_INFO("sleep state =%d\n", ret);
+	return ret;
+}
+EXPORT_SYMBOL(get_helios_sleep_state);
+
+int set_helios_sleep_state(bool sleep_state)
+{
+	struct helios_context clnt_handle;
+	int ret = 0;
+	struct helios_spi_priv *spi = NULL;
+
+	if (!is_helioscom_ready())
+		return -EAGAIN;
+
+	HELIOSCOM_INFO("set helios in sleep state =%d\n", sleep_state);
+
+	spi = container_of(helios_com_drv, struct helios_spi_priv, lhandle);
+	clnt_handle.helios_spi = spi;
+
+	if (!(g_slav_status_reg & BIT(31))) {
+		HELIOSCOM_ERR("Helios boot is not complete, skip SPI resume\n");
+		return 0;
+	}
+
+	if (sleep_state) {
+		/*send command to helios, helios can go to sleep*/
+		helioscom_suspend_l(&clnt_handle);
+	} else {
+		/* resume helios */
+		if (atomic_read(&helios_is_spi_active)) {
+			HELIOSCOM_INFO("Helioscom in restore state\n");
+		} else {
+			atomic_set(&helios_is_spi_active, 1);
+			atomic_set(&helios_is_runtime_suspend, 0);
+			ret = helioscom_resume_l(&clnt_handle);
+			HELIOSCOM_INFO("Helioscom restore with : %d\n", ret);
+		}
+		return ret;
+	}
+	return ret;
+}
+EXPORT_SYMBOL(set_helios_sleep_state);
 
 static irqreturn_t helios_irq_tasklet_hndlr(int irq, void *device)
 {

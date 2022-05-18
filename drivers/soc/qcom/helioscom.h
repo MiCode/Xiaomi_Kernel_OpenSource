@@ -253,4 +253,8 @@ int helioscom_set_spi_state(enum helioscom_spi_state state);
 
 void helioscom_heliosdown_handler(void);
 
+int set_helios_sleep_state(bool sleep_state);
+
+int get_helios_sleep_state(void);
+
 #endif /* HELIOSCOM_H */
