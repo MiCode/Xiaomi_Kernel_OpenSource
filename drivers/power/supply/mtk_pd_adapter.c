@@ -416,13 +416,13 @@ static int pd_get_cap(struct adapter_device *dev,
 	enum adapter_cap_type type,
 	struct adapter_power_cap *tacap)
 {
-	struct tcpm_power_cap_val apdo_cap;
-	struct tcpm_remote_power_cap pd_cap;
-	struct pd_source_cap_ext cap_ext;
+	struct tcpm_power_cap_val apdo_cap = {};
+	struct tcpm_remote_power_cap pd_cap = {};
+	struct pd_source_cap_ext cap_ext = {};
 
 	uint8_t cap_i = 0;
 	int ret;
-	int idx = 0;
+	unsigned int idx = 0;
 	unsigned int i, j;
 	struct mtk_pd_adapter_info *info;
 
@@ -465,15 +465,15 @@ static int pd_get_cap(struct adapter_device *dev,
 			tacap->minwatt[idx] = apdo_cap.min_mv * apdo_cap.ma;
 			tacap->type[idx] = MTK_PD_APDO;
 
+			idx++;
 			pr_notice("pps_boundary[%d], %d mv ~ %d mv, %d ma pl:%d\n",
 				cap_i,
 				apdo_cap.min_mv, apdo_cap.max_mv,
 				apdo_cap.ma, apdo_cap.pwr_limit);
-			if (idx >= ADAPTER_CAP_MAX_NR - 1) {
+			if (idx >= ADAPTER_CAP_MAX_NR) {
 				pr_notice("CAP NR > %d\n", ADAPTER_CAP_MAX_NR);
 				break;
-			} else
-				idx++;
+			}
 		}
 		tacap->nr = idx;
 
@@ -502,7 +502,6 @@ static int pd_get_cap(struct adapter_device *dev,
 			pr_notice("adapter cap: nr:%d\n", pd_cap.nr);
 			for (i = 0; i < pd_cap.nr; i++) {
 				if (!pd_cap.type[i] &&
-					j >= 0 &&
 					j < ADAPTER_CAP_MAX_NR) {
 					tacap->type[j] = MTK_PD;
 					tacap->ma[j] = pd_cap.ma[i];

@@ -166,7 +166,7 @@ EXPORT_SYMBOL(chg_alg_state_to_str);
 extern const char *const
 chg_alg_notify_evt_tostring(enum chg_alg_notifier_events evt)
 {
-	if ((int)evt >= (int)EVT_MAX) {
+	if ((int)evt > (int)EVT_MAX) {
 		pr_notice("%s: chg_algo error\n", __func__);
 		return "chg_algo_error";
 	}

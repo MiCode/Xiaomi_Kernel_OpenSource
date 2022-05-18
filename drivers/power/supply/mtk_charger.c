@@ -3203,9 +3203,10 @@ static void mtk_charger_external_power_changed(struct power_supply *psy)
 
 	info = (struct mtk_charger *)power_supply_get_drvdata(psy);
 
-	if (info == NULL)
+	if (info == NULL) {
 		pr_notice("%s: failed to get info\n", __func__);
-
+		return;
+	}
 	chg_psy = info->chg_psy;
 
 	if (chg_psy == NULL) {

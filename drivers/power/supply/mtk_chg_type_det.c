@@ -84,6 +84,8 @@ static int typec_attach_thread(void *data)
 
 	pr_info("%s: ++\n", __func__);
 	while (!kthread_should_stop()) {
+		if (mci == NULL)
+			pr_notice("%s: mci is null\n, __func__");
 		ret = wait_event_interruptible(mci->attach_wq,
 			   atomic_read(&mci->chrdet_start) > 0 ||
 							 kthread_should_stop());
