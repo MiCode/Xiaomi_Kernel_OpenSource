@@ -16,6 +16,9 @@ obj-y += $(subst ",,mt6765)/
 else ifeq (y, $(filter y, $(CONFIG_MACH_MT6781)))
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/pwm/mt6781/include
 obj-y += $(subst ",,mt6781)/
+else ifeq (y, $(filter y, $(CONFIG_MACH_MT6877)))
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/pwm/mt6877/include
+obj-y += $(subst ",,mt6877)/
 else
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/pwm/$(CONFIG_MTK_PLATFORM)/include
 obj-y += $(subst ",,$(CONFIG_MTK_PLATFORM))/
