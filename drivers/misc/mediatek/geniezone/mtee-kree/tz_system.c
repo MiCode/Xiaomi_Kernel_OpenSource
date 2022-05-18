@@ -1324,6 +1324,8 @@ TZ_RESULT KREE_TeeServiceCallPlus(KREE_SESSION_HANDLE handle, uint32_t command,
 		return TZ_RESULT_ERROR_BAD_PARAMETERS;
 	}
 
+	memset(&cparam, 0, sizeof(cparam));
+
 	cparam.command = command;
 	cparam.paramTypes = paramTypes;
 	memcpy(cparam.param, param, sizeof(union MTEEC_PARAM) * 4);
