@@ -142,7 +142,7 @@ void fmt_start_dvfs_emi_bw(struct mtk_vdec_fmt *fmt, struct fmt_pmqos pmqos_para
 			pmqos_param.wdma_datasize);
 
 	ktime_get_real_ts64(&curr_time);
-	fmt_debug(1, "curr time tv_sec %d tv_nsec %d", curr_time.tv_sec, curr_time.tv_nsec);
+	fmt_debug(1, "curr time tv_sec %ld tv_nsec %ld", curr_time.tv_sec, curr_time.tv_nsec);
 
 	FMT_TIMER_GET_DURATION_IN_MS(curr_time, pmqos_param, duration);
 	request_freq64 = (u64)pmqos_param.pixel_size * 1000 / duration;
@@ -175,7 +175,7 @@ void fmt_start_dvfs_emi_bw(struct mtk_vdec_fmt *fmt, struct fmt_pmqos pmqos_para
 			request_freq);
 
 	FMT_BANDWIDTH(pmqos_param.rdma_datasize, pmqos_param.pixel_size, request_freq, bandwidth);
-	if (fmt->fmt_qos_req[id] != 0) {
+	if (id < FMT_PORT_NUM && fmt->fmt_qos_req[id] != 0) {
 		mtk_icc_set_bw(fmt->fmt_qos_req[id],
 			MBps_to_icc(bandwidth), 0);
 	}
@@ -185,7 +185,7 @@ void fmt_start_dvfs_emi_bw(struct mtk_vdec_fmt *fmt, struct fmt_pmqos pmqos_para
 			pmqos_param.pixel_size,
 			request_freq);
 	FMT_BANDWIDTH(pmqos_param.wdma_datasize, pmqos_param.pixel_size, request_freq, bandwidth);
-	if (fmt->fmt_qos_req[id+2] != 0) {
+	if (id+2 < FMT_PORT_NUM && fmt->fmt_qos_req[id+2] != 0) {
 		mtk_icc_set_bw(fmt->fmt_qos_req[id+2],
 			MBps_to_icc(bandwidth), 0);
 	}
@@ -199,7 +199,7 @@ void fmt_end_dvfs_emi_bw(struct mtk_vdec_fmt *fmt, int id)
 	int ret = 0;
 
 	if (fmt->fmt_reg != 0) {
-		fmt_debug(1, "request freq %d", fmt->fmt_freqs[0]);
+		fmt_debug(1, "request freq %lu", fmt->fmt_freqs[0]);
 		opp = dev_pm_opp_find_freq_ceil(fmt->dev,
 					&fmt->fmt_freqs[0]);
 		volt = dev_pm_opp_get_voltage(opp);
@@ -212,11 +212,11 @@ void fmt_end_dvfs_emi_bw(struct mtk_vdec_fmt *fmt, int id)
 		}
 	}
 
-	if (fmt->fmt_qos_req[id] != 0) {
+	if (id < FMT_PORT_NUM && fmt->fmt_qos_req[id] != 0) {
 		mtk_icc_set_bw(fmt->fmt_qos_req[id],
 			MBps_to_icc(0), 0);
 	}
-	if (fmt->fmt_qos_req[id+2] != 0) {
+	if (id+2 < FMT_PORT_NUM && fmt->fmt_qos_req[id+2] != 0) {
 		mtk_icc_set_bw(fmt->fmt_qos_req[id+2],
 			MBps_to_icc(0), 0);
 	}

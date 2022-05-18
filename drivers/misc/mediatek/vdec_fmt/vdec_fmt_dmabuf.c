@@ -92,7 +92,7 @@ u64 fmt_translate_fd(u64 fd, u32 offset, struct dmabufmap map[], struct device *
 	ret = fmt_dmabuf_get_iova(*dbuf, &iova, dev, attach, sgt, cache_sync);
 
 	if (ret != 0) {
-		fmt_debug(0, "fd: %d iova get failed", fd);
+		fmt_debug(0, "fd: %lu iova get failed", fd);
 		return 0;
 	}
 

@@ -198,7 +198,7 @@ static bool timeline_fence_enable_signaling(struct dma_fence *dma_fence)
 static void timeline_fence_value_str(struct dma_fence *dma_fence,
 				    char *str, int size)
 {
-	snprintf(str, size, "%d", dma_fence->seqno);
+	snprintf(str, size, "%lu", dma_fence->seqno);
 }
 
 static void timeline_fence_timeline_value_str(struct dma_fence *dma_fence,
