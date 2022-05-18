@@ -4880,6 +4880,8 @@ static void set_lr_trim_code(struct mt6358_priv *priv)
 			code_change  = false;
 			hpl_min = priv->dc_trim.hp_trim_offset[CH_L];
 			hpr_min = priv->dc_trim.hp_trim_offset[CH_R];
+			if (hpl_base == hpl_min || hpr_base == hpr_min)
+				goto EXIT;
 			regmap_update_bits(priv->regmap, MT6358_AUDDEC_ELR_0,
 					HPTRIM_L_MASK, 0x0 << HPTRIM_L_SHIFT);
 			regmap_update_bits(priv->regmap, MT6358_AUDDEC_ELR_0,
@@ -4888,13 +4890,13 @@ static void set_lr_trim_code(struct mt6358_priv *priv)
 
 			/* Check floor & ceiling to avoid rounding error */
 			if (hpl_base > 0) {
-				trimcodel_floor = (abs(hpl_base)*3) /
-						(abs(hpl_base-hpl_min));
+				trimcodel_floor =
+					(abs(hpl_base) * 3) / (abs(hpl_base - hpl_min));
 				trimcodel_ceiling = trimcodel_floor + 1;
 			}
 			if (hpr_base > 0) {
-				trimcoder_floor = (abs(hpr_base)*3) /
-						(abs(hpr_base-hpr_min));
+				trimcoder_floor =
+					(abs(hpr_base) * 3) / (abs(hpr_base - hpr_min));
 				trimcoder_ceiling = trimcoder_floor + 1;
 			}
 		}
@@ -4918,6 +4920,8 @@ static void set_lr_trim_code(struct mt6358_priv *priv)
 			code_change  = false;
 			hpl_min = priv->dc_trim.hp_trim_offset[CH_L];
 			hpr_min = priv->dc_trim.hp_trim_offset[CH_R];
+			if (hpl_base == hpl_min || hpr_base == hpr_min)
+				goto EXIT;
 			regmap_update_bits(priv->regmap, MT6358_AUDDEC_ELR_0,
 					HPTRIM_L_MASK, 0x0 << HPTRIM_L_SHIFT);
 			regmap_update_bits(priv->regmap, MT6358_AUDDEC_ELR_0,
@@ -4925,13 +4929,13 @@ static void set_lr_trim_code(struct mt6358_priv *priv)
 			mdelay(10);
 			/* Check floor & ceiling to avoid rounding error */
 			if (hpl_base < 0) {
-				trimcodel_floor = (abs(hpl_base)*3) /
-						(abs(hpl_base-hpl_min)) + 8;
+				trimcodel_floor =
+					(abs(hpl_base) * 3) / (abs(hpl_base - hpl_min)) + 8;
 				trimcodel_ceiling = trimcodel_floor + 1;
 			}
 			if (hpr_base < 0) {
-				trimcoder_floor = (abs(hpr_base)*3) /
-						(abs(hpr_base-hpr_min)) + 8;
+				trimcoder_floor =
+					(abs(hpr_base) * 3) / (abs(hpr_base - hpr_min)) + 8;
 				trimcoder_ceiling = trimcoder_floor + 1;
 			}
 		}
@@ -5416,9 +5420,11 @@ static void set_lr_trim_code_spk(struct mt6358_priv *priv, int channel)
 		dev_info(priv->dev, "%s(), step1 > 0, AUDDEC_ELR_0 = 0x%x, trimcode = %d\n",
 				__func__, reg_value, trimcode);
 		hpl_min = spk_trim_offset(priv, channel);
+		if (hpl_base == hpl_min)
+			goto EXIT;
 		mdelay(10);
 		/* Check floor and ceiling value to avoid rounding error */
-		trimcode_floor = (abs(hpl_base)*3)/abs(hpl_base-hpl_min);
+		trimcode_floor = (abs(hpl_base) * 3) / abs(hpl_base - hpl_min);
 		trimcode_ceiling = trimcode_floor + 1;
 		dev_info(priv->dev, "%s(), step1 > 0, get trim level trimcode_floor = %d, trimcode_ceiling = %d\n",
 				__func__, trimcode_floor, trimcode_ceiling);
@@ -5429,9 +5435,11 @@ static void set_lr_trim_code_spk(struct mt6358_priv *priv, int channel)
 		dev_info(priv->dev, "%s(), step1 < 0, AUDDEC_ELR_0 = 0x%x, trimcode = %d\n",
 				__func__, reg_value, trimcode);
 		hpl_min = spk_trim_offset(priv, channel);
+		if (hpl_base == hpl_min)
+			goto EXIT;
 		mdelay(10);
 		/* Check floor and ceiling value to avoid rounding error */
-		trimcode_floor = (abs(hpl_base)*3)/abs(hpl_base-hpl_min) + 8;
+		trimcode_floor = (abs(hpl_base) * 3) / abs(hpl_base - hpl_min) + 8;
 		trimcode_ceiling = trimcode_floor + 1;
 		dev_info(priv->dev, "%s(), step1 < 0, get trim level trimcode_floor = %d, trimcode_ceiling = %d\n",
 				__func__, trimcode_floor, trimcode_ceiling);
