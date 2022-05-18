@@ -736,15 +736,29 @@ static void sdr_get_field(void __iomem *reg, u32 field, u32 *val)
 static void msdc_reset_hw(struct msdc_host *host)
 {
 	u32 val;
+	u32 count = 0;
 
 	sdr_set_bits(host->base + MSDC_CFG, MSDC_CFG_RST);
-	while (readl(host->base + MSDC_CFG) & MSDC_CFG_RST)
+	count = 0;
+	while (readl(host->base + MSDC_CFG) & MSDC_CFG_RST){
 		cpu_relax();
+		if (count++ > 10000){
+			pr_info("%s MSDC_CFG_RST\n", __func__);
+			BUG_ON(1);
+			break;
+		}
+	}
 
 	sdr_set_bits(host->base + MSDC_FIFOCS, MSDC_FIFOCS_CLR);
-	while (readl(host->base + MSDC_FIFOCS) & MSDC_FIFOCS_CLR)
+	count = 0;
+	while (readl(host->base + MSDC_FIFOCS) & MSDC_FIFOCS_CLR){
 		cpu_relax();
-
+		if (count++ > 10000){
+			pr_info("%s MSDC_FIFOCS_CLR\n", __func__);
+			BUG_ON(1);
+			break;
+		}
+	}
 	val = readl(host->base + MSDC_INT);
 	writel(val, host->base + MSDC_INT);
 }
@@ -946,6 +960,7 @@ void msdc_ungate_clock(struct mmc_host *mmc)
 
 static void msdc_set_mclk(struct msdc_host *host, unsigned char timing, u32 hz)
 {
+	struct mmc_host *mmc = host->mmc;
 	u32 mode;
 	u32 flags;
 	u32 div;
@@ -1033,7 +1048,15 @@ static void msdc_set_mclk(struct msdc_host *host, unsigned char timing, u32 hz)
 
 	while (!(readl(host->base + MSDC_CFG) & MSDC_CFG_CKSTB))
 		cpu_relax();
-	sdr_set_bits(host->base + MSDC_CFG, MSDC_CFG_CKPDN);
+	if (host->mclk == 0 && (mmc->caps2 & MMC_CAP2_NO_MMC)
+		&& mmc->ios.signal_voltage == MMC_SIGNAL_VOLTAGE_180) {
+		dev_info(host->dev, "[%s]:enable clk free run 1ms+ for switch to 1.8v\n",
+			__func__);
+		sdr_set_bits(host->base + MSDC_CFG, MSDC_CFG_CKPDN);
+		usleep_range(1000, 1500);
+		sdr_clr_bits(host->base + MSDC_CFG, MSDC_CFG_CKPDN);
+	}
+
 #ifdef CONFIG_MACH_MT8173
 	host->sclk = sclk;
 #endif
@@ -1079,7 +1102,7 @@ static void msdc_set_mclk(struct msdc_host *host, unsigned char timing, u32 hz)
 		sdr_set_field(host->base + tune_reg,
 			      MSDC_PAD_TUNE_CMDRRDLY,
 			      host->hs400_cmd_int_delay);
-	dev_dbg(host->dev, "sclk: %d, timing: %d\n", host->mmc->actual_clock,
+	dev_info(host->dev, "sclk: %d, timing: %d\n", host->mmc->actual_clock,
 		timing);
 }
 
@@ -1734,8 +1757,8 @@ static void msdc_init_hw(struct msdc_host *host)
 	u32 val;
 	u32 tune_reg = host->dev_comp->pad_tune_reg;
 
-	/* Configure to MMC/SD mode, clock free running */
-	sdr_set_bits(host->base + MSDC_CFG, MSDC_CFG_MODE | MSDC_CFG_CKPDN);
+	/* Configure to MMC/SD mode */
+	sdr_set_bits(host->base + MSDC_CFG, MSDC_CFG_MODE);
 
 	/* Reset */
 	msdc_reset_hw(host);

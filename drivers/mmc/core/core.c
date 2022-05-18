@@ -183,7 +183,7 @@ void mmc_request_done(struct mmc_host *host, struct mmc_request *mrq)
 			led_trigger_event(host->led, LED_OFF);
 
 		if (mrq->sbc) {
-			pr_debug("%s: req done <CMD%u>: %d: %08x %08x %08x %08x\n",
+			pr_debug("%s: sbc req done <CMD%u>: %d: %08x %08x %08x %08x\n",
 				mmc_hostname(host), mrq->sbc->opcode,
 				mrq->sbc->error,
 				mrq->sbc->resp[0], mrq->sbc->resp[1],
@@ -283,8 +283,12 @@ static void mmc_mrq_pr_debug(struct mmc_host *host, struct mmc_request *mrq,
 			 mmc_hostname(host), cqe ? "CQE direct " : "",
 			 mrq->cmd->opcode, mrq->cmd->arg, mrq->cmd->flags);
 	} else if (cqe) {
-		pr_debug("%s: starting CQE transfer for tag %d blkaddr %u\n",
-			 mmc_hostname(host), mrq->tag, mrq->data->blk_addr);
+		if (mrq->data->flags & MMC_DATA_WRITE)
+			pr_debug("%s: starting CQE transfer for tag %d blkaddr %u, flags=0x%x WRITE\n",
+			mmc_hostname(host), mrq->tag, mrq->data->blk_addr, mrq->data->flags);
+		else if (mrq->data->flags & MMC_DATA_READ)
+			pr_debug("%s: starting CQE transfer for tag %d blkaddr %u, flags=0x%x READ\n",
+			mmc_hostname(host), mrq->tag, mrq->data->blk_addr, mrq->data->flags);
 	}
 
 	if (mrq->data) {
@@ -1714,7 +1718,7 @@ static inline void mmc_set_ios(struct mmc_host *host)
 {
 	struct mmc_ios *ios = &host->ios;
 
-	pr_debug("%s: clock %uHz busmode %u powermode %u cs %u Vdd %u "
+	dev_info(host->parent, "%s: clock %uHz busmode %u powermode %u cs %u Vdd %u "
 		"width %u timing %u\n",
 		 mmc_hostname(host), ios->clock, ios->bus_mode,
 		 ios->power_mode, ios->chip_select, ios->vdd,
