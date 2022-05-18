@@ -892,7 +892,7 @@ int mtk_drm_setbacklight(struct drm_crtc *crtc, unsigned int level)
 		 */
 		if (!(mtk_drm_helper_get_opt(priv->helper_opt,
 					MTK_DRM_OPT_MSYNC2_0) &&
-			params->msync2_enable) &&
+			params && params->msync2_enable) &&
 			!mtk_crtc->is_mml)
 			cmdq_pkt_set_event(cmdq_handle,
 				mtk_crtc->gce_obj.event[EVENT_STREAM_DIRTY]);
@@ -2684,6 +2684,8 @@ static void mtk_crtc_atmoic_ddp_config(struct drm_crtc *crtc,
 
 	if (lyeblob_ids->ddp_blob_id) {
 		blob = drm_property_lookup_blob(dev, lyeblob_ids->ddp_blob_id);
+		if (!blob)
+			return;
 		lye_state = (struct mtk_lye_ddp_state *)blob->data;
 		drm_property_blob_put(blob);
 		old_lye_state = &state->lye_state;
@@ -3872,7 +3874,7 @@ static void mtk_crtc_cmdq_timeout_cb(struct cmdq_cb_data data)
 #ifndef DRM_CMDQ_DISABLE
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct cmdq_client *cl;
-	dma_addr_t trig_pc;
+	dma_addr_t trig_pc = 0;
 	u64 *inst;
 #endif
 
@@ -4660,6 +4662,8 @@ static void mtk_crtc_ddp_config(struct drm_crtc *crtc)
 	 * working registers in atomic_commit and let the hardware command
 	 * queue update module registers on vblank.
 	 */
+	if (!comp)
+		return;
 
 	ovl_is_busy = readl(comp->regs) & 0x1UL;
 	if (ovl_is_busy == 0x1UL)
@@ -5918,7 +5922,7 @@ void mtk_crtc_config_default_path(struct mtk_drm_crtc *mtk_crtc)
 	struct drm_crtc *crtc = &mtk_crtc->base;
 	struct mtk_drm_private *priv = crtc->dev->dev_private;
 	struct cmdq_pkt *cmdq_handle;
-	struct mtk_ddp_config cfg;
+	struct mtk_ddp_config cfg = { 0 };
 	struct mtk_ddp_comp *comp;
 	struct mtk_ddp_comp *output_comp;
 
@@ -8228,18 +8232,20 @@ void mtk_drm_crtc_plane_disable(struct drm_crtc *crtc, struct drm_plane *plane,
 #endif
 	struct cmdq_pkt *cmdq_handle = state->cmdq_handle;
 
-	DDPINFO("%s+ plane_id:%d, comp_id:%d, comp_id:%d\n", __func__,
-		plane->index, comp->id, plane_state->comp_state.comp_id);
+	if (comp != NULL)
+		DDPINFO("%s+ plane_id:%d, comp_id:%d, comp_id:%d\n", __func__,
+			plane->index, comp->id, plane_state->comp_state.comp_id);
 
 	if (plane_state->pending.enable) {
 		if (mtk_crtc->is_dual_pipe) {
 			comp = mtk_crtc_get_plane_comp(crtc, plane_state);
-			mtk_crtc_dual_layer_config(mtk_crtc, comp, plane_index,
-					plane_state, cmdq_handle);
+			if (comp != NULL)
+				mtk_crtc_dual_layer_config(mtk_crtc, comp, plane_index,
+						plane_state, cmdq_handle);
 		} else {
 			comp = mtk_crtc_get_plane_comp(crtc, plane_state);
-
-			mtk_ddp_comp_layer_config(comp, plane_index, plane_state,
+			if (comp != NULL)
+				mtk_ddp_comp_layer_config(comp, plane_index, plane_state,
 						  cmdq_handle);
 		}
 #ifndef DRM_CMDQ_DISABLE
@@ -8338,12 +8344,13 @@ void mtk_drm_crtc_plane_update(struct drm_crtc *crtc, struct drm_plane *plane,
 		mtk_dprec_mmp_dump_ovl_layer(plane_state);
 		if (mtk_crtc->is_dual_pipe) {
 			comp = mtk_crtc_get_plane_comp(crtc, plane_state);
-			mtk_crtc_dual_layer_config(mtk_crtc, comp, plane_index,
+			if (comp)
+				mtk_crtc_dual_layer_config(mtk_crtc, comp, plane_index,
 					plane_state, cmdq_handle);
 		} else {
 			comp = mtk_crtc_get_plane_comp(crtc, plane_state);
-
-			mtk_ddp_comp_layer_config(comp, plane_index, plane_state,
+			if (comp)
+				mtk_ddp_comp_layer_config(comp, plane_index, plane_state,
 						  cmdq_handle);
 		}
 #ifndef DRM_CMDQ_DISABLE
@@ -8360,7 +8367,7 @@ void mtk_drm_crtc_plane_update(struct drm_crtc *crtc, struct drm_plane *plane,
 			struct mtk_plane_state plane_state_l;
 			struct mtk_plane_state plane_state_r;
 
-			if (plane_state->comp_state.comp_id == 0)
+			if (plane_state->comp_state.comp_id == 0 && comp)
 				plane_state->comp_state.comp_id = comp->id;
 
 			mtk_drm_layer_dispatch_to_dual_pipe(priv->data->mmsys_id, plane_state,
@@ -9024,17 +9031,18 @@ static void mtk_drm_crtc_disable_fake_layer(struct drm_crtc *crtc,
 	DDPINFO("%s\n", __func__);
 
 	ovl_comp_id = mtk_drm_crtc_find_ovl_comp_id(priv, 0, 0);
-	if (ovl_comp_id < 0 || ovl_comp_id > DDP_COMPONENT_ID_MAX)
+	if (ovl_comp_id < 0 || ovl_comp_id >= DDP_COMPONENT_ID_MAX)
 		ovl_comp_id = DDP_COMPONENT_OVL0;
 	ovl_2l_comp_id = mtk_drm_crtc_find_ovl_comp_id(priv, 1, 0);
-	if (ovl_2l_comp_id < 0 || ovl_2l_comp_id > DDP_COMPONENT_ID_MAX)
+	if (ovl_2l_comp_id < 0 || ovl_2l_comp_id >= DDP_COMPONENT_ID_MAX)
 		ovl_2l_comp_id = DDP_COMPONENT_OVL0_2L;
 	if (mtk_crtc->is_dual_pipe) {
 		dual_pipe_ovl_comp_id = mtk_drm_crtc_find_ovl_comp_id(priv, 0, 1);
-		if (dual_pipe_ovl_comp_id < 0 || dual_pipe_ovl_comp_id > DDP_COMPONENT_ID_MAX)
+		if (dual_pipe_ovl_comp_id < 0 || dual_pipe_ovl_comp_id >= DDP_COMPONENT_ID_MAX)
 			dual_pipe_ovl_comp_id = DDP_COMPONENT_OVL1;
 		dual_pipe_ovl_2l_comp_id = mtk_drm_crtc_find_ovl_comp_id(priv, 1, 1);
-		if (dual_pipe_ovl_2l_comp_id < 0 || dual_pipe_ovl_2l_comp_id > DDP_COMPONENT_ID_MAX)
+		if (dual_pipe_ovl_2l_comp_id < 0 ||
+				dual_pipe_ovl_2l_comp_id >= DDP_COMPONENT_ID_MAX)
 			dual_pipe_ovl_2l_comp_id = DDP_COMPONENT_OVL1_2L;
 	}
 
@@ -10694,13 +10702,13 @@ int mtk_drm_set_msync_cmd_table(struct drm_device *dev,
 	if (config_dst->level_tb != NULL) {
 		if (copy_from_user(config_src->level_tb,
 					config_dst->level_tb,
-					sizeof(struct msync_parameter_table) *
+					sizeof(struct msync_level_table) *
 					config_src->msync_level_num)) {
 			DDPPR_ERR("%s:%d copy failed:(0x%p,0x%p), size:%ld\n",
 					__func__, __LINE__,
 					config_src->level_tb,
 					config_dst->level_tb,
-					sizeof(struct msync_parameter_table) *
+					sizeof(struct msync_level_table) *
 					config_src->msync_level_num);
 			return -EFAULT;
 		}
@@ -10724,7 +10732,7 @@ int check_msync_config_info(struct msync_parameter_table *config)
 	unsigned int msync_level_num = config->msync_level_num;
 	struct msync_level_table *level_tb = config->level_tb;
 	int i = 0;
-	struct msync_level_table check_level_tb[MSYNC_MAX_LEVEL];
+	struct msync_level_table check_level_tb[MSYNC_MAX_LEVEL] = { 0 };
 
 	DDPMSG("%s:%d +++\n", __func__, __LINE__);
 	if (!level_tb) {
@@ -10736,13 +10744,13 @@ int check_msync_config_info(struct msync_parameter_table *config)
 	if (level_tb != NULL) {
 		if (copy_from_user(check_level_tb,
 					level_tb,
-					sizeof(struct msync_parameter_table) *
+					sizeof(struct msync_level_table) *
 					config->msync_level_num)) {
 			DDPPR_ERR("%s:%d copy failed:(0x%p,0x%p), size:%ld\n",
 					__func__, __LINE__,
 					config->level_tb,
 					level_tb,
-					sizeof(struct msync_parameter_table) *
+					sizeof(struct msync_level_table) *
 					config->msync_level_num);
 			return -EFAULT;
 		}
@@ -10839,13 +10847,13 @@ int mtk_drm_get_msync_params_ioctl(struct drm_device *dev, void *data,
 		if (config_dst->level_tb != NULL) {
 			if (copy_to_user(config->level_tb,
 					config_dst->level_tb,
-					sizeof(struct msync_parameter_table) *
+					sizeof(struct msync_level_table) *
 					config->msync_level_num)) {
 				DDPPR_ERR("%s:%d copy failed:(0x%p,0x%p), size:%ld\n",
 					__func__, __LINE__,
 					config->level_tb,
 					config_dst->level_tb,
-					sizeof(struct msync_parameter_table) *
+					sizeof(struct msync_level_table) *
 					config->msync_level_num);
 				return -EFAULT;
 			}
@@ -10881,13 +10889,13 @@ int mtk_drm_get_msync_params_ioctl(struct drm_device *dev, void *data,
 		if (level_tb != NULL) {
 			if (copy_to_user(config->level_tb,
 					level_tb,
-					sizeof(struct msync_parameter_table) *
+					sizeof(struct msync_level_table) *
 					config->msync_level_num)) {
 				DDPPR_ERR("%s:%d copy failed:(0x%p,0x%p), size:%ld\n",
 					__func__, __LINE__,
 					config->level_tb,
 					level_tb,
-					sizeof(struct msync_parameter_table) *
+					sizeof(struct msync_level_table) *
 					config->msync_level_num);
 				return -EFAULT;
 			}
@@ -12461,7 +12469,7 @@ unsigned int mtk_drm_primary_display_get_debug_state(
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_crtc_state *mtk_state;
 	struct mtk_ddp_comp *comp;
-	char *panel_name;
+	char *panel_name = NULL;
 
 	comp = mtk_ddp_comp_request_output(mtk_crtc);
 	if (unlikely(!comp))
@@ -12476,7 +12484,8 @@ unsigned int mtk_drm_primary_display_get_debug_state(
 	DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
 	mtk_state = to_mtk_crtc_state(crtc->state);
 
-	len += scnprintf(stringbuf + len, buf_len - len,
+	if (panel_name)
+		len += scnprintf(stringbuf + len, buf_len - len,
 			 "LCM Driver=[%s] Resolution=%ux%u, Connected:%s\n",
 			  panel_name, crtc->state->adjusted_mode.hdisplay,
 			  crtc->state->adjusted_mode.vdisplay,
@@ -12641,7 +12650,7 @@ bool mtk_drm_get_hdr_property(void)
 }
 
 /********************** Legacy DRM API *****************************/
-int mtk_drm_format_plane_cpp(uint32_t format, int plane)
+int mtk_drm_format_plane_cpp(uint32_t format, unsigned int plane)
 {
 	const struct drm_format_info *info;
 
