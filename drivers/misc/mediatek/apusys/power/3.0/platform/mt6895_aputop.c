@@ -91,13 +91,19 @@ static void aputop_check_pwr_data(void)
 static void aputop_dump_rpc_data(void)
 {
 	char buf[32];
+	int ret = 0;
 
 	// reg dump for RPC
 	memset(buf, 0, sizeof(buf));
-	snprintf(buf, 32, "phys 0x%08x: ",
+	ret = snprintf(buf, 32, "phys 0x%08x: ",
 			(u32)(apupw.phy_addr[apu_rpc]));
-	print_hex_dump(KERN_INFO, buf, DUMP_PREFIX_OFFSET, 16, 4,
+
+	if (ret > 0) {
+		print_hex_dump(KERN_INFO, buf, DUMP_PREFIX_OFFSET, 16, 4,
 			apupw.regs[apu_rpc], 0x20, true);
+	} else {
+		pr_info("%s %d snprintf fail %d\n", __func__, __LINE__, ret);
+	}
 }
 
 static void aputop_dump_pll_data(void)
@@ -114,6 +120,7 @@ static void aputop_dump_pll_data(void)
 	int ofs_idx;
 	uint32_t phy_addr = 0x0;
 	char buf[256];
+	int ret = 0;
 
 	for (pll_idx = 0 ; pll_idx < base_arr_size ; pll_idx++) {
 
@@ -125,14 +132,18 @@ static void aputop_dump_pll_data(void)
 				pll_base_arr[pll_idx] +
 				pll_offset_arr[ofs_idx];
 
-			snprintf(buf + strlen(buf),
+			ret = snprintf(buf + strlen(buf),
 					sizeof(buf) - strlen(buf),
 					" 0x%08x",
 					apu_readl(apupw.regs[apu_pll] +
 						pll_base_arr[pll_idx] +
 						pll_offset_arr[ofs_idx]));
-
+			if (ret <= 0)
+				break;
 		}
+
+		if (ret <= 0)
+			break;
 
 		pr_info("%s pll_base:0x%08x = %s\n", __func__,
 				apupw.phy_addr[apu_pll] + pll_base_arr[pll_idx],
@@ -1159,7 +1170,11 @@ static int mt6895_apu_top_on(struct device *dev)
 
 	// for refcnt ++ to avoid be auto turned off by regulator framework
 	pr_info("%s enable vapu regulator\n", __func__);
-	regulator_enable(vapu_reg_id);
+	ret = regulator_enable(vapu_reg_id);
+	if (ret < 0) {
+		pr_info("%s fail enable vapu : %d\n", __func__, ret);
+		return -1;
+	}
 
 	pr_info("%s -\n", __func__);
 	return 0;
@@ -1233,7 +1248,11 @@ static int mt6895_apu_top_off(struct device *dev)
 
 	// for refcnt ++ to avoid be auto turned off by regulator framework
 	pr_info("%s disable vapu regulator\n", __func__);
-	regulator_disable(vapu_reg_id);
+	ret = regulator_disable(vapu_reg_id);
+	if (ret < 0) {
+		pr_info("%s fail disable vapu : %d\n", __func__, ret);
+		return -1;
+	}
 
 #if (ENABLE_SOC_CLK_MUX || ENABLE_SW_BUCK_CTL)
 	// FIXME: remove this since it should be auto ctl by RPC flow
@@ -1384,10 +1403,6 @@ static int init_reg_base(struct platform_device *pdev)
 			return -ENOMEM;
 		}
 
-		pr_info("%s: %s remap base 0x%x to 0x%x\n",
-				__func__, reg_name[idx],
-				res->start, apupw.regs[idx]);
-
 		apupw.phy_addr[idx] = res->start;
 	}
 
@@ -1398,8 +1413,8 @@ static int mt6895_apu_top_pb(struct platform_device *pdev)
 {
 #if APU_POWER_INIT
 	int ret_clk = 0;
-#endif
 	int ret = 0;
+#endif
 
 	pr_info("%s fpga_type : %d\n", __func__, fpga_type);
 
@@ -1409,7 +1424,11 @@ static int mt6895_apu_top_pb(struct platform_device *pdev)
 
 #if APU_POWER_INIT
 	// enable vapu buck
-	regulator_enable(vapu_reg_id);
+	ret = regulator_enable(vapu_reg_id);
+	if (ret < 0) {
+		pr_info("%s fail enable vapu : %d\n", __func__, ret);
+		return -1;
+	}
 
 	// set vapu to default voltage
 	regulator_set_voltage(vapu_reg_id, VAPU_DEF_VOLT, VAPU_DEF_VOLT);
@@ -1443,7 +1462,11 @@ static int mt6895_apu_top_pb(struct platform_device *pdev)
 	regulator_set_voltage(vapu_reg_id, VAPU_DEF_VOLT, VAPU_DEF_VOLT);
 
 	// disable vapu buck
-	regulator_disable(vapu_reg_id);
+	ret = regulator_disable(vapu_reg_id);
+	if (ret < 0) {
+		pr_info("%s fail disable vapu : %d\n", __func__, ret);
+		return -1;
+	}
 
 	// Step12. After APUsys is finished, update the following register to 1,
 	//	   ARE will use this information to ensure the SRAM in ARE is
@@ -1493,7 +1516,7 @@ static int mt6895_apu_top_pb(struct platform_device *pdev)
 #endif // APU_POWER_BRING_UP
 
 	aputop_dump_pwr_res();
-	return ret;
+	return 0;
 }
 
 static int mt6895_apu_top_rm(struct platform_device *pdev)

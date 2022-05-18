@@ -62,61 +62,6 @@ static void apu_pwr_wake_exit(void)
 #endif
 }
 
-static int device_linker(struct platform_device *pdev)
-{
-	struct device *dev = &pdev->dev;
-	struct device_node *sup_np = NULL;
-	struct device_node *con_np = NULL;
-	struct device *sup_dev = NULL;
-	struct device *con_dev = NULL;
-	struct platform_device *sup_pdev = NULL;
-	struct platform_device *con_pdev = NULL;
-	int con_size = 0, idx = 0;
-
-	con_size = of_count_phandle_with_args(dev->of_node, "consumer", NULL);
-
-	if (con_size > 0) {
-
-		sup_np = dev->of_node;
-
-		for (idx = 0; idx < con_size; idx++) {
-			con_np = of_parse_phandle(sup_np, "consumer", idx);
-
-			con_pdev = of_find_device_by_node(con_np);
-			con_dev = &con_pdev->dev;
-			sup_pdev = of_find_device_by_node(sup_np);
-			sup_dev = &sup_pdev->dev;
-
-			if (!(sup_dev &&
-				of_node_check_flag(sup_np, OF_POPULATED)
-				&& con_dev &&
-				of_node_check_flag(con_np, OF_POPULATED))) {
-
-				return -EPROBE_DEFER;
-			}
-
-			get_device(sup_dev);
-			get_device(con_dev);
-
-			if (!device_link_add(con_dev, sup_dev,
-				DL_FLAG_STATELESS | DL_FLAG_PM_RUNTIME)) {
-				dev_info(dev, "Not linking %pOFP - %pOFP\n",
-						con_np, sup_np);
-				put_device(sup_dev);
-				put_device(con_dev);
-
-				return -EINVAL;
-			}
-
-			put_device(sup_dev);
-			put_device(con_dev);
-
-		}
-	}
-
-	return 0;
-}
-
 static int check_pwr_data(void)
 {
 	if (!pwr_data) {
@@ -167,8 +112,6 @@ static int aputop_pwr_off_rpm_cb(struct device *dev)
 
 static int apu_top_probe(struct platform_device *pdev)
 {
-	int ret = 0;
-
 	dev_info(&pdev->dev, "%s\n", __func__);
 	pwr_data = of_device_get_match_data(&pdev->dev);
 
@@ -183,10 +126,6 @@ static int apu_top_probe(struct platform_device *pdev)
 	g_apupw_drv_ver = 3;
 
 	pm_runtime_enable(&pdev->dev);
-
-	ret = device_linker(pdev);
-	if (ret)
-		return ret;
 
 	return pwr_data->plat_aputop_pb(pdev);
 }

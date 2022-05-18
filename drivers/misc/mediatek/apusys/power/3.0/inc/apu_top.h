@@ -155,10 +155,13 @@ static inline void apu_clearl(const unsigned int val,
 #define apupw_aee_warn(module, reason) \
 	do { \
 		char mod_name[150];\
-		snprintf(mod_name, 150, "%s_%s", reason, module); \
-		dev_info(dev, "%s: %s\n", reason, module); \
-		aee_kernel_exception(mod_name, \
-				"\nCRDISPATCH_KEY:%s\n", module); \
+		if (snprintf(mod_name, 150, "%s_%s", reason, module) > 0) { \
+			dev_info(dev, "%s: %s\n", reason, module); \
+			aee_kernel_exception(mod_name, \
+					"\nCRDISPATCH_KEY:%s\n", module); \
+		} else { \
+			dev_info(dev, "%s: snprintf fail(%d)\n", __func__, __LINE__); \
+		} \
 	} while (0)
 #else
 #define apupw_aee_warn(module, reason)
