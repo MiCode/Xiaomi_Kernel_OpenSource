@@ -24,7 +24,10 @@
 
 #include "u_ether.h"
 #include "rndis.h"
+
+#if IS_ENABLED(CONFIG_MTK_NET_RPS)
 #include "rps_perf.h"
+#endif
 
 /*
  * This component encapsulates the Ethernet link glue needed to provide
@@ -1166,8 +1169,12 @@ static void set_rps_map_work(struct work_struct *work)
 	if (!dev->port_usb)
 		return;
 
+#if IS_ENABLED(CONFIG_MTK_NET_RPS)
 	pr_info("%s - set rps to 0xff\n", __func__);
 	set_rps_map(dev->net->_rx, 0xff);
+#else
+	pr_info("%s - cannot set rps, CONFIG_MTK_NET_RPS is not set\n", __func__);
+#endif
 }
 
 /* defined but not used due to MAC customization */
