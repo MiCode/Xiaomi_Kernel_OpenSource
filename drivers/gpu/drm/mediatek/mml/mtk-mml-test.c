@@ -461,7 +461,7 @@ static void setup_nv12(struct mml_submit *task, struct mml_test_case *cur)
 		cur->size_in)
 		mml_err("%s case %d src size total %u plane %u %u",
 			__func__, mml_case, cur->size_in,
-			task->buffer.src.size[0] + task->buffer.src.size[1]);
+			task->buffer.src.size[0], task->buffer.src.size[1]);
 
 	/* check dest 0 with 2 plane size */
 	if (task->buffer.dest[0].size[0] + task->buffer.dest[0].size[1] !=

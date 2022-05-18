@@ -1241,23 +1241,26 @@ static int subcomp_init(struct platform_device *pdev, struct mml_sys *sys,
 		dev_info(dev, "no comp-type of mmlsys comp-%d\n", subcomponent);
 		return 0;
 	}
-	if (comp_type < MML_COMP_TYPE_TOTAL)
+	if (comp_type < MML_COMP_TYPE_TOTAL) {
 		if (data->comp_inits[comp_type]) {
 			ret = data->comp_inits[comp_type](dev, sys, comp);
 			if (ret)
 				return ret;
 		}
 
-	if (data->ddp_comp_funcs[comp_type]) {
-		ret = mml_ddp_comp_init(dev, &sys->ddp_comps[subcomponent],
-					comp, data->ddp_comp_funcs[comp_type]);
-		if (unlikely(ret)) {
-			mml_log("failed to init ddp comp-%d: %d",
-				subcomponent, ret);
-			return ret;
+		if (data->ddp_comp_funcs[comp_type]) {
+			ret = mml_ddp_comp_init(dev, &sys->ddp_comps[subcomponent],
+						comp, data->ddp_comp_funcs[comp_type]);
+			if (unlikely(ret)) {
+				mml_log("failed to init ddp comp-%d: %d",
+					subcomponent, ret);
+				return ret;
+			}
+			sys->ddp_comp_en |= 1 << subcomponent;
 		}
-		sys->ddp_comp_en |= 1 << subcomponent;
-	}
+	} else
+		mml_err(" %s comp_type %d >= MML_COMP_TYPE_TOTAL", __func__, comp_type);
+
 	return ret;
 }
 
@@ -1441,7 +1444,8 @@ int mml_sys_bind(struct device *dev, struct device *master,
 
 static void unbind_mml(struct device *master, struct mml_sys *sys)
 {
-	if (WARN_ON(sys->comp_bound == 0))
+	if (WARN_ON(sys->comp_bound == 0 ||
+		    sys->comp_bound > MML_MAX_SYS_COMPONENTS))
 		return;
 	mml_unregister_comp(master, &sys->comps[--sys->comp_bound]);
 }
@@ -1455,7 +1459,8 @@ static void unbind_ddp(struct drm_device *drm_dev, struct mml_sys *sys)
 			break;
 	sys->ddp_bound = i;
 
-	if (WARN_ON(sys->ddp_bound <= 0))
+	if (WARN_ON(sys->ddp_bound == 0 ||
+		    sys->ddp_bound > MML_MAX_SYS_COMPONENTS))
 		return;
 	mml_ddp_comp_unregister(drm_dev, &sys->ddp_comps[--sys->ddp_bound]);
 }
