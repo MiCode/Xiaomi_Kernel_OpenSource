@@ -3233,8 +3233,7 @@ static long FDVT_ioctl(struct file *pFile,
 		    sizeof(FDVT_CLEAR_IRQ_STRUCT)) == 0) {
 			log_dbg("FDVT_CLEAR_IRQ type(%d)", ClearIrq.type);
 
-			if (ClearIrq.type >= FDVT_IRQ_TYPE_AMOUNT ||
-			    ClearIrq.type < 0) {
+			if (ClearIrq.type >= FDVT_IRQ_TYPE_AMOUNT) {
 				ret = -EFAULT;
 				log_err("invalid type(%d)", ClearIrq.type);
 				goto EXIT;

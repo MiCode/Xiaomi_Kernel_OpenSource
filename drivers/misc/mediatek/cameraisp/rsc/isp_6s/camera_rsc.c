@@ -455,6 +455,7 @@ static struct SV_LOG_STR gSvLog[RSC_IRQ_TYPE_AMOUNT];
 	char *ptr; \
 	char *pDes;\
 	int avaLen;\
+	int snprintf_ret = 0;\
 	unsigned int *ptr2 = &gSvLog[irq]._cnt[ppb][logT];\
 	unsigned int str_leng;\
 	unsigned int logi;\
@@ -472,8 +473,10 @@ static struct SV_LOG_STR gSvLog[RSC_IRQ_TYPE_AMOUNT];
 		&(gSvLog[irq]._str[ppb][logT][gSvLog[irq]._cnt[ppb][logT]]);   \
 	avaLen = str_leng - 1 - gSvLog[irq]._cnt[ppb][logT];\
 	if (avaLen > 1) {\
-		snprintf((char *)(pDes), avaLen, fmt,\
+		snprintf_ret = snprintf((char *)(pDes), avaLen, fmt,\
 			##__VA_ARGS__);   \
+		if (snprintf_ret < 0)\
+			LOG_ERR("snprintf encode fail!");\
 		if ('\0' != gSvLog[irq]._str[ppb][logT][str_leng - 1]) {\
 			LOG_ERR("log str over flow(%d)", irq);\
 		} \
@@ -538,7 +541,9 @@ static struct SV_LOG_STR gSvLog[RSC_IRQ_TYPE_AMOUNT];
 			ptr = pDes = (char *)\
 			&(pSrc->_str[ppb][logT][pSrc->_cnt[ppb][logT]]);\
 			ptr2 = &(pSrc->_cnt[ppb][logT]);\
-			snprintf((char *)(pDes), avaLen, fmt, ##__VA_ARGS__);  \
+			snprintf_ret = snprintf((char *)(pDes), avaLen, fmt, ##__VA_ARGS__);  \
+			if (snprintf_ret < 0)\
+				LOG_ERR("snprintf encode fail!");\
 			while (*ptr++ != '\0') {\
 				(*ptr2)++;\
 			} \
@@ -2066,7 +2071,7 @@ static long RSC_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 			spin_unlock_irqrestore(
 				&(RSCInfo.SpinLockIrq[RSC_IRQ_TYPE_INT_RSC_ST]),
 									flags);
-			if (currentPPB < LOG_PPNUM) {
+			if (currentPPB < LOG_PPNUM && currentPPB > 0) {
 				IRQ_LOG_PRINTER(RSC_IRQ_TYPE_INT_RSC_ST, currentPPB,
 								_LOG_INF);
 				IRQ_LOG_PRINTER(RSC_IRQ_TYPE_INT_RSC_ST, currentPPB,
@@ -2146,8 +2151,7 @@ static long RSC_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 				LOG_DBG("RSC_CLEAR_IRQ Type(%d)",
 								ClearIrq.Type);
 
-				if ((ClearIrq.Type >= RSC_IRQ_TYPE_AMOUNT) ||
-							(ClearIrq.Type < 0)) {
+				if (ClearIrq.Type >= RSC_IRQ_TYPE_AMOUNT) {
 					Ret = -EFAULT;
 					LOG_ERR("invalid type(%d)",
 								ClearIrq.Type);
@@ -2240,8 +2244,9 @@ static long RSC_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 				spin_lock_irqsave(
 				&(RSCInfo.SpinLockIrq[RSC_IRQ_TYPE_INT_RSC_ST]),
 						  flags);
-				if (g_RSC_ReqRing.WriteIdx < 0) {
-					LOG_ERR("[RSC_ENQUE] ReadId OOB: %d",
+				if (g_RSC_ReqRing.WriteIdx < 0 ||
+				g_RSC_ReqRing.WriteIdx >= _SUPPORT_MAX_RSC_REQUEST_RING_SIZE_) {
+					LOG_ERR("[RSC_ENQUE] WriteIdx OOB: %d",
 						g_RSC_ReqRing.WriteIdx);
 					break;
 				}
@@ -2381,8 +2386,8 @@ static long RSC_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 	case RSC_DEQUE_NUM:
 		{
 			if (g_RSC_ReqRing.ReadIdx < 0 ||
-				g_RSC_ReqRing.ReadIdx >= _SUPPORT_MAX_RSC_FRAME_REQUEST_) {
-				LOG_ERR("[RSC_DEQUE] ReadId OOB: %d", g_RSC_ReqRing.ReadIdx);
+				g_RSC_ReqRing.ReadIdx >= _SUPPORT_MAX_RSC_REQUEST_RING_SIZE_) {
+				LOG_ERR("[RSC_DEQUE_NUM] ReadId OOB: %d", g_RSC_ReqRing.ReadIdx);
 				break;
 			}
 			if (RSC_REQUEST_STATE_FINISHED ==
@@ -2418,11 +2423,19 @@ static long RSC_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 		{
 			spin_lock_irqsave(
 			&(RSCInfo.SpinLockIrq[RSC_IRQ_TYPE_INT_RSC_ST]), flags);
-			if (g_RSC_ReqRing.ReadIdx < 0) {
+			if (g_RSC_ReqRing.ReadIdx < 0 ||
+				g_RSC_ReqRing.ReadIdx >= _SUPPORT_MAX_RSC_REQUEST_RING_SIZE_) {
 				LOG_ERR("[RSC_DEQUE] ReadId OOB: %d", g_RSC_ReqRing.ReadIdx);
 				break;
 			}
 
+			if (g_RSC_ReqRing.RSCReq_Struct[g_RSC_ReqRing.ReadIdx].enqueReqNum < 0 ||
+				g_RSC_ReqRing.RSCReq_Struct[g_RSC_ReqRing.ReadIdx].enqueReqNum >=
+				_SUPPORT_MAX_RSC_FRAME_REQUEST_) {
+				LOG_ERR("[RSC_DEQUE] enqueReqNum OOB: %d",
+				g_RSC_ReqRing.RSCReq_Struct[g_RSC_ReqRing.ReadIdx].enqueReqNum);
+				break;
+			}
 			if ((RSC_REQUEST_STATE_FINISHED ==
 			     g_RSC_ReqRing.RSCReq_Struct[g_RSC_ReqRing.ReadIdx]
 			     .State)
@@ -4013,7 +4026,7 @@ static irqreturn_t ISP_Irq_RSC(signed int Irq, void *DeviceId)
 		wake_up_interruptible(&RSCInfo.WaitQueueHead);
 
 	/* dump log, use tasklet */
-	if (m_CurrentPPB < LOG_PPNUM) {
+	if (m_CurrentPPB < LOG_PPNUM && m_CurrentPPB > 0) {
 		IRQ_LOG_KEEPER(
 		RSC_IRQ_TYPE_INT_RSC_ST, m_CurrentPPB, _LOG_INF,
 		"%s:%d, reg 0x%x : 0x%x, bResulst:%d, RscHWSta:0x%x, RscIrqCnt:0x%x, WriteReqIdx:0x%x, ReadReqIdx:0x%x\n",
@@ -4041,7 +4054,7 @@ static irqreturn_t ISP_Irq_RSC(signed int Irq, void *DeviceId)
 
 static void ISP_TaskletFunc_RSC(unsigned long data)
 {
-	if (m_CurrentPPB < LOG_PPNUM) {
+	if (m_CurrentPPB < LOG_PPNUM && m_CurrentPPB > 0) {
 		IRQ_LOG_PRINTER(RSC_IRQ_TYPE_INT_RSC_ST, m_CurrentPPB, _LOG_DBG);
 		IRQ_LOG_PRINTER(RSC_IRQ_TYPE_INT_RSC_ST, m_CurrentPPB, _LOG_INF);
 		IRQ_LOG_PRINTER(RSC_IRQ_TYPE_INT_RSC_ST, m_CurrentPPB, _LOG_ERR);

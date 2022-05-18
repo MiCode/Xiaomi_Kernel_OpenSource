@@ -423,6 +423,9 @@ struct dma_buf *aie_imem_sec_alloc(struct mtk_aie_dev *fd, u32 size, bool IsSecu
 		dev_info(fd->dev, "buffer alloc fail\n");
 		return NULL;
 	}
+	if (my_dma_buf == NULL)
+		return NULL;
+
 	mtk_dma_buf_set_name(my_dma_buf, BUFTAG);
 	return my_dma_buf;
 }
@@ -3101,7 +3104,10 @@ static int aie_config_y2r(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg,
 				->attr_yuv2rgb_cfg_va[fd->attr_para->w_idx];
 		pym0_out_w = ATTR_MODE_PYRAMID_WIDTH;
 	}
-
+	if (src_crop_w == 0) {
+		dev_info(fd->dev, "src_crop_w = 0: cannot by divide");
+		return -1;
+	}
 	pym0_out_h = pym0_out_w * src_crop_h / src_crop_w;
 
 	if (pym0_out_w != 0) {
@@ -3356,6 +3362,10 @@ static int aie_config_rs(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg)
 	pym_out_w[1] = pym_out_w[0] >> 1;
 	pym_out_w[2] = pym_out_w[1] >> 1;
 
+	if (src_crop_w == 0) {
+		dev_info(fd->dev, "src_crop_w = 0: cannot by divide");
+		return -1;
+	}
 	pym_out_h[0] = pym_out_w[0] * src_crop_h / src_crop_w;
 	pym_out_h[1] = pym_out_h[0] >> 1;
 	pym_out_h[2] = pym_out_h[1] >> 1;
@@ -3481,6 +3491,10 @@ static int aie_config_network(struct mtk_aie_dev *fd,
 	}
 
 	pyramid0_out_w = fd->base_para->pyramid_width;
+	if (src_crop_w == 0) {
+		dev_info(fd->dev, "src_crop_w = 0: cannot by divide");
+		return -1;
+	}
 	pyramid0_out_h = pyramid0_out_w * src_crop_h / src_crop_w;
 
 	pyramid1_out_h = pyramid0_out_h / 2;
@@ -3816,6 +3830,10 @@ static int aie_config_attr_network(struct mtk_aie_dev *fd,
 	src_crop_h = fd->attr_para->crop_height[fd->attr_para->w_idx];
 
 	pyramid0_out_w = ATTR_MODE_PYRAMID_WIDTH;
+	if (src_crop_w == 0) {
+		dev_info(fd->dev, "src_crop_w = 0: cannot by divide");
+		return -1;
+	}
 	pyramid0_out_h = pyramid0_out_w * src_crop_h / src_crop_w;
 
 	fd_cfg = fd->base_para->attr_fd_cfg_va[fd->attr_para->w_idx];
