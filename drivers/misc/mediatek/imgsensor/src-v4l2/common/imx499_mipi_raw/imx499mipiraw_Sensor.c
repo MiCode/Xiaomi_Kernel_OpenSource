@@ -50,7 +50,6 @@
 #define write_cmos_sensor(...) subdrv_i2c_wr_u16(__VA_ARGS__)
 #define imx499_table_write_cmos_sensor(...) subdrv_i2c_wr_regs_u8(__VA_ARGS__)
 
-
 #define TYPE2 0
 #define HV_MIRROR_FLIP 1
 /************************************************************************
@@ -1942,7 +1941,7 @@ static int get_resolution(struct subdrv_ctx *ctx,
 	int i = 0;
 
 	for (i = SENSOR_SCENARIO_ID_MIN; i < SENSOR_SCENARIO_ID_MAX; i++) {
-		if (i < imgsensor_info.sensor_mode_num) {
+		if (i < imgsensor_info.sensor_mode_num && i < ARRAY_SIZE(imgsensor_winsize_info)) {
 			sensor_resolution->SensorWidth[i] = imgsensor_winsize_info[i].w2_tg_size;
 			sensor_resolution->SensorHeight[i] = imgsensor_winsize_info[i].h2_tg_size;
 		} else {
