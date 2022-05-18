@@ -466,7 +466,8 @@ static void adsp_set_dram_remap(void)
 int adsp_reset(void)
 {
 #ifdef CFG_RECOVERY_SUPPORT
-	int ret = 0, cid = 0;
+	int ret = 0;
+	unsigned int cid = 0;
 	struct adsp_priv *pdata;
 
 	if (!is_adsp_axibus_idle()) {
@@ -592,7 +593,8 @@ static int adsp_system_init(void)
 
 int adsp_system_bootup(void)
 {
-	int ret = 0, cid = 0;
+	int ret = 0;
+	unsigned int cid = 0;
 	struct adsp_priv *pdata;
 
 	ret = adsp_system_init();

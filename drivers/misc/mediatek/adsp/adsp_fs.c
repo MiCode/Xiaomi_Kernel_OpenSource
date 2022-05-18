@@ -128,10 +128,10 @@ static inline ssize_t suspend_cmd_store(struct device *dev,
 	if (!is_feature_in_set(pdata->id, fid))
 		goto EXIT;
 
-	if ((strcmp(token1, "regi") == 0) && (fid >= 0))
+	if (strcmp(token1, "regi") == 0)
 		_adsp_register_feature(pdata->id, fid, 0);
 
-	if ((strcmp(token1, "deregi") == 0) && (fid >= 0))
+	if (strcmp(token1, "deregi") == 0)
 		_adsp_deregister_feature(pdata->id, fid, 0);
 
 EXIT:

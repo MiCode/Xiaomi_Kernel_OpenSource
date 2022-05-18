@@ -50,11 +50,13 @@ static struct adsp_feature_tb feature_table[ADSP_NUM_FEATURE_ID] = {
 int adsp_get_feature_index(const char *str)
 {
 	int i = 0;
-	size_t len = strlen(str);
+	size_t len;
 	struct adsp_feature_tb *unit;
 
 	if (!str)
 		return -EINVAL;
+
+	len = strlen(str);
 
 	for (i = 0; i < ADSP_NUM_FEATURE_ID; i++) {
 		unit = &feature_table[i];
@@ -207,7 +209,7 @@ int adsp_register_feature(enum adsp_feature_id fid)
 	int ret = -1, cid;
 	bool flag = false;
 
-	if (fid >= ADSP_NUM_FEATURE_ID || fid < 0)
+	if (fid >= ADSP_NUM_FEATURE_ID)
 		return -EINVAL;
 
 	for (cid = 0; cid < get_adsp_core_total(); cid++) {
@@ -235,7 +237,7 @@ int adsp_deregister_feature(enum adsp_feature_id fid)
 	int ret = -1, cid;
 	bool flag = false;
 
-	if (fid >= ADSP_NUM_FEATURE_ID || fid < 0)
+	if (fid >= ADSP_NUM_FEATURE_ID)
 		return -EINVAL;
 
 	for (cid = 0; cid < get_adsp_core_total(); cid++) {
