@@ -1658,7 +1658,9 @@ static int fbt_check_scn(struct render_info *thr)
 {
 	if (fpsgo_fbt2fstb_get_cam_active())
 		return FPSGO_SCN_CAM;
-	if (fpsgo_fbt2fstb_get_video_active())
+	if (thr->video == RENDER_INFO_VIDEO_TYPE &&
+		thr->hwui == RENDER_INFO_HWUI_NONE &&
+		thr->api == NATIVE_WINDOW_API_EGL)
 		return FPSGO_SCN_VIDEO;
 	if (thr->api == NATIVE_WINDOW_API_EGL
 		&& thr->hwui == RENDER_INFO_HWUI_NONE)

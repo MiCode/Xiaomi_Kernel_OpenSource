@@ -166,6 +166,7 @@ struct render_info {
 	int frame_type;
 	int hwui;
 	int ux;
+	int video;
 
 	/*render queue/dequeue/frame time info*/
 	unsigned long long t_enqueue_start;
@@ -307,6 +308,11 @@ enum FPSGO_RENDER_INFO_HWUI {
 	RENDER_INFO_HWUI_UNKNOWN = 0,
 	RENDER_INFO_HWUI_TYPE = 1,
 	RENDER_INFO_HWUI_NONE = 2,
+};
+
+enum FPSGO_RENDER_INFO_VIDEO {
+	RENDER_INFO_VIDEO_NONE = 0,
+	RENDER_INFO_VIDEO_TYPE = 1,
 };
 
 #endif

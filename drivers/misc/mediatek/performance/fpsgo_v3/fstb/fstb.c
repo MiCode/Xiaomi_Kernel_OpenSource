@@ -104,10 +104,8 @@ static DEFINE_MUTEX(fstb_lock);
 static DEFINE_MUTEX(fstb_fps_active_time);
 static DEFINE_MUTEX(fstb_cam_active_time);
 
-static int fstb_is_video_active;
 static struct rb_root video_pid_tree;
 static DEFINE_MUTEX(fstb_video_pid_tree_lock);
-static DEFINE_MUTEX(fstb_is_video_active_lock);
 
 static set_cam_active_fpsgo_off;
 static DEFINE_MUTEX(fstb_set_cam_active_fpsgo_off_lock);
@@ -424,7 +422,7 @@ int switch_fps_range(int nr_level, struct fps_level *level)
 		return 1;
 }
 static struct FSTB_FRAME_INFO *add_new_frame_info(int pid, unsigned long long bufID,
-	int hwui_flag)
+	int hwui_flag, int video_flag)
 {
 	struct task_struct *tsk = NULL, *gtsk = NULL;
 		struct FSTB_FRAME_INFO *new_frame_info;
@@ -461,10 +459,9 @@ static struct FSTB_FRAME_INFO *add_new_frame_info(int pid, unsigned long long bu
 	new_frame_info->vote_i = 0;
 	new_frame_info->render_idle_cnt = 0;
 	new_frame_info->hwui_flag = hwui_flag;
+	new_frame_info->video_flag = video_flag;
 	new_frame_info->sbe_fpsgo_ctrl = 0;
 	if (fstb_is_cam_active)
-		new_frame_info->sbe_state = 0;
-	else if (fstb_is_video_active)
 		new_frame_info->sbe_state = 0;
 	else if (hwui_flag == RENDER_INFO_HWUI_TYPE)
 		new_frame_info->sbe_state = -1;
@@ -561,7 +558,8 @@ int switch_ui_ctrl(int pid, int set_ctrl)
 	if (!found) {
 		struct FSTB_FRAME_INFO *new_frame_info;
 
-		new_frame_info = add_new_frame_info(pid, 0, RENDER_INFO_HWUI_TYPE);
+		new_frame_info = add_new_frame_info(pid, 0, RENDER_INFO_HWUI_TYPE,
+			RENDER_INFO_VIDEO_NONE);
 		if (new_frame_info == NULL)
 			goto out;
 
@@ -1117,7 +1115,7 @@ out:
 	iter->cpu_time = cpu_time_ns;
 
 	if (fstb_is_cam_active || iter->hwui_flag == RENDER_INFO_HWUI_TYPE ||
-		fstb_is_video_active || !fstb_self_ctrl_fps_enable) {
+		iter->video_flag == RENDER_INFO_VIDEO_TYPE || !fstb_self_ctrl_fps_enable) {
 		eara_fps = iter->target_fps;
 		if (iter->target_fps && iter->target_fps != -1 && iter->target_fps_diff
 			&& !iter->target_fps_margin && !iter->target_fps_margin_gpu) {
@@ -1283,7 +1281,8 @@ void fpsgo_comp2fstb_prepare_calculate_target_fps(int pid, unsigned long long bu
 			break;
 	}
 
-	if (iter == NULL || fstb_is_cam_active || fstb_is_video_active ||
+	if (iter == NULL || fstb_is_cam_active ||
+		iter->video_flag == RENDER_INFO_VIDEO_TYPE ||
 		iter->hwui_flag == RENDER_INFO_HWUI_TYPE)
 		goto out;
 
@@ -1405,28 +1404,6 @@ out:
 	mutex_unlock(&fstb_cam_active_time);
 }
 
-int fpsgo_fbt2fstb_get_video_active(void)
-{
-	return fstb_get_video_active();
-}
-
-void fstb_set_video_active(int is_active)
-{
-	mutex_lock(&fstb_is_video_active_lock);
-	fstb_is_video_active = is_active;
-	mutex_unlock(&fstb_is_video_active_lock);
-}
-
-int fstb_get_video_active(void)
-{
-	int is_active = 0;
-
-	mutex_lock(&fstb_is_video_active_lock);
-	is_active = fstb_is_video_active;
-	mutex_unlock(&fstb_is_video_active_lock);
-	return is_active;
-}
-
 void fstb_set_video_pid(int pid)
 {
 	struct video_info *video_info_instance;
@@ -1434,28 +1411,23 @@ void fstb_set_video_pid(int pid)
 	if (pid == 0)
 		return;
 
-	mutex_lock(&fstb_video_pid_tree_lock);
+	fpsgo_video_pid_tree_lock(__func__);
 	video_info_instance = fstb_search_and_add_video_info(pid, 1);
-	mutex_unlock(&fstb_video_pid_tree_lock);
+	fpsgo_video_pid_tree_unlock(__func__);
 	if (video_info_instance)
 		fpsgo_systrace_c_fstb_man(-100, 0,
 			video_info_instance->count_instance, "video_pid[%d]", pid);
-	fstb_set_video_active(1);
 	fpsgo_main_trace("[FSTB_Video]: pid=%d, %s", pid, __func__);
 }
 
 void fstb_clear_video_pid(int pid)
 {
-	struct rb_node *node;
 	if (pid == 0)
 		return;
 
-	mutex_lock(&fstb_video_pid_tree_lock);
+	fpsgo_video_pid_tree_lock(__func__);
 	fstb_delete_video_info(pid);
-	node = rb_first(&video_pid_tree);
-	mutex_unlock(&fstb_video_pid_tree_lock);
-	if (!node)
-		fstb_set_video_active(0);
+	fpsgo_video_pid_tree_unlock(__func__);
 	fpsgo_main_trace("[FSTB_Video]: pid=%d, %s", pid, __func__);
 }
 
@@ -1510,7 +1482,7 @@ static int mode(int a[], int n)
 
 void fpsgo_comp2fstb_queue_time_update(int pid, unsigned long long bufID,
 	int frame_type, unsigned long long ts,
-	int api, int hwui_flag)
+	int api, int hwui_flag, int video_flag)
 {
 	struct FSTB_FRAME_INFO *iter;
 	ktime_t cur_time;
@@ -1545,7 +1517,7 @@ void fpsgo_comp2fstb_queue_time_update(int pid, unsigned long long bufID,
 	if (iter == NULL) {
 		struct FSTB_FRAME_INFO *new_frame_info;
 
-		new_frame_info = add_new_frame_info(pid, bufID, hwui_flag);
+		new_frame_info = add_new_frame_info(pid, bufID, hwui_flag, video_flag);
 		if (new_frame_info == NULL)
 			goto out;
 
@@ -1557,10 +1529,9 @@ void fpsgo_comp2fstb_queue_time_update(int pid, unsigned long long bufID,
 		iter->bufid = bufID;
 
 	iter->hwui_flag = hwui_flag;
+	iter->video_flag = video_flag;
 
 	if (fstb_is_cam_active)
-		iter->sbe_state = 0;
-	else if (fstb_is_video_active)
 		iter->sbe_state = 0;
 	else if (hwui_flag == RENDER_INFO_HWUI_TYPE) {
 		if (!iter->sbe_fpsgo_ctrl)
@@ -1982,7 +1953,8 @@ void fpsgo_fbt2fstb_query_fps(int pid, unsigned long long bufID,
 		(*quantile_cpu_time) = iter->quantile_cpu_time;
 		(*quantile_gpu_time) = iter->quantile_gpu_time;
 
-		if (fstb_is_cam_active || fstb_is_video_active ||
+		if (fstb_is_cam_active ||
+			(iter->video_flag == RENDER_INFO_VIDEO_TYPE) ||
 			(iter->hwui_flag == RENDER_INFO_HWUI_TYPE) ||
 			!fstb_self_ctrl_fps_enable) {
 			if (iter->target_fps && iter->target_fps != -1
@@ -2299,6 +2271,17 @@ static void fstb_fps_stats(struct work_struct *work)
 
 }
 
+
+void fpsgo_video_pid_tree_lock(const char *tag)
+{
+	mutex_lock(&fstb_video_pid_tree_lock);
+}
+
+void fpsgo_video_pid_tree_unlock(const char *tag)
+{
+	mutex_unlock(&fstb_video_pid_tree_lock);
+}
+
 struct video_info *fstb_search_and_add_video_info(int pid, int add_node)
 {
 	struct rb_node **rb_ptr = &video_pid_tree.rb_node;
@@ -2491,13 +2474,6 @@ static KOBJ_ATTR_RW(set_cam_active);
  *		e.g.
  *			cat fstb_video_pid_list
  */
-
-static ssize_t fstb_video_active_show(struct kobject *kobj,
-		struct kobj_attribute *attr, char *buf)
-{
-	return scnprintf(buf, PAGE_SIZE, "%d\n", fstb_is_video_active);
-}
-static KOBJ_ATTR_RO(fstb_video_active);
 
 static ssize_t fstb_video_pid_list_show(struct kobject *kobj,
 		struct kobj_attribute *attr, char *buf)
@@ -3276,15 +3252,17 @@ static ssize_t fpsgo_status_show(struct kobject *kobj,
 	}
 
 	length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
-	"tid\tbufID\t\tname\t\tcurrentFPS\ttargetFPS\tFPS_margin\tFPS_margin_GPU\tFPS_margin_thrs\tsbe_state\tHWUI\n");
+	"tid\tbufID\t\tname\t\tcurrentFPS\ttargetFPS\tFPS_margin\tFPS_margin_GPU\tFPS_margin_thrs\tsbe_state\tHWUI\tVIDEO\n");
 	pos += length;
 
 	hlist_for_each_entry(iter, &fstb_frame_infos, hlist) {
 		if (iter) {
-			if (fstb_is_cam_active || (iter->hwui_flag == RENDER_INFO_HWUI_TYPE) ||
-				fstb_is_video_active ||	!fstb_self_ctrl_fps_enable) {
+			if (fstb_is_cam_active ||
+				(iter->hwui_flag == RENDER_INFO_HWUI_TYPE) ||
+				(iter->video_flag == RENDER_INFO_VIDEO_TYPE) ||
+				!fstb_self_ctrl_fps_enable) {
 				length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
-						"%d\t0x%llx\t%s\t%d\t\t%d\t\t%d\t\t%d\t\t%d\t\t%d\t\t%d\n",
+						"%d\t0x%llx\t%s\t%d\t\t%d\t\t%d\t\t%d\t\t%d\t\t%d\t\t%d\t%d\n",
 						iter->pid,
 						iter->bufid,
 						iter->proc_name,
@@ -3295,10 +3273,11 @@ static ssize_t fpsgo_status_show(struct kobject *kobj,
 						iter->target_fps_margin_gpu,
 						iter->target_fps_margin2,
 						iter->sbe_state,
-						iter->hwui_flag);
+						iter->hwui_flag,
+						iter->video_flag);
 			} else {
 				length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
-						"%d\t0x%llx\t%s\t%d\t\t%d\t\t%d\t\t-1\t\t%d\t\t%d\t\t%d\n",
+						"%d\t0x%llx\t%s\t%d\t\t%d\t\t%d\t\t-1\t\t%d\t\t%d\t\t%d\t%d\n",
 						iter->pid,
 						iter->bufid,
 						iter->proc_name,
@@ -3308,7 +3287,8 @@ static ssize_t fpsgo_status_show(struct kobject *kobj,
 						iter->target_fps_margin_v2,
 						iter->target_fps_margin_v2,
 						iter->sbe_state,
-						iter->hwui_flag);
+						iter->hwui_flag,
+						iter->video_flag);
 			}
 			pos += length;
 		}
@@ -3510,8 +3490,6 @@ int mtk_fstb_init(void)
 		fpsgo_sysfs_create_file(fstb_kobj,
 				&kobj_attr_fstb_video_pid_list);
 		fpsgo_sysfs_create_file(fstb_kobj,
-				&kobj_attr_fstb_video_active);
-		fpsgo_sysfs_create_file(fstb_kobj,
 				&kobj_attr_set_cam_active_fpsgo_off);
 	}
 
@@ -3596,8 +3574,6 @@ int __exit mtk_fstb_exit(void)
 			&kobj_attr_clear_video_pid);
 	fpsgo_sysfs_remove_file(fstb_kobj,
 			&kobj_attr_fstb_video_pid_list);
-	fpsgo_sysfs_remove_file(fstb_kobj,
-				&kobj_attr_fstb_video_active);
 	fpsgo_sysfs_remove_file(fstb_kobj,
 				&kobj_attr_set_cam_active_fpsgo_off);
 

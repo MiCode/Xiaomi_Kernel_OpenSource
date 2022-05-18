@@ -11,7 +11,7 @@ int mtk_fstb_init(void);
 void fpsgo_comp2fstb_queue_time_update(
 	int pid, unsigned long long bufID, int frame_type,
 	unsigned long long ts,
-	int api, int hwui_flag);
+	int api, int hwui_flag, int video_flag);
 void fpsgo_comp2fstb_prepare_calculate_target_fps(int pid, unsigned long long bufID,
 	unsigned long long cur_dequeue_start_ts, unsigned long long cur_queue_end_ts);
 int fpsgo_ctrl2fstb_gblock(int tid, int start);
@@ -62,9 +62,8 @@ struct video_info *fstb_search_and_add_video_info(int pid, int add_node);
 void fstb_delete_video_info(int pid);
 void fstb_set_video_pid(int pid);
 void fstb_clear_video_pid(int pid);
-int fpsgo_fbt2fstb_get_video_active(void);
-void fstb_set_video_active(int is_active);
-int fstb_get_video_active(void);
+void fpsgo_video_pid_tree_lock(const char *tag);
+void fpsgo_video_pid_tree_unlock(const char *tag);
 
 #else
 static inline int is_fstb_enable(void) { return 0; }
@@ -109,9 +108,8 @@ struct video_info *fstb_search_and_add_video_info(int pid, int add_node) { retur
 void fstb_delete_video_info(int pid) { }
 void fstb_set_video_pid(int pid) { }
 void fstb_clear_video_pid(int pid) { }
-int fpsgo_fbt2fstb_get_video_active(void) { return 0; }
-void fstb_set_video_active(int is_active) { }
-int fstb_get_video_active(void) { return 0; }
+void fpsgo_video_pid_tree_lock(const char *tag) {}
+void fpsgo_video_pid_tree_unlock(const char *tag) {}
 
 #endif
 

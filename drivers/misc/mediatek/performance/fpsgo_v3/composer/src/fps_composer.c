@@ -289,6 +289,7 @@ void fpsgo_ctrl2comp_enqueue_end(int pid,
 {
 	struct render_info *f_render;
 	struct hwui_info *h_info;
+	struct video_info *video_render;
 	int xgf_ret = 0;
 	int xgff_ret = 0;
 	unsigned long long queue_cpu_time = 0;
@@ -338,6 +339,21 @@ void fpsgo_ctrl2comp_enqueue_end(int pid,
 			f_render->pLoading->hwui = RENDER_INFO_HWUI_NONE;
 	}
 
+	/* video */
+	fpsgo_video_pid_tree_lock(__func__);
+	video_render = fstb_search_and_add_video_info(f_render->tgid, 0);
+	fpsgo_video_pid_tree_unlock(__func__);
+
+	/*
+	 *	Video Policy:
+	 *	if video hint && HWUI ==> HWUI policy
+	 *	if video hint && NON_HWUI (e.g. EGL) ==> VP Policy
+	 */
+	if (video_render)
+		f_render->video = RENDER_INFO_VIDEO_TYPE;
+	else
+		f_render->video = RENDER_INFO_VIDEO_NONE;
+
 	if (!f_render->queue_SF) {
 		goto exit;
 	}
@@ -382,7 +398,8 @@ void fpsgo_ctrl2comp_enqueue_end(int pid,
 			f_render->frame_type,
 			enqueue_end_time,
 			f_render->api,
-			f_render->hwui);
+			f_render->hwui,
+			f_render->video);
 		fpsgo_comp2minitop_queue_update(enqueue_end_time);
 		fpsgo_comp2gbe_frame_update(f_render->pid, f_render->buffer_id);
 

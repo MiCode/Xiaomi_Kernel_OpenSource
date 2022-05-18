@@ -96,6 +96,7 @@ struct FSTB_FRAME_INFO {
 	int fps_raise_flag;
 	int render_idle_cnt;
 	int hwui_flag;
+	int video_flag;
 };
 
 struct FSTB_RENDER_TARGET_FPS {
