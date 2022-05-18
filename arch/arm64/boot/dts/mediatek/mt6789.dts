@@ -5200,7 +5200,7 @@
 			gce-gpr = <GCE_GPR_R10>;
 			iommus = <&disp_iommu M4U_PORT_L4_MINI_MDP_R0_EXT>,
 					<&disp_iommu M4U_PORT_L4_MINI_MDP_W0_EXT>;
-			dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
+			dma-ranges = <0x1 0x0 0x1 0x0 0x1 0x0>;
 			power-domains = <&scpsys MT6789_POWER_DOMAIN_VDEC>;
 			mediatek,larbs = <&smi_larb4>;
 			operating-points-v2 = <&opp_table_vdec>;
