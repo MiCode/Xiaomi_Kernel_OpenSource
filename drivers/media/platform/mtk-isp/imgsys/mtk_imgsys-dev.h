@@ -552,7 +552,7 @@ int mtk_imgsys_hw_streamon(struct mtk_imgsys_pipe *pipe);
 static inline struct mtk_imgsys_pipe*
 mtk_imgsys_dev_get_pipe(struct mtk_imgsys_dev *imgsys_dev, unsigned int pipe_id)
 {
-	if (pipe_id < 0 && pipe_id >= MTK_IMGSYS_PIPE_ID_TOTAL_NUM)
+	if (pipe_id >= MTK_IMGSYS_PIPE_ID_TOTAL_NUM)
 		return NULL;
 
 	return &imgsys_dev->imgsys_pipe[pipe_id];
