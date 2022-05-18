@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -765,6 +766,14 @@ enum kalama_functions {
 	msm_mux_qup1_se7_l2,
 	msm_mux_qup1_se7_l3,
 	msm_mux_qup2_se0,
+	msm_mux_qup2_se0_l0_mira,
+	msm_mux_qup2_se0_l0_mirb,
+	msm_mux_qup2_se0_l1_mira,
+	msm_mux_qup2_se0_l1_mirb,
+	msm_mux_qup2_se0_l2_mira,
+	msm_mux_qup2_se0_l2_mirb,
+	msm_mux_qup2_se0_l3_mira,
+	msm_mux_qup2_se0_l3_mirb,
 	msm_mux_qup2_se1_l0,
 	msm_mux_qup2_se1_l1,
 	msm_mux_qup2_se1_l2,
@@ -1476,9 +1485,32 @@ static const char * const qup1_se7_l2_groups[] = {
 static const char * const qup1_se7_l3_groups[] = {
 	"gpio27",
 };
+static const char * const qup2_se0_l0_mira_groups[] = {
+	"gpio56",
+};
+static const char * const qup2_se0_l0_mirb_groups[] = {
+	"gpio0",
+};
+static const char * const qup2_se0_l1_mira_groups[] = {
+	"gpio57",
+};
+static const char * const qup2_se0_l1_mirb_groups[] = {
+	"gpio1",
+};
+static const char * const qup2_se0_l2_mira_groups[] = {
+	"gpio58",
+};
+static const char * const qup2_se0_l2_mirb_groups[] = {
+	"gpio109",
+};
+static const char * const qup2_se0_l3_mira_groups[] = {
+	"gpio59",
+};
+static const char * const qup2_se0_l3_mirb_groups[] = {
+	"gpio107",
+};
 static const char * const qup2_se0_groups[] = {
-	"gpio0", "gpio1", "gpio56", "gpio57", "gpio58", "gpio59", "gpio63",
-	"gpio66", "gpio67", "gpio107", "gpio109",
+	"gpio63", "gpio66", "gpio67",
 };
 static const char * const qup2_se1_l0_groups[] = {
 	"gpio60",
@@ -1870,6 +1902,14 @@ static const struct msm_function kalama_functions[] = {
 	FUNCTION(qup1_se7_l2),
 	FUNCTION(qup1_se7_l3),
 	FUNCTION(qup2_se0),
+	FUNCTION(qup2_se0_l0_mira),
+	FUNCTION(qup2_se0_l0_mirb),
+	FUNCTION(qup2_se0_l1_mira),
+	FUNCTION(qup2_se0_l1_mirb),
+	FUNCTION(qup2_se0_l2_mira),
+	FUNCTION(qup2_se0_l2_mirb),
+	FUNCTION(qup2_se0_l3_mira),
+	FUNCTION(qup2_se0_l3_mirb),
 	FUNCTION(qup2_se1_l0),
 	FUNCTION(qup2_se1_l1),
 	FUNCTION(qup2_se1_l2),
@@ -1939,9 +1979,9 @@ static const struct msm_function kalama_functions[] = {
  * Clients would not be able to request these dummy pin groups.
  */
 static const struct msm_pingroup kalama_groups[] = {
-	[0] = PINGROUP(0, cci_i2c_sda5, qup2_se0, ibi_i3c, phase_flag31, NA,
+	[0] = PINGROUP(0, cci_i2c_sda5, qup2_se0_l0_mirb, ibi_i3c, phase_flag31, NA,
 		       NA, NA, NA, NA, 0xD200C, 3),
-	[1] = PINGROUP(1, cci_i2c_scl5, qup2_se0, ibi_i3c, NA, NA, NA, NA, NA,
+	[1] = PINGROUP(1, cci_i2c_scl5, qup2_se0_l1_mirb, ibi_i3c, NA, NA, NA, NA, NA,
 		       NA, 0, -1),
 	[2] = PINGROUP(2, qup2_se4_l0, phase_flag29, NA, NA, NA, NA, NA, NA,
 		       NA, 0xD200C, 4),
@@ -2018,10 +2058,10 @@ static const struct msm_pingroup kalama_groups[] = {
 	[54] = PINGROUP(54, NA, qup1_se5_l2, NA, NA, NA, NA, NA, NA, NA, 0, -1),
 	[55] = PINGROUP(55, qup1_se5_l3, atest_usb03, NA, NA, NA, NA, NA, NA,
 			NA, 0xD2018, 1),
-	[56] = PINGROUP(56, qup2_se0, ibi_i3c, NA, NA, NA, NA, NA, NA, NA, 0xD200C, 7),
-	[57] = PINGROUP(57, qup2_se0, ibi_i3c, NA, NA, NA, NA, NA, NA, NA, 0, -1),
-	[58] = PINGROUP(58, qup2_se0, NA, NA, NA, NA, NA, NA, NA, NA, 0, -1),
-	[59] = PINGROUP(59, qup2_se0, phase_flag25, NA, qdss_gpio6, NA, NA, NA,
+	[56] = PINGROUP(56, qup2_se0_l0_mira, ibi_i3c, NA, NA, NA, NA, NA, NA, NA, 0xD200C, 7),
+	[57] = PINGROUP(57, qup2_se0_l1_mira, ibi_i3c, NA, NA, NA, NA, NA, NA, NA, 0, -1),
+	[58] = PINGROUP(58, qup2_se0_l2_mira, NA, NA, NA, NA, NA, NA, NA, NA, 0, -1),
+	[59] = PINGROUP(59, qup2_se0_l3_mira, phase_flag25, NA, qdss_gpio6, NA, NA, NA,
 			NA, NA, 0xD200C, 8),
 	[60] = PINGROUP(60, qup2_se1_l0, ibi_i3c, NA, NA, NA, NA, NA, NA, NA, 0xD200C, 9),
 	[61] = PINGROUP(61, qup2_se1_l1, ibi_i3c, NA, NA, NA, NA, NA, NA, NA, 0, -1),
@@ -2097,10 +2137,10 @@ static const struct msm_pingroup kalama_groups[] = {
 	[105] = PINGROUP(105, cam_mclk, qdss_gpio3, NA, NA, NA, NA, NA, NA, NA, 0, -1),
 	[106] = PINGROUP(106, cam_mclk, qup2_se7_l1, NA, NA, NA, NA, NA, NA,
 			 NA, 0, -1),
-	[107] = PINGROUP(107, cam_mclk, qup2_se0, pll_clk_aux, NA, NA, NA, NA,
+	[107] = PINGROUP(107, cam_mclk, qup2_se0_l3_mirb, pll_clk_aux, NA, NA, NA, NA,
 			 NA, NA, 0xD2010, 7),
 	[108] = PINGROUP(108, NA, NA, NA, NA, NA, NA, NA, NA, NA, 0, -1),
-	[109] = PINGROUP(109, cci_async_in2, qup2_se0, NA, NA, NA, NA, NA, NA,
+	[109] = PINGROUP(109, cci_async_in2, qup2_se0_l2_mirb, NA, NA, NA, NA, NA, NA,
 			 NA, 0, -1),
 	[110] = PINGROUP(110, cci_i2c_sda0, qdss_gpio7, NA, NA, NA, NA, NA, NA,
 			 NA, 0, -1),
