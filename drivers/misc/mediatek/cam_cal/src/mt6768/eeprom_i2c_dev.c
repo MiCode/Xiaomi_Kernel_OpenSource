@@ -15,8 +15,7 @@ static enum EEPROM_I2C_DEV_IDX gi2c_dev_sel[IMGSENSOR_SENSOR_IDX_MAX_NUM] = {
 
 enum EEPROM_I2C_DEV_IDX get_i2c_dev_sel(enum IMGSENSOR_SENSOR_IDX idx)
 {
-	if (idx >= IMGSENSOR_SENSOR_IDX_MIN_NUM &&
-		idx < IMGSENSOR_SENSOR_IDX_MAX_NUM)
+	if (idx < IMGSENSOR_SENSOR_IDX_MAX_NUM)
 		return gi2c_dev_sel[idx];
 	return I2C_DEV_IDX_1;
 }
