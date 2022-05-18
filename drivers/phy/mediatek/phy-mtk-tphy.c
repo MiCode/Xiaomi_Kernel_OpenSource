@@ -74,7 +74,7 @@
 #define PA6_RG_U2_PHY_REV6_MASK	(0x3)
 #define PA6_RG_U2_PHY_REV6_OFET	(30)
 
-#ifndef CONFIG_MACH_MT6781
+#if (!defined CONFIG_MACH_MT6781) && (!defined CONFIG_MACH_MT6768)
 #define PA6_RG_U2_PHY_REV4		BIT(28)
 #define PA6_RG_U2_PHY_REV4_VAL(x)	((0x1 & (x)) << 28)
 #define PA6_RG_U2_PHY_REV4_MASK	(0x1)
@@ -341,7 +341,7 @@
 #define PHY_MODE_BC11_SW_SET 1
 #define PHY_MODE_BC11_SW_CLR 2
 
-#ifndef CONFIG_MACH_MT6781
+#if (!defined CONFIG_MACH_MT6781) && (!defined CONFIG_MACH_MT6768)
 #define PHY_MODE_DPDMPULLDOWN_SET 3
 #define PHY_MODE_DPDMPULLDOWN_CLR 4
 #define PHY_MODE_DPPULLUP_SET 5
@@ -1248,7 +1248,7 @@ static void u2_phy_instance_power_on(struct mtk_tphy *tphy,
 
 	tmp = readl(com + U3P_U2PHYDTM0);
 
-#ifndef CONFIG_MACH_MT6781
+#if (!defined CONFIG_MACH_MT6781) && (!defined CONFIG_MACH_MT6768)
 	tmp |= P2C_FORCE_SUSPENDM;
 	writel(tmp, com + U3P_U2PHYDTM0);
 
@@ -1291,7 +1291,7 @@ static void u2_phy_instance_power_on(struct mtk_tphy *tphy,
 	tmp &= ~(P2C_RG_XCVRSEL | P2C_RG_DATAIN | P2C_DTM0_PART_MASK);
 	writel(tmp, com + U3P_U2PHYDTM0);
 
-#ifndef CONFIG_MACH_MT6781
+#if (!defined CONFIG_MACH_MT6781) && (!defined CONFIG_MACH_MT6768)
 	tmp = readl(com + U3P_USBPHYACR6);
 	tmp &= ~PA6_RG_U2_BC11_SW_EN;
 	writel(tmp, com + U3P_USBPHYACR6);
@@ -1307,7 +1307,7 @@ static void u2_phy_instance_power_on(struct mtk_tphy *tphy,
 	tmp &= ~P2C_RG_SESSEND;
 	writel(tmp, com + U3P_U2PHYDTM1);
 
-#ifndef CONFIG_MACH_MT6781
+#if (!defined CONFIG_MACH_MT6781) && (!defined CONFIG_MACH_MT6768)
 	tmp = readl(com + U3P_USBPHYACR6);
 	tmp &= ~PA6_RG_U2_PHY_REV6;
 	tmp |= PA6_RG_U2_PHY_REV6_VAL(1);
@@ -1326,7 +1326,7 @@ static void u2_phy_instance_power_on(struct mtk_tphy *tphy,
 		writel(tmp, com + U3P_U2PHYDTM0);
 	}
 
-#ifdef CONFIG_MACH_MT6781
+#if (defined CONFIG_MACH_MT6781) || (defined CONFIG_MACH_MT6768)
 	/* set SW_BC11_EN as 0 which is usb control DPDM */
 	u2_phy_instance_set_mode_ext(tphy, instance, PHY_MODE_BC11_SW_CLR);
 #endif
@@ -1352,7 +1352,7 @@ static void u2_phy_instance_power_off(struct mtk_tphy *tphy,
 	u32 tmp;
 
 	tmp = readl(com + U3P_U2PHYDTM0);
-#ifdef CONFIG_MACH_MT6781
+#if (defined CONFIG_MACH_MT6781) || (defined CONFIG_MACH_MT6768)
 	tmp &= ~(P2C_RG_XCVRSEL | P2C_RG_DATAIN);
 	tmp |= P2C_RG_XCVRSEL_VAL(1) | P2C_DTM0_PART_MASK2;
 #if defined(CONFIG_MACH_MT6739)
@@ -1365,7 +1365,7 @@ static void u2_phy_instance_power_off(struct mtk_tphy *tphy,
 
 	writel(tmp, com + U3P_U2PHYDTM0);
 
-#ifndef CONFIG_MACH_MT6781
+#if (!defined CONFIG_MACH_MT6781) && (!defined CONFIG_MACH_MT6768)
 	tmp = readl(com + U3P_U2PHYDTM1);
 	tmp &= ~P2C_RG_UART_EN;
 	writel(tmp, com + U3P_U2PHYDTM1);
@@ -1389,7 +1389,7 @@ static void u2_phy_instance_power_off(struct mtk_tphy *tphy,
 	tmp |= P2C_RG_SESSEND;
 	writel(tmp, com + U3P_U2PHYDTM1);
 
-#ifndef CONFIG_MACH_MT6781
+#if (!defined CONFIG_MACH_MT6781) && (!defined CONFIG_MACH_MT6768)
 	tmp = readl(com + U3P_U2PHYDTM0);
 	tmp |= P2C_RG_SUSPENDM | P2C_FORCE_SUSPENDM;
 	writel(tmp, com + U3P_U2PHYDTM0);
@@ -1424,7 +1424,7 @@ static void u2_phy_instance_power_off(struct mtk_tphy *tphy,
 		writel(tmp, com + U3D_U2PHYDCR0);
 	}
 
-#ifdef CONFIG_MACH_MT6781
+#if (defined CONFIG_MACH_MT6781) || (defined CONFIG_MACH_MT6768)
 	/*
 	 * set SW_BC11_EN as 0 which is charger control DPDM
 	 * to disable USB DPDM
@@ -1637,7 +1637,7 @@ static void u2_phy_instance_set_mode_ext(struct mtk_tphy *tphy,
 		writel(tmp, u2_banks->com + U3P_USBPHYACR6);
 		break;
 
-#ifndef CONFIG_MACH_MT6781
+#if (!defined CONFIG_MACH_MT6781) && (!defined CONFIG_MACH_MT6768)
 	case PHY_MODE_DPDMPULLDOWN_SET:
 		tmp = readl(u2_banks->com + U3P_U2PHYDTM0);
 		tmp |= P2C_RG_DPPULLDOWN | P2C_RG_DMPULLDOWN;
