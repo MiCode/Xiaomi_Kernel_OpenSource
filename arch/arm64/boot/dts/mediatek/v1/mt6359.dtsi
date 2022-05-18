@@ -182,6 +182,12 @@
 				  "bat_l",
 				  "fg_cur_h",
 				  "fg_cur_l";
+		io-channels = <&pmic_auxadc AUXADC_IMP>,
+					  <&pmic_auxadc AUXADC_IMIX_R>,
+				      <&pmic_auxadc AUXADC_BATADC>;
+		io-channel-names = "pmic_ptim",
+						   "pmic_imix_r",
+						   "pmic_batadc";
 	};
 
 	/*accdet: accdet {
