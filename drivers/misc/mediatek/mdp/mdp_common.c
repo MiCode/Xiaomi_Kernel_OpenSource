@@ -2763,9 +2763,6 @@ static void cmdq_mdp_begin_task_virtual(struct cmdqRecStruct *handle,
 				isp_curr_bandwidth);
 			mtk_icc_set_bw(port_path, MBps_to_icc(isp_curr_bandwidth), 0);
 		}
-
-		if (cmdq_mdp_get_func()->mdpOppSpecialUsage()) // run opp 3
-			isp_throughput = isp_throughput * 3;
 		mdp_update_voltage(thread_id, isp_throughput, false);
 	}
 
@@ -2797,8 +2794,6 @@ static void cmdq_mdp_begin_task_virtual(struct cmdqRecStruct *handle,
 		}
 
 		mdp_throughput = max(isp_throughput, mdp_throughput);
-		if (cmdq_mdp_get_func()->mdpOppSpecialUsage()) // run opp 3
-			mdp_throughput = mdp_throughput * 5;
 		mdp_update_voltage(thread_id, mdp_throughput, true);
 	}
 
@@ -3592,12 +3587,6 @@ static bool mdp_vcp_pq_readback_support_virtual(void)
 	return false;
 }
 
-static bool mdp_check_Opp_Special_Usage(void)
-{
-    /* If needed special treatment of opp */
-	return false;
-}
-
 void mdp_vcp_pq_readback_virtual(struct cmdqRecStruct *handle,
 	u16 engine, u32 vcp_offset, u32 count)
 {
@@ -3689,7 +3678,6 @@ void cmdq_mdp_virtual_function_setting(void)
 	pFunc->mdpSvpSupportMetaData = mdp_svp_support_meta_data_virtual;
 	pFunc->mdpGetReadbackEventLock = mdp_get_rb_event_lock;
 	pFunc->mdpGetReadbackEventUnlock = mdp_get_rb_event_unlock;
-	pFunc->mdpOppSpecialUsage = mdp_check_Opp_Special_Usage;
 }
 
 struct cmdqMDPFuncStruct *cmdq_mdp_get_func(void)

@@ -1841,12 +1841,6 @@ static bool mdp_svp_support_meta_data(void)
 	return true;
 }
 
-static bool mdp_check_Opp_Special_Usage(void)
-{
-    /* If needed special treatment of opp */
-	return true;
-}
-
 void cmdq_mdp_platform_function_setting(void)
 {
 	struct cmdqMDPFuncStruct *pFunc = cmdq_mdp_get_func();
@@ -1900,8 +1894,6 @@ void cmdq_mdp_platform_function_setting(void)
 	pFunc->getRDMAIndex = mdp_get_rdma_idx;
 	pFunc->mdpIsCaminSupport = mdp_check_camin_support_virtual;
 	pFunc->mdpSvpSupportMetaData = mdp_svp_support_meta_data;
-
-	pFunc->mdpOppSpecialUsage = mdp_check_Opp_Special_Usage;
 }
 MODULE_LICENSE("GPL");
 
