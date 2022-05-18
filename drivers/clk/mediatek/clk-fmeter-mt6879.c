@@ -490,7 +490,7 @@ static unsigned int mt6879_get_subsys_freq(unsigned int ID)
 
 	id = FM_ID(ID);
 	subsys_idx = FM_SYS(ID) * 4 + id;
-	if (subsys_idx >= (SUBSYS_PLL_NUM * FM_SYS_NUM) || subsys_idx < 0) {
+	if (subsys_idx >= (SUBSYS_PLL_NUM * FM_SYS_NUM)) {
 		subsys_fmeter_unlock(flags);
 		return 0;
 	}
