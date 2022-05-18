@@ -440,9 +440,9 @@ struct tcpc_device *tcpc_device_register(struct device *parent,
 	 * please use it instead of "WAKE_LOCK_SUSPEND"
 	 */
 	tcpc->attach_wake_lock =
-		wakeup_source_register(&tcpc->dev, "tcpc_attach_wake_lock");
+		wakeup_source_register(NULL, "tcpc_attach_wake_lock");
 	tcpc->detach_wake_lock =
-		wakeup_source_register(&tcpc->dev, "tcpc_detach_wake_lock");
+		wakeup_source_register(NULL, "tcpc_detach_wake_lock");
 
 	tcpci_timer_init(tcpc);
 #if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
