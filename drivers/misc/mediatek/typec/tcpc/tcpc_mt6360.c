@@ -1138,7 +1138,7 @@ static int mt6360_fault_status_clear(struct tcpc_device *tcpc, u8 status)
 static int mt6360_get_alert_mask(struct tcpc_device *tcpc, u32 *mask)
 {
 	int ret;
-	u16 data;
+	u16 data = 0;
 
 	ret = mt6360_i2c_read16(tcpc, TCPC_V10_REG_ALERT_MASK, &data);
 	if (ret < 0)
@@ -1151,7 +1151,7 @@ static int mt6360_get_alert_mask(struct tcpc_device *tcpc, u32 *mask)
 static int mt6360_get_alert_status(struct tcpc_device *tcpc, u32 *alert)
 {
 	int ret;
-	u16 data;
+	u16 data = 0;
 
 	ret = mt6360_i2c_read16(tcpc, TCPC_V10_REG_ALERT, &data);
 	if (ret < 0)
@@ -2355,13 +2355,9 @@ static int mt6360_tcpcdev_init(struct mt6360_chip *chip, struct device *dev)
 		desc->role_def = TYPEC_ROLE_DRP;
 	}
 
-	if (of_property_read_u32(np, "mt-tcpc,notifier_supply_num",
-				 &val) >= 0) {
-		if (val < 0)
-			desc->notifier_supply_num = 0;
-		else
-			desc->notifier_supply_num = val;
-	} else
+	if (of_property_read_u32(np, "mt-tcpc,notifier_supply_num", &val) >= 0)
+		desc->notifier_supply_num = val;
+	else
 		desc->notifier_supply_num = 0;
 
 	if (of_property_read_u32(np, "mt-tcpc,rp_level", &val) >= 0) {
@@ -2392,7 +2388,8 @@ static int mt6360_tcpcdev_init(struct mt6360_chip *chip, struct device *dev)
 	}
 #endif	/* CONFIG_TCPC_VCONN_SUPPLY_MODE */
 
-	of_property_read_string(np, "mt-tcpc,name", (char const **)&name);
+	if (of_property_read_string(np, "mt-tcpc,name", &name) < 0)
+		dev_info(dev, "use default name\n");
 	len = strlen(name);
 	desc->name = kzalloc(len + 1, GFP_KERNEL);
 	if (!desc->name)

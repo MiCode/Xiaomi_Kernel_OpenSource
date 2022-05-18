@@ -277,7 +277,7 @@ static inline void typec_transfer_state(struct tcpc_device *tcpc,
 					enum TYPEC_CONNECTION_STATE state)
 {
 #if TYPEC_INFO_ENABLE
-	if (state >= 0 && state < ARRAY_SIZE(typec_state_name))
+	if (state < ARRAY_SIZE(typec_state_name))
 		TYPEC_INFO("** %s\n", typec_state_name[state]);
 #endif /* TYPEC_INFO_ENABLE */
 	tcpc->typec_state = (uint8_t) state;

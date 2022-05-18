@@ -228,7 +228,7 @@ struct mt6375_tcpc_data {
 	int irq;
 	u16 did;
 
-	atomic_t wd_protect_rty;
+	atomic_t wd_protect_retry;
 
 #if CONFIG_WATER_DETECTION
 #if CONFIG_WD_POLLING_ONLY
@@ -271,7 +271,7 @@ enum mt6375_wd_status {
 };
 
 enum mt6375_wd_chan {
-	MT6375_WD_CHAN_WD1,
+	MT6375_WD_CHAN_WD1 = 0,
 	MT6375_WD_CHAN_WD2,
 	MT6375_WD_CHAN_NUM,
 };
@@ -1288,10 +1288,11 @@ out:
 		protection = true;
 		break;
 	}
-	MT6375_DBGINFO("%s: retry cnt = %d\n", __func__, ddata->wd_protect_rty);
-	if (!protection && atomic_dec_and_test(&ddata->wd_protect_rty)) {
+	MT6375_DBGINFO("%s: retry cnt = %d\n", __func__,
+		       atomic_read(&ddata->wd_protect_retry));
+	if (!protection && atomic_dec_and_test(&ddata->wd_protect_retry)) {
 		tcpc_typec_handle_wd(ddata->tcpc, false);
-		atomic_set(&ddata->wd_protect_rty,
+		atomic_set(&ddata->wd_protect_retry,
 			   CONFIG_WD_PROTECT_RETRY_COUNT);
 	} else
 		mt6375_enable_wd_protection(ddata, true);
@@ -1691,7 +1692,7 @@ static int mt6375_set_cc(struct tcpc_device *tcpc, int pull)
 	int ret;
 	int rp_lvl = TYPEC_CC_PULL_GET_RP_LVL(pull);
 	struct mt6375_tcpc_data *ddata = tcpc_get_dev_data(tcpc);
-	bool en;
+	bool en = false;
 
 	MT6375_INFO("%s %d\n", __func__, pull);
 	pull = TYPEC_CC_PULL_GET_RES(pull);
@@ -1987,7 +1988,7 @@ static int mt6375_set_cc_hidet(struct tcpc_device *tcpc, bool en)
 static int mt6375_is_water_detected(struct tcpc_device *tcpc)
 {
 	int ret, i;
-	bool error, wd = false;
+	bool error = false, wd = false;
 	struct mt6375_tcpc_data *ddata = tcpc_get_dev_data(tcpc);
 
 	for (i = 0; i < MT6375_WD_CHAN_NUM; i++) {
@@ -2177,7 +2178,8 @@ static struct irq_mapping_tbl mt6375_vend_irq_mapping_tbl[] = {
 
 static int mt6375_alert_vendor_defined_handler(struct tcpc_device *tcpc)
 {
-	int ret, i, irqnum, irqbit;
+	int ret, i;
+	u8 irqnum, irqbit;
 	u8 alert[MT6375_VEND_INT_NUM];
 	u8 mask[MT6375_VEND_INT_NUM];
 	struct mt6375_tcpc_data *ddata = tcpc_get_dev_data(tcpc);
@@ -2608,7 +2610,8 @@ static int mt6375_tcpc_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	ddata->desc = devm_kzalloc(ddata->dev, sizeof(ddata->desc), GFP_KERNEL);
+	ddata->desc = devm_kzalloc(ddata->dev, sizeof(*ddata->desc),
+				   GFP_KERNEL);
 	if (!ddata->desc)
 		return -ENOMEM;
 	ret = mt6375_parse_dt(ddata);
@@ -2617,7 +2620,7 @@ static int mt6375_tcpc_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	atomic_set(&ddata->wd_protect_rty, CONFIG_WD_PROTECT_RETRY_COUNT);
+	atomic_set(&ddata->wd_protect_retry, CONFIG_WD_PROTECT_RETRY_COUNT);
 #if CONFIG_WATER_DETECTION
 #if CONFIG_WD_POLLING_ONLY
 	INIT_DELAYED_WORK(&ddata->wd_poll_dwork, mt6375_wd_poll_dwork_handler);
