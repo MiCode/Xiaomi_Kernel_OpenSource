@@ -1035,7 +1035,7 @@
 		required-opps = <&dvfsrc_freq_opp0>;
 
 		gcc_enable = <1>;
-		fbt_cpu_mask = <255 192 63 63>;
+		fbt_cpu_mask = <255 192 63 255>;
 		sbe_resceue_enable = <1>;
 	};
 
