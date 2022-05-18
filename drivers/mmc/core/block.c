@@ -2262,7 +2262,7 @@ static int mmc_blk_mq_issue_rw_rq(struct mmc_queue *mq,
 		(host->caps2 & MMC_CAP2_NO_MMC)) {
 		mt_bio_queue_alloc(current, req->q, true);
 		mt_biolog_mmcqd_req_check(true);
-		mt_biolog_mmcqd_req_start(host, true);
+		mt_biolog_mmcqd_req_start(host, req, true);
 	}
 
 	mmc_blk_rw_rq_prep(mqrq, mq->card, 0, mq);
@@ -2373,7 +2373,7 @@ static int mmc_blk_swcq_issue_rw_rq(struct mmc_queue *mq,
 	if (req) {
 		mt_bio_queue_alloc(current, req->q, false);
 		mt_biolog_mmcqd_req_check(false);
-		mt_biolog_mmcqd_req_start(host, false);
+		mt_biolog_mmcqd_req_start(host, req, false);
 	}
 	mq->mqrq[index].req = req;
 	atomic_set(&mqrq->index, index + 1);
