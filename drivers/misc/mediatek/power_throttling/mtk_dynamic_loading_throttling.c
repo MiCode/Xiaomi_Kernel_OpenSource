@@ -206,7 +206,7 @@ static int dlpt_adc_chan_init(struct platform_device *pdev)
 void register_dlpt_notify(dlpt_callback dlpt_cb,
 			  enum DLPT_PRIO_TAG prio_val)
 {
-	if (prio_val >= DLPTCB_MAX_NUM || prio_val < 0) {
+	if (prio_val >= DLPTCB_MAX_NUM) {
 		pr_notice("[%s] prio_val=%d, out of boundary\n",
 			  __func__, prio_val);
 		return;
