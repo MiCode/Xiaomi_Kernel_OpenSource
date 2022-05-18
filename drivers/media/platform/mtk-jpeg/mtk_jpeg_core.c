@@ -116,6 +116,7 @@ struct mtk_jpeg_src_buf {
 };
 
 static int debug;
+static int jpgenc_probe_time;
 module_param(debug, int, 0644);
 
 static inline struct mtk_jpeg_ctx *ctrl_to_ctx(struct v4l2_ctrl *ctrl)
@@ -143,7 +144,9 @@ static int mtk_jpeg_querycap(struct file *file, void *priv,
 	strscpy(cap->card, jpeg->variant->dev_name, sizeof(cap->card));
 	snprintf(cap->bus_info, sizeof(cap->bus_info), "platform:%s",
 		 dev_name(jpeg->dev));
+	cap->reserved[0] = jpgenc_probe_time;
 
+	v4l2_info(&jpeg->v4l2_dev, "device numbers: %d\n", jpgenc_probe_time);
 	return 0;
 }
 
@@ -1627,6 +1630,8 @@ static int mtk_jpeg_probe(struct platform_device *pdev)
 
 	pm_runtime_enable(&pdev->dev);
 
+	if (strcmp((const char *)jpeg->variant->dev_name, "mtk-jpeg-enc") == 0)
+		jpgenc_probe_time++;
 	return 0;
 
 err_vfd_jpeg_register:
