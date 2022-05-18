@@ -61,7 +61,7 @@ struct tag_bootmode {
 };
 
 enum mt6360_adc_channel {
-	MT6360_ADC_VBUSDIV5,
+	MT6360_ADC_VBUSDIV5 = 0,
 	MT6360_ADC_VSYS,
 	MT6360_ADC_VBAT,
 	MT6360_ADC_IBUS,
@@ -927,8 +927,12 @@ static int __mt6360_get_adc(struct mt6360_chg_info *mci,
 			    enum mt6360_adc_channel channel, int *min, int *max)
 {
 	int ret = 0;
+	unsigned int idx = channel;
 
-	ret = iio_read_channel_processed(mci->channels[channel], min);
+	if (idx >= MT6360_ADC_MAX)
+		return -EINVAL;
+
+	ret = iio_read_channel_processed(mci->channels[idx], min);
 	if (ret < 0) {
 		dev_info(mci->dev, "%s: fail(%d)\n", __func__, ret);
 		return ret;
@@ -2784,6 +2788,11 @@ static int mt6360_charger_get_property(struct power_supply *psy,
 	int ret = 0;
 	bool pwr_rdy = false, chg_en = false;
 
+	if (!mci) {
+		pr_notice("%s: mci is NULL\n", __func__);
+		return -EINVAL;
+	}
+
 	dev_dbg(mci->dev, "%s: prop = %d\n", __func__, psp);
 	switch (psp) {
 	case POWER_SUPPLY_PROP_ONLINE:
@@ -2842,6 +2851,11 @@ static int mt6360_charger_set_property(struct power_supply *psy,
 {
 	struct mt6360_chg_info *mci = power_supply_get_drvdata(psy);
 	int ret = 0;
+
+	if (!mci) {
+		pr_notice("%s: mci is NULL\n", __func__);
+		return -EINVAL;
+	}
 
 	dev_dbg(mci->dev, "%s: prop = %d\n", __func__, psp);
 	switch (psp) {
