@@ -2770,7 +2770,7 @@ void mtk_mipi_tx_pll_rate_switch_gce(struct phy *phy,
 	DDPINFO("%s-\n", __func__);
 }
 
-void mtk_mipi_tx_pll_rate_switch_gce_mt6895(struct phy *phy,
+void mtk_mipi_tx_pll_rate_switch_gce_mt6983(struct phy *phy,
 		void *handle, unsigned long rate)
 {
 	struct mtk_mipi_tx *mipi_tx = phy_get_drvdata(phy);
@@ -3489,6 +3489,7 @@ static const struct mtk_mipitx_data mt6983_mipitx_data = {
 	.backup_mipitx_impedance = backup_mipitx_impedance_mt6983,
 	.refill_mipitx_impedance = refill_mipitx_impedance_mt6983,
 	.mipi_tx_ssc_en = mtk_mipi_tx_ssc_en,
+	.pll_rate_switch_gce = mtk_mipi_tx_pll_rate_switch_gce_mt6983,
 };
 
 static const struct mtk_mipitx_data mt6895_mipitx_data = {
@@ -3516,8 +3517,8 @@ static const struct mtk_mipitx_data mt6895_mipitx_data = {
 	.dsi_get_pcw = _dsi_get_pcw_mt6983,
 	.backup_mipitx_impedance = backup_mipitx_impedance_mt6983,
 	.refill_mipitx_impedance = refill_mipitx_impedance_mt6983,
-	.pll_rate_switch_gce = mtk_mipi_tx_pll_rate_switch_gce_mt6895,
 	.mipi_tx_ssc_en = mtk_mipi_tx_ssc_en,
+	.pll_rate_switch_gce = mtk_mipi_tx_pll_rate_switch_gce_mt6983,
 };
 
 static const struct mtk_mipitx_data mt6983_mipitx_cphy_data = {
