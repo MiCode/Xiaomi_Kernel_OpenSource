@@ -1678,14 +1678,16 @@ static void mtk_cam_try_set_sensor(struct mtk_cam_ctx *ctx)
 	if (req_stream_data) {
 		req = mtk_cam_s_data_get_req(req_stream_data);
 		/* fs complete: fs.target <= off and on == off */
-		if (!(req->fs.target <= req->fs.off_cnt &&
-		      req->fs.off_cnt == req->fs.on_cnt)) {
-			dev_info(ctx->cam->dev,
-				 "[TimerIRQ] ctx:%d the fs of req(%s/%d) is not completed, target/on/off(%d/%d/%d)\n",
-				 ctx->stream_id, req->req.debug_str,
-				 sensor_seq_no_next - 1, req->fs.target,
-				 req->fs.on_cnt, req->fs.off_cnt);
-			return;
+		if (req->fs.target) {
+			if (!(req->fs.target <= req->fs.off_cnt &&
+			      req->fs.off_cnt == req->fs.on_cnt)) {
+				dev_info(ctx->cam->dev,
+					"[TimerIRQ] ctx:%d the fs of req(%s/%d) is not completed, target/on/off(%d/%d/%d)\n",
+					ctx->stream_id, req->req.debug_str,
+					sensor_seq_no_next - 1, req->fs.target,
+					req->fs.on_cnt, req->fs.off_cnt);
+				return;
+			}
 		}
 	}
 
