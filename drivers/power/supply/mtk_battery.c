@@ -2717,6 +2717,7 @@ in_sleep:
 	}
 }
 
+#ifdef CONFIG_PM
 static int system_pm_notify(struct notifier_block *nb,
 			    unsigned long mode, void *_unused)
 {
@@ -2750,6 +2751,7 @@ static int system_pm_notify(struct notifier_block *nb,
 
 	return NOTIFY_DONE;
 }
+#endif /* CONFIG_PM */
 
 void fg_update_routine_wakeup(struct mtk_battery *gm)
 {
@@ -3539,10 +3541,14 @@ int battery_init(struct platform_device *pdev)
 	if (!gm->disableGM30)
 		kthread_run(battery_update_routine, gm, "battery_thread");
 
+#ifdef CONFIG_PM
 	gm->pm_nb.notifier_call = system_pm_notify;
 	ret = register_pm_notifier(&gm->pm_nb);
-	if (ret)
+	if (ret) {
 		bm_err("%s failed to register system pm notify\n", __func__);
+		unregister_pm_notifier(&gm->pm_nb);
+	}
+#endif /* CONFIG_PM */
 
 	fg_drv_thread_hrtimer_init(gm);
 	battery_sysfs_create_group(gm->bs_data.psy);
