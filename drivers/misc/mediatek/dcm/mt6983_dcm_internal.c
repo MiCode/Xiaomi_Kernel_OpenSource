@@ -627,7 +627,10 @@ void dcm_pre_init(void)
 static void disabled_by_dts(void)
 {
 	struct device_node *node;
-	int infra_err, mcu_err, infra_disable, mcu_disable;
+	int infra_err = 1;
+	int mcu_err = 1;
+	int infra_disable = 0;
+	int mcu_disable = 0;
 
 	node = of_find_compatible_node(NULL, NULL, "mediatek,mt6983-dcm");
 	if (node) {
