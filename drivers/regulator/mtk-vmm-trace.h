@@ -43,19 +43,6 @@ DEFINE_EVENT(mtk_pm_qos_request, mtk_pm_qos_update_request,
 	TP_ARGS(mtk_pm_qos_class, value, owner)
 );
 
-TRACE_EVENT(vmm__update_voltage,
-	TP_PROTO(int voltage),
-	TP_ARGS(voltage),
-	TP_STRUCT__entry(
-		__field(int, voltage)
-	),
-	TP_fast_assign(
-		__entry->voltage = voltage;
-	),
-	TP_printk("vmm_voltage=%d",
-		(int)__entry->voltage)
-);
-
 #endif /* _TRACE_ISPDVFS_EVENTS_H */
 
 #undef TRACE_INCLUDE_FILE

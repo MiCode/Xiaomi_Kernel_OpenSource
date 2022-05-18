@@ -134,7 +134,6 @@ static int fix_force_step(const char *val, const struct kernel_param *kp)
 		goto Unlock_Mutex;
 	}
 	current_info->voltage_target = opp_table->voltage[new_force_step];
-	trace_vmm__update_voltage(current_info->voltage_target);
 
 Unlock_Mutex:
 	mutex_unlock(&current_info->voltage_mutex);
@@ -256,17 +255,27 @@ static int force_voltage(void *data, u64 val)
 {
 	struct ispdvfs_dbg_data *dbg_data = (struct ispdvfs_dbg_data *)data;
 	int voltage = (int)val;
+	int ret;
 
 	ISP_LOGI("Force votage(%d)", voltage);
 
 	if (!dbg_data->reg_enable) {
-		regulator_enable(dbg_data->reg);
+		ret = regulator_enable(dbg_data->reg);
+		if (ret) {
+			ISP_LOGI("enable regulator fail");
+			goto out;
+		}
+
 		dbg_data->reg_enable = true;
 	}
 
 	/* Disable vmm regulator when voltage is 0 */
 	if (dbg_data->reg_enable && !voltage) {
-		regulator_disable(dbg_data->reg);
+		ret = regulator_disable(dbg_data->reg);
+		if (ret) {
+			ISP_LOGI("disable regulator fail");
+			goto out;
+		}
 		dbg_data->reg_enable = false;
 	}
 
@@ -275,8 +284,11 @@ static int force_voltage(void *data, u64 val)
 		return PTR_ERR(dbg_data->reg);
 	}
 
-	regulator_set_voltage(dbg_data->reg, voltage, INT_MAX);
+	ret = regulator_set_voltage(dbg_data->reg, voltage, INT_MAX);
+	if (ret)
+		ISP_LOGE("regulator set voltage fail\n");
 
+out:
 	return 0;
 }
 
@@ -285,8 +297,9 @@ static int force_opp_level(void *data, u64 val)
 	struct ispdvfs_dbg_data *dbg_data = (struct ispdvfs_dbg_data *)data;
 	struct dvfs_driver_data *drv_data;
 	struct dvfs_table *opp_table;
+	int ret;
 
-	ISP_LOGI("Force opp level(%d)", val);
+	ISP_LOGI("Force opp level(%lu)", val);
 
 	if (IS_ERR(dbg_data)) {
 		ISP_LOGE("dbg_data is NULL\n");
@@ -306,21 +319,36 @@ static int force_opp_level(void *data, u64 val)
 	opp_table = &(drv_data->opp_table);
 
 	if (!dbg_data->reg_enable) {
-		regulator_enable(dbg_data->reg);
+		ret = regulator_enable(dbg_data->reg);
+		if (ret) {
+			ISP_LOGI("regulator enable fail");
+			goto out;
+		}
 		dbg_data->reg_enable = true;
 	}
 
-	if (val < opp_table->opp_num)
-		regulator_set_voltage(dbg_data->reg, opp_table->voltage[val], INT_MAX);
-	else {
+	if (val < opp_table->opp_num) {
+		ret = regulator_set_voltage(dbg_data->reg,
+				opp_table->voltage[val], INT_MAX);
+		if (ret) {
+			ISP_LOGI("regulator set voltage fail");
+			goto out;
+		}
+	} else {
 		ISP_LOGI("Opp level is not in range.\n");
 		if (dbg_data->reg_enable) {
-			regulator_disable(dbg_data->reg);
+			ret = regulator_disable(dbg_data->reg);
+			if (ret) {
+				ISP_LOGI("regulator disable fail");
+				goto out;
+			}
+
 			dbg_data->reg_enable = false;
 		}
 	}
 
-	return 0;
+out:
+	return ret;
 }
 
 static void set_all_muxes(struct dvfs_driver_data *drv_data, u32 opp_level)
@@ -402,7 +430,6 @@ static int disable_all_muxes(struct dvfs_driver_data *drv_data)
 static void ccu_ipc_update_dvfs(uint32_t data, uint32_t len, void *priv)
 {
 	ISP_LOGD("Current VMM voltage(%d)", data);
-	trace_vmm__update_voltage(data);
 }
 
 static int vmm_init_dvfs(struct ccu_handle_info *ccu_handle)
@@ -551,9 +578,6 @@ static int ccu_set_voltage(struct regulator_dev *rdev,
 	ISP_LOGD("CCU VMM set voltage (%d) max level(%d)",
 			min_uV, dvfs_ipi.maxOppIdx);
 
-	if (dvfs_ipi.maxOppIdx == dvfs_ipi.minOppIdx)
-		trace_vmm__update_voltage(min_uV);
-
 Unlock_Mutex:
 	mutex_unlock(&current_info->voltage_mutex);
 
@@ -571,8 +595,6 @@ static int apmcu_set_voltage(struct regulator_dev *rdev,
 	int target_voltage = min_uV;
 	u32 cur_opp_idx = 0, prev_opp_idx = 0;
 	u32 i;
-
-	trace_vmm__update_voltage(min_uV);
 
 	regulator = rdev_get_drvdata(rdev);
 	if (!regulator) {
