@@ -117,7 +117,8 @@ void mtk_jpeg_set_enc_params(struct mtk_jpeg_ctx *ctx,  void __iomem *base)
 	u32 blk_num;
 	u32 img_stride;
 	u32 mem_stride;
-	u32 i, enc_quality;
+	u32 enc_quality;
+	s32 i;
 
 	value = width << 16 | height;
 	writel(value, base + JPEG_ENC_IMG_SIZE);
