@@ -77,7 +77,7 @@ static void commit_write_sensor(struct subdrv_ctx *ctx)
 static void set_cmos_sensor_16(struct subdrv_ctx *ctx,
 			kal_uint16 reg, kal_uint16 val)
 {
-	if (_size_to_write > _I2C_BUF_SIZE - 2)
+	if (_size_to_write + 2 >= _I2C_BUF_SIZE)
 		commit_write_sensor(ctx);
 
 	_i2c_data[_size_to_write++] = reg;
@@ -946,7 +946,8 @@ static int get_resolution(struct subdrv_ctx *ctx,
 	int i = 0;
 
 	for (i = SENSOR_SCENARIO_ID_MIN; i < SENSOR_SCENARIO_ID_MAX; i++) {
-		if (i < imgsensor_info.sensor_mode_num) {
+		if (i < imgsensor_info.sensor_mode_num &&
+			i < ARRAY_SIZE(imgsensor_winsize_info)) {
 			sensor_resolution->SensorWidth[i] = imgsensor_winsize_info[i].w2_tg_size;
 			sensor_resolution->SensorHeight[i] = imgsensor_winsize_info[i].h2_tg_size;
 		} else {
