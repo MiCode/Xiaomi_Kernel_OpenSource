@@ -1257,11 +1257,13 @@ void ged_log_perf_trace_batch_counter(char *name, long long count, int pid,
 	unsigned long frameID, u64 BQID, char *batch_str)
 {
 	char buf[256];
+	int cx;
 
 	if (ged_log_perf_trace_enable) {
-		snprintf(buf, sizeof(buf), "C|%d|%s|%lld|%llu|%lu%s\n",
+		cx = snprintf(buf, sizeof(buf), "C|%d|%s|%lld|%llu|%lu%s\n",
 		pid, name, count, (unsigned long long)BQID, frameID, batch_str);
-		tracing_mark_write(buf);
+		if (cx >= 0 && cx < sizeof(buf))
+			tracing_mark_write(buf);
 	}
 }
 EXPORT_SYMBOL(ged_log_perf_trace_batch_counter);
