@@ -368,7 +368,7 @@ int conn_state_event_handler(struct notifier_block *this,
 		return 0;
 	}
 
-	pr_info("[%s] ========= event =[%d] [%x][%llu]",
+	pr_info("[%s] ========= event =[%lx] [%x][%llu]",
 				__func__, event, info->chip_info, info->emi_phy_addr);
 
 	g_core_ctx.chip_info = info->chip_info;
@@ -376,7 +376,7 @@ int conn_state_event_handler(struct notifier_block *this,
 
 	ret = connsys_scp_platform_data_init(info->chip_info, info->emi_phy_addr);
 	/* check if platform support */
-	pr_info("[%s] chip_info=[%x] addr[%x] ret=[%d]", __func__,
+	pr_info("[%s] chip_info=[%x] addr[%llx] ret=[%d]", __func__,
 						info->chip_info, info->emi_phy_addr, ret);
 
 	if (ret) {
