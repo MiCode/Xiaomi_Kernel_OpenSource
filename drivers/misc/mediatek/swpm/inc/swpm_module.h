@@ -94,6 +94,7 @@ struct swpm_manager {
 
 extern struct mutex swpm_mutex;
 extern struct timer_list swpm_timer;
+extern struct workqueue_struct *swpm_common_wq;
 extern unsigned int swpm_log_interval_ms;
 
 extern int swpm_core_ops_register(struct swpm_core_internal_ops *ops);

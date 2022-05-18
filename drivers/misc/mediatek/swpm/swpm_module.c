@@ -15,6 +15,7 @@
 #include <linux/syscalls.h>
 #include <linux/timer.h>
 #include <linux/types.h>
+#include <linux/workqueue.h>
 
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_SSPM_SUPPORT)
 #include <sspm_reservedmem_define.h>
@@ -37,6 +38,9 @@ EXPORT_SYMBOL(swpm_mutex);
 
 struct timer_list swpm_timer;
 EXPORT_SYMBOL(swpm_timer);
+
+struct workqueue_struct *swpm_common_wq;
+EXPORT_SYMBOL(swpm_common_wq);
 
 unsigned int swpm_log_interval_ms = DEFAULT_LOG_INTERVAL_MS;
 EXPORT_SYMBOL(swpm_log_interval_ms);
@@ -167,12 +171,16 @@ static int __init swpm_init(void)
 {
 	int ret = 0;
 
+	swpm_common_wq = create_workqueue("swpm_common_wq");
+
 	return ret;
 }
 
 #ifdef MTK_SWPM_KERNEL_MODULE
 static void __exit swpm_deinit(void)
 {
+	flush_workqueue(swpm_common_wq);
+	destroy_workqueue(swpm_common_wq);
 }
 
 module_init(swpm_init);

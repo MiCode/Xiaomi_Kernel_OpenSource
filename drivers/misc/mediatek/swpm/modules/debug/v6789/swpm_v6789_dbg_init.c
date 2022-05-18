@@ -60,10 +60,7 @@ static ssize_t enable_write(char *FromUser, size_t sz, void *priv)
 		swpm_lock(&swpm_mutex);
 		swpm_set_enable(type, enable);
 		if (swpm_status)
-			mod_timer(&swpm_timer, jiffies +
-				msecs_to_jiffies(swpm_log_interval_ms));
-		else
-			del_timer(&swpm_timer);
+			swpm_set_periodic(swpm_status);
 		swpm_unlock(&swpm_mutex);
 	}
 

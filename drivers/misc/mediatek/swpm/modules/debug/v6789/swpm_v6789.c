@@ -65,9 +65,11 @@ struct share_wrap *wrap_d;
  *  Local Variables
  ****************************************************************************/
 static unsigned int swpm_init_state;
+#define SWPM_RETRY_INTERVAL (10000) /* 10 seconds */
 static void swpm_init_retry(struct work_struct *work);
-static struct workqueue_struct *swpm_init_retry_work_queue;
-DECLARE_WORK(swpm_init_retry_work, swpm_init_retry);
+DECLARE_DEFERRABLE_WORK(swpm_init_retry_work, swpm_init_retry);
+static void swpm_get_core_temp(struct work_struct *work);
+DECLARE_DEFERRABLE_WORK(swpm_get_core_temp_work, swpm_get_core_temp);
 
 static unsigned char avg_window = DEFAULT_AVG_WINDOW;
 static unsigned int swpm_log_mask = DEFAULT_LOG_MASK;
@@ -613,6 +615,10 @@ static void swpm_send_init_ipi(unsigned int addr, unsigned int size,
 		return;
 
 error:
+	if (swpm_common_wq)
+		queue_delayed_work(swpm_common_wq,
+				   &swpm_init_retry_work,
+				   SWPM_RETRY_INTERVAL);
 #endif
 	swpm_init_state = 0;
 	share_idx_ref = NULL;
@@ -628,11 +634,33 @@ static inline void swpm_pass_to_sspm(void)
 		(unsigned int)(rec_size & 0xFFFFFFFF), 2);
 }
 
+static void swpm_get_core_temp(struct work_struct *work)
+{
+	struct thermal_zone_device *tz;
+	int tz_temp = 0, tz_core = 0;
+	unsigned int i;
+
+	if (core_ptr) {
+		for (i = 0; i < NR_CORE_TS; i++) {
+			tz = thermal_zone_get_zone_by_name(core_ts_name[i]);
+			if (!IS_ERR(tz)) {
+				thermal_zone_get_temp(tz, &tz_temp);
+				tz_core += tz_temp;
+			}
+		}
+		tz_core = (tz_core > 0) ? tz_core / NR_CORE_TS : 0;
+		core_ptr->thermal = (unsigned int)tz_core;
+	}
+
+	queue_delayed_work(swpm_common_wq,
+			   &swpm_get_core_temp_work,
+			   swpm_log_interval_ms);
+}
+
 static void swpm_update_temp(void)
 {
 	unsigned int i;
-	int tz_temp = 0, tz_core = 0;
-	struct thermal_zone_device *tz;
+	int tz_temp = 0;
 
 	if (cpu_ptr) {
 		for (i = 0; i < NR_CPU_CORE; i++) {
@@ -645,18 +673,6 @@ static void swpm_update_temp(void)
 		/* MT6789 workaround */
 		cpu_ptr->cpu_temp[0] = cpu_ptr->cpu_temp[1];
 		cpu_ptr->cpu_temp[3] = cpu_ptr->cpu_temp[4];
-	}
-
-	if (core_ptr) {
-		for (i = 0; i < NR_CORE_TS; i++) {
-			tz = thermal_zone_get_zone_by_name(core_ts_name[i]);
-			if (!IS_ERR(tz)) {
-				thermal_zone_get_temp(tz, &tz_temp);
-				tz_core += tz_temp;
-			}
-		}
-		tz_core = (tz_core > 0) ? tz_core / NR_CORE_TS : 0;
-		core_ptr->thermal = (unsigned int)tz_core;
 	}
 }
 
@@ -676,8 +692,12 @@ static void swpm_idx_snap(void)
 static void swpm_init_retry(struct work_struct *work)
 {
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_SSPM_SUPPORT)
-	if (!swpm_init_state)
+	if (!swpm_init_state && swpm_common_wq) {
 		swpm_pass_to_sspm();
+		queue_delayed_work(swpm_common_wq,
+				   &swpm_init_retry_work,
+				   SWPM_RETRY_INTERVAL);
+	}
 #endif
 }
 
@@ -694,10 +714,6 @@ static void swpm_log_loop(struct timer_list *t)
 
 	t1 = ktime_get();
 #endif
-
-	/* initialization retry */
-	if (swpm_init_retry_work_queue && !swpm_init_state)
-		queue_work(swpm_init_retry_work_queue, &swpm_init_retry_work);
 
 	for (i = 0; i < NR_POWER_RAIL; i++) {
 		if ((1 << i) & swpm_log_mask) {
@@ -1058,6 +1074,21 @@ static struct swpm_core_internal_ops plat_ops = {
 /***************************************************************************
  *  API
  ***************************************************************************/
+void swpm_set_periodic(unsigned int enable)
+{
+	if (enable) {
+		mod_timer(&swpm_timer,
+			  jiffies + msecs_to_jiffies(swpm_log_interval_ms));
+		if (swpm_common_wq)
+			queue_delayed_work(swpm_common_wq,
+					   &swpm_get_core_temp_work,
+					   swpm_log_interval_ms);
+	} else {
+		del_timer(&swpm_timer);
+		cancel_delayed_work(&swpm_get_core_temp_work);
+	}
+}
+
 void swpm_set_enable(unsigned int type, unsigned int enable)
 {
 	if (!swpm_init_state
@@ -1158,13 +1189,6 @@ int swpm_v6789_init(void)
 
 	swpm_core_ops_register(&plat_ops);
 
-	if (!swpm_init_retry_work_queue) {
-		swpm_init_retry_work_queue =
-			create_workqueue("swpm_init_retry");
-		if (!swpm_init_retry_work_queue)
-			pr_debug("swpm_init_retry workqueue create failed\n");
-	}
-
 #if SWPM_TEST
 	swpm_interface_unit_test();
 
@@ -1183,6 +1207,9 @@ void swpm_v6789_exit(void)
 	swpm_lock(&swpm_mutex);
 
 	del_timer_sync(&swpm_timer);
+	cancel_delayed_work_sync(&swpm_get_core_temp_work);
+	cancel_delayed_work_sync(&swpm_init_retry_work);
+
 	swpm_set_enable(ALL_METER_TYPE, 0);
 
 	swpm_unlock(&swpm_mutex);

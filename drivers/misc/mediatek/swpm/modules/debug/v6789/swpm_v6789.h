@@ -456,6 +456,7 @@ extern struct me_swpm_rec_data *me_ptr;
 extern struct share_wrap *wrap_d;
 
 extern char *swpm_power_rail_to_string(enum power_rail p);
+extern void swpm_set_periodic(unsigned int enable);
 extern void swpm_set_update_cnt(unsigned int type, unsigned int cnt);
 extern void swpm_set_enable(unsigned int type, unsigned int enable);
 extern int swpm_v6789_init(void);
