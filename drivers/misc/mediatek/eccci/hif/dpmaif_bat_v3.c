@@ -53,13 +53,13 @@ struct temp_page_info {
 #define MAX_FRG_TBL_CNT 5000
 
 static struct temp_skb_info g_skb_tbl[MAX_SKB_TBL_CNT];
-static unsigned int g_skb_tbl_rdx;
-static unsigned int g_skb_tbl_wdx;
+static atomic_t              g_skb_tbl_rdx;
+static atomic_t              g_skb_tbl_wdx;
 
 
 static struct temp_page_info g_page_tbl[MAX_FRG_TBL_CNT];
-static unsigned int g_page_tbl_rdx;
-static unsigned int g_page_tbl_wdx;
+static atomic_t               g_page_tbl_rdx;
+static atomic_t               g_page_tbl_wdx;
 
 static unsigned int g_alloc_bat_skb_flag;
 static unsigned int g_alloc_bat_frg_flag;
@@ -180,20 +180,22 @@ static inline void alloc_skb_to_tbl(int skb_cnt, int blocking)
 	unsigned int used_cnt;
 	struct temp_skb_info *skb_info;
 	unsigned int pkt_buf_sz = dpmaif_ctrl->bat_req->pkt_buf_sz;
+	unsigned int skb_tbl_wdx_temp;
 
 	if (skb_cnt >= MAX_SKB_TBL_CNT)
 		skb_cnt = MAX_SKB_TBL_CNT - 1;
 
 	used_cnt = get_ringbuf_used_cnt(MAX_SKB_TBL_CNT,
-				g_skb_tbl_rdx, g_skb_tbl_wdx);
+				atomic_read(&g_skb_tbl_rdx), atomic_read(&g_skb_tbl_wdx));
 
 	if (skb_cnt <= used_cnt)
 		return;
 
 	alloc_cnt = skb_cnt - used_cnt;
+	skb_tbl_wdx_temp = atomic_read(&g_skb_tbl_wdx);
 
 	for (i = 0; i < alloc_cnt; i++) {
-		skb_info = &g_skb_tbl[g_skb_tbl_wdx];
+		skb_info = &g_skb_tbl[skb_tbl_wdx_temp];
 
 		if (skb_alloc(&skb_info->skb, &skb_info->base_addr,
 						pkt_buf_sz, blocking))
@@ -203,21 +205,23 @@ static inline void alloc_skb_to_tbl(int skb_cnt, int blocking)
 		 */
 		wmb();
 
-		g_skb_tbl_wdx = get_ringbuf_next_idx(MAX_SKB_TBL_CNT,
-						g_skb_tbl_wdx, 1);
+		skb_tbl_wdx_temp  = get_ringbuf_next_idx(MAX_SKB_TBL_CNT,
+			skb_tbl_wdx_temp, 1);
+		atomic_set(&g_skb_tbl_wdx, skb_tbl_wdx_temp);
 	}
 }
 
 static inline int get_skb_from_tbl(struct temp_skb_info *skb_info)
 {
-	if (!get_ringbuf_used_cnt(MAX_SKB_TBL_CNT,
-				g_skb_tbl_rdx, g_skb_tbl_wdx))
+	unsigned int skb_tbl_rdx = atomic_read(&g_skb_tbl_rdx);
+
+	if (!get_ringbuf_used_cnt(MAX_SKB_TBL_CNT, skb_tbl_rdx, atomic_read(&g_skb_tbl_wdx)))
 		return -1;
 
-	(*skb_info) = g_skb_tbl[g_skb_tbl_rdx];
+	(*skb_info) = g_skb_tbl[skb_tbl_rdx];
 
-	g_skb_tbl_rdx = get_ringbuf_next_idx(MAX_SKB_TBL_CNT,
-					g_skb_tbl_rdx, 1);
+	skb_tbl_rdx = get_ringbuf_next_idx(MAX_SKB_TBL_CNT, skb_tbl_rdx, 1);
+	atomic_set(&g_skb_tbl_rdx, skb_tbl_rdx);
 
 	return 0;
 }
@@ -273,30 +277,31 @@ fast_retry:
 
 static inline int get_page_from_tbl(struct temp_page_info *page_info)
 {
-	if (!get_ringbuf_used_cnt(MAX_FRG_TBL_CNT,
-				g_page_tbl_rdx, g_page_tbl_wdx))
+	unsigned int page_tbl_rdx = atomic_read(&g_page_tbl_rdx);
+
+	if (!get_ringbuf_used_cnt(MAX_FRG_TBL_CNT, page_tbl_rdx, atomic_read(&g_page_tbl_wdx)))
 		return -1;
 
-	(*page_info) = g_page_tbl[g_page_tbl_rdx];
+	(*page_info) = g_page_tbl[page_tbl_rdx];
 
-	g_page_tbl_rdx = get_ringbuf_next_idx(MAX_FRG_TBL_CNT,
-					g_page_tbl_rdx, 1);
+	page_tbl_rdx = get_ringbuf_next_idx(MAX_FRG_TBL_CNT, page_tbl_rdx, 1);
 
+	atomic_set(&g_page_tbl_rdx, page_tbl_rdx);
 	return 0;
 }
 
 static inline void alloc_page_to_tbl(int page_cnt, int blocking)
 {
 	int alloc_cnt, i;
-	unsigned int used_cnt;
+	unsigned int used_cnt, page_tbl_wdx = atomic_read(&g_page_tbl_wdx);
 	struct temp_page_info *page_info;
 	unsigned int pkt_buf_sz = dpmaif_ctrl->bat_frag->pkt_buf_sz;
 
 	if (page_cnt >= MAX_FRG_TBL_CNT)
 		page_cnt = MAX_FRG_TBL_CNT - 1;
 
-	used_cnt = get_ringbuf_used_cnt(MAX_FRG_TBL_CNT,
-			g_page_tbl_rdx, g_page_tbl_wdx);
+	used_cnt = get_ringbuf_used_cnt(MAX_FRG_TBL_CNT, atomic_read(&g_page_tbl_rdx),
+									page_tbl_wdx);
 
 	if (page_cnt <= used_cnt)
 		return;
@@ -304,7 +309,7 @@ static inline void alloc_page_to_tbl(int page_cnt, int blocking)
 	alloc_cnt = page_cnt - used_cnt;
 
 	for (i = 0; i < alloc_cnt; i++) {
-		page_info = &g_page_tbl[g_page_tbl_wdx];
+		page_info = &g_page_tbl[page_tbl_wdx];
 
 		if (page_alloc(&page_info->page, &page_info->base_addr,
 				&page_info->offset, pkt_buf_sz, blocking))
@@ -314,8 +319,8 @@ static inline void alloc_page_to_tbl(int page_cnt, int blocking)
 		 */
 		wmb();
 
-		g_page_tbl_wdx = get_ringbuf_next_idx(MAX_FRG_TBL_CNT,
-						g_page_tbl_wdx, 1);
+		page_tbl_wdx = get_ringbuf_next_idx(MAX_FRG_TBL_CNT, page_tbl_wdx, 1);
+		atomic_set(&g_page_tbl_wdx, page_tbl_wdx);
 	}
 }
 
@@ -435,10 +440,11 @@ static int dpmaif_alloc_bat_req(int update_bat_cnt,
 	int count = 0, ret = 0;
 	unsigned short bat_wr_idx, next_wr_idx;
 
-	bat_req->bat_rd_idx = drv3_dpmaif_dl_get_bat_ridx(0);
+	atomic_set(&bat_req->bat_rd_idx, drv3_dpmaif_dl_get_bat_ridx(0));
 
 	buf_space = ringbuf_writeable(bat_req->bat_size_cnt,
-				bat_req->bat_rd_idx, bat_req->bat_wr_idx);
+					atomic_read(&bat_req->bat_rd_idx),
+					atomic_read(&bat_req->bat_wr_idx));
 
 	if (request_cnt > buf_space)
 		request_cnt = buf_space;
@@ -446,7 +452,7 @@ static int dpmaif_alloc_bat_req(int update_bat_cnt,
 	if (request_cnt == 0)
 		return 0;
 
-	bat_wr_idx = bat_req->bat_wr_idx;
+	bat_wr_idx = atomic_read(&bat_req->bat_wr_idx);
 
 	//while ((!atomic_read(&dpmaif_ctrl->bat_paused_alloc))
 	while (((!paused) || (!atomic_read(paused)))
@@ -491,12 +497,13 @@ alloc_end:
 			hdr.time = (unsigned int)(local_clock() >> 16);
 			hdr.spc = buf_space;
 			hdr.cnt = count;
-			hdr.crd = bat_req->bat_rd_idx;
+			hdr.crd = atomic_read(&bat_req->bat_rd_idx);
 			hdr.cwr = bat_wr_idx;
 			dpmaif_debug_add(&hdr, sizeof(hdr));
 		}
 
-		bat_req->bat_wr_idx = bat_wr_idx;
+		atomic_set(&bat_req->bat_wr_idx, bat_wr_idx);
+
 		if (update_bat_cnt) {
 			ret = drv3_dpmaif_dl_add_bat_cnt(0, count);
 			if (ret < 0)
@@ -577,10 +584,11 @@ static int dpmaif_alloc_bat_frg(int update_bat_cnt,
 	int count = 0, ret = 0;
 	unsigned short bat_wr_idx, next_wr_idx;
 
-	bat_req->bat_rd_idx = drv3_dpmaif_dl_get_frg_bat_ridx(0);
+	atomic_set(&bat_req->bat_rd_idx, drv3_dpmaif_dl_get_frg_bat_ridx(0));
 
 	buf_space = ringbuf_writeable(bat_req->bat_size_cnt,
-				bat_req->bat_rd_idx, bat_req->bat_wr_idx);
+				atomic_read(&bat_req->bat_rd_idx),
+				atomic_read(&bat_req->bat_wr_idx));
 
 	if (request_cnt > buf_space)
 		request_cnt = buf_space;
@@ -588,7 +596,7 @@ static int dpmaif_alloc_bat_frg(int update_bat_cnt,
 	if (request_cnt == 0)
 		return 0;
 
-	bat_wr_idx = bat_req->bat_wr_idx;
+	bat_wr_idx = atomic_read(&bat_req->bat_wr_idx);
 
 	//while ((!atomic_read(&dpmaif_ctrl->bat_paused_alloc))
 	while (((!paused) || (!atomic_read(paused)))
@@ -633,12 +641,12 @@ alloc_end:
 			hdr.time = (unsigned int)(local_clock() >> 16);
 			hdr.spc = buf_space;
 			hdr.cnt = count;
-			hdr.crd = bat_req->bat_rd_idx;
+			hdr.crd = atomic_read(&bat_req->bat_rd_idx);
 			hdr.cwr = bat_wr_idx;
 			dpmaif_debug_add(&hdr, sizeof(hdr));
 		}
 
-		bat_req->bat_wr_idx = bat_wr_idx;
+		atomic_set(&bat_req->bat_wr_idx, bat_wr_idx);
 
 		if (update_bat_cnt) {
 			ret = drv3_dpmaif_dl_add_frg_bat_cnt(0, count);
@@ -683,8 +691,8 @@ static void ccci_dpmaif_bat_free_req(void)
 	memset(bat_req->bat_base, 0,
 		(bat_req->bat_size_cnt * sizeof(struct dpmaif_bat_t)));
 
-	bat_req->bat_rd_idx = 0;
-	bat_req->bat_wr_idx = 0;
+	atomic_set(&bat_req->bat_rd_idx, 0);
+	atomic_set(&bat_req->bat_wr_idx, 0);
 }
 
 static void ccci_dpmaif_bat_free_frg(void)
@@ -715,8 +723,8 @@ static void ccci_dpmaif_bat_free_frg(void)
 	memset(bat_frg->bat_base, 0,
 		(bat_frg->bat_size_cnt * sizeof(struct dpmaif_bat_t)));
 
-	bat_frg->bat_rd_idx = 0;
-	bat_frg->bat_wr_idx = 0;
+	atomic_set(&bat_frg->bat_rd_idx, 0);
+	atomic_set(&bat_frg->bat_wr_idx, 0);
 }
 
 static void ccci_dpmaif_bat_free(void)
@@ -852,10 +860,10 @@ static int dpmaif_rx_skb_alloc_thread(void *arg)
 
 static int ccci_dpmaif_create_skb_thread(void)
 {
-	g_skb_tbl_rdx  = 0;
-	g_skb_tbl_wdx  = 0;
-	g_page_tbl_rdx = 0;
-	g_page_tbl_wdx = 0;
+	atomic_set(&g_skb_tbl_rdx, 0);
+	atomic_set(&g_skb_tbl_wdx, 0);
+	atomic_set(&g_page_tbl_rdx, 0);
+	atomic_set(&g_page_tbl_wdx, 0);
 
 	init_waitqueue_head(&dpmaif_ctrl->skb_alloc_wq);
 	dpmaif_ctrl->skb_start_alloc = 0;
