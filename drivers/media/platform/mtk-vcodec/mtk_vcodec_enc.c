@@ -39,6 +39,7 @@ static struct mtk_codec_framesizes
 static unsigned int default_out_fmt_idx;
 static unsigned int default_cap_fmt_idx;
 static struct vb2_mem_ops venc_dma_contig_memops;
+static struct vb2_mem_ops venc_sec_dma_contig_memops;
 
 inline unsigned int log2_enc(__u32 value)
 {
@@ -456,7 +457,10 @@ static int vidioc_venc_s_ctrl(struct v4l2_ctrl *ctrl)
 		if (p->scenario == 3 || p->scenario == 1) {
 			src_vq = v4l2_m2m_get_vq(ctx->m2m_ctx,
 				V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE);
-			src_vq->mem_ops = &venc_dma_contig_memops;
+			if (ctx->enc_params.svp_mode && is_disable_map_sec() && mtk_venc_is_vcu())
+				src_vq->mem_ops = &venc_sec_dma_contig_memops;
+			else
+				src_vq->mem_ops = &venc_dma_contig_memops;
 		}
 		break;
 	case V4L2_CID_MPEG_MTK_ENCODE_NONREFP:
@@ -1931,9 +1935,7 @@ static int vb2ops_venc_queue_setup(struct vb2_queue *vq,
 		       ctx->state);
 
 	if (ctx->enc_params.svp_mode && is_disable_map_sec() && mtk_venc_is_vcu()) {
-		venc_dma_contig_memops.map_dmabuf   = mtk_venc_sec_dc_map_dmabuf;
-		venc_dma_contig_memops.unmap_dmabuf = mtk_venc_sec_dc_unmap_dmabuf;
-		vq->mem_ops = &venc_dma_contig_memops;
+		vq->mem_ops = &venc_sec_dma_contig_memops;
 		mtk_v4l2_debug(1, "[%d] hook mem_ops.map_dmabuf for queue type %d",
 			ctx->id, vq->type);
 	}
@@ -3501,9 +3503,10 @@ int mtk_vcodec_enc_queue_init(void *priv, struct vb2_queue *src_vq,
 	src_vq->ops             = &mtk_venc_vb2_ops;
 	venc_dma_contig_memops = vb2_dma_contig_memops;
 	venc_dma_contig_memops.attach_dmabuf = mtk_venc_dc_attach_dmabuf;
-	if (ctx->enc_params.svp_mode && is_disable_map_sec() && mtk_venc_is_vcu()) {
-		venc_dma_contig_memops.map_dmabuf   = mtk_venc_sec_dc_map_dmabuf;
-		venc_dma_contig_memops.unmap_dmabuf = mtk_venc_sec_dc_unmap_dmabuf;
+	if (is_disable_map_sec() && mtk_venc_is_vcu()) {
+		venc_sec_dma_contig_memops = venc_dma_contig_memops;
+		venc_sec_dma_contig_memops.map_dmabuf   = mtk_venc_sec_dc_map_dmabuf;
+		venc_sec_dma_contig_memops.unmap_dmabuf = mtk_venc_sec_dc_unmap_dmabuf;
 	}
 	src_vq->mem_ops         = &vb2_dma_contig_memops;
 	mtk_v4l2_debug(4, "src_vq use vb2_dma_contig_memops");
@@ -3522,6 +3525,8 @@ int mtk_vcodec_enc_queue_init(void *priv, struct vb2_queue *src_vq,
 	dst_vq->buf_struct_size = sizeof(struct mtk_video_enc_buf);
 	dst_vq->ops             = &mtk_venc_vb2_ops;
 	dst_vq->mem_ops         = &venc_dma_contig_memops;
+	if (ctx->enc_params.svp_mode && is_disable_map_sec() && mtk_venc_is_vcu())
+		src_vq->mem_ops = &venc_sec_dma_contig_memops;
 	mtk_v4l2_debug(4, "dst_vq use venc_dma_contig_memops");
 	dst_vq->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_COPY;
 	dst_vq->lock            = &ctx->q_mutex;

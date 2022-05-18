@@ -42,6 +42,7 @@ static unsigned int default_cap_fmt_idx;
 #define NUM_SUPPORTED_FRAMESIZE ARRAY_SIZE(mtk_vdec_framesizes)
 #define NUM_FORMATS ARRAY_SIZE(mtk_video_formats)
 static struct vb2_mem_ops vdec_dma_contig_memops;
+static struct vb2_mem_ops vdec_sec_dma_contig_memops;
 
 static inline long long timeval_to_ns(const struct __kernel_v4l2_timeval *tv)
 {
@@ -2157,9 +2158,7 @@ static int vb2ops_vdec_queue_setup(struct vb2_queue *vq,
 		ctx->id, vq->type, *nplanes, *nbuffers, sizes[0], sizes[1]);
 
 	if (ctx->dec_params.svp_mode && is_disable_map_sec() && mtk_vdec_is_vcu()) {
-		vdec_dma_contig_memops.map_dmabuf   = mtk_vdec_sec_dc_map_dmabuf;
-		vdec_dma_contig_memops.unmap_dmabuf = mtk_vdec_sec_dc_unmap_dmabuf;
-		vq->mem_ops = &vdec_dma_contig_memops;
+		vq->mem_ops = &vdec_sec_dma_contig_memops;
 		mtk_v4l2_debug(1, "[%d] hook mem_ops.map_dmabuf for queue type %d",
 			ctx->id, vq->type);
 	}
@@ -3436,11 +3435,14 @@ int mtk_vcodec_dec_queue_init(void *priv, struct vb2_queue *src_vq,
 	src_vq->ops             = &mtk_vdec_vb2_ops;
 	vdec_dma_contig_memops = vb2_dma_contig_memops;
 	vdec_dma_contig_memops.attach_dmabuf = mtk_vdec_dc_attach_dmabuf;
-	if (ctx->dec_params.svp_mode && is_disable_map_sec() && mtk_vdec_is_vcu()) {
-		vdec_dma_contig_memops.map_dmabuf   = mtk_vdec_sec_dc_map_dmabuf;
-		vdec_dma_contig_memops.unmap_dmabuf = mtk_vdec_sec_dc_unmap_dmabuf;
+	if (is_disable_map_sec() && mtk_vdec_is_vcu()) {
+		vdec_sec_dma_contig_memops = vdec_dma_contig_memops;
+		vdec_sec_dma_contig_memops.map_dmabuf   = mtk_vdec_sec_dc_map_dmabuf;
+		vdec_sec_dma_contig_memops.unmap_dmabuf = mtk_vdec_sec_dc_unmap_dmabuf;
 	}
 	src_vq->mem_ops         = &vdec_dma_contig_memops;
+	if (ctx->dec_params.svp_mode && is_disable_map_sec() && mtk_vdec_is_vcu())
+		src_vq->mem_ops = &vdec_sec_dma_contig_memops;
 	mtk_v4l2_debug(4, "src_vq use vdec_dma_contig_memops");
 
 	src_vq->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_COPY;
@@ -3480,6 +3482,8 @@ int mtk_vcodec_dec_queue_init(void *priv, struct vb2_queue *src_vq,
 	dst_vq->buf_struct_size = sizeof(struct mtk_video_dec_buf);
 	dst_vq->ops             = &mtk_vdec_vb2_ops;
 	dst_vq->mem_ops         = &vdec_dma_contig_memops;
+	if (ctx->dec_params.svp_mode && is_disable_map_sec() && mtk_vdec_is_vcu())
+		dst_vq->mem_ops = &vdec_sec_dma_contig_memops;
 	mtk_v4l2_debug(4, "dst_vq use vdec_dma_contig_memops");
 
 	dst_vq->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_COPY;
