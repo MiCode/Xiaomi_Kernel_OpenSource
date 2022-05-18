@@ -635,7 +635,7 @@ release_req:
 	media_request_put(&req->req);
 
 release_work:
-	mtk_hcp_put_gce_buffer(req->imgsys_pipe->imgsys_dev->scp_pdev);
+	mtk_hcp_put_gce_buffer(pipe->imgsys_dev->scp_pdev);
 	/*vfree(swork);*/
 	pr_debug("%s leave\n", __func__);
 }
