@@ -4978,6 +4978,9 @@ static signed int DIP_P2_BufQue_Update_ListCIdx
 	int i = 0;
 	enum DIP_P2_BUF_STATE_ENUM cIdxSts = DIP_P2_BUF_STATE_NONE;
 
+	if (property < 0)
+		return ret;
+
 	switch (listTag) {
 	case DIP_P2_BUFQUE_LIST_TAG_UNIT:
 		/* [1] check global pointer current sts */
@@ -5082,6 +5085,9 @@ static signed int DIP_P2_BufQue_Erase
 	int i = 0;
 	signed int cnt = 0;
 	int tmpIdx = 0;
+
+	if (property < 0)
+		return ret;
 
 	switch (listTag) {
 	case DIP_P2_BUFQUE_LIST_TAG_PACKAGE:
@@ -5205,6 +5211,9 @@ static signed int DIP_P2_BufQue_GetMatchIdx
 		return idx;
 	}
 	property = param.property;
+
+	if (property < 0)
+		return idx;
 
 	switch (matchType) {
 	case DIP_P2_BUFQUE_MATCH_TYPE_WAITDQ:
@@ -5413,6 +5422,9 @@ static inline unsigned int DIP_P2_BufQue_WaitEventState(
 		return ret;
 	}
 	property = param.property;
+
+	if (property < 0)
+		return ret;
 	/*  */
 	switch (type) {
 	case DIP_P2_BUFQUE_MATCH_TYPE_WAITDQ:
@@ -5491,6 +5503,12 @@ static signed int DIP_P2_BufQue_CTRL_FUNC(
 		return ret;
 	}
 	property = param.property;
+
+	if (property < 0) {
+		ret = -EFAULT;
+		return ret;
+	}
+
 
 	switch (param.ctrl) {
 	/* signal that a specific buffer is enqueued */
@@ -6092,7 +6110,7 @@ static long DIP_ioctl(
 			sizeof(struct DIP_WAIT_IRQ_STRUCT)) == 0) {
 			/*  */
 			if ((IrqInfo.Type >= DIP_IRQ_TYPE_AMOUNT) ||
-				(IrqInfo.Type < 0)) {
+				(IrqInfo.Type <= 0)) {
 				Ret = -EFAULT;
 				LOG_ERR("invalid type(%d)\n", IrqInfo.Type);
 				goto EXIT;
@@ -8915,8 +8933,10 @@ static void DIP_BH_Workqueue(struct work_struct *pWork)
 	struct IspWorkqueTable *pWorkTable =
 		container_of(pWork, struct IspWorkqueTable, dip_bh_work);
 
-	IRQ_LOG_PRINTER(pWorkTable->module, m_CurrentPPB, _LOG_ERR);
-	IRQ_LOG_PRINTER(pWorkTable->module, m_CurrentPPB, _LOG_INF);
+	if (m_CurrentPPB >= 0) {
+		IRQ_LOG_PRINTER(pWorkTable->module, m_CurrentPPB, _LOG_ERR);
+		IRQ_LOG_PRINTER(pWorkTable->module, m_CurrentPPB, _LOG_INF);
+	}
 }
 #endif
 
