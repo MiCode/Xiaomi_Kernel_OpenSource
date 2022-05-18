@@ -1910,11 +1910,9 @@ void cmdqCoreReadWriteAddressBatch(dma_addr_t *addrs, u32 count, u32 *val_out)
 		else
 			val_out[i] = 0;
 
-		if (cur_waddr && i < count) {
-			CMDQ_LOG_PQ("PQ readback ==> va:%#lx, val_out[%d]:%d, pa:%pa\n",
-				(u32 *)(cur_waddr->va + (pa - cur_waddr->pa)),
+		if (cur_waddr && i < count)
+			CMDQ_LOG_PQ("PQ readback ==> val_out[%d]:%d, pa:%pa\n",
 				i, val_out[i], &addrs[i]);
-		}
 	}
 
 	CMDQ_PROF_MMP(mdp_mmp_get_event()->read_reg,
@@ -3093,7 +3091,7 @@ s32 cmdq_core_acquire_thread(enum CMDQ_SCENARIO_ENUM scenario, bool exclusive)
 
 	mutex_lock(&cmdq_thread_mutex);
 	for (idx = CMDQ_DYNAMIC_THREAD_ID_START;
-		idx < cmdq_dev_get_thread_count(); idx++) {
+		idx >= 0 && idx < cmdq_dev_get_thread_count(); idx++) {
 		/* ignore all static thread */
 		if (cmdq_ctx.thread[idx].used)
 			continue;
@@ -4650,13 +4648,15 @@ s32 cmdq_helper_mbox_register(struct device *dev)
 			cmdq_entry = clt;
 	}
 
-	if (chan_id < 0 || chan_id > CMDQ_MAX_THREAD_COUNT)
-		CMDQ_ERR("%s chan_id(%d) is invalid!!!\n", __func__, chan_id);
-	else
-		mbox_dev = cmdq_clients[(u32)chan_id]->chan->mbox->dev;
-
-	if (unlikely(!mbox_dev))
-		CMDQ_ERR("%s mbox device is not exist!!!\n", __func__);
+	if (unlikely(chan_id < 0)) {
+		CMDQ_ERR("%s chan_id(%d) is invalid\n", __func__, chan_id);
+	} else {
+		mbox_dev = cmdq_clients[chan_id]->chan->mbox->dev;
+		if (unlikely(!mbox_dev))
+			CMDQ_ERR("%s mbox_dev is not exist\n", __func__);
+		else
+			CMDQ_MSG("%s mbox_dev init success\n", __func__);
+	}
 
 	cmdq_client_base = cmdq_register_device(dev);
 

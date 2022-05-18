@@ -232,19 +232,19 @@ static bool mdp_ion_get_dma_buf(struct device *dev, int fd,
 
 	buf = dma_buf_get(fd);
 	if (IS_ERR(buf)) {
-		CMDQ_ERR("ion buf get fail %d\n", PTR_ERR(buf));
+		CMDQ_ERR("ion buf get fail %ld\n", PTR_ERR(buf));
 		goto err;
 	}
 
 	attach = dma_buf_attach(buf, dev);
 	if (IS_ERR(attach)) {
-		CMDQ_ERR("ion buf attach fail %d", PTR_ERR(attach));
+		CMDQ_ERR("ion buf attach fail %ld", PTR_ERR(attach));
 		goto err_attach;
 	}
 
 	sgt =  dma_buf_map_attachment(attach, DMA_BIDIRECTIONAL);
 	if (IS_ERR(sgt)) {
-		CMDQ_ERR("ion buf map fail %d", PTR_ERR(sgt));
+		CMDQ_ERR("ion buf map fail %ld", PTR_ERR(sgt));
 		goto err_map;
 	}
 
@@ -346,16 +346,36 @@ static s32 translate_meta(struct op_meta *meta,
 
 		/* check platform support LSB/MSB or not */
 		if (gMdpRegMSBSupport) {
+
 			reg_addr = cmdq_mdp_get_hw_reg(meta->engine, meta->offset);
+			if (reg_addr) {
+				status = cmdq_op_write_reg_ex(
+					handle, cmd_buf, reg_addr, mva & U32_MAX, ~0);
+			} else {
+				CMDQ_ERR("%s: op:%u, get reg_addr fail, eng:%d, offset 0x%x\n",
+					__func__, meta->op, meta->engine, meta->offset);
+				return -EINVAL;
+			}
+
 			reg_addr_msb = cmdq_mdp_get_hw_reg_msb(meta->engine, meta->offset);
-
-			status = cmdq_op_write_reg_ex(handle, cmd_buf, reg_addr, mva & U32_MAX, ~0);
-			status = cmdq_op_write_reg_ex(handle, cmd_buf, reg_addr_msb, mva >> 32, ~0);
-
+			if (reg_addr_msb) {
+				status = cmdq_op_write_reg_ex(
+					handle, cmd_buf, reg_addr_msb, mva >> 32, ~0);
+			} else {
+				CMDQ_ERR("%s: op:%u, get reg_addr_msb fail, eng:%d, offset 0x%x\n",
+					__func__, meta->op, meta->engine, meta->offset);
+				return -EINVAL;
+			}
 		} else {
 			reg_addr = cmdq_mdp_get_hw_reg(meta->engine, meta->offset);
-
-			status = cmdq_op_write_reg_ex(handle, cmd_buf, reg_addr, mva, ~0);
+			if (reg_addr) {
+				status = cmdq_op_write_reg_ex(
+					handle, cmd_buf, reg_addr, mva, ~0);
+			} else {
+				CMDQ_ERR("%s: op:%u, get reg_addr fail, eng:%d, offset 0x%x\n",
+					__func__, meta->op, meta->engine, meta->offset);
+				return -EINVAL;
+			}
 		}
 
 		break;
@@ -1033,8 +1053,7 @@ static s32 mdp_get_free_slots(u32 *rb_slot_index)
 	u32 free_slot, free_slot_group;
 
 	mutex_lock(&rb_slot_list_mutex);
-
-	CMDQ_MSG("%s: start, rb_slot_vcp[0]:0x%x, rb_slot_vcp[1]:0x%x\n",
+	CMDQ_MSG("%s: start, rb_slot_vcp[0]:0x%llx, rb_slot_vcp[1]:0x%llx\n",
 		__func__, rb_slot_vcp[0], rb_slot_vcp[1]);
 
 	if (rb_slot_vcp[0] != ULLONG_MAX) {
@@ -1448,7 +1467,7 @@ void mdp_ioctl_free_job_by_node(void *node)
 
 void mdp_ioctl_free_readback_slots_by_node(void *fp)
 {
-	u32 i, free_slot_group, free_slot;
+	u32 i, free_slot_group = 0, free_slot = 0;
 	dma_addr_t paStart = 0;
 	u32 count = 0;
 

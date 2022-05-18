@@ -778,8 +778,7 @@ int cmdq_TranslationFault_callback(
 	char dispatchModel[MDP_DISPATCH_KEY_STR_LEN] = "MDP";
 
 	CMDQ_ERR("================= [MDP M4U] Dump Begin ================\n");
-	CMDQ_ERR("[MDP M4U]fault call port=%d, mva=0x%x", port, mva);
-
+	CMDQ_ERR("[MDP M4U]fault call port=%d, mva=%pa", port, &mva);
 	cmdq_core_dump_tasks_info();
 
 	switch (port) {

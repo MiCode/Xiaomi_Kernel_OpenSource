@@ -364,7 +364,7 @@ s32 cmdq_task_create(enum CMDQ_SCENARIO_ENUM scenario,
 
 	*handle_out = NULL;
 
-	if (scenario < 0 || scenario >= CMDQ_MAX_SCENARIO_COUNT) {
+	if (unlikely(scenario >= CMDQ_MAX_SCENARIO_COUNT)) {
 		CMDQ_ERR("Unknown scenario type %d\n", scenario);
 		CMDQ_PROF_MMP(mdp_mmp_get_event()->alloc_task,
 			MMPROFILE_FLAG_END, current->pid, scenario);

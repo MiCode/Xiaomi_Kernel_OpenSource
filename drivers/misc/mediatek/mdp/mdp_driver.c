@@ -636,7 +636,7 @@ static void cmdq_release_handle_property(void **prop_addr, u32 *prop_size)
 
 s32 cmdq_driver_ioctl_exec_command(struct file *pf, unsigned long param)
 {
-	struct cmdqCommandStruct command;
+	struct cmdqCommandStruct command = {0};
 	struct task_private desc_private = {0};
 	s32 status;
 
@@ -857,7 +857,7 @@ s32 cmdq_driver_ioctl_async_job_wait_and_close(unsigned long param)
 	jobResult.regValue.regValues = (cmdqU32Ptr_t)(unsigned long)(
 		kzalloc(handle->reg_count + sizeof(u32), GFP_KERNEL));
 	jobResult.regValue.count = handle->reg_count;
-	if (CMDQ_U32_PTR(jobResult.regValue.regValues) == NULL) {
+	if (!userRegValue) {
 		CMDQ_ERR("no reg value buffer\n");
 		return -ENOMEM;
 	}
