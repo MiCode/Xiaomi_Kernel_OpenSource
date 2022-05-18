@@ -669,14 +669,18 @@ int mtk_memif_set_enable(struct mtk_base_afe *afe, int afe_id)
 {
 	int ret = 0;
 	int adsp_sem_ret = NOTIFY_STOP;
-	int get_sema_type = afe->is_scp_sema_support ?
-			    NOTIFIER_SCP_3WAY_SEMAPHORE_GET :
-			    NOTIFIER_ADSP_3WAY_SEMAPHORE_GET;
-	int release_sema_type = afe->is_scp_sema_support ?
-				NOTIFIER_SCP_3WAY_SEMAPHORE_RELEASE :
-				NOTIFIER_ADSP_3WAY_SEMAPHORE_RELEASE;
+	int get_sema_type;
+	int release_sema_type;
+
 	if (!afe)
 		return -ENODEV;
+
+	get_sema_type = afe->is_scp_sema_support ?
+			    NOTIFIER_SCP_3WAY_SEMAPHORE_GET :
+			    NOTIFIER_ADSP_3WAY_SEMAPHORE_GET;
+	release_sema_type = afe->is_scp_sema_support ?
+				NOTIFIER_SCP_3WAY_SEMAPHORE_RELEASE :
+				NOTIFIER_ADSP_3WAY_SEMAPHORE_RELEASE;
 
 	if (!is_semaphore_control_need(afe->is_scp_sema_support))
 		return raw_mtk_memif_set_enable(afe, afe_id);
@@ -703,14 +707,18 @@ int mtk_memif_set_disable(struct mtk_base_afe *afe, int afe_id)
 {
 	int ret = 0;
 	int adsp_sem_ret = NOTIFY_STOP;
-	int get_sema_type = afe->is_scp_sema_support ?
-			    NOTIFIER_SCP_3WAY_SEMAPHORE_GET :
-			    NOTIFIER_ADSP_3WAY_SEMAPHORE_GET;
-	int release_sema_type = afe->is_scp_sema_support ?
-				NOTIFIER_SCP_3WAY_SEMAPHORE_RELEASE :
-				NOTIFIER_ADSP_3WAY_SEMAPHORE_RELEASE;
+	int get_sema_type;
+	int release_sema_type;
+
 	if (!afe)
 		return -ENODEV;
+
+	get_sema_type = afe->is_scp_sema_support ?
+			    NOTIFIER_SCP_3WAY_SEMAPHORE_GET :
+			    NOTIFIER_ADSP_3WAY_SEMAPHORE_GET;
+	release_sema_type = afe->is_scp_sema_support ?
+				NOTIFIER_SCP_3WAY_SEMAPHORE_RELEASE :
+				NOTIFIER_ADSP_3WAY_SEMAPHORE_RELEASE;
 
 	if (!is_semaphore_control_need(afe->is_scp_sema_support))
 		return raw_mtk_memif_set_disable(afe, afe_id);
@@ -739,16 +747,20 @@ int mtk_irq_set_enable(struct mtk_base_afe *afe,
 {
 	int ret = 0;
 	int adsp_sem_ret = NOTIFY_STOP;
-	int get_sema_type = afe->is_scp_sema_support ?
-			    NOTIFIER_SCP_3WAY_SEMAPHORE_GET :
-			    NOTIFIER_ADSP_3WAY_SEMAPHORE_GET;
-	int release_sema_type = afe->is_scp_sema_support ?
-				NOTIFIER_SCP_3WAY_SEMAPHORE_RELEASE :
-				NOTIFIER_ADSP_3WAY_SEMAPHORE_RELEASE;
+	int get_sema_type;
+	int release_sema_type;
+
 	if (!afe)
 		return -ENODEV;
 	if (!irq_data)
 		return -ENODEV;
+
+	get_sema_type = afe->is_scp_sema_support ?
+			    NOTIFIER_SCP_3WAY_SEMAPHORE_GET :
+			    NOTIFIER_ADSP_3WAY_SEMAPHORE_GET;
+	release_sema_type = afe->is_scp_sema_support ?
+				NOTIFIER_SCP_3WAY_SEMAPHORE_RELEASE :
+				NOTIFIER_ADSP_3WAY_SEMAPHORE_RELEASE;
 
 	if (!is_semaphore_control_need(afe->is_scp_sema_support))
 		return regmap_update_bits(afe->regmap, irq_data->irq_en_reg,
@@ -777,16 +789,20 @@ int mtk_irq_set_disable(struct mtk_base_afe *afe,
 {
 	int ret = 0;
 	int adsp_sem_ret = NOTIFY_STOP;
-	int get_sema_type = afe->is_scp_sema_support ?
-			    NOTIFIER_SCP_3WAY_SEMAPHORE_GET :
-			    NOTIFIER_ADSP_3WAY_SEMAPHORE_GET;
-	int release_sema_type = afe->is_scp_sema_support ?
-				NOTIFIER_SCP_3WAY_SEMAPHORE_RELEASE :
-				NOTIFIER_ADSP_3WAY_SEMAPHORE_RELEASE;
+	int get_sema_type;
+	int release_sema_type;
+
 	if (!afe)
 		return -EPERM;
 	if (!irq_data)
 		return -EPERM;
+
+	get_sema_type = afe->is_scp_sema_support ?
+			    NOTIFIER_SCP_3WAY_SEMAPHORE_GET :
+			    NOTIFIER_ADSP_3WAY_SEMAPHORE_GET;
+	release_sema_type = afe->is_scp_sema_support ?
+				NOTIFIER_SCP_3WAY_SEMAPHORE_RELEASE :
+				NOTIFIER_ADSP_3WAY_SEMAPHORE_RELEASE;
 
 	if (!is_semaphore_control_need(afe->is_scp_sema_support))
 		return regmap_update_bits(afe->regmap, irq_data->irq_en_reg,
@@ -818,7 +834,7 @@ int mtk_memif_set_addr(struct mtk_base_afe *afe, int id,
 	int msb_at_bit33 = upper_32_bits(dma_addr) ? 1 : 0;
 	unsigned int phys_buf_addr = lower_32_bits(dma_addr);
 	unsigned int phys_buf_addr_upper_32 = upper_32_bits(dma_addr);
-	unsigned int value;
+	unsigned int value = 0;
 	dma_addr_t dma_addr_end = dma_addr + dma_bytes - 1;
 	unsigned int phys_buf_end_addr = lower_32_bits(dma_addr_end);
 	unsigned int phys_buf_end_addr_upper_32 = upper_32_bits(dma_addr_end);
