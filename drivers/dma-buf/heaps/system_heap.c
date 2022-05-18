@@ -342,7 +342,6 @@ static int system_heap_dma_buf_begin_cpu_access(struct dma_buf *dmabuf,
 {
 	struct system_heap_buffer *buffer = dmabuf->priv;
 	struct dma_heap_attachment *a;
-	int skip_cache_sync = 0;
 
 	mutex_lock(&buffer->lock);
 
@@ -350,23 +349,11 @@ static int system_heap_dma_buf_begin_cpu_access(struct dma_buf *dmabuf,
 		invalidate_kernel_vmap_range(buffer->vaddr, buffer->len);
 
 	if (!buffer->uncached) {
-		skip_cache_sync = 1;
 		list_for_each_entry(a, &buffer->attachments, list) {
 			if (!a->mapped)
 				continue;
 			dma_sync_sgtable_for_cpu(a->dev, a->table, direction);
-			skip_cache_sync = 0;
 		}
-	}
-
-	if (skip_cache_sync) {
-		spin_lock(&dmabuf->name_lock);
-		pr_info_ratelimited("%s [%s]: inode:%lu name:%s dir:%d %s\n",
-				    __func__, dma_heap_get_name(buffer->heap),
-				    file_inode(dmabuf->file)->i_ino,
-				    dmabuf->name?:"NULL", direction,
-				    "skip cache sync because no iova");
-		spin_unlock(&dmabuf->name_lock);
 	}
 
 	mutex_unlock(&buffer->lock);
@@ -379,7 +366,6 @@ static int system_heap_dma_buf_end_cpu_access(struct dma_buf *dmabuf,
 {
 	struct system_heap_buffer *buffer = dmabuf->priv;
 	struct dma_heap_attachment *a;
-	int skip_cache_sync = 0;
 
 	mutex_lock(&buffer->lock);
 
@@ -387,23 +373,11 @@ static int system_heap_dma_buf_end_cpu_access(struct dma_buf *dmabuf,
 		flush_kernel_vmap_range(buffer->vaddr, buffer->len);
 
 	if (!buffer->uncached) {
-		skip_cache_sync = 1;
 		list_for_each_entry(a, &buffer->attachments, list) {
 			if (!a->mapped)
 				continue;
 			dma_sync_sgtable_for_device(a->dev, a->table, direction);
-			skip_cache_sync = 0;
 		}
-	}
-
-	if (skip_cache_sync) {
-		spin_lock(&dmabuf->name_lock);
-		pr_info_ratelimited("%s [%s]: inode:%lu name:%s dir:%d %s\n",
-				    __func__, dma_heap_get_name(buffer->heap),
-				    file_inode(dmabuf->file)->i_ino,
-				    dmabuf->name?:"NULL", direction,
-				    "skip cache sync because no iova");
-		spin_unlock(&dmabuf->name_lock);
 	}
 
 	mutex_unlock(&buffer->lock);
@@ -526,7 +500,7 @@ static void system_heap_buf_free(struct deferred_freelist_item *item,
 	struct system_heap_buffer *buffer;
 	struct sg_table *table;
 	struct scatterlist *sg;
-	int i, j;
+	unsigned int i, j;
 
 	buffer = container_of(item, struct system_heap_buffer, deferred_free);
 	/* Zero the buffer pages before adding back to the pool */
@@ -545,7 +519,12 @@ static void system_heap_buf_free(struct deferred_freelist_item *item,
 				if (compound_order(page) == orders[j])
 					break;
 			}
-			dmabuf_page_pool_free(pools[j], page);
+
+			if (j < NUM_ORDERS)
+				dmabuf_page_pool_free(pools[j], page);
+			else
+				pr_info("%s error: order %u\n",
+					__func__, compound_order(page));
 		}
 	}
 	sg_free_table(table);
@@ -659,7 +638,7 @@ static struct page *alloc_largest_available(unsigned long size,
 					    unsigned int max_order)
 {
 	struct page *page;
-	int i;
+	unsigned int i;
 
 	for (i = 0; i < NUM_ORDERS; i++) {
 		if (size <  (PAGE_SIZE << orders[i]))
