@@ -1351,8 +1351,28 @@ static int vow_service_ReadVoiceData_Internal(unsigned int buf_offset,
 			mutex_unlock(&vow_vmalloc_lock);
 		}
 
-		mutex_lock(&vow_vmalloc_lock);
+		if ((vowserv.kernel_voicedata_idx + buf_length) > VOW_VBUF_LENGTH) {
+			VOWDRV_DEBUG(
+			"%s(), kernel_voicedata_idx=0x%x, buf_length=0x%x, VOW_VBUF_LENGTH=0x%x",
+				__func__,
+				vowserv.kernel_voicedata_idx,
+				buf_length,
+				VOW_VBUF_LENGTH);
+			stop_condition = 1;
+			return stop_condition;
+		}
 #if IS_ENABLED(CONFIG_DUAL_CH_TRANSFER)
+		if (buf_offset > (VOW_MAX_MIC_NUM * VOW_VOICEDATA_SIZE)) {
+			VOWDRV_DEBUG(
+			"%s(), buf_offset=0x%x, buf_length=0x%x, VOW_VOICEDATA_SIZE=0x%x\n",
+				__func__,
+				buf_offset,
+				buf_length,
+				VOW_VOICEDATA_SIZE);
+			stop_condition = 1;
+			return stop_condition;
+		}
+		mutex_lock(&vow_vmalloc_lock);
 		/* start interleaving L+R */
 		vow_interleaving(
 			&vowserv.voicedata_kernel_ptr[vowserv.kernel_voicedata_idx],
@@ -1360,11 +1380,23 @@ static int vow_service_ReadVoiceData_Internal(unsigned int buf_offset,
 			(short *)(vowserv.voicedata_scp_ptr + buf_offset +
 				VOW_VOICEDATA_SIZE), buf_length);
 		/* end interleaving*/
+		mutex_unlock(&vow_vmalloc_lock);
 #else
+		if (buf_offset > VOW_VOICEDATA_SIZE) {
+			VOWDRV_DEBUG(
+			"%s(), buf_offset=0x%x, buf_length=0x%x, VOW_VOICEDATA_SIZE=0x%x\n",
+				__func__,
+				buf_offset,
+				buf_length,
+				VOW_VOICEDATA_SIZE);
+			stop_condition = 1;
+			return stop_condition;
+		}
+		mutex_lock(&vow_vmalloc_lock);
 		memcpy(&vowserv.voicedata_kernel_ptr[vowserv.kernel_voicedata_idx],
 			vowserv.voicedata_scp_ptr + buf_offset, buf_length);
-#endif
 		mutex_unlock(&vow_vmalloc_lock);
+#endif
 
 		if (buf_length > VOW_VOICE_RECORD_BIG_THRESHOLD) {
 			/* means now is start to transfer */
