@@ -1978,7 +1978,7 @@ static u32 mtk_smi_common_ostd_check(struct mtk_smi *common,
 			pr_notice("[SMI] common%d: %#x=%#x, power status = %ld\n",
 				common->commid, SMI_DEBUG_S(i), val, flags);
 			if (val & SMI_OSTD_CNT_MASK) {
-				pr_notice("[SMI] common%d suspend check fail, power status = %d\n",
+				pr_notice("[SMI] common%d suspend check fail, power status = %ld\n",
 					common->commid, flags);
 				raw_notifier_call_chain(&smi_driver_notifier_list,
 					common->commid, NULL);
