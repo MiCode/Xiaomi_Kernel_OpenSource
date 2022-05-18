@@ -255,11 +255,11 @@ uint32_t audio_get_audio_ipi_id_by_dsp(const uint32_t dsp_id)
 
 	if (is_audio_use_adsp(dsp_id)) {
 #if IS_ENABLED(CONFIG_MTK_AUDIODSP_SUPPORT)
-		audio_ipi_id = ADSP_IPI_AUDIO;
+		audio_ipi_id = (uint32_t) ADSP_IPI_AUDIO;
 #endif
 	} else if (is_audio_use_scp(dsp_id)) {
 #if IS_ENABLED(CONFIG_MTK_SCP_AUDIO)
-		audio_ipi_id = SCP_AUDIO_IPI_AUDIO;
+		audio_ipi_id = (uint32_t) SCP_AUDIO_IPI_AUDIO;
 #endif
 	} else
 		pr_notice("dsp_id %u not support!!", dsp_id);
