@@ -31,6 +31,7 @@ struct mtk_vcu_queue *mtk_vcu_mem_init(struct device *dev,
 	vcu_queue->num_buffers = 0;
 	vcu_queue->map_buf_pa = 0;
 	mutex_init(&vcu_queue->mmap_lock);
+	mutex_init(&vcu_queue->dev_lock);
 
 	return vcu_queue;
 }

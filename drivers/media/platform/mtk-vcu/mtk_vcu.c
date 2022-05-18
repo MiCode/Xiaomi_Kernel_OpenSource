@@ -2095,10 +2095,12 @@ static int mtk_vcu_mmap(struct file *file, struct vm_area_struct *vma)
 	vcu_dbg_log("[VCU] %s vma->start 0x%lx, end 0x%lx, pgoff 0x%lx\n",
 		 __func__, vma->vm_start, vma->vm_end, vma->vm_pgoff);
 
+	mutex_lock(&vcu_queue->dev_lock);
 	if (vcu_queue->dev == vcu_dev->dev_io_enc)
 		io_domain = vcu_dev->io_domain_enc;
 	else
 		io_domain = vcu_dev->io_domain;
+	mutex_unlock(&vcu_queue->dev_lock);
 
 	// First handle map pa case, because maybe pa will smaller than
 	// MAP_PA_BASE_1GB in 32bit project
@@ -2278,6 +2280,7 @@ static long mtk_vcu_unlocked_ioctl(struct file *file, unsigned int cmd,
 			return -EINVAL;
 		}
 
+		mutex_lock(&vcu_queue->dev_lock);
 		if (cmd == VCU_MVA_ALLOCATION) {
 			mem_priv = mtk_vcu_get_buffer(vcu_queue, &mem_buff_data);
 		} else if (cmd == VCU_UBE_MVA_ALLOCATION) {
@@ -2293,6 +2296,7 @@ static long mtk_vcu_unlocked_ioctl(struct file *file, unsigned int cmd,
 		} else {
 			mem_priv = mtk_vcu_get_page(vcu_queue, &mem_buff_data);
 		}
+		mutex_unlock(&vcu_queue->dev_lock);
 		if (IS_ERR_OR_NULL(mem_priv) == true) {
 			mem_buff_data.va = (unsigned long)-1;
 			mem_buff_data.pa = (unsigned long)-1;
@@ -2336,6 +2340,7 @@ static long mtk_vcu_unlocked_ioctl(struct file *file, unsigned int cmd,
 			return -EINVAL;
 		}
 
+		mutex_lock(&vcu_queue->dev_lock);
 		if (cmd == VCU_MVA_FREE) {
 			if (vcu_ptr->iommu_padding)
 				mem_buff_data.iova |= 0x100000000UL;
@@ -2353,6 +2358,7 @@ static long mtk_vcu_unlocked_ioctl(struct file *file, unsigned int cmd,
 		} else {
 			ret = mtk_vcu_free_page(vcu_queue, &mem_buff_data);
 		}
+		mutex_unlock(&vcu_queue->dev_lock);
 
 		if (ret != 0L) {
 			pr_info("[VCU] VCU_FREE failed %d va %llx, pa %llx, iova %llx\n",

@@ -78,6 +78,7 @@ struct mtk_vcu_queue {
 	void *vcu;
 	struct mutex mmap_lock;
 	struct device *dev;
+	struct mutex dev_lock;
 	struct cmdq_client *cmdq_clt;
 	unsigned int num_buffers;
 	const struct vb2_mem_ops *mem_ops;
