@@ -557,7 +557,7 @@ static int ccci_md_epon_set(int md_id)
 	switch (md_id) {
 	case MD_SYS1:
 		if (!md || !md->hw_info) {
-			CCCI_NORMAL_LOG(md_id, FSM, "%s, NULL!!!\n");
+			CCCI_NORMAL_LOG(md_id, FSM, "%s, NULL!!!\n", __func__);
 			break;
 		}
 		if (md->hw_info->md_l2sram_base) {

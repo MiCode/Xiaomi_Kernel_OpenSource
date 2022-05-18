@@ -484,12 +484,12 @@ static void dpmaif_dump_bat_status(struct hif_dpmaif_ctrl *hif_ctrl)
 
 static void dump_drb_queue_data(unsigned int qno)
 {
-	struct dpmaif_tx_queue *txq;
-	int i, drb_buf_size, mod64, count;
-	u64 *data_64ptr;
-	u8 *data_8ptr;
+	struct dpmaif_tx_queue *txq = NULL;
+	int i = 0, drb_buf_size = 0, mod64 = 0, count = 0;
+	u64 *data_64ptr = NULL;
+	u8 *data_8ptr = NULL;
 
-	if (!dpmaif_ctrl || qno >= DPMAIF_TXQ_NUM || qno < 0) {
+	if (!dpmaif_ctrl || qno >= DPMAIF_TXQ_NUM) {
 		CCCI_ERROR_LOG(-1, TAG,
 			"[%s] error: dpmaif_ctrl = %p; qno = %d",
 			__func__, dpmaif_ctrl, qno);
@@ -2477,8 +2477,9 @@ static unsigned short dpmaif_relase_tx_buffer(unsigned char q_num,
 
 static int dpmaif_empty_query(int qno)
 {
-	struct dpmaif_tx_queue *txq = &dpmaif_ctrl->txq[qno];
+	struct dpmaif_tx_queue *txq = NULL;
 
+	txq = &dpmaif_ctrl->txq[qno];
 	if (txq == NULL) {
 		CCCI_ERROR_LOG(dpmaif_ctrl->md_id, TAG,
 			"query dpmaif empty fail for NULL txq\n");
@@ -2490,7 +2491,6 @@ static int dpmaif_empty_query(int qno)
 			qno = 0;
 		else if (qno >= DPMA_UL_QUEUE_NUM)
 			qno = DPMA_UL_QUEUE_NUM - 1;
-
 		return atomic_read(&(dpmaif_ctrl->txq[qno].tx_budget))
 				> g_smem_drb_qsize[qno] / 8;
 
@@ -2532,7 +2532,7 @@ static int dpmaif_tx_release(unsigned char q_num, unsigned short budget)
 	dpmaif_ctrl->tx_done_last_count[q_num] = real_rel_cnt;
 #endif
 
-	if (real_rel_cnt < 0 || txq->que_started == false)
+	if (txq->que_started == false)
 		return ERROR_STOP;
 
 	atomic_set(&s_tx_busy_num[q_num], 0);
@@ -3760,7 +3760,7 @@ static void dpmaif_tx_hw_init(struct dpmaif_tx_queue *txq)
 static int dpmaif_txq_init(struct dpmaif_tx_queue *txq)
 {
 	int ret = -1;
-	int qno;
+	int qno = 0;
 
 	init_waitqueue_head(&txq->req_wq);
 
@@ -3768,6 +3768,8 @@ static int dpmaif_txq_init(struct dpmaif_tx_queue *txq)
 		qno = txq->index;
 		if (qno >= DPMA_UL_QUEUE_NUM)
 			qno = DPMA_UL_QUEUE_NUM - 1;
+		if (qno < 0)
+			return -EINVAL;
 		atomic_set(&(dpmaif_ctrl->txq[qno].tx_budget), g_smem_drb_qsize[qno]);
 
 	} else
@@ -4082,7 +4084,7 @@ static void dpmaif_stop_hw(void)
 	struct dpmaif_rx_queue *rxq = NULL;
 	struct dpmaif_tx_queue *txq = NULL;
 	unsigned int que_cnt, ret;
-	int count;
+	int count = 0;
 
 #ifdef DPMAIF_DEBUG_LOG
 	CCCI_HISTORY_TAG_LOG(-1, TAG, "dpmaif:stop hw\n");
@@ -4159,8 +4161,7 @@ static void dpmaif_stop_hw(void)
 	count = 0;
 	do {
 		/*Disable HW arb and check idle*/
-		ret = drv1_dpmaif_dl_all_queue_en(false);
-		if (ret < 0) {
+		if (drv1_dpmaif_dl_all_queue_en(false) < 0) {
 #if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 			aee_kernel_warning("ccci",
 				"dpmaif stop failed to enable dl queue\n");
@@ -4749,21 +4750,45 @@ static void dpmaif_smem_tx_irq_func(unsigned char user_id)
 static inline int dpmaif_set_skb_data_to_smem_drb(struct dpmaif_tx_queue *txq,
 	struct sk_buff *skb, int qno, unsigned int send_cnt)
 {
-	unsigned int cur_idx, is_frag, c_bit, wt_cnt, data_len, payload_cnt;
-	struct drb_queue_info *drb_qinfo     = dpmaif_ctrl->smem_drb_qinfo[qno];
-	struct dpmaif_drb_pd  *smem_drb_base = dpmaif_ctrl->smem_drb_qbase[qno];
-	struct dpmaif_drb_skb *smem_drb_skb  = dpmaif_ctrl->dpma_drb_qskb[qno];
-	struct dpmaif_drb_msg *drb_msg;
-	struct dpmaif_drb_pd  *drb_pd;
-	struct dpmaif_drb_skb *drb_skb;
-	struct drb_queue_info *drb_qbuf_inf = &dpmaif_ctrl->smem_drb_qbuf_inf[qno];
+	unsigned int cur_idx = 0, is_frag = 0, c_bit = 0, wt_cnt = 0, data_len = 0, payload_cnt = 0;
+	struct drb_queue_info *drb_qinfo = NULL;
+	struct dpmaif_drb_pd  *smem_drb_base = NULL;
+	struct dpmaif_drb_skb *smem_drb_skb  = NULL;
+	struct dpmaif_drb_msg *drb_msg = NULL;
+	struct dpmaif_drb_pd  *drb_pd = NULL;
+	struct dpmaif_drb_skb *drb_skb = NULL;
+	struct drb_queue_info *drb_qbuf_inf = NULL;
 
-	struct skb_shared_info *shinfo;
+	struct skb_shared_info *shinfo = NULL;
 	struct ccci_header ccci_h;
 	void *data_addr = NULL;
-	void *smem_data_addr;
-	dma_addr_t phy_addr;
+	void *smem_data_addr = NULL;
+	phys_addr_t phy_addr;
 	unsigned short prio_count = 0;
+
+	drb_qinfo = dpmaif_ctrl->smem_drb_qinfo[qno];
+	if (!drb_qinfo) {
+		CCCI_ERROR_LOG(0, TAG, "[%s] error: drb_qnifo is null!\n", __func__);
+		return -ENODEV;
+	}
+	smem_drb_base = dpmaif_ctrl->smem_drb_qbase[qno];
+	if (!smem_drb_base) {
+		CCCI_ERROR_LOG(0, TAG, "[%s] error: smem_drb_base is null!\n", __func__);
+		return -ENODEV;
+	}
+	smem_drb_skb = dpmaif_ctrl->dpma_drb_qskb[qno];
+	if (!smem_drb_skb) {
+		CCCI_ERROR_LOG(0, TAG, "[%s] error: smem_drb_skb is null!\n", __func__);
+		return -ENODEV;
+	}
+	drb_qbuf_inf = &dpmaif_ctrl->smem_drb_qbuf_inf[qno];
+	if (!drb_qbuf_inf) {
+		CCCI_ERROR_LOG(0, TAG, "[%s] error: drb_qbuf_inf is null!\n", __func__);
+		return -ENODEV;
+	}
+
+	memset(&ccci_h, 0, sizeof(ccci_h));
+	memset(&phy_addr, 0, sizeof(phy_addr));
 
 	if (skb->mark & UIDMASK) {
 		g_dp_uid_mask_count++;
@@ -4863,14 +4888,19 @@ static inline int dpmaif_set_skb_data_to_smem_drb(struct dpmaif_tx_queue *txq,
 static int dpmaif_handle_skb_data(struct sk_buff *skb, int qno,
 		struct dpmaif_tx_queue *txq)
 {
-	struct drb_queue_info *drb_qinfo = dpmaif_ctrl->smem_drb_qinfo[qno];
+	struct drb_queue_info *drb_qinfo = NULL;
 	struct skb_shared_info *info = NULL;
-	unsigned int remain_cnt, send_cnt = 0, payload_cnt = 0;
-	unsigned long flags;
+	unsigned int remain_cnt = 0, send_cnt = 0, payload_cnt = 0;
+	unsigned long flags = 0;
 	int ret = 0;
 
-	info = skb_shinfo(skb);
+	drb_qinfo = dpmaif_ctrl->smem_drb_qinfo[qno];
+	if (!drb_qinfo) {
+		CCCI_ERROR_LOG(0, TAG, "[%s] error: drb_qinfo is null!\n", __func__);
+		return -ENODEV;
+	}
 
+	info = skb_shinfo(skb);
 	if (info->frag_list != NULL)
 		CCCI_ERROR_LOG(0, TAG, "[%s] error: skb frag_list not supported!\n", __func__);
 
@@ -5072,7 +5102,7 @@ static int dpmaif_tx_sw_solution_init(void)
 				dpmaif_ctrl->smem_size <= 0) {
 		dpmaif_ctrl->tx_sw_solution_enable = 0;
 		CCCI_ERROR_LOG(-1, TAG,
-			"[%s] error: fail. smem_base: %p(%p); smem_size: %u\n",
+			"[%s] error: fail. smem_base: %p(%llx); smem_size: %u\n",
 			__func__, dpmaif_ctrl->smem_base_vir, dpmaif_ctrl->smem_base_phy,
 			dpmaif_ctrl->smem_size);
 		return 0;

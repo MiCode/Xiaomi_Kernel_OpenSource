@@ -1589,8 +1589,12 @@ static unsigned short dpmaif_relase_tx_buffer(unsigned char q_num,
 
 int dpmaif_empty_query_v2(int qno)
 {
-	struct dpmaif_tx_queue *txq = &dpmaif_ctrl->txq[qno];
+	struct dpmaif_tx_queue *txq = NULL;
 
+	if ((qno) < 0 || (qno >= DPMAIF_TXQ_NUM))
+		return 0;
+
+	txq = &dpmaif_ctrl->txq[qno];
 	if (txq == NULL) {
 		CCCI_ERROR_LOG(dpmaif_ctrl->md_id, TAG,
 			"%s:fail NULL txq\n", __func__);
@@ -1629,7 +1633,7 @@ static int dpmaif_tx_release(unsigned char q_num, unsigned short budget)
 	dpmaif_ctrl->tx_done_last_count[q_num] = real_rel_cnt;
 #endif
 
-	if (real_rel_cnt < 0 || txq->que_started == false)
+	if (txq->que_started == false)
 		return ERROR_STOP;
 	else
 		return ((real_rel_cnt < rel_cnt)?ONCE_MORE : ALL_CLEAR);

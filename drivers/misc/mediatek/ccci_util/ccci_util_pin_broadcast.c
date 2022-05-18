@@ -47,14 +47,14 @@ static struct list_head user_list;
 
 void inject_pin_status_event(int pin_value, const char pin_name[])
 {
-	struct pin_event_user_ctrl *user_ctrl;
-	unsigned long flags;
+	struct pin_event_user_ctrl *user_ctrl = NULL;
+	unsigned long flags = 0;
 
 	spin_lock_irqsave(&pin_event_update_lock, flags);
 	if (pin_name != NULL)
-		snprintf(pin_event->pin_name, 32, "%s", pin_name);
+		scnprintf(pin_event->pin_name, 32, "%s", pin_name);
 	else
-		snprintf(pin_event->pin_name, 32, "%s", "----");
+		scnprintf(pin_event->pin_name, 32, "%s", "----");
 	pin_event->pin_value = pin_value;
 	list_for_each_entry(user_ctrl, &user_list, entry)
 		user_ctrl->pin_update = 1;

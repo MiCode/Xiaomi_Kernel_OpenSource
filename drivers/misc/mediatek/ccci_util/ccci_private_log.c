@@ -412,7 +412,7 @@ static ssize_t ccci_dump_fops_write(struct file *file,
 	dump_flag = CCCI_DUMP_TIME_FLAG | CCCI_DUMP_ANDROID_TIME_FLAG;
 	res = ccci_dump_write(0, CCCI_DUMP_MD_INIT, dump_flag, "%s\n", infor_buf);
 	if (unlikely(res < 0)) {
-		pr_info("[ccci0/util]ccci dump write fail, size=%d, info:%s, res:%d\n",
+		pr_info("[ccci0/util]ccci dump write fail, size=%zu, info:%s, res:%d\n",
 		       size, infor_buf, res);
 	}
 	return size;
@@ -441,7 +441,7 @@ int ccci_dump_write(int md_id, int buf_type,
 		return -1;
 	if (unlikely(md_id < 0))
 		md_id = 0;
-	if (unlikely(buf_type >= CCCI_DUMP_MAX))
+	if (unlikely((buf_type >= CCCI_DUMP_MAX) || (buf_type < 0)))
 		return -2;
 	buf_id = buff_bind_md_id[md_id];
 	if (buf_id == -1)
@@ -477,9 +477,9 @@ int ccci_dump_write(int md_id, int buf_type,
 		rem_nsec = do_div(ts_nsec, 1000000000);
 
 		if (flag & CCCI_DUMP_ANDROID_TIME_FLAG) {
-                	ktime_get_real_ts64(&save_time);
-                	save_time.tv_sec -= sys_tz.tz_minuteswest * 60;
-                	rtc_time64_to_tm(save_time.tv_sec, &android_time);
+			ktime_get_real_ts64(&save_time);
+			save_time.tv_sec -= (time64_t)sys_tz.tz_minuteswest * 60;
+			rtc_time64_to_tm(save_time.tv_sec, &android_time);
 
 			write_len = scnprintf(temp_log, CCCI_LOG_MAX_WRITE,
 					     "[%d-%02d-%02d %02d:%02d:%02d.%03d]",
@@ -1140,7 +1140,7 @@ int ccci_event_log(const char *fmt, ...)
 	tv_android.tv_nsec = tv.tv_nsec;
 
 	rtc_time64_to_tm(tv.tv_sec, &tm);
-	tv_android.tv_sec -= sys_tz.tz_minuteswest * 60;
+	tv_android.tv_sec -= (time64_t)sys_tz.tz_minuteswest * 60;
 	rtc_time64_to_tm(tv_android.tv_sec, &tm_android);
 
 	write_len = scnprintf(temp_log, CCCI_LOG_MAX_WRITE,

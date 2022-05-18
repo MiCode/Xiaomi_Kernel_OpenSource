@@ -111,10 +111,10 @@ static void ccci_ringbuf_dump(int md_id, unsigned char *title,
 	i = read;
 	while (1) {
 		memset(tmp_buf, 0, sizeof(tmp_buf));
-		snprintf(tmp_buf, sizeof(tmp_buf), "%08X:", i);
+		scnprintf(tmp_buf, sizeof(tmp_buf), "%08X:", i);
 		for (j = 0; j < 4; j++) {
-			snprintf(buf, sizeof(tmp_buf), "%s", tmp_buf);
-			snprintf(tmp_buf, sizeof(tmp_buf),
+			scnprintf(buf, sizeof(tmp_buf), "%s", tmp_buf);
+			scnprintf(tmp_buf, sizeof(tmp_buf),
 				 "%s %02X%02X%02X%02X", buf, *(buffer + i),
 				 *(buffer + i + 1), *(buffer + i + 2),
 				 *(buffer + i + 3));

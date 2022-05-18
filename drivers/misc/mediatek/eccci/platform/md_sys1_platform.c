@@ -276,7 +276,7 @@ static void md1_pmic_setting_init(struct platform_device *plat_dev)
 					md_reg_table[idx].reg_name, ret);
 
 			CCCI_BOOTUP_LOG(-1, TAG,
-				"get regulator(%s=%ld %d) successfully\n",
+				"get regulator(%s=%ld %lu) successfully\n",
 				md_reg_table[idx].reg_name,
 				md_reg_table[idx].reg_vol0, md_reg_table[idx].reg_vol1);
 		}

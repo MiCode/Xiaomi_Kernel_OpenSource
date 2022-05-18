@@ -124,7 +124,7 @@ fast_retry:
 	if (dma_mapping_error(ccci_md_get_dev_by_id(dpmaif_ctrl->md_id),
 				(*p_base_addr))) {
 		CCCI_ERROR_LOG(-1, TAG,
-			"[%s] error: dma mapping fail: %d!\n",
+			"[%s] error: dma mapping fail: %ld!\n",
 			__func__, skb_data_size(*ppskb));
 
 		ccci_free_skb(*ppskb);
@@ -291,8 +291,6 @@ static struct dpmaif_bat_request *ccci_dpmaif_bat_create(void)
 
 	if (!bat_req)
 		CCCI_ERROR_LOG(-1, TAG, "alloc bat fail.\n");
-
-	memset(bat_req, 0, sizeof(struct dpmaif_bat_request));
 
 	return bat_req;
 }

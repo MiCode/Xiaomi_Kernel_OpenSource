@@ -325,8 +325,6 @@ static struct dpmaif_bat_request *ccci_dpmaif_bat_create(void)
 	if (!bat_req)
 		CCCI_ERROR_LOG(-1, TAG, "alloc bat fail.\n");
 
-	memset(bat_req, 0, sizeof(struct dpmaif_bat_request));
-
 	return bat_req;
 }
 

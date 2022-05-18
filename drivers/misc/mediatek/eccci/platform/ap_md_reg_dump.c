@@ -794,12 +794,12 @@ static int md_dump_mem_once(unsigned int md_id, const void *buff_src,
 
 		if (ret < 0) {
 			CCCI_ERROR_LOG(md_id, TAG,
-				"%s: ccci_dump_write fail %d, 0x%llx, %d, 0x%llx\n",
+				"%s: ccci_dump_write fail %d, 0x%llx, %lu, 0x%llx\n",
 				__func__, ret, dump_limit, strlen(temp_buf + tmp_idx), i);
 			return -2;
 		} else if (!ret) {
 			CCCI_ERROR_LOG(md_id, TAG,
-				"%s: ccci_dump_write return 0: %d, 0x%lx, %d, 0x%lx\n",
+				"%s: ccci_dump_write return 0: %d, 0x%lx, %lu, 0x%lx\n",
 				__func__, ret, dump_limit, strlen(temp_buf + tmp_idx), i);
 			i++;
 		}

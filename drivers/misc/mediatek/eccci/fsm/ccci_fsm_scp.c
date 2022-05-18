@@ -387,7 +387,7 @@ static struct notifier_block apsync_notifier = {
 
 static int ccif_scp_clk_init(struct device *dev)
 {
-	int idx;
+	int idx = 0;
 
 	for (idx = 0; idx < ARRAY_SIZE(scp_clk_table); idx++) {
 		scp_clk_table[idx].clk_ref = devm_clk_get(dev,
@@ -395,7 +395,7 @@ static int ccif_scp_clk_init(struct device *dev)
 		if (IS_ERR(scp_clk_table[idx].clk_ref)) {
 			CCCI_ERROR_LOG(-1, FSM,
 				"%s:scp get %s failed\n",
-				scp_clk_table[idx].clk_name);
+				__func__, scp_clk_table[idx].clk_name);
 			scp_clk_table[idx].clk_ref = NULL;
 			return -1;
 		}

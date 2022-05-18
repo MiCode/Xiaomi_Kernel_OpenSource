@@ -28,7 +28,7 @@ void mdee_set_ex_start_str(struct ccci_fsm_ee *ee_ctl,
 	}
 	ts_nsec = local_clock();
 	rem_nsec = do_div(ts_nsec, 1000000000);
-	snprintf(ee_ctl->ex_start_time, MD_EX_START_TIME_LEN,
+	scnprintf(ee_ctl->ex_start_time, MD_EX_START_TIME_LEN,
 		"AP detect MDEE time:%5lu.%06lu\n",
 		(unsigned long)ts_nsec, rem_nsec / 1000);
 	CCCI_MEM_LOG_TAG(ee_ctl->md_id, FSM, "%s\n",

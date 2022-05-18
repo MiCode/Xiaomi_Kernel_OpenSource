@@ -424,8 +424,8 @@ static inline void dpmaif_lro_update_gro_info(
 static inline void dpmaif_handle_wakeup(struct dpmaif_rx_queue *rxq,
 		struct sk_buff *skb)
 {
-	struct iphdr *iph = (struct iphdr *)skb->data;
-	struct ipv6hdr *ip6h = (struct ipv6hdr *)skb->data;
+	struct iphdr *iph = NULL;
+	struct ipv6hdr *ip6h = NULL;
 	struct tcphdr *tcph = NULL;
 	struct udphdr *udph = NULL;
 	int ip_offset = 0;
@@ -438,6 +438,12 @@ static inline void dpmaif_handle_wakeup(struct dpmaif_rx_queue *rxq,
 	if (!skb)
 		goto err;
 
+	iph = (struct iphdr *)skb->data;
+	if (!iph)
+		goto err;
+	ip6h = (struct ipv6hdr *)skb->data;
+	if (!ip6h)
+		goto err;
 	skb_len = skb->len;
 	version = iph->version;
 	if (version == 4) {
@@ -1985,7 +1991,13 @@ static unsigned short dpmaif_relase_tx_buffer(unsigned char q_num,
 
 int dpmaif_empty_query_v3(int qno)
 {
-	struct dpmaif_tx_queue *txq = &dpmaif_ctrl->txq[qno];
+	struct dpmaif_tx_queue *txq = NULL;
+
+	if (qno < 0)
+		return -EINVAL;
+	else if (qno >= DPMAIF_TXQ_NUM)
+		qno = DPMAIF_TXQ_NUM - 1;
+	txq = &dpmaif_ctrl->txq[qno];
 
 	if (txq == NULL) {
 		CCCI_ERROR_LOG(dpmaif_ctrl->md_id, TAG,
@@ -2025,7 +2037,7 @@ static int dpmaif_tx_release(unsigned char q_num, unsigned short budget)
 	dpmaif_ctrl->tx_done_last_count[q_num] = real_rel_cnt;
 #endif
 
-	if (real_rel_cnt < 0 || txq->que_started == false)
+	if (txq->que_started == false)
 		return ERROR_STOP;
 	else
 		return ((real_rel_cnt < rel_cnt)?ONCE_MORE : ALL_CLEAR);
@@ -3347,8 +3359,9 @@ static void dpmaif_stop_hw(void)
 {
 	struct dpmaif_rx_queue *rxq = NULL;
 	struct dpmaif_tx_queue *txq = NULL;
-	unsigned int que_cnt, ret;
-	int count;
+	unsigned int que_cnt = 0;
+	int ret = 0;
+	int count = 0;
 
 #ifdef DPMAIF_DEBUG_LOG
 	CCCI_HISTORY_TAG_LOG(-1, TAG, "dpmaif:stop hw\n");

@@ -1165,8 +1165,10 @@ EXPORT_SYMBOL(ccci_get_md_view_phy_addr_by_user_id);
 void ccci_md_clear_smem(int md_id, int first_boot)
 {
 	struct ccci_smem_region *region = NULL;
-	unsigned int size;
+	unsigned int size = 0;
 
+	if (md_id >= MAX_MD_NUM || md_id < 0)
+		return;
 	/* MD will clear share memory itself after the first boot */
 	clear_smem_region(modem_sys[md_id]->mem_layout.md_bank4_noncacheable,
 		first_boot);

@@ -151,12 +151,12 @@ static int find_ccci_tag_inf(char *name, char *buf, unsigned int size)
 		/* 1. Copy tag */
 		memcpy_fromio(&tag, curr, sizeof(union u_tag));
 		if (s_g_lk_info_tag_version >= CCCI_LK_INFO_VER_V2) {
-			snprintf(tag_name, 64, "%s", tag.v2.tag_name);
+			scnprintf(tag_name, 64, "%s", tag.v2.tag_name);
 			data_offset = tag.v2.data_offset;
 			data_size = tag.v2.data_size;
 			next_tag_offset = tag.v2.next_tag_offset;
 		} else {
-			snprintf(tag_name, 64, "%s", tag.v1.tag_name);
+			scnprintf(tag_name, 64, "%s", tag.v1.tag_name);
 			data_offset = tag.v1.data_offset;
 			data_size = tag.v1.data_size;
 			next_tag_offset = tag.v1.next_tag_offset;
@@ -465,7 +465,7 @@ EXPORT_SYMBOL(get_nc_smem_region_info);
 
 static void cshare_memory_info_parsing(void)
 {
-	unsigned int size;
+	unsigned int size = 0;
 
 	memset(&csmem_info, 0, sizeof(struct _csmem_item));
 	if (find_ccci_tag_inf("md1_bank4_cache_info", (char *)&csmem_info,
@@ -1012,7 +1012,7 @@ static void dump_retrieve_info(void)
 	CCCI_UTIL_INF_MSG("retrieve number is %d.\n", retrieve_num);
 
 	for (i = 0; i < retrieve_num; i++) {
-		snprintf(buf, 32, "retrieve%d", i);
+		scnprintf(buf, 32, "retrieve%d", i);
 		if (find_ccci_tag_inf(buf,
 				(char *)&array, sizeof(array))) {
 			CCCI_UTIL_INF_MSG(
@@ -1104,51 +1104,51 @@ _common_process:
 /* functions will be called by external */
 int get_lk_load_md_info(char buf[], int size)
 {
-	int i;
-	int has_write;
-	int count;
+	int i = 0;
+	int has_write = 0;
+	int count = 0;
 
 	if (s_g_lk_load_img_status & LK_LOAD_MD_EN)
-		has_write = snprintf(buf, size,
+		has_write = scnprintf(buf, size,
 			"LK Load MD:[Enabled](0x%08x)\n",
 			s_g_lk_load_img_status);
 	else {
-		has_write = snprintf(buf, size,
+		has_write = scnprintf(buf, size,
 			"LK Load MD:[Disabled](0x%08x)\n",
 			s_g_lk_load_img_status);
 		return has_write;
 	}
 
 	if ((s_g_lk_load_img_status & (~0x1)) == 0) {
-		has_write += snprintf(&buf[has_write], size - has_write,
+		has_write += scnprintf(&buf[has_write], size - has_write,
 						"LK load MD success!\n");
 		return has_write;
 	}
 
-	has_write += snprintf(&buf[has_write], size - has_write,
+	has_write += scnprintf(&buf[has_write], size - has_write,
 					"LK load MD has error:\n");
-	has_write += snprintf(&buf[has_write], size - has_write,
+	has_write += scnprintf(&buf[has_write], size - has_write,
 					"---- More details ----------------\n");
 	if (s_g_lk_load_img_status & LK_LOAD_MD_ERR_INVALID_MD_ID)
-		has_write += snprintf(&buf[has_write], size - has_write,
+		has_write += scnprintf(&buf[has_write], size - has_write,
 					"Err: Got invalid md id(%d:%s)\n",
 					s_g_lk_ld_md_errno,
 					ld_md_errno_to_str(s_g_lk_ld_md_errno));
 	else if (s_g_lk_load_img_status & LK_LOAD_MD_ERR_NO_MD_LOAD)
-		has_write += snprintf(&buf[has_write], size - has_write,
+		has_write += scnprintf(&buf[has_write], size - has_write,
 					"Err: No valid md image(%d:%s)\n",
 					s_g_lk_ld_md_errno,
 					ld_md_errno_to_str(s_g_lk_ld_md_errno));
 	else if (s_g_lk_load_img_status & LK_LOAD_MD_ERR_LK_INFO_FAIL)
-		has_write += snprintf(&buf[has_write], size - has_write,
+		has_write += scnprintf(&buf[has_write], size - has_write,
 					"Err: Got lk info fail(%d:%s)\n",
 					s_g_lk_ld_md_errno,
 					ld_md_errno_to_str(s_g_lk_ld_md_errno));
 	else if (s_g_lk_load_img_status & LK_KERNEL_SETTING_MIS_SYNC)
-		has_write += snprintf(&buf[has_write], size - has_write,
+		has_write += scnprintf(&buf[has_write], size - has_write,
 					"Err: lk kernel setting mis sync\n");
 
-	has_write += snprintf(&buf[has_write], size - has_write,
+	has_write += scnprintf(&buf[has_write], size - has_write,
 			"ERR> 1:[%d] 2:[%d] 3:[%d] 4:[%d]\n",
 			lk_load_img_err_no[0], lk_load_img_err_no[1],
 			lk_load_img_err_no[2], lk_load_img_err_no[3]);
@@ -1156,11 +1156,11 @@ int get_lk_load_md_info(char buf[], int size)
 	for (i = 0; i < MAX_MD_NUM_AT_LK; i++) {
 		if (lk_load_img_err_no[i] == 0)
 			continue;
-		count = snprintf(&buf[has_write], size - has_write,
+		count = scnprintf(&buf[has_write], size - has_write,
 			"hint for MD%d: %s\n",
 			i+1, ld_md_errno_to_str(lk_load_img_err_no[i]));
 		if (count <= 0 || count >= size - has_write) {
-			CCCI_UTIL_INF_MSG("%s: snprintf hint for MD fail\n",
+			CCCI_UTIL_INF_MSG("%s: scnprintf hint for MD fail\n",
 				__func__);
 			buf[has_write] = 0;
 		} else {
@@ -1417,13 +1417,14 @@ static void cal_md_settings(int md_id)
 	char *node_name2 = NULL;
 	struct device_node *node = NULL;
 	struct device_node *node2 = NULL;
-	int val;
+	int val = 0;
 
+	memset(tmp_buf, 0, sizeof(tmp_buf));
 	val = snprintf(tmp_buf, sizeof(tmp_buf),
 		"opt_md%d_support", (md_id + 1));
-	if (val < 0 || val >= sizeof(tmp_buf)) {
+	if (val < 0) {
 		CCCI_UTIL_ERR_MSG_WITH_ID(md_id,
-			"%s-%d:snprintf fail.val=%d\n", __func__, __LINE__, val);
+			"%s-%d:scnprintf fail.val=%d\n", __func__, __LINE__, val);
 		return;
 	}
 	/* MTK_ENABLE_MD* */
@@ -1537,15 +1538,16 @@ static void cal_md_settings(int md_id)
 
 static void cal_md_settings_v2(struct device_node *node)
 {
-	unsigned int tmp;
+	unsigned int tmp = 0;
 	char tmp_buf[30];
-	int i;
+	int i = 0;
 
 	CCCI_UTIL_INF_MSG("using kernel dt mem setting for md\n");
+	memset(tmp_buf, 0, sizeof(tmp_buf));
 
 	/* MD*_SMEM_SIZE */
 	for (i = 0; i < MAX_MD_NUM_AT_LK; i++) {
-		snprintf(tmp_buf, 30, "mediatek,md%d-smem-size", i+1);
+		scnprintf(tmp_buf, 30, "mediatek,md%d-smem-size", i+1);
 		if (!of_property_read_u32(node, tmp_buf, &tmp)) {
 			CCCI_UTIL_INF_MSG("DT[%s]:%08X\n", tmp_buf, tmp);
 			md_resv_smem_size[MD_SYS1+i] = tmp;
@@ -1555,7 +1557,7 @@ static void cal_md_settings_v2(struct device_node *node)
 	}
 
 	/* MD1MD3_SMEM_SIZE*/
-	snprintf(tmp_buf, 30, "mediatek,md1md3-smem-size");
+	scnprintf(tmp_buf, 30, "mediatek,md1md3-smem-size");
 	if (!of_property_read_u32(node, tmp_buf, &tmp)) {
 		CCCI_UTIL_INF_MSG("DT[%s]:%08X\n", tmp_buf, tmp);
 		md1md3_resv_smem_size = tmp;
@@ -1564,7 +1566,7 @@ static void cal_md_settings_v2(struct device_node *node)
 			tmp_buf, md1md3_resv_smem_size);
 
 	/* CFG version */
-	snprintf(tmp_buf, 30, "mediatek,version");
+	scnprintf(tmp_buf, 30, "mediatek,version");
 	tmp = 0;
 	of_property_read_u32(node, tmp_buf, &tmp);
 	CCCI_UTIL_INF_MSG("DT[%s]:%08X\n", tmp_buf, tmp);

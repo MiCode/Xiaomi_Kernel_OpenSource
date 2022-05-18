@@ -267,11 +267,11 @@ CCCI_ATTR(ft_info, 0444, &ccci_ft_inf_show, NULL);
 static ssize_t kcfg_setting_show(char *buf)
 {
 	unsigned int curr = 0;
-	unsigned int actual_write;
-	char md_en[MAX_MD_NUM];
+	int actual_write = 0;
+	char md_en[MAX_MD_NUM] = {0};
 	unsigned int md_num = 0;
-	int i;
-	char c_en;
+	int i = 0;
+	char c_en = 0;
 
 	for (i = 0; i < MAX_MD_NUM; i++) {
 		if (get_modem_is_enabled(MD_SYS1 + i)) {

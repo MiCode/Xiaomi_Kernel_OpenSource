@@ -217,7 +217,7 @@ void port_char_dump_info(struct port_t *port, unsigned int flag)
 			"CHR:(%d):%dR(%d,%d,%d):%dT(%d)\n",
 			port->flags, port->rx_ch,
 			port->rx_skb_list.qlen,
-			port->rx_pkg_cnt, port->rx_drop_cnt,
+			atomic_read(&port->rx_pkg_cnt), port->rx_drop_cnt,
 			port->tx_ch, port->tx_pkg_cnt);
 }
 struct port_ops char_port_ops = {
