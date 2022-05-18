@@ -378,7 +378,7 @@ int mtk_cam_seninf_get_vcinfo(struct seninf_ctx *ctx)
 {
 	int ret = 0;
 	int i, grp, grp_metadata, raw_cnt;
-	struct mtk_mbus_frame_desc fd;
+	struct mtk_mbus_frame_desc fd = {0};
 	struct seninf_vcinfo *vcinfo = &ctx->vcinfo;
 	struct seninf_vc *vc;
 	int desc;
@@ -393,6 +393,7 @@ int mtk_cam_seninf_get_vcinfo(struct seninf_ctx *ctx)
 	if (!ctrl) {
 		dev_info(ctx->dev, "%s, no V4L2_CID_MTK_FRAME_DESC %s\n",
 			__func__, sensor_sd->name);
+		return -EINVAL;
 	}
 
 	ctrl->p_new.p = &fd;
@@ -730,7 +731,7 @@ void mtk_cam_seninf_alloc_cam_mux(struct seninf_ctx *ctx)
 	mutex_lock(&core->mutex);
 
 	/* allocate all cam muxs */
-	for (i = 0; i < vcinfo->cnt; i++) {
+	for (i = 0; i < vcinfo->cnt && i < SENINF_VC_MAXCNT; i++) {
 		vc = &vcinfo->vc[i];
 		ent = list_first_entry_or_null(&core->list_cam_mux,
 					       struct seninf_cam_mux, list);

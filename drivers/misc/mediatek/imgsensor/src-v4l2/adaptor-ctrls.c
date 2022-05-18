@@ -616,13 +616,14 @@ void fsync_setup_hdr_exp_data(struct adaptor_ctx *ctx,
 static int _get_frame_desc(struct adaptor_ctx *ctx, unsigned int pad,
 		struct mtk_mbus_frame_desc *fd)
 {
-	int ret;
+	/* default -1 is the same as subdrv_call get_frame_desc */
+	int ret = -1;
 //	struct adaptor_ctx *ctx = to_ctx(sd);
 	u64 desc_visited = 0x0;
 	int write_to = 0, i = -1, j = 0;
 
 	while (i < SENSOR_SCENARIO_ID_MAX) {
-		struct mtk_mbus_frame_desc fd_tmp;
+		struct mtk_mbus_frame_desc fd_tmp = {0};
 		u32 scenario_id = (-1 == i) ? ctx->cur_mode->id : ctx->seamless_scenarios[i];
 
 		if (scenario_id == SENSOR_SCENARIO_ID_NONE)
@@ -633,7 +634,8 @@ static int _get_frame_desc(struct adaptor_ctx *ctx, unsigned int pad,
 		if (!ret) {
 			for (j = 0; write_to < MTK_FRAME_DESC_ENTRY_MAX && j < fd_tmp.num_entries;
 				++j) {
-				if (desc_visited & (0x1 << fd_tmp.entry[j].bus.csi2.user_data_desc))
+				if (desc_visited
+					& ((u64)(0x1) << fd_tmp.entry[j].bus.csi2.user_data_desc))
 					continue;
 
 				dev_info(ctx->dev, "[%s] scenario %u desc %d/%d/%d/%d\n", __func__,
@@ -643,7 +645,8 @@ static int _get_frame_desc(struct adaptor_ctx *ctx, unsigned int pad,
 				memcpy(&fd->entry[write_to++], &fd_tmp.entry[j],
 					   sizeof(struct mtk_mbus_frame_desc_entry));
 
-				desc_visited |= (0x1 << fd_tmp.entry[j].bus.csi2.user_data_desc);
+				desc_visited |=
+					((u64)(0x1) << fd_tmp.entry[j].bus.csi2.user_data_desc);
 			}
 		}
 
@@ -918,7 +921,7 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 			union feature_para para2;
 			__u32 fine_integ_time = 0;
 
-			para.u64[0] = ctrl->val * 100000;
+			para.u64[0] = (u64)(ctrl->val) * 100000;
 			do_div(para.u64[0], ctx->cur_mode->linetime_in_ns);
 
 			/* read fine integ time*/
@@ -1121,9 +1124,18 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 			for (i = SENSOR_SCENARIO_ID_MIN; i < SENSOR_SCENARIO_ID_MAX; i++)
 				ctx->seamless_scenarios[i] = SENSOR_SCENARIO_ID_NONE;
 
-			copy_from_user(&ctx->seamless_scenarios, info->target_scenario_ids,
-					min(sizeof(ctx->seamless_scenarios),
+			ret = copy_from_user(
+				&ctx->seamless_scenarios, info->target_scenario_ids,
+				min(sizeof(ctx->seamless_scenarios),
 					info->count * sizeof(*info->target_scenario_ids)));
+
+			/* returns number of bytes that could not be copied */
+			/* On success, this will be zero */
+			if (ret != 0) {
+				dev_info(dev,
+					"[V4L2_CID_SEAMLESS_SCENARIOS] copy_from_user has some error, ret:%d\n",
+					ret);
+			}
 		}
 		break;
 	case V4L2_CID_START_SEAMLESS_SWITCH:
