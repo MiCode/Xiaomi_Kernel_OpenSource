@@ -785,6 +785,7 @@ static long teei_config_ioctl(struct file *file,
 
 			teei_ta_flags = param.flag;
 			for (i = 0; i < param.uuid_count; i++) {
+				param.uuids[i][UUID_LEN] = 0;
 				if ((teei_ta_flags >> i) & (0x01))
 					tz_load_ta_by_str(param.uuids[i]);
 				else

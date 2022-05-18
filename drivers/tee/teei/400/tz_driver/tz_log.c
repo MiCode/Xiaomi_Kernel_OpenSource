@@ -121,6 +121,7 @@ static void tz_driver_dump_logs(struct tz_log_state *s)
 	struct boot_log_rb *boot_log = s->boot_log;
 	uint32_t get, put, alloc;
 	int read_chars;
+	int ret = 0;
 	static DEFINE_RATELIMIT_STATE(_rs,
 				TZ_LOG_RATELIMIT_INTERVAL,
 				TZ_LOG_RATELIMIT_BURST);
@@ -189,7 +190,9 @@ static void tz_driver_dump_logs(struct tz_log_state *s)
 
 		/* Print warning message */
 		/* if log output frequency is over rate limit */
-		__ratelimit(&_rs);
+		ret = __ratelimit(&_rs);
+		if (ret != 0)
+			IMSG_DEBUG("ratelimit failed\n");
 
 		get += read_chars;
 
@@ -442,7 +445,12 @@ int tz_log_probe(struct platform_device *pdev)
 		IMSG_ERROR("failed to register panic notifier\n");
 		goto error_panic_notifier;
 	}
-	platform_device_add_data(pdev, s, sizeof(struct tz_log_state));
+	result = platform_device_add_data(pdev, s, sizeof(struct tz_log_state));
+
+	if (result != 0) {
+		IMSG_ERROR("failed to add device data\n");
+		goto error_panic_notifier;
+	}
 
 #ifdef ENABLED_TEEI_BOOT_LOG
 	tz_log_debugfs_init();

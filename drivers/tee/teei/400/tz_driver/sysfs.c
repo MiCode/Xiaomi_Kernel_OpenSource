@@ -104,7 +104,7 @@ static ssize_t teei_log_level_store(struct device *dev,
 				struct device_attribute *attr,
 				const char *buf, size_t len)
 {
-	unsigned long new;
+	unsigned long new = 0;
 	int retVal = 0;
 
 	retVal = kstrtoul(buf, 0, &new);
@@ -486,7 +486,7 @@ static ssize_t list_ut_drv_show(struct device *cd,
 
 	list_for_each_entry(entry, &ut_drv_list, list) {
 		uuid_to_str(&entry->uuid, uuid_str);
-		s += sprintf(s, "%s\n", uuid_str);
+		s += snprintf(s, UUID_STRING_LENGTH, "%s\n", uuid_str);
 	}
 
 	return (ssize_t)(s - buf);
@@ -566,7 +566,7 @@ static ssize_t notify_ree_dci_handler_store(struct device *dev,
 				struct device_attribute *attr,
 				const char *buf, size_t len)
 {
-	uint32_t driver_id;
+	uint32_t driver_id = 0;
 
 	hex_str_to_value(buf, 8, &driver_id);
 	IMSG_DEBUG("driver_id: 0x%x\n", driver_id);

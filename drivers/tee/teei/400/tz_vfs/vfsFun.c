@@ -65,11 +65,14 @@ struct vfs_dev *vfs_devp;
 
 int wait_for_vfs_done(void)
 {
+	int ret = 0;
 #ifdef VFS_RDWR_SEM
-	down_interruptible(&VFS_wr_sem);
+	ret = down_interruptible(&VFS_wr_sem);
 #else
-	wait_for_completion_interruptible(&VFS_wr_comp);
+	ret = wait_for_completion_interruptible(&VFS_wr_comp);
 #endif
+	if (ret != 0)
+		return ret;
 	return 0;
 }
 
@@ -162,11 +165,6 @@ static ssize_t tz_vfs_read(struct file *filp, char __user *buf,
 		return -EINVAL;
 
 	vfs_p = (struct TEEI_vfs_command *)daulOS_VFS_share_mem;
-
-	if (vfs_p->cmd_size > size)
-		length = size;
-	else
-		length = vfs_p->cmd_size;
 
 	length = size;
 

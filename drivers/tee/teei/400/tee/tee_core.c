@@ -22,6 +22,7 @@
 #include "teei_id.h"
 
 #define TEE_NUM_DEVICES	32
+#define MAX_NUM_PARAMS 4
 
 #define TEE_IOCTL_PARAM_SIZE(x) (sizeof(struct tee_param) * (x))
 
@@ -255,9 +256,9 @@ static int params_from_user(struct tee_context *ctx, struct tee_param *params,
 			 * count. It's the callers responibility to do
 			 * isee_shm_put() on all resolved pointers.
 			 */
-			shm = isee_shm_get_from_id(ctx, ip.c);
+			shm = isee_shm_get_from_id(ctx, (int)(ip.c));
 			if (IS_ERR(shm))
-				return PTR_ERR(shm);
+				return (int)(PTR_ERR(shm));
 
 			if ((ip.a >= shm->size) || (ip.b > shm->size)
 					|| ((ip.a + ip.b) > shm->size)) {
@@ -331,6 +332,9 @@ static int tee_ioctl_open_session(struct tee_context *ctx,
 	if (copy_from_user(&arg, uarg, sizeof(arg)))
 		return -EFAULT;
 
+	if (arg.num_params > MAX_NUM_PARAMS)
+		return -EINVAL;
+
 	if (sizeof(arg) + TEE_IOCTL_PARAM_SIZE(arg.num_params) != buf.buf_len)
 		return -EINVAL;
 
@@ -340,7 +344,8 @@ static int tee_ioctl_open_session(struct tee_context *ctx,
 		if (!params)
 			return -ENOMEM;
 		uparams = uarg->params;
-		rc = params_from_user(ctx, params, arg.num_params, uparams);
+		rc = params_from_user(ctx, params, (size_t)arg.num_params,
+				 uparams);
 		if (rc)
 			goto out;
 	}
@@ -356,7 +361,7 @@ static int tee_ioctl_open_session(struct tee_context *ctx,
 		rc = -EFAULT;
 		goto out;
 	}
-	rc = params_to_user(uparams, arg.num_params, params);
+	rc = params_to_user(uparams, (size_t)arg.num_params, params);
 out:
 	/*
 	 * If we've succeeded to open the session but failed to communicate
@@ -402,6 +407,9 @@ static int tee_ioctl_invoke(struct tee_context *ctx,
 	if (copy_from_user(&arg, uarg, sizeof(arg)))
 		return -EFAULT;
 
+	if (arg.num_params > MAX_NUM_PARAMS)
+		return -EINVAL;
+
 	if (sizeof(arg) + TEE_IOCTL_PARAM_SIZE(arg.num_params) != buf.buf_len)
 		return -EINVAL;
 
@@ -411,7 +419,8 @@ static int tee_ioctl_invoke(struct tee_context *ctx,
 		if (!params)
 			return -ENOMEM;
 		uparams = uarg->params;
-		rc = params_from_user(ctx, params, arg.num_params, uparams);
+		rc = params_from_user(ctx, params, (size_t)arg.num_params,
+				 uparams);
 		if (rc)
 			goto out;
 	}
@@ -425,7 +434,7 @@ static int tee_ioctl_invoke(struct tee_context *ctx,
 		rc = -EFAULT;
 		goto out;
 	}
-	rc = params_to_user(uparams, arg.num_params, params);
+	rc = params_to_user(uparams, (size_t)arg.num_params, params);
 out:
 	if (params) {
 		/* Decrease ref count for all valid shared memory pointers */
@@ -871,9 +880,14 @@ struct tee_device *isee_device_alloc(const struct tee_desc *teedesc,
 		goto err;
 	}
 
-	snprintf(teedev->name, sizeof(teedev->name), "isee_tee%s%d",
+	rc = snprintf(teedev->name, sizeof(teedev->name), "isee_tee%s%d",
 		 teedesc->flags & TEE_DESC_PRIVILEGED ? "priv" : "",
 		 teedev->id - offs);
+	if (rc <= 0) {
+		IMSG_ERROR("failed to call snprintf rc = %d\n", rc);
+		ret = ERR_PTR(-EINVAL);
+		goto err;
+	}
 
 	teedev->dev.class = tee_class;
 	teedev->dev.release = tee_release_device;

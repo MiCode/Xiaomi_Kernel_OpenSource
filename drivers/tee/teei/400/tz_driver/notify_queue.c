@@ -56,7 +56,6 @@ static unsigned long create_notify_queue(unsigned long size)
 	if ((unsigned char *)buff_addr == NULL) {
 		IMSG_ERROR("[%s][%d]: Alloc queue buffer failed.\n",
 					__func__, __LINE__);
-		retVal =  -ENOMEM;
 		goto return_fn;
 	}
 
