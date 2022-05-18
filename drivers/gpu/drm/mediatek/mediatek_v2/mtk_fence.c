@@ -514,7 +514,7 @@ int mtk_release_present_fence(unsigned int session_id, unsigned int fence_idx, k
 	struct mtk_fence_info *layer_info = NULL;
 	unsigned int timeline_id = 0;
 	int fence_increment = 0;
-	unsigned int idx;
+	int idx;
 
 	timeline_id = mtk_fence_get_present_timeline_id(session_id);
 	layer_info = _disp_sync_get_sync_info(session_id, timeline_id);
@@ -566,7 +566,7 @@ int mtk_release_sf_present_fence(unsigned int session_id,
 	struct mtk_fence_info *layer_info = NULL;
 	unsigned int timeline_id = 0;
 	int fence_increment = 0;
-	unsigned int idx;
+	int idx;
 
 	timeline_id = mtk_fence_get_sf_present_timeline_id(session_id);
 	layer_info = _disp_sync_get_sync_info(session_id, timeline_id);

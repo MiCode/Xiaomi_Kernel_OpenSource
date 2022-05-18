@@ -14,7 +14,7 @@ const char *mtk_dump_comp_str(struct mtk_ddp_comp *comp)
 		DDPPR_ERR("%s: Invalid ddp comp\n", __func__);
 		return "invalid";
 	}
-	if (comp->id < 0 || comp->id >= DDP_COMPONENT_ID_MAX) {
+	if (comp->id >= DDP_COMPONENT_ID_MAX) {
 		DDPPR_ERR("%s: Invalid ddp comp id:%d\n", __func__, comp->id);
 		return "invalid";
 	}
@@ -206,6 +206,7 @@ int mtk_dump_analysis(struct mtk_ddp_comp *comp)
 	case DDP_COMPONENT_MERGE0:
 	case DDP_COMPONENT_MERGE1:
 		mtk_merge_analysis(comp);
+		break;
 	case DDP_COMPONENT_CHIST0:
 	case DDP_COMPONENT_CHIST1:
 		mtk_chist_analysis(comp);
@@ -221,17 +222,26 @@ int mtk_dump_analysis(struct mtk_ddp_comp *comp)
 void mtk_serial_dump_reg(void __iomem *base, unsigned int offset,
 			 unsigned int num)
 {
-	unsigned int i = 0, s = 0, l = 0;
+	unsigned int i = 0;
+	int s = 0, l = 0;
 	char buf[SERIAL_REG_MAX];
 
 	if (num > 4)
 		num = 4;
 
 	l = snprintf(buf, SERIAL_REG_MAX, "0x%03x:", offset);
+	if (l < 0) {
+		/* Handle snprintf() error */
+		return;
+	}
 
 	for (i = 0; i < num; i++) {
-		s = snprintf(buf + l, SERIAL_REG_MAX, "0x%08x ",
+		s = snprintf(buf + l, SERIAL_REG_MAX - l, "0x%08x ",
 			     readl(base + offset + i * 0x4));
+		if (s < 0) {
+			/* Handle snprintf() error */
+			return;
+		}
 		l += s;
 	}
 
@@ -242,14 +252,15 @@ void mtk_serial_dump_reg(void __iomem *base, unsigned int offset,
 void mtk_cust_dump_reg(void __iomem *base, int off1, int off2, int off3,
 		       int off4)
 {
-	unsigned int i = 0, s = 0, l = 0;
+	unsigned int i = 0;
+	int s = 0, l = 0;
 	int off[] = {off1, off2, off3, off4};
 	char buf[CUST_REG_MAX];
 
 	for (i = 0; i < 4; i++) {
 		if (off[i] < 0)
 			break;
-		s = snprintf(buf + l, CUST_REG_MAX, "0x%03x:0x%08x ", off[i],
+		s = snprintf(buf + l, CUST_REG_MAX - l, "0x%03x:0x%08x ", off[i],
 			     readl(base + off[i]));
 		if (s < 0) {
 			/* Handle snprintf() error */
