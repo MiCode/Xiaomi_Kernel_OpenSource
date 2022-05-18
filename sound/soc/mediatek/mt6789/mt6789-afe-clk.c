@@ -693,7 +693,7 @@ int mt6789_init_clock(struct mtk_base_afe *afe)
 	struct mt6789_afe_private *afe_priv = afe->platform_priv;
 	int i = 0;
 	int ret = 0;
-	int value;
+	int value = 0;
 
 	dev_info(afe->dev, "%s()", __func__);
 	afe_priv->clk = devm_kcalloc(afe->dev, CLK_NUM, sizeof(*afe_priv->clk),
