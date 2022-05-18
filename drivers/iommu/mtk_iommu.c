@@ -774,7 +774,7 @@ static inline void mtk_iommu_isr_setup(struct mtk_iommu_data *data, unsigned lon
 {
 	bool has_pm = !!data->dev->pm_domain;
 
-	pr_info("%s, iommu:(%d,%d), enable:%d\n", __func__,
+	pr_info("%s, iommu:(%d,%d), enable:%lu\n", __func__,
 		data->plat_data->iommu_type, data->plat_data->iommu_id, enable);
 	if (has_pm && !MTK_IOMMU_HAS_FLAG(data->plat_data, IOMMU_CLK_AO_EN)) {
 		if ((data->plat_data->iommu_type == MM_IOMMU &&
@@ -980,7 +980,7 @@ static void mtk_iommu_tlb_flush_range_sync(unsigned long iova, size_t size,
 		ret = readl_poll_timeout_atomic(data->base + REG_MMU_CPE_DONE,
 						tmp, tmp != 0, 10, 1000);
 		if (ret) {
-			pr_warn("Partial TLB flush timed out, (%d, %d), iova:0x%llx,0x%x\n",
+			pr_warn("Partial TLB flush timed out, (%d, %d), iova:0x%llx,0x%zx\n",
 				data->plat_data->iommu_type, data->plat_data->iommu_id,
 				iova, size);
 			if (MTK_IOMMU_HAS_FLAG(data->plat_data, TLB_SYNC_EN))
@@ -1406,6 +1406,11 @@ static int mtk_iommu_get_domain_id(struct device *dev,
 	int i, candidate = -1;
 	dma_addr_t dma_end;
 
+	if (!data) {
+		pr_info("%s fail get iommu data\n", __func__);
+		return -EINVAL;
+	}
+
 	if (MTK_IOMMU_HAS_FLAG(data->plat_data, GET_DOM_ID_LEGACY)) {
 		int domid;
 		struct iommu_fwspec *fwspec = dev_iommu_fwspec_get(dev);
@@ -1450,6 +1455,11 @@ static void mtk_iommu_config(struct mtk_iommu_data *data, struct device *dev,
 	struct iommu_fwspec *fwspec = dev_iommu_fwspec_get(dev);
 	const struct mtk_iommu_iova_region *region;
 	int i;
+
+	if (!fwspec) {
+		pr_info("%s fail get iommu fwspec\n", __func__);
+		return;
+	}
 
 	if (data->plat_data->iommu_type != MM_IOMMU ||
 	    MTK_IOMMU_HAS_FLAG(data->plat_data, SKIP_CFG_PORT))
@@ -1616,10 +1626,17 @@ static int mtk_iommu_attach_device(struct iommu_domain *domain,
 	struct mtk_iommu_data *data = dev_iommu_priv_get(dev);
 	struct mtk_iommu_domain *dom = to_mtk_domain(domain);
 	struct iommu_fwspec *fwspec = dev_iommu_fwspec_get(dev);
-	struct device *m4udev = data->dev;
-	int tab_id = MTK_M4U_TO_TAB(fwspec->ids[0]);
-	int domid, ret = 0;
+	struct device *m4udev;
+	int tab_id, domid, ret = 0;
 
+	if (!data || !dom || !fwspec) {
+		pr_info("%s fail get iommu %pa.%pa.%pa\n", __func__,
+			data, dom, fwspec);
+		return -ENODEV;
+	}
+
+	m4udev = data->dev;
+	tab_id = MTK_M4U_TO_TAB(fwspec->ids[0]);
 	domid = mtk_iommu_get_domain_id(dev, data->plat_data);
 	if (domid < 0)
 		return domid;
@@ -1686,6 +1703,11 @@ static void mtk_iommu_detach_device(struct iommu_domain *domain,
 				    struct device *dev)
 {
 	struct mtk_iommu_data *data = dev_iommu_priv_get(dev);
+
+	if (!data) {
+		pr_info("%s fail get iommu data\n", __func__);
+		return;
+	}
 
 	mtk_iommu_config(data, dev, false, 0);
 }
@@ -1828,11 +1850,18 @@ static void mtk_iommu_release_device(struct device *dev)
 
 static struct iommu_group *mtk_iommu_device_group(struct device *dev)
 {
-	struct mtk_iommu_data *c_data = dev_iommu_priv_get(dev), *data;
-	struct list_head *hw_list = c_data->hw_list;
+	struct mtk_iommu_data *c_data, *data;
+	struct list_head *hw_list;
 	struct iommu_group *group;
 	int domid;
 
+	c_data = dev_iommu_priv_get(dev);
+	if (!c_data) {
+		pr_info("%s fail get iommu data\n", __func__);
+		return ERR_PTR(-ENODEV);
+	}
+
+	hw_list = c_data->hw_list;
 	data = mtk_iommu_get_first_data(hw_list);
 	if (!data)
 		return ERR_PTR(-ENODEV);
@@ -1885,11 +1914,17 @@ static void mtk_iommu_get_resv_regions(struct device *dev,
 				       struct list_head *head)
 {
 	struct mtk_iommu_data *data = dev_iommu_priv_get(dev);
-	unsigned int domid = mtk_iommu_get_domain_id(dev, data->plat_data), i;
 	const struct mtk_iommu_iova_region *resv, *curdom;
 	struct iommu_resv_region *region;
 	int prot = IOMMU_WRITE | IOMMU_READ;
+	unsigned int domid, i;
 
+	if (!data) {
+		pr_info("%s fail get iommu data\n", __func__);
+		return;
+	}
+
+	domid = mtk_iommu_get_domain_id(dev, data->plat_data);
 	if ((int)domid < 0)
 		return;
 	curdom = data->plat_data->iova_region + domid;
@@ -2252,6 +2287,7 @@ static int mtk_iommu_mau_dump_status(struct mtk_iommu_data *data,
 	unsigned int falut_id, assert_id, assert_address, assert_b32;
 	struct mau_config_info mau_cfg;
 	char *port_name = NULL;
+	int ret;
 
 	if (slave >= MTK_IOMMU_MMU_COUNT || mau >= mau_count) {
 		pr_notice("%s, invalid iommu:(%d,%d), slave:%d, mau:%d\n",
@@ -2298,13 +2334,15 @@ static int mtk_iommu_mau_dump_status(struct mtk_iommu_data *data,
 
 		mau_cfg.slave = slave;
 		mau_cfg.mau = mau;
-		mtk_iommu_mau_get_config(data, &mau_cfg);
-		pr_info("%s, iommu:(%d,%d), slave:%d, mau:%d, mau_cfg: start=0x%x(0x%x), end=0x%x(0x%x), wr:0x%x, virt:0x%x, io:0x%x, larb:0x%x, port:0x%x\n",
-			__func__, type, id, slave, mau,
-			mau_cfg.start, mau_cfg.start_bit32,
-			mau_cfg.end, mau_cfg.end_bit32,
-			mau_cfg.wr, mau_cfg.virt, mau_cfg.io,
-			mau_cfg.larb_mask, mau_cfg.port_mask);
+		ret = mtk_iommu_mau_get_config(data, &mau_cfg);
+		if (!ret) {
+			pr_info("%s, iommu:(%d,%d), slave:%d, mau:%d, mau_cfg: start=0x%x(0x%x), end=0x%x(0x%x), wr:0x%x, virt:0x%x, io:0x%x, larb:0x%x, port:0x%x\n",
+				__func__, type, id, slave, mau,
+				mau_cfg.start, mau_cfg.start_bit32,
+				mau_cfg.end, mau_cfg.end_bit32,
+				mau_cfg.wr, mau_cfg.virt, mau_cfg.io,
+				mau_cfg.larb_mask, mau_cfg.port_mask);
+		}
 	} else
 		pr_notice("%s: mau no assert in MAU set %d, status:0x%x\n",
 			  __func__, mau, status);
@@ -2385,7 +2423,7 @@ static int mtk_iommu_mau_reg_restore(struct mtk_iommu_data *data)
 	int slave, mau, ret;
 
 	if (!reg->mau) {
-		pr_notice("%s, %d, iommu:(%d,%d) no memory for restore\n",
+		pr_notice("%s, iommu:(%d,%d) no memory for restore\n",
 			  __func__, type, id);
 		return -1;
 	}
@@ -3116,7 +3154,8 @@ void mtk_iommu_dbg_hang_detect(enum mtk_iommu_type type, int id)
 			hw_list = &apu_iommu_list;
 			break;
 		default:
-			pr_err("%s failed, type is invalid, %d\n", type);
+			pr_err("%s failed, type is invalid, %d\n",
+				__func__, type);
 			return;
 		}
 	} else {
