@@ -1224,6 +1224,10 @@ static struct mtk_panel_params ext_params = {
 			},
 		},
 	},
+	.dyn = {
+		.switch_en = 1,
+		.data_rate = PLL_CLOCK * 2 + 1,
+	},
 };
 
 struct drm_display_mode *get_mode_by_id(struct drm_connector *connector,
