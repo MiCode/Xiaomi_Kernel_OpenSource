@@ -2796,7 +2796,7 @@ static void cmdq_mdp_begin_task_virtual(struct cmdqRecStruct *handle,
 
 		mdp_throughput = max(isp_throughput, mdp_throughput);
 		if (cmdq_mdp_get_func()->mdpOppSpecialUsage()) // run opp 3
-			mdp_throughput = mdp_throughput * 3;
+			mdp_throughput = mdp_throughput * 5;
 		mdp_update_voltage(thread_id, mdp_throughput, true);
 	}
 
@@ -3067,20 +3067,13 @@ static void cmdq_mdp_end_task_virtual(struct cmdqRecStruct *handle,
 				target_pmqos->qos2_isp_bandwidth[i],
 				isp_curr_bandwidth);
 			mtk_icc_set_bw(port_path, MBps_to_icc(isp_curr_bandwidth), 0);
-
 		}
-		if (cmdq_mdp_get_func()->mdpOppSpecialUsage() && isp_throughput < 230)
-			isp_throughput = 230; // stay opp3
 		mdp_update_voltage(thread_id, isp_throughput, false);
 
 	} else if (mdp_curr_pmqos->isp_total_datasize) {
 		CMDQ_LOG_PMQOS("[%d]end task, clear isp bandwidth and clock\n", thread_id);
 		cmdq_mdp_get_func()->qosClearAllIsp(thread_id);
-		if (cmdq_mdp_get_func()->mdpOppSpecialUsage() &&
-			isp_throughput > 0 && isp_throughput < 230)
-			mdp_update_voltage(thread_id, 230, false); // stay opp3
-		else
-			mdp_update_voltage(thread_id, 0, false);
+		mdp_update_voltage(thread_id, 0, false);
 	}
 
 	/* update mdp bandwidth and clock */
@@ -3130,17 +3123,11 @@ static void cmdq_mdp_end_task_virtual(struct cmdqRecStruct *handle,
 		}
 
 		mdp_throughput = max(isp_throughput, mdp_throughput);
-		if (cmdq_mdp_get_func()->mdpOppSpecialUsage() && mdp_throughput < 230)
-			mdp_throughput = 230; // stay opp3
 		mdp_update_voltage(thread_id, mdp_throughput, true);
 	} else if (mdp_curr_pmqos->mdp_total_datasize) {
 		CMDQ_LOG_PMQOS("[%d]end task, clear mdp bandwidth and clock\n", thread_id);
 		cmdq_mdp_get_func()->qosClearAll(thread_id);
-		if (cmdq_mdp_get_func()->mdpOppSpecialUsage() &&
-			mdp_throughput > 0 && mdp_throughput < 230)
-			mdp_update_voltage(thread_id, 230, true); // stay opp3
-		else
-			mdp_update_voltage(thread_id, 0, true);
+		mdp_update_voltage(thread_id, 0, true);
 	}
 
 #ifdef MDP_MMPATH
