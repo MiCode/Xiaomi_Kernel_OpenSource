@@ -591,7 +591,8 @@ static int auxadc_get_data_from_dt(struct pmic_adc_device *adc_dev,
 {
 	struct auxadc_channels *auxadc_chan;
 	unsigned int channel = 0;
-	unsigned int value, val_arr[2];
+	unsigned int value = 0;
+	unsigned int val_arr[2] = {0};
 	int ret;
 
 	ret = of_property_read_u32(node, "channel", &channel);

@@ -1313,7 +1313,8 @@ static int auxadc_get_data_from_dt(struct mt635x_auxadc_device *adc_dev,
 				   struct device_node *node)
 {
 	struct auxadc_channels *auxadc_chan;
-	unsigned int value, val_arr[2];
+	unsigned int value = 0;
+	unsigned int val_arr[2] = {0};
 	int ret;
 
 	ret = of_property_read_u32(node, "channel", channel);
@@ -1322,7 +1323,7 @@ static int auxadc_get_data_from_dt(struct mt635x_auxadc_device *adc_dev,
 			"invalid channel in node:%s\n", node->name);
 		return ret;
 	}
-	if (*channel < AUXADC_CHAN_MIN || *channel > AUXADC_CHAN_MAX) {
+	if (*channel > AUXADC_CHAN_MAX) {
 		dev_notice(adc_dev->dev,
 			"invalid channel number %d in node:%s\n",
 			*channel, node->name);
