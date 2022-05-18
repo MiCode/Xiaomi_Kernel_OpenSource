@@ -1250,7 +1250,7 @@ static ssize_t test_write(struct file *filp, const char *buf, size_t count,
 	loff_t *offp)
 {
 	struct mml_test *test = (struct mml_test *)filp->f_inode->i_private;
-	struct mml_test_case cur;
+	struct mml_test_case cur = {0};
 
 	if (count > sizeof(cur)) {
 		mml_err("buf count not match %zu %zu", count, sizeof(cur));
