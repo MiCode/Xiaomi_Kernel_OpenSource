@@ -196,10 +196,10 @@ unsigned int do_2a_gain(struct EEPROM_DRV_FD_DATA *pdata,
 	int read_data_size;
 	unsigned int err = CamCalReturnErr[pCamCalData->Command];
 
-	unsigned int CalGain, FacGain;
-	unsigned char AWBAFConfig;
+	unsigned int CalGain = 0, FacGain = 0;
+	unsigned char AWBAFConfig = 0;
 
-	unsigned short AFInf, AFMacro;
+	unsigned short AFInf = 0, AFMacro = 0;
 	int tempMax = 0;
 	int CalR = 1, CalGr = 1, CalGb = 1, CalG = 1, CalB = 1;
 	int FacR = 1, FacGr = 1, FacGb = 1, FacG = 1, FacB = 1;
@@ -677,7 +677,7 @@ unsigned int do_single_lsc(struct EEPROM_DRV_FD_DATA *pdata,
 
 	int read_data_size;
 	unsigned int err = CamCalReturnErr[pCamCalData->Command];
-	unsigned short table_size;
+	unsigned short table_size = 0;
 
 	if (pCamCalData->DataVer >= CAM_CAL_TYPE_NUM) {
 		err = CAM_CAL_ERR_NO_DEVICE;
@@ -873,7 +873,7 @@ unsigned int get_is_need_power_on(struct EEPROM_DRV_FD_DATA *pdata, unsigned int
 
 	must_log("device_id = %d\n", pCamCalNeedPowerOn->deviceID);
 
-	if (lsCommand < 0 || lsCommand >= CAMERA_CAM_CAL_DATA_LIST) {
+	if (lsCommand >= CAMERA_CAM_CAL_DATA_LIST) {
 		error_log("Invalid Command = 0x%x\n", lsCommand);
 		return CAM_CAL_ERR_NO_CMD;
 	}
@@ -897,7 +897,7 @@ unsigned int get_is_need_power_on(struct EEPROM_DRV_FD_DATA *pdata, unsigned int
 				pCamCalNeedPowerOn->sensorID) == CAM_CAL_ERR_NO_ERR))
 					break;
 			}
-			if ((cam_cal_index < cam_cal_number) && (cam_cal_index >= 0)) {
+			if (cam_cal_index < cam_cal_number) {
 				mp_layout_preload[preloadLayoutIndex] = kmalloc(2, GFP_KERNEL);
 				memcpy(mp_layout_preload[preloadLayoutIndex], &cam_cal_index, 2);
 			}
@@ -907,7 +907,7 @@ unsigned int get_is_need_power_on(struct EEPROM_DRV_FD_DATA *pdata, unsigned int
 		}
 	}
 
-	if ((cam_cal_index < cam_cal_number) && (cam_cal_index >= 0)) {
+	if (cam_cal_index < cam_cal_number) {
 		cam_cal_config = cam_cal_config_list[cam_cal_index];
 		must_log("layout type %s found", cam_cal_config->name);
 		pCamCalNeedPowerOn->needPowerOn = cam_cal_config->has_stored_data &&
@@ -933,7 +933,7 @@ unsigned int get_cal_data(struct EEPROM_DRV_FD_DATA *pdata, unsigned int *pGetSe
 
 	must_log("device_id = %d\n", pCamCalData->deviceID);
 
-	if (lsCommand < 0 || lsCommand >= CAMERA_CAM_CAL_DATA_LIST) {
+	if (lsCommand >= CAMERA_CAM_CAL_DATA_LIST) {
 		error_log("Invalid Command = 0x%x\n", lsCommand);
 		return CAM_CAL_ERR_NO_CMD;
 	}
@@ -959,7 +959,7 @@ unsigned int get_cal_data(struct EEPROM_DRV_FD_DATA *pdata, unsigned int *pGetSe
 				pCamCalData->sensorID) == CAM_CAL_ERR_NO_ERR))
 					break;
 			}
-			if ((cam_cal_index < cam_cal_number) && (cam_cal_index >= 0)) {
+			if (cam_cal_index < cam_cal_number) {
 				mp_layout_preload[preloadLayoutIndex] = kmalloc(2, GFP_KERNEL);
 				memcpy(mp_layout_preload[preloadLayoutIndex], &cam_cal_index, 2);
 			}
@@ -969,7 +969,7 @@ unsigned int get_cal_data(struct EEPROM_DRV_FD_DATA *pdata, unsigned int *pGetSe
 		}
 	}
 
-	if ((cam_cal_index < cam_cal_number) && (cam_cal_index >= 0)) {
+	if (cam_cal_index < cam_cal_number) {
 		cam_cal_config = cam_cal_config_list[cam_cal_index];
 		must_log("layout type %s found", cam_cal_config->name);
 		pCamCalData->DataVer =
