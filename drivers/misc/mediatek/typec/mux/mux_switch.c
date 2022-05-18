@@ -134,7 +134,7 @@ static int proc_mux_show(struct seq_file *s, void *unused)
 {
 	struct typec_mux_switch *mux_sw = s->private;
 
-	seq_printf(s, "%d\n", mux_sw->state.mode);
+	seq_printf(s, "%lu\n", mux_sw->state.mode);
 	return 0;
 }
 
@@ -368,8 +368,8 @@ static int typec_mux_switch_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct typec_mux_switch *mux_sw;
-	struct typec_switch_desc sw_desc;
-	struct typec_mux_desc mux_desc;
+	struct typec_switch_desc sw_desc = { };
+	struct typec_mux_desc mux_desc = { };
 	int ret = 0;
 
 	dev_info(dev, "%s\n", __func__);
