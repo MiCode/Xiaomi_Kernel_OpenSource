@@ -1143,20 +1143,22 @@ static void msm_hsphy_port_state_work(struct work_struct *w)
 
 		status = msm_hsphy_chg_det_status(phy, STATE_DCD);
 
-		if (!status) {
+		/*
+		 * Floating or non compliant charger which pull D+ all the time
+		 * will cause DCD timeout and end up being detected as SDP. This
+		 * is an acceptable behavior compared to false negative of
+		 * slower insertion of SDP/CDP detection
+		 */
+		if (!status || phy->dcd_timeout >= CHG_DCD_TIMEOUT_MSEC) {
+			dev_dbg(phy->phy.dev, "DCD status=%d timeout=%d\n",
+							status, phy->dcd_timeout);
 			msm_hsphy_chg_det_disable_seq(phy, STATE_DCD);
 			msm_hsphy_chg_det_enable_seq(phy, STATE_PRIMARY);
 			phy->port_state = PORT_PRIMARY_IN_PROGRESS;
 			delay = CHG_PRIMARY_DET_TIME_MSEC;
-		} else if (phy->dcd_timeout < CHG_DCD_TIMEOUT_MSEC) {
+		} else {
 			delay = CHG_DCD_POLL_TIME_MSEC;
 			phy->dcd_timeout += delay;
-		} else {
-			msm_hsphy_notify_charger(phy,
-						POWER_SUPPLY_TYPE_USB_DCP);
-			msm_hsphy_chg_det_disable_seq(phy, STATE_DCD);
-			msm_hsphy_unprepare_chg_det(phy);
-			phy->port_state = PORT_CHG_DET_DONE;
 		}
 
 		break;
