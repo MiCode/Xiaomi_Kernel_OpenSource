@@ -3063,7 +3063,7 @@ static int coulomb_interrupt_ht_set(struct mtk_gauge *gauge,
 	value32_car = temp_car_15_0 & 0xffff;
 	value32_car |= (temp_car_31_16 & 0xffff) << 16;
 
-	bm_err("[%s] FG_CAR = 0x%x:%d uvalue32_car_msb:0x%x 0x%x 0x%x\r\n",
+	bm_debug("[%s] FG_CAR = 0x%x:%d uvalue32_car_msb:0x%x 0x%x 0x%x\r\n",
 		__func__, value32_car, value32_car, uvalue32_car_msb,
 		temp_car_15_0, temp_car_31_16);
 
@@ -3088,7 +3088,7 @@ static int coulomb_interrupt_ht_set(struct mtk_gauge *gauge,
 
 	upperbound = value32_car;
 
-	bm_err("[%s] upper = 0x%x:%d diff_car=0x%llx:%lld\r\n",
+	bm_debug("[%s] upper = 0x%x:%d diff_car=0x%llx:%lld\r\n",
 		 __func__, upperbound, upperbound, car, car);
 
 	upperbound = upperbound + car;
@@ -3096,10 +3096,10 @@ static int coulomb_interrupt_ht_set(struct mtk_gauge *gauge,
 	upperbound_31_16 = (upperbound & 0xffff0000) >> 16;
 	upperbound_15_00 = (upperbound & 0xffff);
 
-	bm_err("[%s] final upper = 0x%x:%d car=0x%llx:%lld\r\n",
+	bm_debug("[%s] final upper = 0x%x:%d car=0x%llx:%lld\r\n",
 		 __func__, upperbound, upperbound, car, car);
 
-	bm_err("[%s] final upper 0x%x 0x%x 0x%x car=0x%llx\n",
+	bm_debug("[%s] final upper 0x%x 0x%x 0x%x car=0x%llx\n",
 		 __func__,
 		upperbound, upperbound_31_16, upperbound_15_00, car);
 
@@ -3117,7 +3117,7 @@ static int coulomb_interrupt_ht_set(struct mtk_gauge *gauge,
 	mdelay(1);
 	enable_gauge_irq(gauge, COULOMB_H_IRQ);
 
-	bm_err("[%s] high:0x%x 0x%x car_value:%d car:%d irq:%d\r\n",
+	bm_debug("[%s] high:0x%x 0x%x car_value:%d car:%d irq:%d\r\n",
 		__func__, upperbound_15_00, upperbound_31_16,
 		val, value32_car, gauge->irq_no[COULOMB_H_IRQ]);
 
