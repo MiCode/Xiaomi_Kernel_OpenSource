@@ -227,12 +227,23 @@ static struct qcom_icc_node qnm_nsp_gemnoc = {
 	.links = { SLAVE_GEM_NOC_CNOC, SLAVE_LLCC },
 };
 
+static struct qcom_icc_qosbox qnm_pcie_qos = {
+	.regs = icc_qnoc_qos_regs[ICC_QNOC_QOSGEN_TYPE_RPMH],
+	.num_ports = 1,
+	.offsets = { 0xa2000 },
+	.config = &(struct qos_config) {
+		.prio = 2,
+		.urg_fwd = 1,
+	},
+};
+
 static struct qcom_icc_node qnm_pcie = {
 	.name = "qnm_pcie",
 	.id = MASTER_ANOC_PCIE_GEM_NOC,
 	.channels = 1,
 	.buswidth = 16,
 	.noc_ops = &qcom_qnoc4_ops,
+	.qosbox = &qnm_pcie_qos,
 	.num_links = 2,
 	.links = { SLAVE_GEM_NOC_CNOC, SLAVE_LLCC },
 };
