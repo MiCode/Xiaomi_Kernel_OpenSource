@@ -941,6 +941,7 @@ static void vcu_set_gce_cmd(struct cmdq_pkt *pkt,
 		pr_debug("[VCU] %s got eid %llu\n", __func__, data);
 	break;
 	case CMD_MEM_MV:
+		mutex_lock(&q->mmap_lock);
 		src_page = vcu_check_gce_pa_base(q, addr, 4);
 		dst_page = vcu_check_gce_pa_base(q, data, 4);
 		if ((vcu_check_reg_base(vcu, addr, 4) == 0 || src_page != NULL)
@@ -953,10 +954,12 @@ static void vcu_set_gce_cmd(struct cmdq_pkt *pkt,
 			pr_info("[VCU] %s CMD_MEM_MV wrong addr/data: 0x%llx 0x%llx\n",
 				__func__, addr, data);
 		}
+		mutex_unlock(&q->mmap_lock);
 		pr_debug("[VCU] %s CMD_MEM_MV addr/data: 0x%llx 0x%llx\n",
 			__func__, addr, data);
 	break;
 	case CMD_POLL_ADDR:
+		mutex_lock(&q->mmap_lock);
 		src_page = vcu_check_gce_pa_base(q, addr, 4);
 		if (vcu_check_reg_base(vcu, addr, 4) == 0 || src_page != NULL) {
 			if (src_page != NULL)
@@ -966,6 +969,7 @@ static void vcu_set_gce_cmd(struct cmdq_pkt *pkt,
 			pr_info("[VCU] %s CMD_POLL_REG wrong addr: 0x%llx 0x%llx 0x%x\n",
 				__func__, addr, data, mask);
 		}
+		mutex_unlock(&q->mmap_lock);
 		pr_debug("[VCU] %s CMD_POLL_REG addr: 0x%llx 0x%llx 0x%x\n", __func__, addr,
 			data, mask);
 	break;
@@ -1041,6 +1045,7 @@ static void vcu_set_gce_secure_cmd(struct cmdq_pkt *pkt,
 
 	break;
 	case CMD_MEM_MV:
+		mutex_lock(&q->mmap_lock);
 		src_page = vcu_check_gce_pa_base(q, addr, 4);
 		dst_page = vcu_check_gce_pa_base(q, data, 4);
 		if ((vcu_check_reg_base(vcu, addr, 4) == 0 || src_page != NULL) &&
@@ -1053,9 +1058,11 @@ static void vcu_set_gce_secure_cmd(struct cmdq_pkt *pkt,
 			pr_info("[VCU] %s CMD_MEM_MV wrong addr/data: 0x%x 0x%x\n",
 				__func__, addr, data);
 		}
+		mutex_unlock(&q->mmap_lock);
 		pr_debug("[VCU] %s CMD_MEM_MV\n", __func__);
 	break;
 	case CMD_POLL_ADDR:
+		mutex_lock(&q->mmap_lock);
 		src_page = vcu_check_gce_pa_base(q, addr, 4);
 		if (vcu_check_reg_base(vcu, addr, 4) == 0 || src_page != NULL) {
 			if (src_page != NULL)
@@ -1065,6 +1072,7 @@ static void vcu_set_gce_secure_cmd(struct cmdq_pkt *pkt,
 			pr_info("[VCU] %s CMD_POLL_REG wrong addr: 0x%x 0x%x 0x%x\n",
 				__func__, addr, data, mask);
 		}
+		mutex_unlock(&q->mmap_lock);
 		pr_debug("[VCU] %s CMD_POLL_ADDR\n", __func__);
 	break;
 	default:
@@ -1081,6 +1089,7 @@ static void vcu_set_gce_readstatus_cmd(struct cmdq_pkt *pkt,
 
 	switch (cmd) {
 	case CMD_MEM_MV:
+		mutex_lock(&q->mmap_lock);
 		src_page = vcu_check_gce_pa_base(q, addr, 4);
 		dst_page = vcu_check_gce_pa_base(q, data, 4);
 		if ((vcu_check_reg_base(vcu, addr, 4) == 0 || src_page != NULL) &&
@@ -1093,6 +1102,7 @@ static void vcu_set_gce_readstatus_cmd(struct cmdq_pkt *pkt,
 			pr_info("[VCU] CMD_MEM_MV wrong addr/data: 0x%x 0x%x\n",
 				addr, data);
 		}
+		mutex_unlock(&q->mmap_lock);
 		pr_debug("[VCU] CMD_MEM_MV addr/data: 0x%x 0x%x\n",
 				addr, data);
 	break;
@@ -1205,12 +1215,14 @@ static void vcu_gce_timeout_callback(struct cmdq_cb_data data)
 		&& vcu->cbf.gce_timeout_dump != NULL)
 		vcu->cbf.gce_timeout_dump(vcu->curr_ctx[VCU_VDEC]);
 
+	mutex_lock(&vcu_queue->mmap_lock);
 	list_for_each_safe(p, q, &vcu_queue->pa_pages.list) {
 		tmp = list_entry(p, struct vcu_pa_pages, list);
 		pr_info("%s: vcu_pa_pages %lx kva %lx data %lx\n",
 			__func__, tmp->pa, tmp->kva,
 			*(unsigned long *)tmp->kva);
 	}
+	mutex_unlock(&vcu_queue->mmap_lock);
 
 }
 
