@@ -1863,6 +1863,16 @@
   sdhci_set_bus_width
   sdhci_setup_host
 
+# required by mmc_swcq.ko
+  mmc_cmdq_disable
+  mmc_cmdq_enable
+  mmc_cqe_post_req
+  mmc_hw_reset
+  mmc_put_card
+  mmc_switch
+  mmc_wait_for_cmd
+  dma_map_sg_attrs
+
 # required by sdiohal.ko
   mmc_detect_change
   mmc_set_data_timeout

@@ -108,7 +108,8 @@ void ioremap_phys_range_hook(phys_addr_t phys_addr, size_t size, pgprot_t prot)
 		 * This page will be permanently accessible, similar to a
 		 * saturated refcount.
 		 */
-		ref = kzalloc(sizeof(*ref), GFP_KERNEL);
+		if (slab_is_available())
+			ref = kzalloc(sizeof(*ref), GFP_KERNEL);
 		if (ref) {
 			refcount_set(&ref->count, 1);
 			if (xa_err(xa_store(&ioremap_guard_array, pfn, ref,
