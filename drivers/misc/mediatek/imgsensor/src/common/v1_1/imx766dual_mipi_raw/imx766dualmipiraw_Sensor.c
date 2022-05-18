@@ -3195,17 +3195,17 @@ static void hdr_write_tri_shutter_w_gph(kal_uint16 le, kal_uint16 me, kal_uint16
 	imgsensor.frame_length = min(imgsensor.frame_length, imgsensor_info.max_frame_length);
 	spin_unlock(&imgsensor_drv_lock);
 	//3exp 12 + 6, 2exp 8 + 6, 6 is fine integ time
-	if (le) {
+	if (le && exposure_cnt) {
 		le -= 6;   // subtract fine integ time 6
 		le = round_up(le/exposure_cnt, 4);
 	}
 
-	if (me) {
+	if (me && exposure_cnt) {
 		me -= 6;
 		me = round_up(me/exposure_cnt, 4);
 	}
 
-	if (se) {
+	if (se && exposure_cnt) {
 		se -= 6;
 		se = round_up(se/exposure_cnt, 4);
 	}
