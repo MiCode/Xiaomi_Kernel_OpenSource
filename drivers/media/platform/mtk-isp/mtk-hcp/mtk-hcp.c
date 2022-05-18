@@ -191,7 +191,8 @@ static void chans_pool_dump(struct mtk_hcp *hcp_dev)
 	spin_unlock_irqrestore(&hcp_dev->msglock, flag);
 }
 
-static struct msg *chan_pool_get(struct mtk_hcp *hcp_dev, int module_id)
+static struct msg *chan_pool_get
+	(struct mtk_hcp *hcp_dev, unsigned int module_id)
 {
 	unsigned long flag, empty;
 	struct msg *msg = NULL;
@@ -227,7 +228,7 @@ inline int hcp_id_to_ipi_id(struct mtk_hcp *hcp_dev, enum hcp_id id)
 {
 	int ipi_id = -EINVAL;
 
-	if (id < HCP_INIT_ID || id >= HCP_MAX_ID) {
+	if (id >= HCP_MAX_ID) {
 		dev_info(hcp_dev->dev, "%s: Invalid hcp id %d\n", __func__, id);
 		return -EINVAL;
 	}
@@ -246,7 +247,7 @@ inline int hcp_id_to_module_id(struct mtk_hcp *hcp_dev, enum hcp_id id)
 {
 	int module_id = -EINVAL;
 
-	if (id < HCP_INIT_ID || id >= HCP_MAX_ID) {
+	if (id >= HCP_MAX_ID) {
 		dev_info(hcp_dev->dev, "%s: Invalid hcp id %d\n", __func__, id);
 		return -EINVAL;
 	}
@@ -369,7 +370,7 @@ int mtk_hcp_register(struct platform_device *pdev,
 		return -EPROBE_DEFER;
 	}
 
-	if (id >= HCP_INIT_ID && id < HCP_MAX_ID && handler != NULL) {
+	if (id < HCP_MAX_ID && handler != NULL) {
 #if MTK_CM4_SUPPORT
 		if (mtk_hcp_cm4_support(hcp_dev, id) == true) {
 			int ipi_id = hcp_id_to_ipi_id(hcp_dev, id);
@@ -400,7 +401,7 @@ int mtk_hcp_unregister(struct platform_device *pdev, enum hcp_id id)
 		return -EPROBE_DEFER;
 	}
 
-	if (id >= HCP_INIT_ID && id < HCP_MAX_ID) {
+	if (id < HCP_MAX_ID) {
 		memset((void *)&hcp_dev->hcp_desc_table[id], 0,
 						sizeof(struct hcp_desc));
 		return 0;
@@ -428,8 +429,7 @@ static int hcp_send_internal(struct platform_device *pdev,
 	dev_dbg(&pdev->dev, "%s id:%d len %d\n",
 				__func__, id, len);
 
-	if (id < HCP_INIT_ID || id >= HCP_MAX_ID ||
-			len > sizeof(send_obj.share_data) || buf == NULL) {
+	if (id >= HCP_MAX_ID || len > sizeof(send_obj.share_data) || buf == NULL) {
 		dev_info(&pdev->dev,
 			"%s failed to send hcp message (Invalid arg.), len/sz(%d/%d)\n",
 			__func__, len, sizeof(send_obj.share_data));
@@ -466,6 +466,12 @@ static int hcp_send_internal(struct platform_device *pdev,
 			dev_info(&pdev->dev, "%s id:%d refill interrupted !\n",
 				__func__, id);
 			return -ERESTARTSYS;
+		}
+
+		if (msg == NULL) {
+			dev_info(&pdev->dev, "%s id:%d msg poll is full!\n",
+				__func__, id);
+			return -EAGAIN;
 		}
 
 		atomic_set(&hcp_dev->hcp_id_ack[id], 0);
@@ -555,9 +561,9 @@ int mtk_hcp_set_apu_dc(struct platform_device *pdev,
 {
 	struct mtk_hcp *hcp_dev = platform_get_drvdata(pdev);
 
-	struct slbc_data slb;
-	struct ctrl_data ctrl;
-	int ret;
+	struct slbc_data slb = {0};
+	struct ctrl_data ctrl = {0};
+	int ret = 0;
 
 	if (value) {
 		if (atomic_inc_return(&(hcp_dev->have_slb)) == 1) {
@@ -961,7 +967,7 @@ static int mtk_hcp_reserve_memory_ioremap(void)
 
 phys_addr_t mtk_hcp_get_reserve_mem_phys(unsigned int id)
 {
-	if ((id < 0) || (id >= NUMS_MEM_ID)) {
+	if (id >= NUMS_MEM_ID) {
 		pr_info("[HCP] no reserve memory for %d", id);
 		return 0;
 	} else {
@@ -973,7 +979,7 @@ EXPORT_SYMBOL(mtk_hcp_get_reserve_mem_phys);
 void mtk_hcp_set_reserve_mem_virt(unsigned int id,
 	void *virmem)
 {
-	if ((id < 0) || (id >= NUMS_MEM_ID))
+	if (id >= NUMS_MEM_ID)
 		pr_info("[HCP] no reserve memory for %d in set_reserve_mem_virt", id);
 	else
 		mtk_hcp_reserve_mblock[id].start_virt = virmem;
@@ -982,7 +988,7 @@ EXPORT_SYMBOL(mtk_hcp_set_reserve_mem_virt);
 
 void *mtk_hcp_get_reserve_mem_virt(unsigned int id)
 {
-	if ((id < 0) || (id >= NUMS_MEM_ID)) {
+	if (id >= NUMS_MEM_ID) {
 		pr_info("[HCP] no reserve memory for %d", id);
 		return 0;
 	} else
@@ -992,7 +998,7 @@ EXPORT_SYMBOL(mtk_hcp_get_reserve_mem_virt);
 
 phys_addr_t mtk_hcp_get_reserve_mem_dma(unsigned int id)
 {
-	if ((id < 0) || (id >= NUMS_MEM_ID)) {
+	if (id >= NUMS_MEM_ID) {
 		pr_info("[HCP] no reserve memory for %d", id);
 		return 0;
 	} else {
@@ -1003,7 +1009,7 @@ EXPORT_SYMBOL(mtk_hcp_get_reserve_mem_dma);
 
 phys_addr_t mtk_hcp_get_reserve_mem_size(unsigned int id)
 {
-	if ((id < 0) || (id >= NUMS_MEM_ID)) {
+	if (id >= NUMS_MEM_ID) {
 		pr_info("[HCP] no reserve memory for %d", id);
 		return 0;
 	} else {
@@ -1014,7 +1020,7 @@ EXPORT_SYMBOL(mtk_hcp_get_reserve_mem_size);
 
 void mtk_hcp_set_reserve_mem_fd(unsigned int id, uint32_t fd)
 {
-	if ((id < 0) || (id >= NUMS_MEM_ID))
+	if (id >= NUMS_MEM_ID)
 		pr_info("[HCP] no reserve memory for %d", id);
 	else
 		mtk_hcp_reserve_mblock[id].fd = fd;
@@ -1023,7 +1029,7 @@ EXPORT_SYMBOL(mtk_hcp_set_reserve_mem_fd);
 
 uint32_t mtk_hcp_get_reserve_mem_fd(unsigned int id)
 {
-	if ((id < 0) || (id >= NUMS_MEM_ID)) {
+	if (id >= NUMS_MEM_ID) {
 		pr_info("[HCP] no reserve memory for %d", id);
 		return 0;
 	} else
@@ -1161,6 +1167,7 @@ static int mtk_hcp_mmap(struct file *file, struct vm_area_struct *vma)
 	long length = 0;
 	unsigned long pfn = 0x0;
 	int mem_id = 0;
+	struct mtk_hcp_reserve_mblock *mblock = NULL;
 
 	/* dealing with register remap */
 	length = vma->vm_end - vma->vm_start;
@@ -1199,40 +1206,40 @@ static int mtk_hcp_mmap(struct file *file, struct vm_area_struct *vma)
 		return -EPERM;
 	}
 
-	if ((length <= 0) || (length != (long)mtk_hcp_reserve_mblock[reserved_memory_id].size)) {
+	mblock = &mtk_hcp_reserve_mblock[reserved_memory_id];
+	if ((length <= 0) || (length != (long)mblock->size)) {
 		dev_info(hcp_dev->dev,
 				" %s size is not allowed: id:%d, pfn:0x%llx, length: 0x%lx != 0x%lx\n",
 				__func__, reserved_memory_id, pfn, length,
-				mtk_hcp_reserve_mblock[reserved_memory_id].size);
+				mblock->size);
 		return -EPERM;
 	}
 
 	if (pfn) {
-		mtk_hcp_reserve_mblock[reserved_memory_id].mmap_cnt += 1;
+		mblock->mmap_cnt += 1;
 		dev_info(hcp_dev->dev, "reserved_memory_id:%d, pfn:0x%llx, mmap_cnt:%d\n",
 			reserved_memory_id, pfn,
-			mtk_hcp_reserve_mblock[reserved_memory_id].mmap_cnt);
+			mblock->mmap_cnt);
 
 		if (reserved_memory_id != -1) {
-			vma->vm_pgoff = (unsigned long)
-	(mtk_hcp_reserve_mblock[reserved_memory_id].start_phys >> PAGE_SHIFT);
+			vma->vm_pgoff =
+				(unsigned long)(mblock->start_phys >> PAGE_SHIFT);
 			vma->vm_page_prot =
 			pgprot_writecombine(vma->vm_page_prot);
 
 			switch (reserved_memory_id) {
 			case IMG_MEM_FOR_HW_ID:
-				vma->vm_pgoff = (unsigned long)
-	(mtk_hcp_reserve_mblock[reserved_memory_id].start_phys >> PAGE_SHIFT);
+				vma->vm_pgoff =
+					(unsigned long)(mblock->start_phys >> PAGE_SHIFT);
 				vma->vm_page_prot =
 						pgprot_writecombine(vma->vm_page_prot);
 				break;
 			case IMG_MEM_G_ID:
 			default:
-		hcp_dev->mem_ops->mmap(mtk_hcp_reserve_mblock[reserved_memory_id].mem_priv,
-					vma);
-			pr_info("%s: [HCP][%d] after mem_ops->mmap vb2_dc_buf refcount(%d)\n",
-			__func__, reserved_memory_id,
-	hcp_dev->mem_ops->num_users(mtk_hcp_reserve_mblock[reserved_memory_id].mem_priv));
+				hcp_dev->mem_ops->mmap(mblock->mem_priv, vma);
+				pr_info("%s: [HCP][%d] after mem_ops->mmap vb2_dc_buf refcount(%d)\n",
+					__func__, reserved_memory_id,
+					hcp_dev->mem_ops->num_users(mblock->mem_priv));
 				goto dma_buf_out;
 			}
 		} else {
@@ -1288,7 +1295,7 @@ static void module_notify(struct mtk_hcp *hcp_dev,
 		return;
 	}
 
-	if ((user_data_addr->id < HCP_INIT_ID) || (user_data_addr->id >= HCP_MAX_ID)) {
+	if (user_data_addr->id >= HCP_MAX_ID) {
 		dev_info(hcp_dev->dev, "%s invalid hcp id %d", __func__, user_data_addr->id);
 		return;
 	}
@@ -1313,7 +1320,7 @@ static void module_wake_up(struct mtk_hcp *hcp_dev,
 		return;
 	}
 
-	if ((user_data_addr->id < HCP_INIT_ID) || (user_data_addr->id >= HCP_MAX_ID)) {
+	if (user_data_addr->id >= HCP_MAX_ID) {
 		dev_info(hcp_dev->dev, "%s invalid hcp id %d", __func__, user_data_addr->id);
 		return;
 	}
@@ -1335,31 +1342,34 @@ static long mtk_hcp_ioctl(struct file *file, unsigned int cmd,
 	long ret = -1;
 	//void *mem_priv;
 	struct mtk_hcp *hcp_dev = (struct mtk_hcp *)file->private_data;
-	struct share_buf buffer;
-	struct packet data;
-	int index;
-	struct msg *msg;
-	unsigned long flag;
+	struct share_buf buffer = {0};
+	struct packet data = {0};
+	unsigned int index = 0;
+	struct msg *msg = NULL;
+	unsigned long flag = 0;
 
 	switch (cmd) {
 	case HCP_GET_OBJECT:
-		// pr_info("[HCP] HCP_GET_OBJECT+");
 		(void)copy_from_user(&data, (void *)arg, sizeof(struct packet));
-		// pr_info("[HCP] send count %d", data.count);
+		if (data.count > IPI_MAX_BUFFER_COUNT) {
+			dev_info(hcp_dev->dev, "Get_OBJ # of buf:%u in cmd:%d exceed %u",
+				data.count, cmd, IPI_MAX_BUFFER_COUNT);
+			return -EINVAL;
+		}
 		for (index = 0; index < data.count; index++) {
+			if (data.buffer[index] == NULL) {
+				dev_info(hcp_dev->dev, "Get_OBJ buf[%u] is NULL", index);
+				return -EINVAL;
+			}
 			(void)copy_from_user((void *)&buffer, (void *)data.buffer[index],
 				sizeof(struct share_buf));
 			if (buffer.info.cmd == HCP_COMPLETE) {
-				// pr_info("[HCP] HCP_COMPLETE+");
 				module_notify(hcp_dev, &buffer);
 				module_wake_up(hcp_dev, &buffer);
-				// pr_info("[HCP] HCP_COMPLETE-");
 			} else if (buffer.info.cmd == HCP_NOTIFY) {
-				// pr_info("[HCP] HCP_NOTIFY+");
 				module_notify(hcp_dev, &buffer);
-				// pr_info("[HCP] HCP_NOTIFY-");
 			} else {
-				pr_info("[HCP] Unknown commands 0x%x, %d", data.buffer[index],
+				pr_info("[HCP] Unknown commands 0x%p, %d", data.buffer[index],
 					buffer.info.cmd);
 				return ret;
 			}
@@ -1371,19 +1381,22 @@ static long mtk_hcp_ioctl(struct file *file, unsigned int cmd,
 				break;
 
 			msg = chan_pool_get(hcp_dev, MODULE_IMG);
+			if (msg != NULL) {
+				// pr_info("[HCP] Copy to user+: %d", index);
+				ret = copy_to_user((void *)data.buffer[index++], &msg->user_obj,
+					(unsigned long)sizeof(struct share_buf));
+				// pr_info("[HCP] Copy to user-");
 
-			// pr_info("[HCP] Copy to user+: %d", index);
-			ret = copy_to_user((void *)data.buffer[index++], &msg->user_obj,
-				(unsigned long)sizeof(struct share_buf));
-			// pr_info("[HCP] Copy to user-");
+				// dev_info(hcp_dev->dev, "copy req fd(%d), obj id(%d) to user",
+				//	req_fd, hcp_id);
 
-			// dev_info(hcp_dev->dev, "copy req fd(%d), obj id(%d) to user",
-			//	req_fd, hcp_id);
-
-			spin_lock_irqsave(&hcp_dev->msglock, flag);
-			list_add_tail(&msg->entry, &hcp_dev->msg_list);
-			spin_unlock_irqrestore(&hcp_dev->msglock, flag);
-			wake_up(&hcp_dev->msg_wq);
+				spin_lock_irqsave(&hcp_dev->msglock, flag);
+				list_add_tail(&msg->entry, &hcp_dev->msg_list);
+				spin_unlock_irqrestore(&hcp_dev->msglock, flag);
+				wake_up(&hcp_dev->msg_wq);
+			} else {
+				dev_info(hcp_dev->dev, "can't get msg from chan_pool");
+			}
 		}
 
 		put_user(index, (int32_t *)(arg + offsetof(struct packet, count)));
@@ -1392,29 +1405,22 @@ static long mtk_hcp_ioctl(struct file *file, unsigned int cmd,
 		//ret = mtk_hcp_get_data(hcp_dev, arg);
 
 		ret = 0;
-		// pr_info("[HCP] HCP_GET_OBJECT-: %d", index);
 		break;
 	case HCP_COMPLETE:
-		pr_info("[HCP] HCP_COMPLETE+");
 		(void)copy_from_user(&buffer, (void *)arg, sizeof(struct share_buf));
 		module_notify(hcp_dev, &buffer);
 		module_wake_up(hcp_dev, &buffer);
-		pr_info("[HCP] HCP_COMPLETE-");
 		ret = 0;
 		break;
 	case HCP_NOTIFY:
-		pr_info("[HCP] HCP_NOTIFY+");
 		(void)copy_from_user(&buffer, (void *)arg, sizeof(struct share_buf));
 		module_notify(hcp_dev, &buffer);
-		pr_info("[HCP] HCP_NOTIFY-");
 		ret = 0;
 		break;
 	case HCP_WAKEUP:
 		//(void)copy_from_user(&buffer, (void*)arg, sizeof(struct share_buf));
 		//module_wake_up(hcp_dev, &buffer);
-		pr_info("[HCP] HCP_WAKEUP+");
 		wake_up(&hcp_dev->poll_wq[MODULE_IMG]);
-		pr_info("[HCP] HCP_WAKEUP-");
 		ret = 0;
 		break;
 	case HCP_TIMEOUT:
