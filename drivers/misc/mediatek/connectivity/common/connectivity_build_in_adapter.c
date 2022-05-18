@@ -90,7 +90,7 @@ EXPORT_SYMBOL(connectivity_export_tracing_record_cmdline);
 
 void connectivity_export_conap_scp_init(unsigned int chip_info, phys_addr_t emi_phy_addr)
 {
-	pr_info("[%s] [%x][%llx] [%x][%x]", __func__,
+	pr_info("[%s] [%x][%llx] [%x][%llx]", __func__,
 				chip_info, emi_phy_addr,
 				g_connsys_state_info.chip_info, g_connsys_state_info.emi_phy_addr);
 
