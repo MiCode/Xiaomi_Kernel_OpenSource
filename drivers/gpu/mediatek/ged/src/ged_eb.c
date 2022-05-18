@@ -173,7 +173,7 @@ int ged_to_fdvfs_command(unsigned int cmd, struct fdvfs_ipi_data *ipi_data)
 			FASTDVFS_IPI_TIMEOUT);
 
 		if (ret != 0) {
-			GPUFDVFS_LOGI("(%d), cmd: %d, mtk_ipi_send_compl, ret: %d\n",
+			GPUFDVFS_LOGI("(%d), cmd: %u, mtk_ipi_send_compl, ret: %d\n",
 				__LINE__, cmd, ret);
 		} else {
 			ret = fdvfs_ipi_rcv_msg.u.set_para.arg[0];
@@ -860,7 +860,7 @@ void fdvfs_init(void)
 				WQ_FREEZABLE | WQ_MEM_RECLAIM);
 	}
 
-	GPUFDVFS_LOGI("succeed to register channel: (%d)(%d), ipi_size: %d\n",
+	GPUFDVFS_LOGI("succeed to register channel: (%d)(%d), ipi_size: %u\n",
 		g_fast_dvfs_ipi_channel,
 		g_fdvfs_event_ipi_channel,
 		FDVFS_IPI_DATA_LEN);

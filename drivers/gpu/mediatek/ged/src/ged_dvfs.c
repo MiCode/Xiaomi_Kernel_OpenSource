@@ -566,7 +566,7 @@ GED_ERROR ged_dvfs_um_commit(unsigned long gpu_tar_freq, bool bFallback)
 	int i;
 	int ui32CurFreqID;
 	int minfreq_idx;
-	unsigned int ui32NewFreqID;
+	unsigned int ui32NewFreqID = 0;
 	unsigned long gpu_freq;
 	unsigned int sentinalLoading = 0;
 
@@ -1001,7 +1001,7 @@ static bool ged_dvfs_policy(
 
 	int loading_mode;
 	int minfreq_idx;
-	int idx_diff;
+	int idx_diff = 0;
 
 	if (ui32GPUFreq < 0 || ui32GPUFreq > ged_get_min_oppidx())
 		return GED_FALSE;
