@@ -4410,7 +4410,8 @@ void dpmaif_hw_reset_for_6789(unsigned char md_id)
 		DPMAIF_SLEEP_PROTECT_CTRL_WA);
 
 	while ((dpmaif_read32(infra_ao_base,
-		INFRA_TOPAXI_PROTECT_READY_STA1_1_WA)&(1<<4)) != (1 << 4)) {
+		INFRA_TOPAXI_PROTECT_READY_STA1_1_WA)&DPMAIF_SLEEP_PROTECT_CTRL_WA) !=
+			DPMAIF_SLEEP_PROTECT_CTRL_WA) {
 		udelay(1);
 		if (++count >= 1000) {
 			CCCI_ERROR_LOG(0, TAG, "DPMAIF pre-reset timeout\n");
