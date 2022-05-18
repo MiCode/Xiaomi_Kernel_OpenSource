@@ -29,6 +29,11 @@
 #include "camera_mem.h"
 #include "mtk_heap.h"
 
+#if IS_ENABLED(CONFIG_COMPAT)
+/* 32/64 bit compatible */
+#include <linux/compat.h>
+#endif
+
 #define CAM_MEM_DEV_NAME "camera-mem"
 
 #define LogTag "[CAM_MEM]"
@@ -798,6 +803,18 @@ static long cam_mem_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Pa
 	return Ret;
 }
 
+#if IS_ENABLED(CONFIG_COMPAT)
+static long cam_mem_ioctl_compat(struct file *filp, unsigned int cmd,
+			     unsigned long arg)
+{
+	if (!filp->f_op || !filp->f_op->unlocked_ioctl) {
+		LOG_NOTICE("No op or no unlocked_ioctl\n");
+		return -ENOTTY;
+	}
+
+	return filp->f_op->unlocked_ioctl(filp, cmd, arg);
+}
+#endif
 
 /*******************************************************************************
  *
@@ -811,6 +828,9 @@ static const struct file_operations CamMemFileOper = {
 	.open = cam_mem_open,
 	.release = cam_mem_release,
 	.unlocked_ioctl = cam_mem_ioctl,
+#if IS_ENABLED(CONFIG_COMPAT)
+	.compat_ioctl = cam_mem_ioctl_compat,
+#endif
 };
 
 /*******************************************************************************
