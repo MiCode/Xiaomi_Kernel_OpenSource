@@ -1483,13 +1483,15 @@ static int ufs_qcom_resume(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 			pm_op, hba->rpm_lvl, hba->spm_lvl, hba->uic_link_state,
 			hba->curr_dev_pwr_mode, err);
 
-	/* Refer ufs_qcom_cpufreq_dwork() */
-	mutex_lock(&host->cpufreq_lock);
-	host->active = true;
-	/* Reschedule the work if it exited when the clocks were scaled up */
-	if (!!atomic_read(&host->scale_up))
-		queue_delayed_work(host->fworkq, &host->fwork, 0);
-	mutex_unlock(&host->cpufreq_lock);
+	if (!host->cpufreq_dis) {
+		/* Refer ufs_qcom_cpufreq_dwork() */
+		mutex_lock(&host->cpufreq_lock);
+		host->active = true;
+		/* Reschedule the work if it exited when the clocks were scaled up */
+		if (!!atomic_read(&host->scale_up))
+			queue_delayed_work(host->fworkq, &host->fwork, 0);
+		mutex_unlock(&host->cpufreq_lock);
+	}
 
 	return 0;
 }
