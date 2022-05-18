@@ -688,6 +688,12 @@ page_owner=on loop.max_part=7";
 			clock-frequency = <12000000>;
 		};
 
+		clk13m: clk13m {
+			compatible = "fixed-clock";
+			#clock-cells = <0>;
+			clock-frequency = <13000000>;
+		};
+
 		clk32k: clk32k {
 			compatible = "fixed-clock";
 			#clock-cells = <0>;
@@ -1514,7 +1520,7 @@ page_owner=on loop.max_part=7";
 		reg = <0 0x10017000 0 0x1000>;
 		reg-names = "sys_timer_base";
 		interrupts = <GIC_SPI 233 IRQ_TYPE_LEVEL_HIGH>;
-		clocks = <&topckgen TOP_CLK13M>;
+		clocks = <&clk13m>;
 	};
 
 	modem_temp_share@10018000 {
