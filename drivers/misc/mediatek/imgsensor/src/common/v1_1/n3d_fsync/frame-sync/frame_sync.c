@@ -186,7 +186,7 @@ static inline enum FS_STATUS get_fs_status(void)
 
 static inline unsigned int check_sensorIdx(unsigned int sensor_idx)
 {
-	if (sensor_idx >= 0 && sensor_idx < SENSOR_MAX_NUM)
+	if (sensor_idx < SENSOR_MAX_NUM)
 		return 1;
 
 	return 0;

@@ -69,7 +69,7 @@ static int n3d_pm_runtime_get_sync(struct SENINF_N3D *pn3d)
 
 	if (pn3d->pm_domain_cnt == 1)
 		pm_runtime_get_sync(pn3d->dev);
-	else {
+	else if (pn3d->pm_domain_cnt > 1) {
 		if (!pn3d->pm_domain_devs)
 			return -EINVAL;
 
@@ -90,8 +90,8 @@ static int n3d_pm_runtime_put_sync(struct SENINF_N3D *pn3d)
 
 	if (pn3d->pm_domain_cnt == 1)
 		pm_runtime_put_sync(pn3d->dev);
-	else {
-		if (!pn3d->pm_domain_devs && pn3d->pm_domain_cnt < 1)
+	else if (pn3d->pm_domain_cnt > 1) {
+		if (!pn3d->pm_domain_devs)
 			return -EINVAL;
 
 		for (i = pn3d->pm_domain_cnt - 1; i >= 0; i--) {
@@ -623,7 +623,7 @@ static int n3d_pm_runtime_enable(struct SENINF_N3D *pn3d)
 				"#power-domain-cells");
 	if (pn3d->pm_domain_cnt == 1)
 		pm_runtime_enable(pn3d->dev);
-	else {
+	else if (pn3d->pm_domain_cnt > 1) {
 		pn3d->pm_domain_devs = devm_kcalloc(pn3d->dev, pn3d->pm_domain_cnt,
 				sizeof(*pn3d->pm_domain_devs), GFP_KERNEL);
 		if (!pn3d->pm_domain_devs)
@@ -650,7 +650,7 @@ static int n3d_pm_runtime_disable(struct SENINF_N3D *pn3d)
 
 	if (pn3d->pm_domain_cnt == 1)
 		pm_runtime_disable(pn3d->dev);
-	else {
+	else if (pn3d->pm_domain_cnt > 1) {
 		if (!pn3d->pm_domain_devs)
 			return -EINVAL;
 

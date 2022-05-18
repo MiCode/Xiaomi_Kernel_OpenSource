@@ -70,7 +70,7 @@ static int record_vs(unsigned int idx, unsigned int tclk)
 	unsigned int pre_time;
 	unsigned int ts = CLK_TO_TIME_IN_US(tclk);
 
-	if (idx < 0 || idx >= MAX_RECORD_SENSOR) {
+	if (idx >= MAX_RECORD_SENSOR) {
 		// never be here
 		array_oob_detected = 1;
 		return -1;
