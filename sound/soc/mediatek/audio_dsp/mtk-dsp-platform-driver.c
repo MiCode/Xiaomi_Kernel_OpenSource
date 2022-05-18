@@ -1258,8 +1258,10 @@ static void audio_dsp_tasklet(struct mtk_base_dsp *dsp, unsigned int core_id)
 			pr_info("-%s flag[%llx] task_id[%d] task_value[%lu]\n",
 				__func__, *pdtoa, task_id, task_value);
 #endif
-			if (task_id >= 0 && !dsp->dsp_mem[task_id].underflowed)
-				mtk_dsp_dl_consume_handler(dsp, NULL, task_id);
+			if (task_id >= 0 && task_id < AUDIO_TASK_DAI_NUM) {
+				if (!dsp->dsp_mem[task_id].underflowed)
+					mtk_dsp_dl_consume_handler(dsp, NULL, task_id);
+			}
 		}
 		loop_count--;
 	} while (*pdtoa && task_value && loop_count > 0);
