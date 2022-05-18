@@ -298,8 +298,6 @@ static const struct mtk_fixed_factor top_divs[] = {
 			"apll2", 1, 8),
 	FACTOR(CLK_TOP_MMPLL_D4_D2, "mmpll_d4_d2",
 			"mmpll", 1, 8),
-	FACTOR(CLK_TOP_MMPLL_D5, "mmpll_d5",
-			"mmpll", 1, 5),
 	FACTOR(CLK_TOP_MMPLL_D5_D2, "mmpll_d5_d2",
 			"mmpll", 1, 12),
 	FACTOR(CLK_TOP_MMPLL_D6, "mmpll_d6",
@@ -448,7 +446,6 @@ static const char * const disp_parents[] = {
 	"mmpll_d7",
 	"univpll_d6",
 	"mainpll_d4",
-	"mmpll_d5",
 	"mmpll_d5_d2"
 };
 
@@ -463,7 +460,6 @@ static const char * const mdp_parents[] = {
 	"mainpll_d4",
 	"tvdpll_ck",
 	"univpll_d4",
-	"mmpll_d5",
 	"mmpll_d5_d2"
 };
 
