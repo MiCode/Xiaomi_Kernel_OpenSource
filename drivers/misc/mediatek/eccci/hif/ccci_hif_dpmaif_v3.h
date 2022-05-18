@@ -391,8 +391,6 @@ struct hif_dpmaif_ctrl {
 	atomic_t bat_paused_alloc;
 	int bat_alloc_running;
 
-	int enable_pit_debug;
-
 	int hw_reset_ver;
 	void __iomem *dpmaif_reset_pd_base;
 

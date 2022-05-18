@@ -1153,6 +1153,8 @@ static int dpmaif_net_rx_push_thread(void *arg)
 	struct sk_buff *skb = NULL;
 	struct dpmaif_rx_queue *queue = (struct dpmaif_rx_queue *)arg;
 	struct hif_dpmaif_ctrl *hif_ctrl = dpmaif_ctrl;
+	struct debug_rx_push_skb_hdr hdr;
+
 #ifndef CCCI_KMODULE_ENABLE
 #ifdef CCCI_SKB_TRACE
 	struct ccci_per_md *per_md_data = ccci_get_per_md_data(hif_ctrl->md_id);
@@ -1187,6 +1189,14 @@ static int dpmaif_net_rx_push_thread(void *arg)
 			skb->tstamp = sched_clock();
 #endif
 #endif
+		if (g_debug_flags & DEBUG_RX_PUSH_SKB) {
+			hdr.type = TYPE_RX_PUSH_SKB_ID;
+			hdr.qidx = queue->index;
+			hdr.time = (unsigned int)(local_clock() >> 16);
+			hdr.ipid = ((struct iphdr *)(skb->data + sizeof(struct lhif_header)))->id;
+			dpmaif_debug_add(&hdr, sizeof(hdr));
+		}
+
 		ccci_port_recv_skb(hif_ctrl->md_id, hif_ctrl->hif_id, skb,
 			CLDMA_NET_DATA);
 		count++;
@@ -1445,6 +1455,18 @@ static int dpmaif_send_skb_to_net(struct dpmaif_rx_queue *rxq,
 		dpmaif_handle_wakeup(rxq, new_skb);
 	}
 
+	if (g_debug_flags & DEBUG_RX_DONE_SKB) {
+		struct debug_rx_done_skb_hdr hdr;
+
+		hdr.type = TYPE_RX_DONE_SKB_ID;
+		hdr.qidx = rxq->index;
+		hdr.time = (unsigned int)(local_clock() >> 16);
+		hdr.bid  = skb_idx;
+		hdr.len  = new_skb->len;
+		hdr.cidx = rxq->cur_chn_idx;
+		dpmaif_debug_add(&hdr, sizeof(hdr));
+	}
+
 	/* md put the ccmni_index to the msg pkt,
 	 * so we need push it by self. maybe no need
 	 */
@@ -1526,6 +1548,16 @@ static int dpmaif_rx_start(struct dpmaif_rx_queue *rxq, unsigned short pit_cnt,
 #endif
 	struct dpmaif_rx_lro_info *lro_info = &rxq->lro_info;
 
+	if (g_debug_flags & DEBUG_RX_START) {
+		struct debug_rx_start_hdr hdr;
+
+		hdr.type = TYPE_RX_START_ID;
+		hdr.qidx = rxq->index;
+		hdr.time = (unsigned int)(local_clock() >> 16);
+		hdr.pcnt = pit_cnt;
+		dpmaif_debug_add(&hdr, sizeof(hdr));
+	}
+
 	cur_pit = rxq->pit_rd_idx;
 
 #ifdef PIT_USING_CACHE_MEM
@@ -1587,20 +1619,6 @@ static int dpmaif_rx_start(struct dpmaif_rx_queue *rxq, unsigned short pit_cnt,
 		} else if (pkt_inf_t->packet_type == DES_PT_PD) {
 			buffer_id = (pkt_inf_t->buffer_id |
 					((pkt_inf_t->h_bid) << 13));
-
-			if (dpmaif_ctrl->enable_pit_debug >= 0) {
-				dpmaif_debug_update_rx_chn_idx(rxq->cur_chn_idx);
-
-				if (dpmaif_ctrl->enable_pit_debug > 0)
-					DPMAIF_DEBUG_ADD(DEBUG_TYPE_RX_DONE,
-					DEBUG_VERION_V3,
-					rxq->index, pkt_inf_t->data_len,
-					rxq->pit_rd_idx, rxq->pit_wr_idx,
-					(unsigned short)buffer_id,
-					dpmaif_ctrl->bat_req->bat_wr_idx,
-					(unsigned int)(local_clock() / 1000000),
-					NULL);
-			}
 
 #ifdef HW_FRG_FEATURE_ENABLE
 			if ((pkt_inf_t->buffer_type == PKT_BUF_FRAG)
@@ -1900,16 +1918,14 @@ static unsigned short dpmaif_relase_tx_buffer(unsigned char q_num,
 	for (idx = 0 ; idx < release_cnt ; idx++) {
 		cur_drb = drb_base + cur_idx;
 		if (cur_drb->dtyp == DES_DTYP_PD && cur_drb->c_bit == 0) {
-			CCCI_DEBUG_LOG(dpmaif_ctrl->md_id, TAG,
-				"rxq%d release tx drb %d\n", q_num, cur_idx);
+			if (g_debug_flags & DEBUG_TX_DONE_SKB) {
+				struct debug_tx_done_skb_hdr hdr;
 
-			if (dpmaif_ctrl->enable_pit_debug > 0) {
-				DPMAIF_DEBUG_ADD(DEBUG_TYPE_TX_RELS, DEBUG_VERION_V3,
-					txq->index, 0,
-					txq->drb_rd_idx, txq->drb_wr_idx,
-					cur_idx, txq->drb_rel_rd_idx,
-					(unsigned int)(local_clock() / 1000000),
-					NULL);
+				hdr.type = TYPE_TX_DONE_SKB_ID;
+				hdr.qidx = txq->index;
+				hdr.time = (unsigned int)(local_clock() >> 16);
+				hdr.rel = cur_idx;
+				dpmaif_debug_add(&hdr, sizeof(hdr));
 			}
 
 			cur_drb_skb =
@@ -2514,13 +2530,15 @@ retry:
 		set_drb_payload(txq->index, cur_idx, phy_addr, data_len,
 			is_last_one);
 
-		if (dpmaif_ctrl->enable_pit_debug > 0) {
-			DPMAIF_DEBUG_ADD(DEBUG_TYPE_TX_SEND, DEBUG_VERION_V3,
-				txq->index, 0,
-				txq->drb_rd_idx, txq->drb_wr_idx,
-				cur_idx, data_len,
-				(unsigned int)(local_clock() / 1000000),
-				NULL);
+		if (g_debug_flags & DEBUG_TX_SEND_SKB) {
+			struct debug_tx_send_skb_hdr hdr;
+
+			hdr.type = TYPE_TX_SEND_SKB_ID;
+			hdr.qidx = txq->index;
+			hdr.time = (unsigned int)(local_clock() >> 16);
+			hdr.wr   = cur_idx;
+			hdr.ipid = ((struct iphdr *)skb->data)->id;
+			dpmaif_debug_add(&hdr, sizeof(hdr));
 		}
 
 		record_drb_skb(txq->index, cur_idx, skb, 0, is_frag,
@@ -2721,6 +2739,18 @@ static void dpmaif_irq_cb(struct hif_dpmaif_ctrl *hif_ctrl)
 	L2TISAR0 = drv3_dpmaif_get_ul_isr_event();
 	L2TISAR0_bak = L2TISAR0;
 	L2TIMR0 = drv3_dpmaif_ul_get_ul_interrupt_mask();
+
+	if (g_debug_flags & DEBUG_RXTX_ISR) {
+		struct debug_rxtx_isr_hdr hdr;
+
+		hdr.type = TYPE_RXTX_ISR_ID;
+		hdr.time = (unsigned int)(hif_ctrl->traffic_info.latest_isr_time >> 16);
+		hdr.rxsr = L2RISAR0;
+		hdr.rxmr = L2RIMR0;
+		hdr.txsr = L2TISAR0;
+		hdr.txmr = L2TIMR0;
+		dpmaif_debug_add(&hdr, sizeof(hdr));
+	}
 
 	/* clear IP busy register wake up cpu case */
 	drv3_dpmaif_clear_ip_busy();
@@ -3227,7 +3257,7 @@ static int dpmaif_late_init(unsigned char hif_id)
 #else
 	CCCI_DEBUG_LOG(-1, TAG, "dpmaif:%s end\n", __func__);
 #endif
-	dpmaif_debug_late_init(&(dpmaif_ctrl->rxq[0].rx_wq));
+
 	return 0;
 }
 
@@ -3896,12 +3926,6 @@ static struct ccci_hif_ops ccci_hif_dpmaif_ops = {
 static void dpmaif_total_spd_cb(u64 total_ul_speed, u64 total_dl_speed)
 {
 	ccmni_set_cur_speed(total_dl_speed);
-
-	if ((total_ul_speed < UL_SPEED_THRESHOLD) &&
-		(total_dl_speed < DL_SPEED_THRESHOLD))
-		dpmaif_ctrl->enable_pit_debug = 1;
-	else
-		dpmaif_ctrl->enable_pit_debug = 0;
 }
 
 static int dpmaif_init_cap(struct device *dev)
@@ -3919,20 +3943,13 @@ static int dpmaif_init_cap(struct device *dev)
 	}
 
 	dpmaif_ctrl->support_lro = (dpmaif_cap & DPMAIF_CAP_LRO);
-	if (dpmaif_cap & DPMAIF_CAP_PIT_DEG)
-		dpmaif_ctrl->enable_pit_debug = 1;
-	else
-		dpmaif_ctrl->enable_pit_debug = -1;
 
 	CCCI_INIT_LOG(-1, TAG,
-		"[%s] dpmaif_cap: %x; support_lro: %u; pit_debug: %d\n",
-		__func__, dpmaif_cap, dpmaif_ctrl->support_lro,
-		dpmaif_ctrl->enable_pit_debug);
+		"[%s] dpmaif_cap: %x; support_lro: %u\n",
+		__func__, dpmaif_cap, dpmaif_ctrl->support_lro);
 
-	if (dpmaif_ctrl->enable_pit_debug > -1) {
-		mtk_ccci_register_speed_1s_callback(dpmaif_total_spd_cb);
-		dpmaif_debug_init();
-	}
+	mtk_ccci_register_speed_1s_callback(dpmaif_total_spd_cb);
+	dpmaif_debug_init();
 
 	ret = of_property_read_u32(dev->of_node, "hw_reset_ver",
 			&dpmaif_ctrl->hw_reset_ver);

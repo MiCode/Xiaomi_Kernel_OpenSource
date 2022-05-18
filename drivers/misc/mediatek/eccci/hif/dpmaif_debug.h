@@ -20,63 +20,123 @@
 #include "ccci_bm.h"
 
 
-#define DEBUG_TYPE_RX_DONE 1
-#define DEBUG_TYPE_RX_SKB  2
-#define DEBUG_TYPE_TX_SEND 20
-#define DEBUG_TYPE_TX_RELS 21
-#define DEBUG_TYPE_BAT_REORDER 30
+#define TYPE_RX_DONE_SKB_ID  0
+#define TYPE_RX_PUSH_SKB_ID  1
+#define TYPE_TX_SEND_SKB_ID  2
+#define TYPE_TX_DONE_SKB_ID  3
+#define TYPE_RXTX_ISR_ID     4
+#define TYPE_BAT_ALC_SKB_ID  5
+#define TYPE_BAT_ALC_FRG_ID  6
+#define TYPE_BAT_TH_WAKE_ID  7
+#define TYPE_SKB_ALC_FLG_ID  8
+#define TYPE_FRG_ALC_FLG_ID  9
+#define TYPE_RX_START_ID     10
 
 
-#define DEBUG_VERION_V2 2
-#define DEBUG_VERION_V3 3
+#define DEBUG_RX_DONE_SKB    (1 << TYPE_RX_DONE_SKB_ID)
+#define DEBUG_RX_PUSH_SKB    (1 << TYPE_RX_PUSH_SKB_ID)
+#define DEBUG_TX_SEND_SKB    (1 << TYPE_TX_SEND_SKB_ID)
+#define DEBUG_TX_DONE_SKB    (1 << TYPE_TX_DONE_SKB_ID)
+#define DEBUG_RXTX_ISR       (1 << TYPE_RXTX_ISR_ID)
+#define DEBUG_BAT_ALC_SKB    (1 << TYPE_BAT_ALC_SKB_ID)
+#define DEBUG_BAT_ALC_FRG    (1 << TYPE_BAT_ALC_FRG_ID)
+#define DEBUG_BAT_TH_WAKE    (1 << TYPE_BAT_TH_WAKE_ID)
+#define DEBUG_SKB_ALC_FLG    (1 << TYPE_SKB_ALC_FLG_ID)
+#define DEBUG_FRG_ALC_FLG    (1 << TYPE_FRG_ALC_FLG_ID)
+#define DEBUG_RX_START       (1 << TYPE_RX_START_ID)
 
-struct dpmaif_debug_header {
-	u32 type:6;
-	u32 vers:4;
-	u32 qidx:6;
-	u32 len :16;
-	u32 rd_idx :16;
-	u32 wr_idx :16;
-	u32 reserve1 :16;
-	u32 reserve2 :16;
+
+struct debug_rx_done_skb_hdr {
+	u8  type:5;
+	u8  qidx:3;
 	u32 time;
-};
+	u16 bid;
+	u16 len;
+	u8  cidx;
+
+} __attribute__ ((__packed__));
+
+struct debug_rx_push_skb_hdr {
+	u8  type:5;
+	u8  qidx:3;
+	u32 time;
+	u16 ipid;
+
+} __attribute__ ((__packed__));
+
+struct debug_tx_send_skb_hdr {
+	u8  type:5;
+	u8  qidx:3;
+	u32 time;
+	u16 wr;
+	u16 ipid;
+
+} __attribute__ ((__packed__));
+
+struct debug_tx_done_skb_hdr {
+	u8  type:5;
+	u8  qidx:3;
+	u32 time;
+	u16 rel;
+
+} __attribute__ ((__packed__));
+
+struct debug_rxtx_isr_hdr {
+	u8  type:5;
+	u8  qidx:3;
+	u32 time;
+	u32 rxsr;
+	u32 rxmr;
+	u32 txsr;
+	u32 txmr;
+
+} __attribute__ ((__packed__));
+
+struct debug_bat_alc_skb_hdr {
+	u8  type:5;
+	u8  qidx:3;
+	u32 time;
+	u16 spc;
+	u16 cnt;
+	u16 crd;
+	u16 cwr;
+
+} __attribute__ ((__packed__));
+
+struct debug_bat_th_wake_hdr {
+	u8  type:5;
+	u8  qidx:3;
+	u32 time;
+	u16 need;
+	u16 req;
+	u16 frg;
+
+} __attribute__ ((__packed__));
+
+struct debug_skb_alc_flg_hdr {
+	u8  type:5;
+	u8  flag:3;
+	u32 time;
+
+} __attribute__ ((__packed__));
+
+struct debug_rx_start_hdr {
+	u8  type:5;
+	u8  qidx:3;
+	u32 time;
+	u16 pcnt;
+
+} __attribute__ ((__packed__));
 
 
-#define IPV4_HEADER_LEN (20)
-#define MAX_DEBUG_BUFFER_LEN (4000)
 
-/* < (1024 * 1024 * 100 = 104857600 = 100MB) */
-#define UL_SPEED_THRESHOLD  (104857600LL)
-/* < (1024 * 1024 * 200 = 209715200 = 200MB) */
-#define DL_SPEED_THRESHOLD  (209715200LL)
+extern unsigned int g_debug_flags;
 
 
-void dpmaif_debug_update_rx_chn_idx(int chn_idx);
 
 void dpmaif_debug_init(void);
-void dpmaif_debug_late_init(wait_queue_head_t *rx_wq);
 
-void dpmaif_debug_add(struct dpmaif_debug_header *hdr, void *data);
-
-
-#define DPMAIF_DEBUG_ADD(type1, vers1, qidx1, len1, rdidx1, wridx1, resv1, resv2, time1, data1)  \
-do { \
-	struct dpmaif_debug_header hdr;  \
-							\
-	hdr.type   = type1;		\
-	hdr.vers   = vers1;		\
-	hdr.qidx   = qidx1;		\
-	hdr.len    = len1;		\
-	hdr.rd_idx = rdidx1;	\
-	hdr.wr_idx = wridx1;	\
-	hdr.reserve1 = resv1;	\
-	hdr.reserve2 = resv2;	\
-	hdr.time     = time1;	\
-							\
-	dpmaif_debug_add(&hdr, data1);  \
-} while (0)
-
+void dpmaif_debug_add(void *data, int len);
 
 extern void ccci_set_dpmaif_debug_cb(void (*dpmaif_debug_cb)(void));
 

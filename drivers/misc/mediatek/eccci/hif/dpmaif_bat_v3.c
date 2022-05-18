@@ -61,6 +61,9 @@ static struct temp_page_info g_page_tbl[MAX_FRG_TBL_CNT];
 static unsigned int g_page_tbl_rdx;
 static unsigned int g_page_tbl_wdx;
 
+static unsigned int g_alloc_bat_skb_flag;
+static unsigned int g_alloc_bat_frg_flag;
+
 static inline u32 get_ringbuf_used_cnt(u32 len, u32 rdx, u32 wdx)
 {
 	if (wdx >= rdx)
@@ -384,7 +387,29 @@ static inline int alloc_bat_skb(
 		bat_skb->skb = skb_info.skb;
 		data_base_addr = skb_info.base_addr;
 
+		if ((g_alloc_bat_skb_flag == 1) && (g_debug_flags & DEBUG_SKB_ALC_FLG)) {
+			struct debug_skb_alc_flg_hdr hdr;
+
+			hdr.type = TYPE_SKB_ALC_FLG_ID;
+			hdr.flag = 0;
+			hdr.time = (unsigned int)(local_clock() >> 16);
+			dpmaif_debug_add(&hdr, sizeof(hdr));
+
+			g_alloc_bat_skb_flag = 0;
+		}
+
 	} else {
+		if ((g_alloc_bat_skb_flag == 0) && (g_debug_flags & DEBUG_SKB_ALC_FLG)) {
+			struct debug_skb_alc_flg_hdr hdr;
+
+			hdr.type = TYPE_SKB_ALC_FLG_ID;
+			hdr.flag = 1;
+			hdr.time = (unsigned int)(local_clock() >> 16);
+			dpmaif_debug_add(&hdr, sizeof(hdr));
+
+			g_alloc_bat_skb_flag = 1;
+		}
+
 		ret = skb_alloc(&bat_skb->skb, &data_base_addr,
 			pkt_buf_sz, blocking);
 		if (ret)
@@ -398,33 +423,6 @@ static inline int alloc_bat_skb(
 	cur_bat->p_buffer_addr = (unsigned int)(data_base_addr & 0xFFFFFFFF);
 
 	return 0;
-}
-
-static inline void dpmaif_calc_bat_reorder(
-		struct dpmaif_bat_request *bat, u16 alloc_cnt, int is_frag)
-{
-	u16 reorder_cnt = 0;
-
-	if (bat->bat_rd_idx > bat->bat_wr_idx)
-		reorder_cnt = bat->bat_rd_idx - bat->bat_wr_idx - 1;
-	else
-		reorder_cnt = bat->bat_size_cnt - bat->bat_wr_idx
-					+ bat->bat_rd_idx;
-
-	if (reorder_cnt > 8000) {
-		if (dpmaif_ctrl->enable_pit_debug > 0)
-			DPMAIF_DEBUG_ADD(DEBUG_TYPE_BAT_REORDER,
-			DEBUG_VERION_V3, is_frag, alloc_cnt,
-			bat->bat_rd_idx, bat->bat_wr_idx,
-			0, reorder_cnt,
-			(unsigned int)(local_clock() / 1000000),
-			NULL);
-
-		CCCI_BUF_LOG_TAG(0, CCCI_DUMP_DPMAIF, TAG,
-			"Bat-REQ: [%llu] is_frag:%d; all_cnt:%u; rd:%u; wr:%u; reorder:%u\n",
-			local_clock(), is_frag, alloc_cnt, bat->bat_rd_idx,
-			bat->bat_wr_idx, reorder_cnt);
-	}
 }
 
 static int dpmaif_alloc_bat_req(int update_bat_cnt,
@@ -485,8 +483,20 @@ alloc_end:
 	if (count > 0) {
 		/* wait write done */
 		wmb();
-		bat_req->bat_wr_idx = bat_wr_idx;
 
+		if (g_debug_flags & DEBUG_BAT_ALC_SKB) {
+			struct debug_bat_alc_skb_hdr hdr;
+
+			hdr.type = TYPE_BAT_ALC_SKB_ID;
+			hdr.time = (unsigned int)(local_clock() >> 16);
+			hdr.spc = buf_space;
+			hdr.cnt = count;
+			hdr.crd = bat_req->bat_rd_idx;
+			hdr.cwr = bat_wr_idx;
+			dpmaif_debug_add(&hdr, sizeof(hdr));
+		}
+
+		bat_req->bat_wr_idx = bat_wr_idx;
 		if (update_bat_cnt) {
 			ret = drv3_dpmaif_dl_add_bat_cnt(0, count);
 			if (ret < 0)
@@ -499,10 +509,7 @@ alloc_end:
 			ccci_dpmaif_skb_wakeup_thread();
 	}
 
-	if (update_bat_cnt)
-		dpmaif_calc_bat_reorder(bat_req, (u16)count, 0);
-
-	return ret;
+	return ((ret < 0) ? ret : count);
 }
 
 static inline int alloc_bat_page(
@@ -521,7 +528,29 @@ static inline int alloc_bat_page(
 		data_base_addr = page_info.base_addr;
 		offset = page_info.offset;
 
+		if ((g_alloc_bat_frg_flag == 1) && (g_debug_flags & DEBUG_FRG_ALC_FLG)) {
+			struct debug_skb_alc_flg_hdr hdr;
+
+			hdr.type = TYPE_FRG_ALC_FLG_ID;
+			hdr.flag = 0;
+			hdr.time = (unsigned int)(local_clock() >> 16);
+			dpmaif_debug_add(&hdr, sizeof(hdr));
+
+			g_alloc_bat_frg_flag = 0;
+		}
+
 	} else {
+		if ((g_alloc_bat_frg_flag == 0) && (g_debug_flags & DEBUG_FRG_ALC_FLG)) {
+			struct debug_skb_alc_flg_hdr hdr;
+
+			hdr.type = TYPE_FRG_ALC_FLG_ID;
+			hdr.flag = 1;
+			hdr.time = (unsigned int)(local_clock() >> 16);
+			dpmaif_debug_add(&hdr, sizeof(hdr));
+
+			g_alloc_bat_frg_flag = 1;
+		}
+
 		ret = page_alloc(&bat_page->page, &data_base_addr,
 			&offset, pkt_buf_sz, blocking);
 		if (ret)
@@ -596,6 +625,19 @@ alloc_end:
 	if (count > 0) {
 		/* wait write done */
 		wmb();
+
+		if (g_debug_flags & DEBUG_BAT_ALC_FRG) {
+			struct debug_bat_alc_skb_hdr hdr;
+
+			hdr.type = TYPE_BAT_ALC_FRG_ID;
+			hdr.time = (unsigned int)(local_clock() >> 16);
+			hdr.spc = buf_space;
+			hdr.cnt = count;
+			hdr.crd = bat_req->bat_rd_idx;
+			hdr.cwr = bat_wr_idx;
+			dpmaif_debug_add(&hdr, sizeof(hdr));
+		}
+
 		bat_req->bat_wr_idx = bat_wr_idx;
 
 		if (update_bat_cnt) {
@@ -610,10 +652,7 @@ alloc_end:
 			ccci_dpmaif_skb_wakeup_thread();
 	}
 
-	if (update_bat_cnt)
-		dpmaif_calc_bat_reorder(bat_req, (u16)count, 1);
-
-	return ret;
+	return ((ret < 0) ? ret : count);
 }
 
 static void ccci_dpmaif_bat_free_req(void)
@@ -689,7 +728,8 @@ static void ccci_dpmaif_bat_free(void)
 
 static int dpmaif_rx_bat_alloc_thread(void *arg)
 {
-	int ret;
+	int ret, ret_req, ret_frg;
+	struct debug_bat_th_wake_hdr hdr;
 
 	dpmaif_ctrl->bat_alloc_running = 1;
 
@@ -726,11 +766,20 @@ static int dpmaif_rx_bat_alloc_thread(void *arg)
 			break;
 		}
 
-		ret = dpmaif_alloc_bat_req(1, MAX_ALLOC_BAT_CNT,
+		ret_req = dpmaif_alloc_bat_req(1, MAX_ALLOC_BAT_CNT,
 				&dpmaif_ctrl->bat_paused_alloc, 0);
 
-		ret = dpmaif_alloc_bat_frg(1, MAX_ALLOC_BAT_CNT,
+		ret_frg = dpmaif_alloc_bat_frg(1, MAX_ALLOC_BAT_CNT,
 				&dpmaif_ctrl->bat_paused_alloc, 0);
+
+		if (g_debug_flags & DEBUG_BAT_TH_WAKE) {
+			hdr.type = TYPE_BAT_TH_WAKE_ID;
+			hdr.time = (unsigned int)(local_clock() >> 16);
+			hdr.need = atomic_read(&dpmaif_ctrl->bat_need_alloc);
+			hdr.req  = ((ret_req < 0) ? 0 : ret_req);
+			hdr.frg  = ((ret_frg < 0) ? 0 : ret_frg);
+			dpmaif_debug_add(&hdr, sizeof(hdr));
+		}
 
 		if (atomic_read(&dpmaif_ctrl->bat_need_alloc) > 1)
 			atomic_set(&dpmaif_ctrl->bat_need_alloc, 1);
@@ -903,7 +952,7 @@ int ccci_dpmaif_bat_start_v3(void)
 	}
 
 	ret = dpmaif_alloc_bat_req(0, MAX_ALLOC_BAT_CNT, NULL, 1);
-	if (ret) {
+	if (ret < 0 || ret != (dpmaif_ctrl->bat_req->bat_size_cnt - 1)) {
 		CCCI_ERROR_LOG(-1, TAG,
 			"[%s] dpmaif_alloc_bat_req fail: %d\n",
 			__func__, ret);
@@ -911,7 +960,7 @@ int ccci_dpmaif_bat_start_v3(void)
 	}
 
 	ret = dpmaif_alloc_bat_frg(0, MAX_ALLOC_BAT_CNT, NULL, 1);
-	if (ret) {
+	if (ret < 0 || ret != (dpmaif_ctrl->bat_frag->bat_size_cnt - 1)) {
 		CCCI_ERROR_LOG(-1, TAG,
 			"[%s] dpmaif_alloc_bat_frg fail: %d\n",
 			__func__, ret);

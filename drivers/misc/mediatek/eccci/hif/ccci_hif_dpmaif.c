@@ -1131,19 +1131,6 @@ static int dpmaif_rx_start(struct dpmaif_rx_queue *rxq, unsigned short pit_cnt,
 				rxq->pit_dp =
 				((struct dpmaifq_msg_pit *)pkt_inf_t)->dp;
 			} else if (pkt_inf_t->packet_type == DES_PT_PD) {
-				if (dpmaif_ctrl->enable_pit_debug >= 0) {
-					dpmaif_debug_update_rx_chn_idx(rxq->cur_chn_idx);
-
-					if (dpmaif_ctrl->enable_pit_debug > 0)
-						DPMAIF_DEBUG_ADD(DEBUG_TYPE_RX_DONE,
-						DEBUG_VERION_V2,
-						rxq->index, pkt_inf_t->data_len,
-						rxq->pit_rd_idx, rxq->pit_wr_idx,
-						(unsigned short)pkt_inf_t->buffer_id,
-						dpmaif_ctrl->bat_req->bat_wr_idx,
-						(unsigned int)(local_clock() / 1000000),
-						NULL);
-				}
 
 #ifdef HW_FRG_FEATURE_ENABLE
 				if (pkt_inf_t->buffer_type == PKT_BUF_FRAG
@@ -2741,7 +2728,7 @@ int dpmaif_late_init(unsigned char hif_id)
 #else
 	CCCI_DEBUG_LOG(-1, TAG, "dpmaif:%s end\n", __func__);
 #endif
-	dpmaif_debug_late_init(&(dpmaif_ctrl->rxq[0].rx_wq));
+
 	return 0;
 }
 
@@ -3307,15 +3294,6 @@ static struct ccci_hif_ops ccci_hif_dpmaif_ops = {
 	.empty_query = dpmaif_empty_query_v2,
 };
 
-static void dpmaif_total_spd_cb(u64 total_ul_speed, u64 total_dl_speed)
-{
-	if ((total_ul_speed < UL_SPEED_THRESHOLD) &&
-		(total_dl_speed < DL_SPEED_THRESHOLD))
-		dpmaif_ctrl->enable_pit_debug = 1;
-	else
-		dpmaif_ctrl->enable_pit_debug = 0;
-}
-
 static void dpmaif_init_cap(struct device *dev)
 {
 	unsigned int dpmaif_cap = 0;
@@ -3328,20 +3306,9 @@ static void dpmaif_init_cap(struct device *dev)
 			__func__);
 	}
 
-	if (dpmaif_cap & DPMAIF_CAP_PIT_DEG)
-		dpmaif_ctrl->enable_pit_debug = 1;
-	else
-		dpmaif_ctrl->enable_pit_debug = -1;
-
 	CCCI_NORMAL_LOG(-1, TAG,
-		"[%s] dpmaif_cap: %x; pit_debug: %d\n",
-		__func__, dpmaif_cap,
-		dpmaif_ctrl->enable_pit_debug);
-
-	if (dpmaif_ctrl->enable_pit_debug > -1) {
-		mtk_ccci_register_speed_1s_callback(dpmaif_total_spd_cb);
-		dpmaif_debug_init();
-	}
+		"[%s] dpmaif_cap: %x\n",
+		__func__, dpmaif_cap);
 }
 
 /* =======================================================
