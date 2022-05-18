@@ -85,7 +85,7 @@ static void gbe_ctrl2comp_fstb_poll(struct hlist_head *list)
 	struct hlist_node *t;
 	int tid = 0;
 	int tgid = 0;
-	int boost = 0, should_boost = 1;
+	int boost = 0, should_boost;
 
 	if (!gbe_is_enable()) {
 		gbe_boost(KIR_GBE1, 0);
@@ -127,6 +127,8 @@ static void gbe_ctrl2comp_fstb_poll(struct hlist_head *list)
 
 			hlist_for_each_entry(gbe_list_iter,
 					&gbe_boost_list, hlist) {
+
+				should_boost = 1;
 
 				if (boost)
 					break;
