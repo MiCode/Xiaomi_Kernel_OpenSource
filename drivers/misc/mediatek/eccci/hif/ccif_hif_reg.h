@@ -80,7 +80,6 @@ void ccif_write32(void *b, unsigned long a, unsigned int v);
 #define D2H_RINGQ6  (RINGQ_BASE+6)
 #define D2H_RINGQ7  (RINGQ_BASE+7)
 
-#define MD_PCORE_PCCIF_BASE 0x20510000
 
 #define CCIF_SRAM_SIZE 512
 

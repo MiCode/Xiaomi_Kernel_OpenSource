@@ -56,7 +56,6 @@ struct md_hw_info {
 	unsigned long md_rgu_base;
 	unsigned long md_boot_slave_Vector;
 	unsigned long md_boot_slave_Key;
-	unsigned long md_boot_slave_En;
 	unsigned int sram_size;
 
 	/* HW info - Interrutpt ID */

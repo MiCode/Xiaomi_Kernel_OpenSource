@@ -100,7 +100,6 @@ struct md_ccif_ctrl {
 	struct timer_list bus_timeout_timer;
 	void __iomem *ccif_ap_base;
 	void __iomem *ccif_md_base;
-	void __iomem *md_pcore_pccif_base;
 	void __iomem *md_ccif4_base;
 	void __iomem *md_ccif5_base;
 	struct regmap *pericfg_base;

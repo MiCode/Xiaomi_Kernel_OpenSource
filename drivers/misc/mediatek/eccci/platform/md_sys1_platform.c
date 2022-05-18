@@ -117,9 +117,6 @@ static int md_cd_io_remap_md_side_register(struct ccci_modem *md)
 {
 	struct md_pll_reg *md_reg;
 	struct md_sys1_info *md_info = (struct md_sys1_info *)md->private_data;
-
-	md_info->md_boot_slave_En =
-	 ioremap_wc(md->hw_info->md_boot_slave_En, 0x4);
 	md_info->md_rgu_base =
 	 ioremap_wc(md->hw_info->md_rgu_base, 0x300);
 
@@ -1178,7 +1175,6 @@ static int md_cd_get_modem_hw_info(struct platform_device *dev_ptr,
 
 	hw_info->sram_size = CCIF_SRAM_SIZE;
 	hw_info->md_rgu_base = MD_RGU_BASE;
-	hw_info->md_boot_slave_En = MD_BOOT_VECTOR_EN;
 	ret = of_property_read_u32(dev_ptr->dev.of_node,
 		"mediatek,md_generation", &md_cd_plat_val_ptr.md_gen);
 	if (ret < 0) {

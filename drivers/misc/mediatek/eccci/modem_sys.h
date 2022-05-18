@@ -115,7 +115,6 @@ struct md_sys1_info {
 
 		void __iomem *md_boot_slave_Vector;
 		void __iomem *md_boot_slave_Key;
-		void __iomem *md_boot_slave_En;
 };
 
 struct md_sys3_info {
