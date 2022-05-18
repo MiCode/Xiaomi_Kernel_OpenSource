@@ -19,6 +19,7 @@ char * const imgsensor_hw_pin_names[] = {
 	"rst",
 	"vcama",
 	"vcama1",
+	"vcamaf",
 	"vcamd",
 	"vcamio",
 	"mipi_switch_en",
