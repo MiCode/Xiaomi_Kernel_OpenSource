@@ -17,11 +17,13 @@ static int md_type = -1;
 static int mmqos_req_md_type(void *data)
 {
 	u32 retry_cnt = 0;
-	int ret;
+	int ret = 0;
 
 	while (retry_cnt < MMQOS_MD_REQ_RETRY_MAX) {
+#if IS_ENABLED(CONFIG_MTK_ECCCI_DRIVER)
 		ret = exec_ccci_kern_func_by_md_id(
 			MD_SYS1, MD_NR_BAND_ACTIVATE_INFO, NULL, 0);
+#endif
 		if (ret == 0 && md_type != -1)
 			break;
 		pr_notice("%s ccci not ready ret=%d md_type=%d\n", __func__, ret, md_type);
@@ -50,12 +52,14 @@ int mtk_mmqos_md_probe(struct platform_device *pdev)
 	struct task_struct *pKThread;
 	int ret = 0;
 
+#if IS_ENABLED(CONFIG_MTK_ECCCI_DRIVER)
 	ret = register_ccci_sys_call_back(MD_SYS1,
 		MD_NR_BAND_ACTIVATE_INFO, mmqos_md_band_req_hdlr);
 	if (ret) {
 		pr_notice("%s: fail to register ccci sys callback(%d)\n", __func__, ret);
 		return ret;
 	}
+#endif
 
 	pKThread = kthread_run(mmqos_req_md_type,
 		NULL, "request md type");
