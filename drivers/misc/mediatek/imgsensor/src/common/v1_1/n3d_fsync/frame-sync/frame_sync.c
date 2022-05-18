@@ -1136,12 +1136,12 @@ static inline void fs_set_sync_status(unsigned int idx, unsigned int flag)
 
 
 	/* log print info */
-	LOG_INF("en:%u [%u] ID:%#x(sidx:%u)   [enSync_bits:%u]\n",
-		flag,
-		idx,
-		info.sensor_id,
-		info.sensor_idx,
-		fs_mgr.enSync_bits);
+	//LOG_INF("en:%u [%u] ID:%#x(sidx:%u)   [enSync_bits:%u]\n",
+	//	flag,
+	//	idx,
+	//	info.sensor_id,
+	//	info.sensor_idx,
+	//	fs_mgr.enSync_bits);
 }
 
 

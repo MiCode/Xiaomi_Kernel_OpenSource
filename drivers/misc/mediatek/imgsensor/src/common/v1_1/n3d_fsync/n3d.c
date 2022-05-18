@@ -50,8 +50,8 @@ static int fs_callback_fl_result(void *p_ctx,
 	mutex_lock(&pn3d->n3d_mutex);
 
 	if (sensor_idx < MAX_NUM_OF_SUPPORT_SENSOR) {
-		LOG_D("fl result sensor idx = %u, fl = %u\n",
-		      sensor_idx, framelength);
+		//LOG_D("fl result sensor idx = %u, fl = %u\n",
+		//      sensor_idx, framelength);
 		pn3d->fl_result[sensor_idx] = framelength;
 	}
 

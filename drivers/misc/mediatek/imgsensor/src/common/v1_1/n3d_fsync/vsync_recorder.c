@@ -345,20 +345,17 @@ int query_n3d_vsync_data(struct vsync_rec *pData)
 	pData->cur_tick = max_tick + 1;
 	pData->tick_factor = 1;
 
-	LOG_D("idx 1 time[0] = %u, time[1] = %u, time[2] = %u, time[3] = %u oob_dected(%d)\n",
-	       pData->recs[0].timestamps[0],
-	       pData->recs[0].timestamps[1],
-	       pData->recs[0].timestamps[2],
-	       pData->recs[0].timestamps[3],
-	       array_oob_detected);
-
-	LOG_D("idx 2 time[0] = %u, time[1] = %u, time[2] = %u, time[3] = %u mis_trig_cnt(%u)\n",
-	       pData->recs[1].timestamps[0],
-	       pData->recs[1].timestamps[1],
-	       pData->recs[1].timestamps[2],
-	       pData->recs[1].timestamps[3],
-	       mis_trig_cnt);
-
+	LOG_D(
+		"idx 1 t = %u / %u / %u/ = %u idx 2 t = %u / %u / %u / %u mis_trig(%u) oob(%d)\n",
+		pData->recs[0].timestamps[0],
+		pData->recs[0].timestamps[1],
+		pData->recs[0].timestamps[2],
+		pData->recs[0].timestamps[3],
+		pData->recs[1].timestamps[0],
+		pData->recs[1].timestamps[1],
+		pData->recs[1].timestamps[2],
+		pData->recs[1].timestamps[3],
+		mis_trig_cnt, array_oob_detected);
 	return 0;
 }
 
