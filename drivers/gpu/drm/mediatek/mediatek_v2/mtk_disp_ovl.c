@@ -1695,7 +1695,7 @@ static void _ovl_common_config(struct mtk_ddp_comp *comp, unsigned int idx,
 			if (comp->mtk_crtc->sec_on) {
 				if (state->pending.is_sec && pending->addr) {
 					write_sec_ext_layer_addr_cmdq(comp, handle, id,
-								addr, offset, buf_size);
+								pending->addr, offset, buf_size);
 					set_sec_ext_layer_dom_cmdq(comp, handle, id);
 					goto legacy_sec1;
 				} else
@@ -1735,7 +1735,7 @@ legacy_sec1:
 				DDPMSG("enter svp2----\n");
 				if (state->pending.is_sec && pending->addr && (dst_h >= 1)) {
 					write_sec_phy_layer_addr_cmdq(comp, handle, lye_idx,
-								addr, offset, buf_size);
+								pending->addr, offset, buf_size);
 					set_sec_phy_layer_dom_cmdq(comp, handle, lye_idx);
 					goto legacy_sec2;
 				} else
