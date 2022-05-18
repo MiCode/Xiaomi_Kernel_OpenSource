@@ -378,9 +378,11 @@ int mtk_hcp_register(struct platform_device *pdev,
 			scp_ipi_registration(ipi_id, hcp_ipi_handler, name);
 		}
 #endif
-		hcp_dev->hcp_desc_table[id].name = name;
-		hcp_dev->hcp_desc_table[id].handler = handler;
-		hcp_dev->hcp_desc_table[id].priv = priv;
+		unsigned int idx = (unsigned int)id;
+
+		hcp_dev->hcp_desc_table[idx].name = name;
+		hcp_dev->hcp_desc_table[idx].handler = handler;
+		hcp_dev->hcp_desc_table[idx].priv = priv;
 		return 0;
 	}
 
