@@ -266,10 +266,7 @@ static int vcp_ipi_dbg_resume_noirq(struct device *dev)
 		ret = irq_get_irqchip_state(vcp_ipi_irqs[i].irq_no,
 			IRQCHIP_STATE_PENDING, &state);
 		if (!ret && state) {
-			if (i < 2)
-				pr_info("[VCP] ipc%d wakeup\n", i);
-			else
-				mt_print_vcp_ipi_id(i - 2);
+			pr_info("[VCP] ipc%d wakeup\n", i);
 			break;
 		}
 	}
@@ -2135,52 +2132,6 @@ static bool vcp_ipi_table_init(struct mtk_mbox_device *vcp_mboxdev, struct platf
 		vcp_mbox_pin_recv[i].recv_opt = recv_opt;
 	}
 
-
-	/* wrapper_ipi_init */
-	if (!of_get_property(pdev->dev.of_node, "legacy_table", NULL)) {
-		pr_notice("[VCP]%s: wrapper_ipi don't exist\n", __func__);
-		return true;
-	}
-	ret = of_property_read_u32_index(pdev->dev.of_node,
-			"legacy_table", 0, &vcp_ipi_legacy_id[0].out_id_0);
-	if (ret) {
-		pr_notice("[VCP]%s:Cannot get out_id_0\n", __func__);
-	}
-	ret = of_property_read_u32_index(pdev->dev.of_node,
-			"legacy_table", 1, &vcp_ipi_legacy_id[0].out_id_1);
-	if (ret) {
-		pr_notice("[VCP]%s:Cannot get out_id_1\n", __func__);
-	}
-	ret = of_property_read_u32_index(pdev->dev.of_node,
-			"legacy_table", 2, &vcp_ipi_legacy_id[0].in_id_0);
-	if (ret) {
-		pr_notice("[VCP]%s:Cannot get in_id_0\n", __func__);
-	}
-	ret = of_property_read_u32_index(pdev->dev.of_node,
-			"legacy_table", 3, &vcp_ipi_legacy_id[0].in_id_1);
-	if (ret) {
-		pr_notice("[VCP]%s:Cannot get in_id_1\n", __func__);
-	}
-	ret = of_property_read_u32_index(pdev->dev.of_node,
-			"legacy_table", 4, &vcp_ipi_legacy_id[0].out_size);
-	if (ret) {
-		pr_notice("[%s]:Cannot get out_size\n", __func__);
-	}
-	ret = of_property_read_u32_index(pdev->dev.of_node,
-			"legacy_table", 5, &vcp_ipi_legacy_id[0].in_size);
-	if (ret) {
-		pr_notice("[VCP]%s:Cannot get in_size\n", __func__);
-	}
-	vcp_ipi_legacy_id[0].msg_0 = vzalloc(vcp_ipi_legacy_id[0].in_size * MBOX_SLOT_SIZE);
-	if (!vcp_ipi_legacy_id[0].msg_0) {
-		pr_notice("[VCP]%s: vmlloc legacy msg_0 fail\n", __func__);
-		return false;
-	}
-	vcp_ipi_legacy_id[0].msg_1 = vzalloc(vcp_ipi_legacy_id[0].in_size * MBOX_SLOT_SIZE);
-	if (!vcp_ipi_legacy_id[0].msg_1) {
-		pr_notice("[VCP]%s: vmlloc legacy msg_1 fail\n", __func__);
-		return false;
-	}
 	return true;
 }
 
@@ -2221,6 +2172,57 @@ static int vcp_io_device_probe(struct platform_device *pdev)
 static int vcp_io_device_remove(struct platform_device *dev)
 {
 	return 0;
+}
+
+void mbox_setup_pin_table(unsigned int mbox)
+{
+	int i, last_ofs = 0, last_idx = 0, last_slot = 0, last_sz = 0;
+
+	for (i = 0; i < vcp_mboxdev.send_count; i++) {
+		if (mbox == vcp_mbox_pin_send[i].mbox) {
+			vcp_mbox_pin_send[i].offset = last_ofs + last_slot;
+			vcp_mbox_pin_send[i].pin_index = last_idx + last_sz;
+			last_idx = vcp_mbox_pin_send[i].pin_index;
+			if (vcp_mbox_info[mbox].is64d == 1) {
+				last_sz = DIV_ROUND_UP(
+					   vcp_mbox_pin_send[i].msg_size, 2);
+				last_ofs = last_sz * 2;
+				last_slot = last_idx * 2;
+			} else {
+				last_sz = vcp_mbox_pin_send[i].msg_size;
+				last_ofs = last_sz;
+				last_slot = last_idx;
+			}
+		} else if (mbox < vcp_mbox_pin_send[i].mbox)
+			break; /* no need to search the rest ipi */
+	}
+
+	for (i = 0; i < vcp_mboxdev.recv_count; i++) {
+		if (mbox == vcp_mbox_pin_recv[i].mbox) {
+			vcp_mbox_pin_recv[i].offset = last_ofs + last_slot;
+			vcp_mbox_pin_recv[i].pin_index = last_idx + last_sz;
+			last_idx = vcp_mbox_pin_recv[i].pin_index;
+			if (vcp_mbox_info[mbox].is64d == 1) {
+				last_sz = DIV_ROUND_UP(
+					   vcp_mbox_pin_recv[i].msg_size, 2);
+				last_ofs = last_sz * 2;
+				last_slot = last_idx * 2;
+			} else {
+				last_sz = vcp_mbox_pin_recv[i].msg_size;
+				last_ofs = last_sz;
+				last_slot = last_idx;
+			}
+		} else if (mbox < vcp_mbox_pin_recv[i].mbox)
+			break; /* no need to search the rest ipi */
+	}
+
+
+	if (last_idx > 32 ||
+	   (last_ofs + last_slot) > (vcp_mbox_info[mbox].is64d + 1) * 32) {
+		pr_notice("mbox%d ofs(%d)/slot(%d) exceed the maximum\n",
+			mbox, last_idx, last_ofs + last_slot);
+		WARN_ON(1);
+	}
 }
 
 static int vcp_device_probe(struct platform_device *pdev)

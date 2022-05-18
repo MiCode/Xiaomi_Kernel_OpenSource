@@ -214,8 +214,6 @@ extern phys_addr_t vcp_mem_size;
 extern atomic_t vcp_reset_status;
 extern spinlock_t vcp_awake_spinlock;
 
-extern void mbox_setup_pin_table(int mbox);
-extern void mt_print_vcp_ipi_id(unsigned int irq_no);
 #if IS_ENABLED(CONFIG_MTK_GIC_V3_EXT)
 extern u32 mt_irq_get_pending(unsigned int irq);
 #endif
