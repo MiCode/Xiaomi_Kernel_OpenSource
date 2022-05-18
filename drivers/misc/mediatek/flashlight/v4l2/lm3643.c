@@ -75,6 +75,9 @@ static const int flash_state_to_current_limit[LM3643_COOLER_MAX_STATE] = {
 	150000, 100000, 50000, 25000
 };
 
+/* define mutex and work queue */
+static DEFINE_MUTEX(lm3643_mutex);
+
 enum lm3643_led_id {
 	LM3643_LED0 = 0,
 	LM3643_LED1,
@@ -762,7 +765,7 @@ static int lm3643_set_driver(int set)
 	int ret = 0;
 
 	/* set chip and usage count */
-	//mutex_lock(&lm3643_mutex);
+	mutex_lock(&lm3643_mutex);
 	if (set) {
 		if (!use_count)
 			ret = lm3643_init(lm3643_flash_data);
@@ -776,7 +779,7 @@ static int lm3643_set_driver(int set)
 			use_count = 0;
 		pr_debug("Unset driver: %d\n", use_count);
 	}
-	//mutex_unlock(&lm3643_mutex);
+	mutex_unlock(&lm3643_mutex);
 
 	return 0;
 }
