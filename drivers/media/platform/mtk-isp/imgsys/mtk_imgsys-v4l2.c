@@ -693,13 +693,22 @@ static int mtk_imgsys_videoc_try_fmt(struct file *file, void *fh,
 	struct mtk_imgsys_video_device *node = mtk_imgsys_file_to_node(file);
 	const struct mtk_imgsys_dev_format *dev_fmt;
 	struct v4l2_format try_fmt;
+	unsigned int idx;
 
 	memset(&try_fmt, 0, sizeof(try_fmt));
 
 	dev_fmt = mtk_imgsys_pipe_find_fmt(pipe, node,
 					f->fmt.pix_mp.pixelformat);
 	if (!dev_fmt) {
-		dev_fmt = &node->desc->fmts[node->desc->default_fmt_idx];
+		idx = node->desc->default_fmt_idx;
+		if (idx >= node->desc->num_fmts) {
+			idx = 0;
+			dev_info(pipe->imgsys_dev->dev,
+				"%s:%s: invalid idx(%d), must < num_fmts(%d)\n",
+			__func__, node->desc->name, idx, node->desc->num_fmts);
+		}
+
+		dev_fmt = &node->desc->fmts[idx];
 		dev_dbg(pipe->imgsys_dev->dev,
 			"%s:%s:%s: dev_fmt(%d) not found, use default(%d)\n",
 			__func__, pipe->desc->name, node->desc->name,
@@ -728,6 +737,7 @@ static int mtk_imgsys_videoc_s_fmt(struct file *file, void *fh,
 	struct mtk_imgsys_video_device *node = mtk_imgsys_file_to_node(file);
 	struct mtk_imgsys_pipe *pipe = video_drvdata(file);
 	const struct mtk_imgsys_dev_format *dev_fmt;
+	unsigned int idx;
 
 	if (pipe->streaming || vb2_is_busy(&node->dev_q.vbq))
 		return -EBUSY;
@@ -735,7 +745,15 @@ static int mtk_imgsys_videoc_s_fmt(struct file *file, void *fh,
 	dev_fmt = mtk_imgsys_pipe_find_fmt(pipe, node,
 					f->fmt.pix_mp.pixelformat);
 	if (!dev_fmt) {
-		dev_fmt = &node->desc->fmts[node->desc->default_fmt_idx];
+		idx = node->desc->default_fmt_idx;
+		if (idx >= node->desc->num_fmts) {
+			idx = 0;
+			dev_info(pipe->imgsys_dev->dev,
+				"%s:%s: invalid idx(%d), must < num_fmts(%d)\n",
+			__func__, node->desc->name, idx, node->desc->num_fmts);
+		}
+
+		dev_fmt = &node->desc->fmts[idx];
 		dev_dbg(pipe->imgsys_dev->dev,
 			"%s:%s:%s: dev_fmt(%d) not found, use default(%d)\n",
 			__func__, pipe->desc->name, node->desc->name,
@@ -838,21 +856,28 @@ static int mtk_imgsys_videoc_s_meta_fmt(struct file *file, void *fh,
 	struct mtk_imgsys_video_device *node = mtk_imgsys_file_to_node(file);
 	struct mtk_imgsys_pipe *pipe = video_drvdata(file);
 	const struct mtk_imgsys_dev_format *dev_fmt;
+	unsigned int idx;
 
 	if (pipe->streaming || vb2_is_busy(&node->dev_q.vbq))
 		return -EBUSY;
 
 	dev_fmt = mtk_imgsys_pipe_find_fmt(pipe, node,
 						f->fmt.meta.dataformat);
-
-		if (!dev_fmt) {
-			dev_fmt =
-				&node->desc->fmts[node->desc->default_fmt_idx];
+	if (!dev_fmt) {
+		idx = node->desc->default_fmt_idx;
+		if (idx >= node->desc->num_fmts) {
+			idx = 0;
 			dev_info(pipe->imgsys_dev->dev,
-				"%s:%s:%s: dev_fmt(%d) not found, use default(%d)\n",
-				__func__, pipe->desc->name, node->desc->name,
-				f->fmt.meta.dataformat, dev_fmt->format);
+				"%s:%s: invalid idx(%d), must < num_fmts(%d)\n",
+			__func__, node->desc->name, idx, node->desc->num_fmts);
 		}
+
+		dev_fmt = &node->desc->fmts[idx];
+		dev_info(pipe->imgsys_dev->dev,
+			"%s:%s:%s: dev_fmt(%d) not found, use default(%d)\n",
+			__func__, pipe->desc->name, node->desc->name,
+			f->fmt.meta.dataformat, dev_fmt->format);
+	}
 
 	memset(&node->vdev_fmt, 0, sizeof(node->vdev_fmt));
 
