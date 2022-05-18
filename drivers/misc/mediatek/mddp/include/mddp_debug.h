@@ -34,8 +34,7 @@ extern uint32_t mddp_debug_log_level_s;
 // Struct definition - log level/class.
 // -----------------------------------------------------------------------------
 #define MDDP_DEBUG_LOG_CLASS_MASK       0xF0
-#define MDDP_IS_VALID_LOG_CLASS(_class) \
-	((_class >= MDDP_LC_OFF) && (_class <= MDDP_LC_ALL))
+#define MDDP_IS_VALID_LOG_CLASS(_class) (_class <= MDDP_LC_ALL)
 enum mddp_log_class_e {
 	MDDP_LC_OFF = 0,                    /* 0 */
 	MDDP_LC_CTRL = 0x1,                 /* 1 */
@@ -46,8 +45,7 @@ enum mddp_log_class_e {
 };
 
 #define MDDP_DEBUG_LOG_LV_MASK          0x0F
-#define MDDP_IS_VALID_LOG_LEVEL(_level) \
-	((_level >= MDDP_LL_CRIT) && (_level <= MDDP_LL_ALL))
+#define MDDP_IS_VALID_LOG_LEVEL(_level) (_level <= MDDP_LL_ALL)
 enum mddp_log_level_e {
 	MDDP_LL_CRIT,                       /* 0 */
 	MDDP_LL_ERR,                        /* 1 */
