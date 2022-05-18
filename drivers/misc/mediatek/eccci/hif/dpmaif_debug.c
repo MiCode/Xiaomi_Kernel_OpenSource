@@ -216,7 +216,7 @@ static void dpmaif_sysfs_parse(char *buf, int size)
 static ssize_t dpmaif_debug_write(struct file *fp, const char __user *buf,
 	size_t size, loff_t *ppos)
 {
-	char str[300];
+	char str[300] = {0};
 	int ret;
 
 	if (size > 300)
@@ -225,11 +225,11 @@ static ssize_t dpmaif_debug_write(struct file *fp, const char __user *buf,
 	ret = copy_from_user(str, buf, size);
 	if (ret) {
 		CCCI_ERROR_LOG(-1, TAG,
-			"[%s] error: copy_from_user() fail; size: %d(%d)\n",
+			"[%s] error: copy_from_user() fail; size: %lu(%d)\n",
 			__func__, size, ret);
 		return 0;
 	}
-
+	str[size-1] = '\0';
 	dpmaif_sysfs_parse(str, size);
 
 	return size;

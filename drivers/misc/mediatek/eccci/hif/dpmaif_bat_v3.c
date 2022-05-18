@@ -485,7 +485,7 @@ alloc_end:
 		wmb();
 
 		if (g_debug_flags & DEBUG_BAT_ALC_SKB) {
-			struct debug_bat_alc_skb_hdr hdr;
+			struct debug_bat_alc_skb_hdr hdr = {0};
 
 			hdr.type = TYPE_BAT_ALC_SKB_ID;
 			hdr.time = (unsigned int)(local_clock() >> 16);
@@ -627,7 +627,7 @@ alloc_end:
 		wmb();
 
 		if (g_debug_flags & DEBUG_BAT_ALC_FRG) {
-			struct debug_bat_alc_skb_hdr hdr;
+			struct debug_bat_alc_skb_hdr hdr = {0};
 
 			hdr.type = TYPE_BAT_ALC_FRG_ID;
 			hdr.time = (unsigned int)(local_clock() >> 16);
@@ -729,7 +729,7 @@ static void ccci_dpmaif_bat_free(void)
 static int dpmaif_rx_bat_alloc_thread(void *arg)
 {
 	int ret, ret_req, ret_frg;
-	struct debug_bat_th_wake_hdr hdr;
+	struct debug_bat_th_wake_hdr hdr = {0};
 
 	dpmaif_ctrl->bat_alloc_running = 1;
 

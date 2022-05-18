@@ -2741,7 +2741,7 @@ static void dpmaif_irq_cb(struct hif_dpmaif_ctrl *hif_ctrl)
 	L2TIMR0 = drv3_dpmaif_ul_get_ul_interrupt_mask();
 
 	if (g_debug_flags & DEBUG_RXTX_ISR) {
-		struct debug_rxtx_isr_hdr hdr;
+		struct debug_rxtx_isr_hdr hdr = {0};
 
 		hdr.type = TYPE_RXTX_ISR_ID;
 		hdr.time = (unsigned int)(hif_ctrl->traffic_info.latest_isr_time >> 16);
