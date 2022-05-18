@@ -20,6 +20,7 @@
 
 #define SRCLKEN_RC_ENABLE_PROP_NAME		"mediatek,enable"
 #define SRCLKEN_RC_SUBSYS_PROP_NAME		"mediatek,subsys-ctl"
+#define SUBSYSID_NOT_FOUND              "UNSUPPORTED_SUBSYSID"
 
 #define SRCLKEN_RC_SUBSYS_CTL_LEN		20
 
@@ -42,7 +43,7 @@ bool is_srclken_rc_init_done(void)
 const char *srclken_rc_get_subsys_name(u8 idx)
 {
 	if (idx > rc_hw.subsys_num)
-		return NULL;
+		return SUBSYSID_NOT_FOUND;
 
 	return rc_hw.subsys[idx].name;
 }
@@ -84,11 +85,12 @@ static int srclken_rc_dts_subsys_callback_init(struct device_node *node,
 	const char *str = NULL;
 	char subsys_ctl[SRCLKEN_RC_SUBSYS_CTL_LEN];
 	u8 i;
+	int len;
 
-	snprintf(subsys_ctl, SRCLKEN_RC_SUBSYS_CTL_LEN, "%s-ctl", subsys->name);
+	len = snprintf(subsys_ctl, SRCLKEN_RC_SUBSYS_CTL_LEN, "%s-ctl", subsys->name);
 
 	if (of_property_read_string(node, subsys_ctl, &str)) {
-		pr_debug("no subsys_ctl node: %s found, skip\n", subsys_ctl);
+		pr_debug("no subsys_ctl node: %s found, strlen=%d, skip\n", subsys_ctl, len);
 		return 0;
 	}
 

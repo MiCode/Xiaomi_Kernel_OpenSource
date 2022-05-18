@@ -15,6 +15,7 @@
 #define TRACE_NUM		8
 #define TRACE_P_NUM		4
 #define RC_BC_SUPPORT		"mediatek,srclken-rc-broadcast"
+#define CFGID_NOT_FOUND     "UNSUPPORT_CFGID"
 
 static bool srclken_rc_bc_support;
 
@@ -91,7 +92,7 @@ const char *srclken_rc_get_cfg_name(u32 idx)
 {
 	if ((!srclken_rc_bc_support && idx >= RC_CFG_NON_BC_MAX)
 			|| (srclken_rc_bc_support && idx >= RC_CFG_MAX))
-		return NULL;
+		return CFGID_NOT_FOUND;
 
 	return rc_cfg_name[idx];
 }
