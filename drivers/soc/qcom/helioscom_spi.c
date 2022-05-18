@@ -90,6 +90,8 @@ do {									     \
 			##__VA_ARGS__);\
 } while (0)
 
+#define POWER_ENABLED 0
+
 enum helioscom_state {
 	/*HELIOSCOM Staus ready*/
 	HELIOSCOM_PROB_SUCCESS = 0,
@@ -1513,11 +1515,12 @@ static int helios_spi_probe(struct spi_device *spi)
 	atomic_set(&helios_is_spi_active, 1);
 	dma_set_coherent_mask(&spi->dev, DMA_BIT_MASK(64));
 
+#if POWER_ENABLED
 	/* Enable Runtime PM for this device */
 	pm_runtime_enable(&spi->dev);
 	pm_runtime_set_autosuspend_delay(&spi->dev, HELIOS_SPI_AUTOSUSPEND_TIMEOUT);
 	pm_runtime_use_autosuspend(&spi->dev);
-
+#endif
 	HELIOSCOM_INFO("%s: Helioscom Probed successfully\n", __func__);
 	return 0;
 
@@ -1533,7 +1536,9 @@ static int helios_spi_remove(struct spi_device *spi)
 	struct helios_spi_priv *helios_spi = spi_get_drvdata(spi);
 
 	helios_com_drv = NULL;
+#if POWER_ENABLED
 	pm_runtime_disable(&spi->dev);
+#endif
 	mutex_destroy(&helios_spi->xfer_mutex);
 	spi_set_drvdata(spi, NULL);
 	if (fxd_mem_buffer != NULL)
@@ -1561,6 +1566,7 @@ static void helios_spi_shutdown(struct spi_device *spi)
 
 static int helioscom_pm_prepare(struct device *dev)
 {
+#if POWER_ENABLED
 	struct helios_context clnt_handle;
 	uint32_t cmnd_reg = 0;
 	struct spi_device *s_dev = to_spi_device(dev);
@@ -1588,6 +1594,8 @@ static int helioscom_pm_prepare(struct device *dev)
 
 	HELIOSCOM_INFO("reg write status: %d\n", ret);
 	return ret;
+#endif
+	return 0;
 }
 
 static void helioscom_pm_complete(struct device *dev)
@@ -1597,6 +1605,7 @@ static void helioscom_pm_complete(struct device *dev)
 
 static int helioscom_pm_suspend(struct device *dev)
 {
+#if POWER_ENABLED
 	if (atomic_read(&state) == HELIOSCOM_STATE_SUSPEND)
 		return 0;
 
@@ -1612,10 +1621,13 @@ static int helioscom_pm_suspend(struct device *dev)
 
 	HELIOSCOM_INFO("suspended\n");
 	return 0;
+#endif
+	return 0;
 }
 
 static int helioscom_pm_resume(struct device *dev)
 {
+#if POWER_ENABLED
 	struct helios_context clnt_handle;
 	int ret;
 	struct helios_spi_priv *spi =
@@ -1646,6 +1658,8 @@ static int helioscom_pm_resume(struct device *dev)
 	HELIOSCOM_INFO("Helioscom resumed with : %d\n", ret);
 	mutex_unlock(&helios_task_mutex);
 	return ret;
+#endif
+	return 0;
 }
 
 static int helioscom_pm_runtime_suspend(struct device *dev)
@@ -1706,6 +1720,7 @@ static int helioscom_pm_runtime_resume(struct device *dev)
 
 static int helioscom_pm_freeze(struct device *dev)
 {
+#if POWER_ENABLED
 	struct helios_context clnt_handle;
 	uint32_t cmnd_reg = 0;
 	struct spi_device *s_dev = to_spi_device(dev);
@@ -1740,10 +1755,13 @@ static int helioscom_pm_freeze(struct device *dev)
 	}
 	HELIOSCOM_INFO("freezed with : %d\n", ret);
 	return ret;
+#endif
+	return 0;
 }
 
 static int helioscom_pm_restore(struct device *dev)
 {
+#if POWER_ENABLED
 	struct helios_context clnt_handle;
 	int ret = 0;
 	struct helios_spi_priv *spi =
@@ -1763,6 +1781,8 @@ static int helioscom_pm_restore(struct device *dev)
 		HELIOSCOM_INFO("Helioscom restore with : %d\n", ret);
 	}
 	return ret;
+#endif
+	return 0;
 }
 
 static const struct dev_pm_ops helioscom_pm = {
