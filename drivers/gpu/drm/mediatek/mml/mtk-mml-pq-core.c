@@ -362,7 +362,6 @@ void mml_pq_get_readback_buffer(struct mml_task *task, u8 pipe,
 {
 	struct cmdq_client *clt = task->config->path[pipe]->clt;
 	struct mml_pq_readback_buffer *temp_buffer = NULL;
-	temp_buffer->pa = 0;
 
 	mml_pq_msg("%s job_id[%d]", __func__, task->job.jobid);
 
