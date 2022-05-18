@@ -1669,6 +1669,10 @@ static void gt9896s_ts_esd_work(struct work_struct *work)
 	const struct gt9896s_ts_hw_ops *hw_ops = ts_hw_ops(core);
 	u8 data = GOODIX_ESD_TICK_WRITE_DATA;
 	int r = 0;
+	if (!hw_ops) {
+		ts_info("hw_ops is NULL");
+		return;
+	}
 
 	if (!atomic_read(&ts_esd->esd_on))
 		return;
