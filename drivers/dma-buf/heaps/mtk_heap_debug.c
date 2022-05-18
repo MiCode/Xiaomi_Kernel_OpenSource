@@ -299,7 +299,7 @@ int add_pid_map_entry(struct dump_fd_data *fddata, pid_t num, const char *comm)
 
 	if (map[idx].id == 0) {
 		map[idx].id = num;
-		strncpy(map[idx].name, comm, TASK_COMM_LEN);
+		strncpy(map[idx].name, comm, TASK_COMM_LEN - 1);
 		/* update idx */
 		fddata->cache_idx_w++;
 	}
@@ -565,7 +565,7 @@ dmabuf_rbtree_dbg_add_return(struct dump_fd_data *fd_data, const struct dma_buf 
 	if (dmabuf_rb_check) {
 		spin_lock((spinlock_t *)&dmabuf->name_lock);
 		dmabuf_dump(fd_data->constd.s,
-			    "add2rbtree done| inode:%d, sz:%zu, cnt:%d, name:%s\n",
+			    "add2rbtree done| inode:%lu, sz:%zu, cnt:%ld, name:%s\n",
 			    file_inode(dmabuf->file)->i_ino,
 			    dmabuf->size,
 			    file_count(dmabuf->file),
@@ -781,7 +781,7 @@ static int dmabuf_rbtree_add_vmas(struct dump_fd_data *fd_data)
 		dbg_node = dmabuf_rbtree_dbg_find(fd_data, file_inode(dmabuf->file)->i_ino);
 		dma_buf_put(dmabuf);
 		if (!dbg_node) {
-			dmabuf_dump(s, "%s#%d err:%d\n", __func__, __LINE__, PTR_ERR(dbg_node));
+			dmabuf_dump(s, "%s#%d err:%ld\n", __func__, __LINE__, PTR_ERR(dbg_node));
 			goto out;
 		}
 		pid_res = dmabuf_rbtree_pidres_add_return(fd_data, dbg_node, t);
@@ -870,7 +870,7 @@ static int dma_heap_buf_dump_cb(const struct dma_buf *dmabuf, void *priv)
 		delta = 1;
 
 	spin_lock((spinlock_t *)&dmabuf->name_lock);
-	dmabuf_dump(s, "inode:%-8d size(Byte):%-10zu count:%-2ld cache_sg:%d  exp:%s\tname:%s\n",
+	dmabuf_dump(s, "inode:%-8lu size(Byte):%-10zu count:%-2ld cache_sg:%d  exp:%s\tname:%s\n",
 		    file_inode(dmabuf->file)->i_ino,
 		    dmabuf->size,
 		    file_count(dmabuf->file) - delta,
@@ -956,7 +956,7 @@ static int dmabuf_rbtree_add_fd_cb(const void *data, struct file *file,
 	fd_data->ret = 1;
 
 	if (dmabuf_rb_check)
-		dmabuf_dump(s, "\tpid:%-8d\t%-8d\t%-14zu\t%-8d\t%-8ld%s\n",
+		dmabuf_dump(s, "\tpid:%-8d\t%-8d\t%-14zu\t%-8lu\t%-8ld%s\n",
 			    p->pid, fd, dmabuf->size, inode,
 			    file_count(dmabuf->file),
 			    dmabuf->exp_name);
@@ -1003,7 +1003,7 @@ int dmabuf_rbtree_dbg_add_cb(const struct dma_buf *dmabuf, void *priv)
 
 	node = dmabuf_rbtree_dbg_add_return(fd_data, dmabuf);
 	if (IS_ERR_OR_NULL(node))
-		dmabuf_dump(s, "%s #%d:get err:%d\n",
+		dmabuf_dump(s, "%s #%d:get err:%ld\n",
 			    __func__, __LINE__, PTR_ERR(node));
 	return 0;
 }
@@ -1371,9 +1371,9 @@ static void mtk_dmabuf_dump_heap(struct dma_heap *heap,
 			    get_current_time_ms());
 
 		show_help_info(heap, s);
-		dmabuf_dump(s, "freelist: %d KB\n", get_freelist_nr_pages() * 4);
+		dmabuf_dump(s, "freelist: %lu KB\n", get_freelist_nr_pages() * 4);
 		dmabuf_sz = get_dma_heap_buffer_total(heap);
-		dmabuf_dump(s, "dmabuf buffer total:%d KB\n", (dmabuf_sz * 4) / PAGE_SIZE);
+		dmabuf_dump(s, "dmabuf buffer total:%ld KB\n", (dmabuf_sz * 4) / PAGE_SIZE);
 		dmabuf_dump(s, "\t|-normal dma_heap buffer total:%ld KB\n\n",
 			    (atomic64_read(&dma_heap_normal_total) * 4) / PAGE_SIZE);
 
@@ -1388,7 +1388,7 @@ static void mtk_dmabuf_dump_heap(struct dma_heap *heap,
 				heap_sz += get_dma_heap_buffer_total(heap);
 			}
 		}
-		dmabuf_dump(s, "\nnon-dma_heap buffer total:%d KB\n",
+		dmabuf_dump(s, "\nnon-dma_heap buffer total:%ld KB\n",
 			    (dmabuf_sz - heap_sz) * 4 / PAGE_SIZE);
 
 		dma_heap_default_show(NULL, s, flag | HEAP_DUMP_HEAP_SKIP_POOL);
