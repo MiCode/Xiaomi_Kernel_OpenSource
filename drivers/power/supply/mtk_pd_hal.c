@@ -509,7 +509,7 @@ int pd_hal_get_charging_current(struct chg_alg_device *alg,
 		charger_dev_get_charging_current(hal->chg1_dev, ua);
 	else if (chgidx == CHG2 && hal->chg2_dev != NULL)
 		charger_dev_get_charging_current(hal->chg2_dev, ua);
-	pd_dbg("%s idx:%d %u\n", __func__, chgidx, ua);
+	pd_dbg("%s idx:%d %lu\n", __func__, chgidx, (unsigned long)ua);
 
 	return 0;
 }

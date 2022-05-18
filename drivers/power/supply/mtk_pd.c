@@ -1145,7 +1145,7 @@ static void mtk_pd_parse_dt(struct mtk_pd *pd,
 				struct device *dev)
 {
 	struct device_node *np = dev->of_node;
-	u32 val;
+	u32 val = 0;
 
 	if (of_property_read_u32(np, "min_charger_voltage", &val) >= 0)
 		pd->min_charger_voltage = val;

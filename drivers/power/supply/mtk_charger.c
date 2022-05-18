@@ -89,7 +89,7 @@ const char *chg_get_cmd(void)
 		if (!bootargs)
 			chr_err("%s: failed to get bootargs\n", __func__);
 		else {
-			strcpy(__chg_cmdline, bootargs);
+			strncpy(__chg_cmdline, bootargs, 100);
 			chr_err("%s: bootargs: %s\n", __func__, bootargs);
 		}
 	} else
@@ -3203,12 +3203,12 @@ static void mtk_charger_external_power_changed(struct power_supply *psy)
 
 	info = (struct mtk_charger *)power_supply_get_drvdata(psy);
 
-	if (IS_ERR_OR_NULL(info))
+	if (info == NULL)
 		pr_notice("%s: failed to get info\n", __func__);
 
 	chg_psy = info->chg_psy;
 
-	if (IS_ERR_OR_NULL(chg_psy)) {
+	if (chg_psy == NULL) {
 		pr_notice("%s Couldn't get chg_psy\n", __func__);
 		chg_psy = devm_power_supply_get_by_phandle(&info->pdev->dev,
 						       "charger");
