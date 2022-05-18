@@ -119,7 +119,7 @@ static int venc_vcp_ipi_send(struct venc_inst *inst, void *msg, int len, bool is
 	}
 
 	while (!is_vcp_ready(VCP_A_ID)) {
-		mtk_v4l2_debug((((timeout % 20) == 10) ? 0 : 4), "[VCP] wait ready %d ms", timeout);
+		mtk_v4l2_debug(((timeout % 20) == 10) ? 0 : 4, "[VCP] wait ready %lu ms", timeout);
 		mdelay(1);
 		timeout++;
 		if (timeout > VCP_SYNC_TIMEOUT_MS) {
@@ -131,7 +131,7 @@ static int venc_vcp_ipi_send(struct venc_inst *inst, void *msg, int len, bool is
 	}
 
 	if (len > sizeof(obj.share_buf)) {
-		mtk_vcodec_err(inst, "ipi data size wrong %d > %d", len, sizeof(struct share_obj));
+		mtk_vcodec_err(inst, "ipi data size wrong %d > %zu", len, sizeof(obj.share_buf));
 		inst->vcu_inst.abort = 1;
 		return -EIO;
 	}
@@ -199,7 +199,7 @@ static void handle_venc_mem_alloc(struct venc_vcu_ipi_mem_op *msg)
 		msg->mem.len = (__u64)vcp_get_reserve_mem_size(VENC_MEM_ID);
 		msg->mem.iova = msg->mem.pa;
 
-		mtk_v4l2_debug(4, "va 0x%llx pa 0x%llx iova 0x%llx len %d type %d size of %d %d\n",
+		mtk_v4l2_debug(4, "va 0x%llx pa 0x%llx iova 0x%llx len %u type %u size of %zu %zu\n",
 			msg->mem.va, msg->mem.pa, msg->mem.iova, msg->mem.len, msg->mem.type, sizeof(msg->mem), sizeof(*msg));
 	} else {
 		if (IS_ERR_OR_NULL(vcu))
@@ -387,7 +387,7 @@ int vcp_enc_ipi_handler(void *arg)
 
 		if (msg == NULL ||
 		   (struct venc_vcu_inst *)(unsigned long)msg->venc_inst == NULL) {
-			mtk_v4l2_err(" msg invalid %lx\n", msg);
+			mtk_v4l2_err(" msg invalid %p\n", msg);
 			kfree(mq_node);
 			continue;
 		}
@@ -1197,10 +1197,10 @@ void set_venc_vcp_data(struct venc_inst *inst, enum vcp_reserve_mem_id_t id, voi
 	__u64 mem_size = (__u64)vcp_get_reserve_mem_size(id);
 	int string_len = strlen((char *)string);
 
-	mtk_vcodec_debug(inst, "mem_size 0x%llx, string_va 0x%llx, string_pa 0x%llx\n",
-		mem_size, string_va, string_pa);
-	mtk_vcodec_debug(inst, "string: %s\n", (char *)string);
-	mtk_vcodec_debug(inst, "string_len:%d\n", string_len);
+	mtk_vcodec_debug(inst, "mem_size 0x%llx, string_va 0x%llx, string_pa 0x%llx",
+		mem_size, (__u64)string_va, (__u64)string_pa);
+	mtk_vcodec_debug(inst, "string: %s", (char *)string);
+	mtk_vcodec_debug(inst, "string_len: %d", string_len);
 
 	if (string_len <= (mem_size-1))
 		memcpy(string_va, (char *)string, string_len + 1);

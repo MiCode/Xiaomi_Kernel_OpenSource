@@ -545,7 +545,7 @@ int vcu_ipi_register(struct platform_device *pdev,
 		return -EPROBE_DEFER;
 	}
 
-	if (id < IPI_VCU_INIT || id >= IPI_MAX) {
+	if (id >= IPI_MAX) {
 		dev_info(&pdev->dev, "[VCU] failed to register ipi message (Invalid arg.)\n");
 		return -EINVAL;
 	}
@@ -553,7 +553,7 @@ int vcu_ipi_register(struct platform_device *pdev,
 	i = ipi_id_to_inst_id(id);
 	mutex_lock(&vcu->vcu_mutex[i]);
 
-	if (id >= IPI_VCU_INIT && id < IPI_MAX && handler != NULL) {
+	if (handler != NULL) {
 		ipi_desc = vcu->ipi_desc;
 		ipi_desc[id].name = name;
 		ipi_desc[id].handler = handler;
@@ -832,7 +832,7 @@ static void *vcu_check_gce_pa_base(struct mtk_vcu_queue *vcu_queue, u64 addr, u6
 			addr + length <= (u64)tmp->pa + PAGE_SIZE)
 			return tmp;
 	}
-	pr_info("%s addr %x length %x not found!\n", __func__, addr, length);
+	pr_info("%s addr %llx length %llx not found!\n", __func__, addr, length);
 
 	return NULL;
 }
@@ -848,7 +848,7 @@ static int vcu_check_reg_base(struct mtk_vcu *vcu, u64 addr, u64 length)
 		if (addr >= (u64)vcu->map_base[i].base &&
 			addr + length <= (u64)vcu->map_base[i].base + vcu->map_base[i].len)
 			return 0;
-	pr_info("%s addr %x length %x not found!\n", __func__, addr, length);
+	pr_info("%s addr %llx length %llx not found!\n", __func__, addr, length);
 
 	return -EINVAL;
 }
@@ -862,18 +862,18 @@ static void vcu_set_gce_cmd(struct cmdq_pkt *pkt,
 		if (vcu_check_reg_base(vcu, addr, 4) == 0)
 			cmdq_pkt_read_addr(pkt, addr, CMDQ_THR_SPR_IDX1);
 		else
-			pr_info("[VCU] %s CMD_READ wrong addr: 0x%x\n", __func__, addr);
+			pr_info("[VCU] %s CMD_READ wrong addr: 0x%llx\n", __func__, addr);
 
-		pr_debug("[VCU] %s CMD_READ addr: 0x%x\n", __func__, addr);
+		pr_debug("[VCU] %s CMD_READ addr: 0x%llx\n", __func__, addr);
 	break;
 	case CMD_WRITE:
 		if (vcu_check_reg_base(vcu, addr, 4) == 0) {
 			cmdq_pkt_write(pkt, vcu->clt_base, addr, data, mask);
 		} else {
-			pr_info("[VCU] %s CMD_WRITE wrong addr: 0x%x 0x%x 0x%x\n",
+			pr_info("[VCU] %s CMD_WRITE wrong addr: 0x%llx 0x%llx 0x%x\n",
 				__func__, addr, data, mask);
 		}
-		pr_debug("[VCU] %s CMD_WRITE addr: 0x%x 0x%x 0x%x\n",
+		pr_debug("[VCU] %s CMD_WRITE addr: 0x%llx 0x%llx 0x%x\n",
 			__func__, addr, data, mask);
 	break;
 	case CMD_SEC_WRITE:
@@ -886,20 +886,20 @@ static void vcu_set_gce_cmd(struct cmdq_pkt *pkt,
 				dma_size,
 				0);
 		} else {
-			pr_info("[VCU] %s CMD_SEC_WRITE wrong addr: 0x%x 0x%x 0x%x 0x%x\n",
+			pr_info("[VCU] %s CMD_SEC_WRITE wrong addr: 0x%llx 0x%llx 0x%x 0x%x\n",
 				__func__, addr, data, dma_offset, dma_size);
 		}
-		pr_debug("[VCU] %s CMD_SEC_WRITE addr: 0x%x 0x%x 0x%x 0x%x\n",
+		pr_debug("[VCU] %s CMD_SEC_WRITE addr: 0x%llx 0x%llx 0x%x 0x%x\n",
 				__func__, addr, data, dma_offset, dma_size);
 	break;
 	case CMD_POLL_REG:
 		if (vcu_check_reg_base(vcu, addr, 4) == 0) {
 			cmdq_pkt_poll_addr(pkt, data, addr, mask, gpr);
 		} else {
-			pr_info("[VCU] %s CMD_POLL_REG wrong addr: 0x%x 0x%x 0x%x\n",
+			pr_info("[VCU] %s CMD_POLL_REG wrong addr: 0x%llx 0x%llx 0x%x\n",
 				__func__, addr, data, mask);
 		}
-		pr_debug("[VCU] %s CMD_POLL_REG addr: 0x%x 0x%x 0x%x\n",
+		pr_debug("[VCU] %s CMD_POLL_REG addr: 0x%llx 0x%llx 0x%x\n",
 				__func__, addr, data, mask);
 	break;
 	case CMD_WAIT_EVENT:
@@ -918,10 +918,10 @@ static void vcu_set_gce_cmd(struct cmdq_pkt *pkt,
 			cmdq_pkt_mem_move(pkt, vcu->clt_base, addr,
 				data, CMDQ_THR_SPR_IDX1);
 		} else {
-			pr_info("[VCU] %s CMD_MEM_MV wrong addr/data: 0x%x 0x%x\n",
+			pr_info("[VCU] %s CMD_MEM_MV wrong addr/data: 0x%llx 0x%llx\n",
 				__func__, addr, data);
 		}
-		pr_debug("[VCU] %s CMD_MEM_MV addr/data: 0x%x 0x%x\n",
+		pr_debug("[VCU] %s CMD_MEM_MV addr/data: 0x%llx 0x%llx\n",
 			__func__, addr, data);
 	break;
 	case CMD_POLL_ADDR:
@@ -930,14 +930,14 @@ static void vcu_set_gce_cmd(struct cmdq_pkt *pkt,
 			cmdq_pkt_poll_timeout(pkt, data, SUBSYS_NO_SUPPORT,
 				addr, mask, ~0, gpr);
 		} else {
-			pr_info("[VCU] %s CMD_POLL_REG wrong addr: 0x%x 0x%x 0x%x\n",
+			pr_info("[VCU] %s CMD_POLL_REG wrong addr: 0x%llx 0x%llx 0x%x\n",
 				__func__, addr, data, mask);
 		}
-		pr_debug("[VCU] %s CMD_POLL_REG addr: 0x%x 0x%x 0x%x\n", __func__, addr,
+		pr_debug("[VCU] %s CMD_POLL_REG addr: 0x%llx 0x%llx 0x%x\n", __func__, addr,
 			data, mask);
 	break;
 	default:
-		vcu_dbg_log("[VCU] %s unknown GCE cmd %d\n", __func__, cmd);
+		vcu_dbg_log("[VCU] %s unknown GCE cmd %u\n", __func__, (u32)cmd);
 	break;
 	}
 }
@@ -1135,7 +1135,7 @@ static void vcu_gce_pkt_destroy(struct cmdq_cb_data data)
 		pr_info("%s %d pkt:%p err:%d", __func__, __LINE__, pkt, data.err);
 	cmdq_dump_pkt(pkt, 0, true);
 	cmdq_pkt_destroy(pkt);
-	pr_debug("%s: pkt:%#lx", __func__, pkt);
+	pr_debug("%s: pkt:%p", __func__, pkt);
 }
 
 

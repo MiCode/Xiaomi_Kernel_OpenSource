@@ -680,7 +680,7 @@ void mtk_vcodec_set_log(struct mtk_vcodec_dev *dev, const char *val,
 	}
 
 	for (i = 0; i < argc-1; i += 2) {
-		if (argv[i] == NULL || strlen(argv[i]) == 0)
+		if (strlen(argv[i]) == 0)
 			continue;
 		if (strcmp("-mtk_vcodec_dbg", argv[i]) == 0) {
 			if (kstrtol(argv[i+1], 0, &temp_val) == 0)

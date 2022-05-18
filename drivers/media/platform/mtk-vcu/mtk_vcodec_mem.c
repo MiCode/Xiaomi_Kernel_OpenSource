@@ -338,9 +338,9 @@ void mtk_vcu_buffer_ref_dec(struct mtk_vcu_queue *vcu_queue,
 
 			if (atomic_read(&vcu_buffer->ref_cnt) == 0
 				&& vcu_buffer->dbuf != NULL) {
-				pr_debug("Free IO buff = %d iova = %llx mem_priv = %llx, queue_num = %d\n",
+				pr_debug("Free IO buff = %u iova = %llx mem_priv = %llx, queue_num = %u\n",
 						 buffer, vcu_buffer->iova,
-						 vcu_buffer->mem_priv,
+						 (u64)vcu_buffer->mem_priv,
 						 num_buffers);
 				fput(vcu_buffer->dbuf->file);
 
@@ -371,7 +371,7 @@ void vcu_io_buffer_cache_sync(struct device *dev,
 	}
 	sgt = dma_buf_map_attachment(buf_att, op);
 	if (IS_ERR_OR_NULL(sgt)) {
-		pr_info("%s Error getting dmabuf scatterlist %d\n", __func__, sgt);
+		pr_info("%s Error getting dmabuf scatterlist %p\n", __func__, sgt);
 		dma_buf_detach(dbuf, buf_att);
 		return;
 	}

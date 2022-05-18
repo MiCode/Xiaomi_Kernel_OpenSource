@@ -368,7 +368,7 @@ void set_venc_opp(struct mtk_vcodec_dev *dev, u32 freq)
 		volt = dev_pm_opp_get_voltage(opp);
 		dev_pm_opp_put(opp);
 
-		mtk_v4l2_debug(8, "[VENC] freq %lu, voltage %d", freq, volt);
+		mtk_v4l2_debug(8, "[VENC] freq %u, voltage %d", freq, volt);
 
 		ret = regulator_set_voltage(dev->venc_reg, volt, INT_MAX);
 		if (ret) {
@@ -425,7 +425,7 @@ void mtk_venc_pmqos_begin_inst(struct mtk_vcodec_ctx *ctx)
 		if (dev->venc_port_bw[i].port_type < VCODEC_PORT_LARB_SUM) {
 			mtk_icc_set_bw_not_update(dev->venc_qos_req[i],
 					MBps_to_icc((u32)target_bw), 0);
-			mtk_v4l2_debug(8, "[VENC] port %d bw %lu MB/s", i, (u32)target_bw);
+			mtk_v4l2_debug(8, "[VENC] port %d bw %u MB/s", i, (u32)target_bw);
 		} else if (dev->venc_port_bw[i].port_type == VCODEC_PORT_LARB_SUM) {
 			mtk_icc_set_bw(dev->venc_qos_req[i], 0, 0);
 			mtk_v4l2_debug(8, "[VENC] port %d set larb %u bw",
@@ -458,7 +458,7 @@ void mtk_venc_pmqos_end_inst(struct mtk_vcodec_ctx *ctx)
 		if (dev->venc_port_bw[i].port_type < VCODEC_PORT_LARB_SUM) {
 			mtk_icc_set_bw_not_update(dev->venc_qos_req[i],
 					MBps_to_icc((u32)target_bw), 0);
-			mtk_v4l2_debug(8, "[VENC] port %d bw %lu MB/s", i, (u32)target_bw);
+			mtk_v4l2_debug(8, "[VENC] port %d bw %u MB/s", i, (u32)target_bw);
 		} else if (dev->venc_port_bw[i].port_type == VCODEC_PORT_LARB_SUM) {
 			mtk_icc_set_bw(dev->venc_qos_req[i], 0, 0);
 			mtk_v4l2_debug(8, "[VENC] port %d set larb %u bw",
