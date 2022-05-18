@@ -179,36 +179,43 @@
 	cam0_vcamio-supply = <&rt5133_ldo1>;
 	cam0_vcamd-supply = <&rt5133_ldo8>;
 	cam0_vcama1-supply = <&rt5133_ldo5>;
+	cam0_vcamaf-supply = <&rt5133_ldo3>;
 
 	/* front*/
 	cam1_vcama-supply = <&rt5133_ldo6>;
 	cam1_vcamio-supply = <&rt5133_ldo1>;
 	cam1_vcamd-supply = <&rt5133_ldo7>;
 	cam1_vcama1-supply = <&rt5133_ldo5>;
+	cam1_vcamaf-supply = <&rt5133_ldo2>;
 
 	/* main2 (Ultra Wide)*/
 	cam2_vcama-supply = <&rt5133_gpio2>;
 	cam2_vcamio-supply = <&rt5133_ldo1>;
 	cam2_vcamd-supply = <&rt5133_ldo7>;
 	cam2_vcama1-supply = <&rt5133_ldo5>;
+	cam2_vcamaf-supply = <&rt5133_gpio1>;
+
 	cam0_pin_mclk = "mclk";
 	cam0_pin_rst = "gpio";
 	cam0_pin_vcama = "regulator";
 	cam0_pin_vcamio = "regulator";
 	cam0_pin_vcamd = "regulator";
 	cam0_pin_vcama1 = "regulator";
+	cam0_pin_vcamaf = "regulator";
 	cam1_pin_mclk = "mclk";
 	cam1_pin_rst = "gpio";
 	cam1_pin_vcama = "regulator";
 	cam1_pin_vcamio = "regulator";
 	cam1_pin_vcamd = "regulator";
 	cam1_pin_vcama1 = "regulator";
+	cam1_pin_vcamaf = "regulator";
 	cam2_pin_mclk = "mclk";
 	cam2_pin_rst = "gpio";
 	cam2_pin_vcama = "regulator";
 	cam2_pin_vcamio = "regulator";
 	cam2_pin_vcamd = "regulator";
 	cam2_pin_vcama1 = "regulator";
+	cam2_pin_vcamaf = "gpio";
 	status = "okay";
 };
 /* CAMERA GPIO end */
