@@ -741,6 +741,12 @@ static int ghvst_rm_cb(struct notifier_block *nb, unsigned long cmd, void *data)
 				PTR_ERR(gdev->msgq_hdl));
 			return NOTIFY_DONE;
 		}
+		gdev->rx_thread = kthread_run(ghvst_msgq_recv, gdev, "ghvst_rx");
+		if (IS_ERR(gdev->rx_thread)) {
+			dev_err(gdev->dev, "Failed to create receiver thread rc:%d\n",
+				PTR_ERR(gdev->rx_thread));
+			return NOTIFY_DONE;
+		}
 		break;
 	case GH_RM_VM_STATUS_RUNNING:
 		break;
@@ -799,13 +805,13 @@ static int gunyah_transport_probe(struct platform_device *pdev)
 			dev_err(dev, "msgq register failed rc:%d\n", rc);
 			return rc;
 		}
-	}
 
-	gdev->rx_thread = kthread_create(ghvst_msgq_recv, gdev, "ghvst_rx");
-	if (IS_ERR(gdev->rx_thread)) {
-		rc = PTR_ERR(gdev->rx_thread);
-		dev_err(dev, "Failed to create receiver thread rc:%d\n", rc);
-		return rc;
+		gdev->rx_thread = kthread_run(ghvst_msgq_recv, gdev, "ghvst_rx");
+		if (IS_ERR(gdev->rx_thread)) {
+			rc = PTR_ERR(gdev->rx_thread);
+			dev_err(dev, "Failed to create receiver thread rc:%d\n", rc);
+			return rc;
+		}
 	}
 
 	sock_ws = wakeup_source_register(NULL, "ghvst_sock_ws");
@@ -813,8 +819,6 @@ static int gunyah_transport_probe(struct platform_device *pdev)
 	down_write(&ghvst_devs_lock);
 	list_add(&gdev->item, &ghvst_devs);
 	up_write(&ghvst_devs_lock);
-
-	wake_up_process(gdev->rx_thread);
 
 	return rc;
 }
