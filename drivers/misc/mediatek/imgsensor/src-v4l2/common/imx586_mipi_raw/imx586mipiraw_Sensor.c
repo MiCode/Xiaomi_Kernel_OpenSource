@@ -448,7 +448,7 @@ static void imx586_set_pdaf_reg_setting(struct subdrv_ctx *ctx,
 
 static kal_uint16 read_cmos_eeprom_8(struct subdrv_ctx *ctx, kal_uint16 addr)
 {
-	u8 val;
+	u8 val = 0;
 
 	adaptor_i2c_rd_u8(ctx->i2c_client, 0xa0 >> 1, addr, &val);
 
@@ -4065,7 +4065,8 @@ static int get_resolution(struct subdrv_ctx *ctx,
 	int i = 0;
 
 	for (i = SENSOR_SCENARIO_ID_MIN; i < SENSOR_SCENARIO_ID_MAX; i++) {
-		if (i < imgsensor_info.sensor_mode_num) {
+		if (i < imgsensor_info.sensor_mode_num &&
+			i < ARRAY_SIZE(imgsensor_winsize_info)) {
 			sensor_resolution->SensorWidth[i] = imgsensor_winsize_info[i].w2_tg_size;
 			sensor_resolution->SensorHeight[i] = imgsensor_winsize_info[i].h2_tg_size;
 		} else {
@@ -4073,8 +4074,6 @@ static int get_resolution(struct subdrv_ctx *ctx,
 			sensor_resolution->SensorHeight[i] = 0;
 		}
 	}
-
-
 
 	return ERROR_NONE;
 } /* get_resolution */
@@ -4173,6 +4172,7 @@ static int control(struct subdrv_ctx *ctx,
 	case SENSOR_SCENARIO_ID_CUSTOM15:
 		//imgsensor.sensor_mode = scenario_id;
 		custom5_15(ctx, image_window, sensor_config_data);
+		break;
 	case SENSOR_SCENARIO_ID_NORMAL_PREVIEW:
 		preview(ctx, image_window, sensor_config_data);
 		break;
@@ -4224,7 +4224,7 @@ static kal_uint32 seamless_switch(struct subdrv_ctx *ctx,
 	_is_seamless = true;
 	memset(_i2c_data, 0x0, sizeof(_i2c_data));
 	_size_to_write = 0;
-	LOG_INF("%s %d, %d, %d, %d, %d sizeof(_i2c_data) %d\n",
+	LOG_INF("%s %d, %d, %d, %d, %d sizeof(_i2c_data) %lu\n",
 		__func__, scenario_id, shutter, gain,
 		shutter_2ndframe, gain_2ndframe, sizeof(_i2c_data));
 
@@ -5439,6 +5439,7 @@ break;
 		case SENSOR_SCENARIO_ID_NORMAL_CAPTURE:
 			memcpy((void *)pvcinfo, (void *)&SENSOR_VC_INFO[7],
 				sizeof(struct SENSOR_VC_INFO_STRUCT));
+			break;
 		case SENSOR_SCENARIO_ID_CUSTOM6:
 			memcpy((void *)pvcinfo, (void *)&SENSOR_VC_INFO[8],
 				sizeof(struct SENSOR_VC_INFO_STRUCT));
