@@ -22,7 +22,7 @@ static int pd_bring_up_probe(struct platform_device *pdev)
 static int pd_post_ao_probe(struct platform_device *pdev)
 {
 	struct device_node *node = pdev->dev.of_node;
-	u32 enabled;
+	u32 enabled = 0;
 
 	of_property_read_u32(node, "mediatek,post_ao", &enabled);
 
