@@ -196,7 +196,7 @@ static void idle_proc_state_uasge_print(char **ToUserBuf, size_t *size,
 
 	num_present_cpus = num_present_cpus();
 
-	if (type < 0 || type > IDLE_PARAM_RES)
+	if (type > IDLE_PARAM_RES)
 		type = IDLE_PARAM_RES;
 
 	mtk_dbg_cpuidle_log("\n======== Command Usage ========\n");
