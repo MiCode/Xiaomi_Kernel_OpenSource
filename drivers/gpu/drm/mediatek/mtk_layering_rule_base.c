@@ -1618,11 +1618,15 @@ static int mtk_lye_get_lye_id(int disp_idx, struct drm_device *drm_dev,
 	return get_phy_ovl_index(drm_dev, disp_idx, layer_map_idx);
 }
 
-static void clear_layer(struct drm_mtk_layering_info *disp_info)
+static void clear_layer(struct drm_mtk_layering_info *disp_info,
+			struct drm_device *drm_dev)
 {
 	int di = 0;
 	int i = 0;
 	struct drm_mtk_layer_config *c;
+	struct drm_crtc *crtc;
+	struct mtk_drm_crtc *mtk_crtc;
+	int is_dual_pipe = 0;
 
 	if (!get_layering_opt(LYE_OPT_CLEAR_LAYER))
 		return;
@@ -1662,10 +1666,23 @@ static void clear_layer(struct drm_mtk_layering_info *disp_info)
 		else
 			c->layer_caps |= MTK_DISP_CLIENT_CLEAR_LAYER;
 
-		if ((c->src_width < c->dst_width &&
-		     c->src_height < c->dst_height) &&
-		     get_layering_opt(LYE_OPT_RPO) &&
-		    top < disp_info->gles_tail[di]) {
+		if (di == 0) {
+			drm_for_each_crtc(crtc, drm_dev)
+				if (drm_crtc_index(crtc) == 0)
+					break;
+			if (crtc) {
+				mtk_crtc = to_mtk_crtc(crtc);
+				is_dual_pipe = mtk_crtc->is_dual_pipe;
+			}
+		}
+
+		/* Clear layer with RPO should check more condition
+		 * since dual pipe enable
+		 */
+		if (!is_dual_pipe && (c->src_width < c->dst_width &&
+			c->src_height < c->dst_height) &&
+			get_layering_opt(LYE_OPT_RPO) &&
+			top < disp_info->gles_tail[di]) {
 			c->layer_caps |= MTK_DISP_RSZ_LAYER;
 			l_rule_info->addon_scn[di] = ONE_SCALING;
 		} else {
@@ -1833,7 +1850,7 @@ static int dispatch_ovl_id(struct drm_mtk_layering_info *disp_info,
 		disp_info->hrt_weight = max_ovl_cnt * 2 / HRT_UINT_WEIGHT;
 	}
 
-	clear_layer(disp_info);
+	clear_layer(disp_info, drm_dev);
 
 	/* Dispatch OVL id */
 	for (disp_idx = 0; disp_idx < HRT_TYPE_NUM; disp_idx++) {
