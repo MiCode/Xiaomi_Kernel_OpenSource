@@ -330,6 +330,7 @@
   devm_kstrdup
   devm_led_classdev_register_ext
   devm_mbox_controller_register
+  devm_nvmem_device_get
   devm_of_phy_get_by_index
   __devm_of_phy_provider_register
   devm_pci_alloc_host_bridge
@@ -377,6 +378,7 @@
   dev_valid_name
   _dev_warn
   disable_irq
+  disable_irq_nosync
   disk_end_io_acct
   disk_start_io_acct
   dma_alloc_attrs
@@ -537,6 +539,7 @@
   drm_plane_create_zpos_property
   drm_poll
   drm_prime_gem_destroy
+  drm_property_blob_put
   drm_property_create
   drm_property_create_blob
   drm_property_create_enum
@@ -646,6 +649,7 @@
   gpiod_get_value_cansleep
   gpiod_is_active_low
   gpiod_set_consumer_name
+  gpiod_set_debounce
   gpiod_set_value
   gpiod_set_value_cansleep
   gpiod_to_irq
@@ -655,6 +659,11 @@
   handle_edge_irq
   handle_simple_irq
   handle_sysrq
+  hci_alloc_dev_priv
+  hci_free_dev
+  hci_recv_frame
+  hci_register_dev
+  hci_unregister_dev
   hex_dump_to_buffer
   hrtimer_active
   hrtimer_cancel
@@ -769,12 +778,14 @@
   irq_set_chained_handler_and_data
   irq_set_chip_and_handler_name
   irq_set_chip_data
+  irq_set_irq_type
   irq_to_desc
   is_bad_inode
   is_vmalloc_addr
   jiffies64_to_nsecs
   jiffies
   jiffies_to_msecs
+  jiffies_to_usecs
   kasan_flag_enabled
   kasprintf
   kernel_kobj
@@ -870,6 +881,7 @@
   media_devnode_remove
   media_entity_find_link
   media_entity_pads_init
+  media_entity_remote_pad
   media_get_pad_index
   memchr
   memcmp
@@ -901,6 +913,7 @@
   mmc_request_done
   mmc_wait_for_req
   __mmdrop
+  mod_delayed_work_on
   mod_node_page_state
   mod_timer
   __module_get
@@ -949,6 +962,7 @@
   nr_cpu_ids
   ns_to_timespec64
   __num_online_cpus
+  nvmem_device_read
   of_address_to_resource
   of_clk_add_provider
   of_clk_get
@@ -1056,13 +1070,13 @@
   perf_trace_buf_alloc
   perf_trace_run_bpf_submit
   pfn_is_map_memory
-  pfn_valid
   phy_exit
   phy_init
   phy_power_off
   phy_power_on
   phy_set_mode_ext
   pid_task
+  pid_vnr
   pinconf_generic_dump_config
   pinctrl_count_index_with_args
   pinctrl_dev_get_drvdata
@@ -1089,6 +1103,7 @@
   platform_bus_type
   platform_device_add
   platform_device_alloc
+  platform_device_del
   platform_device_put
   platform_device_register
   platform_device_register_full
@@ -1111,6 +1126,7 @@
   __pm_runtime_set_status
   __pm_runtime_suspend
   __pm_stay_awake
+  pm_wakeup_ws_event
   pm_wq
   power_supply_changed
   power_supply_register
@@ -1232,11 +1248,13 @@
   rpmsg_release_channel
   rpmsg_send
   rpmsg_sendto
+  rpmsg_trysend
   rpmsg_unregister_device
   rproc_add
   rproc_add_carveout
   rproc_alloc
   rproc_boot
+  rproc_da_to_va
   rproc_del
   rproc_free
   rproc_get_by_child
@@ -1277,6 +1295,7 @@
   seq_write
   serial8250_do_pm
   serial8250_do_set_termios
+  serial8250_get_port
   serial8250_modem_status
   serial8250_register_8250_port
   serial8250_resume_port
@@ -1312,6 +1331,8 @@
   single_open
   single_release
   sk_alloc
+  skb_copy
+  skb_copy_bits
   skb_dequeue
   skb_dequeue_tail
   skb_pull
@@ -1324,6 +1345,7 @@
   skb_realloc_headroom
   skb_trim
   sk_free
+  skip_spaces
   smp_call_function
   snd_card_free
   snd_card_new
@@ -1339,6 +1361,7 @@
   snd_ecards_limit
   snd_info_get_line
   snd_interval_refine
+  snd_jack_set_key
   snd_pcm_format_physical_width
   snd_pcm_format_set_silence
   snd_pcm_hw_constraint_integer
@@ -1355,8 +1378,10 @@
   snd_pcm_stream_unlock_irqrestore
   snd_soc_bytes_info_ext
   snd_soc_bytes_tlv_callback
+  snd_soc_card_jack_new
   snd_soc_info_enum_double
   snd_soc_info_volsw
+  snd_soc_jack_report
   snd_soc_of_parse_audio_routing
   snd_soc_pm_ops
   snd_soc_set_runtime_hwparams
@@ -1413,6 +1438,7 @@
   strnlen
   strnstr
   strpbrk
+  strrchr
   strscpy
   strsep
   strspn
@@ -1489,8 +1515,24 @@
   trace_raw_output_prep
   truncate_inode_pages_final
   try_module_get
+  __tty_alloc_driver
+  tty_driver_kref_put
+  tty_flip_buffer_push
+  tty_insert_flip_string_fixed_flag
+  tty_port_close
+  tty_port_hangup
+  tty_port_init
+  tty_port_install
+  tty_port_open
+  tty_port_put
+  tty_port_register_device
+  tty_port_tty_hangup
+  tty_register_driver
+  tty_std_termios
   tty_termios_baud_rate
   tty_termios_encode_baud_rate
+  tty_unregister_device
+  tty_unregister_driver
   uart_get_baud_rate
   uart_get_divisor
   __ubsan_handle_cfi_check_fail_abort
@@ -1522,9 +1564,12 @@
   up_write
   usb_add_gadget_udc
   usb_add_hcd
+  usb_alloc_coherent
   usb_alloc_urb
   usb_anchor_empty
   usb_anchor_urb
+  usb_autopm_get_interface
+  usb_autopm_put_interface
   usb_bulk_msg
   usb_control_msg
   usb_create_hcd
@@ -1533,8 +1578,11 @@
   usb_del_gadget_udc
   usb_deregister
   usb_disabled
+  usb_driver_claim_interface
+  usb_driver_release_interface
   usb_ep_set_halt
   usb_ep_set_maxpacket_limit
+  usb_free_coherent
   usb_free_urb
   usb_gadget_giveback_request
   usb_gadget_map_request
@@ -1544,6 +1592,7 @@
   usb_get_dr_mode
   usb_hcd_is_primary_hcd
   usb_hcd_poll_rh_status
+  usb_ifnum_to_if
   usb_interrupt_msg
   usb_kill_anchored_urbs
   usb_kill_urb
@@ -1555,6 +1604,7 @@
   usb_role_switch_get_drvdata
   usb_role_switch_register
   usb_role_switch_unregister
+  usb_set_interface
   usb_speed_string
   usb_string
   usb_submit_urb
@@ -1639,6 +1689,7 @@
   vb2_create_framevec
   vb2_destroy_framevec
   vb2_dma_contig_memops
+  vb2_dma_sg_memops
   vb2_mmap
   vb2_ops_wait_finish
   vb2_ops_wait_prepare

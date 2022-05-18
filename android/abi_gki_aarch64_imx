@@ -1309,7 +1309,6 @@
   ktime_get_ts64
   mutex_trylock
   param_ops_ullong
-  pfn_valid
   pid_task
   platform_bus_type
   reset_control_reset
