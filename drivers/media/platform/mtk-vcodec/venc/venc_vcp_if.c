@@ -130,7 +130,7 @@ static int venc_vcp_ipi_send(struct venc_inst *inst, void *msg, int len, bool is
 		}
 	}
 
-	if (len > sizeof(struct share_obj)) {
+	if (len > sizeof(obj.share_buf)) {
 		mtk_vcodec_err(inst, "ipi data size wrong %d > %d", len, sizeof(struct share_obj));
 		inst->vcu_inst.abort = 1;
 		return -EIO;
@@ -519,7 +519,8 @@ int vcp_enc_ipi_handler(void *arg)
 			struct venc_vcu_ipi_msg_trace *trace_msg =
 				(struct venc_vcu_ipi_msg_trace *)obj->share_buf;
 			char buf [16];
-			sprintf(buf, "VENC_TRACE_%d", trace_msg->trace_id);
+			if (sprintf(buf, "VENC_TRACE_%d", trace_msg->trace_id) < 0)
+				mtk_v4l2_err("venc trace id fail");
 			vcodec_trace_count(buf, trace_msg->flag);
 		}
 			break;

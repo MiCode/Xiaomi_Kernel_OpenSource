@@ -466,6 +466,8 @@ static void add_new_iova_node(
 	struct sg_table *sgt)
 {
 	node_iova_t *curr_node = (node_iova_t *)kmalloc(sizeof(node_iova_t) ,GFP_KERNEL);
+	if (!curr_node)
+		return;
 
 	mutex_lock(&iova_node_list.node_iova_lock);
 

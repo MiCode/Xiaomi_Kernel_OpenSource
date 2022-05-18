@@ -570,6 +570,7 @@ static void mtk_vcodec_sync_log(struct mtk_vcodec_dev *dev,
 	pram = kzalloc(sizeof(*pram), GFP_KERNEL);
 	strncpy(pram->param_key, param_key, LOG_PARAM_INFO_SIZE - 1);
 	strncpy(pram->param_val, param_val, LOG_PARAM_INFO_SIZE - 1);
+	pram->param_val[LOG_PARAM_INFO_SIZE-1] = '\0';
 	mtk_v4l2_debug(8, "add new key: %s, value: %s\n",
 		pram->param_key, pram->param_val);
 	list_add(&pram->list, plist);
@@ -594,6 +595,7 @@ static void mtk_vcodec_build_log_string(struct mtk_vcodec_dev *dev,
 	struct mutex *plist_mutex;
 	char *vdec_temp_str;
 	char *venc_temp_str;
+	int str_offset = 0;
 
 	if (log_index == MTK_VCODEC_LOG_INDEX_LOG) {
 		plist = &dev->log_param_list;
@@ -618,8 +620,9 @@ static void mtk_vcodec_build_log_string(struct mtk_vcodec_dev *dev,
 			mtk_v4l2_debug(8, "existed log param %s: %s\n",
 					pram->param_key, pram->param_val);
 
-			snprintf(vdec_temp_str, LOG_PROPERTY_SIZE, "%s %s %s",
-				vdec_temp_str, pram->param_key, pram->param_val);
+			str_offset += snprintf(vdec_temp_str + str_offset,
+				LOG_PROPERTY_SIZE - str_offset, " %s %s",
+				pram->param_key, pram->param_val);
 		}
 		if (log_index == MTK_VCODEC_LOG_INDEX_LOG) {
 			mtk_vdec_vcp_log = vdec_temp_str;
@@ -634,8 +637,9 @@ static void mtk_vcodec_build_log_string(struct mtk_vcodec_dev *dev,
 			mtk_v4l2_debug(8, "existed log param %s: %s\n",
 					pram->param_key, pram->param_val);
 
-			snprintf(venc_temp_str, LOG_PROPERTY_SIZE, "%s %s %s",
-				venc_temp_str, pram->param_key, pram->param_val);
+			str_offset += snprintf(venc_temp_str + str_offset,
+				LOG_PROPERTY_SIZE - str_offset, " %s %s",
+				pram->param_key, pram->param_val);
 		}
 		if (log_index == MTK_VCODEC_LOG_INDEX_LOG) {
 			mtk_venc_vcp_log = venc_temp_str;

@@ -399,10 +399,12 @@ void mtk_vcodec_dec_clock_on(struct mtk_vcodec_pm *pm, int hw_id)
 		// enable lat clocks
 		for (j = 0; j < clks_data->lat_clks_len; j++) {
 			clk_id = clks_data->lat_clks[j].clk_id;
-			ret = clk_prepare_enable(pm->vdec_clks[clk_id]);
-			if (ret)
-				mtk_v4l2_err("clk_prepare_enable id: %d, name: %s fail %d",
-					clk_id, clks_data->lat_clks[j].clk_name, ret);
+			if (clk_id >= 0) {
+				ret = clk_prepare_enable(pm->vdec_clks[clk_id]);
+				if (ret)
+					mtk_v4l2_err("clk_prepare_enable id: %d, name: %s fail %d",
+						clk_id, clks_data->lat_clks[j].clk_name, ret);
+			}
 		}
 	} else {
 		mtk_v4l2_err("invalid hw_id %d", hw_id);
@@ -525,7 +527,8 @@ void mtk_vcodec_dec_clock_off(struct mtk_vcodec_pm *pm, int hw_id)
 		if (clks_data->lat_clks_len > 0) {
 			for (i = clks_data->lat_clks_len - 1; i >= 0; i--) {
 				clk_id = clks_data->lat_clks[i].clk_id;
-				clk_disable_unprepare(pm->vdec_clks[clk_id]);
+				if (clk_id >= 0)
+					clk_disable_unprepare(pm->vdec_clks[clk_id]);
 			}
 		}
 	} else
@@ -874,7 +877,8 @@ static int mtk_vdec_uP_translation_fault_callback(
 		} else {
 			dec_ctx_id[hw_id] = 0;
 			dec_fourcc[hw_id] = 0;
-			sprintf(dec_codec_name[hw_id], "NULL");
+			if (sprintf(dec_codec_name[hw_id], "NULL") < 0)
+				mtk_v4l2_err("dec_codec_name fail");
 		}
 		dec_codec_name[hw_id][4] = '\0';
 	}

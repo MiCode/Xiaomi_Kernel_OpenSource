@@ -460,38 +460,49 @@ static void vcp_prepare_aed_dump(char *aed_str, enum vcp_core_id id)
 		memset(vcp_dump.detail_buff, 0, VCP_AED_STR_LEN);
 
 		offset = snprintf(vcp_dump.detail_buff + offset,
-		VCP_AED_STR_LEN - offset, "%s\n", aed_str);
+			VCP_AED_STR_LEN - offset, "%s\n", aed_str);
+		if (offset < 0)
+			pr_notice("%s line %d error\n", __func__, __LINE__);
 		offset = snprintf(vcp_dump.detail_buff + offset,
-		VCP_AED_STR_LEN - offset,
-		"core0 pc=0x%08x, lr=0x%08x, sp=0x%08x\n",
-		c0_m->pc, c0_m->lr, c0_m->sp);
+			VCP_AED_STR_LEN - offset,
+			"core0 pc=0x%08x, lr=0x%08x, sp=0x%08x\n",
+			c0_m->pc, c0_m->lr, c0_m->sp);
+		if (offset < 0)
+			pr_notice("%s line %d error\n", __func__, __LINE__);
 
 		if (!vcpreg.twohart)
 			goto core1;
 
 		offset = snprintf(vcp_dump.detail_buff + offset,
-		VCP_AED_STR_LEN - offset,
-		"hart1 pc=0x%08x, lr=0x%08x, sp=0x%08x\n",
-		c0_t1_m->pc, c0_t1_m->lr, c0_t1_m->sp);
+			VCP_AED_STR_LEN - offset,
+			"hart1 pc=0x%08x, lr=0x%08x, sp=0x%08x\n",
+			c0_t1_m->pc, c0_t1_m->lr, c0_t1_m->sp);
+		if (offset < 0)
+			pr_notice("%s line %d error\n", __func__, __LINE__);
 core1:
 		if (vcpreg.core_nums == 1)
 			goto end;
 
 		offset = snprintf(vcp_dump.detail_buff + offset,
-		VCP_AED_STR_LEN - offset,
-		"core1 pc=0x%08x, lr=0x%08x, sp=0x%08x\n",
-		c1_m->pc, c1_m->lr, c1_m->sp);
+			VCP_AED_STR_LEN - offset,
+			"core1 pc=0x%08x, lr=0x%08x, sp=0x%08x\n",
+			c1_m->pc, c1_m->lr, c1_m->sp);
+		if (offset < 0)
+			pr_notice("%s line %d error\n", __func__, __LINE__);
 
 		if (!vcpreg.twohart)
 			goto end;
 
 		offset = snprintf(vcp_dump.detail_buff + offset,
-		VCP_AED_STR_LEN - offset,
-		"hart1 pc=0x%08x, lr=0x%08x, sp=0x%08x\n",
-		c1_t1_m->pc, c1_t1_m->lr, c1_t1_m->sp);
+			VCP_AED_STR_LEN - offset,
+			"hart1 pc=0x%08x, lr=0x%08x, sp=0x%08x\n",
+			c1_t1_m->pc, c1_t1_m->lr, c1_t1_m->sp);
+		if (offset < 0)
+			pr_notice("%s line %d error\n", __func__, __LINE__);
 end:
-		snprintf(vcp_dump.detail_buff + offset,
-		VCP_AED_STR_LEN - offset, "last log:\n%s", vcp_A_log);
+		if (snprintf(vcp_dump.detail_buff + offset,
+				VCP_AED_STR_LEN - offset, "last log:\n%s", vcp_A_log) < 0)
+			pr_notice("%s line %d error\n", __func__, __LINE__);
 
 		vcp_dump.detail_buff[VCP_AED_STR_LEN - 1] = '\0';
 	}

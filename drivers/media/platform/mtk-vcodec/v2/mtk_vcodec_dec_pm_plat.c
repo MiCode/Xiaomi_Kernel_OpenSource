@@ -501,7 +501,7 @@ void mtk_vdec_dvfs_begin_frame(struct mtk_vcodec_ctx *ctx, int hw_id)
 	orig = dev->vdec_dvfs_params.lock_cnt[0] | dev->vdec_dvfs_params.lock_cnt[1];
 
 	dev->vdec_dvfs_params.lock_cnt[hw_id]++;
-	if (dev->vdec_dvfs_params.lock_cnt[hw_id] > 1)
+	if (hw_id >= 0 && dev->vdec_dvfs_params.lock_cnt[hw_id] > 1)
 		mtk_v4l2_debug(8, "[VDEC] lock_cnt oor %s %d", __func__, __LINE__);
 
 	dev->vdec_dvfs_params.frame_need_update =
@@ -530,7 +530,7 @@ void mtk_vdec_dvfs_end_frame(struct mtk_vcodec_ctx *ctx, int hw_id)
 
 	orig = dev->vdec_dvfs_params.lock_cnt[0] | dev->vdec_dvfs_params.lock_cnt[1];
 
-	if (dev->vdec_dvfs_params.lock_cnt[hw_id] > 0)
+	if (hw_id >= 0 && dev->vdec_dvfs_params.lock_cnt[hw_id] > 0)
 		dev->vdec_dvfs_params.lock_cnt[hw_id]--;
 
 	dev->vdec_dvfs_params.frame_need_update =
