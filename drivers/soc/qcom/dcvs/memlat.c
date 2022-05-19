@@ -494,11 +494,55 @@ static ssize_t show_hlos_cpucp_offset(struct kobject *kobj,
 
 	hlos_ts = ktime_get()/1000;
 
-	return scnprintf(buf, PAGE_SIZE, "%ld\n", cpucp_ts - hlos_ts);
+	return scnprintf(buf, PAGE_SIZE, "%ld\n", le64_to_cpu(cpucp_ts) - hlos_ts);
+}
+
+static ssize_t show_cur_freq(struct kobject *kobj,
+			     struct attribute *attr, char *buf)
+{
+	const struct scmi_memlat_vendor_ops *ops = memlat_data->memlat_ops;
+	struct memlat_mon *mon = to_memlat_mon(kobj);
+	struct memlat_group *grp = mon->memlat_grp;
+	uint32_t cur_freq;
+	int ret;
+
+	if (mon->type != CPUCP_MON)
+		return scnprintf(buf, PAGE_SIZE, "%lu\n", mon->cur_freq);
+
+	if (!ops)
+		return -ENODEV;
+
+	ret = ops->get_cur_freq(memlat_data->ph, grp->hw_type, mon->index, &cur_freq);
+	if (ret < 0) {
+		pr_err("failed to get mon current frequency\n");
+		return ret;
+	}
+	return scnprintf(buf, PAGE_SIZE, "%lu\n", le32_to_cpu(cur_freq));
+}
+
+static ssize_t show_adaptive_cur_freq(struct kobject *kobj,
+				      struct attribute *attr, char *buf)
+{
+	const struct scmi_memlat_vendor_ops *ops = memlat_data->memlat_ops;
+	uint32_t adaptive_cur_freq;
+	struct memlat_group *grp = to_memlat_grp(kobj);
+	int ret;
+
+	if (!grp->cpucp_enabled)
+		return scnprintf(buf, PAGE_SIZE, "%lu\n", grp->adaptive_cur_freq);
+
+	if (!ops)
+		return -ENODEV;
+
+	ret = ops->get_adaptive_cur_freq(memlat_data->ph, grp->hw_type, 0, &adaptive_cur_freq);
+	if (ret < 0) {
+		pr_err("failed to get grp adaptive current frequency\n");
+		return ret;
+	}
+	return scnprintf(buf, PAGE_SIZE, "%lu\n", le32_to_cpu(adaptive_cur_freq));
 }
 
 show_grp_attr(sampling_cur_freq);
-show_grp_attr(adaptive_cur_freq);
 show_grp_attr(adaptive_high_freq);
 store_grp_attr(adaptive_high_freq, 0U, 8000000U);
 show_grp_attr(adaptive_low_freq);
@@ -506,7 +550,6 @@ store_grp_attr(adaptive_low_freq, 0U, 8000000U);
 
 show_attr(min_freq);
 show_attr(max_freq);
-show_attr(cur_freq);
 show_attr(ipm_ceil);
 store_attr(ipm_ceil, 1U, 50000U);
 show_attr(fe_stall_floor);
