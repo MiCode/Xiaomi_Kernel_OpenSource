@@ -535,6 +535,14 @@ static int gen7_hwsched_gpu_boot(struct adreno_device *adreno_dev)
 		goto err;
 	}
 
+	/*
+	 * At this point it is safe to assume that we recovered. Setting
+	 * this field allows us to take a new snapshot for the next failure
+	 * if we are prioritizing the first unrecoverable snapshot.
+	 */
+	if (device->snapshot)
+		device->snapshot->recovered = true;
+
 	device->reset_counter++;
 err:
 	gen7_gmu_oob_clear(device, oob_gpu);
