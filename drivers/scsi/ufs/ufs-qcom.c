@@ -22,6 +22,7 @@
 #include <linux/debugfs.h>
 #include <trace/hooks/ufshcd.h>
 #include <linux/ipc_logging.h>
+#include <soc/qcom/minidump.h>
 
 #include "ufshcd.h"
 #include "ufshcd-pltfrm.h"
@@ -3156,6 +3157,40 @@ static int ufs_qcom_shared_ice_init(struct ufs_hba *hba)
 	return ufs_qcom_parse_shared_ice_config(hba);
 }
 
+static int ufs_qcom_populate_ref_clk_ctrl(struct ufs_hba *hba)
+{
+	struct device *dev = hba->dev;
+	struct platform_device *pdev = to_platform_device(dev);
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
+	struct resource *res;
+
+	/*
+	 * for newer controllers, device reference clock control bit has
+	 * moved inside UFS controller register address space itself.
+	 */
+	if (host->hw_ver.major >= 0x02) {
+		host->dev_ref_clk_ctrl_mmio = hba->mmio_base + REG_UFS_CFG1;
+		host->dev_ref_clk_en_mask = BIT(26);
+		return 0;
+	}
+
+	/* "dev_ref_clk_ctrl_mem" is optional resource */
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+						"dev_ref_clk_ctrl_mem");
+	if (res) {
+		host->dev_ref_clk_ctrl_mmio =
+			devm_ioremap_resource(dev, res);
+		if (IS_ERR(host->dev_ref_clk_ctrl_mmio)) {
+			dev_warn(dev,
+				"%s: could not map dev_ref_clk_ctrl_mmio, err %ld\n",
+				__func__, PTR_ERR(host->dev_ref_clk_ctrl_mmio));
+				host->dev_ref_clk_ctrl_mmio = NULL;
+		}
+		host->dev_ref_clk_en_mask = BIT(5);
+	}
+	return 0;
+}
+
 static void ufs_qcom_setup_max_hs_gear(struct ufs_qcom_host *host)
 {
 	u32 param0;
@@ -3177,6 +3212,29 @@ static void ufs_qcom_setup_max_hs_gear(struct ufs_qcom_host *host)
 	}
 }
 
+static void ufs_qcom_register_minidump(uintptr_t vaddr, u64 size,
+					const char *buf_name, u64 id)
+{
+	struct md_region md_entry;
+	int ret;
+
+	if (!msm_minidump_enabled())
+		return;
+
+	scnprintf(md_entry.name, sizeof(md_entry.name), "%s_%d",
+			buf_name, id);
+	md_entry.virt_addr = vaddr;
+	md_entry.phys_addr = virt_to_phys((void *)vaddr);
+	md_entry.size = size;
+
+	ret = msm_minidump_add_region(&md_entry);
+	if (ret < 0) {
+		pr_err("Failed to register UFS buffer %s in Minidump ret %d\n",
+				buf_name, ret);
+		return;
+	}
+}
+
 /**
  * ufs_qcom_init - bind phy with controller
  * @hba: host controller instance
@@ -3191,9 +3249,7 @@ static int ufs_qcom_init(struct ufs_hba *hba)
 {
 	int err;
 	struct device *dev = hba->dev;
-	struct platform_device *pdev = to_platform_device(dev);
 	struct ufs_qcom_host *host;
-	struct resource *res;
 	struct ufs_qcom_thermal *ut;
 	struct ufs_clk_info *clki;
 
@@ -3274,30 +3330,7 @@ static int ufs_qcom_init(struct ufs_hba *hba)
 	ufs_qcom_get_controller_revision(hba, &host->hw_ver.major,
 		&host->hw_ver.minor, &host->hw_ver.step);
 
-	/*
-	 * for newer controllers, device reference clock control bit has
-	 * moved inside UFS controller register address space itself.
-	 */
-	if (host->hw_ver.major >= 0x02) {
-		host->dev_ref_clk_ctrl_mmio = hba->mmio_base + REG_UFS_CFG1;
-		host->dev_ref_clk_en_mask = BIT(26);
-	} else {
-		/* "dev_ref_clk_ctrl_mem" is optional resource */
-		res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
-						   "dev_ref_clk_ctrl_mem");
-		if (res) {
-			host->dev_ref_clk_ctrl_mmio =
-					devm_ioremap_resource(dev, res);
-			if (IS_ERR(host->dev_ref_clk_ctrl_mmio)) {
-				ufs_qcom_msg(WARN, dev,
-					"%s: could not map dev_ref_clk_ctrl_mmio, err %ld\n",
-					__func__,
-					PTR_ERR(host->dev_ref_clk_ctrl_mmio));
-				host->dev_ref_clk_ctrl_mmio = NULL;
-			}
-			host->dev_ref_clk_en_mask = BIT(5);
-		}
-	}
+	ufs_qcom_populate_ref_clk_ctrl(hba);
 
 	ufs_qcom_setup_max_hs_gear(host);
 
@@ -3426,6 +3459,16 @@ static int ufs_qcom_init(struct ufs_hba *hba)
 							"ufs-qcom", 0);
 	if (!host->ufs_ipc_log_ctx)
 		ufs_qcom_msg(WARN, dev, "IPC Log init - failed\n");
+
+	/* register minidump */
+	if (msm_minidump_enabled()) {
+		ufs_qcom_register_minidump((uintptr_t)host,
+					sizeof(struct ufs_qcom_host), "UFS_QHOST", 0);
+		ufs_qcom_register_minidump((uintptr_t)hba,
+					sizeof(struct ufs_hba), "UFS_HBA", 0);
+		ufs_qcom_register_minidump((uintptr_t)hba->host,
+					sizeof(struct Scsi_Host), "UFS_SHOST", 0);
+	}
 
 	goto out;
 
