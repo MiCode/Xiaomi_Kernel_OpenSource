@@ -36,6 +36,7 @@
 
 /* BEAC */
 #define BEAC0_PROF_FILTER_0_CFG5(v)	(VER_CHK(v) ? 0x61014 : 0x049014)
+#define BEAC0_PROF_FILTER_0_CFG2(v)	(VER_CHK(v) ? 0x61008 : 0x049008)
 #define BEAC0_PROF_EVENT_n_CFG(v, n)	((VER_CHK(v) ? 0x61040 : 0x049040) \
 					+ 4 * (n))
 #define BEAC0_PROF_CFG(v)		(VER_CHK(v) ? 0x61080 : 0x049080)
