@@ -309,6 +309,7 @@ static int gh_tlmm_vm_mem_access_probe(struct platform_device *pdev)
 	void __maybe_unused *mem_cookie;
 	int owner_vmid, ret;
 	struct device_node *node;
+	gh_vmid_t vmid;
 
 	gh_tlmm_dev = &pdev->dev;
 
@@ -346,6 +347,11 @@ static int gh_tlmm_vm_mem_access_probe(struct platform_device *pdev)
 		if (ret)
 			return ret;
 	} else {
+		ret = gh_rm_get_vmid(GH_TRUSTED_VM, &vmid);
+		if (ret)
+			return ret;
+
+
 		gh_tlmm_vm_mem_release(&gh_tlmm_vm_info_data);
 	}
 
