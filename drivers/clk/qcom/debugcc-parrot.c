@@ -35,12 +35,12 @@ static const char *const apss_cc_debug_mux_parent_names[] = {
 };
 
 static int apss_cc_debug_mux_sels[] = {
-	0x41,		/* measure_only_apcs_gold_post_acd_clk */
-	0x20,		/* measure_only_apcs_gold_pre_acd_clk */
-	0x25,		/* measure_only_apcs_l3_post_acd_clk */
-	0x22,		/* measure_only_apcs_l3_pre_acd_clk */
-	0x45,		/* measure_only_apcs_silver_post_acd_clk */
-	0x21,		/* measure_only_apcs_silver_pre_acd_clk */
+	0x25,		/* measure_only_apcs_gold_post_acd_clk */
+	0x45,		/* measure_only_apcs_gold_pre_acd_clk */
+	0x41,		/* measure_only_apcs_l3_post_acd_clk */
+	0x46,		/* measure_only_apcs_l3_pre_acd_clk */
+	0x21,		/* measure_only_apcs_silver_post_acd_clk */
+	0x44,		/* measure_only_apcs_silver_pre_acd_clk */
 };
 
 static int apss_cc_debug_mux_pre_divs[] = {
