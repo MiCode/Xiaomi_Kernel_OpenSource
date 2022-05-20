@@ -2173,7 +2173,9 @@
 
 	qos:qos@0011bb00 {
 		compatible = "mediatek,mt6893-qos";
-		reg = <0 0x0011bb00 0 0x100>;
+		reg = <0 0x0011bb00 0 0x100>,
+			<0 0x0011b9C0 0 0x140>;
+		reg-names = "sram", "share_sram";
 		mediatek,qos_enable = <1>;
 	};
 
