@@ -5155,8 +5155,10 @@ void mtk_cam_sensor_switch_stop_reinit_hw(struct mtk_cam_ctx *ctx,
 	struct mtk_mraw_device *mraw_dev;
 	int i;
 	int sof_count;
-	int ret;
 	int feature, feature_first_req;
+#ifdef MTK_CAM_HSF_SUPPORT
+	int ret;
+#endif
 
 	req = mtk_cam_s_data_get_req(s_data);
 	s_raw_pipe_data = mtk_cam_s_data_get_raw_pipe_data(s_data);
@@ -5177,6 +5179,7 @@ void mtk_cam_sensor_switch_stop_reinit_hw(struct mtk_cam_ctx *ctx,
 
 	/* stop the raw */
 	if (ctx->used_raw_num) {
+#ifdef MTK_CAM_HSF_SUPPORT
 		if (mtk_cam_is_hsf(ctx)) {
 			ret = mtk_cam_hsf_uninit(ctx);
 			if (ret != 0)
@@ -5184,6 +5187,7 @@ void mtk_cam_sensor_switch_stop_reinit_hw(struct mtk_cam_ctx *ctx,
 					 "failed to stream off %s:%d mtk_cam_hsf_uninit fail\n",
 					 ctx->seninf->name, ret);
 		}
+#endif
 		raw_dev = get_master_raw_dev(ctx->cam, ctx->pipe);
 		if (mtk_cam_is_time_shared(ctx)) {
 			unsigned int hw_scen =
@@ -7128,6 +7132,7 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 			}
 		} else if (!mtk_cam_feature_is_m2m(feature_active) &&
 					!mtk_cam_feature_is_time_shared(feature_active)) {
+#ifdef MTK_CAM_HSF_SUPPORT
 			if (mtk_cam_is_hsf(ctx)) {
 				//HSF control
 				dev_info(cam->dev, "enabled_hsf_raw =%d\n",
@@ -7145,6 +7150,7 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 					ctx->hsf->share_buf->chunk_hsfhandle);
 			else
 				mtk_cam_seninf_set_secure(ctx->seninf, 0, 0);
+#endif
 #endif
 			mtk_cam_call_seninf_set_pixelmode(ctx, ctx->seninf,
 							  PAD_SRC_RAW0,
@@ -7407,6 +7413,7 @@ int mtk_cam_ctx_stream_off(struct mtk_cam_ctx *ctx)
 	}
 
 	if (ctx->used_raw_num) {
+#ifdef MTK_CAM_HSF_SUPPORT
 		if (mtk_cam_is_hsf(ctx)) {
 			ret = mtk_cam_hsf_uninit(ctx);
 			if (ret != 0) {
@@ -7415,6 +7422,7 @@ int mtk_cam_ctx_stream_off(struct mtk_cam_ctx *ctx)
 				return -EPERM;
 			}
 		}
+#endif
 		dev = mtk_cam_find_raw_dev(cam, ctx->used_raw_dev);
 		if (!dev) {
 			dev_info(cam->dev, "streamoff raw device not found\n");

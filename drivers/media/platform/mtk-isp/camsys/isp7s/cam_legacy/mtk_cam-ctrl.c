@@ -16,7 +16,9 @@
 #include "mtk_cam-ctrl.h"
 #include "mtk_cam-debug.h"
 #include "mtk_cam-dvfs_qos.h"
+#ifdef MTK_CAM_HSF_SUPPORT
 #include "mtk_cam-hsf.h"
+#endif
 #include "mtk_cam-pool.h"
 #include "mtk_cam-raw.h"
 #include "mtk_cam-regs.h"
@@ -520,12 +522,12 @@ int mtk_cam_sensor_switch_start_hw(struct mtk_cam_ctx *ctx,
 		used_pipes = ctx->pipe->enabled_raw;
 		for (i = MTKCAM_SUBDEV_CAMSV_START ; i < MTKCAM_SUBDEV_CAMSV_END ; i++) {
 			if (used_pipes & (1 << i)) {
-				//HSF control
+#ifdef MTK_CAM_HSF_SUPPORT
 				if (mtk_cam_is_hsf(ctx)) {
 					dev_info(cam->dev, "error: un-support hsf stagger mode\n");
 					goto fail_switch_stop;
 				}
-
+#endif
 				mtk_cam_call_seninf_set_pixelmode(ctx,
 								  s_data->seninf_new,
 								  src_pad_idx,
@@ -621,6 +623,7 @@ int mtk_cam_sensor_switch_start_hw(struct mtk_cam_ctx *ctx,
 		}
 	} else if (!mtk_cam_is_m2m(ctx) &&
 				!mtk_cam_is_time_shared(ctx)) {
+#ifdef MTK_CAM_HSF_SUPPORT
 		if (mtk_cam_is_hsf(ctx)) {
 			//HSF control
 			dev_info(cam->dev, "enabled_hsf_raw =%d\n",
@@ -631,14 +634,15 @@ int mtk_cam_sensor_switch_start_hw(struct mtk_cam_ctx *ctx,
 					goto fail_switch_stop;
 				}
 			}
-	#ifdef USING_HSF_SENSOR
-			if (mtk_cam_is_hsf(ctx))
-				mtk_cam_seninf_set_secure
-					(s_data->seninf_new, 1,
-					 ctx->hsf->share_buf->chunk_hsfhandle);
-			else
-				mtk_cam_seninf_set_secure(s_data->seninf_new, 0, 0);
-	#endif
+#ifdef USING_HSF_SENSOR
+		if (mtk_cam_is_hsf(ctx))
+			mtk_cam_seninf_set_secure
+				(s_data->seninf_new, 1,
+				 ctx->hsf->share_buf->chunk_hsfhandle);
+		else
+			mtk_cam_seninf_set_secure(s_data->seninf_new, 0, 0);
+#endif
+#endif
 			mtk_cam_call_seninf_set_pixelmode(ctx, s_data->seninf_new,
 							  PAD_SRC_RAW0,
 							  tgo_pxl_mode);

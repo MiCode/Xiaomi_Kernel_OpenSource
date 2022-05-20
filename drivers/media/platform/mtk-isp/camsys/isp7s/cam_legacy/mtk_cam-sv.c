@@ -2846,6 +2846,7 @@ static int mtk_camsv_of_probe(struct platform_device *pdev,
 
 	larbs = of_count_phandle_with_args(
 					pdev->dev.of_node, "mediatek,larbs", NULL);
+	larbs = (larbs == -ENOENT) ? 0:larbs;
 	dev_info(dev, "larb_num:%d\n", larbs);
 
 	for (i = 0; i < larbs; i++) {
@@ -3033,7 +3034,7 @@ static int mtk_camsv_runtime_suspend(struct device *dev)
 	if (CAMSV_READ_BITS(camsv_dev->base_inner + REG_CAMSV_TG_SEN_MODE,
 		CAMSV_TG_SEN_MODE, CMOS_EN) == 1) {
 		mtk_smi_dbg_hang_detect("camsys-camsv");
-#if NOT_READY_TODO
+#ifdef NOT_READY_TODO
 		if (ctx && ctx->used_raw_num != 0) {
 			for (i = MTKCAM_SUBDEV_RAW_0; i < MTKCAM_SUBDEV_RAW_END; i++) {
 				if (ctx->pipe->enabled_raw & (1 << i))
@@ -3045,7 +3046,7 @@ static int mtk_camsv_runtime_suspend(struct device *dev)
 
 	for (i = 0; i < camsv_dev->num_clks; i++)
 		clk_disable_unprepare(camsv_dev->clks[i]);
-#if NOT_READY_TODO
+#ifdef NOT_READY_TODO
 	if (ctx && ctx->used_raw_num != 0) {
 		for (i = MTKCAM_SUBDEV_RAW_0; i < MTKCAM_SUBDEV_RAW_END; i++) {
 			if (ctx->pipe->enabled_raw & (1 << i))

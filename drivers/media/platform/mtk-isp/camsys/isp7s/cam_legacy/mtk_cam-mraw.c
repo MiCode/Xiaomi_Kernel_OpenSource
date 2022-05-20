@@ -2532,6 +2532,7 @@ static int mtk_mraw_of_probe(struct platform_device *pdev,
 
 	larbs = of_count_phandle_with_args(
 					pdev->dev.of_node, "mediatek,larbs", NULL);
+	larbs = (larbs == -ENOENT) ? 0:larbs;
 	dev_info(dev, "larb_num:%d\n", larbs);
 
 	for (i = 0; i < larbs; i++) {

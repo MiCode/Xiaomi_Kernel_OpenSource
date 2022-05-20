@@ -35,9 +35,9 @@
 
 #include "mtk_cam-dmadbg.h"
 #include "mtk_cam-raw_debug.h"
-
+#ifdef MTK_CAM_HSF_SUPPORT
 #include "mtk_cam-hsf.h"
-
+#endif
 #include "mtk_cam-trace.h"
 #ifdef CAMSYS_TF_DUMP_71_1
 #include <dt-bindings/memory/mt6983-larb-port.h>
@@ -1194,10 +1194,13 @@ void apply_cq(struct mtk_raw_device *dev,
 			writel(CTL_CQ_THR0_START, dev->base + REG_CTL_START);
 
 		wmb(); /* make sure committed */
+#ifdef MTK_CAM_HSF_SUPPORT
 	} else {
 		ccu_apply_cq(dev, cq_addr, cq_size, initial, cq_offset, sub_cq_size, sub_cq_offset);
 	}
-
+#else
+	}
+#endif
 	MTK_CAM_TRACE_END(BASIC);
 }
 
@@ -1532,7 +1535,9 @@ void enable_tg_db(struct mtk_raw_device *dev, int en)
 static void init_dma_threshold(struct mtk_raw_device *dev)
 {
 	struct mtk_cam_device *cam_dev;
+#ifdef SMI_LARB_ULTRA_CTL
 	struct mtk_yuv_device *yuv_dev = get_yuv_dev(dev);
+#endif
 	bool is_srt = mtk_cam_is_srt(dev->pipeline->hw_mode);
 	unsigned int raw_urgent, yuv_urgent;
 
@@ -1614,15 +1619,17 @@ static void init_dma_threshold(struct mtk_raw_device *dev)
 	if (is_srt) {
 		writel_relaxed(0x0, cam_dev->base + raw_urgent);
 		writel_relaxed(0x0, cam_dev->base + yuv_urgent);
-
+#ifdef SMI_LARB_ULTRA_CTL
 		mtk_smi_larb_ultra_dis(&dev->larb_pdev->dev, true);
 		mtk_smi_larb_ultra_dis(&yuv_dev->larb_pdev->dev, true);
+#endif
 	} else {
 		writel_relaxed(RAW_WDMA_PORT, cam_dev->base + raw_urgent);
 		writel_relaxed(YUV_WDMA_PORT, cam_dev->base + yuv_urgent);
-
+#ifdef SMI_LARB_ULTRA_CTL
 		mtk_smi_larb_ultra_dis(&dev->larb_pdev->dev, false);
 		mtk_smi_larb_ultra_dis(&yuv_dev->larb_pdev->dev, false);
+#endif
 	}
 }
 
@@ -1927,9 +1934,13 @@ void stream_on(struct mtk_raw_device *dev, int on)
 				writel_relaxed(val, dev->base + REG_TG_VF_CON);
 				wmb(); /* TBC */
 			}
+#ifdef MTK_CAM_HSF_SUPPORT
 		} else {
 			ccu_stream_on(dev);
 		}
+#else
+		}
+#endif
 		atomic_set(&dev->vf_en, 1);
 		dev_dbg(dev->dev,
 			"%s - CQ_EN:0x%x, CQ_THR0_CTL:0x%8x, TG_VF_CON:0x%8x, SCQ_START_PERIOD:%lld\n",
@@ -2891,6 +2902,7 @@ static int mtk_raw_of_probe(struct platform_device *pdev,
 
 	larbs = of_count_phandle_with_args(
 					pdev->dev.of_node, "mediatek,larbs", NULL);
+	larbs = (larbs == -ENOENT) ? 0:larbs;
 	dev_info(dev, "larb_num:%d\n", larbs);
 
 	raw->larb_pdev = NULL;
@@ -6161,9 +6173,9 @@ static int mtk_raw_probe(struct platform_device *pdev)
 	raw_dev->msg_buffer = devm_kzalloc(dev, raw_dev->fifo_size, GFP_KERNEL);
 	if (!raw_dev->msg_buffer)
 		return -ENOMEM;
-
+#ifdef PR_DETECT
 	raw_dev->default_printk_cnt = get_detect_count();
-
+#endif
 	pm_runtime_enable(dev);
 
 	return component_add(dev, &mtk_raw_component_ops);
@@ -6190,17 +6202,19 @@ static int mtk_raw_runtime_suspend(struct device *dev)
 {
 	struct mtk_raw_device *drvdata = dev_get_drvdata(dev);
 	int i;
+#ifdef PR_DETECT
 	unsigned int pr_detect_count;
-
+#endif
 	dev_dbg(dev, "%s:disable clock\n", __func__);
 	dev_dbg(dev, "%s:drvdata->default_printk_cnt = %d\n", __func__,
 			drvdata->default_printk_cnt);
 
 	disable_irq(drvdata->irq);
+#ifdef PR_DETECT
 	pr_detect_count = get_detect_count();
 	if (pr_detect_count > drvdata->default_printk_cnt)
 		set_detect_count(drvdata->default_printk_cnt);
-
+#endif
 	reset(drvdata);
 
 	for (i = 0; i < drvdata->num_clks; i++)
@@ -6213,8 +6227,9 @@ static int mtk_raw_runtime_resume(struct device *dev)
 {
 	struct mtk_raw_device *drvdata = dev_get_drvdata(dev);
 	int i, ret;
+#ifdef PR_DETECT
 	unsigned int pr_detect_count;
-
+#endif
 	/* reset_msgfifo before enable_irq */
 	ret = reset_msgfifo(drvdata);
 	if (ret)
@@ -6223,11 +6238,11 @@ static int mtk_raw_runtime_resume(struct device *dev)
 	enable_irq(drvdata->irq);
 	dev_dbg(dev, "%s:drvdata->default_printk_cnt = %d\n", __func__,
 			drvdata->default_printk_cnt);
-
+#ifdef PR_DETECT
 	pr_detect_count = get_detect_count();
 	if (pr_detect_count < KERNEL_LOG_MAX)
 		set_detect_count(KERNEL_LOG_MAX);
-
+#endif
 	dev_dbg(dev, "%s:enable clock\n", __func__);
 
 	for (i = 0; i < drvdata->num_clks; i++) {
@@ -6484,6 +6499,7 @@ static int mtk_yuv_of_probe(struct platform_device *pdev,
 
 	larbs = of_count_phandle_with_args(
 					pdev->dev.of_node, "mediatek,larbs", NULL);
+	larbs = (larbs == -ENOENT) ? 0:larbs;
 	dev_info(dev, "larb_num:%d\n", larbs);
 
 	drvdata->larb_pdev = NULL;

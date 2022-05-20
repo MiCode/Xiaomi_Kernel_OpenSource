@@ -69,7 +69,11 @@ $(CAM_MODULE)-$(CONFIG_TRACING) += mtk_cam-trace.o
 ccflags-y += -DMTK_CAM_TRACE_SUPPORT
 endif
 
+ifeq ($(CAMSYS_HSF_ENABLE), y)
 $(CAM_MODULE)-objs +=  mtk_cam-hsf.o
+ccflags-y += -DMTK_CAM_HSF_SUPPORT
+endif
+
 #$(CAM_MODULE)-objs += mtk_cam-procdbg.o
 
 include $(src)/mtk_csi_phy_2_0/sub_drv.mk

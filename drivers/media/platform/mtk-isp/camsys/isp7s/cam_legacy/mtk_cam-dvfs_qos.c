@@ -992,13 +992,14 @@ void mtk_cam_qos_bw_calc(struct mtk_cam_ctx *ctx, unsigned long raw_dmas, bool f
 			  __func__, qos_port_id, raw_mmqos->port[qos_port_id % raw_qos_port_num],
 			  BW_B2KB_WITH_RATIO(dvfs_info->qos_bw_avg[qos_port_id]),
 			  (is_raw_srt ? 0 : BW_B2KB(dvfs_info->qos_bw_peak[qos_port_id])));
-
+#ifdef DVFS_QOS_READY
 		if (dvfs_info->qos_req[qos_port_id])
 			mtk_icc_set_bw(dvfs_info->qos_req[qos_port_id],
 				kBps_to_icc(BW_B2KB_WITH_RATIO(
 					dvfs_info->qos_bw_avg[qos_port_id])),
 				(is_raw_srt ? 0 : kBps_to_icc(BW_B2KB(
 					dvfs_info->qos_bw_peak[qos_port_id]))));
+#endif
 	}
 	for (i = 0; i < MTK_CAM_SV_PORT_NUM; i++) {
 		if (dvfs_info->sv_qos_bw_avg[i] != 0) {
@@ -1007,13 +1008,14 @@ void mtk_cam_qos_bw_calc(struct mtk_cam_ctx *ctx, unsigned long raw_dmas, bool f
 				  __func__, i,
 				  BW_B2KB_WITH_RATIO(dvfs_info->sv_qos_bw_avg[i]),
 				  BW_B2KB(dvfs_info->sv_qos_bw_peak[i]));
-
+#ifdef DVFS_QOS_READY
 			if (dvfs_info->sv_qos_req[i])
 				mtk_icc_set_bw(dvfs_info->sv_qos_req[i],
 					kBps_to_icc(BW_B2KB_WITH_RATIO(
 						dvfs_info->sv_qos_bw_avg[i])),
 					kBps_to_icc(BW_B2KB(
 						dvfs_info->sv_qos_bw_peak[i])));
+#endif
 		}
 	}
 	for (i = 0; i < MTK_CAM_MRAW_PORT_NUM; i++) {
@@ -1023,16 +1025,19 @@ void mtk_cam_qos_bw_calc(struct mtk_cam_ctx *ctx, unsigned long raw_dmas, bool f
 				  __func__, i,
 				  BW_B2KB_WITH_RATIO(dvfs_info->mraw_qos_bw_avg[i]),
 				  BW_B2KB(dvfs_info->mraw_qos_bw_peak[i]));
-
+#ifdef DVFS_QOS_READY
 			if (dvfs_info->mraw_qos_req[i])
 				mtk_icc_set_bw(dvfs_info->mraw_qos_req[i],
 					kBps_to_icc(BW_B2KB_WITH_RATIO(
 						dvfs_info->mraw_qos_bw_avg[i])),
 					kBps_to_icc(BW_B2KB(
 						dvfs_info->mraw_qos_bw_peak[i])));
+#endif
 		}
 	}
+#ifdef DVFS_QOS_READY
 	mtk_mmqos_wait_throttle_done();
+#endif
 }
 
 void mtk_cam_qos_init(struct mtk_cam_device *cam)
@@ -1075,12 +1080,16 @@ void mtk_cam_qos_init(struct mtk_cam_device *cam)
 		for (port_id = 0; port_id < raw_qos_port_num; port_id++) {
 			if (port_id < yuvo_r1) {
 				raw_dev = dev_get_drvdata(engineraw_dev);
+#ifdef DVFS_QOS_READY
 				dvfs_info->qos_req[i] =
 					of_mtk_icc_get(raw_dev->dev, raw_mmqos->port[port_id]);
+#endif
 			} else {
 				yuv_dev = dev_get_drvdata(engineyuv_dev);
+#ifdef DVFS_QOS_READY
 				dvfs_info->qos_req[i] =
 					of_mtk_icc_get(yuv_dev->dev, raw_mmqos->port[port_id]);
+#endif
 			}
 			i++;
 		}
@@ -1094,8 +1103,10 @@ void mtk_cam_qos_init(struct mtk_cam_device *cam)
 		enginesv_dev = cam->sv.devs[engine_id];
 		for (port_id = 0; port_id < sv_qos_port_num; port_id++) {
 			sv_dev = dev_get_drvdata(enginesv_dev);
+#ifdef DVFS_QOS_READY
 			dvfs_info->sv_qos_req[i] =
 				of_mtk_icc_get(sv_dev->dev, sv_mmqos->port[port_id]);
+#endif
 			i++;
 		}
 		dev_info(sv_dev->dev, "[%s] sv_engine_id=%d, port_num=%d\n",
@@ -1107,8 +1118,10 @@ void mtk_cam_qos_init(struct mtk_cam_device *cam)
 		enginemraw_dev = cam->mraw.devs[engine_id];
 		for (port_id = 0; port_id < mraw_qos_port_num; port_id++) {
 			mraw_dev = dev_get_drvdata(enginemraw_dev);
+#ifdef DVFS_QOS_READY
 			dvfs_info->mraw_qos_req[i] =
 				of_mtk_icc_get(mraw_dev->dev, mraw_mmqos->port[port_id]);
+#endif
 			i++;
 		}
 		dev_info(mraw_dev->dev, "[%s] mraw_engine_id=%d, port_num=%d\n",
@@ -1135,8 +1148,10 @@ void mtk_cam_qos_bw_reset(struct mtk_cam_ctx *ctx, unsigned int enabled_sv)
 		qos_port_id = engine_id * raw_qos_port_num + i;
 		dvfs_info->qos_bw_avg[qos_port_id] = 0;
 		dvfs_info->qos_bw_peak[qos_port_id] = 0;
+#ifdef DVFS_QOS_READY
 		if (dvfs_info->qos_req[qos_port_id])
 			mtk_icc_set_bw(dvfs_info->qos_req[qos_port_id], 0, 0);
+#endif
 	}
 
 	if (mtk_cam_is_stagger(ctx) || mtk_cam_is_time_shared(ctx)
@@ -1148,8 +1163,10 @@ void mtk_cam_qos_bw_reset(struct mtk_cam_ctx *ctx, unsigned int enabled_sv)
 					sv_imgo;
 				dvfs_info->sv_qos_bw_avg[qos_port_id] = 0;
 				dvfs_info->sv_qos_bw_peak[qos_port_id] = 0;
+#ifdef DVFS_QOS_READY
 				if (dvfs_info->sv_qos_req[qos_port_id])
 					mtk_icc_set_bw(dvfs_info->sv_qos_req[qos_port_id], 0, 0);
+#endif
 			}
 		}
 	}
@@ -1160,8 +1177,10 @@ void mtk_cam_qos_bw_reset(struct mtk_cam_ctx *ctx, unsigned int enabled_sv)
 						* sv_qos_port_num) + j;
 			dvfs_info->sv_qos_bw_avg[qos_port_id] = 0;
 			dvfs_info->sv_qos_bw_peak[qos_port_id] = 0;
+#ifdef DVFS_QOS_READY
 			if (dvfs_info->sv_qos_req[qos_port_id])
 				mtk_icc_set_bw(dvfs_info->sv_qos_req[qos_port_id], 0, 0);
+#endif
 		}
 	}
 
@@ -1171,8 +1190,10 @@ void mtk_cam_qos_bw_reset(struct mtk_cam_ctx *ctx, unsigned int enabled_sv)
 				* mraw_qos_port_num) + j;
 			dvfs_info->mraw_qos_bw_avg[qos_port_id] = 0;
 			dvfs_info->mraw_qos_bw_peak[qos_port_id] = 0;
+#ifdef DVFS_QOS_READY
 			if (dvfs_info->mraw_qos_req[qos_port_id])
 				mtk_icc_set_bw(dvfs_info->mraw_qos_req[qos_port_id], 0, 0);
+#endif
 		}
 	}
 }
