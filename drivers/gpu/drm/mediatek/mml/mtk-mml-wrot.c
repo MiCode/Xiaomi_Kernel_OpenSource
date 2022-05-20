@@ -1859,8 +1859,12 @@ static void wrot_config_inlinerot(struct mml_comp *comp, struct mml_task *task,
 	}
 
 	/* debug, make gce send irq to cmdq and mark mmp pulse */
-	if (unlikely(mml_racing_wdone_eoc))
+	if (mml_racing_wdone_eoc == 1)
 		cmdq_pkt_eoc(pkt, false);
+	else if (mml_racing_wdone_eoc == 2) {
+		if (idx == 0 || idx == 1)
+			cmdq_pkt_eoc(pkt, false);
+	}
 }
 
 static s32 wrot_wait(struct mml_comp *comp, struct mml_task *task,

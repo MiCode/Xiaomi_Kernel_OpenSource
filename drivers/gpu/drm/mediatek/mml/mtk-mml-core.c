@@ -62,7 +62,12 @@ module_param(mml_racing_timeout, int, 0644);
 int mml_racing_urgent;
 module_param(mml_racing_urgent, int, 0644);
 
-int mml_racing_wdone_eoc;
+/* wdone mmp debug mark
+ * 0: disable
+ * 1: always
+ * 2: only tile 0 and tile 1
+ */
+int mml_racing_wdone_eoc = 2;
 module_param(mml_racing_wdone_eoc, int, 0644);
 
 int mml_hw_perf;
