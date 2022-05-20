@@ -20,6 +20,8 @@ struct plat_v4l2_data {
 	int meta_stats2_size;
 	int meta_sv_ext_size;
 
+	int timestamp_buffer_ofst;
+
 	int (*set_meta_stats_info)(int ipi_id, void *addr);
 };
 

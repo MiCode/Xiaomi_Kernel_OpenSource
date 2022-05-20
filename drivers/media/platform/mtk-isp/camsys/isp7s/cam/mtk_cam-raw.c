@@ -479,9 +479,10 @@ static void init_dma_threshold(struct mtk_raw_device *dev)
 		writel_relaxed(RAW_WDMA_PORT, cam_dev->base + raw_urgent);
 		writel_relaxed(YUV_WDMA_PORT, cam_dev->base + yuv_urgent);
 
-		mtk_smi_larb_ultra_dis(&dev->larb_pdev->dev, false);
-		mtk_smi_larb_ultra_dis(&yuv_dev->larb_pdev->dev, false);
+		//mtk_smi_larb_ultra_dis(&dev->larb_pdev->dev, false);
+		//mtk_smi_larb_ultra_dis(&yuv_dev->larb_pdev->dev, false);
 	}
+	dev_info(dev->dev, "%s: end %d\n", __func__, dev->id);
 }
 
 /* TODO: check this */
@@ -1046,9 +1047,9 @@ static irqreturn_t mtk_thread_irq_raw(int irq, void *data)
 		/* normal case */
 
 		/* inform interrupt information to camsys controller */
-		//mtk_camsys_isr_event(raw_dev->cam,
-		//		     CAMSYS_ENGINE_RAW, raw_dev->id,
-		//		     &irq_info);
+		mtk_cam_ctrl_isr_event(raw_dev->cam,
+				     CAMSYS_ENGINE_RAW, raw_dev->id,
+				     &irq_info);
 	}
 
 	return IRQ_HANDLED;

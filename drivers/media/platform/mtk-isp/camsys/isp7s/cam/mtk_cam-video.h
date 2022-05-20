@@ -153,7 +153,6 @@ struct mtk_cam_video_device {
 		NULL; \
 })
 
-
 struct mtk_format_info {
 	u32 format;
 	u8 mem_planes;
@@ -188,6 +187,13 @@ static inline struct mtk_cam_video_device *
 mtk_cam_vbq_to_vdev(struct vb2_queue *__vq)
 {
 	return container_of(__vq, struct mtk_cam_video_device, vb2_q);
+}
+
+static inline struct mtk_cam_video_device *
+mtk_cam_buf_to_vdev(struct mtk_cam_buffer *buf)
+{
+	WARN_ON(!buf->vbb.vb2_buf.vb2_queue);
+	return mtk_cam_vbq_to_vdev(buf->vbb.vb2_buf.vb2_queue);
 }
 
 const struct v4l2_format *

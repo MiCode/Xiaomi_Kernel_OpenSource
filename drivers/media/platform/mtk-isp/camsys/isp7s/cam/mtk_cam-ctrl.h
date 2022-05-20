@@ -19,6 +19,8 @@ struct mtk_camsv_device;
 struct mtk_cam_ctrl {
 	struct mtk_cam_ctx *ctx;
 	struct kthread_work work;
+	struct work_struct frame_done_work;
+	struct work_struct meta1_done_work;
 	struct hrtimer sensor_deadline_timer;
 	u64 sof_time;
 	int timer_req_event;
@@ -50,7 +52,7 @@ void mtk_cam_ctrl_job_enque(struct mtk_cam_ctrl *cam_ctrl,
 	struct mtk_cam_job *job);
 /* inform job composed */
 void mtk_cam_ctrl_job_composed(struct mtk_cam_ctrl *cam_ctrl,
-	struct mtk_cam_job *job, struct mtkcam_ipi_frame_ack_result *cq_ret);
+	int frame_seq, struct mtkcam_ipi_frame_ack_result *cq_ret);
 
 
 

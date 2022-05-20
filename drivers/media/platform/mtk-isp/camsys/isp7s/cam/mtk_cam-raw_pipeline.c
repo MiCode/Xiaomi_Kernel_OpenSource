@@ -696,6 +696,16 @@ mtk_raw_pipeline_get_selection(struct mtk_raw_pipeline *pipe,
 	return &pipe->pad_cfg[pad].crop;
 }
 
+static void propagate_fmt(struct v4l2_mbus_framefmt *sink_mf,
+			  struct v4l2_mbus_framefmt *source_mf, int w, int h)
+{
+	source_mf->code = sink_mf->code;
+	source_mf->colorspace = sink_mf->colorspace;
+	source_mf->field = sink_mf->field;
+	source_mf->width = w;
+	source_mf->height = h;
+}
+
 static int mtk_raw_sd_subscribe_event(struct v4l2_subdev *subdev,
 				      struct v4l2_fh *fh,
 				      struct v4l2_event_subscription *sub)
@@ -755,7 +765,7 @@ static bool mtk_raw_try_fmt(struct v4l2_subdev *sd,
 
 	/* check sensor format */
 	if (fmt->pad == MTK_RAW_SINK) {
-		int mbus_code = fmt->format.code & SENSOR_FMT_MASK;
+		int mbus_code = fmt->format.code;
 
 		user_fmt = sensor_mbus_to_ipi_fmt(mbus_code);
 		if (user_fmt == MTKCAM_IPI_IMG_FMT_UNKNOWN)
@@ -905,10 +915,10 @@ int mtk_raw_set_sink_pad_fmt(struct v4l2_subdev *sd,
 	struct device *dev;
 	struct mtk_cam_video_device *node;
 	const char *node_str;
-	//const struct mtk_cam_format_desc *fmt_desc;
+	const struct mtk_cam_format_desc *fmt_desc;
 	struct mtk_raw_pipeline *pipe;
 	int i;
-	//int ipi_fmt;
+	int ipi_fmt;
 	struct v4l2_mbus_framefmt *framefmt, *source_fmt = NULL, *tmp_fmt;
 
 	/* Do nothing for pad to meta video device */
@@ -930,8 +940,7 @@ int mtk_raw_set_sink_pad_fmt(struct v4l2_subdev *sd,
 		node_str = node->desc.name;
 	}
 
-#ifdef NOT_READY
-	ipi_fmt = mtk_cam_get_sensor_fmt(framefmt->code);
+	ipi_fmt = sensor_mbus_to_ipi_fmt(framefmt->code);
 	if (ipi_fmt == MTKCAM_IPI_IMG_FMT_UNKNOWN) {
 		/**
 		 * Set imgo's default fmt, the user must check
@@ -944,7 +953,6 @@ int mtk_raw_set_sink_pad_fmt(struct v4l2_subdev *sd,
 			"%s(%d): Adjust unaccept fmt code on sink pad:%d, 0x%x->0x%x\n",
 			__func__, fmt->which, fmt->pad, fmt->format.code, framefmt->code);
 	}
-#endif
 
 	/* Reset pads' enable state*/
 	for (i = MTK_RAW_SINK; i < MTK_RAW_META_OUT_BEGIN; i++) {
@@ -1246,6 +1254,61 @@ static int mtk_raw_call_set_fmt(struct v4l2_subdev *sd,
 		dev_dbg(dev,
 			"sd:%s pad:%d set format w/h/code %d/%d/0x%x\n",
 			sd->name, fmt->pad, mf->width, mf->height, mf->code);
+	}
+
+	/* sink pad format propagate to source pad */
+	if (fmt->pad == MTK_RAW_SINK) {
+		struct v4l2_mbus_framefmt *source_mf;
+
+#ifdef TO_CHECK
+		if (fmt->which == V4L2_SUBDEV_FORMAT_ACTIVE) {
+			struct v4l2_format *img_fmt;
+
+			img_fmt = &pipe->vdev_nodes[MTK_RAW_SINK].sink_fmt_for_dc_rawi;
+			img_fmt->fmt.pix_mp.width = mf->width;
+			img_fmt->fmt.pix_mp.height = mf->height;
+
+			sink_ipi_fmt = mtk_cam_get_sensor_fmt(mf->code);
+
+			if (sink_ipi_fmt == MTKCAM_IPI_IMG_FMT_UNKNOWN) {
+				dev_info(raw->cam_dev,
+					"%s: sink_ipi_fmt not found\n");
+
+				sink_ipi_fmt = MTKCAM_IPI_IMG_FMT_BAYER14;
+			}
+
+			img_fmt->fmt.pix_mp.pixelformat =
+				mtk_cam_get_rawi_sensor_pixel_fmt(mf->code);
+
+			img_fmt->fmt.pix_mp.plane_fmt[0].bytesperline =
+				mtk_cam_dmao_xsize(mf->width, sink_ipi_fmt, 3);
+			img_fmt->fmt.pix_mp.plane_fmt[0].sizeimage =
+				img_fmt->fmt.pix_mp.plane_fmt[0].bytesperline *
+				img_fmt->fmt.pix_mp.height;
+
+			img_fmt = &pipe->vdev_nodes[MTK_RAW_SINK].pending_fmt;
+
+			img_fmt->fmt.pix_mp.width = mf->width;
+			img_fmt->fmt.pix_mp.height = mf->height;
+
+			dev_dbg(raw->cam_dev,
+				"%s: sd:%s update sink pad format %dx%d code 0x%x\n",
+				__func__, sd->name,
+				img_fmt->fmt.pix_mp.width,
+				img_fmt->fmt.pix_mp.height,
+				mf->code);
+		}
+#endif
+
+		source_mf = mtk_raw_pipeline_get_fmt(pipe, state,
+						     MTK_RAW_MAIN_STREAM_OUT,
+						     fmt->which);
+
+		/**
+		 * User will trigger resource calc with V4L2_CID_MTK_CAM_RAW_RESOURCE_CALC
+		 * so we don't need to trigger it here anymore.
+		 */
+		propagate_fmt(mf, source_mf, mf->width, mf->height);
 	}
 
 	return 0;

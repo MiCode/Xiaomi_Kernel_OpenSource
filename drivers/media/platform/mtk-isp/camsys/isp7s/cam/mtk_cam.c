@@ -22,6 +22,7 @@
 #include <linux/media.h>
 #include <linux/jiffies.h>
 #include <media/videobuf2-v4l2.h>
+#include <media/v4l2-event.h>
 #include <media/v4l2-fwnode.h>
 #include <media/v4l2-mc.h>
 #include <media/v4l2-subdev.h>
@@ -165,10 +166,34 @@ static void _put_permit_to_queue(struct mtk_cam_device *cam)
 static void append_to_running_list(struct mtk_cam_device *cam,
 				   struct mtk_cam_request *req)
 {
+	int cnt;
+
+	media_request_get(&req->req);
+
 	spin_lock(&cam->running_job_lock);
-	cam->running_job_count++;
+	cnt = ++cam->running_job_count;
 	list_add_tail(&req->list, &cam->running_job_list);
 	spin_unlock(&cam->running_job_lock);
+
+	dev_info(cam->dev, "%s: req:%s ++running cnt %d\n",
+		 __func__, req->req.debug_str, cnt);
+}
+
+static void remove_frome_running_list(struct mtk_cam_device *cam,
+				      struct mtk_cam_request *req)
+{
+	int cnt;
+
+	spin_lock(&cam->running_job_lock);
+	cnt = --cam->running_job_count;
+	list_del(&req->list);
+	spin_unlock(&cam->running_job_lock);
+
+	dev_info(cam->dev, "%s: req:%s --running cnt %d\n",
+		 __func__, req->req.debug_str, cnt);
+
+	media_request_put(&req->req);
+
 }
 
 static void update_ctxs_available_jobs(struct mtk_cam_device *cam)
@@ -214,6 +239,9 @@ static bool mtk_cam_test_available_jobs(struct mtk_cam_device *cam,
 	return true;
 
 fail_to_fetch_job:
+	dev_info(cam->dev, "%s: ctx %d has no available job\n",
+		 __func__, ctx->stream_id);
+
 	for (i = i - 1; i >= 0; i--) {
 		if (!USED_MASK_HAS(&stream_mask, stream, i))
 			continue;
@@ -240,16 +268,16 @@ static int mtk_cam_get_reqs_to_enque(struct mtk_cam_device *cam,
 	cnt = 0;
 	spin_lock(&cam->pending_job_lock);
 	list_for_each_entry_safe(req, req_prev, &cam->pending_job_list, list) {
+		int used_ctx;
 
 		if (mtk_cam_req_try_update_used_ctx(&req->req))
 			continue;
 
-		if (!mtk_cam_are_all_streaming(cam,
-					       mtk_cam_req_used_ctx(&req->req)))
+		used_ctx = mtk_cam_req_used_ctx(&req->req);
+		if (!mtk_cam_are_all_streaming(cam, used_ctx))
 			continue;
 
-		if (!mtk_cam_test_available_jobs(cam,
-						 mtk_cam_req_used_ctx(&req->req)))
+		if (!mtk_cam_test_available_jobs(cam, used_ctx))
 			continue;
 
 		cnt++;
@@ -303,7 +331,8 @@ static struct media_request *mtk_cam_req_alloc(struct media_device *mdev)
 	struct mtk_cam_request *cam_req;
 
 	cam_req = vzalloc(sizeof(*cam_req));
-	//spin_lock_init(&cam_req->done_status_lock);
+
+	spin_lock_init(&cam_req->buf_lock);
 	//mutex_init(&cam_req->fs.op_lock);
 
 	return &cam_req->req;
@@ -367,7 +396,7 @@ static int mtk_cam_req_try_update_used_ctx(struct media_request *req)
 }
 
 static int _req_list_ctrl_handlers(struct media_request *req,
-				   struct v4l2_ctrl_handler **arr_hdl,
+				   struct media_request_object **arr_obj,
 				   int arr_size)
 {
 	struct media_request_object *obj;
@@ -380,31 +409,31 @@ static int _req_list_ctrl_handlers(struct media_request *req,
 		if (WARN_ON(n == arr_size))
 			return -1;
 
-		arr_hdl[n] = (struct v4l2_ctrl_handler *)obj->priv;
+		arr_obj[n] = obj;
 		++n;
 	}
 	return n;
 }
 
-static bool _req_has_ctrl_hdl(struct mtk_cam_request *req,
+static int _req_has_ctrl_hdl(struct mtk_cam_request *req,
 			      struct v4l2_ctrl_handler *hdl)
 {
 	int i;
 
-	for (i = 0; i < req->ctrl_hdl_nr; i++)
-		if (req->ctrl_hdls[i] == hdl)
-			return true;
-	return false;
+	for (i = 0; i < req->ctrl_objs_nr; i++)
+		if (req->ctrl_objs[i]->priv == hdl)
+			return i;
+	return -1;
 }
 
 static int mtk_cam_req_get_ctrl_handlers(struct media_request *req)
 {
 	struct mtk_cam_request *cam_req = to_mtk_cam_req(req);
 
-	cam_req->ctrl_hdl_nr =
+	cam_req->ctrl_objs_nr =
 		_req_list_ctrl_handlers(req,
-					cam_req->ctrl_hdls,
-					ARRAY_SIZE(cam_req->ctrl_hdls));
+					cam_req->ctrl_objs,
+					ARRAY_SIZE(cam_req->ctrl_objs));
 	return 0;
 }
 
@@ -417,25 +446,35 @@ static int mtk_cam_setup_pipe_ctrl(struct media_request *req)
 	struct v4l2_ctrl_handler *hdl;
 	int i, ret;
 
-	if (!cam_req->ctrl_hdl_nr)
+	if (!cam_req->ctrl_objs_nr)
 		return 0;
 
 	ret = 0;
 	for (i = 0; i < ppls->num_raw; i++) {
+		int obj_idx;
+		struct media_request_object *obj;
+
 		if (!USED_MASK_HAS(&cam_req->used_pipe, raw, i))
 			continue;
 
 		hdl = &ppls->raw[i].ctrl_handler;
 
-		if (!_req_has_ctrl_hdl(cam_req, hdl))
+		obj_idx = _req_has_ctrl_hdl(cam_req, hdl);
+		if (obj_idx < 0)
 			continue;
 
 		ret = v4l2_ctrl_request_setup(req, hdl);
-		if (!ret) {
+		if (ret) {
 			dev_info(cam->dev, "failed to setup ctrl of %s\n",
 				ppls->raw[i].subdev.entity.name);
 			break;
 		}
+
+		obj = cam_req->ctrl_objs[obj_idx];
+
+		if (obj->ops)
+			obj->ops->unbind(obj);
+		media_request_object_complete(obj);
 	}
 
 	return ret;
@@ -465,7 +504,7 @@ static void mtk_cam_clone_pipe_data_to_req(struct media_request *req)
 		data->ctrl = raw->ctrl_data;
 		data->sink.width = pad->mbus_fmt.width;
 		data->sink.height = pad->mbus_fmt.height;
-		data->sink.mbus_code = pad->mbus_fmt.code & SENSOR_FMT_MASK;
+		data->sink.mbus_code = pad->mbus_fmt.code;
 
 		/* todo: support tg crop */
 		//data->sink.crop = pad->crop;
@@ -568,13 +607,6 @@ static int mtk_cam_of_rproc(struct mtk_cam_device *cam)
 	return 0;
 }
 
-#ifdef NOT_READY
-static void isp_tx_frame_worker(struct work_struct *work)
-{
-	//TODO
-}
-#endif
-
 static struct mtk_cam_job *mtk_cam_ctx_fetch_job(struct mtk_cam_ctx *ctx)
 {
 	struct mtk_cam_pool_job pool_job;
@@ -584,7 +616,7 @@ static struct mtk_cam_job *mtk_cam_ctx_fetch_job(struct mtk_cam_ctx *ctx)
 		return NULL;
 
 	pool_job.job_data->pool_job = pool_job;
-	return &pool_job.job_data->job;
+	return data_to_job(pool_job.job_data);
 }
 
 int mtk_cam_dev_req_enqueue(struct mtk_cam_device *cam,
@@ -597,7 +629,6 @@ int mtk_cam_dev_req_enqueue(struct mtk_cam_device *cam,
 
 	WARN_ON(!used_ctx);
 
-	dev_info(cam->dev, "%s: req %s\n", __func__, req->req.debug_str);
 	/*
 	 * for each context involved:
 	 *   pack into job
@@ -623,7 +654,7 @@ int mtk_cam_dev_req_enqueue(struct mtk_cam_device *cam,
 		}
 
 		// pack job
-		if (!mtk_cam_job_pack(job, ctx, req)) {
+		if (mtk_cam_job_pack(job, ctx, req)) {
 			mtk_cam_job_return(job);
 			return -1;
 		}
@@ -635,32 +666,101 @@ int mtk_cam_dev_req_enqueue(struct mtk_cam_device *cam,
 	return 0;
 }
 
-#ifdef NOT_READY
-static void
-isp_composer_hw_config(struct mtk_cam_device *cam,
-		       struct mtk_cam_ctx *ctx,
-		       struct mtkcam_ipi_config_param *config_param)
+static void dump_request_status(struct mtk_cam_request *cam_req,
+				bool check_buffer)
 {
-	struct mtkcam_ipi_event event;
-	struct mtkcam_ipi_session_cookie *session = &event.cookie;
-	struct mtkcam_ipi_config_param *config = &event.config_data;
+	struct media_request *req = &cam_req->req;
+	struct device *dev = req->mdev->dev;
+	unsigned long flags;
+	int num_incomplete;
+	struct mtk_cam_buffer *buf;
 
-	memset(&event, 0, sizeof(event));
-	event.cmd_id = CAM_CMD_CONFIG;
-	session->session_id = ctx->stream_id;
+	/* media request internal */
+	spin_lock_irqsave(&req->lock, flags);
+	num_incomplete = req->num_incomplete_objects;
+	spin_unlock_irqrestore(&req->lock, flags);
 
-	memcpy(config, config_param, sizeof(*config_param));
-	dev_dbg(cam->dev, "%s sw_feature:%d\n", __func__, config->sw_feature);
+	if (!num_incomplete)
+		return;
 
-	rpmsg_send(ctx->rpmsg_dev->rpdev.ept, &event, sizeof(event));
-	dev_dbg(cam->dev, "rpmsg_send id: %d\n", event.cmd_id);
+	dev_info(dev, "req:%s num_incomplete: %d\n",
+		 req->debug_str, num_incomplete);
 
-	/* For debug dump file */
-	//memcpy(&ctx->config_params, config_param, sizeof(*config_param));
-	//dev_dbg(cam->dev, "%s:ctx(%d): save config_param to ctx, sz:%d\n",
-	//	__func__, ctx->stream_id, sizeof(*config_param));
+	if (check_buffer) {
+		struct mtk_cam_video_device *node;
+
+		spin_lock(&cam_req->buf_lock);
+		list_for_each_entry(buf, &cam_req->buf_list, list) {
+			node = mtk_cam_buf_to_vdev(buf);
+
+			dev_info(dev, "not done buf: %s\n", node->desc.name);
+		}
+		spin_unlock(&cam_req->buf_lock);
+	}
 }
-#endif
+
+void mtk_cam_req_buffer_done(struct mtk_cam_request *req,
+			     int pipe_id, int node_id, int buf_state, u64 ts)
+{
+	struct device *dev = req->req.mdev->dev;
+	struct mtk_cam_video_device *node;
+	struct mtk_cam_buffer *buf, *buf_prev;
+	struct list_head done_list;
+	bool is_buf_empty;
+	bool debug_req_status = 0;
+
+	INIT_LIST_HEAD(&done_list);
+	is_buf_empty = false;
+
+	spin_lock(&req->buf_lock);
+
+	list_for_each_entry_safe(buf, buf_prev, &req->buf_list, list) {
+
+		node = mtk_cam_buf_to_vdev(buf);
+
+		if (node->uid.pipe_id != pipe_id)
+			continue;
+
+		if (node_id != -1 && node->uid.id != node_id)
+			continue;
+
+		list_del(&buf->list);
+		list_add_tail(&buf->list, &done_list);
+	}
+	is_buf_empty = list_empty(&req->buf_list);
+
+	spin_unlock(&req->buf_lock);
+
+	dev_info(dev, "%s: req:%s pipe_id:%d, node_id:%d, ts:%lld, is_empty %d\n",
+		 __func__, req->req.debug_str,
+		 pipe_id, node_id, ts, is_buf_empty);
+
+	if (list_empty(&done_list)) {
+		dev_info(dev,
+			 "%s: req:%s failed to find pipe_id:%d, node_id:%d, ts:%lld, is_empty %d\n",
+			 __func__, req->req.debug_str,
+			 pipe_id, node_id, ts, is_buf_empty);
+		return;
+	}
+
+	if (is_buf_empty) {
+		/* assume: all ctrls are finished before buffers */
+		dev_info(dev, "%s: req:%s all buf done\n",
+			 __func__, req->req.debug_str);
+
+		// remove from running job list
+		remove_frome_running_list(dev_get_drvdata(dev), req);
+	}
+
+	list_for_each_entry(buf, &done_list, list) {
+		buf->vbb.vb2_buf.timestamp = ts;
+		vb2_buffer_done(&buf->vbb.vb2_buf, buf_state);
+	}
+
+	/* note: it's dangerous to access req after vb2_buffer_done, debug only */
+	if (unlikely(debug_req_status))
+		dump_request_status(req, true);
+}
 
 static int get_ipi_id(int stream_id)
 {
@@ -737,7 +837,7 @@ __maybe_unused static void isp_composer_destroy_session_async(struct mtk_cam_ctx
 /* forward decl. */
 static int isp_composer_handler(struct rpmsg_device *rpdev, void *data,
 				int len, void *priv, u32 src);
-__maybe_unused static int isp_composer_init(struct mtk_cam_ctx *ctx)
+static int isp_composer_init(struct mtk_cam_ctx *ctx)
 {
 	struct mtk_cam_device *cam = ctx->cam;
 	struct device *dev = cam->dev;
@@ -754,8 +854,10 @@ __maybe_unused static int isp_composer_init(struct mtk_cam_ctx *ctx)
 	if (ipi_id < 0)
 		return -EINVAL;
 
+	ctx->ipi_id = ipi_id;
+
 	snprintf(msg->name, RPMSG_NAME_SIZE, "mtk-camsys\%d", ctx->stream_id);
-	msg->src = ctx->stream_id;
+	msg->src = ctx->ipi_id;
 
 	ctx->rpmsg_dev = mtk_create_client_msgdevice(rpmsg_subdev, msg);
 	if (!ctx->rpmsg_dev)
@@ -781,7 +883,7 @@ faile_release_msg_dev:
 	return -EINVAL;
 }
 
-__maybe_unused static void isp_composer_uninit(struct mtk_cam_ctx *ctx)
+static void isp_composer_uninit(struct mtk_cam_ctx *ctx)
 {
 	struct mtk_cam_device *cam = ctx->cam;
 	struct mtk_ccd *ccd = cam->rproc_handle->priv;
@@ -826,7 +928,7 @@ static int mtk_cam_power_rproc(struct mtk_cam_device *cam, int on)
 	return ret;
 }
 
-__maybe_unused static int mtk_cam_power_ctrl_ccu(struct device *dev, int on_off)
+static int mtk_cam_power_ctrl_ccu(struct device *dev, int on_off)
 {
 	struct mtk_cam_device *cam_dev = dev_get_drvdata(dev);
 	//struct mtk_camsys_dvfs *dvfs_info = &cam_dev->camsys_ctrl.dvfs_info;
@@ -876,7 +978,7 @@ static int mtk_cam_initialize(struct mtk_cam_device *cam)
 
 	dev_info(cam->dev, "camsys initialize\n");
 
-	//mtk_cam_power_ctrl_ccu(cam->dev, 1);
+	mtk_cam_power_ctrl_ccu(cam->dev, 1);
 
 	pm_runtime_get_sync(cam->dev); /* use resume_and_get instead */
 
@@ -899,7 +1001,7 @@ static int mtk_cam_uninitialize(struct mtk_cam_device *cam)
 	mtk_cam_power_rproc(cam, 0);
 	pm_runtime_put_sync(cam->dev);
 
-	//mtk_cam_power_ctrl_ccu(cam->dev, 0);
+	mtk_cam_power_ctrl_ccu(cam->dev, 0);
 
 	return 0;
 }
@@ -907,7 +1009,42 @@ static int mtk_cam_uninitialize(struct mtk_cam_device *cam)
 static int isp_composer_handler(struct rpmsg_device *rpdev, void *data,
 				int len, void *priv, u32 src)
 {
-	/* TODO */
+	struct mtk_cam_device *cam = (struct mtk_cam_device *)priv;
+	struct device *dev = cam->dev;
+	struct mtkcam_ipi_event *ipi_msg;
+	struct mtk_cam_ctx *ctx;
+
+	ipi_msg = (struct mtkcam_ipi_event *)data;
+	if (!ipi_msg)
+		return -EINVAL;
+
+	if (len < offsetofend(struct mtkcam_ipi_event, ack_data)) {
+		dev_dbg(dev, "wrong IPI len:%d\n", len);
+		return -EINVAL;
+	}
+
+	if (ipi_msg->cmd_id != CAM_CMD_ACK ||
+	    (ipi_msg->ack_data.ack_cmd_id != CAM_CMD_FRAME &&
+	     ipi_msg->ack_data.ack_cmd_id != CAM_CMD_DESTROY_SESSION))
+		return -EINVAL;
+
+	if (ipi_msg->ack_data.ack_cmd_id == CAM_CMD_FRAME) {
+		ctx = &cam->ctxs[ipi_msg->cookie.session_id];
+		//MTK_CAM_TRACE_BEGIN(BASIC, "ipi_frame_ack:%d",
+		//		    ipi_msg->cookie.frame_no);
+		mtk_cam_ctrl_job_composed(&ctx->cam_ctrl,
+			ipi_msg->cookie.frame_no, &ipi_msg->ack_data.frame_result);
+
+		//MTK_CAM_TRACE_END(BASIC);
+		return 0;
+
+	} else if (ipi_msg->ack_data.ack_cmd_id == CAM_CMD_DESTROY_SESSION) {
+		ctx = &cam->ctxs[ipi_msg->cookie.session_id];
+		complete(&ctx->session_complete);
+		dev_info(dev, "%s:ctx(%d): session destroyed",
+			 __func__, ctx->stream_id);
+	}
+
 	return 0;
 }
 
@@ -943,6 +1080,37 @@ static struct mtk_cam_ctx *mtk_cam_get_ctx(struct mtk_cam_device *cam)
 static void mtk_cam_ctx_put(struct mtk_cam_ctx *ctx)
 {
 	/* todo */
+}
+
+static int _find_raw_sd_idx(struct mtk_raw_pipeline *raw, int num_raw,
+			    struct v4l2_subdev *sd)
+{
+	int i;
+
+	for (i = 0; i < num_raw; i++)
+		if (sd == &raw->subdev)
+			return i;
+	return -1;
+}
+
+static void mtk_cam_ctx_match_pipe_subdevs(struct mtk_cam_ctx *ctx)
+{
+	struct mtk_cam_v4l2_pipelines *ppls = &ctx->cam->pipelines;
+	struct v4l2_subdev **sd = ctx->pipe_subdevs;
+	int idx;
+
+	ctx->raw_subdev_idx = -1;
+
+	while (*sd) {
+
+		idx = _find_raw_sd_idx(ppls->raw, ppls->num_raw, *sd);
+		if (idx >= 0)
+			ctx->raw_subdev_idx = idx;
+
+		/* TODO: camsv/mraw */
+
+		++sd;
+	}
 }
 
 static int mtk_cam_ctx_pipeline_start(struct mtk_cam_ctx *ctx,
@@ -1008,6 +1176,8 @@ static int mtk_cam_ctx_pipeline_start(struct mtk_cam_ctx *ctx,
 		if (is_media_entity_v4l2_subdev(entity))
 			*target_sd = media_entity_to_v4l2_subdev(entity);
 	}
+
+	mtk_cam_ctx_match_pipe_subdevs(ctx);
 
 	return 0;
 
@@ -1370,21 +1540,6 @@ int mtk_cam_ctx_all_nodes_idle(struct mtk_cam_ctx *ctx)
 	return ctx->streaming_node_cnt == 0;
 }
 
-int mtk_cam_call_seninf_set_pixelmode(struct mtk_cam_ctx *ctx,
-				      struct v4l2_subdev *sd,
-				      int pad_id, int pixel_mode)
-{
-	int ret;
-
-	ret = mtk_cam_seninf_set_pixelmode(sd, pad_id, pixel_mode);
-	dev_dbg(ctx->cam->dev,
-		"%s:ctx(%d): seninf(%s): pad(%d), pixel_mode(%d)\n, ret(%d)",
-		__func__, ctx->stream_id, sd->name, pad_id, pixel_mode,
-		ret);
-
-	return ret;
-}
-
 static int ctx_stream_on_pipe_subdev(struct mtk_cam_ctx *ctx, int enable)
 {
 	struct device *dev = ctx->cam->dev;
@@ -1412,21 +1567,52 @@ fail_pipe_off:
 	return ret;
 }
 
-__maybe_unused static int ctx_stream_on_seninf_sensor(struct mtk_cam_ctx *ctx, int enable)
+#ifdef NOT_USE_YET
+int PipeIDtoTGIDX(int pipe_id)
+{
+	/* camsv/mraw's cammux id is defined in its own dts */
+
+	switch (pipe_id) {
+	case MTKCAM_SUBDEV_RAW_0:
+		return 0;
+	case MTKCAM_SUBDEV_RAW_1:
+		return 1;
+	case MTKCAM_SUBDEV_RAW_2:
+		return 2;
+	default:
+		break;
+	}
+	return -1;
+}
+#endif
+
+int ctx_stream_on_seninf_sensor(struct mtk_cam_ctx *ctx, int enable)
 {
 	struct device *dev = ctx->cam->dev;
+	struct v4l2_subdev *seninf = ctx->seninf;
+	int seninf_pad;
+	int pixel_mode;
+	int tg_idx;
 	int ret;
 
-	dev_info(dev, "%f: todo\n", __func__);
-	//ret = mtk_cam_seninf_set_pixelmode(sd, pad_id, pixel_mode);
 
-	//mtk_cam_call_seninf_set_pixelmode(ctx, ctx->seninf,
-	//				  PAD_SRC_RAW0, tgo_pxl_mode);
+	if (WARN_ON(!seninf))
+		return -1;
+
+	/* RAW */
+	seninf_pad = PAD_SRC_RAW0;
+	pixel_mode = 1; /* FIXME: pixel mode */
+	tg_idx = 0; // PipeIDtoTGIDX(raw_dev->id)
+
+
+	mtk_cam_seninf_set_camtg(seninf, seninf_pad, tg_idx);
+
+	ret = mtk_cam_seninf_set_pixelmode(seninf, seninf_pad, pixel_mode);
 
 	ret = v4l2_subdev_call(ctx->seninf, video, s_stream, enable);
 	if (ret) {
-		dev_info(dev, "failed to stream_on %s %d:%d\n",
-			 ctx->seninf->name, enable, ret);
+		dev_info(dev, "ctx %d failed to stream_on %s %d:%d\n",
+			 ctx->stream_id, seninf->name, enable, ret);
 		return -EPERM;
 	}
 	return ret;
@@ -1447,7 +1633,7 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 	mtk_cam_dev_req_try_queue(ctx->cam);
 
 	//ctx_stream_on_seninf_sensor later
-
+	mtk_cam_dvfs_update_clk(ctx->cam);
 	/* note
 	 * 1. collect 1st request info
 	 * 2. select HW engines
@@ -1468,11 +1654,29 @@ int mtk_cam_ctx_stream_off(struct mtk_cam_ctx *ctx)
 	/* TODO */
 
 	// seninf
-	//ctx_stream_on_seninf_sensor
+	ctx_stream_on_seninf_sensor(ctx, 0);
 
 	ctx_stream_on_pipe_subdev(ctx, 0);
 
 	return 0;
+}
+
+int mtk_cam_ctx_send_raw_event(struct mtk_cam_ctx *ctx,
+			       struct v4l2_event *event)
+{
+	struct v4l2_subdev *sd;
+
+	WARN_ON(ctx->raw_subdev_idx < 0);
+
+	sd = ctx->pipe_subdevs[ctx->raw_subdev_idx];
+	v4l2_event_queue(sd->devnode, event);
+	return 0;
+}
+
+void mtk_cam_ctx_job_finish(struct mtk_cam_ctx *ctx, struct mtk_cam_job *job)
+{
+	CALL_JOB(job, finalize);
+	mtk_cam_job_return(job);
 }
 
 static int _dynamic_link_seninf_pipe(struct device *dev,
@@ -1692,7 +1896,7 @@ static int mtk_cam_master_bind(struct device *dev)
 		goto fail_unreg_mraw_entities;
 	}
 
-	//mtk_cam_dvfs_init(cam_dev);
+	mtk_cam_dvfs_init(cam_dev);
 
 	dev_info(dev, "%s success\n", __func__);
 	return 0;
@@ -1739,7 +1943,7 @@ static void mtk_cam_master_unbind(struct device *dev)
 	mtk_camsv_unregister_entities(&cam_dev->sv);
 	//TODO: mraw
 #endif
-	//mtk_cam_dvfs_uninit(cam_dev);
+	mtk_cam_dvfs_uninit(cam_dev);
 	component_unbind_all(dev, cam_dev);
 
 	media_device_unregister(&cam_dev->media_dev);
@@ -2083,12 +2287,19 @@ bool mtk_cam_is_any_streaming(struct mtk_cam_device *cam)
 
 bool mtk_cam_are_all_streaming(struct mtk_cam_device *cam, int stream_mask)
 {
+	int streaming_ctx;
 	bool res;
 
 	spin_lock(&cam->streaming_lock);
-	res = USED_MASK_CONTAINS(&cam->streaming_ctx, &stream_mask);
+	streaming_ctx = cam->streaming_ctx;
 	spin_unlock(&cam->streaming_lock);
 
+	res = USED_MASK_CONTAINS(&streaming_ctx, &stream_mask);
+
+	if (!res)
+		dev_info(cam->dev,
+			 "%s: ctx not ready: streaming 0x%x desried 0x%x\n",
+			 __func__, streaming_ctx, stream_mask);
 	return res;
 }
 
@@ -2391,117 +2602,10 @@ static struct platform_driver mtk_cam_driver = {
 	}
 };
 
-#if IS_ENABLED(CONFIG_MTK_CAMSYS_VEND_HOOK)
-
-static void media_device_setup_link_hook(void *data, struct media_link *link,
-					 struct media_link_desc *linkd, int *ret)
-{
-	int ret_value;
-
-	pr_debug("%s req_fd:%d\n", __func__, linkd->reserved[0]);
-	link->android_vendor_data1 = linkd->reserved[0];
-	ret_value = __media_entity_setup_link(link, linkd->flags);
-	link->android_vendor_data1 = 0;
-	*ret = (ret_value < 0) ? ret_value : 1;
-	pr_debug("%s ret:%d\n", __func__, *ret);
-}
-
-static void clear_reserved_fmt_fields_hook(void *data, struct v4l2_format *p,
-					   int *ret)
-{
-	*ret = 1;
-}
-
-static void clear_mask_adjust_hook(void *data, unsigned int ctrl, int *n)
-{
-	if (ctrl == VIDIOC_S_SELECTION)
-		*n = offsetof(struct v4l2_selection, reserved[1]);
-}
-
-static void v4l2subdev_set_fmt_hook(void *data,
-	struct v4l2_subdev *sd, struct v4l2_subdev_state *state,
-	struct v4l2_subdev_format *format, int *ret)
-{
-	int retval = 0;
-	struct media_entity entity = sd->entity;
-
-	pr_debug("%s entity_name:%s req_fd:%d\n", __func__, entity.name,
-		format->reserved[0]);
-
-	retval = v4l2_subdev_call(sd, pad, set_fmt, state, format);
-	*ret = (retval < 0) ? retval : 1;
-	pr_debug("%s *ret:%d\n", __func__, *ret);
-}
-
-static void v4l2subdev_set_selection_hook(void *data,
-	struct v4l2_subdev *sd, struct v4l2_subdev_state *state,
-	struct v4l2_subdev_selection *sel, int *ret)
-{
-	int retval = 0;
-
-	retval = v4l2_subdev_call(sd, pad, set_selection, state, sel);
-	*ret = (retval < 0) ? retval : 1;
-}
-
-static void v4l2subdev_set_frame_interval_hook(void *data,
-	struct v4l2_subdev *sd, struct v4l2_subdev_frame_interval *fi,
-	int *ret)
-{
-	int retval = 0;
-
-	retval = v4l2_subdev_call(sd, video, s_frame_interval, fi);
-	*ret = (retval < 0) ? retval : 1;
-}
-
-static void mtk_cam_trace_init(void)
-{
-	int ret = 0;
-
-	ret = register_trace_android_rvh_media_device_setup_link(
-			media_device_setup_link_hook, NULL);
-	if (ret)
-		pr_info("register android_rvh_media_device_setup_link failed!\n");
-	ret = register_trace_android_vh_clear_reserved_fmt_fields(
-			clear_reserved_fmt_fields_hook, NULL);
-	if (ret)
-		pr_info("register android_vh_clear_reserved_fmt_fields failed!\n");
-	//ret = register_trace_android_vh_fill_ext_fmtdesc(
-	//		fill_ext_fmtdesc_hook, NULL);
-	//if (ret)
-	//	pr_info("register android_vh_v4l_fill_fmtdesc failed!\n");
-	ret = register_trace_android_vh_clear_mask_adjust(
-			clear_mask_adjust_hook, NULL);
-	if (ret)
-		pr_info("register android_vh_clear_mask_adjust failed!\n");
-	ret = register_trace_android_rvh_v4l2subdev_set_fmt(
-			v4l2subdev_set_fmt_hook, NULL);
-	if (ret)
-		pr_info("register android_rvh_v4l2subdev_set_fmt failed!\n");
-	ret = register_trace_android_rvh_v4l2subdev_set_selection(
-			v4l2subdev_set_selection_hook, NULL);
-	if (ret)
-		pr_info("register android_rvh_v4l2subdev_set_selection failed!\n");
-	ret = register_trace_android_rvh_v4l2subdev_set_frame_interval(
-			v4l2subdev_set_frame_interval_hook, NULL);
-	if (ret)
-		pr_info("register android_rvh_v4l2subdev_set_frame_interval failed!\n");
-}
-
-static void mtk_cam_trace_exit(void)
-{
-	unregister_trace_android_vh_clear_reserved_fmt_fields(clear_reserved_fmt_fields_hook, NULL);
-	//unregister_trace_android_vh_fill_ext_fmtdesc(fill_ext_fmtdesc_hook, NULL);
-	unregister_trace_android_vh_clear_mask_adjust(clear_mask_adjust_hook, NULL);
-}
-
-#endif
-
 static int __init mtk_cam_init(void)
 {
 	int ret;
-#if IS_ENABLED(CONFIG_MTK_CAMSYS_VEND_HOOK)
-	mtk_cam_trace_init();
-#endif
+
 	ret = platform_driver_register(&mtk_cam_driver);
 	return ret;
 }
@@ -2509,9 +2613,6 @@ static int __init mtk_cam_init(void)
 static void __exit mtk_cam_exit(void)
 {
 	platform_driver_unregister(&mtk_cam_driver);
-#if IS_ENABLED(CONFIG_MTK_CAMSYS_VEND_HOOK)
-	mtk_cam_trace_exit();
-#endif
 }
 
 module_init(mtk_cam_init);

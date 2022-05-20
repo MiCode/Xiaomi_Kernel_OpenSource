@@ -52,7 +52,8 @@ $(CAM_MODULE)-objs := \
     mtk_cam-raw_pipeline.o \
     mtk_cam-raw_debug.o \
     mtk_cam-tg-flash.o \
-    mtk_cam-ctrl.o
+    mtk_cam-ctrl.o \
+    mtk_cam-dvfs_qos.o
 
     #mtk_cam-ctrl.o
     #mtk_cam-smem.o \

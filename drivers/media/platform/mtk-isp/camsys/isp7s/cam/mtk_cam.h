@@ -27,6 +27,7 @@
 #include "mtk_cam-seninf-drv.h"
 #include "mtk_cam-seninf-if.h"
 #include "mtk_camera-v4l2-controls.h"
+#include "mtk_cam-dvfs_qos.h"
 
 #define CCD_READY 1
 
@@ -62,6 +63,10 @@ struct mtk_cam_ctx {
 	//struct v4l2_subdev *prev_seninf;
 	struct v4l2_subdev *pipe_subdevs[MAX_PIPES_PER_STREAM];
 
+	/* TODO */
+	int raw_subdev_idx;
+	//int camsv_subdev_idx[2];
+
 	/* job pool */
 	struct mtk_cam_job_data jobs[JOB_NUM_PER_STREAM];
 	struct mtk_cam_pool job_pool;
@@ -71,6 +76,7 @@ struct mtk_cam_ctx {
 	struct rpmsg_channel_info rpmsg_channel;
 	struct mtk_rpmsg_device *rpmsg_dev;
 	struct work_struct session_work;
+	int ipi_id;
 	bool session_created;
 	struct completion session_complete;
 
@@ -97,12 +103,13 @@ struct mtk_cam_ctx {
 	bool configured;
 	struct mtkcam_ipi_config_param ipi_config;
 
+	struct device *hw_raw;
+
 	//struct mtk_raw_pipeline *pipe;
 	//struct mtk_camsv_pipeline *sv_pipe[MAX_SV_PIPES_PER_STREAM];
 	//struct mtk_mraw_pipeline *mraw_pipe[MAX_MRAW_PIPES_PER_STREAM];
 	struct mtk_cam_ctrl cam_ctrl;
 	/* list for struct mtk_cam_job */
-	struct list_head	running_jobs;
 };
 
 struct mtk_cam_v4l2_pipelines {
@@ -115,6 +122,7 @@ struct mtk_cam_v4l2_pipelines {
 	int num_mraw;
 	struct mtk_mraw_pipeline *mraw;
 };
+int ctx_stream_on_seninf_sensor(struct mtk_cam_ctx *ctx, int enable);
 
 struct mtk_cam_engines {
 	int num_seninf_devices;
@@ -179,6 +187,7 @@ struct mtk_cam_device {
 	unsigned int running_job_count;
 	spinlock_t running_job_lock;
 
+	struct mtk_camsys_dvfs dvfs_info;
 	//struct mtk_cam_debug_fs *debug_fs;
 	//struct workqueue_struct *debug_wq;
 	//struct workqueue_struct *debug_exception_wq;
@@ -237,6 +246,10 @@ int mtk_cam_ctx_all_nodes_streaming(struct mtk_cam_ctx *ctx);
 int mtk_cam_ctx_all_nodes_idle(struct mtk_cam_ctx *ctx);
 int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx);
 int mtk_cam_ctx_stream_off(struct mtk_cam_ctx *ctx);
+int mtk_cam_ctx_send_raw_event(struct mtk_cam_ctx *ctx,
+			       struct v4l2_event *event);
+void mtk_cam_ctx_job_finish(struct mtk_cam_ctx *ctx, struct mtk_cam_job *job);
+
 int isp_composer_create_session(struct mtk_cam_ctx *ctx);
 void isp_composer_destroy_session(struct mtk_cam_ctx *ctx);
 
@@ -246,6 +259,10 @@ int mtk_cam_call_seninf_set_pixelmode(struct mtk_cam_ctx *ctx,
 
 int mtk_cam_dev_req_enqueue(struct mtk_cam_device *cam,
 			    struct mtk_cam_request *req);
+
+/* use ipi pipe/node id */
+void mtk_cam_req_buffer_done(struct mtk_cam_request *req,
+			     int pipe_id, int buf_state, int node_id, u64 ts);
 //void mtk_cam_dev_req_cleanup(struct mtk_cam_ctx *ctx, int pipe_id, int buf_state);
 //void mtk_cam_dev_req_clean_pending(struct mtk_cam_device *cam, int pipe_id,
 //				   int buf_state);

@@ -18,6 +18,13 @@
 #include <mtk_heap.h>
 #include "mtk_cam-pool.h"
 
+#define POOL_DEBUG 1
+#define pool_dbg(fmt, arg...)					\
+	do {							\
+		if (POOL_DEBUG)					\
+			pr_info("%s: " fmt, __func__, ##arg);	\
+	} while (0)
+
 static struct dma_buf *mtk_cam_buffer_alloc_from_heap(const char *heap_name,
 						      size_t size)
 {
@@ -184,6 +191,9 @@ int mtk_cam_pool_alloc(struct mtk_cam_pool *pool,
 	pool->fetch_idx = 0;
 	pool->available_cnt = pool->n_element;
 
+	pool_dbg("pool %p: size %zu, n = %d\n",
+		 pool, pool->element_size, pool->n_element);
+
 	return 0;
 }
 
@@ -260,6 +270,12 @@ int mtk_cam_pool_fetch(struct mtk_cam_pool *pool,
 	}
 	spin_unlock(&pool->lock);
 
+	pool_dbg("pool %p, idx %d fetch_idx %d available_cnt %d\n",
+		 pool,
+		 ((struct mtk_cam_pool_priv *)buf)->index,
+		 pool->fetch_idx,
+		 pool->available_cnt);
+
 	return (c == n) ? -1 : 0;
 }
 
@@ -287,6 +303,12 @@ void mtk_cam_pool_return(void *buf, size_t size)
 	priv->available = true;
 	++pool->available_cnt;
 	spin_unlock(&pool->lock);
+
+	pool_dbg("pool %p, idx %d fetch_idx %d available_cnt %d\n",
+		 pool,
+		 i,
+		 pool->fetch_idx,
+		 pool->available_cnt);
 }
 
 int mtk_cam_pool_available_cnt(struct mtk_cam_pool *pool)

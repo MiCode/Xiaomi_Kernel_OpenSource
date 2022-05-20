@@ -575,11 +575,12 @@ int is_fullg_rb(unsigned int pixelformat)
 	}
 }
 
+#define SENSOR_FMT_MASK			0xFFFF
 unsigned int sensor_mbus_to_ipi_fmt(unsigned int mbus_code)
 {
 	unsigned int fmt = MTKCAM_IPI_IMG_FMT_UNKNOWN;
 
-	switch (mbus_code) {
+	switch (mbus_code & SENSOR_FMT_MASK) {
 	case MEDIA_BUS_FMT_SBGGR8_1X8:
 	case MEDIA_BUS_FMT_SGBRG8_1X8:
 	case MEDIA_BUS_FMT_SGRBG8_1X8:
@@ -604,6 +605,7 @@ unsigned int sensor_mbus_to_ipi_fmt(unsigned int mbus_code)
 		break;
 	}
 
+	/* may fail */
 	//if (WARN_ON(fmt == MTKCAM_IPI_IMG_FMT_UNKNOWN))
 	//    pr_info("Unsupported fmt 0x%08x\n", mbus_code);
 
@@ -614,7 +616,7 @@ unsigned int sensor_mbus_to_ipi_pixel_id(unsigned int mbus_code)
 {
 	unsigned int pxl_id = MTKCAM_IPI_BAYER_PXL_ID_UNKNOWN;
 
-	switch (mbus_code) {
+	switch (mbus_code & SENSOR_FMT_MASK) {
 	case MEDIA_BUS_FMT_SBGGR8_1X8:
 	case MEDIA_BUS_FMT_SBGGR10_1X10:
 	case MEDIA_BUS_FMT_SBGGR12_1X12:

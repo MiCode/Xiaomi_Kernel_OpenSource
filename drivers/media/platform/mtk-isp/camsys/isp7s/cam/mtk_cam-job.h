@@ -13,10 +13,6 @@
 #include "mtk_cam-ipi_7_1.h"
 
 struct mtk_cam_job;
-struct mtk_cam_pool_job {
-	struct mtk_cam_pool_priv priv;
-	struct mtk_cam_job_data *job_data;
-};
 enum MTK_CAM_JOB_ACTION {
 	/* send_event : try_set_sensor */
 	CAM_JOB_APPLY_SENSOR = 0,		/* BIT(0) = 1 */
@@ -125,8 +121,9 @@ struct mtk_cam_job {
 	struct mtk_cam_pool_buffer ipi;
 	struct mtkcam_ipi_frame_ack_result cq_rst;
 	int used_engine;
-	bool do_config;
+	bool do_ipi_config;
 	struct mtkcam_ipi_config_param ipi_config;
+	bool stream_on_seninf;
 
 	/* job private start */
 	int state;		/* job state machine used - only job layer */
@@ -138,7 +135,6 @@ struct mtk_cam_job {
 	int sensor_set_margin;	/* allow apply sensor before SOF + x (ms)*/
 	struct mtk_cam_job_work frame_done_work;
 	struct mtk_cam_job_work meta1_done_work;
-	struct mtk_cam_job_work sv_done_work;
 	struct mtk_cam_req_feature feature;
 	u64 timestamp;
 	u64 timestamp_mono;
@@ -147,6 +143,11 @@ struct mtk_cam_job {
 	int link_engine;
 	int proc_engine;
 	atomic_t seninf_dump_state;
+
+	u64 (*timestamp_buf)[128];
+
+	/* hw devices */
+	struct device *hw_raw;
 	/* job private end */
 
 	struct {
@@ -154,6 +155,9 @@ struct mtk_cam_job {
 		int (*wait_done)(struct mtk_cam_job *job);
 		int (*cancel)(struct mtk_cam_job *job);
 		int (*dump)(struct mtk_cam_job *job /*, ... */);
+
+		/* should alway be called for clean-up resources */
+		void (*finalize)(struct mtk_cam_job *job);
 
 		/* event handle */
 		int (*update_event)(struct mtk_cam_job *job,
@@ -164,8 +168,11 @@ struct mtk_cam_job {
 						bool on);
 		int (*reset)(struct mtk_cam_job *job);
 		int (*compose)(struct mtk_cam_job *job);
+
+		/* only do job->composed = true */
 		int (*compose_done)(struct mtk_cam_job *job,
-					struct mtkcam_ipi_frame_ack_result *cq_ret);
+				    struct mtkcam_ipi_frame_ack_result *cq_ret);
+
 		int (*apply_sensor)(struct mtk_cam_job *job);
 		int (*apply_fs)(struct mtk_cam_job *job);
 		int (*apply_isp)(struct mtk_cam_job *job);
@@ -189,23 +196,35 @@ struct mtk_cam_job {
 
 
 struct mtk_cam_normal_job {
-	// TODO
+	struct mtk_cam_job job; /* always on top */
+
+	/* TODO */
 };
 struct mtk_cam_stagger_job {
-	// TODO
+	struct mtk_cam_job job; /* always on top */
+
+	/* TODO */
 };
 struct mtk_cam_mstream_job {
-	// TODO
+	struct mtk_cam_job job; /* always on top */
+
+	/* TODO */
 };
 struct mtk_cam_timeshare_job {
-	// TODO
+	struct mtk_cam_job job; /* always on top */
+
+	/* TODO */
 };
 
+struct mtk_cam_pool_job {
+	struct mtk_cam_pool_priv priv;
+	struct mtk_cam_job_data *job_data;
+};
+
+/* this struct is for job-pool */
 struct mtk_cam_job_data {
 	struct mtk_cam_pool_job pool_job;
-	struct mtk_cam_job job;
 
-	int job_type;
 	union {
 		struct mtk_cam_normal_job n;
 		struct mtk_cam_stagger_job s;
@@ -213,16 +232,25 @@ struct mtk_cam_job_data {
 		struct mtk_cam_timeshare_job t;
 	};
 };
+unsigned int decode_fh_reserved_data_to_ctx(u32 data_in);
+unsigned int decode_fh_reserved_data_to_seq(u32 ref_near_by, u32 data_in);
+unsigned int encode_fh_reserved_data(u32 ctx_id_in, u32 seq_no_in);
 
-static inline struct mtk_cam_job_data *
-mtk_cam_job_to_data(struct mtk_cam_job *job)
+
+
+static inline struct mtk_cam_job_data *job_to_data(struct mtk_cam_job *job)
 {
-	return container_of(job, struct mtk_cam_job_data, job);
+	return container_of(job, struct mtk_cam_job_data, m.job);
+}
+
+static inline struct mtk_cam_job *data_to_job(struct mtk_cam_job_data *data)
+{
+	return &data->n.job;
 }
 
 static inline void mtk_cam_job_return(struct mtk_cam_job *job)
 {
-	struct mtk_cam_job_data *data = mtk_cam_job_to_data(job);
+	struct mtk_cam_job_data *data = job_to_data(job);
 
 	mtk_cam_pool_return(&data->pool_job, sizeof(data->pool_job));
 }

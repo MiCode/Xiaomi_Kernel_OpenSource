@@ -7,10 +7,10 @@
 
 #include "mtk-interconnect.h"
 #include "mtk_cam.h"
-#include "mtk_cam-feature.h"
+// #include "mtk_cam-feature.h"
 #include "mtk_cam-dvfs_qos.h"
-#include "soc/mediatek/mmqos.h"
-
+// #include "soc/mediatek/mmqos.h"
+#ifdef NOT_READY
 static unsigned int debug_mmqos;
 module_param(debug_mmqos, uint, 0644);
 MODULE_PARM_DESC(debug_mmqos, "activates debug mmqos");
@@ -272,11 +272,12 @@ static struct mraw_mmqos mraw_qos[] = {
 		},
 	},
 };
-
+#endif
 static void mtk_cam_dvfs_enumget_clktarget(struct mtk_cam_device *cam)
 {
-	struct mtk_camsys_dvfs *dvfs = &cam->camsys_ctrl.dvfs_info;
+	struct mtk_camsys_dvfs *dvfs = &cam->dvfs_info;
 	int clk_streaming_max = dvfs->clklv[0];
+#ifdef NOT_READY
 	int i;
 
 	for (i = MTKCAM_SUBDEV_RAW_START;  i < MTKCAM_SUBDEV_RAW_END; i++) {
@@ -290,13 +291,14 @@ static void mtk_cam_dvfs_enumget_clktarget(struct mtk_cam_device *cam)
 			dev_dbg(cam->dev, "on ctx:%d not streaming or pipe null", i);
 		}
 	}
+#endif
 	dvfs->clklv_target = clk_streaming_max;
 	dev_info(cam->dev, "[%s] dvfs->clk=%d", __func__, dvfs->clklv_target);
 }
 
 static void mtk_cam_dvfs_get_clkidx(struct mtk_cam_device *cam)
 {
-	struct mtk_camsys_dvfs *dvfs = &cam->camsys_ctrl.dvfs_info;
+	struct mtk_camsys_dvfs *dvfs = &cam->dvfs_info;
 
 	u64 freq_cur = 0;
 	int i;
@@ -340,7 +342,7 @@ static int set_clk_src(struct mtk_camsys_dvfs *dvfs, u32 opp_level)
 
 void mtk_cam_dvfs_update_clk(struct mtk_cam_device *cam)
 {
-	struct mtk_camsys_dvfs *dvfs = &cam->camsys_ctrl.dvfs_info;
+	struct mtk_camsys_dvfs *dvfs = &cam->dvfs_info;
 	int current_volt;
 	s32 err;
 
@@ -374,7 +376,7 @@ void mtk_cam_dvfs_update_clk(struct mtk_cam_device *cam)
 
 void mtk_cam_dvfs_uninit(struct mtk_cam_device *cam)
 {
-	struct mtk_camsys_dvfs *dvfs_info = &cam->camsys_ctrl.dvfs_info;
+	struct mtk_camsys_dvfs *dvfs_info = &cam->dvfs_info;
 
 	if (dvfs_info->clklv_num)
 		dev_pm_opp_of_remove_table(dvfs_info->dev);
@@ -383,7 +385,7 @@ void mtk_cam_dvfs_uninit(struct mtk_cam_device *cam)
 
 void mtk_cam_dvfs_init(struct mtk_cam_device *cam)
 {
-	struct mtk_camsys_dvfs *dvfs_info = &cam->camsys_ctrl.dvfs_info;
+	struct mtk_camsys_dvfs *dvfs_info = &cam->dvfs_info;
 	struct dev_pm_opp *opp;
 	unsigned long freq = 0;
 	int ret = 0, clk_num = 0, i = 0;
@@ -421,7 +423,7 @@ void mtk_cam_dvfs_init(struct mtk_cam_device *cam)
 		dev_info(cam->dev, "[%s] idx=%d, clk=%d volt=%d\n",
 			 __func__, i, dvfs_info->clklv[i], dvfs_info->voltlv[i]);
 	}
-	mtk_cam_qos_init(cam);
+	// mtk_cam_qos_init(cam);
 
 	/* Get CLK handles */
 	ret = of_property_read_string(dev->of_node, "mux_name", &mux_name);
@@ -451,7 +453,7 @@ opp_default_table:
 	dvfs_info->clklv_num = 1;
 
 }
-
+#ifdef NOT_READY
 #define MTK_CAM_QOS_LSCI_TABLE_MAX_SIZE (32768)
 #define MTK_CAM_QOS_CACI_TABLE_MAX_SIZE (32768)
 #define BW_B2KB(value) ((value) / 1024)
@@ -1206,4 +1208,4 @@ void mtk_cam_qos_bw_reset(struct mtk_cam_ctx *ctx, unsigned int enabled_sv)
 		}
 	}
 }
-
+#endif

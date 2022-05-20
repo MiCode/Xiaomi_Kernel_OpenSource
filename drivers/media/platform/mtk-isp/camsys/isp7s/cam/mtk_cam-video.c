@@ -114,6 +114,21 @@ static void mtk_cam_vb2_buf_collect_image_info(struct vb2_buffer *vb)
 	cached->crop = node->active_crop.r;
 }
 
+static void mtk_cam_vb2_buf_collect_meta_info(struct vb2_buffer *vb)
+{
+	struct mtk_cam_video_device *node = mtk_cam_vbq_to_vdev(vb->vb2_queue);
+	struct mtk_cam_buffer *buf = mtk_cam_vb2_buf_to_dev_buf(vb);
+	struct mtk_cam_cached_meta_info *cached = &buf->meta_info;
+	const struct v4l2_meta_format *meta_fmt = &node->active_fmt.fmt.meta;
+
+	cached->v4l2_pixelformat = meta_fmt->dataformat;
+	cached->buffersize = meta_fmt->buffersize;
+
+	pr_debug("%s: %s buf 0x%llx size %zu\n",
+		 __func__, node->desc.name,
+		 buf, cached->buffersize);
+}
+
 static int mtk_cam_vb2_buf_prepare(struct vb2_buffer *vb)
 {
 	struct mtk_cam_video_device *node = mtk_cam_vbq_to_vdev(vb->vb2_queue);
@@ -154,9 +169,6 @@ static int mtk_cam_vb2_buf_prepare(struct vb2_buffer *vb)
 	v4l2_buf->field = V4L2_FIELD_NONE;
 	vb2_set_plane_payload(vb, 0, size);
 
-	if (node->desc.image)
-		mtk_cam_vb2_buf_collect_image_info(vb);
-
 	return 0;
 }
 
@@ -166,10 +178,10 @@ static void mtk_cam_vb2_buf_finish(struct vb2_buffer *vb)
 	unsigned int plane;
 
 	if (node->desc.need_cache_sync_on_finish) {
-		dev_dbg(vb->vb2_queue->dev, "%s: %s\n",
-			__func__, node->desc.name);
 		for (plane = 0; plane < vb->num_planes; ++plane)
 			mtk_cam_vb2_sync_for_cpu(vb->planes[plane].mem_priv);
+
+		//dev_dbg(vb->vb2_queue->dev, "%s: %s\n", __func__, node->desc.name);
 	}
 }
 
@@ -391,7 +403,7 @@ const struct mtk_format_info *mtk_format_info(u32 format)
 
 static int _temp_ipi_pipe_id_to_idx(int pipe_id)
 {
-	pr_info("%s: update for 7s\n", __func__);
+	pr_info_ratelimited("%s: update for 7s\n", __func__);
 
 	if (is_raw_subdev(pipe_id))
 		return pipe_id;
@@ -430,6 +442,11 @@ static void mtk_cam_vb2_buf_queue(struct vb2_buffer *vb)
 
 	if (WARN_ON(!req))
 		return;
+
+	if (node->desc.image)
+		mtk_cam_vb2_buf_collect_image_info(vb);
+	else
+		mtk_cam_vb2_buf_collect_meta_info(vb);
 
 	mtk_cam_mark_pipe_used(&req->used_pipe, ipi_pipe_id);
 	list_add_tail(&buf->list, &req->buf_list);
@@ -1121,7 +1138,7 @@ int mtk_cam_video_set_fmt(struct mtk_cam_video_device *node,
 	if (!dev_fmt) {
 		dev_info(cam->dev, "unknown fmt:%d\n",
 			 f->fmt.pix_mp.pixelformat);
-		return -EINVAL;
+		dev_fmt = &node->desc.fmts[node->desc.default_fmt_idx].vfmt;
 	}
 
 	try_fmt.fmt.pix_mp.pixelformat = dev_fmt->fmt.pix_mp.pixelformat;
@@ -1261,8 +1278,8 @@ int mtk_cam_vidioc_g_meta_fmt(struct file *file, void *fh,
 	f->fmt.meta.dataformat = node->active_fmt.fmt.meta.dataformat;
 	f->fmt.meta.buffersize = node->active_fmt.fmt.meta.buffersize;
 	dev_dbg(cam->dev,
-		"%s: node:%d dataformat:%d buffersize:%d\n",
-		__func__, node->desc.id, f->fmt.meta.dataformat, f->fmt.meta.buffersize);
+		"%s: node:%s dataformat:%d buffersize:%d\n",
+		__func__, node->desc.name, f->fmt.meta.dataformat, f->fmt.meta.buffersize);
 
 	return 0;
 

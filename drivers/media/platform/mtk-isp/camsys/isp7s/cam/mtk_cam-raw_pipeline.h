@@ -142,6 +142,7 @@ struct mtk_raw_ctrl_data {
 	s64 feature;
 
 	struct mtk_cam_resource user_res;
+	int raw_path;
 
 	bool enqueued_tg_flash_req; /* need a better way to collect the request */
 	struct mtk_cam_tg_flash_config tg_flash_config;

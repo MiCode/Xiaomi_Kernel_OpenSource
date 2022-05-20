@@ -85,11 +85,13 @@ struct mtk_cam_request {
 	int used_ctx;
 	int used_pipe;
 
+	spinlock_t buf_lock;
 	struct list_head buf_list;
+
 	struct mtk_cam_frame_sync fs;
 
-	struct v4l2_ctrl_handler *ctrl_hdls[8]; /* TODO: count */
-	int ctrl_hdl_nr;
+	struct media_request_object *ctrl_objs[8]; /* TODO: count */
+	int ctrl_objs_nr;
 
 	struct mtk_raw_request_data raw_data[3]; /* TODO: count */
 };
