@@ -113,7 +113,7 @@ static int ptn36241g_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct ptn36241g *ptn;
-	struct typec_switch_desc sw_desc;
+	struct typec_switch_desc sw_desc = {};
 	int ret = 0;
 
 	ptn = devm_kzalloc(&pdev->dev, sizeof(*ptn), GFP_KERNEL);
