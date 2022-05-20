@@ -335,7 +335,7 @@ int mmdvfs_dbg_clk_set(int step, bool is_force)
 					dbg_data->reg, volt, INT_MAX);
 				if (!IS_ERR(vcore_reg_id)) {
 					v_real = regulator_get_voltage(vcore_reg_id);
-					pr_notice("%s: step=%d volt=%llu r_volt=%d is_force=%d\n",
+					pr_notice("%s: step=%d volt=%d r_volt=%d is_force=%d\n",
 							__func__, step, volt, v_real, is_force);
 				}
 				set_all_clk(drv_data, volt, true);
@@ -345,7 +345,7 @@ int mmdvfs_dbg_clk_set(int step, bool is_force)
 					dbg_data->reg, volt, INT_MAX);
 				if (!IS_ERR(vcore_reg_id)) {
 					v_real = regulator_get_voltage(vcore_reg_id);
-					pr_notice("%s: step=%d volt=%llu r_volt=%d is_force=%d\n",
+					pr_notice("%s: step=%d volt=%d r_volt=%d is_force=%d\n",
 							__func__, step, volt, v_real, is_force);
 				}
 			}
@@ -353,7 +353,7 @@ int mmdvfs_dbg_clk_set(int step, bool is_force)
 			regulator_set_voltage(dbg_data->reg, volt, INT_MAX);
 		}
 	}
-	pr_notice("%s: step=%d volt=%llu is_force=%d\n", __func__, step, volt, is_force);
+	pr_notice("%s: step=%d volt=%d is_force=%d\n", __func__, step, volt, is_force);
 	return ret;
 }
 
