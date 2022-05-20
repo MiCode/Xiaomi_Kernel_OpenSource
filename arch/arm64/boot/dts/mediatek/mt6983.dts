@@ -26,7 +26,7 @@
 #include <dt-bindings/pinctrl/mt6983-pinfunc.h>
 #include <dt-bindings/interconnect/mtk,mt6873-emi.h>
 #include <dt-bindings/mml/mml-mt6983.h>
-#include <dt-bindings/clock/mt6983-mmdvfs-clk.h>
+#include <dt-bindings/clock/mmdvfs-clk.h>
 
 / {
 	model = "MT6983";
@@ -7251,7 +7251,7 @@
 		};
 	};
 
-	opp_table_mmdvfs_vote: opp-table-mmdvfs-vote {
+	opp_table_vote: opp-table-vote {
 		compatible = "operating-points-v2";
 		opp-0 {
 			opp-hz = /bits/ 64 <1>;
@@ -7309,30 +7309,47 @@
 			interconnect-names = "icc-bw", "icc-hrt-bw";
 	};
 
-	mmdvfs_clk: mmdvfs_clk@0x1e820000 {
+	mmdvfs_clk: mmdvfs_clk {
 		compatible = "mediatek,mtk-mmdvfs-v3";
+		#mmdvfs,clock-cells = <6>;
+		mediatek,mmdvfs_clocks =
+			<&mmdvfs_clk CLK_MMDVFS_DISP PWR_MMDVFS_VCORE 1
+				IPI_MMDVFS_VCP SPEC_MMDVFS_ALONE &opp_table_disp0>,
+			<&mmdvfs_clk CLK_MMDVFS_MDP PWR_MMDVFS_VCORE 2
+				IPI_MMDVFS_VCP SPEC_MMDVFS_NORMAL &opp_table_mdp0>,
+			<&mmdvfs_clk CLK_MMDVFS_MML PWR_MMDVFS_VCORE 3
+				IPI_MMDVFS_VCP SPEC_MMDVFS_NORMAL &opp_table_mdp1>,
+			<&mmdvfs_clk CLK_MMDVFS_SMI_COMMON0 PWR_MMDVFS_VCORE 4
+				IPI_MMDVFS_VCP SPEC_MMDVFS_NORMAL &opp_table_mminfra>,
+			<&mmdvfs_clk CLK_MMDVFS_SMI_COMMON1 PWR_MMDVFS_VCORE 4
+				IPI_MMDVFS_VCP SPEC_MMDVFS_NORMAL &opp_table_mminfra>,
+			<&mmdvfs_clk CLK_MMDVFS_VENC PWR_MMDVFS_VCORE 5
+				IPI_MMDVFS_VCP SPEC_MMDVFS_NORMAL &opp_table_venc>,
+			<&mmdvfs_clk CLK_MMDVFS_JPEGENC PWR_MMDVFS_VCORE 6
+				IPI_MMDVFS_VCP SPEC_MMDVFS_NORMAL &opp_table_venc>,
+			<&mmdvfs_clk CLK_MMDVFS_VDEC PWR_MMDVFS_VCORE 7
+				IPI_MMDVFS_VCP SPEC_MMDVFS_NORMAL &opp_table_vdec>,
+			<&mmdvfs_clk CLK_MMDVFS_VFMT PWR_MMDVFS_VCORE 8
+				IPI_MMDVFS_VCP SPEC_MMDVFS_NORMAL &opp_table_vdec>,
+			<&mmdvfs_clk CLK_MMDVFS_JPEGDEC PWR_MMDVFS_VCORE 8
+				IPI_MMDVFS_VCP SPEC_MMDVFS_NORMAL &opp_table_vdec>,
+			<&mmdvfs_clk CLK_MMDVFS_IMG PWR_MMDVFS_VCORE 9
+				IPI_MMDVFS_CCU SPEC_MMDVFS_NORMAL &opp_table_img>,
+			<&mmdvfs_clk CLK_MMDVFS_IPE PWR_MMDVFS_VCORE 9
+				IPI_MMDVFS_CCU SPEC_MMDVFS_NORMAL &opp_table_ipe>,
+			<&mmdvfs_clk CLK_MMDVFS_CAM PWR_MMDVFS_VCORE 10
+				IPI_MMDVFS_VCP SPEC_MMDVFS_NORMAL &opp_table_cam>,
+			<&mmdvfs_clk CLK_MMDVFS_CCU PWR_MMDVFS_VCORE 10
+				IPI_MMDVFS_VCP SPEC_MMDVFS_NORMAL &opp_table_ccu>,
+			<&mmdvfs_clk CLK_MMDVFS_VCORE PWR_MMDVFS_VCORE 9 /*11*/
+				IPI_MMDVFS_VCP SPEC_MMDVFS_NORMAL &opp_table_vote>,
+			<&mmdvfs_clk CLK_MMDVFS_VMM PWR_MMDVFS_VMM 12
+				IPI_MMDVFS_VCP SPEC_MMDVFS_NORMAL &opp_table_vote>;
+		mediatek,mmdvfs_clock_names = "disp", "mdp", "mml", "smi_common0", "smi_common1",
+			"venc", "jpegenc", "vdec", "vfmt", "jpegdec", "img", "ipe", "cam", "ccu",
+			"vcore", "vmm";
 		#clock-cells = <1>;
-		mediatek,mmdvfs_clocks = <0 1 0 0 &opp_table_disp0>,
-					<0 2 0 0 &opp_table_mdp0>,
-					<0 3 0 0 &opp_table_mdp1>,
-					<1 1 1 0 &opp_table_cam>,
-					<1 1 1 0 &opp_table_cam>,
-					<1 1 1 1 &opp_table_img>,
-					<0 4 0 0 &opp_table_mminfra>,
-					<0 4 0 0 &opp_table_mminfra>,
-					<0 8 0 0 &opp_table_vdec>,
-					<0 6 0 0 &opp_table_venc>,
-					<0 6 0 0 &opp_table_venc>,
-					<0 7 0 0 &opp_table_vdec>,
-					<0 5 0 0 &opp_table_venc>,
-					<0 6 0 0 &opp_table_venc>,
-					<0 6 0 0 &opp_table_venc>,
-					<0 9 0 0 &opp_table_mmdvfs_vote>,
-					<1 10 0 0 &opp_table_mmdvfs_vote>;
-		mediatek,mmdvfs_clk_names = "disp", "mdp", "mml", "cam", "senif",
-			"img", "smi_comm0", "smi_comm1", "vfmt", "jpegenc", "jpegenc2",
-			"vdec", "venc", "jpegdec", "jpegdec2", "vcore_vote";
-		clocks = <&mmdvfs_clk CLK_MMDVFS_VOTE_VCORE>, <&mmdvfs_clk CLK_MMDVFS_VOTE_VMM>;
+		clocks = <&mmdvfs_clk CLK_MMDVFS_VCORE>, <&mmdvfs_clk CLK_MMDVFS_VMM>;
 		clock-names = "vcore", "vmm";
 	};
 
@@ -7356,7 +7373,7 @@
 		disp-dev = <&dispsys_config>;
 		force-step0 = <1>; /* 0:opp0,  1:opp1, ... */
 		release-step0 = <1>; /* 0:disable,  1:enable */
-		clocks = <&mmdvfs_clk CLK_MMDVFS_VOTE_VCORE>, <&mmdvfs_clk CLK_MMDVFS_VOTE_VMM>;
+		clocks = <&mmdvfs_clk CLK_MMDVFS_VCORE>, <&mmdvfs_clk CLK_MMDVFS_VMM>;
 		clock-names = "vcore", "vmm";
 	};
 
