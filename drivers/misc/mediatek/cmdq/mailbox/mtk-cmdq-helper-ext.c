@@ -836,6 +836,11 @@ s32 cmdq_pkt_add_cmd_buffer(struct cmdq_pkt *pkt)
 	 */
 	*prev_va = ((u64)(CMDQ_CODE_JUMP << 24 | 1) << 32) |
 		(CMDQ_REG_SHIFT_ADDR(CMDQ_BUF_ADDR(buf)) & 0xFFFFFFFF);
+	if (*prev_va != (((u64)(CMDQ_CODE_JUMP << 24 | 1) << 32) |
+		(CMDQ_REG_SHIFT_ADDR(CMDQ_BUF_ADDR(buf)) & 0xFFFFFFFF))) {
+		cmdq_err("insert jump fail, prev inst:%#llx", *prev_va);
+		BUG_ON(1);
+	}
 
 	/* decrease available size since insert 1 jump */
 	pkt->avail_buf_size -= CMDQ_INST_SIZE;
