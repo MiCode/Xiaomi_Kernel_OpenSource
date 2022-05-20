@@ -18,6 +18,7 @@
 #define WPE_HW_SET    3
 #define ADL_HW_SET    2
 #define SW_RST   (0x000C)
+#define DBG_SW_CLR   (0x0260)
 
 struct imgsys_dbg_engine_t dbg_engine_name_list[DL_CHECK_ENG_NUM] = {
 	{IMGSYS_ENG_WPE_EIS, "WPE_EIS"},
@@ -39,6 +40,8 @@ void __iomem *wpedip2RegBA;
 void __iomem *wpedip3RegBA;
 void __iomem *dipRegBA;
 void __iomem *dip1RegBA;
+void __iomem *dip2RegBA;
+void __iomem *trawRegBA;
 void __iomem *adlARegBA;
 void __iomem *adlBRegBA;
 
@@ -102,6 +105,25 @@ void imgsys_main_init(struct mtk_imgsys_dev *imgsys_dev)
 		return;
 	}
 
+	dip2RegBA = of_iomap(imgsys_dev->dev->of_node, REG_MAP_E_DIP_TOP_NR2);
+	if (!dip2RegBA) {
+		dev_info(imgsys_dev->dev, "%s Unable to ioremap dip_top_nr2 registers\n",
+								__func__);
+		dev_info(imgsys_dev->dev, "%s of_iomap fail, devnode(%s).\n",
+				__func__, imgsys_dev->dev->of_node->name);
+		return;
+	}
+
+
+	trawRegBA = of_iomap(imgsys_dev->dev->of_node, REG_MAP_E_TRAW_TOP);
+	if (!trawRegBA) {
+		dev_info(imgsys_dev->dev, "%s Unable to ioremap traw_dip1 registers\n",
+								__func__);
+		dev_info(imgsys_dev->dev, "%s of_iomap fail, devnode(%s).\n",
+				__func__, imgsys_dev->dev->of_node->name);
+		return;
+	}
+
 	of_address_to_resource(imgsys_dev->dev->of_node, REG_MAP_E_ADL_A, &adl);
 	if (adl.start) {
 		adlARegBA = of_iomap(imgsys_dev->dev->of_node, REG_MAP_E_ADL_A);
@@ -140,9 +162,6 @@ void imgsys_main_set_init(struct mtk_imgsys_dev *imgsys_dev)
 	uint32_t value;
 
 	pr_debug("%s: +.\n", __func__);
-
-	iowrite32(0xFFFFFFFF, (void *)(dipRegBA + SW_RST));
-	iowrite32(0xFFFFFFFF, (void *)(dip1RegBA + SW_RST));
 
 	for (HwIdx = 0; HwIdx < WPE_HW_SET; HwIdx++) {
 		if (HwIdx == 0)
@@ -188,13 +207,25 @@ void imgsys_main_set_init(struct mtk_imgsys_dev *imgsys_dev)
 		}
 	}
 
-	iowrite32(0x00CF00FF, (void *)(imgsysmainRegBA + SW_RST));
+	iowrite32(0x1A, (void *)(imgsysmainRegBA + DBG_SW_CLR));
+	iowrite32(0x0, (void *)(imgsysmainRegBA + DBG_SW_CLR));
+
+	iowrite32(0xF0, (void *)(imgsysmainRegBA + SW_RST));
 	iowrite32(0x0, (void *)(imgsysmainRegBA + SW_RST));
 
+	iowrite32(0xFFFFFFFF, (void *)(trawRegBA + SW_RST));
+	iowrite32(0x0, (void *)(trawRegBA + SW_RST));
+
+	iowrite32(0xFFFFFFFF, (void *)(dipRegBA + SW_RST));
 	iowrite32(0x0, (void *)(dipRegBA + SW_RST));
+
+	iowrite32(0xFFFFFFFF, (void *)(dip1RegBA + SW_RST));
 	iowrite32(0x0, (void *)(dip1RegBA + SW_RST));
 
-	for (HwIdx = 0; HwIdx < WPE_HW_SET; HwIdx++) {
+	iowrite32(0xFFFFFFFF, (void *)(dip2RegBA + SW_RST));
+	iowrite32(0x0, (void *)(dip2RegBA + SW_RST));
+
+	for (HwIdx = 0; HwIdx < (WPE_HW_SET - 1); HwIdx++) {
 		if (HwIdx == 0)
 			WpeRegBA = wpedip1RegBA;
 		else if (HwIdx == 1)
@@ -208,9 +239,6 @@ void imgsys_main_set_init(struct mtk_imgsys_dev *imgsys_dev)
 		/* Clear HW Reset */
 		iowrite32(0x0, pWpeCtrl);
 	}
-
-	iowrite32(0x00CF00FF, (void *)(imgsysmainRegBA + SW_RST));
-	iowrite32(0x0, (void *)(imgsysmainRegBA + SW_RST));
 
 	pr_debug("%s: -.\n", __func__);
 }
@@ -247,6 +275,16 @@ void imgsys_main_uninit(struct mtk_imgsys_dev *imgsys_dev)
 	if (dip1RegBA) {
 		iounmap(dip1RegBA);
 		dip1RegBA = 0L;
+	}
+
+	if (dip2RegBA) {
+		iounmap(dip2RegBA);
+		dip2RegBA = 0L;
+	}
+
+	if (trawRegBA) {
+		iounmap(trawRegBA);
+		trawRegBA = 0L;
 	}
 
 	if (adlARegBA) {
