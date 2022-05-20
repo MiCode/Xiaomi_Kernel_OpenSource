@@ -179,6 +179,7 @@ struct cmdq_pkt {
 	size_t			pause_offset;
 	struct cmdq_pkt_err	err_data;
 	cmdq_aee_cb		aee_cb;
+	void			*user_priv; /* cmdq user use only */
 	u32			vcp_eng;
 	struct cmdq_append append;
 
