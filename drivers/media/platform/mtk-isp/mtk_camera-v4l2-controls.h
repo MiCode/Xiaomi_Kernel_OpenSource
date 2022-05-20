@@ -186,6 +186,8 @@ struct mtk_cam_resource_sensor {
  *		driver only.
  * @throughput: the throughput be used in the raw pipeline. It is written by
  *		driver only.
+ * @img_wbuf_size: the img working buffer size considering chaning sensor after
+ *		   streaming on, it is required in VHDR SAT scenarios.
  *
  */
 struct mtk_cam_resource_raw {
@@ -199,6 +201,7 @@ struct mtk_cam_resource_raw {
 	__u8	pixel_mode;
 	__u64	throughput;
 	__s64	hw_mode;
+	__u32	img_wbuf_size;
 };
 
 /*

@@ -413,7 +413,7 @@ int mtk_cam_raw_res_store(struct mtk_raw_pipeline *pipeline,
 
 	if (log)
 		dev_info(dev,
-			 "%s:%s:pipe(%d): from user: sensor:%d/%d/%lld/%lld/%d/%d, raw:%d/%d/%d/%d/%d/%d/%d/%d/%lld/%d\n",
+			 "%s:%s:pipe(%d): from user: sensor:%d/%d/%lld/%lld/%d/%d, raw:%d/%d/%d/%d/%d/%d/%d/%d/%lld/%d/%ld\n",
 			 __func__, dbg_str, pipeline->id,
 			 res_user->sensor_res.hblank, res_user->sensor_res.vblank,
 			 res_user->sensor_res.pixel_rate,
@@ -424,10 +424,11 @@ int mtk_cam_raw_res_store(struct mtk_raw_pipeline *pipeline,
 			 res_user->raw_res.path_sel, res_user->raw_res.raw_max,
 			 res_user->raw_res.raw_min, res_user->raw_res.raw_used,
 			 res_user->raw_res.strategy, res_user->raw_res.pixel_mode,
-			 res_user->raw_res.throughput, res_user->raw_res.hw_mode);
+			 res_user->raw_res.throughput, res_user->raw_res.hw_mode,
+			 res_user->raw_res.img_wbuf_size);
 	else
 		dev_dbg(dev,
-			"%s:%s:pipe(%d): from user: sensor:%d/%d/%lld/%lld/%d/%d, raw:%d/%d/%d/%d/%d/%d/%d/%d/%lld/%d\n",
+			"%s:%s:pipe(%d): from user: sensor:%d/%d/%lld/%lld/%d/%d, raw:%d/%d/%d/%d/%d/%d/%d/%d/%lld/%d%ld\n",
 			__func__, dbg_str, pipeline->id,
 			res_user->sensor_res.hblank, res_user->sensor_res.vblank,
 			res_user->sensor_res.pixel_rate,
@@ -438,7 +439,8 @@ int mtk_cam_raw_res_store(struct mtk_raw_pipeline *pipeline,
 			res_user->raw_res.path_sel, res_user->raw_res.raw_max,
 			res_user->raw_res.raw_min, res_user->raw_res.raw_used,
 			res_user->raw_res.strategy, res_user->raw_res.pixel_mode,
-			res_user->raw_res.throughput, res_user->raw_res.hw_mode);
+			res_user->raw_res.throughput, res_user->raw_res.hw_mode,
+			res_user->raw_res.img_wbuf_size);
 
 	/* check user value of sensor input parameters */
 	if (!mtk_cam_feature_is_pure_m2m(res_user->raw_res.feature) &&
@@ -488,6 +490,9 @@ int mtk_cam_raw_res_store(struct mtk_raw_pipeline *pipeline,
 
 	if (res_user->raw_res.hw_mode == 0xFF)
 		res_user->raw_res.hw_mode = HW_MODE_DEFAULT;
+
+	if (res_user->raw_res.img_wbuf_size == MTK_CAM_RESOURCE_DEFAULT)
+		res_user->raw_res.img_wbuf_size = 0;
 
 	if (log)
 		dev_info(dev,
@@ -829,6 +834,7 @@ static int mtk_raw_try_ctrl(struct v4l2_ctrl *ctrl)
 	struct mtk_raw_pipeline *pipeline;
 	struct mtk_cam_resource *res_user;
 	struct mtk_cam_resource_config res_cfg;
+	struct v4l2_format img_fmt;
 	int ret = 0;
 
 	pipeline = mtk_cam_ctrl_handler_to_raw_pipeline(ctrl->handler);
@@ -853,6 +859,12 @@ static int mtk_raw_try_ctrl(struct v4l2_ctrl *ctrl)
 
 		ret = mtk_cam_raw_try_res_ctrl(pipeline, res_user, &res_cfg,
 					       &res_cfg.sink_fmt, "try_ctrl", false);
+		/* calculate the rawi's image buffer size for direct couple mode */
+		mtk_raw_set_dcif_rawi_fmt(dev, &img_fmt, &res_cfg.sink_fmt);
+		res_user->raw_res.img_wbuf_size = img_fmt.fmt.pix_mp.plane_fmt[0].sizeimage;
+		dev_dbg(dev, "%s: dc mode rawi fmt: w=%d, h=%d, sz=%d\n",
+			__func__, img_fmt.fmt.pix_mp.width, img_fmt.fmt.pix_mp.height,
+			res_user->raw_res.img_wbuf_size);
 		break;
 	case V4L2_CID_MTK_CAM_RAW_RESOURCE_UPDATE:
 		dev_info(dev,
@@ -3931,6 +3943,29 @@ unsigned int mtk_cam_get_rawi_sensor_pixel_fmt(unsigned int fmt)
 	return V4L2_PIX_FMT_MTISP_SBGGR14;
 }
 
+void mtk_raw_set_dcif_rawi_fmt(struct device *dev, struct v4l2_format *img_fmt,
+			       struct v4l2_mbus_framefmt *mf)
+{
+		unsigned int sink_ipi_fmt;
+
+		img_fmt->fmt.pix_mp.width = mf->width;
+		img_fmt->fmt.pix_mp.height = mf->height;
+		sink_ipi_fmt = mtk_cam_get_sensor_fmt(mf->code);
+		if (sink_ipi_fmt == MTKCAM_IPI_IMG_FMT_UNKNOWN) {
+			dev_info(dev, "%s: sink_ipi_fmt not found\n");
+			sink_ipi_fmt = MTKCAM_IPI_IMG_FMT_BAYER14;
+		}
+
+		img_fmt->fmt.pix_mp.pixelformat =
+			mtk_cam_get_rawi_sensor_pixel_fmt(mf->code);
+		img_fmt->fmt.pix_mp.plane_fmt[0].bytesperline =
+			mtk_cam_dmao_xsize(mf->width, sink_ipi_fmt, 3);
+		img_fmt->fmt.pix_mp.plane_fmt[0].sizeimage =
+			img_fmt->fmt.pix_mp.plane_fmt[0].bytesperline * img_fmt->fmt.pix_mp.height;
+
+
+}
+
 static int mtk_raw_call_set_fmt(struct v4l2_subdev *sd,
 				struct v4l2_subdev_state *state,
 				struct v4l2_subdev_format *fmt,
@@ -3940,7 +3975,6 @@ static int mtk_raw_call_set_fmt(struct v4l2_subdev *sd,
 		container_of(sd, struct mtk_raw_pipeline, subdev);
 	struct mtk_raw *raw = pipe->raw;
 	struct v4l2_mbus_framefmt *mf;
-	unsigned int sink_ipi_fmt = MTKCAM_IPI_IMG_FMT_UNKNOWN;
 
 	if (!sd || !fmt) {
 		dev_dbg(raw->cam_dev, "%s: Required sd(%p), fmt(%p)\n",
@@ -3978,29 +4012,9 @@ static int mtk_raw_call_set_fmt(struct v4l2_subdev *sd,
 
 		if (fmt->which == V4L2_SUBDEV_FORMAT_ACTIVE) {
 			img_fmt = &pipe->vdev_nodes[MTK_RAW_SINK].sink_fmt_for_dc_rawi;
-			img_fmt->fmt.pix_mp.width = mf->width;
-			img_fmt->fmt.pix_mp.height = mf->height;
-
-			sink_ipi_fmt = mtk_cam_get_sensor_fmt(mf->code);
-
-			if (sink_ipi_fmt == MTKCAM_IPI_IMG_FMT_UNKNOWN) {
-				dev_info(raw->cam_dev,
-					"%s: sink_ipi_fmt not found\n");
-
-				sink_ipi_fmt = MTKCAM_IPI_IMG_FMT_BAYER14;
-			}
-
-			img_fmt->fmt.pix_mp.pixelformat =
-				mtk_cam_get_rawi_sensor_pixel_fmt(mf->code);
-
-			img_fmt->fmt.pix_mp.plane_fmt[0].bytesperline =
-				mtk_cam_dmao_xsize(mf->width, sink_ipi_fmt, 3);
-			img_fmt->fmt.pix_mp.plane_fmt[0].sizeimage =
-				img_fmt->fmt.pix_mp.plane_fmt[0].bytesperline *
-				img_fmt->fmt.pix_mp.height;
+			mtk_raw_set_dcif_rawi_fmt(raw->cam_dev, img_fmt, mf);
 
 			img_fmt = &pipe->vdev_nodes[MTK_RAW_SINK].pending_fmt;
-
 			img_fmt->fmt.pix_mp.width = mf->width;
 			img_fmt->fmt.pix_mp.height = mf->height;
 

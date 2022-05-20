@@ -430,6 +430,8 @@ mtk_raw_fmt_get_res(struct v4l2_subdev *sd, struct v4l2_subdev_format *fmt,
 
 unsigned int mtk_raw_get_hdr_scen_id(struct mtk_cam_ctx *ctx);
 
+void mtk_raw_set_dcif_rawi_fmt(struct device *dev, struct v4l2_format *img_fmt,
+			       struct v4l2_mbus_framefmt *mf);
 struct v4l2_mbus_framefmt*
 mtk_raw_pipeline_get_fmt(struct mtk_raw_pipeline *pipe,
 			 struct v4l2_subdev_state *state,

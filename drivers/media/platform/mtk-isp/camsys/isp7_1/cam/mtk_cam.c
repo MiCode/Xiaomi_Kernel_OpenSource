@@ -6929,6 +6929,9 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 			buf_size *= 2;
 		}
 
+		if (ctx->pipe->user_res.raw_res.img_wbuf_size > buf_size)
+			buf_size = ctx->pipe->user_res.raw_res.img_wbuf_size;
+
 		if (buf_require)
 			ret = mtk_cam_img_working_buf_pool_init(ctx, buf_require, buf_size);
 
