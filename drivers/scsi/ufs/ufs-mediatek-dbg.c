@@ -717,8 +717,10 @@ static void ufs_mtk_dbg_print_cmd_hist(char **buff, unsigned long *size,
 
 	spin_lock_irqsave(&cmd_hist_lock, flags);
 
-	if (!cmd_hist)
+	if (!cmd_hist) {
+		spin_unlock_irqrestore(&cmd_hist_lock, flags);
 		return;
+	}
 
 	cnt = min_t(u32, cmd_hist_cnt, MAX_CMD_HIST_ENTRY_CNT);
 	if (latest_cnt)
