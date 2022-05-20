@@ -30,6 +30,80 @@ module_param(debug_job, int, 0644);
 #define SENSOR_SET_MARGIN_MS  25
 #define SENSOR_SET_MARGIN_MS_STAGGER  27
 
+/* flags of mtk_cam_request */
+#define MTK_CAM_REQ_FLAG_SENINF_CHANGED			BIT(0)
+#define MTK_CAM_REQ_FLAG_SENINF_IMMEDIATE_UPDATE	BIT(1)
+/* flags of mtk_cam_job */
+#define MTK_CAM_REQ_S_DATA_FLAG_TG_FLASH		BIT(0)
+#define MTK_CAM_REQ_S_DATA_FLAG_META1_INDEPENDENT	BIT(1)
+#define MTK_CAM_REQ_S_DATA_FLAG_SINK_FMT_UPDATE		BIT(2)
+/* Apply sensor mode and the timing is 1 vsync before */
+#define MTK_CAM_REQ_S_DATA_FLAG_SENSOR_MODE_UPDATE_T1	BIT(3)
+#define MTK_CAM_REQ_S_DATA_FLAG_SENSOR_HDL_EN		BIT(4)
+#define MTK_CAM_REQ_S_DATA_FLAG_RAW_HDL_EN		BIT(5)
+#define MTK_CAM_REQ_S_DATA_FLAG_SENSOR_HDL_COMPLETE	BIT(6)
+#define MTK_CAM_REQ_S_DATA_FLAG_RAW_HDL_COMPLETE	BIT(7)
+#define MTK_CAM_REQ_S_DATA_FLAG_SENSOR_HDL_DELAYED	BIT(8)
+#define MTK_CAM_REQ_S_DATA_FLAG_INCOMPLETE BIT(9)
+
+/*For state analysis and controlling for request*/
+enum MTK_CAMSYS_STATE_IDX {
+	E_STATE_READY = 0x0,
+	E_STATE_SENINF,
+	E_STATE_SENSOR,
+	E_STATE_CQ,
+	E_STATE_OUTER,
+	E_STATE_CAMMUX_OUTER_CFG,
+	E_STATE_CAMMUX_OUTER,
+	E_STATE_INNER,
+	E_STATE_DONE_NORMAL,
+	E_STATE_CQ_SCQ_DELAY,
+	E_STATE_CAMMUX_OUTER_CFG_DELAY,
+	E_STATE_OUTER_HW_DELAY,
+	E_STATE_INNER_HW_DELAY,
+	E_STATE_DONE_MISMATCH,
+	E_STATE_SUBSPL_READY = 0x10,
+	E_STATE_SUBSPL_SCQ,
+	E_STATE_SUBSPL_OUTER,
+	E_STATE_SUBSPL_SENSOR,
+	E_STATE_SUBSPL_INNER,
+	E_STATE_SUBSPL_DONE_NORMAL,
+	E_STATE_SUBSPL_SCQ_DELAY,
+	E_STATE_TS_READY = 0x20,
+	E_STATE_TS_SENSOR,
+	E_STATE_TS_SV,
+	E_STATE_TS_MEM,
+	E_STATE_TS_CQ,
+	E_STATE_TS_INNER,
+	E_STATE_TS_DONE_NORMAL,
+	E_STATE_EXTISP_READY = 0x30,
+	E_STATE_EXTISP_SENSOR,
+	E_STATE_EXTISP_SV_OUTER,
+	E_STATE_EXTISP_SV_INNER,
+	E_STATE_EXTISP_CQ,
+	E_STATE_EXTISP_OUTER,
+	E_STATE_EXTISP_INNER,
+	E_STATE_EXTISP_DONE_NORMAL,
+};
+enum MTK_CAMSYS_JOB_TYPE {
+	RAW_JOB_ON_THE_FLY = 0x0,
+	RAW_JOB_DC,
+	RAW_JOB_OFFLINE,
+	RAW_JOB_MSTREAM,
+	RAW_JOB_DC_MSTREAM,
+	RAW_JOB_STAGGER,
+	RAW_JOB_DC_STAGGER,
+	RAW_JOB_OFFLINE_STAGGER,
+	RAW_JOB_OTF_RGBW,
+	RAW_JOB_DC_RGBW,
+	RAW_JOB_OFFLINE_RGBW,
+	RAW_JOB_HW_TIMESHARED,
+	RAW_JOB_HW_SUBSAMPLE,
+	RAW_JOB_HW_PREISP,
+	RAW_JOB_ONLY_SV = 0x100,
+	RAW_JOB_ONLY_MRAW = 0x200,
+};
+
 static int mtk_cam_job_fill_ipi_config(struct mtk_cam_job *job,
 				       struct mtkcam_ipi_config_param *config);
 static int mtk_cam_job_fill_ipi_frame(struct mtk_cam_job *job);
@@ -92,81 +166,6 @@ static int mtk_cam_select_hw(struct mtk_cam_ctx *ctx, struct mtk_cam_job *job)
 
 	return selected;
 }
-
-/*For state analysis and controlling for request*/
-enum MTK_CAMSYS_STATE_IDX {
-	E_STATE_READY = 0x0,
-	E_STATE_SENINF,
-	E_STATE_SENSOR,
-	E_STATE_CQ,
-	E_STATE_OUTER,
-	E_STATE_CAMMUX_OUTER_CFG,
-	E_STATE_CAMMUX_OUTER,
-	E_STATE_INNER,
-	E_STATE_DONE_NORMAL,
-	E_STATE_CQ_SCQ_DELAY,
-	E_STATE_CAMMUX_OUTER_CFG_DELAY,
-	E_STATE_OUTER_HW_DELAY,
-	E_STATE_INNER_HW_DELAY,
-	E_STATE_DONE_MISMATCH,
-	E_STATE_SUBSPL_READY = 0x10,
-	E_STATE_SUBSPL_SCQ,
-	E_STATE_SUBSPL_OUTER,
-	E_STATE_SUBSPL_SENSOR,
-	E_STATE_SUBSPL_INNER,
-	E_STATE_SUBSPL_DONE_NORMAL,
-	E_STATE_SUBSPL_SCQ_DELAY,
-	E_STATE_TS_READY = 0x20,
-	E_STATE_TS_SENSOR,
-	E_STATE_TS_SV,
-	E_STATE_TS_MEM,
-	E_STATE_TS_CQ,
-	E_STATE_TS_INNER,
-	E_STATE_TS_DONE_NORMAL,
-	E_STATE_EXTISP_READY = 0x30,
-	E_STATE_EXTISP_SENSOR,
-	E_STATE_EXTISP_SV_OUTER,
-	E_STATE_EXTISP_SV_INNER,
-	E_STATE_EXTISP_CQ,
-	E_STATE_EXTISP_OUTER,
-	E_STATE_EXTISP_INNER,
-	E_STATE_EXTISP_DONE_NORMAL,
-};
-enum MTK_CAMSYS_JOB_TYPE {
-	RAW_JOB_ON_THE_FLY = 0x0,
-	RAW_JOB_DC,
-	RAW_JOB_OFFLINE,
-	RAW_JOB_MSTREAM,
-	RAW_JOB_DC_MSTREAM,
-	RAW_JOB_STAGGER,
-	RAW_JOB_DC_STAGGER,
-	RAW_JOB_OFFLINE_STAGGER,
-	RAW_JOB_OTF_RGBW,
-	RAW_JOB_DC_RGBW,
-	RAW_JOB_OFFLINE_RGBW,
-	RAW_JOB_HW_TIMESHARED,
-	RAW_JOB_HW_SUBSAMPLE,
-	RAW_JOB_HW_PREISP,
-	RAW_JOB_ONLY_SV = 0x100,
-	RAW_JOB_ONLY_MRAW = 0x200,
-};
-
-/* considering remove this */
-/* flags of mtk_cam_request */
-#define MTK_CAM_REQ_FLAG_SENINF_CHANGED			BIT(0)
-#define MTK_CAM_REQ_FLAG_SENINF_IMMEDIATE_UPDATE	BIT(1)
-/* flags of mtk_cam_job */
-#define MTK_CAM_REQ_S_DATA_FLAG_TG_FLASH		BIT(0)
-#define MTK_CAM_REQ_S_DATA_FLAG_META1_INDEPENDENT	BIT(1)
-#define MTK_CAM_REQ_S_DATA_FLAG_SINK_FMT_UPDATE		BIT(2)
-/* Apply sensor mode and the timing is 1 vsync before */
-#define MTK_CAM_REQ_S_DATA_FLAG_SENSOR_MODE_UPDATE_T1	BIT(3)
-#define MTK_CAM_REQ_S_DATA_FLAG_SENSOR_HDL_EN		BIT(4)
-#define MTK_CAM_REQ_S_DATA_FLAG_RAW_HDL_EN		BIT(5)
-#define MTK_CAM_REQ_S_DATA_FLAG_SENSOR_HDL_COMPLETE	BIT(6)
-#define MTK_CAM_REQ_S_DATA_FLAG_RAW_HDL_COMPLETE	BIT(7)
-#define MTK_CAM_REQ_S_DATA_FLAG_SENSOR_HDL_DELAYED	BIT(8)
-#define MTK_CAM_REQ_S_DATA_FLAG_INCOMPLETE BIT(9)
 
 static int
 get_raw_subdev_idx(int used_pipe)
@@ -1328,6 +1327,8 @@ _update_event_sensor_try_set(struct mtk_cam_job *job,
 
 		*action |= 1 << CAM_JOB_APPLY_SENSOR;
 	}
+	if (job->frame_seq_no > cur_sen_seq_no + 1)
+		*action = 0;
 }
 
 static void
@@ -1617,6 +1618,17 @@ _update_event(struct mtk_cam_job *job,
 	return 0;
 }
 
+static void job_cancel(struct mtk_cam_job *job)
+{
+	int pipe_id = get_raw_subdev_idx(job->req->used_pipe);
+
+	if (pipe_id >= 0 && job->req)
+		mtk_cam_req_buffer_done(job->req, pipe_id, -1,
+			VB2_BUF_STATE_ERROR, job->timestamp);
+	cancel_work_sync(&job->frame_done_work.work);
+	cancel_work_sync(&job->meta1_done_work.work);
+}
+
 static void job_finalize(struct mtk_cam_job *job)
 {
 	mtk_cam_buffer_pool_return(&job->cq);
@@ -1651,6 +1663,7 @@ _config_job(struct mtk_cam_job *job, struct mtk_cam_ctx *ctx,
 
 	/* common */
 	job->ops.finalize = job_finalize;
+	job->ops.cancel = job_cancel;
 
 	/* job type dependent */
 	switch (job->job_type) {

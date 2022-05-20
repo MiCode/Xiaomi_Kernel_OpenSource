@@ -939,7 +939,6 @@ static irqreturn_t mtk_irq_raw(int irq, void *data)
 	if (irq_status & SOF_INT_ST || irq_status & DCIF_SUB_SOF_INT_EN) {
 		irq_info.irq_type |= 1 << CAMSYS_IRQ_FRAME_START;
 		raw_dev->sof_count++;
-
 		raw_dev->cur_vsync_idx = 0;
 		raw_dev->last_sof_time_ns = irq_info.ts_ns;
 		irq_info.write_cnt = ((fbc_fho_ctl2 & WCNT_BIT_MASK) >> 8) - 1;
@@ -1368,16 +1367,16 @@ static int mtk_raw_runtime_suspend(struct device *dev)
 	int i;
 	unsigned int pr_detect_count;
 
-	dev_dbg(dev, "%s:disable clock\n", __func__);
+	dev_info(dev, "%s:disable clock\n", __func__);
 	dev_dbg(dev, "%s:drvdata->default_printk_cnt = %d\n", __func__,
 			drvdata->default_printk_cnt);
 
-	disable_irq(drvdata->irq);
+	// disable_irq(drvdata->irq);
 	pr_detect_count = get_detect_count();
 	if (pr_detect_count > drvdata->default_printk_cnt)
 		set_detect_count(drvdata->default_printk_cnt);
 
-	reset(drvdata);
+	// reset(drvdata);
 
 	for (i = 0; i < drvdata->num_clks; i++)
 		clk_disable_unprepare(drvdata->clks[i]);
@@ -1404,7 +1403,7 @@ static int mtk_raw_runtime_resume(struct device *dev)
 	if (pr_detect_count < KERNEL_LOG_MAX)
 		set_detect_count(KERNEL_LOG_MAX);
 
-	dev_dbg(dev, "%s:enable clock\n", __func__);
+	dev_info(dev, "%s:enable clock\n", __func__);
 
 	for (i = 0; i < drvdata->num_clks; i++) {
 		ret = clk_prepare_enable(drvdata->clks[i]);

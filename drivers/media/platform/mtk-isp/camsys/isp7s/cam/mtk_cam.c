@@ -902,10 +902,9 @@ static int mtk_cam_power_rproc(struct mtk_cam_device *cam, int on)
 		if (ret)
 			dev_info(cam->dev, "failed to rproc_boot:%d\n", ret);
 	} else {
-		cam->rproc_handle = NULL;
-
 		rproc_shutdown(cam->rproc_handle);
 		rproc_put(cam->rproc_handle);
+		cam->rproc_handle = NULL;
 	}
 
 	return ret;
@@ -914,7 +913,7 @@ static int mtk_cam_power_rproc(struct mtk_cam_device *cam, int on)
 static int mtk_cam_power_ctrl_ccu(struct device *dev, int on_off)
 {
 	struct mtk_cam_device *cam_dev = dev_get_drvdata(dev);
-	//struct mtk_camsys_dvfs *dvfs_info = &cam_dev->camsys_ctrl.dvfs_info;
+	struct mtk_camsys_dvfs *dvfs_info = &cam_dev->dvfs_info;
 	int ret;
 
 	if (on_off) {
@@ -932,15 +931,17 @@ static int mtk_cam_power_ctrl_ccu(struct device *dev, int on_off)
 		if (ret)
 			dev_info(dev, "boot ccu rproc fail\n");
 
-		//if (dvfs_info->reg_vmm) {
-		//	if (regulator_enable(dvfs_info->reg_vmm)) {
-		//		dev_info(dev, "regulator_enable fail\n");
-		//		goto out;
-		//	}
-		//}
+		if (dvfs_info->reg_vmm) {
+			if (regulator_enable(dvfs_info->reg_vmm)) {
+				dev_info(dev, "regulator_enable fail\n");
+				goto out;
+			}
+		}
+
 	} else {
-		//if (dvfs_info->reg_vmm && regulator_is_enabled(dvfs_info->reg_vmm))
-		//	regulator_disable(dvfs_info->reg_vmm);
+
+		if (dvfs_info->reg_vmm && regulator_is_enabled(dvfs_info->reg_vmm))
+			regulator_disable(dvfs_info->reg_vmm);
 
 		if (cam_dev->rproc_ccu_handle) {
 			rproc_shutdown(cam_dev->rproc_ccu_handle);
@@ -976,7 +977,7 @@ static int mtk_cam_initialize(struct mtk_cam_device *cam)
 
 static int mtk_cam_uninitialize(struct mtk_cam_device *cam)
 {
-	if (atomic_sub_and_test(1, &cam->initialize_cnt))
+	if (!atomic_sub_and_test(1, &cam->initialize_cnt))
 		return 0;
 
 	dev_info(cam->dev, "camsys uninitialize\n");
@@ -1506,9 +1507,6 @@ void mtk_cam_stop_ctx(struct mtk_cam_ctx *ctx, struct media_entity *entity)
 
 	WARN_ON(mtk_cam_unmark_streaming(cam, ctx->stream_id));
 
-	mtk_cam_ctrl_stop(&ctx->cam_ctrl);
-
-	/* note: should await all jobs composer's ack before unprepare session */
 	mtk_cam_ctx_unprepare_session(ctx);
 	mtk_cam_ctx_destroy_pool(ctx);
 	mtk_cam_ctx_destroy_workers(ctx);
@@ -1652,6 +1650,8 @@ int mtk_cam_ctx_stream_off(struct mtk_cam_ctx *ctx)
 	ctx_stream_on_seninf_sensor(ctx, 0);
 
 	ctx_stream_on_pipe_subdev(ctx, 0);
+
+	mtk_cam_ctrl_stop(&ctx->cam_ctrl);
 
 	return 0;
 }

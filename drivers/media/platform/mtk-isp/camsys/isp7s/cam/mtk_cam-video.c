@@ -233,21 +233,23 @@ static void mtk_cam_vb2_stop_streaming(struct vb2_queue *vq)
 	struct mtk_cam_ctx *ctx;
 
 	ctx = mtk_cam_find_ctx(cam, &node->vdev.entity);
-	if (WARN_ON(!ctx)) {
+
+	if (!ctx) {
 		// TODO: clean pending?
 		return;
 	}
 
 	if (mtk_cam_ctx_all_nodes_streaming(ctx))
 		mtk_cam_ctx_stream_off(ctx);
+
 	--ctx->streaming_node_cnt;
 
 	// TODO: clean pending req?
 
 	if (!mtk_cam_ctx_all_nodes_idle(ctx))
 		return;
-
 	mtk_cam_stop_ctx(ctx, &node->vdev.entity);
+
 }
 
 const struct mtk_format_info *mtk_format_info(u32 format)

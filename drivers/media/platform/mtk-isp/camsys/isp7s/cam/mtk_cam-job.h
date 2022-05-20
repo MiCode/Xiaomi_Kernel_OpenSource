@@ -153,7 +153,7 @@ struct mtk_cam_job {
 	struct {
 		/* job control */
 		int (*wait_done)(struct mtk_cam_job *job);
-		int (*cancel)(struct mtk_cam_job *job);
+		void (*cancel)(struct mtk_cam_job *job);
 		int (*dump)(struct mtk_cam_job *job /*, ... */);
 
 		/* should alway be called for clean-up resources */

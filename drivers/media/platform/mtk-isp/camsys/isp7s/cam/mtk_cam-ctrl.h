@@ -19,8 +19,6 @@ struct mtk_camsv_device;
 struct mtk_cam_ctrl {
 	struct mtk_cam_ctx *ctx;
 	struct kthread_work work;
-	struct work_struct frame_done_work;
-	struct work_struct meta1_done_work;
 	struct hrtimer sensor_deadline_timer;
 	u64 sof_time;
 	int timer_req_event;
@@ -32,10 +30,13 @@ struct mtk_cam_ctrl {
 	atomic_t isp_request_seq_no;		/* subsample mode reserved */
 	atomic_t isp_enq_seq_no;			/* subsample mode reserved */
 	atomic_t isp_update_timer_seq_no;	/* mstream mode reserved */
+	atomic_t stopped;
+	atomic_t ref_cnt;
 	int initial_cq_done;
 	int vsync_engine;
 	struct list_head camsys_state_list;
 	spinlock_t camsys_state_lock;
+	wait_queue_head_t stop_wq;
 };
 
 int mtk_cam_ctrl_isr_event(struct mtk_cam_device *cam,

@@ -40,9 +40,48 @@
 
 #define STATE_NUM_AT_SOF 5
 
+#define MTK_CAM_CTRL_STATE_START 0
+#define MTK_CAM_CTRL_STATE_STOPPING 1
+#define MTK_CAM_CTRL_STATE_END 2
+
+
 
 #define v4l2_set_frame_interval_which(x, y) (x.reserved[0] = y)
 
+static int mtk_cam_ctrl_get(struct mtk_cam_ctrl *cam_ctrl)
+{
+	struct mtk_cam_ctx *ctx = cam_ctrl->ctx;
+
+	if (atomic_read(&cam_ctrl->stopped) || !ctx) {
+		pr_info("%s stop case : ref_cnt:%d",
+			__func__, atomic_read(&cam_ctrl->ref_cnt));
+		return -1;
+	}
+	atomic_inc_return(&cam_ctrl->ref_cnt);
+	dev_dbg(ctx->cam->dev, "%s streaming case : ref_cnt:%d",
+			__func__, atomic_read(&cam_ctrl->ref_cnt));
+
+	return 0;
+}
+static int mtk_cam_ctrl_put(struct mtk_cam_ctrl *cam_ctrl)
+{
+	struct mtk_cam_ctx *ctx = cam_ctrl->ctx;
+
+	if (atomic_read(&cam_ctrl->stopped)) {
+		if (atomic_dec_return(&cam_ctrl->ref_cnt) == 0) {
+			wake_up_interruptible(&cam_ctrl->stop_wq);
+			atomic_set(&cam_ctrl->stopped, MTK_CAM_CTRL_STATE_END);
+			pr_info("%s stop case : ref_cnt:%d",
+				__func__, atomic_read(&cam_ctrl->ref_cnt));
+		}
+		return 0;
+	}
+	atomic_dec_return(&cam_ctrl->ref_cnt);
+	dev_dbg(ctx->cam->dev, "%s streaming case : ref_cnt:%d",
+			__func__, atomic_read(&cam_ctrl->ref_cnt));
+
+	return 0;
+}
 
 static int _timer_reqdrained_chk(int fps_ratio, int sub_sample)
 {
@@ -142,6 +181,7 @@ static void mtk_cam_try_set_sensor(struct mtk_cam_ctrl *cam_ctrl)
 			job_fs = job;
 	}
 	spin_unlock(&cam_ctrl->camsys_state_lock);
+
 	/* job layer call v4l2_setup_ctrl */
 	if (job_sensor) {
 		atomic_set(&cam_ctrl->sensor_request_seq_no,
@@ -155,6 +195,7 @@ static void mtk_cam_try_set_sensor(struct mtk_cam_ctrl *cam_ctrl)
 	if (job_fs)
 		job_fs->ops.apply_fs(job_fs);
 }
+/* workqueue context */
 static void
 mtk_cam_meta1_done_work(struct work_struct *work)
 {
@@ -162,7 +203,12 @@ mtk_cam_meta1_done_work(struct work_struct *work)
 		container_of(work, struct mtk_cam_job_work, work);
 	struct mtk_cam_job *job =
 		container_of(meta1_done_work, struct mtk_cam_job, meta1_done_work);
+	struct mtk_cam_ctrl *cam_ctrl = &job->src_ctx->cam_ctrl;
+
+	if (mtk_cam_ctrl_get(cam_ctrl))
+		return;
 	job->ops.afo_done(job);
+	mtk_cam_ctrl_put(cam_ctrl);
 }
 
 static int
@@ -174,6 +220,7 @@ mtk_cam_submit_meta1_done_work(struct mtk_cam_ctrl *cam_ctrl,
 
 	return 0;
 }
+/* workqueue context */
 static void
 mtk_cam_frame_done_work(struct work_struct *work)
 {
@@ -184,6 +231,8 @@ mtk_cam_frame_done_work(struct work_struct *work)
 	struct mtk_cam_ctrl *cam_ctrl = &job->src_ctx->cam_ctrl;
 	struct mtk_cam_job *_job, *_job_prev;
 
+	if (mtk_cam_ctrl_get(cam_ctrl))
+		return;
 	spin_lock(&cam_ctrl->camsys_state_lock);
 	list_for_each_entry_safe(_job, _job_prev, &cam_ctrl->camsys_state_list, list) {
 		if (_job == job) {
@@ -193,9 +242,9 @@ mtk_cam_frame_done_work(struct work_struct *work)
 		}
 	}
 	spin_unlock(&cam_ctrl->camsys_state_lock);
-
 	job->ops.frame_done(job);
 	mtk_cam_ctx_job_finish(job->src_ctx, job);
+	mtk_cam_ctrl_put(cam_ctrl);
 }
 
 
@@ -208,13 +257,17 @@ mtk_cam_submit_frame_done_work(struct mtk_cam_ctrl *cam_ctrl,
 
 	return 0;
 }
-
+/* kthread context */
 static void
 mtk_cam_sensor_worker(struct kthread_work *work)
 {
 	struct mtk_cam_ctrl *cam_ctrl =
 			container_of(work, struct mtk_cam_ctrl, work);
+
+	if (mtk_cam_ctrl_get(cam_ctrl))
+		return;
 	mtk_cam_try_set_sensor(cam_ctrl);
+	mtk_cam_ctrl_put(cam_ctrl);
 }
 
 static bool
@@ -227,31 +280,34 @@ mtk_cam_submit_kwork(struct kthread_worker *worker,
 
 		return false;
 	}
+	if (atomic_read(&cam_ctrl->stopped)) {
+		pr_info("%s: stop ctrl\n", __func__);
 
+		return false;
+	}
 	return kthread_queue_work(worker, &cam_ctrl->work);
 }
-
+/* sw irq - hrtimer context */
 static enum hrtimer_restart
 sensor_deadline_timer_handler(struct hrtimer *t)
 {
 	struct mtk_cam_ctrl *cam_ctrl =
 		container_of(t, struct mtk_cam_ctrl,
 			     sensor_deadline_timer);
-	struct mtk_cam_ctx *ctx = cam_ctrl->ctx;
-	struct mtk_cam_device *cam = ctx->cam;
 	int time_after_sof = ktime_get_boottime_ns() / 1000000 -
 			   cam_ctrl->sof_time;
 	bool drained_res = false;
 
-
+	if (mtk_cam_ctrl_get(cam_ctrl))
+		return HRTIMER_NORESTART;
 	/* handle V4L2_EVENT_REQUEST_DRAINED event */
 	drained_res = mtk_cam_request_drained(cam_ctrl);
 
-	if (drained_res == 0) {
-		mtk_cam_submit_kwork(&ctx->sensor_worker, cam_ctrl);
-		dev_dbg(cam->dev, "[TimerIRQ:Not Drained trigger sensor [SOF+%dms]] ctx:%d\n",
-			time_after_sof, ctx->stream_id);
-	}
+	if (drained_res == 0)
+		mtk_cam_submit_kwork(&cam_ctrl->ctx->sensor_worker, cam_ctrl);
+	dev_dbg(cam_ctrl->ctx->cam->dev, "[%s] drained:%d [sof+%dms]\n",
+		__func__, drained_res, time_after_sof);
+	mtk_cam_ctrl_put(cam_ctrl);
 
 	return HRTIMER_NORESTART;
 
@@ -392,6 +448,7 @@ static void mtk_cam_raw_frame_start(struct mtk_cam_ctrl *cam_ctrl,
 			job_vsync = job;
 	}
 	spin_unlock(&cam_ctrl->camsys_state_lock);
+
 	/*  vsync action update cam_ctrl->sof_time for scheduler coordinates */
 	if (job_vsync) {
 		if (!ctx) {
@@ -432,21 +489,10 @@ static void mtk_cam_raw_frame_start(struct mtk_cam_ctrl *cam_ctrl,
 
 }
 
-static int mtk_cam_event_handle_raw(struct mtk_cam_device *cam,
+static int mtk_cam_event_handle_raw(struct mtk_cam_ctrl *cam_ctrl,
 				       unsigned int engine_id,
 				       struct mtk_camsys_irq_info *irq_info)
 {
-	struct mtk_raw_device *raw_dev;
-	struct mtk_cam_ctx *ctx;
-	struct mtk_cam_ctrl *cam_ctrl;
-
-	raw_dev = dev_get_drvdata(cam->engines.raw_devs[engine_id]);
-	ctx = &cam->ctxs[irq_info->ctx_id];
-	if (!ctx) {
-		dev_dbg(raw_dev->dev, "cannot find ctx\n");
-		return -EINVAL;
-	}
-	cam_ctrl = &ctx->cam_ctrl;
 	irq_info->isp_request_seq_no = atomic_read(&cam_ctrl->isp_request_seq_no);
 	irq_info->reset_seq_no = atomic_read(&cam_ctrl->reset_seq_no);
 
@@ -456,7 +502,7 @@ static int mtk_cam_event_handle_raw(struct mtk_cam_device *cam,
 	}
 	/* raw's subsample case : try sensor setting */
 	if (irq_info->irq_type & (1 << CAMSYS_IRQ_TRY_SENSOR_SET))
-		mtk_cam_submit_kwork(&ctx->sensor_worker, cam_ctrl);
+		mtk_cam_submit_kwork(&cam_ctrl->ctx->sensor_worker, cam_ctrl);
 	/* raw's DMA done, we only allow AFO done here */
 	if (irq_info->irq_type & (1 << CAMSYS_IRQ_AFO_DONE))
 		handle_meta1_done(cam_ctrl, engine_id, irq_info);
@@ -464,11 +510,6 @@ static int mtk_cam_event_handle_raw(struct mtk_cam_device *cam,
 	/* raw's SW done */
 	if (irq_info->irq_type & (1 << CAMSYS_IRQ_FRAME_DONE))
 		handle_frame_done(cam_ctrl, engine_id, irq_info);
-
-	if (atomic_read(&raw_dev->vf_en) == 0) {
-		dev_info(raw_dev->dev, "skip sof event when vf off\n");
-		return 0;
-	}
 
 	/* raw's SOF (proc engine frame start) */
 	if (irq_info->irq_type & (1 << CAMSYS_IRQ_FRAME_START)) {
@@ -479,8 +520,6 @@ static int mtk_cam_event_handle_raw(struct mtk_cam_device *cam,
 	//if (irq_info->irq_type & (1 << CAMSYS_IRQ_FRAME_START_DCIF_MAIN)) {
 		// handle_dcif_frame_start(); - TBC
 	//}
-
-
 
 	return 0;
 }
@@ -649,9 +688,9 @@ int mtk_cam_ctrl_isr_event(struct mtk_cam_device *cam,
 {
 	unsigned int ctx_id =
 		decode_fh_reserved_data_to_ctx(irq_info->frame_idx);
-	struct mtk_cam_ctx *ctx = &cam->ctxs[ctx_id];
+	struct mtk_cam_ctrl *cam_ctrl = &cam->ctxs[ctx_id].cam_ctrl;
 	unsigned int seq_nearby =
-		atomic_read(&ctx->cam_ctrl.enqueued_frame_seq_no);
+		atomic_read(&cam_ctrl->enqueued_frame_seq_no);
 	int ret = 0;
 	unsigned int idx = irq_info->frame_idx;
 	unsigned int idx_inner = irq_info->frame_idx_inner;
@@ -676,11 +715,13 @@ int mtk_cam_ctrl_isr_event(struct mtk_cam_device *cam,
 	 * stagger - rawx1, camsv x2
 	 * m-stream - rawx1 , camsv x2
 	 */
+
 	switch (engine_type) {
 	case CAMSYS_ENGINE_RAW:
-
-		ret = mtk_cam_event_handle_raw(cam, engine_id, irq_info);
-
+		if (mtk_cam_ctrl_get(cam_ctrl))
+			return 0;
+		ret = mtk_cam_event_handle_raw(cam_ctrl, engine_id, irq_info);
+		mtk_cam_ctrl_put(cam_ctrl);
 		break;
 	case CAMSYS_ENGINE_MRAW:
 
@@ -711,8 +752,13 @@ int mtk_cam_ctrl_isr_event(struct mtk_cam_device *cam,
 void mtk_cam_ctrl_job_enque(struct mtk_cam_ctrl *cam_ctrl,
 	struct mtk_cam_job *job)
 {
-	struct mtk_cam_ctx *ctx = cam_ctrl->ctx;
-	u32 next_frame_seq = atomic_inc_return(&cam_ctrl->enqueued_frame_seq_no);
+	struct mtk_cam_ctx *ctx;
+	u32 next_frame_seq;
+
+	if (mtk_cam_ctrl_get(cam_ctrl))
+		return;
+	ctx = cam_ctrl->ctx;
+	next_frame_seq = atomic_inc_return(&cam_ctrl->enqueued_frame_seq_no);
 	/* EnQ this request's state element to state_list (STATE:READY) */
 	spin_lock(&cam_ctrl->camsys_state_lock);
 	list_add_tail(&job->list,
@@ -722,20 +768,24 @@ void mtk_cam_ctrl_job_enque(struct mtk_cam_ctrl *cam_ctrl,
 	INIT_WORK(&job->frame_done_work.work, mtk_cam_frame_done_work);
 	INIT_WORK(&job->meta1_done_work.work, mtk_cam_meta1_done_work);
 	job->ops.compose(job);
-	dev_info(ctx->cam->dev, "[%s] ctx:%d frame_no:0x%x next_frame_seq:%d\n",
+	dev_dbg(ctx->cam->dev, "[%s] ctx:%d, frame_no:%d, next_frame_seq:%d\n",
 		__func__, ctx->stream_id, job->frame_seq_no, next_frame_seq);
 	/* if this job's drained event been sent, then try set sensor at kthread */
 	if (next_frame_seq <= 2 ||
 		next_frame_seq == atomic_read(&cam_ctrl->last_drained_seq_no))
 		mtk_cam_submit_kwork(&ctx->sensor_worker, cam_ctrl);
+	mtk_cam_ctrl_put(cam_ctrl);
 }
 void mtk_cam_ctrl_job_composed(struct mtk_cam_ctrl *cam_ctrl,
 	int frame_seq, struct mtkcam_ipi_frame_ack_result *cq_ret)
 {
 	struct mtk_cam_job *job, *job_composed = NULL;
-	struct mtk_cam_device *cam = cam_ctrl->ctx->cam;
+	struct mtk_cam_device *cam;
 	int fh_temp_ctx_id, fh_temp_seq;
 
+	if (mtk_cam_ctrl_get(cam_ctrl))
+		return;
+	cam = cam_ctrl->ctx->cam;
 	fh_temp_ctx_id = decode_fh_reserved_data_to_ctx(frame_seq);
 	fh_temp_seq = decode_fh_reserved_data_to_seq(
 		atomic_read(&cam_ctrl->enqueued_frame_seq_no), frame_seq);
@@ -761,7 +811,7 @@ void mtk_cam_ctrl_job_composed(struct mtk_cam_ctrl *cam_ctrl,
 		dev_info(cam->dev, "[%s] not found, ctx_id/ frame_id = %d/%d\n",
 		__func__, fh_temp_ctx_id, fh_temp_seq);
 	}
-
+	mtk_cam_ctrl_put(cam_ctrl);
 }
 
 void mtk_cam_ctrl_start(struct mtk_cam_ctrl *cam_ctrl, struct mtk_cam_ctx *ctx)
@@ -780,7 +830,7 @@ void mtk_cam_ctrl_start(struct mtk_cam_ctrl *cam_ctrl, struct mtk_cam_ctx *ctx)
 	sub_ratio = 0;
 	// TBC mtk_cam_get_subsample_ratio(ctx->pipe->res_config.raw_feature);
 
-
+	atomic_set(&cam_ctrl->stopped, MTK_CAM_CTRL_STATE_START);
 	atomic_set(&cam_ctrl->reset_seq_no, 1);
 	atomic_set(&cam_ctrl->enqueued_frame_seq_no, 0);
 	atomic_set(&cam_ctrl->dequeued_frame_seq_no, 0);
@@ -795,6 +845,7 @@ void mtk_cam_ctrl_start(struct mtk_cam_ctrl *cam_ctrl, struct mtk_cam_ctx *ctx)
 		_timer_reqdrained_chk(fps_factor, sub_ratio);
 	INIT_LIST_HEAD(&cam_ctrl->camsys_state_list);
 	spin_lock_init(&cam_ctrl->camsys_state_lock);
+	init_waitqueue_head(&cam_ctrl->stop_wq);
 	if (ctx->sensor) {
 		hrtimer_init(&cam_ctrl->sensor_deadline_timer,
 			     CLOCK_MONOTONIC, HRTIMER_MODE_REL);
@@ -807,11 +858,12 @@ void mtk_cam_ctrl_start(struct mtk_cam_ctrl *cam_ctrl, struct mtk_cam_ctx *ctx)
 		__func__, ctx->stream_id, fps_factor,
 		cam_ctrl->timer_req_event);
 }
+
 void mtk_cam_ctrl_stop(struct mtk_cam_ctrl *cam_ctrl)
 {
 	struct mtk_cam_ctx *ctx = cam_ctrl->ctx;
 	struct mtk_cam_job *job, *job_prev;
-
+	struct mtk_raw_device *raw_dev;
 	/* stop procedure
 	 * 1. mark 'stopped' status to skip further processing
 	 * 2. stop all working context
@@ -820,19 +872,48 @@ void mtk_cam_ctrl_stop(struct mtk_cam_ctrl *cam_ctrl)
 	 *   c. kthread: cancel_work_sync & flush_worker
 	 * 3. Now, all contexts are stopped. return resources
 	 */
+	atomic_set(&cam_ctrl->stopped, MTK_CAM_CTRL_STATE_STOPPING);
+	/* disable irq first */
+	if (ctx->hw_raw) {
+		raw_dev = dev_get_drvdata(ctx->hw_raw);
+		disable_irq(raw_dev->irq);
+	}
+	/* check if any process is still on working */
+	if (atomic_read(&cam_ctrl->ref_cnt)) {
+		dev_info(ctx->cam->dev, "[%s] ctx:%d, STATE waiting END, start waiting\n",
+			__func__, ctx->stream_id);
+		/* wait on-going threaded irq processing finished */
+		wait_event_interruptible(cam_ctrl->stop_wq,
+			atomic_read(&cam_ctrl->stopped) == MTK_CAM_CTRL_STATE_END);
+		dev_info(ctx->cam->dev, "[%s] ctx:%d, STATE waiting END, end waiting\n",
+			__func__, ctx->stream_id);
+	} else {
+		atomic_set(&cam_ctrl->stopped, MTK_CAM_CTRL_STATE_END);
+		dev_info(ctx->cam->dev, "[%s] ctx:%d, STATE END\n",
+			__func__, ctx->stream_id);
+	}
+	/* reset hw */
+	if (ctx->hw_raw)
+		reset(raw_dev);
+	mtk_cam_event_eos(cam_ctrl);
 	spin_lock(&cam_ctrl->camsys_state_lock);
 	list_for_each_entry_safe(job, job_prev,
 				 &cam_ctrl->camsys_state_list, list) {
+		job->ops.cancel(job);
+		mtk_cam_ctx_job_finish(ctx, job);
 		list_del(&job->list);
 	}
 	spin_unlock(&cam_ctrl->camsys_state_lock);
+
+	drain_workqueue(ctx->frame_done_wq);
 	if (ctx->sensor) {
 		hrtimer_cancel(&cam_ctrl->sensor_deadline_timer);
 	}
-	kthread_flush_work(&cam_ctrl->work);
+	/* using func. kthread_cancel_work_sync, which contains kthread_flush_work func.*/
+	kthread_cancel_work_sync(&cam_ctrl->work);
+	kthread_flush_worker(&ctx->sensor_worker);
 
-	mtk_cam_event_eos(cam_ctrl);
-
-	dev_info(ctx->cam->dev, "[%s] ctx:%d\n", __func__, ctx->stream_id);
+	dev_info(ctx->cam->dev, "[%s] ctx:%d, stop status:%d\n",
+		__func__, ctx->stream_id, atomic_read(&cam_ctrl->stopped));
 }
 
