@@ -574,6 +574,7 @@ static s32 core_enable(struct mml_task *task, u32 pipe)
 	cmdq_util_prebuilt_init(CMDQ_PREBUILT_MML);
 #endif
 
+	task->pipe[pipe].en.clk = true;
 	mml_clock_unlock(task->config->mml);
 
 	return 0;
@@ -616,6 +617,8 @@ static s32 core_disable(struct mml_task *task, u32 pipe)
 	cmdq_mbox_disable(((struct cmdq_client *)task->pkts[pipe]->cl)->chan);
 	mml_trace_ex_end();
 
+	/* reset back to disabled */
+	task->pipe[pipe].en.clk = false;
 	mml_clock_unlock(task->config->mml);
 
 	mml_msg("%s task %p pipe %u", __func__, task, pipe);
@@ -1063,9 +1066,9 @@ static void core_taskdone(struct work_struct *work)
 	if (task->config->dual && task->pkts[1])
 		core_taskdone_comp(task, 1);
 
-	if (task->pkts[0])
+	if (task->pipe[0].en.clk)
 		core_disable(task, 0);
-	if (task->config->dual && task->pkts[1])
+	if (task->pipe[1].en.clk)
 		core_disable(task, 1);
 
 	if (task->pkts[0])

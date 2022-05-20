@@ -420,6 +420,10 @@ struct mml_task_pipe {
 	struct list_head entry_clt;
 	u32 throughput;
 	u32 bandwidth;
+
+	struct {
+		bool clk;
+	} en;
 };
 
 struct mml_task {
