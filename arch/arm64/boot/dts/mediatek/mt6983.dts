@@ -2695,12 +2695,6 @@
 			suspend-check;
 			bus-protect;
 			power-domains = <&scpsys MT6983_POWER_DOMAIN_ISP_DIP1>;
-			power-reset = <0x1513000C 4>,
-					<0x1511000C 4>,
-					<0x1511000C 6>,
-					<0x1522000C 0>,
-					<0x1552000C 0>,
-					<0x1562000C 0>;
 	};
 
 	smi_pd_ipe: smi_pd_ipe {
@@ -2712,7 +2706,6 @@
 			suspend-check;
 			bus-protect;
 			power-domains = <&scpsys MT6983_POWER_DOMAIN_ISP_IPE>;
-			power-reset = <0x1533000C 8>;
 	};
 
 	smi_pd_cam_mraw: smi_pd_cam_mraw {
@@ -2725,7 +2718,6 @@
 			suspend-check;
 			bus-protect;
 			power-domains = <&scpsys MT6983_POWER_DOMAIN_CAM_MRAW>;
-			power-reset = <0x1a1700a0 16>;
 	};
 
 	smi_pd_cam_suba: smi_pd_cam_suba {
@@ -2738,8 +2730,6 @@
 			suspend-check;
 			bus-protect;
 			power-domains = <&scpsys MT6983_POWER_DOMAIN_CAM_SUBA>;
-			power-reset = <0x1a04f0a0 4>,
-					<0x1a06f0a0 4>;
 	};
 
 	smi_pd_cam_subb: smi_pd_cam_subb {
@@ -2752,8 +2742,6 @@
 			suspend-check;
 			bus-protect;
 			power-domains = <&scpsys MT6983_POWER_DOMAIN_CAM_SUBB>;
-			power-reset = <0x1a08f0a0 4>,
-					<0x1a0af0a0 4>;
 	};
 
 	smi_pd_cam_subc: smi_pd_cam_subc {
@@ -2767,8 +2755,6 @@
 			suspend-check;
 			bus-protect;
 			power-domains = <&scpsys MT6983_POWER_DOMAIN_CAM_SUBC>;
-			power-reset = <0x1a0cf0a0 4>,
-					<0x1a0ef0a0 4>;
 	};
 
 	smi_pd_disp0: smi_pd_disp0 {
