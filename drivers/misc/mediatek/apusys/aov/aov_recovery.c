@@ -20,7 +20,7 @@
 #include "apusys_core.h"
 #include "aov_recovery.h"
 #include "apu_ipi.h"
-#include "apu_hw_sema.h"
+//#include "apu_hw_sema.h"
 
 struct aov_recovery_ctx {
 	struct rpmsg_endpoint *ept;
@@ -165,11 +165,11 @@ static int aov_recovery_scp_notifier_call(struct notifier_block *this,
 	if (event == SCP_EVENT_STOP) {
 		pr_info("%s receive scp stop event\n", __func__); //debug
 
-		if (apu_boot_host() == SYS_APU) {
-			pr_info("%s SCP stop when APU NP mode\n", __func__);
-			atomic_set(&recovery_ctx->apu_status, AOV_APU_RECOVERING);
-			complete(&recovery_ctx->notify_tx_apu);
-		}
+		// if ( apu_boot_host() != SYS_SCP_LP) {
+		//	pr_info("%s SCP stop when APU is not LP mode\n", __func__);
+		//	atomic_set(&recovery_ctx->apu_status, AOV_APU_RECOVERING);
+		//	complete(&recovery_ctx->notify_tx_apu);
+		// }
 	} else if (event == SCP_EVENT_READY)
 		pr_info("%s receive scp ready event\n", __func__); //debug
 
