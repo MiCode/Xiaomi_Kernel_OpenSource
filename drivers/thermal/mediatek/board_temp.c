@@ -13,6 +13,7 @@
 #include <linux/slab.h>
 #include <linux/thermal.h>
 
+#define READ_TIA_REG_COUNT_MAX 3
 
 #define get_tia_rc_sel(val, offset, mask) (((val) & (mask)) >> (offset))
 #define is_adc_data_valid(val, bit)       (((val) & BIT(bit)) != 0)
@@ -166,27 +167,47 @@ static int board_ntc_get_temp(void *data, int *temp)
 	struct board_ntc_info *ntc_info = (struct board_ntc_info *)data;
 	struct pmic_auxadc_data *adc_data = ntc_info->adc_data;
 	struct tia_data *tia_param = ntc_info->adc_data->tia_param;
-	unsigned int val, r_type, r_ntc, dbg_reg, en_reg;
+	unsigned int val, r_type, r_ntc, dbg_reg, en_reg, count = 0;
 	unsigned long long v_in;
+	bool is_val_valid, is_rtype_valid;
 
-	val = readl(ntc_info->data_reg);
-	r_type = get_tia_rc_sel(val, tia_param->rc_offset, tia_param->rc_mask);
-	if (r_type >= adc_data->num_of_pullup_r_type) {
-		dev_err(ntc_info->dev, "Invalid r_type = %d\n", r_type);
-		return -EINVAL;
+	while (count < READ_TIA_REG_COUNT_MAX) {
+		val = readl(ntc_info->data_reg);
+
+		is_val_valid = is_adc_data_valid(val, tia_param->valid_bit);
+		if (!is_val_valid) {
+			if (ntc_info->dbg_reg && ntc_info->en_reg) {
+				dbg_reg = readl(ntc_info->dbg_reg);
+				en_reg = readl(ntc_info->en_reg);
+				dev_info(ntc_info->dev,
+					"TIA data invalid, 0x%x, dbg=0x%x, en=0x%x\n",
+					val, dbg_reg, en_reg);
+			} else {
+				dev_info(ntc_info->dev, "TIA data invalid, 0x%x\n", val);
+			}
+			goto RETRY;
+		}
+
+		r_type = get_tia_rc_sel(val, tia_param->rc_offset, tia_param->rc_mask);
+		if (r_type >= adc_data->num_of_pullup_r_type) {
+			dev_info(ntc_info->dev, "Invalid r_type = %d\n", r_type);
+			is_rtype_valid = false;
+			goto RETRY;
+		} else {
+			is_rtype_valid = true;
+		}
+
+		break;
+RETRY:
+		mdelay(1);
+		count++;
 	}
 
-	if (!is_adc_data_valid(val, tia_param->valid_bit)) {
-		if (ntc_info->dbg_reg && ntc_info->en_reg) {
-			dbg_reg = readl(ntc_info->dbg_reg);
-			en_reg = readl(ntc_info->en_reg);
-			dev_err(ntc_info->dev, "TIA data invalid, 0x%x, dbg=0x%x, en=0x%x\n",
-				val, dbg_reg, en_reg);
-		} else
-			dev_err(ntc_info->dev, "TIA data invalid, 0x%x\n", val);
-
+	if (!is_val_valid)
 		return -EAGAIN;
-	}
+
+	if (!is_rtype_valid)
+		return -EINVAL;
 
 	if (!ntc_info->adc_data->adc2volt) {
 		dev_err(ntc_info->dev, "adc2volt should exist\n");
