@@ -8024,6 +8024,12 @@
 		iommus = <&mdp_iommu M4U_PORT_L15_IMG2_VIP1_D1>;
 	};
 
+	imgsys_cmdq: imgsys_cmdq@0 {
+		compatible = "mediatek,imgsys-cmdq-71";
+		dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
+		iommus = <&mdp_iommu M4U_PORT_L15_IMG2_VIP1_D1>;
+	};
+
 	imgsys_fw: imgsys_fw@15000000 {
 		compatible = "mediatek,imgsys";
 		dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
@@ -8055,6 +8061,7 @@
 				 <&smi_larb23>,
 				 <&smi_larb18>,
 				 <&smi_larb12>;
+		mediatek,imgsys_cmdq = <&imgsys_cmdq>;
 		iommus = <&disp_iommu M4U_PORT_L9_IMG1_IMGI_T1_A>,
 			 <&disp_iommu M4U_PORT_L9_IMG1_IMGBI_T1_A>,
 			 <&disp_iommu M4U_PORT_L9_IMG1_IMGCI_T1_A>,
@@ -8125,14 +8132,14 @@
 			 <&disp_iommu M4U_PORT_L11_IMG2_SMTO_T4_C>,
 			 <&disp_iommu M4U_PORT_L11_IMG2_SMTO_T6_C>,
 			 <&disp_iommu M4U_PORT_L11_IMG2_DBGO_T1_C>;
-		mboxes = <&gce_m 0 3000 CMDQ_THR_PRIO_1>,
-			 <&gce_m 1 3000 CMDQ_THR_PRIO_1>,
-			 <&gce_m 2 3000 CMDQ_THR_PRIO_1>,
-			 <&gce_m 3 3000 CMDQ_THR_PRIO_1>,
-			 <&gce_m 4 3000 CMDQ_THR_PRIO_1>,
-			 <&gce_m 5 3000 CMDQ_THR_PRIO_1>,
-			 <&gce_m 16 3000 CMDQ_THR_PRIO_1>,
-			 <&gce_m 17 3000 CMDQ_THR_PRIO_1>,
+		mboxes = <&gce_m 0 3000 CMDQ_THR_PRIO_2>,
+			 <&gce_m 1 3000 CMDQ_THR_PRIO_2>,
+			 <&gce_m 2 3000 CMDQ_THR_PRIO_2>,
+			 <&gce_m 3 3000 CMDQ_THR_PRIO_2>,
+			 <&gce_m 4 3000 CMDQ_THR_PRIO_2>,
+			 <&gce_m 5 3000 CMDQ_THR_PRIO_2>,
+			 <&gce_m 16 3000 CMDQ_THR_PRIO_2>,
+			 <&gce_m 17 3000 CMDQ_THR_PRIO_2>,
 			 <&gce_m 18 3000 CMDQ_THR_PRIO_1>,
 			 <&gce_m 19 3000 CMDQ_THR_PRIO_1>,
 			 <&gce_m 22 3000 CMDQ_THR_PRIO_1>;
