@@ -1225,11 +1225,15 @@ struct mtk_aie_dev {
 
 	/* DRAM Buffer Size */
 	unsigned int fd_rs_cfg_size;
-	unsigned int fd_fd_cfg_size;
+	unsigned int fd_fd_cfg_data_size;
+	unsigned int fd_fd_cfg_aligned_size;
 	unsigned int fd_yuv2rgb_cfg_size;
+	unsigned int fd_yuv2rgb_cfg_aligned_size;
 	unsigned int fd_pose_cfg_size;
-	unsigned int attr_fd_cfg_size;
-	unsigned int attr_yuv2rgb_cfg_size;
+	unsigned int attr_fd_cfg_data_size;
+	unsigned int attr_fd_cfg_aligned_size;
+	unsigned int attr_yuv2rgb_cfg_data_size;
+	unsigned int attr_yuv2rgb_cfg_aligned_size;
 
 	/* HW Output Buffer Size */
 	unsigned int rs_pym_out_size[PYM_NUM];

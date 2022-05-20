@@ -32,6 +32,8 @@
 #define BUFTAG "AIE"
 //#include <mtkcam-hwcore/imgsys/inc/drv/gce/mt6983/gce_module.h>
 
+#define AIE_ALIGN32(x) round_up(x, 32)
+
 struct cmdq_pkt *g_sec_pkt;
 static const unsigned int fd_wdma_en[fd_loop_num][output_WDMA_WRA_num] = {
 	{1, 0, 0, 0}, {1, 0, 1, 0}, {1, 0, 1, 0}, {1, 0, 0, 0}, {1, 1, 1, 1},
@@ -92,6 +94,7 @@ static const unsigned int fd_ker_rdma_size[fd_loop_num][kernel_RDMA_RA_num] = {
 	{4624, 4624}, {4128, 4128}, {1040, 1040}, {1040, 1040}, {528, 528},
 	{4160, 4160}, {4160, 4160}, {2080, 2080}, {2080, 2080}, {2080, 2080},
 	{1040, 1040}, {0, 0} };
+static unsigned int fd_ker_rdma_size_aligned[fd_loop_num][kernel_RDMA_RA_num];
 
 static const unsigned int fd_out_stride2_in[fd_loop_num] = {
 	0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -249,6 +252,8 @@ static const unsigned int
 		{9232, 9232}, {272, 272},   {9232, 9232}, {2320, 2320},
 		{144, 144},   {9232, 9232}, {272, 272},   {9232, 9232},
 		{2320, 2320}, {144, 144} };
+static unsigned int
+	attr_ker_rdma_aligned_size[attr_loop_num][kernel_RDMA_RA_num];
 static const unsigned int attr_out_stride2_as_in[attr_loop_num] = {
 	0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0,
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
@@ -326,6 +331,7 @@ static const unsigned int attr_wdma_size[attr_loop_num][output_WDMA_WRA_num] = {
 	{2048, 0, 0, 0},
 	{1024, 0, 0, 0},
 	{0, 0, 0, 0} };
+static unsigned int attr_wdma_aligned_size[attr_loop_num][output_WDMA_WRA_num];
 /* (128-bits ALIGN work-around)*/
 #define fld_blink_weight_size 6528 //6416 +(128-(6416%128))%128
 #define fld_blink_weight_size_non_align 6416
@@ -580,10 +586,10 @@ static void aie_init_table(struct mtk_aie_dev *fd, u16 pym_width,
 		if (fd_wdma_en[i][0]) {
 			if (i == rpn2_loop_num || i == rpn1_loop_num ||
 			    i == rpn0_loop_num) {
-				pstv->fd_wdma_size[i][0] = result_size;
+				pstv->fd_wdma_size[i][0] = AIE_ALIGN32(result_size);
 			} else {
-				pstv->fd_wdma_size[i][0] = pstv->out_height[i] *
-							   pstv->out_stride[i];
+				pstv->fd_wdma_size[i][0] = AIE_ALIGN32(pstv->out_height[i] *
+							   pstv->out_stride[i]);
 			}
 		}
 
@@ -599,19 +605,19 @@ static void aie_init_table(struct mtk_aie_dev *fd, u16 pym_width,
 					pstv->fd_wdma_size[i][0];
 		} else if (i == rpn2_loop_num || i == rpn1_loop_num ||
 			   i == rpn0_loop_num) {
-			pstv->fd_wdma_size[i][0] = result_size;
+			pstv->fd_wdma_size[i][0] = AIE_ALIGN32(result_size);
 		} else {
 			if (fd_wdma_en[i][1])
-				pstv->fd_wdma_size[i][1] = pstv->out_height[i] *
-							   pstv->out_stride[i];
+				pstv->fd_wdma_size[i][1] = AIE_ALIGN32(pstv->out_height[i] *
+							   pstv->out_stride[i]);
 			if (fd_wdma_en[i][2])
 				pstv->fd_wdma_size[i][2] =
-					pstv->out_ysize_plus_1_stride2[i] *
-					pstv->out_stride_stride2[i];
+					AIE_ALIGN32(pstv->out_ysize_plus_1_stride2[i] *
+					pstv->out_stride_stride2[i]);
 			if (fd_wdma_en[i][3])
 				pstv->fd_wdma_size[i][3] =
-					pstv->out_ysize_plus_1_stride2[i] *
-					pstv->out_stride_stride2[i];
+					AIE_ALIGN32(pstv->out_ysize_plus_1_stride2[i] *
+					pstv->out_stride_stride2[i]);
 		}
 
 		if (in_ch_pack[i] == 1)
@@ -730,18 +736,22 @@ static void aie_get_data_size(struct mtk_aie_dev *fd, u16 max_img_width,
 
 	/* FDMODE Dram Buffer Size */
 	fd->fd_rs_cfg_size = fd_rs_confi_size;
-	fd->fd_fd_cfg_size = fd_fd_confi_size;
+	fd->fd_fd_cfg_data_size = fd_fd_confi_size;
+	fd->fd_fd_cfg_aligned_size = AIE_ALIGN32(fd_fd_confi_size);
 	fd->fd_yuv2rgb_cfg_size = fd_yuv2rgb_confi_size;
+	fd->fd_yuv2rgb_cfg_aligned_size = AIE_ALIGN32(fd_yuv2rgb_confi_size);
 
 	/* ATTRMODE Dram Buffer Size */
-	fd->attr_fd_cfg_size = attr_fd_confi_size;
-	fd->attr_yuv2rgb_cfg_size = attr_yuv2rgb_confi_size;
+	fd->attr_fd_cfg_data_size = attr_fd_confi_size;
+	fd->attr_fd_cfg_aligned_size = AIE_ALIGN32(fd->attr_fd_cfg_data_size);
+	fd->attr_yuv2rgb_cfg_data_size = attr_yuv2rgb_confi_size;
+	fd->attr_yuv2rgb_cfg_aligned_size = AIE_ALIGN32(fd->attr_yuv2rgb_cfg_data_size);
 
 	/* HW Output Buffer Size */
-	fd->rs_pym_out_size[0] = fd->base_para->max_pyramid_width *
-				 fd->base_para->max_pyramid_height;
-	fd->rs_pym_out_size[1] = fd->rs_pym_out_size[0] / 4;
-	fd->rs_pym_out_size[2] = fd->rs_pym_out_size[0] / 16;
+	fd->rs_pym_out_size[0] = AIE_ALIGN32(fd->base_para->max_pyramid_width *
+				 fd->base_para->max_pyramid_height);
+	fd->rs_pym_out_size[1] = AIE_ALIGN32(fd->rs_pym_out_size[0] / 4);
+	fd->rs_pym_out_size[2] = AIE_ALIGN32(fd->rs_pym_out_size[0] / 16);
 
 	/* FDMODE Dram Buffer Size */
 	for (i = rpn1_loop_num + 1 ; i < rpn0_loop_num - 1; i++) {
@@ -756,11 +766,24 @@ static void aie_get_data_size(struct mtk_aie_dev *fd, u16 max_img_width,
 	for (i = 0; i < fd_loop_num; i++) {
 		for (j = 0; j < kernel_RDMA_RA_num; j++) {
 			if (fd_ker_rdma_size[i][j])
-				fd->fd_fd_kernel_size += fd_ker_rdma_size[i][j];
+				fd_ker_rdma_size_aligned[i][j]
+						= AIE_ALIGN32(fd_ker_rdma_size[i][j]);
+		}
+	}
+
+	for (i = 0; i < fd_loop_num; i++) {
+		for (j = 0; j < kernel_RDMA_RA_num; j++) {
+			if (fd_ker_rdma_size[i][j])
+				fd->fd_fd_kernel_size += fd_ker_rdma_size_aligned[i][j];
 		}
 	}
 
 	/* ATTRMODE Dram Buffer Size */
+	for (i = 0; i < attr_loop_num; i++) {
+		for (j = 0; j < output_WDMA_WRA_num; j++)
+			attr_wdma_aligned_size[i][j] = AIE_ALIGN32(attr_wdma_size[i][j]);
+	}
+
 	for (i = 0; i < attr_loop_num; i++) {
 		for (j = 0; j < output_WDMA_WRA_num; j++) {
 			if (attr_wdma_en[i][j]) {
@@ -770,7 +793,7 @@ static void aie_get_data_size(struct mtk_aie_dev *fd, u16 max_img_width,
 					fd->fd_attr_dma_rst_max_size +=
 						ATTR_OUT_SIZE * MAX_ENQUE_FRAME_NUM;
 				} else {
-					fd->fd_attr_dma_max_size += attr_wdma_size[i][j];
+					fd->fd_attr_dma_max_size += attr_wdma_aligned_size[i][j];
 				}
 			}
 		}
@@ -778,7 +801,12 @@ static void aie_get_data_size(struct mtk_aie_dev *fd, u16 max_img_width,
 
 	for (i = 0; i < attr_loop_num; i++) {
 		for (j = 0; j < kernel_RDMA_RA_num; j++)
-			fd->fd_attr_kernel_size += attr_ker_rdma_size[i][j];
+			attr_ker_rdma_aligned_size[i][j] = AIE_ALIGN32(attr_ker_rdma_size[i][j]);
+	}
+
+	for (i = 0; i < attr_loop_num; i++) {
+		for (j = 0; j < kernel_RDMA_RA_num; j++)
+			fd->fd_attr_kernel_size += attr_ker_rdma_aligned_size[i][j];
 	}
 
 	/* FD Pose secure result output buffer: result size * 3 loops */
@@ -827,7 +855,7 @@ static int aie_alloc_dram_buf(struct mtk_aie_dev *fd)
 
 	/* FD DRAM */
 	alloc_size =
-		fd->fd_fd_cfg_size + fd->attr_fd_cfg_size * MAX_ENQUE_FRAME_NUM;
+		fd->fd_fd_cfg_aligned_size + fd->attr_fd_cfg_aligned_size * MAX_ENQUE_FRAME_NUM;
 	//ret = aie_imem_alloc(fd, alloc_size, &fd->fd_cfg_data);
 	ret_buf = aie_imem_sec_alloc(fd, alloc_size, false);
 	if (!ret_buf)
@@ -856,22 +884,22 @@ static int aie_alloc_dram_buf(struct mtk_aie_dev *fd)
 	fd->base_para->fd_fd_cfg_va = fd->fd_cfg_data.va;
 	/* ATTR MODE */
 	fd->base_para->attr_fd_cfg_pa[0] =
-		fd->base_para->fd_fd_cfg_pa + fd->fd_fd_cfg_size;
+		fd->base_para->fd_fd_cfg_pa + fd->fd_fd_cfg_aligned_size;
 	fd->base_para->attr_fd_cfg_va[0] =
-		fd->base_para->fd_fd_cfg_va + fd->fd_fd_cfg_size;
+		fd->base_para->fd_fd_cfg_va + fd->fd_fd_cfg_aligned_size;
 
 	for (i = 1; i < MAX_ENQUE_FRAME_NUM; i++) {
 		fd->base_para->attr_fd_cfg_pa[i] =
 			fd->base_para->attr_fd_cfg_pa[i - 1] +
-			fd->attr_fd_cfg_size;
+			fd->attr_fd_cfg_aligned_size;
 		fd->base_para->attr_fd_cfg_va[i] =
 			fd->base_para->attr_fd_cfg_va[i - 1] +
-			fd->attr_fd_cfg_size;
+			fd->attr_fd_cfg_aligned_size;
 	}
 
 	/* YUV2RGB DRAM */
-	alloc_size = fd->fd_yuv2rgb_cfg_size +
-		     fd->attr_yuv2rgb_cfg_size * MAX_ENQUE_FRAME_NUM;
+	alloc_size = fd->fd_yuv2rgb_cfg_aligned_size +
+		     fd->attr_yuv2rgb_cfg_aligned_size * MAX_ENQUE_FRAME_NUM;
 	//ret = aie_imem_alloc(fd, alloc_size, &fd->yuv2rgb_cfg_data);
 	ret_buf = aie_imem_sec_alloc(fd, alloc_size, false);
 	if (!ret_buf)
@@ -902,17 +930,17 @@ static int aie_alloc_dram_buf(struct mtk_aie_dev *fd)
 
 	/* ATTR MODE */
 	fd->base_para->attr_yuv2rgb_cfg_pa[0] =
-		fd->base_para->fd_yuv2rgb_cfg_pa + fd->fd_yuv2rgb_cfg_size;
+		fd->base_para->fd_yuv2rgb_cfg_pa + fd->fd_yuv2rgb_cfg_aligned_size;
 	fd->base_para->attr_yuv2rgb_cfg_va[0] =
-		fd->base_para->fd_yuv2rgb_cfg_va + fd->fd_yuv2rgb_cfg_size;
+		fd->base_para->fd_yuv2rgb_cfg_va + fd->fd_yuv2rgb_cfg_aligned_size;
 
 	for (i = 1; i < MAX_ENQUE_FRAME_NUM; i++) {
 		fd->base_para->attr_yuv2rgb_cfg_pa[i] =
 			fd->base_para->attr_yuv2rgb_cfg_pa[i - 1] +
-			fd->attr_yuv2rgb_cfg_size;
+			fd->attr_yuv2rgb_cfg_aligned_size;
 		fd->base_para->attr_yuv2rgb_cfg_va[i] =
 			fd->base_para->attr_yuv2rgb_cfg_va[i - 1] +
-			fd->attr_yuv2rgb_cfg_size;
+			fd->attr_yuv2rgb_cfg_aligned_size;
 	}
 
 	return 0;
@@ -1465,8 +1493,8 @@ static void aie_arrange_kernel_buf(struct mtk_aie_dev *fd)
 			if (fd_ker_rdma_size[i][j]) {
 				fd->dma_para->fd_kernel_pa[i][j] = currentPA;
 				fd->dma_para->fd_kernel_va[i][j] = currentVA;
-				currentPA += fd_ker_rdma_size[i][j];
-				currentVA += fd_ker_rdma_size[i][j];
+				currentPA += fd_ker_rdma_size_aligned[i][j];
+				currentVA += fd_ker_rdma_size_aligned[i][j];
 			}
 		}
 	}
@@ -1475,8 +1503,8 @@ static void aie_arrange_kernel_buf(struct mtk_aie_dev *fd)
 		for (j = 0; j < kernel_RDMA_RA_num; j++) {
 			fd->dma_para->attr_kernel_pa[i][j] = currentPA;
 			fd->dma_para->attr_kernel_va[i][j] = currentVA;
-			currentPA += attr_ker_rdma_size[i][j];
-			currentVA += attr_ker_rdma_size[i][j];
+			currentPA += attr_ker_rdma_aligned_size[i][j];
+			currentVA += attr_ker_rdma_aligned_size[i][j];
 		}
 	}
 }
@@ -1496,8 +1524,8 @@ static void aie_arrange_attrdma_buf(struct mtk_aie_dev *fd)
 			if (attr_wdma_en[i][j]) {
 				fd->dma_para->attr_out_hw_pa[i][j] = currentPA;
 				fd->dma_para->attr_out_hw_va[i][j] = currentVA;
-				currentPA += attr_wdma_size[i][j];
-				currentVA += attr_wdma_size[i][j];
+				currentPA += attr_wdma_aligned_size[i][j];
+				currentVA += attr_wdma_aligned_size[i][j];
 			}
 		}
 	}
@@ -2082,22 +2110,23 @@ static int aie_load_fw(struct mtk_aie_dev *fd)
 	int ret = 0;
 	int i = 0;
 
-	memcpy(fd->base_para->fd_fd_cfg_va, &fdvt_fd_confi_frame01[0], fd->fd_fd_cfg_size);
+	memcpy(fd->base_para->fd_fd_cfg_va, &fdvt_fd_confi_frame01[0], fd->fd_fd_cfg_data_size);
 	memcpy(fd->base_para->fd_rs_cfg_va, &fdvt_rs_confi_frame01[0], fd->fd_rs_cfg_size);
 	memcpy(fd->base_para->fd_yuv2rgb_cfg_va, &fdvt_yuv2rgb_confi_frame01[0],
 			fd->fd_yuv2rgb_cfg_size);
 
 
-	memcpy(fd->base_para->attr_fd_cfg_va[0], &attr_fd_confi_frame01[0], fd->attr_fd_cfg_size);
+	memcpy(fd->base_para->attr_fd_cfg_va[0], &attr_fd_confi_frame01[0],
+			fd->attr_fd_cfg_data_size);
 	memcpy(fd->base_para->attr_yuv2rgb_cfg_va[0], &attr_yuv2rgb_confi_frame01[0],
-			fd->attr_yuv2rgb_cfg_size);
+			fd->attr_yuv2rgb_cfg_data_size);
 
 	for (i = 1; i < MAX_ENQUE_FRAME_NUM; i++) {
 		memcpy(fd->base_para->attr_fd_cfg_va[i],
-		       fd->base_para->attr_fd_cfg_va[0], fd->attr_fd_cfg_size);
+		       fd->base_para->attr_fd_cfg_va[0], fd->attr_fd_cfg_data_size);
 		memcpy(fd->base_para->attr_yuv2rgb_cfg_va[i],
 		       fd->base_para->attr_yuv2rgb_cfg_va[0],
-		       fd->attr_yuv2rgb_cfg_size);
+		       fd->attr_yuv2rgb_cfg_data_size);
 	}
 
 	/*0~10*/
@@ -2788,7 +2817,7 @@ static int aie_load_fw(struct mtk_aie_dev *fd)
 		return ret;
 
 	ret = aie_copy_fw(fd, name, fd->base_para->fd_fd_cfg_va,
-			  fd->fd_fd_cfg_size);
+			  fd->fd_fd_cfg_data_size);
 	if (ret)
 		return ret;
 
