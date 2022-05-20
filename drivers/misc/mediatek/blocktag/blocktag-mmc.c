@@ -83,12 +83,16 @@ void mmc_mtk_biolog_send_command(int task_id, struct mmc_request *mrq)
 	struct mmc_queue_req *mqrq;
 	struct request *req;
 	unsigned long flags;
-	struct mmc_host *mmc = mrq->host;
+	struct mmc_host *mmc;
 	struct mmc_mtk_bio_context *ctx;
 	struct mmc_mtk_bio_context_task *tsk;
 	bool is_sd;
 
-	if (!mrq || !mmc)
+	if (!mrq)
+		return;
+
+	mmc = mrq->host;
+	if (!mmc)
 		return;
 
 	req = NULL;
