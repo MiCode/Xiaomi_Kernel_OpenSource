@@ -296,16 +296,6 @@ struct gpufreq_status {
 /**************************************************
  * GPU Platform OPP Table Definition
  **************************************************/
-#define GPUOP(_freq, _volt, _vsram, _posdiv, _margin, _power) \
-	{                                  \
-		.freq = _freq,                 \
-		.volt = _volt,                 \
-		.vsram = _vsram,               \
-		.posdiv = _posdiv,             \
-		.margin = _margin,             \
-		.power = _power                \
-	}
-
 #define SIGNED_OPP_GPU_NUM              ARRAY_SIZE(g_default_gpu)
 struct gpufreq_opp_info g_default_gpu[] = {
 	GPUOP(971000, VCORE_LEVEL_4, VSRAM_LEVEL_0, POSDIV_POWER_2, 0, 0), /* 0 */
@@ -366,14 +356,6 @@ struct gpufreq_opp_info g_default_stack[] = {
 /**************************************************
  * Segment Adjustment
  **************************************************/
-#define ADJOP(_oppidx, _freq, _volt, _vsram) \
-	{                                  \
-		.oppidx = _oppidx,             \
-		.freq = _freq,                 \
-		.volt = _volt,                 \
-		.vsram = _vsram,               \
-	}
-
 #define SEGMENT_ADJ_NUM                 ARRAY_SIZE(g_segment_adj)
 struct gpufreq_adj_info g_segment_adj[] = {};
 

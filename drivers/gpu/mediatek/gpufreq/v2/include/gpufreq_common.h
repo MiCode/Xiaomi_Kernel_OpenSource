@@ -14,6 +14,27 @@
 /**************************************************
  * Misc Definition
  **************************************************/
+#define GPUOP(_freq, _volt, _vsram, _posdiv, _margin, _power) \
+	{                                  \
+		.freq = _freq,                 \
+		.volt = _volt,                 \
+		.vsram = _vsram,               \
+		.posdiv = _posdiv,             \
+		.margin = _margin,             \
+		.power = _power                \
+	}
+#define ADJOP(_oppidx, _freq, _volt, _vsram) \
+	{                                  \
+		.oppidx = _oppidx,             \
+		.freq = _freq,                 \
+		.volt = _volt,                 \
+		.vsram = _vsram,               \
+	}
+#define REGOP(_addr, _val) \
+	{                                  \
+		.addr = _addr,                 \
+		.val = _val,                   \
+	}
 #ifndef MAX
 #define MAX(x, y) (((x) < (y)) ? (y) : (x))
 #endif
