@@ -670,7 +670,7 @@
 			entry-method = "arm,psci";
 			cpuoff_b: cpuoff_b {
 				compatible = "arm,idle-state";
-				arm,psci-suspend-param = <0x00010002>;
+				arm,psci-suspend-param = <0x00010000>;
 				local-timer-stop;
 				entry-latency-us = <120>;
 				exit-latency-us = <240>;
@@ -678,7 +678,7 @@
 			};
 			clusteroff_l: clusteroff_l {
 				compatible = "arm,idle-state";
-				arm,psci-suspend-param = <0x01010101>;
+				arm,psci-suspend-param = <0x01010001>;
 				local-timer-stop;
 				entry-latency-us = <160>;
 				exit-latency-us = <340>;
@@ -686,7 +686,7 @@
 			};
 			clusteroff_m: clusteroff_m {
 				compatible = "arm,idle-state";
-				arm,psci-suspend-param = <0x01010101>;
+				arm,psci-suspend-param = <0x01010001>;
 				local-timer-stop;
 				entry-latency-us = <165>;
 				exit-latency-us = <260>;
@@ -694,7 +694,7 @@
 			};
 			clusteroff_b: clusteroff_b {
 				compatible = "arm,idle-state";
-				arm,psci-suspend-param = <0x01010102>;
+				arm,psci-suspend-param = <0x01010001>;
 				local-timer-stop;
 				entry-latency-us = <80>;
 				exit-latency-us = <160>;
@@ -702,7 +702,7 @@
 			};
 			mcusysoff: mcusysoff {
 				compatible = "arm,idle-state";
-				arm,psci-suspend-param = <0x01010701>;
+				arm,psci-suspend-param = <0x01010007>;
 				local-timer-stop;
 				entry-latency-us = <640>;
 				exit-latency-us = <1400>;
@@ -710,7 +710,7 @@
 			};
 			system_mem: system_mem {
 				compatible = "arm,idle-state";
-				arm,psci-suspend-param = <0x01010f01>;
+				arm,psci-suspend-param = <0x0101000f>;
 				local-timer-stop;
 				entry-latency-us = <640>;
 				exit-latency-us = <1800>;
@@ -718,7 +718,7 @@
 			};
 			system_pll: system_pll {
 				compatible = "arm,idle-state";
-				arm,psci-suspend-param = <0x01010f02>;
+				arm,psci-suspend-param = <0x0101001f>;
 				local-timer-stop;
 				entry-latency-us = <640>;
 				exit-latency-us = <1850>;
@@ -726,7 +726,7 @@
 			};
 			system_bus: system_bus {
 				compatible = "arm,idle-state";
-				arm,psci-suspend-param = <0x01010f03>;
+				arm,psci-suspend-param = <0x0101007f>;
 				local-timer-stop;
 				entry-latency-us = <640>;
 				exit-latency-us = <2800>;
@@ -734,7 +734,7 @@
 			};
 			s2idle: s2idle {
 				compatible = "arm,idle-state";
-				arm,psci-suspend-param = <0x01011f01>;
+				arm,psci-suspend-param = <0x010180ff>;
 				local-timer-stop;
 				entry-latency-us = <10000>;
 				exit-latency-us = <10000>;
