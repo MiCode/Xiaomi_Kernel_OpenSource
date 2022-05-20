@@ -1981,6 +1981,23 @@ static void init_controller_v4(struct lvts_data *lvts_data)
 	}
 }
 
+static void init_controller_v5(struct lvts_data *lvts_data)
+{
+	unsigned int i;
+	void __iomem *base;
+
+	for (i = 0; i < lvts_data->num_tc; i++) {
+		base = GET_BASE_ADDR(i);
+
+		lvts_write_device(lvts_data, SET_DEVICE_SINGLE_MODE_V5, i);
+		writel(0x13121110, LVTSTSSEL_0 + base);
+		writel(SET_CALC_SCALE_RULES, LVTSCALSCALE_0 + base);
+
+		set_polling_speed(lvts_data, i);
+		set_hw_filter(lvts_data, i);
+	}
+}
+
 /*==================================================
  * LVTS MT6873
  *==================================================
@@ -4727,6 +4744,25 @@ static void mt6886_efuse_to_cal_data(struct lvts_data *lvts_data)
 	cal_data->count_rc[MT6886_LVTS_AP_CTRL4] = GET_CAL_DATA_BITMASK(20, 23, 0);
 }
 
+static void mt6886_device_enable_and_init(struct lvts_data *lvts_data)
+{
+	unsigned int i;
+
+	for (i = 0; i < lvts_data->num_tc; i++) {
+		lvts_write_device(lvts_data, STOP_COUNTING_V4, i);
+		lvts_write_device(lvts_data, SET_RG_TSFM_LPDLY_V4, i);
+		lvts_write_device(lvts_data, SET_COUNTING_WINDOW_20US1_V4, i);
+		lvts_write_device(lvts_data, SET_COUNTING_WINDOW_47US2, i);
+		lvts_write_device(lvts_data, TSV2F_CHOP_CKSEL_AND_TSV2F_EN_6983_1, i);
+		lvts_write_device(lvts_data, TSV2F_CHOP_CKSEL_AND_TSV2F_EN_6983_2, i);
+		lvts_write_device(lvts_data, TSBG_DEM_CKSEL_X_TSBG_CHOP_EN_6983, i);
+		lvts_write_device(lvts_data, SET_TS_RSV_6983, i);
+		lvts_write_device(lvts_data, SET_TS_CHOP_CTRL_V5, i);
+	}
+
+	lvts_data->counting_window_us = 20;
+}
+
 #define COF_A_T_SLP_GLD_6886 224280
 #define COF_A_COUNT_R_GLD_6886 14698
 #define COF_A_CONST_OFS_6886 280000
@@ -4898,11 +4934,11 @@ static struct lvts_data mt6886_lvts_data = {
 	.ops = {
 		.device_identification = device_identification_v1,
 		.efuse_to_cal_data = mt6886_efuse_to_cal_data,
-		.device_enable_and_init = mt6983_device_enable_and_init,
+		.device_enable_and_init = mt6886_device_enable_and_init,
 		.device_enable_auto_rck = device_enable_auto_rck_v4,
 		.device_read_count_rc_n = device_read_count_rc_n_v5,
 		.set_cal_data = set_calibration_data_v4,
-		.init_controller = init_controller_v4,
+		.init_controller = init_controller_v5,
 		.lvts_temp_to_raw = lvts_temp_to_raw_v2,
 		.lvts_raw_to_temp = lvts_raw_to_temp_v2,
 		.check_cal_data = check_cal_data_v2,
