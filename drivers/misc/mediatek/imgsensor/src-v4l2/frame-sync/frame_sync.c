@@ -1161,8 +1161,7 @@ static void fs_set_hw_sync_info(
 
 	/* set hw sync group bits */
 	fs_mgr.hw_sync_group_id[idx] = hw_sync_group_id;
-	if (hw_sync_group_id < FS_HW_SYNC_GROUP_ID_MIN
-		|| hw_sync_group_id >= FS_HW_SYNC_GROUP_ID_MAX) {
+	if (hw_sync_group_id >= FS_HW_SYNC_GROUP_ID_MAX) {
 		/* error handling (de-reference non-valid address) */
 		if (flag) {
 			FS_WRITE_BIT(idx, 1,
@@ -2310,8 +2309,7 @@ static void fs_notify_sensor_ctrl_setup_complete(unsigned int idx)
 	if (FS_CHECK_BIT(idx, &fs_mgr.hw_sync_bits)) {
 		hw_sync_group_id = fs_mgr.hw_sync_group_id[idx];
 
-		if (hw_sync_group_id >= FS_HW_SYNC_GROUP_ID_MIN
-			&& hw_sync_group_id < FS_HW_SYNC_GROUP_ID_MAX) {
+		if (hw_sync_group_id < FS_HW_SYNC_GROUP_ID_MAX) {
 			/* hw group id is a valid value */
 			FS_WRITE_BIT(idx, 1,
 				&fs_mgr.setup_complete_hw_group_bits[
