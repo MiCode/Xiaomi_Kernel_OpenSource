@@ -30,8 +30,7 @@ struct mtk_mmdvfs_clk {
 	struct clk_hw clk_hw;
 };
 
-/* sync with vcp */
-
+/* vcp/.../mmdvfs_public.h */
 enum {
 	USER_DISP,
 	USER_DISP_AP,
@@ -42,11 +41,22 @@ enum {
 	USER_VENC_AP,
 	USER_VDEC,
 	USER_VDEC_AP,
-	// USER_IMG,
-	// USER_CAM,
+	USER_IMG,
+	USER_CAM,
 	USER_VCORE,
-	// USER_VMM,
+	USER_VMM,
 	USER_NUM
+};
+
+/* vcp/.../mmdvfs_private.h */
+enum {
+	LOG_DEBUG_ON,
+	LOG_IPI_IN,
+	LOG_IPI_OUT,
+	LOG_CLOCK,
+	LOG_POWER,
+	LOG_HOPPING,
+	LOG_NUM
 };
 
 enum {
@@ -56,16 +66,6 @@ enum {
 	FUNC_CAMERA_ON, /* on */
 	FUNC_LOG,
 	FUNC_NUM
-};
-
-enum {
-	LOG_DEBUG_ON,
-	LOG_IPI_IN,
-	LOG_IPI_OUT,
-	LOG_CLOCK,
-	LOG_POWER,
-	LOG_HOPPING,
-	LOG_NUM
 };
 
 struct mmdvfs_ipi_data {
