@@ -1006,6 +1006,26 @@ static bool lvts_lk_init_check(struct lvts_data *lvts_data)
 	return ret;
 }
 
+static bool lvts_tfa_init_check(struct lvts_data *lvts_data)
+{
+	struct device *dev = lvts_data->dev;
+	unsigned int i, data;
+	void __iomem *base;
+
+	for (i = 0; i < lvts_data->num_tc; i++) {
+		base = GET_BASE_ADDR(i);
+
+		/* Check LVTS device ID */
+		data = (readl(LVTSSPARE2_0 + base) & GENMASK(11, 0));
+
+		if (data != LK_LVTS_MAGIC) {
+			dev_info(dev, "%s, %d\n", __func__, i);
+			return false;
+		}
+	}
+	return true;
+}
+
 static int read_calibration_data(struct lvts_data *lvts_data)
 {
 	struct tc_settings *tc = lvts_data->tc;
@@ -1023,12 +1043,15 @@ static int read_calibration_data(struct lvts_data *lvts_data)
 		base = GET_BASE_ADDR(i);
 
 		for (j = 0; j < tc[i].num_sensor; j++) {
+			if (tc[i].sensor_on_off[j] != SEN_ON)
+				continue;
+
 			s_index = tc[i].sensor_map[j];
 
 			cal_data->efuse_data[s_index] =
 				readl(LVTSEDATA00_0 + base + 0x4 * j);
 
-			dev_info(dev, "%s,efuse_data: 0x%x\n", __func__,
+			dev_info(dev, "%s, i=%d, j=%d, efuse_data= 0x%x\n", __func__, i, j,
 				cal_data->efuse_data[s_index]);
 		}
 	}
@@ -1036,13 +1059,12 @@ static int read_calibration_data(struct lvts_data *lvts_data)
 	return 0;
 }
 
-
 static int lvts_init(struct lvts_data *lvts_data)
 {
 	struct platform_ops *ops = &lvts_data->ops;
 	struct device *dev = lvts_data->dev;
-	int ret;
-	bool lk_init = false;
+	int ret = 0;
+	bool lk_init, tfa_init;
 
 	ret = clk_prepare_enable(lvts_data->clk);
 	if (ret)
@@ -1050,8 +1072,20 @@ static int lvts_init(struct lvts_data *lvts_data)
 			"Error: Failed to enable lvts controller clock: %d\n",
 			ret);
 
-	lk_init = lvts_lk_init_check(lvts_data);
+	tfa_init = lvts_tfa_init_check(lvts_data);
+	if (tfa_init == true) {
 
+#ifdef DUMP_MORE_LOG
+		clear_lvts_register_value_array(lvts_data);
+		read_controller_reg_before_active(lvts_data);
+#endif
+		lvts_data->init_done = true;
+		dev_info(dev, "%s, TFA init LVTS\n", __func__);
+		return ret;
+
+	}
+
+	lk_init = lvts_lk_init_check(lvts_data);
 	if (lk_init == true) {
 		ret = read_calibration_data(lvts_data);
 		set_all_tc_hw_reboot(lvts_data);
@@ -1062,7 +1096,6 @@ static int lvts_init(struct lvts_data *lvts_data)
 #endif
 		lvts_data->init_done = true;
 		dev_info(dev, "%s, LK init LVTS\n", __func__);
-
 		return ret;
 	}
 
@@ -1368,6 +1401,12 @@ static void lvts_device_close(struct lvts_data *lvts_data)
 
 static void lvts_close(struct lvts_data *lvts_data)
 {
+	bool tfa_init;
+
+	tfa_init = lvts_tfa_init_check(lvts_data);
+	if (tfa_init)
+		return;
+
 	disable_all_sensing_points(lvts_data);
 	wait_all_tc_sensing_point_idle(lvts_data);
 	lvts_device_close(lvts_data);
