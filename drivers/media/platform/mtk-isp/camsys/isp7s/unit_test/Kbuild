@@ -1,5 +1,5 @@
 ccflags-y += -I$(srctree)/drivers/media/platform/mtk-isp \
-	     -I$(srctree)/drivers/media/platform/mtk-isp/camsys/isp7_1 \
+	     -I$(srctree)/drivers/media/platform/mtk-isp/camsys/isp7s \
 		 -I$(srctree)/drivers/rpmsg/ \
 		 -I$(srctree)/drivers/remoteproc/
 

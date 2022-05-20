@@ -23,6 +23,11 @@
 #define DUMP_FBC_AT_HW_DONE	BIT(1) /* at HW_PASS1_DONE */
 #define DUMP_STX		BIT(2) /* at SW_PASS1_DONE */
 
+#ifdef dev_dbg
+#undef dev_dbg
+#define dev_dbg dev_info
+#endif
+
 static unsigned int dump_cmd;
 module_param(dump_cmd, uint, 0644);
 MODULE_PARM_DESC(dump_cmd, "dump cmd");
@@ -252,7 +257,7 @@ static int ut_raw_apply_cq(struct device *dev,
 	writel(CTL_CQ_THR0_START, base + REG_CTL_START);
 	/* make sure reset take effect */
 
-	wmb();
+	wmb();/*TBC*/
 
 	return 0;
 }
@@ -274,8 +279,6 @@ static int mtk_ut_raw_component_bind(struct device *dev,
 	struct mtk_cam_ut *ut = data;
 	struct ut_event evt;
 
-	//dev_info(dev, "%s\n", __func__);
-
 	if (!data) {
 		dev_info(dev, "no master data\n");
 		return -1;
@@ -286,7 +289,6 @@ static int mtk_ut_raw_component_bind(struct device *dev,
 		return -1;
 	}
 	ut->raw[raw->id] = dev;
-	raw->ut = ut;
 
 	evt.mask = EVENT_SOF | EVENT_CQ_DONE | EVENT_SW_P1_DONE | EVENT_CQ_MAIN_TRIG_DLY;
 	add_listener(&raw->event_src, &ut->listener, evt);
@@ -448,7 +450,7 @@ static irqreturn_t mtk_ut_raw_irq(int irq, void *data)
 	status.drop = readl_relaxed(CAM_REG_CTL_RAW_INT4_STATUS(base));
 	status.ofl = readl_relaxed(CAM_REG_CTL_RAW_INT5_STATUS(base));
 	status.cq_done = readl_relaxed(CAM_REG_CTL_RAW_INT6_STATUS(base));
-	status.cq_done2 = readl_relaxed(CAM_REG_CTL_RAW_INT7_STATUS(base));
+	//status.cq_done2 = readl_relaxed(CAM_REG_CTL_RAW_INT7_STATUS(base));
 
 	event->mask = 0;
 	cmd->any_debug = 0;
@@ -470,7 +472,7 @@ static irqreturn_t mtk_ut_raw_irq(int irq, void *data)
 	if (status.cq_done & CTL_CQ_THR0_DONE_ST)
 		raw->cq_done_mask |= 0x1;
 
-	if (status.cq_done2 & CTL_CQ_THRSUB_DONE_ST)
+	if (status.cq_done & CTL_CQ_THRSUB_DONE_ST)
 		raw->cq_done_mask |= 0x2;
 
 	if (raw->is_subsample && !raw->is_initial_cq
@@ -497,9 +499,7 @@ static irqreturn_t mtk_ut_raw_irq(int irq, void *data)
 			cmd->dump_tg_err = 1;
 	}
 
-	dev_info(raw->dev, "raw irq: raw->id %d ut->master_raw %d\n",
-		 raw->id, raw->ut->master_raw);
-	if (raw->id != raw->ut->master_raw)
+	if (raw->id != 0)
 		event->mask = 0;
 
 	if (event->mask || cmd->any_debug) {
@@ -594,7 +594,7 @@ static int mtk_ut_raw_of_probe(struct platform_device *pdev,
 		dev_info(dev, "failed to map register base\n");
 		return PTR_ERR(raw->base);
 	}
-	dev_dbg(dev, "raw, map_addr=0x%pK\n", raw->base);
+	dev_dbg(dev, "raw, map_addr=0x%lx\n", raw->base);
 	/* base inner register */
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "inner_base");
 	if (!res) {
@@ -1003,7 +1003,7 @@ static int mtk_ut_yuv_of_probe(struct platform_device *pdev,
 		dev_info(dev, "failed to request irq=%d\n", irq);
 		return ret;
 	}
-	//dev_dbg(dev, "registered irq=%d\n", irq);
+	dev_dbg(dev, "registered irq=%d\n", irq);
 
 	clks = of_count_phandle_with_args(pdev->dev.of_node,
 				"clocks", "#clock-cells");
@@ -1214,7 +1214,7 @@ static void mtk_ut_larb_component_unbind(struct device *dev,
 					 struct device *master,
 					 void *data)
 {
-	//dev_dbg(dev, "%s\n", __func__);
+	dev_dbg(dev, "Start unbind larb component , return with no execution\n");
 }
 
 static const struct component_ops mtk_ut_larb_component_ops = {

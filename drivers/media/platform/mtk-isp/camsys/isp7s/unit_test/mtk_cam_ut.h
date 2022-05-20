@@ -10,7 +10,7 @@
 #include <linux/rpmsg.h>
 #include <linux/wait.h>
 
-#include <cam/mtk_cam-ipi.h>
+#include <cam_legacy/mtk_cam-ipi.h>
 #include "mtk_cam_ut-event.h"
 
 #define IPI_FRAME_BUF_SIZE		ALIGN(sizeof(struct mtkcam_ipi_frame_param), SZ_1K)
@@ -146,8 +146,6 @@ struct mtk_cam_ut {
 	int subsample;
 	int hardware_scenario;
 	int main_rawi;
-	unsigned int master_raw;
-	unsigned int used_sv_pipes;
 
 	struct mtk_cam_ut_event_handler hdl;
 

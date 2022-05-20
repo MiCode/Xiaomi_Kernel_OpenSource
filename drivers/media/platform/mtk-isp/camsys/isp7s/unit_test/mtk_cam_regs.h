@@ -10,8 +10,8 @@
 #define TG_INT2_ST			(1L << 2)
 #define EXPDON_ST			(1L << 5)
 #define SOF_INT_ST			(1L << 8)
-#define HW_PASS1_DON_ST			(1L << 20)
-#define SW_PASS1_DON_ST			(1L << 22)
+#define HW_PASS1_DON_ST			(1L << 21)
+#define SW_PASS1_DON_ST			(1L << 23)
 
 /* YUV siganl */
 #define YUV_PASS1_DON_ST		(1L << 0)
@@ -21,16 +21,16 @@
 /* err status */
 #define TG_OVRUN_ST			(1L << 6)
 #define TG_GBERR_ST			(1L << 7)
-#define CQ_DB_LOAD_ERR_ST		(1L << 12)
-#define CQ_MAIN_CODE_ERR_ST		(1L << 14)
-#define CQ_MAIN_VS_ERR_ST		(1L << 15)
-#define CQ_MAIN_TRIG_DLY_ST		(1L << 16)
-#define LSCI_ERR_ST			(1L << 24)
-#define DMA_ERR_ST			(1L << 26)
+//#define CQ_DB_LOAD_ERR_ST		(1L << 12)
+#define CQ_MAIN_CODE_ERR_ST		(1L << 16)
+#define CQ_MAIN_VS_ERR_ST		(1L << 17)
+#define CQ_MAIN_TRIG_DLY_ST		(1L << 18)
+//#define LSCI_ERR_ST			(1L << 24)
+#define DMA_ERR_ST			(1L << 25)
 
 /* CAM DMA done status */
 #define IMGO_DONE_ST			(1L << 0)
-#define CQI_R1_DONE_ST			(1L << 8)
+//#define CQI_R1_DONE_ST			(1L << 8)
 
 /* IRQ signal mask */
 #define INT_ST_MASK_CAM (VS_INT_ST	 |\
@@ -44,7 +44,6 @@
 /* IRQ Error Mask */
 #define INT_ST_MASK_CAM_ERR (TG_OVRUN_ST	 |\
 			     TG_GBERR_ST	 |\
-			     CQ_DB_LOAD_ERR_ST	 |\
 			     CQ_MAIN_CODE_ERR_ST |\
 			     CQ_MAIN_VS_ERR_ST	 |\
 			     DMA_ERR_ST)
@@ -68,36 +67,36 @@
 #define CAMSYS_MAIN_REG_HALT5_EN(regs)			(regs + 0x0360)
 #define CAMSYS_MAIN_REG_HALT6_EN(regs)			(regs + 0x0364)
 
-#define CAM_REG_CTL_RAW_INT_STATUS(regs)		(regs + 0x0104)
-#define CAM_REG_CTL_RAW_INT2_STATUS(regs)		(regs + 0x0114)
-#define CAM_REG_CTL_RAW_INT3_STATUS(regs)		(regs + 0x0124)
-#define CAM_REG_CTL_RAW_INT4_STATUS(regs)		(regs + 0x0134)
-#define CAM_REG_CTL_RAW_INT5_STATUS(regs)		(regs + 0x0144)
-#define CAM_REG_CTL_RAW_INT6_EN				0x0150
-#define CAM_REG_CTL_RAW_INT6_STATUS(regs)		(regs + 0x0154)
-#define CAM_REG_CTL_RAW_INT7_EN				0x0160
-#define CAM_REG_CTL_RAW_INT7_STATUS(regs)		(regs + 0x0164)
+#define CAM_REG_CTL_RAW_INT_STATUS(regs)		(regs + 0x00f4)
+#define CAM_REG_CTL_RAW_INT2_STATUS(regs)		(regs + 0x0100)
+#define CAM_REG_CTL_RAW_INT3_STATUS(regs)		(regs + 0x0110)
+#define CAM_REG_CTL_RAW_INT4_STATUS(regs)		(regs + 0x0120)
+#define CAM_REG_CTL_RAW_INT5_STATUS(regs)		(regs + 0x0130)
+#define CAM_REG_CTL_RAW_INT6_EN				0x0138
+#define CAM_REG_CTL_RAW_INT6_STATUS(regs)		(regs + 0x0140)
+#define CAM_REG_CTL_RAW_INT7_EN				0x0148
+#define CAM_REG_CTL_RAW_INT7_STATUS(regs)		(regs + 0x0150)
 
-#define CAM_REG_CTL_RAW_INT_STATUSX(regs)		(regs + 0x0108)
-#define CAM_REG_CTL_RAW_INT2_STATUSX(regs)		(regs + 0x0118)
-#define CAM_REG_CTL_RAW_INT3_STATUSX(regs)		(regs + 0x0128)
-#define CAM_REG_CTL_RAW_INT4_STATUSX(regs)		(regs + 0x0138)
-#define CAM_REG_CTL_RAW_INT5_STATUSX(regs)		(regs + 0x0148)
-#define CAM_REG_CTL_RAW_INT6_STATUSX(regs)		(regs + 0x0158)
+#define CAM_REG_CTL_RAW_INT_STATUSX(regs)		(regs + 0x00f8)
+#define CAM_REG_CTL_RAW_INT2_STATUSX(regs)		(regs + 0x0104)
+#define CAM_REG_CTL_RAW_INT3_STATUSX(regs)		(regs + 0x0114)
+#define CAM_REG_CTL_RAW_INT4_STATUSX(regs)		(regs + 0x0124)
+#define CAM_REG_CTL_RAW_INT5_STATUSX(regs)		(regs + 0x0134)
+#define CAM_REG_CTL_RAW_INT6_STATUSX(regs)		(regs + 0x0144)
 #define CTL_CQ_THR0_DONE_ST				BIT(0)
-#define CAM_REG_CTL_RAW_INT7_STATUSX(regs)		(regs + 0x0168)
-#define CTL_CQ_THRSUB_DONE_ST				BIT(10)
+#define CAM_REG_CTL_RAW_INT7_STATUSX(regs)		(regs + 0x0154)
+#define CTL_CQ_THRSUB_DONE_ST				BIT(4)
 
 
-#define CAM_REG_CTL2_RAW_INT_STATUS(regs)		(regs + 0x0104)
-#define CAM_REG_CTL2_RAW_INT2_STATUS(regs)		(regs + 0x0114)
-#define CAM_REG_CTL2_RAW_INT4_STATUS(regs)		(regs + 0x0134)
-#define CAM_REG_CTL2_RAW_INT5_STATUS(regs)		(regs + 0x0144)
+#define CAM_REG_CTL2_RAW_INT_STATUS(regs)		(regs + 0x00f4)
+#define CAM_REG_CTL2_RAW_INT2_STATUS(regs)		(regs + 0x0100)
+#define CAM_REG_CTL2_RAW_INT4_STATUS(regs)		(regs + 0x0120)
+#define CAM_REG_CTL2_RAW_INT5_STATUS(regs)		(regs + 0x0130)
 
-#define CAM_REG_CTL2_RAW_INT_STATUSX(regs)		(regs + 0x0108)
-#define CAM_REG_CTL2_RAW_INT2_STATUSX(regs)		(regs + 0x0118)
-#define CAM_REG_CTL2_RAW_INT4_STATUSX(regs)		(regs + 0x0138)
-#define CAM_REG_CTL2_RAW_INT5_STATUSX(regs)		(regs + 0x0148)
+#define CAM_REG_CTL2_RAW_INT_STATUSX(regs)		(regs + 0x00f8)
+#define CAM_REG_CTL2_RAW_INT2_STATUSX(regs)		(regs + 0x0104)
+#define CAM_REG_CTL2_RAW_INT4_STATUSX(regs)		(regs + 0x0124)
+#define CAM_REG_CTL2_RAW_INT5_STATUSX(regs)		(regs + 0x0134)
 
 #define CAM_REG_CTL_RAW_MOD5_DCM_DIS			0x0310
 #define CAM_REG_CTL_RAW_MOD6_DCM_DIS			0x0314
@@ -115,35 +114,35 @@
 #define CAM_REG_TG_FRMSIZE_ST(regs)			(regs + 0x0738)
 #define CAM_REG_TG_FRMSIZE_ST_R(regs)			(regs + 0x076C)
 
-#define CAM_REG_CQI_R1A_CON0(regs)			(regs + 0x4430)
-#define CAM_REG_CQI_R1A_CON1(regs)			(regs + 0x4434)
-#define CAM_REG_CQI_R1A_CON2(regs)			(regs + 0x4438)
-#define CAM_REG_CQI_R1A_CON3(regs)			(regs + 0x443C)
-#define CAM_REG_CQI_R1A_CON4(regs)			(regs + 0x4440)
+#define CAM_REG_CQI_R1A_CON0(regs)			(regs + 0x4120)
+#define CAM_REG_CQI_R1A_CON1(regs)			(regs + 0x4124)
+#define CAM_REG_CQI_R1A_CON2(regs)			(regs + 0x4128)
+#define CAM_REG_CQI_R1A_CON3(regs)			(regs + 0x412C)
+#define CAM_REG_CQI_R1A_CON4(regs)			(regs + 0x4130)
 
-#define CAM_REG_CQI_R2A_CON0(regs)			(regs + 0x44A0)
-#define CAM_REG_CQI_R2A_CON1(regs)			(regs + 0x44A4)
-#define CAM_REG_CQI_R2A_CON2(regs)			(regs + 0x44A8)
-#define CAM_REG_CQI_R2A_CON3(regs)			(regs + 0x44AC)
-#define CAM_REG_CQI_R2A_CON4(regs)			(regs + 0x44B0)
+#define CAM_REG_CQI_R2A_CON0(regs)			(regs + 0x4190)
+#define CAM_REG_CQI_R2A_CON1(regs)			(regs + 0x4194)
+#define CAM_REG_CQI_R2A_CON2(regs)			(regs + 0x4198)
+#define CAM_REG_CQI_R2A_CON3(regs)			(regs + 0x419C)
+#define CAM_REG_CQI_R2A_CON4(regs)			(regs + 0x41A0)
 
-#define CAM_REG_CQI_R3A_CON0(regs)			(regs + 0x4510)
-#define CAM_REG_CQI_R3A_CON1(regs)			(regs + 0x4514)
-#define CAM_REG_CQI_R3A_CON2(regs)			(regs + 0x4518)
-#define CAM_REG_CQI_R3A_CON3(regs)			(regs + 0x451C)
-#define CAM_REG_CQI_R3A_CON4(regs)			(regs + 0x4520)
+#define CAM_REG_CQI_R3A_CON0(regs)			(regs + 0x4200)
+#define CAM_REG_CQI_R3A_CON1(regs)			(regs + 0x4204)
+#define CAM_REG_CQI_R3A_CON2(regs)			(regs + 0x4208)
+#define CAM_REG_CQI_R3A_CON3(regs)			(regs + 0x420C)
+#define CAM_REG_CQI_R3A_CON4(regs)			(regs + 0x4210)
 
-#define CAM_REG_CQI_R4A_CON0(regs)			(regs + 0x4580)
-#define CAM_REG_CQI_R4A_CON1(regs)			(regs + 0x4584)
-#define CAM_REG_CQI_R4A_CON2(regs)			(regs + 0x4588)
-#define CAM_REG_CQI_R4A_CON3(regs)			(regs + 0x458C)
-#define CAM_REG_CQI_R4A_CON4(regs)			(regs + 0x4590)
+#define CAM_REG_CQI_R4A_CON0(regs)			(regs + 0x4270)
+#define CAM_REG_CQI_R4A_CON1(regs)			(regs + 0x4274)
+#define CAM_REG_CQI_R4A_CON2(regs)			(regs + 0x4278)
+#define CAM_REG_CQI_R4A_CON3(regs)			(regs + 0x427C)
+#define CAM_REG_CQI_R4A_CON4(regs)			(regs + 0x4280)
 
-#define CAM_REG_IMGO_CON0(regs)				(regs + 0x48a0)
-#define CAM_REG_IMGO_CON1(regs)				(regs + 0x48a4)
-#define CAM_REG_IMGO_CON2(regs)				(regs + 0x48a8)
-#define CAM_REG_IMGO_CON3(regs)				(regs + 0x48ac)
-#define CAM_REG_IMGO_CON4(regs)				(regs + 0x4900)
+#define CAM_REG_IMGO_CON0(regs)				(regs + 0x4780)
+#define CAM_REG_IMGO_CON1(regs)				(regs + 0x4784)
+#define CAM_REG_IMGO_CON2(regs)				(regs + 0x4788)
+#define CAM_REG_IMGO_CON3(regs)				(regs + 0x478C)
+#define CAM_REG_IMGO_CON4(regs)				(regs + 0x4790)
 
 /* error status */
 #define REG_RAWI_R2_ERR_STAT				0x4134
@@ -200,7 +199,10 @@
 #define REG_YUVBO_R5_ERR_STAT				0x4C74
 
 
-/* CQ related */
+#define CAMCTL_INT_TRIG        0x380
+#define CAMCTL_INT_EN  0x0f0
+
+/*  related */
 #define REG_CQ_EN							0x0400
 #define REG_SCQ_START_PERIOD				0x0408
 

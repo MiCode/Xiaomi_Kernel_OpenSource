@@ -40,93 +40,6 @@ static int debug_testmdl_pixmode = -1;
 module_param(debug_testmdl_pixmode, int, 0644);
 MODULE_PARM_DESC(debug_testmdl_pixmode, "fixed pixel mode for testmdl");
 
-/* camsv hardware capability definition: */
-/* [15:0]: hardware scenario             */
-/* [19:16]: group number                 */
-/* [23:20]: exposure order               */
-#define CAMSV_GROUP_SHIFT 16
-#define CAMSV_EXP_ORDER_SHIFT 20
-#define CAMSV_GROUP_AMOUNT 4
-#define MAX_STAGGER_EXP_AMOUNT 3
-
-static int mtk_cam_dc_last_camsv(int raw)
-{
-	if (raw == MTKCAM_SUBDEV_RAW_2)
-		return 2;
-
-	return 1;
-}
-
-static int get_available_sv_pipes(struct mtk_cam_ut *ut,
-							int hw_scen, int req_amount, int master)
-{
-	unsigned int i, j, group, exp_order;
-	unsigned int idle_pipes = 0, match_cnt = 0;
-	bool is_dc =
-		(hw_scen == MTKCAM_IPI_HW_PATH_OFFLINE_SRT_DCIF_STAGGER);
-	struct mtk_ut_camsv_device *sv_dev;
-
-	if ((hw_scen == MTKCAM_IPI_HW_PATH_ON_THE_FLY_DCIF_STAGGER) ||
-		(hw_scen == MTKCAM_IPI_HW_PATH_OFFLINE_SRT_DCIF_STAGGER)) {
-		for (i = 0; i < req_amount; i++) {
-			group = master << CAMSV_GROUP_SHIFT;
-			exp_order = 1 << (i + CAMSV_EXP_ORDER_SHIFT);
-
-			if (is_dc && ((req_amount - 1) == i)) {
-				switch (master) {
-				case 1 << MTKCAM_SUBDEV_RAW_0:
-					exp_order = 1 << (mtk_cam_dc_last_camsv(MTKCAM_SUBDEV_RAW_0)
-									  + CAMSV_EXP_ORDER_SHIFT);
-					break;
-				case 1 << MTKCAM_SUBDEV_RAW_1:
-					exp_order = 1 << (mtk_cam_dc_last_camsv(MTKCAM_SUBDEV_RAW_1)
-									  + CAMSV_EXP_ORDER_SHIFT);
-					break;
-				case 1 << MTKCAM_SUBDEV_RAW_2:
-					exp_order = 1 << (mtk_cam_dc_last_camsv(MTKCAM_SUBDEV_RAW_2)
-									  + CAMSV_EXP_ORDER_SHIFT);
-					break;
-				default:
-					break;
-				}
-			}
-
-			for (j = 0; j < ut->num_camsv; j++) {
-				sv_dev = dev_get_drvdata(ut->camsv[j]);
-				if ((sv_dev->hw_cap & (1 << hw_scen)) &&
-					(sv_dev->hw_cap & group) &&
-					(sv_dev->hw_cap & exp_order)) {
-					match_cnt++;
-					idle_pipes |=
-						(1 << (sv_dev->id + MTKCAM_SUBDEV_CAMSV_START));
-					break;
-				}
-			}
-			if (j == ut->num_camsv) {
-				idle_pipes = 0;
-				match_cnt = 0;
-				goto EXIT;
-			}
-		}
-	}
-
-EXIT:
-	return idle_pipes;
-}
-
-static u32 choose_master(u32 devices)
-{
-	int i = 0;
-
-	while (devices) {
-		if (devices & 1)
-			break;
-		devices >>= 1;
-		i++;
-	}
-	return i;
-}
-
 static int apply_next_req(struct mtk_cam_ut *ut)
 {
 	struct mtk_cam_ut_buf_entry *buf_entry;
@@ -163,7 +76,17 @@ static int apply_next_req(struct mtk_cam_ut *ut)
 	ut->enque_list.cnt--;
 	spin_unlock_irqrestore(&ut->enque_list.lock, flags);
 
-	CALL_RAW_OPS(ut->raw[ut->master_raw], apply_cq,
+#if SUPPORT_RAWB
+	if (ut->hardware_scenario == MTKCAM_IPI_HW_PATH_ON_THE_FLY_RAWB) {
+		CALL_RAW_OPS(ut->raw[1], apply_cq,
+			     buf_entry->cq_buf.iova,
+			     buf_entry->cq_buf.size,
+			     buf_entry->cq_offset,
+			     buf_entry->sub_cq_size,
+			     buf_entry->sub_cq_offset);
+	}
+#endif
+	CALL_RAW_OPS(ut->raw[0], apply_cq,
 		     buf_entry->cq_buf.iova,
 		     buf_entry->cq_buf.size,
 		     buf_entry->cq_offset,
@@ -232,8 +155,8 @@ static int apply_req_on_composed_once(struct mtk_cam_ut *ut)
 	raw_params.hardware_scenario = ut->hardware_scenario;
 
 	CALL_RAW_OPS(ut->raw[0], initialize, &raw_params);
-	CALL_RAW_OPS(ut->raw[1], initialize, &raw_params);
-	CALL_RAW_OPS(ut->raw[2], initialize, &raw_params);
+	//CALL_RAW_OPS(ut->raw[1], initialize, &raw_params);
+	//CALL_RAW_OPS(ut->raw[2], initialize, &raw_params);
 
 	ut->hdl.on_ipi_composed = on_ipi_composed;
 	return apply_next_req(ut);
@@ -248,9 +171,7 @@ static int apply_req_on_composed_m2m_once(struct mtk_cam_ut *ut)
 
 	if (!ut->with_testmdl) {
 		if (ut->hardware_scenario == MTKCAM_IPI_HW_PATH_OFFLINE_STAGGER) {
-			if (ut->main_rawi == MTKCAM_IPI_RAW_RAWI_6)
-				raw_params.streamon_type = STREAM_FROM_RAWI_R6;
-			else if (ut->main_rawi == MTKCAM_IPI_RAW_RAWI_5)
+			if (ut->main_rawi == MTKCAM_IPI_RAW_RAWI_5)
 				raw_params.streamon_type = STREAM_FROM_RAWI_R5;
 			else {
 				dev_info(ut->dev, "can't find correct main rawi\n");
@@ -275,17 +196,11 @@ static int streamon_on_cqdone_once(struct mtk_cam_ut *ut)
 {
 	int i;
 
-	dev_dbg(ut->dev,
-		"cqdone: hardware_scenario %d, master_raw %d\n",
-		ut->hardware_scenario, ut->master_raw);
+	if (ut->hardware_scenario != MTKCAM_IPI_HW_PATH_DC_STAGGER)
+		CALL_RAW_OPS(ut->raw[0], s_stream, 1)
 
-	if (ut->hardware_scenario != MTKCAM_IPI_HW_PATH_OFFLINE_SRT_DCIF_STAGGER)
-		CALL_RAW_OPS(ut->raw[ut->master_raw], s_stream, 1)
-
-	for (i = MTKCAM_SUBDEV_CAMSV_END - 1; i >= MTKCAM_SUBDEV_CAMSV_START; i--) {
-		if (ut->used_sv_pipes & (1 << i))
-			CALL_CAMSV_OPS(ut->camsv[i - MTKCAM_SUBDEV_CAMSV_START], s_stream, 1);
-	}
+	for (i = ut->is_dcif_camsv - 1; i >= 0; i--)
+		CALL_CAMSV_OPS(ut->camsv[i], s_stream, 1);
 
 	ut->hdl.on_isr_cq_done = NULL;
 	return 0;
@@ -377,13 +292,13 @@ static int cam_composer_handler(struct rpmsg_device *rpdev, void *data,
 		buf_entry = list_first_entry(&ut->enque_list.list,
 				struct mtk_cam_ut_buf_entry, list_entry);
 		buf_entry->cq_buf.size =
-			ipi_msg->ack_data.frame_result.cq_desc_size;
+			ipi_msg->ack_data.frame_result.main.size;
 		buf_entry->cq_offset =
-			ipi_msg->ack_data.frame_result.cq_desc_offset;
+			ipi_msg->ack_data.frame_result.main.offset;
 		buf_entry->sub_cq_size =
-			ipi_msg->ack_data.frame_result.sub_cq_desc_size;
+			ipi_msg->ack_data.frame_result.sub.size;
 		buf_entry->sub_cq_offset =
-			ipi_msg->ack_data.frame_result.sub_cq_desc_offset;
+			ipi_msg->ack_data.frame_result.sub.offset;
 		spin_unlock_irqrestore(&ut->enque_list.lock, flags);
 
 		if (ut->hdl.on_ipi_composed)
@@ -510,18 +425,16 @@ static long cam_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
 	struct mtk_cam_ut *ut = filp->private_data;
 	struct device *dev = ut->dev;
-	struct mtk_ut_camsv_device *sv_dev;
 
 	switch (cmd) {
 	case ISP_UT_IOCTL_SET_TESTMDL: {
 		struct cam_ioctl_set_testmdl testmdl;
-		int pixel_mode, i;
-		int cam_tg_idx = 0;
-		unsigned int seninf_idx = seninf_0;
+		int pixel_mode;
+
+		pr_info("%s: %d\n", __func__, __LINE__);
 
 		ut->is_dcif_camsv = 0;
 		ut->with_testmdl = 0;
-		ut->used_sv_pipes = 0;
 
 		if (copy_from_user(&testmdl, (void *)arg,
 				   sizeof(struct cam_ioctl_set_testmdl)) != 0) {
@@ -538,74 +451,81 @@ static long cam_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 
 		// update hardware scenario
 		ut->hardware_scenario = testmdl.hwScenario;
-		ut->master_raw = choose_master((u32)testmdl.dev_mask);
 
-		cam_tg_idx = raw_tg_0 + ut->master_raw;
-
-		dev_info(dev, "testmdl: mode %d hwScenario %d dev_mask 0x%x\n",
-			testmdl.mode, testmdl.hwScenario, testmdl.dev_mask);
-		dev_info(dev, "ut->master_raw %d cam_tg_idx %d\n",
-			ut->master_raw, cam_tg_idx);
+		dev_info(dev, "testmdl.mode=%d testmdl.hwScenario=%d\n",
+			testmdl.mode, testmdl.hwScenario);
 		if (testmdl.mode == (u8)-1)
 			dev_info(dev, "without testmdl\n");
 		else {
 			ut->with_testmdl = 1;
 			// reset cam mux
-			CALL_SENINF_OPS(ut->seninf, reset);
+			//CALL_SENINF_OPS(ut->seninf, reset);
 		}
 
-		if (testmdl.hwScenario == MTKCAM_IPI_HW_PATH_ON_THE_FLY_DCIF_STAGGER) {
-			if (testmdl.mode == stagger_3exp)
+		if (testmdl.hwScenario == MTKCAM_IPI_HW_PATH_STAGGER) {
+			if (testmdl.mode == stagger_3exp) {
 				ut->is_dcif_camsv = 2;
-			else if (testmdl.mode == stagger_2exp)
+				CALL_SENINF_OPS(ut->seninf, set_size,
+					   testmdl.width, testmdl.height,
+					   pixel_mode, testmdl.pattern,
+					   seninf_0, camsv_tg_0);
+				mdelay(1);
+				CALL_SENINF_OPS(ut->seninf, set_size,
+					   testmdl.width, testmdl.height,
+					   pixel_mode, testmdl.pattern,
+					   seninf_1, camsv_tg_1);
+				mdelay(1);
+				CALL_SENINF_OPS(ut->seninf, set_size,
+					   testmdl.width, testmdl.height,
+					   pixel_mode, testmdl.pattern,
+					   seninf_2, raw_tg_0);
+			} else if (testmdl.mode == stagger_2exp) {
 				ut->is_dcif_camsv = 1;
-			ut->used_sv_pipes =
-				get_available_sv_pipes(ut, ut->hardware_scenario,
-				ut->is_dcif_camsv, (1 << ut->master_raw));
-			for (i = MTKCAM_SUBDEV_CAMSV_START; i < MTKCAM_SUBDEV_CAMSV_END; i++) {
-				if (ut->used_sv_pipes & (1 << i)) {
-					sv_dev = dev_get_drvdata(
-						ut->camsv[i - MTKCAM_SUBDEV_CAMSV_START]);
-					CALL_SENINF_OPS(ut->seninf, set_size,
-						   testmdl.width, testmdl.height,
-						   pixel_mode, testmdl.pattern,
-						   seninf_idx, sv_dev->cammux_id);
-					seninf_idx++;
-					mdelay(1);
-				}
+				CALL_SENINF_OPS(ut->seninf, set_size,
+					   testmdl.width, testmdl.height,
+					   pixel_mode, testmdl.pattern,
+					   seninf_0, camsv_tg_0);
+				mdelay(1);
+				CALL_SENINF_OPS(ut->seninf, set_size,
+					   testmdl.width, testmdl.height,
+					   pixel_mode, testmdl.pattern,
+					   seninf_1, raw_tg_0);
 			}
-			CALL_SENINF_OPS(ut->seninf, set_size,
-				   testmdl.width, testmdl.height,
-				   pixel_mode, testmdl.pattern,
-				   seninf_idx, cam_tg_idx);
-		} else if (testmdl.hwScenario == MTKCAM_IPI_HW_PATH_OFFLINE_SRT_DCIF_STAGGER) {
-			if (testmdl.mode == stagger_3exp)
-				ut->is_dcif_camsv = 3;
-			else if (testmdl.mode == stagger_2exp)
+		} else if (testmdl.hwScenario == MTKCAM_IPI_HW_PATH_DC_STAGGER) {
+			// temporarily support camsv_a1 + camsv_a2 + raw_a case
+			if (testmdl.mode == stagger_2exp) {
 				ut->is_dcif_camsv = 2;
-			else if (testmdl.mode == normal || testmdl.mode == stagger_1exp)
+				CALL_SENINF_OPS(ut->seninf, set_size,
+					   testmdl.width, testmdl.height,
+					   pixel_mode, testmdl.pattern,
+					   seninf_0, camsv_tg_0);
+				mdelay(1);
+				CALL_SENINF_OPS(ut->seninf, set_size,
+					   testmdl.width, testmdl.height,
+					   pixel_mode, testmdl.pattern,
+					   seninf_1, camsv_tg_1);
+			} else if (testmdl.mode == normal) {
 				ut->is_dcif_camsv = 1;
-			ut->used_sv_pipes =
-				get_available_sv_pipes(ut, ut->hardware_scenario,
-				ut->is_dcif_camsv, (1 << ut->master_raw));
-			for (i = MTKCAM_SUBDEV_CAMSV_START; i < MTKCAM_SUBDEV_CAMSV_END; i++) {
-				if (ut->used_sv_pipes & (1 << i)) {
-					sv_dev = dev_get_drvdata(
-						ut->camsv[i - MTKCAM_SUBDEV_CAMSV_START]);
-					CALL_SENINF_OPS(ut->seninf, set_size,
-						   testmdl.width, testmdl.height,
-						   pixel_mode, testmdl.pattern,
-						   seninf_idx, sv_dev->cammux_id);
-					seninf_idx++;
-					mdelay(1);
-				}
+				CALL_SENINF_OPS(ut->seninf, set_size,
+					   testmdl.width, testmdl.height,
+					   pixel_mode, testmdl.pattern,
+					   seninf_0, camsv_tg_0);
 			}
+#if SUPPORT_RAWB
+		} else if (testmdl.hwScenario == MTKCAM_IPI_HW_PATH_ON_THE_FLY_RAWB) {
+			if (ut->with_testmdl == 1) {
+				CALL_SENINF_OPS(ut->seninf, set_size,
+					   testmdl.width, testmdl.height,
+					   pixel_mode, testmdl.pattern,
+					   seninf_0, raw_tg_1);
+			}
+#endif
 		} else {
 			if (ut->with_testmdl == 1) {
 				CALL_SENINF_OPS(ut->seninf, set_size,
 					   testmdl.width, testmdl.height,
 					   pixel_mode, testmdl.pattern,
-					   seninf_idx, cam_tg_idx);
+					   seninf_0, raw_tg_0);
 			}
 		}
 
@@ -613,6 +533,8 @@ static long cam_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	}
 	case ISP_UT_IOCTL_DEQUE: {
 		unsigned int timeout_ms;
+
+		pr_info("%s: %d\n", __func__, __LINE__);
 
 		if (copy_from_user(&timeout_ms, (void *)arg,
 				   sizeof(unsigned int)) != 0) {
@@ -637,9 +559,10 @@ static long cam_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		void *mem_ipi_priv;
 		struct mtk_ccd *ccd;
 		int dmabuf_ipi_fd;
-		struct mtkcam_ipi_sw_buffer *cqbuf;
-		struct mtkcam_ipi_sw_buffer *msgbuf;
+		struct mtkcam_ipi_buffer *cqbuf;
+		struct mtkcam_ipi_buffer *msgbuf;
 
+		pr_info("%s: %d\n", __func__, __LINE__);
 		if (copy_from_user(&session, (void *)arg,
 				   sizeof(session)) != 0) {
 			dev_dbg(dev, "[CREATE_SESSION] Fail to get session\n");
@@ -698,6 +621,8 @@ static long cam_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		struct mem_obj smem;
 		int fd, i;
 
+		pr_info("%s: %d\n", __func__, __LINE__);
+
 		if (copy_from_user(&cookie, (void *)arg,
 				   sizeof(cookie)) != 0) {
 			dev_dbg(dev, "[DESTROY_SESSION] Fail to get cookie\n");
@@ -708,14 +633,10 @@ static long cam_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		event.cookie = cookie;
 
 		if (ut->with_testmdl) {
-			for (i = MTKCAM_SUBDEV_CAMSV_START; i < MTKCAM_SUBDEV_CAMSV_END; i++) {
-				if (ut->used_sv_pipes & (1 << i))
-					CALL_CAMSV_OPS(
-						ut->camsv[i - MTKCAM_SUBDEV_CAMSV_START],
-						s_stream, 0);
-			}
+			for (i = 0; i < ut->is_dcif_camsv; i++)
+				CALL_CAMSV_OPS(ut->camsv[i], s_stream, 0);
 
-			if (ut->hardware_scenario != MTKCAM_IPI_HW_PATH_OFFLINE_SRT_DCIF_STAGGER) {
+			if (ut->hardware_scenario != MTKCAM_IPI_HW_PATH_DC_STAGGER) {
 				CALL_RAW_OPS(ut->raw[0], s_stream, 0);
 				/* stream off rawb for bc case(or any case)
 				 * w/o send hardware_scenario
@@ -728,7 +649,6 @@ static long cam_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		smem.iova = ut->mem->iova;
 		smem.len = ut->mem->size;
 		fd = ut->mem->fd;
-		mtk_ccd_put_buffer_fd(ccd, &smem, fd);
 		mtk_ccd_put_buffer(ccd, &smem);
 
 		dev_dbg(dev,
@@ -739,7 +659,6 @@ static long cam_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		smem.iova = 0;
 		smem.len = ut->msg_mem->size;
 		fd = ut->msg_mem->fd;
-		mtk_ccd_put_buffer_fd(ccd, &smem, fd);
 		mtk_ccd_put_buffer(ccd, &smem);
 		dev_dbg(dev,
 				"%s:ipi msg buffers release, mem(%p), sz(%d)\n",
@@ -759,6 +678,8 @@ static long cam_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		int i = 0;
 
 		struct cam_ioctl_enque *pEnque;
+
+		pr_info("%s: %d\n", __func__, __LINE__);
 
 		if (copy_from_user(&pEnque, (void *)arg, sizeof(pEnque)) != 0) {
 			dev_dbg(dev, "[ENQUE] Fail to get enque\n");
@@ -781,10 +702,6 @@ static long cam_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 
 		if (ut->hardware_scenario == MTKCAM_IPI_HW_PATH_OFFLINE_STAGGER) {
 			for (i = 0 ; i < CAM_MAX_IMAGE_INPUT; i++) {
-				if (enque.frame_param.img_ins[i].uid.id == MTKCAM_IPI_RAW_RAWI_6) {
-					ut->main_rawi = MTKCAM_IPI_RAW_RAWI_6;
-					break;
-				}
 
 				if (enque.frame_param.img_ins[i].uid.id == MTKCAM_IPI_RAW_RAWI_5) {
 					ut->main_rawi = MTKCAM_IPI_RAW_RAWI_5;
@@ -829,8 +746,9 @@ static long cam_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		struct cam_ioctl_config config;
 		struct mtkcam_ipi_event event;
 		struct mtkcam_ipi_config_param *pParam;
-		int i, j, exp_no = 1, exp_shift = 0;
-		bool is_dc;
+		int i;
+
+		pr_info("%s: %d\n", __func__, __LINE__);
 
 		if (copy_from_user(&config, (void *)arg,
 				   sizeof(config)) != 0) {
@@ -838,51 +756,20 @@ static long cam_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			return -EFAULT;
 		}
 		dev_info(dev, "ut->is_dcif_camsv=%d\n", ut->is_dcif_camsv);
-		for (i = MTKCAM_SUBDEV_CAMSV_START; i < MTKCAM_SUBDEV_CAMSV_END; i++) {
-			if (ut->used_sv_pipes & (1 << i)) {
-				pParam = &config.config_param;
-				if (ut->hardware_scenario ==
-					MTKCAM_IPI_HW_PATH_ON_THE_FLY_DCIF_STAGGER) {
-					is_dc = 0;
-					exp_no = ut->is_dcif_camsv + 1;
-				} else if (ut->hardware_scenario ==
-					MTKCAM_IPI_HW_PATH_OFFLINE_SRT_DCIF_STAGGER) {
-					is_dc = 1;
-					exp_no = ut->is_dcif_camsv;
-				}
-				sv_dev = dev_get_drvdata(ut->camsv[i - MTKCAM_SUBDEV_CAMSV_START]);
-				sv_dev->exp_num = exp_no;
-				for (j = 0; j < MAX_STAGGER_EXP_AMOUNT; j++) {
-					// raw c use camsv e1 as last exposure
-					if (is_dc && (j == (exp_no - 1)))
-						exp_shift = mtk_cam_dc_last_camsv(ut->master_raw);
-					else
-						exp_shift = j;
-
-					if (sv_dev->hw_cap &
-						(1 << (exp_shift + CAMSV_EXP_ORDER_SHIFT))) {
-						sv_dev->exp_order = exp_shift;
-						break;
-					}
-				}
-				CALL_CAMSV_OPS(ut->camsv[i - MTKCAM_SUBDEV_CAMSV_START],
-					dev_config, &pParam->input);
-			}
+		if (ut->hardware_scenario == MTKCAM_IPI_HW_PATH_STAGGER) {
+			pParam = &config.config_param;
+			for (i = 0; i < ut->is_dcif_camsv; i++)
+				CALL_CAMSV_OPS(ut->camsv[i], dev_config, &pParam->input);
+		} else if (ut->hardware_scenario == MTKCAM_IPI_HW_PATH_DC_STAGGER) {
+			pParam = &config.config_param;
+			for (i = 0; i < ut->is_dcif_camsv; i++)
+				CALL_CAMSV_OPS(ut->camsv[i], dev_config, &pParam->input);
 		}
 
 		config.config_param.flags = MTK_CAM_IPI_CONFIG_TYPE_INIT;
 					/* |MTK_CAM_IPI_CONFIG_TYPE_SMVR_PREVIEW */
 
 		ut->subsample = config.config_param.input.subsample;
-
-		dev_info(dev, "config.config_param.n_maps=%d\n", config.config_param.n_maps);
-		for (i = 0; i < config.config_param.n_maps; i++) {
-			dev_info(dev, "maps[%d], dev_mask 0x%x pipe_id %d exp_order %d\n",
-				i,
-				config.config_param.maps[i].dev_mask,
-				config.config_param.maps[i].pipe_id,
-				config.config_param.maps[i].exp_order);
-		}
 
 		event.cmd_id = CAM_CMD_CONFIG;
 		event.cookie = config.cookie;
@@ -898,6 +785,9 @@ static long cam_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		struct mem_obj smem;
 		void *mem_priv;
 		struct mtk_ccd *ccd;
+
+		pr_info("%s: %d\n", __func__, __LINE__);
+
 
 		if (copy_from_user(&workbuf, (void *)arg,
 				   sizeof(workbuf)) != 0) {
@@ -929,6 +819,8 @@ static long cam_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		struct mem_obj smem;
 		int fd;
 
+		pr_info("%s: %d\n", __func__, __LINE__);
+
 		if (copy_from_user(&workbuf, (void *)arg,
 				   sizeof(workbuf)) != 0) {
 			dev_dbg(dev, "[FREE_DMABUF] Fail to get sw buffer\n");
@@ -942,7 +834,6 @@ static long cam_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		smem.iova = workbuf.iova;
 		smem.len = workbuf.size;
 		fd = workbuf.ccd_fd;
-		mtk_ccd_put_buffer_fd(ccd, &smem, fd);
 		mtk_ccd_put_buffer(ccd, &smem);
 
 		dev_dbg(dev,
@@ -961,11 +852,9 @@ static int cam_open(struct inode *inode, struct file *filp)
 {
 	struct mtk_cam_ut *ut =	container_of(inode->i_cdev,
 					     struct mtk_cam_ut, cdev);
-	int i;
-
-	//dev_info(ut->dev, "%s\n", __func__);
 	get_device(ut->dev);
 
+#if SUPPORT_PM
 	pm_runtime_get_sync(ut->dev);
 
 	for (i = 0; i < ut->num_raw; i++) {
@@ -980,29 +869,6 @@ static int cam_open(struct inode *inode, struct file *filp)
 
 	/* Note: seninf's dts have no power-domains now, so do it after raw's */
 	pm_runtime_get_sync(ut->seninf);
-
-#ifdef USE_PA
-	//force SMI to disable MMU
-	for (i = 0; i < 32; i++) {
-		// SMI_LARB13_BASE in CAMSYS_MAIN
-		writel_relaxed(0xa0000, ut->base + 0x1380 + (i<<2));
-		// SMI_LARB14_BASE in CAMSYS_MAIN
-		writel_relaxed(0xa0000, ut->base + 0x2380 + (i<<2));
-		// SMI_LARB16_BASE in CAMSYS_RAWA
-		writel_relaxed(0xa0000, ut->base + 0x8380 + (i<<2));
-		// SMI_LARB17_BASE in CAMSYS_YUVA
-		writel_relaxed(0xa0000, ut->base + 0x9380 + (i<<2));
-		// SMI_LARB16_BASE in CAMSYS_RAWB
-		writel_relaxed(0xa0000, ut->base + 0xa380 + (i<<2));
-		// SMI_LARB17_BASE in CAMSYS_YUVB
-		writel_relaxed(0xa0000, ut->base + 0xb380 + (i<<2));
-		// SMI_LARB16_BASE in CAMSYS_RAWC
-		writel_relaxed(0xa0000, ut->base + 0xc380 + (i<<2));
-		// SMI_LARB17_BASE in CAMSYS_YUVC
-		writel_relaxed(0xa0000, ut->base + 0xd380 + (i<<2));
-	}
-	/* make sure reset take effect */
-	wmb();
 #endif
 
 	filp->private_data = ut;
@@ -1015,12 +881,11 @@ static int cam_open(struct inode *inode, struct file *filp)
 static int cam_release(struct inode *inode, struct file *filp)
 {
 	struct mtk_cam_ut *ut = filp->private_data;
-	int i;
 
-	//dev_info(ut->dev, "%s\n", __func__);
 
 	cam_composer_uninit(ut);
 
+#if SUPPORT_PM
 	pm_runtime_put(ut->seninf);
 
 	for (i = 0; i < ut->num_camsv; i++)
@@ -1032,7 +897,7 @@ static int cam_release(struct inode *inode, struct file *filp)
 	pm_runtime_put(ut->dev);
 
 	put_device(ut->dev);
-
+#endif
 	return 0;
 }
 
@@ -1140,10 +1005,10 @@ static struct component_match *mtk_cam_match_add(struct device *dev)
 
 	ut->num_yuv = add_match_by_driver(dev, &match, &mtk_ut_yuv_driver);
 	dev_info(dev, "# of yuv: %d\n", ut->num_yuv);
-
+#if WITH_CAMSV_DRIVER
 	ut->num_camsv = add_match_by_driver(dev, &match, &mtk_ut_camsv_driver);
 	dev_info(dev, "# of camsv: %d\n", ut->num_camsv);
-
+#endif
 	if (IS_ERR(match))
 		mtk_cam_match_remove(dev);
 
@@ -1192,8 +1057,6 @@ static int mtk_cam_ut_master_bind(struct device *dev)
 	struct mtk_cam_ut *ut = dev_get_drvdata(dev);
 	int ret;
 
-	//dev_info(dev, "%s\n", __func__);
-
 	if (ut->num_raw) {
 		ut->raw = devm_kcalloc(dev, ut->num_raw, sizeof(*ut->raw),
 				       GFP_KERNEL);
@@ -1213,14 +1076,14 @@ static int mtk_cam_ut_master_bind(struct device *dev)
 			 ut->num_raw, ut->num_yuv);
 		return -ENODEV;
 	}
-
+#if WITH_CAMSV_DRIVER
 	if (ut->num_camsv) {
 		ut->camsv = devm_kcalloc(dev, ut->num_camsv, sizeof(*ut->camsv),
 				       GFP_KERNEL);
 		if (!ut->camsv)
 			return -ENOMEM;
 	}
-
+#endif
 #if WITH_LARB_DRIVER
 	if (ut->num_larb) {
 		ut->larb = devm_kcalloc(dev, ut->num_larb, sizeof(*ut->larb),
@@ -1251,7 +1114,6 @@ static void mtk_cam_ut_master_unbind(struct device *dev)
 {
 	struct mtk_cam_ut *ut = dev_get_drvdata(dev);
 
-	//dev_info(dev, "%s\n", __func__);
 	component_unbind_all(dev, ut);
 }
 
@@ -1284,13 +1146,13 @@ static int register_sub_drivers(struct device *dev)
 		dev_info(dev, "%s register yuv driver fail\n", __func__);
 		goto REGISTER_YUV_FAIL;
 	}
-
+#if WITH_CAMSV_DRIVER
 	ret = platform_driver_register(&mtk_ut_camsv_driver);
 	if (ret) {
 		dev_info(dev, "%s register camsv driver fail\n", __func__);
 		goto REGISTER_CAMSV_FAIL;
 	}
-
+#endif
 	ret = platform_driver_register(&mtk_ut_seninf_driver);
 	if (ret) {
 		dev_info(dev, "%s register seninf driver fail\n", __func__);
@@ -1318,10 +1180,10 @@ ADD_MATCH_FAIL:
 
 REGISTER_SENINF_FAIL:
 	platform_driver_unregister(&mtk_ut_camsv_driver);
-
+#if WITH_CAMSV_DRIVER
 REGISTER_CAMSV_FAIL:
 	platform_driver_unregister(&mtk_ut_yuv_driver);
-
+#endif
 REGISTER_YUV_FAIL:
 	platform_driver_unregister(&mtk_ut_raw_driver);
 
@@ -1393,7 +1255,7 @@ static int mtk_cam_ut_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	pm_runtime_enable(dev);
+	//pm_runtime_enable(dev);
 
 	dev_info(dev, "%s: success\n", __func__);
 	return 0;
@@ -1404,7 +1266,7 @@ static int mtk_cam_ut_remove(struct platform_device *pdev)
 	struct mtk_cam_ut *ut =
 		(struct mtk_cam_ut *)platform_get_drvdata(pdev);
 
-	pm_runtime_disable(ut->dev);
+	//pm_runtime_disable(ut->dev);
 
 	cam_unreg_char_dev(ut);
 
@@ -1413,30 +1275,31 @@ static int mtk_cam_ut_remove(struct platform_device *pdev)
 
 static int mtk_cam_ut_pm_suspend(struct device *dev)
 {
-	int ret;
+	int ret = 0;
 
 	dev_dbg(dev, "- %s\n", __func__);
-
+#if SUPPORT_PM
 	if (pm_runtime_suspended(dev))
 		return 0;
 
 	ret = pm_runtime_force_suspend(dev);
 	if (ret)
 		dev_dbg(dev, "failed to force suspend:%d\n", ret);
-
+#endif
 	return ret;
 }
 
 static int mtk_cam_ut_pm_resume(struct device *dev)
 {
-	int ret;
+	int ret = 0;
 
 	dev_dbg(dev, "- %s\n", __func__);
-
+#if SUPPORT_PM
 	if (pm_runtime_suspended(dev))
 		return 0;
 
 	ret = pm_runtime_force_resume(dev);
+#endif
 	return ret;
 }
 
@@ -1460,7 +1323,7 @@ static const struct dev_pm_ops mtk_cam_pm_ops = {
 };
 
 static const struct of_device_id cam_ut_driver_dt_match[] = {
-	{ .compatible = "mediatek,camisp", },
+	{ .compatible = "mediatek,mt6985-camisp", },
 	{}
 };
 MODULE_DEVICE_TABLE(of, cam_ut_driver_dt_match);
