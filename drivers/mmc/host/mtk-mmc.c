@@ -1623,8 +1623,12 @@ static void msdc_ops_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 			 * so add delay to avoid false alarm when vmmc power up
 			 */
 			mdelay(3);
-			devm_regulator_register_notifier(mmc->supply.vmmc,
+			ret = devm_regulator_register_notifier(mmc->supply.vmmc,
 				&host->sd_oc.nb);
+			if (ret) {
+				dev_info(host->dev, "Failed to register vmmc nb!\n");
+				return;
+			}
 		}
 		break;
 	case MMC_POWER_ON:
