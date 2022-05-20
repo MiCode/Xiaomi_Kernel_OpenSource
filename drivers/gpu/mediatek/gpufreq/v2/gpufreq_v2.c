@@ -1474,8 +1474,7 @@ done:
  ***********************************************************************************/
 static int gpufreq_validate_target(unsigned int *target)
 {
-	if (*target >= TARGET_INVALID || *target < 0 ||
-		(*target == TARGET_STACK && !g_dual_buck)) {
+	if (*target >= TARGET_INVALID || (*target == TARGET_STACK && !g_dual_buck)) {
 		GPUFREQ_LOGE("invalid OPP target: %d (EINVAL)", *target);
 		return GPUFREQ_EINVAL;
 	}
