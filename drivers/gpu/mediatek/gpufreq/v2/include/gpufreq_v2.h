@@ -98,11 +98,6 @@ enum gpufreq_feat_mode {
 	DFD_FORCE_DUMP,
 };
 
-enum gpufreq_lock_mode {
-	NO_LOCK_PROT = 0,
-	LOCK_PROT,
-};
-
 enum gpuppm_reserved_idx {
 	GPUPPM_DEFAULT_IDX = -1,
 	GPUPPM_RESET_IDX = -2,
@@ -287,7 +282,7 @@ struct gpufreq_platform_fp {
 	unsigned int (*get_shader_present)(void);
 	unsigned int (*get_segment_id)(void);
 	int (*power_control)(enum gpufreq_power_state power);
-	int (*active_idle_control)(enum gpufreq_power_state power, enum gpufreq_lock_mode lock);
+	int (*active_idle_control)(enum gpufreq_power_state power);
 	void (*set_timestamp)(void);
 	void (*check_bus_idle)(void);
 	void (*dump_infra_status)(void);

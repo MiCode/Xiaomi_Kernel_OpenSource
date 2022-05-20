@@ -167,12 +167,7 @@ unsigned int gpufreq_get_power_state(void)
 
 	if (g_shared_status) {
 		power_count = g_shared_status->power_count;
-		active_count = g_shared_status->active_count;
-		if (gpufreq_active_idle_ctrl_enable())
-			power_state = ((power_count > 0) && (active_count > 0)) ?
-				POWER_ON : POWER_OFF;
-		else
-			power_state = power_count > 0 ? POWER_ON : POWER_OFF;
+		power_state = power_count > 0 ? POWER_ON : POWER_OFF;
 	} else
 		GPUFREQ_LOGE("null gpufreq shared memory (ENOENT)");
 
@@ -786,7 +781,7 @@ int gpufreq_active_idle_control(enum gpufreq_power_state power)
 
 	/* implement on AP */
 	if (gpufreq_fp && gpufreq_fp->active_idle_control) {
-		ret = gpufreq_fp->active_idle_control(power, LOCK_PROT);
+		ret = gpufreq_fp->active_idle_control(power);
 	} else {
 		ret = GPUFREQ_ENOENT;
 		GPUFREQ_LOGE("null gpufreq platform function pointer (ENOENT)");
