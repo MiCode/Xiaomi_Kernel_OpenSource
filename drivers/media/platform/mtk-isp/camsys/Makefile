@@ -69,6 +69,12 @@ define kernel-make
     M=$(PWD)
 endef
 
+N := 1
+define check-patch
++git format-patch --stdout -$(N) HEAD | $(KROOT)/scripts/checkpatch.pl \
+    --show-types --max-line-length=100 \
+    --ignore=DT_SCHEMA_BINDING_PATCH,DT_SPLIT_BINDING_PATCH,GERRIT_CHANGE_ID,FILE_PATH_CHANGES,MEMORY_BARRIER,NEW_TYPEDEFS,VOLATILE,MISSING_SIGN_OFF,COMMIT_LOG_LONG_LINE
+endef
 
 .PHONY: all build clean check-env
 
@@ -88,5 +94,8 @@ ifndef KDIR
 	$(error KDIR (prebuilt kernel path) is undefined)
 endif
 $(info prebuilt kernel = $(KDIR))
+
+checkpatch:
+	$(check-patch)
 
 endif
