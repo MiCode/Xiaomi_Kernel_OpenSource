@@ -18,6 +18,7 @@
 #include <linux/sched/clock.h>
 #include <linux/of_address.h>
 #include <drm/drm_mipi_dsi.h>
+#include <drm/drm_framebuffer.h>
 #include "mtk_dump.h"
 #include "mtk_debug.h"
 #include "mtk_drm_crtc.h"
@@ -85,7 +86,6 @@ unsigned int disp_spr_bypass;
 unsigned int disp_cm_bypass;
 static unsigned int m_old_pq_persist_property[32];
 unsigned int m_new_pq_persist_property[32];
-
 unsigned int g_mml_mode;
 
 int gCaptureOVLEn;
@@ -935,6 +935,54 @@ int mtk_ddic_dsi_send_cmd(struct mtk_ddic_dsi_msg *cmd_msg,
 	return ret;
 }
 
+static void set_cwb_info_buffer(struct drm_crtc *crtc, int format)
+{
+
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct mtk_cwb_info *cwb_info = mtk_crtc->cwb_info;
+	struct drm_mode_fb_cmd2 mode = {0};
+	struct mtk_drm_gem_obj *mtk_gem;
+	u32 color_format = DRM_FORMAT_RGB888;
+	int Bpp;
+
+	/*alloc && config two fb*/
+	mode.width = crtc->state->adjusted_mode.hdisplay;
+	mode.height = crtc->state->adjusted_mode.vdisplay;
+
+	if (format == 0)
+		color_format = DRM_FORMAT_RGB888;
+	else if (format == 1)
+		color_format = DRM_FORMAT_ARGB2101010;
+
+	mode.pixel_format = color_format;
+	Bpp = mtk_get_format_bpp(mode.pixel_format);
+	mode.pitches[0] = mode.width * Bpp;
+
+	mtk_gem = mtk_drm_gem_create(
+		crtc->dev, mode.pitches[0] * mode.height, true);
+	cwb_info->buffer[0].addr_mva = mtk_gem->dma_addr;
+	cwb_info->buffer[0].addr_va = (u64)mtk_gem->kvaddr;
+
+	cwb_info->buffer[0].fb  =
+		mtk_drm_framebuffer_create(
+		crtc->dev, &mode, &mtk_gem->base);
+	DDPMSG("[capture] b[0].addr_mva:0x%x, addr_va:0x%llx\n",
+			cwb_info->buffer[0].addr_mva,
+			cwb_info->buffer[0].addr_va);
+
+	mtk_gem = mtk_drm_gem_create(
+		crtc->dev, mode.pitches[0] * mode.height, true);
+	cwb_info->buffer[1].addr_mva = mtk_gem->dma_addr;
+	cwb_info->buffer[1].addr_va = (u64)mtk_gem->kvaddr;
+
+	cwb_info->buffer[1].fb  =
+		mtk_drm_framebuffer_create(
+		crtc->dev, &mode, &mtk_gem->base);
+	DDPMSG("[capture] b[1].addr_mva:0x%x, addr_va:0x%llx\n",
+			cwb_info->buffer[1].addr_mva,
+			cwb_info->buffer[1].addr_va);
+}
+
 int mtk_ddic_dsi_read_cmd(struct mtk_ddic_dsi_msg *cmd_msg)
 {
 	struct drm_crtc *crtc;
@@ -1472,8 +1520,6 @@ static void mtk_drm_cwb_info_init(struct drm_crtc *crtc)
 	int crtc_idx = drm_crtc_index(&mtk_crtc->base);
 	struct mtk_drm_private *priv = mtk_crtc->base.dev->dev_private;
 	struct mtk_cwb_info *cwb_info = mtk_crtc->cwb_info;
-	struct drm_mode_fb_cmd2 mode = {0};
-	struct mtk_drm_gem_obj *mtk_gem;
 
 	if (!cwb_info) {
 		DDPPR_ERR("%s: cwb_info not found\n", __func__);
@@ -1505,36 +1551,8 @@ static void mtk_drm_cwb_info_init(struct drm_crtc *crtc)
 	}
 
 	/*alloc && config two fb*/
-	if (!cwb_info->buffer[0].fb) {
-		mode.width = cwb_info->src_roi.width;
-		mode.height = cwb_info->src_roi.height;
-		mode.pixel_format = DRM_FORMAT_RGB888;
-		mode.pitches[0] = mode.width * 3;
-
-		mtk_gem = mtk_drm_gem_create(
-			crtc->dev, mode.width * mode.height * 3, true);
-		cwb_info->buffer[0].addr_mva = mtk_gem->dma_addr;
-		cwb_info->buffer[0].addr_va = (u64)mtk_gem->kvaddr;
-
-		cwb_info->buffer[0].fb  =
-			mtk_drm_framebuffer_create(
-			crtc->dev, &mode, &mtk_gem->base);
-		DDPMSG("[capture] b[0].addr_mva:0x%x, addr_va:0x%llx\n",
-				cwb_info->buffer[0].addr_mva,
-				cwb_info->buffer[0].addr_va);
-
-		mtk_gem = mtk_drm_gem_create(
-			crtc->dev, mode.width * mode.height * 3, true);
-		cwb_info->buffer[1].addr_mva = mtk_gem->dma_addr;
-		cwb_info->buffer[1].addr_va = (u64)mtk_gem->kvaddr;
-
-		cwb_info->buffer[1].fb  =
-			mtk_drm_framebuffer_create(
-			crtc->dev, &mode, &mtk_gem->base);
-		DDPMSG("[capture] b[1].addr_mva:0x%x, addr_va:0x%llx\n",
-				cwb_info->buffer[1].addr_mva,
-				cwb_info->buffer[1].addr_va);
-	}
+	if (!cwb_info->buffer[0].fb)
+		set_cwb_info_buffer(crtc, 0);
 
 	DDPMSG("[capture] enable capture, roi:(%d,%d,%d,%d)\n",
 		cwb_info->buffer[0].dst_roi.x,
@@ -1593,8 +1611,6 @@ bool mtk_drm_set_cwb_roi(struct mtk_rect rect)
 	struct drm_crtc *crtc;
 	struct mtk_drm_crtc *mtk_crtc;
 	struct mtk_cwb_info *cwb_info;
-	struct mtk_drm_gem_obj *mtk_gem;
-	struct drm_mode_fb_cmd2 mode = {0};
 
 	crtc = list_first_entry(&(drm_dev)->mode_config.crtc_list,
 				typeof(*crtc), head);
@@ -1633,36 +1649,8 @@ bool mtk_drm_set_cwb_roi(struct mtk_rect rect)
 	if (rect.y + rect.height > cwb_info->src_roi.height)
 		rect.height = cwb_info->src_roi.height - rect.y;
 
-	if (!cwb_info->buffer[0].fb) {
-		mode.width = cwb_info->src_roi.width;
-		mode.height = cwb_info->src_roi.height;
-		mode.pixel_format = DRM_FORMAT_RGB888;
-		mode.pitches[0] = mode.width * 3;
-
-		mtk_gem = mtk_drm_gem_create(
-			crtc->dev, mode.width * mode.height * 3, true);
-		cwb_info->buffer[0].addr_mva = mtk_gem->dma_addr;
-		cwb_info->buffer[0].addr_va = (u64)mtk_gem->kvaddr;
-
-		cwb_info->buffer[0].fb  =
-			mtk_drm_framebuffer_create(
-			crtc->dev, &mode, &mtk_gem->base);
-		DDPMSG("[capture] b[0].addr_mva:0x%x, addr_va:0x%llx\n",
-			cwb_info->buffer[0].addr_mva,
-			cwb_info->buffer[0].addr_va);
-
-		mtk_gem = mtk_drm_gem_create(
-			crtc->dev, mode.width * mode.height * 3, true);
-		cwb_info->buffer[1].addr_mva = mtk_gem->dma_addr;
-		cwb_info->buffer[1].addr_va = (u64)mtk_gem->kvaddr;
-
-		cwb_info->buffer[1].fb  =
-			mtk_drm_framebuffer_create(
-			crtc->dev, &mode, &mtk_gem->base);
-		DDPMSG("[capture] b[0].addr_mva:0x%x, addr_va:0x%llx\n",
-			cwb_info->buffer[1].addr_mva,
-			cwb_info->buffer[1].addr_va);
-	}
+	if (!cwb_info->buffer[0].fb)
+		set_cwb_info_buffer(crtc, 0);
 
 	/* update roi */
 	mtk_rect_make(&cwb_info->buffer[0].dst_roi,
@@ -2834,6 +2822,7 @@ static void process_dbg_opt(const char *opt)
 		struct mtk_drm_crtc *mtk_crtc;
 		struct mtk_cwb_info *cwb_info;
 		int width, height, size, ret;
+		int Bpp;
 
 		/* this debug cmd only for crtc0 */
 		crtc = list_first_entry(&(drm_dev)->mode_config.crtc_list,
@@ -2851,7 +2840,8 @@ static void process_dbg_opt(const char *opt)
 		DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
 		width = cwb_info->src_roi.width;
 		height = cwb_info->src_roi.height;
-		size = sizeof(u8) * width * height * 3;
+		Bpp = mtk_get_format_bpp(cwb_info->buffer[0].fb->format->format);
+		size = sizeof(u8) * width * height * Bpp;
 		user_buffer = vmalloc(size);
 		mtk_drm_set_cwb_user_buf((void *)user_buffer, IMAGE_ONLY);
 		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
@@ -2899,6 +2889,37 @@ static void process_dbg_opt(const char *opt)
 			cwb_info->scn = WDMA_WRITE_BACK;
 		else if (path == 1)
 			cwb_info->scn = WDMA_WRITE_BACK_OVL;
+
+		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+
+	} else if (strncmp(opt, "cwb_change_color_format:", 24) == 0) {
+		int ret, color;
+		struct drm_crtc *crtc;
+		struct mtk_drm_crtc *mtk_crtc;
+
+		ret = sscanf(opt, "cwb_change_color_format:%d\n", &color);
+		if (ret != 1) {
+			DDPPR_ERR("%d error to parse cmd %s\n",
+				__LINE__, opt);
+			return;
+		}
+
+		crtc = list_first_entry(&(drm_dev)->mode_config.crtc_list,
+					typeof(*crtc), head);
+		if (!crtc) {
+			DDPPR_ERR("find crtc fail\n");
+			return;
+		}
+		mtk_crtc = to_mtk_crtc(crtc);
+		DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
+
+		if (!mtk_crtc->cwb_info) {
+			mtk_crtc->cwb_info = kzalloc(sizeof(struct mtk_cwb_info), GFP_KERNEL);
+		} else if (mtk_crtc->cwb_info && mtk_crtc->cwb_info->buffer[0].fb != NULL) {
+			drm_framebuffer_put(mtk_crtc->cwb_info->buffer[0].fb);
+			drm_framebuffer_put(mtk_crtc->cwb_info->buffer[1].fb);
+		}
+		set_cwb_info_buffer(crtc, color);
 
 		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 

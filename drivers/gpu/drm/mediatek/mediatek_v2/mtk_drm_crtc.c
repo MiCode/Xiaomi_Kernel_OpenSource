@@ -2311,6 +2311,8 @@ _mtk_crtc_cwb_addon_module_connect(
 	struct mtk_cwb_info *cwb_info;
 	unsigned int buf_idx;
 	struct mtk_drm_private *priv = crtc->dev->dev_private;
+	struct drm_framebuffer *fb;
+	int Bpp = 3;
 
 	cwb_info = mtk_crtc->cwb_info;
 	if (index != 0 || mtk_crtc_is_dc_mode(crtc) ||
@@ -2345,16 +2347,18 @@ _mtk_crtc_cwb_addon_module_connect(
 			(addon_module->type == ADDON_AFTER &&
 			addon_module->module == DISP_WDMA0_v2)) {
 			buf_idx = cwb_info->buf_idx;
+			fb = cwb_info->buffer[buf_idx].fb;
+			Bpp = mtk_get_format_bpp(fb->format->format);
+
 			addon_config.addon_wdma_config.wdma_src_roi =
 				cwb_info->src_roi;
 			addon_config.addon_wdma_config.wdma_dst_roi =
 				cwb_info->buffer[buf_idx].dst_roi;
 			addon_config.addon_wdma_config.pitch =
-				cwb_info->buffer[buf_idx].dst_roi.width * 3;
+				cwb_info->buffer[buf_idx].dst_roi.width * Bpp;
 			addon_config.addon_wdma_config.addr =
 				cwb_info->buffer[buf_idx].addr_mva;
-			addon_config.addon_wdma_config.fb =
-				cwb_info->buffer[buf_idx].fb;
+			addon_config.addon_wdma_config.fb = fb;
 			addon_config.addon_wdma_config.p_golden_setting_context
 				= __get_golden_setting_context(mtk_crtc);
 			if (mtk_crtc->is_dual_pipe) {
@@ -10068,6 +10072,8 @@ static int mtk_drm_cwb_copy_buf(struct drm_crtc *crtc,
 {
 	unsigned long addr_va = cwb_info->buffer[buf_idx].addr_va;
 	enum CWB_BUFFER_TYPE type = cwb_info->type;
+	struct drm_framebuffer *fb = cwb_info->buffer[0].fb;
+	int Bpp = mtk_get_format_bpp(fb->format->format);
 	int width, height, pitch, size;
 	unsigned long long time = sched_clock();
 
@@ -10081,7 +10087,7 @@ static int mtk_drm_cwb_copy_buf(struct drm_crtc *crtc,
 
 	width = cwb_info->copy_w;
 	height = cwb_info->copy_h;
-	pitch = width * 3;
+	pitch = width * Bpp;
 	size = pitch * height;
 
 	if (type == IMAGE_ONLY) {

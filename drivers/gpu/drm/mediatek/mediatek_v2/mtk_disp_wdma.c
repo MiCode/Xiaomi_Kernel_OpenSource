@@ -58,6 +58,8 @@
 #define DISP_REG_WDMA_DST_WIN_BYTE 0x0028
 #define DISP_REG_WDMA_ALPHA 0x002C
 #define DISP_REG_WDMA_DST_UV_PITCH 0x0078
+#define WDMA_A_Value (0xff)
+#define WDMA_A_Sel BIT(31)
 #define DISP_REG_WDMA_DST_ADDR_OFFSETX(n) (0x0080 + 0x04 * (n))
 
 #define DISP_REG_WDMA_FLOW_CTRL_DBG 0x00A0
@@ -133,6 +135,7 @@
 #define MEM_MODE_INPUT_FORMAT_UYVY (0x004U << 4)
 #define MEM_MODE_INPUT_FORMAT_YUYV (0x005U << 4)
 #define MEM_MODE_INPUT_FORMAT_IYUV (0x008U << 4)
+#define MEM_MODE_INPUT_FORMAT_ARGB2101010 (0x00BU << 4)
 #define MEM_MODE_INPUT_SWAP BIT(16)
 
 
@@ -834,6 +837,8 @@ static unsigned int wdma_fmt_convert(unsigned int fmt)
 		return MEM_MODE_INPUT_FORMAT_IYUV;
 	case DRM_FORMAT_YVU420:
 		return MEM_MODE_INPUT_FORMAT_IYUV | MEM_MODE_INPUT_SWAP;
+	case DRM_FORMAT_ARGB2101010:
+		return MEM_MODE_INPUT_FORMAT_ARGB2101010;
 	}
 }
 
@@ -1148,6 +1153,23 @@ static void mtk_wdma_addon_config(struct mtk_ddp_comp *comp,
 
 	mtk_ddp_write(comp, pitch,
 		DISP_REG_WDMA_DST_WIN_BYTE, handle);
+
+	switch (comp->fb->format->format) {
+	case DRM_FORMAT_RGBA8888:
+	case DRM_FORMAT_BGRA8888:
+	case DRM_FORMAT_ARGB8888:
+	case DRM_FORMAT_ABGR8888:
+	case DRM_FORMAT_ARGB2101010:
+		mtk_ddp_write_mask(comp, WDMA_A_Sel,
+					DISP_REG_WDMA_ALPHA, WDMA_A_Sel, handle);
+		mtk_ddp_write_mask(comp, WDMA_A_Value,
+					DISP_REG_WDMA_ALPHA, WDMA_A_Value, handle);
+		break;
+	default:
+		mtk_ddp_write_mask(comp, 0,
+					DISP_REG_WDMA_ALPHA, WDMA_A_Sel, handle);
+		break;
+	}
 
 	gsc = addon_config->addon_wdma_config.p_golden_setting_context;
 	mtk_wdma_golden_setting(comp, gsc, handle);
