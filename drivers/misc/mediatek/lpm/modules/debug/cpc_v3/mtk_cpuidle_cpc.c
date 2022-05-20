@@ -7,7 +7,7 @@
 
 #include <lpm.h>
 
-#if IS_ENABLED(CONFIG_MTK_LPM_MT6983)
+#if IS_ENABLED(CONFIG_MTK_LPM_MT6983) || IS_ENABLED(CONFIG_MTK_LPM_MT6886)
 #include <lpm_dbg_cpc_v5.h>
 #else
 #include <lpm_dbg_cpc_v3.h>
