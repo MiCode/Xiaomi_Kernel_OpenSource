@@ -26,7 +26,6 @@ snd-soc-mt6983-afe-objs += \
 	mt6983-dai-src.o \
 	mt6983-dai-pcm.o \
 	mt6983-dai-tdm.o \
-	mt6983-dai-etdm.o \
 	mt6983-dai-hostless.o \
 	mt6983-misc-control.o
 

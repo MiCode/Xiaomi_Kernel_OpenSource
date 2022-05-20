@@ -57,25 +57,9 @@
 #define I_DL8_CH2 (49 - I_32_OFFSET)
 #define I_DL9_CH1 (50 - I_32_OFFSET)
 #define I_DL9_CH2 (51 - I_32_OFFSET)
-#define I_ETDM_IN_CH1 (56 - I_32_OFFSET)
-#define I_ETDM_IN_CH2 (57 - I_32_OFFSET)
-#define I_ETDM_IN_CH3 (58 - I_32_OFFSET)
-#define I_ETDM_IN_CH4 (59 - I_32_OFFSET)
-#define I_ETDM_IN_CH5 (60 - I_32_OFFSET)
-#define I_ETDM_IN_CH6 (61 - I_32_OFFSET)
-#define I_ETDM_IN_CH7 (62 - I_32_OFFSET)
-#define I_ETDM_IN_CH8 (63 - I_32_OFFSET)
 
 /* in port define >= 64 */
 #define I_64_OFFSET 64
-#define I_DL11_CH1 (66 - I_64_OFFSET)
-#define I_DL11_CH2 (67 - I_64_OFFSET)
-#define I_DL11_CH3 (68 - I_64_OFFSET)
-#define I_DL11_CH4 (69 - I_64_OFFSET)
-#define I_DL11_CH5 (70 - I_64_OFFSET)
-#define I_DL11_CH6 (71 - I_64_OFFSET)
-#define I_DL11_CH7 (72 - I_64_OFFSET)
-#define I_DL11_CH8 (73 - I_64_OFFSET)
 #define I_SRC_3_OUT_CH1 (78 - I_64_OFFSET)
 #define I_SRC_3_OUT_CH2 (79 - I_64_OFFSET)
 
