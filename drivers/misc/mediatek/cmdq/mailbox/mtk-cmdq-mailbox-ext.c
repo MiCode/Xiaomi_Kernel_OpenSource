@@ -2271,7 +2271,7 @@ static int cmdq_probe(struct platform_device *pdev)
 	cmdq->hwid = hwid++;
 	cmdq->prebuilt_enable =
 		of_property_read_bool(dev->of_node, "prebuilt-enable");
-	// cmdq_hw_trace = 1; // default enable
+	cmdq_hw_trace = 1; // default enable
 
 	cmdq->mbox.dev = dev;
 	cmdq->mbox.chans = devm_kcalloc(dev, CMDQ_THR_MAX_COUNT,

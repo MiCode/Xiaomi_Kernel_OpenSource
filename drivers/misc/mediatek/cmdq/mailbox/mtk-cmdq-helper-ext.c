@@ -2201,7 +2201,7 @@ s32 cmdq_pkt_refinalize(struct cmdq_pkt *pkt)
 {
 	struct cmdq_pkt_buffer *buf;
 	struct cmdq_instruction *inst;
-	s64 off = CMDQ_JUMP_PASS >> gce_shift_bit;
+	s64 off;
 
 	if (!cmdq_pkt_is_finalized(pkt))
 		return 0;
@@ -2212,7 +2212,7 @@ s32 cmdq_pkt_refinalize(struct cmdq_pkt *pkt)
 		return 0;
 	}
 
-	if (!cmdq_pkt_is_finalized(pkt))
+	if (pkt->loop)
 		return 0;
 
 	buf = list_last_entry(&pkt->buf, typeof(*buf), list_entry);
@@ -2220,6 +2220,7 @@ s32 cmdq_pkt_refinalize(struct cmdq_pkt *pkt)
 	if (inst->op != CMDQ_CODE_JUMP || inst->arg_a != 1)
 		return 0;
 
+	off = CMDQ_JUMP_PASS >> gce_shift_bit;
 	inst->arg_a = 0;
 	inst->arg_c = CMDQ_GET_ARG_C(off);
 	inst->arg_b = CMDQ_GET_ARG_B(off);

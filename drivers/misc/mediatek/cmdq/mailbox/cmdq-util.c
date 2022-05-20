@@ -574,10 +574,6 @@ void cmdq_util_hw_trace_set_client(const u16 hwid, struct cmdq_client *client)
 }
 EXPORT_SYMBOL(cmdq_util_hw_trace_set_client);
 
-static void cmdq_util_hw_trace_cb(struct cmdq_cb_data data)
-{
-}
-
 void cmdq_util_hw_trace_enable(const u16 hwid, const bool dram)
 {
 	struct cmdq_hw_trace *trace;
@@ -630,10 +626,8 @@ void cmdq_util_hw_trace_enable(const u16 hwid, const bool dram)
 		}
 	}
 
-	cmdq_pkt_refinalize(trace->pkt);
 	cmdq_pkt_finalize_loop(trace->pkt);
-	cmdq_pkt_flush_threaded(
-		trace->pkt, cmdq_util_hw_trace_cb, (void *)trace->pkt);
+	cmdq_pkt_flush_async(trace->pkt, NULL, NULL);
 }
 EXPORT_SYMBOL(cmdq_util_hw_trace_enable);
 
