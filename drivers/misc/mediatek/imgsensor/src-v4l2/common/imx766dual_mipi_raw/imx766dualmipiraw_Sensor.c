@@ -3503,12 +3503,14 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 		case SENSOR_SCENARIO_ID_CUSTOM11:
 		case SENSOR_SCENARIO_ID_CUSTOM12:
 		case SENSOR_SCENARIO_ID_CUSTOM13:
-		case SENSOR_SCENARIO_ID_CUSTOM14:
 		case SENSOR_SCENARIO_ID_CUSTOM15:
 		case SENSOR_SCENARIO_ID_CUSTOM16:
 			*(feature_data + 1)
 			= (enum ACDK_SENSOR_OUTPUT_DATA_FORMAT_ENUM)
 				imgsensor_info.sensor_output_dataformat;
+			break;
+		case SENSOR_SCENARIO_ID_CUSTOM14:
+			*(feature_data + 1) = SENSOR_OUTPUT_FORMAT_RAW_4CELL_Gb;
 			break;
 		}
 	break;
@@ -4172,6 +4174,7 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 			default:
 				break;
 			}
+			break;
 		case SENSOR_SCENARIO_ID_CUSTOM4:
 			switch (*(feature_data + 1)) {
 			case HDR_NONE:
@@ -4180,14 +4183,16 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 			default:
 				break;
 			}
+			break;
 		case SENSOR_SCENARIO_ID_NORMAL_PREVIEW:
 			switch (*(feature_data + 1)) {
 			case HDR_RAW_STAGGER_2EXP:
-				*(feature_data + 2) = SENSOR_SCENARIO_ID_CUSTOM4;
+				*(feature_data + 2) = SENSOR_SCENARIO_ID_CUSTOM16;
 				break;
 			default:
 				break;
 			}
+			break;
 		case SENSOR_SCENARIO_ID_CUSTOM9:
 		case SENSOR_SCENARIO_ID_CUSTOM10:
 		case SENSOR_SCENARIO_ID_CUSTOM11:
@@ -4198,6 +4203,7 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 			default:
 				break;
 			}
+			break;
 		case SENSOR_SCENARIO_ID_CUSTOM12:
 			switch (*(feature_data + 1)) {
 			case HDR_NONE:
@@ -4206,6 +4212,7 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 			default:
 				break;
 			}
+			break;
 		case SENSOR_SCENARIO_ID_CUSTOM15:
 			switch (*(feature_data + 1)) {
 			case HDR_RAW_STAGGER_2EXP:
@@ -4214,6 +4221,7 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 			default:
 				break;
 			}
+			break;
 		case SENSOR_SCENARIO_ID_CUSTOM16:
 			switch (*(feature_data + 1)) {
 			case HDR_NONE:
@@ -4222,6 +4230,7 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 			default:
 				break;
 			}
+			break;
 		default:
 			break;
 		}
