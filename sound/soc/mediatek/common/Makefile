@@ -11,7 +11,7 @@ subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/adsp/include
 
 # common driver
 obj-$(CONFIG_SND_SOC_MEDIATEK) += snd-soc-mtk-common.o
-snd-soc-mtk-common-objs += mtk-afe-platform-driver.o mtk-afe-fe-dai.o mtk-mmap-ion.o
+snd-soc-mtk-common-objs += mtk-afe-platform-driver.o mtk-afe-fe-dai.o mtk-mmap-ion.o mtk-afe-cm.o
 snd-soc-mtk-common-$(CONFIG_MTK_ECCCI_DRIVER) += mtk-usip.o
 snd-soc-mtk-common-$(CONFIG_SND_SOC_MTK_SRAM) += mtk-sram-manager.o
 snd-soc-mtk-common-$(CONFIG_SND_SOC_MTK_SMART_PHONE) += mtk-sp-pcm-ops.o mtk-afe-debug.o
