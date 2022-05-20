@@ -465,16 +465,16 @@ static int pd_get_cap(struct adapter_device *dev,
 			tacap->maxwatt[idx] = apdo_cap.max_mv * apdo_cap.ma;
 			tacap->minwatt[idx] = apdo_cap.min_mv * apdo_cap.ma;
 			tacap->type[idx] = MTK_PD_APDO;
+			idx++;
 
 			pr_notice("pps_boundary[%d], %d mv ~ %d mv, %d ma pl:%d\n",
 				cap_i,
 				apdo_cap.min_mv, apdo_cap.max_mv,
 				apdo_cap.ma, apdo_cap.pwr_limit);
-			if (idx >= ADAPTER_CAP_MAX_NR - 1) {
+			if (idx >= ADAPTER_CAP_MAX_NR) {
 				pr_notice("CAP NR > %d\n", ADAPTER_CAP_MAX_NR);
 				break;
-			} else
-				idx++;
+			}
 		}
 		tacap->nr = idx;
 
