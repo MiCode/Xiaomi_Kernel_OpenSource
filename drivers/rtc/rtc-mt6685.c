@@ -139,7 +139,7 @@ static int rtc_field_read(struct mt6685_rtc *rtc, enum mtk_rtc_spare_enum cmd)
 	unsigned int tmp_val = 0;
 	int ret;
 
-	if (cmd >= 0 && cmd < SPARE_RG_MAX) {
+	if (cmd < SPARE_RG_MAX) {
 
 		ret = rtc_read(rtc, rtc->addr_base + rtc_spare_reg[cmd][RTC_REG], &tmp_val);
 		if (ret < 0)
@@ -162,7 +162,7 @@ static int rtc_spare_field_write(struct mt6685_rtc *rtc,
 {
 	unsigned int tmp_val = 0;
 
-	if (cmd >= 0 && cmd < SPARE_RG_MAX) {
+	if (cmd < SPARE_RG_MAX) {
 		pr_info("%s: cmd[%d], set rg[0x%x, 0x%x , %d] = 0x%x\n",
 				__func__, cmd,
 				rtc_spare_reg[cmd][RTC_REG],
@@ -578,8 +578,7 @@ exit:
 
 static int mtk_rtc_is_alarm_irq(struct mt6685_rtc *rtc)
 {
-	u32 irqsta = 0, bbpu;
-	u32 sck;
+	u32 irqsta = 0, bbpu = 0, sck = 0;
 	int ret;
 
 	power_on_mclk(rtc);
@@ -1078,7 +1077,7 @@ int rtc_nvram_read(void *priv, unsigned int offset, void *val,
 							size_t bytes)
 {
 	struct mt6685_rtc *rtc = dev_get_drvdata(priv);
-	unsigned int ret;
+	int ret;
 	u8 *buf = val;
 
 	mutex_lock(&rtc->lock);
@@ -1101,7 +1100,7 @@ int rtc_nvram_write(void *priv, unsigned int offset, void *val,
 							size_t bytes)
 {
 	struct mt6685_rtc *rtc = dev_get_drvdata(priv);
-	unsigned int ival;
+	int ival;
 	int ret;
 	u8 *buf = val;
 
