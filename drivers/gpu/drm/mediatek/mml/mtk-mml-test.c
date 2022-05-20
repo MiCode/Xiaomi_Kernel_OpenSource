@@ -324,7 +324,7 @@ static void case_general_submit(struct mml_test *test,
 	}
 
 	/* for ut do not fall to inline rotate unless force use */
-	if (mode == MML_MODE_RACING || mode == MML_MODE_SRAM_READ)
+	if (mode == MML_MODE_RACING || mode == MML_MODE_SRAM_READ || mode == MML_MODE_APUDC)
 		task.info.mode = mode;
 	else
 		task.info.mode = MML_MODE_MML_DECOUPLE;
@@ -1453,7 +1453,7 @@ static void mml_test_fill_frame_rgba8888(u8 *va, u32 width, u32 height)
 			va[idx] = r;
 			va[idx + 1] = g;
 			va[idx + 2] = b;
-			va[idx + 3] = 0;
+			va[idx + 3] = x * y * step / width / height;
 		}
 	}
 }

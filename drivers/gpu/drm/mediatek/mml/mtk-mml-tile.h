@@ -19,6 +19,8 @@ struct rdma_tile_data {
 	u32 blk_shift_h;
 	struct mml_rect crop;
 	u32 max_width;
+	u32 racing_h;
+	bool apu_racing;
 };
 
 struct hdr_tile_data {

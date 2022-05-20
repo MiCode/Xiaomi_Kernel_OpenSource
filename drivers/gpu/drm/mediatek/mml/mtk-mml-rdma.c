@@ -52,6 +52,8 @@
 #define RDMA_SRC_OFFSET_2		0x128
 #define RDMA_SRC_OFFSET_WP		0x148
 #define RDMA_SRC_OFFSET_HP		0x150
+#define APU_DIRECT_COUPLE_CONTROL_EN	0x154	/* APU_DIRECT_COUPLE_CONTROL_ENABLE */
+#define APU_DIRECT_COUPLE_CONTROL	0x158
 #define RDMA_TRANSFORM_0		0x200
 #define RDMA_DMABUF_CON_0		0x240
 #define RDMA_URGENT_TH_CON_0		0x244
@@ -129,6 +131,22 @@
 #define RDMA_SRC_OFFSET_1_MSB		0xf48
 #define RDMA_SRC_OFFSET_2_MSB		0xf4c
 #define RDMA_AFBC_PAYLOAD_OST		0xf50
+#define APU_SRC_BASE_0_A		0xf60
+#define APU_SRC_BASE_0_B		0xf64
+#define APU_SRC_BASE_0_C		0xf68
+#define APU_SRC_BASE_0_D		0xf6c
+#define APU_SRC_OFFSET_0_A		0xf70
+#define APU_SRC_OFFSET_0_B		0xf74
+#define APU_SRC_OFFSET_0_C		0xf78
+#define APU_SRC_OFFSET_0_D		0xf7c
+#define APU_SRC_BASE_0_A_MSB		0xf80
+#define APU_SRC_BASE_0_B_MSB		0xf84
+#define APU_SRC_BASE_0_C_MSB		0xf88
+#define APU_SRC_BASE_0_D_MSB		0xf8c
+#define APU_SRC_OFFSET_0_A_MSB		0xf90
+#define APU_SRC_OFFSET_0_B_MSB		0xf94
+#define APU_SRC_OFFSET_0_C_MSB		0xf98
+#define APU_SRC_OFFSET_0_D_MSB		0xf9c
 
 enum cpr_reg_idx {
 	/* CMDQ_CPR_PREBUILT_REG_CNT = 20 */
@@ -284,6 +302,9 @@ static const enum cpr_reg_idx rdma_preultra_th[] = {
 /* SMI offset */
 #define SMI_LARB_NON_SEC_CON		0x380
 
+/* APU-MML DirectCouple handshake height */
+#define MML_RDMA_RACING_MAX		64
+
 enum rdma_label {
 	RDMA_LABEL_BASE_0 = 0,
 	RDMA_LABEL_BASE_0_MSB,
@@ -381,6 +402,7 @@ enum rdma_golden_fmt {
 
 struct rdma_data {
 	u32 tile_width;
+	u32 sram_size;
 	u8 rb_swap;	/* version for rb channel swap behavior */
 	bool write_sec_reg;
 
@@ -461,6 +483,7 @@ static const struct rdma_data mt6895_rdma1_data = {
 
 static const struct rdma_data mt6985_rdma_data = {
 	.tile_width = 1760,
+	.sram_size = 512 * 1024,	/* 1MB sram divid to 512K + 512K */
 	.rb_swap = 2,
 	.golden = {
 		[GOLDEN_FMT_ARGB] = {
@@ -544,7 +567,8 @@ static s32 rdma_buf_map(struct mml_comp *comp, struct mml_task *task,
 
 	mml_trace_ex_begin("%s", __func__);
 
-	if (unlikely(task->config->info.mode == MML_MODE_SRAM_READ)) {
+	if (task->config->info.mode == MML_MODE_APUDC ||
+		unlikely(task->config->info.mode == MML_MODE_SRAM_READ)) {
 		mutex_lock(&rdma->sram_mutex);
 		if (!rdma->sram_cnt)
 			rdma->sram_pa = (u64)mml_sram_get(task->config->mml);
@@ -592,7 +616,8 @@ static void rdma_buf_unmap(struct mml_comp *comp, struct mml_task *task,
 {
 	struct mml_comp_rdma *rdma;
 
-	if (unlikely(task->config->info.mode == MML_MODE_SRAM_READ)) {
+	if (task->config->info.mode == MML_MODE_APUDC ||
+		unlikely(task->config->info.mode == MML_MODE_SRAM_READ)) {
 		rdma = comp_to_rdma(comp);
 
 		mutex_lock(&rdma->sram_mutex);
@@ -661,6 +686,12 @@ static s32 rdma_tile_prepare(struct mml_comp *comp, struct mml_task *task,
 		data->rdma.crop.width = src->width;
 		data->rdma.crop.height = src->height;
 	}
+
+	if (cfg->info.mode == MML_MODE_APUDC) {
+		data->rdma.apu_racing = true;
+		data->rdma.racing_h = MML_RDMA_RACING_MAX;
+	}
+
 	return 0;
 }
 
@@ -1266,7 +1297,12 @@ static s32 rdma_config_frame(struct mml_comp *comp, struct mml_task *task,
 		   write_sec);
 
 	/* Write frame base address */
-	if (unlikely(cfg->info.mode == MML_MODE_SRAM_READ)) {
+	if (cfg->info.mode == MML_MODE_APUDC) {
+		iova[0] = rdma->sram_pa;
+		iova[1] = rdma->sram_pa + rdma->data->sram_size;
+		iova[2] = 0;
+
+	} else if (unlikely(cfg->info.mode == MML_MODE_SRAM_READ)) {
 		iova[0] = rdma->sram_pa + src->plane_offset[0];
 		iova[1] = rdma->sram_pa + src->plane_offset[1];
 		iova[2] = rdma->sram_pa + src->plane_offset[2];
@@ -1296,7 +1332,18 @@ static s32 rdma_config_frame(struct mml_comp *comp, struct mml_task *task,
 	mml_msg("%s src %#011llx %#011llx %#011llx",
 		__func__, iova[0], iova[1], iova[2]);
 
-	if (!mml_slt) {
+	if (cfg->info.mode == MML_MODE_APUDC) {
+		cmdq_pkt_write(pkt, NULL, base_pa + APU_SRC_BASE_0_A, iova[0], U32_MAX);
+		cmdq_pkt_write(pkt, NULL, base_pa + APU_SRC_BASE_0_B, iova[1], U32_MAX);
+
+		/* also enable sram handshaking with APU */
+		cmdq_pkt_write(pkt, NULL, base_pa + APU_DIRECT_COUPLE_CONTROL_EN,
+			0x3, U32_MAX);
+
+		cmdq_pkt_write(pkt, NULL, base_pa + APU_DIRECT_COUPLE_CONTROL,
+			(cfg->dual << 8) + (MML_RDMA_RACING_MAX << 13), U32_MAX);
+
+	} else if (!mml_slt) {
 		rdma_write_addr(pkt, base_pa, hw_pipe,
 				CPR_RDMA_SRC_BASE_0,
 				iova[0],
@@ -1384,7 +1431,26 @@ static s32 rdma_config_tile(struct mml_comp *comp, struct mml_task *task,
 		src_offset_hp = in_ys;
 	}
 
-	if (!rdma_frm->blk) {
+	if (cfg->info.mode == MML_MODE_APUDC) {
+		/* Set Y pixel offset */
+		src_offset_0 = in_xs * rdma_frm->bits_per_pixel_y >> 3;
+
+		/* sram case always 1 plane */
+		src_offset_1 = 0;
+		src_offset_2 = 0;
+
+		/* Set source size */
+		mf_src_w = in_xe - in_xs + 1;
+		mf_src_h = in_ye - in_ys + 1;
+
+		/* Set target size */
+		mf_clip_w = out_xe - out_xs + 1;
+		mf_clip_h = out_ye - out_ys + 1;
+
+		/* Set crop offset */
+		mf_offset_w_1 = crop_ofst_x;
+		mf_offset_h_1 = crop_ofst_y;
+	} else if (!rdma_frm->blk) {
 		/* Set Y pixel offset */
 		src_offset_0 = (in_xs * rdma_frm->bits_per_pixel_y >> 3) +
 				in_ys * src->y_stride;
@@ -1474,19 +1540,21 @@ static s32 rdma_config_tile(struct mml_comp *comp, struct mml_task *task,
 	rdma_write(pkt, base_pa, hw_pipe, CPR_RDMA_MF_OFFSET_1,
 		   (mf_offset_h_1 << 16) + mf_offset_w_1, write_sec);
 
-	/* qos accumulate tile pixel */
-	rdma_frm->pixel_acc += mf_src_w * mf_src_h;
+	if (cfg->info.mode != MML_MODE_APUDC) {
+		/* qos accumulate tile pixel */
+		rdma_frm->pixel_acc += mf_src_w * mf_src_h;
 
-	/* calculate qos for later use */
-	plane = MML_FMT_PLANE(src->format);
-	rdma_frm->datasize += mml_color_get_min_y_size(src->format,
-		mf_src_w, mf_src_h);
-	if (plane > 1)
-		rdma_frm->datasize += mml_color_get_min_uv_size(src->format,
+		/* calculate qos for later use */
+		plane = MML_FMT_PLANE(src->format);
+		rdma_frm->datasize += mml_color_get_min_y_size(src->format,
 			mf_src_w, mf_src_h);
-	if (plane > 2)
-		rdma_frm->datasize += mml_color_get_min_uv_size(src->format,
-			mf_src_w, mf_src_h);
+		if (plane > 1)
+			rdma_frm->datasize += mml_color_get_min_uv_size(src->format,
+				mf_src_w, mf_src_h);
+		if (plane > 2)
+			rdma_frm->datasize += mml_color_get_min_uv_size(src->format,
+				mf_src_w, mf_src_h);
+	}
 
 	if (write_sec)
 		rdma_cpr_trigger(pkt, hw_pipe, src->secure);

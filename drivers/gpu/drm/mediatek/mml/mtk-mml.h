@@ -27,6 +27,7 @@ enum mml_mode {
 	MML_MODE_RACING,
 	MML_MODE_MML_DECOUPLE,
 	MML_MODE_MDP_DECOUPLE,
+	MML_MODE_APUDC,		/* APU Direct Couple MML_RDMA */
 
 	/* belows are modes from driver internally */
 	MML_MODE_DDP_ADDON,

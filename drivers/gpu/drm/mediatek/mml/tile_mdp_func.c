@@ -72,7 +72,7 @@ enum isp_tile_message tile_rdma_init(struct tile_func_block *ptr_func,
 		ptr_func->in_const_x = 4;
 	}
 
-	ptr_func->in_tile_height  = 65535;
+	ptr_func->in_tile_height  = data->apu_racing ? data->racing_h : 65535;
 	ptr_func->out_tile_height = 65535;
 
 	ptr_func->crop_bias_x = data->crop.left;

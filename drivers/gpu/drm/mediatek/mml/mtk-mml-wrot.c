@@ -106,10 +106,10 @@
 /* SMI offset */
 #define SMI_LARB_NON_SEC_CON		0x380
 
-#define MML_WROT_RACING_MIN		64
+#define MML_WROT_RACING_MAX		64
 
 /* debug option to change sram write height */
-int mml_racing_h = MML_WROT_RACING_MIN;
+int mml_racing_h = MML_WROT_RACING_MAX;
 module_param(mml_racing_h, int, 0644);
 
 int mml_racing_rdone;
@@ -616,7 +616,7 @@ static s32 wrot_tile_prepare(struct mml_comp *comp, struct mml_task *task,
 	data->wrot.flip = dest->flip;
 	data->wrot.alpharot = cfg->alpharot;
 	data->wrot.racing = cfg->info.mode == MML_MODE_RACING;
-	data->wrot.racing_h = max(mml_racing_h, MML_WROT_RACING_MIN);
+	data->wrot.racing_h = max(mml_racing_h, MML_WROT_RACING_MAX);
 
 	/* reuse wrot_frm data which processed with rotate and dual */
 	data->wrot.enable_x_crop = wrot_frm->en_x_crop;
