@@ -45,9 +45,6 @@ struct mdw_mem *mdw_mem_get(struct mdw_fpriv *mpriv, int handle)
 
 	mutex_lock(&mdev->m_mtx);
 	list_for_each_entry_safe(m, tmp, &mdev->m_list, d_node) {
-		if (!m)
-			break;
-
 		if (m->dbuf == dbuf) {
 			mutex_unlock(&mdev->m_mtx);
 			return m;
@@ -464,9 +461,6 @@ static struct mdw_mem_invoke *mdw_mem_invoke_find(struct mdw_fpriv *mpriv,
 	struct mdw_mem_invoke *m_invoke = NULL;
 
 	list_for_each_entry(m_invoke, &mpriv->invokes, u_node) {
-		if (!m_invoke)
-			break;
-
 		if (m_invoke->m == m) {
 			mdw_flw_debug("s(0x%llx) find invoke(0x%llx) to mem(0x%llx)\n",
 				(uint64_t)mpriv, (uint64_t)m_invoke,
@@ -656,9 +650,6 @@ void mdw_mem_mpriv_release(struct mdw_fpriv *mpriv)
 	struct mdw_mem_invoke *m_invoke = NULL, *tmp = NULL;
 
 	list_for_each_entry_safe(m_invoke, tmp, &mpriv->invokes, u_node) {
-		if (!m_invoke)
-			break;
-
 		if (m_invoke->m->handle >= 0) {
 			mdw_mem_show(m_invoke->m);
 			mdw_mem_invoke_release(&m_invoke->ref);
@@ -842,9 +833,6 @@ struct mdw_mem *mdw_mem_query_mem(uint64_t kva)
 
 	mutex_lock(&mdw_dev->m_mtx);
 	list_for_each_entry_safe(m, tmp, &mdw_dev->m_list, d_node) {
-		if (!m)
-			break;
-
 		if (kva >= (uint64_t)m->vaddr &&
 			kva < (uint64_t)m->vaddr + m->size) {
 
@@ -882,12 +870,6 @@ int apusys_mem_validate_by_cmd(void *session, void *cmd, uint64_t iova, uint32_t
 
 	/* query from mpriv invoke list */
 	list_for_each_entry(m_invoke, &mpriv->invokes, u_node) {
-		if (!m_invoke) {
-			mdw_vld_debug("s(0x%llx) no mem invokes\n",
-				(uint64_t)mpriv);
-			break;
-		}
-
 		m = m_invoke->m;
 		mdw_vld_debug("check mem invoke list: va(0x%llx/%u) iova(0x%llx/%u)...\n",
 			(uint64_t)m->vaddr, m->size, m->device_va, m->dva_size);
@@ -934,9 +916,6 @@ void *apusys_mem_query_kva_by_sess(void *session, uint64_t iova)
 	struct mdw_mem *m = NULL;
 
 	list_for_each_entry(m_invoke, &mpriv->invokes, u_node) {
-		if (!m_invoke)
-			break;
-
 		m = m_invoke->m;
 		if (iova >= m->device_va &&
 			iova < m->device_va + m->dva_size &&
@@ -992,9 +971,6 @@ uint64_t apusys_mem_query_kva(uint64_t iova)
 
 	mutex_lock(&mdw_dev->m_mtx);
 	list_for_each_entry_safe(m, tmp, &mdw_dev->m_list, d_node) {
-		if (!m)
-			break;
-
 		if (iova >= m->device_va &&
 			iova < m->device_va + m->size) {
 			if (m->vaddr == NULL)
@@ -1017,9 +993,6 @@ uint64_t apusys_mem_query_iova(uint64_t kva)
 
 	mutex_lock(&mdw_dev->m_mtx);
 	list_for_each_entry_safe(m, tmp, &mdw_dev->m_list, d_node) {
-		if (!m)
-			break;
-
 		if (kva >= (uint64_t)m->vaddr &&
 			kva < (uint64_t)m->vaddr + m->size) {
 			if (!m->device_va)

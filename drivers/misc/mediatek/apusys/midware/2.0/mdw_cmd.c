@@ -394,9 +394,6 @@ static void mdw_cmd_unvoke_map(struct mdw_cmd *c)
 	struct mdw_cmd_map_invoke *cm_invoke = NULL, *tmp = NULL;
 
 	list_for_each_entry_safe(cm_invoke, tmp, &c->map_invokes, c_node) {
-		if (!cm_invoke)
-			break;
-
 		list_del(&cm_invoke->c_node);
 		mdw_cmd_debug("s(0x%llx)c(0x%llx) unvoke m(0x%llx/%u)\n",
 			(uint64_t)c->mpriv, (uint64_t)c,
@@ -416,9 +413,6 @@ int mdw_cmd_invoke_map(struct mdw_cmd *c, struct mdw_mem_map *map)
 
 	/* query */
 	list_for_each_entry(cm_invoke, &c->map_invokes, c_node) {
-		if (!cm_invoke)
-			break;
-
 		/* already invoked */
 		if (cm_invoke->map == map)
 			return 0;

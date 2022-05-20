@@ -43,7 +43,7 @@ TRACE_EVENT(mdw_ap_cmd,
 		__field(uint64_t, tcm_info)
 		__field(uint32_t, boost)
 		__field(uint32_t, ip_time)
-		__field(uint32_t, ret)
+		__field(int, ret)
 	),
 	TP_fast_assign(
 		__entry->done = done;

@@ -51,9 +51,6 @@ static struct mdw_ipi_msg_sync *mdw_rv_dev_msg_find(struct mdw_rv_dev *mrdev,
 	mdw_drv_debug("get msg(0x%llx)\n", sync_id);
 
 	list_for_each_entry_safe(s_msg, tmp, &mrdev->s_list, ud_item) {
-		if (!s_msg)
-			break;
-
 		if (s_msg->msg.sync_id == sync_id)
 			break;
 		s_msg = NULL;

@@ -305,22 +305,25 @@ static int mdw_dmy_send_cmd(int type, void *hnd, struct apusys_device *dev)
 
 int mdw_dmy_init(void)
 {
-	int ret = 0, i = 0;
+	int ret = 0, i = 0, n = 0;
 
 	for (i = 0; i < MDW_DMY_DEV_NUM; i++) {
 		/* assign private info */
 		mdw_dmy_inst[i].idx = i;
-		if (snprintf(mdw_dmy_inst[i].name, 21,
-			"apusys sample driver") < 0)
+		n = snprintf(mdw_dmy_inst[i].name, 21,
+			"apusys sample driver");
+		if (n < 0 || n >= 21)
 			goto delete_dev;
 
 		/* assign sample dev */
 		mdw_dmy_inst[i].dev.dev_type = APUSYS_DEVICE_SAMPLE;
 		mdw_dmy_inst[i].dev.preempt_type = APUSYS_PREEMPT_NONE;
 		mdw_dmy_inst[i].dev.preempt_level = 0;
-		snprintf(mdw_dmy_inst[i].dev.meta_data,
+		n = snprintf(mdw_dmy_inst[i].dev.meta_data,
 			sizeof(mdw_dmy_inst[i].dev.meta_data),
 			MDW_DMY_META_DATA);
+		if (n < 0 || n >= sizeof(mdw_dmy_inst[i].dev.meta_data))
+			goto delete_dev;
 		mdw_dmy_inst[i].dev.private = &mdw_dmy_inst[i];
 		mdw_dmy_inst[i].dev.send_cmd = mdw_dmy_send_cmd;
 		mdw_dmy_inst[i].dev.idx = i;

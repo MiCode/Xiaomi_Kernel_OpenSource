@@ -260,13 +260,14 @@ out:
 
 static int mdw_rv_cmd_delete(struct mdw_rv_cmd *rc)
 {
-	struct mdw_cmd *c = rc->c;
+	struct mdw_cmd *c = NULL;
 	struct mdw_rv_msg_cmd *rmc = NULL;
-	struct mdw_fpriv *mpriv = c->mpriv;
+	struct mdw_fpriv *mpriv = NULL;
 
 	if (!rc)
 		return -EINVAL;
-
+	c = rc->c;
+	mpriv = c->mpriv;
 	mdw_rv_cmd_set_affinity(c, false);
 
 	mutex_lock(&mpriv->mtx);
