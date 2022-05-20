@@ -168,7 +168,7 @@ struct mtk_pcie_port {
 	struct clk_bulk_data *clks;
 	int num_clks;
 
-	u32 port_num;
+	int port_num;
 	u32 suspend_mode;
 	bool dvfs_req_en;
 	bool peri_reset_en;
@@ -377,10 +377,7 @@ static int mtk_pcie_startup_port(struct mtk_pcie_port *port)
 		resource_size_t size;
 		const char *range_type;
 
-		if (type == IORESOURCE_IO) {
-			cpu_addr = pci_pio_to_address(res->start);
-			range_type = "IO";
-		} else if (type == IORESOURCE_MEM) {
+		if (type == IORESOURCE_MEM) {
 			cpu_addr = res->start;
 			range_type = "MEM";
 		} else {
@@ -762,6 +759,18 @@ static int mtk_pcie_setup_irq(struct mtk_pcie_port *port)
 	return 0;
 }
 
+static int mtk_pcie_get_pci_domain_nr(struct device_node *node)
+{
+	u32 domain;
+	int error;
+
+	error = of_property_read_u32(node, "linux,pci-domain", &domain);
+	if (error)
+		return error;
+
+	return domain;
+}
+
 static int mtk_pcie_parse_port(struct mtk_pcie_port *port)
 {
 	struct device *dev = port->dev;
@@ -781,7 +790,7 @@ static int mtk_pcie_parse_port(struct mtk_pcie_port *port)
 
 	port->reg_base = regs->start;
 
-	port->port_num = of_get_pci_domain_nr(dev->of_node);
+	port->port_num = mtk_pcie_get_pci_domain_nr(dev->of_node);
 	if (port->port_num < 0) {
 		dev_info(dev, "failed to get domain number\n");
 		return port->port_num;
@@ -1019,7 +1028,7 @@ static struct device_node *mtk_pcie_find_node_by_port(int port)
 
 	do {
 		pcie_node = of_find_node_by_name(pcie_node, "pcie");
-		if (port == of_get_pci_domain_nr(pcie_node))
+		if (port == mtk_pcie_get_pci_domain_nr(pcie_node))
 			return pcie_node;
 	} while (pcie_node);
 
