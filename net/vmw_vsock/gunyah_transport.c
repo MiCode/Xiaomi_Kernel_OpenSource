@@ -403,17 +403,29 @@ static void ghvst_process_msg(struct gh_transport_device *gdev,
 		    hdr.type != GHVST_TYPE_DATA) {
 			pr_err("%s: Incorrect info ver:%d; type:%d\n",
 			       __func__, hdr.version, hdr.type);
-			reset_buf(gbuf);
-			mutex_unlock(&gbuf->lock);
-			return;
+			goto out;
+		}
+		/* Checked the data size in pkg header */
+		if (hdr.size > MAX_PKT_SZ - sizeof(hdr)) {
+			pr_err("%s: Incorrect received header size:%d\n",
+			       __func__, hdr.size);
+			goto out;
 		}
 		gbuf->len = sizeof(hdr) + hdr.size;
 		gbuf->hdr_received = true;
+		/* Check gbuf->len size, can not be smaller than gbuf->copied*/
+		if (gbuf->len < gbuf->copied) {
+			pr_err("%s: Incorrect guf size: len=%d, copied=%d\n",
+			       __func__, gbuf->len, gbuf->copied);
+			goto out;
+		}
 		gbuf->remaining = gbuf->len - gbuf->copied;
 		check_rx_complete(gdev);
 		mutex_unlock(&gbuf->lock);
 		return;
 	}
+out:
+	reset_buf(gbuf);
 	mutex_unlock(&gbuf->lock);
 }
 
