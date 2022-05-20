@@ -622,6 +622,8 @@ static int g_test_pattern_checksum(struct adaptor_ctx *ctx, void *arg)
 	union feature_para para;
 	u32 len;
 
+	para.u32[0] = 0;
+
 	subdrv_call(ctx, feature_control,
 		SENSOR_FEATURE_GET_TEST_PATTERN_CHECKSUM_VALUE,
 		para.u8, &len);
@@ -1013,8 +1015,14 @@ static int g_scenario_combo_info(struct adaptor_ctx *ctx, void *arg)
 static int g_sensor_info(struct adaptor_ctx *ctx, void *arg)
 {
 	struct mtk_sensor_info *info = arg;
+	int ret = 0;
 
-	snprintf(info->name, sizeof(info->name), "%s", ctx->subdrv->name);
+	ret = snprintf(info->name, sizeof(info->name), "%s", ctx->subdrv->name);
+	info->id = ctx->subdrv->id;
+
+	if (ret < 0)
+		dev_info(ctx->dev, "g_sensor_info fail, ret:%d\n", ret);
+
 	info->id = ctx->subdrv->id;
 
 	/* read property */
@@ -1309,7 +1317,7 @@ static int s_control(struct adaptor_ctx *ctx, void *arg)
 {
 	struct mtk_sensor_control *info = arg;
 	struct workbuf workbuf1, workbuf2;
-	int ret;
+	int ret, workbuf_put_ret;
 
 	ret = workbuf_get(&workbuf1, info->p_window,
 		sizeof(*info->p_window), F_READ);
@@ -1318,16 +1326,16 @@ static int s_control(struct adaptor_ctx *ctx, void *arg)
 
 	ret = workbuf_get(&workbuf2, info->p_config,
 		sizeof(*info->p_config), F_READ);
-	if (ret)
+	if (ret) {
+		workbuf_put_ret = workbuf_put(&workbuf1);
 		return ret;
+	}
 
 	subdrv_call(ctx, control,
 		info->scenario_id, workbuf1.kbuf, workbuf2.kbuf);
 
-	ret = workbuf_put(&workbuf1);
-	ret = workbuf_put(&workbuf2);
-	if (ret)
-		return ret;
+	workbuf_put_ret = workbuf_put(&workbuf1);
+	workbuf_put_ret = workbuf_put(&workbuf2);
 
 	return 0;
 }

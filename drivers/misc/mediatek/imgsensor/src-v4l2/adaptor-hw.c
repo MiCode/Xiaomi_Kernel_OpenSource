@@ -147,7 +147,8 @@ static int unset_reg(struct adaptor_ctx *ctx, void *data, int val)
 
 static int set_state(struct adaptor_ctx *ctx, void *data, int val)
 {
-	unsigned long long ret, idx, x;
+	unsigned long long idx, x;
+	int ret;
 
 	idx = (unsigned long long)data;
 	x = idx + val;

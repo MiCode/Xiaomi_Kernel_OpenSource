@@ -490,8 +490,7 @@ static int imgsensor_try_ctrl(struct v4l2_ctrl *ctrl)
 		u32 val, len;
 		union feature_para para;
 
-		if (info->scenario_id >= 0 &&
-			info->scenario_id < ctx->mode_cnt) {
+		if (info->scenario_id < ctx->mode_cnt) {
 			struct sensor_mode *mode = &ctx->mode[info->scenario_id];
 
 			para.u64[0] = info->scenario_id;
