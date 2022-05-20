@@ -1059,6 +1059,8 @@ static int xgf_get_render(pid_t rpid, unsigned long long bufID, struct xgf_rende
 		if (iter->bufID != bufID)
 			continue;
 
+		iter->hwui_flag = hwui_flag;
+
 		if (ret)
 			*ret = iter;
 		return 0;
