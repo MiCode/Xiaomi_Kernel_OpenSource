@@ -124,7 +124,7 @@
 			};
 			rt5133_ldo8: LDO8 {
 				regulator-name = "rt5133-ldo8";
-				regulator-min-microvolt = <900000>;
+				regulator-min-microvolt = <855000>;
 				regulator-max-microvolt = <1200000>;
 				regulator-active-discharge;
 				oc_ptsel = <1>;
