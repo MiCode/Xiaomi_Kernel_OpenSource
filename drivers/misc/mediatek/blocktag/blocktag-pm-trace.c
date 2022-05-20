@@ -106,8 +106,9 @@ static void btag_blk_pm_add_log(int rpm, int pm_only,
 		int dying, int mq_freeze_depth, int ret, int event)
 {
 	uint64_t ns_time = sched_clock();
+	unsigned long flags;
 
-	spin_lock(&pm_traces.lock);
+	spin_lock_irqsave(&pm_traces.lock, flags);
 	pm_traces.tail = (pm_traces.tail + 1) % BLK_PM_MAX_LOG;
 	if (pm_traces.tail == pm_traces.head)
 		pm_traces.head = (pm_traces.head + 1) % BLK_PM_MAX_LOG;
@@ -122,7 +123,7 @@ static void btag_blk_pm_add_log(int rpm, int pm_only,
 	pm_traces.trace[pm_traces.tail].ret = ret;
 	pm_traces.trace[pm_traces.tail].pid = current->pid;
 	pm_traces.trace[pm_traces.tail].dying = dying;
-	spin_unlock(&pm_traces.lock);
+	spin_unlock_irqrestore(&pm_traces.lock, flags);
 }
 
 void btag_blk_pre_runtime_suspend_start(void *data,
@@ -299,8 +300,9 @@ void mtk_btag_blk_pm_show(char **buff, unsigned long *size,
 {
 	struct blk_pm_log_s *tr;
 	int idx;
+	unsigned long flags;
 
-	spin_lock(&pm_traces.lock);
+	spin_lock_irqsave(&pm_traces.lock, flags);
 	idx = pm_traces.tail;
 
 	SPREAD_PRINTF(buff, size, seq,
@@ -321,7 +323,7 @@ void mtk_btag_blk_pm_show(char **buff, unsigned long *size,
 			break;
 		idx = idx ? idx - 1 : BLK_PM_MAX_LOG - 1;
 	}
-	spin_unlock(&pm_traces.lock);
+	spin_unlock_irqrestore(&pm_traces.lock, flags);
 }
 
 void mtk_btag_blk_pm_init(void)
