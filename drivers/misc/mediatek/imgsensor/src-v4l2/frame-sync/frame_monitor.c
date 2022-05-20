@@ -625,7 +625,11 @@ void frm_power_on_ccu(unsigned int flag)
 
 	if (flag > 0) {
 		/* boot up ccu */
+#if IS_ENABLED(CONFIG_MTK_CCU_DEBUG)
+		ret = rproc_bootx(ccu_rproc, RPROC_UID_FS);
+#else
 		ret = rproc_boot(ccu_rproc);
+#endif
 
 		if (ret != 0) {
 			LOG_PR_ERR("ERROR: ccu rproc_boot failed!\n");
@@ -641,7 +645,11 @@ void frm_power_on_ccu(unsigned int flag)
 
 	} else {
 		/* shutdown ccu */
+#if IS_ENABLED(CONFIG_MTK_CCU_DEBUG)
+		rproc_shutdownx(ccu_rproc, RPROC_UID_FS);
+#else
 		rproc_shutdown(ccu_rproc);
+#endif
 
 		frm_inst.power_on_cnt--;
 

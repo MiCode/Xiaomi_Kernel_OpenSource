@@ -1249,7 +1249,11 @@ static int mtk_senif_power_ctrl_ccu(struct seninf_core *core, int on_off)
 			goto out;
 		}
 
+#if IS_ENABLED(CONFIG_MTK_CCU_DEBUG)
+		ret = rproc_bootx(core->rproc_ccu_handle, RPROC_UID_SENIF);
+#else
 		ret = rproc_boot(core->rproc_ccu_handle);
+#endif
 		if (ret)
 			dev_info(core->dev, "boot ccu rproc fail\n");
 
@@ -1262,7 +1266,11 @@ static int mtk_senif_power_ctrl_ccu(struct seninf_core *core, int on_off)
 			regulator_disable(core->dfs.reg);
 
 		if (core->rproc_ccu_handle) {
+#if IS_ENABLED(CONFIG_MTK_CCU_DEBUG)
+			rproc_shutdownx(core->rproc_ccu_handle, RPROC_UID_SENIF);
+#else
 			rproc_shutdown(core->rproc_ccu_handle);
+#endif
 			ret = 0;
 		} else
 			ret = -EINVAL;

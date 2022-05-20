@@ -1932,12 +1932,20 @@ static int mtk_imgsys_power_ctrl_ccu(struct mtk_imgsys_dev *imgsys_dev, int on_o
 			goto out;
 		}
 
+#if IS_ENABLED(CONFIG_MTK_CCU_DEBUG)
+		ret = rproc_bootx(imgsys_dev->rproc_ccu_handle, RPROC_UID_IMG);
+#else
 		ret = rproc_boot(imgsys_dev->rproc_ccu_handle);
+#endif
 		if (ret)
 			dev_info(imgsys_dev->dev, "boot ccu rproc fail\n");
 	} else {
 		if (imgsys_dev->rproc_ccu_handle)
+#if IS_ENABLED(CONFIG_MTK_CCU_DEBUG)
+			rproc_shutdownx(imgsys_dev->rproc_ccu_handle, RPROC_UID_IMG);
+#else
 			rproc_shutdown(imgsys_dev->rproc_ccu_handle);
+#endif
 		else
 			ret = -EINVAL;
 	}

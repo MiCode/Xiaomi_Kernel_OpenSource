@@ -162,7 +162,11 @@ static void mtk_cam_power_on_ccu(struct mtk_cam_hsf_ctrl *handle_inst, unsigned 
 	ccu_rproc = rproc_get_by_phandle(handle_inst->ccu_handle);
 	if (flag > 0) {
 	/* boot up ccu */
+#if IS_ENABLED(CONFIG_MTK_CCU_DEBUG)
+		ret = rproc_bootx(ccu_rproc, RPROC_UID_SC);
+#else
 		ret = rproc_boot(ccu_rproc);
+#endif
 		if (ret != 0) {
 			pr_info("error: ccu rproc_boot failed!\n");
 			return;
@@ -172,7 +176,11 @@ static void mtk_cam_power_on_ccu(struct mtk_cam_hsf_ctrl *handle_inst, unsigned 
 		pr_info("camsys power on ccu, cnt:%d\n", handle_inst->power_on_cnt);
 	} else {
 		/* shutdown ccu */
+#if IS_ENABLED(CONFIG_MTK_CCU_DEBUG)
+		rproc_shutdownx(ccu_rproc, RPROC_UID_SC);
+#else
 		rproc_shutdown(ccu_rproc);
+#endif
 		handle_inst->power_on_cnt--;
 		pr_info("camsys power off ccu, cnt:%d\n", handle_inst->power_on_cnt);
 	}
