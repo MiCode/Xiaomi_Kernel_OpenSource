@@ -23,6 +23,7 @@
 #include <linux/of_device.h>
 #include <linux/of_irq.h>
 #include <linux/platform_device.h>
+#include <linux/pm_qos.h>
 #include <linux/scatterlist.h>
 #include <linux/sched.h>
 #include <linux/slab.h>
@@ -300,6 +301,7 @@ struct mtk_i2c {
 	bool master_code_sended;
 	struct mtk_i2c_ac_timing ac_timing;
 	const struct mtk_i2c_compatible *dev_comp;
+	struct pm_qos_request i2c_qos_request;
 };
 
 /**
@@ -1135,6 +1137,8 @@ static int mtk_i2c_do_transfer(struct mtk_i2c *i2c, struct i2c_msg *msgs,
 	}
 	/* Make sure the clock is ready before read register */
 	mb();
+	if (mtk_i2c_readw(i2c, OFFSET_TIMING) == 0)
+		mtk_i2c_init_hw(i2c);
 	control_reg = mtk_i2c_readw(i2c, OFFSET_CONTROL) &
 			~(I2C_CONTROL_DIR_CHANGE | I2C_CONTROL_RS | I2C_CONTROL_DMA_EN |
 			I2C_CONTROL_DMAACK_EN | I2C_CONTROL_ASYNC_MODE);
@@ -1463,6 +1467,9 @@ static int mtk_i2c_transfer(struct i2c_adapter *adap,
 	struct i2c_msg multi_msg[1];
 	struct mtk_i2c *i2c = i2c_get_adapdata(adap);
 
+	/* update qos to prevent deep idle during transfer */
+	cpu_latency_qos_update_request(&i2c->i2c_qos_request, 150);
+
 	ret = mtk_i2c_clock_enable(i2c);
 	if (ret)
 		return ret;
@@ -1557,6 +1564,8 @@ static int mtk_i2c_transfer(struct i2c_adapter *adap,
 
 err_exit:
 	mtk_i2c_clock_disable(i2c);
+	cpu_latency_qos_update_request(&i2c->i2c_qos_request,
+		PM_QOS_DEFAULT_VALUE);
 	return ret;
 }
 
@@ -1756,6 +1765,10 @@ static int mtk_i2c_probe(struct platform_device *pdev)
 	}
 	mtk_i2c_init_hw(i2c);
 	mtk_i2c_clock_disable(i2c);
+
+	/* register qos to prevent deep idle during transfer */
+	cpu_latency_qos_add_request(&i2c->i2c_qos_request,
+		PM_QOS_DEFAULT_VALUE);
 
 	ret = devm_request_irq(&pdev->dev, irq, mtk_i2c_irq,
 			       IRQF_NO_SUSPEND | IRQF_TRIGGER_NONE,
