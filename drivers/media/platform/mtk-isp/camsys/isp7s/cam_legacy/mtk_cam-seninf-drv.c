@@ -1388,7 +1388,7 @@ static int seninf_test_streamon(struct seninf_ctx *ctx, u32 en)
 #endif
 	if (en) {
 		ctx->is_test_streamon = 1;
-		mtk_cam_seninf_alloc_cammux_by_type(ctx, TYPE_CAMSV_SAT);
+		mtk_cam_seninf_alloc_cammux_by_type(ctx, TYPE_RAW);
 		seninf_s_stream(&ctx->subdev, 1);
 	} else {
 		seninf_s_stream(&ctx->subdev, 0);

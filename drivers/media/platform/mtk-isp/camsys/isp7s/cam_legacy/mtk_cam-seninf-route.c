@@ -978,7 +978,7 @@ int mtk_cam_seninf_s_stream_mux(struct seninf_ctx *ctx)
 				g_seninf_ops->_mux(ctx, vc->mux);
 				g_seninf_ops->_set_mux_ctrl(ctx, vc->mux,
 							    hsPol, vsPol,
-					MIPI_SENSOR + VC_CH_GROUP_ALL,
+					MIPI_SENSOR + vc->group,
 					vc->pixel_mode);
 
 				g_seninf_ops->_set_top_mux_ctrl(ctx, vc->mux, intf);
