@@ -1411,7 +1411,8 @@ int mtk_gether_get_host_addr_cdc(struct net_device *net, char *host_addr, int le
 		return -EINVAL;
 
 	dev = netdev_priv(net);
-	snprintf(host_addr, len, "%pm", dev->host_mac);
+	if (snprintf(host_addr, len, "%pm", dev->host_mac) < 0)
+		return -EINVAL;
 
 	return strlen(host_addr);
 }
