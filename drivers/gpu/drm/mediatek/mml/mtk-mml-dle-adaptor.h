@@ -15,6 +15,7 @@
 struct mml_dle_ctx;
 struct mml_task;
 struct mml_comp;
+struct mml_dev;
 
 struct mml_dle_param {
 	/* [in]set true if direct-link uses dual pipe */
@@ -27,6 +28,16 @@ struct mml_dle_param {
 struct mml_dle_frame_info {
 	struct mml_rect dl_out[MML_DL_OUT_CNT];
 };
+
+/*
+ * mml_dle_ctx_create - Create dle context structure
+ *
+ * @mml:	The mml driver device context.
+ *
+ * Return:	The dle context pointer to represent mml driver instance.
+ *
+ */
+struct mml_dle_ctx *mml_dle_ctx_create(struct mml_dev *mml);
 
 /*
  * mml_dle_get_context - Get mml dle context to configure mml.

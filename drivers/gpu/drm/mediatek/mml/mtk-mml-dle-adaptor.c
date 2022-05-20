@@ -781,8 +781,7 @@ const static struct mml_task_ops dle_task_ops = {
 	.kt_setsched = kt_setsched,
 };
 
-static struct mml_dle_ctx *dle_ctx_create(struct mml_dev *mml,
-					  struct mml_dle_param *dl)
+struct mml_dle_ctx *mml_dle_ctx_create(struct mml_dev *mml)
 {
 	struct mml_dle_ctx *ctx;
 
@@ -805,11 +804,16 @@ static struct mml_dle_ctx *dle_ctx_create(struct mml_dev *mml,
 	ctx->mml = mml;
 	ctx->task_ops = &dle_task_ops;
 	ctx->wq_destroy = alloc_ordered_workqueue("mml_destroy_dl", 0, 0);
-	ctx->dl_dual = dl->dual;
-	ctx->config_cb = dl->config_cb;
 	ctx->wq_config = alloc_ordered_workqueue("mml_work_dl", WORK_CPU_UNBOUND | WQ_HIGHPRI, 0);
 
 	return ctx;
+}
+
+
+static void dle_ctx_setup(struct mml_dle_ctx *ctx, struct mml_dle_param *dl)
+{
+	ctx->dl_dual = dl->dual;
+	ctx->config_cb = dl->config_cb;
 }
 
 struct mml_dle_ctx *mml_dle_get_context(struct device *dev,
@@ -822,7 +826,7 @@ struct mml_dle_ctx *mml_dle_get_context(struct device *dev,
 		mml_err("[dle]%s not init mml", __func__);
 		return ERR_PTR(-EPERM);
 	}
-	return mml_dev_get_dle_ctx(mml, dl, dle_ctx_create);
+	return mml_dev_get_dle_ctx(mml, dl, dle_ctx_setup);
 }
 
 static void dle_ctx_release(struct mml_dle_ctx *ctx)

@@ -22,6 +22,7 @@
 #include <linux/soc/mediatek/mtk-cmdq-ext.h>
 #include <slbc_ops.h>
 
+#include "mtk-mml-dle-adaptor.h"
 #include "mtk-mml-driver.h"
 #include "mtk-mml-core.h"
 #include "mtk-mml-pq-core.h"
@@ -275,8 +276,7 @@ void mml_dev_put_drm_ctx(struct mml_dev *mml,
 
 struct mml_dle_ctx *mml_dev_get_dle_ctx(struct mml_dev *mml,
 	struct mml_dle_param *dl,
-	struct mml_dle_ctx *(*ctx_create)(struct mml_dev *mml,
-	struct mml_dle_param *dl))
+	void (*ctx_setup)(struct mml_dle_ctx *ctx, struct mml_dle_param *dl))
 {
 	struct mml_dle_ctx *ctx;
 
@@ -288,9 +288,18 @@ struct mml_dle_ctx *mml_dev_get_dle_ctx(struct mml_dev *mml,
 		goto exit;
 	}
 
-	if (atomic_inc_return(&mml->dle_cnt) == 1)
-		mml->dle_ctx = ctx_create(mml, dl);
+	if (!mml->dle_ctx) {
+		mml->dle_ctx = mml_dle_ctx_create(mml);
+		if (IS_ERR(mml->dle_ctx)) {
+			ctx = mml->dle_ctx;
+			mml->dle_ctx = NULL;
+			goto exit;
+		}
+	}
 	ctx = mml->dle_ctx;
+
+	if (atomic_inc_return(&mml->dle_cnt) == 1)
+		ctx_setup(ctx, dl);
 
 exit:
 	mutex_unlock(&mml->ctx_mutex);
@@ -1103,8 +1112,6 @@ static int mml_probe(struct platform_device *pdev)
 		thread_cnt = MML_MAX_CMDQ_CLTS;
 
 	mml->racing_en = of_property_read_bool(dev->of_node, "racing-enable");
-	if (mml->racing_en)
-		mml_log("racing mode enable");
 
 	if (of_property_read_u8(dev->of_node, "racing_height", &mml->racing_height))
 		mml->racing_height = 64;	/* default height 64px */
@@ -1139,6 +1146,13 @@ static int mml_probe(struct platform_device *pdev)
 
 	mml->wake_lock = wakeup_source_register(dev, "mml_pm_lock");
 	mml_record_init(mml);
+
+	/* for inline rotate dle context, avoid blocking dle addon flow */
+	if (mml->racing_en) {
+		mml_log("racing mode enable");
+		mml->dle_ctx = mml_dle_ctx_create(mml);
+	}
+
 	mml_msg("%s success end", __func__);
 	return 0;
 

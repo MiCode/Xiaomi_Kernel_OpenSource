@@ -176,8 +176,7 @@ void mml_dev_put_drm_ctx(struct mml_dev *mml,
 	void (*ctx_release)(struct mml_drm_ctx *ctx));
 struct mml_dle_ctx *mml_dev_get_dle_ctx(struct mml_dev *mml,
 	struct mml_dle_param *dl,
-	struct mml_dle_ctx *(*ctx_create)(struct mml_dev *mml,
-	struct mml_dle_param *dl));
+	void (*ctx_setup)(struct mml_dle_ctx *ctx, struct mml_dle_param *dl));
 void mml_dev_put_dle_ctx(struct mml_dev *mml,
 	void (*ctx_release)(struct mml_dle_ctx *ctx));
 

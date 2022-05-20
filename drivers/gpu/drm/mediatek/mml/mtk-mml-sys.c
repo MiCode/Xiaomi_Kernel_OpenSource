@@ -755,7 +755,7 @@ static void sys_config_done_cb(struct mml_task *task, void *cb_param)
 static struct mml_dle_ctx *sys_get_dle_ctx(struct mml_sys *sys,
 					   struct mml_dle_param *dl)
 {
-	if (dl && (!sys->dle_ctx ||
+	if (dl && (IS_ERR_OR_NULL(sys->dle_ctx) ||
 	    memcmp(&sys->dle_param, dl, sizeof(*dl)))) {
 		mml_dle_put_context(sys->dle_ctx);
 		sys->dle_ctx = mml_dle_get_context(sys->master, dl);
