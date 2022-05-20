@@ -1488,7 +1488,9 @@ static void mtk_drm_cwb_info_init(struct drm_crtc *crtc)
 	cwb_info->src_roi.height =
 				crtc->state->adjusted_mode.vdisplay;
 
-	cwb_info->scn = WDMA_WRITE_BACK;
+	if (cwb_info->scn == NONE)
+		cwb_info->scn = WDMA_WRITE_BACK;
+
 	if (crtc_idx == 0)
 		cwb_info->comp = priv->ddp_comp[DDP_COMPONENT_WDMA0];
 
@@ -2866,6 +2868,40 @@ static void process_dbg_opt(const char *opt)
 		}
 		vfree(user_buffer);
 		reinit_completion(&cwb_cmp);
+	} else if (strncmp(opt, "cwb_change_path:", 16) == 0) {
+		int path, ret;
+		struct drm_crtc *crtc;
+		struct mtk_drm_crtc *mtk_crtc;
+		struct mtk_cwb_info *cwb_info;
+
+		ret = sscanf(opt, "cwb_change_path:%d\n", &path);
+		if (ret != 1) {
+			DDPPR_ERR("%d error to parse cmd %s\n",
+				__LINE__, opt);
+			return;
+		}
+		crtc = list_first_entry(&(drm_dev)->mode_config.crtc_list,
+					typeof(*crtc), head);
+		if (!crtc) {
+			DDPPR_ERR("find crtc fail\n");
+			return;
+		}
+		mtk_crtc = to_mtk_crtc(crtc);
+		if (!mtk_crtc->cwb_info) {
+			mtk_crtc->cwb_info = kzalloc(sizeof(struct mtk_cwb_info),
+				GFP_KERNEL);
+			DDPMSG("%s: need allocate memory\n", __func__);
+		}
+		cwb_info = mtk_crtc->cwb_info;
+		DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
+
+		if (path == 0)
+			cwb_info->scn = WDMA_WRITE_BACK;
+		else if (path == 1)
+			cwb_info->scn = WDMA_WRITE_BACK_OVL;
+
+		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+
 	} else if (strncmp(opt, "fake_wcg", 8) == 0) {
 		unsigned int fake_hdr_en = 0;
 		struct drm_crtc *crtc;
