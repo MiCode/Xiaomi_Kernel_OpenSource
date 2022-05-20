@@ -93,7 +93,7 @@ void apupw_dbg_rpc_tag_update(struct apu_dev *ad)
 		return;
 
 	if (ad->aclk->cg->clk_num > sizeof(result)) {
-		pr_info("[%s] cg numbers %d > array size %d\n",
+		pr_info("[%s] cg numbers %u > array size %d\n",
 				__func__, ad->aclk->cg->clk_num, sizeof(result));
 		return;
 	}
