@@ -1060,7 +1060,7 @@ static bool get_dre_block(u32 *phist, const int block_x, const int block_y,
 	u32 read_value;
 	u32 block_offset = 6 * (block_y * dre_blk_x_num + block_x);
 	u32 sum = 0, i = 0;
-	u32 aal_hist[AAL_HIST_BIN];
+	u32 aal_hist[AAL_HIST_BIN] = {0};
 	u32 error_sum = AAL_HIST_MAX_SUM;
 
 
@@ -1076,7 +1076,7 @@ static bool get_dre_block(u32 *phist, const int block_x, const int block_y,
 		aal_hist[0] = read_value & 0xff;
 		aal_hist[1] = (read_value>>8) & 0xff;
 		aal_hist[2] = (read_value>>16) & 0xff;
-		aal_hist[2] = (read_value>>24) & 0xff;
+		aal_hist[3] = (read_value>>24) & 0xff;
 
 		if (block_offset >= AAL_HIST_NUM)
 			break;
