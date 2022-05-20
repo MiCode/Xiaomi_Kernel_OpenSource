@@ -254,3 +254,8 @@ apusys-objs += mvpu/mvpu_sec.o
 # hw logger
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/hw_logger/
 apusys-objs += hw_logger/hw_logger.o
+
+# aov
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/scp/include
+apusys-objs += aov/aov_init.o
+apusys-objs += aov/aov_rpmsg.o
