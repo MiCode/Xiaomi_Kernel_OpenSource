@@ -203,7 +203,7 @@ static int et_cfg_proc_show(struct seq_file *m, void *v)
 	int status = 0;
 	unsigned int index = 0;
 
-	for (index = 0; index < ET_INDEX_NUM; index++) {
+	for (index = 0; index <= ET_INDEX_NUM; index++) {
 		status = et_smc_handle(PTP3_FEATURE_ET, ET_R_CFG, index, 0);
 		seq_printf(m, "ET_index_%d = 0x%x\n", index, status);
 	}
