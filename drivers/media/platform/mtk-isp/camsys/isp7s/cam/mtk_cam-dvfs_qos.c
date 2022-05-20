@@ -276,7 +276,7 @@ static struct mraw_mmqos mraw_qos[] = {
 static void mtk_cam_dvfs_enumget_clktarget(struct mtk_cam_device *cam)
 {
 	struct mtk_camsys_dvfs *dvfs = &cam->dvfs_info;
-	int clk_streaming_max = dvfs->clklv[0];
+	int clk_streaming_max = dvfs->clklv[2];
 #ifdef NOT_READY
 	int i;
 

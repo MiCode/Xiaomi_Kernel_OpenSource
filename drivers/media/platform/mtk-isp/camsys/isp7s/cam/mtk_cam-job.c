@@ -338,6 +338,7 @@ decode_fh_reserved_data_to_seq(u32 ref_near_by, u32 data_in)
 	u32 seq_no_data = data_in & FH_SEQ_BIT_MASK;
 	u32 seq_no_nearby = ref_near_by;
 	u32 seq_no_candidate = seq_no_data + (seq_no_nearby & ~FH_SEQ_BIT_MASK);
+	bool dbg = false;
 
 	if (seq_no_nearby > 10) {
 		if (seq_no_candidate > seq_no_nearby + 10)
@@ -345,9 +346,10 @@ decode_fh_reserved_data_to_seq(u32 ref_near_by, u32 data_in)
 		else if (seq_no_candidate < seq_no_nearby - 10)
 			seq_no_candidate = seq_no_candidate + BIT(FH_CTX_ID_SHIFT_BIT_NUM);
 	}
+	if (dbg)
+		pr_info("[%s]: %d/%d <= %d",
+			__func__, ctx_id_data, seq_no_candidate, data_in);
 
-	pr_info("[%s]: %d/%d <= %d", __func__,
-		ctx_id_data, seq_no_candidate, data_in);
 	return seq_no_candidate;
 }
 
@@ -1052,7 +1054,7 @@ _frame_done(struct mtk_cam_job *job)
 		mtk_cam_req_buffer_done(job->req, pipe_id, -1,
 			VB2_BUF_STATE_ERROR, job->timestamp);
 
-	dev_dbg(cam->dev, "%s:%s:ctx(%d): seq_no:%d, state:0x%x, is_normal:%d, B/M ts:%lld/%lld\n",
+	dev_info(cam->dev, "%s:%s:ctx(%d): seq_no:%d, state:0x%x, is_normal:%d, B/M ts:%lld/%lld\n",
 		__func__, job->req->req.debug_str, job->src_ctx->stream_id,
 		job->frame_seq_no, job->state, is_normal, job->timestamp, job->timestamp_mono);
 	return 0;
@@ -1124,8 +1126,8 @@ _apply_sensor(struct mtk_cam_job *job)
 		v4l2_ctrl_request_setup(&req->req,
 					job->sensor->ctrl_handler);
 		dev_dbg(cam->dev,
-			"[%s] Sensor request:%d[ctx:%d] setup sof_cnt(%d)\n",
-			__func__, job->frame_seq_no, ctx->stream_id);
+			"[%s] ctx:%d, job:%d\n",
+			__func__, ctx->stream_id, job->frame_seq_no);
 	}
 
 
@@ -1295,10 +1297,12 @@ _update_event_sensor_try_set(struct mtk_cam_job *job,
 				 "[%s] initial setup sensor job:%d cur/next:%d/%d\n",
 			__func__, job->frame_seq_no, irq_info->frame_idx_inner,
 			irq_info->frame_idx);
-		if (job->frame_seq_no == cur_sen_seq_no + 1)
+		if (job->frame_seq_no == cur_sen_seq_no + 1) {
 			*action |= 1 << CAM_JOB_APPLY_SENSOR;
-		return;
+			return;
+		}
 	}
+
 	if (job->frame_seq_no == cur_sen_seq_no - 1) {
 		if (job->state < E_STATE_INNER) {
 			dev_info(ctx->cam->dev,
@@ -1382,11 +1386,11 @@ _update_event_meta1_done(struct mtk_cam_job *job,
 		*action |= 1 << CAM_JOB_DEQUE_META1;
 		if (job->frame_seq_no == frame_seq_no_inner) {
 			// mark buf normal
-			dev_info(cam->dev, "[%s] ctx_id:%d, mark job:%d NORMAL\n",
+			dev_dbg(cam->dev, "[%s] ctx_id:%d, mark job:%d NORMAL\n",
 				__func__, ctx->stream_id, job->frame_seq_no);
 		} else {
 			// mark buf error
-			dev_info(cam->dev, "[%s] ctx_id:%d, mark job:%d ERROR\n",
+			dev_dbg(cam->dev, "[%s] ctx_id:%d, mark job:%d ERROR\n",
 				__func__, ctx->stream_id, job->frame_seq_no);
 		}
 	} else {
@@ -1419,12 +1423,12 @@ _update_event_frame_done(struct mtk_cam_job *job,
 		if (job->frame_seq_no == frame_seq_no_inner) {
 			// mark buf normal
 			_state_trans(job, E_STATE_INNER, E_STATE_DONE_NORMAL);
-			dev_info(cam->dev, "[%s] ctx_id:%d, mark job:%d NORMAL\n",
+			dev_dbg(cam->dev, "[%s] ctx_id:%d, mark job:%d NORMAL\n",
 				__func__, ctx->stream_id, job->frame_seq_no);
 		} else {
 			// mark buf error
 			_state_trans(job, E_STATE_INNER_HW_DELAY, E_STATE_DONE_MISMATCH);
-			dev_info(cam->dev, "[%s] ctx_id:%d, mark job:%d ERROR\n",
+			dev_dbg(cam->dev, "[%s] ctx_id:%d, mark job:%d ERROR\n",
 				__func__, ctx->stream_id, job->frame_seq_no);
 		}
 	} else {
@@ -1640,7 +1644,7 @@ _update_event(struct mtk_cam_job *job,
 	if (irq_info->irq_type & (1 << CAMSYS_IRQ_AFO_DONE))
 		_update_event_meta1_done(job, irq_info, action);
 
-	dev_info(cam->dev,
+	dev_dbg(cam->dev,
 		"[%s] job:%d irq: type:0x%x, out/in:%d/%d, ts:%lld, action:0x%x\n", __func__,
 		job->frame_seq_no, irq_info->irq_type,
 		irq_info->frame_idx, irq_info->frame_idx_inner, irq_info->ts_ns, *action);
