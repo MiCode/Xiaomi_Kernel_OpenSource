@@ -228,83 +228,19 @@ static struct imgsensor_info_struct imgsensor_info = {
 		.mipi_pixel_rate = 842060000,
 		.max_framerate = 4800,
 	},
-	.custom7 = { /* QRMSC_4096x3072_30FPS */
-		.pclk = 1488000000,
-		.linelength = 11552,
-		.framelength = 4292,
+	.custom7 = { /*QBIN_V2H2 1920x1080 480FPS*/
+		.pclk = 3513600000,
+		.linelength = 5568,
+		.framelength = 1312,
 		.startx = 0,
 		.starty = 0,
-		.grabwindow_width = 4096,
-		.grabwindow_height = 3072,
+		.grabwindow_width = 1920,
+		.grabwindow_height = 1080,
 		.mipi_data_lp2hs_settle_dc = 85,
-		.mipi_pixel_rate = 787200000,
-		.max_framerate = 300,
+		.mipi_pixel_rate = 1848690000,
+		.max_framerate = 4800,
 	},
-	.custom8 = { /* QBIN_HVBIN_V2H2_2048x1536_30FPS */
-		.pclk = 1488000000,
-		.linelength = 8816,
-		.framelength = 5624,
-		.startx = 0,
-		.starty = 0,
-		.grabwindow_width = 2048,
-		.grabwindow_height = 1536,
-		.mipi_data_lp2hs_settle_dc = 85,
-		.mipi_pixel_rate = 591090000,
-		.max_framerate = 300,
-	},
-	.custom9 = { /* QBIN_HVBIN_V2H2_2DOL_2048x1536_30FPS */
-		.pclk = 1488000000,
-		.linelength = 8816,
-		.framelength = 5624,
-		.startx = 0,
-		.starty = 0,
-		.grabwindow_width = 2048,
-		.grabwindow_height = 1536,
-		.mipi_data_lp2hs_settle_dc = 85,
-		.mipi_pixel_rate = 591090000,
-		.max_framerate = 300,
-		.readout_length = 1580 * 2,
-		.read_margin = 10 * 2,
-	},
-	.custom10 = { /* QBIN_HVBIN_V2H2_3DOL_2048x1536_30FPS */
-		.pclk = 1488000000,
-		.linelength = 8816,
-		.framelength = 5616,
-		.startx = 0,
-		.starty = 0,
-		.grabwindow_width = 2048,
-		.grabwindow_height = 1536,
-		.mipi_data_lp2hs_settle_dc = 85,
-		.mipi_pixel_rate = 591090000,
-		.max_framerate = 300,
-		.readout_length = 1600 * 3,
-		.read_margin = 10 * 3,
-	},
-	.custom11 = { /* QBIN_HVBIN_V1H1_4096x3072_30FPS */
-		.pclk = 1488000000,
-		.linelength = 15616,
-		.framelength = 3176,
-		.startx = 0,
-		.starty = 0,
-		.grabwindow_width = 4096,
-		.grabwindow_height = 3072,
-		.mipi_data_lp2hs_settle_dc = 85,
-		.mipi_pixel_rate = 591090000,
-		.max_framerate = 300,
-	},
-	.custom12 = { /* QBIN_HVBIN_V1H1_2048x1536_30FPS */
-		.pclk = 1488000000,
-		.linelength = 15616,
-		.framelength = 3176,
-		.startx = 0,
-		.starty = 0,
-		.grabwindow_width = 2048,
-		.grabwindow_height = 1536,
-		.mipi_data_lp2hs_settle_dc = 85,
-		.mipi_pixel_rate = 591090000,
-		.max_framerate = 300,
-	},
-	.custom13 = { /* QBIN_HVBIN_V1H1_4096x3072_60FPS */
+	.custom8 = { /* QBIN_HVBIN_V1H1_4096x3072_60FPS */
 		.pclk = 3513600000,
 		.linelength = 15616,
 		.framelength = 3748,
@@ -315,6 +251,106 @@ static struct imgsensor_info_struct imgsensor_info = {
 		.mipi_data_lp2hs_settle_dc = 85,
 		.mipi_pixel_rate = 2122970000,
 		.max_framerate = 600,
+	},
+	.custom9 = { /* BIN_HVBIN_V1H1_4096x3072_30FPS */
+		.pclk = 1785600000,
+		.linelength = 15616,
+		.framelength = 3810,
+		.startx = 0,
+		.starty = 0,
+		.grabwindow_width = 4096,
+		.grabwindow_height = 3072,
+		.mipi_data_lp2hs_settle_dc = 85,
+		.mipi_pixel_rate = 1782860000,
+		.max_framerate = 300,
+	},
+	.custom10 = { /* FULL_SIZE_CROP_4096x3072_30FPS */
+		.pclk = 1785600000,
+		.linelength = 11552,
+		.framelength = 5152,
+		.startx = 0,
+		.starty = 0,
+		.grabwindow_width = 4096,
+		.grabwindow_height = 3072,
+		.mipi_data_lp2hs_settle_dc = 85,
+		.mipi_pixel_rate = 1782860000,
+		.max_framerate = 300,
+	},
+	.custom11 = { /* FULL_SIZE_8192x6144_24FPS */
+		.pclk = 1785600000,
+		.linelength = 11552,
+		.framelength = 6440,
+		.startx = 0,
+		.starty = 0,
+		.grabwindow_width = 8192,
+		.grabwindow_height = 6144,
+		.mipi_data_lp2hs_settle_dc = 85,
+		.mipi_pixel_rate = 1782860000,
+		.max_framerate = 240,
+	},
+	.custom12 = { /* QBIN_HVBIN_V1H1_2_DOL_4096x3072_30FPS */
+		.pclk = 1785600000,
+		.linelength = 15616,
+		.framelength = 6352,
+		.startx = 0,
+		.starty = 0,
+		.grabwindow_width = 4096,
+		.grabwindow_height = 3072,
+		.mipi_data_lp2hs_settle_dc = 85,
+		.mipi_pixel_rate = 1782860000,
+		.readout_length = 1554 * 2,
+		.max_framerate = 300,
+		.read_margin = 10 * 2,
+	},
+	.custom13 = { /* QBIN_HVBIN_V1H1_4096x2304_30FPS */
+		.pclk = 1785600000,
+		.linelength = 15616,
+		.framelength = 3810,
+		.startx = 0,
+		.starty = 0,
+		.grabwindow_width = 4096,
+		.grabwindow_height = 2304,
+		.mipi_data_lp2hs_settle_dc = 85,
+		.mipi_pixel_rate = 949030000,
+		.max_framerate = 300,
+	},
+	.custom14 = { /* FULL_SIZE_CROP_4096x2304_30FPS */
+		.pclk = 1785600000,
+		.linelength = 23104,
+		.framelength = 2576,
+		.startx = 0,
+		.starty = 0,
+		.grabwindow_width = 4096,
+		.grabwindow_height = 2304,
+		.mipi_data_lp2hs_settle_dc = 85,
+		.mipi_pixel_rate = 949030000,
+		.max_framerate = 300,
+	},
+	.custom15 = { /* QBIN_HVBIN_V1H1_4096x3072_30FPS */
+		.pclk = 3513600000,
+		.linelength = 15616,
+		.framelength = 7500,
+		.startx = 0,
+		.starty = 0,
+		.grabwindow_width = 4096,
+		.grabwindow_height = 3072,
+		.mipi_data_lp2hs_settle_dc = 85,
+		.mipi_pixel_rate = 2122970000,
+		.max_framerate = 300,
+	},
+	.custom16 = { /* QBIN_HVBIN_V1H1_2_DOL_4096x3072_30FPS */
+		.pclk = 3513600000,
+		.linelength = 15616,
+		.framelength = 7496,
+		.startx = 0,
+		.starty = 0,
+		.grabwindow_width = 4096,
+		.grabwindow_height = 3072,
+		.mipi_data_lp2hs_settle_dc = 85,
+		.mipi_pixel_rate = 2122970000,
+		.readout_length = 1554 * 2,
+		.max_framerate = 300,
+		.read_margin = 10 * 2,
 	},
 	.min_gain = BASEGAIN * 1,
 	.max_gain = BASEGAIN * 64,
@@ -330,27 +366,30 @@ static struct imgsensor_info_struct imgsensor_info = {
 	.ihdr_support = 0,	/* 1: support; 0: not support */
 	.ihdr_le_firstline = 0,	/* 1:le first; 0: se first */
 	.temperature_support = 1, /* 1, support; 0,not support */
-	.sensor_mode_num = 18,	/* support sensor mode num */
+	.sensor_mode_num = 21,	/* support sensor mode num */
 	.frame_time_delay_frame = 3,
 
-	.pre_delay_frame = 2,	/* enter preview delay frame num */
-	.cap_delay_frame = 2,	/* enter capture delay frame num */
-	.video_delay_frame = 2,	/* enter video delay frame num */
-	.hs_video_delay_frame = 2,	/* enter hs video delay frame num */
-	.slim_video_delay_frame = 2,/* enter slim video delay frame num */
-	.custom1_delay_frame = 2,	/* enter custom1 delay frame num */
-	.custom2_delay_frame = 2,	/* enter custom2 delay frame num */
-	.custom3_delay_frame = 2,	/* enter custom3 delay frame num */
-	.custom4_delay_frame = 2,	/* enter custom4 delay frame num */
-	.custom5_delay_frame = 2,	/* enter custom5 delay frame num */
-	.custom6_delay_frame = 2,	/* enter custom6 delay frame num */
-	.custom7_delay_frame = 2,	/* enter custom7 delay frame num */
-	.custom8_delay_frame = 2,	/* enter custom8 delay frame num */
-	.custom9_delay_frame = 2,	/* enter custom9 delay frame num */
-	.custom10_delay_frame = 2,	/* enter custom10 delay frame num */
-	.custom11_delay_frame = 2,	/* enter custom11 delay frame num */
-	.custom12_delay_frame = 2,	/* enter custom12 delay frame num */
-	.custom13_delay_frame = 2,	/* enter custom13 delay frame num */
+	.pre_delay_frame = 3,	/* enter preview delay frame num */
+	.cap_delay_frame = 3,	/* enter capture delay frame num */
+	.video_delay_frame = 3,	/* enter video delay frame num */
+	.hs_video_delay_frame = 3,	/* enter hs video delay frame num */
+	.slim_video_delay_frame = 3,/* enter slim video delay frame num */
+	.custom1_delay_frame = 3,	/* enter custom1 delay frame num */
+	.custom2_delay_frame = 3,	/* enter custom2 delay frame num */
+	.custom3_delay_frame = 3,	/* enter custom3 delay frame num */
+	.custom4_delay_frame = 3,	/* enter custom4 delay frame num */
+	.custom5_delay_frame = 3,	/* enter custom5 delay frame num */
+	.custom6_delay_frame = 3,	/* enter custom6 delay frame num */
+	.custom7_delay_frame = 3,	/* enter custom7 delay frame num */
+	.custom8_delay_frame = 3,	/* enter custom8 delay frame num */
+	.custom9_delay_frame = 3,	/* enter custom9 delay frame num */
+	.custom10_delay_frame = 3,	/* enter custom10 delay frame num */
+	.custom11_delay_frame = 3,	/* enter custom11 delay frame num */
+	.custom12_delay_frame = 3,	/* enter custom12 delay frame num */
+	.custom13_delay_frame = 3,	/* enter custom13 delay frame num */
+	.custom14_delay_frame = 3,	/* enter custom14 delay frame num */
+	.custom15_delay_frame = 3,	/* enter custom15 delay frame num */
+	.custom16_delay_frame = 3,	/* enter custom16 delay frame num */
 
 	.isp_driving_current = ISP_DRIVING_4MA,
 	.sensor_interface_type = SENSOR_INTERFACE_TYPE_MIPI,
@@ -387,7 +426,8 @@ static struct SET_PD_BLOCK_INFO_T imgsensor_pd_info = {
 };
 
 /* Sensor output window information */
-static struct SENSOR_WINSIZE_INFO_STRUCT imgsensor_winsize_info[18] = {
+static struct SENSOR_WINSIZE_INFO_STRUCT
+		imgsensor_winsize_info[21] = {
 	/* Preview */
 	{8192, 6144,    0,    0, 8192, 6144, 4096, 3072,
 	    0,    0, 4096, 3072,    0,    0, 4096, 3072},
@@ -422,30 +462,40 @@ static struct SENSOR_WINSIZE_INFO_STRUCT imgsensor_winsize_info[18] = {
 	{8192, 6144,    0, 1632, 8192, 2880, 2048,  720,
 	  384,    0, 1280,  720,    0,    0, 1280,  720},
 	/* custom7 */
-	{8192, 6144,    0, 1536, 8192, 3072, 8192, 3072,
-	 2048,    0, 4096, 3072,    0,    0, 4096, 3072},
+	{8192, 6144,    0,  896, 8192, 4608, 2048, 1152,
+	   64,    4, 1920, 1080,    0,    0, 1920, 1080},
 	/* custom8 */
-	{8192, 6144,    0,    0, 8192, 6144, 2048, 1536,
-	    0,    0, 2048, 1536,    0,    0, 2048, 1536},
+	{8192, 6144,    0,    0, 8192, 6144, 4096, 3072,
+	    0,    0, 4096, 3072,    0,    0, 4096, 3072},
 	/* custom9 */
 	{8192, 6144,    0,    0, 8192, 6144, 2048, 1536,
-	    0,    0, 2048, 1536,    0,    0, 2048, 1536},
+	    0,    0, 4096, 3072,    0,    0, 4096, 3072},
 	/* custom10 */
-	{8192, 6144,    0,    0, 8192, 6144, 2048, 1536,
-	    0,    0, 2048, 1536,    0,    0, 2048, 1536},
+	{8192, 6144,    0, 1536, 8192, 3072, 2048,  768,
+	    0,    0, 4096, 3072,    0,    0, 4096, 3072},
 	/* custom11 */
-	{8192, 6144,    0,    0, 8192, 6144, 4096, 3072,
-	    0,    0, 4096, 3072,    0,    0, 4096, 3072},
+	{8192, 6144,    0,    0, 8192, 6144, 2048, 1536,
+	    0,    0, 8192, 6144,    0,    0, 8192, 6144},
 	/* custom12 */
-	{8192, 6144,    0,    0, 8192, 6144, 4096, 3072,
-	 1024,  768, 2048, 1536,    0,    0, 2048, 1536},
-	/* custom13 */
-	{8192, 6144,    0,    0, 8192, 6144, 4096, 3072,
+	{8192, 6144,    0,    0, 8192, 6144, 2048, 1536,
 	    0,    0, 4096, 3072,    0,    0, 4096, 3072},
+	/* custom13 */
+	{8192, 6144,    0,  768, 8192, 4608, 2048, 1152,
+	    0,    0, 4096, 2304,    0,    0, 4096, 2304},
+	/* custom14 */
+	{8192, 6144,    0, 1920, 8192, 2304, 2048, 576,
+	 2048,    0, 4096, 2304,    0,    0, 4096, 2304},
+	/* custom15 */
+	{8192, 6144,    0,    0, 8192, 6144, 2048, 1536,
+	    0,    0, 4096, 3072,    0,    0, 4096, 3072},
+	/* custom16 */
+	{8192, 6144,    0,    0, 8192, 6144, 2048, 1536,
+	    0,    0, 4096, 3072,    0,    0, 4096, 3072},
+
 };
 
 //the index order of VC_STAGGER_NE/ME/SE in array identify the order of readout in MIPI transfer
-static struct SENSOR_VC_INFO2_STRUCT SENSOR_VC_INFO2[18] = {
+static struct SENSOR_VC_INFO2_STRUCT SENSOR_VC_INFO2[21] = {
 	{
 		0x03, 0x0a, 0x00, 0x08, 0x40, 0x00, //preivew
 		{
@@ -572,70 +622,88 @@ static struct SENSOR_VC_INFO2_STRUCT SENSOR_VC_INFO2[18] = {
 		0x03, 0x0a, 0x00, 0x08, 0x40, 0x00, //custom7
 		{
 			{VC_STAGGER_NE, 0x00, 0x2b, 0x1000, 0xc00},
-			{VC_PDAF_STATS_NE_PIX_1, 0x03, 0x2b, 0x800, 0x300},
-#if PD_PIX_2_EN
-			{VC_PDAF_STATS_NE_PIX_2, 0x06, 0x2b, 0x800, 0x300},
-#endif
 		},
 		1
 	},
 	{
-		0x01, 0x0a, 0x00, 0x08, 0x40, 0x00, //custom8
+		0x03, 0x0a, 0x00, 0x08, 0x40, 0x00, //custom8
 		{
-			{VC_STAGGER_NE, 0x00, 0x2b, 0x800, 0x600},
-			{VC_PDAF_STATS_NE_PIX_1, 0x03, 0x2b, 0x800, 0x180},
+			{VC_STAGGER_NE, 0x00, 0x2b, 0x1000, 0xc00},
+			{VC_PDAF_STATS_NE_PIX_1, 0x03, 0x2b, 0x1000, 0x300},
 		},
 		1
 	},
 	{
 		0x02, 0x0a, 0x00, 0x08, 0x40, 0x00, //custom9
 		{
-			{VC_STAGGER_NE, 0x00, 0x2b, 0x800, 0x600},
-			{VC_STAGGER_ME, 0x01, 0x2b, 0x800, 0x600},
-			{VC_PDAF_STATS_NE_PIX_1, 0x03, 0x2b, 0x800, 0x180},
-			{VC_PDAF_STATS_ME_PIX_1, 0x04, 0x2b, 0x800, 0x180},
+			{VC_STAGGER_NE, 0x00, 0x2b, 0x1000, 0xc00},
+			{VC_PDAF_STATS_NE_PIX_1, 0x03, 0x2b, 0x1000, 0x300},
 		},
 		1
 	},
 	{
 		0x03, 0x0a, 0x00, 0x08, 0x40, 0x00, //custom10
 		{
-			{VC_STAGGER_NE, 0x00, 0x2b, 0x800, 0x600},
-			{VC_STAGGER_ME, 0x01, 0x2b, 0x800, 0x600},
-			{VC_STAGGER_SE, 0x02, 0x2b, 0x800, 0x600},
-			{VC_PDAF_STATS_NE_PIX_1, 0x03, 0x2b, 0x800, 0x180},
-			{VC_PDAF_STATS_ME_PIX_1, 0x04, 0x2b, 0x800, 0x180},
-			{VC_PDAF_STATS_SE_PIX_1, 0x05, 0x2b, 0x800, 0x180},
+			{VC_STAGGER_NE, 0x00, 0x2b, 0x1000, 0xc00},
+			{VC_PDAF_STATS_NE_PIX_1, 0x03, 0x2b, 0x800, 0x300},
 		},
 		1
 	},
 	{
 		0x03, 0x0a, 0x00, 0x08, 0x40, 0x00, //custom11
 		{
-			{VC_STAGGER_NE, 0x00, 0x2b, 0x1000, 0xc00},
-			{VC_PDAF_STATS_NE_PIX_1, 0x03, 0x2b, 0x1000, 0x300},
+			{VC_STAGGER_NE, 0x00, 0x2b, 0x2000, 0x1800},
+			{VC_PDAF_STATS_NE_PIX_1, 0x03, 0x2b, 0x1000, 0x600},
 		},
 		1
 	},
 	{
 		0x03, 0x0a, 0x00, 0x08, 0x40, 0x00, //custom12
 		{
-			{VC_STAGGER_NE, 0x00, 0x2b, 0x800, 0x600},
-			{VC_PDAF_STATS_NE_PIX_1, 0x03, 0x2b, 0x800, 0x180},
+			{VC_STAGGER_NE, 0x00, 0x2b, 0x1000, 0xc00},
+			{VC_STAGGER_ME, 0x01, 0x2b, 0x1000, 0xc00},
+			{VC_PDAF_STATS_NE_PIX_1, 0x03, 0x2b, 0x1000, 0x300},
+			{VC_PDAF_STATS_ME_PIX_1, 0x04, 0x2b, 0x1000, 0x300},
 		},
 		1
 	},
 	{
 		0x03, 0x0a, 0x00, 0x08, 0x40, 0x00, //custom13
 		{
+			{VC_STAGGER_NE, 0x00, 0x2b, 0x1000, 0x900},
+			{VC_PDAF_STATS_NE_PIX_1, 0x03, 0x2b, 0x1000, 0x240},
+		},
+		1
+	},
+	{
+		0x03, 0x0a, 0x00, 0x08, 0x40, 0x00, // custom14
+		{
+			{VC_STAGGER_NE, 0x00, 0x2b, 0x1000, 0x900},
+			{VC_PDAF_STATS_NE_PIX_1, 0x03, 0x2b, 0x0800, 0x240},
+		},
+		1
+	},
+	{
+		0x03, 0x0a, 0x00, 0x08, 0x40, 0x00, //custom15
+		{
 			{VC_STAGGER_NE, 0x00, 0x2b, 0x1000, 0xc00},
 			{VC_PDAF_STATS_NE_PIX_1, 0x03, 0x2b, 0x1000, 0x300},
+		},
+		1
+	},
+	{
+		0x03, 0x0a, 0x00, 0x08, 0x40, 0x00, //custom16
+		{
+			{VC_STAGGER_NE, 0x00, 0x2b, 0x1000, 0xc00},
+			{VC_STAGGER_ME, 0x01, 0x2b, 0x1000, 0xc00},
+			{VC_PDAF_STATS_NE_PIX_1, 0x03, 0x2b, 0x1000, 0x300},
+			{VC_PDAF_STATS_ME_PIX_1, 0x04, 0x2b, 0x1000, 0x300},
 		},
 		1
 	}
 };
 
-static MUINT32 fine_integ_line_table[SENSOR_SCENARIO_ID_MAX] = {
+static MUINT32 fine_integ_line_table[21] = {
 	826,	//mode 0
 	826,	//mode 1
 	826,	//mode 2
@@ -647,18 +715,19 @@ static MUINT32 fine_integ_line_table[SENSOR_SCENARIO_ID_MAX] = {
 	2826,	//mode 8
 	2555,	//mode 9
 	1709,	//mode 10
-	502,	//mode 11
-	2555,	//mode 12
-	6555,	//mode 13
-	6555,	//mode 14
-	826,	//mode 15
-	826,	//mode 16
+	1709,	//mode 11
+	826,	//mode 12
+	826,	//mode 13
+	502,	//mode 14
+	502,	//mode 15
+	2826,	//mode 16
 	826,	//mode 17
-	826,	//mode 18
-	826		//mode 19
+	751,	//mode 18
+	826,	//mode 19
+	2826,	//mode 20
 };
 
-static MUINT32 exposure_step_table[SENSOR_SCENARIO_ID_MAX] = {
+static MUINT32 exposure_step_table[21] = {
 	4,	//mode 0
 	4,	//mode 1
 	4,	//mode 2
@@ -672,13 +741,14 @@ static MUINT32 exposure_step_table[SENSOR_SCENARIO_ID_MAX] = {
 	4,	//mode 10
 	4,	//mode 11
 	4,	//mode 12
-	8,	//mode 13
-	12,	//mode 14
+	4,	//mode 13
+	4,	//mode 14
 	4,	//mode 15
-	4,	//mode 16
+	8,	//mode 16
 	4,	//mode 17
 	4,	//mode 18
-	4	//mode 19
+	4,	//mode 19
+	8,	//mode 20
 };
 
 #define QSC_SIZE 3072
@@ -766,6 +836,18 @@ static void get_vc_info_2(struct SENSOR_VC_INFO2_STRUCT *pvcinfo2, kal_uint32 sc
 		break;
 	case SENSOR_SCENARIO_ID_CUSTOM13:
 		memcpy((void *)pvcinfo2, (void *)&SENSOR_VC_INFO2[17],
+			sizeof(struct SENSOR_VC_INFO2_STRUCT));
+		break;
+	case SENSOR_SCENARIO_ID_CUSTOM14:
+		memcpy((void *)pvcinfo2, (void *)&SENSOR_VC_INFO2[18],
+			sizeof(struct SENSOR_VC_INFO2_STRUCT));
+		break;
+	case SENSOR_SCENARIO_ID_CUSTOM15:
+		memcpy((void *)pvcinfo2, (void *)&SENSOR_VC_INFO2[19],
+			sizeof(struct SENSOR_VC_INFO2_STRUCT));
+		break;
+	case SENSOR_SCENARIO_ID_CUSTOM16:
+		memcpy((void *)pvcinfo2, (void *)&SENSOR_VC_INFO2[20],
 			sizeof(struct SENSOR_VC_INFO2_STRUCT));
 		break;
 	case SENSOR_SCENARIO_ID_NORMAL_PREVIEW:
@@ -1675,6 +1757,45 @@ static void custom13_setting(struct subdrv_ctx *ctx)
 	LOG_INF("X\n");
 }
 
+static void custom14_setting(struct subdrv_ctx *ctx)
+{
+	LOG_INF("E\n");
+	imx766_table_write_cmos_sensor_8(ctx, imx766_custom14_setting,
+		sizeof(imx766_custom14_setting)/sizeof(kal_uint16));
+	set_mirror_flip(ctx, ctx->mirror);
+	if (otp_flag == OTP_QSC_NONE) {
+		LOG_INF("OTP no QSC Data, close qsc register");
+		write_cmos_sensor_8(ctx, 0x32D2, 0x00);
+	}
+	LOG_INF("X\n");
+}
+
+static void custom15_setting(struct subdrv_ctx *ctx)
+{
+	LOG_INF("E\n");
+	imx766_table_write_cmos_sensor_8(ctx, imx766_custom15_setting,
+		sizeof(imx766_custom15_setting)/sizeof(kal_uint16));
+	set_mirror_flip(ctx, ctx->mirror);
+	if (otp_flag == OTP_QSC_NONE) {
+		LOG_INF("OTP no QSC Data, close qsc register");
+		write_cmos_sensor_8(ctx, 0x32D2, 0x00);
+	}
+	LOG_INF("X\n");
+}
+
+static void custom16_setting(struct subdrv_ctx *ctx)
+{
+	LOG_INF("E\n");
+	imx766_table_write_cmos_sensor_8(ctx, imx766_custom16_setting,
+		sizeof(imx766_custom16_setting)/sizeof(kal_uint16));
+	set_mirror_flip(ctx, ctx->mirror);
+	if (otp_flag == OTP_QSC_NONE) {
+		LOG_INF("OTP no QSC Data, close qsc register");
+		write_cmos_sensor_8(ctx, 0x32D2, 0x00);
+	}
+	LOG_INF("X\n");
+}
+
 static void hdr_write_tri_shutter_w_gph(struct subdrv_ctx *ctx,
 		kal_uint32 le, kal_uint32 me, kal_uint32 se, kal_bool gph)
 {
@@ -1889,30 +2010,6 @@ static kal_uint32 seamless_switch(struct subdrv_ctx *ctx,
 		break;
 	// stagger seamless switch (1exp-2exp-3exp)
 	// normal seamless switch
-	case SENSOR_SCENARIO_ID_CUSTOM8:
-	{
-		ctx->sensor_mode = scenario_id;
-		ctx->autoflicker_en = KAL_FALSE;
-		ctx->pclk = imgsensor_info.custom8.pclk;
-		ctx->line_length = imgsensor_info.custom8.linelength;
-		ctx->frame_length = imgsensor_info.custom8.framelength;
-		ctx->min_frame_length = imgsensor_info.custom8.framelength;
-		ctx->readout_length = imgsensor_info.custom8.readout_length;
-		ctx->read_margin = imgsensor_info.custom8.read_margin;
-
-		FMC_GPH_START;
-		imx766_table_write_cmos_sensor_8(ctx, imx766_seamless_custom8,
-				sizeof(imx766_seamless_custom8) / sizeof(kal_uint16));
-
-		if (ae_ctrl) {
-			LOG_DEBUG("call SENSOR_SCENARIO_ID_CUSTOM8 %d %d",
-					ae_ctrl[0], ae_ctrl[5]);
-			set_shutter_w_gph(ctx, ae_ctrl[0], KAL_FALSE);
-			set_gain_w_gph(ctx, ae_ctrl[5], KAL_FALSE);
-		}
-		FMC_GPH_END;
-	}
-		break;
 	case SENSOR_SCENARIO_ID_CUSTOM9:
 	{
 		ctx->sensor_mode = scenario_id;
@@ -2005,6 +2102,102 @@ static kal_uint32 seamless_switch(struct subdrv_ctx *ctx,
 		FMC_GPH_START;
 		imx766_table_write_cmos_sensor_8(ctx, imx766_seamless_custom12,
 				sizeof(imx766_seamless_custom12) / sizeof(kal_uint16));
+
+		if (ae_ctrl) {
+			LOG_DEBUG("call SENSOR_SCENARIO_ID_CUSTOM12 %d %d",
+					ae_ctrl[0], ae_ctrl[5]);
+			set_shutter_w_gph(ctx, ae_ctrl[0], KAL_FALSE);
+			set_gain_w_gph(ctx, ae_ctrl[5], KAL_FALSE);
+		}
+		FMC_GPH_END;
+	}
+		break;
+	case SENSOR_SCENARIO_ID_CUSTOM13:
+	{
+		ctx->sensor_mode = scenario_id;
+		ctx->autoflicker_en = KAL_FALSE;
+		ctx->pclk = imgsensor_info.custom13.pclk;
+		ctx->line_length = imgsensor_info.custom13.linelength;
+		ctx->frame_length = imgsensor_info.custom13.framelength;
+		ctx->min_frame_length = imgsensor_info.custom13.framelength;
+		ctx->readout_length = imgsensor_info.custom13.readout_length;
+		ctx->read_margin = imgsensor_info.custom13.read_margin;
+
+		FMC_GPH_START;
+		imx766_table_write_cmos_sensor_8(ctx, imx766_seamless_custom13,
+				sizeof(imx766_seamless_custom13) / sizeof(kal_uint16));
+
+		if (ae_ctrl) {
+			LOG_DEBUG("call SENSOR_SCENARIO_ID_CUSTOM12 %d %d",
+					ae_ctrl[0], ae_ctrl[5]);
+			set_shutter_w_gph(ctx, ae_ctrl[0], KAL_FALSE);
+			set_gain_w_gph(ctx, ae_ctrl[5], KAL_FALSE);
+		}
+		FMC_GPH_END;
+	}
+		break;
+	case SENSOR_SCENARIO_ID_CUSTOM14:
+	{
+		ctx->sensor_mode = scenario_id;
+		ctx->autoflicker_en = KAL_FALSE;
+		ctx->pclk = imgsensor_info.custom14.pclk;
+		ctx->line_length = imgsensor_info.custom14.linelength;
+		ctx->frame_length = imgsensor_info.custom14.framelength;
+		ctx->min_frame_length = imgsensor_info.custom14.framelength;
+		ctx->readout_length = imgsensor_info.custom14.readout_length;
+		ctx->read_margin = imgsensor_info.custom14.read_margin;
+
+		FMC_GPH_START;
+		imx766_table_write_cmos_sensor_8(ctx, imx766_seamless_custom14,
+				sizeof(imx766_seamless_custom14) / sizeof(kal_uint16));
+
+		if (ae_ctrl) {
+			LOG_DEBUG("call SENSOR_SCENARIO_ID_CUSTOM12 %d %d",
+					ae_ctrl[0], ae_ctrl[5]);
+			set_shutter_w_gph(ctx, ae_ctrl[0], KAL_FALSE);
+			set_gain_w_gph(ctx, ae_ctrl[5], KAL_FALSE);
+		}
+		FMC_GPH_END;
+	}
+		break;
+	case SENSOR_SCENARIO_ID_CUSTOM15:
+	{
+		ctx->sensor_mode = scenario_id;
+		ctx->autoflicker_en = KAL_FALSE;
+		ctx->pclk = imgsensor_info.custom15.pclk;
+		ctx->line_length = imgsensor_info.custom15.linelength;
+		ctx->frame_length = imgsensor_info.custom15.framelength;
+		ctx->min_frame_length = imgsensor_info.custom15.framelength;
+		ctx->readout_length = imgsensor_info.custom15.readout_length;
+		ctx->read_margin = imgsensor_info.custom15.read_margin;
+
+		FMC_GPH_START;
+		imx766_table_write_cmos_sensor_8(ctx, imx766_seamless_custom15,
+				sizeof(imx766_seamless_custom15) / sizeof(kal_uint16));
+
+		if (ae_ctrl) {
+			LOG_DEBUG("call SENSOR_SCENARIO_ID_CUSTOM12 %d %d",
+					ae_ctrl[0], ae_ctrl[5]);
+			set_shutter_w_gph(ctx, ae_ctrl[0], KAL_FALSE);
+			set_gain_w_gph(ctx, ae_ctrl[5], KAL_FALSE);
+		}
+		FMC_GPH_END;
+	}
+		break;
+	case SENSOR_SCENARIO_ID_CUSTOM16:
+	{
+		ctx->sensor_mode = scenario_id;
+		ctx->autoflicker_en = KAL_FALSE;
+		ctx->pclk = imgsensor_info.custom16.pclk;
+		ctx->line_length = imgsensor_info.custom16.linelength;
+		ctx->frame_length = imgsensor_info.custom16.framelength;
+		ctx->min_frame_length = imgsensor_info.custom16.framelength;
+		ctx->readout_length = imgsensor_info.custom16.readout_length;
+		ctx->read_margin = imgsensor_info.custom16.read_margin;
+
+		FMC_GPH_START;
+		imx766_table_write_cmos_sensor_8(ctx, imx766_seamless_custom16,
+				sizeof(imx766_seamless_custom16) / sizeof(kal_uint16));
 
 		if (ae_ctrl) {
 			LOG_DEBUG("call SENSOR_SCENARIO_ID_CUSTOM12 %d %d",
@@ -2517,6 +2710,57 @@ static kal_uint32 custom13(struct subdrv_ctx *ctx,
 	return ERROR_NONE;
 }	/* custom13 */
 
+static kal_uint32 custom14(struct subdrv_ctx *ctx,
+		MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window,
+		MSDK_SENSOR_CONFIG_STRUCT *sensor_config_data)
+{
+	ctx->sensor_mode = IMGSENSOR_MODE_CUSTOM14;
+	ctx->pclk = imgsensor_info.custom14.pclk;
+	ctx->line_length = imgsensor_info.custom14.linelength;
+	ctx->frame_length = imgsensor_info.custom14.framelength;
+	ctx->min_frame_length = imgsensor_info.custom14.framelength;
+	ctx->readout_length = imgsensor_info.custom14.readout_length;
+	ctx->read_margin = imgsensor_info.custom14.read_margin;
+	ctx->autoflicker_en = KAL_FALSE;
+	custom14_setting(ctx);
+
+	return ERROR_NONE;
+}	/* custom14 */
+
+static kal_uint32 custom15(struct subdrv_ctx *ctx,
+		MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window,
+		MSDK_SENSOR_CONFIG_STRUCT *sensor_config_data)
+{
+	ctx->sensor_mode = IMGSENSOR_MODE_CUSTOM15;
+	ctx->pclk = imgsensor_info.custom15.pclk;
+	ctx->line_length = imgsensor_info.custom15.linelength;
+	ctx->frame_length = imgsensor_info.custom15.framelength;
+	ctx->min_frame_length = imgsensor_info.custom15.framelength;
+	ctx->readout_length = imgsensor_info.custom15.readout_length;
+	ctx->read_margin = imgsensor_info.custom15.read_margin;
+	ctx->autoflicker_en = KAL_FALSE;
+	custom15_setting(ctx);
+
+	return ERROR_NONE;
+}	/* custom15 */
+
+static kal_uint32 custom16(struct subdrv_ctx *ctx,
+		MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window,
+		MSDK_SENSOR_CONFIG_STRUCT *sensor_config_data)
+{
+	ctx->sensor_mode = IMGSENSOR_MODE_CUSTOM16;
+	ctx->pclk = imgsensor_info.custom16.pclk;
+	ctx->line_length = imgsensor_info.custom16.linelength;
+	ctx->frame_length = imgsensor_info.custom16.framelength;
+	ctx->min_frame_length = imgsensor_info.custom16.framelength;
+	ctx->readout_length = imgsensor_info.custom16.readout_length;
+	ctx->read_margin = imgsensor_info.custom16.read_margin;
+	ctx->autoflicker_en = KAL_FALSE;
+	custom16_setting(ctx);
+
+	return ERROR_NONE;
+}	/* custom16 */
+
 static int get_resolution(struct subdrv_ctx *ctx,
 	MSDK_SENSOR_RESOLUTION_INFO_STRUCT *sensor_resolution)
 {
@@ -2591,6 +2835,12 @@ static int get_info(struct subdrv_ctx *ctx,
 		imgsensor_info.custom12_delay_frame;
 	sensor_info->DelayFrame[SENSOR_SCENARIO_ID_CUSTOM13] =
 		imgsensor_info.custom13_delay_frame;
+	sensor_info->DelayFrame[SENSOR_SCENARIO_ID_CUSTOM14] =
+		imgsensor_info.custom14_delay_frame;
+	sensor_info->DelayFrame[SENSOR_SCENARIO_ID_CUSTOM15] =
+		imgsensor_info.custom15_delay_frame;
+	sensor_info->DelayFrame[SENSOR_SCENARIO_ID_CUSTOM16] =
+		imgsensor_info.custom16_delay_frame;
 
 	sensor_info->SensorMasterClockSwitch = 0; /* not use */
 	sensor_info->SensorDrivingCurrent = imgsensor_info.isp_driving_current;
@@ -2687,6 +2937,15 @@ static int control(struct subdrv_ctx *ctx, enum SENSOR_SCENARIO_ID_ENUM scenario
 		break;
 	case SENSOR_SCENARIO_ID_CUSTOM13:
 		custom13(ctx, image_window, sensor_config_data);
+		break;
+	case SENSOR_SCENARIO_ID_CUSTOM14:
+		custom14(ctx, image_window, sensor_config_data);
+		break;
+	case SENSOR_SCENARIO_ID_CUSTOM15:
+		custom15(ctx, image_window, sensor_config_data);
+		break;
+	case SENSOR_SCENARIO_ID_CUSTOM16:
+		custom16(ctx, image_window, sensor_config_data);
 		break;
 	default:
 		LOG_INF("Error ScenarioId setting");
@@ -3000,6 +3259,48 @@ static kal_uint32 set_max_framerate_by_scenario(struct subdrv_ctx *ctx,
 		// if (ctx->frame_length > ctx->shutter)
 		set_dummy(ctx);
 		break;
+	case SENSOR_SCENARIO_ID_CUSTOM14:
+		frame_length = imgsensor_info.custom14.pclk / framerate * 10
+				/ imgsensor_info.custom14.linelength;
+		ctx->dummy_line =
+			(frame_length > imgsensor_info.custom14.framelength)
+			? (frame_length - imgsensor_info.custom14.framelength)
+			: 0;
+		ctx->frame_length =
+			imgsensor_info.custom14.framelength
+			+ ctx->dummy_line;
+		ctx->min_frame_length = ctx->frame_length;
+		// if (ctx->frame_length > ctx->shutter)
+		set_dummy(ctx);
+		break;
+	case SENSOR_SCENARIO_ID_CUSTOM15:
+		frame_length = imgsensor_info.custom15.pclk / framerate * 10
+				/ imgsensor_info.custom15.linelength;
+		ctx->dummy_line =
+			(frame_length > imgsensor_info.custom15.framelength)
+			? (frame_length - imgsensor_info.custom15.framelength)
+			: 0;
+		ctx->frame_length =
+			imgsensor_info.custom15.framelength
+			+ ctx->dummy_line;
+		ctx->min_frame_length = ctx->frame_length;
+		// if (ctx->frame_length > ctx->shutter)
+		set_dummy(ctx);
+		break;
+	case SENSOR_SCENARIO_ID_CUSTOM16:
+		frame_length = imgsensor_info.custom16.pclk / framerate * 10
+				/ imgsensor_info.custom16.linelength;
+		ctx->dummy_line =
+			(frame_length > imgsensor_info.custom16.framelength)
+			? (frame_length - imgsensor_info.custom16.framelength)
+			: 0;
+		ctx->frame_length =
+			imgsensor_info.custom16.framelength
+			+ ctx->dummy_line;
+		ctx->min_frame_length = ctx->frame_length;
+		// if (ctx->frame_length > ctx->shutter)
+		set_dummy(ctx);
+		break;
 	default:  /*coding with  preview scenario by default*/
 		frame_length = imgsensor_info.pre.pclk / framerate * 10
 			/ imgsensor_info.pre.linelength;
@@ -3076,6 +3377,15 @@ static kal_uint32 get_default_framerate_by_scenario(struct subdrv_ctx *ctx,
 	case SENSOR_SCENARIO_ID_CUSTOM13:
 		*framerate = imgsensor_info.custom13.max_framerate;
 		break;
+	case SENSOR_SCENARIO_ID_CUSTOM14:
+		*framerate = imgsensor_info.custom14.max_framerate;
+		break;
+	case SENSOR_SCENARIO_ID_CUSTOM15:
+		*framerate = imgsensor_info.custom15.max_framerate;
+		break;
+	case SENSOR_SCENARIO_ID_CUSTOM16:
+		*framerate = imgsensor_info.custom16.max_framerate;
+		break;
 	default:
 		break;
 	}
@@ -3106,6 +3416,7 @@ static kal_uint32 get_fine_integ_line_by_scenario(struct subdrv_ctx *ctx,
 	case SENSOR_SCENARIO_ID_CUSTOM13:
 	case SENSOR_SCENARIO_ID_CUSTOM14:
 	case SENSOR_SCENARIO_ID_CUSTOM15:
+	case SENSOR_SCENARIO_ID_CUSTOM16:
 		*fine_integ_line = fine_integ_line_table[scenario_id];
 		break;
 	default:
@@ -3211,11 +3522,14 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 		case SENSOR_SCENARIO_ID_CUSTOM11:
 		case SENSOR_SCENARIO_ID_CUSTOM12:
 		case SENSOR_SCENARIO_ID_CUSTOM13:
-		case SENSOR_SCENARIO_ID_CUSTOM14:
 		case SENSOR_SCENARIO_ID_CUSTOM15:
+		case SENSOR_SCENARIO_ID_CUSTOM16:
 			*(feature_data + 1)
 			= (enum ACDK_SENSOR_OUTPUT_DATA_FORMAT_ENUM)
 				imgsensor_info.sensor_output_dataformat;
+			break;
+		case SENSOR_SCENARIO_ID_CUSTOM14:
+			*(feature_data + 1) = SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_Gb;
 			break;
 		}
 	break;
@@ -3262,6 +3576,7 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 		case SENSOR_SCENARIO_ID_CUSTOM13:
 		case SENSOR_SCENARIO_ID_CUSTOM14:
 		case SENSOR_SCENARIO_ID_CUSTOM15:
+		case SENSOR_SCENARIO_ID_CUSTOM16:
 			*(feature_data + 2) = exposure_step_table[*feature_data];
 			break;
 		default:
@@ -3342,6 +3657,18 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 		case SENSOR_SCENARIO_ID_CUSTOM13:
 			*(MUINT32 *)(uintptr_t)(*(feature_data + 1))
 				= imgsensor_info.custom13.pclk;
+			break;
+		case SENSOR_SCENARIO_ID_CUSTOM14:
+			*(MUINT32 *)(uintptr_t)(*(feature_data + 1))
+				= imgsensor_info.custom14.pclk;
+			break;
+		case SENSOR_SCENARIO_ID_CUSTOM15:
+			*(MUINT32 *)(uintptr_t)(*(feature_data + 1))
+				= imgsensor_info.custom15.pclk;
+			break;
+		case SENSOR_SCENARIO_ID_CUSTOM16:
+			*(MUINT32 *)(uintptr_t)(*(feature_data + 1))
+				= imgsensor_info.custom16.pclk;
 			break;
 		case SENSOR_SCENARIO_ID_NORMAL_PREVIEW:
 		default:
@@ -3439,6 +3766,21 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 			*(MUINT32 *)(uintptr_t)(*(feature_data + 1))
 			= (imgsensor_info.custom13.framelength << 16)
 				+ (ratio * imgsensor_info.custom13.linelength);
+			break;
+		case SENSOR_SCENARIO_ID_CUSTOM14:
+			*(MUINT32 *)(uintptr_t)(*(feature_data + 1))
+			= (imgsensor_info.custom14.framelength << 16)
+				+ (ratio * imgsensor_info.custom14.linelength);
+			break;
+		case SENSOR_SCENARIO_ID_CUSTOM15:
+			*(MUINT32 *)(uintptr_t)(*(feature_data + 1))
+			= (imgsensor_info.custom15.framelength << 16)
+				+ (ratio * imgsensor_info.custom15.linelength);
+			break;
+		case SENSOR_SCENARIO_ID_CUSTOM16:
+			*(MUINT32 *)(uintptr_t)(*(feature_data + 1))
+			= (imgsensor_info.custom16.framelength << 16)
+				+ (ratio * imgsensor_info.custom16.linelength);
 			break;
 		case SENSOR_SCENARIO_ID_NORMAL_PREVIEW:
 		default:
@@ -3624,6 +3966,21 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 			(void *)&imgsensor_winsize_info[17],
 			sizeof(struct SENSOR_WINSIZE_INFO_STRUCT));
 			break;
+		case SENSOR_SCENARIO_ID_CUSTOM14:
+			memcpy((void *)wininfo,
+			(void *)&imgsensor_winsize_info[18],
+			sizeof(struct SENSOR_WINSIZE_INFO_STRUCT));
+			break;
+		case SENSOR_SCENARIO_ID_CUSTOM15:
+			memcpy((void *)wininfo,
+			(void *)&imgsensor_winsize_info[19],
+			sizeof(struct SENSOR_WINSIZE_INFO_STRUCT));
+			break;
+		case SENSOR_SCENARIO_ID_CUSTOM16:
+			memcpy((void *)wininfo,
+			(void *)&imgsensor_winsize_info[20],
+			sizeof(struct SENSOR_WINSIZE_INFO_STRUCT));
+			break;
 		case SENSOR_SCENARIO_ID_NORMAL_PREVIEW:
 		default:
 			memcpy((void *)wininfo,
@@ -3681,7 +4038,7 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 			*(MUINT32 *)(uintptr_t)(*(feature_data+1)) = 0;
 			break;
 		case SENSOR_SCENARIO_ID_CUSTOM7:
-			*(MUINT32 *)(uintptr_t)(*(feature_data+1)) = 1;
+			*(MUINT32 *)(uintptr_t)(*(feature_data+1)) = 0;
 			break;
 		case SENSOR_SCENARIO_ID_CUSTOM8:
 			*(MUINT32 *)(uintptr_t)(*(feature_data+1)) = 1;
@@ -3699,6 +4056,15 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 			*(MUINT32 *)(uintptr_t)(*(feature_data+1)) = 1;
 			break;
 		case SENSOR_SCENARIO_ID_CUSTOM13:
+			*(MUINT32 *)(uintptr_t)(*(feature_data+1)) = 1;
+			break;
+		case SENSOR_SCENARIO_ID_CUSTOM14:
+			*(MUINT32 *)(uintptr_t)(*(feature_data+1)) = 1;
+			break;
+		case SENSOR_SCENARIO_ID_CUSTOM15:
+			*(MUINT32 *)(uintptr_t)(*(feature_data+1)) = 1;
+			break;
+		case SENSOR_SCENARIO_ID_CUSTOM16:
 			*(MUINT32 *)(uintptr_t)(*(feature_data+1)) = 1;
 			break;
 		default:
@@ -3744,35 +4110,37 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 			break;
 		// stagger seamless switch (1exp-2exp-3exp)
 		// normal seamless switch
-		case SENSOR_SCENARIO_ID_CUSTOM8:
+		case SENSOR_SCENARIO_ID_CUSTOM9:
+			*pScenarios = SENSOR_SCENARIO_ID_CUSTOM10;
+			*(pScenarios + 1) = SENSOR_SCENARIO_ID_CUSTOM11;
+			*(pScenarios + 2) = SENSOR_SCENARIO_ID_CUSTOM12;
+			break;
+		case SENSOR_SCENARIO_ID_CUSTOM10:
+			*pScenarios = SENSOR_SCENARIO_ID_CUSTOM9;
+			*(pScenarios + 1) = SENSOR_SCENARIO_ID_CUSTOM11;
+			*(pScenarios + 2) = SENSOR_SCENARIO_ID_CUSTOM12;
+			break;
+		case SENSOR_SCENARIO_ID_CUSTOM11:
+			*pScenarios = SENSOR_SCENARIO_ID_CUSTOM9;
+			*(pScenarios + 1) = SENSOR_SCENARIO_ID_CUSTOM10;
+			*(pScenarios + 2) = SENSOR_SCENARIO_ID_CUSTOM12;
+			break;
+		case SENSOR_SCENARIO_ID_CUSTOM12:
 			*pScenarios = SENSOR_SCENARIO_ID_CUSTOM9;
 			*(pScenarios + 1) = SENSOR_SCENARIO_ID_CUSTOM10;
 			*(pScenarios + 2) = SENSOR_SCENARIO_ID_CUSTOM11;
-			*(pScenarios + 3) = SENSOR_SCENARIO_ID_CUSTOM12;
 			break;
-		case SENSOR_SCENARIO_ID_CUSTOM9:
-			*pScenarios = SENSOR_SCENARIO_ID_CUSTOM8;
-			*(pScenarios + 1) = SENSOR_SCENARIO_ID_CUSTOM10;
-			*(pScenarios + 2) = SENSOR_SCENARIO_ID_CUSTOM11;
-			*(pScenarios + 3) = SENSOR_SCENARIO_ID_CUSTOM12;
+		case SENSOR_SCENARIO_ID_CUSTOM13:
+			*pScenarios = SENSOR_SCENARIO_ID_CUSTOM14;
 			break;
-		case SENSOR_SCENARIO_ID_CUSTOM10:
-			*pScenarios = SENSOR_SCENARIO_ID_CUSTOM8;
-			*(pScenarios + 1) = SENSOR_SCENARIO_ID_CUSTOM9;
-			*(pScenarios + 2) = SENSOR_SCENARIO_ID_CUSTOM11;
-			*(pScenarios + 3) = SENSOR_SCENARIO_ID_CUSTOM12;
+		case SENSOR_SCENARIO_ID_CUSTOM14:
+			*pScenarios = SENSOR_SCENARIO_ID_CUSTOM13;
 			break;
-		case SENSOR_SCENARIO_ID_CUSTOM11:
-			*pScenarios = SENSOR_SCENARIO_ID_CUSTOM8;
-			*(pScenarios + 1) = SENSOR_SCENARIO_ID_CUSTOM9;
-			*(pScenarios + 2) = SENSOR_SCENARIO_ID_CUSTOM10;
-			*(pScenarios + 3) = SENSOR_SCENARIO_ID_CUSTOM12;
+		case SENSOR_SCENARIO_ID_CUSTOM15:
+			*pScenarios = SENSOR_SCENARIO_ID_CUSTOM16;
 			break;
-		case SENSOR_SCENARIO_ID_CUSTOM12:
-			*pScenarios = SENSOR_SCENARIO_ID_CUSTOM8;
-			*(pScenarios + 1) = SENSOR_SCENARIO_ID_CUSTOM9;
-			*(pScenarios + 2) = SENSOR_SCENARIO_ID_CUSTOM10;
-			*(pScenarios + 3) = SENSOR_SCENARIO_ID_CUSTOM11;
+		case SENSOR_SCENARIO_ID_CUSTOM16:
+			*pScenarios = SENSOR_SCENARIO_ID_CUSTOM15;
 			break;
 		default:
 			*pScenarios = 0xff;
@@ -3784,11 +4152,9 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 	case SENSOR_FEATURE_GET_SENSOR_HDR_CAPACITY:
 		switch (*feature_data) {
 		case SENSOR_SCENARIO_ID_CUSTOM4:
-		case SENSOR_SCENARIO_ID_CUSTOM9:
+		case SENSOR_SCENARIO_ID_CUSTOM12:
+		case SENSOR_SCENARIO_ID_CUSTOM16:
 			*(MUINT32 *) (uintptr_t) (*(feature_data + 1)) = 0xB;
-			break;
-		case SENSOR_SCENARIO_ID_CUSTOM10:
-			*(MUINT32 *) (uintptr_t) (*(feature_data + 1)) = 0xC;
 			break;
 		case SENSOR_SCENARIO_ID_NORMAL_PREVIEW:
 		case SENSOR_SCENARIO_ID_NORMAL_VIDEO:
@@ -3811,7 +4177,8 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 		get_vc_info_2(pvcinfo2, *feature_data_32);
 		break;
 	case SENSOR_FEATURE_GET_STAGGER_TARGET_SCENARIO:
-		if (*feature_data == SENSOR_SCENARIO_ID_NORMAL_VIDEO) {
+		switch (*feature_data) {
+		case SENSOR_SCENARIO_ID_NORMAL_VIDEO:
 			switch (*(feature_data + 1)) {
 			case HDR_RAW_STAGGER_2EXP:
 				*(feature_data + 2) = SENSOR_SCENARIO_ID_CUSTOM4;
@@ -3819,7 +4186,7 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 			default:
 				break;
 			}
-		} else if (*feature_data == SENSOR_SCENARIO_ID_CUSTOM4) {
+		case SENSOR_SCENARIO_ID_CUSTOM4:
 			switch (*(feature_data + 1)) {
 			case HDR_NONE:
 				*(feature_data + 2) = SENSOR_SCENARIO_ID_NORMAL_VIDEO;
@@ -3827,7 +4194,7 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 			default:
 				break;
 			}
-		} else if (*feature_data == SENSOR_SCENARIO_ID_NORMAL_PREVIEW) {
+		case SENSOR_SCENARIO_ID_NORMAL_PREVIEW:
 			switch (*(feature_data + 1)) {
 			case HDR_RAW_STAGGER_2EXP:
 				*(feature_data + 2) = SENSOR_SCENARIO_ID_CUSTOM4;
@@ -3835,61 +4202,42 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 			default:
 				break;
 			}
-		} else if (*feature_data == SENSOR_SCENARIO_ID_CUSTOM8) {
+		case SENSOR_SCENARIO_ID_CUSTOM9:
+		case SENSOR_SCENARIO_ID_CUSTOM10:
+		case SENSOR_SCENARIO_ID_CUSTOM11:
 			switch (*(feature_data + 1)) {
 			case HDR_RAW_STAGGER_2EXP:
-				*(feature_data + 2) = SENSOR_SCENARIO_ID_CUSTOM9;
-				break;
-			case HDR_RAW_STAGGER_3EXP:
-				*(feature_data + 2) = SENSOR_SCENARIO_ID_CUSTOM10;
+				*(feature_data + 2) = SENSOR_SCENARIO_ID_CUSTOM12;
 				break;
 			default:
 				break;
 			}
-		} else if (*feature_data == SENSOR_SCENARIO_ID_CUSTOM9) {
+		case SENSOR_SCENARIO_ID_CUSTOM12:
 			switch (*(feature_data + 1)) {
 			case HDR_NONE:
-				*(feature_data + 2) = SENSOR_SCENARIO_ID_CUSTOM8;
-				break;
-			case HDR_RAW_STAGGER_3EXP:
-				*(feature_data + 2) = SENSOR_SCENARIO_ID_CUSTOM10;
+				*(feature_data + 2) = SENSOR_SCENARIO_ID_CUSTOM9;
 				break;
 			default:
 				break;
 			}
-		} else if (*feature_data == SENSOR_SCENARIO_ID_CUSTOM10) {
+		case SENSOR_SCENARIO_ID_CUSTOM15:
+			switch (*(feature_data + 1)) {
+			case HDR_RAW_STAGGER_2EXP:
+				*(feature_data + 2) = SENSOR_SCENARIO_ID_CUSTOM16;
+				break;
+			default:
+				break;
+			}
+		case SENSOR_SCENARIO_ID_CUSTOM16:
 			switch (*(feature_data + 1)) {
 			case HDR_NONE:
-				*(feature_data + 2) = SENSOR_SCENARIO_ID_CUSTOM8;
-				break;
-			case HDR_RAW_STAGGER_2EXP:
-				*(feature_data + 2) = SENSOR_SCENARIO_ID_CUSTOM9;
+				*(feature_data + 2) = SENSOR_SCENARIO_ID_CUSTOM15;
 				break;
 			default:
 				break;
 			}
-		} else if (*feature_data == SENSOR_SCENARIO_ID_CUSTOM11) {
-			switch (*(feature_data + 1)) {
-			case HDR_RAW_STAGGER_2EXP:
-				*(feature_data + 2) = SENSOR_SCENARIO_ID_CUSTOM9;
-				break;
-			case HDR_RAW_STAGGER_3EXP:
-				*(feature_data + 2) = SENSOR_SCENARIO_ID_CUSTOM10;
-				break;
-			default:
-				break;
-			}
-		} else if (*feature_data == SENSOR_SCENARIO_ID_CUSTOM12) {
-			switch (*(feature_data + 1)) {
-			case HDR_RAW_STAGGER_2EXP:
-				*(feature_data + 2) = SENSOR_SCENARIO_ID_CUSTOM9;
-				break;
-			case HDR_RAW_STAGGER_3EXP:
-				*(feature_data + 2) = SENSOR_SCENARIO_ID_CUSTOM10;
-				break;
-			default:
-				break;
-			}
+		default:
+			break;
 		}
 		LOG_DEBUG("SENSOR_FEATURE_GET_STAGGER_TARGET_SCENARIO %d %d %d\n",
 				(UINT16) *feature_data,
@@ -3901,13 +4249,10 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 		/* margin info by scenario */
 		switch (*feature_data) {
 		case SENSOR_SCENARIO_ID_CUSTOM4:
-		case SENSOR_SCENARIO_ID_CUSTOM9:
+		case SENSOR_SCENARIO_ID_CUSTOM12:
+		case SENSOR_SCENARIO_ID_CUSTOM16:
 			// 2dol
 			*(feature_data + 2) = (imgsensor_info.margin * 2);
-			break;
-		case SENSOR_SCENARIO_ID_CUSTOM10:
-			// 3dol
-			*(feature_data + 2) = (imgsensor_info.margin * 3);
 			break;
 		default:
 			*(feature_data + 2) = imgsensor_info.margin;
@@ -3917,8 +4262,8 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 	case SENSOR_FEATURE_GET_MAX_EXP_LINE:
 	case SENSOR_FEATURE_GET_STAGGER_MAX_EXP_TIME:
 		if (*feature_data == SENSOR_SCENARIO_ID_CUSTOM4
-			|| *feature_data == SENSOR_SCENARIO_ID_CUSTOM9
-			|| *feature_data == SENSOR_SCENARIO_ID_CUSTOM10) {
+			|| *feature_data == SENSOR_SCENARIO_ID_CUSTOM12
+			|| *feature_data == SENSOR_SCENARIO_ID_CUSTOM16) {
 			// see IMX766 SRM, table 5-22 constraints of COARSE_INTEG_TIME
 			switch (*(feature_data + 1)) {
 			case VC_STAGGER_NE:
@@ -4028,6 +4373,9 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 		case SENSOR_SCENARIO_ID_CUSTOM11:
 		case SENSOR_SCENARIO_ID_CUSTOM12:
 		case SENSOR_SCENARIO_ID_CUSTOM13:
+		case SENSOR_SCENARIO_ID_CUSTOM14:
+		case SENSOR_SCENARIO_ID_CUSTOM15:
+		case SENSOR_SCENARIO_ID_CUSTOM16:
 			*feature_return_para_32 = 1465;
 			break;
 		default:
@@ -4115,6 +4463,18 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 		case SENSOR_SCENARIO_ID_CUSTOM13:
 			*(MUINT32 *)(uintptr_t)(*(feature_data + 1))
 				= imgsensor_info.custom13.mipi_pixel_rate;
+			break;
+		case SENSOR_SCENARIO_ID_CUSTOM14:
+			*(MUINT32 *)(uintptr_t)(*(feature_data + 1))
+				= imgsensor_info.custom14.mipi_pixel_rate;
+			break;
+		case SENSOR_SCENARIO_ID_CUSTOM15:
+			*(MUINT32 *)(uintptr_t)(*(feature_data + 1))
+				= imgsensor_info.custom15.mipi_pixel_rate;
+			break;
+		case SENSOR_SCENARIO_ID_CUSTOM16:
+			*(MUINT32 *)(uintptr_t)(*(feature_data + 1))
+				= imgsensor_info.custom16.mipi_pixel_rate;
 			break;
 		case SENSOR_SCENARIO_ID_NORMAL_PREVIEW:
 		default:
@@ -4463,6 +4823,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus4[] = {
 #endif
 };
 
+
 static struct mtk_mbus_frame_desc_entry frame_desc_cus5[] = {
 	{
 		.bus.csi2 = {
@@ -4512,6 +4873,18 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus7[] = {
 		.bus.csi2 = {
 			.channel = 0,
 			.data_type = 0x2b,
+			.hsize = 0x780,
+			.vsize = 0x438,
+			.user_data_desc = VC_STAGGER_NE,
+		},
+	},
+};
+
+static struct mtk_mbus_frame_desc_entry frame_desc_cus8[] = {
+	{
+		.bus.csi2 = {
+			.channel = 0,
+			.data_type = 0x2b,
 			.hsize = 0x1000,
 			.vsize = 0x0c00,
 			.user_data_desc = VC_STAGGER_NE,
@@ -4521,40 +4894,8 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus7[] = {
 		.bus.csi2 = {
 			.channel = 3,
 			.data_type = 0x2b,
-			.hsize = 0x0800,
+			.hsize = 0x1000,
 			.vsize = 0x0300,
-			.user_data_desc = VC_PDAF_STATS_NE_PIX_1,
-		},
-	},
-#if PD_PIX_2_EN
-	{
-		.bus.csi2 = {
-			.channel = 6,
-			.data_type = 0x2b,
-			.hsize = 0x0800,
-			.vsize = 0x0300,
-			.user_data_desc = VC_PDAF_STATS_NE_PIX_2,
-		},
-	},
-#endif
-};
-
-static struct mtk_mbus_frame_desc_entry frame_desc_cus8[] = {
-	{
-		.bus.csi2 = {
-			.channel = 0,
-			.data_type = 0x2b,
-			.hsize = 0x0800,
-			.vsize = 0x0600,
-			.user_data_desc = VC_STAGGER_NE,
-		},
-	},
-	{
-		.bus.csi2 = {
-			.channel = 3,
-			.data_type = 0x2b,
-			.hsize = 0x0800,
-			.vsize = 0x0180,
 			.user_data_desc = VC_PDAF_STATS_NE_PIX_1,
 		},
 	},
@@ -4565,98 +4906,23 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus9[] = {
 		.bus.csi2 = {
 			.channel = 0,
 			.data_type = 0x2b,
-			.hsize = 0x0800,
-			.vsize = 0x0600,
+			.hsize = 0x1000,
+			.vsize = 0x0c00,
 			.user_data_desc = VC_STAGGER_NE,
-		},
-	},
-	{
-		.bus.csi2 = {
-			.channel = 1,
-			.data_type = 0x2b,
-			.hsize = 0x0800,
-			.vsize = 0x0600,
-			.user_data_desc = VC_STAGGER_ME,
 		},
 	},
 	{
 		.bus.csi2 = {
 			.channel = 3,
 			.data_type = 0x2b,
-			.hsize = 0x0800,
-			.vsize = 0x0180,
+			.hsize = 0x1000,
+			.vsize = 0x0300,
 			.user_data_desc = VC_PDAF_STATS_NE_PIX_1,
-		},
-	},
-	{
-		.bus.csi2 = {
-			.channel = 4,
-			.data_type = 0x2b,
-			.hsize = 0x0800,
-			.vsize = 0x0180,
-			.user_data_desc = VC_PDAF_STATS_ME_PIX_1,
 		},
 	},
 };
 
 static struct mtk_mbus_frame_desc_entry frame_desc_cus10[] = {
-	{
-		.bus.csi2 = {
-			.channel = 0,
-			.data_type = 0x2b,
-			.hsize = 0x0800,
-			.vsize = 0x0600,
-			.user_data_desc = VC_STAGGER_NE,
-		},
-	},
-	{
-		.bus.csi2 = {
-			.channel = 1,
-			.data_type = 0x2b,
-			.hsize = 0x0800,
-			.vsize = 0x0600,
-			.user_data_desc = VC_STAGGER_ME,
-		},
-	},
-	{
-		.bus.csi2 = {
-			.channel = 2,
-			.data_type = 0x2b,
-			.hsize = 0x0800,
-			.vsize = 0x0600,
-			.user_data_desc = VC_STAGGER_SE,
-		},
-	},
-	{
-		.bus.csi2 = {
-			.channel = 3,
-			.data_type = 0x2b,
-			.hsize = 0x0800,
-			.vsize = 0x0180,
-			.user_data_desc = VC_PDAF_STATS_NE_PIX_1,
-		},
-	},
-	{
-		.bus.csi2 = {
-			.channel = 4,
-			.data_type = 0x2b,
-			.hsize = 0x0800,
-			.vsize = 0x0180,
-			.user_data_desc = VC_PDAF_STATS_ME_PIX_1,
-		},
-	},
-	{
-		.bus.csi2 = {
-			.channel = 5,
-			.data_type = 0x2b,
-			.hsize = 0x0800,
-			.vsize = 0x0180,
-			.user_data_desc = VC_PDAF_STATS_SE_PIX_1,
-		},
-	},
-};
-
-static struct mtk_mbus_frame_desc_entry frame_desc_cus11[] = {
 	{
 		.bus.csi2 = {
 			.channel = 0,
@@ -4670,8 +4936,29 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus11[] = {
 		.bus.csi2 = {
 			.channel = 3,
 			.data_type = 0x2b,
-			.hsize = 0x1000,
+			.hsize = 0x0800,
 			.vsize = 0x0300,
+			.user_data_desc = VC_PDAF_STATS_NE_PIX_1,
+		},
+	},
+};
+
+static struct mtk_mbus_frame_desc_entry frame_desc_cus11[] = {
+	{
+		.bus.csi2 = {
+			.channel = 0,
+			.data_type = 0x2b,
+			.hsize = 0x2000,
+			.vsize = 0x1800,
+			.user_data_desc = VC_STAGGER_NE,
+		},
+	},
+	{
+		.bus.csi2 = {
+			.channel = 3,
+			.data_type = 0x2b,
+			.hsize = 0x1000,
+			.vsize = 0x0600,
 			.user_data_desc = VC_PDAF_STATS_NE_PIX_1,
 		},
 	},
@@ -4682,8 +4969,68 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus12[] = {
 		.bus.csi2 = {
 			.channel = 0,
 			.data_type = 0x2b,
-			.hsize = 0x0800,
-			.vsize = 0x0600,
+			.hsize = 0x1000,
+			.vsize = 0x0c00,
+			.user_data_desc = VC_STAGGER_NE,
+		},
+	},
+	{
+		.bus.csi2 = {
+			.channel = 1,
+			.data_type = 0x2b,
+			.hsize = 0x1000,
+			.vsize = 0x0c00,
+			.user_data_desc = VC_STAGGER_ME,
+		},
+	},
+	{
+		.bus.csi2 = {
+			.channel = 3,
+			.data_type = 0x2b,
+			.hsize = 0x1000,
+			.vsize = 0x0300,
+			.user_data_desc = VC_PDAF_STATS_NE_PIX_1,
+		},
+	},
+	{
+		.bus.csi2 = {
+			.channel = 4,
+			.data_type = 0x2b,
+			.hsize = 0x1000,
+			.vsize = 0x0300,
+			.user_data_desc = VC_PDAF_STATS_ME_PIX_1,
+		},
+	},
+};
+
+static struct mtk_mbus_frame_desc_entry frame_desc_cus13[] = {
+	{
+		.bus.csi2 = {
+			.channel = 0,
+			.data_type = 0x2b,
+			.hsize = 0x1000,
+			.vsize = 0x0900,
+			.user_data_desc = VC_STAGGER_NE,
+		},
+	},
+	{
+		.bus.csi2 = {
+			.channel = 3,
+			.data_type = 0x2b,
+			.hsize = 0x1000,
+			.vsize = 0x0240,
+			.user_data_desc = VC_PDAF_STATS_NE_PIX_1,
+		},
+	},
+};
+
+static struct mtk_mbus_frame_desc_entry frame_desc_cus14[] = {
+	{
+		.bus.csi2 = {
+			.channel = 0,
+			.data_type = 0x2b,
+			.hsize = 0x1000,
+			.vsize = 0x0900,
 			.user_data_desc = VC_STAGGER_NE,
 		},
 	},
@@ -4692,13 +5039,13 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus12[] = {
 			.channel = 3,
 			.data_type = 0x2b,
 			.hsize = 0x0800,
-			.vsize = 0x0180,
+			.vsize = 0x0240,
 			.user_data_desc = VC_PDAF_STATS_NE_PIX_1,
 		},
 	},
 };
 
-static struct mtk_mbus_frame_desc_entry frame_desc_cus13[] = {
+static struct mtk_mbus_frame_desc_entry frame_desc_cus15[] = {
 	{
 		.bus.csi2 = {
 			.channel = 0,
@@ -4715,6 +5062,45 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus13[] = {
 			.hsize = 0x1000,
 			.vsize = 0x0300,
 			.user_data_desc = VC_PDAF_STATS_NE_PIX_1,
+		},
+	},
+};
+
+static struct mtk_mbus_frame_desc_entry frame_desc_cus16[] = {
+	{
+		.bus.csi2 = {
+			.channel = 0,
+			.data_type = 0x2b,
+			.hsize = 0x1000,
+			.vsize = 0x0c00,
+			.user_data_desc = VC_STAGGER_NE,
+		},
+	},
+	{
+		.bus.csi2 = {
+			.channel = 1,
+			.data_type = 0x2b,
+			.hsize = 0x1000,
+			.vsize = 0x0c00,
+			.user_data_desc = VC_STAGGER_ME,
+		},
+	},
+	{
+		.bus.csi2 = {
+			.channel = 3,
+			.data_type = 0x2b,
+			.hsize = 0x1000,
+			.vsize = 0x0300,
+			.user_data_desc = VC_PDAF_STATS_NE_PIX_1,
+		},
+	},
+	{
+		.bus.csi2 = {
+			.channel = 4,
+			.data_type = 0x2b,
+			.hsize = 0x1000,
+			.vsize = 0x0300,
+			.user_data_desc = VC_PDAF_STATS_ME_PIX_1,
 		},
 	},
 };
@@ -4813,6 +5199,21 @@ static int get_frame_desc(struct subdrv_ctx *ctx,
 		fd->num_entries = ARRAY_SIZE(frame_desc_cus13);
 		memcpy(fd->entry, frame_desc_cus13, sizeof(frame_desc_cus13));
 		break;
+	case SENSOR_SCENARIO_ID_CUSTOM14:
+		fd->type = MTK_MBUS_FRAME_DESC_TYPE_CSI2;
+		fd->num_entries = ARRAY_SIZE(frame_desc_cus14);
+		memcpy(fd->entry, frame_desc_cus14, sizeof(frame_desc_cus14));
+		break;
+	case SENSOR_SCENARIO_ID_CUSTOM15:
+		fd->type = MTK_MBUS_FRAME_DESC_TYPE_CSI2;
+		fd->num_entries = ARRAY_SIZE(frame_desc_cus15);
+		memcpy(fd->entry, frame_desc_cus15, sizeof(frame_desc_cus15));
+		break;
+	case SENSOR_SCENARIO_ID_CUSTOM16:
+		fd->type = MTK_MBUS_FRAME_DESC_TYPE_CSI2;
+		fd->num_entries = ARRAY_SIZE(frame_desc_cus16);
+		memcpy(fd->entry, frame_desc_cus16, sizeof(frame_desc_cus16));
+		break;
 	default:
 		return -1;
 	}
@@ -4885,6 +5286,9 @@ static int get_csi_param(struct subdrv_ctx *ctx,
 	case SENSOR_SCENARIO_ID_CUSTOM11:
 	case SENSOR_SCENARIO_ID_CUSTOM12:
 	case SENSOR_SCENARIO_ID_CUSTOM13:
+	case SENSOR_SCENARIO_ID_CUSTOM14:
+	case SENSOR_SCENARIO_ID_CUSTOM15:
+	case SENSOR_SCENARIO_ID_CUSTOM16:
 		csi_param->cphy_settle = 65;//0x12;
 		break;
 	case SENSOR_SCENARIO_ID_CUSTOM3:

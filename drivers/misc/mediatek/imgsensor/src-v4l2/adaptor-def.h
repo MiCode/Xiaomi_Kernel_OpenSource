@@ -4,7 +4,7 @@
 #ifndef __ADAPTOR_DEF_H__
 #define __ADAPTOR_DEF_H__
 
-#define MODE_MAXCNT 20
+#define MODE_MAXCNT 25
 #define OF_SENSOR_NAMES_MAXCNT 20
 //#define POWERON_ONCE_OPENED
 #define IMGSENSOR_DEBUG

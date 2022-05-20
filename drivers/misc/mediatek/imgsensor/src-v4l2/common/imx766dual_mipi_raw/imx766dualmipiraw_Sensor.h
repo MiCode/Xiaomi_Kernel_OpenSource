@@ -40,7 +40,11 @@ enum IMGSENSOR_MODE {
 	IMGSENSOR_MODE_CUSTOM10,
 	IMGSENSOR_MODE_CUSTOM11,
 	IMGSENSOR_MODE_CUSTOM12,
-	IMGSENSOR_MODE_CUSTOM13
+	IMGSENSOR_MODE_CUSTOM13,
+	IMGSENSOR_MODE_CUSTOM14,
+	IMGSENSOR_MODE_CUSTOM15,
+	IMGSENSOR_MODE_CUSTOM16,
+	IMGSENSOR_MODE_MAX = IMGSENSOR_MODE_CUSTOM16,
 };
 
 enum {
@@ -90,6 +94,9 @@ struct imgsensor_info_struct {
 	struct imgsensor_mode_struct custom11;
 	struct imgsensor_mode_struct custom12;
 	struct imgsensor_mode_struct custom13;
+	struct imgsensor_mode_struct custom14;
+	struct imgsensor_mode_struct custom15;
+	struct imgsensor_mode_struct custom16;
 
 	kal_uint8 ae_shut_delay_frame; /* shutter delay frame for AE cycle */
 	kal_uint8 ae_sensor_gain_delay_frame;
@@ -117,6 +124,9 @@ struct imgsensor_info_struct {
 	kal_uint8 custom11_delay_frame; /* enter custom10 delay frame num */
 	kal_uint8 custom12_delay_frame; /* enter custom10 delay frame num */
 	kal_uint8 custom13_delay_frame; /* enter custom10 delay frame num */
+	kal_uint8 custom14_delay_frame; /* enter custom14 delay frame num */
+	kal_uint8 custom15_delay_frame; /* enter custom15 delay frame num */
+	kal_uint8 custom16_delay_frame; /* enter custom16 delay frame num */
 	kal_uint8  frame_time_delay_frame;
 	kal_uint8 margin; /* sensor framelength & shutter margin */
 	kal_uint32 min_shutter; /* min shutter */
