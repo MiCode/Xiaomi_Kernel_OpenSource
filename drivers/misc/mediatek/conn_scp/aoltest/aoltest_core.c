@@ -18,20 +18,11 @@
 #include "msg_thread.h"
 #include "conap_scp.h"
 #include "aoltest_netlink.h"
-#include "aoltest_core.h"
+#include "aoltest_ring_buffer.h"
 
 /*******************************************************************************/
 /*                             D A T A   T Y P E S                             */
 /*******************************************************************************/
-enum em_commd_id {
-	EM_MSG_DEFAULT = 0,
-	EM_MSG_START_TEST = 1,
-	EM_MSG_STOP_TEST = 2,
-	EM_MSG_START_DATA_TRANS = 3,
-	EM_MSG_STOP_DATA_TRANS = 4,
-	EM_MSG_MAX_SIZE
-};
-
 enum aoltest_core_opid {
 	AOLTEST_OPID_DEFAULT = 0,
 	AOLTEST_OPID_SCP_REGISTER = 1,
@@ -64,29 +55,17 @@ struct aoltest_core_ctx {
 /*******************************************************************************/
 /*                             M A C R O S                                     */
 /*******************************************************************************/
+#define BUFF_SIZE       (32 * 1024 * sizeof(char))
 #define MAX_BUF_LEN     (3 * 1024)
 
 struct aoltest_core_ctx g_aoltest_ctx;
+struct aoltest_core_rb g_rb;
 
 struct test_info g_test_info;
 char g_buf[MAX_BUF_LEN];
 static unsigned char g_is_scp_ready;
 static bool g_is_test_started;
 static bool g_is_data_trans;
-
-struct aol_data_buf {
-	u8 buf[MAX_BUF_LEN];
-	u32 size;
-	struct list_head list;
-};
-struct aol_buf_list {
-	struct mutex lock;
-	struct list_head list;
-};
-
-struct aol_buf_list g_aol_data_buf_list;
-
-struct mutex g_aoltest_msg_lock;
 
 /*******************************************************************************/
 /*                  F U N C T I O N   D E C L A R A T I O N S                  */
@@ -109,33 +88,34 @@ static const msg_opid_func aoltest_core_opfunc[] = {
 /*******************************************************************************/
 /*                              F U N C T I O N S                              */
 /*******************************************************************************/
-
-static struct aol_data_buf *aoltest_data_buffer_alloc(void)
+static void aoltest_push_message(struct aoltest_core_rb *rb, unsigned int type, unsigned int *buf)
 {
-	struct aol_data_buf *data_buf = NULL;
+	unsigned long flags;
+	struct aoltest_rb_data *rb_data = NULL;
 
-	if (list_empty(&g_aol_data_buf_list.list)) {
-		data_buf = kmalloc(sizeof(struct aol_data_buf), GFP_KERNEL);
-		if (data_buf == NULL)
-			return NULL;
-		INIT_LIST_HEAD(&data_buf->list);
+	// Get free space from ring buffer
+	spin_lock_irqsave(&(rb->lock), flags);
+	rb_data = aoltest_core_rb_pop_free(rb);
+
+	if (rb_data) {
+		if (type == AOLTEST_MSG_ID_WIFI) {
+			memcpy(&(rb_data->raw_data.wifi_raw), (struct aoltest_wifi_raw_data *)buf,
+				sizeof(struct aoltest_wifi_raw_data));
+		} else if (type == AOLTEST_MSG_ID_BT) {
+			memcpy(&(rb_data->raw_data.bt_raw), (struct aoltest_bt_raw_data *)buf,
+				sizeof(struct aoltest_bt_raw_data));
+		} else if (type == AOLTEST_MSG_ID_GPS) {
+			memcpy(&(rb_data->raw_data.gps_raw), (struct aoltest_gps_raw_data *)buf,
+				sizeof(struct aoltest_gps_raw_data));
+		}
+
+		rb_data->type = type;
+		aoltest_core_rb_push_active(rb, rb_data);
 	} else {
-
-		mutex_lock(&g_aol_data_buf_list.lock);
-		data_buf = list_first_entry(&g_aol_data_buf_list.list, struct aol_data_buf, list);
-		list_del(&data_buf->list);
-		mutex_unlock(&g_aol_data_buf_list.lock);
+		pr_info("[%s] rb is NULL", __func__);
 	}
-	return data_buf;
-}
 
-static void aoltest_data_buffer_free(struct aol_data_buf *data_buf)
-{
-	if (!data_buf)
-		return;
-	mutex_lock(&g_aol_data_buf_list.lock);
-	list_add_tail(&data_buf->list, &g_aol_data_buf_list.list);
-	mutex_unlock(&g_aol_data_buf_list.lock);
+	spin_unlock_irqrestore(&(rb->lock), flags);
 }
 
 static int is_scp_ready(void)
@@ -175,6 +155,9 @@ static int opfunc_scp_register(struct msg_op_data *op)
 	ret = conap_scp_register_drv(ctx->drv_type, &ctx->scp_test_cb);
 	pr_info("SCP register drv_type=[%d], ret=[%d]", ctx->drv_type, ret);
 
+	// Create ring buffer
+	aoltest_core_rb_init(&g_rb);
+
 	return ret;
 }
 
@@ -186,15 +169,16 @@ static int opfunc_scp_unregister(struct msg_op_data *op)
 	ret = conap_scp_unregister_drv(ctx->drv_type);
 	pr_info("SCP unregister drv_type=[%d], ret=[%d]", ctx->drv_type, ret);
 
+	// Destroy ring buffer
+	aoltest_core_rb_deinit(&g_rb);
+
 	return ret;
 }
 
 static int opfunc_send_msg(struct msg_op_data *op)
 {
 	int ret = 0;
-	u32 msg_id;
-	u32 size;
-	struct aol_data_buf *data_buf;
+	unsigned int cmd;
 	struct aoltest_core_ctx *ctx = &g_aoltest_ctx;
 
 	if (!g_is_scp_ready) {
@@ -205,31 +189,77 @@ static int opfunc_send_msg(struct msg_op_data *op)
 			return -1;
 	}
 
-	msg_id = (u32)op->op_data[0];
-	data_buf = (struct aol_data_buf *)op->op_data[1];
-	size = (u32)op->op_data[2];
+	pr_info("[%s] is ready=[%d] ret=[%d]", __func__, g_is_scp_ready, ret);
 
-	ret = conap_scp_send_message(ctx->drv_type, msg_id, data_buf->buf, size);
-	pr_info("[%s] cmd is AOLTEST_CMD_START_TEST and call scp, ret=%d",
+	cmd = (unsigned int)op->op_data[0];
+	pr_info("[%s] cmd=[%d]", __func__, cmd);
+
+	if (cmd == AOLTEST_CMD_START_TEST) {
+		pr_info("[%s] start_test enabled=[%d][%d][%d]", __func__,
+					g_test_info.wifi_enabled, g_test_info.bt_enabled,
+					g_test_info.gps_enabled);
+		g_is_test_started = true;
+		ret = conap_scp_send_message(ctx->drv_type, cmd,
+						(unsigned char *)&g_test_info, sizeof(g_test_info));
+		pr_info("[%s] cmd is AOLTEST_CMD_START_TEST and call scp, ret=%d",
 					__func__, ret);
+	} else {
+		if (cmd == AOLTEST_CMD_STOP_TEST)
+			g_is_test_started = false;
+		else if (cmd == AOLTEST_CMD_START_DATA_TRANS)
+			g_is_data_trans = true;
+		else if (cmd == AOLTEST_CMD_STOP_DATA_TRANS)
+			g_is_data_trans = false;
 
-	if (data_buf)
-		aoltest_data_buffer_free(data_buf);
+		ret = conap_scp_send_message(ctx->drv_type, cmd, NULL, 0);
+	}
 
-	pr_info("Send drv_type=[%d], cmd=[%d], ret=[%d]\n", ctx->drv_type, msg_id, ret);
+	pr_info("Send drv_type=[%d], cmd=[%d], ret=[%d]\n", ctx->drv_type, cmd, ret);
 	return ret;
 }
 
 static int opfunc_recv_msg(struct msg_op_data *op)
 {
 	int ret = 0;
-	u32 msg_id = (unsigned int)op->op_data[0];
-	struct aol_data_buf *data_buf = (struct aol_data_buf *)op->op_data[1];
-	u32 size = (u32)op->op_data[2];
+	int type = -1;
+	unsigned long flags;
+	struct aoltest_rb_data *rb_data = NULL;
+	int sz = 0;
+	char *ptr = NULL;
+	unsigned int msg_id = (unsigned int)op->op_data[0];
 
-	pr_info("Send to netlink client, sz=[%d]\n", size);
-	aoltest_netlink_send_to_native("[AOLTEST]", msg_id, data_buf->buf, size);
-	aoltest_data_buffer_free(data_buf);
+	memset(g_buf, '\0', sizeof(g_buf));
+
+	spin_lock_irqsave(&(g_rb.lock), flags);
+	rb_data = aoltest_core_rb_pop_active(&g_rb);
+
+	if (rb_data == NULL)
+		return -1;
+
+	type = rb_data->type;
+	pr_info("[%s] msg_id=[%d], type=[%d]\n", __func__, msg_id, type);
+
+	if (type == AOLTEST_MSG_ID_WIFI) {
+		ptr = (char *)&(rb_data->raw_data.wifi_raw);
+		sz = sizeof(struct aoltest_wifi_raw_data);
+	} else if (type == AOLTEST_MSG_ID_BT) {
+		ptr = (char *)&(rb_data->raw_data.bt_raw);
+		sz = sizeof(struct aoltest_bt_raw_data);
+	} else if (type == AOLTEST_MSG_ID_GPS) {
+		ptr = (char *)&(rb_data->raw_data.gps_raw);
+		sz = sizeof(struct aoltest_gps_raw_data);
+	} else {
+		aoltest_core_rb_push_free(&g_rb, rb_data);
+		return -2;
+	}
+
+	memcpy(g_buf, ptr, sz);
+	// Free data
+	aoltest_core_rb_push_free(&g_rb, rb_data);
+	spin_unlock_irqrestore(&(g_rb.lock), flags);
+
+	pr_info("Send to netlink client, sz=[%d]\n", sz);
+	aoltest_netlink_send_to_native("[AOLTEST]", msg_id, g_buf, sz);
 
 	return ret;
 }
@@ -241,73 +271,34 @@ void aoltest_core_msg_notify(unsigned int msg_id, unsigned int *buf, unsigned in
 {
 	int ret = 0;
 	struct aoltest_core_ctx *ctx = &g_aoltest_ctx;
-	struct aol_data_buf *data_buf = NULL;
+	unsigned int expect_size = 0;
 
-	pr_info("[%s] msg_id=[%d] size=[%d]\n", __func__, msg_id, size);
+	pr_info("[%s] msg_id=[%d]\n", __func__, msg_id);
 	if (ctx->status == AOLTEST_INACTIVE) {
 		pr_info("EM test ctx is inactive\n");
 		return;
 	}
 
-	if (size > MAX_BUF_LEN) {
-		pr_info("size [%d] exceed expected [%d]\n", size, MAX_BUF_LEN);
+	if (msg_id == AOLTEST_MSG_ID_WIFI)
+		expect_size = sizeof(struct aoltest_wifi_raw_data);
+	else if (msg_id == AOLTEST_MSG_ID_BT)
+		expect_size = sizeof(struct aoltest_bt_raw_data);
+	else if (msg_id == AOLTEST_MSG_ID_GPS)
+		expect_size = sizeof(struct aoltest_gps_raw_data);
+
+	if (expect_size != size) {
+		pr_info("[%s] Buf size is unexpected, msg_id=[%u], expect size=[%u], recv size=[%u]\n",
+			__func__, msg_id, expect_size, size);
 		return;
 	}
 
-	if (size > 0) {
-		data_buf = aoltest_data_buffer_alloc();
-		if (!data_buf) {
-			pr_notice("[%s] data buf is empty", __func__);
-			return;
-		}
-		memcpy(&(data_buf->buf[0]), buf, size);
-	}
+	aoltest_push_message(&g_rb, msg_id, buf);
 
-	ret = msg_thread_send_3(&ctx->msg_ctx, AOLTEST_OPID_RECV_MSG,
-							msg_id, (size_t)data_buf, size);
+	ret = msg_thread_send_1(&ctx->msg_ctx, AOLTEST_OPID_RECV_MSG, msg_id);
 
 	if (ret)
 		pr_info("[%s] Notify recv msg fail, ret=[%d]\n", __func__, ret);
 }
-
-static int _send_msg_to_scp(u32 msg_id, u32 msg_size, u8 *msg_data)
-{
-	struct aoltest_core_ctx *ctx = &g_aoltest_ctx;
-	int ret;
-	struct test_info *info = NULL;
-
-	mutex_lock(&g_aoltest_msg_lock);
-
-	if (msg_id == EM_MSG_START_TEST) {
-		g_is_test_started = true;
-
-		pr_info("[%s] START_TEST size=[%d][%u]", __func__, msg_size, sizeof(g_test_info));
-		if (msg_size == sizeof(g_test_info)) {
-			memcpy(&g_test_info, msg_data, sizeof(g_test_info));
-			info = (struct test_info *)msg_data;
-			pr_info("[%s] [%d][%d][%d] [%d][%d][%d]", __func__,
-							info->wifi_enabled, info->wifi_scan_intvl,
-							info->wifi_cb_intvl, info->bt_enabled,
-							info->bt_scan_intvl, info->bt_cb_intvl);
-		} else
-			pr_notice("[%s] START_TEST but size not match [%d][%d]", __func__,
-							sizeof(g_test_info), msg_size);
-	} else if (msg_id == EM_MSG_STOP_TEST) {
-		g_is_test_started = false;
-	} else if (msg_id == EM_MSG_START_DATA_TRANS) {
-		g_is_data_trans = true;
-	} else if (msg_id == EM_MSG_STOP_DATA_TRANS) {
-		g_is_data_trans = false;
-	}
-
-	ret = conap_scp_send_message(ctx->drv_type, msg_id, msg_data, msg_size);
-	pr_info("[%s] send ret=%d msgid=[%d]",
-					__func__, ret, msg_id);
-	mutex_unlock(&g_aoltest_msg_lock);
-
-	return 0;
-}
-
 
 void aoltest_core_state_change(int state)
 {
@@ -327,46 +318,40 @@ void aoltest_core_state_change(int state)
 		g_is_scp_ready = 1;
 
 		if (g_is_test_started) {
-
 			// Re-send start test with test info
-			mutex_lock(&g_aoltest_msg_lock);
-
-			ret = conap_scp_send_message(ctx->drv_type, EM_MSG_START_TEST,
-						(u8 *)&g_test_info, sizeof(g_test_info));
-			if (ret)
-				pr_notice("[%s] start test fail [%d]", __func__, ret);
-
+			ret = msg_thread_send_1(&ctx->msg_ctx,
+						AOLTEST_OPID_SEND_MSG, AOLTEST_CMD_START_TEST);
 			if (g_is_data_trans) {
-				ret = conap_scp_send_message(ctx->drv_type, EM_MSG_START_DATA_TRANS,
-											NULL, 0);
+				ret = msg_thread_send_1(&ctx->msg_ctx,
+					AOLTEST_OPID_SEND_MSG, AOLTEST_CMD_START_DATA_TRANS);
 				if (ret)
-					pr_notice("[%s] start data trans fail [%d]", __func__, ret);
+					pr_notice("[%s] send msg fail ret=[%d]", __func__, ret);
 			}
-			mutex_unlock(&g_aoltest_msg_lock);
 		}
 	} else {
 		g_is_scp_ready = 0;
 	}
 }
 
-static int aoltest_core_handler(u32 msg_id, void *data, u32 sz)
+static int aoltest_core_handler(int cmd, void *data)
 {
 	int ret = 0;
 	struct aoltest_core_ctx *ctx = &g_aoltest_ctx;
 
-	pr_info("[%s] Get msg_id: %d\n", __func__, msg_id);
+	pr_info("[%s] Get cmd: %d\n", __func__, cmd);
 
 	if (ctx->status == AOLTEST_INACTIVE) {
 		pr_info("EM test ctx is inactive\n");
 		return -1;
 	}
 
-	if (sz > MAX_BUF_LEN) {
-		pr_notice("data size [%d] exceed expected [%d]", sz, MAX_BUF_LEN);
-		return -2;
-	}
+	if (cmd == AOLTEST_CMD_START_TEST)
+		g_test_info = *((struct test_info *)data);
 
-	ret = _send_msg_to_scp(msg_id, sz, data);
+	ret = msg_thread_send_1(&ctx->msg_ctx, AOLTEST_OPID_SEND_MSG, cmd);
+
+	if (ret)
+		pr_info("[%s] Send to msg thread fail, ret=[%d]\n", __func__, ret);
 
 	return ret;
 }
@@ -397,6 +382,8 @@ static int aoltest_core_bind(void)
 	if (ret)
 		pr_info("[%s] Send to msg thread fail, ret=[%d]\n", __func__, ret);
 
+	pr_info("[%s] ============", __func__);
+
 	return ret;
 }
 
@@ -409,16 +396,10 @@ int aoltest_core_init(void)
 {
 	struct netlink_event_cb nl_cb;
 
-	mutex_init(&g_aoltest_msg_lock);
-
-	mutex_init(&g_aol_data_buf_list.lock);
-	INIT_LIST_HEAD(&g_aol_data_buf_list.list);
-
 	// Init netlink
 	nl_cb.aoltest_bind = aoltest_core_bind;
 	nl_cb.aoltest_unbind = aoltest_core_unbind;
 	nl_cb.aoltest_handler = aoltest_core_handler;
-
 	return aoltest_netlink_init(&nl_cb);
 }
 
