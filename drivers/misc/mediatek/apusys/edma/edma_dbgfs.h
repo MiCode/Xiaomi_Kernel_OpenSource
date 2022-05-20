@@ -17,6 +17,7 @@ enum edma_dbg_cfg {
 };
 
 enum {
+	EDMA_LOG_ERROR = 0,
 	EDMA_LOG_WARN,
 	EDMA_LOG_INFO,
 	EDMA_LOG_DEBUG,

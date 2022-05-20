@@ -73,7 +73,8 @@ int edma_ext_by_sub(struct edma_sub *edma_sub, struct edma_request *req)
 	if (ret) {
 		pr_notice
 		    ("%s:timeout\n", __func__);
-		drv->prt_error(edma_sub, req);
+		if (drv)
+			drv->prt_error(edma_sub, req);
 	}
 
 	get_port_time = sched_clock() - get_port_time; //ns

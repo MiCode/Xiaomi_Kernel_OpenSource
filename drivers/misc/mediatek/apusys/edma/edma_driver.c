@@ -58,7 +58,8 @@ int edma_initialize(struct edma_device *edma_device)
 		edma_sub->power_state = EDMA_POWER_OFF;
 		mutex_init(&edma_sub->cmd_mutex);
 		init_waitqueue_head(&edma_sub->cmd_wait);
-		sprintf(edma_sub->sub_name, "edma%d", edma_sub->sub);
+		if (sprintf(edma_sub->sub_name, "edma%d", edma_sub->sub) < 0)
+			LOG_ERR("sprintf error\n");
 	}
 
 	return ret;
