@@ -80,8 +80,12 @@ int mtk_cam_debug_init_dump_param(struct mtk_cam_ctx *ctx,
 		param->frame_param_size);
 
 	/* add mtkcam_ipi_config_param to dump */
-	param->config_params = &ctx->config_params;
-	param->config_param_size = sizeof(ctx->config_params);
+	param->config_params = mtk_cam_s_data_get_config_param(stream_data);
+	if (param->config_params)
+		param->config_param_size = sizeof(ctx->config_params);
+	else
+		param->config_param_size = 0;
+
 	dev_dbg(cam->dev, "%s:ctx(%d):req(%d), cofig_param size(%d)\n",
 		__func__, ctx->stream_id, param->sequence,
 		param->config_param_size);
