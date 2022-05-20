@@ -175,8 +175,8 @@ struct mtk_smi_larb { /* larb: local arbiter */
 #define MAX_COMMON_FOR_CLAMP		(3)
 #define MAX_LARB_FOR_CLAMP		(6)
 #define RESET_CELL_NUM			(2)
-#define MAX_PD_CHECK_DEV_NUM	(2)
-#define SMI_OSTD_CNT_MASK	(0x1FFE000)
+#define MAX_PD_CHECK_DEV_NUM	(3)
+#define SMI_OSTD_CNT_MASK	(0x7FFE000)
 
 struct mtk_smi_pd_log {
 	u8 power_status;
@@ -197,6 +197,7 @@ struct mtk_smi_pd {
 	struct notifier_block nb;
 	bool	is_main;
 	bool	suspend_check;
+	bool	bus_prot;
 	u32	pre_off_check_result;
 	struct mtk_smi_pd_log	last_pd_log;
 	struct mtk_smi			smi;
@@ -209,7 +210,7 @@ enum smi_log_level {
 	log_pd_callback,
 };
 
-#define MAX_INIT_POWER_ON_DEV	(5)
+#define MAX_INIT_POWER_ON_DEV	(7)
 static struct mtk_smi *init_power_on_dev[MAX_INIT_POWER_ON_DEV];
 static unsigned int init_power_on_num;
 
@@ -1866,8 +1867,9 @@ static u32 mtk_smi_common_ostd_check(struct mtk_smi *common,
 	for (i = 0; i < SMI_COMMON_LARB_NR_MAX; i++) {
 		if ((check_port >> i) & 1) {
 			val = readl_relaxed(common->base + SMI_DEBUG_S(i));
-			pr_notice("[SMI] common%d: %#x=%#x, power status = %ld\n",
-				common->commid, SMI_DEBUG_S(i), val, flags);
+			if (log_level & 1 << log_pd_callback)
+				pr_notice("[SMI] common%d: %#x=%#x, power status = %ld\n",
+					common->commid, SMI_DEBUG_S(i), val, flags);
 			if (val & SMI_OSTD_CNT_MASK) {
 				pr_notice("[SMI] common%d suspend check fail, power status = %d\n",
 					common->commid, flags);
@@ -1907,9 +1909,12 @@ static int mtk_smi_power_suspend_check(struct mtk_smi_pd *smi_pd, unsigned long 
 
 		if (flags == GENPD_NOTIFY_PRE_OFF)
 			smi_pd->pre_off_check_result = ret;
-		else if (flags == GENPD_NOTIFY_OFF)
+		else if (flags == GENPD_NOTIFY_OFF) {
 			dev_notice(smi_pd->dev, "[SMI] pre-off check result:%d\n",
 				smi_pd->pre_off_check_result);
+			raw_notifier_call_chain(&smi_driver_notifier_list,
+					TRIGGER_SMI_HANG_DETECT, NULL);
+		}
 	}
 
 	return 0;
@@ -1926,8 +1931,10 @@ static int mtk_smi_pd_callback(struct notifier_block *nb,
 	if (smi_pd->suspend_check) {
 		if (flags == GENPD_NOTIFY_PRE_OFF || flags == GENPD_NOTIFY_OFF)
 			mtk_smi_power_suspend_check(smi_pd, flags);
-		return NOTIFY_OK;
 	}
+
+	if (!smi_pd->bus_prot)
+		goto out;
 
 	if (flags == GENPD_NOTIFY_ON) {
 		/* enable related SMI common port */
@@ -1971,6 +1978,7 @@ static int mtk_smi_pd_callback(struct notifier_block *nb,
 		smi_pd->last_pd_log.time = ktime_get();
 	}
 
+out:
 	return NOTIFY_OK;
 }
 
@@ -2774,6 +2782,9 @@ static int mtk_smi_pd_probe(struct platform_device *pdev)
 
 	if (of_property_read_bool(dev->of_node, "suspend-check"))
 		smi_pd->suspend_check = true;
+
+	if (of_property_read_bool(dev->of_node, "bus-protect"))
+		smi_pd->bus_prot = true;
 
 	for (i = 0; i < MAX_COMMON_FOR_CLAMP; i++) {
 		smi_node = of_parse_phandle(dev->of_node, "mediatek,smi", i);

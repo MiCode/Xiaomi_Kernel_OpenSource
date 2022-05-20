@@ -693,6 +693,11 @@ static int smi_dbg_suspend_cb(struct notifier_block *nb,
 	bool is_larb = (v != NULL);
 
 	pr_notice("[SMI] %s: %d - %ld\n", __func__, is_larb, value);
+	if (value == TRIGGER_SMI_HANG_DETECT) {
+		mtk_smi_dbg_hang_detect("SMI DRIVER");
+		return 0;
+	}
+
 	mtk_smi_dbg_print(gsmi, is_larb, false, value, true);
 	return 0;
 }

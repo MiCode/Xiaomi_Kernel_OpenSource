@@ -12,6 +12,7 @@
 #if IS_ENABLED(CONFIG_MTK_SMI)
 
 #define MTK_SMI_MMU_EN(port)	BIT(port)
+#define TRIGGER_SMI_HANG_DETECT	(0xff)
 
 struct mtk_smi_larb_iommu {
 	struct device *dev;
