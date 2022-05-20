@@ -272,63 +272,34 @@ static struct kernel_param_ops mmdvfs_set_force_step_ops = {
 module_param_cb(force_step, &mmdvfs_set_force_step_ops, NULL, 0644);
 MODULE_PARM_DESC(force_step, "force mmdvfs to specified step");
 
-int mmdvfs_set_vote_step_ipi(const char *val, const struct kernel_param *kp)
+int mmdvfs_set_vote_step(const char *val, const struct kernel_param *kp)
 {
-	struct mmdvfs_ipi_data slot;
 	u16 idx = 0, opp = 0;
-	int ret;
+	u32 freq = 0;
+	int ret, i;
 
 	ret = sscanf(val, "%d %d", &idx, &opp);
-	if (ret != 2 || idx >= USER_NUM || opp >= MAX_OPP) {
+	if (ret != 2 || idx >= POWER_NUM || opp >= MAX_OPP) {
 		MMDVFS_ERR("failed:%d idx:%hu opp:%hu", ret, idx, opp);
 		return ret;
 	}
 
-	ret = mmdvfs_vcp_ipi_send(FUNC_SET_OPP, idx, opp, MAX_OPP);
+	for (i = max_mmdvfs_num; i >= 0; i--)
+		if (idx == mtk_mmdvfs_clks[i].pwr_id) {
+			if (opp >= mtk_mmdvfs_clks[i].freq_num) {
+				MMDVFS_ERR("invalid opp:%hu freq_num:%hhu",
+					opp, mtk_mmdvfs_clks[i].freq_num);
+				return opp;
+			}
 
-	slot = *(struct mmdvfs_ipi_data *)(u32 *)&ret;
-	MMDVFS_DBG("ipi:%d slot:%#x idx:%hhu opp:%hhu",
-		ret, slot, slot.idx, slot.ack);
-
-	return 0;
-}
-
-static struct kernel_param_ops mmdvfs_set_vote_step_ipi_ops = {
-	.set = mmdvfs_set_vote_step_ipi,
-};
-module_param_cb(vote_step_ipi, &mmdvfs_set_vote_step_ipi_ops, NULL, 0644);
-MODULE_PARM_DESC(vote_step_ipi, "vote mmdvfs to specified step by ipi");
-
-int mmdvfs_set_vote_step(const char *val, const struct kernel_param *kp)
-{
-	u16 pwr_id = 0, freq_num = 0;
-	s16 opp = 0, freq;
-	int ret, i;
-
-	ret = sscanf(val, "%u %d", &pwr_id, &opp);
-	if (ret != 2 || pwr_id >= POWER_NUM || opp >= MAX_OPP) {
-		MMDVFS_ERR("failed:%d pwr_id:%hu opp:%hd", ret, pwr_id, opp);
-		return ret;
-	}
-
-	for (i = 0; i < max_mmdvfs_num; i++) {
-		if (i == mtk_mmdvfs_clks[i].pwr_id) {
-			freq_num = mtk_mmdvfs_clks[i].freq_num;
+			freq = mtk_mmdvfs_clks[i].freqs[
+				mtk_mmdvfs_clks[i].freq_num - 1 - opp];
+			clk_set_rate(vote_clk[idx], freq);
 			break;
 		}
-	}
 
-	if (vote_clk[pwr_id]) {
-		if (freq_num == 0) {
-			MMDVFS_ERR("pwr_id:%hu has invalid freq_num=0", pwr_id);
-			return 0;
-		}
-		freq = (opp < 0) ? 0 : (freq_num - opp);
-		clk_set_rate(vote_clk[pwr_id], freq);
-		MMDVFS_DBG("set pwr:%hu opp=%hd freq:%hd", pwr_id, opp, freq);
-	} else {
-		MMDVFS_ERR("vote_clk[%hu] is NULL", pwr_id);
-	}
+	MMDVFS_DBG("idx:%hu clk:%p opp:%hu i:%d freq_num:%hhu freq:%u",
+		idx, vote_clk[idx], opp, i, mtk_mmdvfs_clks[i].freq_num, freq);
 
 	return 0;
 }

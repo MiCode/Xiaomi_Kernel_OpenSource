@@ -61,6 +61,8 @@ enum {
 	// USER_CAM,
 	// USER_SENIF,
 	// USER_IMG,
+	USER_VCORE,
+	// USER_VMM,
 	USER_NUM
 };
 
