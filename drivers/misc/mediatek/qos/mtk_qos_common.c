@@ -90,7 +90,7 @@ void qos_sram_init(void __iomem *regs, unsigned int bound)
 
 	qos_sram_base = regs;
 	qos_sram_bound = bound;
-	pr_info("qos_sram addr:0x%x len:%d\n",
+	pr_info("qos_sram addr:0x%p len:%d\n",
 		qos_sram_base, qos_sram_bound);
 
 	for (i = 0; i < bound; i += 4)
@@ -129,11 +129,21 @@ int mtk_qos_probe(struct platform_device *pdev,
 	if (IS_ERR(qos->regs))
 		return PTR_ERR(qos->regs);
 	qos_add_interface(&pdev->dev);
-	if (mtk_qos_enable) {
-		qos->regsize = (unsigned int) resource_size(res);
-		m_qos = qos;
-		qos_sram_init(qos->regs, qos->regsize);
+	qos->regsize = (unsigned int) resource_size(res);
+	qos_sram_init(qos->regs, qos->regsize);
 
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+	qos->regs = devm_ioremap_resource(&pdev->dev, res);
+	if (IS_ERR(qos->regs))
+		pr_info("mtkqos: share not use sram\n");
+	else {
+		pr_info("mtkoqs: find share sram node\n");
+		qos->regsize = (unsigned int) resource_size(res);
+		qos_share_init_sram(qos->regs, qos->regsize);
+	}
+
+	if (mtk_qos_enable) {
+		m_qos = qos;
 		qos_ipi_init(qos);
 
 		if (qos->soc->ipi_pin[QOS_IPI_QOS_BOUND].valid == true)

@@ -12,7 +12,12 @@
 #include <sspm_reservedmem_define.h>
 #endif
 
+static void __iomem *qos_share_sram_base;
+static unsigned int qos_share_sram_bound;
+
 struct qos_rec_data *qos_share_ref;
+
+static int qos_share_use_sram;
 
 /* share dram for subsys related table communication */
 static phys_addr_t rec_phys_addr, rec_virt_addr;
@@ -109,7 +114,10 @@ unsigned int qos_rec_get_hist_bw(unsigned int idx, unsigned int type)
 	if (idx >= HIST_NUM || type >= BW_TYPE)
 		return val;
 
-	val = qos_share_ref->bw_hist[idx][type];
+	if (qos_share_use_sram)
+		val = qos_share_sram_read(QOS_SHARE_HIST_BW + (BW_TYPE * idx + type)*4);
+	else
+		val = qos_share_ref->bw_hist[idx][type];
 
 	return val;
 }
@@ -125,7 +133,10 @@ unsigned int qos_rec_get_hist_data_bw(unsigned int idx, unsigned int type)
 	if (idx >= HIST_NUM || type >= BW_TYPE)
 		return val;
 
-	val = qos_share_ref->data_bw_hist[idx][type];
+	if (qos_share_use_sram)
+		val = qos_share_sram_read(QOS_SHARE_HIST_DATA_BW + (BW_TYPE * idx + type)*4);
+	else
+		val = qos_share_ref->data_bw_hist[idx][type];
 
 	return val;
 }
@@ -133,9 +144,38 @@ EXPORT_SYMBOL_GPL(qos_rec_get_hist_data_bw);
 
 unsigned int qos_rec_get_hist_idx(void)
 {
-	if (qos_share_ref)
+	if (qos_share_use_sram)
+		return qos_share_sram_read(QOS_SHARE_CURR_IDX);
+	else if (qos_share_ref)
 		return qos_share_ref->current_hist;
 	else
 		return 0xFFFF;
 }
 EXPORT_SYMBOL_GPL(qos_rec_get_hist_idx);
+int qos_share_init_sram(void __iomem *regs, unsigned int bound)
+{
+	int i;
+
+	qos_share_sram_base = regs;
+	qos_share_sram_bound = bound;
+
+	pr_info("qos share sram addr:0x%p len:%d\n",
+		qos_share_sram_base, qos_share_sram_bound);
+	qos_share_use_sram = 1;
+	/* init zero except for version addr */
+	for (i = 0; i < bound; i += 4)
+		writel(0x0, qos_share_sram_base+i);
+
+	pr_info("qos share use sram = %d\n", qos_share_use_sram);
+	return 0;
+}
+EXPORT_SYMBOL_GPL(qos_share_init_sram);
+
+extern u32 qos_share_sram_read(u32 offset)
+{
+	if (!qos_share_sram_base || offset >= qos_share_sram_bound)
+		return 0;
+
+	return readl(qos_share_sram_base + offset);
+}
+EXPORT_SYMBOL_GPL(qos_share_sram_read);
