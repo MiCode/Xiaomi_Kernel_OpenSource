@@ -581,7 +581,38 @@ void imgsys_dip_debug_dump(struct mtk_imgsys_dev *imgsys_dev,
 		(unsigned int)ioread32((void *)(gdipRegBA[1] + i + 0xc)));
 	}
 
+	/* Set DIPCTL_DBG_SEL[3:0] to 0x1 */
+	/* Set DIPCTL_DBG_SEL[15:8] to 0x82 */
+	/* Set DIPCTL_DBG_SEL[19:6] to 0x1~3*/
+	dev_info(imgsys_dev->dev, "%s: dipctl_dbg_sel_smt_d4\n", __func__);
+	for (i = 0; i < 3; i++) {
+		iowrite32((((0x1 + i)<<16) + 0x8201), (void *)(dipRegBA + DIPCTL_DBG_SEL));
+		dev_info(imgsys_dev->dev, "%s: [0x%08X](0x%08X,0x%08X)", __func__,
+		(unsigned int)(((0x1 + i)<<16) + 0x8201), (unsigned int)(0x151001a8),
+		(unsigned int)ioread32((void *)(dipRegBA + DIPCTL_DBG_OUT)));
+	}
 
+	/* Set DIPCTL_DBG_SEL[3:0] to 0x1 */
+	/* Set DIPCTL_DBG_SEL[15:8] to 0x84 */
+	/* Set DIPCTL_DBG_SEL[19:6] to 0x1~3*/
+	dev_info(imgsys_dev->dev, "%s: dipctl_dbg_sel_smt_d5\n", __func__);
+	for (i = 0; i < 3; i++) {
+		iowrite32((((0x1 + i)<<16) + 0x8401), (void *)(dipRegBA + DIPCTL_DBG_SEL));
+		dev_info(imgsys_dev->dev, "%s: [0x%08X](0x%08X,0x%08X)", __func__,
+		(unsigned int)(((0x1 + i)<<16) + 0x8401), (unsigned int)(0x151001a8),
+		(unsigned int)ioread32((void *)(dipRegBA + DIPCTL_DBG_OUT)));
+	}
+
+	/* Set DIPCTL_DBG_SEL[3:0] to 0x1 */
+	/* Set DIPCTL_DBG_SEL[15:8] to 0x89 */
+	/* Set DIPCTL_DBG_SEL[19:6] to 0x1~3*/
+	dev_info(imgsys_dev->dev, "%s: dipctl_dbg_sel_smt_d6\n", __func__);
+	for (i = 0; i < 3; i++) {
+		iowrite32((((0x1 + i)<<16) + 0x8901), (void *)(dipRegBA + DIPCTL_DBG_SEL));
+		dev_info(imgsys_dev->dev, "%s: [0x%08X](0x%08X,0x%08X)", __func__,
+		(unsigned int)(((0x1 + i)<<16) + 0x8901), (unsigned int)(0x151001a8),
+		(unsigned int)ioread32((void *)(dipRegBA + DIPCTL_DBG_OUT)));
+	}
 
 for (i = 0; i <= 6; i++) {
 	iowrite32((0x15 + i), (void *)(dipRegBA + DIPCTL_DMA_DBG_SEL));
