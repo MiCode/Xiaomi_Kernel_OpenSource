@@ -119,8 +119,15 @@ static struct dlpt_callback_table dlptcb_tb[DLPTCB_MAX_NUM] = { {0} };
  */
 static void update_dlpt_imix_r(void)
 {
-	if (!PTR_ERR_OR_ZERO(dlpt.chan_imix_r))
-		iio_read_channel_raw(dlpt.chan_imix_r, &dlpt.imix_r);
+	int ret = 0;
+
+	if (!PTR_ERR_OR_ZERO(dlpt.chan_imix_r)) {
+		ret = iio_read_channel_raw(dlpt.chan_imix_r, &dlpt.imix_r);
+		if (ret < 0) {
+			pr_notice("[%s] iio_read_channel_raw error\n", __func__);
+			return;
+		}
+	}
 	pr_info("[dlpt] imix_r=%d\n", dlpt.imix_r);
 }
 
