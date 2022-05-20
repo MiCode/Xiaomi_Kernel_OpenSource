@@ -19,6 +19,12 @@ struct uarthub_reg_base_addr {
 	unsigned long long size;
 };
 
+struct assert_ctrl {
+	int err_type;
+	struct workqueue_struct *uarthub_workqueue;
+	struct work_struct trigger_assert_work;
+};
+
 /*******************************************************************************
  *                              internal function
  *******************************************************************************/
@@ -26,6 +32,8 @@ int uarthub_core_irq_register(struct platform_device *pdev);
 int uarthub_core_read_reg_from_dts(struct platform_device *pdev);
 int uarthub_core_read_max_dev_from_dts(struct platform_device *pdev);
 int uarthub_core_config_gpio_from_dts(struct platform_device *pdev);
+int uarthub_core_config_uart_glue_ctrl_from_dts(struct platform_device *pdev);
+int uarthub_core_config_univpll_clk_remap_addr_from_dts(struct platform_device *pdev);
 int uarthub_core_clk_get_from_dts(struct platform_device *pdev);
 int uarthub_core_read_baud_rate_from_dts(int dev_index, struct platform_device *pdev);
 int uarthub_core_check_irq_err_type(void);
@@ -38,6 +46,8 @@ int uarthub_core_rx_error_crc_info(int dev_index, int *p_crc_error_data, int *p_
 int uarthub_core_timeout_info(int dev_index, int rx, int *p_timeout_counter, int *p_pkt_counter);
 int uarthub_core_config_baud_rate(void __iomem *uarthub_dev_base, int rate_index);
 int uarthub_core_reset_to_ap_enable_only(int ap_only);
+void uarthub_core_set_trigger_assert_worker(int err_type);
+int uarthub_core_is_apb_bus_clk_enable(void);
 
 /*******************************************************************************
  *                              public function
