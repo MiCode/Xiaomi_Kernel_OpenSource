@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/clk-provider.h>
@@ -200,6 +201,7 @@ static const struct freq_tbl ftbl_gpu_cc_gx_gfx3d_clk_src[] = {
 	F(390000000, P_GPU_CC_PLL0_OUT_EVEN, 2, 0, 0),
 	F(490000000, P_GPU_CC_PLL0_OUT_EVEN, 2, 0, 0),
 	F(650000000, P_GPU_CC_PLL0_OUT_EVEN, 2, 0, 0),
+	F(700000000, P_GPU_CC_PLL0_OUT_EVEN, 2, 0, 0),
 	F(770000000, P_GPU_CC_PLL0_OUT_EVEN, 2, 0, 0),
 	F(840000000, P_GPU_CC_PLL0_OUT_EVEN, 2, 0, 0),
 	F(900000000, P_GPU_CC_PLL0_OUT_EVEN, 2, 0, 0),
