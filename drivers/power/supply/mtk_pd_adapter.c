@@ -335,8 +335,9 @@ static int pd_set_cap(struct adapter_device *dev, enum adapter_cap_type type,
 		tcpm_ret = tcpm_set_apdo_charging_policy(info->tcpc,
 			DPM_CHARGING_POLICY_PPS, mV, mA, NULL);
 	} else if (type == MTK_PD_APDO_END) {
-		tcpm_ret = tcpm_set_pd_charging_policy(info->tcpc,
-			DPM_CHARGING_POLICY_VSAFE5V, NULL);
+		// tcpm_ret = tcpm_set_pd_charging_policy(info->tcpc,
+		//	DPM_CHARGING_POLICY_VSAFE5V, NULL);
+		tcpm_ret = tcpm_reset_pd_charging_policy(info->tcpc, NULL);
 	} else if (type == MTK_PD_APDO) {
 		tcpm_ret = tcpm_dpm_pd_request(info->tcpc, mV, mA, NULL);
 	} else if (type == MTK_PD) {

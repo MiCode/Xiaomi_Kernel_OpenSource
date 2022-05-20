@@ -1287,7 +1287,7 @@ static inline int pe5p_start(struct pe5p_algo_info *info)
 		}
 	}
 
-	ret = pe5p_set_ta_cap_cv(info, 9000, auth_data->ita_max);
+	ret = pe5p_set_ta_cap_cv(info, 9000, 2000);
 	if (ret < 0)
 		PE5P_ERR("set ta cap fail(%d)\n", ret);
 
@@ -1324,8 +1324,7 @@ static inline int pe5p_start(struct pe5p_algo_info *info)
 		goto start;
 	}
 	PE5P_INFO("vbus=%d,ibus=%d,vbat=%d\n", vbus, ibus, vbat);
-	ita = precise_div(percent(vbus * ibus, 90), 2 * vbat);
-	//ita = precise_div(percent(vbus * ibus, 90), vbat);
+	ita = precise_div(percent(vbus * ibus, 90), vbat);
 	if (ita < desc->idvchg_term) {
 		PE5P_ERR("estimated ita(%d) < idvchg_term(%d)\n", ita,
 			desc->idvchg_term);
@@ -3693,7 +3692,7 @@ static bool pe5p_is_algo_running(struct chg_alg_device *alg)
 	struct pe5p_algo_data *data = info->data;
 	bool running = true;
 
-	mutex_trylock(&data->lock);
+	mutex_lock(&data->lock);
 
 	if (!data->inited) {
 		running = false;

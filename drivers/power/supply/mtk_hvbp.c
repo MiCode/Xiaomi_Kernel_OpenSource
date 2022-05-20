@@ -1138,7 +1138,7 @@ static inline int hvbp_start(struct hvbp_algo_info *info)
 		}
 	}
 
-	ret = hvbp_hal_set_ta_cap(info->alg, 9000, auth_data->ita_max);
+	ret = hvbp_hal_set_ta_cap(info->alg, 9000, 2000);
 	if (ret < 0) {
 		HVBP_ERR("set ta cap fail(%d)\n", ret);
 		return ret;

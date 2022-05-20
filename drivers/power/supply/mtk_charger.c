@@ -868,6 +868,32 @@ static ssize_t fast_chg_indicator_store(struct device *dev, struct device_attrib
 
 static DEVICE_ATTR_RW(fast_chg_indicator);
 
+static ssize_t alg_new_arbitration_show(struct device *dev, struct device_attribute *attr,
+						char *buf)
+{
+	struct mtk_charger *pinfo = dev->driver_data;
+
+	chr_debug("%s: %d\n", __func__, pinfo->alg_new_arbitration);
+	return sprintf(buf, "%d\n", pinfo->alg_new_arbitration);
+}
+
+static ssize_t alg_new_arbitration_store(struct device *dev, struct device_attribute *attr,
+						const char *buf, size_t size)
+{
+	struct mtk_charger *pinfo = dev->driver_data;
+	unsigned int temp;
+
+	if (kstrtouint(buf, 10, &temp) == 0)
+		pinfo->alg_new_arbitration = temp;
+	else
+		chr_err("%s: format error!\n", __func__);
+
+	_wake_up_charger(pinfo);
+	return size;
+}
+
+static DEVICE_ATTR_RW(alg_new_arbitration);
+
 static ssize_t alg_unchangeable_show(struct device *dev, struct device_attribute *attr,
 					       char *buf)
 {
@@ -2942,6 +2968,10 @@ static int mtk_charger_setup_files(struct platform_device *pdev)
 		goto _out;
 
 	ret = device_create_file(&(pdev->dev), &dev_attr_fast_chg_indicator);
+	if (ret)
+		goto _out;
+
+	ret = device_create_file(&(pdev->dev), &dev_attr_alg_new_arbitration);
 	if (ret)
 		goto _out;
 

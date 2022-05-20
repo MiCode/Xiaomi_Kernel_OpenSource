@@ -3674,7 +3674,7 @@ static bool pe50_is_algo_running(struct chg_alg_device *alg)
 	struct pe50_algo_data *data = info->data;
 	bool running = true;
 
-	mutex_trylock(&data->lock);
+	mutex_lock(&data->lock);
 
 	if (!data->inited) {
 		running = false;

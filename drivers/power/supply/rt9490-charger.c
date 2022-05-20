@@ -103,6 +103,7 @@ enum rt9490_fields {
 	F_MIVR,
 	F_VPRECHG,
 	F_IPRECHG,
+	F_RSTRG,
 	F_IEOC,
 	F_TRECHG,
 	F_VRECHG,
@@ -229,6 +230,7 @@ struct rt9490_chg_data {
 	bool bc12_dn;
 	struct workqueue_struct *wq;
 	struct work_struct bc12_work;
+	struct gpio_desc *ceb_gpio;
 };
 
 static const char *const rt9490_attach_trig_names[] = {
@@ -253,6 +255,7 @@ static struct reg_field rt9490_reg_fields[] = {
 	[F_MIVR]	= REG_FIELD(RT9490_REG_MIVR_CTRL, 0, 7),
 	[F_VPRECHG]	= REG_FIELD(RT9490_REG_PRE_CHG, 6, 7),
 	[F_IPRECHG]	= REG_FIELD(RT9490_REG_PRE_CHG, 0, 5),
+	[F_RSTRG]	= REG_FIELD(RT9490_REG_EOC_CTRL, 6, 6),
 	[F_IEOC]	= REG_FIELD(RT9490_REG_EOC_CTRL, 0, 4),
 	[F_TRECHG]	= REG_FIELD(RT9490_REG_RECHG, 4, 5),
 	[F_VRECHG]	= REG_FIELD(RT9490_REG_RECHG, 0, 3),
@@ -425,7 +428,7 @@ static int rt9490_charger_get_online(struct rt9490_chg_data *data,
 				     union power_supply_propval *val)
 {
 	mutex_lock(&data->lock);
-	val->intval = data->vbus_ready;
+	val->intval = atomic_read(&data->attach);
 	mutex_unlock(&data->lock);
 
 	return 0;
@@ -626,9 +629,22 @@ static int rt9490_charger_set_ichg(struct rt9490_chg_data *data,
 						 val->intval);
 }
 
+static int rt9490_enable_charging(struct charger_device *chgdev, bool en);
 static int rt9490_charger_set_cv(struct rt9490_chg_data *data,
 				 const union power_supply_propval *val)
 {
+	union power_supply_propval vbat_val;
+	int ret;
+
+	ret = rt9490_charger_get_adc(data, RT9490_ADC_VBAT, &vbat_val);
+	if (ret)
+		return ret;
+	if (val->intval < vbat_val.intval) {
+		dev_notice(data->dev, "cv(%d)<vbat(%d), disable charging\n",
+			   val->intval, vbat_val.intval);
+		ret = rt9490_enable_charging(data->chgdev, false);
+			return ret;
+	}
 	return rt9490_set_value_to_be16_selector(data, RT9490_REG_VCHG_CTRL,
 						 RT9490_RANGE_CV,
 						 val->intval);
@@ -946,6 +962,9 @@ static int rt9490_enable_charging(struct charger_device *chgdev, bool en)
 	struct rt9490_chg_data *data = charger_get_data(chgdev);
 
 	dev_info(data->dev, "%s: en = %d\n", __func__, en);
+	if (data->ceb_gpio)
+		gpiod_set_value(data->ceb_gpio, !en);
+	mdelay(1);
 	return regmap_field_write(data->rm_field[F_EN_CHG], en);
 }
 
@@ -1388,7 +1407,7 @@ static int rt9490_get_ibat(struct charger_device *chgdev, uint32_t *ibat)
 
 static int rt9490_get_ibus(struct charger_device *chgdev, uint32_t *ibus)
 {
-	return rt9490_get_adc(chgdev, ADC_CHANNEL_IBAT, ibus, ibus);
+	return rt9490_get_adc(chgdev, ADC_CHANNEL_IBUS, ibus, ibus);
 }
 
 static const struct charger_properties rt9490_chg_props = {
@@ -2098,7 +2117,6 @@ static int rt9490_charger_probe(struct platform_device *pdev)
 	struct power_supply_config cfg = {};
 	struct regulator_config reg_cfg = {};
 	struct regulator_dev *rdev;
-	struct gpio_desc *ceb_gpio;
 	int i, irqno, ret;
 
 	data = devm_kzalloc(&pdev->dev, sizeof(*data), GFP_KERNEL);
@@ -2133,14 +2151,6 @@ static int rt9490_charger_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Failed to alloc regmap fields\n");
 		goto out_wq;
 	}
-
-	ceb_gpio = devm_gpiod_get_optional(&pdev->dev, "ceb", GPIOD_OUT_LOW);
-	if (IS_ERR(ceb_gpio)) {
-		dev_err(&pdev->dev, "config ceb-gpio faiil\n");
-		ret = PTR_ERR(ceb_gpio);
-		goto out_wq;
-	}
-
 	ret = rt9490_get_all_adcs(data);
 	if (ret) {
 		dev_err(&pdev->dev, "Failed to get all adcs\n");
@@ -2150,6 +2160,14 @@ static int rt9490_charger_probe(struct platform_device *pdev)
 	ret = rt9490_do_charger_init(data);
 	if (ret) {
 		dev_err(&pdev->dev, "Failed to do charger init\n");
+		goto out_wq;
+	}
+
+	data->ceb_gpio = devm_gpiod_get_optional(&pdev->dev, "ceb",
+						 GPIOD_OUT_LOW);
+	if (IS_ERR(data->ceb_gpio)) {
+		dev_info(&pdev->dev, "config ceb-gpio faiil\n");
+		ret = PTR_ERR(data->ceb_gpio);
 		goto out_wq;
 	}
 
@@ -2241,7 +2259,19 @@ static int rt9490_charger_remove(struct platform_device *pdev)
 	mutex_destroy(&data->pe_lock);
 	return 0;
 }
+static void rt9490_charger_shutdown(struct platform_device *pdev)
+{
+	struct rt9490_chg_data *data = platform_get_drvdata(pdev);
 
+	int ret;
+
+	if (data->ceb_gpio)
+		gpiod_set_value(data->ceb_gpio, true);
+	/* Trigger the whole chip register reset */
+	ret = regmap_field_write(data->rm_field[F_RSTRG], 1);
+	if (ret)
+		dev_info(data->dev, "Failed to reset registers\n");
+}
 static const struct of_device_id rt9490_charger_of_match_table[] = {
 	{ .compatible = "richtek,rt9490-chg", },
 	{ }
@@ -2255,6 +2285,7 @@ static struct platform_driver rt9490_charger_driver = {
 	},
 	.probe = rt9490_charger_probe,
 	.remove = rt9490_charger_remove,
+	.shutdown = rt9490_charger_shutdown,
 };
 module_platform_driver(rt9490_charger_driver);
 

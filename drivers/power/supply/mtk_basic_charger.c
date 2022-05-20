@@ -449,6 +449,11 @@ static int do_algorithm(struct mtk_charger *info)
 						ret == ALG_NOT_READY) {
 				/* wait checking , use basic first */
 				is_basic = true;
+				if (info->alg_new_arbitration && !info->alg_unchangeable &&
+					(lst_rnd_alg_idx != -1)) {
+					if (lst_rnd_alg_idx != i)
+						chg_alg_stop_algo(info->alg[lst_rnd_alg_idx]);
+				}
 				break;
 			} else if (ret == ALG_READY || ret == ALG_RUNNING) {
 				is_basic = false;
