@@ -1,0 +1,8 @@
+config MTK_ET
+	tristate "MediaTek Debug Module"
+	default m
+	help
+	  This driver provides exception handling for
+	  debug.
+	  Select "y" if you want to enable this features.
+	  Select "n" if unsure.
