@@ -1710,6 +1710,12 @@ static int gpufreq_wrapper_pdrv_probe(struct platform_device *pdev)
 
 	GPUFREQ_LOGI("start to probe gpufreq wrapper driver");
 
+	/* keep probe successful but do nothing when bringup */
+	if (gpufreq_bringup()) {
+		GPUFREQ_LOGI("skip gpufreq wrapper driver probe when bringup");
+		goto done;
+	}
+
 	if (unlikely(!of_wrapper)) {
 		GPUFREQ_LOGE("fail to find gpufreq wrapper of_node (ENOENT)");
 		ret = GPUFREQ_ENOENT;
