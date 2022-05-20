@@ -61,8 +61,10 @@ static int set_mclk(struct adaptor_ctx *ctx, void *data, int val)
 {
 	int ret;
 	struct clk *mclk, *mclk_src;
+	unsigned long long idx;
 
-	mclk = ctx->clk[CLK_MCLK];
+	idx = (unsigned long long)data;
+	mclk = ctx->clk[idx];
 	mclk_src = get_clk_by_freq(ctx, val);
 
 	ret = clk_prepare_enable(mclk);
@@ -89,8 +91,10 @@ static int set_mclk(struct adaptor_ctx *ctx, void *data, int val)
 static int unset_mclk(struct adaptor_ctx *ctx, void *data, int val)
 {
 	struct clk *mclk, *mclk_src;
+	unsigned long long idx;
 
-	mclk = ctx->clk[CLK_MCLK];
+	idx = (unsigned long long)data;
+	mclk = ctx->clk[idx];
 	mclk_src = get_clk_by_freq(ctx, val);
 
 	clk_disable_unprepare(mclk_src);
@@ -371,6 +375,8 @@ int adaptor_hw_init(struct adaptor_ctx *ctx)
 
 	INST_OPS(ctx, clk, CLK_MCLK, HW_ID_MCLK, set_mclk, unset_mclk);
 
+	INST_OPS(ctx, clk, CLK_MCLK1, HW_ID_MCLK1, set_mclk, unset_mclk);
+
 	INST_OPS(ctx, regulator, REGULATOR_AVDD, HW_ID_AVDD,
 			set_reg, unset_reg);
 
@@ -386,6 +392,9 @@ int adaptor_hw_init(struct adaptor_ctx *ctx)
 	INST_OPS(ctx, regulator, REGULATOR_AVDD1, HW_ID_AVDD1,
 			set_reg, unset_reg);
 
+	INST_OPS(ctx, regulator, REGULATOR_DVDD1, HW_ID_DVDD1,
+			set_reg, unset_reg);
+
 	if (ctx->state[STATE_MIPI_SWITCH_ON])
 		ctx->hw_ops[HW_ID_MIPI_SWITCH].set = set_state_mipi_switch;
 
@@ -393,6 +402,9 @@ int adaptor_hw_init(struct adaptor_ctx *ctx)
 		ctx->hw_ops[HW_ID_MIPI_SWITCH].unset = unset_state_mipi_switch;
 
 	INST_OPS(ctx, state, STATE_MCLK_OFF, HW_ID_MCLK_DRIVING_CURRENT,
+			set_state_div2, unset_state);
+
+	INST_OPS(ctx, state, STATE_MCLK1_OFF, HW_ID_MCLK1_DRIVING_CURRENT,
 			set_state_div2, unset_state);
 
 	INST_OPS(ctx, state, STATE_RST_LOW, HW_ID_RST,
@@ -415,6 +427,21 @@ int adaptor_hw_init(struct adaptor_ctx *ctx)
 
 	INST_OPS(ctx, state, STATE_AVDD1_OFF, HW_ID_AVDD1,
 			set_state_boolean, unset_state);
+
+	INST_OPS(ctx, state, STATE_DVDD1_OFF, HW_ID_DVDD1,
+			set_state_boolean, unset_state);
+
+	INST_OPS(ctx, state, STATE_RST1_LOW, HW_ID_RST1,
+			set_state, unset_state);
+
+	INST_OPS(ctx, state, STATE_PONV_LOW, HW_ID_PONV,
+		 set_state, unset_state);
+
+	INST_OPS(ctx, state, STATE_SCL_AP, HW_ID_SCL,
+		 set_state, unset_state);
+
+	INST_OPS(ctx, state, STATE_SDA_AP, HW_ID_SDA,
+		 set_state, unset_state);
 
 	/* the pins of mipi switch are shared. free it for another users */
 	if (ctx->state[STATE_MIPI_SWITCH_ON] ||

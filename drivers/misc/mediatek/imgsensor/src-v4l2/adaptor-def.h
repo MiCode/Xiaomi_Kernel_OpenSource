@@ -21,6 +21,7 @@ enum {
 	CLK_26M,
 	CLK_52M,
 	CLK_MCLK,
+	CLK_MCLK1,
 	CLK_MAXCNT,
 };
 
@@ -33,6 +34,7 @@ enum {
 	"26", \
 	"52", \
 	"mclk", \
+	"mclk1", \
 
 enum {
 	STATE_MCLK_OFF = 0,
@@ -56,6 +58,21 @@ enum {
 	STATE_AFVDD_ON,
 	STATE_AVDD1_OFF,
 	STATE_AVDD1_ON,
+	STATE_MCLK1_OFF,
+	STATE_MCLK1_2MA,
+	STATE_MCLK1_4MA,
+	STATE_MCLK1_6MA,
+	STATE_MCLK1_8MA,
+	STATE_DVDD1_OFF,
+	STATE_DVDD1_ON,
+	STATE_RST1_LOW,
+	STATE_RST1_HIGH,
+	STATE_PONV_LOW,
+	STATE_PONV_HIGH,
+	STATE_SCL_AP,
+	STATE_SCL_SCP,
+	STATE_SDA_AP,
+	STATE_SDA_SCP,
 	STATE_MAXCNT,
 };
 
@@ -81,6 +98,21 @@ enum {
 	"afvdd_on", \
 	"avdd1_off", \
 	"avdd1_on", \
+	"mclk1_off", \
+	"mclk1_2mA", \
+	"mclk1_4mA", \
+	"mclk1_6mA", \
+	"mclk1_8mA", \
+	"dvdd1_off", \
+	"dvdd1_on", \
+	"rst1_low", \
+	"rst1_high", \
+	"ponv_low", \
+	"ponv_high", \
+	"scl_ap", \
+	"scl_scp", \
+	"sda_ap", \
+	"sda_scp", \
 
 enum {
 	REGULATOR_AVDD = 0,
@@ -88,6 +120,7 @@ enum {
 	REGULATOR_DOVDD,
 	REGULATOR_AFVDD,
 	REGULATOR_AVDD1,
+	REGULATOR_DVDD1,
 	REGULATOR_MAXCNT,
 };
 
@@ -97,6 +130,7 @@ enum {
 	"dovdd", \
 	"afvdd", \
 	"avdd1", \
+	"dvdd1", \
 
 /* Format code util */
 

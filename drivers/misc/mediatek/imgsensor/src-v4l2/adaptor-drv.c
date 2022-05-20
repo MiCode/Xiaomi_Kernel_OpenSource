@@ -1075,7 +1075,10 @@ static int imgsensor_probe(struct i2c_client *client)
 	struct device *dev = &client->dev;
 	struct device_node *endpoint;
 	struct adaptor_ctx *ctx;
-	int ret;
+	int i, ret;
+	unsigned int reindex;
+	const char *reindex_match[OF_SENSOR_NAMES_MAXCNT];
+	int reindex_match_cnt;
 
 	ctx = devm_kzalloc(dev, sizeof(*ctx), GFP_KERNEL);
 	if (!ctx)
@@ -1132,14 +1135,27 @@ static int imgsensor_probe(struct i2c_client *client)
 	ctx->sd.dev = &client->dev;
 	ctx->sd.entity.function = MEDIA_ENT_F_CAM_SENSOR;
 
-
-	/* init subdev name */
-	snprintf(ctx->sd.name, V4L2_SUBDEV_NAME_SIZE, "%s",
-		dev->of_node->name);
-
 	ret = sscanf(dev->of_node->name, OF_SENSOR_NAME_PREFIX"%d", &ctx->idx);
 	if (ret != 1)
 		dev_warn(dev, "failed to parse %s\n", dev->of_node->name);
+
+	if (!of_property_read_u32(dev->of_node, "reindex-to", &reindex)) {
+		reindex_match_cnt = of_property_read_string_array(dev->of_node,
+			"reindex-match", reindex_match, ARRAY_SIZE(reindex_match));
+		for (i = 0; i < reindex_match_cnt; i++) {
+			if (!strncmp(reindex_match[i], ctx->subdrv->name,
+				     strlen(reindex_match[i]))) {
+				ctx->idx = reindex;
+				dev_info(dev, "reindex to sensor%d\n", ctx->idx);
+				break;
+			}
+		}
+	}
+
+	/* init subdev name */
+	snprintf(ctx->sd.name, V4L2_SUBDEV_NAME_SIZE, "%s%d",
+		OF_SENSOR_NAME_PREFIX, ctx->idx);
+
 
 	/* init controls */
 	ret = adaptor_init_ctrls(ctx);

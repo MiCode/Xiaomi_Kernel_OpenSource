@@ -8,6 +8,7 @@
 
 //#include "kd_imgsensor_define_v4l2.h"
 #include "imgsensor-user.h"
+#include "adaptor-def.h"
 
 #define DEBUG_LOG(ctx, ...) do {\
 	imgsensor_info.sd = i2c_get_clientdata(ctx->i2c_client); \
@@ -30,6 +31,13 @@ enum {
 	HW_ID_MCLK,
 	HW_ID_MCLK_DRIVING_CURRENT,
 	HW_ID_MIPI_SWITCH,
+	HW_ID_DVDD1,
+	HW_ID_RST1,
+	HW_ID_MCLK1,
+	HW_ID_MCLK1_DRIVING_CURRENT,
+	HW_ID_PONV,
+	HW_ID_SCL,
+	HW_ID_SDA,
 	HW_ID_MAXCNT,
 };
 
@@ -106,6 +114,8 @@ struct subdrv_ctx {
 	u32 is_read_preload_eeprom;
 	u32 is_read_four_cell;
 	bool is_streaming;
+	struct pinctrl *pinctrl;
+	struct pinctrl_state *state[STATE_MAXCNT];
 };
 
 struct subdrv_ops {
