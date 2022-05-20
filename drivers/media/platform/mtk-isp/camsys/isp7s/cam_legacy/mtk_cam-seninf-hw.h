@@ -82,6 +82,8 @@ struct mtk_cam_seninf_ops {
 	u32 (*_get_cammux_res)(struct seninf_ctx *ctx, int cam_mux);
 	int (*_set_cammux_vc)(struct seninf_ctx *ctx, int cam_mux,
 					 int vc_sel, int dt_sel, int vc_en, int dt_en);
+	int (*_set_cammux_tag)(struct seninf_ctx *ctx, int cam_mux,
+					int vc_sel, int dt_sel, int tag, int first);
 	int (*_set_cammux_src)(struct seninf_ctx *ctx, int src,
 					  int target, int exp_hsize, int exp_vsize, int dt);
 	int (*_set_vc)(struct seninf_ctx *ctx, int seninfIdx,
@@ -98,7 +100,7 @@ struct mtk_cam_seninf_ops {
 	int (*_set_cammux_chk_pixel_mode)(struct seninf_ctx *ctx,
 							 int cam_mux, int pixelMode);
 	int (*_set_test_model)(struct seninf_ctx *ctx,
-					  int mux, int cam_mux, int pixelMode);
+			int mux, int cam_mux, int pixelMode, int filter, int con, int vc, int dt);
 	int (*_set_csi_mipi)(struct seninf_ctx *ctx);
 	int (*_poweroff)(struct seninf_ctx *ctx);
 	int (*_reset)(struct seninf_ctx *ctx, int seninfIdx);

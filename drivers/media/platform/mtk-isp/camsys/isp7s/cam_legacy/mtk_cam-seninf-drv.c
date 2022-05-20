@@ -67,6 +67,14 @@ static const char * const set_reg_names[] = {
 	SET_REG_KEYS_NAMES
 };
 
+static const char * const mux_range_name[] = {
+	MUX_RANGE_NAMES
+};
+
+static const char * const cammux_range_name[] = {
+	CAMMUX_RANGE_NAMES
+};
+
 static ssize_t status_show(struct device *dev,
 			   struct device_attribute *attr, char *buf)
 {
@@ -399,6 +407,17 @@ static int get_seninf_ops(struct device *dev, struct seninf_core *core)
 			&g_seninf_ops->cam_mux_num);
 		of_property_read_u32(dev->of_node, "pref_mux_num",
 			&g_seninf_ops->pref_mux_num);
+
+		for (i = 0; i < TYPE_MAX_NUM; i++) {
+			of_property_read_u32_index(dev->of_node, mux_range_name[i],
+						   0, &core->mux_range[i].first);
+			of_property_read_u32_index(dev->of_node, mux_range_name[i],
+						   1, &core->mux_range[i].second);
+			of_property_read_u32_index(dev->of_node, cammux_range_name[i],
+						   0, &core->cammux_range[i].first);
+			of_property_read_u32_index(dev->of_node, cammux_range_name[i],
+						   1, &core->cammux_range[i].second);
+		}
 
 		dev_info(dev, "%s: seninf_num = %d, mux_num = %d, cam_mux_num = %d, pref_mux_num =%d\n",
 			__func__,
@@ -782,9 +801,9 @@ static int set_test_model(struct seninf_ctx *ctx, char enable)
 {
 	struct seninf_vc *vc[] = {NULL, NULL, NULL, NULL, NULL};
 	int i = 0, vc_used = 0;
-	struct seninf_mux *mux;
+	struct seninf_mux *mux, *mux_by_camtype[TYPE_MAX_NUM] = {0};
+	int vc_dt_filter = 1;
 	struct seninf_dfs *dfs = &ctx->core->dfs;
-	int pref_idx[] = {0, 1, 2, 3, 4}; //FIXME
 
 	if (ctx->is_test_model == 1) {
 		vc[vc_used++] = mtk_cam_seninf_get_vc_by_pad(ctx, PAD_SRC_RAW0);
@@ -825,20 +844,28 @@ static int set_test_model(struct seninf_ctx *ctx, char enable)
 			seninf_dfs_set(ctx, dfs->freqs[dfs->cnt - 1]);
 
 		for (i = 0; i < vc_used; ++i) {
-			mux = mtk_cam_seninf_mux_get_pref(ctx,
-							  pref_idx,
-							  ARRAY_SIZE(pref_idx));
-			if (!mux)
-				return -EBUSY;
-			vc[i]->mux = mux->idx;
 			vc[i]->cam = ctx->pad2cam[vc[i]->out_pad];
 			vc[i]->enable = 1;
 
-			dev_info(ctx->dev, "test mode mux %d, cam %d, pixel mode %d\n",
-					vc[i]->mux, vc[i]->cam, vc[i]->pixel_mode);
+			if (mux_by_camtype[vc[i]->cam_type]) {
+				mux = mux_by_camtype[vc[i]->cam_type];
+			} else {
+				mux = mtk_cam_seninf_mux_get_by_type(ctx,
+					     cammux2camtype(ctx, vc[i]->cam));
+				mux_by_camtype[vc[i]->cam_type] = mux;
+			}
+			if (!mux)
+				return -EBUSY;
+			vc[i]->mux = mux->idx;
+
+			dev_info(ctx->dev,
+				"test mode mux %d, cam %d, pixel mode %d, vc = %d, dt = 0x%x\n",
+				vc[i]->mux, vc[i]->cam, vc[i]->pixel_mode,
+				vc[i]->vc, vc[i]->dt);
 
 			g_seninf_ops->_set_test_model(ctx,
-					vc[i]->mux, vc[i]->cam, vc[i]->pixel_mode);
+					vc[i]->mux, vc[i]->cam, vc[i]->pixel_mode,
+					vc_dt_filter, i, vc[i]->vc, vc[i]->dt);
 
 			if (vc[i]->out_pad == PAD_SRC_PDAF0)
 				mdelay(40);
@@ -861,16 +888,10 @@ static int set_test_model(struct seninf_ctx *ctx, char enable)
 	return 0;
 }
 
-static int config_hw(struct seninf_ctx *ctx)
+static int config_hw_csi(struct seninf_ctx *ctx)
 {
-	int i, intf, skip_mux_ctrl;
-	int hsPol, vsPol, vc_sel, dt_sel, dt_en;
-	struct seninf_vcinfo *vcinfo;
-	struct seninf_vc *vc;
-	struct seninf_mux *mux, *mux_by_grp[SENINF_VC_MAXCNT] = {0};
-
-	intf = ctx->seninfIdx;
-	vcinfo = &ctx->vcinfo;
+	int intf = ctx->seninfIdx;
+	struct seninf_vcinfo *vcinfo = &ctx->vcinfo;
 
 	mtk_cam_seninf_get_csi_param(ctx);
 
@@ -880,92 +901,6 @@ static int config_hw(struct seninf_ctx *ctx)
 
 	g_seninf_ops->_set_csi_mipi(ctx);
 
-	// TODO
-	hsPol = 0;
-	vsPol = 0;
-
-	for (i = 0; i < vcinfo->cnt; i++) {
-		vc = &vcinfo->vc[i];
-
-		vc->enable = mtk_cam_seninf_is_vc_enabled(ctx, vc);
-		if (!vc->enable) {
-			dev_info(ctx->dev, "vc[%d] pad %d. skip\n",
-				 i, vc->feature, vc->out_pad);
-			continue;
-		}
-
-		/* alloc mux by group */
-		if (mux_by_grp[vc->group]) {
-			mux = mux_by_grp[vc->group];
-			skip_mux_ctrl = 1;
-		} else {
-			int pref_idx[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
-					10, 11, 12, 13, 14, 15,	16, 17, 18, 19, 20, 21 };
-			mux = mux_by_grp[vc->group] =
-				//mtk_cam_seninf_mux_get(ctx);
-				mtk_cam_seninf_mux_get_pref(ctx,
-						pref_idx,
-						g_seninf_ops->pref_mux_num);
-			skip_mux_ctrl = 0;
-		}
-
-		if (!mux) {
-			mtk_cam_seninf_release_mux(ctx);
-			return -EBUSY;
-		}
-
-		vc->mux = mux->idx;
-		vc->cam = ctx->pad2cam[vc->out_pad];
-
-		if (!skip_mux_ctrl) {
-			g_seninf_ops->_mux(ctx, vc->mux);
-			g_seninf_ops->_set_mux_ctrl(ctx, vc->mux,
-						    hsPol, vsPol,
-				MIPI_SENSOR + vc->group,
-				vc->pixel_mode);
-
-			g_seninf_ops->_set_top_mux_ctrl(ctx, vc->mux, intf);
-
-			//TODO
-			//mtk_cam_seninf_set_mux_crop(ctx, vc->mux, 0, 2327, 0);
-		}
-		dev_info(ctx->dev, "ctx->pad2cam[%d] %d vc->out_pad %d vc->cam %d, i %d",
-			vc->out_pad, ctx->pad2cam[vc->out_pad], vc->out_pad, vc->cam, i);
-
-		if (vc->cam != 0xff) {
-			vc_sel = vc->vc;
-			dt_sel = vc->dt;
-			dt_en = !!dt_sel;
-
-			/* CMD_SENINF_FINALIZE_CAM_MUX */
-			g_seninf_ops->_set_cammux_vc(ctx, vc->cam,
-						     vc_sel, dt_sel, dt_en, dt_en);
-			g_seninf_ops->_set_cammux_src(ctx, vc->mux, vc->cam,
-						      vc->exp_hsize, vc->exp_vsize, vc->dt);
-			g_seninf_ops->_set_cammux_chk_pixel_mode(ctx,
-								 vc->cam,
-								 vc->pixel_mode);
-			g_seninf_ops->_cammux(ctx, vc->cam);
-
-			dev_info(ctx->dev, "vc[%d] pad %d intf %d mux %d cam %d\n",
-				 i, vc->out_pad, intf, vc->mux, vc->cam,
-				vc_sel, dt_sel);
-
-#ifdef SENSOR_SECURE_MTEE_SUPPORT
-			if (ctx->is_secure == 1) {
-				dev_info(ctx->dev, "Sensor kernel init seninf_ca");
-				if (!seninf_ca_open_session())
-					dev_info(ctx->dev, "seninf_ca_open_session fail");
-
-				dev_info(ctx->dev, "Sensor kernel ca_checkpipe");
-				seninf_ca_checkpipe(ctx->SecInfo_addr);
-			}
-#endif
-
-		} else
-			dev_info(ctx->dev, "not set camtg yet, vc[%d] pad %d intf %d mux %d cam %d\n",
-					 i, vc->out_pad, intf, vc->mux, vc->cam);
-	}
 	return 0;
 }
 
@@ -1207,82 +1142,19 @@ static int debug_err_detect_initialize(struct seninf_ctx *ctx)
 	return 0;
 }
 
-static int mtk_senif_get_ccu_phandle(struct seninf_core *core)
-{
-	struct device *dev = core->dev;
-	struct device_node *node;
-	int ret = 0;
-
-	node = of_find_compatible_node(NULL, NULL, "mediatek,camera_fsync_ccu");
-	if (node == NULL) {
-		dev_info(dev, "of_find mediatek,camera_fsync_ccu fail\n");
-		ret = PTR_ERR(node);
-		goto out;
-	}
-
-	ret = of_property_read_u32(node, "mediatek,ccu_rproc",
-				   &core->rproc_ccu_phandle);
-	if (ret) {
-		dev_info(dev, "fail to get rproc_ccu_phandle:%d\n", ret);
-		ret = -EINVAL;
-		goto out;
-	}
-
-out:
-	return ret;
-}
-
-static int mtk_senif_power_ctrl_ccu(struct seninf_core *core, int on_off)
-{
-	int ret;
-
-	if (on_off) {
-		ret = mtk_senif_get_ccu_phandle(core);
-		if (ret)
-			goto out;
-		core->rproc_ccu_handle = rproc_get_by_phandle(core->rproc_ccu_phandle);
-		if (core->rproc_ccu_handle == NULL) {
-			dev_info(core->dev, "Get ccu handle fail\n");
-			ret = PTR_ERR(core->rproc_ccu_handle);
-			goto out;
-		}
-
-		ret = rproc_boot(core->rproc_ccu_handle);
-		if (ret)
-			dev_info(core->dev, "boot ccu rproc fail\n");
-
-		if (core->dfs.reg) {
-			if (regulator_enable(core->dfs.reg))
-				dev_info(core->dev, "regulator_enable fail\n");
-		}
-	} else {
-		if (core->dfs.reg && regulator_is_enabled(core->dfs.reg))
-			regulator_disable(core->dfs.reg);
-
-		if (core->rproc_ccu_handle) {
-			rproc_shutdown(core->rproc_ccu_handle);
-			ret = 0;
-		} else
-			ret = -EINVAL;
-	}
-out:
-	return ret;
-}
-
-static int seninf_s_stream(struct v4l2_subdev *sd, int enable)
+static int seninf_csi_s_stream(struct v4l2_subdev *sd, int enable)
 {
 #ifdef SENSOR_SECURE_MTEE_SUPPORT
 	u32 ret_gz;
 #endif
 	int ret;
 	struct seninf_ctx *ctx = sd_to_ctx(sd);
-	struct seninf_core *core = ctx->core;
 
-	if (ctx->streaming == enable)
+	if (ctx->csi_streaming == enable)
 		return 0;
 
 	if (ctx->is_test_model)
-		return set_test_model(ctx, enable);
+		return 0; // skip
 
 	if (!ctx->sensor_sd) {
 		dev_info(ctx->dev, "no sensor\n");
@@ -1300,17 +1172,15 @@ static int seninf_s_stream(struct v4l2_subdev *sd, int enable)
 					ctx->sensor_pad_idx, &ctx->buffered_pixel_rate);
 
 		get_customized_pixel_rate(ctx, ctx->sensor_sd, &ctx->customized_pixel_rate);
-		mtk_senif_power_ctrl_ccu(core, 1);
 		ret = pm_runtime_get_sync(ctx->dev);
 		if (ret < 0) {
 			dev_info(ctx->dev, "%s pm_runtime_get_sync ret %d\n", __func__, ret);
 			pm_runtime_put_noidle(ctx->dev);
-			mtk_senif_power_ctrl_ccu(core, 0);
 			return ret;
 		}
 
 		update_isp_clk(ctx);
-		ret = config_hw(ctx);
+		ret = config_hw_csi(ctx);
 		if (ret) {
 			dev_info(ctx->dev, "config_seninf_hw ret %d\n", ret);
 			return ret;
@@ -1353,10 +1223,26 @@ static int seninf_s_stream(struct v4l2_subdev *sd, int enable)
 		g_seninf_ops->_poweroff(ctx);
 		ctx->dbg_last_dump_req = 0;
 		pm_runtime_put_sync(ctx->dev);
-		mtk_senif_power_ctrl_ccu(core, 0);
 	}
 
+	ctx->csi_streaming = enable;
+	return 0;
+}
+
+static int seninf_s_stream(struct v4l2_subdev *sd, int enable)
+{
+	struct seninf_ctx *ctx = sd_to_ctx(sd);
+
+	seninf_csi_s_stream(sd, enable);
+
+	if (ctx->is_test_model)
+		return set_test_model(ctx, enable);
+
+	if (!ctx->streaming)
+		mtk_cam_seninf_s_stream_mux(ctx);
+
 	ctx->streaming = enable;
+
 	return 0;
 }
 
@@ -1502,7 +1388,7 @@ static int seninf_test_streamon(struct seninf_ctx *ctx, u32 en)
 #endif
 	if (en) {
 		ctx->is_test_streamon = 1;
-		mtk_cam_seninf_alloc_cam_mux(ctx);
+		mtk_cam_seninf_alloc_cammux_by_type(ctx, TYPE_CAMSV_SAT);
 		seninf_s_stream(&ctx->subdev, 1);
 	} else {
 		seninf_s_stream(&ctx->subdev, 0);
@@ -1518,16 +1404,13 @@ static int mtk_cam_seninf_set_ctrl(struct v4l2_ctrl *ctrl)
 {
 	struct seninf_ctx *ctx = ctrl_hdl_to_ctx(ctrl->handler);
 	int ret;
-	//struct seninf_vc *vc = NULL;
 
 	switch (ctrl->id) {
 	case V4L2_CID_TEST_PATTERN:
 		ret = seninf_test_pattern(ctx, ctrl->val);
 		break;
 	case V4L2_CID_MTK_SENINF_S_STREAM:
-		{
-			ret = seninf_s_stream(&ctx->subdev, ctrl->val);
-		}
+		ret = seninf_csi_s_stream(&ctx->subdev, ctrl->val);
 		break;
 #ifdef SENINF_DEBUG
 	case V4L2_CID_MTK_TEST_STREAMON:

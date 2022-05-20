@@ -14,7 +14,15 @@
 #define ISP_CLK_LOW 273000000
 
 
-#define CSI_CLK_273MHZ
+#define CSI_CLK_242MHZ
+
+/* data lane hs settle, base on 242 MHz csi ck */
+#ifdef CSI_CLK_242MHZ
+#define SENINF_CPHY_SETTLE_DELAY_DT 0x11
+#define SENINF_DPHY_SETTLE_DELAY_DT 0x15
+#define SENINF_SETTLE_DELAY_CK 0x9
+#define SENINF_HS_TRAIL_PARAMETER 0x34
+#endif
 
 /* data lane hs settle, base on 208 MHz csi ck */
 #ifdef CSI_CLK_208MHZ
@@ -204,9 +212,66 @@ enum SENINF_CAM_MUX_ENUM {
 	SENINF_CAM_MUX20,
 	SENINF_CAM_MUX21,
 	SENINF_CAM_MUX22,
+	SENINF_CAM_MUX23,
+	SENINF_CAM_MUX24,
+	SENINF_CAM_MUX25,
+	SENINF_CAM_MUX26,
+	SENINF_CAM_MUX27,
+	SENINF_CAM_MUX28,
+	SENINF_CAM_MUX29,
+	SENINF_CAM_MUX30,
+	SENINF_CAM_MUX31,
+	SENINF_CAM_MUX32,
+	SENINF_CAM_MUX33,
+	SENINF_CAM_MUX34,
+	SENINF_CAM_MUX35,
+	SENINF_CAM_MUX36,
+	SENINF_CAM_MUX37,
+	SENINF_CAM_MUX38,
+	SENINF_CAM_MUX39,
+	SENINF_CAM_MUX40,
 	SENINF_CAM_MUX_NUM,
 
 	SENINF_CAM_MUX_ERR = 0xff
+};
+
+enum CAM_TYPE_ENUM {
+	TYPE_CAMSV_SAT,
+	TYPE_CAMSV_NORMAL,
+	TYPE_RAW,
+	TYPE_UISP,
+	TYPE_PDP,
+	TYPE_MAX_NUM,
+};
+
+#define MUX_RANGE_NAMES \
+	"mux-camsv-sat_range", \
+	"mux-camsv-normal_range", \
+	"mux-raw_range", \
+	"mux-uisp_range", \
+	"mux-pdp_range", \
+
+#define CAMMUX_RANGE_NAMES \
+	"cammux-camsv-sat_range", \
+	"cammux-camsv-normal_range", \
+	"cammux-raw_range", \
+	"cammux-uisp_range", \
+	"cammux-pdp_range", \
+
+#define VC_STREAM_MAX_NUM 8
+
+enum VC_CH_GROUP {
+	VC_CH_GROUP_0,
+	VC_CH_GROUP_1,
+	VC_CH_GROUP_2,
+	VC_CH_GROUP_3,
+
+	VC_CH_GROUP_ALL = VC_CH_GROUP_0,
+	VC_CH_GROUP_RAW1 = VC_CH_GROUP_1,
+	VC_CH_GROUP_RAW2 = VC_CH_GROUP_2,
+	VC_CH_GROUP_RAW3 = VC_CH_GROUP_3,
+
+	VC_CH_GROUP_MAX_NUM,
 };
 
 enum SENINF_SOURCE_ENUM { //0:CSI2(2.5G), 3: parallel, 8:NCSI2(1.5G)

@@ -555,6 +555,13 @@ static int mtk_cam_seninf_set_cammux_vc(struct seninf_ctx *ctx, int cam_mux,
 
 	return 0;
 }
+
+static int mtk_cam_seninf_set_cammux_tag(struct seninf_ctx *ctx, int cam_mux,
+				int vc_sel, int dt_sel, int tag, int first)
+{
+	return 0;
+}
+
 static int mtk_cam_seninf_switch_to_cammux_inner_page(struct seninf_ctx *ctx, bool inner)
 {
 	void *mpSeninfCamMuxAddr = ctx->reg_if_cam_mux;
@@ -1148,7 +1155,8 @@ static int mtk_cam_seninf_set_cammux_chk_pixel_mode(struct seninf_ctx *ctx,
 }
 
 static int mtk_cam_seninf_set_test_model(struct seninf_ctx *ctx,
-				  int mux, int cam_mux, int pixel_mode)
+				  int mux, int cam_mux, int pixel_mode,
+				  int filter, int con, int vc, int dt)
 {
 	int intf;
 	void *pSeninf;
@@ -3104,6 +3112,7 @@ struct mtk_cam_seninf_ops mtk_csi_phy_2_0 = {
 	._get_cammux_ctrl = mtk_cam_seninf_get_cammux_ctrl,
 	._get_cammux_res = mtk_cam_seninf_get_cammux_res,
 	._set_cammux_vc = mtk_cam_seninf_set_cammux_vc,
+	._set_cammux_tag = mtk_cam_seninf_set_cammux_tag,
 	._set_cammux_src = mtk_cam_seninf_set_cammux_src,
 	._set_vc = mtk_cam_seninf_set_vc,
 	._set_mux_ctrl = mtk_cam_seninf_set_mux_ctrl,

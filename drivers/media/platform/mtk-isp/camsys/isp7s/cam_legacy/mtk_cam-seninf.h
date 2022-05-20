@@ -22,6 +22,11 @@
 
 struct seninf_ctx;
 
+struct seninf_struct_pair {
+	u32 first;
+	u32 second;
+};
+
 struct seninf_mux {
 	struct list_head list;
 	int idx;
@@ -40,7 +45,10 @@ struct seninf_vc {
 	u8 pixel_mode;
 	u8 group;
 	u8 mux; // allocated per group
+	u8 mux_vr; // allocated per group
 	u8 cam; // assigned by cam driver
+	u8 tag; // assigned by cam driver
+	u8 cam_type; // assigned by cam driver
 	u8 enable;
 	u16 exp_hsize;
 	u16 exp_vsize;
@@ -77,9 +85,11 @@ struct seninf_core {
 	struct seninf_dfs dfs;
 	struct list_head list;
 	struct list_head list_mux;
+	struct seninf_struct_pair mux_range[TYPE_MAX_NUM];
 	struct seninf_mux mux[SENINF_MUX_NUM];
 #ifdef SENINF_DEBUG
 	struct list_head list_cam_mux;
+	struct seninf_struct_pair cammux_range[TYPE_MAX_NUM];
 	struct seninf_cam_mux cam_mux[SENINF_CAM_MUX_NUM];
 #endif
 	struct mutex mutex;
@@ -144,6 +154,7 @@ struct seninf_ctx {
 	unsigned int SecInfo_addr;
 	int seninfIdx;
 	int pad2cam[PAD_MAXCNT];
+	int pad_tag_id[PAD_MAXCNT];
 
 	/* remote sensor */
 	struct v4l2_subdev *sensor_sd;
@@ -151,6 +162,7 @@ struct seninf_ctx {
 
 	/* provided by sensor */
 	struct seninf_vcinfo vcinfo;
+	u16 vc_group[VC_CH_GROUP_MAX_NUM];
 	int fps_n;
 	int fps_d;
 
@@ -174,6 +186,7 @@ struct seninf_ctx {
 	struct list_head list_cam_mux;
 
 	/* flags */
+	unsigned int csi_streaming:1;
 	unsigned int streaming:1;
 
 	int seninf_dphy_settle_delay_dt;

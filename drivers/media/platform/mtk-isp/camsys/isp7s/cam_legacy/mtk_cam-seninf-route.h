@@ -6,9 +6,10 @@
 
 void mtk_cam_seninf_init_res(struct seninf_core *core);
 
-struct seninf_mux *mtk_cam_seninf_mux_get(struct seninf_ctx *ctx);
-struct seninf_mux *mtk_cam_seninf_mux_get_pref(struct seninf_ctx *ctx,
-					       int *pref_idx, int pref_cnt);
+struct seninf_mux *mtk_cam_seninf_mux_get_by_type(struct seninf_ctx *ctx,
+						enum CAM_TYPE_ENUM cam_type);
+void mtk_cam_seninf_alloc_cammux_by_type(struct seninf_ctx *ctx,
+						enum CAM_TYPE_ENUM cam_type);
 void mtk_cam_seninf_mux_put(struct seninf_ctx *ctx, struct seninf_mux *mux);
 void mtk_cam_seninf_release_mux(struct seninf_ctx *ctx);
 
@@ -28,11 +29,13 @@ void notify_fsync_cammux_usage_with_kthread(struct seninf_ctx *ctx);
 int mtk_cam_seninf_get_csi_param(struct seninf_ctx *ctx);
 u8 is_reset_by_user(struct seninf_ctx *ctx);
 int reset_sensor(struct seninf_ctx *ctx);
+int mtk_cam_seninf_s_stream_mux(struct seninf_ctx *ctx);
 
 
 #ifdef SENINF_DEBUG
-void mtk_cam_seninf_alloc_cam_mux(struct seninf_ctx *ctx);
 void mtk_cam_seninf_release_cam_mux(struct seninf_ctx *ctx);
+int mux2mux_vr(struct seninf_ctx *ctx, int mux, int cammux);
+enum CAM_TYPE_ENUM cammux2camtype(struct seninf_ctx *ctx, int cammux);
 #endif
 
 #endif
