@@ -27,7 +27,7 @@ static void md_pt_low_battery_cb(enum LOW_BATTERY_LEVEL_TAG level)
 	unsigned int md_throttle_cmd;
 	int ret, intensity;
 
-	if (level <= LOW_BATTERY_LEVEL_2 && level >= LOW_BATTERY_LEVEL_0) {
+	if (level <= LOW_BATTERY_LEVEL_2) {
 		if (level != LOW_BATTERY_LEVEL_0)
 			intensity = md_priv.lbat_md_reduce_tx;
 		else
@@ -50,7 +50,7 @@ static void md_pt_over_current_cb(enum BATTERY_OC_LEVEL_TAG level)
 	unsigned int md_throttle_cmd;
 	int ret, intensity;
 
-	if (level <= BATTERY_OC_LEVEL_1 && level >= BATTERY_OC_LEVEL_0) {
+	if (level <= BATTERY_OC_LEVEL_1) {
 		if (level != BATTERY_OC_LEVEL_0)
 			intensity = md_priv.oc_md_reduce_tx;
 		else
