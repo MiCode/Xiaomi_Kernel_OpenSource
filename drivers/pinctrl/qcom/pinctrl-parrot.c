@@ -25,6 +25,17 @@ static const struct msm_pinctrl_soc_data parrot_pinctrl = {
 	.wakeirq_map = parrot_pdc_map,
 	.nwakeirq_map = ARRAY_SIZE(parrot_pdc_map),
 };
+
+static const struct msm_pinctrl_soc_data parrot_vm_pinctrl = {
+	.pins = parrot_pins,
+	.npins = ARRAY_SIZE(parrot_pins),
+	.functions = parrot_functions,
+	.nfunctions = ARRAY_SIZE(parrot_functions),
+	.groups = parrot_groups,
+	.ngroups = ARRAY_SIZE(parrot_groups),
+	.ngpios = 142,
+};
+
 static void qcom_trace_gpio_read(void *unused, struct gpio_device *gdev,
 				bool *block_gpio_read)
 {
@@ -49,6 +60,7 @@ static int parrot_pinctrl_probe(struct platform_device *pdev)
 
 static const struct of_device_id parrot_pinctrl_of_match[] = {
 	{ .compatible = "qcom,parrot-pinctrl", .data = &parrot_pinctrl},
+	{ .compatible = "qcom,parrot-vm-pinctrl", .data = &parrot_vm_pinctrl},
 	{ },
 };
 
