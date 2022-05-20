@@ -36,7 +36,7 @@ const int _apu_rpc_engid(enum DVFS_USER user)
 		[APUCORE] = RPC_TOP_WAKE_ID,
 	};
 
-	if (user < 0 || user >= ARRAY_SIZE(ids))
+	if (user >= ARRAY_SIZE(ids))
 		return -EINVAL;
 	return ids[user];
 }

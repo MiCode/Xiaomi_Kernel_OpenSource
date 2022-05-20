@@ -660,7 +660,6 @@ static int apupw_dbg_open(struct inode *inode, struct file *file)
 static int apupw_dbg_set_parameter(u8 param, int argc, int *args)
 {
 	int ret = 0;
-	enum DVFS_USER user;
 	struct apu_dev *ad = NULL;
 
 	ret = _apupw_valid_input(param, argc);
@@ -679,12 +678,7 @@ static int apupw_dbg_set_parameter(u8 param, int argc, int *args)
 		break;
 	case POWER_HAL_CTL:
 	case POWER_PARAM_SET_POWER_HAL_OPP:
-		user = _apupw_dbg_id2user(args[0]);
-		if (user < 0) {
-			ret = user;
-			goto out;
-		}
-		ad = _apupw_valid_df(user);
+		ad = _apupw_valid_df(_apupw_dbg_id2user(args[0]));
 		if (IS_ERR_OR_NULL(ad)) {
 			ret = PTR_ERR(ad);
 			goto out;
