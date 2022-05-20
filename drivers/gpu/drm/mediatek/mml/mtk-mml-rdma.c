@@ -1618,7 +1618,8 @@ static s32 rdma_reconfig_frame(struct mml_comp *comp, struct mml_task *task,
 	u32 u4pic_size_bs = 0;
 	u32 u4pic_size_y_bs = 0;
 
-	if (unlikely(cfg->info.mode == MML_MODE_SRAM_READ)) {
+	if (cfg->info.mode == MML_MODE_APUDC ||
+		unlikely(cfg->info.mode == MML_MODE_SRAM_READ)) {
 		/* no need update addr for sram case */
 		return 0;
 	}
