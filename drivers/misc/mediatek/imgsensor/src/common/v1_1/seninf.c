@@ -173,8 +173,8 @@ static int seninf_pm_runtime_put_sync(struct SENINF *seninf)
 
 	if (seninf->pm_domain_cnt == 1)
 		pm_runtime_put_sync(seninf->dev);
-	else {
-		if (!seninf->pm_domain_devs && seninf->pm_domain_cnt < 1)
+	else if (seninf->pm_domain_cnt > 1) {
+		if (!seninf->pm_domain_devs)
 			return -EINVAL;
 
 		for (i = seninf->pm_domain_cnt - 1; i >= 0; i--) {
@@ -530,7 +530,7 @@ static int seninf_pm_runtime_enable(struct SENINF *seninf)
 				"#power-domain-cells");
 	if (seninf->pm_domain_cnt == 1)
 		pm_runtime_enable(seninf->dev);
-	else {
+	else if (seninf->pm_domain_cnt > 1) {
 		seninf->pm_domain_devs = devm_kcalloc(seninf->dev, seninf->pm_domain_cnt,
 				sizeof(*seninf->pm_domain_devs), GFP_KERNEL);
 		if (!seninf->pm_domain_devs)
