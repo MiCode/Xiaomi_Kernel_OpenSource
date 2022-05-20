@@ -288,7 +288,7 @@ static int mt6358_get_voltage_sel(struct regulator_dev *rdev)
 
 static int mt6358_get_buck_voltage_sel(struct regulator_dev *rdev)
 {
-	int ret, regval;
+	int ret, regval = 0;
 	struct mt6358_regulator_info *info = rdev_get_drvdata(rdev);
 
 	ret = regmap_read(rdev->regmap, info->da_vsel_reg, &regval);
@@ -307,7 +307,7 @@ static int mt6358_get_buck_voltage_sel(struct regulator_dev *rdev)
 static int mt6358_get_status(struct regulator_dev *rdev)
 {
 	int ret;
-	u32 regval;
+	u32 regval = 0;
 	struct mt6358_regulator_info *info = rdev_get_drvdata(rdev);
 
 	ret = regmap_read(rdev->regmap, info->status_reg, &regval);
@@ -348,7 +348,7 @@ static int mt6358_regulator_set_mode(struct regulator_dev *rdev,
 static unsigned int mt6358_regulator_get_mode(struct regulator_dev *rdev)
 {
 	struct mt6358_regulator_info *info = rdev_get_drvdata(rdev);
-	int ret, regval;
+	int ret, regval = 0;
 
 	ret = regmap_read(rdev->regmap, info->modeset_reg, &regval);
 	if (ret != 0) {
