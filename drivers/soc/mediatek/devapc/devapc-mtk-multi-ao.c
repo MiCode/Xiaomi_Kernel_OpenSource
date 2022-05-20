@@ -1731,7 +1731,7 @@ int mtk_devapc_probe(struct platform_device *pdev,
 
 	for (slave_type = 0; slave_type < slave_type_num; slave_type++) {
 		query_devapc_subsys_status(slave_type);
-		pr_info(PFX "subsys_enabled[%d]:%d\n", slave_type,
+		pr_info(PFX "subsys_enabled[%d]:%lu\n", slave_type,
 			mtk_devapc_ctx->subsys_enabled[slave_type]);
 	}
 
@@ -1805,7 +1805,7 @@ int mtk_devapc_probe(struct platform_device *pdev,
 	mtk_devapc_ctx->devapc_infra_clk = devm_clk_get(&pdev->dev,
 			"devapc-infra-clock");
 	if (IS_ERR(mtk_devapc_ctx->devapc_infra_clk))
-		pr_info(PFX "(Infra) Cannot get devapc clock from CCF (%d)\n",
+		pr_info(PFX "(Infra) Cannot get devapc clock from CCF (%ld)\n",
 				PTR_ERR(mtk_devapc_ctx->devapc_infra_clk));
 
 	proc_create("devapc_dbg", 0664, NULL, &devapc_dbg_fops);
