@@ -834,6 +834,8 @@ static int mdw_cmd_ioctl_run(struct mdw_fpriv *mpriv, union mdw_cmd_args *args)
 		ret = -ENOMEM;
 		goto put_file;
 	}
+	/* assign fd */
+	fd_install(fd, sync_file->file);
 
 	/* check wait fence from other module */
 	mdw_flw_debug("s(0x%llx)c(0x%llx) wait fence(%d)\n",
@@ -851,8 +853,7 @@ static int mdw_cmd_ioctl_run(struct mdw_fpriv *mpriv, union mdw_cmd_args *args)
 	if (ret)
 		goto put_file;
 
-	/* assign fd */
-	fd_install(fd, sync_file->file);
+	/* return fd */
 	args->out.exec.fence = fd;
 	mdw_flw_debug("async fd(%d)\n", fd);
 	goto out;
