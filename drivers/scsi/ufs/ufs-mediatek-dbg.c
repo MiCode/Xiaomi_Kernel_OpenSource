@@ -225,7 +225,7 @@ static void probe_android_vh_ufs_send_tm_command(void *data, struct ufs_hba *hba
 	u8 tm_func;
 	int ptr, lun, task_tag;
 	unsigned long flags;
-	enum cmd_hist_event event;
+	enum cmd_hist_event event = CMD_UNKNOWN;
 	enum ufs_trace_str_t _str_t = str_t;
 	struct utp_task_req_desc *d = &hba->utmrdl_base_addr[tag];
 
@@ -597,9 +597,12 @@ static void ufs_mtk_dbg_print_pm_event(char **buff,
 	int pwr_mode = cmd_hist[ptr].cmd.pm.pwr_mode;
 	int link_state = cmd_hist[ptr].cmd.pm.link_state;
 
+	if (idx < 0 || idx >= UFSDBG_PM_STATE_MAX)
+		idx = UFSDBG_PM_STATE_MAX;
+
 	dur = ns_to_timespec64(cmd_hist[ptr].time);
 	SPREAD_PRINTF(buff, size, m,
-		"%3d-c(%d),%6llu.%lu,%5d,%2d,%3s, ret=%d, time_us=%8d, pwr_mode=%d, link_status=%d\n",
+		"%3d-c(%d),%6llu.%lu,%5d,%2d,%3s, ret=%d, time_us=%8lld, pwr_mode=%d, link_status=%d\n",
 		ptr,
 		cmd_hist[ptr].cpu,
 		dur.tv_sec, dur.tv_nsec,
