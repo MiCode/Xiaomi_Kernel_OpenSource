@@ -492,7 +492,7 @@ static int mdla_pmu_ioctl(struct file *filp,
 	switch (command) {
 	case IOCTL_PERF_SET_EVENT:
 		perf_data.handle = mdla_pmu_counter_alloc(core_id);
-		if (perf_data.handle >= 0)
+		if ((int)perf_data.handle > 0)
 			mdla_pmu_counter_event_set(core_id,
 				perf_data.handle,
 				(perf_data.interface << 16) | perf_data.event);

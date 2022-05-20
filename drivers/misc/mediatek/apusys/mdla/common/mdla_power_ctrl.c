@@ -328,11 +328,12 @@ int mdla_pwr_device_register(struct platform_device *pdev,
 		INIT_WORK(&pwr_ctrl->power_off_work,
 				pwr_ctrl->power_off_cb_func);
 
-		if (snprintf(ws_str, sizeof(ws_str), "mdla_%d", i) > 0)
+		if (snprintf(ws_str, sizeof(ws_str), "mdla_%d", i) > 0) {
 			pwr_ctrl->wakeup = wakeup_source_register(NULL, ws_str);
 
-		if (!pwr_ctrl->wakeup)
-			mdla_err("mdla%d wakelock register fail!\n", i);
+			if (!pwr_ctrl->wakeup)
+				mdla_err("mdla%d wakelock register fail!\n", i);
+		}
 
 		mdla_device = mdla_get_device(i);
 		mdla_device->power          = pwr_ctrl;
