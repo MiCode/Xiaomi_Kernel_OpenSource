@@ -25,7 +25,6 @@
 #include <linux/hash.h>
 #include <linux/msm_ion.h>
 #include <soc/qcom/secure_buffer.h>
-#include <linux/rpmsg.h>
 #include <linux/ipc_logging.h>
 #include <linux/remoteproc/qcom_rproc.h>
 #include <linux/scatterlist.h>
@@ -113,9 +112,6 @@
 #define GET_TABLE_IDX_FROM_CTXID(ctxid) \
 	((ctxid & FASTRPC_CTX_TABLE_IDX_MASK) >> FASTRPC_CTX_TABLE_IDX_POS)
 
-#define VALID_FASTRPC_CID(cid) \
-	(cid >= ADSP_DOMAIN_ID && cid < NUM_CHANNELS)
-
 /* Reserve few entries in context table for critical kernel and static RPC
  * calls to avoid user invocations from exhausting all entries.
  */
@@ -134,11 +130,6 @@
 #ifndef ION_FLAG_CACHED
 #define ION_FLAG_CACHED (1)
 #endif
-
-#define ADSP_DOMAIN_ID (0)
-#define MDSP_DOMAIN_ID (1)
-#define SDSP_DOMAIN_ID (2)
-#define CDSP_DOMAIN_ID (3)
 
 /*
  * ctxid of every message is OR-ed with fl->pd (0/1/2) before
@@ -474,16 +465,16 @@ static inline int poll_for_remote_response(struct smq_invoke_ctx *ctx, uint32_t 
 
 /**
  * fastrpc_update_txmsg_buf - Update history of sent glink messages
- * @chan           : Channel context
- * @msg            : Pointer to RPC message to remote subsystem
- * @rpmsg_send_err : Error from rpmsg
- * @ns             : Timestamp (in ns) of sent message
- * @xo_time_in_us  : XO Timestamp (in us) of sent message
+ * @chan               : Channel context
+ * @msg                : Pointer to RPC message to remote subsystem
+ * @transport_send_err : Error from transport
+ * @ns                 : Timestamp (in ns) of sent message
+ * @xo_time_in_us      : XO Timestamp (in us) of sent message
  *
  * Returns none
  */
 static inline void fastrpc_update_txmsg_buf(struct fastrpc_channel_ctx *chan,
-	struct smq_msg *msg, int rpmsg_send_err, int64_t ns, uint64_t xo_time_in_us)
+	struct smq_msg *msg, int transport_send_err, int64_t ns, uint64_t xo_time_in_us)
 {
 	unsigned long flags = 0;
 	unsigned int tx_index = 0;
@@ -495,7 +486,7 @@ static inline void fastrpc_update_txmsg_buf(struct fastrpc_channel_ctx *chan,
 	tx_msg = &chan->gmsg_log.tx_msgs[tx_index];
 
 	memcpy(&tx_msg->msg, msg, sizeof(struct smq_msg));
-	tx_msg->rpmsg_send_err = rpmsg_send_err;
+	tx_msg->transport_send_err = transport_send_err;
 	tx_msg->ns = ns;
 	tx_msg->xo_time_in_us = xo_time_in_us;
 
@@ -2733,17 +2724,9 @@ static int fastrpc_invoke_send(struct smq_invoke_ctx *ctx,
 	}
 	mutex_unlock(&channel_ctx->smd_mutex);
 
-	mutex_lock(&channel_ctx->rpmsg_mutex);
-	VERIFY(err, !IS_ERR_OR_NULL(channel_ctx->rpdev));
-	if (err) {
-		err = -ENODEV;
-		mutex_unlock(&channel_ctx->rpmsg_mutex);
-		goto bail;
-	}
 	xo_time_in_us = CONVERT_CNT_TO_US(__arch_counter_get_cntvct());
-	err = rpmsg_send(channel_ctx->rpdev->ept, (void *)msg, sizeof(*msg));
-	mutex_unlock(&channel_ctx->rpmsg_mutex);
-	trace_fastrpc_rpmsg_send(cid, (uint64_t)ctx, msg->invoke.header.ctx,
+	err = fastrpc_transport_send(cid, (void *)msg, sizeof(*msg));
+	trace_fastrpc_transport_send(cid, (uint64_t)ctx, msg->invoke.header.ctx,
 		handle, sc, msg->invoke.page.addr, msg->invoke.page.size);
 	ns = get_timestamp_in_ns();
 	fastrpc_update_txmsg_buf(channel_ctx, msg, err, ns, xo_time_in_us);
@@ -2798,8 +2781,7 @@ static void fastrpc_init(struct fastrpc_apps *me)
 		me->channel[i].secure = SECURE_CHANNEL;
 		me->channel[i].unsigned_support = false;
 		mutex_init(&me->channel[i].smd_mutex);
-		mutex_init(&me->channel[i].rpmsg_mutex);
-		init_waitqueue_head(&me->channel[i].wait_for_rpmsg_ch);
+		fastrpc_transport_session_init(i, me->channel[i].subsys);
 		spin_lock_init(&me->channel[i].ctxlock);
 		spin_lock_init(&me->channel[i].gmsg_log.lock);
 		INIT_HLIST_HEAD(&me->channel[i].initmems);
@@ -3919,34 +3901,6 @@ bail:
 	return err;
 }
 
-/*
- * This function is called from fastrpc_channel open to wait
- * for rpmsg channel in the respective domain. The wait in this
- * function is done only for CDSP, Audio and Sensors Daemons.
- */
-int fastrpc_wait_for_rpmsg_interrupt(int cid,
-					unsigned int flags)
-{
-	struct fastrpc_apps *me = &gfa;
-	int err = 0;
-
-	/*
-	 * The flags which are applicable only for daemons are checked.
-	 * Dynamic PDs will fail and return immediately if the
-	 * remote subsystem is not up.
-	 */
-	if (flags == FASTRPC_INIT_ATTACH || flags == FASTRPC_INIT_ATTACH_SENSORS
-		|| flags == FASTRPC_INIT_CREATE_STATIC) {
-		ADSPRPC_INFO("Thread waiting for cid %d rpmsg channel", cid);
-		err = wait_event_interruptible(me->channel[cid].wait_for_rpmsg_ch,
-				atomic_read(&me->channel[cid].is_rpmsg_ch_up));
-		ADSPRPC_INFO("Thread received signal for cid %d rpmsg channel (interrupted %d)",
-			cid, err);
-	}
-
-	return err;
-}
-
 int fastrpc_init_process(struct fastrpc_file *fl,
 				struct fastrpc_ioctl_init_attrs *uproc)
 {
@@ -4190,11 +4144,10 @@ static int fastrpc_release_current_dsp_process(struct fastrpc_file *fl)
 		err = -EBADR;
 		goto bail;
 	}
-	VERIFY(err, fl->apps->channel[cid].rpdev != NULL);
-	if (err) {
-		err = -ENODEV;
+	err = verify_transport_device(cid);
+	if (err)
 		goto bail;
-	}
+
 	VERIFY(err, fl->apps->channel[cid].issubsystemup == 1);
 	if (err) {
 		err = -ECONNRESET;
@@ -5022,104 +4975,7 @@ static int fastrpc_session_alloc_locked(struct fastrpc_channel_ctx *chan,
 	return err;
 }
 
-static inline int get_cid_from_rpdev(struct rpmsg_device *rpdev)
-{
-	int err = 0, cid = -1;
-	const char *label = 0;
-
-	VERIFY(err, !IS_ERR_OR_NULL(rpdev));
-	if (err)
-		return -ENODEV;
-
-	err = of_property_read_string(rpdev->dev.parent->of_node, "label",
-					&label);
-
-	if (err)
-		label = rpdev->dev.parent->of_node->name;
-
-	if (!strcmp(label, "cdsp"))
-		cid = CDSP_DOMAIN_ID;
-	else if (!strcmp(label, "adsp"))
-		cid = ADSP_DOMAIN_ID;
-	else if (!strcmp(label, "slpi"))
-		cid = SDSP_DOMAIN_ID;
-	else if (!strcmp(label, "mdsp"))
-		cid = MDSP_DOMAIN_ID;
-
-	return cid;
-}
-
-static int fastrpc_rpmsg_probe(struct rpmsg_device *rpdev)
-{
-	int err = 0;
-	int cid = -1;
-
-	VERIFY(err, !IS_ERR_OR_NULL(rpdev));
-	if (err)
-		return -ENODEV;
-
-	cid = get_cid_from_rpdev(rpdev);
-	VERIFY(err, VALID_FASTRPC_CID(cid));
-	if (err) {
-		err = -ECHRNG;
-		goto bail;
-	}
-	mutex_lock(&gcinfo[cid].rpmsg_mutex);
-	gcinfo[cid].rpdev = rpdev;
-	mutex_unlock(&gcinfo[cid].rpmsg_mutex);
-
-	/*
-	 * Set atomic variable to 1 when rpmsg channel is up
-	 * and wake up all threads waiting for rpmsg channel
-	 */
-	atomic_set(&gcinfo[cid].is_rpmsg_ch_up, 1);
-	wake_up_interruptible(&gcinfo[cid].wait_for_rpmsg_ch);
-
-	ADSPRPC_INFO("opened rpmsg channel for %s\n",
-		gcinfo[cid].subsys);
-bail:
-	if (err)
-		ADSPRPC_ERR("rpmsg probe of %s cid %d failed\n",
-			rpdev->dev.parent->of_node->name, cid);
-	return err;
-}
-
-static void fastrpc_rpmsg_remove(struct rpmsg_device *rpdev)
-{
-	int err = 0;
-	int cid = -1;
-
-	VERIFY(err, !IS_ERR_OR_NULL(rpdev));
-	if (err) {
-		err = -ENODEV;
-		return;
-	}
-
-	cid = get_cid_from_rpdev(rpdev);
-	VERIFY(err, VALID_FASTRPC_CID(cid));
-	if (err) {
-		err = -ECHRNG;
-		goto bail;
-	}
-	mutex_lock(&gcinfo[cid].rpmsg_mutex);
-	gcinfo[cid].rpdev = NULL;
-	mutex_unlock(&gcinfo[cid].rpmsg_mutex);
-
-	/*
-	 * Set atomic variable to 0 when rpmsg channel is down and
-	 * make threads wait on is_rpmsg_ch_up
-	 */
-	atomic_set(&gcinfo[cid].is_rpmsg_ch_up, 0);
-
-	ADSPRPC_INFO("closed rpmsg channel of %s\n",
-		gcinfo[cid].subsys);
-bail:
-	if (err)
-		ADSPRPC_ERR("rpmsg remove of %s cid %d failed\n",
-			rpdev->dev.parent->of_node->name, cid);
-}
-
-static void handle_signal_rpmsg(uint64_t msg, int cid)
+static void handle_remote_signal(uint64_t msg, int cid)
 {
 	struct fastrpc_apps *me = &gfa;
 	uint32_t pid = msg >> 32;
@@ -5168,8 +5024,8 @@ static void handle_signal_rpmsg(uint64_t msg, int cid)
 	spin_unlock_irqrestore(&me->hlock, irq_flags);
 }
 
-static int fastrpc_rpmsg_callback(struct rpmsg_device *rpdev, void *data,
-	int len, void *priv, u32 addr)
+
+int fastrpc_handle_rpc_response(void *data, int len, int cid)
 {
 	struct smq_invoke_rsp *rsp = (struct smq_invoke_rsp *)data;
 	struct smq_notif_rspv3 *notif = (struct smq_notif_rspv3 *)data;
@@ -5177,24 +5033,19 @@ static int fastrpc_rpmsg_callback(struct rpmsg_device *rpdev, void *data,
 	struct smq_invoke_ctx *ctx = NULL;
 	struct fastrpc_apps *me = &gfa;
 	uint32_t index, rsp_flags = 0, early_wake_time = 0, ver = 0;
-	int err = 0, cid = -1, ignore_rpmsg_err = 0;
+	int err = 0, ignore_rsp_err = 0;
 	struct fastrpc_channel_ctx *chan = NULL;
 	unsigned long irq_flags = 0;
 	int64_t ns = 0;
 	uint64_t xo_time_in_us = 0;
 
 	xo_time_in_us = CONVERT_CNT_TO_US(__arch_counter_get_cntvct());
-	trace_fastrpc_msg("rpmsg_callback: begin");
-	cid = get_cid_from_rpdev(rpdev);
-	VERIFY(err, VALID_FASTRPC_CID(cid));
-	if (err) {
-		err = -ECHRNG;
-		goto bail;
-	}
 
 	if (len == sizeof(uint64_t)) {
-		// dspsignal message from the DSP
-		handle_signal_rpmsg(*((uint64_t *)data), cid);
+		/*
+		 * dspsignal message from the DSP
+		 */
+		handle_remote_signal(*((uint64_t *)data), cid);
 		goto bail;
 	}
 
@@ -5220,7 +5071,7 @@ static int fastrpc_rpmsg_callback(struct rpmsg_device *rpdev, void *data,
 		rsp_flags = rspv2->flags;
 		ver = rspv2->version;
 	}
-	trace_fastrpc_rpmsg_response(cid, rsp->ctx,
+	trace_fastrpc_transport_response(cid, rsp->ctx,
 		rsp->retval, rsp_flags, early_wake_time);
 	ns = get_timestamp_in_ns();
 	fastrpc_update_rxmsg_buf(chan, rsp->ctx, rsp->retval,
@@ -5245,7 +5096,7 @@ static int fastrpc_rpmsg_callback(struct rpmsg_device *rpdev, void *data,
 		 * completed by update of poll memory and the context was
 		 * removed from the table and possibly reused for another call.
 		 */
-		ignore_rpmsg_err = ((rsp_flags == COMPLETE_SIGNAL) || !ctx ||
+		ignore_rsp_err = ((rsp_flags == COMPLETE_SIGNAL) || !ctx ||
 			(ctx && (ctx->ctxid != GET_CTXID_FROM_RSP_CTX(rsp->ctx)))) ? 1 : 0;
 		goto bail_unlock;
 	}
@@ -5261,7 +5112,7 @@ bail_unlock:
 bail:
 	if (err) {
 		err = -ENOKEY;
-		if (!ignore_rpmsg_err)
+		if (!ignore_rsp_err)
 			ADSPRPC_ERR(
 				"invalid response data %pK, len %d from remote subsystem err %d\n",
 				data, len, err);
@@ -5271,7 +5122,6 @@ bail:
 		}
 	}
 
-	trace_fastrpc_msg("rpmsg_callback: end");
 	return err;
 }
 
@@ -5695,18 +5545,13 @@ static int fastrpc_channel_open(struct fastrpc_file *fl, uint32_t flags)
 	}
 	cid = fl->cid;
 
-	err = fastrpc_wait_for_rpmsg_interrupt(cid, flags);
+	err = fastrpc_wait_for_transport_interrupt(cid, flags);
 	if (err)
 		goto bail;
 
-	mutex_lock(&me->channel[cid].rpmsg_mutex);
-	VERIFY(err, NULL != me->channel[cid].rpdev);
-	if (err) {
-		err = -ENODEV;
-		mutex_unlock(&me->channel[cid].rpmsg_mutex);
+	err = verify_transport_device(cid);
+	if (err)
 		goto bail;
-	}
-	mutex_unlock(&me->channel[cid].rpmsg_mutex);
 
 	mutex_lock(&me->channel[cid].smd_mutex);
 	if (me->channel[cid].ssrcount !=
@@ -6288,18 +6133,8 @@ int fastrpc_dspsignal_signal(struct fastrpc_file *fl,
 		goto bail;
 	}
 
-	mutex_lock(&channel_ctx->rpmsg_mutex);
-	VERIFY(err, !IS_ERR_OR_NULL(channel_ctx->rpdev));
-	if (err) {
-		ADSPRPC_ERR("No rpmsg device for %s\n", current->comm);
-		err = -ENODEV;
-		mutex_unlock(&channel_ctx->rpmsg_mutex);
-		mutex_unlock(&channel_ctx->smd_mutex);
-		goto bail;
-	}
 	msg = (((uint64_t)fl->tgid) << 32) | ((uint64_t)sig->signal_id);
-	err = rpmsg_send(channel_ctx->rpdev->ept, (void *)&msg, sizeof(msg));
-	mutex_unlock(&channel_ctx->rpmsg_mutex);
+	err = fastrpc_transport_send(cid, (void *)msg, sizeof(msg));
 	mutex_unlock(&channel_ctx->smd_mutex);
 
 bail:
@@ -7645,7 +7480,12 @@ static void fastrpc_deinit(void)
 		}
 		kfree(chan->rhvm.vmid);
 		kfree(chan->rhvm.vmperm);
+		fastrpc_transport_session_deinit(i);
+		mutex_destroy(&chan->smd_mutex);
 	}
+	if (me->transport_initialized)
+		fastrpc_transport_deinit();
+	me->transport_initialized = 0;
 	mutex_destroy(&me->mut_uid);
 }
 
@@ -7655,28 +7495,6 @@ static struct platform_driver fastrpc_driver = {
 		.name = "fastrpc",
 		.of_match_table = fastrpc_match_table,
 		.suppress_bind_attrs = true,
-	},
-};
-
-static const struct rpmsg_device_id fastrpc_rpmsg_match[] = {
-	{ FASTRPC_GLINK_GUID },
-	{ },
-};
-
-static const struct of_device_id fastrpc_rpmsg_of_match[] = {
-	{ .compatible = "qcom,msm-fastrpc-rpmsg" },
-	{ },
-};
-MODULE_DEVICE_TABLE(of, fastrpc_rpmsg_of_match);
-
-static struct rpmsg_driver fastrpc_rpmsg_client = {
-	.id_table = fastrpc_rpmsg_match,
-	.probe = fastrpc_rpmsg_probe,
-	.remove = fastrpc_rpmsg_remove,
-	.callback = fastrpc_rpmsg_callback,
-	.drv = {
-		.name = "qcom,msm_fastrpc_rpmsg",
-		.of_match_table = fastrpc_rpmsg_of_match,
 	},
 };
 
@@ -8054,13 +7872,10 @@ static int __init fastrpc_device_init(void)
 				__func__, gcinfo[i].subsys);
 	}
 
-	err = register_rpmsg_driver(&fastrpc_rpmsg_client);
-	if (err) {
-		pr_err("Error: adsprpc: %s: register_rpmsg_driver failed with err %d\n",
-			__func__, err);
+	err = fastrpc_transport_init();
+	if (err)
 		goto device_create_bail;
-	}
-	me->rpmsg_register = 1;
+	me->transport_initialized = 1;
 
 	fastrpc_register_wakeup_source(me->non_secure_dev,
 		FASTRPC_NON_SECURE_WAKE_SOURCE_CLIENT_NAME,
@@ -8125,8 +7940,9 @@ static void __exit fastrpc_device_exit(void)
 	class_destroy(me->class);
 	cdev_del(&me->cdev);
 	unregister_chrdev_region(me->dev_no, NUM_CHANNELS);
-	if (me->rpmsg_register == 1)
-		unregister_rpmsg_driver(&fastrpc_rpmsg_client);
+	if (me->transport_initialized)
+		fastrpc_transport_deinit();
+	me->transport_initialized = 0;
 	if (me->fastrpc_bus_register) {
 		bus_unregister(&fastrpc_bus_type);
 		device_unregister(&fastrpc_bus);
