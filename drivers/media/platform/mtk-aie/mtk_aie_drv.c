@@ -359,7 +359,7 @@ int FDVT_M4U_TranslationFault_callback(int port,
 	case M4U_PORT_FDVT_WRB:
 #endif
 	default: //ISP_FDVT_BASE = 0x1b001000
-		fdvt_dump_reg(data);
+		//fdvt_dump_reg(data);
 	break;
 	}
 	return 1;

@@ -1142,9 +1142,7 @@ static void mtk_aie_job_timeout_work(struct work_struct *work)
 	if (fd->aie_cfg->sel_mode == 1)
 		dev_info(fd->dev, "[ATTRMODE] w_idx = %d, r_idx = %d\n",
 			 fd->attr_para->w_idx, fd->attr_para->r_idx);
-#if CHECK_SERVICE_0
 	fdvt_dump_reg(fd);
-#endif
 	aie_irqhandle(fd);
 	aie_reset(fd);
 	mtk_aie_hw_job_finish(fd, VB2_BUF_STATE_ERROR);
