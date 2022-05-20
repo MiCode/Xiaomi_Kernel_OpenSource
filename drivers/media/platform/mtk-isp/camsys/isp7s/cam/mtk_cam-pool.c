@@ -18,7 +18,7 @@
 #include <mtk_heap.h>
 #include "mtk_cam-pool.h"
 
-#define POOL_DEBUG 1
+#define POOL_DEBUG 0
 #define pool_dbg(fmt, arg...)					\
 	do {							\
 		if (POOL_DEBUG)					\

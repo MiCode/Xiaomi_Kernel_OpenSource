@@ -653,7 +653,6 @@ int mtk_cam_dev_req_enqueue(struct mtk_cam_device *cam,
 			return -1;
 		}
 
-		// pack job
 		if (mtk_cam_job_pack(job, ctx, req)) {
 			mtk_cam_job_return(job);
 			return -1;
@@ -1525,6 +1524,11 @@ void mtk_cam_stop_ctx(struct mtk_cam_ctx *ctx, struct media_entity *entity)
 	mtk_cam_ctx_pipeline_stop(ctx, entity);
 	mtk_cam_pool_destroy(&ctx->job_pool);
 
+	if (ctx->used_engine) {
+		mtk_cam_pm_runtime_engines(&cam->engines, ctx->used_engine, 0);
+		mtk_cam_release_engine(ctx->cam, ctx->used_engine);
+	}
+
 	ctx->used_pipe = 0;
 
 	mtk_cam_uninitialize(cam);
@@ -2357,6 +2361,48 @@ int mtk_cam_update_engine_status(struct mtk_cam_device *cam, int engine_mask,
 
 	dev_info(cam->dev, "%s: mark engine 0x%08x available %d\n",
 		 __func__, engine_mask, available);
+	return 0;
+}
+
+static int loop_each_engine(struct mtk_cam_engines *eng,
+			    int engine_mask, int (*func)(struct device *dev))
+{
+	int engine_used = engine_mask;
+	int submask;
+	int i;
+
+	submask = USED_MASK_GET_SUBMASK(&engine_used, raw);
+	for (i = 0; i < eng->num_raw_devices && submask; i++) {
+		if (!USED_MASK_HAS(&submask, raw, i))
+			continue;
+		func(eng->raw_devs[i]);
+	}
+
+	submask = USED_MASK_GET_SUBMASK(&engine_used, camsv);
+	for (i = 0; i < eng->num_camsv_devices; i++) {
+		if (!USED_MASK_HAS(&submask, camsv, i))
+			continue;
+		func(eng->sv_devs[i]);
+	}
+
+	submask = USED_MASK_GET_SUBMASK(&engine_used, mraw);
+	for (i = 0; i < eng->num_mraw_devices; i++) {
+		if (!USED_MASK_HAS(&submask, mraw, i))
+			continue;
+		func(eng->mraw_devs[i]);
+	}
+
+	return 0;
+}
+
+int mtk_cam_pm_runtime_engines(struct mtk_cam_engines *eng,
+			       int engine_mask, int enable)
+{
+	if (enable)
+		loop_each_engine(eng, engine_mask, pm_runtime_resume_and_get);
+	else
+		loop_each_engine(eng, engine_mask, pm_runtime_put_sync);
+
 	return 0;
 }
 

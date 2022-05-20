@@ -222,6 +222,9 @@ static inline int mtk_cam_occupy_engine(struct mtk_cam_device *cam, int engines)
 	return mtk_cam_update_engine_status(cam, engines, false);
 }
 
+int mtk_cam_pm_runtime_engines(struct mtk_cam_engines *eng,
+			       int engine_mask, int enable);
+
 static inline void
 mtk_cam_pad_fmt_enable(struct v4l2_mbus_framefmt *framefmt, bool enable)
 {

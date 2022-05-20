@@ -63,35 +63,6 @@ static int mtk_cam_job_pack_init(struct mtk_cam_job *job,
 	return ret;
 }
 
-static int pm_runtime_engines(struct mtk_cam_ctx *ctx, int engines, int enable)
-{
-	struct mtk_cam_engines *eng = &ctx->cam->engines;
-	int i;
-
-	if (enable) {
-		for (i = 0; i < eng->num_raw_devices; i++) {
-			if (!USED_MASK_HAS(&engines, raw, i))
-				continue;
-			pm_runtime_resume_and_get(eng->raw_devs[i]);
-		}
-
-		for (i = 0; i < eng->num_camsv_devices; i++) {
-			if (!USED_MASK_HAS(&engines, camsv, i))
-				continue;
-			pm_runtime_resume_and_get(eng->sv_devs[i]);
-		}
-
-		for (i = 0; i < eng->num_mraw_devices; i++) {
-			if (!USED_MASK_HAS(&engines, mraw, i))
-				continue;
-			pm_runtime_resume_and_get(eng->mraw_devs[i]);
-		}
-	} else {
-	}
-
-	return 0;
-}
-
 static int mtk_cam_select_hw(struct mtk_cam_ctx *ctx, struct mtk_cam_job *job)
 {
 	struct mtk_cam_device *cam = ctx->cam;
@@ -116,12 +87,6 @@ static int mtk_cam_select_hw(struct mtk_cam_ctx *ctx, struct mtk_cam_job *job)
 		dev_info(cam->dev, "select hw failed\n");
 		return -1;
 	}
-
-	/* todo: where to release engine? */
-	if (mtk_cam_occupy_engine(cam, selected))
-		return -1;
-
-	pm_runtime_engines(ctx, selected, 1);
 
 	ctx->hw_raw = raw;
 
@@ -1751,17 +1716,25 @@ int mtk_cam_job_pack(struct mtk_cam_job *job, struct mtk_cam_ctx *ctx,
 
 	job->stream_on_seninf = false;
 	if (!ctx->used_engine) {
-		ctx->used_engine = mtk_cam_select_hw(ctx, job);
-		if (!ctx->used_engine)
+		int selected;
+
+		selected = mtk_cam_select_hw(ctx, job);
+		if (!selected)
 			return -1;
+
+		if (mtk_cam_occupy_engine(ctx->cam, selected))
+			return -1;
+
+		mtk_cam_pm_runtime_engines(&ctx->cam->engines, selected, 1);
+		ctx->used_engine = selected;
 
 		if (ctx->hw_raw) {
 			struct mtk_raw_device *raw = dev_get_drvdata(ctx->hw_raw);
 
 			initialize(raw, 0);
-
-			job->stream_on_seninf = true;
 		}
+
+		job->stream_on_seninf = true;
 	}
 	job->used_engine = ctx->used_engine;
 	job->hw_raw = ctx->hw_raw;

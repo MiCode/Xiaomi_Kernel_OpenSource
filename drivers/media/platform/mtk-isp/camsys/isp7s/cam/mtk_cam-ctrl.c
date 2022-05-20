@@ -820,8 +820,6 @@ void mtk_cam_ctrl_stop(struct mtk_cam_ctrl *cam_ctrl)
 	 *   c. kthread: cancel_work_sync & flush_worker
 	 * 3. Now, all contexts are stopped. return resources
 	 */
-	/* release hw - to-do */
-	mtk_cam_release_engine(ctx->cam, ctx->used_engine);
 	spin_lock(&cam_ctrl->camsys_state_lock);
 	list_for_each_entry_safe(job, job_prev,
 				 &cam_ctrl->camsys_state_list, list) {
