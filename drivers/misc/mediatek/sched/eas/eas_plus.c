@@ -245,9 +245,11 @@ unsigned long mtk_em_cpu_energy(struct em_perf_domain *pd,
 {
 	unsigned long freq, scale_cpu;
 	struct em_perf_state *ps;
-	int i, cpu, opp = -1;
+	int cpu, opp = -1;
 #if IS_ENABLED(CONFIG_MTK_OPP_CAP_INFO)
-	unsigned long cap, pwr_eff;
+	unsigned long pwr_eff;
+#else
+	int i;
 #endif
 	unsigned long dyn_pwr = 0, static_pwr = 0;
 	unsigned long energy;
@@ -272,6 +274,10 @@ unsigned long mtk_em_cpu_energy(struct em_perf_domain *pd,
 #endif
 	freq = max(freq, per_cpu(min_freq, cpu));
 
+#if IS_ENABLED(CONFIG_MTK_OPP_CAP_INFO)
+	opp = pd_get_freq_opp(cpu, freq);
+	pwr_eff = pd_get_opp_pwr_eff(cpu, opp);
+#else
 	/*
 	 * Find the lowest performance state of the Energy Model above the
 	 * requested frequency.
@@ -284,10 +290,6 @@ unsigned long mtk_em_cpu_energy(struct em_perf_domain *pd,
 
 	i = min(i, pd->nr_perf_states - 1);
 	opp = pd->nr_perf_states - i - 1;
-
-#if IS_ENABLED(CONFIG_MTK_OPP_CAP_INFO)
-	cap = pd_get_opp_capacity(cpu, opp);
-	pwr_eff = pd_get_util_pwr_eff(cpu, cap);
 #endif
 
 #if IS_ENABLED(CONFIG_MTK_LEAKAGE_AWARE_TEMP)

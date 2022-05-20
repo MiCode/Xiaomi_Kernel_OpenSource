@@ -8,10 +8,8 @@
 #if IS_ENABLED(CONFIG_NONLINEAR_FREQ_CTL)
 extern void mtk_map_util_freq(void *data, unsigned long util, unsigned long freq,
 			struct cpumask *cpumask, unsigned long *next_freq);
-extern unsigned long pd_get_util_pwr_eff(int cpu, int freq);
 #else
 #define mtk_map_util_freq(data, util, freq, cap, next_freq)
-#define pd_get_util_pwr_eff(cpu, freq)
 #endif /* CONFIG_NONLINEAR_FREQ_CTL */
 
 #if IS_ENABLED(CONFIG_MTK_CPUFREQ_SUGOV_EXT)

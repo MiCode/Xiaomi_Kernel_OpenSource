@@ -455,38 +455,11 @@ static inline void ignore_dl_rate_limit(struct sugov_cpu *sg_cpu)
 #if IS_ENABLED(CONFIG_MTK_OPP_MIN)
 void mtk_set_cpu_min_opp(int cpu, unsigned long min_util)
 {
-	int gear_id, min_opp, i;
-	unsigned long scale_cpu, freq;
-	struct em_perf_domain *pd;
-	struct em_perf_state *ps;
+	int gear_id, min_opp;
 
 	gear_id = topology_physical_package_id(cpu);
-
-	if (min_util == 0) {
-		set_cpu_min_opp(gear_id, -1);
-		return;
-	}
-
-	pd = em_cpu_get(cpu);
-	if (!pd)
-		return;
-	scale_cpu = arch_scale_cpu_capacity(cpu);
-	ps = &pd->table[pd->nr_perf_states - 1];
-	freq = map_util_freq(min_util, ps->frequency, scale_cpu);
-
-	/*
-	 * Find the lowest performance state of the Energy Model
-	 * above the
-	 * requested frequency.
-	 */
-	for (i = 0; i < pd->nr_perf_states; i++) {
-		ps = &pd->table[i];
-		if (ps->frequency >= freq)
-			break;
-	}
-
-	i = min(i, pd->nr_perf_states - 1);
-	min_opp = pd->nr_perf_states - i - 1;
+	min_util = map_util_perf(min_util);
+	min_opp = pd_get_util_opp(cpu, min_util);
 	set_cpu_min_opp(gear_id, min_opp);
 }
 
