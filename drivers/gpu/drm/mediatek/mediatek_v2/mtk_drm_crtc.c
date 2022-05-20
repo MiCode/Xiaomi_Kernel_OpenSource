@@ -6013,6 +6013,7 @@ void mtk_crtc_restore_plane_setting(struct mtk_drm_crtc *mtk_crtc)
 	struct drm_crtc *crtc = &mtk_crtc->base;
 	struct cmdq_pkt *cmdq_handle;
 	struct mtk_ddp_comp *comp;
+	struct mtk_drm_private *priv = crtc->dev->dev_private;
 
 	mtk_crtc_pkt_create(&cmdq_handle, &mtk_crtc->base,
 		mtk_crtc->gce_obj.client[CLIENT_CFG]);
@@ -6020,13 +6021,16 @@ void mtk_crtc_restore_plane_setting(struct mtk_drm_crtc *mtk_crtc)
 		mtk_crtc_init_plane_setting(mtk_crtc);
 
 	for (i = 0; i < mtk_crtc->layer_nr; i++) {
-		struct mtk_drm_private *priv = crtc->dev->dev_private;
 		struct drm_plane *plane = &mtk_crtc->planes[i].base;
 		struct mtk_plane_state *plane_state;
 
 		plane_state = to_mtk_plane_state(plane->state);
-		if (i >= OVL_PHY_LAYER_NR && !plane_state->comp_state.comp_id)
+		if (i >= OVL_PHY_LAYER_NR && !plane_state->comp_state.comp_id) {
+			DDPINFO("%s i=%d comp_id=%u continue\n", __func__, i,
+				plane_state->comp_state.comp_id);
 			continue;
+		}
+
 		if (plane_state->comp_state.comp_id)
 			comp = priv->ddp_comp[plane_state->comp_state.comp_id];
 		else {
@@ -6036,6 +6040,7 @@ void mtk_crtc_restore_plane_setting(struct mtk_drm_crtc *mtk_crtc)
 			 */
 			ddp_ctx = &mtk_crtc->ddp_ctx[mtk_crtc->ddp_mode];
 			comp = ddp_ctx->ddp_comp[DDP_FIRST_PATH][0];
+			DDPINFO("%s no comp_id, assign to comp:%d\n", __func__, comp->id);
 		}
 
 		if (comp == NULL)
@@ -6070,6 +6075,18 @@ void mtk_crtc_restore_plane_setting(struct mtk_drm_crtc *mtk_crtc)
 
 	if (mtk_drm_dal_enable() && drm_crtc_index(crtc) == 0)
 		drm_set_dal(&mtk_crtc->base, cmdq_handle);
+
+	if (mtk_crtc->is_mml) {
+		comp = priv->ddp_comp[DDP_COMPONENT_OVL0_2L];
+		cmdq_pkt_write(cmdq_handle, NULL, comp->larb_con_pa, GENMASK(19, 16),
+			       GENMASK(19, 16));
+
+		if (mtk_crtc->is_dual_pipe) {
+			comp = priv->ddp_comp[DDP_COMPONENT_OVL2_2L];
+			cmdq_pkt_write(cmdq_handle, NULL, comp->larb_con_pa, GENMASK(19, 16),
+				       GENMASK(19, 16));
+		}
+	}
 
 	/* Update QOS BW*/
 	for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j)
@@ -6736,6 +6753,7 @@ void mtk_drm_crtc_enable(struct drm_crtc *crtc)
 	/* 15. alloc sram if last is MML */
 	if (mtk_crtc->is_mml)
 		mtk_crtc_alloc_sram(mtk_crtc, mtk_state->prop_val[CRTC_PROP_LYE_IDX]);
+
 end:
 	CRTC_MMP_EVENT_END(crtc_id, enable,
 			mtk_crtc->enabled, 0);

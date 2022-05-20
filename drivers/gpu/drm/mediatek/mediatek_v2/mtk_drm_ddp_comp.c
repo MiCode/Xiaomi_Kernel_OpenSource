@@ -783,6 +783,8 @@ static void mtk_ddp_comp_set_larb(struct device *dev, struct device_node *node,
 	struct platform_device *larb_pdev = NULL;
 	enum mtk_ddp_comp_type type = mtk_ddp_comp_get_type(comp->id);
 	unsigned int larb_id;
+	struct resource res;
+	int port;
 
 	comp->larb_dev = NULL;
 
@@ -808,13 +810,21 @@ static void mtk_ddp_comp_set_larb(struct device *dev, struct device_node *node,
 	comp->larb_id = larb_id;
 
 	/* check if this module need larb_dev */
-	if (type == MTK_DISP_OVL || type == MTK_DISP_RDMA ||
-	    type == MTK_DISP_WDMA || type == MTK_DISP_POSTMASK) {
-		dev_warn(dev, "%s: %s need larb device\n", __func__,
-				mtk_dump_comp_str(comp));
-		DDPPR_ERR("%s: smi-id:%d\n", mtk_dump_comp_str(comp),
-				comp->larb_id);
+	if (type == MTK_DISP_OVL || type == MTK_DISP_RDMA || type == MTK_DISP_WDMA ||
+	    type == MTK_DISP_POSTMASK)
+		DDPMSG("%s: %s need larb device, smi-id:%d\n", __func__, mtk_dump_comp_str(comp),
+		       comp->larb_id);
+	else
+		return;
+
+	ret = of_address_to_resource(comp->larb_dev->of_node, 0, &res);
+	if (ret != 0) {
+		DDPMSG("Missing reg in %s node\n", comp->larb_dev->of_node->full_name);
+		return;
 	}
+
+	if (!of_property_read_u32(node, "larbport", &port))
+		comp->larb_con_pa = res.start + MTK_M4U_TO_PORT(port) * 4 + SMI_LARB_NON_SEC_CON;
 }
 
 unsigned int mtk_drm_find_possible_crtc_by_comp(struct drm_device *drm,
@@ -1071,9 +1081,7 @@ void mtk_ddp_comp_clk_unprepare(struct mtk_ddp_comp *comp)
 	CRTC_MMP_MARK(index, ddp_clk, comp->id, 0);
 }
 
-#define GET_M4U_PORT 0x1F
-void mtk_ddp_comp_iommu_enable(struct mtk_ddp_comp *comp,
-			       struct cmdq_pkt *handle)
+void mtk_ddp_comp_iommu_enable(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 {
 	int port, index, ret;
 	struct resource res;
@@ -1084,31 +1092,28 @@ void mtk_ddp_comp_iommu_enable(struct mtk_ddp_comp *comp,
 
 	priv = comp->mtk_crtc->base.dev->dev_private;
 
+	if (of_address_to_resource(comp->larb_dev->of_node, 0, &res) != 0) {
+		dev_err(comp->dev, "Missing reg in %s node\n",
+			comp->larb_dev->of_node->full_name);
+		return;
+	}
+
 	index = 0;
 	while (1) {
-		ret = of_property_read_u32_index(comp->dev->of_node,
-				"iommus", index * 2 + 1, &port);
+		ret =
+		    of_property_read_u32_index(comp->dev->of_node, "iommus", index * 2 + 1, &port);
 		if (ret < 0)
 			break;
 
-		port &= (unsigned int)GET_M4U_PORT;
-		if (of_address_to_resource(comp->larb_dev->of_node, 0, &res) !=
-		    0) {
-			dev_err(comp->dev, "Missing reg in %s node\n",
-				comp->larb_dev->of_node->full_name);
-			return;
-		}
-
-		if (!mtk_drm_helper_get_opt(priv->helper_opt,
-				MTK_DRM_OPT_USE_M4U))
-			//bypass m4u
+		if (!mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_USE_M4U))
+			// bypass m4u
 			cmdq_pkt_write(handle, NULL,
-				res.start + SMI_LARB_NON_SEC_CON + port * 4, 0,
-				0x1);
+				       res.start + SMI_LARB_NON_SEC_CON + MTK_M4U_TO_PORT(port) * 4,
+				       0, 0x1);
 		else
 			cmdq_pkt_write(handle, NULL,
-				res.start + SMI_LARB_NON_SEC_CON + port * 4, 0x1,
-				0x1);
+				       res.start + SMI_LARB_NON_SEC_CON + MTK_M4U_TO_PORT(port) * 4,
+				       0x1, 0x1);
 
 		index++;
 	}

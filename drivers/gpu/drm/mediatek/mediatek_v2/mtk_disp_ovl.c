@@ -1653,19 +1653,15 @@ static void _ovl_common_config(struct mtk_ddp_comp *comp, unsigned int idx,
 				comp->regs_pa + DISP_REG_OVL_SYSRAM_BUF1_ADDR(lye_idx),
 				sram_addr + MML_SRAM_SHIFT,
 				~0);
-			// setting SMI for read SRAM
-			cmdq_pkt_write(handle, comp->cmdq_base,
-				(resource_size_t)(0x14021000) + SMI_LARB_NON_SEC_CON + 4*9,
-				0x000F0000, GENMASK(19, 16));
+
+			/* setting SMI for read SRAM */
+			if (comp->larb_con_pa)
+				cmdq_pkt_write(handle, comp->cmdq_base, comp->larb_con_pa,
+					       GENMASK(19, 16), GENMASK(19, 16));
+			else
+				DDPPR_ERR("%s: comp %d larb_con_pa is null\n", __func__, comp->id);
 
 			write_phy_layer_addr_cmdq(comp, handle, lye_idx, sram_addr);
-
-			if (comp->mtk_crtc && comp->mtk_crtc->is_dual_pipe) {
-				// setting SMI for read SRAM
-				cmdq_pkt_write(handle, comp->cmdq_base,
-					(resource_size_t)(0x14421000) + SMI_LARB_NON_SEC_CON + 4*9,
-					0x000F0000, GENMASK(19, 16));
-			}
 		} else {
 			write_phy_layer_addr_cmdq(comp, handle, lye_idx, addr);
 		}
@@ -2272,18 +2268,9 @@ static bool compr_l_config_AFBC_V1_2(struct mtk_ddp_comp *comp,
 		comp->regs_pa + DISP_REG_OVL_SYSRAM_BUF1_ADDR(lye_idx),
 		0, ~0);
 
-	if (comp->id == DDP_COMPONENT_OVL0_2L || comp->id == DDP_COMPONENT_OVL1_2L) {
-		// setting SMI for read SRAM
-		cmdq_pkt_write(handle, comp->cmdq_base,
-			(resource_size_t)(0x14021000) + SMI_LARB_NON_SEC_CON + 4*9,
-			0x00000000, GENMASK(19, 16));
-		if (comp->mtk_crtc && comp->mtk_crtc->is_dual_pipe) {
-			// setting SMI for read SRAM
-			cmdq_pkt_write(handle, comp->cmdq_base,
-				(resource_size_t)(0x14421000) + SMI_LARB_NON_SEC_CON + 4*9,
-				0x00000000, GENMASK(19, 16));
-		}
-	}
+	/* setting SMI for read DRAM */
+	if (comp->larb_con_pa)
+		cmdq_pkt_write(handle, comp->cmdq_base, comp->larb_con_pa, 0, GENMASK(19, 16));
 
 	/* if no compress, do common config and return */
 	if (compress == 0 || (pending->mml_mode == MML_MODE_RACING)) {
