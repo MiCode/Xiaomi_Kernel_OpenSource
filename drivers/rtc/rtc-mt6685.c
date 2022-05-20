@@ -1226,6 +1226,7 @@ static int mtk_rtc_probe(struct platform_device *pdev)
 	rtc->irq = of_irq_get(np, 0);
 	if (rtc->irq < 0) {
 		dev_err(&pdev->dev, "Failed to get irq(%d)\n", rtc->irq);
+		unregister_pm_notifier(&rtc->pm_nb);
 		return rtc->irq;
 	}
 
@@ -1236,6 +1237,7 @@ static int mtk_rtc_probe(struct platform_device *pdev)
 	if (ret) {
 		dev_err(&pdev->dev, "Failed to request alarm IRQ: %d: %d\n",
 			rtc->irq, ret);
+		unregister_pm_notifier(&rtc->pm_nb);
 		return ret;
 	}
 
