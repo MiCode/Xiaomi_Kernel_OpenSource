@@ -3456,19 +3456,6 @@ int mtk_vcodec_enc_ctrls_setup(struct mtk_vcodec_ctx *ctx)
 	mtk_vcodec_enc_custom_ctrls_check(handler, &cfg, NULL);
 
 	memset(&cfg, 0, sizeof(cfg));
-	cfg.id = V4L2_CID_MPEG_MTK_ENCODE_MULTI_REF;
-	cfg.type = V4L2_CTRL_TYPE_U32;
-	cfg.flags = V4L2_CTRL_FLAG_WRITE_ONLY;
-	cfg.name = "Video encode multi ref";
-	cfg.min = 0;
-	cfg.max = 65535;
-	cfg.step = 1;
-	cfg.def = 0;
-	cfg.dims[0] = sizeof(struct mtk_venc_multi_ref)/sizeof(u32);
-	cfg.ops = ops;
-	mtk_vcodec_enc_custom_ctrls_check(handler, &cfg, NULL);
-
-	memset(&cfg, 0, sizeof(cfg));
 	cfg.id = V4L2_CID_MPEG_MTK_ENCODE_WPP_MODE;
 	cfg.type = V4L2_CTRL_TYPE_INTEGER;
 	cfg.flags = V4L2_CTRL_FLAG_WRITE_ONLY;
@@ -3492,9 +3479,6 @@ int mtk_vcodec_enc_ctrls_setup(struct mtk_vcodec_ctx *ctx)
 	cfg.ops = ops;
 	mtk_vcodec_enc_custom_ctrls_check(handler, &cfg, NULL);
 
-	v4l2_ctrl_handler_setup(&ctx->ctrl_hdl);
-	ctx->param_change = MTK_ENCODE_PARAM_NONE;
-
 	memset(&cfg, 0, sizeof(cfg));
 	cfg.id = V4L2_CID_MPEG_MTK_ENCODE_ENABLE_HIGHQUALITY;
 	cfg.type = V4L2_CTRL_TYPE_INTEGER;
@@ -3508,6 +3492,7 @@ int mtk_vcodec_enc_ctrls_setup(struct mtk_vcodec_ctx *ctx)
 	mtk_vcodec_enc_custom_ctrls_check(handler, &cfg, NULL);
 
 	ctx->enc_params.max_qp = -1;
+	memset(&cfg, 0, sizeof(cfg));
 	cfg.id = V4L2_CID_MPEG_MTK_ENCODE_RC_MAX_QP;
 	cfg.type = V4L2_CTRL_TYPE_INTEGER;
 	cfg.flags = V4L2_CTRL_FLAG_WRITE_ONLY;
