@@ -23,14 +23,19 @@ static int wait_mmdvfs_init_thread(void *data)
 {
 	struct device_node *node = dev->of_node;
 	unsigned int release_step0 = 0;
+	int err, vote_freq;
 
 	while (!mtk_is_mmdvfs_init_done()) {
 		pr_notice("%s: mmdvfs is not ready yet\n", __func__);
 		msleep(2000);
 	}
 
-	clk_set_rate(vcore_clk, vcore_step_cnt - 1 - force_step0);
-	pr_notice("%s: set vcore clk(%d)\n", __func__, vcore_step_cnt - 1 - force_step0);
+	vote_freq = vcore_step_cnt - 1 - force_step0;
+	err = clk_set_rate(vcore_clk, vote_freq);
+	if (err)
+		pr_notice("%s: set vcore clk(%d) failed:%d\n", __func__, vote_freq, err);
+	else
+		pr_notice("%s: set vcore clk(%d)\n", __func__, vote_freq);
 
 	of_property_read_u32(node, "release-step0", &release_step0);
 	if (release_step0) {
@@ -39,8 +44,11 @@ static int wait_mmdvfs_init_thread(void *data)
 			pr_notice("%s: set vcore voltage(0)\n", __func__);
 		}
 
-		clk_set_rate(vcore_clk, 0);
-		pr_notice("%s: set vcore_clk(0)\n", __func__);
+		err = clk_set_rate(vcore_clk, 0);
+		if (err)
+			pr_notice("%s: set vcore_clk(0) failed:%d\n", __func__, err);
+		else
+			pr_notice("%s: set vcore_clk(0)\n", __func__);
 	}
 
 	return 0;
