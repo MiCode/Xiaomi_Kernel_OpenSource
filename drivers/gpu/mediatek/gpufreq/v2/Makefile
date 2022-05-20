@@ -39,7 +39,6 @@ mtk_gpufreq_wrapper-y := \
 mtk_gpufreq_mt6886-y := \
 	gpuppm.o \
 	gpufreq_mt6886.o \
-	gpudfd_mt6886.o
 
 mtk_gpufreq_mt6983-y := \
 	gpuppm.o \
@@ -51,9 +50,7 @@ mtk_gpufreq_mt6985-y := \
 
 obj-$(CONFIG_MTK_GPU_SUPPORT) += mtk_gpufreq_wrapper.o
 ifneq ($(wildcard $(srctree)/$(src)/gpufreq_mt6886.c),)
-ifneq ($(wildcard $(srctree)/$(src)/gpudfd_mt6886.c),)
 obj-$(CONFIG_MTK_GPU_MT6886_SUPPORT) += mtk_gpufreq_mt6886.o
-endif
 endif
 ifneq ($(wildcard $(srctree)/$(src)/gpufreq_mt6983.c),)
 obj-$(CONFIG_MTK_GPU_MT6983_SUPPORT) += mtk_gpufreq_mt6983.o
