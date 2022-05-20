@@ -30,8 +30,6 @@ mtk_cm_mgr-y = mtk_cm_mgr_common.o
 
 obj-${CONFIG_MTK_CM_IPI} += mtk_cm_ipi.o
 
-obj-${CONFIG_MTK_CM_MGR_MT6983} += mtk_cm_mgr_mt6983.o
-
 ifneq ($(wildcard $(srctree)/$(src)/mtk_cm_mgr_mt6853.c),)
 obj-${CONFIG_MTK_CM_MGR_MT6853} += mtk_cm_mgr_mt6853.o
 endif
@@ -49,4 +47,7 @@ obj-${CONFIG_MTK_CM_MGR_MT6893} += mtk_cm_mgr_mt6893.o
 endif
 ifneq ($(wildcard $(srctree)/$(src)/mtk_cm_mgr_mt6895.c),)
 obj-${CONFIG_MTK_CM_MGR_MT6895} += mtk_cm_mgr_mt6895.o
+endif
+ifneq ($(wildcard $(srctree)/$(src)/mtk_cm_mgr_mt6983.c),)
+obj-${CONFIG_MTK_CM_MGR_MT6983} += mtk_cm_mgr_mt6983.o
 endif
