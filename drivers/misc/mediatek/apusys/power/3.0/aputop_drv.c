@@ -343,3 +343,15 @@ void apu_top_3_exit(void)
 	aputop_unregister_rpmsg();
 	platform_driver_unregister(&apu_top_drv);
 }
+
+uint32_t apu_boot_host(void)
+{
+	int ret = 0;
+
+	ret = pwr_data->plat_aputop_func(NULL, APUTOP_FUNC_BOOT_HOST, NULL);
+	if (ret < 0)
+		ret = 0;
+
+	return ret;
+}
+EXPORT_SYMBOL(apu_boot_host);
