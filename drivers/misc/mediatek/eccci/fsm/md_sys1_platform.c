@@ -577,8 +577,9 @@ static int md_cd_power_off(struct ccci_modem *md, unsigned int timeout)
 	flight_mode_set_by_atf(md, true);
 
 	/* enable sequencer setting to AOC2.5 for gen98 */
-	if (md_cd_plat_val_ptr.md_gen >= 6298) {
+	if ((md_cd_plat_val_ptr.md_gen >= 6298) && ccci_get_hs2_done_status()) {
 		ret = md1_enable_sequencer_setting(md);
+		reset_modem_hs2_status();
 		if (ret)
 			return ret;
 	}

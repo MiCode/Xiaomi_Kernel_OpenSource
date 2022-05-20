@@ -32,7 +32,7 @@ static void fsm_finish_event(struct ccci_fsm_ctl *ctl,
 	struct ccci_fsm_event *event);
 
 static int needforcestop;
-
+static int hs2_done;
 static int s_is_normal_mdee;
 static int s_devapc_dump_counter;
 
@@ -1227,6 +1227,7 @@ static void fsm_routine_start(struct ccci_fsm_ctl *ctl,
 				spin_lock_irqsave(&ctl->event_lock, flags);
 			} else if (event->event_id == CCCI_EVENT_HS2) {
 				hs2_got = 1;
+				hs2_done = 1;
 
 				fsm_broadcast_state(ctl, READY);
 
@@ -1808,5 +1809,15 @@ unsigned long ccci_get_md_boot_count(void)
 		return ctl->boot_count;
 	else
 		return 0;
+}
+
+unsigned int ccci_get_hs2_done_status(void)
+{
+	return hs2_done;
+}
+
+void reset_modem_hs2_status(void)
+{
+	hs2_done = 0;
 }
 
