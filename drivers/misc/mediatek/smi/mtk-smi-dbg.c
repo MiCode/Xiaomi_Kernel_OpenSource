@@ -445,7 +445,10 @@ static void mtk_smi_dbg_print(struct mtk_smi_dbg *smi, const bool larb,
 		}
 		len += ret;
 	}
-	snprintf(buf + len, LINK_MAX - len, "%c", '\0');
+	ret = snprintf(buf + len, LINK_MAX - len, "%c", '\0');
+	if (ret < 0)
+		dev_notice(node.dev, "smi dbg print error:%d\n", ret);
+
 	dev_info(node.dev, "%s\n", buf);
 
 	if (!skip_pm_runtime) {
@@ -734,8 +737,6 @@ static s32 mtk_smi_dbg_probe(struct mtk_smi_dbg *smi)
 	pr_info("%s: comp[%d]:%s\n", __func__, 0, mtk_smi_dbg_comp[0]);
 
 	for_each_compatible_node(node, NULL, mtk_smi_dbg_comp[0]) {
-		if (!node)
-			return -EINVAL;
 
 		if (of_property_read_u32(node, "mediatek,larb-id", &id))
 			id = larb_nr;
@@ -755,8 +756,7 @@ static s32 mtk_smi_dbg_probe(struct mtk_smi_dbg *smi)
 	}
 
 	for_each_compatible_node(node, NULL, mtk_smi_dbg_comp[1]) {
-		if (!node)
-			return -EINVAL;
+
 		if (of_property_read_u32(node, "mediatek,common-id", &id))
 			id = comm_nr;
 		comm_nr += 1;
@@ -779,8 +779,7 @@ static s32 mtk_smi_dbg_probe(struct mtk_smi_dbg *smi)
 	}
 
 	for_each_compatible_node(node, NULL, mtk_smi_dbg_comp[2]) {
-		if (!node)
-			return -EINVAL;
+
 		if (of_property_read_u32(node, "mediatek,rsi-id", &id))
 			id = rsi_nr;
 		rsi_nr += 1;
