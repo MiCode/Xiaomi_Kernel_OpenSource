@@ -3741,6 +3741,12 @@ static void mtk_camsys_raw_cq_done(struct mtk_raw_device *raw_dev,
 			}
 		}
 
+		if (req->ctx_link_update & (1 << ctx->stream_id)) {
+			dev_info(raw_dev->dev, "%s: Skip frist CQ done's mtk_cam_stream_on\n",
+					 __func__);
+			return;
+		}
+
 		if (type == EXPOSURE_CHANGE_2_to_1 || type == EXPOSURE_CHANGE_3_to_1
 			|| type == EXPOSURE_CHANGE_1_to_2 || type == EXPOSURE_CHANGE_1_to_3) {
 			mtk_camsys_exp_switch_cam_mux(raw_dev, ctx, req_stream_data);
