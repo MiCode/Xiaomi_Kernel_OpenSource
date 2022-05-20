@@ -1084,17 +1084,18 @@ static s32 cmdq_sec_session_reply(const u32 iwc_cmd,
 	struct iwcCmdqMessage_t *iwc_msg, void *data,
 	struct cmdq_sec_task *task)
 {
-	struct iwcCmdqCancelTask_t *cancel = data;
-	struct cmdq_sec_data *sec_data = task->pkt->sec_data;
-
 	if (iwc_cmd == CMD_CMDQ_TL_SUBMIT_TASK) {
 		if (iwc_msg->rsp < 0) {
+			struct cmdq_sec_data *sec_data = task->pkt->sec_data;
+
 			/* submit fail case copy status */
 			memcpy(&sec_data->sec_status, &iwc_msg->secStatus,
 				sizeof(sec_data->sec_status));
 			sec_data->response = iwc_msg->rsp;
 		}
-	} else if (iwc_cmd == CMD_CMDQ_TL_CANCEL_TASK && cancel) {
+	} else if (iwc_cmd == CMD_CMDQ_TL_CANCEL_TASK && data) {
+		struct iwcCmdqCancelTask_t *cancel = data;
+
 		/* cancel case only copy cancel result */
 		memcpy(cancel, &iwc_msg->cancelTask, sizeof(*cancel));
 	}
