@@ -363,6 +363,11 @@ static int auxadc_get_data_from_dt(struct mt635x_auxadc_device *adc_dev,
 			*channel, node->name);
 		return ret;
 	}
+	if (*channel >= ARRAY_SIZE(auxadc_chans)) {
+		dev_notice(adc_dev->dev, "channel number %d in node:%s not exists\n",
+			   *channel, node->name);
+		return -EINVAL;
+	}
 	if (*channel == AUXADC_IMIX_R)
 		return auxadc_init_imix_r(adc_dev, node);
 	auxadc_chan = &auxadc_chans[*channel];
