@@ -76,8 +76,6 @@ int mtk_gem_map_offset_ioctl(struct drm_device *dev, void *data,
 /* submit buffer and return fence */
 int mtk_gem_submit_ioctl(struct drm_device *dev, void *data,
 			 struct drm_file *file_priv);
-int mtk_drm_sec_hnd_to_gem_hnd(struct drm_device *dev, void *data,
-		struct drm_file *file_priv);
 
 struct mtk_drm_gem_obj *mtk_drm_fb_gem_insert(struct drm_device *dev,
 					      size_t size, phys_addr_t fb_base,
