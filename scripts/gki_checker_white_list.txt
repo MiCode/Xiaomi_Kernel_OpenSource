@@ -10150,3 +10150,15 @@ s yield_task_rt
 s zilog_ir_format
 s zilog_tx
 s zone_pcp_init
+s __do_munmap
+s __split_vma
+s __vm_area_free
+s __vma_adjust
+s copy_vma
+s dup_mmap
+s exit_mmap
+s mmap_region
+s vm_area_free
+f fs/exec.c
+f mm/mmap.c
+f kernel/fork.c
