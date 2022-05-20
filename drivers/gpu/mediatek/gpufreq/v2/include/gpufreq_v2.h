@@ -15,9 +15,10 @@
 #define GPUFREQ_UNREFERENCED(param)     ((void)(param))
 #define GPUFREQ_DEBUG_ENABLE            (0)
 #define GPUFREQ_TRACE_ENABLE            (0)
+#define GPUFREQ_FORCE_WDT_ENABLE        (1)
 #define GPUFERQ_TAG                     "[GPU/FREQ]"
 #define GPUFREQ_TRACE_TAG               "[GPU/TRACE]"
-#define GPUFREQ_FORCE_WDT_ENABLE        (1)
+#define GPUFREQ_MEM_TABLE_IDX           (1)
 #define GPUFREQ_MAX_OPP_NUM             (70)
 #define GPUFREQ_MAX_ADJ_NUM             (10)
 #define GPUFREQ_MAX_REG_NUM             (70)
@@ -309,7 +310,6 @@ struct gpufreq_shared_status {
  **************************************************/
 struct gpufreq_platform_fp {
 	/* Common */
-	unsigned int (*bringup)(void);
 	unsigned int (*power_ctrl_enable)(void);
 	unsigned int (*active_idle_ctrl_enable)(void);
 	unsigned int (*get_power_state)(void);

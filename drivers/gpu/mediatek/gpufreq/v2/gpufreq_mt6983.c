@@ -214,7 +214,6 @@ static enum gpufreq_dvfs_state g_dvfs_state;
 static DEFINE_MUTEX(gpufreq_lock);
 
 static struct gpufreq_platform_fp platform_ap_fp = {
-	.bringup = __gpufreq_bringup,
 	.power_ctrl_enable = __gpufreq_power_ctrl_enable,
 	.get_power_state = __gpufreq_get_power_state,
 	.get_dvfs_state = __gpufreq_get_dvfs_state,
@@ -264,7 +263,6 @@ static struct gpufreq_platform_fp platform_ap_fp = {
 };
 
 static struct gpufreq_platform_fp platform_eb_fp = {
-	.bringup = __gpufreq_bringup,
 	.set_timestamp = __gpufreq_set_timestamp,
 	.check_bus_idle = __gpufreq_check_bus_idle,
 	.dump_infra_status = __gpufreq_dump_infra_status,

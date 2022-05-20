@@ -56,7 +56,7 @@ static int gpufreq_status_proc_show(struct seq_file *m, void *v)
 		"[GPUFREQ-DEBUG] Current Status of GPUFREQ\n");
 	seq_printf(m,
 		"%-16s Index: %2d, Freq: %7d, Volt: %6d, Vsram: %6d\n",
-		"[GPU  OPP]",
+		"[GPU   OPP]",
 		g_shared_status->cur_oppidx_gpu,
 		g_shared_status->cur_fgpu,
 		g_shared_status->cur_vgpu,

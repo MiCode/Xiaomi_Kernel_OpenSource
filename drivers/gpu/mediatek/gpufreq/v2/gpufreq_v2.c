@@ -104,11 +104,7 @@ static struct gpufreq_ipi_data g_recv_msg;
  ***********************************************************************************/
 unsigned int gpufreq_bringup(void)
 {
-	/* if bringup fp exists, it isn't bringup state */
-	if (gpufreq_fp && gpufreq_fp->bringup)
-		return false;
-	else
-		return true;
+	return g_gpufreq_bringup;
 }
 EXPORT_SYMBOL(gpufreq_bringup);
 
@@ -1532,37 +1528,60 @@ EXPORT_SYMBOL(gpufreq_register_gpuppm_fp);
 
 static int gpufreq_shared_memory_init(void)
 {
+	struct device_node *of_gpueb = NULL;
 	int ret = GPUFREQ_SUCCESS;
-	phys_addr_t shared_mem_pa = 0, shared_mem_va = 0, shared_mem_size = 0;
+	phys_addr_t gpueb_mem_pa = 0, gpueb_mem_va = 0, gpueb_mem_size = 0;
+	phys_addr_t gpufreq_mem_pa = 0, gpufreq_mem_va = 0;
+	unsigned int gpufreq_mem_size = 0;
 
-	/* init shared memory */
-	shared_mem_pa = gpueb_get_reserve_mem_phys_by_name("MEM_ID_GPUFREQ");
-	if (unlikely(!shared_mem_pa)) {
-		GPUFREQ_LOGE("fail to get gpufreq reserved memory physical addr");
+	/* get pre-allocated gpueb shared memory from dts */
+	of_gpueb = of_find_compatible_node(NULL, NULL, "mediatek,gpueb");
+	if (unlikely(!of_gpueb)) {
+		GPUFREQ_LOGE("fail to find gpueb of_node");
 		ret = GPUFREQ_ENOENT;
 		goto done;
 	}
 
-	shared_mem_va = gpueb_get_reserve_mem_virt_by_name("MEM_ID_GPUFREQ");
-	if (unlikely(!shared_mem_va)) {
-		GPUFREQ_LOGE("fail to get gpufreq reserved memory virtual addr");
+	of_property_read_u64(of_gpueb, "gpueb_mem_addr", &gpueb_mem_pa);
+	if (unlikely(!gpueb_mem_pa)) {
+		GPUFREQ_LOGE("fail to get gpueb reserved memory physical address");
 		ret = GPUFREQ_ENOENT;
 		goto done;
 	}
 
-	shared_mem_size = gpueb_get_reserve_mem_size_by_name("MEM_ID_GPUFREQ");
-	if (unlikely(!shared_mem_size)) {
+	of_property_read_u64(of_gpueb, "gpueb_mem_size", &gpueb_mem_size);
+	if (unlikely(!gpueb_mem_size)) {
+		GPUFREQ_LOGE("fail to get gpueb reserved memory size");
+		ret = GPUFREQ_ENOENT;
+		goto done;
+	}
+
+	/* Transfer physical addr to virtual addr */
+	gpueb_mem_va = (phys_addr_t)(size_t)ioremap_wc(gpueb_mem_pa, gpueb_mem_size);
+	if (unlikely(!gpueb_mem_va)) {
+		GPUFREQ_LOGE("fail to get gpueb reserved memory virtual address");
+		ret = GPUFREQ_ENOENT;
+		goto done;
+	}
+
+	/* init gpufreq shared memory from gpueb shared memory */
+	of_property_read_u32_index(of_gpueb,
+		"gpueb_mem_table", GPUFREQ_MEM_TABLE_IDX, &gpufreq_mem_size);
+	if (unlikely(!gpufreq_mem_size)) {
 		GPUFREQ_LOGE("fail to get gpufreq reserved memory size");
 		ret = GPUFREQ_ENOENT;
 		goto done;
 	}
+	/* gpufreq shared memory start from the beginning of gpueb's */
+	gpufreq_mem_pa = gpueb_mem_pa;
+	gpufreq_mem_va = gpueb_mem_va;
 
-	g_shared_status = (struct gpufreq_shared_status *)(uintptr_t)shared_mem_va;
-	g_shared_mem_pa = shared_mem_pa;
-	g_shared_mem_size = (uint32_t)shared_mem_size;
+	g_shared_status = (struct gpufreq_shared_status *)(uintptr_t)gpufreq_mem_va;
+	g_shared_mem_pa = gpufreq_mem_pa;
+	g_shared_mem_size = gpufreq_mem_size;
 
 	/* init to 0 */
-	memset((void *)shared_mem_va, 0, shared_mem_size);
+	memset((void *)gpufreq_mem_va, 0, gpufreq_mem_size);
 
 	GPUFREQ_LOGI("shared status memory: 0x%llx (phy_addr: 0x%llx, size: 0x%x)",
 		g_shared_status, g_shared_mem_pa, g_shared_mem_size);
@@ -1605,8 +1624,8 @@ static int gpufreq_wrapper_pdrv_probe(struct platform_device *pdev)
 	GPUFREQ_LOGI("start to probe gpufreq wrapper driver");
 
 	if (unlikely(!of_wrapper)) {
-		GPUFREQ_LOGE("fail to find gpufreq wrapper of_node (ENOENT)");
-		ret = GPUFREQ_ENOENT;
+		GPUFREQ_LOGE("fail to find gpufreq wrapper of_node, treat as bringup");
+		g_gpufreq_bringup = true;
 		goto done;
 	}
 

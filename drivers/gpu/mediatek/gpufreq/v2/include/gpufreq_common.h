@@ -84,7 +84,6 @@
  * Platform Function Declaration
  **************************************************/
 /* Common */
-unsigned int __gpufreq_bringup(void);
 unsigned int __gpufreq_power_ctrl_enable(void);
 unsigned int __gpufreq_active_idle_ctrl_enable(void);
 unsigned int __gpufreq_get_power_state(void);
