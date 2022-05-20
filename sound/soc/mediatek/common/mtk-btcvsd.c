@@ -544,7 +544,6 @@ static int mtk_btcvsd_write_to_bt(struct mtk_btcvsd_snd *bt,
 		mtk_btcvsd_snd_data_transfer(BT_SCO_DIRECT_ARM2BT,
 					    bt->tx->temp_packet_buf, dst,
 					    packet_length, packet_num);
-
 		if (bt->isMblockSupport) {
 			/* call TFA read from mblock and write to BT SRAM */
 			struct arm_smccc_res res;
@@ -596,6 +595,7 @@ static irqreturn_t mtk_btcvsd_snd_irq_handler(int irq_id, void *dev)
 	unsigned int packet_type, packet_num, packet_length;
 	unsigned int buf_cnt_tx, buf_cnt_rx, control;
 	static DEFINE_RATELIMIT_STATE(_rs, 2 * HZ, 1);
+	struct arm_smccc_res res;
 
 	if (__ratelimit(&_rs))
 		dev_info(bt->dev, "%s(), irq_id=%d\n", __func__, irq_id);
@@ -733,10 +733,22 @@ static irqreturn_t mtk_btcvsd_snd_irq_handler(int irq_id, void *dev)
 			dev_warn(bt->dev, "%s(), tx->xrun 1\n", __func__);
 		}
 	}
+	if (bt->isMblockSupport) {
+		arm_smccc_smc(MTK_SIP_AUDIO_CONTROL,
+			MTK_AUDIO_SMC_OP_BTCVSD_UPDATE_CTRL_CLEAR,
+			0, 0, 0, 0, 0, 0, &res);
+	} else {
+		*bt->bt_reg_ctl &= ~BT_CVSD_CLEAR;
+	}
 
-	*bt->bt_reg_ctl &= ~BT_CVSD_CLEAR;
 	if (bt->tx->state == BT_SCO_STATE_IDLE || bt->write_tx == 0) {
-		*bt->bt_reg_ctl |= BT_CVSD_TX_UNDERFLOW;
+		if (bt->isMblockSupport) {
+			arm_smccc_smc(MTK_SIP_AUDIO_CONTROL,
+			MTK_AUDIO_SMC_OP_BTCVSD_UPDATE_CTRL_UNDERFLOW,
+			0, 0, 0, 0, 0, 0, &res);
+		} else {
+			*bt->bt_reg_ctl |= BT_CVSD_TX_UNDERFLOW;
+		}
 		dev_info(bt->dev, "%s(), tx underflow, state = %d, write_tx = %d\n",
 			 __func__, bt->tx->state, bt->write_tx);
 	}
