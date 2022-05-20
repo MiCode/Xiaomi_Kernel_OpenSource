@@ -16,7 +16,7 @@
 struct mtk_smi_larb_iommu {
 	struct device *dev;
 	unsigned int   mmu;
-	unsigned char  bank[32];
+	unsigned char  bank[64];
 };
 /*
  * mtk_smi_larb_get: Enable the power domain and clocks for this local arbiter.

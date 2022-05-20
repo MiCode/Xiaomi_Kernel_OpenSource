@@ -1861,19 +1861,19 @@ EXPORT_SYMBOL_GPL(mtk_smi_driver_unregister_notifier);
 static u32 mtk_smi_common_ostd_check(struct mtk_smi *common,
 	u32 check_port, unsigned long flags)
 {
-	u32 i, val, ret;
+	u32 i, val, ret = 0;
 
 	for (i = 0; i < SMI_COMMON_LARB_NR_MAX; i++) {
 		if ((check_port >> i) & 1) {
 			val = readl_relaxed(common->base + SMI_DEBUG_S(i));
-			pr_notice("[SMI] common%d: %#x=%#x, power status = %d\n",
+			pr_notice("[SMI] common%d: %#x=%#x, power status = %ld\n",
 				common->commid, SMI_DEBUG_S(i), val, flags);
 			if (val & SMI_OSTD_CNT_MASK) {
 				pr_notice("[SMI] common%d suspend check fail, power status = %d\n",
 					common->commid, flags);
 				raw_notifier_call_chain(&smi_driver_notifier_list,
 					common->commid, NULL);
-				ret = ret | (1 >> i);
+				ret = ret | (1 << i);
 			}
 		}
 	}

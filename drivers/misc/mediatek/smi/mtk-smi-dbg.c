@@ -394,7 +394,7 @@ static void mtk_smi_dbg_print(struct mtk_smi_dbg *smi, const bool larb,
 	const u32		regs_nr = node.regs_nr;
 
 	char	buf[LINK_MAX + 1] = {0};
-	u32	val, comm_id;
+	u32	val, comm_id = 0;
 	s32	i, len, ret = 0;
 	bool	dump_with = false;
 
@@ -430,13 +430,18 @@ static void mtk_smi_dbg_print(struct mtk_smi_dbg *smi, const bool larb,
 		ret = snprintf(buf + len, LINK_MAX - len, " %#x=%#x,",
 			node.regs[i], val);
 		if (ret < 0 || ret >= LINK_MAX - len) {
-			snprintf(buf + len, LINK_MAX - len, "%c", '\0');
+			ret = snprintf(buf + len, LINK_MAX - len, "%c", '\0');
+			if (ret < 0)
+				dev_notice(node.dev, "smi dbg print error:%d\n", ret);
+
 			dev_info(node.dev, "%s\n", buf);
 
 			len = 0;
 			memset(buf, '\0', sizeof(char) * ARRAY_SIZE(buf));
 			ret = snprintf(buf + len, LINK_MAX - len, " %#x=%#x,",
 				node.regs[i], val);
+			if (ret < 0)
+				dev_notice(node.dev, "smi dbg print error:%d\n", ret);
 		}
 		len += ret;
 	}
@@ -576,7 +581,8 @@ static void mtk_smi_dbg_conf_stop_clr(
 
 static void mtk_smi_dbg_monitor_run(struct mtk_smi_dbg *smi)
 {
-	s32	i, larb_on[MTK_LARB_NR_MAX], comm_on[MTK_LARB_NR_MAX];
+	s32	i, larb_on[MTK_LARB_NR_MAX] = {0};
+	s32	comm_on[MTK_LARB_NR_MAX] = {0};
 
 	smi->exec = sched_clock();
 	smi->frame = smi->frame ? smi->frame : 10;
@@ -683,7 +689,7 @@ static int smi_dbg_suspend_cb(struct notifier_block *nb,
 {
 	bool is_larb = (v != NULL);
 
-	pr_notice("[SMI] %s: %d - %d\n", __func__, is_larb, value);
+	pr_notice("[SMI] %s: %d - %ld\n", __func__, is_larb, value);
 	mtk_smi_dbg_print(gsmi, is_larb, false, value, true);
 	return 0;
 }
@@ -1062,17 +1068,14 @@ static int __init mtk_smi_dbg_init(void)
 int smi_ut_dump_get(char *buf, const struct kernel_param *kp)
 {
 	struct mtk_smi_dbg	*smi = gsmi;
-	s32 i;
+	s32 i, ret;
 
 	for (i = 0; i < ARRAY_SIZE(smi->larb); i++) {
 		if (!smi->larb[i].dev)
 			continue;
-		mtk_smi_larb_get(smi->larb[i].dev);
-	}
-	for (i = 0; i < ARRAY_SIZE(smi->comm); i++) {
-		if (!smi->comm[i].dev)
-			continue;
-		mtk_smi_larb_get(smi->comm[i].dev);
+		ret = mtk_smi_larb_get(smi->larb[i].dev);
+		if (ret < 0)
+			dev_notice(smi->larb[i].dev, "smi_larb%d get fail:%d\n", i, ret);
 	}
 
 	mtk_smi_dbg_hang_detect("SMI UT");
@@ -1081,11 +1084,6 @@ int smi_ut_dump_get(char *buf, const struct kernel_param *kp)
 		if (!smi->larb[i].dev)
 			continue;
 		mtk_smi_larb_put(smi->larb[i].dev);
-	}
-	for (i = 0; i < ARRAY_SIZE(smi->comm); i++) {
-		if (!smi->comm[i].dev)
-			continue;
-		mtk_smi_larb_put(smi->comm[i].dev);
 	}
 
 	return 0;
@@ -1100,14 +1098,17 @@ MODULE_PARM_DESC(smi_ut_dump, "dump smi current setting");
 int smi_get_larb_dump(const char *val, const struct kernel_param *kp)
 {
 	struct mtk_smi_dbg	*smi = gsmi;
-	s32		result, larb_id;
+	s32		result, larb_id, ret;
 
 	result = kstrtoint(val, 0, &larb_id);
-	if (result) {
+	if (result || larb_id < 0) {
 		pr_notice("SMI get larb dump failed: %d\n", result);
 		return result;
 	}
-	mtk_smi_larb_get(smi->larb[larb_id].dev);
+	ret = mtk_smi_larb_get(smi->larb[larb_id].dev);
+	if (ret < 0)
+		dev_notice(smi->larb[larb_id].dev, "smi_larb%d get fail:%d\n", larb_id, ret);
+
 	mtk_smi_dbg_hang_detect("SMI larb get and dump");
 
 	return 0;
@@ -1318,12 +1319,14 @@ EXPORT_SYMBOL_GPL(mtk_smi_dbg_hang_detect);
 int smi_larb_force_all_on(char *buf, const struct kernel_param *kp)
 {
 	struct mtk_smi_dbg	*smi = gsmi;
-	s32 i;
+	s32 i, ret;
 
 	for (i = 0; i < ARRAY_SIZE(smi->larb); i++) {
 		if (!smi->larb[i].dev)
 			continue;
-		mtk_smi_larb_get(smi->larb[i].dev);
+		ret = mtk_smi_larb_get(smi->larb[i].dev);
+		if (ret < 0)
+			dev_notice(smi->larb[i].dev, "smi_larb%d get fail:%d\n", i, ret);
 	}
 	smi_force_on = 1;
 	pr_notice("[smi] larb force all on\n");
