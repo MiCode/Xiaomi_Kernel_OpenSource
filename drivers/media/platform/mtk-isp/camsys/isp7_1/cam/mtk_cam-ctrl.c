@@ -1951,6 +1951,12 @@ int mtk_camsys_raw_subspl_state_handle(struct mtk_raw_device *raw_dev,
 	return STATE_RESULT_PASS_CQ_SW_DELAY;
 }
 
+/*
+ * When mtk_camsys_raw_state_handle return E_STATE_OUTER_HW_DELAY, we put
+ * the inner state 's mtk_camsys_ctrl_state in current_state. In other cases,
+ * we save the lastest mtk_camsys_ctrl_state already executed sensor work in
+ * current_state.
+ */
 static int mtk_camsys_raw_state_handle(struct mtk_raw_device *raw_dev,
 		struct mtk_camsys_sensor_ctrl *sensor_ctrl,
 		struct mtk_camsys_ctrl_state **current_state,
@@ -2073,6 +2079,7 @@ static int mtk_camsys_raw_state_handle(struct mtk_raw_device *raw_dev,
 				"[SOF] HW_IMCOMPLETE state cnt(%d,%d),req(%d),ts(%lu)\n",
 				write_cnt, irq_info->write_cnt, req_stream_data->frame_seq_no,
 				irq_info->ts_ns / 1000);
+			*current_state = state_inner;
 			return STATE_RESULT_PASS_CQ_HW_DELAY;
 		}
 	}
@@ -2796,6 +2803,7 @@ static void mtk_camsys_raw_frame_start(struct mtk_raw_device *raw_dev,
 	/* Detect no frame done and trigger camsys dump for debugging */
 	mtk_cam_debug_detect_dequeue_failed(req_stream_data, 30, irq_info, raw_dev);
 	if (ctx->sensor) {
+		current_state = NULL;
 		if (mtk_cam_is_subsample(ctx))
 			state_handle_ret =
 			mtk_camsys_raw_subspl_state_handle(raw_dev, sensor_ctrl,
@@ -2804,6 +2812,47 @@ static void mtk_camsys_raw_frame_start(struct mtk_raw_device *raw_dev,
 			state_handle_ret =
 			mtk_camsys_raw_state_handle(raw_dev, sensor_ctrl,
 						&current_state, irq_info);
+
+		if (state_handle_ret == STATE_RESULT_PASS_CQ_HW_DELAY && current_state) {
+			int frame_seq_next;
+			struct mtk_cam_request *req_next;
+			bool trigger_raw_switch = false;
+			struct mtk_cam_request_stream_data *s_data_next;
+
+			req_stream_data = mtk_cam_ctrl_state_to_req_s_data(current_state);
+			/* check if we need to start raw switch */
+			frame_seq_next = req_stream_data->frame_seq_no + 1;
+			req_next = mtk_cam_get_req(ctx, frame_seq_next);
+			if (!req_next) {
+				dev_dbg(ctx->cam->dev, "%s next req (%d) not queued\n",
+					__func__, frame_seq_next);
+			} else {
+				dev_dbg(ctx->cam->dev,
+					"%s:req(%d) check: req->ctx_used:0x%x, req->ctx_link_update0x%x\n",
+					__func__, frame_seq_next, req_next->ctx_used,
+					req_next->ctx_link_update);
+				mutex_lock(&ctx->cam->queue_lock);
+				if ((req_next->ctx_used & (1 << ctx->stream_id))
+				    && mtk_cam_is_nonimmediate_switch_req(req_next, ctx->stream_id))
+					trigger_raw_switch = true;
+				else
+					dev_dbg(ctx->cam->dev, "%s next req (%d) no link stup\n",
+						__func__, frame_seq_next);
+				/**
+				 * release the lock once we know
+				 * if raw switch needs to be triggered or not here
+				 */
+				mutex_unlock(&ctx->cam->queue_lock);
+			}
+
+			if (trigger_raw_switch) {
+				mtk_cam_req_dump(req_stream_data, MTK_CAM_REQ_DUMP_DEQUEUE_FAILED,
+						 "No P1 done before raw switch", false);
+				s_data_next = mtk_cam_req_get_s_data(req_next, ctx->stream_id, 0);
+				mtk_camsys_raw_change_pipeline(ctx, &ctx->sensor_ctrl, s_data_next);
+			}
+		}
+
 		if (state_handle_ret != STATE_RESULT_TRIGGER_CQ) {
 			dev_dbg(raw_dev->dev, "[SOF] CQ drop s:%d deq:%d\n",
 				state_handle_ret, dequeued_frame_seq_no);
