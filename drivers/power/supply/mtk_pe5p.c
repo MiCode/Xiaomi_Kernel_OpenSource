@@ -3819,6 +3819,10 @@ static int pe5p_start_algo(struct chg_alg_device *alg)
 	pe5p_hal_enable_sw_vbusovp(alg, false);
 	ret = pe5p_start(info);
 	if (ret < 0) {
+		pe5p_hal_set_ta_cap(info->alg, PE5P_VTA_INIT,
+					PE5P_ITA_INIT);
+		pe5p_enable_ta_charging(info, false, PE5P_VTA_INIT,
+					PE5P_ITA_INIT);
 		pe5p_hal_enable_sw_vbusovp(alg, true);
 		PE5P_ERR("start PE5.0 algo fail\n");
 		ret = ALG_INIT_FAIL;

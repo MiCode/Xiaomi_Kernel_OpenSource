@@ -3460,6 +3460,10 @@ static int hvbp_start_algo(struct chg_alg_device *alg)
 	hvbp_hal_enable_sw_vbusovp(alg, false);
 	ret = hvbp_start(info);
 	if (ret < 0) {
+		hvbp_hal_set_ta_cap(info->alg, HVBP_VTA_INIT,
+					HVBP_ITA_INIT);
+		hvbp_enable_ta_charging(info, false, HVBP_VTA_INIT,
+					HVBP_ITA_INIT);
 		hvbp_hal_enable_sw_vbusovp(alg, true);
 		HVBP_ERR("start HVBP algo fail\n");
 		ret = ALG_INIT_FAIL;

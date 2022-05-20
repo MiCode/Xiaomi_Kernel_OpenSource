@@ -411,7 +411,7 @@ static int do_algorithm(struct mtk_charger *info)
 			}
 
 			if (info->alg_new_arbitration && info->alg_unchangeable &&
-				(lst_rnd_alg_idx != -1)) {
+				(lst_rnd_alg_idx > -1)) {
 				if (lst_rnd_alg_idx != i)
 					continue;
 			}
