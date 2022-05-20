@@ -22,7 +22,7 @@
 #define _INBOX_IRQ_MASK(_m)	(_m->apu_mbox + 0xd0)
 #define _OUTBOX_IRQ_MASK(_m)	(_m->apu_mbox + 0xd8)
 
-#define WAIT_INBOX_TMO_MS	1000
+#define WAIT_INBOX_TMO_MS	3000
 
 void apu_mbox_ack_outbox(struct mtk_apu *apu)
 {
