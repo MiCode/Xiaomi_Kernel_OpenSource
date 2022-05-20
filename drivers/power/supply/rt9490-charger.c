@@ -434,10 +434,13 @@ static int rt9490_charger_get_online(struct rt9490_chg_data *data,
 	return 0;
 }
 
-static int rt9490_charger_get_adc(struct rt9490_chg_data *data, int chan_idx,
+static int rt9490_charger_get_adc(struct rt9490_chg_data *data, u8 chan_idx,
 				  union power_supply_propval *val)
 {
 	int adc_val, ret;
+
+	if (chan_idx >= RT9490_ADC_MAX)
+		return -EINVAL;
 
 	ret = iio_read_channel_processed(data->adc_chans[chan_idx], &adc_val);
 	if (ret)
@@ -694,6 +697,9 @@ static int rt9490_charger_get_property(struct power_supply *psy,
 {
 	struct rt9490_chg_data *data = power_supply_get_drvdata(psy);
 
+	if (IS_ERR_OR_NULL(data))
+		return PTR_ERR_OR_ZERO(data);
+
 	switch (psp) {
 	case POWER_SUPPLY_PROP_STATUS:
 		return rt9490_charger_get_status(data, val);
@@ -744,6 +750,9 @@ static int rt9490_charger_set_property(struct power_supply *psy,
 				       const union power_supply_propval *val)
 {
 	struct rt9490_chg_data *data = power_supply_get_drvdata(psy);
+
+	if (IS_ERR_OR_NULL(data))
+		return PTR_ERR_OR_ZERO(data);
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_ONLINE:
@@ -1127,7 +1136,7 @@ static int rt9490_set_vac_ovp(struct charger_device *chgdev, u32 uV)
 	struct rt9490_chg_data *data = charger_get_data(chgdev);
 
 	dev_info(data->dev, "%s: ovp_lvl = %d", __func__, uV);
-	if (uV < 70000000)
+	if (uV < 7000000)
 		return regmap_field_write(data->rm_field[F_VACOVP], 0x3);
 	else if (uV >= 7000000 && uV < 12000000)
 		return regmap_field_write(data->rm_field[F_VACOVP], 0x2);
