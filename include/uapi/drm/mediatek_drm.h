@@ -624,6 +624,8 @@ struct drm_mtk_layering_info {
 	uint32_t disp_caps[3];
 	uint32_t frame_idx[3];
 	int hrt_num;
+	__u32 disp_idx;
+	__u32 disp_list;
 	/* res_idx: SF/HWC selects which resolution to use */
 	int res_idx;
 	__u32 hrt_weight;
@@ -675,6 +677,7 @@ enum MTK_DRM_DISP_FEATURE {
 	DRM_DISP_FEATURE_IOMMU = 0x00001000,
 	DRM_DISP_FEATURE_OVL_BW_MONITOR = 0x00002000,
 	DRM_DISP_FEATURE_GPU_CACHE = 0x00004000,
+	DRM_DISP_FEATURE_SPHRT = 0x00008000,
 };
 
 enum MTK_DRM_DUMP_POINT {
