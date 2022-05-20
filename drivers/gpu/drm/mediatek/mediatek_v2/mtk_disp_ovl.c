@@ -1898,7 +1898,9 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 			if (idx == fbt_layer_id) {
 				key = frame_idx - MAX_FRAME_RATIO_NUMBER;
 				for (i = 0; i < MAX_FRAME_RATIO_NUMBER; i++) {
-					if (key == fbt_layer_compress_ratio_tb[i].key_value) {
+					if ((key == fbt_layer_compress_ratio_tb[i].key_value) &&
+						(fbt_layer_compress_ratio_tb[i].average_ratio
+						!= 0)) {
 						avg_ratio =
 						fbt_layer_compress_ratio_tb[i].average_ratio;
 						temp_bw = temp_bw * avg_ratio;
@@ -1910,7 +1912,9 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 				key = frame_idx + alloc_id - MAX_FRAME_RATIO_NUMBER;
 				for (i = 0; i < MAX_FRAME_RATIO_NUMBER*MAX_LAYER_RATIO_NUMBER;
 					i++) {
-					if (key == normal_layer_compress_ratio_tb[i].key_value) {
+					if ((key == normal_layer_compress_ratio_tb[i].key_value) &&
+						(normal_layer_compress_ratio_tb[i].average_ratio
+						!= 0)) {
 						avg_ratio =
 						normal_layer_compress_ratio_tb[i].average_ratio;
 						temp_bw = temp_bw * avg_ratio;
