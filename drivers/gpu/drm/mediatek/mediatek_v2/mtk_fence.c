@@ -765,7 +765,8 @@ int mtk_fence_convert_input_to_fence_layer_info(
  * @return struct @mtk_fence_buf_info
  */
 struct mtk_fence_buf_info *mtk_fence_prepare_buf(struct drm_device *dev,
-						 struct drm_mtk_gem_submit *buf)
+						 struct drm_mtk_gem_submit *buf, bool is_implicit,
+						 struct dma_resv *resv)
 {
 	int ret = 0;
 	unsigned int session_id = 0;
@@ -804,7 +805,10 @@ struct mtk_fence_buf_info *mtk_fence_prepare_buf(struct drm_device *dev,
 	data.value = ++(layer_info->fence_idx);
 	mutex_unlock(&(layer_info->sync_lock));
 
-	ret = mtk_sync_fence_create(layer_info->timeline, &data);
+	if (is_implicit)
+		ret = mtk_sync_share_fence_create(layer_info->timeline, &data, resv);
+	else
+		ret = mtk_sync_fence_create(layer_info->timeline, &data);
 	if (ret != 0) {
 		/* Does this really happened? */
 		DDPPR_ERR("%s%d,layer%d create Fence Object failed ret=%d!\n",

@@ -336,4 +336,26 @@ err:
 }
 EXPORT_SYMBOL_GPL(mtk_sync_fence_create);
 
+int mtk_sync_share_fence_create(struct sync_timeline *obj,
+	struct fence_data *data,
+	struct dma_resv *resv)
+{
+	int err;
+	struct sync_pt *pt;
+
+	pt = mtk_sync_pt_create(obj, data->value);
+	if (!pt) {
+		err = -ENOMEM;
+		return err;
+	}
+
+	err = dma_resv_reserve_shared(resv, 1);
+	dma_fence_put(&pt->base);
+	if (unlikely(err))
+		return err;
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(mtk_sync_share_fence_create);
+
 MODULE_LICENSE("GPL");

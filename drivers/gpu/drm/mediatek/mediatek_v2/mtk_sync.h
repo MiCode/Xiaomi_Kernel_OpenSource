@@ -19,7 +19,7 @@
 
 #include <linux/version.h>
 #include <linux/dma-fence.h>
-
+#include <linux/dma-resv.h>
 /**
  * struct sync_timeline - sync object
  * @kref:		reference count on fence.
@@ -114,7 +114,20 @@ void mtk_sync_timeline_inc(struct sync_timeline *obj, u32 value, ktime_t time);
  * A file descriptor binded with the fence is stored in @data->fence.
  */
 int mtk_sync_fence_create(struct sync_timeline *obj, struct fence_data *data);
-
+/**
+ * mtk_sync_fence_create() - create a fence
+ * @obj:    sync_timeline obj
+ * @data:   fence struct with its name and the number a sync point bears
+ * @resv: the struct of reservation object for dam-fence
+ *
+ * The mtk_sync_fence_create() function creates a new sync point with
+ * @data->value,
+ * and assign the sync point to a newly created fence named @data->name.
+ * A file descriptor binded with the fence is stored in @data->fence.
+ */
+int mtk_sync_share_fence_create(struct sync_timeline *obj,
+	struct fence_data *data,
+	struct dma_resv *resv);
 #endif /* __KERNEL __ */
 
 #endif /* _MTK_SYNC_H */

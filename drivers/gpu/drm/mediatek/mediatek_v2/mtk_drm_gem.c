@@ -587,7 +587,7 @@ static void prepare_output_buffer(struct drm_device *dev,
 
 	/* create second fence for WDMA when decouple mirror mode */
 	buf->layer_id = mtk_fence_get_interface_timeline_id();
-	output_buf = mtk_fence_prepare_buf(dev, buf);
+	output_buf = mtk_fence_prepare_buf(dev, buf, false, NULL);
 	if (output_buf) {
 		buf->interface_fence_fd = output_buf->fence;
 		buf->interface_index = output_buf->idx;
@@ -612,7 +612,7 @@ int mtk_gem_submit_ioctl(struct drm_device *dev, void *data,
 		args->layer_id = mtk_fence_get_output_timeline_id();
 
 	if (args->layer_en) {
-		buf = mtk_fence_prepare_buf(dev, args);
+		buf = mtk_fence_prepare_buf(dev, args, false, NULL);
 		if (buf != NULL) {
 			args->fence_fd = buf->fence;
 			args->index = buf->idx;
