@@ -19,6 +19,7 @@
 #include "apusys_core.h"
 #include "aov_rpmsg.h"
 #include "apu_ipi.h"
+#include "mdw_rv_msg.h"
 
 struct aov_rpmsg_ctx {
 	struct rpmsg_endpoint *ept;
@@ -39,7 +40,7 @@ static struct aov_rpmsg_ctx *rpmsg_ctx;
 
 int aov_rpmsg_send(uint32_t param)
 {
-	pr_debug("%s +++\n", __func__);
+	pr_info("%s +++\n", __func__); //debug
 
 	if (!rpmsg_ctx)
 		return -ENODEV;
@@ -47,7 +48,7 @@ int aov_rpmsg_send(uint32_t param)
 	atomic_set(&rpmsg_ctx->param, param);
 	complete(&rpmsg_ctx->notify_tx_apu);
 
-	pr_debug("%s ---\n", __func__);
+	pr_info("%s ---\n", __func__); //debug
 
 	return 0;
 }
@@ -61,10 +62,10 @@ int scp_mdw_handler(struct npu_scp_ipi_param *recv_msg)
 
 	switch (recv_msg->act) {
 	case NPU_SCP_NP_MDW_ACK:
-		pr_debug("%s Get Ack\n", __func__);
+		pr_info("%s Get Ack\n", __func__); //debug
 		break;
 	case NPU_SCP_NP_MDW_TO_APMCU:
-		pr_debug("%s NPU_SCP_NP_MDW_TO_APMCU\n", __func__);
+		pr_info("%s NPU_SCP_NP_MDW_TO_APMCU\n", __func__); //debug
 		ret = aov_rpmsg_send(APU_IPI_SCP_MIDDLEWARE);
 		break;
 	default:
@@ -94,13 +95,13 @@ static int apu_tx_thread(void *data)
 
 		do {
 			ret = rpmsg_send(ctx->ept, &param, sizeof(param));
-
+			pr_info("%s rpmsg_send %d ret %d\n", __func__, param, ret);
 			/* send busy, retry */
 			if (ret == -EBUSY) {
 				pr_info("%s: re-send ipi(retry_cnt = %d)\n", __func__, retry_cnt);
 				mdelay(10);
 			}
-		} while (ret != -EBUSY && retry_cnt-- > 0);
+		} while (ret == -EBUSY && retry_cnt-- > 0);
 
 		if (ret)
 			pr_info("%s Failed to send ipi to apu, ret %d\n", __func__, ret);
@@ -206,7 +207,21 @@ apu_kthread_error:
 
 static int aov_rpmsg_callback(struct rpmsg_device *rpdev, void *data, int len, void *priv, u32 src)
 {
-	pr_debug("%s get src %d\n", __func__, src);
+	struct mdw_ipi_msg *ret_msg = (struct mdw_ipi_msg *)data;
+
+	pr_info("%s get src %d\n", __func__, src); //debug
+
+	if (!ret_msg || len != sizeof(struct mdw_ipi_msg)) {
+		pr_info("%s get NULL or error returned msg\n", __func__);
+		return 0;
+	}
+
+	/* TODO: use MDW_IPI_MSG_STATUS_ABORT */
+	if (ret_msg->ret == MDW_IPI_MSG_STATUS_ERR) {
+		pr_info("%s get err %d, drop it\n", __func__, ret_msg->ret);
+		return 0;
+	}
+
 	complete(&rpmsg_ctx->notify_tx_scp);
 
 	return 0;

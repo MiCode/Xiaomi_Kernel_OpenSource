@@ -18,6 +18,7 @@
 
 #include "npu_scp_ipi.h"
 #include "aov_rpmsg.h"
+#include "aov_recovery.h"
 
 #define MAX_DEBUG_CMD_SIZE (1024)
 
@@ -206,10 +207,17 @@ static ssize_t apusys_aov_test_write(struct file *flip, const char __user *buffe
 	if (!user_input)
 		return -ENOMEM;
 
-	if (copy_from_user(user_input, buffer, count))
-		return -EFAULT;
+	if (!access_ok(buffer, count)) {
+		dev_info(ctx->dev, "%s unreadable user buffer\n", __func__);
+		goto out;
+	}
 
-	user_input[count + 1] = '\0';
+	if (copy_from_user(user_input, buffer, count)) {
+		dev_info(ctx->dev, "%s Failed to copy_from_user\n", __func__);
+		goto out;
+	}
+
+	user_input[count] = '\0';
 
 	cmd_str = user_input;
 
@@ -346,7 +354,7 @@ static int npu_scp_ipi_callback(unsigned int id, void *prdata, void *data, unsig
 	struct npu_scp_ipi_param *recv_msg = (struct npu_scp_ipi_param *)data;
 
 	if (!ctx || !recv_msg) {
-		dev_info(ctx->dev, "%s failed to get context or mssage\n", __func__);
+		pr_info("%s failed to get context or mssage\n", __func__);
 		return -EINVAL;
 	}
 
@@ -355,15 +363,25 @@ static int npu_scp_ipi_callback(unsigned int id, void *prdata, void *data, unsig
 	ctx->npu_scp_msg.arg = recv_msg->arg;
 	ctx->npu_scp_msg.ret = recv_msg->ret;
 
-	if (recv_msg->cmd == NPU_SCP_RESPONSE) {
+	switch (recv_msg->cmd) {
+	case NPU_SCP_RESPONSE:
 		atomic_set(&ctx->response_arrived, 1);
 		complete(&ctx->comp);
-	} else if (recv_msg->cmd == NPU_SCP_SYSTEM) {
+		ret = 0;
+		break;
+	case NPU_SCP_SYSTEM:
 		ret = npu_system_handler(ctx, recv_msg);
-	} else if (recv_msg->cmd == NPU_SCP_NP_MDW) {
+		break;
+	case NPU_SCP_NP_MDW:
 		ret = scp_mdw_handler(recv_msg);
-	} else {
+		break;
+	case NPU_SCP_RECOVERY:
+		ret = aov_recovery_handler(recv_msg);
+		break;
+	default:
 		dev_info(ctx->dev, "%s get undefined cmd %d\n", __func__, recv_msg->cmd);
+		ret = -EINVAL;
+		break;
 	}
 
 	if (ret)
@@ -414,7 +432,6 @@ static int apusys_aov_suspend(struct platform_device *pdev, pm_message_t state)
 	struct apusys_aov_ctx *ctx = platform_get_drvdata(pdev);
 	struct npu_scp_ipi_param send_msg = { 0, 0, 0, 0 };
 	int ret;
-
 
 	if (!atomic_read(&ctx->aov_enabled)) {
 		dev_dbg(ctx->dev, "%s aov is disabled\n", __func__);
@@ -504,6 +521,8 @@ int aov_init(struct apusys_core_info *info)
 	if (ret)
 		pr_info("%s driver register fail\n", __func__);
 
+	aov_recovery_init(info);
+
 	aov_rpmsg_init(info);
 
 	return ret;
@@ -512,6 +531,8 @@ int aov_init(struct apusys_core_info *info)
 void aov_exit(void)
 {
 	aov_rpmsg_exit();
+
+	aov_recovery_exit();
 
 	platform_driver_unregister(&apusys_aov_driver);
 }
