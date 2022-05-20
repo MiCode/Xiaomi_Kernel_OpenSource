@@ -973,6 +973,141 @@ static const struct file_operations emul_temp_fops = {
 	.release = single_release,
 };
 
+static int gpu_cooler_show(struct seq_file *m, void *unused)
+{
+	/* output: tt, tp, polling_delay */
+	seq_printf(m, "%d,%d,%d\n",
+		therm_intf_read_csram(GPU_COOLER_BASE+4),
+		therm_intf_read_csram(GPU_COOLER_BASE),
+		therm_intf_read_csram(GPU_COOLER_BASE+8));
+
+	return 0;
+}
+
+static ssize_t gpu_cooler_write(struct file *flip,
+			const char *ubuf, size_t cnt, loff_t *data)
+{
+	int ret, value;
+	char *buf;
+	char target[30];
+
+	cnt = min_t(size_t, cnt, 255);
+
+	buf = kzalloc(cnt + 1, GFP_KERNEL);
+	if (buf == NULL)
+		return -ENOMEM;
+
+	if (copy_from_user(buf, ubuf, cnt)) {
+		ret = -EFAULT;
+		goto err;
+	}
+	buf[cnt] = '\0';
+
+	if (sscanf(buf, "%15s %d", target, &value) != 2) {
+		dev_info(tm_data.dev, "invalid input for gpu cooler dbg intf\n");
+		ret = -EINVAL;
+		goto err;
+	}
+	if (strncmp(target, "tp", 3) == 0)
+		therm_intf_write_csram(value, GPU_COOLER_BASE);
+	else if (strncmp(target, "tt", 3) == 0)
+		therm_intf_write_csram(value, GPU_COOLER_BASE + 4);
+	else if (strncmp(target, "polling_delay", 3) == 0)
+		therm_intf_write_csram(value, GPU_COOLER_BASE + 8);
+
+	ret = cnt;
+
+err:
+	kfree(buf);
+
+	return ret;
+}
+
+static int gpu_cooler_open(struct inode *i, struct file *file)
+{
+	return single_open(file, gpu_cooler_show, i->i_private);
+}
+
+static const struct file_operations gpu_cooler_fops = {
+	.owner = THIS_MODULE,
+	.open = gpu_cooler_open,
+	.read = seq_read,
+	.write = gpu_cooler_write,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
+
+
+static int gpu_temp_debug_show(struct seq_file *m, void *unused)
+{
+	seq_printf(m, "BIN1=%d BIN2=%d BIN3=%d total_count=%d max_temp=%d\n",
+			   therm_intf_read_csram(GPU_COOLER_BASE + 12),
+			   therm_intf_read_csram(GPU_COOLER_BASE + 16),
+			   therm_intf_read_csram(GPU_COOLER_BASE + 20),
+			   therm_intf_read_csram(GPU_COOLER_BASE + 24),
+			   therm_intf_read_csram(GPU_COOLER_BASE + 28));
+
+	return 0;
+}
+
+static ssize_t gpu_temp_debug_write(struct file *flip,
+					const char *ubuf, size_t cnt, loff_t *data)
+{
+	int ret, value;
+	char *buf;
+
+	cnt = min_t(size_t, cnt, 255);
+
+	buf = kzalloc(cnt + 1, GFP_KERNEL);
+	if (buf == NULL)
+		return -ENOMEM;
+
+	if (copy_from_user(buf, ubuf, cnt)) {
+		ret = -EFAULT;
+		goto err;
+	}
+	buf[cnt] = '\0';
+
+	if (kstrtoint(buf, 10, &value) != 0) {
+		dev_info(tm_data.dev, "invalid input for gpu temp check dbg intf\n");
+		ret = -EINVAL;
+		goto err;
+	}
+
+	if (value == 0) {
+		therm_intf_write_csram(0, GPU_COOLER_BASE + 12);
+		therm_intf_write_csram(0, GPU_COOLER_BASE + 16);
+		therm_intf_write_csram(0, GPU_COOLER_BASE + 20);
+		therm_intf_write_csram(0, GPU_COOLER_BASE + 24);
+		therm_intf_write_csram(0, GPU_COOLER_BASE + 28);
+	}
+	if (value < 0)
+		therm_intf_write_csram(-1, GPU_COOLER_BASE + 28);
+
+
+	ret = cnt;
+
+err:
+	kfree(buf);
+
+	return ret;
+}
+
+static int gpu_temp_debug_open(struct inode *i, struct file *file)
+{
+	return single_open(file, gpu_temp_debug_show, i->i_private);
+}
+
+static const struct file_operations gpu_temp_debug_fops = {
+	.owner = THIS_MODULE,
+	.open = gpu_temp_debug_open,
+	.read = seq_read,
+	.write = gpu_temp_debug_write,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
+
+
 static void therm_intf_debugfs_init(void)
 {
 	tm_data.debug_dir = debugfs_create_dir("thermal", NULL);
@@ -982,6 +1117,8 @@ static void therm_intf_debugfs_init(void)
 	}
 
 	debugfs_create_file("emul_temp", 0640, tm_data.debug_dir, NULL, &emul_temp_fops);
+	debugfs_create_file("gpu_cooler_debug", 0640, tm_data.debug_dir, NULL, &gpu_cooler_fops);
+	debugfs_create_file("gpu_temp_check", 0640, tm_data.debug_dir, NULL, &gpu_temp_debug_fops);
 
 	therm_intf_write_csram(THERMAL_TEMP_INVALID, EMUL_TEMP_OFFSET);
 	therm_intf_write_csram(THERMAL_TEMP_INVALID, EMUL_TEMP_OFFSET + 4);

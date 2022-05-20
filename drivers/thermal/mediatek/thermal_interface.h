@@ -32,6 +32,7 @@
 #define ATC_NUM                    (17)
 #define UTC_COUNT_OFFSET           (0x27C)
 #define INFOB_OFFSET               (0x2C4)
+#define GPU_COOLER_BASE             (0x3A0)
 
 #define APU_MBOX_TTJ_OFFSET        (0x700)
 #define APU_MBOX_PB_OFFSET         (0x704)
