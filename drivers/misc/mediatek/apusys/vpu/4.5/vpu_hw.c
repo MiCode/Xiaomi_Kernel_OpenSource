@@ -485,7 +485,7 @@ static int vpu_init_algo_info(struct vpu_device *vd,
 	spin_lock(&al->lock);
 	list_sort(NULL, &al->a, vpu_algo_cmp);
 	list_for_each_entry_safe(alg, tmp, &al->a, list) {
-		strncpy(algo->name, alg->a.name, ALGO_NAMELEN);
+		strncpy(algo->name, alg->a.name, (ALGO_NAMELEN - 1));
 		algo->mva = alg->a.mva;
 		algo->len = alg->a.len;
 		algo->entry_off = alg->a.entry_off;

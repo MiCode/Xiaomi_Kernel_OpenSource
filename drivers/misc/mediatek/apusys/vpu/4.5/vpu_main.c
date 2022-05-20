@@ -49,12 +49,11 @@ int vpu_set_init_info(struct mtk_apu *apu)
 	struct vpu_probe_info *p;
 	struct platform_device *pdev;
 	struct vpu_init_info *info;
-	struct vpu_device *vd;
+	struct vpu_device *vd = NULL;
 	struct vpu_misc *misc;
 
 	if (!apu || !apu->conf_buf) {
-		vpu_cmd_debug("invalid argument: apu(%p) conf_buf(%p)\n",
-			apu, apu->conf_buf);
+		vpu_cmd_debug("invalid argument: apu or conf_buf\n");
 		return -EINVAL;
 	}
 
@@ -93,6 +92,10 @@ int vpu_set_init_info(struct mtk_apu *apu)
 	}
 
 	info->vpu_num = i;
+	if (!vd) {
+		vpu_cmd_debug("vd init failed\n");
+		return -EINVAL;
+	}
 
 	if (!info->cfg_addr && info->vpu_num) {
 		misc = (void *)vpu_drv->iova_cfg.m.va;
