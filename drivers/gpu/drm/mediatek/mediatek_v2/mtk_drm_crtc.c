@@ -3652,10 +3652,11 @@ static void mtk_crtc_update_ddp_state(struct drm_crtc *crtc,
 	}
 	/*set_hrt_bw for pan display ,set 4 for two RGB layer*/
 	if (index == 0 && hrt_valid == false) {
-		DDPMSG("%s frame:%u correct invalid hrt to:%u, mode:%u->%u\n",
-			__func__, prop_lye_idx, pan_disp_frame_weight,
-			old_mtk_state->prop_val[CRTC_PROP_DISP_MODE_IDX],
-			crtc_state->prop_val[CRTC_PROP_DISP_MODE_IDX]);
+		if (disp_helper_get_stage() == DISP_HELPER_STAGE_NORMAL)
+			DDPMSG("%s frame:%u correct invalid hrt to:%u, mode:%u->%u\n",
+				__func__, prop_lye_idx, pan_disp_frame_weight,
+				old_mtk_state->prop_val[CRTC_PROP_DISP_MODE_IDX],
+				crtc_state->prop_val[CRTC_PROP_DISP_MODE_IDX]);
 		/*
 		 * prop_lye_idx is 0 when suspend. Update display mode to avoid
 		 * the dsi params not sync with the mode of new crtc state.
