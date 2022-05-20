@@ -89,7 +89,7 @@ static void query_devapc_subsys_status(int slave_type)
 		/* bypass adsp check since adsp power on after lk.
 		 * todo: add image status check from smc
 		 */
-		mtk_devapc_ctx->subsys_enabled[slave_type] = 1;
+		mtk_devapc_ctx->subsys_enabled[slave_type] = 0;
 	}
 
 	if (slave_type == DEVAPC_TYPE_MMINFRA) {
