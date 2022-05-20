@@ -14,6 +14,7 @@
  * ===============================================
  */
 #include <linux/proc_fs.h>
+#include <linux/debugfs.h>
 #include <linux/random.h>
 #include <linux/seq_file.h>
 #include <linux/mutex.h>
@@ -23,7 +24,7 @@
 #include <gpufreq_v2.h>
 #include <gpufreq_mssv.h>
 #include <gpufreq_debug.h>
-#include <gpufreq_history_debug.h>
+#include <gpufreq_history.h>
 
 /**
  * ===============================================
@@ -868,12 +869,12 @@ static int gpufreq_create_procfs(void)
 	struct proc_dir_entry *dir = NULL;
 	int i = 0;
 
-	struct pentry {
+	struct procfs_entry {
 		const char *name;
 		const struct proc_ops *fops;
 	};
 
-	const struct pentry default_entries[] = {
+	const struct procfs_entry default_entries[] = {
 		PROC_ENTRY(gpufreq_status),
 		PROC_ENTRY(gpu_working_opp_table),
 		PROC_ENTRY(gpu_signed_opp_table),
@@ -889,22 +890,22 @@ static int gpufreq_create_procfs(void)
 #endif /* GPUFREQ_MSSV_TEST_MODE */
 	};
 
-	const struct pentry dualbuck_entries[] = {
+	const struct procfs_entry dualbuck_entries[] = {
 		PROC_ENTRY(stack_working_opp_table),
 		PROC_ENTRY(stack_signed_opp_table),
 	};
 
-	dir = proc_mkdir("gpufreqv2", NULL);
+	dir = proc_mkdir(GPUFREQ_DIR_NAME, NULL);
 	if (!dir) {
-		GPUFREQ_LOGE("fail to create /proc/gpufreqv2 (ENOMEM)");
+		GPUFREQ_LOGE("fail to create /proc/%s (ENOMEM)", GPUFREQ_DIR_NAME);
 		return GPUFREQ_ENOMEM;
 	}
 
 	for (i = 0; i < ARRAY_SIZE(default_entries); i++) {
 		if (!proc_create(default_entries[i].name, 0660,
 			dir, default_entries[i].fops))
-			GPUFREQ_LOGE("fail to create /proc/gpufreqv2/%s",
-				default_entries[i].name);
+			GPUFREQ_LOGE("fail to create /proc/%s/%s",
+				GPUFREQ_DIR_NAME, default_entries[i].name);
 	}
 
 	if (g_dual_buck){
@@ -919,6 +920,66 @@ static int gpufreq_create_procfs(void)
 	return GPUFREQ_SUCCESS;
 }
 #endif /* CONFIG_PROC_FS */
+
+#if defined(CONFIG_DEBUG_FS)
+static int history_debug_show(struct seq_file *m, void *v)
+{
+	int ret = GPUFREQ_SUCCESS;
+	int i = 0;
+	const unsigned int *history_log = NULL;
+
+	mutex_lock(&gpufreq_debug_lock);
+
+	history_log = gpufreq_history_get_log();
+
+	if (!history_log) {
+		GPUFREQ_LOGE("fail to get history log (ENOENT)");
+		ret = GPUFREQ_ENOENT;
+		goto done;
+	}
+
+	for (i = 0; i < GPUFREQ_HISTORY_SIZE; i++)
+		seq_printf(m, "%08x", history_log[i]);
+
+done:
+	mutex_unlock(&gpufreq_debug_lock);
+
+	return ret;
+}
+
+/* DEBUGFS : initialization */
+DEBUG_FOPS_RO(history);
+
+static int gpufreq_create_debugfs(void)
+{
+	struct dentry *dir = NULL;
+	int i = 0;
+
+	struct debugfs_entry {
+		const char *name;
+		const struct file_operations *fops;
+	};
+
+	const struct debugfs_entry default_entries[] = {
+		DEBUG_ENTRY(history),
+	};
+
+	dir = debugfs_create_dir(GPUFREQ_DIR_NAME, NULL);
+	if (!dir) {
+		GPUFREQ_LOGE("fail to create /sys/kernel/debug/%s", GPUFREQ_DIR_NAME);
+		return GPUFREQ_ENOMEM;
+	}
+
+	for (i = 0; i < ARRAY_SIZE(default_entries); i++) {
+		if (!debugfs_create_file(default_entries[i].name, 0444,
+			dir, NULL, default_entries[i].fops))
+			GPUFREQ_LOGE("fail to create /sys/kernel/debug/%s/%s",
+				GPUFREQ_DIR_NAME, default_entries[i].name);
+	}
+
+	return GPUFREQ_SUCCESS;
+}
+#endif /* CONFIG_DEBUG_FS */
 
 void gpufreq_debug_init(unsigned int dual_buck, unsigned int gpueb_support,
 	const struct gpufreq_shared_status *shared_status)
@@ -940,16 +1001,19 @@ void gpufreq_debug_init(unsigned int dual_buck, unsigned int gpueb_support,
 		BUG_ON(1);
 	}
 
+	ret = gpufreq_history_init();
+	if (ret)
+		GPUFREQ_LOGE("fail to init gpufreq history");
+
 #if defined(CONFIG_PROC_FS)
 	ret = gpufreq_create_procfs();
 	if (ret)
 		GPUFREQ_LOGE("fail to create procfs (%d)", ret);
-
 #endif /* CONFIG_PROC_FS */
+
 #if defined(CONFIG_DEBUG_FS)
 	ret = gpufreq_create_debugfs();
 	if (ret)
 		GPUFREQ_LOGE("fail to create debugfs (%d)", ret);
-#endif
-
+#endif /* CONFIG_DEBUG_FS */
 }
