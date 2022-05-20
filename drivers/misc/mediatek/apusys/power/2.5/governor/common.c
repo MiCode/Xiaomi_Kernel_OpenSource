@@ -130,7 +130,7 @@ void apu_dump_pe_gov(struct apu_dev *ad, struct list_head *head)
 int apu_gov_setup(struct apu_dev *ad, void *data)
 {
 	const struct apu_plat_data *apu_data = data;
-	struct apu_gov_data *gov_data, *parent_gov;
+	struct apu_gov_data *gov_data, *parent_gov = NULL;
 
 	gov_data = (struct apu_gov_data *)ad->df->data;
 	get_datas(gov_data, &parent_gov, NULL, NULL);
@@ -179,7 +179,7 @@ int apu_gov_setup(struct apu_dev *ad, void *data)
 
 void apu_gov_unsetup(struct apu_dev *ad)
 {
-	struct apu_gov_data *gov_data, *parent_gov;
+	struct apu_gov_data *gov_data, *parent_gov = NULL;
 
 	gov_data = (struct apu_gov_data *)ad->df->data;
 	get_datas(gov_data, &parent_gov, NULL, NULL);
