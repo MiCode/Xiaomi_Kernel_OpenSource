@@ -30,6 +30,7 @@
 #define MAX_SRAM_BUF_NUM (2)
 
 #define AAL_SRAM_STATUS_BIT	BIT(17)
+#define AAL_HIST_MAX_SUM (300)
 
 /* min of label count for aal curve
  *	(AAL_CURVE_NUM * 7 / CMDQ_NUM_CMD(CMDQ_CMD_BUFFER_SIZE) + 1)
@@ -1053,6 +1054,91 @@ static inline bool aal_reg_poll(struct mml_comp *comp, u32 addr, u32 value, u32 
 	return return_value;
 }
 
+static bool get_dre_block(u32 *phist, const int block_x, const int block_y,
+						  const int dre_blk_x_num)
+{
+	u32 read_value;
+	u32 block_offset = 6 * (block_y * dre_blk_x_num + block_x);
+	u32 sum = 0, i = 0;
+	u32 aal_hist[AAL_HIST_BIN];
+	u32 error_sum = AAL_HIST_MAX_SUM;
+
+
+	if (block_x < 0 || block_y < 0) {
+		mml_pq_err("Error block num block_y = %d, block_x = %d", block_y, block_x);
+		return false;
+	}
+
+	do {
+		if (block_offset >= AAL_HIST_NUM)
+			break;
+		read_value = phist[block_offset++];
+		aal_hist[0] = read_value & 0xff;
+		aal_hist[1] = (read_value>>8) & 0xff;
+		aal_hist[2] = (read_value>>16) & 0xff;
+		aal_hist[2] = (read_value>>24) & 0xff;
+
+		if (block_offset >= AAL_HIST_NUM)
+			break;
+		read_value = phist[block_offset++];
+		aal_hist[4] = read_value & 0xff;
+		aal_hist[5] = (read_value>>8) & 0xff;
+		aal_hist[6] = (read_value>>16) & 0xff;
+		aal_hist[7] = (read_value>>24) & 0xff;
+
+		if (block_offset >= AAL_HIST_NUM)
+			break;
+		read_value = phist[block_offset++];
+		aal_hist[8] = read_value & 0xff;
+		aal_hist[9] = (read_value>>8) & 0xff;
+		aal_hist[10] = (read_value>>16) & 0xff;
+		aal_hist[11] = (read_value>>24) & 0xff;
+
+		if (block_offset >= AAL_HIST_NUM)
+			break;
+		read_value = phist[block_offset++];
+		aal_hist[12] = read_value & 0xff;
+		aal_hist[13] = (read_value>>8) & 0xff;
+		aal_hist[14] = (read_value>>16) & 0xff;
+		aal_hist[15] = (read_value>>24) & 0xff;
+
+		if (block_offset >= AAL_HIST_NUM)
+			break;
+		read_value = phist[block_offset++];
+		aal_hist[16] = read_value & 0xff;
+	} while (0);
+
+	for (i = 0; i < AAL_HIST_BIN; i++)
+		sum += aal_hist[i];
+
+	if (sum >= error_sum) {
+		mml_pq_err("hist[0-8] = (%d %d %d %d %d %d %d %d %d)",
+			aal_hist[0], aal_hist[1], aal_hist[2], aal_hist[3],
+			aal_hist[4], aal_hist[5], aal_hist[6], aal_hist[7],
+			aal_hist[8]);
+		mml_pq_err("hist[9-16] = (%d %d %d %d %d %d %d %d)",
+			aal_hist[9], aal_hist[10], aal_hist[11], aal_hist[12],
+			aal_hist[13], aal_hist[14], aal_hist[15], aal_hist[16]);
+		return false;
+	} else
+		return true;
+}
+
+
+static bool aal_hist_check(u32 *phist, u32 dre_blk_x_num, u32 dre_blk_y_num)
+{
+	u32 blk_x = 0, blk_y = 0;
+
+	mml_pq_msg("%s dre_blk_x_num[%d] dre_blk_y_num[%d]",
+		__func__, dre_blk_x_num, dre_blk_y_num);
+
+	for (blk_y = 0; blk_y < dre_blk_y_num; blk_y++)
+		for (blk_x = 0; blk_x < dre_blk_x_num; blk_x++)
+			if (!get_dre_block(phist, blk_x, blk_y, dre_blk_x_num))
+				return false;
+	return true;
+}
+
 static void aal_task_done_readback(struct mml_comp *comp, struct mml_task *task,
 					 struct mml_comp_config *ccfg)
 {
@@ -1065,6 +1151,7 @@ static void aal_task_done_readback(struct mml_comp *comp, struct mml_task *task,
 	bool vcp = aal->data->vcp_readback;
 	u32 engine = MML_PQ_AAL0 + pipe;
 	u32 offset = 0;
+	u32 dre_blk_y_num = 0, dre_blk_x_num = 0;
 
 	mml_pq_trace_ex_begin("%s", __func__);
 	mml_pq_msg("%s is_aal_need_readback[%d] id[%d] en_dre[%d]", __func__,
@@ -1186,9 +1273,33 @@ static void aal_task_done_readback(struct mml_comp *comp, struct mml_task *task,
 	}
 
 
-	if (aal_frm->is_aal_need_readback)
+	if (aal_frm->is_aal_need_readback) {
 		mml_pq_aal_readback(task, ccfg->pipe,
 			&(task->pq_task->aal_hist[pipe]->va[offset/4]));
+
+
+
+		if (mml_pq_debug_mode & MML_PQ_HIST_CHECK) {
+			if (pipe == 1)
+				dre_blk_x_num =
+					(task->config->info.dest[ccfg->node->out_idx].crop.r.width -
+					aal_frm->cut_pos_x) / aal_frm->dre_blk_width;
+			if (!pipe)
+				dre_blk_x_num = aal_frm->cut_pos_x / aal_frm->dre_blk_width;
+
+			dre_blk_y_num =
+				task->config->info.dest[ccfg->node->out_idx].crop.r.height /
+				aal_frm->dre_blk_height;
+
+			if (!aal_hist_check(&(task->pq_task->aal_hist[pipe]->va[offset / 4]),
+				dre_blk_x_num, dre_blk_y_num)) {
+				mml_pq_err("%s hist error", __func__);
+				mml_pq_util_aee("MML_PQ_AAL_Histogram Error",
+					"AAL Histogram error need to check jobid:%d",
+					task->job.jobid);
+			}
+		}
+	}
 
 	if (vcp) {
 		mml_pq_put_vcp_buf_offset(task, engine, task->pq_task->aal_hist[pipe]);

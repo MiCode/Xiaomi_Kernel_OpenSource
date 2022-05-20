@@ -597,7 +597,7 @@ static void hdr_readback_cmdq(struct mml_comp *comp, struct mml_task *task,
 	begin_pa = cmdq_pkt_get_pa_by_offset(pkt, hdr_frm->begin_offset);
 
 	/* read to value cpr */
-	cmdq_pkt_read_addr(pkt, base_pa + HDR_HIST_DATA, idx_val);
+	cmdq_pkt_read_addr(pkt, base_pa + hdr->data->reg_table[HDR_HIST_DATA], idx_val);
 	/* write value spr to dst cpr */
 	cmdq_pkt_write_reg_indriect(pkt, idx_out64, idx_val, U32_MAX);
 
@@ -818,6 +818,75 @@ static const struct mml_comp_config_ops hdr_cfg_ops = {
 	.repost = hdr_config_repost,
 };
 
+static void hdr_histogram_check(struct mml_task *task, u32 offset, struct mml_comp_config *ccfg)
+{
+	struct hdr_frame_data *hdr_frm = hdr_frm_data(ccfg);
+	u8 pipe = ccfg->pipe;
+
+	u32 i = 0, sum = 0;
+	u32 expect_value_letter = 0, expect_value_crop = 0;
+	u32 letter_up = 0, letter_down = 0, letter_height = 0;
+	u32 crop_width =
+		task->config->info.dest[ccfg->node->out_idx].crop.r.width;
+	u32 crop_height =
+		task->config->info.dest[ccfg->node->out_idx].crop.r.height;
+
+	for (i = 0; i < HDR_HIST_CNT; i++)
+		sum = sum + task->pq_task->hdr_hist[pipe]->va[offset/4+i];
+
+	letter_up = ((task->pq_task->hdr_hist[pipe]->va[57] &
+		0x0000FFFF) >> 0);
+	letter_down = ((task->pq_task->hdr_hist[pipe]->va[57] &
+		0xFFFF0000) >> 16);
+	letter_height = letter_down - letter_up;
+	if (task->config->dual) {
+		if (pipe) {
+			expect_value_letter = (letter_height+1) *
+				(crop_width - hdr_frm->cut_pos_x) * 8;
+			expect_value_crop = crop_height *
+				(crop_width - hdr_frm->cut_pos_x) * 8;
+		} else {
+			expect_value_letter =
+				(letter_height+1) * hdr_frm->cut_pos_x * 8;
+			expect_value_crop =
+				crop_height * hdr_frm->cut_pos_x * 8;
+		}
+	} else {
+		expect_value_letter =
+			(letter_height+1) *	crop_width * 8;
+		expect_value_crop =	crop_height * crop_width * 8;
+	}
+
+	mml_pq_log("%s sum[%u] expect_value[%u %u] job_id[%d] pipe[%d]",
+		__func__, sum, expect_value_letter, expect_value_crop,
+		task->job.jobid, pipe);
+	mml_pq_log("%s job_id[%d] pipe[%d] letter_height[%d] down[%d] up[%d]",
+		__func__, task->job.jobid, pipe, letter_height, letter_down,
+		letter_up);
+
+	if (sum != expect_value_letter &&
+		sum != expect_value_crop) {
+		mml_pq_err("%s sum[%u] expect_value_letter[%u] job_id[%d] pipe[%d]",
+			__func__, sum, expect_value_letter, task->job.jobid, pipe);
+		for (i = 0; i < HDR_HIST_CNT-1; i += 4)
+			mml_pq_err("%s hist[%d - %d] = [%d, %d, %d, %d]",
+				__func__, i, i+3,
+				task->pq_task->hdr_hist[pipe]->va[offset/4+i],
+				task->pq_task->hdr_hist[pipe]->va[offset/4+i+1],
+				task->pq_task->hdr_hist[pipe]->va[offset/4+i+2],
+				task->pq_task->hdr_hist[pipe]->va[offset/4+i+3]);
+
+			mml_pq_err("%s hist[56-57] = [%d, %d]",
+				__func__, task->pq_task->hdr_hist[pipe]->va[offset/4+56],
+				task->pq_task->hdr_hist[pipe]->va[offset/4+i+57]);
+
+			if (mml_pq_debug_mode & MML_PQ_HIST_CHECK)
+				mml_pq_util_aee("MML_PQ_HDR_Histogram Error",
+					"HDR Histogram error need to check jobid:%d",
+					task->job.jobid);
+	}
+}
+
 static void hdr_task_done_readback(struct mml_comp *comp, struct mml_task *task,
 					 struct mml_comp_config *ccfg)
 {
@@ -872,35 +941,9 @@ static void hdr_task_done_readback(struct mml_comp *comp, struct mml_task *task,
 	if (hdr_frm->is_hdr_need_readback) {
 		mml_pq_hdr_readback(task, ccfg->pipe,
 			&(task->pq_task->hdr_hist[pipe]->va[offset/4]));
-		if (mml_pq_rb_msg) {
-			u32 i = 0, sum = 0;
-			u32 expect_value = 0;
-			u32 letter_up = 0, letter_down = 0, letter_height = 0;
-
-			for (i = 0; i < HDR_HIST_CNT; i++)
-				sum = sum + task->pq_task->hdr_hist[pipe]->va[offset/4+i];
-
-			letter_up = ((task->pq_task->hdr_hist[pipe]->va[57] &
-				0x0000FFFF) >> 0);
-			letter_down = ((task->pq_task->hdr_hist[pipe]->va[57] &
-				0xFFFF0000) >> 16);
-			letter_height = letter_down - letter_up;
-			if (task->config->dual) {
-				if (pipe)
-					expect_value = (letter_height+1) *
-						(task->config->info.dest[0].crop.r.width -
-						hdr_frm->cut_pos_x) * 8;
-				else
-					expect_value = (letter_height+1) * hdr_frm->cut_pos_x * 8;
-			} else
-				expect_value =
-					(letter_height+1) *
-					task->config->info.dest[0].crop.r.width * 8;
-			mml_pq_rb_msg("%s sum[%u] expect_value[%u] job_id[%d] pipe[%d]", __func__,
-				sum, expect_value, task->job.jobid, pipe);
-			mml_pq_rb_msg("%s job_id[%d] pipe[%d] letter_height[%d] down[%d] up[%d]",
-				__func__, task->job.jobid, pipe, letter_height, letter_down,
-				letter_up);
+		if (mml_pq_rb_msg ||
+			(mml_pq_debug_mode & MML_PQ_HIST_CHECK)) {
+			hdr_histogram_check(task, offset, ccfg);
 		}
 	}
 	if (vcp) {

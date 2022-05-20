@@ -6,6 +6,8 @@
 #include <linux/err.h>
 #include <linux/module.h>
 #include <linux/miscdevice.h>
+#include <linux/delay.h>
+
 
 #include "mtk-mml-pq.h"
 #include "mtk-mml-pq-core.h"
@@ -560,12 +562,20 @@ static int set_sub_task(struct mml_task *task,
 			bool is_dup_check)
 {
 	struct mml_pq_task *pq_task = task->pq_task;
+	u64 random_num = 0;
 
 	mml_pq_msg("%s called queued[%d] result_ref[%d] job_id[%d, %d] first_job[%d]",
 		__func__, atomic_read(&sub_task->queued),
 		atomic_read(&sub_task->result_ref),
 		sub_task->job_id, task->job.jobid,
 		sub_task->first_job);
+
+	if ((mml_pq_debug_mode & MML_PQ_STABILITY_TEST) &&
+		task->config->dual) {
+		get_random_bytes(&random_num, sizeof(u64));
+		mdelay((random_num % 50)+1);
+
+	}
 
 	mutex_lock(&sub_task->lock);
 	if (sub_task->mml_task_jobid != task->job.jobid || sub_task->first_job) {

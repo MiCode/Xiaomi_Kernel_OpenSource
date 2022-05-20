@@ -308,9 +308,15 @@ static void case_general_submit(struct mml_test *test,
 	if (mml_test_pq == 1) {
 		pq_param.enable = 1;
 		pq_param.scenario = MML_PQ_MEDIA_VIDEO;
+		pq_param.src_hdr_video_mode = MML_PQ_HDR10;
+		pq_param.video_param.video_id = 0x546;
 		task.pq_param[0] = &pq_param;
 		task.info.dest[0].pq_config.en = 1;
 		task.info.dest[0].pq_config.en_dre = 1;
+		task.info.dest[0].pq_config.en_hdr = 1;
+		task.info.dest[0].pq_config.en_color = 1;
+		task.info.dest[0].pq_config.en_sharp = 1;
+		mml_log("[test]%s open PQ", __func__);
 	}
 
 	if (setup)

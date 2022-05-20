@@ -14,6 +14,10 @@
 
 #include "mtk-mml-core.h"
 
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
+#include <mt-plat/aee.h>
+#endif
+
 #define HDR_CURVE_NUM (1024)
 #define AAL_CURVE_NUM (544)
 #define AAL_HIST_NUM (768)
@@ -26,6 +30,29 @@
 #define MAX_ENG_RB_BUF (8)
 #define TOTAL_RB_BUF_NUM (MML_PQ_RB_ENGINE*MML_PIPE_CNT*MAX_ENG_RB_BUF)
 #define INVALID_OFFSET_ADDR (4096*TOTAL_RB_BUF_NUM)
+
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
+#define DB_OPT_MML_PQ	(DB_OPT_DEFAULT | DB_OPT_PROC_CMDQ_INFO | \
+		DB_OPT_MMPROFILE_BUFFER | DB_OPT_FTRACE | DB_OPT_DUMP_DISPLAY)
+
+#define MML_PQ_LINK_MAX (127)
+#define mml_pq_aee(fmt, args...) \
+		pr_notice("[mml_pq][aee] "fmt"\n", ##args)
+
+
+
+#define mml_pq_util_aee(module, fmt, args...) \
+	do { \
+		char tag[MML_PQ_LINK_MAX]; \
+		int len = snprintf(tag, MML_PQ_LINK_MAX, "CRDISPATCH_KEY:%s", module); \
+		if (len >= LINK_MAX) \
+			pr_debug("%s %s len:%d over max:%d\n", \
+				__func__, __LINE__, len, MML_PQ_LINK_MAX); \
+			mml_pq_aee(fmt, ##args); \
+			aee_kernel_warning_api(__FILE__, __LINE__, \
+				DB_OPT_MML_PQ, tag, fmt, ##args); \
+	} while (0)
+#endif
 
 extern int mml_pq_msg;
 
@@ -85,6 +112,9 @@ struct mml_task;
 enum mml_pq_debug_mode {
 	MML_PQ_DEBUG_OFF = 0,
 	MML_PQ_SET_TEST = 1 << 1,
+	MML_PQ_STABILITY_TEST = 1 << 2,
+	MML_PQ_HIST_CHECK = 1 << 3,
+	MML_PQ_CURVE_CHECK = 1 << 4,
 };
 
 enum mml_pq_vcp_engine {
