@@ -123,7 +123,7 @@ void ccd_master_listen(struct mtk_ccd *ccd,
 void ccd_master_destroy(struct mtk_ccd *ccd,
 			struct ccd_master_status_item *master_obj);
 
-void ccd_worker_read(struct mtk_ccd *ccd,
+int ccd_worker_read(struct mtk_ccd *ccd,
 		     struct ccd_worker_item *read_obj);
 
 void ccd_worker_write(struct mtk_ccd *ccd,

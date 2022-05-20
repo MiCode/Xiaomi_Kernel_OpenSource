@@ -4,16 +4,15 @@
 
 #include <linux/clk.h>
 #include <linux/err.h>
+#include <linux/slab.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
-#include <linux/slab.h>
 #include <linux/platform_device.h>
 #include <linux/platform_data/mtk_ccd_controls.h>
 #include <linux/platform_data/mtk_ccd.h>
 #include <linux/rpmsg/mtk_ccd_rpmsg.h>
 
 #include "mtk_ccd_rpmsg_internal.h"
-#define MTK_CCD_ALLOC_ADDITIONAL_BUF 0
 
 int ccd_ipi_register(struct platform_device *pdev,
 		     enum ccd_ipi_id id,
@@ -28,7 +27,6 @@ int ccd_ipi_register(struct platform_device *pdev,
 	}
 
 	dev_info(ccd->dev, "ipi id: %d\n", id);
-
 	return 0;
 }
 EXPORT_SYMBOL_GPL(ccd_ipi_register);
@@ -57,34 +55,10 @@ int rpmsg_ccd_ipi_send(struct mtk_rpmsg_rproc_subdev *mtk_subdev,
 	ccd_params->worker_obj.src = mept->mchinfo.chinfo.src;
 	ccd_params->worker_obj.id = mept->mchinfo.id;
 
-	/* TBD: Allocate shared memory for additional buffer
+	/* TODO: Allocate shared memory for additional buffer
 	 * If no buffer ready now, wait or not depending on parameter
 	 */
-#if MTK_CCD_ALLOC_ADDITIONAL_BUF
-	if (!ccd_params->data && !wait)
-		return -ENOMEM;
 
-	while (!ccd_params->data) {
-		dev_info(&mtk_subdev->pdev->dev, "wait buffer ready\n");
-		ret = wait_event_interruptible_timeout
-					(mept->ccd_paramswq,
-					 atomic_read(&mept->ccd_params_rdy),
-					 msecs_to_jiffies(15000));
-
-		/* TBD: Allocate shared memory for "*buf" content
-		 * If no buffer ready now, wait or not depending on parameter
-		 * buffer_get();
-		 */
-
-		atomic_set(&mept->ccd_params_rdy, 0);
-		/* timeout ? */
-		if (!ret) {
-			dev_err(&mtk_subdev->pdev->dev,
-				"timeout waiting for ccd params\n");
-			return -ERESTARTSYS;
-		}
-	}
-#endif
 	if (len)
 		memcpy(ccd_params->worker_obj.sbuf, buf, len);
 
@@ -101,8 +75,9 @@ int rpmsg_ccd_ipi_send(struct mtk_rpmsg_rproc_subdev *mtk_subdev,
 	else
 		dev_info(ccd->dev, "worker_read_rdy is not ready\n");
 
-	dev_info(ccd->dev, "%s: ccd: %p id: %d\n",
+	dev_dbg(ccd->dev, "%s: ccd: %p id: %d\n",
 		 __func__, ccd, mept->mchinfo.id);
+
 	return ret;
 }
 EXPORT_SYMBOL_GPL(rpmsg_ccd_ipi_send);
@@ -157,16 +132,30 @@ void ccd_master_destroy(struct mtk_ccd *ccd,
 			mchinfo_item->mchinfo = &mept->mchinfo;
 			list_add_tail(&mchinfo_item->list_entry, &mchinfo_list);
 		} else {
-			dev_warn(&mtk_subdev->pdev->dev,
-				 "msg received with no recipient\n");
+			dev_dbg(&mtk_subdev->pdev->dev,
+				"msg received with no recipient\n");
 		}
 	}
 	mutex_unlock(&mtk_subdev->endpoints_lock);
 
 	list_for_each_entry_safe(mchinfo_item, mchinfo_tmp,
 				 &mchinfo_list, list_entry) {
-		mtk_rpmsg_destroy_rpmsgdev(mtk_subdev,
+		if (mtk_subdev && mchinfo_item && mchinfo_item->mchinfo) {
+			mtk_rpmsg_destroy_rpmsgdev(mtk_subdev,
 					   &mchinfo_item->mchinfo->chinfo);
+		} else {
+			dev_info(&mtk_subdev->pdev->dev,
+				 "%s: mtk_subdev(%p),mchinfo_item or mchinfo_item is NULL\n",
+				 __func__, mtk_subdev);
+
+			if (!mchinfo_item)
+				dev_info(&mtk_subdev->pdev->dev,
+					 "%s: mchinfo_item is NULL\n", __func__);
+
+			if (mchinfo_item && !mchinfo_item->mchinfo)
+				dev_info(&mtk_subdev->pdev->dev,
+					 "%s: mchinfo_item->mchinfo is NULL\n", __func__);
+		}
 		kfree(mchinfo_item);
 	}
 }
@@ -190,7 +179,7 @@ void ccd_master_listen(struct mtk_ccd *ccd,
 			 (atomic_read(&mtk_subdev->listen_obj_rdy) ==
 			 CCD_LISTEN_OBJECT_READY));
 		if (ret != 0) {
-			dev_err(ccd->dev,
+			dev_info(ccd->dev,
 				"master listen wait error: %d\n", ret);
 			return;
 		}
@@ -207,12 +196,12 @@ void ccd_master_listen(struct mtk_ccd *ccd,
 	wake_up(&mtk_subdev->ccd_listen_wq);
 	mutex_unlock(&mtk_subdev->master_listen_lock);
 
-	dev_info(ccd->dev, "%s, src: %d\n", __func__,
+	dev_dbg(ccd->dev, "%s, src: %d\n", __func__,
 		 mtk_subdev->listen_obj.src);
 }
 EXPORT_SYMBOL_GPL(ccd_master_listen);
 
-void ccd_worker_read(struct mtk_ccd *ccd,
+int ccd_worker_read(struct mtk_ccd *ccd,
 		     struct ccd_worker_item *read_obj)
 {
 	int ret;
@@ -231,13 +220,14 @@ void ccd_worker_read(struct mtk_ccd *ccd,
 	if (!srcmdev) {
 		dev_dbg(ccd->dev, "src ept is not exist\n");
 		mutex_unlock(&mtk_subdev->endpoints_lock);
-		return;
+		return 0;
 	}
+	get_device(&srcmdev->rpdev.dev);
 
 	if (!srcmdev->rpdev.ept) {
 		dev_dbg(ccd->dev, "src ept is not ready\n");
 		mutex_unlock(&mtk_subdev->endpoints_lock);
-		return;
+		goto err_put;
 	}
 	kref_get(&srcmdev->rpdev.ept->refcount);
 	mutex_unlock(&mtk_subdev->endpoints_lock);
@@ -248,8 +238,10 @@ void ccd_worker_read(struct mtk_ccd *ccd,
 
 	if (atomic_read(&mept->ccd_mep_state) == CCD_MENDPOINT_DESTROY) {
 		dev_info_ratelimited(ccd->dev, "mept: %p src: %d is destroyed\n",
-				     mept, mept->mchinfo.chinfo.src);
-		goto err_ret;
+			 mept, mept->mchinfo.chinfo.src);
+		kref_put(&mept->ept.refcount, __ept_release);
+		put_device(&srcmdev->rpdev.dev);
+		return -ENODATA;
 	}
 
 	if (atomic_read(&mept->ccd_cmd_sent) == 0) {
@@ -262,35 +254,50 @@ void ccd_worker_read(struct mtk_ccd *ccd,
 
 		atomic_set(&mept->worker_read_rdy, 0);
 		if (ret != 0) {
-			dev_err(ccd->dev,
+			dev_dbg(ccd->dev,
 				"worker read wait error: %d\n", ret);
 			goto err_ret;
 		}
 	} else {
-		dev_dbg(ccd->dev, "ccd_cmd_sent is not null(%d)\n",
-			atomic_read(&mept->ccd_cmd_sent));
+		int cmd_sent = atomic_read(&mept->ccd_cmd_sent);
+
+		dev_info(ccd->dev, "ccd_cmd_sent is not null(%d)\n",
+			cmd_sent);
+
+		if (cmd_sent < 0)
+			goto err_ret;
 	}
 
 	if (atomic_read(&mept->ccd_mep_state) == CCD_MENDPOINT_DESTROY) {
 		dev_info(ccd->dev, "mept: %p src: %d would destroy\n",
 			 mept, mept->mchinfo.chinfo.src);
-		goto err_ret;
+		kref_put(&mept->ept.refcount, __ept_release);
+		put_device(&srcmdev->rpdev.dev);
+		return -ENODATA;
 	}
 
 	spin_lock(&mept->pending_sendq.queue_lock);
 	ccd_params = list_first_entry(&mept->pending_sendq.queue,
 				      struct mtk_ccd_params,
 				      list_entry);
-	if (atomic_read(&mept->ccd_cmd_sent)) {
-		list_del(&ccd_params->list_entry);
-		atomic_dec(&mept->ccd_cmd_sent);
-		memcpy(read_obj, &ccd_params->worker_obj, sizeof(*read_obj));
-		kfree(ccd_params);
+	if (!ccd_params) {
+		spin_unlock(&mept->pending_sendq.queue_lock);
+		dev_info(ccd->dev, "%s: get NULL ccd_params, ccd_cmd_sent(%d)\n",
+			 __func__, atomic_read(&mept->ccd_cmd_sent));
+		goto err_ret;
 	}
+	list_del(&ccd_params->list_entry);
+	if (atomic_read(&mept->ccd_cmd_sent) > 0)
+		atomic_dec(&mept->ccd_cmd_sent);
 	spin_unlock(&mept->pending_sendq.queue_lock);
 
+	memcpy(read_obj, &ccd_params->worker_obj, sizeof(*read_obj));
+	kfree(ccd_params);
 err_ret:
 	kref_put(&mept->ept.refcount, __ept_release);
+err_put:
+	put_device(&srcmdev->rpdev.dev);
+	return 0;
 }
 EXPORT_SYMBOL_GPL(ccd_worker_read);
 
@@ -304,17 +311,22 @@ void ccd_worker_write(struct mtk_ccd *ccd,
 	struct mtk_ccd_rpmsg_endpoint *mept;
 
 	mutex_lock(&mtk_subdev->endpoints_lock);
+
+	dev_dbg(ccd->dev, "%s: idr_find write_obj->src: %d\n", __func__,
+		write_obj->src);
+
 	srcmdev = idr_find(&mtk_subdev->endpoints, write_obj->src);
 	if (!srcmdev) {
-		dev_dbg(ccd->dev, "src ept is not exist\n");
+		dev_info(ccd->dev, "src ept is not exist\n");
 		mutex_unlock(&mtk_subdev->endpoints_lock);
 		return;
 	}
+	get_device(&srcmdev->rpdev.dev);
 
 	if (!srcmdev->rpdev.ept) {
-		dev_dbg(ccd->dev, "src ept is not ready\n");
+		dev_info(ccd->dev, "src ept is not ready\n");
 		mutex_unlock(&mtk_subdev->endpoints_lock);
-		return;
+		goto err_put;
 	}
 	kref_get(&srcmdev->rpdev.ept->refcount);
 	mutex_unlock(&mtk_subdev->endpoints_lock);
@@ -344,6 +356,8 @@ void ccd_worker_write(struct mtk_ccd *ccd,
 
 err_ret:
 	kref_put(&mept->ept.refcount, __ept_release);
+err_put:
+	put_device(&srcmdev->rpdev.dev);
 	/* TBD: Free shared memory for additional buffer
 	 * If no buffer ready now, wait or not depending on parameter
 	 */
