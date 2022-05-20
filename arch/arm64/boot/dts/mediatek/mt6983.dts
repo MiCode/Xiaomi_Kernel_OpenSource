@@ -1372,11 +1372,20 @@
 			status = "disabled";
 		};
 
+		ufsphy: ufsphy@112a0000 {
+			compatible = "mediatek,mt8183-ufsphy";
+			#phy-cells = <0>;
+			mphy-ver = <1>;
+			ranges;
+			reg = <0 0x112a0000 0 0x1000>,
+			      <0 0x1c001000 0 0x1000>;
+		};
+
 		ufshci: ufshci@112b0000 {
 			compatible = "mediatek,mt8183-ufshci";
 			reg = <0 0x112b0000 0 0x2300>;
 			interrupts = <GIC_SPI 169 IRQ_TYPE_LEVEL_HIGH 0>;
-
+			phys = <&ufsphy>;
 			clocks =
 				<&topckgen_clk CLK_TOPCKGEN_UFS_HD_HAXI_SEL>,
 				<&topckgen_clk CLK_TOPCKGEN_AES_UFSFDE_SEL>,
