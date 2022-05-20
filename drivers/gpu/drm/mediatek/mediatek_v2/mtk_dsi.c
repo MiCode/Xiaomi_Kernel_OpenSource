@@ -2744,6 +2744,9 @@ static void mtk_dsi_encoder_disable(struct drm_encoder *encoder)
 	case MMSYS_MT6855:
 		DDPMSG("%s force return\n", __func__);
 		return;
+	case MMSYS_MT6985:
+		DDPMSG("%s force disable return\n", __func__);
+		return;
 	default:
 		break;
 	}
