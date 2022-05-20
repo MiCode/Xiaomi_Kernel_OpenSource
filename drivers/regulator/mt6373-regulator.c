@@ -23,9 +23,6 @@
 
 #define DEFAULT_DELAY_MS		10
 
-#define MT6373_PLG_CFG_ELR1		0x3ab
-#define MT6373_ELR_MASK			0xc
-
 /*
  * MT6373 regulators' information
  *
@@ -449,7 +446,16 @@ static struct mt6373_regulator_info mt6373_regulators[] = {
 		    MT6373_PMIC_RG_BUCK_VBUCK3_LP_SHIFT,
 		    MT6373_PMIC_RG_VBUCK3_FCCM_ADDR,
 		    MT6373_PMIC_RG_VBUCK3_FCCM_SHIFT),
-	MT6373_BUCK(VBUCK4, 0, 2650125, 13875, mt_volt_range1,
+	MT6373_BUCK(VBUCK4, 0, 1193750, 6250, mt_volt_range0,
+		    MT6373_PMIC_RG_BUCK_VBUCK4_EN_ADDR,
+		    MT6373_PMIC_RG_BUCK_VBUCK4_EN_SHIFT,
+		    MT6373_PMIC_RG_BUCK_VBUCK4_VOSEL_ADDR,
+		    MT6373_PMIC_RG_BUCK_VBUCK4_VOSEL_MASK,
+		    MT6373_PMIC_RG_BUCK_VBUCK4_LP_ADDR,
+		    MT6373_PMIC_RG_BUCK_VBUCK4_LP_SHIFT,
+		    MT6373_PMIC_RG_VBUCK4_FCCM_ADDR,
+		    MT6373_PMIC_RG_VBUCK4_FCCM_SHIFT),
+	MT6373_BUCK(VBUCK4_UFS, 0, 2650125, 13875, mt_volt_range1,
 		    MT6373_PMIC_RG_BUCK_VBUCK4_EN_ADDR,
 		    MT6373_PMIC_RG_BUCK_VBUCK4_EN_SHIFT,
 		    MT6373_PMIC_RG_BUCK_VBUCK4_VOSEL_ADDR,
@@ -716,35 +722,19 @@ static int mt6373_of_parse_cb(struct device_node *np,
 	return 0;
 }
 
-static bool mt6373_bypass_register(struct mt6373_regulator_info *info)
-{
-	return info->desc.id == MT6373_ID_VBUCK4;
-}
-
 static int mt6373_regulator_probe(struct platform_device *pdev)
 {
 	struct regulator_config config = {};
 	struct regulator_dev *rdev;
 	struct mt6373_regulator_info *info;
 	int i, ret;
-	bool is_mt6373_cw = false;
-	unsigned int val = 0;
 
 	config.dev = pdev->dev.parent;
 	config.regmap = dev_get_regmap(pdev->dev.parent, NULL);
-
-	ret = regmap_read(config.regmap, MT6373_PLG_CFG_ELR1, &val);
-	if (ret)
-		dev_notice(&pdev->dev, "failed to read ELR, ret=%d\n", ret);
-	else if ((val & MT6373_ELR_MASK) == 0x4)
-		is_mt6373_cw = true;
-
 	for (i = 0; i < MT6373_MAX_REGULATOR; i++) {
 		info = &mt6373_regulators[i];
 		info->irq = platform_get_irq_byname_optional(pdev, info->desc.name);
 		config.driver_data = info;
-		if (is_mt6373_cw && mt6373_bypass_register(info))
-			continue;
 
 		rdev = devm_regulator_register(&pdev->dev, &info->desc, &config);
 		if (IS_ERR(rdev)) {
