@@ -570,6 +570,7 @@ static int imgsensor_set_pad_format(struct v4l2_subdev *sd,
 	set_std_parts_fmt_code(fmt->format.code, ctx->fmt_code);
 
 
+	/* Returns the best match or NULL if the Length of the array is zero */
 	mode = v4l2_find_nearest_size(ctx->mode,
 		ctx->mode_cnt, width, height,
 		fmt->format.width, fmt->format.height);
@@ -580,8 +581,20 @@ static int imgsensor_set_pad_format(struct v4l2_subdev *sd,
 		if (sensor_mode_id >= 0 && sensor_mode_id < ctx->mode_cnt)
 			mode = &ctx->mode[sensor_mode_id];
 	}
-	dev_info(ctx->dev, "set fmt code = 0x%x, which %d sensor_mode_id = %u\n",
-			fmt->format.code, fmt->which, mode->id);
+
+	if (mode == NULL) {
+		dev_info(ctx->dev,
+			"set fmt code = 0x%x, which %d ctx->mode_cnt = %d\n",
+			fmt->format.code, fmt->which, ctx->mode_cnt);
+
+		mutex_unlock(&ctx->mutex);
+		return -EINVAL;
+	}
+
+	dev_info(ctx->dev,
+		"set fmt code = 0x%x, which %d sensor_mode_id = %u\n",
+		fmt->format.code, fmt->which, mode->id);
+
 
 	update_pad_format(ctx, mode, fmt);
 	if (fmt->which == V4L2_SUBDEV_FORMAT_TRY) {
@@ -1004,7 +1017,8 @@ static ssize_t debug_i2c_ops_store(struct device *dev,
 	char *token = NULL;
 	char *sbuf = kzalloc(sizeof(char) * (count + 1), GFP_KERNEL);
 	char *s = sbuf;
-	int ret, num_para = 0;
+	int ret;
+	unsigned int num_para = 0;
 	char *arg[DBG_ARG_IDX_MAX_NUM];
 	struct adaptor_ctx *ctx = to_ctx(dev_get_drvdata(dev));
 	u32 val;
@@ -1029,7 +1043,7 @@ static ssize_t debug_i2c_ops_store(struct device *dev,
 	}
 
 	if (num_para > DBG_ARG_IDX_MAX_NUM) {
-		dev_info(dev, "Wrong command parameter number %d\n", num_para);
+		dev_info(dev, "Wrong command parameter number %u\n", num_para);
 		goto ERR_DEBUG_OPS_STORE;
 	}
 	ret = kstrtouint(arg[DBG_ARG_IDX_I2C_ADDR], 0, &reg);

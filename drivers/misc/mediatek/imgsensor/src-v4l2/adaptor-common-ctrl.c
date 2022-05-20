@@ -18,7 +18,7 @@ int g_stagger_info(struct adaptor_ctx *ctx,
 						  struct mtk_stagger_info *info)
 {
 	int ret = 0;
-	struct mtk_mbus_frame_desc fd;
+	struct mtk_mbus_frame_desc fd = {0};
 	int hdr_cnt = 0;
 	unsigned int i = 0;
 
