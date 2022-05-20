@@ -299,7 +299,7 @@ static int dvfsrc_emi_mon_gear(struct mtk_dvfsrc_met *dvfs)
 	u32 gear;
 	u32 max_idx = dvfs->dvd->max_emi_mon;
 
-	if (max_idx > MAX_EMI_MON_COUNT)
+	if (max_idx >= MAX_EMI_MON_COUNT)
 		return 0;
 
 	total_bw_status = dvfsrc_met_read(dvfs, DVFSRC_DEBUG_STA_2);
