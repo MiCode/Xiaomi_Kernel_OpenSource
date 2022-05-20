@@ -237,7 +237,7 @@ void dump_wdk_bind_info(void)
 		if (wk_tsk[i] != NULL) {
 			memset(wk_tsk_buf, 0, sizeof(wk_tsk_buf));
 			snprintf(wk_tsk_buf, sizeof(wk_tsk_buf),
-				"[wdk]CPU %d, %d, %lld, %d, %ld, %lld\n",
+				"[wdk]CPU %d, %d, %lld, %d, %u, %lld\n",
 				i, wk_tsk_bind[i], wk_tsk_bind_time[i],
 				wk_tsk[i]->on_rq, wk_tsk[i]->__state,
 				wk_tsk_kick_time[i]);
@@ -725,6 +725,9 @@ static int wdt_pm_notify(struct notifier_block *notify_block,
 		lastresume_syst = cnt;
 		break;
 	}
+
+	if (toprgu_base)
+		iowrite32(WDT_RST_RELOAD, toprgu_base + WDT_RST);
 
 	return 0;
 }
