@@ -778,6 +778,21 @@ void cmdq_pkt_free_buf(struct cmdq_pkt *pkt)
 			cmdq_err("pkt:0x%p pa:%pa iova:%pa",
 			pkt, &buf->pa_base, &buf->iova_base);
 
+		if (buf->iova_base) {
+			struct iommu_domain *domain = iommu_get_domain_for_dev(pkt->dev);
+
+			if (domain) {
+				dma_addr_t pa_base =
+					iommu_iova_to_phys(domain, buf->iova_base);
+
+				if (!pa_base)
+					cmdq_err("unmap iova: pool:%d pa:%pa->%pa iova:%pa",
+						buf->use_pool,
+						&buf->pa_base, &pa_base, &buf->iova_base);
+			} else
+				cmdq_err("cannot get dev:%p domain", pkt->dev);
+		}
+
 		buf->alloc_time = 0;
 		if (buf->use_pool) {
 			if (pkt->cur_pool.pool)
