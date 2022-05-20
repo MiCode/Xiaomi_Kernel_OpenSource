@@ -779,7 +779,7 @@ void mtk_cam_req_seninf_change(struct mtk_cam_request *req)
 			writel(val | TG_SEN_MODE_CMOS_EN, raw_dev->base + REG_TG_SEN_MODE);
 
 			mtk_cam_stream_on(raw_dev, ctx);
-
+			mtk_ctx_watchdog_start(ctx, 4);
 			dev_info(raw_dev->dev, "%s: stream off seninf:%s\n",
 				 __func__, req_stream_data->seninf_old->name);
 			v4l2_subdev_call(req_stream_data->seninf_old, video, s_stream, 0);

@@ -5259,6 +5259,7 @@ void mtk_cam_sensor_switch_stop_reinit_hw(struct mtk_cam_ctx *ctx,
 			// stream_on(raw_dev, 0);
 			dev_info(ctx->cam->dev, "%s: Disable cammux: %s\n", __func__,
 				 s_data->seninf_old->name);
+			mtk_ctx_watchdog_stop(ctx);
 			mtk_cam_seninf_set_camtg(s_data->seninf_old, PAD_SRC_RAW0, 0xFF);
 			mtk_cam_seninf_set_camtg(s_data->seninf_old, PAD_SRC_RAW1, 0xFF);
 			mtk_cam_seninf_set_camtg(s_data->seninf_old, PAD_SRC_RAW2, 0xFF);
