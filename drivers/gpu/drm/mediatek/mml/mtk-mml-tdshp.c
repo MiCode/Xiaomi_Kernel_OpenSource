@@ -312,9 +312,15 @@ static s32 tdshp_config_frame(struct mml_comp *comp, struct mml_task *task,
 	mml_pq_msg("%s:config ds regs, count: %d", __func__, result->ds_reg_cnt);
 	tdshp_frm->config_success = true;
 	for (i = 0; i < result->ds_reg_cnt; i++) {
-		mml_write(pkt, base_pa + regs[i].offset, regs[i].value,
-			regs[i].mask, reuse, cache,
-			&tdshp_frm->labels[i]);
+		if (cfg->info.mode == MML_MODE_DDP_ADDON) {
+			/* no reuse support in addon mode*/
+			cmdq_pkt_write(pkt, NULL, base_pa + regs[i].offset,
+				regs[i].value, regs[i].mask);
+		} else {
+			mml_write(pkt, base_pa + regs[i].offset, regs[i].value,
+				regs[i].mask, reuse, cache,
+				&tdshp_frm->labels[i]);
+		}
 		mml_pq_msg("[ds][config][%x] = %#x mask(%#x)",
 			regs[i].offset, regs[i].value, regs[i].mask);
 	}
