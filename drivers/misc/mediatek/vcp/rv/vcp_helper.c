@@ -2684,9 +2684,6 @@ static int __init vcp_init(void)
 	for (i = 0; i < VCP_IOMMU_DEV_NUM; i++)
 		vcp_io_devs[i] = NULL;
 
-	vcp_set_fp(&vcp_helper_fp);
-	vcp_set_ipidev(&vcp_ipidev);
-
 	if (platform_driver_register(&mtk_vcp_device)) {
 		pr_info("[VCP] vcp probe fail\n");
 		goto err_vcp;
@@ -2788,6 +2785,9 @@ static int __init vcp_init(void)
 	driver_init_done = true;
 	is_suspending = false;
 	pwclkcnt = 0;
+
+	vcp_set_fp(&vcp_helper_fp);
+	vcp_set_ipidev(&vcp_ipidev);
 
 	return ret;
 err:
