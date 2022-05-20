@@ -259,6 +259,7 @@ struct mtk_raw_pipeline {
 	struct mtk_raw_pad_config cfg[MTK_RAW_PIPELINE_PADS_NUM];
 	/* cached settings */
 	unsigned int enabled_raw;
+	unsigned int enabled_sv_tag;
 	unsigned long enabled_dmas;
 	/* resource controls */
 	struct v4l2_ctrl_handler ctrl_handler;

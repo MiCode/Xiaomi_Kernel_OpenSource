@@ -38,7 +38,6 @@ $(CAM_MODULE)-objs := \
     mtk_cam.o \
     mtk_cam-raw.o \
     mtk_cam-pool.o \
-    mtk_cam_pm.o \
     mtk_cam-video.o \
     mtk_cam-smem.o \
     mtk_cam_vb2-dma-contig.o\
@@ -86,5 +85,3 @@ PLATFORM_PATH = $(srctree)/$(src)
 ifneq ($(M),)
 PLATFORM_PATH = $(src)
 endif
-
-

@@ -21,7 +21,6 @@
 #include <soc/mediatek/smi.h>
 
 #include "mtk_cam.h"
-#include "mtk_cam_pm.h"
 #include "mtk_cam-pool.h"
 #include "mtk_cam-mraw-regs.h"
 #include "mtk_cam-mraw.h"
@@ -2003,48 +2002,6 @@ static void mtk_mraw_pipeline_unregister(
 
 	v4l2_device_unregister_subdev(&pipe->subdev);
 	media_entity_cleanup(&pipe->subdev.entity);
-}
-
-int mtk_mraw_setup_dependencies(struct mtk_mraw *mraw, struct mtk_larb *larb)
-{
-	struct device *dev = mraw->cam_dev;
-	struct device *consumer, *supplier;
-	struct device_link *link;
-	int i;
-
-	for (i = 0; i < MRAW_PIPELINE_NUM; i++) {
-		consumer = mraw->devs[i];
-		if (!consumer) {
-			dev_info(dev, "failed to get dev for id %d\n", i);
-			continue;
-		}
-
-		switch (i) {
-		case 0:
-		case 2:
-			supplier = find_larb(larb, 25);
-			break;
-		default:
-			supplier = find_larb(larb, 26);
-			break;
-		}
-
-		if (!supplier) {
-			dev_info(dev, "failed to get supplier for id %d\n", i);
-			return -ENODEV;
-		}
-
-		link = device_link_add(consumer, supplier,
-				       DL_FLAG_AUTOREMOVE_CONSUMER |
-				       DL_FLAG_PM_RUNTIME);
-		if (!link) {
-			dev_info(dev, "Unable to create link between %s and %s\n",
-				dev_name(consumer), dev_name(supplier));
-			return -ENODEV;
-		}
-	}
-
-	return 0;
 }
 
 int mtk_mraw_register_entities(

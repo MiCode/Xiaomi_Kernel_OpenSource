@@ -12,7 +12,6 @@
 
 #include "mtk_cam-video.h"
 
-#define MRAW_READY 1
 #define MRAW_PIPELINE_NUM 4
 #define MAX_MRAW_VIDEO_DEV_NUM 2
 #define USING_MRAW_SCQ 1
@@ -257,7 +256,6 @@ struct mtk_mraw {
 };
 
 struct mtk_larb;
-int mtk_mraw_setup_dependencies(struct mtk_mraw *mraw, struct mtk_larb *larb);
 int mtk_mraw_register_entities(
 	struct mtk_mraw *mraw, struct v4l2_device *v4l2_dev);
 void mtk_mraw_unregister_entities(struct mtk_mraw *mraw);

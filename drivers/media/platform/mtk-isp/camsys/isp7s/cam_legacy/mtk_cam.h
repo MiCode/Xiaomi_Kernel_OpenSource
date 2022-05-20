@@ -17,7 +17,6 @@
 #include "mtk_cam-raw.h"
 #include "mtk_cam-sv.h"
 #include "mtk_cam-mraw.h"
-#include "mtk_cam_pm.h"
 #include "mtk_cam-ipi.h"
 #include "imgsensor-user.h"
 #include "mtk_cam-seninf-drv.h"
@@ -279,6 +278,12 @@ enum mtk_cam_request_state {
 	NR_OF_MTK_CAM_REQ_STATE,
 };
 
+enum mtk_cam_exp_order {
+	MTK_CAM_EXP_FIRST,
+	MTK_CAM_EXP_SECOND,
+	MTK_CAM_EXP_LAST
+};
+
 /**
  * mtk_cam_frame_sync: the frame sync state of one request
  *
@@ -299,6 +304,7 @@ struct mtk_cam_req_raw_pipe_data {
 	struct mtk_cam_resource_config res_config;
 	struct mtk_raw_stagger_select stagger_select;
 	int enabled_raw;
+	int enabled_sv_tag;
 };
 
 /*
@@ -398,7 +404,7 @@ struct mtk_cam_ctx {
 	unsigned int used_raw_dev;
 
 	unsigned int used_sv_num;
-	unsigned int used_sv_dev[MAX_SV_PIPES_PER_STREAM];
+	struct mtk_camsv_device *sv_dev;
 
 	unsigned int used_mraw_num;
 	unsigned int used_mraw_dev[MAX_MRAW_PIPES_PER_STREAM];
@@ -446,7 +452,7 @@ struct mtk_cam_ctx {
 	unsigned int working_request_seq;
 	bool trigger_next_drain;
 
-	unsigned int sv_dequeued_frame_seq_no[MAX_SV_PIPES_PER_STREAM];
+	unsigned int sv_dequeued_frame_seq_no[MAX_SV_HW_TAGS];
 
 	unsigned int mraw_enqueued_frame_seq_no[MAX_MRAW_PIPES_PER_STREAM];
 	unsigned int mraw_composed_frame_seq_no[MAX_MRAW_PIPES_PER_STREAM];
@@ -492,12 +498,10 @@ struct mtk_cam_device {
 
 	unsigned int num_seninf_drivers;
 	unsigned int num_raw_drivers;
-	unsigned int num_larb_drivers;
 	unsigned int num_camsv_drivers;
 	unsigned int num_mraw_drivers;
 
 	struct mtk_raw raw;
-	struct mtk_larb larb;
 	struct mtk_camsv sv;
 	struct mtk_mraw mraw;
 
@@ -912,12 +916,17 @@ struct mtk_raw_pipeline *mtk_cam_dev_get_raw_pipeline(struct mtk_cam_device *cam
 						      unsigned int id);
 bool finish_img_buf(struct mtk_cam_request_stream_data *req_stream_data);
 
-int get_main_sv_pipe_id(struct mtk_cam_device *cam, int used_dev_mask);
-int get_sub_sv_pipe_id(struct mtk_cam_device *cam, int used_dev_mask);
-int get_last_sv_pipe_id(struct mtk_cam_device *cam, int used_dev_mask);
+int get_main_sv_tag_id(struct mtk_cam_ctx *ctx, int used_tags);
+int get_sub_sv_tag_id(struct mtk_cam_ctx *ctx, int used_tags);
+int get_last_sv_tag_id(struct mtk_cam_ctx *ctx, int used_tags);
+
+unsigned int mtk_cam_get_sv_mapped_exp_order(
+	int hw_scen, int exp_no, int tag);
 
 int mtk_cam_dc_last_camsv(int raw_id);
 
+unsigned int get_master_raw_id(unsigned int num_raw_drivers,
+									  unsigned int enabled_raw);
 struct mtk_raw_device *get_master_raw_dev(struct mtk_cam_device *cam,
 					  struct mtk_raw_pipeline *pipe);
 struct mtk_raw_device *get_slave_raw_dev(struct mtk_cam_device *cam,
@@ -925,8 +934,6 @@ struct mtk_raw_device *get_slave_raw_dev(struct mtk_cam_device *cam,
 struct mtk_raw_device *get_slave2_raw_dev(struct mtk_cam_device *cam,
 					  struct mtk_raw_pipeline *pipe);
 struct mtk_yuv_device *get_yuv_dev(struct mtk_raw_device *raw_dev);
-struct mtk_camsv_device *get_camsv_dev(struct mtk_cam_device *cam,
-					struct mtk_camsv_pipeline *pipe);
 struct mtk_mraw_device *get_mraw_dev(struct mtk_cam_device *cam,
 					struct mtk_mraw_pipeline *pipe);
 int isp_composer_create_session(struct mtk_cam_ctx *ctx);

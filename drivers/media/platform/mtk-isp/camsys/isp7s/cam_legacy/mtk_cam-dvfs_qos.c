@@ -44,7 +44,8 @@ enum raw_qos_port_id {
 };
 
 enum sv_qos_port_id {
-	sv_imgo = 0,
+	sv_cqi = 0,
+	sv_imgo,
 	sv_qos_port_num
 };
 
@@ -158,82 +159,32 @@ static struct raw_mmqos raw_qos[] = {
 static struct sv_mmqos sv_qos[] = {
 	[CAMSV_0] = {
 		.port = {
-			"l13_imgo_a0"
+			"l14_imgo_a"
 		},
 	},
 	[CAMSV_1] = {
 		.port = {
-			"l13_imgo_a1"
+			"l13_imgo_b"
 		},
 	},
 	[CAMSV_2] = {
 		.port = {
-			"l14_imgo_b0"
+			"l29_imgo_c"
 		},
 	},
 	[CAMSV_3] = {
 		.port = {
-			"l14_imgo_b1"
+			"l29_imgo_d"
 		},
 	},
 	[CAMSV_4] = {
 		.port = {
-			"l13_imgo_c0"
+			"l29_imgo_e"
 		},
 	},
 	[CAMSV_5] = {
 		.port = {
-			"l13_imgo_c1"
-		},
-	},
-	[CAMSV_6] = {
-		.port = {
-			"l14_imgo_d0"
-		},
-	},
-	[CAMSV_7] = {
-		.port = {
-			"l14_imgo_d1"
-		},
-	},
-	[CAMSV_8] = {
-		.port = {
-			"l13_imgo_e0"
-		},
-	},
-	[CAMSV_9] = {
-		.port = {
-			"l13_imgo_e1"
-		},
-	},
-	[CAMSV_10] = {
-		.port = {
-			"l14_imgo_f0"
-		},
-	},
-	[CAMSV_11] = {
-		.port = {
-			"l14_imgo_f1"
-		},
-	},
-	[CAMSV_12] = {
-		.port = {
-			"l13_imgo_g0"
-		},
-	},
-	[CAMSV_13] = {
-		.port = {
-			"l13_imgo_g1"
-		},
-	},
-	[CAMSV_14] = {
-		.port = {
-			"l14_imgo_h0"
-		},
-	},
-	[CAMSV_15] = {
-		.port = {
-			"l14_imgo_h1"
+			"l29_imgo_f"
 		},
 	},
 };
@@ -470,6 +421,8 @@ void mtk_cam_qos_bw_calc(struct mtk_cam_ctx *ctx, unsigned long raw_dmas, bool f
 	struct raw_mmqos *raw_mmqos;
 	struct sv_mmqos *sv_mmqos;
 	struct mraw_mmqos *mraw_mmqos;
+	struct device *dev_sv;
+	struct mtk_camsv_device *camsv_dev;
 	unsigned int ipi_video_id;
 	int engine_id = raw_dev->id;
 	unsigned int qos_port_id;
@@ -878,21 +831,29 @@ void mtk_cam_qos_bw_calc(struct mtk_cam_ctx *ctx, unsigned long raw_dmas, bool f
 		}
 	}
 
-	for (i = 0; i < ctx->used_sv_num; i++) {
-		qos_port_id = ((ctx->sv_pipe[i]->id - MTKCAM_SUBDEV_CAMSV_START)
-						* sv_qos_port_num)
-						+ sv_imgo;
-		sv_mmqos = &sv_qos[ctx->sv_pipe[i]->id - MTKCAM_SUBDEV_CAMSV_START];
+
+	for (i = 0; i < CAMSV_HW_NUM; i++) {
+		/* camsv todo: qos */
+		dev_sv = ctx->cam->sv.devs[i];
+		if (dev_sv == NULL)
+			dev_info(ctx->cam->dev, "[%s] camsv device not found\n", __func__);
+		camsv_dev = dev_get_drvdata(dev_sv);
+		if (camsv_dev->used_tag_cnt == 0)
+			continue;
+
+		/* imgo */
+		qos_port_id = (camsv_dev->id * sv_qos_port_num) + sv_imgo;
+		sv_mmqos = &sv_qos[camsv_dev->id];
 		vdev = &ctx->sv_pipe[i]->vdev_nodes[MTK_CAMSV_MAIN_STREAM_OUT - MTK_CAMSV_SINK_NUM];
 		ipi_fmt = mtk_cam_get_img_fmt(vdev->active_fmt.fmt.pix_mp.pixelformat);
 		pixel_bits = mtk_cam_get_pixel_bits(ipi_fmt);
 		plane_factor = mtk_cam_get_fmt_size_factor(ipi_fmt);
-		PBW_MB_s = vdev->active_fmt.fmt.pix_mp.width * fps *
+		PBW_MB_s = (vdev->active_fmt.fmt.pix_mp.width * fps *
 					(vblank + height) * pixel_bits *
-					plane_factor / 8 / 100;
-		ABW_MB_s = vdev->active_fmt.fmt.pix_mp.width * fps *
+					plane_factor / 8 / 100) * camsv_dev->used_tag_cnt;
+		ABW_MB_s = (vdev->active_fmt.fmt.pix_mp.width * fps *
 					vdev->active_fmt.fmt.pix_mp.height * pixel_bits *
-					plane_factor / 8 / 100;
+					plane_factor / 8 / 100) * camsv_dev->used_tag_cnt;
 		dvfs_info->sv_qos_bw_peak[qos_port_id] = PBW_MB_s;
 		dvfs_info->sv_qos_bw_avg[qos_port_id] = ABW_MB_s;
 		if (unlikely(debug_mmqos))
@@ -902,6 +863,16 @@ void mtk_cam_qos_bw_calc(struct mtk_cam_ctx *ctx, unsigned long raw_dmas, bool f
 			  vdev->active_fmt.fmt.pix_mp.width,
 			  vdev->active_fmt.fmt.pix_mp.height,
 			  ABW_MB_s, PBW_MB_s);
+		/* scq */
+		qos_port_id = (camsv_dev->id * sv_qos_port_num) + sv_cqi;
+		sv_mmqos = &sv_qos[camsv_dev->id];
+		PBW_MB_s = ABW_MB_s = CQ_BUF_SIZE * fps / 10;
+		dvfs_info->sv_qos_bw_peak[qos_port_id] = PBW_MB_s;
+		dvfs_info->sv_qos_bw_avg[qos_port_id] = ABW_MB_s;
+		if (unlikely(debug_mmqos))
+			dev_info(cam->dev, "[%16s] qos_idx:%2d BW(B/s):%lu\n",
+			  sv_mmqos->port[qos_port_id % sv_qos_port_num], qos_port_id,
+			  PBW_MB_s);
 	}
 	for (i = 0; i < ctx->used_mraw_num; i++) {
 		for (j = MTKCAM_IPI_MRAW_META_STATS_CFG; j < MTKCAM_IPI_MRAW_ID_MAX; j++) {
@@ -1129,7 +1100,7 @@ void mtk_cam_qos_init(struct mtk_cam_device *cam)
 	}
 }
 
-void mtk_cam_qos_bw_reset(struct mtk_cam_ctx *ctx, unsigned int enabled_sv)
+void mtk_cam_qos_bw_reset(struct mtk_cam_ctx *ctx)
 {
 	struct mtk_cam_device *cam = ctx->cam;
 	struct mtk_raw_pipeline *pipe = ctx->pipe;
@@ -1154,22 +1125,7 @@ void mtk_cam_qos_bw_reset(struct mtk_cam_ctx *ctx, unsigned int enabled_sv)
 #endif
 	}
 
-	if (mtk_cam_is_stagger(ctx) || mtk_cam_is_time_shared(ctx)
-		|| mtk_cam_is_with_w_channel(ctx)) {
-		for (i = MTKCAM_SUBDEV_CAMSV_START ; i < MTKCAM_SUBDEV_CAMSV_END ; i++) {
-			if (enabled_sv & (1 << i)) {
-				qos_port_id =
-					((i - MTKCAM_SUBDEV_CAMSV_START) * sv_qos_port_num) +
-					sv_imgo;
-				dvfs_info->sv_qos_bw_avg[qos_port_id] = 0;
-				dvfs_info->sv_qos_bw_peak[qos_port_id] = 0;
-#ifdef DVFS_QOS_READY
-				if (dvfs_info->sv_qos_req[qos_port_id])
-					mtk_icc_set_bw(dvfs_info->sv_qos_req[qos_port_id], 0, 0);
-#endif
-			}
-		}
-	}
+	/* camsv todo: take all features into consideration */
 
 	for (i = 0; i < ctx->used_sv_num; i++) {
 		for (j = 0; j < sv_qos_port_num; j++) {

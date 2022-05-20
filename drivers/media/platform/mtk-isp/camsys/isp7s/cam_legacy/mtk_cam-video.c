@@ -690,28 +690,24 @@ static void mtk_cam_vb2_buf_queue(struct vb2_buffer *vb)
 			sv_frame_params->sensor_svmeta_out.buf[0][svmeta_i].iova,
 			img_out->fmt.s.w, img_out->fmt.s.h, img_out->fmt.stride[svmeta_i]);
 		} else {
-#if PDAF_READY
-			sv_frame_params->img_out.buf[0][0].iova = buf->daddr +
-				GET_PLAT_V4L2(meta_sv_ext_size);
-#else
-			sv_frame_params->img_out.buf[0][0].iova = buf->daddr;
-#endif
+			/* calculate iova for 16-alignment */
+			sv_frame_params->img_out.buf[0][0].iova =
+				((((buf->daddr + GET_PLAT_V4L2(meta_sv_ext_size)) + 15)
+				>> 4) << 4);
 			width = node->active_fmt.fmt.pix_mp.width;
 			height = node->active_fmt.fmt.pix_mp.height;
 			stride = node->active_fmt.fmt.pix_mp.plane_fmt[0].bytesperline;
-#if PDAF_READY
+
 			vaddr = vb2_plane_vaddr(vb, 0);
-			CALL_PLAT_V4L2(set_sv_meta_stats_info,
-				node->desc.dma_port, vaddr, width, height, stride);
-#endif
+			CALL_PLAT_V4L2(
+				set_sv_meta_stats_info, node->desc.dma_port,
+				vaddr, width, height, stride);
 		}
 		break;
-#if MRAW_READY
 	case MTKCAM_IPI_MRAW_META_STATS_CFG:
 	case MTKCAM_IPI_MRAW_META_STATS_0:
 		mtk_cam_mraw_handle_enque(vb);
 		break;
-#endif
 	default:
 		dev_dbg(dev, "%s:pipe(%d):buffer with invalid port(%d)\n",
 			__func__, pipe_id, dma_port);
@@ -1474,32 +1470,12 @@ int mtk_cam_video_register(struct mtk_cam_video_device *video,
 	} else {
 		if (video->uid.pipe_id >= MTKCAM_SUBDEV_CAMSV_START &&
 			video->uid.pipe_id < MTKCAM_SUBDEV_CAMSV_END) {
-			switch (video->uid.pipe_id) {
-			case MTKCAM_SUBDEV_CAMSV_0:
-			case MTKCAM_SUBDEV_CAMSV_1:
-			case MTKCAM_SUBDEV_CAMSV_4:
-			case MTKCAM_SUBDEV_CAMSV_5:
-			case MTKCAM_SUBDEV_CAMSV_8:
-			case MTKCAM_SUBDEV_CAMSV_9:
-			case MTKCAM_SUBDEV_CAMSV_12:
-			case MTKCAM_SUBDEV_CAMSV_13:
-				q->dev = find_larb(&cam->larb, 13);
-				break;
-			default:
-				q->dev = find_larb(&cam->larb, 14);
-				break;
-			}
+			/* camsv todo: should have a better implementation here */
+			q->dev = cam->sv.devs[0];
 		} else if (video->uid.pipe_id >= MTKCAM_SUBDEV_MRAW_START &&
 			video->uid.pipe_id < MTKCAM_SUBDEV_MRAW_END) {
-			switch (video->uid.pipe_id) {
-			case MTKCAM_SUBDEV_MRAW_0:
-			case MTKCAM_SUBDEV_MRAW_2:
-				q->dev = find_larb(&cam->larb, 25);
-				break;
-			default:
-				q->dev = find_larb(&cam->larb, 26);
-				break;
-			}
+			q->dev =
+				cam->mraw.devs[video->uid.pipe_id - MTKCAM_SUBDEV_MRAW_START];
 		} else {
 			switch (video->desc.id) {
 			case MTK_RAW_YUVO_1_OUT:
@@ -1832,14 +1808,20 @@ int mtk_cam_video_set_fmt(struct mtk_cam_video_device *node, struct v4l2_format 
 			 __func__, node->desc.id, raw_feature,
 			 bytesperline, sizeimage);
 	}
-	/* TODO: support camsv meta header */
-#if PDAF_READY
 	/* add header size for vc channel */
 	if (node->desc.dma_port == MTKCAM_IPI_CAMSV_MAIN_OUT &&
-		node->desc.id == MTK_CAMSV_MAIN_STREAM_OUT)
+		node->desc.id == MTK_CAMSV_MAIN_STREAM_OUT) {
+
 		try_fmt.fmt.pix_mp.plane_fmt[0].sizeimage +=
-		GET_PLAT_V4L2(meta_sv_ext_size);
-#endif
+			GET_PLAT_V4L2(meta_sv_ext_size);
+		/* add additional size for 16-alignment */
+		try_fmt.fmt.pix_mp.plane_fmt[0].sizeimage += 16;
+
+		dev_info(cam->dev, "%s id:%d stride:%d size:%d\n",
+				__func__, node->desc.id,
+				try_fmt.fmt.pix_mp.plane_fmt[0].bytesperline,
+				try_fmt.fmt.pix_mp.plane_fmt[0].sizeimage);
+		}
 	/*extisp may use mainstream for yuvformat*/
 	if (node->desc.id == MTK_RAW_MAIN_STREAM_OUT &&
 		raw_feature & EXT_ISP_CUS_2) {
@@ -1853,10 +1835,6 @@ int mtk_cam_video_set_fmt(struct mtk_cam_video_device *node, struct v4l2_format 
 		try_fmt.fmt.pix_mp.plane_fmt[0].sizeimage =
 			try_fmt.fmt.pix_mp.plane_fmt[0].bytesperline *
 			try_fmt.fmt.pix_mp.height;
-		dev_info(cam->dev, "%s id:%d raw_feature:0x%x stride:%d size:%d\n",
-			 __func__, node->desc.id, raw_feature,
-			 try_fmt.fmt.pix_mp.plane_fmt[0].bytesperline,
-			 try_fmt.fmt.pix_mp.plane_fmt[0].sizeimage);
 	}
 	/* Constant format fields */
 	try_fmt.fmt.pix_mp.colorspace = V4L2_COLORSPACE_SRGB;

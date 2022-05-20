@@ -44,6 +44,7 @@ struct mtk_camsys_irq_error_data {
 	int err_status;
 };
 
+
 struct mtk_camsys_irq_info {
 	enum MTK_CAMSYS_IRQ_EVENT irq_type;
 	u64 ts_ns;
@@ -51,6 +52,9 @@ struct mtk_camsys_irq_info {
 	int frame_idx_inner;
 	int write_cnt;
 	int fbc_cnt;
+	unsigned int sof_tags;
+	unsigned int done_groups;
+	unsigned int err_tags;
 	union {
 		struct mtk_camsys_irq_normal_data	n;
 		struct mtk_camsys_irq_error_data	e;
@@ -218,5 +222,11 @@ int is_extisp_sv_all_frame_start(struct mtk_camsv_device *camsv,
 void mtk_cam_state_add_wo_sensor(struct mtk_cam_ctx *ctx);
 void mtk_cam_state_del_wo_sensor(struct mtk_cam_ctx *ctx,
 							struct mtk_cam_request *req);
+int mtk_camsv_normal_scenario_handler(struct mtk_cam_device *cam,
+	struct mtk_camsv_device *camsv_dev, struct mtk_camsys_irq_info *irq_info,
+	unsigned int tag_idx);
+int mtk_camsv_special_hw_scenario_handler(struct mtk_cam_device *cam,
+	struct mtk_camsv_device *camsv_dev, struct mtk_camsys_irq_info *irq_info,
+	unsigned int hw_scen, unsigned int tag_idx);
 
 #endif

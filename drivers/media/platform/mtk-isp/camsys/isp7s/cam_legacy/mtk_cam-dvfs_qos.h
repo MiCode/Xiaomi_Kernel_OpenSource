@@ -17,7 +17,7 @@ struct mtk_cam_ctx;
 //#define DVFS_QOS_READY
 #define ISP_CLK_LEVEL_CNT 10
 #define MTK_CAM_RAW_PORT_NUM 72
-#define MTK_CAM_SV_PORT_NUM 16
+#define MTK_CAM_SV_PORT_NUM 6
 #define MTK_CAM_MRAW_PORT_NUM 16
 #define MAX_CAM_OPP_STEP 10
 
@@ -48,6 +48,6 @@ void mtk_cam_dvfs_uninit(struct mtk_cam_device *cam);
 void mtk_cam_dvfs_update_clk(struct mtk_cam_device *cam);
 
 void mtk_cam_qos_init(struct mtk_cam_device *cam);
-void mtk_cam_qos_bw_reset(struct mtk_cam_ctx *ctx, unsigned int enabled_sv);
+void mtk_cam_qos_bw_reset(struct mtk_cam_ctx *ctx);
 void mtk_cam_qos_bw_calc(struct mtk_cam_ctx *ctx, unsigned long raw_dmas, bool force);
 #endif
