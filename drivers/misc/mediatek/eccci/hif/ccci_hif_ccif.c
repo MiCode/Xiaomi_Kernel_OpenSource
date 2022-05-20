@@ -1630,8 +1630,11 @@ static void ccif_set_clk_on(unsigned char hif_id)
 	CCCI_NORMAL_LOG(0, TAG, "%s at the begin...\n", __func__);
 
 	for (idx = 0; idx < ARRAY_SIZE(ccif_clk_table); idx++) {
-		if (ccif_clk_table[idx].clk_ref == NULL)
+		if (ccif_clk_table[idx].clk_ref == NULL) {
+			if (!idx)
+				devapc_check_flag = 1;
 			continue;
+		}
 		ret = clk_prepare_enable(ccif_clk_table[idx].clk_ref);
 		if (ret)
 			CCCI_ERROR_LOG(0, TAG,
@@ -1860,6 +1863,8 @@ static int ccif_hif_hw_init(struct device *dev, struct md_ccif_ctrl *md_ctrl)
 				 "ccif get %s failed\n",
 					ccif_clk_table[idx].clk_name);
 			ccif_clk_table[idx].clk_ref = NULL;
+			if (!idx)
+				devapc_check_flag = 1;
 		}
 	}
 	dev->dma_mask = &ccif_dmamask;
