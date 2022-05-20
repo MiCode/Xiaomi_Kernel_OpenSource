@@ -53,6 +53,15 @@ enum mtk_frame_type {
 	MTK_FRAME_B = 3,
 };
 
+enum v4l2_vdec_trick_mode {
+	/* decode all frame */
+	V4L2_VDEC_TRICK_MODE_ALL = 0,
+	/* decode all except of non-reference frame */
+	V4L2_VDEC_TRICK_MODE_IP,
+	/* only decode I frame */
+	V4L2_VDEC_TRICK_MODE_I
+};
+
 /**
  * struct mtk_video_fmt - Structure used to store information about pixelformats
  */

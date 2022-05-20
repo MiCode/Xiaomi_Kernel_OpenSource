@@ -626,6 +626,7 @@ static int vdec_set_param(unsigned long h_vdec,
 	case SET_PARAM_TOTAL_FRAME_BUFQ_COUNT:
 	case SET_PARAM_TOTAL_BITSTREAM_BUFQ_COUNT:
 	case SET_PARAM_SET_DV:
+	case SET_PARAM_NO_REORDER:
 		vcu_dec_set_param(&inst->vcu, (unsigned int)type, in, 1U);
 		break;
 	case SET_PARAM_PUT_FB:
@@ -667,6 +668,11 @@ static int vdec_set_param(unsigned long h_vdec,
 		inst->vsi->hdr10_info_valid = true;
 		break;
 	}
+	case SET_PARAM_TRICK_MODE:
+		if (inst->vsi == NULL)
+			return -EINVAL;
+		inst->vsi->trick_mode = *(unsigned int *)in;
+		break;
 	default:
 		mtk_vcodec_err(inst, "invalid set parameter type=%d\n", type);
 		ret = -EINVAL;

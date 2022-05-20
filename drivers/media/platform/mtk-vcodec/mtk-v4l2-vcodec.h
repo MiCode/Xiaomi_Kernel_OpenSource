@@ -228,4 +228,10 @@
 	(V4L2_CID_CODEC_MTK_BASE+58)
 #define V4L2_CID_VDEC_HDR10PLUS_DATA \
 	(V4L2_CID_CODEC_MTK_BASE+59)
+
+// Need to align different use case between mobile, tablet and tv.
+#define V4L2_CID_VDEC_TRICK_MODE \
+	(V4L2_CID_CODEC_MTK_BASE+60)
+#define V4L2_CID_VDEC_NO_REORDER \
+	(V4L2_CID_CODEC_MTK_BASE+61)
 #endif // #ifndef __UAPI_MTK_V4L2_VCODEC_H__

@@ -3538,6 +3538,20 @@ static int vdec_set_hdr10plus_data(struct mtk_vcodec_ctx *ctx,
 	return 0;
 }
 
+static enum vdec_set_param_type CID2SetParam(u32 id)
+{
+	switch (id) {
+	case V4L2_CID_VDEC_TRICK_MODE:
+		return SET_PARAM_TRICK_MODE;
+	case V4L2_CID_VDEC_HDR10_INFO:
+		return SET_PARAM_HDR10_INFO;
+	case V4L2_CID_VDEC_NO_REORDER:
+		return SET_PARAM_NO_REORDER;
+	}
+
+	return SET_PARAM_MAX;
+}
+
 static int mtk_vdec_g_v_ctrl(struct v4l2_ctrl *ctrl)
 {
 	struct mtk_vcodec_ctx *ctx = ctrl_to_ctx(ctrl);
@@ -3695,12 +3709,26 @@ static int mtk_vdec_s_ctrl(struct v4l2_ctrl *ctrl)
 	case V4L2_CID_VDEC_SLICE_COUNT:
 		ctx->dec_params.slice_count = ctrl->val;
 		break;
+	case V4L2_CID_VDEC_TRICK_MODE:
+	case V4L2_CID_VDEC_NO_REORDER:
 	case V4L2_CID_VDEC_HDR10_INFO: {
 		int ret;
+		enum vdec_set_param_type type = SET_PARAM_MAX;
 
-		ret = vdec_if_set_param(ctx, SET_PARAM_HDR10_INFO, ctrl->p_new.p);
+		if (!ctx->drv_handle)
+			return 0;
+
+		type = CID2SetParam(ctrl->id);
+		if (ctrl->is_ptr)
+			ret = vdec_if_set_param(ctx, type, ctrl->p_new.p);
+		else {
+			unsigned long in = ctrl->val;
+
+			ret = vdec_if_set_param(ctx, type, &in);
+		}
+
 		if (ret < 0) {
-			mtk_v4l2_err("ctrl-id=0x%x fails! ret %d",
+			mtk_v4l2_debug(5, "ctrl-id=0x%x fails! ret %d",
 					ctrl->id, ret);
 			return ret;
 		}
@@ -4043,6 +4071,30 @@ int mtk_vcodec_dec_ctrls_setup(struct mtk_vcodec_ctx *ctx)
 	cfg.def = 0;
 	cfg.ops = ops;
 	cfg.dims[0] = (sizeof(struct v4l2_vdec_hdr10plus_data));
+	mtk_vcodec_dec_custom_ctrls_check(handler, &cfg, NULL);
+
+	memset(&cfg, 0, sizeof(cfg));
+	cfg.id = V4L2_CID_VDEC_TRICK_MODE;
+	cfg.type = V4L2_CTRL_TYPE_INTEGER;
+	cfg.flags = V4L2_CTRL_FLAG_VOLATILE | V4L2_CTRL_FLAG_EXECUTE_ON_WRITE;
+	cfg.name = "VDEC set/get trick mode";
+	cfg.min = V4L2_VDEC_TRICK_MODE_ALL;
+	cfg.max = V4L2_VDEC_TRICK_MODE_I;
+	cfg.step = 1;
+	cfg.def = V4L2_VDEC_TRICK_MODE_ALL;
+	cfg.ops = ops;
+	mtk_vcodec_dec_custom_ctrls_check(handler, &cfg, NULL);
+
+	memset(&cfg, 0, sizeof(cfg));
+	cfg.id = V4L2_CID_VDEC_NO_REORDER;
+	cfg.type = V4L2_CTRL_TYPE_BOOLEAN;
+	cfg.flags = V4L2_CTRL_FLAG_EXECUTE_ON_WRITE;
+	cfg.name = "VDEC show frame without reorder";
+	cfg.min = 0;
+	cfg.max = 1;
+	cfg.step = 1;
+	cfg.def = 0;
+	cfg.ops = ops;
 	mtk_vcodec_dec_custom_ctrls_check(handler, &cfg, NULL);
 
 	if (ctx->ctrl_hdl.error) {

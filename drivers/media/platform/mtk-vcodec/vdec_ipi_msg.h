@@ -170,6 +170,10 @@ enum vdec_set_param_type {
 	SET_PARAM_PUT_FB,
 	SET_PARAM_CROP_INFO,
 	SET_PARAM_HDR10_INFO,
+	SET_PARAM_TRICK_MODE,
+	SET_PARAM_NO_REORDER,
+
+	SET_PARAM_MAX = 0xFFFFFFFF
 };
 
 #define VDEC_MSG_AP_SEND_PREFIX	\
@@ -429,6 +433,7 @@ struct vdec_vsi {
 	struct hdr10plus_info hdr10plus_buf;
 	struct v4l2_vdec_hdr10_info hdr10_info;
 	__u8 hdr10_info_valid;
+	__u8 trick_mode;
 };
 
 #endif
