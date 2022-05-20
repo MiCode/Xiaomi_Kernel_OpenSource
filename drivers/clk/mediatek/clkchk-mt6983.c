@@ -418,9 +418,55 @@ static struct pvd_msk pvd_pwr_mask[] = {
 	{},
 };
 
+static struct pwr_data pvd_pwr_data[] = {
+	{"afe", PWR_CON_STA, 0xE20},
+	{"camsys_mraw", PWR_CON_STA, 0xE54},
+	{"camsys_rawa", PWR_CON_STA, 0xE58},
+	{"camsys_rawb", PWR_CON_STA, 0xE5C},
+	{"camsys_rawc", PWR_CON_STA, 0xE60},
+	{"camsys_yuva", PWR_CON_STA, 0xE58},
+	{"camsys_yuvb", PWR_CON_STA, 0xE5C},
+	{"camsys_yuvc", PWR_CON_STA, 0xE60},
+	{"cam_main_r1a", PWR_CON_STA, 0xE50},
+	{"ccu", PWR_CON_STA, 0xE50},
+	{"dip_nr_dip1", PWR_CON_STA, 0xE2C},
+	{"dip_top_dip1", PWR_CON_STA, 0xE2C},
+	{"dispsys_config", PWR_CON_STA, 0xE34},
+	{"dispsys1_config", PWR_CON_STA, 0xE38},
+	{"mdpsys_config", PWR_CON_STA, 0xE64},
+	{"mdpsys1_config", PWR_CON_STA, 0xE68},
+	{"gce_d", PWR_CON_STA, 0xE6C},
+	{"gce_m", PWR_CON_STA, 0xE6C},
+	{"imgsys_main", PWR_CON_STA, 0xE50},
+	{"ipesys", PWR_CON_STA, 0xE30},
+	{"mdpsys", PWR_CON_STA, 0xE64},
+	{"mminfra_config", PWR_CON_STA, 0xE6C},
+	{"vdec_gcon_base", PWR_CON_STA, 0xE3C},
+	{"vdec_soc_gcon_base", PWR_CON_STA, 0xE40},
+	{"vencsys", PWR_CON_STA, 0xE44},
+	{"venc_gcon_core1", PWR_CON_STA, 0xE48},
+	{"wpe1_dip1", PWR_CON_STA, 0xE2C},
+	{"wpe2_dip1", PWR_CON_STA, 0xE2C},
+	{"wpe3_dip1", PWR_CON_STA, 0xE2C},
+	{},
+};
+
+
 static struct pvd_msk *get_pvd_pwr_mask(void)
 {
 	return pvd_pwr_mask;
+}
+
+static struct pwr_data *get_pvd_pwr_data(const char *pvdname)
+{
+	int i;
+
+	for (i = 0; pvd_pwr_data[i].pvdname != NULL; i++) {
+		if (!strcmp(pvdname, pvd_pwr_data[i].pvdname))
+			return &pvd_pwr_data[i];
+	}
+
+	return NULL;
 }
 
 /*
@@ -537,6 +583,8 @@ void print_subsys_reg_mt6983(enum chk_sys_id id)
 	rb_dump = &rb[id];
 
 	for (i = 0; i < ARRAY_SIZE(rn) - 1; i++, rns++) {
+		u32 pg;
+
 		if (!is_valid_reg(ADDR(rns)))
 			return;
 
@@ -544,8 +592,13 @@ void print_subsys_reg_mt6983(enum chk_sys_id id)
 		if (rns->base != rb_dump)
 			continue;
 
+		pg = rb_dump->pg;
+		if (pg != PD_NULL)
+			if (!pwr_hw_is_on(pvd_pwr_data[pg].type, pvd_pwr_data[pg].ofs))
+				return;
+
 		pr_info("%-18s: [0x%08x] = 0x%08x\n",
-			rns->name, PHYSADDR(rns), clk_readl(ADDR(rns)));
+				rns->name, PHYSADDR(rns), clk_readl(ADDR(rns)));
 	}
 }
 EXPORT_SYMBOL(print_subsys_reg_mt6983);
@@ -611,6 +664,7 @@ static struct clkchk_ops clkchk_mt6983_ops = {
 	.get_all_regnames = get_all_mt6983_regnames,
 	.get_spm_pwr_status_array = get_spm_pwr_status_array,
 	.get_pvd_pwr_mask = get_pvd_pwr_mask,
+	.get_pvd_pwr_data = get_pvd_pwr_data,
 	.get_off_pll_names = get_off_pll_names,
 	.get_notice_pll_names = get_notice_pll_names,
 	.is_pll_chk_bug_on = is_pll_chk_bug_on,

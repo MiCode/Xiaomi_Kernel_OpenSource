@@ -87,7 +87,6 @@ obj-$(CONFIG_COMMON_CLK_MT6985_MMSYS) += clk-mt6985-mmsys.o
 obj-$(CONFIG_COMMON_CLK_MT6985_PERI) += clk-mt6985-peri.o
 obj-$(CONFIG_COMMON_CLK_MT6985_BUS) += clk-mt6985-bus.o
 obj-$(CONFIG_COMMON_CLK_MT6985_MDPSYS) += clk-mt6985-mdpsys.o
-obj-$(CONFIG_COMMON_CLK_MT6985_MFG) += clk-mt6985-mfgcfg.o
 obj-$(CONFIG_COMMON_CLK_MT6985_VLP) += clk-mt6985-vlp.o
 obj-$(CONFIG_COMMON_CLK_MT6985_VCODEC) += clk-mt6985-vcodec.o
 endif

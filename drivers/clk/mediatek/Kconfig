@@ -678,15 +678,6 @@ config COMMON_CLK_MT6985_MDPSYS
 	  If you wish to use clock resources from the mdpsys device,
 	  say Y. Otherwise, say N.
 
-config COMMON_CLK_MT6985_MFG
-	tristate "Clock driver for MediaTek MT6985 mfg"
-	depends on COMMON_CLK_MT6985
-	help
-	  This driver supports MediaTek MT6985 mfg clocks,
-	  which is used to control mfg clock output.
-	  If you wish to use clock resources from the mfg device,
-	  say Y. Otherwise, say N.
-
 config COMMON_CLK_MT6985_VLP
 	tristate "Clock driver for MediaTek MT6985 vlp"
 	depends on COMMON_CLK_MT6985

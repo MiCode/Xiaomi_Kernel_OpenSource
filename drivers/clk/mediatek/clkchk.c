@@ -117,8 +117,10 @@ static void setup_provider_clk(struct provider_clk *pvdck)
 	if (!pvdname)
 		return;
 
-	if (clkchk_ops == NULL || clkchk_ops->get_pvd_pwr_mask == NULL)
+	if (clkchk_ops == NULL || clkchk_ops->get_pvd_pwr_mask == NULL) {
+		pvdck->pwr_mask = INV_MSK;
 		return;
+	}
 
 	pm = clkchk_ops->get_pvd_pwr_mask();
 
