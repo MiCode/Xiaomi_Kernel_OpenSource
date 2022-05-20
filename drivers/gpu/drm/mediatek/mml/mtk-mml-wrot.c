@@ -2390,7 +2390,7 @@ static s32 dbg_get(char *buf, const struct kernel_param *kp)
 				comp->id, comp->sub_idx, comp->base_pa,
 				comp->name ? comp->name : "(null)", comp->bound);
 			length += snprintf(buf + length, PAGE_SIZE - length,
-				"  -         larb_port: %d @%08x pw: %d clk: %d\n",
+				"  -         larb_port: %d @%llx pw: %d clk: %d\n",
 				comp->larb_port, comp->larb_base,
 				comp->pw_cnt, comp->clk_cnt);
 			length += snprintf(buf + length, PAGE_SIZE - length,

@@ -982,6 +982,10 @@ static void sys_mml_calc_cfg(struct mtk_ddp_comp *ddp_comp,
 	}
 
 	/* wait submit_done */
+	if (unlikely(pipe_cnt <= 0)) {
+		mml_err("%s pipe_cnt <=0 %d", __func__, pipe_cnt);
+		return;
+	}
 	if (!cfg->task || !cfg->task->config->tile_output[pipe_cnt - 1]) {
 		mml_err("%s no tiles for task %p pipe_cnt %d", __func__,
 			cfg->task, pipe_cnt);
@@ -1260,8 +1264,8 @@ static int dl_comp_init(struct device *dev, struct mml_sys *sys,
 {
 	struct device_node *node = dev->of_node;
 	char name[32] = "";
-	u16 offset;
-	int ret;
+	u16 offset = 0;
+	int ret = 0;
 
 	/* init larb for mtcmos */
 	ret = mml_comp_init_larb(comp, dev);
@@ -1333,7 +1337,7 @@ static int subcomp_init(struct platform_device *pdev, struct mml_sys *sys,
 	struct device *dev = &pdev->dev;
 	struct mml_comp *comp = &sys->comps[subcomponent];
 	const struct mml_data *data = sys->data;
-	u32 comp_type;
+	u32 comp_type = 0;
 	int ret;
 
 	ret = mml_subcomp_init(pdev, subcomponent, comp);
@@ -1345,22 +1349,26 @@ static int subcomp_init(struct platform_device *pdev, struct mml_sys *sys,
 		dev_info(dev, "no comp-type of mmlsys comp-%d\n", subcomponent);
 		return 0;
 	}
-	if (data->comp_inits[comp_type]) {
-		ret = data->comp_inits[comp_type](dev, sys, comp);
-		if (ret)
-			return ret;
-	}
-
-	if (data->ddp_comp_funcs[comp_type]) {
-		ret = mml_ddp_comp_init(dev, &sys->ddp_comps[subcomponent],
-					comp, data->ddp_comp_funcs[comp_type]);
-		if (unlikely(ret)) {
-			mml_log("failed to init ddp comp-%d: %d",
-				subcomponent, ret);
-			return ret;
+	if (comp_type < MML_COMP_TYPE_TOTAL) {
+		if (data->comp_inits[comp_type]) {
+			ret = data->comp_inits[comp_type](dev, sys, comp);
+			if (ret)
+				return ret;
 		}
-		sys->ddp_comp_en |= 1 << subcomponent;
-	}
+
+		if (data->ddp_comp_funcs[comp_type]) {
+			ret = mml_ddp_comp_init(dev, &sys->ddp_comps[subcomponent],
+						comp, data->ddp_comp_funcs[comp_type]);
+			if (unlikely(ret)) {
+				mml_log("failed to init ddp comp-%d: %d",
+					subcomponent, ret);
+				return ret;
+			}
+			sys->ddp_comp_en |= 1 << subcomponent;
+		}
+	} else
+		mml_err(" %s comp_type %d >= MML_COMP_TYPE_TOTAL", __func__, comp_type);
+
 	return ret;
 }
 
@@ -1449,6 +1457,9 @@ struct mml_sys *mml_sys_create(struct platform_device *pdev,
 		return ERR_PTR(ret);
 	}
 
+	if (unlikely(dbg_probed_count < 0))
+		return ERR_PTR(-EFAULT);
+
 	dbg_probed_components[dbg_probed_count++] = sys;
 	return sys;
 }
@@ -1470,6 +1481,11 @@ static int bind_mml(struct device *dev, struct device *master,
 		    struct mml_sys *sys)
 {
 	s32 ret;
+
+	if (unlikely(!sys)) {
+		dev_err(dev, "sys is NULL\n");
+		return -EFAULT;
+	}
 
 	if (WARN_ON(sys->master && sys->master != master)) {
 		dev_err(dev, "failed to register component %s to new master %s from old %s\n",
@@ -1536,7 +1552,8 @@ int mml_sys_bind(struct device *dev, struct device *master,
 
 static void unbind_mml(struct device *master, struct mml_sys *sys)
 {
-	if (WARN_ON(sys->comp_bound <= 0))
+	if (WARN_ON(sys->comp_bound == 0 ||
+		    sys->comp_bound > MML_MAX_SYS_COMPONENTS))
 		return;
 	mml_unregister_comp(master, &sys->comps[--sys->comp_bound]);
 }
@@ -1550,7 +1567,8 @@ static void unbind_ddp(struct drm_device *drm_dev, struct mml_sys *sys)
 			break;
 	sys->ddp_bound = i;
 
-	if (WARN_ON(sys->ddp_bound <= 0))
+	if (WARN_ON(sys->ddp_bound == 0 ||
+		    sys->ddp_bound > MML_MAX_SYS_COMPONENTS))
 		return;
 	mml_ddp_comp_unregister(drm_dev, &sys->ddp_comps[--sys->ddp_bound]);
 }
@@ -1749,11 +1767,11 @@ static s32 dbg_get(char *buf, const struct kernel_param *kp)
 				struct mtk_ddp_comp *ddp_comp = &sys->ddp_comps[i];
 
 				length += snprintf(buf + length, PAGE_SIZE - length,
-					"    - [%d] mml comp_id: %d.%d @%08x name: %s bound: %d\n",
+					"    - [%d] mml comp_id: %d.%d @%llx name: %s bound: %d\n",
 					i, comp->id, comp->sub_idx, comp->base_pa,
 					comp->name ? comp->name : "(null)", comp->bound);
 				length += snprintf(buf + length, PAGE_SIZE - length,
-					"    -         larb_port: %d @%08x pw: %d clk: %d\n",
+					"    -         larb_port: %d @%llx pw: %d clk: %d\n",
 					comp->larb_port, comp->larb_base,
 					comp->pw_cnt, comp->clk_cnt);
 				length += snprintf(buf + length, PAGE_SIZE - length,

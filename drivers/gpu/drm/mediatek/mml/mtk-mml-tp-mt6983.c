@@ -398,7 +398,7 @@ static void tp_parse_path(struct mml_dev *mml, struct mml_topology_path *path,
 			 */
 			if (next1)
 				mml_err("[topology]%s wrong path index %hhu engine %hhu",
-					i, eng);
+					__func__, i, eng);
 		} else {
 			mml_err("[topology]connect fail idx:%hhu engine:%hhu next0:%hhu next1:%hhu from:%hhu %hhu",
 				i, eng, next0, next1,
@@ -504,7 +504,7 @@ static void tp_select_path(struct mml_topology_cache *cache,
 	struct mml_frame_config *cfg,
 	struct mml_topology_path **path)
 {
-	enum topology_scenario scene[2];
+	enum topology_scenario scene[2] = {0};
 	bool en_rsz, en_pq;
 
 	if (cfg->info.mode == MML_MODE_RACING) {

@@ -467,6 +467,9 @@ static int probe(struct platform_device *pdev)
 		add_ddp = false;
 	}
 
+	if (unlikely(dbg_probed_count < 0))
+		return -EFAULT;
+
 	dbg_probed_components[dbg_probed_count++] = priv;
 
 	ret = component_add(dev, &mml_comp_ops);

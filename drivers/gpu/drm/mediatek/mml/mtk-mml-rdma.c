@@ -337,8 +337,13 @@ static s32 rdma_write(struct cmdq_pkt *pkt, phys_addr_t base_pa, u8 hw_pipe,
 static s32 rdma_write_ofst(struct cmdq_pkt *pkt, phys_addr_t base_pa, u8 hw_pipe,
 			   enum cpr_reg_idx lsb_idx, u64 value, bool write_sec)
 {
-	enum cpr_reg_idx msb_idx = lsb_to_msb[lsb_idx];
+	enum cpr_reg_idx msb_idx;
 	s32 ret;
+
+	if (unlikely(lsb_idx >= CPR_RDMA_COUNT))
+		return -EFAULT;
+
+	msb_idx = lsb_to_msb[lsb_idx];
 
 	ret = rdma_write(pkt, base_pa, hw_pipe,
 			 lsb_idx, value & GENMASK_ULL(31, 0), write_sec);
@@ -372,8 +377,13 @@ static s32 rdma_write_addr(struct cmdq_pkt *pkt, phys_addr_t base_pa, u8 hw_pipe
 			   struct mml_pipe_cache *cache,
 			   u16 *label_idx, bool write_sec)
 {
-	enum cpr_reg_idx msb_idx = lsb_to_msb[lsb_idx];
+	enum cpr_reg_idx msb_idx;
 	s32 ret;
+
+	if (unlikely(lsb_idx < 0))
+		return -EFAULT;
+
+	msb_idx = lsb_to_msb[lsb_idx];
 
 	ret = rdma_write_reuse(pkt, base_pa, hw_pipe,
 			       lsb_idx, value & GENMASK_ULL(31, 0),
@@ -2037,7 +2047,7 @@ static s32 dbg_get(char *buf, const struct kernel_param *kp)
 				comp->id, comp->sub_idx, comp->base_pa,
 				comp->name ? comp->name : "(null)", comp->bound);
 			length += snprintf(buf + length, PAGE_SIZE - length,
-				"  -         larb_port: %d @%08x pw: %d clk: %d\n",
+				"  -         larb_port: %d @%llx pw: %d clk: %d\n",
 				comp->larb_port, comp->larb_base,
 				comp->pw_cnt, comp->clk_cnt);
 		}

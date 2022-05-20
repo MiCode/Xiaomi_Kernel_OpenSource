@@ -98,8 +98,8 @@ struct mml_ut {
 
 static struct mml_ut the_case;
 
-int mml_case;
-module_param(mml_case, int, 0644);
+unsigned int mml_case;
+module_param(mml_case, uint, 0644);
 
 /* how many submit for each ut */
 int mml_test_round = 1;
@@ -168,7 +168,14 @@ static void check_fence(int32_t fd, const char *func)
 {
 #ifndef MML_FPGA
 	struct dma_fence *fence = sync_file_get_fence(fd);
-	long fret = dma_fence_wait(fence, true);
+	long fret;
+
+	if (unlikely(!fence)) {
+		mml_err("sync_file_get_fence return null");
+		return;
+	}
+
+	fret = dma_fence_wait(fence, true);
 
 	mml_log("[test]%s success fence %d %p ret %ld",
 		func, fd, fence, fret);
@@ -536,14 +543,14 @@ static void setup_nv12(struct mml_submit *task, struct mml_ut *cur)
 		cur->size_in)
 		mml_err("[test]%s case %d src size total %u plane %u %u",
 			__func__, mml_case, cur->size_in,
-			task->buffer.src.size[0] + task->buffer.src.size[1]);
+			task->buffer.src.size[0], task->buffer.src.size[1]);
 
 	/* check dest 0 with 2 plane size */
 	if (task->buffer.dest[0].size[0] + task->buffer.dest[0].size[1] !=
 		cur->size_out)
 		mml_err("[test]%s case %d dest size total %u plane %u %u",
 			__func__, mml_case, cur->size_out,
-			task->buffer.dest[0].size[0] + task->buffer.dest[0].size[1]);
+			task->buffer.dest[0].size[0], task->buffer.dest[0].size[1]);
 }
 
 static void case_run_nv12(struct mml_test *test, struct mml_ut *cur)
@@ -591,7 +598,7 @@ static void setup_block_to_nv12(struct mml_submit *task,
 		cur->size_out)
 		mml_err("[test]%s case %d dest size total %u plane %u %u",
 			__func__, mml_case, cur->size_out,
-			task->buffer.dest[0].size[0] + task->buffer.dest[0].size[1]);
+			task->buffer.dest[0].size[0], task->buffer.dest[0].size[1]);
 }
 
 static void case_run_block_to_nv12(struct mml_test *test, struct mml_ut *cur)
@@ -942,7 +949,7 @@ static void setup_yv12_yuyv(struct mml_submit *task, struct mml_ut *cur)
 		cur->size_in)
 		mml_err("[test]%s case %d src size total %u plane %u %u",
 			__func__, mml_case, cur->size_in,
-			task->buffer.src.size[0] + task->buffer.src.size[1]);
+			task->buffer.src.size[0], task->buffer.src.size[1]);
 }
 
 static void case_run_yv12_yuyv(struct mml_test *test, struct mml_ut *cur)
@@ -1049,6 +1056,10 @@ static void case_run_read_sram(struct mml_test *test, struct mml_ut *cur)
 
 	/* hold sram, for wrot out and rdma in */
 	dev = &mml_pdev->dev;
+	if (unlikely(!dev)) {
+		mml_err("%s dev = null", __func__);
+		return;
+	}
 	mml = dev_get_drvdata(dev);
 	mml_sram_get(mml);
 
@@ -1109,11 +1120,27 @@ static void case_run_wr_sram(struct mml_test *test, struct mml_ut *cur)
 	int32_t fd = -1;
 
 	/* create context */
+	if (unlikely(!test)) {
+		mml_err("%s test = null", __func__);
+		return;
+	}
 	mml_pdev = mml_get_plat_device(test->pdev);
+	if (unlikely(!mml_pdev)) {
+		mml_err("%s mml_pdev = null", __func__);
+		return;
+	}
 	mml_ctx = mml_drm_get_context(mml_pdev, &disp);
-
+	if (unlikely(!mml_ctx)) {
+		mml_err("%s mml_ctx = null", __func__);
+		return;
+	}
 	/* hold sram, for wrot out and rdma in */
 	dev = &mml_pdev->dev;
+	if (unlikely(!dev)) {
+		mml_drm_put_context(mml_ctx);
+		mml_err("%s dev = null", __func__);
+		return;
+	}
 	mml = dev_get_drvdata(dev);
 	mml_sram_get(mml);
 
@@ -1199,7 +1226,7 @@ static void setup_crop_manual(struct mml_submit *task, struct mml_ut *cur)
 		cur->size_out)
 		mml_err("[test]%s case %d dest size total %u plane %u %u",
 			__func__, mml_case, cur->size_out,
-			task->buffer.dest[0].size[0] + task->buffer.dest[0].size[1]);
+			task->buffer.dest[0].size[0], task->buffer.dest[0].size[1]);
 }
 
 static void case_run_crop_manual(struct mml_test *test, struct mml_ut *cur)
