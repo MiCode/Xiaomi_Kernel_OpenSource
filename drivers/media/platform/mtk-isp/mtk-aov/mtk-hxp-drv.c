@@ -6,11 +6,6 @@
 #include <linux/of_platform.h>
 #include <linux/module.h>
 #include <linux/suspend.h>
-#include <linux/of_platform.h>
-#include <linux/of.h>
-#include <linux/platform_device.h>
-#include <linux/pm_runtime.h>
-#include <linux/clk.h>
 
 #include "mtk-hxp-config.h"
 #include "mtk-hxp-drv.h"
@@ -78,7 +73,7 @@ static long mtk_hxp_ioctl(struct file *file, unsigned int cmd,
 	case HXP_AOV_INIT: {
 		dev_info(hxp_dev->dev, "AOV init+\n");
 		ret = hxp_core_send_cmd(hxp_dev, HXP_AOV_CMD_INIT,
-			(void *)arg, sizeof(struct aov_user), false);
+			(void *)arg, sizeof(struct aov_user), true);
 		dev_info(hxp_dev->dev, "AOV init-(%d)\n", ret);
 		break;
 	}
@@ -89,7 +84,7 @@ static long mtk_hxp_ioctl(struct file *file, unsigned int cmd,
 		break;
 	case HXP_AOV_SENSOR_OFF:
 		dev_info(hxp_dev->dev, "AOV sensor off\n+");
-		ret = hxp_core_notify(hxp_dev, (void *)arg, false);
+		ret = hxp_core_notify(hxp_dev, (void *)arg, true);
 		dev_info(hxp_dev->dev, "AOV sensor off(%d)\n+", ret);
 		break;
 	case HXP_AOV_DQEVENT:
@@ -99,7 +94,7 @@ static long mtk_hxp_ioctl(struct file *file, unsigned int cmd,
 		break;
 	case HXP_AOV_DEINIT: {
 		dev_info(hxp_dev->dev, "AOV deinit+\n");
-		ret = hxp_core_send_cmd(hxp_dev, HXP_AOV_CMD_DEINIT, NULL, 0, false);
+		ret = hxp_core_send_cmd(hxp_dev, HXP_AOV_CMD_DEINIT, NULL, 0, true);
 		dev_info(hxp_dev->dev, "AOV deinit-(%d)\n", ret);
 		break;
 	}
@@ -150,7 +145,7 @@ static int mtk_hxp_release(struct inode *inode, struct file *file)
 
 	hxp_dev->is_open = false;
 
-	hxp_ctrl_reset(hxp_dev);
+	//hxp_ctrl_reset(hxp_dev);
 
 	hxp_core_reset(hxp_dev);
 
@@ -185,6 +180,16 @@ static int mtk_hxp_probe(struct platform_device *pdev)
 	hxp_dev->is_open = false;
 
 	hxp_dev->dev = &pdev->dev;
+
+	if (pdev->dev.of_node) {
+		of_property_read_u32(pdev->dev.of_node, "op_mode", &(hxp_dev->op_mode));
+
+		dev_info(&pdev->dev, "%s hxp mode(%d)\n", __func__, hxp_dev->op_mode);
+	} else {
+		hxp_dev->op_mode = 0;
+
+		dev_info(&pdev->dev, "%s null of node\n", __func__);
+	}
 
 	hxp_core_init(hxp_dev);
 
@@ -315,7 +320,7 @@ static const struct dev_pm_ops mtk_hxp_pm_ops = {
 };
 
 static const struct of_device_id mtk_hxp_of_match[] = {
-	{ .compatible = "mediatek,hxp", },
+	{ .compatible = "mediatek,aov", },
 	{}
 };
 MODULE_DEVICE_TABLE(of, mtk_hxp_of_match);
@@ -331,31 +336,7 @@ static struct platform_driver mtk_hxp_driver = {
 	},
 };
 
-// module_platform_driver(mtk_hxp_driver);
-
-#if HXP_BUILD_FOR_FPGA
-static int __init mtk_hxp_init(void)
-{
-	pr_info("%s+", __func__);
-
-	if (platform_driver_register(&mtk_hxp_driver)) {
-		pr_notice("%s: failed to register hxp driver\n", __func__);
-		return -1;
-	}
-
-	pr_info("%s-", __func__);
-
-	return 0;
-}
-
-static void __exit mtk_hxp_deinit(void)
-{
-	platform_driver_unregister(&mtk_hxp_driver);
-}
-#endif // HXP_BUILD_FOR_FPGA
-
-late_initcall_sync(mtk_hxp_init);
-module_exit(mtk_hxp_deinit);
+module_platform_driver(mtk_hxp_driver);
 
 MODULE_LICENSE("GPL v2");
-MODULE_DESCRIPTION("Mediatek hetero control process driver");
+MODULE_DESCRIPTION("Mediatek AOV process driver");

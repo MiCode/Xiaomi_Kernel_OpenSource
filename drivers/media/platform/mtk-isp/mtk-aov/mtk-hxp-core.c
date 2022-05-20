@@ -176,12 +176,17 @@ int hxp_core_send_cmd(struct mtk_hxp *hxp_dev, uint32_t cmd,
 	struct packet pkt;
 	unsigned long timeout;
 
+	if (hxp_dev->op_mode == 0) {
+		pr_info("%s: bypass send command(%d)", __func__, cmd);
+		return 0;
+	}
+
 	pr_info("%s+", __func__);
 
 	if (data && len) {
 		if (cmd == HXP_AOV_CMD_INIT) {
 			if (atomic_read(&(core_info->aov_ready))) {
-				pr_info("%s: Invalid aov ready state\n");
+				pr_info("%s: invalid aov ready state\n");
 				return -EIO;
 			}
 
@@ -365,8 +370,8 @@ int hxp_core_send_cmd(struct mtk_hxp *hxp_dev, uint32_t cmd,
 		//pr_info("mtk_cam_seninf_aov_runtime_suspend(%d)+\n", core_info->sensor_id);
 		//mtk_cam_seninf_aov_runtime_suspend(core_info->sensor_id);
 		//pr_info("mtk_cam_seninf_aov_runtime_suspend(%d)-\n", core_info->sensor_id);
-#if HXP_SLB_ALLOC_FREE
 	} else if (cmd == HXP_AOV_CMD_PWR_ON) {
+#if HXP_SLB_ALLOC_FREE
 		struct slbc_data slb;
 
 		slb.uid = UID_AOV_DC;
@@ -375,6 +380,21 @@ int hxp_core_send_cmd(struct mtk_hxp *hxp_dev, uint32_t cmd,
 		if (ret < 0) {
 			pr_info("failed to release slb buffer");
 			return ret;
+		}
+#else
+		struct slbc_data slb;
+
+		slb.uid = UID_AOV_DC;
+		slb.type = TP_BUFFER;
+		ret = slbc_status(&slb);
+		if (ret > 0) {
+			dev_info(hxp_dev->dev, "%s: force release slb(%d)\n", __func__, ret);
+
+			slb.uid = UID_AOV_DC;
+			slb.type = TP_BUFFER;
+			ret = slbc_release(&slb);
+			if (ret < 0)
+				pr_info("failed to release slb buffer");
 		}
 #endif  // HXP_SLB_ALLOC_FREE
 	} else if (cmd == HXP_AOV_CMD_DEINIT) {
@@ -405,14 +425,18 @@ int hxp_core_send_cmd(struct mtk_hxp *hxp_dev, uint32_t cmd,
 int hxp_core_notify(struct mtk_hxp *hxp_dev,
 	void *data, bool enable)
 {
-	int sensor_id;
+	struct sensor_notify notify;
+	int index;
 
 	pr_info("%s+", __func__);
 
-	get_user(sensor_id, (int *)data);
+	(void)copy_from_user((void *)&notify,
+		(void *)data, sizeof(struct sensor_notify));
 
-	dev_info(hxp_dev->dev, "%s: notify sensor(%d), status(%d)",
-		__func__, sensor_id, enable);
+	for (index = 0; index < notify.count; index++) {
+		dev_info(hxp_dev->dev, "%s: notify sensor(%d), status(%d)",
+			__func__, notify.sensor[index], enable);
+	}
 
 	pr_info("%s-", __func__);
 
@@ -461,30 +485,35 @@ int hxp_core_init(struct mtk_hxp *hxp_dev)
 
 	curr_dev = hxp_dev;
 
-	ret = mtk_ipi_register(&scp_ipidev, IPI_IN_SCP_AOV,
-		ipi_receive, NULL, &(core_info->packet));
-	if (ret < 0) {
-		pr_info("%s: failed to register ipi: %d", __func__, ret);
-		return ret;
-	}
-
 	init_waitqueue_head(&(core_info->scp_queue));
 	atomic_set(&(core_info->scp_session), 0);
 	atomic_set(&(core_info->scp_ready), 0);
 	atomic_set(&(core_info->aov_session), 0);
 	atomic_set(&(core_info->aov_ready), 0);
 
-	/* this call back can get scp power down status */
-	scp_A_register_notify(&scp_state_notifier);
+	if (curr_dev->op_mode) {
+		ret = mtk_ipi_register(&scp_ipidev, IPI_IN_SCP_AOV,
+			ipi_receive, NULL, &(core_info->packet));
+		if (ret < 0) {
+			pr_info("%s: failed to register ipi: %d", __func__, ret);
+			return ret;
+		}
 
-	core_info->buf_pa = scp_get_reserve_mem_phys(SCP_AOV_MEM_ID);
-	core_info->buf_va = (void *)scp_get_reserve_mem_virt(SCP_AOV_MEM_ID);
-	core_info->buf_size = scp_get_reserve_mem_size(SCP_AOV_MEM_ID);
+		/* this call back can get scp power down status */
+		scp_A_register_notify(&scp_state_notifier);
 
-	pr_info("%s: scp buffer pa(0x%x), va(0x%08x), size(0x%x)\n", __func__,
-		core_info->buf_pa, core_info->buf_va, core_info->buf_size);
+		core_info->buf_pa = scp_get_reserve_mem_phys(SCP_AOV_MEM_ID);
+		core_info->buf_va = (void *)scp_get_reserve_mem_virt(SCP_AOV_MEM_ID);
+		core_info->buf_size = scp_get_reserve_mem_size(SCP_AOV_MEM_ID);
 
-	tlsf_init(&(core_info->alloc), core_info->buf_va, core_info->buf_size);
+		pr_info("%s: scp buffer pa(0x%x), va(0x%08x), size(0x%x)\n", __func__,
+			core_info->buf_pa, core_info->buf_va, core_info->buf_size);
+
+		tlsf_init(&(core_info->alloc), core_info->buf_va, core_info->buf_size);
+	} else {
+		pr_info("%s: init hxp core in byass mode");
+	}
+
 	spin_lock_init(&core_info->buf_lock);
 
 	core_info->aov_init = NULL;

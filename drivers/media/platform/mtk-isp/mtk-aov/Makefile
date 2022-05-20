@@ -19,8 +19,12 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/scp/include
 ccflags-y += -I$(srctree)/drivers/dma-buf/heaps
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/slbc
 
-obj-$(CONFIG_VIDEO_MTK_ISP_HXP) += mtk-hxp-drv.o
-obj-$(CONFIG_VIDEO_MTK_ISP_HXP) += mtk-hxp-core.o
-obj-$(CONFIG_VIDEO_MTK_ISP_HXP) += mtk-hxp-queue.o
-obj-$(CONFIG_VIDEO_MTK_ISP_HXP) += alloc/tlsf/tlsf_alloc.o
+mtk_aov-objs := \
+	mtk-hxp-drv.o	\
+	mtk-hxp-core.o \
+	mtk-hxp-queue.o \
+	alloc/tlsf/tlsf_alloc.o
+
+obj-${CONFIG_VIDEO_MTK_ISP_AOV} += mtk_aov.o

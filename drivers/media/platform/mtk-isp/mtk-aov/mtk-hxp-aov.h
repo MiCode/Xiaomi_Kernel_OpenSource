@@ -15,16 +15,16 @@
  * the methodology of register programming.
  **/
 #define HXP_AOV_INIT              _IOW('H', 0, struct aov_user)
-#define HXP_AOV_SENSOR_ON         _IOW('H', 1, int32_t)
-#define HXP_AOV_SENSOR_OFF        _IOW('H', 2, int32_t)
+#define HXP_AOV_SENSOR_ON         _IOW('H', 1, struct sensor_notify)
+#define HXP_AOV_SENSOR_OFF        _IOW('H', 2, struct sensor_notify)
 #define HXP_AOV_DQEVENT           _IOR('H', 3, struct aov_dqevent)
 #define HXP_AOV_DEINIT            _IO('H', 4)
 
 #if IS_ENABLED(CONFIG_COMPAT)
 #define COMPAT_HXP_AOV_INIT       _IOW('H', 0, struct aov_user)
 #define COMPAT_HXP_AOV_DQEVENT    _IOR('H', 1, struct aov_dqevent)
-#define COMPAT_HXP_AOV_SENSOR_ON  _IOW('H', 2, int32_t)
-#define COMPAT_HXP_AOV_SENSOR_OFF _IOW('H', 3, int32_t)
+#define COMPAT_HXP_AOV_SENSOR_ON  _IOW('H', 2, struct sensor_notify)
+#define COMPAT_HXP_AOV_SENSOR_OFF _IOW('H', 3, struct sensor_notify)
 #define COMPAT_HXP_AOV_DEINIT     _IO('H', 4)
 #endif
 
@@ -67,7 +67,14 @@
 #define HXP_MAX_META_OUTPUT       (6 * 1024)
 #define HXP_MAX_AWB_OUTPUT        (2 * 1024)
 
+#define HXP_MAX_SENSOR            (64)
+
 extern void mtk_aie_aov_memcpy(char *buffer);
+
+struct sensor_notify {
+	uint32_t count;
+	int32_t sensor[HXP_MAX_SENSOR];
+};
 
 struct aov_dqevent {
 	uint32_t session;

@@ -53,6 +53,7 @@ struct mtk_hxp {
 	struct class *hcp_class;
 	struct device *hcp_device;
 	bool is_open;
+	uint32_t op_mode;
 };
 
 #endif /* MTK_HXP_DRV_H */
