@@ -1490,11 +1490,11 @@ void ccci_reset_ccif_hw(int ccif_id, void __iomem *baseA,
 	struct ccci_smem_region *region;
 	int reset_bit = -1;
 
-	CCCI_NORMAL_LOG(0, TAG, "%s, ccif_hw_reset_ver = %d\n",
-			__func__, md_ctrl->ccif_hw_reset_ver);
+	CCCI_NORMAL_LOG(0, TAG, "%s, ccif_hw_reset_ver = %d, ccif_hw_reset_bit = %d\n",
+			__func__, md_ctrl->ccif_hw_reset_ver, md_ctrl->ccif_hw_reset_bit);
 
 	if (md_ctrl->ccif_hw_reset_ver == 1) {
-		reset_bit = 26;
+		reset_bit = md_ctrl->ccif_hw_reset_bit;
 
 		/* set ccif0 reset bit */
 		ccci_write32(md_ctrl->infracfg_base, 0xF50, 1 << reset_bit);
@@ -1949,6 +1949,15 @@ static int ccif_hif_hw_init(struct device *dev, struct md_ccif_ctrl *md_ctrl)
 		if (!md_ctrl->infracfg_base) {
 			CCCI_ERROR_LOG(-1, TAG,
 				       "[%s] error: infracfg_base fail\n",
+				       __func__);
+			return -8;
+		}
+
+		ret = of_property_read_u32(dev->of_node, "mediatek,ccif_hw_reset_bit",
+				&md_ctrl->ccif_hw_reset_bit);
+		if (ret < 0) {
+			CCCI_ERROR_LOG(-1, TAG,
+				       "[%s] error: ccif_hw_reset_bit not exist\n",
 				       __func__);
 			return -8;
 		}
