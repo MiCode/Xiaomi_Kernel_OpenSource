@@ -21,11 +21,15 @@ endef
   KERNEL_DIR := $(KERNEL_ENV_PATH)
   mkfile_path := $(abspath $(lastword $(MAKEFILE_LIST)))
   current_dir := $(notdir $(patsubst %/,%,$(dir $(mkfile_path))))
+ifndef KERNEL_BUILD_VARIANT
+  KERNEL_BUILD_VARIANT := $(TARGET_BUILD_VARIANT)
+endif
 
   ifeq ($(wildcard $(TARGET_PREBUILT_KERNEL)),)
     KERNEL_OUT ?= $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/$(LINUX_KERNEL_VERSION)
     REL_KERNEL_OUT := $(shell ./$(current_dir)/scripts/get_rel_path.sh $(patsubst %/,%,$(dir $(KERNEL_OUT))) $(KERNEL_ROOT_DIR)/kernel)
     KERNEL_ROOT_OUT := $(if $(filter /% ~%,$(KERNEL_OUT)),,$(KERNEL_ROOT_DIR)/)$(KERNEL_OUT)
+    KERNEL_GKI_CONFIG :=
     ifeq (yes,$(strip $(BUILD_KERNEL)))
     ifeq ($(KERNEL_TARGET_ARCH), arm64)
       ifeq (,$(strip $(MTK_KERNEL_COMPRESS_FORMAT)))
@@ -35,6 +39,17 @@ endef
         KERNEL_ZIMAGE_OUT := $(KERNEL_OUT)/arch/$(KERNEL_TARGET_ARCH)/boot/Image.$(MTK_KERNEL_COMPRESS_FORMAT)-dtb
       else
         KERNEL_ZIMAGE_OUT := $(KERNEL_OUT)/arch/$(KERNEL_TARGET_ARCH)/boot/Image.$(MTK_KERNEL_COMPRESS_FORMAT)
+      endif
+      ifeq (user,$(strip $(KERNEL_BUILD_VARIANT)))
+        ifdef MTK_GKI_PREBUILTS_DIR
+            KERNEL_ZIMAGE_OUT := $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/Image.$(MTK_KERNEL_COMPRESS_FORMAT)
+            KERNEL_GKI_CONFIG := GKI_PREBUILTS_DIR=../$(MTK_GKI_PREBUILTS_DIR)
+        else
+          ifdef MTK_GKI_BUILD_CONFIG
+            KERNEL_ZIMAGE_OUT := $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/gki_kernel/dist/Image.$(MTK_KERNEL_COMPRESS_FORMAT)
+            KERNEL_GKI_CONFIG := GKI_BUILD_CONFIG=$(MTK_GKI_BUILD_CONFIG)
+          endif
+        endif
       endif
     else
       ifeq ($(MTK_APPENDED_DTB_SUPPORT), yes)
@@ -54,14 +69,6 @@ endef
     REL_GEN_KERNEL_BUILD_CONFIG := $(REL_KERNEL_OUT)/$(notdir $(GEN_KERNEL_BUILD_CONFIG))
     GEN_MTK_SETUP_ENV_SH := $(patsubst %/,%,$(dir $(KERNEL_OUT)))/mtk_setup_env.sh
     KERNEL_CONFIG_FILE := $(KERNEL_DIR)/arch/$(KERNEL_TARGET_ARCH)/configs/$(word 1,$(KERNEL_DEFCONFIG))
-
-    IMAGE_GZ_PATH := $(KERNEL_OUT)/arch/$(KERNEL_TARGET_ARCH)/boot/Image.gz
-    ifeq ($(MTK_APPEND_DTB),)
-        MTK_APPEND_DTB_PATH :=
-    else
-        MTK_APPEND_DTB_PATH := $(KERNEL_OUT)/arch/$(KERNEL_TARGET_ARCH)/boot/dts/mediatek/$(MTK_APPEND_DTB)
-    endif
-    MTK_IMAGE_GZ_DTB_PATH := $(KERNEL_OUT)/arch/$(KERNEL_TARGET_ARCH)/boot/Image.gz-dtb
 
   else
     BUILT_KERNEL_TARGET := $(TARGET_PREBUILT_KERNEL)

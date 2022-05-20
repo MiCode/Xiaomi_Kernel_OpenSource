@@ -10,6 +10,12 @@ include $(LOCAL_PATH)/kenv.mk
 ifeq ($(wildcard $(TARGET_PREBUILT_KERNEL)),)
 KERNEL_MAKE_DEPENDENCIES := $(shell find $(KERNEL_DIR) -name .git -prune -o -type f | sort)
 KERNEL_MAKE_DEPENDENCIES += $(shell find vendor/mediatek/kernel_modules -name .git -prune -o -type f | sort)
+ifdef MTK_GKI_PREBUILTS_DIR
+KERNEL_MAKE_DEPENDENCIES += $(wildcard $(MTK_GKI_PREBUILTS_DIR)/*)
+endif
+ifdef MTK_GKI_BUILD_CONFIG
+KERNEL_MAKE_DEPENDENCIES += $(shell find kernel/common-5.15 -name .git -prune -o -type f | sort)
+endif
 
 $(GEN_KERNEL_BUILD_CONFIG): PRIVATE_KERNEL_DEFCONFIG := $(KERNEL_DEFCONFIG)
 $(GEN_KERNEL_BUILD_CONFIG): PRIVATE_KERNEL_DEFCONFIG_OVERLAYS := $(KERNEL_DEFCONFIG_OVERLAYS)
@@ -20,13 +26,25 @@ $(GEN_KERNEL_BUILD_CONFIG): $(KERNEL_DIR)/scripts/gen_build_config.py $(wildcard
 	$(hide) mkdir -p $(dir $@)
 	$(hide) cd kernel && python $< --kernel-defconfig $(PRIVATE_KERNEL_DEFCONFIG) --kernel-defconfig-overlays "$(PRIVATE_KERNEL_DEFCONFIG_OVERLAYS)" --kernel-build-config-overlays "$(PRIVATE_KERNEL_BUILD_CONFIG_OVERLAYS)" -m $(TARGET_BUILD_VARIANT) -o $(PRIVATE_KERNEL_BUILD_CONFIG) && cd ..
 
+.KATI_RESTAT: $(TARGET_KERNEL_CONFIG)
 $(TARGET_KERNEL_CONFIG): PRIVATE_KERNEL_OUT := $(REL_KERNEL_OUT)
 $(TARGET_KERNEL_CONFIG): PRIVATE_DIST_DIR := $(REL_KERNEL_OUT)
 $(TARGET_KERNEL_CONFIG): PRIVATE_CC_WRAPPER := $(CCACHE_EXEC)
 $(TARGET_KERNEL_CONFIG): PRIVATE_KERNEL_BUILD_CONFIG := $(REL_GEN_KERNEL_BUILD_CONFIG)
+ifeq (user,$(strip $(KERNEL_BUILD_VARIANT)))
+  ifeq ($(KERNEL_GKI_CONFIG),)
+$(TARGET_KERNEL_CONFIG): PRIVATE_KERNEL_GKI_CONFIG :=
+  else
+$(TARGET_KERNEL_CONFIG): PRIVATE_KERNEL_GKI_CONFIG := $(KERNEL_GKI_CONFIG)
+  endif
+else
+$(TARGET_KERNEL_CONFIG): PRIVATE_KERNEL_GKI_CONFIG :=
+endif
 $(TARGET_KERNEL_CONFIG): $(wildcard kernel/build/*.sh) $(GEN_KERNEL_BUILD_CONFIG) $(KERNEL_MAKE_DEPENDENCIES) | kernel-outputmakefile
 	$(hide) mkdir -p $(dir $@)
-	$(hide) cd kernel && ENABLE_GKI_CHECKER=$(ENABLE_GKI_CHECKER) CC_WRAPPER=$(PRIVATE_CC_WRAPPER) SKIP_MRPROPER=1 BUILD_CONFIG=$(PRIVATE_KERNEL_BUILD_CONFIG) OUT_DIR=$(PRIVATE_KERNEL_OUT) DIST_DIR=$(PRIVATE_DIST_DIR) POST_DEFCONFIG_CMDS="exit 0" ./build/build.sh && cd ..
+	if [ -f $@ ]; then cp -f -p $@ $@.timestamp; else touch $@.timestamp; fi
+	$(hide) cd kernel && ENABLE_GKI_CHECKER=$(ENABLE_GKI_CHECKER) CC_WRAPPER=$(PRIVATE_CC_WRAPPER) SKIP_MRPROPER=1 BUILD_CONFIG=$(PRIVATE_KERNEL_BUILD_CONFIG) OUT_DIR=$(PRIVATE_KERNEL_OUT) DIST_DIR=$(PRIVATE_DIST_DIR) POST_DEFCONFIG_CMDS="exit 0" $(PRIVATE_KERNEL_GKI_CONFIG) ./build/build.sh && cd ..
+	if ! cmp -s $@.timestamp $@; then rm -f $@.timestamp; else mv -f $@.timestamp $@; fi
 
 ifeq (yes,$(strip $(BUILD_KERNEL)))
 .KATI_RESTAT: $(KERNEL_ZIMAGE_OUT)
@@ -35,20 +53,31 @@ $(KERNEL_ZIMAGE_OUT): PRIVATE_KERNEL_OUT := $(REL_KERNEL_OUT)
 $(KERNEL_ZIMAGE_OUT): PRIVATE_DIST_DIR := $(REL_KERNEL_OUT)
 $(KERNEL_ZIMAGE_OUT): PRIVATE_CC_WRAPPER := $(CCACHE_EXEC)
 $(KERNEL_ZIMAGE_OUT): PRIVATE_KERNEL_BUILD_CONFIG := $(REL_GEN_KERNEL_BUILD_CONFIG)
-ifeq (user,$(strip $(TARGET_BUILD_VARIANT)))
+ifeq (user,$(strip $(KERNEL_BUILD_VARIANT)))
+  ifeq ($(KERNEL_GKI_CONFIG),)
 ifneq (,$(strip $(shell grep "^CONFIG_ABI_MONITOR\s*=\s*y" $(KERNEL_CONFIG_FILE))))
 $(KERNEL_ZIMAGE_OUT): PRIVATE_KERNEL_BUILD_SCRIPT := ./build/build_abi.sh
 else
 $(KERNEL_ZIMAGE_OUT): PRIVATE_KERNEL_BUILD_SCRIPT := ./build/build.sh
 endif
+$(KERNEL_ZIMAGE_OUT): PRIVATE_KERNEL_GKI_CONFIG :=
+  else
+$(KERNEL_ZIMAGE_OUT): PRIVATE_KERNEL_BUILD_SCRIPT := ./build/build.sh
+$(KERNEL_ZIMAGE_OUT): PRIVATE_KERNEL_GKI_CONFIG := $(KERNEL_GKI_CONFIG)
+  endif
 else
 $(KERNEL_ZIMAGE_OUT): PRIVATE_KERNEL_BUILD_SCRIPT := ./build/build.sh
+$(KERNEL_ZIMAGE_OUT): PRIVATE_KERNEL_GKI_CONFIG :=
 endif
 $(KERNEL_ZIMAGE_OUT): $(TARGET_KERNEL_CONFIG) $(KERNEL_MAKE_DEPENDENCIES)
 	$(hide) mkdir -p $(dir $@)
-	$(hide) cd kernel && CC_WRAPPER=$(PRIVATE_CC_WRAPPER) SKIP_MRPROPER=1 BUILD_CONFIG=$(PRIVATE_KERNEL_BUILD_CONFIG) OUT_DIR=$(PRIVATE_KERNEL_OUT) DIST_DIR=$(PRIVATE_DIST_DIR) SKIP_DEFCONFIG=1 $(PRIVATE_KERNEL_BUILD_SCRIPT) && cd ..
+	$(hide) cd kernel && CC_WRAPPER=$(PRIVATE_CC_WRAPPER) SKIP_MRPROPER=1 BUILD_CONFIG=$(PRIVATE_KERNEL_BUILD_CONFIG) OUT_DIR=$(PRIVATE_KERNEL_OUT) DIST_DIR=$(PRIVATE_DIST_DIR) SKIP_DEFCONFIG=1 $(PRIVATE_KERNEL_GKI_CONFIG)  $(PRIVATE_KERNEL_BUILD_SCRIPT) && cd ..
+ifneq ($(KERNEL_GKI_CONFIG),)
+ifeq ($(MTK_KERNEL_COMPRESS_FORMAT),gz)
+	$(hide) export PATH=kernel/build/kernel/build-tools/path/linux-x86:$$PATH && lz4 -d $(patsubst %.gz,%.lz4,$@) $(patsubst %.gz,%.uncompress,$@) && gzip -nc $(patsubst %.gz,%.uncompress,$@) > $@
+endif
+endif
 	$(hide) $(call fixup-kernel-cmd-file,$(KERNEL_OUT)/arch/$(KERNEL_TARGET_ARCH)/boot/compressed/.piggy.xzkern.cmd)
-	cat $(IMAGE_GZ_PATH) $(MTK_APPEND_DTB_PATH) > $(MTK_IMAGE_GZ_DTB_PATH)
 
 $(BUILT_KERNEL_TARGET): $(KERNEL_ZIMAGE_OUT) $(TARGET_KERNEL_CONFIG) $(LOCAL_PATH)/Android.mk | $(ACP)
 	$(copy-file-to-target)
