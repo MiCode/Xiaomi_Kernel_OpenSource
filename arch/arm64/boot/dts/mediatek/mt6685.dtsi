@@ -23,17 +23,5 @@
 			mediatek,dcxo-de-sense-support;
 			mediatek,dcxo-impedance-support;
 		};
-
-		mt6685_consys: mt6685_consys {
-			compatible = "mediatek,mt6685-consys";
-		};
-
-		mt6685_rtc: mt6685_rtc {
-			compatible = "mediatek,mt6685-rtc";
-		};
-
-		mt6685_audclk: mt6685_audclk {
-			compatible = "mediatek,mt6685_audclk";
-		};
 	};
 };
