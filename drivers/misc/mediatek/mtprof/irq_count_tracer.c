@@ -179,15 +179,18 @@ static void __show_irq_count_info(unsigned int output)
 	for_each_possible_cpu(cpu) {
 		struct irq_count_stat *irq_cnt;
 		int irq;
+		unsigned long long now, prev;
+
+		now = sched_clock();
 
 		irq_cnt = per_cpu_ptr(irq_count_data, cpu);
+		prev = irq_cnt->t_end;
 
 		irq_mon_msg(output, "CPU: %d", cpu);
 		irq_mon_msg(output, "from %lld.%06lu to %lld.%06lu, %lld ms",
-			      sec_high(irq_cnt->t_start),
-			      sec_low(irq_cnt->t_start),
-			      sec_high(irq_cnt->t_end), sec_low(irq_cnt->t_end),
-			      msec_high(irq_cnt->t_end - irq_cnt->t_start));
+			    sec_high(prev), sec_low(prev),
+			    sec_high(now), sec_low(now),
+			    msec_high(now - prev));
 
 		for (irq = 0; irq < min_t(int, nr_irqs, MAX_IRQ_NUM); irq++) {
 			unsigned int count;

@@ -284,16 +284,18 @@ static int irq_aee_state[MAX_IRQ_NUM];
 
 #define stat_dur(stat) (stat->end_timestamp - stat->start_timestamp)
 
-#define dur_fmt "duration: %lld us, start: %llu.%06lu, end:%llu.%06lu"
-
-#define show_irq_handle(out, type, stat) \
-	irq_mon_msg(out, "%s%s, " dur_fmt,\
-		stat->end_timestamp ? "In " : "", type, \
-		stat->end_timestamp ? msec_high(stat_dur(stat)) : 0, \
-		sec_high(stat->start_timestamp), \
-		sec_low(stat->start_timestamp), \
-		sec_high(stat->end_timestamp), \
-		sec_low(stat->end_timestamp))
+static void show_irq_handle(int out, const char *type,
+			    struct trace_stat *stat)
+{
+	irq_mon_msg(out,
+		    "%s%s, duration: %llu us, start: %lld.%06lu, end:%lld.%06lu",
+		    stat->tracing ? "In " : "   ", type,
+		    stat->tracing ? 0 : stat_dur(stat),
+		    sec_high(stat->start_timestamp),
+		    sec_low(stat->start_timestamp),
+		    sec_high(stat->end_timestamp),
+		    sec_low(stat->end_timestamp));
+}
 
 static void __show_irq_handle_info(unsigned int out)
 {
