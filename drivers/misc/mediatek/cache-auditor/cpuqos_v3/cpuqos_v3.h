@@ -6,6 +6,7 @@
 #ifndef CPUQOS_V3_H
 #define CPUQOS_V3_H
 #if IS_ENABLED(CONFIG_MTK_SLBC)
+extern u32 slbc_sram_read(u32 offset);
 extern void slbc_sram_write(u32 offset, u32 val);
 #endif
 

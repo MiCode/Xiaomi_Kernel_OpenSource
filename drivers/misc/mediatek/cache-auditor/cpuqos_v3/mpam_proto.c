@@ -21,6 +21,9 @@
 
 #if IS_ENABLED(CONFIG_MTK_SLBC)
 #include <mtk_slbc_sram.h>
+#else
+#define SLC_SYSRAM_BASE         0x00113E00
+static void __iomem *sram_base_addr;
 #endif
 
 #define CREATE_TRACE_POINTS
@@ -33,12 +36,10 @@
 #undef CREATE_TRACE_POINTS
 #undef TRACE_INCLUDE_PATH
 
-#define SLC_SYSRAM_BASE         0x00113C00
 #define CPUQOS_L3CTL_M_OFS      0x84
 #define SLC_CPU_DEBUG0_R_OFS    0x88
 #define SLC_CPU_DEBUG1_R_OFS    0x8C
 #define SLC_SRAM_SIZE           0x100
-static void __iomem *sram_base_addr;
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Jing-Ting Wu");
@@ -473,6 +474,8 @@ int set_cpuqos_mode(int mode)
 	slbc_sram_write(CPUQOS_MODE, cpuqos_perf_mode);
 #else
 	pr_info("Set to SLBC fail: config is disable\n");
+	sram_base_addr = ioremap(SLC_SYSRAM_BASE, SLC_SRAM_SIZE);
+	iowrite32(cpuqos_perf_mode, (sram_base_addr + CPUQOS_MODE));
 #endif
 
 	/*
@@ -494,6 +497,10 @@ static ssize_t show_cpuqos_status(struct kobject *kobj,
 	unsigned int max_len = 4096;
 	unsigned int csize = 0, ctnct = 0;
 
+#if IS_ENABLED(CONFIG_MTK_SLBC)
+	csize = slbc_sram_read(SLC_CPU_DEBUG1_R_OFS);
+	ctnct = slbc_sram_read(SLC_CPU_DEBUG0_R_OFS);
+#else
 	sram_base_addr = ioremap(SLC_SYSRAM_BASE, SLC_SRAM_SIZE);
 
 	if (!sram_base_addr) {
@@ -503,6 +510,7 @@ static ssize_t show_cpuqos_status(struct kobject *kobj,
 
 	csize = ioread32(sram_base_addr + SLC_CPU_DEBUG1_R_OFS);
 	ctnct = ioread32(sram_base_addr + SLC_CPU_DEBUG0_R_OFS);
+#endif
 	csize &= 0xf;
 	ctnct &= 0xfff;
 
@@ -521,16 +529,22 @@ static ssize_t set_cache_size(struct kobject *kobj,
 {
 	unsigned int data = 0, mode = 0, slice = 0, portion = 0;
 
+#if !IS_ENABLED(CONFIG_MTK_SLBC)
 	sram_base_addr = ioremap(SLC_SYSRAM_BASE, SLC_SRAM_SIZE);
 
 	if (!sram_base_addr) {
 		pr_info("Remap SLC SYSRAM failed\n");
 		return -EIO;
 	}
+#endif
 
 	if (sscanf(ubuf, "%d:%d:%d", &mode, &slice, &portion) == 3) {
 		data = (mode << 4) | (slice << 2) | (portion);
+#if IS_ENABLED(CONFIG_MTK_SLBC)
+		slbc_sram_write(CPUQOS_L3CTL_M_OFS, data);
+#else
 		iowrite32(data, (sram_base_addr + CPUQOS_L3CTL_M_OFS));
+#endif
 	}
 
 	return cnt;
@@ -544,6 +558,9 @@ static ssize_t show_cache_size(struct kobject *kobj,
 	unsigned int max_len = 4096;
 	unsigned int data = 0, mode = 0, slice = 0, portion = 0;
 
+#if IS_ENABLED(CONFIG_MTK_SLBC)
+	data = slbc_sram_read(CPUQOS_L3CTL_M_OFS);
+#else
 	sram_base_addr = ioremap(SLC_SYSRAM_BASE, SLC_SRAM_SIZE);
 
 	if (!sram_base_addr) {
@@ -551,6 +568,7 @@ static ssize_t show_cache_size(struct kobject *kobj,
 		return -EIO;
 	}
 	data = ioread32(sram_base_addr + CPUQOS_L3CTL_M_OFS);
+#endif
 	mode = (data & 0x10) >> 4;
 	slice = (data & 0xc) >> 2;
 	portion = data & 0x3;
