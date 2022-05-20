@@ -5107,14 +5107,10 @@ static void isp_tx_frame_worker(struct work_struct *work)
 	frame_data->cur_workbuf_size = buf_entry->buffer.size;
 
 	res_user = mtk_cam_s_data_get_res(req_stream_data);
-	if (res_user && res_user->raw_res.bin) {
-		frame_data->raw_param.bin_flag = res_user->raw_res.bin;
-	} else {
-		if (ctx->pipe->res_config.bin_limit == BIN_AUTO)
-			frame_data->raw_param.bin_flag = ctx->pipe->res_config.bin_enable;
-		else
-			frame_data->raw_param.bin_flag = ctx->pipe->res_config.bin_limit;
-	}
+	if (ctx->pipe->res_config.bin_limit == BIN_OFF)
+		frame_data->raw_param.bin_flag = BIN_OFF;
+	else
+		frame_data->raw_param.bin_flag = ctx->pipe->res_config.bin_limit;
 
 	if (ctx->rpmsg_dev) {
 		MTK_CAM_TRACE_BEGIN(BASIC, "ipi_cmd_frame:%d",
