@@ -1255,6 +1255,46 @@ int mtk_cam_mraw_apply_next_buffer(struct mtk_cam_ctx *ctx,
 	return 1;
 }
 
+int mtk_cam_mraw_apply_switch_buffers(struct mtk_cam_ctx *ctx)
+{
+	struct mtk_mraw_working_buf_entry *buf_entry;
+	struct mtk_mraw_device *mraw_dev;
+	int i;
+
+	for (i = 0; i < ctx->used_mraw_num; i++) {
+		mraw_dev = get_mraw_dev(ctx->cam, ctx->mraw_pipe[i]);
+
+		spin_lock(&ctx->mraw_composed_buffer_list[i].lock);
+		if (list_empty(&ctx->mraw_composed_buffer_list[i].list)) {
+			spin_unlock(&ctx->mraw_composed_buffer_list[i].lock);
+			return 0;
+		}
+		buf_entry = list_first_entry(&ctx->mraw_composed_buffer_list[i].list,
+							struct mtk_mraw_working_buf_entry,
+							list_entry);
+		list_del(&buf_entry->list_entry);
+		ctx->mraw_composed_buffer_list[i].cnt--;
+		spin_unlock(&ctx->mraw_composed_buffer_list[i].lock);
+		spin_lock(&ctx->mraw_processing_buffer_list[i].lock);
+		list_add_tail(&buf_entry->list_entry,
+					&ctx->mraw_processing_buffer_list[i].list);
+		ctx->mraw_processing_buffer_list[i].cnt++;
+		spin_unlock(&ctx->mraw_processing_buffer_list[i].lock);
+
+		if (buf_entry->s_data->req->pipe_used &
+			(1 << ctx->mraw_pipe[i]->id)) {
+			apply_mraw_cq(mraw_dev,
+				buf_entry->buffer.iova,
+				buf_entry->mraw_cq_desc_size,
+				buf_entry->mraw_cq_desc_offset, 0);
+		} else {
+			mtk_cam_mraw_vf_on(mraw_dev, 0);
+		}
+	}
+
+	return 1;
+}
+
 static int reset_msgfifo(struct mtk_mraw_device *dev)
 {
 	atomic_set(&dev->is_fifo_overflow, 0);

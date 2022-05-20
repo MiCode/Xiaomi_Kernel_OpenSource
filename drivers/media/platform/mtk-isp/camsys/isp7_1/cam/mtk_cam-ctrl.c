@@ -3959,13 +3959,13 @@ mtk_camsys_raw_change_pipeline(struct mtk_cam_ctx *ctx,
 			}
 
 			if (ctx->used_sv_num) {
-				if (mtk_cam_sv_apply_all_buffers(ctx) == 0)
-					dev_info(raw_dev->dev, "sv apply next buffer failed");
+				if (mtk_cam_sv_apply_switch_buffers(ctx) == 0)
+					dev_info(raw_dev->dev, "sv apply switch buffers failed");
 			}
 
 			if (ctx->used_mraw_num) {
-				if (mtk_cam_mraw_apply_all_buffers(ctx) == 0)
-					dev_info(raw_dev->dev, "mraw apply next buffer failed");
+				if (mtk_cam_mraw_apply_switch_buffers(ctx) == 0)
+					dev_info(raw_dev->dev, "mraw apply switch buffers failed");
 			}
 		}
 	}

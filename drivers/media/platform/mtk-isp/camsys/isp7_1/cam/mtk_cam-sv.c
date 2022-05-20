@@ -1976,6 +1976,9 @@ int mtk_cam_sv_apply_switch_buffers(struct mtk_cam_ctx *ctx)
 			camsv_dev->is_enqueued = 1;
 			mtk_cam_sv_setup_cfg_info(camsv_dev, buf_entry->s_data);
 			mtk_cam_sv_enquehwbuf(camsv_dev, base_addr, seq_no);
+			mtk_cam_sv_vf_on(camsv_dev, 1);
+		} else {
+			mtk_cam_sv_vf_on(camsv_dev, 0);
 		}
 	}
 
