@@ -3003,6 +3003,9 @@ s32 cmdq_pkt_hw_trace(struct cmdq_pkt *pkt)
 		return -EINVAL;
 	}
 
+	if (cmdq_util_is_secure_client(pkt->cl))
+		return 0;
+
 	thread = (struct cmdq_thread *)
 		((struct cmdq_client *)pkt->cl)->chan->con_priv;
 	cmdq_log("%s: pkt:%p idx:%hu", __func__, pkt, thread->idx);

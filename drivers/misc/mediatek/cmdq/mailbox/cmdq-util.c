@@ -474,6 +474,16 @@ void cmdq_util_prebuilt_set_client(const u16 hwid, struct cmdq_client *client)
 }
 EXPORT_SYMBOL(cmdq_util_prebuilt_set_client);
 
+bool cmdq_util_is_secure_client(struct cmdq_client *client)
+{
+	s32 thread_id = cmdq_mbox_chan_id(client->chan);
+
+	if (thread_id >= 8 && thread_id <= 12)
+		return true;
+	return false;
+}
+EXPORT_SYMBOL(cmdq_util_is_secure_client);
+
 void cmdq_util_enable_disp_va(void)
 {
 	struct arm_smccc_res res;

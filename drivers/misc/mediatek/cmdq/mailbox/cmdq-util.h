@@ -179,6 +179,7 @@ s32 cmdq_util_error_save(const char *format, ...);
 void cmdq_util_enable_disp_va(void);
 bool cmdq_util_is_prebuilt_client(struct cmdq_client *client);
 void cmdq_util_prebuilt_set_client(const u16 hwid, struct cmdq_client *client);
+bool cmdq_util_is_secure_client(struct cmdq_client *client);
 void cmdq_util_prebuilt_init(const u16 mod);
 void cmdq_util_prebuilt_enable(const u16 hwid);
 void cmdq_util_prebuilt_disable(const u16 hwid);
