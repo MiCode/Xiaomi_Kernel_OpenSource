@@ -27,6 +27,7 @@ c CONFIG_USB_NET_AX8817X
 c CONFIG_USB_PD_VBUS_STABLE_TOUT
 c CONFIG_ZRAM_DEF_COMP
 c CONFIG_ZRAM_DEF_COMP_LZORLE
+c CONFIG_MTK_CCU_DEBUG
 f block/blk-core.c
 f block/blk-pm.c
 f drivers/android/vendor_hooks.c
@@ -54,6 +55,8 @@ f lib/dynamic_debug.c
 f net/core/rtnetlink.c
 f security/selinux/avc.c
 f security/selinux/include/avc.h
+f include/linux/remoteproc.h
+f drivers/remoteproc/remoteproc_core.c
 s aarch64_encode_immediate
 s aarch64_insn_decode_immediate
 s aarch64_insn_decode_register
@@ -10160,6 +10163,8 @@ s dup_mmap
 s exit_mmap
 s mmap_region
 s vm_area_free
+s rproc_bootx
+s rproc_shutdownx
 f fs/exec.c
 f mm/mmap.c
 f kernel/fork.c

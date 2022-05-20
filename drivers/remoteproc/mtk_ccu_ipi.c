@@ -188,6 +188,25 @@ static int mtk_ccu_mb_rx(struct mtk_ccu *ccu,
 		ccu->mb->queue[next].msg_id,
 		ccu->mb->queue[next].in_data_ptr);
 		ret = rear - front + 1;
+#if IS_ENABLED(CONFIG_MTK_CCU_DEBUG)
+		LOG_DBG_IPI("fs[%d,%d,%d,%d,%d],sc[%d,%d,%d,%d,%d],cam[%d,%d,%d,%d,%d]\n",
+			ccu->rproc->bootcnt[0][0].counter, ccu->rproc->bootcnt[0][1].counter,
+			ccu->rproc->bootcnt[0][2].counter, ccu->rproc->bootcnt[0][3].counter,
+			ccu->rproc->bootcnt[0][4].counter,
+			ccu->rproc->bootcnt[1][0].counter, ccu->rproc->bootcnt[1][1].counter,
+			ccu->rproc->bootcnt[1][2].counter, ccu->rproc->bootcnt[1][3].counter,
+			ccu->rproc->bootcnt[1][4].counter,
+			ccu->rproc->bootcnt[2][0].counter, ccu->rproc->bootcnt[2][1].counter,
+			ccu->rproc->bootcnt[2][2].counter, ccu->rproc->bootcnt[2][3].counter,
+			ccu->rproc->bootcnt[2][4].counter);
+		LOG_DBG_IPI("senif[%d,%d,%d,%d,%d],img[%d,%d,%d,%d,%d]\n",
+			ccu->rproc->bootcnt[3][0].counter, ccu->rproc->bootcnt[3][1].counter,
+			ccu->rproc->bootcnt[3][2].counter, ccu->rproc->bootcnt[3][3].counter,
+			ccu->rproc->bootcnt[3][4].counter,
+			ccu->rproc->bootcnt[4][0].counter, ccu->rproc->bootcnt[4][1].counter,
+			ccu->rproc->bootcnt[4][2].counter, ccu->rproc->bootcnt[4][3].counter,
+			ccu->rproc->bootcnt[4][4].counter);
+#endif
 	} else
 		ret = 0;
 
