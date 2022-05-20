@@ -385,7 +385,6 @@ struct anx7625_data {
 	struct display_timing dt;
 	u8 display_timing_valid;
 	struct drm_bridge bridge;
-	u8 bridge_attached;
 	struct mipi_dsi_device *dsi;
 };
 
