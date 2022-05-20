@@ -976,6 +976,8 @@ static ssize_t irq_mon_door_write(struct file *filp, const char *ubuf,
 {
 	char buf[16];
 
+	if (!count)
+		return count;
 	count = min(count, sizeof(buf) - 1);
 	if (copy_from_user(&buf, ubuf, count))
 		return -EFAULT;
