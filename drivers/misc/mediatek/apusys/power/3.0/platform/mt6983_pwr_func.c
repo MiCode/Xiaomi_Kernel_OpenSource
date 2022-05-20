@@ -285,6 +285,8 @@ static int aputop_show_curr_status(struct seq_file *s, void *unused)
 	int i;
 
 	pr_info("%s ++\n", __func__);
+
+	memset(&cluster_dump, 0, sizeof(struct rpc_status_dump));
 	memcpy(&info, &curr_info, sizeof(struct apu_pwr_curr_info));
 
 	seq_puts(s, "\n");
@@ -424,7 +426,7 @@ int mt6983_apu_top_rpmsg_cb(int cmd, void *data, int len, void *priv, u32 src)
 			memcpy(&opp_tbl,
 				(struct tiny_dvfs_opp_tbl *)data, len);
 		} else {
-			pr_info("%s invalid size : %d/%d\n",
+			pr_info("%s invalid size : %d/%lu\n",
 					__func__, len, sizeof(opp_tbl));
 			ret = -EINVAL;
 		}
@@ -434,7 +436,7 @@ int mt6983_apu_top_rpmsg_cb(int cmd, void *data, int len, void *priv, u32 src)
 			memcpy(&curr_info,
 				(struct apu_pwr_curr_info *)data, len);
 		} else {
-			pr_info("%s invalid size : %d/%d\n",
+			pr_info("%s invalid size : %d/%lu\n",
 					__func__, len, sizeof(curr_info));
 			ret = -EINVAL;
 		}
@@ -506,10 +508,6 @@ int mt6983_init_remote_data_sync(void __iomem *reg_base)
 		memset(&opp_limit_tbl[i].dev_opp_lmt, -1,
 				sizeof(struct device_opp_limit));
 		reg_offset = opp_limit_tbl[i].opp_lmt_reg;
-#if LOCAL_DBG
-		pr_info("%s spare_reg_base:0x%08x, offset:0x%08x\n",
-				__func__, spare_reg_base, reg_offset);
-#endif
 		apu_writel(0xffffffff, spare_reg_base + reg_offset);
 	}
 
