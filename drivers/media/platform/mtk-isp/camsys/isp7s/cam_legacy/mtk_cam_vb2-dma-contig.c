@@ -251,7 +251,6 @@ const struct vb2_mem_ops mtk_cam_dma_contig_memops = {
 	.detach_dmabuf	= mtk_cam_vb2_detach_dmabuf,
 	.num_users	= mtk_cam_vb2_num_users,
 };
-EXPORT_SYMBOL_GPL(mtk_cam_dma_contig_memops);
 
 void mtk_cam_vb2_sync_for_device(void *buf_priv)
 {
