@@ -36,6 +36,7 @@ EXPORT_SYMBOL(dcxo);
 #define DCXO_DRV_CURR_SUPPORT		"mediatek,dcxo-drv-curr-support"
 #define DCXO_SPMI_RW			"mediatek,dcxo-spmi-rw"
 #define DCXO_PMRC_EN_SUPPORT		"mediatek,pmrc-en-support"
+#define XOID_NOT_FOUND			"UNSUPPORT_XOID"
 
 /* for old project init for dct tool at kernel */
 #define CLKBUF_DCT_XO_QUANTITY		"mediatek,clkbuf-quantity"
@@ -127,7 +128,7 @@ const char *clkbuf_dcxo_get_xo_name(u8 idx)
 
 	ret = clkbuf_xo_sanity_check(idx);
 	if (ret)
-		return NULL;
+		return XOID_NOT_FOUND;
 
 	return dcxo->xo_bufs[idx].xo_name;
 }
