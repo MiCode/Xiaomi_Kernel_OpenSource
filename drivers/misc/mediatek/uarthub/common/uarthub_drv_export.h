@@ -41,6 +41,26 @@ enum UARTHUB_irq_err_type {
 
 typedef void (*UARTHUB_IRQ_CB) (enum UARTHUB_irq_err_type err_type);
 
+#define KERNEL_UARTHUB_open                       UARTHUB_open
+#define KERNEL_UARTHUB_close                      UARTHUB_close
+
+#define KERNEL_UARTHUB_dev0_is_uarthub_ready      UARTHUB_dev0_is_uarthub_ready
+#define KERNEL_UARTHUB_dev0_is_txrx_idle          UARTHUB_dev0_is_txrx_idle
+#define KERNEL_UARTHUB_dev0_set_txrx_request      UARTHUB_dev0_set_txrx_request
+#define KERNEL_UARTHUB_dev0_clear_txrx_request    UARTHUB_dev0_clear_txrx_request
+#define KERNEL_UARTHUB_is_assert_state            UARTHUB_is_assert_state
+
+#define KERNEL_UARTHUB_irq_register_cb            UARTHUB_irq_register_cb
+#define KERNEL_UARTHUB_bypass_mode_ctrl           UARTHUB_bypass_mode_ctrl
+#define KERNEL_UARTHUB_is_bypass_mode             UARTHUB_is_bypass_mode
+#define KERNEL_UARTHUB_config_internal_baud_rate  UARTHUB_config_internal_baud_rate
+#define KERNEL_UARTHUB_config_external_baud_rate  UARTHUB_config_external_baud_rate
+#define KERNEL_UARTHUB_assert_state_ctrl          UARTHUB_assert_state_ctrl
+#define KERNEL_UARTHUB_sw_reset                   UARTHUB_sw_reset
+#define KERNEL_UARTHUB_md_adsp_fifo_ctrl          UARTHUB_md_adsp_fifo_ctrl
+#define KERNEL_UARTHUB_dump_debug_info            UARTHUB_dump_debug_info
+#define KERNEL_UARTHUB_loopback_test              UARTHUB_loopback_test
+
 int UARTHUB_open(void);
 int UARTHUB_close(void);
 

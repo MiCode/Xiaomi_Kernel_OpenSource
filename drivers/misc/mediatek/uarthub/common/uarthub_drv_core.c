@@ -44,6 +44,8 @@ int g_uarthub_disable;
 #define CLK_CTRL_UNIVPLL_REQ 1
 #define INIT_UARTHUB_DEFAULT 1
 #define UARTHUB_DEBUG_LOG 1
+#define UARTHUB_CONFIG_TRX_GPIO 0
+#define UARTHUB_CONFIG_GLUE_CTR 0
 
 struct uarthub_reg_base_addr reg_base_addr;
 void __iomem *cmm_base_remap_addr;
@@ -138,11 +140,16 @@ static int uarthub_core_init(void)
 	if (iRet)
 		return -1;
 
+#if UARTHUB_CONFIG_TRX_GPIO
 	iRet = uarthub_core_config_gpio_from_dts(g_uarthub_pdev);
 	if (iRet)
 		return -1;
+#endif
 
+#if UARTHUB_CONFIG_GLUE_CTR
 	uarthub_core_config_uart_glue_ctrl_from_dts(g_uarthub_pdev);
+#endif
+
 	uarthub_core_config_univpll_clk_remap_addr_from_dts(g_uarthub_pdev);
 
 #if CLK_CTRL_UNIVPLL_REQ
