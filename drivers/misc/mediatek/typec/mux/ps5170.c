@@ -341,8 +341,8 @@ static int ps5170_pinctrl_init(struct ps5170 *ps)
 static int ps5170_probe(struct i2c_client *client)
 {
 	struct device *dev = &client->dev;
-	struct typec_switch_desc sw_desc;
-	struct typec_mux_desc mux_desc;
+	struct typec_switch_desc sw_desc = { };
+	struct typec_mux_desc mux_desc = { };
 	struct ps5170 *ps;
 	int ret = 0;
 

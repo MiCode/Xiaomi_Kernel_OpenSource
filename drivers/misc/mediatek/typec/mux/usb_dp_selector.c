@@ -199,8 +199,8 @@ static int usb_dp_selector_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct usb_dp_selector *uds;
-	struct typec_switch_desc sw_desc;
-	struct typec_mux_desc mux_desc;
+	struct typec_switch_desc sw_desc = { };
+	struct typec_mux_desc mux_desc = { };
 	int ret;
 
 	uds = devm_kzalloc(&pdev->dev, sizeof(*uds), GFP_KERNEL);
