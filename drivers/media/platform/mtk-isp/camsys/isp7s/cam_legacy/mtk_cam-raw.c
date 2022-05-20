@@ -1462,26 +1462,6 @@ static int push_msgfifo(struct mtk_raw_device *dev,
 	return 0;
 }
 
-#define FIFO_THRESHOLD(FIFO_SIZE, HEIGHT_RATIO, LOW_RATIO) \
-	(((FIFO_SIZE * HEIGHT_RATIO) & 0xFFF) << 16 | \
-	((FIFO_SIZE * LOW_RATIO) & 0xFFF))
-
-void set_fifo_threshold(void __iomem *dma_base)
-{
-	int fifo_size = 0;
-
-	fifo_size = readl_relaxed(dma_base + DMA_OFFSET_CON0) & 0xFFF;
-
-	writel_relaxed((0x1 << 28) | FIFO_THRESHOLD(fifo_size, 1/4, 1/8),
-			dma_base + DMA_OFFSET_CON1);
-	writel_relaxed((0x1 << 28) | FIFO_THRESHOLD(fifo_size, 1/2, 3/8),
-			dma_base + DMA_OFFSET_CON2);
-	writel_relaxed((0x1 << 31) | FIFO_THRESHOLD(fifo_size, 2/3, 13/24),
-			dma_base + DMA_OFFSET_CON3);
-	writel_relaxed((0x1 << 31) | FIFO_THRESHOLD(fifo_size, 3/8, 1/4),
-			dma_base + DMA_OFFSET_CON4);
-}
-
 void toggle_db(struct mtk_raw_device *dev)
 {
 	int value;
@@ -1532,7 +1512,7 @@ void enable_tg_db(struct mtk_raw_device *dev, int en)
 	}
 }
 
-static void init_dma_threshold(struct mtk_raw_device *dev)
+static void init_dma_halt(struct mtk_raw_device *dev)
 {
 	struct mtk_cam_device *cam_dev;
 #ifdef SMI_LARB_ULTRA_CTL
@@ -1544,55 +1524,6 @@ static void init_dma_threshold(struct mtk_raw_device *dev)
 	cam_dev = dev->cam;
 
 	dev_info(dev->dev, "%s: SRT:%d\n", __func__, is_srt);
-
-	set_fifo_threshold(dev->base + REG_IMGO_R1_BASE);
-	set_fifo_threshold(dev->base + REG_FHO_R1_BASE);
-	set_fifo_threshold(dev->base + REG_AAHO_R1_BASE);
-	set_fifo_threshold(dev->base + REG_PDO_R1_BASE);
-	set_fifo_threshold(dev->base + REG_AAO_R1_BASE);
-	set_fifo_threshold(dev->base + REG_AFO_R1_BASE);
-	set_fifo_threshold(dev->base + REG_LTMSO_R1_BASE);
-	set_fifo_threshold(dev->base + REG_TSFSO_R1_BASE);
-	set_fifo_threshold(dev->base + REG_TSFSO_R2_BASE);
-	set_fifo_threshold(dev->base + REG_FLKO_R1_BASE);
-	set_fifo_threshold(dev->base + REG_UFEO_R1_BASE);
-
-	set_fifo_threshold(dev->yuv_base + REG_YUVO_R1_BASE);
-	set_fifo_threshold(dev->yuv_base + REG_YUVBO_R1_BASE);
-	set_fifo_threshold(dev->yuv_base + REG_YUVCO_R1_BASE);
-	set_fifo_threshold(dev->yuv_base + REG_YUVO_R3_BASE);
-	set_fifo_threshold(dev->yuv_base + REG_YUVBO_R3_BASE);
-	set_fifo_threshold(dev->yuv_base + REG_YUVCO_R3_BASE);
-	set_fifo_threshold(dev->yuv_base + REG_YUVO_R2_BASE);
-	set_fifo_threshold(dev->yuv_base + REG_YUVBO_R2_BASE);
-	set_fifo_threshold(dev->yuv_base + REG_YUVO_R4_BASE);
-	set_fifo_threshold(dev->yuv_base + REG_YUVBO_R4_BASE);
-	set_fifo_threshold(dev->yuv_base + REG_YUVO_R5_BASE);
-	set_fifo_threshold(dev->yuv_base + REG_YUVBO_R5_BASE);
-	set_fifo_threshold(dev->yuv_base + REG_RZH1N2TO_R1_BASE);
-	set_fifo_threshold(dev->yuv_base + REG_RZH1N2TBO_R1_BASE);
-	set_fifo_threshold(dev->yuv_base + REG_RZH1N2TO_R2_BASE);
-	set_fifo_threshold(dev->yuv_base + REG_RZH1N2TO_R3_BASE);
-	set_fifo_threshold(dev->yuv_base + REG_RZH1N2TBO_R3_BASE);
-	set_fifo_threshold(dev->yuv_base + REG_DRZS4NO_R1_BASE);
-	set_fifo_threshold(dev->yuv_base + REG_DRZS4NO_R3_BASE);
-
-	set_fifo_threshold(dev->base + REG_RAWI_R2_BASE);
-	set_fifo_threshold(dev->base + REG_UFDI_R2_BASE);
-	set_fifo_threshold(dev->base + REG_RAWI_R3_BASE);
-	set_fifo_threshold(dev->base + REG_UFDI_R3_BASE);
-	set_fifo_threshold(dev->base + REG_CQI_R1_BASE);
-	set_fifo_threshold(dev->base + REG_CQI_R2_BASE);
-	set_fifo_threshold(dev->base + REG_CQI_R3_BASE);
-	set_fifo_threshold(dev->base + REG_CQI_R4_BASE);
-	set_fifo_threshold(dev->base + REG_LSCI_R1_BASE);
-	set_fifo_threshold(dev->base + REG_BPCI_R1_BASE);
-	set_fifo_threshold(dev->base + REG_BPCI_R2_BASE);
-	set_fifo_threshold(dev->base + REG_BPCI_R3_BASE);
-	set_fifo_threshold(dev->base + REG_PDI_R1_BASE);
-	set_fifo_threshold(dev->base + REG_AAI_R1_BASE);
-	set_fifo_threshold(dev->base + REG_CACI_R1_BASE);
-	set_fifo_threshold(dev->base + REG_RAWI_R5_BASE);
 
 	// TODO: move HALT1,2 to camsv
 	writel_relaxed(CAMSV_1_WDMA_PORT, cam_dev->base + REG_HALT1_EN);
@@ -1769,7 +1700,7 @@ void initialize(struct mtk_raw_device *dev, int is_slave)
 	dev->stagger_en = 0;
 	reset_msgfifo(dev);
 
-	init_dma_threshold(dev);
+	init_dma_halt(dev);
 
 	/* Workaround: disable FLKO error_sof: double sof error
 	 *   HW will send FLKO dma error when

@@ -855,9 +855,6 @@ void mtk_ctx_watchdog_kick(struct mtk_cam_ctx *ctx);
 void mtk_ctx_watchdog_start(struct mtk_cam_ctx *ctx, int timeout_cnt);
 void mtk_ctx_watchdog_stop(struct mtk_cam_ctx *ctx);
 
-int mtk_cam_call_seninf_set_pixelmode(struct mtk_cam_ctx *ctx,
-				      struct v4l2_subdev *sd,
-				      int pad_id, int pixel_mode);
 // FIXME: refine following
 void mtk_cam_dev_req_enqueue(struct mtk_cam_device *cam,
 			     struct mtk_cam_request *req);

@@ -457,9 +457,6 @@ int mtk_cam_sensor_switch_start_hw(struct mtk_cam_ctx *ctx,
 				PAD_SRC_RAW1 : PAD_SRC_RAW0 + exp_order;
 			sv_cammux_id = mtk_cam_get_sv_cammux_id(ctx->sv_dev, i);
 			if (used_tags & (1 << i)) {
-				mtk_cam_call_seninf_set_pixelmode(ctx, s_data->seninf_new,
-								  src_pad_idx,
-								  tgo_pxl_mode);
 				mtk_cam_seninf_set_camtg_camsv(s_data->seninf_old,
 							 src_pad_idx,
 							 0xFF, i);
@@ -486,10 +483,6 @@ int mtk_cam_sensor_switch_start_hw(struct mtk_cam_ctx *ctx,
 					goto fail_switch_stop;
 				}
 #endif
-				mtk_cam_call_seninf_set_pixelmode(ctx,
-								  s_data->seninf_new,
-								  src_pad_idx,
-								  tgo_pxl_mode);
 				mtk_cam_seninf_set_camtg_camsv(s_data->seninf_old,
 					src_pad_idx, 0xFF, i);
 				mtk_cam_seninf_set_camtg_camsv(s_data->seninf_new, src_pad_idx,
@@ -505,13 +498,11 @@ int mtk_cam_sensor_switch_start_hw(struct mtk_cam_ctx *ctx,
 		for (i = SVTAG_START ; i < SVTAG_END ; i++) {
 			if (ctx->pipe->enabled_raw & 1 << i) {
 				sv_cammux_id = mtk_cam_get_sv_cammux_id(ctx->sv_dev, i);
-				mtk_cam_call_seninf_set_pixelmode(ctx, s_data->seninf_new,
-								  PAD_SRC_RAW_W0,
-								  tgo_pxl_mode);
 				mtk_cam_seninf_set_camtg_camsv(s_data->seninf_old,
 							 PAD_SRC_RAW_W0, 0xFF, i);
 				mtk_cam_seninf_set_camtg_camsv(s_data->seninf_new, PAD_SRC_RAW_W0,
 							 sv_cammux_id, i);
+
 				dev_info(cam->dev,
 					 "seninf_set_camtg(src_pad:%d/i:%d/camtg:%d)",
 					 PAD_SRC_RAW_W0, i, sv_cammux_id);
@@ -534,13 +525,11 @@ int mtk_cam_sensor_switch_start_hw(struct mtk_cam_ctx *ctx,
 		for (i = SVTAG_START ; i < SVTAG_END ; i++) {
 			if (used_tags & (1 << i)) {
 				sv_cammux_id = mtk_cam_get_sv_cammux_id(ctx->sv_dev, i);
-				mtk_cam_call_seninf_set_pixelmode(ctx, ctx->seninf,
-								  src_pad_idx,
-								  tgo_pxl_mode);
 				mtk_cam_seninf_set_camtg_camsv(s_data->seninf_old, src_pad_idx,
 					0xFF, i);
 				mtk_cam_seninf_set_camtg_camsv(s_data->seninf_new, src_pad_idx,
 					sv_cammux_id, i);
+
 				dev_info(cam->dev, "seninf_set_camtg(src_pad:%d/i:%d/camtg:%d)",
 					src_pad_idx, i,
 					sv_cammux_id);
@@ -561,11 +550,6 @@ int mtk_cam_sensor_switch_start_hw(struct mtk_cam_ctx *ctx,
 			else
 				seninf_pad = PAD_SRC_RAW0;
 
-			/* todo: backend support one pixel mode only */
-			mtk_cam_call_seninf_set_pixelmode(ctx,
-							  s_data->seninf_new,
-							  seninf_pad,
-							  tgo_pxl_mode);
 //			mtk_cam_seninf_set_camtg(s_data->seninf_old, seninf_pad, 0xFF);
 			dev_info(cam->dev,
 				 "%s: change camtg(src_pad:%d/camtg:%d) for stagger, exp number:%d\n",
@@ -596,9 +580,7 @@ int mtk_cam_sensor_switch_start_hw(struct mtk_cam_ctx *ctx,
 			mtk_cam_seninf_set_secure(s_data->seninf_new, 0, 0);
 #endif
 #endif
-			mtk_cam_call_seninf_set_pixelmode(ctx, s_data->seninf_new,
-							  PAD_SRC_RAW0,
-							  tgo_pxl_mode);
+
 //			mtk_cam_seninf_set_camtg(s_data->seninf_old,
 //						 PAD_SRC_RAW0, 0xFF);
 
@@ -615,9 +597,6 @@ int mtk_cam_sensor_switch_start_hw(struct mtk_cam_ctx *ctx,
 
 			tag_idx = mtk_cam_get_sv_tag(ctx, ctx->sv_pipe[i]->id);
 			sv_cammux_id = mtk_cam_get_sv_cammux_id(ctx->sv_dev, tag_idx);
-			/* use 8-pixel mode as default */
-			mtk_cam_call_seninf_set_pixelmode(ctx, s_data->seninf_new,
-				ctx->sv_dev->tag_info[tag_idx].seninf_padidx, 3);
 			mtk_cam_seninf_set_camtg_camsv(s_data->seninf_old,
 				ctx->sv_pipe[i]->seninf_padidx, 0xFF, i);
 			mtk_cam_seninf_set_camtg_camsv(s_data->seninf_new,
@@ -625,10 +604,6 @@ int mtk_cam_sensor_switch_start_hw(struct mtk_cam_ctx *ctx,
 		}
 
 		for (i = 0 ; i < ctx->used_mraw_num ; i++) {
-			/* use 1-pixel mode as default */
-			mtk_cam_call_seninf_set_pixelmode(ctx,
-							s_data->seninf_new,
-							ctx->mraw_pipe[i]->seninf_padidx, 0);
 			mtk_cam_seninf_set_camtg(s_data->seninf_old,
 						 ctx->mraw_pipe[i]->seninf_padidx,
 						 0xFF);
