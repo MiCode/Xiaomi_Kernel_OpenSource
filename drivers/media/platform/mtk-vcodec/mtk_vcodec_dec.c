@@ -3324,6 +3324,15 @@ static int vb2ops_vdec_start_streaming(struct vb2_queue *q, unsigned int count)
 		mutex_unlock(&ctx->dev->dec_dvfs_mutex);
 
 	} else if (q->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
+		// set SET_PARAM_TOTAL_BITSTREAM_BUFQ_COUNT for
+		// error handling when framing
+		total_frame_bufq_count = q->num_buffers;
+		if (vdec_if_set_param(ctx,
+			SET_PARAM_TOTAL_BITSTREAM_BUFQ_COUNT,
+			&total_frame_bufq_count)) {
+			mtk_v4l2_err("[%d] Error!! Cannot set param",
+				ctx->id);
+		}
 		mtk_vdec_ts_reset(ctx);
 	}
 
