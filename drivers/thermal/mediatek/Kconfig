@@ -52,6 +52,16 @@ config MTK_PMIC_THERMAL
 	  This driver reads the voltage value from PMIC AUXADC channels,
 	  and converts raw value to PMIC temperature via PMIC efuse data.
 
+config MTK_WIFI_THERMAL
+	tristate "Mediatek wifi level cooling framework"
+	help
+	  Enable this option to turn on wifi throttle mechanisms
+	  for Mediatek platforms.
+	  This driver call consys kernel API to do wifi throttle.
+	  Currently MTK support wifi level throttle.
+	  There are total support 5 levels (level-0 ~ level-5).
+	  User can customization 5 levels from consys wifi.cfg file.
+
 config MTK_MD_THERMAL
 	tristate "Mediatek Modem cooling framework"
 	depends on MTK_ECCCI_DRIVER
