@@ -97,105 +97,125 @@ enum {
 	MTK_UART_FC_HW,
 };
 
+__weak int UARTHUB_md_adsp_fifo_ctrl(int enable)
+{
+	return 0;
+}
+__weak int UARTHUB_assert_state_ctrl(int assert_ctrl)
+{
+	return 0;
+}
+__weak int UARTHUB_dump_debug_info(void)
+{
+	return 0;
+}
+__weak int UARTHUB_sw_reset(void)
+{
+	return 0;
+}
+__weak int UARTHUB_irq_register_cb(UARTHUB_IRQ_CB irq_callback)
+{
+	return 0;
+}
+__weak int UARTHUB_bypass_mode_ctrl(int enable)
+{
+	return 0;
+}
+__weak int UARTHUB_dev0_set_txrx_request(void)
+{
+	return 0;
+}
+__weak int UARTHUB_dev0_clear_txrx_request(void)
+{
+	return 0;
+}
+__weak int UARTHUB_is_assert_state(void)
+{
+	return 0;
+}
+__weak int UARTHUB_dev0_is_uarthub_ready(void)
+{
+	return 0;
+}
+__weak int UARTHUB_open(void)
+{
+	return 0;
+}
+__weak int UARTHUB_close(void)
+{
+	return 0;
+}
+__weak int UARTHUB_is_bypass_mode(void)
+{
+	return 0;
+}
+__weak int UARTHUB_config_internal_baud_rate(int dev_index, enum UARTHUB_baud_rate rate)
+{
+	return 0;
+}
+__weak int UARTHUB_config_external_baud_rate(enum UARTHUB_baud_rate rate)
+{
+	return 0;
+}
 
 #if IS_ENABLED(CONFIG_MTK_UARTHUB)
 int mtk8250_uart_hub_fifo_ctrl(int ctrl)
 {
-	#if defined(KERNEL_UARTHUB_md_adsp_fifo_ctrl)
-		return KERNEL_UARTHUB_md_adsp_fifo_ctrl(ctrl);
-	#else
-		return 0;
-	#endif
+	return UARTHUB_md_adsp_fifo_ctrl(ctrl);
 }
 EXPORT_SYMBOL(mtk8250_uart_hub_fifo_ctrl);
 
 int mtk8250_uart_hub_assert_bit_ctrl(int ctrl)
 {
-	#if defined(KERNEL_UARTHUB_assert_state_ctrl)
-		return KERNEL_UARTHUB_assert_state_ctrl(ctrl);
-	#else
-		return 0;
-	#endif
+	return UARTHUB_assert_state_ctrl(ctrl);
 }
 EXPORT_SYMBOL(mtk8250_uart_hub_assert_bit_ctrl);
 
 int mtk8250_uart_hub_dump(void)
 {
-	#if defined(KERNEL_UARTHUB_dump_debug_info)
-		return KERNEL_UARTHUB_dump_debug_info();
-	#else
-		return 0;
-	#endif
+	return UARTHUB_dump_debug_info();
 }
 EXPORT_SYMBOL(mtk8250_uart_hub_dump);
 
 int mtk8250_uart_hub_reset(void)
 {
-	#if defined(KERNEL_UARTHUB_sw_reset)
-		return KERNEL_UARTHUB_sw_reset();
-	#else
-		return 0;
-	#endif
+	return UARTHUB_sw_reset();
 }
 EXPORT_SYMBOL(mtk8250_uart_hub_reset);
 
 int mtk8250_uart_hub_register_cb(UARTHUB_IRQ_CB irq_callback)
 {
-	#if defined(KERNEL_UARTHUB_irq_register_cb)
-		return KERNEL_UARTHUB_irq_register_cb(irq_callback);
-	#else
-		return 0;
-	#endif
+	return UARTHUB_irq_register_cb(irq_callback);
 }
 EXPORT_SYMBOL(mtk8250_uart_hub_register_cb);
 
 int mtk8250_uart_hub_enable_bypass_mode(int bypass)
 {
-	#if defined(KERNEL_UARTHUB_bypass_mode_ctrl)
-		return KERNEL_UARTHUB_bypass_mode_ctrl(bypass);
-	#else
-		return 0;
-	#endif
+	return UARTHUB_bypass_mode_ctrl(bypass);
 }
 EXPORT_SYMBOL(mtk8250_uart_hub_enable_bypass_mode);
 
 int mtk8250_uart_hub_set_request(void)
 {
-	#if defined(KERNEL_UARTHUB_dev0_set_txrx_request)
-		return KERNEL_UARTHUB_dev0_set_txrx_request();
-	#else
-		return 0;
-	#endif
+	return UARTHUB_dev0_set_txrx_request();
 }
 EXPORT_SYMBOL(mtk8250_uart_hub_set_request);
 
 int mtk8250_uart_hub_clear_request(void)
 {
-	#if defined(KERNEL_UARTHUB_dev0_clear_txrx_request)
-		return KERNEL_UARTHUB_dev0_clear_txrx_request();
-	#else
-		return 0;
-	#endif
+	return UARTHUB_dev0_clear_txrx_request();
 }
 EXPORT_SYMBOL(mtk8250_uart_hub_clear_request);
 
 int mtk8250_uart_hub_is_assert(void)
 {
-	#if defined(KERNEL_UARTHUB_is_assert_state)
-		return KERNEL_UARTHUB_is_assert_state();
-	#else
-		return 0;
-	#endif
+	return UARTHUB_is_assert_state();
 }
 EXPORT_SYMBOL(mtk8250_uart_hub_is_assert);
 
 int mtk8250_uart_hub_is_ready(void)
 {
-	#if defined(KERNEL_UARTHUB_dev0_is_uarthub_ready)
-		return KERNEL_UARTHUB_dev0_is_uarthub_ready();
-	#else
-		return 0;
-	#endif
+	return UARTHUB_dev0_is_uarthub_ready();
 }
 EXPORT_SYMBOL(mtk8250_uart_hub_is_ready);
 
@@ -320,13 +340,12 @@ static int mtk8250_startup(struct uart_port *port)
 #endif
 	memset(&port->icount, 0, sizeof(port->icount));
 
-#if defined(KERNEL_UARTHUB_open)
 	if (data->support_hub == 1) {
 		pr_info("open uarthub if it is supported.\n");
 		/*open UARTHUB*/
-		KERNEL_UARTHUB_open();
+		UARTHUB_open();
 	}
-#endif
+
 	return serial8250_do_startup(port);
 }
 
@@ -340,10 +359,8 @@ static void mtk8250_shutdown(struct uart_port *port)
 		data->rx_status = DMA_RX_SHUTDOWN;
 #endif
 
-#if defined(KERNEL_UARTHUB_close)
 	if (data->support_hub == 1)
-		KERNEL_UARTHUB_close();
-#endif
+		UARTHUB_close();
 
 	return serial8250_do_shutdown(port);
 }
@@ -464,16 +481,13 @@ mtk8250_set_termios(struct uart_port *port, struct ktermios *termios,
 	 * the speed later in this method.
 	 */
 	baud = tty_termios_baud_rate(termios);
-
 	if (data->support_hub) {
-		#if defined(KERNEL_UARTHUB_is_bypass_mode)
 		pr_info("support_hub, check if bypass mode\n");
 		/*To check bypass mode or multi-host mode*/
-		if (!KERNEL_UARTHUB_is_bypass_mode()) {
+		if (!UARTHUB_is_bypass_mode()) {
 			baud = MTK_UART_HUB_BAUD;
 			pr_info("multi-host mode, update baud rate as 12M\n");
 		}
-		#endif
 	}
 
 	serial8250_do_set_termios(port, termios, NULL);
@@ -498,21 +512,17 @@ mtk8250_set_termios(struct uart_port *port, struct ktermios *termios,
 				  port->uartclk);
 
 	if (data->support_hub) {
-		#if defined(KERNEL_UARTHUB_is_bypass_mode)
 		pr_info("support_hub, check if bypass mode\n");
 		/*To check bypass mode or multi-host mode*/
-		if (!KERNEL_UARTHUB_is_bypass_mode()) {
+		if (!UARTHUB_is_bypass_mode()) {
 			baud = MTK_UART_HUB_BAUD;
-		#if defined(KERNEL_UARTHUB_config_internal_baud_rate)
+
 			/*configure UARTHUB baud rate*/
-			KERNEL_UARTHUB_config_internal_baud_rate(0, baud_rate_12m);
-		#endif
-		#if defined(KERNEL_UARTHUB_config_external_baud_rate)
-			KERNEL_UARTHUB_config_external_baud_rate(baud_rate_12m);
-		#endif
+			UARTHUB_config_internal_baud_rate(0, baud_rate_12m);
+			UARTHUB_config_external_baud_rate(baud_rate_12m);
+
 			pr_info("multi-host mode, update baudrate as 12M and update hub baudrate\n");
 		}
-		#endif
 	}
 
 	if (baud < 115200) {
