@@ -1765,7 +1765,7 @@ static int msdc_tune_response(struct mmc_host *mmc, u32 opcode)
 	u8 final_delay, final_maxlen;
 	u32 internal_delay = 0;
 	u32 tune_reg = host->dev_comp->pad_tune_reg;
-	int cmd_err;
+	int cmd_err = 0;
 	int i, j;
 
 	if (mmc->ios.timing == MMC_TIMING_MMC_HS200 ||
@@ -1856,7 +1856,7 @@ static int hs400_tune_response(struct mmc_host *mmc, u32 opcode)
 	u32 cmd_delay = 0;
 	struct msdc_delay_phase final_cmd_delay = { 0,};
 	u8 final_delay;
-	int cmd_err;
+	int cmd_err = 0;
 	int i, j;
 
 	/* select EMMC50 PAD CMD tune */
