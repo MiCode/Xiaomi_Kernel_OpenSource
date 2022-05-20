@@ -503,16 +503,16 @@ static int seninf_core_probe(struct platform_device *pdev)
 	irq = platform_get_irq(pdev, 0);
 	if (!irq) {
 		dev_dbg(dev, "failed to get irq\n");
-		return -ENODEV;
+		//return -ENODEV;
+	} else {
+		ret = devm_request_irq(dev, irq, mtk_irq_seninf, 0,
+					dev_name(dev), core);
+		if (ret) {
+			dev_dbg(dev, "failed to request irq=%d\n", irq);
+			return ret;
+		}
+		dev_dbg(dev, "registered irq=%d\n", irq);
 	}
-
-	ret = devm_request_irq(dev, irq, mtk_irq_seninf, 0,
-				dev_name(dev), core);
-	if (ret) {
-		dev_dbg(dev, "failed to request irq=%d\n", irq);
-		return ret;
-	}
-	dev_dbg(dev, "registered irq=%d\n", irq);
 
 	/* default platform properties */
 	core->cphy_settle_delay_dt = SENINF_CPHY_SETTLE_DELAY_DT;
