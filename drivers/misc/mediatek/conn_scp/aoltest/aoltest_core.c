@@ -406,5 +406,6 @@ int aoltest_core_init(void)
 void aoltest_core_deinit(void)
 {
 	pr_info("[%s]\n", __func__);
+
 	aoltest_netlink_deinit();
 }

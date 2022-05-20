@@ -25,6 +25,8 @@
 #ifdef AOLTEST_SUPPORT
 #include "aoltest_core.h"
 #endif
+#include "aol_flp.h"
+#include "aol_geofence.h"
 
 #define CONN_SCP_DEVNAME            "connscp"
 
@@ -86,12 +88,14 @@ int conn_scp_init(void)
 	}
 	pr_info("CONN SCP device init Done\n");
 
-	/*****************************************/
+	/* Modules init */
 	conap_scp_init();
 
 #ifdef AOLTEST_SUPPORT
 	aoltest_core_init();
 #endif
+	aol_flp_init();
+	aol_geofence_init();
 
 	return 0;
 
@@ -112,11 +116,14 @@ void conn_scp_exit(void)
 {
 
 	pr_info("Unregistering conn_scp test chardev\n");
-	conap_scp_deinit();
+
+	aol_flp_deinit();
+	aol_geofence_deinit();
 
 #ifdef AOLTEST_SUPPORT
 	aoltest_core_deinit();
 #endif
+	conap_scp_deinit();
 
 	cdev_del(&g_conn_scp_dev->chdev);
 	unregister_chrdev_region(g_conn_scp_dev->devno, 1);

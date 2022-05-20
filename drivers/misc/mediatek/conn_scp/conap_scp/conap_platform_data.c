@@ -30,11 +30,24 @@ struct conap_scp_shm_config g_adp_shm_mt6895 = {
 	.conap_scp_ipi_mbox_size = 64,
 };
 #endif
+#if IS_ENABLED(CONFIG_MTK_COMBO_CHIP_CONSYS_6985)
+struct conap_scp_shm_config g_adp_shm_mt6985 = {
+	.conap_scp_shm_offset = 0x2100000,
+	.conap_scp_shm_size = 0x20000,
+	.conap_scp_ipi_mbox_size = 64,
+};
+
+struct conap_scp_batching_config g_adp_batching_mt6985 = {
+	.buff_offset = 0x6EB000,
+	.buff_size = 0x4B000,
+};
+#endif
 
 
 uint32_t g_plt_chip_info;
 phys_addr_t g_emi_phy_base;
 struct conap_scp_shm_config *g_adp_shm_ptr;
+struct conap_scp_batching_config *g_adp_batching_ptr;
 
 uint32_t connsys_scp_shm_get_addr(void)
 {
@@ -63,6 +76,20 @@ uint32_t connsys_scp_ipi_mbox_size(void)
 	return g_adp_shm_ptr->conap_scp_ipi_mbox_size;
 }
 
+phys_addr_t connsys_scp_shm_get_batching_addr(void)
+{
+	if (g_adp_shm_ptr == NULL)
+		return 0;
+	return (g_emi_phy_base + g_adp_shm_ptr->conap_scp_shm_offset +
+				g_adp_batching_ptr->buff_offset) & 0xFFFFFFFF;
+}
+
+uint32_t connsys_scp_shm_get_batching_size(void)
+{
+	if (g_adp_batching_ptr == NULL)
+		return 0;
+	return g_adp_batching_ptr->buff_size;
+}
 
 int connsys_scp_platform_data_init(unsigned int chip_info, phys_addr_t emi_phy_addr)
 {
@@ -86,8 +113,16 @@ int connsys_scp_platform_data_init(unsigned int chip_info, phys_addr_t emi_phy_a
 		g_adp_shm_ptr = &g_adp_shm_mt6895;
 		return 0;
 	}
-
 #endif
+#if IS_ENABLED(CONFIG_MTK_COMBO_CHIP_CONSYS_6985)
+	//if (chip_info == 0x6985) {
+	if (false) {
+		g_adp_shm_ptr = &g_adp_shm_mt6985;
+		g_adp_batching_ptr = &g_adp_batching_mt6985;
+		return 0;
+	}
+#endif
+
 
 	pr_info("[%s] chip=[%x] not support", __func__, chip_info);
 	return -1;
