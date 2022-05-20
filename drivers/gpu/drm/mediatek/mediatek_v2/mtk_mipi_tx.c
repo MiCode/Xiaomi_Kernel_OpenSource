@@ -3444,19 +3444,21 @@ static int mtk_mipi_tx_probe(struct platform_device *pdev)
 
 	mipi_tx->cmdq_base = cmdq_register_device(dev);
 
-	ref_clk = devm_clk_get(dev, NULL);
-	if (IS_ERR(ref_clk)) {
-		ret = PTR_ERR(ref_clk);
-		dev_err(dev, "Failed to get reference clock: %d\n", ret);
-		return ret;
-	}
-	ref_clk_name = __clk_get_name(ref_clk);
+	if (disp_helper_get_stage() == DISP_HELPER_STAGE_NORMAL) {
+		ref_clk = devm_clk_get(dev, NULL);
+		if (IS_ERR(ref_clk)) {
+			ret = PTR_ERR(ref_clk);
+			dev_err(dev, "Failed to get reference clock: %d\n", ret);
+			return ret;
+		}
+		ref_clk_name = __clk_get_name(ref_clk);
 
-	ret = of_property_read_string(dev->of_node, "clock-output-names",
-				      &clk_init.name);
-	if (ret < 0) {
-		dev_err(dev, "Failed to read clock-output-names: %d\n", ret);
-		return ret;
+		ret = of_property_read_string(dev->of_node, "clock-output-names",
+					      &clk_init.name);
+		if (ret < 0) {
+			dev_err(dev, "Failed to read clock-output-names: %d\n", ret);
+			return ret;
+		}
 	}
 
 	mtk_mipi_tx_pll_ops.prepare = mipi_tx->driver_data->pll_prepare;
@@ -4039,7 +4041,7 @@ static const struct of_device_id mtk_mipi_tx_match[] = {
 	{.compatible = "mediatek,mt6895-mipi-tx-cphy",
 		.data = &mt6895_mipitx_cphy_data},
 	{.compatible = "mediatek,mt6886-mipi-tx-cphy",
-		.data = &mt6895_mipitx_cphy_data},
+		.data = &mt6886_mipitx_cphy_data},
 	{.compatible = "mediatek,mt6855-mipi-tx-cphy",
 		.data = &mt6855_mipitx_cphy_data},
 	{},
