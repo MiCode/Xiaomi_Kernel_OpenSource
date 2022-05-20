@@ -17,7 +17,6 @@
 #include <linux/pm_qos.h>
 #include <linux/regulator/consumer.h>
 #include <linux/reset.h>
-#include <linux/soc/mediatek/mtk_sip_svc.h>
 #include <linux/tracepoint.h>
 
 #if IS_ENABLED(CONFIG_RPMB)
@@ -36,6 +35,7 @@
 #include "ufs_quirks.h"
 #include "unipro.h"
 #include "ufs-mediatek.h"
+#include "ufs-mediatek-sip.h"
 
 #if IS_ENABLED(CONFIG_SCSI_UFS_MEDIATEK_DBG)
 #include "ufs-mediatek-dbg.h"
@@ -51,24 +51,6 @@ static void ufs_mtk_auto_hibern8_disable(struct ufs_hba *hba);
 #define CREATE_TRACE_POINTS
 #include "ufs-mediatek-trace.h"
 #undef CREATE_TRACE_POINTS
-
-#define ufs_mtk_va09_pwr_ctrl(res, on) \
-	ufs_mtk_smc(UFS_MTK_SIP_VA09_PWR_CTRL, res, on)
-
-#define ufs_mtk_crypto_ctrl(res, enable) \
-	ufs_mtk_smc(UFS_MTK_SIP_CRYPTO_CTRL, res, enable)
-
-#define ufs_mtk_ref_clk_notify(on, res) \
-	ufs_mtk_smc(UFS_MTK_SIP_REF_CLK_NOTIFICATION, res, on)
-
-#define ufs_mtk_device_reset_ctrl(high, res) \
-	ufs_mtk_smc(UFS_MTK_SIP_DEVICE_RESET, res, high)
-
-#define ufs_mtk_host_pwr_ctrl(on, ufs_version, res) \
-	ufs_mtk_smc(UFS_MTK_SIP_HOST_PWR_CTRL, res, on, ufs_version)
-
-#define ufs_mtk_get_vcc_info(res) \
-	ufs_mtk_smc(UFS_MTK_SIP_GET_VCC_INFO, res)
 
 static struct ufs_dev_fix ufs_mtk_dev_fixups[] = {
 	UFS_FIX(UFS_ANY_VENDOR, UFS_ANY_MODEL,
@@ -2061,7 +2043,6 @@ static int ufs_mtk_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op,
 	enum ufs_notify_change_status status)
 {
 	int err;
-	u64 ufs_version;
 	struct arm_smccc_res res;
 
 	if (status == PRE_CHANGE) {
@@ -2093,8 +2074,7 @@ static int ufs_mtk_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op,
 		ufs_mtk_device_reset_ctrl(0, res);
 
 	/* Transfer the ufs version to tfa */
-	ufs_version = (u64)hba->dev_info.wspecversion;
-	ufs_mtk_host_pwr_ctrl(false, ufs_version, res);
+	ufs_mtk_host_pwr_ctrl(HOST_PWR_HCI, false, res);
 
 	return 0;
 fail:
@@ -2110,12 +2090,10 @@ fail:
 static int ufs_mtk_resume(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 {
 	int err;
-	u64 ufs_version;
 	struct arm_smccc_res res;
 
 	/* Transfer the ufs version to tfa */
-	ufs_version = (u64)hba->dev_info.wspecversion;
-	ufs_mtk_host_pwr_ctrl(true, ufs_version, res);
+	ufs_mtk_host_pwr_ctrl(HOST_PWR_HCI, true, res);
 
 	err = ufs_mtk_mphy_power_on(hba, true);
 	if (err)
@@ -2440,11 +2418,11 @@ static const struct ufs_hba_variant_ops ufs_hba_mtk_vops = {
  */
 static int ufs_mtk_probe(struct platform_device *pdev)
 {
-	int err;
-	struct device *dev = &pdev->dev;
-	struct device_node *reset_node;
-	struct platform_device *reset_pdev;
-	struct device_link *link;
+	int err = 0;
+	struct device *dev = &pdev->dev, *phy_dev;
+	struct device_node *reset_node, *phy_node = NULL;
+	struct platform_device *reset_pdev, *phy_pdev = NULL;
+	struct device_link *link, *phy_link;
 	struct ufs_hba *hba;
 	struct cpumask imask;
 
@@ -2472,6 +2450,28 @@ static int ufs_mtk_probe(struct platform_device *pdev)
 	}
 
 skip_reset:
+	/* find phy node */
+	phy_node = of_parse_phandle(dev->of_node, "phys", 0);
+
+	if (phy_node) {
+		phy_pdev = of_find_device_by_node(phy_node);
+		if (!phy_pdev)
+			goto skip_phy;
+		phy_dev = &phy_pdev->dev;
+
+		pm_runtime_set_active(phy_dev);
+		phy_link = device_link_add(dev, phy_dev, DL_FLAG_PM_RUNTIME);
+		if (!phy_link) {
+			dev_notice(dev, "add phys device_link fail\n");
+			goto skip_phy;
+		}
+		pm_runtime_enable(phy_dev);
+		dev_info(dev, "phys node found\n");
+	} else {
+		dev_notice(dev, "phys node not found\n");
+	}
+
+skip_phy:
 	/* perform generic probe */
 	err = ufshcd_pltfrm_init(pdev, &ufs_hba_mtk_vops);
 
@@ -2488,7 +2488,7 @@ skip_reset:
 		irq_set_affinity_hint(hba->irq, &imask);
 	}
 out:
-
+	of_node_put(phy_node);
 	of_node_put(reset_node);
 	return err;
 }
@@ -2583,7 +2583,6 @@ int ufs_mtk_runtime_suspend(struct device *dev)
 	if (ufsf->hba)
 		ufsf_suspend(ufsf);
 #endif
-
 	ret = ufshcd_runtime_suspend(dev);
 
 #if defined(CONFIG_UFSFEATURE)
@@ -2603,7 +2602,6 @@ int ufs_mtk_runtime_resume(struct device *dev)
 	struct ufsf_feature *ufsf = ufs_mtk_get_ufsf(hba);
 	bool is_link_off = ufshcd_is_link_off(hba);
 #endif
-
 	ret = ufshcd_runtime_resume(dev);
 
 #if defined(CONFIG_UFSFEATURE)

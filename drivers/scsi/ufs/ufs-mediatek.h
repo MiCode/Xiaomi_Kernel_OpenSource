@@ -7,7 +7,6 @@
 #define _UFS_MEDIATEK_H
 
 #include <linux/bitops.h>
-#include <linux/soc/mediatek/mtk_sip_svc.h>
 #include <linux/pm_qos.h>
 
 #ifdef CONFIG_UFSFEATURE
@@ -79,65 +78,6 @@ enum {
 	VS_HIB_WAITTIMER            = 11,
 	VS_HIB_EXIT_CONF            = 12,
 	VS_HIB_EXIT                 = 13,
-};
-
-/*
- * SiP commands
- */
-#define MTK_SIP_UFS_CONTROL               MTK_SIP_SMC_CMD(0x276)
-#define UFS_MTK_SIP_VA09_PWR_CTRL         BIT(0)
-#define UFS_MTK_SIP_DEVICE_RESET          BIT(1)
-#define UFS_MTK_SIP_CRYPTO_CTRL           BIT(2)
-#define UFS_MTK_SIP_REF_CLK_NOTIFICATION  BIT(3)
-#define UFS_MTK_SIP_HOST_PWR_CTRL         BIT(5)
-#define UFS_MTK_SIP_GET_VCC_INFO          BIT(6)
-
-/*
- * SMC call wapper function
- */
-#define _ufs_mtk_smc(cmd, res, v1, v2, v3, v4, v5, v6) \
-		arm_smccc_smc(MTK_SIP_UFS_CONTROL, \
-				  cmd, v1, v2, v3, v4, v5, v6, &(res))
-
-#define _ufs_mtk_smc_0(cmd, res) \
-	_ufs_mtk_smc(cmd, res, 0, 0, 0, 0, 0, 0)
-
-#define _ufs_mtk_smc_1(cmd, res, v1) \
-	_ufs_mtk_smc(cmd, res, v1, 0, 0, 0, 0, 0)
-
-#define _ufs_mtk_smc_2(cmd, res, v1, v2) \
-	_ufs_mtk_smc(cmd, res, v1, v2, 0, 0, 0, 0)
-
-#define _ufs_mtk_smc_3(cmd, res, v1, v2, v3) \
-	_ufs_mtk_smc(cmd, res, v1, v2, v3, 0, 0, 0)
-
-#define _ufs_mtk_smc_4(cmd, res, v1, v2, v3, v4) \
-	_ufs_mtk_smc(cmd, res, v1, v2, v3, v4, 0, 0)
-
-#define _ufs_mtk_smc_5(cmd, res, v1, v2, v3, v4, v5) \
-	_ufs_mtk_smc(cmd, res, v1, v2, v3, v4, v5, 0)
-
-#define _ufs_mtk_smc_6(cmd, res, v1, v2, v3, v4, v5, v6) \
-	_ufs_mtk_smc(cmd, res, v1, v2, v3, v4, v5, v6)
-
-#define _ufs_mtk_smc_selector(cmd, res, v1, v2, v3, v4, v5, v6, FUNC, ...) FUNC
-
-#define ufs_mtk_smc(...) \
-	_ufs_mtk_smc_selector(__VA_ARGS__, \
-	_ufs_mtk_smc_6(__VA_ARGS__), \
-	_ufs_mtk_smc_5(__VA_ARGS__), \
-	_ufs_mtk_smc_4(__VA_ARGS__), \
-	_ufs_mtk_smc_3(__VA_ARGS__), \
-	_ufs_mtk_smc_2(__VA_ARGS__), \
-	_ufs_mtk_smc_1(__VA_ARGS__), \
-	_ufs_mtk_smc_0(__VA_ARGS__) \
-	)
-
-/* Sip UFS GET VCC INFO */
-enum {
-	VCC_NONE = 0,
-	VCC_1,
-	VCC_2
 };
 
 /*
