@@ -144,6 +144,7 @@ struct imgsensor_info_struct {
 	kal_uint32 i2c_speed; /* i2c speed */
 	kal_uint8 mipi_lane_num; /* mipi lane num */
 	kal_uint8 i2c_addr_table[5];
+	kal_uint32 ob_pedestal; /* OB = 64*/
 
 	struct v4l2_subdev *sd;
 	struct adaptor_ctx *adaptor_ctx_;

@@ -194,6 +194,7 @@ static struct imgsensor_info_struct imgsensor_info = {
 		.mipi_lane_num = SENSOR_MIPI_4_LANE,
 		.i2c_addr_table = {0x20, 0xff},
 		.i2c_speed = 1000,
+		.ob_pedestal = 0x40, /* OB = 64*/
 };
 
 /* Sensor output window information */
@@ -1024,6 +1025,7 @@ static int get_info(struct subdrv_ctx *ctx, enum MSDK_SCENARIO_ID_ENUM scenario_
 	sensor_info->SensorWidthSampling = 0;	/* 0 is default 1x*/
 	sensor_info->SensorHightSampling = 0;	/* 0 is default 1x*/
 	sensor_info->SensorPacketECCOrder = 1;
+	sensor_info->OB_pedestal = imgsensor_info.ob_pedestal;
 
 	return ERROR_NONE;
 }	/*	get_info  */

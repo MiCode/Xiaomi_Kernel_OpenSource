@@ -241,6 +241,7 @@ static struct imgsensor_info_struct imgsensor_info = {
 	 */
 	.i2c_addr_table = {0x20, 0xff},
 	.i2c_speed = 1000,	/* i2c read/write speed */
+	.ob_pedestal = 0x40, /* OB = 64*/
 };
 
 
@@ -1780,6 +1781,7 @@ static int get_info(struct subdrv_ctx *ctx, enum MSDK_SCENARIO_ID_ENUM scenario_
 
 	sensor_info->FrameTimeDelayFrame =
 		imgsensor_info.frame_time_delay_frame;
+	sensor_info->OB_pedestal = imgsensor_info.ob_pedestal;
 
 	return ERROR_NONE;
 } /* get_info */

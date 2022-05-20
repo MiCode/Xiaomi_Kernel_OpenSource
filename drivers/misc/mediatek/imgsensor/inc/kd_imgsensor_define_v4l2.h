@@ -549,6 +549,7 @@ struct ACDK_SENSOR_INFO_STRUCT {
 	MUINT16 SensorVerFOV;
 	MUINT16 SensorOrientation;
 	MUINT32 SensorModuleID;
+	MUINT32 OB_pedestal;
 };
 
 #define ACDK_SENSOR_INFO2_STRUCT struct ACDK_SENSOR_INFO_STRUCT

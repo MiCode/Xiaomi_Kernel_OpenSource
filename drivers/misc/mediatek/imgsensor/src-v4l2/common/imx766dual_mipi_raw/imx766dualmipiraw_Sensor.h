@@ -151,6 +151,7 @@ struct imgsensor_info_struct {
 	kal_uint8 mclk;	 /* mclk value, suggest 24 or 26 for 24Mhz or 26Mhz */
 	kal_uint32 i2c_speed; /* i2c speed */
 	kal_uint8 mipi_lane_num; /* mipi lane num */
+	kal_uint32 ob_pedestal; /* OB = 64*/
 	kal_uint8 i2c_addr_table[5];
 
 	struct v4l2_subdev *sd;

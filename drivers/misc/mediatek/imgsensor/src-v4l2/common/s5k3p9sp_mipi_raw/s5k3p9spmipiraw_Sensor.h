@@ -143,6 +143,7 @@ struct imgsensor_info_struct {
 	kal_uint32 gain_step;
 	kal_uint32 gain_type;
 	kal_uint32 exp_step;
+	kal_uint32 ob_pedestal; /* OB = 64*/
 
 	struct v4l2_subdev *sd;
 	struct adaptor_ctx *adaptor_ctx_;

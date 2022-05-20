@@ -324,6 +324,7 @@ static struct imgsensor_info_struct imgsensor_info = {
 	 * only supprt 4 must end with 0xff
 	 */
 	.i2c_speed = 1000, /* i2c read/write speed */
+	.ob_pedestal = 0x40, /* OB = 64*/
 };
 
 /* Sensor output window information */
@@ -4145,6 +4146,7 @@ static int get_info(struct subdrv_ctx *ctx,
 	sensor_info->SensorWidthSampling = 0; /* 0 is default 1x */
 	sensor_info->SensorHightSampling = 0; /* 0 is default 1x */
 	sensor_info->SensorPacketECCOrder = 1;
+	sensor_info->OB_pedestal = imgsensor_info.ob_pedestal;
 
 	sensor_info->FrameTimeDelayFrame =
 		imgsensor_info.frame_time_delay_frame;

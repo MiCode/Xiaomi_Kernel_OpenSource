@@ -403,6 +403,7 @@ static struct imgsensor_info_struct imgsensor_info = {
 	 * only supprt 4 must end with 0xff
 	 */
 	.i2c_speed = 1000, /* kbps */
+	.ob_pedestal = 0x40, /* OB = 64*/
 };
 
 static struct SET_PD_BLOCK_INFO_T imgsensor_pd_info = {
@@ -2870,6 +2871,7 @@ static int get_info(struct subdrv_ctx *ctx,
 	sensor_info->SensorHightSampling = 0; /* 0 is default 1x */
 	sensor_info->SensorPacketECCOrder = 1;
 	sensor_info->FrameTimeDelayFrame = imgsensor_info.frame_time_delay_frame;
+	sensor_info->OB_pedestal = imgsensor_info.ob_pedestal;
 
 	return ERROR_NONE;
 }	/*	get_info  */
