@@ -26,6 +26,14 @@ static struct mtk_ipi_device *vcp_ipi_dev;
 static u32 mmdvfs_vcp_ipi_data;
 static DEFINE_MUTEX(mmdvfs_vcp_ipi_mutex);
 static struct clk *vote_clk[POWER_NUM];
+static log_level;
+static bool mmdvfs_init_done;
+
+enum mmdvfs_log_level {
+	log_ipi,
+	log_ccf_cb,
+	log_vcp,
+};
 
 static inline struct mtk_mmdvfs_clk *to_mtk_mmdvfs_clk(struct clk_hw *hw)
 {
@@ -38,7 +46,8 @@ static int mmdvfs_vcp_is_ready(void)
 
 	while (!is_vcp_ready_ex(VCP_A_ID)) {
 		ret += 1;
-		MMDVFS_DBG("retry:%d VCP_A_ID:%d not ready", ret, VCP_A_ID);
+		if (log_level & 1 << log_vcp)
+			MMDVFS_DBG("retry:%d VCP_A_ID:%d not ready", ret, VCP_A_ID);
 		if (ret > 100)
 			return 0;
 		msleep(50);
@@ -52,8 +61,10 @@ static int mmdvfs_vcp_ipi_send(const u8 func, const u8 idx, const u8 opp,
 	struct mmdvfs_ipi_data slot = {func, idx, opp, ack};
 	int ret;
 
-	if (!mmdvfs_vcp_is_ready())
+	if (!mmdvfs_vcp_is_ready()) {
+		MMDVFS_ERR("vcp is not ready");
 		return -ETIMEDOUT;
+	}
 
 	mutex_lock(&mmdvfs_vcp_ipi_mutex);
 	mmdvfs_vcp_ipi_data =
@@ -88,8 +99,9 @@ static int mmdvfs_vcp_ipi_cb(unsigned int ipi_id, void *prdata, void *data,
 
 	slot = *(struct mmdvfs_ipi_data *)data;
 
-	MMDVFS_DBG("ipi_id:%u slot:%#x func:%hhu idx:%hhu opp:%hhu ack:%hhu",
-		ipi_id, slot, slot.func, slot.idx, slot.opp, slot.ack);
+	if (log_level & 1 << log_ipi)
+		MMDVFS_DBG("ipi_id:%u slot:%#x func:%hhu idx:%hhu opp:%hhu ack:%hhu",
+			ipi_id, slot, slot.func, slot.idx, slot.opp, slot.ack);
 
 	return 0;
 }
@@ -98,7 +110,7 @@ static int mtk_mmdvfs_set_rate(struct clk_hw *hw, unsigned long rate,
 		unsigned long parent_rate)
 {
 	struct mtk_mmdvfs_clk *mmdvfs_clk = to_mtk_mmdvfs_clk(hw);
-	u8 i, opp, level, pwr_opp = MAX_OPP;
+	u8 i, opp, level, pwr_opp = MAX_OPP, user_opp = MAX_OPP;
 	struct mmdvfs_ipi_data slot;
 	int ret;
 
@@ -108,8 +120,9 @@ static int mtk_mmdvfs_set_rate(struct clk_hw *hw, unsigned long rate,
 
 	level = (i == mmdvfs_clk->freq_num) ? (i-1) : i;
 	opp = (mmdvfs_clk->freq_num - level - 1);
-	MMDVFS_DBG("user:%u freq=%lu old_opp=%d new_opp=%d\n",
-		mmdvfs_clk->user_id, rate, mmdvfs_clk->opp, opp);
+	if (log_level & 1 << log_ccf_cb)
+		MMDVFS_DBG("user:%u freq=%lu old_opp=%d new_opp=%d\n",
+			mmdvfs_clk->user_id, rate, mmdvfs_clk->opp, opp);
 	if (mmdvfs_clk->opp == opp)
 		return 0;
 	mmdvfs_clk->opp = opp;
@@ -120,23 +133,33 @@ static int mtk_mmdvfs_set_rate(struct clk_hw *hw, unsigned long rate,
 			pwr_opp = mtk_mmdvfs_clks[i].opp;
 	}
 
-	if (pwr_opp == mmdvfs_pwr_opp[mmdvfs_clk->pwr_id]
-		&& mmdvfs_clk->special_type != SPECIAL_INDEPENDENCE)
-		return 0;
+	/* Choose max step among all users of special independence */
+	if (mmdvfs_clk->special_type == SPECIAL_INDEPENDENCE) {
+		for (i = 0; i < max_mmdvfs_num; i++) {
+			if (mmdvfs_clk->user_id == mtk_mmdvfs_clks[i].user_id
+				&& mtk_mmdvfs_clks[i].opp < user_opp)
+				user_opp = mtk_mmdvfs_clks[i].opp;
+		}
+		ret = mmdvfs_vcp_ipi_send(FUNC_SET_OPP, mmdvfs_clk->user_id, user_opp, MAX_OPP);
+	} else {
+		if (pwr_opp == mmdvfs_pwr_opp[mmdvfs_clk->pwr_id])
+			return 0;
+		ret = mmdvfs_vcp_ipi_send(FUNC_SET_OPP, mmdvfs_clk->user_id, pwr_opp, MAX_OPP);
+	}
 
 	mmdvfs_pwr_opp[mmdvfs_clk->pwr_id] = pwr_opp;
 
-	ret = mmdvfs_vcp_ipi_send(FUNC_SET_OPP, mmdvfs_clk->user_id, pwr_opp, MAX_OPP);
-
 	slot = *(struct mmdvfs_ipi_data *)(u32 *)&ret;
-	MMDVFS_DBG("ipi:%d slot:%#x idx:%hhu opp:%hhu", ret, slot, slot.idx, slot.ack);
+	if (log_level & 1 << log_ipi)
+		MMDVFS_DBG("ipi:%d slot:%#x idx:%hhu opp:%hhu", ret, slot, slot.idx, slot.ack);
 	return 0;
 }
 
 static long mtk_mmdvfs_round_rate(struct clk_hw *hw, unsigned long rate,
 			       unsigned long *parent_rate)
 {
-	MMDVFS_DBG("rate=%lu parent_rate=%lu\n", rate, *parent_rate);
+	if (log_level & 1 << log_ccf_cb)
+		MMDVFS_DBG("rate=%lu parent_rate=%lu\n", rate, *parent_rate);
 
 	return rate;
 }
@@ -150,7 +173,8 @@ static unsigned long mtk_mmdvfs_recalc_rate(struct clk_hw *hw,
 
 	level = (mmdvfs_clk->opp == MAX_OPP) ? 0 : (mmdvfs_clk->freq_num - mmdvfs_clk->opp - 1);
 	ret = mmdvfs_clk->freqs[level];
-	MMDVFS_DBG("parent_rate=%lu freq=%lu\n", parent_rate, ret);
+	if (log_level & 1 << log_ccf_cb)
+		MMDVFS_DBG("parent_rate=%lu freq=%lu\n", parent_rate, ret);
 	return ret;
 }
 
@@ -214,6 +238,12 @@ int mmdvfs_camera_notify(const bool enable)
 	return 0;
 }
 EXPORT_SYMBOL(mmdvfs_camera_notify);
+
+bool mtk_is_mmdvfs_init_done(void)
+{
+	return mmdvfs_init_done;
+}
+EXPORT_SYMBOL(mtk_is_mmdvfs_init_done);
 
 int mmdvfs_set_force_step(const char *val, const struct kernel_param *kp)
 {
@@ -410,8 +440,10 @@ static int mmdvfs_vcp_init_thread(void *data)
 		vcp_register_feature_ex(MMDVFS_FEATURE_ID);
 	}
 
-	while (!mmdvfs_vcp_is_ready())
+	while (!mmdvfs_vcp_is_ready()) {
+		MMDVFS_DBG("vcp is not ready yet");
 		msleep(2000);
+	}
 	while (!(vcp_ipi_dev = vcp_get_ipidev())) {
 		MMDVFS_DBG("cannot get vcp ipidev");
 		msleep(1000);
@@ -421,6 +453,8 @@ static int mmdvfs_vcp_init_thread(void *data)
 		mmdvfs_vcp_ipi_cb, NULL, &mmdvfs_vcp_ipi_data);
 	if (ret)
 		MMDVFS_DBG("mtk_ipi_register failed:%d ipi_id:%d", ret, IPI_IN_MMDVFS);
+
+	mmdvfs_init_done = true;
 
 	return 0;
 }
