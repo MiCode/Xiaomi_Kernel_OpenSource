@@ -75,9 +75,11 @@ MODULE_PARM_DESC(debug_ae, "activates debug ae info");
 	0, sizeof(*(p)) - offsetof(typeof(*(p)), field) -sizeof((p)->field))
 
 static const struct of_device_id mtk_cam_of_ids[] = {
-	{.compatible = "mediatek,camisp",},
+	{.compatible = "mediatek,mt6985-camisp", .data = &mt6985_data},
+	{.compatible = "mediatek,mt6886-camisp", .data = NULL},
 	{}
 };
+
 static int debug_preisp_off_data;
 module_param(debug_preisp_off_data, int, 0644);
 MODULE_PARM_DESC(debug_preisp_off_data, "debug: preisp bypass camsys mode");
@@ -739,7 +741,7 @@ void mtk_cam_get_timestamp(struct mtk_cam_ctx *ctx,
 	fho_va = (u32 *)(s_data->working_buf->buffer.va +
 		s_data->working_buf->buffer.size - 64 * (subsample + 1));
 
-	pTimestamp = mtk_cam_get_timestamp_addr(vaddr);
+	pTimestamp = vaddr + GET_PLAT_V4L2(timestamp_buffer_ofst);
 	for (i = 0; i < (subsample + 1); i++) {
 		/* timstamp_LSB + timestamp_MSB << 32 */
 		*(pTimestamp + i*2) = mtk_cam_timesync_to_monotonic
@@ -3180,7 +3182,8 @@ mtk_cam_camsv_update_fparam(struct mtk_cam_request_stream_data *s_data,
 	if (s_data->vdev_fmt_update && cfg_fmt) {
 		mtk_cam_sv_cal_cfg_info(
 			ctx, cfg_fmt, &s_data->sv_frame_params);
-		mtk_cam_set_sv_meta_stats_info(
+		CALL_PLAT_V4L2(
+			set_sv_meta_stats_info,
 			node->desc.dma_port,
 			mtk_cam_get_vbuf_va(ctx, s_data, node->desc.id),
 			(s_data->sv_frame_params.cfg_info.grab_pxl >> 16),
@@ -3249,14 +3252,14 @@ static int mtk_cam_req_update(struct mtk_cam_device *cam,
 				ctx->pipe->user_res.sensor_res.interval.numerator;
 
 			if (ctx->pipe->res_config.raw_num_used == 1 &&
-			    mtk_cam_support_AFO_independent(fps)) {
+			    GET_PLAT_V4L2(support_afo_independent)) {
 				req_stream_data->flags |= MTK_CAM_REQ_S_DATA_FLAG_META1_INDEPENDENT;
 			} else {
 				dev_dbg(cam->dev,
 					"%s:%s: disable AFO independent, raw_num_used(%d), fps(%lu), support_AFO_independent(%d)\n",
 					__func__, req->req.debug_str,
 					ctx->pipe->res_config.raw_num_used, fps,
-					mtk_cam_support_AFO_independent(fps));
+					GET_PLAT_V4L2(support_afo_independent));
 			}
 		}
 
@@ -8257,7 +8260,7 @@ static int mtk_cam_debug_fs_init(struct mtk_cam_device *cam)
 	 */
 	int dump_mem_size = MTK_CAM_DEBUG_DUMP_HEADER_MAX_SIZE +
 			    CQ_BUF_SIZE +
-			    mtk_cam_get_meta_size(MTKCAM_IPI_RAW_META_STATS_CFG) +
+			    GET_PLAT_V4L2(meta_cfg_size) +
 			    RAW_STATS_CFG_VARIOUS_SIZE +
 			    sizeof(struct mtkcam_ipi_frame_param) +
 			    sizeof(struct mtkcam_ipi_config_param) *
@@ -8388,6 +8391,15 @@ static int mtk_cam_probe(struct platform_device *pdev)
 	struct resource *res;
 	int ret;
 	unsigned int i;
+	const struct camsys_platform_data *platform_data;
+
+	platform_data = of_device_get_match_data(dev);
+	if (!platform_data) {
+		dev_info(dev, "Error: failed to get match data\n");
+		return -ENODEV;
+	}
+	set_platform_data(platform_data);
+	dev_info(dev, "platform = %s\n", platform_data->platform);
 
 	/* initialize structure */
 	cam_dev = devm_kzalloc(dev, sizeof(*cam_dev), GFP_KERNEL);

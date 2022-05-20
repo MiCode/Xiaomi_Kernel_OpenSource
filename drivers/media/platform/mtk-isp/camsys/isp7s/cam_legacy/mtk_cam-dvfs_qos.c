@@ -720,7 +720,7 @@ void mtk_cam_qos_bw_calc(struct mtk_cam_ctx *ctx, unsigned long raw_dmas, bool f
 			// fho = almost zero
 			// pdo = implement later
 			qos_port_id = engine_id * raw_qos_port_num + fho_r1;
-			PBW_MB_s = mtk_cam_get_port_bw(AAHO, height, fps);
+			PBW_MB_s = CALL_PLAT_V4L2(get_port_bw, AAHO, height, fps);
 			dvfs_info->qos_bw_avg[qos_port_id] =
 				dvfs_info->qos_bw_peak[qos_port_id] = PBW_MB_s;
 			if (unlikely(debug_mmqos))
@@ -731,7 +731,7 @@ void mtk_cam_qos_bw_calc(struct mtk_cam_ctx *ctx, unsigned long raw_dmas, bool f
 			// aao = MTK_CAM_UAPI_AAO_MAX_BUF_SIZE (twin = /2)
 			// afo = MTK_CAM_UAPI_AFO_MAX_BUF_SIZE (twin = /2)
 			qos_port_id = engine_id * raw_qos_port_num + aao_r1;
-			PBW_MB_s = mtk_cam_get_port_bw(AAO, height, fps);
+			PBW_MB_s = CALL_PLAT_V4L2(get_port_bw, AAO, height, fps);
 			dvfs_info->qos_bw_avg[qos_port_id] =
 				dvfs_info->qos_bw_peak[qos_port_id] = PBW_MB_s;
 			if (unlikely(debug_mmqos))
@@ -742,7 +742,7 @@ void mtk_cam_qos_bw_calc(struct mtk_cam_ctx *ctx, unsigned long raw_dmas, bool f
 			// tsfso x 2 = MTK_CAM_UAPI_TSFSO_SIZE * 2
 			// ltmso = MTK_CAM_UAPI_LTMSO_SIZE
 			qos_port_id = engine_id * raw_qos_port_num + tsfso_r1;
-			PBW_MB_s = mtk_cam_get_port_bw(TSFSO, height, fps);
+			PBW_MB_s = CALL_PLAT_V4L2(get_port_bw, TSFSO, height, fps);
 			dvfs_info->qos_bw_avg[qos_port_id] =
 				dvfs_info->qos_bw_peak[qos_port_id] = PBW_MB_s;
 			if (unlikely(debug_mmqos))
@@ -755,7 +755,7 @@ void mtk_cam_qos_bw_calc(struct mtk_cam_ctx *ctx, unsigned long raw_dmas, bool f
 			// ufeo = implement later
 			// bpco = implement later
 			qos_port_id = engine_id * raw_qos_port_num + flko_r1;
-			PBW_MB_s = mtk_cam_get_port_bw(FLKO, height, fps);
+			PBW_MB_s = CALL_PLAT_V4L2(get_port_bw, FLKO, height, fps);
 			dvfs_info->qos_bw_avg[qos_port_id] =
 				dvfs_info->qos_bw_peak[qos_port_id] = PBW_MB_s;
 			if (unlikely(debug_mmqos))

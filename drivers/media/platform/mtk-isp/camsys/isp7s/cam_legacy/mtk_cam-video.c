@@ -651,7 +651,9 @@ static void mtk_cam_vb2_buf_queue(struct vb2_buffer *vb)
 		meta_out->buf.iova = buf->daddr;
 		meta_out->uid.id = dma_port;
 		vaddr = vb2_plane_vaddr(vb, 0);
-		mtk_cam_set_meta_stats_info(dma_port, vaddr, pde_cfg);
+		CALL_PLAT_V4L2(set_meta_stats_info, dma_port, vaddr,
+			(pde_cfg && pde_cfg->pde_info.pd_table_offset) ?
+				pde_cfg->pde_info.pdo_max_size : 0);
 		break;
 	case MTKCAM_IPI_CAMSV_MAIN_OUT:
 		if (mtk_cam_is_with_w_channel(node->ctx) &&
@@ -690,7 +692,7 @@ static void mtk_cam_vb2_buf_queue(struct vb2_buffer *vb)
 		} else {
 #if PDAF_READY
 			sv_frame_params->img_out.buf[0][0].iova = buf->daddr +
-				mtk_cam_get_meta_size(dma_port);
+				GET_PLAT_V4L2(meta_sv_ext_size);
 #else
 			sv_frame_params->img_out.buf[0][0].iova = buf->daddr;
 #endif
@@ -699,7 +701,7 @@ static void mtk_cam_vb2_buf_queue(struct vb2_buffer *vb)
 			stride = node->active_fmt.fmt.pix_mp.plane_fmt[0].bytesperline;
 #if PDAF_READY
 			vaddr = vb2_plane_vaddr(vb, 0);
-			mtk_cam_set_sv_meta_stats_info(
+			CALL_PLAT_V4L2(set_sv_meta_stats_info,
 				node->desc.dma_port, vaddr, width, height, stride);
 #endif
 		}
@@ -1836,7 +1838,7 @@ int mtk_cam_video_set_fmt(struct mtk_cam_video_device *node, struct v4l2_format 
 	if (node->desc.dma_port == MTKCAM_IPI_CAMSV_MAIN_OUT &&
 		node->desc.id == MTK_CAMSV_MAIN_STREAM_OUT)
 		try_fmt.fmt.pix_mp.plane_fmt[0].sizeimage +=
-		mtk_cam_get_meta_size(MTKCAM_IPI_CAMSV_MAIN_OUT);
+		GET_PLAT_V4L2(meta_sv_ext_size);
 #endif
 	/*extisp may use mainstream for yuvformat*/
 	if (node->desc.id == MTK_RAW_MAIN_STREAM_OUT &&

@@ -26,7 +26,7 @@
 #include "mtk_cam-debug.h"
 #include "mtk_camera-v4l2-controls.h"
 #include "mtk_cam-hsf-def.h"
-#include "mtk_cam-plat-util.h"
+#include "mtk_cam-plat.h"
 
 #define MTK_CAM_REQ_MAX_S_DATA	2
 

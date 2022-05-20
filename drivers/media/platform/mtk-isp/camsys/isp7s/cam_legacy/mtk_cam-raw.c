@@ -4259,6 +4259,42 @@ static const struct v4l2_ioctl_ops mtk_cam_v4l2_meta_out_ioctl_ops = {
 	.vidioc_expbuf = vb2_ioctl_expbuf,
 };
 
+static struct mtk_cam_format_desc meta_cfg_fmts[] = {
+	{
+		.vfmt.fmt.meta = {
+			.dataformat = V4L2_META_FMT_MTISP_PARAMS,
+			.buffersize = 0,
+		},
+	},
+};
+
+static struct mtk_cam_format_desc meta_stats0_fmts[] = {
+	{
+		.vfmt.fmt.meta = {
+			.dataformat = V4L2_META_FMT_MTISP_3A,
+			.buffersize = 0,
+		},
+	},
+};
+
+static struct mtk_cam_format_desc meta_stats1_fmts[] = {
+	{
+		.vfmt.fmt.meta = {
+			.dataformat = V4L2_META_FMT_MTISP_AF,
+			.buffersize = 0,
+		},
+	},
+};
+
+static struct mtk_cam_format_desc meta_ext_fmts[] = {
+	{
+		.vfmt.fmt.meta = {
+			.dataformat = V4L2_META_FMT_MTISP_3A,
+			.buffersize = 0,
+		},
+	},
+};
+
 static const struct mtk_cam_format_desc stream_out_fmts[] = {
 	/* This is a default image format */
 	{
@@ -5124,7 +5160,7 @@ static const struct mtk_cam_format_desc ipu_out_fmts[] = {
 	}
 };
 
-#define MTK_RAW_TOTAL_OUTPUT_QUEUES 4
+#define MTK_RAW_TOTAL_OUTPUT_QUEUES 2
 
 static const struct
 mtk_cam_dev_node_desc output_queues[] = {
@@ -5142,6 +5178,8 @@ mtk_cam_dev_node_desc output_queues[] = {
 #endif
 		.need_cache_sync_on_prepare = true,
 		.dma_port = MTKCAM_IPI_RAW_META_STATS_CFG,
+		.fmts = meta_cfg_fmts,
+		.num_fmts = ARRAY_SIZE(meta_cfg_fmts),
 		.default_fmt_idx = 0,
 		.max_buf_count = 16,
 		.ioctl_ops = &mtk_cam_v4l2_meta_out_ioctl_ops,
@@ -5172,67 +5210,12 @@ mtk_cam_dev_node_desc output_queues[] = {
 			},
 		},
 	},
-	{
-		.id = MTK_RAW_RAWI_3_IN,
-		.name = "rawi 3",
-		.cap = V4L2_CAP_VIDEO_OUTPUT_MPLANE,
-		.buf_type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE,
-		.link_flags = 0,
-		.image = true,
-		.smem_alloc = false,
-		.dma_port = MTKCAM_IPI_RAW_RAWI_3,
-		.fmts = stream_out_fmts,
-		.num_fmts = ARRAY_SIZE(stream_out_fmts),
-		.default_fmt_idx = 0,
-		.ioctl_ops = &mtk_cam_v4l2_vout_ioctl_ops,
-		.frmsizes = &(struct v4l2_frmsizeenum) {
-			.index = 0,
-			.type = V4L2_FRMSIZE_TYPE_CONTINUOUS,
-			.stepwise = {
-				.max_width = IMG_MAX_WIDTH,
-				.min_width = IMG_MIN_WIDTH,
-				.max_height = IMG_MAX_HEIGHT,
-				.min_height = IMG_MIN_HEIGHT,
-				.step_height = 1,
-				.step_width = 1,
-			},
-		},
-	},
-	{
-		.id = MTK_RAW_RAWI_4_IN,
-		.name = "rawi 4",
-		.cap = V4L2_CAP_VIDEO_OUTPUT_MPLANE,
-		.buf_type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE,
-		.link_flags = 0,
-		.image = true,
-		.smem_alloc = false,
-		.dma_port = MTKCAM_IPI_RAW_RAWI_3, //todo: wait backend add MTKCAM_IPI_RAW_RAWI_4
-		.fmts = stream_out_fmts,
-		.num_fmts = ARRAY_SIZE(stream_out_fmts),
-		.default_fmt_idx = 0,
-		.ioctl_ops = &mtk_cam_v4l2_vout_ioctl_ops,
-		.frmsizes = &(struct v4l2_frmsizeenum) {
-			.index = 0,
-			.type = V4L2_FRMSIZE_TYPE_CONTINUOUS,
-			.stepwise = {
-				.max_width = IMG_MAX_WIDTH,
-				.min_width = IMG_MIN_WIDTH,
-				.max_height = IMG_MAX_HEIGHT,
-				.min_height = IMG_MIN_HEIGHT,
-				.step_height = 1,
-				.step_width = 1,
-			},
-		},
-	}
 };
 
 static const char *output_queue_names[RAW_PIPELINE_NUM][MTK_RAW_TOTAL_OUTPUT_QUEUES] = {
-	{"mtk-cam raw-0 meta-input", "mtk-cam raw-0 rawi-2",
-	 "mtk-cam raw-0 rawi-3", "mtk-cam raw-0 rawi-4"},
-	{"mtk-cam raw-1 meta-input", "mtk-cam raw-1 rawi-2",
-	 "mtk-cam raw-1 rawi-3", "mtk-cam raw-1 rawi-4"},
-	{"mtk-cam raw-2 meta-input", "mtk-cam raw-2 rawi-2",
-	 "mtk-cam raw-2 rawi-3", "mtk-cam raw-2 rawi-4"},
+	{"mtk-cam raw-0 meta-input", "mtk-cam raw-0 rawi-2"},
+	{"mtk-cam raw-1 meta-input", "mtk-cam raw-1 rawi-2"},
+	{"mtk-cam raw-2 meta-input", "mtk-cam raw-2 rawi-2"},
 };
 
 struct mtk_cam_pad_ops source_pad_ops_default = {
@@ -5686,7 +5669,9 @@ mtk_cam_dev_node_desc capture_queues[] = {
 		.smem_alloc = false,
 		.need_cache_sync_on_finish = true,
 		.dma_port = MTKCAM_IPI_RAW_META_STATS_0,
-		.default_fmt_idx = 1,
+		.fmts = meta_stats0_fmts,
+		.num_fmts = ARRAY_SIZE(meta_stats0_fmts),
+		.default_fmt_idx = 0,
 		.max_buf_count = 16,
 		.ioctl_ops = &mtk_cam_v4l2_meta_cap_ioctl_ops,
 	},
@@ -5700,7 +5685,9 @@ mtk_cam_dev_node_desc capture_queues[] = {
 		.smem_alloc = false,
 		.need_cache_sync_on_finish = true,
 		.dma_port = MTKCAM_IPI_RAW_META_STATS_1,
-		.default_fmt_idx = 2,
+		.fmts = meta_stats1_fmts,
+		.num_fmts = ARRAY_SIZE(meta_stats1_fmts),
+		.default_fmt_idx = 0,
 		.max_buf_count = 16,
 		.ioctl_ops = &mtk_cam_v4l2_meta_cap_ioctl_ops,
 	},
@@ -5713,7 +5700,9 @@ mtk_cam_dev_node_desc capture_queues[] = {
 		.image = false,
 		.smem_alloc = false,
 		.dma_port = MTKCAM_IPI_CAMSV_MAIN_OUT,
-		.default_fmt_idx = 4,
+		.fmts = meta_ext_fmts,
+		.num_fmts = ARRAY_SIZE(meta_ext_fmts),
+		.default_fmt_idx = 0,
 		.max_buf_count = 16,
 		.ioctl_ops = &mtk_cam_v4l2_meta_cap_ioctl_ops,
 	},
@@ -5726,7 +5715,9 @@ mtk_cam_dev_node_desc capture_queues[] = {
 		.image = false,
 		.smem_alloc = false,
 		.dma_port = MTKCAM_IPI_CAMSV_MAIN_OUT,
-		.default_fmt_idx = 4,
+		.fmts = meta_ext_fmts,
+		.num_fmts = ARRAY_SIZE(meta_ext_fmts),
+		.default_fmt_idx = 0,
 		.max_buf_count = 16,
 		.ioctl_ops = &mtk_cam_v4l2_meta_cap_ioctl_ops,
 	},
@@ -5739,7 +5730,9 @@ mtk_cam_dev_node_desc capture_queues[] = {
 		.image = false,
 		.smem_alloc = false,
 		.dma_port = MTKCAM_IPI_CAMSV_MAIN_OUT,
-		.default_fmt_idx = 4,
+		.fmts = meta_ext_fmts,
+		.num_fmts = ARRAY_SIZE(meta_ext_fmts),
+		.default_fmt_idx = 0,
 		.max_buf_count = 16,
 		.ioctl_ops = &mtk_cam_v4l2_meta_cap_ioctl_ops,
 	},
@@ -5778,17 +5771,47 @@ static const char *capture_queue_names[RAW_PIPELINE_NUM][MTK_RAW_TOTAL_CAPTURE_Q
 	 "mtk-cam raw-2 yuvo-5",
 	 "mtk-cam raw-2 drzs4no-1", "mtk-cam raw-2 drzs4no-3",
 	 "mtk-cam raw-2 rzh1n2to-1", "mtk-cam raw-2 rzh1n2to-2", "mtk-cam raw-2 rzh1n2to-3",
-	 "mtk-cam raw-2 sv-imgo-1", "mtk-cam raw-2 sv-imgo-2",
 	 "mtk-cam raw-2 drzb2no-1",
 	 "mtk-cam raw-2 ipuo",
+	 "mtk-cam raw-2 sv-imgo-1", "mtk-cam raw-2 sv-imgo-2",
 	 "mtk-cam raw-2 partial-meta-0", "mtk-cam raw-2 partial-meta-1",
 	 "mtk-cam raw-2 ext-meta-0", "mtk-cam raw-2 ext-meta-1",
 	 "mtk-cam raw-2 ext-meta-2"},
 };
 
+static void update_platform_meta_size(struct mtk_cam_format_desc *fmts,
+				      int fmt_num, int sv)
+{
+	int i, size;
+
+	for (i = 0; i < fmt_num; i++) {
+
+		switch (fmts[i].vfmt.fmt.meta.dataformat) {
+		case  V4L2_META_FMT_MTISP_PARAMS:
+			size = GET_PLAT_V4L2(meta_cfg_size);
+			break;
+		case  V4L2_META_FMT_MTISP_3A:
+			/* workaround */
+			size = !sv ? GET_PLAT_V4L2(meta_stats0_size) :
+				GET_PLAT_V4L2(meta_sv_ext_size);
+			break;
+		case  V4L2_META_FMT_MTISP_AF:
+			size = GET_PLAT_V4L2(meta_stats1_size);
+			break;
+		default:
+			size = 0;
+			break;
+		}
+
+		if (size)
+			fmts[i].vfmt.fmt.meta.buffersize = size;
+	}
+}
+
 /* The helper to configure the device context */
 static void mtk_raw_pipeline_queue_setup(struct mtk_raw_pipeline *pipe)
 {
+	struct mtk_cam_video_device *vdev;
 	unsigned int node_idx, i;
 
 	if (WARN_ON(MTK_RAW_TOTAL_OUTPUT_QUEUES + MTK_RAW_TOTAL_CAPTURE_QUEUES
@@ -5797,23 +5820,34 @@ static void mtk_raw_pipeline_queue_setup(struct mtk_raw_pipeline *pipe)
 
 	node_idx = 0;
 
+	/* update platform specific */
+	update_platform_meta_size(meta_cfg_fmts,
+				  ARRAY_SIZE(meta_cfg_fmts), 0);
+	update_platform_meta_size(meta_stats0_fmts,
+				  ARRAY_SIZE(meta_stats0_fmts), 0);
+	update_platform_meta_size(meta_stats1_fmts,
+				  ARRAY_SIZE(meta_stats1_fmts), 0);
+	update_platform_meta_size(meta_ext_fmts,
+				  ARRAY_SIZE(meta_ext_fmts), 1);
+
 	/* Setup the output queue */
 	for (i = 0; i < MTK_RAW_TOTAL_OUTPUT_QUEUES; i++) {
-		pipe->vdev_nodes[node_idx].desc = output_queues[i];
-		if (pipe->vdev_nodes[node_idx].desc.id == MTK_RAW_META_IN)
-			pipe->vdev_nodes[node_idx].desc.fmts = mtk_cam_get_meta_fmts();
-		pipe->vdev_nodes[node_idx++].desc.name =
-			output_queue_names[pipe->id][i];
+		vdev = &pipe->vdev_nodes[node_idx];
+
+		vdev->desc = output_queues[i];
+		vdev->desc.name = output_queue_names[pipe->id][i];
+
+		++node_idx;
 	}
 
 	/* Setup the capture queue */
 	for (i = 0; i < MTK_RAW_TOTAL_CAPTURE_QUEUES; i++) {
-		pipe->vdev_nodes[node_idx].desc = capture_queues[i];
-		if (pipe->vdev_nodes[node_idx].desc.id >= MTK_RAW_META_OUT_BEGIN &&
-			pipe->vdev_nodes[node_idx].desc.id <= MTK_RAW_META_SV_OUT_2)
-			pipe->vdev_nodes[node_idx].desc.fmts = mtk_cam_get_meta_fmts();
-		pipe->vdev_nodes[node_idx++].desc.name =
-			capture_queue_names[pipe->id][i];
+		vdev = &pipe->vdev_nodes[node_idx];
+
+		vdev->desc = capture_queues[i];
+		vdev->desc.name = capture_queue_names[pipe->id][i];
+
+		++node_idx;
 	}
 }
 

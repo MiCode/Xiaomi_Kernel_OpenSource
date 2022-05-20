@@ -3034,24 +3034,26 @@ static int mtk_camsv_runtime_suspend(struct device *dev)
 	if (CAMSV_READ_BITS(camsv_dev->base_inner + REG_CAMSV_TG_SEN_MODE,
 		CAMSV_TG_SEN_MODE, CMOS_EN) == 1) {
 		mtk_smi_dbg_hang_detect("camsys-camsv");
+#if NOT_READY_TODO
 		if (ctx && ctx->used_raw_num != 0) {
 			for (i = MTKCAM_SUBDEV_RAW_0; i < MTKCAM_SUBDEV_RAW_END; i++) {
 				if (ctx->pipe->enabled_raw & (1 << i))
 					mtk_cam_dump_raw_hw_debug_info(i);
 			}
 		}
+#endif
 	}
 
 	for (i = 0; i < camsv_dev->num_clks; i++)
 		clk_disable_unprepare(camsv_dev->clks[i]);
-
+#if NOT_READY_TODO
 	if (ctx && ctx->used_raw_num != 0) {
 		for (i = MTKCAM_SUBDEV_RAW_0; i < MTKCAM_SUBDEV_RAW_END; i++) {
 			if (ctx->pipe->enabled_raw & (1 << i))
 				mtk_cam_dump_raw_hw_debug_info(i);
 		}
 	}
-
+#endif
 	return 0;
 }
 

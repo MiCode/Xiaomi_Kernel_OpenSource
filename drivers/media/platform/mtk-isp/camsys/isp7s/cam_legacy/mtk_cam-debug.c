@@ -129,8 +129,8 @@ mtk_cam_debug_dump_all_content(struct mtk_cam_debug_fs *debug_fs,
 		header->payload_offset, header->payload_size);
 
 	/* meta file information */
-	header->meta_version_major = mtk_cam_get_meta_version(true);
-	header->meta_version_minor = mtk_cam_get_meta_version(false);
+	header->meta_version_major = GET_PLAT_V4L2(meta_major);
+	header->meta_version_minor = GET_PLAT_V4L2(meta_minor);
 
 	/* CQ dump */
 	header->cq_dump_buf_offset = header->payload_offset;
