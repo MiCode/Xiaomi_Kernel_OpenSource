@@ -117,7 +117,7 @@ static int fusb304_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct fusb304 *fusb;
-	struct typec_switch_desc sw_desc;
+	struct typec_switch_desc sw_desc = {};
 	int ret = 0;
 
 	fusb = devm_kzalloc(&pdev->dev, sizeof(*fusb), GFP_KERNEL);
