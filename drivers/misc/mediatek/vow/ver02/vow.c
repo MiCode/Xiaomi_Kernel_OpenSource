@@ -70,7 +70,7 @@ static struct wakeup_source *vow_suspend_lock;
 static struct wakeup_source *vow_ipi_suspend_lock;
 static struct dump_package_t dump_package;
 static int init_flag = -1;
-static const uint32_t kReadVowDumpSize = 0xA00 * 2; // 320(10ms) x 8 x 2ch= 5120 = 0x1400
+static const uint32_t kReadVowDumpSize = 0xA00 * 2 * 2; // 320(10ms) x 8 x 2ch * 2= 10240 = 0x2800
 /*****************************************************************************
  * Function  Declaration
  ****************************************************************************/
