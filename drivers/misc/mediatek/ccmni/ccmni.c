@@ -55,7 +55,10 @@ long gro_flush_timer __read_mostly = 2000000L;
 long gro_flush_timer;
 #endif
 
+/*VIP_MARK is defined as highest priority */
 #define APP_VIP_MARK		0x80000000
+#define APP_VIP_MARK2		0x40000000
+
 #define DEV_OPEN                1
 #define DEV_CLOSE               0
 
@@ -371,7 +374,7 @@ static u16 ccmni_select_queue(struct net_device *dev, struct sk_buff *skb,
 		return CCMNI_TXQ_NORMAL;
 	}
 	if (ccmni_ctl_blk->ccci_ops->md_ability & MODEM_CAP_DATA_ACK_DVD) {
-		if (skb->mark & APP_VIP_MARK)
+		if ((skb->mark & APP_VIP_MARK) || (skb->mark & APP_VIP_MARK2))
 			return CCMNI_TXQ_FAST;
 
 		if (ccmni->ack_prio_en && is_ack_skb(skb))
@@ -485,6 +488,7 @@ static netdev_tx_t ccmni_start_xmit(struct sk_buff *skb, struct net_device *dev)
 	struct ccmni_instance *ccmni =
 		(struct ccmni_instance *)netdev_priv(dev);
 	unsigned int is_ack = 0;
+	unsigned int priority_lev = 0;
 	struct md_tag_packet *tag = NULL;
 	unsigned int count = 0;
 	struct iphdr *iph;
@@ -525,13 +529,22 @@ static netdev_tx_t ccmni_start_xmit(struct sk_buff *skb, struct net_device *dev)
 
 	if (ccmni_ctl_blk->ccci_ops->md_ability & MODEM_CAP_DATA_ACK_DVD) {
 		iph = (struct iphdr *)skb_network_header(skb);
-		if (skb->mark & APP_VIP_MARK)
+		if (skb->mark & APP_VIP_MARK) {
 			is_ack = 1;
-		else if (ccmni->ack_prio_en)
+			priority_lev = PRIORITY_2; /* highest priority */
+		} else if (skb->mark & APP_VIP_MARK2) {
+			is_ack = 1;
+			priority_lev = PRIORITY_1;
+		} else if (ccmni->ack_prio_en) {
 			is_ack = is_ack_skb(skb);
+			if (is_ack)
+				priority_lev = PRIORITY_2;
+			else
+				priority_lev = PRIORITY_0;
+		}
 	}
 	sk_pacing_shift_update(skb->sk, sysctl_tcp_pacing_shift);
-	ret = ccmni_ctl_blk->ccci_ops->send_pkt(ccmni->index, skb, is_ack);
+	ret = ccmni_ctl_blk->ccci_ops->send_pkt(ccmni->index, skb, priority_lev);
 	if (ret == CCMNI_ERR_MD_NO_READY || ret == CCMNI_ERR_TX_INVAL) {
 		dev_kfree_skb(skb);
 		dev->stats.tx_dropped++;

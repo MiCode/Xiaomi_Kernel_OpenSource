@@ -447,6 +447,24 @@ enum HIF_STATE {
 	TX_FULL, /* broadcast by HIF, only for network! */
 };
 
+/* DATA Q priority channel
+ * high:Q1
+ * normal:Q0
+ * medium:Q2 -->gen97/98:PDCP VRB, Dujac:QOS VRB
+ * IMS:Q3
+ */
+enum QUEUE_PRIORITY {
+	PRIORITY_0 = 0, /* lowest priority -> MD_HW_NORMAL_Q(Q0)*/
+	PRIORITY_1 = 1, /* medium priority -> MD_HW_MEDIUM_Q(Q2)*/
+	PRIORITY_2 = 2, /* highest priority-> MD_HW_HIGH_Q(Q1)*/
+};
+
+enum QUEUE_NUM {
+	MD_HW_HIGH_Q = 1,
+	MD_HW_NORMAL_Q = 0,
+	MD_HW_MEDIUM_Q = 2,
+	MD_HW_IMS_Q = 3,
+};
 /* ============================================================== */
 /* Image type and header defination part */
 /* ============================================================== */

@@ -907,21 +907,38 @@ static void port_dump_raw_data(struct port_t *port, int dir,
 			*(curr_p + 2), *(curr_p + 3));
 	}
 }
+
+/**
+ * port_get_queue_no - port select queue number
+ * @port: port abstract structure
+ * @dir: data transmission direction
+ * @priority_level: modem hardware queue priority level
+ * priority_level = -1 --> use port_cfg default config for ctrl path
+ * priority_level = PRIORITY_0 --> lowest priority use MD_HW_NORMAL_Q(Q0)
+ * priority_level = PRIORITY_1 --> medium priority use MD_HW_MEDIUM_Q(Q2)
+ * priority_level = PRIORITY_2 --> highest priority use MD_HW_HIGH_Q(Q1)
+ */
 static inline int port_get_queue_no(struct port_t *port, enum DIRECTION dir,
-			 int is_ack)
+			 int priority_level)
 {
 	int md_state;
 
 	md_state = ccci_fsm_get_md_state();
 	if (dir == OUT) {
-		if (is_ack == 1)
+		if (priority_level == PRIORITY_2)
 			return (md_state == EXCEPTION ? port->txq_exp_index :
-				(port->txq_exp_index&0x0F));
+				MD_HW_HIGH_Q);
+		if (priority_level == PRIORITY_1)
+			return (md_state == EXCEPTION ? port->txq_exp_index :
+				MD_HW_MEDIUM_Q);
+		if (priority_level == PRIORITY_0)
+			return (md_state == EXCEPTION ? port->txq_exp_index :
+				MD_HW_NORMAL_Q);
 		return (md_state == EXCEPTION ? port->txq_exp_index :
-				port->txq_index);
+			port->txq_index);
 	} else if (dir == IN)
 		return (md_state == EXCEPTION ? port->rxq_exp_index :
-				port->rxq_index);
+			port->rxq_index);
 	else
 		return -1;
 }
@@ -1128,14 +1145,14 @@ int port_user_unregister(struct port_t *port)
  * This API is called by port_net,
  * which is used to send skb message to md
  */
-int port_net_send_skb_to_md(struct port_t *port, int is_ack,
+int port_net_send_skb_to_md(struct port_t *port, int priority_level,
 	struct sk_buff *skb)
 {
 	int tx_qno = 0;
 
 	if (ccci_fsm_get_md_state() != READY)
 		return -ENODEV;
-	tx_qno = port_get_queue_no(port, OUT, is_ack);
+	tx_qno = port_get_queue_no(port, OUT, priority_level);
 	return ccci_hif_send_skb(port->hif_id, tx_qno, skb,
 			port->skb_from_pool, 0);
 }

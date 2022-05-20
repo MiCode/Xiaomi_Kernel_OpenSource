@@ -198,14 +198,14 @@ static struct port_t *find_net_port_by_ccmni_idx(int ccmni_idx)
 	return port_get_by_minor(ccmni_idx + CCCI_NET_MINOR_BASE);
 }
 
-int ccmni_send_pkt(int ccmni_idx, void *data, int is_ack)
+int ccmni_send_pkt(int ccmni_idx, void *data, int priority_level)
 {
 	struct port_t *port = NULL;
 	/* struct ccci_request *req = NULL; */
 	struct ccci_header *ccci_h = NULL;
 	struct sk_buff *skb = (struct sk_buff *)data;
 	struct ccmni_ch *channel = ccmni_ops.get_ch(ccmni_idx);
-	int tx_ch = is_ack ? channel->dl_ack : channel->tx;
+	int tx_ch = priority_level ? channel->dl_ack : channel->tx;
 	int ret;
 #ifdef PORT_NET_TRACE
 	unsigned long long send_time = 0;
@@ -241,7 +241,7 @@ int ccmni_send_pkt(int ccmni_idx, void *data, int is_ack)
 #ifdef PORT_NET_TRACE
 	send_time = sched_clock();
 #endif
-	ret = port_net_send_skb_to_md(port, is_ack, skb);
+	ret = port_net_send_skb_to_md(port, priority_level, skb);
 #ifdef PORT_NET_TRACE
 	send_time = sched_clock() - send_time;
 #endif
