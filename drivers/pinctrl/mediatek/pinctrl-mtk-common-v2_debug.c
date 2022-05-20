@@ -497,7 +497,7 @@ static struct proc_dir_entry *mtk_gpio_debug_root;
 
 static int mtk_gpio_init_procfs(void)
 {
-	struct proc_dir_entry *proc_entry;
+	struct proc_dir_entry *proc_entry = NULL;
 	struct mtk_pinctrl *hw = NULL;
 	struct gpio_desc *gdesc;
 	unsigned int pin = ARCH_NR_GPIOS - 1;
