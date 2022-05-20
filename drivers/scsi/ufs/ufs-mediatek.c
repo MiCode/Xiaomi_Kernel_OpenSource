@@ -2056,18 +2056,25 @@ static int ufs_mtk_link_set_lpm(struct ufs_hba *hba)
 
 static void ufs_mtk_vreg_set_lpm(struct ufs_hba *hba, bool lpm)
 {
-	if (!hba->vreg_info.vccq2 || !hba->vreg_info.vcc)
+	struct ufs_vreg *vccqx = NULL;
+
+	if (!hba->vreg_info.vccq && !hba->vreg_info.vccq2)
 		return;
 
 	/* prevent entering lpm when device is still active */
 	if (lpm && ufshcd_is_ufs_dev_active(hba))
 		return;
 
-	if (lpm && !hba->vreg_info.vcc->enabled)
-		regulator_set_mode(hba->vreg_info.vccq2->reg,
+	if (hba->vreg_info.vccq)
+		vccqx = hba->vreg_info.vccq;
+	else
+		vccqx = hba->vreg_info.vccq2;
+
+	if (lpm)
+		regulator_set_mode(vccqx->reg,
 				   REGULATOR_MODE_IDLE);
-	else if (!lpm)
-		regulator_set_mode(hba->vreg_info.vccq2->reg,
+	else
+		regulator_set_mode(vccqx->reg,
 				   REGULATOR_MODE_NORMAL);
 }
 
