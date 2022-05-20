@@ -4992,6 +4992,9 @@ static int mtk_drm_kms_init(struct drm_device *drm)
 	if (ret)
 		goto err_config_cleanup;
 
+	ret = drm_vblank_init(drm, MAX_CRTC);
+	if (ret < 0)
+		goto err_component_unbind;
 	/*
 	 * We currently support two fixed data streams, each optional,
 	 * and each statically assigned to a crtc:
@@ -5087,10 +5090,6 @@ static int mtk_drm_kms_init(struct drm_device *drm)
 		dev_err(dma_dev, "Failed to set DMA segment size\n");
 		goto err_unset_dma_parms;
 	}
-
-	ret = drm_vblank_init(drm, MAX_CRTC);
-	if (ret < 0)
-		goto err_unset_dma_parms;
 
 	drm_kms_helper_poll_init(drm);
 	drm_mode_config_reset(drm);
