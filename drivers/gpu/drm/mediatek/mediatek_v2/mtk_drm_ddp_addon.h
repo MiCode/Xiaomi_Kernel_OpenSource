@@ -132,6 +132,7 @@ struct mtk_addon_mml_config {
 	struct mtk_rect mml_src_roi[DISP_PIPE_NUM]; /* [OUT] src roi for OVL */
 	struct mtk_rect mml_dst_roi[DISP_PIPE_NUM]; /* [OUT] dst roi for OVL */
 	bool is_yuv;				    /* [OUT] src format */
+	bool is_entering;			    /* [OUT] state of entering or leaving */
 };
 
 union mtk_addon_config {

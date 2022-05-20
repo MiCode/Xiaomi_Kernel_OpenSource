@@ -1844,6 +1844,9 @@ static void mml_addon_module_connect(struct drm_crtc *crtc,
 	addon_config->addon_mml_config.is_yuv =
 	    MML_FMT_IS_YUV(addon_config->addon_mml_config.submit.info.src.format);
 
+	addon_config->addon_mml_config.is_entering =
+	    mtk_crtc->mml_ir_state == MML_IR_ENTERING ? true : false;
+
 	crtc_state->mml_src_roi[0] = addon_config->addon_mml_config.mml_src_roi[0];
 	DDPINFO("%s:%d dual:src[0](%d,%d,%d,%d), dst[0](%d,%d,%d,%d)\n",
 			__func__, __LINE__,
@@ -7490,7 +7493,8 @@ void mml_cmdq_pkt_init(struct drm_crtc *crtc, struct cmdq_pkt *cmdq_handle)
 	if (!crtc || !cmdq_handle || !mtk_crtc)
 		return;
 
-	if (mtk_crtc->is_mml) {
+	switch (mtk_crtc->mml_ir_state) {
+	case MML_IR_ENTERING:
 		for (; i <= mtk_crtc->is_dual_pipe; ++i) {
 			comp = priv->ddp_comp[id[i]];
 			mtk_ddp_comp_addon_config(comp, 0, 0, NULL, cmdq_handle);
@@ -7498,9 +7502,14 @@ void mml_cmdq_pkt_init(struct drm_crtc *crtc, struct cmdq_pkt *cmdq_handle)
 			    mtk_crtc, id[i], false, cmdq_handle,
 			    mtk_crtc_get_mutex_id(crtc, mtk_crtc->ddp_mode, DDP_COMPONENT_OVL0));
 		}
+	case MML_IR_RACING:
 		mml_drm_racing_config_sync(mml_ctx, cmdq_handle);
-	} else if (mtk_crtc->need_stop_last_mml_job) {
+		break;
+	case MML_IR_LEAVING:
 		mtk_crtc_mml_racing_stop_sync(crtc, cmdq_handle);
+		break;
+	default:
+		break;
 	}
 }
 

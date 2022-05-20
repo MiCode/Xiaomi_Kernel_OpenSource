@@ -1261,13 +1261,14 @@ static void mtk_atomic_mml(struct drm_device *dev,
 	struct mtk_plane_state *mtk_plane_state;
 	struct mtk_drm_crtc *mtk_crtc;
 	int i = 0;
+	bool last_is_mml = false;
 
 	for_each_old_crtc_in_state(state, crtc, old_crtc_state, i) {
 		if (crtc && drm_crtc_index(crtc) == 0) {
 			mtk_crtc = to_mtk_crtc(crtc);
-			mtk_crtc->last_is_mml = mtk_crtc->is_mml;
+			last_is_mml = mtk_crtc->is_mml;
 			mtk_crtc->is_mml = false;
-			mtk_crtc->need_stop_last_mml_job = false;
+			mtk_crtc->mml_ir_state = NOT_MML_IR;
 			break;
 		}
 	}
@@ -1287,19 +1288,15 @@ static void mtk_atomic_mml(struct drm_device *dev,
 		}
 	}
 
-	for_each_old_crtc_in_state(state, crtc, old_crtc_state, i) {
-		if (!crtc || drm_crtc_index(crtc) != 0)
-			continue;
+	if (!last_is_mml && mtk_crtc->is_mml)
+		mtk_crtc->mml_ir_state = MML_IR_ENTERING;
+	else if (last_is_mml && mtk_crtc->is_mml)
+		mtk_crtc->mml_ir_state = MML_IR_RACING;
+	else if (last_is_mml && !mtk_crtc->is_mml)
+		mtk_crtc->mml_ir_state = MML_IR_LEAVING;
 
-		mtk_crtc = to_mtk_crtc(crtc);
-		if (mtk_crtc->is_mml)
-			continue;
-
+	if (last_is_mml)
 		atomic_set(&(mtk_crtc->mml_last_job_is_flushed), 1);
-
-		if (mtk_crtc->last_is_mml)
-			mtk_crtc->need_stop_last_mml_job = true;
-	}
 
 	for_each_oldnew_crtc_in_state(state, crtc, old_crtc_state, new_crtc_state, i) {
 		struct mtk_crtc_state *s = to_mtk_crtc_state(new_crtc_state);
