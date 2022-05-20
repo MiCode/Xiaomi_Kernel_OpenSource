@@ -79,9 +79,8 @@ void mtk_btag_mictx_eval_tp(
 	spin_unlock_irqrestore(&btag->mictx.list_lock, flags);
 }
 
-void mtk_btag_mictx_eval_req(
-	struct mtk_blocktag *btag,
-	bool write, __u32 cnt, __u32 size, bool top)
+void mtk_btag_mictx_eval_req(struct mtk_blocktag *btag, bool write,
+				__u32 total_len, __u32 top_len)
 {
 	struct mtk_btag_mictx_struct *mictx, *n;
 	struct mtk_btag_req_rw *reqrw;
@@ -90,15 +89,14 @@ void mtk_btag_mictx_eval_req(
 	spin_lock_irqsave(&btag->mictx.list_lock, flags);
 	list_for_each_entry_safe(mictx, n, &btag->mictx.list, list) {
 		reqrw = (write) ? &mictx->req.w : &mictx->req.r;
-		reqrw->count += cnt;
-		reqrw->size += size;
-		if (top)
-			reqrw->size_top += size;
+		reqrw->count++;
+		reqrw->size += total_len;
+		reqrw->size_top += top_len;
 	}
 	spin_unlock_irqrestore(&btag->mictx.list_lock, flags);
 
-	if (top && btag->vops->earaio_enabled)
-		mtk_btag_earaio_update_pwd(write, size);
+	if (top_len && btag->vops->earaio_enabled)
+		mtk_btag_earaio_update_pwd(write, top_len);
 }
 
 void mtk_btag_mictx_accumulate_weight_qd(

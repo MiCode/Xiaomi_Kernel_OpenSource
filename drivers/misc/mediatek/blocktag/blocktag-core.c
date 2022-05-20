@@ -69,7 +69,7 @@ do { \
 	(mtk_btag_system_dram_size >> PAGE_SHIFT)
 
 #define mtk_btag_pidlog_entry(idx) \
-	(((struct page_pid_logger *)mtk_btag_pagelogger) + idx)
+	(((struct page_pidlogger *)mtk_btag_pagelogger) + idx)
 
 /* max dump size is 300KB which can be adjusted */
 #define BLOCKIO_AEE_BUFFER_SIZE (300 * 1024)
@@ -125,7 +125,7 @@ struct mtk_blocktag *mtk_btag_find_by_type(
 
 /* pid logger: page loger*/
 unsigned long long mtk_btag_system_dram_size;
-struct page_pid_logger *mtk_btag_pagelogger;
+struct page_pidlogger *mtk_btag_pagelogger;
 
 static size_t mtk_btag_seq_pidlog_usedmem(char **buff, unsigned long *size,
 	struct seq_file *seq)
@@ -133,32 +133,41 @@ static size_t mtk_btag_seq_pidlog_usedmem(char **buff, unsigned long *size,
 	size_t size_l = 0;
 
 	if (!IS_ERR_OR_NULL(mtk_btag_pagelogger)) {
-		size_l = (sizeof(struct page_pid_logger)
+		size_l = (sizeof(struct page_pidlogger)
 			* (mtk_btag_system_dram_size >> PAGE_SHIFT));
 		SPREAD_PRINTF(buff, size, seq,
 		"page pid logger buffer: %llu entries * %zu = %zu bytes\n",
 			(mtk_btag_system_dram_size >> PAGE_SHIFT),
-			sizeof(struct page_pid_logger),
+			sizeof(struct page_pidlogger),
 			size_l);
 	}
 	return size_l;
 }
 
-void mtk_btag_pidlog_insert(struct mtk_btag_pidlogger *pidlog, __s16 pid,
-			    __u32 len, bool write)
+void mtk_btag_pidlog_insert(struct mtk_btag_proc_pidlogger *pidlog, bool write,
+				struct tmp_proc_pidlogger *tmplog)
 {
-	int i;
-	struct mtk_btag_pidlogger_entry *pe;
-	struct mtk_btag_pidlogger_entry_rw *prw;
+	struct mtk_btag_proc_pidlogger_entry *pe;
+	struct mtk_btag_proc_pidlogger_entry_rw *prw;
+	struct tmp_proc_pidlogger_entry *te;
+	int pe_idx, te_idx;
+	int last_te_idx = BLOCKTAG_PIDLOG_ENTRIES - 1;
 
-	for (i = 0; i < BLOCKTAG_PIDLOG_ENTRIES; i++) {
-		pe = &pidlog->info[i];
-		if ((pe->pid == pid) || (pe->pid == 0)) {
-			pe->pid = pid;
-			prw = (write) ? &pe->w : &pe->r;
-			prw->count++;
-			prw->length += len;
+	for (; last_te_idx >= 0; last_te_idx--)
+		if (tmplog->info[last_te_idx].pid)
 			break;
+
+	for (te_idx = 0; te_idx <= last_te_idx; te_idx++) {
+		te = &tmplog->info[te_idx];
+		for (pe_idx = 0; pe_idx < BLOCKTAG_PIDLOG_ENTRIES; pe_idx++) {
+			pe = &pidlog->info[pe_idx];
+			if (te->pid == pe->pid || pe->pid == 0) {
+				pe->pid = te->pid;
+				prw = (write) ? &pe->w : &pe->r;
+				prw->count++;
+				prw->length += te->length;
+				break;
+			}
 		}
 	}
 }
@@ -175,47 +184,50 @@ static int mtk_btag_get_storage_type(struct bio *bio)
 		return BTAG_STORAGE_UNKNOWN;
 }
 
-static void mtk_btag_pidlog_add(struct request_queue *q, struct bio *bio,
-	__s16 pid, __u32 len, bool is_sd)
-{
-	int type;
-	bool write = (bio_data_dir(bio) == WRITE) ? true : false;
-
-	type = mtk_btag_get_storage_type(bio);
-
-	if (pid) {
-		if (type == BTAG_STORAGE_UFS) {
-			mtk_btag_pidlog_add_ufs(q, pid, len, write);
-			return;
-		} else if (type == BTAG_STORAGE_MMC) {
-			mtk_btag_pidlog_add_mmc(q, pid, len, write, is_sd);
-			return;
-		}
-	}
-}
-
 /*
  * pidlog: hook function for __blk_bios_map_sg()
  * rw: 0=read, 1=write
  */
-static void mtk_btag_pidlog_commit_bio(struct request_queue *q, struct bio *bio,
-	struct bio_vec *bvec, bool is_sd)
+static void mtk_btag_pidlog_commit_bio(struct bio_vec *bvec, __u32 *total_len,
+					__u32 *top_len,
+					struct tmp_proc_pidlogger *tmplog)
 {
-	struct page_pid_logger *ppl;
+	struct page_pidlogger *ppl;
 	__u32 idx;
+	__s16 pid;
+	int i;
+	struct tmp_proc_pidlogger_entry *te;
 
 	idx = mtk_btag_pidlog_index(bvec->bv_page);
 	ppl = mtk_btag_pidlog_entry(idx);
-	mtk_btag_pidlog_add(q, bio, ppl->pid, bvec->bv_len, is_sd);
+	pid = ppl->pid;
 	ppl->pid = 0;
+
+	*total_len += bvec->bv_len;
+	if (pid < 0)
+		*top_len += bvec->bv_len;
+
+	pid = abs(pid);
+	for (i = 0; i < BLOCKTAG_PIDLOG_ENTRIES; i++) {
+		te = &tmplog->info[i];
+		if ((te->pid == pid) || (te->pid == 0)) {
+			te->pid = pid;
+			te->length += bvec->bv_len;
+			break;
+		}
+	}
 }
 
 void mtk_btag_commit_req(struct request *rq, bool is_sd)
 {
-	struct request_queue *q = rq->q;
 	struct bio *bio = rq->bio;
 	struct bio_vec bvec;
 	struct req_iterator rq_iter;
+	int type;
+	bool write;
+	struct tmp_proc_pidlogger tmplog;
+	__u32 total_len = 0;
+	__u32 top_len = 0;
 
 	if (unlikely(!mtk_btag_pagelogger) || !bio)
 		return;
@@ -223,10 +235,23 @@ void mtk_btag_commit_req(struct request *rq, bool is_sd)
 	if (bio_op(bio) != REQ_OP_READ && bio_op(bio) != REQ_OP_WRITE)
 		return;
 
+	type = mtk_btag_get_storage_type(bio);
+	if (type == BTAG_STORAGE_UNKNOWN)
+		return;
+
+	memset(&tmplog, 0, sizeof(struct tmp_proc_pidlogger));
 	rq_for_each_segment(bvec, rq, rq_iter) {
 		if (bvec.bv_page)
-			mtk_btag_pidlog_commit_bio(q, bio, &bvec, is_sd);
+			mtk_btag_pidlog_commit_bio(&bvec, &total_len,
+						&top_len, &tmplog);
 	}
+
+	write  = (bio_data_dir(bio) == WRITE) ? true : false;
+	if (type == BTAG_STORAGE_UFS)
+		mtk_btag_pidlog_add_ufs(write, total_len, top_len, &tmplog);
+	else if (type == BTAG_STORAGE_MMC)
+		mtk_btag_pidlog_add_mmc(is_sd, write, total_len, top_len,
+					&tmplog);
 }
 
 /* evaluate vmstat trace from global_node_page_state() */
@@ -256,8 +281,8 @@ void mtk_btag_vmstat_eval(struct mtk_btag_vmstat *vm)
 }
 
 /* evaluate pidlog trace from context */
-void mtk_btag_pidlog_eval(struct mtk_btag_pidlogger *pl,
-	struct mtk_btag_pidlogger *ctx_pl)
+void mtk_btag_pidlog_eval(struct mtk_btag_proc_pidlogger *pl,
+	struct mtk_btag_proc_pidlogger *ctx_pl)
 {
 	int i;
 
@@ -267,7 +292,7 @@ void mtk_btag_pidlog_eval(struct mtk_btag_pidlogger *pl,
 	}
 
 	if (i != 0) {
-		int size = i * sizeof(struct mtk_btag_pidlogger_entry);
+		int size = i * sizeof(struct mtk_btag_proc_pidlogger_entry);
 
 		memcpy(&pl->info[0], &ctx_pl->info[0], size);
 		memset(&ctx_pl->info[0], 0, size);
@@ -451,7 +476,7 @@ static void mtk_btag_seq_trace(char **buff, unsigned long *size,
 		tr->pid);
 
 	for (i = 0; i < BLOCKTAG_PIDLOG_ENTRIES; i++) {
-		struct mtk_btag_pidlogger_entry *pe;
+		struct mtk_btag_proc_pidlogger_entry *pe;
 
 		pe = &tr->pidlog.info[i];
 
@@ -878,7 +903,7 @@ static inline bool mtk_btag_is_top_task(struct task_struct *task,
 
 static void mtk_btag_pidlog_set_pid(struct page *p, int mode, bool write)
 {
-	struct page_pid_logger *ppl;
+	struct page_pidlogger *ppl;
 	short pid = current->pid;
 	unsigned long idx;
 	bool top;
@@ -1118,7 +1143,7 @@ static void mtk_btag_init_memory(void)
 static void mtk_btag_init_pidlogger(void)
 {
 	unsigned long count = mtk_btag_system_dram_size >> PAGE_SHIFT;
-	unsigned long size = count * sizeof(struct page_pid_logger);
+	unsigned long size = count * sizeof(struct page_pidlogger);
 
 	if (mtk_btag_pagelogger)
 		goto init;

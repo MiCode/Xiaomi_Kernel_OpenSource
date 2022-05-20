@@ -89,8 +89,8 @@ static struct ufs_mtk_bio_context_task *ufs_mtk_bio_curr_task(
 	return ufs_mtk_bio_get_task(ctx, task_id);
 }
 
-int mtk_btag_pidlog_add_ufs(struct request_queue *q, __s16 pid,
-	__u32 len, bool write)
+int mtk_btag_pidlog_add_ufs(bool write, __u32 total_len, __u32 top_len,
+				struct tmp_proc_pidlogger *tmplog)
 {
 	unsigned long flags;
 	struct ufs_mtk_bio_context *ctx;
@@ -100,14 +100,12 @@ int mtk_btag_pidlog_add_ufs(struct request_queue *q, __s16 pid,
 		return 0;
 
 	spin_lock_irqsave(&ctx->lock, flags);
-	mtk_btag_pidlog_insert(&ctx->pidlog, abs(pid), len, write);
-	mtk_btag_mictx_eval_req(ufs_mtk_btag, write, len >> 12, len,
-				pid < 0 ? true : false);
+	mtk_btag_pidlog_insert(&ctx->pidlog, write, tmplog);
+	mtk_btag_mictx_eval_req(ufs_mtk_btag, write, total_len, top_len);
 	spin_unlock_irqrestore(&ctx->lock, flags);
 
 	return 1;
 }
-EXPORT_SYMBOL_GPL(mtk_btag_pidlog_add_ufs);
 
 void ufs_mtk_biolog_clk_gating(bool clk_on)
 {

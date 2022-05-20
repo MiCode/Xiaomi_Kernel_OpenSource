@@ -32,10 +32,6 @@
 #define BTAG_RT(btag)     (btag ? &btag->rt : NULL)
 #define BTAG_CTX(btag)    (btag ? btag->ctx.priv : NULL)
 
-struct page_pid_logger {
-	__s16 pid;
-};
-
 #if IS_ENABLED(CONFIG_MTK_USE_RESERVED_EXT_MEM)
 extern void *extmem_malloc_page_align(size_t bytes);
 #endif
@@ -49,6 +45,33 @@ enum mtk_btag_storage_type {
 	BTAG_STORAGE_UFS     = 0,
 	BTAG_STORAGE_MMC     = 1,
 	BTAG_STORAGE_UNKNOWN = 2
+};
+
+struct page_pidlogger {
+	__s16 pid;
+};
+
+struct mtk_btag_proc_pidlogger_entry_rw {
+	__u16 count;
+	__u32 length;
+};
+
+struct mtk_btag_proc_pidlogger_entry {
+	__u16 pid;
+	struct mtk_btag_proc_pidlogger_entry_rw r; /* read */
+	struct mtk_btag_proc_pidlogger_entry_rw w; /* write */
+};
+
+struct mtk_btag_proc_pidlogger {
+	struct mtk_btag_proc_pidlogger_entry info[BLOCKTAG_PIDLOG_ENTRIES];
+};
+
+struct tmp_proc_pidlogger_entry {
+	__u16 pid;
+	__u32 length;
+};
+struct tmp_proc_pidlogger {
+	struct tmp_proc_pidlogger_entry info[BLOCKTAG_PIDLOG_ENTRIES];
 };
 
 struct mtk_btag_mictx_id {
@@ -153,23 +176,6 @@ struct mtk_btag_vmstat {
 	__u64 fmflt;
 };
 
-struct mtk_btag_pidlogger_entry_rw {
-	__u16 count;
-	__u32 length;
-};
-
-struct mtk_btag_pidlogger_entry {
-	__u16 pid;
-	char comm[TASK_COMM_LEN];
-	struct mtk_btag_pidlogger_entry_rw r; /* read */
-	struct mtk_btag_pidlogger_entry_rw w; /* write */
-};
-
-struct mtk_btag_pidlogger {
-	__u16 current_pid;
-	struct mtk_btag_pidlogger_entry info[BLOCKTAG_PIDLOG_ENTRIES];
-};
-
 struct mtk_btag_cpu {
 	__u64 user;
 	__u64 nice;
@@ -188,7 +194,7 @@ struct mtk_btag_trace {
 	struct mtk_btag_workload workload;
 	struct mtk_btag_throughput throughput;
 	struct mtk_btag_vmstat vmstat;
-	struct mtk_btag_pidlogger pidlog;
+	struct mtk_btag_proc_pidlogger pidlog;
 	struct mtk_btag_cpu cpu;
 };
 
@@ -240,17 +246,18 @@ struct mtk_blocktag {
 struct mtk_blocktag *mtk_btag_find_by_type(
 	enum mtk_btag_storage_type storage_type);
 
-void mtk_btag_pidlog_insert(
-	struct mtk_btag_pidlogger *pidlog, __s16 pid, __u32 len, bool write);
-int mtk_btag_pidlog_add_ufs(
-	struct request_queue *q, __s16 pid, __u32 len, bool write);
-int mtk_btag_pidlog_add_mmc(
-	struct request_queue *q, __s16 pid, __u32 len, bool write, bool is_sd);
+void mtk_btag_pidlog_insert(struct mtk_btag_proc_pidlogger *pidlog, bool write,
+				struct tmp_proc_pidlogger *tmplog);
+int mtk_btag_pidlog_add_ufs(bool write, __u32 total_len, __u32 top_len,
+				struct tmp_proc_pidlogger *pidlog);
+int mtk_btag_pidlog_add_mmc(bool is_sd, bool write, __u32 total_len,
+			    __u32 top_len, struct tmp_proc_pidlogger *pidlog);
 void mtk_btag_commit_req(struct request *rq, bool is_sd);
 
 void mtk_btag_vmstat_eval(struct mtk_btag_vmstat *vm);
 void mtk_btag_pidlog_eval(
-	struct mtk_btag_pidlogger *pl, struct mtk_btag_pidlogger *ctx_pl);
+	struct mtk_btag_proc_pidlogger *pl,
+	struct mtk_btag_proc_pidlogger *ctx_pl);
 void mtk_btag_cpu_eval(struct mtk_btag_cpu *cpu);
 void mtk_btag_throughput_eval(struct mtk_btag_throughput *tp);
 
@@ -267,11 +274,9 @@ void mtk_btag_get_aee_buffer(unsigned long *vaddr, unsigned long *size);
 
 void mtk_btag_mictx_check_window(struct mtk_btag_mictx_id mictx_id);
 void mtk_btag_mictx_eval_tp(
-	struct mtk_blocktag *btag,
-	bool write, __u64 usage, __u32 size);
-void mtk_btag_mictx_eval_req(
-	struct mtk_blocktag *btag,
-	bool rw, __u32 cnt, __u32 size, bool top);
+	struct mtk_blocktag *btag, bool write, __u64 usage, __u32 size);
+void mtk_btag_mictx_eval_req(struct mtk_blocktag *btag, bool write,
+				__u32 total_len, __u32 top_len);
 void mtk_btag_mictx_accumulate_weight_qd(
 	struct mtk_blocktag *btag, __u64 t_begin, __u64 t_cur);
 void mtk_btag_mictx_update(struct mtk_blocktag *btag, __u32 q_depth,
@@ -294,17 +299,14 @@ void mtk_btag_earaio_update_pwd(bool write, __u32 size);
 
 int ufs_mtk_biolog_init(bool qos_allowed, bool boot_device);
 int ufs_mtk_biolog_exit(void);
-void ufs_mtk_biolog_send_command(
-	int task_id, struct scsi_cmnd *cmd);
-void ufs_mtk_biolog_transfer_req_compl(
-	int task_id, unsigned long req_mask);
+void ufs_mtk_biolog_send_command(int task_id, struct scsi_cmnd *cmd);
+void ufs_mtk_biolog_transfer_req_compl(int task_id, unsigned long req_mask);
 void ufs_mtk_biolog_check(unsigned long req_mask);
 void ufs_mtk_biolog_clk_gating(bool gated);
 
 int mmc_mtk_biolog_init(struct mmc_host *mmc);
 int mmc_mtk_biolog_exit(void);
-void mmc_mtk_biolog_send_command(
-	int task_id, struct mmc_request *mrq);
+void mmc_mtk_biolog_send_command(int task_id, struct mmc_request *mrq);
 void mmc_mtk_biolog_transfer_req_compl(
 	struct mmc_host *mmc, int task_id, unsigned long req_mask);
 void mmc_mtk_biolog_check(struct mmc_host *mmc, unsigned long req_mask);

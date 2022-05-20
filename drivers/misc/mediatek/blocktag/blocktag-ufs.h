@@ -40,7 +40,7 @@ struct ufs_mtk_bio_context {
 	struct ufs_mtk_bio_context_task task[UFS_BIOLOG_CONTEXT_TASKS];
 	struct mtk_btag_workload workload;
 	struct mtk_btag_throughput throughput;
-	struct mtk_btag_pidlogger pidlog;
+	struct mtk_btag_proc_pidlogger pidlog;
 };
 
 #endif
