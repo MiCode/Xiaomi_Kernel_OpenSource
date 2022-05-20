@@ -301,6 +301,8 @@ struct singlenode_desc_norm {
 	/* RGB-48bit */
 #define V4L2_PIX_FMT_MTISP_Y32   v4l2_fourcc('M', 'T', '3', '2')
 	/* Y-32bit */
+#define V4L2_PIX_FMT_MTISP_Y24   v4l2_fourcc('M', 'T', '2', '4')
+	/* Y-24bit */
 #define V4L2_PIX_FMT_MTISP_Y16   v4l2_fourcc('M', 'T', '1', '6')
 	/* Y-16bit */
 #define V4L2_PIX_FMT_MTISP_Y8   v4l2_fourcc('M', 'T', '0', '8')
