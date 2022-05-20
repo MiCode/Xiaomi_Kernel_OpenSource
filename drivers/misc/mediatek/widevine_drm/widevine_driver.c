@@ -65,7 +65,7 @@ static long wv_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
 		// get dma buf
 		dmabuf = dma_buf_get(in_out_param.share_fd);
 		if (IS_ERR_OR_NULL(dmabuf)) {
-			WV_LOG(0, "dma_buf_get fail: %d\n", PTR_ERR(dmabuf));
+			WV_LOG(0, "dma_buf_get fail: %ld\n", PTR_ERR(dmabuf));
 			ret = -EFAULT;
 			goto err_quit;
 		}
