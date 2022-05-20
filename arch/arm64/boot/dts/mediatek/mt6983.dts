@@ -1406,7 +1406,7 @@
 				<0 0>;
 
 			power-domains = <&scpsys MT6983_POWER_DOMAIN_UFS0>;
-			vcc-opt1-supply = <&mt6373_vbuck4>;
+			vcc-opt1-supply = <&mt6373_vbuck4_ufs>;
 			vcc-opt2-supply = <&mt6363_vemc>;
 
 			resets = <&ufsaocfg_rst 0>, <&ufspdncfg_rst 0>,
@@ -14418,15 +14418,15 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 		compatible = "mediatek,mt6319";
 		reg = <0x6 SPMI_USID>;
 
-		extbuck_debug {
+		extbuck-debug {
 			compatible = "mediatek,spmi-pmic-debug";
 		};
-		mt6319_6_regulator: mt6319_6_regulator {
+		mt6319_6_regulator: mt6319-6-regulator {
 			compatible = "mediatek,mt6315_6-regulator";
 			buck-size = <2>;
 			buck1-modeset-mask = <0x3>;
 
-			mt6319_6_vbuck1: 6_vbuck1 {
+			mt6319_6_vbuck1: 6-vbuck1 {
 				regulator-compatible = "vbuck1";
 				regulator-name = "6_vbuck1";
 				regulator-min-microvolt = <300000>;
@@ -14435,7 +14435,7 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 				regulator-allowed-modes = <0 1 2>;
 				regulator-always-on;
 			};
-			mt6319_6_vbuck3: 6_vbuck3 {
+			mt6319_6_vbuck3: 6-vbuck3 {
 				regulator-compatible = "vbuck3";
 				regulator-name = "6_vbuck3";
 				regulator-min-microvolt = <300000>;
@@ -14450,15 +14450,15 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 		compatible = "mediatek,mt6319";
 		reg = <0x7 SPMI_USID>;
 
-		extbuck_debug {
+		extbuck-debug {
 			compatible = "mediatek,spmi-pmic-debug";
 		};
-		mt6319_7_regulator: mt6319_7_regulator {
+		mt6319_7_regulator: mt6319-7-regulator {
 			compatible = "mediatek,mt6315_7-regulator";
 			buck-size = <2>;
 			buck1-modeset-mask = <0xB>;
 
-			mt6319_7_vbuck1: 7_vbuck1 {
+			mt6319_7_vbuck1: 7-vbuck1 {
 				regulator-compatible = "vbuck1";
 				regulator-name = "7_vbuck1";
 				regulator-min-microvolt = <300000>;
@@ -14467,7 +14467,7 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 				regulator-allowed-modes = <0 1 2>;
 				regulator-always-on;
 			};
-			mt6319_7_vbuck3: 7_vbuck3 {
+			mt6319_7_vbuck3: 7-vbuck3 {
 				regulator-compatible = "vbuck3";
 				regulator-name = "7_vbuck3";
 				regulator-min-microvolt = <300000>;
@@ -14873,6 +14873,10 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 
 &mt6373_vbuck2 {
 	regulator-always-on;
+};
+
+&mt6373_vbuck4 {
+	regulator-min-microvolt = <0>;
 };
 
 &mddriver {
