@@ -263,12 +263,22 @@ struct notifier_block mtk_cpc_nb = {
 
 int mtk_cpc_init(void)
 {
+	int n;
+
 	cpc.prof_en = false;
 
-	snprintf(cpc.cpu[CPU_TYPE_L].name, PROF_DEV_NAME_SIZE, "cpu_L");
-	snprintf(cpc.cpu[CPU_TYPE_B].name, PROF_DEV_NAME_SIZE, "cpu_B");
-	snprintf(cpc.cluster.name, PROF_DEV_NAME_SIZE, "cluster");
-	snprintf(cpc.mcusys.name, PROF_DEV_NAME_SIZE, "mcusys");
+	n = snprintf(cpc.cpu[CPU_TYPE_L].name, PROF_DEV_NAME_SIZE, "cpu_L");
+	if (n < 0 || n >= PROF_DEV_NAME_SIZE)
+		pr_info("LPM cpc debug name assign fail");
+	n = snprintf(cpc.cpu[CPU_TYPE_B].name, PROF_DEV_NAME_SIZE, "cpu_B");
+	if (n < 0 || n >= PROF_DEV_NAME_SIZE)
+		pr_info("LPM cpc debug name assign fail");
+	n = snprintf(cpc.cluster.name, PROF_DEV_NAME_SIZE, "cluster");
+	if (n < 0 || n >= PROF_DEV_NAME_SIZE)
+		pr_info("LPM cpc debug name assign fail");
+	n = snprintf(cpc.mcusys.name, PROF_DEV_NAME_SIZE, "mcusys");
+	if (n < 0 || n >= PROF_DEV_NAME_SIZE)
+		pr_info("LPM cpc debug name assign fail");
 
 	lpm_notifier_register(&mtk_cpc_nb);
 	return 0;
