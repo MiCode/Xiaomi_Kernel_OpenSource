@@ -74,6 +74,8 @@ bool g_detail_log;
 EXPORT_SYMBOL(g_detail_log);
 bool g_msync_debug;
 EXPORT_SYMBOL(g_msync_debug);
+bool g_gpuc_direct_push;
+EXPORT_SYMBOL(g_gpuc_direct_push);
 bool g_profile_log;
 
 bool g_irq_log;
@@ -2078,6 +2080,11 @@ static void process_dbg_opt(const char *opt)
 			g_detail_log = 1;
 		else if (strncmp(opt + 7, "off", 3) == 0)
 			g_detail_log = 0;
+	} else if (strncmp(opt, "gpuc_dp:", 8) == 0) {
+		if (strncmp(opt + 8, "on", 2) == 0)
+			g_gpuc_direct_push = 1;
+		else if (strncmp(opt + 8, "off", 3) == 0)
+			g_gpuc_direct_push = 0;
 	} else if (strncmp(opt, "profile:", 8) == 0) {
 		if (strncmp(opt + 8, "on", 2) == 0)
 			g_profile_log = 1;

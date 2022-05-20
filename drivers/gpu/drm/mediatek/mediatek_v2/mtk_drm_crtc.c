@@ -119,8 +119,10 @@ unchanged_compress_ratio_table[MAX_FRAME_RATIO_NUMBER*MAX_LAYER_RATIO_NUMBER];
 struct layer_compress_ratio_item
 fbt_compress_ratio_table[MAX_FRAME_RATIO_NUMBER];
 
+#ifndef DRM_CMDQ_DISABLE
 /* frame number index for ring buffer to record ratio */
 static unsigned int fn;
+#endif
 /* overlay bandwidth monitor BURST ACC Window size */
 unsigned int ovl_win_size;
 
@@ -8220,22 +8222,26 @@ static void mtk_drm_crtc_atomic_begin(struct drm_crtc *crtc,
 				mtk_crtc_state->prop_val[CRTC_PROP_MSYNC2_0_ENABLE],
 				mtk_crtc->msync2.msync_disabled);
 
+#ifndef DRM_CMDQ_DISABLE
 	/* BW monitor: Record Key, Clear valid, Set pointer */
 	mtk_crtc->fbt_layer_id = -1;
 	if (mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_OVL_BW_MONITOR) &&
 		(crtc_idx == 0)) {
 		mtk_drm_ovl_bw_monitor_ratio_prework(crtc, atomic_state);
 	}
+#endif
 
 	mtk_crtc_state->cmdq_handle =
 		mtk_crtc_gce_commit_begin(crtc, old_crtc_state, mtk_crtc_state, true);
 	CRTC_MMP_MARK(index, atomic_begin, (unsigned long)mtk_crtc_state->cmdq_handle, 0);
 
+#ifndef DRM_CMDQ_DISABLE
 	/* BW monitor: Read and Save BW info */
 	if (mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_OVL_BW_MONITOR) &&
 		(crtc_idx == 0)) {
 		mtk_drm_ovl_bw_monitor_ratio_get(crtc, atomic_state);
 	}
+#endif
 
 	/*Msync 2.0: add cmds to cfg thread*/
 	if (!mtk_crtc_is_frame_trigger_mode(crtc) &&

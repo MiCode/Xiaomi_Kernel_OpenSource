@@ -1717,6 +1717,9 @@ static int _calc_hrt_num(struct drm_device *dev,
 	/* BWM + GPU Cache */
 	if (gpu_cache_is_on && (disp == HRT_PRIMARY) &&
 		(have_force_gpu_layer == 0) && need_gpu_cache) {
+		DDPDBG("GPUC: 1 layerset head:%d tail:%d\n", layerset_head, layerset_tail);
+		DDPDBG("GPUC: 1 gles head:%d tail:%d\n",
+			disp_info->gles_head[disp], disp_info->gles_tail[disp]);
 		for (i = 0; i < disp_info->layer_num[disp]; i++) {
 			layer_info = &disp_info->input_config[disp][i];
 			if ((layer_info != NULL) &&
@@ -1740,6 +1743,10 @@ static int _calc_hrt_num(struct drm_device *dev,
 
 		}
 
+		DDPDBG("GPUC: 2 layerset head:%d tail:%d\n", layerset_head, layerset_tail);
+		DDPDBG("GPUC: 2 gles head:%d tail:%d\n",
+			disp_info->gles_head[disp], disp_info->gles_tail[disp]);
+
 		if (disp_info->disp_caps[HRT_PRIMARY] & MTK_GLES_FBT_UNCHANGED) {
 			disp_info->disp_caps[HRT_PRIMARY] |= MTK_GLES_FBT_GET_RATIO;
 			DDPDBG("GPUC: GLES FBT ratio is valid\n");
@@ -1757,6 +1764,9 @@ static int _calc_hrt_num(struct drm_device *dev,
 			if (layerset_tail > disp_info->gles_tail[disp])
 				disp_info->gles_tail[disp] = layerset_tail;
 		}
+		DDPDBG("GPUC: 3 layerset head:%d tail:%d\n", layerset_head, layerset_tail);
+		DDPDBG("GPUC: 3 gles head:%d tail:%d\n",
+			disp_info->gles_head[disp], disp_info->gles_tail[disp]);
 	}
 
 	for (i = 0; i < disp_info->layer_num[disp]; i++) {
@@ -1961,9 +1971,16 @@ static int calc_hrt_num(struct drm_device *dev,
 
 	/* Calculate HRT for EMI level */
 	if (has_hrt_limit(disp_info, HRT_PRIMARY)) {
-		need_gpu_cache = _calc_gpu_cache_layerset_hrt_num(dev, disp_info,
+		if (g_gpuc_direct_push) {
+			need_gpu_cache = true;
+			DDPDBG("GPUC: layerset direct push to gpu cache\n");
+		} else {
+			need_gpu_cache =
+			_calc_gpu_cache_layerset_hrt_num(dev, disp_info,
 			HRT_PRIMARY, HRT_TYPE_EMI,
 			scan_overlap, l_rule_info->dal_enable);
+			DDPDBG("GPUC: layerset need to cal gain\n");
+		}
 		sum_overlap_w =
 			_calc_hrt_num(dev, disp_info, HRT_PRIMARY, HRT_TYPE_EMI,
 				      scan_overlap, l_rule_info->dal_enable, need_gpu_cache);
@@ -3607,9 +3624,33 @@ static int layering_rule_start(struct drm_mtk_layering_info *disp_info_user,
 	if (get_layering_opt(LYE_OPT_OVL_BW_MONITOR))
 		DDPINFO("overlap_num of BW monitor:%u\n", sum_overlap_w_of_bwm);
 
-	if (l_rule_ops->fbdc_restore_layout)
-		l_rule_ops->fbdc_restore_layout(&layering_info,
-						ADJUST_LAYOUT_OVERLAP_CAL);
+	/* If GPU Cache will change gles layer head and tail, So should to re-grouping */
+	if (get_layering_opt(LYE_OPT_GPU_CACHE) &&
+		((dbg_gles.head != layering_info.gles_head[HRT_PRIMARY]) ||
+		(dbg_gles.tail != layering_info.gles_tail[HRT_PRIMARY]))) {
+		/* Again Layer Grouping */
+		if (l_rule_ops->fbdc_adjust_layout)
+			l_rule_ops->fbdc_adjust_layout(&layering_info,
+					ADJUST_LAYOUT_EXT_GROUPING);
+
+		ret = ext_layer_grouping(dev, &layering_info);
+
+		if (l_rule_ops->fbdc_restore_layout)
+			l_rule_ops->fbdc_restore_layout(&layering_info,
+					ADJUST_LAYOUT_EXT_GROUPING);
+
+		/* GLES adjustment and ext layer checking */
+		ret = filter_by_ovl_cnt(dev, &layering_info);
+		check_gles_change(&dbg_gles, __LINE__, false);
+
+		if (l_rule_ops->fbdc_adjust_layout)
+			l_rule_ops->fbdc_adjust_layout(&layering_info,
+					ADJUST_LAYOUT_OVERLAP_CAL);
+
+		if (l_rule_ops->fbdc_restore_layout)
+			l_rule_ops->fbdc_restore_layout(&layering_info,
+					ADJUST_LAYOUT_OVERLAP_CAL);
+	}
 
 	/*
 	 * 3.Dispatching
