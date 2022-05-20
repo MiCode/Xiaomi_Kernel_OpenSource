@@ -4040,7 +4040,11 @@ out_unlock:
  *
  * Returns 0 on success, non-zero value on failure
  */
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
+int ufshcd_uic_change_pwr_mode(struct ufs_hba *hba, u8 mode)
+#else
 static int ufshcd_uic_change_pwr_mode(struct ufs_hba *hba, u8 mode)
+#endif
 {
 	struct uic_command uic_cmd = {0};
 	int ret;
@@ -4065,6 +4069,9 @@ static int ufshcd_uic_change_pwr_mode(struct ufs_hba *hba, u8 mode)
 out:
 	return ret;
 }
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
+EXPORT_SYMBOL(ufshcd_uic_change_pwr_mode);
+#endif
 
 int ufshcd_link_recovery(struct ufs_hba *hba)
 {

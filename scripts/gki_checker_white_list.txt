@@ -36,6 +36,9 @@ f drivers/iommu/iova.c
 f drivers/media/mc/mc-device.c
 f drivers/media/v4l2-core/v4l2-ioctl.c
 f drivers/media/v4l2-core/v4l2-subdev.c
+f drivers/scsi/ufs/ufshcd.h
+f drivers/scsi/ufs/ufshcd.c
+f drivers/scsi/ufs/unipro.h
 f fs/coredump.c
 f fs/f2fs/checkpoint.c
 f include/linux/dev_printk.h
