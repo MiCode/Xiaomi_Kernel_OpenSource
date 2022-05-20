@@ -152,8 +152,11 @@ static void mminfra_cg_check(bool on)
 			(con0_val & GCED_CG_BIT) || (con1_val & GCE26M_CG_BIT)) {
 			pr_notice("%s cg still off, CG_CON0:0x%x CG_CON1:0x%x\n",
 						__func__, con0_val, con1_val);
-			mtk_smi_dbg_cg_status();
-			cmdq_dump_usage();
+			if (con0_val & (SMI_CG_BIT))
+				mtk_smi_dbg_cg_status();
+			if ((con0_val & GCEM_CG_BIT) || (con0_val & GCED_CG_BIT)
+				|| (con1_val & GCE26M_CG_BIT))
+				cmdq_dump_usage();
 		}
 	} else {
 		/* SMI CG still on */
@@ -161,8 +164,11 @@ static void mminfra_cg_check(bool on)
 			|| !(con0_val & GCED_CG_BIT) || !(con1_val & GCE26M_CG_BIT)) {
 			pr_notice("%s Scg still on, CG_CON0:0x%x CG_CON1:0x%x\n",
 						__func__, con0_val, con1_val);
-			mtk_smi_dbg_cg_status();
-			cmdq_dump_usage();
+			if (!(con0_val & (SMI_CG_BIT)))
+				mtk_smi_dbg_cg_status();
+			if (!(con0_val & GCEM_CG_BIT) || !(con0_val & GCED_CG_BIT)
+				|| !(con1_val & GCE26M_CG_BIT))
+				cmdq_dump_usage();
 		}
 	}
 }
