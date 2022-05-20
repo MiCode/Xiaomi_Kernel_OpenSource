@@ -380,7 +380,7 @@ static s32 rdma_write_addr(struct cmdq_pkt *pkt, phys_addr_t base_pa, u8 hw_pipe
 	enum cpr_reg_idx msb_idx;
 	s32 ret;
 
-	if (unlikely(lsb_idx < 0))
+	if (unlikely(lsb_idx >= CPR_RDMA_COUNT))
 		return -EFAULT;
 
 	msb_idx = lsb_to_msb[lsb_idx];

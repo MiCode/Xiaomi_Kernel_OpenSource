@@ -1412,11 +1412,11 @@ static ssize_t test_write(struct file *filp, const char *buf, size_t count,
 	loff_t *offp)
 {
 	struct mml_test *test = (struct mml_test *)filp->f_inode->i_private;
-	struct mml_test_case user_case;
+	struct mml_test_case user_case = {0};
 	struct mml_ut cur = {0};
 
-	if (count > sizeof(cur)) {
-		mml_err("[test]buf count not match %zu %zu", count, sizeof(cur));
+	if (count > sizeof(user_case)) {
+		mml_err("[test]buf count not match %zu %zu", count, sizeof(user_case));
 		return -EFAULT;
 	}
 
@@ -1552,7 +1552,7 @@ static int mml_test_create_src(struct dma_heap *heap, struct mml_ut *cur_case,
 	struct mml_buffer *buf)
 {
 	void *va;
-	struct dma_buf_map map;
+	struct dma_buf_map map = {0};
 	int ret;
 
 	if (mml_test_alloc_frame(heap, buf, cur_case->cfg_src_format,
@@ -1591,7 +1591,7 @@ static int mml_test_create_dest(struct dma_heap *heap, struct mml_ut *cur_case,
 	struct mml_buffer *buf)
 {
 	u64 *va;
-	struct dma_buf_map map;
+	struct dma_buf_map map = {0};
 	u32 i;
 	int ret;
 
