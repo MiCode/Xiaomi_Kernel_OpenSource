@@ -21,6 +21,7 @@
 #include <linux/tty_flip.h>
 
 #include "8250.h"
+#include "../../../misc/mediatek/uarthub/common/uarthub_drv_export.h"
 
 #define MTK_UART_HIGHS		0x09	/* Highspeed register */
 #define MTK_UART_SAMPLE_COUNT	0x0a	/* Sample count register */
@@ -61,6 +62,8 @@
 #define MTK_UART_TX_TRIGGER	1
 #define MTK_UART_RX_TRIGGER	MTK_UART_RX_SIZE
 
+#define MTK_UART_HUB_BAUD 12000000
+
 #ifdef CONFIG_SERIAL_8250_DMA
 enum dma_rx_status {
 	DMA_RX_START = 0,
@@ -80,6 +83,11 @@ struct mtk8250_data {
 	enum dma_rx_status	rx_status;
 #endif
 	int			rx_wakeup_irq;
+	unsigned int   support_hub;
+};
+
+struct mtk8250_comp {
+	unsigned int support_hub;
 };
 
 /* flow control mode */
@@ -88,6 +96,130 @@ enum {
 	MTK_UART_FC_SW,
 	MTK_UART_FC_HW,
 };
+
+__weak int UARTHUB_md_adsp_fifo_ctrl(int enable)
+{
+	return 0;
+}
+__weak int UARTHUB_assert_state_ctrl(int assert_ctrl)
+{
+	return 0;
+}
+__weak int UARTHUB_dump_debug_info(void)
+{
+	return 0;
+}
+__weak int UARTHUB_sw_reset(void)
+{
+	return 0;
+}
+__weak int UARTHUB_irq_register_cb(UARTHUB_IRQ_CB irq_callback)
+{
+	return 0;
+}
+__weak int UARTHUB_bypass_mode_ctrl(int enable)
+{
+	return 0;
+}
+__weak int UARTHUB_dev0_set_txrx_request(void)
+{
+	return 0;
+}
+__weak int UARTHUB_dev0_clear_txrx_request(void)
+{
+	return 0;
+}
+__weak int UARTHUB_is_assert_state(void)
+{
+	return 0;
+}
+__weak int UARTHUB_dev0_is_uarthub_ready(void)
+{
+	return 0;
+}
+__weak int UARTHUB_open(void)
+{
+	return 0;
+}
+__weak int UARTHUB_close(void)
+{
+	return 0;
+}
+__weak int UARTHUB_is_bypass_mode(void)
+{
+	return 0;
+}
+__weak int UARTHUB_config_internal_baud_rate(int dev_index, enum UARTHUB_baud_rate rate)
+{
+	return 0;
+}
+__weak int UARTHUB_config_external_baud_rate(enum UARTHUB_baud_rate rate)
+{
+	return 0;
+}
+
+#if IS_ENABLED(CONFIG_MTK_UARTHUB)
+int mtk8250_uart_hub_fifo_ctrl(int ctrl)
+{
+	return UARTHUB_md_adsp_fifo_ctrl(ctrl);
+}
+EXPORT_SYMBOL(mtk8250_uart_hub_fifo_ctrl);
+
+int mtk8250_uart_hub_assert_bit_ctrl(int ctrl)
+{
+	return UARTHUB_assert_state_ctrl(ctrl);
+}
+EXPORT_SYMBOL(mtk8250_uart_hub_assert_bit_ctrl);
+
+int mtk8250_uart_hub_dump(void)
+{
+	return UARTHUB_dump_debug_info();
+}
+EXPORT_SYMBOL(mtk8250_uart_hub_dump);
+
+int mtk8250_uart_hub_reset(void)
+{
+	return UARTHUB_sw_reset();
+}
+EXPORT_SYMBOL(mtk8250_uart_hub_reset);
+
+int mtk8250_uart_hub_register_cb(UARTHUB_IRQ_CB irq_callback)
+{
+	return UARTHUB_irq_register_cb(irq_callback);
+}
+EXPORT_SYMBOL(mtk8250_uart_hub_register_cb);
+
+int mtk8250_uart_hub_enable_bypass_mode(int bypass)
+{
+	return UARTHUB_bypass_mode_ctrl(bypass);
+}
+EXPORT_SYMBOL(mtk8250_uart_hub_enable_bypass_mode);
+
+int mtk8250_uart_hub_set_request(void)
+{
+	return UARTHUB_dev0_set_txrx_request();
+}
+EXPORT_SYMBOL(mtk8250_uart_hub_set_request);
+
+int mtk8250_uart_hub_clear_request(void)
+{
+	return UARTHUB_dev0_clear_txrx_request();
+}
+EXPORT_SYMBOL(mtk8250_uart_hub_clear_request);
+
+int mtk8250_uart_hub_is_assert(void)
+{
+	return UARTHUB_is_assert_state();
+}
+EXPORT_SYMBOL(mtk8250_uart_hub_is_assert);
+
+int mtk8250_uart_hub_is_ready(void)
+{
+	return UARTHUB_dev0_is_uarthub_ready();
+}
+EXPORT_SYMBOL(mtk8250_uart_hub_is_ready);
+
+#endif
 
 #ifdef CONFIG_SERIAL_8250_DMA
 static void mtk8250_rx_dma(struct uart_8250_port *up);
@@ -208,6 +340,12 @@ static int mtk8250_startup(struct uart_port *port)
 #endif
 	memset(&port->icount, 0, sizeof(port->icount));
 
+	if (data->support_hub == 1) {
+		pr_info("open uarthub if it is supported.\n");
+		/*open UARTHUB*/
+		UARTHUB_open();
+	}
+
 	return serial8250_do_startup(port);
 }
 
@@ -220,6 +358,9 @@ static void mtk8250_shutdown(struct uart_port *port)
 	if (up->dma)
 		data->rx_status = DMA_RX_SHUTDOWN;
 #endif
+
+	if (data->support_hub == 1)
+		UARTHUB_close();
 
 	return serial8250_do_shutdown(port);
 }
@@ -317,6 +458,7 @@ mtk8250_set_termios(struct uart_port *port, struct ktermios *termios,
 	unsigned int fraction = 0;
 	unsigned long flags;
 	int mode;
+	struct mtk8250_data *data = port->private_data;
 
 #ifdef CONFIG_SERIAL_8250_DMA
 	if (up->dma) {
@@ -339,6 +481,14 @@ mtk8250_set_termios(struct uart_port *port, struct ktermios *termios,
 	 * the speed later in this method.
 	 */
 	baud = tty_termios_baud_rate(termios);
+	if (data->support_hub) {
+		pr_info("support_hub, check if bypass mode\n");
+		/*To check bypass mode or multi-host mode*/
+		if (!UARTHUB_is_bypass_mode()) {
+			baud = MTK_UART_HUB_BAUD;
+			pr_info("multi-host mode, update baud rate as 12M\n");
+		}
+	}
 
 	serial8250_do_set_termios(port, termios, NULL);
 
@@ -360,6 +510,20 @@ mtk8250_set_termios(struct uart_port *port, struct ktermios *termios,
 	baud = uart_get_baud_rate(port, termios, old,
 				  port->uartclk / 16 / UART_DIV_MAX,
 				  port->uartclk);
+
+	if (data->support_hub) {
+		pr_info("support_hub, check if bypass mode\n");
+		/*To check bypass mode or multi-host mode*/
+		if (!UARTHUB_is_bypass_mode()) {
+			baud = MTK_UART_HUB_BAUD;
+
+			/*configure UARTHUB baud rate*/
+			UARTHUB_config_internal_baud_rate(0, baud_rate_12m);
+			UARTHUB_config_external_baud_rate(baud_rate_12m);
+
+			pr_info("multi-host mode, update baudrate as 12M and update hub baudrate\n");
+		}
+	}
 
 	if (baud < 115200) {
 		serial_port_out(port, MTK_UART_HIGHS, 0x0);
@@ -384,7 +548,13 @@ mtk8250_set_termios(struct uart_port *port, struct ktermios *termios,
 
 	/* reset DLAB */
 
-	if (baud >= 115200) {
+	if (baud == MTK_UART_HUB_BAUD) {
+		serial_port_out(port, MTK_UART_SAMPLE_COUNT, 7);
+		serial_port_out(port, MTK_UART_SAMPLE_POINT, 3);
+		serial_port_out(port, MTK_UART_FRACDIV_L, 0xdb);
+		serial_port_out(port, MTK_UART_FRACDIV_M, 0x1);
+
+	} else if (baud >= 115200) {
 		unsigned int tmp;
 
 		tmp = (port->uartclk / (baud *  quot)) - 1;
@@ -557,6 +727,7 @@ static int mtk8250_probe(struct platform_device *pdev)
 	struct mtk8250_data *data;
 	struct resource *regs;
 	int irq, err;
+	const struct mtk8250_comp *comp;
 
 	irq = platform_get_irq(pdev, 0);
 	if (irq < 0)
@@ -576,6 +747,16 @@ static int mtk8250_probe(struct platform_device *pdev)
 	data = devm_kzalloc(&pdev->dev, sizeof(*data), GFP_KERNEL);
 	if (!data)
 		return -ENOMEM;
+
+	comp = of_device_get_match_data(&pdev->dev);
+	if (comp == NULL) {
+		dev_info(&pdev->dev, "No compatiable data\n");
+		data->support_hub = 0;
+	} else
+		data->support_hub = comp->support_hub;
+
+	dev_info(&pdev->dev,
+			"uart support uarthub: %d\n", data->support_hub);
 
 	data->clk_count = 0;
 
@@ -694,8 +875,13 @@ static const struct dev_pm_ops mtk8250_pm_ops = {
 				NULL)
 };
 
+static const struct mtk8250_comp mt6985_comp = {
+	.support_hub = 1
+};
+
 static const struct of_device_id mtk8250_of_match[] = {
-	{ .compatible = "mediatek,mt6577-uart" },
+	{ .compatible = "mediatek,mt6577-uart", .data = NULL },
+	{ .compatible = "mediatek,mt6985-uart", .data = &mt6985_comp },
 	{ /* Sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, mtk8250_of_match);
