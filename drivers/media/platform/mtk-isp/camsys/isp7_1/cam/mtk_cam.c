@@ -4526,6 +4526,17 @@ bool mtk_cam_is_immediate_switch_req(struct mtk_cam_request *req,
 		return false;
 }
 
+bool mtk_cam_is_nonimmediate_switch_req(struct mtk_cam_request *req,
+				     int stream_id)
+{
+	if ((req->ctx_link_update & (1 << stream_id)) &&
+		!(req->flags & MTK_CAM_REQ_FLAG_SENINF_IMMEDIATE_UPDATE))
+		return true;
+	else
+		return false;
+}
+
+
 #if CCD_READY
 static void isp_composer_uninit(struct mtk_cam_ctx *ctx)
 {
@@ -4630,6 +4641,10 @@ static int isp_composer_handle_ack(struct mtk_cam_device *cam,
 			is_mux_change_with_apply_cq = true;
 		}
 	}
+
+	if (mtk_cam_is_nonimmediate_switch_req(req, s_data->pipe_id) &&
+			(s_data->flags & MTK_CAM_REQ_S_DATA_FLAG_SENSOR_SWITCH_BACKEND_DELAYED))
+		is_mux_change_with_apply_cq = true;
 
 	buf_entry->cq_desc_offset =
 		ipi_msg->ack_data.frame_result.cq_desc_offset;
@@ -4839,10 +4854,12 @@ static int isp_composer_handler(struct rpmsg_device *rpdev, void *data,
 	if (ipi_msg->ack_data.ack_cmd_id == CAM_CMD_FRAME) {
 		int ret;
 
+		ctx = &cam->ctxs[ipi_msg->cookie.session_id];
 		MTK_CAM_TRACE_BEGIN(BASIC, "ipi_frame_ack:%d",
 				    ipi_msg->cookie.frame_no);
-
+		mutex_lock(&ctx->sensor_switch_op_lock);
 		ret = isp_composer_handle_ack(cam, ipi_msg);
+		mutex_unlock(&ctx->sensor_switch_op_lock);
 
 		MTK_CAM_TRACE_END(BASIC);
 		return ret;
@@ -6435,6 +6452,7 @@ struct mtk_cam_ctx *mtk_cam_start_ctx(struct mtk_cam_device *cam,
 	ctx->ext_isp_pureraw_off = 0;
 	ctx->ext_isp_procraw_off = 0;
 	atomic_set(&ctx->running_s_data_cnt, 0);
+	mutex_init(&ctx->sensor_switch_op_lock);
 	init_completion(&ctx->session_complete);
 	init_completion(&ctx->m2m_complete);
 

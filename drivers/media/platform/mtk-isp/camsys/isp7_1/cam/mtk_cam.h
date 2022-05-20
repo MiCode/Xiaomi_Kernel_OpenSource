@@ -87,6 +87,9 @@ struct mtk_raw_pipeline;
 #define MTK_CAM_REQ_S_DATA_FLAG_SENSOR_HDL_DELAYED	BIT(8)
 #define MTK_CAM_REQ_S_DATA_FLAG_INCOMPLETE BIT(9)
 
+/* The raw switching is pending and waiting for the composed cq */
+#define MTK_CAM_REQ_S_DATA_FLAG_SENSOR_SWITCH_BACKEND_DELAYED	BIT(10)
+
 #define v4l2_subdev_format_request_fd(x) x->reserved[0]
 #define v4l2_frame_interval_which(x) x->reserved[0]
 
@@ -466,6 +469,7 @@ struct mtk_cam_ctx {
 
 	/* To support debug dump */
 	struct mtkcam_ipi_config_param config_params;
+	struct mutex sensor_switch_op_lock;
 	bool ext_isp_meta_off;
 	bool ext_isp_pureraw_off;
 	bool ext_isp_procraw_off;

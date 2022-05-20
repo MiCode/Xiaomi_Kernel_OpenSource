@@ -3917,6 +3917,8 @@ mtk_camsys_raw_change_pipeline(struct mtk_cam_ctx *ctx,
 			(req->ctx_link_update & (1 << ctx->stream_id))) {
 		req_stream_data = mtk_cam_req_get_s_data(req, ctx->stream_id, 0);
 		if (!(req->flags & MTK_CAM_REQ_FLAG_SENINF_IMMEDIATE_UPDATE)) {
+			mutex_lock(&ctx->sensor_switch_op_lock);
+
 			dev_info(ctx->cam->dev, "Exchange streams at seq(%d), update link ctx (0x%x)\n",
 				req_stream_data->frame_seq_no, req->ctx_link_update);
 
@@ -3924,10 +3926,13 @@ mtk_camsys_raw_change_pipeline(struct mtk_cam_ctx *ctx,
 
 			spin_lock(&ctx->composed_buffer_list.lock);
 			if (list_empty(&ctx->composed_buffer_list.list)) {
+				req_stream_data->flags |=
+					MTK_CAM_REQ_S_DATA_FLAG_SENSOR_SWITCH_BACKEND_DELAYED;
 				dev_info(ctx->cam->dev,
-					"RAW SWITCH ERROR, no buffer update, cq_num:%d, frame_seq:%d\n",
+					"RAW SWITCH delay, no buffer update, cq_num:%d, frame_seq:%d\n",
 					ctx->composed_frame_seq_no, frame_seq);
 				spin_unlock(&ctx->composed_buffer_list.lock);
+				mutex_unlock(&ctx->sensor_switch_op_lock);
 				return;
 			}
 
@@ -3967,6 +3972,7 @@ mtk_camsys_raw_change_pipeline(struct mtk_cam_ctx *ctx,
 				if (mtk_cam_mraw_apply_switch_buffers(ctx) == 0)
 					dev_info(raw_dev->dev, "mraw apply switch buffers failed");
 			}
+			mutex_unlock(&ctx->sensor_switch_op_lock);
 		}
 	}
 
