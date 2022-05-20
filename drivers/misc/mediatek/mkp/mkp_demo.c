@@ -177,7 +177,7 @@ static int __init protect_kernel(void)
 		addr_start = round_up(addr_start, PAGE_SIZE);
 		addr_end = round_down(addr_end, PAGE_SIZE);
 		nr_pages = (addr_end-addr_start)>>PAGE_SHIFT;
-		phys_addr = virt_to_phys((void *)addr_start);
+		phys_addr = __pa_symbol((void *)addr_start);
 		policy = MKP_POLICY_KERNEL_CODE;
 		handle = mkp_create_handle(policy, (unsigned long)phys_addr, nr_pages<<12);
 		if (handle == 0) {
@@ -197,7 +197,7 @@ static int __init protect_kernel(void)
 		addr_start = round_up(addr_start, PAGE_SIZE);
 		addr_end = round_down(addr_end, PAGE_SIZE);
 		nr_pages = (addr_end-addr_start)>>PAGE_SHIFT;
-		phys_addr = virt_to_phys((void *)addr_start);
+		phys_addr = __pa_symbol((void *)addr_start);
 		policy = MKP_POLICY_KERNEL_RODATA;
 		handle = mkp_create_handle(policy, (unsigned long)phys_addr, nr_pages<<12);
 		if (handle == 0)
