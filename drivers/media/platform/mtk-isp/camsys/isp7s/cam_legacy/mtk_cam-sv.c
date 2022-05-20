@@ -29,7 +29,7 @@
 #include "mtk_camera-v4l2-controls.h"
 #include "mtk_camera-videodev2.h"
 
-#ifdef CAMSYS_TF_DUMP_71_1
+#ifdef CAMSYS_TF_DUMP_7S
 #include <dt-bindings/memory/mt6985-larb-port.h>
 #include "iommu_debug.h"
 #endif
@@ -46,7 +46,7 @@ MODULE_DEVICE_TABLE(of, mtk_camsv_of_ids);
 
 static void mtk_camsv_register_iommu_tf_callback(struct mtk_camsv_device *sv)
 {
-#ifdef CAMSYS_TF_DUMP_71_1
+#ifdef CAMSYS_TF_DUMP_7S
 	dev_dbg(sv->dev, "%s : sv->id:%d\n", __func__, sv->id);
 
 	switch (sv->id) {
@@ -78,7 +78,7 @@ static void mtk_camsv_register_iommu_tf_callback(struct mtk_camsv_device *sv)
 #endif
 };
 
-#ifdef CAMSYS_TF_DUMP_71_1
+#ifdef CAMSYS_TF_DUMP_7S
 int mtk_camsv_translation_fault_callback(int port, dma_addr_t mva, void *data)
 {
 	int index;
