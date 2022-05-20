@@ -75,28 +75,28 @@ static int apu_clk_init(struct apu_dev *ad)
 	aclk->dev = ad->dev;
 	ret = of_apu_clk_get(ad->dev, TOPMUX_NODE, &(aclk->top_mux));
 	if (ret)
-		goto err;
+		goto out;
 	ret = of_apu_clk_get(ad->dev, SYSMUX_NODE, &(aclk->sys_mux));
 	if (ret)
-		goto err;
+		goto err_topmux;
 	ret = of_apu_clk_get(ad->dev, SYSMUX_PARENT_NODE, &(aclk->sys_mux->parents));
 	if (ret)
-		goto err;
+		goto err_sysmux;
 	ret = of_apu_clk_get(ad->dev, APMIX_PLL_NODE, &(aclk->apmix_pll));
 	if (ret)
-		goto err;
+		goto err_sysmux_parrent;
 	ret = of_apu_clk_get(ad->dev, TOP_PLL_NODE, &(aclk->top_pll));
 	if (ret)
-		goto err;
+		goto err_apmix_pll;
 
 	ret = of_apu_cg_get(ad->dev, &(aclk->cg));
 	if (ret)
-		goto err;
+		goto err_toppll;
 
 	/* get the slowest frq in opp */
 	ret = apu_get_recommend_freq_volt(ad->dev, &rate, NULL, 0);
 	if (ret)
-		goto err;
+		goto err_cg;
 
 	/* if there is no default/shutdown freq, take them as slowest opp */
 	dst = aclk->top_mux;
@@ -141,13 +141,20 @@ static int apu_clk_init(struct apu_dev *ad)
 
 	return ret;
 
-err:
-	of_apu_clk_put(&(aclk->top_mux));
-	of_apu_clk_put(&(aclk->sys_mux));
-	of_apu_clk_put(&(aclk->top_pll));
-	of_apu_clk_put(&(aclk->apmix_pll));
+err_cg:
 	of_apu_cg_put(&(aclk->cg));
+err_toppll:
+	of_apu_clk_put(&(aclk->top_pll));
+err_apmix_pll:
+	of_apu_clk_put(&(aclk->apmix_pll));
+err_sysmux_parrent:
+	of_apu_clk_put(&(aclk->sys_mux->parents));
+err_sysmux:
+	of_apu_clk_put(&(aclk->sys_mux));
+err_topmux:
+	of_apu_clk_put(&(aclk->top_mux));
 
+out:
 	return ret;
 }
 
