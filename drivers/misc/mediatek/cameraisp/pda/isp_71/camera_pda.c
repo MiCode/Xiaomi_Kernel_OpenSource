@@ -1568,8 +1568,10 @@ static signed int pda_wait_irq(struct PDA_Data_t_v2 *pda_data, unsigned int hw_t
 		LOG_INF("wait_event_interruptible_timeout Fail\n");
 		pda_data->Status = -2;
 		return -1;
-	} else if (ret == -ERESTARTSYS) {
-		LOG_INF("Interrupted by a signal\n");
+	} else if (ret < 0) {
+		LOG_INF("wait_event return value:%d\n", ret);
+		if (ret == -ERESTARTSYS)
+			LOG_INF("Interrupted by a signal\n");
 		pda_data->Status = -3;
 		for (i = 0; i < hw_trigger_num; i++) {
 			pda_reset(i);
@@ -1892,7 +1894,7 @@ static int PDAProcessFunction(unsigned int nUserROINumber,
 
 		if (nirqRet < 0) {
 			LOG_INF("pda_wait_irq Fail (%d)\n", nirqRet);
-			break;
+			return -1;
 		}
 
 		// update roi count which needed to process
