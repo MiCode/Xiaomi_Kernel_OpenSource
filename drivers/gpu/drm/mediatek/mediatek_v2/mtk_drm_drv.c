@@ -4931,11 +4931,17 @@ static void mtk_drm_init_dummy_table(struct mtk_drm_private *priv)
 				table[i].pa_addr = priv->config_regs_pa;
 				table[i].addr = priv->config_regs;
 			}
-		} else if (table[i].comp_id == (DDP_COMPONENT_ID_MAX | BIT(30))) {
+		/* TODO: BWM just for Dujac SW readyGo, Into SQC need to del and use new method */
+		} else if (table[i].comp_id == (DDP_COMPONENT_ID_MAX | BIT(29))) {
 			struct mtk_ddp *ddp = dev_get_drvdata(priv->mutex_dev);
 
 			table[i].pa_addr = ddp->regs_pa;
 			table[i].addr = ddp->regs;
+		} else if (table[i].comp_id == (DDP_COMPONENT_ID_MAX | BIT(30))) {
+			struct mtk_ddp *ddp = dev_get_drvdata(priv->mutex_dev);
+
+			table[i].pa_addr = ddp->side_regs_pa;
+			table[i].addr = ddp->side_regs;
 		} else if (table[i].comp_id == (DDP_COMPONENT_ID_MAX | BIT(31))) {
 			table[i].pa_addr = priv->side_config_regs_pa;
 			table[i].addr = priv->side_config_regs;

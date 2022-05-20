@@ -456,6 +456,12 @@ void mtk_layering_rule_init(struct drm_device *dev)
 	mtk_set_layering_opt(LYE_OPT_CLEAR_LAYER,
 			     mtk_drm_helper_get_opt(private->helper_opt,
 						    MTK_DRM_OPT_CLEAR_LAYER));
+	mtk_set_layering_opt(LYE_OPT_OVL_BW_MONITOR,
+			     mtk_drm_helper_get_opt(private->helper_opt,
+						    MTK_DRM_OPT_OVL_BW_MONITOR));
+	mtk_set_layering_opt(LYE_OPT_GPU_CACHE,
+			     mtk_drm_helper_get_opt(private->helper_opt,
+						    MTK_DRM_OPT_GPU_CACHE));
 }
 
 static bool _rollback_all_to_GPU_for_idle(struct drm_device *dev)
@@ -579,6 +585,12 @@ void mtk_update_layering_opt_by_disp_opt(enum MTK_DRM_HELPER_OPT opt, int value)
 		break;
 	case MTK_DRM_OPT_CLEAR_LAYER:
 		mtk_set_layering_opt(LYE_OPT_CLEAR_LAYER, value);
+		break;
+	case MTK_DRM_OPT_OVL_BW_MONITOR:
+		mtk_set_layering_opt(LYE_OPT_OVL_BW_MONITOR, value);
+		break;
+	case MTK_DRM_OPT_GPU_CACHE:
+		mtk_set_layering_opt(LYE_OPT_GPU_CACHE, value);
 		break;
 	default:
 		break;

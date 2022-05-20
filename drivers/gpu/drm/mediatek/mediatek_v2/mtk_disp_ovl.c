@@ -1895,7 +1895,9 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 		if (mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_OVL_BW_MONITOR) &&
 			(crtc_idx == 0)) {
 			uint64_t key = 0;
+			int fbt_layer_id = -1;
 
+			fbt_layer_id = mtk_crtc->fbt_layer_id;
 			/* if layer is fbt layer need find fbt layer ratio to cal bw */
 			if (idx == fbt_layer_id) {
 				key = frame_idx - MAX_FRAME_RATIO_NUMBER;
@@ -1922,7 +1924,7 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 				}
 			}
 
-			DDPINFO("BWM: ovl frame idx:%u alloc id:%lu key:%lu layer idx:%u bw:%llu\n",
+			DDPDBG("BWM: ovl frame idx:%u alloc id:%lu key:%lu layer idx:%u bw:%llu\n",
 					frame_idx, alloc_id, key, idx, temp_bw);
 		}
 

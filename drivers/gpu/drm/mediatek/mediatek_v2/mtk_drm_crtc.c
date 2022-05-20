@@ -3085,14 +3085,14 @@ static unsigned int overlap_to_bw(struct drm_crtc *crtc,
 	int crtc_idx = drm_crtc_index(crtc);
 	unsigned int bw_base = mtk_drm_primary_frame_bw(crtc);
 	unsigned int bw = bw_base * overlap_num / 400;
-	DDPINFO("%s:%d bw_base:%u overlap:%u bw:%u\n", __func__, __LINE__,
+	DDPDBG("%s:%d bw_base:%u overlap:%u bw:%u\n", __func__, __LINE__,
 		bw_base, overlap_num, bw);
 
 	if (mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_OVL_BW_MONITOR) &&
 		(crtc_idx == 0) && lyeblob_ids &&
 		(lyeblob_ids->frame_weight_of_bwm != 0)) {
 		bw = bw_base * lyeblob_ids->frame_weight_of_bwm / 400;
-		DDPINFO("%s:%d BWM bw_base:%u overlap:%u bw:%u\n", __func__, __LINE__,
+		DDPDBG("%s:%d BWM bw_base:%u overlap:%u bw:%u\n", __func__, __LINE__,
 				bw_base, lyeblob_ids->frame_weight_of_bwm, bw);
 	}
 	return bw;
@@ -4267,10 +4267,16 @@ static void mtk_drm_ovl_bw_monitor_ratio_prework(struct drm_crtc *crtc,
 		drm_atomic_get_old_crtc_state(atomic_state, crtc);
 	struct mtk_crtc_state *old_mtk_state =
 		to_mtk_crtc_state(old_crtc_state);
-	int frame_idx = old_mtk_state->prop_val[CRTC_PROP_OVL_DSI_SEQ];
+	unsigned int frame_idx = old_mtk_state->prop_val[CRTC_PROP_OVL_DSI_SEQ];
 	unsigned int plane_mask = old_crtc_state->plane_mask;
 	struct drm_plane *plane = NULL;
 	int i = 0;
+	int prop_lye_idx = old_mtk_state->prop_val[CRTC_PROP_LYE_IDX];
+	struct mtk_drm_lyeblob_ids *lyeblob_ids, *next;
+	struct mtk_drm_private *mtk_drm = crtc->dev->dev_private;
+	int fbt_gles_head = -1;
+	int fbt_gles_tail = -1;
+	int fbt_layer_id = -1;
 
 	for (i = 0; i < MAX_LAYER_RATIO_NUMBER; i++) {
 		display_compress_ratio_table[i].key_value = 0;
@@ -4283,6 +4289,17 @@ static void mtk_drm_ovl_bw_monitor_ratio_prework(struct drm_crtc *crtc,
 	display_fbt_compress_ratio_table.valid = 0;
 	display_fbt_compress_ratio_table.average_ratio = NULL;
 	display_fbt_compress_ratio_table.peak_ratio = NULL;
+
+	list_for_each_entry_safe(lyeblob_ids, next, &mtk_drm->lyeblob_head,
+				 list) {
+		if (lyeblob_ids->lye_idx == prop_lye_idx) {
+			fbt_gles_head = lyeblob_ids->fbt_gles_head;
+			fbt_gles_tail = lyeblob_ids->fbt_gles_tail;
+			fbt_layer_id = lyeblob_ids->fbt_layer_id;
+			mtk_crtc->fbt_layer_id = fbt_layer_id;
+			break;
+		}
+	}
 
 	drm_for_each_plane_mask(plane, crtc->dev, plane_mask) {
 		unsigned int plane_index = to_crtc_plane_index(plane->index);
@@ -4308,7 +4325,7 @@ static void mtk_drm_ovl_bw_monitor_ratio_prework(struct drm_crtc *crtc,
 
 			if ((plane_index > fbt_gles_head) &&
 				(plane_index <= fbt_gles_tail)) {
-				DDPDBG("Fbt layer continue\n");
+				DDPDBG("BWM Fbt layer continue\n");
 			} else if ((plane_index < MAX_LAYER_RATIO_NUMBER) &&
 					(plane_state->pending.enable)) {
 				display_compress_ratio_table[index].key_value = frame_idx +
@@ -4489,7 +4506,7 @@ static void mtk_drm_ovl_bw_monitor_ratio_get(struct drm_crtc *crtc,
 	}
 }
 
-static void mtk_drm_ovl_bw_monitor_ratio_save(void)
+static void mtk_drm_ovl_bw_monitor_ratio_save(unsigned int frame_idx)
 {
 	int i = 0;
 
@@ -4548,7 +4565,7 @@ static void mtk_drm_ovl_bw_monitor_ratio_save(void)
 			display_fbt_compress_ratio_table.valid;
 	}
 
-	DDPINFO("BWM: fn:%u\n", fn);
+	DDPDBG("BWM: fn:%u frame_idx:%u\n", fn, frame_idx);
 
 	DDPDBG("BWMT===== normal_layer_compress_ratio_tb =====\n");
 	DDPDBG("BWMT===== Item     Key     avg    peak     valid =====\n");
@@ -4785,6 +4802,11 @@ static void ddp_cmdq_cb(struct cmdq_cb_data data)
 	struct drm_crtc *crtc = crtc_state->crtc;
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_drm_private *priv = mtk_crtc->base.dev->dev_private;
+	struct drm_crtc_state *old_crtc_state =
+		drm_atomic_get_old_crtc_state(atomic_state, crtc);
+	struct mtk_crtc_state *old_mtk_state =
+		to_mtk_crtc_state(old_crtc_state);
+	unsigned int frame_idx = old_mtk_state->prop_val[CRTC_PROP_OVL_DSI_SEQ];
 
 	int session_id, id;
 	unsigned int ovl_status = 0;
@@ -4822,7 +4844,7 @@ static void ddp_cmdq_cb(struct cmdq_cb_data data)
 
 		/* BW monitor: Set valid to 1 */
 		if (mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_OVL_BW_MONITOR))
-			mtk_drm_ovl_bw_monitor_ratio_save();
+			mtk_drm_ovl_bw_monitor_ratio_save(frame_idx);
 
 		if (ovl_status & 1) {
 			DDPPR_ERR("ovl status error:0x%x\n", ovl_status);
@@ -8164,6 +8186,7 @@ static void mtk_drm_crtc_atomic_begin(struct drm_crtc *crtc,
 				mtk_crtc->msync2.msync_disabled);
 
 	/* BW monitor: Record Key, Clear valid, Set pointer */
+	mtk_crtc->fbt_layer_id = -1;
 	if (mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_OVL_BW_MONITOR) &&
 		(crtc_idx == 0)) {
 		mtk_drm_ovl_bw_monitor_ratio_prework(crtc, atomic_state);

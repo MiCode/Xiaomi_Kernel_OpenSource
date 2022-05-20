@@ -86,6 +86,9 @@ struct mtk_drm_lyeblob_ids {
 	int32_t ref_cnt_mask;
 	int32_t free_cnt_mask;
 	int32_t lye_plane_blob_id[MAX_CRTC][OVL_LAYER_NR];
+	int fbt_gles_head;
+	int fbt_gles_tail;
+	int fbt_layer_id;
 	bool hrt_valid;
 	struct list_head list;
 };
@@ -308,9 +311,6 @@ extern struct layer_compress_ratio_item
 unchanged_compress_ratio_table[MAX_FRAME_RATIO_NUMBER*MAX_LAYER_RATIO_NUMBER];
 extern struct layer_compress_ratio_item
 fbt_compress_ratio_table[MAX_FRAME_RATIO_NUMBER];
-extern int fbt_layer_id;
-extern int fbt_gles_head;
-extern int fbt_gles_tail;
 extern unsigned int ovl_win_size;
 
 
