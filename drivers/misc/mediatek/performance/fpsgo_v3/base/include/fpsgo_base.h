@@ -165,7 +165,7 @@ struct render_info {
 	int api;	/*connected API*/
 	int frame_type;
 	int hwui;
-	int ux;
+	int sbe_control_flag;
 
 	/*render queue/dequeue/frame time info*/
 	unsigned long long t_enqueue_start;
@@ -209,6 +209,11 @@ struct BQ_id {
 };
 
 struct hwui_info {
+	int pid;
+	struct rb_node entry;
+};
+
+struct sbe_info {
 	int pid;
 	struct rb_node entry;
 };
@@ -257,7 +262,8 @@ struct render_info *fpsgo_search_and_add_render_info(int pid,
 		unsigned long long identifier, int force);
 struct hwui_info *fpsgo_search_and_add_hwui_info(int pid, int force);
 void fpsgo_delete_hwui_info(int pid);
-int fpsgo_has_bypass(void);
+struct sbe_info *fpsgo_search_and_add_sbe_info(int pid, int force);
+void fpsgo_delete_sbe_info(int pid);
 void fpsgo_check_thread_status(void);
 void fpsgo_clear(void);
 struct BQ_id *fpsgo_find_BQ_id(int pid, int tgid, long long identifier,
@@ -273,6 +279,8 @@ int fpsgo_update_swap_buffer(int pid);
 void fpsgo_sentcmd(int cmd, int value1, int value2);
 void fpsgo_ctrl2base_get_pwr_cmd(int *cmd, int *value1, int *value2);
 int fpsgo_sbe_rescue_traverse(int pid, int start, int enhance);
+void fpsgo_stop_boost_by_pid(int pid);
+void fpsgo_stop_boost_by_render(struct render_info *r);
 
 int init_fpsgo_common(void);
 

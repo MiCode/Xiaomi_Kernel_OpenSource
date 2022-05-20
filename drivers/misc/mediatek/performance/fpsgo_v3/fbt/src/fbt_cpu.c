@@ -338,7 +338,6 @@ static struct list_head blc_list;
 
 static int fbt_enable;
 static int fbt_idleprefer_enable;
-static int bypass_flag;
 static int set_idleprefer;
 static int suppress_ceiling;
 static int boost_ta;
@@ -4235,50 +4234,6 @@ void fpsgo_comp2fbt_deq_end(struct render_info *thr,
 	}
 }
 
-void fpsgo_comp2fbt_bypass_enq(void)
-{
-	mutex_lock(&fbt_mlock);
-
-	if (!fbt_enable) {
-		mutex_unlock(&fbt_mlock);
-		return;
-	}
-
-	if (!bypass_flag) {
-		bypass_flag = 1;
-
-		fpsgo_systrace_c_fbt_debug(-100, 0, bypass_flag, "bypass_flag");
-	}
-	mutex_unlock(&fbt_mlock);
-}
-
-void fpsgo_base2fbt_set_bypass(int has_bypass)
-{
-	mutex_lock(&fbt_mlock);
-
-	if (!fbt_enable) {
-		mutex_unlock(&fbt_mlock);
-		return;
-	}
-
-	if (bypass_flag != has_bypass) {
-		bypass_flag = has_bypass;
-		fpsgo_systrace_c_fbt_debug(-100, 0, bypass_flag, "bypass_flag");
-	}
-	mutex_unlock(&fbt_mlock);
-}
-
-void fpsgo_comp2fbt_bypass_disconnect(void)
-{
-	int has_bypass;
-
-	if (!fbt_is_enable())
-		return;
-
-	has_bypass = fpsgo_has_bypass();
-
-	fpsgo_base2fbt_set_bypass(has_bypass);
-}
 
 void fpsgo_ctrl2fbt_dfrc_fps(int fps_limit)
 {
@@ -4427,29 +4382,6 @@ void fpsgo_base2fbt_no_one_render(void)
 		fpsgo_clear_uclamp_boost();
 }
 
-void fpsgo_base2fbt_only_bypass(void)
-{
-	int clear_uclamp = 0;
-
-	mutex_lock(&fbt_mlock);
-
-	if (!fbt_enable) {
-		mutex_unlock(&fbt_mlock);
-		return;
-	}
-
-	xgf_trace("fpsgo only_bypass");
-
-	fbt_setting_reset(0);
-
-	if (!boost_ta)
-		clear_uclamp = 1;
-
-	mutex_unlock(&fbt_mlock);
-
-	if (clear_uclamp)
-		fpsgo_clear_uclamp_boost();
-}
 
 void fpsgo_base2fbt_set_min_cap(struct render_info *thr, int min_cap)
 {
@@ -4669,11 +4601,11 @@ void fpsgo_base2fbt_stop_boost(struct render_info *thr)
 	if (!thr)
 		return;
 
-	fpsgo_systrace_c_fbt(thr->pid, thr->buffer_id, 1, "stop_boost");
-	fpsgo_systrace_c_fbt(thr->pid, thr->buffer_id, 0, "stop_boost");
-
 	if (thr->boost_info.last_blc == 0)
 		return;
+
+	fpsgo_systrace_c_fbt(thr->pid, thr->buffer_id, 1, "stop_boost");
+	fpsgo_systrace_c_fbt(thr->pid, thr->buffer_id, 0, "stop_boost");
 
 	fbt_reset_boost(thr);
 }
@@ -4869,7 +4801,6 @@ static void fbt_update_pwd_tbl(void)
 
 static void fbt_setting_exit(void)
 {
-	bypass_flag = 0;
 	vsync_time = 0;
 	memset(base_opp, 0, cluster_num * sizeof(unsigned int));
 	max_blc = 0;
@@ -6278,7 +6209,7 @@ int __init fbt_cpu_init(void)
 	_gdfrc_fps_limit = TARGET_DEFAULT_FPS;
 	vsync_period = GED_VSYNC_MISS_QUANTUM_NS;
 
-	fbt_idleprefer_enable = 1;
+	fbt_idleprefer_enable = 0;
 	suppress_ceiling = 1;
 	uclamp_boost_enable = 1;
 	down_throttle_ns = -1;

@@ -41,6 +41,10 @@
 static struct kobject *comp_kobj;
 static struct rb_root ui_pid_tree;
 static struct rb_root connect_api_tree;
+static int bypass_non_SF = 1;
+static int control_hwui;
+/* EGL, CPU, CAMREA */
+static int control_api_mask = 22;
 
 static inline int fpsgo_com_check_is_surfaceflinger(int pid)
 {
@@ -112,24 +116,24 @@ struct connect_api_info *fpsgo_com_search_and_add_connect_api_info(int pid,
 	return tmp;
 }
 
-int fpsgo_com_check_frame_type(int api, int type)
+int fpsgo_com_check_frame_type(int pid, int queue_SF, int api, int hwui, int sbe_ctrl)
 {
-	int new_type = 0;
 
-	switch (api) {
-	case NATIVE_WINDOW_API_MEDIA:
-		new_type = BY_PASS_TYPE;
-		return new_type;
-	default:
-		break;
-	}
-	return type;
+	if (bypass_non_SF && !queue_SF)
+		return BY_PASS_TYPE;
+
+	if ((control_api_mask & (1 << api)) == 0)
+		return BY_PASS_TYPE;
+
+	if (hwui == RENDER_INFO_HWUI_TYPE && !control_hwui && !sbe_ctrl)
+		return BY_PASS_TYPE;
+
+	return NON_VSYNC_ALIGNED_TYPE;
 }
 
 int fpsgo_com_update_render_api_info(struct render_info *f_render)
 {
 	struct connect_api_info *connect_api;
-	int new_type;
 
 	fpsgo_lockprove(__func__);
 	fpsgo_thread_lockprove(__func__, &(f_render->thr_mlock));
@@ -149,9 +153,6 @@ int fpsgo_com_update_render_api_info(struct render_info *f_render)
 	FPSGO_COM_TRACE("add connect api pid[%d] key[%llu] buffer_id[%llu]",
 		connect_api->pid, connect_api->buffer_key,
 		connect_api->buffer_id);
-	new_type = fpsgo_com_check_frame_type(f_render->api,
-			f_render->frame_type);
-	f_render->frame_type = new_type;
 	return 1;
 }
 
@@ -180,7 +181,8 @@ static int fpsgo_com_refetch_buffer(struct render_info *f_render, int pid,
 
 	f_render->buffer_id = buffer_id;
 	f_render->queue_SF = queue_SF;
-	if (!f_render->pLoading || !f_render->p_blc) {
+	if (f_render->frame_type != BY_PASS_TYPE &&
+		(!f_render->pLoading || !f_render->p_blc)) {
 		fpsgo_base2fbt_node_init(f_render);
 	}
 
@@ -196,7 +198,6 @@ void fpsgo_ctrl2comp_enqueue_start(int pid,
 {
 	struct render_info *f_render;
 	int xgf_ret = 0;
-	int xgff_ret = 0;
 	int check_render;
 	int ret;
 
@@ -243,9 +244,9 @@ void fpsgo_ctrl2comp_enqueue_start(int pid,
 	if (f_render->api == NATIVE_WINDOW_API_CAMERA)
 		fpsgo_comp2fstb_camera_active(pid);
 
-	if (!f_render->queue_SF) {
-		goto exit;
-	}
+	f_render->frame_type = fpsgo_com_check_frame_type(pid,
+			f_render->queue_SF, f_render->api,
+			f_render->hwui, f_render->sbe_control_flag);
 
 	switch (f_render->frame_type) {
 	case NON_VSYNC_ALIGNED_TYPE:
@@ -261,15 +262,16 @@ void fpsgo_ctrl2comp_enqueue_start(int pid,
 			fpsgo_comp2xgf_qudeq_notify(pid, f_render->buffer_id,
 					XGF_QUEUE_START, NULL, NULL,
 					enqueue_start_time, f_render->hwui);
-		xgff_ret =
-			xgff_frame_startend_fp(1, pid, f_render->buffer_id,
-			0, NULL, NULL, NULL, NULL);
 
 		break;
 	case BY_PASS_TYPE:
 		f_render->t_enqueue_start = enqueue_start_time;
-		fpsgo_comp2fbt_bypass_enq();
-		fpsgo_systrace_c_fbt_debug(-100, 0, 0, "%d-frame_time", pid);
+		fpsgo_systrace_c_fbt(pid, f_render->buffer_id,
+			f_render->queue_SF, "bypass_sf");
+		fpsgo_systrace_c_fbt(pid, f_render->buffer_id,
+			f_render->api, "bypass_api");
+		fpsgo_systrace_c_fbt(pid, f_render->buffer_id,
+			f_render->hwui, "bypass_hwui");
 		break;
 	default:
 		FPSGO_COM_TRACE("type not found pid[%d] type[%d]",
@@ -287,12 +289,8 @@ void fpsgo_ctrl2comp_enqueue_end(int pid,
 {
 	struct render_info *f_render;
 	struct hwui_info *h_info;
+	struct sbe_info *s_info;
 	int xgf_ret = 0;
-	int xgff_ret = 0;
-	unsigned long long queue_cpu_time = 0;
-	unsigned int queue_area = 0;
-	unsigned int queue_dep_size = 20;
-	unsigned int queue_dep[20];
 	int check_render;
 	unsigned long long running_time = 0;
 	unsigned long long mid = 0;
@@ -336,9 +334,16 @@ void fpsgo_ctrl2comp_enqueue_end(int pid,
 			f_render->pLoading->hwui = RENDER_INFO_HWUI_NONE;
 	}
 
-	if (!f_render->queue_SF) {
-		goto exit;
-	}
+	/* sbe */
+	s_info = fpsgo_search_and_add_sbe_info(f_render->pid, 0);
+	if (s_info)
+		f_render->sbe_control_flag = 1;
+	else
+		f_render->sbe_control_flag = 0;
+
+	f_render->frame_type = fpsgo_com_check_frame_type(pid,
+			f_render->queue_SF, f_render->api,
+			f_render->hwui, f_render->sbe_control_flag);
 
 	switch (f_render->frame_type) {
 	case NON_VSYNC_ALIGNED_TYPE:
@@ -360,13 +365,7 @@ void fpsgo_ctrl2comp_enqueue_end(int pid,
 			fpsgo_comp2xgf_qudeq_notify(pid, f_render->buffer_id,
 					XGF_QUEUE_END, &running_time, &mid,
 					enqueue_end_time, f_render->hwui);
-		xgff_ret =
-			xgff_frame_startend_fp(0, pid, f_render->buffer_id,
-			0, &queue_cpu_time, &queue_area, &queue_dep_size, queue_dep);
-		f_render->enqueue_length_real = f_render->enqueue_length > queue_cpu_time ?
-			f_render->enqueue_length - queue_cpu_time : 0;
-		fpsgo_systrace_c_fbt_debug(pid, f_render->buffer_id,
-			queue_cpu_time, "queue_cpu_time");
+		f_render->enqueue_length_real = f_render->enqueue_length;
 		fpsgo_systrace_c_fbt_debug(pid, f_render->buffer_id,
 			f_render->enqueue_length_real, "enq_length_real");
 		if (running_time != 0)
@@ -388,6 +387,17 @@ void fpsgo_ctrl2comp_enqueue_end(int pid,
 			"%d_%d-enqueue_length", pid, f_render->frame_type);
 		break;
 	case BY_PASS_TYPE:
+		/*
+		 * For timer to recycle
+		 * TODO: add timer at fps_composer.c
+		 */
+		fpsgo_comp2fstb_queue_time_update(pid,
+			f_render->buffer_id,
+			f_render->frame_type,
+			enqueue_end_time,
+			f_render->api,
+			f_render->hwui);
+		fpsgo_stop_boost_by_render(f_render);
 		break;
 	default:
 		FPSGO_COM_TRACE("type not found pid[%d] type[%d]",
@@ -450,9 +460,9 @@ void fpsgo_ctrl2comp_dequeue_start(int pid,
 		goto exit;
 	}
 
-	if (!f_render->queue_SF) {
-		goto exit;
-	}
+	f_render->frame_type = fpsgo_com_check_frame_type(pid,
+			f_render->queue_SF, f_render->api,
+			f_render->hwui, f_render->sbe_control_flag);
 
 	switch (f_render->frame_type) {
 	case NON_VSYNC_ALIGNED_TYPE:
@@ -522,9 +532,9 @@ void fpsgo_ctrl2comp_dequeue_end(int pid,
 		goto exit;
 	}
 
-	if (!f_render->queue_SF) {
-		goto exit;
-	}
+	f_render->frame_type = fpsgo_com_check_frame_type(pid,
+			f_render->queue_SF, f_render->api,
+			f_render->hwui, f_render->sbe_control_flag);
 
 	switch (f_render->frame_type) {
 	case NON_VSYNC_ALIGNED_TYPE:
@@ -695,7 +705,6 @@ void fpsgo_ctrl2comp_disconnect_api(
 	rb_erase(&connect_api->rb_node, &connect_api_tree);
 	kfree(connect_api);
 
-	fpsgo_comp2fbt_bypass_disconnect();
 
 	fpsgo_render_tree_unlock(__func__);
 }
@@ -729,6 +738,25 @@ void fpsgo_fstb2comp_check_connect_api(void)
 	fpsgo_render_tree_unlock(__func__);
 
 }
+
+static int switch_ui_ctrl(int pid, int set_ctrl)
+{
+	fpsgo_render_tree_lock(__func__);
+	if (set_ctrl)
+		fpsgo_search_and_add_sbe_info(pid, 1);
+	else {
+		fpsgo_delete_sbe_info(pid);
+
+		fpsgo_stop_boost_by_pid(pid);
+	}
+	fpsgo_render_tree_unlock(__func__);
+
+	fpsgo_systrace_c_fbt(pid, 0,
+			set_ctrl, "sbe_set_ctrl");
+
+	return 0;
+}
+
 
 static ssize_t connect_api_info_show
 	(struct kobject *kobj,
@@ -811,9 +839,125 @@ static ssize_t connect_api_info_show
 
 static KOBJ_ATTR_RO(connect_api_info);
 
+static ssize_t control_hwui_show(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		char *buf)
+{
+	return scnprintf(buf, PAGE_SIZE, "%d\n", control_hwui);
+}
+
+static ssize_t control_hwui_store(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		const char *buf, size_t count)
+{
+	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
+	int arg;
+
+	if ((count > 0) && (count < FPSGO_SYSFS_MAX_BUFF_SIZE)) {
+		if (scnprintf(acBuffer, FPSGO_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
+			if (kstrtoint(acBuffer, 0, &arg) == 0)
+				control_hwui = !!arg;
+		}
+	}
+
+	return count;
+}
+
+static KOBJ_ATTR_RW(control_hwui);
+
+static ssize_t control_api_mask_show(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		char *buf)
+{
+	return scnprintf(buf, PAGE_SIZE, "%d\n", control_api_mask);
+}
+
+static ssize_t control_api_mask_store(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		const char *buf, size_t count)
+{
+	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
+	int arg;
+
+	if ((count > 0) && (count < FPSGO_SYSFS_MAX_BUFF_SIZE)) {
+		if (scnprintf(acBuffer, FPSGO_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
+			if (kstrtoint(acBuffer, 0, &arg) == 0)
+				control_api_mask = arg;
+		}
+	}
+
+	return count;
+}
+
+static KOBJ_ATTR_RW(control_api_mask);
+
+static ssize_t bypass_non_SF_show(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		char *buf)
+{
+	return scnprintf(buf, PAGE_SIZE, "%d\n", bypass_non_SF);
+}
+
+static ssize_t bypass_non_SF_store(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		const char *buf, size_t count)
+{
+	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
+	int arg;
+
+	if ((count > 0) && (count < FPSGO_SYSFS_MAX_BUFF_SIZE)) {
+		if (scnprintf(acBuffer, FPSGO_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
+			if (kstrtoint(acBuffer, 0, &arg) == 0)
+				bypass_non_SF = !!arg;
+		}
+	}
+
+	return count;
+}
+
+static KOBJ_ATTR_RW(bypass_non_SF);
+
+static ssize_t set_ui_ctrl_show(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		char *buf)
+{
+	return 0;
+}
+
+static ssize_t set_ui_ctrl_store(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		const char *buf, size_t count)
+{
+	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
+	int arg;
+	int ret = 0;
+
+	if ((count > 0) && (count < FPSGO_SYSFS_MAX_BUFF_SIZE)) {
+		if (scnprintf(acBuffer, FPSGO_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
+			if (kstrtoint(acBuffer, 0, &arg) != 0)
+				goto out;
+			fpsgo_systrace_c_fbt(arg > 0 ? arg : -arg,
+				0, arg > 0, "force_ctrl");
+			if (arg > 0)
+				ret = switch_ui_ctrl(arg, 1);
+			else
+				ret = switch_ui_ctrl(-arg, 0);
+		}
+	}
+
+out:
+	return count;
+}
+
+static KOBJ_ATTR_RW(set_ui_ctrl);
+
 void __exit fpsgo_composer_exit(void)
 {
 	fpsgo_sysfs_remove_file(comp_kobj, &kobj_attr_connect_api_info);
+	fpsgo_sysfs_remove_file(comp_kobj, &kobj_attr_control_hwui);
+	fpsgo_sysfs_remove_file(comp_kobj, &kobj_attr_control_api_mask);
+	fpsgo_sysfs_remove_file(comp_kobj, &kobj_attr_bypass_non_SF);
+	fpsgo_sysfs_remove_file(comp_kobj, &kobj_attr_set_ui_ctrl);
 
 	fpsgo_sysfs_remove_dir(&comp_kobj);
 }
@@ -823,8 +967,13 @@ int __init fpsgo_composer_init(void)
 	ui_pid_tree = RB_ROOT;
 	connect_api_tree = RB_ROOT;
 
-	if (!fpsgo_sysfs_create_dir(NULL, "composer", &comp_kobj))
+	if (!fpsgo_sysfs_create_dir(NULL, "composer", &comp_kobj)) {
 		fpsgo_sysfs_create_file(comp_kobj, &kobj_attr_connect_api_info);
+		fpsgo_sysfs_create_file(comp_kobj, &kobj_attr_control_hwui);
+		fpsgo_sysfs_create_file(comp_kobj, &kobj_attr_control_api_mask);
+		fpsgo_sysfs_create_file(comp_kobj, &kobj_attr_bypass_non_SF);
+		fpsgo_sysfs_create_file(comp_kobj, &kobj_attr_set_ui_ctrl);
+	}
 
 	return 0;
 }

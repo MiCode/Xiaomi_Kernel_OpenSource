@@ -28,12 +28,8 @@ void fpsgo_base2fbt_item_del(struct fbt_thread_loading *obj,
 		struct fpsgo_loading *pdep,
 		struct render_info *thr);
 int fpsgo_base2fbt_get_max_blc_pid(int *pid, unsigned long long *buffer_id);
-void fpsgo_comp2fbt_bypass_enq(void);
-void fpsgo_comp2fbt_bypass_disconnect(void);
-void fpsgo_base2fbt_set_bypass(int has_bypass);
 void fpsgo_base2fbt_check_max_blc(void);
 void fpsgo_base2fbt_no_one_render(void);
-void fpsgo_base2fbt_only_bypass(void);
 void fpsgo_base2fbt_set_min_cap(struct render_info *thr, int min_cap);
 void fpsgo_base2fbt_clear_llf_policy(struct render_info *thr,
 						int orig_policy);
@@ -72,12 +68,8 @@ static inline void fpsgo_base2fbt_item_del(
 		struct render_info *thr) { }
 static inline int fpsgo_base2fbt_get_max_blc_pid(int *pid,
 		unsigned long long *buffer_id) { return 0; }
-static inline void fpsgo_comp2fbt_bypass_enq(void) { }
-static inline void fpsgo_comp2fbt_bypass_disconnect(void) { }
-static inline void fpsgo_base2fbt_set_bypass(int has_bypass) { }
 static inline void fpsgo_base2fbt_check_max_blc(void) { }
 static inline void fpsgo_base2fbt_no_one_render(void) { }
-static inline void fpsgo_base2fbt_only_bypass(void) { }
 static inline int fbt_switch_ceiling(int en) { return 0; }
 static inline void fpsgo_base2fbt_set_min_cap(struct render_info *thr,
 				int min_cap) { }
