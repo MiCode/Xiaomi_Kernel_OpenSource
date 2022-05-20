@@ -4895,11 +4895,6 @@ static void mtk_drm_init_dummy_table(struct mtk_drm_private *priv)
 		table = mt6983_dispsys_dummy_register;
 		size = MT6983_DUMMY_REG_CNT;
 		break;
-	case MMSYS_MT6985:
-		//need check
-		table = mt6983_dispsys_dummy_register;
-		size = MT6983_DUMMY_REG_CNT;
-		break;
 	case MMSYS_MT6895:
 		/* mt6895 same with mt6983 */
 		table = mt6983_dispsys_dummy_register;

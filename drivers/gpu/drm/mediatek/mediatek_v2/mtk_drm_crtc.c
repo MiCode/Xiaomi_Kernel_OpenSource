@@ -9930,16 +9930,11 @@ void mtk_gce_backup_slot_init(struct mtk_drm_crtc *mtk_crtc)
 
 	mmsys_id = mtk_get_mmsys_id(crtc);
 	if ((mmsys_id != MMSYS_MT6983) &&
-		(mmsys_id != MMSYS_MT6985) &&
 		(mmsys_id != MMSYS_MT6895) &&
 		(mmsys_id != MMSYS_MT6879))
 		return;
 
-	if (mmsys_id == MMSYS_MT6985) {
-	//need check
-		table = mt6983_dispsys_dummy_register;
-		size = MT6983_DUMMY_REG_CNT;
-	} else if ((mmsys_id == MMSYS_MT6983) ||
+	if ((mmsys_id == MMSYS_MT6983) ||
 		(mmsys_id == MMSYS_MT6895)) {
 		table = mt6983_dispsys_dummy_register;
 		size = MT6983_DUMMY_REG_CNT;
@@ -9969,7 +9964,6 @@ unsigned int *mtk_get_gce_backup_slot_va(struct mtk_drm_crtc *mtk_crtc,
 
 	mmsys_id = mtk_get_mmsys_id(crtc);
 	if ((mmsys_id != MMSYS_MT6983) &&
-		(mmsys_id != MMSYS_MT6985) &&
 		(mmsys_id != MMSYS_MT6895) &&
 		(mmsys_id != MMSYS_MT6879)) {
 		struct cmdq_pkt_buffer *cmdq_buf = &(mtk_crtc->gce_obj.buf);
@@ -9984,11 +9978,7 @@ unsigned int *mtk_get_gce_backup_slot_va(struct mtk_drm_crtc *mtk_crtc,
 
 	idx = slot_index / sizeof(unsigned int);
 
-	if (mmsys_id == MMSYS_MT6985) {
-	//need check
-		table = mt6983_dispsys_dummy_register;
-		size = MT6983_DUMMY_REG_CNT;
-	} else if ((mmsys_id == MMSYS_MT6983) ||
+	if ((mmsys_id == MMSYS_MT6983) ||
 		(mmsys_id == MMSYS_MT6895)) {
 		table = mt6983_dispsys_dummy_register;
 		size = MT6983_DUMMY_REG_CNT;
@@ -10028,7 +10018,6 @@ dma_addr_t mtk_get_gce_backup_slot_pa(struct mtk_drm_crtc *mtk_crtc,
 
 	mmsys_id = mtk_get_mmsys_id(crtc);
 	if ((mmsys_id != MMSYS_MT6983) &&
-		(mmsys_id != MMSYS_MT6985) &&
 		(mmsys_id != MMSYS_MT6895) &&
 		(mmsys_id != MMSYS_MT6879)) {
 		struct cmdq_pkt_buffer *cmdq_buf = &(mtk_crtc->gce_obj.buf);
@@ -10043,11 +10032,7 @@ dma_addr_t mtk_get_gce_backup_slot_pa(struct mtk_drm_crtc *mtk_crtc,
 
 	idx = slot_index / sizeof(unsigned int);
 
-	if (mmsys_id == MMSYS_MT6985) {
-	//need check
-		table = mt6983_dispsys_dummy_register;
-		size = MT6983_DUMMY_REG_CNT;
-	} else if ((mmsys_id == MMSYS_MT6983) ||
+	if ((mmsys_id == MMSYS_MT6983) ||
 		(mmsys_id == MMSYS_MT6895)) {
 		table = mt6983_dispsys_dummy_register;
 		size = MT6983_DUMMY_REG_CNT;
