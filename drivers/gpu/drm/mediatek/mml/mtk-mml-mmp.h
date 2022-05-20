@@ -27,6 +27,7 @@ struct mml_mmp_events_t {
 	mmp_event query_mode;
 	mmp_event submit;
 	mmp_event config;
+	mmp_event config_dle;
 	mmp_event task_create;
 	mmp_event buf_map;
 	mmp_event comp_prepare;
@@ -44,6 +45,10 @@ struct mml_mmp_events_t {
 	mmp_event irq_stop;
 	mmp_event fence_sig;
 	mmp_event exec;
+
+	/* events for command (dle and pipes) */
+	mmp_event command0;
+	mmp_event command1;
 
 	/* events for inline rotate disp addon */
 	mmp_event addon;

@@ -1180,7 +1180,11 @@ static s32 core_command(struct mml_task *task, u32 pipe)
 	s32 ret;
 
 	mml_trace_ex_begin("%s_%s_%u", __func__, "cmd", pipe);
-	mml_mmp(command, MMPROFILE_FLAG_START, task->job.jobid, pipe);
+	if (pipe == 0)
+		mml_mmp(command0, MMPROFILE_FLAG_START, task->job.jobid, pipe);
+	else
+		mml_mmp(command1, MMPROFILE_FLAG_START, task->job.jobid, pipe);
+
 	if (task->state == MML_TASK_INITIAL) {
 		/* make commands into pkt for later flush */
 		ret = command_make(task, pipe);
@@ -1188,7 +1192,10 @@ static s32 core_command(struct mml_task *task, u32 pipe)
 		ret = command_reuse(task, pipe);
 	}
 
-	mml_mmp(command, MMPROFILE_FLAG_END, task->job.jobid, pipe);
+	if (pipe == 0)
+		mml_mmp(command0, MMPROFILE_FLAG_END, task->job.jobid, pipe);
+	else
+		mml_mmp(command1, MMPROFILE_FLAG_END, task->job.jobid, pipe);
 	mml_trace_ex_end();
 	return ret;
 }
@@ -1494,7 +1501,10 @@ static void core_config_task(struct mml_task *task)
 	s32 err;
 
 	mml_trace_begin("%s", __func__);
-	mml_mmp(config, MMPROFILE_FLAG_START, jobid, 0);
+	if (cfg->info.mode == MML_MODE_DDP_ADDON)
+		mml_mmp(config_dle, MMPROFILE_FLAG_START, jobid, 0);
+	else
+		mml_mmp(config, MMPROFILE_FLAG_START, jobid, 0);
 
 	mml_msg("%s begin task %p config %p job %u",
 		__func__, task, cfg, jobid);
@@ -1534,7 +1544,10 @@ static void core_config_task(struct mml_task *task)
 	cfg->task_ops->submit_done(task);
 
 done:
-	mml_mmp(config, MMPROFILE_FLAG_END, jobid, 0);
+	if (cfg->info.mode == MML_MODE_DDP_ADDON)
+		mml_mmp(config_dle, MMPROFILE_FLAG_END, jobid, 0);
+	else
+		mml_mmp(config, MMPROFILE_FLAG_END, jobid, 0);
 	mml_trace_end();
 }
 

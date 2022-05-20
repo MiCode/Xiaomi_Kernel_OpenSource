@@ -16,7 +16,7 @@ struct mml_mmp_events_t *mml_mmp_get_event(void)
 
 void mml_mmp_init(void)
 {
-	mmp_event mml, addon, dle;
+	mmp_event mml, command, addon, dle;
 
 	if (mml_mmp_events.mml)
 		return;
@@ -27,6 +27,7 @@ void mml_mmp_init(void)
 	mml_mmp_events.query_mode = mmprofile_register_event(mml, "query_mode");
 	mml_mmp_events.submit = mmprofile_register_event(mml, "submit");
 	mml_mmp_events.config = mmprofile_register_event(mml, "config");
+	mml_mmp_events.config_dle = mmprofile_register_event(mml, "config_dle");
 	mml_mmp_events.task_create = mmprofile_register_event(mml, "task_create");
 	mml_mmp_events.buf_map = mmprofile_register_event(mml, "buf_map");
 	mml_mmp_events.comp_prepare = mmprofile_register_event(mml, "comp_prepare");
@@ -44,6 +45,10 @@ void mml_mmp_init(void)
 	mml_mmp_events.irq_stop = mmprofile_register_event(mml, "irq_stop");
 	mml_mmp_events.fence_sig = mmprofile_register_event(mml, "fence_sig");
 	mml_mmp_events.exec = mmprofile_register_event(mml, "exec");
+
+	command = mml_mmp_events.command;
+	mml_mmp_events.command0 = mmprofile_register_event(command, "command0");
+	mml_mmp_events.command1 = mmprofile_register_event(command, "command1");
 
 	addon = mmprofile_register_event(mml, "addon");
 	mml_mmp_events.addon = addon;
