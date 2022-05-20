@@ -217,6 +217,7 @@ static long AF_SetMotorName(__user struct stAF_MotorName *pstMotorName)
 			break;
 
 		LOG_INF("Search Motor Name : %s\n", g_stAF_DrvList[i].uDrvName);
+		stMotorName.uMotorName[STRUCT_MOTOR_NAME - 1] = '\0';
 		if (strcmp(stMotorName.uMotorName,
 			   g_stAF_DrvList[i].uDrvName) == 0) {
 			LOG_INF("Motor Name : %s\n", stMotorName.uMotorName);
@@ -310,6 +311,7 @@ static long AF_Ioctl(struct file *a_pstFile, unsigned int a_u4Command,
 			break;
 
 		LOG_INF("Search Motor Name : %s\n", g_stAF_DrvList[i].uDrvName);
+		stMotorName.uMotorName[STRUCT_MOTOR_NAME - 1] = '\0';
 		if (strcmp(stMotorName.uMotorName,
 			   g_stAF_DrvList[i].uDrvName) == 0) {
 			LOG_INF("Motor Name : %s\n", stMotorName.uMotorName);
