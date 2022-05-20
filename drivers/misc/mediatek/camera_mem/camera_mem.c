@@ -24,9 +24,15 @@
 #include <soc/mediatek/smi.h>
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
+#include <linux/suspend.h>
 
 #include "camera_mem.h"
+#include "mtk_heap.h"
 
+#if IS_ENABLED(CONFIG_COMPAT)
+/* 32/64 bit compatible */
+#include <linux/compat.h>
+#endif
 
 #define CAM_MEM_DEV_NAME "camera-mem"
 
@@ -80,7 +86,7 @@ struct ION_BUFFER_LIST {
 	struct dma_buf_attachment *attach;
 	struct sg_table *sgt;
 	dma_addr_t dmaAddr; /* physical addr / iova / secure handle */
-	int memID; /* ion buffer fd */
+	int memID; /* buffer fd */
 	unsigned int refCnt; /* map count */
 	unsigned long long timestamp; /* timestamp after mapping iova in ns */
 	char username[64]; /* userspace user name */
@@ -109,7 +115,6 @@ static struct ION_BUFFER_LIST g_ion_buf_list[HASH_BUCKET_NUM];
 static unsigned int G_u4EnableLarbCount;
 static atomic_t G_u4DevNodeCt;
 
-
 #define WARNING_STR_SIZE (1024)
 
 /*******************************************************************************
@@ -126,8 +131,13 @@ static inline void smi_larbs_get(void)
 	for (i = 0; i < g_larb_num; i++) {
 		if (cam_mem_dev.larbs[i]) {
 			ret = mtk_smi_larb_get(cam_mem_dev.larbs[i]);
-			if (ret)
+			if (ret) {
 				LOG_NOTICE("mtk_smi_larb_get larbs[%d] fail %d\n", i, ret);
+			} else {
+				spin_lock(&(CamMemInfo.SpinLock_Larb));
+				G_u4EnableLarbCount++;
+				spin_unlock(&(CamMemInfo.SpinLock_Larb));
+			}
 		} else
 			LOG_NOTICE("No larbs[%d] device\n", i);
 	}
@@ -144,9 +154,12 @@ static inline void smi_larbs_put(void)
 		return;
 
 	for (i = 0; i < g_larb_num; i++) {
-		if (cam_mem_dev.larbs[g_larb_num - 1 - i])
+		if (cam_mem_dev.larbs[g_larb_num - 1 - i]) {
 			mtk_smi_larb_put(cam_mem_dev.larbs[g_larb_num - 1 - i]);
-		else
+			spin_lock(&(CamMemInfo.SpinLock_Larb));
+			G_u4EnableLarbCount--;
+			spin_unlock(&(CamMemInfo.SpinLock_Larb));
+		} else
 			LOG_NOTICE("cam_mem_dev.larbs[%d] is NULL!\n", g_larb_num - 1 - i);
 	}
 }
@@ -157,22 +170,18 @@ static inline void smi_larbs_put(void)
 static void CamMem_EnableLarb(bool En)
 {
 	if (En) {
-		spin_lock(&(CamMemInfo.SpinLock_Larb));
-		G_u4EnableLarbCount++;
-		spin_unlock(&(CamMemInfo.SpinLock_Larb));
 		smi_larbs_get(); /* !!cannot be used in spinlock!! */
 	} else {
 		spin_lock(&(CamMemInfo.SpinLock_Larb));
 		if (G_u4EnableLarbCount == 0) {
 			spin_unlock(&(CamMemInfo.SpinLock_Larb));
 
-			LOG_INF("G_u4EnableLarbCount aleady be 0, do nothing\n");
+			LOG_DBG("G_u4EnableLarbCount aleady be 0, do nothing\n");
 
 			return;
 		}
-
-		G_u4EnableLarbCount--;
 		spin_unlock(&(CamMemInfo.SpinLock_Larb));
+
 		/* !!cannot be used in spinlock!! */
 		smi_larbs_put();
 	}
@@ -334,7 +343,7 @@ EXIT:
 }
 
 /*******************************************************************************
- *
+ * dump single cam_mem buf list.
  ******************************************************************************/
 static void dumpIonBufferList(struct ION_BUFFER_LIST *ion_buf_list,
 		unsigned int entry_num, bool TurnOn)
@@ -343,6 +352,8 @@ static void dumpIonBufferList(struct ION_BUFFER_LIST *ion_buf_list,
 	struct list_head *pos;
 	int i = 0;
 	unsigned int list_length = 0;
+	unsigned long long second;
+	unsigned long long nano_second;
 
 	if (TurnOn == false)
 		return;
@@ -354,45 +365,113 @@ static void dumpIonBufferList(struct ION_BUFFER_LIST *ion_buf_list,
 		list_length++;
 	}
 
-	LOG_NOTICE("## ion buf list length(%d); show %d newer entry ##\n",
-		list_length, entry_num);
 	list_for_each(pos, &ion_buf_list->list) {
-		if (i < entry_num) {
-			entry = list_entry(pos, struct ION_BUFFER_LIST, list);
-			LOG_NOTICE("#%3d: dump: memID(%3d); pa(0x%lx); refCnt(%d) user(%s)\n", i,
-				entry->memID,
-				entry->dmaAddr, entry->refCnt, entry->username);
-			i++;
-		} else
+		if (i >= entry_num)
 			break;
+
+		entry = list_entry(pos, struct ION_BUFFER_LIST, list);
+		second = entry->timestamp;
+		nano_second = do_div(second, 1000000000);
+
+		LOG_NOTICE("%3d/%3d:memID(%3d);P:0x%lx;S:0x%zx;RC(%d);user(%s);T(%llu.%llu)\n",
+			i, list_length, entry->memID, entry->dmaAddr, entry->dmaBuf->size,
+			entry->refCnt, entry->username, second, nano_second);
+		i++;
 	}
-	LOG_NOTICE("##################\n");
+}
+
+/*******************************************************************************
+ * dump all cam_mem buf list
+ ******************************************************************************/
+static void dumpAllBufferList(void)
+{
+	struct ION_BUFFER_LIST *entry;
+	struct list_head *pos;
+	int i = 0, j = 0;
+	unsigned long long total_size = 0;
+
+	LOG_NOTICE(" idx memID        pa     aligned-size   refCnt       user         timestamp\n");
+
+	for (j = 0; j < HASH_BUCKET_NUM; j++) {
+
+		mutex_lock(&cam_mem_ion_mutex[j]);
+
+		if (list_empty(&g_ion_buf_list[j].list)) {
+			mutex_unlock(&cam_mem_ion_mutex[j]);
+			continue;
+		}
+
+		list_for_each(pos, &g_ion_buf_list[j].list) {
+			unsigned long long second;
+			unsigned long long nano_second;
+
+			entry = list_entry(pos, struct ION_BUFFER_LIST, list);
+
+			second = entry->timestamp;
+			nano_second = do_div(second, 1000000000);
+
+			total_size += entry->dmaBuf->size;
+
+			LOG_NOTICE("#%03d   %3d   0x%09lx  0x%07zx     %2d   %-32s %llu.%llu\n",
+				i,
+				entry->memID,
+				entry->dmaAddr, entry->dmaBuf->size,
+				entry->refCnt, entry->username, second, nano_second);
+				i++;
+		}
+		mutex_unlock(&cam_mem_ion_mutex[j]);
+	}
+	if (total_size > 0) {
+		LOG_NOTICE("           Total Size= 0x%llx (%lld KBytes)\n",
+			total_size, total_size >> 10);
+	}
 }
 
 /*******************************************************************************
  *
  ******************************************************************************/
-static bool cam_mem_mmu_get_dma_buffer(struct ION_BUFFER *mmu, int va)
+static bool cam_mem_mmu_get_dma_buffer(
+	struct ION_BUFFER *mmu, struct CAM_MEM_DEV_ION_NODE_STRUCT *IonNode)
 {
 	struct dma_buf *buf;
 
-	if (unlikely(va == -1)) {
-		LOG_NOTICE("invalid ion fd!\n");
+	if (unlikely(IonNode->memID < 0)) {
+		LOG_NOTICE("invalid memID(%d)!\n", IonNode->memID);
 		return false;
 	}
 	/* va: buffer fd from user space, we get dmabuf from buffer fd. */
-	buf = dma_buf_get(va);
-	if (IS_ERR(buf))
+	buf = dma_buf_get(IonNode->memID);
+	if (IS_ERR(buf)) {
+		LOG_NOTICE("dma_buf_get failed! memID(%d)\n", IonNode->memID);
 		return false;
-
+	}
 	mmu->dmaBuf = buf;
+
+	if (IonNode->need_sec_handle) {
+		IonNode->sec_handle = dmabuf_to_secure_handle(mmu->dmaBuf);
+		if (IonNode->sec_handle == 0) {
+			LOG_NOTICE("Get sec_handle failed! memID(%d)\n", IonNode->memID);
+			return false;
+		}
+	}
+
 	mmu->attach = dma_buf_attach(mmu->dmaBuf, cam_mem_dev.dev);
-	if (IS_ERR(mmu->attach))
+	if (IS_ERR(mmu->attach)) {
+		LOG_NOTICE("dma_buf_attach failed! memID(%d) size(0x%zx)\n",
+			IonNode->memID, buf->size);
 		goto err_attach;
+	}
+
+	/* Lower down the MIPS */
+	mmu->attach->dma_map_attrs |= DMA_ATTR_SKIP_CPU_SYNC;
+
 	/* buffer and iova map */
 	mmu->sgt = dma_buf_map_attachment(mmu->attach, DMA_BIDIRECTIONAL);
-	if (IS_ERR(mmu->sgt))
+	if (IS_ERR(mmu->sgt)) {
+		LOG_NOTICE("dma_buf_map_attachment failed! memID(%d) size(0x%zx)\n",
+			IonNode->memID, buf->size);
 		goto err_map;
+	}
 	return true;
 
 err_map:
@@ -429,21 +508,18 @@ static long cam_mem_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Pa
 	case CAM_MEM_ION_MAP_PA:
 		if (likely(copy_from_user(&IonNode, (void *)Param,
 			sizeof(struct CAM_MEM_DEV_ION_NODE_STRUCT)) == 0)) {
-			dma_addr_t dmaPa;
+			dma_addr_t dmaPa = 0, found_dmaPa = 0;
 			struct list_head *pos;
 			/* tmp ION_BUFFER_LIST node to add into the list. */
 			struct ION_BUFFER_LIST *tmp;
 			struct ION_BUFFER_LIST *entry;
 			struct ION_BUFFER mmu = {NULL, NULL, NULL, 0};
-			bool bMapped = false;
 			unsigned int refCnt = 0;
-			char warningStr[WARNING_STR_SIZE];
-			int c_num = 0, size_remain = WARNING_STR_SIZE;
 			int bucketID = 0;
 
 			if (unlikely(IonNode.memID <= 0)) {
 				LOG_NOTICE(
-					"[CAM_MEM_ION_MAP_PA] invalid ion fd(%d)\n",
+					"[CAM_MEM_ION_MAP_PA] invalid memID(%d)\n",
 					IonNode.memID);
 				Ret = -EFAULT;
 				break;
@@ -459,45 +535,19 @@ static long cam_mem_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Pa
 
 				entry->refCnt++;
 				refCnt = entry->refCnt;
-				bMapped = true;
-
-				if (unlikely((size_remain <= 0) || (c_num >= WARNING_STR_SIZE))) {
-					LOG_NOTICE("m: warningStr size is not enough: (%d,%d)\n",
-						size_remain, c_num);
-					break;
-				} else {
-					int tmp = 0;
-					unsigned long long second;
-					unsigned long long nano_second;
-
-					second = entry->timestamp;
-					nano_second = do_div(second, 1000000000);
-
-					tmp = snprintf(warningStr + c_num, size_remain,
-						"pa(0x%lx);dmabuf(0x%lx);user(%s);ts(%llu.%llu) ",
-						entry->dmaAddr, entry->dmaBuf,
-						entry->username, second, nano_second);
-
-					if (unlikely(tmp < 0))
-						LOG_NOTICE("snprintf failed\n");
-					else {
-						c_num += tmp;
-						size_remain -= c_num;
-					}
-				}
+				found_dmaPa = entry->dmaAddr;
 			}
 			mutex_unlock(&cam_mem_ion_mutex[bucketID]);
 
-			if (refCnt > 1)
-				LOG_DBG("Warning:map:memID(%d)refCnt(%d)>1: %s\n",
-					IonNode.memID, refCnt, warningStr);
-
 			/* Map iova. */
 			LOG_DBG("CAM_MEM_ION_MAP_PA: do map. memID(%d)\n", IonNode.memID);
-			if (unlikely(cam_mem_mmu_get_dma_buffer(&mmu, IonNode.memID) == false)) {
+			if (unlikely(cam_mem_mmu_get_dma_buffer(&mmu, &IonNode) == false)) {
 				LOG_NOTICE(
 					"CAM_MEM_ION_MAP_PA: map pa failed, memID(%d)\n",
 					IonNode.memID);
+
+				dumpAllBufferList();
+
 				Ret = -ENOMEM;
 				break;
 			}
@@ -511,11 +561,20 @@ static long cam_mem_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Pa
 				break;
 			}
 			IonNode.dma_pa = mmu.dmaAddr = dmaPa;
+
+			if (unlikely((found_dmaPa != dmaPa) && (found_dmaPa != 0))) {
+				LOG_NOTICE("memID(%d)P(0x%lx)S(0x%zx): 1 fd with multi iova:\n",
+					IonNode.memID, dmaPa, mmu.dmaBuf->size);
+				mutex_lock(&cam_mem_ion_mutex[bucketID]);
+				dumpIonBufferList(&g_ion_buf_list[bucketID], 100, true);
+				mutex_unlock(&cam_mem_ion_mutex[bucketID]);
+			}
+
 			/* Add an entry to global ION_BUFFER list. */
 			tmp = kmalloc(
 				sizeof(struct ION_BUFFER_LIST), GFP_KERNEL);
 			if (unlikely(tmp == NULL)) {
-				LOG_NOTICE("alloc Ion buf list fail, memID(%d)\n",
+				LOG_NOTICE("alloc buf list fail, memID(%d)\n",
 					IonNode.memID);
 				Ret = -EFAULT;
 				break;
@@ -526,18 +585,18 @@ static long cam_mem_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Pa
 			tmp->dmaAddr = IonNode.dma_pa;
 			tmp->memID = IonNode.memID;
 			tmp->timestamp = ktime_get();
-			if (!bMapped)
+			if (found_dmaPa == 0)
 				tmp->refCnt = 1;
 			else
 				tmp->refCnt = refCnt;
 
-			strncpy(tmp->username, IonNode.username, strlen(IonNode.username));
-			tmp->username[strlen(IonNode.username)] = '\0';
+			strncpy(tmp->username, IonNode.username, sizeof(tmp->username));
+			tmp->username[sizeof(tmp->username) - 1] = '\0';
 
 			mutex_lock(&cam_mem_ion_mutex[bucketID]);
 			list_add(&(tmp->list),
 				&(g_ion_buf_list[bucketID].list));
-			LOG_DBG("Add: memID(%d); pa(0x%lx);dmaBuf(0x%lx);refCnt(%d); user(%s)\n",
+			LOG_DBG("Add: memID(%d); pa(0x%lx);dmaBuf(0x%p);refCnt(%d); user(%s)\n",
 				tmp->memID,
 				tmp->dmaAddr,
 				tmp->dmaBuf,
@@ -629,43 +688,16 @@ static long cam_mem_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Pa
 			if (refCnt > 0) {
 				struct list_head *pos2;
 				struct ION_BUFFER_LIST *entry;
-				char warningStr[WARNING_STR_SIZE];
-				int c_num = 0, size_remain = WARNING_STR_SIZE;
 
 				mutex_lock(&cam_mem_ion_mutex[bucketID]);
 				list_for_each(pos2,
 					&g_ion_buf_list[bucketID].list) {
-					int tmp = 0;
-
 					entry = list_entry(pos2, struct ION_BUFFER_LIST, list);
 					if (unlikely(entry->memID != IonNode.memID))
 						continue;
 					entry->refCnt--;
-
-					if (unlikely(
-						(size_remain <= 0) ||
-						(c_num >= WARNING_STR_SIZE))) {
-						LOG_NOTICE("um: Strbuf sz is not enough: (%d,%d)\n",
-							size_remain, c_num);
-						break;
-					}
-
-					tmp = snprintf(warningStr + c_num, size_remain,
-						"pa(0x%lx)dmaBuf(0x%lx)user(%s); ",
-						entry->dmaAddr, entry->dmaBuf,
-						entry->username);
-
-					if (unlikely(tmp < 0))
-						LOG_NOTICE("snprintf failed\n");
-					else {
-						c_num += tmp;
-						size_remain -= c_num;
-					}
 				}
 				mutex_unlock(&cam_mem_ion_mutex[bucketID]);
-
-				LOG_DBG("Warning:unamp:memID(%d)refCnt(%d) still > 0: %s\n",
-					IonNode.memID, refCnt, warningStr);
 			}
 #ifdef CAM_MEM_DEBUG
 			mutex_lock(&cam_mem_ion_mutex[bucketID]);
@@ -688,7 +720,7 @@ static long cam_mem_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Pa
 
 			if (IonNode.memID <= 0) {
 				LOG_NOTICE(
-					"CAM_MEM_ION_GET_PA: invalid ion fd(%d)\n",
+					"CAM_MEM_ION_GET_PA: invalid memID(%d)\n",
 					IonNode.memID);
 				Ret = -EFAULT;
 				break;
@@ -771,6 +803,18 @@ static long cam_mem_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Pa
 	return Ret;
 }
 
+#if IS_ENABLED(CONFIG_COMPAT)
+static long cam_mem_ioctl_compat(struct file *filp, unsigned int cmd,
+			     unsigned long arg)
+{
+	if (!filp->f_op || !filp->f_op->unlocked_ioctl) {
+		LOG_NOTICE("No op or no unlocked_ioctl\n");
+		return -ENOTTY;
+	}
+
+	return filp->f_op->unlocked_ioctl(filp, cmd, arg);
+}
+#endif
 
 /*******************************************************************************
  *
@@ -784,6 +828,9 @@ static const struct file_operations CamMemFileOper = {
 	.open = cam_mem_open,
 	.release = cam_mem_release,
 	.unlocked_ioctl = cam_mem_ioctl,
+#if IS_ENABLED(CONFIG_COMPAT)
+	.compat_ioctl = cam_mem_ioctl_compat,
+#endif
 };
 
 /*******************************************************************************
@@ -913,9 +960,10 @@ static int cam_mem_buf_list_read(struct seq_file *m, void *v)
 	struct ION_BUFFER_LIST *entry;
 	struct list_head *pos;
 	int i = 0, j = 0;
+	unsigned long long total_size = 0;
 
-	seq_puts(m, " idx memID        pa     aligned-size   refCnt     user     timestamp\n");
-	seq_puts(m, "===================================================================\n");
+	seq_puts(m, " idx memID        pa     aligned-size   refCnt       user        timestamp\n");
+	seq_puts(m, "==================================================================\n");
 
 	for (j = 0; j < HASH_BUCKET_NUM; j++) {
 
@@ -935,7 +983,10 @@ static int cam_mem_buf_list_read(struct seq_file *m, void *v)
 			second = entry->timestamp;
 			nano_second = do_div(second, 1000000000);
 
-			seq_printf(m, "#%03d   %3d   0x%09lx  0x%06x      %2d   %s %llu.%llu\n", i,
+			total_size += entry->dmaBuf->size;
+
+			seq_printf(m, "#%03d   %3d   0x%09lx  0x%07zx     %2d   %-32s %llu.%llu\n",
+				i,
 				entry->memID,
 				entry->dmaAddr, entry->dmaBuf->size,
 				entry->refCnt, entry->username, second, nano_second);
@@ -943,6 +994,12 @@ static int cam_mem_buf_list_read(struct seq_file *m, void *v)
 		}
 		mutex_unlock(&cam_mem_ion_mutex[j]);
 	}
+	if (total_size > 0) {
+		seq_puts(m, "==================================================================\n");
+		seq_printf(m, "           Total Size= 0x%llx (%lld KBytes)\n",
+			total_size, total_size >> 10);
+	}
+
 	return 0;
 };
 
@@ -1048,14 +1105,49 @@ static int cam_mem_remove(struct platform_device *pDev)
  ******************************************************************************/
 static int cam_mem_suspend(struct platform_device *pDev, pm_message_t Mesg)
 {
-	int ret;
-	char moduleName[128];
+	return 0;
+}
 
+/*******************************************************************************
+ *
+ ******************************************************************************/
+static int cam_mem_resume(struct platform_device *pDev)
+{
+	return 0;
+}
+
+/*******************************************************************************
+ *
+ ******************************************************************************/
+static const struct of_device_id cam_mem_of_ids[] = {
+	{
+		.compatible = "mediatek,cam_mem",
+	},
+	{}
+};
+
+static struct platform_driver CamMemDriver = {
+	.probe = cam_mem_probe,
+	.remove = cam_mem_remove,
+	.suspend = cam_mem_suspend,
+	.resume = cam_mem_resume,
+	.driver = {
+		.name = CAM_MEM_DEV_NAME,
+		.owner = THIS_MODULE,
+#if IS_ENABLED(CONFIG_OF)
+		.of_match_table = cam_mem_of_ids,
+#endif
+	}
+};
+
+#if IS_ENABLED(CONFIG_PM)
+/*******************************************************************************
+ *
+ ******************************************************************************/
+static int cam_mem_pm_event_suspend(void)
+{
+	int ret = 0;
 	unsigned int loopCnt;
-
-	ret = 0;
-
-	strncpy(moduleName, pDev->dev.of_node->name, 127);
 
 	/* update device node count */
 	atomic_dec(&G_u4DevNodeCt);
@@ -1068,8 +1160,8 @@ static int cam_mem_suspend(struct platform_device *pDev, pm_message_t Mesg)
 		spin_unlock(&(CamMemInfo.SpinLock_Larb));
 
 		if (CamMemInfo.UserCount != 0) {
-			LOG_INF("%s - X. UserCount=%d,Cnt:%d,devct:%d\n",
-				moduleName, CamMemInfo.UserCount,
+			LOG_INF("X. UserCount=%d,Cnt:%d,devct:%d\n",
+				CamMemInfo.UserCount,
 				G_u4EnableLarbCount,
 				atomic_read(&G_u4DevNodeCt));
 		}
@@ -1084,8 +1176,8 @@ static int cam_mem_suspend(struct platform_device *pDev, pm_message_t Mesg)
 		loopCnt = G_u4EnableLarbCount;
 		spin_unlock(&(CamMemInfo.SpinLock_Larb));
 
-		LOG_INF("%s - X. last dev node,disable larb %d time\n",
-			moduleName, loopCnt);
+		LOG_INF("X. last dev node,disable larb %d time\n",
+			loopCnt);
 		while (loopCnt > 0) {
 			CamMem_EnableLarb(false);
 			loopCnt--;
@@ -1098,55 +1190,52 @@ static int cam_mem_suspend(struct platform_device *pDev, pm_message_t Mesg)
 /*******************************************************************************
  *
  ******************************************************************************/
-static int cam_mem_resume(struct platform_device *pDev)
+static void cam_mem_pm_event_resume(void)
 {
-	int ret;
-	char moduleName[128];
-
-	ret = 0;
-
-	strncpy(moduleName, pDev->dev.of_node->name, 127);
-
 	/* update device node count */
 	atomic_inc(&G_u4DevNodeCt);
 
 	if (CamMemInfo.UserCount == 0) {
 		LOG_DBG("- X. UserCount=0\n");
 
-		return 0;
+		return;
 	}
 
 	CamMem_EnableLarb(true);
 
-	LOG_INF("%s_resume,EnableLarbCount:%d,devct:%d\n", moduleName,
+	LOG_INF("EnableLarbCount:%d,devct:%d\n",
 		G_u4EnableLarbCount,
 		atomic_read(&G_u4DevNodeCt));
-
-	return 0;
 }
 
 /*******************************************************************************
  *
  ******************************************************************************/
-static const struct of_device_id cam_mem_of_ids[] = {
-	{
-		.compatible = "mediatek,cam_mem",
+static int cam_mem_suspend_pm_event(struct notifier_block *notifier,
+			unsigned long pm_event, void *unused)
+{
+	switch (pm_event) {
+	case PM_HIBERNATION_PREPARE:
+		return NOTIFY_DONE;
+	case PM_RESTORE_PREPARE:
+		return NOTIFY_DONE;
+	case PM_POST_HIBERNATION:
+		return NOTIFY_DONE;
+	case PM_SUSPEND_PREPARE: /* before enter suspend */
+		cam_mem_pm_event_suspend();
+		return NOTIFY_DONE;
+	case PM_POST_SUSPEND: /* after resume */
+		cam_mem_pm_event_resume();
+		return NOTIFY_DONE;
 	}
-};
+	return NOTIFY_OK;
+}
 
-static struct platform_driver CamMemDriver = {
-	.probe = cam_mem_probe,
-	.remove = cam_mem_remove,
-	.suspend = cam_mem_suspend,
-	.resume = cam_mem_resume,
-	.driver = {
-		.name = CAM_MEM_DEV_NAME,
-		.owner = THIS_MODULE,
-#ifdef CONFIG_OF
-		.of_match_table = cam_mem_of_ids,
-#endif
-	}
+static struct notifier_block cam_mem_suspend_pm_notifier_func = {
+	.notifier_call = cam_mem_suspend_pm_event,
+	.priority = 0,
 };
+#endif
 
 /*******************************************************************************
  *
@@ -1173,6 +1262,15 @@ static int __init cam_mem_Init(void)
 		mutex_init(&cam_mem_ion_mutex[i]);
 		INIT_LIST_HEAD(&g_ion_buf_list[i].list);
 	}
+
+#if IS_ENABLED(CONFIG_PM)
+	Ret = register_pm_notifier(&cam_mem_suspend_pm_notifier_func);
+	if (Ret) {
+		LOG_NOTICE("Failed to register PM notifier.\n");
+		return Ret;
+	}
+#endif
+
 	LOG_NOTICE("-\n");
 	return Ret;
 }
