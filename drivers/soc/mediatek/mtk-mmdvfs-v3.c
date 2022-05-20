@@ -424,7 +424,7 @@ static int mmdvfs_v3_probe(struct platform_device *pdev)
 	for (i = 0; i < mmdvfs_clk_num; i++) {
 		struct device_node *table, *opp = NULL;
 		struct of_phandle_args spec;
-		struct clk_init_data *init;
+		struct clk_init_data init = {};
 		u8 idx = 0;
 
 		of_property_read_string_index(
@@ -472,15 +472,9 @@ static int mmdvfs_v3_probe(struct platform_device *pdev)
 		if (!IS_ERR_OR_NULL(clk_data->clks[i]))
 			continue;
 
-		init = kzalloc(sizeof(*init), GFP_KERNEL);
-		if (!init) {
-			MMDVFS_ERR("clk_init i:%d without memory", i);
-			return -ENOMEM;
-		}
-
-		init->name = mtk_mmdvfs_clks[i].name;
-		init->ops = &mtk_mmdvfs_req_ops;
-		mtk_mmdvfs_clks[i].clk_hw.init = init;
+		init.name = mtk_mmdvfs_clks[i].name;
+		init.ops = &mtk_mmdvfs_req_ops;
+		mtk_mmdvfs_clks[i].clk_hw.init = &init;
 
 		clk = clk_register(NULL, &mtk_mmdvfs_clks[i].clk_hw);
 		if (IS_ERR_OR_NULL(clk))
