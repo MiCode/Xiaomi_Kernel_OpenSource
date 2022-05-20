@@ -296,24 +296,17 @@ static int memory_region_offline(struct SSMR_Feature *feature, phys_addr_t *pa,
 		/* s2-map and s2-unamp must be 2MB alignment */
 		feature->cma_page = cma_alloc(ssmr_dev->cma_area, alloc_size >> PAGE_SHIFT,
 					get_order(SZ_2M), GFP_KERNEL);
-		feature->phy_addr =  page_to_phys(feature->cma_page);
 
-#if IS_ENABLED(CONFIG_ARCH_DMA_ADDR_T_64BIT)
-		if (!feature->phy_addr) {
+		if (!feature->cma_page) {
 			offline_retry++;
 			msleep(100);
 		}
-#else
-		if (feature->phy_addr == U32_MAX) {
-			feature->phy_addr = 0;
-			offline_retry++;
-			msleep(200);
-		}
-#endif
 
-	} while (!feature->phy_addr && offline_retry < 20);
+	} while ((feature->cma_page == NULL) && (offline_retry < 20));
 
-	if (feature->phy_addr) {
+	if (feature->cma_page) {
+		feature->phy_addr = page_to_phys(feature->cma_page);
+
 		pr_info("%s: feature: %s, pa=%pad is allocated, retry = %d\n", __func__,
 				feature->feat_name, &feature->phy_addr, offline_retry);
 	} else {
@@ -323,7 +316,7 @@ static int memory_region_offline(struct SSMR_Feature *feature, phys_addr_t *pa,
 	}
 
 	if (pa)
-		*pa = dma_to_phys(ssmr_dev, feature->phy_addr);
+		*pa = feature->phy_addr;
 
 	if (size)
 		*size = feature->req_size;
