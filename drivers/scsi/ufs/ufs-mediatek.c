@@ -2269,9 +2269,6 @@ static void ufs_mtk_fixup_dev_quirks(struct ufs_hba *hba)
 
 	ufshcd_fixup_dev_quirks(hba, ufs_mtk_dev_fixups);
 
-	if (dev_info->wmanufacturerid == UFS_VENDOR_MICRON)
-		host->caps |= UFS_MTK_CAP_BROKEN_VCC;
-
 	if (STR_PRFX_EQUAL("H9HQ15AFAMBDAR", dev_info->model))
 		host->caps |= UFS_MTK_CAP_BROKEN_VCC | UFS_MTK_CAP_FORCE_VSx_LPM;
 
@@ -2351,20 +2348,6 @@ static void ufs_mtk_auto_hibern8_disable(struct ufs_hba *hba)
 		dev_warn(hba->dev, "exit h8 state fail, ret=%d\n", ret);
 }
 
-static void ufs_mtk_hibern8_notify(struct ufs_hba *hba, enum uic_cmd_dme cmd,
-				    enum ufs_notify_change_status status)
-{
-	if (!ufshcd_is_auto_hibern8_supported(hba))
-		return;
-
-	if (status == PRE_CHANGE && cmd == UIC_CMD_DME_HIBER_ENTER)
-		ufs_mtk_auto_hibern8_disable(hba);
-
-	if (status == POST_CHANGE && cmd == UIC_CMD_DME_HIBER_ENTER &&
-		hba->dev_info.wmanufacturerid == UFS_VENDOR_MICRON)
-		usleep_range(5000, 5100);
-}
-
 void ufs_mtk_setup_task_mgmt(struct ufs_hba *hba, int tag, u8 tm_function)
 {
 #if IS_ENABLED(CONFIG_UFSFEATURE)
@@ -2440,7 +2423,6 @@ static const struct ufs_hba_variant_ops ufs_hba_mtk_vops = {
 	.hce_enable_notify   = ufs_mtk_hce_enable_notify,
 	.link_startup_notify = ufs_mtk_link_startup_notify,
 	.pwr_change_notify   = ufs_mtk_pwr_change_notify,
-	.hibern8_notify      = ufs_mtk_hibern8_notify,
 	.apply_dev_quirks    = ufs_mtk_apply_dev_quirks,
 	.fixup_dev_quirks    = ufs_mtk_fixup_dev_quirks,
 	.suspend             = ufs_mtk_suspend,
