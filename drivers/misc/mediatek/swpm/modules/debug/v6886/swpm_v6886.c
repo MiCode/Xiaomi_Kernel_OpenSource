@@ -804,14 +804,15 @@ static void swpm_update_temp(void)
 static void swpm_idx_snap(void)
 {
 	unsigned long flags;
+	unsigned int i = 0;
 
 	if (share_idx_ref) {
 		/* directly copy due to 8 bytes alignment problem */
 		spin_lock_irqsave(&swpm_snap_spinlock, flags);
-		mem_idx_snap.read_bw[0] = share_idx_ref->mem_idx.read_bw[0];
-		mem_idx_snap.read_bw[1] = share_idx_ref->mem_idx.read_bw[1];
-		mem_idx_snap.write_bw[0] = share_idx_ref->mem_idx.write_bw[0];
-		mem_idx_snap.write_bw[1] = share_idx_ref->mem_idx.write_bw[1];
+		for (i = 0; i < MAX_EMI_NUM; i++) {
+			mem_idx_snap.read_bw[i] = share_idx_ref->mem_idx.read_bw[i];
+			mem_idx_snap.write_bw[i] = share_idx_ref->mem_idx.write_bw[i];
+		}
 		spin_unlock_irqrestore(&swpm_snap_spinlock, flags);
 	}
 }
@@ -844,7 +845,7 @@ static void swpm_log_loop(struct timer_list *t)
 
 	for (i = 0; i < NR_POWER_RAIL; i++) {
 		if ((1 << i) & swpm_log_mask) {
-			ptr += snprintf(ptr, 256, "%s/",
+			ptr += scnprintf(ptr, 256, "%s/",
 					swpm_power_rail[i].name);
 		}
 	}
@@ -855,7 +856,7 @@ static void swpm_log_loop(struct timer_list *t)
 		if ((1 << i) & swpm_log_mask) {
 			swpm_power_rail[i].avg_power =
 				swpm_get_avg_power((enum power_rail)i);
-			ptr += snprintf(ptr, 256, "%d/",
+			ptr += scnprintf(ptr, 256, "%d/",
 					swpm_power_rail[i].avg_power);
 		}
 	}
@@ -867,12 +868,12 @@ static void swpm_log_loop(struct timer_list *t)
 		memset(idx_buf, 0, sizeof(char) * POWER_INDEX_CHAR_SIZE);
 		/* exclude window_cnt */
 		for (i = 0; i < idx_output_size; i++) {
-			idx_ptr += snprintf(idx_ptr, POWER_INDEX_CHAR_SIZE,
+			idx_ptr += scnprintf(idx_ptr, POWER_INDEX_CHAR_SIZE,
 					    "%d,", *(idx_ref_uint_ptr+i));
 		}
 #if SWPM_TEST
 		idx_ptr--;
-		idx_ptr += snprintf(idx_ptr, POWER_INDEX_CHAR_SIZE,
+		idx_ptr += scnprintf(idx_ptr, POWER_INDEX_CHAR_SIZE,
 				    " window_cnt = %d",
 				    share_idx_ref->window_cnt);
 #endif

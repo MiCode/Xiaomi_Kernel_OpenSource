@@ -112,16 +112,18 @@ static ssize_t dram_bw_read(char *ToUser, size_t sz, void *priv)
 {
 	char *p = ToUser;
 	unsigned long flags;
+	unsigned int i = 0;
 
 	if (!ToUser)
 		return -EINVAL;
 
 	spin_lock_irqsave(&swpm_snap_spinlock, flags);
-	swpm_dbg_log("DRAM BW [N]R/W=%d/%d,[S]R/W=%d/%d\n",
-		mem_idx_snap.read_bw[0],
-		mem_idx_snap.write_bw[0],
-		mem_idx_snap.read_bw[1],
-		mem_idx_snap.write_bw[1]);
+	for (i = 0; i < MAX_EMI_NUM; i++) {
+		swpm_dbg_log("DRAM BW(%d) R/W=%d/%d\n",
+			i,
+			mem_idx_snap.read_bw[i],
+			mem_idx_snap.write_bw[i]);
+	}
 	spin_unlock_irqrestore(&swpm_snap_spinlock, flags);
 
 	return p - ToUser;
