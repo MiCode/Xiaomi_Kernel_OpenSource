@@ -1354,7 +1354,7 @@ static struct clk_branch gcc_ddrss_ecpri_dma_clk = {
 			},
 			.num_parents = 1,
 			.flags = CLK_SET_RATE_PARENT,
-			.ops = &clk_branch2_ops,
+			.ops = &clk_branch2_aon_ops,
 		},
 	},
 };
@@ -1514,7 +1514,7 @@ static struct clk_branch gcc_gemnoc_pcie_qx_clk = {
 		.enable_mask = BIT(0),
 		.hw.init = &(struct clk_init_data){
 			.name = "gcc_gemnoc_pcie_qx_clk",
-			.ops = &clk_branch2_ops,
+			.ops = &clk_branch2_aon_ops,
 		},
 	},
 };
