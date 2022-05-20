@@ -33,6 +33,7 @@ void mtk_cam_device_buf_uninit(struct mtk_cam_device_buf *buf);
 int mtk_cam_device_buf_vmap(struct mtk_cam_device_buf *buf);
 static inline int mtk_cam_device_buf_fd(struct mtk_cam_device_buf *buf)
 {
+	get_dma_buf(buf->dbuf);
 	return dma_buf_fd(buf->dbuf, O_RDWR | O_CLOEXEC);
 }
 

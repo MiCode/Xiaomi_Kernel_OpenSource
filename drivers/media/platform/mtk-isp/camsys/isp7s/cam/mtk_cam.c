@@ -817,22 +817,6 @@ void isp_composer_destroy_session(struct mtk_cam_ctx *ctx)
 	dev_info(cam->dev, "rpmsg_send: DESTROY_SESSION\n");
 }
 
-static void isp_destroy_session_work(struct work_struct *work)
-{
-	struct mtk_cam_ctx *ctx = container_of(work, struct mtk_cam_ctx,
-					       session_work);
-
-	isp_composer_destroy_session(ctx);
-}
-
-__maybe_unused static void isp_composer_destroy_session_async(struct mtk_cam_ctx *ctx)
-{
-	struct work_struct *w = &ctx->session_work;
-
-	INIT_WORK(w, isp_destroy_session_work);
-	queue_work(ctx->composer_wq, w);
-}
-
 /* forward decl. */
 static int isp_composer_handler(struct rpmsg_device *rpdev, void *data,
 				int len, void *priv, u32 src);
@@ -1354,11 +1338,16 @@ static int mtk_cam_ctx_unprepare_session(struct mtk_cam_ctx *ctx)
 	struct device *dev = ctx->cam->dev;
 
 	if (ctx->session_created) {
+		int ret;
+
 		dev_dbg(dev, "%s:ctx(%d): wait for session destroy\n",
 			__func__, ctx->stream_id);
-		if (wait_for_completion_timeout(&ctx->session_complete,
-						msecs_to_jiffies(1000)) == 0)
-			dev_info(dev, "%s:ctx(%d): complete timeout\n",
+
+		isp_composer_destroy_session(ctx);
+
+		ret = wait_for_completion_killable(&ctx->session_complete);
+		if (ret < 0)
+			dev_info(dev, "%s:ctx(%d): got killed\n",
 				 __func__, ctx->stream_id);
 
 		isp_composer_uninit(ctx);
@@ -1518,6 +1507,8 @@ void mtk_cam_stop_ctx(struct mtk_cam_ctx *ctx, struct media_entity *entity)
 	WARN_ON(mtk_cam_unmark_streaming(cam, ctx->stream_id));
 
 	mtk_cam_ctrl_stop(&ctx->cam_ctrl);
+
+	/* note: should await all jobs composer's ack before unprepare session */
 	mtk_cam_ctx_unprepare_session(ctx);
 	mtk_cam_ctx_destroy_pool(ctx);
 	mtk_cam_ctx_destroy_workers(ctx);
