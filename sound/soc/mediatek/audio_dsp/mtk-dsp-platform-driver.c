@@ -46,6 +46,7 @@ static int dsp_task_attr_set(struct snd_kcontrol *kcontrol,
 	int id;
 	int dsp_task_id = -1;
 	int attr_id = -1;
+	const char *name = NULL;
 
 	/* get task attribute id */
 	if (strstr(kcontrol->id.name, "ref_runtime"))
@@ -62,7 +63,11 @@ static int dsp_task_attr_set(struct snd_kcontrol *kcontrol,
 
 	/* get dsp task id */
 	for (id = 0; id < AUDIO_TASK_DAI_NUM; id++) {
-		if (strstr(kcontrol->id.name, get_str_by_dsp_dai_id(id))) {
+		name = get_str_by_dsp_dai_id(id);
+		if (!name)
+			continue;
+
+		if (strstr(kcontrol->id.name, name)) {
 			dsp_task_id = id;
 			break;
 		}
@@ -85,6 +90,7 @@ static int dsp_task_attr_get(struct snd_kcontrol *kcontrol,
 	int id;
 	int dsp_task_id = -1;
 	int attr_id;
+	const char *name = NULL;
 
 	/* get task attribute id */
 	if (strstr(kcontrol->id.name, "ref_runtime"))
@@ -101,7 +107,11 @@ static int dsp_task_attr_get(struct snd_kcontrol *kcontrol,
 
 	/* get dsp task id */
 	for (id = 0; id < AUDIO_TASK_DAI_NUM; id++) {
-		if (strstr(kcontrol->id.name, get_str_by_dsp_dai_id(id))) {
+		name = get_str_by_dsp_dai_id(id);
+		if (!name)
+			continue;
+
+		if (strstr(kcontrol->id.name, name)) {
 			dsp_task_id = id;
 			break;
 		}
@@ -113,8 +123,7 @@ static int dsp_task_attr_get(struct snd_kcontrol *kcontrol,
 		return -1;
 	}
 
-	ucontrol->value.integer.value[0] =
-		get_task_attr(dsp_task_id, attr_id);
+	ucontrol->value.integer.value[0] = get_task_attr(dsp_task_id, attr_id);
 
 	return 0;
 }
@@ -527,6 +536,9 @@ static bool mtk_dsp_check_exception(struct mtk_base_dsp *dsp,
 				    struct ipi_msg_t *ipi_msg, int id)
 {
 	const char *task_name = get_str_by_dsp_dai_id(id);
+
+	if (id < 0 || id >= AUDIO_TASK_DAI_NUM)
+		return false;
 
 	if (!dsp->dsp_mem[id].substream) {
 		pr_info_ratelimited("%s() %s substream NULL\n",
@@ -1154,7 +1166,7 @@ static int mtk_dsp_pcm_copy(struct snd_soc_component *component,
 	struct mtk_base_dsp_mem *dsp_mem = &dsp->dsp_mem[id];
 	int ret = 0;
 
-	if (bytes <= 0) {
+	if (bytes == 0) {
 		pr_info(
 			"error %s channel = %d pos = %lu count = %lu bytes = %d\n",
 			__func__, channel, pos, bytes, bytes);
@@ -1185,7 +1197,7 @@ void audio_irq_handler(int irq, void *data, int core_id)
 		pr_info("%s dsp[%p]\n", __func__, dsp);
 		goto IRQ_ERROR;
 	}
-	if (core_id >= get_adsp_core_total()) {
+	if (core_id >= get_adsp_core_total() || core_id < 0) {
 		pr_info("%s core_id[%d]\n", __func__, core_id);
 		goto IRQ_ERROR;
 	}
@@ -1297,7 +1309,7 @@ static struct notifier_block adsp_audio_notifier = {
 
 static int mtk_dsp_probe(struct snd_soc_component *component)
 {
-	int ret = 0, id = 0;
+	int ret = 0, id = 0, dspscene = 0;
 	struct mtk_base_dsp *dsp = snd_soc_component_get_drvdata(component);
 
 	pr_info("%s dsp = %p\n", __func__, dsp);
@@ -1314,8 +1326,12 @@ static int mtk_dsp_probe(struct snd_soc_component *component)
 
 	for (id = 0; id < AUDIO_TASK_DAI_NUM; id++) {
 		spin_lock_init(&dsp->dsp_mem[id].ringbuf_lock);
-		ret = audio_task_register_callback(get_dspscene_by_dspdaiid(id),
-						   mtk_dsp_pcm_ipi_recv);
+
+		dspscene = get_dspscene_by_dspdaiid(id);
+		if (dspscene < 0)
+			continue;
+
+		ret = audio_task_register_callback(dspscene, mtk_dsp_pcm_ipi_recv);
 		if (ret < 0)
 			return ret;
 	}
