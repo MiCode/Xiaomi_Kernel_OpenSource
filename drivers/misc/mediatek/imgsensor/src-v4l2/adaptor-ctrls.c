@@ -11,6 +11,7 @@
 #include "adaptor-common-ctrl.h"
 #include "adaptor-fsync-ctrls.h"
 #include "adaptor-hw.h"
+#include "adaptor-trace.h"
 
 #define ctrl_to_ctx(ctrl) \
 	container_of(ctrl->handler, struct adaptor_ctx, ctrls)
@@ -182,14 +183,24 @@ static int do_set_ae_ctrl(struct adaptor_ctx *ctx,
 	switch (exp_count) {
 	case 3:
 	{
+		ADAPTOR_SYSTRACE_BEGIN("imgsensor::set_exposure_tri");
 		set_hdr_exposure_tri(ctx, &ae_ctrl->exposure);
+		ADAPTOR_SYSTRACE_END();
+
+		ADAPTOR_SYSTRACE_BEGIN("imgsensor::set_gain_tri");
 		set_hdr_gain_tri(ctx, &ae_ctrl->gain);
+		ADAPTOR_SYSTRACE_END();
 	}
 		break;
 	case 2:
 	{
+		ADAPTOR_SYSTRACE_BEGIN("imgsensor::set_exposure_dual");
 		set_hdr_exposure_dual(ctx, &ae_ctrl->exposure);
+		ADAPTOR_SYSTRACE_END();
+
+		ADAPTOR_SYSTRACE_BEGIN("imgsensor::set_gain_dual");
 		set_hdr_gain_dual(ctx, &ae_ctrl->gain);
+		ADAPTOR_SYSTRACE_END();
 	}
 		break;
 	case 1:
@@ -204,6 +215,7 @@ static int do_set_ae_ctrl(struct adaptor_ctx *ctx,
 						ae_ctrl->subsample_tags);
 		}
 
+		ADAPTOR_SYSTRACE_BEGIN("imgsensor::set_exposure");
 		ret = chk_s_exp_with_fl_by_fsync_mgr(ctx);
 		if (!ret) {
 			/* NOT enable frame-sync || using HW sync solution */
@@ -214,22 +226,28 @@ static int do_set_ae_ctrl(struct adaptor_ctx *ctx,
 		}
 		fsync_exp[0] = ae_ctrl->exposure.le_exposure;
 		notify_fsync_mgr_set_shutter(ctx, fsync_exp, 1, ret);
+		ADAPTOR_SYSTRACE_END();
 
 		para.u64[0] = ae_ctrl->gain.le_gain;
 		para.u64[1] = 0;
 		para.u64[2] = 0;
+
+		ADAPTOR_SYSTRACE_BEGIN("imgsensor::set_gain");
 		subdrv_call(ctx, feature_control,
 					SENSOR_FEATURE_SET_GAIN,
 					para.u8, &len);
+		ADAPTOR_SYSTRACE_END();
 	}
 		break;
 	}
 
 	if (ae_ctrl->actions & IMGSENSOR_EXTEND_FRAME_LENGTH_TO_DOL) {
 		para.u64[0] = 0;
+		ADAPTOR_SYSTRACE_BEGIN("imgsensor::set_extend_frame_length");
 		subdrv_call(ctx, feature_control,
 					SENSOR_FEATURE_SET_SEAMLESS_EXTEND_FRAME_LENGTH,
 					para.u8, &len);
+		ADAPTOR_SYSTRACE_END();
 
 		notify_fsync_mgr_set_extend_framelength(ctx, para.u64[0]);
 	}
@@ -603,7 +621,9 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 		}
 		break;
 	case V4L2_CID_MTK_STAGGER_AE_CTRL:
+		ADAPTOR_SYSTRACE_BEGIN("SensorWorker::s_ae_ctrl");
 		s_ae_ctrl(ctrl);
+		ADAPTOR_SYSTRACE_END();
 		break;
 	case V4L2_CID_EXPOSURE_ABSOLUTE:
 		{

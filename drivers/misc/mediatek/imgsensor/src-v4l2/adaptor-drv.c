@@ -19,6 +19,7 @@
 #include "adaptor-ctrls.h"
 #include "adaptor-fsync-ctrls.h"
 #include "adaptor-ioctl.h"
+#include "adaptor-trace.h"
 #include "imgsensor-glue/imgsensor-glue.h"
 #include "virt-sensor/virt-sensor-entry.h"
 
@@ -402,7 +403,6 @@ static int imgsensor_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 	dev_info(ctx->dev, "%s use self ref cnt\n", __func__);
 	adaptor_hw_power_on(ctx);
 #endif
-
 	adaptor_sensor_init(ctx);
 #endif
 
@@ -604,9 +604,13 @@ static int imgsensor_set_pad_format(struct v4l2_subdev *sd,
 		ctx->try_format_mode = mode;
 	} else {
 #ifndef POWERON_ONCE_OPENED
+		ADAPTOR_SYSTRACE_BEGIN("imgsensor::init_sensor");
 		adaptor_sensor_init(ctx);
+		ADAPTOR_SYSTRACE_END();
 #endif
+		ADAPTOR_SYSTRACE_BEGIN("imgsensor::set_mode_%u", mode->id);
 		set_sensor_mode(ctx, mode, 1);
+		ADAPTOR_SYSTRACE_END();
 	}
 	mutex_unlock(&ctx->mutex);
 
