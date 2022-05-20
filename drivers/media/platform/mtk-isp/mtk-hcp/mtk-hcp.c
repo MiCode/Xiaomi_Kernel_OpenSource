@@ -468,11 +468,11 @@ int hcp_aee_init(struct mtk_hcp *hcp_dev)
 		hcp_aee_reset(hcp_dev);
 
 		aee_info->daemon = proc_create("daemon",
-				0644, aee_info->entry, &aee_ops);
+				0666, aee_info->entry, &aee_ops);
 		aee_info->stream = proc_create("stream",
-				0644, aee_info->entry, &aee_ops);
+				0666, aee_info->entry, &aee_ops);
 		aee_info->kernel = proc_create("kernel",
-				0644, aee_info->entry, &aee_ops);
+				0666, aee_info->entry, &aee_ops);
 	} else {
 		pr_info("%s: failed to create imgsys debug node\n", __func__);
 	}
