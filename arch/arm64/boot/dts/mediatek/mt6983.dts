@@ -10487,7 +10487,7 @@
 		//		<6>; /* in_size */
 
 		/* feature, frequecy, coreid */
-		scp_feature_tbl = < 0 400 1>,	/* vow */
+		scp_feature_tbl = < 0 40 1>,	/* vow */
 				  < 1  29 0>,	/* sensor */
 				  < 2  26 0>,	/* flp */
 				  < 3   0 0>,	/* rtos */
