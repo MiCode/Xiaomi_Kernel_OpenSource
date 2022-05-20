@@ -145,7 +145,8 @@ struct mtk_msi_set {
  * @num_clks: PCIe clocks count for this port
  * @port_num: serial number of pcie port
  * @suspend_mode: pcie enter low poer mode when the system enter suspend
- * @dvfs_req: pcie wait request to reply ack when pcie exit from P2 state
+ * @dvfs_req_en: pcie wait request to reply ack when pcie exit from P2 state
+ * @peri_reset_en: clear peri pcie reset to open pcie phy & mac
  * @irq: PCIe controller interrupt number
  * @saved_irq_state: IRQ enable state saved at suspend time
  * @irq_lock: lock protecting IRQ register access
@@ -170,6 +171,7 @@ struct mtk_pcie_port {
 	u32 port_num;
 	u32 suspend_mode;
 	bool dvfs_req_en;
+	bool peri_reset_en;
 	int irq;
 	u32 saved_irq_state;
 	raw_spinlock_t irq_lock;
@@ -790,6 +792,11 @@ static int mtk_pcie_parse_port(struct mtk_pcie_port *port)
 	if (ret)
 		port->dvfs_req_en = false;
 
+	port->peri_reset_en = true;
+	ret = of_property_read_bool(dev->of_node, "mediatek,peri-reset-dis");
+	if (ret)
+		port->peri_reset_en = false;
+
 	pextp_node = of_find_compatible_node(NULL, NULL,
 					     "mediatek,mt6985-pextpcfg_ao");
 	if (pextp_node) {
@@ -860,10 +867,12 @@ static int mtk_pcie_power_up(struct mtk_pcie_port *port)
 	int err;
 
 	/* Clear PCIe sw reset bit */
-	err = mtk_pcie_peri_reset(port, false);
-	if (err) {
-		dev_info(dev, "failed to clear PERI reset control bit\n");
-		return err;
+	if (port->peri_reset_en) {
+		err = mtk_pcie_peri_reset(port, false);
+		if (err) {
+			dev_info(dev, "failed to clear PERI reset control bit\n");
+			return err;
+		}
 	}
 
 	/* PHY power on and enable pipe clock */
@@ -921,7 +930,8 @@ static void mtk_pcie_power_down(struct mtk_pcie_port *port)
 	reset_control_assert(port->phy_reset);
 
 	/* Set PCIe sw reset bit */
-	mtk_pcie_peri_reset(port, true);
+	if (port->peri_reset_en)
+		mtk_pcie_peri_reset(port, true);
 }
 
 static int mtk_pcie_setup(struct mtk_pcie_port *port)
