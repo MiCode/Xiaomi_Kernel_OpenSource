@@ -2590,15 +2590,17 @@ s32 cmdq_pkt_flush_async(struct cmdq_pkt *pkt,
 		return err;
 
 	if (append_by_event && pkt->pause_offset) {
-		struct cmdq_instruction *cmdq_inst;
-
+		struct cmdq_instruction *cmdq_inst, inst;
 		cmdq_inst = (void *)cmdq_pkt_get_va_by_offset(pkt,
 			pkt->pause_offset - CMDQ_INST_SIZE);
-		if (cmdq_inst->op == CMDQ_CODE_WFE)
-			cmdq_inst->arg_a = CMDQ_TOKEN_PAUSE_TASK_0
+		inst = *cmdq_inst;
+		cmdq_inst->arg_a = CMDQ_TOKEN_PAUSE_TASK_0
 			+ cmdq_mbox_chan_id(client->chan);
-		else
-			cmdq_err("wrong pause inst:%#018llx", *((u64 *)cmdq_inst));
+		if (cmdq_inst->op != CMDQ_CODE_WFE) {
+			cmdq_err("wrong pause inst:%#018llx -> %#018llx",
+				inst, *((u64 *)cmdq_inst));
+			BUG_ON(1);
+		}
 	}
 
 #if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
