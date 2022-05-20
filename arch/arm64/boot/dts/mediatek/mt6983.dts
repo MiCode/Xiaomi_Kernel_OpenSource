@@ -7228,8 +7228,10 @@
 		compatible = "mediatek,mmdvfs-debug";
 		dvfsrc-vcore-supply = <&dvfsrc_vcore>;
 		disp-dev = <&dispsys_config>;
-		force-step0 = <1>;
-		release-step0 = <1>;
+		force-step0 = <1>; /* 0:opp0,  1:opp1, ... */
+		release-step0 = <1>; /* 0:disable,  1:enable */
+		clocks = <&mmdvfs_clk CLK_MMDVFS_VCORE_VOTE>;
+		clock-names = "vcore_vote";
 	};
 
 	mmdvfs {
