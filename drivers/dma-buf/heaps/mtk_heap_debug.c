@@ -24,6 +24,7 @@
 #include <linux/sizes.h>
 #include <uapi/linux/dma-heap.h>
 #include <linux/sched/clock.h>
+#include <linux/sched/mm.h>
 #include <linux/of_device.h>
 #include <linux/fdtable.h>
 #include <linux/oom.h>
@@ -738,23 +739,26 @@ static int dmabuf_rbtree_add_vmas(struct dump_fd_data *fd_data)
 	struct seq_file *s = fd_data->constd.s;
 	struct dma_heap *heap = fd_data->constd.heap;
 	struct task_struct *t = fd_data->constd.p;
+	struct mm_struct *mm;
 
 	struct vm_area_struct *vma;
 	int mapcount = 0;
 	struct file *file;
 	struct dma_buf *dmabuf;
 
-	if (!t->mm || t->flags & PF_KTHREAD)
+	mm = get_task_mm(t);
+	if (!mm)
 		return 0;
 
 	/* get mmap_lock to prevent vma disappear */
-	if (!mmap_read_trylock(t->mm)) {
+	if (!mmap_read_trylock(mm)) {
 		fd_data->err |= VMA_MMAP_LOCK_FAIL;
+		mmput(mm);
 		return 0;
 	}
 
-	vma = t->mm->mmap;
-	while (vma && (mapcount < t->mm->map_count)) {
+	vma = mm->mmap;
+	while (vma && (mapcount < mm->map_count)) {
 		struct dmabuf_debug_node *dbg_node = NULL;
 		struct dmabuf_pid_res *pid_res = NULL;
 		struct dmabuf_vm_res *vm_res = NULL;
@@ -801,7 +805,8 @@ next_vma:
 		mapcount++;
 	}
 out:
-	mmap_read_unlock(t->mm);
+	mmap_read_unlock(mm);
+	mmput(mm);
 	return fd_data->err;
 }
 
@@ -1032,10 +1037,7 @@ void dmabuf_rbtree_add_all_pid(struct dump_fd_data *fddata,
 		return;
 	}
 
-	/* spin lock */
-	task_lock(p);
 	fddata->constd.p = p;
-
 	fddata->err = 0;
 	fddata->ret = 0;
 	ret = dmabuf_rbtree_add_vmas(fddata);
@@ -1060,7 +1062,6 @@ void dmabuf_rbtree_add_all_pid(struct dump_fd_data *fddata,
 			    p->pid, p->comm,
 			    fddata->err);
 
-	task_unlock(p);
 	put_task_struct(p);
 	put_pid(pid_s);
 }
