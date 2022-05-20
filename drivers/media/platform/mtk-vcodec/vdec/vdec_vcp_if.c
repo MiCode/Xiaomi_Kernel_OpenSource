@@ -110,6 +110,7 @@ static int vdec_vcp_ipi_send(struct vdec_inst *inst, void *msg, int len, bool is
 	struct mutex *msg_mutex;
 	unsigned int *msg_signaled;
 	wait_queue_head_t *msg_wq;
+	bool is_res = false;
 	int ipi_wait_type = IPI_SEND_WAIT;
 
 	if (preempt_count())
@@ -155,6 +156,7 @@ static int vdec_vcp_ipi_send(struct vdec_inst *inst, void *msg, int len, bool is
 	memcpy(obj.share_buf, msg, len);
 
 	if (*(__u32 *)msg == AP_IPIMSG_DEC_FRAME_BUFFER) {
+		is_res = true;
 		obj.id = IPI_VDEC_RESOURCE;
 		msg_mutex = &inst->ctx->dev->ipi_mutex_res;
 		msg_signaled = &inst->vcu.signaled_res;
@@ -170,9 +172,11 @@ static int vdec_vcp_ipi_send(struct vdec_inst *inst, void *msg, int len, bool is
 
 	obj.len = len;
 	ipi_size = ((sizeof(u32) * 2) + len + 3) / 4;
-	inst->vcu.failure = 0;
-	if (!is_ack)
+	if (!is_ack) {
 		*msg_signaled = false;
+		if (!is_res)
+			inst->vcu.failure = 0;
+	}
 
 	mtk_v4l2_debug(2, "id %d len %d msg 0x%x is_ack %d %d", obj.id, obj.len, *(u32 *)msg,
 		is_ack, *msg_signaled);
@@ -209,8 +213,8 @@ wait_ack:
 			ret = wait_event_timeout(*msg_wq, *msg_signaled, timeout);
 		*msg_signaled = false;
 
-		if (ret == 0 || inst->vcu.failure) {
-			mtk_vcodec_err(inst, "wait vcp ipi %X ack time out or fail! %d %d",
+		if (ret == 0) {
+			mtk_vcodec_err(inst, "wait vcp ipi %X ack time out! %d %d",
 				*(u32 *)msg, ret, inst->vcu.failure);
 			mutex_unlock(msg_mutex);
 			inst->vcu.failure = VDEC_IPI_MSG_STATUS_FAIL;
@@ -227,6 +231,9 @@ wait_ack:
 		}
 	}
 	mutex_unlock(msg_mutex);
+
+	if (!is_ack && !is_res)
+		return inst->vcu.failure;
 
 	return 0;
 }
@@ -687,13 +694,13 @@ int vcp_dec_ipi_handler(void *arg)
 				wake_up(&vcu->wq_res);
 				break;
 			case VCU_IPIMSG_DEC_INIT_DONE:
-				vcu->failure = VDEC_IPI_MSG_STATUS_FAIL;
 			case VCU_IPIMSG_DEC_START_DONE:
 			case VCU_IPIMSG_DEC_DEINIT_DONE:
 			case VCU_IPIMSG_DEC_RESET_DONE:
 			case VCU_IPIMSG_DEC_SET_PARAM_DONE:
 			case VCU_IPIMSG_DEC_QUERY_CAP_DONE:
 			case VCU_IPIMSG_DEC_BACKUP_DONE:
+				vcu->failure = msg->status;
 				vcu->signaled = true;
 				wake_up(&vcu->wq);
 				break;
