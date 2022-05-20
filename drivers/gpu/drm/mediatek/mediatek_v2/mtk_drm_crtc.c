@@ -4829,10 +4829,8 @@ static void ddp_cmdq_cb(struct cmdq_cb_data data)
 	unsigned int _dsi_state_dbg7_2 = 0;
 	ktime_t pf_time;
 
-	DDPINFO("crtc_state:%x, atomic_state:%x, crtc:%x\n",
-		crtc_state,
-		atomic_state,
-		crtc);
+	DDPINFO("crtc_state:%x, atomic_state:%x, crtc:%x, pf:%u\n",
+		crtc_state, atomic_state, crtc, cb_data->pres_fence_idx);
 
 	session_id = mtk_get_session_id(crtc);
 
