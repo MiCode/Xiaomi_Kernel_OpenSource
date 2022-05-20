@@ -1043,6 +1043,14 @@ static const struct mtk_disp_c3d_data mt6879_c3d_driver_data = {
 	.c3d_sram_end_addr = 2912,
 };
 
+static const struct mtk_disp_c3d_data mt6985_c3d_driver_data = {
+	.support_shadow = false,
+	.need_bypass_shadow = true,
+	.bin_num = 17,
+	.c3d_sram_start_addr = 0,
+	.c3d_sram_end_addr = 19648,
+};
+
 static const struct of_device_id mtk_disp_c3d_driver_dt_match[] = {
 	{ .compatible = "mediatek,mt6983-disp-c3d",
 	  .data = &mt6983_c3d_driver_data},
@@ -1050,6 +1058,8 @@ static const struct of_device_id mtk_disp_c3d_driver_dt_match[] = {
 	  .data = &mt6895_c3d_driver_data},
 	{ .compatible = "mediatek,mt6879-disp-c3d",
 	  .data = &mt6879_c3d_driver_data},
+	{ .compatible = "mediatek,mt6985-disp-c3d",
+	  .data = &mt6985_c3d_driver_data},
 	{},
 };
 

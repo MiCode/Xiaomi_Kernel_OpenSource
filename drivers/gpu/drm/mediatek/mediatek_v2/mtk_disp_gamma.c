@@ -953,6 +953,7 @@ static const struct of_device_id mtk_disp_gamma_driver_dt_match[] = {
 	{ .compatible = "mediatek,mt6895-disp-gamma",},
 	{ .compatible = "mediatek,mt6879-disp-gamma",},
 	{ .compatible = "mediatek,mt6855-disp-gamma",},
+	{ .compatible = "mediatek,mt6985-disp-gamma",},
 	{},
 };
 
