@@ -621,6 +621,10 @@ static int mtk_chist_user_cmd(struct mtk_ddp_comp *comp,
 
 				if (channel_config.roi_start_x >= g_pipe_width) {
 					// roi is in the right half, just config right
+					channel_config1.roi_start_x = channel_config1.roi_start_x
+						- g_pipe_width;
+					channel_config1.roi_end_x = channel_config1.roi_end_x
+						- g_pipe_width;
 					mtk_chist_channel_config(channel_id,
 						&channel_config1, dual_comp, handle);
 				} else if (channel_config.roi_end_x > 0 &&
@@ -878,6 +882,11 @@ static void mtk_get_chist(struct mtk_ddp_comp *comp)
 	priv = crtc->dev->dev_private;
 	index = index_of_chist(comp->id);
 
+	spin_lock_irqsave(&g_chist_clock_lock, flags);
+	if (atomic_read(&(g_chist_is_clock_on[index_of_chist(comp->id)])) == 0) {
+		spin_unlock_irqrestore(&g_chist_clock_lock, flags);
+		return;
+	}
 	spin_lock_irqsave(&g_chist_global_lock, flags);
 	for (; i < DISP_CHIST_CHANNEL_COUNT; i++) {
 		if (g_chist_config[index][i].enabled) {
@@ -906,6 +915,7 @@ static void mtk_get_chist(struct mtk_ddp_comp *comp)
 		}
 	}
 	spin_unlock_irqrestore(&g_chist_global_lock, flags);
+	spin_unlock_irqrestore(&g_chist_clock_lock, flags);
 	present_fence[index] = *(unsigned int *)(mtk_get_gce_backup_slot_va(mtk_crtc,
 				DISP_SLOT_PRESENT_FENCE(0))) - 1;
 }

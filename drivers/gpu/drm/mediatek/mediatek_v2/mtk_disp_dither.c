@@ -279,37 +279,65 @@ static void mtk_dither_config(struct mtk_ddp_comp *comp,
 
 	priv->pwr_sta = 1;
 
-	if (cfg->bpc == 8) { /* 888 */
-		cmdq_pkt_write(handle, comp->cmdq_base,
-			       comp->regs_pa + DITHER_REG(15),
-			       0x20200001, ~0);
-		cmdq_pkt_write(handle, comp->cmdq_base,
-			       comp->regs_pa + DITHER_REG(16),
-			       0x20202020, ~0);
-	} else if (cfg->bpc == 5) { /* 565 */
-		cmdq_pkt_write(handle, comp->cmdq_base,
-			       comp->regs_pa + DITHER_REG(15),
-			       0x50500001, ~0);
-		cmdq_pkt_write(handle, comp->cmdq_base,
-			       comp->regs_pa + DITHER_REG(16),
-			       0x50504040, ~0);
-	} else if (cfg->bpc == 6) { /* 666 */
-		cmdq_pkt_write(handle, comp->cmdq_base,
-			       comp->regs_pa + DITHER_REG(15),
-			       0x40400001, ~0);
-		cmdq_pkt_write(handle, comp->cmdq_base,
-			       comp->regs_pa + DITHER_REG(16),
-			       0x40404040, ~0);
-	} else if (cfg->bpc > 8) {
-		/* High depth LCM, no need dither */
-		DDPINFO("%s: High depth LCM (bpp = %u), no dither\n",
-			__func__, cfg->bpc);
+	if (g_gamma_data_mode == 0) {
+		if (cfg->bpc == 8) { /* 888 */
+			cmdq_pkt_write(handle, comp->cmdq_base,
+				       comp->regs_pa + DITHER_REG(15),
+				       0x20200001, ~0);
+			cmdq_pkt_write(handle, comp->cmdq_base,
+				       comp->regs_pa + DITHER_REG(16),
+				       0x20202020, ~0);
+		} else if (cfg->bpc == 5) { /* 565 */
+			cmdq_pkt_write(handle, comp->cmdq_base,
+				       comp->regs_pa + DITHER_REG(15),
+				       0x50500001, ~0);
+			cmdq_pkt_write(handle, comp->cmdq_base,
+				       comp->regs_pa + DITHER_REG(16),
+				       0x50504040, ~0);
+		} else if (cfg->bpc == 6) { /* 666 */
+			cmdq_pkt_write(handle, comp->cmdq_base,
+				       comp->regs_pa + DITHER_REG(15),
+				       0x40400001, ~0);
+			cmdq_pkt_write(handle, comp->cmdq_base,
+				       comp->regs_pa + DITHER_REG(16),
+				       0x40404040, ~0);
+		} else if (cfg->bpc > 8) {
+			/* High depth LCM, no need dither */
+			DDPINFO("%s: High depth LCM (bpp = %u), no dither\n",
+				__func__, cfg->bpc);
+		} else {
+			/* Invalid dither bpp, bypass dither */
+			/* FIXME: this case would cause dither hang */
+			DDPINFO("%s: Invalid dither bpp = %u\n",
+				__func__, cfg->bpc);
+			enable = 0;
+		}
 	} else {
-		/* Invalid dither bpp, bypass dither */
-		/* FIXME: this case would cause dither hang */
-		DDPINFO("%s: Invalid dither bpp = %u\n",
-			__func__, cfg->bpc);
-		enable = 0;
+		if (cfg->bpc == 10) { /* 101010 */
+			cmdq_pkt_write(handle, comp->cmdq_base,
+				       comp->regs_pa + DITHER_REG(15),
+				       0x20200001, ~0);
+			cmdq_pkt_write(handle, comp->cmdq_base,
+				       comp->regs_pa + DITHER_REG(16),
+				       0x20202020, ~0);
+		} else if (cfg->bpc == 8) { /* 888 */
+			cmdq_pkt_write(handle, comp->cmdq_base,
+				       comp->regs_pa + DITHER_REG(15),
+				       0x40400001, ~0);
+			cmdq_pkt_write(handle, comp->cmdq_base,
+				       comp->regs_pa + DITHER_REG(16),
+				       0x40404040, ~0);
+		} else if (cfg->bpc > 10) {
+			/* High depth LCM, no need dither */
+			DDPINFO("%s: High depth LCM (bpp = %u), no dither\n",
+				__func__, cfg->bpc);
+		} else {
+			/* Invalid dither bpp, bypass dither */
+			/* FIXME: this case would cause dither hang */
+			DDPINFO("%s: Invalid dither bpp = %u\n",
+				__func__, cfg->bpc);
+			enable = 0;
+		}
 	}
 
 	if (enable == 1) {
@@ -716,7 +744,7 @@ void mtk_dither_dump(struct mtk_ddp_comp *comp)
 		return;
 	}
 
-	DDPDUMP("== %s REGS:0x%x ==\n", mtk_dump_comp_str(comp), comp->regs_pa);
+	DDPDUMP("== %s REGS:0x%llx ==\n", mtk_dump_comp_str(comp), comp->regs_pa);
 	mtk_cust_dump_reg(baddr, 0x0, 0x20, 0x30, -1);
 	mtk_cust_dump_reg(baddr, 0x24, 0x28, -1, -1);
 }

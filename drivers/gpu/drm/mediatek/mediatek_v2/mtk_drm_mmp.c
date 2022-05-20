@@ -294,6 +294,11 @@ void init_crtc_mmp_event(void)
 			crtc_mmp_root, "aal_dre30_rw");
 		g_CRTC_MMP_Events[i].aal_dre20_rh = mmprofile_register_event(
 			crtc_mmp_root, "aal_dre20_rh");
+		/*Gamma MMP MARK*/
+		g_CRTC_MMP_Events[i].gamma_ioctl = mmprofile_register_event(
+			crtc_mmp_root, "gamma_ioctl");
+		g_CRTC_MMP_Events[i].gamma_sof = mmprofile_register_event(
+			crtc_mmp_root, "gamma_sof");
 		g_CRTC_MMP_Events[i].mml_dbg = mmprofile_register_event(
 			crtc_mmp_root, "mml_dbg");
 	}

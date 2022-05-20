@@ -21,6 +21,12 @@
 #include "mtk_log.h"
 #include "mtk_disp_gamma.h"
 #include "mtk_dump.h"
+#include "mtk_drm_mmp.h"
+#include <linux/workqueue.h>
+#include <linux/delay.h>
+#include <linux/time.h>
+#include <linux/sched.h>
+#include <uapi/linux/sched/types.h>
 
 #ifdef CONFIG_LEDS_MTK_MODULE
 #define CONFIG_LEDS_BRIGHTNESS_CHANGED
@@ -51,7 +57,7 @@ static unsigned int g_gamma_relay_value[DISP_GAMMA_TOTAL];
 // It's a work around for no comp assigned in functions.
 static struct mtk_ddp_comp *default_comp;
 
-static unsigned int g_gamma_data_mode;
+unsigned int g_gamma_data_mode;
 
 struct gamma_color_protect {
 	unsigned int gamma_color_protect_support;
@@ -74,11 +80,19 @@ static struct DISP_GAMMA_LUT_T g_disp_gamma_lut_db;
 static struct DISP_GAMMA_12BIT_LUT_T g_disp_gamma_12bit_lut_db;
 
 static DEFINE_MUTEX(g_gamma_global_lock);
+static DEFINE_MUTEX(g_gamma_sram_lock);
 
 static atomic_t g_gamma_is_clock_on[DISP_GAMMA_TOTAL] = { ATOMIC_INIT(0),
 	ATOMIC_INIT(0)};
 
 static DEFINE_SPINLOCK(g_gamma_clock_lock);
+
+static atomic_t g_gamma_sof_filp = ATOMIC_INIT(0);
+static struct task_struct *gamma_sof_irq_event_task;
+static DECLARE_WAIT_QUEUE_HEAD(g_gamma_sof_irq_wq);
+static atomic_t g_gamma_sof_irq_available = ATOMIC_INIT(0);
+static struct DISP_GAMMA_12BIT_LUT_T ioctl_data;
+struct mtk_ddp_comp *g_gamma_flip_comp[2];
 
 /* TODO */
 /* static ddp_module_notify g_gamma_ddp_notify; */
@@ -131,6 +145,8 @@ static void mtk_gamma_init(struct mtk_ddp_comp *comp,
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		comp->regs_pa + DISP_GAMMA_EN, GAMMA_EN, ~0);
 
+//	atomic_set(&g_gamma_sof_filp, 0);
+	atomic_set(&g_gamma_sof_irq_available, 0);
 }
 
 static void mtk_gamma_config(struct mtk_ddp_comp *comp,
@@ -200,6 +216,16 @@ gamma_write_lut_unlock:
 		mutex_unlock(&g_gamma_global_lock);
 
 	return ret;
+}
+
+void disp_gamma_on_start_of_frame(void)
+{
+
+	if ((!atomic_read(&g_gamma_sof_irq_available)) && (atomic_read(&g_gamma_sof_filp))) {
+		DDPINFO("%s: wake up thread\n", __func__);
+		atomic_set(&g_gamma_sof_irq_available, 1);
+		wake_up_interruptible(&g_gamma_sof_irq_wq);
+	}
 }
 
 static int mtk_gamma_write_12bit_lut_reg(struct mtk_ddp_comp *comp,
@@ -395,12 +421,37 @@ int mtk_drm_ioctl_set_12bit_gammalut(struct drm_device *dev, void *data,
 		struct drm_file *file_priv)
 {
 	struct mtk_drm_private *private = dev->dev_private;
-	struct mtk_ddp_comp *comp = private->ddp_comp[DDP_COMPONENT_GAMMA0];
-	struct drm_crtc *crtc = private->crtc[0];
+	g_gamma_flip_comp[0] = private->ddp_comp[DDP_COMPONENT_GAMMA0];
+	//g_gamma_flip_comp[1] = private->ddp_comp[DDP_COMPONENT_GAMMA1];
 
-	g_disp_gamma_12bit_lut_db = *((struct DISP_GAMMA_12BIT_LUT_T *)data);
+	mutex_lock(&g_gamma_sram_lock);
+	CRTC_MMP_EVENT_START(0, gamma_ioctl, 0, 0);
+	memcpy(&ioctl_data, (struct DISP_GAMMA_12BIT_LUT_T *)data,
+			sizeof(struct DISP_GAMMA_12BIT_LUT_T));
+	atomic_set(&g_gamma_sof_filp, 1);
+	if (g_gamma_flip_comp[0]->mtk_crtc != NULL) {
+		mtk_drm_idlemgr_kick(__func__, &g_gamma_flip_comp[0]->mtk_crtc->base, 1);
+		mtk_crtc_check_trigger(g_gamma_flip_comp[0]->mtk_crtc, false, false);
+	}
+	DDPINFO("%s:update IOCTL g_gamma_sof_filp to 1\n", __func__);
+	CRTC_MMP_EVENT_END(0, gamma_ioctl, 0, 1);
+	mutex_unlock(&g_gamma_sram_lock);
 
-	return mtk_crtc_user_cmd(crtc, comp, SET_12BIT_GAMMALUT, data);
+	return 0;
+}
+
+int mtk_drm_12bit_gammalut_ioctl_impl(void)
+{
+	int ret = 0;
+	struct mtk_drm_crtc *mtk_crtc = g_gamma_flip_comp[0]->mtk_crtc;
+	struct drm_crtc *crtc = &mtk_crtc->base;
+
+	mutex_lock(&g_gamma_sram_lock);
+	g_disp_gamma_12bit_lut_db = ioctl_data;
+	ret = mtk_crtc_user_cmd(crtc, g_gamma_flip_comp[0], SET_12BIT_GAMMALUT,
+			(void *)(&ioctl_data));
+	mutex_unlock(&g_gamma_sram_lock);
+	return ret;
 }
 
 int mtk_drm_ioctl_bypass_disp_gamma(struct drm_device *dev, void *data,
@@ -411,6 +462,40 @@ int mtk_drm_ioctl_bypass_disp_gamma(struct drm_device *dev, void *data,
 	struct drm_crtc *crtc = private->crtc[0];
 
 	return mtk_crtc_user_cmd(crtc, comp, BYPASS_GAMMA, data);
+}
+
+static void disp_gamma_wait_sof_irq(void)
+{
+	int ret = 0;
+
+	if (atomic_read(&g_gamma_sof_irq_available) == 0) {
+		DDPINFO("wait_event_interruptible\n");
+		ret = wait_event_interruptible(g_gamma_sof_irq_wq,
+				atomic_read(&g_gamma_sof_irq_available) == 1);
+		CRTC_MMP_EVENT_START(0, gamma_sof, 0, 0);
+		DDPINFO("sof_irq_available = 1, waken up, ret = %d", ret);
+	} else {
+		DDPINFO("sof_irq_available = 0");
+		return;
+	}
+
+	ret = mtk_drm_12bit_gammalut_ioctl_impl();
+	if (ret != 0) {
+		DDPPR_ERR("%s:12bit gammalut ioctl impl failed!!\n", __func__);
+		CRTC_MMP_MARK(0, gamma_sof, 0, 1);
+	}
+
+	atomic_set(&g_gamma_sof_filp, 0);
+	DDPINFO("set g_gamma_ioctl_lock to 0\n");
+	CRTC_MMP_EVENT_END(0, gamma_sof, 0, 2);
+}
+
+static int mtk_gamma_sof_irq_trigger(void *data)
+{
+	while (1) {
+		disp_gamma_wait_sof_irq();
+		atomic_set(&g_gamma_sof_irq_available, 0);
+	}
 }
 
 static void mtk_gamma_start(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
@@ -722,8 +807,9 @@ void mtk_gamma_dump(struct mtk_ddp_comp *comp)
 		return;
 	}
 
-	DDPDUMP("== %s REGS:0x%x ==\n", mtk_dump_comp_str(comp), comp->regs_pa);
+	DDPDUMP("== %s REGS:0x%llx ==\n", mtk_dump_comp_str(comp), comp->regs_pa);
 	mtk_cust_dump_reg(baddr, 0x0, 0x20, 0x24, 0x28);
+	mtk_cust_dump_reg(baddr, 0x14, 0x20, 0x700, 0xb00);
 }
 
 static void mtk_disp_gamma_dts_parse(const struct device_node *np,
@@ -794,6 +880,7 @@ static int mtk_disp_gamma_probe(struct platform_device *pdev)
 	struct mtk_disp_gamma *priv;
 	enum mtk_ddp_comp_id comp_id;
 	int ret;
+	struct sched_param param = {.sched_priority = 84 };
 
 	DDPINFO("%s+\n", __func__);
 
@@ -829,6 +916,18 @@ static int mtk_disp_gamma_probe(struct platform_device *pdev)
 		dev_err(dev, "Failed to add component: %d\n", ret);
 		mtk_ddp_comp_pm_disable(&priv->ddp_comp);
 	}
+
+	if (comp_id == DDP_COMPONENT_GAMMA0) {
+		gamma_sof_irq_event_task =
+			kthread_create(mtk_gamma_sof_irq_trigger,
+				NULL, "gamma_sof");
+
+		if (sched_setscheduler(gamma_sof_irq_event_task, SCHED_RR, &param))
+			pr_notice("gamma_sof_irq_event_task setschedule fail");
+
+		wake_up_process(gamma_sof_irq_event_task);
+	}
+
 	DDPINFO("%s-\n", __func__);
 
 	return ret;
