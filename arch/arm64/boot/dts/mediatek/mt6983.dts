@@ -2032,6 +2032,7 @@
 			gpufreq-version = <2>;
 			dual-buck = <1>;
 			gpueb-support = <1>;
+			gpufreq-bringup = <0>;
 		};
 
 		ged: ged {
