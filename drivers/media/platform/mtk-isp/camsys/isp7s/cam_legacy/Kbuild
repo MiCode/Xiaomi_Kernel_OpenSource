@@ -59,11 +59,6 @@ $(CAM_MODULE)-objs := \
     mtk_cam-timesync.o \
     mtk_cam-plat.o \
 
-# platform data
-$(CAM_MODULE)-objs += \
-    mtk_cam-plat-mt6985.o \
-    mtk_cam-plat-mt6886.o \
-
 ifeq ($(CAMSYS_TRACE_ENABLE), y)
 $(CAM_MODULE)-$(CONFIG_TRACING) += mtk_cam-trace.o
 ccflags-y += -DMTK_CAM_TRACE_SUPPORT
@@ -79,10 +74,20 @@ endif
 include $(src)/mtk_csi_phy_2_0/sub_drv.mk
 include $(src)/mtk_csi_phy_3_0/sub_drv.mk
 
-obj-$(CONFIG_VIDEO_MTK_ISP_CAMSYS) += $(CAM_MODULE).o
-
 PLATFORM_PATH = $(srctree)/$(src)
 # workaround for external build
 ifneq ($(M),)
 PLATFORM_PATH = $(src)
 endif
+
+# platform data
+ifneq ($(wildcard $(PLATFORM_PATH)/mtk_cam-plat-mt6985.c),)
+ccflags-y += -DCAMSYS_ISP7S_MT6985
+$(CAM_MODULE)-objs += mtk_cam-plat-mt6985.o
+endif
+ifneq ($(wildcard $(PLATFORM_PATH)/mtk_cam-plat-mt6886.c),)
+ccflags-y += -DCAMSYS_ISP7S_MT6886
+$(CAM_MODULE)-objs += mtk_cam-plat-mt6886.o
+endif
+
+obj-$(CONFIG_VIDEO_MTK_ISP_CAMSYS) += $(CAM_MODULE).o
