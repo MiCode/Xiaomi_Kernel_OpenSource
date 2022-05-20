@@ -79,6 +79,11 @@ MODULE_PARM_DESC(debug_dump_fbc, "debug: dump fbc");
 #define MTK_CAMSYS_PROC_DEFAULT_PIXELMODE	2
 #define DC_DEFAULT_CAMSV_PIXELMODE			8
 
+#define MTK_RAW_H_LATENCY				36
+#define MTK_RAW_W_OVERHEAD_SINGLE		3
+#define MTK_RAW_W_OVERHEAD_2_RAW		5
+#define MTK_RAW_W_OVERHEAD_3_RAW		10
+
 #define DC_SUPPORT_RAW_FEATURE_MASK	\
 	(STAGGER_2_EXPOSURE_LE_SE | STAGGER_2_EXPOSURE_SE_LE)
 
@@ -532,7 +537,7 @@ mtk_cam_raw_try_res_ctrl(struct mtk_raw_pipeline *pipeline,
 			 char *dbg_str, bool log)
 {
 	s64 prate = 0;
-	int width, height;
+	int width, height, fps;
 	struct device *dev = pipeline->raw->devs[pipeline->id];
 
 	res_cfg->bin_limit = res_user->raw_res.bin; /* 1: force bin on */
@@ -571,6 +576,10 @@ mtk_cam_raw_try_res_ctrl(struct mtk_raw_pipeline *pipeline,
 					 res_user->sensor_res.interval.denominator,
 					 res_user->sensor_res.interval.numerator,
 					 res_user->sensor_res.pixel_rate);
+
+	fps = res_user->sensor_res.interval.denominator;
+	do_div(fps, res_user->sensor_res.interval.numerator);
+
 	/*worst case throughput prepare for stagger dynamic switch exposure num*/
 	if (mtk_cam_feature_is_stagger(res_cfg->raw_feature)) {
 		if (mtk_cam_feature_is_2_exposure(res_cfg->raw_feature)) {
@@ -591,8 +600,8 @@ mtk_cam_raw_try_res_ctrl(struct mtk_raw_pipeline *pipeline,
 	}
 	mtk_raw_resource_calc(dev_get_drvdata(pipeline->raw->cam_dev),
 			      res_cfg, prate,
-			      res_cfg->res_plan, sink_fmt->width,
-			      sink_fmt->height, &width, &height);
+			      res_cfg->res_plan, fps,
+			      sink_fmt->width, sink_fmt->height, &width, &height);
 
 	if (res_user->raw_res.bin && !res_cfg->bin_enable) {
 		dev_info(dev,
@@ -2030,6 +2039,40 @@ void stream_on(struct mtk_raw_device *dev, int on)
 	}
 }
 
+static int mtk_raw_required_freq_chk(int twin_en, int fps,
+			int width, int height, int pixel_mode, int clk_frq)
+{
+	uint64_t require = 0, require_percent = 0;
+	uint64_t capable = clk_frq;
+
+	capable *= pixel_mode;
+
+	require = width * (height + MTK_RAW_H_LATENCY) * fps;
+	require_percent = require;
+	do_div(require_percent, 100);
+
+	switch (twin_en) {
+	case 1:
+		require += require_percent * MTK_RAW_W_OVERHEAD_2_RAW;
+		break;
+	case 2:
+		require += require_percent * MTK_RAW_W_OVERHEAD_3_RAW;
+		break;
+	default:
+		require += require_percent * MTK_RAW_W_OVERHEAD_SINGLE;
+		break;
+	}
+
+	pr_info("%s: twin %d fps %d w %d h %d pxl_mode %d clk %d",
+		__func__, twin_en, fps, width, height, pixel_mode, clk_frq);
+	pr_info("%s: require %llu, capable %llu", __func__, require, capable);
+
+	if (capable < require)
+		return -1;
+
+	return 0;
+}
+
 static int mtk_raw_linebuf_chk(bool b_twin, bool b_bin, bool b_frz, bool b_qbn,
 			       bool b_cbn, int tg_x, int *frz_ratio)
 {
@@ -2143,7 +2186,7 @@ static bool is_cbn_en(int bin_flag)
 
 bool mtk_raw_resource_calc(struct mtk_cam_device *cam,
 			   struct mtk_cam_resource_config *res,
-			   s64 pixel_rate, int res_plan,
+			   s64 pixel_rate, int res_plan, int fps,
 			   int in_w, int in_h, int *out_w, int *out_h)
 {
 	struct mtk_camsys_dvfs *clk = &cam->camsys_ctrl.dvfs_info;
@@ -2157,6 +2200,7 @@ bool mtk_raw_resource_calc(struct mtk_cam_device *cam,
 	int idx = 0, clk_res = 0, idx_res = 0;
 	bool res_found = false;
 	int lb_chk_res = -1;
+	int required_freq_chk_res = -1;
 	int frz_ratio = 100;
 	int p;
 	bool find_max = 0;
@@ -2235,8 +2279,13 @@ bool mtk_raw_resource_calc(struct mtk_cam_device *cam,
 			tgo_pxl_mode = mtk_raw_pixelmode_calc(MTK_CAMSYS_PROC_DEFAULT_PIXELMODE,
 				twin_en, bin_en, frz_en, res->frz_ratio);
 			pixel_mode[idx] = tgo_pxl_mode;
+
+			required_freq_chk_res = mtk_raw_required_freq_chk(
+				twin_en, fps, in_w, in_h, tgo_pxl_mode, clk->clklv[clk_cur]);
+
 			if ((lb_chk_res == LB_CHECK_OK) &&
-				(find_max || res_found == false)) {
+				(find_max || res_found == false) &&
+				(required_freq_chk_res == 0)) {
 				res->bin_enable = bin_en;
 				res->frz_enable = frz_en;
 				res->raw_num_used = twin_en + 1;

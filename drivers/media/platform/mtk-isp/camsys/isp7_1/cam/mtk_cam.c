@@ -2027,7 +2027,7 @@ static int mtk_cam_calc_pending_res(struct mtk_cam_device *cam,
 				    int pipe_id)
 {
 	s64 prate = 0;
-	int width, height;
+	int width, height, fps;
 
 	res_cfg->bin_limit = res_user->raw_res.bin; /* 1: force bin on */
 	res_cfg->frz_limit = 0;
@@ -2051,6 +2051,10 @@ static int mtk_cam_calc_pending_res(struct mtk_cam_device *cam,
 						 res_user->sensor_res.interval.denominator,
 						 res_user->sensor_res.interval.numerator,
 						 res_user->sensor_res.pixel_rate);
+
+	fps = res_user->sensor_res.interval.denominator;
+	do_div(fps, res_user->sensor_res.interval.numerator);
+
 	/*worst case throughput prepare for stagger dynamic switch exposure num*/
 	if (mtk_cam_feature_is_stagger(res_cfg->raw_feature)) {
 		if (mtk_cam_feature_is_2_exposure(res_cfg->raw_feature)) {
@@ -2068,8 +2072,8 @@ static int mtk_cam_calc_pending_res(struct mtk_cam_device *cam,
 		}
 	}
 
-	mtk_raw_resource_calc(cam, res_cfg, prate, res_cfg->res_plan, sink_fmt->width,
-			      sink_fmt->height, &width, &height);
+	mtk_raw_resource_calc(cam, res_cfg, prate, res_cfg->res_plan, fps,
+			      sink_fmt->width, sink_fmt->height, &width, &height);
 
 	if (res_user->raw_res.bin && !res_cfg->bin_enable) {
 		dev_info(cam->dev,

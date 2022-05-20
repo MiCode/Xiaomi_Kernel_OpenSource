@@ -456,7 +456,7 @@ mtk_cam_res_copy_fmt_to_user(struct mtk_raw_pipeline *pipeline,
 
 bool mtk_raw_resource_calc(struct mtk_cam_device *cam,
 			   struct mtk_cam_resource_config *res,
-			   s64 pixel_rate, int res_plan,
+			   s64 pixel_rate, int res_plan, int fps,
 			   int in_w, int in_h, int *out_w, int *out_h);
 
 #ifdef CAMSYS_TF_DUMP_71_1
