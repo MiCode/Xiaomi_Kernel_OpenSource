@@ -2170,6 +2170,12 @@ int mtk_drm_ioctl_aal_get_size(struct drm_device *dev, void *data,
 
 	AALFLOW_LOG("\n");
 	disp_aal_wait_size(60);
+
+	if (comp == NULL || comp->mtk_crtc == NULL) {
+		AALERR("%s null pointer!\n", __func__);
+		return -1;
+	}
+
 	if (comp->mtk_crtc->is_dual_pipe)
 		memcpy(dst, &g_dual_aal_size, sizeof(g_dual_aal_size));
 	else
