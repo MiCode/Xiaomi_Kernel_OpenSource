@@ -431,7 +431,7 @@ static inline int mt6375_read8(struct mt6375_tcpc_data *ddata, u32 reg,
 			       u8 *data)
 {
 	int ret;
-	u32 _data;
+	u32 _data = 0;
 
 	ret = regmap_read(ddata->rmap, reg, &_data);
 	if (ret < 0)
