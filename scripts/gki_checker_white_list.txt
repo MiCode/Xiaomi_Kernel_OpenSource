@@ -32,6 +32,7 @@ f block/blk-core.c
 f block/blk-pm.c
 f drivers/android/vendor_hooks.c
 f drivers/base/power/runtime.c
+f drivers/iommu/dma-iommu.c
 f drivers/iommu/iova.c
 f drivers/media/mc/mc-device.c
 f drivers/media/v4l2-core/v4l2-ioctl.c
@@ -4515,6 +4516,8 @@ s iommu_dma_forcedac_setup
 s iommu_dma_init_domain
 s iommu_dma_init_fq
 s iommu_dma_prepare_msi
+s iommu_dma_map_sg
+s __iommu_dma_alloc_noncontiguous
 s iommu_get_group_resv_regions
 s iommu_group_alloc
 s iommu_group_alloc_default_domain
