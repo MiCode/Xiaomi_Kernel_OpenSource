@@ -38,11 +38,6 @@
 #include "gpueb_debug.h"
 #include "gpueb_timesync.h"
 
-#if IS_ENABLED(CONFIG_MTK_SSC_MODULE)
-#include <linux/notifier.h>
-#include <ssc.h>  /* SRAMRC header */
-#endif
-
 /*
  * ===============================================
  * SECTION : Local functions declaration
@@ -110,24 +105,6 @@ static struct miscdevice gpueb_device = {
 	.name = "gpueb",
 	.fops = &gpueb_log_file_ops
 };
-
-#if IS_ENABLED(CONFIG_MTK_SSC_MODULE)
-static int gpueb_sramrc_timeout_dbg_event(struct notifier_block *notifier, unsigned long event,
-				void *data)
-{
-	if (event == SSC_TIMEOUT) {
-		gpueb_pr_info("@%s: SRAMRC timeout\n", __func__);
-		gpueb_dump_status();
-	}
-
-	return NOTIFY_OK;
-}
-
-static struct notifier_block gpueb_dbg_notifier = {
-	.notifier_call = gpueb_sramrc_timeout_dbg_event,
-	.priority = 0,
-};
-#endif
 
 static int gpueb_create_files(void)
 {
@@ -214,10 +191,6 @@ static int __mt_gpueb_pdrv_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-#if IS_ENABLED(CONFIG_MTK_SSC_MODULE)
-	ssc_vlogic_bound_register_notifier(&gpueb_dbg_notifier);
-#endif
-
 	g_pdev = pdev;
 	g_probe_done = true;
 	gpueb_pr_info("@%s: GPUEB driver probe done\n", __func__);
@@ -255,9 +228,6 @@ static int __init __mt_gpueb_init(void)
 static void __exit __mt_gpueb_exit(void)
 {
 	platform_driver_unregister(&g_gpueb_pdrv);
-#if IS_ENABLED(CONFIG_MTK_SSC_MODULE)
-	ssc_vlogic_bound_unregister_notifier(&gpueb_dbg_notifier);
-#endif
 }
 
 module_init(__mt_gpueb_init);
