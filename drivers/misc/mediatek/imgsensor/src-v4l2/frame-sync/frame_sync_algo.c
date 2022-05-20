@@ -974,10 +974,44 @@ static inline void fs_alg_dump_perframe_data(unsigned int idx)
 
 
 /* for debug using, dump all data in instance */
-void fs_alg_dump_fs_inst_data(unsigned int idx)
+void fs_alg_dump_fs_inst_data(const unsigned int idx)
 {
-	fs_alg_dump_streaming_data(idx);
-	fs_alg_dump_perframe_data(idx);
+	LOG_MUST(
+		"[%u] ID:%#x(sidx:%u), (%d), tg:%u, fdelay:%u, fl_lc(def/min/max):%u/%u/%u, shut_lc:%u(def:%u), margin_lc:%u, flk_en:%u, lineTime:%u(linelength:%u/pclk:%u), hdr_exp(c(%u/%u/%u/%u/%u, %u/%u, %u/%u), prev(%u/%u/%u/%u/%u, %u/%u, %u/%u), cnt:(mode/ae), read(len/margin)\n",
+		idx,
+		fs_inst[idx].sensor_id,
+		fs_inst[idx].sensor_idx,
+		fs_inst[idx].req_id,
+		fs_inst[idx].tg,
+		fs_inst[idx].fl_active_delay,
+		fs_inst[idx].def_min_fl_lc,
+		fs_inst[idx].min_fl_lc,
+		fs_inst[idx].max_fl_lc,
+		fs_inst[idx].shutter_lc,
+		fs_inst[idx].def_shutter_lc,
+		fs_inst[idx].margin_lc,
+		fs_inst[idx].flicker_en,
+		fs_inst[idx].lineTimeInNs,
+		fs_inst[idx].linelength,
+		fs_inst[idx].pclk,
+		fs_inst[idx].hdr_exp.exp_lc[0],
+		fs_inst[idx].hdr_exp.exp_lc[1],
+		fs_inst[idx].hdr_exp.exp_lc[2],
+		fs_inst[idx].hdr_exp.exp_lc[3],
+		fs_inst[idx].hdr_exp.exp_lc[4],
+		fs_inst[idx].hdr_exp.mode_exp_cnt,
+		fs_inst[idx].hdr_exp.ae_exp_cnt,
+		fs_inst[idx].hdr_exp.readout_len_lc,
+		fs_inst[idx].hdr_exp.read_margin_lc,
+		fs_inst[idx].prev_hdr_exp.exp_lc[0],
+		fs_inst[idx].prev_hdr_exp.exp_lc[1],
+		fs_inst[idx].prev_hdr_exp.exp_lc[2],
+		fs_inst[idx].prev_hdr_exp.exp_lc[3],
+		fs_inst[idx].prev_hdr_exp.exp_lc[4],
+		fs_inst[idx].prev_hdr_exp.mode_exp_cnt,
+		fs_inst[idx].prev_hdr_exp.ae_exp_cnt,
+		fs_inst[idx].prev_hdr_exp.readout_len_lc,
+		fs_inst[idx].prev_hdr_exp.read_margin_lc);
 }
 
 
@@ -1014,7 +1048,7 @@ static inline void fs_alg_sa_dump_dynamic_para(unsigned int idx)
 
 
 	LOG_MUST(
-		"[%u] ID:%#x(sidx:%u), #%u, (%u/%u), out_fl:%u(%u), (%u/%u/%u/%u(%u/%u), %u, %u(%u)), pr_fl(c:%u(%u)/n:%u(%u)), ts_bias(exp:%u/tag:%u(%u/%u)), delta:%u(fdelay:%u), m_idx:%u(ref:%d)/chg:%u(%u), adj_diff(s:%lld(%u)/m:%lld), flk_en:%u, tg:%u, ts(%u/+%u(%u)/%u), [frec(0:%u/%u)(fl_lc/shut_lc), fmeas:%u(pr:%u(%u)/act:%u), fmeas_ts(%u/%u/%u/%u), fs_inst_ts(%u/%u/%u/%u, %u/+%u(%u)/%u)]\n",
+		"[%u] ID:%#x(sidx:%u), #%u, (%d/%u), out_fl:%u(%u), (%u/%u/%u/%u(%u/%u), %u, %u(%u)), pr_fl(c:%u(%u)/n:%u(%u)), ts_bias(exp:%u/tag:%u(%u/%u)), delta:%u(fdelay:%u), m_idx:%u(ref:%d)/chg:%u(%u), adj_diff(s:%lld(%u)/m:%lld), flk_en:%u, tg:%u, ts(%u/+%u(%u)/%u), [frec(0:%u/%u)(fl_lc/shut_lc), fmeas:%u(pr:%u(%u)/act:%u), fmeas_ts(%u/%u/%u/%u), fs_inst_ts(%u/%u/%u/%u, %u/+%u(%u)/%u)]\n",
 		idx,
 		fs_inst[idx].sensor_id,
 		fs_inst[idx].sensor_idx,
@@ -2386,6 +2420,7 @@ void fs_alg_set_streaming_st_data(
 	fs_inst[idx].def_min_fl_lc = pData->def_fl_lc;
 	fs_inst[idx].max_fl_lc = pData->max_fl_lc;
 	fs_inst[idx].def_shutter_lc = pData->def_shutter_lc;
+	fs_inst[idx].margin_lc = pData->margin_lc;
 
 	fs_inst[idx].pclk = pData->pclk;
 	fs_inst[idx].linelength = pData->linelength;
@@ -2450,6 +2485,68 @@ void fs_alg_set_perframe_st_data(
 #ifndef REDUCE_FS_ALGO_LOG
 	fs_alg_dump_perframe_data(idx);
 #endif // REDUCE_FS_ALGO_LOG
+}
+
+
+void fs_alg_set_preset_perframe_streaming_st_data(const unsigned int idx,
+	struct fs_streaming_st *p_stream_data,
+	struct fs_perframe_st *p_pf_ctrl_data)
+{
+	/* from streaming st */
+	fs_inst[idx].sensor_id = p_stream_data->sensor_id;
+	fs_inst[idx].sensor_idx = p_stream_data->sensor_idx;
+	fs_inst[idx].tg = p_stream_data->tg;
+	fs_inst[idx].fl_active_delay = p_stream_data->fl_active_delay;
+	fs_inst[idx].def_min_fl_lc = p_stream_data->def_fl_lc;
+	fs_inst[idx].max_fl_lc = p_stream_data->max_fl_lc;
+	fs_inst[idx].def_shutter_lc = p_stream_data->def_shutter_lc;
+
+	/* from perframe st */
+	fs_inst[idx].min_fl_lc = p_pf_ctrl_data->min_fl_lc;
+	fs_inst[idx].shutter_lc = p_pf_ctrl_data->shutter_lc;
+	fs_inst[idx].margin_lc = p_pf_ctrl_data->margin_lc;
+	fs_inst[idx].flicker_en = p_pf_ctrl_data->flicker_en;
+	fs_inst[idx].pclk = p_pf_ctrl_data->pclk;
+	fs_inst[idx].linelength = p_pf_ctrl_data->linelength;
+	fs_inst[idx].lineTimeInNs = p_pf_ctrl_data->lineTimeInNs;
+
+	fs_inst[idx].prev_readout_min_fl_lc = fs_inst[idx].readout_min_fl_lc;
+	fs_inst[idx].readout_min_fl_lc = 0;
+
+	fs_inst[idx].req_id = p_pf_ctrl_data->req_id;
+
+	/* for first run, assume the hdr exp not be changed */
+	p_stream_data->hdr_exp = p_pf_ctrl_data->hdr_exp;
+	fs_inst[idx].hdr_exp = p_pf_ctrl_data->hdr_exp;
+
+	/* hdr exp settings, overwrite shutter_lc value (equivalent shutter) */
+	fs_alg_set_hdr_exp_st_data(idx,
+		&p_stream_data->def_shutter_lc, &p_stream_data->hdr_exp);
+
+
+	/* check if get invalid data */
+	if (fs_inst[idx].fl_active_delay < 2
+		|| fs_inst[idx].fl_active_delay > 3) {
+
+		LOG_MUST(
+			"ERROR: [%u] ID:%#x(sidx:%u), get non valid frame_time_delay_frame:%u (must be 2 or 3), plz check sensor driver for getting correct value\n",
+			idx,
+			fs_inst[idx].sensor_id,
+			fs_inst[idx].sensor_idx,
+			fs_inst[idx].fl_active_delay);
+	}
+
+	if (fs_inst[idx].margin_lc == 0) {
+		LOG_MUST(
+			"WARNING: [%u] ID:%#x(sidx:%u), get non valid margin_lc:%u, plz check sensor driver for getting correct value\n",
+			idx,
+			fs_inst[idx].sensor_id,
+			fs_inst[idx].sensor_idx,
+			fs_inst[idx].margin_lc);
+	}
+
+
+	fs_alg_dump_fs_inst_data(idx);
 }
 
 

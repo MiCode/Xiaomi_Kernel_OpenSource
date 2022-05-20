@@ -1291,6 +1291,100 @@ ut_generate_vsync_data_manually(
 }
 
 
+static int ut_set_fs_set_shutter_select_sensor_manually(int *select);
+static void ut_preset_fs_update_shutter(void)
+{
+	struct fs_perframe_st pf_ctrl = {0};
+	unsigned int ret = 0;
+	unsigned int hdr_mode = 0;
+	unsigned int ae_exp_cnt = 0;
+	unsigned int exp_i = 0;
+	int select = 2147483647;
+	int input;
+
+
+	/* set preset perframe data */
+	ret = ut_set_fs_set_shutter_select_sensor_manually(
+			&select);
+	if (ret != 0)
+		return;
+
+
+	/* print sensor mode which you can select */
+	printf(GREEN
+		"Please select a sensor mode bellow :\n"
+		NONE);
+
+	/* using CLI for choise */
+	input = print_and_select_s_mode(
+			streaming_sensors_modes_list,
+			select);
+
+	set_pf_ctrl_s_mode(&pf_ctrl, select, input);
+
+	printf(LIGHT_PURPLE
+		">>> (Input 1 integers) [%d] ID:%#x (sidx:%u), set \"flicker_en\" : "
+		NONE,
+		select, pf_ctrl.sensor_id, pf_ctrl.sensor_idx);
+	scanf("%d", &input);
+
+	pf_ctrl.flicker_en = input;
+
+	printf(LIGHT_PURPLE
+		">>> (Input 1 integers) [%d] ID:%#x (sidx:%u), set \"min_fl (us)\" : "
+		NONE,
+		select, pf_ctrl.sensor_id, pf_ctrl.sensor_idx);
+	scanf("%d", &input);
+
+	pf_ctrl.min_fl_lc =
+		US_TO_LC(input, pf_ctrl.lineTimeInNs);
+
+	printf(LIGHT_PURPLE
+		">>> (Input 1 integers) [%d] ID:%#x (sidx:%u), set \"shutter (us)\" : "
+		NONE,
+		select, pf_ctrl.sensor_id, pf_ctrl.sensor_idx);
+	scanf("%d", &input);
+
+	pf_ctrl.shutter_lc =
+		US_TO_LC(input, pf_ctrl.lineTimeInNs);
+
+	hdr_mode = streaming_sensors_modes_list[select]
+			.mode_list->hdr_exp.mode_exp_cnt;
+
+	printf(GREEN
+		">>> HDR:exp[] => LE:[0] / ME:[1] / SE:[2] / SSE:[3] / SSSE:[4], mode_exp_cnt:%u\n"
+		NONE,
+		hdr_mode);
+
+	printf(LIGHT_PURPLE
+		">>> (Input 1 integers) [%d] ID:%#x (sidx:%u), set \"AE exp cnt\" : "
+		NONE,
+		select, pf_ctrl.sensor_id, pf_ctrl.sensor_idx);
+	scanf("%u", &ae_exp_cnt);
+
+	for (exp_i = 0; exp_i < ae_exp_cnt; ++exp_i) {
+		int hdr_idx = 0;
+
+		hdr_idx = hdr_exp_idx_map[ae_exp_cnt][exp_i];
+
+		printf(LIGHT_PURPLE
+			">>> (Input 1 integers) [%d] ID:%#x (sidx:%u), set \"HDR exp[%u] (us)\" : "
+			NONE,
+			select, pf_ctrl.sensor_id,
+			pf_ctrl.sensor_idx, exp_i);
+		scanf("%d", &input);
+
+		pf_ctrl.hdr_exp.exp_lc[hdr_idx] =
+			US_TO_LC(input, pf_ctrl.lineTimeInNs);
+
+		/* TODO: fix hdr_exp hardcode variable */
+		pf_ctrl.hdr_exp.readout_len_lc = 2374*2;
+		pf_ctrl.hdr_exp.read_margin_lc = 10*2;
+	}
+
+	frameSync->fs_update_shutter(&pf_ctrl);
+}
+
 /**
  * called by test_frame_sync_proc()
  * for step by step setting to test frame-sync
@@ -1406,6 +1500,15 @@ static void ut_set_fs_streaming(void)
 			FS_HW_SYNC_GROUP_ID_MAX);
 		scanf("%d", &input);
 		streaming_sensors[i].sensor->hw_sync_group_id = input;
+
+
+		/* set preset perframe data */
+		printf(LIGHT_PURPLE
+			">>> (Input 1 integer) \"set preset perframe data, Yes:1 / NO:0\" : "
+			NONE);
+		scanf("%d", &input);
+		if (input)
+			ut_preset_fs_update_shutter();
 
 
 		/* set whether streaming on or not */

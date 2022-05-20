@@ -129,7 +129,8 @@ static struct FrameMonitorInst frm_inst;
 
 
 #if defined(FS_UT)
-static const int ut_tg_mapping[23] = {
+#define FS_UT_TG_MAPPING_SIZE 23
+static const int ut_tg_mapping[FS_UT_TG_MAPPING_SIZE] = {
 	-1, -1, -1, 0, 1,
 	2, 3, 4, 5, 10,
 	11, 12, 13, 14, 15,
@@ -673,8 +674,19 @@ void frm_reset_ccu_vsync_timestamp(unsigned int idx, unsigned int en)
 	uint32_t selbits = 0;
 	int ret = 0;
 
-
 	tg = frm_inst.f_info[idx].tg;
+
+	/* case handling */
+	if (unlikely(tg == CAMMUX_ID_INVALID)) {
+		LOG_MUST(
+			"NOTICE: [%u] ID:%#x(sidx:%u), tg:%u(invalid), do not call CCU reset(1)/clear(0):%u rproc.\n",
+			idx,
+			frm_inst.f_info[idx].sensor_id,
+			frm_inst.f_info[idx].sensor_idx,
+			tg, en);
+
+		return;
+	}
 
 	/* bit 0 no use, so "bit 1" --> means 2 */
 	/* TG_1 -> bit 1, TG_2 -> bit 2, TG_3 -> bit 3 */
@@ -682,7 +694,7 @@ void frm_reset_ccu_vsync_timestamp(unsigned int idx, unsigned int en)
 
 
 #ifndef FS_UT
-	if (!frm_inst.ccu_pdev)
+	if (unlikely(!frm_inst.ccu_pdev))
 		get_ccu_device();
 
 	/* call CCU to reset vsync timestamp */
@@ -961,7 +973,8 @@ static int frm_get_camsv_id(unsigned int id)
 	return ret;
 
 #else
-	return ut_tg_mapping[id-1];
+	return (id > 0 && id <= FS_UT_TG_MAPPING_SIZE)
+		? ut_tg_mapping[id-1] : -1;
 #endif // FS_UT
 }
 

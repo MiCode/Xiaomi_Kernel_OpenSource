@@ -313,6 +313,7 @@ void notify_fsync_mgr_streaming(struct adaptor_ctx *ctx, unsigned int flag)
 	/* using ctx->subctx.shutter instead of ctx->subctx.exposure_def */
 	/* for any settings before streaming on */
 	s_info.def_shutter_lc = ctx->subctx.shutter;
+	s_info.margin_lc = g_sensor_margin(ctx);
 
 
 	/* sensor mode info */

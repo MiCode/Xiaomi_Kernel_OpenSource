@@ -2,13 +2,15 @@
 # Copyright (C) 2020 MediaTek Inc.
 
 # CROSS_COMPILE = aarch64-linux-gnu-
-CFLAGS = -DFS_UT -Werror -Wall -Wframe-larger-than=512 --static
+# CFLAGS = -DFS_UT -Werror -Wall -Wframe-larger-than=512 --static
+ASAN = -fsanitize=kernel-address,leak,undefined
+CFLAGS = -DFS_UT -Werror -Wall $(ASAN) -Wframe-larger-than=512 -Walloc-zero -Walloca -Wnonnull
 LDFLAGS = --static
 
 INCS = -I ../ \
 #	   -I ../../../inc/ \
 
-LIBS = -lpthread
+LIBS = -static-libasan -lasan -lpthread
 
 # $(info INCS = $(INCS))
 
@@ -34,7 +36,8 @@ debug: DEBUG_FLAGS = -g
 debug: ut_fs_test
 
 ut_fs_test: $(SRCS)
-	gcc $(LDFLAGS) $(CFLAGS) $(DEBUG_FLAGS) $(INCS) $^ -o $@ $(LIBS)
+#	gcc $(LDFLAGS) $(CFLAGS) $(DEBUG_FLAGS) $(INCS) $^ -o $@ $(LIBS)
+	gcc $(CFLAGS) $(DEBUG_FLAGS) $(INCS) $^ -o $@ $(LIBS)
 
 # ut_fs_test: $(OBJS)
 #	gcc $(LDFLAGS) $(INCS) -o $(LIBS) $@ $^

@@ -150,6 +150,7 @@ struct fs_streaming_st {
 	unsigned int def_fl_lc;          // default framelength_lc
 	unsigned int max_fl_lc;          // for framelength boundary check
 	unsigned int def_shutter_lc;     // default shutter_lc
+	unsigned int margin_lc;
 
 	/* for HW sensor sync */
 	unsigned int sync_mode;          // sync operate mode. none/master/slave
@@ -203,9 +204,8 @@ struct fs_perframe_st {
  ******************************************************************************/
 struct FrameSync {
 	/* according to sensor idx, register image sensor info */
-	unsigned int (*fs_streaming)(
-				unsigned int flag,
-				struct fs_streaming_st *streaming_st);
+	unsigned int (*fs_streaming)(const unsigned int flag,
+		struct fs_streaming_st *streaming_st);
 
 
 	/* enable / disable frame sync processing for this sensor ident */
@@ -226,8 +226,8 @@ struct FrameSync {
 
 
 	/* frame sync set shutter */
-	void (*fs_set_shutter)(struct fs_perframe_st *perframe_st);
-	void (*fs_update_shutter)(struct fs_perframe_st *frameCtrl);
+	void (*fs_set_shutter)(struct fs_perframe_st *pf_ctrl);
+	void (*fs_update_shutter)(struct fs_perframe_st *pf_ctrl);
 
 
 	/* for cam mux switch and sensor streaming on before setup cam mux */
@@ -262,7 +262,7 @@ struct FrameSync {
 
 
 	/* for choosing FrameSync StandAlone algorithm */
-	void (*fs_set_using_sa_mode)(unsigned int en);
+	void (*fs_set_using_sa_mode)(const unsigned int en);
 
 
 	/* for cam-sys assign taget vsync at subsample */
@@ -287,7 +287,7 @@ struct FrameSync {
 	/**********************************************************************/
 	unsigned int (*fs_is_set_sync)(unsigned int sensor_id);
 
-	unsigned int (*fs_is_hw_sync)(unsigned int ident);
+	unsigned int (*fs_is_hw_sync)(const unsigned int ident);
 };
 
 
@@ -310,8 +310,6 @@ void FrameSyncUnInit(struct device *dev);
 #else // FS_UT
 unsigned int FrameSyncInit(struct FrameSync **framesync);
 #endif // FS_UT
-
-
 
 
 #endif

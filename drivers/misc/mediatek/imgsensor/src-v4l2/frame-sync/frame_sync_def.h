@@ -6,11 +6,21 @@
 #ifndef _FRAME_SYNC_DEF_H
 #define _FRAME_SYNC_DEF_H
 
+#ifdef FS_UT
+#include <string.h>
+#include <stdlib.h>         /* Needed by memory allocate */
+#else
+/* INSTEAD of using stdio.h, you have to use the following include */
+#include <linux/slab.h>     /* Needed by memory allocate */
+#include <linux/string.h>
+#endif // FS_UT
+
 
 /******************************************************************************/
 // global define / variable / macro
 /******************************************************************************/
 #define SENSOR_MAX_NUM 6
+#define CAMMUX_ID_INVALID 256
 
 #define FS_TOLERANCE 1000
 
@@ -43,14 +53,6 @@
 // #define USING_N3D
 
 
-/*
- * add atomic type/api for supporting
- * frame-sync standalone algorithm / trigger
- * origin frame-sync control flow optimization
- */
-// (T.B.D) for testing/trying atomic
-#define ALL_USING_ATOMIC
-
 #define SUPPORT_FS_NEW_METHOD
 #ifdef SUPPORT_FS_NEW_METHOD
 #define MASTER_IDX_NONE 255
@@ -66,51 +68,51 @@
 
 #endif // SUPPORT_FS_NEW_METHOD
 
-#if defined(SUPPORT_FS_NEW_METHOD) || defined(ALL_USING_ATOMIC)
+#if defined(SUPPORT_FS_NEW_METHOD)
 #ifdef FS_UT
 #include <stdatomic.h>
 #define FS_Atomic_T atomic_int
-#define FS_ATOMIC_INIT(n, p) (atomic_init((p), (n)))
-#define FS_ATOMIC_SET(n, p) (atomic_store((p), (n)))
-#define FS_ATOMIC_READ(p) (atomic_load(p))
-#define FS_ATOMIC_FETCH_OR(n, p) (atomic_fetch_or((p), (n)))
+#define FS_ATOMIC_INIT(n, p)      (atomic_init((p), (n)))
+#define FS_ATOMIC_SET(n, p)       (atomic_store((p), (n)))
+#define FS_ATOMIC_READ(p)         (atomic_load(p))
+#define FS_ATOMIC_FETCH_OR(n, p)  (atomic_fetch_or((p), (n)))
 #define FS_ATOMIC_FETCH_AND(n, p) (atomic_fetch_and((p), (n)))
-#define FS_ATOMIC_XCHG(n, p) (atomic_exchange((p), (n)))
+#define FS_ATOMIC_XCHG(n, p)      (atomic_exchange((p), (n)))
 #else
 #include <linux/atomic.h>
 #define FS_Atomic_T atomic_t
-#define FS_ATOMIC_INIT(n, p) (atomic_set((p), (n)))
-#define FS_ATOMIC_SET(n, p) (atomic_set((p), (n)))
-#define FS_ATOMIC_READ(p) (atomic_read(p))
-#define FS_ATOMIC_FETCH_OR(n, p) (atomic_fetch_or((n), (p)))
+#define FS_ATOMIC_INIT(n, p)      (atomic_set((p), (n)))
+#define FS_ATOMIC_SET(n, p)       (atomic_set((p), (n)))
+#define FS_ATOMIC_READ(p)         (atomic_read(p))
+#define FS_ATOMIC_FETCH_OR(n, p)  (atomic_fetch_or((n), (p)))
 #define FS_ATOMIC_FETCH_AND(n, p) (atomic_fetch_and((n), (p)))
-#define FS_ATOMIC_XCHG(n, p) (atomic_xchg((p), (n)))
+#define FS_ATOMIC_XCHG(n, p)      (atomic_xchg((p), (n)))
 #endif // FS_UT
-#endif // SUPPORT_FS_NEW_METHOD || ALL_USING_ATOMIC
+#endif // SUPPORT_FS_NEW_METHOD
 
 
 /*
  * macro for clear code
  */
 #ifdef FS_UT
-#define FS_POPCOUNT(n) (__builtin_popcount(n))
-#define FS_MUTEX_LOCK(p) (pthread_mutex_lock(p))
+#define likely(x)          (__builtin_expect((x), 1))
+#define unlikely(x)        (__builtin_expect((x), 0))
+#define FS_POPCOUNT(n)     (__builtin_popcount(n))
+#define FS_MUTEX_LOCK(p)   (pthread_mutex_lock(p))
 #define FS_MUTEX_UNLOCK(p) (pthread_mutex_unlock(p))
+#define FS_CALLOC(LEN, T)  (calloc((LEN), (T)))
+#define FS_FREE(buf)       (free(buf))
 #else
-#define FS_POPCOUNT(n) (hweight32(n))
-#define FS_MUTEX_LOCK(p) (mutex_lock(p))
+#define FS_POPCOUNT(n)     (hweight32(n))
+#define FS_MUTEX_LOCK(p)   (mutex_lock(p))
 #define FS_MUTEX_UNLOCK(p) (mutex_unlock(p))
+#define FS_CALLOC(LEN, T)  (kcalloc((LEN), (T), (GFP_KERNEL)))
+#define FS_FREE(buf)       (kfree(buf))
 #endif // FS_UT
 
-#if defined(ALL_USING_ATOMIC)
-#define FS_CHECK_BIT(n, p) (check_bit_atomic((n), (p)))
+#define FS_CHECK_BIT(n, p)    (check_bit_atomic((n), (p)))
 #define FS_WRITE_BIT(n, i, p) (write_bit_atomic((n), (i), (p)))
-#define FS_READ_BITS(p) (FS_ATOMIC_READ((p)))
-#else
-#define FS_CHECK_BIT(n, p) (check_bit((n), (*(p))))
-#define FS_WRITE_BIT(n, i, p) (write_bit((n), (i), (p)))
-#define FS_READ_BITS(p) ((*(p)))
-#endif // ALL_USING_ATOMIC
+#define FS_READ_BITS(p)       (FS_ATOMIC_READ((p)))
 
 
 /* using v4l2_ctrl_request_setup */

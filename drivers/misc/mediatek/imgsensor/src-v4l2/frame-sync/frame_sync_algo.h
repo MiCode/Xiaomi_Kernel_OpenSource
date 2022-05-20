@@ -38,7 +38,7 @@ void fs_alg_get_fs_inst_ts_data(unsigned int idx,
 	unsigned int *p_last_vts, unsigned int *p_time_after_sof,
 	unsigned int *p_cur_tick, unsigned int *p_vsyncs);
 
-void fs_alg_dump_fs_inst_data(unsigned int idx);
+void fs_alg_dump_fs_inst_data(const unsigned int idx);
 void fs_alg_dump_all_fs_inst_data(void);
 
 
@@ -65,6 +65,10 @@ void fs_alg_set_streaming_st_data(
 
 void fs_alg_set_perframe_st_data(
 	unsigned int idx, struct fs_perframe_st *pData);
+
+void fs_alg_set_preset_perframe_streaming_st_data(const unsigned int idx,
+	struct fs_streaming_st *p_stream_data,
+	struct fs_perframe_st *p_pf_ctrl_data);
 
 void fs_alg_set_debug_info_sof_cnt(const unsigned int idx,
 	const unsigned int sof_cnt);
