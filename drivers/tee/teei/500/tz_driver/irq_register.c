@@ -254,7 +254,7 @@ static int ut_smc_handler(void)
 int teei_smc(unsigned long long smc_id, unsigned long long p1,
 		unsigned long long p2, unsigned long long p3)
 {
-	unsigned long long smc_type = 2;
+	unsigned long long smc_type = 0;
 	int retVal = 0;
 
 	smc_type = teei_secure_call(smc_id, p1, p2, p3);

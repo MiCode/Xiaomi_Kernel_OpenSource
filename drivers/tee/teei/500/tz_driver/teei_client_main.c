@@ -673,6 +673,11 @@ static long teei_config_ioctl(struct file *file,
 			long res;
 			int i;
 
+			if (arg == 0) {
+				IMSG_ERROR("arg is null\n");
+				return -EINVAL;
+			}
+
 			res = copy_from_user(&param, (void *)arg,
 					sizeof(struct init_param));
 			if (res) {
@@ -698,6 +703,7 @@ static long teei_config_ioctl(struct file *file,
 
 			teei_ta_flags = param.flag;
 			for (i = 0; i < param.uuid_count; i++) {
+				param.uuids[i][UUID_LEN] = 0;
 				if ((teei_ta_flags >> i) & (0x01))
 					tz_load_ta_by_str(param.uuids[i]);
 				else

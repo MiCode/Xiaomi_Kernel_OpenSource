@@ -104,7 +104,7 @@ static ssize_t teei_log_level_store(struct device *dev,
 				struct device_attribute *attr,
 				const char *buf, size_t len)
 {
-	unsigned long new;
+	unsigned long new = 0;
 	int retVal = 0;
 
 	retVal = kstrtoul(buf, 0, &new);
@@ -177,7 +177,9 @@ static void str_to_uuid(struct TEEC_UUID *uuid, const char *buf)
 
 static inline void uuid_to_str(struct TEEC_UUID *uuid, char *buf)
 {
-	snprintf(buf, UUID_STRING_LENGTH,
+	int ret = 0;
+
+	ret = snprintf(buf, UUID_STRING_LENGTH,
 			"%08x%04x%04x%02x%02x%02x%02x%02x%02x%02x%02x",
 			uuid->timeLow, uuid->timeMid,
 			uuid->timeHiAndVersion,
@@ -185,6 +187,8 @@ static inline void uuid_to_str(struct TEEC_UUID *uuid, char *buf)
 			uuid->clockSeqAndNode[2], uuid->clockSeqAndNode[3],
 			uuid->clockSeqAndNode[4], uuid->clockSeqAndNode[5],
 			uuid->clockSeqAndNode[6], uuid->clockSeqAndNode[7]);
+	if (ret <= 0)
+		IMSG_ERROR("snprintf failed ret %d\n", ret);
 }
 
 static inline void print_uuid(struct TEEC_UUID *uuid)
@@ -482,7 +486,7 @@ static ssize_t list_ut_drv_show(struct device *cd,
 
 	list_for_each_entry(entry, &ut_drv_list, list) {
 		uuid_to_str(&entry->uuid, uuid_str);
-		s += sprintf(s, "%s\n", uuid_str);
+		s += snprintf(s, UUID_STRING_LENGTH, "%s\n", uuid_str);
 	}
 
 	return (ssize_t)(s - buf);
@@ -562,7 +566,7 @@ static ssize_t notify_ree_dci_handler_store(struct device *dev,
 				struct device_attribute *attr,
 				const char *buf, size_t len)
 {
-	uint32_t driver_id;
+	uint32_t driver_id = 0;
 
 	hex_str_to_value(buf, 8, &driver_id);
 	IMSG_DEBUG("driver_id: 0x%x\n", driver_id);
@@ -637,7 +641,7 @@ static struct device_attribute *attr_list[] = {
 
 void remove_sysfs(struct platform_device *pdev)
 {
-	int i;
+	unsigned int i = 0;
 
 	if (is_context_init)
 		TEEC_FinalizeContext(&ut_drv_context);
@@ -649,7 +653,7 @@ void remove_sysfs(struct platform_device *pdev)
 int init_sysfs(struct platform_device *pdev)
 {
 	int res;
-	int i;
+	unsigned int i = 0;
 
 	for (i = 0; attr_list[i]; i++) {
 		res = device_create_file(&pdev->dev, attr_list[i]);

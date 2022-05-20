@@ -47,8 +47,12 @@ static int dci_greeting_test(uint32_t driver_id)
 	memset(msg, 0, sizeof(struct dci_message));
 
 	msg->cmd = GREETING;
-	snprintf(msg->req_data, sizeof(msg->req_data),
+	ret = snprintf(msg->req_data, sizeof(msg->req_data),
 				"Say Hello to 0x%x", driver_id);
+	if (ret <= 0) {
+		IMSG_ERROR("snprintf failed, ret %d\n", ret);
+		return ret;
+	}
 
 	ret = tz_notify_driver(driver_id);
 	if (ret < 0) {
@@ -157,8 +161,10 @@ static int process_dci_msg(uint32_t driver_id)
 			ret = -EINVAL;
 			break;
 		}
-		snprintf(msg->res_data, sizeof(msg->res_data),
+		ret = snprintf(msg->res_data, sizeof(msg->res_data),
 						"Hello 0x%x", tmp_value);
+		if (ret <= 0)
+			IMSG_ERROR("snprintf failed\n");
 		break;
 	case BIT_OP_NOT:
 		for (i = 0; i < MAX_BUF_SIZE; i++)

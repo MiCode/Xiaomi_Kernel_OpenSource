@@ -65,11 +65,14 @@ struct vfs_dev *vfs_devp;
 
 int wait_for_vfs_done(void)
 {
+	int ret = 0;
 #ifdef VFS_RDWR_SEM
-	down_interruptible(&VFS_wr_sem);
+	ret = down_interruptible(&VFS_wr_sem);
 #else
-	wait_for_completion_interruptible(&VFS_wr_comp);
+	ret = wait_for_completion_interruptible(&VFS_wr_comp);
 #endif
+	if (ret != 0)
+		return ret;
 	return 0;
 }
 
@@ -142,7 +145,7 @@ static ssize_t tz_vfs_read(struct file *filp, char __user *buf,
 	if (buf == NULL)
 		return -EINVAL;
 
-	if ((size < 0) || (size > VFS_SIZE))
+	if (size > VFS_SIZE)
 		return -EINVAL;
 
 	/*IMSG_DEBUG("read begin cpu[%d]\n",cpu_id);*/
@@ -163,11 +166,6 @@ static ssize_t tz_vfs_read(struct file *filp, char __user *buf,
 
 	vfs_p = (struct TEEI_vfs_command *)daulOS_VFS_share_mem;
 
-	if (vfs_p->cmd_size > size)
-		length = size;
-	else
-		length = vfs_p->cmd_size;
-
 	length = size;
 
 	if (copy_to_user(buf, (void *)vfs_p, length))
@@ -186,7 +184,7 @@ static ssize_t tz_vfs_write(struct file *filp, const char __user *buf,
 	if (daulOS_VFS_share_mem == NULL)
 		return -EINVAL;
 
-	if ((size < 0) || (size > VFS_SIZE))
+	if (size > VFS_SIZE)
 		return -EINVAL;
 
 	/*IMSG_DEBUG("write begin cpu_id[%d]\n",cpu_id);*/
