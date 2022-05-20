@@ -174,6 +174,11 @@ static inline bool mtk_cam_hw_mode_is_m2m(int hw_mode)
 	return (hw_mode == HW_MODE_M2M);
 }
 
+static inline bool mtk_cam_feature_is_with_w_channel(int feature)
+{
+	return (feature & WITH_W_CHANNEL) != 0;
+}
+
 bool mtk_cam_is_ext_isp_yuv(struct mtk_cam_ctx *ctx);
 bool mtk_cam_is_ext_isp(struct mtk_cam_ctx *ctx);
 bool mtk_cam_is_time_shared(struct mtk_cam_ctx *ctx);

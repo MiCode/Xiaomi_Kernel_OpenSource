@@ -932,5 +932,8 @@ int PipeIDtoTGIDX(int pipe_id);
 void mstream_seamless_buf_update(struct mtk_cam_ctx *ctx,
 				struct mtk_cam_request *req, int pipe_id,
 				int prev_feature);
+void mtk_cam_sensor_switch_stop_reinit_hw(struct mtk_cam_ctx *ctx,
+					  struct mtk_cam_request_stream_data *s_data,
+					  int stream_id);
 
 #endif /*__MTK_CAM_H*/

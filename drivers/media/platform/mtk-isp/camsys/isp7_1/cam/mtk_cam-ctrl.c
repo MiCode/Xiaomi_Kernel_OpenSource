@@ -3445,35 +3445,33 @@ static void mtk_cam_handle_mux_switch(struct mtk_raw_device *raw_src,
 	dev_info(cam->dev, "%s, req->ctx_used:0x%x, req->ctx_link_update:0x%x\n",
 		 __func__, req->ctx_used, req->ctx_link_update);
 
-	if (req->flags & MTK_CAM_REQ_FLAG_SENINF_IMMEDIATE_UPDATE) {
-		for (i = 0; i < cam->max_stream_num; i++) {
-			if ((req->ctx_used & 1 << i) && (req->ctx_link_update & 1 << i)) {
-				stream_id = i;
-				ctx = &cam->ctxs[stream_id];
-				raw_dev = get_master_raw_dev(ctx->cam, ctx->pipe);
-				req_stream_data = mtk_cam_req_get_s_data(req, stream_id, 0);
-				dev_info(cam->dev, "%s: toggle for rawi\n", __func__);
+	for (i = 0; i < cam->max_stream_num; i++) {
+		if ((req->ctx_used & 1 << i) && (req->ctx_link_update & 1 << i)) {
+			stream_id = i;
+			ctx = &cam->ctxs[stream_id];
+			raw_dev = get_master_raw_dev(ctx->cam, ctx->pipe);
+			req_stream_data = mtk_cam_req_get_s_data(req, stream_id, 0);
+			dev_info(cam->dev, "%s: toggle for rawi\n", __func__);
 
-				enable_tg_db(raw_dev, 0);
-				enable_tg_db(raw_dev, 1);
-				toggle_db(raw_dev);
+			enable_tg_db(raw_dev, 0);
+			enable_tg_db(raw_dev, 1);
+			toggle_db(raw_dev);
 
-				for (j = 0; j < ctx->used_sv_num; j++) {
-					sv_dev = get_camsv_dev(cam, ctx->sv_pipe[j]);
-					mtk_cam_sv_toggle_tg_db(sv_dev);
-					mtk_cam_sv_toggle_db(sv_dev);
-				}
-
-				for (j = 0; j < ctx->used_mraw_num; j++) {
-					mraw_dev = get_mraw_dev(cam, ctx->mraw_pipe[j]);
-					mtk_cam_mraw_toggle_tg_db(mraw_dev);
-					mtk_cam_mraw_toggle_db(mraw_dev);
-				}
+			for (j = 0; j < ctx->used_sv_num; j++) {
+				sv_dev = get_camsv_dev(cam, ctx->sv_pipe[j]);
+				mtk_cam_sv_toggle_tg_db(sv_dev);
+				mtk_cam_sv_toggle_db(sv_dev);
 			}
-		}
 
-		INIT_WORK(&req->link_work, mtk_cam_link_change_worker);
-		queue_work(cam->link_change_wq, &req->link_work);
+			for (j = 0; j < ctx->used_mraw_num; j++) {
+				mraw_dev = get_mraw_dev(cam, ctx->mraw_pipe[j]);
+				mtk_cam_mraw_toggle_tg_db(mraw_dev);
+				mtk_cam_mraw_toggle_db(mraw_dev);
+			}
+
+			INIT_WORK(&req->link_work, mtk_cam_link_change_worker);
+			queue_work(cam->link_change_wq, &req->link_work);
+		}
 	}
 }
 
@@ -3887,55 +3885,92 @@ mtk_camsys_raw_prepare_frame_done(struct mtk_raw_device *raw_dev,
 	return true;
 }
 
-static void
-mtk_camsys_raw_change_pipeline(struct mtk_raw_device *raw_dev,
-			       struct mtk_cam_ctx *ctx,
+void
+mtk_camsys_raw_change_pipeline(struct mtk_cam_ctx *ctx,
 			       struct mtk_camsys_sensor_ctrl *sensor_ctrl,
 			       unsigned int dequeued_frame_seq_no)
 {
-	int i;
-	struct mtk_cam_device *cam = raw_dev->cam;
 	struct mtk_cam_request *req;
 	struct mtk_cam_request_stream_data *req_stream_data;
 	int frame_seq = dequeued_frame_seq_no + 1;
+	struct mtk_cam_working_buf_entry *buf_entry;
+	dma_addr_t base_addr;
+	u64 ts_ns;
+	struct mtk_raw_device *raw_dev;
 
 	req = mtk_cam_get_req(ctx, frame_seq);
-
 	if (!req) {
-		dev_dbg(raw_dev->dev, "%s next req (%d) not queued\n", __func__, frame_seq);
+		dev_dbg(ctx->cam->dev, "%s next req (%d) not queued\n", __func__, frame_seq);
 		return;
 	}
 
 	if (!req->ctx_link_update) {
-		dev_dbg(raw_dev->dev, "%s next req (%d) no link stup\n", __func__, frame_seq);
+		dev_dbg(ctx->cam->dev, "%s next req (%d) no link stup\n", __func__, frame_seq);
 		return;
 	}
 
-	dev_dbg(raw_dev->dev, "%s:req(%d) check: req->ctx_used:0x%x, req->ctx_link_update0x%x\n",
+	dev_dbg(ctx->cam->dev, "%s:req(%d) check: req->ctx_used:0x%x, req->ctx_link_update0x%x\n",
 		__func__, frame_seq, req->ctx_used, req->ctx_link_update);
 
 	/* Check if all ctx is ready to change link */
-	for (i = 0; i < cam->max_stream_num; i++) {
-		if ((req->ctx_used & 1 << i) && (req->ctx_link_update & (1 << i))) {
-			/**
-			 * Switch cammux double buffer write delay, we have to disable the
-			 * mux (mask the data and sof to raw) and than switch it.
-			 */
-			req_stream_data = mtk_cam_req_get_s_data(req, i, 0);
-			if (req_stream_data->state.estate == E_STATE_CAMMUX_OUTER_CFG_DELAY) {
-				/**
-				 * To be move to the start of frame done hanlding
-				 * INIT_WORK(&req->link_work, mtk_cam_link_change_worker);
-				 * queue_work(cam->link_change_wq, &req->link_work);
-				 */
-				dev_info(raw_dev->dev, "Exchange streams at req(%d), update link ctx (0x%x)\n",
-				frame_seq, ctx->stream_id, req->ctx_link_update);
-				mtk_cam_req_seninf_change(req);
+	if ((req->ctx_used & 1 << ctx->stream_id) &&
+			(req->ctx_link_update & (1 << ctx->stream_id))) {
+		req_stream_data = mtk_cam_req_get_s_data(req, ctx->stream_id, 0);
+		if (!(req->flags & MTK_CAM_REQ_FLAG_SENINF_IMMEDIATE_UPDATE)) {
+			dev_info(ctx->cam->dev, "Exchange streams at seq(%d), update link ctx (0x%x)\n",
+				req_stream_data->frame_seq_no, req->ctx_link_update);
+
+			mtk_cam_sensor_switch_stop_reinit_hw(ctx, req_stream_data, ctx->stream_id);
+
+			spin_lock(&ctx->composed_buffer_list.lock);
+			if (list_empty(&ctx->composed_buffer_list.list)) {
+				dev_info(ctx->cam->dev,
+					"RAW SWITCH ERROR, no buffer update, cq_num:%d, frame_seq:%d\n",
+					ctx->composed_frame_seq_no, frame_seq);
+				spin_unlock(&ctx->composed_buffer_list.lock);
 				return;
+			}
+
+			buf_entry = list_first_entry(&ctx->composed_buffer_list.list,
+							 struct mtk_cam_working_buf_entry,
+							 list_entry);
+			list_del(&buf_entry->list_entry);
+			ctx->composed_buffer_list.cnt--;
+			spin_unlock(&ctx->composed_buffer_list.lock);
+			spin_lock(&ctx->processing_buffer_list.lock);
+			list_add_tail(&buf_entry->list_entry,
+					  &ctx->processing_buffer_list.list);
+			ctx->processing_buffer_list.cnt++;
+			spin_unlock(&ctx->processing_buffer_list.lock);
+			base_addr = buf_entry->buffer.iova;
+
+			raw_dev = get_master_raw_dev(ctx->cam, ctx->pipe);
+			apply_cq(raw_dev, 1, base_addr,
+				buf_entry->cq_desc_size,
+				buf_entry->cq_desc_offset,
+				buf_entry->sub_cq_desc_size,
+				buf_entry->sub_cq_desc_offset);
+			ts_ns = ktime_get_boottime_ns();
+
+			if (mtk_cam_feature_is_with_w_channel(
+					buf_entry->s_data->feature.raw_feature)) {
+				if (mtk_cam_sv_rgbw_apply_next_buffer(buf_entry->s_data) == 0)
+					dev_info(raw_dev->dev, "rgbw: sv apply next buffer failed");
+			}
+
+			if (ctx->used_sv_num) {
+				if (mtk_cam_sv_apply_all_buffers(ctx) == 0)
+					dev_info(raw_dev->dev, "sv apply next buffer failed");
+			}
+
+			if (ctx->used_mraw_num) {
+				if (mtk_cam_mraw_apply_all_buffers(ctx) == 0)
+					dev_info(raw_dev->dev, "mraw apply next buffer failed");
 			}
 		}
 	}
-	dev_info(raw_dev->dev, "%s:req(%d) no link update data found!\n",
+
+	dev_info(ctx->cam->dev, "%s:req(%d) no link update data found!\n",
 		__func__, frame_seq);
 
 }
@@ -3980,10 +4015,6 @@ static void mtk_cam_handle_frame_done(struct mtk_cam_ctx *ctx,
 		mutex_lock(&ctx->cam->queue_lock);
 		mtk_cam_dev_req_try_queue(ctx->cam);
 		mutex_unlock(&ctx->cam->queue_lock);
-		if (is_raw_subdev(pipe_id))
-			mtk_camsys_raw_change_pipeline(raw_dev, ctx,
-						       &ctx->sensor_ctrl,
-						       frame_seq_no);
 	}
 }
 
