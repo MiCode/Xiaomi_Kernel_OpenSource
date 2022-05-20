@@ -762,6 +762,7 @@ void fpsgo_check_thread_status(void)
 	struct render_info *iter;
 	int temp_max_pid = 0;
 	unsigned long long temp_max_bufid = 0;
+	int rb_tree_empty = 0;
 
 	if (ts < TIME_100MS)
 		return;
@@ -826,7 +827,12 @@ void fpsgo_check_thread_status(void)
 
 	if (check_max_blc)
 		fpsgo_base2fbt_check_max_blc();
-	if (RB_EMPTY_ROOT(&render_pid_tree))
+
+	fpsgo_render_tree_lock(__func__);
+	rb_tree_empty = RB_EMPTY_ROOT(&render_pid_tree);
+	fpsgo_render_tree_unlock(__func__);
+
+	if (rb_tree_empty)
 		fpsgo_base2fbt_no_one_render();
 }
 

@@ -38,6 +38,11 @@ static int xgf_log_trace_enable;
 static int xgf_ko_ready;
 static int xgf_nr_cpus __read_mostly;
 static struct kobject *xgf_kobj;
+static struct kmem_cache *xgf_render_cachep __ro_after_init;
+static struct kmem_cache *xgf_dep_cachep __ro_after_init;
+static struct kmem_cache *xgf_runtime_sect_cachep __ro_after_init;
+static struct kmem_cache *xgf_spid_cachep __ro_after_init;
+static struct kmem_cache *xgff_frame_cachep __ro_after_init;
 static unsigned long long last_check2recycle_ts;
 static unsigned long long last_update2spid_ts;
 static unsigned long long xgf_ema_mse;
@@ -72,6 +77,8 @@ int fstb_fps_num = TARGET_FPS_LEVEL;
 EXPORT_SYMBOL(fstb_fps_num);
 int fstb_fps_choice[TARGET_FPS_LEVEL] = {20, 25, 30, 40, 45, 60, 90, 120, 144, 240};
 EXPORT_SYMBOL(fstb_fps_choice);
+int fstb_no_r_timer_enable;
+EXPORT_SYMBOL(fstb_no_r_timer_enable);
 
 module_param(xgf_sp_name, charp, 0644);
 module_param(xgf_extra_sub, int, 0644);
@@ -88,6 +95,7 @@ module_param(fstb_no_stable_thr, int, 0644);
 module_param(fstb_can_update_thr, int, 0644);
 module_param(fstb_target_fps_margin_low_fps, int, 0644);
 module_param(fstb_target_fps_margin_high_fps, int, 0644);
+module_param(fstb_no_r_timer_enable, int, 0644);
 
 HLIST_HEAD(xgf_renders);
 HLIST_HEAD(xgff_frames);
@@ -170,25 +178,6 @@ void xgf_trace(const char *fmt, ...)
 	trace_printk(log);
 }
 EXPORT_SYMBOL(xgf_trace);
-
-void *xgf_alloc(int i32Size)
-{
-	void *pvBuf;
-
-	if (i32Size <= PAGE_SIZE)
-		pvBuf = kzalloc(i32Size, GFP_ATOMIC);
-	else
-		pvBuf = vzalloc(i32Size);
-
-	return pvBuf;
-}
-EXPORT_SYMBOL(xgf_alloc);
-
-void xgf_free(void *pvBuf)
-{
-	kvfree(pvBuf);
-}
-EXPORT_SYMBOL(xgf_free);
 
 int *xgf_extra_sub_assign(void)
 {
@@ -362,6 +351,158 @@ unsigned long long xgf_calculate_sqrt(unsigned long long x)
 }
 EXPORT_SYMBOL(xgf_calculate_sqrt);
 
+static void *xgf_render_alloc(void)
+{
+	void *pvBuf = NULL;
+
+	if (xgf_render_cachep)
+		pvBuf = kmem_cache_alloc(xgf_render_cachep,
+			GFP_KERNEL | __GFP_ZERO);
+
+	return pvBuf;
+}
+
+static void xgf_render_free(void *pvBuf)
+{
+	if (xgf_render_cachep)
+		kmem_cache_free(xgf_render_cachep, pvBuf);
+}
+
+static void *xgf_dep_alloc(void)
+{
+	void *pvBuf = NULL;
+
+	if (xgf_dep_cachep)
+		pvBuf = kmem_cache_alloc(xgf_dep_cachep,
+			GFP_KERNEL | __GFP_ZERO);
+
+	return pvBuf;
+}
+
+static void xgf_dep_free(void *pvBuf)
+{
+	if (xgf_dep_cachep)
+		kmem_cache_free(xgf_dep_cachep, pvBuf);
+}
+
+static void *xgf_runtime_sect_alloc(void)
+{
+	void *pvBuf = NULL;
+
+	if (xgf_runtime_sect_cachep)
+		pvBuf = kmem_cache_alloc(xgf_runtime_sect_cachep,
+			GFP_KERNEL | __GFP_ZERO);
+
+	return pvBuf;
+}
+
+static void xgf_runtime_sect_free(void *pvBuf)
+{
+	if (xgf_runtime_sect_cachep)
+		kmem_cache_free(xgf_runtime_sect_cachep, pvBuf);
+}
+
+static void *xgf_spid_alloc(void)
+{
+	void *pvBuf = NULL;
+
+	if (xgf_spid_cachep)
+		pvBuf = kmem_cache_alloc(xgf_spid_cachep,
+			GFP_KERNEL | __GFP_ZERO);
+
+	return pvBuf;
+}
+
+static void xgf_spid_free(void *pvBuf)
+{
+	if (xgf_spid_cachep)
+		kmem_cache_free(xgf_spid_cachep, pvBuf);
+}
+
+static void *xgff_frame_alloc(void)
+{
+	void *pvBuf = NULL;
+
+	if (xgff_frame_cachep)
+		pvBuf = kmem_cache_alloc(xgff_frame_cachep,
+			GFP_KERNEL | __GFP_ZERO);
+
+	return pvBuf;
+}
+
+static void xgff_frame_free(void *pvBuf)
+{
+	if (xgff_frame_cachep)
+		kmem_cache_free(xgff_frame_cachep, pvBuf);
+}
+
+void *xgf_alloc(int size, int cmd)
+{
+	void *pvBuf;
+
+	switch (cmd) {
+	case XGF_RENDER:
+		pvBuf = xgf_render_alloc();
+		break;
+
+	case XGF_DEP:
+		pvBuf = xgf_dep_alloc();
+		break;
+
+	case XGF_RUNTIME_SECT:
+		pvBuf = xgf_runtime_sect_alloc();
+		break;
+
+	case XGF_SPID:
+		pvBuf = xgf_spid_alloc();
+		break;
+
+	case XGFF_FRAME:
+		pvBuf = xgff_frame_alloc();
+		break;
+
+	default:
+		if (size <= PAGE_SIZE)
+			pvBuf = kzalloc(size, GFP_ATOMIC);
+		else
+			pvBuf = vzalloc(size);
+		break;
+	}
+
+	return pvBuf;
+}
+EXPORT_SYMBOL(xgf_alloc);
+
+void xgf_free(void *pvBuf, int cmd)
+{
+	switch (cmd) {
+	case XGF_RENDER:
+		xgf_render_free(pvBuf);
+		break;
+
+	case XGF_DEP:
+		xgf_dep_free(pvBuf);
+		break;
+
+	case XGF_RUNTIME_SECT:
+		xgf_runtime_sect_free(pvBuf);
+		break;
+
+	case XGF_SPID:
+		xgf_spid_free(pvBuf);
+		break;
+
+	case XGFF_FRAME:
+		xgff_frame_free(pvBuf);
+		break;
+
+	default:
+		kvfree(pvBuf);
+		break;
+	}
+}
+EXPORT_SYMBOL(xgf_free);
+
 int set_xgf_spid_list(char *proc_name,
 		char *thrd_name, int action)
 {
@@ -378,7 +519,7 @@ int set_xgf_spid_list(char *proc_name,
 
 		hlist_for_each_entry_safe(iter, t, &xgf_spid_list, hlist) {
 			hlist_del(&iter->hlist);
-			xgf_free(iter);
+			xgf_free(iter, XGF_SPID);
 		}
 
 		xgf_spid_list_length = 0;
@@ -390,21 +531,21 @@ int set_xgf_spid_list(char *proc_name,
 		goto out;
 	}
 
-	new_xgf_spid = xgf_alloc(sizeof(*new_xgf_spid));
+	new_xgf_spid = xgf_alloc(sizeof(*new_xgf_spid), XGF_SPID);
 	if (!new_xgf_spid) {
 		retval = -ENOMEM;
 		goto out;
 	}
 
 	if (!strncpy(new_xgf_spid->process_name, proc_name, 16)) {
-		xgf_free(new_xgf_spid);
+		xgf_free(new_xgf_spid, XGF_SPID);
 		retval = -ENOMEM;
 		goto out;
 	}
 	new_xgf_spid->process_name[15] = '\0';
 
 	if (!strncpy(new_xgf_spid->thread_name,	thrd_name, 16)) {
-		xgf_free(new_xgf_spid);
+		xgf_free(new_xgf_spid, XGF_SPID);
 		retval = -ENOMEM;
 		goto out;
 	}
@@ -588,7 +729,7 @@ static void xgf_reset_wspid_list(void)
 
 	hlist_for_each_entry_safe(xgf_spid_iter, t, &xgf_wspid_list, hlist) {
 		hlist_del(&xgf_spid_iter->hlist);
-		xgf_free(xgf_spid_iter);
+		xgf_free(xgf_spid_iter, XGF_SPID);
 		xgf_wspid_list_length--;
 	}
 }
@@ -602,7 +743,7 @@ static void xgf_render_reset_wspid_list(struct xgf_render *render)
 		if (xgf_spid_iter->rpid == render->render
 			&& xgf_spid_iter->bufID == render->bufID) {
 			hlist_del(&xgf_spid_iter->hlist);
-			xgf_free(xgf_spid_iter);
+			xgf_free(xgf_spid_iter, XGF_SPID);
 			xgf_wspid_list_length--;
 		}
 	}
@@ -631,7 +772,7 @@ static int xgf_render_setup_wspid_list(struct xgf_render *render)
 				tlen = strlen(xgf_spid_iter->thread_name);
 
 				if (!strncmp(sib->comm, xgf_spid_iter->thread_name, tlen)) {
-					new_xgf_spid = xgf_alloc(sizeof(*new_xgf_spid));
+					new_xgf_spid = xgf_alloc(sizeof(*new_xgf_spid), XGF_SPID);
 					if (!new_xgf_spid) {
 						ret = -ENOMEM;
 						put_task_struct(sib);
@@ -640,7 +781,7 @@ static int xgf_render_setup_wspid_list(struct xgf_render *render)
 
 					if (!strncpy(new_xgf_spid->process_name,
 							xgf_spid_iter->process_name, 16)) {
-						xgf_free(new_xgf_spid);
+						xgf_free(new_xgf_spid, XGF_SPID);
 						ret = -ENOMEM;
 						put_task_struct(sib);
 						goto out;
@@ -649,7 +790,7 @@ static int xgf_render_setup_wspid_list(struct xgf_render *render)
 
 					if (!strncpy(new_xgf_spid->thread_name,
 							xgf_spid_iter->thread_name, 16)) {
-						xgf_free(new_xgf_spid);
+						xgf_free(new_xgf_spid, XGF_SPID);
 						ret = -ENOMEM;
 						put_task_struct(sib);
 						goto out;
@@ -700,7 +841,7 @@ void xgf_clean_deps_list(struct xgf_render *render, int pos)
 			iter = rb_entry(render->deps_list.rb_node,
 						struct xgf_dep, rb_node);
 			rb_erase(&iter->rb_node, &render->deps_list);
-			xgf_free(iter);
+			xgf_free(iter, XGF_DEP);
 		}
 	}
 
@@ -709,7 +850,7 @@ void xgf_clean_deps_list(struct xgf_render *render, int pos)
 			iter = rb_entry(render->out_deps_list.rb_node,
 						struct xgf_dep, rb_node);
 			rb_erase(&iter->rb_node, &render->out_deps_list);
-			xgf_free(iter);
+			xgf_free(iter, XGF_DEP);
 		}
 	}
 
@@ -718,7 +859,7 @@ void xgf_clean_deps_list(struct xgf_render *render, int pos)
 			iter = rb_entry(render->prev_deps_list.rb_node,
 						struct xgf_dep, rb_node);
 			rb_erase(&iter->rb_node, &render->prev_deps_list);
-			xgf_free(iter);
+			xgf_free(iter, XGF_DEP);
 		}
 	}
 }
@@ -786,7 +927,7 @@ struct xgf_dep *xgf_get_dep(
 	if (!force)
 		return NULL;
 
-	xd = xgf_alloc(sizeof(*xd));
+	xd = xgf_alloc(sizeof(*xd), XGF_DEP);
 
 	if (!xd)
 		return NULL;
@@ -824,7 +965,7 @@ void xgf_update_deps_list(struct xgf_render *render, int pos)
 		if (prev_iter->frame_idx == curr_frame_index) {
 			rb_erase(n, prev_r);
 			n = rb_first(prev_r);
-			xgf_free(prev_iter);
+			xgf_free(prev_iter, XGF_DEP);
 		} else
 			n = rb_next(n);
 	}
@@ -926,7 +1067,7 @@ static int xgf_get_render(pid_t rpid, unsigned long long bufID, struct xgf_rende
 	if (!force)
 		return -EINVAL;
 
-	iter = xgf_alloc(sizeof(*iter));
+	iter = xgf_alloc(sizeof(*iter), XGF_RENDER);
 
 	if (!iter)
 		return -ENOMEM;
@@ -941,7 +1082,7 @@ static int xgf_get_render(pid_t rpid, unsigned long long bufID, struct xgf_rende
 		rcu_read_unlock();
 
 		if (!tsk) {
-			xgf_free(iter);
+			xgf_free(iter, XGF_RENDER);
 			return -EINVAL;
 		}
 
@@ -1500,7 +1641,7 @@ static void xgf_reset_render(struct xgf_render *iter)
 	}
 
 	hlist_del(&iter->hlist);
-	xgf_free(iter);
+	xgf_free(iter, XGF_RENDER);
 }
 
 static void xgff_reset_render(struct xgff_frame *iter)
@@ -1518,7 +1659,7 @@ static void xgff_reset_render(struct xgff_frame *iter)
 	}
 
 	hlist_del(&iter->hlist);
-	xgf_free(iter);
+	xgf_free(iter, XGFF_FRAME);
 }
 
 void xgf_reset_all_renders(void)
@@ -2121,7 +2262,7 @@ static int xgff_new_frame(pid_t tID, unsigned long long bufID,
 	struct xgf_render *xriter;
 	struct task_struct *tsk;
 
-	iter = xgf_alloc(sizeof(*iter));
+	iter = xgf_alloc(sizeof(*iter), XGFF_FRAME);
 
 	if (!iter)
 		return -ENOMEM;
@@ -2133,7 +2274,7 @@ static int xgff_new_frame(pid_t tID, unsigned long long bufID,
 	rcu_read_unlock();
 
 	if (!tsk) {
-		xgf_free(iter);
+		xgf_free(iter, XGFF_FRAME);
 		return -EINVAL;
 	}
 
@@ -2213,7 +2354,7 @@ static int _xgff_frame_start(
 	r->ploading = fbt_xgff_list_loading_add(tid, queueid, ts);
 	if (r->ploading == NULL) {
 		ret = XGF_PARAM_ERR;
-		xgf_free(r);
+		xgf_free(r, XGFF_FRAME);
 		goto qudeq_notify_err;
 	}
 
@@ -2298,7 +2439,7 @@ static int _xgff_frame_end(
 	xgf_clean_deps_list(&r->xgfrender, PREVI_DEPS);
 	xgf_render_dep_reset(&r->xgfrender);
 
-	xgf_free(r);
+	xgf_free(r, XGFF_FRAME);
 
 qudeq_notify_err:
 	xgf_trace("xgff result:%d at rpid:%d cmd:xgff_frame_end", ret, tid);
@@ -2424,6 +2565,77 @@ static ssize_t runtime_show(struct kobject *kobj,
 
 static KOBJ_ATTR_RO(runtime);
 
+static ssize_t xgf_status_show(struct kobject *kobj,
+	struct kobj_attribute *attr, char *buf)
+{
+	struct xgf_render *r_iter;
+	struct xgf_render_dep *xrd;
+	struct hlist_node *h1;
+	struct rb_root *rbr;
+	struct rb_node *rbn;
+	struct xgff_frame *rr_iter;
+	char temp[FPSGO_SYSFS_MAX_BUFF_SIZE] = "";
+	int pos = 0, length = 0, i, j;
+	int num[7] = {0};
+
+	xgf_lock(__func__);
+	num[0] = 0;
+	hlist_for_each_entry_safe(r_iter, h1, &xgf_renders, hlist) {
+		for (i = 1; i <= 5; i++)
+			num[i] = 0;
+
+		if (r_iter->xrd_arr_idx < 0 || r_iter->xrd_arr_idx > MAX_DEP_PATH_NUM)
+			continue;
+		for (i = 0; i < r_iter->xrd_arr_idx; i++) {
+			xrd = &r_iter->xrd_arr[i];
+			if (xrd->xdt_arr_idx < 0 || xrd->xdt_arr_idx > MAX_DEP_TASK_NUM)
+				continue;
+			for (j = 0; j < xrd->xdt_arr_idx; j++)
+				num[2]++;
+			num[1]++;
+		}
+
+		rbr = &r_iter->deps_list;
+		for (rbn = rb_first(rbr); rbn != NULL; rbn = rb_next(rbn))
+			num[3]++;
+
+		rbr = &r_iter->out_deps_list;
+		for (rbn = rb_first(rbr); rbn != NULL; rbn = rb_next(rbn))
+			num[4]++;
+
+		rbr = &r_iter->prev_deps_list;
+		for (rbn = rb_first(rbr); rbn != NULL; rbn = rb_next(rbn))
+			num[5]++;
+
+		num[0]++;
+
+		length = scnprintf(temp + pos,
+			FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
+			"%dth [%d][0x%llx] r_sect:%d r_pid:%d dep:(%d,%d,%d)\n",
+			 num[0], r_iter->render, r_iter->bufID, num[1], num[2],
+			 num[3], num[4], num[5]);
+		pos += length;
+	}
+	xgf_unlock(__func__);
+
+	mutex_lock(&xgff_frames_lock);
+	num[6] = 0;
+	hlist_for_each_entry_safe(rr_iter, h1, &xgff_frames, hlist) {
+		num[6]++;
+
+		length = scnprintf(temp + pos,
+			FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
+			"%dth [%d][0x%llx]\n",
+			 num[6], rr_iter->tid, rr_iter->bufid);
+		pos += length;
+	}
+	mutex_unlock(&xgff_frames_lock);
+
+	return scnprintf(buf, PAGE_SIZE, "%s", temp);
+}
+
+static KOBJ_ATTR_RO(xgf_status);
+
 atomic_t xgf_ko_enable;
 EXPORT_SYMBOL(xgf_ko_enable);
 struct fpsgo_trace_event *xgf_event_buffer;
@@ -2515,6 +2727,7 @@ Reget:
 	fte->event = event;
 	fte->note = note;
 	fte->pid = data;
+	fte->state = 0;
 }
 
 static void xgf_irq_handler_entry_tracer(void *ignore,
@@ -2757,7 +2970,7 @@ static void __nocfi xgf_tracing_unregister(void)
 	atomic_set(&fstb_event_buffer_idx, 0);
 }
 
-int xgf_stat_xchg(int xgf_enable)
+static int xgf_stat_xchg(int xgf_enable)
 {
 	int ret = -1;
 
@@ -2834,7 +3047,7 @@ static void lookup_tracepoints(struct tracepoint *tp, void *ignore)
 	}
 }
 
-static void xgf_cleanup(void)
+static void clean_xgf_tp(void)
 {
 	int i;
 
@@ -2847,6 +3060,44 @@ static void xgf_cleanup(void)
 	}
 }
 
+int __init init_xgf_mm(void)
+{
+	xgf_render_cachep = kmem_cache_create("xgf_render",
+		sizeof(struct xgf_render), 0, SLAB_HWCACHE_ALIGN, NULL);
+	if (!xgf_render_cachep)
+		goto err;
+	xgf_dep_cachep = kmem_cache_create("xgf_dep",
+		sizeof(struct xgf_dep), 0, SLAB_HWCACHE_ALIGN, NULL);
+	if (!xgf_dep_cachep)
+		goto err;
+	xgf_runtime_sect_cachep = kmem_cache_create("xgf_runtime_sect",
+		sizeof(struct xgf_runtime_sect), 0, SLAB_HWCACHE_ALIGN, NULL);
+	if (!xgf_runtime_sect_cachep)
+		goto err;
+	xgf_spid_cachep = kmem_cache_create("xgf_spid",
+		sizeof(struct xgf_spid), 0, SLAB_HWCACHE_ALIGN, NULL);
+	if (!xgf_spid_cachep)
+		goto err;
+	xgff_frame_cachep = kmem_cache_create("xgff_frame",
+		sizeof(struct xgff_frame), 0, SLAB_HWCACHE_ALIGN, NULL);
+	if (!xgff_frame_cachep)
+		goto err;
+
+	return 0;
+
+err:
+	return -1;
+}
+
+void __exit clean_xgf_mm(void)
+{
+	kmem_cache_destroy(xgf_render_cachep);
+	kmem_cache_destroy(xgf_dep_cachep);
+	kmem_cache_destroy(xgf_runtime_sect_cachep);
+	kmem_cache_destroy(xgf_spid_cachep);
+	kmem_cache_destroy(xgff_frame_cachep);
+}
+
 int __init init_xgf_ko(void)
 {
 	int i;
@@ -2857,7 +3108,7 @@ int __init init_xgf_ko(void)
 		if (xgf_tracepoints[i].tp == NULL) {
 			pr_debug("XGF KO Error, %s not found\n",
 					xgf_tracepoints[i].name);
-			xgf_cleanup();
+			clean_xgf_tp();
 			return -1;
 		}
 	}
@@ -2872,19 +3123,41 @@ int __init init_xgf_ko(void)
 int __init init_xgf(void)
 {
 	init_xgf_ko();
+	init_xgf_mm();
 
 	if (!fpsgo_sysfs_create_dir(NULL, "xgf", &xgf_kobj)) {
 		fpsgo_sysfs_create_file(xgf_kobj, &kobj_attr_deplist);
 		fpsgo_sysfs_create_file(xgf_kobj, &kobj_attr_runtime);
 		fpsgo_sysfs_create_file(xgf_kobj, &kobj_attr_xgf_spid_list);
-		fpsgo_sysfs_create_file(xgf_kobj,
-			&kobj_attr_xgf_trace_enable);
-		fpsgo_sysfs_create_file(xgf_kobj,
-			&kobj_attr_xgf_log_trace_enable);
+		fpsgo_sysfs_create_file(xgf_kobj, &kobj_attr_xgf_trace_enable);
+		fpsgo_sysfs_create_file(xgf_kobj, &kobj_attr_xgf_log_trace_enable);
+		fpsgo_sysfs_create_file(xgf_kobj, &kobj_attr_xgf_status);
 	}
 
 	xgff_frame_startend_fp = xgff_frame_startend;
 	xgff_frame_getdeplist_maxsize_fp = xgff_frame_getdeplist_maxsize;
+
+	return 0;
+}
+
+int __exit exit_xgf(void)
+{
+	xgf_lock(__func__);
+	xgf_reset_all_renders();
+	xgf_unlock(__func__);
+	xgff_reset_all_renders();
+
+	clean_xgf_tp();
+	clean_xgf_mm();
+
+	fpsgo_sysfs_remove_file(xgf_kobj, &kobj_attr_deplist);
+	fpsgo_sysfs_remove_file(xgf_kobj, &kobj_attr_runtime);
+	fpsgo_sysfs_remove_file(xgf_kobj, &kobj_attr_xgf_spid_list);
+	fpsgo_sysfs_remove_file(xgf_kobj, &kobj_attr_xgf_trace_enable);
+	fpsgo_sysfs_remove_file(xgf_kobj, &kobj_attr_xgf_log_trace_enable);
+	fpsgo_sysfs_remove_file(xgf_kobj, &kobj_attr_xgf_status);
+
+	fpsgo_sysfs_remove_dir(&xgf_kobj);
 
 	return 0;
 }

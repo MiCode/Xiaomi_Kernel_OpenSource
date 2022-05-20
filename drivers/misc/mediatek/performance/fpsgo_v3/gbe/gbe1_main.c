@@ -240,6 +240,9 @@ void gbe_notify_fstb_poll(struct hlist_head *list)
 		(struct GBE_NOTIFIER_PUSH_TAG *)
 		kmalloc(sizeof(struct GBE_NOTIFIER_PUSH_TAG), GFP_ATOMIC);
 
+	if (!vpPush)
+		return;
+
 	if (!g_psNotifyWorkQueue) {
 		kfree(vpPush);
 		return;

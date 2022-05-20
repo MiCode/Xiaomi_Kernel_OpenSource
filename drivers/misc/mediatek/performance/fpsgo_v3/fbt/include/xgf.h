@@ -41,7 +41,7 @@ enum XGF_ERROR {
 };
 
 enum {
-	XGF_QUEUE_START = 0,
+	XGF_QUEUE_START,
 	XGF_QUEUE_END,
 	XGF_DEQUEUE_START,
 	XGF_DEQUEUE_END
@@ -57,9 +57,18 @@ enum XGF_EVENT {
 };
 
 enum XGF_DEPS_CAT {
-	INNER_DEPS = 0,
+	INNER_DEPS,
 	OUTER_DEPS,
 	PREVI_DEPS
+};
+
+enum XGF_ALLOC {
+	NATIVE_ALLOC,
+	XGF_RENDER,
+	XGF_DEP,
+	XGF_RUNTIME_SECT,
+	XGF_SPID,
+	XGFF_FRAME
 };
 
 struct xgf_ema2_predictor {
@@ -240,8 +249,8 @@ int xgf_est_runtime(pid_t r_pid, struct xgf_render *render,
 int xgff_est_runtime(pid_t r_pid, struct xgf_render *render,
 	unsigned long long *runtime, unsigned long long ts);
 int xgff_update_start_prev_index(struct xgf_render *render);
-void *xgf_alloc(int size);
-void xgf_free(void *block);
+void *xgf_alloc(int size, int cmd);
+void xgf_free(void *pvBuf, int cmd);
 int *xgf_extra_sub_assign(void);
 int *xgf_spid_sub_assign(void);
 int xgf_num_possible_cpus(void);
@@ -303,8 +312,10 @@ extern int fstb_target_fps_margin_low_fps;
 extern int fstb_target_fps_margin_high_fps;
 extern int fstb_fps_num;
 extern int fstb_fps_choice[];
+extern int fstb_no_r_timer_enable;
 
 int __init init_xgf(void);
+int __exit exit_xgf(void);
 
 struct fbt_thread_loading *fbt_xgff_list_loading_add(int pid,
 	unsigned long long buffer_id, unsigned long long ts);
