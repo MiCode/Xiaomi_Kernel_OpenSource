@@ -1115,7 +1115,7 @@ static int copy_mml_submit_from_user(struct mml_submit *src,
 	}
 
 	if (copy_from_user(temp_job, dst->job, sizeof(struct mml_job))) {
-		DDPINFO("%s copy_from_user mml_job fail\n", __func__);
+		DDPMSG("%s copy_from_user mml_job fail\n", __func__);
 		return -EINVAL;
 	}
 	dst->job = temp_job;
@@ -1123,7 +1123,7 @@ static int copy_mml_submit_from_user(struct mml_submit *src,
 	for (i = 0; i < MML_MAX_OUTPUTS; ++i) {
 		if (copy_from_user(temp_pq_param[i],
 			dst->pq_param[i], sizeof(struct mml_pq_param))) {
-			DDPINFO("%s copy_from_user mml_pq_param fail\n", __func__);
+			DDPMSG("%s copy_from_user mml_pq_param fail\n", __func__);
 			return -EINVAL;
 		}
 		dst->pq_param[i] = temp_pq_param[i];
@@ -1254,24 +1254,26 @@ err_alloc_submit_pq:
 static void mtk_atomic_mml(struct drm_device *dev,
 	struct drm_atomic_state *state)
 {
-	struct drm_crtc *crtc;
+	struct drm_crtc *crtc = NULL;
 	struct drm_crtc_state *old_crtc_state, *new_crtc_state;
 	struct drm_plane *plane;
 	struct drm_plane_state *plane_state, *old_plane_state;
 	struct mtk_plane_state *mtk_plane_state;
-	struct mtk_drm_crtc *mtk_crtc;
+	struct mtk_drm_crtc *mtk_crtc = NULL;
 	int i = 0;
 	bool last_is_mml = false;
 
 	for_each_old_crtc_in_state(state, crtc, old_crtc_state, i) {
-		if (crtc && drm_crtc_index(crtc) == 0) {
-			mtk_crtc = to_mtk_crtc(crtc);
-			last_is_mml = mtk_crtc->is_mml;
-			mtk_crtc->is_mml = false;
-			mtk_crtc->mml_ir_state = NOT_MML_IR;
+		if (drm_crtc_index(crtc) == 0)
 			break;
-		}
+		else
+			return;
 	}
+
+	mtk_crtc = to_mtk_crtc(crtc);
+	last_is_mml = mtk_crtc->is_mml;
+	mtk_crtc->is_mml = false;
+	mtk_crtc->mml_ir_state = NOT_MML_IR;
 
 	for_each_old_plane_in_state(state, plane, old_plane_state, i) {
 		plane_state = plane->state;
