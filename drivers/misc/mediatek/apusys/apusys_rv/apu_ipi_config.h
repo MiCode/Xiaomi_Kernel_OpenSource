@@ -122,7 +122,11 @@ static const struct {
 		.direction = IPI_HOST_INITIATE,
 		.ack = IPI_WITH_ACK,
 	},
-
+	[APU_IPI_SCP_NP_RECOVER] = { // 20
+		.name = "apu-scp-np-recover-rpmsg",
+		.direction = IPI_HOST_INITIATE,
+		.ack = IPI_WITH_ACK,
+	},
 };
 
 
