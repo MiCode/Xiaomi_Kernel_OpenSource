@@ -88,7 +88,6 @@ static struct gpuppm_platform_fp platform_ap_fp = {
 	.limited_commit = gpuppm_limited_commit,
 	.set_limit = gpuppm_set_limit,
 	.switch_limit = gpuppm_switch_limit,
-	.set_stress_test = gpuppm_set_stress_test,
 	.get_ceiling = gpuppm_get_ceiling,
 	.get_floor = gpuppm_get_floor,
 	.get_c_limiter = gpuppm_get_c_limiter,
@@ -332,6 +331,7 @@ static void __gpuppm_update_gpuppm_info(void)
 {
 	unsigned int copy_size = 0;
 
+	/* update current status to shared memory */
 	g_shared_status->cur_ceiling = g_ppm.ceiling;
 	g_shared_status->cur_floor = g_ppm.floor;
 	g_shared_status->cur_c_limiter = g_ppm.c_limiter;
@@ -343,9 +343,12 @@ static void __gpuppm_update_gpuppm_info(void)
 	memcpy(g_shared_status->limit_table, g_limit_table, copy_size);
 }
 
-void gpuppm_set_stress_test(enum gpufreq_feat_mode mode)
+void gpuppm_set_stress_test(unsigned int val)
 {
-	g_stress_test = mode;
+	g_stress_test = val;
+
+	/* update current status to shared memory */
+	g_shared_status->stress_test = g_stress_test;
 }
 
 int gpuppm_get_ceiling(void)
@@ -519,6 +522,7 @@ void gpuppm_set_shared_status(struct gpufreq_shared_status *shared_status)
 		__gpufreq_abort("null gpufreq shared status: 0x%llx", shared_status);
 
 	/* update current status to shared memory */
+	g_shared_status->stress_test = g_stress_test;
 	__gpuppm_update_gpuppm_info();
 
 	mutex_unlock(&gpuppm_lock);

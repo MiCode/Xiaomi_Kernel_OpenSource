@@ -93,10 +93,26 @@ enum gpufreq_power_state {
 	POWER_ON,
 };
 
-enum gpufreq_feat_mode {
-	FEAT_DISABLE = 0,
-	FEAT_ENABLE  = 1,
-	DFD_FORCE_DUMP,
+enum gpufreq_config_target {
+	CONFIG_TARGET_INVALID = -1,
+	CONFIG_TEST_MODE      = 0,
+	CONFIG_STRESS_TEST    = 1,
+	CONFIG_MARGIN         = 2,
+	CONFIG_GPM1           = 3,
+	CONFIG_GPM3           = 4,
+	CONFIG_DFD            = 5,
+	CONFIG_IMAX_STACK     = 6,
+	CONFIG_IMAX_SRAM      = 7,
+	CONFIG_DYN_STACK      = 8,
+	CONFIG_DYN_SRAM_GPU   = 9,
+	CONFIG_DYN_SRAM_STACK = 10,
+};
+
+enum gpufreq_config_value {
+	CONFIG_VAL_INVALID = -1,
+	FEAT_DISABLE       = 0,
+	FEAT_ENABLE        = 1,
+	DFD_FORCE_DUMP     = 2,
 };
 
 enum gpuppm_reserved_idx {
@@ -270,6 +286,8 @@ struct gpufreq_shared_status {
 	unsigned int power_time_h;
 	unsigned int power_time_l;
 	unsigned int mfg_pwr_status;
+	unsigned int stress_test;
+	unsigned int test_mode;
 	struct gpufreq_reg_info reg_mfgsys[GPUFREQ_MAX_REG_NUM];
 	struct gpufreq_reg_info reg_stack_sel;
 	struct gpufreq_reg_info reg_del_sel;
@@ -304,9 +322,7 @@ struct gpufreq_platform_fp {
 	void (*check_bus_idle)(void);
 	void (*dump_infra_status)(void);
 	void (*update_debug_opp_info)(void);
-	void (*set_margin_mode)(enum gpufreq_feat_mode mode);
-	void (*set_gpm_mode)(unsigned int version, enum gpufreq_feat_mode mode);
-	void (*set_dfd_mode)(enum gpufreq_feat_mode mode);
+	void (*set_mfgsys_config)(enum gpufreq_config_target target, enum gpufreq_config_value val);
 	struct gpufreq_core_mask_info *(*get_core_mask_table)(void);
 	unsigned int (*get_core_num)(void);
 	void (*pdca_config)(enum gpufreq_power_state power);
@@ -358,7 +374,6 @@ struct gpuppm_platform_fp {
 		int ceiling_info, int floor_info);
 	int (*switch_limit)(enum gpufreq_target target, enum gpuppm_limiter limiter,
 		int c_enable, int f_enable);
-	void (*set_stress_test)(enum gpufreq_feat_mode mode);
 	int (*get_ceiling)(void);
 	int (*get_floor)(void);
 	unsigned int (*get_c_limiter)(void);
@@ -426,11 +441,7 @@ int gpufreq_switch_limit(enum gpufreq_target target,
 int gpufreq_fix_target_oppidx(enum gpufreq_target target, int oppidx);
 int gpufreq_fix_custom_freq_volt(enum gpufreq_target target,
 	unsigned int freq, unsigned int volt);
-int gpufreq_set_stress_test(enum gpufreq_feat_mode mode);
-int gpufreq_set_margin_mode(enum gpufreq_feat_mode mode);
-int gpufreq_set_gpm_mode(unsigned int version, enum gpufreq_feat_mode mode);
-int gpufreq_set_dfd_mode(enum gpufreq_feat_mode mode);
-int gpufreq_set_test_mode(unsigned int value);
+int gpufreq_set_mfgsys_config(enum gpufreq_config_target target, enum gpufreq_config_value val);
 int gpufreq_mssv_commit(unsigned int target, unsigned int val);
 
 #endif /* __GPUFREQ_V2_H__ */

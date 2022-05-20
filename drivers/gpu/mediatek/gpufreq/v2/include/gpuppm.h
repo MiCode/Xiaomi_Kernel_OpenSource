@@ -64,7 +64,7 @@ int gpuppm_set_limit(enum gpufreq_target target, enum gpuppm_limiter limiter,
 	int ceiling_info, int floor_info);
 int gpuppm_switch_limit(enum gpufreq_target target, enum gpuppm_limiter limiter,
 	int c_enable, int f_enable);
-void gpuppm_set_stress_test(enum gpufreq_feat_mode mode);
+void gpuppm_set_stress_test(unsigned int val);
 int gpuppm_get_ceiling(void);
 int gpuppm_get_floor(void);
 unsigned int gpuppm_get_c_limiter(void);

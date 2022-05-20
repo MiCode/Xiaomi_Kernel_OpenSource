@@ -58,6 +58,8 @@
 static unsigned int __gpufreq_custom_init_enable(void);
 static unsigned int __gpufreq_dvfs_enable(void);
 static void __gpufreq_set_dvfs_state(unsigned int set, unsigned int state);
+static void __gpufreq_set_margin_mode(unsigned int mode);
+static void __gpufreq_set_gpm_mode(unsigned int version, unsigned int mode);
 static void __gpufreq_dump_bringup_status(struct platform_device *pdev);
 static void __gpufreq_measure_power(void);
 static void __iomem *__gpufreq_of_ioremap(const char *node_name, int idx);
@@ -255,8 +257,6 @@ static struct gpufreq_platform_fp platform_ap_fp = {
 	.set_timestamp = __gpufreq_set_timestamp,
 	.check_bus_idle = __gpufreq_check_bus_idle,
 	.dump_infra_status = __gpufreq_dump_infra_status,
-	.set_margin_mode = __gpufreq_set_margin_mode,
-	.set_gpm_mode = __gpufreq_set_gpm_mode,
 	.get_core_mask_table = __gpufreq_get_core_mask_table,
 	.get_core_num = __gpufreq_get_core_num,
 	.pdca_config = __gpufreq_pdca_config,
@@ -1350,24 +1350,23 @@ int __gpufreq_get_low_batt_idx(int low_batt_level)
 #endif /* GPUFREQ_LOW_BATT_ENABLE && CONFIG_MTK_LOW_BATTERY_POWER_THROTTLING */
 }
 
-/* API: apply/restore Vaging to working table of STACK */
-void __gpufreq_set_margin_mode(unsigned int mode)
+/* API: general interface to set MFGSYS config */
+void __gpufreq_set_mfgsys_config(enum gpufreq_config_target target, enum gpufreq_config_value val)
 {
-	/* update volt margin */
-	__gpufreq_apply_restore_margin(mode);
-
-	/* update power info to working table */
-	__gpufreq_measure_power();
-
-	/* update HW constraint parking volt */
-	__gpufreq_update_hw_constraint_volt();
-}
-
-/* API: enable/disable GPM 1.0 */
-void __gpufreq_set_gpm_mode(unsigned int version, unsigned int mode)
-{
-	if (version == 1)
-		g_gpm1_mode = mode;
+	switch (target) {
+	case CONFIG_STRESS_TEST:
+		gpuppm_set_stress_test(val);
+		break;
+	case CONFIG_MARGIN:
+		__gpufreq_set_margin_mode(val);
+		break;
+	case CONFIG_GPM1:
+		__gpufreq_set_gpm_mode(1, val);
+		break;
+	default:
+		GPUFREQ_LOGE("invalid config target: %d", target);
+		break;
+	}
 }
 
 /* API: get core_mask table */
@@ -1746,6 +1745,26 @@ static void __gpufreq_set_dvfs_state(unsigned int set, unsigned int state)
 	else
 		g_dvfs_state &= ~state;
 	mutex_unlock(&gpufreq_lock);
+}
+
+/* API: apply/restore Vaging to working table of STACK */
+static void __gpufreq_set_margin_mode(unsigned int mode)
+{
+	/* update volt margin */
+	__gpufreq_apply_restore_margin(mode);
+
+	/* update power info to working table */
+	__gpufreq_measure_power();
+
+	/* update HW constraint parking volt */
+	__gpufreq_update_hw_constraint_volt();
+}
+
+/* API: enable/disable GPM 1.0 */
+static void __gpufreq_set_gpm_mode(unsigned int version, unsigned int mode)
+{
+	if (version == 1)
+		g_gpm1_mode = mode;
 }
 
 /* API: DVFS order control of GPU */

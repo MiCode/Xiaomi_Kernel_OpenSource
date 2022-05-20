@@ -1255,136 +1255,29 @@ done:
 }
 
 /***********************************************************************************
- * Function Name      : gpufreq_set_stress_test
+ * Function Name      : gpufreq_set_mfgsys_config
  * Description        : Only for GPUFREQ internal debug purpose
  ***********************************************************************************/
-int gpufreq_set_stress_test(enum gpufreq_feat_mode mode)
+int gpufreq_set_mfgsys_config(enum gpufreq_config_target target, enum gpufreq_config_value val)
 {
 	struct gpufreq_ipi_data send_msg = {};
 	int ret = GPUFREQ_SUCCESS;
 
 	/* implement on EB */
 	if (g_gpueb_support) {
-		send_msg.cmd_id = CMD_SET_STRESS_TEST;
-		send_msg.u.mode = mode;
+		send_msg.cmd_id = CMD_SET_MFGSYS_CONFIG;
+		send_msg.u.mfg_cfg.target = target;
+		send_msg.u.mfg_cfg.val = val;
 
 		ret = gpufreq_ipi_to_gpueb(send_msg);
 	/* implement on AP */
 	} else {
-		if (gpuppm_fp && gpuppm_fp->set_stress_test)
-			gpuppm_fp->set_stress_test(mode);
+		if (gpufreq_fp && gpufreq_fp->set_mfgsys_config)
+			gpufreq_fp->set_mfgsys_config(target, val);
 		else {
 			ret = GPUFREQ_ENOENT;
 			GPUFREQ_LOGE("null gpufreq platform function pointer (ENOENT)");
 		}
-	}
-
-	return ret;
-}
-
-/***********************************************************************************
- * Function Name      : gpufreq_set_margin_mode
- * Description        : Only for GPUFREQ internal debug purpose
- ***********************************************************************************/
-int gpufreq_set_margin_mode(enum gpufreq_feat_mode mode)
-{
-	struct gpufreq_ipi_data send_msg = {};
-	int ret = GPUFREQ_SUCCESS;
-
-	/* implement on EB */
-	if (g_gpueb_support) {
-		send_msg.cmd_id = CMD_SET_MARGIN_MODE;
-		send_msg.u.mode = mode;
-
-		ret = gpufreq_ipi_to_gpueb(send_msg);
-	/* implement on AP */
-	} else {
-		if (gpufreq_fp && gpufreq_fp->set_margin_mode)
-			gpufreq_fp->set_margin_mode(mode);
-		else {
-			ret = GPUFREQ_ENOENT;
-			GPUFREQ_LOGE("null gpufreq platform function pointer (ENOENT)");
-		}
-	}
-
-	return ret;
-}
-
-/***********************************************************************************
- * Function Name      : gpufreq_set_gpm_mode
- * Description        : Only for GPUFREQ internal debug purpose
- ***********************************************************************************/
-int gpufreq_set_gpm_mode(unsigned int version, enum gpufreq_feat_mode mode)
-{
-	struct gpufreq_ipi_data send_msg = {};
-	int ret = GPUFREQ_SUCCESS;
-
-	/* implement on EB */
-	if (g_gpueb_support) {
-		send_msg.cmd_id = CMD_SET_GPM_MODE;
-		send_msg.u.gpm.version = version;
-		send_msg.u.gpm.mode = mode;
-
-		ret = gpufreq_ipi_to_gpueb(send_msg);
-	/* implement on AP */
-	} else {
-		if (gpufreq_fp && gpufreq_fp->set_gpm_mode)
-			gpufreq_fp->set_gpm_mode(version, mode);
-		else {
-			ret = GPUFREQ_ENOENT;
-			GPUFREQ_LOGE("null gpufreq platform function pointer (ENOENT)");
-		}
-	}
-
-	return ret;
-}
-
-/***********************************************************************************
- * Function Name      : gpufreq_set_dfd_mode
- * Description        : Only for GPUFREQ internal debug purpose
- ***********************************************************************************/
-int gpufreq_set_dfd_mode(enum gpufreq_feat_mode mode)
-{
-	struct gpufreq_ipi_data send_msg = {};
-	int ret = GPUFREQ_SUCCESS;
-
-	/* implement on EB */
-	if (g_gpueb_support) {
-		send_msg.cmd_id = CMD_SET_DFD_MODE;
-		send_msg.u.mode = mode;
-
-		ret = gpufreq_ipi_to_gpueb(send_msg);
-	/* implement on AP */
-	} else {
-		if (gpufreq_fp && gpufreq_fp->set_dfd_mode)
-			gpufreq_fp->set_dfd_mode(mode);
-		else {
-			ret = GPUFREQ_ENOENT;
-			GPUFREQ_LOGE("null gpufreq platform function pointer (ENOENT)");
-		}
-	}
-
-	return ret;
-}
-
-/***********************************************************************************
- * Function Name      : gpufreq_set_test_mode
- * Description        : Only for GPUFREQ internal debug purpose
- ***********************************************************************************/
-int gpufreq_set_test_mode(unsigned int value)
-{
-	struct gpufreq_ipi_data send_msg = {};
-	int ret = GPUFREQ_SUCCESS;
-
-	/* implement only on EB */
-	if (g_gpueb_support) {
-		send_msg.cmd_id = CMD_SET_TEST_MODE;
-		send_msg.u.value = value;
-
-		if (!gpufreq_ipi_to_gpueb(send_msg))
-			ret = g_recv_msg.u.return_value;
-		else
-			ret = GPUFREQ_EINVAL;
 	}
 
 	return ret;

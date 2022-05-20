@@ -33,10 +33,8 @@
  */
 static unsigned int g_dual_buck;
 static unsigned int g_gpueb_support;
-static unsigned int g_stress_test;
 static unsigned int g_debug_power_state;
 static unsigned int g_debug_margin_mode;
-static unsigned int g_test_mode;
 static const struct gpufreq_shared_status *g_shared_status;
 static DEFINE_MUTEX(gpufreq_debug_lock);
 
@@ -154,7 +152,7 @@ static int gpufreq_status_proc_show(struct seq_file *m, void *v)
 		"[MFGSYS Config]",
 		g_dual_buck ? "True" : "False",
 		g_gpueb_support ? "On" : "Off",
-		g_stress_test ? "On" : "Off");
+		g_shared_status->stress_test ? "On" : "Off");
 	seq_printf(m,
 		"%-16s AgingMargin: %s, AVSMargin: %s, GPM1.0: %s, GPM3.0: %s\n",
 		"[MFGSYS Config]",
@@ -173,36 +171,6 @@ static int gpufreq_status_proc_show(struct seq_file *m, void *v)
 	mutex_unlock(&gpufreq_debug_lock);
 
 	return GPUFREQ_SUCCESS;
-}
-
-static ssize_t gpufreq_status_proc_write(struct file *file,
-		const char __user *buffer, size_t count, loff_t *data)
-{
-	int ret = GPUFREQ_SUCCESS;
-	char buf[64];
-	unsigned int len = 0, value = 0;
-
-	len = (count < (sizeof(buf) - 1)) ? count : (sizeof(buf) - 1);
-	if (copy_from_user(buf, buffer, len)) {
-		ret = GPUFREQ_EINVAL;
-		goto done;
-	}
-	buf[len] = '\0';
-
-	mutex_lock(&gpufreq_debug_lock);
-
-	if (sscanf(buf, "%8x", &value) == 1) {
-		ret = gpufreq_set_test_mode(value);
-		if (!ret)
-			g_test_mode = FEAT_ENABLE;
-		else
-			g_test_mode = FEAT_DISABLE;
-	}
-
-	mutex_unlock(&gpufreq_debug_lock);
-
-done:
-	return (ret < 0) ? ret : count;
 }
 
 static int gpu_working_opp_table_proc_show(struct seq_file *m, void *v)
@@ -273,7 +241,7 @@ static int gpu_signed_opp_table_proc_show(struct seq_file *m, void *v)
 
 	mutex_lock(&gpufreq_debug_lock);
 
-	if (g_test_mode) {
+	if (g_shared_status->test_mode) {
 		opp_num = g_shared_status->signed_opp_num_gpu;
 		opp_table = g_shared_status->signed_table_gpu;
 	} else {
@@ -308,7 +276,7 @@ static int stack_signed_opp_table_proc_show(struct seq_file *m, void *v)
 
 	mutex_lock(&gpufreq_debug_lock);
 
-	if (g_test_mode) {
+	if (g_shared_status->test_mode) {
 		opp_num = g_shared_status->signed_opp_num_stack;
 		opp_table = g_shared_status->signed_table_stack;
 	} else {
@@ -592,62 +560,6 @@ done:
 	return (ret < 0) ? ret : count;
 }
 
-/* PROCFS: show current state of OPP stress test */
-static int opp_stress_test_proc_show(struct seq_file *m, void *v)
-{
-	mutex_lock(&gpufreq_debug_lock);
-
-	if (g_stress_test)
-		seq_puts(m, "[GPUFREQ-DEBUG] OPP stress test is enabled\n");
-	else
-		seq_puts(m, "[GPUFREQ-DEBUG] OPP stress test is disabled\n");
-
-	mutex_unlock(&gpufreq_debug_lock);
-
-	return GPUFREQ_SUCCESS;
-}
-
-/*
- * PROCFS: enable OPP stress test by setting random OPP index
- * enable: start stress test
- * disable: stop stress test
- */
-static ssize_t opp_stress_test_proc_write(struct file *file,
-		const char __user *buffer, size_t count, loff_t *data)
-{
-	int ret = GPUFREQ_SUCCESS;
-	char buf[64];
-	unsigned int len = 0;
-
-	len = (count < (sizeof(buf) - 1)) ? count : (sizeof(buf) - 1);
-	if (copy_from_user(buf, buffer, len)) {
-		ret = GPUFREQ_EINVAL;
-		goto done;
-	}
-	buf[len] = '\0';
-
-	mutex_lock(&gpufreq_debug_lock);
-
-	if (sysfs_streq(buf, "enable")) {
-		ret = gpufreq_set_stress_test(true);
-		if (ret)
-			GPUFREQ_LOGE("fail to enable stress test (%d)", ret);
-		else
-			g_stress_test = true;
-	} else if (sysfs_streq(buf, "disable")) {
-		ret = gpufreq_set_stress_test(false);
-		if (ret)
-			GPUFREQ_LOGE("fail to disable stress test (%d)", ret);
-		else
-			g_stress_test = false;
-	}
-
-	mutex_unlock(&gpufreq_debug_lock);
-
-done:
-	return (ret < 0) ? ret : count;
-}
-
 /* PROCFS: show current info of aging*/
 static int asensor_info_proc_show(struct seq_file *m, void *v)
 {
@@ -722,6 +634,10 @@ static int mfgsys_config_proc_show(struct seq_file *m, void *v)
 		"[GPM]",
 		g_shared_status->gpm1_mode ? "On" : "Off",
 		g_shared_status->gpm3_mode ? "On" : "Off");
+	seq_printf(m, "%-7s RandomOPP: %s, TestMode: %s\n",
+		"[Misc]",
+		g_shared_status->stress_test ? "On" : "Off",
+		g_shared_status->test_mode ? "On" : "Off");
 
 	seq_puts(m, "\n[##*] [TOP Vaging] [##*] [TOP Vavs] [##*] [STK Vaging] [##*] [STK Vavs]\n");
 	for (i = 0; i < adj_num; i++) {
@@ -748,9 +664,10 @@ static ssize_t mfgsys_config_proc_write(struct file *file,
 		const char __user *buffer, size_t count, loff_t *data)
 {
 	int ret = GPUFREQ_SUCCESS;
-	char buf[64], cmd[32], conf[32];
+	char buf[64], input_target[32], input_val[32];
 	unsigned int len = 0;
-	enum gpufreq_feat_mode mode = FEAT_DISABLE;
+	enum gpufreq_config_target target = CONFIG_TARGET_INVALID;
+	enum gpufreq_config_value val = CONFIG_VAL_INVALID;
 
 	len = (count < (sizeof(buf) - 1)) ? count : (sizeof(buf) - 1);
 	if (copy_from_user(buf, buffer, len)) {
@@ -761,30 +678,80 @@ static ssize_t mfgsys_config_proc_write(struct file *file,
 
 	mutex_lock(&gpufreq_debug_lock);
 
-	if (sscanf(buf, "%10s %6s", cmd, conf) == 2) {
-		/* parse mode */
-		if (sysfs_streq(cmd, "enable"))
-			mode = FEAT_ENABLE;
-		else if (sysfs_streq(cmd, "disable"))
-			mode = FEAT_DISABLE;
-		else if (sysfs_streq(cmd, "force_dump"))
-			mode = DFD_FORCE_DUMP;
-		else
-			goto done;
-
-		/* parse config */
-		if (sysfs_streq(conf, "margin")) {
+	if (sscanf(buf, "%14s %10s", input_target, input_val) == 2) {
+		/* parsing */
+		if (sysfs_streq(input_target, "test_mode")) {
+			target = CONFIG_TEST_MODE;
+			ret = kstrtouint(input_val, 16, &val);
+			if (ret)
+				val = CONFIG_VAL_INVALID;
+		} else if (sysfs_streq(input_target, "stress_test")) {
+			target = CONFIG_STRESS_TEST;
+			if (sysfs_streq(input_val, "enable"))
+				val = FEAT_ENABLE;
+			else if (sysfs_streq(input_val, "disable"))
+				val = FEAT_DISABLE;
+		} else if (sysfs_streq(input_target, "margin")) {
+			target = CONFIG_MARGIN;
+			if (sysfs_streq(input_val, "enable"))
+				val = FEAT_ENABLE;
+			else if (sysfs_streq(input_val, "disable"))
+				val = FEAT_DISABLE;
 			/* only allow enable/disable once */
-			if (g_debug_margin_mode ^ mode) {
-				gpufreq_set_margin_mode(mode);
-				g_debug_margin_mode = mode;
-			}
-		} else if (sysfs_streq(conf, "gpm1"))
-			gpufreq_set_gpm_mode(1, mode);
-		else if (sysfs_streq(conf, "gpm3"))
-			gpufreq_set_gpm_mode(3, mode);
-		else if (sysfs_streq(conf, "dfd"))
-			gpufreq_set_dfd_mode(mode);
+			if (g_debug_margin_mode ^ val)
+				g_debug_margin_mode = val;
+			else
+				val = CONFIG_VAL_INVALID;
+		} else if (sysfs_streq(input_target, "gpm1")) {
+			target = CONFIG_GPM1;
+			if (sysfs_streq(input_val, "enable"))
+				val = FEAT_ENABLE;
+			else if (sysfs_streq(input_val, "disable"))
+				val = FEAT_DISABLE;
+		} else if (sysfs_streq(input_target, "gpm3")) {
+			target = CONFIG_GPM3;
+			if (sysfs_streq(input_val, "enable"))
+				val = FEAT_ENABLE;
+			else if (sysfs_streq(input_val, "disable"))
+				val = FEAT_DISABLE;
+		} else if (sysfs_streq(input_target, "dfd")) {
+			target = CONFIG_DFD;
+			if (sysfs_streq(input_val, "enable"))
+				val = FEAT_ENABLE;
+			else if (sysfs_streq(input_val, "disable"))
+				val = FEAT_DISABLE;
+			else if (sysfs_streq(input_val, "force_dump"))
+				val = DFD_FORCE_DUMP;
+		} else if (sysfs_streq(input_target, "imax_stack")) {
+			target = CONFIG_IMAX_STACK;
+			ret = kstrtouint(input_val, 10, &val);
+			if (ret)
+				val = CONFIG_VAL_INVALID;
+		} else if (sysfs_streq(input_target, "imax_sram")) {
+			target = CONFIG_IMAX_SRAM;
+			ret = kstrtouint(input_val, 10, &val);
+			if (ret)
+				val = CONFIG_VAL_INVALID;
+		} else if (sysfs_streq(input_target, "dyn_stack")) {
+			target = CONFIG_DYN_STACK;
+			ret = kstrtouint(input_val, 10, &val);
+			if (ret)
+				val = CONFIG_VAL_INVALID;
+		} else if (sysfs_streq(input_target, "dyn_sram_gpu")) {
+			target = CONFIG_DYN_SRAM_GPU;
+			ret = kstrtouint(input_val, 10, &val);
+			if (ret)
+				val = CONFIG_VAL_INVALID;
+		} else if (sysfs_streq(input_target, "dyn_sram_stack")) {
+			target = CONFIG_DYN_SRAM_STACK;
+			ret = kstrtouint(input_val, 10, &val);
+			if (ret)
+				val = CONFIG_VAL_INVALID;
+		}
+
+		/* set to mfgsys if valid */
+		if (target != CONFIG_TARGET_INVALID && val != CONFIG_VAL_INVALID)
+			gpufreq_set_mfgsys_config(target, val);
 	}
 
 	mutex_unlock(&gpufreq_debug_lock);
@@ -874,7 +841,7 @@ done:
 #endif /* GPUFREQ_MSSV_TEST_MODE */
 
 /* PROCFS : initialization */
-PROC_FOPS_RW(gpufreq_status);
+PROC_FOPS_RO(gpufreq_status);
 PROC_FOPS_RO(gpu_working_opp_table);
 PROC_FOPS_RO(gpu_signed_opp_table);
 PROC_FOPS_RO(stack_working_opp_table);
@@ -885,7 +852,6 @@ PROC_FOPS_RW(fix_target_opp_index);
 PROC_FOPS_RW(fix_custom_freq_volt);
 PROC_FOPS_RW(mfgsys_power_control);
 PROC_FOPS_RW(mfgsys_config);
-PROC_FOPS_RW(opp_stress_test);
 #if GPUFREQ_MSSV_TEST_MODE
 PROC_FOPS_RW(mssv_test);
 #endif /* GPUFREQ_MSSV_TEST_MODE */
@@ -909,7 +875,6 @@ static int gpufreq_create_procfs(void)
 		PROC_ENTRY(fix_target_opp_index),
 		PROC_ENTRY(fix_custom_freq_volt),
 		PROC_ENTRY(mfgsys_power_control),
-		PROC_ENTRY(opp_stress_test),
 		PROC_ENTRY(mfgsys_config),
 #if GPUFREQ_MSSV_TEST_MODE
 		PROC_ENTRY(mssv_test),
@@ -1016,9 +981,6 @@ void gpufreq_debug_init(unsigned int dual_buck, unsigned int gpueb_support,
 	g_gpueb_support = gpueb_support;
 	g_debug_power_state = POWER_OFF;
 	g_debug_margin_mode = FEAT_ENABLE;
-	/* always enable test mode when AP mode */
-	if (!g_gpueb_support)
-		g_test_mode = FEAT_ENABLE;
 	/* take every info of mfgsys from shared status */
 	if (shared_status)
 		g_shared_status = shared_status;

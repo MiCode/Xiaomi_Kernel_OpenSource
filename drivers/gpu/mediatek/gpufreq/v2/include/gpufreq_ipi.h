@@ -35,13 +35,9 @@ static char *gpufreq_ipi_cmd_name[] = {
 	"CMD_SWITCH_LIMIT",           // 10
 	"CMD_FIX_TARGET_OPPIDX",      // 11
 	"CMD_FIX_CUSTOM_FREQ_VOLT",   // 12
-	"CMD_SET_STRESS_TEST",        // 13
-	"CMD_SET_MARGIN_MODE",        // 14
-	"CMD_SET_GPM_MODE",           // 15
-	"CMD_SET_DFD_MODE",           // 16
-	"CMD_SET_TEST_MODE",          // 17
-	"CMD_MSSV_COMMIT",            // 18
-	"CMD_NUM",                    // 19
+	"CMD_SET_MFGSYS_CONFIG",      // 13
+	"CMD_MSSV_COMMIT",            // 14
+	"CMD_NUM",                    // 15
 };
 
 enum gpufreq_ipi_cmd {
@@ -60,13 +56,9 @@ enum gpufreq_ipi_cmd {
 	CMD_SWITCH_LIMIT              = 10,
 	CMD_FIX_TARGET_OPPIDX         = 11,
 	CMD_FIX_CUSTOM_FREQ_VOLT      = 12,
-	CMD_SET_STRESS_TEST           = 13,
-	CMD_SET_MARGIN_MODE           = 14,
-	CMD_SET_GPM_MODE              = 15,
-	CMD_SET_DFD_MODE              = 16,
-	CMD_SET_TEST_MODE             = 17,
-	CMD_MSSV_COMMIT               = 18,
-	CMD_NUM                       = 19,
+	CMD_SET_MFGSYS_CONFIG         = 13,
+	CMD_MSSV_COMMIT               = 14,
+	CMD_NUM                       = 15,
 };
 
 /**************************************************
@@ -98,9 +90,9 @@ struct gpufreq_ipi_data {
 			int floor_info;
 		} setlimit;
 		struct {
-			unsigned int version;
-			unsigned int mode;
-		} gpm;
+			unsigned int target;
+			unsigned int val;
+		} mfg_cfg;
 		struct {
 			unsigned int target;
 			unsigned int val;
