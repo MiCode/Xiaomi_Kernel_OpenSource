@@ -507,9 +507,9 @@ struct msdc_host {
 	struct reset_control *reset;
 
 	struct clk *src_clk;	/* msdc source clock */
-	struct clk *macro_clk;	/* msdc macro clock */
 	struct clk *h_clk;      /* msdc h_clk */
 	struct clk *bus_clk;	/* bus clock which used to access register */
+	struct clk *macro_clk;	/* msdc macro clock */
 	struct clk *crypto_clk;    /* msdc crypto clock */
 	struct clk *crypto_cg;     /* msdc crypto clock control gate */
 	struct clk *src_clk_cg; /* msdc source clock control gate */

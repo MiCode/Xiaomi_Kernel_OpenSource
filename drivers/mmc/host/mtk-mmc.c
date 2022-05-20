@@ -2572,10 +2572,6 @@ static int msdc_of_clock_parse(struct platform_device *pdev,
 	if (IS_ERR(host->src_clk))
 		return PTR_ERR(host->src_clk);
 
-	host->macro_clk = devm_clk_get(&pdev->dev, "macro");
-	if (IS_ERR(host->macro_clk))
-		return PTR_ERR(host->macro_clk);
-
 	host->h_clk = devm_clk_get(&pdev->dev, "hclk");
 	if (IS_ERR(host->h_clk))
 		return PTR_ERR(host->h_clk);
@@ -2583,6 +2579,10 @@ static int msdc_of_clock_parse(struct platform_device *pdev,
 	host->bus_clk = devm_clk_get_optional(&pdev->dev, "bus_clk");
 	if (IS_ERR(host->bus_clk))
 		host->bus_clk = NULL;
+
+	host->macro_clk = devm_clk_get_optional(&pdev->dev, "macro");
+	if (IS_ERR(host->macro_clk))
+		host->macro_clk = NULL;
 
 	host->crypto_clk = devm_clk_get_optional(&pdev->dev, "crypto_clk");
 	if (IS_ERR(host->crypto_clk))
