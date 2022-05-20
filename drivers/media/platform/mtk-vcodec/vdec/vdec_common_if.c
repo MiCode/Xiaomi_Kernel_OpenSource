@@ -237,6 +237,7 @@ static int vdec_decode(unsigned long h_vdec, struct mtk_vcodec_mem *bs,
 		inst->ctx->dec_params.queued_frame_buf_count;
 	inst->vsi->dec.timestamp =
 		inst->ctx->dec_params.timestamp;
+	memcpy(&inst->vsi->hdr10plus_buf, bs->hdr10plus_buf, sizeof(struct hdr10plus_info));
 
 	mtk_vcodec_debug(inst, "+ FB y_fd=%llx c_fd=%llx BS fd=%llx format=%c%c%c%c",
 		inst->vsi->dec.fb_fd[0], inst->vsi->dec.fb_fd[1],
@@ -656,6 +657,16 @@ static int vdec_set_param(unsigned long h_vdec,
 			return -EINVAL;
 		memcpy(&inst->vsi->crop, (struct v4l2_rect *)in, sizeof(struct v4l2_rect));
 		break;
+	case SET_PARAM_HDR10_INFO: {
+		struct v4l2_vdec_hdr10_info *hdr10_info = in;
+
+		if (inst->vsi == NULL)
+			return -EINVAL;
+
+		memcpy(&inst->vsi->hdr10_info, hdr10_info, sizeof(struct v4l2_vdec_hdr10_info));
+		inst->vsi->hdr10_info_valid = true;
+		break;
+	}
 	default:
 		mtk_vcodec_err(inst, "invalid set parameter type=%d\n", type);
 		ret = -EINVAL;

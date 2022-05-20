@@ -54,6 +54,7 @@ struct mtk_vcodec_mem {
 	__u32 flags;
 	__u32 index;
 	__s64 buf_fd;
+	struct hdr10plus_info *hdr10plus_buf;
 };
 
 /**
@@ -109,6 +110,7 @@ enum mtk_vcodec_log_index {
 
 struct mtk_vcodec_ctx;
 struct mtk_vcodec_dev;
+struct mtk_video_dec_buf;
 
 extern int mtk_v4l2_dbg_level;
 extern bool mtk_vcodec_dbg;
@@ -299,5 +301,6 @@ int mtk_vcodec_free_mem(struct vcodec_mem_obj *mem, struct device *dev,
 
 void mtk_vcodec_set_log(struct mtk_vcodec_dev *dev, const char *val,
 	enum mtk_vcodec_log_index log_index);
+void mtk_vcodec_init_slice_info(struct mtk_vcodec_ctx *ctx, struct mtk_video_dec_buf *dst_buf_info);
 
 #endif /* _MTK_VCODEC_UTIL_H_ */

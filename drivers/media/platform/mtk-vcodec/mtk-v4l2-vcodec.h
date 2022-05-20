@@ -9,7 +9,6 @@
 #include <linux/v4l2-controls.h>
 #include <linux/videodev2.h>
 
-
     /* 10-bit for RGB, 2-bit for A; 32-bit per-pixel;  */
 #define V4L2_PIX_FMT_ARGB1010102  v4l2_fourcc('A', 'B', '3', '0')
 #define V4L2_PIX_FMT_ABGR1010102  v4l2_fourcc('A', 'R', '3', '0')
@@ -223,4 +222,10 @@
 	(V4L2_CID_CODEC_MTK_BASE+55)
 #define V4L2_CID_MPEG_MTK_ENCODE_MAX_LTR_FRAMES \
 	(V4L2_CID_CODEC_MTK_BASE+56)
+#define V4L2_CID_VDEC_SLICE_COUNT \
+	(V4L2_CID_CODEC_MTK_BASE+57)
+#define V4L2_CID_VDEC_HDR10_INFO \
+	(V4L2_CID_CODEC_MTK_BASE+58)
+#define V4L2_CID_VDEC_HDR10PLUS_DATA \
+	(V4L2_CID_CODEC_MTK_BASE+59)
 #endif // #ifndef __UAPI_MTK_V4L2_VCODEC_H__

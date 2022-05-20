@@ -76,6 +76,7 @@ enum vdec_ipi_msg_id {
 	VCU_IPIMSG_DEC_WAITISR,
 	VCU_IPIMSG_DEC_GET_FRAME_BUFFER,
 	VCU_IPIMSG_DEC_CHECK_CODEC_ID,
+	VCU_IPIMSG_DEC_SLICE_DONE_ISR,
 
 	AP_IPIMSG_DEC_PUT_FRAME_BUFFER_DONE = AP_IPIMSG_VDEC_ACK_BASE,
 	AP_IPIMSG_DEC_LOCK_CORE_DONE,
@@ -168,6 +169,7 @@ enum vdec_set_param_type {
 	SET_PARAM_SET_DV,
 	SET_PARAM_PUT_FB,
 	SET_PARAM_CROP_INFO,
+	SET_PARAM_HDR10_INFO,
 };
 
 #define VDEC_MSG_AP_SEND_PREFIX	\
@@ -209,12 +211,14 @@ struct vdec_ap_ipi_cmd {
  * struct vdec_vcu_ipi_ack - generic VCU to AP ipi command format
  * @msg_id      : vdec_ipi_msg_id
  * @status      : VCU execution result, carries hw id when lock/unlock
+ * @payload     : extra data for ack
  * @ap_inst_addr        : AP video decoder instance address
  */
 struct vdec_vcu_ipi_ack {
 	VDEC_MSG_PREFIX;
 	__s32 codec_id;
 	__u32 no_need_put;
+	__u64 payload;
 };
 
 /**
@@ -422,6 +426,9 @@ struct vdec_vsi {
 	__u32 meta_buf_size;
 	__u32 ipi_blocked;
 	__u32 interlacing_fieldseq;
+	struct hdr10plus_info hdr10plus_buf;
+	struct v4l2_vdec_hdr10_info hdr10_info;
+	__u8 hdr10_info_valid;
 };
 
 #endif

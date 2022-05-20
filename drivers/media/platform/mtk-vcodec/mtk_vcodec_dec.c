@@ -1425,6 +1425,7 @@ static void mtk_vdec_worker(struct work_struct *work)
 		}
 		pfb->status = FB_ST_INIT;
 		dst_buf_info->used = true;
+		mtk_vcodec_init_slice_info(ctx, dst_buf_info);
 		mutex_unlock(&ctx->buf_lock);
 
 		mtk_v4l2_debug(1,
@@ -1482,6 +1483,7 @@ static void mtk_vdec_worker(struct work_struct *work)
 	buf->dmabuf = src_buf->planes[0].dbuf;
 	buf->flags = src_vb2_v4l2->flags;
 	buf->index = src_buf->index;
+	buf->hdr10plus_buf = &src_buf_info->hdr10plus_buf;
 
 	if (buf->va == NULL && buf->dmabuf == NULL) {
 		v4l2_m2m_job_finish(dev->m2m_dev_dec, ctx->m2m_ctx);
@@ -1991,6 +1993,10 @@ static int vidioc_vdec_qbuf(struct file *file, void *priv,
 	mtkbuf = container_of(vb2_v4l2, struct mtk_video_dec_buf, vb);
 
 	if (buf->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
+		memcpy(&mtkbuf->hdr10plus_buf, &ctx->dec_params.hdr10plus_buf,
+			sizeof(struct hdr10plus_info));
+		memset(&ctx->dec_params.hdr10plus_buf, 0,
+			sizeof(struct hdr10plus_info)); // invalidate
 		ctx->input_max_ts =
 			(timeval_to_ns(&buf->timestamp) > ctx->input_max_ts) ?
 			timeval_to_ns(&buf->timestamp) : ctx->input_max_ts;
@@ -3026,6 +3032,7 @@ static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
 	src_mem->dmabuf = src_buf->planes[0].dbuf;
 	src_mem->flags = vb2_v4l2->flags;
 	src_mem->index = vb->index;
+	src_mem->hdr10plus_buf = &buf->hdr10plus_buf;
 	ctx->dec_params.timestamp = src_vb2_v4l2->vb2_buf.timestamp;
 
 	mtk_v4l2_debug(2,
@@ -3504,6 +3511,33 @@ static void m2mops_vdec_job_abort(void *priv)
 	ctx->state = MTK_STATE_ABORT;
 }
 
+static int vdec_set_hdr10plus_data(struct mtk_vcodec_ctx *ctx,
+				   struct v4l2_vdec_hdr10plus_data *hdr10plus_data)
+{
+	struct __u8 __user *buffer = u64_to_user_ptr(hdr10plus_data->addr);
+	struct hdr10plus_info *hdr10plus_buf = &ctx->dec_params.hdr10plus_buf;
+
+	mtk_v4l2_debug(4, "hdr10plus_data size %d", hdr10plus_data->size);
+	hdr10plus_buf->size = hdr10plus_data->size;
+	if (hdr10plus_buf->size > HDR10_PLUS_MAX_SIZE)
+		hdr10plus_buf->size = HDR10_PLUS_MAX_SIZE;
+
+	if (hdr10plus_buf->size == 0)
+		return 0;
+
+	if (buffer == NULL) {
+		mtk_v4l2_err("invalid null pointer");
+		return -EINVAL;
+	}
+
+	if (copy_from_user(&hdr10plus_buf->data, buffer, hdr10plus_buf->size)) {
+		mtk_v4l2_err("copy hdr10plus from user fails");
+		return -EFAULT;
+	}
+
+	return 0;
+}
+
 static int mtk_vdec_g_v_ctrl(struct v4l2_ctrl *ctrl)
 {
 	struct mtk_vcodec_ctx *ctx = ctrl_to_ctx(ctrl);
@@ -3658,6 +3692,22 @@ static int mtk_vdec_s_ctrl(struct v4l2_ctrl *ctrl)
 	case V4L2_CID_VDEC_DETECT_TIMESTAMP:
 		ctx->dec_params.enable_detect_ts = ctrl->val;
 		break;
+	case V4L2_CID_VDEC_SLICE_COUNT:
+		ctx->dec_params.slice_count = ctrl->val;
+		break;
+	case V4L2_CID_VDEC_HDR10_INFO: {
+		int ret;
+
+		ret = vdec_if_set_param(ctx, SET_PARAM_HDR10_INFO, ctrl->p_new.p);
+		if (ret < 0) {
+			mtk_v4l2_err("ctrl-id=0x%x fails! ret %d",
+					ctrl->id, ret);
+			return ret;
+		}
+		break;
+	}
+	case V4L2_CID_VDEC_HDR10PLUS_DATA:
+		return vdec_set_hdr10plus_data(ctx, ctrl->p_new.p);
 	default:
 		mtk_v4l2_debug(4, "ctrl-id=%x not support!", ctrl->id);
 		return -EINVAL;
@@ -3955,6 +4005,44 @@ int mtk_vcodec_dec_ctrls_setup(struct mtk_vcodec_ctx *ctx)
 	cfg.step = 1;
 	cfg.def = 0;
 	cfg.ops = ops;
+	mtk_vcodec_dec_custom_ctrls_check(handler, &cfg, NULL);
+
+	memset(&cfg, 0, sizeof(cfg));
+	cfg.id = V4L2_CID_VDEC_SLICE_COUNT;
+	cfg.type = V4L2_CTRL_TYPE_INTEGER;
+	cfg.flags = V4L2_CTRL_FLAG_WRITE_ONLY;
+	cfg.name = "VDEC set slice count";
+	cfg.min = 0;
+	cfg.max = 256, // max 256 slice in a frame according to HW DE
+	cfg.step = 1;
+	cfg.def = 0;
+	cfg.ops = ops;
+	mtk_vcodec_dec_custom_ctrls_check(handler, &cfg, NULL);
+
+	memset(&cfg, 0, sizeof(cfg));
+	cfg.id = V4L2_CID_VDEC_HDR10_INFO;
+	cfg.type = V4L2_CTRL_TYPE_U8;
+	cfg.flags = V4L2_CTRL_FLAG_HAS_PAYLOAD | V4L2_CTRL_FLAG_EXECUTE_ON_WRITE;
+	cfg.name = "VDEC set HDR10 information";
+	cfg.min = 0;
+	cfg.max = 0xFF;
+	cfg.step = 1;
+	cfg.def = 0;
+	cfg.ops = ops;
+	cfg.dims[0] = (sizeof(struct v4l2_vdec_hdr10_info));
+	mtk_vcodec_dec_custom_ctrls_check(handler, &cfg, NULL);
+
+	memset(&cfg, 0, sizeof(cfg));
+	cfg.id = V4L2_CID_VDEC_HDR10PLUS_DATA;
+	cfg.type = V4L2_CTRL_TYPE_U8;
+	cfg.flags = V4L2_CTRL_FLAG_HAS_PAYLOAD | V4L2_CTRL_FLAG_EXECUTE_ON_WRITE;
+	cfg.name = "VDEC set HDR10PLUS data";
+	cfg.min = 0;
+	cfg.max = 0xFF;
+	cfg.step = 1;
+	cfg.def = 0;
+	cfg.ops = ops;
+	cfg.dims[0] = (sizeof(struct v4l2_vdec_hdr10plus_data));
 	mtk_vcodec_dec_custom_ctrls_check(handler, &cfg, NULL);
 
 	if (ctx->ctrl_hdl.error) {

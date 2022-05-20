@@ -33,6 +33,7 @@ struct vdec_fb {
 	int             meta_buf_fd;
 	struct          dma_buf *dma_meta_buf;
 	dma_addr_t dma_meta_addr;
+	int slice_done_count;
 };
 
 /**
@@ -70,6 +71,7 @@ struct mtk_video_dec_buf {
 	int     meta_user_fd;
 	struct  dma_buf *dma_meta_buf;
 	int vpeek;
+	struct hdr10plus_info hdr10plus_buf;
 };
 
 extern const struct v4l2_ioctl_ops mtk_vdec_ioctl_ops;

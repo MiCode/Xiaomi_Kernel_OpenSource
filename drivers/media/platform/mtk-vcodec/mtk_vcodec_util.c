@@ -6,13 +6,14 @@
 */
 
 #include <linux/module.h>
-#include <linux/module.h>
+#include <linux/dma-resv.h>
 #include <media/v4l2-mem2mem.h>
 #include <media/videobuf2-dma-contig.h>
 #include <linux/dma-heap.h>
 #include <linux/dma-direction.h>
 #include <uapi/linux/dma-heap.h>
 
+#include "mtk_vcodec_fence.h"
 #include "mtk_vcodec_drv.h"
 #include "mtk_vcodec_util.h"
 #include "mtk_vcu.h"
@@ -204,6 +205,23 @@ void mtk_vcodec_del_ctx_list(struct mtk_vcodec_ctx *ctx)
 }
 EXPORT_SYMBOL_GPL(mtk_vcodec_del_ctx_list);
 
+void mtk_vcodec_init_slice_info(struct mtk_vcodec_ctx *ctx, struct mtk_video_dec_buf *dst_buf_info)
+{
+	struct vb2_v4l2_buffer *dst_buf = &dst_buf_info->vb;
+	struct vdec_fb *pfb = &dst_buf_info->frame_buffer;
+	struct dma_buf *dbuf = dst_buf->vb2_buf.planes[0].dbuf;
+	struct dma_fence *fence;
+
+	pfb->slice_done_count = 0;
+	fence = mtk_vcodec_create_fence(ctx->dec_params.slice_count);
+	if (fence) {
+		dma_resv_lock(dbuf->resv, NULL);
+		dma_resv_add_excl_fence(dbuf->resv, fence);
+		dma_resv_unlock(dbuf->resv);
+		dma_fence_put(fence); // make dbuf->resv the only owner
+	}
+}
+EXPORT_SYMBOL(mtk_vcodec_init_slice_info);
 
 struct vdec_fb *mtk_vcodec_get_fb(struct mtk_vcodec_ctx *ctx)
 {
@@ -245,6 +263,7 @@ struct vdec_fb *mtk_vcodec_get_fb(struct mtk_vcodec_ctx *ctx)
 		}
 		pfb->status = FB_ST_INIT;
 		dst_buf_info->used = true;
+		mtk_vcodec_init_slice_info(ctx, dst_buf_info);
 
 		mtk_v4l2_debug(1, "[%d] id=%d pfb=0x%p %llx VA=%p dma_addr[0]=%lx dma_addr[1]=%lx Size=%zx fd:%x, dma_general_buf = %p, general_buf_fd = %d",
 				ctx->id, dst_buf->index, pfb, (unsigned long long)pfb,

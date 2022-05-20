@@ -105,6 +105,31 @@ struct mtk_color_desc {
 	__u32	reserved;
 };
 
+struct v4l2_vdec_hdr10_info {
+	__u8 matrix_coefficients;
+	__u8 bits_per_channel;
+	__u8 chroma_subsampling_horz;
+	__u8 chroma_subsampling_vert;
+	__u8 cb_subsampling_horz;
+	__u8 cb_subsampling_vert;
+	__u8 chroma_siting_horz;
+	__u8 chroma_siting_vert;
+	__u8 color_range;
+	__u8 transfer_characteristics;
+	__u8 colour_primaries;
+	__u16 max_CLL;  // CLL: Content Light Level
+	__u16 max_FALL; // FALL: Frame Average Light Level
+	__u16 primaries[3][2];
+	__u16 white_point[2];
+	__u32 max_luminance;
+	__u32 min_luminance;
+};
+
+struct v4l2_vdec_hdr10plus_data {
+	__u64 addr; // user pointer
+	__u32 size;
+};
+
 struct mtk_venc_multi_ref {
 	__u32	multi_ref_en;
 	__u32	intra_period;
@@ -233,6 +258,13 @@ struct vdec_dec_info {
 	__u64 timestamp;
 	__u32 queued_frame_buf_count;
 	__u32 vpeek;
+};
+
+#define HDR10_PLUS_MAX_SIZE              (128)
+
+struct hdr10plus_info {
+	__u8 data[HDR10_PLUS_MAX_SIZE];
+	__u32 size;
 };
 
 enum vcodec_mem_type {

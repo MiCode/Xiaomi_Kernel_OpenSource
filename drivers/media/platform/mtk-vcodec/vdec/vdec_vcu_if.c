@@ -9,8 +9,10 @@
 #include <linux/uaccess.h>
 #include <linux/wait.h>
 #include <linux/delay.h>
+#include <linux/dma-resv.h>
 #include <media/v4l2-mem2mem.h>
 #include <linux/mtk_vcu_controls.h>
+#include "mtk_vcodec_fence.h"
 #include "mtk_vcodec_dec_pm.h"
 #include "mtk_vcodec_dec.h"
 #include "mtk_vcodec_drv.h"
@@ -372,6 +374,20 @@ int vcu_dec_ipi_handler(void *data, unsigned int len, void *priv)
 			mtk_vdec_put_fb(vcu->ctx, PUT_BUFFER_CALLBACK, msg->no_need_put != 0);
 			ret = 1;
 			break;
+		case VCU_IPIMSG_DEC_SLICE_DONE_ISR: {
+			struct vdec_fb *pfb = (struct vdec_fb *)(uintptr_t)msg->payload;
+			struct dma_buf *dbuf = pfb->fb_base[0].dmabuf;
+			struct dma_fence *fence = dma_resv_get_excl_unlocked(dbuf->resv);
+
+			if (fence) {
+				mtk_vcodec_fence_signal(fence, pfb->slice_done_count);
+				pfb->slice_done_count++;
+				mtk_vcodec_debug(vcu, "slice done count %d\n",
+					pfb->slice_done_count);
+				dma_fence_put(fence);
+			}
+			break;
+		}
 		default:
 			mtk_vcodec_err(vcu, "invalid msg=%X", msg->msg_id);
 			ret = 1;

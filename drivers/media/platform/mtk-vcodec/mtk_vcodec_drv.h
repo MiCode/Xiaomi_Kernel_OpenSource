@@ -261,6 +261,8 @@ struct mtk_dec_params {
 	int		priority;
 	int vpeek;
 	bool		enable_detect_ts;
+	int          slice_count;
+	struct hdr10plus_info hdr10plus_buf;
 };
 
 struct mtk_detect_ts_param {
