@@ -78,7 +78,6 @@ void ccif_write32(void *b, unsigned long a, unsigned int v);
 
 /* peer */
 #define AP_MD_PEER_WAKEUP	(RINGQ_EXP_BASE+5)
-#define MD_PCORE_PCCIF_BASE 0x20510000
 
 #define CCIF_SRAM_SIZE 512
 #endif /*__CCIF_HIF_PLATFORM_H__*/
