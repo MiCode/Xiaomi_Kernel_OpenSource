@@ -2097,6 +2097,7 @@ static irqreturn_t mtk_dsi_irq(int irq, void *dev_id)
 static void mtk_dsi_poweroff(struct mtk_dsi *dsi)
 {
 	DDPDBG("%s +\n", __func__);
+#ifndef CONFIG_FPGA_EARLY_PORTING
 	if (dsi->clk_refcnt == 0) {
 		DDPAEE("%s:%d, invalid cnt:%d\n",
 			__func__, __LINE__,
@@ -2117,7 +2118,7 @@ static void mtk_dsi_poweroff(struct mtk_dsi *dsi)
 		phy_power_off(dsi->phy);
 		pm_runtime_put_sync(dsi->host.dev);
 	}
-
+#endif
 	DDPDBG("%s -\n", __func__);
 }
 
@@ -8299,7 +8300,7 @@ static int mtk_dsi_probe(struct platform_device *pdev)
 			}
 		}
 	}
-#ifndef CONFIG_FPGA_EARLY_PORTING
+
 	dsi->engine_clk = devm_clk_get(dev, "engine");
 	if (IS_ERR(dsi->engine_clk)) {
 		ret = PTR_ERR(dsi->engine_clk);
@@ -8323,7 +8324,7 @@ static int mtk_dsi_probe(struct platform_device *pdev)
 		if (disp_helper_get_stage() == DISP_HELPER_STAGE_NORMAL)
 			goto error;
 	}
-#endif
+
 	regs = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	dsi->regs = devm_ioremap_resource(dev, regs);
 	if (IS_ERR(dsi->regs)) {
@@ -8332,7 +8333,7 @@ static int mtk_dsi_probe(struct platform_device *pdev)
 		if (disp_helper_get_stage() == DISP_HELPER_STAGE_NORMAL)
 			goto error;
 	}
-#ifndef CONFIG_FPGA_EARLY_PORTING
+
 	dsi->phy = devm_phy_get(dev, "dphy");
 	if (IS_ERR(dsi->phy)) {
 		ret = PTR_ERR(dsi->phy);
@@ -8340,7 +8341,7 @@ static int mtk_dsi_probe(struct platform_device *pdev)
 		if (disp_helper_get_stage() == DISP_HELPER_STAGE_NORMAL)
 			goto error;
 	}
-#endif
+
 	comp_id = mtk_ddp_comp_get_id(dev->of_node, MTK_DSI);
 	if (comp_id < 0) {
 		dev_err(dev, "Failed to identify by alias: %d\n", comp_id);

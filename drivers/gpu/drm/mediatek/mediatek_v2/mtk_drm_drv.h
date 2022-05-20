@@ -111,11 +111,11 @@ struct mtk_drm_private {
 	struct device_node *mutex_node;
 	struct device *mutex_dev;
 	unsigned int dispsys_num;
+	unsigned int ovlsys_num;
 	void __iomem *config_regs;
 	resource_size_t config_regs_pa;
 	void __iomem *side_config_regs;
 	resource_size_t side_config_regs_pa;
-	unsigned int ovlsys_num;
 	void __iomem *ovlsys0_regs;
 	resource_size_t ovlsys0_regs_pa;
 	void __iomem *ovlsys1_regs;
@@ -312,7 +312,6 @@ unchanged_compress_ratio_table[MAX_FRAME_RATIO_NUMBER*MAX_LAYER_RATIO_NUMBER];
 extern struct layer_compress_ratio_item
 fbt_compress_ratio_table[MAX_FRAME_RATIO_NUMBER];
 extern unsigned int ovl_win_size;
-
 
 int mtk_drm_ioctl_set_dither_param(struct drm_device *dev, void *data,
 	struct drm_file *file_priv);

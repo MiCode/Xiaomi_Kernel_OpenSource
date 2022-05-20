@@ -28,6 +28,11 @@
 #include "smi_public.h"
 #endif
 
+#define DISPSYS0	0
+#define DISPSYS1	1
+#define OVLSYS0		2
+#define OVLSYS1		3
+
 #define DISP_REG_OVL0_MOUT_EN(data) (data->ovl0_mout_en)
 #define DISP_REG_DPI0_SEL_IN(data) (data->dpi0_sel_in)
 #define DISP_REG_DPI0_SEL_IN_RDMA1(data) (data->dpi0_sel_in_rdma1)
@@ -3156,89 +3161,224 @@ static const unsigned int mt6983_dispsys_map[DDP_COMPONENT_ID_MAX] = {
 		[DDP_COMPONENT_Y2R1_VIRTUAL0] = 1,
 };
 
-#define DISP0	0
-#define DISP1	1
 static const unsigned int mt6985_dispsys_map[DDP_COMPONENT_ID_MAX] = {
-/* DISPSYS0 */
-//need check
-			[DDP_COMPONENT_AAL0] = DISP0,
-		[DDP_COMPONENT_AAL1] = DISP1,
-			[DDP_COMPONENT_C3D0] = DISP0,
-		[DDP_COMPONENT_C3D1] = DISP1,
-			[DDP_COMPONENT_CCORR0] = DISP0,
-		[DDP_COMPONENT_CCORR2] = DISP1,
-			[DDP_COMPONENT_CCORR1] = DISP0,
-		[DDP_COMPONENT_CCORR3] = DISP1,
-			[DDP_COMPONENT_CHIST0] = DISP0,
-		[DDP_COMPONENT_CHIST2] = DISP1,
-			[DDP_COMPONENT_CHIST1] = DISP0,
-		[DDP_COMPONENT_CHIST3] = DISP1,
-			[DDP_COMPONENT_COLOR0] = DISP0,
-		[DDP_COMPONENT_COLOR1] = DISP1,
-			[DDP_COMPONENT_DITHER0] = DISP0,
-		[DDP_COMPONENT_DITHER2] = DISP1,
-			[DDP_COMPONENT_DITHER1] = DISP0,
-		[DDP_COMPONENT_DITHER3] = DISP1,
-			[DDP_COMPONENT_DLI_ASYNC0] = DISP0,
-			[DDP_COMPONENT_DLI_ASYNC1] = DISP0,
-			[DDP_COMPONENT_DLI_ASYNC2] = DISP0,
-			[DDP_COMPONENT_DLI_ASYNC3] = DISP0,
-			[DDP_COMPONENT_DLI_ASYNC4] = DISP0,
-			[DDP_COMPONENT_DLI_ASYNC5] = DISP0,
-		[DDP_COMPONENT_DLI_ASYNC6] = DISP1,
-		[DDP_COMPONENT_DLI_ASYNC7] = DISP1,
-		[DDP_COMPONENT_DLI_ASYNC8] = DISP1,
-		[DDP_COMPONENT_DLI_ASYNC9] = DISP1,
-		[DDP_COMPONENT_DLI_ASYNC10] = DISP1,
-		[DDP_COMPONENT_DLI_ASYNC11] = DISP1,
-			[DDP_COMPONENT_DLO_ASYNC0] = DISP0,
-			[DDP_COMPONENT_DLO_ASYNC1] = DISP0,
-		[DDP_COMPONENT_DLO_ASYNC2] = DISP1,
-		[DDP_COMPONENT_DLO_ASYNC3] = DISP1,
-			[DDP_COMPONENT_DSC0] = DISP0,
-			[DDP_COMPONENT_DSC1] = DISP0,
-		[DDP_COMPONENT_DSC2] = DISP1,
-		[DDP_COMPONENT_DSC3] = DISP1,
-			[DDP_COMPONENT_DSI0] = DISP0,
-		[DDP_COMPONENT_DSI1] = DISP1,
-			[DDP_COMPONENT_GAMMA0] = DISP0,
-		[DDP_COMPONENT_GAMMA1] = DISP1,
-			[DDP_COMPONENT_DMDP_AAL0] = DISP0,
-		[DDP_COMPONENT_DMDP_AAL1] = DISP1,
-			[DDP_COMPONENT_DMDP_RDMA0] = DISP0,
-		[DDP_COMPONENT_DMDP_RDMA1] = DISP1,
-			[DDP_COMPONENT_MERGE0] = DISP0,
-			[DDP_COMPONENT_MERGE1] = DISP0,
-		[DDP_COMPONENT_MERGE2] = DISP1,
-		[DDP_COMPONENT_MERGE3] = DISP1,
-			[DDP_COMPONENT_ODDMR0] = DISP0,
-		[DDP_COMPONENT_ODDMR1] = DISP1,
-			[DDP_COMPONENT_POSTALIGN0] = DISP0,
-		[DDP_COMPONENT_POSTALIGN1] = DISP1,
-			[DDP_COMPONENT_POSTMASK0] = DISP0,
-		[DDP_COMPONENT_POSTMASK1] = DISP1,
-			[DDP_COMPONENT_PWM0] = DISP0,
-		[DDP_COMPONENT_PWM1] = DISP1,
-
-			[DDP_COMPONENT_RELAY0] = DISP0,
-		[DDP_COMPONENT_RELAY1] = DISP1,
-			[DDP_COMPONENT_RSZ0] = DISP0,
-		[DDP_COMPONENT_RSZ1] = DISP1,
-			[DDP_COMPONENT_SPR0] = DISP0,
-		[DDP_COMPONENT_SPR1] = DISP1,
-			[DDP_COMPONENT_TDSHP0] = DISP0,
-			[DDP_COMPONENT_TDSHP1] = DISP0,
-		[DDP_COMPONENT_TDSHP2] = DISP1,
-		[DDP_COMPONENT_TDSHP3] = DISP1,
-			[DDP_COMPONENT_UFBC_WDMA1] = DISP0,
-		[DDP_COMPONENT_UFBC_WDMA2] = DISP1,
-
-			[DDP_COMPONENT_VDCM0] = DISP0,
-		[DDP_COMPONENT_VDCM1] = DISP1,
-			[DDP_COMPONENT_WDMA1] = DISP0,
-		[DDP_COMPONENT_WDMA2] = DISP1,
-			[DDP_COMPONENT_Y2R0] = DISP0,
-		[DDP_COMPONENT_Y2R1] = DISP1,
+/* dispsys */
+			[DDP_COMPONENT_AAL0] = DISPSYS0,
+		[DDP_COMPONENT_AAL1] = DISPSYS1,
+			[DDP_COMPONENT_C3D0] = DISPSYS0,
+		[DDP_COMPONENT_C3D1] = DISPSYS1,
+			[DDP_COMPONENT_CCORR0] = DISPSYS0,
+		[DDP_COMPONENT_CCORR2] = DISPSYS1,
+			[DDP_COMPONENT_CCORR1] = DISPSYS0,
+		[DDP_COMPONENT_CCORR3] = DISPSYS1,
+			[DDP_COMPONENT_CHIST0] = DISPSYS0,
+		[DDP_COMPONENT_CHIST2] = DISPSYS1,
+			[DDP_COMPONENT_CHIST1] = DISPSYS0,
+		[DDP_COMPONENT_CHIST3] = DISPSYS1,
+			[DDP_COMPONENT_COLOR0] = DISPSYS0,
+		[DDP_COMPONENT_COLOR1] = DISPSYS1,
+			[DDP_COMPONENT_DITHER0] = DISPSYS0,
+		[DDP_COMPONENT_DITHER2] = DISPSYS1,
+			[DDP_COMPONENT_DITHER1] = DISPSYS0,
+		[DDP_COMPONENT_DITHER3] = DISPSYS1,
+			[DDP_COMPONENT_DLI_ASYNC0] = DISPSYS0,
+			[DDP_COMPONENT_DLI_ASYNC1] = DISPSYS0,
+			[DDP_COMPONENT_DLI_ASYNC2] = DISPSYS0,
+			[DDP_COMPONENT_DLI_ASYNC3] = DISPSYS0,
+			[DDP_COMPONENT_DLI_ASYNC4] = DISPSYS0,
+			[DDP_COMPONENT_DLI_ASYNC5] = DISPSYS0,
+		[DDP_COMPONENT_DLI_ASYNC6] = DISPSYS1,
+		[DDP_COMPONENT_DLI_ASYNC7] = DISPSYS1,
+		[DDP_COMPONENT_DLI_ASYNC8] = DISPSYS1,
+		[DDP_COMPONENT_DLI_ASYNC9] = DISPSYS1,
+		[DDP_COMPONENT_DLI_ASYNC10] = DISPSYS1,
+		[DDP_COMPONENT_DLI_ASYNC11] = DISPSYS1,
+			[DDP_COMPONENT_DLO_ASYNC0] = DISPSYS0,
+			[DDP_COMPONENT_DLO_ASYNC1] = DISPSYS0,
+		[DDP_COMPONENT_DLO_ASYNC2] = DISPSYS1,
+		[DDP_COMPONENT_DLO_ASYNC3] = DISPSYS1,
+			[DDP_COMPONENT_DSC0] = DISPSYS0,
+			[DDP_COMPONENT_DSC1] = DISPSYS0,
+		[DDP_COMPONENT_DSC2] = DISPSYS1,
+		[DDP_COMPONENT_DSC3] = DISPSYS1,
+			[DDP_COMPONENT_DSI0] = DISPSYS0,
+		[DDP_COMPONENT_DSI1] = DISPSYS1,
+			[DDP_COMPONENT_GAMMA0] = DISPSYS0,
+		[DDP_COMPONENT_GAMMA1] = DISPSYS1,
+			[DDP_COMPONENT_DMDP_AAL0] = DISPSYS0,
+		[DDP_COMPONENT_DMDP_AAL1] = DISPSYS1,
+			[DDP_COMPONENT_DMDP_RDMA0] = DISPSYS0,
+		[DDP_COMPONENT_DMDP_RDMA1] = DISPSYS1,
+			[DDP_COMPONENT_MERGE0] = DISPSYS0,
+			[DDP_COMPONENT_MERGE1] = DISPSYS0,
+		[DDP_COMPONENT_MERGE2] = DISPSYS1,
+		[DDP_COMPONENT_MERGE3] = DISPSYS1,
+			[DDP_COMPONENT_ODDMR0] = DISPSYS0,
+		[DDP_COMPONENT_ODDMR1] = DISPSYS1,
+			[DDP_COMPONENT_POSTALIGN0] = DISPSYS0,
+		[DDP_COMPONENT_POSTALIGN1] = DISPSYS1,
+			[DDP_COMPONENT_POSTMASK0] = DISPSYS0,
+		[DDP_COMPONENT_POSTMASK1] = DISPSYS1,
+			[DDP_COMPONENT_PWM0] = DISPSYS0,
+		[DDP_COMPONENT_PWM1] = DISPSYS1,
+			[DDP_COMPONENT_RELAY0] = DISPSYS0,
+		[DDP_COMPONENT_RELAY1] = DISPSYS1,
+			[DDP_COMPONENT_RSZ0] = DISPSYS0,
+		[DDP_COMPONENT_RSZ1] = DISPSYS1,
+			[DDP_COMPONENT_SPR0] = DISPSYS0,
+		[DDP_COMPONENT_SPR1] = DISPSYS1,
+			[DDP_COMPONENT_TDSHP0] = DISPSYS0,
+			[DDP_COMPONENT_TDSHP1] = DISPSYS0,
+		[DDP_COMPONENT_TDSHP2] = DISPSYS1,
+		[DDP_COMPONENT_TDSHP3] = DISPSYS1,
+			[DDP_COMPONENT_UFBC_WDMA1] = DISPSYS0,
+		[DDP_COMPONENT_UFBC_WDMA2] = DISPSYS1,
+			[DDP_COMPONENT_VDCM0] = DISPSYS0,
+		[DDP_COMPONENT_VDCM1] = DISPSYS1,
+			[DDP_COMPONENT_WDMA1] = DISPSYS0,
+		[DDP_COMPONENT_WDMA2] = DISPSYS1,
+			[DDP_COMPONENT_Y2R0] = DISPSYS0,
+		[DDP_COMPONENT_Y2R1] = DISPSYS1,
+/* ovlsys */
+			[DDP_COMPONENT_OVL0_2L] = OVLSYS0,
+			[DDP_COMPONENT_OVL1_2L] = OVLSYS0,
+			[DDP_COMPONENT_OVL2_2L] = OVLSYS0,
+			[DDP_COMPONENT_OVL3_2L] = OVLSYS0,
+		[DDP_COMPONENT_OVL4_2L] = OVLSYS1,
+		[DDP_COMPONENT_OVL5_2L] = OVLSYS1,
+		[DDP_COMPONENT_OVL6_2L] = OVLSYS1,
+		[DDP_COMPONENT_OVL7_2L] = OVLSYS1,
+			[DDP_COMPONENT_OVLSYS_RSZ1] = OVLSYS0,
+		[DDP_COMPONENT_OVLSYS_RSZ2] = OVLSYS1,
+			[DDP_COMPONENT_DMDP_RSZ0] = OVLSYS0,
+		[DDP_COMPONENT_DMDP_RSZ1] = OVLSYS1,
+			[DDP_COMPONENT_OVLSYS_WDMA0] = OVLSYS0,
+		[DDP_COMPONENT_OVLSYS_WDMA1] = OVLSYS1,
+			[DDP_COMPONENT_OVLSYS_UFBC_WDMA0] = OVLSYS0,
+		[DDP_COMPONENT_OVLSYS_UFBC_WDMA1] = OVLSYS1,
+			[DDP_COMPONENT_OVLSYS_WDMA2] = OVLSYS0,
+		[DDP_COMPONENT_OVLSYS_WDMA3] = OVLSYS1,
+			[DDP_COMPONENT_OVLSYS_DLI_ASYNC0] = OVLSYS0,
+			[DDP_COMPONENT_OVLSYS_DLI_ASYNC1] = OVLSYS0,
+			[DDP_COMPONENT_OVLSYS_DLI_ASYNC2] = OVLSYS0,
+			[DDP_COMPONENT_OVLSYS_DLO_ASYNC0] = OVLSYS0,
+			[DDP_COMPONENT_OVLSYS_DLO_ASYNC1] = OVLSYS0,
+			[DDP_COMPONENT_OVLSYS_DLO_ASYNC2] = OVLSYS0,
+			[DDP_COMPONENT_OVLSYS_DLO_ASYNC3] = OVLSYS0,
+			[DDP_COMPONENT_OVLSYS_DLO_ASYNC4] = OVLSYS0,
+			[DDP_COMPONENT_OVLSYS_DLO_ASYNC5] = OVLSYS0,
+			[DDP_COMPONENT_OVLSYS_DLO_ASYNC6] = OVLSYS0,
+		[DDP_COMPONENT_OVLSYS_DLI_ASYNC3] = OVLSYS1,
+		[DDP_COMPONENT_OVLSYS_DLI_ASYNC4] = OVLSYS1,
+		[DDP_COMPONENT_OVLSYS_DLI_ASYNC5] = OVLSYS1,
+		[DDP_COMPONENT_OVLSYS_DLO_ASYNC7] = OVLSYS1,
+		[DDP_COMPONENT_OVLSYS_DLO_ASYNC8] = OVLSYS1,
+		[DDP_COMPONENT_OVLSYS_DLO_ASYNC9] = OVLSYS1,
+		[DDP_COMPONENT_OVLSYS_DLO_ASYNC10] = OVLSYS1,
+		[DDP_COMPONENT_OVLSYS_DLO_ASYNC11] = OVLSYS1,
+		[DDP_COMPONENT_OVLSYS_DLO_ASYNC12] = OVLSYS1,
+		[DDP_COMPONENT_OVLSYS_DLO_ASYNC13] = OVLSYS1,
+			[DDP_COMPONENT_INLINE_ROTATE0] = OVLSYS0,
+		[DDP_COMPONENT_INLINE_ROTATE1] = OVLSYS1,
+			[DDP_COMPONENT_OVLSYS_Y2R0] = OVLSYS0,
+			[DDP_COMPONENT_OVLSYS_Y2R1] = OVLSYS0,
+		[DDP_COMPONENT_OVLSYS_Y2R2] = OVLSYS1,
+		[DDP_COMPONENT_OVLSYS_Y2R3] = OVLSYS1,
+/* crossbar */
+		[DDP_COMPONENT_OVL0_BLEND_CB0] = OVLSYS0,
+		[DDP_COMPONENT_OVL0_BLEND_CB1] = OVLSYS0,
+		[DDP_COMPONENT_OVL0_BLEND_CB2] = OVLSYS0,
+		[DDP_COMPONENT_OVL0_BLEND_CB3] = OVLSYS0,
+		[DDP_COMPONENT_OVL1_BLEND_CB0] = OVLSYS1,
+		[DDP_COMPONENT_OVL1_BLEND_CB1] = OVLSYS1,
+		[DDP_COMPONENT_OVL1_BLEND_CB2] = OVLSYS1,
+		[DDP_COMPONENT_OVL1_BLEND_CB3] = OVLSYS1,
+		[DDP_COMPONENT_OVL0_BG_CB0] = OVLSYS0,
+		[DDP_COMPONENT_OVL0_BG_CB1] = OVLSYS0,
+		[DDP_COMPONENT_OVL0_BG_CB2] = OVLSYS0,
+		[DDP_COMPONENT_OVL0_BG_CB3] = OVLSYS0,
+		[DDP_COMPONENT_OVL0_BG_CB4] = OVLSYS0,
+		[DDP_COMPONENT_OVL1_BG_CB0] = OVLSYS1,
+		[DDP_COMPONENT_OVL1_BG_CB1] = OVLSYS1,
+		[DDP_COMPONENT_OVL1_BG_CB2] = OVLSYS1,
+		[DDP_COMPONENT_OVL1_BG_CB3] = OVLSYS1,
+		[DDP_COMPONENT_OVL1_BG_CB4] = OVLSYS1,
+		[DDP_COMPONENT_OVL0_PQ_OUT_CB0] = OVLSYS0,
+		[DDP_COMPONENT_OVL0_PQ_OUT_CB1] = OVLSYS0,
+		[DDP_COMPONENT_OVL0_PQ_OUT_CB2] = OVLSYS0,
+		[DDP_COMPONENT_OVL0_PQ_OUT_CB3] = OVLSYS0,
+		[DDP_COMPONENT_OVL1_PQ_OUT_CB0] = OVLSYS1,
+		[DDP_COMPONENT_OVL1_PQ_OUT_CB1] = OVLSYS1,
+		[DDP_COMPONENT_OVL1_PQ_OUT_CB2] = OVLSYS1,
+		[DDP_COMPONENT_OVL1_PQ_OUT_CB3] = OVLSYS1,
+		[DDP_COMPONENT_OVL0_PQ_IN_CB0] = OVLSYS0,
+		[DDP_COMPONENT_OVL0_PQ_IN_CB1] = OVLSYS0,
+		[DDP_COMPONENT_OVL0_PQ_IN_CB2] = OVLSYS0,
+		[DDP_COMPONENT_OVL1_PQ_IN_CB0] = OVLSYS1,
+		[DDP_COMPONENT_OVL1_PQ_IN_CB1] = OVLSYS1,
+		[DDP_COMPONENT_OVL1_PQ_IN_CB2] = OVLSYS1,
+		[DDP_COMPONENT_PQ0_IN_CB0] = DISPSYS0,
+		[DDP_COMPONENT_PQ0_IN_CB1] = DISPSYS0,
+		[DDP_COMPONENT_PQ0_IN_CB2] = DISPSYS0,
+		[DDP_COMPONENT_PQ0_IN_CB3] = DISPSYS0,
+		[DDP_COMPONENT_PQ0_IN_CB4] = DISPSYS0,
+		[DDP_COMPONENT_PQ1_IN_CB0] = DISPSYS1,
+		[DDP_COMPONENT_PQ1_IN_CB1] = DISPSYS1,
+		[DDP_COMPONENT_PQ1_IN_CB2] = DISPSYS1,
+		[DDP_COMPONENT_PQ1_IN_CB3] = DISPSYS1,
+		[DDP_COMPONENT_PQ1_IN_CB4] = DISPSYS1,
+		[DDP_COMPONENT_PQ0_OUT_CB0] = DISPSYS0,
+		[DDP_COMPONENT_PQ0_OUT_CB1] = DISPSYS0,
+		[DDP_COMPONENT_PQ0_OUT_CB2] = DISPSYS0,
+		[DDP_COMPONENT_PQ0_OUT_CB3] = DISPSYS0,
+		[DDP_COMPONENT_PQ0_OUT_CB4] = DISPSYS0,
+		[DDP_COMPONENT_PQ1_OUT_CB0] = DISPSYS1,
+		[DDP_COMPONENT_PQ1_OUT_CB1] = DISPSYS1,
+		[DDP_COMPONENT_PQ1_OUT_CB2] = DISPSYS1,
+		[DDP_COMPONENT_PQ1_OUT_CB3] = DISPSYS1,
+		[DDP_COMPONENT_PQ1_OUT_CB4] = DISPSYS1,
+		[DDP_COMPONENT_PANEL0_COMP_OUT_CB0] = DISPSYS0,
+		[DDP_COMPONENT_PANEL0_COMP_OUT_CB1] = DISPSYS0,
+		[DDP_COMPONENT_PANEL0_COMP_OUT_CB2] = DISPSYS0,
+		[DDP_COMPONENT_PANEL0_COMP_OUT_CB3] = DISPSYS0,
+		[DDP_COMPONENT_PANEL0_COMP_OUT_CB4] = DISPSYS0,
+		[DDP_COMPONENT_PANEL1_COMP_OUT_CB0] = DISPSYS1,
+		[DDP_COMPONENT_PANEL1_COMP_OUT_CB1] = DISPSYS1,
+		[DDP_COMPONENT_PANEL1_COMP_OUT_CB2] = DISPSYS1,
+		[DDP_COMPONENT_PANEL1_COMP_OUT_CB3] = DISPSYS1,
+		[DDP_COMPONENT_PANEL1_COMP_OUT_CB4] = DISPSYS1,
+		[DDP_COMPONENT_COMP0_OUT_CB0] = DISPSYS0,
+		[DDP_COMPONENT_COMP0_OUT_CB1] = DISPSYS0,
+		[DDP_COMPONENT_COMP0_OUT_CB2] = DISPSYS0,
+		[DDP_COMPONENT_COMP0_OUT_CB3] = DISPSYS0,
+		[DDP_COMPONENT_COMP0_OUT_CB4] = DISPSYS0,
+		[DDP_COMPONENT_COMP0_OUT_CB5] = DISPSYS0,
+		[DDP_COMPONENT_COMP0_OUT_CB6] = DISPSYS0,
+		[DDP_COMPONENT_COMP0_OUT_CB7] = DISPSYS0,
+		[DDP_COMPONENT_COMP1_OUT_CB0] = DISPSYS1,
+		[DDP_COMPONENT_COMP1_OUT_CB1] = DISPSYS1,
+		[DDP_COMPONENT_COMP1_OUT_CB2] = DISPSYS1,
+		[DDP_COMPONENT_COMP1_OUT_CB3] = DISPSYS1,
+		[DDP_COMPONENT_COMP1_OUT_CB4] = DISPSYS1,
+		[DDP_COMPONENT_COMP1_OUT_CB5] = DISPSYS1,
+		[DDP_COMPONENT_COMP1_OUT_CB6] = DISPSYS1,
+		[DDP_COMPONENT_COMP1_OUT_CB7] = DISPSYS1,
+		[DDP_COMPONENT_MERGE0_OUT_CB0] = DISPSYS0,
+		[DDP_COMPONENT_MERGE0_OUT_CB1] = DISPSYS0,
+		[DDP_COMPONENT_MERGE0_OUT_CB2] = DISPSYS0,
+		[DDP_COMPONENT_MERGE0_OUT_CB3] = DISPSYS0,
+		[DDP_COMPONENT_MERGE0_OUT_CB4] = DISPSYS0,
+		[DDP_COMPONENT_MERGE0_OUT_CB5] = DISPSYS0,
+		[DDP_COMPONENT_MERGE0_OUT_CB6] = DISPSYS0,
+		[DDP_COMPONENT_MERGE0_OUT_CB7] = DISPSYS0,
+		[DDP_COMPONENT_MERGE1_OUT_CB0] = DISPSYS1,
+		[DDP_COMPONENT_MERGE1_OUT_CB1] = DISPSYS1,
+		[DDP_COMPONENT_MERGE1_OUT_CB2] = DISPSYS1,
+		[DDP_COMPONENT_MERGE1_OUT_CB3] = DISPSYS1,
+		[DDP_COMPONENT_MERGE1_OUT_CB4] = DISPSYS1,
+		[DDP_COMPONENT_MERGE1_OUT_CB5] = DISPSYS1,
+		[DDP_COMPONENT_MERGE1_OUT_CB6] = DISPSYS1,
+		[DDP_COMPONENT_MERGE1_OUT_CB7] = DISPSYS1,
 };
 
 static const unsigned int mt6895_dispsys_map[DDP_COMPONENT_ID_MAX] = {
@@ -3606,9 +3746,8 @@ const struct mtk_mmsys_reg_data mt6983_mmsys_reg_data = {
 
 const struct mtk_mmsys_reg_data mt6985_mmsys_reg_data = {
 	// To-Do
-//need check
 	.rdma0_sout_sel_in = MT6983_DISP_RDMA0_SEL_IN,
-	.dispsys_map = mt6983_dispsys_map,
+	.dispsys_map = mt6985_dispsys_map,
 };
 
 const struct mtk_mmsys_reg_data mt6895_mmsys_reg_data = {
@@ -9714,6 +9853,7 @@ static int mtk_ddp_ovl_con_MT6985(enum mtk_ddp_comp_id cur,
 
 	return value;
 }
+
 static int mtk_ddp_mout_en_MT6985(const struct mtk_mmsys_reg_data *data,
 			   enum mtk_ddp_comp_id cur, enum mtk_ddp_comp_id next,
 			   unsigned int *addr)
@@ -10037,20 +10177,13 @@ static int mtk_ddp_mout_en_MT6985(const struct mtk_mmsys_reg_data *data,
 		*addr = MT6985_MERGE_OUT_CROSSBAR6_MOUT_EN;
 		value = DISP_MERGE1_0_TO_WDMA1;
 	} else if ((cur == DDP_COMPONENT_OVL0_2L &&
-		next == DDP_COMPONENT_OVL0_BLEND_CB0)) {
-//need check
-		*addr = MT6985_OVL_BLEND_CROSSBAR0_MOUT_EN;
-		value = DISP_OVL0_2L_TO_DLO_RELAY3;
-	} else if ((cur == DDP_COMPONENT_OVL0_2L &&
-		next == DDP_COMPONENT_DLO_ASYNC3)) {
+		next == DDP_COMPONENT_OVLSYS_DLO_ASYNC3)) {
 		/* OVL_BLEND_CROSSBAR */
 		*addr = MT6985_OVL_BLEND_CROSSBAR0_MOUT_EN;
 		value = DISP_OVL0_2L_TO_DLO_RELAY3;
 	} else if ((cur == DDP_COMPONENT_DLO_ASYNC3 &&
 		next == DDP_COMPONENT_DLI_ASYNC0)) {
 	} else if ((cur == DDP_COMPONENT_DLI_ASYNC0 &&
-		next == DDP_COMPONENT_PQ0_IN_CB0)) {
-	} else if ((cur == DDP_COMPONENT_PQ0_IN_CB0 &&
 		next == DDP_COMPONENT_PQ0_OUT_CB3)) {
 		/* PQ_IN_CROSSBAR */
 		*addr = MT6985_PQ_IN_CROSSBAR0_MOUT_EN;
@@ -11639,7 +11772,15 @@ void mtk_ddp_add_comp_to_path(struct mtk_drm_crtc *mtk_crtc,
 		if (mtk_crtc->dispsys_num > 1 && reg_data->dispsys_map &&
 				reg_data->dispsys_map[cur] == 1)
 			config_regs = mtk_crtc->side_config_regs;
-//need check
+
+		if (reg_data->dispsys_map[cur] == OVLSYS0 ||
+			reg_data->dispsys_map[next] == OVLSYS0)
+			config_regs = mtk_crtc->ovlsys0_regs;
+		else if (mtk_crtc->ovlsys_num > 1 && reg_data->dispsys_map &&
+				(reg_data->dispsys_map[cur] == OVLSYS1 ||
+			reg_data->dispsys_map[next] == OVLSYS1))
+			config_regs = mtk_crtc->ovlsys1_regs;
+
 		writel_relaxed(0x1, config_regs + MT6985_BYPASS_MUX_SHADOW);
 		value = mtk_ddp_ovl_con_MT6985(cur, next, &addr);
 		if (value >= 0) {
@@ -11919,6 +12060,15 @@ void mtk_ddp_add_comp_to_path_with_cmdq(struct mtk_drm_crtc *mtk_crtc,
 		if (mtk_crtc->dispsys_num > 1 && reg_data->dispsys_map &&
 				reg_data->dispsys_map[cur] == 1)
 			config_regs_pa = mtk_crtc->side_config_regs_pa;
+
+		if (reg_data->dispsys_map[cur] == OVLSYS0 ||
+			reg_data->dispsys_map[next] == OVLSYS0) {
+			config_regs_pa = mtk_crtc->ovlsys0_regs_pa;
+		} else if (mtk_crtc->ovlsys_num > 1 && reg_data->dispsys_map &&
+				(reg_data->dispsys_map[cur] == OVLSYS1 ||
+			reg_data->dispsys_map[next] == OVLSYS1)) {
+			config_regs_pa = mtk_crtc->ovlsys1_regs_pa;
+		}
 
 		cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
 			config_regs_pa
@@ -13859,48 +14009,61 @@ void mtk_disp_mutex_add_comp(struct mtk_disp_mutex *mutex,
 	struct mtk_ddp *ddp =
 		container_of(mutex, struct mtk_ddp, mutex[mutex->id]);
 	unsigned int reg, reg1;
-	void __iomem *reg_addr;
-	void __iomem *reg_addr1;
+	void __iomem *reg_addr = NULL;
+	void __iomem *reg_addr1 = NULL;
 
 	if (&ddp->mutex[mutex->id] != mutex)
 		DDPAEE("%s:%d, invalid mutex:(%p,%p) id:%d\n",
 			__func__, __LINE__,
 			&ddp->mutex[mutex->id], mutex, mutex->id);
-	if (ddp->data->dispsys_map && ddp->data->dispsys_map[id] == 1) {
+	if (ddp->data->dispsys_map && ddp->data->dispsys_map[id] == 1)
 		reg_addr = ddp->side_regs;
+	else
+		reg_addr = ddp->regs;
+
+	if (ddp->data->dispsys_map &&
+		ddp->data->dispsys_map[id] == OVLSYS1) {
 		if (ddp->ovlsys1_regs)
 			reg_addr1 = ddp->ovlsys1_regs;
-	} else {
-		reg_addr = ddp->regs;
+	} else if (ddp->data->dispsys_map &&
+				ddp->data->dispsys_map[id] == OVLSYS0) {
 		if (ddp->ovlsys0_regs)
 			reg_addr1 = ddp->ovlsys0_regs;
 	}
 
-	if (ddp->data->mutex_mod[id] <= BIT(31)) {
-		reg = readl_relaxed(reg_addr +
-				    DISP_REG_MUTEX_MOD(ddp->data, mutex->id));
-		reg |= ddp->data->mutex_mod[id];
-		writel_relaxed(reg, reg_addr + DISP_REG_MUTEX_MOD(ddp->data,
-								   mutex->id));
-		if (reg_addr1) {
-			reg1 = readl_relaxed(reg_addr1 +
+	if (ddp->data->mutex_mod[id] > 0) {
+		if (ddp->data->mutex_mod[id] <= BIT(31)) {
+			reg = readl_relaxed(reg_addr +
 					    DISP_REG_MUTEX_MOD(ddp->data, mutex->id));
-			reg1 |= ddp->data->mutex_mod[id];
-			writel_relaxed(reg1, reg_addr1 + DISP_REG_MUTEX_MOD(ddp->data,
+			reg |= ddp->data->mutex_mod[id];
+			writel_relaxed(reg, reg_addr + DISP_REG_MUTEX_MOD(ddp->data,
 									   mutex->id));
-		}
-	} else {
-		reg = readl_relaxed(reg_addr + DISP_REG_MUTEX_MOD2(mutex->id));
-		reg |= (ddp->data->mutex_mod[id] & ~BIT(31));
-		writel_relaxed(reg, reg_addr + DISP_REG_MUTEX_MOD2(mutex->id));
-		if (reg_addr1) {
-			reg1 = readl_relaxed(reg_addr1 + DISP_REG_MUTEX_MOD2(mutex->id));
-			reg1 |= (ddp->data->mutex_mod[id] & ~BIT(31));
-			writel_relaxed(reg1, reg_addr1 + DISP_REG_MUTEX_MOD2(mutex->id));
+		} else {
+			reg = readl_relaxed(reg_addr + DISP_REG_MUTEX_MOD2(mutex->id));
+			reg |= (ddp->data->mutex_mod[id] & ~BIT(31));
+			writel_relaxed(reg, reg_addr + DISP_REG_MUTEX_MOD2(mutex->id));
 		}
 	}
 
-	DDPDBG("%s mutex%d add %d\n", __func__, mutex->id, id);
+	if (reg_addr1) {
+		if (ddp->data->mutex_ovlsys_mod[id] > 0) {
+			if (ddp->data->mutex_ovlsys_mod[id] <= BIT(31)) {
+				reg1 = readl_relaxed(reg_addr1 +
+						DISP_REG_MUTEX_MOD(ddp->data, mutex->id));
+				reg1 |= ddp->data->mutex_ovlsys_mod[id];
+				writel_relaxed(reg1, reg_addr1 +
+						DISP_REG_MUTEX_MOD(ddp->data, mutex->id));
+			} else {
+				reg1 = readl_relaxed(reg_addr1 +
+						DISP_REG_MUTEX_MOD2(mutex->id));
+				reg1 |= (ddp->data->mutex_ovlsys_mod[id] & ~BIT(31));
+				writel_relaxed(reg1, reg_addr1 +
+						DISP_REG_MUTEX_MOD2(mutex->id));
+			}
+		}
+	}
+	DDPDBG("%s[%d] mutex%d add %s\n",
+		__func__, __LINE__, mutex->id, mtk_dump_comp_str_id(id));
 }
 
 /* TODO: should be refactor, need path rather than crtc */
@@ -13997,8 +14160,8 @@ void mtk_disp_mutex_add_comp_with_cmdq(struct mtk_drm_crtc *mtk_crtc,
 	struct mtk_disp_mutex *mutex = NULL;
 	struct mtk_ddp *ddp = NULL;
 	unsigned int reg;
-	resource_size_t regs_pa;
-	resource_size_t ovlsys_regs_pa;
+	resource_size_t regs_pa = 0;
+	resource_size_t ovlsys_regs_pa = 0;
 
 	if (mutex_id >= DDP_PATH_NR) {
 		DDPPR_ERR("mutex id is out of bound:%d\n", mutex_id);
@@ -14014,15 +14177,21 @@ void mtk_disp_mutex_add_comp_with_cmdq(struct mtk_drm_crtc *mtk_crtc,
 			&ddp->mutex[mutex->id], mutex, mutex->id);
 
 	if (ddp->data->dispsys_map && ddp->data->dispsys_map[id] == 1 &&
-			ddp->side_regs_pa) {
+			ddp->side_regs_pa)
 		regs_pa = ddp->side_regs_pa;
-		if (ddp->ovlsys1_regs_pa)
-			ovlsys_regs_pa = ddp->ovlsys1_regs_pa;
-	} else {
+	else
 		regs_pa = ddp->regs_pa;
-		if (ddp->ovlsys0_regs_pa)
+
+	if (ddp->data->dispsys_map &&
+		ddp->data->dispsys_map[id] == OVLSYS1) {
+		if (ddp->ovlsys1_regs)
+			ovlsys_regs_pa = ddp->ovlsys1_regs_pa;
+	} else if (ddp->data->dispsys_map &&
+				ddp->data->dispsys_map[id] == OVLSYS0) {
+		if (ddp->ovlsys0_regs)
 			ovlsys_regs_pa = ddp->ovlsys0_regs_pa;
 	}
+
 	reg = DDP_MUTEX_SOF_SINGLE_MODE;
 	switch (id) {
 	case DDP_COMPONENT_DSI0:
@@ -14051,33 +14220,41 @@ void mtk_disp_mutex_add_comp_with_cmdq(struct mtk_drm_crtc *mtk_crtc,
 			reg = DDP_MUTEX_SOF_DPI1;
 		break;
 	default:
-		if (ddp->data->mutex_mod[id] <= BIT(31)) {
-			cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
-				       regs_pa +
-					       DISP_REG_MUTEX_MOD(ddp->data,
-								  mutex->id),
-				       ddp->data->mutex_mod[id],
-				       ddp->data->mutex_mod[id]);
-			if (ovlsys_regs_pa)
+		if (ddp->data->mutex_mod[id] > 0) {
+			if (ddp->data->mutex_mod[id] <= BIT(31)) {
 				cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
-					       ovlsys_regs_pa +
-						       DISP_REG_MUTEX_MOD(ddp->data,
+						   regs_pa +
+							   DISP_REG_MUTEX_MOD(ddp->data,
 									  mutex->id),
-					       ddp->data->mutex_mod[id],
-					       ddp->data->mutex_mod[id]);
-		} else {
-			cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
-				       regs_pa +
-					       DISP_REG_MUTEX_MOD2(mutex->id),
-				       ddp->data->mutex_mod[id] & ~BIT(31),
-				       ddp->data->mutex_mod[id] & ~BIT(31));
-			if (ovlsys_regs_pa)
+						   ddp->data->mutex_mod[id],
+						   ddp->data->mutex_mod[id]);
+			} else {
 				cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
-					       ovlsys_regs_pa +
-						       DISP_REG_MUTEX_MOD2(mutex->id),
-					       ddp->data->mutex_mod[id] & ~BIT(31),
-					       ddp->data->mutex_mod[id] & ~BIT(31));
+						   regs_pa +
+							   DISP_REG_MUTEX_MOD2(mutex->id),
+						   ddp->data->mutex_mod[id] & ~BIT(31),
+						   ddp->data->mutex_mod[id] & ~BIT(31));
+			}
 		}
+
+		if (ovlsys_regs_pa) {
+			if (ddp->data->mutex_ovlsys_mod[id] > 0) {
+				if (ddp->data->mutex_mod[id] <= BIT(31)) {
+					cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
+						ovlsys_regs_pa +
+						DISP_REG_MUTEX_MOD(ddp->data, mutex->id),
+						ddp->data->mutex_mod[id],
+						ddp->data->mutex_mod[id]);
+				} else {
+					cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
+						ovlsys_regs_pa +
+						DISP_REG_MUTEX_MOD2(mutex->id),
+						ddp->data->mutex_mod[id] & ~BIT(31),
+						ddp->data->mutex_mod[id] & ~BIT(31));
+				}
+			}
+		}
+
 		DDPINFO("mutex_add_comp /w cmdq mutex%d add %s\n", mutex->id,
 			mtk_dump_comp_str_id(id));
 
