@@ -33,7 +33,6 @@ mtk_imgsys-dev.o \
 mtk_imgsys-of.o \
 mtk_imgsys-sys.o \
 mtk_imgsys-worker.o \
-mtk_imgsys-cmdq.o \
 mtk_imgsys-trace.o \
 platforms/isp71/mtk_imgsys-debug.o \
 platforms/isp71/modules/mtk_imgsys-dip.o \
@@ -59,3 +58,15 @@ platforms/isp7s/modules/mtk_imgsys-me.o \
 platforms/isp7s/modules/mtk_imgsys-adl.o
 
 obj-${CONFIG_VIDEO_MTK_ISP_IMGSYS_7S} += mtk_imgsys_isp7s.o
+
+#
+#  imgsys-cmdq
+#
+
+mtk_imgsys_cmdq-objs := \
+mtk_imgsys-cmdq.o \
+mtk_imgsys-trace.o \
+platforms/isp71/mtk_imgsys-cmdq-plat.o \
+platforms/isp7s/mtk_imgsys-cmdq-plat.o
+
+obj-$(CONFIG_VIDEO_MTK_ISP_IMGSYS_CMDQ) += mtk_imgsys_cmdq.o

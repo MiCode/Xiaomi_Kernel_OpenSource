@@ -6,12 +6,10 @@
  *
  */
 
-#ifndef _MTK_IMGSYS_CMDQ_PLAT_H_
-#define _MTK_IMGSYS_CMDQ_PLAT_H_
+#ifndef _MTK_IMGSYS_CMDQ_PLAT_7S_H_
+#define _MTK_IMGSYS_CMDQ_PLAT_7S_H_
 
 #define IMGSYS_DVFS_ENABLE     (1)
-#define IMGSYS_QOS_ENABLE      (1)
-#define IMGSYS_QOS_SET_REAL    (0)
 #define IMGSYS_QOS_SET_BY_SCEN (1)
 
 #define IMGSYS_SECURE_ENABLE   (0)
@@ -36,8 +34,8 @@
 #define IMGSYS_VSS_FREQ_FLOOR	660000000
 #define IMGSYS_SMVR_FREQ_FLOOR	393000000
 
-#define IMGSYS_CMDQ_HW_EVENT_BEGIN	129
-#define IMGSYS_CMDQ_HW_EVENT_END	250
+#define IMGSYS_CMDQ_HW_EVENT_BEGIN	256
+#define IMGSYS_CMDQ_HW_EVENT_END	376
 #define IMGSYS_CMDQ_SW_EVENT_BEGIN	514
 #define IMGSYS_CMDQ_SW_EVENT_END	613
 #define IMGSYS_CMDQ_SW_EVENT2_BEGIN	720
@@ -94,16 +92,6 @@ enum mtk_imgsys_event {
 	IMGSYS_CMDQ_EVENT_IMG_TRAW1_CQ_THR_DONE_TRAW0_7,
 	IMGSYS_CMDQ_EVENT_IMG_TRAW1_CQ_THR_DONE_TRAW0_8,
 	IMGSYS_CMDQ_EVENT_IMG_TRAW1_CQ_THR_DONE_TRAW0_9,
-	IMGSYS_CMDQ_EVENT_IMG_XTRAW_CQ_THR_DONE_TRAW0_0,
-	IMGSYS_CMDQ_EVENT_IMG_XTRAW_CQ_THR_DONE_TRAW0_1,
-	IMGSYS_CMDQ_EVENT_IMG_XTRAW_CQ_THR_DONE_TRAW0_2,
-	IMGSYS_CMDQ_EVENT_IMG_XTRAW_CQ_THR_DONE_TRAW0_3,
-	IMGSYS_CMDQ_EVENT_IMG_XTRAW_CQ_THR_DONE_TRAW0_4,
-	IMGSYS_CMDQ_EVENT_IMG_XTRAW_CQ_THR_DONE_TRAW0_5,
-	IMGSYS_CMDQ_EVENT_IMG_XTRAW_CQ_THR_DONE_TRAW0_6,
-	IMGSYS_CMDQ_EVENT_IMG_XTRAW_CQ_THR_DONE_TRAW0_7,
-	IMGSYS_CMDQ_EVENT_IMG_XTRAW_CQ_THR_DONE_TRAW0_8,
-	IMGSYS_CMDQ_EVENT_IMG_XTRAW_CQ_THR_DONE_TRAW0_9,
 	IMGSYS_CMDQ_EVENT_IMG_DIP_CQ_THR_DONE_P2_0,
 	IMGSYS_CMDQ_EVENT_IMG_DIP_CQ_THR_DONE_P2_1,
 	IMGSYS_CMDQ_EVENT_IMG_DIP_CQ_THR_DONE_P2_2,
@@ -173,7 +161,6 @@ enum mtk_imgsys_event {
 	IMGSYS_CMDQ_SYNC_TOKEN_IMGSYS_WPE_LITE,
 	IMGSYS_CMDQ_SYNC_TOKEN_IMGSYS_TRAW,
 	IMGSYS_CMDQ_SYNC_TOKEN_IMGSYS_LTRAW,
-	IMGSYS_CMDQ_SYNC_TOKEN_IMGSYS_XTRAW,
 	IMGSYS_CMDQ_SYNC_TOKEN_IMGSYS_DIP,
 	IMGSYS_CMDQ_SYNC_TOKEN_IMGSYS_PQDIP_A,
 	IMGSYS_CMDQ_SYNC_TOKEN_IMGSYS_PQDIP_B,
@@ -181,7 +168,6 @@ enum mtk_imgsys_event {
 	IMGSYS_CMDQ_SYNC_TOKEN_APUSYS_APU,
 	IMGSYS_CMDQ_SYNC_TOKEN_IMGSYS_VSS_TRAW,
 	IMGSYS_CMDQ_SYNC_TOKEN_IMGSYS_VSS_LTRAW,
-	IMGSYS_CMDQ_SYNC_TOKEN_IMGSYS_VSS_XTRAW,
 	IMGSYS_CMDQ_SYNC_TOKEN_IMGSYS_VSS_DIP,
 	IMGSYS_CMDQ_SYNC_TOKEN_IMGSYS_POOL_START,
 	IMGSYS_CMDQ_SYNC_TOKEN_IMGSYS_POOL_1 = IMGSYS_CMDQ_SYNC_TOKEN_IMGSYS_POOL_START,
@@ -365,17 +351,6 @@ static struct imgsys_event_table imgsys_event[] = {
 	{IMGSYS_CMDQ_EVENT_IMG_TRAW1_CQ_THR_DONE_TRAW0_7, "ltraw_cq_thread7_frame_done"},
 	{IMGSYS_CMDQ_EVENT_IMG_TRAW1_CQ_THR_DONE_TRAW0_8, "ltraw_cq_thread8_frame_done"},
 	{IMGSYS_CMDQ_EVENT_IMG_TRAW1_CQ_THR_DONE_TRAW0_9, "ltraw_cq_thread9_frame_done"},
-	/*XTRAW frame done*/
-	{IMGSYS_CMDQ_EVENT_IMG_XTRAW_CQ_THR_DONE_TRAW0_0, "xtraw_cq_thread0_frame_done"},
-	{IMGSYS_CMDQ_EVENT_IMG_XTRAW_CQ_THR_DONE_TRAW0_1, "xtraw_cq_thread1_frame_done"},
-	{IMGSYS_CMDQ_EVENT_IMG_XTRAW_CQ_THR_DONE_TRAW0_2, "xtraw_cq_thread2_frame_done"},
-	{IMGSYS_CMDQ_EVENT_IMG_XTRAW_CQ_THR_DONE_TRAW0_3, "xtraw_cq_thread3_frame_done"},
-	{IMGSYS_CMDQ_EVENT_IMG_XTRAW_CQ_THR_DONE_TRAW0_4, "xtraw_cq_thread4_frame_done"},
-	{IMGSYS_CMDQ_EVENT_IMG_XTRAW_CQ_THR_DONE_TRAW0_5, "xtraw_cq_thread5_frame_done"},
-	{IMGSYS_CMDQ_EVENT_IMG_XTRAW_CQ_THR_DONE_TRAW0_6, "xtraw_cq_thread6_frame_done"},
-	{IMGSYS_CMDQ_EVENT_IMG_XTRAW_CQ_THR_DONE_TRAW0_7, "xtraw_cq_thread7_frame_done"},
-	{IMGSYS_CMDQ_EVENT_IMG_XTRAW_CQ_THR_DONE_TRAW0_8, "xtraw_cq_thread8_frame_done"},
-	{IMGSYS_CMDQ_EVENT_IMG_XTRAW_CQ_THR_DONE_TRAW0_9, "xtraw_cq_thread9_frame_done"},
 	/*DIP frame done*/
 	{IMGSYS_CMDQ_EVENT_IMG_DIP_CQ_THR_DONE_P2_0, "dip_cq_thread0_frame_done"},
 	{IMGSYS_CMDQ_EVENT_IMG_DIP_CQ_THR_DONE_P2_1, "dip_cq_thread1_frame_done"},
@@ -452,7 +427,6 @@ static struct imgsys_event_table imgsys_event[] = {
 	{IMGSYS_CMDQ_SYNC_TOKEN_IMGSYS_WPE_LITE, "wpe_lite_sync_token"},
 	{IMGSYS_CMDQ_SYNC_TOKEN_IMGSYS_TRAW, "traw_sync_token"},
 	{IMGSYS_CMDQ_SYNC_TOKEN_IMGSYS_LTRAW, "ltraw_sync_token"},
-	{IMGSYS_CMDQ_SYNC_TOKEN_IMGSYS_XTRAW, "xtraw_sync_token"},
 	{IMGSYS_CMDQ_SYNC_TOKEN_IMGSYS_DIP, "dip_sync_token"},
 	{IMGSYS_CMDQ_SYNC_TOKEN_IMGSYS_PQDIP_A, "pqdip_a_sync_token"},
 	{IMGSYS_CMDQ_SYNC_TOKEN_IMGSYS_PQDIP_B, "pqdip_b_sync_token"},
@@ -460,7 +434,6 @@ static struct imgsys_event_table imgsys_event[] = {
 	{IMGSYS_CMDQ_SYNC_TOKEN_APUSYS_APU, "apu_sync_token"},
 	{IMGSYS_CMDQ_SYNC_TOKEN_IMGSYS_VSS_TRAW, "vss_traw_sync_token"},
 	{IMGSYS_CMDQ_SYNC_TOKEN_IMGSYS_VSS_LTRAW, "vss_ltraw_sync_token"},
-	{IMGSYS_CMDQ_SYNC_TOKEN_IMGSYS_VSS_XTRAW, "vss_xtraw_sync_token"},
 	{IMGSYS_CMDQ_SYNC_TOKEN_IMGSYS_VSS_DIP, "vss_dip_sync_token"},
 	{IMGSYS_CMDQ_SYNC_TOKEN_IMGSYS_POOL_1, "sw_sync_token_pool_1"},
 	{IMGSYS_CMDQ_SYNC_TOKEN_IMGSYS_POOL_2, "sw_sync_token_pool_2"},
@@ -773,8 +746,10 @@ enum mtk_imgsys_m4u_port {
 	IMGSYS_M4U_PORT_L12_IPE_ME_WDMA,
 
 	/* SMI COMMON */
-	IMGSYS_L9_COMMON_0,
-	IMGSYS_L12_COMMON_1,
+	IMGSYS_L9_COMMON_R_0,
+	IMGSYS_L10_COMMON_W_0,
+	IMGSYS_L12_COMMON_R_1,
+	IMGSYS_L15_COMMON_W_1,
 	IMGSYS_M4U_PORT_MAX
 };
 
@@ -897,8 +872,10 @@ static struct mtk_imgsys_qos_path imgsys_qos_path[IMGSYS_M4U_PORT_MAX] = {
 	{NULL, "l23_wpe_wdma_4p0", 0},
 	{NULL, "l12_me_rdma", 0},
 	{NULL, "l12_me_wdma", 0},
-	{NULL, "l9_common_0", 0},
-	{NULL, "l12_common_1", 0}
+	{NULL, "l9_common_r_0", 0},
+	{NULL, "l10_common_w_0", 0},
+	{NULL, "l12_common_r_1", 0},
+	{NULL, "l15_common_w_1", 0}
 };
 
 struct BlockRecord {
@@ -994,7 +971,6 @@ static struct imgsys_dvfs_group  qos_group[MTK_IMGSYS_QOS_GROUP] = {
 			|IMGSYS_ENG_WPE_LITE
 			|IMGSYS_ENG_TRAW
 			|IMGSYS_ENG_LTR
-			|IMGSYS_ENG_XTR
 			|IMGSYS_ENG_DIP
 			|IMGSYS_ENG_PQDIP_A)},
 	{1, (IMGSYS_ENG_WPE_TNR
@@ -1033,11 +1009,6 @@ struct ltraw_bw_t {
 	struct smi_port_t smiport[LTRAW_SMI_PORT_NUM];
 } __packed;
 
-struct xtraw_bw_t {
-	uint32_t totalbw;
-	struct smi_port_t smiport[XTRAW_SMI_PORT_NUM];
-} __packed;
-
 struct dip_bw_t {
 	uint32_t totalbw;
 	struct smi_port_t smiport[DIP_SMI_PORT_NUM];
@@ -1057,10 +1028,57 @@ struct frame_bw_t {
 	struct pqdip_bw_t pqdip_b;
 	struct traw_bw_t traw;
 	struct ltraw_bw_t ltraw;
-	struct xtraw_bw_t xtraw;
 	struct dip_bw_t dip;
 	struct adl_bw_t ad;
 } __packed;
 
-#endif /* _MTK_IMGSYS_CMDQ_PLAT_H_ */
+/* ##### */
+
+void imgsys_cmdq_init_plat7s(struct mtk_imgsys_dev *imgsys_dev, const int nr_imgsys_dev);
+void imgsys_cmdq_release_plat7s(struct mtk_imgsys_dev *imgsys_dev);
+void imgsys_cmdq_streamon_plat7s(struct mtk_imgsys_dev *imgsys_dev);
+void imgsys_cmdq_streamoff_plat7s(struct mtk_imgsys_dev *imgsys_dev);
+int imgsys_cmdq_sendtask_plat7s(struct mtk_imgsys_dev *imgsys_dev,
+				struct swfrm_info_t *frm_info,
+				void (*cmdq_cb)(struct cmdq_cb_data data,
+					uint32_t uinfo_idx, bool isLastTaskInReq),
+				void (*cmdq_err_cb)(struct cmdq_cb_data data,
+					uint32_t fail_uinfo_idx, bool isHWhang));
+int imgsys_cmdq_parser_plat7s(struct swfrm_info_t *frm_info, struct cmdq_pkt *pkt,
+				struct Command *cmd, u32 hw_comb,
+				dma_addr_t dma_pa, uint32_t *num, u32 thd_idx);
+int imgsys_cmdq_sec_sendtask_plat7s(struct mtk_imgsys_dev *imgsys_dev);
+void imgsys_cmdq_sec_cmd_plat7s(struct cmdq_pkt *pkt);
+void imgsys_cmdq_clearevent_plat7s(int event_id);
+
+#if DVFS_QOS_READY
+void mtk_imgsys_mmdvfs_init_plat7s(struct mtk_imgsys_dev *imgsys_dev);
+void mtk_imgsys_mmdvfs_uninit_plat7s(struct mtk_imgsys_dev *imgsys_dev);
+void mtk_imgsys_mmdvfs_set_plat7s(struct mtk_imgsys_dev *imgsys_dev,
+				struct swfrm_info_t *frm_info,
+				bool isSet);
+void mtk_imgsys_mmqos_init_plat7s(struct mtk_imgsys_dev *imgsys_dev);
+void mtk_imgsys_mmqos_uninit_plat7s(struct mtk_imgsys_dev *imgsys_dev);
+void mtk_imgsys_mmqos_set_by_scen_plat7s(struct mtk_imgsys_dev *imgsys_dev,
+				struct swfrm_info_t *frm_info,
+				bool isSet);
+void mtk_imgsys_mmqos_reset_plat7s(struct mtk_imgsys_dev *imgsys_dev);
+void mtk_imgsys_mmdvfs_mmqos_cal_plat7s(struct mtk_imgsys_dev *imgsys_dev,
+				struct swfrm_info_t *frm_info,
+				bool isSet);
+void mtk_imgsys_mmqos_bw_cal_plat7s(struct mtk_imgsys_dev *imgsys_dev,
+				void *smi_port, uint32_t hw_comb,
+				uint32_t port_st, uint32_t port_num, uint32_t port_id);
+void mtk_imgsys_mmqos_ts_cal_plat7s(struct mtk_imgsys_dev *imgsys_dev,
+				struct mtk_imgsys_cb_param *cb_param, uint32_t hw_comb);
+void mtk_imgsys_power_ctrl_plat7s(struct mtk_imgsys_dev *imgsys_dev, bool isPowerOn);
+void mtk_imgsys_mmqos_monitor_plat7s(struct mtk_imgsys_dev *imgsys_dev, u32 state);
+#endif
+
+bool imgsys_cmdq_ts_enable_plat7s(void);
+u32 imgsys_wpe_bwlog_enable_plat7s(void);
+bool imgsys_cmdq_ts_dbg_enable_plat7s(void);
+bool imgsys_dvfs_dbg_enable_plat7s(void);
+
+#endif /* _MTK_IMGSYS_CMDQ_PLAT_7S_H_ */
 

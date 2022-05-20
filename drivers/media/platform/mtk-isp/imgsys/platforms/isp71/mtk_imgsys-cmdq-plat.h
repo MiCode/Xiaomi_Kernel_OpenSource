@@ -6,11 +6,10 @@
  *
  */
 
-#ifndef _MTK_IMGSYS_CMDQ_PLAT_H_
-#define _MTK_IMGSYS_CMDQ_PLAT_H_
+#ifndef _MTK_IMGSYS_CMDQ_PLAT_71_H_
+#define _MTK_IMGSYS_CMDQ_PLAT_71_H_
 
 #define IMGSYS_DVFS_ENABLE     (1)
-#define IMGSYS_QOS_ENABLE      (1)
 #define IMGSYS_QOS_SET_BY_SCEN (1)
 
 #define IMGSYS_SECURE_ENABLE   (0)
@@ -1065,5 +1064,53 @@ struct frame_bw_t {
 	struct adl_bw_t ad;
 } __packed;
 
-#endif /* _MTK_IMGSYS_CMDQ_PLAT_H_ */
+/* ##### */
+
+void imgsys_cmdq_init_plat71(struct mtk_imgsys_dev *imgsys_dev, const int nr_imgsys_dev);
+void imgsys_cmdq_release_plat71(struct mtk_imgsys_dev *imgsys_dev);
+void imgsys_cmdq_streamon_plat71(struct mtk_imgsys_dev *imgsys_dev);
+void imgsys_cmdq_streamoff_plat71(struct mtk_imgsys_dev *imgsys_dev);
+int imgsys_cmdq_sendtask_plat71(struct mtk_imgsys_dev *imgsys_dev,
+				struct swfrm_info_t *frm_info,
+				void (*cmdq_cb)(struct cmdq_cb_data data,
+					uint32_t uinfo_idx, bool isLastTaskInReq),
+				void (*cmdq_err_cb)(struct cmdq_cb_data data,
+					uint32_t fail_uinfo_idx, bool isHWhang));
+int imgsys_cmdq_parser_plat71(struct swfrm_info_t *frm_info, struct cmdq_pkt *pkt,
+				struct Command *cmd, u32 hw_comb,
+				dma_addr_t dma_pa, uint32_t *num, u32 thd_idx);
+int imgsys_cmdq_sec_sendtask_plat71(struct mtk_imgsys_dev *imgsys_dev);
+void imgsys_cmdq_sec_cmd_plat71(struct cmdq_pkt *pkt);
+void imgsys_cmdq_clearevent_plat71(int event_id);
+
+#if DVFS_QOS_READY
+void mtk_imgsys_mmdvfs_init_plat71(struct mtk_imgsys_dev *imgsys_dev);
+void mtk_imgsys_mmdvfs_uninit_plat71(struct mtk_imgsys_dev *imgsys_dev);
+void mtk_imgsys_mmdvfs_set_plat71(struct mtk_imgsys_dev *imgsys_dev,
+				struct swfrm_info_t *frm_info,
+				bool isSet);
+void mtk_imgsys_mmqos_init_plat71(struct mtk_imgsys_dev *imgsys_dev);
+void mtk_imgsys_mmqos_uninit_plat71(struct mtk_imgsys_dev *imgsys_dev);
+void mtk_imgsys_mmqos_set_by_scen_plat71(struct mtk_imgsys_dev *imgsys_dev,
+				struct swfrm_info_t *frm_info,
+				bool isSet);
+void mtk_imgsys_mmqos_reset_plat71(struct mtk_imgsys_dev *imgsys_dev);
+void mtk_imgsys_mmdvfs_mmqos_cal_plat71(struct mtk_imgsys_dev *imgsys_dev,
+				struct swfrm_info_t *frm_info,
+				bool isSet);
+void mtk_imgsys_mmqos_bw_cal_plat71(struct mtk_imgsys_dev *imgsys_dev,
+				void *smi_port, uint32_t hw_comb,
+				uint32_t port_st, uint32_t port_num, uint32_t port_id);
+void mtk_imgsys_mmqos_ts_cal_plat71(struct mtk_imgsys_dev *imgsys_dev,
+				struct mtk_imgsys_cb_param *cb_param, uint32_t hw_comb);
+void mtk_imgsys_power_ctrl_plat71(struct mtk_imgsys_dev *imgsys_dev, bool isPowerOn);
+void mtk_imgsys_mmqos_monitor_plat71(struct mtk_imgsys_dev *imgsys_dev, u32 state);
+#endif
+
+bool imgsys_cmdq_ts_enable_plat71(void);
+u32 imgsys_wpe_bwlog_enable_plat71(void);
+bool imgsys_cmdq_ts_dbg_enable_plat71(void);
+bool imgsys_dvfs_dbg_enable_plat71(void);
+
+#endif /* _MTK_IMGSYS_CMDQ_PLAT_71_H_ */
 

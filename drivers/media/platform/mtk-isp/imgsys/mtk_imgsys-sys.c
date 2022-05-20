@@ -1681,7 +1681,7 @@ static void imgsys_cleartoken_handler(void *data, unsigned int len, void *priv)
 		dev_info(imgsys_dev->dev,
 			"%s:force clear swevent(%d).\n",
 			__func__, cleartoken_info->token[i]);
-		imgsys_cmdq_clearevent(cleartoken_info->token[i]);
+		imgsys_cmdq_clearevent(imgsys_dev, cleartoken_info->token[i]);
 	}
 }
 
@@ -2020,12 +2020,13 @@ static int mtk_imgsys_hw_connect(struct mtk_imgsys_dev *imgsys_dev)
 	kref_init(&imgsys_dev->init_kref);
 
 	pm_runtime_put_sync(imgsys_dev->dev);
-	if (!imgsys_quick_onoff_en)
+	if (!imgsys_quick_onoff_en) {
 		#if DVFS_QOS_READY
 		mtk_imgsys_power_ctrl(imgsys_dev, true);
 		#else
 		pm_runtime_get_sync(imgsys_dev->dev);
 		#endif
+	}
 
 #if MTK_CM4_SUPPORT
 	struct img_ipi_param ipi_param;
@@ -2169,12 +2170,13 @@ static void mtk_imgsys_hw_disconnect(struct mtk_imgsys_dev *imgsys_dev)
 
 	gce_work_pool_uninit(imgsys_dev);
 
-	if (!imgsys_quick_onoff_en)
+	if (!imgsys_quick_onoff_en) {
 		#if DVFS_QOS_READY
 		mtk_imgsys_power_ctrl(imgsys_dev, false);
 		#else
 		pm_runtime_put_sync(imgsys_dev->dev);
 		#endif
+	}
 	mtk_imgsys_mod_put(imgsys_dev);
 
 	user_cnt = atomic_read(&imgsys_dev->imgsys_user_cnt);

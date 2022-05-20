@@ -82,3 +82,11 @@ config VIDEO_MTK_ISP_IMGSYS_7S
 	    and/or statistics for better image qualities
 	    such as noise reduction, edge enhencement,
 	    and motion estimation, etc.
+
+config VIDEO_MTK_ISP_IMGSYS_CMDQ
+	tristate "Mediatek imgsys cmdq processing function"
+	help
+	    imgsys cmdq driver acts a message protocol between imgsys
+	    driver and gce driver. messages can include R/W registers,
+	    wait gce events, and notification that are needed for a
+	    working camera session.

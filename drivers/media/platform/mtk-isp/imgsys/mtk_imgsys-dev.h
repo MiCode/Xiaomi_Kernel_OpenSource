@@ -309,6 +309,8 @@ struct mtk_imgsys_dev {
 	struct platform_device *mdp_pdev;
 	/* for SCP driver  */
 	struct platform_device *scp_pdev;
+    /* for IMGSYS cmdq driver  */
+	struct platform_device *imgcmdq_pdev;
 	struct rproc *rproc_handle;
 	struct mtk_imgsys_hw_working_buf_list imgsys_freebufferlist;
 	struct mtk_imgsys_hw_working_buf_list imgsys_usedbufferlist;

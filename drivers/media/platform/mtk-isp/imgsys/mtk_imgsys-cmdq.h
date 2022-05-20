@@ -20,6 +20,8 @@
 #define DVFS_QOS_READY         (0)
 #endif
 
+#define CMDQ_REFACTOR          (1)
+
 #define MAX_FRAME_IN_TASK		64
 
 #ifdef GCE_SUPPORT_REPLACE_MODE
@@ -161,22 +163,24 @@ int imgsys_cmdq_sendtask(struct mtk_imgsys_dev *imgsys_dev,
 					uint32_t uinfo_idx, bool isLastTaskInReq),
 				void (*cmdq_err_cb)(struct cmdq_cb_data data,
 					uint32_t fail_uinfo_idx, bool isHWhang));
-int imgsys_cmdq_parser(struct swfrm_info_t *frm_info, struct cmdq_pkt *pkt,
+/*int imgsys_cmdq_parser(struct swfrm_info_t *frm_info, struct cmdq_pkt *pkt,
 				struct Command *cmd, u32 hw_comb,
 				dma_addr_t dma_pa, uint32_t *num, u32 thd_idx);
 int imgsys_cmdq_sec_sendtask(struct mtk_imgsys_dev *imgsys_dev);
 void imgsys_cmdq_sec_cmd(struct cmdq_pkt *pkt);
-void imgsys_cmdq_clearevent(int event_id);
+*/
+void imgsys_cmdq_clearevent(struct mtk_imgsys_dev *imgsys_dev, int event_id);
 
 #if DVFS_QOS_READY
 void mtk_imgsys_mmdvfs_init(struct mtk_imgsys_dev *imgsys_dev);
 void mtk_imgsys_mmdvfs_uninit(struct mtk_imgsys_dev *imgsys_dev);
-void mtk_imgsys_mmdvfs_set(struct mtk_imgsys_dev *imgsys_dev,
+/*void mtk_imgsys_mmdvfs_set(struct mtk_imgsys_dev *imgsys_dev,
 				struct swfrm_info_t *frm_info,
 				bool isSet);
+*/
 void mtk_imgsys_mmqos_init(struct mtk_imgsys_dev *imgsys_dev);
 void mtk_imgsys_mmqos_uninit(struct mtk_imgsys_dev *imgsys_dev);
-void mtk_imgsys_mmqos_set_by_scen(struct mtk_imgsys_dev *imgsys_dev,
+/*void mtk_imgsys_mmqos_set_by_scen(struct mtk_imgsys_dev *imgsys_dev,
 				struct swfrm_info_t *frm_info,
 				bool isSet);
 void mtk_imgsys_mmqos_reset(struct mtk_imgsys_dev *imgsys_dev);
@@ -188,9 +192,8 @@ void mtk_imgsys_mmqos_bw_cal(struct mtk_imgsys_dev *imgsys_dev,
 				uint32_t port_st, uint32_t port_num, uint32_t port_id);
 void mtk_imgsys_mmqos_ts_cal(struct mtk_imgsys_dev *imgsys_dev,
 				struct mtk_imgsys_cb_param *cb_param, uint32_t hw_comb);
+*/
 void mtk_imgsys_power_ctrl(struct mtk_imgsys_dev *imgsys_dev, bool isPowerOn);
-
-void mtk_imgsys_pwr(struct platform_device *pdev, bool on);
 
 void mtk_imgsys_mmqos_monitor(struct mtk_imgsys_dev *imgsys_dev, u32 state);
 #endif
@@ -199,5 +202,64 @@ bool imgsys_cmdq_ts_enable(void);
 u32 imgsys_wpe_bwlog_enable(void);
 bool imgsys_cmdq_ts_dbg_enable(void);
 bool imgsys_dvfs_dbg_enable(void);
+
+
+/* ##### */
+
+struct platform_device *mtk_imgsys_cmdq_get_plat_dev(struct platform_device *pdev);
+
+struct mtk_imgcmdq_dev {
+	struct device *dev;
+	const struct imgsys_cmdq_cust_data *cust_data;
+};
+
+
+struct imgsys_cmdq_cust_data {
+	void (*cmdq_init)(struct mtk_imgsys_dev *imgsys_dev, const int nr_imgsys_dev);
+	void (*cmdq_release)(struct mtk_imgsys_dev *imgsys_dev);
+	void (*cmdq_streamon)(struct mtk_imgsys_dev *imgsys_dev);
+	void (*cmdq_streamoff)(struct mtk_imgsys_dev *imgsys_dev);
+	int (*cmdq_sendtask)(struct mtk_imgsys_dev *imgsys_dev,
+			struct swfrm_info_t *frm_info,
+			void (*cmdq_cb)(struct cmdq_cb_data data,
+			uint32_t uinfo_idx, bool isLastTaskInReq),
+			void (*cmdq_err_cb)(struct cmdq_cb_data data,
+			uint32_t fail_uinfo_idx, bool isHWhang));
+	int (*cmdq_parser)(struct swfrm_info_t *frm_info, struct cmdq_pkt *pkt,
+			struct Command *cmd, u32 hw_comb,
+			dma_addr_t dma_pa, uint32_t *num, u32 thd_idx);
+	int (*cmdq_sec_sendtask)(struct mtk_imgsys_dev *imgsys_dev);
+	void (*cmdq_sec_cmd)(struct cmdq_pkt *pkt);
+	void (*cmdq_clearevent)(int event_id);
+
+#if DVFS_QOS_READY
+	void (*mmdvfs_init)(struct mtk_imgsys_dev *imgsys_dev);
+	void (*mmdvfs_uninit)(struct mtk_imgsys_dev *imgsys_dev);
+	void (*mmdvfs_set)(struct mtk_imgsys_dev *imgsys_dev,
+			struct swfrm_info_t *frm_info,
+			bool isSet);
+	void (*mmqos_init)(struct mtk_imgsys_dev *imgsys_dev);
+	void (*mmqos_uninit)(struct mtk_imgsys_dev *imgsys_dev);
+	void (*mmqos_set_by_scen)(struct mtk_imgsys_dev *imgsys_dev,
+			struct swfrm_info_t *frm_info,
+			bool isSet);
+	void (*mmqos_reset)(struct mtk_imgsys_dev *imgsys_dev);
+	void (*mmdvfs_mmqos_cal)(struct mtk_imgsys_dev *imgsys_dev,
+			struct swfrm_info_t *frm_info,
+			bool isSet);
+	void (*mmqos_bw_cal)(struct mtk_imgsys_dev *imgsys_dev,
+			void *smi_port, uint32_t hw_comb,
+			uint32_t port_st, uint32_t port_num, uint32_t port_id);
+	void (*mmqos_ts_cal)(struct mtk_imgsys_dev *imgsys_dev,
+			struct mtk_imgsys_cb_param *cb_param, uint32_t hw_comb);
+	void (*power_ctrl)(struct mtk_imgsys_dev *imgsys_dev, bool isPowerOn);
+	void (*mmqos_monitor)(struct mtk_imgsys_dev *imgsys_dev, u32 state);
+#endif
+
+	bool (*cmdq_ts_en)(void);
+	u32 (*wpe_bwlog_en)(void);
+	bool (*cmdq_ts_dbg_en)(void);
+	bool (*dvfs_dbg_en)(void);
+};
 
 #endif /* _MTK_IMGSYS_CMDQ_H_ */

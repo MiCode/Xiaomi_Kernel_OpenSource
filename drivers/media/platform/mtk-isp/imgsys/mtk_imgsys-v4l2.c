@@ -2742,6 +2742,13 @@ int mtk_imgsys_probe(struct platform_device *pdev)
 			__func__);
 		return -EINVAL;
 	}
+	imgsys_dev->imgcmdq_pdev = mtk_imgsys_cmdq_get_plat_dev(pdev);
+	if (!imgsys_dev->imgcmdq_pdev) {
+		dev_info(imgsys_dev->dev,
+			"%s: failed to get imgsys cmdq device\n",
+			__func__);
+		return -EINVAL;
+	}
 #endif
 
 	larbs_num = of_count_phandle_with_args(pdev->dev.of_node,
