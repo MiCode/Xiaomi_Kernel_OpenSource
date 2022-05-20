@@ -2754,6 +2754,10 @@ int mtk_imgsys_probe(struct platform_device *pdev)
 	larbs_num = of_count_phandle_with_args(pdev->dev.of_node,
 						"mediatek,larbs", NULL);
 	dev_info(imgsys_dev->dev, "%d larbs to be added", larbs_num);
+	if (larbs_num < 0) {
+		larbs_num = 0;
+		goto bypass_larbs;
+	}
 
 	larb_devs = devm_kzalloc(&pdev->dev, sizeof(larb_devs) * larbs_num, GFP_KERNEL);
 	if (!larb_devs)
@@ -2787,6 +2791,8 @@ int mtk_imgsys_probe(struct platform_device *pdev)
 		larb_devs[i] = &larb_pdev->dev;
 	}
 	imgsys_dev->larbs = larb_devs;
+bypass_larbs:
+
 	imgsys_dev->larbs_num = larbs_num;
 
 	atomic_set(&imgsys_dev->imgsys_enqueue_cnt, 0);
