@@ -10587,6 +10587,17 @@
 	connv3: connv3 {
 		compatible = "mediatek,mt6983-connv3";
 		status = "disabled";
+
+		pinctrl-names = "connsys_pin_pmic_en_default",
+				"connsys_pin_pmic_en_set",
+				"connsys_pin_pmic_en_clr",
+				"connsys_pin_pmic_faultb_default";
+		pinctrl-0 = <&connsys_pin_pmic_en_default>;
+		pinctrl-1 = <&connsys_pin_pmic_en_set>;
+		pinctrl-2 = <&connsys_pin_pmic_en_clr>;
+		pinctrl-3 = <&connsys_pin_pmic_faultb_default>;
+
+		interrupts = <GIC_SPI 228 IRQ_TYPE_EDGE_FALLING 0>;
 	};
 
 	consys: consys@18000000 {
@@ -14979,6 +14990,32 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 			pinmux = <PINMUX_GPIO24__FUNC_I2S3_DO>;
 			input-schmitt-enable;
 			bias-disable;
+		};
+	};
+
+	connsys_pin_pmic_en_default: connsys_pin_pmic_en_default {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO223__FUNC_GPIO223>;
+			output-low;
+		};
+	};
+	connsys_pin_pmic_en_set: connsys_pin_pmic_en_set {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO223__FUNC_GPIO223>;
+			output-high;
+		};
+	};
+	connsys_pin_pmic_en_clr: connsys_pin_pmic_en_clr {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO223__FUNC_GPIO223>;
+			output-low;
+		};
+	};
+	connsys_pin_pmic_faultb_default: connsys_pin_pmic_faultb_default {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO228__FUNC_GPIO228>;
+			input-enable;
+			bias-pull-high;
 		};
 	};
 };
