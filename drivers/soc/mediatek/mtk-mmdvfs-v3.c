@@ -251,7 +251,7 @@ int mmdvfs_set_force_step(const char *val, const struct kernel_param *kp)
 	u16 idx = 0, opp = 0;
 	int ret;
 
-	ret = sscanf(val, "%d %d", &idx, &opp);
+	ret = sscanf(val, "%hu %hu", &idx, &opp);
 	if (ret != 2 || idx >= POWER_NUM || opp >= MAX_OPP) {
 		MMDVFS_ERR("failed:%d idx:%hu opp:%hu", ret, idx, opp);
 		return ret;
@@ -278,7 +278,7 @@ int mmdvfs_set_vote_step(const char *val, const struct kernel_param *kp)
 	u32 freq = 0;
 	int ret, i;
 
-	ret = sscanf(val, "%d %d", &idx, &opp);
+	ret = sscanf(val, "%hu %hu", &idx, &opp);
 	if (ret != 2 || idx >= POWER_NUM || opp >= MAX_OPP) {
 		MMDVFS_ERR("failed:%d idx:%hu opp:%hu", ret, idx, opp);
 		return ret;
