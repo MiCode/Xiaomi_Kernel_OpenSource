@@ -896,6 +896,7 @@ static irqreturn_t mtk_irq_raw(int irq, void *data)
 	//		dmao_done_status, dmai_done_status, drop_status,
 	//		dma_ofl_status, cq_done_status, cq2_done_status,
 	//		frame_idx_inner);
+	/* translate fh reserved data to ctx id and seq no */
 
 #ifdef TO_REMOVE
 	if (unlikely(!raw_dev->pipeline || !raw_dev->pipeline->enabled_raw)) {
@@ -956,7 +957,7 @@ static irqreturn_t mtk_irq_raw(int irq, void *data)
 	    && raw_dev->cur_vsync_idx >= 0) {
 		if (is_sub_sample_sensor_timing(raw_dev)) {
 			raw_dev->cur_vsync_idx = -1;
-			irq_info.irq_type |= 1 << CAMSYS_IRQ_SUBSAMPLE_SENSOR_SET;
+			irq_info.irq_type |= 1 << CAMSYS_IRQ_TRY_SENSOR_SET;
 		}
 		++raw_dev->cur_vsync_idx;
 	}

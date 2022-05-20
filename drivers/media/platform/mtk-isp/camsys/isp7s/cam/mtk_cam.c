@@ -628,9 +628,8 @@ int mtk_cam_dev_req_enqueue(struct mtk_cam_device *cam,
 			return -1;
 		}
 
-		pr_info("%s %d TODO\n", __func__, __LINE__);
-		// enque to ctrl
-		// ctrl->enque(job);
+		// enque to ctrl ; job will send ipi
+		mtk_cam_ctrl_job_enque(&ctx->cam_ctrl, job);
 	}
 
 	return 0;
@@ -1315,6 +1314,7 @@ struct mtk_cam_ctx *mtk_cam_start_ctx(struct mtk_cam_device *cam,
 		goto fail_unprepare_session;
 
 	mtk_cam_update_pipe_used(ctx, &cam->pipelines);
+	mtk_cam_ctrl_start(&ctx->cam_ctrl, ctx);
 
 	WARN_ON(mtk_cam_mark_streaming(cam, ctx->stream_id));
 
@@ -1348,6 +1348,7 @@ void mtk_cam_stop_ctx(struct mtk_cam_ctx *ctx, struct media_entity *entity)
 
 	WARN_ON(mtk_cam_unmark_streaming(cam, ctx->stream_id));
 
+	mtk_cam_ctrl_stop(&ctx->cam_ctrl);
 	mtk_cam_ctx_unprepare_session(ctx);
 	mtk_cam_ctx_destroy_pool(ctx);
 	mtk_cam_ctx_destroy_workers(ctx);

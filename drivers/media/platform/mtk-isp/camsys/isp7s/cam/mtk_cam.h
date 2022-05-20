@@ -16,6 +16,7 @@
 
 #include "imgsensor-user.h"
 
+#include "mtk_cam-ctrl.h"
 #include "mtk_cam-hsf-def.h"
 #include "mtk_cam-ipi_7_1.h"
 #include "mtk_cam-job.h"
@@ -40,6 +41,7 @@ struct mtk_mraw_pipeline;
 
 struct mtk_cam_device;
 struct mtk_rpmsg_device;
+
 
 #define JOB_NUM_PER_STREAM 5
 #define MAX_PIPES_PER_STREAM 5
@@ -98,7 +100,7 @@ struct mtk_cam_ctx {
 	//struct mtk_raw_pipeline *pipe;
 	//struct mtk_camsv_pipeline *sv_pipe[MAX_SV_PIPES_PER_STREAM];
 	//struct mtk_mraw_pipeline *mraw_pipe[MAX_MRAW_PIPES_PER_STREAM];
-
+	struct mtk_cam_ctrl cam_ctrl;
 	/* list for struct mtk_cam_job */
 	struct list_head	running_jobs;
 };
