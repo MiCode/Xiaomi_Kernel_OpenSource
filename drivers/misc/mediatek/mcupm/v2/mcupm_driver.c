@@ -23,6 +23,13 @@ bool has_reserved_memory;
 bool skip_logger;
 #endif
 
+#if IS_ENABLED(CONFIG_MTK_CPUQOS_V3)
+#define	CPUQOS_IPI	1
+#if CPUQOS_IPI
+static int cpuqos_ipi_cb(unsigned int, void *, void *, unsigned int);
+#endif
+#endif
+
 /* Todo implement mcupm driver pdata*/
 struct platform_device *mcupm_pdev;
 spinlock_t mcupm_mbox_lock[MCUPM_MBOX_TOTAL];
@@ -77,8 +84,13 @@ static int mtk_ipi_init(struct platform_device *pdev)
 	}
 
     /* Initialize mcupm ipi driver. Move to struct mtk_mcupm */
+#if CPUQOS_IPI
+	ret = mtk_ipi_register(&mcupm_ipidev, CH_S_PLATFORM, cpuqos_ipi_cb, NULL,
+			       (void *) &mcupm_plt_ackdata);
+#else
 	ret = mtk_ipi_register(&mcupm_ipidev, CH_S_PLATFORM, NULL, NULL,
 			       (void *) &mcupm_plt_ackdata);
+#endif
 	if (ret) {
 		pr_debug("[MCUPM] ipi_register fail, ret %d\n", ret);
 		return ret;
@@ -395,7 +407,7 @@ void *get_mcupm_ipidev(void)
 }
 EXPORT_SYMBOL_GPL(get_mcupm_ipidev);
 
-static struct task_struct *mcupm_task;
+#if CPUQOS_IPI
 #define UBUS_BASE   0x0C800000
 #define CLUSTER_MPAM_BASE   0X10000
 #define MPAMCFG_PART_SEL_OFS    0x100
@@ -405,11 +417,42 @@ static struct task_struct *mcupm_task;
 #define UBUS_MPAM_SIZE  0x1100
 static void __iomem *mpam_base;
 
-int mcupm_thread(void *data)
+static int cpuqos_ipi_cb(unsigned int ipi_id,
+		void *prdata, void *data, unsigned int len)
 {
-	int ipi_recv_d = 0, ret = 0, i;
-	struct mcupm_ipi_data_s ipi_data;
 	unsigned int cmd, partid, cache_por;
+	int ipi_recv_d = 0, ret = 0, i;
+
+	if (ipi_id != CH_S_PLATFORM)
+		return 0;
+
+	if (!mpam_base)
+		return 0;
+
+	ipi_recv_d = *((int *)data);
+
+	cmd = (ipi_recv_d >> 28) & 0xF;
+	partid = (ipi_recv_d >> 16) & 0xFFF;
+	cache_por = ipi_recv_d & 0xFFFF;
+
+	if (cmd != 0)
+		return 0;
+
+	//part sel
+	iowrite32(partid, (void __iomem *)(mpam_base+MPAMCFG_PART_SEL_OFS));
+	//set cpbm
+	ret = 0;
+	for (i = 0; i < cache_por; i++)
+		ret = (ret << 1) + 1;
+	iowrite32(ret, (void __iomem *)(mpam_base+MPAMCFG_CPBM_NS_OFS));
+
+	return 0;
+}
+
+int mcupm_plat_init(void)
+{
+	int ret = 0;
+	struct mcupm_ipi_data_s ipi_data;
 
 	ipi_data.cmd = MCUPM_PLT_SERV_READY;
 	mcupm_plt_ackdata = 0;
@@ -435,27 +478,9 @@ int mcupm_thread(void *data)
 	if (!mpam_base)
 		return -ENOMEM;
 
-	do {
-		mtk_ipi_recv(&mcupm_ipidev, CH_S_PLATFORM);
-		ipi_recv_d = mcupm_plt_ackdata;
-
-		cmd = (ipi_recv_d >> 28) & 0xF;
-		partid = (ipi_recv_d >> 16) & 0xFFF;
-		cache_por = ipi_recv_d & 0xFFFF;
-
-		if (cmd != 0)
-			continue;
-		//part sel
-		iowrite32(partid, (void __iomem *)(mpam_base+MPAMCFG_PART_SEL_OFS));
-		//set cpbm
-		ret = 0;
-		for (i = 0; i < cache_por; i++)
-			ret = (ret << 1) + 1;
-		iowrite32(ret, (void __iomem *)(mpam_base+MPAMCFG_CPBM_NS_OFS));
-	} while (!kthread_should_stop());
-
 	return 0;
 }
+#endif
 
 static int mcupm_device_probe(struct platform_device *pdev)
 {
@@ -508,7 +533,9 @@ static int mcupm_device_probe(struct platform_device *pdev)
 		pr_info("MCUPM timesync init fail\n");
 		return ret;
 	}
-	mcupm_task = kthread_run(mcupm_thread, NULL, "mcupm_task");
+#if CPUQOS_IPI
+	mcupm_plat_init();
+#endif
 
 	return 0;
 }
