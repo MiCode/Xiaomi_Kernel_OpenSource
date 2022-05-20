@@ -124,35 +124,87 @@ static int vtskin_probe(struct platform_device *pdev)
 }
 
 enum mt6983_vtskin_sensor_enum {
-	MT6983_BACK_VTSKIN,
-	MT6983_FRONT_VTSKIN,
+	MT6983_VTSKIN_1,
+	MT6983_VTSKIN_2,
+	MT6983_VTSKIN_3,
+	MT6983_VTSKIN_4,
+	MT6983_VTSKIN_5,
+	MT6983_VTSKIN_6,
 	MT6983_NUM_VTSKIN,
 };
 
 struct vtskin_tz_param mt6983_vtskin_params[] = {
-	[MT6983_BACK_VTSKIN] = {
+	[MT6983_VTSKIN_1] = {
 		.ref_num = 8,
 		.vtskin_ref = {
-			{          "soc_top",     7025154},
-			{           "ap_ntc",    37119632},
-			{         "nrpa_ntc",   151820993},
-			{ "pmic6363_bk3_bk7",    14432832},
-			{ "pmic6373_bk3_bk7",   -50115396},
-			{      "pmic6338_ts",   -28439482},
-			{           "consys",    -5678249},
-			{          "battery",   -43545666}},
+			{          "soc_top",    2313635},
+			{           "ap_ntc",  -17278441},
+			{         "nrpa_ntc",  168147662},
+			{ "pmic6363_bk3_bk7",     564886},
+			{ "pmic6373_bk3_bk7",    -490919},
+			{      "pmic6338_ts",  -40986186},
+			{           "consys",    3412150},
+			{          "battery",  -22576691}},
 	},
-	[MT6983_FRONT_VTSKIN] = {
+	[MT6983_VTSKIN_2] = {
 		.ref_num = 8,
 		.vtskin_ref = {
-			{	   "soc_top",    21039971},
-			{	    "ap_ntc",   -17108825},
-			{	  "nrpa_ntc",   192868475},
-			{ "pmic6363_bk3_bk7",    -5402859},
-			{ "pmic6373_bk3_bk7",   -48071710},
-			{      "pmic6338_ts",   -47777387},
-			{           "consys",    -4666669},
-			{          "battery",    -6006729}},
+			{          "soc_top",    3255065},
+			{           "ap_ntc",  -62150677},
+			{         "nrpa_ntc",  149976078},
+			{ "pmic6363_bk3_bk7",   22876394},
+			{ "pmic6373_bk3_bk7",   -2064824},
+			{      "pmic6338_ts",   27027423},
+			{           "consys",  -15933089},
+			{          "battery",  -34217383}},
+	},
+	[MT6983_VTSKIN_3] = {
+		.ref_num = 8,
+		.vtskin_ref = {
+			{          "soc_top",     574011},
+			{           "ap_ntc",  -46643505},
+			{         "nrpa_ntc",  167793585},
+			{ "pmic6363_bk3_bk7",   14117694},
+			{ "pmic6373_bk3_bk7",    -825852},
+			{      "pmic6338_ts",  -20259317},
+			{           "consys",    2173021},
+			{          "battery",  -22997333}},
+	},
+	[MT6983_VTSKIN_4] = {
+		.ref_num = 8,
+		.vtskin_ref = {
+			{          "soc_top",    1025071},
+			{           "ap_ntc",  -46468989},
+			{         "nrpa_ntc",  163038976},
+			{ "pmic6363_bk3_bk7",   13007917},
+			{ "pmic6373_bk3_bk7",    -575286},
+			{      "pmic6338_ts",  -14243451},
+			{           "consys",     149975},
+			{          "battery",  -21612202}},
+	},
+	[MT6983_VTSKIN_5] = {
+		.ref_num = 0,
+		.vtskin_ref = {
+			{          "soc_top",    2272107},
+			{           "ap_ntc",  -12028723},
+			{         "nrpa_ntc",  167869082},
+			{ "pmic6363_bk3_bk7",   -1604055},
+			{ "pmic6373_bk3_bk7",    -339789},
+			{      "pmic6338_ts",  -46784687},
+			{           "consys",    5544910},
+			{          "battery",  -21683366}},
+	},
+	[MT6983_VTSKIN_6] = {
+		.ref_num = 0,
+		.vtskin_ref = {
+			{          "soc_top",    1192347},
+			{           "ap_ntc",  -26876988},
+			{         "nrpa_ntc",  151476705},
+			{ "pmic6363_bk3_bk7",    9613622},
+			{ "pmic6373_bk3_bk7",    -910593},
+			{      "pmic6338_ts",  -26222648},
+			{           "consys",    2997056},
+			{          "battery",  -19949450}},
 	}
 };
 
