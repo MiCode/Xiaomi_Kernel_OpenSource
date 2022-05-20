@@ -545,6 +545,7 @@ enum mtk_ddp_io_cmd {
 	OVL_GET_SOURCE_BPC,
 	DSI_GET_CMD_MODE_LINE_TIME,
 	DSI_DUMP_LCM_INFO,
+	DSI_SET_TARGET_LINE,
 };
 
 struct golden_setting_context {

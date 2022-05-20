@@ -263,6 +263,10 @@
 #define DSI_SCRAMBLE_CON 0x1D8
 #define DATA_SCRAMBLE_EN BIT(31)
 
+#define DSI_TARGET_NL 0x300
+#define TARGET_NL REG_FLD_MSB_LSB(14, 0)
+#define TARGET_NL_EN BIT(16)
+
 #define DSI_BUF_CON0 0x400
 #define BUF_BUF_EN BIT(0)
 #define DSI_BUF_CON1 0x404
@@ -460,6 +464,8 @@ enum DSI_MODE_CON {
 
 struct mtk_panel_ext *mtk_dsi_get_panel_ext(struct mtk_ddp_comp *comp);
 static s32 mtk_dsi_poll_for_idle(struct mtk_dsi *dsi, struct cmdq_pkt *handle);
+static void mtk_dsi_set_targetline(struct mtk_ddp_comp *comp,
+				struct cmdq_pkt *handle, unsigned int hacive);
 
 static inline struct mtk_dsi *encoder_to_dsi(struct drm_encoder *e)
 {
@@ -3299,6 +3305,13 @@ int mtk_dsi_dump(struct mtk_ddp_comp *comp)
 			readl(dsi->regs + k + 0x8),
 			readl(dsi->regs + k + 0xc));
 	}
+
+	DDPDUMP("0x%04x: 0x%08x 0x%08x 0x%08x 0x%08x\n", 0x300,
+		readl(dsi->regs + 0x300),
+		readl(dsi->regs + 0x300 + 0x4),
+		readl(dsi->regs + 0x300 + 0x8),
+		readl(dsi->regs + 0x300 + 0xc));
+
 	for (k = 0x400; k < 0x440; k += 16) {
 		DDPDUMP("0x%04x: 0x%08x 0x%08x 0x%08x 0x%08x\n", k,
 			readl(dsi->regs + k),
@@ -3571,6 +3584,12 @@ int mtk_dsi_analysis(struct mtk_ddp_comp *comp)
 		REG_FLD_VAL_GET(LFR_CON_FLD_REG_LFR_SKIP_NUM, reg_val));
 
 	return 0;
+}
+
+static void mtk_dsi_ddp_config(struct mtk_ddp_comp *comp,
+	struct mtk_ddp_config *cfg, struct cmdq_pkt *handle)
+{
+	mtk_dsi_set_targetline(comp, handle, (unsigned int)cfg->h);
 }
 
 static void mtk_dsi_ddp_prepare(struct mtk_ddp_comp *comp)
@@ -7108,6 +7127,23 @@ static void dual_te_init(struct drm_crtc *crtc)
 	d_te->en = true;
 }
 
+static void mtk_dsi_set_targetline(struct mtk_ddp_comp *comp,
+				struct cmdq_pkt *handle, unsigned int hacive)
+{
+	u32 val = 0;
+
+	val = (hacive * 9) / 10;
+	val |= TARGET_NL_EN;
+
+	DDPINFO("%s -> %u\n", __func__, val);
+
+	if (handle) {
+		mtk_ddp_write(comp, val, DSI_TARGET_NL, handle);
+	} else {
+		writel(val, comp->regs + DSI_TARGET_NL);
+	}
+}
+
 static unsigned int mtk_dsi_get_cmd_mode_line_time(struct drm_crtc *crtc)
 {
 	struct mtk_dsi *dsi = NULL;
@@ -7916,6 +7952,17 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		mtk_dsi_dump_lcm(comp);
 	}
 		break;
+	case DSI_SET_TARGET_LINE:
+	{
+		struct mtk_ddp_config *cfg;
+
+		cfg = (struct mtk_ddp_config *)params;
+
+		DDPDBG("[DSI_SET_TARGET_LINE] %s:%d\n", __func__, cfg->h);
+
+		mtk_dsi_set_targetline(comp, handle, (unsigned int)cfg->h);
+	}
+	break;
 	default:
 		break;
 	}
@@ -7924,6 +7971,7 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 }
 
 static const struct mtk_ddp_comp_funcs mtk_dsi_funcs = {
+	.config = mtk_dsi_ddp_config,
 	.prepare = mtk_dsi_ddp_prepare,
 	.unprepare = mtk_dsi_ddp_unprepare,
 	.config_trigger = mtk_dsi_config_trigger,
