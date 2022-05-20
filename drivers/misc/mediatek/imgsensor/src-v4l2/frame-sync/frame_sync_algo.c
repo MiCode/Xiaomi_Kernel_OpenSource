@@ -827,6 +827,50 @@ void fs_alg_setup_frame_monitor_fmeas_data(unsigned int idx)
 /******************************************************************************/
 // Dump & Debug function
 /******************************************************************************/
+void fs_alg_get_cur_frec_data(unsigned int idx,
+	unsigned int *p_fl_lc, unsigned int *p_shut_lc)
+{
+	if (p_fl_lc != NULL)
+		*p_fl_lc = *fs_inst[idx].recs[0].framelength_lc;
+
+	if (p_shut_lc != NULL)
+		*p_shut_lc = *fs_inst[idx].recs[0].shutter_lc;
+}
+
+
+void fs_alg_get_fs_inst_ts_data(unsigned int idx,
+	unsigned int *p_tg, unsigned int ts_arr[],
+	unsigned int *p_last_vts, unsigned int *p_time_after_sof,
+	unsigned int *p_cur_tick, unsigned int *p_vsyncs)
+{
+	unsigned int i = 0;
+
+	if (p_tg != NULL)
+		*p_tg = fs_inst[idx].tg;
+
+	if (p_last_vts != NULL)
+		*p_last_vts = fs_inst[idx].last_vts;
+
+	if (p_time_after_sof != NULL) {
+		*p_time_after_sof =
+			calc_time_after_sof(
+				fs_inst[idx].last_vts,
+				fs_inst[idx].cur_tick, tick_factor);
+	}
+
+	if (p_cur_tick != NULL)
+		*p_cur_tick = fs_inst[idx].cur_tick;
+
+	if (p_vsyncs != NULL)
+		*p_vsyncs = fs_inst[idx].vsyncs;
+
+	if (ts_arr != NULL) {
+		for (i = 0; i < VSYNCS_MAX; ++i)
+			ts_arr[i] = fs_inst[idx].timestamps[i];
+	}
+}
+
+
 static inline void fs_alg_dump_streaming_data(unsigned int idx)
 {
 	LOG_MUST(
@@ -2477,8 +2521,8 @@ void fs_alg_set_frame_record_st_data(
 	//	fs_inst[idx].predicted_fl_lc[1]);
 
 
-#ifndef REDUCE_FS_ALGO_LOG
-	LOG_INF(
+#if defined(TRACE_FS_FREC_LOG)
+	LOG_MUST(
 		"[%u] ID:%#x(sidx:%u), tg:%u, frecs: (0:%u/%u), (1:%u/%u), (2:%u/%u), (3:%u/%u) (fl_lc/shut_lc), pred_fl(curr:%u(%u), next:%u(%u))(%u), margin_lc:%u, fdelay:%u\n",
 		idx,
 		fs_inst[idx].sensor_id,

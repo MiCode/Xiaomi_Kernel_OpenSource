@@ -11,6 +11,49 @@
 
 #define PFX "CustomHwSync"
 
+#undef EN_CUSTOM_DBG_LOG
+
+
+/* flicker table */
+#define CUSTOM_FLK_TABLE_SIZE 8
+static unsigned int custom_fs_flicker_table[CUSTOM_FLK_TABLE_SIZE][2] = {
+	/* 14.6 ~ 15.3 */
+	{68493, 65359},
+
+	/* 24.6 ~ 25.3 */
+	{40650, 39525},
+
+	/* 29.6 ~ 30.5 */
+	{33783, 32786},
+
+	/* 59.2 ~ 60.7 */
+	{16891, 16474},
+
+	/* END */
+	{0, 0}
+};
+
+static unsigned int get_anti_flicker_fl(unsigned int framelength)
+{
+	unsigned int i = 0;
+
+
+	for (i = 0; i < CUSTOM_FLK_TABLE_SIZE; ++i) {
+		if (custom_fs_flicker_table[i][0] == 0)
+			break;
+
+		if ((custom_fs_flicker_table[i][0] > framelength) &&
+			(framelength >= custom_fs_flicker_table[i][1])) {
+
+			framelength = custom_fs_flicker_table[i][0];
+			break;
+		}
+	}
+
+
+	return framelength;
+}
+
 /*
  * Sample code for normal single exposure sensor
  * Set all sensor's frame time to the max frame time of sensors
@@ -36,19 +79,25 @@ int custom_frame_time_calculator(
 	for (i = 0; i < len; ++i) {
 		para = &sensor_paras[i];
 
-		LOG_INF(
-			"sensor idx(%u), type(%u), sync_mode(%u), line_time_ns(%u), shutter_lc(%u), min_fl_lc(%u), margin_lc(%u)\n",
+#ifdef EN_CUSTOM_DBG_LOG
+		LOG_MUST(
+			"sensor_idx(%u), #%u, sensor_type(%u), hw_sync:%u(N:0/M:1/S:2), line_time_ns(%u), shutter_lc(%u), min_fl_lc(%u), margin_lc(%u)\n",
 			para->sensor_idx,
+			para->magic_num,
 			para->sensor_type,
 			para->sync_mode,
 			para->line_time_in_ns,
 			para->shutter_lc,
 			para->min_fl_lc,
 			para->sensor_margin_lc);
+#endif // EN_CUSTOM_DBG_LOG
 
 		min_fl = max((para->shutter_lc + para->sensor_margin_lc),
 			     para->min_fl_lc);
 		tmp = convert2TotalTime(para->line_time_in_ns, min_fl);
+
+		if (para->flicker_en)
+			tmp = get_anti_flicker_fl(tmp);
 
 		if (tmp > max_frame_time)
 			max_frame_time = tmp;
@@ -64,8 +113,17 @@ int custom_frame_time_calculator(
 		if (para->sync_mode == SENSOR_SYNC_MASTER)
 			++(para->out_fl_lc);
 
-		LOG_INF("sensor_idx(%u), out_fl_lc = %u\n",
-			para->sensor_idx, para->out_fl_lc);
+#ifdef EN_CUSTOM_DBG_LOG
+		LOG_MUST("sensor_idx(%u), #%u, out_fl:%u(%u), hw_sync:%u(N:0/M:1/S:2)\n",
+			para->sensor_idx,
+			para->magic_num,
+			convert2TotalTime(
+				para->line_time_in_ns,
+				para->out_fl_lc),
+			para->out_fl_lc,
+			para->sync_mode);
+#endif // EN_CUSTOM_DBG_LOG
+
 	}
 
 	return 0;

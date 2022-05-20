@@ -30,6 +30,14 @@ unsigned int fs_alg_write_shutter(unsigned int idx);
 
 
 /* Dump & Debug function */
+void fs_alg_get_cur_frec_data(unsigned int idx,
+	unsigned int *p_fl_lc, unsigned int *p_shut_lc);
+
+void fs_alg_get_fs_inst_ts_data(unsigned int idx,
+	unsigned int *p_tg, unsigned int ts_arr[],
+	unsigned int *p_last_vts, unsigned int *p_time_after_sof,
+	unsigned int *p_cur_tick, unsigned int *p_vsyncs);
+
 void fs_alg_dump_fs_inst_data(unsigned int idx);
 void fs_alg_dump_all_fs_inst_data(void);
 

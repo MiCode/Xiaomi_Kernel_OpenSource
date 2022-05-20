@@ -23,11 +23,15 @@ struct SyncSensorPara {
 	unsigned int sensor_idx;      // main1 -> 0; sub1 -> 1;
 	enum SENSOR_FL_EFFECT_TYPE sensor_type;
 	enum SENSOR_SYNC_MODE sync_mode;
+	unsigned int sync_group_id;
 	unsigned int line_time_in_ns; // ~= 10^9 * (linelength/pclk)
 	unsigned int shutter_lc;
 	unsigned int min_fl_lc;
 	unsigned int sensor_margin_lc;
+	unsigned int flicker_en;
 	unsigned int out_fl_lc;
+
+	unsigned int magic_num;       // for debug using
 };
 
 int custom_frame_time_calculator(

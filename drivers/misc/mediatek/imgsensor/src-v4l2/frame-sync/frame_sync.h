@@ -34,6 +34,23 @@ enum FS_STATUS {
 
 
 /*******************************************************************************
+ * For HW sensor sync. --- MAX value sync to SENSOR_MAX_NUM
+ ******************************************************************************/
+enum FS_HW_SYNC_GROUP_ID {
+	FS_HW_SYNC_GROUP_ID_MIN = 0,
+
+	FS_HW_SYNC_GROUP_ID_0 = FS_HW_SYNC_GROUP_ID_MIN,
+	FS_HW_SYNC_GROUP_ID_1,
+	FS_HW_SYNC_GROUP_ID_2,
+	FS_HW_SYNC_GROUP_ID_3,
+	FS_HW_SYNC_GROUP_ID_4,
+	FS_HW_SYNC_GROUP_ID_5,
+
+	FS_HW_SYNC_GROUP_ID_MAX
+};
+
+
+/*******************************************************************************
  * The Method for FrameSync sync type.
  ******************************************************************************/
 enum FS_SYNC_TYPE {
@@ -133,7 +150,10 @@ struct fs_streaming_st {
 	unsigned int def_fl_lc;          // default framelength_lc
 	unsigned int max_fl_lc;          // for framelength boundary check
 	unsigned int def_shutter_lc;     // default shutter_lc
+
+	/* for HW sensor sync */
 	unsigned int sync_mode;          // sync operate mode. none/master/slave
+	unsigned int hw_sync_group_id;   // hw sync group ID
 
 	struct fs_hdr_exp_st hdr_exp;    // hdr exposure settings
 
@@ -266,6 +286,8 @@ struct FrameSync {
 	/* return: (0 / 1) => (disable / enable) */
 	/**********************************************************************/
 	unsigned int (*fs_is_set_sync)(unsigned int sensor_id);
+
+	unsigned int (*fs_is_hw_sync)(unsigned int ident);
 };
 
 

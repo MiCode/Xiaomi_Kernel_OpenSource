@@ -34,7 +34,8 @@ struct vsync_time {
 
 /* for per Rproc IPC send */
 /* TODO : add a general param for array size, and sync this for fs, algo, fm */
-#define TG_MAX_NUM (CCU_CAM_TG_MAX - CCU_CAM_TG_MIN)
+// #define TG_MAX_NUM (CCU_CAM_TG_MAX - CCU_CAM_TG_MIN)
+#define TG_MAX_NUM (6)
 struct vsync_rec {
 	unsigned int ids;
 	unsigned int cur_tick;

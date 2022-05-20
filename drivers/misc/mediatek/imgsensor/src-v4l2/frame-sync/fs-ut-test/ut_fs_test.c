@@ -1366,7 +1366,9 @@ static void ut_set_fs_streaming(void)
 		/* prevent choose same sensor with different tg */
 		/* fs aglo, fs monitor will be error */
 		/* because "fs_streaming_st" memory address is the same */
-		streaming_sensors[i].tg = tg;
+		/* for UT frm set timestamp data, sync process to convert TG */
+		streaming_sensors[i].tg =
+			frm_convert_cammux_tg_to_ccu_tg(tg);
 
 
 
@@ -1386,6 +1388,24 @@ static void ut_set_fs_streaming(void)
 					ut_fs_pf_s_mode_list[j].mode_list;
 			}
 		}
+
+
+		/* set sensor sync mode (SW:NONE / HW Master / HW Slave) */
+		printf(LIGHT_PURPLE
+			">>> (Input 1 integer) \"set HW sync mode(NONE:0/HW:Master:1/HW:Slave:2)\" : "
+			NONE);
+		scanf("%d", &input);
+		streaming_sensors[i].sensor->sync_mode = input;
+
+
+		/* set sensor sync group ID */
+		printf(LIGHT_PURPLE
+			">>> (Input 1 integer) \"set HW sync group ID (MIN:%d/MAX:%d)\" : "
+			NONE,
+			FS_HW_SYNC_GROUP_ID_MIN,
+			FS_HW_SYNC_GROUP_ID_MAX);
+		scanf("%d", &input);
+		streaming_sensors[i].sensor->hw_sync_group_id = input;
 
 
 		/* set whether streaming on or not */
@@ -2155,6 +2175,7 @@ RUN_PF_CTRL_AUTO_NORMAL:
 
 		/* 3. end => end this request ID settings */
 		frameSync->fs_sync_frame(0);
+		frameSync->fs_sync_frame(0);
 
 
 		/* 4. generate vsync data */
@@ -2259,13 +2280,20 @@ static void ut_trigger_pf_ctrl_auto_run(void)
 
 static void ut_trigger_pf_ctrl(void)
 {
+	unsigned int input = 0;
+
 	printf(LIGHT_CYAN
 		"\n\n\n>>> UT Trigger FrameSync PF CTRL <<<\n\n\n"
 		NONE);
 
 
-	/* N:1 mode cfg */
-	ut_setup_n_1_cfg(n_1_cfg_2_1_60_main_0);
+	/* set N:1 mode cfg */
+	printf(LIGHT_PURPLE
+		">>> (Input 1 integers) N:1 mode : turn ON(1)/OFF(0) : "
+		NONE);
+	scanf("%u", &input);
+	if (input)
+		ut_setup_n_1_cfg(n_1_cfg_2_1_60_main_0);
 
 
 	/* per-frame ctrl with auto run / manually set */
@@ -2586,6 +2614,55 @@ static void exe_fs_alg_stability_test(void)
 }
 
 
+static void test_hw_sensor_sync_proc(void)
+{
+	unsigned int ret = 0;
+
+
+	/* frame sync drv init, get it's address */
+	ret = FrameSyncInit(&frameSync);
+	printf(GREEN
+		"\n\n\n>>> Test FrameSync HW Sensor Sync Process! <<<\n"
+		NONE);
+	printf(GREEN ">>> frameSync addr = %p\n\n\n" NONE, frameSync);
+	if (ret != 0) {
+		printf(RED ">>> frameSync Init failed !\n" NONE);
+		return;
+	}
+
+
+	/* 0. reset ut test variable before using */
+	reset_ut_test_variables();
+
+
+	/* 1. fs_streaming() */
+	ut_set_fs_streaming();
+
+
+	/* 2. fs_set_sync() */
+	ut_set_fs_set_sync();
+
+
+	/* 3. set initial vsync diff manually */
+	printf(GREEN
+		">>> Before running PF CTRL test, please set vsync data for first run\n"
+		NONE);
+	printf(GREEN
+		">>> => set initial vsync diff (HW Sensor Sync case, almost zero diff.)\n\n\n"
+		NONE);
+
+	v_rec = ut_generate_vsync_data_manually(
+		streaming_sensors, streaming_sensors_modes_list);
+
+
+	/* 4. trigger FrameSync PF CTRL */
+	ut_trigger_pf_ctrl();
+
+
+	printf(GREEN "\n\n\n>>> END Test FrameSync Process! <<<\n" NONE);
+}
+
+
 int main(void)
 {
 	unsigned int select_ut_case = 0, terminated = 0;
@@ -2608,6 +2685,9 @@ int main(void)
 			NONE);
 		printf(GREEN
 			">>> Run : [4] FrameSync data racing test\n"
+			NONE);
+		printf(GREEN
+			">>> Run : [5] FrameSync HW sensor sync test\n"
 			NONE);
 		printf(GREEN
 			">>> Run : [X] End UT test\n"
@@ -2638,6 +2718,11 @@ int main(void)
 		case 4:
 			/* run fs data racing test */
 			run_fs_data_racing_test();
+			break;
+
+		case 5:
+			/* run HW Sensor sync test */
+			test_hw_sensor_sync_proc();
 			break;
 
 		default:

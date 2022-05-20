@@ -6,6 +6,7 @@ CFLAGS = -DFS_UT -Werror -Wall -Wframe-larger-than=512 --static
 LDFLAGS = --static
 
 INCS = -I ../ \
+#	   -I ../../../inc/ \
 
 LIBS = -lpthread
 
@@ -16,6 +17,8 @@ SRCS = ut_fs_test.c \
 	   ../frame_sync_algo.c \
 	   ../frame_monitor.c \
 	   ../frame_sync_util.c \
+	   ../hw_sensor_sync_algo.c \
+	   ../custom/custom_hw_sync.c \
 
 #OBJS = ut_fs_test.o \
 #	   frame_sync.o \

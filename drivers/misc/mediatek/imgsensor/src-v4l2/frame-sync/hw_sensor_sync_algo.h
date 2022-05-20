@@ -10,6 +10,34 @@
 
 #define ENO_HW_FS_UNHANDLEED 1
 
+#if defined(FS_UT)
+/* Sync from kd_imgsensor_define_v4l2.h */
+/* Define for sensor sync mode (bitwise) */
+#define SENSOR_NO_SYNC_MODE 0
+#define SENSOR_MASTER_SYNC_MODE 1
+#define SENSOR_SLAVE_SYNC_MODE 2
+
+/* Only for FS_UT using */
+/* Default is using linux/minmax.h (in linux/kernel.h) */
+#define max(a, b) \
+({ \
+	__typeof__(a) _a = (a); \
+	__typeof__(b) _b = (b); \
+	_a > _b ? _a : _b; \
+})
+
+#define min(a, b) \
+({ \
+	__typeof__(a) _a = (a); \
+	__typeof__(b) _b = (b); \
+	_a < _b ? _a : _b; \
+})
+#endif // FS_UT
+
+
+/* dump info */
+void hw_fs_dump_dynamic_para(unsigned int idx);
+
 /* Set data when sensor streaming */
 void hw_fs_alg_set_streaming_st_data(
 	unsigned int idx, struct fs_streaming_st *pData);
