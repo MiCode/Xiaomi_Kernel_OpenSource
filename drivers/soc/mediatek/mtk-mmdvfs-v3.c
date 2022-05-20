@@ -395,6 +395,9 @@ static struct kernel_param_ops mmdvfs_set_vcp_log_ops = {
 module_param_cb(vcp_log, &mmdvfs_set_vcp_log_ops, NULL, 0644);
 MODULE_PARM_DESC(vcp_log, "mmdvfs vcp log");
 
+module_param(log_level, uint, 0644);
+MODULE_PARM_DESC(log_level, "mmdvfs log level");
+
 static const struct of_device_id of_match_mmdvfs_v3[] = {
 	{
 		.compatible = "mediatek,mtk-mmdvfs-v3",
