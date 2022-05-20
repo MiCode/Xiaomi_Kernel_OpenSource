@@ -93,11 +93,6 @@ static int cooling_state_to_charger_limit_v1(struct charger_cooling_device *chg)
 	union power_supply_propval prop_s_bat_chr;
 	int ret = -1;
 
-	if (chg->target_state < 0) {
-		pr_info("wrong cooling state\n");
-		return ret;
-	}
-
 	if (chg->chg_psy == NULL || IS_ERR(chg->chg_psy)) {
 		pr_info("Couldn't get chg_psy\n");
 		return ret;
@@ -255,7 +250,7 @@ static int charger_cooling_probe(struct platform_device *pdev)
 	struct device_node *np = pdev->dev.of_node;
 	struct thermal_cooling_device *cdev;
 	struct charger_cooling_device *charger_cdev;
-	int ret;
+	int ret, len;
 
 	charger_cdev = devm_kzalloc(dev, sizeof(*charger_cdev), GFP_KERNEL);
 	if (!charger_cdev)
@@ -263,7 +258,9 @@ static int charger_cooling_probe(struct platform_device *pdev)
 
 	charger_cdev->pdata = of_device_get_match_data(dev);
 
-	strncpy(charger_cdev->name, np->name, strlen(np->name));
+	len = (strlen(np->name) > MAX_CHARGER_COOLER_NAME_LEN) ?
+		MAX_CHARGER_COOLER_NAME_LEN : strlen(np->name);
+	strncpy(charger_cdev->name, np->name, len);
 	charger_cdev->target_state = CHARGER_COOLING_UNLIMITED_STATE;
 	charger_cdev->dev = dev;
 	charger_cdev->max_state = CHARGER_STATE_NUM - 1;

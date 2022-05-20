@@ -272,6 +272,9 @@ static void record_jatm_usage(struct timespec64 now, int elapsed_ms)
 {
 	struct jatm_record *record = kmalloc(sizeof(struct jatm_record), GFP_KERNEL);
 
+	if (!record)
+		return;
+
 	record->usage = elapsed_ms;
 	record->end_tv = now;
 	list_add_tail(&(record->list), &jatm_record_list);

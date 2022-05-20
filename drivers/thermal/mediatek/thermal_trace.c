@@ -116,17 +116,21 @@ static void get_tx_bytes(struct thermal_info *data)
 			if (!strncmp(dev->name, "ccmni", 5)) {
 				tput_stat = &data->stats[TPUT_MD];
 				stats =	dev_get_stats(dev, &temp);
-				tput_stat->cur_tx_bytes =
-					tput_stat->cur_tx_bytes +
-					stats->tx_bytes;
+				if (tput_stat && stats) {
+					tput_stat->cur_tx_bytes =
+						tput_stat->cur_tx_bytes +
+						stats->tx_bytes;
+				}
 			} else if (!strncmp(dev->name, "wlan", 4)
 				|| !strncmp(dev->name, "ap", 2)
 				|| !strncmp(dev->name, "p2p", 3)) {
 				tput_stat = &data->stats[TPUT_WIFI];
 				stats =	dev_get_stats(dev, &temp);
-				tput_stat->cur_tx_bytes =
+				if (tput_stat && stats) {
+					tput_stat->cur_tx_bytes =
 					tput_stat->cur_tx_bytes +
 					stats->tx_bytes;
+				}
 			}
 		}
 	}
@@ -374,7 +378,7 @@ static ssize_t hr_period_show(struct kobject *kobj,
 {
 	int len = 0;
 
-	len += snprintf(buf + len, PAGE_SIZE - len, "%d\n",
+	len += snprintf(buf + len, PAGE_SIZE - len, "%lu\n",
 		thermal_trace_data.hr_period);
 
 	return len;
@@ -391,8 +395,6 @@ static ssize_t hr_period_store(struct kobject *kobj,
 	if (period < 1000000)
 		return -EINVAL;
 
-	period = (period > 0) ? period : 0;
-
 	if (period == thermal_trace_data.hr_period)
 		return count;
 
@@ -408,7 +410,7 @@ static ssize_t mdtput_show(struct kobject *kobj,
 {
 	int len = 0;
 
-	len += snprintf(buf + len, PAGE_SIZE - len, "%d\n",
+	len += snprintf(buf + len, PAGE_SIZE - len, "%lu\n",
 		thermal_info_data.stats[TPUT_MD].cur_tput);
 
 	return len;
@@ -419,7 +421,7 @@ static ssize_t wifitput_show(struct kobject *kobj,
 {
 	int len = 0;
 
-	len += snprintf(buf + len, PAGE_SIZE - len, "%d\n",
+	len += snprintf(buf + len, PAGE_SIZE - len, "%lu\n",
 		thermal_info_data.stats[TPUT_WIFI].cur_tput);
 
 	return len;
