@@ -109,6 +109,49 @@ static struct sg_table *dup_sg_table(struct sg_table *table)
 	return new_table;
 }
 
+static struct sg_table *dup_sg_table_by_range(struct sg_table *table,
+					unsigned int offset, unsigned int len)
+{
+	struct sg_table *new_table;
+	int ret, i;
+	struct scatterlist *sg, *new_sg;
+	unsigned int sg_offset = 0, sg_len;
+	unsigned int contig_size = 0, found_start = 0;
+
+	new_table = kzalloc(sizeof(*new_table), GFP_KERNEL);
+	if (!new_table)
+		return ERR_PTR(-ENOMEM);
+
+	ret = sg_alloc_table(new_table, table->orig_nents, GFP_KERNEL);
+	if (ret) {
+		kfree(new_table);
+		return ERR_PTR(-ENOMEM);
+	}
+
+	new_sg = new_table->sgl;
+	new_table->nents = 0;
+
+	for_each_sg(table->sgl, sg, table->orig_nents, i) {
+		if (!found_start) {
+			sg_offset += sg->length;
+			if (sg_offset <= offset)
+				continue;
+			found_start = 1;
+			sg_len = len + sg->length - (sg_offset - offset);
+		}
+
+		if (contig_size >= sg_len)
+			break;
+
+		memcpy(new_sg, sg, sizeof(*sg));
+		contig_size += sg->length;
+		new_sg = sg_next(new_sg);
+		new_table->nents++;
+	}
+
+	return new_table;
+}
+
 /* source copy to dest, no memory alloc */
 static int copy_sg_table(struct sg_table *source, struct sg_table *dest)
 {
@@ -597,6 +640,111 @@ static int system_heap_dma_buf_get_flags(struct dma_buf *dmabuf, unsigned long *
 	return 0;
 }
 
+static int dmabuf_check_user_args(unsigned int offset, unsigned int len,
+					unsigned long buf_len)
+{
+	if (!len || len > buf_len || offset >= buf_len ||
+	    offset + len > buf_len)
+		return -EINVAL;
+
+	return 0;
+}
+
+static int mtk_mm_heap_dma_buf_begin_cpu_access_partial(struct dma_buf *dmabuf,
+					enum dma_data_direction direction,
+					unsigned int offset, unsigned int len)
+{
+	struct system_heap_buffer *buffer = dmabuf->priv;
+	struct dma_heap_attachment *a;
+	struct sg_table *sgt_tmp;
+	int ret;
+
+	mutex_lock(&buffer->lock);
+
+	ret = dmabuf_check_user_args(offset, len, buffer->len);
+	if (ret) {
+		pr_err("%s: invalid args, off:0x%x, len:0x%x, buf_len:0x%lx\n",
+		       __func__, offset, len, buffer->len);
+		mutex_unlock(&buffer->lock);
+		return ret;
+	}
+
+	if (buffer->vmap_cnt)
+		invalidate_kernel_vmap_range(buffer->vaddr + offset, len);
+
+
+	if (!buffer->uncached) {
+		list_for_each_entry(a, &buffer->attachments, list) {
+			if (!a->mapped)
+				continue;
+
+			sgt_tmp = dup_sg_table_by_range(a->table, offset, len);
+			if (IS_ERR(sgt_tmp)) {
+				pr_err("%s: dup sg_table failed!\n", __func__);
+				mutex_unlock(&buffer->lock);
+				return -ENOMEM;
+			}
+
+			dma_sync_sg_for_cpu(a->dev, sgt_tmp->sgl,
+					    sgt_tmp->nents, direction);
+
+			sg_free_table(sgt_tmp);
+			kfree(sgt_tmp);
+		}
+	}
+
+	mutex_unlock(&buffer->lock);
+
+	return 0;
+}
+
+static int mtk_mm_heap_dma_buf_end_cpu_access_partial(struct dma_buf *dmabuf,
+					enum dma_data_direction direction,
+					unsigned int offset, unsigned int len)
+{
+	struct system_heap_buffer *buffer = dmabuf->priv;
+	struct dma_heap_attachment *a;
+	struct sg_table *sgt_tmp;
+	int ret;
+
+	mutex_lock(&buffer->lock);
+
+	ret = dmabuf_check_user_args(offset, len, buffer->len);
+	if (ret) {
+		pr_err("%s: invalid args, off:0x%x, len:0x%x, buf_len:0x%lx\n",
+		       __func__, offset, len, buffer->len);
+		mutex_unlock(&buffer->lock);
+		return ret;
+	}
+
+	if (buffer->vmap_cnt)
+		flush_kernel_vmap_range(buffer->vaddr + offset, len);
+
+	if (!buffer->uncached) {
+		list_for_each_entry(a, &buffer->attachments, list) {
+			if (!a->mapped)
+				continue;
+
+			sgt_tmp = dup_sg_table_by_range(a->table, offset, len);
+			if (IS_ERR(sgt_tmp)) {
+				pr_err("%s: dup sg_table failed!\n", __func__);
+				mutex_unlock(&buffer->lock);
+				return -ENOMEM;
+			}
+
+			dma_sync_sg_for_device(a->dev, sgt_tmp->sgl,
+					       sgt_tmp->nents, direction);
+
+			sg_free_table(sgt_tmp);
+			kfree(sgt_tmp);
+		}
+	}
+
+	mutex_unlock(&buffer->lock);
+
+	return 0;
+}
+
 static const struct dma_buf_ops mtk_mm_heap_buf_ops = {
 	/* 1 attachment can only map 1 iova */
 	.cache_sgt_mapping = 1,
@@ -606,6 +754,9 @@ static const struct dma_buf_ops mtk_mm_heap_buf_ops = {
 	.unmap_dma_buf = system_heap_unmap_dma_buf,
 	.begin_cpu_access = system_heap_dma_buf_begin_cpu_access,
 	.end_cpu_access = system_heap_dma_buf_end_cpu_access,
+	.begin_cpu_access_partial =
+			mtk_mm_heap_dma_buf_begin_cpu_access_partial,
+	.end_cpu_access_partial = mtk_mm_heap_dma_buf_end_cpu_access_partial,
 	.mmap = system_heap_mmap,
 	.vmap = system_heap_vmap,
 	.vunmap = system_heap_vunmap,
