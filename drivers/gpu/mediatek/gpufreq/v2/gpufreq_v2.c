@@ -81,6 +81,7 @@ static struct platform_driver g_gpufreq_wrapper_pdrv = {
 static int g_ipi_channel;
 static unsigned int g_dual_buck;
 static unsigned int g_gpueb_support;
+static unsigned int g_gpufreq_bringup;
 static struct gpufreq_shared_status *g_shared_status;
 static phys_addr_t g_shared_mem_pa;
 static unsigned int g_shared_mem_size;
@@ -1710,12 +1711,6 @@ static int gpufreq_wrapper_pdrv_probe(struct platform_device *pdev)
 
 	GPUFREQ_LOGI("start to probe gpufreq wrapper driver");
 
-	/* keep probe successful but do nothing when bringup */
-	if (gpufreq_bringup()) {
-		GPUFREQ_LOGI("skip gpufreq wrapper driver probe when bringup");
-		goto done;
-	}
-
 	if (unlikely(!of_wrapper)) {
 		GPUFREQ_LOGE("fail to find gpufreq wrapper of_node (ENOENT)");
 		ret = GPUFREQ_ENOENT;
@@ -1724,6 +1719,13 @@ static int gpufreq_wrapper_pdrv_probe(struct platform_device *pdev)
 
 	of_property_read_u32(of_wrapper, "dual-buck", &g_dual_buck);
 	of_property_read_u32(of_wrapper, "gpueb-support", &g_gpueb_support);
+	of_property_read_u32(of_wrapper, "gpufreq-bringup", &g_gpufreq_bringup);
+
+	/* keep probe successful but do nothing when bringup */
+	if (g_gpufreq_bringup) {
+		GPUFREQ_LOGI("skip gpufreq wrapper driver probe when bringup");
+		goto done;
+	}
 
 	/* init shared memory */
 	ret = gpufreq_shared_memory_init();
