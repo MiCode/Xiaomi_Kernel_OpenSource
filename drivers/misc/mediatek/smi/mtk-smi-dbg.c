@@ -224,7 +224,7 @@ static u32	smi_larb_regs[SMI_LARB_REGS_NR] = {
 #define SMI_AST_STA	(0x718)
 #define SMI_AST_STA_CLR	(0x71c)
 
-#define SMI_MON_ENA(m)		((m) ? (0x600 + (((m) - 1) * 0x50)) : 0x1a0)
+#define SMI_MON_ENA(m)		((m != 0) ? (0x600 + (((m) - 1) * 0x50)) : 0x1a0)
 #define SMI_MON_CLR(m)		(SMI_MON_ENA(m) + 0x4)
 #define SMI_MON_TYPE(m)		(SMI_MON_ENA(m) + 0xc)
 #define SMI_MON_CON(m)		(SMI_MON_ENA(m) + 0x10)
@@ -1130,7 +1130,7 @@ int smi_put_larb(const char *val, const struct kernel_param *kp)
 	s32		result, larb_id;
 
 	result = kstrtoint(val, 0, &larb_id);
-	if (result) {
+	if (result || larb_id < 0) {
 		pr_notice("SMI put larb failed: %d\n", result);
 		return result;
 	}
@@ -1372,7 +1372,7 @@ int smi_bw_monitor_ut(const char *val, const struct kernel_param *kp)
 	u32 commonlarb_id[MAX_MON_REQ];
 	u32 flag[MAX_MON_REQ];
 	u32 common_id, i, j, result;
-	u32 bw[MAX_MON_REQ];
+	u32 bw[MAX_MON_REQ] = {0};
 
 	result = sscanf(val, "%d:%d %d %d %d:%d %d %d %d", &common_id,
 		&commonlarb_id[0], &commonlarb_id[1], &commonlarb_id[2], &commonlarb_id[3],
