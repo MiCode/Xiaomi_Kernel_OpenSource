@@ -784,12 +784,12 @@ static int mssv_test_proc_show(struct seq_file *m, void *v)
 		g_shared_status->cur_fstack,
 		g_shared_status->cur_vstack,
 		g_shared_status->cur_vsram_stack);
-	seq_printf(m, "%-8s STACK_SEL(0x%08x): 0x%08x, DEL_SEL(0x%08x): 0x%08x\n",
+	seq_printf(m, "%-8s STACK_SEL(0x%08x[31]): %d, DEL_SEL(0x%08x[0]): %d\n",
 		"[SEL]",
 		g_shared_status->reg_stack_sel.addr,
-		g_shared_status->reg_stack_sel.val,
+		(g_shared_status->reg_stack_sel.val & BIT(31)) ? 1 : 0,
 		g_shared_status->reg_del_sel.addr,
-		g_shared_status->reg_del_sel.val);
+		(g_shared_status->reg_del_sel.val & BIT(0)) ? 1 : 0);
 
 	mutex_unlock(&gpufreq_debug_lock);
 
