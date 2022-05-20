@@ -497,16 +497,16 @@ static const struct rdma_data mt6985_rdma_data = {
 	.rb_swap = 2,
 	.golden = {
 		[GOLDEN_FMT_ARGB] = {
-			.cnt = ARRAY_SIZE(th_argb_mt6983),
-			.settings = th_argb_mt6983,
+			.cnt = ARRAY_SIZE(th_argb_mt6985),
+			.settings = th_argb_mt6985,
 		},
 		[GOLDEN_FMT_RGB] = {
-			.cnt = ARRAY_SIZE(th_rgb_mt6983),
-			.settings = th_rgb_mt6983,
+			.cnt = ARRAY_SIZE(th_rgb_mt6985),
+			.settings = th_rgb_mt6985,
 		},
 		[GOLDEN_FMT_YUV420] = {
-			.cnt = ARRAY_SIZE(th_yuv420_mt6983),
-			.settings = th_yuv420_mt6983,
+			.cnt = ARRAY_SIZE(th_yuv420_mt6985),
+			.settings = th_yuv420_mt6985,
 		},
 	},
 };

@@ -24,7 +24,7 @@ struct golden_setting {
 };
 
 struct rdma_golden {
-	/* golden settings by pixel, must order low to high (fhd->2k->4k) */
+	/* golden settings by pixel, must order low to high (fhd->2K->4k) */
 	const struct golden_setting *settings;
 	u8 cnt;
 };
@@ -185,5 +185,165 @@ static const struct golden_setting th_yuv420_mt6983[] = {
 };
 
 /* end of mt6983 */
+
+
+/* begin of mt6985 racing mode golden settings */
+
+/* 4K60 ARGB/YUYV 1 plane 4 bpp */
+#define MT6985_ARGB_4K_URGENT		(315 << 16 | 252)
+#define MT6985_ARGB_4K_ULTRA		(441 << 16 | 378)
+#define MT6985_ARGB_4K_PREULTRA		(567 << 16 | 504)
+/* 4K60 RGB 1 plane 3 bpp */
+#define MT6985_RGB_4K_URGENT		(236 << 16 | 189)
+#define MT6985_RGB_4K_ULTRA		(330 << 16 | 283)
+#define MT6985_RGB_4K_PREULTRA		(425 << 16 | 378)
+/* 4K60 YUV420 2 plane 1/0.5 bpp */
+#define MT6985_YUV420_4K_URGENT_0	(78 << 16 | 63)
+#define MT6985_YUV420_4K_ULTRA_0	(110 << 16 | 94)
+#define MT6985_YUV420_4K_PREULTRA_0	(141 << 16 | 126)
+#define MT6985_YUV420_4K_URGENT_1	(39 << 16 | 31)
+#define MT6985_YUV420_4K_ULTRA_1	(55 << 16 | 47)
+#define MT6985_YUV420_4K_PREULTRA_1	(70 << 16 | 63)
+
+/* 2K120 ARGB/YUYV 1 plane 4 bpp */
+#define MT6985_ARGB_2K_URGENT		(329 << 16 | 263)
+#define MT6985_ARGB_2K_ULTRA		(461 << 16 | 395)
+#define MT6985_ARGB_2K_PREULTRA		(593 << 16 | 527)
+/* 2K120 RGB 1 plane 3 bpp */
+#define MT6985_RGB_2K_URGENT		(247 << 16 | 197)
+#define MT6985_RGB_2K_ULTRA		(346 << 16 | 296)
+#define MT6985_RGB_2K_PREULTRA		(445 << 16 | 395)
+/* 2K120 YUV420 2 plane 1/0.5 bpp */
+#define MT6985_YUV420_2K_URGENT_0	(82 << 16 | 65)
+#define MT6985_YUV420_2K_ULTRA_0	(115 << 16 | 98)
+#define MT6985_YUV420_2K_PREULTRA_0	(148 << 16 | 131)
+#define MT6985_YUV420_2K_URGENT_1	(41 << 16 | 32)
+#define MT6985_YUV420_2K_ULTRA_1	(57 << 16 | 49)
+#define MT6985_YUV420_2K_PREULTRA_1	(74 << 16 | 65)
+
+/* FHD120 ARGB/YUYV 1 plane 4 bpp */
+#define MT6985_ARGB_FHD_URGENT		(231 << 16 | 185)
+#define MT6985_ARGB_FHD_ULTRA		(324 << 16 | 278)
+#define MT6985_ARGB_FHD_PREULTRA	(417 << 16 | 370)
+/* FHD120 RGB 1 plane 3 bpp */
+#define MT6985_RGB_FHD_URGENT		(173 << 16 | 139)
+#define MT6985_RGB_FHD_ULTRA		(243 << 16 | 208)
+#define MT6985_RGB_FHD_PREULTRA		(313 << 16 | 278)
+/* FHD120 YUV420 2 plane 1/0.5 bpp */
+#define MT6985_YUV420_FHD_URGENT_0	(57 << 16 | 46)
+#define MT6985_YUV420_FHD_ULTRA_0	(81 << 16 | 69)
+#define MT6985_YUV420_FHD_PREULTRA_0	(104 << 16 | 92)
+#define MT6985_YUV420_FHD_URGENT_1	(28 << 16 | 23)
+#define MT6985_YUV420_FHD_ULTRA_1	(40 << 16 | 34)
+#define MT6985_YUV420_FHD_PREULTRA_1	(52 << 16 | 46)
+
+
+static const struct golden_setting th_argb_mt6985[] = {
+	{
+		.pixel = GOLDEN_PIXEL_FHD,
+		.plane = {
+			{
+				.preultra	= MT6985_ARGB_FHD_PREULTRA,
+				.ultra		= MT6985_ARGB_FHD_ULTRA,
+				.urgent		= MT6985_ARGB_FHD_URGENT,
+			},
+		},
+	}, {
+		.pixel = GOLDEN_PIXEL_2K,
+		.plane = {
+			{
+				.preultra	= MT6985_ARGB_2K_PREULTRA,
+				.ultra		= MT6985_ARGB_2K_ULTRA,
+				.urgent		= MT6985_ARGB_2K_URGENT,
+			},
+		},
+	}, {
+		.pixel = GOLDEN_PIXEL_4K,
+		.plane = {
+			{
+				.preultra	= MT6985_ARGB_4K_PREULTRA,
+				.ultra		= MT6985_ARGB_4K_ULTRA,
+				.urgent		= MT6985_ARGB_4K_URGENT,
+			},
+		},
+	},
+};
+
+static const struct golden_setting th_rgb_mt6985[] = {
+	{
+		.pixel = GOLDEN_PIXEL_FHD,
+		.plane = {
+			{
+				.preultra	= MT6985_RGB_FHD_PREULTRA,
+				.ultra		= MT6985_RGB_FHD_ULTRA,
+				.urgent		= MT6985_RGB_FHD_URGENT,
+			},
+		},
+	}, {
+		.pixel = GOLDEN_PIXEL_2K,
+		.plane = {
+			{
+				.preultra	= MT6985_RGB_2K_PREULTRA,
+				.ultra		= MT6985_RGB_2K_ULTRA,
+				.urgent		= MT6985_RGB_2K_URGENT,
+			},
+		},
+	}, {
+		.pixel = GOLDEN_PIXEL_4K,
+		.plane = {
+			{
+				.preultra	= MT6985_RGB_4K_PREULTRA,
+				.ultra		= MT6985_RGB_4K_ULTRA,
+				.urgent		= MT6985_RGB_4K_URGENT,
+			},
+		},
+	},
+};
+
+static const struct golden_setting th_yuv420_mt6985[] = {
+	{
+		.pixel = GOLDEN_PIXEL_FHD,
+		.plane = {
+			{
+				.preultra	= MT6985_YUV420_FHD_PREULTRA_0,
+				.ultra		= MT6985_YUV420_FHD_ULTRA_0,
+				.urgent		= MT6985_YUV420_FHD_URGENT_0,
+			}, {
+				.preultra	= MT6985_YUV420_FHD_PREULTRA_1,
+				.ultra		= MT6985_YUV420_FHD_ULTRA_1,
+				.urgent		= MT6985_YUV420_FHD_URGENT_1,
+			},
+		},
+	}, {
+		.pixel = GOLDEN_PIXEL_2K,
+		.plane = {
+			{
+				.preultra	= MT6985_YUV420_2K_PREULTRA_0,
+				.ultra		= MT6985_YUV420_2K_ULTRA_0,
+				.urgent		= MT6985_YUV420_2K_URGENT_0,
+			}, {
+				.preultra	= MT6985_YUV420_2K_PREULTRA_1,
+				.ultra		= MT6985_YUV420_2K_ULTRA_1,
+				.urgent		= MT6985_YUV420_2K_URGENT_1,
+			},
+		},
+	}, {
+		.pixel = GOLDEN_PIXEL_4K,
+		.plane = {
+			{
+				.preultra	= MT6985_YUV420_4K_PREULTRA_0,
+				.ultra		= MT6985_YUV420_4K_ULTRA_0,
+				.urgent		= MT6985_YUV420_4K_URGENT_0,
+			}, {
+				.preultra	= MT6985_YUV420_4K_PREULTRA_1,
+				.ultra		= MT6985_YUV420_4K_ULTRA_1,
+				.urgent		= MT6985_YUV420_4K_URGENT_1,
+			},
+		},
+	},
+};
+
+/* end of mt6985 */
+
 
 #endif	/* __MTK_MML_RDMA_GOLDEN_H__ */
