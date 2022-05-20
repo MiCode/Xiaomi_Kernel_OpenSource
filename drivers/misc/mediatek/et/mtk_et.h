@@ -70,6 +70,7 @@
 
 #define PTP3_FEATURE_ET 0x245F
 #define ET_INDEX_NUM 18
+#define ET_NUM 8
 /************************************************
  * config enum
  ************************************************/
@@ -78,6 +79,7 @@ enum ET_KEY {
 	ET_R_EN,
 	ET_W_CFG,
 	ET_R_CFG,
+	ET_R_STATE,
 
 	NR_ET,
 };

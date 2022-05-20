@@ -211,12 +211,26 @@ static int et_cfg_proc_show(struct seq_file *m, void *v)
 	return 0;
 }
 
+static int et_state_proc_show(struct seq_file *m, void *v)
+{
+	int status = 0;
+	unsigned int index = 0;
+
+	for (index = 0; index < ET_NUM; index++) {
+		status = et_smc_handle(PTP3_FEATURE_ET, ET_R_STATE, index, 0);
+		seq_printf(m, "ET_state_%d = 0x%x\n", index, status);
+	}
+
+	return 0;
+}
+
 
 /************************************************
  * Kernel driver nodes
  ************************************************/
 PROC_FOPS_RW(et_en);
 PROC_FOPS_RW(et_cfg);
+PROC_FOPS_RO(et_state);
 static int create_procfs(void)
 {
 	int i;
@@ -231,6 +245,7 @@ static int create_procfs(void)
 	struct pentry et_entries[] = {
 		PROC_ENTRY(et_en),
 		PROC_ENTRY(et_cfg),
+		PROC_ENTRY(et_state),
 	};
 
 	/* create proc dir */
