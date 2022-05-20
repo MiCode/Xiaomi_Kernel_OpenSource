@@ -975,11 +975,12 @@ static const struct file_operations emul_temp_fops = {
 
 static int gpu_cooler_show(struct seq_file *m, void *unused)
 {
-	/* output: tt, tp, polling_delay */
-	seq_printf(m, "%d,%d,%d\n",
+	/* output: tt, tp, polling_delay, statistics ttj */
+	seq_printf(m, "%d,%d,%d,%d\n",
 		therm_intf_read_csram(GPU_COOLER_BASE+4),
 		therm_intf_read_csram(GPU_COOLER_BASE),
-		therm_intf_read_csram(GPU_COOLER_BASE+8));
+		therm_intf_read_csram(GPU_COOLER_BASE+8),
+		therm_intf_read_csram(GPU_COOLER_BASE+32));
 
 	return 0;
 }
@@ -1014,6 +1015,8 @@ static ssize_t gpu_cooler_write(struct file *flip,
 		therm_intf_write_csram(value, GPU_COOLER_BASE + 4);
 	else if (strncmp(target, "polling_delay", 3) == 0)
 		therm_intf_write_csram(value, GPU_COOLER_BASE + 8);
+	else if (strncmp(target, "statistics_ttj", 3) == 0)
+		therm_intf_write_csram(value, GPU_COOLER_BASE + 32);
 
 	ret = cnt;
 
@@ -1079,10 +1082,10 @@ static ssize_t gpu_temp_debug_write(struct file *flip,
 		therm_intf_write_csram(0, GPU_COOLER_BASE + 16);
 		therm_intf_write_csram(0, GPU_COOLER_BASE + 20);
 		therm_intf_write_csram(0, GPU_COOLER_BASE + 24);
-		therm_intf_write_csram(0, GPU_COOLER_BASE + 28);
+		therm_intf_write_csram(-274000, GPU_COOLER_BASE + 28);
 	}
 	if (value < 0)
-		therm_intf_write_csram(-1, GPU_COOLER_BASE + 28);
+		therm_intf_write_csram(-1, GPU_COOLER_BASE + 24);
 
 
 	ret = cnt;
