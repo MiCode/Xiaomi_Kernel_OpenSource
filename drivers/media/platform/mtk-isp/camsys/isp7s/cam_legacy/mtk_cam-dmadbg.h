@@ -63,20 +63,6 @@ static __maybe_unused struct dma_debug_item dbg_RAWI_R5[] = {
 	{0x000005C1, "rawi_r5_smi_port / plane-0 / maddr_min record"},
 };
 
-static __maybe_unused struct dma_debug_item dbg_RAWI_R6[] = {
-	{0x00000018, "rawi_r6 32(hex) 0000"},
-	{0x00000118, "rawi_r6 state_checksum"},
-	{0x00000218, "rawi_r6 line_pix_cnt_tmp"},
-	{0x00000318, "rawi_r6 line_pix_cnt"},
-	{0x00000418, "rawi_r6 important_status"},
-	{0x00000518, "rawi_r6 cmd_data_cnt"},
-	{0x00000618, "rawi_r6 tilex_byte_cnt"},
-	{0x00000718, "rawi_r6 tiley_cnt"},
-	{0x00000818, "rawi_r6 burst_line_cnt"},
-	{0x01000058, "aai_r1_smi_port / plane-2 (i.e. rawi_r6) / data-crc"},
-	{0x0000008A, "aai_r1_smi_port / smi_latency_mon output"},
-};
-
 static __maybe_unused struct dma_debug_item dbg_IMGO_R1[] = {
 	{0x00000019, "imgo_r1 32(hex) 0000"},
 	{0x00000119, "imgo_r1 state_checksum"},
@@ -463,7 +449,7 @@ static __maybe_unused struct dma_debug_item dbg_RZH1N2TO_R3[] = {
 	{0x000012C1, "rzh1n2to_r1_smi_port/plane-4/plane-2 (i.e. rzh1n2tbo_r3) / maddr_min record"},
 };
 
-// M4U_PORT CAM3_DRZS4NO_R1 : drzs4no_r1 + drzs4no_r2 + drzs4no_r3 + lmvo_r1 + actso_r1
+// M4U_PORT CAM3_DRZS4NO_R1 : drzs4no_r1 + drzs4no_r3 + lmvo_r1 + actso_r1
 static __maybe_unused struct dma_debug_item dbg_DRZS4NO_R1[] = {
 	{0x00000013, "drzs4no_r1 32(hex) 0000"},
 	{0x00000113, "drzs4no_r1 state_checksum"},
@@ -482,26 +468,6 @@ static __maybe_unused struct dma_debug_item dbg_DRZS4NO_R1[] = {
 
 	{0x000013C0, "drzs4no_r1_smi_port/plane-0/plane-0 (i.e. drzs4no_r1) / maddr_max record"},
 	{0x000013C1, "drzs4no_r1_smi_port/plane-0/plane-0 (i.e. drzs4no_r1) / maddr_min record"},
-};
-
-static __maybe_unused struct dma_debug_item dbg_DRZS4NO_R2[] = {
-	{0x00000014, "drzs4no_r2 32(hex) 0000"},
-	{0x00000114, "drzs4no_r2 state_checksum"},
-	{0x00000214, "drzs4no_r2 line_pix_cnt_tmp"},
-	{0x00000314, "drzs4no_r2 line_pix_cnt"},
-	{0x00000414, "drzs4no_r2 important_status"},
-	{0x00000514, "drzs4no_r2 cmd_data_cnt"},
-	{0x00000614, "drzs4no_r2 cmd_cnt_for_bvalid_phase"},
-	{0x00000714, "drzs4no_r2 input_h_cnt"},
-	{0x00000814, "drzs4no_r2 input_v_cnt"},
-	{0x00000914, "drzs4no_r2 xfer_y_cnt"},
-
-	{0x01000054, "drzs4no_r1_smi_port / plane-1 (i.e. drzs4no_r2) / data-crc"},
-
-	{0x00000085, "drzs4no_r1_smi_port / smi_latency_mon output"},
-
-	{0x000014C0, "drzs4no_r1_smi_port/plane-1/plane-0 (i.e. drzs4no_r2) / maddr_max record"},
-	{0x000014C1, "drzs4no_r1_smi_port/plane-1/plane-0 (i.e. drzs4no_r2) / maddr_min record"},
 };
 
 static __maybe_unused struct dma_debug_item dbg_DRZS4NO_R3[] = {
@@ -542,107 +508,6 @@ static __maybe_unused struct dma_debug_item dbg_LMVO_R1[] = {
 
 	{0x000016C0, "drzs4no_r1_smi_port/plane-3/plane-2 (i.e. lmvo_r1) / maddr_max record"},
 	{0x000016C1, "drzs4no_r1_smi_port/plane-3/plane-2 (i.e. lmvo_r1) / maddr_min record"},
-};
-
-static __maybe_unused struct dma_debug_item dbg_ACTSO_R1[] = {
-	{0x00000017, "actso_r1 32(hex) 0000"},
-	{0x00000117, "actso_r1 state_checksum"},
-	{0x00000217, "actso_r1 line_pix_cnt_tmp"},
-	{0x00000317, "actso_r1 line_pix_cnt"},
-	{0x00000417, "actso_r1 important_status"},
-	{0x00000517, "actso_r1 cmd_data_cnt"},
-	{0x00000617, "actso_r1 cmd_cnt_for_bvalid_phase"},
-	{0x00000717, "actso_r1 input_h_cnt"},
-	{0x00000817, "actso_r1 input_v_cnt"},
-	{0x00000917, "actso_r1 xfer_y_cnt"},
-
-	{0x01000057, "drzs4no_r1_smi_port / plane-4 (i.e. actso_r1) / data-crc"},
-
-	{0x00000085, "drzs4no_r1_smi_port / smi_latency_mon output"},
-
-	{0x000017C0, "drzs4no_r1_smi_port/plane-4/plane-0 (i.e. actsoo_r1) / maddr_max record"},
-	{0x000017C1, "drzs4no_r1_smi_port/plane-4/plane-0 (i.e. actsoo_r1) / maddr_min record"},
-};
-
-// M4U_PORT CAM3_TNCSO_R1 : tncso_r1 + tncsbo_r1 + tncsho_r1 + tncsyo_r1
-static __maybe_unused struct dma_debug_item dbg_TNCSO_R1[] = {
-	{0x00000018, "tncso_r1 32(hex) 0000"},
-	{0x00000118, "tncso_r1 state_checksum"},
-	{0x00000218, "tncso_r1 line_pix_cnt_tmp"},
-	{0x00000318, "tncso_r1 line_pix_cnt"},
-	{0x00000418, "tncso_r1 important_status"},
-	{0x00000518, "tncso_r1 cmd_data_cnt"},
-	{0x00000618, "tncso_r1 cmd_cnt_for_bvalid_phase"},
-	{0x00000718, "tncso_r1 input_h_cnt"},
-	{0x00000818, "tncso_r1 input_v_cnt"},
-	{0x00000918, "tncso_r1 xfer_y_cnt"},
-
-	{0x01000058, "tncso_r1_smi_port / plane-0 (i.e. tncso_r1) / data-crc"},
-
-	{0x00000086, "tncso_r1_smi_port / smi_latency_mon output"},
-
-	{0x000018C0, "tncso_r1_smi_port/plane-0/plane-1 (i.e. tncso_r1) / maddr_max record"},
-	{0x000018C1, "tncso_r1_smi_port/plane-0/plane-1 (i.e. tncso_r1) / maddr_min record"},
-};
-
-static __maybe_unused struct dma_debug_item dbg_TNCSBO_R1[] = {
-	{0x00000019, "tncsbo_r1 32(hex) 0000"},
-	{0x00000119, "tncsbo_r1 state_checksum"},
-	{0x00000219, "tncsbo_r1 line_pix_cnt_tmp"},
-	{0x00000319, "tncsbo_r1 line_pix_cnt"},
-	{0x00000419, "tncsbo_r1 important_status"},
-	{0x00000519, "tncsbo_r1 cmd_data_cnt"},
-	{0x00000619, "tncsbo_r1 cmd_cnt_for_bvalid_phase"},
-	{0x00000719, "tncsbo_r1 input_h_cnt"},
-	{0x00000819, "tncsbo_r1 input_v_cnt"},
-	{0x00000919, "tncsbo_r1 xfer_y_cnt"},
-
-	{0x01000059, "tncso_r1_smi_port / plane-1 (i.e. tncsbo_r1) / data-crc"},
-
-	{0x00000086, "tncso_r1_smi_port / smi_latency_mon output"},
-
-	{0x000019C0, "tncso_r1_smi_port/plane-1/plane-0 (i.e. tncsbo_r1) / maddr_max record"},
-	{0x000019C1, "tncso_r1_smi_port/plane-1/plane-0 (i.e. tncsbo_r1) / maddr_min record"},
-};
-
-static __maybe_unused struct dma_debug_item dbg_TNCSHO_R1[] = {
-	{0x0000001A, "tncsho_r1 32(hex) 0000"},
-	{0x0000011A, "tncsho_r1 state_checksum"},
-	{0x0000021A, "tncsho_r1 line_pix_cnt_tmp"},
-	{0x0000031A, "tncsho_r1 line_pix_cnt"},
-	{0x0000041A, "tncsho_r1 important_status"},
-	{0x0000051A, "tncsho_r1 cmd_data_cnt"},
-	{0x0000061A, "tncsho_r1 cmd_cnt_for_bvalid_phase"},
-	{0x0000071A, "tncsho_r1 input_h_cnt"},
-	{0x0000081A, "tncsho_r1 input_v_cnt"},
-	{0x0000091A, "tncsho_r1 xfer_y_cnt"},
-
-	{0x0100005A, "tncso_r1_smi_port / plane-2 (i.e. tncsho_r1) / data-crc"},
-
-	{0x00000086, "tncso_r1_smi_port / smi_latency_mon output"},
-
-	{0x00001AC0, "tncso_r1_smi_port/plane-2/plane-1 (i.e. tncsho_r1) / maddr_max record"},
-	{0x00001AC1, "tncso_r1_smi_port/plane-2/plane-1 (i.e. tncsho_r1) / maddr_max record"},
-};
-
-static __maybe_unused struct dma_debug_item dbg_TNCSYO_R1[] = {
-	{0x0000001B, "tncsyo_r1 32(hex) 0000"},
-	{0x0000011B, "tncsyo_r1 state_checksum"},
-	{0x0000021B, "tncsyo_r1 line_pix_cnt_tmp"},
-	{0x0000031B, "tncsyo_r1 line_pix_cnt"},
-	{0x0000041B, "tncsyo_r1 important_status"},
-	{0x0000051B, "tncsyo_r1 cmd_data_cnt"},
-	{0x0000061B, "tncsyo_r1 cmd_cnt_for_bvalid_phase"},
-	{0x0000071B, "tncsyo_r1 input_h_cnt"},
-	{0x0000081B, "tncsyo_r1 input_v_cnt"},
-	{0x0000091B, "tncsyo_r1 xfer_y_cnt"},
-
-	{0x0100005B, "tncso_r1_smi_port / plane-3 (i.e. tncsyo_r1) / data-crc"},
-
-	{0x00000086, "tncso_r1_smi_port / smi_latency_mon output"},
-
-	{0x00001BC0, "tncso_r1_smi_port/plane-3/plane-2 (i.e. tncsyo_r1) / maddr_max record"},
-	{0x00001BC0, "tncso_r1_smi_port/plane-3/plane-2 (i.e. tncsyo_r1) / maddr_min record"},
 };
 
 static __maybe_unused struct dma_debug_item dbg_ulc_cmd_cnt[] = {

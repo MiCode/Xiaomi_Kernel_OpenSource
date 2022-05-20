@@ -9,50 +9,52 @@
 /* Raw Part */
 
 /* normal siganl */
-#define VS_INT_ST						(1L << 0)
-#define TG_INT1_ST						(1L << 1)
-#define TG_INT2_ST						(1L << 2)
-#define EXPDON_ST						(1L << 5)
-#define SOF_INT_ST						(1L << 8)
-#define TG_VS_INT_ORG_ST				(1L << 11)
-#define HW_PASS1_DON_ST					(1L << 20)
-#define SW_PASS1_DON_ST					(1L << 22)
-#define DCIF_SUB_SOF_INT_EN				(1L << 24)
-#define DCIF_SOF_INT_EN					(1L << 25)
-#define P1_DONE_OVER_SOF_INT_ST			(1L << 28)
-#define P1_SKIP_FRAME_INT_ST			(1L << 29)
+#define VS_INT_ST						BIT(0)
+#define TG_INT1_ST						BIT(1)
+#define TG_INT2_ST						BIT(2)
+#define EXPDON_ST						BIT(5)
+#define SOF_INT_ST						BIT(8)
+#define TG_VS_INT_ORG_ST				BIT(11)
+#define HW_PASS1_DON_ST					BIT(21)
+#define SW_PASS1_DON_ST					BIT(23)
 
-/* YUV siganl */
-#define YUV_SW_PASS1_DON_ST				(1L << 0)
-#define YUV_PASS1_DON_ST				(1L << 1)
-#define YUV_DMA_ERR_ST					(1L << 2)
+#define DCIF_LAST_SOF_INT_ST			BIT(5)
+#define DCIF_FIRST_SOF_INT_ST			BIT(4)
+#define P1_DONE_OVER_SOF_INT_ST			BIT(12)
+
+#define P1_SKIP_FRAME_DC_STAG_INT_ST				BIT(13)
+#define P1_SKIP_FRAME_1ST_PASS_RGBW_VHDR_INT_ST		BIT(16)
+#define P1_SKIP_FRAME_2ND_PASS_RGBW_VHDR_INT_ST		BIT(17)
+#define P1_SKIP_FRAME_1ST_PASS_TWO_SENSOR_INT_ST	BIT(18)
+#define P1_SKIP_FRAME_2ND_PASS_TWO_SENSOR_INT_ST	BIT(19)
+#define P1_SKIP_FRAME_ADL_INT_ST					BIT(28)
+
+#define DCIF_SKIP_MASK (P1_SKIP_FRAME_DC_STAG_INT_ST	 |\
+						P1_SKIP_FRAME_1ST_PASS_RGBW_VHDR_INT_ST |\
+						P1_SKIP_FRAME_2ND_PASS_RGBW_VHDR_INT_ST |\
+						P1_SKIP_FRAME_1ST_PASS_TWO_SENSOR_INT_ST |\
+						P1_SKIP_FRAME_2ND_PASS_TWO_SENSOR_INT_ST |\
+						P1_SKIP_FRAME_ADL_INT_ST)
 
 /* err status */
-#define TG_OVRUN_ST						(1L << 6)
-#define TG_GBERR_ST						(1L << 7)
-#define SOF_DROP_ST						(1L << 10)
-#define CQ_DB_LOAD_ERR_ST				(1L << 12)
-#define CQ_MAIN_CODE_ERR_ST				(1L << 14)
-#define CQ_MAIN_VS_ERR_ST				(1L << 15)
-#define CQ_MAIN_TRIG_DLY_ST				(1L << 16)
-#define CQ_SUB_CODE_ERR_ST				(1L << 17)
-#define CQ_SUB_VS_ERR_ST				(1L << 18)
-#define CQ_SUB_TRIG_DLY_ST				(1L << 18)
-#define LSCI_ERR_ST						(1L << 24)
-#define DMA_ERR_ST						(1L << 26)
+#define TG_OVRUN_ST						BIT(6)
+#define TG_GBERR_ST						BIT(7)
+#define SOF_DROP_ST						BIT(10)
+
+#define CQ_MAIN_CODE_ERR_ST				BIT(16)
+#define CQ_MAIN_VS_ERR_ST				BIT(17)
+#define CQ_MAIN_TRIG_DLY_ST				BIT(18)
+#define CQ_SUB_CODE_ERR_ST				BIT(17)
+#define CQ_SUB_VS_ERR_ST				BIT(19)
+#define DMA_ERR_ST						BIT(25)
 
 /* CAM DMA done status */
-#define IMGO_DONE_ST					(1L << 0)
-#define AFO_DONE_ST					BIT(8)
-#define CQI_R1_DONE_ST					BIT(15)
+#define AFO_DONE_ST						BIT(8)
 
 /* RAW input trigger ctrl*/
-#define RAWI_R2_TRIG					(1L << 0)
-#define RAWI_R3_TRIG					(1L << 1)
-#define RAWI_R4_TRIG					(1L << 2)
-#define RAWI_R5_TRIG					(1L << 3)
-#define RAWI_R6_TRIG					(1L << 4)
-
+#define RAWI_R2_TRIG					BIT(0)
+#define RAWI_R3_TRIG					BIT(1)
+#define RAWI_R5_TRIG					BIT(2)
 
 /* IRQ signal mask */
 #define INT_ST_MASK_CAM (VS_INT_ST	 |\
@@ -67,30 +69,26 @@
 #define INT_ST_MASK_CAM_ERR (TG_OVRUN_ST	 |\
 							TG_GBERR_ST	 |\
 							SOF_DROP_ST |\
-							CQ_DB_LOAD_ERR_ST	 |\
 							CQ_MAIN_CODE_ERR_ST |\
 							CQ_MAIN_VS_ERR_ST	 |\
 							CQ_MAIN_TRIG_DLY_ST |\
 							CQ_SUB_CODE_ERR_ST |\
 							CQ_SUB_VS_ERR_ST	 |\
-							CQ_SUB_TRIG_DLY_ST |\
 							DMA_ERR_ST)
 
 /* IRQ Debug Mask */
 #define INT_ST_MASK_CAM_DBG (SOF_DROP_ST |\
-							CQ_DB_LOAD_ERR_ST	 |\
 							CQ_MAIN_CODE_ERR_ST |\
 							CQ_MAIN_VS_ERR_ST	 |\
 							CQ_MAIN_TRIG_DLY_ST |\
 							CQ_SUB_CODE_ERR_ST |\
-							CQ_SUB_VS_ERR_ST	 |\
-							CQ_SUB_TRIG_DLY_ST)
+							CQ_SUB_VS_ERR_ST)
 
 /* camsys */
-#define REG_CAMSYS_CG_CON				0x0000
-#define REG_CAMSYS_CG_SET				0x0004
-#define REG_CAMSYS_CG_CLR				0x0008
-#define REG_CAMSYS_SW_RST				0x00a0
+#define REG_CG_CON				0x0000
+#define REG_CG_SET				0x0004
+#define REG_CG_CLR				0x0008
+#define REG_SW_RST				0x00a0
 
 #define REG_HALT1_EN					0x0350
 #define REG_HALT2_EN					0x0354
@@ -126,16 +124,16 @@
 #define REG_PREULTRA_HALT9_EN			0x0410
 #define REG_PREULTRA_HALT10_EN			0x0414
 
-#define CAMSV_1_WDMA_PORT		0x3FF03C
-#define CAMSV_2_WDMA_PORT		0x3FF3F
-#define RAW_WDMA_PORT			0x1E001
-#define RAW_RDMA_PORT			0x1FFE
-#define YUV_WDMA_PORT			0x7F
-#define YUV_RDMA_PORT			0x0
+#define CAMSV_1_WDMA_PORT		0x1
+#define CAMSV_2_WDMA_PORT		0x1
+#define RAW_WDMA_PORT			0xF80
+#define RAW_RDMA_PORT			0x6F
+#define YUV_WDMA_PORT			0x6F
+#define YUV_RDMA_PORT			0x1
 
 /* Status check */
-#define REG_CTL_EN						0x0000
-#define REG_CTL_EN2						0x0004
+#define REG_MOD_EN						0x0000
+#define REG_MOD2_EN						0x0004
 
 
 /* DMA Enable Register, DMA_EN */
@@ -145,25 +143,24 @@
 #define REG_CTL_RAWI_TRIG				0x00C0
 
 #define REG_CTL_MISC					0x0060
-#define CTL_DB_EN					BIT(4)
+#define CTL_DB_EN						BIT(4)
 #define CTL_DB_LOAD_FORCE				BIT(5)
 
 #define REG_CTL_SW_CTL					0x00C4
 
-
 #define REG_CTL_START					0x00B0
 
-#define REG_CTL_RAW_INT_EN				0x0100
-#define REG_CTL_RAW_INT_STAT			0x0104
-#define REG_CTL_RAW_INT2_EN				0x0110
-#define REG_CTL_RAW_INT2_STAT			0x0114
-#define REG_CTL_RAW_INT3_STAT			0x0124
-#define REG_CTL_RAW_INT4_STAT			0x0134
-#define REG_CTL_RAW_INT5_STAT			0x0144
-#define REG_CTL_RAW_INT6_EN				0x0150
-#define REG_CTL_RAW_INT6_STAT			0x0154
-#define REG_CTL_RAW_INT7_EN				0x0160
-#define REG_CTL_RAW_INT7_STAT			0x0164
+#define REG_CTL_RAW_INT_EN				0x00F0
+#define REG_CTL_RAW_INT_STAT			0x00F4
+#define REG_CTL_RAW_INT2_EN				0x00FC
+#define REG_CTL_RAW_INT2_STAT			0x0100
+#define REG_CTL_RAW_INT3_STAT			0x0110
+#define REG_CTL_RAW_INT4_STAT			0x0120
+#define REG_CTL_RAW_INT5_STAT			0x0130
+#define REG_CTL_RAW_INT6_EN				0x0138
+#define REG_CTL_RAW_INT6_STAT			0x0140
+#define REG_CTL_RAW_INT7_EN				0x0148
+#define REG_CTL_RAW_INT7_STAT			0x0150
 
 #define REG_CTL_RAW_MOD_DCM_DIS			0x0300
 #define REG_CTL_RAW_MOD2_DCM_DIS		0x0304
@@ -171,11 +168,12 @@
 #define REG_CTL_RAW_MOD5_DCM_DIS		0x0310
 #define REG_CTL_RAW_MOD6_DCM_DIS		0x0314
 
-#define REG_CTL_DBG_SET					0x00F0
-#define REG_CTL_DBG_PORT				0x00F4
+#define REG_CTL_DBG_SET					0x00E0
+#define REG_CTL_DBG_PORT				0x00E4
+#define REG_CTL_DBG_SET2				0x00E8
+
 #define REG_DMA_DBG_SEL					0x4070
 #define REG_DMA_DBG_PORT				0x4074
-#define REG_CTL_DBG_SET2				0x00F8
 
 #define REG_CTL_RAW_MOD_REQ_STAT		0x0340
 #define REG_CTL_RAW_MOD2_REQ_STAT		0x0344
@@ -204,7 +202,7 @@
 #define REG_CQ_THR0_BASEADDR				0x0414
 #define REG_CQ_THR0_BASEADDR_MSB			0x0418
 #define REG_CQ_THR0_DESC_SIZE				0x041C
-#define REG_SCQ_CQ_TRIG_TIME				0x0410
+#define REG_CAMCQ_SCQ_TRIG_TIME				0x040C
 #define REG_CQ_SUB_THR0_BASEADDR_2			0x06CC
 #define REG_CQ_SUB_THR0_BASEADDR_MSB_2		0x06D0
 #define REG_CQ_SUB_THR0_DESC_SIZE_2			0x06D8
@@ -212,16 +210,14 @@
 #define REG_CQ_SUB_THR0_BASEADDR_MSB_1		0x06C8
 #define REG_CQ_SUB_THR0_DESC_SIZE_1			0x06D4
 
-#define SCQ_EN								BIT(20)
 #define SCQ_STAGGER_MODE					BIT(12)
 #define SCQ_SUBSAMPLE_EN					BIT(21)
 #define CQ_DB_EN							BIT(4)
 #define CQ_DROP_FRAME_EN					BIT(1)
+
 #define CQ_THR0_MODE_IMMEDIATE				BIT(4)
 #define CQ_THR0_MODE_CONTINUOUS				BIT(5)
 #define CQ_THR0_EN							BIT(0)
-#define SCQ_SUB_RESET						BIT(16)
-
 
 #define REG_TG_SEN_MODE						0x0700
 #define TG_CMOS_RDY_SEL						BIT(14)
@@ -235,8 +231,6 @@
 #define REG_TG_SEN_GRAB_LIN					0x070C
 #define REG_TG_PATH_CFG						0x0710
 #define TG_DB_LOAD_DIS						BIT(8)
-#define TG_SUB_SOF_SRC_SEL_0				BIT(20)
-#define TG_SUB_SOF_SRC_SEL_1				BIT(21)
 
 #define REG_TG_INTER_ST						0x073C
 /* use this MASK to extract TG_CAM_CS from TG_INTER_ST */
@@ -274,13 +268,12 @@
 #define RAWI_R3_SMI_REQ_ST		BIT(16)
 #define RAWI_R5_SMI_REQ_ST		BIT(16)
 
-#define RST_STAT_RAWI_R2		BIT(0)
-#define RST_STAT_RAWI_R3		BIT(2)
-#define RST_STAT_RAWI_R5		BIT(5)
+#define RST_STAT_RAWI_R2		BIT(4)
+#define RST_STAT_RAWI_R3		BIT(6)
+#define RST_STAT_RAWI_R5		BIT(8)
 
 /* use spare register FH_SPARE_5 */
-
-#define REG_FRAME_SEQ_NUM					0x4994
+#define REG_FRAME_SEQ_NUM					0x4874
 
 #define REG_CAMCTL_FBC_SEL				0x00A0
 #define REG_CAMCTL_FBC_RCNT_INC				0x00A4
@@ -291,38 +284,41 @@
 
 /* AE debug info */
 /* CAMSYS_RAW 0x1a03 */
-#define OFFSET_OBC_R1_R_SUM_L          0x1178
-#define OFFSET_OBC_R1_R_SUM_H          0x117c
-#define OFFSET_OBC_R1_B_SUM_L          0x1180
-#define OFFSET_OBC_R1_B_SUM_H          0x1184
-#define OFFSET_OBC_R1_GR_SUM_L         0x1188
-#define OFFSET_OBC_R1_GR_SUM_H         0x118c
-#define OFFSET_OBC_R1_GB_SUM_L         0x1190
-#define OFFSET_OBC_R1_GB_SUM_H         0x1194
-#define OFFSET_OBC_R1_ACT_WIN_X        0x1198
-#define OFFSET_OBC_R1_ACT_WIN_Y        0x119c
+#define REG_OBC_R1A                    0x1380
+#define OFFSET_OBC_R1_R_SUM_L          (REG_OBC_R1A + 0x4)
+#define OFFSET_OBC_R1_R_SUM_H          (REG_OBC_R1A + 0x8)
+#define OFFSET_OBC_R1_B_SUM_L          (REG_OBC_R1A + 0xC)
+#define OFFSET_OBC_R1_B_SUM_H          (REG_OBC_R1A + 0x10)
+#define OFFSET_OBC_R1_GR_SUM_L         (REG_OBC_R1A + 0x14)
+#define OFFSET_OBC_R1_GR_SUM_H         (REG_OBC_R1A + 0x18)
+#define OFFSET_OBC_R1_GB_SUM_L         (REG_OBC_R1A + 0x1C)
+#define OFFSET_OBC_R1_GB_SUM_H         (REG_OBC_R1A + 0x20)
+#define OFFSET_OBC_R1_ACT_WIN_X        (REG_OBC_R1A + 0x64)
+#define OFFSET_OBC_R1_ACT_WIN_Y        (REG_OBC_R1A + 0x68)
 
-#define OFFSET_OBC_R2_R_SUM_L          0x1438
-#define OFFSET_OBC_R2_R_SUM_H          0x143c
-#define OFFSET_OBC_R2_B_SUM_L          0x1440
-#define OFFSET_OBC_R2_B_SUM_H          0x1444
-#define OFFSET_OBC_R2_GR_SUM_L         0x1448
-#define OFFSET_OBC_R2_GR_SUM_H         0x144c
-#define OFFSET_OBC_R2_GB_SUM_L         0x1450
-#define OFFSET_OBC_R2_GB_SUM_H         0x1454
-#define OFFSET_OBC_R2_ACT_WIN_X        0x1458
-#define OFFSET_OBC_R2_ACT_WIN_Y        0x145c
+#define REG_OBC_R2A                    0x1840
+#define OFFSET_OBC_R2_R_SUM_L          (REG_OBC_R2A + 0x4)
+#define OFFSET_OBC_R2_R_SUM_H          (REG_OBC_R2A + 0x8)
+#define OFFSET_OBC_R2_B_SUM_L          (REG_OBC_R2A + 0xC)
+#define OFFSET_OBC_R2_B_SUM_H          (REG_OBC_R2A + 0x10)
+#define OFFSET_OBC_R2_GR_SUM_L         (REG_OBC_R2A + 0x14)
+#define OFFSET_OBC_R2_GR_SUM_H         (REG_OBC_R2A + 0x18)
+#define OFFSET_OBC_R2_GB_SUM_L         (REG_OBC_R2A + 0x1C)
+#define OFFSET_OBC_R2_GB_SUM_H         (REG_OBC_R2A + 0x20)
+#define OFFSET_OBC_R2_ACT_WIN_X        (REG_OBC_R2A + 0x64)
+#define OFFSET_OBC_R2_ACT_WIN_Y        (REG_OBC_R2A + 0x68)
 
-#define OFFSET_OBC_R3_R_SUM_L          0x16f8
-#define OFFSET_OBC_R3_R_SUM_H          0x16fc
-#define OFFSET_OBC_R3_B_SUM_L          0x1700
-#define OFFSET_OBC_R3_B_SUM_H          0x1704
-#define OFFSET_OBC_R3_GR_SUM_L         0x1708
-#define OFFSET_OBC_R3_GR_SUM_H         0x170c
-#define OFFSET_OBC_R3_GB_SUM_L         0x1710
-#define OFFSET_OBC_R3_GB_SUM_H         0x1714
-#define OFFSET_OBC_R3_ACT_WIN_X        0x1718
-#define OFFSET_OBC_R3_ACT_WIN_Y        0x171c
+#define REG_OBC_R3A                    0x1D00
+#define OFFSET_OBC_R3_R_SUM_L          (REG_OBC_R3A + 0x4)
+#define OFFSET_OBC_R3_R_SUM_H          (REG_OBC_R3A + 0x8)
+#define OFFSET_OBC_R3_B_SUM_L          (REG_OBC_R3A + 0xC)
+#define OFFSET_OBC_R3_B_SUM_H          (REG_OBC_R3A + 0x10)
+#define OFFSET_OBC_R3_GR_SUM_L         (REG_OBC_R3A + 0x14)
+#define OFFSET_OBC_R3_GR_SUM_H         (REG_OBC_R3A + 0x18)
+#define OFFSET_OBC_R3_GB_SUM_L         (REG_OBC_R3A + 0x1C)
+#define OFFSET_OBC_R3_GB_SUM_H         (REG_OBC_R3A + 0x20)
+#define OFFSET_OBC_R3_ACT_WIN_X        (REG_OBC_R3A + 0x64)
+#define OFFSET_OBC_R3_ACT_WIN_Y        (REG_OBC_R3A + 0x68)
 
 #define REG_LTM_AE_DEBUG_B_MSB         0x23f0
 #define REG_LTM_AE_DEBUG_B_LSB         0x23f4
@@ -332,19 +328,19 @@
 #define REG_LTM_AE_DEBUG_GR_LSB        0x2404
 #define REG_LTM_AE_DEBUG_R_MSB         0x2408
 #define REG_LTM_AE_DEBUG_R_LSB         0x240c
-#define REG_LTMS_ACT_WIN_X             0x2578
-#define REG_LTMS_ACT_WIN_Y             0x257c
+#define REG_LTMS_ACT_WIN_X             0x2410
+#define REG_LTMS_ACT_WIN_Y             0x2414
 
-#define REG_AA_R_SUM_L                 0x2a1c
-#define REG_AA_R_SUM_H                 0x2a20
-#define REG_AA_B_SUM_L                 0x2a24
-#define REG_AA_B_SUM_H                 0x2a28
-#define REG_AA_GR_SUM_L                0x2a2c
-#define REG_AA_GR_SUM_H                0x2a30
-#define REG_AA_GB_SUM_L                0x2a34
-#define REG_AA_GB_SUM_H                0x2a30
-#define REG_AA_ACT_WIN_X               0x2a3c
-#define REG_AA_ACT_WIN_Y               0x2a40
+#define REG_AA_R_SUM_L                 0x2a68
+#define REG_AA_R_SUM_H                 0x2a6c
+#define REG_AA_B_SUM_L                 0x2a70
+#define REG_AA_B_SUM_H                 0x2a74
+#define REG_AA_GR_SUM_L                0x2a78
+#define REG_AA_GR_SUM_H                0x2a7c
+#define REG_AA_GB_SUM_L                0x2a80
+#define REG_AA_GB_SUM_H                0x2a84
+#define REG_AA_ACT_WIN_X               0x2a88
+#define REG_AA_ACT_WIN_Y               0x2a8c
 
 #define DMA_OFFSET_CON0        0x020
 #define DMA_OFFSET_CON1        0x024
@@ -357,8 +353,8 @@
 #define DC_CAMSV_STAGER_EN         BIT(16)
 
 
-#define FBC_R1A_BASE               0x2c00
-#define FBC_R2A_BASE               0x3780
+#define FBC_R1A_BASE               0x3d00
+#define FBC_R2A_BASE               0x37c0
 #define REG_FBC_CTL1(base, idx)    (base + idx * 8)
 #define REG_FBC_CTL2(base, idx)    (base + idx * 8 + 4)
 #define WCNT_BIT_MASK				0xFF00
@@ -366,15 +362,15 @@
 #define TG_FULLSEL_BIT_MASK			0x8000
 /* ORIDMA */
 /* CAMSYS_RAW 0x1a03 */
-#define REG_IMGO_R1_BASE       0x4880
-#define REG_IMGO_R1_BASE_MSB   0x4884
-#define REG_FHO_R1_BASE        0x4930
-#define REG_FHO_R1_SPARE_5	   0x4994
-#define REG_FHO_R1_SPARE_6	   0x4998
-#define REG_AAHO_R1_BASE       0x49e0
-#define REG_PDO_R1_BASE        0x4a90
-#define REG_AAO_R1_BASE        0x4a40
-#define REG_AFO_R1_BASE        0x4bf0
+#define REG_IMGO_R1_BASE       0x4760
+#define REG_IMGO_R1_BASE_MSB   0x4764
+#define REG_FHO_R1_BASE        0x4810
+#define REG_FHO_R1_SPARE_5	   0x4874
+#define REG_FHO_R1_SPARE_6	   0x4878
+#define REG_AAHO_R1_BASE       0x49c0
+#define REG_PDO_R1_BASE        0x4940
+#define REG_AAO_R1_BASE        0x4980
+#define REG_AFO_R1_BASE        0x4a00
 /* CAMSYS_YUV 0x1a05 */
 #define REG_YUVO_R1_BASE       0x4200
 #define REG_YUVO_R1_BASE_MSB   0x4204
@@ -395,11 +391,11 @@
 
 /* ULCDMA */
 /* CAMSYS_RAW 0x1603 */
-#define REG_LTMSO_R1_BASE      0x4ce0
-#define REG_TSFSO_R1_BASE      0x4ca0
-#define REG_TSFSO_R2_BASE      0x4de0
-#define REG_FLKO_R1_BASE       0x4d20
-#define REG_UFEO_R1_BASE       0x4d60
+#define REG_LTMSO_R1_BASE      0x4ac0
+#define REG_TSFSO_R1_BASE      0x4a40
+#define REG_TSFSO_R2_BASE      0x4a80
+#define REG_FLKO_R1_BASE       0x4900
+#define REG_UFEO_R1_BASE       0x48c0
 
 /* CAMSYS_YUV 0x1605 */
 #define REG_YUVO_R2_BASE       0x4780
@@ -410,59 +406,47 @@
 #define REG_YUVO_R4_BASE_MSB   0x4804
 #define REG_YUVBO_R4_BASE      0x4840
 #define REG_YUVBO_R4_BASE_MSB  0x4844
-#define REG_YUVO_R5_BASE       0x4c00
-#define REG_YUVO_R5_BASE_MSB   0x4c04
-#define REG_YUVBO_R5_BASE      0x4c40
-#define REG_YUVBO_R5_BASE_MSB  0x4c44
-#define REG_RZH1N2TO_R1_BASE   0x4880
-#define REG_RZH1N2TO_R1_BASE_MSB    0x4884
-#define REG_RZH1N2TBO_R1_BASE  0x48c0
-#define REG_RZH1N2TBO_R1_BASE_MSB   0x48c4
-#define REG_RZH1N2TO_R2_BASE   0x4900
-#define REG_RZH1N2TO_R2_BASE_MSB    0x4904
-#define REG_RZH1N2TO_R3_BASE   0x4940
-#define REG_RZH1N2TO_R3_BASE_MSB    0x4944
-#define REG_RZH1N2TBO_R3_BASE  0x4980
-#define REG_RZH1N2TBO_R3_BASE_MSB   0x4984
-#define REG_DRZS4NO_R1_BASE    0x49c0
-#define REG_DRZS4NO_R1_BASE_MSB     0x49c4
-#define REG_DRZS4NO_R2_BASE    0x4a00
-#define REG_DRZS4NO_R2_BASE_MSB     0x4a04
-#define REG_DRZS4NO_R3_BASE    0x4a40
-#define REG_DRZS4NO_R3_BASE_MSB     0x4a44
-#define REG_ACTSO_R1_BASE      0x4ac0
-#define REG_ACTSO_R1_BASE_MSB  0x4ac4
-#define REG_TNCSYO_R1_BASE     0x4bc0
-#define REG_TNCSYO_R1_BASE_MSB      0x4bc4
-//isp7.1 no support
-#define REG_TNCSO_R1_BASE      0x4b00
-#define REG_TNCSBO_R1_BASE     0x4b40
-#define REG_TNCSHO_R1_BASE     0x4b80
+#define REG_YUVO_R5_BASE       0x4880
+#define REG_YUVO_R5_BASE_MSB   0x4884
+#define REG_YUVBO_R5_BASE      0x48c0
+#define REG_YUVBO_R5_BASE_MSB  0x48c4
+#define REG_RZH1N2TO_R1_BASE   0x4b40
+#define REG_RZH1N2TO_R1_BASE_MSB    0x4b44
+#define REG_RZH1N2TBO_R1_BASE  0x4900
+#define REG_RZH1N2TBO_R1_BASE_MSB   0x4904
+#define REG_RZH1N2TO_R2_BASE   0x49c0
+#define REG_RZH1N2TO_R2_BASE_MSB    0x49c4
+#define REG_RZH1N2TO_R3_BASE   0x4b00
+#define REG_RZH1N2TO_R3_BASE_MSB    0x4b04
+#define REG_RZH1N2TBO_R3_BASE  0x4940
+#define REG_RZH1N2TBO_R3_BASE_MSB   0x4944
+#define REG_DRZS4NO_R1_BASE    0x4a00
+#define REG_DRZS4NO_R1_BASE_MSB     0x4a04
+#define REG_DRZS4NO_R3_BASE    0x4ac0
+#define REG_DRZS4NO_R3_BASE_MSB     0x4ac4
 
 /* CAMSYS_RAW 0x1a03 */
-#define REG_RAWI_R2_BASE       0x4100
-#define REG_RAWI_R2_BASE_MSB   0x4104
-#define REG_UFDI_R2_BASE       0x4170
-#define REG_RAWI_R3_BASE       0x41e0
-#define REG_RAWI_R3_BASE_MSB   0x41e4
-#define REG_UFDI_R3_BASE       0x4250
-#define REG_CQI_R1_BASE        0x4410
-#define REG_CQI_R1_BASE_MSB    0x4414
-#define REG_CQI_R2_BASE        0x4480
-#define REG_CQI_R2_BASE_MSB    0x4484
-#define REG_CQI_R3_BASE        0x44f0
-#define REG_CQI_R3_BASE_MSB    0x44f4
-#define REG_CQI_R4_BASE        0x4560
-#define REG_CQI_R4_BASE_MSB    0x4564
-#define REG_LSCI_R1_BASE       0x45d0
-#define REG_BPCI_R1_BASE       0x4640
-#define REG_BPCI_R2_BASE       0x4680
-#define REG_BPCI_R3_BASE       0x46c0
-#define REG_PDI_R1_BASE        0x4700
-#define REG_AAI_R1_BASE        0x4780
-#define REG_CACI_R1_BASE       0x47c0
-#define REG_RAWI_R5_BASE       0x4330
-#define REG_RAWI_R5_BASE_MSB   0x4334
-#define REG_RAWI_R6_BASE       0x4800
-#define REG_RAWI_R6_BASE_MSB   0x4804
+#define REG_RAWI_R2_BASE       0x42c0
+#define REG_RAWI_R2_BASE_MSB   0x4204
+#define REG_UFDI_R2_BASE       0x4330
+#define REG_RAWI_R3_BASE       0x43a0
+#define REG_RAWI_R3_BASE_MSB   0x43a4
+#define REG_UFDI_R3_BASE       0x4410
+#define REG_CQI_R1_BASE        0x4100
+#define REG_CQI_R1_BASE_MSB    0x4104
+#define REG_CQI_R2_BASE        0x4170
+#define REG_CQI_R2_BASE_MSB    0x4174
+#define REG_CQI_R3_BASE        0x41e0
+#define REG_CQI_R3_BASE_MSB    0x41e4
+#define REG_CQI_R4_BASE        0x4250
+#define REG_CQI_R4_BASE_MSB    0x4254
+#define REG_LSCI_R1_BASE       0x4660
+#define REG_BPCI_R1_BASE       0x4560
+#define REG_BPCI_R2_BASE       0x45a0
+#define REG_BPCI_R3_BASE       0x45e0
+#define REG_PDI_R1_BASE        0x46a0
+#define REG_AAI_R1_BASE        0x46e0
+#define REG_CACI_R1_BASE       0x4720
+#define REG_RAWI_R5_BASE       0x4480
+#define REG_RAWI_R5_BASE_MSB   0x4484
 #endif	/* _CAM_REGS_H */

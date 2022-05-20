@@ -2012,8 +2012,7 @@ int mtk_cam_sv_dev_config(
 			mf = &ctx->pipe->cfg[MTK_RAW_SINK].mbus_fmt;
 		} else if (hw_scen & (1 << MTKCAM_IPI_HW_PATH_DC_STAGGER)) {
 			// config camsv with sensor(raw sink)
-			img_fmt = &ctx->pipe->vdev_nodes[MTK_RAW_SINK - MTK_RAW_SINK_BEGIN]
-				.sink_fmt_for_dc_rawi;
+			img_fmt = &ctx->pipe->img_fmt_sink_pad;
 			size_img_fmt = img_fmt;
 			pad_idx = PAD_SRC_RAW0;
 			mf = &ctx->pipe->cfg[MTK_RAW_SINK].mbus_fmt;

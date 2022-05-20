@@ -1576,8 +1576,7 @@ static void check_stagger_buffer(struct mtk_cam_device *cam,
 				cfg_fmt = &node->active_fmt;
 
 			if (is_dc) {
-				fmt_for_rawi = &ctx->pipe->vdev_nodes[
-					MTK_RAW_SINK - MTK_RAW_SINK_BEGIN].sink_fmt_for_dc_rawi;
+				fmt_for_rawi = &ctx->pipe->img_fmt_sink_pad;
 			} else {
 				fmt_for_rawi = cfg_fmt;
 			}
@@ -5781,7 +5780,7 @@ int mtk_cam_s_data_dev_config(struct mtk_cam_request_stream_data *s_data,
 					ctx->pipe->feature_active);
 	/* TODO: data pattern from meta buffer per frame setting */
 	cfg_in_param->data_pattern = MTKCAM_IPI_SENSOR_PATTERN_NORMAL;
-	img_fmt = &pipe->vdev_nodes[MTK_RAW_SINK].pending_fmt;
+	img_fmt = &pipe->img_fmt_sink_pad;
 	cfg_in_param->in_crop.s.w = img_fmt->fmt.pix_mp.width;
 	cfg_in_param->in_crop.s.h = img_fmt->fmt.pix_mp.height;
 	dev_dbg(dev, "sink pad code:0x%x, tg size:%d %d\n", mf->code,
@@ -6036,7 +6035,7 @@ int mtk_cam_dev_config(struct mtk_cam_ctx *ctx, bool streaming, bool config_pipe
 					ctx->pipe->feature_active);
 	/* TODO: data pattern from meta buffer per frame setting */
 	cfg_in_param->data_pattern = MTKCAM_IPI_SENSOR_PATTERN_NORMAL;
-	img_fmt = &pipe->vdev_nodes[MTK_RAW_SINK].pending_fmt;
+	img_fmt = &pipe->img_fmt_sink_pad;
 	cfg_in_param->in_crop.s.w = img_fmt->fmt.pix_mp.width;
 	cfg_in_param->in_crop.s.h = img_fmt->fmt.pix_mp.height;
 
@@ -6769,11 +6768,11 @@ int PipeIDtoTGIDX(int pipe_id)
 
 	switch (pipe_id) {
 	case MTKCAM_SUBDEV_RAW_0:
-					return 0;
+					return 34;
 	case MTKCAM_SUBDEV_RAW_1:
-					return 1;
+					return 35;
 	case MTKCAM_SUBDEV_RAW_2:
-					return 2;
+					return 36;
 	default:
 			break;
 	}
@@ -6861,9 +6860,7 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 			buf_require = max(buf_require, CAM_IMG_BUF_NUM);
 		if (mtk_cam_hw_is_dc(ctx)) {
 			buf_require = max(buf_require, 4);//worst case, 2exp: 2camsv+2rawi
-			buf_size = ctx->pipe->vdev_nodes
-				[MTK_RAW_SINK - MTK_RAW_SINK_BEGIN].
-				sink_fmt_for_dc_rawi.fmt.pix_mp.plane_fmt[0].sizeimage;
+			buf_size = ctx->pipe->img_fmt_sink_pad.fmt.pix_mp.plane_fmt[0].sizeimage;
 
 			// FIXME
 			// use max buf_size for all sensors

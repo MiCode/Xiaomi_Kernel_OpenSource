@@ -254,6 +254,7 @@ struct mtk_raw_pipeline {
 	struct v4l2_subdev subdev;
 	struct media_pad pads[MTK_RAW_PIPELINE_PADS_NUM];
 	struct mtk_cam_video_device vdev_nodes[MTK_RAW_TOTAL_NODES];
+	struct v4l2_format img_fmt_sink_pad;
 	struct mtk_raw *raw;
 	struct mtk_raw_pad_config cfg[MTK_RAW_PIPELINE_PADS_NUM];
 	/* cached settings */

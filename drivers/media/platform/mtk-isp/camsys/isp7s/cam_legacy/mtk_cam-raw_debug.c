@@ -46,13 +46,10 @@ static const char * const fbc_r2_list[] = {
 	ADD_FBC_DMA(RZH1N2TO_R3),
 	ADD_FBC_DMA(RZH1N2TBO_R3),
 	ADD_FBC_DMA(DRZS4NO_R1),
-	ADD_FBC_DMA(DRZS4NO_R2),
 	ADD_FBC_DMA(DRZS4NO_R3),
 	ADD_FBC_DMA(TNCSO_R1),
-	ADD_FBC_DMA(TNCSYO_R1),
 	ADD_FBC_DMA(TNCSBO_R1),
 	ADD_FBC_DMA(TNCSHO_R1),
-	ADD_FBC_DMA(ACTSO_R1),
 	ADD_FBC_DMA(YUVO_R5),
 	ADD_FBC_DMA(YUVBO_R5),
 };
@@ -250,18 +247,11 @@ static const struct reg_to_dump raw_dma_list[] = {
 	/* ADD_DMA(RAWI_R4), */
 	/* ADD_DMA(BPCI_R4), */
 	ADD_DMA(RAWI_R5),
-	ADD_DMA(RAWI_R6),
 	ADD_DMA(CACI_R1),
 };
 
 static const struct reg_to_dump yuv_dma_list[] = {
-	ADD_DMA(ACTSO_R1),
-	//ADD_DMA(TNCSO_R1), /* not supported in 7.1 */
-	//ADD_DMA(TNCSBO_R1), /* not supported in 7.1 */
-	//ADD_DMA(TNCSHO_R1), /* not supported in 7.1 */
-	ADD_DMA(TNCSYO_R1),
 	ADD_DMA(DRZS4NO_R1),
-	ADD_DMA(DRZS4NO_R2),
 	ADD_DMA(DRZS4NO_R3),
 	ADD_DMA(RZH1N2TO_R1),
 	ADD_DMA(RZH1N2TBO_R1),

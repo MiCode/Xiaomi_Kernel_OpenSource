@@ -843,8 +843,7 @@ void mtk_cam_qos_bw_calc(struct mtk_cam_ctx *ctx, unsigned long raw_dmas, bool f
 
 	if (mtk_cam_is_stagger(ctx) || mtk_cam_hw_is_dc(ctx)) {
 		if (mtk_cam_hw_is_dc(ctx)) {
-			vdev = &pipe->vdev_nodes[MTK_RAW_SINK - MTK_RAW_SINK_BEGIN];
-			v4l2_fmt = &vdev->sink_fmt_for_dc_rawi;
+			v4l2_fmt = &pipe->img_fmt_sink_pad;
 		} else {
 			vdev = &pipe->vdev_nodes[MTK_RAW_MAIN_STREAM_OUT - MTK_RAW_SINK_NUM];
 			v4l2_fmt = &vdev->active_fmt;
@@ -872,8 +871,8 @@ void mtk_cam_qos_bw_calc(struct mtk_cam_ctx *ctx, unsigned long raw_dmas, bool f
 					  sv_qos[i - MTKCAM_SUBDEV_CAMSV_START].port[
 					  qos_port_id % sv_qos_port_num],
 					  qos_port_id, ipi_fmt, pixel_bits, plane_factor,
-					  vdev->active_fmt.fmt.pix_mp.width,
-					  vdev->active_fmt.fmt.pix_mp.height,
+					  v4l2_fmt->fmt.pix_mp.width,
+					  v4l2_fmt->fmt.pix_mp.height,
 					  ABW_MB_s, PBW_MB_s);
 			}
 		}

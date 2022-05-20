@@ -125,7 +125,6 @@ struct mtk_cam_video_device {
 	/* use first 4 elements of reserved field of v4l2_pix_format_mplane as request fd */
 	struct v4l2_format pending_fmt;
 	/* use first elements of reserved field of v4l2_selection as request fd*/
-	struct v4l2_format sink_fmt_for_dc_rawi;
 	struct v4l2_selection pending_crop;
 	/* Serializes vb2 queue and video device operations */
 	struct mutex q_lock;
