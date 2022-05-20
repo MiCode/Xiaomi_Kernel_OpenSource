@@ -492,11 +492,13 @@ void v4l_fill_mtk_fmtdesc(struct v4l2_fmtdesc *fmt)
 EXPORT_SYMBOL_GPL(v4l_fill_mtk_fmtdesc);
 
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
+#define VCP_CACHE_LINE 128
 int mtk_vcodec_alloc_mem(struct vcodec_mem_obj *mem, struct device *dev,
 	struct dma_buf_attachment **attach, struct sg_table **sgt)
 {
 	struct dma_heap *dma_heap;
 	struct dma_buf *dbuf;
+	__u32 alloc_len = mem->len;
 
 	mem->iova = 0;
 	if (dev == NULL) {
@@ -526,8 +528,13 @@ int mtk_vcodec_alloc_mem(struct vcodec_mem_obj *mem, struct device *dev,
 		return -EPERM;
 	}
 
-	dbuf = dma_heap_buffer_alloc(dma_heap, mem->len, O_RDWR | O_CLOEXEC,
-		DMA_HEAP_VALID_HEAP_FLAGS);
+	if (mem->type == MEM_TYPE_FOR_SW ||
+		mem->type == MEM_TYPE_FOR_SEC_SW) {
+		alloc_len = (ROUND_N(mem->len, VCP_CACHE_LINE) + VCP_CACHE_LINE);
+	}
+
+	dbuf = dma_heap_buffer_alloc(dma_heap, alloc_len,
+		O_RDWR | O_CLOEXEC, DMA_HEAP_VALID_HEAP_FLAGS);
 	if (IS_ERR_OR_NULL(dbuf)) {
 		mtk_v4l2_err("buffer alloc fail\n");
 		return PTR_ERR(dbuf);
