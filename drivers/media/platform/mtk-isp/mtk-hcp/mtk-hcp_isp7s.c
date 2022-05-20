@@ -416,7 +416,7 @@ struct mtk_hcp_reserve_mblock isp7s_reserve_mblock[] = {
 
 phys_addr_t isp7s_get_reserve_mem_phys(unsigned int id)
 {
-	if ((id < 0) || (id >= NUMS_MEM_ID)) {
+	if (id >= NUMS_MEM_ID) {
 		pr_info("[HCP] no reserve memory for %d", id);
 		return 0;
 	} else {

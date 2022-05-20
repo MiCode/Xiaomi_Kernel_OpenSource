@@ -491,6 +491,7 @@ void imgsys_dl_checksum_dump(struct mtk_imgsys_dev *imgsys_dev,
 	unsigned int wpe_pqdip_mux2_v = 0x0;
 	unsigned int wpe_pqdip_mux3_v = 0x0;
 	char logBuf_temp[log_length];
+	int ret;
 
 	memset((char *)logBuf_final, 0x0, log_length * 4);
 	logBuf_final[strlen(logBuf_final)] = '\0';
@@ -598,13 +599,19 @@ void imgsys_dl_checksum_dump(struct mtk_imgsys_dev *imgsys_dev,
 		memset((char *)logBuf_temp, 0x0, log_length);
 		logBuf_temp[strlen(logBuf_temp)] = '\0';
 		if (debug0_rdy[0] == 1) {
-			snprintf(logBuf_temp, log_length,
+			ret = snprintf(logBuf_temp, log_length,
 				"%s rdy to receive data from %s",
 				logBuf_outport, logBuf_inport);
+			if (ret > log_length)
+				dev_dbg(imgsys_dev->dev,
+					"%s: string truncated\n", __func__);
 		} else {
-			snprintf(logBuf_temp, log_length,
+			ret = snprintf(logBuf_temp, log_length,
 				"%s not rdy to receive data from %s",
 				logBuf_outport, logBuf_inport);
+			if (ret >= log_length)
+				dev_dbg(imgsys_dev->dev,
+					"%s: string truncated\n", __func__);
 		}
 		strncat(logBuf_final, logBuf_temp, strlen(logBuf_temp));
 		dev_info(imgsys_dev->dev,
@@ -615,25 +622,37 @@ void imgsys_dl_checksum_dump(struct mtk_imgsys_dev *imgsys_dev,
 		memset((char *)logBuf_temp, 0x0, log_length);
 		logBuf_temp[strlen(logBuf_temp)] = '\0';
 		if (debug0_req[1] == 1) {
-			snprintf(logBuf_temp, log_length,
+			ret = snprintf(logBuf_temp, log_length,
 				"%s req to send data to %sPIPE/",
 				logBuf_outport, logBuf_outport);
+			if (ret >= log_length)
+				dev_dbg(imgsys_dev->dev,
+					"%s: string truncated\n", __func__);
 		} else {
-			snprintf(logBuf_temp, log_length,
+			ret = snprintf(logBuf_temp, log_length,
 				"%s not send data to %sPIPE/",
 				logBuf_outport, logBuf_outport);
+			if (ret >= log_length)
+				dev_dbg(imgsys_dev->dev,
+					"%s: string truncated\n", __func__);
 		}
 		strncat(logBuf_final, logBuf_temp, strlen(logBuf_temp));
 		memset((char *)logBuf_temp, 0x0, log_length);
 		logBuf_temp[strlen(logBuf_temp)] = '\0';
 		if (debug0_rdy[1] == 1) {
-			snprintf(logBuf_temp, log_length,
+			ret = snprintf(logBuf_temp, log_length,
 				"%sPIPE rdy to receive data from %s",
 				logBuf_outport, logBuf_outport);
+			if (ret >= log_length)
+				dev_dbg(imgsys_dev->dev,
+					"%s: string truncated\n", __func__);
 		} else {
-			snprintf(logBuf_temp, log_length,
+			ret = snprintf(logBuf_temp, log_length,
 				"%sPIPE not rdy to receive data from %s",
 				logBuf_outport, logBuf_outport);
+			if (ret >= log_length)
+				dev_dbg(imgsys_dev->dev,
+					"%s: string truncated\n", __func__);
 		}
 		strncat(logBuf_final, logBuf_temp, strlen(logBuf_temp));
 		dev_info(imgsys_dev->dev,

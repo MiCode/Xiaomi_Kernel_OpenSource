@@ -244,8 +244,8 @@ int mtk_imgsys_hw_working_buf_pool_init(struct mtk_imgsys_dev *imgsys_dev)
 		buf->frameparam.vaddr =
 			buf->buffer.vaddr + DIP_FRAMEPARAM_OFFSET;
 
-		pr_info("DIP_FRAMEPARAM_SZ:%d",
-			sizeof(struct img_ipi_frameparam));
+		pr_info("DIP_FRAMEPARAM_SZ:%lu",
+			(unsigned long)sizeof(struct img_ipi_frameparam));
 		dev_dbg(imgsys_dev->dev,
 			"%s: frameparam(%d), scp_daddr(%pad), vaddr(0x%llx)\n",
 			__func__, i, &buf->frameparam.scp_daddr,
@@ -582,13 +582,13 @@ static void cmdq_cb_timeout_worker(struct work_struct *work)
 	struct img_ipi_param ipi_param;
 	struct swfrm_info_t *frm_info = NULL;
 	struct gce_timeout_work *swork = NULL;
-	struct img_sw_buffer swbuf_data;
+	struct img_sw_buffer swbuf_data = {0};
 
 	swork = container_of(work, struct gce_timeout_work, work);
 	pipe = (struct mtk_imgsys_pipe *)swork->pipe;
 	if (!pipe->streaming) {
 		pr_info("%s pipe already streamoff\n", __func__);
-		goto release_work;
+		goto release_req;
 	}
 
 	if (!req) {
@@ -632,9 +632,12 @@ static void cmdq_cb_timeout_worker(struct work_struct *work)
 		wake_up_interruptible(&frm_info_waitq);
 	}
 
-release_work:
-	mtk_hcp_put_gce_buffer(req->imgsys_pipe->imgsys_dev->scp_pdev);
+release_req:
 	media_request_put(&req->req);
+
+release_work:
+	mtk_hcp_put_gce_buffer(pipe->imgsys_dev->scp_pdev);
+
 }
 
 static void imgsys_cmdq_timeout_cb_func(struct cmdq_cb_data data,
@@ -1606,6 +1609,10 @@ static void imgsys_scp_handler(void *data, unsigned int len, void *priv)
 			if (!reqfd_find) {
 				cb_info = vmalloc(
 					sizeof(vlist_type(struct reqfd_cbinfo_t)));
+				if (!cb_info) {
+					mutex_unlock(&(reqfd_cbinfo_list.mymutex));
+					return;
+				}
 				INIT_LIST_HEAD(vlist_link(cb_info, struct reqfd_cbinfo_t));
 				cb_info->req_fd = swfrm_info->request_fd;
 				cb_info->req_no = swfrm_info->request_no;
@@ -1957,7 +1964,7 @@ out:
 static void module_uninit(struct kref *kref)
 {
 	struct mtk_imgsys_dev *imgsys_dev;
-	int i;
+	int i, ret;
 	struct mtk_imgsys_dvfs *dvfs_info;
 
 	imgsys_dev = container_of(kref, struct mtk_imgsys_dev, init_kref);
@@ -1970,8 +1977,12 @@ static void module_uninit(struct kref *kref)
 	if (IS_ERR_OR_NULL(dvfs_info->reg) || !regulator_is_enabled(dvfs_info->reg))
 		dev_dbg(dvfs_info->dev,
 			"%s: [ERROR] reg is null or disabled\n", __func__);
-	else
-		regulator_disable(dvfs_info->reg);
+	else {
+		ret = regulator_disable(dvfs_info->reg);
+		if (ret)
+			dev_info(imgsys_dev->dev,
+				"%s: regulater_enable failed\n", __func__);
+	}
 
 	mtk_imgsys_power_ctrl_ccu(imgsys_dev, 0);
 }
@@ -2146,7 +2157,7 @@ static void mtk_imgsys_hw_disconnect(struct mtk_imgsys_dev *imgsys_dev)
 
 	scp_ipi_unregister(imgsys_dev->scp_pdev, SCP_IPI_DIP);
 #else
-	struct img_init_info info;
+	struct img_init_info info = {0};
 	u32 user_cnt = 0;
 
 	ret = imgsys_send(imgsys_dev->scp_pdev, HCP_IMGSYS_DEINIT_ID,
