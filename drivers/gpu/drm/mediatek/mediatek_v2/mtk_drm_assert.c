@@ -530,7 +530,6 @@ void mtk_drm_assert_init(struct drm_device *dev)
 	mtk_gem = mtk_drm_gem_create(dev, size, true);
 	if (IS_ERR(mtk_gem)) {
 		DDPINFO("alloc buffer fail\n");
-		drm_gem_object_release(&mtk_gem->base);
 		return;
 	}
 	//Avoid kmemleak to scan
