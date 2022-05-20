@@ -109,7 +109,8 @@ static void probe_android_vh_set_memory_rw(void *ignore, unsigned long addr,
 	if (valid_addr) {
 		ret = mkp_set_mapping_xxx_helper(addr, nr_pages, MKP_POLICY_DRV,
 			HELPER_MAPPING_RW);
-	}
+	} else
+		MKP_WARN("addr is not a module or vmalloc address\n");
 }
 static void probe_android_vh_set_memory_nx(void *ignore, unsigned long addr,
 		int nr_pages)
@@ -131,6 +132,9 @@ static void probe_android_vh_set_memory_nx(void *ignore, unsigned long addr,
 		ret = mkp_set_mapping_xxx_helper(addr, nr_pages, MKP_POLICY_DRV,
 			HELPER_MAPPING_NX);
 		policy = MKP_POLICY_DRV;
+	} else {
+		MKP_WARN("addr is not a module or vmalloc address\n");
+		return;
 	}
 
 	for (i = 0; i < nr_pages; i++) {
