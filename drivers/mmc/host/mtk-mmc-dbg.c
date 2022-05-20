@@ -144,7 +144,7 @@ struct tracepoints_table {
 static void msdc_dump_clock_sts_core(char **buff, unsigned long *size,
 	struct seq_file *m, struct msdc_host *host)
 {
-	char buffer[512];
+	char buffer[512] = {0};
 	char *buf_ptr = buffer;
 	int n = 0;
 
@@ -170,6 +170,10 @@ static void msdc_dump_clock_sts_core(char **buff, unsigned long *size,
 		n += scnprintf(&buf_ptr[n], sizeof(buffer) - n,
 			"[src_clk]enable:%d freq:%lu,",
 			__clk_is_enabled(host->src_clk), clk_get_rate(host->src_clk));
+	if (host->macro_clk)
+		n += scnprintf(&buf_ptr[n], sizeof(buffer) - n,
+			"[macro_clk]enable:%d freq:%lu,",
+			__clk_is_enabled(host->macro_clk), clk_get_rate(host->macro_clk));
 	if (host->h_clk)
 		n += scnprintf(&buf_ptr[n], sizeof(buffer) - n,
 			"[h_clk]enable:%d freq:%lu,",
