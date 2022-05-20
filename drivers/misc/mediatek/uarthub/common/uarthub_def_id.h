@@ -105,6 +105,8 @@
 #define UARTHUB_FRACDIV_L(_baseaddr)                    (_baseaddr+0x54)
 #define UARTHUB_FRACDIV_M(_baseaddr)                    (_baseaddr+0x58)
 #define UARTHUB_FCR_RD(_baseaddr)                       (_baseaddr+0x5c)
+#define UARTHUB_TX_FIFO_OFFSET(_baseaddr)               (_baseaddr+0x70)
+#define UARTHUB_RX_FIFO_OFFSET(_baseaddr)               (_baseaddr+0x7c)
 #define UARTHUB_RTO_CFG(_baseaddr)                      (_baseaddr+0x88)
 #define UARTHUB_DLL(_baseaddr)                          (_baseaddr+0x90)
 #define UARTHUB_DLM(_baseaddr)                          (_baseaddr+0x94)

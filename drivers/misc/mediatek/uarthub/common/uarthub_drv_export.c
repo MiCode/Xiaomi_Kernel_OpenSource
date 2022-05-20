@@ -125,4 +125,10 @@ int UARTHUB_dump_debug_info(void)
 }
 EXPORT_SYMBOL(UARTHUB_dump_debug_info);
 
+int UARTHUB_loopback_test(int dev_index, int tx_to_rx, int enable)
+{
+	return uarthub_core_loopback_test(dev_index, tx_to_rx, enable);
+}
+EXPORT_SYMBOL(UARTHUB_loopback_test);
+
 MODULE_LICENSE("GPL");

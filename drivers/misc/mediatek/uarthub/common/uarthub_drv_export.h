@@ -59,5 +59,6 @@ int UARTHUB_assert_state_ctrl(int assert_ctrl);
 int UARTHUB_sw_reset(void);
 int UARTHUB_md_adsp_fifo_ctrl(int enable);
 int UARTHUB_dump_debug_info(void);
+int UARTHUB_loopback_test(int dev_index, int tx_to_rx, int enable);
 
 #endif /* UARTHUB_DRV_EXPORT_H */
