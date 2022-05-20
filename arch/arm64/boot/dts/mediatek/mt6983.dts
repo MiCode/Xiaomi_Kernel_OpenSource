@@ -6825,6 +6825,7 @@
 		interconnect-names = "DDP_COMPONENT_OVL0_2L_qos",
 					"DDP_COMPONENT_OVL0_2L_fbdc_qos",
 					"DDP_COMPONENT_OVL0_2L_hrt_qos";
+		larbport = <M4U_PORT_L0_DISP_OVL1_2L_0>;
 	};
 
 	disp_ovl1_2l@14004000 {
@@ -7622,6 +7623,7 @@
 		interconnect-names = "DDP_COMPONENT_OVL2_2L_qos",
 					"DDP_COMPONENT_OVL2_2L_fbdc_qos",
 					"DDP_COMPONENT_OVL2_2L_hrt_qos";
+		larbport = <M4U_PORT_L20_DISP_OVL1_2L_0>;
 	};
 
 	disp_ovl0_2l@14403000 {
