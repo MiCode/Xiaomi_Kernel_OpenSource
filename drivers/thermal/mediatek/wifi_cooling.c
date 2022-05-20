@@ -82,10 +82,6 @@ static int cooling_state_to_wifi_level_limit(struct wifi_cooling_device *wifi_cd
 	int ret = -1;
 	struct device *dev = wifi_cdev->dev;
 
-	if (wifi_cdev->target_state < 0) {
-		dev_err(dev, "wrong cooling state\n");
-		return ret;
-	}
 	ret = conn_pwr_set_thermal_level(wifi_cdev->target_state);
 	if (ret < 0) {
 		dev_err(dev, "set conn pwr thermal level fail\n");
@@ -123,12 +119,13 @@ static int wifi_cooling_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct thermal_cooling_device *cdev;
 	struct wifi_cooling_device *wifi_cdev;
+	struct device_node *np = pdev->dev.of_node;
 
 	wifi_cdev = devm_kzalloc(dev, sizeof(*wifi_cdev), GFP_KERNEL);
 	if (!wifi_cdev)
 		return -ENOMEM;
 
-	strncpy(wifi_cdev->name, "wifi-cooler", strlen("wifi-cooler"));
+	strncpy(wifi_cdev->name, np->name, strlen(np->name));
 	wifi_cdev->target_state = WIFI_COOLING_UNLIMITED_STATE;
 	wifi_cdev->max_state = WIFI_COOLING_MAX_STATE;
 	wifi_cdev->throttle = of_device_get_match_data(dev);
