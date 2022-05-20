@@ -101,8 +101,7 @@ void IMGSENSOR_PROFILE(struct timespec64 *ptv, char *tag)
 struct IMGSENSOR_SENSOR
 *imgsensor_sensor_get_inst(enum IMGSENSOR_SENSOR_IDX idx)
 {
-	if (idx < IMGSENSOR_SENSOR_IDX_MIN_NUM ||
-		idx >= IMGSENSOR_SENSOR_IDX_MAX_NUM)
+	if (idx >= IMGSENSOR_SENSOR_IDX_MAX_NUM)
 		return NULL;
 	else
 		return &gimgsensor.sensor[idx];
@@ -578,7 +577,7 @@ int imgsensor_set_driver(struct IMGSENSOR_SENSOR *psensor)
 
 	imgsensor_i2c_filter_msg(&psensor_inst->i2c_cfg, true);
 
-	while (pimgsensor->psensor_list[i] && i < MAX_NUM_OF_SUPPORT_SENSOR) {
+	while (i < MAX_NUM_OF_SUPPORT_SENSOR && pimgsensor->psensor_list[i]) {
 		if (pimgsensor->psensor_list[i]->init) {
 			pimgsensor->psensor_list[i]->init(&psensor->pfunc);
 
@@ -1875,7 +1874,7 @@ static inline int adopt_CAMERA_HW_FeatureControl(void *pBuf)
 			/* buffer size exam */
 			if ((sizeof(kal_uint8) * u4RegLen) >
 			    IMGSENSOR_FEATURE_PARA_LEN_MAX ||
-			    (u4RegLen > LSC_TBL_DATA_SIZE || u4RegLen < 0)) {
+			    u4RegLen > LSC_TBL_DATA_SIZE) {
 				kfree(pFeaturePara);
 				PK_PR_ERR(" buffer size (%u) is too large\n",
 					u4RegLen);
@@ -1939,6 +1938,8 @@ static inline int adopt_CAMERA_HW_FeatureControl(void *pBuf)
 					sizeof(struct SET_SENSOR_PATTERN_SOLID_COLOR))) {
 					kfree(pData);
 					PK_DBG("[CAMERA_HW]ERROR: copy_from_user fail\n");
+					kfree(pFeaturePara);
+					return -EFAULT;
 				}
 				//pr_debug("%x %x %x %x",
 					//pData->COLOR_R,pData->COLOR_Gr,
@@ -2246,6 +2247,8 @@ static long imgsensor_ioctl(
 			i4RetValue = -ENOMEM;
 			goto CAMERA_HW_Ioctl_EXIT;
 		}
+
+		memset(pBuff, 0x0, _IOC_SIZE(a_u4Command));
 
 		if (_IOC_WRITE & _IOC_DIR(a_u4Command)) {
 			if (copy_from_user(pBuff, (void *)a_u4Param,
