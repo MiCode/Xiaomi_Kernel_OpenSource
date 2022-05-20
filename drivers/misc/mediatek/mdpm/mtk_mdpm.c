@@ -421,6 +421,10 @@ void init_md1_section_level(u32 *share_mem)
 
 			index = get_shm_idx(j, section_shift[i], false);
 			offset = section_shift[i] % 32;
+			if (index >= SHARE_MEM_SIZE) {
+				pr_notice("%s out of bounds, index:%d\n", __func__, index);
+				return;
+			}
 			mem[index] |= mdpm_tx_pwr[j].rfhw->section[i] << offset;
 		}
 	}
@@ -509,6 +513,7 @@ enum md_scenario get_md1_scenario(u32 share_reg,
 int get_md1_scenario_power(enum md_scenario scenario,
 	enum mdpm_power_type power_type, struct md_power_status *mdpm_pwr_sta)
 {
+	int ret;
 	int s_power = 0;
 
 	switch (power_type) {
@@ -523,8 +528,10 @@ int get_md1_scenario_power(enum md_scenario scenario,
 		break;
 	}
 	mdpm_pwr_sta->scenario_id = scenario;
-	snprintf(mdpm_pwr_sta->scenario_name, sizeof(mdpm_pwr_sta->scenario_name),
+	ret = snprintf(mdpm_pwr_sta->scenario_name, sizeof(mdpm_pwr_sta->scenario_name),
 			"%s", mdpm_scen[scenario].scenario_name);
+	if (ret < 0 || ret >= sizeof(mdpm_pwr_sta->scenario_name))
+		pr_notice("%s snprintf failed, ret =%d\n", __func__, ret);
 	mdpm_pwr_sta->scanario_power = s_power;
 	mdpm_pwr_sta->power_type = power_type;
 
@@ -709,7 +716,7 @@ int get_md1_tx_power(enum md_scenario scenario, u32 *share_mem,
 	enum mdpm_power_type power_type,
 	struct md_power_status *mdpm_pwr_sta)
 {
-	int i, rf_ret, tx_power, tx_power_max, usedBytes;
+	int i, rf_ret, tx_power, tx_power_max, usedBytes = 0;
 	enum tx_rat_type rat;
 	struct md_power_status mdpm_power_s_tmp;
 	char log_buffer[128];
