@@ -9,6 +9,7 @@
 #define __MTK_MML_CORE_H__
 
 #include <linux/atomic.h>
+#include <linux/completion.h>
 #include <linux/dma-fence.h>
 #include <linux/file.h>
 #include <linux/kref.h>
@@ -420,6 +421,7 @@ struct mml_task_pipe {
 	struct list_head entry_clt;
 	u32 throughput;
 	u32 bandwidth;
+	struct completion ready;	/* ready for submit */
 
 	struct {
 		bool clk;

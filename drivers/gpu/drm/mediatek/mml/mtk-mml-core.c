@@ -1431,9 +1431,17 @@ static s32 core_flush(struct mml_task *task, u32 pipe)
 				CMDQ_TIMEOUT_DEFAULT);
 	}
 
-	/* force stop current running racing */
-	if (task->config->info.mode == MML_MODE_RACING)
+	if (task->config->info.mode == MML_MODE_RACING) {
+		/* force stop current running racing */
 		task->pkts[pipe]->self_loop = true;
+
+		if (task->config->dual) {
+			/* for racing mode sync with other pipe */
+			mml_mmp(wait_ready, MMPROFILE_FLAG_PULSE, task->job.jobid, pipe);
+			complete(&task->pipe[pipe].ready);
+			wait_for_completion(&task->pipe[(pipe + 1) & 0x1].ready);
+		}
+	}
 
 	/* do dvfs/bandwidth calc right before flush to cmdq */
 	mml_core_dvfs_begin(task, pipe);
@@ -1558,8 +1566,14 @@ static void core_config_task(struct mml_task *task)
 	core_buffer_map(task);
 
 	/* create dual work_thread[1] */
-	if (cfg->dual)
+	if (cfg->dual) {
+		if (cfg->info.mode == MML_MODE_RACING) {
+			/* init for dual pipe sync flush */
+			init_completion(&task->pipe[0].ready);
+			init_completion(&task->pipe[1].ready);
+		}
 		cfg->task_ops->queue(task, 1);
+	}
 
 	/* ref count to 2 thus destroy can be one of
 	 * submit done and frame done
