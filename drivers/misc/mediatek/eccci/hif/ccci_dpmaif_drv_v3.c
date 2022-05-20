@@ -414,12 +414,22 @@ static unsigned int drv3_ul_get_rwidx(unsigned char q_num)
 	return DPMA_READ_AO_UL_SRAM(DPMAIF_ULQ_STA0_n(q_num));
 }
 
-unsigned int drv3_ul_get_rdidx(unsigned char q_num)
+static unsigned int drv3_ul_get_rdidx(unsigned char q_num)
 {
 	return (DPMA_READ_AO_UL_SRAM(DPMAIF_ULQ_STA0_n(q_num)) >> 16) & 0x0000FFFF;
 }
 
-void ccci_drv3_mask_ul_que_interrupt(unsigned char q_num)
+static unsigned int drv3_ul_get_rwidx_6985(unsigned char q_num)
+{
+	return DPMA_READ_AO_UL_SRAM(DPMAIF_ULQ_STA0_6985_n(q_num));
+}
+
+static unsigned int drv3_ul_get_rdidx_6985(unsigned char q_num)
+{
+	return (DPMA_READ_AO_UL_SRAM(DPMAIF_ULQ_STA0_6985_n(q_num)) >> 16) & 0x0000FFFF;
+}
+
+static void drv3_mask_ul_que_interrupt(unsigned char q_num)
 {
 	unsigned int ui_que_done_mask;
 
@@ -445,7 +455,7 @@ static inline void drv3_irq_tx_done(unsigned int tx_done_isr)
 		if (intr_ul_que_done) {
 			txq = &dpmaif_ctl->txq[i];
 
-			ccci_drv3_mask_ul_que_interrupt(i);
+			drv3_mask_ul_que_interrupt(i);
 
 			hrtimer_start(&txq->txq_done_timer,
 				ktime_set(0, 500000), HRTIMER_MODE_REL);
@@ -745,12 +755,21 @@ static void drv3_dump_register(int buf_type)
 	ccci_util_mem_dump(buf_type,
 		dpmaif_ctl->pd_ul_base + NRL2_DPMAIF_UL_ADD_DESC, len);
 
-	len = DPMAIF_AO_UL_CHNL3_STA - DPMAIF_AO_UL_CHNL0_STA + 4;
-	CCCI_BUF_LOG_TAG(0, buf_type, TAG,
-		"dump AP DPMAIF Tx ao; ao_ul_base register -> (start addr: 0x%lX, len: %d):\n",
-		dpmaif_ctl->ao_ul_base + DPMAIF_AO_UL_CHNL0_STA, len);
-	ccci_util_mem_dump(buf_type,
-		dpmaif_ctl->ao_ul_base + DPMAIF_AO_UL_CHNL0_STA, len);
+	if (g_plat_inf == 6985) {
+		len = DPMAIF_AO_UL_CHNL3_STA_6985 - DPMAIF_AO_UL_CHNL0_STA_6985 + 4;
+		CCCI_BUF_LOG_TAG(0, buf_type, TAG,
+			"dump AP DPMAIF Tx ao; ao_ul_base register -> (start addr: 0x%lX, len: %d):\n",
+			dpmaif_ctl->ao_ul_base + DPMAIF_AO_UL_CHNL0_STA_6985, len);
+		ccci_util_mem_dump(buf_type,
+			dpmaif_ctl->ao_ul_base + DPMAIF_AO_UL_CHNL0_STA_6985, len);
+	} else {
+		len = DPMAIF_AO_UL_CHNL3_STA - DPMAIF_AO_UL_CHNL0_STA + 4;
+		CCCI_BUF_LOG_TAG(0, buf_type, TAG,
+			"dump AP DPMAIF Tx ao; ao_ul_base register -> (start addr: 0x%lX, len: %d):\n",
+			dpmaif_ctl->ao_ul_base + DPMAIF_AO_UL_CHNL0_STA, len);
+		ccci_util_mem_dump(buf_type,
+			dpmaif_ctl->ao_ul_base + DPMAIF_AO_UL_CHNL0_STA, len);
+	}
 
 	len = DPMAIF_PD_DL_MISC_CON0 - DPMAIF_PD_DL_BAT_INIT + 4;
 	CCCI_BUF_LOG_TAG(0, buf_type, TAG,
@@ -1027,8 +1046,13 @@ int ccci_dpmaif_drv3_init(void)
 	ops.drv_unmask_dl_interrupt = &drv3_unmask_dl_interrupt;
 	ops.drv_unmask_ul_interrupt = &drv3_unmask_ul_interrupt;
 	ops.drv_dl_get_wridx = &drv3_dl_get_wridx;
-	ops.drv_ul_get_rwidx = &drv3_ul_get_rwidx;
-	ops.drv_ul_get_rdidx = &drv3_ul_get_rdidx;
+	if (g_plat_inf == 6985) {
+		ops.drv_ul_get_rwidx = &drv3_ul_get_rwidx_6985;
+		ops.drv_ul_get_rdidx = &drv3_ul_get_rdidx_6985;
+	} else {
+		ops.drv_ul_get_rwidx = &drv3_ul_get_rwidx;
+		ops.drv_ul_get_rdidx = &drv3_ul_get_rdidx;
+	}
 	ops.drv_ul_all_queue_en = &drv3_ul_all_queue_en;
 	ops.drv_ul_idle_check = &drv3_ul_idle_check;
 

@@ -469,7 +469,7 @@ struct dpmaif_clk_node {
 };
 
 
-extern unsigned int            g_plat_info;
+extern unsigned int            g_plat_inf;
 extern struct dpmaif_plat_ops  g_plt_ops;
 
 
