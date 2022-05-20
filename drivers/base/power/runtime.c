@@ -318,6 +318,14 @@ void pm_runtime_release_supplier(struct device_link *link, bool check_idle)
 {
 	struct device *supplier = link->supplier;
 
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
+	/*
+	 * When consumer probe hold supplier, supplier cannot enter suspend.
+	 * Driect release supplier may let supplier enter suspend is not allow.
+	 */
+	if (link->supplier_preactivated)
+		return;
+#endif
 	/*
 	 * The additional power.usage_count check is a safety net in case
 	 * the rpm_active refcount becomes saturated, in which case

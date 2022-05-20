@@ -30,6 +30,7 @@ c CONFIG_ZRAM_DEF_COMP_LZORLE
 f block/blk-core.c
 f block/blk-pm.c
 f drivers/android/vendor_hooks.c
+f drivers/base/power/runtime.c
 f drivers/iommu/iova.c
 f drivers/media/mc/mc-device.c
 f drivers/media/v4l2-core/v4l2-ioctl.c
