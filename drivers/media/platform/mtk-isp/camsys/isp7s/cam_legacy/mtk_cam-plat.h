@@ -61,5 +61,6 @@ void set_platform_data(const struct camsys_platform_data *platform_data);
 /* platform data list */
 extern struct camsys_platform_data mt6985_data;
 
+extern struct camsys_platform_data mt6886_data;
 
 #endif /*__MTK_CAM_PLAT_H*/

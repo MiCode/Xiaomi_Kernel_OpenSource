@@ -61,7 +61,8 @@ $(CAM_MODULE)-objs := \
 
 # platform data
 $(CAM_MODULE)-objs += \
-    mtk_cam-plat-mt6985.o
+    mtk_cam-plat-mt6985.o \
+    mtk_cam-plat-mt6886.o \
 
 ifeq ($(CAMSYS_TRACE_ENABLE), y)
 $(CAM_MODULE)-$(CONFIG_TRACING) += mtk_cam-trace.o
