@@ -463,7 +463,7 @@ static int scpsys_bus_protect_disable(struct scp_domain *scpd, unsigned int inde
 			continue;
 
 		if (index != (MAX_STEPS - 1)) {
-			unsigned int val, val2;
+			unsigned int val = 0, val2 = 0;
 
 			/* reserve bus register status */
 			regmap_read(map, bp.en_ofs, &val);
