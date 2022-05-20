@@ -871,7 +871,7 @@ static void mtk_get_chist(struct mtk_ddp_comp *comp)
 	struct mtk_drm_crtc *mtk_crtc = comp->mtk_crtc;
 	struct drm_crtc *crtc = NULL;
 	struct mtk_drm_private *priv = NULL;
-	unsigned long flags;
+	unsigned long flags, clock_flags;
 	int i = 0, index = 0;
 	int max_bins = 0;
 
@@ -882,9 +882,9 @@ static void mtk_get_chist(struct mtk_ddp_comp *comp)
 	priv = crtc->dev->dev_private;
 	index = index_of_chist(comp->id);
 
-	spin_lock_irqsave(&g_chist_clock_lock, flags);
+	spin_lock_irqsave(&g_chist_clock_lock, clock_flags);
 	if (atomic_read(&(g_chist_is_clock_on[index_of_chist(comp->id)])) == 0) {
-		spin_unlock_irqrestore(&g_chist_clock_lock, flags);
+		spin_unlock_irqrestore(&g_chist_clock_lock, clock_flags);
 		return;
 	}
 	spin_lock_irqsave(&g_chist_global_lock, flags);
@@ -915,7 +915,7 @@ static void mtk_get_chist(struct mtk_ddp_comp *comp)
 		}
 	}
 	spin_unlock_irqrestore(&g_chist_global_lock, flags);
-	spin_unlock_irqrestore(&g_chist_clock_lock, flags);
+	spin_unlock_irqrestore(&g_chist_clock_lock, clock_flags);
 	present_fence[index] = *(unsigned int *)(mtk_get_gce_backup_slot_va(mtk_crtc,
 				DISP_SLOT_PRESENT_FENCE(0))) - 1;
 }
