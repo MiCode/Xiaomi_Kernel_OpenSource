@@ -1979,9 +1979,6 @@ static irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 				mtk_smi_dbg_hang_detect("dsi-underrun");
 			}
 
-			mtk_dprec_logger_pr(DPREC_LOGGER_ERROR,
-				"[IRQ] %s: buffer underrun\n",
-				mtk_dump_comp_str(&dsi->ddp_comp));
 			if (__ratelimit(&ioctl_ratelimit))
 				DDPPR_ERR(pr_fmt("[IRQ] %s: buffer underrun\n"),
 					mtk_dump_comp_str(&dsi->ddp_comp));
