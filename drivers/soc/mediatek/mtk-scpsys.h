@@ -29,7 +29,7 @@
 
 #define MAX_CLKS	3
 #define MAX_SUBSYS_CLKS 10
-#define MAX_STEPS		10
+#define MAX_STEPS		12
 #define MAX_SRAM_STEPS	4
 #define MAX_CHILDREN	2
 
