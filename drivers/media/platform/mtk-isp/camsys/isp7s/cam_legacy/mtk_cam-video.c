@@ -643,7 +643,6 @@ static void mtk_cam_vb2_buf_queue(struct vb2_buffer *vb)
 		break;
 	case MTKCAM_IPI_RAW_META_STATS_0:
 	case MTKCAM_IPI_RAW_META_STATS_1:
-	case MTKCAM_IPI_RAW_META_STATS_2:
 		pde_cfg = &cam->raw.pipelines[node->uid.pipe_id].pde_config;
 		desc_id = node->desc.id-MTK_RAW_META_OUT_BEGIN;
 		meta_out = &frame_param->meta_outputs[desc_id];
@@ -1507,7 +1506,6 @@ int mtk_cam_video_register(struct mtk_cam_video_device *video,
 			case MTK_RAW_YUVO_4_OUT:
 			case MTK_RAW_YUVO_5_OUT:
 			case MTK_RAW_DRZS4NO_1_OUT:
-			case MTK_RAW_DRZS4NO_2_OUT:
 			case MTK_RAW_DRZS4NO_3_OUT:
 			case MTK_RAW_RZH1N2TO_1_OUT:
 			case MTK_RAW_RZH1N2TO_2_OUT:

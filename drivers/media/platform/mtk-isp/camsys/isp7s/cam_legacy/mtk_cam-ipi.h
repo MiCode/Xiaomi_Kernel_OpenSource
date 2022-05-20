@@ -12,9 +12,8 @@
 #include <linux/types.h>
 #include "mtk_cam-defs.h"
 
-
 #define MTK_CAM_MAX_RUNNING_JOBS (3)
-#define CAM_MAX_PLANENUM (3)
+#define CAM_MAX_PLANENUM (4)
 #define CAM_MAX_SUBSAMPLE (32)
 
 /*
@@ -34,24 +33,14 @@ struct mtkcam_ipi_point {
  * @w: width (in pixels).
  * @h: height (in pixels).
  */
+
 struct mtkcam_ipi_size {
 	__u16 w;
 	__u16 h;
 } __packed;
 
 /*
- * struct mtkcam_ipi_fract - fraction
- *
- * @numerator: denominator part of the fraction.
- * @denominator: denominator part of the fraction.
- */
-struct mtkcam_ipi_fract {
-	__u8 numerator;
-	__u8 denominator;
-};
-
-/*
- * struct mtkcam_ipi_sw_buffer
+ * struct mtkcam_ipi_buffer
  *	- Shared buffer between cam-device and co-processor.
  *
  * @iova: DMA address for CAM DMA device.
@@ -59,23 +48,12 @@ struct mtkcam_ipi_fract {
  * @scp_addr: SCP  address for external co-processor unit.
  * @size: buffer size.
  */
-struct mtkcam_ipi_sw_buffer {
+struct mtkcam_ipi_buffer {
 	__u64 iova;
 	union {
 		__u32 ccd_fd;
 		__u32 scp_addr;
 	};
-	__u32 size;
-} __packed;
-
-/*
- * struct mtkcam_ipi_hw_buffer - DMA buffer for CAM DMA device.
- *
- * @iova: DMA address for CAM DMA device.
- * @size: buffer size.
- */
-struct mtkcam_ipi_hw_buffer {
-	__u64 iova;
 	__u32 size;
 } __packed;
 
@@ -89,73 +67,33 @@ struct mtkcam_ipi_crop {
 	struct mtkcam_ipi_point p;
 	struct mtkcam_ipi_size s;
 } __packed;
-
 struct mtkcam_ipi_uid {
 	__u8 pipe_id;
 	__u8 id;
 } __packed;
 
-#ifdef __KERNEL__
-
-static inline unsigned int mtkcam_raw_ids(void)
-{
-	return MTKCAM_IPI_RAW_ID_MAX - 1;
-}
-
-static inline unsigned int mtkcam_camsv_ids(void)
-{
-	return MTKCAM_IPI_CAMSV_ID_MAX - 1;
-}
-
-static inline unsigned int mtkcam_mraw_ids(void)
-{
-	return MTKCAM_IPI_MRAW_ID_MAX - 1;
-}
-
-static inline unsigned int uid_nbits(void)
-{
-	return 3 * mtkcam_raw_ids()
-		+ 8 * mtkcam_camsv_ids()
-		+ 2 * mtkcam_mraw_ids();
-}
-
-static inline unsigned int uid_to_bit(struct mtkcam_ipi_uid uid)
-{
-	unsigned int lbit = 0;
-
-	lbit += (uid.pipe_id - MTKCAM_SUBDEV_RAW_0) * mtkcam_raw_ids();
-	if (uid.pipe_id > MTKCAM_SUBDEV_CAMSV_0)
-		lbit += (uid.pipe_id - MTKCAM_SUBDEV_CAMSV_0) *
-			mtkcam_camsv_ids();
-	if (uid.pipe_id > MTKCAM_SUBDEV_MRAW_0)
-		lbit += (uid.pipe_id - MTKCAM_SUBDEV_MRAW_0) *
-			mtkcam_mraw_ids();
-	return lbit + uid.id - 1; /* FIXME: 1 for temporay solution */
-}
-
-#endif
 
 struct mtkcam_ipi_img_input {
 	struct mtkcam_ipi_uid		uid;
 	struct mtkcam_ipi_pix_fmt	fmt;
-	struct mtkcam_ipi_sw_buffer	buf[CAM_MAX_PLANENUM];
+	struct mtkcam_ipi_buffer	buf[CAM_MAX_PLANENUM];
 } __packed;
 
 struct mtkcam_ipi_img_output {
 	struct mtkcam_ipi_uid		uid;
 	struct mtkcam_ipi_pix_fmt	fmt;
-	struct mtkcam_ipi_sw_buffer	buf[CAM_MAX_SUBSAMPLE][CAM_MAX_PLANENUM];
+	struct mtkcam_ipi_buffer	buf[CAM_MAX_SUBSAMPLE][CAM_MAX_PLANENUM];
 	struct mtkcam_ipi_crop		crop;
 } __packed;
 
 struct mtkcam_ipi_meta_input {
 	struct mtkcam_ipi_uid		uid;
-	struct mtkcam_ipi_sw_buffer	buf;
+	struct mtkcam_ipi_buffer	buf;
 } __packed;
 
 struct mtkcam_ipi_meta_output {
 	struct mtkcam_ipi_uid		uid;
-	struct mtkcam_ipi_sw_buffer	buf;
+	struct mtkcam_ipi_buffer	buf;
 } __packed;
 
 struct mtkcam_ipi_input_param {
@@ -176,7 +114,6 @@ struct mtkcam_ipi_raw_frame_param {
 	__u32	bin_flag;
 	__u8    exposure_num;
 	__u8    previous_exposure_num;
-	struct mtkcam_ipi_fract	frz_ratio;
 
 	/* blahblah */
 } __packed;
@@ -213,14 +150,26 @@ struct mtkcam_ipi_session_cookie {
 } __packed;
 
 struct mtkcam_ipi_session_param {
-	struct mtkcam_ipi_sw_buffer workbuf;
-	struct mtkcam_ipi_sw_buffer msg_buf;
+	struct mtkcam_ipi_buffer workbuf; /* TODO: rename cqbuf? */
+	struct mtkcam_ipi_buffer msg_buf;
 } __packed;
 
 struct mtkcam_ipi_hw_mapping {
 	__u8 pipe_id; /* ref. to mtkcam_pipe_subdev */
 	__u16 dev_mask; /* ref. to mtkcam_pipe_dev */
-	__u8 exp_order;
+	__u8 exp_order; /* TBD: still need this? */
+} __packed;
+struct mtkcam_ipi_bw_info {
+	/* TBD */
+	/* TODO: define ports in defs.h */
+	__u32 xsize;
+	__u32 ysize;
+} __packed;
+
+struct mtkcam_ipi_timeshared_msg {
+	__u8	session_id;
+	__u32	cur_msgbuf_offset;
+	__u32	cur_msgbuf_size;
 } __packed;
 
 /*  Control flags of CAM_CMD_CONFIG */
@@ -232,14 +181,14 @@ struct mtkcam_ipi_hw_mapping {
 struct mtkcam_ipi_config_param {
 	__u8 flags;
 	struct mtkcam_ipi_input_param	input;
-	__u8 n_maps;
-	/* maximum # of pipes per stream */
+	__u8 n_maps; /* maximum # of subdevs per stream */
 	struct mtkcam_ipi_hw_mapping maps[6];
-	/* sub_ratio:8, valid number: 8 */
-	__u16 valid_numbers[MTKCAM_IPI_FBCX_LAST];
 	__u8	sw_feature;
+	__u32	exp_order : 4;
+	__u32	frame_order : 4;
 } __packed;
 
+/* TODO: update number */
 #define CAM_MAX_IMAGE_INPUT	(5)
 #define CAM_MAX_IMAGE_OUTPUT	(15)
 #define CAM_MAX_META_OUTPUT	(4)
@@ -253,10 +202,15 @@ struct mtkcam_ipi_frame_param {
 	struct mtkcam_ipi_raw_frame_param raw_param;
 	struct mtkcam_ipi_mraw_frame_param mraw_param[MRAW_MAX_PIPE_USED];
 
+	struct mtkcam_ipi_timeshared_msg	timeshared_param;
+
 	struct mtkcam_ipi_img_input img_ins[CAM_MAX_IMAGE_INPUT];
 	struct mtkcam_ipi_img_output img_outs[CAM_MAX_IMAGE_OUTPUT];
 	struct mtkcam_ipi_meta_output meta_outputs[CAM_MAX_META_OUTPUT];
 	struct mtkcam_ipi_meta_input meta_inputs[CAM_MAX_PIPE_USED];
+
+	/* following will be modified */
+	//struct mtkcam_ipi_bw_info	bw_infos[10*3]; //ports * num_raw
 } __packed;
 
 struct mtkcam_ipi_frame_info {
@@ -264,15 +218,16 @@ struct mtkcam_ipi_frame_info {
 	__u32	cur_msgbuf_size;
 } __packed;
 
-struct mtkcam_ipi_frame_ack_result {
-	__u32 cq_desc_offset;
-	__u32 sub_cq_desc_offset;
-	__u32 mraw_cq_desc_offset[MRAW_MAX_PIPE_USED];
-	__u32 cq_desc_size;
-	__u32 sub_cq_desc_size;
-	__u32 mraw_cq_desc_size[MRAW_MAX_PIPE_USED];
+struct mtkcam_ipi_cq_desc_entry {
+	__u32 offset;
+	__u32 size;
 } __packed;
 
+struct mtkcam_ipi_frame_ack_result {
+	struct mtkcam_ipi_cq_desc_entry		main;
+	struct mtkcam_ipi_cq_desc_entry		sub;
+	struct mtkcam_ipi_cq_desc_entry		mraw[MRAW_MAX_PIPE_USED];
+} __packed;
 struct mtkcam_ipi_ack_info {
 	__u8 ack_cmd_id;
 	__s32 ret;

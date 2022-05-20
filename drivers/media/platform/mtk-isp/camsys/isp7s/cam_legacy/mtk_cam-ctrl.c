@@ -365,7 +365,7 @@ static void mtk_cam_stream_on(struct mtk_raw_device *raw_dev,
 	else if (mtk_cam_is_with_w_channel(ctx))
 		hw_scen = (1 << MTKCAM_SV_SPECIAL_SCENARIO_ADDITIONAL_RAW);
 	else if (mtk_cam_hw_is_dc(ctx))
-		hw_scen = (1 << MTKCAM_IPI_HW_PATH_OFFLINE_SRT_DCIF_STAGGER);
+		hw_scen = (1 << HWPATH_ID(MTKCAM_IPI_HW_PATH_DC_STAGGER));
 
 	spin_lock(&ctx->streaming_lock);
 	if (ctx->streaming) {
@@ -515,7 +515,7 @@ int mtk_cam_sensor_switch_start_hw(struct mtk_cam_ctx *ctx,
 	} else if (mtk_cam_is_time_shared(ctx)) {
 		int used_pipes, src_pad_idx, hw_scen;
 
-		hw_scen = (1 << MTKCAM_IPI_HW_PATH_OFFLINE_M2M);
+		hw_scen = (1 << HWPATH_ID(MTKCAM_IPI_HW_PATH_OFFLINE));
 		src_pad_idx = PAD_SRC_RAW0;
 		used_pipes = ctx->pipe->enabled_raw;
 		for (i = MTKCAM_SUBDEV_CAMSV_START ; i < MTKCAM_SUBDEV_CAMSV_END ; i++) {
@@ -1528,7 +1528,7 @@ mtk_cam_set_sensor_full(struct mtk_cam_request_stream_data *s_data,
 	if (mtk_cam_is_time_shared(ctx) &&
 		s_data->frame_seq_no == 1) {
 		unsigned int hw_scen =
-			(1 << MTKCAM_IPI_HW_PATH_OFFLINE_M2M);
+			(1 << HWPATH_ID(MTKCAM_IPI_HW_PATH_OFFLINE));
 		for (sv_i = MTKCAM_SUBDEV_CAMSV_END - 1;
 			sv_i >= MTKCAM_SUBDEV_CAMSV_START; sv_i--)
 			if (ctx->pipe->enabled_raw & (1 << sv_i))
@@ -3754,7 +3754,7 @@ static void mtk_camsys_raw_m2m_trigger(struct mtk_raw_device *raw_dev,
 					} else if (s_data_idx == 1) {
 						toggle_db(raw_dev);
 						trigger_rawi(raw_dev, ctx,
-						MTKCAM_IPI_HW_PATH_OFFLINE_M2M);
+						MTKCAM_IPI_HW_PATH_OFFLINE);
 					}
 				} else {
 					if (req_stream_data->feature.prev_feature !=
@@ -3769,7 +3769,7 @@ static void mtk_camsys_raw_m2m_trigger(struct mtk_raw_device *raw_dev,
 							MTKCAM_IPI_HW_PATH_OFFLINE_STAGGER);
 					else
 						trigger_rawi(raw_dev, ctx,
-							MTKCAM_IPI_HW_PATH_OFFLINE_M2M);
+							MTKCAM_IPI_HW_PATH_OFFLINE);
 				}
 				/**
 				 * outer number is 1 more from last SOF's
@@ -4744,7 +4744,7 @@ static int mtk_camsys_event_handle_camsv(struct mtk_cam_device *cam,
 
 	camsv_dev = dev_get_drvdata(cam->sv.devs[engine_id]);
 	bDcif = camsv_dev->pipeline->hw_scen &
-		(1 << MTKCAM_IPI_HW_PATH_OFFLINE_SRT_DCIF_STAGGER);
+		(1 << HWPATH_ID(MTKCAM_IPI_HW_PATH_DC_STAGGER));
 
 	if (camsv_dev->pipeline->hw_scen &
 	    MTK_CAMSV_SUPPORTED_SPECIAL_HW_SCENARIO) {
@@ -4799,7 +4799,7 @@ static int mtk_camsys_event_handle_camsv(struct mtk_cam_device *cam,
 		}
 		// time sharing - camsv write DRAM mode
 		if (camsv_dev->pipeline->hw_scen &
-		    (1 << MTKCAM_IPI_HW_PATH_OFFLINE_M2M)) {
+		    (1 << HWPATH_ID(MTKCAM_IPI_HW_PATH_OFFLINE))) {
 			if (irq_info->irq_type & (1<<CAMSYS_IRQ_FRAME_DONE)) {
 				mtk_camsys_ts_sv_done(ctx, irq_info->frame_idx_inner);
 				mtk_camsys_ts_raw_try_set(raw_dev, ctx,

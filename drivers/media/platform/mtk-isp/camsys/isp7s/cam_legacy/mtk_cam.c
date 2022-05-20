@@ -1296,7 +1296,7 @@ static void config_img_in_fmt_mstream(struct mtk_cam_device *cam,
 				if (exp == 2)
 					input_node = MTKCAM_IPI_RAW_RAWI_2;
 				else
-					input_node = MTKCAM_IPI_RAW_RAWI_6;
+					input_node = MTKCAM_IPI_RAW_RAWI_5;
 			}
 			in_fmt = &req_stream_data->frame_params.img_ins[input_node -
 				MTKCAM_IPI_RAW_RAWI_2];
@@ -1360,10 +1360,10 @@ static void config_img_in_fmt_stagger(struct mtk_cam_device *cam,
 					MTKCAM_IPI_RAW_RAWI_2, MTKCAM_IPI_RAW_RAWI_3,
 					MTKCAM_IPI_RAW_RAWI_5};
 	static const int stagger_m2m_2exp_rawi[2] =	{
-					MTKCAM_IPI_RAW_RAWI_2, MTKCAM_IPI_RAW_RAWI_6};
+					MTKCAM_IPI_RAW_RAWI_2, MTKCAM_IPI_RAW_RAWI_5};
 	static const int stagger_m2m_3exp_rawi[3] = {
 					MTKCAM_IPI_RAW_RAWI_2, MTKCAM_IPI_RAW_RAWI_3,
-					MTKCAM_IPI_RAW_RAWI_6};
+					MTKCAM_IPI_RAW_RAWI_5};
 
 	if (node->desc.dma_port != MTKCAM_IPI_RAW_IMGO &&
 		node->desc.dma_port != MTKCAM_IPI_RAW_RAWI_2)
@@ -1524,7 +1524,7 @@ static void check_stagger_buffer(struct mtk_cam_device *cam,
 	feature = s_data->feature.raw_feature;
 	if (mtk_cam_hw_is_otf(ctx)) {
 		s_data->frame_params.raw_param.hardware_scenario =
-			MTKCAM_IPI_HW_PATH_ON_THE_FLY_DCIF_STAGGER;
+			MTKCAM_IPI_HW_PATH_STAGGER;
 		if (mtk_cam_feature_is_2_exposure(feature)) {
 			s_data->frame_params.raw_param.exposure_num = 2;
 			rawi_port_num = 1;
@@ -1542,7 +1542,7 @@ static void check_stagger_buffer(struct mtk_cam_device *cam,
 		}
 	} else if (is_dc) {
 		s_data->frame_params.raw_param.hardware_scenario =
-			MTKCAM_IPI_HW_PATH_OFFLINE_SRT_DCIF_STAGGER;
+			MTKCAM_IPI_HW_PATH_DC_STAGGER;
 		if (mtk_cam_feature_is_2_exposure(feature)) {
 			s_data->frame_params.raw_param.exposure_num = 2;
 			rawi_port_num = 2;
@@ -1882,18 +1882,20 @@ static void check_mstream_buffer(struct mtk_cam_device *cam,
 		mtk_cam_img_working_buf_put(buf_entry);
 
 		if (feature == MSTREAM_NE_SE) {
+			//Dujac todo
 			frame_param->raw_param.hardware_scenario =
 				is_m2m ? MTKCAM_IPI_HW_PATH_OFFLINE_STAGGER :
-			MTKCAM_IPI_HW_PATH_ON_THE_FLY_MSTREAM_NE_SE;
+			MTKCAM_IPI_HW_PATH_MSTREAM;
 
 			dev_dbg(cam->dev,
 				"%s: mstream (m2m %d) ne_se ne imgo:0x%x se rawi:0x%x\n",
 				__func__, is_m2m, out_fmt->buf[0][0].iova,
 				in_fmt->buf[0].iova);
 		} else {
+			//Dujac todo
 			frame_param->raw_param.hardware_scenario =
 				is_m2m ? MTKCAM_IPI_HW_PATH_OFFLINE_STAGGER :
-			MTKCAM_IPI_HW_PATH_ON_THE_FLY_MSTREAM_SE_NE;
+			MTKCAM_IPI_HW_PATH_MSTREAM;
 
 			dev_dbg(cam->dev,
 				"%s: mstream (m2m %d) se_ne se imgo:0x%x ne rawi:0x%x\n",
@@ -2463,7 +2465,7 @@ void mtk_cam_mstream_buf_update(struct mtk_cam_request *req,
 		 * First exposure:
 		 * Input = SE(RAWI2 node buffer through RAWI2),
 		 * Output = SE(IMGO node buffer)
-		 * hw_scenario -> MTKCAM_IPI_HW_PATH_OFFLINE_M2M
+		 * hw_scenario -> MTKCAM_IPI_HW_PATH_OFFLINE
 		 *
 		 * Second exposure:
 		 * Intput = NE(RAWI2 buffer through RAWI6) + SE(IMGO buffer through RAWI2),
@@ -2472,7 +2474,7 @@ void mtk_cam_mstream_buf_update(struct mtk_cam_request *req,
 		 */
 
 		mstream_frame_param->raw_param.hardware_scenario =
-			MTKCAM_IPI_HW_PATH_OFFLINE_M2M;
+			MTKCAM_IPI_HW_PATH_OFFLINE;
 		frame_param->raw_param.hardware_scenario =
 			MTKCAM_IPI_HW_PATH_OFFLINE_STAGGER;
 
@@ -2542,7 +2544,7 @@ void mtk_cam_mstream_buf_update(struct mtk_cam_request *req,
 					/* main stream numplane is 1, not entering here */
 				} else if (node->desc.id == MTK_RAW_RAWI_2_IN) {
 					// 2. SE input
-					int in_node = MTKCAM_IPI_RAW_RAWI_6;
+					int in_node = MTKCAM_IPI_RAW_RAWI_5;
 
 					frame_param->img_ins[in_node -
 						MTKCAM_IPI_RAW_RAWI_2].buf[0].iova = buf->daddr +
@@ -2624,7 +2626,7 @@ void mtk_cam_mstream_buf_update(struct mtk_cam_request *req,
 					/* main stream numplane is 1, not entering here */
 				} else if (node->desc.id == MTK_RAW_RAWI_2_IN) {
 					// 2. 2nd exp NE input
-					int in_node = MTKCAM_IPI_RAW_RAWI_6;
+					int in_node = MTKCAM_IPI_RAW_RAWI_5;
 
 					frame_param->img_ins[in_node -
 						MTKCAM_IPI_RAW_RAWI_2].buf[0].iova = buf->daddr;
@@ -2641,12 +2643,13 @@ void mtk_cam_mstream_buf_update(struct mtk_cam_request *req,
 			}
 		}
 	} else {
+		//Dujac todo
 		if ((feature & MSTREAM_NE_SE) == MSTREAM_NE_SE)
 			frame_param->raw_param.hardware_scenario =
-			MTKCAM_IPI_HW_PATH_ON_THE_FLY_MSTREAM_NE_SE;
+			MTKCAM_IPI_HW_PATH_MSTREAM;
 		else
 			frame_param->raw_param.hardware_scenario =
-			MTKCAM_IPI_HW_PATH_ON_THE_FLY_MSTREAM_SE_NE;
+			MTKCAM_IPI_HW_PATH_MSTREAM;
 
 		// imgo mstream buffer layout is fixed plane[0]=NE, plane[1]=SE
 		if ((feature & MSTREAM_NE_SE) == MSTREAM_NE_SE) {
@@ -2762,7 +2765,7 @@ int mtk_cam_hdr_buf_update(struct vb2_buffer *vb,
 					.size = f->fmt.pix_mp.plane_fmt[i].sizeimage;
 			} else if (i == 2) { /*raw*/
 				if (scenario == STAGGER_M2M) {
-					int in_node = MTKCAM_IPI_RAW_RAWI_6;
+					int in_node = MTKCAM_IPI_RAW_RAWI_5;
 
 					frame_param->img_ins[in_node - MTKCAM_IPI_RAW_RAWI_2].buf[0]
 						.iova = buf->daddr + vb->planes[i].data_offset;
@@ -2783,7 +2786,7 @@ int mtk_cam_hdr_buf_update(struct vb2_buffer *vb,
 					.size = f->fmt.pix_mp.plane_fmt[i].sizeimage;
 			} else if (i == 1) { /*raw*/
 				if (scenario == STAGGER_M2M) {
-					int in_node = MTKCAM_IPI_RAW_RAWI_6;
+					int in_node = MTKCAM_IPI_RAW_RAWI_5;
 
 					frame_param->img_ins[in_node - MTKCAM_IPI_RAW_RAWI_2].buf[0]
 						.iova = buf->daddr + vb->planes[i].data_offset;
@@ -3145,7 +3148,7 @@ mtk_cam_config_raw_img_in_rawi2(struct mtk_cam_request_stream_data *s_data,
 	} else {
 		in_fmt->buf[0].iova = buf->daddr;
 		frame_param->raw_param.hardware_scenario =
-			MTKCAM_IPI_HW_PATH_OFFLINE_M2M;
+			MTKCAM_IPI_HW_PATH_OFFLINE;
 	}
 
 	in_fmt->uid.pipe_id = node->uid.pipe_id;
@@ -3286,7 +3289,6 @@ static int mtk_cam_req_update(struct mtk_cam_device *cam,
 		case MTKCAM_IPI_RAW_RZH1N2TO_2:
 		case MTKCAM_IPI_RAW_RZH1N2TO_3:
 		case MTKCAM_IPI_RAW_DRZS4NO_1:
-		case MTKCAM_IPI_RAW_DRZS4NO_2:
 		case MTKCAM_IPI_RAW_DRZS4NO_3:
 			ret = mtk_cam_config_raw_img_out(req_stream_data, buf);
 			if (ret)
@@ -3303,7 +3305,6 @@ static int mtk_cam_req_update(struct mtk_cam_device *cam,
 		case MTKCAM_IPI_RAW_META_STATS_CFG:
 		case MTKCAM_IPI_RAW_META_STATS_0:
 		case MTKCAM_IPI_RAW_META_STATS_1:
-		case MTKCAM_IPI_RAW_META_STATS_2:
 			break;
 		default:
 			/* Do nothing for the ports not related to crop settings */
@@ -4096,10 +4097,10 @@ static int get_available_sv_pipes(struct mtk_cam_device *cam,
 	unsigned int i, j, k, group, exp_order;
 	unsigned int idle_pipes = 0, match_cnt = 0, extisp_cnt = 0;
 	bool is_dc =
-		hw_scen == (1 << MTKCAM_IPI_HW_PATH_OFFLINE_SRT_DCIF_STAGGER);
+		hw_scen == (1 << HWPATH_ID(MTKCAM_IPI_HW_PATH_DC_STAGGER));
 
-	if (hw_scen == (1 << MTKCAM_IPI_HW_PATH_ON_THE_FLY_DCIF_STAGGER) ||
-		hw_scen == (1 << MTKCAM_IPI_HW_PATH_OFFLINE_SRT_DCIF_STAGGER)) {
+	if (hw_scen == (1 << HWPATH_ID(MTKCAM_IPI_HW_PATH_STAGGER)) ||
+		hw_scen == (1 << HWPATH_ID(MTKCAM_IPI_HW_PATH_DC_STAGGER))) {
 		for (i = 0; i < req_amount; i++) {
 			group = master << CAMSV_GROUP_SHIFT;
 			exp_order = 1 << (i + CAMSV_EXP_ORDER_SHIFT);
@@ -4139,7 +4140,7 @@ static int get_available_sv_pipes(struct mtk_cam_device *cam,
 				goto EXIT;
 			}
 		}
-	} else if (hw_scen == (1 << MTKCAM_IPI_HW_PATH_OFFLINE_STAGGER)) {
+	} else if (hw_scen == (1 << HWPATH_ID(MTKCAM_IPI_HW_PATH_OFFLINE_STAGGER))) {
 		for (i = 0; i < CAMSV_GROUP_AMOUNT; i++) {
 			for (j = 0; j < req_amount; j++) {
 				group = 1 << (i + CAMSV_GROUP_SHIFT);
@@ -4285,18 +4286,20 @@ void mstream_seamless_buf_update(struct mtk_cam_ctx *ctx,
 		mstream_frame_param->raw_param.exposure_num = 1;
 		frame_param->raw_param.exposure_num = 2;
 		frame_param->raw_param.hardware_scenario =
-		MTKCAM_IPI_HW_PATH_ON_THE_FLY_MSTREAM_NE_SE;
+			MTKCAM_IPI_HW_PATH_MSTREAM;
 	} else if (current_feature == MSTREAM_SE_NE) {
 		mstream_frame_param->raw_param.exposure_num = 1;
 		frame_param->raw_param.exposure_num = 2;
+		// Dujac todo
 		frame_param->raw_param.hardware_scenario =
-		MTKCAM_IPI_HW_PATH_ON_THE_FLY_MSTREAM_SE_NE;
+			MTKCAM_IPI_HW_PATH_MSTREAM;
 	} else {
 		// normal single exposure
 		mstream_frame_param->raw_param.exposure_num = 0;
 		frame_param->raw_param.exposure_num = 1;
+		// Dujac todo
 		frame_param->raw_param.hardware_scenario =
-		MTKCAM_IPI_HW_PATH_ON_THE_FLY;
+			MTKCAM_IPI_HW_PATH_ON_THE_FLY;
 	}
 
 	// imgo mstream buffer layout is fixed plane[0]=NE, plane[1]=SE
@@ -4618,13 +4621,13 @@ static int isp_composer_handle_ack(struct mtk_cam_device *cam,
 	}
 
 	buf_entry->cq_desc_offset =
-		ipi_msg->ack_data.frame_result.cq_desc_offset;
+		ipi_msg->ack_data.frame_result.main.offset;
 	buf_entry->cq_desc_size =
-		ipi_msg->ack_data.frame_result.cq_desc_size;
+		ipi_msg->ack_data.frame_result.main.size;
 	buf_entry->sub_cq_desc_offset =
-		ipi_msg->ack_data.frame_result.sub_cq_desc_offset;
+		ipi_msg->ack_data.frame_result.sub.offset;
 	buf_entry->sub_cq_desc_size =
-		ipi_msg->ack_data.frame_result.sub_cq_desc_size;
+		ipi_msg->ack_data.frame_result.sub.size;
 
 	/* Do nothing if the user doesn't enable force dump */
 	if (mtk_cam_feature_is_mstream(s_data->feature.raw_feature) ||
@@ -4662,9 +4665,9 @@ static int isp_composer_handle_ack(struct mtk_cam_device *cam,
 		spin_unlock(&ctx->mraw_using_buffer_list[i].lock);
 		mraw_buf_entry[i]->buffer.iova = buf_entry->buffer.iova;
 		mraw_buf_entry[i]->mraw_cq_desc_offset =
-			ipi_msg->ack_data.frame_result.mraw_cq_desc_offset[i];
+			ipi_msg->ack_data.frame_result.mraw[i].offset;
 		mraw_buf_entry[i]->mraw_cq_desc_size =
-			ipi_msg->ack_data.frame_result.mraw_cq_desc_size[i];
+			ipi_msg->ack_data.frame_result.mraw[i].size;
 	}
 
 	if (mtk_cam_is_m2m(ctx)) {
@@ -5182,7 +5185,7 @@ void mtk_cam_sensor_switch_stop_reinit_hw(struct mtk_cam_ctx *ctx,
 		raw_dev = get_master_raw_dev(ctx->cam, ctx->pipe);
 		if (mtk_cam_is_time_shared(ctx)) {
 			unsigned int hw_scen =
-				(1 << MTKCAM_IPI_HW_PATH_OFFLINE_M2M);
+				(1 << HWPATH_ID(MTKCAM_IPI_HW_PATH_OFFLINE));
 			for (i = MTKCAM_SUBDEV_CAMSV_START ; i < MTKCAM_SUBDEV_CAMSV_END ; i++) {
 				if (ctx->pipe->enabled_raw & (1 << i)) {
 					mtk_cam_sv_dev_stream_on
@@ -5415,7 +5418,7 @@ void mtk_cam_dev_req_enqueue(struct mtk_cam_device *cam,
 
 			if (mtk_cam_is_time_shared(ctx)) {
 				req_stream_data->frame_params.raw_param.hardware_scenario =
-						MTKCAM_IPI_HW_PATH_OFFLINE_M2M;
+						MTKCAM_IPI_HW_PATH_OFFLINE;
 				req_stream_data->frame_params.raw_param.exposure_num = 1;
 				req_stream_data->state.estate = E_STATE_TS_READY;
 			}
@@ -5438,7 +5441,7 @@ void mtk_cam_dev_req_enqueue(struct mtk_cam_device *cam,
 				    ctx->sensor && MTK_CAM_INITIAL_REQ_SYNC == 0 &&
 					(ctx->pipe->feature_active == 0 ||
 					req_stream_data->frame_params.raw_param.hardware_scenario
-					== MTKCAM_IPI_HW_PATH_OFFLINE_SRT_DCIF_STAGGER) &&
+					== MTKCAM_IPI_HW_PATH_DC_STAGGER) &&
 					req_stream_data->frame_seq_no == 2) {
 					mtk_cam_initial_sensor_setup(req, ctx);
 				}
@@ -5813,16 +5816,16 @@ int mtk_cam_s_data_dev_config(struct mtk_cam_request_stream_data *s_data,
 			}
 		}
 		if (s_raw_pipe_data->stagger_select.hw_mode == HW_MODE_ON_THE_FLY) {
-			hw_scen = (1 << MTKCAM_IPI_HW_PATH_ON_THE_FLY_DCIF_STAGGER);
+			hw_scen = (1 << HWPATH_ID(MTKCAM_IPI_HW_PATH_STAGGER));
 			req_amount = (mtk_cam_feature_is_3_exposure(feature)) ? 2 : 1;
 		} else if (s_raw_pipe_data->stagger_select.hw_mode == HW_MODE_DIRECT_COUPLED) {
-			hw_scen = (1 << MTKCAM_IPI_HW_PATH_OFFLINE_SRT_DCIF_STAGGER);
+			hw_scen = (1 << HWPATH_ID(MTKCAM_IPI_HW_PATH_DC_STAGGER));
 			req_amount = (mtk_cam_feature_is_3_exposure(feature)) ? 3 : 2;
 		} else if (s_raw_pipe_data->stagger_select.hw_mode == HW_MODE_OFFLINE) {
-			hw_scen = (1 << MTKCAM_IPI_HW_PATH_OFFLINE_STAGGER);
+			hw_scen = (1 << HWPATH_ID(MTKCAM_IPI_HW_PATH_OFFLINE_STAGGER));
 			req_amount = (mtk_cam_feature_is_3_exposure(feature)) ? 3 : 2;
 		} else {
-			hw_scen = (1 << MTKCAM_IPI_HW_PATH_ON_THE_FLY_DCIF_STAGGER);
+			hw_scen = (1 << HWPATH_ID(MTKCAM_IPI_HW_PATH_STAGGER));
 			req_amount = (mtk_cam_feature_is_3_exposure(feature)) ? 2 : 1;
 		}
 		idle_pipes = get_available_sv_pipes(cam, hw_scen, req_amount, master, 0);
@@ -5848,7 +5851,7 @@ int mtk_cam_s_data_dev_config(struct mtk_cam_request_stream_data *s_data,
 			}
 		}
 
-		hw_scen = (1 << MTKCAM_IPI_HW_PATH_OFFLINE_SRT_DCIF_STAGGER);
+		hw_scen = (1 << HWPATH_ID(MTKCAM_IPI_HW_PATH_DC_STAGGER));
 		req_amount = 1;
 
 		idle_pipes = get_available_sv_pipes(cam, hw_scen, req_amount, master, 0);
@@ -5869,12 +5872,12 @@ int mtk_cam_s_data_dev_config(struct mtk_cam_request_stream_data *s_data,
 		s_raw_pipe_data->enabled_raw);
 
 	if (mtk_cam_feature_is_mstream(feature) || mtk_cam_feature_is_mstream_m2m(feature)) {
-		config_param.sw_feature = MTKCAM_IPI_SW_FEATURE_VHDR_MSTREAM;
+		config_param.sw_feature = MTKCAM_IPI_SW_FEATURE_VHDR;
 		dev_dbg(dev, "%s sw_feature:%d", __func__, config_param.sw_feature);
 	} else {
 		config_param.sw_feature = (mtk_cam_feature_is_stagger(feature) == 1 ||
 			mtk_cam_feature_is_stagger_m2m(feature) == 1) ?
-			MTKCAM_IPI_SW_FEATURE_VHDR_STAGGER : MTKCAM_IPI_SW_FEATURE_NORMAL;
+			MTKCAM_IPI_SW_FEATURE_VHDR : MTKCAM_IPI_SW_FEATURE_NORMAL;
 	}
 
 	dev_raw = mtk_cam_find_raw_dev(cam, s_raw_pipe_data->enabled_raw);
@@ -5950,15 +5953,15 @@ int mtk_cam_s_data_sv_dev_config(struct mtk_cam_request_stream_data *s_data)
 	/* check hardware scenario */
 	if (is_stagger) {
 		if (s_raw_pipe_data->stagger_select.hw_mode == HW_MODE_ON_THE_FLY)
-			hw_scen = (1 << MTKCAM_IPI_HW_PATH_ON_THE_FLY_DCIF_STAGGER);
+			hw_scen = (1 << HWPATH_ID(MTKCAM_IPI_HW_PATH_STAGGER));
 		else if (s_raw_pipe_data->stagger_select.hw_mode == HW_MODE_DIRECT_COUPLED)
-			hw_scen = (1 << MTKCAM_IPI_HW_PATH_OFFLINE_SRT_DCIF_STAGGER);
+			hw_scen = (1 << HWPATH_ID(MTKCAM_IPI_HW_PATH_DC_STAGGER));
 		else if (s_raw_pipe_data->stagger_select.hw_mode == HW_MODE_OFFLINE)
-			hw_scen = (1 << MTKCAM_IPI_HW_PATH_OFFLINE_STAGGER);
+			hw_scen = (1 << HWPATH_ID(MTKCAM_IPI_HW_PATH_OFFLINE_STAGGER));
 		else
-			hw_scen = (1 << MTKCAM_IPI_HW_PATH_ON_THE_FLY_DCIF_STAGGER);
+			hw_scen = (1 << HWPATH_ID(MTKCAM_IPI_HW_PATH_STAGGER));
 	} else if (is_dc)
-		hw_scen = (1 << MTKCAM_IPI_HW_PATH_OFFLINE_SRT_DCIF_STAGGER);
+		hw_scen = (1 << HWPATH_ID(MTKCAM_IPI_HW_PATH_DC_STAGGER));
 
 	tgo_pxl_mode = s_raw_pipe_data->res_config.tgo_pxl_mode_before_raw;
 	used_pipes = s_raw_pipe_data->enabled_raw;
@@ -6079,16 +6082,16 @@ int mtk_cam_dev_config(struct mtk_cam_ctx *ctx, bool streaming, bool config_pipe
 			}
 		}
 		if (mtk_cam_hw_is_otf(ctx)) {
-			hw_scen = (1 << MTKCAM_IPI_HW_PATH_ON_THE_FLY_DCIF_STAGGER);
+			hw_scen = (1 << HWPATH_ID(MTKCAM_IPI_HW_PATH_STAGGER));
 			req_amount = (mtk_cam_feature_is_3_exposure(feature_active)) ? 2 : 1;
 		} else if (mtk_cam_hw_is_dc(ctx)) {
-			hw_scen = (1 << MTKCAM_IPI_HW_PATH_OFFLINE_SRT_DCIF_STAGGER);
+			hw_scen = (1 << HWPATH_ID(MTKCAM_IPI_HW_PATH_DC_STAGGER));
 			req_amount = (mtk_cam_feature_is_3_exposure(feature_active)) ? 3 : 2;
 		} else if (mtk_cam_hw_is_offline(ctx)) {
-			hw_scen = (1 << MTKCAM_IPI_HW_PATH_OFFLINE_STAGGER);
+			hw_scen = (1 << HWPATH_ID(MTKCAM_IPI_HW_PATH_OFFLINE_STAGGER));
 			req_amount = (mtk_cam_feature_is_3_exposure(feature_active)) ? 3 : 2;
 		} else {
-			hw_scen = (1 << MTKCAM_IPI_HW_PATH_ON_THE_FLY_DCIF_STAGGER);
+			hw_scen = (1 << HWPATH_ID(MTKCAM_IPI_HW_PATH_STAGGER));
 			req_amount = (mtk_cam_feature_is_3_exposure(feature_active)) ? 2 : 1;
 		}
 		idle_pipes = get_available_sv_pipes(cam, hw_scen, req_amount, master, 0);
@@ -6111,7 +6114,7 @@ int mtk_cam_dev_config(struct mtk_cam_ctx *ctx, bool streaming, bool config_pipe
 			}
 		}
 
-		hw_scen = (1 << MTKCAM_IPI_HW_PATH_OFFLINE_SRT_DCIF_STAGGER);
+		hw_scen = (1 << HWPATH_ID(MTKCAM_IPI_HW_PATH_DC_STAGGER));
 		req_amount = 1;
 
 		idle_pipes = get_available_sv_pipes(cam, hw_scen, req_amount, master, 0);
@@ -6132,7 +6135,7 @@ int mtk_cam_dev_config(struct mtk_cam_ctx *ctx, bool streaming, bool config_pipe
 				break;
 			}
 		}
-		hw_scen = (1 << MTKCAM_IPI_HW_PATH_OFFLINE_M2M);
+		hw_scen = (1 << HWPATH_ID(MTKCAM_IPI_HW_PATH_OFFLINE));
 		req_amount = 1;
 		idle_pipes = get_available_sv_pipes(cam, hw_scen, req_amount, master, 0);
 		/* cached used sv pipes */
@@ -6145,7 +6148,7 @@ int mtk_cam_dev_config(struct mtk_cam_ctx *ctx, bool streaming, bool config_pipe
 	} else if (config_pipe && mtk_cam_is_stagger_m2m(ctx)) {
 		int hw_scen, req_amount;
 
-		hw_scen = (1 << MTKCAM_IPI_HW_PATH_OFFLINE_STAGGER);
+		hw_scen = (1 << HWPATH_ID(MTKCAM_IPI_HW_PATH_OFFLINE_STAGGER));
 		req_amount = (mtk_cam_feature_is_3_exposure(feature_active)) ? 3 : 2;
 	} else if (config_pipe && mtk_cam_is_with_w_channel(ctx)) {
 		int master, hw_scen, req_amount, idle_pipes;
@@ -6215,12 +6218,12 @@ int mtk_cam_dev_config(struct mtk_cam_ctx *ctx, bool streaming, bool config_pipe
 			  ctx->pipe->enabled_raw);
 	if (mtk_cam_feature_is_mstream(feature_active) ||
 	    mtk_cam_feature_is_mstream_m2m(feature_active)) {
-		config_param.sw_feature = MTKCAM_IPI_SW_FEATURE_VHDR_MSTREAM;
+		config_param.sw_feature = MTKCAM_IPI_SW_FEATURE_VHDR;
 		dev_dbg(dev, "%s sw_feature:%d", __func__, config_param.sw_feature);
 	} else {
 		config_param.sw_feature = (mtk_cam_feature_is_stagger(feature_active) == 1 ||
 			mtk_cam_feature_is_stagger_m2m(feature_active) == 1) ?
-			MTKCAM_IPI_SW_FEATURE_VHDR_STAGGER : MTKCAM_IPI_SW_FEATURE_NORMAL;
+			MTKCAM_IPI_SW_FEATURE_VHDR : MTKCAM_IPI_SW_FEATURE_NORMAL;
 	}
 
 	dev_raw = mtk_cam_find_raw_dev(cam, ctx->used_raw_dev);
@@ -6979,7 +6982,7 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 		} else if (mtk_cam_feature_is_time_shared(feature_active)) {
 			int used_pipes, src_pad_idx, hw_scen;
 
-			hw_scen = (1 << MTKCAM_IPI_HW_PATH_OFFLINE_M2M);
+			hw_scen = (1 << HWPATH_ID(MTKCAM_IPI_HW_PATH_OFFLINE));
 			src_pad_idx = PAD_SRC_RAW0;
 			used_pipes = ctx->pipe->enabled_raw;
 			for (i = MTKCAM_SUBDEV_CAMSV_START ; i < MTKCAM_SUBDEV_CAMSV_END ; i++) {
@@ -7035,7 +7038,7 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 			int used_pipes, sv_pipe_idx, raw_idx;
 			int src_pad_idx = PAD_SRC_RAW0;
 			unsigned int hw_scen =
-				(1 << MTKCAM_IPI_HW_PATH_OFFLINE_SRT_DCIF_STAGGER);
+				(1 << HWPATH_ID(MTKCAM_IPI_HW_PATH_DC_STAGGER));
 
 			used_pipes = ctx->pipe->enabled_raw;
 			raw_idx = get_master_raw_id(cam->num_raw_drivers, used_pipes);
@@ -7389,7 +7392,7 @@ int mtk_cam_ctx_stream_off(struct mtk_cam_ctx *ctx)
 	else if (mtk_cam_is_with_w_channel(ctx))
 		hw_scen = (1 << MTKCAM_SV_SPECIAL_SCENARIO_ADDITIONAL_RAW);
 	else if (mtk_cam_hw_is_dc(ctx))
-		hw_scen = (1 << MTKCAM_IPI_HW_PATH_OFFLINE_SRT_DCIF_STAGGER);
+		hw_scen = (1 << HWPATH_ID(MTKCAM_IPI_HW_PATH_DC_STAGGER));
 
 	if (hw_scen) {
 		for (i = MTKCAM_SUBDEV_CAMSV_START; i < MTKCAM_SUBDEV_CAMSV_END; i++) {
@@ -7420,7 +7423,7 @@ int mtk_cam_ctx_stream_off(struct mtk_cam_ctx *ctx)
 		raw_dev = dev_get_drvdata(dev);
 		if (mtk_cam_feature_is_time_shared(feature)) {
 			unsigned int hw_scen =
-				(1 << MTKCAM_IPI_HW_PATH_OFFLINE_M2M);
+				(1 << HWPATH_ID(MTKCAM_IPI_HW_PATH_OFFLINE));
 			for (i = MTKCAM_SUBDEV_CAMSV_START ; i < MTKCAM_SUBDEV_CAMSV_END ; i++) {
 				if (ctx->pipe->enabled_raw & (1 << i)) {
 					mtk_cam_sv_dev_stream_on(

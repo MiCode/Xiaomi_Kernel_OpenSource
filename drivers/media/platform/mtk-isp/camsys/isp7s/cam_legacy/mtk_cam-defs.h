@@ -115,11 +115,7 @@ enum mtkcam_ipi_raw_video_id {
 	MTKCAM_IPI_RAW_RAWI_2,		/* RAWI_R2 */
 	MTKCAM_IPI_RAW_RAWI_3,		/* RAWI_R3 */
 	MTKCAM_IPI_RAW_RAWI_5,		/* RAWI_R5 */
-	MTKCAM_IPI_RAW_RAWI_6,		/* RAWI_R6 */
 	MTKCAM_IPI_RAW_IMGO,		/* IMGO_R1 */
-	MTKCAM_IPI_RAW_UFEO,		/* UFEO_R1 */
-	MTKCAM_IPI_RAW_RRZO,		/* RRZO_R1 */
-	MTKCAM_IPI_RAW_UFGO,		/* UFGO_R1 */
 	MTKCAM_IPI_RAW_YUVO_1,		/* YUVO_R1 */
 	MTKCAM_IPI_RAW_YUVO_2,		/* YUVO_R2 */
 	MTKCAM_IPI_RAW_YUVO_3,		/* YUVO_R3 */
@@ -127,10 +123,11 @@ enum mtkcam_ipi_raw_video_id {
 	MTKCAM_IPI_RAW_YUVO_5,		/* YUVO_R5 */
 	MTKCAM_IPI_RAW_RZH1N2TO_2,	/* RZH1N2TO_R2 */
 	MTKCAM_IPI_RAW_DRZS4NO_1,	/* DRZS4NO_R1 */
-	MTKCAM_IPI_RAW_DRZS4NO_2,	/* DRZS4NO_R2 */
 	MTKCAM_IPI_RAW_DRZS4NO_3,	/* DRZS4NO_R3 */
 	MTKCAM_IPI_RAW_RZH1N2TO_3,	/* RZH1N2TO_R3 */
 	MTKCAM_IPI_RAW_RZH1N2TO_1,	/* RZH1N2TO_R1 */
+	MTKCAM_IPI_RAW_DRZB2NO_1,	/* DRZB2NO_R1 */
+	MTKCAM_IPI_RAW_IPUO,		/* IPUO_R1 */
 	MTKCAM_IPI_RAW_META_STATS_CFG,	/* All settings */
 	MTKCAM_IPI_RAW_META_STATS_0,	/* statistics */
 
@@ -140,8 +137,6 @@ enum mtkcam_ipi_raw_video_id {
 	 */
 	MTKCAM_IPI_RAW_META_STATS_1,
 
-	/* statistics may be pass to DIP */
-	MTKCAM_IPI_RAW_META_STATS_2,
 	MTKCAM_IPI_RAW_ID_MAX,
 };
 
@@ -200,45 +195,55 @@ enum mtkcam_ipi_raw_path_control {
 	MTKCAM_IPI_IMGO_FULLY_PROCESSED = MTKCAM_IPI_IMGO_AFTER_LTM,
 };
 
-/* For LBIT_MODE G2 */
 enum mtkcam_ipi_sw_feature_control {
-	/* Normal */
-	MTKCAM_IPI_SW_FEATURE_NORMAL		= 0,
-	/* Stagger: multi or single exposure */
-	MTKCAM_IPI_SW_FEATURE_VHDR_STAGGER	= 1,
-	/* Mstream: multi or single exposure */
-	MTKCAM_IPI_SW_FEATURE_VHDR_MSTREAM	= 2,
+	MTKCAM_IPI_SW_FEATURE_NORMAL				= 0,
+	MTKCAM_IPI_SW_FEATURE_VHDR				= 1,
 };
 
-enum mtkcam_ipi_hw_path_control {
-	MTKCAM_IPI_HW_PATH_ON_THE_FLY				= 0,  /* TG direct link */
-	MTKCAM_IPI_HW_PATH_ON_THE_FLY_M2M			= 1,  /* On device tuning */
-	MTKCAM_IPI_HW_PATH_ON_THE_FLY_MSTREAM_SE_NE		= 2,  /* Mstream */
-	MTKCAM_IPI_HW_PATH_ON_THE_FLY_MSTREAM_NE_SE		= 3,  /* Mstream */
-	MTKCAM_IPI_HW_PATH_ON_THE_FLY_DCIF_STAGGER		= 4,  /* on the fly stagger */
-	MTKCAM_IPI_HW_PATH_OFFLINE_STAGGER			= 5,  /* offline stagger */
-	MTKCAM_IPI_HW_PATH_OFFLINE_SRT_DCIF_STAGGER		= 6,  /* SRT direct couple */
-	MTKCAM_IPI_HW_PATH_OFFLINE_M2M				= 7,  /* SW trigger rawi */
-	/* TG direct link, for RAW_BC or single B */
-	MTKCAM_IPI_HW_PATH_ON_THE_FLY_RAWB			= 8,
+enum mtkcam_ipi_frame_order {
+	MTKCAM_IPI_ORDER_BAYER_FIRST	= 0, /* bayer-w */
+	MTKCAM_IPI_ORDER_W_FIRST	= 1, /* w-bayer */
 };
 
-enum mtkcam_ipi_meta_valid_num_control {
-	MTKCAM_IPI_FBCX_AAO = 0,
-	MTKCAM_IPI_FBCX_AAHO,
-	MTKCAM_IPI_FBCX_AFO,
-	MTKCAM_IPI_FBCX_TSFSO_1,
-	MTKCAM_IPI_FBCX_TSFSO_2,
-	MTKCAM_IPI_FBCX_LTMSO,
-	MTKCAM_IPI_FBCX_FLKO,
-	MTKCAM_IPI_FBCX_ACTSO,
-	MTKCAM_IPI_FBCX_PDO,
-	MTKCAM_IPI_FBCX_TNCSYO,
-	MTKCAM_IPI_FBCX_RZH1N2TO_R1,
-	MTKCAM_IPI_FBCX_RZH1N2TO_R2,
-	MTKCAM_IPI_FBCX_RZH1N2TO_R3,
-	MTKCAM_IPI_FBCX_LAST,
+enum mtkcam_ipi_exp_order {
+	MTKCAM_IPI_ORDER_SE_NE		= 0,
+	MTKCAM_IPI_ORDER_NE_SE		= 1,
 };
+
+enum mtkcam_ipi_flow {
+	MTKCAM_IPI_FLOW_NORMAL		= 0,
+	MTKCAM_IPI_FLOW_STAGGER		= 1,
+	MTKCAM_IPI_FLOW_MSTREAM		= 2,
+	MTKCAM_IPI_FLOW_RGBW		= 3,
+};
+
+enum mtkcam_ipi_flow_variant {
+	MTKCAM_IPI_FLOW_OTF,		/* 1. all direct-link. 2. DCIF + 1-exp direct-link */
+	MTKCAM_IPI_FLOW_DC,			/* w.o. direct-link, DCIF */
+	MTKCAM_IPI_FLOW_OFFLINE,	/* aka, m2m */
+};
+
+/*
+ * bit[15:12]: flow
+ * bit[11: 8]: variant
+ * bit[ 7: 0]: unique id
+ */
+#define _HWPATH(id, flow, variant)		\
+	((__u8)(MTKCAM_IPI_FLOW_ ## flow << 12 | MTKCAM_IPI_FLOW_ ## variant << 8 | id))
+
+#define MTKCAM_IPI_HW_PATH_ON_THE_FLY		_HWPATH(0, NORMAL, OTF)
+#define MTKCAM_IPI_HW_PATH_DC				_HWPATH(1, NORMAL, DC)
+#define MTKCAM_IPI_HW_PATH_OFFLINE			_HWPATH(2, NORMAL, OFFLINE)
+#define MTKCAM_IPI_HW_PATH_MSTREAM			_HWPATH(3, MSTREAM, OTF)
+#define MTKCAM_IPI_HW_PATH_DC_MSTREAM		_HWPATH(4, MSTREAM, DC)
+#define MTKCAM_IPI_HW_PATH_STAGGER			_HWPATH(5, STAGGER, OTF)
+#define MTKCAM_IPI_HW_PATH_DC_STAGGER		_HWPATH(6, STAGGER, DC)
+#define MTKCAM_IPI_HW_PATH_OFFLINE_STAGGER	_HWPATH(7, STAGGER, OFFLINE)
+#define MTKCAM_IPI_HW_PATH_OTF_RGBW			_HWPATH(8, RGBW, OTF)
+#define MTKCAM_IPI_HW_PATH_DC_RGBW			_HWPATH(9, RGBW, DC)
+#define MTKCAM_IPI_HW_PATH_OFFLINE_RGBW		_HWPATH(10, RGBW, OFFLINE)
+
+#define HWPATH_ID(hw_path) (hw_path & 0xFF)
 
 enum {
 	BIN_AUTO	= 0,

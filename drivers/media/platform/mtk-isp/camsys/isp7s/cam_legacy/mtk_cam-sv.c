@@ -1239,9 +1239,9 @@ int mtk_cam_sv_top_config(
 		CAMSV_DCIF_SET, MASK_DB_LOAD, 0);
 
 	if ((dev->pipeline->hw_scen &
-		(1 << MTKCAM_IPI_HW_PATH_ON_THE_FLY_DCIF_STAGGER)) ||
+		(1 << MTKCAM_IPI_HW_PATH_STAGGER)) ||
 		(dev->pipeline->hw_scen &
-		(1 << MTKCAM_IPI_HW_PATH_OFFLINE_SRT_DCIF_STAGGER))) {
+		(1 << MTKCAM_IPI_HW_PATH_DC_STAGGER))) {
 		CAMSV_WRITE_BITS(dev->base + REG_CAMSV_DCIF_SET,
 			CAMSV_DCIF_SET, FOR_DCIF_SUBSAMPLE_EN, 1);
 		CAMSV_WRITE_BITS(dev->base + REG_CAMSV_DCIF_SET,
@@ -1256,7 +1256,7 @@ int mtk_cam_sv_top_config(
 	/* vf en chain */
 	CAMSV_WRITE_BITS(dev->base + REG_CAMSV_MISC, CAMSV_MISC, VF_SRC, 0);
 	if ((dev->pipeline->hw_scen &
-		(1 << MTKCAM_IPI_HW_PATH_OFFLINE_SRT_DCIF_STAGGER)) ||
+		(1 << MTKCAM_IPI_HW_PATH_DC_STAGGER)) ||
 		(dev->pipeline->hw_scen &
 		(1 << MTKCAM_IPI_HW_PATH_OFFLINE_STAGGER))) {
 		if (dev->id == 8 || dev->id == 9) {
@@ -2010,7 +2010,7 @@ int mtk_cam_sv_dev_config(
 			size_img_fmt = img_fmt;
 			pad_idx = PAD_SRC_RAW_W0;
 			mf = &ctx->pipe->cfg[MTK_RAW_SINK].mbus_fmt;
-		} else if (hw_scen & (1 << MTKCAM_IPI_HW_PATH_OFFLINE_SRT_DCIF_STAGGER)) {
+		} else if (hw_scen & (1 << MTKCAM_IPI_HW_PATH_DC_STAGGER)) {
 			// config camsv with sensor(raw sink)
 			img_fmt = &ctx->pipe->vdev_nodes[MTK_RAW_SINK - MTK_RAW_SINK_BEGIN]
 				.sink_fmt_for_dc_rawi;
@@ -2047,7 +2047,7 @@ int mtk_cam_sv_dev_config(
 		// FIXME: seninf pixel updated after sv_dev_config,
 		// for DC mode, temporarily use argument pixelmode
 		// which is fixed to 8 pixel mode
-		if (!(hw_scen & (1 << MTKCAM_IPI_HW_PATH_OFFLINE_SRT_DCIF_STAGGER)))
+		if (!(hw_scen & (1 << MTKCAM_IPI_HW_PATH_DC_STAGGER)))
 			mtk_cam_seninf_get_pixelmode(ctx->seninf, pad_idx, &cfg_pixel_mode);
 
 	} else {

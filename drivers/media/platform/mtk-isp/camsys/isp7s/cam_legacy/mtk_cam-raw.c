@@ -1126,7 +1126,7 @@ void trigger_rawi(struct mtk_raw_device *dev, struct mtk_cam_ctx *ctx,
 
 	u32 cmd = 0;
 
-	if (hw_scene == MTKCAM_IPI_HW_PATH_OFFLINE_M2M)
+	if (hw_scene == MTKCAM_IPI_HW_PATH_OFFLINE)
 		cmd = TRIGGER_RAWI_R2;
 	else if (hw_scene == MTKCAM_IPI_HW_PATH_OFFLINE_STAGGER)
 		cmd = TRIGGER_RAWI_R6;
@@ -1570,7 +1570,6 @@ static void init_dma_threshold(struct mtk_raw_device *dev)
 	set_fifo_threshold(dev->yuv_base + REG_RZH1N2TO_R3_BASE);
 	set_fifo_threshold(dev->yuv_base + REG_RZH1N2TBO_R3_BASE);
 	set_fifo_threshold(dev->yuv_base + REG_DRZS4NO_R1_BASE);
-	set_fifo_threshold(dev->yuv_base + REG_DRZS4NO_R2_BASE);
 	set_fifo_threshold(dev->yuv_base + REG_DRZS4NO_R3_BASE);
 	set_fifo_threshold(dev->yuv_base + REG_ACTSO_R1_BASE);
 	set_fifo_threshold(dev->yuv_base + REG_TNCSO_R1_BASE);
@@ -4064,14 +4063,14 @@ unsigned int mtk_raw_get_hdr_scen_id(
 	struct mtk_cam_ctx *ctx)
 {
 	unsigned int hw_scen =
-		(1 << MTKCAM_IPI_HW_PATH_ON_THE_FLY_DCIF_STAGGER);
+		(1 << HWPATH_ID(MTKCAM_IPI_HW_PATH_STAGGER));
 
 	if (mtk_cam_hw_is_otf(ctx))
-		hw_scen = (1 << MTKCAM_IPI_HW_PATH_ON_THE_FLY_DCIF_STAGGER);
+		hw_scen = (1 << HWPATH_ID(MTKCAM_IPI_HW_PATH_STAGGER));
 	else if (mtk_cam_hw_is_dc(ctx))
-		hw_scen = (1 << MTKCAM_IPI_HW_PATH_OFFLINE_SRT_DCIF_STAGGER);
+		hw_scen = (1 << HWPATH_ID(MTKCAM_IPI_HW_PATH_DC_STAGGER));
 	else if (mtk_cam_hw_is_offline(ctx))
-		hw_scen = (1 << MTKCAM_IPI_HW_PATH_OFFLINE_STAGGER);
+		hw_scen = (1 << HWPATH_ID(MTKCAM_IPI_HW_PATH_OFFLINE_STAGGER));
 
 	return hw_scen;
 }
@@ -5093,21 +5092,33 @@ static const struct mtk_cam_format_desc drzs4no1_out_fmts[] = {
 	},
 };
 
-static const struct mtk_cam_format_desc drzs4no2_out_fmts[] = {
-	{
-		.vfmt.fmt.pix_mp = {
-			.width = DRZS4NO2_MAX_WIDTH,
-			.height = DRZS4NO2_MAX_HEIGHT,
-			.pixelformat = V4L2_PIX_FMT_GREY,
-		},
-	}
-};
-
 static const struct mtk_cam_format_desc drzs4no3_out_fmts[] = {
 	{
 		.vfmt.fmt.pix_mp = {
 			.width = DRZS4NO3_MAX_WIDTH,
 			.height = DRZS4NO3_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_GREY,
+		},
+	}
+};
+
+//Dujac todo
+static const struct mtk_cam_format_desc drzb2no1_out_fmts[] = {
+	{
+		.vfmt.fmt.pix_mp = {
+			.width = DRZB2NO1_MAX_WIDTH,
+			.height = DRZB2NO1_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_GREY,
+		},
+	}
+};
+
+//Dujac todo
+static const struct mtk_cam_format_desc ipu_out_fmts[] = {
+	{
+		.vfmt.fmt.pix_mp = {
+			.width = IPUO_MAX_WIDTH,
+			.height = IPUO_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_GREY,
 		},
 	}
@@ -5235,6 +5246,16 @@ struct mtk_cam_pad_ops source_pad_ops_yuv = {
 };
 
 struct mtk_cam_pad_ops source_pad_ops_drzs4no = {
+	.set_pad_fmt = mtk_raw_set_src_pad_fmt_default,
+	.set_pad_selection = mtk_raw_set_src_pad_selection_default,
+};
+
+struct mtk_cam_pad_ops source_pad_ops_drzb2no = {
+	.set_pad_fmt = mtk_raw_set_src_pad_fmt_default,
+	.set_pad_selection = mtk_raw_set_src_pad_selection_default,
+};
+
+struct mtk_cam_pad_ops source_pad_ops_ipuo = {
 	.set_pad_fmt = mtk_raw_set_src_pad_fmt_default,
 	.set_pad_selection = mtk_raw_set_src_pad_selection_default,
 };
@@ -5414,7 +5435,7 @@ mtk_cam_dev_node_desc capture_queues[] = {
 	},
 	{
 		.id = MTK_RAW_DRZS4NO_1_OUT,
-		.name = "drzs4no 1",
+		.name = "drzno 1",
 		.cap = V4L2_CAP_VIDEO_CAPTURE_MPLANE,
 		.buf_type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE,
 		.link_flags = MEDIA_LNK_FL_ENABLED |  MEDIA_LNK_FL_IMMUTABLE,
@@ -5433,33 +5454,6 @@ mtk_cam_dev_node_desc capture_queues[] = {
 				.max_width = DRZS4NO1_MAX_WIDTH,
 				.min_width = IMG_MIN_WIDTH,
 				.max_height = DRZS4NO1_MAX_HEIGHT,
-				.min_height = IMG_MIN_HEIGHT,
-				.step_height = 1,
-				.step_width = 1,
-			},
-		},
-	},
-	{
-		.id = MTK_RAW_DRZS4NO_2_OUT,
-		.name = "drzs4no 2",
-		.cap = V4L2_CAP_VIDEO_CAPTURE_MPLANE,
-		.buf_type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE,
-		.link_flags = MEDIA_LNK_FL_ENABLED |  MEDIA_LNK_FL_IMMUTABLE,
-		.image = true,
-		.smem_alloc = false,
-		.dma_port = MTKCAM_IPI_RAW_DRZS4NO_2,
-		.fmts = drzs4no2_out_fmts,
-		.num_fmts = ARRAY_SIZE(drzs4no2_out_fmts),
-		.default_fmt_idx = 0,
-		.pad_ops = &source_pad_ops_drzs4no,
-		.ioctl_ops = &mtk_cam_v4l2_vcap_ioctl_ops,
-		.frmsizes = &(struct v4l2_frmsizeenum) {
-			.index = 0,
-			.type = V4L2_FRMSIZE_TYPE_CONTINUOUS,
-			.stepwise = {
-				.max_width = DRZS4NO2_MAX_WIDTH,
-				.min_width = IMG_MIN_WIDTH,
-				.max_height = DRZS4NO2_MAX_HEIGHT,
 				.min_height = IMG_MIN_HEIGHT,
 				.step_height = 1,
 				.step_width = 1,
@@ -5575,6 +5569,60 @@ mtk_cam_dev_node_desc capture_queues[] = {
 		},
 	},
 	{
+		.id = MTK_RAW_DRZB2NO_1_OUT,
+		.name = "drzb2no 1",
+		.cap = V4L2_CAP_VIDEO_CAPTURE_MPLANE,
+		.buf_type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE,
+		.link_flags = MEDIA_LNK_FL_ENABLED |  MEDIA_LNK_FL_IMMUTABLE,
+		.image = true,
+		.smem_alloc = false,
+		.dma_port = MTKCAM_IPI_RAW_DRZB2NO_1,
+		.fmts = drzb2no1_out_fmts,
+		.num_fmts = ARRAY_SIZE(drzb2no1_out_fmts),
+		.default_fmt_idx = 0,
+		.pad_ops = &source_pad_ops_drzb2no,
+		.ioctl_ops = &mtk_cam_v4l2_vcap_ioctl_ops,
+		.frmsizes = &(struct v4l2_frmsizeenum) {
+			.index = 0,
+			.type = V4L2_FRMSIZE_TYPE_CONTINUOUS,
+			.stepwise = {
+				.max_width = DRZB2NO1_MAX_WIDTH,
+				.min_width = IMG_MIN_WIDTH,
+				.max_height = DRZB2NO1_MAX_HEIGHT,
+				.min_height = IMG_MIN_HEIGHT,
+				.step_height = 1,
+				.step_width = 1,
+			},
+		},
+	},
+	{
+		.id = MTK_RAW_IPU_OUT,
+		.name = "ipuo",
+		.cap = V4L2_CAP_VIDEO_CAPTURE_MPLANE,
+		.buf_type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE,
+		.link_flags = MEDIA_LNK_FL_ENABLED |  MEDIA_LNK_FL_IMMUTABLE,
+		.image = true,
+		.smem_alloc = false,
+		.dma_port = MTKCAM_IPI_RAW_IPUO,
+		.fmts = ipu_out_fmts,
+		.num_fmts = ARRAY_SIZE(ipu_out_fmts),
+		.default_fmt_idx = 0,
+		.pad_ops = &source_pad_ops_ipuo,
+		.ioctl_ops = &mtk_cam_v4l2_vcap_ioctl_ops,
+		.frmsizes = &(struct v4l2_frmsizeenum) {
+			.index = 0,
+			.type = V4L2_FRMSIZE_TYPE_CONTINUOUS,
+			.stepwise = {
+				.max_width = IPUO_MAX_WIDTH,
+				.min_width = IMG_MIN_HEIGHT,
+				.max_height = IPUO_MAX_HEIGHT,
+				.min_height = IMG_MIN_HEIGHT,
+				.step_height = 1,
+				.step_width = 1,
+			},
+		},
+	},
+	{
 		.id = MTK_RAW_MAIN_STREAM_SV_1_OUT,
 		.name = "sv imgo 1",
 		.cap = V4L2_CAP_VIDEO_CAPTURE_MPLANE,
@@ -5657,20 +5705,6 @@ mtk_cam_dev_node_desc capture_queues[] = {
 		.ioctl_ops = &mtk_cam_v4l2_meta_cap_ioctl_ops,
 	},
 	{
-		.id = MTK_RAW_META_OUT_2,
-		.name = "partial meta 2",
-		.cap = V4L2_CAP_META_CAPTURE,
-		.buf_type = V4L2_BUF_TYPE_META_CAPTURE,
-		.link_flags = MEDIA_LNK_FL_ENABLED |  MEDIA_LNK_FL_IMMUTABLE,
-		.image = false,
-		.smem_alloc = false,
-		.need_cache_sync_on_finish = true,
-		.dma_port = MTKCAM_IPI_RAW_META_STATS_2,
-		.default_fmt_idx = 3,
-		.max_buf_count = 16,
-		.ioctl_ops = &mtk_cam_v4l2_meta_cap_ioctl_ops,
-	},
-	{
 		.id = MTK_RAW_META_SV_OUT_0,
 		.name = "external meta 0",
 		.cap = V4L2_CAP_META_CAPTURE,
@@ -5716,11 +5750,12 @@ static const char *capture_queue_names[RAW_PIPELINE_NUM][MTK_RAW_TOTAL_CAPTURE_Q
 	 "mtk-cam raw-0 yuvo-1", "mtk-cam raw-0 yuvo-2",
 	 "mtk-cam raw-0 yuvo-3", "mtk-cam raw-0 yuvo-4",
 	 "mtk-cam raw-0 yuvo-5",
-	 "mtk-cam raw-0 drzs4no-1", "mtk-cam raw-0 drzs4no-2", "mtk-cam raw-0 drzs4no-3",
+	 "mtk-cam raw-0 drzs4no-1", "mtk-cam raw-0 drzs4no-3",
 	 "mtk-cam raw-0 rzh1n2to-1", "mtk-cam raw-0 rzh1n2to-2", "mtk-cam raw-0 rzh1n2to-3",
+	 "mtk-cam raw-0 drzb2no-1",
+	 "mtk-cam raw-0 ipuo",
 	 "mtk-cam raw-0 sv-imgo-1", "mtk-cam raw-0 sv-imgo-2",
 	 "mtk-cam raw-0 partial-meta-0", "mtk-cam raw-0 partial-meta-1",
-	 "mtk-cam raw-0 partial-meta-2",
 	 "mtk-cam raw-0 ext-meta-0", "mtk-cam raw-0 ext-meta-1",
 	 "mtk-cam raw-0 ext-meta-2"},
 
@@ -5728,11 +5763,12 @@ static const char *capture_queue_names[RAW_PIPELINE_NUM][MTK_RAW_TOTAL_CAPTURE_Q
 	 "mtk-cam raw-1 yuvo-1", "mtk-cam raw-1 yuvo-2",
 	 "mtk-cam raw-1 yuvo-3", "mtk-cam raw-1 yuvo-4",
 	 "mtk-cam raw-1 yuvo-5",
-	 "mtk-cam raw-1 drzs4no-1", "mtk-cam raw-1 drzs4no-2", "mtk-cam raw-1 drzs4no-3",
+	 "mtk-cam raw-1 drzs4no-1", "mtk-cam raw-1 drzs4no-3",
 	 "mtk-cam raw-1 rzh1n2to-1", "mtk-cam raw-1 rzh1n2to-2", "mtk-cam raw-1 rzh1n2to-3",
+	 "mtk-cam raw-1 drzb2no-1",
+	 "mtk-cam raw-1 ipuo",
 	 "mtk-cam raw-1 sv-imgo-1", "mtk-cam raw-1 sv-imgo-2",
 	 "mtk-cam raw-1 partial-meta-0", "mtk-cam raw-1 partial-meta-1",
-	 "mtk-cam raw-1 partial-meta-2",
 	 "mtk-cam raw-1 ext-meta-0", "mtk-cam raw-1 ext-meta-1",
 	 "mtk-cam raw-1 ext-meta-2"},
 
@@ -5740,11 +5776,12 @@ static const char *capture_queue_names[RAW_PIPELINE_NUM][MTK_RAW_TOTAL_CAPTURE_Q
 	 "mtk-cam raw-2 yuvo-1", "mtk-cam raw-2 yuvo-2",
 	 "mtk-cam raw-2 yuvo-3", "mtk-cam raw-2 yuvo-4",
 	 "mtk-cam raw-2 yuvo-5",
-	 "mtk-cam raw-2 drzs4no-1", "mtk-cam raw-2 drzs4no-2", "mtk-cam raw-2 drzs4no-3",
+	 "mtk-cam raw-2 drzs4no-1", "mtk-cam raw-2 drzs4no-3",
 	 "mtk-cam raw-2 rzh1n2to-1", "mtk-cam raw-2 rzh1n2to-2", "mtk-cam raw-2 rzh1n2to-3",
 	 "mtk-cam raw-2 sv-imgo-1", "mtk-cam raw-2 sv-imgo-2",
+	 "mtk-cam raw-2 drzb2no-1",
+	 "mtk-cam raw-2 ipuo",
 	 "mtk-cam raw-2 partial-meta-0", "mtk-cam raw-2 partial-meta-1",
-	 "mtk-cam raw-2 partial-meta-2",
 	 "mtk-cam raw-2 ext-meta-0", "mtk-cam raw-2 ext-meta-1",
 	 "mtk-cam raw-2 ext-meta-2"},
 };
@@ -7098,20 +7135,6 @@ int mtk_cam_translation_fault_callback(int port, dma_addr_t mva, void *data)
 			 inner_addr_msb, inner_addr, stride, ysize);
 
 		inner_addr =
-				readl_relaxed(raw_dev->yuv_base_inner + REG_DRZS4NO_R2_BASE);
-		inner_addr_msb =
-				readl_relaxed(raw_dev->yuv_base_inner + REG_DRZS4NO_R2_BASE_MSB);
-		stride =
-				readl_relaxed(raw_dev->yuv_base_inner +
-					REG_DRZS4NO_R2_BASE + REG_STRIDE_OFFSET);
-		ysize =
-				readl_relaxed(raw_dev->yuv_base_inner +
-					REG_DRZS4NO_R2_BASE + REG_YSIZE_OFFSET);
-		dev_info(raw_dev->dev,
-			 "drzs4no_r2: inner_addr_msb:0x%x, inner_addr:%08x, stride:0x%x, ysize:0x%x\n",
-			 inner_addr_msb, inner_addr, stride, ysize);
-
-		inner_addr =
 				readl_relaxed(raw_dev->yuv_base_inner + REG_DRZS4NO_R3_BASE);
 		inner_addr_msb =
 				readl_relaxed(raw_dev->yuv_base_inner + REG_DRZS4NO_R3_BASE_MSB);
@@ -7141,8 +7164,6 @@ int mtk_cam_translation_fault_callback(int port, dma_addr_t mva, void *data)
 
 		mtk_cam_dump_dma_debug(raw_dev->dev, raw_dev->yuv_base + CAMDMATOP_BASE,
 				"DRZS4NO_R1", dbg_DRZS4NO_R1, ARRAY_SIZE(dbg_DRZS4NO_R1));
-		mtk_cam_dump_dma_debug(raw_dev->dev, raw_dev->yuv_base + CAMDMATOP_BASE,
-				"DRZS4NO_R2", dbg_DRZS4NO_R2, ARRAY_SIZE(dbg_DRZS4NO_R2));
 		mtk_cam_dump_dma_debug(raw_dev->dev, raw_dev->yuv_base + CAMDMATOP_BASE,
 				"DRZS4NO_R3", dbg_DRZS4NO_R3, ARRAY_SIZE(dbg_DRZS4NO_R3));
 		mtk_cam_dump_dma_debug(raw_dev->dev, raw_dev->yuv_base + CAMDMATOP_BASE,

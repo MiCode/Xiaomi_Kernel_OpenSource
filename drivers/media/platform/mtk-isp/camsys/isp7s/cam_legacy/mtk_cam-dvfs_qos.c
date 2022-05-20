@@ -660,13 +660,10 @@ void mtk_cam_qos_bw_calc(struct mtk_cam_ctx *ctx, unsigned long raw_dmas, bool f
 				  ABW_MB_s, PBW_MB_s);
 			break;
 		case MTKCAM_IPI_RAW_DRZS4NO_1:
-		case MTKCAM_IPI_RAW_DRZS4NO_2:
 		case MTKCAM_IPI_RAW_DRZS4NO_3:
 			qos_port_id = engine_id * raw_qos_port_num + drzs4no_r1;
 			if (ipi_video_id == MTKCAM_IPI_RAW_DRZS4NO_1)
 				vdev = &pipe->vdev_nodes[MTK_RAW_DRZS4NO_1_OUT - MTK_RAW_SINK_NUM];
-			else if (ipi_video_id == MTKCAM_IPI_RAW_DRZS4NO_2)
-				vdev = &pipe->vdev_nodes[MTK_RAW_DRZS4NO_2_OUT - MTK_RAW_SINK_NUM];
 			else if (ipi_video_id == MTKCAM_IPI_RAW_DRZS4NO_3)
 				vdev = &pipe->vdev_nodes[MTK_RAW_DRZS4NO_3_OUT - MTK_RAW_SINK_NUM];
 			ipi_fmt = mtk_cam_get_img_fmt(vdev->active_fmt.fmt.pix_mp.pixelformat);
@@ -835,34 +832,9 @@ void mtk_cam_qos_bw_calc(struct mtk_cam_ctx *ctx, unsigned long raw_dmas, bool f
 				  vdev->active_fmt.fmt.pix_mp.height,
 				  ABW_MB_s, PBW_MB_s);
 			break;
-		case MTKCAM_IPI_RAW_RAWI_6:
-			qos_port_id = engine_id * raw_qos_port_num + aai_r1;
-			vdev = &pipe->vdev_nodes[MTK_RAW_MAIN_STREAM_OUT - MTK_RAW_SINK_NUM];
-			ipi_fmt = mtk_cam_get_img_fmt(vdev->active_fmt.fmt.pix_mp.pixelformat);
-			pixel_bits = mtk_cam_get_pixel_bits(ipi_fmt);
-			plane_factor = mtk_cam_get_fmt_size_factor(ipi_fmt);
-			PBW_MB_s = vdev->active_fmt.fmt.pix_mp.width * fps *
-						(vblank + height) * pixel_bits *
-						plane_factor / 8 / 100;
-			ABW_MB_s = vdev->active_fmt.fmt.pix_mp.width * fps *
-						vdev->active_fmt.fmt.pix_mp.height * pixel_bits *
-						plane_factor / 8 / 100;
-			dvfs_info->qos_bw_peak[qos_port_id] += PBW_MB_s;
-			dvfs_info->qos_bw_avg[qos_port_id] += ABW_MB_s;
-			if (unlikely(debug_mmqos))
-				dev_info(cam->dev, "[%16s] qos_idx:%2d ipifmt/bits/plane/w/h : %2d/%2d/%d/%5d/%5d BW(B/s)(avg:%lu,peak:%lu)\n",
-				  raw_mmqos->port[qos_port_id % raw_qos_port_num],
-				  qos_port_id, ipi_fmt,
-				  pixel_bits, plane_factor,
-				  vdev->active_fmt.fmt.pix_mp.width,
-				  vdev->active_fmt.fmt.pix_mp.height,
-				  ABW_MB_s, PBW_MB_s);
-			break;
 		case MTKCAM_IPI_RAW_META_STATS_0:
 			break;
 		case MTKCAM_IPI_RAW_META_STATS_1:
-			break;
-		case MTKCAM_IPI_RAW_META_STATS_2:
 			break;
 		default:
 			break;

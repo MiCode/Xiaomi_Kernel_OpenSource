@@ -120,10 +120,6 @@ static void camsys_set_meta_stats_info(u32 dma_port, void *vaddr,
 		offset = sizeof(*stats1);
 		set_payload(&stats1->af_stats.afo_buf, MTK_CAM_UAPI_AFO_MAX_BUF_SIZE, &offset);
 		break;
-	case MTKCAM_IPI_RAW_META_STATS_2:
-		//todo
-		pr_info("stats 2 not support");
-		break;
 	default:
 		pr_debug("%s: dma_port err\n", __func__);
 		break;
@@ -175,8 +171,6 @@ static int camsys_get_meta_size(u32 video_id)
 		return RAW_STATS_0_SIZE;
 	case MTKCAM_IPI_RAW_META_STATS_1:
 		return RAW_STATS_1_SIZE;
-	case MTKCAM_IPI_RAW_META_STATS_2:
-		return RAW_STATS_2_SIZE;
 	case MTKCAM_IPI_CAMSV_MAIN_OUT:
 		return SV_STATS_0_SIZE;
 	default:
