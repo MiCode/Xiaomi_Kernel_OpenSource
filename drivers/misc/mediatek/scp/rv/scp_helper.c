@@ -1991,12 +1991,29 @@ static bool scp_ipi_table_init(struct mtk_mbox_device *scp_mboxdev, struct platf
 		send_item_num = 3,
 		recv_item_num = 4
 	};
-	u32 i, ret, mbox_id, recv_opt;
+	u32 i, ret, mbox_id, recv_opt, recv_cells_mode, recv_cells_num, lock, buf_full_opt,
+			cb_ctx_opt;
 	of_property_read_u32(pdev->dev.of_node, "mbox_count"
 						, &scp_mboxdev->count);
 	if (!scp_mboxdev->count) {
 		pr_notice("[SCP] mbox count not found\n");
 		return false;
+	}
+	/* mode 0 or no defined #recv-cells_mode => 4 elements : id, mbox,
+	 * recv_size, recv_opt
+	 */
+	/* mode 1 => 7 elements : id, mbox, recv_size, recv_opt, lock, buf_full_opt,
+	 * cb_ctx_opt
+	 */
+	ret = of_property_read_u32(pdev->dev.of_node, "#recv_cells_mode"
+						, &recv_cells_mode);
+	if (ret) {
+		recv_cells_num = recv_item_num;
+	} else {
+		if (recv_cells_mode == 1)
+			recv_cells_num = 7;
+		else
+			recv_cells_num = recv_item_num;
 	}
 
 	scp_mboxdev->send_count = of_property_count_u32_elems(
@@ -2009,7 +2026,7 @@ static bool scp_ipi_table_init(struct mtk_mbox_device *scp_mboxdev, struct platf
 
 	scp_mboxdev->recv_count = of_property_count_u32_elems(
 				pdev->dev.of_node, "recv_table")
-				/ recv_item_num;
+				/ recv_cells_num;
 	if (scp_mboxdev->recv_count <= 0) {
 		pr_notice("[SCP] scp recv table not found\n");
 		return false;
@@ -2072,40 +2089,80 @@ static bool scp_ipi_table_init(struct mtk_mbox_device *scp_mboxdev, struct platf
 	for (i = 0; i < scp_mboxdev->recv_count; ++i) {
 		ret = of_property_read_u32_index(pdev->dev.of_node,
 				"recv_table",
-				i * recv_item_num,
+				i * recv_cells_num,
 				&scp_mbox_pin_recv[i].chan_id);
 		if (ret) {
-			pr_notice("[SCP]%s:Cannot get ipi id (%d):%d\n", __func__, i,__LINE__);
+			pr_notice("[SCP]%s:Cannot get ipi id (%d):%d\n", __func__, i,
+						__LINE__);
 			return false;
 		}
 		ret = of_property_read_u32_index(pdev->dev.of_node,
 				"recv_table",
-				i * recv_item_num + 1,
+				i * recv_cells_num + 1,
 				&mbox_id);
 		if (ret) {
-			pr_notice("[SCP] %s:Cannot get mbox id (%d):%d\n", __func__, i, __LINE__);
+			pr_notice("[SCP] %s:Cannot get mbox id (%d):%d\n", __func__, i,
+						__LINE__);
 			return false;
 		}
 		/* because mbox and recv_opt is a bit-field */
 		scp_mbox_pin_recv[i].mbox = mbox_id;
 		ret = of_property_read_u32_index(pdev->dev.of_node,
 				"recv_table",
-				i * recv_item_num + 2,
+				i * recv_cells_num + 2,
 				&scp_mbox_pin_recv[i].msg_size);
 		if (ret) {
-			pr_notice("[SCP]%s:Cannot get pin size (%d):%d\n", __func__, i, __LINE__);
+			pr_notice("[SCP]%s:Cannot get pin size (%d):%d\n", __func__, i,
+						__LINE__);
 			return false;
 		}
 		ret = of_property_read_u32_index(pdev->dev.of_node,
 				"recv_table",
-				i * recv_item_num + 3,
+				i * recv_cells_num + 3,
 				&recv_opt);
 		if (ret) {
-			pr_notice("[SCP]%s:Cannot get recv opt (%d):%d\n", __func__, i, __LINE__);
+			pr_notice("[SCP]%s:Cannot get recv opt (%d):%d\n", __func__, i,
+						__LINE__);
 			return false;
 		}
 		/* because mbox and recv_opt is a bit-field */
 		scp_mbox_pin_recv[i].recv_opt = recv_opt;
+		if (recv_cells_mode == 1) {
+			ret = of_property_read_u32_index(pdev->dev.of_node,
+					"recv_table",
+					i * recv_cells_num + 4,
+					&lock);
+			if (ret) {
+				pr_notice("[SCP]%s:Cannot get lock (%d):%d\n", __func__, i,
+							__LINE__);
+				return false;
+			}
+			/* because lock is a bit-field */
+			scp_mbox_pin_recv[i].lock = lock;
+			ret = of_property_read_u32_index(pdev->dev.of_node,
+					"recv_table",
+					i * recv_cells_num + 5,
+					&buf_full_opt);
+			if (ret) {
+				pr_notice("[SCP]%s:Cannot get buf_full_opt (%d):%d\n", __func__, i,
+							__LINE__);
+				return false;
+			}
+			/* because buf_full_opt is a bit-field */
+			scp_mbox_pin_recv[i].buf_full_opt = buf_full_opt;
+			ret = of_property_read_u32_index(pdev->dev.of_node,
+					"recv_table",
+					i * recv_cells_num + 6,
+					&cb_ctx_opt);
+			if (ret) {
+				pr_notice("[SCP]%s:Cannot get cb_ctx_opt (%d):%d\n", __func__, i,
+							__LINE__);
+				return false;
+			}
+			/* because cb_ctx_opt is a bit-field */
+			scp_mbox_pin_recv[i].cb_ctx_opt = cb_ctx_opt;
+		}
+
 	}
 
 
