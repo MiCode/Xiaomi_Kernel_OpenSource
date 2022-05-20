@@ -22,9 +22,9 @@
 #include <sound/soc.h>
 #include <sound/soc.h>
 #include <sound/core.h>
-
+#define SKIP_SB
 #include "mt6338.h"
-#if IS_ENABLED(CONFIG_SND_SOC_MT6338_ACCDET)
+#if IS_ENABLED(CONFIG_SND_SOC_MT6338_ACCDET) && !defined(SKIP_SB)
 #include "mt6338-accdet.h"
 #endif
 
@@ -2976,7 +2976,7 @@ static int mtk_hp_impedance_disable(struct mt6338_priv *priv)
 		RG_HPLOUTPUTSTBENH_VAUDP18_MASK_SFT,
 		0x3 << RG_HPLOUTPUTSTBENH_VAUDP18_SFT);
 
-#if IS_ENABLED(CONFIG_SND_SOC_MT6338_ACCDET)
+#if IS_ENABLED(CONFIG_SND_SOC_MT6338_ACCDET) && !defined(SKIP_SB)
 	/* from accdet request */
 	mt6338_accdet_modify_vref_volt();
 #endif
@@ -9172,7 +9172,7 @@ static int dc_trim_thread(void *arg)
 
 	get_hp_trim_offset(priv, false);
 
-#if IS_ENABLED(CONFIG_SND_SOC_MT6338_ACCDET)
+#if IS_ENABLED(CONFIG_SND_SOC_MT6338_ACCDET) && !defined(SKIP_SB)
 	mt6338_accdet_late_init(0);
 #endif
 	do_exit(0);
