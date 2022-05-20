@@ -67,7 +67,8 @@ int ged_bridge_monitor_3D_fence(
 		mtk_gpu_fence_debug_dump(
 			psMonitor3DFenceINT->fd,
 			psMonitor3DFenceINT->pid,
-			psMonitor3DFenceINT->eType);
+			psMonitor3DFenceINT->eType,
+			psMonitor3DFenceINT->timeouts);
 		psMonitor3DFenceOUT->eError = GED_OK;
 	} else {
 		psMonitor3DFenceOUT->eError =
