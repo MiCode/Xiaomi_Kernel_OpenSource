@@ -759,8 +759,8 @@ int mtk_cam_dequeue_req_frame(struct mtk_cam_ctx *ctx,
 			      unsigned int dequeued_frame_seq_no,
 			      int pipe_id)
 {
-	struct mtk_cam_request *req, *req_prev;
-	struct mtk_cam_request_stream_data *s_data, *s_data_pipe, *s_data_mstream;
+	struct mtk_cam_request *req, *req_prev, *req_next;
+	struct mtk_cam_request_stream_data *s_data, *s_data_pipe, *s_data_mstream, *s_data_next;
 	struct mtk_cam_request_stream_data *deq_s_data[18];
 	struct mtk_raw_pipeline *pipe = ctx->pipe;
 	/* consider running_job_list depth and mstream(2 s_data): 3*3*2 */
@@ -772,6 +772,8 @@ int mtk_cam_dequeue_req_frame(struct mtk_cam_ctx *ctx,
 	bool unreliable = false;
 	void *vaddr = NULL;
 	struct mtk_ae_debug_data ae_data;
+	int frame_seq_next;
+	bool trigger_raw_switch;
 
 	dequeue_cnt = 0;
 	s_data_cnt = 0;
@@ -810,6 +812,7 @@ STOP_SCAN:
 		s_data = deq_s_data[handled_cnt];
 		del_req = false;
 		del_job = false;
+		trigger_raw_switch = false;
 		feature = s_data->feature.raw_feature;
 		req = mtk_cam_s_data_get_req(s_data);
 		if (!req) {
@@ -892,7 +895,6 @@ STOP_SCAN:
 		}
 
 		if (del_job) {
-			atomic_dec(&ctx->running_s_data_cnt);
 			mtk_camsys_state_delete(ctx, sensor_ctrl, req);
 
 			/* release internal buffers */
@@ -937,6 +939,8 @@ STOP_SCAN:
 				"%s:%s:ctx(%d):pipe(%d):seq(%d) s_data_pipe not found\n",
 				__func__, req->req.debug_str, ctx->stream_id, pipe_id,
 				s_data->frame_seq_no);
+			if (del_job)
+				atomic_dec(&ctx->running_s_data_cnt);
 			continue;
 		}
 
@@ -978,10 +982,45 @@ STOP_SCAN:
 					__func__, req->req.debug_str, pipe_id);
 		}
 
-		if (chk_sensor_change)
-			mtk_camsys_raw_change_pipeline(ctx,
-						       &ctx->sensor_ctrl,
-						       dequeued_frame_seq_no);
+		/* Serialized raw switch check and try queue flow*/
+		mutex_lock(&ctx->cam->queue_lock);
+
+		/**
+		 * running_s_data_cnt updated must be along with
+		 * raw switch trigger since we use it
+		 * to determine if we should start the switch flow in try queue
+		 * or dequeue timing
+		 */
+		if (del_job)
+			atomic_dec(&ctx->running_s_data_cnt);
+
+		if (chk_sensor_change) {
+			frame_seq_next = dequeued_frame_seq_no + 1;
+			req_next = mtk_cam_get_req(ctx, frame_seq_next);
+			if (!req_next) {
+				dev_dbg(ctx->cam->dev, "%s next req (%d) not queued\n",
+					__func__, frame_seq_next);
+			} else {
+				dev_dbg(ctx->cam->dev,
+					"%s:req(%d) check: req->ctx_used:0x%x, req->ctx_link_update0x%x\n",
+					__func__, frame_seq_next, req_next->ctx_used,
+					req_next->ctx_link_update);
+				if ((req_next->ctx_used & (1 << ctx->stream_id))
+				    && mtk_cam_is_nonimmediate_switch_req(req_next, ctx->stream_id))
+					trigger_raw_switch = true;
+				else
+					dev_dbg(ctx->cam->dev, "%s next req (%d) no link stup\n",
+						__func__, frame_seq_next);
+			}
+		}
+
+		/* release the lock once we know if raw switch needs to be triggered or not here */
+		mutex_unlock(&ctx->cam->queue_lock);
+
+		if (trigger_raw_switch) {
+			s_data_next = mtk_cam_req_get_s_data(req_next, ctx->stream_id, 0);
+			mtk_camsys_raw_change_pipeline(ctx, &ctx->sensor_ctrl, s_data_next);
+		}
 	}
 
 	return dequeue_cnt;
@@ -4516,27 +4555,6 @@ struct mtk_mraw_device *get_mraw_dev(struct mtk_cam_device *cam,
 	return dev_get_drvdata(dev);
 }
 
-bool mtk_cam_is_immediate_switch_req(struct mtk_cam_request *req,
-				     int stream_id)
-{
-	if ((req->flags & MTK_CAM_REQ_FLAG_SENINF_IMMEDIATE_UPDATE) &&
-			(req->ctx_link_update & (1 << stream_id)))
-		return true;
-	else
-		return false;
-}
-
-bool mtk_cam_is_nonimmediate_switch_req(struct mtk_cam_request *req,
-				     int stream_id)
-{
-	if ((req->ctx_link_update & (1 << stream_id)) &&
-		!(req->flags & MTK_CAM_REQ_FLAG_SENINF_IMMEDIATE_UPDATE))
-		return true;
-	else
-		return false;
-}
-
-
 #if CCD_READY
 static void isp_composer_uninit(struct mtk_cam_ctx *ctx)
 {
@@ -6643,6 +6661,9 @@ void mtk_cam_stop_ctx(struct mtk_cam_ctx *ctx, struct media_entity *entity)
 	dev_info(cam->dev, "%s:ctx(%d): triggered by %s\n",
 		 __func__, ctx->stream_id, entity->name);
 
+	if (watchdog_scenario(ctx))
+		mtk_ctx_watchdog_stop(ctx);
+
 	media_pipeline_stop(entity);
 
 	/* Consider scenario that stop the ctx while the ctx is not streamed on */
@@ -7375,9 +7396,6 @@ int mtk_cam_ctx_stream_off(struct mtk_cam_ctx *ctx)
 
 	if (ctx->pipe)
 		feature = ctx->pipe->feature_active;
-
-	if (watchdog_scenario(ctx))
-		mtk_ctx_watchdog_stop(ctx);
 
 	dev_info(cam->dev, "%s: ctx-%d:  composer_cnt:%d, streaming_pipe:0x%x\n",
 		__func__, ctx->stream_id, cam->composer_cnt, ctx->streaming_pipe);
