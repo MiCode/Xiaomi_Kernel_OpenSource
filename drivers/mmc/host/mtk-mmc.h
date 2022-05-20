@@ -535,6 +535,9 @@ struct msdc_host {
 	int	id;		/* host id */
 	u8 card_inserted;  /* the status of card inserted */
 	bool block_bad_card;
+	bool need_tune;
+	int retune_times;
+	int power_cycle_cnt;
 	u32 req_vcore;
 	u32 ocr_volt;
 	struct regulator *dvfsrc_vcore_power;

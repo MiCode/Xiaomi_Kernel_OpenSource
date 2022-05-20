@@ -778,6 +778,7 @@ static int msdc_auto_cmd_done(struct msdc_host *host, int events,
 
 	if (events & MSDC_INT_ACMDRDY) {
 		cmd->error = 0;
+		host->need_tune = false;
 	} else {
 		msdc_reset_hw(host);
 		if (events & MSDC_INT_ACMDCRCERR) {
@@ -787,6 +788,7 @@ static int msdc_auto_cmd_done(struct msdc_host *host, int events,
 			cmd->error = -ETIMEDOUT;
 			host->error |= REQ_STOP_TMO;
 		}
+		host->need_tune = true;
 		dev_err(host->dev,
 			"%s: AUTO_CMD%d arg=%08X; rsp %08X; cmd_error=%d\n",
 			__func__, cmd->opcode, cmd->arg, rsp[0], cmd->error);
@@ -916,12 +918,18 @@ static bool msdc_cmd_done(struct msdc_host *host, int events,
 			cmd->error = -ETIMEDOUT;
 			host->error |= REQ_CMD_TMO;
 		}
+	} else {
+		host->need_tune = false;
+		host->retune_times = 0;
 	}
-	if (cmd->error)
+
+	if (cmd->error) {
+		host->need_tune = true;
 		dev_info(host->dev,
 				"%s: cmd=%d arg=%08X; rsp %08X; cmd_error=%d\n",
 				__func__, cmd->opcode, cmd->arg, rsp[0],
 				cmd->error);
+	}
 
 	msdc_cmd_next(host, mrq, cmd);
 	return true;
@@ -1109,9 +1117,12 @@ static bool msdc_data_xfer_done(struct msdc_host *host, u32 events,
 
 		if ((events & MSDC_INT_XFER_COMPL) && (!stop || !stop->error)) {
 			data->bytes_xfered = data->blocks * data->blksz;
+			host->need_tune = false;
+			host->retune_times = 0;
 		} else {
 			dev_dbg(host->dev, "interrupt events: %x\n", events);
 			msdc_reset_hw(host);
+			host->need_tune = true;
 			host->error |= REQ_DAT_ERR;
 			data->bytes_xfered = 0;
 
@@ -1481,6 +1492,10 @@ static void msdc_init_hw(struct msdc_host *host)
 		host->def_tune_para.pad_tune = readl(host->base + tune_reg);
 		host->saved_tune_para.pad_tune = readl(host->base + tune_reg);
 	}
+
+	host->need_tune = false;
+	host->retune_times = 0;
+
 	dev_info(host->dev, "init hardware done!");
 }
 
@@ -1976,10 +1991,6 @@ skip_fall:
 /*--------------------------------------------------------------------------*/
 /* SDCard error handler                                                     */
 /*--------------------------------------------------------------------------*/
-/* if continuous data timeout reach the limit */
-/* driver will force remove card */
-#define MSDC_MAX_DATA_TIMEOUT_CONTINUOUS (100)
-
 /* if continuous power cycle fail reach the limit */
 /* driver will force remove card */
 #define MSDC_MAX_POWER_CYCLE_FAIL_CONTINUOUS (3)
@@ -2046,11 +2057,170 @@ void msdc_set_bad_card_and_remove(struct msdc_host *host)
 				host->block_bad_card, host->card_inserted);
 	}
 }
+
+static int msdc_get_cd(struct mmc_host *mmc)
+{
+	struct msdc_host *host = mmc_priv(mmc);
+	int val;
+
+	if (mmc->caps & MMC_CAP_NONREMOVABLE) {
+		host->card_inserted = 1;
+		goto end;
+	} else if (!host->internal_cd) {
+		host->card_inserted = mmc_gpio_get_cd(mmc);
+	} else {
+		val = readl(host->base + MSDC_PS) & MSDC_PS_CDSTS;
+		if (mmc->caps2 & MMC_CAP2_CD_ACTIVE_HIGH)
+			host->card_inserted = !!val;
+		else
+			host->card_inserted = !val;
+	}
+
+	if (host->block_bad_card)
+		host->card_inserted = 0;
+end:
+	pr_info(
+		"%s:card status:%s block bad card<%d> trigger card event<%d>",
+		__func__, host->card_inserted ? "inserted" : "removed",
+		host->block_bad_card, mmc->trigger_card_event);
+
+	return host->card_inserted;
+}
+
+int sdcard_hw_reset(struct mmc_host *mmc)
+{
+	struct msdc_host *host = mmc_priv(mmc);
+	int ret = 0;
+
+	host->card_inserted = msdc_get_cd(mmc);
+
+	if (!(host->card_inserted)) {
+		pr_notice("card is not inserted!\n");
+		msdc_set_bad_card_and_remove(host);
+		ret = -1;
+		return ret;
+	}
+
+	ret = mmc_hw_reset(mmc);
+	if (ret) {
+		if (++host->power_cycle_cnt
+			> MSDC_MAX_POWER_CYCLE_FAIL_CONTINUOUS)
+			msdc_set_bad_card_and_remove(host);
+		dev_info(host->dev,
+			"power reset (%d) failed, block_bad_card = %d\n",
+			host->power_cycle_cnt, host->block_bad_card);
+	} else {
+		host->power_cycle_cnt = 0;
+		dev_info(host->dev, "msdc%d power reset success\n");
+	}
+
+	return ret;
+}
+
+/* SDcard will change speed mode and power reset
+ * UHS card
+ *    UHS_SDR104 --> UHS_DDR50 --> UHS_SDR50 --> UHS_SDR25
+ * HS card
+ *    50MHz --> 25MHz --> 12.5MHz --> 6.25MHz
+ */
+int sdcard_reset_tuning(struct mmc_host *mmc)
+{
+	struct msdc_host *host = mmc_priv(mmc);
+	char *remove_cap;
+	int ret = 0;
+
+	if (!mmc->card) {
+		pr_info("mmc card = NULL, skip reset tuning\n");
+		return -1;
+	}
+
+	if (mmc_card_uhs(mmc->card)) {
+		if (mmc->card->sw_caps.sd3_bus_mode & SD_MODE_UHS_SDR104) {
+			mmc->card->sw_caps.sd3_bus_mode &= ~SD_MODE_UHS_SDR104;
+			remove_cap = "UHS_SDR104";
+		} else if (mmc->card->sw_caps.sd3_bus_mode
+			& SD_MODE_UHS_DDR50) {
+			mmc->card->sw_caps.sd3_bus_mode &= ~SD_MODE_UHS_DDR50;
+			remove_cap = "UHS_DDR50";
+		} else if (mmc->card->sw_caps.sd3_bus_mode
+			& SD_MODE_UHS_SDR50) {
+			mmc->card->sw_caps.sd3_bus_mode &= ~SD_MODE_UHS_SDR50;
+			remove_cap = "UHS_SDR50";
+		} else if (mmc->card->sw_caps.sd3_bus_mode
+			& SD_MODE_UHS_SDR25) {
+			mmc->card->sw_caps.sd3_bus_mode &= ~SD_MODE_UHS_SDR25;
+			remove_cap = "UHS_SDR25";
+		} else {
+			remove_cap = "none";
+		}
+		dev_info(host->dev, "remove %s mode then reinit card\n", remove_cap);
+	} else if (mmc_card_hs(mmc->card)) {
+		if (mmc->card->sw_caps.hs_max_dtr >= HIGH_SPEED_MAX_DTR / 4)
+			mmc->card->sw_caps.hs_max_dtr /= 2;
+		dev_info(host->dev, "set hs speed %dhz then reinit card\n",
+			mmc->card->sw_caps.hs_max_dtr);
+	} else {
+		dev_info(host->dev, "ds card just reinit card\n");
+	}
+
+	/* power cycle sdcard */
+	ret = sdcard_hw_reset(mmc);
+	if (ret) {
+		ret = -1;
+		goto done;
+	}
+
+done:
+	return ret;
+}
+
+static int msdc_detect_bad_sd(struct msdc_host *host, u32 condition)
+{
+	unsigned long time_current = jiffies;
+	int ret = 0;
+
+	if (host == NULL) {
+		pr_notice("WARN: host is NULL at %s\n", __func__);
+		ret = -1;
+		goto end;
+	}
+
+	if (condition >= BAD_SD_DETECTER_COUNT) {
+		pr_notice("msdc1: BAD_SD_DETECTER_COUNT is %d, need check it's definition at %s\n",
+			BAD_SD_DETECTER_COUNT, __func__);
+		ret = -1;
+		goto end;
+	}
+
+	if (bad_sd_forget[condition]
+		&& time_after(time_current,
+		(bad_sd_timer[condition] + bad_sd_forget[condition] * HZ)))
+		bad_sd_detecter[condition] = 0;
+	bad_sd_timer[condition] = time_current;
+
+	if (++(bad_sd_detecter[condition]) >= bad_sd_tolerance[condition]) {
+		msdc_set_bad_card_and_remove(host);
+		ret = -1;
+	}
+	pr_notice("%s:bad_sd_detecter:%d\n", __func__, bad_sd_detecter[condition]);
+
+end:
+	return ret;
+}
+
 static int msdc_execute_tuning(struct mmc_host *mmc, u32 opcode)
 {
 	struct msdc_host *host = mmc_priv(mmc);
 	int ret;
 	u32 tune_reg = host->dev_comp->pad_tune_reg;
+
+	if ((!(mmc->caps2 & MMC_CAP2_NO_SD)) && host->need_tune) {
+		ret = msdc_detect_bad_sd(host, 0);
+		if (ret)
+			goto end;
+		dev_info(host->dev, "%s error retune %d times\n",
+			__func__, ++host->retune_times);
+	}
 
 	if (host->dev_comp->data_tune && host->dev_comp->async_fifo) {
 		ret = msdc_tune_together(mmc, opcode);
@@ -2086,6 +2256,16 @@ tune_done:
 		host->saved_tune_para.emmc_top_cmd = readl(host->top_base +
 				EMMC_TOP_CMD);
 	}
+
+end:
+	if (host->retune_times >= 4 && !host->block_bad_card) {
+		if (!(mmc->caps2 & MMC_CAP2_NO_SD))
+			sdcard_reset_tuning(mmc);
+	} else if (!ret) {
+		dev_info(host->dev, "msdc tune pass\n");
+		host->need_tune = false;
+	}
+
 	return ret;
 }
 
@@ -2126,39 +2306,11 @@ static void msdc_ack_sdio_irq(struct mmc_host *mmc)
 	spin_unlock_irqrestore(&host->lock, flags);
 }
 
-static int msdc_get_cd(struct mmc_host *mmc)
-{
-	struct msdc_host *host = mmc_priv(mmc);
-	int val;
-
-	if (mmc->caps & MMC_CAP_NONREMOVABLE) {
-		host->card_inserted = 1;
-		goto end;
-	} else if (!host->internal_cd) {
-		host->card_inserted = mmc_gpio_get_cd(mmc);
-	} else {
-		val = readl(host->base + MSDC_PS) & MSDC_PS_CDSTS;
-		if (mmc->caps2 & MMC_CAP2_CD_ACTIVE_HIGH)
-			host->card_inserted = !!val;
-		else
-			host->card_inserted = !val;
-	}
-
-	if (host->block_bad_card)
-		host->card_inserted = 0;
-end:
-	pr_info(
-		"%s:card status:%s block bad card<%d> trigger card event<%d>",
-		__func__, host->card_inserted ? "inserted" : "removed",
-		host->block_bad_card, mmc->trigger_card_event);
-
-	return host->card_inserted;
-}
-
 static void msdc_ops_card_event(struct mmc_host *mmc)
 {
 	struct msdc_host *host = mmc_priv(mmc);
 
+	host->power_cycle_cnt = 0;
 	msdc_reset_bad_sd_detecter(host);
 	msdc_get_cd(mmc);
 }
