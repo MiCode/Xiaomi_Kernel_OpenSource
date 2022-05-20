@@ -260,12 +260,11 @@ static ssize_t set_debuglv(struct file *flip,
 						   const char __user *buffer,
 						   size_t count, loff_t *f_pos)
 {
-	char *tmp;
+	char tmp[16] = {0};
 	int ret;
 	unsigned int input = 0;
 
-	tmp = kzalloc(count + 1, GFP_KERNEL);
-	if (!tmp)
+	if (count + 1 >= 16)
 		return -ENOMEM;
 
 	ret = copy_from_user(tmp, buffer, count);
@@ -275,7 +274,7 @@ static ssize_t set_debuglv(struct file *flip,
 	}
 
 	tmp[count] = '\0';
-	ret = kstrtouint(tmp, 0, &input);
+	ret = kstrtouint(tmp, 16, &input);
 	if (ret) {
 		LOGGER_ERR("kstrtouint failed (%d)\n", ret);
 		goto out;
@@ -291,7 +290,6 @@ static ssize_t set_debuglv(struct file *flip,
 	if (ret)
 		LOGGER_ERR("Failed for sw_logger log level send.\n");
 out:
-	kfree(tmp);
 
 	return count;
 }
@@ -340,12 +338,11 @@ static ssize_t set_debugAttr(struct file *flip,
 						     const char __user *buffer,
 						     size_t count, loff_t *f_pos)
 {
-	char *tmp;
+	char tmp[16] = {0};
 	int ret;
 	unsigned int input = 0;
 
-	tmp = kzalloc(count + 1, GFP_KERNEL);
-	if (!tmp)
+	if (count + 1 >= 16)
 		return -ENOMEM;
 
 	ret = copy_from_user(tmp, buffer, count);
@@ -366,7 +363,6 @@ static ssize_t set_debugAttr(struct file *flip,
 	if (input <= DEBUG_LOG_DEBUG)
 		g_sw_logger_log_lv = input;
 out:
-	kfree(tmp);
 
 	return count;
 }
