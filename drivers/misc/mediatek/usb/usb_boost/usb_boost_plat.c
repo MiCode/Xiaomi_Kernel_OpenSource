@@ -26,6 +26,7 @@ struct usb_policy {
 
 static struct icc_path *usb_icc_path;
 unsigned int peak_bw;
+struct device *gdev;
 
 static int freq_hold(struct act_arg_obj *arg)
 {
@@ -129,6 +130,7 @@ static int vcorefs_release(struct act_arg_obj *arg)
 static int usb_boost_probe(struct platform_device *pdev)
 {
 	struct device_node *node = pdev->dev.of_node;
+	bool audio_boost;
 
 	USB_BOOST_NOTICE("\n");
 
@@ -153,6 +155,10 @@ static int usb_boost_probe(struct platform_device *pdev)
 
 	peak_bw = dvfsrc_get_required_opp_peak_bw(node, 0);
 	USB_BOOST_NOTICE("%s: peak_bw(%x)\n", __func__, peak_bw);
+
+	audio_boost = of_property_read_bool(node, "usb-audio");
+	gdev = &pdev->dev;
+	usb_audio_boost(audio_boost);
 
 	return 0;
 }
@@ -200,3 +206,137 @@ static void __exit clean(void)
 }
 module_exit(clean);
 MODULE_LICENSE("GPL v2");
+
+int audio_freq_hold(void)
+{
+	struct device_node *np = gdev->of_node;
+	int cpu_freq_audio[3];
+	struct usb_policy *req_policy;
+	struct cpufreq_policy *policy;
+	int cpu, ret;
+
+	USB_BOOST_NOTICE("\n");
+
+	if (list_empty(&usb_policy_list)) {
+		for_each_possible_cpu(cpu) {
+			policy = cpufreq_cpu_get(cpu);
+			if (!policy)
+				continue;
+
+			USB_BOOST_DBG("%s, policy: first:%d, min:%d, max:%d",
+				__func__, policy->cpu, policy->min, policy->max);
+
+			req_policy = kzalloc(sizeof(*req_policy), GFP_KERNEL);
+			if (!req_policy)
+				return -ENOMEM;
+
+			req_policy->policy = policy;
+
+			ret = freq_qos_add_request(&policy->constraints, &req_policy->qos_req,
+				FREQ_QOS_MIN, 0);
+			if (ret < 0) {
+				USB_BOOST_NOTICE("%s: fail to add freq constraint (%d)\n",
+					__func__, ret);
+				return ret;
+			}
+			list_add_tail(&req_policy->list, &usb_policy_list);
+		}
+	}
+
+	if (of_device_is_compatible(np, "mediatek,mt6983-usb_boost") ||
+		of_device_is_compatible(np, "mediatek,mt6895-usb_boost")) {
+		device_property_read_u32(gdev, "small-core", &(cpu_freq_audio[0]));
+		device_property_read_u32(gdev, "medium-core", &(cpu_freq_audio[1]));
+		device_property_read_u32(gdev, "big-core", &(cpu_freq_audio[2]));
+
+		USB_BOOST_NOTICE("%s: request cpu freq(%d) (%d) (%d)\n", __func__,
+			cpu_freq_audio[0], cpu_freq_audio[1], cpu_freq_audio[2]);
+
+		list_for_each_entry(req_policy, &usb_policy_list, list) {
+			if (req_policy->policy->cpu == 0 && cpu_freq_audio[0] > 0)
+				freq_qos_update_request(&req_policy->qos_req, cpu_freq_audio[0]);
+
+			if (req_policy->policy->cpu == 4 && cpu_freq_audio[1] > 0)
+				freq_qos_update_request(&req_policy->qos_req, cpu_freq_audio[1]);
+
+			if (req_policy->policy->cpu == 7 && cpu_freq_audio[2] > 0)
+				freq_qos_update_request(&req_policy->qos_req, cpu_freq_audio[2]);
+		}
+	}
+
+	if (of_device_is_compatible(np, "mediatek,mt6855-usb_boost") ||
+		of_device_is_compatible(np, "mediatek,mt6789-usb_boost")) {
+		device_property_read_u32(gdev, "small-core", &(cpu_freq_audio[0]));
+		device_property_read_u32(gdev, "big-core", &(cpu_freq_audio[1]));
+
+		USB_BOOST_NOTICE("%s: request cpu freq(%d) (%d)\n", __func__,
+			cpu_freq_audio[0], cpu_freq_audio[1]);
+
+		list_for_each_entry(req_policy, &usb_policy_list, list) {
+			if (req_policy->policy->cpu == 0 && cpu_freq_audio[0] > 0)
+				ret = freq_qos_update_request(&req_policy->qos_req,
+							      cpu_freq_audio[0]);
+			if (!ret)
+				USB_BOOST_NOTICE("%s: fail to update freq constraint (policy:%d)\n",
+					__func__, req_policy->policy->cpu);
+
+			if (req_policy->policy->cpu == 6 && cpu_freq_audio[1] > 0)
+				ret = freq_qos_update_request(&req_policy->qos_req,
+							      cpu_freq_audio[1]);
+			if (!ret)
+				USB_BOOST_NOTICE("%s: fail to update freq constraint (policy:%d)\n",
+					__func__, req_policy->policy->cpu);
+		}
+	}
+
+	return 0;
+}
+
+int audio_freq_release(void)
+{
+	struct usb_policy *req_policy;
+
+	USB_BOOST_DBG("\n");
+
+	list_for_each_entry(req_policy, &usb_policy_list, list) {
+		freq_qos_update_request(&req_policy->qos_req, 0);
+	}
+	return 0;
+}
+
+
+int audio_core_hold(void)
+{
+	struct device_node *np = gdev->of_node;
+
+	/*Disable MCDI to save around 100us
+	 *"Power ON CPU -> CPU context restore"
+	 */
+	if (of_device_is_compatible(np, "mediatek,mt6983-usb_boost") ||
+		of_device_is_compatible(np, "mediatek,mt6895-usb_boost") ||
+		of_device_is_compatible(np, "mediatek,mt6855-usb_boost") ||
+		of_device_is_compatible(np, "mediatek,mt6789-usb_boost")) {
+		USB_BOOST_NOTICE("\n");
+		cpu_latency_qos_update_request(&pm_qos_req, 50);
+	}
+
+	return 0;
+}
+
+int audio_core_release(void)
+{
+	struct device_node *np = gdev->of_node;
+
+	/*Enable MCDI*/
+	if (of_device_is_compatible(np, "mediatek,mt6983-usb_boost") ||
+		of_device_is_compatible(np, "mediatek,mt6895-usb_boost") ||
+		of_device_is_compatible(np, "mediatek,mt6855-usb_boost") ||
+		of_device_is_compatible(np, "mediatek,mt6789-usb_boost")) {
+		USB_BOOST_NOTICE("\n");
+		cpu_latency_qos_update_request(&pm_qos_req,
+			PM_QOS_DEFAULT_VALUE);
+	}
+
+	return 0;
+}
+
