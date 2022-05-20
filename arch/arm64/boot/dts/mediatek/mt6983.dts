@@ -2668,10 +2668,31 @@
 		clock-names = "apb", "smi", "gals0", "gals1";
 	};
 
+	smi_pd_isp_main: smi_pd_isp_main {
+			compatible = "mediatek,smi-pd";
+			mediatek,suspend-check-dev = <&smi_disp_common &smi_mdp_common>;
+			mediatek,suspend-check-port = <0x20 0x20>;
+			suspend-check;
+			power-domains = <&scpsys MT6983_POWER_DOMAIN_ISP_MAIN>;
+	};
+
+	smi_pd_cam_main: smi_pd_cam_main {
+			compatible = "mediatek,smi-pd";
+			mediatek,suspend-check-dev = <&smi_disp_common &smi_mdp_common
+							&smi_sysram_common>;
+			mediatek,suspend-check-port = <0x40 0x40 0x8>;
+			suspend-check;
+			power-domains = <&scpsys MT6983_POWER_DOMAIN_CAM_MAIN>;
+	};
+
 	smi_pd_dip1: smi_pd_dip1 {
 			compatible = "mediatek,smi-pd";
 			mediatek,smi = <&smi_img_subcommon0 &smi_img_subcommon1>;
 			mediatek,comm-port-range = <0xe 0x6>;
+			mediatek,suspend-check-dev = <&smi_img_subcommon0 &smi_img_subcommon1>;
+			mediatek,suspend-check-port = <0xe 0x6>;
+			suspend-check;
+			bus-protect;
 			power-domains = <&scpsys MT6983_POWER_DOMAIN_ISP_DIP1>;
 			power-reset = <0x1513000C 4>,
 					<0x1511000C 4>,
@@ -2685,6 +2706,10 @@
 			compatible = "mediatek,smi-pd";
 			mediatek,smi = <&smi_img_subcommon1>;
 			mediatek,comm-port-range = <0x1>;
+			mediatek,suspend-check-dev = <&smi_img_subcommon1>;
+			mediatek,suspend-check-port = <0x1>;
+			suspend-check;
+			bus-protect;
 			power-domains = <&scpsys MT6983_POWER_DOMAIN_ISP_IPE>;
 			power-reset = <0x1533000C 8>;
 	};
@@ -2693,6 +2718,11 @@
 			compatible = "mediatek,smi-pd";
 			mediatek,smi = <&smi_cam_mm_subcommon0 &smi_cam_mdp_subcommon1>;
 			mediatek,comm-port-range = <0x2 0x2>;
+			mediatek,suspend-check-dev = <&smi_cam_mm_subcommon0
+						&smi_cam_mdp_subcommon1>;
+			mediatek,suspend-check-port = <0x2 0x2>;
+			suspend-check;
+			bus-protect;
 			power-domains = <&scpsys MT6983_POWER_DOMAIN_CAM_MRAW>;
 			power-reset = <0x1a1700a0 16>;
 	};
@@ -2701,6 +2731,11 @@
 			compatible = "mediatek,smi-pd";
 			mediatek,smi = <&smi_cam_mdp_subcommon1 &smi_cam_sys_subcommon1>;
 			mediatek,comm-port-range = <0xc 0x4>;
+			mediatek,suspend-check-dev = <&smi_cam_mdp_subcommon1
+						&smi_cam_sys_subcommon1>;
+			mediatek,suspend-check-port = <0xc 0x4>;
+			suspend-check;
+			bus-protect;
 			power-domains = <&scpsys MT6983_POWER_DOMAIN_CAM_SUBA>;
 			power-reset = <0x1a04f0a0 4>,
 					<0x1a06f0a0 4>;
@@ -2710,6 +2745,11 @@
 			compatible = "mediatek,smi-pd";
 			mediatek,smi = <&smi_cam_mm_subcommon0 &smi_cam_sys_subcommon1>;
 			mediatek,comm-port-range = <0xc 0x8>;
+			mediatek,suspend-check-dev = <&smi_cam_mm_subcommon0
+						&smi_cam_sys_subcommon1>;
+			mediatek,suspend-check-port = <0xc 0x8>;
+			suspend-check;
+			bus-protect;
 			power-domains = <&scpsys MT6983_POWER_DOMAIN_CAM_SUBB>;
 			power-reset = <0x1a08f0a0 4>,
 					<0x1a0af0a0 4>;
@@ -2720,9 +2760,80 @@
 			mediatek,smi = <&smi_cam_mm_subcommon0 &smi_cam_sys_subcommon1
 							&smi_cam_mdp_subcommon1>;
 			mediatek,comm-port-range = <0x10 0x10 0x10>;
+			mediatek,suspend-check-dev = <&smi_cam_mm_subcommon0 &smi_cam_sys_subcommon1
+							&smi_cam_mdp_subcommon1>;
+			mediatek,suspend-check-port = <0x10 0x10 0x10>;
+			suspend-check;
+			bus-protect;
 			power-domains = <&scpsys MT6983_POWER_DOMAIN_CAM_SUBC>;
 			power-reset = <0x1a0cf0a0 4>,
 					<0x1a0ef0a0 4>;
+	};
+
+	smi_pd_disp0: smi_pd_disp0 {
+		compatible = "mediatek,smi-pd";
+		mediatek,suspend-check-dev = <&smi_disp_common &smi_mdp_common &smi_sysram_common>;
+		mediatek,suspend-check-port = <0x1 0x1 0x2>;
+		power-domains = <&scpsys MT6983_POWER_DOMAIN_DIS0>;
+		init-power-on;
+		suspend-check;
+	};
+
+	smi_pd_disp1: smi_pd_disp1 {
+		compatible = "mediatek,smi-pd";
+		mediatek,suspend-check-dev = <&smi_disp_common &smi_mdp_common &smi_sysram_common>;
+		mediatek,suspend-check-port = <0x2 0x2 0x4>;
+		power-domains = <&scpsys MT6983_POWER_DOMAIN_DIS1>;
+		init-power-on;
+		suspend-check;
+	};
+
+	smi_pd_vdec0: smi_pd_vdec0 {
+		compatible = "mediatek,smi-pd";
+		mediatek,suspend-check-dev = <&smi_disp_common &smi_sysram_subcommon2>;
+		mediatek,suspend-check-port = <0x88 0x1>;
+		power-domains = <&scpsys MT6983_POWER_DOMAIN_VDE0>;
+		suspend-check;
+	};
+
+	smi_pd_vdec1: smi_pd_vdec1 {
+		compatible = "mediatek,smi-pd";
+		mediatek,suspend-check-dev = <&smi_mdp_common &smi_sysram_common>;
+		mediatek,suspend-check-port = <0x8 0x80>;
+		power-domains = <&scpsys MT6983_POWER_DOMAIN_VDE0>;
+		suspend-check;
+	};
+
+	smi_pd_venc0: smi_pd_venc0 {
+		compatible = "mediatek,smi-pd";
+		mediatek,suspend-check-dev = <&smi_disp_common &smi_sysram_common>;
+		mediatek,suspend-check-port = <0x10 0x20>;
+		power-domains = <&scpsys MT6983_POWER_DOMAIN_VEN0>;
+		suspend-check;
+	};
+
+	smi_pd_venc1: smi_pd_venc1 {
+		compatible = "mediatek,smi-pd";
+		mediatek,suspend-check-dev = <&smi_mdp_common &smi_sysram_common>;
+		mediatek,suspend-check-port = <0x10 0x40>;
+		power-domains = <&scpsys MT6983_POWER_DOMAIN_VEN1>;
+		suspend-check;
+	};
+
+	smi_pd_mdp0: smi_pd_mdp0 {
+		compatible = "mediatek,smi-pd";
+		mediatek,suspend-check-dev = <&smi_disp_common &smi_sysram_subcommon2>;
+		mediatek,suspend-check-port = <0x4 0x2>;
+		power-domains = <&scpsys MT6983_POWER_DOMAIN_MDP0>;
+		suspend-check;
+	};
+
+	smi_pd_mdp1: smi_pd_mdp1 {
+		compatible = "mediatek,smi-pd";
+		mediatek,suspend-check-dev = <&smi_mdp_common &smi_sysram_common>;
+		mediatek,suspend-check-port = <0x4 0x10>;
+		power-domains = <&scpsys MT6983_POWER_DOMAIN_MDP1>;
+		suspend-check;
 	};
 
 	smi_larb9: smi_larb9@15001000 {
