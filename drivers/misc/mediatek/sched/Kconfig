@@ -107,3 +107,8 @@ config MTK_CORE_CTL
 	  utilizations from scheduler information automatically.
 	  If you are not sure about whether to enable it or not,
 	  please set n.
+
+config MTK_FIX_SCHED_WARN_ON
+       tristate "fix sched warning"
+       help
+         MTK_FIX_SCHED_WARN_ON is the kernel config to fix sched warning.

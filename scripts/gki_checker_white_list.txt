@@ -51,6 +51,7 @@ f kernel/printk/printk_ringbuffer.h
 f kernel/signal.c
 f kernel/trace/trace.c
 f kernel/trace/trace_events.c
+f kernel/sched/fair.c
 f lib/dynamic_debug.c
 f net/core/rtnetlink.c
 f security/selinux/avc.c
