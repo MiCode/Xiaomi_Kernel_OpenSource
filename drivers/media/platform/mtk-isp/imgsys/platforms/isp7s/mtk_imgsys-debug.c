@@ -1169,17 +1169,17 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
 			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
 		break;
-	case (IMGSYS_ENG_ADL_A | IMGSYS_ENG_XTR):
-	case (IMGSYS_ENG_ADL_A | IMGSYS_ENG_ADL_B | IMGSYS_ENG_XTR):
+	case (IMGSYS_ENG_ADL_A | IMGSYS_ENG_LTR):
+	case (IMGSYS_ENG_ADL_A | IMGSYS_ENG_ADL_B | IMGSYS_ENG_LTR):
 		/**
-		 * dl_path = IMGSYS_DL_ADLA_XTRAW;
+		 * dl_path = IMGSYS_DL_ADLA_LTRAW;
 		 * snprintf(logBuf_inport, log_length, "%s", "ADL");
-		 * snprintf(logBuf_outport, log_length, "%s", "XTRAW");
+		 * snprintf(logBuf_outport, log_length, "%s", "LTRAW");
 		 * imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
 		 *  logBuf_path, logBuf_inport, logBuf_outport, dl_path);
 		 */
 		dev_info(imgsys_dev->dev,
-			"%s: we dont have checksum for ADL DL XTRAW\n",
+			"%s: we dont have checksum for ADL DL LTRAW\n",
 			__func__);
 		break;
 	case (IMGSYS_ENG_ME):
