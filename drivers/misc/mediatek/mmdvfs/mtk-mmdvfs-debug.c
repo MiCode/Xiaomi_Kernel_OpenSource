@@ -88,7 +88,7 @@ static int mmdvfs_debug_probe(struct platform_device *pdev)
 		regulator_set_voltage(reg, volt, INT_MAX);
 	}
 
-	vcore_clk = devm_clk_get(dev, "vcore_vote");
+	vcore_clk = devm_clk_get(dev, "vcore");
 	if (IS_ERR_OR_NULL(vcore_clk)) {
 		pr_notice("%s: get vcore_clk fail(%d)\n",
 			__func__, PTR_ERR(vcore_clk));

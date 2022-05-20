@@ -12,20 +12,18 @@
 
 #include "clk-mtk.h"
 //#include "clk-mux.h"
-//#include <dt-bindings/clock/mt6983-mmdvfs-clk.h>
 #include "mtk-mmdvfs-v3.h"
 #include "vcp_status.h"
 
-static const char *MMDVFS_CLKS = "mediatek,mmdvfs_clocks";
-static const char *MMDVFS_CLK_NAMES = "mediatek,mmdvfs_clk_names";
-
+static u8 mmdvfs_clk_num;
 static struct mtk_mmdvfs_clk *mtk_mmdvfs_clks;
-static u8 max_mmdvfs_num;
-static u8 mmdvfs_pwr_opp[MAX_PWR_NUM];
-static struct mtk_ipi_device *vcp_ipi_dev;
+
+static u8 mmdvfs_pwr_opp[PWR_MMDVFS_NUM];
+static struct clk *mmdvfs_pwr_clk[PWR_MMDVFS_NUM];
+
 static u32 mmdvfs_vcp_ipi_data;
 static DEFINE_MUTEX(mmdvfs_vcp_ipi_mutex);
-static struct clk *vote_clk[POWER_NUM];
+
 static log_level;
 static bool mmdvfs_init_done;
 
@@ -127,15 +125,15 @@ static int mtk_mmdvfs_set_rate(struct clk_hw *hw, unsigned long rate,
 		return 0;
 	mmdvfs_clk->opp = opp;
 
-	for (i = 0; i < max_mmdvfs_num; i++) {
+	for (i = 0; i < mmdvfs_clk_num; i++) {
 		if (mmdvfs_clk->pwr_id == mtk_mmdvfs_clks[i].pwr_id
 			&& mtk_mmdvfs_clks[i].opp < pwr_opp)
 			pwr_opp = mtk_mmdvfs_clks[i].opp;
 	}
 
 	/* Choose max step among all users of special independence */
-	if (mmdvfs_clk->special_type == SPECIAL_INDEPENDENCE) {
-		for (i = 0; i < max_mmdvfs_num; i++) {
+	if (mmdvfs_clk->spec_type == SPEC_MMDVFS_ALONE) {
+		for (i = 0; i < mmdvfs_clk_num; i++) {
 			if (mmdvfs_clk->user_id == mtk_mmdvfs_clks[i].user_id
 				&& mtk_mmdvfs_clks[i].opp < user_opp)
 				user_opp = mtk_mmdvfs_clks[i].opp;
@@ -184,47 +182,6 @@ static const struct clk_ops mtk_mmdvfs_req_ops = {
 	.recalc_rate	= mtk_mmdvfs_recalc_rate,
 };
 
-static struct clk *mtk_mmdvfs_register_clk(u8 id, struct mtk_mmdvfs_clk *mmdvfs_clk)
-{
-	struct clk_init_data init = {};
-	struct clk *clk;
-
-	init.name = mmdvfs_clk->name;
-	//init.flags = mux->flags | CLK_SET_RATE_PARENT;
-	//init.parent_names = mux->parent_names;
-	//init.num_parents = mux->num_parents;
-	init.ops = &mtk_mmdvfs_req_ops;
-	mmdvfs_clk->clk_hw.init = &init;
-	//mmdvfs_clk->clk_id = id;
-
-	clk = clk_register(NULL, &mmdvfs_clk->clk_hw);
-
-	return clk;
-}
-//EXPORT_SYMBOL(mtk_clk_register_mux);
-
-static int mtk_mmdvfs_register_clks(int num_clks,
-			   struct clk_onecell_data *clk_data)
-{
-	struct clk *clk;
-	int i;
-
-	for (i = 0; i < num_clks; i++) {
-		if (IS_ERR_OR_NULL(clk_data->clks[i])) {
-			clk = mtk_mmdvfs_register_clk(i, &mtk_mmdvfs_clks[i]);
-			if (IS_ERR(clk)) {
-				MMDVFS_DBG("failed to register clk %s: %ld\n",
-				       mtk_mmdvfs_clks[i].name, PTR_ERR(clk));
-				continue;
-			}
-
-			clk_data->clks[i] = clk;
-		}
-	}
-	return 0;
-}
-//EXPORT_SYMBOL(mtk_clk_register_mmdvfs);
-
 int mmdvfs_camera_notify(const bool enable)
 {
 	struct mmdvfs_ipi_data slot;
@@ -252,7 +209,7 @@ int mmdvfs_set_force_step(const char *val, const struct kernel_param *kp)
 	int ret;
 
 	ret = sscanf(val, "%hu %hu", &idx, &opp);
-	if (ret != 2 || idx >= POWER_NUM || opp >= MAX_OPP) {
+	if (ret != 2 || idx >= PWR_MMDVFS_NUM || opp >= MAX_OPP) {
 		MMDVFS_ERR("failed:%d idx:%hu opp:%hu", ret, idx, opp);
 		return ret;
 	}
@@ -279,12 +236,12 @@ int mmdvfs_set_vote_step(const char *val, const struct kernel_param *kp)
 	int ret, i;
 
 	ret = sscanf(val, "%hu %hu", &idx, &opp);
-	if (ret != 2 || idx >= POWER_NUM || opp >= MAX_OPP) {
+	if (ret != 2 || idx >= PWR_MMDVFS_NUM || opp >= MAX_OPP) {
 		MMDVFS_ERR("failed:%d idx:%hu opp:%hu", ret, idx, opp);
 		return ret;
 	}
 
-	for (i = max_mmdvfs_num; i >= 0; i--)
+	for (i = mmdvfs_clk_num - 1; i >= 0; i--)
 		if (idx == mtk_mmdvfs_clks[i].pwr_id) {
 			if (opp >= mtk_mmdvfs_clks[i].freq_num) {
 				MMDVFS_ERR("invalid opp:%hu freq_num:%hhu",
@@ -294,12 +251,12 @@ int mmdvfs_set_vote_step(const char *val, const struct kernel_param *kp)
 
 			freq = mtk_mmdvfs_clks[i].freqs[
 				mtk_mmdvfs_clks[i].freq_num - 1 - opp];
-			clk_set_rate(vote_clk[idx], freq);
+			clk_set_rate(mmdvfs_pwr_clk[idx], freq);
 			break;
 		}
 
-	MMDVFS_DBG("idx:%hu clk:%p opp:%hu i:%d freq_num:%hhu freq:%u",
-		idx, vote_clk[idx], opp, i, mtk_mmdvfs_clks[i].freq_num, freq);
+	MMDVFS_DBG("idx:%hu clk:%p opp:%hu i:%d freq_num:%hhu freq:%u", idx,
+		mmdvfs_pwr_clk[idx], opp, i, mtk_mmdvfs_clks[i].freq_num, freq);
 
 	return 0;
 }
@@ -406,6 +363,7 @@ static const struct of_device_id of_match_mmdvfs_v3[] = {
 
 static int mmdvfs_vcp_init_thread(void *data)
 {
+	static struct mtk_ipi_device *vcp_ipi_dev;
 	int ret;
 
 	while (!mmup_enable_count()) {
@@ -435,127 +393,120 @@ static int mmdvfs_vcp_init_thread(void *data)
 
 static int mmdvfs_v3_probe(struct platform_device *pdev)
 {
-	struct clk_onecell_data *clk_data;
-	int ret = 0;
+	const char *MMDVFS_CLK_NAMES = "mediatek,mmdvfs_clock_names";
+	const char *MMDVFS_CLKS = "mediatek,mmdvfs_clocks";
 	struct device_node *node = pdev->dev.of_node;
-	struct device_node *opp_table, *opp_node;
+	struct clk_onecell_data *clk_data;
 	struct task_struct *kthr;
-	u32 opp_table_ph, value;
-	u64 freq;
-	u8 idx, opp_idx;
-	int elem_num, i;
+	struct clk *clk;
+	int i, ret;
 
-	elem_num = of_property_count_strings(node, MMDVFS_CLK_NAMES);
-
-	if (elem_num <= 0) {
-		MMDVFS_DBG("no clk definition found!\n");
-		return 0;
+	ret = of_property_count_strings(node, MMDVFS_CLK_NAMES);
+	if (ret <= 0) {
+		MMDVFS_ERR("%s invalid:%d", MMDVFS_CLK_NAMES, ret);
+		return ret;
 	}
+	mmdvfs_clk_num = ret;
 
-	mtk_mmdvfs_clks = kcalloc(elem_num, sizeof(*mtk_mmdvfs_clks), GFP_KERNEL);
+	mtk_mmdvfs_clks =
+		kcalloc(mmdvfs_clk_num, sizeof(*mtk_mmdvfs_clks), GFP_KERNEL);
 	if (!mtk_mmdvfs_clks) {
-		MMDVFS_DBG("no memory for mtk_mmdvfs_clks\n");
+		MMDVFS_ERR("mtk_mmdvfs_clks without memory");
 		return -ENOMEM;
 	}
 
-	for (idx = 0; idx < elem_num; idx++) {
-		of_property_read_string_index(node, MMDVFS_CLK_NAMES, idx,
-			&mtk_mmdvfs_clks[max_mmdvfs_num].name);
-
-		mtk_mmdvfs_clks[max_mmdvfs_num].clk_id = max_mmdvfs_num;
-
-		ret = of_property_read_u32_index(node, MMDVFS_CLKS,
-				idx * ARG_NUM + ARG_PWR_ID, &value);
-		if (ret) {
-			MMDVFS_DBG("idx(%u) cannot get pwr_id\n", idx);
-			return -EINVAL;
-		}
-		mtk_mmdvfs_clks[max_mmdvfs_num].pwr_id = value;
-
-		ret = of_property_read_u32_index(node, MMDVFS_CLKS,
-				idx * ARG_NUM + ARG_USER_ID, &value);
-		if (ret) {
-			MMDVFS_DBG("idx(%u) cannot get user_id\n", idx);
-			return -EINVAL;
-		}
-		mtk_mmdvfs_clks[max_mmdvfs_num].user_id = value;
-
-		ret = of_property_read_u32_index(node, MMDVFS_CLKS,
-				idx * ARG_NUM + ARG_SPECIAL_TYPE, &value);
-		if (ret) {
-			MMDVFS_DBG("idx(%u) cannot get special_type\n", idx);
-			return -EINVAL;
-		}
-		mtk_mmdvfs_clks[max_mmdvfs_num].special_type = value;
-
-		ret = of_property_read_u32_index(node, MMDVFS_CLKS,
-				idx * ARG_NUM + ARG_IPI_TYPE, &value);
-		if (ret) {
-			MMDVFS_DBG("idx(%u) cannot get ipi type\n", idx);
-			return -EINVAL;
-		}
-		mtk_mmdvfs_clks[max_mmdvfs_num].ipi_type = value;
-
-		ret = of_property_read_u32_index(node, MMDVFS_CLKS,
-				idx * ARG_NUM + ARG_OPP_TABLE, &opp_table_ph);
-		if (ret) {
-			MMDVFS_DBG("idx(%u) cannot get opp_table\n", idx);
-			return -EINVAL;
-		}
-
-		opp_table = of_find_node_by_phandle(opp_table_ph);
-		opp_idx = 0;
-		do {
-			opp_node = of_get_next_available_child(opp_table, opp_node);
-			if (opp_node) {
-				of_property_read_u64(opp_node, "opp-hz", &freq);
-				mtk_mmdvfs_clks[max_mmdvfs_num].freqs[opp_idx] = freq;
-				opp_idx++;
-			}
-		} while (opp_node);
-		mtk_mmdvfs_clks[max_mmdvfs_num].freq_num = opp_idx;
-
-		mtk_mmdvfs_clks[max_mmdvfs_num].opp = MAX_OPP;
-
-		MMDVFS_DBG("name=%s clk=%u pwr=%u usr=%u special=%u ipi=%u freq_num=%u opp=%u\n",
-			mtk_mmdvfs_clks[max_mmdvfs_num].name,
-			mtk_mmdvfs_clks[max_mmdvfs_num].clk_id,
-			mtk_mmdvfs_clks[max_mmdvfs_num].pwr_id,
-			mtk_mmdvfs_clks[max_mmdvfs_num].user_id,
-			mtk_mmdvfs_clks[max_mmdvfs_num].special_type,
-			mtk_mmdvfs_clks[max_mmdvfs_num].ipi_type,
-			mtk_mmdvfs_clks[max_mmdvfs_num].freq_num,
-			mtk_mmdvfs_clks[max_mmdvfs_num].opp);
-
-		for (i = 0; i < mtk_mmdvfs_clks[max_mmdvfs_num].freq_num; i++)
-			MMDVFS_DBG("i=%d freq=%llu\n", i,
-				mtk_mmdvfs_clks[max_mmdvfs_num].freqs[i]);
-		max_mmdvfs_num++;
+	clk_data = mtk_alloc_clk_data(mmdvfs_clk_num);
+	if (!clk_data) {
+		MMDVFS_ERR("allocate clk_data failed num:%hhu", mmdvfs_clk_num);
+		return -ENOMEM;
 	}
 
-	for (idx = 0; idx < MAX_PWR_NUM; idx++)
-		mmdvfs_pwr_opp[idx] = MAX_OPP;
+	for (i = 0; i < mmdvfs_clk_num; i++) {
+		struct device_node *table, *opp = NULL;
+		struct of_phandle_args spec;
+		struct clk_init_data *init;
+		u8 idx = 0;
 
-	clk_data = mtk_alloc_clk_data(max_mmdvfs_num);
-	mtk_mmdvfs_register_clks(max_mmdvfs_num, clk_data);
+		of_property_read_string_index(
+			node, MMDVFS_CLK_NAMES, i, &mtk_mmdvfs_clks[i].name);
+
+		ret = of_parse_phandle_with_args(
+			node, MMDVFS_CLKS, "#mmdvfs,clock-cells", i, &spec);
+		if (ret) {
+			MMDVFS_ERR("parse %s i:%d failed:%d",
+				MMDVFS_CLKS, i, ret);
+			return ret;
+		}
+
+		mtk_mmdvfs_clks[i].clk_id = spec.args[0];
+		mtk_mmdvfs_clks[i].pwr_id = spec.args[1];
+		mtk_mmdvfs_clks[i].user_id = spec.args[2];
+		mtk_mmdvfs_clks[i].spec_type = spec.args[3];
+		mtk_mmdvfs_clks[i].ipi_type = spec.args[4];
+		table = of_find_node_by_phandle(spec.args[5]);
+		of_node_put(spec.np);
+
+		do {
+			u64 freq;
+
+			opp = of_get_next_available_child(table, opp);
+			if (opp) {
+				of_property_read_u64(opp, "opp-hz", &freq);
+				mtk_mmdvfs_clks[i].freqs[idx] = freq;
+				idx += 1;
+			}
+		} while (opp);
+		of_node_put(table);
+
+		mtk_mmdvfs_clks[i].opp = MAX_OPP;
+		mtk_mmdvfs_clks[i].freq_num = idx;
+
+		MMDVFS_DBG(
+			"i:%d name:%s clk:%hhu pwr:%hhu user:%hhu ipi:%hhu spec:%hhu opp:%hhu freq:%hhu",
+			i, mtk_mmdvfs_clks[i].name, mtk_mmdvfs_clks[i].clk_id,
+			mtk_mmdvfs_clks[i].pwr_id, mtk_mmdvfs_clks[i].user_id,
+			mtk_mmdvfs_clks[i].ipi_type,
+			mtk_mmdvfs_clks[i].spec_type,
+			mtk_mmdvfs_clks[i].opp, mtk_mmdvfs_clks[i].freq_num);
+
+		if (!IS_ERR_OR_NULL(clk_data->clks[i]))
+			continue;
+
+		init = kzalloc(sizeof(*init), GFP_KERNEL);
+		if (!init) {
+			MMDVFS_ERR("clk_init i:%d without memory", i);
+			return -ENOMEM;
+		}
+
+		init->name = mtk_mmdvfs_clks[i].name;
+		init->ops = &mtk_mmdvfs_req_ops;
+		mtk_mmdvfs_clks[i].clk_hw.init = init;
+
+		clk = clk_register(NULL, &mtk_mmdvfs_clks[i].clk_hw);
+		if (IS_ERR_OR_NULL(clk))
+			MMDVFS_ERR("i:%d clk:%s register failed:%d",
+				i, mtk_mmdvfs_clks[idx].name, PTR_ERR(clk));
+		else
+			clk_data->clks[i] = clk;
+	}
 
 	ret = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
-
-	if (ret)
-		MMDVFS_DBG("could not register clock provider: %d\n", ret);
-
-	kthr = kthread_run(mmdvfs_vcp_init_thread, NULL, "mmdvfs-vcp");
-
-	for (i = 0; i < POWER_NUM; i++) {
-		vote_clk[i] = of_clk_get(node, i);
-		if (IS_ERR_OR_NULL(vote_clk[i])) {
-			MMDVFS_DBG("pwr(%u) could not get vote clk:%d\n", i, ret);
-			vote_clk[i] = NULL;
-		}
+	if (ret) {
+		MMDVFS_ERR("add clk provider failed:%d", ret);
+		return ret;
 	}
 
-	MMDVFS_DBG("probe done\n");
+	for (i = 0; i < ARRAY_SIZE(mmdvfs_pwr_opp); i++) {
+		mmdvfs_pwr_opp[i] = MAX_OPP;
 
+		clk = of_clk_get(node, i);
+		if (IS_ERR_OR_NULL(clk))
+			MMDVFS_DBG("i:%d clk get failed:%d", i, PTR_ERR(clk));
+		else
+			mmdvfs_pwr_clk[i] = clk;
+	}
+
+	kthr = kthread_run(mmdvfs_vcp_init_thread, NULL, "mmdvfs-vcp");
 	return ret;
 }
 
