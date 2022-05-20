@@ -13,6 +13,7 @@
 //#include "mtk_cam-feature.h"
 #include "mtk_cam-raw_pipeline.h"
 #include "mtk_cam-plat.h"
+#include "mtk_cam-fmt_utils.h"
 
 static unsigned int debug_raw;
 module_param(debug_raw, uint, 0644);
@@ -219,12 +220,14 @@ static inline int mtk_pixelmode_val(int pxl_mode)
 __maybe_unused static int mtk_raw_get_ctrl(struct v4l2_ctrl *ctrl)
 {
 	//TODO
+	pr_info("%s %s TODO!\n", __FILE__, __func__);
 	return 0;
 }
 
 __maybe_unused static int mtk_cam_raw_set_res_ctrl(struct v4l2_ctrl *ctrl)
 {
 	//TODO
+	pr_info("%s %s TODO!\n", __FILE__, __func__);
 	return 0;
 }
 
@@ -740,6 +743,28 @@ static int mtk_raw_init_cfg(struct v4l2_subdev *sd,
 	return 0;
 }
 
+static bool mtk_raw_try_fmt(struct v4l2_subdev *sd,
+			    struct v4l2_subdev_format *fmt)
+{
+	struct device *dev = sd->v4l2_dev->dev;
+	unsigned int user_fmt;
+
+	dev_dbg(dev, "%s:s_fmt: check format 0x%x, w:%d, h:%d field:%d\n",
+		sd->name, fmt->format.code, fmt->format.width,
+		fmt->format.height, fmt->format.field);
+
+	/* check sensor format */
+	if (fmt->pad == MTK_RAW_SINK) {
+		int mbus_code = fmt->format.code & SENSOR_FMT_MASK;
+
+		user_fmt = sensor_mbus_to_ipi_fmt(mbus_code);
+		if (user_fmt == MTKCAM_IPI_IMG_FMT_UNKNOWN)
+			return false;
+	}
+
+	return true;
+}
+
 int mtk_raw_set_src_pad_selection_default(struct v4l2_subdev *sd,
 					  struct v4l2_subdev_state *state,
 					  struct v4l2_mbus_framefmt *sink_fmt,
@@ -867,6 +892,8 @@ static int mtk_raw_get_pad_selection(struct v4l2_subdev *sd,
 					  struct v4l2_subdev_state *state,
 					  struct v4l2_subdev_selection *sel)
 {
+	dev_info(sd->v4l2_dev->dev, "[TODO] %s: %s\n", __func__, sd->name);
+
 	//TODO
 	return 0;
 }
@@ -1186,19 +1213,69 @@ unsigned int mtk_cam_get_rawi_sensor_pixel_fmt(unsigned int fmt)
 	return V4L2_PIX_FMT_MTISP_SBGGR14;
 }
 
+static int mtk_raw_call_set_fmt(struct v4l2_subdev *sd,
+				struct v4l2_subdev_state *state,
+				struct v4l2_subdev_format *fmt)
+{
+	struct mtk_raw_pipeline *pipe =
+		container_of(sd, struct mtk_raw_pipeline, subdev);
+	struct device *dev = sd->v4l2_dev->dev;
+	struct v4l2_mbus_framefmt *mf;
+
+	if (!sd || !fmt) {
+		dev_dbg(dev, "%s: Required sd(%p), fmt(%p)\n",
+			__func__, sd, fmt);
+		return -EINVAL;
+	}
+
+	if (fmt->which == V4L2_SUBDEV_FORMAT_TRY && !state) {
+		dev_dbg(dev, "%s: Required sd(%p), state(%p) for FORMAT_TRY\n",
+					__func__, sd, state);
+		return -EINVAL;
+	}
+
+	if (!mtk_raw_try_fmt(sd, fmt)) {
+		mf = mtk_raw_pipeline_get_fmt(pipe, state, fmt->pad, fmt->which);
+		fmt->format = *mf;
+		dev_info(dev,
+			 "sd:%s pad:%d didn't apply and keep format w/h/code %d/%d/0x%x\n",
+			 sd->name, fmt->pad, mf->width, mf->height, mf->code);
+	} else {
+		mf = mtk_raw_pipeline_get_fmt(pipe, state, fmt->pad, fmt->which);
+		*mf = fmt->format;
+		dev_dbg(dev,
+			"sd:%s pad:%d set format w/h/code %d/%d/0x%x\n",
+			sd->name, fmt->pad, mf->width, mf->height, mf->code);
+	}
+
+	return 0;
+}
+
 static int mtk_raw_set_fmt(struct v4l2_subdev *sd,
 			   struct v4l2_subdev_state *state,
 			   struct v4l2_subdev_format *fmt)
 {
-	//TODO
-	return 0;
+	dev_info(sd->v4l2_dev->dev, "[TODO] %s: %s\n", __func__, sd->name);
+
+	if (fmt->which == V4L2_SUBDEV_FORMAT_TRY)
+		return mtk_raw_try_pad_fmt(sd, state, fmt);
+
+	return mtk_raw_call_set_fmt(sd, state, fmt);
 }
 
 static int mtk_raw_get_fmt(struct v4l2_subdev *sd,
 			   struct v4l2_subdev_state *state,
 			  struct v4l2_subdev_format *fmt)
 {
-	//TODO
+	struct mtk_raw_pipeline *pipe =
+		container_of(sd, struct mtk_raw_pipeline, subdev);
+	struct v4l2_mbus_framefmt *mf;
+
+	mf = mtk_raw_pipeline_get_fmt(pipe, state, fmt->pad, fmt->which);
+	fmt->format = *mf;
+	dev_dbg(sd->v4l2_dev->dev, "sd:%s pad:%d get format w/h/code %d/%d/0x%x\n",
+		sd->name, fmt->pad, fmt->format.width, fmt->format.height,
+		fmt->format.code);
 	return 0;
 }
 
@@ -1206,7 +1283,41 @@ static int mtk_cam_media_link_setup(struct media_entity *entity,
 				    const struct media_pad *local,
 				    const struct media_pad *remote, u32 flags)
 {
-	//TODO
+	struct mtk_raw_pipeline *pipe =
+		container_of(entity, struct mtk_raw_pipeline, subdev.entity);
+	struct device *dev = pipe->subdev.v4l2_dev->dev;
+	u32 pad = local->index;
+
+	dev_dbg(dev, "%s: raw %d: remote:%s:%d->local:%s:%d flags:0x%x\n",
+		__func__, pipe->id, remote->entity->name, remote->index,
+		local->entity->name, local->index, flags);
+
+	if (pad < MTK_RAW_PIPELINE_PADS_NUM && pad != MTK_RAW_SINK)
+		pipe->vdev_nodes[pad - MTK_RAW_SINK_NUM].enabled =
+			!!(flags & MEDIA_LNK_FL_ENABLED);
+
+	if (!entity->stream_count && !(flags & MEDIA_LNK_FL_ENABLED))
+		memset(pipe->pad_cfg, 0, sizeof(pipe->pad_cfg));
+
+#ifdef TODO_CHECK_THIS
+	if (pad == MTK_RAW_SINK && flags & MEDIA_LNK_FL_ENABLED) {
+		struct mtk_seninf_pad_data_info result;
+
+		pipe->res_config.seninf =
+			media_entity_to_v4l2_subdev(remote->entity);
+		mtk_cam_seninf_get_pad_data_info(pipe->res_config.seninf,
+			PAD_SRC_GENERAL0, &result);
+		if (result.exp_hsize) {
+			pipe->pad_cfg[MTK_RAW_META_SV_OUT_0].mbus_fmt.width =
+				result.exp_hsize;
+			pipe->pad_cfg[MTK_RAW_META_SV_OUT_0].mbus_fmt.height =
+				result.exp_vsize;
+			dev_info(dev, "[%s:meta0] hsize/vsize:%d/%d\n",
+				__func__, result.exp_hsize, result.exp_vsize);
+		}
+	}
+#endif
+
 	return 0;
 }
 
@@ -1214,6 +1325,7 @@ static int
 mtk_raw_s_frame_interval(struct v4l2_subdev *sd,
 			 struct v4l2_subdev_frame_interval *interval)
 {
+	dev_info(sd->v4l2_dev->dev, "[TODO] %s: %s\n", __func__, sd->name);
 	//TODO
 	return 0;
 }
@@ -3161,7 +3273,7 @@ int mtk_raw_register_entities(struct mtk_raw_pipeline *arr_pipe, int num,
 
 		memset(pipe->pad_cfg, 0, sizeof(*pipe->pad_cfg));
 
-		ret = mtk_raw_pipeline_register("cam-raw",
+		ret = mtk_raw_pipeline_register("mtk-cam raw",
 						MTKCAM_SUBDEV_RAW_0 + i,
 						pipe, v4l2_dev);
 		if (ret)

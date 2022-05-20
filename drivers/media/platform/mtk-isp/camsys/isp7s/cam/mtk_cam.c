@@ -360,6 +360,8 @@ static int mtk_cam_req_try_update_used_ctx(struct media_request *req)
 	/* todo: camsv */
 	/* todo: mraw */
 
+	dev_dbg(cam->dev, "%s: req %s used_ctx 0x%x used_pipe 0x%x\n",
+		__func__, req->debug_str, used_ctx, pipe_used);
 	cam_req->used_ctx = !not_streamon_yet ? used_ctx : 0;
 	return !not_streamon_yet ? 0 : -1;
 }
@@ -595,6 +597,7 @@ int mtk_cam_dev_req_enqueue(struct mtk_cam_device *cam,
 
 	WARN_ON(!used_ctx);
 
+	dev_info(cam->dev, "%s: req %s\n", __func__, req->req.debug_str);
 	/*
 	 * for each context involved:
 	 *   pack into job
@@ -625,6 +628,7 @@ int mtk_cam_dev_req_enqueue(struct mtk_cam_device *cam,
 			return -1;
 		}
 
+		pr_info("%s %d TODO\n", __func__, __LINE__);
 		// enque to ctrl
 		// ctrl->enque(job);
 	}
@@ -659,9 +663,14 @@ isp_composer_hw_config(struct mtk_cam_device *cam,
 }
 #endif
 
-static int is_valid_ipi_id(int ipi_id)
+static int get_ipi_id(int stream_id)
 {
-	return !(ipi_id < CCD_IPI_ISP_MAIN || ipi_id > CCD_IPI_ISP_TRICAM);
+	int ipi_id = stream_id + CCD_IPI_ISP_MAIN;
+
+	if (WARN_ON(ipi_id < CCD_IPI_ISP_MAIN || ipi_id > CCD_IPI_ISP_TRICAM))
+		return -1;
+
+	return ipi_id;
 }
 
 #if CCD_READY
@@ -736,15 +745,15 @@ __maybe_unused static int isp_composer_init(struct mtk_cam_ctx *ctx)
 	struct mtk_ccd *ccd;
 	struct rproc_subdev *rpmsg_subdev;
 	struct rpmsg_channel_info *msg = &ctx->rpmsg_channel;
+	int ipi_id;
 
 	/* Create message client */
 	ccd = (struct mtk_ccd *)cam->rproc_handle->priv;
 	rpmsg_subdev = ccd->rpmsg_subdev;
 
-	if (!is_valid_ipi_id(ctx->stream_id)) {
-		dev_info(dev, "invalid ipi_id %d\n", ctx->stream_id);
+	ipi_id = get_ipi_id(ctx->stream_id);
+	if (ipi_id < 0)
 		return -EINVAL;
-	}
 
 	snprintf(msg->name, RPMSG_NAME_SIZE, "mtk-camsys\%d", ctx->stream_id);
 	msg->src = ctx->stream_id;
@@ -1227,8 +1236,8 @@ static void mtk_cam_update_pipe_used(struct mtk_cam_ctx *ctx,
 			USED_MASK_SET(&ctx->used_pipe, mraw, ppls->mraw[i].id);
 #endif
 
-	pr_info("%s: TMP ctx %d pipe_used %x\n",
-		__func__, ctx->stream_id, ctx->used_pipe);
+	dev_info(ctx->cam->dev, "%s: ctx %d pipe_used %x\n",
+		 __func__, ctx->stream_id, ctx->used_pipe);
 }
 
 static void mtk_cam_ctx_reset(struct mtk_cam_ctx *ctx)
@@ -1257,7 +1266,7 @@ static int mtk_cam_ctx_init_job_pool(struct mtk_cam_ctx *ctx)
 	ret = mtk_cam_pool_alloc(&ctx->job_pool,
 				 sizeof(struct mtk_cam_pool_job),
 				 JOB_NUM_PER_STREAM);
-	if (!ret) {
+	if (ret) {
 		dev_info(ctx->cam->dev, "failed to alloc job pool of ctx %d\n",
 			 ctx->stream_id);
 		return ret;
@@ -1302,13 +1311,17 @@ struct mtk_cam_ctx *mtk_cam_start_ctx(struct mtk_cam_device *cam,
 			goto fail_destroy_pools;
 	}
 
-	mtk_cam_ctx_init_job_pool(ctx);
+	if (mtk_cam_ctx_init_job_pool(ctx))
+		goto fail_unprepare_session;
+
 	mtk_cam_update_pipe_used(ctx, &cam->pipelines);
 
-	WARN_ON(!mtk_cam_mark_streaming(cam, ctx->stream_id));
+	WARN_ON(mtk_cam_mark_streaming(cam, ctx->stream_id));
 
 	return ctx;
 
+fail_unprepare_session:
+	mtk_cam_ctx_unprepare_session(ctx);
 fail_destroy_pools:
 	mtk_cam_ctx_destroy_pool(ctx);
 fail_destroy_workers:
@@ -1319,6 +1332,8 @@ fail_ctx_put:
 	mtk_cam_ctx_put(ctx);
 fail_uninitialze:
 	mtk_cam_uninitialize(cam);
+
+	WARN(1, "%s: failed\n", __func__);
 	return NULL;
 }
 
@@ -1331,7 +1346,7 @@ void mtk_cam_stop_ctx(struct mtk_cam_ctx *ctx, struct media_entity *entity)
 
 	dev_info(cam->dev, "%s: by node %s\n", __func__, entity->name);
 
-	WARN_ON(!mtk_cam_unmark_streaming(cam, ctx->stream_id));
+	WARN_ON(mtk_cam_unmark_streaming(cam, ctx->stream_id));
 
 	mtk_cam_ctx_unprepare_session(ctx);
 	mtk_cam_ctx_destroy_pool(ctx);
@@ -1419,6 +1434,8 @@ __maybe_unused static int ctx_stream_on_seninf_sensor(struct mtk_cam_ctx *ctx, i
 int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 {
 	int ret;
+
+	dev_info(ctx->cam->dev, "%s: stream %d\n", __func__, ctx->stream_id);
 
 	/* if already stream on */
 	if (atomic_cmpxchg(&ctx->streaming, 0, 1))
@@ -2277,7 +2294,7 @@ static int mtk_cam_probe(struct platform_device *pdev)
 	dev_set_drvdata(dev, cam_dev);
 
 	/* FIXME: decide max raw stream num by seninf num */
-	cam_dev->max_stream_num = MTKCAM_SUBDEV_MAX;
+	cam_dev->max_stream_num = 8; /* TODO: how */
 	cam_dev->ctxs = devm_kcalloc(dev, cam_dev->max_stream_num,
 				     sizeof(*cam_dev->ctxs), GFP_KERNEL);
 	if (!cam_dev->ctxs)

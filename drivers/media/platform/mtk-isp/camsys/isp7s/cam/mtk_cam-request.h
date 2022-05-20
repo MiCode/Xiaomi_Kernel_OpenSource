@@ -28,19 +28,19 @@ struct mtk_cam_frame_sync {
 
 static inline void _used_mask_set(int *m, int idx, int ofst, int num)
 {
-	WARN_ON(idx < 0 || idx >= num);
+	WARN(idx < 0 || idx >= num, "idx %d num %d", idx, num);
 	*m |= (1 << (idx + ofst));
 }
 
 static inline void _used_mask_unset(int *m, int idx, int ofst, int num)
 {
-	WARN_ON(idx < 0 || idx >= num);
+	WARN(idx < 0 || idx >= num, "idx %d num %d", idx, num);
 	*m &= ~(1 << (idx + ofst));
 }
 
 static inline bool _used_mask_has(int *m, int idx, int ofst, int num)
 {
-	WARN_ON(idx < 0 || idx >= num);
+	WARN(idx < 0 || idx >= num, "idx %d num %d", idx, num);
 	return *m & (1 << (idx + ofst));
 }
 

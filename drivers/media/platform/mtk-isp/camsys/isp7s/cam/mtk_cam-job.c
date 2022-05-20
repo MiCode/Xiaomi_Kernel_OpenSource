@@ -53,9 +53,11 @@ static int mtk_cam_select_hw(struct mtk_cam_ctx *ctx, struct mtk_cam_job *job)
 	raw_available = USED_MASK_GET_SUBMASK(&available, raw);
 
 	/* todo: more rules */
-	for (i = 0; raw_available; i++)
-		if (USED_MASK_HAS(&raw_available, raw, i))
+	for (i = 0; i < cam->engines.num_raw_devices; i++)
+		if (USED_MASK_HAS(&raw_available, raw, i)) {
 			USED_MASK_SET(&selected, raw, i);
+			break;
+		}
 
 	if (!selected) {
 		dev_info(cam->dev, "select hw failed\n");
@@ -216,6 +218,7 @@ static int update_job_cq_buffer_to_ipi_frame(struct mtk_cam_job *job,
 static int update_job_raw_param_to_ipi_frame(struct mtk_cam_job *job,
 					     struct mtkcam_ipi_frame_param *fp)
 {
+	pr_info("%s %s [TODO]\n", __FILE__, __func__);
 	return 0;
 }
 
@@ -232,6 +235,7 @@ struct req_buffer_helper {
 static inline
 struct mtk_cam_video_device *dev_buf_to_vdev(struct mtk_cam_buffer *buf)
 {
+	WARN_ON(!buf->vbb.vb2_buf.vb2_queue);
 	return mtk_cam_vbq_to_vdev(buf->vbb.vb2_buf.vb2_queue);
 }
 
@@ -484,10 +488,15 @@ static int update_raw_meta_buf_to_ipi_frame(struct req_buffer_helper *helper,
 
 static bool belong_to_current_ctx(struct mtk_cam_job *job, int ipi_pipe_id)
 {
-	int ctx_used_pipe = job->src_ctx->used_pipe;
+	int ctx_used_pipe;
 	int idx;
 	bool ret = false;
 
+	WARN_ON(!job->src_ctx);
+
+	ctx_used_pipe = job->src_ctx->used_pipe;
+
+	/* TODO: update for 7s */
 	if (is_raw_subdev(ipi_pipe_id)) {
 		idx = ipi_pipe_id;
 		ret = USED_MASK_HAS(&ctx_used_pipe, raw, idx);
@@ -529,7 +538,7 @@ static int update_cam_buf_to_ipi_frame(struct req_buffer_helper *helper,
 
 	/* TODO: mraw/camsv */
 
-	if (!ret)
+	if (ret)
 		pr_info("failed to update pipe %x buf %s\n",
 			pipe_id, node->desc.name);
 
@@ -579,7 +588,7 @@ static int update_job_buffer_to_ipi_frame(struct mtk_cam_job *job,
 	helper.job = job;
 	helper.fp = fp;
 
-	list_for_each_entry(buf, &req->list, list) {
+	list_for_each_entry(buf, &req->buf_list, list) {
 		update_cam_buf_to_ipi_frame(&helper, buf);
 	}
 
@@ -592,10 +601,6 @@ static int mtk_cam_job_fill_ipi_frame(struct mtk_cam_job *job)
 {
 	struct mtkcam_ipi_frame_param *fp;
 	int ret;
-	//struct mtk_cam_request *req = job->req;
-	//struct mtk_cam_ctx *ctx = job->src_ctx;
-	///* pipe on current ctx */
-	//int used_pipe = req->used_pipe & ctx->used_pipe;
 
 	fp = (struct mtkcam_ipi_frame_param *)job->ipi.vaddr;
 

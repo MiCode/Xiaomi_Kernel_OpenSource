@@ -19,7 +19,7 @@
 #include "mtk_cam-pool.h"
 
 static struct dma_buf *mtk_cam_buffer_alloc_from_heap(const char *heap_name,
-					       size_t size)
+						      size_t size)
 {
 	struct dma_heap *dma_heap;
 	struct dma_buf *dmabuf;
@@ -76,13 +76,15 @@ int mtk_cam_device_buf_init(struct mtk_cam_device_buf *buf,
 
 	memset(buf, 0, sizeof(*buf));
 
+	buf->dbuf = dbuf;
 	buf->db_attach = dma_buf_attach(dbuf, dev);
 	if (IS_ERR(buf->db_attach)) {
 		dev_info(dev, "failed to attach dbuf: %s\n", dev_name(dev));
 		return -1;
 	}
 
-	buf->dma_sgt = dma_buf_map_attachment(buf->db_attach, DMA_BIDIRECTIONAL);
+	buf->dma_sgt = dma_buf_map_attachment(buf->db_attach,
+					      DMA_BIDIRECTIONAL);
 	if (IS_ERR(buf->dma_sgt)) {
 		dev_info(dev, "failed to map attachment\n");
 		goto fail_detach;
@@ -90,13 +92,13 @@ int mtk_cam_device_buf_init(struct mtk_cam_device_buf *buf,
 
 	/* check size */
 	size = _get_contiguous_size(buf->dma_sgt);
-	if (expected_size < size) {
-		dev_info(dev, "%s: dma_sgt size(%zu) smaller than expected(%zu)\n",
+	if (expected_size > size) {
+		dev_info(dev,
+			 "%s: dma_sgt size(%zu) smaller than expected(%zu)\n",
 			 __func__, size, expected_size);
 		goto fail_attach_unmap;
 	}
 
-	buf->dbuf = dbuf;
 	buf->size = expected_size;
 	buf->daddr = sg_dma_address(buf->dma_sgt->sgl);
 
@@ -105,11 +107,13 @@ int mtk_cam_device_buf_init(struct mtk_cam_device_buf *buf,
 	return 0;
 
 fail_attach_unmap:
-	dma_buf_unmap_attachment(buf->db_attach, buf->dma_sgt, DMA_BIDIRECTIONAL);
+	dma_buf_unmap_attachment(buf->db_attach, buf->dma_sgt,
+				 DMA_BIDIRECTIONAL);
 	buf->dma_sgt = NULL;
 fail_detach:
 	dma_buf_detach(buf->dbuf, buf->db_attach);
 	buf->db_attach = NULL;
+	buf->dbuf = NULL;
 	return -1;
 }
 
@@ -171,7 +175,7 @@ int mtk_cam_pool_alloc(struct mtk_cam_pool *pool,
 
 	pool->n_element = n_element;
 	pool->element_size = element_size;
-	pool->elements = kvcalloc(n_element, sizeof(pool->element_size),
+	pool->elements = kvcalloc(n_element, pool->element_size,
 				  GFP_KERNEL);
 	if (!pool->elements)
 		return -ENOMEM;

@@ -166,7 +166,13 @@ void fill_ext_mtkcam_fmtdesc(struct v4l2_fmtdesc *f)
 	case V4L2_PIX_FMT_MTISP_SGRB12F:
 		descr = "12-bit 3 plane GRB Packed"; break;
 	default:
-		pr_info("%f: Unknown pixelformat 0x%08x\n", f->pixelformat);
+		pr_info("%s: not-found pixelformat 0x%08x (%c%c%c%c%s)\n",
+			__func__, f->pixelformat,
+			(char)(f->pixelformat & 0x7f),
+			(char)((f->pixelformat >> 8) & 0x7f),
+			(char)((f->pixelformat >> 16) & 0x7f),
+			(char)((f->pixelformat >> 24) & 0x7f),
+			(f->pixelformat & (1UL << 32)) ? "-BE" : "");
 		break;
 	}
 
@@ -598,8 +604,8 @@ unsigned int sensor_mbus_to_ipi_fmt(unsigned int mbus_code)
 		break;
 	}
 
-	if (WARN_ON(fmt == MTKCAM_IPI_IMG_FMT_UNKNOWN))
-		pr_info("Unsupported fmt 0x%08x\n", mbus_code);
+	//if (WARN_ON(fmt == MTKCAM_IPI_IMG_FMT_UNKNOWN))
+	//    pr_info("Unsupported fmt 0x%08x\n", mbus_code);
 
 	return fmt;
 }

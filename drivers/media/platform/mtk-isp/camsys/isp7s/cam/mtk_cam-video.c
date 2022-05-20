@@ -197,6 +197,8 @@ static int mtk_cam_vb2_start_streaming(struct vb2_queue *vq,
 	struct mtk_cam_ctx *ctx;
 	int ret;
 
+	dev_info(cam->dev, "%s: node %s\n", __func__, node->desc.name);
+
 	ret = check_node_linked(vq);
 	if (ret)
 		return ret;
@@ -205,6 +207,7 @@ static int mtk_cam_vb2_start_streaming(struct vb2_queue *vq,
 	if (!ctx)
 		return -EPIPE;
 
+	++ctx->streaming_node_cnt;
 	if (mtk_cam_ctx_all_nodes_streaming(ctx))
 		mtk_cam_ctx_stream_on(ctx);
 
@@ -225,6 +228,7 @@ static void mtk_cam_vb2_stop_streaming(struct vb2_queue *vq)
 
 	if (mtk_cam_ctx_all_nodes_streaming(ctx))
 		mtk_cam_ctx_stream_off(ctx);
+	--ctx->streaming_node_cnt;
 
 	// TODO: clean pending req?
 
@@ -1108,6 +1112,9 @@ int mtk_cam_video_set_fmt(struct mtk_cam_video_device *node,
 	const struct v4l2_format *dev_fmt;
 	struct v4l2_format try_fmt;
 	int i;
+
+	memset(&try_fmt, 0, sizeof(try_fmt));
+	try_fmt.type = f->type;
 
 	/* Validate pixelformat */
 	dev_fmt = mtk_cam_dev_find_fmt(&node->desc, f->fmt.pix_mp.pixelformat);
