@@ -5,8 +5,9 @@
 #ifndef MTK_HXP_CONFIG_H
 #define MTK_HXP_CONFIG_H
 
-#define HXP_DEVICE_NAME			"mtk_hxp"
-#define HXP_BUILD_FOR_FPGA	(1)
-#define HXP_WAIT_POWER_ACK	(0)
+#define HXP_DEVICE_NAME     "mtk_hxp"
+#define HXP_EVENT_IN_PLACE  (0)
+#define HXP_WAIT_POWER_ACK  (1)
+#define HXP_SLB_ALLOC_FREE  (0)
 
 #endif /* MTK_HXP_CONFIG_H */

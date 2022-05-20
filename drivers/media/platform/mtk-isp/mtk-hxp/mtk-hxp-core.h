@@ -38,6 +38,8 @@ struct hxp_core {
 	atomic_t aov_session;
 	atomic_t aov_ready;
 
+	uint32_t sensor_id;
+
 	phys_addr_t buf_pa;
 	uint8_t *buf_va;
 	size_t buf_size;
@@ -64,6 +66,9 @@ struct mtk_hxp *hxp_core_get_device(void);
 
 int hxp_core_send_cmd(struct mtk_hxp *hxp_dev,
 	uint32_t cmd, void *data, int len, bool ack);
+
+int hxp_core_notify(struct mtk_hxp *hxp_dev,
+	void *data, bool enable);
 
 int hxp_core_copy(struct mtk_hxp *hxp_dev,
 	struct aov_dqevent *dequeue);

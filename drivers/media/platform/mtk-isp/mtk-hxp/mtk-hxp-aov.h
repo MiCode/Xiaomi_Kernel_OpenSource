@@ -14,54 +14,58 @@
  * HCP (Hetero Control Processor ) is a tiny processor controlling
  * the methodology of register programming.
  **/
-#define HXP_AOV_INIT            _IOW('H', 0, struct aov_user)
-#define HXP_AOV_DQEVENT         _IOR('H', 1, struct aov_dqevent)
-#define HXP_AOV_DEINIT          _IO('H', 2)
+#define HXP_AOV_INIT              _IOW('H', 0, struct aov_user)
+#define HXP_AOV_SENSOR_ON         _IOW('H', 1, int32_t)
+#define HXP_AOV_SENSOR_OFF        _IOW('H', 2, int32_t)
+#define HXP_AOV_DQEVENT           _IOR('H', 3, struct aov_dqevent)
+#define HXP_AOV_DEINIT            _IO('H', 4)
 
 #if IS_ENABLED(CONFIG_COMPAT)
-#define COMPAT_HXP_AOV_INIT     _IOW('H', 0, struct aov_user)
-#define COMPAT_HXP_AOV_DQEVENT  _IOR('H', 1, struct aov_dqevent)
-#define COMPAT_HXP_AOV_DEINIT   _IO('H', 1)
+#define COMPAT_HXP_AOV_INIT       _IOW('H', 0, struct aov_user)
+#define COMPAT_HXP_AOV_DQEVENT    _IOR('H', 1, struct aov_dqevent)
+#define COMPAT_HXP_AOV_SENSOR_ON  _IOW('H', 2, int32_t)
+#define COMPAT_HXP_AOV_SENSOR_OFF _IOW('H', 3, int32_t)
+#define COMPAT_HXP_AOV_DEINIT     _IO('H', 4)
 #endif
 
 /*
  * For APMCU <-> SCP communication
  */
-#define HXP_AOV_CMD_READY       (0)
-#define HXP_AOV_CMD_INIT        (1)
-#define HXP_AOV_CMD_PWR_ON      (2)
-#define HXP_AOV_CMD_PWR_OFF     (3)
-#define HXP_AOV_CMD_FRAME       (4)
-#define HXP_AOV_CMD_DEINIT      (5)
-#define HXP_AOV_CMD_MAX         (6)
+#define HXP_AOV_CMD_READY         (0)
+#define HXP_AOV_CMD_INIT          (1)
+#define HXP_AOV_CMD_PWR_ON        (2)
+#define HXP_AOV_CMD_PWR_OFF       (3)
+#define HXP_AOV_CMD_FRAME         (4)
+#define HXP_AOV_CMD_DEINIT        (5)
+#define HXP_AOV_CMD_MAX           (6)
 
-#define HXP_AOV_DEBUG_DUMP      (1)  // General debug
-#define HXP_AOV_DEBUG_NDD       (2)  // NDD debug mode
+#define HXP_AOV_DEBUG_DUMP        (1)  // General debug
+#define HXP_AOV_DEBUG_NDD         (2)  // NDD debug mode
 
-#define HXP_AOV_MODE_DISP_OFF   (0)
-#define HXP_AOV_MODE_DISP_ON    (1)
+#define HXP_AOV_MODE_DISP_OFF     (0)
+#define HXP_AOV_MODE_DISP_ON      (1)
 
-#define HXP_AOV_MAX_PACKET      (8)
+#define HXP_AOV_MAX_PACKET        (8)
 
-#define HXP_AOV_PACKET_ACK      (0x80000000)
+#define HXP_AOV_PACKET_ACK        (0x80000000)
 
-#define HXP_MAX_EVENT_COUNT     (1)
+#define HXP_MAX_EVENT_COUNT       (1)
 
-#define HXP_MAX_USER_SIZE       (offsetof(struct aov_user, aaa_size))
-#define HXP_MAX_SENIF_SIZE      (2 * 1024)
-#define HXP_MAX_AAA_SIZE        (32 * 1024)
-#define HXP_MAX_TUNING_SIZE     (2 * 1024)
-#define HXP_MAX_AIE_SIZE        (162 * 1024)
+#define HXP_MAX_USER_SIZE         (offsetof(struct aov_user, aaa_size))
+#define HXP_MAX_SENIF_SIZE        (2 * 1024)
+#define HXP_MAX_AAA_SIZE          (32 * 1024)
+#define HXP_MAX_TUNING_SIZE       (2 * 1024)
+#define HXP_MAX_AIE_SIZE          (162 * 1024)
 
-#define HXP_MAX_YUVO1_OUTPUT    (640 * 480 + 640 * 240 + 32)  // 640 x 480
-#define HXP_MAX_YUVO2_OUTPUT    (320 * 240 + 320 * 120 + 32)  // 320 x 240
-#define HXP_MAX_AIE_OUTPUT      (32 * 1024)
-#define HXP_MAX_APU_OUTPUT      (200 * 1024)
-#define HXP_MAX_IMGO_OUTPUT     (921600 + 32)  // 640 x 480, bayer12
-#define HXP_MAX_AAO_OUTPUT      (158 * 1024)
-#define HXP_MAX_AAHO_OUTPUT     (1 * 1024)
-#define HXP_MAX_META_OUTPUT     (6 * 1024)
-#define HXP_MAX_AWB_OUTPUT      (2 * 1024)
+#define HXP_MAX_YUVO1_OUTPUT      (640 * 480 + 640 * 240 + 32)  // 640 x 480
+#define HXP_MAX_YUVO2_OUTPUT      (320 * 240 + 320 * 120 + 32)  // 320 x 240
+#define HXP_MAX_AIE_OUTPUT        (32 * 1024)
+#define HXP_MAX_APU_OUTPUT        (200 * 1024)
+#define HXP_MAX_IMGO_OUTPUT       (921600 + 32)  // 640 x 480, bayer12
+#define HXP_MAX_AAO_OUTPUT        (158 * 1024)
+#define HXP_MAX_AAHO_OUTPUT       (1 * 1024)
+#define HXP_MAX_META_OUTPUT       (6 * 1024)
+#define HXP_MAX_AWB_OUTPUT        (2 * 1024)
 
 extern void mtk_aie_aov_memcpy(char *buffer);
 
@@ -142,8 +146,9 @@ struct aov_event {
 } __aligned(4);
 
 enum aov_log_id {
-	AOV_LOG_ID_AOV,
+	AOV_LOG_ID_BASE,
 	AOV_LOG_ID_RED,
+	AOV_LOG_ID_AOV,
 	AOV_LOG_ID_TLSF,
 	AOV_LOG_ID_2A,
 	AOV_LOG_ID_TUNING,

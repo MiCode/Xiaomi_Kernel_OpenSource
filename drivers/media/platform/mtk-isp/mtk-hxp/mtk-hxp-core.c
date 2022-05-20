@@ -11,11 +11,19 @@
 
 #include "mtk_heap.h"
 
+#include "mtk-hxp-config.h"
 #include "mtk-hxp-drv.h"
 #include "mtk-hxp-core.h"
 #include "mtk-hxp-aov.h"
 
+#include "slbc_ops.h"
 #include "scp.h"
+
+#if HXP_EVENT_IN_PLACE
+#define ALIGN16(x) ((void *)(((uint64_t)x + 0x0F) & ~0x0F))
+#else
+#define ALIGN16(x) (x)
+#endif  // HXP_EVENT_IN_PLACE
 
 static struct mtk_hxp *curr_dev;
 
@@ -230,14 +238,17 @@ int hxp_core_send_cmd(struct mtk_hxp *hxp_dev, uint32_t cmd,
 					return -ENOMEM;
 				}
 
-				// pr_info("mtk_cam_seninf_s_aov_param+\n");
-				// mtk_cam_seninf_s_aov_param(user.sensor_id,
-				//  (void *)&(init->senif_info));
+				//pr_info("mtk_cam_seninf_s_aov_param+\n");
+				//mtk_cam_seninf_s_aov_param(user.sensor_id,
+				//	(void *)&(init->senif_info));
 				//pr_info("mtk_cam_seninf_s_aov_param-\n");
+
+				core_info->sensor_id = user.sensor_id;
 
 				//pr_info("mtk_aie_aov_memcpy+\n");
 				//mtk_aie_aov_memcpy((void *)&(init->aie_info));
 				//pr_info("mtk_aie_aov_memcpy-\n");
+
 				/* debug use
 				 * pr_info("out_pad %d\n", init->aov_seninf_param.vc.out_pad);
 				 * pr_info("init->aov_seninf_param.sensor_idx%d\n",
@@ -260,12 +271,34 @@ int hxp_core_send_cmd(struct mtk_hxp *hxp_dev, uint32_t cmd,
 			pr_info("%s: failed to alloc buffer size(%d)", __func__, len);
 			return -ENOMEM;
 		}
+#if HXP_SLB_ALLOC_FREE
+	} else if (cmd == HXP_AOV_CMD_PWR_OFF) {
+		struct slbc_data slb;
+
+		slb.uid = UID_AOV_DC;
+		slb.type = TP_BUFFER;
+		ret = slbc_request(&slb);
+		if (ret < 0) {
+			pr_info("%s: failed to allocate slb buffer", __func__);
+			return ret;
+		}
+
+		pr_info("%s: slb buffer base(0x%x), size(%ld): %x",
+			__func__, (uintptr_t)slb.paddr, slb.size);
+
+		buf = slb.paddr;
+		len = slb.size;
+#endif  // HXP_SLB_ALLOC_FREE
 	} else {
 		buf = NULL;
 	}
 
 	pkt.session = atomic_read(&(core_info->scp_session));
 	pkt.command = cmd;
+
+	if (ack)
+		pkt.command |= HXP_AOV_PACKET_ACK;
+
 	if (buf) {
 		pkt.buffer = core_info->buf_pa + (buf - core_info->buf_va);
 		pkt.length = len;
@@ -294,6 +327,10 @@ int hxp_core_send_cmd(struct mtk_hxp *hxp_dev, uint32_t cmd,
 		atomic_set(&(core_info->disp_mode), HXP_AOV_MODE_DISP_OFF);
 	} else if (cmd == HXP_AOV_CMD_PWR_ON) {
 		atomic_set(&(core_info->disp_mode), HXP_AOV_MODE_DISP_ON);
+	} else if (cmd == HXP_AOV_CMD_DEINIT) {
+		//pr_info("mtk_cam_seninf_aov_runtime_resume(%d)+\n", core_info->sensor_id);
+		//mtk_cam_seninf_aov_runtime_resume(core_info->sensor_id);
+		//pr_info("mtk_cam_seninf_aov_runtime_resume(%d)-\n", core_info->sensor_id);
 	}
 
 	if (ack)
@@ -324,7 +361,23 @@ int hxp_core_send_cmd(struct mtk_hxp *hxp_dev, uint32_t cmd,
 		}
 	}
 
-	if (cmd == HXP_AOV_CMD_DEINIT) {
+	if (cmd == HXP_AOV_CMD_INIT) {
+		//pr_info("mtk_cam_seninf_aov_runtime_suspend(%d)+\n", core_info->sensor_id);
+		//mtk_cam_seninf_aov_runtime_suspend(core_info->sensor_id);
+		//pr_info("mtk_cam_seninf_aov_runtime_suspend(%d)-\n", core_info->sensor_id);
+#if HXP_SLB_ALLOC_FREE
+	} else if (cmd == HXP_AOV_CMD_PWR_ON) {
+		struct slbc_data slb;
+
+		slb.uid = UID_AOV_DC;
+		slb.type = TP_BUFFER;
+		ret = slbc_release(&slb);
+		if (ret < 0) {
+			pr_info("failed to release slb buffer");
+			return ret;
+		}
+#endif  // HXP_SLB_ALLOC_FREE
+	} else if (cmd == HXP_AOV_CMD_DEINIT) {
 		atomic_set(&(core_info->aov_ready), 0);
 
 		// Free aov_init buffer
@@ -343,6 +396,23 @@ int hxp_core_send_cmd(struct mtk_hxp *hxp_dev, uint32_t cmd,
 	}
 
 	dev_info(hxp_dev->dev, "%s: mtk_ipi_send: %d-", __func__, len);
+
+	pr_info("%s-", __func__);
+
+	return 0;
+}
+
+int hxp_core_notify(struct mtk_hxp *hxp_dev,
+	void *data, bool enable)
+{
+	int sensor_id;
+
+	pr_info("%s+", __func__);
+
+	get_user(sensor_id, (int *)data);
+
+	dev_info(hxp_dev->dev, "%s: notify sensor(%d), status(%d)",
+		__func__, sensor_id, enable);
 
 	pr_info("%s-", __func__);
 
@@ -514,10 +584,11 @@ int hxp_core_copy(struct mtk_hxp *hxp_dev, struct aov_dqevent *dequeue)
 			offsetof(struct aov_dqevent, yuvo1_output)));
 
 		dev_info(hxp_dev->dev, "%s: copy yuvo1 output from(%x) to(%x) size(%d)+",
-				__func__, &(event->yuvo1_output[0]), buffer, HXP_MAX_YUVO1_OUTPUT);
+				__func__, ALIGN16(&(event->yuvo1_output[0])),
+				buffer, HXP_MAX_YUVO1_OUTPUT);
 
 		ret = copy_to_user((void *)buffer,
-			&(event->yuvo1_output[0]), HXP_MAX_YUVO1_OUTPUT);
+			ALIGN16(&(event->yuvo1_output[0])), HXP_MAX_YUVO1_OUTPUT);
 		if (ret) {
 			buffer_release(core_info, event);
 			dev_info(hxp_dev->dev,
@@ -534,10 +605,11 @@ int hxp_core_copy(struct mtk_hxp *hxp_dev, struct aov_dqevent *dequeue)
 			offsetof(struct aov_dqevent, yuvo2_output)));
 
 		dev_info(hxp_dev->dev, "%s: copy yuvo1 output from(%x) to(%x) size(%d)+",
-				__func__, &(event->yuvo2_output[0]), buffer, HXP_MAX_YUVO2_OUTPUT);
+				__func__, ALIGN16(&(event->yuvo2_output[0])),
+				buffer, HXP_MAX_YUVO2_OUTPUT);
 
 		ret = copy_to_user((void *)buffer,
-			&(event->yuvo2_output[0]), HXP_MAX_YUVO2_OUTPUT);
+			ALIGN16(&(event->yuvo2_output[0])), HXP_MAX_YUVO2_OUTPUT);
 		if (ret) {
 			buffer_release(core_info, event);
 			dev_info(hxp_dev->dev,
@@ -562,10 +634,11 @@ int hxp_core_copy(struct mtk_hxp *hxp_dev, struct aov_dqevent *dequeue)
 				offsetof(struct aov_dqevent, aie_output)));
 
 			dev_info(hxp_dev->dev, "%s: copy aie output from(%x) to(%x) size(%d)+",
-				__func__, &(event->aie_output[0]), buffer, event->aie_size);
+				__func__, ALIGN16(&(event->aie_output[0])),
+				buffer, event->aie_size);
 
 			ret = copy_to_user((void *)buffer,
-				&(event->aie_output[0]), event->aie_size);
+				ALIGN16(&(event->aie_output[0])), event->aie_size);
 			if (ret) {
 				buffer_release(core_info, event);
 				dev_info(hxp_dev->dev,
@@ -591,10 +664,11 @@ int hxp_core_copy(struct mtk_hxp *hxp_dev, struct aov_dqevent *dequeue)
 				offsetof(struct aov_dqevent, apu_output)));
 
 			dev_info(hxp_dev->dev, "%s: copy apu output from(%x) to(%x) size(%d)+",
-				__func__, &(event->apu_output[0]), buffer, event->apu_size);
+				__func__, ALIGN16(&(event->apu_output[0])),
+				buffer, event->apu_size);
 
 			ret = copy_to_user((void *)buffer,
-				&(event->apu_output[0]), event->apu_size);
+				ALIGN16(&(event->apu_output[0])), event->apu_size);
 			if (ret) {
 				buffer_release(core_info, event);
 				dev_info(hxp_dev->dev,
@@ -614,10 +688,11 @@ int hxp_core_copy(struct mtk_hxp *hxp_dev, struct aov_dqevent *dequeue)
 			offsetof(struct aov_dqevent, imgo_output)));
 
 		dev_info(hxp_dev->dev, "%s: copy imgo output from(%x) to(%x) size(%d)+",
-				__func__, &(event->imgo_output[0]), buffer, HXP_MAX_IMGO_OUTPUT);
+				__func__, ALIGN16(&(event->imgo_output[0])),
+				buffer, HXP_MAX_IMGO_OUTPUT);
 
 		ret = copy_to_user((void *)buffer,
-			&(event->imgo_output[0]), HXP_MAX_IMGO_OUTPUT);
+			ALIGN16(&(event->imgo_output[0])), HXP_MAX_IMGO_OUTPUT);
 		if (ret) {
 			buffer_release(core_info, event);
 			dev_info(hxp_dev->dev,
@@ -642,10 +717,11 @@ int hxp_core_copy(struct mtk_hxp *hxp_dev, struct aov_dqevent *dequeue)
 				offsetof(struct aov_dqevent, aao_output)));
 
 			dev_info(hxp_dev->dev, "%s: copy aao output from(%x) to(%x) size(%d)+",
-				__func__, &(event->aao_output[0]), buffer, event->aao_size);
+				__func__, ALIGN16(&(event->aao_output[0])),
+				buffer, event->aao_size);
 
 			ret = copy_to_user((void *)buffer,
-				&(event->aao_output[0]), event->aao_size);
+				ALIGN16(&(event->aao_output[0])), event->aao_size);
 			if (ret) {
 				buffer_release(core_info, event);
 				dev_info(hxp_dev->dev,
@@ -671,10 +747,11 @@ int hxp_core_copy(struct mtk_hxp *hxp_dev, struct aov_dqevent *dequeue)
 				offsetof(struct aov_dqevent, aaho_output)));
 
 			dev_info(hxp_dev->dev, "%s: copy aaho output from(%x) to(%x) size(%d)+",
-				__func__, &(event->aaho_output[0]), buffer, event->aaho_size);
+				__func__, ALIGN16(&(event->aaho_output[0])),
+				buffer, event->aaho_size);
 
 			ret = copy_to_user((void *)buffer,
-				&(event->aaho_output[0]), event->aaho_size);
+				ALIGN16(&(event->aaho_output[0])), event->aaho_size);
 			if (ret) {
 				buffer_release(core_info, event);
 				dev_info(hxp_dev->dev,
@@ -700,10 +777,11 @@ int hxp_core_copy(struct mtk_hxp *hxp_dev, struct aov_dqevent *dequeue)
 				offsetof(struct aov_dqevent, meta_output)));
 
 			dev_info(hxp_dev->dev, "%s: copy meta output from(%x) to(%x) size(%d)+",
-				__func__, &(event->meta_output[0]), buffer, event->meta_size);
+				__func__, ALIGN16(&(event->meta_output[0])),
+				buffer, event->meta_size);
 
 			ret = copy_to_user((void *)buffer,
-				&(event->meta_output[0]), event->meta_size);
+				ALIGN16(&(event->meta_output[0])), event->meta_size);
 			if (ret) {
 				buffer_release(core_info, event);
 				dev_info(hxp_dev->dev,
@@ -729,10 +807,11 @@ int hxp_core_copy(struct mtk_hxp *hxp_dev, struct aov_dqevent *dequeue)
 				offsetof(struct aov_dqevent, awb_output)));
 
 			dev_info(hxp_dev->dev, "%s: copy tuning output from(%x) to(%x) size(%d)+",
-				__func__, &(event->awb_output[0]), buffer, event->awb_size);
+				__func__, ALIGN16(&(event->awb_output[0])),
+				buffer, event->awb_size);
 
 			ret = copy_to_user((void *)buffer,
-				&(event->awb_output[0]), event->awb_size);
+				ALIGN16(&(event->awb_output[0])), event->awb_size);
 			if (ret) {
 				buffer_release(core_info, event);
 				dev_info(hxp_dev->dev,
@@ -778,9 +857,29 @@ int hxp_core_reset(struct mtk_hxp *hxp_dev)
 	int ret = 0;
 
 	if (atomic_read(&(core_info->aov_ready))) {
+#if HXP_SLB_ALLOC_FREE
+		struct slbc_data slb;
+#endif  // HXP_SLB_ALLOC_FREE
+
 		dev_info(hxp_dev->dev, "%s: force aov deinit+", __func__);
 		ret = hxp_core_send_cmd(hxp_dev,
 			HXP_AOV_CMD_DEINIT, NULL, 0, false);
+
+#if HXP_SLB_ALLOC_FREE
+		slb.uid = UID_AOV_DC;
+		slb.type = TP_BUFFER;
+		ret = slbc_status(&slb);
+		if (ret > 0) {
+			dev_info(hxp_dev->dev, "%s: force release slb(%d)\n", __func__, ret);
+
+			slb.uid = UID_AOV_DC;
+			slb.type = TP_BUFFER;
+			ret = slbc_release(&slb);
+			if (ret < 0)
+				pr_info("failed to release slb buffer");
+		}
+#endif  // HXP_SLB_ALLOC_FREE
+
 		dev_info(hxp_dev->dev, "%s: force aov deinit-: (%d)", __func__, ret);
 	}
 

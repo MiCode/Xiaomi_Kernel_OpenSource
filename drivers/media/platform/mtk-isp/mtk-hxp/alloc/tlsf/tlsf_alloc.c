@@ -187,20 +187,6 @@ static void trim_free_block(struct tlsf_info *info,
 	}
 }
 
-static void *prepare_used_block(struct tlsf_info *info,
-	struct tlsf_block *block, size_t size)
-{
-	void *p = NULL;
-
-	if (block) {
-		trim_free_block(info, block, size);
-		mark_block_as_used(block);
-		p = block_to_ptr(block);
-	}
-
-	return p;
-}
-
 static int32_t reset_info(struct tlsf_info *info)
 {
 	int32_t i;
@@ -269,8 +255,13 @@ void *tlsf_malloc(struct tlsf_info *info, size_t size)
 		return NULL;
 
 	block = locate_free_block(info, size);
+	if (block) {
+		trim_free_block(info, block, size);
+		mark_block_as_used(block);
+		return block_to_ptr(block);
+	}
 
-	return prepare_used_block(info, block, size);
+	return NULL;
 }
 
 static struct tlsf_block *block_absorb(struct tlsf_block *prev,

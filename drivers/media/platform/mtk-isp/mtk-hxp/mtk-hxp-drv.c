@@ -82,6 +82,16 @@ static long mtk_hxp_ioctl(struct file *file, unsigned int cmd,
 		dev_info(hxp_dev->dev, "AOV init-(%d)\n", ret);
 		break;
 	}
+	case HXP_AOV_SENSOR_ON:
+		dev_info(hxp_dev->dev, "AOV sensor on\n+");
+		ret = hxp_core_notify(hxp_dev, (void *)arg, true);
+		dev_info(hxp_dev->dev, "AOV sensor on(%d)\n+", ret);
+		break;
+	case HXP_AOV_SENSOR_OFF:
+		dev_info(hxp_dev->dev, "AOV sensor off\n+");
+		ret = hxp_core_notify(hxp_dev, (void *)arg, false);
+		dev_info(hxp_dev->dev, "AOV sensor off(%d)\n+", ret);
+		break;
 	case HXP_AOV_DQEVENT:
 		dev_info(hxp_dev->dev, "AOV dqevent+\n");
 		ret = hxp_core_copy(hxp_dev, (struct aov_dqevent *)arg);
@@ -140,7 +150,7 @@ static int mtk_hxp_release(struct inode *inode, struct file *file)
 
 	hxp_dev->is_open = false;
 
-	//hxp_ctrl_reset(hxp_dev);
+	hxp_ctrl_reset(hxp_dev);
 
 	hxp_core_reset(hxp_dev);
 
