@@ -377,7 +377,10 @@ static int mtk_pcie_startup_port(struct mtk_pcie_port *port)
 		resource_size_t size;
 		const char *range_type;
 
-		if (type == IORESOURCE_MEM) {
+		if (type == IORESOURCE_IO) {
+			cpu_addr = pci_pio_to_address(res->start);
+			range_type = "IO";
+		} else if (type == IORESOURCE_MEM) {
 			cpu_addr = res->start;
 			range_type = "MEM";
 		} else {
@@ -765,7 +768,6 @@ static int mtk_pcie_parse_port(struct mtk_pcie_port *port)
 	struct platform_device *pdev = to_platform_device(dev);
 	struct resource *regs;
 	struct device_node *pextp_node;
-	u32 domain;
 	int ret;
 
 	regs = platform_get_resource_byname(pdev, IORESOURCE_MEM, "pcie-mac");
@@ -779,12 +781,11 @@ static int mtk_pcie_parse_port(struct mtk_pcie_port *port)
 
 	port->reg_base = regs->start;
 
-	ret = of_property_read_u32(dev->of_node, "linux,pci-domain", &domain);
-	if (ret) {
+	port->port_num = of_get_pci_domain_nr(dev->of_node);
+	if (port->port_num < 0) {
 		dev_info(dev, "failed to get domain number\n");
-		return ret;
+		return port->port_num;
 	}
-	port->port_num = domain;
 
 	port->dvfs_req_en = true;
 	ret = of_property_read_bool(dev->of_node, "mediatek,dvfs-req-dis");
