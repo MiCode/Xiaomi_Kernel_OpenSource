@@ -21,6 +21,7 @@
 #define GPUFREQ_MAX_OPP_NUM             (70)
 #define GPUFREQ_MAX_ADJ_NUM             (10)
 #define GPUFREQ_MAX_REG_NUM             (70)
+#define GPUFREQ_MAX_GPM3_NUM            (20)
 
 /**************************************************
  * GPUFREQ Log Setting
@@ -54,11 +55,11 @@
  **************************************************/
 enum gpufreq_return {
 	GPUFREQ_HW_LIMIT = 1,
-	GPUFREQ_SUCCESS = 0,
-	GPUFREQ_EINVAL = -EINVAL,  // -22
-	GPUFREQ_ENOMEM = -ENOMEM,  // -12
-	GPUFREQ_ENOENT = -ENOENT,  // -2
-	GPUFREQ_ENODEV = -ENODEV,  // -19
+	GPUFREQ_SUCCESS  = 0,
+	GPUFREQ_EINVAL   = -EINVAL,  /* -22 */
+	GPUFREQ_ENOMEM   = -ENOMEM,  /* -12 */
+	GPUFREQ_ENOENT   = -ENOENT,  /* -2  */
+	GPUFREQ_ENODEV   = -ENODEV,  /* -19 */
 };
 
 enum gpufreq_posdiv {
@@ -82,7 +83,7 @@ enum gpufreq_dvfs_state {
 
 enum gpufreq_target {
 	TARGET_DEFAULT = 0,
-	TARGET_GPU = 1,
+	TARGET_GPU     = 1,
 	TARGET_STACK,
 	TARGET_INVALID,
 };
@@ -94,35 +95,36 @@ enum gpufreq_power_state {
 
 enum gpufreq_feat_mode {
 	FEAT_DISABLE = 0,
-	FEAT_ENABLE,
+	FEAT_ENABLE  = 1,
 	DFD_FORCE_DUMP,
 };
 
 enum gpuppm_reserved_idx {
 	GPUPPM_DEFAULT_IDX = -1,
-	GPUPPM_RESET_IDX = -2,
-	GPUPPM_KEEP_IDX = -3,
+	GPUPPM_RESET_IDX   = -2,
+	GPUPPM_KEEP_IDX    = -3,
 };
 
 enum gpuppm_limiter {
-	LIMIT_SEGMENT = 0,
-	LIMIT_DEBUG = 1,
-	LIMIT_THERMAL_AP,
-	LIMIT_THERMAL_EB,
-	LIMIT_TEMPER_COMP,
-	LIMIT_SRAMRC,
-	LIMIT_BATT_OC,
-	LIMIT_BATT_PERCENT,
-	LIMIT_LOW_BATT,
-	LIMIT_PBM,
-	LIMIT_APIBOOST,
-	LIMIT_FPSGO,
-	LIMIT_NUM,
+	LIMIT_SEGMENT      = 0,
+	LIMIT_DEBUG        = 1,
+	LIMIT_GPM3         = 2,
+	LIMIT_TEMPER_COMP  = 3,
+	LIMIT_THERMAL_AP   = 4,
+	LIMIT_THERMAL_EB   = 5,
+	LIMIT_SRAMRC       = 6,
+	LIMIT_BATT_OC      = 7,
+	LIMIT_BATT_PERCENT = 8,
+	LIMIT_LOW_BATT     = 9,
+	LIMIT_PBM          = 10,
+	LIMIT_APIBOOST     = 11,
+	LIMIT_FPSGO        = 12,
+	LIMIT_NUM          = 13,
 };
 
 enum gpuppm_limit_type {
 	GPUPPM_CEILING = 0,
-	GPUPPM_FLOOR = 1,
+	GPUPPM_FLOOR   = 1,
 	GPUPPM_INVALID,
 };
 
@@ -188,6 +190,13 @@ struct gpufreq_asensor_info {
 	unsigned int lvts5_0_y_temperature;
 };
 
+struct gpufreq_gpm3_info {
+	int temper;
+	int ceiling;
+	unsigned int i_stack;
+	unsigned int i_sram;
+};
+
 struct gpufreq_reg_info {
 	unsigned int addr;
 	unsigned int val;
@@ -209,6 +218,7 @@ struct gpufreq_shared_status {
 	int mtcmos_count;
 	int cg_count;
 	int active_count;
+	int temperature;
 	unsigned int cur_fgpu;
 	unsigned int cur_fstack;
 	unsigned int cur_con1_fgpu;
@@ -229,13 +239,18 @@ struct gpufreq_shared_status {
 	unsigned int max_power_stack;
 	unsigned int min_power_gpu;
 	unsigned int min_power_stack;
+	unsigned int lkg_rt_info_gpu;
+	unsigned int lkg_rt_info_stack;
+	unsigned int lkg_rt_info_sram;
+	unsigned int lkg_ht_info_gpu;
+	unsigned int lkg_ht_info_stack;
+	unsigned int lkg_ht_info_sram;
 	unsigned int cur_ceiling;
 	unsigned int cur_floor;
 	unsigned int cur_c_limiter;
 	unsigned int cur_f_limiter;
 	unsigned int cur_c_priority;
 	unsigned int cur_f_priority;
-	unsigned int temperature;
 	unsigned int temp_compensate;
 	unsigned int power_control;
 	unsigned int active_idle_control;
@@ -254,6 +269,7 @@ struct gpufreq_shared_status {
 	unsigned int segment_id;
 	unsigned int power_time_h;
 	unsigned int power_time_l;
+	unsigned int mfg_pwr_status;
 	struct gpufreq_reg_info reg_mfgsys[GPUFREQ_MAX_REG_NUM];
 	struct gpufreq_reg_info reg_stack_sel;
 	struct gpufreq_reg_info reg_del_sel;
@@ -267,6 +283,7 @@ struct gpufreq_shared_status {
 	struct gpufreq_adj_info aging_table_stack[GPUFREQ_MAX_ADJ_NUM];
 	struct gpufreq_adj_info avs_table_gpu[GPUFREQ_MAX_ADJ_NUM];
 	struct gpufreq_adj_info avs_table_stack[GPUFREQ_MAX_ADJ_NUM];
+	struct gpufreq_gpm3_info gpm3_table[GPUFREQ_MAX_GPM3_NUM];
 };
 
 /**************************************************

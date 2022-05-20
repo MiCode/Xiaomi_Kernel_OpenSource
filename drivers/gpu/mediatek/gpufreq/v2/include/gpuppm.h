@@ -25,7 +25,7 @@
  **************************************************/
 enum gpuppm_priority {
 	GPUPPM_PRIO_NONE = 0, /* the lowest priority */
-	GPUPPM_PRIO_1 = 1,
+	GPUPPM_PRIO_1    = 1,
 	GPUPPM_PRIO_2,
 	GPUPPM_PRIO_3,
 	GPUPPM_PRIO_4,
