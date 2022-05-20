@@ -185,7 +185,7 @@ static int get_pmic_vbus(int *vchr)
 
 	if (chg_psy == NULL)
 		chg_psy = power_supply_get_by_name("mtk_charger_type");
-	if (IS_ERR_OR_NULL(chg_psy)) {
+	if (chg_psy == NULL) {
 		pd_err("%s Couldn't get chg_psy\n", __func__);
 		ret = -1;
 	} else {
@@ -623,7 +623,7 @@ int pd_hal_charger_enable_chip(struct chg_alg_device *alg,
 
 int pd_hal_get_uisoc(struct chg_alg_device *alg)
 {
-	union power_supply_propval prop;
+	union power_supply_propval prop = {0};
 	struct power_supply *bat_psy = NULL;
 	int ret;
 	struct mtk_pd *pd;
@@ -634,13 +634,13 @@ int pd_hal_get_uisoc(struct chg_alg_device *alg)
 	pd = dev_get_drvdata(&alg->dev);
 	bat_psy = pd->bat_psy;
 
-	if (IS_ERR_OR_NULL(bat_psy)) {
+	if (bat_psy == NULL) {
 		pr_notice("%s retry to get bat_psy\n", __func__);
 		bat_psy = devm_power_supply_get_by_phandle(&pd->pdev->dev, "gauge");
 		pd->bat_psy = bat_psy;
 	}
 
-	if (IS_ERR_OR_NULL(bat_psy)) {
+	if (bat_psy == NULL) {
 		pd_err("%s Couldn't get bat_psy\n", __func__);
 		ret = 50;
 	} else {
@@ -669,7 +669,7 @@ int pd_hal_get_log_level(struct chg_alg_device *alg)
 		return -1;
 	} else {
 		info = (struct mtk_charger *)power_supply_get_drvdata(chg_psy);
-		if (IS_ERR_OR_NULL(info)) {
+		if (info == NULL) {
 			pd_err("%s info is NULL\n", __func__);
 			return -1;
 		}

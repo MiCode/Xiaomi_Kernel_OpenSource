@@ -84,9 +84,16 @@ static int typec_attach_thread(void *data)
 
 	pr_info("%s: ++\n", __func__);
 	while (!kthread_should_stop()) {
+		if (mci == NULL)
+			pr_notice("%s: mci is null\n", __func__);
 		ret = wait_event_interruptible(mci->attach_wq,
 			   atomic_read(&mci->chrdet_start) > 0 ||
 							 kthread_should_stop());
+		if (ret == -ERESTARTSYS) {
+			pr_notice("%s: error when wait_event_interruptible\n",
+				__func__);
+			break;
+		}
 		if (ret < 0) {
 			pr_notice("%s: wait event been interrupted(%d)\n",
 				  __func__, ret);
@@ -127,8 +134,9 @@ static void handle_typec_pd_attach(struct mtk_ctd_info *mci, int attach)
 
 static void handle_pd_rdy_attach(struct mtk_ctd_info *mci, struct tcp_notify *noti)
 {
-	int attach, usb_comm, watt, pd_rdy;
+	int attach = 0, usb_comm = 0, watt = 0, pd_rdy = 0;
 	struct tcpm_remote_power_cap cap;
+	memset(&cap, 0, sizeof(cap));
 
 	if (noti->pd_state.connected == PD_CONNECT_PE_READY_SNK ||
 	    noti->pd_state.connected == PD_CONNECT_PE_READY_SNK_PD30 ||
@@ -180,6 +188,7 @@ static int pd_tcp_notifier_call(struct notifier_block *nb,
 	struct tcp_notify *noti = data;
 	struct mtk_ctd_info *mci = (struct mtk_ctd_info *)container_of(nb,
 						    struct mtk_ctd_info, pd_nb);
+	int counter = 0;
 
 	switch (event) {
 	case TCP_NOTIFY_SINK_VBUS:
@@ -206,6 +215,10 @@ static int pd_tcp_notifier_call(struct notifier_block *nb,
 				pr_info("%s: typec unattached, power off\n",
 					__func__);
 				while (1) {
+					if (counter >= 20000) {
+						kernel_power_off();
+						break;		/* for coverity */
+					}
 					if (mci->is_suspend == false) {
 						pr_info("%s, not in suspend, shutdown\n", __func__);
 						kernel_power_off();
@@ -213,6 +226,7 @@ static int pd_tcp_notifier_call(struct notifier_block *nb,
 						pr_info("%s, suspend, cannot shutdown\n", __func__);
 						msleep(20);
 					}
+					counter++;
 				}
 			}
 			handle_typec_pd_attach(mci, ATTACH_TYPE_NONE);

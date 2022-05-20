@@ -134,10 +134,9 @@ void _wake_up_charger(struct mtk_charger *info)
 {
 	unsigned long flags;
 
-	info->timer_cb_duration[2] = ktime_get_boottime();
 	if (info == NULL)
 		return;
-
+	info->timer_cb_duration[2] = ktime_get_boottime();
 	spin_lock_irqsave(&info->slock, flags);
 	info->timer_cb_duration[3] = ktime_get_boottime();
 	if (!info->charger_wakelock->active)
@@ -1027,11 +1026,11 @@ static ssize_t charger_log_level_store(struct device *dev,
 				       const char *buf, size_t size)
 {
 	struct mtk_charger *pinfo = dev->driver_data;
-	signed int temp;
+	int temp;
 
 	if (kstrtoint(buf, 10, &temp) == 0) {
 		if (temp < 0) {
-			chr_err("%s: val is invalid: %ld\n", __func__, temp);
+			chr_err("%s: val is invalid: %d\n", __func__, temp);
 			temp = 0;
 		}
 		pinfo->log_level = temp;
@@ -1675,13 +1674,8 @@ static ssize_t enable_sc_store(
 	if (buf != NULL && size != 0) {
 		chr_err("[enable smartcharging] buf is %s\n", buf);
 		ret = kstrtoul(buf, 10, &val);
-		if (val < 0) {
-			chr_err(
-				"[enable smartcharging] val is %d ??\n",
-				(int)val);
-			val = 0;
-		}
-
+		if (ret == -ERANGE || ret == -EINVAL)
+			return -EINVAL;
 		if (val == 0)
 			info->sc.enable = false;
 		else
@@ -1722,7 +1716,7 @@ static ssize_t sc_stime_store(
 	struct device *dev, struct device_attribute *attr,
 					 const char *buf, size_t size)
 {
-	unsigned long val = 0;
+	long val = 0;
 	int ret;
 	struct power_supply *chg_psy = NULL;
 	struct mtk_charger *info = NULL;
@@ -1738,16 +1732,18 @@ static ssize_t sc_stime_store(
 
 	if (buf != NULL && size != 0) {
 		chr_err("[smartcharging stime] buf is %s\n", buf);
-		ret = kstrtoul(buf, 10, &val);
+		ret = kstrtol(buf, 10, &val);
+		if (ret == -ERANGE || ret == -EINVAL)
+			return -EINVAL;
 		if (val < 0) {
 			chr_err(
-				"[smartcharging stime] val is %d ??\n",
-				(int)val);
+				"[smartcharging stime] val is %ld ??\n",
+				val);
 			val = 0;
 		}
 
 		if (val >= 0)
-			info->sc.start_time = val;
+			info->sc.start_time = (int)val;
 
 		chr_err(
 			"[smartcharging stime]enable smartcharging=%d\n",
@@ -1784,7 +1780,7 @@ static ssize_t sc_etime_store(
 	struct device *dev, struct device_attribute *attr,
 					 const char *buf, size_t size)
 {
-	unsigned long val = 0;
+	long val = 0;
 	int ret;
 	struct power_supply *chg_psy = NULL;
 	struct mtk_charger *info = NULL;
@@ -1800,16 +1796,18 @@ static ssize_t sc_etime_store(
 
 	if (buf != NULL && size != 0) {
 		chr_err("[smartcharging etime] buf is %s\n", buf);
-		ret = kstrtoul(buf, 10, &val);
+		ret = kstrtol(buf, 10, &val);
+		if (ret == -ERANGE || ret == -EINVAL)
+			return -EINVAL;
 		if (val < 0) {
 			chr_err(
-				"[smartcharging etime] val is %d ??\n",
-				(int)val);
+				"[smartcharging etime] val is %ld ??\n",
+				val);
 			val = 0;
 		}
 
 		if (val >= 0)
-			info->sc.end_time = val;
+			info->sc.end_time = (int)val;
 
 		chr_err(
 			"[smartcharging stime]enable smartcharging=%d\n",
@@ -1846,7 +1844,7 @@ static ssize_t sc_tuisoc_store(
 	struct device *dev, struct device_attribute *attr,
 					 const char *buf, size_t size)
 {
-	unsigned long val = 0;
+	long val = 0;
 	int ret;
 	struct power_supply *chg_psy = NULL;
 	struct mtk_charger *info = NULL;
@@ -1862,16 +1860,18 @@ static ssize_t sc_tuisoc_store(
 
 	if (buf != NULL && size != 0) {
 		chr_err("[smartcharging tuisoc] buf is %s\n", buf);
-		ret = kstrtoul(buf, 10, &val);
+		ret = kstrtol(buf, 10, &val);
+		if (ret == -ERANGE || ret == -EINVAL)
+			return -EINVAL;
 		if (val < 0) {
 			chr_err(
-				"[smartcharging tuisoc] val is %d ??\n",
-				(int)val);
+				"[smartcharging tuisoc] val is %ld ??\n",
+				val);
 			val = 0;
 		}
 
 		if (val >= 0)
-			info->sc.target_percentage = val;
+			info->sc.target_percentage = (int)val;
 
 		chr_err(
 			"[smartcharging stime]tuisoc=%d\n",
@@ -1908,7 +1908,7 @@ static ssize_t sc_ibat_limit_store(
 	struct device *dev, struct device_attribute *attr,
 					 const char *buf, size_t size)
 {
-	unsigned long val = 0;
+	long val = 0;
 	int ret;
 	struct power_supply *chg_psy = NULL;
 	struct mtk_charger *info = NULL;
@@ -1924,16 +1924,18 @@ static ssize_t sc_ibat_limit_store(
 
 	if (buf != NULL && size != 0) {
 		chr_err("[smartcharging ibat limit] buf is %s\n", buf);
-		ret = kstrtoul(buf, 10, &val);
+		ret = kstrtol(buf, 10, &val);
+		if (ret == -ERANGE || ret == -EINVAL)
+			return -EINVAL;
 		if (val < 0) {
 			chr_err(
-				"[smartcharging ibat limit] val is %d ??\n",
+				"[smartcharging ibat limit] val is %ld ??\n",
 				(int)val);
 			val = 0;
 		}
 
 		if (val >= 0)
-			info->sc.current_limit = val;
+			info->sc.current_limit = (int)val;
 
 		chr_err(
 			"[smartcharging ibat limit]=%d\n",
@@ -2652,7 +2654,7 @@ static void kpoc_power_off_check(struct mtk_charger *info)
 {
 	unsigned int boot_mode = info->bootmode;
 	int vbus = 0;
-
+	int counter = 0;
 	/* 8 = KERNEL_POWER_OFF_CHARGING_BOOT */
 	/* 9 = LOW_POWER_OFF_CHARGING_BOOT */
 	if (boot_mode == 8 || boot_mode == 9) {
@@ -2660,6 +2662,11 @@ static void kpoc_power_off_check(struct mtk_charger *info)
 		if (vbus >= 0 && vbus < 2500 && !mtk_is_charger_on(info) && !info->pd_reset) {
 			chr_err("Unplug Charger/USB in KPOC mode, vbus=%d, shutdown\n", vbus);
 			while (1) {
+				if (counter >= 20000) {
+					chr_err("%s, wait too long\n", __func__);
+					kernel_power_off();
+					break;
+				}
 				if (info->is_suspend == false) {
 					chr_err("%s, not in suspend, shutdown\n", __func__);
 					kernel_power_off();
@@ -2667,6 +2674,7 @@ static void kpoc_power_off_check(struct mtk_charger *info)
 					chr_err("%s, suspend! cannot shutdown\n", __func__);
 					msleep(20);
 				}
+				counter++;
 			}
 		}
 		charger_send_kpoc_uevent(info);
@@ -3090,7 +3098,10 @@ static int psy_charger_get_property(struct power_supply *psy,
 	struct chg_alg_device *alg = NULL;
 
 	info = (struct mtk_charger *)power_supply_get_drvdata(psy);
-
+	if (info == NULL) {
+		chr_err("%s: get info failed\n", __func__);
+		return -EINVAL;
+	}
 	chr_debug("%s psp:%d\n", __func__, psp);
 
 	if (info->psy1 != NULL &&
@@ -3273,6 +3284,10 @@ int psy_charger_set_property(struct power_supply *psy,
 	chr_err("%s: prop:%d %d\n", __func__, psp, val->intval);
 
 	info = (struct mtk_charger *)power_supply_get_drvdata(psy);
+	if (info == NULL) {
+		chr_err("%s: failed to get info\n", __func__);
+		return -EINVAL;
+	}
 
 	if (info->psy1 != NULL &&
 		info->psy1 == psy)
@@ -3327,11 +3342,15 @@ int psy_charger_set_property(struct power_supply *psy,
 static void mtk_charger_external_power_changed(struct power_supply *psy)
 {
 	struct mtk_charger *info;
-	union power_supply_propval prop, prop2, vbat0;
+	union power_supply_propval prop = {0};
+	union power_supply_propval prop2 = {0};
+	union power_supply_propval vbat0 = {0};
 	struct power_supply *chg_psy = NULL;
 	int ret;
 
 	info = (struct mtk_charger *)power_supply_get_drvdata(psy);
+	if (info == NULL)
+		pr_notice("%s: failed to get info\n", __func__);
 	chg_psy = info->chg_psy;
 
 	if (IS_ERR_OR_NULL(chg_psy)) {
@@ -3370,7 +3389,7 @@ int notify_adapter_event(struct notifier_block *notifier,
 {
 	struct mtk_charger *pinfo = NULL;
 
-	chr_err("%s %d\n", __func__, evt);
+	chr_err("%s %lu\n", __func__, evt);
 
 	pinfo = container_of(notifier,
 		struct mtk_charger, pd_nb);
@@ -3541,7 +3560,7 @@ static int mtk_charger_probe(struct platform_device *pdev)
 		chr_err("%s: devm power fail to get bat_psy\n", __func__);
 
 	if (IS_ERR(info->psy1))
-		chr_err("register psy1 fail:%d\n",
+		chr_err("register psy1 fail:%ld\n",
 			PTR_ERR(info->psy1));
 
 	info->psy_desc2.name = "mtk-slave-charger";
@@ -3557,7 +3576,7 @@ static int mtk_charger_probe(struct platform_device *pdev)
 			&info->psy_cfg2);
 
 	if (IS_ERR(info->psy2))
-		chr_err("register psy2 fail:%d\n",
+		chr_err("register psy2 fail:%ld\n",
 			PTR_ERR(info->psy2));
 
 	info->psy_dvchg_desc1.name = "mtk-mst-div-chg";
@@ -3574,7 +3593,7 @@ static int mtk_charger_probe(struct platform_device *pdev)
 						 &info->psy_dvchg_desc1,
 						 &info->psy_dvchg_cfg1);
 	if (IS_ERR(info->psy_dvchg1))
-		chr_err("register psy dvchg1 fail:%d\n",
+		chr_err("register psy dvchg1 fail:%ld\n",
 			PTR_ERR(info->psy_dvchg1));
 
 	info->psy_dvchg_desc2.name = "mtk-slv-div-chg";
@@ -3591,7 +3610,7 @@ static int mtk_charger_probe(struct platform_device *pdev)
 						 &info->psy_dvchg_desc2,
 						 &info->psy_dvchg_cfg2);
 	if (IS_ERR(info->psy_dvchg2))
-		chr_err("register psy dvchg2 fail:%d\n",
+		chr_err("register psy dvchg2 fail:%ld\n",
 			PTR_ERR(info->psy_dvchg2));
 
 	info->psy_hvdvchg_desc1.name = "mtk-mst-hvdiv-chg";
@@ -3608,7 +3627,7 @@ static int mtk_charger_probe(struct platform_device *pdev)
 						   &info->psy_hvdvchg_desc1,
 						   &info->psy_hvdvchg_cfg1);
 	if (IS_ERR(info->psy_hvdvchg1))
-		chr_err("register psy hvdvchg1 fail:%d\n",
+		chr_err("register psy hvdvchg1 fail:%ld\n",
 					PTR_ERR(info->psy_hvdvchg1));
 
 	info->psy_hvdvchg_desc2.name = "mtk-slv-hvdiv-chg";
@@ -3625,14 +3644,14 @@ static int mtk_charger_probe(struct platform_device *pdev)
 						   &info->psy_hvdvchg_desc2,
 						   &info->psy_hvdvchg_cfg2);
 	if (IS_ERR(info->psy_hvdvchg2))
-		chr_err("register psy hvdvchg2 fail:%d\n",
+		chr_err("register psy hvdvchg2 fail:%ld\n",
 					PTR_ERR(info->psy_hvdvchg2));
 
 	info->log_level = CHRLOG_ERROR_LEVEL;
 
 	info->pd_adapter = get_adapter_by_name("pd_adapter");
 	if (!info->pd_adapter)
-		chr_err("%s: No pd adapter found\n");
+		chr_err("%s: No pd adapter found\n", __func__);
 	else {
 		info->pd_nb.notifier_call = notify_adapter_event;
 		register_adapter_device_notifier(info->pd_adapter,

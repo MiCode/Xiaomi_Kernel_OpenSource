@@ -581,7 +581,7 @@ static int charger_dev_event(struct notifier_block *nb, unsigned long event,
 	struct chgdev_notify *data = v;
 	int i;
 
-	chr_err("%s %d\n", __func__, event);
+	chr_err("%s %lu\n", __func__, event);
 
 	switch (event) {
 	case CHARGER_DEV_NOTIFY_EOC:
