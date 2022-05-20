@@ -57,6 +57,8 @@ static struct ufs_dev_fix ufs_mtk_dev_fixups[] = {
 		UFS_DEVICE_QUIRK_DELAY_AFTER_LPM),
 	UFS_FIX(UFS_VENDOR_SKHYNIX, "H9HQ21AFAMZDAR",
 		UFS_DEVICE_QUIRK_SUPPORT_EXTENDED_FEATURES),
+	UFS_FIX(UFS_VENDOR_SKHYNIX, "H9HQ15AFAMBDAR",
+		UFS_DEVICE_QUIRK_DELAY_BEFORE_LPM | UFS_DEVICE_QUIRK_DELAY_AFTER_LPM),
 	END_FIX
 };
 
@@ -101,6 +103,13 @@ static bool ufs_mtk_is_clk_scale_ready(struct ufs_hba *hba)
 	return mclk->ufs_sel_clki &&
 		mclk->ufs_sel_max_clki &&
 		mclk->ufs_sel_min_clki;
+}
+
+static bool ufs_mtk_is_force_vsx_lpm(struct ufs_hba *hba)
+{
+	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
+
+	return !!(host->caps & UFS_MTK_CAP_FORCE_VSx_LPM);
 }
 
 static void ufs_mtk_cfg_unipro_cg(struct ufs_hba *hba, bool enable)
@@ -1171,7 +1180,10 @@ static int ufs_mtk_rpmb_cmd_seq(struct device *dev,
 	 * Use rpmb lock to prevent other rpmb read/write threads cut in line.
 	 * Use mutex not spin lock because in/out function might sleep.
 	 */
-	mutex_lock(&host->rpmb_lock);
+	down(&host->rpmb_sem);
+	/* Ensure device is resumed before RPMB operation */
+	scsi_autopm_get_device(sdev);
+
 	for (ret = 0, i = 0; i < ncmds && !ret; i++) {
 		cmd = &cmds[i];
 		if (cmd->flags & RPMB_F_WRITE)
@@ -1181,7 +1193,10 @@ static int ufs_mtk_rpmb_cmd_seq(struct device *dev,
 			ret = ufs_mtk_rpmb_security_in(sdev, cmd->frames,
 						      cmd->nframes);
 	}
-	mutex_unlock(&host->rpmb_lock);
+
+	/* Allow device to be runtime suspended */
+	scsi_autopm_put_device(sdev);
+	up(&host->rpmb_sem);
 
 	scsi_device_put(sdev);
 	return ret;
@@ -1263,9 +1278,9 @@ static void ufs_mtk_rpmb_add(void *data, async_cookie_t cookie)
 	rawdev_ufs_rpmb = rdev;
 
 	/*
-	 * Initialize rpmb mutex.
+	 * Initialize rpmb semaphore.
 	 */
-	mutex_init(&host->rpmb_lock);
+	sema_init(&host->rpmb_sem, 1);
 
 out_put_dev:
 	scsi_device_put(hba->sdev_rpmb);
@@ -1641,6 +1656,31 @@ static int ufs_mtk_init_clocks(struct ufs_hba *hba)
 		return -1;
 	}
 	return 0;
+}
+
+static void ufs_mtk_ctrl_dev_pwr(struct ufs_hba *hba, bool vcc_on, bool is_init)
+{
+	struct arm_smccc_res res;
+	u64 ufs_version;
+
+	/* prevent entering lpm when device is still active */
+	if (!vcc_on && ufshcd_is_ufs_dev_active(hba))
+		return;
+
+	/* Transfer the ufs version to tf-a */
+	ufs_version = (u64)hba->dev_info.wspecversion;
+
+	/*
+	 * If VCC kept always-on, we do not use smc call to avoid
+	 * non-essential time consumption.
+	 *
+	 * We don't need to control VS buck (the upper layer of VCCQ/VCCQ2)
+	 * to enter LPM, because UFS device may be active when VCC
+	 * is always-on. We also introduce UFS_MTK_CAP_FORCE_VSx_LPM to
+	 * allow overriding such protection to save power.
+	 */
+	if (ufs_mtk_is_force_vsx_lpm(hba) || !ufs_mtk_is_broken_vcc(hba) || is_init)
+		ufs_mtk_device_pwr_ctrl(vcc_on, ufs_version, res);
 }
 
 /**
@@ -2031,6 +2071,10 @@ static void ufs_mtk_vreg_set_lpm(struct ufs_hba *hba, bool lpm)
 	if (!hba->vreg_info.vccq2 || !hba->vreg_info.vcc)
 		return;
 
+	/* prevent entering lpm when device is still active */
+	if (lpm && ufshcd_is_ufs_dev_active(hba))
+		return;
+
 	if (lpm && !hba->vreg_info.vcc->enabled)
 		regulator_set_mode(hba->vreg_info.vccq2->reg,
 				   REGULATOR_MODE_IDLE);
@@ -2075,6 +2119,7 @@ static int ufs_mtk_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op,
 
 	/* Transfer the ufs version to tfa */
 	ufs_mtk_host_pwr_ctrl(HOST_PWR_HCI, false, res);
+	ufs_mtk_ctrl_dev_pwr(hba, false, false);
 
 	return 0;
 fail:
@@ -2094,6 +2139,7 @@ static int ufs_mtk_resume(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 
 	/* Transfer the ufs version to tfa */
 	ufs_mtk_host_pwr_ctrl(HOST_PWR_HCI, true, res);
+	ufs_mtk_ctrl_dev_pwr(hba, true, false);
 
 	err = ufs_mtk_mphy_power_on(hba, true);
 	if (err)
@@ -2139,7 +2185,7 @@ static void ufs_mtk_fix_regulators(struct ufs_hba *hba)
 	if (dev_info->wspecversion >= 0x0300) {
 		if (vreg_info->vccq2) {
 			regulator_disable(vreg_info->vccq2->reg);
-			kfree(vreg_info->vccq2->name);
+			devm_kfree(hba->dev, vreg_info->vccq2->name);
 			devm_kfree(hba->dev, vreg_info->vccq2);
 			vreg_info->vccq2 = NULL;
 		}
@@ -2148,7 +2194,7 @@ static void ufs_mtk_fix_regulators(struct ufs_hba *hba)
 	} else {
 		if (vreg_info->vccq) {
 			regulator_disable(vreg_info->vccq->reg);
-			kfree(vreg_info->vccq->name);
+			devm_kfree(hba->dev, vreg_info->vccq->name);
 			devm_kfree(hba->dev, vreg_info->vccq);
 			vreg_info->vccq = NULL;
 		}
@@ -2197,8 +2243,10 @@ static int ufs_mtk_apply_dev_quirks(struct ufs_hba *hba)
 	struct ufs_dev_info *dev_info = &hba->dev_info;
 	u16 mid = dev_info->wmanufacturerid;
 
-	if (mid == UFS_VENDOR_SAMSUNG)
+	if (mid == UFS_VENDOR_SAMSUNG) {
 		ufshcd_dme_set(hba, UIC_ARG_MIB(PA_TACTIVATE), 6);
+		ufshcd_dme_set(hba, UIC_ARG_MIB(PA_HIBERN8TIME), 10);
+	}
 
 	/*
 	 * Decide waiting time before gating reference clock and
@@ -2235,6 +2283,9 @@ static void ufs_mtk_fixup_dev_quirks(struct ufs_hba *hba)
 
 	if (dev_info->wmanufacturerid == UFS_VENDOR_MICRON)
 		host->caps |= UFS_MTK_CAP_BROKEN_VCC;
+
+	if (STR_PRFX_EQUAL("H9HQ15AFAMBDAR", dev_info->model))
+		host->caps |= UFS_MTK_CAP_BROKEN_VCC | UFS_MTK_CAP_FORCE_VSx_LPM;
 
 	if (ufs_mtk_is_delay_after_vcc_off(hba) && hba->vreg_info.vcc) {
 		/*
@@ -2320,6 +2371,10 @@ static void ufs_mtk_hibern8_notify(struct ufs_hba *hba, enum uic_cmd_dme cmd,
 
 	if (status == PRE_CHANGE && cmd == UIC_CMD_DME_HIBER_ENTER)
 		ufs_mtk_auto_hibern8_disable(hba);
+
+	if (status == POST_CHANGE && cmd == UIC_CMD_DME_HIBER_ENTER &&
+		hba->dev_info.wmanufacturerid == UFS_VENDOR_MICRON)
+		usleep_range(5000, 5100);
 }
 
 void ufs_mtk_setup_task_mgmt(struct ufs_hba *hba, int tag, u8 tm_function)
@@ -2424,7 +2479,6 @@ static int ufs_mtk_probe(struct platform_device *pdev)
 	struct platform_device *reset_pdev, *phy_pdev = NULL;
 	struct device_link *link, *phy_link;
 	struct ufs_hba *hba;
-	struct cpumask imask;
 
 	reset_node = of_find_compatible_node(NULL, NULL,
 					     "ti,syscon-reset");
@@ -2482,11 +2536,16 @@ skip_phy:
 
 	/* set affinity to cpu3 */
 	hba = platform_get_drvdata(pdev);
-	if (hba && hba->irq) {
-		cpumask_clear(&imask);
-		cpumask_set_cpu(3, &imask);
-		irq_set_affinity_hint(hba->irq, &imask);
-	}
+	if (hba && hba->irq)
+		irq_set_affinity_hint(hba->irq, get_cpu_mask(3));
+
+	/*
+	 * Because the default power setting of VSx (the upper layer of
+	 * VCCQ/VCCQ2) is HWLP, we need to prevent VCCQ/VCCQ2 from
+	 * entering LPM.
+	 */
+	ufs_mtk_ctrl_dev_pwr(hba, true, true);
+
 out:
 	of_node_put(phy_node);
 	of_node_put(reset_node);
@@ -2531,25 +2590,36 @@ int ufs_mtk_system_suspend(struct device *dev)
 {
 	int ret = 0;
 	struct ufs_hba *hba = dev_get_drvdata(dev);
-
+	struct ufs_mtk_host *host;
 #if defined(CONFIG_UFSFEATURE)
 	struct ufsf_feature *ufsf = ufs_mtk_get_ufsf(hba);
+#endif
 
+	host = ufshcd_get_variant(hba);
+	if (down_trylock(&host->rpmb_sem))
+		return -EBUSY;
+
+#if defined(CONFIG_UFSFEATURE)
 	if (ufsf->hba)
 		ufsf_suspend(ufsf);
 #endif
 
 	/* Check if shutting down */
-	if (!ufshcd_is_user_access_allowed(hba))
-		return -EBUSY;
+	if (!ufshcd_is_user_access_allowed(hba)) {
+		ret = -EBUSY;
+		goto out;
+	}
 
 	ret = ufshcd_system_suspend(dev);
+out:
 
 #if defined(CONFIG_UFSFEATURE)
 	/* We assume link is off */
 	if (ret && ufsf)
 		ufsf_resume(ufsf, true);
 #endif
+	if (ret)
+		up(&host->rpmb_sem);
 
 	return ret;
 }
@@ -2557,8 +2627,9 @@ int ufs_mtk_system_suspend(struct device *dev)
 int ufs_mtk_system_resume(struct device *dev)
 {
 	int ret = 0;
-#if defined(CONFIG_UFSFEATURE)
 	struct ufs_hba *hba = dev_get_drvdata(dev);
+	struct ufs_mtk_host *host;
+#if defined(CONFIG_UFSFEATURE)
 	struct ufsf_feature *ufsf = ufs_mtk_get_ufsf(hba);
 	bool is_link_off = ufshcd_is_link_off(hba);
 #endif
@@ -2569,6 +2640,10 @@ int ufs_mtk_system_resume(struct device *dev)
 	if (!ret && ufsf->hba)
 		ufsf_resume(ufsf, is_link_off);
 #endif
+
+	host = ufshcd_get_variant(hba);
+	if (!ret)
+		up(&host->rpmb_sem);
 
 	return ret;
 }

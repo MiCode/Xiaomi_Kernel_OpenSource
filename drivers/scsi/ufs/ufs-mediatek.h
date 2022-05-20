@@ -105,6 +105,11 @@ enum ufs_mtk_host_caps {
 	UFS_MTK_CAP_DISABLE_AH8                = 1 << 2,
 	UFS_MTK_CAP_BROKEN_VCC                 = 1 << 3,
 	UFS_MTK_CAP_DEALY_AFTER_VCC_OFF        = 1 << 4,
+
+	/* Override UFS_MTK_CAP_BROKEN_VCC's behavior to
+	 * allow vccqx upstream to enter LPM
+	 */
+	UFS_MTK_CAP_FORCE_VSx_LPM              = 1 << 5,
 };
 
 struct ufs_mtk_crypt_cfg {
@@ -150,7 +155,8 @@ struct ufs_mtk_host {
 	bool qos_enabled;
 	bool boot_device;
 	struct ufs_vreg *vcc;
-	struct mutex rpmb_lock;
+
+	struct semaphore rpmb_sem;
 #if defined(CONFIG_UFSFEATURE)
 	struct ufsf_feature ufsf;
 #endif
