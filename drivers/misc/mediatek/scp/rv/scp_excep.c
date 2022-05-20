@@ -702,27 +702,27 @@ void scp_aed(enum SCP_RESET_TYPE type, enum scp_core_id id)
 	switch (type) {
 	case RESET_TYPE_WDT:
 		if (id == SCP_A_ID)
-			scp_aed_title = "SCP_A wdt reset";
+			scp_aed_title = "SCP_A wdt timeout";
 		else
-			scp_aed_title = "SCP_B wdt reset";
+			scp_aed_title = "SCP_B wdt timeout";
 		break;
 	case RESET_TYPE_AWAKE:
 		if (id == SCP_A_ID)
-			scp_aed_title = "SCP_A awake reset";
+			scp_aed_title = "SCP_A awake timeout";
 		else
-			scp_aed_title = "SCP_B awake reset";
+			scp_aed_title = "SCP_B awake timeout";
 		break;
 	case RESET_TYPE_CMD:
 		if (id == SCP_A_ID)
-			scp_aed_title = "SCP_A cmd reset";
+			scp_aed_title = "SCP_A cmd timeout";
 		else
-			scp_aed_title = "SCP_B cmd reset";
+			scp_aed_title = "SCP_B cmd timeout";
 		break;
 	case RESET_TYPE_TIMEOUT:
 		if (id == SCP_A_ID)
-			scp_aed_title = "SCP_A timeout reset";
+			scp_aed_title = "SCP_A timeout timeout";
 		else
-			scp_aed_title = "SCP_B timeout reset";
+			scp_aed_title = "SCP_B timeout timeout";
 		break;
 	}
 	scp_get_log(id);

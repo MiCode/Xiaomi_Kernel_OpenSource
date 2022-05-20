@@ -64,6 +64,9 @@
 #define SCP_READY_TIMEOUT (3 * HZ) /* 30 seconds*/
 #define SCP_A_TIMER 0
 
+/* scp pm notify flag*/
+unsigned int scp_pm_notify_support;
+
 /* scp ipi message buffer */
 uint32_t msg_scp_ready0, msg_scp_ready1;
 char msg_scp_err_info0[40], msg_scp_err_info1[40];
@@ -165,11 +168,14 @@ struct scp_ipi_irq scp_ipi_irqs[] = {
 };
 #define IRQ_NUMBER  (sizeof(scp_ipi_irqs)/sizeof(struct scp_ipi_irq))
 
-static int scp_ipi_dbg_resume_noirq(struct device *dev)
+static int scp_resume_cb(struct device *dev)
 {
 	int i = 0;
 	int ret = 0;
 	bool state = false;
+	unsigned int msg;
+
+	pr_notice("[SCP] %s\n", __func__);
 
 	for (i = 0; i < IRQ_NUMBER; i++) {
 		ret = irq_get_irqchip_state(scp_ipi_irqs[i].irq_no,
@@ -182,7 +188,25 @@ static int scp_ipi_dbg_resume_noirq(struct device *dev)
 			break;
 		}
 	}
+	if (scp_pm_notify_support) {
+		msg = PM_AP_RESUME;
+		ret = mtk_ipi_send(&scp_ipidev, IPI_OUT_SCP_PM_NOTIFY,
+				0, &msg, IPI_OUT_SIZE_SCP_PM_NOTIFY, 0);
+	}
+	return 0;
+}
 
+static int scp_suspend_cb(struct device *dev)
+{
+	int ret;
+	unsigned int msg;
+
+	pr_notice("[SCP] %s\n", __func__);
+	if (scp_pm_notify_support) {
+		msg = PM_AP_SUSPEND;
+		ret = mtk_ipi_send(&scp_ipidev, IPI_OUT_SCP_PM_NOTIFY,
+				0, &msg, IPI_OUT_SIZE_SCP_PM_NOTIFY, 0);
+	}
 	return 0;
 }
 
@@ -548,6 +572,8 @@ static void scp_A_notify_ws(struct work_struct *ws)
 		writel(0xff, SCP_TO_SPM_REG); /* patch: clear SPM interrupt */
 
 		scp_ready[SCP_A_ID] = 1;
+		/* once scp recovery success reset timeout reset count */
+		scp_timeout_times = 0;
 
 	if (scp_dvfs_feature_enable()) {
 		sync_ulposc_cali_data_to_scp();
@@ -1397,7 +1423,7 @@ static int scp_reserve_memory_ioremap(struct platform_device *pdev)
 		}
 
 		scp_reserve_mblock[m_idx].size = m_size;
-		pr_notice("@@@@ reserved: <%d  %d>\n", m_idx, m_size);
+		pr_notice("@@@@ reserved: <%d  %x>\n", m_idx, m_size);
 	}
 
 	scp_mem_base_virt = (phys_addr_t)(size_t)ioremap_wc(scp_mem_base_phys,
@@ -1714,9 +1740,9 @@ void scp_sys_reset_ws(struct work_struct *ws)
 	unsigned int scp_reset_type = sws->flags;
 	unsigned long spin_flags;
 
-	pr_debug("[SCP] %s(): remain %d times\n", __func__, scp_reset_counts);
+	pr_notice("[SCP] %s(): remain %d times\n", __func__, scp_reset_counts);
 	/*notify scp functions stop*/
-	pr_debug("[SCP] %s(): scp_extern_notify\n", __func__);
+	pr_notice("[SCP] %s(): scp_extern_notify\n", __func__);
 	scp_extern_notify(SCP_EVENT_STOP);
 	if (scp_reset_type == RESET_TYPE_WDT)
 		scp_show_last_regs();
@@ -2223,6 +2249,7 @@ static int scp_device_probe(struct platform_device *pdev)
 	const char *secure_dump = NULL;
 	struct device *dev = &pdev->dev;
 	struct device_node *node;
+	const char *scp_pm_notify = NULL;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	scpreg.sram = devm_ioremap_resource(dev, res);
@@ -2344,6 +2371,16 @@ static int scp_device_probe(struct platform_device *pdev)
 		if (!strncmp(secure_dump, "enable", strlen("enable"))) {
 			pr_notice("[SCP] secure dump enabled\n");
 			scpreg.secure_dump = 1;
+		}
+	}
+
+	/* scp pm notify*/
+	scp_pm_notify_support = 0;
+	if (!of_property_read_string(pdev->dev.of_node,
+				"scp_pm_notify", &scp_pm_notify)){
+		if (!strncmp(scp_pm_notify, "enable", strlen("enable"))) {
+			pr_notice("[SCP] scp_pm_notify enabled\n");
+			scp_pm_notify_support = 1;
 		}
 	}
 
@@ -2487,8 +2524,9 @@ static int scpsys_device_probe(struct platform_device *pdev)
 	return ret;
 }
 
-static const struct dev_pm_ops scp_ipi_dbg_pm_ops = {
-	.resume_noirq = scp_ipi_dbg_resume_noirq,
+static const struct dev_pm_ops scp_pm_ops = {
+	.resume_noirq = scp_resume_cb,
+	.suspend_noirq = scp_suspend_cb,
 };
 
 static const struct of_device_id scp_of_ids[] = {
@@ -2505,7 +2543,7 @@ static struct platform_driver mtk_scp_device = {
 #ifdef CONFIG_OF
 		.of_match_table = scp_of_ids,
 #endif
-		.pm = &scp_ipi_dbg_pm_ops,
+		.pm = &scp_pm_ops,
 	},
 };
 

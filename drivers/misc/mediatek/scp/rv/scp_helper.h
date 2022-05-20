@@ -101,6 +101,12 @@ enum SCP_RESET_TYPE {
 	RESET_TYPE_TIMEOUT = 3,
 };
 
+/* scp pm notify message */
+enum SCP_PM_NOTIFY {
+	PM_AP_SUSPEND = 0,
+	PM_AP_RESUME = 1,
+};
+
 struct scp_bus_tracker_status {
 	u32 dbg_con;
 	u32 dbg_r[32];
