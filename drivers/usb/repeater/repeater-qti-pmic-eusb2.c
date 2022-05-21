@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2021, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2022, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/debugfs.h>
@@ -111,7 +111,7 @@ struct eusb2_repeater {
 	u8			eusb_equ;
 	u8			eusb_hs_comp_current;
 
-	u8			*param_override_seq;
+	u32			*param_override_seq;
 	u8			param_override_seq_cnt;
 };
 
@@ -165,7 +165,7 @@ static int eusb2_repeater_masked_write(struct eusb2_repeater *er,
 }
 
 static void eusb2_repeater_update_seq(struct eusb2_repeater *er,
-						u8 *seq, u8 cnt)
+						u32 *seq, u8 cnt)
 {
 	int i;
 
@@ -482,7 +482,7 @@ static int eusb2_repeater_probe(struct platform_device *pdev)
 			goto err_probe;
 		}
 
-		ret = of_property_read_u8_array(dev->of_node,
+		ret = of_property_read_u32_array(dev->of_node,
 				"qcom,param-override-seq",
 				er->param_override_seq,
 				er->param_override_seq_cnt);
