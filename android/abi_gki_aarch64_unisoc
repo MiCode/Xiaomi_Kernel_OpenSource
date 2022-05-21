@@ -553,7 +553,6 @@
   __per_cpu_offset
   perf_trace_buf_alloc
   perf_trace_run_bpf_submit
-  pfn_valid
   phy_connect
   phy_disconnect
   phy_ethtool_get_link_ksettings
