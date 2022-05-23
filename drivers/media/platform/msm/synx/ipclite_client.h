@@ -5,6 +5,9 @@
 #ifndef __IPCLITE_CLIENT_H__
 #define __IPCLITE_CLIENT_H__
 
+typedef atomic_t ipclite_atomic_uint32_t;
+typedef atomic_t ipclite_atomic_int32_t;
+
 /**
  * A list of hosts supported in IPCMEM
  */
@@ -81,42 +84,99 @@ int32_t ipclite_register_test_client(IPCLite_Client cb_func_ptr, void *priv);
 int32_t get_global_partition_info(struct global_region_info *global_ipcmem);
 
 /**
- * ipclite_global_test_and_set_bit() - Sets a bit in gloabl memory.
+ * ipclite_atomic_init_u32() - Initializes the global memory with uint32_t value.
  *
- * @nr		: Bit number to set.
  * @addr	: Pointer to global memory
+ * @data	: Value to store in global memory
  *
- * @return Old value of the bit.
+ * @return None.
  */
-int32_t ipclite_global_test_and_set_bit(uint32_t nr, volatile void *addr);
+void ipclite_atomic_init_u32(ipclite_atomic_uint32_t *addr, uint32_t data);
 
 /**
- * ipclite_global_test_and_clear_bit() - Clears a bit in gloabl memory.
+ * ipclite_atomic_init_i32() - Initializes the global memory with int32_t value.
  *
- * @nr		: Bit number to clear.
+ * @addr	: Pointer to global memory
+ * @data	: Value to store in global memory
+ *
+ * @return None.
+ */
+void ipclite_atomic_init_i32(ipclite_atomic_int32_t *addr, int32_t data);
+
+/**
+ * ipclite_global_atomic_store_u32() - Writes uint32_t value to global memory.
+ *
+ * @addr	: Pointer to global memory
+ * @data	: Value to store in global memory
+ *
+ * @return None.
+ */
+void ipclite_global_atomic_store_u32(ipclite_atomic_uint32_t *addr, uint32_t data);
+
+/**
+ * ipclite_global_atomic_store_i32() - Writes int32_t value to global memory.
+ *
+ * @addr	: Pointer to global memory
+ * @data	: Value to store in global memory
+ *
+ * @return None.
+ */
+void ipclite_global_atomic_store_i32(ipclite_atomic_int32_t *addr, int32_t data);
+
+/**
+ * ipclite_global_atomic_load_u32() - Reads the value from global memory.
+ *
  * @addr	: Pointer to global memory
  *
- * @return Old value of the bit.
+ * @return uint32_t value.
  */
-int32_t ipclite_global_test_and_clear_bit(uint32_t nr, volatile void *addr);
+uint32_t ipclite_global_atomic_load_u32(ipclite_atomic_uint32_t *addr);
+
+/**
+ * ipclite_global_atomic_load_i32() - Reads the value from global memory.
+ *
+ * @addr	: Pointer to global memory
+ *
+ * @return int32_t value.
+ */
+int32_t ipclite_global_atomic_load_i32(ipclite_atomic_int32_t *addr);
+
+/**
+ * ipclite_global_test_and_set_bit() - Sets a bit in global memory.
+ *
+ * @nr		: Bit position to set.
+ * @addr	: Pointer to global memory
+ *
+ * @return previous value.
+ */
+uint32_t ipclite_global_test_and_set_bit(uint32_t nr, ipclite_atomic_uint32_t *addr);
+
+/**
+ * ipclite_global_test_and_clear_bit() - Clears a bit in global memory.
+ *
+ * @nr		: Bit position to clear.
+ * @addr	: Pointer to global memory
+ *
+ * @return previous value.
+ */
+uint32_t ipclite_global_test_and_clear_bit(uint32_t nr, ipclite_atomic_uint32_t *addr);
 
 /**
  * ipclite_global_atomic_inc() - Increments an atomic variable by one.
  *
- * @nr		: Bit number to set.
- * @addr	: Pointer to global variable
+ * @addr	: Pointer to global memory
  *
- * @return Incremented value.
+ * @return previous value.
  */
-int32_t ipclite_global_atomic_inc(atomic_t *addr);
+int32_t ipclite_global_atomic_inc(ipclite_atomic_int32_t *addr);
 
 /**
  * ipclite_global_atomic_dec() - Decrements an atomic variable by one.
  *
  * @addr	: Pointer to global variable
  *
- * @return Decremented value.
+ * @return previous value.
  */
-int32_t ipclite_global_atomic_dec(atomic_t *addr);
+int32_t ipclite_global_atomic_dec(ipclite_atomic_int32_t *addr);
 
 #endif

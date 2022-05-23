@@ -25,100 +25,187 @@
 #define VMID_SSC_Q6     5
 #define VMID_ADSP_Q6    6
 #define VMID_CDSP       30
+#define GLOBAL_ATOMICS_ENABLED	1
+#define GLOBAL_ATOMICS_DISABLED	0
 
 static struct ipclite_info *ipclite;
 static struct ipclite_client synx_client;
 static struct ipclite_client test_client;
+struct ipclite_hw_mutex_ops *ipclite_hw_mutex;
+
+u32 global_atomic_support = GLOBAL_ATOMICS_ENABLED;
 
 #define FIFO_FULL_RESERVE 8
 #define FIFO_ALIGNMENT 8
 
-int32_t ipclite_global_test_and_set_bit(uint32_t nr, volatile void *addr)
+static void ipclite_hw_mutex_acquire(void)
 {
-	unsigned long flags;
 	int32_t ret;
 
-	ret = hwspin_lock_timeout_irqsave(ipclite->hwlock,
-					  HWSPINLOCK_TIMEOUT,
-					  &flags);
-	if (ret) {
-		pr_err("Hw mutex lock acquire failed\n");
-		return ret;
+	if (ipclite != NULL) {
+		if (!ipclite->ipcmem.toc->ipclite_features.global_atomic_support) {
+			ret = hwspin_lock_timeout_irqsave(ipclite->hwlock,
+					HWSPINLOCK_TIMEOUT,
+					&ipclite->ipclite_hw_mutex->flags);
+			if (ret)
+				pr_err("Hw mutex lock acquire failed\n");
+
+			pr_debug("Hw mutex lock acquired\n");
+		}
 	}
-	pr_debug("Hw mutex lock acquired\n");
+}
 
-	ret = (int32_t)test_and_set_bit(nr, addr);
-	pr_debug("test_and_set_bit completed, ret=%d,new_val=%d\n", ret,
-								 (*(int32_t *)addr));
+static void ipclite_hw_mutex_release(void)
+{
+	if (ipclite != NULL) {
+		if (!ipclite->ipcmem.toc->ipclite_features.global_atomic_support) {
+			hwspin_unlock_irqrestore(ipclite->hwlock,
+				&ipclite->ipclite_hw_mutex->flags);
+			pr_debug("Hw mutex lock release\n");
+		}
+	}
+}
 
-	hwspin_unlock_irqrestore(ipclite->hwlock, &flags);
+void ipclite_atomic_init_u32(ipclite_atomic_uint32_t *addr, uint32_t data)
+{
+	atomic_set(addr, data);
+	pr_debug("%s new_val = %d\n", __func__, (*(uint32_t *)addr));
+}
+EXPORT_SYMBOL(ipclite_atomic_init_u32);
+
+void ipclite_atomic_init_i32(ipclite_atomic_int32_t *addr, int32_t data)
+{
+	atomic_set(addr, data);
+	pr_debug("%s new_val = %d\n", __func__, (*(int32_t *)addr));
+}
+EXPORT_SYMBOL(ipclite_atomic_init_i32);
+
+void ipclite_global_atomic_store_u32(ipclite_atomic_uint32_t *addr, uint32_t data)
+{
+	/* callback to acquire hw mutex lock if atomic support is not enabled */
+	ipclite->ipclite_hw_mutex->acquire();
+
+	atomic_set(addr, data);
+	pr_debug("%s new_val = %d\n", __func__, (*(uint32_t *)addr));
+
+	/* callback to release hw mutex lock if atomic support is not enabled */
+	ipclite->ipclite_hw_mutex->release();
+}
+EXPORT_SYMBOL(ipclite_global_atomic_store_u32);
+
+void ipclite_global_atomic_store_i32(ipclite_atomic_int32_t *addr, int32_t data)
+{
+	/* callback to acquire hw mutex lock if atomic support is not enabled */
+	ipclite->ipclite_hw_mutex->acquire();
+
+	atomic_set(addr, data);
+	pr_debug("%s new_val = %d\n", __func__, (*(int32_t *)addr));
+
+	/* callback to release hw mutex lock if atomic support is not enabled */
+	ipclite->ipclite_hw_mutex->release();
+}
+EXPORT_SYMBOL(ipclite_global_atomic_store_i32);
+
+uint32_t ipclite_global_atomic_load_u32(ipclite_atomic_uint32_t *addr)
+{
+	uint32_t ret;
+
+	/* callback to acquire hw mutex lock if atomic support is not enabled */
+	ipclite->ipclite_hw_mutex->acquire();
+
+	ret = atomic_read(addr);
+	pr_debug("%s ret = %d, new_val = %d\n", __func__,  ret, (*(uint32_t *)addr));
+
+	/* callback to release hw mutex lock if atomic support is not enabled */
+	ipclite->ipclite_hw_mutex->release();
+
+	return ret;
+}
+EXPORT_SYMBOL(ipclite_global_atomic_load_u32);
+
+int32_t ipclite_global_atomic_load_i32(ipclite_atomic_int32_t *addr)
+{
+	int32_t ret;
+
+	/* callback to acquire hw mutex lock if atomic support is not enabled */
+	ipclite->ipclite_hw_mutex->acquire();
+
+	ret = atomic_read(addr);
+	pr_debug("%s ret = %d, new_val = %d\n", __func__, ret, (*(int32_t *)addr));
+
+	/* callback to release hw mutex lock if atomic support is not enabled */
+	ipclite->ipclite_hw_mutex->release();
+
+	return ret;
+}
+EXPORT_SYMBOL(ipclite_global_atomic_load_i32);
+
+uint32_t ipclite_global_test_and_set_bit(uint32_t nr, ipclite_atomic_uint32_t *addr)
+{
+	uint32_t ret;
+	uint32_t mask = (1 << nr);
+
+	/* callback to acquire hw mutex lock if atomic support is not enabled */
+	ipclite->ipclite_hw_mutex->acquire();
+
+	ret = atomic_fetch_or(mask, addr);
+	pr_debug("%s ret = %d, new_val = %d\n", __func__, ret, (*(uint32_t *)addr));
+
+	/* callback to release hw mutex lock if atomic support is not enabled */
+	ipclite->ipclite_hw_mutex->release();
+
 	return ret;
 }
 EXPORT_SYMBOL(ipclite_global_test_and_set_bit);
 
-int32_t ipclite_global_test_and_clear_bit(uint32_t nr, volatile void *addr)
+uint32_t ipclite_global_test_and_clear_bit(uint32_t nr, ipclite_atomic_uint32_t *addr)
 {
-	unsigned long flags;
-	int32_t ret;
+	uint32_t ret;
+	uint32_t mask = (1 << nr);
 
-	ret = hwspin_lock_timeout_irqsave(ipclite->hwlock,
-					  HWSPINLOCK_TIMEOUT,
-					  &flags);
-	if (ret) {
-		pr_err("Hw mutex lock acquire failed\n");
-		return ret;
-	}
-	pr_debug("Hw mutex lock acquired\n");
+	/* callback to acquire hw mutex lock if atomic support is not enabled */
+	ipclite->ipclite_hw_mutex->acquire();
 
-	ret = (int32_t)test_and_clear_bit(nr, addr);
-	pr_debug("test_and_clear_bit completed, ret=%d, new_val=%d\n", ret,
-									(*(int32_t *)addr));
+	ret = atomic_fetch_and(~mask, addr);
+	pr_debug("%s ret = %d, new_val = %d\n", __func__, ret, (*(uint32_t *)addr));
 
-	hwspin_unlock_irqrestore(ipclite->hwlock, &flags);
+	/* callback to release hw mutex lock if atomic support is not enabled */
+	ipclite->ipclite_hw_mutex->release();
+
 	return ret;
 }
 EXPORT_SYMBOL(ipclite_global_test_and_clear_bit);
 
-int32_t ipclite_global_atomic_inc(atomic_t *addr)
+int32_t ipclite_global_atomic_inc(ipclite_atomic_int32_t *addr)
 {
-	unsigned long flags;
 	int32_t ret = 0;
 
-	ret = hwspin_lock_timeout_irqsave(ipclite->hwlock,
-					  HWSPINLOCK_TIMEOUT,
-					  &flags);
-	if (ret) {
-		pr_err("Hw mutex lock acquire failed\n");
-		return ret;
-	}
-	pr_debug("Hw mutex lock acquired\n");
+	/* callback to acquire hw mutex lock if atomic support is not enabled */
+	ipclite->ipclite_hw_mutex->acquire();
 
-	atomic_inc(addr);
-	pr_debug("atomic_inc completed, new_val=%d\n", (*(int32_t *)addr));
+	ret = atomic_fetch_add(1, addr);
+	pr_debug("%s ret = %d new_val = %d\n", __func__, ret, (*(int32_t *)addr));
 
-	hwspin_unlock_irqrestore(ipclite->hwlock, &flags);
+	/* callback to release hw mutex lock if atomic support is not enabled */
+	ipclite->ipclite_hw_mutex->release();
+
 	return ret;
 }
 EXPORT_SYMBOL(ipclite_global_atomic_inc);
 
-int32_t ipclite_global_atomic_dec(atomic_t *addr)
+int32_t ipclite_global_atomic_dec(ipclite_atomic_int32_t *addr)
 {
-	unsigned long flags;
 	int32_t ret = 0;
 
-	ret = hwspin_lock_timeout_irqsave(ipclite->hwlock,
-					  HWSPINLOCK_TIMEOUT,
-					  &flags);
-	if (ret) {
-		pr_err("Hw mutex lock acquire failed\n");
-		return ret;
-	}
-	pr_debug("Hw mutex lock acquired\n");
+	/* callback to acquire hw mutex lock if atomic support is not enabled */
+	ipclite->ipclite_hw_mutex->acquire();
 
-	atomic_dec(addr);
-	pr_debug("atomic_dec completed, new_val=%d\n", (*(int32_t *)addr));
+	ret = atomic_fetch_sub(1, addr);
+	pr_debug("%s ret = %d new_val = %d\n", __func__, ret, (*(int32_t *)addr));
 
-	hwspin_unlock_irqrestore(ipclite->hwlock, &flags);
+	/* callback to release hw mutex lock if atomic support is not enabled */
+	ipclite->ipclite_hw_mutex->release();
+
 	return ret;
 }
 EXPORT_SYMBOL(ipclite_global_atomic_dec);
@@ -666,8 +753,9 @@ static int ipclite_channel_init(struct device *parent,
 {
 	struct ipclite_fifo *rx_fifo;
 	struct ipclite_fifo *tx_fifo;
+
 	struct device *dev;
-	u32 local_pid, remote_pid;
+	u32 local_pid, remote_pid, global_atomic;
 	u32 *descs;
 	int ret = 0;
 
@@ -701,6 +789,20 @@ static int ipclite_channel_init(struct device *parent,
 		goto err_put_dev;
 	}
 	pr_debug("remote_pid = %d, local_pid=%d\n", remote_pid, local_pid);
+
+	ipclite_hw_mutex = devm_kzalloc(dev, sizeof(*ipclite_hw_mutex), GFP_KERNEL);
+	if (!ipclite_hw_mutex) {
+		ret = -ENOMEM;
+		goto err_put_dev;
+	}
+
+	ret = of_property_read_u32(dev->of_node, "global_atomic", &global_atomic);
+	if (ret) {
+		dev_err(dev, "failed to parse global_atomic\n");
+		goto err_put_dev;
+	}
+	if (global_atomic == 0)
+		global_atomic_support = GLOBAL_ATOMICS_DISABLED;
 
 	rx_fifo = devm_kzalloc(dev, sizeof(*rx_fifo), GFP_KERNEL);
 	tx_fifo = devm_kzalloc(dev, sizeof(*tx_fifo), GFP_KERNEL);
@@ -854,6 +956,25 @@ static int ipclite_probe(struct platform_device *pdev)
 		goto mem_release;
 
 	mbox_client_txdone(broadcast.irq_info[IPCLITE_MEM_INIT_SIGNAL].mbox_chan, 0);
+
+	if (global_atomic_support) {
+		ipclite->ipcmem.toc->ipclite_features.global_atomic_support =
+							GLOBAL_ATOMICS_ENABLED;
+	} else {
+		ipclite->ipcmem.toc->ipclite_features.global_atomic_support =
+							GLOBAL_ATOMICS_DISABLED;
+	}
+
+	pr_debug("global_atomic_support : %d\n",
+		ipclite->ipcmem.toc->ipclite_features.global_atomic_support);
+
+	/* hw mutex callbacks */
+	ipclite_hw_mutex->acquire = ipclite_hw_mutex_acquire;
+	ipclite_hw_mutex->release = ipclite_hw_mutex_release;
+
+	/* store to ipclite structure */
+	ipclite->ipclite_hw_mutex = ipclite_hw_mutex;
+
 	pr_info("IPCLite probe completed successfully\n");
 	return ret;
 
