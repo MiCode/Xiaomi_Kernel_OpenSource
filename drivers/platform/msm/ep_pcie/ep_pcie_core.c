@@ -2028,7 +2028,7 @@ int ep_pcie_core_enable_endpoint(enum ep_pcie_options opt)
 
 checkbme:
 	/* Clear AOSS_CC_RESET_STATUS::PERST_RAW_RESET_STATUS when linking up */
-	if (dev->aoss_rst_clear)
+	if (dev->aoss_rst_clear && dev->aoss_rst_perst)
 		writel_relaxed(PERST_RAW_RESET_STATUS, dev->aoss_rst_perst);
 
 	/*
