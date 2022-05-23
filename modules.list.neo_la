@@ -66,6 +66,8 @@ rtc-pm8xxx.ko
 secure_buffer.ko
 clk-rpmh.ko
 qcom-cpufreq-hw.ko
+sched-walt.ko
+sched-walt-debug.ko
 tcsrcc.ko
 rpmh-regulator.ko
 qti-fixed-regulator.ko
