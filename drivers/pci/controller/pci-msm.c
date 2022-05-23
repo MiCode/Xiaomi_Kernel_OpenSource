@@ -72,6 +72,7 @@
 #define PCIE20_PARF_INT_ALL_STATUS (0x224)
 #define PCIE20_PARF_INT_ALL_CLEAR (0x228)
 #define PCIE20_PARF_INT_ALL_MASK (0x22c)
+#define PCIE20_PARF_CFG_BITS_3 (0x2C4)
 #define PCIE20_PARF_DEVICE_TYPE (0x1000)
 #define PCIE20_PARF_BDF_TO_SID_TABLE_N (0x2000)
 #define PCIE20_PARF_BDF_TO_SID_CFG (0x2C00)
@@ -107,6 +108,7 @@
 
 #define PCIE20_AUX_CLK_FREQ_REG (0xb40)
 #define PCIE20_ACK_F_ASPM_CTRL_REG (0x70c)
+#define PCIE20_LANE_SKEW_OFF (0x714)
 #define PCIE20_ACK_N_FTS (0xff00)
 
 #define PCIE20_PLR_IATU_VIEWPORT (0x900)
@@ -4308,6 +4310,13 @@ static int msm_pcie_enable(struct msm_pcie_dev_t *dev)
 		if (ret)
 			goto link_fail;
 	}
+
+	/**
+	 * configure LANE_SKEW_OFF BIT-5 and PARF_CFG_BITS_3 BIT-8 to support
+	 * dynamic link width upscaling.
+	 */
+	msm_pcie_write_mask(dev->parf + PCIE20_PARF_CFG_BITS_3, 0, BIT(8));
+	msm_pcie_write_mask(dev->dm_core + PCIE20_LANE_SKEW_OFF, 0, BIT(5));
 
 	/* de-assert PCIe reset link to bring EP out of reset */
 
