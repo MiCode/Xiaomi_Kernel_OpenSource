@@ -21,6 +21,7 @@
 #include <linux/vmstat.h>
 #include <linux/writeback.h>
 #include <linux/page-flags.h>
+#include <linux/android_vendor.h>
 
 struct mem_cgroup;
 struct obj_cgroup;
@@ -352,6 +353,9 @@ struct mem_cgroup {
 	/* per-memcg mm_struct list */
 	struct lru_gen_mm_list mm_list;
 #endif
+
+	/* for dynamic low */
+	ANDROID_VENDOR_DATA(1);
 
 	struct mem_cgroup_per_node *nodeinfo[];
 };

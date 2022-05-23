@@ -71,6 +71,8 @@
 
 #include <trace/events/vmscan.h>
 
+#include <trace/hooks/cgroup.h>
+
 struct cgroup_subsys memory_cgrp_subsys __read_mostly;
 EXPORT_SYMBOL(memory_cgrp_subsys);
 
@@ -5212,6 +5214,7 @@ static struct mem_cgroup *mem_cgroup_alloc(void)
 	INIT_LIST_HEAD(&memcg->event_list);
 	spin_lock_init(&memcg->event_list_lock);
 	memcg->socket_pressure = jiffies;
+	trace_android_rvh_memcgv2_init(memcg);
 #ifdef CONFIG_MEMCG_KMEM
 	memcg->kmemcg_id = -1;
 	INIT_LIST_HEAD(&memcg->objcg_list);
@@ -6725,6 +6728,8 @@ void mem_cgroup_calculate_protection(struct mem_cgroup *root,
 	/* No parent means a non-hierarchical mode on v1 memcg */
 	if (!parent)
 		return;
+
+	trace_android_rvh_memcgv2_calc_decayed_watermark(memcg);
 
 	if (parent == root) {
 		memcg->memory.emin = READ_ONCE(memcg->memory.min);
