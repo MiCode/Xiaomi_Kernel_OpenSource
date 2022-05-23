@@ -5050,8 +5050,13 @@ int fastrpc_handle_rpc_response(void *data, int len, int cid)
 	}
 
 	chan = &me->channel[cid];
+	VERIFY(err, (rsp && len >= sizeof(*rsp)));
+	if (err) {
+		err = -EINVAL;
+		goto bail;
+	}
 
-	if (notif && notif->ctx == FASTRPC_NOTIF_CTX_RESERVED) {
+	if (notif->ctx == FASTRPC_NOTIF_CTX_RESERVED) {
 		VERIFY(err, (notif->type == STATUS_RESPONSE &&
 					 len >= sizeof(*notif)));
 		if (err)
@@ -5059,9 +5064,6 @@ int fastrpc_handle_rpc_response(void *data, int len, int cid)
 		fastrpc_notif_find_process(cid, notif);
 		goto bail;
 	}
-	VERIFY(err, (rsp && len >= sizeof(*rsp)));
-	if (err)
-		goto bail;
 
 	if (len >= sizeof(struct smq_invoke_rspv2))
 		rspv2 = (struct smq_invoke_rspv2 *)data;
