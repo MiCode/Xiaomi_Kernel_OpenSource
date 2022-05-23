@@ -55,6 +55,71 @@
 #define LLCC_EVCSRGHT    68
 #define LLCC_SPAD        69
 
+
+/**
+ * llcc_slice_config - Data associated with the llcc slice
+ * @usecase_id: Unique id for the client's use case
+ * @slice_id: llcc slice id for each client
+ * @max_cap: The maximum capacity of the cache slice provided in KB
+ * @priority: Priority of the client used to select victim line for replacement
+ * @fixed_size: Boolean indicating if the slice has a fixed capacity
+ * @bonus_ways: Bonus ways are additional ways to be used for any slice,
+ *		if client ends up using more than reserved cache ways. Bonus
+ *		ways are allocated only if they are not reserved for some
+ *		other client.
+ * @res_ways: Reserved ways for the cache slice, the reserved ways cannot
+ *		be used by any other client than the one its assigned to.
+ * @cache_mode: Each slice operates as a cache, this controls the mode of the
+ *             slice: normal or TCM(Tightly Coupled Memory)
+ * @probe_target_ways: Determines what ways to probe for access hit. When
+ *                    configured to 1 only bonus and reserved ways are probed.
+ *                    When configured to 0 all ways in llcc are probed.
+ * @dis_cap_alloc: Disable capacity based allocation for a client
+ * @retain_on_pc: If this bit is set and client has maintained active vote
+ *               then the ways assigned to this client are not flushed on power
+ *               collapse.
+ * @activate_on_init: Activate the slice immediately after it is programmed
+ * @write_scid_en: Enables write cache support for a given scid.
+ * @write_scid_cacheable_en: Enables write cache cacheable support for a
+ *                          given scid.(Not supported on V2 or older hardware)
+ * @stale_en: Enable global staling for the Clients.
+ * @stale_cap_en: Enable global staling on over capacity for the Clients
+ * @mru_uncap_en: Enable roll over on reserved ways if the current SCID is under capacity.
+ * @mru_rollover: Roll over on reserved ways for the client.
+ * @alloc_oneway_en: Always allocate one way on over capacity even if there
+ *			is no same scid lines for replacement.
+ * @ovcap_en: Once current scid is over capacity, allocate other over capacity scid.
+ * @ovcap_prio: Once current scid is over capacity, allocate other lower priority
+ *			over capacity scid. This setting is ignored if ovcap_en is not set.
+ * @vict_prio: When current SCID is under capacity, allocate over other lower than
+ *		VICTIM_PL_THRESHOLD priority SCID.
+ */
+struct llcc_slice_config {
+	u32 usecase_id;
+	u32 slice_id;
+	u32 max_cap;
+	u32 priority;
+	bool fixed_size;
+	u32 bonus_ways;
+	u32 res_ways;
+	u32 cache_mode;
+	u32 probe_target_ways;
+	bool dis_cap_alloc;
+	bool retain_on_pc;
+	bool activate_on_init;
+	bool write_scid_en;
+	bool write_scid_cacheable_en;
+	bool stale_en;
+	bool stale_cap_en;
+	bool mru_uncap_en;
+	bool mru_rollover;
+	bool alloc_oneway_en;
+	bool ovcap_en;
+	bool ovcap_prio;
+	bool vict_prio;
+};
+
+
 /**
  * llcc_slice_desc - Cache slice descriptor
  * @slice_id: llcc slice id
