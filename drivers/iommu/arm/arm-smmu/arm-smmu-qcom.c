@@ -1849,17 +1849,9 @@ static void qsmmuv500_tlb_sync_timeout(struct arm_smmu_device *smmu)
 				    ret);
 		goto out;
 	}
-
-	ret = qcom_scm_io_readl((unsigned long)(smmu->phys_addr +
-				ARM_SMMU_MMU2QSS_AND_SAFE_WAIT_CNTR),
-				&sync_inv_progress);
-	if (ret) {
-		dev_err_ratelimited(smmu->dev,
-				    "SCM read of TBU sync/inv prog fails: %d\n",
-				    ret);
-		goto out;
-	}
-
+	sync_inv_progress = arm_smmu_readl(smmu,
+				      0,
+				      ARM_SMMU_MMU2QSS_AND_SAFE_WAIT_CNTR);
 	if (tbu_pwr_status) {
 		if (tbu_sync_pending)
 			tbu_ids = tbu_pwr_status & ~tbu_sync_acked;
