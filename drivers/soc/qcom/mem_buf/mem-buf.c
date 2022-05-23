@@ -392,11 +392,18 @@ struct mem_buf_xfer_mem *mem_buf_prep_xfer_mem(void *req_msg)
 	int ret;
 	struct mem_buf_xfer_mem *xfer_mem;
 	struct mem_buf_alloc_req *req = req_msg;
-	u32 nr_acl_entries = req->acl_desc.n_acl_entries;
-	size_t alloc_req_msg_size = offsetof(struct mem_buf_alloc_req,
-					acl_desc.acl_entries[nr_acl_entries]);
-	void *arb_payload = req_msg + alloc_req_msg_size;
+	u32 nr_acl_entries;
+	size_t alloc_req_msg_size;
+	void *arb_payload;
 	void *mem_type_data;
+
+	nr_acl_entries = req->acl_desc.n_acl_entries;
+	if (nr_acl_entries != 1)
+		return ERR_PTR(-EINVAL);
+
+	alloc_req_msg_size = offsetof(struct mem_buf_alloc_req,
+					acl_desc.acl_entries[nr_acl_entries]);
+	arb_payload = req_msg + alloc_req_msg_size;
 
 	xfer_mem = kzalloc(sizeof(*xfer_mem), GFP_KERNEL);
 	if (!xfer_mem)
@@ -623,6 +630,7 @@ static void mem_buf_alloc_req_work(struct work_struct *work)
 		ret = PTR_ERR(xfer_mem);
 		pr_err("%s: failed to process rmt memory alloc request: %d\n",
 		       __func__, ret);
+		xfer_mem = NULL;
 	} else {
 		resp_msg->hdl = xfer_mem->hdl;
 		resp_msg->obj_id = xfer_mem->obj_id;
@@ -642,10 +650,12 @@ static void mem_buf_alloc_req_work(struct work_struct *work)
 	if (ret < 0) {
 		pr_err("%s: failed to send memory allocation response rc: %d\n",
 		       __func__, ret);
-		mutex_lock(&mem_buf_xfer_mem_list_lock);
-		list_del(&xfer_mem->entry);
-		mutex_unlock(&mem_buf_xfer_mem_list_lock);
-		mem_buf_cleanup_alloc_req(xfer_mem, xfer_mem->hdl);
+		if (xfer_mem) {
+			mutex_lock(&mem_buf_xfer_mem_list_lock);
+			list_del(&xfer_mem->entry);
+			mutex_unlock(&mem_buf_xfer_mem_list_lock);
+			mem_buf_cleanup_alloc_req(xfer_mem, xfer_mem->hdl);
+		}
 	} else {
 		pr_debug("%s: Allocation response sent\n", __func__);
 	}
