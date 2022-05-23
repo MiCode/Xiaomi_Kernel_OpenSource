@@ -399,6 +399,16 @@ config TI_K3_R5_REMOTEPROC
 	  It's safe to say N here if you're not interested in utilizing
 	  a slave processor.
 
+config QCOM_SPSS_AC_RESTRICTION
+	bool "Enable support for Secure Subsystem's access-control restriction"
+	depends on QCOM_SPSS
+	default n
+	help
+	  Say y here to enable support for when access-control does not allow the
+	  Secure Subsystem remote processor driver to write to shared registers in
+	  SP_CNOC_SP_SCSR_XPU4's resource-group-1. Support must be enabled also in
+	  Secure Subsystem remote processor.
+
 endif # REMOTEPROC
 
 endmenu
