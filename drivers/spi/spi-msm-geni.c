@@ -1447,7 +1447,7 @@ static int setup_fifo_xfer(struct spi_transfer *xfer,
 	if ((m_cmd & SPI_RX_ONLY) && (mas->cur_xfer_mode == SE_DMA)) {
 		ret =  geni_se_rx_dma_prep(mas->wrapper_dev, mas->base,
 				xfer->rx_buf, xfer->len, &xfer->rx_dma);
-		if (ret) {
+		if (ret || !xfer->rx_buf) {
 			SPI_LOG_ERR(mas->ipc, true, mas->dev,
 				"Failed to setup Rx dma %d\n", ret);
 			xfer->rx_dma = 0;
@@ -1462,7 +1462,7 @@ static int setup_fifo_xfer(struct spi_transfer *xfer,
 			ret =  geni_se_tx_dma_prep(mas->wrapper_dev, mas->base,
 					(void *)xfer->tx_buf, xfer->len,
 							&xfer->tx_dma);
-			if (ret) {
+			if (ret || !xfer->tx_buf) {
 				SPI_LOG_ERR(mas->ipc, true, mas->dev,
 					"Failed to setup tx dma %d\n", ret);
 				xfer->tx_dma = 0;
