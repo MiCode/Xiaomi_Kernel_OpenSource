@@ -40,6 +40,11 @@
 
 /*IPCMEM Structure Definitions*/
 
+struct ipclite_features {
+	uint32_t global_atomic_support;
+	uint32_t version_finalised;
+};
+
 struct ipcmem_partition_header {
 	uint32_t type;			   /*partition type*/
 	uint32_t desc_offset;      /*descriptor offset*/
@@ -68,6 +73,10 @@ struct ipcmem_toc {
 	struct ipcmem_toc_header hdr;
 	struct ipcmem_toc_entry toc_entry_global;
 	struct ipcmem_toc_entry toc_entry[IPCMEM_NUM_HOSTS][IPCMEM_NUM_HOSTS];
+	/* Need to have a better implementation here */
+	/* as ipcmem is 4k and if host number increases */
+	/* it would create problems*/
+	struct ipclite_features ipclite_features;
 };
 
 struct ipcmem_region {
@@ -119,6 +128,12 @@ struct ipclite_fifo {
 	void (*reset)(struct ipclite_fifo *fifo);
 };
 
+struct ipclite_hw_mutex_ops {
+	unsigned long flags;
+	void (*acquire)(void);
+	void (*release)(void);
+};
+
 struct ipclite_irq_info {
 	struct mbox_client mbox_client;
 	struct mbox_chan *mbox_chan;
@@ -156,6 +171,7 @@ struct ipclite_info {
 	struct ipclite_channel channel[IPCMEM_NUM_HOSTS];
 	struct ipclite_mem ipcmem;
 	struct hwspinlock *hwlock;
+	struct ipclite_hw_mutex_ops *ipclite_hw_mutex;
 };
 
 const struct ipcmem_toc_entry ipcmem_toc_global_partition_entry = {
