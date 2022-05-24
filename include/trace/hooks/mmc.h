@@ -8,6 +8,8 @@
 #include <trace/hooks/vendor_hooks.h>
 struct blk_mq_queue_data;
 struct mmc_host;
+struct mmc_card;
+struct sdhci_host;
 
 /*
  * Following tracepoints are not exported in tracefs and provide a
@@ -20,6 +22,24 @@ DECLARE_HOOK(android_vh_mmc_check_status,
 DECLARE_HOOK(android_vh_mmc_sdio_pm_flag_set,
 	TP_PROTO(struct mmc_host *host),
 	TP_ARGS(host));
+DECLARE_HOOK(android_vh_mmc_blk_reset,
+	TP_PROTO(struct mmc_host *host, int err),
+	TP_ARGS(host, err));
+DECLARE_HOOK(android_vh_mmc_blk_mq_rw_recovery,
+	TP_PROTO(struct mmc_card *card),
+	TP_ARGS(card));
+DECLARE_HOOK(android_vh_sd_update_bus_speed_mode,
+	TP_PROTO(struct mmc_card *card),
+	TP_ARGS(card));
+DECLARE_HOOK(android_vh_mmc_attach_sd,
+	TP_PROTO(struct mmc_host *host, u32 ocr, int err),
+	TP_ARGS(host, ocr, err));
+DECLARE_HOOK(android_vh_sdhci_get_cd,
+	TP_PROTO(struct sdhci_host *host, bool *allow),
+	TP_ARGS(host, allow));
+DECLARE_HOOK(android_vh_mmc_gpio_cd_irqt,
+	TP_PROTO(struct mmc_host *host, bool *allow),
+	TP_ARGS(host, allow));
 
 DECLARE_RESTRICTED_HOOK(android_rvh_mmc_cache_card_properties,
 	TP_PROTO(struct mmc_host *host),
