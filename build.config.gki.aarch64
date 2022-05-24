@@ -4,6 +4,7 @@
 
 MAKE_GOALS="${MAKE_GOALS}
 Image.lz4
+Image.gz
 "
 
 ABI_DEFINITION=android/abi_gki_aarch64.xml
@@ -28,6 +29,7 @@ android/abi_gki_aarch64_oplus
 
 FILES="${FILES}
 arch/arm64/boot/Image.lz4
+arch/arm64/boot/Image.gz
 "
 
 # Update BUILD.bazel, define_common_kernels() if the value is not 1.
@@ -43,4 +45,5 @@ BUILD_GKI_CERTIFICATION_TOOLS=1
 
 BUILD_GKI_ARTIFACTS=1
 BUILD_GKI_BOOT_IMG_SIZE=67108864
+BUILD_GKI_BOOT_IMG_GZ_SIZE=47185920
 BUILD_GKI_BOOT_IMG_LZ4_SIZE=53477376
