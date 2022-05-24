@@ -2725,7 +2725,7 @@ static int fastrpc_invoke_send(struct smq_invoke_ctx *ctx,
 	mutex_unlock(&channel_ctx->smd_mutex);
 
 	xo_time_in_us = CONVERT_CNT_TO_US(__arch_counter_get_cntvct());
-	err = fastrpc_transport_send(cid, (void *)msg, sizeof(*msg));
+	err = fastrpc_transport_send(cid, (void *)msg, sizeof(*msg), fl->trusted_vm);
 	trace_fastrpc_transport_send(cid, (uint64_t)ctx, msg->invoke.header.ctx,
 		handle, sc, msg->invoke.page.addr, msg->invoke.page.size);
 	ns = get_timestamp_in_ns();
@@ -3810,6 +3810,8 @@ static int fastrpc_init_create_static_process(struct fastrpc_file *fl,
 		err = fastrpc_mmap_remove_pdr(fl);
 		if (err)
 			goto bail;
+	} else if (!strcmp(proc_name, "securepd")) {
+		fl->trusted_vm = true;
 	} else {
 		ADSPRPC_ERR(
 			"Create static process is failed for proc_name %s",
@@ -3817,7 +3819,7 @@ static int fastrpc_init_create_static_process(struct fastrpc_file *fl,
 		goto bail;
 	}
 
-	if (!me->staticpd_flags && !me->legacy_remote_heap) {
+	if (!fl->trusted_vm && (!me->staticpd_flags && !me->legacy_remote_heap)) {
 		inbuf.pageslen = 1;
 		mutex_lock(&fl->map_mutex);
 		err = fastrpc_mmap_create(fl, -1, NULL, 0, init->mem,
@@ -4144,7 +4146,7 @@ static int fastrpc_release_current_dsp_process(struct fastrpc_file *fl)
 		err = -EBADR;
 		goto bail;
 	}
-	err = verify_transport_device(cid);
+	err = verify_transport_device(cid, fl->trusted_vm);
 	if (err)
 		goto bail;
 
@@ -5549,7 +5551,7 @@ static int fastrpc_channel_open(struct fastrpc_file *fl, uint32_t flags)
 	if (err)
 		goto bail;
 
-	err = verify_transport_device(cid);
+	err = verify_transport_device(cid, fl->trusted_vm);
 	if (err)
 		goto bail;
 
@@ -6134,7 +6136,7 @@ int fastrpc_dspsignal_signal(struct fastrpc_file *fl,
 	}
 
 	msg = (((uint64_t)fl->tgid) << 32) | ((uint64_t)sig->signal_id);
-	err = fastrpc_transport_send(cid, (void *)msg, sizeof(msg));
+	err = fastrpc_transport_send(cid, (void *)msg, sizeof(msg), fl->trusted_vm);
 	mutex_unlock(&channel_ctx->smd_mutex);
 
 bail:
@@ -7060,7 +7062,14 @@ static const struct file_operations fops = {
 	.open = fastrpc_device_open,
 	.release = fastrpc_device_release,
 	.unlocked_ioctl = fastrpc_device_ioctl,
+/* Only DSP service 64-bit app will interface with fastrpc TVM driver.
+ * There is not need to support 32-bit fastrpc driver on TVM.
+ */
+#if IS_ENABLED(CONFIG_MSM_ADSPRPC_TRUSTED)
+	.compat_ioctl = NULL,
+#else
 	.compat_ioctl = compat_fastrpc_device_ioctl,
+#endif
 };
 
 static const struct of_device_id fastrpc_match_table[] = {

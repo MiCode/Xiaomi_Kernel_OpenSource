@@ -87,7 +87,7 @@ struct fastrpc_driver {
 
 #define to_fastrpc_driver(x) container_of((x), struct fastrpc_driver, driver)
 
-#if IS_ENABLED(CONFIG_MSM_ADSPRPC)
+#if IS_ENABLED(CONFIG_MSM_ADSPRPC) || IS_ENABLED(CONFIG_MSM_ADSPRPC_TRUSTED)
 /**
  * function fastrpc_driver_register - Register fastrpc driver
  * @drv: Initialized fastrpc driver structure pointer
