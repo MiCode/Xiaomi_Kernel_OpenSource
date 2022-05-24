@@ -164,6 +164,7 @@ arch/arm64/include/asm/vdso/gettimeofday.h
 arch/arm64/include/asm/vdso.h
 arch/arm64/include/asm/vdso/processor.h
 arch/arm64/include/asm/vdso/vsyscall.h
+arch/arm64/include/asm/vectors.h
 arch/arm64/include/asm/vermagic.h
 arch/arm64/include/asm/virt.h
 arch/arm64/include/asm/vmalloc.h
@@ -507,6 +508,7 @@ crypto/crypto_null.c
 crypto/ctr.c
 crypto/cts.c
 crypto/deflate.c
+crypto/des_generic.c
 crypto/drbg.c
 crypto/ecb.c
 crypto/ecc.c
@@ -2258,6 +2260,7 @@ include/crypto/chacha20poly1305.h
 include/crypto/chacha.h
 include/crypto/ctr.h
 include/crypto/curve25519.h
+include/crypto/des.h
 include/crypto/drbg.h
 include/crypto/ecdh.h
 include/crypto/engine.h
@@ -2274,6 +2277,7 @@ include/crypto/internal/blake2b.h
 include/crypto/internal/blake2s.h
 include/crypto/internal/chacha.h
 include/crypto/internal/cipher.h
+include/crypto/internal/des.h
 include/crypto/internal/geniv.h
 include/crypto/internal/hash.h
 include/crypto/internal/kpp.h
@@ -4819,6 +4823,7 @@ lib/crypto/chacha.c
 lib/crypto/curve25519.c
 lib/crypto/curve25519-generic.c
 lib/crypto/curve25519-hacl64.c
+lib/crypto/des.c
 lib/crypto/libchacha.c
 lib/crypto/poly1305.c
 lib/crypto/poly1305-donna64.c
