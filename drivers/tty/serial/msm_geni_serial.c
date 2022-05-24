@@ -4210,6 +4210,10 @@ static int msm_geni_serial_probe(struct platform_device *pdev)
 
 	if (drv->cons && !con_enabled) {
 		dev_err(&pdev->dev, "%s, Console Disabled\n", __func__);
+		ret = pinctrl_pm_select_sleep_state(&pdev->dev);
+		if (ret)
+			dev_err(&pdev->dev,
+				"failed to set pinctrl state to sleep %d\n", ret);
 		platform_set_drvdata(pdev, dev_port);
 		return 0;
 	}
