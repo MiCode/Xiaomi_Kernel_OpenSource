@@ -1215,7 +1215,7 @@ static void kgsl_iommu_enable_clk(struct kgsl_mmu *mmu)
 	if (!IS_ERR_OR_NULL(iommu->cx_gdsc))
 		WARN_ON(regulator_enable(iommu->cx_gdsc));
 
-	clk_bulk_prepare_enable(iommu->num_clks, iommu->clks);
+	WARN_ON(clk_bulk_prepare_enable(iommu->num_clks, iommu->clks));
 
 	atomic_inc(&iommu->clk_enable_count);
 }
