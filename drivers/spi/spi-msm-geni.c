@@ -1611,6 +1611,7 @@ static int spi_geni_transfer_one(struct spi_master *spi,
 		mas->num_tx_eot = 0;
 		mas->num_rx_eot = 0;
 		mas->num_xfers = 0;
+		mas->qn_err = false;
 		reinit_completion(&mas->tx_cb);
 		reinit_completion(&mas->rx_cb);
 
