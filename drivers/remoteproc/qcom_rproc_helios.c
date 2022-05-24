@@ -20,6 +20,7 @@
 #include <linux/platform_device.h>
 #include <linux/qseecom.h>
 #include <linux/qtee_shmbridge.h>
+#include <linux/reboot.h>
 #include <linux/slab.h>
 #include <linux/soc/qcom/mdt_loader.h>
 #include <misc/qseecom_kernel.h>
@@ -92,6 +93,7 @@ struct pil_mdt {
  * @sysmon: sysmon subdevice to be registered with remoteproc
  * @sysmon_name: sysmon subdevice name used as reference in remoteproc
  * @ssctl_id: instance id of the ssctl QMI service
+ * @reboot_nb: notifier block to handle reboot scenarios
  * @address_fw: address where firmware binaries loaded in DMA
  * @size_fw: size of helios firmware binaries in DMA
  * @qseecom_handle: handle of TZ app
@@ -120,6 +122,8 @@ struct qcom_helios {
 	struct qcom_sysmon *sysmon;
 	const char *sysmon_name;
 	int ssctl_id;
+
+	struct notifier_block reboot_nb;
 
 	phys_addr_t address_fw;
 	size_t size_fw;
@@ -619,8 +623,20 @@ static int helios_shutdown(struct rproc *rproc)
 		pr_info("A2H response is received! Collect ramdump now!\n");
 		helios_coredump(rproc);
 	} else {
-		dev_err(helios->dev, "%s: Helios restart failed\n", __func__);
-		ret = helios->cmd_status;
+		/* Helios is not responding. So forcing S3 reset to power down Helios n Yoda
+		 * It should be powered on in Start Sequence.
+		 * If Helios not responding, we need to Helios SSR or Aurora+Helios power cycle
+		 */
+		pr_debug("Powerdown helios\n");
+		helios_tz_req.tzapp_helios_cmd = HELIOS_RPROC_POWERDOWN;
+		helios_tz_req.address_fw = 0;
+		helios_tz_req.size_fw = 0;
+		ret = helios_tzapp_comm(helios, &helios_tz_req);
+		if (ret || helios->cmd_status) {
+			dev_err(helios->dev, "%s: Helios Power Down failed\n", __func__);
+			return helios->cmd_status;
+		}
+		pr_debug("Helios is powered down.\n");
 	}
 
 	return ret;
@@ -659,6 +675,29 @@ static const struct rproc_ops helios_ops = {
 	.stop = helios_stop,
 	.coredump = helios_coredump,
 };
+
+static int helios_reboot_notify(struct notifier_block *nb, unsigned long action, void *data)
+{
+	struct qcom_helios *helios = container_of(nb, struct qcom_helios, reboot_nb);
+	struct tzapp_helios_req helios_tz_req;
+	int ret;
+
+	if (action != SYS_RESTART)
+		return NOTIFY_OK;
+
+	pr_debug("System is going for reboot!. Powerdown helios.\n");
+	helios_tz_req.tzapp_helios_cmd = HELIOS_RPROC_POWERDOWN;
+	helios_tz_req.address_fw = 0;
+	helios_tz_req.size_fw = 0;
+	ret = helios_tzapp_comm(helios, &helios_tz_req);
+	if (ret || helios->cmd_status) {
+		dev_err(helios->dev, "%s: Helios Power Down failed\n", __func__);
+		return helios->cmd_status;
+	}
+	pr_debug("Helios is powered down.\n");
+
+	return NOTIFY_OK;
+}
 
 static int rproc_helios_driver_probe(struct platform_device *pdev)
 {
@@ -722,6 +761,10 @@ static int rproc_helios_driver_probe(struct platform_device *pdev)
 		goto free_rproc;
 	}
 
+	/* Register callback for handling reboot */
+	helios->reboot_nb.notifier_call = helios_reboot_notify;
+	register_reboot_notifier(&helios->reboot_nb);
+
 	/* Register with rproc */
 	ret = rproc_add(rproc);
 	if (ret)
@@ -740,6 +783,7 @@ static int rproc_helios_driver_remove(struct platform_device *pdev)
 {
 	struct qcom_helios *helios = platform_get_drvdata(pdev);
 
+	unregister_reboot_notifier(&helios->reboot_nb);
 	rproc_del(helios->rproc);
 	rproc_free(helios->rproc);
 
