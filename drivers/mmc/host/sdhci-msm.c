@@ -514,6 +514,7 @@ struct sdhci_msm_host {
 	u32 ice_clk_rate;
 	bool uses_tassadar_dll;
 	bool uses_level_shifter;
+	bool dll_lock_bist_fail_wa;
 	u32 dll_config;
 	u32 ddr_config;
 	u16 last_cmd;
@@ -978,8 +979,9 @@ static int msm_init_cm_dll(struct sdhci_host *host,
 		}
 
 
-		if (curr_ios.timing == MMC_TIMING_UHS_SDR104 &&
-			msm_host->uses_level_shifter) {
+		if (msm_host->dll_lock_bist_fail_wa &&
+			(curr_ios.timing == MMC_TIMING_UHS_SDR104 ||
+				!mmc_card_is_removable(mmc))) {
 			writel_relaxed((readl_relaxed(host->ioaddr +
 				msm_offset->core_dll_config_2)
 				| CORE_LOW_FREQ_MODE), host->ioaddr +
@@ -1908,6 +1910,9 @@ static bool sdhci_msm_populate_pdata(struct device *dev,
 
 	msm_host->uses_level_shifter =
 		of_property_read_bool(np, "qcom,uses_level_shifter");
+
+	msm_host->dll_lock_bist_fail_wa =
+		of_property_read_bool(np, "qcom,dll_lock_bist_fail_wa");
 
 	if (sdhci_msm_dt_parse_hsr_info(dev, msm_host))
 		goto out;
