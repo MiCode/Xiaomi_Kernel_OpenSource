@@ -108,9 +108,6 @@
 /* Process status notifications from DSP will be sent with this unique context */
 #define FASTRPC_NOTIF_CTX_RESERVED 0xABCDABCD
 
-/* Notification worker thread device cid */
-#define NOTIF_DEV_CID 0x10000
-
 /*
  * Fastrpc context ID bit-map:
  *
@@ -121,7 +118,6 @@
  * bits 16-63 : incrementing context ID
  */
 #define FASTRPC_CTX_MAX (1024)
-
 #define FASTRPC_CTX_JOB_TYPE_POS (4)
 #define FASTRPC_CTX_TABLE_IDX_POS (6)
 #define FASTRPC_CTX_JOBID_POS (16)
@@ -219,6 +215,7 @@
 #define PERF_CAPABILITY_SUPPORT	(1 << 1)
 #define KERNEL_ERROR_CODE_V1_SUPPORT	1
 #define USERSPACE_ALLOCATION_SUPPORT	1
+#define NOTIF_V2_SUPPORT	1
 
 #define MD_GMSG_BUFFER (1000)
 
@@ -778,8 +775,10 @@ static uint32_t kernel_capabilities[FASTRPC_MAX_ATTRIBUTES -
 	/* PERF_LOGGING_V2_SUPPORT feature is supported, unsupported = 0 */
 	KERNEL_ERROR_CODE_V1_SUPPORT,
 	/* Fastrpc Driver error code changes present */
-	USERSPACE_ALLOCATION_SUPPORT
+	USERSPACE_ALLOCATION_SUPPORT,
 	/* Userspace allocation allowed for DSP memory request*/
+	0,
+	NOTIF_V2_SUPPORT
 };
 
 static inline void fastrpc_pm_awake(struct fastrpc_file *fl, int channel_type);
@@ -2299,8 +2298,8 @@ static void fastrpc_notif_find_process(int domain, struct smq_notif_rspv3 *notif
 
 	spin_lock_irqsave(&me->hlock, irq_flags);
 	hlist_for_each_entry_safe(fl, n, &me->drivers, hn) {
-		if ((fl->tgid == notif->pid || (fl->tgid == (notif->pid & PROCESS_ID_MASK)))
-						&& (fl->cid == NOTIF_DEV_CID)) {
+		if (fl->tgid == notif->pid ||
+				(fl->tgid == (notif->pid & PROCESS_ID_MASK))) {
 			is_process_found = true;
 			break;
 		}
@@ -2477,10 +2476,10 @@ static void fastrpc_notify_drivers(struct fastrpc_apps *me, int cid)
 
 	spin_lock_irqsave(&me->hlock, irq_flags);
 	hlist_for_each_entry_safe(fl, n, &me->drivers, hn) {
-		if (fl->cid == cid)
-			fastrpc_notify_users(fl);
-		else if (fl->cid == NOTIF_DEV_CID)
+		if (fl->cid == cid) {
 			fastrpc_queue_pd_status(fl, cid, FASTRPC_DSP_SSR, 0);
+			fastrpc_notify_users(fl);
+		}
 	}
 	spin_unlock_irqrestore(&me->hlock, irq_flags);
 }
@@ -6122,9 +6121,6 @@ static int fastrpc_set_process_info(struct fastrpc_file *fl, uint32_t cid)
 	if (current->tgid != fl->tgid_open)
 		fl->untrusted_process = true;
 
-	if (cid == NOTIF_DEV_CID)
-		goto bail;
-
 	snprintf(strpid, PID_SIZE, "%d", current->pid);
 	if (debugfs_root) {
 		VERIFY(err, VALID_FASTRPC_CID(cid));
@@ -6205,11 +6201,6 @@ static int fastrpc_get_info(struct fastrpc_file *fl, uint32_t *info)
 	VERIFY(err, !fastrpc_session_exists(me, cid, fl->tgid));
 	if (err) {
 		err = -EEXIST;
-		goto bail;
-	}
-
-	if (cid == NOTIF_DEV_CID) {
-		fl->cid = cid;
 		goto bail;
 	}
 	if (fl->cid == -1) {
