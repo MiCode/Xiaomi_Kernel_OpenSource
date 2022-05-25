@@ -1271,7 +1271,7 @@ static void do_fault_header(struct adreno_device *adreno_dev,
 	drawobj->context->total_fault_count++;
 
 	pr_context(device, drawobj->context,
-		"ctx %d ctx_type %s ts %u status %8.8X dispatch_queue=%d rb %4.4x/%4.4x ib1 %16.16llX/%4.4x ib2 %16.16llX/%4.4x\n",
+		"ctx %u ctx_type %s ts %u status %8.8X dispatch_queue=%d rb %4.4x/%4.4x ib1 %16.16llX/%4.4x ib2 %16.16llX/%4.4x\n",
 		drawobj->context->id, kgsl_context_type(drawctxt->type),
 		drawobj->timestamp, status,
 		drawobj->context->gmu_dispatch_queue, rptr, wptr,
@@ -1524,6 +1524,28 @@ static const struct adreno_dispatch_ops hwsched_ops = {
 	.idle = adreno_hwsched_idle,
 };
 
+static void hwsched_lsr_check(struct work_struct *work)
+{
+	struct adreno_hwsched *hwsched = container_of(work,
+		struct adreno_hwsched, lsr_check_ws);
+	struct kgsl_device *device = kgsl_get_device(0);
+
+	mutex_lock(&device->mutex);
+	kgsl_pwrscale_update_stats(device);
+	kgsl_pwrscale_update(device);
+	mutex_unlock(&device->mutex);
+
+	mod_timer(&hwsched->lsr_timer, jiffies + msecs_to_jiffies(10));
+}
+
+static void hwsched_lsr_timer(struct timer_list *t)
+{
+	struct adreno_hwsched *hwsched = container_of(t, struct adreno_hwsched,
+					lsr_timer);
+
+	kgsl_schedule_work(&hwsched->lsr_check_ws);
+}
+
 int adreno_hwsched_init(struct adreno_device *adreno_dev,
 	const struct adreno_hwsched_ops *target_hwsched_ops)
 {
@@ -1564,6 +1586,12 @@ int adreno_hwsched_init(struct adreno_device *adreno_dev,
 	hwsched->hwsched_ops = target_hwsched_ops;
 	init_completion(&hwsched->idle_gate);
 	complete_all(&hwsched->idle_gate);
+
+	if (ADRENO_FEATURE(adreno_dev, ADRENO_LSR)) {
+		INIT_WORK(&hwsched->lsr_check_ws, hwsched_lsr_check);
+		timer_setup(&hwsched->lsr_timer, hwsched_lsr_timer, 0);
+	}
+
 	return 0;
 }
 

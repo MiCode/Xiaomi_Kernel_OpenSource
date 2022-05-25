@@ -33,19 +33,15 @@ static const u32 gen7_pwrup_reglist[] = {
 	GEN7_UCHE_MODE_CNTL,
 	GEN7_RB_NC_MODE_CNTL,
 	GEN7_RB_CMP_DBG_ECO_CNTL,
-	GEN7_TPL1_NC_MODE_CNTL,
-	GEN7_SP_NC_MODE_CNTL,
 	GEN7_GRAS_NC_MODE_CNTL,
 	GEN7_RB_CONTEXT_SWITCH_GMEM_SAVE_RESTORE,
 	GEN7_UCHE_GBIF_GX_CONFIG,
-	GEN7_RBBM_GBIF_CLIENT_QOS_CNTL,
 };
 
 /* IFPC only static powerup restore list */
 static const u32 gen7_ifpc_pwrup_reglist[] = {
-	GEN7_CP_CHICKEN_DBG,
-	GEN7_CP_BV_CHICKEN_DBG,
-	GEN7_CP_LPAC_CHICKEN_DBG,
+	GEN7_TPL1_NC_MODE_CNTL,
+	GEN7_SP_NC_MODE_CNTL,
 	GEN7_CP_DBG_ECO_CNTL,
 	GEN7_CP_PROTECT_CNTL,
 	GEN7_CP_PROTECT_REG,
@@ -431,6 +427,16 @@ int gen7_start(struct adreno_device *adreno_dev)
 	kgsl_regwrite(device, GEN7_UCHE_TRAP_BASE_HI, 0x0001ffff);
 	kgsl_regwrite(device, GEN7_UCHE_WRITE_THRU_BASE_LO, 0xfffff000);
 	kgsl_regwrite(device, GEN7_UCHE_WRITE_THRU_BASE_HI, 0x0001ffff);
+
+	if (adreno_dev->gpucore->gmem_base) {
+		kgsl_regwrite(device, GEN7_UCHE_GMEM_RANGE_MIN_LO,
+				adreno_dev->gpucore->gmem_base);
+		kgsl_regwrite(device, GEN7_UCHE_GMEM_RANGE_MIN_HI, 0x0);
+		kgsl_regwrite(device, GEN7_UCHE_GMEM_RANGE_MAX_LO,
+				adreno_dev->gpucore->gmem_base +
+				adreno_dev->gpucore->gmem_size - 1);
+		kgsl_regwrite(device, GEN7_UCHE_GMEM_RANGE_MAX_HI, 0x0);
+	}
 
 	kgsl_regwrite(device, GEN7_UCHE_CACHE_WAYS, 0x800000);
 

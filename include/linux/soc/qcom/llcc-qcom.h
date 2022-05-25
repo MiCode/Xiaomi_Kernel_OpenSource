@@ -40,6 +40,7 @@
 #define LLCC_CPUHWT      36
 #define LLCC_MDMCLAD2    37
 #define LLCC_CAMEXP1     38
+#define LLCC_LCPDARE     40
 #define LLCC_AENPU       45
 #define LLCC_VIEYE       57
 #define LLCC_VIDPTH      58
@@ -48,6 +49,10 @@
 #define LLCC_EVARGHT     61
 #define LLCC_EVAGAIN     62
 #define LLCC_VIPTH       63
+#define LLCC_DISLFT      65
+#define LLCC_DISRGHT     66
+#define LLCC_EVCSLFT     67
+#define LLCC_EVCSRGHT    68
 
 /**
  * llcc_slice_desc - Cache slice descriptor

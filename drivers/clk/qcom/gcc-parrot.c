@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2021, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2022, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/clk-provider.h>
@@ -2987,6 +2987,9 @@ static int gcc_parrot_probe(struct platform_device *pdev)
 	regmap_update_bits(regmap, 0x81004, BIT(0), BIT(0));
 	regmap_update_bits(regmap, 0x42004, BIT(0), BIT(0));
 	regmap_update_bits(regmap, 0x42018, BIT(0), BIT(0));
+
+	/* Ignore the PMU clock disable signal for gcc_video_axi0_clk. */
+	regmap_update_bits(regmap, gcc_video_axi0_clk.clkr.enable_reg, BIT(21), BIT(21));
 
 	ret = qcom_cc_register_rcg_dfs(regmap, gcc_dfs_clocks,
 				       ARRAY_SIZE(gcc_dfs_clocks));

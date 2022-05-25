@@ -35,10 +35,12 @@
 #define HELIOS_SPI_AHB_CMD_LEN (0x05)
 #define HELIOS_SPI_AHB_READ_CMD_LEN (0x08)
 #define HELIOS_STATUS_REG (0x01)
+#define HELIOS_NON_SEC_REG (0x05)
 #define HELIOS_CMND_REG (0x14)
 #define HELIOS_STATUS_READ_SIZE (0x07)
-#define HELIOS_RESET_BIT BIT(28)
+#define HELIOS_RESET_BIT BIT(26)
 #define HELIOS_SPI_ACCESS_BLOCKED (0xDEADBEEF)
+#define HELIOS_AHB_RESUME_REG (0x200E1800)
 
 #define HELIOS_SPI_MAX_WORDS (0x3FFFFFFD)
 #define HELIOS_SPI_MAX_REGS (0x0A)
@@ -467,6 +469,7 @@ static void send_back_notification(uint32_t slav_status_reg,
 	uint16_t slave_fifo_free;
 	uint32_t *ptr;
 	int ret;
+	uint32_t oem_provisioning_status;
 	union helioscom_event_data_type event_data = { .fifo_data = {0} };
 
 	master_fifo_used = (uint16_t)fifo_fill_reg;
@@ -532,6 +535,9 @@ static void send_back_notification(uint32_t slav_status_reg,
 				&event_data);
 		}
 
+		oem_provisioning_status = slav_status_reg & (BIT(23) | BIT(24));
+		oem_provisioning_status = ((oem_provisioning_status<<7)>>30);
+		HELIOSCOM_ERR("Helios OEM prov. status 0x%x\n", oem_provisioning_status);
 
 	}
 
@@ -616,12 +622,14 @@ static int is_helios_resume(void *handle)
 {
 	uint32_t txn_len;
 	int ret;
-	uint8_t tx_buf[8] = {0};
-	uint8_t rx_buf[8] = {0};
+	uint8_t *tx_buf = NULL;
+	uint8_t *rx_buf = NULL;
 	uint32_t cmnd_reg = 0;
-	uint8_t tx_ahb_buf[1024] = {0};
+	uint8_t *tx_ahb_buf = NULL;
 	uint8_t *rx_ahb_buf = fxd_mem_buffer;
-	uint32_t ahb_addr = 0x200E1800;
+	uint32_t ahb_addr = HELIOS_AHB_RESUME_REG;
+	uint32_t size;
+	uint32_t no_of_reg = 1;
 	uint8_t cmnd = 0;
 	struct helios_spi_priv *helios_spi;
 	struct helios_context *cntx;
@@ -645,17 +653,42 @@ static int is_helios_resume(void *handle)
 		msleep(MIN_SLEEP_TIME - time_elapsed);
 	}
 
-	txn_len = 0x08;
-	tx_buf[0] = 0x05;
+	size = no_of_reg*HELIOS_SPI_WORD_SIZE;
+	txn_len = HELIOS_SPI_READ_LEN + size;
+
+	tx_buf = kzalloc(txn_len, GFP_KERNEL | GFP_ATOMIC);
+	if (!tx_buf) {
+		ret = -ENOMEM;
+		goto ret_err;
+	}
+
+	rx_buf = kzalloc(txn_len, GFP_KERNEL | GFP_ATOMIC);
+	if (!rx_buf) {
+		kfree(tx_buf);
+		ret = -ENOMEM;
+		goto ret_err;
+	}
+
+	cmnd |= HELIOS_NON_SEC_REG;
+	memcpy(tx_buf, &cmnd, sizeof(cmnd));
+
 	ret = helioscom_transfer(handle, tx_buf, rx_buf, txn_len, SPI_FREQ_40MHZ);
 
 	if (!ret)
 		memcpy(&cmnd_reg, rx_buf+HELIOS_SPI_READ_LEN, 0x04);
 
+	kfree(tx_buf);
+	kfree(rx_buf);
+
 	if (!(cmnd_reg & BIT(31))) {
 		pr_err("AHB read to resume\n");
 
 		txn_len = 8;
+		tx_ahb_buf = kzalloc(txn_len, GFP_KERNEL | GFP_ATOMIC);
+		if (!tx_ahb_buf) {
+			ret = -ENOMEM;
+			goto ret_err;
+		}
 		cmnd |= HELIOS_SPI_AHB_READ_CMD;
 		memcpy(tx_ahb_buf, &cmnd, sizeof(cmnd));
 		memcpy(tx_ahb_buf+sizeof(cmnd), &ahb_addr, sizeof(ahb_addr));
@@ -663,6 +696,8 @@ static int is_helios_resume(void *handle)
 		ret = helioscom_transfer(handle, tx_ahb_buf, rx_ahb_buf, txn_len, SPI_FREQ_1MHZ);
 		if (ret)
 			pr_err("helioscom_transfer fail with error %d\n", ret);
+
+		kfree(tx_ahb_buf);
 	}
 ret_err:
 	return cmnd_reg & BIT(31);
@@ -1455,7 +1490,6 @@ static int helios_spi_probe(struct spi_device *spi)
 {
 	struct helios_spi_priv *helios_spi;
 	struct device_node *node;
-	pil_reset_cb = NULL;
 
 	helios_spi = devm_kzalloc(&spi->dev, sizeof(*helios_spi),
 				   GFP_KERNEL | GFP_ATOMIC);

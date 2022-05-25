@@ -917,7 +917,7 @@ bool mhi_scan_rddm_cookie(struct mhi_controller *mhi_cntrl, u32 cookie)
 		{ "ERROR_DBG3", BHI_ERRDBG3 },
 		{ NULL },
 		};
-	if (!mhi_cntrl->rddm_image || !cookie)
+	if (!mhi_cntrl->rddm_image || !cookie || !mhi_cntrl->bhi)
 		return false;
 
 	MHI_VERB("Checking BHI debug register for 0x%x\n", cookie);

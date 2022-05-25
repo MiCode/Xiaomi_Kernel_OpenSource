@@ -526,7 +526,6 @@ static int ssr_helios_cb(struct notifier_block *this,
 	case QCOM_SSR_BEFORE_SHUTDOWN:
 		pr_err("Helios before shutdown\n");
 		heliose.e_type = HELIOS_BEFORE_POWER_DOWN;
-		helioscom_heliosdown_handler();
 		helioscom_set_spi_state(HELIOSCOM_SPI_BUSY);
 		send_uevent(&heliose);
 		break;
@@ -539,7 +538,6 @@ static int ssr_helios_cb(struct notifier_block *this,
 	case QCOM_SSR_BEFORE_POWERUP:
 		pr_err("Helios before powerup\n");
 		heliose.e_type = HELIOS_BEFORE_POWER_UP;
-		helioscom_heliosdown_handler();
 		send_uevent(&heliose);
 		break;
 	case QCOM_SSR_AFTER_POWERUP:

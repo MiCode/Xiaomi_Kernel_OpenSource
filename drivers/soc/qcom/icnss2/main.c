@@ -2138,7 +2138,7 @@ static int icnss_modem_ssr_register_notifier(struct icnss_priv *priv)
 	priv->modem_ssr_nb.priority = 1;
 
 	priv->modem_notify_handler =
-		qcom_register_ssr_notifier("modem", &priv->modem_ssr_nb);
+		qcom_register_ssr_notifier("mpss", &priv->modem_ssr_nb);
 
 	if (IS_ERR(priv->modem_notify_handler)) {
 		ret = PTR_ERR(priv->modem_notify_handler);

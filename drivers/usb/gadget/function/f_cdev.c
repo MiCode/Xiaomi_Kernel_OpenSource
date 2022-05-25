@@ -157,7 +157,7 @@ static void usb_cser_read_complete(struct usb_ep *ep, struct usb_request *req);
 static int usb_cser_connect(struct f_cdev *port);
 static void usb_cser_disconnect(struct f_cdev *port);
 static struct f_cdev *f_cdev_alloc(char *func_name, int portno);
-static void usb_cser_free_req(struct usb_ep *ep, struct usb_request *req);
+static void usb_cser_free_req(struct usb_ep *ep, struct usb_request **req);
 static void usb_cser_debugfs_exit(struct f_cdev *port);
 
 static struct usb_interface_descriptor cser_interface_desc = {
@@ -715,12 +715,12 @@ static int dun_cser_send_ctrl_bits(struct cserial *cser, int ctrl_bits)
 	return port_notify_serial_state(cser);
 }
 
-static void usb_cser_free_req(struct usb_ep *ep, struct usb_request *req)
+static void usb_cser_free_req(struct usb_ep *ep, struct usb_request **req)
 {
-	if (req) {
-		kfree(req->buf);
-		usb_ep_free_request(ep, req);
-		req = NULL;
+	if (*req) {
+		kfree((*req)->buf);
+		usb_ep_free_request(ep, *req);
+		*req = NULL;
 	}
 }
 
@@ -731,7 +731,7 @@ static void usb_cser_free_requests(struct usb_ep *ep, struct list_head *head)
 	while (!list_empty(head)) {
 		req = list_entry(head->next, struct usb_request, list);
 		list_del_init(&req->list);
-		usb_cser_free_req(ep, req);
+		usb_cser_free_req(ep, &req);
 	}
 }
 
@@ -837,7 +837,7 @@ static int usb_cser_bind(struct usb_configuration *c, struct usb_function *f)
 fail:
 	if (port->port_usb.notify_req)
 		usb_cser_free_req(port->port_usb.notify,
-				port->port_usb.notify_req);
+				&port->port_usb.notify_req);
 
 	if (port->port_usb.notify)
 		port->port_usb.notify->driver_data = NULL;
@@ -881,7 +881,8 @@ static void usb_cser_unbind(struct usb_configuration *c, struct usb_function *f)
 	cser_string_defs[0].id = 0;
 
 	usb_free_all_descriptors(f);
-	usb_cser_free_req(port->port_usb.notify, port->port_usb.notify_req);
+	/* notify_req is passed by reference to mark it as NULL while freeing */
+	usb_cser_free_req(port->port_usb.notify, &port->port_usb.notify_req);
 }
 
 static int usb_cser_alloc_requests(struct usb_ep *ep, struct list_head *head,
@@ -1324,7 +1325,7 @@ err_exit:
 		if (port->is_connected)
 			list_add(&req->list, &port->write_pool);
 		else
-			usb_cser_free_req(in, req);
+			usb_cser_free_req(in, &req);
 		spin_unlock_irqrestore(&port->port_lock, flags);
 		return ret;
 	}

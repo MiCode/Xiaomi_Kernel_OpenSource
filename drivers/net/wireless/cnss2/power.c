@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/clk.h>
@@ -78,6 +78,11 @@ static struct cnss_clk_cfg cnss_clk_list[] = {
 #define BT_CXMX_VOLTAGE_MV		950
 #define CNSS_MBOX_MSG_MAX_LEN 64
 #define CNSS_MBOX_TIMEOUT_MS 1000
+/* Platform HW config */
+#define CNSS_PMIC_VOLTAGE_STEP 4
+#define CNSS_PMIC_AUTO_HEADROOM 16
+#define CNSS_IR_DROP_WAKE 30
+#define CNSS_IR_DROP_SLEEP 10
 
 /**
  * enum cnss_aop_vreg_param: Voltage regulator TCS param
@@ -1279,6 +1284,126 @@ static int cnss_aop_set_vreg_param(struct cnss_plat_data *plat_priv,
 
 	return cnss_aop_send_msg(plat_priv, msg);
 }
+
+int cnss_aop_ol_cpr_cfg_setup(struct cnss_plat_data *plat_priv,
+			      struct wlfw_pmu_cfg_v01 *fw_pmu_cfg)
+{
+	const char *pmu_pin, *vreg;
+	struct wlfw_pmu_param_v01 *fw_pmu_param;
+	u32 fw_pmu_param_len, i, j, plat_vreg_param_len = 0;
+	int ret = 0;
+	struct platform_vreg_param {
+		char vreg[MAX_PROP_SIZE];
+		u32 wake_volt;
+		u32 sleep_volt;
+	} plat_vreg_param[QMI_WLFW_PMU_PARAMS_MAX_V01] = {0};
+	static bool config_done;
+
+	if (config_done)
+		return 0;
+
+	if (plat_priv->pmu_vreg_map_len <= 0 || !plat_priv->mbox_chan ||
+	    !plat_priv->pmu_vreg_map) {
+		cnss_pr_dbg("Mbox channel / PMU VReg Map not configured\n");
+		goto end;
+	}
+	if (!fw_pmu_cfg)
+		return -EINVAL;
+
+	fw_pmu_param = fw_pmu_cfg->pmu_param;
+	fw_pmu_param_len = fw_pmu_cfg->pmu_param_len;
+	/* Get PMU Pin name to Platfom Vreg Mapping */
+	for (i = 0; i < fw_pmu_param_len; i++) {
+		cnss_pr_dbg("FW_PMU Data: %s %d %d %d %d\n",
+			    fw_pmu_param[i].pin_name,
+			    fw_pmu_param[i].wake_volt_valid,
+			    fw_pmu_param[i].wake_volt,
+			    fw_pmu_param[i].sleep_volt_valid,
+			    fw_pmu_param[i].sleep_volt);
+
+		if (!fw_pmu_param[i].wake_volt_valid &&
+		    !fw_pmu_param[i].sleep_volt_valid)
+			continue;
+
+		vreg = NULL;
+		for (j = 0; j < plat_priv->pmu_vreg_map_len; j += 2) {
+			pmu_pin = plat_priv->pmu_vreg_map[j];
+			if (strnstr(pmu_pin, fw_pmu_param[i].pin_name,
+				    strlen(pmu_pin))) {
+				vreg = plat_priv->pmu_vreg_map[j + 1];
+				break;
+			}
+		}
+		if (!vreg) {
+			cnss_pr_err("No VREG mapping for %s\n",
+				    fw_pmu_param[i].pin_name);
+			continue;
+		} else {
+			cnss_pr_dbg("%s mapped to %s\n",
+				    fw_pmu_param[i].pin_name, vreg);
+		}
+		for (j = 0; j < QMI_WLFW_PMU_PARAMS_MAX_V01; j++) {
+			u32 wake_volt = 0, sleep_volt = 0;
+
+			if (plat_vreg_param[j].vreg[0] == '\0')
+				strlcpy(plat_vreg_param[j].vreg, vreg,
+					sizeof(plat_vreg_param[j].vreg));
+			else if (!strnstr(plat_vreg_param[j].vreg, vreg,
+					  strlen(plat_vreg_param[j].vreg)))
+				continue;
+
+			if (fw_pmu_param[i].wake_volt_valid)
+				wake_volt = roundup(fw_pmu_param[i].wake_volt,
+						    CNSS_PMIC_VOLTAGE_STEP) -
+						    CNSS_PMIC_AUTO_HEADROOM +
+						    CNSS_IR_DROP_WAKE;
+			if (fw_pmu_param[i].sleep_volt_valid)
+				sleep_volt = roundup(fw_pmu_param[i].sleep_volt,
+						     CNSS_PMIC_VOLTAGE_STEP) -
+						     CNSS_PMIC_AUTO_HEADROOM +
+						     CNSS_IR_DROP_SLEEP;
+
+			plat_vreg_param[j].wake_volt =
+				(wake_volt > plat_vreg_param[j].wake_volt ?
+				 wake_volt : plat_vreg_param[j].wake_volt);
+			plat_vreg_param[j].sleep_volt =
+				(sleep_volt > plat_vreg_param[j].sleep_volt ?
+				 sleep_volt : plat_vreg_param[j].sleep_volt);
+
+			plat_vreg_param_len = (plat_vreg_param_len > j ?
+					       plat_vreg_param_len : j);
+			cnss_pr_dbg("Plat VReg Data: %s %d %d\n",
+				    plat_vreg_param[j].vreg,
+				    plat_vreg_param[j].wake_volt,
+				    plat_vreg_param[j].sleep_volt);
+			break;
+		}
+	}
+
+	for (i = 0; i <= plat_vreg_param_len; i++) {
+		if (plat_vreg_param[i].wake_volt > 0) {
+			ret =
+			cnss_aop_set_vreg_param(plat_priv,
+						plat_vreg_param[i].vreg,
+						CNSS_VREG_VOLTAGE,
+						CNSS_TCS_UP_SEQ,
+						plat_vreg_param[i].wake_volt);
+		}
+		if (plat_vreg_param[i].sleep_volt > 0) {
+			ret =
+			cnss_aop_set_vreg_param(plat_priv,
+						plat_vreg_param[i].vreg,
+						CNSS_VREG_VOLTAGE,
+						CNSS_TCS_DOWN_SEQ,
+						plat_vreg_param[i].sleep_volt);
+		}
+		if (ret < 0)
+			break;
+	}
+end:
+	config_done = true;
+	return ret;
+}
 #else
 int cnss_aop_mbox_init(struct cnss_plat_data *plat_priv)
 {
@@ -1300,6 +1425,12 @@ static int cnss_aop_set_vreg_param(struct cnss_plat_data *plat_priv,
 				   enum cnss_aop_vreg_param param,
 				   enum cnss_aop_tcs_seq_pram seq_param,
 				   int val)
+{
+	return 0;
+}
+
+int cnss_aop_ol_cpr_cfg_setup(struct cnss_plat_data *plat_priv,
+			      struct wlfw_pmu_cfg_v01 *fw_pmu_cfg)
 {
 	return 0;
 }
@@ -1347,6 +1478,22 @@ void cnss_power_misc_params_init(struct cnss_plat_data *plat_priv)
 		cnss_pr_dbg("VReg PDC Mapping not configured\n");
 	}
 
+	plat_priv->pmu_vreg_map_len =
+			of_property_count_strings(dev->of_node,
+						  "qcom,pmu_vreg_map");
+	if (plat_priv->pmu_vreg_map_len > 0) {
+		plat_priv->pmu_vreg_map = kcalloc(plat_priv->pmu_vreg_map_len,
+						  sizeof(char *), GFP_KERNEL);
+		ret =
+		of_property_read_string_array(dev->of_node, "qcom,pmu_vreg_map",
+					      plat_priv->pmu_vreg_map,
+					      plat_priv->pmu_vreg_map_len);
+		if (ret < 0)
+			cnss_pr_err("Fail to get PMU VReg Mapping\n");
+	} else {
+		cnss_pr_dbg("PMU VReg Mapping not configured\n");
+	}
+
 	/* Device DT Specific */
 	if (plat_priv->device_id == QCA6390_DEVICE_ID ||
 	    plat_priv->device_id == QCA6490_DEVICE_ID) {
@@ -1376,6 +1523,9 @@ int cnss_update_cpr_info(struct cnss_plat_data *plat_priv)
 			    cpr_info->voltage);
 		return -EINVAL;
 	}
+
+	if (plat_priv->device_id != QCA6490_DEVICE_ID)
+		return -EINVAL;
 
 	if (!plat_priv->vreg_ol_cpr || !plat_priv->mbox_chan) {
 		cnss_pr_dbg("Mbox channel / OL CPR Vreg not configured\n");

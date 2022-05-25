@@ -71,6 +71,7 @@ struct qce_cmdlist_info {
 
 	unsigned long cmdlist;
 	struct sps_command_element *crypto_cfg;
+	struct sps_command_element *crypto_cfg_le;
 	struct sps_command_element *encr_seg_cfg;
 	struct sps_command_element *encr_seg_size;
 	struct sps_command_element *encr_seg_start;
@@ -78,8 +79,13 @@ struct qce_cmdlist_info {
 	struct sps_command_element *encr_xts_key;
 	struct sps_command_element *encr_cntr_iv;
 	struct sps_command_element *encr_ccm_cntr_iv;
-	struct sps_command_element *encr_mask;
+	struct sps_command_element *encr_mask_0;
+	struct sps_command_element *encr_mask_1;
+	struct sps_command_element *encr_mask_2;
+	struct sps_command_element *encr_mask_3;
 	struct sps_command_element *encr_xts_du_size;
+	struct sps_command_element *pattern_info;
+	struct sps_command_element *block_offset;
 
 	struct sps_command_element *auth_seg_cfg;
 	struct sps_command_element *auth_seg_size;
@@ -170,6 +176,15 @@ struct qce_ce_cfg_reg_setting {
 	uint32_t auth_cfg_aead_sha256_hmac;
 	uint32_t auth_cfg_kasumi;
 	uint32_t auth_cfg_snow3g;
+
+	/* iv0 - bits 127:96 - CRYPTO_CNTR_MASK_REG0*/
+	uint32_t encr_cntr_mask_0;
+	/* iv1 - bits 95:64 - CRYPTO_CNTR_MASK_REG1*/
+	uint32_t encr_cntr_mask_1;
+	/* iv2 - bits 63:32 - CRYPTO_CNTR_MASK_REG2*/
+	uint32_t encr_cntr_mask_2;
+	/* iv3 - bits 31:0 - CRYPTO_CNTR_MASK_REG*/
+	uint32_t encr_cntr_mask_3;
 };
 
 struct ce_bam_info {
@@ -179,14 +194,14 @@ struct ce_bam_info {
 	uint32_t			ce_device;
 	uint32_t			ce_hw_instance;
 	uint32_t			bam_ee;
-	unsigned int			pipe_pair_index;
-	unsigned int			src_pipe_index;
-	unsigned int			dest_pipe_index;
+	unsigned int			pipe_pair_index[QCE_OFFLOAD_OPER_LAST];
+	unsigned int			src_pipe_index[QCE_OFFLOAD_OPER_LAST];
+	unsigned int			dest_pipe_index[QCE_OFFLOAD_OPER_LAST];
 	unsigned long			bam_handle;
 	int				ce_burst_size;
 	uint32_t			minor_version;
-	struct qce_sps_ep_conn_data	producer;
-	struct qce_sps_ep_conn_data	consumer;
+	struct qce_sps_ep_conn_data	producer[QCE_OFFLOAD_OPER_LAST];
+	struct qce_sps_ep_conn_data	consumer[QCE_OFFLOAD_OPER_LAST];
 };
 
 /* SPS data structure with buffers, commandlists & commmand pointer lists */
@@ -227,6 +242,7 @@ struct ce_request_info {
 	dma_addr_t phy_ota_dst;
 	unsigned int ota_size;
 	unsigned int req_len;
+	unsigned int offload_op;
 };
 
 struct qce_driver_stats {

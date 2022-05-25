@@ -117,3 +117,4 @@ obj-$(CONFIG_TOUCHSCREEN_SYNAPTICS_DSX)	+= synaptics_dsx/
 obj-$(CONFIG_TOUCHSCREEN_ZINITIX)	+= zinitix.o
 obj-$(CONFIG_TOUCHSCREEN_NT36XXX_SPI)	+= nt36xxx/
 obj-$(CONFIG_TOUCHSCREEN_NT36XXX_I2C)	+= nt36xxx/
+obj-$(CONFIG_TOUCHSCREEN_GOODIX_BRL)	+= goodix_berlin_driver/

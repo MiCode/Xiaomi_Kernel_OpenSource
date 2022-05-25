@@ -115,6 +115,7 @@
 #define QMI_WLFW_MAC_ADDR_SIZE_V01 6
 #define QMI_WLFW_MAX_NUM_GPIO_INFO_V01 20
 #define QMI_WLFW_MAX_NUM_MEM_CFG_V01 2
+#define QMI_WLFW_PMU_PARAMS_MAX_V01 16
 #define QMI_WLFW_MAX_NUM_MEM_SEG_V01 52
 #define QMI_WLFW_MAX_WFC_CALL_STATUS_DATA_SIZE_V01 256
 #define QMI_WLFW_MAX_DATA_SIZE_V01 6144
@@ -283,6 +284,7 @@ enum wlfw_gpio_info_type_v01 {
 enum wlfw_ini_file_type_v01 {
 	WLFW_INI_FILE_TYPE_MIN_VAL_V01 = INT_MIN,
 	WLFW_INI_CFG_FILE_V01 = 0,
+	WLFW_CONN_ROAM_INI_V01 = 1,
 	WLFW_INI_FILE_TYPE_MAX_VAL_V01 = INT_MAX,
 };
 
@@ -407,6 +409,19 @@ struct wlfw_host_mlo_chip_info_s_v01 {
 	u8 valid_mlo_link_id[QMI_WLFW_MAX_NUM_MLO_LINKS_PER_CHIP_V01];
 };
 
+struct wlfw_pmu_param_v01 {
+	u8 pin_name[32];
+	u32 wake_volt_valid;
+	u32 wake_volt;
+	u32 sleep_volt_valid;
+	u32 sleep_volt;
+};
+
+struct wlfw_pmu_cfg_v01 {
+	u32 pmu_param_len;
+	struct wlfw_pmu_param_v01 pmu_param[QMI_WLFW_PMU_PARAMS_MAX_V01];
+};
+
 struct wlfw_shadow_reg_v3_cfg_s_v01 {
 	u32 addr;
 };
@@ -453,6 +468,7 @@ struct wlfw_ind_register_req_msg_v01 {
 	u8 m3_dump_upload_segments_req_enable_valid;
 	u8 m3_dump_upload_segments_req_enable;
 };
+
 #define WLFW_IND_REGISTER_REQ_MSG_V01_MAX_MSG_LEN 86
 extern struct qmi_elem_info wlfw_ind_register_req_msg_v01_ei[];
 
@@ -461,12 +477,14 @@ struct wlfw_ind_register_resp_msg_v01 {
 	u8 fw_status_valid;
 	u64 fw_status;
 };
+
 #define WLFW_IND_REGISTER_RESP_MSG_V01_MAX_MSG_LEN 18
 extern struct qmi_elem_info wlfw_ind_register_resp_msg_v01_ei[];
 
 struct wlfw_fw_ready_ind_msg_v01 {
 	char placeholder;
 };
+
 #define WLFW_FW_READY_IND_MSG_V01_MAX_MSG_LEN 0
 extern struct qmi_elem_info wlfw_fw_ready_ind_msg_v01_ei[];
 
@@ -476,6 +494,7 @@ struct wlfw_msa_ready_ind_msg_v01 {
 	u8 hang_data_length_valid;
 	u16 hang_data_length;
 };
+
 #define WLFW_MSA_READY_IND_MSG_V01_MAX_MSG_LEN 12
 extern struct qmi_elem_info wlfw_msa_ready_ind_msg_v01_ei[];
 
@@ -487,6 +506,7 @@ struct wlfw_pin_connect_result_ind_msg_v01 {
 	u8 rf_pin_result_valid;
 	u32 rf_pin_result;
 };
+
 #define WLFW_PIN_CONNECT_RESULT_IND_MSG_V01_MAX_MSG_LEN 21
 extern struct qmi_elem_info wlfw_pin_connect_result_ind_msg_v01_ei[];
 
@@ -504,6 +524,7 @@ extern struct qmi_elem_info wlfw_wlan_mode_req_msg_v01_ei[];
 struct wlfw_wlan_mode_resp_msg_v01 {
 	struct qmi_response_type_v01 resp;
 };
+
 #define WLFW_WLAN_MODE_RESP_MSG_V01_MAX_MSG_LEN 7
 extern struct qmi_elem_info wlfw_wlan_mode_resp_msg_v01_ei[];
 
@@ -538,12 +559,14 @@ extern struct qmi_elem_info wlfw_wlan_cfg_req_msg_v01_ei[];
 struct wlfw_wlan_cfg_resp_msg_v01 {
 	struct qmi_response_type_v01 resp;
 };
+
 #define WLFW_WLAN_CFG_RESP_MSG_V01_MAX_MSG_LEN 7
 extern struct qmi_elem_info wlfw_wlan_cfg_resp_msg_v01_ei[];
 
 struct wlfw_cap_req_msg_v01 {
 	char placeholder;
 };
+
 #define WLFW_CAP_REQ_MSG_V01_MAX_MSG_LEN 0
 extern struct qmi_elem_info wlfw_cap_req_msg_v01_ei[];
 
@@ -585,9 +608,11 @@ struct wlfw_cap_resp_msg_v01 {
 	enum wlfw_bdf_dnld_method_v01 bdf_dnld_method;
 	u8 hwid_bitmap_valid;
 	u8 hwid_bitmap;
+	u8 ol_cpr_cfg_valid;
+	struct wlfw_pmu_cfg_v01 ol_cpr_cfg;
 };
 
-#define WLFW_CAP_RESP_MSG_V01_MAX_MSG_LEN 362
+#define WLFW_CAP_RESP_MSG_V01_MAX_MSG_LEN 1134
 extern struct qmi_elem_info wlfw_cap_resp_msg_v01_ei[];
 
 struct wlfw_bdf_download_req_msg_v01 {
@@ -606,6 +631,7 @@ struct wlfw_bdf_download_req_msg_v01 {
 	u8 bdf_type_valid;
 	u8 bdf_type;
 };
+
 #define WLFW_BDF_DOWNLOAD_REQ_MSG_V01_MAX_MSG_LEN 6182
 extern struct qmi_elem_info wlfw_bdf_download_req_msg_v01_ei[];
 
@@ -614,6 +640,7 @@ struct wlfw_bdf_download_resp_msg_v01 {
 	u8 host_bdf_data_valid;
 	u64 host_bdf_data;
 };
+
 #define WLFW_BDF_DOWNLOAD_RESP_MSG_V01_MAX_MSG_LEN 18
 extern struct qmi_elem_info wlfw_bdf_download_resp_msg_v01_ei[];
 
@@ -627,12 +654,14 @@ struct wlfw_cal_report_req_msg_v01 {
 	u8 cal_file_download_size_valid;
 	u64 cal_file_download_size;
 };
+
 #define WLFW_CAL_REPORT_REQ_MSG_V01_MAX_MSG_LEN 43
 extern struct qmi_elem_info wlfw_cal_report_req_msg_v01_ei[];
 
 struct wlfw_cal_report_resp_msg_v01 {
 	struct qmi_response_type_v01 resp;
 };
+
 #define WLFW_CAL_REPORT_RESP_MSG_V01_MAX_MSG_LEN 7
 extern struct qmi_elem_info wlfw_cal_report_resp_msg_v01_ei[];
 
@@ -643,6 +672,7 @@ struct wlfw_initiate_cal_download_ind_msg_v01 {
 	u8 cal_data_location_valid;
 	u32 cal_data_location;
 };
+
 #define WLFW_INITIATE_CAL_DOWNLOAD_IND_MSG_V01_MAX_MSG_LEN 21
 extern struct qmi_elem_info wlfw_initiate_cal_download_ind_msg_v01_ei[];
 
@@ -662,12 +692,14 @@ struct wlfw_cal_download_req_msg_v01 {
 	u8 cal_data_location_valid;
 	u32 cal_data_location;
 };
+
 #define WLFW_CAL_DOWNLOAD_REQ_MSG_V01_MAX_MSG_LEN 6185
 extern struct qmi_elem_info wlfw_cal_download_req_msg_v01_ei[];
 
 struct wlfw_cal_download_resp_msg_v01 {
 	struct qmi_response_type_v01 resp;
 };
+
 #define WLFW_CAL_DOWNLOAD_RESP_MSG_V01_MAX_MSG_LEN 7
 extern struct qmi_elem_info wlfw_cal_download_resp_msg_v01_ei[];
 
@@ -677,6 +709,7 @@ struct wlfw_initiate_cal_update_ind_msg_v01 {
 	u8 cal_data_location_valid;
 	u32 cal_data_location;
 };
+
 #define WLFW_INITIATE_CAL_UPDATE_IND_MSG_V01_MAX_MSG_LEN 21
 extern struct qmi_elem_info wlfw_initiate_cal_update_ind_msg_v01_ei[];
 
@@ -684,6 +717,7 @@ struct wlfw_cal_update_req_msg_v01 {
 	enum wlfw_cal_temp_id_enum_v01 cal_id;
 	u32 seg_id;
 };
+
 #define WLFW_CAL_UPDATE_REQ_MSG_V01_MAX_MSG_LEN 14
 extern struct qmi_elem_info wlfw_cal_update_req_msg_v01_ei[];
 
@@ -703,6 +737,7 @@ struct wlfw_cal_update_resp_msg_v01 {
 	u8 cal_data_location_valid;
 	u32 cal_data_location;
 };
+
 #define WLFW_CAL_UPDATE_RESP_MSG_V01_MAX_MSG_LEN 6188
 extern struct qmi_elem_info wlfw_cal_update_resp_msg_v01_ei[];
 
@@ -710,6 +745,7 @@ struct wlfw_msa_info_req_msg_v01 {
 	u64 msa_addr;
 	u32 size;
 };
+
 #define WLFW_MSA_INFO_REQ_MSG_V01_MAX_MSG_LEN 18
 extern struct qmi_elem_info wlfw_msa_info_req_msg_v01_ei[];
 
@@ -718,18 +754,21 @@ struct wlfw_msa_info_resp_msg_v01 {
 	u32 mem_region_info_len;
 	struct wlfw_memory_region_info_s_v01 mem_region_info[QMI_WLFW_MAX_NUM_MEMORY_REGIONS_V01];
 };
+
 #define WLFW_MSA_INFO_RESP_MSG_V01_MAX_MSG_LEN 37
 extern struct qmi_elem_info wlfw_msa_info_resp_msg_v01_ei[];
 
 struct wlfw_msa_ready_req_msg_v01 {
 	char placeholder;
 };
+
 #define WLFW_MSA_READY_REQ_MSG_V01_MAX_MSG_LEN 0
 extern struct qmi_elem_info wlfw_msa_ready_req_msg_v01_ei[];
 
 struct wlfw_msa_ready_resp_msg_v01 {
 	struct qmi_response_type_v01 resp;
 };
+
 #define WLFW_MSA_READY_RESP_MSG_V01_MAX_MSG_LEN 7
 extern struct qmi_elem_info wlfw_msa_ready_resp_msg_v01_ei[];
 
@@ -737,12 +776,14 @@ struct wlfw_ini_req_msg_v01 {
 	u8 enablefwlog_valid;
 	u8 enablefwlog;
 };
+
 #define WLFW_INI_REQ_MSG_V01_MAX_MSG_LEN 4
 extern struct qmi_elem_info wlfw_ini_req_msg_v01_ei[];
 
 struct wlfw_ini_resp_msg_v01 {
 	struct qmi_response_type_v01 resp;
 };
+
 #define WLFW_INI_RESP_MSG_V01_MAX_MSG_LEN 7
 extern struct qmi_elem_info wlfw_ini_resp_msg_v01_ei[];
 
@@ -751,6 +792,7 @@ struct wlfw_athdiag_read_req_msg_v01 {
 	u32 mem_type;
 	u32 data_len;
 };
+
 #define WLFW_ATHDIAG_READ_REQ_MSG_V01_MAX_MSG_LEN 21
 extern struct qmi_elem_info wlfw_athdiag_read_req_msg_v01_ei[];
 
@@ -760,6 +802,7 @@ struct wlfw_athdiag_read_resp_msg_v01 {
 	u32 data_len;
 	u8 data[QMI_WLFW_MAX_ATHDIAG_DATA_SIZE_V01];
 };
+
 #define WLFW_ATHDIAG_READ_RESP_MSG_V01_MAX_MSG_LEN 6156
 extern struct qmi_elem_info wlfw_athdiag_read_resp_msg_v01_ei[];
 
@@ -769,24 +812,28 @@ struct wlfw_athdiag_write_req_msg_v01 {
 	u32 data_len;
 	u8 data[QMI_WLFW_MAX_ATHDIAG_DATA_SIZE_V01];
 };
+
 #define WLFW_ATHDIAG_WRITE_REQ_MSG_V01_MAX_MSG_LEN 6163
 extern struct qmi_elem_info wlfw_athdiag_write_req_msg_v01_ei[];
 
 struct wlfw_athdiag_write_resp_msg_v01 {
 	struct qmi_response_type_v01 resp;
 };
+
 #define WLFW_ATHDIAG_WRITE_RESP_MSG_V01_MAX_MSG_LEN 7
 extern struct qmi_elem_info wlfw_athdiag_write_resp_msg_v01_ei[];
 
 struct wlfw_vbatt_req_msg_v01 {
 	u64 voltage_uv;
 };
+
 #define WLFW_VBATT_REQ_MSG_V01_MAX_MSG_LEN 11
 extern struct qmi_elem_info wlfw_vbatt_req_msg_v01_ei[];
 
 struct wlfw_vbatt_resp_msg_v01 {
 	struct qmi_response_type_v01 resp;
 };
+
 #define WLFW_VBATT_RESP_MSG_V01_MAX_MSG_LEN 7
 extern struct qmi_elem_info wlfw_vbatt_resp_msg_v01_ei[];
 
@@ -794,12 +841,14 @@ struct wlfw_mac_addr_req_msg_v01 {
 	u8 mac_addr_valid;
 	u8 mac_addr[QMI_WLFW_MAC_ADDR_SIZE_V01];
 };
+
 #define WLFW_MAC_ADDR_REQ_MSG_V01_MAX_MSG_LEN 9
 extern struct qmi_elem_info wlfw_mac_addr_req_msg_v01_ei[];
 
 struct wlfw_mac_addr_resp_msg_v01 {
 	struct qmi_response_type_v01 resp;
 };
+
 #define WLFW_MAC_ADDR_RESP_MSG_V01_MAX_MSG_LEN 7
 extern struct qmi_elem_info wlfw_mac_addr_resp_msg_v01_ei[];
 

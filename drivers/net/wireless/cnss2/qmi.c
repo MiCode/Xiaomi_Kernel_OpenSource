@@ -28,6 +28,10 @@
 #define HDS_FILE_NAME			"hds.bin"
 #define CHIP_ID_GF_MASK			0x10
 
+#define CONN_ROAM_FILE_NAME		"wlan-connection-roaming"
+#define INI_EXT			".ini"
+#define INI_FILE_NAME_LEN		100
+
 #define QDSS_TRACE_CONFIG_FILE		"qdss_trace_config"
 #ifdef CONFIG_CNSS2_DEBUG
 #define QDSS_DEBUG_FILE_STR		"debug_"
@@ -45,6 +49,9 @@
 #define QMI_WLFW_MAX_RECV_BUF_SIZE	SZ_8K
 #define IMSPRIVATE_SERVICE_MAX_MSG_LEN	SZ_8K
 #define DMS_QMI_MAX_MSG_LEN		SZ_256
+#define MAX_SHADOW_REG_RESERVED		2
+#define MAX_NUM_SHADOW_REG_V3	(QMI_WLFW_MAX_NUM_SHADOW_REG_V3_USAGE_V01 - \
+				 MAX_SHADOW_REG_RESERVED)
 
 #define QMI_WLFW_MAC_READY_TIMEOUT_MS	50
 #define QMI_WLFW_MAC_READY_MAX_RETRY	200
@@ -531,6 +538,9 @@ int cnss_wlfw_tgt_cap_send_sync(struct cnss_plat_data *plat_priv)
 	if (resp->hwid_bitmap_valid)
 		plat_priv->hwid_bitmap = resp->hwid_bitmap;
 
+	if (resp->ol_cpr_cfg_valid)
+		cnss_aop_ol_cpr_cfg_setup(plat_priv, &resp->ol_cpr_cfg);
+
 	cnss_pr_dbg("Target capability: chip_id: 0x%x, chip_family: 0x%x, board_id: 0x%x, soc_id: 0x%x, otp_version: 0x%x\n",
 		    plat_priv->chip_info.chip_id,
 		    plat_priv->chip_info.chip_family,
@@ -628,6 +638,146 @@ static int cnss_get_bdf_file_name(struct cnss_plat_data *plat_priv,
 
 	if (!ret)
 		cnss_bus_add_fw_prefix_name(plat_priv, filename, filename_tmp);
+
+	return ret;
+}
+
+int cnss_wlfw_ini_file_send_sync(struct cnss_plat_data *plat_priv,
+				 enum wlfw_ini_file_type_v01 file_type)
+{
+	struct wlfw_ini_file_download_req_msg_v01 *req;
+	struct wlfw_ini_file_download_resp_msg_v01 *resp;
+	struct qmi_txn txn;
+	int ret = 0;
+	const struct firmware *fw;
+	char filename[INI_FILE_NAME_LEN] = {0};
+	char tmp_filename[INI_FILE_NAME_LEN] = {0};
+	const u8 *temp;
+	unsigned int remaining;
+	bool backup_supported = false;
+
+	cnss_pr_info("INI File %u download\n", file_type);
+
+	req = kzalloc(sizeof(*req), GFP_KERNEL);
+	if (!req)
+		return -ENOMEM;
+
+	resp = kzalloc(sizeof(*resp), GFP_KERNEL);
+	if (!resp) {
+		kfree(req);
+		return -ENOMEM;
+	}
+
+	switch (file_type) {
+	case WLFW_CONN_ROAM_INI_V01:
+		snprintf(tmp_filename, sizeof(tmp_filename),
+			 CONN_ROAM_FILE_NAME);
+		backup_supported = true;
+		break;
+	default:
+		cnss_pr_err("Invalid file type: %u\n", file_type);
+		ret = -EINVAL;
+		goto err_req_fw;
+	}
+
+	snprintf(filename, sizeof(filename), "%s%s", tmp_filename, INI_EXT);
+	/* Fetch the file */
+	ret = firmware_request_nowarn(&fw, filename, &plat_priv->plat_dev->dev);
+	if (ret) {
+		cnss_pr_err("Failed to get INI file %s (%d), Backup file: %s",
+			    filename, ret,
+			    backup_supported ? "Supported" : "Not Supported");
+
+		if (!backup_supported)
+			goto err_req_fw;
+
+		snprintf(filename, sizeof(filename),
+			 "%s-%s%s", tmp_filename, "backup", INI_EXT);
+
+		ret = firmware_request_nowarn(&fw, filename,
+					      &plat_priv->plat_dev->dev);
+		if (ret) {
+			cnss_pr_err("Failed to get INI file %s (%d)", filename,
+				    ret);
+			goto err_req_fw;
+		}
+	}
+
+	temp = fw->data;
+	remaining = fw->size;
+
+	cnss_pr_dbg("Downloading INI file: %s, size: %u\n", filename,
+		    remaining);
+
+	while (remaining) {
+		req->file_type_valid = 1;
+		req->file_type = file_type;
+		req->total_size_valid = 1;
+		req->total_size = remaining;
+		req->seg_id_valid = 1;
+		req->data_valid = 1;
+		req->end_valid = 1;
+
+		if (remaining > QMI_WLFW_MAX_DATA_SIZE_V01) {
+			req->data_len = QMI_WLFW_MAX_DATA_SIZE_V01;
+		} else {
+			req->data_len = remaining;
+			req->end = 1;
+		}
+
+		memcpy(req->data, temp, req->data_len);
+
+		ret = qmi_txn_init(&plat_priv->qmi_wlfw, &txn,
+				   wlfw_ini_file_download_resp_msg_v01_ei,
+				   resp);
+		if (ret < 0) {
+			cnss_pr_err("Failed to initialize txn for INI file download request, err: %d\n",
+				    ret);
+			goto err;
+		}
+
+		ret = qmi_send_request
+			(&plat_priv->qmi_wlfw, NULL, &txn,
+			 QMI_WLFW_INI_FILE_DOWNLOAD_REQ_V01,
+			 WLFW_INI_FILE_DOWNLOAD_REQ_MSG_V01_MAX_MSG_LEN,
+			 wlfw_ini_file_download_req_msg_v01_ei, req);
+		if (ret < 0) {
+			qmi_txn_cancel(&txn);
+			cnss_pr_err("Failed to send INI File download request, err: %d\n",
+				    ret);
+			goto err;
+		}
+
+		ret = qmi_txn_wait(&txn, QMI_WLFW_TIMEOUT_JF);
+		if (ret < 0) {
+			cnss_pr_err("Failed to wait for response of INI File download request, err: %d\n",
+				    ret);
+			goto err;
+		}
+
+		if (resp->resp.result != QMI_RESULT_SUCCESS_V01) {
+			cnss_pr_err("INI file download request failed, result: %d, err: %d\n",
+				    resp->resp.result, resp->resp.error);
+			ret = -resp->resp.result;
+			goto err;
+		}
+
+		remaining -= req->data_len;
+		temp += req->data_len;
+		req->seg_id++;
+	}
+
+	release_firmware(fw);
+
+	kfree(req);
+	kfree(resp);
+	return 0;
+
+err:
+	release_firmware(fw);
+err_req_fw:
+	kfree(req);
+	kfree(resp);
 
 	return ret;
 }
@@ -1380,16 +1530,31 @@ int cnss_wlfw_wlan_cfg_send_sync(struct cnss_plat_data *plat_priv,
 		req->svc_cfg[i].pipe_num = config->ce_svc_cfg[i].pipe_num;
 	}
 
-	req->shadow_reg_v2_valid = 1;
-	if (config->num_shadow_reg_v2_cfg >
-	    QMI_WLFW_MAX_NUM_SHADOW_REG_V2_V01)
-		req->shadow_reg_v2_len = QMI_WLFW_MAX_NUM_SHADOW_REG_V2_V01;
-	else
-		req->shadow_reg_v2_len = config->num_shadow_reg_v2_cfg;
+	if (plat_priv->device_id != KIWI_DEVICE_ID) {
+		req->shadow_reg_v2_valid = 1;
+		if (config->num_shadow_reg_v2_cfg >
+		    QMI_WLFW_MAX_NUM_SHADOW_REG_V2_V01)
+			req->shadow_reg_v2_len = QMI_WLFW_MAX_NUM_SHADOW_REG_V2_V01;
+		else
+			req->shadow_reg_v2_len = config->num_shadow_reg_v2_cfg;
 
-	memcpy(req->shadow_reg_v2, config->shadow_reg_v2_cfg,
-	       sizeof(struct wlfw_shadow_reg_v2_cfg_s_v01)
-	       * req->shadow_reg_v2_len);
+		memcpy(req->shadow_reg_v2, config->shadow_reg_v2_cfg,
+		       sizeof(struct wlfw_shadow_reg_v2_cfg_s_v01)
+		       * req->shadow_reg_v2_len);
+	} else {
+		cnss_pr_dbg("Shadow reg v3 len: %d\n",
+			    config->num_shadow_reg_v3_cfg);
+		req->shadow_reg_v3_valid = 1;
+		if (config->num_shadow_reg_v3_cfg >
+		    MAX_NUM_SHADOW_REG_V3)
+			req->shadow_reg_v3_len = MAX_NUM_SHADOW_REG_V3;
+		else
+			req->shadow_reg_v3_len = config->num_shadow_reg_v3_cfg;
+
+		memcpy(req->shadow_reg_v3, config->shadow_reg_v3_cfg,
+		       sizeof(struct wlfw_shadow_reg_v3_cfg_s_v01)
+		       * req->shadow_reg_v3_len);
+	}
 
 	ret = qmi_txn_init(&plat_priv->qmi_wlfw, &txn,
 			   wlfw_wlan_cfg_resp_msg_v01_ei, resp);
