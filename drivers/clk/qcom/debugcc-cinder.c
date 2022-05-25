@@ -218,7 +218,7 @@ static struct clk_debug_mux ecpri_cc_debug_mux = {
 	.post_div_shift = 0,
 	.post_div_val = 4,
 	.mux_sels = ecpri_cc_debug_mux_sels,
-	.hw.init = &(struct clk_init_data){
+	.hw.init = &(const struct clk_init_data){
 		.name = "ecpri_cc_debug_mux",
 		.ops = &clk_debug_mux_ops,
 		.parent_names = ecpri_cc_debug_mux_parent_names,
@@ -288,6 +288,8 @@ static const char *const gcc_debug_mux_parent_names[] = {
 	"gcc_sdcc5_ahb_clk",
 	"gcc_sdcc5_apps_clk",
 	"gcc_sdcc5_ice_core_clk",
+	"gcc_sm_bus_ahb_clk",
+	"gcc_sm_bus_xo_clk",
 	"gcc_snoc_cnoc_gemnoc_pcie_qx_clk",
 	"gcc_snoc_cnoc_gemnoc_pcie_south_qx_clk",
 	"gcc_snoc_cnoc_pcie_qx_clk",
@@ -303,6 +305,9 @@ static const char *const gcc_debug_mux_parent_names[] = {
 	"gcc_usb3_prim_phy_com_aux_clk",
 	"gcc_usb3_prim_phy_pipe_clk",
 	"mc_cc_debug_mux",
+	"measure_only_pcie_0_phy_aux_clk",
+	"measure_only_pcie_0_pipe_clk",
+	"measure_only_usb3_phy_wrapper_gcc_usb30_pipe_clk",
 };
 
 static int gcc_debug_mux_sels[] = {
@@ -367,6 +372,8 @@ static int gcc_debug_mux_sels[] = {
 	0x108,		/* gcc_sdcc5_ahb_clk */
 	0x107,		/* gcc_sdcc5_apps_clk */
 	0x109,		/* gcc_sdcc5_ice_core_clk */
+	0x11A,		/* gcc_sm_bus_ahb_clk */
+	0x11B,		/* gcc_sm_bus_xo_clk */
 	0x2D,		/* gcc_snoc_cnoc_gemnoc_pcie_qx_clk */
 	0x2E,		/* gcc_snoc_cnoc_gemnoc_pcie_south_qx_clk */
 	0x1D,		/* gcc_snoc_cnoc_pcie_qx_clk */
@@ -382,6 +389,9 @@ static int gcc_debug_mux_sels[] = {
 	0x61,		/* gcc_usb3_prim_phy_com_aux_clk */
 	0x62,		/* gcc_usb3_prim_phy_pipe_clk */
 	0xB8,		/* mc_cc_debug_mux */
+	0xD5,		/* measure_only_pcie_0_phy_aux_clk */
+	0xD4,		/* measure_only_pcie_0_pipe_clk */
+	0x66,		/* measure_only_usb3_phy_wrapper_gcc_usb30_pipe_clk */
 };
 
 static struct clk_debug_mux gcc_debug_mux = {
@@ -395,7 +405,7 @@ static struct clk_debug_mux gcc_debug_mux = {
 	.post_div_shift = 0,
 	.post_div_val = 2,
 	.mux_sels = gcc_debug_mux_sels,
-	.hw.init = &(struct clk_init_data){
+	.hw.init = &(const struct clk_init_data){
 		.name = "gcc_debug_mux",
 		.ops = &clk_debug_mux_ops,
 		.parent_names = gcc_debug_mux_parent_names,
@@ -431,8 +441,35 @@ static struct clk_dummy measure_only_mccc_clk = {
 	},
 };
 
+static struct clk_dummy measure_only_pcie_0_phy_aux_clk = {
+	.rrate = 1000,
+	.hw.init = &(const struct clk_init_data){
+		.name = "measure_only_pcie_0_phy_aux_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
+static struct clk_dummy measure_only_pcie_0_pipe_clk = {
+	.rrate = 1000,
+	.hw.init = &(const struct clk_init_data){
+		.name = "measure_only_pcie_0_pipe_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
+static struct clk_dummy measure_only_usb3_phy_wrapper_gcc_usb30_pipe_clk = {
+	.rrate = 1000,
+	.hw.init = &(const struct clk_init_data){
+		.name = "measure_only_usb3_phy_wrapper_gcc_usb30_pipe_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
 static struct clk_hw *debugcc_cinder_hws[] = {
 	&measure_only_mccc_clk.hw,
+	&measure_only_pcie_0_phy_aux_clk.hw,
+	&measure_only_pcie_0_pipe_clk.hw,
+	&measure_only_usb3_phy_wrapper_gcc_usb30_pipe_clk.hw,
 };
 
 static const struct of_device_id clk_debug_match_table[] = {
@@ -473,7 +510,7 @@ static int clk_debug_cinder_probe(struct platform_device *pdev)
 		ret = devm_clk_register_debug_mux(&pdev->dev, mux_list[i].mux);
 		if (ret) {
 			dev_err(&pdev->dev, "Unable to register mux clk %s, err:(%d)\n",
-				clk_hw_get_name(&mux_list[i].mux->hw),
+				qcom_clk_hw_get_name(&mux_list[i].mux->hw),
 				ret);
 			return ret;
 		}
