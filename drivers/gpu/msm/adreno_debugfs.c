@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2002,2008-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/debugfs.h>
@@ -142,6 +143,30 @@ static int _coop_reset_get(void *data, u64 *val)
 }
 DEFINE_DEBUGFS_ATTRIBUTE(_coop_reset_fops, _coop_reset_get,
 				_coop_reset_set, "%llu\n");
+
+static void set_gpu_client_pf(struct adreno_device *adreno_dev, void *priv)
+{
+	adreno_dev->uche_client_pf = *((u32 *)priv);
+	adreno_dev->patch_reglist = false;
+}
+
+static int _gpu_client_pf_set(void *data, u64 val)
+{
+	struct kgsl_device *device = data;
+
+	return adreno_power_cycle(ADRENO_DEVICE(device), set_gpu_client_pf, &val);
+}
+
+static int _gpu_client_pf_get(void *data, u64 *val)
+{
+	struct kgsl_device *device = data;
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+
+	*val = (u64) adreno_dev->uche_client_pf;
+	return 0;
+}
+DEFINE_DEBUGFS_ATTRIBUTE(_gpu_client_pf_fops, _gpu_client_pf_get,
+				_gpu_client_pf_set, "%llu\n");
 
 typedef void (*reg_read_init_t)(struct kgsl_device *device);
 typedef void (*reg_read_fill_t)(struct kgsl_device *device, int i,
@@ -413,4 +438,6 @@ void adreno_debugfs_init(struct adreno_device *adreno_dev)
 
 	debugfs_create_file("ctxt_record_size", 0644, snapshot_dir,
 		device, &_ctxt_record_size_fops);
+	debugfs_create_file("gpu_client_pf", 0644, snapshot_dir,
+		device, &_gpu_client_pf_fops);
 }

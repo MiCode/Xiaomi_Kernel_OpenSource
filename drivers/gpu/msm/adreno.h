@@ -641,6 +641,13 @@ struct adreno_device {
 	bool perfcounter;
 	/** @gmu_hub_clk_freq: Gmu hub interface clock frequency */
 	u64 gmu_hub_clk_freq;
+	/* @patch_reglist: If false power up register list needs to be patched */
+	bool patch_reglist;
+	/*
+	 * @uche_client_pf: uche_client_pf client register configuration
+	 * for pf debugging
+	 */
+	u32 uche_client_pf;
 };
 
 /**
