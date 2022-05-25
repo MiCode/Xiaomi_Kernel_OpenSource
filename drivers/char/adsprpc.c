@@ -6008,7 +6008,6 @@ static int fastrpc_check_pd_status(struct fastrpc_file *fl, char *sloc_name)
 			err = wait_event_interruptible(
 			me->channel[cid].spd[session].wait_for_pdup,
 			atomic_read(&me->channel[cid].spd[session].ispdup));
-			ADSPRPC_INFO("PDR interrupt %d received\n", err);
 			goto bail;
 		}
 	}

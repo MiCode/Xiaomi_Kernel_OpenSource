@@ -186,10 +186,10 @@ int fastrpc_wait_for_transport_interrupt(int cid,
 	if (flags == FASTRPC_INIT_ATTACH || flags == FASTRPC_INIT_ATTACH_SENSORS
 		|| flags == FASTRPC_INIT_CREATE_STATIC) {
 		transport_session_control = &rpmsg_session_control[cid];
-		ADSPRPC_INFO("Thread waiting for cid %d rpmsg channel", cid);
+		ADSPRPC_DEBUG("Thread waiting for cid %d rpmsg channel", cid);
 		err = wait_event_interruptible(transport_session_control->wait_for_rpmsg_ch,
 				atomic_read(&transport_session_control->is_rpmsg_ch_up));
-		ADSPRPC_INFO("Thread received signal for cid %d rpmsg channel (interrupted %d)",
+		ADSPRPC_DEBUG("Thread received signal for cid %d rpmsg channel (interrupted %d)",
 			cid, err);
 	}
 
