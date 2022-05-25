@@ -697,7 +697,7 @@ static int adsp_setup_32b_dma_allocs(struct qcom_adsp *adsp)
 	if (!adsp->dma_phys_below_32b)
 		return 0;
 
-	ret = of_reserved_mem_device_init_by_idx(adsp->dev, adsp->dev->of_node, 2);
+	ret = of_reserved_mem_device_init_by_idx(adsp->dev, adsp->dev->of_node, 1);
 	if (ret) {
 		dev_err(adsp->dev,
 			"Unable to get the CMA area for performing dma_alloc_* calls\n");
