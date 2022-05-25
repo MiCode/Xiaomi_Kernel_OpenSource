@@ -28,6 +28,7 @@
 #include <uapi/linux/sched/types.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
+#include <linux/pm_wakeup.h>
 #include <linux/of.h>
 #include <linux/mutex.h>
 #include <linux/interrupt.h>
@@ -68,7 +69,9 @@ struct gh_proxy_vcpu {
 	struct task_struct *task;
 	int virq;
 	char irq_name[32];
+	char ws_name[32];
 	wait_queue_head_t wait_queue;
+	struct wakeup_source *ws;
 };
 
 struct gh_proxy_vm {
@@ -175,8 +178,11 @@ static inline void gh_reset_vm(struct gh_proxy_vm *vm)
 		vm->vcpu[j].idx = U32_MAX;
 		vm->vcpu[j].vm = NULL;
 		vm->vcpu[j].abort_sleep = false;
+		vm->vcpu[j].ws = NULL;
 		strscpy(vm->vcpu[vm->vcpu_count].irq_name, "",
 				sizeof(vm->vcpu[vm->vcpu_count].irq_name));
+		strscpy(vm->vcpu[vm->vcpu_count].ws_name, "",
+				sizeof(vm->vcpu[vm->vcpu_count].ws_name));
 	}
 }
 
@@ -208,12 +214,12 @@ unlock:
 	return IRQ_HANDLED;
 }
 
-static inline void gh_get_irq_name(int vmid, int vcpu_num, char *irq_name)
+static inline void gh_get_vcpu_prop_name(int vmid, int vcpu_num, char *name)
 {
 	char extrastr[12];
 
 	scnprintf(extrastr, 12, "_%d_%d", vmid, vcpu_num);
-	strlcat(irq_name, extrastr, 32);
+	strlcat(name, extrastr, 32);
 }
 
 /*
@@ -259,16 +265,26 @@ static int gh_populate_vm_vcpu_info(gh_vmid_t vmid, gh_label_t cpu_idx,
 		}
 
 		strscpy(vm->vcpu[vm->vcpu_count].irq_name, "gh_vcpu_irq",
-					sizeof(vm->vcpu[vm->vcpu_count].irq_name));
-		gh_get_irq_name(vmid, vm->vcpu_count, vm->vcpu[vm->vcpu_count].irq_name);
+				sizeof(vm->vcpu[vm->vcpu_count].irq_name));
+		gh_get_vcpu_prop_name(vmid, vm->vcpu_count,
+				vm->vcpu[vm->vcpu_count].irq_name);
 		ret = request_irq(virq_num, gh_vcpu_irq_handler, 0,
-						vm->vcpu[vm->vcpu_count].irq_name,
-						&vm->vcpu[vm->vcpu_count]);
+				  vm->vcpu[vm->vcpu_count].irq_name,
+				  &vm->vcpu[vm->vcpu_count]);
 		if (ret < 0) {
 			pr_err("%s: IRQ registration failed ret=%d\n", __func__, ret);
-			strscpy(vm->vcpu[vm->vcpu_count].irq_name, "",
-					sizeof(vm->vcpu[vm->vcpu_count].irq_name));
-			goto unlock;
+			goto err_irq;
+		}
+
+		strscpy(vm->vcpu[vm->vcpu_count].ws_name, "gh_vcpu_ws",
+				sizeof(vm->vcpu[vm->vcpu_count].ws_name));
+		gh_get_vcpu_prop_name(vmid, vm->vcpu_count,
+				vm->vcpu[vm->vcpu_count].ws_name);
+		vm->vcpu[vm->vcpu_count].ws = wakeup_source_register(NULL,
+				vm->vcpu[vm->vcpu_count].ws_name);
+		if (!vm->vcpu[vm->vcpu_count].ws) {
+			pr_err("%s: Wakeup source creation failed\n", __func__);
+			goto err_ws;
 		}
 
 		vm->id = vmid;
@@ -283,7 +299,15 @@ static int gh_populate_vm_vcpu_info(gh_vmid_t vmid, gh_label_t cpu_idx,
 		pr_info("vmid=%d cpu_index:%u vcpu_cap_id:%llu virq_num=%d irq_name=%s nr_vcpus:%d\n",
 				vmid, cpu_idx, cap_id, virq_num, vcpu_irq_name, nr_vcpus);
 	}
+	goto unlock;
 
+err_ws:
+	strscpy(vm->vcpu[vm->vcpu_count].ws_name, "",
+			sizeof(vm->vcpu[vm->vcpu_count].ws_name));
+	free_irq(virq_num, &vm->vcpu[vm->vcpu_count]);
+err_irq:
+	strscpy(vm->vcpu[vm->vcpu_count].irq_name, "",
+			sizeof(vm->vcpu[vm->vcpu_count].irq_name));
 unlock:
 	mutex_unlock(&gh_vm_mutex);
 out:
@@ -314,6 +338,7 @@ static int gh_unpopulate_vm_vcpu_info(gh_vmid_t vmid, gh_label_t cpu_idx,
 			*irq = vcpu->virq;
 			free_irq(vcpu->virq, vcpu);
 			vcpu->virq = U32_MAX;
+			wakeup_source_unregister(vcpu->ws);
 
 			if (nr_vcpus)
 				nr_vcpus--;
@@ -533,6 +558,7 @@ int gh_vcpu_run(gh_vmid_t vmid, unsigned int vcpu_id, uint64_t resume_data_0,
 		 * We're about to run the vcpu, so we can reset the abort-sleep flag.
 		 */
 		vcpu->abort_sleep = false;
+		__pm_stay_awake(vcpu->ws);
 
 		start_ts = ktime_get();
 		/* Call into Gunyah to run vcpu. */
@@ -553,6 +579,7 @@ int gh_vcpu_run(gh_vmid_t vmid, unsigned int vcpu_id, uint64_t resume_data_0,
 			/* VCPU in WFI or suspended/powered down. */
 			case GH_VCPU_STATE_EXPECTS_WAKEUP:
 			case GH_VCPU_STATE_POWERED_OFF:
+				__pm_relax(vcpu->ws);
 				gh_vcpu_sleep(vcpu);
 				break;
 
@@ -574,12 +601,12 @@ int gh_vcpu_run(gh_vmid_t vmid, unsigned int vcpu_id, uint64_t resume_data_0,
 		}
 
 		if (signal_pending(current)) {
-			ret = -EINTR;
+			ret = -ERESTARTSYS;
 			break;
 		}
 	} while ((ret == GH_ERROR_OK || ret == GH_ERROR_RETRY) && vm->is_active);
 
-	if (ret != -EINTR)
+	if (ret != -ERESTARTSYS)
 		ret = gh_remap_error(ret);
 
 	return ret;
