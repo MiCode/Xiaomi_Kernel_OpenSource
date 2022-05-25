@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /* Copyright (c) 2016, 2019-2021, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved. */
 
 #include <linux/clk.h>
 #include <linux/export.h>
@@ -24,6 +25,7 @@
 static struct clk_hw *measure;
 static bool debug_suspend;
 static bool debug_suspend_atomic;
+static bool qcom_clk_debug_inited;
 static struct dentry *clk_debugfs_suspend;
 static struct dentry *clk_debugfs_suspend_atomic;
 
@@ -764,6 +766,10 @@ void clk_common_debug_init(struct clk_hw *hw, struct dentry *dentry)
 	debugfs_create_file("clk_print_regs", 0444, dentry, hw,
 			    &clock_print_hw_fops);
 
+	if (!qcom_clk_debug_inited) {
+		clk_debug_init();
+		qcom_clk_debug_inited = true;
+	}
 }
 
 static int clk_list_rate_vdd_level(struct clk_hw *hw, unsigned int rate)
