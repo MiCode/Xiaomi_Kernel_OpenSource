@@ -1,6 +1,7 @@
 [abi_symbol_list]
 # commonly used symbols
   access_process_vm
+  add_cpu
   add_timer
   add_uevent_var
   add_wait_queue
@@ -14,6 +15,7 @@
   alloc_io_pgtable_ops
   alloc_netdev_mqs
   alloc_pages_exact
+  android_debug_per_cpu_symbol
   android_debug_symbol
   android_rvh_probe_register
   __alloc_pages
@@ -395,6 +397,7 @@
   handle_edge_irq
   handle_level_irq
   have_governor_per_policy
+  housekeeping_cpumask
   i2c_del_driver
   i2c_register_driver
   i2c_smbus_read_byte_data
@@ -539,6 +542,7 @@
   kstrtouint
   kstrtoull
   ksys_sync_helper
+  kthread_cancel_work_sync
   kthread_create_on_node
   kthread_flush_worker
   kthread_should_stop
@@ -619,6 +623,7 @@
   of_find_node_by_name
   of_find_property
   of_get_child_by_name
+  of_get_cpu_node
   of_get_named_gpio_flags
   of_get_next_available_child
   of_get_next_child
@@ -803,6 +808,7 @@
   request_threaded_irq
   reset_control_assert
   reset_control_deassert
+  return_address
   rfkill_alloc
   rfkill_destroy
   rfkill_init_sw_state
@@ -811,6 +817,7 @@
   runqueues
   __SetPageMovable
   sched_clock
+  sched_feat_keys
   sched_set_fifo_low
   sched_setscheduler
   sched_uclamp_used
@@ -830,6 +837,7 @@
   set_nlink
   set_normalized_timespec64
   set_page_dirty
+  set_task_cpu
   set_user_nice
   sg_alloc_table_from_pages_segment
   sg_init_table
@@ -925,12 +933,14 @@
   sysctl_vals
   sysfs_create_bin_file
   sysfs_create_file_ns
+  sysfs_create_files
   sysfs_create_group
   sysfs_create_groups
   sysfs_create_link
   __sysfs_match_string
   sysfs_notify
   sysfs_remove_bin_file
+  sysfs_remove_files
   sysfs_remove_file_ns
   sysfs_remove_group
   sysfs_remove_groups
@@ -950,6 +960,7 @@
   thermal_zone_device_disable
   thermal_zone_device_enable
   thermal_zone_get_zone_by_name
+  tick_nohz_get_idle_calls_cpu
   timer_of_init
   topology_clear_scale_freq_source
   topology_set_thermal_pressure
@@ -1130,6 +1141,7 @@
   __traceiter_android_rvh_find_lowest_rq
   __traceiter_android_rvh_find_new_ilb
   __traceiter_android_rvh_finish_prio_fork
+  __traceiter_android_rvh_is_cpu_allowed
   __traceiter_android_rvh_migrate_queued_task
   __traceiter_android_rvh_new_task_stats
   __traceiter_android_rvh_prepare_prio_fork
@@ -1155,6 +1167,9 @@
   __traceiter_android_rvh_update_misfit_status
   __traceiter_android_rvh_wake_up_new_task
   __traceiter_android_vh_arch_set_freq_scale
+  __traceiter_android_vh_audio_usb_offload_connect
+  __traceiter_android_vh_audio_usb_offload_ep_action
+  __traceiter_android_vh_audio_usb_offload_synctype
   __traceiter_android_vh_binder_restore_priority
   __traceiter_android_vh_binder_set_priority
   __traceiter_android_vh_binder_transaction_init
@@ -1168,15 +1183,18 @@
   __traceiter_android_vh_mmc_check_status
   __traceiter_android_vh_modify_thermal_request_freq
   __traceiter_android_vh_modify_thermal_target_freq
-  __traceiter_android_vh_psci_cpu_suspend
-  __traceiter_android_vh_psci_tos_resident_on
+  __traceiter_android_rvh_psci_cpu_suspend
+  __traceiter_android_rvh_psci_tos_resident_on
   __traceiter_android_vh_scheduler_tick
   __traceiter_android_vh_set_wake_flags
   __traceiter_android_vh_thermal_power_cap
   __traceiter_android_vh_thermal_register
   __traceiter_android_vh_thermal_unregister
   __traceiter_android_vh_update_topology_flags_workfn
+  __traceiter_cpu_frequency
+  __traceiter_cpu_frequency_limits
   __traceiter_pelt_se_tp
+  __traceiter_sched_overutilized_tp
   __tracepoint_android_rvh_account_irq
   __tracepoint_android_rvh_after_dequeue_task
   __tracepoint_android_rvh_after_enqueue_task
@@ -1196,6 +1214,7 @@
   __tracepoint_android_rvh_find_lowest_rq
   __tracepoint_android_rvh_find_new_ilb
   __tracepoint_android_rvh_finish_prio_fork
+  __tracepoint_android_rvh_is_cpu_allowed
   __tracepoint_android_rvh_migrate_queued_task
   __tracepoint_android_rvh_new_task_stats
   __tracepoint_android_rvh_prepare_prio_fork
@@ -1221,6 +1240,8 @@
   __tracepoint_android_rvh_update_misfit_status
   __tracepoint_android_rvh_wake_up_new_task
   __tracepoint_android_vh_arch_set_freq_scale
+  __tracepoint_android_vh_audio_usb_offload_ep_action
+  __tracepoint_android_vh_audio_usb_offload_synctype
   __tracepoint_android_vh_binder_restore_priority
   __tracepoint_android_vh_binder_set_priority
   __tracepoint_android_vh_binder_transaction_init
@@ -1234,15 +1255,18 @@
   __tracepoint_android_vh_mmc_check_status
   __tracepoint_android_vh_modify_thermal_request_freq
   __tracepoint_android_vh_modify_thermal_target_freq
-  __tracepoint_android_vh_psci_cpu_suspend
-  __tracepoint_android_vh_psci_tos_resident_on
+  __tracepoint_android_rvh_psci_cpu_suspend
+  __tracepoint_android_rvh_psci_tos_resident_on
   __tracepoint_android_vh_scheduler_tick
   __tracepoint_android_vh_set_wake_flags
   __tracepoint_android_vh_thermal_power_cap
   __tracepoint_android_vh_thermal_register
   __tracepoint_android_vh_thermal_unregister
   __tracepoint_android_vh_update_topology_flags_workfn
+  __tracepoint_cpu_frequency
+  __tracepoint_cpu_frequency_limits
   __tracepoint_pelt_se_tp
+  __tracepoint_sched_overutilized_tp
 
 # required by blk-mq-virtio.ko
   blk_mq_map_queues
@@ -1290,8 +1314,14 @@
   divider_round_rate_parent
   of_clk_hw_onecell_get
 
-# required by cpufreq_userspace.ko
+# required by cpufreq governor
   __cpufreq_driver_target
+  cpufreq_disable_fast_switch
+  cpufreq_driver_fast_switch
+  cpufreq_driver_resolve_freq
+  cpufreq_enable_fast_switch
+  cpufreq_policy_transition_delay_us
+  cpufreq_this_cpu_can_update
   cpufreq_register_governor
   cpufreq_unregister_governor
 
@@ -1516,10 +1546,11 @@
   __traceiter_android_vh_printk_ext_header
   __traceiter_android_rvh_report_bug
   __tracepoint_android_vh_dma_buf_release
-  __tracepoint_android_vh_psci_tos_resident_on
-  __tracepoint_android_vh_psci_cpu_suspend
+  __tracepoint_android_rvh_psci_tos_resident_on
+  __tracepoint_android_rvh_psci_cpu_suspend
   __tracepoint_android_vh_regmap_update
   __tracepoint_android_vh_usb_new_device_added
+  __traceiter_android_vh_regmap_update
   __traceiter_android_rvh_tk_based_time_sync
   __traceiter_android_rvh_report_bug
   __tracepoint_android_rvh_effective_cpu_util
@@ -1837,6 +1868,16 @@
   sdhci_runtime_suspend_host
   sdhci_set_bus_width
   sdhci_setup_host
+
+# required by mmc_swcq.ko
+  mmc_cmdq_disable
+  mmc_cmdq_enable
+  mmc_cqe_post_req
+  mmc_hw_reset
+  mmc_put_card
+  mmc_switch
+  mmc_wait_for_cmd
+  dma_map_sg_attrs
 
 # required by sdiohal.ko
   mmc_detect_change
