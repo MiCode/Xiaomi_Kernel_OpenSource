@@ -206,9 +206,14 @@ static int subsystem_sleep_stats(struct sleep_stats_data *stats_data, struct sle
 {
 	struct sleep_stats *subsystem_stats_data;
 
-	if ((idx == AOSD) && stats_data->config[0]->aosd_hardened) {
-		aosd_harden_stats_sleep_stat(stats_data, stats);
-		return 0;
+	if (stats_data->config[0]->aosd_hardened) {
+		if (idx == AOSD) {
+			aosd_harden_stats_sleep_stat(stats_data, stats);
+			return 0;
+		}
+
+		if (idx > 0 && pid == SUBSYSTEM_STATS_OTHERS_NUM)
+			idx--;
 	}
 
 	if (pid == SUBSYSTEM_STATS_OTHERS_NUM)
@@ -535,7 +540,7 @@ static int subsystem_stats_probe(struct platform_device *pdev)
 		if (!res)
 			return PTR_ERR(res);
 
-		stats_data->aosd_reg = devm_ioremap(&pdev->dev, stats_base, stats_size);
+		stats_data->aosd_reg = devm_ioremap(&pdev->dev, res->start, resource_size(res));
 		if (!stats_data->aosd_reg) {
 			ret = -ENOMEM;
 			goto fail_device_create;
