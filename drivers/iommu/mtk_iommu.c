@@ -2557,6 +2557,9 @@ static int mtk_iommu_probe(struct platform_device *pdev)
 
 		infracfg = syscon_regmap_lookup_by_compatible(p);
 
+		if (!infracfg)
+			return -EINVAL;
+
 		if (IS_ERR(infracfg))
 			return PTR_ERR(infracfg);
 
