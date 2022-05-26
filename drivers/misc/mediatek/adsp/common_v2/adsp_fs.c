@@ -129,6 +129,9 @@ static inline ssize_t suspend_cmd_store(struct device *dev,
 
 	fid = adsp_get_feature_index(token2);
 
+	if (fid == SYSTEM_FEATURE_ID)
+		goto EXIT;
+
 	if (!is_feature_in_set(pdata->id, fid))
 		goto EXIT;
 
@@ -327,6 +330,12 @@ static long adsp_driver_ioctl(
 	case AUDIO_DSP_IOCTL_ADSP_REG_FEATURE: {
 		if (copy_from_user(&t, (void *)arg, sizeof(t))) {
 			ret = -EFAULT;
+			break;
+		}
+
+		if (t.cmd0.fid == SYSTEM_FEATURE_ID) {
+			pr_debug("%s(), reg/dreg SYSTEM_FEATURE_ID is not permitted!\n", __func__);
+			ret = -EPERM;
 			break;
 		}
 
