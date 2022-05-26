@@ -1222,6 +1222,7 @@ void gen7_snapshot(struct adreno_device *adreno_dev,
 	size_t cp_indexed_reglist_len;
 	unsigned int i;
 	u32 hi, lo, cgc = 0, cgc1 = 0, cgc2 = 0;
+	int is_current_rt;
 
 	gen7_snapshot_block_list = gpucore->gen7_snapshot_block_list;
 	cp_indexed_reglist = gen7_snapshot_block_list->cp_indexed_reg_list;
@@ -1263,6 +1264,11 @@ void gen7_snapshot(struct adreno_device *adreno_dev,
 			(void *)gen7_0_0_cx_misc_registers);
 		return;
 	}
+
+	is_current_rt = rt_task(current);
+
+	if (is_current_rt)
+		sched_set_normal(current, 0);
 
 	kgsl_regread(device, GEN7_CP_IB1_BASE, &lo);
 	kgsl_regread(device, GEN7_CP_IB1_BASE_HI, &hi);
@@ -1359,6 +1365,8 @@ void gen7_snapshot(struct adreno_device *adreno_dev,
 				rb->preemption_desc);
 		}
 	}
+	if (is_current_rt)
+		sched_set_fifo(current);
 }
 
 void gen7_crashdump_init(struct adreno_device *adreno_dev)
