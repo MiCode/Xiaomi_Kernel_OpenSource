@@ -1071,11 +1071,33 @@ static struct mml_submit *mtk_alloc_mml_submit(void)
 	unsigned int i = 0;
 
 	temp = kzalloc(sizeof(struct mml_submit), GFP_KERNEL);
+	if (!temp) {
+		DDPPR_ERR("%s %d alloc fail\n", __func__, __LINE__);
+		return NULL;
+	}
 	temp->job = kzalloc(sizeof(struct mml_job), GFP_KERNEL);
-	for (i = 0; i < MML_MAX_OUTPUTS; ++i)
+	if (!temp->job) {
+		DDPPR_ERR("%s %d alloc fail\n", __func__, __LINE__);
+		goto err0;
+	}
+	for (i = 0; i < MML_MAX_OUTPUTS; ++i) {
 		temp->pq_param[i] =	kzalloc(sizeof(struct mml_pq_param), GFP_KERNEL);
+		if (!temp->pq_param[i]) {
+			DDPPR_ERR("%s %d alloc fail\n", __func__, __LINE__);
+			goto err1;
+		}
+	}
 
 	return temp;
+
+err1:
+	for (i = 0; i < MML_MAX_OUTPUTS; ++i)
+		kfree(temp->pq_param[i]);
+	kfree(temp->job);
+err0:
+	kfree(temp);
+
+	return NULL;
 }
 
 void mtk_free_mml_submit(struct mml_submit *temp)

@@ -3403,7 +3403,8 @@ static void mtk_crtc_disp_mode_switch_begin(struct drm_crtc *crtc,
 	drm_calc_timestamping_constants(crtc, &crtc->state->mode);
 
 	/* update idle timeout*/
-	_idle_timeout = mtk_crtc_get_idle_interval(crtc, fps_dst);
+	if (fps_dst > 0)
+		_idle_timeout = mtk_crtc_get_idle_interval(crtc, fps_dst);
 	if (_idle_timeout > 0)
 		mtk_drm_set_idle_check_interval(crtc, _idle_timeout);
 
@@ -4443,7 +4444,7 @@ static void ddp_cmdq_cb(struct cmdq_cb_data data)
 
 	if ((drm_crtc_index(crtc) != 2) && (priv->power_state)) {
 		// only VDO mode panel use CMDQ call
-		if (mtk_crtc && !mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base) &&
+		if (!mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base) &&
 				!cb_data->msync2_enable) {
 			pf_time = mtk_check_preset_fence_timestamp(crtc);
 			mtk_release_present_fence(session_id, cb_data->pres_fence_idx,
@@ -7125,15 +7126,19 @@ static bool msync_is_on(struct mtk_drm_private *priv,
 void mml_cmdq_pkt_init(struct drm_crtc *crtc, struct cmdq_pkt *cmdq_handle)
 {
 	u8 i = 0;
-	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
-	struct mml_drm_ctx *mml_ctx = mtk_drm_get_mml_drm_ctx(crtc->dev, crtc);
-	struct mtk_drm_private *priv = crtc->dev->dev_private;
+	struct mtk_drm_crtc *mtk_crtc;
+	struct mml_drm_ctx *mml_ctx;
+	struct mtk_drm_private *priv;
 	struct mtk_ddp_comp *comp = NULL;
 	const enum mtk_ddp_comp_id id[] = {DDP_COMPONENT_INLINE_ROTATE0,
 					   DDP_COMPONENT_INLINE_ROTATE1};
 
-	if (!crtc || !cmdq_handle || !mtk_crtc)
+	if (!crtc || !crtc->dev || !cmdq_handle)
 		return;
+
+	mtk_crtc = to_mtk_crtc(crtc);
+	mml_ctx = mtk_drm_get_mml_drm_ctx(crtc->dev, crtc);
+	priv = crtc->dev->dev_private;
 
 	if (mtk_crtc->is_mml) {
 		for (; i <= mtk_crtc->is_dual_pipe; ++i) {

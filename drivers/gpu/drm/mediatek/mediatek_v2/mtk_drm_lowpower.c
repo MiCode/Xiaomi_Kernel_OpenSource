@@ -329,7 +329,9 @@ static int mtk_drm_idlemgr_monitor_thread(void *data)
 
 		if (!mtk_crtc->enabled) {
 			DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
-			mtk_crtc_wait_status(crtc, 1, MAX_SCHEDULE_TIMEOUT);
+			ret = mtk_crtc_wait_status(crtc, 1, MAX_SCHEDULE_TIMEOUT);
+			if (ret < 0)
+				DDPPR_ERR("%s mtk_crtc_wait_status fail%d\n", __func__, ret);
 			continue;
 		}
 

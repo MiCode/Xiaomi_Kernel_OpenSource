@@ -1188,8 +1188,16 @@ void ddic_dsi_send_switch_pgt(unsigned int cmd_num, u8 addr,
 
 	DDPMSG("%s start case_num:%d\n", __func__, val3);
 
-	if (!cmd_num || !cmd_msg)
+	if (!cmd_msg) {
+		DDPPR_ERR("%s alloc cmd_msg fail\n", __func__);
 		return;
+	}
+	if (!cmd_num) {
+		DDPPR_ERR("%s invalid cmd_num\n", __func__);
+		vfree(cmd_msg);
+		return;
+	}
+
 	memset(cmd_msg, 0, sizeof(struct mtk_ddic_dsi_msg));
 
 	switch (cmd_num) {
