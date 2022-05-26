@@ -1621,6 +1621,7 @@
   resched_curr
   reset_control_assert
   reset_control_deassert
+  __reset_control_get
   root_task_group
   round_jiffies_relative
   rpmsg_get_signals
