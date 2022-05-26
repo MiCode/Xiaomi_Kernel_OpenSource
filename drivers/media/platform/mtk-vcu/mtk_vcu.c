@@ -235,6 +235,7 @@ struct gce_ctx_info {
 	struct gce_callback_data buff[GCE_PENDING_CNT];
 	atomic_t flush_pending;
 	/* gce not callbacked cnt */
+	struct vcu_page_info used_pages;
 };
 
 /**
@@ -644,6 +645,32 @@ static void *vcu_check_gce_pa_base(struct mtk_vcu_queue *vcu_queue, u64 addr, u6
 	return NULL;
 }
 
+static void vcu_gce_add_used_page(struct gce_ctx_info *gce_info, struct vcu_pa_pages *page)
+{
+	struct vcu_page_info *page_info;
+
+	page_info = kmalloc(sizeof(struct vcu_page_info), GFP_KERNEL);
+	if (!page_info)
+		return;
+
+	atomic_inc(&page->ref_cnt);
+	page_info->page = page;
+	list_add_tail(&page_info->list, &gce_info->used_pages.list);
+}
+
+static void vcu_gce_release_used_pages(struct gce_ctx_info *gce_info)
+{
+	struct vcu_page_info *page_info;
+	struct list_head *p, *q;
+
+	list_for_each_safe(p, q, &gce_info->used_pages.list) {
+		page_info = list_entry(p, struct vcu_page_info, list);
+		list_del(p);
+		atomic_dec(&page_info->page->ref_cnt);
+		kfree(page_info);
+	}
+}
+
 static int vcu_check_reg_base(struct mtk_vcu *vcu, u64 addr, u64 length)
 {
 	int i;
@@ -661,9 +688,11 @@ static int vcu_check_reg_base(struct mtk_vcu *vcu, u64 addr, u64 length)
 }
 
 static void vcu_set_gce_cmd(struct cmdq_pkt *pkt,
-	struct mtk_vcu *vcu, struct mtk_vcu_queue *q, unsigned char cmd,
+	struct mtk_vcu *vcu, int gce_index, struct mtk_vcu_queue *q, unsigned char cmd,
 	u64 addr, u64 data, u32 mask, u32 gpr, u32 dma_offset, u32 dma_size)
 {
+	void *src_page, *dst_page;
+
 	switch (cmd) {
 	case CMD_READ:
 		if (vcu_check_reg_base(vcu, addr, 4) == 0)
@@ -716,21 +745,25 @@ static void vcu_set_gce_cmd(struct cmdq_pkt *pkt,
 				__func__, data);
 	break;
 	case CMD_MEM_MV:
-		if ((vcu_check_reg_base(vcu, addr, 4) == 0 ||
-			vcu_check_gce_pa_base(q, addr, 4) != NULL) &&
-			vcu_check_gce_pa_base(q, data, 4) != NULL)
-			cmdq_pkt_mem_move(pkt, vcu->clt_base, addr,
-				data, CMDQ_THR_SPR_IDX1);
-		else
+		src_page = vcu_check_gce_pa_base(q, addr, 4);
+		dst_page = vcu_check_gce_pa_base(q, data, 4);
+		if ((vcu_check_reg_base(vcu, addr, 4) == 0 || src_page != NULL) &&
+			dst_page != NULL) {
+			if (src_page != NULL)
+				vcu_gce_add_used_page(&vcu->gce_info[gce_index], src_page);
+			vcu_gce_add_used_page(&vcu->gce_info[gce_index], dst_page);
+			cmdq_pkt_mem_move(pkt, vcu->clt_base, addr, data, CMDQ_THR_SPR_IDX1);
+		} else
 			pr_info("[VCU] CMD_MEM_MV wrong addr/data: 0x%llx 0x%llx\n",
 				addr, data);
 	break;
 	case CMD_POLL_ADDR:
-		if (vcu_check_reg_base(vcu, addr, 4) == 0 ||
-			vcu_check_gce_pa_base(q, addr, 4) != NULL)
-			cmdq_pkt_poll_timeout(pkt, data, SUBSYS_NO_SUPPORT,
-				addr, mask, ~0, gpr);
-		else
+		src_page = vcu_check_gce_pa_base(q, addr, 4);
+		if (vcu_check_reg_base(vcu, addr, 4) == 0 || src_page != NULL) {
+			if (src_page != NULL)
+				vcu_gce_add_used_page(&vcu->gce_info[gce_index], src_page);
+			cmdq_pkt_poll_timeout(pkt, data, SUBSYS_NO_SUPPORT, addr, mask, ~0, gpr);
+		} else
 			pr_info("[VCU] CMD_POLL_REG wrong addr: 0x%llx 0x%llx 0x%x\n",
 				addr, data, mask);
 	break;
@@ -786,6 +819,8 @@ IS_ENABLED(CONFIG_MACH_MT6785) || IS_ENABLED(CONFIG_MACH_MT8168))
 		}
 	}
 	mutex_unlock(&vcu->vcu_gce_mutex[i]);
+
+	vcu_gce_release_used_pages(&vcu->gce_info[j]);
 
 	wake_up(&vcu->gce_wq[i]);
 
@@ -1008,7 +1043,7 @@ static int vcu_gce_cmd_flush(struct mtk_vcu *vcu,
 #endif
 
 	for (i = 0; i < cmds->cmd_cnt; i++) {
-		vcu_set_gce_cmd(pkt_ptr, vcu, q, cmds->cmd[i],
+		vcu_set_gce_cmd(pkt_ptr, vcu, j, q, cmds->cmd[i],
 			cmds->addr[i], cmds->data[i],
 			cmds->mask[i], vcu->gce_gpr[core_id],
 			cmds->dma_offset[i], cmds->dma_size[i]);
@@ -1030,8 +1065,11 @@ static int vcu_gce_cmd_flush(struct mtk_vcu *vcu,
 	/* flush cmd async */
 	ret = cmdq_pkt_flush_threaded(pkt_ptr,
 		vcu_gce_flush_callback, (void *)&vcu_ptr->gce_info[j].buff[i]);
-	if (ret < 0)
+
+	if (ret < 0) {
 		pr_info("[VCU] cmdq flush fail pkt %p\n", pkt_ptr);
+		vcu_gce_release_used_pages(&vcu->gce_info[j]);
+	}
 	atomic_inc(&vcu_ptr->gce_info[j].flush_pending);
 	time_check_end(100, strlen(vcodec_param_string));
 
@@ -2306,6 +2344,7 @@ static int mtk_vcu_probe(struct platform_device *pdev)
 		atomic_set(&vcu->gce_info[i].flush_pending, 0);
 		vcu->gce_info[i].user_hdl = 0;
 		vcu->gce_info[i].v4l2_ctx = NULL;
+		INIT_LIST_HEAD(&vcu->gce_info[i].used_pages.list);
 	}
 	atomic_set(&vcu->gce_job_cnt[VCU_VDEC][0], 0);
 	atomic_set(&vcu->gce_job_cnt[VCU_VDEC][1], 0);

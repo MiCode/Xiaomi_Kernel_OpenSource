@@ -55,6 +55,11 @@ struct vcu_pa_pages {
 	struct list_head list;
 };
 
+struct vcu_page_info {
+	struct vcu_pa_pages *page;
+	struct list_head list;
+};
+
 /**
  * struct mtk_vcu_queue - the allocated buffer queue
  *
