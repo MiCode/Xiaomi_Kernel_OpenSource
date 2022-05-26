@@ -103,10 +103,6 @@ int mtk_scp_audio_init_mem(void)
 	}
 
 	paddr = gen_pool_virt_to_phys(scp_audio->genpool, vaddr);
-	if (paddr < 0) {
-		pr_err("%s(), alloc ATOD mem paddr Fail!!!\n", __func__);
-		return -1;
-	}
 	task_base->msg_atod_share_buf.phy_addr = paddr;
 	task_base->msg_atod_share_buf.va_addr = vaddr;
 	task_base->msg_atod_share_buf.vir_addr = (char *)vaddr;
@@ -126,10 +122,6 @@ int mtk_scp_audio_init_mem(void)
 	}
 
 	paddr = gen_pool_virt_to_phys(scp_audio->genpool, vaddr);
-	if (paddr < 0) {
-		pr_err("%s(), alloc DTOA mem paddr Fail!!!\n", __func__);
-		return -1;
-	}
 	task_base->msg_dtoa_share_buf.phy_addr = paddr;
 	task_base->msg_dtoa_share_buf.va_addr = vaddr;
 	task_base->msg_dtoa_share_buf.vir_addr = (char *)vaddr;
@@ -199,11 +191,6 @@ int scp_audio_allocate_sharemem_ring(struct scp_aud_task_base *taskbase,
 	}
 
 	paddr = gen_pool_virt_to_phys(genpool, vaddr);
-	if (paddr < 0) {
-		pr_err("%s(), alloc pcm mem paddr Fail!!!\n", __func__);
-		return -1;
-	}
-
 	taskbase->ring_share_buf.phy_addr = paddr;
 	taskbase->ring_share_buf.va_addr = vaddr;
 	taskbase->ring_share_buf.vir_addr = (char *)vaddr;
@@ -272,16 +259,11 @@ int mtk_scp_allocate_mem(struct snd_pcm_substream *substream, unsigned int size)
 
 	vaddr = gen_pool_alloc(scp_audio->genpool, size);
 	if (!vaddr) {
-		pr_err("%s(), alloc afe mem vaddr Fail!!!\n");
+		pr_err("%s(), alloc afe mem vaddr Fail!!!\n", __func__);
 		return -1;
 	}
 
 	paddr = gen_pool_virt_to_phys(scp_audio->genpool, vaddr);
-	if (paddr < 0) {
-		pr_err("%s(), alloc afe mem paddr Fail!!!\n");
-		return -1;
-	}
-
 	dma_buf->dev.type = SNDRV_DMA_TYPE_DEV;
 	dma_buf->dev.dev = substream->pcm->card->dev;
 	dma_buf->private_data = NULL;
