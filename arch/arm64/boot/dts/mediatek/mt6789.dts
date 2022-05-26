@@ -1213,6 +1213,14 @@
 		compatible = "simple-bus";
 	};
 
+	clkchk {
+		compatible = "mediatek,mt6789-clkchk";
+	};
+
+	pdchk {
+		compatible = "mediatek,mt6789-pdchk";
+	};
+
 	clocks {
 		clk32k: clk32k {
 			compatible = "fixed-clock";
