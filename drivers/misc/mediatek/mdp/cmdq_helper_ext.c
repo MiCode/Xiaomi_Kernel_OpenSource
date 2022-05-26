@@ -4056,8 +4056,7 @@ void cmdq_pkt_release_handle(struct cmdqRecStruct *handle)
 	cmdq_core_track_handle_record(handle, handle->thread);
 
 	/* TODO: remove is_secure check */
-	if (handle->thread != CMDQ_INVALID_THREAD &&
-		!handle->secData.is_secure) {
+	if (handle->thread != CMDQ_INVALID_THREAD) {
 		ctx = cmdq_core_get_context();
 
 		mutex_lock(&ctx->thread[(u32)handle->thread].thread_mutex);
@@ -4449,31 +4448,28 @@ static s32 cmdq_pkt_flush_async_ex_impl(struct cmdqRecStruct *handle,
 	mutex_lock(&ctx->thread[(u32)handle->thread].thread_mutex);
 
 	/* TODO: remove pmqos in seure path */
-	if (!handle->secData.is_secure) {
-		/* PMQoS */
-		CMDQ_SYSTRACE_BEGIN("%s_pmqos\n", __func__);
-		mutex_lock(&cmdq_thread_mutex);
-		handle_count = ctx->thread[(u32)handle->thread].handle_count;
+	/* PMQoS */
+	CMDQ_SYSTRACE_BEGIN("%s_pmqos\n", __func__);
+	mutex_lock(&cmdq_thread_mutex);
+	handle_count = ctx->thread[(u32)handle->thread].handle_count;
 
-		pmqos_handle_list = kcalloc(handle_count + 1,
-			sizeof(*pmqos_handle_list), GFP_KERNEL);
+	pmqos_handle_list = kcalloc(handle_count + 1,
+	sizeof(*pmqos_handle_list), GFP_KERNEL);
+	if (pmqos_handle_list) {
+		if (handle_count)
+			cmdq_core_get_pmqos_handle_list(handle,
+				pmqos_handle_list, handle_count);
 
-		if (pmqos_handle_list) {
-			if (handle_count)
-				cmdq_core_get_pmqos_handle_list(handle,
-					pmqos_handle_list, handle_count);
-
-			pmqos_handle_list[handle_count] = handle;
-		}
-
-		cmdq_core_group_begin_task(handle, pmqos_handle_list,
-			handle_count + 1);
-
-		kfree(pmqos_handle_list);
-		ctx->thread[(u32)handle->thread].handle_count++;
-		mutex_unlock(&cmdq_thread_mutex);
-		CMDQ_SYSTRACE_END();
+		pmqos_handle_list[handle_count] = handle;
 	}
+
+	cmdq_core_group_begin_task(handle, pmqos_handle_list,
+		handle_count + 1);
+
+	kfree(pmqos_handle_list);
+	ctx->thread[(u32)handle->thread].handle_count++;
+	mutex_unlock(&cmdq_thread_mutex);
+	CMDQ_SYSTRACE_END();
 
 	CMDQ_SYSTRACE_BEGIN("%s\n", __func__);
 	cmdq_core_replace_v3_instr(handle, handle->thread);
