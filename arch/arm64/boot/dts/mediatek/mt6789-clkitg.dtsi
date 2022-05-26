@@ -25,7 +25,6 @@
 			<&infracfg_ao_clk CLK_IFRAO_CCIF5_MD>,
 			<&infracfg_ao_clk CLK_IFRAO_CCIF2_AP>,
 			<&infracfg_ao_clk CLK_IFRAO_CCIF2_MD>,
-			<&infracfg_ao_clk CLK_IFRAO_DPMAIF_MAIN>,
 			<&infracfg_ao_clk CLK_IFRAO_CCIF4_AP>,
 			<&infracfg_ao_clk CLK_IFRAO_CCIF4_MD>,
 			<&infracfg_ao_clk CLK_IFRAO_66MP_BUS_MCLK_CKP>;
