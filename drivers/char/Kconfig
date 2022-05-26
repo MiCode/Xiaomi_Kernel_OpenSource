@@ -424,6 +424,15 @@ config MSM_ADSPRPC
 		applications/compute DSP processor.
 		Say M if you want to enable this module.
 
+config MSM_ADSPRPC_TRUSTED
+	tristate "QTI FastRPC trusted driver"
+	depends on PM_SLEEP && HAS_DMA && CMA && MMU
+	help
+		Provides a communication mechanism that allows clients to
+		make remote method invocations across processor boundary to
+		applications/compute DSP processor.
+		Say M if you want to enable this module.
+
 config MSM_RDBG
 	tristate "QTI Remote debug driver"
 	help

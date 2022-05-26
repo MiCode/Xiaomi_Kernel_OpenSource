@@ -20,7 +20,7 @@ struct frpc_transport_session_control {
 
 static struct frpc_transport_session_control rpmsg_session_control[NUM_CHANNELS];
 
-inline int verify_transport_device(int cid)
+inline int verify_transport_device(int cid, bool trusted_vm)
 {
 	int err = 0;
 	struct frpc_transport_session_control *rpmsg_session = &rpmsg_session_control[cid];
@@ -196,7 +196,7 @@ int fastrpc_wait_for_transport_interrupt(int cid,
 	return err;
 }
 
-int fastrpc_transport_send(int cid, void *rpc_msg, uint32_t rpc_msg_size)
+int fastrpc_transport_send(int cid, void *rpc_msg, uint32_t rpc_msg_size, bool trusted_vm)
 {
 	int err = 0;
 	struct frpc_transport_session_control *rpmsg_session = &rpmsg_session_control[cid];

@@ -610,9 +610,9 @@ enum fastrpc_process_exit_states {
 	FASTRPC_PROCESS_DSP_EXIT_ERROR				= 4,
 };
 
-inline int fastrpc_transport_send(int cid, void *rpc_msg, uint32_t rpc_msg_size);
+inline int fastrpc_transport_send(int cid, void *rpc_msg, uint32_t rpc_msg_size, bool trusted_vm);
 inline int fastrpc_handle_rpc_response(void *data, int len, int cid);
-inline int verify_transport_device(int cid);
+inline int verify_transport_device(int cid, bool trusted_vm);
 int fastrpc_transport_init(void);
 void fastrpc_transport_deinit(void);
 void fastrpc_transport_session_init(int cid, char *subsys);
@@ -1013,6 +1013,7 @@ struct fastrpc_file {
 	int tgid_open;	/* Process ID during device open */
 	int tgid;		/* Process ID that uses device for RPC calls */
 	int cid;
+	bool trusted_vm;
 	uint64_t ssrcount;
 	int pd;
 	char *servloc_name;
