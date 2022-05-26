@@ -110,7 +110,8 @@ static ssize_t debug_ops_store(struct device *dev,
 	char *token = NULL;
 	char *sbuf = kzalloc(sizeof(char) * (count + 1), GFP_KERNEL);
 	char *s = sbuf;
-	int ret, i, num_para = 0;
+	int ret, i;
+	unsigned int num_para = 0;
 	char *arg[REG_OPS_CMD_MAX_NUM];
 	struct seninf_core *core = dev_get_drvdata(dev);
 	struct seninf_ctx *ctx;
@@ -152,7 +153,11 @@ static ssize_t debug_ops_store(struct device *dev,
 
 		for (i = 0; i < CSI_PORT_MAX_NUM; i++) {
 			memset(csi_names, 0, ARRAY_SIZE(csi_names));
-			snprintf(csi_names, 10, "csi-%s", csi_port_names[i]);
+			ret = snprintf(csi_names, 10, "csi-%s", csi_port_names[i]);
+			if (ret < 0) {
+				dev_info(dev, "fail to snprintf\n");
+				goto ERR_DEBUG_OPS_STORE;
+			}
 			if (!strcasecmp(arg[REG_OPS_CMD_CSI], csi_names))
 				csi_port = i;
 		}
@@ -299,7 +304,7 @@ static int seninf_core_pm_runtime_enable(struct seninf_core *core)
 					"#power-domain-cells");
 	if (core->pm_domain_cnt == 1)
 		pm_runtime_enable(core->dev);
-	else {
+	else if (core->pm_domain_cnt > 1) {
 		core->pm_domain_devs = devm_kcalloc(core->dev, core->pm_domain_cnt,
 					sizeof(*core->pm_domain_devs), GFP_KERNEL);
 		if (!core->pm_domain_devs)
@@ -315,7 +320,8 @@ static int seninf_core_pm_runtime_enable(struct seninf_core *core)
 				core->pm_domain_devs[i] = NULL;
 			}
 		}
-	}
+	} else
+		dev_info(core->dev, "core->pm_domain_cnt < 0\n");
 
 	return 0;
 }
@@ -323,17 +329,19 @@ static int seninf_core_pm_runtime_enable(struct seninf_core *core)
 static int seninf_core_pm_runtime_disable(struct seninf_core *core)
 {
 	int i;
+
 	if (core->pm_domain_cnt == 1)
 		pm_runtime_disable(core->dev);
-	else {
+	else if (core->pm_domain_cnt > 1) {
 		if (!core->pm_domain_devs)
-			return -EINVAL;
+			return -ENOMEM;
 
 		for (i = 0; i < core->pm_domain_cnt; i++) {
-			if (core->pm_domain_devs[i])
+			if (core->pm_domain_devs[i] != NULL)
 				dev_pm_domain_detach(core->pm_domain_devs[i], 1);
 		}
-	}
+	} else
+		dev_info(core->dev, "core->pm_domain_cnt < 0\n");
 
 	return 0;
 }
@@ -341,17 +349,25 @@ static int seninf_core_pm_runtime_disable(struct seninf_core *core)
 static int seninf_core_pm_runtime_get_sync(struct seninf_core *core)
 {
 	int i;
-	if (core->pm_domain_cnt == 1)
-		pm_runtime_get_sync(core->dev);
-	else {
+	int ret = 0;
+
+	if (core->pm_domain_cnt == 1) {
+		ret = pm_runtime_get_sync(core->dev);
+		if (ret < 0)
+			dev_info(core->dev, "pm_runtime_get_sync fail\n");
+	} else if (core->pm_domain_cnt > 1) {
 		if (!core->pm_domain_devs)
-			return -EINVAL;
+			return -ENOMEM;
 
 		for (i = 0; i < core->pm_domain_cnt; i++) {
-			if (core->pm_domain_devs[i])
-				pm_runtime_get_sync(core->pm_domain_devs[i]);
+			if (core->pm_domain_devs[i] != NULL) {
+				ret = pm_runtime_get_sync(core->pm_domain_devs[i]);
+				if (ret < 0)
+					dev_info(core->dev, "pm_runtime_get_sync fail\n");
+			}
 		}
-	}
+	} else
+		dev_info(core->dev, "core->pm_domain_cnt < 0\n");
 
 	return 0;
 }
@@ -359,17 +375,25 @@ static int seninf_core_pm_runtime_get_sync(struct seninf_core *core)
 static int seninf_core_pm_runtime_put(struct seninf_core *core)
 {
 	int i;
-	if (core->pm_domain_cnt == 1)
-		pm_runtime_put_sync(core->dev);
-	else {
-		if (!core->pm_domain_devs && core->pm_domain_cnt < 1)
-			return -EINVAL;
+	int ret = 0;
+
+	if (core->pm_domain_cnt == 1) {
+		ret = pm_runtime_put_sync(core->dev);
+		if (ret < 0)
+			dev_info(core->dev, "pm_runtime_put_sync fail\n");
+	} else if (core->pm_domain_cnt > 1) {
+		if (!core->pm_domain_devs)
+			return -ENOMEM;
 
 		for (i = core->pm_domain_cnt - 1; i >= 0; i--) {
-			if (core->pm_domain_devs[i])
-				pm_runtime_put_sync(core->pm_domain_devs[i]);
+			if (core->pm_domain_devs[i] != NULL) {
+				ret = pm_runtime_put_sync(core->pm_domain_devs[i]);
+				if (ret < 0)
+					dev_info(core->dev, "pm_runtime_put_sync fail\n");
+			}
 		}
-	}
+	} else
+		dev_info(core->dev, "core->pm_domain_cnt < 0\n");
 
 	return 0;
 }
@@ -786,6 +810,7 @@ static int set_test_model(struct seninf_ctx *ctx, char enable)
 	struct seninf_mux *mux;
 	struct seninf_dfs *dfs = &ctx->core->dfs;
 	int pref_idx[] = {0, 1, 2, 3, 4}; //FIXME
+	int ret = 0;
 
 	if (ctx->is_test_model == 1) {
 		vc[vc_used++] = mtk_cam_seninf_get_vc_by_pad(ctx, PAD_SRC_RAW0);
@@ -819,8 +844,11 @@ static int set_test_model(struct seninf_ctx *ctx, char enable)
 
 	if (enable) {
 		pm_runtime_get_sync(ctx->dev);
-		if (ctx->core->clk[CLK_TOP_CAMTM])
-			clk_prepare_enable(ctx->core->clk[CLK_TOP_CAMTM]);
+		if (ctx->core->clk[CLK_TOP_CAMTM]) {
+			ret = clk_prepare_enable(ctx->core->clk[CLK_TOP_CAMTM]);
+			if (ret < 0)
+				dev_info(ctx->dev, "clk_prepare_enable fail\n");
+		}
 
 		if (dfs->cnt)
 			seninf_dfs_set(ctx, dfs->freqs[dfs->cnt - 1]);
@@ -1089,7 +1117,7 @@ static int get_pixel_rate(struct seninf_ctx *ctx, struct v4l2_subdev *sd,
 
 static int get_mbus_config(struct seninf_ctx *ctx, struct v4l2_subdev *sd)
 {
-	struct v4l2_mbus_config cfg;
+	struct v4l2_mbus_config cfg = {0};
 	int ret;
 
 	ret = v4l2_subdev_call(sd, pad, get_mbus_config, ctx->sensor_pad_idx, &cfg);
@@ -1236,7 +1264,7 @@ out:
 
 static int mtk_senif_power_ctrl_ccu(struct seninf_core *core, int on_off)
 {
-	int ret;
+	int ret = 0;
 
 	if (on_off) {
 		ret = mtk_senif_get_ccu_phandle(core);
@@ -1253,11 +1281,17 @@ static int mtk_senif_power_ctrl_ccu(struct seninf_core *core, int on_off)
 		if (ret)
 			dev_info(core->dev, "boot ccu rproc fail\n");
 
-		if (core->dfs.reg)
-			regulator_enable(core->dfs.reg);
+		if (core->dfs.reg) {
+			ret = regulator_enable(core->dfs.reg);
+			if (ret < 0)
+				dev_info(core->dev, "regulator_enable dfs fail\n");
+		}
 	} else {
-		if (core->dfs.reg && regulator_is_enabled(core->dfs.reg))
-			regulator_disable(core->dfs.reg);
+		if (core->dfs.reg && regulator_is_enabled(core->dfs.reg)) {
+			ret = regulator_disable(core->dfs.reg);
+			if (ret < 0)
+				dev_info(core->dev, "regulator_disable dfs fail\n");
+		}
 
 		if (core->rproc_ccu_handle) {
 			rproc_shutdown(core->rproc_ccu_handle);
@@ -1390,22 +1424,24 @@ static int seninf_link_setup(struct media_entity *entity,
 	struct seninf_ctx *ctx;
 
 	sd = media_entity_to_v4l2_subdev(entity);
-	ctx = v4l2_get_subdevdata(sd);
+	if (sd != NULL) {
+		ctx = v4l2_get_subdevdata(sd);
 
-	if (local->flags & MEDIA_PAD_FL_SOURCE) {
-		if (flags & MEDIA_LNK_FL_ENABLED) {
-			if (!mtk_cam_seninf_get_vc_by_pad(ctx, local->index)) {
-				dev_info(ctx->dev,
-				"%s enable link w/o vc_info pad idex %d\n", local->index);
+		if (local->flags & MEDIA_PAD_FL_SOURCE) {
+			if (flags & MEDIA_LNK_FL_ENABLED) {
+				if (!mtk_cam_seninf_get_vc_by_pad(ctx, local->index)) {
+					dev_info(ctx->dev,
+					"%s enable link w/o vc_info pad idex %d\n", local->index);
+				}
 			}
-		}
-	} else {
-		/* NOTE: update vcinfo once the link becomes enabled */
-		if (flags & MEDIA_LNK_FL_ENABLED) {
-			ctx->sensor_sd =
-				media_entity_to_v4l2_subdev(remote->entity);
-			ctx->sensor_pad_idx = remote->index;
-			mtk_cam_seninf_get_vcinfo(ctx);
+		} else {
+			/* NOTE: update vcinfo once the link becomes enabled */
+			if (flags & MEDIA_LNK_FL_ENABLED) {
+				ctx->sensor_sd =
+					media_entity_to_v4l2_subdev(remote->entity);
+				ctx->sensor_pad_idx = remote->index;
+				mtk_cam_seninf_get_vcinfo(ctx);
+			}
 		}
 	}
 
@@ -1675,12 +1711,17 @@ static int register_subdev(struct seninf_ctx *ctx, struct v4l2_device *v4l2_dev)
 	sd->flags |= V4L2_SUBDEV_FL_HAS_EVENTS;
 	sd->dev = dev;
 
-	if (strlen(dev->of_node->name) > 16)
-		snprintf(sd->name, sizeof(sd->name), "%s-%s",
-			 dev_driver_string(dev), &dev->of_node->name[16]);
-	else
-		snprintf(sd->name, sizeof(sd->name), "%s-%s",
-			 dev_driver_string(dev), csi_port_names[ctx->port]);
+	if (strlen(dev->of_node->name) > 16) {
+		ret = snprintf(sd->name, sizeof(sd->name), "%s-%s",
+			dev_driver_string(dev), &dev->of_node->name[16]);
+		if (ret < 0)
+			dev_info(dev, "failed to snprintf\n");
+	} else {
+		ret = snprintf(sd->name, sizeof(sd->name), "%s-%s",
+			dev_driver_string(dev), csi_port_names[ctx->port]);
+		if (ret < 0)
+			dev_info(dev, "failed to snprintf\n");
+	}
 
 	v4l2_set_subdevdata(sd, ctx);
 
@@ -1890,6 +1931,7 @@ static int runtime_resume(struct device *dev)
 	int i;
 	struct seninf_ctx *ctx = dev_get_drvdata(dev);
 	struct seninf_core *core = ctx->core;
+	int ret = 0;
 
 	mutex_lock(&core->mutex);
 
@@ -1898,8 +1940,11 @@ static int runtime_resume(struct device *dev)
 	if (core->refcnt == 1) {
 		seninf_core_pm_runtime_get_sync(core);
 		for (i = 0; i < CLK_TOP_SENINF_END; i++) {
-			if (core->clk[i])
-				clk_prepare_enable(core->clk[i]);
+			if (core->clk[i]) {
+				ret = clk_prepare_enable(core->clk[i]);
+				if (ret < 0)
+					dev_info(dev, "clk_prepare_enable fail\n");
+			}
 		}
 		g_seninf_ops->_disable_all_mux(ctx);
 		g_seninf_ops->_disable_all_cammux(ctx);
