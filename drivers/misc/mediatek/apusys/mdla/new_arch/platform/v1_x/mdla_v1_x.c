@@ -100,7 +100,7 @@ static bool mdla_check_cmd_valid(
 		return false;
 	}
 	out_size = out_end - (uint64_t)ce->kva;
-	if (out_size < ce->count*MREG_CMD_SIZE) {
+	if (out_size < (uint64_t)ce->count*MREG_CMD_SIZE) {
 		mdla_err("%s:%d invalid cmd buffer size\n", __func__, __LINE__);
 		return false;
 	}
