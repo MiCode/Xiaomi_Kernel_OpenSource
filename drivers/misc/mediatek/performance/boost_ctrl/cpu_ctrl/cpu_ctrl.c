@@ -338,6 +338,9 @@ static ssize_t perfmgr_boot_freq_proc_write(struct file *filp,
 	if (!freq_limit)
 		goto out;
 
+	for_each_perfmgr_clusters(cid)
+		freq_limit[cid].min = freq_limit[cid].max = -1;
+
 	tmp = buf;
 	while ((tok = strsep(&tmp, " ")) != NULL) {
 		if (i == arg_num) {
