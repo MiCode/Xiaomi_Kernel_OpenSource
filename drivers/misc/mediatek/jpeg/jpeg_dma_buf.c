@@ -100,6 +100,7 @@ struct dma_buf *jpg_dmabuf_alloc(size_t size, size_t align, unsigned int flags)
 
 	dbuf = dma_heap_buffer_alloc(dma_heap, size,
 		O_CLOEXEC | O_RDWR, DMA_HEAP_VALID_HEAP_FLAGS);
+	dma_heap_put(dma_heap);
 	if(IS_ERR(dbuf)) {
 		JPEG_LOG(0, "buffer alloc fail");
 		return NULL;
