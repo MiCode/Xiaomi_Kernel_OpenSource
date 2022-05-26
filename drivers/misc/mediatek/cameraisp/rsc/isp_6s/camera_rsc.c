@@ -2188,6 +2188,15 @@ static long RSC_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 			/* enqueNum */
 			if (copy_from_user(&enqueNum, (void *)Param,
 							sizeof(int)) == 0) {
+
+				if (g_RSC_ReqRing.WriteIdx < 0 ||
+					g_RSC_ReqRing.WriteIdx >=
+					_SUPPORT_MAX_RSC_REQUEST_RING_SIZE_) {
+					LOG_ERR("[RSC_ENQUE] WriteIdx OOB: %d",
+						g_RSC_ReqRing.WriteIdx);
+					break;
+				}
+
 				if (RSC_REQUEST_STATE_EMPTY ==
 				    g_RSC_ReqRing.RSCReq_Struct[
 							g_RSC_ReqRing.WriteIdx].
