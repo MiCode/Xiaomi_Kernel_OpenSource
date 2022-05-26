@@ -13,6 +13,7 @@
 #include <linux/slab.h>
 #include <linux/types.h>
 
+#include "clk-mtk.h"
 #include "mtk-pd-chk.h"
 #include "mt-plat/aee.h"
 
@@ -27,6 +28,7 @@
 static struct platform_device *pd_pdev[MAX_PD_NUM];
 static struct generic_pm_domain *pds[MAX_PD_NUM];
 static struct notifier_block mtk_pd_notifier[MAX_PD_NUM];
+static struct notifier_block mtk_pdchk_notifier;
 static bool pd_sta[MAX_PD_NUM];
 
 static const struct pdchk_ops *pdchk_ops;
@@ -475,4 +477,45 @@ void pdchk_common_init(const struct pdchk_ops *ops)
 	set_genpd_notify();
 }
 EXPORT_SYMBOL(pdchk_common_init);
+
+static void pdchk_suspend_cg_dump(const char *name)
+{
+	if (!atomic_read(&check_enabled))
+		return;
+
+	if (pdchk_ops == NULL || pdchk_ops->suspend_cg_dump == NULL)
+		return;
+
+	pdchk_ops->suspend_cg_dump(name);
+}
+
+static int pdchk_evt_handling(struct notifier_block *nb,
+			unsigned long flags, void *data)
+{
+	struct clk_event_data *clkd = (struct clk_event_data *)data;
+
+	switch (clkd->event_type) {
+	case CLK_EVT_SUSPEND_CG_DUMP:
+		pdchk_suspend_cg_dump(clkd->name);
+		break;
+	default:
+		pr_notice("cannot get flags identify\n");
+		break;
+	}
+
+	return NOTIFY_OK;
+}
+
+int set_pdchk_notify(void)
+{
+	int r = 0;
+
+	mtk_pdchk_notifier.notifier_call = pdchk_evt_handling;
+	r = register_mtk_clk_notifier(&mtk_pdchk_notifier);
+	if (r)
+		pr_err("pd-chk notifier register err(%d)\n", r);
+
+	return r;
+}
+EXPORT_SYMBOL(set_pdchk_notify);
 

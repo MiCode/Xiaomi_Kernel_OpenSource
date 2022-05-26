@@ -12,6 +12,7 @@
 
 #include "mtk-pd-chk.h"
 #include "clkchk-mt6789.h"
+#include "mt-plat/aee.h"
 
 #define TAG				"[pdchk] "
 #define BUG_ON_CHK_ENABLE		0
@@ -206,6 +207,21 @@ static struct pd_check_swcg *get_subsys_cg(unsigned int id)
 	return NULL;
 }
 
+static void suspend_cg_dump(const char *name)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(dispsys_config_swcgs) - 1; i++) {
+		if (!strcmp(name, dispsys_config_swcgs[i].name))
+			dump_stack();
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
+			aee_kernel_warning_api(__FILE__, __LINE__,
+					DB_OPT_DEFAULT, "clk-chk",
+					"fail to disable clk/pd in suspend\n");
+#endif
+	}
+}
+
 static void dump_subsys_reg(unsigned int id)
 {
 	int i;
@@ -365,6 +381,7 @@ static bool is_mtcmos_chk_bug_on(void)
 
 static struct pdchk_ops pdchk_mt6789_ops = {
 	.get_subsys_cg = get_subsys_cg,
+	.suspend_cg_dump = suspend_cg_dump,
 	.dump_subsys_reg = dump_subsys_reg,
 	.is_in_pd_list = is_in_pd_list,
 	.debug_dump = debug_dump,
@@ -378,6 +395,7 @@ static struct pdchk_ops pdchk_mt6789_ops = {
 static int pd_chk_mt6789_probe(struct platform_device *pdev)
 {
 	pdchk_common_init(&pdchk_mt6789_ops);
+	set_pdchk_notify();
 
 	return 0;
 }

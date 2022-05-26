@@ -626,6 +626,8 @@ static int clkchk_evt_handling(struct notifier_block *nb,
 	case CLK_EVT_HWV_PLL_TIMEOUT:
 		clkchk_dump_hwv_pll_reg(clkd->hwv_regmap, clkd->shift);
 		break;
+	case CLK_EVT_SUSPEND_CG_DUMP:
+		break;
 	default:
 		pr_notice("cannot get flags identify\n");
 		break;

@@ -23,6 +23,7 @@ struct pd_check_swcg {
 
 struct pdchk_ops {
 	struct pd_check_swcg *(*get_subsys_cg)(unsigned int id);
+	void (*suspend_cg_dump)(const char *name);
 	void (*dump_subsys_reg)(unsigned int pd_id);
 	bool (*is_in_pd_list)(unsigned int id);
 	void (*debug_dump)(unsigned int pd_id, unsigned int pwr_sta);
@@ -36,6 +37,7 @@ struct pdchk_ops {
 };
 
 void pdchk_common_init(const struct pdchk_ops *ops);
+int set_pdchk_notify(void);
 
 extern const struct dev_pm_ops pdchk_dev_pm_ops;
 extern struct clk *clk_chk_lookup(const char *name);
