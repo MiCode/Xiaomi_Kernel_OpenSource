@@ -1677,7 +1677,7 @@ static void _ovl_common_config(struct mtk_ddp_comp *comp, unsigned int idx,
 					0, BIT(sec_bit));
 		} else {
 			/*legacy secure flow, for mt6789*/
-			if (comp->mtk_crtc->sec_on) {
+			if (comp->mtk_crtc && comp->mtk_crtc->sec_on) {
 				if (state->pending.is_sec && pending->addr) {
 					write_sec_ext_layer_addr_cmdq(comp, handle, id,
 								pending->addr, offset, buf_size);
@@ -2030,6 +2030,11 @@ static bool compr_l_config_PVRIC_V4_1(struct mtk_ddp_comp *comp,
 	unsigned int lx_pitch, lx_hdr_pitch;
 	unsigned int lx_clip, lx_src_size;
 
+	if (Bpp == 0) {
+		DDPPR_ERR("%s invalid Bpp with fmt %u\n", __func__, fmt);
+		return 0;
+	}
+
 #ifdef CONFIG_MTK_LCM_PHYSICAL_ROTATION_HW
 	if (drm_crtc_index(&comp->mtk_crtc->base) == 0)
 		rotate = 1;
@@ -2328,6 +2333,11 @@ static bool compr_l_config_PVRIC_V3_1(struct mtk_ddp_comp *comp,
 	unsigned int lx_pitch, lx_hdr_pitch;
 	unsigned int lx_clip, lx_src_size;
 
+	if (Bpp == 0) {
+		DDPPR_ERR("%s invalid Bpp with fmt %u\n", __func__, fmt);
+		return 0;
+	}
+
 #ifdef CONFIG_MTK_LCM_PHYSICAL_ROTATION_HW
 	if (drm_crtc_index(&comp->mtk_crtc->base) == 0)
 		rotate = 1;
@@ -2604,6 +2614,11 @@ bool compr_l_config_AFBC_V1_2(struct mtk_ddp_comp *comp,
 	resource_size_t mmsys_reg = 0;
 	int sec_bit;
 
+	if (Bpp == 0) {
+		DDPPR_ERR("%s invalid Bpp with fmt %u\n", __func__, fmt);
+		return 0;
+	}
+
 	DDPDBG("%s:%d, addr:0x%lx, pitch:%d, vpitch:%d\n",
 		__func__, __LINE__, (unsigned long)addr,
 		pitch, vpitch);
@@ -2712,7 +2727,7 @@ bool compr_l_config_AFBC_V1_2(struct mtk_ddp_comp *comp,
 	}
 
 	/* 3. cal OVL_LX_ADDR * OVL_LX_PITCH */
-	lx_addr = buf_addr + (dma_addr_t)(tile_offset * tile_body_size);
+	lx_addr = buf_addr + (dma_addr_t)tile_offset * (dma_addr_t)tile_body_size;
 	lx_pitch = ((pitch * tile_h) & 0xFFFF);
 	lx_pitch_msb = (REG_FLD_VAL((L_PITCH_MSB_FLD_YUV_TRANS), (1)) |
 		REG_FLD_VAL((L_PITCH_MSB_FLD_2ND_SUBBUF), (lx_2nd_subbuf)) |

@@ -529,6 +529,7 @@ int mtk_ddp_comp_create_workqueue(struct mtk_ddp_comp *ddp_comp)
 	memset(wq_buf, 0, sizeof(wq_buf));
 	ret = snprintf(wq_buf, sizeof(wq_buf), "mtk_%s_wq", mtk_dump_comp_str_id(ddp_comp->id));
 	if (ret < 0) {
+		DDPPR_ERR("%s snprintf fail: %d\n", __func__, ret);
 		/* Handle snprintf() error */
 		return -EINVAL;
 	}
@@ -894,17 +895,20 @@ void mtk_ddp_comp_pm_disable(struct mtk_ddp_comp *comp)
 void mtk_ddp_comp_clk_prepare(struct mtk_ddp_comp *comp)
 {
 	unsigned int index = 0;
-	int ret;
+	int ret = 0;
 
 	if (comp == NULL)
 		return;
 
 	if (comp->larb_dev)
 #ifdef MTK_SMI_CLK_CTRL
-		mtk_smi_larb_get(comp->larb_dev);
+		ret = mtk_smi_larb_get(comp->larb_dev);
 #else
-		pm_runtime_get_sync(comp->dev);
+		ret = pm_runtime_get_sync(comp->dev);
 #endif
+
+	if (ret)
+		DDPPR_ERR("larb or pm_runtime get fail:%s\n", mtk_dump_comp_str(comp));
 
 	if (comp->clk) {
 		ret = clk_prepare_enable(comp->clk);

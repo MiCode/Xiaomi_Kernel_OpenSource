@@ -607,7 +607,7 @@ end:
 int mtk_drm_mmp_wdma_buffer(struct drm_crtc *crtc,
 	struct drm_framebuffer *wb_fb, u32 downSampleX, u32 downSampleY)
 {
-	int crtc_idx = drm_crtc_index(crtc);
+	unsigned int crtc_idx = drm_crtc_index(crtc);
 	struct mmp_metadata_bitmap_t bitmap;
 	struct mmp_metadata_t meta;
 	unsigned int fmt = wb_fb->format->format;

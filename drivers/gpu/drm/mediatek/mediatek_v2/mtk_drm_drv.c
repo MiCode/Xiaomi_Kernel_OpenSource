@@ -335,7 +335,6 @@ static void mtk_atomic_rsz_calc_dual_params(
 	u32 tile_in_len[2] = {0};
 	u32 tile_out_len[2] = {0};
 	u32 out_x[2] = {0};
-	bool is_dual = true;
 	int width = crtc->state->adjusted_mode.hdisplay;
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_ddp_comp *output_comp;
@@ -350,9 +349,6 @@ static void mtk_atomic_rsz_calc_dual_params(
 		tile_idx = 0;
 	else if (left >= width / 2)
 		tile_idx = 1;
-	else
-		is_dual = true;
-
 
 	DDPINFO("%s :loss:%d,idx:%d,width:%d,src_w:%d,dst_w:%d,src_x:%d\n", __func__,
 	       tile_loss, tile_idx, width, src_roi->width, dst_roi->width, src_roi->x);
@@ -373,21 +369,12 @@ static void mtk_atomic_rsz_calc_dual_params(
 		sub_offset[0] = sub_offset[0] - UNIT;
 	}
 
-	if (is_dual) {
-		/*left side*/
-		/*right bound - left bound + tile loss*/
-		tile_in_len[0] = (((width / 2) * src_roi->width * 10) /
+	/*left side*/
+	/*right bound - left bound + tile loss*/
+	tile_in_len[0] = (((width / 2) * src_roi->width * 10) /
 			dst_roi->width + 5) / 10 - src_roi->x + tile_loss;
-		tile_out_len[0] = width / 2 - dst_roi->x;
-		out_x[0] = dst_roi->x;
-	} else {
-		tile_in_len[0] = src_roi->width;
-		tile_out_len[0] = dst_roi->width;
-		if (tile_idx == 0)
-			out_x[0] = dst_roi->x;
-		else
-			out_x[0] = dst_roi->x - width / 2;
-	}
+	tile_out_len[0] = width / 2 - dst_roi->x;
+	out_x[0] = dst_roi->x;
 
 	param[tile_idx].out_x = out_x[0];
 	param[tile_idx].step = step;
@@ -395,17 +382,13 @@ static void mtk_atomic_rsz_calc_dual_params(
 	param[tile_idx].sub_offset = (u32)(sub_offset[0] & 0x1fffff);
 	param[tile_idx].in_len = tile_in_len[0];
 	param[tile_idx].out_len = tile_out_len[0];
-	DDPINFO("%s,%d:%s:step:%u,offset:%u.%u,len:%u->%u,out_x:%u\n", __func__, __LINE__,
-	       is_dual ? "dual" : "single",
+	DDPINFO("%s,%d:step:%u,offset:%u.%u,len:%u->%u,out_x:%u\n", __func__, __LINE__,
 	       param[0].step,
 	       param[0].int_offset,
 	       param[0].sub_offset,
 	       param[0].in_len,
 	       param[0].out_len,
 	       param[0].out_x);
-
-	if (!is_dual)
-		return;
 
 	/* right half */
 	tile_out_len[1] = dst_roi->width - tile_out_len[0];
@@ -438,8 +421,7 @@ static void mtk_atomic_rsz_calc_dual_params(
 	param[1].in_len = tile_in_len[1];
 	param[1].out_len = tile_out_len[1];
 
-	DDPINFO("%s,%d :%s:step:%u,offset:%u.%u,len:%u->%u,out_x:%u\n", __func__, __LINE__,
-	       is_dual ? "dual" : "single",
+	DDPINFO("%s,%d:step:%u,offset:%u.%u,len:%u->%u,out_x:%u\n", __func__, __LINE__,
 	       param[1].step,
 	       param[1].int_offset,
 	       param[1].sub_offset,

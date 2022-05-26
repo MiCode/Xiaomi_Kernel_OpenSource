@@ -2654,9 +2654,6 @@ static void mtk_crtc_mml_clean(struct kref *kref)
 	struct mtk_drm_sram *s = container_of(kref, typeof(*s), ref);
 	struct mtk_drm_crtc *mtk_crtc = container_of(s, typeof(*mtk_crtc), mml_ir_sram);
 
-	if (!mtk_crtc)
-		return;
-
 	DDPMSG("%s: sram_list is empty, free sram\n", __func__);
 	mtk_crtc_free_sram(mtk_crtc);
 
@@ -2684,8 +2681,11 @@ static void mtk_crtc_atmoic_ddp_config(struct drm_crtc *crtc,
 
 	if (lyeblob_ids->ddp_blob_id) {
 		blob = drm_property_lookup_blob(dev, lyeblob_ids->ddp_blob_id);
-		if (!blob)
+		if (!blob) {
+			DDPPR_ERR("%s:%d invalid blob id %d\n", __func__, __LINE__,
+				lyeblob_ids->ddp_blob_id);
 			return;
+		}
 		lye_state = (struct mtk_lye_ddp_state *)blob->data;
 		drm_property_blob_put(blob);
 		old_lye_state = &state->lye_state;
@@ -3686,12 +3686,20 @@ bool mtk_crtc_with_sodi_loop(struct drm_crtc *crtc)
 
 bool mtk_crtc_is_frame_trigger_mode(struct drm_crtc *crtc)
 {
-	struct mtk_drm_private *priv = crtc->dev->dev_private;
-	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
-	int crtc_id = drm_crtc_index(crtc);
+	struct mtk_drm_private *priv;
+	struct mtk_drm_crtc *mtk_crtc;
+	int crtc_id;
 	struct mtk_ddp_comp *comp = NULL;
 	int i;
 
+	if (!crtc) {
+		DDPPR_ERR("%s:%d invalid crtc\n", __func__, __LINE__);
+		return false;
+	}
+
+	priv = crtc->dev->dev_private;
+	mtk_crtc = to_mtk_crtc(crtc);
+	crtc_id = drm_crtc_index(crtc);
 	if (crtc_id == 0)
 		return mtk_dsi_is_cmd_mode(priv->ddp_comp[DDP_COMPONENT_DSI0]);
 
@@ -4665,6 +4673,10 @@ static void mtk_crtc_ddp_config(struct drm_crtc *crtc)
 	if (!comp)
 		return;
 
+	if (!comp) {
+		DDPPR_ERR("%s invalid comp\n", __func__);
+		return;
+	}
 	ovl_is_busy = readl(comp->regs) & 0x1UL;
 	if (ovl_is_busy == 0x1UL)
 		return;
@@ -5601,6 +5613,10 @@ void mtk_crtc_dual_layer_config(struct mtk_drm_crtc *mtk_crtc,
 	struct mtk_plane_state plane_state_r;
 	struct mtk_ddp_comp *p_comp;
 
+	if (!comp) {
+		DDPPR_ERR("%s invalid comp\n", __func__);
+		return;
+	}
 	mtk_drm_layer_dispatch_to_dual_pipe(priv->data->mmsys_id, plane_state,
 		&plane_state_l, &plane_state_r,
 		crtc->state->adjusted_mode.hdisplay);
@@ -7280,7 +7296,7 @@ static void msync_add_frame_time(struct mtk_drm_crtc *mtk_crtc,
 static bool msync_need_disable(struct mtk_drm_crtc *mtk_crtc)
 {
 	struct mtk_msync2_dy *msync_dy = &mtk_crtc->msync2.msync_dy;
-	int index = msync_dy->record_index;
+	unsigned int index = msync_dy->record_index;
 	int low_frame_count = 0;
 	int i = 0;
 
@@ -7302,7 +7318,7 @@ static bool msync_need_disable(struct mtk_drm_crtc *mtk_crtc)
 static bool msync_need_enable(struct mtk_drm_crtc *mtk_crtc)
 {
 	struct mtk_msync2_dy *msync_dy = &mtk_crtc->msync2.msync_dy;
-	int index = msync_dy->record_index;
+	unsigned int index = msync_dy->record_index;
 	int low_frame_count = 0;
 	int i = 0;
 
@@ -7627,7 +7643,7 @@ static void mtk_crtc_msync2_send_cmds_bef_cfg(struct drm_crtc *crtc, unsigned in
 
 	DDPMSG("[Msync2.0] Cmd mode send cmds before config\n");
 
-	if (!params || !state || !mtk_crtc || !comp) {
+	if (!params || !state || !comp) {
 		DDPPR_ERR("[Msync2.0] Some pointer is NULL\n");
 		return;
 	}
@@ -8232,9 +8248,12 @@ void mtk_drm_crtc_plane_disable(struct drm_crtc *crtc, struct drm_plane *plane,
 #endif
 	struct cmdq_pkt *cmdq_handle = state->cmdq_handle;
 
-	if (comp != NULL)
-		DDPINFO("%s+ plane_id:%d, comp_id:%d, comp_id:%d\n", __func__,
-			plane->index, comp->id, plane_state->comp_state.comp_id);
+	if (!comp) {
+		DDPPR_ERR("%s invalid comp\n", __func__);
+		return;
+	}
+	DDPINFO("%s+ plane_id:%d, comp_id:%d, comp_id:%d\n", __func__,
+		plane->index, comp->id, plane_state->comp_state.comp_id);
 
 	if (plane_state->pending.enable) {
 		if (mtk_crtc->is_dual_pipe) {
@@ -8879,7 +8898,7 @@ static void mtk_drm_crtc_enable_fake_layer(struct drm_crtc *crtc,
 	struct mtk_crtc_state *state = to_mtk_crtc_state(crtc->state);
 	struct mtk_drm_fake_layer *fake_layer = &mtk_crtc->fake_layer;
 	int i, idx, layer_num;
-	int ovl_comp_id, ovl_2l_comp_id;
+	unsigned int ovl_comp_id, ovl_2l_comp_id;
 	int dual_pipe_ovl_comp_id, dual_pipe_ovl_2l_comp_id;
 
 	if (drm_crtc_index(crtc) != 0)
@@ -9075,6 +9094,11 @@ static void mtk_drm_crtc_disable_fake_layer(struct drm_crtc *crtc,
 					plane_state, state->cmdq_handle);
 
 		if (mtk_crtc->is_dual_pipe) {
+			if (!(dual_pipe_ovl_2l_comp_id < DDP_COMPONENT_ID_MAX)) {
+				DDPPR_ERR("%s:%d invalid comp_id %d\n",
+					 __func__, __LINE__, dual_pipe_ovl_2l_comp_id);
+				return;
+			}
 			layer_num = mtk_ovl_layer_num(
 					priv->ddp_comp[dual_pipe_ovl_2l_comp_id]);
 			if (layer_num < 0) {
@@ -9085,6 +9109,11 @@ static void mtk_drm_crtc_disable_fake_layer(struct drm_crtc *crtc,
 				comp = priv->ddp_comp[dual_pipe_ovl_2l_comp_id];
 				idx = i;
 			} else {
+				if (!(dual_pipe_ovl_comp_id < DDP_COMPONENT_ID_MAX)) {
+					DDPPR_ERR("%s:%d invalid comp_id %d\n",
+							__func__, __LINE__, dual_pipe_ovl_comp_id);
+					return;
+				}
 				comp = priv->ddp_comp[dual_pipe_ovl_comp_id];
 				idx = i - layer_num;
 			}
@@ -12655,7 +12684,7 @@ int mtk_drm_format_plane_cpp(uint32_t format, unsigned int plane)
 	const struct drm_format_info *info;
 
 	info = drm_format_info(format);
-	if (!info || plane >= info->num_planes)
+	if (!info || plane >= info->num_planes || plane < 0)
 		return 0;
 
 	return info->cpp[plane];

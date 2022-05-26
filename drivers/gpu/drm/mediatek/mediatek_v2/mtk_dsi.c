@@ -1586,7 +1586,7 @@ static void mtk_dsi_calc_vdo_timing(struct mtk_dsi *dsi)
 		dsi_tmp_buf_bpp = 3;
 
 	dsi->ext = find_panel_ext(dsi->panel);
-	if (!dsi->ext)
+	if (!dsi->ext || !ext)
 		return;
 
 	if (ext && ext->params)
@@ -1910,7 +1910,7 @@ irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 	static unsigned int cnt;
 	int i = 0, j = 0;
 	bool find_work = false;
-	static int work_id;
+	static unsigned int work_id;
 	ktime_t cur_time;
 
 	if (IS_ERR_OR_NULL(dsi))
@@ -3373,9 +3373,9 @@ unsigned int mtk_dsi_mode_change_index(struct mtk_dsi *dsi,
 			adjust_panel_params = panel_ext->params;
 	}
 
-	if (!(dsi->mipi_hopping_sta && adjust_panel_params &&
-		cur_panel_params && (cur_panel_params->dyn.switch_en ||
-		adjust_panel_params->dyn.switch_en))) {
+	if (!(dsi->mipi_hopping_sta && (cur_panel_params->dyn.switch_en ||
+		adjust_panel_params->dyn.switch_en)) &&
+		cur_panel_params && adjust_panel_params) {
 		if (mtk_drm_helper_get_opt(priv->helper_opt,
 				MTK_DRM_OPT_RES_SWITCH)
 			&& mtk_dsi_is_cmd_mode(&dsi->ddp_comp)) {
@@ -6178,14 +6178,10 @@ static void mtk_dsi_cmd_timing_change(struct mtk_dsi *dsi,
 {
 	struct cmdq_pkt *cmdq_handle;
 	struct cmdq_pkt *cmdq_handle2;
-	struct mtk_crtc_state *state =
-	    to_mtk_crtc_state(mtk_crtc->base.state);
-	struct mtk_crtc_state *old_mtk_state =
-	    to_mtk_crtc_state(old_state);
-	unsigned int src_mode =
-	    old_mtk_state->prop_val[CRTC_PROP_DISP_MODE_IDX];
-	unsigned int dst_mode =
-	    state->prop_val[CRTC_PROP_DISP_MODE_IDX];
+	struct mtk_crtc_state *state;
+	struct mtk_crtc_state *old_mtk_state;
+	unsigned int src_mode;
+	unsigned int dst_mode;
 	bool need_mipi_change = 1;
 	unsigned int clk_cnt = 0;
 	struct mtk_drm_private *priv = NULL;
@@ -6194,12 +6190,20 @@ static void mtk_dsi_cmd_timing_change(struct mtk_dsi *dsi,
 		return;
 
 	/* use no mipi clk change solution */
-	if (mtk_crtc && mtk_crtc->base.dev)
-		priv = mtk_crtc->base.dev->dev_private;
+	if (!mtk_crtc || !mtk_crtc->base.dev) {
+		DDPPR_ERR("%s invalid mtk_crtc %x\n", __func__, mtk_crtc);
+		return;
+	}
+	priv = mtk_crtc->base.dev->dev_private;
+	state = to_mtk_crtc_state(mtk_crtc->base.state);
+	old_mtk_state = to_mtk_crtc_state(old_state);
+	src_mode = old_mtk_state->prop_val[CRTC_PROP_DISP_MODE_IDX];
+	dst_mode = state->prop_val[CRTC_PROP_DISP_MODE_IDX];
 
 	if (!(priv && mtk_drm_helper_get_opt(priv->helper_opt,
 		MTK_DRM_OPT_DYN_MIPI_CHANGE))
 		&& !(mtk_crtc->mode_change_index & MODE_DSI_RES)
+		&& dsi->ext && dsi->ext->params
 		&& !(dsi->ext->params->cmd_null_pkt_en))
 		need_mipi_change = 0;
 
@@ -6259,7 +6263,7 @@ static void mtk_dsi_cmd_timing_change(struct mtk_dsi *dsi,
 	mtk_dsi_clk_hs_mode(dsi, 1);
 	if (mtk_drm_helper_get_opt(priv->helper_opt,
 			MTK_DRM_OPT_MMDVFS_SUPPORT)) {
-		if (dsi && dsi->driver_data && dsi->driver_data->mmclk_by_datarate)
+		if (dsi->driver_data && dsi->driver_data->mmclk_by_datarate)
 			dsi->driver_data->mmclk_by_datarate(dsi, mtk_crtc, 1);
 	}
 skip_change_mipi:
@@ -6453,7 +6457,7 @@ static void mtk_dsi_vdo_timing_change(struct mtk_dsi *dsi,
 				/*update VFP to max_vfp_for_msync*/
 				if (dsi->mipi_hopping_sta && dsi->ext && dsi->ext->params
 					&& dsi->ext->params->dyn.max_vfp_for_msync_dyn)
-					vfp =dsi->ext->params->dyn.max_vfp_for_msync_dyn;
+					vfp = dsi->ext->params->dyn.max_vfp_for_msync_dyn;
 				else if (dsi->ext && dsi->ext->params)
 					vfp = dsi->ext->params->max_vfp_for_msync;
 			}

@@ -761,21 +761,36 @@ int mtk_drm_ioctl_mml_gem_submit(struct drm_device *dev, void *data,
 	}
 
 	submit_kernel = kzalloc(sizeof(struct mml_submit), GFP_KERNEL);
+	if (!submit_kernel) {
+		DDPPR_ERR("%s:%d submit_kernel alloc fail\n", __func__, __LINE__);
+		return -EINVAL;
+	}
 	memcpy(submit_kernel, submit_user, sizeof(struct mml_submit));
 	submit_kernel->job = kzalloc(sizeof(struct mml_job), GFP_KERNEL);
+	if (!submit_kernel->job) {
+		DDPPR_ERR("%s:%d submit_kernel job alloc fail\n", __func__, __LINE__);
+		return -EINVAL;
+	}
 
-	if (submit_user->job) {
-		copy_from_user(submit_kernel->job, submit_user->job, sizeof(struct mml_job));
+	if (submit_user && submit_user->job) {
+		if (copy_from_user(submit_kernel->job, submit_user->job, sizeof(struct mml_job)))
+			DDPPR_ERR("%s:%d copy_from_user fail\n", __func__, __LINE__);
 	} else {
 		DDPMSG("mtk_drm_ioctl_mml_gem_submit submit_user->job is null\n");
 	}
 
 	for (i = 0; i < MML_MAX_OUTPUTS; i++)
 	{
-		if (submit_user->pq_param[i]) {
+		if (submit_user && submit_user->pq_param[i]) {
 			submit_kernel->pq_param[i] = kzalloc(sizeof(struct mml_pq_param), GFP_KERNEL);
-			copy_from_user(submit_kernel->pq_param[i], submit_user->pq_param[i],
-				sizeof(struct mml_pq_param));
+			if (!submit_kernel->pq_param[i]) {
+				DDPPR_ERR("%s:%d pq_param[%d]  alloc fail\n",
+					 __func__, __LINE__, i);
+				return -EINVAL;
+			}
+			if (copy_from_user(submit_kernel->pq_param[i], submit_user->pq_param[i],
+					sizeof(struct mml_pq_param)))
+				DDPPR_ERR("%s:%d copy_from_user fail\n", __func__, __LINE__);
 			//copy_from_user(submit_kernel->pq_param[i]->gralloc_extra_handle,
 			//	submit_user->pq_param[i]->gralloc_extra_handle, sizeof(void *));
 		} else {
@@ -805,14 +820,14 @@ int mtk_drm_ioctl_mml_gem_submit(struct drm_device *dev, void *data,
 	}
 
 	if (submit_user && submit_user->job) {
-		copy_to_user(submit_user->job, submit_kernel->job, sizeof(struct mml_job));
+		if (copy_to_user(submit_user->job, submit_kernel->job, sizeof(struct mml_job)))
+			DDPPR_ERR("%s:%d copy_to_user fail\n", __func__, __LINE__);
 	}
 
 	for (i = 0; i < MML_MAX_OUTPUTS; i++)
 	{
-		if (submit_user->pq_param[i]) {
+		if (submit_user && submit_user->pq_param[i])
 			kfree(submit_kernel->pq_param[i]);
-		}
 	}
 	kfree(submit_kernel->job);
 	kfree(submit_kernel);
