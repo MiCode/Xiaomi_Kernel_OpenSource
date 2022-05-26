@@ -708,11 +708,7 @@ static int esp6_output(struct xfrm_state *x, struct sk_buff *skb)
 		struct xfrm_dst *dst = (struct xfrm_dst *)skb_dst(skb);
 		u32 padto;
 
-#if IS_ENABLED(CONFIG_MTK_XFRM_DEBUG)
-		padto = min(x->tfcpad, xfrm_state_mtu(x, dst->child_mtu_cached));
-#else
 		padto = min(x->tfcpad, __xfrm_state_mtu(x, dst->child_mtu_cached));
-#endif
 		if (skb->len < padto)
 			esp.tfclen = padto - skb->len;
 	}
