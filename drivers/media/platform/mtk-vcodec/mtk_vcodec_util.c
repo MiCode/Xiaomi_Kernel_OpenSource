@@ -22,7 +22,7 @@
 
 
 #define LOG_PARAM_INFO_SIZE 64
-#define MAX_SUPPORTED_LOG_PARAMS_COUNT 12
+#define MAX_SUPPORTED_LOG_PARAMS_COUNT 32
 char mtk_vdec_tmp_log[LOG_PROPERTY_SIZE];
 char mtk_venc_tmp_log[LOG_PROPERTY_SIZE];
 char mtk_vdec_tmp_prop[LOG_PROPERTY_SIZE];
@@ -540,6 +540,7 @@ static void mtk_vcodec_sync_log(struct mtk_vcodec_dev *dev,
 	struct mtk_vcodec_log_param *pram, *tmp;
 	struct list_head *plist;
 	struct mutex *plist_mutex;
+	int param_count;
 
 	if (index == MTK_VCODEC_LOG_INDEX_LOG) {
 		plist = &dev->log_param_list;
@@ -566,6 +567,27 @@ static void mtk_vcodec_sync_log(struct mtk_vcodec_dev *dev,
 		}
 	}
 
+	// remove disabled log param from list if value is empty
+	param_count = 0;
+	list_for_each_entry_safe(pram, tmp, plist, list) {
+		if (strlen(pram->param_val) == 0) {
+			mtk_v4l2_debug(8, "remove deprecated key: %s, value: %s\n",
+				pram->param_key, pram->param_val);
+			list_del_init(&pram->list);
+			kfree(pram);
+		} else {
+			param_count++;
+		}
+	}
+
+	// don't allow add if param count exceeds the limit
+	if (param_count >= MAX_SUPPORTED_LOG_PARAMS_COUNT) {
+		mtk_v4l2_debug(0, "cannot add due to param count[%d] exceeds the limit[%d]\n",
+			param_count, MAX_SUPPORTED_LOG_PARAMS_COUNT);
+		mutex_unlock(plist_mutex);
+		return;
+	}
+
 	// cannot find, add new
 	pram = kzalloc(sizeof(*pram), GFP_KERNEL);
 	strncpy(pram->param_key, param_key, LOG_PARAM_INFO_SIZE - 1);
@@ -575,15 +597,6 @@ static void mtk_vcodec_sync_log(struct mtk_vcodec_dev *dev,
 		pram->param_key, pram->param_val);
 	list_add(&pram->list, plist);
 
-	// remove disabled log param from list if value is empty
-	list_for_each_entry_safe(pram, tmp, plist, list) {
-		if (strlen(pram->param_val) == 0) {
-			mtk_v4l2_debug(8, "remove deprecated key: %s, value: %s\n",
-				pram->param_key, pram->param_val);
-			list_del_init(&pram->list);
-			kfree(pram);
-		}
-	}
 	mutex_unlock(plist_mutex);
 }
 
@@ -615,7 +628,7 @@ static void mtk_vcodec_build_log_string(struct mtk_vcodec_dev *dev,
 	mutex_lock(plist_mutex);
 
 	if (dev->vfd_dec) {
-		memset(vdec_temp_str, 0x00, 1024);
+		memset(vdec_temp_str, 0x00, LOG_PROPERTY_SIZE);
 		list_for_each_entry(pram, plist, list) {
 			mtk_v4l2_debug(8, "existed log param %s: %s\n",
 					pram->param_key, pram->param_val);
@@ -632,7 +645,7 @@ static void mtk_vcodec_build_log_string(struct mtk_vcodec_dev *dev,
 			mtk_v4l2_debug(8, "build mtk_vdec_property: %s\n", mtk_vdec_property);
 		}
 	} else {
-		memset(venc_temp_str, 0x00, 1024);
+		memset(venc_temp_str, 0x00, LOG_PROPERTY_SIZE);
 		list_for_each_entry(pram, plist, list) {
 			mtk_v4l2_debug(8, "existed log param %s: %s\n",
 					pram->param_key, pram->param_val);

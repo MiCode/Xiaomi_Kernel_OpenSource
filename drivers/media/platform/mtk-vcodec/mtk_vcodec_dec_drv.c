@@ -403,6 +403,8 @@ static int mtk_vcodec_dec_probe(struct platform_device *pdev)
 	mutex_init(&dev->ipi_mutex);
 	mutex_init(&dev->ipi_mutex_res);
 	mutex_init(&dev->dec_dvfs_mutex);
+	mutex_init(&dev->log_param_mutex);
+	mutex_init(&dev->prop_param_mutex);
 	spin_lock_init(&dev->irqlock);
 
 	snprintf(dev->v4l2_dev.name, sizeof(dev->v4l2_dev.name), "%s",
