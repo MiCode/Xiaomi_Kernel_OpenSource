@@ -966,6 +966,7 @@ int parse_lcm_params_dsi(struct device_node *np,
 	if (len != params->mode_count * MTK_LCM_MODE_UNIT) {
 		DDPMSG("%s: invalid dsi mode list, len:%d, count:%u",
 			__func__, len, params->mode_count);
+		kfree(mode);
 		return -EINVAL;
 	}
 	for (i = 0; i < params->mode_count; i++) {

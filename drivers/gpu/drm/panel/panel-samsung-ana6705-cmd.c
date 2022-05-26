@@ -1889,9 +1889,13 @@ static int mtk_panel_ext_param_set(struct drm_panel *panel,
 		ret = 1;
 	}
 
-	if (!ret)
+	if (!ret) {
+		if (m == NULL) {
+			DDPPR_ERR("%s:%d invalid display_mode\n", __func__, __LINE__);
+			return -1;
+		}
 		current_fps = drm_mode_vrefresh(m);
-
+	}
 	return ret;
 }
 

@@ -435,7 +435,7 @@ static int parse_lcm_ops_func_cb(struct mtk_lcm_ops_data *lcm_op, u8 *dts,
 			lcm_op->param.cb_id_data.id_count + 1];
 		LCM_KZALLOC(lcm_op->param.cb_id_data.buffer_data,
 			lcm_op->param.cb_id_data.data_count + 1, GFP_KERNEL);
-		if (IS_ERR_OR_NULL(lcm_op->param.cb_id_data.id)) {
+		if (IS_ERR_OR_NULL(lcm_op->param.cb_id_data.buffer_data)) {
 			DDPPR_ERR("%s,%d: failed to allocate data\n",
 				__func__, __LINE__);
 			return -ENOMEM;
@@ -978,9 +978,12 @@ static void mtk_get_type_name(unsigned int type, char *out)
 		break;
 	default:
 		if (type > MTK_LCM_CUST_TYPE_START &&
-		    type < MTK_LCM_CUST_TYPE_END)
+		    type < MTK_LCM_CUST_TYPE_END) {
 			ret = snprintf(name, MTK_LCM_NAME_LENGTH - 1,
 				"CUST-%d", type);
+			if (ret < 0 || ret >= MTK_LCM_NAME_LENGTH)
+				DDPMSG("%s, %d, snprintf failed\n", __func__, __LINE__);
+		}
 		ret = snprintf(name, MTK_LCM_NAME_LENGTH - 1,
 				"unknown");
 		break;

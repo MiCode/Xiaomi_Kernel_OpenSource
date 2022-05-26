@@ -1636,6 +1636,10 @@ static int mode_switch(struct drm_panel *panel,
 	if (cur_mode == dst_mode)
 		return ret;
 
+	if (m == NULL) {
+		DDPPR_ERR("%s:%d invalid display_mode\n", __func__, __LINE__);
+		return -1;
+	}
 	if (drm_mode_vrefresh(m) == MODE_0_FPS) { /*switch to 60 */
 		mode_switch_to_60(panel, stage);
 		DDPMSG("%s:%d switch to 60fps\n", __func__, __LINE__);

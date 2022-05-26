@@ -116,8 +116,8 @@ static int get_mode_enum(struct drm_display_mode *m)
 	int ret = 0, m_vrefresh = 0;
 
 	if (m == NULL) {
-		DDPMSG("%s display mode is null\n", __func__);
-		return -1;
+		DDPMSG("%s display mode is null, return mode 0\n", __func__);
+		return 0;
 	}
 
 	m_vrefresh = drm_mode_vrefresh(m);
@@ -1018,6 +1018,11 @@ static int mode_switch_hs(struct drm_panel *panel, struct drm_connector *connect
 
 	if (cur_mode == dst_mode)
 		return ret;
+
+	if (m == NULL || src_m == NULL) {
+		DDPPR_ERR("%s:%d invalid display_mode\n", __func__, __LINE__);
+		return -1;
+	}
 
 	if (stage == BEFORE_DSI_POWERDOWN) {
 		mode_id = get_mode_enum(m);

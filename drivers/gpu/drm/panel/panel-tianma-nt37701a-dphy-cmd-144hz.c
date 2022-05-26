@@ -676,6 +676,10 @@ static int mtk_panel_ext_param_set(struct drm_panel *panel,
 	int ret = 0;
 	struct drm_display_mode *m = get_mode_by_id(connector, mode);
 
+	if (m == NULL) {
+		pr_err("%s:%d invalid display_mode\n", __func__, __LINE__);
+		return -1;
+	}
 	if (drm_mode_vrefresh(m) == 144)
 		ext->params = &ext_params_144hz;
 	else if (drm_mode_vrefresh(m) == 120)
@@ -754,6 +758,10 @@ static int mode_switch(struct drm_panel *panel,
 	if (cur_mode == dst_mode)
 		return ret;
 
+	if (m == NULL) {
+		pr_err("%s:%d invalid display_mode\n", __func__, __LINE__);
+		return -1;
+	}
 	if (drm_mode_vrefresh(m) == 48) { /*switch to 48 */
 		mode_switch_to_48(panel, stage);
 	} else if (drm_mode_vrefresh(m) == 60) { /*switch to 60 */
