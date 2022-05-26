@@ -1353,12 +1353,16 @@ static long mtk_hcp_ioctl(struct file *file, unsigned int cmd,
 	switch (cmd) {
 	case HCP_GET_OBJECT:
 		(void)copy_from_user(&data, (void *)arg, sizeof(struct packet));
-		if (data.count > IPI_MAX_BUFFER_COUNT) {
-			dev_info(hcp_dev->dev, "Get_OBJ # of buf:%u in cmd:%d exceed %u",
+		if (data.count > IPI_MAX_BUFFER_COUNT || data.count < 0) {
+			dev_info(hcp_dev->dev, "Get_OBJ # of buf:%d in cmd:%d exceed %u",
 				data.count, cmd, IPI_MAX_BUFFER_COUNT);
 			return -EINVAL;
 		}
-		for (index = 0; index < data.count; index++) {
+		for (index = 0; index < IPI_MAX_BUFFER_COUNT; index++) {
+			if (index >= data.count) {
+				break;
+			}
+
 			if (data.buffer[index] == NULL) {
 				dev_info(hcp_dev->dev, "Get_OBJ buf[%u] is NULL", index);
 				return -EINVAL;
