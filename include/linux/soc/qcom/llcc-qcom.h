@@ -53,6 +53,7 @@
 #define LLCC_DISRGHT     66
 #define LLCC_EVCSLFT     67
 #define LLCC_EVCSRGHT    68
+#define LLCC_SPAD        69
 
 /**
  * llcc_slice_desc - Cache slice descriptor
