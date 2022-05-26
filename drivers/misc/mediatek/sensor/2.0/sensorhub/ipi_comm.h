@@ -39,6 +39,7 @@ static inline void ipi_message_add_tail(struct ipi_transfer *t,
 
 int get_ctrl_id(void);
 int get_notify_id(void);
+unsigned int ipi_comm_size(unsigned int size);
 int ipi_comm_sync(int id, unsigned char *tx, unsigned int n_tx,
 		unsigned char *rx, unsigned int n_rx);
 int ipi_comm_async(struct ipi_message *m);

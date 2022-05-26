@@ -41,6 +41,7 @@ static int debug_seq_get_debug(uint8_t sensor_type, uint8_t *buffer,
 	struct sensor_comm_ctrl *ctrl = NULL;
 	struct share_mem_debug *shm_debug = NULL;
 	uint32_t write_position = 0;
+	uint32_t ctrl_size = 0;
 
 	ret = share_mem_read_reset(&debug_shm_reader);
 	if (ret < 0) {
@@ -60,13 +61,15 @@ static int debug_seq_get_debug(uint8_t sensor_type, uint8_t *buffer,
 	 */
 	reinit_completion(&debug_done);
 
-	ctrl = kzalloc(sizeof(*ctrl) + sizeof(ctrl->data[0]), GFP_KERNEL);
+	ctrl_size = ipi_comm_size(sizeof(*ctrl) + sizeof(ctrl->data[0]));
+	ctrl = kzalloc(ctrl_size, GFP_KERNEL);
 	ctrl->sensor_type = sensor_type;
 	ctrl->command = SENS_COMM_CTRL_DEBUG_CMD;
 	ctrl->length = sizeof(ctrl->data[0]);
 	/* safe sequence given by atomic, round from 0 to 255 */
 	ctrl->data[0] = (uint8_t)atomic_inc_return(&debug_sequence);
-	ret = sensor_comm_ctrl_send(ctrl, sizeof(*ctrl) + ctrl->length);
+
+	ret = sensor_comm_ctrl_send(ctrl, ctrl_size);
 	if (ret < 0) {
 		pr_err("%u send fail %d\n", sensor_type, ret);
 		goto out1;

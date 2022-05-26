@@ -518,14 +518,16 @@ static int transceiver_comm_with(int sensor_type, int cmd,
 {
 	int ret = 0;
 	struct sensor_comm_ctrl *ctrl = NULL;
+	uint32_t ctrl_size = 0;
 
-	ctrl = kzalloc(sizeof(*ctrl) + length, GFP_KERNEL);
+	ctrl_size = ipi_comm_size(sizeof(*ctrl) + length);
+	ctrl = kzalloc(ctrl_size, GFP_KERNEL);
 	ctrl->sensor_type = sensor_type;
 	ctrl->command = cmd;
 	ctrl->length = length;
 	if (length)
 		memcpy(ctrl->data, data, length);
-	ret = sensor_comm_ctrl_send(ctrl, sizeof(*ctrl) + ctrl->length);
+	ret = sensor_comm_ctrl_send(ctrl, ctrl_size);
 	kfree(ctrl);
 	return ret;
 }

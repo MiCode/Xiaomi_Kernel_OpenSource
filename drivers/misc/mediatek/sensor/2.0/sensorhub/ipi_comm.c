@@ -10,7 +10,6 @@
 #include <linux/spinlock.h>
 #include <linux/completion.h>
 #include <linux/delay.h>
-#include <linux/slab.h>
 
 #include "scp.h"
 #include "ipi_comm.h"
@@ -37,7 +36,6 @@ struct ipi_hw_transfer {
 };
 
 #define ipi_len(x) (((x) + MBOX_SLOT_SIZE - 1) / MBOX_SLOT_SIZE)
-#define ipi_need_realloc(len) ((len % MBOX_SLOT_SIZE) ? true : false)
 
 static struct ipi_controller controller;
 static struct ipi_hw_transfer hw_transfer;
@@ -48,14 +46,6 @@ static uint8_t notify_payload[PIN_IN_SIZE_SENSOR_NOTIFY * MBOX_SLOT_SIZE];
 static inline int ipi_retry_transfer(int id, void *tx, int tx_len)
 {
 	int ret = 0, retry = 0;
-	void *new_tx = NULL;
-
-	if (ipi_need_realloc(tx_len)) {
-		new_tx = krealloc(tx, roundup(tx_len, MBOX_SLOT_SIZE), GFP_KERNEL | __GFP_ZERO);
-		if (!new_tx)
-			return -ENOMEM;
-		tx = new_tx;
-	}
 
 	do {
 		ret = mtk_ipi_send(&scp_ipidev, id, 0, tx, ipi_len(tx_len), 0);
@@ -227,6 +217,11 @@ int ipi_comm_sync(int id, unsigned char *tx, unsigned int n_tx,
 int ipi_comm_async(struct ipi_message *m)
 {
 	return ipi_async(m);
+}
+
+unsigned int ipi_comm_size(unsigned int size)
+{
+	return roundup(size, MBOX_SLOT_SIZE);
 }
 
 int ipi_comm_noack(int id, unsigned char *tx, unsigned int n_tx)
