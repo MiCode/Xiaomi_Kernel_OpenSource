@@ -2816,7 +2816,7 @@ static inline void WPE_Prepare_Enable_ccf_clock(void)
 	/* enable through smi API */
 	pm_runtime_get_sync(WPE_devs->dev);
 	/* In 6873, 6853, larb9 here  is IMG2 larb11*/
-	LOG_INF("larb9 %p", WPE_devs->larb9);
+	LOG_INF("wpe larb9 %p", WPE_devs->larb9);
 	ret = mtk_smi_larb_get(WPE_devs->larb9);
 	if (ret)
 		LOG_ERR("mtk_smi_larb_get larb9 fail %d\n", ret);
@@ -2824,18 +2824,18 @@ static inline void WPE_Prepare_Enable_ccf_clock(void)
 //!#ifdef WPE_GKI_IMG1_LARB_ON
 	/* In 6873, 6853, larb11 here is IMG1 larb9*/
 	if(GKI_IMG1_LARB_ON == CG_ENABLE) {
-	LOG_INF("larb11 %p", WPE_devs->larb11);
+		LOG_INF("wpe larb11 %p", WPE_devs->larb11);
 	ret = mtk_smi_larb_get(WPE_devs->larb11);
 	if (ret)
 		LOG_ERR("mtk_smi_larb_get larb11 fail %d\n", ret);
 }
 //!#endif
-	
+
 	ret = clk_prepare_enable(wpe_clk.CG_IMGSYS_LARB9);
 	if (ret)
 		LOG_INF("cannot prepare and enable IMG_LARB9 clock\n");
-		
-	LOG_INF("get CG_IMGSYS_LARB9 OK");		
+
+	LOG_INF("get CG_IMGSYS_LARB9 OK");
 
 	ret = clk_prepare_enable(wpe_clk.CG_IMGSYS_WPE_A);
 	if (ret)
@@ -2859,17 +2859,18 @@ if ( CG_IMG_LARB11_ON == CG_ENABLE) {
 	ret = clk_prepare_enable(wpe_clk.CG_IMGSYS_LARB11);
 	if (ret)
 		LOG_INF("cannot prepare and enable IMG_LARB11 clock\n");
-		
-	LOG_INF("get CG_IMGSYS_LARB11 OK");	
+
+	LOG_INF("get CG_IMGSYS_LARB11 OK");
 
 	ret = clk_prepare_enable(wpe_clk.CG_IMGSYS_WPE_B);
 	if (ret)
 		LOG_INF("cannot prepare and enable CG_IMGSYS_WPE_B clock\n");
-		
-	LOG_INF("get CG_IMGSYS_WPE_B OK");		
+
+	LOG_INF("get CG_IMGSYS_WPE_B OK");
 }
 
-LOG_INF("CG_IMG_LARB11_ON = %d,CG_IMG1_ON = %d, GKI_IMG1_LARB_ON= %d \n",CG_IMG_LARB11_ON,CG_IMG1_ON,GKI_IMG1_LARB_ON);	
+	LOG_INF("CG_IMG_LARB11_ON = %d,CG_IMG1_ON = %d, GKI_IMG1_LARB_ON= %d\n",
+					CG_IMG_LARB11_ON, CG_IMG1_ON, GKI_IMG1_LARB_ON);
 }
 
 static inline void WPE_Disable_Unprepare_ccf_clock(void)
@@ -2877,18 +2878,23 @@ static inline void WPE_Disable_Unprepare_ccf_clock(void)
 	/* must keep this clk close order:*/
 	/*WPE clk -> CG_SCP_SYS_ISP -> */
 	/*CG_MM_SMI_COMMON -> CG_SCP_SYS_DIS */
+	/*LOG_INF("CG_ENABLE %d ,CG_IMG1_ON =%d,CG_IMG_LARB11_ON =%d ",*/
+	/*CG_ENABLE, CG_IMG1_ON, CG_IMG_LARB11_ON);*/
 if (CG_IMG1_ON == CG_ENABLE) {
 	clk_disable_unprepare(wpe_clk.CG_IMGSYS1);
 	CG_IMG1_ON = CG_DISABLE;
-}	
+}
 	clk_disable_unprepare(wpe_clk.CG_IMGSYS_WPE_A);
 	/* In 6873, 6853, larb9 here is IMG2 larb11*/
 	clk_disable_unprepare(wpe_clk.CG_IMGSYS_LARB9);
-
+	LOG_INF("wpe smi put larb9 %p", WPE_devs->larb9);
 	mtk_smi_larb_put(WPE_devs->larb9);
+	LOG_INF("wpe smi put larb11 %p", WPE_devs->larb11);
+	mtk_smi_larb_put(WPE_devs->larb11);
 if (CG_IMG_LARB11_ON == CG_ENABLE) {
 	/* In 6873, 6853, larb11 here is IMG1 larb9*/
-	mtk_smi_larb_put(WPE_devs->larb11);
+	//LOG_INF("wpe smi put larb11 %p", WPE_devs->larb11);
+	//mtk_smi_larb_put(WPE_devs->larb11);
 
 	clk_disable_unprepare(wpe_clk.CG_IMGSYS_WPE_B);
 	clk_disable_unprepare(wpe_clk.CG_IMGSYS_LARB11);
@@ -2898,7 +2904,8 @@ if (CG_IMG_LARB11_ON == CG_ENABLE) {
 }
 	pm_runtime_put_sync(WPE_devs->dev);
 
-	LOG_INF("[WPE_Disable_Unprepare_ccf_clock]CG_IMG_LARB11_ON = %d,CG_IMG1_ON = %d ,GKI_IMG1_LARB_ON =%d \n",CG_IMG_LARB11_ON,CG_IMG1_ON,GKI_IMG1_LARB_ON);	
+	LOG_INF("Unprepare_ccf CG_IMG_LARB11_ON = %d,CG_IMG1_ON = %d ,GKI_IMG1_LARB_ON =%d\n",
+			CG_IMG_LARB11_ON, CG_IMG1_ON, GKI_IMG1_LARB_ON);
 }
 #endif
 
