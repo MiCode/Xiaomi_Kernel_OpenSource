@@ -5509,16 +5509,32 @@
 
 	memory_ssmr_features: memory-ssmr-features {
 		compatible = "mediatek,memory-ssmr-features";
+#ifdef CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT
 		svp-region-based-size = <0 0x1A000000>;
+#endif
+#ifdef CONFIG_MTK_CAM_SECURITY_SUPPORT
 		iris-recognition-size = <0 0x10000000>;
 		2d_fr-size = <0 0>;
+#endif
+#ifdef CONFIG_TRUSTONIC_TRUSTED_UI
 		tui-size = <0 0x4000000>;
+#endif
+#ifdef CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT
 		wfd-size = <0 0x4000000>;
+#endif
+#ifdef CONFIG_MTK_PROT_MEM_SUPPORT
 		prot-region-based-size = <0 0x8000000>;
+#endif
+#ifdef CONFIG_MTK_HAPP_MEM-SUPPORT
 		ta-elf-size = <0 0x1000000>;
 		ta-stack-heap-size = <0 0x6000000>;
+#endif
+#ifdef CONFIG_MTK_SDSP_SHARED_MEM_SUPPORT
 		sdsp-tee-sharedmem-size = <0 0x1000000>;
+#endif
+#ifdef CONFIG_MTK_SDSP_MEM_SUPPORT
 		sdsp-firmware-size = <0 0x1000000>;
+#endif
 	};
 
 	apusys_reviser@19021000 {
