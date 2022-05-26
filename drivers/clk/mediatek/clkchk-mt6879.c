@@ -628,9 +628,6 @@ void set_subsys_reg_dump_mt6879(enum chk_sys_id id[])
 	const struct regname *rns = &rn[0];
 	int i, j;
 
-	if (rns == NULL)
-		return;
-
 	for (i = 0; i < ARRAY_SIZE(rn) - 1; i++, rns++) {
 		if (!is_valid_reg(ADDR(rns)))
 			continue;
@@ -657,9 +654,6 @@ void get_subsys_reg_dump_mt6879(void)
 	const struct regname *rns = &rn[0];
 	int i;
 
-	if (rns == NULL)
-		return;
-
 	for (i = 0; i < ARRAY_SIZE(rn) - 1; i++, rns++) {
 		if (reg_dump_valid[i])
 			pr_info("%-18s: [0x%08x] = 0x%08x\n",
@@ -673,9 +667,6 @@ void print_subsys_reg_mt6879(enum chk_sys_id id)
 	struct regbase *rb_dump;
 	const struct regname *rns = &rn[0];
 	int i;
-
-	if (rns == NULL)
-		return;
 
 	if (id >= chk_sys_num || id < 0) {
 		pr_info("wrong id:%d\n", id);
