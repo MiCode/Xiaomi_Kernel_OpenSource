@@ -306,8 +306,6 @@ static long AF_Ioctl(struct file *a_pstFile, unsigned int a_u4Command,
 		break;
 	}
 
-	LOG_INF("GETDRVNAME : set driver name(%s)\n", stMotorName.uMotorName);
-
 	for (i = 0; i < MAX_NUM_OF_LENS; i++) {
 		if (g_stAF_DrvList[i].uEnable != 1)
 			break;
