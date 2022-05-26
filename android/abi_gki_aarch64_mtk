@@ -1284,6 +1284,7 @@
   of_get_next_child
   of_get_next_parent
   of_get_parent
+  of_get_pci_domain_nr
   of_get_property
   of_get_regulator_init_data
   of_graph_get_next_endpoint
@@ -1359,6 +1360,7 @@
   pci_remove_root_bus
   pci_stop_root_bus
   pci_unlock_rescan_remove
+  pci_pio_to_address
   PDE_DATA
   __per_cpu_offset
   perf_event_create_kernel_counter
