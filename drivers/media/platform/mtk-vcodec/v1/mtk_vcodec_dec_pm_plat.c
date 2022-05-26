@@ -38,7 +38,7 @@ static bool mtk_dec_tput_init(struct mtk_vcodec_dev *dev)
 	const int bw_item_num = 2;
 	struct platform_device *pdev;
 	int i, j, larb_cnt, ret;
-	u32 nmin, nmax, cnt;
+	u32 nmin = 0, nmax = 0, cnt = 0;
 
 	pdev = dev->plat_dev;
 	larb_cnt = 0;
@@ -423,20 +423,20 @@ void mtk_vdec_pmqos_begin_inst(struct mtk_vcodec_ctx *ctx)
 			if (dev->vdec_dvfs_params.target_freq == dev->vdec_dvfs_params.min_freq) {
 				mtk_icc_set_bw_not_update(dev->vdec_qos_req[i],
 					MBps_to_icc(0), 0);
-				mtk_v4l2_debug(8, "[VDEC] port %d bw %u (0)MB/s",
-					i, (u32)target_bw);
+				mtk_v4l2_debug(8, "[VDEC] port %d bw %lu (0)MB/s",
+					i, (u64)target_bw);
 			} else {
 				mtk_icc_set_bw_not_update(dev->vdec_qos_req[i],
 					MBps_to_icc((u32)target_bw), 0);
-				mtk_v4l2_debug(8, "[VDEC] port %d bw %u MB/s", i, (u32)target_bw);
+				mtk_v4l2_debug(8, "[VDEC] port %d bw %lu MB/s", i, (u64)target_bw);
 			}
 		} else if (dev->vdec_port_bw[i].port_type == VCODEC_PORT_LARB_SUM) {
 			mtk_icc_set_bw(dev->vdec_qos_req[i], 0, 0);
 			mtk_v4l2_debug(8, "[VDEC] port %d set larb %u bw",
 					i, dev->vdec_port_bw[i].larb);
 		} else {
-			mtk_v4l2_debug(8, "[VDEC] unknown port type %d\n",
-				dev->vdec_port_bw[i].port_type);
+			mtk_v4l2_debug(8, "[VDEC] unknown port type %d %d\n",
+				i, dev->vdec_port_bw[i].port_type);
 		}
 	}
 }
@@ -464,12 +464,12 @@ void mtk_vdec_pmqos_end_inst(struct mtk_vcodec_ctx *ctx)
 			if (dev->vdec_dvfs_params.target_freq == dev->vdec_dvfs_params.min_freq) {
 				mtk_icc_set_bw_not_update(dev->vdec_qos_req[i],
 					MBps_to_icc(0), 0);
-				mtk_v4l2_debug(8, "[VDEC] port %d bw %u (0)MB/s",
-					i, (u32)target_bw);
+				mtk_v4l2_debug(8, "[VDEC] port %d bw %lu (0)MB/s",
+					i, (u64)target_bw);
 			} else {
 				mtk_icc_set_bw_not_update(dev->vdec_qos_req[i],
 					MBps_to_icc((u32)target_bw), 0);
-				mtk_v4l2_debug(8, "[VDEC] port %d bw %u MB/s", i, (u32)target_bw);
+				mtk_v4l2_debug(8, "[VDEC] port %d bw %lu MB/s", i, (u64)target_bw);
 			}
 		} else if (dev->vdec_port_bw[i].port_type == VCODEC_PORT_LARB_SUM) {
 			mtk_icc_set_bw(dev->vdec_qos_req[i], 0, 0);
@@ -562,7 +562,7 @@ void mtk_vdec_pmqos_end_frame(struct mtk_vcodec_ctx *ctx)
 		if (dev->vdec_port_bw[i].port_type < VCODEC_PORT_LARB_SUM) {
 			mtk_icc_set_bw_not_update(dev->vdec_qos_req[i],
 				MBps_to_icc((u32)target_bw), 0);
-			mtk_v4l2_debug(8, "[VDEC] port %d bw %u MB/s", i, (u32)target_bw);
+			mtk_v4l2_debug(8, "[VDEC] port %d bw %lu MB/s", i, (u64)target_bw);
 		} else if (dev->vdec_port_bw[i].port_type == VCODEC_PORT_LARB_SUM) {
 			mtk_icc_set_bw(dev->vdec_qos_req[i], 0, 0);
 			mtk_v4l2_debug(8, "[VDEC] port %d set larb %u bw",
