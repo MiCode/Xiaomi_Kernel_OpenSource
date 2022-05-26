@@ -373,9 +373,6 @@ mtk_cam_sv_working_buf_put(struct mtk_camsv_working_buf_entry *buf_entry)
 
 	dev_dbg(ctx->cam->dev, "%s:ctx(%d):s\n", __func__, ctx->stream_id);
 
-	if (!buf_entry)
-		return;
-
 	spin_lock(&ctx->buf_pool.sv_freelist.lock);
 	list_add_tail(&buf_entry->list_entry,
 		      &ctx->buf_pool.sv_freelist.list);

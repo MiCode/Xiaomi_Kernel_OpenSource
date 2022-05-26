@@ -90,6 +90,34 @@ struct mtk_raw_pipeline;
 #define v4l2_subdev_format_request_fd(x) x->reserved[0]
 #define v4l2_frame_interval_which(x) x->reserved[0]
 
+static inline raw_pipe_data_check(int a)
+{
+	bool result;
+
+	result = (a >= 0 && a < (MTKCAM_SUBDEV_RAW_END - MTKCAM_SUBDEV_RAW_START)) ? true : false;
+	return result;
+}
+static inline p_data_check(int a)
+{
+	bool result;
+
+	result = (a >= 0 && a < MTKCAM_SUBDEV_MAX) ? true : false;
+	return result;
+}
+static inline sv_pipe_check(int a)
+{
+	bool result;
+
+	result = (a >= 0 && a < CAMSV_PIPELINE_NUM) ? true : false;
+	return result;
+}
+static inline sv_devs_check(int a)
+{
+	bool result;
+
+	result = (a >= 0 && a < CAMSV_PIPELINE_NUM) ? true : false;
+	return result;
+}
 struct mtk_cam_working_buf {
 	void *va;
 	dma_addr_t iova;
@@ -559,7 +587,7 @@ mtk_cam_ctrl_state_get_req(struct mtk_camsys_ctrl_state *state)
 static inline int
 mtk_cam_req_get_num_s_data(struct mtk_cam_request *req, int pipe_id)
 {
-	if (pipe_id < 0 || pipe_id > MTKCAM_SUBDEV_MAX)
+	if (!p_data_check(pipe_id))
 		return 0;
 
 	return req->p_data[pipe_id].s_data_num;
@@ -572,13 +600,15 @@ mtk_cam_req_get_num_s_data(struct mtk_cam_request *req, int pipe_id)
 static inline struct mtk_cam_request_stream_data*
 mtk_cam_req_get_s_data_no_chk(struct mtk_cam_request *req, int pipe_id, int idx)
 {
+	if (!req || !p_data_check(pipe_id))
+		return NULL;
 	return &req->p_data[pipe_id].s_data[idx];
 }
 
 static inline struct mtk_cam_request_stream_data*
 mtk_cam_req_get_s_data(struct mtk_cam_request *req, int pipe_id, int idx)
 {
-	if (!req || pipe_id < 0 || pipe_id > MTKCAM_SUBDEV_MAX)
+	if (!req || !p_data_check(pipe_id))
 		return NULL;
 
 	if (idx < 0 || idx >= req->p_data[pipe_id].s_data_num)
@@ -644,7 +674,8 @@ mtk_cam_s_data_get_raw_pipe_data(struct mtk_cam_request_stream_data *s_data)
 {
 	if (!is_raw_subdev(s_data->pipe_id))
 		return NULL;
-
+	if (!raw_pipe_data_check(s_data->pipe_id))
+		return NULL;
 	return &s_data->req->raw_pipe_data[s_data->pipe_id];
 }
 
@@ -653,7 +684,8 @@ mtk_cam_s_data_get_res(struct mtk_cam_request_stream_data *s_data)
 {
 	if (s_data == NULL)
 		return NULL;
-
+	if (!raw_pipe_data_check(s_data->pipe_id))
+		return NULL;
 	if (!is_raw_subdev(s_data->pipe_id))
 		return NULL;
 
@@ -665,7 +697,8 @@ mtk_cam_s_data_get_res_feature(struct mtk_cam_request_stream_data *s_data)
 {
 	if (s_data == NULL)
 		return 0;
-
+	if (!raw_pipe_data_check(s_data->pipe_id))
+		return 0;
 	if (!is_raw_subdev(s_data->pipe_id))
 		return 0;
 

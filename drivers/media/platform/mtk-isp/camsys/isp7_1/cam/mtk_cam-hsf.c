@@ -160,6 +160,10 @@ static void mtk_cam_power_on_ccu(struct mtk_cam_hsf_ctrl *handle_inst, unsigned 
 		get_ccu_device(handle_inst);
 
 	ccu_rproc = rproc_get_by_phandle(handle_inst->ccu_handle);
+	if (ccu_rproc == NULL) {
+		pr_info("error: ccu_rproc is null!\n");
+		return;
+	}
 	if (flag > 0) {
 	/* boot up ccu */
 		ret = rproc_boot(ccu_rproc);
@@ -448,12 +452,6 @@ int mtk_cam_hsf_config(struct mtk_cam_ctx *ctx, unsigned int raw_id)
 	do_gettimeofday(&time);
 	ms_0 = time.tv_sec + time.tv_usec;
 #endif
-
-	if (ctx == NULL) {
-		pr_info("%s error: ctx is NULL pointer\n", __func__);
-		return -1;
-	}
-
 	if (mtk_cam_hsf_init(ctx) != 0) {
 		dev_info(cam->dev, "hsf initial fail\n");
 		return -1;
@@ -494,6 +492,10 @@ int mtk_cam_hsf_config(struct mtk_cam_ctx *ctx, unsigned int raw_id)
 	//TEST: secure iova map to camsys device.
 	dma_map_cq->dbuf = mtk_cam_dmabuf_alloc(ctx, CQ_BUF_SIZE);
 	dev = mtk_cam_find_raw_dev_hsf(cam, ctx->pipe->enabled_raw);
+	if (dev == NULL) {
+		dev_info(cam->dev, "Get dev failed\n");
+		return -1;
+	}
 	raw_dev = dev_get_drvdata(dev);
 	dev_info(cam->dev, "mtk_cam_dmabuf_alloc Done\n");
 	if (mtk_cam_dmabuf_get_iova(ctx, &(hsf_config->ccu_pdev->dev), dma_map_cq) != 0) {
