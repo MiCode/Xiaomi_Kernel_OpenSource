@@ -1209,16 +1209,16 @@ static void trp_event_filter_config(struct llcc_perfmon_private *llcc_priv,
 		}
 	} else if (filter == MULTISCID) {
 		if (llcc_priv->version == REV_2) {
-			/* Clear register for multi scid filter settings */
-			if (enable) {
+			if (enable)
 				val = match;
-				mask_val = SCID_MULTI_MATCH_MASK;
-			} else {
+			else
 				val = SCID_MULTI_MATCH_MASK;
-				mask_val = SCID_MULTI_MATCH_MASK;
-			}
-		}
 
+			mask_val = SCID_MULTI_MATCH_MASK;
+		} else {
+			pr_err("unknown filter/not supported\n");
+			return;
+		}
 	} else if (filter == WAY_ID) {
 		if (enable)
 			val = (match << TRP_WAY_ID_MATCH_SHIFT) |
