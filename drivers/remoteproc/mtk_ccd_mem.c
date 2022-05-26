@@ -73,9 +73,9 @@ static struct mtk_ccd_buf *mtk_ccd_buf_alloc(
 	buf->dma_sgt = dma_buf_map_attachment(buf->db_attach,
 				DMA_BIDIRECTIONAL);
 	if (IS_ERR(buf->dma_sgt)) {
-		kfree(buf);
 		pr_info("dma_heap map failed\n");
 		dma_buf_detach(buf->dbuf, buf->db_attach);
+		kfree(buf);
 		return ERR_PTR(-ENOMEM);
 	}
 
