@@ -352,8 +352,8 @@ static void flight_mode_set_by_atf(struct ccci_modem *md,
 
 static int md_cd_topclkgen_off(struct ccci_modem *md)
 {
-	unsigned int reg_value;
-	int ret;
+	unsigned int reg_value = 0;
+	int ret = 0;
 
 	if (md_cd_plat_val_ptr.power_flow_config & (1 << SKIP_TOPCLK_BIT)) {
 		CCCI_BOOTUP_LOG(md->index, TAG,
@@ -824,8 +824,8 @@ SRC_CLK_O1_DONE:
 
 static int md_cd_srcclkena_setting(struct ccci_modem *md)
 {
-	unsigned int reg_value;
-	int ret;
+	unsigned int reg_value = 0;
+	int ret = 0;
 
 	if (!(md_cd_plat_val_ptr.power_flow_config & (1 << SRCCLKENA_SETTING_BIT))) {
 		CCCI_BOOTUP_LOG(md->index, TAG,

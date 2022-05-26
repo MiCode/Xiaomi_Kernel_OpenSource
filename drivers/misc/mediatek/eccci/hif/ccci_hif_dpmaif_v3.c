@@ -401,7 +401,7 @@ static inline void dpmaif_lro_update_gro_info(
 	struct ipv6hdr *ip6h = NULL;
 	unsigned int gso_type;
 
-	if (skb->data == NULL)
+	if (skb == NULL || skb->data == NULL)
 		return;
 
 	iph = (struct iphdr *)skb->data;
@@ -3735,8 +3735,8 @@ static void dpmaif_hw_reset(void)
 static void dpmaif_hw_reset_v1(void)
 {
 	unsigned char md_id = 0;
-	unsigned int value;
-	int ret;
+	unsigned int value = 0;
+	int ret = 0;
 
 	ret = regmap_read(dpmaif_ctrl->plat_val.infra_ao_base,
 			0x0208, &value);

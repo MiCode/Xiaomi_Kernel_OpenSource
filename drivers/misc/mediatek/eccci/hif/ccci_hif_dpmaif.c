@@ -929,8 +929,8 @@ static int dpmaif_rx_set_data_to_skb(struct dpmaif_rx_queue *rxq,
 static inline void dpmaif_handle_wakeup(struct dpmaif_rx_queue *rxq,
 		struct sk_buff *skb)
 {
-	struct iphdr *iph = (struct iphdr *)skb->data;
-	struct ipv6hdr *ip6h = (struct ipv6hdr *)skb->data;
+	struct iphdr *iph = NULL;
+	struct ipv6hdr *ip6h = NULL;
 	struct tcphdr *tcph = NULL;
 	struct udphdr *udph = NULL;
 	int ip_offset = 0;
@@ -940,8 +940,11 @@ static inline void dpmaif_handle_wakeup(struct dpmaif_rx_queue *rxq,
 	u32 dst_port = 0;
 	u32 skb_len  = 0;
 
-	if (!skb)
+	if (!skb || !skb->data)
 		goto err;
+
+	iph = (struct iphdr *)skb->data;
+	ip6h = (struct ipv6hdr *)skb->data;
 
 	skb_len = skb->len;
 	version = iph->version;
@@ -2923,8 +2926,7 @@ void dpmaif_stop_hw(void)
 	count = 0;
 	do {
 		/*Disable HW arb and check idle*/
-		ret = drv_dpmaif_dl_all_queue_en(false);
-		if (ret < 0) {
+		if (drv_dpmaif_dl_all_queue_en(false) < 0) {
 #if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 			aee_kernel_warning("ccci",
 				"dpmaif stop failed to enable dl queue\n");
