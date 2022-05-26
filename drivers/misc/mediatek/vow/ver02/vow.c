@@ -700,16 +700,16 @@ static int vow_service_GetParameter(unsigned long arg)
 	memcpy(vowserv.vow_info_apuser, vow_info_ap,
 				 sizeof(vow_info_ap));
 	VOWDRV_DEBUG(
-	"vow get parameter: id %lu, keyword %lu, mdl_ptr 0x%x, mdl_sz %lu\n",
+	"vow get parameter: id %lu, keyword %lu, mdl_ptr 0x%lx, mdl_sz %lu\n",
 		     vowserv.vow_info_apuser[0],
 		     vowserv.vow_info_apuser[1],
-		     (unsigned int)vowserv.vow_info_apuser[2],
+		     vowserv.vow_info_apuser[2],
 		     vowserv.vow_info_apuser[3]);
 	VOWDRV_DEBUG(
-	"vow get parameter: return size addr 0x%x, uuid %d, data 0x%x\n",
-		     (unsigned int)vowserv.vow_info_apuser[4],
+	"vow get parameter: return size addr 0x%lx, uuid %d, data 0x%lx\n",
+		     vowserv.vow_info_apuser[4],
 		     vowserv.vow_info_apuser[5],
-		     (unsigned int)vowserv.vow_info_apuser[6]);
+		     vowserv.vow_info_apuser[6]);
 
 	return 0;
 }
