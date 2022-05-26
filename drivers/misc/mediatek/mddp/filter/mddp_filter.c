@@ -126,8 +126,8 @@ static int mddp_f_e_tag_packet(
 
 	if ((neigh == NULL) || !(neigh->nud_state & NUD_VALID)) {
 		MDDP_F_LOG(MDDP_LL_WARN,
-				"%s: Add MDDP Etag Fail, neigh[%x]\n",
-				__func__, neigh);
+			"%s: Add MDDP Etag Fail, neigh is null or nud_state is not VALID\n",
+			__func__);
 		if (neigh)
 			neigh_release(neigh);
 		return -1;

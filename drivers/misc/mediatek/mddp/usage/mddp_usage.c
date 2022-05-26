@@ -56,37 +56,39 @@ void mddp_u_get_data_stats(void *buf, uint32_t *buf_len)
 	struct mddp_u_data_stats_t             *usage;
 	uint32_t                                sm_len = 0;
 
+	*buf_len = 0;
 	md_stats = get_smem_start_addr(MD_SYS1, SMEM_USER_RAW_NETD, &sm_len);
-	md_stats += wan_id;
+	if (md_stats) {
+		md_stats += wan_id;
 
-	if (sm_len >= sizeof(struct mddp_u_data_stats_t)) {
-		usage = (struct mddp_u_data_stats_t *)buf;
-		*buf_len = sizeof(struct mddp_u_data_stats_t);
-		#define DIFF_FROM_SMEM(x) (usage->x = \
-		(md_stats->x > cur_stats.x) ? (md_stats->x - cur_stats.x) : 0)
-		DIFF_FROM_SMEM(total_tx_pkts);
-		DIFF_FROM_SMEM(total_tx_bytes);
-		DIFF_FROM_SMEM(tx_tcp_bytes);
-		DIFF_FROM_SMEM(tx_tcp_pkts);
-		DIFF_FROM_SMEM(tx_udp_bytes);
-		DIFF_FROM_SMEM(tx_udp_pkts);
-		DIFF_FROM_SMEM(tx_others_bytes);
-		DIFF_FROM_SMEM(tx_others_pkts);
-		DIFF_FROM_SMEM(total_rx_pkts);
-		DIFF_FROM_SMEM(total_rx_bytes);
-		DIFF_FROM_SMEM(rx_tcp_bytes);
-		DIFF_FROM_SMEM(rx_tcp_pkts);
-		DIFF_FROM_SMEM(rx_udp_bytes);
-		DIFF_FROM_SMEM(rx_udp_pkts);
-		DIFF_FROM_SMEM(rx_others_bytes);
-		DIFF_FROM_SMEM(rx_others_pkts);
+		if (sm_len >= sizeof(struct mddp_u_data_stats_t)) {
+			usage = (struct mddp_u_data_stats_t *)buf;
+			*buf_len = sizeof(struct mddp_u_data_stats_t);
+			#define DIFF_FROM_SMEM(x) (usage->x = \
+			(md_stats->x > cur_stats.x) ? (md_stats->x - cur_stats.x) : 0)
+			DIFF_FROM_SMEM(total_tx_pkts);
+			DIFF_FROM_SMEM(total_tx_bytes);
+			DIFF_FROM_SMEM(tx_tcp_bytes);
+			DIFF_FROM_SMEM(tx_tcp_pkts);
+			DIFF_FROM_SMEM(tx_udp_bytes);
+			DIFF_FROM_SMEM(tx_udp_pkts);
+			DIFF_FROM_SMEM(tx_others_bytes);
+			DIFF_FROM_SMEM(tx_others_pkts);
+			DIFF_FROM_SMEM(total_rx_pkts);
+			DIFF_FROM_SMEM(total_rx_bytes);
+			DIFF_FROM_SMEM(rx_tcp_bytes);
+			DIFF_FROM_SMEM(rx_tcp_pkts);
+			DIFF_FROM_SMEM(rx_udp_bytes);
+			DIFF_FROM_SMEM(rx_udp_pkts);
+			DIFF_FROM_SMEM(rx_others_bytes);
+			DIFF_FROM_SMEM(rx_others_pkts);
 
-		memcpy(&cur_stats, md_stats, *buf_len);
-	} else {
-		MDDP_U_LOG(MDDP_LL_ERR,
-				"%s: Failed to copy data stats, sm_len(%d), buf_len(%d)!\n",
-				__func__, sm_len, *buf_len);
-		*buf_len = 0;
+			memcpy(&cur_stats, md_stats, *buf_len);
+		} else {
+			MDDP_U_LOG(MDDP_LL_ERR,
+					"%s: Failed to copy data stats, sm_len(%d), buf_len(%d)!\n",
+					__func__, sm_len, *buf_len);
+		}
 	}
 }
 
