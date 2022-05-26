@@ -585,10 +585,7 @@ static void calculateGammaLut(struct DISP_GAMMA_LUT_T *data)
 
 static void calculateGamma12bitLut(struct DISP_GAMMA_12BIT_LUT_T *data)
 {
-	int i, lut_size;
-
-	if (g_gamma_data_mode == HW_12BIT_MODE_8BIT)
-		lut_size = DISP_GAMMA_LUT_SIZE;
+	int i, lut_size = DISP_GAMMA_LUT_SIZE;
 
 	if (g_gamma_data_mode == HW_12BIT_MODE_12BIT)
 		lut_size = DISP_GAMMA_12BIT_LUT_SIZE;

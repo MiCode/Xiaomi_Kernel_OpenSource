@@ -308,7 +308,7 @@ static int disp_ccorr_write_coef_reg(struct mtk_ddp_comp *comp,
 {
 	struct DRM_DISP_CCORR_COEF_T *ccorr, *multiply_matrix;
 	int ret = 0;
-	int id = index_of_ccorr(comp->id);
+	unsigned int id = index_of_ccorr(comp->id);
 	unsigned int temp_matrix[3][3];
 	unsigned int cfg_val;
 	int i, j;
@@ -440,7 +440,7 @@ void disp_ccorr_on_end_of_frame(struct mtk_ddp_comp *comp)
 {
 	unsigned int intsta;
 	unsigned long flags;
-	int index = index_of_ccorr(comp->id);
+	unsigned int index = index_of_ccorr(comp->id);
 
 	spin_lock_irqsave(&g_ccorr_clock_lock, flags);
 
@@ -482,7 +482,7 @@ static void disp_ccorr_clear_irq_only(struct mtk_ddp_comp *comp)
 {
 	unsigned int intsta;
 	unsigned long flags;
-	int index = index_of_ccorr(comp->id);
+	unsigned int index = index_of_ccorr(comp->id);
 
 	DDPDBG("%s @ %d......... spin_trylock_irqsave ++ ",
 		__func__, __LINE__);
@@ -648,7 +648,7 @@ static int disp_ccorr_set_coef(
 {
 	int ret = 0;
 	struct DRM_DISP_CCORR_COEF_T *ccorr, *old_ccorr;
-	int id = index_of_ccorr(comp->id);
+	unsigned int id = index_of_ccorr(comp->id);
 
 	ccorr = kmalloc(sizeof(struct DRM_DISP_CCORR_COEF_T), GFP_KERNEL);
 	if (ccorr == NULL) {
@@ -707,7 +707,7 @@ static int mtk_disp_ccorr_set_interrupt(struct mtk_ddp_comp *comp, void *data)
 {
 	int enabled = *((int *)data);
 	unsigned long flags;
-	int index = index_of_ccorr(comp->id);
+	unsigned int index = index_of_ccorr(comp->id);
 	int ret = 0;
 
 	DDPDBG("%s @ %d......... spin_lock_irqsave ++ %d\n", __func__, __LINE__, index);
@@ -742,6 +742,7 @@ static int mtk_disp_ccorr_set_interrupt(struct mtk_ddp_comp *comp, void *data)
 		__func__, __LINE__);
 	return ret;
 }
+
 int disp_ccorr_set_color_matrix(struct mtk_ddp_comp *comp,
 	struct cmdq_pkt *handle, int32_t matrix[16], int32_t hint, bool fte_flag)
 {
@@ -750,7 +751,7 @@ int disp_ccorr_set_color_matrix(struct mtk_ddp_comp *comp,
 	int ccorr_without_gamma = 0;
 	bool need_refresh = false;
 	bool identity_matrix = true;
-	int id = index_of_ccorr(comp->id);
+	unsigned int id = index_of_ccorr(comp->id);
 	struct mtk_drm_crtc *mtk_crtc = comp->mtk_crtc;
 	struct drm_crtc *crtc = &mtk_crtc->base;
 	struct mtk_drm_private *priv = crtc->dev->dev_private;
@@ -922,7 +923,7 @@ int disp_ccorr_set_RGB_Gain(struct mtk_ddp_comp *comp,
 	int r, int g, int b)
 {
 	int ret;
-	int id = index_of_ccorr(comp->id);
+	unsigned int id = index_of_ccorr(comp->id);
 
 	mutex_lock(&g_ccorr_global_lock);
 	g_rgb_matrix[id][0][0] = r;
