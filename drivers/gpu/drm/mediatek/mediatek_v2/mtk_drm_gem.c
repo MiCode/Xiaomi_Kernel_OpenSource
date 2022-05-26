@@ -920,8 +920,10 @@ int mtk_drm_sec_hnd_to_gem_hnd(struct drm_device *dev, void *data,
 	mtk_gem_obj->sec = true;
 	prime_fd = args->sec_hnd;
 	dma_buf = dma_buf_get(prime_fd);
-	if (IS_ERR(dma_buf))
+	if (IS_ERR(dma_buf)) {
+		kfree(mtk_gem_obj);
 		return PTR_ERR(dma_buf);
+	}
 
 	mutex_lock(&file_priv->prime.lock);
 	ret = __prime_lookup_buf_handle(&file_priv->prime,

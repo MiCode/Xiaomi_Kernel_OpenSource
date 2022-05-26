@@ -457,7 +457,7 @@ int mtk_drm_mmp_ovl_layer(struct mtk_plane_state *state,
 	struct mtk_plane_pending_state *pending = &state->pending;
 	struct drm_crtc *crtc = state->crtc;
 	struct mtk_drm_private *private = crtc->dev->dev_private;
-	int crtc_idx = drm_crtc_index(crtc);
+	unsigned int crtc_idx = drm_crtc_index(crtc);
 	struct mmp_metadata_bitmap_t bitmap;
 	struct mmp_metadata_t meta = {0};
 	unsigned int fmt = pending->format;
@@ -665,12 +665,12 @@ int mtk_drm_mmp_cwb_buffer(struct drm_crtc *crtc,
 		struct mtk_cwb_info *cwb_info,
 		void *buffer, unsigned int buf_idx)
 {
-	int crtc_idx = drm_crtc_index(crtc);
+	unsigned int crtc_idx = drm_crtc_index(crtc);
 	enum CWB_BUFFER_TYPE type = cwb_info->type;
 	struct mmp_metadata_bitmap_t bitmap;
 	mmp_event event_base = 0;
 
-	if (crtc_idx > CRTC_NUM)
+	if (crtc_idx >= CRTC_NUM)
 		return -EINVAL;
 
 	memset(&bitmap, 0, sizeof(struct mmp_metadata_bitmap_t));

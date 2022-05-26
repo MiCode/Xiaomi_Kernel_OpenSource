@@ -1030,7 +1030,10 @@ void mtk_dsi_config_null_packet(struct mtk_dsi *dsi)
 {
 	u32 null_packet_len = 0;
 
-	if (dsi && dsi->ext && dsi->ext->params &&
+	if (!dsi)
+		return;
+
+	if (dsi->ext && dsi->ext->params &&
 		!dsi->ext->params->lp_perline_en &&
 		mtk_dsi_is_cmd_mode(&dsi->ddp_comp) &&
 		dsi->ext->params->cmd_null_pkt_en) {
@@ -3686,7 +3689,7 @@ bool mtk_dsi_is_cmd_mode(struct mtk_ddp_comp *comp)
 
 static const char *mtk_dsi_get_porch_str(enum dsi_porch_type type)
 {
-	if (type > DSI_PORCH_NUM) {
+	if (type >= DSI_PORCH_NUM) {
 		DDPPR_ERR("%s: Invalid dsi porch type:%d\n", __func__, type);
 		type = 0;
 	}
