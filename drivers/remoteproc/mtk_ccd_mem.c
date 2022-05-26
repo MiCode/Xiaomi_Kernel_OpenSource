@@ -51,6 +51,7 @@ static struct mtk_ccd_buf *mtk_ccd_buf_alloc(
 	dma_heap = dma_heap_find("mtk_mm-uncached");
 	if (!dma_heap) {
 		pr_info("dma_heap find fail\n");
+		kfree(buf);
 		return ERR_PTR(-ENOMEM);
 	}
 
@@ -58,18 +59,21 @@ static struct mtk_ccd_buf *mtk_ccd_buf_alloc(
 			O_RDWR | O_CLOEXEC, DMA_HEAP_VALID_HEAP_FLAGS);
 	if (IS_ERR(buf->dbuf)) {
 		pr_info("dma_heap buffer alloc fail\n");
+		kfree(buf);
 		return ERR_PTR(-ENOMEM);
 	}
 
 	buf->db_attach = dma_buf_attach(buf->dbuf, dev);
 	if (IS_ERR(buf->db_attach)) {
 		pr_info("dma_heap attach fail\n");
+		kfree(buf);
 		return ERR_PTR(-ENOMEM);
 	}
 
 	buf->dma_sgt = dma_buf_map_attachment(buf->db_attach,
 				DMA_BIDIRECTIONAL);
 	if (IS_ERR(buf->dma_sgt)) {
+		kfree(buf);
 		pr_info("dma_heap map failed\n");
 		dma_buf_detach(buf->dbuf, buf->db_attach);
 		return ERR_PTR(-ENOMEM);
@@ -79,8 +83,12 @@ static struct mtk_ccd_buf *mtk_ccd_buf_alloc(
 	buf->dma_addr = sg_dma_address(buf->dma_sgt->sgl);
 	buf->dev = get_device(dev);
 	buf->size = size;
-
 	/* increase file count */
+	if (buf->dbuf == NULL) {
+		kfree(buf);
+		pr_info("buf->dbuf IS Null\n");
+		return ERR_PTR(-ENOMEM);
+	}
 	get_dma_buf(buf->dbuf);
 
 	return buf;
@@ -282,6 +290,10 @@ int mtk_ccd_get_buffer_fd(struct mtk_ccd *ccd, void *mem_priv)
 	}
 
 	/* increase file count */
+	if (buf->dbuf == NULL) {
+		pr_info("buf->dbuf IS Null\n");
+		return -EINVAL;
+	}
 	get_dma_buf(buf->dbuf);
 
 	return fd;

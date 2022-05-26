@@ -39,7 +39,7 @@ void ccd_ipi_unregister(struct platform_device *pdev, enum ccd_ipi_id id)
 	if (!ccd)
 		return;
 
-	if (WARN_ON(id < 0) || WARN_ON(id >= CCD_IPI_MAX))
+	if (WARN_ON(id >= CCD_IPI_MAX))
 		return;
 }
 EXPORT_SYMBOL_GPL(ccd_ipi_unregister);
