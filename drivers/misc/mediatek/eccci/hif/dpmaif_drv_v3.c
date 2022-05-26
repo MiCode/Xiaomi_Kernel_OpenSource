@@ -1093,7 +1093,7 @@ int drv3_dpmaif_intr_hw_init(void)
 	/* 1. clear dummy sts*/
 	DPMA_WRITE_PD_MISC(DPMAIF_PD_AP_IP_BUSY, 0xFFFFFFFF);
 	/* 2. set IP busy unmask*/
-	DPMA_WRITE_AO_UL(NRL2_DPMAIF_AO_UL_AP_DL_UL_IP_BUSY_MASK, 0);
+	DPMA_WRITE_AO_UL(NRL2_DPMAIF_AO_UL_AP_DL_UL_IP_BUSY_MASK, 1);
 
 	return 0;
 }
