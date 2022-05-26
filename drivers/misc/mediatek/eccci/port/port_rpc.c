@@ -1210,7 +1210,7 @@ static void rpc_msg_handler(struct port_t *port, struct sk_buff *skb)
 		goto err_out;
 	}
 	if (rpc_buf->header.reserved > RPC_REQ_BUFFER_NUM ||
-	    rpc_buf->para_num < 0 || rpc_buf->para_num > RPC_MAX_ARG_NUM) {
+	    rpc_buf->para_num > RPC_MAX_ARG_NUM) {
 		CCCI_ERROR_LOG(md_id, RPC,
 			"invalid RPC index %d/%d\n",
 			rpc_buf->header.reserved, rpc_buf->para_num);
