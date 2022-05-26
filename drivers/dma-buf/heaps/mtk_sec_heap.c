@@ -929,6 +929,10 @@ static int region_base_alloc(struct secure_heap_region *sec_heap,
 	pr_info("%s start: [%s], req_size:0x%lx, align:0x%x(%d)\n",
 		__func__, dma_heap_get_name(buffer->heap), buffer->len, alignment, aligned);
 
+	if (buffer->len > UINT_MAX) {
+		pr_err("%s error. len more than UINT_MAX\n", __func__);
+		return -EINVAL;
+	}
 	ret = trusted_mem_api_alloc(sec_heap->tmem_type, alignment, (unsigned int *)&buffer->len,
 				    &refcount, &sec_handle,
 				    (uint8_t *)dma_heap_get_name(buffer->heap),
@@ -1003,6 +1007,10 @@ static int page_base_alloc(struct secure_heap_page *sec_heap, struct mtk_sec_hea
 	pr_info("%s start: [%s], req_size:0x%lx\n",
 		__func__, dma_heap_get_name(sec_heap->heap), buffer->len);
 
+	if (buffer->len > UINT_MAX) {
+		pr_err("%s error. len more than UINT_MAX\n", __func__);
+		return -EINVAL;
+	}
 	ret = trusted_mem_api_alloc(sec_heap->tmem_type, 0, (unsigned int *)&buffer->len,
 				    &refcount, &sec_handle,
 				    (uint8_t *)dma_heap_get_name(sec_heap->heap),
