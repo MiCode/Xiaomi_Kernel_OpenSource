@@ -1434,7 +1434,7 @@ static const struct v4l2_ctrl_config cfg_shutter_gain_sync = {
 	.name = "shutter_gain_sync",
 	.type = V4L2_CTRL_TYPE_U32,
 	.flags = V4L2_CTRL_FLAG_EXECUTE_ON_WRITE,
-	.max = 0xffff,
+	.max = 0xffffffff,
 	.step = 1,
 	.dims = {sizeof_u32(struct mtk_shutter_gain_sync)},
 };
