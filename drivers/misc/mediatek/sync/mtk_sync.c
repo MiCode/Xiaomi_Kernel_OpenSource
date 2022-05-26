@@ -158,14 +158,14 @@ static void timeline_fence_release(struct dma_fence *fence)
 		pr_info("%s:pt is null\n", __func__);
 		return;
 	}
-
-	spin_lock_irqsave(fence->lock, flags);
 	if (!list_empty(&pt->link)) {
-		list_del(&pt->link);
-		rb_erase(&pt->node, &parent->pt_tree);
+		spin_lock_irqsave(fence->lock, flags);
+		if (!list_empty(&pt->link)) {
+			list_del(&pt->link);
+			rb_erase(&pt->node, &parent->pt_tree);
+		}
+		spin_unlock_irqrestore(fence->lock, flags);
 	}
-	spin_unlock_irqrestore(fence->lock, flags);
-
 	sync_timeline_put(parent);
 	dma_fence_free(fence);
 }
