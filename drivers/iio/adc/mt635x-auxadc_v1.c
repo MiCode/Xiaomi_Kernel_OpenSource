@@ -504,7 +504,8 @@ static int auxadc_get_data_from_dt(struct mt635x_auxadc_device *adc_dev,
 	struct device_node *node)
 {
 	struct auxadc_channels *auxadc_chan;
-	unsigned int value = 0, val_arr[2] = {0};
+	unsigned int value = 0;
+	unsigned char val_arr[2] = {0};
 	int ret;
 
 	ret = of_property_read_u32(node, "channel", channel);
@@ -521,7 +522,7 @@ static int auxadc_get_data_from_dt(struct mt635x_auxadc_device *adc_dev,
 	}
 	auxadc_chan = &auxadc_chans[*channel];
 
-	ret = of_property_read_u32_array(node, "resistance-ratio", val_arr, 2);
+	ret = of_property_read_u32_array(node, "resistance-ratio", (u32 *)val_arr, 2);
 	if (!ret) {
 		auxadc_chan->r_ratio[0] = val_arr[0];
 		auxadc_chan->r_ratio[1] = val_arr[1];
