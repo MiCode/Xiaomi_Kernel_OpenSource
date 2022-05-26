@@ -1331,8 +1331,6 @@ static int s_control(struct adaptor_ctx *ctx, void *arg)
 		info->scenario_id, workbuf1.kbuf, workbuf2.kbuf);
 	workbuf_put_ret = workbuf_put(&workbuf1);
 	workbuf_put_ret = workbuf_put(&workbuf2);
-	if (ret)
-		return ret;
 
 	return 0;
 }
