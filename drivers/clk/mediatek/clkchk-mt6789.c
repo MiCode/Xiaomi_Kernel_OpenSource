@@ -403,10 +403,7 @@ void print_subsys_reg_mt6789(enum chk_sys_id id)
 	const struct regname *rns = &rn[0];
 	int i;
 
-	if (rns == NULL)
-		return;
-
-	if (id >= chk_sys_num || id < 0) {
+	if (id >= chk_sys_num) {
 		pr_info("wrong id:%d\n", id);
 		return;
 	}

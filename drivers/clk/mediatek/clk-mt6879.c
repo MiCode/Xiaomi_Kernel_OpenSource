@@ -2398,7 +2398,7 @@ static int clk_mt6879_pll_registration(enum subsys_id id,
 	pr_notice("%s init begin\n", __func__);
 #endif
 
-	if (id < 0 || id >= PLL_SYS_NUM) {
+	if (id >= PLL_SYS_NUM) {
 		pr_notice("%s init invalid id(%d)\n", __func__, id);
 		return 0;
 	}
