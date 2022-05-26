@@ -1645,7 +1645,44 @@ void exec_BAT_EC(int cmd, int param)
 				cmd, param);
 		}
 		break;
+	case 804:
+		{
+			wakeup_fg_algo(gm, FG_INTR_FG_TIME);
+			wakeup_fg_algo(gm, FG_INTR_BAT_INT1_HT);
+			wakeup_fg_algo(gm, FG_INTR_BAT_INT1_LT);
+			wakeup_fg_algo(gm, FG_INTR_BAT_INT2_HT);
+			wakeup_fg_algo(gm, FG_INTR_BAT_INT2_LT);
+			wakeup_fg_algo(gm, FG_INTR_BAT_TIME_INT);
+			wakeup_fg_algo(gm, FG_INTR_IAVG);
+			wakeup_fg_algo(gm, FG_INTR_VBAT2_L);
+			wakeup_fg_algo(gm, FG_INTR_VBAT2_H);
+			wakeup_fg_algo(gm, FG_INTR_BAT_INT1_CHECK);
+			wakeup_fg_algo(gm, FG_INTR_BAT_INT2_CHECK);
+			gauge_set_nag_en(gm, 1);
+			battery_update(gm);
 
+			bm_err("exe_BAT_EC cmd %d for SET\n", cmd);
+		}
+		break;
+	case 805:
+		{
+			gm->algo.active = true;
+			battery_algo_init(gm);
+			wakeup_fg_algo(gm, FG_INTR_FG_TIME);
+			wakeup_fg_algo(gm, FG_INTR_BAT_INT1_HT);
+			wakeup_fg_algo(gm, FG_INTR_BAT_INT1_LT);
+			wakeup_fg_algo(gm, FG_INTR_BAT_INT2_HT);
+			wakeup_fg_algo(gm, FG_INTR_BAT_INT2_LT);
+			wakeup_fg_algo(gm, FG_INTR_BAT_TIME_INT);
+			wakeup_fg_algo(gm, FG_INTR_IAVG);
+			wakeup_fg_algo(gm, FG_INTR_VBAT2_L);
+			wakeup_fg_algo(gm, FG_INTR_VBAT2_H);
+			wakeup_fg_algo(gm, FG_INTR_BAT_INT1_CHECK);
+			wakeup_fg_algo(gm, FG_INTR_BAT_INT2_CHECK);
+			bm_err("exe_BAT_EC cmd %d for SET\n", cmd);
+			battery_update(gm);
+		}
+		break;
 
 
 	default:
