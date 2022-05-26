@@ -3095,6 +3095,7 @@ static void ISP_EnableClock(bool En)
  *  log_dbg("- E. En: %d. G_u4EnableClockCount:%d.", En, G_u4EnableClockCount);
  *  }
  */
+	log_inf("- E. En: %d. G_u4EnableClockCount:%d.", En, G_u4EnableClockCount);
 #if defined(EP_NO_CLKMGR)
 	unsigned int setReg;
 #endif
@@ -3187,6 +3188,7 @@ static void ISP_EnableClock(bool En)
 		Disable_Unprepare_ccf_clock();
 #endif
 	}
+	log_inf("- X. En: %d. G_u4EnableClockCount:%d.", En, G_u4EnableClockCount);
 }
 
 /******************************************************************************
@@ -13683,6 +13685,7 @@ static signed int bPass1_On_In_Resume_TG2;
 static signed int ISP_suspend(struct platform_device *pDev, pm_message_t Mesg)
 {
 	unsigned int regTG1Val, regTG2Val;
+	unsigned int loopcnt = 0;
 
 	if (IspInfo.UserCount == 0) {
 		log_dbg("ISP UserCount=0");
@@ -13712,6 +13715,14 @@ static signed int ISP_suspend(struct platform_device *pDev, pm_message_t Mesg)
 		bPass1_On_In_Resume_TG2 = 1;
 		ISP_WR32(ISP_ADDR + 0x4B4, (regTG2Val & (~0x01)));
 	}
+	spin_lock(&(IspInfo.SpinLockClock));
+	loopcnt = G_u4EnableClockCount; //"G_u4EnableClockCount" times
+	spin_unlock(&(IspInfo.SpinLockClock));
+	while( loopcnt ){//make sure G_u4EnableClockCount dec to 0
+		ISP_EnableClock(MFALSE);
+		log_inf("isp suspend G_u4EnableClockCount: %d", G_u4EnableClockCount);
+		loopcnt--;
+	}
 
 	return 0;
 }
@@ -13727,6 +13738,8 @@ static signed int ISP_resume(struct platform_device *pDev)
 		log_dbg("ISP UserCount=0");
 		return 0;
 	}
+	//enable clock
+	ISP_EnableClock(MTRUE);
 
 	/* TG_VF_CON[0] (0x15004414[0]): VFDATA_EN.     TG1     Take Picture
 	 * Request.
