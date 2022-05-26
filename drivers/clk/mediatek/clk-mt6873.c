@@ -3931,17 +3931,17 @@ static struct mtk_gate_regs vdec_gcon_vdec_cken_regs = {
 static struct mtk_gate vdec_gcon_clks[] = {
 	/* LARB_CKEN_CON */
 	GATE_INV_DUMMY(VDEC_GCON_LARB1_CKEN, "vdec_gcon_larb1_cken",
-			"vdec_sel", vdec_gcon_larb_cken_con_regs, 0, 1),
+			"vdec_sel", vdec_gcon_larb_cken_con_regs, 0, 0),
 	/* LAT_CKEN */
 	GATE_INV_DUMMY(VDEC_GCON_LAT_CKEN, "vdec_gcon_lat_cken", "vdec_sel",
-			 vdec_gcon_lat_cken_regs, 0, 1),
+			 vdec_gcon_lat_cken_regs, 0, 0),
 	GATE_INV(VDEC_GCON_LAT_ACTIVE, "vdec_gcon_lat_active", "vdec_sel",
-			 vdec_gcon_lat_cken_regs, 4, 1),
+			 vdec_gcon_lat_cken_regs, 4, 0),
 	/* VDEC_CKEN */
 	GATE_INV_DUMMY(VDEC_GCON_VDEC_CKEN, "vdec_gcon_vdec_cken", "vdec_sel",
-			 vdec_gcon_vdec_cken_regs, 0, 1),
+			 vdec_gcon_vdec_cken_regs, 0, 0),
 	GATE_INV(VDEC_GCON_VDEC_ACTIVE, "vdec_gcon_vdec_active", "vdec_sel",
-			 vdec_gcon_vdec_cken_regs, 4, 1),
+			 vdec_gcon_vdec_cken_regs, 4, 0),
 };
 
 static void __iomem *vdec_gcon_base;
@@ -3984,21 +3984,21 @@ static struct mtk_gate vdec_soc_gcon_clks[] = {
 	/* LARB_CKEN_CON */
 	GATE_INV_DUMMY(VDEC_SOC_GCON_LARB1_CKEN, "vdec_soc_gcon_larb1_cken",
 			"vdec_sel",
-			 vdec_soc_gcon_larb_cken_con_regs, 0, 1),
+			 vdec_soc_gcon_larb_cken_con_regs, 0, 0),
 	/* LAT_CKEN */
 	GATE_INV_DUMMY(VDEC_SOC_GCON_LAT_CKEN, "vdec_soc_gcon_lat_cken",
 			"vdec_sel",
-			 vdec_soc_gcon_lat_cken_regs, 0, 1),
+			 vdec_soc_gcon_lat_cken_regs, 0, 0),
 	GATE_INV(VDEC_SOC_GCON_LAT_ACTIVE, "vdec_soc_gcon_lat_active",
 			"vdec_sel",
-			 vdec_soc_gcon_lat_cken_regs, 4, 1),
+			 vdec_soc_gcon_lat_cken_regs, 4, 0),
 	/* VDEC_CKEN */
 	GATE_INV_DUMMY(VDEC_SOC_GCON_VDEC_CKEN, "vdec_soc_gcon_vdec_cken",
 			"vdec_sel",
-			 vdec_soc_gcon_vdec_cken_regs, 0, 1),
+			 vdec_soc_gcon_vdec_cken_regs, 0, 0),
 	GATE_INV(VDEC_SOC_GCON_VDEC_ACTIVE, "vdec_soc_gcon_vdec_active",
 			"vdec_sel",
-			 vdec_soc_gcon_vdec_cken_regs, 4, 1),
+			 vdec_soc_gcon_vdec_cken_regs, 4, 0),
 };
 
 static void __iomem *vdec_soc_gcon_base;
