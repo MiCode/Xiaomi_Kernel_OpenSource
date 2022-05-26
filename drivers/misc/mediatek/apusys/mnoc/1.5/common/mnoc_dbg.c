@@ -60,7 +60,7 @@ static ssize_t mnoc_log_level_write(struct file *file,
 	buf[count] = '\0';
 
 	if (kstrtoint(buf, 10, &val) == 0)
-		if (val >= 0 && val <= 2)
+		if (val <= 2)
 			mnoc_log_level = val;
 
 out:

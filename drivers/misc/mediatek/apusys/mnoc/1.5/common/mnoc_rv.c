@@ -96,7 +96,7 @@ static int mnoc_rpmsg_probe(struct rpmsg_device *rpdev)
 		mnoc_rpmsg_cb, &eRdev, chinfo);
 
 
-	LOG_INF("Done, eRdev.ept = 0x%x\n", eRdev.ept);
+	// LOG_INF("Done, eRdev.ept = 0x%x\n", eRdev.ept);
 
 	return ret;
 }
@@ -138,7 +138,7 @@ static ssize_t mnoc_rvlog_store(struct kobject *kobj,
 					struct kobj_attribute *attr,
 					const char *buf, size_t count)
 {
-	unsigned int val;
+	unsigned int val = 0;
 	int ret;
 	struct mnoc_ipi_data mData;
 
