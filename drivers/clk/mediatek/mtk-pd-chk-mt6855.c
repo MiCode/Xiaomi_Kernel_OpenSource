@@ -423,12 +423,21 @@ static int pd_chk_mt6855_probe(struct platform_device *pdev)
 	return 0;
 }
 
+static const struct of_device_id of_match_pdchk_mt6855[] = {
+	{
+		.compatible = "mediatek,mt6855-pdchk",
+	}, {
+		/* sentinel */
+	}
+};
+
 static struct platform_driver pd_chk_mt6855_drv = {
 	.probe = pd_chk_mt6855_probe,
 	.driver = {
 		.name = "pd-chk-mt6855",
 		.owner = THIS_MODULE,
 		.pm = &pdchk_dev_pm_ops,
+		.of_match_table = of_match_pdchk_mt6855,
 	},
 };
 
@@ -438,12 +447,6 @@ static struct platform_driver pd_chk_mt6855_drv = {
 
 static int __init pd_chk_init(void)
 {
-	static struct platform_device *pd_chk_dev;
-
-	pd_chk_dev = platform_device_register_simple("pd-chk-mt6855", -1, NULL, 0);
-	if (IS_ERR(pd_chk_dev))
-		pr_warn("unable to register pd-chk device");
-
 	return platform_driver_register(&pd_chk_mt6855_drv);
 }
 

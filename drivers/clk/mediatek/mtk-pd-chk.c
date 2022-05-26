@@ -241,8 +241,8 @@ static int pdchk_dev_pm_resume(struct device *dev)
 }
 
 const struct dev_pm_ops pdchk_dev_pm_ops = {
-	.suspend = pdchk_dev_pm_suspend,
-	.resume = pdchk_dev_pm_resume,
+	.suspend_noirq = pdchk_dev_pm_suspend,
+	.resume_noirq = pdchk_dev_pm_resume,
 };
 EXPORT_SYMBOL(pdchk_dev_pm_ops);
 

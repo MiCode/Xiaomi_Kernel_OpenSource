@@ -12,7 +12,6 @@
 
 #include "mtk-pd-chk.h"
 #include "clkchk-mt6789.h"
-#include "mt-plat/aee.h"
 
 #define TAG				"[pdchk] "
 #define BUG_ON_CHK_ENABLE		0
@@ -207,21 +206,6 @@ static struct pd_check_swcg *get_subsys_cg(unsigned int id)
 	return NULL;
 }
 
-static void suspend_cg_dump(const char *name)
-{
-	int i;
-
-	for (i = 0; i < ARRAY_SIZE(dispsys_config_swcgs) - 1; i++) {
-		if (!strcmp(name, dispsys_config_swcgs[i].name))
-			dump_stack();
-#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
-			aee_kernel_warning_api(__FILE__, __LINE__,
-					DB_OPT_DEFAULT, "clk-chk",
-					"fail to disable clk/pd in suspend\n");
-#endif
-	}
-}
-
 static void dump_subsys_reg(unsigned int id)
 {
 	int i;
@@ -381,7 +365,6 @@ static bool is_mtcmos_chk_bug_on(void)
 
 static struct pdchk_ops pdchk_mt6789_ops = {
 	.get_subsys_cg = get_subsys_cg,
-	.suspend_cg_dump = suspend_cg_dump,
 	.dump_subsys_reg = dump_subsys_reg,
 	.is_in_pd_list = is_in_pd_list,
 	.debug_dump = debug_dump,
@@ -400,12 +383,21 @@ static int pd_chk_mt6789_probe(struct platform_device *pdev)
 	return 0;
 }
 
+static const struct of_device_id of_match_pdchk_mt6789[] = {
+	{
+		.compatible = "mediatek,mt6789-pdchk",
+	}, {
+		/* sentinel */
+	}
+};
+
 static struct platform_driver pd_chk_mt6789_drv = {
 	.probe = pd_chk_mt6789_probe,
 	.driver = {
 		.name = "pd-chk-mt6789",
 		.owner = THIS_MODULE,
 		.pm = &pdchk_dev_pm_ops,
+		.of_match_table = of_match_pdchk_mt6789,
 	},
 };
 
@@ -415,12 +407,6 @@ static struct platform_driver pd_chk_mt6789_drv = {
 
 static int __init pd_chk_init(void)
 {
-	static struct platform_device *pd_chk_dev;
-
-	pd_chk_dev = platform_device_register_simple("pd-chk-mt6789", -1, NULL, 0);
-	if (IS_ERR(pd_chk_dev))
-		pr_warn("unable to register pd-chk device");
-
 	return platform_driver_register(&pd_chk_mt6789_drv);
 }
 

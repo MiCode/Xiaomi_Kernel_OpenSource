@@ -373,10 +373,7 @@ void print_subsys_reg_mt6855(enum chk_sys_id id)
 	const struct regname *rns = &rn[0];
 	int i;
 
-	if (rns == NULL)
-		return;
-
-	if (id >= chk_sys_num || id < 0) {
+	if (id >= chk_sys_num) {
 		pr_info("wrong id:%d\n", id);
 		return;
 	}
@@ -480,12 +477,21 @@ static int clk_chk_mt6855_probe(struct platform_device *pdev)
 	return 0;
 }
 
+static const struct of_device_id of_match_clkchk_mt6855[] = {
+	{
+		.compatible = "mediatek,mt6855-clkchk",
+	}, {
+		/* sentinel */
+	}
+};
+
 static struct platform_driver clk_chk_mt6855_drv = {
 	.probe = clk_chk_mt6855_probe,
 	.driver = {
 		.name = "clk-chk-mt6855",
 		.owner = THIS_MODULE,
 		.pm = &clk_chk_dev_pm_ops,
+		.of_match_table = of_match_clkchk_mt6855,
 	},
 };
 
@@ -495,12 +501,6 @@ static struct platform_driver clk_chk_mt6855_drv = {
 
 static int __init clkchk_mt6855_init(void)
 {
-	static struct platform_device *clk_chk_dev;
-
-	clk_chk_dev = platform_device_register_simple("clk-chk-mt6855", -1, NULL, 0);
-	if (IS_ERR(clk_chk_dev))
-		pr_warn("unable to register clk-chk device");
-
 	return platform_driver_register(&clk_chk_mt6855_drv);
 }
 

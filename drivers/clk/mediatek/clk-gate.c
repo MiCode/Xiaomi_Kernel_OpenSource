@@ -55,9 +55,6 @@ static void mtk_cg_set_bit(struct clk_hw *hw)
 	struct mtk_clk_gate *cg = to_mtk_clk_gate(hw);
 
 	regmap_write(cg->regmap, cg->set_ofs, BIT(cg->bit));
-	mtk_clk_notify(cg->regmap, NULL, clk_hw_get_name(hw),
-			cg->sta_ofs, 0,
-			cg->bit, CLK_EVT_SUSPEND_CG_DUMP);
 }
 
 static void mtk_cg_clr_bit(struct clk_hw *hw)
@@ -65,10 +62,6 @@ static void mtk_cg_clr_bit(struct clk_hw *hw)
 	struct mtk_clk_gate *cg = to_mtk_clk_gate(hw);
 
 	regmap_write(cg->regmap, cg->clr_ofs, BIT(cg->bit));
-
-	mtk_clk_notify(cg->regmap, NULL, clk_hw_get_name(hw),
-			cg->sta_ofs, 0,
-			cg->bit, CLK_EVT_SUSPEND_CG_DUMP);
 }
 
 static void mtk_cg_set_bit_no_setclr(struct clk_hw *hw)
