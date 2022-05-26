@@ -863,7 +863,7 @@ static int mtk_dsp_pcm_hw_params(struct snd_soc_component *component,
 	}
 
 	/* allocate copy buffer */
-	ret = mtk_dsp_manage_copybuf(true, &dsp->dsp_mem[id], params_buffer_bytes(params)/2);
+	ret = mtk_dsp_manage_copybuf(true, &dsp->dsp_mem[id], params_buffer_bytes(params));
 	if (ret) {
 		pr_info("%s ret = %d\n", __func__, ret);
 		return -1;
