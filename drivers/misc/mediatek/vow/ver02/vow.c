@@ -234,10 +234,14 @@ static void vow_ipi_rx_handle_data_msg(void *msg_data)
 					}
 				}
 			} else {
-				VOWDRV_DEBUG("%s BARGEIN_DUMP_BYTE_CNT_MIC=%lu, mic_offset=%x\n",
-					__func__, BARGEIN_DUMP_BYTE_CNT_MIC, ipi_ptr->mic_offset);
-				VOWDRV_DEBUG("%s VOW_PCM_DUMP_BYTE_SIZE=%lu, mic_dump_size=%x\n",
-					__func__, VOW_PCM_DUMP_BYTE_SIZE, ipi_ptr->mic_dump_size);
+				VOWDRV_DEBUG("%s BARGEIN_DUMP_BYTE_CNT_MIC=%x, mic_offset=%x\n",
+					__func__,
+					(unsigned int)BARGEIN_DUMP_BYTE_CNT_MIC,
+					ipi_ptr->mic_offset);
+				VOWDRV_DEBUG("%s VOW_PCM_DUMP_BYTE_SIZE=%x, mic_dump_size=%x\n",
+					__func__,
+					(unsigned int)VOW_PCM_DUMP_BYTE_SIZE,
+					ipi_ptr->mic_dump_size);
 				return;
 			}
 		}
@@ -246,17 +250,23 @@ static void vow_ipi_rx_handle_data_msg(void *msg_data)
 			if ((vowserv.vow_mic_number == 2) &&
 				(ipi_ptr->echo_offset > (BARGEIN_DUMP_BYTE_CNT_ECHO +
 						BARGEIN_DUMP_BYTE_CNT_MIC * VOW_MAX_MIC_NUM))) {
-				VOWDRV_DEBUG("%s BARGEIN_DUMP_BYTE_CNT_ECHO = %lu\n",
-						__func__, BARGEIN_DUMP_BYTE_CNT_ECHO);
-				VOWDRV_DEBUG("%s BARGEIN_DUMP_BYTE_CNT_MIC = %lu\n",
-						__func__, BARGEIN_DUMP_BYTE_CNT_MIC);
-				VOWDRV_DEBUG("%s VOW_MAX_MIC_NUM = %lu, echo_offset = %x\n",
-						__func__, VOW_MAX_MIC_NUM, ipi_ptr->echo_offset);
+				VOWDRV_DEBUG("%s BARGEIN_DUMP_BYTE_CNT_ECHO = %x\n",
+						__func__,
+						(unsigned int)BARGEIN_DUMP_BYTE_CNT_ECHO);
+				VOWDRV_DEBUG("%s BARGEIN_DUMP_BYTE_CNT_MIC = %x\n",
+						__func__,
+						(unsigned int)BARGEIN_DUMP_BYTE_CNT_MIC);
+				VOWDRV_DEBUG("%s VOW_MAX_MIC_NUM = %x, echo_offset = %x\n",
+						__func__,
+						(unsigned int)VOW_MAX_MIC_NUM,
+						ipi_ptr->echo_offset);
 				return;
 			} else if ((vowserv.vow_mic_number == 1) &&
 				(ipi_ptr->echo_offset > BARGEIN_DUMP_BYTE_CNT_ECHO)) {
-				VOWDRV_DEBUG("%s BARGEIN_DUMP_BYTE_CNT_ECHO=%lu, echo_offset=%x\n",
-					__func__, BARGEIN_DUMP_BYTE_CNT_ECHO, ipi_ptr->echo_offset);
+				VOWDRV_DEBUG("%s BARGEIN_DUMP_BYTE_CNT_ECHO=%x, echo_offset=%x\n",
+					__func__,
+					(unsigned int)BARGEIN_DUMP_BYTE_CNT_ECHO,
+					ipi_ptr->echo_offset);
 				return;
 			}
 			vow_dump_info[DUMP_BARGEIN].scp_dump_size[0] = ipi_ptr->echo_dump_size;
@@ -276,18 +286,23 @@ static void vow_ipi_rx_handle_data_msg(void *msg_data)
 						vow_dump_info[DUMP_RECOG].scp_dump_offset[1] =
 							ipi_ptr->recog_dump_offset_R;
 					} else {
-						VOWDRV_DEBUG("%s RECOG_DUMP_BYTE_CNT = %lu\n",
-							__func__, RECOG_DUMP_BYTE_CNT);
+						VOWDRV_DEBUG("%s RECOG_DUMP_BYTE_CNT = %x\n",
+							__func__,
+							(unsigned int)RECOG_DUMP_BYTE_CNT);
 						VOWDRV_DEBUG("%s recog_dump_offset_R = %x\n",
 							__func__, ipi_ptr->recog_dump_offset_R);
 						return;
 					}
 				}
 			} else {
-				VOWDRV_DEBUG("%s RECOG_DUMP_BYTE_CNT = %lu, recog_dump_offset = %x",
-					__func__, RECOG_DUMP_BYTE_CNT, ipi_ptr->recog_dump_offset);
-				VOWDRV_DEBUG("%s VOW_PCM_DUMP_BYTE_SIZE=%lu, recog_dump_size %x\n",
-					__func__, VOW_PCM_DUMP_BYTE_SIZE, ipi_ptr->recog_dump_size);
+				VOWDRV_DEBUG("%s RECOG_DUMP_BYTE_CNT = %x, recog_dump_offset = %x",
+					__func__,
+					(unsigned int)RECOG_DUMP_BYTE_CNT,
+					ipi_ptr->recog_dump_offset);
+				VOWDRV_DEBUG("%s VOW_PCM_DUMP_BYTE_SIZE=%x, recog_dump_size %x\n",
+					__func__,
+					(unsigned int)VOW_PCM_DUMP_BYTE_SIZE,
+					ipi_ptr->recog_dump_size);
 				return;
 			}
 		}
@@ -305,12 +320,16 @@ static void vow_ipi_rx_handle_data_msg(void *msg_data)
 				vow_dump_info[DUMP_VFFP].scp_dump_offset[1] =
 					ipi_ptr->vffp_dump_offset_2nd_ch;
 			} else {
-				VOWDRV_DEBUG("%s VFFP_DUMP_BYTE_CNT = %lu, vffp_dump_offset = %x\n",
-					__func__, VFFP_DUMP_BYTE_CNT, ipi_ptr->vffp_dump_offset);
+				VOWDRV_DEBUG("%s VFFP_DUMP_BYTE_CNT = %x, vffp_dump_offset = %x\n",
+					__func__,
+					(unsigned int)VFFP_DUMP_BYTE_CNT,
+					ipi_ptr->vffp_dump_offset);
 				VOWDRV_DEBUG("%s vffp_dump_offset_2nd_ch = %x\n",
 					__func__, ipi_ptr->vffp_dump_offset_2nd_ch);
-				VOWDRV_DEBUG("%s VOW_PCM_DUMP_BYTE_SIZE=%lu, vffp_dump_size=%x\n",
-					__func__, VOW_PCM_DUMP_BYTE_SIZE, ipi_ptr->vffp_dump_size);
+				VOWDRV_DEBUG("%s VOW_PCM_DUMP_BYTE_SIZE=%x, vffp_dump_size=%x\n",
+					__func__,
+					(unsigned int)VOW_PCM_DUMP_BYTE_SIZE,
+					ipi_ptr->vffp_dump_size);
 				return;
 			}
 		}
@@ -1790,7 +1809,7 @@ static bool vow_service_AllocKernelDumpBuffer(void)
 			vow_dump_info[I].kernel_dump_addr = NULL;
 		}
 		vow_dump_info[I].kernel_dump_addr = vmalloc(kReadVowDumpSize);
-		VOWDRV_DEBUG("%s vow_dump_info[%d].kernel_dump_addr = 0x%x\n",
+		VOWDRV_DEBUG("%s vow_dump_info[%d].kernel_dump_addr = 0x%p\n",
 			     __func__, I,
 			     vow_dump_info[I].kernel_dump_addr);
 		VOW_ASSERT(vow_dump_info[I].kernel_dump_addr != NULL);
