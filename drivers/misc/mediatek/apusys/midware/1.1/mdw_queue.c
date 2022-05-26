@@ -187,15 +187,17 @@ int mdw_queue_boost(struct mdw_apu_sc *sc)
 	root = &tab->q.deadline;
 
 	if (sc->hdr->suggest_time != 0) {
-		if (sc->hdr->driver_time < suggest_time)
-			sc->boost -= 10;
+		if (sc->hdr->driver_time < suggest_time) {
+			if (sc->boost < 10)
+				sc->boost = 0;
+			else
+				sc->boost -= 10;
+		}
 		else if (sc->hdr->driver_time > suggest_time)
 			sc->boost += 10;
 
 		if (sc->boost > 100)
 			sc->boost = 100;
-		if (sc->boost < 0)
-			sc->boost = 0;
 	}
 
 	if (root->load_boost || root->trace_boost)

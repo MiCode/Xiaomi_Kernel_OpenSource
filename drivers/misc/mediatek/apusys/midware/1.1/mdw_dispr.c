@@ -67,7 +67,7 @@ static struct mdw_disp_item *mdw_dispr_item_get(
 	struct list_head *tmp = NULL, *list_ptr = NULL;
 
 	/* check packid */
-	if (sc->hdr->pack_id < 0 || sc->hdr->pack_id >= 64 ||
+	if (sc->hdr->pack_id >= 64 ||
 		disp_type < MDW_DISPR_MULTI || disp_type > MDW_DISPR_PACK)
 		return NULL;
 
