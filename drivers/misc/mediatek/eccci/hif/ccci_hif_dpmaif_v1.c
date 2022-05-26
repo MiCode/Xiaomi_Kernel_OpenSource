@@ -4406,6 +4406,8 @@ void dpmaif_hw_reset_for_6789(unsigned char md_id)
 	unsigned int reg_value;
 	int count = 0;
 
+	udelay(500);
+
 	/* pre- DPMAIF HW reset: bus-protect */
 	dpmaif_write32((void *)infra_ao_base, INFRA_TOPAXI_PROTECTEN_1_SET_WA,
 		DPMAIF_SLEEP_PROTECT_CTRL_WA);
@@ -4426,6 +4428,7 @@ void dpmaif_hw_reset_for_6789(unsigned char md_id)
 	/* DPMAIF HW reset */
 	CCCI_DEBUG_LOG(md_id, TAG, "%s:rst dpmaif\n", __func__);
 
+	udelay(500);
 	/* reset dpmaif hw: AO Domain */
 	reg_value = dpmaif_read32(infra_ao_base, INFRA_RST0_REG_AO);
 	reg_value &= ~(DPMAIF_AO_RST_MASK); /* the bits in reg is WO, */
@@ -4433,6 +4436,7 @@ void dpmaif_hw_reset_for_6789(unsigned char md_id)
 
 	dpmaif_write32((void *)infra_ao_base, INFRA_RST0_REG_AO, reg_value);
 	CCCI_BOOTUP_LOG(md_id, TAG, "%s:clear reset\n", __func__);
+	udelay(500);
 
 	/* reset dpmaif clr */
 	reg_value = dpmaif_read32(infra_ao_base, INFRA_RST1_REG_AO);
@@ -4441,6 +4445,7 @@ void dpmaif_hw_reset_for_6789(unsigned char md_id)
 
 	dpmaif_write32((void *)infra_ao_base, INFRA_RST1_REG_AO, reg_value);
 	CCCI_BOOTUP_LOG(md_id, TAG, "%s:done\n", __func__);
+	udelay(500);
 
 	/* reset dpmaif hw: PD Domain */
 	reg_value = dpmaif_read32(infra_ao_base, INFRA_RST0_REG_PD);
@@ -4449,6 +4454,7 @@ void dpmaif_hw_reset_for_6789(unsigned char md_id)
 
 	dpmaif_write32((void *)infra_ao_base, INFRA_RST0_REG_PD, reg_value);
 	CCCI_BOOTUP_LOG(md_id, TAG, "%s:clear reset\n", __func__);
+	udelay(500);
 
 	/* reset dpmaif clr */
 	reg_value = dpmaif_read32(infra_ao_base, INFRA_RST1_REG_PD);
@@ -4457,6 +4463,7 @@ void dpmaif_hw_reset_for_6789(unsigned char md_id)
 
 	dpmaif_write32((void *)infra_ao_base, INFRA_RST1_REG_PD, reg_value);
 	CCCI_DEBUG_LOG(md_id, TAG, "%s:done\n", __func__);
+	udelay(500);
 
 	/* post- DPMAIF HW reset: bus-protect */
 	dpmaif_write32((void *)infra_ao_base, INFRA_TOPAXI_PROTECTEN_1_CLR_WA,
@@ -4490,13 +4497,13 @@ static int dpmaif_stop(unsigned char hif_id)
 	if (dpmaif_ctrl->tx_sw_solution_enable)
 		dpmaif_smem_tx_stop();
 
+	ccci_dpmaif_set_clk(0, g_clk_tbs);
+
 	/* 3. todo: reset IP */
 	if (g_chip_info == 6789)
 		dpmaif_hw_reset_for_6789(dpmaif_ctrl->md_id);
 	else
 		dpmaif_hw_reset_for_other(dpmaif_ctrl->md_id);
-
-	ccci_dpmaif_set_clk(0, g_clk_tbs);
 
 #ifdef DPMAIF_DEBUG_LOG
 	CCCI_HISTORY_LOG(-1, TAG, "dpmaif:stop end\n");
