@@ -6046,7 +6046,6 @@
 			interconnects = <&dvfsrc MT6873_MASTER_DBGIF &dvfsrc MT6873_SLAVE_DDR_EMI>;
 			interconnect-names = "icc-bw";
 			required-opps = <&dvfsrc_freq_opp0>;
-			usb-audio;
 			small-core = <1300000>;
 		};
 
