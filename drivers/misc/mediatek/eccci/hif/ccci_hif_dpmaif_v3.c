@@ -347,6 +347,7 @@ static inline void dpmaif_rxq_lro_join_skb(
 			__func__);
 
 		dpmaif_rxq_push_all_skb(rxq);
+		lro_info->count = 0;
 	}
 
 	lro_info->bid_tbl[lro_info->count] = bid;

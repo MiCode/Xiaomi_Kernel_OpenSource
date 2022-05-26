@@ -213,13 +213,14 @@ static void dpmaif_sysfs_parse(char *buf, int size)
 			__func__, debug_buf_len, g_debug_flags);
 }
 
+#define MAX_WRITE_LEN 300
 static ssize_t dpmaif_debug_write(struct file *fp, const char __user *buf,
 	size_t size, loff_t *ppos)
 {
-	char str[300] = {0};
+	char str[MAX_WRITE_LEN] = {0};
 	int ret;
 
-	if (size > 300)
+	if (size > MAX_WRITE_LEN)
 		return 0;
 
 	ret = copy_from_user(str, buf, size);
@@ -229,7 +230,7 @@ static ssize_t dpmaif_debug_write(struct file *fp, const char __user *buf,
 			__func__, size, ret);
 		return 0;
 	}
-	str[size-1] = '\0';
+	str[MAX_WRITE_LEN-1] = '\0';
 	dpmaif_sysfs_parse(str, size);
 
 	return size;
