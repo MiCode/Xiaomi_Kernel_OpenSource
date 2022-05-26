@@ -1482,14 +1482,11 @@ static ssize_t clk_buf_bblpm_show(struct kobject *kobj,
 	return len;
 }
 
-static void capid_trim_write(uint32_t cap_code)
+static void pre_capid_trim_write(void)
 {
 	pmic_config_interface(PMIC_XO_COFST_FPM_ADDR, 0x0,
 		PMIC_XO_COFST_FPM_MASK,
 		PMIC_XO_COFST_FPM_SHIFT);
-	pmic_config_interface(PMIC_XO_CDAC_FPM_ADDR, cap_code,
-		PMIC_XO_CDAC_FPM_MASK,
-		PMIC_XO_CDAC_FPM_SHIFT);
 	pmic_config_interface(PMIC_XO_AAC_FPM_SWEN_ADDR, 0x0,
 		PMIC_XO_AAC_FPM_SWEN_MASK,
 		PMIC_XO_AAC_FPM_SWEN_SHIFT);
@@ -1498,6 +1495,13 @@ static void capid_trim_write(uint32_t cap_code)
 		PMIC_XO_AAC_FPM_SWEN_MASK,
 		PMIC_XO_AAC_FPM_SWEN_SHIFT);
 	mdelay(30);
+}
+
+static void capid_trim_write(uint32_t cap_code)
+{
+	pmic_config_interface(PMIC_XO_CDAC_FPM_ADDR, cap_code,
+		PMIC_XO_CDAC_FPM_MASK,
+		PMIC_XO_CDAC_FPM_SHIFT);
 }
 
 static uint32_t capid_trim_read(void)
@@ -1515,25 +1519,56 @@ static ssize_t clk_buf_capid_store(struct kobject *kobj,
 {
 	uint32_t capid;
 	int ret;
+	const char *capid_buf;
 
 	if (buf != NULL && count != 0) {
-		ret = kstrtouint(buf, 0, &capid);
-		if (ret) {
-			pr_info("wrong format!\n");
-			return ret;
-		}
-		if (capid > PMIC_XO_CDAC_FPM_MASK) {
-			pr_info("offset should be within(%x) %x!\n",
-				PMIC_XO_CDAC_FPM_MASK, capid);
-			return -EINVAL;
-		}
+		if (!strncmp(buf, "cmd1#", 5)) {
+			pre_capid_trim_write();
+		} else if (!strncmp(buf, "cmd2#", 5)) {
+			capid_buf = &buf[5];
+			ret = kstrtouint(capid_buf, 0, &capid);
+			if (ret) {
+				pr_info("wrong format!\n");
+				return ret;
+			}
 
-		pr_info("original cap code: 0x%x\n", capid_trim_read());
+			if (capid > 0xFF) {
+				pr_info("offset should be within(%x) %x!\n",
+					0xFF, capid);
+				return -EINVAL;
+			}
 
-		capid_trim_write(capid);
-		mdelay(1);
-		pr_info("write capid 0x%x done. current capid: 0x%x\n",
-			capid, capid_trim_read());
+			pr_info("original cap code: 0x%x\n", capid_trim_read());
+
+			capid_trim_write(capid);
+			mdelay(1);
+			pr_info("write capid 0x%x done. current capid: 0x%x\n",
+				capid, capid_trim_read());
+		} else {
+			ret = kstrtouint(buf, 0, &capid);
+			if (ret) {
+				pr_info("wrong format!\n");
+				return ret;
+			}
+
+			if (capid > 0xFF) {
+				pr_info("offset should be within(%x) %x!\n",
+					0xFF, capid);
+				return -EINVAL;
+			}
+
+			pr_info("original cap code: 0x%x\n", capid_trim_read());
+
+			pre_capid_trim_write();
+			capid_trim_write(capid);
+			mdelay(1);
+
+			pr_info("write capid 0x%x done. current capid: 0x%x\n",
+				capid, capid_trim_read());
+		}
+	} else {
+		pr_info("invalid parameter!\n");
+		return -EINVAL;
 	}
 
 	return count;
@@ -1549,10 +1584,52 @@ struct kobj_attribute *attr, char *buf)
 
 	return len;
 }
+
+static ssize_t clk_buf_heater_store(struct kobject *kobj,
+			struct kobj_attribute *attr, const char *buf, size_t count)
+{
+	bool on;
+	const char *heater_buf;
+	int ret = 0;
+
+	heater_buf = &buf[0];
+	ret = kstrtobool(heater_buf, &on);
+	if (ret) {
+		pr_info("wrong format!\n");
+		return ret;
+	}
+
+	if (on)
+		pmic_config_interface(PMIC_RG_XO_HEATER_SEL_ADDR, 0x2,
+			PMIC_RG_XO_HEATER_SEL_MASK,
+			PMIC_RG_XO_HEATER_SEL_SHIFT);
+	else
+		pmic_config_interface(PMIC_RG_XO_HEATER_SEL_ADDR, 0x0,
+			PMIC_RG_XO_HEATER_SEL_MASK,
+			PMIC_RG_XO_HEATER_SEL_SHIFT);
+	return count;
+}
+
+static ssize_t clk_buf_heater_show(struct kobject *kobj,
+		struct kobj_attribute *attr, char *buf)
+{
+	int len = 0;
+	uint32_t heater;
+
+	pmic_read_interface(PMIC_RG_XO_HEATER_SEL_ADDR, &heater,
+		PMIC_RG_XO_HEATER_SEL_MASK,
+		PMIC_RG_XO_HEATER_SEL_SHIFT);
+	len += snprintf(buf+len, PAGE_SIZE-len, "dcxo heater: 0x%x\n",
+					heater);
+
+	return len;
+}
+
 DEFINE_ATTR_RW(clk_buf_ctrl);
 DEFINE_ATTR_RW(clk_buf_debug);
 DEFINE_ATTR_RW(clk_buf_bblpm);
 DEFINE_ATTR_RW(clk_buf_capid);
+DEFINE_ATTR_RW(clk_buf_heater);
 
 static struct attribute *clk_buf_attrs[] = {
 	/* for clock buffer control */
@@ -1560,6 +1637,7 @@ static struct attribute *clk_buf_attrs[] = {
 	__ATTR_OF(clk_buf_debug),
 	__ATTR_OF(clk_buf_bblpm),
 	__ATTR_OF(clk_buf_capid),
+	__ATTR_OF(clk_buf_heater),
 
 	/* must */
 	NULL,
