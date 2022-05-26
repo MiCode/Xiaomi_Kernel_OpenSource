@@ -797,18 +797,18 @@ DEFINE_EVENT(blk_pm, blk_pre_runtime_resume_end,
 	TP_ARGS(q)
 );
 
-DEFINE_EVENT(blk_pm_err, blk_post_runtime_resume_start,
+DEFINE_EVENT(blk_pm, blk_post_runtime_resume_start,
 
-	TP_PROTO(struct request_queue *q, int err),
+	TP_PROTO(struct request_queue *q),
 
-	TP_ARGS(q, err)
+	TP_ARGS(q)
 );
 
-DEFINE_EVENT(blk_pm_err, blk_post_runtime_resume_end,
+DEFINE_EVENT(blk_pm, blk_post_runtime_resume_end,
 
-	TP_PROTO(struct request_queue *q, int err),
+	TP_PROTO(struct request_queue *q),
 
-	TP_ARGS(q, err)
+	TP_ARGS(q)
 );
 
 DEFINE_EVENT(blk_pm, blk_set_runtime_active_start,
