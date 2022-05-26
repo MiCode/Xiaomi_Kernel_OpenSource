@@ -637,9 +637,12 @@
 
 		mtk_rtc: mtk_rtc {
 			compatible = "mediatek,mt6359-rtc";
+			bootmode = <&chosen>;
+			interrupts = <INT_RTC IRQ_TYPE_NONE>;
+			interrupt-names = "rtc";
+			base = <0x580>;
 			#address-cells = <1>;
 			#size-cells = <1>;
-			bootmode = <&chosen>;
 
 			fg_init: fg_init {
 				reg = <0 0x1>;
