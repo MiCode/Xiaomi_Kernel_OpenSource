@@ -772,7 +772,7 @@ static int rt5133_validate_vendor_info(struct rt5133_priv *priv)
 void rt5133_register_interrupt_callback(enum RT5133_IRQ_NUM intno,
 					RT5133_IRQ_FUNC_PTR IRQ_FUNC_PTR)
 {
-	if (intno < RT5133_IRQ_MAX && intno >= 0) {
+	if (intno < RT5133_IRQ_MAX) {
 		rt5133_callback[intno] = IRQ_FUNC_PTR;
 		rt5133_callback[intno]();
 	}
