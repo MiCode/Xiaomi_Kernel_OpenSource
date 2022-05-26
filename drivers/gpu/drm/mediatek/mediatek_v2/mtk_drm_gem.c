@@ -769,6 +769,7 @@ int mtk_drm_ioctl_mml_gem_submit(struct drm_device *dev, void *data,
 	submit_kernel->job = kzalloc(sizeof(struct mml_job), GFP_KERNEL);
 	if (!submit_kernel->job) {
 		DDPPR_ERR("%s:%d submit_kernel job alloc fail\n", __func__, __LINE__);
+		kfree(submit_kernel);
 		return -EINVAL;
 	}
 
@@ -786,6 +787,8 @@ int mtk_drm_ioctl_mml_gem_submit(struct drm_device *dev, void *data,
 			if (!submit_kernel->pq_param[i]) {
 				DDPPR_ERR("%s:%d pq_param[%d]  alloc fail\n",
 					 __func__, __LINE__, i);
+				kfree(submit_kernel->job);
+				kfree(submit_kernel);
 				return -EINVAL;
 			}
 			if (copy_from_user(submit_kernel->pq_param[i], submit_user->pq_param[i],
@@ -981,12 +984,13 @@ fail:
 	 */
 	drm_gem_handle_delete(file_priv, args->gem_hnd);
 	dma_buf_put(dma_buf);
+	kfree(mtk_gem_obj);
 	return ret;
 
 out_put:
 	mutex_unlock(&file_priv->prime.lock);
 	dma_buf_put(dma_buf);
-
+	kfree(mtk_gem_obj);
 	return ret;
 }
 

@@ -3373,9 +3373,9 @@ unsigned int mtk_dsi_mode_change_index(struct mtk_dsi *dsi,
 			adjust_panel_params = panel_ext->params;
 	}
 
-	if (!(dsi->mipi_hopping_sta && (cur_panel_params->dyn.switch_en ||
-		adjust_panel_params->dyn.switch_en)) &&
-		cur_panel_params && adjust_panel_params) {
+	if (cur_panel_params && adjust_panel_params
+		&& !(dsi->mipi_hopping_sta && (cur_panel_params->dyn.switch_en ||
+		adjust_panel_params->dyn.switch_en))) {
 		if (mtk_drm_helper_get_opt(priv->helper_opt,
 				MTK_DRM_OPT_RES_SWITCH)
 			&& mtk_dsi_is_cmd_mode(&dsi->ddp_comp)) {
