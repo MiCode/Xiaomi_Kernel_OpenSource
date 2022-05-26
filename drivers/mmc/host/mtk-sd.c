@@ -49,6 +49,8 @@
 #include "rpmb-mtk.h"
 #include "../../misc/mediatek/include/mt-plat/mtk_boot_common.h"
 
+void msdc_dump_info(struct mmc_host *mmc);
+
 #define MAX_BD_NUM          1024
 
 /*--------------------------------------------------------------------------*/
@@ -733,34 +735,47 @@ static void sdr_get_field(void __iomem *reg, u32 field, u32 *val)
 	*val = ((tv & field) >> (ffs((unsigned int)field) - 1));
 }
 
+static void msdc_retry(struct msdc_host *host, int addr, int val, int expr, int retry, int cnt,
+	struct mmc_host *mmc)
+{
+
+	do {
+		int backup = cnt;
+
+		while (retry) {
+			sdr_set_bits(host->base + addr, val);
+			if (!(expr))
+				break;
+			if (cnt-- == 0) {
+				retry--; mdelay(1); cnt = backup;
+			}
+		}
+		if (retry == 0) {
+			dev_info(mmc->parent, "%s\n", __func__);
+			msdc_dump_info(mmc);
+		}
+		WARN_ON(retry == 0);
+	} while (0);
+}
 static void msdc_reset_hw(struct msdc_host *host)
 {
 	u32 val;
 	u32 count = 0;
+	dev_info(host->mmc->parent, "%s\n",__func__);
 
-	sdr_set_bits(host->base + MSDC_CFG, MSDC_CFG_RST);
-	count = 0;
-	while (readl(host->base + MSDC_CFG) & MSDC_CFG_RST){
-		cpu_relax();
-		if (count++ > 10000){
-			pr_info("%s MSDC_CFG_RST\n", __func__);
-			BUG_ON(1);
-			break;
-		}
-	}
+	//sdr_set_bits(host->base + MSDC_CFG, MSDC_CFG_RST);
+	msdc_retry(host, MSDC_CFG, MSDC_CFG_RST,
+		readl(host->base + MSDC_CFG) & MSDC_CFG_RST,
+		10, 1000, host->mmc);
 
-	sdr_set_bits(host->base + MSDC_FIFOCS, MSDC_FIFOCS_CLR);
-	count = 0;
-	while (readl(host->base + MSDC_FIFOCS) & MSDC_FIFOCS_CLR){
-		cpu_relax();
-		if (count++ > 10000){
-			pr_info("%s MSDC_FIFOCS_CLR\n", __func__);
-			BUG_ON(1);
-			break;
-		}
-	}
+	//sdr_set_bits(host->base + MSDC_FIFOCS, MSDC_FIFOCS_CLR);
+	msdc_retry(host, MSDC_FIFOCS, MSDC_FIFOCS_CLR,
+		readl(host->base + MSDC_FIFOCS) & MSDC_FIFOCS_CLR,
+		10, 1000, host->mmc);
+
 	val = readl(host->base + MSDC_INT);
 	writel(val, host->base + MSDC_INT);
+
 }
 
 static void msdc_cmd_next(struct msdc_host *host,
@@ -2445,7 +2460,7 @@ static int msdc_execute_tuning(struct mmc_host *mmc, u32 opcode)
 	struct msdc_host *host = mmc_priv(mmc);
 	int ret;
 	u32 tune_reg = host->dev_comp->pad_tune_reg;
-
+	dev_info(host->dev, "%s\n", __func__);
 	if (host->dev_comp->data_tune && host->dev_comp->async_fifo) {
 		ret = msdc_tune_together(mmc, opcode);
 		if (host->hs400_mode) {
@@ -2461,7 +2476,8 @@ static int msdc_execute_tuning(struct mmc_host *mmc, u32 opcode)
 	else
 		ret = msdc_tune_response(mmc, opcode);
 	if (ret == -EIO) {
-		dev_dbg(host->dev, "Tune response fail!\n");
+		dev_info(host->dev, "Tune response fail!\n");
+		msdc_dump_info(mmc);
 		return ret;
 	}
 	if (host->hs400_mode == false) {
@@ -2483,7 +2499,8 @@ static int msdc_execute_tuning(struct mmc_host *mmc, u32 opcode)
 			ret = sd_tune_response(mmc, opcode);
 	}
 	if (ret == -EIO) {
-		dev_dbg(host->dev, "Tune response fail!\n");
+		dev_info(host->dev, "Tune response fail!\n");
+		msdc_dump_info(mmc);
 		return ret;
 	}
 	if (host->hs400_mode == false) {
@@ -2491,8 +2508,10 @@ static int msdc_execute_tuning(struct mmc_host *mmc, u32 opcode)
 			ret = msdc_tune_data(mmc, opcode);
 		else
 			ret = sd_tune_data(mmc, opcode);
-		if (ret == -EIO)
-			dev_dbg(host->dev, "Tune data fail!\n");
+		if (ret == -EIO){
+			dev_info(host->dev, "Tune data fail!\n");
+			msdc_dump_info(mmc);
+		}
 	}
 #endif
 
@@ -2658,14 +2677,17 @@ void msdc_dump_info(struct mmc_host *mmc)
 {
 	struct msdc_host *host = mmc_priv(mmc);
 	int i;
+	dev_info(mmc->parent,"%s\n",__func__);
 	/*dump clock*/
 	if (host->crypto_clk_base)
 		dev_info(host->dev, "crypto_clk=%08x, bit29 should 2b0",
 			readl(host->crypto_clk_base));
 	/*dump nomral regs*/
-	for (i = 0; i <= 64; i++)
+	for (i = 0; i <= 64; i++){
 		dev_info(host->dev, "[%08x]=%08x", i*4,
 			readl(host->base + i*4));
+		udelay(1);
+	}
 }
 static const struct cqhci_host_ops msdc_cmdq_ops = {
 	.enable         = msdc_cqe_enable,
