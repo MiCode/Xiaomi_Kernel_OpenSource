@@ -874,7 +874,7 @@ int mtk_drm_setbacklight(struct drm_crtc *crtc, unsigned int level)
 		 */
 		if (!(mtk_drm_helper_get_opt(priv->helper_opt,
 					MTK_DRM_OPT_MSYNC2_0) &&
-			params->msync2_enable) &&
+			params && params->msync2_enable) &&
 			!mtk_crtc->is_mml)
 			cmdq_pkt_clear_event(cmdq_handle,
 				mtk_crtc->gce_obj.event[EVENT_STREAM_DIRTY]);
