@@ -745,6 +745,7 @@ static void vcu_set_gce_cmd(struct cmdq_pkt *pkt,
 				__func__, data);
 	break;
 	case CMD_MEM_MV:
+		mutex_lock(&q->mmap_lock);
 		src_page = vcu_check_gce_pa_base(q, addr, 4);
 		dst_page = vcu_check_gce_pa_base(q, data, 4);
 		if ((vcu_check_reg_base(vcu, addr, 4) == 0 || src_page != NULL) &&
@@ -756,8 +757,10 @@ static void vcu_set_gce_cmd(struct cmdq_pkt *pkt,
 		} else
 			pr_info("[VCU] CMD_MEM_MV wrong addr/data: 0x%llx 0x%llx\n",
 				addr, data);
+		mutex_unlock(&q->mmap_lock);
 	break;
 	case CMD_POLL_ADDR:
+		mutex_lock(&q->mmap_lock);
 		src_page = vcu_check_gce_pa_base(q, addr, 4);
 		if (vcu_check_reg_base(vcu, addr, 4) == 0 || src_page != NULL) {
 			if (src_page != NULL)
@@ -766,6 +769,7 @@ static void vcu_set_gce_cmd(struct cmdq_pkt *pkt,
 		} else
 			pr_info("[VCU] CMD_POLL_REG wrong addr: 0x%llx 0x%llx 0x%x\n",
 				addr, data, mask);
+		mutex_unlock(&q->mmap_lock);
 	break;
 	default:
 		vcu_dbg_log("[VCU] unknown GCE cmd %d\n", cmd);
@@ -850,12 +854,14 @@ static void vcu_gce_timeout_callback(struct cmdq_cb_data data)
 	else if (buff->cmdq_buff.codec_type == VCU_VDEC)
 		mtk_vcodec_gce_timeout_dump(vcu->curr_ctx[VCU_VDEC]);
 
+	mutex_lock(&vcu_queue->mmap_lock);
 	list_for_each_safe(p, q, &vcu_queue->pa_pages.list) {
 		tmp = list_entry(p, struct vcu_pa_pages, list);
 		pr_info("%s: vcu_pa_pages %lx kva %lx data %lx\n",
 			__func__, tmp->pa, tmp->kva,
 			*(unsigned long *)tmp->kva);
 	}
+	mutex_unlock(&vcu_queue->mmap_lock);
 
 }
 
