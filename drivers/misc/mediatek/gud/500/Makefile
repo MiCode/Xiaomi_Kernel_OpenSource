@@ -16,3 +16,6 @@
 export GUD_ROOT_FOLDER := $(dir $(lastword $(MAKEFILE_LIST)))
 obj-$(CONFIG_TRUSTONIC_TEE_SUPPORT) := MobiCoreDriver/
 obj-$(CONFIG_TRUSTONIC_TRUSTED_UI) += TlcTui/
+ifneq (,$(findstring $(CONFIG_MTK_PLATFORM), "mt6853"))
+ccflags-y += -DTEE_WORKER_BIG_CORE
+endif

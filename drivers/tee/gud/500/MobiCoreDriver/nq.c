@@ -51,6 +51,7 @@
 #define NQ_TEE_WORKER_THREADS	4
 #endif
 
+#define MC_BIG_CORE 0x6
 static struct {
 	struct mutex buffer_mutex;	/* Lock on SWd communication buffer */
 	struct mcp_buffer *mcp_buffer;
@@ -1140,7 +1141,9 @@ int nq_start(void)
 		l_ctx.tee_worker[cnt] = kthread_create(tee_worker,
 						       (void *)((uintptr_t)cnt),
 						       worker_name);
-
+		#if defined(TEE_WORKER_BIG_CORE)
+			kthread_bind(l_ctx.tee_worker[cnt], MC_BIG_CORE);
+		#endif
 		if (IS_ERR(l_ctx.tee_worker[cnt])) {
 			ret = PTR_ERR(l_ctx.tee_worker[cnt]);
 			mc_dev_err(ret, "tee_worker thread creation failed");
