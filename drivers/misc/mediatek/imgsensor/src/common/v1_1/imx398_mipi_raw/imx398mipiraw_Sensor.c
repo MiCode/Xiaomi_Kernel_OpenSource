@@ -3948,7 +3948,7 @@ static kal_int32 get_sensor_temperature(void)
 
 	temperature = read_cmos_sensor(0x013a);
 
-	if (temperature >= 0x0 && temperature <= 0x4F)
+	if (temperature <= 0x4F)
 		temperature_convert = temperature;
 	else if (temperature >= 0x50 && temperature <= 0x7F)
 		temperature_convert = 80;
