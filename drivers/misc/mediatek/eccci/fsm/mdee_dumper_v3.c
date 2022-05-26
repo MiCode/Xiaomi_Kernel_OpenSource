@@ -9,6 +9,7 @@
 #if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 #include <mt-plat/aee.h>
 #endif
+#include <soc/mediatek/emi.h>
 #include "mdee_dumper_v3.h"
 #include "ccci_config.h"
 #include "ccci_common_config.h"
@@ -831,11 +832,57 @@ static struct md_ee_ops mdee_ops_v3 = {
 	.dump_ee_info = &mdee_dumper_v3_dump_ee_info,
 	.set_ee_pkg = &mdee_dumper_v3_set_ee_pkg,
 };
+
+#if IS_ENABLED(CONFIG_MTK_EMI)
+static void mdee_dumper_v3_emimpu_callback(
+		const char *vio_msg)
+{
+	int has_write = 0;
+	int md_state;
+	struct ccci_fsm_ctl *ctl = fsm_get_entity_by_md_id(0);
+	struct ccci_modem *md = ccci_md_get_modem_by_id(0);
+
+	if (vio_msg)
+		CCCI_NORMAL_LOG(0, FSM,
+			"%s: %s\n", __func__, vio_msg);
+	else {
+		CCCI_ERROR_LOG(0, FSM,
+			"%s: msg is null\n", __func__);
+		return;
+	}
+
+	if (md) {
+		md_state = ccci_fsm_get_md_state(md->index);
+		if (md_state != INVALID && md_state != GATED &&
+			md_state != WAITING_TO_STOP) {
+			if (md->ops->dump_info)
+				md->ops->dump_info(md, DUMP_FLAG_REG, NULL, 0);
+		}
+	}
+
+	if (ctl) {
+		memset(ctl->ee_ctl.ex_mpu_string, 0x0,
+			sizeof(ctl->ee_ctl.ex_mpu_string));
+		has_write = scnprintf(&ctl->ee_ctl.ex_mpu_string[0],
+			MD_EX_MPU_STR_LEN,
+			"%s\n", vio_msg);
+		if (has_write <= 0)
+			return;
+	}
+}
+#endif
+
 int mdee_dumper_v3_alloc(struct ccci_fsm_ee *mdee)
 {
-	struct mdee_dumper_v3 *dumper;
+	struct mdee_dumper_v3 *dumper = NULL;
 	int md_id = mdee->md_id;
-
+#if IS_ENABLED(CONFIG_MTK_EMI)
+	if (mtk_emimpu_md_handling_register(
+			&mdee_dumper_v3_emimpu_callback))
+		CCCI_ERROR_LOG(md_id, FSM,
+			"%s: mtk_emimpu_md_handling_register fail\n",
+			__func__);
+#endif
 	/* Allocate port_proxy obj and set all member zero */
 	dumper = kzalloc(sizeof(struct mdee_dumper_v3), GFP_KERNEL);
 	if (dumper == NULL) {
