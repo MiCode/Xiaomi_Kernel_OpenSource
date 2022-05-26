@@ -4490,14 +4490,13 @@ static int dpmaif_stop(unsigned char hif_id)
 	if (dpmaif_ctrl->tx_sw_solution_enable)
 		dpmaif_smem_tx_stop();
 
+	ccci_dpmaif_set_clk(0, g_clk_tbs);
 
 	/* 3. todo: reset IP */
 	if (g_chip_info == 6789)
 		dpmaif_hw_reset_for_6789(dpmaif_ctrl->md_id);
 	else
 		dpmaif_hw_reset_for_other(dpmaif_ctrl->md_id);
-
-	ccci_dpmaif_set_clk(0, g_clk_tbs);
 
 #ifdef DPMAIF_DEBUG_LOG
 	CCCI_HISTORY_LOG(-1, TAG, "dpmaif:stop end\n");
