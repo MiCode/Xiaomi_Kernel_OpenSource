@@ -4844,8 +4844,8 @@ static inline int dpmaif_set_skb_data_to_smem_drb(struct dpmaif_tx_queue *txq,
 
 		smem_data_addr = dpmaif_ctrl->smem_drb_qbuf_vir[qno] +
 						(DPMA_SKB_DATA_LEN * drb_qbuf_inf->wr);
-		phy_addr = dpmaif_ctrl->smem_drb_qbuf_phy[qno] +
-						(DPMA_SKB_DATA_LEN * drb_qbuf_inf->wr);
+		phy_addr = (phys_addr_t)((void *)dpmaif_ctrl->smem_drb_qbuf_phy[qno] +
+						(DPMA_SKB_DATA_LEN * drb_qbuf_inf->wr));
 		memcpy_toio(smem_data_addr, data_addr, data_len);
 
 		drb_qbuf_inf->wr = ringbuf_get_next_idx(drb_qbuf_inf->sz, drb_qbuf_inf->wr, 1);
