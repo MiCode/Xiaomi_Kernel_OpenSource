@@ -2878,6 +2878,9 @@ static int mtk_hp_impedance_disable(struct mt6338_priv *priv)
 	regmap_write(priv->regmap, MT6338_AUDDEC_PMU_CON2, 0x0);
 	/* Disable Audio L channel DAC */
 	regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON0,
+		RG_AUDDACL_PWRUP_VAUDP18_MASK_SFT,
+		0x0 << RG_AUDDACL_PWRUP_VAUDP18_SFT);
+	regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON0,
 		RG_AUDDACL_BIAS_PWRUP_VA32_MASK_SFT,
 		0x0 << RG_AUDDACL_BIAS_PWRUP_VA32_SFT);
 	/* Disable NCP */
@@ -9799,6 +9802,55 @@ static int mt6338_rcv_dcc_set(struct snd_kcontrol *kcontrol,
 
 	return 0;
 }
+static int mt6338_mtkaif_stress_set(struct snd_kcontrol *kcontrol,
+				    struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
+	struct mt6338_priv *priv = snd_soc_component_get_drvdata(cmpnt);
+	int enable = ucontrol->value.integer.value[0];
+	int value;
+
+	dev_info(priv->dev, "%s(),  enable = %d\n",
+		 __func__, enable);
+
+	if (enable) {
+		dev_info(priv->dev, "Config MT6338_AFE_MTKAIFV4_TX_CFG --> enable bypass src mode, 32K,enable loopback test 2\n");
+		regmap_write(priv->regmap, MT6338_AFE_MTKAIFV4_TX_CFG, 0x34);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_UL_SRC_CON0_0, 0x3);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA6_UL_SRC_CON0_0, 0x3);
+	} else {
+		dev_info(priv->dev, "Config MT6338_AFE_MTKAIFV4_TX_CFG --> disable bypass src mode, 32K, disable loopback test 2\n");
+		regmap_write(priv->regmap, MT6338_AFE_MTKAIFV4_TX_CFG, 0x14);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_UL_SRC_CON0_0, 0x0);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA6_UL_SRC_CON0_0, 0x0);
+	}
+	regmap_read(priv->regmap, MT6338_AFE_MTKAIFV4_TX_CFG, &value);
+	dev_info(priv->dev, "%s(), MT6359_AFE_ADDA_MTKAIF_CFG0 = 0x%x\n",
+		 __func__, value);
+
+	dev_info(priv->dev, "%s(),	done\n", __func__);
+	return 0;
+}
+
+static int mt6338_mtkaif_stress_get(struct snd_kcontrol *kcontrol,
+				    struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
+	struct mt6338_priv *priv = snd_soc_component_get_drvdata(cmpnt);
+	int value;
+
+	regmap_read(priv->regmap, MT6338_AFE_MTKAIFV4_TX_CFG, &value);
+	dev_info(priv->dev, "%s(), MT6338_AFE_MTKAIFV4_TX_CFG = 0x%x\n",
+		 __func__, value);
+	regmap_read(priv->regmap, MT6338_AFE_ADDA_UL_SRC_CON0_0, &value);
+	dev_info(priv->dev, "%s(), MT6338_AFE_ADDA_UL_SRC_CON0_0 = 0x%x\n",
+		 __func__, value);
+	regmap_read(priv->regmap, MT6338_AFE_ADDA6_UL_SRC_CON0_0, &value);
+	dev_info(priv->dev, "%(), MT6338_AFE_ADDA6_UL_SRC_CON0_0 = 0x%x\n",
+		 __func__, value);
+
+	return 0;
+}
 
 static const struct snd_kcontrol_new mt6338_snd_misc_controls[] = {
 	SOC_ENUM_EXT("Headphone Plugged In", misc_control_enum[0],
@@ -9815,6 +9867,8 @@ static const struct snd_kcontrol_new mt6338_snd_misc_controls[] = {
 		mic_hifi_mode_get, mic_hifi_mode_set),
 	SOC_ENUM_EXT("MIC ULCF EN", misc_control_enum[0],
 		mic_ulcf_en_get, mic_ulcf_en_set),
+	SOC_ENUM_EXT("Pmic_Mtkaif_Stress_Switch", misc_control_enum[0],
+		mt6338_mtkaif_stress_get, mt6338_mtkaif_stress_set),
 };
 
 static void keylock_set(struct mt6338_priv *priv)
