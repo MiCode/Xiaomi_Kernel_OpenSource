@@ -446,7 +446,7 @@ static unsigned int vcp_crash_dump(enum vcp_core_id id)
 static void vcp_prepare_aed_dump(char *aed_str, enum vcp_core_id id)
 {
 	char *vcp_A_log = NULL;
-	size_t offset = 0;
+	int offset = 0;
 
 	pr_debug("[VCP] %s begins:%s\n", __func__, aed_str);
 	vcp_dump_last_regs(mmup_enable_count());

@@ -371,30 +371,36 @@ void mtk_vcodec_dec_clock_on(struct mtk_vcodec_pm *pm, int hw_id)
 	// enable main clocks
 	for (j = 0; j < clks_data->main_clks_len; j++) {
 		clk_id = clks_data->main_clks[j].clk_id;
-		ret = clk_prepare_enable(pm->vdec_clks[clk_id]);
-		if (ret)
-			mtk_v4l2_err("clk_prepare_enable id: %d, name: %s fail %d",
-				clk_id, clks_data->main_clks[j].clk_name, ret);
+		if (clk_id >= 0) {
+			ret = clk_prepare_enable(pm->vdec_clks[clk_id]);
+			if (ret)
+				mtk_v4l2_err("clk_prepare_enable id: %d, name: %s fail %d",
+					clk_id, clks_data->main_clks[j].clk_name, ret);
+		}
 	}
 
 	if (hw_id == MTK_VDEC_CORE || hw_id == MTK_VDEC_LAT) {
 		// enable soc clocks
 		for (j = 0; j < clks_data->soc_clks_len; j++) {
 			clk_id = clks_data->soc_clks[j].clk_id;
-			ret = clk_prepare_enable(pm->vdec_clks[clk_id]);
-			if (ret)
-				mtk_v4l2_err("clk_prepare_enable id: %d, name: %s fail %d",
-					clk_id, clks_data->soc_clks[j].clk_name, ret);
+			if (clk_id >= 0) {
+				ret = clk_prepare_enable(pm->vdec_clks[clk_id]);
+				if (ret)
+					mtk_v4l2_err("clk_prepare_enable id: %d, name: %s fail %d",
+						clk_id, clks_data->soc_clks[j].clk_name, ret);
+			}
 		}
 	}
 	if (hw_id == MTK_VDEC_CORE) {
 		// enable core clocks
 		for (j = 0; j < clks_data->core_clks_len; j++) {
 			clk_id = clks_data->core_clks[j].clk_id;
-			ret = clk_prepare_enable(pm->vdec_clks[clk_id]);
-			if (ret)
-				mtk_v4l2_err("clk_prepare_enable id: %d, name: %s fail %d",
-					clk_id, clks_data->core_clks[j].clk_name, ret);
+			if (clk_id >= 0) {
+				ret = clk_prepare_enable(pm->vdec_clks[clk_id]);
+				if (ret)
+					mtk_v4l2_err("clk_prepare_enable id: %d, name: %s fail %d",
+						clk_id, clks_data->core_clks[j].clk_name, ret);
+			}
 		}
 	} else if (hw_id == MTK_VDEC_LAT) {
 		// enable lat clocks
@@ -511,7 +517,8 @@ void mtk_vcodec_dec_clock_off(struct mtk_vcodec_pm *pm, int hw_id)
 		if (clks_data->soc_clks_len > 0) {
 			for (i = clks_data->soc_clks_len - 1; i >= 0; i--) {
 				clk_id = clks_data->soc_clks[i].clk_id;
-				clk_disable_unprepare(pm->vdec_clks[clk_id]);
+				if (clk_id >= 0)
+					clk_disable_unprepare(pm->vdec_clks[clk_id]);
 			}
 		}
 	}
@@ -520,7 +527,8 @@ void mtk_vcodec_dec_clock_off(struct mtk_vcodec_pm *pm, int hw_id)
 		if (clks_data->core_clks_len > 0) {
 			for (i = clks_data->core_clks_len - 1; i >= 0; i--) {
 				clk_id = clks_data->core_clks[i].clk_id;
-				clk_disable_unprepare(pm->vdec_clks[clk_id]);
+				if (clk_id >= 0)
+					clk_disable_unprepare(pm->vdec_clks[clk_id]);
 			}
 		}
 	} else if (hw_id == MTK_VDEC_LAT) {
@@ -538,7 +546,8 @@ void mtk_vcodec_dec_clock_off(struct mtk_vcodec_pm *pm, int hw_id)
 	if (clks_data->main_clks_len > 0) {
 		for (i = clks_data->main_clks_len - 1; i >= 0; i--) {
 			clk_id = clks_data->main_clks[i].clk_id;
-			clk_disable_unprepare(pm->vdec_clks[clk_id]);
+			if (clk_id >= 0)
+				clk_disable_unprepare(pm->vdec_clks[clk_id]);
 		}
 	}
 
