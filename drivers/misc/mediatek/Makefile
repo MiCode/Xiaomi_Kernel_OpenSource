@@ -9,7 +9,6 @@ obj-$(CONFIG_MTK_NET_CCMNI) +=  ccmni/
 obj-$(CONFIG_MTK_NET_RPS) += rps/
 obj-$(CONFIG_NFC_CHIP_SUPPORT) += nfc/
 obj-$(CONFIG_MTK_ECCCI_DRIVER) +=  eccci/
-obj-$(CONFIG_MTK_ECCCI_DRIVER) += msg-center/
 obj-$(CONFIG_MTK_ECCCI_C2K_USB) += c2k_usb/
 obj-$(CONFIG_MTK_PID_MAP) += pidmap/
 obj-$(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) += sspm/

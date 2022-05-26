@@ -2276,7 +2276,7 @@ static int ccif_hif_hw_init(struct device *dev, struct md_ccif_ctrl *md_ctrl)
 		md_ctrl->md_ccif5_base = of_iomap(node, 0);
 		if (!md_ctrl->md_ccif5_base) {
 			CCCI_ERROR_LOG(-1, TAG,
-				"ccif5_base fail: 0x%p!\n");
+				"ccif5_base fail\n");
 			return -7;
 		}
 	}

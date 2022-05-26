@@ -397,15 +397,21 @@ static inline void dpmaif_lro_update_gro_info(
 		unsigned int total_len,
 		int gro_skb_num)
 {
-	struct iphdr *iph = (struct iphdr *)skb->data;
-	struct ipv6hdr *ip6h = (struct ipv6hdr *)skb->data;
+	struct iphdr *iph = NULL;
+	struct ipv6hdr *ip6h = NULL;
 	unsigned int gso_type;
+
+	if (skb->data == NULL)
+		return;
+
+	iph = (struct iphdr *)skb->data;
+	ip6h = (struct ipv6hdr *)skb->data;
 
 	if (iph->version == 4) {
 		gso_type = SKB_GSO_TCPV4;
 		iph->tot_len = htons(total_len);
 		iph->check = 0;
-		iph->check = ip_fast_csum((const void*)iph, iph->ihl);
+		iph->check = ip_fast_csum((const void *)iph, iph->ihl);
 
 	} else if (iph->version == 6) {
 		gso_type = SKB_GSO_TCPV6;
@@ -556,8 +562,11 @@ lro_continue:
 	start_idx = lro_info->count;
 
 gro_too_much_skb:
-	if (lro_num > 1)
+	if ((lro_num > 1) && (lro_num < DPMAIF_MAX_LRO))
 		dpmaif_lro_update_gro_info(skb0, total_len, lro_num);
+	else
+		CCCI_ERROR_LOG(-1, TAG,
+			"%s: lro_num: %u\n", __func__, lro_num);
 
 lro_end:
 	if (atomic_cmpxchg(&dpmaif_ctrl->wakeup_src, 1, 0) == 1) {

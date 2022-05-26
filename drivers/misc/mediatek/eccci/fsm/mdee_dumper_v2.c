@@ -178,6 +178,7 @@ static void mdee_output_debug_info_to_buf(struct ccci_fsm_ee *mdee,
 			if (!mem_layout) {
 				CCCI_ERROR_LOG(md_id, FSM,
 					"mem layout is null!\n");
+				kfree(ex_info_temp);
 				break;
 			}
 			scnprintf(ex_info, EE_BUF_LEN_UMOLY,
