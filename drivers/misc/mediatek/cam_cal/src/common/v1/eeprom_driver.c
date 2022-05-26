@@ -89,7 +89,7 @@ static int EEPROM_set_i2c_bus(unsigned int deviceID,
 	if (i2c_idx >= I2C_DEV_IDX_MAX)
 		return -EFAULT;
 
-	client = g_pstI2Cclients[i2c_idx];
+	client = g_pstI2Cclients[(unsigned int)i2c_idx];
 	pr_debug("%s end! deviceID=%d index=%u client=%p\n",
 		 __func__, deviceID, idx, client);
 
