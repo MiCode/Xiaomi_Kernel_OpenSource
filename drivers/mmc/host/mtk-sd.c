@@ -2750,6 +2750,7 @@ static int msdc_drv_probe(struct platform_device *pdev)
 	struct mmc_host *mmc;
 	struct msdc_host *host;
 	struct resource *res;
+	const char *dup_name;
 #ifdef CONFIG_MMC_CQHCI
 	struct arm_smccc_res smccc_res;
 #endif
@@ -2787,6 +2788,10 @@ static int msdc_drv_probe(struct platform_device *pdev)
 	host = mmc_priv(mmc);
 	ret = mmc_of_parse(mmc);
 
+	/* fix uaf(use afer free) issue:backup pdev->name,
+	 * device_rename will free pdev->name
+	 */
+	pdev->name = kstrdup(pdev->name, GFP_KERNEL);
 	/* device rename */
 	if (boot_type == BOOTDEV_SDMMC){
 		if ((mmc->index == 0) && !device_rename(mmc->parent, "bootdevice"))
@@ -2801,6 +2806,10 @@ static int msdc_drv_probe(struct platform_device *pdev)
 		else
 			dev_info(&pdev->dev, "[msdc%d] error: rename faile.\n", mmc->index);
 	}
+
+	dup_name = pdev->name;
+	pdev->name = pdev->dev.kobj.name;
+	kfree_const(dup_name);
 
 	if (ret)
 		goto host_free;
