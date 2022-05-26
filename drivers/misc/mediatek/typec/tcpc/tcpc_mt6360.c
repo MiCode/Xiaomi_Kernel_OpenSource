@@ -2099,7 +2099,7 @@ static int mt6360_transmit(struct tcpc_device *tcpc,
 			   const u32 *data)
 {
 	int ret, data_cnt, packet_cnt;
-	u8 temp[MT6360_TRANSMIT_MAX_SIZE];
+	u8 temp[MT6360_TRANSMIT_MAX_SIZE + 1];
 
 	if (type < TCPC_TX_HARD_RESET) {
 		data_cnt = sizeof(u32) * PD_HEADER_CNT(header);

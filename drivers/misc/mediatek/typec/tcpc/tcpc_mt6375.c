@@ -1901,7 +1901,7 @@ static int mt6375_transmit(struct tcpc_device *tcpc,
 			   const u32 *data)
 {
 	int ret, data_cnt, packet_cnt;
-	u8 temp[MT6375_TRANSMIT_MAX_SIZE];
+	u8 temp[MT6375_TRANSMIT_MAX_SIZE + 1];
 	struct mt6375_tcpc_data *ddata = tcpc_get_dev_data(tcpc);
 	long long t1 = 0, t2 = 0;
 
