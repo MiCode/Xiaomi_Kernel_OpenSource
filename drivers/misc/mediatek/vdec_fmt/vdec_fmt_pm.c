@@ -173,23 +173,26 @@ void fmt_start_dvfs_emi_bw(struct mtk_vdec_fmt *fmt, struct fmt_pmqos pmqos_para
 			pmqos_param.rdma_datasize,
 			pmqos_param.pixel_size,
 			request_freq);
-
-	FMT_BANDWIDTH(pmqos_param.rdma_datasize, pmqos_param.pixel_size, request_freq, bandwidth);
-	if (id < FMT_PORT_NUM && fmt->fmt_qos_req[id] != 0) {
-		mtk_icc_set_bw(fmt->fmt_qos_req[id],
+	if (id >= 0 && id < fmt->gce_th_num) {
+		FMT_BANDWIDTH(pmqos_param.rdma_datasize, pmqos_param.pixel_size,
+			request_freq, bandwidth);
+		if (fmt->fmt_qos_req[id] != 0) {
+			mtk_icc_set_bw(fmt->fmt_qos_req[id],
 			MBps_to_icc(bandwidth), 0);
-	}
-	fmt_debug(1, "rdma bandwidth %d", bandwidth);
-	fmt_debug(1, "wdma cal MMqos (%d, %d, %d)",
+		}
+		fmt_debug(1, "rdma bandwidth %d", bandwidth);
+		fmt_debug(1, "wdma cal MMqos (%d, %d, %d)",
 			pmqos_param.wdma_datasize,
 			pmqos_param.pixel_size,
 			request_freq);
-	FMT_BANDWIDTH(pmqos_param.wdma_datasize, pmqos_param.pixel_size, request_freq, bandwidth);
-	if (id+2 < FMT_PORT_NUM && fmt->fmt_qos_req[id+2] != 0) {
-		mtk_icc_set_bw(fmt->fmt_qos_req[id+2],
+		FMT_BANDWIDTH(pmqos_param.wdma_datasize, pmqos_param.pixel_size,
+			request_freq, bandwidth);
+		if (fmt->fmt_qos_req[id+2] != 0) {
+			mtk_icc_set_bw(fmt->fmt_qos_req[id+2],
 			MBps_to_icc(bandwidth), 0);
+		}
+		fmt_debug(1, "wdma bandwidth %d", bandwidth);
 	}
-	fmt_debug(1, "wdma bandwidth %d", bandwidth);
 }
 
 void fmt_end_dvfs_emi_bw(struct mtk_vdec_fmt *fmt, int id)
@@ -211,14 +214,15 @@ void fmt_end_dvfs_emi_bw(struct mtk_vdec_fmt *fmt, int id)
 			volt);
 		}
 	}
-
-	if (id < FMT_PORT_NUM && fmt->fmt_qos_req[id] != 0) {
-		mtk_icc_set_bw(fmt->fmt_qos_req[id],
-			MBps_to_icc(0), 0);
-	}
-	if (id+2 < FMT_PORT_NUM && fmt->fmt_qos_req[id+2] != 0) {
-		mtk_icc_set_bw(fmt->fmt_qos_req[id+2],
-			MBps_to_icc(0), 0);
+	if (id >= 0 && id < fmt->gce_th_num) {
+		if (fmt->fmt_qos_req[id] != 0) {
+			mtk_icc_set_bw(fmt->fmt_qos_req[id],
+				MBps_to_icc(0), 0);
+		}
+		if (fmt->fmt_qos_req[id+2] != 0) {
+			mtk_icc_set_bw(fmt->fmt_qos_req[id+2],
+				MBps_to_icc(0), 0);
+		}
 	}
 }
 
