@@ -55,8 +55,10 @@ static void set_cmos_sensor(struct subdrv_ctx *ctx,
 	if (_size_to_write + 2 >= _I2C_BUF_SIZE)
 		commit_write_sensor(ctx);
 
-	_i2c_data[_size_to_write++] = reg;
-	_i2c_data[_size_to_write++] = val;
+	if (_size_to_write <= _I2C_BUF_SIZE - 2) {
+		_i2c_data[_size_to_write++] = reg;
+		_i2c_data[_size_to_write++] = val;
+	}
 }
 
 
