@@ -121,7 +121,7 @@ static uint32_t mdw_rv_get_info(struct mdw_device *mdev,
 	enum mdw_info_type type)
 {
 	struct mdw_rv_dev *mrdev = (struct mdw_rv_dev *)mdev->dev_specific;
-	int val;
+	int val = 0;
 
 	mdw_rv_dev_get_param(mrdev, type, &val);
 	return val;

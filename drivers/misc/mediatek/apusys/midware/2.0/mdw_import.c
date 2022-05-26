@@ -49,7 +49,7 @@ int mdw_rvs_get_vlm(uint32_t req_size, bool force,
 	mdw_trace_begin("%s|size(%u)", __func__, req_size);
 	ret = reviser_get_vlm(req_size, force, (unsigned long *)id, tcm_size);
 	mdw_trace_end("%s|ctx = %u, size(%u/%u)",
-		__func__, id, req_size, *tcm_size);
+		__func__, *id, req_size, *tcm_size);
 
 	return ret;
 }

@@ -148,7 +148,8 @@ int mdw_mem_pool_create(struct mdw_fpriv *mpriv, struct mdw_mem_pool *pool,
 	goto out;
 
 err_add:
-	gen_pool_destroy(pool->gp);
+	if (pool->gp)
+		gen_pool_destroy(pool->gp);
 
 out:
 	mdw_trace_end("%s|size(%u) align(%u)",

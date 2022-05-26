@@ -46,7 +46,7 @@ TRACE_EVENT(mdw_rv_cmd,
 		__field(uint32_t, priority)
 		__field(uint32_t, softlimit)
 		__field(uint32_t, pwr_dtime)
-		__field(uint32_t, sc_rets)
+		__field(uint64_t, sc_rets)
 	),
 	TP_fast_assign(
 		__entry->done = done;

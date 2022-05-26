@@ -42,7 +42,7 @@ static int mdw_ap_sw_init(struct mdw_device *mdev)
 free_dinfo:
 	for (i = 0; i < MDW_DEV_MAX; i++) {
 		if (mdev->dinfos[i] != NULL) {
-			kfree(&mdev->dinfos[i]);
+			kfree(mdev->dinfos[i]);
 			mdev->dinfos[i] = NULL;
 		}
 	}
@@ -57,7 +57,7 @@ static void mdw_ap_sw_deinit(struct mdw_device *mdev)
 
 	for (i = 0; i < MDW_DEV_MAX; i++) {
 		if (mdev->dinfos[i] != NULL) {
-			kfree(&mdev->dinfos[i]);
+			kfree(mdev->dinfos[i]);
 			mdev->dinfos[i] = NULL;
 		}
 	}

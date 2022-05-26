@@ -17,10 +17,11 @@ static noinline int tracing_mark_write(const char *buf)
 void trace_tag_customer(const char *fmt, ...)
 {
 	char buf[TRACE_LEN];
+	uint32_t ret;
 	va_list args;
 
 	va_start(args, fmt);
-	vsnprintf(buf, TRACE_LEN, fmt, args);
+	ret = vsnprintf(buf, TRACE_LEN, fmt, args);
 	va_end(args);
 
 	tracing_mark_write(buf);
