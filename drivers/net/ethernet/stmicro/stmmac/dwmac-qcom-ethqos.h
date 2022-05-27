@@ -30,7 +30,7 @@ extern void *ipc_emac_log_ctxt;
 	pr_debug(DRV_NAME " %s:%d " fmt, __func__, __LINE__, ## args)
 #define ETHQOSERR(fmt, args...) \
 do {\
-	pr_err(DRV_NAME " %s:%d " fmt, __func__, ## args);\
+	pr_err(DRV_NAME " %s:%d " fmt, __func__, __LINE__, ## args);\
 	if (ipc_emac_log_ctxt) { \
 		ipc_log_string(ipc_emac_log_ctxt, \
 		"%s: %s[%u]:[emac] ERROR:" fmt, __FILENAME__,\
@@ -38,7 +38,7 @@ do {\
 	} \
 } while (0)
 #define ETHQOSINFO(fmt, args...) \
-	pr_info(DRV_NAME " %s:%d " fmt, __func__, ## args)
+	pr_info(DRV_NAME " %s:%d " fmt, __func__, __LINE__, ## args)
 #define RGMII_IO_MACRO_CONFIG		0x0
 #define SDCC_HC_REG_DLL_CONFIG		0x4
 #define SDCC_HC_REG_DDR_CONFIG		0xC
