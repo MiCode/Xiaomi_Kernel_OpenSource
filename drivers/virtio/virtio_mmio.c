@@ -748,7 +748,7 @@ static void virtio_unmap_page(struct device *dev, dma_addr_t dev_addr,
 
 size_t virtio_max_mapping_size(struct device *dev)
 {
-	return SZ_4K;
+	return SZ_2K;
 }
 
 static const struct dma_map_ops virtio_dma_ops = {
