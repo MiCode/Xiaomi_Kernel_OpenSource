@@ -86,7 +86,7 @@ static int EEPROM_set_i2c_bus(unsigned int deviceID,
 	if (idx == IMGSENSOR_SENSOR_IDX_NONE)
 		return -EFAULT;
 
-	if (i2c_idx < I2C_DEV_IDX_1 || i2c_idx >= I2C_DEV_IDX_MAX)
+	if (i2c_idx >= I2C_DEV_IDX_MAX)
 		return -EFAULT;
 
 	client = g_pstI2Cclients[i2c_idx];
