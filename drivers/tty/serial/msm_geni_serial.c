@@ -27,6 +27,7 @@
 #include <linux/ioctl.h>
 #include <linux/pinctrl/consumer.h>
 #include <linux/dma-mapping.h>
+#include <linux/ktime.h>
 #include <uapi/linux/msm_geni_serial.h>
 
 static bool con_enabled = IS_ENABLED(CONFIG_SERIAL_MSM_GENI_CONSOLE_DEFAULT_ENABLED);
@@ -159,6 +160,7 @@ module_param(con_enabled, bool, 0644);
 #define DMA_RX_BUF_SIZE		(2048)
 #define UART_CONSOLE_RX_WM	(2)
 
+#define EDGE_COUNT_IRQ_TIMEOUT_MSECS	(100)
 #define CREATE_TRACE_POINTS
 #include "serial_trace.h"
 
@@ -2459,18 +2461,71 @@ static irqreturn_t msm_geni_serial_isr(int isr, void *dev)
 	return IRQ_HANDLED;
 }
 
+/*
+ * msm_geni_wakeup_isr_time() - Records wakeup isr time, and
+ * checks if difference between consecutive irq is more than
+ * EDGE_COUNT_IRQ_TIMEOUT_MSECS(100msec)
+ * If time difference is more than EDGE_COUNT_IRQ_TIMEOUT_MSECS
+ * irq is treated as spurious interrupt
+ *
+ * @uport: pointer to uart port
+ * @cur_time: kernel time when isr was called
+ *
+ * Return: 0 if time difference is <= EDGE_COUNT_IRQ_TIMEOUT_MSECS,
+ * else return error value indicating spurious interrupt
+ */
+static int msm_geni_wakeup_isr_time(struct uart_port *uport, ktime_t cur_time)
+{
+	struct msm_geni_serial_port *port = GET_DEV_PORT(uport);
+	static ktime_t edge_cnt0_time, edge_cnt1_time, time_diff;
+
+	if (port->edge_count == 0) {
+		edge_cnt0_time = cur_time;
+		edge_cnt1_time = 0;
+	} else if (port->edge_count == 1) {
+		edge_cnt1_time = cur_time;
+		time_diff = ktime_sub(edge_cnt1_time, edge_cnt0_time);
+		if (ktime_to_ms(time_diff) > EDGE_COUNT_IRQ_TIMEOUT_MSECS) {
+			UART_LOG_DBG(port->ipc_log_rx, uport->dev,
+				     "%s: ERR: edge_cnt 1->0 time_diff=%d > %dmsecs\n",
+				     ktime_to_ms(time_diff),
+				     EDGE_COUNT_IRQ_TIMEOUT_MSECS);
+			return -EINVAL;
+		}
+	} else if (port->edge_count == 2) {
+		time_diff = ktime_sub(cur_time, edge_cnt1_time);
+		if (ktime_to_ms(time_diff) > EDGE_COUNT_IRQ_TIMEOUT_MSECS) {
+			UART_LOG_DBG(port->ipc_log_rx, uport->dev,
+				     "%s: ERR: edge_cnt 2->1 time_diff=%d > %dmsecs\n",
+				     ktime_to_ms(time_diff),
+				     EDGE_COUNT_IRQ_TIMEOUT_MSECS);
+			return -EINVAL;
+		}
+	}
+	return 0;
+}
+
 static irqreturn_t msm_geni_wakeup_isr(int isr, void *dev)
 {
 	struct uart_port *uport = dev;
 	struct msm_geni_serial_port *port = GET_DEV_PORT(uport);
 	struct tty_struct *tty;
 	unsigned long flags;
+	ktime_t cur_time = ktime_get_boottime();
 
+	UART_LOG_DBG(port->ipc_log_rx, uport->dev, "%s: Edge-Count %d time=%dmsec\n",
+		     __func__, port->edge_count, ktime_to_ms(cur_time));
 	spin_lock_irqsave(&uport->lock, flags);
-	UART_LOG_DBG(port->ipc_log_rx, uport->dev, "%s: Edge-Count %d\n", __func__,
-				port->edge_count);
 
 	if (port->wakeup_byte && (port->edge_count == 2)) {
+		if (msm_geni_wakeup_isr_time(uport, cur_time)) {
+			/* Reset edge count upon spurious interrupt as a WAR */
+			UART_LOG_DBG(port->ipc_log_rx, uport->dev,
+				     "%s Spurious wakeup detected\n", __func__);
+			port->edge_count = 0;
+			spin_unlock_irqrestore(&uport->lock, flags);
+			return IRQ_HANDLED;
+		}
 		tty = uport->state->port.tty;
 		/* uport->state->port.tty pointer initialized as part of
 		 * UART port_open. Adding null check to ensure tty should
@@ -2492,9 +2547,17 @@ static irqreturn_t msm_geni_wakeup_isr(int isr, void *dev)
 						WAKEBYTE_TIMEOUT_MSEC);
 		}
 	} else if (port->edge_count < 2) {
-		port->edge_count++;
+		if (msm_geni_wakeup_isr_time(uport, cur_time)) {
+			/* Reset edge count upon spurious interrupt as a WAR */
+			port->edge_count = 0;
+			UART_LOG_DBG(port->ipc_log_rx, uport->dev,
+				     "%s Spurious wakeup detected\n", __func__);
+		} else {
+			port->edge_count++;
+		}
 	}
 	spin_unlock_irqrestore(&uport->lock, flags);
+	UART_LOG_DBG(port->ipc_log_rx, uport->dev, "%s: End\n", __func__);
 	return IRQ_HANDLED;
 }
 
