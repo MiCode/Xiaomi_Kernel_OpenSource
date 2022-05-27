@@ -453,7 +453,7 @@
 
 	clock_buffer_ctrl: clock_buffer_ctrl {
 		compatible = "mediatek,clock_buffer";
-		n-clkbuf-pmic-dependent = <9>;
+		n-clkbuf-pmic-dependent = <10>;
 		clkbuf-pmic-dependent = "pmic-drvcurr",
 					"pmic-auxout-sel",
 					"pmic-auxout-xo",
@@ -462,7 +462,8 @@
 					"pmic-cofst-fpm",
 					"pmic-cdac-fpm",
 					"pmic-core-idac-fpm",
-					"pmic-aac-fpm-swen";
+					"pmic-aac-fpm-swen",
+					"pmic-heater-sel";
 
 		pmic-dcxo-cw = <0x788>;
 		pmic-xo-mode = <0x788 0 0x788 3 0x788 6 0x788 9
@@ -495,6 +496,8 @@
 		pmic-core-idac-fpm = <0x79a 14>;
 		n-pmic-aac-fpm-swen = <1>;
 		pmic-aac-fpm-swen = <0x79e 14>;
+		n-pmic-heater-sel = <1>;
+		pmic-heater-sel = <0x7b8 1>;
 	};
 
 };
