@@ -1100,7 +1100,7 @@ static ssize_t mtk_btag_main_write(struct file *file, const char __user *ubuf,
 {
 	struct mtk_blocktag *btag, *n;
 	int ret;
-	char cmd[MICTX_PROC_CMD_BUF_SIZE];
+	char cmd[MICTX_PROC_CMD_BUF_SIZE] = { 0 };
 
 	if (count == 0)
 		goto err;
@@ -1235,7 +1235,7 @@ static ssize_t mtk_btag_mictx_sub_write(struct file *file,
 	size_t count, loff_t *ppos)
 {
 	int ret;
-	char cmd[MICTX_PROC_CMD_BUF_SIZE];
+	char cmd[MICTX_PROC_CMD_BUF_SIZE] = { 0 };
 
 	if (count == 0)
 		goto err;
