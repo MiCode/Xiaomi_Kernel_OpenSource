@@ -326,7 +326,7 @@ EXPORT_SYMBOL(cmdq_core_deinit_group_cb);
 static bool cmdq_core_is_valid_group(enum CMDQ_GROUP_ENUM engGroup)
 {
 	/* check range */
-	if (engGroup < 0 || engGroup >= CMDQ_MAX_GROUP_COUNT)
+	if (engGroup >= CMDQ_MAX_GROUP_COUNT)
 		return false;
 
 	return true;
