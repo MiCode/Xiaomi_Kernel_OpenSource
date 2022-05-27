@@ -131,6 +131,7 @@ struct glink_helioscom_rx_intent {
 	u32 addr;
 	bool reuse;
 	bool in_use;
+	bool advertised;
 	u32 offset;
 
 	struct list_head node;
@@ -253,6 +254,8 @@ struct glink_helioscom_channel {
 
 	struct mutex intent_req_lock;
 	bool intent_req_result;
+	bool channel_ready;
+
 	struct completion intent_req_comp;
 	struct completion intent_alloc_comp;
 };
@@ -659,6 +662,14 @@ static int glink_helioscom_advertise_intent(struct glink_helioscom *glink,
 	} __packed;
 	struct command cmd;
 
+	mutex_lock(&channel->intent_lock);
+	if (intent->advertised) {
+		mutex_unlock(&channel->intent_lock);
+		return 0;
+	}
+	intent->advertised = true;
+	mutex_unlock(&channel->intent_lock);
+
 	memset(&cmd, 0, sizeof(cmd));
 	cmd.msg.cmd = cpu_to_le16(HELIOSCOM_CMD_INTENT);
 	cmd.msg.param1 = cpu_to_le16(channel->lcid);
@@ -689,6 +700,7 @@ static void glink_helioscom_handle_intent_req(struct glink_helioscom *glink,
 {
 	struct glink_helioscom_rx_intent *intent;
 	struct glink_helioscom_channel *channel;
+	struct rpmsg_endpoint *ept;
 
 	mutex_lock(&glink->idr_lock);
 	channel = idr_find(&glink->rcids, cid);
@@ -699,8 +711,9 @@ static void glink_helioscom_handle_intent_req(struct glink_helioscom *glink,
 		return;
 	}
 
+	ept = &channel->ept;
 	intent = glink_helioscom_alloc_intent(glink, channel, size, false);
-	if (intent)
+	if (intent && channel->channel_ready)
 		glink_helioscom_advertise_intent(glink, channel, intent);
 
 	glink_helioscom_send_intent_req_ack(glink, channel, !!intent);
@@ -1202,15 +1215,31 @@ static int glink_helioscom_announce_create(struct rpmsg_device *rpdev)
 	struct device_node *np = rpdev->dev.of_node;
 	struct glink_helioscom *glink = channel->glink;
 	struct glink_helioscom_rx_intent *intent;
+	struct glink_helioscom_rx_intent *tmp;
 	const struct property *prop = NULL;
 	__be32 defaults[] = { cpu_to_be32(SZ_1K), cpu_to_be32(5) };
 	int num_intents;
 	int num_groups = 1;
 	__be32 *val = defaults;
+	int iid;
 	int size;
 
 	if (!completion_done(&channel->open_ack))
 		return 0;
+
+	channel->channel_ready = true;
+
+	/*Serve any pending intent request*/
+	mutex_lock(&channel->intent_lock);
+	idr_for_each_entry(&channel->liids, tmp, iid) {
+		if (!tmp->reuse && !tmp->advertised) {
+			intent = tmp;
+			mutex_unlock(&channel->intent_lock);
+			glink_helioscom_advertise_intent(glink, channel, intent);
+			mutex_lock(&channel->intent_lock);
+		}
+	}
+	mutex_unlock(&channel->intent_lock);
 
 	prop = of_find_property(np, "qcom,intents", NULL);
 	if (prop) {
