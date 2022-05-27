@@ -26,6 +26,7 @@ enum ipa_wdi_version {
 	IPA_WDI_1,
 	IPA_WDI_2,
 	IPA_WDI_3,
+	IPA_WDI_3_V2,
 	IPA_WDI_VER_MAX
 };
 
@@ -122,6 +123,8 @@ struct ipa_wdi_reg_intf_in_params {
  * @pkt_offset: packet offset (wdi header length)
  * @desc_format_template[IPA_HW_WDI3_MAX_ER_DESC_SIZE]:  Holds a cached
 	template of the desc format
+ * @rx_bank_id: value used to perform TCL HW setting
+
  */
 struct ipa_wdi_pipe_setup_info {
 	struct ipa_ep_cfg ipa_ep_cfg;
@@ -140,6 +143,7 @@ struct ipa_wdi_pipe_setup_info {
 	u16 pkt_offset;
 
 	u32  desc_format_template[IPA_HW_WDI3_MAX_ER_DESC_SIZE];
+	u8 rx_bank_id;
 };
 
 /**
@@ -161,6 +165,8 @@ struct ipa_wdi_pipe_setup_info {
  * @pkt_offset: packet offset (wdi header length)
  * @desc_format_template[IPA_HW_WDI3_MAX_ER_DESC_SIZE]:  Holds a cached
 	template of the desc format
+ * @rx_bank_id: value used to perform TCL HW setting
+
  */
 struct ipa_wdi_pipe_setup_info_smmu {
 	struct ipa_ep_cfg ipa_ep_cfg;
@@ -179,6 +185,7 @@ struct ipa_wdi_pipe_setup_info_smmu {
 	u16 pkt_offset;
 
 	u32  desc_format_template[IPA_HW_WDI3_MAX_ER_DESC_SIZE];
+	u8 rx_bank_id;
 };
 
 /**
