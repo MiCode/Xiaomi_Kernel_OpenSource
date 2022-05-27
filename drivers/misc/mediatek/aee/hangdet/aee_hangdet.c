@@ -738,6 +738,9 @@ static int wdt_pm_notify(struct notifier_block *notify_block,
 		break;
 	}
 
+	if (toprgu_base)
+		iowrite32(WDT_RST_RELOAD, toprgu_base + WDT_RST);
+
 	return 0;
 }
 
