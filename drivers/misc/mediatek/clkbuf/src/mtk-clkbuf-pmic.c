@@ -43,6 +43,7 @@ static const char *pmic_clkbuf_prop[PMIC_HW_DTS_NUM] = {
 	[PMIC_CDAC_FPM] = "pmic-cdac-fpm",
 	[PMIC_CORE_IDAC_FPM] = "pmic-core-idac-fpm",
 	[PMIC_AAC_FPM_SWEN] = "pmic-aac-fpm-swen",
+	[PMIC_HEATER_SEL] = "pmic-heater-sel",
 };
 
 static const u32 PMIC_CLKBUF_MASK[PMIC_HW_DTS_NUM] = {
@@ -60,6 +61,7 @@ static const u32 PMIC_CLKBUF_MASK[PMIC_HW_DTS_NUM] = {
 	[PMIC_CDAC_FPM] = 0xff,
 	[PMIC_CORE_IDAC_FPM] = 0x3,
 	[PMIC_AAC_FPM_SWEN] = 0x1,
+	[PMIC_HEATER_SEL] = 0x3,
 };
 
 static inline bool _is_pmic_clk_buf_debug_enable(void)
@@ -401,6 +403,39 @@ static void mt6357_clk_buf_get_cap_id(u32 *capid)
 	pmic_clkbuf_read(PMIC_CDAC_FPM, 0, capid);
 }
 
+static void mt6357_clk_buf_set_heater(bool on)
+{
+	if (on)
+		pmic_clkbuf_update(PMIC_HEATER_SEL, 0, 2);
+	else
+		pmic_clkbuf_update(PMIC_HEATER_SEL, 0, 0);
+}
+
+static void mt6357_clk_buf_get_heater(bool *on)
+{
+	u32 val = 0;
+
+	pmic_clkbuf_read(PMIC_HEATER_SEL, 0, &val);
+
+	if (!val)
+		*on = false;
+	else
+		*on = true;
+}
+
+static void mt6357_clk_buf_set_cap_id_pre(void)
+{
+	pmic_clkbuf_update(PMIC_AAC_FPM_SWEN, 0, 0);
+	mdelay(1);
+	pmic_clkbuf_update(PMIC_AAC_FPM_SWEN, 0, 1);
+	mdelay(5);
+}
+
+static void mt6357_clk_buf_set_cap_id_new(u32 capid)
+{
+	 pmic_clkbuf_update(PMIC_CDAC_FPM, 0, capid);
+}
+
 static void mt6359_clk_buf_get_bblpm_en(u32 *stat)
 {
 	struct pmic_clkbuf_dts *node = NULL;
@@ -653,6 +688,10 @@ static struct pmic_clkbuf_op pmic_clkbuf[PMIC_NUM] = {
 		.pmic_clk_buf_dump_misc_log = _dummy_clk_buf_dump_misc_log,
 		.pmic_clk_buf_set_cap_id = mt6357_clk_buf_set_cap_id,
 		.pmic_clk_buf_get_cap_id = mt6357_clk_buf_get_cap_id,
+		.pmic_clk_buf_set_heater = mt6357_clk_buf_set_heater,
+		.pmic_clk_buf_get_heater = mt6357_clk_buf_get_heater,
+		.pmic_clk_buf_set_cap_id_pre = mt6357_clk_buf_set_cap_id_pre,
+		.pmic_clk_buf_set_cap_id_new = mt6357_clk_buf_set_cap_id_new,
 	},
 	[PMIC_6359] = {
 		.pmic_name = "mt6359",
