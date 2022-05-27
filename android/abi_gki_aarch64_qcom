@@ -119,6 +119,7 @@
   cfg80211_update_owe_info_event
   cfg80211_vendor_cmd_get_sender
   __cfi_slowpath_diag
+  cgroup_path_ns
   cgroup_taskset_first
   cgroup_taskset_next
   __check_object_size
@@ -1144,6 +1145,10 @@
   netdev_alert
   netdev_rss_key_fill
   netif_receive_skb_list
+  nla_find
+  nla_reserve
+  nla_reserve_64bit
+  __nla_validate
   no_llseek
   nonseekable_open
   nr_cpu_ids
@@ -1299,6 +1304,7 @@
   pci_store_saved_state
   pci_walk_bus
   pci_write_config_dword
+  pcpu_nr_pages
   __percpu_down_read
   percpu_down_write
   percpu_free_rwsem
@@ -1368,6 +1374,7 @@
   phy_write_mmd
   pick_highest_pushable_task
   pick_migrate_task
+  pid_nr_ns
   pinconf_generic_dt_node_to_map
   pinctrl_dev_get_drvdata
   pinctrl_force_default
@@ -2204,6 +2211,7 @@
   vhost_vq_init_access
   vhost_vring_ioctl
   vmalloc
+  vmalloc_nr_pages
   vmalloc_to_page
   vmalloc_to_pfn
   vmap
