@@ -715,6 +715,7 @@
   get_zeroed_page
   gic_nonsecure_priorities
   gic_resume
+  gic_v2_resume
   gov_attr_set_init
   gov_attr_set_put
   governor_sysfs_ops
@@ -2043,6 +2044,7 @@
   __tracepoint_android_vh_ftrace_oops_exit
   __tracepoint_android_vh_ftrace_size_check
   __tracepoint_android_vh_gic_resume
+  __tracepoint_android_vh_gic_v2_resume
   __tracepoint_android_vh_handle_tlb_conf
   __tracepoint_android_vh_ipi_stop
   __tracepoint_android_vh_jiffies_update
