@@ -809,10 +809,12 @@ static void close_vb_dev(struct virtio_backend_device *vb_dev)
 	vb_dev->ack_driver_ok = 0;
 	spin_unlock_irqrestore(&vb_dev->lock, flags);
 
+	mutex_lock(&vb_dev->mutex);
 	if (vb_dev->config_data) {
 		free_pages((unsigned long)vb_dev->config_data, 0);
 		vb_dev->config_data = NULL;
 	}
+	mutex_unlock(&vb_dev->mutex);
 }
 
 static int virtio_backend_release(struct inode *inode, struct file *filp)
@@ -825,13 +827,13 @@ static int virtio_backend_release(struct inode *inode, struct file *filp)
 
 	spin_lock(&vm->vb_dev_lock);
 	vm->state = VM_STATE_NOT_ACTIVE;
+	vm->app_ready = 0;
 	list_for_each_entry(vb_dev, &vm->vb_dev_list, list)
 		close_vb_dev(vb_dev);
 	spin_unlock(&vm->vb_dev_lock);
 
 	spin_lock(&vm_list_lock);
 	vm->open_count--;
-	vm->app_ready = 0;
 	spin_unlock(&vm_list_lock);
 
 	return 0;
@@ -1576,9 +1578,11 @@ int gh_virtio_mmio_exit(gh_vmid_t vmid, const char *vm_name)
 		if (refcount)
 			wait_event(vb_dev->notify_queue, !vb_dev->refcount);
 
+		mutex_lock(&vb_dev->mutex);
 		free_irq(vb_dev->linux_irq, vb_dev);
 		iounmap(vb_dev->config_shared_buf);
 		vb_dev->config_shared_buf = NULL;
+		mutex_unlock(&vb_dev->mutex);
 		spin_lock(&vm->vb_dev_lock);
 	}
 
