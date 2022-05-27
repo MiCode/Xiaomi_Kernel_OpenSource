@@ -2763,6 +2763,22 @@ static int msdc_drv_probe(struct platform_device *pdev)
 
 	host = mmc_priv(mmc);
 	ret = mmc_of_parse(mmc);
+
+	/* device rename */
+	if (boot_type == BOOTDEV_SDMMC){
+		if ((mmc->index == 0) && !device_rename(mmc->parent, "bootdevice"))
+			dev_info(&pdev->dev, "[msdc%d] rename to bootdevice.\n", mmc->index);
+		else if ((mmc->index == 1) && !device_rename(mmc->parent, "externdevice"))
+			dev_info(&pdev->dev, "[msdc%d] rename to externdevice.\n",mmc->index);
+		else if ((mmc->index == 0) || (mmc->index == 1))
+			dev_info(&pdev->dev, "[msdc%d] error: rename faile.\n", mmc->index);
+	} else if (boot_type == BOOTDEV_UFS){
+		if ((mmc->index == 0) && !device_rename(mmc->parent, "externdevice"))
+			dev_info(&pdev->dev, "[msdc%d] rename to externdevice.\n",mmc->index);
+		else
+			dev_info(&pdev->dev, "[msdc%d] error: rename faile.\n", mmc->index);
+	}
+
 	if (ret)
 		goto host_free;
 
