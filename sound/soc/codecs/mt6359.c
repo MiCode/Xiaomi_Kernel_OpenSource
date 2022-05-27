@@ -22,9 +22,11 @@
 
 #include <sound/soc.h>
 #include <sound/tlv.h>
-
-#include "registers.h"
-
+#ifdef CONFIG_MTK_PMIC_CHIP_MT6359P
+#include <linux/mfd/mt6359p/registers.h>
+#else
+#include <linux/mfd/mt6359/registers.h>
+#endif
 #ifdef CONFIG_MTK_ACCDET
 #include "accdet.h"
 #endif
