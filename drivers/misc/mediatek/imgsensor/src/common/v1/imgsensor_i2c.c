@@ -121,8 +121,7 @@ enum IMGSENSOR_RETURN imgsensor_i2c_init(
 	enum   IMGSENSOR_I2C_DEV  device)
 {
 	if (!pi2c_cfg ||
-	    device >= IMGSENSOR_I2C_DEV_MAX_NUM ||
-	    device < IMGSENSOR_I2C_DEV_0)
+	    device >= IMGSENSOR_I2C_DEV_MAX_NUM)
 		return IMGSENSOR_RETURN_ERROR;
 
 	pi2c_cfg->pinst       = &gi2c.inst[device];
