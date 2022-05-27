@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
  * Copyright (c) 2015, 2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef __QCOM_TSENS_H__
@@ -15,6 +16,7 @@
 #define SLOPE_DEFAULT		3200
 #define THRESHOLD_MAX_ADC_CODE	0x3ff
 #define THRESHOLD_MIN_ADC_CODE	0x0
+#define COLD_SENSOR_HW_ID	128
 
 #include <linux/interrupt.h>
 #include <linux/thermal.h>
@@ -35,6 +37,7 @@ enum tsens_irq_type {
 	LOWER,
 	UPPER,
 	CRITICAL,
+	COLD,
 };
 
 /**
@@ -66,6 +69,7 @@ struct tsens_sensor {
  * @suspend: Function to suspend the tsens device
  * @resume: Function to resume the tsens device
  * @get_trend: Function to get the thermal/temp trend
+ * @get_cold_status: Function to get the cold interrupt status
  */
 struct tsens_ops {
 	/* mandatory callbacks */
@@ -78,6 +82,7 @@ struct tsens_ops {
 	int (*suspend)(struct tsens_priv *priv);
 	int (*resume)(struct tsens_priv *priv);
 	int (*get_trend)(struct tsens_sensor *s, enum thermal_trend *trend);
+	int (*get_cold_status)(const struct tsens_sensor *s, bool *cold_status);
 };
 
 #define REG_FIELD_FOR_EACH_SENSOR11(_name, _offset, _startbit, _stopbit) \
@@ -496,7 +501,7 @@ enum regfield_ids {
 	MAX_STATUS_13,
 	MAX_STATUS_14,
 	MAX_STATUS_15,
-
+	COLD_STATUS,		/* COLD interrupt status */
 	/* Keep last */
 	MAX_REGFIELDS
 };
@@ -509,6 +514,7 @@ enum regfield_ids {
  * @srot_split: does the IP neatly splits the register space into SROT and TM,
  *              with SROT only being available to secure boot firmware?
  * @has_watchdog: does this IP support watchdog functionality?
+ * @cold_int: does this IP support COLD interrupt ?
  * @max_sensors: maximum sensors supported by this version of the IP
  */
 struct tsens_features {
@@ -517,6 +523,7 @@ struct tsens_features {
 	unsigned int adc:1;
 	unsigned int srot_split:1;
 	unsigned int has_watchdog:1;
+	unsigned int cold_int:1;
 	unsigned int max_sensors;
 };
 
@@ -564,6 +571,7 @@ struct tsens_context {
  * @debug_root: pointer to debugfs dentry for all tsens
  * @debug: pointer to debugfs dentry for tsens controller
  * @ipc_log: pointer for ipc log context id
+ * @cold_sensor: pointer to cold sensor attached to this device
  * @sensor: list of sensors attached to this device
  */
 struct tsens_priv {
@@ -585,6 +593,7 @@ struct tsens_priv {
 	struct dentry			*debug_root;
 	struct dentry			*debug;
 	void				*ipc_log;
+	struct tsens_sensor		*cold_sensor;
 
 	struct tsens_sensor		sensor[];
 };
@@ -594,6 +603,7 @@ void compute_intercept_slope(struct tsens_priv *priv, u32 *pt1, u32 *pt2, u32 mo
 int init_common(struct tsens_priv *priv);
 int get_temp_tsens_valid(const struct tsens_sensor *s, int *temp);
 int get_temp_common(const struct tsens_sensor *s, int *temp);
+int get_cold_int_status(const struct tsens_sensor *s, bool *cold_status);
 
 /* TSENS target */
 extern struct tsens_plat_data data_8960;
