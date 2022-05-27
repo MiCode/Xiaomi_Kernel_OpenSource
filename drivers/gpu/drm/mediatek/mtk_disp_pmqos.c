@@ -95,6 +95,8 @@ int __mtk_disp_pmqos_port_look_up(int comp_id)
 #if defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6893)
 	case DDP_COMPONENT_OVL0:
 		return M4U_PORT_L0_OVL_RDMA0;
+	case DDP_COMPONENT_OVL1:
+		return M4U_PORT_L1_OVL_RDMA1;
 	case DDP_COMPONENT_OVL0_2L:
 		return M4U_PORT_L1_OVL_2L_RDMA0;
 	case DDP_COMPONENT_OVL1_2L:
@@ -194,6 +196,10 @@ int mtk_disp_set_hrt_bw(struct mtk_drm_crtc *mtk_crtc, unsigned int bw)
 		for_each_comp_in_crtc_target_path(comp, mtk_crtc, j, i) {
 			ret |= mtk_ddp_comp_io_cmd(comp, NULL, PMQOS_SET_HRT_BW,
 						   &tmp);
+		}
+		if (mtk_crtc->is_dual_pipe) {
+			for_each_comp_in_dual_pipe(comp, mtk_crtc, i, j)
+				mtk_ddp_comp_io_cmd(comp, NULL, PMQOS_SET_HRT_BW, &tmp);
 		}
 	}
 

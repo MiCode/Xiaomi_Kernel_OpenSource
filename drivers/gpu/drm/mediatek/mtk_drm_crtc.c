@@ -3073,6 +3073,11 @@ static void mtk_crtc_update_hrt_qos(struct drm_crtc *crtc,
 			i, j, ddp_mode, 0)
 		mtk_ddp_comp_io_cmd(comp, NULL, PMQOS_SET_BW, NULL);
 
+	if (mtk_crtc->is_dual_pipe) {
+		for_each_comp_in_dual_pipe(comp, mtk_crtc, i, j)
+			mtk_ddp_comp_io_cmd(comp, NULL, PMQOS_SET_BW, NULL);
+	}
+
 	if (drm_crtc_index(crtc) != 0)
 		return;
 
@@ -4164,6 +4169,10 @@ void mtk_crtc_restore_plane_setting(struct mtk_drm_crtc *mtk_crtc)
 	for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j)
 		mtk_ddp_comp_io_cmd(comp, cmdq_handle,
 			PMQOS_UPDATE_BW, NULL);
+	if (mtk_crtc->is_dual_pipe) {
+		for_each_comp_in_dual_pipe(comp, mtk_crtc, i, j)
+			mtk_ddp_comp_io_cmd(comp, cmdq_handle, PMQOS_UPDATE_BW, NULL);
+	}
 
 	cmdq_pkt_flush(cmdq_handle);
 	cmdq_pkt_destroy(cmdq_handle);
@@ -4525,6 +4534,10 @@ skip:
 	for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j)
 		mtk_ddp_comp_io_cmd(comp, cmdq_handle,
 			PMQOS_UPDATE_BW, NULL);
+	if (mtk_crtc->is_dual_pipe) {
+		for_each_comp_in_dual_pipe(comp, mtk_crtc, i, j)
+			mtk_ddp_comp_io_cmd(comp, cmdq_handle, PMQOS_UPDATE_BW, NULL);
+	}
 
 	cmdq_pkt_flush(cmdq_handle);
 	cmdq_pkt_destroy(cmdq_handle);
@@ -4532,6 +4545,10 @@ skip:
 	/* 4. Set QOS BW to 0 */
 	for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j)
 		mtk_ddp_comp_io_cmd(comp, NULL, PMQOS_SET_BW, NULL);
+	if (mtk_crtc->is_dual_pipe) {
+		for_each_comp_in_dual_pipe(comp, mtk_crtc, i, j)
+			mtk_ddp_comp_io_cmd(comp, NULL, PMQOS_SET_BW, NULL);
+	}
 
 	/* 5. Set HRT BW to 0 */
 #ifdef MTK_FB_MMDVFS_SUPPORT
@@ -4694,6 +4711,10 @@ void mtk_drm_crtc_enable(struct drm_crtc *crtc)
 	/* 9. Set QOS BW */
 	for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j)
 		mtk_ddp_comp_io_cmd(comp, NULL, PMQOS_SET_BW, NULL);
+	if (mtk_crtc->is_dual_pipe) {
+		for_each_comp_in_dual_pipe(comp, mtk_crtc, i, j)
+			mtk_ddp_comp_io_cmd(comp, NULL, PMQOS_SET_BW, NULL);
+	}
 
 	/* 10. set dirty for cmd mode */
 	if (mtk_crtc_is_frame_trigger_mode(crtc) &&
@@ -5547,6 +5568,13 @@ static void mtk_drm_crtc_atomic_begin(struct drm_crtc *crtc,
 		comp->qos_bw = 0;
 		comp->fbdc_bw = 0;
 		comp->hrt_bw = 0;
+	}
+	if (mtk_crtc->is_dual_pipe) {
+		for_each_comp_in_dual_pipe(comp, mtk_crtc, i, j) {
+			comp->qos_bw = 0;
+			comp->fbdc_bw = 0;
+			comp->hrt_bw = 0;
+		}
 	}
 
 end:
