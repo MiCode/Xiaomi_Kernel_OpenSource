@@ -19,7 +19,7 @@
 #include <linux/mfd/mt6358/core.h>
 #include <linux/iio/adc/mt635x-auxadc-internal.h>
 #include <linux/power_supply.h>
-
+#include <dt-bindings/iio/mt635x-auxadc.h>
 #include <mt-plat/upmu_common.h>
 #if defined(CONFIG_MTK_AEE_FEATURE)
 #include <mt-plat/aee.h>
@@ -309,7 +309,7 @@ int __attribute__ ((weak)) dlpt_check_power_off(void)
  *  /fg_cust_data.car_tune_value))
  *
  * Ricky update for MT6359
- * 65535¡V(I_mA*1000*fg_cust_data.r_fg_value / DEFAULT_RFG*1000*1000
+ * 65535Â¡V(I_mA*1000*fg_cust_data.r_fg_value / DEFAULT_RFG*1000*1000
  * / fg_cust_data.car_tune_value / UNIT_FGCURRENT * 95 / 100)
  *
  */
@@ -1094,7 +1094,7 @@ int get_dlpt_imix(void)
 
 }
 
-static int get_dlpt_imix_charging(void)
+static int get_dlpt_imix_charging(struct platform_device *pdev)
 {
 	int zcv_val = 0;
 	int vsys_min_1_val = DLPT_VOLT_MIN;
@@ -1104,15 +1104,16 @@ static int get_dlpt_imix_charging(void)
 
 	if (chan == NULL) {
 		if (is_isense_supported() && is_power_path_supported())
-			chan = iio_channel_get(NULL, "AUXADC_ISENSE");
+			chan = devm_iio_channel_get(&pdev->dev, "pmic_isense");
 		else
-			chan = iio_channel_get(NULL, "AUXADC_BATADC");
+			chan = devm_iio_channel_get(&pdev->dev, "pmic_batadc");
 	}
-	if (IS_ERR(chan)) {
-		pr_notice("[%s] iio channel consumer error, (%d, %d)\n",
-			__func__, is_isense_supported(),
-			is_power_path_supported());
-		return 0;
+	 ret = PTR_ERR_OR_ZERO(chan);
+	if (ret) {
+		if (ret != -EPROBE_DEFER)
+			pr_notice("[%s] iio channel consumer error, (%d, %d)\n",
+				__func__, is_isense_supported(),
+				is_power_path_supported());
 	}
 	ret = iio_read_channel_processed(chan, &zcv_val);
 	if (ret < 0) {
@@ -1133,6 +1134,7 @@ static int g_low_per_timeout_val = 60;
 
 int dlpt_notify_handler(void *unused)
 {
+	struct platform_device *pdev = (struct platform_device *)unused;
 #if (CONFIG_MTK_GAUGE_VERSION == 30)
 	unsigned long dlpt_notify_interval;
 	int pre_ui_soc = 0;
@@ -1177,7 +1179,7 @@ int dlpt_notify_handler(void *unused)
 			pr_info("[DLPT] ptim_rac_val_avg=0, skip\n");
 		else {
 			if (upmu_get_rgs_chrdet())
-				g_imix_val = get_dlpt_imix_charging();
+				g_imix_val = get_dlpt_imix_charging(pdev);
 			else
 				g_imix_val = get_dlpt_imix();
 
@@ -1229,7 +1231,7 @@ void dlpt_notify_task(struct timer_list *t)
 	wake_up_interruptible(&dlpt_notify_waiter);
 }
 
-void dlpt_notify_init(void)
+void dlpt_notify_init(struct platform_device *pdev)
 {
 	unsigned long dlpt_notify_interval;
 
@@ -1242,7 +1244,7 @@ void dlpt_notify_init(void)
 
 	dlpt_notify_lock = wakeup_source_register(NULL, "dlpt_notify_lock wakelock");
 
-	dlpt_notify_thread = kthread_run(dlpt_notify_handler, 0,
+	dlpt_notify_thread = kthread_run(dlpt_notify_handler, pdev,
 		"dlpt_notify_thread");
 	if (IS_ERR(dlpt_notify_thread))
 		pr_notice("Failed to create dlpt_notify_thread\n");
@@ -1928,7 +1930,7 @@ int pmic_throttling_dlpt_init(struct platform_device *pdev)
 #endif
 
 #ifdef DLPT_FEATURE_SUPPORT
-	dlpt_notify_init();
+	dlpt_notify_init(pdev);
 #else
 	pr_info("[PMIC] no define DLPT_FEATURE_SUPPORT\n");
 #endif
