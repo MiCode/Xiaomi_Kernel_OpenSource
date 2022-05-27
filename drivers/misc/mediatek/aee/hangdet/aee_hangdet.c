@@ -353,8 +353,9 @@ static void kwdt_dump_func(void)
 	if (toprgu_base)
 		iowrite32(WDT_RST_RELOAD, toprgu_base + WDT_RST);
 	/* trigger HWT */
+	aee_rr_rec_exp_type(AEE_EXP_TYPE_HWT);
 	crash_setup_regs(&saved_regs, NULL);
-	mrdump_common_die(AEE_REBOOT_MODE_HANG_DETECT, AEE_REBOOT_MODE_WDT, "HWT", &saved_regs);
+	mrdump_common_die(0, AEE_REBOOT_MODE_WDT, "HWT", &saved_regs);
 }
 
 static void aee_dump_timer_func(struct timer_list *t)
