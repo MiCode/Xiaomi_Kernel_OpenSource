@@ -928,6 +928,7 @@
   irq_domain_set_hwirq_and_chip
   irq_domain_set_info
   irq_domain_update_bus_token
+  irq_do_set_affinity
   irq_domain_xlate_twocell
   irq_find_matching_fwspec
   irq_get_irqchip_state
@@ -2030,6 +2031,8 @@
   __tracepoint_cpu_idle
   __tracepoint_ipi_entry
   __tracepoint_ipi_raise
+  __tracepoint_irq_handler_entry
+  __tracepoint_android_vh_gic_v3_set_affinity
   tracepoint_probe_register
   tracepoint_probe_register_prio
   tracepoint_probe_unregister
