@@ -197,6 +197,7 @@ enum usb_qmi_audio_format {
 #define uaudio_dbg(fmt, ...) uaudio_print(KERN_DEBUG, fmt, ##__VA_ARGS__)
 #endif
 
+#define uaudio_info(fmt, ...) uaudio_print(KERN_INFO, fmt, ##__VA_ARGS__)
 #define uaudio_err(fmt, ...) uaudio_print(KERN_ERR, fmt, ##__VA_ARGS__)
 
 #define NUM_LOG_PAGES		10
@@ -1383,6 +1384,14 @@ static int enable_audio_stream(struct snd_usb_substream *subs,
 					fmt->iface, fmt->altsetting, ret);
 			return ret;
 		}
+
+		uaudio_info("selected %s iface:%d altsetting:%d datainterval:%dus\n",
+				subs->direction ? "capture" : "playback",
+				fmt->iface, fmt->altsetting,
+				(1 << fmt->datainterval) *
+				(subs->dev->speed >= USB_SPEED_HIGH ?
+				 BUS_INTERVAL_HIGHSPEED_AND_ABOVE :
+				 BUS_INTERVAL_FULL_SPEED));
 	}
 
 	return 0;
@@ -1423,7 +1432,7 @@ static void handle_uaudio_stream_req(struct qmi_handle *handle,
 	pcm_dev_num = (req_msg->usb_token & SND_PCM_DEV_NUM_MASK) >> 8;
 	pcm_card_num = (req_msg->usb_token & SND_PCM_CARD_NUM_MASK) >> 16;
 
-	uaudio_dbg("card#:%d dev#:%d dir:%d en:%d fmt:%d rate:%d #ch:%d\n",
+	uaudio_info("card#:%d dev#:%d dir:%d en:%d fmt:%d rate:%d #ch:%d\n",
 			pcm_card_num, pcm_dev_num, direction, req_msg->enable,
 			req_msg->audio_format, req_msg->bit_rate,
 			req_msg->number_of_ch);
