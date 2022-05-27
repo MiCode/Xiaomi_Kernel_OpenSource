@@ -320,9 +320,8 @@ static void mt_bio_context_eval(struct mt_bio_context *ctx)
 		ctx->workload.percent = 1;
 	} else {
 		period = ctx->workload.period;
-		usage = ctx->workload.usage * 100;
-		result = div_u64(usage, period);
-		ctx->workload.percent = usage & (BIT_ULL(32) - 1);
+		do_div(period, 100);
+		ctx->workload.percent = (__u32) ctx->workload.usage / (__u32) period;
 	}
 
 	mtk_btag_throughput_eval(&ctx->throughput);
@@ -693,36 +692,44 @@ void mt_biolog_cqhci_check(void)
  * doesn't initial when enter here
  */
 void mt_biolog_cqhci_queue_task(struct mmc_host *host,
-	unsigned int task_id, struct mmc_request *req)
+	unsigned int task_id, struct mmc_request *mrq)
 {
 	struct mt_bio_context *ctx;
 	struct mt_bio_context_task *tsk;
+	struct mmc_queue_req *mqrq;
+	struct request *req;
 	u32 req_flags;
 	unsigned long flags;
 
-	if (!req || !req->data)
+	if (!mrq || !mrq->data)
 		return;
 
-	req_flags = req->data->flags;
+	req_flags = mrq->data->flags;
 
 	tsk = mt_bio_curr_task_by_ctx_id(task_id,
 		&ctx, -1, false);
 	if (!tsk)
 		return;
 
+	if (mrq) {
+		mqrq = container_of(mrq, struct mmc_queue_req, brq.mrq);
+		req = blk_mq_rq_from_pdu(mqrq);
+		mtk_btag_commit_req(req);
+	}
+
 	spin_lock_irqsave(&ctx->lock, flags);
 	/* CANNOT used req->host here, it doesn't been initial when go here */
 	if (host && (host->caps2 & MMC_CAP2_CQE)) {
 		/* convert cqhci to legacy sbc arg */
 		if (req_flags & MMC_DATA_READ)
-			tsk->arg = 1 << 30 | (req->data->blocks & 0xFFFF);
+			tsk->arg = 1 << 30 | (mrq->data->blocks & 0xFFFF);
 		else if (req_flags & MMC_DATA_WRITE) {
-			tsk->arg = (req->data->blocks & 0xFFFF);
+			tsk->arg = (mrq->data->blocks & 0xFFFF);
 			tsk->arg = tsk->arg & ~(1 << 30);
 		}
 	} else {
-		if (req->sbc)
-			tsk->arg = req->sbc->arg;
+		if (mrq->sbc)
+			tsk->arg = mrq->sbc->arg;
 	}
 
 	tsk->t[tsk_req_start] = sched_clock();
@@ -830,7 +837,7 @@ void mt_biolog_mmcqd_req_check(bool ext_sd)
 }
 
 /* MMC Queue Hook: request start function at mmc_start_req() */
-void mt_biolog_mmcqd_req_start(struct mmc_host *host, bool ext_sd)
+void mt_biolog_mmcqd_req_start(struct mmc_host *host, struct request *req, bool ext_sd)
 {
 	struct mt_bio_context *ctx;
 	struct mt_bio_context_task *tsk;
@@ -838,6 +845,9 @@ void mt_biolog_mmcqd_req_start(struct mmc_host *host, bool ext_sd)
 	tsk = mt_bio_curr_task(0, &ctx, ext_sd);
 	if (!tsk)
 		return;
+	if (req)
+		mtk_btag_commit_req(req);
+
 	tsk->t[tsk_req_start] = sched_clock();
 
 #ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
