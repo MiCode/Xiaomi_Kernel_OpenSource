@@ -2251,7 +2251,7 @@ static struct virtio_driver virtio_nebula_driver = {
 static int __init tipc_init(void)
 {
 	int ret;
-	dev_t dev;
+	dev_t dev = 0;
 
 	ret = alloc_chrdev_region(&dev, 0, MAX_DEVICES, KBUILD_MODNAME);
 	if (ret) {
