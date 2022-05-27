@@ -88,6 +88,10 @@ struct pil_mdt {
  * @ssr_subdev: SSR subdevice to be registered with remoteproc
  * @ssr_name: SSR subdevice name used as reference in remoteproc
  * @config_type: config handle registered with heliosCOM
+ * @glink_subdev: GLINK subdevice to be registered with remoteproc
+ * @sysmon: sysmon subdevice to be registered with remoteproc
+ * @sysmon_name: sysmon subdevice name used as reference in remoteproc
+ * @ssctl_id: instance id of the ssctl QMI service
  * @address_fw: address where firmware binaries loaded in DMA
  * @size_fw: size of helios firmware binaries in DMA
  * @qseecom_handle: handle of TZ app
@@ -111,6 +115,11 @@ struct qcom_helios {
 	const char *ssr_name;
 
 	struct helioscom_reset_config_type config_type;
+
+	struct qcom_rproc_glink glink_subdev;
+	struct qcom_sysmon *sysmon;
+	const char *sysmon_name;
+	int ssctl_id;
 
 	phys_addr_t address_fw;
 	size_t size_fw;
@@ -686,9 +695,22 @@ static int rproc_helios_driver_probe(struct platform_device *pdev)
 	rproc->recovery_disabled = false;
 	rproc->auto_boot = false;
 	helios->rproc = rproc;
+	helios->sysmon_name = "helios";
+	helios->ssctl_id = 0x1d;
 	platform_set_drvdata(pdev, helios);
 
 	qcom_add_ssr_subdev(rproc, &helios->ssr_subdev, helios->ssr_name);
+
+	qcom_add_glink_subdev(rproc, &helios->glink_subdev, helios->ssr_name);
+
+	helios->sysmon = qcom_add_sysmon_subdev(rproc, helios->sysmon_name,
+			helios->ssctl_id);
+	if (IS_ERR(helios->sysmon)) {
+		ret = PTR_ERR(helios->sysmon);
+		dev_err(helios->dev, "%s: Error while adding sysmon subdevice:[%d]\n",
+				__func__, ret);
+		goto free_rproc;
+	}
 
 	/* Register callback for Helios Crash with heliosCom */
 	helios->config_type.priv = (void *)rproc;
