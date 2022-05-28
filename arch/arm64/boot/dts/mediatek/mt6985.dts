@@ -3828,22 +3828,30 @@
 			reg = <0 0x11fab000 0 0x1000>;
 		};
 
-		dcm: dcm@10001000 {
+		dcm: dcm@1002c000 {
 			compatible = "mediatek,mt6985-dcm";
-			reg = <0 0x10000000 0 0x1000>,
-				<0 0x1002c000 0 0x1000>,
+			reg = <0 0x1002c000 0 0x1000>,
+				<0 0x10324000 0 0x1000>,
+				<0 0x10330000 0 0x1000>,
 				<0 0x11035000 0 0x1000>,
 				<0 0x112ba000 0 0x1000>,
 				<0 0x112e2000 0 0x1000>,
 				<0 0x1c017000 0 0x1000>,
-				<0 0xc000000 0 0x5000>;
-			reg-names = "topckgen",
-				"ifrbus_ao",
+				<0 0xc000000 0 0x10000>,
+				<0 0xc040000 0 0x10000>,
+				<0 0xc18c000 0 0x10000>,
+				<0 0xc1ac000 0 0x10000>;
+			reg-names = "ifrbus_ao",
+				"ifrrsi",
+				"ifriommu",
 				"peri_ao_bcrm",
 				"ufs0_ao_bcrm",
 				"pcie0_ao_bcrm",
 				"vlp_ao_bcrm",
-				"mcusys_par_wrap";
+				"mcusys_par_wrap",
+				"mcusys_cpc",
+				"mcusys_par_wrap_complex0",
+				"mcusys_par_wrap_complex1";
 		};
 
 		spi0: spi0@11010000 {
