@@ -6,16 +6,7 @@
 	epa_elna_mtk {
 		parts = <&qm42639 &qm45639>,	/* [0] Qorvo eFEM SKU1 RxL */
 			<&qm42639 &qm45639>,	/* [1] Qorvo eFEM SKU2-1, EVB RxL */
-			<&qm42639 &qm45639>,	/* [2] Qorvo eFEM SKU5 RxL */
-			<&qm42639 &qm45639>,	/* [3] Qorvo eFEM SKU2-1 CoAnt RxL */
-			<&qm42639 &qm45639>,	/* [4] Qorvo eFEM SKU2-2 RxL */
-			<&qm42639 &qm45639>,	/* [5] Qorvo eFEM DTB RxL */
-			<&qm42639 &qm45639>,	/* [6] Qorvo eFEM SKU1 RxH */
-			<&qm42639 &qm45639>,	/* [7] Qorvo eFEM SKU2-1, EVB RxH */
-			<&qm42639 &qm45639>,	/* [8] Qorvo eFEM SKU5 RxH */
-			<&qm42639 &qm45639>,	/* [9] Qorvo eFEM SKU2-1 CoAnt RxH */
-			<&qm42639 &qm45639>,	/* [10] Qorvo eFEM SKU2-2 RxH */
-			<&qm42639 &qm45639>;	/* [11] Qorvo eFEM DTB RxH */
+			<&qm42639 &qm45639>;	/* [2] Qorvo eFEM SKU5 RxL */
 
 		hwid {
 			gpio = <&pio 43 0x0>,
@@ -42,61 +33,6 @@
 				fe-main-bt-share-lp2g = [80];
 				fe-conn-spdt = [83];
 			};
-			flags-3 {
-				rx-mode = [81];
-				fe-ant-cnt = [82];
-				fe-main-bt-share-lp2g = [80];
-				fe-conn-spdt = [83];
-			};
-			flags-4 {
-				rx-mode = [81];
-				fe-ant-cnt = [82];
-				fe-main-bt-share-lp2g = [81];
-				fe-conn-spdt = [8F];
-			};
-			flags-5 {
-				rx-mode = [81];
-				fe-ant-cnt = [82];
-				fe-main-bt-share-lp2g = [80];
-				fe-conn-spdt = [80];
-			};
-			flags-6 {
-				rx-mode = [80];
-				fe-ant-cnt = [81];
-				fe-main-bt-share-lp2g = [80];
-				fe-conn-spdt = [83];
-			};
-			flags-7 {
-				rx-mode = [80];
-				fe-ant-cnt = [82];
-				fe-main-bt-share-lp2g = [80];
-				fe-conn-spdt = [83];
-			};
-			flags-8 {
-				/* SKU5 is not include final SPDT data */
-				rx-mode = [80];
-				fe-ant-cnt = [82];
-				fe-main-bt-share-lp2g = [80];
-				fe-conn-spdt = [83];
-			};
-			flags-9 {
-				rx-mode = [80];
-				fe-ant-cnt = [82];
-				fe-main-bt-share-lp2g = [80];
-				fe-conn-spdt = [83];
-			};
-			flags-10 {
-				rx-mode = [80];
-				fe-ant-cnt = [82];
-				fe-main-bt-share-lp2g = [81];
-				fe-conn-spdt = [8F];
-			};
-			flags-11 {
-				rx-mode = [80];
-				fe-ant-cnt = [82];
-				fe-main-bt-share-lp2g = [80];
-				fe-conn-spdt = [80];
-			};
 		};
 
 		wifi {
@@ -107,33 +43,6 @@
 				/* open-loop; */
 			};
 			flags-2 {
-				/* open-loop; */
-			};
-			flags-3 {
-				/* open-loop; */
-			};
-			flags-4 {
-				/* open-loop; */
-			};
-			flags-5 {
-				/* open-loop; */
-			};
-			flags-6 {
-				/* open-loop; */
-			};
-			flags-7 {
-				/* open-loop; */
-			};
-			flags-8 {
-				/* open-loop; */
-			};
-			flags-9 {
-				/* open-loop; */
-			};
-			flags-10 {
-				/* open-loop; */
-			};
-			flags-11 {
 				/* open-loop; */
 			};
 		};
@@ -148,42 +57,6 @@
 				epa_elna;
 			};
 			flags-2 {
-				/* choose one of: epa_elna / epa / elna / bypass */
-				epa_elna;
-			};
-			flags-3 {
-				/* choose one of: epa_elna / epa / elna / bypass */
-				epa_elna;
-			};
-			flags-4 {
-				/* choose one of: epa_elna / epa / elna / bypass */
-				epa_elna;
-			};
-			flags-5 {
-				/* choose one of: epa_elna / epa / elna / bypass */
-				epa_elna;
-			};
-			flags-6 {
-				/* choose one of: epa_elna / epa / elna / bypass */
-				epa_elna;
-			};
-			flags-7 {
-				/* choose one of: epa_elna / epa / elna / bypass */
-				epa_elna;
-			};
-			flags-8 {
-				/* choose one of: epa_elna / epa / elna / bypass */
-				epa_elna;
-			};
-			flags-9 {
-				/* choose one of: epa_elna / epa / elna / bypass */
-				epa_elna;
-			};
-			flags-10 {
-				/* choose one of: epa_elna / epa / elna / bypass */
-				epa_elna;
-			};
-			flags-11 {
 				/* choose one of: epa_elna / epa / elna / bypass */
 				epa_elna;
 			};
