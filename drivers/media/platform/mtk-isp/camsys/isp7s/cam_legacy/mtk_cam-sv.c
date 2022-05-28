@@ -1254,13 +1254,17 @@ int mtk_cam_sv_central_common_enable(struct mtk_camsv_device *dev)
 {
 	int ret = 0;
 
-	CAMSV_WRITE_REG(dev->base + REG_CAMSVCENTRAL_DMA_EN_IMG, dev->enabled_tags);
 	mtk_cam_sv_toggle_db(dev);
 
 	CAMSV_WRITE_BITS(dev->base + REG_CAMSVCENTRAL_SEN_MODE,
 		CAMSVCENTRAL_SEN_MODE, CMOS_EN, 1);
 	CAMSV_WRITE_BITS(dev->base + REG_CAMSVCENTRAL_VF_CON,
 		CAMSVCENTRAL_VF_CON, VFDATA_EN, 1);
+
+	dev_info(dev->dev, "%s sen_mode:0x%x vf_con:0x%x\n",
+		__func__,
+		CAMSV_READ_REG(dev->base + REG_CAMSVCENTRAL_SEN_MODE),
+		CAMSV_READ_REG(dev->base + REG_CAMSVCENTRAL_VF_CON));
 
 	return ret;
 }
@@ -1524,6 +1528,21 @@ void apply_camsv_cq(struct mtk_camsv_device *dev,
 		cq_addr_msb, cq_addr_lsb, cq_size);
 }
 
+bool mtk_cam_sv_is_dcif_scenario(unsigned int scenario)
+{
+	bool ret = false;
+
+	if (scenario == MTKCAM_IPI_HW_PATH_DC ||
+		scenario == MTKCAM_IPI_HW_PATH_DC_MSTREAM ||
+		scenario == MTKCAM_IPI_HW_PATH_STAGGER ||
+		scenario == MTKCAM_IPI_HW_PATH_DC_STAGGER ||
+		scenario == MTKCAM_IPI_HW_PATH_OTF_RGBW ||
+		scenario == MTKCAM_IPI_HW_PATH_DC_RGBW)
+		ret = true;
+
+	return ret;
+}
+
 unsigned int mtk_cam_get_sv_tag_index(struct mtk_cam_ctx *ctx,
 		unsigned int pipe_id)
 {
@@ -1547,7 +1566,6 @@ int mtk_cam_sv_pipeline_config(struct mtk_camsv_device *camsv_dev)
 {
 	camsv_dev->sof_count = 0;
 
-	reset_msgfifo(camsv_dev);
 	mtk_camsv_register_iommu_tf_callback(camsv_dev);
 
 	mtk_cam_sv_dmao_common_config(camsv_dev);
@@ -2071,19 +2089,21 @@ static irqreturn_t mtk_irq_camsv_done(int irq, void *data)
 	unsigned int irq_done_status;
 	bool wake_thread = 0;
 
-
 	dequeued_imgo_seq_no =
 		readl_relaxed(camsv_dev->base + REG_CAMSVCENTRAL_FRAME_SEQ_NO);
 	dequeued_imgo_seq_no_inner =
 		readl_relaxed(camsv_dev->base_inner + REG_CAMSVCENTRAL_FRAME_SEQ_NO);
+	irq_done_status	=
+		readl_relaxed(camsv_dev->base + REG_CAMSVCENTRAL_DONE_STATUS);
+
+	dev_dbg(camsv_dev->dev, "camsv-%d: done status:0x%x seq_no:%d_%d",
+		camsv_dev->id, irq_done_status,
+		dequeued_imgo_seq_no_inner, dequeued_imgo_seq_no);
 
 	irq_info.irq_type = 0;
 	irq_info.ts_ns = ktime_get_boottime_ns();
 	irq_info.frame_idx = dequeued_imgo_seq_no;
 	irq_info.frame_idx_inner = dequeued_imgo_seq_no_inner;
-
-	irq_done_status	=
-		readl_relaxed(camsv_dev->base + REG_CAMSVCENTRAL_DONE_STATUS);
 
 	if (irq_done_status & CAMSVCENTRAL_GP_PASS1_DONE_0_ST)
 		irq_info.done_groups |= (1<<0);

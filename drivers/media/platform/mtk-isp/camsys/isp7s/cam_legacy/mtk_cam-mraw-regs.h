@@ -403,7 +403,8 @@ union MRAW_CTL_MISC {
 #define INT_ST_MASK_MRAW_ERR (\
 					MRAWCTL_TG_ERR_ST |\
 					MRAWCTL_TG_GBERR_ST |\
-					MRAWCTL_CQ_DB_LOAD_ERR_ST)
+					MRAWCTL_CQ_DB_LOAD_ERR_ST |\
+					MRAWCTL_DMA_ERR_ST)
 
 /* Dma Error Mask */
 #define DMA_ST_MASK_MRAW_ERR (\

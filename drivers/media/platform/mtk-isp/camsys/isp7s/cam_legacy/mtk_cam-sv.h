@@ -41,10 +41,6 @@ enum mtkcam_sv_hw_path_control {
 			(1 << HWPATH_ID(MTKCAM_IPI_HW_PATH_DC_STAGGER)) |\
 			(1 << HWPATH_ID(MTKCAM_IPI_HW_PATH_OFFLINE_STAGGER)) |\
 			(1 << HWPATH_ID(MTKCAM_IPI_HW_PATH_OFFLINE)))
-#define MTK_CAMSV_SUPPORTED_STAGGER_SCENARIO	(\
-			(1 << HWPATH_ID(MTKCAM_IPI_HW_PATH_STAGGER)) |\
-			(1 << HWPATH_ID(MTKCAM_IPI_HW_PATH_DC_STAGGER)) |\
-			(1 << HWPATH_ID(MTKCAM_IPI_HW_PATH_OFFLINE_STAGGER)))
 
 #define CAMSV_WRITE_BITS(RegAddr, RegName, FieldName, FieldValue) do {\
 	union RegName reg;\
@@ -345,6 +341,7 @@ bool mtk_cam_sv_is_multiple_groups(struct mtk_camsv_device *camsv_dev);
 void apply_camsv_cq(struct mtk_camsv_device *dev,
 	      dma_addr_t cq_addr, unsigned int cq_size, unsigned int cq_offset,
 	      int initial);
+bool mtk_cam_sv_is_dcif_scenario(unsigned int scenario);
 #ifdef CAMSYS_TF_DUMP_71_1
 int mtk_camsv_translation_fault_callback(int port, dma_addr_t mva, void *data);
 #endif
