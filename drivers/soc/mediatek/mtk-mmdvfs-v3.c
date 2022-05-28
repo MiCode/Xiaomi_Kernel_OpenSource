@@ -61,6 +61,7 @@ static int mmdvfs_vcp_is_ready(void)
 static int mmdvfs_vcp_ipi_send_impl(struct mmdvfs_ipi_data *slot) // ap > vcp
 {
 	int ret;
+	int retry = 0;
 
 	if (!mmdvfs_vcp_is_ready()) {
 		MMDVFS_ERR("vcp is not ready");
@@ -81,8 +82,14 @@ static int mmdvfs_vcp_ipi_send_impl(struct mmdvfs_ipi_data *slot) // ap > vcp
 		return ret;
 	}
 
-	while ((mmdvfs_vcp_ipi_data & 0xff) == slot->func)
+	while ((mmdvfs_vcp_ipi_data & 0xff) == slot->func) {
 		udelay(100);
+		if (retry == 50) {
+			MMDVFS_ERR("wait for vcp ipi timeout");
+			break;
+		}
+		retry++;
+	}
 
 	ret = mmdvfs_vcp_ipi_data;
 	mutex_unlock(&mmdvfs_vcp_ipi_mutex);
