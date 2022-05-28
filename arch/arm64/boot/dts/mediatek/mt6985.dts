@@ -360,6 +360,11 @@
 		//};
 	};
 
+	/* ATF logger */
+	atf_logger: atf_logger {
+		compatible = "mediatek,tfa_debug";
+	};
+
 	psci {
 		compatible = "arm,psci-1.0";
 		method = "smc";
