@@ -2689,12 +2689,8 @@ static int mtk_camsv_runtime_suspend(struct device *dev)
 	for (i = 0; i < CAMSV_IRQ_NUM; i++)
 		disable_irq(camsv_dev->irq[i]);
 
-
-#ifdef CAMSV_TODO
-	/* camsv todo: clk control */
 	for (i = 0; i < camsv_dev->num_clks; i++)
 		clk_disable_unprepare(camsv_dev->clks[i]);
-#endif
 
 	return 0;
 }
@@ -2715,9 +2711,6 @@ static int mtk_camsv_runtime_resume(struct device *dev)
 		dev_info(dev, "%s:enable irq %d\n", __func__, camsv_dev->irq[i]);
 	}
 
-
-#ifdef CAMSV_TODO
-	/* camsv todo: clk control */
 	dev_dbg(dev, "%s:enable clock\n", __func__);
 	for (i = 0; i < camsv_dev->num_clks; i++) {
 		ret = clk_prepare_enable(camsv_dev->clks[i]);
@@ -2731,7 +2724,6 @@ static int mtk_camsv_runtime_resume(struct device *dev)
 			return ret;
 		}
 	}
-#endif
 	sv_reset(camsv_dev);
 
 	return 0;
