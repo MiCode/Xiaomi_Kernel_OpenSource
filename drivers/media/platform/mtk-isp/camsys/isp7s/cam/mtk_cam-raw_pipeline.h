@@ -193,7 +193,7 @@ struct mtk_raw_pipeline {
 	struct mtk_raw_pde_config pde_config;
 };
 
-static inline struct mtk_raw_pipeline*
+static inline struct mtk_raw_pipeline *
 mtk_cam_ctrl_handler_to_raw_pipeline(struct v4l2_ctrl_handler *handler)
 {
 	return container_of(handler, struct mtk_raw_pipeline, ctrl_handler);

@@ -1295,11 +1295,59 @@ int mtk_cam_vidioc_g_meta_fmt(struct file *file, void *fh,
 
 }
 
+static int check_valid_selection(int sink_w, int sink_h,
+				 struct v4l2_rect *r)
+{
+	return r->left >= 0 && r->left + r->width <= sink_w &&
+		r->top >= 0 && r->top + r->height <= sink_h &&
+		r->width && r->height;
+}
+
+static int refine_valid_selection(struct mtk_cam_video_device *node,
+				  struct v4l2_selection *s)
+{
+	int ret = 0;
+
+	/* workaround for user's wrong crop */
+	if (is_raw_subdev(node->uid.pipe_id)) {
+		struct media_pad *remote_pad;
+		struct mtk_raw_pipeline *pipe;
+		int sink_w, sink_h;
+
+		remote_pad = media_entity_remote_pad(&node->pad);
+		if (WARN_ON_ONCE(!remote_pad))
+			return -1;
+
+		pipe = container_of(remote_pad->entity,
+				    struct mtk_raw_pipeline, subdev.entity);
+		sink_w = pipe->pad_cfg[MTK_RAW_SINK].mbus_fmt.width;
+		sink_h = pipe->pad_cfg[MTK_RAW_SINK].mbus_fmt.height;
+
+		if (WARN_ON(!check_valid_selection(sink_w, sink_h, &s->r))) {
+			pr_info("%s: wrong selection: %d, %d, %ux%u, sink %dx%d\n",
+				__func__,
+				s->r.left, s->r.top, s->r.width, s->r.height,
+				sink_w, sink_h);
+
+			s->r = (struct v4l2_rect) {
+				.left = 0,
+				.top = 0,
+				.width = sink_w,
+				.height = sink_h,
+			};
+			ret = -1;
+		}
+
+	}
+	return ret;
+}
+
 int mtk_cam_vidioc_s_selection(struct file *file, void *fh,
 				struct v4l2_selection *s)
 {
 	struct mtk_cam_video_device *node = file_to_mtk_cam_node(file);
 
+	refine_valid_selection(node, s);
 	node->active_crop = *s;
 	return 0;
 }
