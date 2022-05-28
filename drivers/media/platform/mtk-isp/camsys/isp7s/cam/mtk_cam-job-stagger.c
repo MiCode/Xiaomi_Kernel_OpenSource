@@ -595,7 +595,8 @@ _update_event_frame_start_stagger(struct mtk_cam_job *job,
 	}
 
 }
-static void _update_event_sensor_vsync_stagger(struct mtk_cam_job *job,
+static void
+_update_event_sensor_vsync_stagger(struct mtk_cam_job *job,
 	struct mtk_cam_job_event_info *event_info, int *action)
 {
 	unsigned int frame_seq_no_inner = event_info->frame_idx_inner;

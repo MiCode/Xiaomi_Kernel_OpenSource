@@ -27,8 +27,6 @@ void update_event_setting_done_stagger(struct mtk_cam_job *job,
 		struct mtk_cam_job_event_info *event_info, int *action);
 void update_event_sensor_try_set_stagger(struct mtk_cam_job *job,
 		struct mtk_cam_job_event_info *event_info, int *action);
-void update_event_frame_start_stagger(struct mtk_cam_job *job,
-		struct mtk_cam_job_event_info *event_info, int *action);
 void update_frame_start_event_stagger(struct mtk_cam_job *job,
 		struct mtk_cam_job_event_info *event_info, int *action);
 int apply_cam_mux_stagger(struct mtk_cam_job *job);

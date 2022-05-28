@@ -11,31 +11,15 @@
 #include "mtk_cam-job.h"
 #include "mtk_cam-job_utils.h"
 #include "mtk_cam-job-stagger.h"
+#include "mtk_cam-job-subsample.h"
 #include "mtk_cam-plat.h"
 #include "mtk_cam-debug.h"
 #include "mtk_cam-timesync.h"
-
 
 #include "frame_sync_camsys.h"
 
 #define SENSOR_SET_MARGIN_MS  25
 #define SENSOR_SET_MARGIN_MS_STAGGER  27
-
-/* flags of mtk_cam_request */
-#define MTK_CAM_REQ_FLAG_SENINF_CHANGED			BIT(0)
-#define MTK_CAM_REQ_FLAG_SENINF_IMMEDIATE_UPDATE	BIT(1)
-/* flags of mtk_cam_job */
-#define MTK_CAM_REQ_S_DATA_FLAG_TG_FLASH		BIT(0)
-#define MTK_CAM_REQ_S_DATA_FLAG_META1_INDEPENDENT	BIT(1)
-#define MTK_CAM_REQ_S_DATA_FLAG_SINK_FMT_UPDATE		BIT(2)
-/* Apply sensor mode and the timing is 1 vsync before */
-#define MTK_CAM_REQ_S_DATA_FLAG_SENSOR_MODE_UPDATE_T1	BIT(3)
-#define MTK_CAM_REQ_S_DATA_FLAG_SENSOR_HDL_EN		BIT(4)
-#define MTK_CAM_REQ_S_DATA_FLAG_RAW_HDL_EN		BIT(5)
-#define MTK_CAM_REQ_S_DATA_FLAG_SENSOR_HDL_COMPLETE	BIT(6)
-#define MTK_CAM_REQ_S_DATA_FLAG_RAW_HDL_COMPLETE	BIT(7)
-#define MTK_CAM_REQ_S_DATA_FLAG_SENSOR_HDL_DELAYED	BIT(8)
-#define MTK_CAM_REQ_S_DATA_FLAG_INCOMPLETE BIT(9)
 
 enum MTK_CAMSYS_JOB_TYPE {
 	RAW_JOB_ON_THE_FLY = 0x0,
@@ -55,6 +39,24 @@ enum MTK_CAMSYS_JOB_TYPE {
 	RAW_JOB_ONLY_SV = 0x100,
 	RAW_JOB_ONLY_MRAW = 0x200,
 };
+
+/* flags of mtk_cam_request */
+#define MTK_CAM_REQ_FLAG_SENINF_CHANGED			BIT(0)
+#define MTK_CAM_REQ_FLAG_SENINF_IMMEDIATE_UPDATE	BIT(1)
+/* flags of mtk_cam_job */
+#define MTK_CAM_REQ_S_DATA_FLAG_TG_FLASH		BIT(0)
+#define MTK_CAM_REQ_S_DATA_FLAG_META1_INDEPENDENT	BIT(1)
+#define MTK_CAM_REQ_S_DATA_FLAG_SINK_FMT_UPDATE		BIT(2)
+/* Apply sensor mode and the timing is 1 vsync before */
+#define MTK_CAM_REQ_S_DATA_FLAG_SENSOR_MODE_UPDATE_T1	BIT(3)
+#define MTK_CAM_REQ_S_DATA_FLAG_SENSOR_HDL_EN		BIT(4)
+#define MTK_CAM_REQ_S_DATA_FLAG_RAW_HDL_EN		BIT(5)
+#define MTK_CAM_REQ_S_DATA_FLAG_SENSOR_HDL_COMPLETE	BIT(6)
+#define MTK_CAM_REQ_S_DATA_FLAG_RAW_HDL_COMPLETE	BIT(7)
+#define MTK_CAM_REQ_S_DATA_FLAG_SENSOR_HDL_DELAYED	BIT(8)
+#define MTK_CAM_REQ_S_DATA_FLAG_INCOMPLETE BIT(9)
+
+
 #define FH_SEQ_BIT_MASK 0x00FFFFFF
 #define FH_CTX_ID_SHIFT_BIT_NUM 24
 
@@ -93,89 +95,6 @@ decode_fh_reserved_data_to_seq(u32 ref_near_by, u32 data_in)
 			__func__, ctx_id_data, seq_no_candidate, data_in);
 
 	return seq_no_candidate;
-}
-
-__maybe_unused static bool
-is_feature_mstream_m2m(int feature)
-{
-	int raw_feature;
-
-	if (!(feature & MTK_CAM_FEATURE_OFFLINE_M2M_MASK))
-		return false;
-
-	raw_feature = feature & MTK_CAM_FEATURE_HDR_MASK;
-	if (raw_feature == MSTREAM_NE_SE ||
-			raw_feature == MSTREAM_SE_NE)
-		return true;
-
-	return false;
-}
-
-__maybe_unused static bool
-is_feature_mstream(int feature)
-{
-	int raw_feature;
-
-	if (feature & MTK_CAM_FEATURE_OFFLINE_M2M_MASK)
-		return false;
-
-	raw_feature = feature & MTK_CAM_FEATURE_HDR_MASK;
-	if (raw_feature == MSTREAM_NE_SE || raw_feature == MSTREAM_SE_NE)
-		return true;
-
-	return false;
-}
-
-__maybe_unused static bool
-is_job_mstream(struct mtk_cam_job *job)
-{
-	bool ret = false;
-
-	if (job->job_type == RAW_JOB_MSTREAM ||
-		job->job_type == RAW_JOB_DC_MSTREAM)
-		ret = true;
-
-	return ret;
-}
-__maybe_unused
-static bool
-is_job_mstream_change(int feature_change)
-{
-	if (feature_change & MSTREAM_EXPOSURE_CHANGE)
-		return true;
-
-	return false;
-}
-
-static bool
-is_job_subsample(struct mtk_cam_job *job)
-{
-	bool ret = false;
-
-	if (job->job_type == RAW_JOB_HW_SUBSAMPLE)
-		ret = true;
-
-	return ret;
-}
-static bool
-is_job_preisp(struct mtk_cam_job *job)
-{
-	bool ret = false;
-
-	if (job->job_type == RAW_JOB_HW_PREISP)
-		ret = true;
-
-	return ret;
-}
-static bool
-is_job_offline_timeshared(struct mtk_cam_job *job)
-{
-	bool ret = false;
-
-	if (job->job_type == RAW_JOB_OFFLINE)
-		ret = true;
-
-	return ret;
 }
 
 static int
@@ -310,6 +229,94 @@ _update_job_type_feature(struct mtk_cam_job *job)
 	return 0;
 }
 
+/* workqueue context */
+static int
+_meta1_done(struct mtk_cam_job *job)
+{
+	struct mtk_cam_ctx *ctx = job->src_ctx;
+	struct mtk_cam_device *cam = ctx->cam;
+	int pipe_id = get_raw_subdev_idx(job->req->used_pipe);
+
+	if (pipe_id < 0)
+		return 0;
+	dev_dbg(cam->dev, "%s:%s:ctx(%d): seq_no:%d, state:0x%x\n",
+			__func__, job->req->req.debug_str, job->src_ctx->stream_id,
+			job->frame_seq_no, job->state);
+
+	mtk_cam_req_buffer_done(job->req, pipe_id, MTKCAM_IPI_RAW_META_STATS_1,
+			VB2_BUF_STATE_DONE, job->timestamp);
+
+	return 0;
+}
+
+/* workqueue context */
+static int
+_frame_done(struct mtk_cam_job *job)
+{
+	struct mtk_cam_ctx *ctx = job->src_ctx;
+	struct mtk_cam_device *cam = ctx->cam;
+	int pipe_id = get_raw_subdev_idx(job->req->used_pipe);
+	bool is_normal =
+		(job->state == E_STATE_DONE_NORMAL ||
+		job->state == E_STATE_SUBSPL_DONE_NORMAL);
+	u32 *fho_va;
+	int subsample = get_subsample_ratio(job->feature_job);
+	int i;
+
+	if (pipe_id < 0)
+		return 0;
+	// using cpu's timestamp
+	// (*job->timestamp_buf)[0] = job->timestamp_mono;
+	// (*job->timestamp_buf)[1] = job->timestamp;
+
+	fho_va = (u32 *)(job->cq.vaddr + job->cq.size - 64 * (subsample + 1));
+	for (i = 0; i < (subsample + 1); i++) {
+		/* timstamp_LSB + timestamp_MSB << 32 */
+		(*job->timestamp_buf)[i*2] = mtk_cam_timesync_to_monotonic
+		((u64) (*(fho_va + i*16)) + ((u64)(*(fho_va + i*16 + 1)) << 32))
+		/1000;
+		(*job->timestamp_buf)[i*2 + 1] = mtk_cam_timesync_to_boot
+		((u64) (*(fho_va + i*16)) + ((u64)(*(fho_va + i*16 + 1)) << 32))
+		/1000;
+#ifdef TIMESTAMP_LOG
+		dev_dbg(ctx->cam->dev,
+			"timestamp TS:momo %ld us boot %ld us, LSB:%d MSB:%d\n",
+			(*job->timestamp_buf)[i*2], (*job->timestamp_buf)[i*2 + 1],
+			*(fho_va + i*16), *(fho_va + i*16 + 1));
+#endif
+	}
+	if (is_normal)
+		mtk_cam_req_buffer_done(job->req, pipe_id, -1,
+			VB2_BUF_STATE_DONE, job->timestamp);
+	else
+		mtk_cam_req_buffer_done(job->req, pipe_id, -1,
+			VB2_BUF_STATE_ERROR, job->timestamp);
+
+	dev_info(cam->dev, "%s:%s:ctx(%d): seq_no:%d, state:0x%x, is_normal:%d, B/M ts:%lld/%lld\n",
+		__func__, job->req->req.debug_str, job->src_ctx->stream_id,
+		job->frame_seq_no, job->state, is_normal, job->timestamp, job->timestamp_mono);
+
+	return 0;
+}
+
+static int
+_stream_on(struct mtk_cam_job *job, bool on)
+{
+	struct mtk_cam_ctx *ctx = job->src_ctx;
+	struct mtk_cam_device *cam = ctx->cam;
+	int raw_id = _get_master_raw_id(cam->engines.num_raw_devices,
+			job->used_engine);
+	struct mtk_raw_device *raw_dev =
+		dev_get_drvdata(cam->engines.raw_devs[raw_id]);
+	int scq_ms = SCQ_DEADLINE_MS;
+
+	stream_on(raw_dev, on, scq_ms, 0);
+	if (job->stream_on_seninf)
+		ctx_stream_on_seninf_sensor(job->src_ctx, on);
+
+	return 0;
+}
+
 static void
 _complete_hdl(struct mtk_cam_job *job,
 				 struct media_request_object *hdl_obj,
@@ -338,7 +345,8 @@ _complete_hdl(struct mtk_cam_job *job,
 	media_request_object_complete(hdl_obj);
 }
 
-void _complete_sensor_hdl(struct mtk_cam_job *job)
+static void
+_complete_sensor_hdl(struct mtk_cam_job *job)
 {
 	if (job->flags & MTK_CAM_REQ_S_DATA_FLAG_SENSOR_HDL_EN &&
 	    !(job->flags & MTK_CAM_REQ_S_DATA_FLAG_SENSOR_HDL_COMPLETE) &&
@@ -348,7 +356,8 @@ void _complete_sensor_hdl(struct mtk_cam_job *job)
 	}
 }
 
-static bool _frame_sync_start(struct mtk_cam_request *req)
+static bool
+_frame_sync_start(struct mtk_cam_request *req)
 {
 #ifdef NOT_READY
 
@@ -446,7 +455,8 @@ EXIT:
 }
 
 
-static bool _frame_sync_end(struct mtk_cam_request *req)
+static bool
+_frame_sync_end(struct mtk_cam_request *req)
 {
 	/* All ctx with sensor is not in ready state */
 	struct mtk_cam_device *cam =
@@ -476,153 +486,8 @@ EXIT:
 	mutex_unlock(&req->fs.op_lock);
 	return ret;
 }
-#ifdef NOT_READY
-static void _switch_check_bad_frame(
-		struct mtk_cam_ctx *ctx, unsigned int frame_seq_no)
 
-{
 
-	struct mtk_cam_request *req, *req_bad, *req_cq;
-	struct mtk_cam_job *s_data, *s_data_bad, *s_data_cq;
-	struct mtk_raw_device *raw_dev;
-	struct mtk_cam_working_buf_entry *buf_entry;
-	int switch_type;
-	dma_addr_t base_addr;
-	int raw_pipe_done = 0;
-	/*check if switch request 's previous frame was done, */
-	/*if yes , fine.*/
-	/*if no, switch bad frame handling : may trigger frame done also */
-	req = mtk_cam_get_req(ctx, frame_seq_no);
-	if (req) {
-		s_data = mtk_cam_req_get_s_data(req, ctx->stream_id, 0);
-		switch_type = s_data->feature.switch_feature_type;
-		/* update qos bw */
-		if (switch_type == EXPOSURE_CHANGE_1_to_2 ||
-			switch_type == EXPOSURE_CHANGE_1_to_3)
-			mtk_cam_qos_bw_calc(ctx, s_data->raw_dmas, true);
-
-		if (switch_type &&
-			!mtk_cam_feature_change_is_mstream(switch_type)) {
-			req_bad = mtk_cam_get_req(ctx, frame_seq_no - 1);
-			raw_pipe_done = req_bad->done_status & (1 << ctx->pipe->id);
-			if (req_bad && raw_pipe_done == 0) {
-				raw_dev = get_master_raw_dev(ctx->cam, ctx->pipe);
-				s_data_bad = mtk_cam_req_get_s_data(req_bad, ctx->stream_id, 0);
-				dev_info(ctx->cam->dev,
-				"[SWD-error] switch req:%d type:%d, bad req:%d,done_status:0x%x,used:0x%x\n",
-				s_data->frame_seq_no, switch_type,
-				s_data_bad->frame_seq_no, req_bad->done_status, req_bad->pipe_used);
-				reset(raw_dev);
-				dev_info(ctx->cam->dev,
-				"[SWD-error] reset (FBC accumulated due to force dbload)\n");
-				req_cq = mtk_cam_get_req(ctx, frame_seq_no + 1);
-				if (req_cq) {
-					s_data_cq = mtk_cam_req_get_s_data(req_cq,
-							ctx->stream_id, 0);
-					if (s_data_cq->state.estate >= E_STATE_OUTER) {
-						buf_entry = s_data_cq->working_buf;
-						base_addr = buf_entry->buffer.iova;
-						apply_cq(raw_dev, 0, base_addr,
-								buf_entry->cq_desc_size,
-								buf_entry->cq_desc_offset,
-								buf_entry->sub_cq_desc_size,
-								buf_entry->sub_cq_desc_offset);
-					} else {
-						dev_info(ctx->cam->dev,
-						"[SWD-error] w/o cq, req:%d state:0x%x\n",
-						s_data_cq->frame_seq_no, s_data_cq->state.estate);
-					}
-				}
-				debug_dma_fbc(raw_dev->dev, raw_dev->base, raw_dev->yuv_base);
-			}
-		}
-	}
-}
-#endif
-
-/* workqueue context */
-static int
-_meta1_done(struct mtk_cam_job *job)
-{
-	struct mtk_cam_ctx *ctx = job->src_ctx;
-	struct mtk_cam_device *cam = ctx->cam;
-	int pipe_id = get_raw_subdev_idx(job->req->used_pipe);
-
-	if (pipe_id < 0)
-		return 0;
-	dev_dbg(cam->dev, "%s:%s:ctx(%d): seq_no:%d, state:0x%x\n",
-			__func__, job->req->req.debug_str, job->src_ctx->stream_id,
-			job->frame_seq_no, job->state);
-
-	mtk_cam_req_buffer_done(job->req, pipe_id, MTKCAM_IPI_RAW_META_STATS_1,
-			VB2_BUF_STATE_DONE, job->timestamp);
-
-	return 0;
-}
-
-/* workqueue context */
-static int
-_frame_done(struct mtk_cam_job *job)
-{
-	struct mtk_cam_ctx *ctx = job->src_ctx;
-	struct mtk_cam_device *cam = ctx->cam;
-	int pipe_id = get_raw_subdev_idx(job->req->used_pipe);
-	bool is_normal = job->state == E_STATE_DONE_NORMAL;
-	u32 *fho_va;
-	int subsample = 0;
-	int i;
-
-	if (pipe_id < 0)
-		return 0;
-	// using cpu's timestamp
-	// (*job->timestamp_buf)[0] = job->timestamp_mono;
-	// (*job->timestamp_buf)[1] = job->timestamp;
-
-	fho_va = (u32 *)(job->cq.vaddr + job->cq.size - 64 * (subsample + 1));
-	for (i = 0; i < (subsample + 1); i++) {
-		/* timstamp_LSB + timestamp_MSB << 32 */
-		(*job->timestamp_buf)[i*2] = mtk_cam_timesync_to_monotonic
-		((u64) (*(fho_va + i*16)) + ((u64)(*(fho_va + i*16 + 1)) << 32))
-		/1000;
-		(*job->timestamp_buf)[i*2 + 1] = mtk_cam_timesync_to_boot
-		((u64) (*(fho_va + i*16)) + ((u64)(*(fho_va + i*16 + 1)) << 32))
-		/1000;
-		dev_dbg(ctx->cam->dev,
-			"timestamp TS:momo %ld us boot %ld us, LSB:%d MSB:%d\n",
-			(*job->timestamp_buf)[i*2], (*job->timestamp_buf)[i*2 + 1],
-			*(fho_va + i*16), *(fho_va + i*16 + 1));
-	}
-	if (is_normal)
-		mtk_cam_req_buffer_done(job->req, pipe_id, -1,
-			VB2_BUF_STATE_DONE, job->timestamp);
-	else
-		mtk_cam_req_buffer_done(job->req, pipe_id, -1,
-			VB2_BUF_STATE_ERROR, job->timestamp);
-
-	dev_info(cam->dev, "%s:%s:ctx(%d): seq_no:%d, state:0x%x, is_normal:%d, B/M ts:%lld/%lld\n",
-		__func__, job->req->req.debug_str, job->src_ctx->stream_id,
-		job->frame_seq_no, job->state, is_normal, job->timestamp, job->timestamp_mono);
-
-	return 0;
-}
-
-static int
-_stream_on(struct mtk_cam_job *job, bool on)
-{
-	struct mtk_cam_ctx *ctx = job->src_ctx;
-	struct mtk_cam_device *cam = ctx->cam;
-	int raw_id = _get_master_raw_id(cam->engines.num_raw_devices,
-			job->used_engine);
-	struct mtk_raw_device *raw_dev =
-		dev_get_drvdata(cam->engines.raw_devs[raw_id]);
-	int scq_ms = SCQ_DEADLINE_MS;
-
-	stream_on(raw_dev, on, scq_ms, 0);
-	if (job->stream_on_seninf)
-		ctx_stream_on_seninf_sensor(job->src_ctx, on);
-
-	return 0;
-}
 /* kthread context */
 static int
 _apply_sensor(struct mtk_cam_job *job)
@@ -645,14 +510,10 @@ _apply_sensor(struct mtk_cam_job *job)
 	}
 
 
-	if (is_job_subsample(job))
-		_state_trans(job, E_STATE_SUBSPL_OUTER, E_STATE_SUBSPL_SENSOR);
-	else if (is_job_offline_timeshared(job))
-		_state_trans(job, E_STATE_TS_READY, E_STATE_TS_SENSOR);
-	else if (is_job_preisp(job))
-		_state_trans(job, E_STATE_EXTISP_READY, E_STATE_EXTISP_SENSOR);
-	else
-		_state_trans(job, E_STATE_READY, E_STATE_SENSOR);
+	_state_trans(job, E_STATE_SUBSPL_OUTER, E_STATE_SUBSPL_SENSOR);
+	_state_trans(job, E_STATE_TS_READY, E_STATE_TS_SENSOR);
+	_state_trans(job, E_STATE_EXTISP_READY, E_STATE_EXTISP_SENSOR);
+	_state_trans(job, E_STATE_READY, E_STATE_SENSOR);
 
 
 	//MTK_CAM_TRACE_BEGIN(BASIC, "frame_sync_end");
@@ -757,6 +618,7 @@ static int _apply_cq(struct mtk_cam_job *job)
 			//mtk_cam_qos_bw_calc(ctx, job->raw_dmas, false);
 		}
 		_state_trans(job, E_STATE_SENSOR, E_STATE_CQ);
+		_state_trans(job, E_STATE_SUBSPL_READY, E_STATE_SUBSPL_SCQ);
 		dev_info(raw_dev->dev,
 			"SOF[ctx:%d], CQ-%d triggered, cq_addr:0x%x\n",
 			ctx->stream_id, job->frame_seq_no, base_addr);
@@ -909,7 +771,7 @@ _update_event_frame_done(struct mtk_cam_job *job,
 {
 	struct mtk_cam_ctx *ctx = job->src_ctx;
 	struct mtk_cam_device *cam = ctx->cam;
-	unsigned int frame_seq_no_inner = event_info->frame_idx_inner;
+	unsigned int frame_seq_no_inner = event_info->isp_deq_seq_no;
 
 	if (job->frame_seq_no <= frame_seq_no_inner) {
 		if (atomic_read(&job->frame_done_work.is_queued)) {
@@ -923,6 +785,7 @@ _update_event_frame_done(struct mtk_cam_job *job,
 		if (job->frame_seq_no == frame_seq_no_inner) {
 			// mark buf normal
 			_state_trans(job, E_STATE_INNER, E_STATE_DONE_NORMAL);
+			_state_trans(job, E_STATE_SUBSPL_INNER, E_STATE_SUBSPL_DONE_NORMAL);
 			dev_dbg(cam->dev, "[%s] ctx_id:%d, mark job:%d NORMAL\n",
 				__func__, ctx->stream_id, job->frame_seq_no);
 		} else {
@@ -984,7 +847,8 @@ _update_event_sensor_vsync(struct mtk_cam_job *job,
 		*action &= ~BIT(CAM_JOB_VSYNC);
 	}
 }
-static void _update_event_frame_start(struct mtk_cam_job *job,
+static void
+_update_event_frame_start(struct mtk_cam_job *job,
 		struct mtk_cam_job_event_info *event_info, int *action)
 {
 	struct mtk_cam_ctx *ctx = job->src_ctx;
@@ -1087,7 +951,10 @@ static void _update_event_frame_start(struct mtk_cam_job *job,
 	}
 
 }
-
+int mtk_cam_job_get_sensor_margin(struct mtk_cam_job *job)
+{
+	return get_apply_sensor_margin_ms(job);
+}
 static void
 _update_frame_start_event(struct mtk_cam_job *job,
 		struct mtk_cam_job_event_info *event_info, int *action)
@@ -1172,6 +1039,73 @@ alloc_hdr_buffer(struct mtk_cam_ctx *ctx,
 	return 0;
 }
 static int
+_job_pack_subsample(struct mtk_cam_job *job,
+	 struct pack_job_ops_helper *job_helper)
+{
+	struct mtk_cam_ctx *ctx = job->src_ctx;
+	struct mtk_cam_device *cam = ctx->cam;
+	int ret;
+
+	job->exp_num_cur = 1;
+	job->exp_num_prev = 1;
+	job->hardware_scenario = MTKCAM_IPI_HW_PATH_ON_THE_FLY;
+	job->sw_feature = MTKCAM_IPI_SW_FEATURE_NORMAL;
+	job->sub_ratio = get_subsample_ratio(job->feature_job);
+	dev_info(cam->dev, "[%s] ctx:%d, type:%d, fea:%d, ratio:%d, sw/scene:%d/%d",
+		__func__, ctx->stream_id, job->job_type, job->feature_job,
+		job->sub_ratio, job->sw_feature, job->hardware_scenario);
+	job->stream_on_seninf = false;
+	if (!ctx->used_engine) {
+		int selected;
+
+		selected = mtk_cam_select_hw(job);
+		if (!selected)
+			return -1;
+
+		if (mtk_cam_occupy_engine(ctx->cam, selected))
+			return -1;
+
+		mtk_cam_pm_runtime_engines(&ctx->cam->engines, selected, 1);
+		ctx->used_engine = selected;
+		if (ctx->hw_raw) {
+			struct mtk_raw_device *raw = dev_get_drvdata(ctx->hw_raw);
+
+			initialize(raw, 0);
+			subsample_enable(raw, job->sub_ratio);
+		}
+
+		job->stream_on_seninf = true;
+	}
+	/* config_flow_by_job_type */
+	job->used_engine = ctx->used_engine;
+	job->hw_raw = ctx->hw_raw;
+
+	job->do_ipi_config = false;
+	if (!ctx->configured) {
+		/* if has raw */
+		if (USED_MASK_GET_SUBMASK(&ctx->used_engine, raw)) {
+			/* ipi_config_param */
+			ret = mtk_cam_job_fill_ipi_config(job, &ctx->ipi_config);
+			if (ret)
+				return ret;
+		}
+		ctx->feature_config = job->feature_job;
+		job->do_ipi_config = true;
+		ctx->configured = true;
+	}
+	/* clone into job for debug dump */
+	job->ipi_config = ctx->ipi_config;
+	if (!ctx->not_first_job) {
+		ctx->not_first_job = true;
+
+		apply_raw_target_clk(ctx, job->req);
+	}
+	ret = mtk_cam_job_fill_ipi_frame(job, job_helper);
+
+	return ret;
+}
+
+static int
 _job_pack_otf_stagger(struct mtk_cam_job *job,
 	 struct pack_job_ops_helper *job_helper)
 {
@@ -1188,6 +1122,7 @@ _job_pack_otf_stagger(struct mtk_cam_job *job,
 	update_stagger_job_exp(job, stagger_job->switch_feature_type);
 	job->hardware_scenario = get_hard_scenario_stagger(job);
 	job->sw_feature = MTKCAM_IPI_SW_FEATURE_VHDR_STAGGER;
+	job->sub_ratio = get_subsample_ratio(job->feature_job);
 	stagger_job->dcif_enable = job->exp_num_prev > 1 ? 1 : 0;
 	stagger_job->need_drv_buffer_check = is_stagger_need_rawi(job->feature_job);
 	dev_info(cam->dev, "[%s] ctx:%d, type:%d, fea:%d->%d, swi:%d,  expN:%d->%d, sw/scene:%d/%d",
@@ -1211,6 +1146,7 @@ _job_pack_otf_stagger(struct mtk_cam_job *job,
 			struct mtk_raw_device *raw = dev_get_drvdata(ctx->hw_raw);
 
 			initialize(raw, 0);
+			stagger_enable(raw);
 		}
 
 		job->stream_on_seninf = true;
@@ -1248,7 +1184,6 @@ _job_pack_otf_stagger(struct mtk_cam_job *job,
 	return ret;
 }
 
-
 static int
 _job_pack_normal(struct mtk_cam_job *job,
 	 struct pack_job_ops_helper *job_helper)
@@ -1261,6 +1196,7 @@ _job_pack_normal(struct mtk_cam_job *job,
 	job->exp_num_prev = 1;
 	job->hardware_scenario = MTKCAM_IPI_HW_PATH_ON_THE_FLY;
 	job->sw_feature = MTKCAM_IPI_SW_FEATURE_NORMAL;
+	job->sub_ratio = get_subsample_ratio(job->feature_job);
 	dev_dbg(cam->dev, "[%s] ctx:%d, job_type:%d, feature:%d/%d, expnum:%d->%d, sw/scene:%d/%d",
 		__func__, ctx->stream_id, job->job_type, job->feature_config, job->feature_job,
 		job->exp_num_prev, job->exp_num_cur, job->sw_feature, job->hardware_scenario);
@@ -1304,7 +1240,6 @@ _job_pack_normal(struct mtk_cam_job *job,
 	}
 	/* clone into job for debug dump */
 	job->ipi_config = ctx->ipi_config;
-
 	if (!ctx->not_first_job) {
 
 		ctx->not_first_job = true;
@@ -1382,7 +1317,8 @@ _update_job_ops_param(struct mtk_cam_job *job,
 	/* job type dependent */
 	switch (job->job_type) {
 	case RAW_JOB_ON_THE_FLY:
-		pack_helper->update_imgo_bugger_to_ipi = fill_imgo_img_buffer_to_ipi_frame;
+		pack_helper->update_imgo_to_ipi = fill_imgo_img_buffer_to_ipi_frame;
+		pack_helper->update_yuvo_to_ipi = fill_imgo_img_buffer_to_ipi_frame;
 		pack_helper->pack_job_check_ipi_buffer = NULL;
 		pack_helper->pack_job = _job_pack_normal;
 		job->ops.apply_isp = _apply_cq;
@@ -1400,7 +1336,8 @@ _update_job_ops_param(struct mtk_cam_job *job,
 		break;
 	case RAW_JOB_STAGGER:
 		stagger_job = (struct mtk_cam_stagger_job *)job;
-		pack_helper->update_imgo_bugger_to_ipi = fill_imgo_img_buffer_to_ipi_frame_stagger;
+		pack_helper->update_imgo_to_ipi = fill_imgo_img_buffer_to_ipi_frame_stagger;
+		pack_helper->update_yuvo_to_ipi = fill_imgo_img_buffer_to_ipi_frame;
 		pack_helper->pack_job_check_ipi_buffer = update_work_buffer_to_ipi_frame;
 		pack_helper->pack_job = _job_pack_otf_stagger;
 		job->ops.apply_isp = _apply_cq;
@@ -1422,17 +1359,22 @@ _update_job_ops_param(struct mtk_cam_job *job,
 		job->sensor_set_margin = SENSOR_SET_MARGIN_MS_STAGGER;
 		break;
 	case RAW_JOB_HW_SUBSAMPLE:
-#ifdef NOT_READY
-		job->ops.stream_on = _stream_on;
-		job->ops.update_event = _update_event_subspl;
+		pack_helper->update_imgo_to_ipi = fill_imgo_img_buffer_to_ipi_frame_subsample;
+		pack_helper->update_yuvo_to_ipi = fill_yuvo_img_buffer_to_ipi_frame_subsample;
+		pack_helper->pack_job_check_ipi_buffer = NULL;
+		pack_helper->pack_job = _job_pack_subsample;
 		job->ops.apply_isp = _apply_cq;
-		job->ops.apply_cam_mux = NULL;
-		job->ops.apply_sensor = _apply_sensor_subspl;
-		job->ops.frame_done = _frame_done_subspl;
+		job->ops.apply_sensor = _apply_sensor;
+		job->ops.frame_done = _frame_done;
 		job->ops.afo_done = _meta1_done;
-		job->sensor_set_margin = SENSOR_SET_MARGIN_MS;
+		job->ops.update_setting_done_event = update_event_setting_done_subsample;
+		job->ops.update_sensor_try_set_event = update_event_sensor_try_set_subsample;
+		job->ops.stream_on = _stream_on;
+		job->ops.update_frame_start_event = update_frame_start_event_subsample;
+		job->ops.update_afo_done_event = _update_event_meta1_done;
+		job->ops.update_frame_done_event = _update_event_frame_done;
 		job->state = E_STATE_SUBSPL_READY;
-#endif
+		job->sensor_set_margin = SENSOR_SET_MARGIN_MS;
 		break;
 	case RAW_JOB_DC:
 	case RAW_JOB_DC_STAGGER:
@@ -1547,7 +1489,7 @@ static int mtk_cam_job_fill_ipi_config(struct mtk_cam_job *job,
 		config->flags = MTK_CAM_IPI_CONFIG_TYPE_INIT;
 		config->sw_feature = job->sw_feature;
 
-		raw_set_ipi_input_param(input, sink, 1, 1, 0); /* TODO */
+		raw_set_ipi_input_param(input, sink, 1, 1, job->sub_ratio); /* TODO */
 
 		raw_dev = USED_MASK_GET_SUBMASK(&used_engine, raw);
 		ipi_add_hw_map(config, MTKCAM_SUBDEV_RAW_0, raw_dev);
@@ -1621,7 +1563,6 @@ static int update_raw_image_buf_to_ipi_frame(struct req_buffer_helper *helper,
 		struct mtk_cam_buffer *buf, struct mtk_cam_video_device *node,
 		struct pack_job_ops_helper *job_helper)
 {
-	struct mtkcam_ipi_frame_param *fp = helper->fp;
 	int ret = -1;
 
 	switch (node->desc.dma_port) {
@@ -1630,7 +1571,7 @@ static int update_raw_image_buf_to_ipi_frame(struct req_buffer_helper *helper,
 		pr_info("%s:%d not implemented yet\n", __func__, __LINE__);
 		break;
 	case MTKCAM_IPI_RAW_IMGO:
-		ret = job_helper->update_imgo_bugger_to_ipi(helper, buf, node);
+		ret = job_helper->update_imgo_to_ipi(helper, buf, node);
 		break;
 	case MTKCAM_IPI_RAW_YUVO_1:
 	case MTKCAM_IPI_RAW_YUVO_2:
@@ -1643,14 +1584,7 @@ static int update_raw_image_buf_to_ipi_frame(struct req_buffer_helper *helper,
 	case MTKCAM_IPI_RAW_DRZS4NO_1:
 	case MTKCAM_IPI_RAW_DRZS4NO_2:
 	case MTKCAM_IPI_RAW_DRZS4NO_3:
-		{
-			struct mtkcam_ipi_img_output *out;
-
-			out = &fp->img_outs[helper->io_idx];
-			++helper->io_idx;
-
-			ret = fill_img_out(out, buf, node);
-		}
+		ret = job_helper->update_yuvo_to_ipi(helper, buf, node);
 		break;
 	default:
 		pr_info("%s %s: not supported port: %d\n",

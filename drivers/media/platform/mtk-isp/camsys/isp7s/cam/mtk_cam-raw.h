@@ -115,7 +115,7 @@ struct mtk_raw {
 
 /* CQ setting */
 void initialize(struct mtk_raw_device *dev, int is_slave);
-void subsample_enable(struct mtk_raw_device *dev);
+void subsample_enable(struct mtk_raw_device *dev, u32 ratio);
 void stagger_enable(struct mtk_raw_device *dev);
 void stagger_disable(struct mtk_raw_device *dev);
 

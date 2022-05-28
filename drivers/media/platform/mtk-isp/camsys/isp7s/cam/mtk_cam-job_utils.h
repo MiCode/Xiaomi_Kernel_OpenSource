@@ -68,7 +68,9 @@ struct pack_job_ops_helper {
 	/* pack job ops */
 	int (*pack_job)(struct mtk_cam_job *job,
 		struct pack_job_ops_helper *job_helper);
-	int (*update_imgo_bugger_to_ipi)(struct req_buffer_helper *helper,
+	int (*update_imgo_to_ipi)(struct req_buffer_helper *helper,
+			struct mtk_cam_buffer *buf, struct mtk_cam_video_device *node);
+	int (*update_yuvo_to_ipi)(struct req_buffer_helper *helper,
 			struct mtk_cam_buffer *buf, struct mtk_cam_video_device *node);
 	int (*pack_job_check_ipi_buffer)(struct req_buffer_helper *helper);
 };
@@ -77,6 +79,8 @@ void _state_trans(struct mtk_cam_job *job,
 	enum MTK_CAMSYS_STATE_IDX from, enum MTK_CAMSYS_STATE_IDX to);
 void _set_timestamp(struct mtk_cam_job *job,
 	u64 time_boot, u64 time_mono);
+int get_apply_sensor_margin_ms(struct mtk_cam_job *job);
+int get_subsample_ratio(int feature);
 int get_raw_subdev_idx(int used_pipe);
 unsigned int _get_master_raw_id(unsigned int num_raw,
 	unsigned int enabled_raw);
@@ -89,6 +93,14 @@ int fill_img_out_hdr(struct mtkcam_ipi_img_output *io,
 int fill_img_in_hdr(struct mtkcam_ipi_img_input *ii,
 			struct mtk_cam_buffer *buf,
 			struct mtk_cam_video_device *node);
+int fill_imgo_out_subsample(struct mtkcam_ipi_img_output *io,
+			struct mtk_cam_buffer *buf,
+			struct mtk_cam_video_device *node,
+			int sub_ratio);
+int fill_yuvo_out_subsample(struct mtkcam_ipi_img_output *io,
+			struct mtk_cam_buffer *buf,
+			struct mtk_cam_video_device *node,
+			int sub_ratio);
 int update_work_buffer_to_ipi_frame(struct req_buffer_helper *helper);
 struct mtkcam_ipi_crop v4l2_rect_to_ipi_crop(const struct v4l2_rect *r);
 

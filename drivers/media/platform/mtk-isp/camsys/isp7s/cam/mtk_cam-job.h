@@ -29,9 +29,10 @@ enum MTK_CAM_JOB_ACTION {
 	CAM_JOB_STREAM_ON,			/* BIT(9) = 512 */
 	CAM_JOB_EXP_NUM_SWITCH,			/* BIT(10) = 1024 */
 	CAM_JOB_SENSOR_SWITCH,			/* BIT(11) = 2048 */
+	CAM_JOB_READ_ENQ_NO,			/* BIT(12) = 4096 */
 	/* send_event : frame_done/meta_done */
-	CAM_JOB_DEQUE_ALL,			/* BIT(12) = 4096 */
-	CAM_JOB_DEQUE_META1,			/* BIT(13) = 8192 */
+	CAM_JOB_DEQUE_ALL,			/* BIT(13) = 8192 */
+	CAM_JOB_DEQUE_META1,			/* BIT(14) = 16384 */
 };
 enum MTK_CAMSYS_ENGINE_TYPE {
 	CAMSYS_ENGINE_RAW,
@@ -75,6 +76,8 @@ struct mtk_cam_job_event_info {
 	int fbc_cnt;
 	int isp_request_seq_no;
 	int reset_seq_no;
+	int isp_deq_seq_no; /* swd + sof interrupt case */
+	int isp_enq_seq_no; /* smvr */
 };
 
 struct mtk_cam_request;
@@ -126,6 +129,7 @@ struct mtk_cam_job {
 	int exp_num_prev;		/* for ipi */
 	int hardware_scenario;	/* for ipi */
 	int sw_feature;			/* for ipi */
+	unsigned int sub_ratio;
 	u64 (*timestamp_buf)[128];
 	/* hw devices */
 	struct device *hw_raw;
@@ -270,5 +274,6 @@ static inline void mtk_cam_job_return(struct mtk_cam_job *job)
 
 int mtk_cam_job_pack(struct mtk_cam_job *job, struct mtk_cam_ctx *ctx,
 		     struct mtk_cam_request *req);
+int mtk_cam_job_get_sensor_margin(struct mtk_cam_job *job);
 
 #endif //__MTK_CAM_JOB_H

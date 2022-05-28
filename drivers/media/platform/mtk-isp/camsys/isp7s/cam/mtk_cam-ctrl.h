@@ -27,8 +27,8 @@ struct mtk_cam_ctrl {
 	atomic_t dequeued_frame_seq_no;		/* deque job counter - ctrl maintain */
 	atomic_t sensor_request_seq_no;		/* sensor set counter - decided by job */
 	atomic_t last_drained_seq_no;		/* if try set sensor at enque job - ctrl maintain */
-	atomic_t isp_request_seq_no;		/* subsample mode reserved */
-	atomic_t isp_enq_seq_no;			/* subsample mode reserved */
+	atomic_t isp_request_seq_no;		/* dbload counter - ctrl maintain */
+	atomic_t isp_enq_seq_no;		/* subsample mode used - cq trigger counter */
 	atomic_t isp_update_timer_seq_no;	/* mstream mode reserved */
 	atomic_t stopped;
 	atomic_t ref_cnt;

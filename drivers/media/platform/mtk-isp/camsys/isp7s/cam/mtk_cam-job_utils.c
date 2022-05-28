@@ -39,6 +39,78 @@ int get_raw_subdev_idx(int used_pipe)
 
 	return -1;
 }
+#define SENSOR_SET_DEADLINE_MS  18
+#define SENSOR_SET_DEADLINE_MS_60FPS  6
+
+static int
+_sensor_margin_ms(int fps_ratio, int sub_sample)
+{
+	int timer_ms = 0;
+
+	if (sub_sample > 0) {
+		if (fps_ratio > 1)
+			timer_ms = SENSOR_SET_DEADLINE_MS;
+		else
+			timer_ms = SENSOR_SET_DEADLINE_MS * sub_sample;
+	} else {
+		if (fps_ratio > 2)
+			timer_ms = SENSOR_SET_DEADLINE_MS / fps_ratio;
+		else if (fps_ratio == 2)
+			timer_ms = SENSOR_SET_DEADLINE_MS_60FPS;
+		else
+			timer_ms = SENSOR_SET_DEADLINE_MS;
+	}
+
+	return timer_ms;
+}
+
+int get_subsample_ratio(int feature)
+{
+	int sub_ratio = 0;
+	int sub_value = feature & MTK_CAM_FEATURE_SUBSAMPLE_MASK;
+
+	switch (sub_value) {
+	case HIGHFPS_2_SUBSAMPLE:
+		sub_ratio = 1;
+		break;
+	case HIGHFPS_4_SUBSAMPLE:
+		sub_ratio = 3;
+		break;
+	case HIGHFPS_8_SUBSAMPLE:
+		sub_ratio = 7;
+		break;
+	case HIGHFPS_16_SUBSAMPLE:
+		sub_ratio = 15;
+		break;
+	case HIGHFPS_32_SUBSAMPLE:
+		sub_ratio = 31;
+		break;
+	default:
+		sub_ratio = 0;
+	}
+
+	return sub_ratio;
+}
+int get_apply_sensor_margin_ms(struct mtk_cam_job *job)
+{
+	struct mtk_cam_ctx *ctx = job->src_ctx;
+	struct v4l2_subdev_frame_interval fi;
+	int fps_factor = 1, sub_ratio = 0;
+	int apply_sensor_ms = 0;
+
+	fi.pad = 0;
+	v4l2_subdev_call(ctx->sensor, video, g_frame_interval, &fi);
+	fps_factor = (fi.interval.numerator > 0) ?
+		(fi.interval.denominator / fi.interval.numerator / 30) : 1;
+	sub_ratio = get_subsample_ratio(job->feature_job);
+
+	apply_sensor_ms = _sensor_margin_ms(fps_factor, sub_ratio);
+
+	pr_info("[%s] fps_X/sub_X/apply_sensor_ms:%d/%d/%d",
+		__func__, fps_factor, sub_ratio, apply_sensor_ms);
+
+	return apply_sensor_ms;
+}
 
 unsigned int
 _get_master_raw_id(unsigned int num_raw, unsigned int enabled_raw)
@@ -167,6 +239,55 @@ v4l2_rect_to_ipi_crop(const struct v4l2_rect *r)
 		},
 	};
 }
+
+int fill_imgo_out_subsample(struct mtkcam_ipi_img_output *io,
+			struct mtk_cam_buffer *buf,
+			struct mtk_cam_video_device *node,
+			int subsample_ratio)
+{
+	int i;
+	int ret;
+
+	/* uid */
+	io->uid = node->uid;
+
+	/* fmt */
+	ret = fill_img_fmt(&io->fmt, buf);
+
+	for (i = 0; i < subsample_ratio; i++) {
+		/* FIXME: porting workaround */
+		io->buf[i][0].size = buf->image_info.size[0];
+		io->buf[i][0].iova = buf->daddr + io->buf[i][0].size;
+		io->buf[i][0].ccd_fd = buf->vbb.vb2_buf.planes[0].m.fd;
+		pr_info("[%s] buf->daddr:0x%x, io->buf[0][0].iova:0x%x, size:%d", __func__,
+			buf->daddr, io->buf[i][0].iova, io->buf[i][0].size);
+	}
+
+	/* crop */
+	io->crop = v4l2_rect_to_ipi_crop(&buf->image_info.crop);
+
+	/* FIXME: porting workaround */
+	if (WARN_ON_ONCE(!io->crop.s.w || !io->crop.s.h)) {
+		io->crop = (struct mtkcam_ipi_crop) {
+			.p = (struct mtkcam_ipi_point) {
+				.x = 0,
+				.y = 0,
+			},
+			.s = (struct mtkcam_ipi_size) {
+				.w = io->fmt.s.w,
+				.h = io->fmt.s.h,
+			},
+		};
+	}
+
+	buf_printk("%s: %s %dx%d @%d,%d-%dx%d\n",
+		   __func__,
+		   node->desc.name,
+		   io->fmt.s.w, io->fmt.s.h,
+		   io->crop.p.x, io->crop.p.y, io->crop.s.w, io->crop.s.h);
+
+	return ret;
+}
 int fill_img_out_hdr(struct mtkcam_ipi_img_output *io,
 			struct mtk_cam_buffer *buf,
 			struct mtk_cam_video_device *node)
@@ -235,6 +356,71 @@ static int mtk_cam_fill_img_buf(struct mtkcam_ipi_img_output *io,
 	}
 
 	return 0;
+}
+static int mtk_cam_fill_img_buf_subsample(struct mtkcam_ipi_img_output *io,
+				struct mtk_cam_buffer *buf, int sub_ratio)
+{
+	struct mtk_cam_cached_image_info *img_info = &buf->image_info;
+	dma_addr_t daddr;
+	int i;
+	int j;
+
+	io->buf[0][0].ccd_fd = buf->vbb.vb2_buf.planes[0].m.fd;
+
+	daddr = buf->daddr;
+	for (j = 0; j < sub_ratio; j++) {
+		for (i = 0; i < ARRAY_SIZE(img_info->bytesperline); i++) {
+			unsigned int size = img_info->size[i];
+
+			if (!size)
+				break;
+
+			io->buf[j][i].iova = daddr;
+			io->buf[j][i].size = size;
+			daddr += size;
+		}
+	}
+
+	return 0;
+}
+int fill_yuvo_out_subsample(struct mtkcam_ipi_img_output *io,
+			struct mtk_cam_buffer *buf,
+			struct mtk_cam_video_device *node,
+			int sub_ratio)
+{
+	int ret;
+
+	/* uid */
+	io->uid = node->uid;
+
+	/* fmt */
+	ret = fill_img_fmt(&io->fmt, buf);
+
+	ret = ret || mtk_cam_fill_img_buf_subsample(io, buf, sub_ratio);
+
+	/* crop */
+	io->crop = v4l2_rect_to_ipi_crop(&buf->image_info.crop);
+
+	/* FIXME: porting workaround */
+	if (WARN_ON_ONCE(!io->crop.s.w || !io->crop.s.h)) {
+		io->crop = (struct mtkcam_ipi_crop) {
+			.p = (struct mtkcam_ipi_point) {
+				.x = 0,
+				.y = 0,
+			},
+			.s = (struct mtkcam_ipi_size) {
+				.w = io->fmt.s.w,
+				.h = io->fmt.s.h,
+			},
+		};
+	}
+
+	buf_printk("%s: %s %dx%d @%d,%d-%dx%d\n",
+		   __func__,
+		   node->desc.name,
+		   io->fmt.s.w, io->fmt.s.h,
+		   io->crop.p.x, io->crop.p.y, io->crop.s.w, io->crop.s.h);
+	return ret;
 }
 
 int fill_img_out(struct mtkcam_ipi_img_output *io,

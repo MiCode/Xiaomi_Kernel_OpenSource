@@ -541,11 +541,12 @@ static void subsample_set_sensor_time(struct mtk_raw_device *dev)
 	dev->cur_vsync_idx = -1;
 }
 
-void subsample_enable(struct mtk_raw_device *dev)
+void subsample_enable(struct mtk_raw_device *dev, u32 ratio)
 {
 	u32 val;
-	u32 sub_ratio = dev->subsample_ratio - 1;
+	u32 sub_ratio = ratio;
 
+	dev->subsample_ratio = sub_ratio;
 	subsample_set_sensor_time(dev);
 
 	val = readl_relaxed(dev->base + REG_CQ_EN);
@@ -555,10 +556,11 @@ void subsample_enable(struct mtk_raw_device *dev)
 	writel_relaxed(SW_DONE_SAMPLE_EN | sub_ratio,
 		dev->base_inner + REG_CTL_SW_PASS1_DONE);
 	wmb(); /* TBC */
-	dev_dbg(dev->dev, "%s - REG_CQ_EN:0x%x ,REG_CTL_SW_PASS1_DONE:0x%8x\n",
+	dev_dbg(dev->dev, "%s - REG_CQ_EN:0x%x ,REG_CTL_SW_PASS1_DONE:0x%8x, ratio:%d\n",
 			__func__,
 			readl_relaxed(dev->base + REG_CQ_EN),
-			readl_relaxed(dev->base + REG_CTL_SW_PASS1_DONE));
+			readl_relaxed(dev->base + REG_CTL_SW_PASS1_DONE),
+			sub_ratio);
 }
 
 void initialize(struct mtk_raw_device *dev, int is_slave)
