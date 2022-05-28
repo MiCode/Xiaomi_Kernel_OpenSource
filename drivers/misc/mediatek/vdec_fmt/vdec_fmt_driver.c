@@ -1071,7 +1071,7 @@ static int vdec_fmt_probe(struct platform_device *pdev)
 		goto err_device;
 	}
 
-	ret = of_property_read_u32(dev->of_node, "mediatek,fmt_gce_th_num",
+	ret = of_property_read_u32(dev->of_node, "mediatek,fmt-gce-th-num",
 						&fmt->gce_th_num);
 	fmt->dtsInfo.pipeNum = fmt->gce_th_num;
 	fmt_debug(0, "gce_th_num %d", fmt->gce_th_num);
@@ -1079,7 +1079,7 @@ static int vdec_fmt_probe(struct platform_device *pdev)
 	if (ret != 0 || fmt->gce_th_num > FMT_CORE_NUM)
 		fmt->gce_th_num = 1;
 
-	ret = of_property_read_u32(dev->of_node, "mediatek,fmt_rdma_swwa",
+	ret = of_property_read_u32(dev->of_node, "mediatek,fmt-rdma-swwa",
 						&rdma_swwa);
 	fmt_debug(0, "rdma_swwa %d", rdma_swwa);
 	fmt->dtsInfo.RDMA_needWA = (bool) rdma_swwa;
@@ -1103,28 +1103,28 @@ static int vdec_fmt_probe(struct platform_device *pdev)
 		goto err_device;
 
 	of_property_read_u16(dev->of_node,
-						"rdma0_sw_rst_done_eng",
+						"rdma0-sw-rst-done-eng",
 						&fmt->gce_codec_eid[FMT_RDMA0_SW_RST_DONE_ENG]);
 	of_property_read_u16(dev->of_node,
-						"rdma0_tile_done",
+						"rdma0-tile-done",
 						&fmt->gce_codec_eid[FMT_RDMA0_TILE_DONE]);
 	of_property_read_u16(dev->of_node,
-						"wdma0_sw_rst_done_eng",
+						"wdma0-sw-rst-done-eng",
 						&fmt->gce_codec_eid[FMT_WDMA0_SW_RST_DONE_ENG]);
 	of_property_read_u16(dev->of_node,
-						"wdma0_tile_done",
+						"wdma0-tile-done",
 						&fmt->gce_codec_eid[FMT_WDMA0_TILE_DONE]);
 	of_property_read_u16(dev->of_node,
-						"rdma1_sw_rst_done_eng",
+						"rdma1-sw-rst-done-eng",
 						&fmt->gce_codec_eid[FMT_RDMA1_SW_RST_DONE_ENG]);
 	of_property_read_u16(dev->of_node,
-						"rdma1_tile_done",
+						"rdma1-tile-done",
 						&fmt->gce_codec_eid[FMT_RDMA1_TILE_DONE]);
 	of_property_read_u16(dev->of_node,
-						"wdma1_sw_rst_done_eng",
+						"wdma1-sw-rst-done-eng",
 						&fmt->gce_codec_eid[FMT_WDMA1_SW_RST_DONE_ENG]);
 	of_property_read_u16(dev->of_node,
-						"wdma1_tile_done",
+						"wdma1-tile-done",
 						&fmt->gce_codec_eid[FMT_WDMA1_TILE_DONE]);
 
 	for (i = 0; i < (int)FMT_CORE_NUM; i++) {
