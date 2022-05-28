@@ -44,12 +44,16 @@ static void set_regs(
 	struct reg_info_t *reg_list, unsigned int reg_cnt,
 	void __iomem *emi_mpu_base)
 {
-	unsigned int i, j;
+	unsigned int i, j, temp_rd;
 
 	for (i = 0; i < reg_cnt; i++)
-		for (j = 0; j < reg_list[i].leng; j++)
-			writel(reg_list[i].value, emi_mpu_base +
+		for (j = 0; j < reg_list[i].leng; j++) {
+			/* Need to keep SLB_MPU_CTRL setting*/
+			temp_rd = readl(emi_mpu_base + reg_list[i].offset + 4 * j);
+			temp_rd |= reg_list[i].value;
+			writel(temp_rd, emi_mpu_base +
 				reg_list[i].offset + 4 * j);
+		}
 
 	/*
 	 * Use the memory barrier to make sure the interrupt signal is
