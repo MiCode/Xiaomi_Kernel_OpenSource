@@ -6728,8 +6728,8 @@
 			compatible = "mediatek,mt6985-mml_tdshp",
 				"mediatek,mml-tuning-mml_tdshp1";
 			reg = <0 0x1f80c000 0 0x1000>;
-			clocks = <&mdpsys1_config_clk CLK_MDP1_MDP_TDSHP0>;
-			clock-names = "tdshp0";
+			clocks = <&mdpsys1_config_clk CLK_MDP1_MDP_TDSHP1>;
+			clock-names = "tdshp1";
 			comp-ids = <MML_TDSHP1>;
 			comp-names = "tdshp1";
 		};
