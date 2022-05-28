@@ -120,12 +120,18 @@ static int wifi_cooling_probe(struct platform_device *pdev)
 	struct thermal_cooling_device *cdev;
 	struct wifi_cooling_device *wifi_cdev;
 	struct device_node *np = pdev->dev.of_node;
+	int len;
 
 	wifi_cdev = devm_kzalloc(dev, sizeof(*wifi_cdev), GFP_KERNEL);
 	if (!wifi_cdev)
 		return -ENOMEM;
 
-	strncpy(wifi_cdev->name, np->name, strlen(np->name));
+	len = (strlen(np->name) > MAX_WIFI_COOLER_NAME_LEN) ?
+		MAX_WIFI_COOLER_NAME_LEN : strlen(np->name);
+
+	strncpy(wifi_cdev->name, np->name, len);
+	wifi_cdev->name[len] = '\0';
+
 	wifi_cdev->target_state = WIFI_COOLING_UNLIMITED_STATE;
 	wifi_cdev->max_state = WIFI_COOLING_MAX_STATE;
 	wifi_cdev->throttle = of_device_get_match_data(dev);
@@ -143,7 +149,6 @@ static int wifi_cooling_probe(struct platform_device *pdev)
 
 	return 0;
 }
-
 
 static int wifi_cooling_remove(struct platform_device *pdev)
 {
