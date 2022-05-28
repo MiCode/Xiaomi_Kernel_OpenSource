@@ -15,7 +15,10 @@
 #include <linux/delay.h>
 
 #include <iommu_debug.h>
-
+#ifdef CMDQ_DCACHE_INVAL
+#include <asm/cacheflush.h>
+#include <asm/set_memory.h>
+#endif
 #include "vcp.h"
 #include "vcp_status.h"
 #include "vcp_reg.h"
@@ -156,6 +159,17 @@ struct cmdq_flush_item {
 	s32 err;
 	bool done;
 };
+
+#ifdef CMDQ_DCACHE_INVAL
+void __weak dcache_inval_poc(unsigned long start, unsigned long end)
+{
+}
+
+int __weak set_memory_valid(unsigned long addr, int numpages, int enable)
+{
+	return 0;
+}
+#endif
 
 static s8 cmdq_subsys_base_to_id(struct cmdq_base *clt_base, u32 base)
 {
@@ -695,6 +709,9 @@ struct cmdq_pkt_buffer *cmdq_pkt_alloc_buf(struct cmdq_pkt *pkt)
 	struct cmdq_client *cl = (struct cmdq_client *)pkt->cl;
 	struct cmdq_pkt_buffer *buf;
 	bool use_iommu = false;
+#ifdef CMDQ_DCACHE_INVAL
+	void *va;
+#endif
 
 	buf = kzalloc(sizeof(*buf), GFP_KERNEL);
 	if (!buf)
@@ -744,9 +761,6 @@ struct cmdq_pkt_buffer *cmdq_pkt_alloc_buf(struct cmdq_pkt *pkt)
 		kfree(buf);
 		return ERR_PTR(-ENOMEM);
 	}
-	*((u64 *)buf->va_base) = CMDQ_BUF_INIT_VAL;
-	*((u64 *)buf->va_base + 1) = CMDQ_BUF_INIT_VAL;
-
 	if (use_iommu) {
 		struct iommu_domain *domain;
 
@@ -757,7 +771,16 @@ struct cmdq_pkt_buffer *cmdq_pkt_alloc_buf(struct cmdq_pkt *pkt)
 		else
 			cmdq_err("cannot get dev:%p domain", pkt->dev);
 	}
-
+#ifdef CMDQ_DCACHE_INVAL
+	va = phys_to_virt((unsigned long)buf->pa_base);
+	dcache_inval_poc((unsigned long)va,
+		(unsigned long)(va + CMDQ_BUF_ALLOC_SIZE));
+	set_memory_valid((unsigned long)va, 1, false);
+	dcache_inval_poc((unsigned long)buf->va_base,
+		(unsigned long)(buf->va_base + CMDQ_BUF_ALLOC_SIZE));
+#endif
+	*((u64 *)buf->va_base) = CMDQ_BUF_INIT_VAL;
+	*((u64 *)buf->va_base + 1) = CMDQ_BUF_INIT_VAL;
 	buf->alloc_time = sched_clock();
 	list_add_tail(&buf->list_entry, &pkt->buf);
 	pkt->avail_buf_size += CMDQ_CMD_BUFFER_SIZE;
@@ -771,13 +794,19 @@ void cmdq_pkt_free_buf(struct cmdq_pkt *pkt)
 {
 	struct cmdq_client *cl = (struct cmdq_client *)pkt->cl;
 	struct cmdq_pkt_buffer *buf, *tmp;
+#ifdef CMDQ_DCACHE_INVAL
+	void *va;
+#endif
 
 	list_for_each_entry_safe(buf, tmp, &pkt->buf, list_entry) {
 		list_del(&buf->list_entry);
 		if (!pkt->dev || !buf->va_base || !CMDQ_BUF_ADDR(buf))
 			cmdq_err("pkt:0x%p pa:%pa iova:%pa",
 			pkt, &buf->pa_base, &buf->iova_base);
-
+#ifdef CMDQ_DCACHE_INVAL
+		va = phys_to_virt((unsigned long)buf->pa_base);
+		set_memory_valid((unsigned long)va, 1, true);
+#endif
 		if (buf->iova_base) {
 			struct iommu_domain *domain = iommu_get_domain_for_dev(pkt->dev);
 

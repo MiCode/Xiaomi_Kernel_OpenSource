@@ -34,6 +34,8 @@ cmdq-sec-drv-y := cmdq_sec_mtee.o cmdq-sec-mailbox.o cmdq-sec-helper.o
 ccflags-y += -DCMDQ_SECURE_CPR_SUPPORT
 endif
 
+ccflags-y += -DCMDQ_DCACHE_INVAL
+
 obj-$(CONFIG_MTK_CMDQ_MBOX_EXT) += mtk-cmdq-drv-ext.o
 mtk-cmdq-drv-ext-y := mtk-cmdq-mailbox-ext.o mtk-cmdq-helper-ext.o cmdq-util.o
 
