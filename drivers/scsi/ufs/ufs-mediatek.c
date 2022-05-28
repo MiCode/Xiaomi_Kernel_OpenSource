@@ -1748,6 +1748,9 @@ static int ufs_mtk_init(struct ufs_hba *hba)
 		hba->caps |= UFSHCD_CAP_HIBERN8_WITH_CLK_GATING;
 
 	ufs_mtk_init_clocks(hba);
+	if (hba->caps & UFSHCD_CAP_CLK_SCALING)
+		ufs_mtk_init_clk_scaling_sysfs(hba);
+
 	/*
 	 * ufshcd_vops_init() is invoked after
 	 * ufshcd_setup_clock(true) in ufshcd_hba_init() thus
@@ -2621,6 +2624,9 @@ static int ufs_mtk_remove(struct platform_device *pdev)
 #if defined(CONFIG_UFSFEATURE)
 	ufs_mtk_remove_ufsf(hba);
 #endif
+
+	if (hba->caps & UFSHCD_CAP_CLK_SCALING)
+		ufs_mtk_remove_clk_scaling_sysfs(hba);
 
 	ufshcd_remove(hba);
 #if IS_ENABLED(CONFIG_MTK_BLOCK_IO_TRACER)

@@ -128,10 +128,18 @@ struct cmd_hist_struct {
 	} cmd;
 };
 
+struct ufs_mtk_clk_scaling_attr {
+	struct device_attribute downdifferential;
+	struct device_attribute upthreshold;
+};
+
+
 int ufs_mtk_dbg_register(struct ufs_hba *hba);
 void ufs_mtk_dbg_dump(u32 latest_cnt);
 int ufs_mtk_dbg_cmd_hist_enable(void);
 int ufs_mtk_dbg_cmd_hist_disable(void);
+void ufs_mtk_init_clk_scaling_sysfs(struct ufs_hba *hba);
+void ufs_mtk_remove_clk_scaling_sysfs(struct ufs_hba *hba);
 
 #else
 
