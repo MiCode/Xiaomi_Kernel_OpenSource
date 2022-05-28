@@ -1347,6 +1347,14 @@ static void mtk_cam_ctx_destroy_pool(struct mtk_cam_ctx *ctx)
 	_destroy_pool(&ctx->ipi_buffer, &ctx->ipi_pool);
 }
 
+static void mtk_cam_ctx_release_work_buffer(struct mtk_cam_ctx *ctx)
+{
+	struct mtk_cam_device_buf *buf = &ctx->hdr_buffer;
+
+	if (buf->size)
+		mtk_cam_device_buf_uninit(buf);
+}
+
 static int mtk_cam_ctx_prepare_session(struct mtk_cam_ctx *ctx)
 {
 	int ret;
@@ -1537,6 +1545,7 @@ void mtk_cam_stop_ctx(struct mtk_cam_ctx *ctx, struct media_entity *entity)
 
 	mtk_cam_ctx_unprepare_session(ctx);
 	mtk_cam_ctx_destroy_pool(ctx);
+	mtk_cam_ctx_release_work_buffer(ctx);
 	mtk_cam_ctx_destroy_workers(ctx);
 	mtk_cam_ctx_pipeline_stop(ctx, entity);
 	mtk_cam_pool_destroy(&ctx->job_pool);

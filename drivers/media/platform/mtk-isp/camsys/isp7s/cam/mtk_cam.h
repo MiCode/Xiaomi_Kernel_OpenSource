@@ -48,6 +48,18 @@ struct mtk_rpmsg_device;
 #define JOB_NUM_PER_STREAM 5
 #define MAX_PIPES_PER_STREAM 5
 
+struct mtk_cam_driver_buf_desc {
+	int ipi_fmt;
+	int width;
+	int height;
+	int stride[3];
+	size_t size;
+
+	/* for userspace only */
+	dma_addr_t daddr;
+	int fd;
+};
+
 struct mtk_cam_ctx {
 	struct mtk_cam_device *cam;
 	unsigned int stream_id;
@@ -89,6 +101,9 @@ struct mtk_cam_ctx {
 	struct mtk_cam_device_buf cq_buffer;
 	struct mtk_cam_device_buf ipi_buffer;
 
+	struct mtk_cam_device_buf hdr_buffer;
+	struct mtk_cam_driver_buf_desc hdr_buf_desc;
+
 	struct mtk_cam_pool	cq_pool;
 	struct mtk_cam_pool	ipi_pool;
 
@@ -101,6 +116,7 @@ struct mtk_cam_ctx {
 	int used_pipe;
 	int used_engine;
 
+	bool not_first_job;
 	bool configured;
 	struct mtkcam_ipi_config_param ipi_config;
 

@@ -2049,9 +2049,63 @@ _config_job(struct mtk_cam_job *job, struct mtk_cam_ctx *ctx,
 	default:
 		break;
 	}
-
-
 }
+
+static int alloc_image_work_buffer(struct mtk_cam_device_buf *buf, int size,
+				   struct device *dev)
+{
+	struct dma_buf *dbuf;
+	int ret;
+
+	WARN_ON(!dev);
+
+	dbuf = mtk_cam_noncached_buffer_alloc(size);
+
+	ret = mtk_cam_device_buf_init(buf, dbuf, dev, size);
+	dma_heap_buffer_free(dbuf);
+	return  ret;
+}
+
+static int alloc_hdr_buffer(struct mtk_cam_ctx *ctx,
+			    struct mtk_cam_request *req)
+{
+	struct mtk_cam_driver_buf_desc *desc = &ctx->hdr_buf_desc;
+	struct mtk_cam_device_buf *buf = &ctx->hdr_buffer;
+	struct device *dev;
+	struct mtk_raw_request_data *d;
+	int ret;
+
+	/* FIXME */
+	d = &req->raw_data[ctx->raw_subdev_idx];
+
+	/* desc */
+	desc->ipi_fmt = sensor_mbus_to_ipi_fmt(d->sink.mbus_code);
+	if (WARN_ON_ONCE(desc->ipi_fmt == MTKCAM_IPI_BAYER_PXL_ID_UNKNOWN))
+		return -1;
+
+	desc->width = d->sink.width;
+	desc->height = d->sink.height;
+	desc->stride[0] = mtk_cam_dmao_xsize(d->sink.width, desc->ipi_fmt, 4);
+	desc->stride[1] = 0;
+	desc->stride[2] = 0;
+	desc->size = desc->stride[0] * desc->height;
+
+	/* FIXME: */
+	dev = ctx->hw_raw;
+
+	ret = alloc_image_work_buffer(buf, desc->size, dev);
+	if (ret)
+		return ret;
+
+	desc->daddr = buf->daddr;
+	desc->fd = 0; /* TODO: for UFO */
+
+	dev_info(ctx->cam->dev, "%s: fmt %d %dx%d str %d size %zu da 0x%x\n",
+		 __func__, desc->ipi_fmt, desc->width, desc->height,
+		 desc->stride[0], desc->size, desc->daddr);
+	return 0;
+}
+
 int mtk_cam_job_pack(struct mtk_cam_job *job, struct mtk_cam_ctx *ctx,
 		     struct mtk_cam_request *req)
 {
@@ -2120,6 +2174,17 @@ int mtk_cam_job_pack(struct mtk_cam_job *job, struct mtk_cam_ctx *ctx,
 
 	/* clone into job for debug dump */
 	job->ipi_config = ctx->ipi_config;
+
+	if (!ctx->not_first_job) {
+
+		if (is_job_stagger(job)) {
+			ret = alloc_hdr_buffer(ctx, req);
+			if (ret)
+				return ret;
+		}
+
+		ctx->not_first_job = true;
+	}
 
 	ret = mtk_cam_job_fill_ipi_frame(job);
 	if (ret)
@@ -2307,6 +2372,9 @@ struct req_buffer_helper {
 	int io_idx; /* imgae out */
 	int mi_idx; /* meta in */
 	int mo_idx; /* meta out */
+
+	/* for stagger case */
+	bool filled_hdr_buffer;
 };
 
 /* TODO: refine this function... */
@@ -2508,6 +2576,36 @@ static int fill_img_out_hdr(struct mtkcam_ipi_img_output *io,
 	return ret;
 }
 
+static int fill_img_in_driver_buf(struct mtkcam_ipi_img_input *ii,
+				  struct mtkcam_ipi_uid uid,
+				  struct mtk_cam_driver_buf_desc *desc)
+{
+	int i;
+
+	/* uid */
+	ii->uid = uid;
+
+	/* fmt */
+	ii->fmt.format = desc->ipi_fmt;
+	ii->fmt.s = (struct mtkcam_ipi_size) {
+		.w = desc->width,
+		.h = desc->height,
+	};
+
+	for (i = 0; i < ARRAY_SIZE(ii->fmt.stride); i++)
+		ii->fmt.stride[i] = i < ARRAY_SIZE(desc->stride) ?
+			desc->stride[i] : 0;
+
+	/* buf */
+	ii->buf[0].size = desc->size;
+	ii->buf[0].iova = desc->daddr;
+	ii->buf[0].ccd_fd = 0; /* TODO: ufo : desc->fd; */
+
+	buf_printk("%s: %dx%d sz %zu\n",
+		   __func__, desc->width, desc->height, desc->size);
+	return 0;
+}
+
 static int fill_img_out(struct mtkcam_ipi_img_output *io,
 			struct mtk_cam_buffer *buf,
 			struct mtk_cam_video_device *node)
@@ -2579,6 +2677,8 @@ static int update_raw_image_buf_to_ipi_frame(struct req_buffer_helper *helper,
 				in = &fp->img_ins[helper->ii_idx];
 				++helper->ii_idx;
 				ret = fill_img_in_hdr(in, buf, node);
+
+				helper->filled_hdr_buffer = true;
 			} else {
 				ret = fill_img_out(out, buf, node);
 			}
@@ -2766,24 +2866,54 @@ static void reset_unused_io_of_ipi_frame(struct req_buffer_helper *helper)
 	}
 }
 
+static int update_work_buffer_to_ipi_frame(struct req_buffer_helper *helper)
+{
+	struct mtkcam_ipi_frame_param *fp = helper->fp;
+	struct mtk_cam_job *job = helper->job;
+	struct mtk_cam_ctx *ctx = job->src_ctx;
+	int ret = 0;
+
+	if (is_job_stagger(job)) {
+		struct mtkcam_ipi_img_input *ii;
+		struct mtkcam_ipi_uid uid;
+
+		if (helper->filled_hdr_buffer)
+			return 0;
+
+		uid.pipe_id = get_raw_subdev_idx(ctx->used_pipe);
+		uid.id = MTKCAM_IPI_RAW_RAWI_2;
+
+		ii = &fp->img_ins[helper->ii_idx];
+		++helper->ii_idx;
+
+		ret = fill_img_in_driver_buf(ii, uid, &ctx->hdr_buf_desc);
+	}
+
+	return ret;
+}
+
 static int update_job_buffer_to_ipi_frame(struct mtk_cam_job *job,
 					  struct mtkcam_ipi_frame_param *fp)
 {
 	struct req_buffer_helper helper;
 	struct mtk_cam_request *req = job->req;
 	struct mtk_cam_buffer *buf;
+	int ret;
 
 	memset(&helper, 0, sizeof(helper));
 	helper.job = job;
 	helper.fp = fp;
 
 	list_for_each_entry(buf, &req->buf_list, list) {
-		update_cam_buf_to_ipi_frame(&helper, buf);
+		ret = ret || update_cam_buf_to_ipi_frame(&helper, buf);
 	}
+
+	/* update necessary working buffer */
+	ret = ret || update_work_buffer_to_ipi_frame(&helper);
 
 	reset_unused_io_of_ipi_frame(&helper);
 
-	return 0;
+	return ret;
 }
 
 static int mtk_cam_job_fill_ipi_frame(struct mtk_cam_job *job)
@@ -2796,6 +2926,9 @@ static int mtk_cam_job_fill_ipi_frame(struct mtk_cam_job *job)
 	ret = update_job_cq_buffer_to_ipi_frame(job, fp)
 		|| update_job_raw_param_to_ipi_frame(job, fp)
 		|| update_job_buffer_to_ipi_frame(job, fp);
+
+	if (ret)
+		pr_info("%s: failed.", __func__);
 
 	return ret;
 }
