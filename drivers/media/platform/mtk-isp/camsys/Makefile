@@ -13,6 +13,12 @@ OUT_DIR=$(PWD)/out
 srctree=$(KROOT)
 src=$(subst $(KROOT),,$(PWD))
 
+ifeq ($(KDIR),)
+KDIR:=$(shell ls -d $(ROOT_DIR)/out_mgk_*/target/product/mgk_*/obj/KERNEL_OBJ/kernel-*/)
+endif
+
+$(info KDIR = "$(KDIR)")
+
 ## reference config file to fetch clang version
 CONFIG=$(KROOT)build.config.constants
 CLANG_VERSION=$(shell cat $(CONFIG) | grep CLANG_VERSION | cut -d'=' -f 2)
