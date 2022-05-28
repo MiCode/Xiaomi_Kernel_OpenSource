@@ -14,10 +14,12 @@
 /* meta out max size include 1k meta info and dma buffer size */
 #define RAW_STATS_0_SIZE \
 	ALIGN(ALIGN(sizeof(struct mtk_cam_uapi_meta_raw_stats_0), SZ_1K) + \
-	      MTK_CAM_UAPI_AAO_MAX_BUF_SIZE + MTK_CAM_UAPI_AAHO_MAX_BUF_SIZE + \
+	      MTK_CAM_UAPI_AAO_MAX_BUF_SIZE + \
+	      MTK_CAM_UAPI_AAHO_MAX_BUF_SIZE + \
 	      MTK_CAM_UAPI_LTMSO_SIZE + \
+	      MTK_CAM_UAPI_LTMSHO_SIZE + \
 	      MTK_CAM_UAPI_FLK_MAX_BUF_SIZE + \
-	      MTK_CAM_UAPI_TSFSO_SIZE + \
+	      MTK_CAM_UAPI_TSFSO_SIZE * 2 + \
 	      MTK_CAM_UAPI_TCYSO_SIZE \
 	      , (4 * SZ_1K))
 
@@ -47,17 +49,31 @@ static int set_meta_stat0_info(struct mtk_cam_uapi_meta_raw_stats_0 *stats,
 		    MTK_CAM_UAPI_AAHO_MAX_BUF_SIZE, &offset);
 	set_payload(&stats->ltm_stats.ltmso_buf,
 		    MTK_CAM_UAPI_LTMSO_SIZE, &offset);
+	set_payload(&stats->ltm_stats.ltmsho_buf,
+		    MTK_CAM_UAPI_LTMSHO_SIZE, &offset);
 	set_payload(&stats->flk_stats.flko_buf,
 		    MTK_CAM_UAPI_FLK_MAX_BUF_SIZE, &offset);
 	set_payload(&stats->tsf_stats.tsfo_r1_buf,
 		    MTK_CAM_UAPI_TSFSO_SIZE, &offset);
+	set_payload(&stats->tsf_stats.tsfo_r2_buf,
+		    MTK_CAM_UAPI_TSFSO_SIZE, &offset);
 	set_payload(&stats->tcys_stats.tcyso_buf,
 		    MTK_CAM_UAPI_TCYSO_SIZE, &offset);
+	if (pdo_max_size > 0)
+		set_payload(&stats->pde_stats.pdo_buf, pdo_max_size, &offset);
 
-	if (pdo_max_size > 0) {
-		set_payload(&stats->pde_stats.pdo_buf,
-			pdo_max_size, &offset);
-	}
+	/* w part */
+	set_payload(&stats->ae_awb_stats_w.aao_buf, 0, &offset);
+	set_payload(&stats->ae_awb_stats_w.aaho_buf, 0, &offset);
+	set_payload(&stats->ltm_stats_w.ltmso_buf, 0, &offset);
+	set_payload(&stats->ltm_stats_w.ltmsho_buf, 0, &offset);
+	set_payload(&stats->flk_stats_w.flko_buf, 0, &offset);
+	set_payload(&stats->tsf_stats_w.tsfo_r1_buf, 0, &offset);
+	set_payload(&stats->tsf_stats_w.tsfo_r2_buf, 0, &offset);
+	set_payload(&stats->tcys_stats_w.tcyso_buf, 0, &offset);
+	if (pdo_max_size > 0)
+		set_payload(&stats->pde_stats_w.pdo_buf, 0, &offset);
+
 	return 0;
 }
 
@@ -67,6 +83,10 @@ static int set_meta_stat1_info(struct mtk_cam_uapi_meta_raw_stats_1 *stats)
 
 	set_payload(&stats->af_stats.afo_buf,
 		    MTK_CAM_UAPI_AFO_MAX_BUF_SIZE, &offset);
+
+	/* w part */
+	set_payload(&stats->af_stats_w.afo_buf, 0, &offset);
+
 	return 0;
 }
 
