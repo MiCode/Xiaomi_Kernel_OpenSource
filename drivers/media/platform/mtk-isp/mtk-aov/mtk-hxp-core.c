@@ -511,7 +511,7 @@ int hxp_core_init(struct mtk_hxp *hxp_dev)
 
 		tlsf_init(&(core_info->alloc), core_info->buf_va, core_info->buf_size);
 	} else {
-		pr_info("%s: init hxp core in byass mode");
+		pr_info("%s: init hxp core in bypass mode", __func__);
 	}
 
 	spin_lock_init(&core_info->buf_lock);
