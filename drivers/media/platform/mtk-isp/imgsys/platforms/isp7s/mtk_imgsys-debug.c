@@ -13,6 +13,8 @@
 #include <linux/remoteproc.h>
 #include "mtk_imgsys-engine.h"
 #include "mtk_imgsys-debug.h"
+/* TODO */
+#include "smi.h"
 
 #define DL_CHECK_ENG_NUM 11
 #define WPE_HW_SET    3
@@ -160,8 +162,13 @@ void imgsys_main_set_init(struct mtk_imgsys_dev *imgsys_dev)
 	unsigned int HwIdx = 0;
 	uint32_t count;
 	uint32_t value;
+	int i, num;
 
 	pr_debug("%s: +.\n", __func__);
+
+	num = imgsys_dev->larbs_num - 1;
+	for (i = 0; i < num; i++)
+		mtk_smi_larb_clamp(imgsys_dev->larbs[i], 1);
 
 	for (HwIdx = 0; HwIdx < WPE_HW_SET; HwIdx++) {
 		if (HwIdx == 0)
@@ -239,6 +246,9 @@ void imgsys_main_set_init(struct mtk_imgsys_dev *imgsys_dev)
 		/* Clear HW Reset */
 		iowrite32(0x0, pWpeCtrl);
 	}
+
+	for (i = 0; i < num; i++)
+		mtk_smi_larb_clamp(imgsys_dev->larbs[i], 0);
 
 	pr_debug("%s: -.\n", __func__);
 }
