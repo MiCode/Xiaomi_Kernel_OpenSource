@@ -7317,12 +7317,14 @@ void mtk_drm_crtc_disable(struct drm_crtc *crtc, bool need_wait)
 	CRTC_MMP_MARK(crtc_id, disable, 1, 2);
 #endif
 
-	/* 9. power off all modules in this CRTC */
-	mtk_crtc_ddp_unprepare(mtk_crtc);
+	if (disp_helper_get_stage() == DISP_HELPER_STAGE_NORMAL) {
+		/* 9. power off all modules in this CRTC */
+		mtk_crtc_ddp_unprepare(mtk_crtc);
 
-	/* 10. power off MTCMOS*/
-	/* TODO: need to check how to unprepare MTCMOS */
-	mtk_drm_top_clk_disable_unprepare(crtc->dev);
+		/* 10. power off MTCMOS*/
+		/* TODO: need to check how to unprepare MTCMOS */
+		mtk_drm_top_clk_disable_unprepare(crtc->dev);
+	}
 
 	/* Workaround: if CRTC2, reset wdma->fb to NULL to prevent CRTC2
 	 * config wdma and cause KE
