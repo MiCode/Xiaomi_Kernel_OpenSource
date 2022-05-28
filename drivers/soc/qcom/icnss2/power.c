@@ -53,6 +53,12 @@ static struct icnss_clk_cfg icnss_adrestea_clk_list[] = {
 #define ICNSS_MBOX_MSG_MAX_LEN 64
 #define ICNSS_MBOX_TIMEOUT_MS 1000
 
+#define WLAN_PON_EN			"wlan_pon_en"
+#define WLAN_PON_DIS			"wlan_pon_dis"
+#define WLAN_POFF_EN			"wlan_poff_en"
+#define WLAN_POFF_DIS			"wlan_poff_dis"
+#define WLAN_PON_DELAY			20
+
 /**
  * enum icnss_vreg_param: Voltage regulator TCS param
  * @ICNSS_VREG_VOLTAGE: Provides voltage level to be configured in TCS
@@ -616,6 +622,84 @@ static int icnss_clk_off(struct list_head *clk_list)
 	return 0;
 }
 
+static int icnss_pmic_trigger_pon_poff(struct icnss_priv *priv,
+				       enum pmic_pwr_seq seq)
+{
+	int ret = 0;
+	struct icnss_pinctrl_info *pinctrl_info;
+
+	if (!priv) {
+		icnss_pr_err("plat_priv is NULL!\n");
+		ret = -ENODEV;
+		goto out;
+	}
+
+	pinctrl_info = &priv->pinctrl_info;
+	icnss_pr_err("icnss: PMIC pwr seq %u\n", seq);
+
+	switch (seq) {
+	case PMIC_PWR_OFF:
+
+		if (!IS_ERR_OR_NULL(pinctrl_info->wlan_poff_en)) {
+			ret = pinctrl_select_state(pinctrl_info->pinctrl,
+						   pinctrl_info->wlan_poff_en);
+			if (ret) {
+				icnss_pr_err("state for wlan_poff_en err=%d\n",
+					     ret);
+				goto out;
+			}
+		}
+		mdelay(WLAN_PON_DELAY);
+		if (!IS_ERR_OR_NULL(pinctrl_info->wlan_poff_dis)) {
+			ret = pinctrl_select_state(pinctrl_info->pinctrl,
+						   pinctrl_info->wlan_poff_dis);
+			if (ret) {
+				icnss_pr_err("state for wlan_poff_dis err=%d\n",
+					     ret);
+				goto out;
+			}
+		}
+		break;
+	case PMIC_PWR_ON:
+
+		if (!IS_ERR_OR_NULL(pinctrl_info->wlan_pon_en)) {
+			ret = pinctrl_select_state(pinctrl_info->pinctrl,
+						   pinctrl_info->wlan_pon_en);
+			if (ret) {
+				icnss_pr_err("state for wlan_pon_en, err=%d\n",
+					     ret);
+				goto out;
+			}
+		}
+		mdelay(WLAN_PON_DELAY);
+		if (!IS_ERR_OR_NULL(pinctrl_info->wlan_pon_dis)) {
+			ret = pinctrl_select_state(pinctrl_info->pinctrl,
+						   pinctrl_info->wlan_pon_dis);
+			if (ret) {
+				icnss_pr_err("state for wlan_pon_dis err=%d\n",
+					     ret);
+				goto out;
+			}
+		}
+		break;
+	default:
+		icnss_pr_err("Unhandled PMIC Pwr sequence %u\n", seq);
+	}
+	return 0;
+out:
+	return ret;
+}
+
+static int icnss_select_pinctrl_enable(struct icnss_priv *priv)
+{
+	return icnss_pmic_trigger_pon_poff(priv, PMIC_PWR_ON);
+}
+
+static int icnss_select_pinctrl_disable(struct icnss_priv *priv)
+{
+	return icnss_pmic_trigger_pon_poff(priv, PMIC_PWR_OFF);
+}
+
 int icnss_hw_power_on(struct icnss_priv *priv)
 {
 	int ret = 0;
@@ -640,7 +724,18 @@ int icnss_hw_power_on(struct icnss_priv *priv)
 	if (ret)
 		goto vreg_off;
 
+	if (priv->pon_gpio_control) {
+		ret = icnss_select_pinctrl_enable(priv);
+		if (ret) {
+			icnss_pr_err("Failed to select pinctrl state, err = %d\n", ret);
+			goto clk_off;
+		}
+	}
+
 	return ret;
+
+clk_off:
+	icnss_clk_off(&priv->clk_list);
 
 vreg_off:
 	icnss_vreg_off(priv);
@@ -672,6 +767,9 @@ int icnss_hw_power_off(struct icnss_priv *priv)
 	icnss_clk_off(&priv->clk_list);
 
 	ret = icnss_vreg_off(priv);
+
+	if (priv->pon_gpio_control)
+		ret = icnss_select_pinctrl_disable(priv);
 
 	return ret;
 }
@@ -939,4 +1037,65 @@ int icnss_update_cpr_info(struct icnss_priv *priv)
 				       ICNSS_VREG_VOLTAGE,
 				       ICNSS_TCS_UP_SEQ,
 				       cpr_info->voltage);
+}
+
+int icnss_get_pinctrl(struct icnss_priv *priv)
+{
+	int ret = 0;
+	struct device *dev;
+	struct icnss_pinctrl_info *pinctrl_info;
+
+	dev = &priv->pdev->dev;
+	pinctrl_info = &priv->pinctrl_info;
+
+	pinctrl_info->pinctrl = devm_pinctrl_get(dev);
+	if (IS_ERR_OR_NULL(pinctrl_info->pinctrl)) {
+		ret = PTR_ERR(pinctrl_info->pinctrl);
+		icnss_pr_err("Failed to get pinctrl, err = %d\n", ret);
+		goto out;
+	}
+
+	pinctrl_info->wlan_pon_en =
+		pinctrl_lookup_state(pinctrl_info->pinctrl,
+				     WLAN_PON_EN);
+	if (IS_ERR_OR_NULL(pinctrl_info->wlan_pon_en)) {
+		ret = PTR_ERR(pinctrl_info->wlan_pon_en);
+		icnss_pr_err("Failed to get wlan_pon_en state, err = %d\n",
+			     ret);
+		goto out;
+	}
+
+	pinctrl_info->wlan_pon_dis =
+		pinctrl_lookup_state(pinctrl_info->pinctrl,
+				     WLAN_PON_DIS);
+	if (IS_ERR_OR_NULL(pinctrl_info->wlan_pon_dis)) {
+		ret = PTR_ERR(pinctrl_info->wlan_pon_dis);
+		icnss_pr_err("Failed to get wlan_pon_dis state, err = %d\n",
+			     ret);
+		goto out;
+	}
+
+	pinctrl_info->wlan_poff_en =
+		pinctrl_lookup_state(pinctrl_info->pinctrl,
+				     WLAN_POFF_EN);
+	if (IS_ERR_OR_NULL(pinctrl_info->wlan_poff_en)) {
+		ret = PTR_ERR(pinctrl_info->wlan_poff_en);
+		icnss_pr_err("Failed to get wlan_poff_en state, err = %d\n",
+			     ret);
+		goto out;
+	}
+
+	pinctrl_info->wlan_poff_dis =
+		pinctrl_lookup_state(pinctrl_info->pinctrl,
+				     WLAN_POFF_DIS);
+	if (IS_ERR_OR_NULL(pinctrl_info->wlan_poff_dis)) {
+		ret = PTR_ERR(pinctrl_info->wlan_poff_dis);
+		icnss_pr_err("Failed to get wlan_poff_dis state, err = %d\n",
+			     ret);
+		goto out;
+	}
+
+	return 0;
+out:
+	return ret;
 }

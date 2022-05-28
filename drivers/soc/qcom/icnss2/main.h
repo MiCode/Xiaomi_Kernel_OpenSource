@@ -358,6 +358,14 @@ struct icnss_ramdump_info {
 	struct device *dev;
 };
 
+struct icnss_pinctrl_info {
+	struct pinctrl *pinctrl;
+	struct pinctrl_state *wlan_pon_en;
+	struct pinctrl_state *wlan_pon_dis;
+	struct pinctrl_state *wlan_poff_en;
+	struct pinctrl_state *wlan_poff_dis;
+};
+
 struct icnss_priv {
 	uint32_t magic;
 	struct platform_device *pdev;
@@ -486,12 +494,20 @@ struct icnss_priv {
 	bool bdf_download_support;
 	unsigned long device_config;
 	bool wpss_supported;
+	struct icnss_pinctrl_info pinctrl_info;
+	bool pon_gpio_control;
 };
 
 struct icnss_reg_info {
 	uint32_t mem_type;
 	uint32_t reg_offset;
 	uint32_t data_len;
+};
+
+enum pmic_pwr_seq {
+	PMIC_PWR_OFF,
+	PMIC_PWR_ON,
+	PMIC_PWR_OFF_ON,
 };
 
 void icnss_free_qdss_mem(struct icnss_priv *priv);
@@ -513,5 +529,7 @@ int icnss_update_cpr_info(struct icnss_priv *priv);
 void icnss_add_fw_prefix_name(struct icnss_priv *priv, char *prefix_name,
 			      char *name);
 int icnss_aop_mbox_init(struct icnss_priv *priv);
+int icnss_get_pinctrl(struct icnss_priv *priv);
+int icnss_pmic_gpio_store(struct icnss_priv *priv, uint32_t gpio, bool state);
 #endif
 
