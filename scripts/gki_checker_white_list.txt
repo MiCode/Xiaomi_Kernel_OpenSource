@@ -66,6 +66,8 @@ f security/selinux/avc.c
 f security/selinux/include/avc.h
 f drivers/tty/tty_baudrate.c
 f include/uapi/asm-generic/termbits.h
+f arch/arm64/mm/flush.c
+f arch/arm64/mm/pageattr.c
 s alloc_io_pgtable_ops
 s arm_lpae_alloc_pgtable
 s arm_v7s_alloc_pgtable
@@ -361,3 +363,5 @@ s tty_standard_install
 s tty_termios_baud_rate
 s tty_termios_input_baud_rate
 s uart_get_baud_rate
+s set_memory_valid
+s dcache_inval_poc

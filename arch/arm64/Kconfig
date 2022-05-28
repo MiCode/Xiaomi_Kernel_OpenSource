@@ -2082,3 +2082,9 @@ source "arch/arm64/kvm/Kconfig"
 if CRYPTO
 source "arch/arm64/crypto/Kconfig"
 endif
+
+config MTK_DCACHE_INVAL
+	tristate "export DCACHE_INVAL API"
+	help
+	  MTK_DCACHE_INVAL is the kernel config of export API.
+	  Fix dma cache issue.

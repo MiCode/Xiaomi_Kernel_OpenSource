@@ -14,6 +14,9 @@
 #include <asm/cache.h>
 #include <asm/tlbflush.h>
 
+#if IS_ENABLED(CONFIG_MTK_DCACHE_INVAL)
+EXPORT_SYMBOL(dcache_inval_poc);
+#endif
 void sync_icache_aliases(unsigned long start, unsigned long end)
 {
 	if (icache_is_aliasing()) {
