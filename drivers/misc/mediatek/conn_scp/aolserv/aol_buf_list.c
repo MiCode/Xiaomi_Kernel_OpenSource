@@ -16,13 +16,11 @@ struct aol_buf *aol_buffer_alloc(struct aol_buf_pool *pool)
 		return NULL;
 	if (list_empty(&pool->free_buf_list.list)) {
 		buf = kmalloc(sizeof(struct aol_buf), GFP_KERNEL);
-		if (buf == NULL)
-			return NULL;
-		memset(buf, 0, sizeof(struct aol_buf));
 		if (buf == NULL) {
 			mutex_unlock(&pool->free_buf_list.lock);
 			return NULL;
 		}
+		memset(buf, 0, sizeof(struct aol_buf));
 		INIT_LIST_HEAD(&buf->list);
 		pool->buf_size++;
 		pr_info("[%s] bufsize=[%d]", __func__, pool->buf_size);
