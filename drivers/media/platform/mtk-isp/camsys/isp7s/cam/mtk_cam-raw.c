@@ -705,31 +705,23 @@ void immediate_stream_off(struct mtk_raw_device *dev)
 				 offset, cur_val, cfg_val);
 }
 
-void stream_on(struct mtk_raw_device *dev, int on)
+void stream_on(struct mtk_raw_device *dev, int on,
+	int scq_period_ms, bool pass_vf_en)
 {
 	u32 val;
 	u32 chk_val;
 	u32 cfg_val;
-	//struct mtk_raw_pipeline *pipe;
 	u32 fps_ratio = 1;
-	int feature = 0;
 
 	dev_dbg(dev->dev, "raw %d %s %d\n", dev->id, __func__, on);
-	//pipe = dev->pipeline;
-	//feature = pipe->feature_active;
 	if (on) {
 		if (!dev->enable_hsf) {
 			val = readl_relaxed(dev->base + REG_TG_TIME_STAMP_CNT);
 			val = (val == 0) ? 1 : val;
 			fps_ratio = get_fps_ratio(dev->fps);
-			dev_info(dev->dev, "VF on - REG_TG_TIME_STAMP_CNT val:%d fps(30x):%d\n",
-				 val, fps_ratio);
-
-			if (mtk_cam_feature_is_stagger(feature))
-				writel_relaxed(SCQ_DEADLINE_MS * 3 * 1000 * SCQ_DEFAULT_CLK_RATE /
-				(val * 2) / fps_ratio, dev->base + REG_SCQ_START_PERIOD);
-			else
-				writel_relaxed(SCQ_DEADLINE_MS * 1000 * SCQ_DEFAULT_CLK_RATE /
+			dev_info(dev->dev, "VF on - TG_TIME_STAMP val:%d, fps:%d, ms:%d\n",
+				 val, fps_ratio, scq_period_ms);
+			writel_relaxed(scq_period_ms * 1000 * SCQ_DEFAULT_CLK_RATE /
 				(val * 2) / fps_ratio, dev->base + REG_SCQ_START_PERIOD);
 
 			mtk_cam_set_topdebug_rdyreq(dev->dev, dev->base, dev->yuv_base,
@@ -739,10 +731,9 @@ void stream_on(struct mtk_raw_device *dev, int on)
 			enable_tg_db(dev, 0);
 			enable_tg_db(dev, 1);
 			toggle_db(dev);
-			if (feature & MTK_CAM_FEATURE_TIMESHARE_MASK ||
-				feature & MTK_CAM_FEATURE_OFFLINE_M2M_MASK) {
+			if (pass_vf_en)
 				dev_info(dev->dev, "[%s] M2M view finder disable\n", __func__);
-			} else {
+			else {
 				val = readl_relaxed(dev->base + REG_TG_VF_CON);
 				val |= TG_VFDATA_EN;
 				writel_relaxed(val, dev->base + REG_TG_VF_CON);
@@ -896,7 +887,6 @@ static irqreturn_t mtk_irq_raw(int irq, void *data)
 	//		dmao_done_status, dmai_done_status, drop_status,
 	//		dma_ofl_status, cq_done_status, cq2_done_status,
 	//		frame_idx_inner);
-	/* translate fh reserved data to ctx id and seq no */
 
 #ifdef TO_REMOVE
 	if (unlikely(!raw_dev->pipeline || !raw_dev->pipeline->enabled_raw)) {
@@ -1057,17 +1047,91 @@ void raw_irq_handle_tg_grab_err(struct mtk_raw_device *raw_dev,
 				int dequeued_frame_seq_no)
 {
 	// TODO
+	dev_info_ratelimited(raw_dev->dev,
+		"%d Grab_Err [Outter] TG PATHCFG/SENMODE FRMSIZE/R GRABPXL/LIN:%x/%x %x/%x %x/%x\n",
+		dequeued_frame_seq_no,
+		readl_relaxed(raw_dev->base + REG_TG_PATH_CFG),
+		readl_relaxed(raw_dev->base + REG_TG_SEN_MODE),
+		readl_relaxed(raw_dev->base + REG_TG_FRMSIZE_ST),
+		readl_relaxed(raw_dev->base + REG_TG_FRMSIZE_ST_R),
+		readl_relaxed(raw_dev->base + REG_TG_SEN_GRAB_PXL),
+		readl_relaxed(raw_dev->base + REG_TG_SEN_GRAB_LIN));
+	dev_info_ratelimited(raw_dev->dev,
+		"%d Grab_Err [Inner] TG PATHCFG/SENMODE FRMSIZE/R GRABPXL/LIN:%x/%x %x/%x %x/%x\n",
+		dequeued_frame_seq_no,
+		readl_relaxed(raw_dev->base_inner + REG_TG_PATH_CFG),
+		readl_relaxed(raw_dev->base_inner + REG_TG_SEN_MODE),
+		readl_relaxed(raw_dev->base_inner + REG_TG_FRMSIZE_ST),
+		readl_relaxed(raw_dev->base_inner + REG_TG_FRMSIZE_ST_R),
+		readl_relaxed(raw_dev->base_inner + REG_TG_SEN_GRAB_PXL),
+		readl_relaxed(raw_dev->base_inner + REG_TG_SEN_GRAB_LIN));
 }
 
 void raw_irq_handle_dma_err(struct mtk_raw_device *raw_dev, int dequeued_frame_seq_no)
 {
 	// TODO
+	dev_info(raw_dev->dev,
+			 "%s: dequeued_frame_seq_no %d\n",
+			 __func__, dequeued_frame_seq_no);
+	mtk_cam_raw_dump_dma_err_st(raw_dev->dev, raw_dev->base);
+	mtk_cam_yuv_dump_dma_err_st(raw_dev->dev, raw_dev->yuv_base);
+	if (raw_dev->stagger_en)
+		mtk_cam_dump_dma_debug(raw_dev->dev,
+				       raw_dev->base + CAMDMATOP_BASE,
+				       "RAWI_R2",
+				       dbg_RAWI_R2, ARRAY_SIZE(dbg_RAWI_R2));
 }
 
 static void raw_irq_handle_tg_overrun_err(struct mtk_raw_device *raw_dev,
 					  int dequeued_frame_seq_no)
 {
 	// TODO
+	dev_info(raw_dev->dev,
+		 "%d Overrun_Err [Outter] TG PATHCFG/SENMODE FRMSIZE/R GRABPXL/LIN:%x/%x %x/%x %x/%x\n",
+		 dequeued_frame_seq_no,
+		 readl_relaxed(raw_dev->base + REG_TG_PATH_CFG),
+		 readl_relaxed(raw_dev->base + REG_TG_SEN_MODE),
+		 readl_relaxed(raw_dev->base + REG_TG_FRMSIZE_ST),
+		 readl_relaxed(raw_dev->base + REG_TG_FRMSIZE_ST_R),
+		 readl_relaxed(raw_dev->base + REG_TG_SEN_GRAB_PXL),
+		 readl_relaxed(raw_dev->base + REG_TG_SEN_GRAB_LIN));
+	dev_info(raw_dev->dev,
+		 "%d Overrun_Err [Inner] TG PATHCFG/SENMODE FRMSIZE/R GRABPXL/LIN:%x/%x %x/%x %x/%x\n",
+		 dequeued_frame_seq_no,
+		 readl_relaxed(raw_dev->base_inner + REG_TG_PATH_CFG),
+		 readl_relaxed(raw_dev->base_inner + REG_TG_SEN_MODE),
+		 readl_relaxed(raw_dev->base_inner + REG_TG_FRMSIZE_ST),
+		 readl_relaxed(raw_dev->base_inner + REG_TG_FRMSIZE_ST_R),
+		 readl_relaxed(raw_dev->base_inner + REG_TG_SEN_GRAB_PXL),
+		 readl_relaxed(raw_dev->base_inner + REG_TG_SEN_GRAB_LIN));
+	dev_info(raw_dev->dev,
+		 "REQ RAW/2/3 DMA/2:%08x/%08x/%08x/%08x/%08x\n",
+		 readl_relaxed(raw_dev->base + REG_CTL_RAW_MOD_REQ_STAT),
+		 readl_relaxed(raw_dev->base + REG_CTL_RAW_MOD2_REQ_STAT),
+		 readl_relaxed(raw_dev->base + REG_CTL_RAW_MOD3_REQ_STAT),
+		 readl_relaxed(raw_dev->base + REG_CTL_RAW_MOD5_REQ_STAT),
+		 readl_relaxed(raw_dev->base + REG_CTL_RAW_MOD6_REQ_STAT));
+	dev_info(raw_dev->dev,
+		 "RDY RAW/2/3 DMA/2:%08x/%08x/%08x/%08x/%08x\n",
+		 readl_relaxed(raw_dev->base + REG_CTL_RAW_MOD_RDY_STAT),
+		 readl_relaxed(raw_dev->base + REG_CTL_RAW_MOD2_RDY_STAT),
+		 readl_relaxed(raw_dev->base + REG_CTL_RAW_MOD3_RDY_STAT),
+		 readl_relaxed(raw_dev->base + REG_CTL_RAW_MOD5_RDY_STAT),
+		 readl_relaxed(raw_dev->base + REG_CTL_RAW_MOD6_RDY_STAT));
+	dev_info(raw_dev->dev,
+		 "REQ YUV/2/3/4 WDMA:%08x/%08x/%08x/%08x/%08x\n",
+		 readl_relaxed(raw_dev->yuv_base + REG_CTL_RAW_MOD_REQ_STAT),
+		 readl_relaxed(raw_dev->yuv_base + REG_CTL_RAW_MOD2_REQ_STAT),
+		 readl_relaxed(raw_dev->yuv_base + REG_CTL_RAW_MOD3_REQ_STAT),
+		 readl_relaxed(raw_dev->yuv_base + REG_CTL_RAW_MOD4_REQ_STAT),
+		 readl_relaxed(raw_dev->yuv_base + REG_CTL_RAW_MOD5_REQ_STAT));
+	dev_info(raw_dev->dev,
+		 "RDY YUV/2/3/4 WDMA:%08x/%08x/%08x/%08x/%08x\n",
+		 readl_relaxed(raw_dev->yuv_base + REG_CTL_RAW_MOD_RDY_STAT),
+		 readl_relaxed(raw_dev->yuv_base + REG_CTL_RAW_MOD2_RDY_STAT),
+		 readl_relaxed(raw_dev->yuv_base + REG_CTL_RAW_MOD3_RDY_STAT),
+		 readl_relaxed(raw_dev->yuv_base + REG_CTL_RAW_MOD4_RDY_STAT),
+		 readl_relaxed(raw_dev->yuv_base + REG_CTL_RAW_MOD5_RDY_STAT));
 }
 
 static int mtk_raw_pm_suspend_prepare(struct mtk_raw_device *dev)

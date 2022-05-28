@@ -79,7 +79,9 @@ struct mtk_cam_ctx {
 	/* TODO */
 	int raw_subdev_idx;
 	int camsv_subdev_idx[2];
-
+	/* stored raw data for switch exp case : prev : 1exp , next: 2exp */
+	struct mtk_raw_ctrl_data ctldata_stored;
+	s64 feature_config;
 	/* job pool */
 	struct mtk_cam_job_data jobs[JOB_NUM_PER_STREAM];
 	struct mtk_cam_pool job_pool;
@@ -121,7 +123,7 @@ struct mtk_cam_ctx {
 	struct mtkcam_ipi_config_param ipi_config;
 
 	struct device *hw_raw;
-
+	struct device *hw_sv[2];
 	//struct mtk_raw_pipeline *pipe;
 	//struct mtk_camsv_pipeline *sv_pipe[MAX_SV_PIPES_PER_STREAM];
 	//struct mtk_mraw_pipeline *mraw_pipe[MAX_MRAW_PIPES_PER_STREAM];

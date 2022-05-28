@@ -16,7 +16,7 @@ struct mtk_cam_job;
 enum MTK_CAM_JOB_ACTION {
 	/* send_event : try_set_sensor */
 	CAM_JOB_APPLY_SENSOR = 0,		/* BIT(0) = 1 */
-	CAM_JOB_APPLY_FS,			/* BIT(1) = 2 */
+	CAM_JOB_SENSOR_EXPNUM_CHANGE,	/* BIT(1) = 2 */
 	/* send_event : frame_start */
 	CAM_JOB_APPLY_CQ,			/* BIT(2) = 4 */
 	CAM_JOB_SETUP_TIMER,			/* BIT(3) = 8 */
@@ -66,7 +66,6 @@ enum EXP_CHANGE_TYPE {
 };
 
 struct mtk_cam_job_event_info {
-	enum MTK_CAMSYS_IRQ_EVENT irq_type;
 	int engine;
 	int ctx_id;
 	u64 ts_ns;
@@ -86,13 +85,15 @@ struct mtk_cam_job_work {
 	atomic_t is_queued;
 };
 struct mtk_cam_req_feature {
-	int feature_config; /* pack stage*/
-	int raw_feature;
-	int prev_feature;
+	unsigned int feature_config; /* pack stage*/
+	unsigned int raw_feature;
+	unsigned int prev_feature;
 	int switch_feature_type;
-	bool switch_prev_frame_done;
-	bool switch_curr_setting_done;
-	bool switch_done;
+	bool dcif_enable;
+	int exp_num_cur;
+	int exp_num_prev;
+	int hardware_scenario;
+	int sw_feature;
 };
 
 
@@ -132,7 +133,8 @@ struct mtk_cam_job {
 	int link_engine;
 	int proc_engine;
 	atomic_t seninf_dump_state;
-
+	wait_queue_head_t expnum_change_wq;
+	atomic_t expnum_change;
 	u64 (*timestamp_buf)[128];
 
 	/* hw devices */
@@ -141,15 +143,28 @@ struct mtk_cam_job {
 
 	struct {
 		/* job control */
-		int (*wait_done)(struct mtk_cam_job *job);
+		int (*wait_apply_sensor)(struct mtk_cam_job *job);
+		int (*wake_up_apply_sensor)(struct mtk_cam_job *job);
 		void (*cancel)(struct mtk_cam_job *job);
 		int (*dump)(struct mtk_cam_job *job /*, ... */);
 
 		/* should alway be called for clean-up resources */
 		void (*finalize)(struct mtk_cam_job *job);
 
-		/* event handle */
-		int (*update_event)(struct mtk_cam_job *job,
+		/* irq event / sensor try set event ops handle */
+		void (*update_sensor_try_set_event)(struct mtk_cam_job *job,
+				    struct mtk_cam_job_event_info *irq_info,
+				    int *action);
+		void (*update_frame_start_event)(struct mtk_cam_job *job,
+				    struct mtk_cam_job_event_info *irq_info,
+				    int *action);
+		void (*update_setting_done_event)(struct mtk_cam_job *job,
+				    struct mtk_cam_job_event_info *irq_info,
+				    int *action);
+		void (*update_afo_done_event)(struct mtk_cam_job *job,
+				    struct mtk_cam_job_event_info *irq_info,
+				    int *action);
+		void (*update_frame_done_event)(struct mtk_cam_job *job,
 				    struct mtk_cam_job_event_info *irq_info,
 				    int *action);
 		/* action */
@@ -161,12 +176,13 @@ struct mtk_cam_job {
 		/* only do job->composed = true */
 		int (*compose_done)(struct mtk_cam_job *job,
 				    struct mtkcam_ipi_frame_ack_result *cq_ret);
-
-		int (*apply_sensor)(struct mtk_cam_job *job);
-		int (*apply_fs)(struct mtk_cam_job *job);
 		int (*apply_isp)(struct mtk_cam_job *job);
-		int (*apply_exp_switch)(struct mtk_cam_job *job);
+		int (*apply_cam_mux)(struct mtk_cam_job *job);
+		/* dedicated sensor thread trigger by ctrl */
+		int (*apply_sensor)(struct mtk_cam_job *job);
+		/* workqueue trigger by ctrl */
 		int (*frame_done)(struct mtk_cam_job *job);
+		/* workqueue trigger by ctrl */
 		int (*afo_done)(struct mtk_cam_job *job);
 	} ops;
 };

@@ -2136,7 +2136,7 @@ int mtk_cam_sv_dev_config(
 			cfg_in_param.in_crop.s.w, cfg_pixel_mode);
 
 	if (hw_scen & MTK_CAMSV_SUPPORTED_SPECIAL_HW_SCENARIO) {
-		pm_runtime_get_sync(cam->engines.sv_devs[idx]);
+		// pm_runtime_get_sync(cam->engines.sv_devs[idx]);
 	} else {
 		ret = mtk_cam_sv_pipeline_config(ctx, idx, &cfg_in_param);
 		if (ret)
@@ -3097,7 +3097,7 @@ static int mtk_camsv_runtime_suspend(struct device *dev)
 
 	dev_dbg(dev, "%s:disable clock\n", __func__);
 
-	disable_irq(camsv_dev->irq);
+	// disable_irq(camsv_dev->irq);
 
 	dev_info(camsv_dev->dev, "%s:tg_sen_mode:0x%x",
 		__func__,

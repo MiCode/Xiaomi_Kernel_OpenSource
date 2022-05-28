@@ -156,7 +156,7 @@ static bool mtk_cam_request_drained(struct mtk_cam_ctrl *cam_ctrl)
 static void mtk_cam_try_set_sensor(struct mtk_cam_ctrl *cam_ctrl)
 {
 	struct mtk_cam_device *cam = cam_ctrl->ctx->cam;
-	struct mtk_cam_job *job, *job_sensor = NULL, *job_fs = NULL;
+	struct mtk_cam_job *job, *job_sensor = NULL, *job_change = NULL;
 	struct mtk_cam_job_event_info event_info;
 	int from_sof = ktime_get_boottime_ns() / 1000000 -
 			   cam_ctrl->sof_time;
@@ -164,7 +164,6 @@ static void mtk_cam_try_set_sensor(struct mtk_cam_ctrl *cam_ctrl)
 
 	/* create update event for job */
 	event_info.ctx_id = cam_ctrl->ctx->stream_id;
-	event_info.irq_type = BIT(CAMSYS_IRQ_TRY_SENSOR_SET);
 	event_info.frame_idx = atomic_read(&cam_ctrl->sensor_request_seq_no) + 1;
 	event_info.frame_idx_inner = atomic_read(&cam_ctrl->sensor_request_seq_no);
 	event_info.ts_ns = cam_ctrl->sof_time * 1000000;
@@ -174,11 +173,11 @@ static void mtk_cam_try_set_sensor(struct mtk_cam_ctrl *cam_ctrl)
 	/* Check if previous state was without cq done */
 	list_for_each_entry(job, &cam_ctrl->camsys_state_list,
 			    list) {
-		job->ops.update_event(job, &event_info, &action);
+		job->ops.update_sensor_try_set_event(job, &event_info, &action);
 		if (action & BIT(CAM_JOB_APPLY_SENSOR))
 			job_sensor = job;
-		if (action & BIT(CAM_JOB_APPLY_FS))
-			job_fs = job;
+		if (action & BIT(CAM_JOB_SENSOR_EXPNUM_CHANGE))
+			job_change = job;
 	}
 	spin_unlock(&cam_ctrl->camsys_state_lock);
 
@@ -190,10 +189,14 @@ static void mtk_cam_try_set_sensor(struct mtk_cam_ctrl *cam_ctrl)
 		dev_info(cam->dev, "[%s] ctx:%d, seq:%d (SOF+%dms)\n", __func__,
 			job_sensor->src_ctx->stream_id, job_sensor->frame_seq_no, from_sof);
 	}
-	/** Frame sync **/
-	/* make sure the all ctxs of previous request are triggered [TBC] */
-	if (job_fs)
-		job_fs->ops.apply_fs(job_fs);
+	/* job layer call v4l2_setup_ctrl */
+	if (job_change) {
+		job_change->ops.wait_apply_sensor(job_change);
+		atomic_set(&cam_ctrl->sensor_request_seq_no,
+			job_change->frame_seq_no);
+		dev_info(cam->dev, "[%s] ctx:%d, seq:%d, exposure change(SOF+%dms)\n", __func__,
+			job_change->src_ctx->stream_id, job_change->frame_seq_no, from_sof);
+	}
 }
 /* workqueue context */
 static void
@@ -348,7 +351,7 @@ static void handle_setting_done(struct mtk_cam_ctrl *cam_ctrl,
 	/* Check if previous state was without cq done */
 	list_for_each_entry(job, &cam_ctrl->camsys_state_list,
 				list) {
-		job->ops.update_event(job, event_info, &action);
+		job->ops.update_setting_done_event(job, event_info, &action);
 		if (action & BIT(CAM_JOB_STREAM_ON))
 			job_on = job;
 		if (action & BIT(CAM_JOB_EXP_NUM_SWITCH))
@@ -383,7 +386,7 @@ static void handle_meta1_done(struct mtk_cam_ctrl *cam_ctrl,
 	/* Check if previous state was without cq done */
 	list_for_each_entry(job, &cam_ctrl->camsys_state_list,
 				list) {
-		job->ops.update_event(job, event_info, &action);
+		job->ops.update_afo_done_event(job, event_info, &action);
 		if (action & BIT(CAM_JOB_DEQUE_META1))
 			job_afodeq = job;
 	}
@@ -405,7 +408,7 @@ static void handle_frame_done(struct mtk_cam_ctrl *cam_ctrl,
 	/* Check if previous state was without cq done */
 	list_for_each_entry(job, &cam_ctrl->camsys_state_list,
 				list) {
-		job->ops.update_event(job, event_info, &action);
+		job->ops.update_frame_done_event(job, event_info, &action);
 		if (action & BIT(CAM_JOB_DEQUE_ALL))
 			job_deq = job;
 	}
@@ -432,7 +435,7 @@ static void handle_raw_frame_start(struct mtk_cam_ctrl *cam_ctrl,
 	/* Check if previous state was without cq done */
 	list_for_each_entry(job, &cam_ctrl->camsys_state_list,
 				list) {
-		job->ops.update_event(job, event_info, &action);
+		job->ops.update_frame_start_event(job, event_info, &action);
 		dev_dbg(ctx->cam->dev,
 		"[%s] job:%d, state:0x%x, action:0x%x\n", __func__,
 			job->frame_seq_no, job->state, action);
@@ -475,6 +478,11 @@ static void handle_raw_frame_start(struct mtk_cam_ctrl *cam_ctrl,
 		atomic_set(&cam_ctrl->isp_request_seq_no,
 			event_info->frame_idx_inner);
 	}
+	/* switch exp */
+	if (job_swh) {
+		job_swh->ops.wake_up_apply_sensor(job_swh);
+		job_swh->ops.apply_cam_mux(job_swh);
+	}
 	/* trigger cq */
 	if (job_cq) {
 		job_cq->ops.apply_isp(job_cq);
@@ -483,10 +491,6 @@ static void handle_raw_frame_start(struct mtk_cam_ctrl *cam_ctrl,
 			cam_ctrl->dequeued_frame_seq_no, job_cq->src_ctx->stream_id,
 			job_cq->frame_seq_no, from_sof);
 	}
-	/* switch exp */
-	if (job_swh)
-		job_swh->ops.apply_exp_switch(job_swh);
-
 }
 
 static int mtk_cam_event_handle_raw(struct mtk_cam_ctrl *cam_ctrl,
@@ -499,7 +503,6 @@ static int mtk_cam_event_handle_raw(struct mtk_cam_ctrl *cam_ctrl,
 	unsigned int seq_nearby =
 		atomic_read(&cam_ctrl->enqueued_frame_seq_no);
 
-	event_info.irq_type = irq_info->irq_type;
 	event_info.engine = (CAMSYS_ENGINE_RAW << 8) + engine_id;
 	event_info.ctx_id = ctx_id;
 	event_info.ts_ns = irq_info->ts_ns;
@@ -605,7 +608,6 @@ static int mtk_camsys_event_handle_camsv(struct mtk_cam_ctrl *cam_ctrl,
 	camsv_dev = dev_get_drvdata(cam->engines.sv_devs[engine_id]);
 	bDcif = camsv_dev->pipeline->hw_scen &
 		(1 << MTKCAM_IPI_HW_PATH_OFFLINE_SRT_DCIF_STAGGER);
-	event_info.irq_type = irq_info->irq_type;
 	event_info.engine = (CAMSYS_ENGINE_CAMSV << 8) + engine_id;
 	event_info.ctx_id = ctx_id;
 	event_info.ts_ns = irq_info->ts_ns;
@@ -836,6 +838,9 @@ void mtk_cam_ctrl_stop(struct mtk_cam_ctrl *cam_ctrl)
 	struct mtk_cam_ctx *ctx = cam_ctrl->ctx;
 	struct mtk_cam_job *job, *job_prev;
 	struct mtk_raw_device *raw_dev;
+	struct mtk_camsv_device *camsv_dev;
+	int sv_i;
+
 	/* stop procedure
 	 * 1. mark 'stopped' status to skip further processing
 	 * 2. stop all working context
@@ -849,6 +854,11 @@ void mtk_cam_ctrl_stop(struct mtk_cam_ctrl *cam_ctrl)
 	if (ctx->hw_raw) {
 		raw_dev = dev_get_drvdata(ctx->hw_raw);
 		disable_irq(raw_dev->irq);
+		for (sv_i = 0; sv_i < 2; sv_i++)
+			if (ctx->hw_sv[sv_i]) {
+				camsv_dev = dev_get_drvdata(ctx->hw_sv[sv_i]);
+				disable_irq(camsv_dev->irq);
+			}
 	}
 	/* check if any process is still on working */
 	if (atomic_read(&cam_ctrl->ref_cnt)) {
@@ -867,6 +877,11 @@ void mtk_cam_ctrl_stop(struct mtk_cam_ctrl *cam_ctrl)
 	/* reset hw */
 	if (ctx->hw_raw)
 		reset(raw_dev);
+	for (sv_i = 0; sv_i < 2; sv_i++)
+		if (ctx->hw_sv[sv_i]) {
+			camsv_dev = dev_get_drvdata(ctx->hw_sv[sv_i]);
+			sv_reset(camsv_dev);
+		}
 	mtk_cam_event_eos(cam_ctrl);
 	spin_lock(&cam_ctrl->camsys_state_lock);
 	list_for_each_entry_safe(job, job_prev,

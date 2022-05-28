@@ -521,6 +521,24 @@ static void mtk_cam_clone_pipe_data_to_req(struct media_request *req)
 	}
 }
 
+static void mtk_cam_store_pipe_data_to_ctx(
+	struct mtk_cam_ctx *ctx, struct mtk_cam_request *req)
+{
+	struct mtk_cam_device *cam = ctx->cam;
+	struct mtk_cam_v4l2_pipelines *ppls = &cam->pipelines;
+	int i;
+
+	/* considering if correct when multi ctx used in media_request */
+	for (i = 0; i < ppls->num_raw; i++) {
+		struct mtk_raw_request_data *data;
+
+		if (!USED_MASK_HAS(&req->used_pipe, raw, i))
+			continue;
+		data = &req->raw_data[i];
+		ctx->ctldata_stored = data->ctrl;
+	}
+}
+
 static void mtk_cam_req_queue(struct media_request *req)
 {
 	struct mtk_cam_request *cam_req = to_mtk_cam_req(req);
@@ -661,7 +679,7 @@ int mtk_cam_dev_req_enqueue(struct mtk_cam_device *cam,
 			mtk_cam_job_return(job);
 			return -1;
 		}
-
+		mtk_cam_store_pipe_data_to_ctx(ctx, req);
 		// enque to ctrl ; job will send ipi
 		mtk_cam_ctrl_job_enque(&ctx->cam_ctrl, job);
 	}

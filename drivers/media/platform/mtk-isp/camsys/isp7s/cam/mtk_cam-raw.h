@@ -128,8 +128,10 @@ void dbload_force(struct mtk_raw_device *dev);
 void toggle_db(struct mtk_raw_device *dev);
 void enable_tg_db(struct mtk_raw_device *dev, int en);
 
+
 /* trigger */
-void stream_on(struct mtk_raw_device *dev, int on);
+void stream_on(struct mtk_raw_device *dev, int on,
+	int scq_period_ms, bool pass_vf_en);
 void immediate_stream_off(struct mtk_raw_device *dev);
 void trigger_rawi(struct mtk_raw_device *dev, signed int hw_scene);
 
