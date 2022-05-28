@@ -180,6 +180,8 @@ struct ccci_fsm_scp {
 #ifdef CCCI_KMODULE_ENABLE
 	void (*md_state_sync)(int);
 #endif
+	void __iomem *ccif2_ap_base;
+	void __iomem *ccif2_md_base;
 };
 
 struct ccci_fsm_poller {
@@ -260,6 +262,29 @@ struct ccci_fsm_command {
 	wait_queue_head_t complete_wq;
 };
 
+#define ccci_write32(b, a, v)  \
+do { \
+	writel(v, (b) + (a)); \
+	mb(); /* make sure register access in order */ \
+} while (0)
+
+
+#define ccci_write16(b, a, v)  \
+do { \
+	writew(v, (b) + (a)); \
+	mb(); /* make sure register access in order */ \
+} while (0)
+
+
+#define ccci_write8(b, a, v)  \
+do { \
+	writeb(v, (b) + (a)); \
+	mb(); /* make sure register access in order */ \
+} while (0)
+
+#define ccci_read32(b, a)               ioread32((void __iomem *)((b)+(a)))
+#define ccci_read16(b, a)               ioread16((void __iomem *)((b)+(a)))
+#define ccci_read8(b, a)                ioread8((void __iomem *)((b)+(a)))
 
 /************ APIs ************/
 
