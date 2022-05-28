@@ -894,6 +894,8 @@ log_store(struct device *pdev, struct device_attribute *attr,
 	mutex_lock(&dev->mutex);
 
 	n = strscpy(buf, buff, sizeof(buf));
+	if (n < 0)
+		return n;
 
 	if ((log_buf_idx + (n + 1)) > LOG_BUG_SZ)
 		log_buf_idx = 0;
