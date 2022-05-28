@@ -566,7 +566,7 @@ static void tp_parse_path(struct mml_dev *mml, struct mml_topology_path *path,
 			path->pq_rdma_id = path->nodes[i].id;
 		} else if (engine_pq_birsz(path->nodes[i].id)) {
 			path->nodes[i].tile_eng_idx = path->tile_engine_cnt + 1;
-			if (path->tile_engine_cnt < MML_MAX_PATH_NODES - 1)
+			if (path->tile_engine_cnt + 1 < MML_MAX_PATH_NODES)
 				path->tile_engines[path->tile_engine_cnt + 1] = i;
 			else
 				mml_err("[topology]BIRSZ tile_engines idx %d >= MML_MAX_PATH_NODES",
