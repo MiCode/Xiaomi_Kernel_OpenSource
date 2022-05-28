@@ -47,6 +47,7 @@ static struct device *dev;
 static struct mminfra_dbg *dbg;
 static bool is_aov_enable;
 static struct clk *aov_clk[AOV_CLK_NUM];
+static u32 mminfra_bkrs;
 
 #define MMINFRA_BASE		0x1e800000
 
@@ -196,8 +197,14 @@ static int mtk_mminfra_pd_callback(struct notifier_block *nb,
 		mminfra_clk_set(true);
 		mminfra_cg_check(true);
 		count = atomic_inc_return(&clk_ref_cnt);
-		cmdq_util_mminfra_cmd(0);
-		do_mminfra_bkrs(true);
+		if (mminfra_bkrs) {
+			/* avoid suspend/resume fail when mminfra debug
+			 * is also initialized in sspm
+			 */
+			cmdq_util_mminfra_cmd(0);
+			cmdq_util_mminfra_cmd(3); //mminfra rfifo init
+			do_mminfra_bkrs(true);
+		}
 		test_base = ioremap(0x1e800280, 4);
 		val = readl_relaxed(test_base);
 		if (val != 0xfff) {
@@ -212,7 +219,8 @@ static int mtk_mminfra_pd_callback(struct notifier_block *nb,
 		iounmap(test_base);
 		pr_notice("%s: enable clk ref_cnt=%d\n", __func__, count);
 	} else if (flags == GENPD_NOTIFY_PRE_OFF) {
-		do_mminfra_bkrs(false);
+		if (mminfra_bkrs)
+			do_mminfra_bkrs(false);
 		count = atomic_read(&clk_ref_cnt);
 		if (count != 1) {
 			pr_notice("%s: wrong clk ref_cnt=%d in PRE_OFF\n",
@@ -261,6 +269,7 @@ int mminfra_scmi_test(const char *val, const struct kernel_param *kp)
 
 static struct kernel_param_ops scmi_test_ops = {
 	.set = mminfra_scmi_test,
+	.get = param_get_int,
 };
 module_param_cb(scmi_test, &scmi_test_ops, NULL, 0644);
 MODULE_PARM_DESC(scmi_test, "scmi test");
@@ -305,6 +314,7 @@ int mminfra_ut(const char *val, const struct kernel_param *kp)
 
 static struct kernel_param_ops mminfra_ut_ops = {
 	.set = mminfra_ut,
+	.get = param_get_int,
 };
 module_param_cb(mminfra_ut, &mminfra_ut_ops, NULL, 0644);
 MODULE_PARM_DESC(mminfra_ut, "mminfra ut");
@@ -398,7 +408,7 @@ static int mminfra_debug_probe(struct platform_device *pdev)
 	struct resource *res;
 	const char *name;
 	struct clk *clk;
-	u32 mminfra_bkrs = 0, comm_id;
+	u32 comm_id;
 	int ret = 0, i = 0, j = 0, irq;
 
 	dbg = kzalloc(sizeof(*dbg), GFP_KERNEL);
@@ -454,6 +464,7 @@ static int mminfra_debug_probe(struct platform_device *pdev)
 			return ret;
 		}
 		cmdq_util_mminfra_cmd(0);
+		cmdq_util_mminfra_cmd(3); //mminfra rfifo init
 	}
 
 	dbg->mminfra_base = ioremap(MMINFRA_BASE, 0x8f4);
@@ -461,42 +472,41 @@ static int mminfra_debug_probe(struct platform_device *pdev)
 	cmdq_get_mminfra_cb(is_mminfra_power_on);
 	cmdq_get_mminfra_gce_cg_cb(is_gce_cg_on);
 
-	if (mminfra_bkrs == 1) {
-		mtk_pd_notifier.notifier_call = mtk_mminfra_pd_callback;
-		ret = dev_pm_genpd_add_notifier(dev, &mtk_pd_notifier);
 
-		of_property_for_each_string(node, "clock-names", prop, name) {
-			clk = devm_clk_get(dev, name);
-			if (IS_ERR(clk)) {
-				dev_notice(dev, "%s: clks of %s init failed\n",
-					__func__, name);
-				ret = PTR_ERR(clk);
+	mtk_pd_notifier.notifier_call = mtk_mminfra_pd_callback;
+	ret = dev_pm_genpd_add_notifier(dev, &mtk_pd_notifier);
+
+	of_property_for_each_string(node, "clock-names", prop, name) {
+		clk = devm_clk_get(dev, name);
+		if (IS_ERR(clk)) {
+			dev_notice(dev, "%s: clks of %s init failed\n",
+				__func__, name);
+			ret = PTR_ERR(clk);
+			break;
+		}
+
+		if (!strncmp("clk", name, 3)) {
+			if (i == MMINFRA_MAX_CLK_NUM) {
+				dev_notice(dev, "%s: clk num is wrong\n", __func__);
+				ret = -EINVAL;
 				break;
 			}
-
-			if (!strncmp("clk", name, 3)) {
-				if (i == MMINFRA_MAX_CLK_NUM) {
-					dev_notice(dev, "%s: clk num is wrong\n", __func__);
-					ret = -EINVAL;
-					break;
-				}
-				mminfra_clk[i++] = clk;
-			}
-
-			if (!strncmp("aov", name, 3)) {
-				if (j == AOV_CLK_NUM) {
-					dev_notice(dev, "%s: aov clk num is wrong\n", __func__);
-					ret = -EINVAL;
-					break;
-				}
-				aov_clk[j++] = clk;
-			}
+			mminfra_clk[i++] = clk;
 		}
-		if (of_property_read_bool(node, "init-clk-on")) {
-			atomic_inc(&clk_ref_cnt);
-			mminfra_clk_set(true);
-			pr_notice("%s: init-clk-on enable clk\n", __func__);
+
+		if (!strncmp("aov", name, 3)) {
+			if (j == AOV_CLK_NUM) {
+				dev_notice(dev, "%s: aov clk num is wrong\n", __func__);
+				ret = -EINVAL;
+				break;
+			}
+			aov_clk[j++] = clk;
 		}
+	}
+	if (of_property_read_bool(node, "init-clk-on")) {
+		atomic_inc(&clk_ref_cnt);
+		mminfra_clk_set(true);
+		pr_notice("%s: init-clk-on enable clk\n", __func__);
 	}
 
 #if IS_ENABLED(CONFIG_MTK_DEVAPC)
