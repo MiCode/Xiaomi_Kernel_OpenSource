@@ -499,11 +499,18 @@ static void fill_cb_info(struct nf_conn *nat_ip_conntrack, struct ip4header *ip,
 	t->nat.src = ip->ip_src;
 	t->nat.dst = ip->ip_dst;
 	t->nat.proto = ip->ip_p;
-	nf_tuple = &nat_ip_conntrack->tuplehash[IP_CT_DIR_ORIGINAL].tuple;
 	if (cb->is_uplink) {
+		if (nat_ip_conntrack->status & IPS_DST_NAT)
+			nf_tuple = &nat_ip_conntrack->tuplehash[IP_CT_DIR_REPLY].tuple;
+		else
+			nf_tuple = &nat_ip_conntrack->tuplehash[IP_CT_DIR_ORIGINAL].tuple;
 		cb->src[0] = nf_tuple->src.u3.ip;
 		cb->dst[0] = t->nat.dst;
 	} else {
+		if (nat_ip_conntrack->status & IPS_DST_NAT)
+			nf_tuple = &nat_ip_conntrack->tuplehash[IP_CT_DIR_ORIGINAL].tuple;
+		else
+			nf_tuple = &nat_ip_conntrack->tuplehash[IP_CT_DIR_REPLY].tuple;
 		cb->src[0] = t->nat.src;
 		cb->dst[0] = nf_tuple->dst.u3.ip;
 	}
