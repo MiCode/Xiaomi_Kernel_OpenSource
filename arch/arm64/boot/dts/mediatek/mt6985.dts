@@ -8102,27 +8102,49 @@
 //				<&smi_larb1 M4U_PORT_L1_DISP_FAKE1>;
 		#clock-cells = <1>;
 //		power-domains = <&scpsys MT6985_POWER_DOMAIN_DIS0>;
-//		clocks = <&dispsys_config_clk CLK_DISPSYS_CONFIG_DISP_MUTEX>,
-//			 <&dispsys1_config_clk CLK_DISPSYS1_CONFIG_DISP_MUTEX>,
-//			 <&dispsys_config_clk CLK_DISPSYS_CONFIG_APB_BUS>,
-//			 <&dispsys1_config_clk CLK_DISPSYS1_CONFIG_APB_BUS>,
-//			 <&dispsys_config_clk CLK_DISPSYS_CONFIG_DISP_DLI_ASYNC0>,
-//			 <&dispsys_config_clk CLK_DISPSYS_CONFIG_DISP_DLO_ASYNC0>,
-//			 <&dispsys_config_clk CLK_DISPSYS_CONFIG_DISP_DLI_ASYNC1>,
-//			 <&dispsys_config_clk CLK_DISPSYS_CONFIG_DISP_DLO_ASYNC1>,
-//			 <&dispsys_config_clk CLK_DISPSYS_CONFIG_DISP_DLI_ASYNC2>,
-//			 <&dispsys_config_clk CLK_DISPSYS_CONFIG_DISP_DLO_ASYNC2>,
-//			 <&dispsys_config_clk CLK_DISPSYS_CONFIG_DISP_DLI_ASYNC3>,
-//			 <&dispsys_config_clk CLK_DISPSYS_CONFIG_DISP_DLO_ASYNC3>,
-//			 <&dispsys1_config_clk CLK_DISPSYS1_CONFIG_DISP_DLI_ASYNC0>,
-//			 <&dispsys1_config_clk CLK_DISPSYS1_CONFIG_DISP_DLO_ASYNC0>,
-//			 <&dispsys1_config_clk CLK_DISPSYS1_CONFIG_DISP_DLI_ASYNC1>,
-//			 <&dispsys1_config_clk CLK_DISPSYS1_CONFIG_DISP_DLO_ASYNC1>,
-//			 <&dispsys1_config_clk CLK_DISPSYS1_CONFIG_DISP_DLI_ASYNC2>,
-//			 <&dispsys1_config_clk CLK_DISPSYS1_CONFIG_DISP_DLO_ASYNC2>,
-//			 <&dispsys1_config_clk CLK_DISPSYS1_CONFIG_DISP_DLI_ASYNC3>,
-//			 <&dispsys1_config_clk CLK_DISPSYS1_CONFIG_DISP_DLO_ASYNC3>;
-		clock-num = <20>;
+		clocks = <&dispsys_config_clk CLK_MM_DISP_MUTEX0>,
+			 <&dispsys1_config_clk CLK_MM1_DISP_MUTEX0>,
+			 <&dispsys_config_clk CLK_OVL_DISP_MUTEX0>,
+			 <&dispsys1_config_clk CLK_OVL1_DISP_MUTEX0>,
+			 <&dispsys_config_clk CLK_MM_CONFIG>,
+			 <&dispsys1_config_clk CLK_MM1_CONFIG>,
+			 <&dispsys_config_clk CLK_MM_DISP_DLI_ASYNC0>,
+			 <&dispsys_config_clk CLK_MM_DISP_DLI_ASYNC1>,
+			 <&dispsys_config_clk CLK_MM_DISP_DLI_ASYNC2>,
+			 <&dispsys_config_clk CLK_MM_DISP_DLI_ASYNC3>,
+			 <&dispsys_config_clk CLK_MM_DISP_DLI_ASYNC4>,
+			 <&dispsys_config_clk CLK_MM_DISP_DLI_ASYNC5>,
+			 <&dispsys_config_clk CLK_MM_DISP_DLO_ASYNC0>,
+			 <&dispsys_config_clk CLK_MM_DISP_DLO_ASYNC1>,
+			 <&dispsys1_config_clk CLK_MM1_DISP_DLI_ASYNC0>,
+			 <&dispsys1_config_clk CLK_MM1_DISP_DLI_ASYNC1>,
+			 <&dispsys1_config_clk CLK_MM1_DISP_DLI_ASYNC2>,
+			 <&dispsys1_config_clk CLK_MM1_DISP_DLI_ASYNC3>,
+			 <&dispsys1_config_clk CLK_MM1_DISP_DLI_ASYNC4>,
+			 <&dispsys1_config_clk CLK_MM1_DISP_DLI_ASYNC5>,
+			 <&dispsys1_config_clk CLK_MM1_DISP_DLO_ASYNC0>,
+			 <&dispsys1_config_clk CLK_MM1_DISP_DLO_ASYNC1>,
+			 <&dispsys_config_clk CLK_OVL_DISP_DLI_ASYNC0>,
+			 <&dispsys_config_clk CLK_OVL_DISP_DLI_ASYNC1>,
+			 <&dispsys_config_clk CLK_OVL_DISP_DLI_ASYNC2>,
+			 <&dispsys_config_clk CLK_OVL_DISP_DLO_ASYNC0>,
+			 <&dispsys_config_clk CLK_OVL_DISP_DLO_ASYNC1>,
+			 <&dispsys_config_clk CLK_OVL_DISP_DLO_ASYNC2>,
+			 <&dispsys_config_clk CLK_OVL_DISP_DLO_ASYNC3>,
+			 <&dispsys_config_clk CLK_OVL_DISP_DLO_ASYNC4>,
+			 <&dispsys_config_clk CLK_OVL_DISP_DLO_ASYNC5>,
+			 <&dispsys_config_clk CLK_OVL_DISP_DLO_ASYNC6>,
+			 <&dispsys1_config_clk CLK_OVL1_DISP_DLI_ASYNC0>,
+			 <&dispsys1_config_clk CLK_OVL1_DISP_DLI_ASYNC1>,
+			 <&dispsys1_config_clk CLK_OVL1_DISP_DLI_ASYNC2>,
+			 <&dispsys1_config_clk CLK_OVL1_DISP_DLO_ASYNC0>,
+			 <&dispsys1_config_clk CLK_OVL1_DISP_DLO_ASYNC1>,
+			 <&dispsys1_config_clk CLK_OVL1_DISP_DLO_ASYNC2>,
+			 <&dispsys1_config_clk CLK_OVL1_DISP_DLO_ASYNC3>,
+			 <&dispsys1_config_clk CLK_OVL1_DISP_DLO_ASYNC4>,
+			 <&dispsys1_config_clk CLK_OVL1_DISP_DLO_ASYNC5>,
+			 <&dispsys1_config_clk CLK_OVL1_DISP_DLO_ASYNC6>;
+		clock-num = <42>;
 //		operating-points-v2 = <&opp_table_disp0>;
 //		dvfsrc-vcore-supply = <&dvfsrc_vcore>;
 //		interconnects = <&mmqos SLAVE_LARB(31) &mmqos SLAVE_COMMON(0)>;
@@ -8274,7 +8296,7 @@
 			"MTK_DRM_OPT_RES_SWITCH",
 			"MTK_DRM_OPT_PRE_TE";
 
-		helper-value = <1>, /*MTK_DRM_OPT_STAGE*/
+		helper-value = <0>, /*MTK_DRM_OPT_STAGE*/
 			<1>, /*MTK_DRM_OPT_USE_CMDQ*/
 			<0>, /*MTK_DRM_OPT_USE_M4U*/
 			<0>, /*MTK_DRM_OPT_MMQOS_SUPPORT*/
@@ -9210,7 +9232,7 @@
 				"mediatek,mt6985-disp-ovl";
 		reg = <0 0x14402000 0 0x1000>;
 		interrupts = <GIC_SPI 387 IRQ_TYPE_LEVEL_HIGH 0>;
-//		clocks = <&dispsys_config_clk CLK_DISPSYS_CONFIG_DISP_OVL0>;
+		clocks = <&dispsys_config_clk CLK_OVL_OVL0_2L>;
 //		mediatek,larb = <&smi_larb0>;
 		mediatek,smi-id = <0>;
 //		iommus = <&disp_iommu M4U_PORT_L0_DISP_OVL0_2L_RDMA0>,
@@ -9222,7 +9244,7 @@
 				"mediatek,mt6985-disp-ovl";
 		reg = <0 0x14403000 0 0x1000>;
 		interrupts = <GIC_SPI 388 IRQ_TYPE_LEVEL_HIGH 0>;
-//		clocks = <&dispsys_config_clk CLK_DISPSYS_CONFIG_DISP_OVL0>;
+		clocks = <&dispsys_config_clk CLK_OVL_OVL1_2L>;
 //		mediatek,larb = <&smi_larb1>;
 		mediatek,smi-id = <1>;
 		iommus = <&disp_iommu M4U_PORT_L1_DISP_OVL1_2L_RDMA0>,
@@ -9234,7 +9256,7 @@
 				"mediatek,mt6985-disp-ovl";
 		reg = <0 0x14404000 0 0x1000>;
 		interrupts = <GIC_SPI 389 IRQ_TYPE_LEVEL_HIGH 0>;
-//		clocks = <&dispsys_config_clk CLK_DISPSYS_CONFIG_DISP_OVL0>;
+		clocks = <&dispsys_config_clk CLK_OVL_OVL2_2L>;
 //		mediatek,larb = <&smi_larb0>;
 		mediatek,smi-id = <0>;
 		iommus = <&disp_iommu M4U_PORT_L0_DISP_OVL2_2L_RDMA0>,
@@ -9246,7 +9268,7 @@
 				"mediatek,mt6985-disp-ovl";
 		reg = <0 0x14405000 0 0x1000>;
 		interrupts = <GIC_SPI 390 IRQ_TYPE_LEVEL_HIGH 0>;
-//		clocks = <&dispsys_config_clk CLK_DISPSYS_CONFIG_DISP_OVL0>;
+		clocks = <&dispsys_config_clk CLK_OVL_OVL3_2L>;
 //		mediatek,larb = <&smi_larb1>;
 		mediatek,smi-id = <1>;
 		iommus = <&disp_iommu M4U_PORT_L1_DISP_OVL3_2L_RDMA0>,
@@ -9259,7 +9281,7 @@
 				"mediatek,mt6985-disp-ovl";
 		reg = <0 0x14602000 0 0x1000>;
 		interrupts = <GIC_SPI 431 IRQ_TYPE_LEVEL_HIGH 0>;
-//		clocks = <&dispsys_config_clk CLK_DISPSYS_CONFIG_DISP_OVL0>;
+		clocks = <&dispsys1_config_clk CLK_OVL1_OVL0_2L>;
 //		mediatek,larb = <&smi_larb20>;
 		mediatek,smi-id = <20>;
 		iommus = <&disp_iommu M4U_PORT_L20_DISP_OVL0_2L_RDMA0>,
@@ -9271,7 +9293,7 @@
 				"mediatek,mt6985-disp-ovl";
 		reg = <0 0x14603000 0 0x1000>;
 		interrupts = <GIC_SPI 432 IRQ_TYPE_LEVEL_HIGH 0>;
-//		clocks = <&dispsys_config_clk CLK_DISPSYS_CONFIG_DISP_OVL0>;
+		clocks = <&dispsys1_config_clk CLK_OVL1_OVL1_2L>;
 //		mediatek,larb = <&smi_larb21>;
 		mediatek,smi-id = <21>;
 		iommus = <&disp_iommu M4U_PORT_L21_DISP_OVL1_2L_RDMA0>,
@@ -9283,7 +9305,7 @@
 				"mediatek,mt6985-disp-ovl";
 		reg = <0 0x14604000 0 0x1000>;
 		interrupts = <GIC_SPI 433 IRQ_TYPE_LEVEL_HIGH 0>;
-//		clocks = <&dispsys_config_clk CLK_DISPSYS_CONFIG_DISP_OVL0>;
+		clocks = <&dispsys1_config_clk CLK_OVL1_OVL2_2L>;
 //		mediatek,larb = <&smi_larb20>;
 		mediatek,smi-id = <20>;
 		iommus = <&disp_iommu M4U_PORT_L20_DISP_OVL2_2L_RDMA0>,
@@ -9295,7 +9317,7 @@
 				"mediatek,mt6985-disp-ovl";
 		reg = <0 0x14605000 0 0x1000>;
 		interrupts = <GIC_SPI 434 IRQ_TYPE_LEVEL_HIGH 0>;
-//		clocks = <&dispsys_config_clk CLK_DISPSYS_CONFIG_DISP_OVL0>;
+		clocks = <&dispsys1_config_clk CLK_OVL1_OVL3_2L>;
 //		mediatek,larb = <&smi_larb21>;
 		mediatek,smi-id = <21>;
 		iommus = <&disp_iommu M4U_PORT_L21_DISP_OVL3_2L_RDMA0>,
@@ -9669,9 +9691,9 @@
 					"mediatek,mt6985-dsi";
 		reg = <0 0x1400D000 0 0x1000>;
 		interrupts = <GIC_SPI 368 IRQ_TYPE_LEVEL_HIGH 0>;
-//		clocks = <&dispsys_config_clk CLK_DISPSYS_CONFIG_DISP_DSI0>,
-//		<&dispsys_config_clk CLK_DISPSYS_CONFIG_DSI_CLK>,
-//		<&mipi_tx_config0>;
+		clocks = <&dispsys_config_clk CLK_MM_DISP_DSI0>,
+		<&dispsys_config_clk CLK_MM_DSI_CLK>,
+		<&mipi_tx_config0>;
 		clock-names = "engine", "digital", "hs";
 		phys = <&mipi_tx_config0>;
 		phy-names = "dphy";
@@ -9682,7 +9704,7 @@
 //					"mediatek,mt6985-dsi";
 //		reg = <0 0x1420D000 0 0x1000>;
 //		interrupts = <GIC_SPI 412 IRQ_TYPE_LEVEL_HIGH 0>;
-//		clocks = <&dispsys_config_clk CLK_DISPSYS_CONFIG_DISP_DSI0>,
+//		clocks = <&dispsys1_config_clk CLK_MM1_DISP_DSI0>,
 //	};
 
 //	dsi1: dsi@1420D000 {
@@ -9691,8 +9713,8 @@
 //					"mediatek,mt6985-dsi";
 //		reg = <0 0x1420D000 0 0x1000>;
 //		interrupts = <GIC_SPI 412 IRQ_TYPE_LEVEL_HIGH 0>;
-//		clocks = <&dispsys1_config_clk CLK_DISPSYS1_CONFIG_DISP_DSI0>,
-//		<&dispsys1_config_clk CLK_DISPSYS1_CONFIG_DSI_CLK>,
+//		clocks = <&dispsys1_config_clk CLK_MM1_DISP_DSI0>,
+//		<&dispsys1_config_clk CLK_MM1_DSI_CLK>,
 //		<&mipi_tx_config1>;
 //		clock-names = "engine", "digital", "hs";
 //		phys = <&mipi_tx_config1>;
@@ -9762,8 +9784,10 @@
 		      <0 0x14601000 0 0x1000>;
 		interrupts = <GIC_SPI 354 IRQ_TYPE_LEVEL_HIGH 0>,
 			     <GIC_SPI 386 IRQ_TYPE_LEVEL_HIGH 0>;
-//		clocks = <&dispsys_config_clk CLK_DISPSYS_CONFIG_DISP_MUTEX>,
-//			 <&dispsys1_config_clk CLK_DISPSYS1_CONFIG_DISP_MUTEX>;
+		clocks = <&dispsys_config_clk CLK_MM_DISP_MUTEX0>,
+			 <&dispsys1_config_clk CLK_MM1_DISP_MUTEX0>,
+			 <&dispsys_config_clk CLK_OVL_DISP_MUTEX0>,
+			 <&dispsys1_config_clk CLK_OVL1_DISP_MUTEX0>;
 	};
 
 	opp_table_disp: opp-table-disp {
