@@ -353,6 +353,9 @@ struct mtk_cam_pde_info {
 #define V4L2_CID_MTK_SENSOR_RESET_BY_USER \
 	(V4L2_CID_USER_MTK_SENSOR_BASE + 35)
 
+#define V4L2_CID_MTK_SENSOR_IDX \
+	(V4L2_CID_USER_MTK_SENSOR_BASE + 36)
+
 
 
 /* S E N I N F */
@@ -364,5 +367,8 @@ struct mtk_cam_pde_info {
 
 #define V4L2_CID_VSYNC_NOTIFY \
 	(V4L2_CID_USER_MTK_SENINF_BASE + 3)
+
+#define V4L2_CID_TEST_PATTERN_FOR_AOV_PARAM \
+	(V4L2_CID_USER_MTK_SENINF_BASE + 4)
 
 #endif /* __MTK_CAMERA_V4l2_CONTROLS_H */

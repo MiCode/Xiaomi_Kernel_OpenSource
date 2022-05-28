@@ -116,6 +116,8 @@ struct subdrv_ctx {
 	bool is_streaming;
 	struct pinctrl *pinctrl;
 	struct pinctrl_state *state[STATE_MAXCNT];
+	struct regulator *regulator[REGULATOR_MAXCNT];
+	struct clk *clk[CLK_MAXCNT];
 };
 
 struct subdrv_ops {

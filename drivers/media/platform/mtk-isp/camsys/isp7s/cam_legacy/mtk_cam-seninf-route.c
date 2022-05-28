@@ -420,6 +420,15 @@ int mtk_cam_seninf_get_csi_param(struct seninf_ctx *ctx)
 		csi_param->not_fixed_trail_settle,
 		csi_param->legacy_phy);
 
+#if AOV_GET_PARAM
+	g_aov_param.cphy_settle = csi_param->cphy_settle;
+	g_aov_param.dphy_clk_settle = csi_param->dphy_clk_settle;
+	g_aov_param.dphy_data_settle = csi_param->dphy_data_settle;
+	g_aov_param.dphy_trail = csi_param->dphy_trail;
+	g_aov_param.legacy_phy = csi_param->legacy_phy;
+	g_aov_param.not_fixed_trail_settle = csi_param->not_fixed_trail_settle;
+#endif
+
 	return 0;
 }
 
@@ -740,6 +749,10 @@ void mtk_cam_seninf_release_cam_mux(struct seninf_ctx *ctx)
 	struct seninf_core *core = ctx->core;
 	struct seninf_cam_mux *ent, *tmp;
 
+#if AOV_GET_PARAM
+	pr_info("[%s]+\n", __func__);
+#endif
+
 	mutex_lock(&core->mutex);
 
 	/* release all cam muxs */
@@ -748,6 +761,9 @@ void mtk_cam_seninf_release_cam_mux(struct seninf_ctx *ctx)
 	}
 
 	mutex_unlock(&core->mutex);
+#if AOV_GET_PARAM
+	pr_info("[%s]-\n", __func__);
+#endif
 }
 #endif
 
@@ -881,6 +897,9 @@ int _mtk_cam_seninf_set_camtg(struct v4l2_subdev *sd,
 									vc->mux, old_camtg);
 
 				if (pad_id == PAD_SRC_RAW0) {
+#if AOV_GET_PARAM
+					g_aov_param.camtg = 33;
+#endif
 					// notify vc->cam
 					notify_fsync_cammux_usage_with_kthread(ctx);
 				}
@@ -1255,4 +1274,80 @@ void notify_fsync_cammux_usage_with_kthread(struct seninf_ctx *ctx)
 		}
 	}
 }
+
+#if AOV_GET_PARAM
+/* For send value/address to caller: scp */
+/*
+ * int mtk_cam_seninf_s_aov_param(unsigned int sensor_id,
+ *				struct mtk_seninf_aov_param **aov_seninf_param)
+ * {
+ */
+int mtk_cam_seninf_s_aov_param(unsigned int sensor_id,
+				struct mtk_seninf_aov_param *aov_seninf_param)
+{
+	int real_sensor_id = 0;
+	struct seninf_ctx *ctx = NULL;
+	struct seninf_vc *vc;
+
+	pr_info("[%s] start input sensor_id:%d\n", __func__, sensor_id);
+
+	if (g_aov_param.is_test_model) {
+		real_sensor_id = 5;
+	} else {
+		if (sensor_id == g_aov_param.sensor_idx) {
+			real_sensor_id = g_aov_param.sensor_idx;
+			pr_info("input sensor id:%d success\n", real_sensor_id);
+		} else {
+			char seninf_name[256];
+			int cnt = 0;
+
+			real_sensor_id = sensor_id;
+			pr_info("input sensor id:%d fail\n", real_sensor_id);
+			cnt = snprintf(seninf_name, 256,
+				"[%s] input sensor id:%d fail", __func__, real_sensor_id);
+			seninf_aee_print("[AEE] %s", seninf_name);
+			return -ENODEV;
+		}
+	}
+
+	/* debug use
+	 * if (g_aov_param.sensor_idx)
+	 *	pr_info("g_aov_param.sensor_idx %d\n",
+	 *		g_aov_param.sensor_idx);
+	 */
+
+	if (aov_ctx[real_sensor_id] != NULL) {
+		pr_info("sensor idx %d\n", real_sensor_id);
+		ctx = aov_ctx[real_sensor_id];
+		vc = mtk_cam_seninf_get_vc_by_pad(ctx, PAD_SRC_RAW0);
+	} else {
+		pr_info("Can't find ctx from input sensor_id:%d!\n",
+			real_sensor_id);
+		return -ENODEV;
+	}
+	if (!vc) {
+		pr_info("vc should not be NULL!\n");
+		return -ENODEV;
+	}
+
+	g_aov_param.vc = *vc;
+	// debug use
+	// pr_info("out_pad %d\n", g_aov_param.vc.out_pad);
+	if (aov_seninf_param != NULL) {
+		// aov_seninf_param = &g_aov_param;
+		memcpy((void *)aov_seninf_param, (void *)&g_aov_param,
+			sizeof(struct mtk_seninf_aov_param));
+		/* debug use
+		 * pr_info("port %d\n", aov_seninf_param->port);
+		 * pr_info("out_pad %d\n", aov_seninf_param->vc.out_pad);
+		 */
+	} else {
+		pr_info("Must allocate buffer first!\n");
+		return -ENOMEM;
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(mtk_cam_seninf_s_aov_param);
+#endif
 

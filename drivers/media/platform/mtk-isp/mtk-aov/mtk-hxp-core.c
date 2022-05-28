@@ -243,10 +243,10 @@ int hxp_core_send_cmd(struct mtk_hxp *hxp_dev, uint32_t cmd,
 					return -ENOMEM;
 				}
 
-				//pr_info("mtk_cam_seninf_s_aov_param+\n");
-				//mtk_cam_seninf_s_aov_param(user.sensor_id,
-				//	(void *)&(init->senif_info));
-				//pr_info("mtk_cam_seninf_s_aov_param-\n");
+				pr_info("mtk_cam_seninf_s_aov_param+\n");
+				mtk_cam_seninf_s_aov_param(user.sensor_id,
+					(void *)&(init->senif_info));
+				pr_info("mtk_cam_seninf_s_aov_param-\n");
 
 				core_info->sensor_id = user.sensor_id;
 
@@ -333,9 +333,9 @@ int hxp_core_send_cmd(struct mtk_hxp *hxp_dev, uint32_t cmd,
 	} else if (cmd == HXP_AOV_CMD_PWR_ON) {
 		atomic_set(&(core_info->disp_mode), HXP_AOV_MODE_DISP_ON);
 	} else if (cmd == HXP_AOV_CMD_DEINIT) {
-		//pr_info("mtk_cam_seninf_aov_runtime_resume(%d)+\n", core_info->sensor_id);
-		//mtk_cam_seninf_aov_runtime_resume(core_info->sensor_id);
-		//pr_info("mtk_cam_seninf_aov_runtime_resume(%d)-\n", core_info->sensor_id);
+		pr_info("mtk_cam_seninf_aov_runtime_resume(%d)+\n", core_info->sensor_id);
+		mtk_cam_seninf_aov_runtime_resume(core_info->sensor_id);
+		pr_info("mtk_cam_seninf_aov_runtime_resume(%d)-\n", core_info->sensor_id);
 	}
 
 	if (ack)
@@ -367,9 +367,9 @@ int hxp_core_send_cmd(struct mtk_hxp *hxp_dev, uint32_t cmd,
 	}
 
 	if (cmd == HXP_AOV_CMD_INIT) {
-		//pr_info("mtk_cam_seninf_aov_runtime_suspend(%d)+\n", core_info->sensor_id);
-		//mtk_cam_seninf_aov_runtime_suspend(core_info->sensor_id);
-		//pr_info("mtk_cam_seninf_aov_runtime_suspend(%d)-\n", core_info->sensor_id);
+		pr_info("mtk_cam_seninf_aov_runtime_suspend(%d)+\n", core_info->sensor_id);
+		mtk_cam_seninf_aov_runtime_suspend(core_info->sensor_id);
+		pr_info("mtk_cam_seninf_aov_runtime_suspend(%d)-\n", core_info->sensor_id);
 	} else if (cmd == HXP_AOV_CMD_PWR_ON) {
 #if HXP_SLB_ALLOC_FREE
 		struct slbc_data slb;

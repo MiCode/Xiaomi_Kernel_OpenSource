@@ -92,6 +92,8 @@
 #define SENINF_DEBUG_FL_ALLOC_CAM_MUX 2
 #endif
 
+#define AOV_GET_PARAM 1
+
 enum CSI_PORT {
 	CSI_PORT_0 = 0,
 	CSI_PORT_1,

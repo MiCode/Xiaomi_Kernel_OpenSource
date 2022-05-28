@@ -8,7 +8,7 @@
 
 #include <linux/ioctl.h>
 
-//#include "mtk_cam-aov.h"
+#include "mtk_cam-aov.h"
 
 /**
  * HCP (Hetero Control Processor ) is a tiny processor controlling

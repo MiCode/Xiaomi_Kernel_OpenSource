@@ -13,6 +13,7 @@
 #include "mtk_cam-seninf-def.h"
 #include "imgsensor-user.h"
 #include "mtk_cam-seninf-regs.h"
+#include "mtk_cam-aov.h"
 
 /* def V4L2_MBUS_CSI2_IS_USER_DEFINED_DATA */
 #define SENINF_VC_ROUTING
@@ -21,6 +22,10 @@
 //#define SENINF_UT_DUMP
 
 struct seninf_ctx;
+
+extern struct mtk_seninf_aov_param g_aov_param;
+
+extern struct seninf_ctx *aov_ctx[6];
 
 struct seninf_struct_pair {
 	u32 first;
@@ -35,24 +40,6 @@ struct seninf_mux {
 struct seninf_cam_mux {
 	struct list_head list;
 	int idx;
-};
-
-struct seninf_vc {
-	u8 vc;
-	u8 dt;
-	u8 feature;
-	u8 out_pad;
-	u8 pixel_mode;
-	u8 group;
-	u8 mux; // allocated per group
-	u8 mux_vr; // allocated per group
-	u8 cam; // assigned by cam driver
-	u8 tag; // assigned by cam driver
-	u8 cam_type; // assigned by cam driver
-	u8 enable;
-	u16 exp_hsize;
-	u16 exp_vsize;
-	u8 bit_depth;
 };
 
 struct seninf_vcinfo {
@@ -144,6 +131,7 @@ struct seninf_ctx {
 	unsigned int is_4d1c:1;
 	unsigned int is_cphy:1;
 	unsigned int is_test_model:4;
+	unsigned int is_aov_test_model;
 #ifdef SENINF_DEBUG
 	unsigned int is_test_streamon:1;
 #endif
