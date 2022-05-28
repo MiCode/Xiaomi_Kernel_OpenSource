@@ -1769,7 +1769,8 @@ int mtk_cam_video_set_fmt(struct mtk_cam_video_device *node, struct v4l2_format 
 				f->fmt.pix_mp.plane_fmt[i].bytesperline;
 
 	/* bytesperline & sizeimage calculation */
-	if (node->desc.dma_port == MTKCAM_IPI_CAMSV_MAIN_OUT)
+	if (node->desc.dma_port == MTKCAM_IPI_CAMSV_MAIN_OUT ||
+		node->desc.dma_port == MTKCAM_IPI_RAW_IMGO)
 		cal_image_pix_mp(node->desc.id, &try_fmt.fmt.pix_mp, 3);
 	else
 		cal_image_pix_mp(node->desc.id, &try_fmt.fmt.pix_mp, 0);
