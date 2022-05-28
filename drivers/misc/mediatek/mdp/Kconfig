@@ -6,6 +6,14 @@ config MTK_MDP
 	  and aee db. Enable performance tools which add instruction
 	  inside packet and profiling.
 
+config MTK_MDP_MT6853
+	tristate "enable MDP MT6853 driver extension"
+	help
+	  This extension enable debug feature, such as mdp-status,
+	  cmdq-record, pre-dump, timeout error dump, first error buffer
+	  and aee db. Enable performance tools which add instruction
+	  inside packet and profiling.
+
 config MTK_MDP_MT6873
 	tristate "enable MDP MT6783 driver extension"
 	help
@@ -14,8 +22,8 @@ config MTK_MDP_MT6873
 	  and aee db. Enable performance tools which add instruction
 	  inside packet and profiling.
 
-config MTK_MDP_MT6853
-	tristate "enable MDP MT6853 driver extension"
+config MTK_MDP_MT6886
+	tristate "enable MDP MT6886 driver extension"
 	help
 	  This extension enable debug feature, such as mdp-status,
 	  cmdq-record, pre-dump, timeout error dump, first error buffer
@@ -31,20 +39,20 @@ config MTK_MDP_MT6893
 	  inside packet and profiling.
 
 config MTK_MDP_MT6983
-        tristate "enable MDP MT6983 driver extension"
-        help
-          This extension enable debug feature, such as mdp-status,
-          cmdq-record, pre-dump, timeout error dump, first error buffer
-          and aee db. Enable performance tools which add instruction
-          inside packet and profiling.
+	tristate "enable MDP MT6983 driver extension"
+	help
+	  This extension enable debug feature, such as mdp-status,
+	  cmdq-record, pre-dump, timeout error dump, first error buffer
+	  and aee db. Enable performance tools which add instruction
+	  inside packet and profiling.
 
 config MTK_MDP_MT6985
-        tristate "enable MDP MT6985 driver extension"
-        help
-          This extension enable debug feature, such as mdp-status,
-          cmdq-record, pre-dump, timeout error dump, first error buffer
-          and aee db. Enable performance tools which add instruction
-          inside packet and profiling.
+	tristate "enable MDP MT6985 driver extension"
+	help
+	  This extension enable debug feature, such as mdp-status,
+	  cmdq-record, pre-dump, timeout error dump, first error buffer
+	  and aee db. Enable performance tools which add instruction
+	  inside packet and profiling.
 
 config MTK_MDP_MTEE_SUPPORT
 	tristate "enable MDP secure path for MTEE"
