@@ -42,6 +42,9 @@ static const struct INFRAAXI_ID_INFO infra_mi_id_to_master[] = {
 	{"DPMAIF_M",          { 0, 0, 0, 0, 0, 1, 2, 2, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0 } },
 	{"MCU_AP_M",          { 0, 0, 1, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 0, 0 } },
 	{"MM2SLB1_M",         { 0, 0, 0, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2 } },
+	{"GCE_D_M",           { 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0 } },
+	{"GCE_M_M",           { 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0 } },
+	{"MMUP2INFRA_M",      { 0, 0, 0, 1, 1, 1, 2, 2, 2, 2, 2, 2, 0, 0, 0, 0, 1, 0 } },
 	{"MD_AP_M",           { 1, 0, 2, 2, 2, 2, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } },
 	{"THERM_M",           { 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } },
 	{"CCU_M",             { 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } },
@@ -78,14 +81,6 @@ static const struct ADSPAXI_ID_INFO ADSP_mi15_id_to_master[] = {
 	{"DSP_M2",            { 1, 1, 0, 2, 2, 2, 2, 0 } },
 	{"DMA_M2",            { 1, 1, 1, 2, 0, 0, 0, 0 } },
 	{"AFE_M",             { 0, 0, 2, 0, 0, 0, 0, 0 } },
-};
-
-static const struct MMINFRAAXI_ID_INFO mminfra_mi_id_to_master[] = {
-	{"INFRA2MM",    { 0, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2 } },
-	{"MMINFRA_HRE", { 1, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } },
-	{"GCED",        { 0, 1, 0, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } },
-	{"GCEM",        { 1, 1, 0, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } },
-	{"MMUP",        { 0, 0, 1, 2, 2, 2, 2, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } },
 };
 
 static const char * const adsp_domain[] = {
@@ -171,33 +166,6 @@ static const char *adsp_mi_trans(uint32_t bus_id, int mi)
 	return master;
 }
 
-static const char *mminfra_mi_trans(uint32_t bus_id)
-{
-	int master_count = ARRAY_SIZE(mminfra_mi_id_to_master);
-	const char *master = "UNKNOWN_MASTER_FROM_MMINFRA";
-	int i, j;
-
-	for (i = 0; i < master_count; i++) {
-		for (j = 0; j < MMINFRAAXI_MI_BIT_LENGTH; j++) {
-			if (mminfra_mi_id_to_master[i].bit[j] == 2)
-				continue;
-			if (((bus_id >> j) & 0x1) ==
-					mminfra_mi_id_to_master[i].bit[j])
-				continue;
-			break;
-		}
-		if (j == MMINFRAAXI_MI_BIT_LENGTH) {
-			pr_debug(PFX "%s %s %s\n",
-				"catch it from MMINFRAAXI_MI",
-				"Master is:",
-				mminfra_mi_id_to_master[i].master);
-			master = mminfra_mi_id_to_master[i].master;
-		}
-	}
-
-	return master;
-}
-
 static const char *mt6985_bus_id_to_master(uint32_t bus_id, uint32_t vio_addr,
 		int slave_type, int shift_sta_bit, int domain)
 {
@@ -271,43 +239,68 @@ static const char *mt6985_bus_id_to_master(uint32_t bus_id, uint32_t vio_addr,
 				return adsp_mi_trans(bus_id, ADSP_MI15);
 		}
 	} else if (slave_type == SLAVE_TYPE_MMINFRA) {
-		/* MMUP slave */
-		if ((vio_addr >= MMUP_START_ADDR) && (vio_addr <= MMUP_END_ADDR)) {
-			if (domain < ARRAY_SIZE(mminfra_domain))
+		/* ISP slave */
+		if (((vio_addr >= IMG_START_ADDR) && (vio_addr <= IMG_END_ADDR)) ||
+			((vio_addr >= CAM_START_ADDR) && (vio_addr <= CAM_END_ADDR))) {
+			if ((bus_id & 0x7) == 0x0)
+				return "GCEM";
+			else if ((bus_id & 0x7) == 0x1)
+				return infra_mi_trans(bus_id >> 4);
+			else if ((bus_id & 0x7) == 0x3)
+				return "MMINFRA_HRE";
+			else if ((bus_id & 0x7) == 0x5)
+				return "MMUP";
+			else if ((bus_id & 0x7) == 0x7)
+				return "GCED";
+			else
 				return mminfra_domain[domain];
-			return NULL;
 
-		/* CODEC slave*/
+		/* VENC/VDEC slave*/
 		} else if ((vio_addr >= CODEC_START_ADDR) && (vio_addr <= CODEC_END_ADDR)) {
 			if ((bus_id & 0x1) == 0x0)
 				return "MMUP";
-			else
+			else if ((bus_id & 0xf) == 0x1)
 				return infra_mi_trans(bus_id >> 4);
-
-		/* DISP / MDP / DMDP slave*/
-		} else if (((vio_addr >= DISP_START_ADDR) && (vio_addr <= DISP_END_ADDR)) ||
-			((vio_addr >= MDP_START_ADDR) && (vio_addr <= MDP_END_ADDR))) {
-			if ((bus_id & 0x1) == 0x0)
+			else if ((bus_id & 0xf) == 0x3)
+				return "MMINFRA_HRE";
+			else if ((bus_id & 0xf) == 0x7)
 				return "GCED";
-			else
-				return infra_mi_trans(bus_id >> 4);
-
-		/* DISP2 / DPTX slave*/
-		} else if (((vio_addr >= DISP2_START_ADDR) && (vio_addr <= DISP2_END_ADDR)) ||
-			((vio_addr >= DPTX_START_ADDR) && (vio_addr <= DPTX_END_ADDR))) {
-			if ((bus_id & 0x3) == 0x0)
-				return "GCED";
-			else if ((bus_id & 0x3) == 0x1)
+			else if ((bus_id & 0xf) == 0x9)
 				return "GCEM";
 			else
-				return infra_mi_trans(bus_id >> 5);
+				return mminfra_domain[domain];
+
+		/* DISP/OVL/MML */
+		} else if (((vio_addr >= DISP_START_ADDR) && (vio_addr <= DISP_END_ADDR)) ||
+			((vio_addr >= OVL_START_ADDR) && (vio_addr <= OVL_END_ADDR)) ||
+			((vio_addr >= MML_START_ADDR) && (vio_addr <= MML_END_ADDR))) {
+			if ((bus_id & 0x1) == 0x0)
+				return "GCED";
+			else if ((bus_id & 0xf) == 0x1)
+				return infra_mi_trans(bus_id >> 4);
+			else if ((bus_id & 0xf) == 0x3)
+				return "MMINFRA_HRE";
+			else if ((bus_id & 0xf) == 0x5)
+				return "MMUP";
+			else if ((bus_id & 0xf) == 0x9)
+				return "GCEM";
+			else
+				return mminfra_domain[domain];
 
 		/* other mminfra slave*/
 		} else {
 			if ((bus_id & 0x7) == 0x0)
 				return infra_mi_trans(bus_id >> 3);
+			else if ((bus_id & 0x7) == 0x1)
+				return "MMINFRA_HRE";
+			else if ((bus_id & 0x7) == 0x2)
+				return "MMUP";
+			else if ((bus_id & 0x7) == 0x3)
+				return "GCED";
+			else if ((bus_id & 0xf) == 0x4)
+				return "GCEM";
 			else
-				return mminfra_mi_trans(bus_id);
+				return mminfra_domain[domain];
 		}
 	} else if (slave_type == SLAVE_TYPE_MMUP) {
 		return mminfra_domain[domain];
