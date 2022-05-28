@@ -259,7 +259,7 @@ static int mmdvfs_set_force_step(const char *val, const struct kernel_param *kp)
 	s16 opp = 0;
 
 	ret = sscanf(val, "%hu %hd", &idx, &opp);
-	if (ret != 2 || idx < 0 || idx >= PWR_MMDVFS_NUM || opp >= MAX_OPP) {
+	if (ret != 2 || idx >= PWR_MMDVFS_NUM || opp >= MAX_OPP) {
 		MMDVFS_ERR("input failed:%d idx:%hu opp:%hd", ret, idx, opp);
 		return -EINVAL;
 	}
@@ -323,7 +323,7 @@ static int mmdvfs_set_vote_step(const char *val, const struct kernel_param *kp)
 	s16 opp = 0;
 
 	ret = sscanf(val, "%hu %hd", &idx, &opp);
-	if (ret != 2 || idx < 0 || idx >= PWR_MMDVFS_NUM || opp >= MAX_OPP) {
+	if (ret != 2 || idx >= PWR_MMDVFS_NUM || opp >= MAX_OPP) {
 		MMDVFS_ERR("failed:%d idx:%hu opp:%hd", ret, idx, opp);
 		return -EINVAL;
 	}
