@@ -84,18 +84,6 @@ struct mtk_cam_job_work {
 	struct work_struct work;
 	atomic_t is_queued;
 };
-struct mtk_cam_req_feature {
-	unsigned int feature_config; /* pack stage*/
-	unsigned int raw_feature;
-	unsigned int prev_feature;
-	int switch_feature_type;
-	bool dcif_enable;
-	int exp_num_cur;
-	int exp_num_prev;
-	int hardware_scenario;
-	int sw_feature;
-};
-
 
 struct mtk_cam_job {
 	struct mtk_cam_request *req;
@@ -125,7 +113,6 @@ struct mtk_cam_job {
 	int sensor_set_margin;	/* allow apply sensor before SOF + x (ms)*/
 	struct mtk_cam_job_work frame_done_work;
 	struct mtk_cam_job_work meta1_done_work;
-	struct mtk_cam_req_feature feature;
 	u64 timestamp;
 	u64 timestamp_mono;
 	struct media_request_object *sensor_hdl_obj;	/* for complete only - TBC*/
@@ -133,18 +120,19 @@ struct mtk_cam_job {
 	int link_engine;
 	int proc_engine;
 	atomic_t seninf_dump_state;
-	wait_queue_head_t expnum_change_wq;
-	atomic_t expnum_change;
+	unsigned int feature_config;	/* config stage by res (job type) */
+	unsigned int feature_job;		/* job 's feature by feature control */
+	int exp_num_cur;		/* for ipi */
+	int exp_num_prev;		/* for ipi */
+	int hardware_scenario;	/* for ipi */
+	int sw_feature;			/* for ipi */
 	u64 (*timestamp_buf)[128];
-
 	/* hw devices */
 	struct device *hw_raw;
 	/* job private end */
 
 	struct {
 		/* job control */
-		int (*wait_apply_sensor)(struct mtk_cam_job *job);
-		int (*wake_up_apply_sensor)(struct mtk_cam_job *job);
 		void (*cancel)(struct mtk_cam_job *job);
 		int (*dump)(struct mtk_cam_job *job /*, ... */);
 
@@ -167,23 +155,29 @@ struct mtk_cam_job {
 		void (*update_frame_done_event)(struct mtk_cam_job *job,
 				    struct mtk_cam_job_event_info *irq_info,
 				    int *action);
+		void (*compose_done)(struct mtk_cam_job *job,
+				    struct mtkcam_ipi_frame_ack_result *cq_ret);
 		/* action */
-		int (*stream_on)(struct mtk_cam_job *job,
-						bool on);
+		int (*stream_on)(struct mtk_cam_job *job, bool on);
 		int (*reset)(struct mtk_cam_job *job);
 		int (*compose)(struct mtk_cam_job *job);
-
-		/* only do job->composed = true */
-		int (*compose_done)(struct mtk_cam_job *job,
-				    struct mtkcam_ipi_frame_ack_result *cq_ret);
 		int (*apply_isp)(struct mtk_cam_job *job);
-		int (*apply_cam_mux)(struct mtk_cam_job *job);
 		/* dedicated sensor thread trigger by ctrl */
 		int (*apply_sensor)(struct mtk_cam_job *job);
 		/* workqueue trigger by ctrl */
 		int (*frame_done)(struct mtk_cam_job *job);
 		/* workqueue trigger by ctrl */
 		int (*afo_done)(struct mtk_cam_job *job);
+
+		/* sensor timing specific job  - stagger job / mstream job / subsample job /... */
+		/* wait apply sensor mode switch - sensor thread */
+		int (*wait_apply_sensor)(struct mtk_cam_job *job);
+		/* wakeup apply sensor mode switch - irq-threaded thread */
+		int (*wake_up_apply_sensor)(struct mtk_cam_job *job);
+
+		/* switch control - stagger job / mstream job ... */
+		/* apply cam mux switch need to after last exp SOF - irq-threaded thread */
+		int (*apply_cam_mux)(struct mtk_cam_job *job);
 	} ops;
 };
 
@@ -202,15 +196,27 @@ struct mtk_cam_job {
 
 struct mtk_cam_normal_job {
 	struct mtk_cam_job job; /* always on top */
-
-	/* TODO */
 };
 struct mtk_cam_stagger_job {
 	struct mtk_cam_job job; /* always on top */
 
-	/* TODO */
+	wait_queue_head_t expnum_change_wq;
+	atomic_t expnum_change;
+	unsigned int prev_feature;
+	int switch_feature_type;
+	bool dcif_enable;
+	bool need_drv_buffer_check;
 };
 struct mtk_cam_mstream_job {
+	struct mtk_cam_job job; /* always on top */
+
+	/* TODO */
+	wait_queue_head_t expnum_change_wq;
+	atomic_t expnum_change;
+	unsigned int prev_feature;
+	int switch_feature_type;
+};
+struct mtk_cam_subsample_job {
 	struct mtk_cam_job job; /* always on top */
 
 	/* TODO */
@@ -234,6 +240,7 @@ struct mtk_cam_job_data {
 		struct mtk_cam_normal_job n;
 		struct mtk_cam_stagger_job s;
 		struct mtk_cam_mstream_job m;
+		struct mtk_cam_subsample_job ss;
 		struct mtk_cam_timeshare_job t;
 	};
 };
