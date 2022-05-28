@@ -108,66 +108,6 @@ static const struct mtk_swpm_sysfs_op dump_power_fops = {
 	.fs_read = dump_power_read,
 };
 
-static ssize_t dram_bw_read(char *ToUser, size_t sz, void *priv)
-{
-	char *p = ToUser;
-	unsigned long flags;
-
-	if (!ToUser)
-		return -EINVAL;
-
-	spin_lock_irqsave(&swpm_snap_spinlock, flags);
-	swpm_dbg_log("DRAM BW [N]R/W=%d/%d,[S]R/W=%d/%d\n",
-		mem_idx_snap.read_bw[0],
-		mem_idx_snap.write_bw[0],
-		mem_idx_snap.read_bw[1],
-		mem_idx_snap.write_bw[1]);
-	spin_unlock_irqrestore(&swpm_snap_spinlock, flags);
-
-	return p - ToUser;
-}
-
-static const struct mtk_swpm_sysfs_op dram_bw_fops = {
-	.fs_read = dram_bw_read,
-};
-
-static unsigned int pmu_ms_mode;
-static ssize_t pmu_ms_mode_read(char *ToUser, size_t sz, void *priv)
-{
-	char *p = ToUser;
-
-	if (!ToUser)
-		return -EINVAL;
-
-	swpm_dbg_log("echo <0/1> > /proc/swpm/pmu_ms_mode\n");
-	swpm_dbg_log("%d\n", pmu_ms_mode);
-
-	return p - ToUser;
-}
-
-static ssize_t pmu_ms_mode_write(char *FromUser, size_t sz, void *priv)
-{
-	unsigned int enable = 0;
-
-	if (!FromUser)
-		return -EINVAL;
-
-	if (!kstrtouint(FromUser, 0, &enable)) {
-		pmu_ms_mode = enable;
-
-		/* TODO: remove this path after qos commander ready */
-		swpm_set_update_cnt(0, (0x1 << SWPM_CODE_USER_BIT) |
-				    pmu_ms_mode);
-	}
-
-	return sz;
-}
-
-static const struct mtk_swpm_sysfs_op pmu_ms_mode_fops = {
-	.fs_read = pmu_ms_mode_read,
-	.fs_write = pmu_ms_mode_write,
-};
-
 static unsigned int swpm_pmsr_en = 1;
 static ssize_t swpm_pmsr_en_read(char *ToUser, size_t sz, void *priv)
 {
@@ -192,7 +132,7 @@ static ssize_t swpm_pmsr_en_write(char *FromUser, size_t sz, void *priv)
 	if (!kstrtouint(FromUser, 0, &enable)) {
 		if (!enable) {
 			swpm_pmsr_en = enable;
-			swpm_set_update_cnt(0, 9696 << SWPM_CODE_USER_BIT);
+			swpm_set_cmd(PMSR_CFG_CODE << SWPM_CODE_USER_BIT, 0);
 		}
 	}
 
@@ -202,45 +142,6 @@ static ssize_t swpm_pmsr_en_write(char *FromUser, size_t sz, void *priv)
 static const struct mtk_swpm_sysfs_op swpm_pmsr_en_fops = {
 	.fs_read = swpm_pmsr_en_read,
 	.fs_write = swpm_pmsr_en_write,
-};
-
-static unsigned int core_static_data_tmp;
-static ssize_t core_static_replace_read(char *ToUser, size_t sz, void *priv)
-{
-	char *p = ToUser;
-
-	if (!ToUser)
-		return -EINVAL;
-
-	swpm_dbg_log("echo <val> > /proc/swpm/core_static_replace\n");
-	swpm_dbg_log("default: %d, replaced %d (valid:0~999)\n",
-		   swpm_core_static_data_get(),
-		   core_static_data_tmp);
-
-	return p - ToUser;
-}
-
-static ssize_t core_static_replace_write(char *FromUser, size_t sz, void *priv)
-{
-	unsigned int val = 0;
-
-	if (!FromUser)
-		return -EINVAL;
-
-	if (!kstrtouint(FromUser, 0, &val)) {
-		core_static_data_tmp = (val < 1000) ? val : 0;
-
-		/* reset core static power data */
-		swpm_core_static_replaced_data_set(core_static_data_tmp);
-		swpm_core_static_data_init();
-	}
-
-	return sz;
-}
-
-static const struct mtk_swpm_sysfs_op core_static_replace_fops = {
-	.fs_read = core_static_replace_read,
-	.fs_write = core_static_replace_write,
 };
 
 #if SWPM_EXT_DBG
@@ -404,14 +305,8 @@ static void swpm_v6983_dbg_fs_init(void)
 			, 0644, &enable_fops, NULL, NULL);
 	mtk_swpm_sysfs_entry_func_node_add("dump_power"
 			, 0444, &dump_power_fops, NULL, NULL);
-	mtk_swpm_sysfs_entry_func_node_add("dram_bw"
-			, 0444, &dram_bw_fops, NULL, NULL);
-	mtk_swpm_sysfs_entry_func_node_add("pmu_ms_mode"
-			, 0644, &pmu_ms_mode_fops, NULL, NULL);
 	mtk_swpm_sysfs_entry_func_node_add("swpm_pmsr_en"
 			, 0644, &swpm_pmsr_en_fops, NULL, NULL);
-	mtk_swpm_sysfs_entry_func_node_add("core_static"
-			, 0644, &core_static_replace_fops, NULL, NULL);
 #if SWPM_EXT_DBG
 	mtk_swpm_sysfs_entry_func_node_add("swpm_sp_ddr_idx"
 			, 0444, &swpm_sp_ddr_idx_fops, NULL, NULL);

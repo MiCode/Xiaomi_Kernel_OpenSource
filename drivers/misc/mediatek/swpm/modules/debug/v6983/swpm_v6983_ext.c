@@ -37,6 +37,8 @@ static DEFINE_SPINLOCK(swpm_sp_spinlock);
 /* share sram for extension index */
 static struct share_index_ext *share_idx_ref_ext;
 static struct share_ctrl_ext *share_idx_ctrl_ext;
+static struct mem_swpm_data *mem_swpm_data_ptr;
+static struct core_swpm_data *core_swpm_data_ptr;
 
 static unsigned int update_interval_ms = DEFAULT_UPDATE_MS;
 
@@ -263,11 +265,10 @@ static void swpm_sp_timer_init(void)
 {
 	swpm_sp_timer.function = swpm_sp_routine;
 	timer_setup(&swpm_sp_timer, swpm_sp_routine, TIMER_DEFERRABLE);
-	mod_timer(&swpm_sp_timer, jiffies + msecs_to_jiffies(update_interval_ms));
+	mod_timer(&swpm_sp_timer,
+		  jiffies + msecs_to_jiffies(update_interval_ms));
 }
 
-/* void swpm_v6983_ext_init(phys_addr_t ref_addr, */
-/*		  phys_addr_t ctrl_addr) */
 void swpm_v6983_ext_init(void)
 {
 	int i, j;
@@ -279,27 +280,28 @@ void swpm_v6983_ext_init(void)
 		core_ip_stats[i].vol_times =
 		kmalloc(sizeof(struct ip_vol_times) * NR_CORE_VOLT, GFP_KERNEL);
 		if (core_ip_stats[i].vol_times) {
-			for (j = 0; core_ptr && j < NR_CORE_VOLT; j++) {
+			for (j = 0; core_swpm_data_ptr &&
+			     j < NR_CORE_VOLT; j++) {
 				core_ip_stats[i].vol_times[j].active_time = 0;
 				core_ip_stats[i].vol_times[j].idle_time = 0;
 				core_ip_stats[i].vol_times[j].off_time = 0;
 				core_ip_stats[i].vol_times[j].vol =
-					core_ptr->core_volt_tbl[j];
+					core_swpm_data_ptr->core_volt_tbl[j];
 			}
 		}
 	}
 	/* core duration initialize */
-	for (i = 0; core_ptr && i < NR_CORE_VOLT; i++) {
+	for (i = 0; core_swpm_data_ptr && i < NR_CORE_VOLT; i++) {
 		core_vol_duration[i].duration = 0;
 		core_vol_duration[i].vol =
-			core_ptr->core_volt_tbl[i];
+			core_swpm_data_ptr->core_volt_tbl[i];
 	}
 
 	/* ddr act duration initialize */
-	for (i = 0; mem_ptr && i < NR_DDR_FREQ; i++) {
+	for (i = 0; mem_swpm_data_ptr && i < NR_DDR_FREQ; i++) {
 		ddr_act_duration[i].active_time = 0;
 		ddr_act_duration[i].freq =
-		OPP_FREQ_TO_DDR(mem_ptr->ddr_opp_freq[i]);
+		OPP_FREQ_TO_DDR(mem_swpm_data_ptr->ddr_opp_freq[i]);
 	}
 	/* ddr sr pd duration initialize */
 	ddr_sr_pd_duration.sr_time = 0;
@@ -312,10 +314,11 @@ void swpm_v6983_ext_init(void)
 		ddr_ip_stats[i].bc_stats =
 		kmalloc(sizeof(struct ddr_bc_stats) * NR_DDR_FREQ, GFP_KERNEL);
 		if (ddr_ip_stats[i].bc_stats) {
-			for (j = 0; mem_ptr && j < NR_DDR_FREQ; j++) {
+			for (j = 0; mem_swpm_data_ptr &&
+			     j < NR_DDR_FREQ; j++) {
 				ddr_ip_stats[i].bc_stats[j].value = 0;
 				ddr_ip_stats[i].bc_stats[j].freq =
-				OPP_FREQ_TO_DDR(mem_ptr->ddr_opp_freq[j]);
+				OPP_FREQ_TO_DDR(mem_swpm_data_ptr->ddr_opp_freq[j]);
 			}
 		}
 	}
@@ -332,9 +335,17 @@ void swpm_v6983_ext_init(void)
 		share_idx_ctrl_ext =
 		(struct share_ctrl_ext *)
 		sspm_sbuf_get(wrap_d->share_ctrl_ext_addr);
+		mem_swpm_data_ptr =
+		(struct mem_swpm_data *)
+		sspm_sbuf_get(wrap_d->mem_swpm_data_addr);
+		core_swpm_data_ptr =
+		(struct core_swpm_data *)
+		sspm_sbuf_get(wrap_d->core_swpm_data_addr);
 	} else {
 		share_idx_ref_ext = NULL;
 		share_idx_ctrl_ext = NULL;
+		mem_swpm_data_ptr = NULL;
+		core_swpm_data_ptr = NULL;
 	}
 
 #if SWPM_TEST

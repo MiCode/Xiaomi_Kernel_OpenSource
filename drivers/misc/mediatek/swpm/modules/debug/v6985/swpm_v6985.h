@@ -50,6 +50,17 @@ enum profile_point {
 	NR_PROFILE_POINT
 };
 
+enum swpm_type {
+	CPU_SWPM_TYPE,
+	GPU_SWPM_TYPE,
+	CORE_SWPM_TYPE,
+	MEM_SWPM_TYPE,
+	ISP_SWPM_TYPE,
+	ME_SWPM_TYPE,
+
+	NR_SWPM_TYPE,
+};
+
 enum power_meter_type {
 	CPU_POWER_METER,
 	GPU_POWER_METER,

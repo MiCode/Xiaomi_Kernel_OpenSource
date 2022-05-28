@@ -8,6 +8,7 @@
 #include <linux/kernel.h>
 #include <linux/ktime.h>
 #include <linux/module.h>
+#include <linux/notifier.h>
 #include <linux/of.h>
 #include <linux/sched.h>
 #include <linux/slab.h>
@@ -15,8 +16,14 @@
 #include <linux/syscalls.h>
 #include <linux/timer.h>
 #include <linux/types.h>
+#include <linux/workqueue.h>
+
+#if IS_ENABLED(CONFIG_MTK_QOS_FRAMEWORK)
+#include <mtk_qos_ipi.h>
+#endif
 
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_SSPM_SUPPORT)
+#include <sspm_reservedmem.h>
 #include <sspm_reservedmem_define.h>
 #endif
 
@@ -37,8 +44,12 @@ EXPORT_SYMBOL(swpm_mutex);
 struct timer_list swpm_timer;
 EXPORT_SYMBOL(swpm_timer);
 
+struct workqueue_struct *swpm_common_wq;
+EXPORT_SYMBOL(swpm_common_wq);
+
 unsigned int swpm_log_interval_ms = DEFAULT_LOG_INTERVAL_MS;
 EXPORT_SYMBOL(swpm_log_interval_ms);
+
 /****************************************************************************
  *  Local Variables
  ****************************************************************************/
@@ -49,6 +60,7 @@ static struct swpm_manager swpm_m = {
 	.ref_tbl_size = 0,
 };
 
+static struct atomic_notifier_head swpm_notifier_list;
 /***************************************************************************
  *  API
  ***************************************************************************/
@@ -98,7 +110,7 @@ int swpm_interface_manager_init(struct swpm_mem_ref_tbl *ref_tbl,
 }
 EXPORT_SYMBOL(swpm_interface_manager_init);
 
-int swpm_mem_addr_request(enum swpm_type id, phys_addr_t **ptr)
+int swpm_mem_addr_request(unsigned int id, phys_addr_t **ptr)
 {
 	int ret = 0;
 
@@ -138,7 +150,9 @@ int swpm_pmu_enable(enum swpm_pmu_user id,
 		return SWPM_ARGS_ERR;
 
 	cmd_code = (!!enable) | (id << SWPM_CODE_USER_BIT);
-	SWPM_OPS->cmd(SET_PMU, cmd_code);
+
+	if (SWPM_OPS->cmd)
+		SWPM_OPS->cmd(SET_PMU, cmd_code);
 
 	return SWPM_SUCCESS;
 }
@@ -162,9 +176,83 @@ int swpm_reserve_mem_init(phys_addr_t *virt,
 }
 EXPORT_SYMBOL(swpm_reserve_mem_init);
 
+void swpm_set_cmd(unsigned int type, unsigned int cnt)
+{
+	swpm_lock(&swpm_mutex);
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) &&		\
+	IS_ENABLED(CONFIG_MTK_QOS_FRAMEWORK)
+	{
+		struct qos_ipi_data qos_d;
+
+		qos_d.cmd = QOS_IPI_SWPM_SET_UPDATE_CNT;
+		qos_d.u.swpm_set_update_cnt.type = type;
+		qos_d.u.swpm_set_update_cnt.cnt = cnt;
+		qos_ipi_to_sspm_scmi_command(qos_d.cmd, type, cnt, 0,
+					     QOS_IPI_SCMI_SET);
+	}
+#endif
+	swpm_unlock(&swpm_mutex);
+}
+EXPORT_SYMBOL(swpm_set_cmd);
+
+unsigned int swpm_set_and_get_cmd(unsigned int args_0,
+				  unsigned int args_1,
+				  unsigned int args_2)
+{
+	unsigned int ret = 0;
+
+	swpm_lock(&swpm_mutex);
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) &&              \
+	IS_ENABLED(CONFIG_MTK_QOS_FRAMEWORK)
+	{
+		struct qos_ipi_data qos_d;
+
+		qos_d.cmd = QOS_IPI_SWPM_INIT;
+		qos_d.u.swpm_init.dram_addr = args_0;
+		qos_d.u.swpm_init.dram_size = args_1;
+		qos_d.u.swpm_init.dram_ch_num = args_2;
+		qos_ipi_to_sspm_scmi_command(qos_d.cmd,
+					     args_0, args_1, args_2,
+					     QOS_IPI_SCMI_SET);
+		ret = qos_ipi_to_sspm_scmi_command(qos_d.cmd,
+						   args_0, args_1, args_2,
+						   QOS_IPI_SCMI_GET);
+	}
+#endif
+	swpm_unlock(&swpm_mutex);
+
+	return ret;
+}
+EXPORT_SYMBOL(swpm_set_and_get_cmd);
+
+int swpm_register_event_notifier(struct notifier_block *nb)
+{
+	int err;
+
+	err = atomic_notifier_chain_register(&swpm_notifier_list, nb);
+	return err;
+}
+EXPORT_SYMBOL_GPL(swpm_register_event_notifier);
+
+int swpm_unregister_event_notifier(struct notifier_block *nb)
+{
+	return atomic_notifier_chain_unregister(&swpm_notifier_list, nb);
+}
+EXPORT_SYMBOL_GPL(swpm_unregister_event_notifier);
+
+int swpm_call_event_notifier(unsigned long val, void *v)
+{
+	return atomic_notifier_call_chain(&swpm_notifier_list, val, v);
+}
+EXPORT_SYMBOL_GPL(swpm_call_event_notifier);
+
 static int __init swpm_init(void)
 {
 	int ret = 0;
+
+	swpm_common_wq = create_workqueue("swpm_common_wq");
+
+	ATOMIC_INIT_NOTIFIER_HEAD(&swpm_notifier_list);
 
 	return ret;
 }
@@ -172,6 +260,8 @@ static int __init swpm_init(void)
 #ifdef MTK_SWPM_KERNEL_MODULE
 static void __exit swpm_deinit(void)
 {
+	flush_workqueue(swpm_common_wq);
+	destroy_workqueue(swpm_common_wq);
 }
 
 module_init(swpm_init);

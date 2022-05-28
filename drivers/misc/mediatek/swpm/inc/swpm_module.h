@@ -11,6 +11,7 @@
 #include <linux/printk.h>
 #include <linux/timer.h>
 #include <linux/types.h>
+#include <linux/workqueue.h>
 
 /****************************************************************************
  *  Macro Definitions
@@ -31,8 +32,6 @@
 
 #define DEFAULT_LOG_INTERVAL_MS		(1000)
 #define MAX_IP_NAME_LENGTH (16)
-/* SWPM command dispatcher with user bits */
-#define SWPM_CODE_USER_BIT (16)
 /****************************************************************************
  *  Type Definitions
  ****************************************************************************/
@@ -43,15 +42,10 @@ enum swpm_return_type {
 	SWPM_ARGS_ERR = 3,
 };
 
-enum swpm_type {
-	CPU_SWPM_TYPE,
-	GPU_SWPM_TYPE,
-	CORE_SWPM_TYPE,
-	MEM_SWPM_TYPE,
-	ISP_SWPM_TYPE,
-	ME_SWPM_TYPE,
-
-	NR_SWPM_TYPE,
+/* SWPM command dispatcher with user bits */
+#define SWPM_CODE_USER_BIT (16)
+enum swpm_cmd_cfg_code {
+	PMSR_CFG_CODE = 0x9696,
 };
 
 enum swpm_pmu_user {
@@ -67,9 +61,27 @@ struct swpm_mem_ref_tbl {
 };
 
 enum swpm_cmd_type {
+	SWPM_COMMON_INIT,
+	SMAP_CMD_TYPE,
+	CPU_CMD_TYPE,
+	MEM_CMD_TYPE,
+	CORE_CMD_TYPE,
+
+	NR_SWPM_CMD_TYPE,
+};
+
+enum swpm_ext_cmd_type {
 	SYNC_DATA,
 	SET_INTERVAL,
 	SET_PMU,
+
+	NR_SWPM_EXT_CMD_TYPE,
+};
+
+enum swpm_notifier_event {
+	SWPM_LOG_DATA_NOTIFY,
+
+	NR_SWPM_NOTIFIER_EVENT,
 };
 
 struct swpm_core_internal_ops {
@@ -87,6 +99,7 @@ struct swpm_manager {
 
 extern struct mutex swpm_mutex;
 extern struct timer_list swpm_timer;
+extern struct workqueue_struct *swpm_common_wq;
 extern unsigned int swpm_log_interval_ms;
 
 extern int swpm_core_ops_register(struct swpm_core_internal_ops *ops);
@@ -99,7 +112,7 @@ extern int swpm_interface_manager_init(struct swpm_mem_ref_tbl *ref_tbl,
 /* return:      0  (SWPM_SUCCESS)
  *              otherwise (ERROR)
  */
-extern int swpm_mem_addr_request(enum swpm_type id,
+extern int swpm_mem_addr_request(unsigned int id,
 				 phys_addr_t **ptr);
 
 
@@ -112,5 +125,14 @@ extern int swpm_pmu_enable(enum swpm_pmu_user id,
 
 extern int swpm_reserve_mem_init(phys_addr_t *virt,
 				 unsigned long long *size);
+
+extern void swpm_set_cmd(unsigned int type, unsigned int cnt);
+extern unsigned int swpm_set_and_get_cmd(unsigned int args_0,
+					 unsigned int args_1,
+					 unsigned int args_2);
+
+extern int swpm_register_event_notifier(struct notifier_block *nb);
+extern int swpm_unregister_event_notifier(struct notifier_block *nb);
+extern int swpm_call_event_notifier(unsigned long val, void *v);
 
 #endif
