@@ -33,6 +33,7 @@ struct usb_dp_selector {
 	struct mutex lock;
 	void __iomem *selector_reg_address;
 	int uds_ver;
+	bool is_dp;
 };
 
 static inline void uds_setbits(void __iomem *base, u32 bits)
@@ -171,6 +172,7 @@ static int usb_dp_selector_mux_set(struct typec_mux *mux,
 		/* Call DP API */
 		dev_info(uds->dev, "[%s][%d]\n", __func__, __LINE__);
 #if IS_ENABLED(CONFIG_DRM_MEDIATEK)
+		uds->is_dp = true;
 		if (state) {
 			if (irq)
 				mtk_dp_SWInterruptSet(0x8);
@@ -183,11 +185,13 @@ static int usb_dp_selector_mux_set(struct typec_mux *mux,
 	} else if (state->mode == TCP_NOTIFY_TYPEC_STATE) {
 		if ((data->typec_state.old_state == TYPEC_ATTACHED_SRC ||
 			data->typec_state.old_state == TYPEC_ATTACHED_SNK) &&
-			data->typec_state.new_state == TYPEC_UNATTACHED) {
+			data->typec_state.new_state == TYPEC_UNATTACHED &&
+			uds->is_dp == true) {
 			/* Call DP Event API Ready */
 			dev_info(uds->dev, "Plug Out, Disconnect HPD\n");
 #if IS_ENABLED(CONFIG_DRM_MEDIATEK)
 			mtk_dp_SWInterruptSet(0x2);
+			uds->is_dp = false;
 #endif
 		}
 	}
@@ -222,6 +226,8 @@ static int usb_dp_selector_probe(struct platform_device *pdev)
 	} else {
 		dev_info(dev, "uds-ver = %d\n", uds->uds_ver);
 	}
+
+	uds->is_dp = false;
 
 	/* Setting Switch callback */
 	sw_desc.drvdata = uds;
