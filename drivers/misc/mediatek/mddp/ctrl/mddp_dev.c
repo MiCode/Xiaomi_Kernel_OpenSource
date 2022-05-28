@@ -57,9 +57,8 @@ struct mddp_dev_rb_head_t {
 			_buf[_len-1] = '\0'; \
 	} while (0)
 
-#define MDDP_DSTATE_IS_VALID_ID(_id) (_id >= 0 && _id < MDDP_DSTATE_ID_NUM)
+#define MDDP_DSTATE_IS_VALID_ID(_id) (_id < MDDP_DSTATE_ID_NUM)
 #define MDDP_DSTATE_IS_ACTIVATED() (mddp_dstate_activated_s)
-#define MDDP_MD_LOG_IS_VALID_ID(_id) (_id >= 0 && _id < MDDP_MD_LOG_ID_NUM)
 #define MDDP_MD_LOG_IS_ACTIVATED() (mddp_md_log_activated_s)
 
 //------------------------------------------------------------------------------
@@ -735,14 +734,12 @@ void mddp_enqueue_dstate(enum mddp_dstate_id_e id, ...)
 		snprintf(dstat->str, MDDP_DSTATE_STR_SZ,
 				mddp_dstate_temp_s[id].str, curr_time_str);
 		break;
-
 	case MDDP_DSTATE_ID_STOP:
 	case MDDP_DSTATE_ID_SUSPEND_TAG:
 	case MDDP_DSTATE_ID_RESUME_TAG:
 		snprintf(dstat->str, MDDP_DSTATE_STR_SZ,
 				mddp_dstate_temp_s[id].str, curr_time_str);
 		break;
-
 	case MDDP_DSTATE_ID_NEW_TAG:
 		ip = va_arg(ap, int);
 		port = va_arg(ap, int);
@@ -750,7 +747,6 @@ void mddp_enqueue_dstate(enum mddp_dstate_id_e id, ...)
 				mddp_dstate_temp_s[id].str, curr_time_str,
 				ip, port);
 		break;
-
 	case MDDP_DSTATE_ID_GET_OFFLOAD_STATS:
 		rx = va_arg(ap, unsigned long long);
 		tx = va_arg(ap, unsigned long long);
@@ -758,22 +754,23 @@ void mddp_enqueue_dstate(enum mddp_dstate_id_e id, ...)
 				mddp_dstate_temp_s[id].str, curr_time_str,
 				rx, tx);
 		break;
-
 	default:
 		break;
 	}
-	va_end(ap);
 
+	va_end(ap);
 	entry->rb_len = MDDP_DSTATE_STR_SZ;
 	entry->rb_data = dstat;
 	mddp_dev_rb_enqueue_tail(list, entry);
 	dstate_buffer_size += entry->rb_len;
 	while (dstate_buffer_size > MDDP_DSTATE_MAX_BUF_SZ) {
 		entry = mddp_dev_rb_dequeue(list);
-		dstate_buffer_size -= entry->rb_len;
-		kfree(((struct mddp_dstate_t *)entry->rb_data)->str);
-		kfree(entry->rb_data);
-		kfree(entry);
+		if (entry) {
+			dstate_buffer_size -= entry->rb_len;
+			kfree(((struct mddp_dstate_t *)entry->rb_data)->str);
+			kfree(entry->rb_data);
+			kfree(entry);
+		}
 	}
 }
 
@@ -789,7 +786,7 @@ void mddp_enqueue_md_log(enum mddp_md_log_id_e id, ...)
 	char						*mdfpm_log_str;
 	uint32_t					strSize = 0;
 
-	if (!MDDP_MD_LOG_IS_VALID_ID(id) || !MDDP_MD_LOG_IS_ACTIVATED())
+	if (!MDDP_MD_LOG_IS_ACTIVATED())
 		return;
 
 	log = kzalloc(sizeof(struct mddp_md_log_t), GFP_ATOMIC);
@@ -818,6 +815,7 @@ void mddp_enqueue_md_log(enum mddp_md_log_id_e id, ...)
 	case MDDP_MD_LOG_ID_START:
 		log->str = kzalloc(MD_LOG_START_SZ, GFP_ATOMIC);
 		if (unlikely(!(log->str))) {
+			va_end(ap);
 			kfree(log);
 			kfree(entry);
 			return;
@@ -830,6 +828,7 @@ void mddp_enqueue_md_log(enum mddp_md_log_id_e id, ...)
 	case MDDP_MD_LOG_ID_STOP:
 		log->str = kzalloc(MD_LOG_START_SZ, GFP_ATOMIC);
 		if (unlikely(!(log->str))) {
+			va_end(ap);
 			kfree(log);
 			kfree(entry);
 			return;
@@ -841,11 +840,13 @@ void mddp_enqueue_md_log(enum mddp_md_log_id_e id, ...)
 		strSize = va_arg(ap, uint32_t);
 		log->str = kzalloc(strSize + MDDP_CURR_TIME_STR_SZ + 3, GFP_ATOMIC);
 		if (unlikely(!(log->str))) {
+			va_end(ap);
 			kfree(log);
 			kfree(entry);
 			return;
 		}
 		mdfpm_log_str = va_arg(ap, char*);
+		va_end(ap);
 		snprintf(log->str, strSize + MDDP_CURR_TIME_STR_SZ + 3,
 				mddp_md_log_temp_s[id].str,	curr_time_str, mdfpm_log_str);
 		break;
@@ -853,7 +854,6 @@ void mddp_enqueue_md_log(enum mddp_md_log_id_e id, ...)
 		break;
 	}
 
-	va_end(ap);
 	entry->rb_len = strSize + MDDP_CURR_TIME_STR_SZ + 3;
 	entry->rb_data = log;
 	mddp_dev_rb_enqueue_tail(list, entry);
@@ -978,6 +978,7 @@ static long mddp_dev_ioctl(struct file *file, unsigned int cmd, unsigned long ar
 	uint32_t                                buf_len = MDDP_MAX_GET_BUF_SZ;
 	struct mddp_dev_req_set_ct_value_t     *ct_req;
 
+	memset(&dev_req, 0, sizeof(dev_req));
 	/*
 	 * NG. copy_from_user fail!
 	 */

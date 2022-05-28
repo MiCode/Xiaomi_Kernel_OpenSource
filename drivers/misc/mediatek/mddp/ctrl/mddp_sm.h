@@ -187,7 +187,5 @@ enum mdfpm_log_action_id {
 	MDFPM_LOG_CS_ADD_FILTER_V6,
 	MDFPM_LOG_CS_DEL_FILTER_V6,
 	MDFPM_LOG_NUM,
-
-	MDFPM_LOG_MAX = 0Xffff,
 };
 #endif /* __MDDP_SM_H */

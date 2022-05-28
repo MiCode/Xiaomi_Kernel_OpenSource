@@ -159,7 +159,7 @@ uint32_t print_unexpected_id(struct mdfpm_log *mdfpm_log_buf, uint32_t buf_len, 
 
 static void mddp_print_mdfpm_log(struct mdfpm_log *buf, uint32_t buf_len)
 {
-	uint32_t size;
+	uint32_t size = 0;
 	struct mdfpm_log *mdfpm_log_buf;
 	char str_dstate[MDFPM_SEND_LOG_BUF_SZ];
 
@@ -223,14 +223,8 @@ static void mddp_print_mdfpm_log(struct mdfpm_log *buf, uint32_t buf_len)
 		default:
 			break;
 		}
-		if (mdfpm_log_buf->action_id >= MDFPM_LOG_NUM
-				&& mdfpm_log_buf->action_id < MDFPM_LOG_MAX)
+		if (mdfpm_log_buf->action_id >= MDFPM_LOG_NUM)
 			size = print_unexpected_id(mdfpm_log_buf, buf_len, &str_dstate[0]);
-		else if (mdfpm_log_buf->action_id > MDFPM_LOG_MAX) {
-			size = snprintf(str_dstate, MDFPM_SEND_LOG_BUF_SZ,
-					"[MDDP_WH] error, action_id is incorrect\n");
-			MDDP_S_LOG(MDDP_LL_INFO, "%s", str_dstate);
-		}
 	} else {
 		size = snprintf(str_dstate, MDFPM_SEND_LOG_BUF_SZ,
 				"[MDDP_WH] error, buf_len(%u) should large than %u",
