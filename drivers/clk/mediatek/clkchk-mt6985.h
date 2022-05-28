@@ -78,9 +78,7 @@ enum chk_sys_id {
 	cpu_bl = 67,
 	cpu_b = 68,
 	ptp = 69,
-	sspm = 70,
-	sspm_cfg = 71,
-	chk_sys_num = 72,
+	chk_sys_num = 70,
 };
 
 enum chk_pd_id {
@@ -145,6 +143,12 @@ enum chk_pd_id {
 	MT6985_CHK_PD_NUM,
 };
 
+enum pd_pvd_id {
+	SPM_PVD,
+	GPU_EB_RPC_PVD,
+	NUM_PVD,
+};
+
 #ifdef CONFIG_MTK_DVFSRC_HELPER
 extern int get_sw_req_vcore_opp(void);
 #endif
@@ -152,4 +156,5 @@ extern int get_sw_req_vcore_opp(void);
 extern void print_subsys_reg_mt6985(enum chk_sys_id id);
 extern void set_subsys_reg_dump_mt6985(enum chk_sys_id id[]);
 extern void get_subsys_reg_dump_mt6985(void);
+extern u32 get_mt6985_reg_value(u32 id, u32 ofs);
 #endif	/* __DRV_CLKCHK_MT6985_H */

@@ -21,13 +21,22 @@ struct pd_check_swcg {
 	const char *name;
 };
 
+struct pd_sta {
+	int pd_id;
+	u32 base;
+	u32 ofs;
+	u32 msk;
+};
+
 struct pdchk_ops {
 	struct pd_check_swcg *(*get_subsys_cg)(unsigned int id);
 	void (*dump_subsys_reg)(unsigned int pd_id);
 	bool (*is_in_pd_list)(unsigned int id);
 	void (*debug_dump)(unsigned int pd_id, unsigned int pwr_sta);
 	void (*log_dump)(unsigned int pd_id, unsigned int pwr_sta);
-	struct pd_sta *(*get_pd_pwr_msk)(int pd_id);
+	struct pd_msk *(*get_pd_pwr_msk)(int pd_id);
+	u32 (*get_pd_pwr_status)(int pd_id);
+	int (*get_pd_pwr_idx)(int pd_id);
 	int *(*get_off_mtcmos_id)(void);
 	int *(*get_notice_mtcmos_id)(void);
 	bool (*is_mtcmos_chk_bug_on)(void);
@@ -38,6 +47,6 @@ void pdchk_common_init(const struct pdchk_ops *ops);
 
 extern const struct dev_pm_ops pdchk_dev_pm_ops;
 extern struct clk *clk_chk_lookup(const char *name);
-extern int pwr_hw_is_on(enum PWR_STA_TYPE type, u32 mask);
+extern int pwr_hw_is_on(enum PWR_STA_TYPE type, s32 mask);
 
 #endif /* __MTK_PD_CHK_H */

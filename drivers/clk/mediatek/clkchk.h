@@ -51,17 +51,16 @@ struct pvd_msk {
 	u32 pwr_mask;
 };
 
-struct pd_sta {
+struct pwr_data {
+	const char *pvdname;
+	u32 base;
+	u32 ofs;
+};
+
+struct pd_msk {
 	int pd_id;
 	enum PWR_STA_TYPE sta_type;
 	u32 pwr_val;
-};
-
-struct pwr_data {
-	const char *pvdname;
-	int pd_id;
-	u32 type;
-	u32 ofs;
 };
 
 struct regbase {
@@ -89,8 +88,9 @@ struct clkchk_ops {
 	const struct regname *(*get_all_regnames)(void);
 	u32 *(*get_spm_pwr_status_array)(void);
 	u32 (*get_spm_pwr_status)(u32 ofs);
+	u32 (*get_pwr_status)(s32 idx);
 	struct pvd_msk *(*get_pvd_pwr_mask)(void);
-	struct pwr_data *(*get_pvd_pwr_data)(const char *pvdname);
+	int (*get_pvd_pwr_data_idx)(const char *pvdname);
 	const char * const *(*get_off_pll_names)(void);
 	const char * const *(*get_notice_pll_names)(void);
 	bool (*is_pll_chk_bug_on)(void);
@@ -105,7 +105,7 @@ struct clkchk_ops {
 	bool (*is_cg_chk_pwr_on)(void);
 };
 
-int pwr_hw_is_on(enum PWR_STA_TYPE type, u32 val);
+int pwr_hw_is_on(enum PWR_STA_TYPE type, s32 val);
 int clkchk_pvdck_is_on(struct provider_clk *pvdck);
 bool clkchk_pvdck_is_prepared(struct provider_clk *pvdck);
 bool clkchk_pvdck_is_enabled(struct provider_clk *pvdck);

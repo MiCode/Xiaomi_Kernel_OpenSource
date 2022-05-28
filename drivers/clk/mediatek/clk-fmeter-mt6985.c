@@ -725,7 +725,7 @@ static int __mt_get_freq2(unsigned int  type, unsigned int id)
 
 	/* sel fqmtr_cksel */
 	if (type == FM_VLP_CKSYS)
-		clk_writel(con0, (clk_readl(con0) & 0xFFE0FFF8) | (id << 16));
+		clk_writel(con0, (clk_readl(con0) & 0xFFE0FFFF) | (id << 16));
 	else
 		clk_writel(con0, (clk_readl(con0) & 0x00FFFFF8) | (id << 0));
 	/* set ckgen_load_cnt to 1024 */
@@ -795,7 +795,7 @@ static unsigned int mt6985_get_abist_ck2_freq(unsigned int ID)
 
 static unsigned int mt6985_get_vlpck_freq(unsigned int ID)
 {
-	return __mt_get_freq2(FM_VLP_CKSYS, FM_PLL_CK);
+	return __mt_get_freq2(FM_VLP_CKSYS, ID);
 }
 
 static unsigned int mt6985_get_subsys_freq(unsigned int ID)

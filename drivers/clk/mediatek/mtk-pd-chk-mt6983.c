@@ -618,7 +618,7 @@ static void log_dump(unsigned int id, unsigned int pwr_sta)
 	}
 }
 
-static struct pd_sta pd_pwr_msk[] = {
+static struct pd_msk pd_pwr_msk[] = {
 	{MT6983_POWER_DOMAIN_MD1, PWR_STA, 0x00000001},
 	{MT6983_POWER_DOMAIN_CONN, PWR_STA, 0x00000002},
 	{MT6983_POWER_DOMAIN_UFS0, PWR_STA, 0x00000010},
@@ -668,7 +668,7 @@ static struct pd_sta pd_pwr_msk[] = {
 	{MT6983_POWER_DOMAIN_DP_TX, PWR_STA, 0x20000000},
 };
 
-static struct pd_sta *get_pd_pwr_msk(int pd_id)
+static struct pd_msk *get_pd_pwr_msk(int pd_id)
 {
 	int i;
 

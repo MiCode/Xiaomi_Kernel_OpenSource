@@ -62,9 +62,9 @@ static struct regbase rb[] = {
 	[ifr_bus] = REGBASE_V(0x1002C000, ifr_bus, PD_NULL, CLK_NULL),
 	[emi_reg] = REGBASE_V(0x10219000, emi_reg, PD_NULL, CLK_NULL),
 	[semi_reg] = REGBASE_V(0x1021d000, semi_reg, PD_NULL, CLK_NULL),
-	[ssr_top] = REGBASE_V(0x10400000, ssr_top, MT6985_POWER_DOMAIN_SSR, CLK_NULL),
+	[ssr_top] = REGBASE_V(0x10400000, ssr_top, MT6985_CHK_PD_SSRSYS, CLK_NULL),
 	[perao] = REGBASE_V(0x11036000, perao, PD_NULL, CLK_NULL),
-	[afe] = REGBASE_V(0x11050000, afe, MT6985_POWER_DOMAIN_AUDIO, CLK_NULL),
+	[afe] = REGBASE_V(0x11050000, afe, MT6985_CHK_PD_AUDIO, CLK_NULL),
 	[usb_d] = REGBASE_V(0x11201000, usb_d, PD_NULL, CLK_NULL),
 	[usb_sif] = REGBASE_V(0x11203e00, usb_sif, PD_NULL, CLK_NULL),
 	[usb_d_p1] = REGBASE_V(0x11211000, usb_d_p1, PD_NULL, CLK_NULL),
@@ -80,28 +80,28 @@ static struct regbase rb[] = {
 	[mfg_ao] = REGBASE_V(0x13fa0000, mfg_ao, PD_NULL, CLK_NULL),
 	[gpueb_ao] = REGBASE_V(0x13fa0800, gpueb_ao, PD_NULL, CLK_NULL),
 	[mfgsc_ao] = REGBASE_V(0x13fa0c00, mfgsc_ao, PD_NULL, CLK_NULL),
-	[mm] = REGBASE_V(0x14000000, mm, MT6985_POWER_DOMAIN_DIS0_SHUTDOWN, CLK_NULL),
-	[mm1] = REGBASE_V(0x14200000, mm1, MT6985_POWER_DOMAIN_DIS1_SHUTDOWN, CLK_NULL),
-	[ovl] = REGBASE_V(0x14400000, ovl, MT6985_POWER_DOMAIN_OVLSYS_SHUTDOWN, CLK_NULL),
-	[ovl1] = REGBASE_V(0x14600000, ovl1, MT6985_POWER_DOMAIN_OVLSYS1_SHUTDOWN, CLK_NULL),
-	[img] = REGBASE_V(0x15000000, img, MT6985_POWER_DOMAIN_ISP_MAIN, CLK_NULL),
+	[mm] = REGBASE_V(0x14000000, mm, MT6985_CHK_PD_DIS0, CLK_NULL),
+	[mm1] = REGBASE_V(0x14200000, mm1, MT6985_CHK_PD_DIS1, CLK_NULL),
+	[ovl] = REGBASE_V(0x14400000, ovl, MT6985_CHK_PD_OVLSYS, CLK_NULL),
+	[ovl1] = REGBASE_V(0x14600000, ovl1, MT6985_CHK_PD_OVLSYS1, CLK_NULL),
+	[img] = REGBASE_V(0x15000000, img, MT6985_CHK_PD_ISP_MAIN, CLK_NULL),
 	[img_sub0_bus] = REGBASE_V(0x15002000, img_sub0_bus, PD_NULL, CLK_NULL),
 	[img_sub1_bus] = REGBASE_V(0x15003000, img_sub1_bus, PD_NULL, CLK_NULL),
-	[dip_top_dip1] = REGBASE_V(0x15110000, dip_top_dip1, MT6985_POWER_DOMAIN_ISP_DIP1,
+	[dip_top_dip1] = REGBASE_V(0x15110000, dip_top_dip1, MT6985_CHK_PD_ISP_DIP1,
 			CLK_NULL),
-	[dip_nr1_dip1] = REGBASE_V(0x15130000, dip_nr1_dip1, MT6985_POWER_DOMAIN_ISP_DIP1,
+	[dip_nr1_dip1] = REGBASE_V(0x15130000, dip_nr1_dip1, MT6985_CHK_PD_ISP_DIP1,
 			CLK_NULL),
-	[dip_nr2_dip1] = REGBASE_V(0x15170000, dip_nr2_dip1, MT6985_POWER_DOMAIN_ISP_DIP1,
+	[dip_nr2_dip1] = REGBASE_V(0x15170000, dip_nr2_dip1, MT6985_CHK_PD_ISP_DIP1,
 			CLK_NULL),
-	[wpe1_dip1] = REGBASE_V(0x15220000, wpe1_dip1, MT6985_POWER_DOMAIN_ISP_DIP1, CLK_NULL),
-	[wpe2_dip1] = REGBASE_V(0x15520000, wpe2_dip1, MT6985_POWER_DOMAIN_ISP_DIP1, CLK_NULL),
-	[wpe3_dip1] = REGBASE_V(0x15620000, wpe3_dip1, MT6985_POWER_DOMAIN_ISP_DIP1, CLK_NULL),
-	[traw_dip1] = REGBASE_V(0x15710000, traw_dip1, MT6985_POWER_DOMAIN_ISP_DIP1, CLK_NULL),
-	[vde1] = REGBASE_V(0x1600f000, vde1, MT6985_POWER_DOMAIN_VDE0, CLK_NULL),
-	[vde2] = REGBASE_V(0x1602f000, vde2, MT6985_POWER_DOMAIN_VDE1, CLK_NULL),
-	[ven] = REGBASE_V(0x17000000, ven, MT6985_POWER_DOMAIN_VEN0, CLK_NULL),
-	[ven_c1] = REGBASE_V(0x17800000, ven_c1, MT6985_POWER_DOMAIN_VEN1, CLK_NULL),
-	[ven_c2] = REGBASE_V(0x17c00000, ven_c2, MT6985_POWER_DOMAIN_VEN2, CLK_NULL),
+	[wpe1_dip1] = REGBASE_V(0x15220000, wpe1_dip1, MT6985_CHK_PD_ISP_DIP1, CLK_NULL),
+	[wpe2_dip1] = REGBASE_V(0x15520000, wpe2_dip1, MT6985_CHK_PD_ISP_DIP1, CLK_NULL),
+	[wpe3_dip1] = REGBASE_V(0x15620000, wpe3_dip1, MT6985_CHK_PD_ISP_DIP1, CLK_NULL),
+	[traw_dip1] = REGBASE_V(0x15710000, traw_dip1, MT6985_CHK_PD_ISP_DIP1, CLK_NULL),
+	[vde1] = REGBASE_V(0x1600f000, vde1, MT6985_CHK_PD_VDE0, CLK_NULL),
+	[vde2] = REGBASE_V(0x1602f000, vde2, MT6985_CHK_PD_VDE1, CLK_NULL),
+	[ven] = REGBASE_V(0x17000000, ven, MT6985_CHK_PD_VEN0, CLK_NULL),
+	[ven_c1] = REGBASE_V(0x17800000, ven_c1, MT6985_CHK_PD_VEN1, CLK_NULL),
+	[ven_c2] = REGBASE_V(0x17c00000, ven_c2, MT6985_CHK_PD_VEN2, CLK_NULL),
 	[cam_sub0_bus] = REGBASE_V(0x1A005000, cam_sub0_bus, PD_NULL, CLK_NULL),
 	[cam_sub2_bus] = REGBASE_V(0x1A006000, cam_sub2_bus, PD_NULL, CLK_NULL),
 	[cam_sub1_bus] = REGBASE_V(0x1A007000, cam_sub1_bus, PD_NULL, CLK_NULL),
@@ -110,28 +110,26 @@ static struct regbase rb[] = {
 	[vlp_ck] = REGBASE_V(0x1C013000, vlp_ck, PD_NULL, CLK_NULL),
 	[scp] = REGBASE_V(0x1C721000, scp, PD_NULL, CLK_NULL),
 	[scp_iic] = REGBASE_V(0x1C7B8000, scp_iic, PD_NULL, "i2c_ck"),
-	[cam_m] = REGBASE_V(0x1a000000, cam_m, MT6985_POWER_DOMAIN_CAM_MAIN, CLK_NULL),
-	[cam_ra] = REGBASE_V(0x1a04f000, cam_ra, MT6985_POWER_DOMAIN_CAM_SUBA, CLK_NULL),
-	[cam_ya] = REGBASE_V(0x1a06f000, cam_ya, MT6985_POWER_DOMAIN_CAM_SUBA, CLK_NULL),
-	[cam_rb] = REGBASE_V(0x1a08f000, cam_rb, MT6985_POWER_DOMAIN_CAM_SUBB, CLK_NULL),
-	[cam_yb] = REGBASE_V(0x1a0af000, cam_yb, MT6985_POWER_DOMAIN_CAM_SUBB, CLK_NULL),
-	[cam_rc] = REGBASE_V(0x1a0cf000, cam_rc, MT6985_POWER_DOMAIN_CAM_SUBC, CLK_NULL),
-	[cam_yc] = REGBASE_V(0x1a0ef000, cam_yc, MT6985_POWER_DOMAIN_CAM_SUBC, CLK_NULL),
-	[cam_mr] = REGBASE_V(0x1a170000, cam_mr, MT6985_POWER_DOMAIN_CAM_MRAW, CLK_NULL),
-	[ccu] = REGBASE_V(0x1b200000, ccu, MT6985_POWER_DOMAIN_CAM_MAIN, CLK_NULL),
+	[cam_m] = REGBASE_V(0x1a000000, cam_m, MT6985_CHK_PD_CAM_MAIN, CLK_NULL),
+	[cam_ra] = REGBASE_V(0x1a04f000, cam_ra, MT6985_CHK_PD_CAM_SUBA, CLK_NULL),
+	[cam_ya] = REGBASE_V(0x1a06f000, cam_ya, MT6985_CHK_PD_CAM_SUBA, CLK_NULL),
+	[cam_rb] = REGBASE_V(0x1a08f000, cam_rb, MT6985_CHK_PD_CAM_SUBB, CLK_NULL),
+	[cam_yb] = REGBASE_V(0x1a0af000, cam_yb, MT6985_CHK_PD_CAM_SUBB, CLK_NULL),
+	[cam_rc] = REGBASE_V(0x1a0cf000, cam_rc, MT6985_CHK_PD_CAM_SUBC, CLK_NULL),
+	[cam_yc] = REGBASE_V(0x1a0ef000, cam_yc, MT6985_CHK_PD_CAM_SUBC, CLK_NULL),
+	[cam_mr] = REGBASE_V(0x1a170000, cam_mr, MT6985_CHK_PD_CAM_MRAW, CLK_NULL),
+	[ccu] = REGBASE_V(0x1b200000, ccu, MT6985_CHK_PD_CAM_MAIN, CLK_NULL),
 	[dvfsrc_apb] = REGBASE_V(0x1c00f000, dvfsrc_apb, PD_NULL, CLK_NULL),
 	[sramrc_apb] = REGBASE_V(0x1c01f000, sramrc_apb, PD_NULL, CLK_NULL),
-	[mminfra_config] = REGBASE_V(0x1e800000, mminfra_config, MT6985_POWER_DOMAIN_MM_INFRA,
+	[mminfra_config] = REGBASE_V(0x1e800000, mminfra_config, MT6985_CHK_PD_MM_INFRA,
 			CLK_NULL),
-	[mdp] = REGBASE_V(0x1f000000, mdp, MT6985_POWER_DOMAIN_MDP0_SHUTDOWN, CLK_NULL),
-	[mdp1] = REGBASE_V(0x1f800000, mdp1, MT6985_POWER_DOMAIN_MDP1_SHUTDOWN, CLK_NULL),
+	[mdp] = REGBASE_V(0x1f000000, mdp, MT6985_CHK_PD_MDP0, CLK_NULL),
+	[mdp1] = REGBASE_V(0x1f800000, mdp1, MT6985_CHK_PD_MDP1, CLK_NULL),
 	[cci] = REGBASE_V(0xc030000, cci, PD_NULL, CLK_NULL),
 	[cpu_ll] = REGBASE_V(0xc030400, cpu_ll, PD_NULL, CLK_NULL),
 	[cpu_bl] = REGBASE_V(0xc030800, cpu_bl, PD_NULL, CLK_NULL),
 	[cpu_b] = REGBASE_V(0xc030c00, cpu_b, PD_NULL, CLK_NULL),
 	[ptp] = REGBASE_V(0xc034000, ptp, PD_NULL, CLK_NULL),
-	[sspm] = REGBASE_V(0x1C342000, sspm, PD_NULL, CLK_NULL),
-	[sspm_cfg] = REGBASE_V(0x1C343000, sspm, PD_NULL, CLK_NULL),
 	{},
 };
 
@@ -524,22 +522,6 @@ static struct regname rn[] = {
 	REGNAME(ptp, 0xc, PTPPLL_CON1),
 	REGNAME(ptp, 0x10, PTPPLL_CON2),
 	REGNAME(ptp, 0x14, PTPPLL_CON3),
-	/* sspm debug */
-	REGNAME(sspm, 0x0000, INTC_IRQ_RAW_STA0),
-	REGNAME(sspm, 0x0004, INTC_IRQ_RAW_STA1),
-	REGNAME(sspm, 0x0010, INTC_IRQ_STA0),
-	REGNAME(sspm, 0x0014, INTC_IRQ_STA1),
-	REGNAME(sspm, 0x0020, INTC_IRQ_EN0),
-	REGNAME(sspm, 0x0024, INTC_IRQ_EN1),
-	REGNAME(sspm, 0x0070, INTC_IRQ_GRP2_0),
-	REGNAME(sspm, 0x0074, INTC_IRQ_GRP2_1),
-	REGNAME(sspm, 0x00C0, INTC_IRQ_GRP7_0),
-	REGNAME(sspm, 0x00C4, INTC_IRQ_GRP7_1),
-	REGNAME(sspm, 0x0170, INTC_IRQ_GRP2_STA0),
-	REGNAME(sspm, 0x0174, INTC_IRQ_GRP2_STA1),
-	REGNAME(sspm, 0x01C0, INTC_IRQ_GRP7_STA0),
-	REGNAME(sspm, 0x01C4, INTC_IRQ_GRP7_STA1),
-	REGNAME(sspm_cfg, 0x0018, SSPM_WFI),
 	{},
 };
 
@@ -560,88 +542,75 @@ static void init_regbase(void)
 	}
 }
 
-/*
- * clkchk pwr_status
- */
-static u32 pwr_ofs[STA_NUM] = {
-	[XPU_PWR_STA] = 0xF94,
-	[XPU_PWR_STA2] = 0xF98,
-	[PWR_STA] = 0xF84,
-	[PWR_STA2] = 0xF88,
-};
-
-static u32 pwr_sta[STA_NUM];
-
-u32 *get_spm_pwr_status_array(void)
+u32 get_mt6985_reg_value(u32 id, u32 ofs)
 {
-	static void __iomem *pwr_addr[STA_NUM];
-	int i;
+	if (id >= chk_sys_num)
+		return 0;
 
-	for (i = 0; i < STA_NUM; i++) {
-		if (pwr_ofs[i]) {
-			pwr_addr[i] = rb[spm].virt + pwr_ofs[i];
-			pwr_sta[i] = clk_readl(pwr_addr[i]);
-		}
-	}
-
-	return pwr_sta;
+	return clk_readl(rb[id].virt + ofs);
 }
-
-u32 get_spm_pwr_status(u32 ofs)
-{
-	if (ofs < 0x1000)
-		return  clk_readl(rb[spm].virt + ofs);
-
-	return 0;
-}
+EXPORT_SYMBOL_GPL(get_mt6985_reg_value);
 
 /*
  * clkchk pwr_data
  */
 static struct pwr_data pvd_pwr_data[] = {
-	[MT6985_CHK_PD_AUDIO] = {"audiosys", MT6985_CHK_PD_AUDIO, PWR_CON_STA, 0x0E2C},
-	[MT6985_CHK_PD_CAM_MAIN] = {"camsys_main", MT6985_CHK_PD_CAM_MAIN, PWR_CON_STA, 0x0E60},
-	[MT6985_CHK_PD_CAM_MRAW] = {"camsys_mraw", MT6985_CHK_PD_CAM_MRAW, PWR_CON_STA, 0x0E64},
-	[MT6985_CHK_PD_CAM_SUBA] = {"camsys_rawa", MT6985_CHK_PD_CAM_SUBA, PWR_CON_STA, 0x0E68},
-	[MT6985_CHK_PD_CAM_SUBB] = {"camsys_rawb", MT6985_CHK_PD_CAM_SUBB, PWR_CON_STA, 0x0E6C},
-	[MT6985_CHK_PD_CAM_SUBC] = {"camsys_rawc", MT6985_CHK_PD_CAM_SUBC, PWR_CON_STA, 0x0E70},
-	[MT6985_CHK_PD_CAM_SUBA] = {"camsys_yuva", MT6985_CHK_PD_CAM_SUBA, PWR_CON_STA, 0x0E68},
-	[MT6985_CHK_PD_CAM_SUBB] = {"camsys_yuvb", MT6985_CHK_PD_CAM_SUBB, PWR_CON_STA, 0x0E6C},
-	[MT6985_CHK_PD_CAM_SUBC] = {"camsys_yuvc", MT6985_CHK_PD_CAM_SUBC, PWR_CON_STA, 0x0E70},
-	[MT6985_CHK_PD_CAM_MAIN] = {"ccu", MT6985_CHK_PD_CAM_MAIN, PWR_CON_STA, 0x0E60},
-	[MT6985_CHK_PD_ISP_DIP1] = {"dip_nr1_dip1", MT6985_CHK_PD_ISP_DIP1, PWR_CON_STA, 0x0E40},
-	[MT6985_CHK_PD_ISP_DIP1] = {"dip_nr2_dip1", MT6985_CHK_PD_ISP_DIP1, PWR_CON_STA, 0x0E40},
-	[MT6985_CHK_PD_ISP_DIP1] = {"dip_top_dip1", MT6985_CHK_PD_ISP_DIP1, PWR_CON_STA, 0x0E40},
-	[MT6985_CHK_PD_DIS1] = {"mmsys1", MT6985_CHK_PD_DIS1, PWR_CON_STA, 0x0E84},
-	[MT6985_CHK_PD_DIS0] = {"mmsys0", MT6985_CHK_PD_DIS0, PWR_CON_STA, 0x0E80},
-	[MT6985_CHK_PD_ISP_MAIN] = {"imgsys_main", MT6985_CHK_PD_ISP_MAIN, PWR_CON_STA, 0x0E3C},
-	[MT6985_CHK_PD_MDP1] = {"mdpsys1", MT6985_CHK_PD_MDP1, PWR_CON_STA, 0x0E7C},
-	[MT6985_CHK_PD_MDP0] = {"mdpsys", MT6985_CHK_PD_MDP0, PWR_CON_STA, 0x0E78},
-	[MT6985_CHK_PD_MM_INFRA] = {"mminfra_config", MT6985_CHK_PD_MM_INFRA, PWR_CON_STA, 0x0E90},
-	[MT6985_CHK_PD_OVLSYS1] = {"ovlsys1_config", MT6985_CHK_PD_OVLSYS1, PWR_CON_STA, 0x0E8C},
-	[MT6985_CHK_PD_OVLSYS] = {"ovlsys_config", MT6985_CHK_PD_OVLSYS, PWR_CON_STA, 0x0E88},
-	[MT6985_CHK_PD_SSRSYS] = {"ssr_top", MT6985_CHK_PD_SSRSYS, PWR_CON_STA, 0x0EDC},
-	[MT6985_CHK_PD_ISP_DIP1] = {"traw_dip1", MT6985_CHK_PD_ISP_DIP1, PWR_CON_STA, 0x0E40},
-	[MT6985_CHK_PD_VDE1] = {"vdecsys", MT6985_CHK_PD_VDE1, PWR_CON_STA, 0x0E50},
-	[MT6985_CHK_PD_VDE0] = {"vdecsys_soc", MT6985_CHK_PD_VDE0, PWR_CON_STA, 0x0E4C},
-	[MT6985_CHK_PD_VEN0] = {"vencsys", MT6985_CHK_PD_VEN0, PWR_CON_STA, 0x0E54},
-	[MT6985_CHK_PD_VEN1] = {"vencsys_c1", MT6985_CHK_PD_VEN1, PWR_CON_STA, 0x0E58},
-	[MT6985_CHK_PD_VEN2] = {"vencsys_c2", MT6985_CHK_PD_VEN2, PWR_CON_STA, 0x0E5C},
-	[MT6985_CHK_PD_ISP_DIP1] = {"wpe1_dip1", MT6985_CHK_PD_ISP_DIP1, PWR_CON_STA, 0x0E40},
-	[MT6985_CHK_PD_ISP_DIP1] = {"wpe2_dip1", MT6985_CHK_PD_ISP_DIP1, PWR_CON_STA, 0x0E40},
-	[MT6985_CHK_PD_ISP_DIP1] = {"wpe3_dip1", MT6985_CHK_PD_ISP_DIP1, PWR_CON_STA, 0x0E40},
+	{"audiosys", spm, 0x0E2C},
+	{"camsys_main", spm, 0x0E60},
+	{"camsys_mraw", spm, 0x0E64},
+	{"camsys_rawa", spm, 0x0E68},
+	{"camsys_rawb", spm, 0x0E6C},
+	{"camsys_rawc", spm, 0x0E70},
+	{"camsys_yuva", spm, 0x0E68},
+	{"camsys_yuvb", spm, 0x0E6C},
+	{"camsys_yuvc", spm, 0x0E70},
+	{"ccu", spm, 0x0E60},
+	{"dip_nr1_dip1", spm, 0x0E40},
+	{"dip_nr2_dip1", spm, 0x0E40},
+	{"dip_top_dip1", spm, 0x0E40},
+	{"mmsys1", spm, 0x0E84},
+	{"mmsys0", spm, 0x0E80},
+	{"imgsys_main", spm, 0x0E3C},
+	{"mdpsys1", spm, 0x0E7C},
+	{"mdpsys", spm, 0x0E78},
+	{"mminfra_config", spm, 0x0E90},
+	{"ovlsys1_config", spm, 0x0E8C},
+	{"ovlsys_config", spm, 0x0E88},
+	{"ssr_top", spm, 0x0EDC},
+	{"traw_dip1", spm, 0x0E40},
+	{"vdecsys", spm, 0x0E50},
+	{"vdecsys_soc", spm, 0x0E4C},
+	{"vencsys", spm, 0x0E54},
+	{"vencsys_c1", spm, 0x0E58},
+	{"vencsys_c2", spm, 0x0E5C},
+	{"wpe1_dip1", spm, 0x0E40},
+	{"wpe2_dip1", spm, 0x0E40},
+	{"wpe3_dip1", spm, 0x0E40},
 };
 
-static struct pwr_data *get_pvd_pwr_data(const char *pvdname)
+static int get_pvd_pwr_data_idx(const char *pvdname)
 {
 	int i;
 
-	for (i = 0; pvd_pwr_data[i].pvdname != NULL; i++) {
+	for (i = 0; i < ARRAY_SIZE(pvd_pwr_data); i++) {
+		if (pvd_pwr_data[i].pvdname == NULL)
+			continue;
 		if (!strcmp(pvdname, pvd_pwr_data[i].pvdname))
-			return &pvd_pwr_data[i];
+			return i;
 	}
 
-	return NULL;
+	return -1;
+}
+
+static u32 get_pwr_status(s32 idx)
+{
+	if (idx < 0 || idx >= MT6985_CHK_PD_NUM)
+		return 0;
+
+	if (pvd_pwr_data[idx].base >= chk_sys_num)
+		return 0;
+
+	return  clk_readl(rb[pvd_pwr_data[idx].base].virt + pvd_pwr_data[idx].ofs);
 }
 
 static bool is_cg_chk_pwr_on(void)
@@ -786,8 +755,8 @@ void set_subsys_reg_dump_mt6985(enum chk_sys_id id[])
 			continue;
 
 		pg = rb[rns->id].pg;
-		if (pg != PD_NULL)
-			if (!pwr_hw_is_on(pvd_pwr_data[pg].type, pvd_pwr_data[pg].ofs))
+		if (pg != PD_NULL && pvd_pwr_data[pg].ofs != 0)
+			if (!pwr_hw_is_on(PWR_CON_STA, pg))
 				continue;
 
 		reg_dump_addr[i] = PHYSADDR(rns);
@@ -835,8 +804,8 @@ void print_subsys_reg_mt6985(enum chk_sys_id id)
 			continue;
 
 		pg = rb_dump->pg;
-		if (pg != PD_NULL)
-			if (!pwr_hw_is_on(pvd_pwr_data[pg].type, pvd_pwr_data[pg].ofs))
+		if (pg != PD_NULL && pvd_pwr_data[pg].ofs != 0)
+			if (!pwr_hw_is_on(PWR_CON_STA, pg))
 				return;
 
 		pr_info("%-18s: [0x%08x] = 0x%08x\n",
@@ -973,8 +942,6 @@ static void dump_bus_reg(struct regmap *regmap, u32 ofs)
 }
 
 static enum chk_sys_id hwv_pll_dump_id[] = {
-	sspm,
-	sspm_cfg,
 	apmixed,
 	chk_sys_num,
 };
@@ -1017,9 +984,8 @@ static void dump_hwv_pll_reg(struct regmap *regmap, u32 shift)
 
 static struct clkchk_ops clkchk_mt6985_ops = {
 	.get_all_regnames = get_all_mt6985_regnames,
-	.get_spm_pwr_status_array = get_spm_pwr_status_array,
-	.get_spm_pwr_status = get_spm_pwr_status,
-	.get_pvd_pwr_data = get_pvd_pwr_data,
+	.get_pvd_pwr_data_idx = get_pvd_pwr_data_idx,
+	.get_pwr_status = get_pwr_status,
 	.is_cg_chk_pwr_on = is_cg_chk_pwr_on,
 	.get_off_pll_names = get_off_pll_names,
 	.get_notice_pll_names = get_notice_pll_names,

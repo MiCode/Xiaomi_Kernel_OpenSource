@@ -223,10 +223,10 @@ static s32 *read_spm_pwr_status_array(void)
 	return clkchk_ops->get_spm_pwr_status_array();
 }
 
-int pwr_hw_is_on(enum PWR_STA_TYPE type, u32 val)
+int pwr_hw_is_on(enum PWR_STA_TYPE type, s32 val)
 {
 	u32 *pval = read_spm_pwr_status_array();
-	u32 sta;
+	u32 sta = 0;
 
 	if (type == PWR_STA) {
 		if ((pval[PWR_STA] & val) != val &&
@@ -238,10 +238,12 @@ int pwr_hw_is_on(enum PWR_STA_TYPE type, u32 val)
 		else
 			return -1;
 	} else if (type == PWR_CON_STA) {
-		if (clkchk_ops == NULL || clkchk_ops->get_spm_pwr_status == NULL)
-			return 0;
+		if (clkchk_ops == NULL || clkchk_ops->get_spm_pwr_status == NULL) {
+			if (clkchk_ops != NULL && clkchk_ops->get_pwr_status != NULL)
+				sta = clkchk_ops->get_pwr_status(val);
+		} else
+			sta = clkchk_ops->get_spm_pwr_status(val);
 
-		sta = clkchk_ops->get_spm_pwr_status(val);
 		if ((sta & PWR_STA_BIT) != PWR_STA_BIT &&
 				(sta & PWR_STA_2ND_BIT) != PWR_STA_2ND_BIT)
 			return 0;
@@ -264,19 +266,22 @@ EXPORT_SYMBOL(pwr_hw_is_on);
 
 int clkchk_pvdck_is_on(struct provider_clk *pvdck)
 {
-	struct pwr_data *pd;
+	int pd_idx;
 
 	if (!pvdck)
 		return -1;
 
 	if (clkchk_ops == NULL || clkchk_ops->is_pwr_on == NULL) {
 		if (pvdck->pwr_mask == INV_MSK) {
-			if (clkchk_ops == NULL || clkchk_ops->get_pvd_pwr_data == NULL)
+			if (clkchk_ops == NULL || clkchk_ops->get_pvd_pwr_data_idx == NULL)
 				return 0;
 
-			pd = clkchk_ops->get_pvd_pwr_data(pvdck->provider_name);
+			pd_idx = clkchk_ops->get_pvd_pwr_data_idx(pvdck->provider_name);
 
-			return pwr_hw_is_on(pd->type, pd->ofs);
+			if (pd_idx >= 0)
+				return pwr_hw_is_on(PWR_CON_STA, pd_idx);
+			else
+				return 1;
 		}
 
 		if (!pvdck->pwr_mask) {

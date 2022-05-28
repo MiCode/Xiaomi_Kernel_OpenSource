@@ -71,14 +71,18 @@ static struct pd_check_swcg *get_subsys_cg(unsigned int id)
 
 static int pdchk_pd_is_on(int pd_id)
 {
-	struct pd_sta *ps;
+	struct pd_msk *pm;
 
-	if (pdchk_ops == NULL || pdchk_ops->get_pd_pwr_msk == NULL)
-		return false;
+	if (pdchk_ops == NULL || pdchk_ops->get_pd_pwr_msk == NULL) {
+		if (pdchk_ops == NULL || pdchk_ops->get_pd_pwr_status == NULL)
+			return false;
+		else
+			return pdchk_ops->get_pd_pwr_status(pd_id);
+	}
 
-	ps = pdchk_ops->get_pd_pwr_msk(pd_id);
+	pm = pdchk_ops->get_pd_pwr_msk(pd_id);
 
-	return pwr_hw_is_on(ps->sta_type, ps->pwr_val);
+	return pwr_hw_is_on(pm->sta_type, pm->pwr_val);
 }
 
 static const char * const prm_status_name[] = {
@@ -362,7 +366,7 @@ static bool pdchk_suspend_allow(unsigned int id)
 
 static int set_genpd_notify(void)
 {
-	struct device_node *node;
+	struct device_node *node = NULL;
 	unsigned int node_cnt = 0;
 	int r = 0;
 	int i = 0;
@@ -370,8 +374,9 @@ static int set_genpd_notify(void)
 	do {
 		unsigned int pd_idx = 0;
 
-		node = of_find_node_with_property(NULL, "#power-domain-cells");
-
+		node = of_find_node_with_property(node, "#power-domain-cells");
+		if (!node)
+			break;
 		do {
 			struct of_phandle_args pa;
 			char pd_dev_name[DEVN_LEN];
@@ -428,7 +433,7 @@ static int set_genpd_notify(void)
 			i++;
 		} while (!r && i < MAX_PD_NUM);
 		node_cnt++;
-		pr_notice("%d\n", node);
+		pr_notice("%d\n", node_cnt);
 	} while (node && i < MAX_PD_NUM);
 
 	if (!node_cnt) {
