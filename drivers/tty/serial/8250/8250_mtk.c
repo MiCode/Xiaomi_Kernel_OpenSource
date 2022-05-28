@@ -471,6 +471,9 @@ mtk8250_set_termios(struct uart_port *port, struct ktermios *termios,
 	baud = tty_termios_baud_rate(termios);
 
 	if (data->support_hub) {
+		if (baud == 9600)
+			baud = 12000000;
+
 		#if defined(KERNEL_UARTHUB_is_bypass_mode)
 		pr_info("support_hub, check if bypass mode\n");
 		/*To check bypass mode or multi-host mode*/
@@ -503,6 +506,9 @@ mtk8250_set_termios(struct uart_port *port, struct ktermios *termios,
 				  port->uartclk);
 
 	if (data->support_hub) {
+		if (baud == 9600)
+			baud = 12000000;
+
 		#if defined(KERNEL_UARTHUB_is_bypass_mode)
 		pr_info("support_hub, check if bypass mode\n");
 		/*To check bypass mode or multi-host mode*/
