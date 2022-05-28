@@ -107,6 +107,7 @@ enum gpufreq_config_target {
 	CONFIG_DYN_STACK      = 8,
 	CONFIG_DYN_SRAM_GPU   = 9,
 	CONFIG_DYN_SRAM_STACK = 10,
+	CONFIG_IPS            = 11,
 };
 
 enum gpufreq_config_value {
@@ -114,6 +115,7 @@ enum gpufreq_config_value {
 	FEAT_DISABLE       = 0,
 	FEAT_ENABLE        = 1,
 	DFD_FORCE_DUMP     = 2,
+	IPS_VMIN_GET       = 3,
 };
 
 enum gpuppm_reserved_idx {
@@ -207,6 +209,15 @@ struct gpufreq_asensor_info {
 	unsigned int lvts5_0_y_temperature;
 };
 
+struct gpufreq_ips_info {
+	unsigned int vmin_reg_val;
+	unsigned int vmin_val;
+	unsigned int autok_result;
+	unsigned int autok_trim0;
+	unsigned int autok_trim1;
+	unsigned int autok_trim2;
+};
+
 struct gpufreq_gpm3_info {
 	int temper;
 	int ceiling;
@@ -289,10 +300,12 @@ struct gpufreq_shared_status {
 	unsigned int mfg_pwr_status;
 	unsigned int stress_test;
 	unsigned int test_mode;
+	unsigned int ips_mode;
 	struct gpufreq_reg_info reg_mfgsys[GPUFREQ_MAX_REG_NUM];
 	struct gpufreq_reg_info reg_stack_sel;
 	struct gpufreq_reg_info reg_del_sel;
 	struct gpufreq_asensor_info asensor_info;
+	struct gpufreq_ips_info ips_info;
 	struct gpufreq_opp_info working_table_gpu[GPUFREQ_MAX_OPP_NUM];
 	struct gpufreq_opp_info working_table_stack[GPUFREQ_MAX_OPP_NUM];
 	struct gpufreq_opp_info signed_table_gpu[GPUFREQ_MAX_OPP_NUM];

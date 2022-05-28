@@ -634,6 +634,17 @@ static int mfgsys_config_proc_show(struct seq_file *m, void *v)
 		"[GPM]",
 		g_shared_status->gpm1_mode ? "On" : "Off",
 		g_shared_status->gpm3_mode ? "On" : "Off");
+	seq_printf(m, "%-7s IPS: %s, Vmin: %d (0x%x)\n",
+		"[IPS]",
+		g_shared_status->ips_mode ? "On" : "Off",
+		g_shared_status->ips_info.vmin_val,
+		g_shared_status->ips_info.vmin_reg_val);
+	seq_printf(m, "%-7s AutoKResult: %s (Trim: 0x%x, 0x%x, 0x%x)\n",
+		"[IPS]",
+		g_shared_status->ips_info.autok_result ? "Pass" : "Fail",
+		g_shared_status->ips_info.autok_trim0,
+		g_shared_status->ips_info.autok_trim1,
+		g_shared_status->ips_info.autok_trim2);
 	seq_printf(m, "%-7s RandomOPP: %s, TestMode: %s\n",
 		"[Misc]",
 		g_shared_status->stress_test ? "On" : "Off",
@@ -747,6 +758,14 @@ static ssize_t mfgsys_config_proc_write(struct file *file,
 			ret = kstrtouint(input_val, 10, &val);
 			if (ret)
 				val = CONFIG_VAL_INVALID;
+		} else if (sysfs_streq(input_target, "ips")) {
+			target = CONFIG_IPS;
+			if (sysfs_streq(input_val, "enable"))
+				val = FEAT_ENABLE;
+			else if (sysfs_streq(input_val, "disable"))
+				val = FEAT_DISABLE;
+			else if (sysfs_streq(input_val, "get"))
+				val = IPS_VMIN_GET;
 		}
 
 		/* set to mfgsys if valid */
@@ -807,7 +826,7 @@ static ssize_t mssv_test_proc_write(struct file *file,
 
 	mutex_lock(&gpufreq_debug_lock);
 
-	if (sscanf(buf, "%8s %7d", cmd, val) == 2) {
+	if (sscanf(buf, "%8s %7d", cmd, &val) == 2) {
 		if (sysfs_streq(cmd, "fgpu"))
 			target = TARGET_MSSV_FGPU;
 		else if (sysfs_streq(cmd, "vgpu"))

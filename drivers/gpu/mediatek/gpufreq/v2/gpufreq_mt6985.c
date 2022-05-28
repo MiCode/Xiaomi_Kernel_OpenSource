@@ -61,9 +61,10 @@
 static unsigned int __gpufreq_custom_init_enable(void);
 static unsigned int __gpufreq_dvfs_enable(void);
 static void __gpufreq_set_dvfs_state(unsigned int set, unsigned int state);
-static void __gpufreq_set_margin_mode(unsigned int val);
-static void __gpufreq_set_gpm_mode(unsigned int version, unsigned int val);
-static void __gpufreq_apply_restore_margin(enum gpufreq_target target, unsigned int val);
+static void __gpufreq_set_margin_mode(unsigned int mode);
+static void __gpufreq_set_gpm_mode(unsigned int version, unsigned int mode);
+static void __gpufreq_set_ips_mode(unsigned int mode);
+static void __gpufreq_apply_restore_margin(enum gpufreq_target target, unsigned int mode);
 static void __gpufreq_measure_power(void);
 static void __iomem *__gpufreq_of_ioremap(const char *node_name, int idx);
 static int __gpufreq_pause_dvfs(void);
@@ -204,6 +205,7 @@ static void __iomem *g_mfg_cpe_ctrl_mcu_base;
 static void __iomem *g_mfg_cpe_sensor_base;
 static void __iomem *g_mfg_secure_base;
 static void __iomem *g_drm_debug_base;
+static void __iomem *g_mfg_ips_base;
 static void __iomem *g_mali_base;
 static struct gpufreq_pmic_info *g_pmic;
 static struct gpufreq_clk_info *g_clk;
@@ -224,6 +226,7 @@ static unsigned int g_gpm1_mode;
 static unsigned int g_gpm3_mode;
 static unsigned int g_ptp_version;
 static unsigned int g_dfd_mode;
+static unsigned int g_ips_mode;
 static unsigned int g_gpueb_support;
 static unsigned int g_gpufreq_ready;
 static unsigned int g_stack_sel_reg;
@@ -1300,6 +1303,9 @@ void __gpufreq_set_mfgsys_config(enum gpufreq_config_target target, enum gpufreq
 	case CONFIG_DFD:
 		g_dfd_mode = val;
 		break;
+	case CONFIG_IPS:
+		__gpufreq_set_ips_mode(val);
+		break;
 	default:
 		GPUFREQ_LOGE("invalid config target: %d", target);
 		break;
@@ -1615,15 +1621,17 @@ int __gpufreq_mssv_commit(unsigned int target, unsigned int val)
 			ret = __gpufreq_volt_scale_sram(g_stack.cur_vsram, val);
 		break;
 	case TARGET_MSSV_STACK_SEL:
-		if (val == 1 || val == 0)
+		if (val == 1 || val == 0) {
 			__gpufreq_mssv_set_stack_sel(val);
-		else
+			ret = GPUFREQ_SUCCESS;
+		} else
 			ret = GPUFREQ_EINVAL;
 		break;
 	case TARGET_MSSV_DEL_SEL:
-		if (val == 1 || val == 0)
+		if (val == 1 || val == 0) {
 			__gpufreq_mssv_set_del_sel(val);
-		else
+			ret = GPUFREQ_SUCCESS;
+		} else
 			ret = GPUFREQ_EINVAL;
 		break;
 	default:
@@ -1891,11 +1899,11 @@ static void __gpufreq_set_dvfs_state(unsigned int set, unsigned int state)
 }
 
 /* API: apply/restore Vaging to working table of STACK */
-static void __gpufreq_set_margin_mode(unsigned int val)
+static void __gpufreq_set_margin_mode(unsigned int mode)
 {
 	/* update volt margin */
-	__gpufreq_apply_restore_margin(TARGET_GPU, val);
-	__gpufreq_apply_restore_margin(TARGET_STACK, val);
+	__gpufreq_apply_restore_margin(TARGET_GPU, mode);
+	__gpufreq_apply_restore_margin(TARGET_STACK, mode);
 
 	/* update power info to working table */
 	__gpufreq_measure_power();
@@ -1909,18 +1917,88 @@ static void __gpufreq_set_margin_mode(unsigned int val)
 }
 
 /* API: enable/disable GPM 1.0 */
-static void __gpufreq_set_gpm_mode(unsigned int version, unsigned int val)
+static void __gpufreq_set_gpm_mode(unsigned int version, unsigned int mode)
 {
 	if (version == 1)
-		g_gpm1_mode = val;
+		g_gpm1_mode = mode;
 
 	/* update current status to shared memory */
 	if (g_shared_status)
 		g_shared_status->gpm1_mode = g_gpm1_mode;
 }
 
+/* API: enable/disable IPS mode and get Vmin */
+static void __gpufreq_set_ips_mode(unsigned int mode)
+{
+#if GPUFREQ_IPS_ENABLE
+	u32 val = 0, autok_trim0 = 0, autok_trim1 = 0, autok_trim2 = 0;
+	unsigned int autok_result = false;
+	unsigned long long vmin_val = 0;
+
+	if (mode == FEAT_ENABLE) {
+		/* init */
+		writel(0x00000000, MFG_IPS_01);
+		writel(0x00400000, MFG_IPS_13);
+		writel(0x0001A400, MFG_IPS_01);
+		writel(0x044040FE, MFG_IPS_10);
+		writel(0x0001A500, MFG_IPS_01);
+		/* delay 500us */
+		udelay(500);
+		/* check autok */
+		val = readl(MFG_IPS_12);
+		/* SupplEyeScanV7P0_12 0x13FE002C [0] AutoCalibDone = 1'b1 */
+		/* SupplEyeScanV7P0_12 0x13FE002C [21:19] AutoCalibError = 3'b000 */
+		if ((val & BIT(0)) && ((val & GENMASK(21, 19)) == 0)) {
+			autok_trim0 = 0;
+			autok_trim1 = 0;
+			autok_trim2 = 0;
+			autok_result = true;
+		} else {
+			autok_trim0 = (readl(MFG_IPS_12) & GENMASK(6, 1)) >> 1;
+			autok_trim1 = (readl(MFG_IPS_12) & GENMASK(12, 7)) >> 7;
+			autok_trim2 = (readl(MFG_IPS_12) & GENMASK(18, 13)) >> 13;
+			autok_result = false;
+		}
+
+		g_ips_mode = mode;
+		/* update current status to shared memory */
+		if (g_shared_status) {
+			g_shared_status->ips_mode = g_ips_mode;
+			g_shared_status->ips_info.autok_result = autok_result;
+			g_shared_status->ips_info.autok_trim0 = autok_trim0;
+			g_shared_status->ips_info.autok_trim1 = autok_trim1;
+			g_shared_status->ips_info.autok_trim2 = autok_trim2;
+		}
+	} else if (mode == FEAT_DISABLE) {
+		/* reset */
+		writel(0x00000000, MFG_IPS_01);
+
+		g_ips_mode = mode;
+		/* update current status to shared memory */
+		if (g_shared_status) {
+			g_shared_status->ips_mode = g_ips_mode;
+			g_shared_status->ips_info.autok_result = false;
+			g_shared_status->ips_info.autok_trim0 = 0;
+			g_shared_status->ips_info.autok_trim1 = 0;
+			g_shared_status->ips_info.autok_trim2 = 0;
+		}
+	} else if (val == IPS_VMIN_GET) {
+		/* SupplEyeScanV7P0_06 0x13FE0014 [7:0] VminValue */
+		val = readl(MFG_IPS_06) & GENMASK(7, 0);
+		/* mV * 100 */
+		vmin_val = (((unsigned long long)val * 75000) / 255) + 37500;
+
+		/* update current status to shared memory */
+		if (g_shared_status) {
+			g_shared_status->ips_info.vmin_reg_val = val;
+			g_shared_status->ips_info.vmin_val = (unsigned int)vmin_val;
+		}
+	}
+#endif /* GPUFREQ_IPS_ENABLE */
+}
+
 /* API: apply (enable) / restore (disable) margin */
-static void __gpufreq_apply_restore_margin(enum gpufreq_target target, unsigned int val)
+static void __gpufreq_apply_restore_margin(enum gpufreq_target target, unsigned int mode)
 {
 	struct gpufreq_opp_info *working_table = NULL;
 	struct gpufreq_opp_info *signed_table = NULL;
@@ -1942,9 +2020,9 @@ static void __gpufreq_apply_restore_margin(enum gpufreq_target target, unsigned 
 
 	/* update margin to signed table */
 	for (i = 0; i < signed_opp_num; i++) {
-		if (val == FEAT_DISABLE)
+		if (mode == FEAT_DISABLE)
 			signed_table[i].volt += signed_table[i].margin;
-		else if (val == FEAT_ENABLE)
+		else if (mode == FEAT_ENABLE)
 			signed_table[i].volt -= signed_table[i].margin;
 		signed_table[i].vsram = __gpufreq_get_vsram_by_vlogic(signed_table[i].volt);
 	}
@@ -1954,7 +2032,7 @@ static void __gpufreq_apply_restore_margin(enum gpufreq_target target, unsigned 
 		working_table[i].vsram = signed_table[segment_upbound + i].vsram;
 
 		GPUFREQ_LOGD("Margin mode: %d, %s[%d] Volt: %d, Vsram: %d",
-			val, target == TARGET_STACK ? "STACK" : "GPU",
+			mode, target == TARGET_STACK ? "STACK" : "GPU",
 			i, working_table[i].volt, working_table[i].vsram);
 	}
 }
@@ -5603,6 +5681,18 @@ static int __gpufreq_init_platform_info(struct platform_device *pdev)
 	g_drm_debug_base = devm_ioremap(gpufreq_dev, res->start, resource_size(res));
 	if (unlikely(!g_drm_debug_base)) {
 		GPUFREQ_LOGE("fail to ioremap DRM_DEBUG: 0x%llx", res->start);
+		goto done;
+	}
+
+	/* 0x13FE0000 */
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "mfg_ips");
+	if (unlikely(!res)) {
+		GPUFREQ_LOGE("fail to get resource MFG_IPS");
+		goto done;
+	}
+	g_mfg_ips_base = devm_ioremap(gpufreq_dev, res->start, resource_size(res));
+	if (unlikely(!g_mfg_ips_base)) {
+		GPUFREQ_LOGE("fail to ioremap MFG_IPS: 0x%llx", res->start);
 		goto done;
 	}
 

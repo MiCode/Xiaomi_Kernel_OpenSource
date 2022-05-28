@@ -241,6 +241,14 @@ static inline u32 readl_mfg(const void __iomem *addr)
 #define DRM_DEBUG_BASE                  (g_drm_debug_base)                    /* 0x1000D000 */
 #define DRM_DEBUG_MFG_REG               (DRM_DEBUG_BASE + 0x060)              /* 0x1000D060 */
 
+#define MFG_IPS_BASE                    (g_mfg_ips_base)                      /* 0x13FE0000 */
+#define MFG_IPS_01                      (MFG_IPS_BASE + 0x000)                /* 0x13FE0000 */
+#define MFG_IPS_05                      (MFG_IPS_BASE + 0x010)                /* 0x13FE0010 */
+#define MFG_IPS_06                      (MFG_IPS_BASE + 0x014)                /* 0x13FE0014 */
+#define MFG_IPS_10                      (MFG_IPS_BASE + 0x024)                /* 0x13FE0024 */
+#define MFG_IPS_12                      (MFG_IPS_BASE + 0x02C)                /* 0x13FE002C */
+#define MFG_IPS_13                      (MFG_IPS_BASE + 0x030)                /* 0x13FE0030 */
+
 /**************************************************
  * MFGSYS Register Info
  **************************************************/
