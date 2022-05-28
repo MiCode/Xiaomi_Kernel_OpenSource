@@ -30,15 +30,16 @@ struct conap_scp_shm_config g_adp_shm_mt6895 = {
 	.conap_scp_ipi_mbox_size = 64,
 };
 #endif
+
 #if IS_ENABLED(CONFIG_MTK_COMBO_CHIP_CONSYS_6985)
 struct conap_scp_shm_config g_adp_shm_mt6985 = {
-	.conap_scp_shm_offset = 0x2100000,
-	.conap_scp_shm_size = 0x20000,
+	.conap_scp_shm_offset = 0x4EEC00,
+	.conap_scp_shm_size = 0x47C400,
 	.conap_scp_ipi_mbox_size = 64,
 };
 
 struct conap_scp_batching_config g_adp_batching_mt6985 = {
-	.buff_offset = 0x6EB000,
+	.buff_offset = 0x4EEC00,
 	.buff_size = 0x4B000,
 };
 #endif
@@ -115,8 +116,7 @@ int connsys_scp_platform_data_init(unsigned int chip_info, phys_addr_t emi_phy_a
 	}
 #endif
 #if IS_ENABLED(CONFIG_MTK_COMBO_CHIP_CONSYS_6985)
-	//if (chip_info == 0x6985) {
-	if (false) {
+	if (chip_info == 0x6985) {
 		g_adp_shm_ptr = &g_adp_shm_mt6985;
 		g_adp_batching_ptr = &g_adp_batching_mt6985;
 		return 0;
