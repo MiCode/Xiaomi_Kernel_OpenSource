@@ -327,6 +327,7 @@ struct mml_frame_config {
 	struct mml_dev *mml;
 
 	/* adaptor */
+	u32 job_id;
 	u32 last_jobid;
 
 	/* core */
@@ -459,6 +460,8 @@ struct mml_task {
 
 	/* mml pq task */
 	struct mml_pq_task *pq_task;
+
+	bool err;
 };
 
 struct tile_func_block;

@@ -46,13 +46,23 @@ struct mml_record {
 	u64 dest_iova_map_time;
 	u64 src_iova_unmap_time;
 	u64 dest_iova_unmap_time;
+
+	u32 cfg_jobid;
+	u32 task;
+	u8 state;
+	u8 err;
+	u8 ref;
 };
 
 /* 512 records
  * note that (MML_RECORD_NUM - 1) will use as mask during track,
  * so change this variable by 1 << N
  */
-#define MML_RECORD_NUM		(1 << 9)
+#if IS_ENABLED(CONFIG_MTK_MML_DEBUG)
+#define MML_RECORD_NUM		(1 << 10)
+#else
+#define MML_RECORD_NUM		(1 << 8)
+#endif
 #define MML_RECORD_NUM_MASK	(MML_RECORD_NUM - 1)
 
 struct mml_dev {
@@ -920,6 +930,11 @@ void mml_record_track(struct mml_dev *mml, struct mml_task *task)
 	record->dest_iova_map_time = buf->dest[0].map_time;
 	record->src_iova_unmap_time = buf->src.unmap_time;
 	record->dest_iova_unmap_time = buf->dest[0].unmap_time;
+	record->cfg_jobid = cfg->job_id;
+	record->task = (u32)(unsigned long)task;
+	record->state = task->state;
+	record->err = task->err;
+	record->ref = kref_read(&task->ref);
 
 	mml->record_idx = (mml->record_idx + 1) & MML_RECORD_NUM_MASK;
 
@@ -928,7 +943,8 @@ void mml_record_track(struct mml_dev *mml, struct mml_task *task)
 
 #define REC_TITLE "Index,Job ID," \
 	"src map time,src unmap time,src,src size,plane 0,plane 1, plane 2," \
-	"dest map time,dest unmap time,dest,dest size,plane 0,plane 1, plane 2"
+	"dest map time,dest unmap time,dest,dest size,plane 0,plane 1, plane 2," \
+	"config job,task inst,state,ref,error,"
 
 static int mml_record_print(struct seq_file *seq, void *data)
 {
@@ -946,7 +962,7 @@ static int mml_record_print(struct seq_file *seq, void *data)
 	seq_puts(seq, REC_TITLE ",\n");
 	for (i = 0; i < ARRAY_SIZE(mml->records); i++) {
 		record = &mml->records[idx];
-		seq_printf(seq, "%u,%u,%llu,%llu,%#llx,%u,%u,%u,%u,%llu,%llu,%#llx,%u,%u,%u,%u,\n",
+		seq_printf(seq, "%u,%u,%llu,%llu,%#llx,%u,%u,%u,%u,%llu,%llu,%#llx,%u,%u,%u,%u,%u,%#x,%u,%u,%s,\n",
 			idx,
 			record->jobid,
 			record->src_iova_map_time,
@@ -962,7 +978,12 @@ static int mml_record_print(struct seq_file *seq, void *data)
 			record->dest_size[0],
 			record->dest_plane_offset[0],
 			record->dest_plane_offset[1],
-			record->dest_plane_offset[2]);
+			record->dest_plane_offset[2],
+			record->cfg_jobid,
+			record->task,
+			record->state,
+			record->ref,
+			record->err ? "error" : "");
 		idx = (idx + 1) & MML_RECORD_NUM_MASK;
 	}
 
@@ -1047,6 +1068,8 @@ static void mml_record_init(struct mml_dev *mml)
 
 	if (exists)
 		dput(dir);
+
+	mml_log("%s done with size %zu", __func__, sizeof(mml->records));
 }
 
 static int sys_bind(struct device *dev, struct device *master, void *data)
@@ -1078,7 +1101,7 @@ static int mml_probe(struct platform_device *pdev)
 	u32 i;
 	int ret, thread_cnt;
 
-	mml_msg("%s with dev %p", __func__, dev);
+	mml_log("%s with dev %p mml size %zu", __func__, dev, sizeof(struct mml_dev));
 	mml = devm_kzalloc(dev, sizeof(*mml), GFP_KERNEL);
 	if (!mml)
 		return -ENOMEM;

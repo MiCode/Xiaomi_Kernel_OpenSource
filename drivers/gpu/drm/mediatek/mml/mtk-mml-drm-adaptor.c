@@ -43,6 +43,7 @@ struct mml_drm_ctx {
 	struct mml_dev *mml;
 	const struct mml_task_ops *task_ops;
 	atomic_t job_serial;
+	atomic_t config_serial;
 	struct workqueue_struct *wq_config[MML_PIPE_CNT];
 	struct workqueue_struct *wq_destroy;
 	struct kthread_worker *kt_done;
@@ -388,9 +389,9 @@ static struct mml_frame_config *frame_config_create(
 	if (!cfg)
 		return ERR_PTR(-ENOMEM);
 	mml_core_init_config(cfg);
-
 	list_add(&cfg->entry, &ctx->configs);
 	ctx->config_cnt++;
+	cfg->job_id = atomic_inc_return(&ctx->config_serial);
 	cfg->info = *info;
 	cfg->disp_dual = ctx->disp_dual;
 	cfg->disp_vdo = ctx->disp_vdo;
@@ -638,6 +639,8 @@ static void task_frame_done(struct mml_task *task)
 			cfg->run_task_cnt,
 			cfg->done_task_cnt,
 			task->state);
+		task->err = true;
+		mml_record_track(mml, task);
 		kref_put(&task->ref, task_move_to_destroy);
 	} else {
 		/* works fine, safe to move */
