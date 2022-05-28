@@ -5705,35 +5705,40 @@
 			polling-delay-passive = <0>; /* milliseconds */
 			thermal-sensors = <&lvts 31>;
 		};
-		vtskin1 {
+		vtskin-max {
 			polling-delay = <0>; /* milliseconds */
 			polling-delay-passive = <0>; /* milliseconds */
 			thermal-sensors = <&vtskin 0>;
 		};
-		vtskin2 {
+		vtskin1 {
 			polling-delay = <0>; /* milliseconds */
 			polling-delay-passive = <0>; /* milliseconds */
 			thermal-sensors = <&vtskin 1>;
 		};
-		vtskin3 {
+		vtskin2 {
 			polling-delay = <0>; /* milliseconds */
 			polling-delay-passive = <0>; /* milliseconds */
 			thermal-sensors = <&vtskin 2>;
 		};
-		vtskin4 {
+		vtskin3 {
 			polling-delay = <0>; /* milliseconds */
 			polling-delay-passive = <0>; /* milliseconds */
 			thermal-sensors = <&vtskin 3>;
 		};
-		vtskin5 {
+		vtskin4 {
 			polling-delay = <0>; /* milliseconds */
 			polling-delay-passive = <0>; /* milliseconds */
 			thermal-sensors = <&vtskin 4>;
 		};
-		vtskin6 {
+		vtskin5 {
 			polling-delay = <0>; /* milliseconds */
 			polling-delay-passive = <0>; /* milliseconds */
 			thermal-sensors = <&vtskin 5>;
+		};
+		vtskin6 {
+			polling-delay = <0>; /* milliseconds */
+			polling-delay-passive = <0>; /* milliseconds */
+			thermal-sensors = <&vtskin 6>;
 		};
 		ap_ntc: ap_ntc {
 			polling-delay = <0>; /* milliseconds */
