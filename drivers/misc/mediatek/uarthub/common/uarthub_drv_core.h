@@ -30,6 +30,7 @@ struct assert_ctrl {
  *******************************************************************************/
 int uarthub_core_irq_register(struct platform_device *pdev);
 int uarthub_core_read_reg_from_dts(struct platform_device *pdev);
+int uarthub_core_check_disable_from_dts(struct platform_device *pdev);
 int uarthub_core_read_max_dev_from_dts(struct platform_device *pdev);
 int uarthub_core_config_gpio_from_dts(struct platform_device *pdev);
 int uarthub_core_config_uart_glue_ctrl_from_dts(struct platform_device *pdev);

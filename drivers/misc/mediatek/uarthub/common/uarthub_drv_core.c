@@ -110,8 +110,9 @@ static int uarthub_core_init(void)
 {
 	int iRet = -1, retry = 0;
 
-	if (g_uarthub_disable == 1)
-		return 0;
+#if UARTHUB_DEBUG_LOG
+	pr_info("[%s] g_uarthub_disable=[%d]\n", __func__, g_uarthub_disable);
+#endif
 
 	iRet = platform_driver_register(&mtk_uarthub_dev_drv);
 	if (iRet)
@@ -126,24 +127,29 @@ static int uarthub_core_init(void)
 
 	if (!g_uarthub_pdev) {
 		pr_notice("[%s] g_uarthub_pdev=[NULL]\n", __func__);
-		return -1;
+		goto ERROR;
 	}
+
+	uarthub_core_check_disable_from_dts(g_uarthub_pdev);
+
+	if (g_uarthub_disable == 1)
+		return 0;
 
 	iRet = uarthub_core_read_max_dev_from_dts(g_uarthub_pdev);
 	if (iRet)
-		return -1;
+		goto ERROR;
 
 	if (g_max_dev <= 0)
-		return -1;
+		goto ERROR;
 
 	iRet = uarthub_core_read_reg_from_dts(g_uarthub_pdev);
 	if (iRet)
-		return -1;
+		goto ERROR;
 
 #if UARTHUB_CONFIG_TRX_GPIO
 	iRet = uarthub_core_config_gpio_from_dts(g_uarthub_pdev);
 	if (iRet)
-		return -1;
+		goto ERROR;
 #endif
 
 #if UARTHUB_CONFIG_GLUE_CTR
@@ -155,19 +161,19 @@ static int uarthub_core_init(void)
 #if CLK_CTRL_UNIVPLL_REQ
 	iRet = uarthub_core_clk_get_from_dts(g_uarthub_pdev);
 	if (iRet)
-		return -1;
+		goto ERROR;
 #endif
 
 	if (!reg_base_addr.vir_addr) {
 		pr_notice("[%s] reg_base_addr.phy_addr(0x%lx) ioremap fail\n",
 			__func__, reg_base_addr.phy_addr);
-		return -1;
+		goto ERROR;
 	}
 
 	uarthub_assert_ctrl.uarthub_workqueue = create_singlethread_workqueue("uarthub_wq");
 	if (!uarthub_assert_ctrl.uarthub_workqueue) {
-		pr_info("[%s] workqueue create failed\n", __func__);
-		return -1;
+		pr_notice("[%s] workqueue create failed\n", __func__);
+		goto ERROR;
 	}
 
 	INIT_WORK(&uarthub_assert_ctrl.trigger_assert_work, trigger_assert_worker_handler);
@@ -186,6 +192,10 @@ static int uarthub_core_init(void)
 		(void __iomem *) UARTHUB_INTFHUB_BASE_ADDR(reg_base_addr.vir_addr);
 
 	return 0;
+
+ERROR:
+	g_uarthub_disable = 1;
+	return -1;
 }
 
 static void uarthub_core_exit(void)
@@ -386,6 +396,29 @@ int uarthub_core_read_reg_from_dts(struct platform_device *pdev)
 		pr_info("[%s] Get uarthub base, phy=(0x%lx) vir=(0x%lx) size=(0x%llx)",
 			__func__, reg_base_addr.phy_addr,
 			reg_base_addr.vir_addr, reg_base_addr.size);
+	} else {
+		pr_notice("[%s] can't find UARTHUB compatible node\n", __func__);
+		return -1;
+	}
+
+	return 0;
+}
+
+int uarthub_core_check_disable_from_dts(struct platform_device *pdev)
+{
+	int uarthub_disable = 0;
+	struct device_node *node = NULL;
+
+	if (pdev)
+		node = pdev->dev.of_node;
+
+	if (node) {
+		if (of_property_read_u32(node, "uarthub_disable", &uarthub_disable)) {
+			pr_notice("[%s] unable to get uarthub_disable from dts\n", __func__);
+			return -1;
+		}
+		pr_info("[%s] Get uarthub_disable(%d)\n", __func__, uarthub_disable);
+		g_uarthub_disable = ((uarthub_disable == 0) ? 0 : 1);
 	} else {
 		pr_notice("[%s] can't find UARTHUB compatible node\n", __func__);
 		return -1;
@@ -933,6 +966,9 @@ int uarthub_core_is_assert_state(void)
 
 int uarthub_core_irq_register_cb(UARTHUB_CORE_IRQ_CB irq_callback)
 {
+	if (g_uarthub_disable == 1)
+		return 0;
+
 	g_core_irq_callback = irq_callback;
 	return 0;
 }
