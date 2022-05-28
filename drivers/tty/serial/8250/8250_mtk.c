@@ -113,6 +113,16 @@ enum {
 };
 
 #if IS_ENABLED(CONFIG_MTK_UARTHUB)
+int mtk8250_uart_hub_dump_with_tag(const char *tag)
+{
+	#if defined(UARTHUB_dump_debug_info_with_tag)
+		return UARTHUB_dump_debug_info_with_tag(tag);
+	#else
+		return 0;
+	#endif
+}
+EXPORT_SYMBOL(mtk8250_uart_hub_dump_with_tag);
+
 int mtk8250_uart_hub_fifo_ctrl(int ctrl)
 {
 	#if defined(KERNEL_UARTHUB_md_adsp_fifo_ctrl)
