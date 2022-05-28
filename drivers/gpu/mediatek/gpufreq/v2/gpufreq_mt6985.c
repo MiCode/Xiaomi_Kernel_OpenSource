@@ -231,6 +231,7 @@ static unsigned int g_del_sel_reg;
 static enum gpufreq_dvfs_state g_dvfs_state;
 static struct gpufreq_shared_status *g_shared_status;
 static DEFINE_MUTEX(gpufreq_lock);
+static DEFINE_MUTEX(spm_sema_lock);
 
 static struct gpufreq_platform_fp platform_ap_fp = {
 	.power_ctrl_enable = __gpufreq_power_ctrl_enable,
@@ -3129,6 +3130,7 @@ static void __gpufreq_set_semaphore(enum gpufreq_sema_op op)
 	 */
 	/* acquire HW semaphore: SPM_SEMA_M3 0x1C0016A8 [3] = 1'b1 */
 	if (op == SEMA_ACQUIRE) {
+		mutex_lock(&spm_sema_lock);
 		do {
 			/* 50ms timeout */
 			if (unlikely(++i > 5000))
@@ -3145,6 +3147,7 @@ static void __gpufreq_set_semaphore(enum gpufreq_sema_op op)
 				goto fail;
 			udelay(10);
 		} while (readl(SPM_SEMA_M3) & BIT(3));
+		mutex_unlock(&spm_sema_lock);
 	}
 
 	return;
