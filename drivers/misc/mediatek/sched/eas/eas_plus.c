@@ -6,6 +6,7 @@
 #include <sched/sched.h>
 #include <sugov/cpufreq.h>
 #include "common.h"
+#include "mtk_energy_model/energy_model.h"
 #include "eas_plus.h"
 #include "eas_trace.h"
 #include <linux/sort.h>

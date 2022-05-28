@@ -2,7 +2,6 @@ obj-$(CONFIG_MTK_SCHEDULER) += scheduler.o
 scheduler-y += eas/sched_main.o
 scheduler-y += eas/sched_sys_common.o
 scheduler-y += eas/eas_plus.o
-scheduler-y += eas/static_power.o
 scheduler-y += eas/topology.o
 scheduler-y += common.o
 scheduler-y += fair.o
@@ -11,6 +10,7 @@ scheduler-$(CONFIG_MTK_SCHED_BIG_TASK_ROTATE)+= eas/rotate.o
 
 obj-$(CONFIG_MTK_CPUFREQ_SUGOV_EXT) += cpufreq_sugov_ext.o
 cpufreq_sugov_ext-y += sugov/cpufreq_sugov_main.o
+cpufreq_sugov_ext-y += mtk_energy_model/static_power.o
 cpufreq_sugov_ext-y += sugov/nonlinear_opp_cap.o
 cpufreq_sugov_ext-y += common.o
 

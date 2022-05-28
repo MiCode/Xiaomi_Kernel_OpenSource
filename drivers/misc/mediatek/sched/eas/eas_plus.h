@@ -39,7 +39,6 @@ unsigned long capacity_of(int cpu);
 #endif
 
 extern unsigned long cpu_util(int cpu);
-extern int mtk_static_power_init(void);
 extern int task_fits_capacity(struct task_struct *p, long capacity);
 
 #if IS_ENABLED(CONFIG_MTK_EAS)
@@ -51,7 +50,6 @@ extern void mtk_cpu_overutilized(void *data, int cpu, int *overutilized);
 extern unsigned long mtk_em_cpu_energy(struct em_perf_domain *pd,
 		unsigned long max_util, unsigned long sum_util,
 		unsigned long allowed_cpu_cap, unsigned int *cpu_temp);
-extern unsigned int mtk_get_leakage(unsigned int cpu, unsigned int opp, unsigned int temperature);
 extern unsigned int new_idle_balance_interval_ns;
 #if IS_ENABLED(CONFIG_MTK_THERMAL_AWARE_SCHEDULING)
 extern int sort_thermal_headroom(struct cpumask *cpus, int *cpu_order);

@@ -155,8 +155,6 @@ static int __init mtk_scheduler_init(void)
 	if (ret)
 		return ret;
 
-	mtk_static_power_init();
-
 #if IS_ENABLED(CONFIG_MTK_EAS)
 	mtk_freq_limit_notifier_register();
 

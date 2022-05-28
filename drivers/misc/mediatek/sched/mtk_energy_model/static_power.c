@@ -22,6 +22,7 @@
 #include <linux/uaccess.h>
 #include <linux/delay.h>
 #include <linux/cpufreq.h>
+#include "energy_model.h"
 
 #define __LKG_PROCFS__ 1
 #define __LKG_DEBUG__ 0

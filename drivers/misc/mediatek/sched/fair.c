@@ -7,6 +7,8 @@
 #include <trace/hooks/sched.h>
 #include <sched/sched.h>
 #include "eas/eas_plus.h"
+#include "sugov/cpufreq.h"
+#include "mtk_energy_model/energy_model.h"
 #include "common.h"
 #include <sched/pelt.h>
 #include <linux/stop_machine.h>
@@ -377,18 +379,35 @@ static void attach_one_task(struct rq *rq, struct task_struct *p)
 #if IS_ENABLED(CONFIG_MTK_EAS)
 int mtk_find_idle_cpu(struct task_struct *p)
 {
-	int target_cpu = -1, cpu;
+	int target_cpu = -1, cpu, opp;
 	unsigned long task_util = uclamp_task_util(p);
+	unsigned long pwr = ULONG_MAX, best_pwr = ULONG_MAX;
+	unsigned int cap = 0, max_sparse_cap = 0;
+	unsigned int fit_idle_cpus = 0;
 
 	for_each_cpu_and(cpu, p->cpus_ptr,
 			cpu_active_mask) {
-		if (idle_cpu(cpu) && fits_capacity(task_util, capacity_of(cpu))) {
-			target_cpu = cpu;
-			break;
+		cap = capacity_of(cpu);
+		if (idle_cpu(cpu) && fits_capacity(task_util, cap)) {
+			fit_idle_cpus = (fit_idle_cpus | (1 << cpu));
+			opp = pd_get_util_opp(cpu, map_util_perf(task_util));
+			pwr = pd_get_opp_pwr_eff(cpu, opp) * task_util
+					+ mtk_get_leakage(cpu, opp, get_cpu_temp(cpu)/1000);
+			/* if cpu power is better, select it as candidate */
+			if (best_pwr > pwr) {
+				best_pwr = pwr;
+				target_cpu = cpu;
+				max_sparse_cap = cap;
+			}
+			/* if power of two cpus are identical, select larger capacity */
+			else if ((best_pwr == pwr) && (max_sparse_cap < cap)) {
+				target_cpu = cpu;
+				max_sparse_cap = cap;
+			}
 		}
-
 	}
-
+	trace_sched_find_idle_cpu(p, task_util, target_cpu, best_pwr,
+					max_sparse_cap, fit_idle_cpus);
 	return target_cpu;
 }
 

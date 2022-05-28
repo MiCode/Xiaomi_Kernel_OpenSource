@@ -14,6 +14,7 @@
 
 #include <sched/sched.h>
 #include "cpufreq.h"
+#include "mtk_energy_model/energy_model.h"
 #include "common.h"
 #include <linux/tick.h>
 #include <linux/sched/cpufreq.h>
@@ -1061,6 +1062,8 @@ static int __init cpufreq_mtk_init(void)
 {
 	int ret = 0;
 	struct proc_dir_entry *dir;
+
+	mtk_static_power_init();
 
 	dir = proc_mkdir("mtk_scheduler", NULL);
 	if (!dir)

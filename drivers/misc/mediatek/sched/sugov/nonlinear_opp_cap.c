@@ -11,6 +11,7 @@
 #include <sched/sched.h>
 #include <linux/energy_model.h>
 #include "cpufreq.h"
+#include "mtk_energy_model/energy_model.h"
 
 DEFINE_PER_CPU(unsigned int, gear_id) = -1;
 EXPORT_SYMBOL(gear_id);

@@ -35,6 +35,41 @@ out:
 }
 #endif
 
+TRACE_EVENT(sched_find_idle_cpu,
+
+	TP_PROTO(struct task_struct *tsk,
+		unsigned long task_util, int target_cpu, unsigned long pwr,
+		unsigned int cap, unsigned int fit_idle_cpus),
+
+	TP_ARGS(tsk, task_util, target_cpu, pwr, cap, fit_idle_cpus),
+
+	TP_STRUCT__entry(
+		__field(pid_t,         pid)
+		__field(unsigned long, task_util)
+		__field(int,           target_cpu)
+		__field(unsigned long, pwr)
+		__field(unsigned int,  cap)
+		__field(unsigned int,  fit_idle_cpus)
+		),
+
+	TP_fast_assign(
+		__entry->pid           = tsk->pid;
+		__entry->task_util     = task_util;
+		__entry->target_cpu    = target_cpu;
+		__entry->pwr           = pwr;
+		__entry->cap           = cap;
+		__entry->fit_idle_cpus = fit_idle_cpus;
+		),
+
+	TP_printk("pid=%4d util=%lu target_cpu=%d pwr=%lu cap=%u fit_idle_cpus=0x%x",
+		__entry->pid,
+		__entry->task_util,
+		__entry->target_cpu,
+		__entry->pwr,
+		__entry->cap,
+		__entry->fit_idle_cpus)
+);
+
 TRACE_EVENT(sched_select_task_rq,
 
 	TP_PROTO(struct task_struct *tsk,
