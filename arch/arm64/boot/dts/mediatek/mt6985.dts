@@ -25,6 +25,7 @@
 #include <dt-bindings/mfd/mt6375.h>
 #include <dt-bindings/power/mt6375-gauge.h>
 #include <dt-bindings/clock/mmdvfs-clk.h>
+#include <dt-bindings/interconnect/mtk,mmqos.h>
 
 / {
 	model = "MT6985";
@@ -8402,6 +8403,8 @@
 		reg = <0 0x1e801000 0 0x1000>;
 		mediatek,smi = <&disp_ssc0_smi_2x1_sub_comm &disp_ssc1_smi_2x1_sub_comm>;
 		mediatek,common-id = <0>;
+		mmdvfs-dvfsrc-vcore-supply = <&dvfsrc_vcore>;
+		operating-points-v2 = <&opp_table_mminfra>;
 		smi-common;
 		power-domains = <&scpsys MT6985_POWER_DOMAIN_MM_INFRA>;
 		clocks = <&mminfra_config_clk CLK_MMINFRA_GCE_D>,
@@ -8417,6 +8420,8 @@
 		reg = <0 0x1e80f000 0 0x1000>;
 		mediatek,smi = <&mdp_ssc4_smi_2x1_sub_comm &mdp_ssc5_smi_2x1_sub_comm>;
 		mediatek,common-id = <1>;
+		mmdvfs-dvfsrc-vcore-supply = <&dvfsrc_vcore>;
+		operating-points-v2 = <&opp_table_mminfra>;
 		smi-common;
 		power-domains = <&scpsys MT6985_POWER_DOMAIN_MM_INFRA>;
 		clocks = <&mminfra_config_clk CLK_MMINFRA_GCE_D>,
@@ -9148,6 +9153,36 @@
 		reg = <0 0x1e816000 0 0x1000>;
 		mediatek,rsi-id = <3>;
 		mediatek,dump-with-comm = <1>;
+	};
+
+	mmqos_wrapper {
+			compatible = "mediatek,mt6985-mmqos-wrapper";
+	};
+
+	mmqos: interconnect {
+		compatible = "mediatek,mt6985-mmqos";
+		#mtk-interconnect-cells = <1>;
+		mediatek,larbs = <&smi_larb0 &smi_larb1 &smi_larb2
+					&smi_larb3 &smi_larb4 &smi_larb5
+					&smi_larb6 &smi_larb7 &smi_larb8
+					&smi_larb9 &smi_larb10 &smi_larb11
+					&smi_larb12 &smi_larb13 &smi_larb14
+					&smi_larb15 &smi_larb16 &smi_larb17
+					&smi_larb18 &smi_larb19 &smi_larb20
+					&smi_larb21 &smi_larb22 &smi_larb23
+					&smi_larb25 &smi_larb26 &smi_larb27
+					&smi_larb28 &smi_larb29 &smi_larb30
+					&smi_larb31 &smi_larb32 &smi_larb33
+					&smi_larb34 &smi_larb35 &smi_larb37>;
+		mediatek,commons = <&smi_disp_common>, <&smi_mdp_common>;
+		disable-mmqos;
+		clocks = <&topckgen_clk CLK_TOP_MMINFRA_SEL>,
+				<&topckgen_clk CLK_TOP_MMINFRA_SEL>;
+		clock-names = "mm", "mdp";
+		interconnects = <&dvfsrc MT6873_MASTER_MMSYS &dvfsrc MT6873_SLAVE_DDR_EMI>,
+				<&dvfsrc MT6873_MASTER_HRT_MMSYS
+				&dvfsrc MT6873_SLAVE_HRT_DDR_EMI>;
+		interconnect-names = "icc-bw", "icc-hrt-bw";
 	};
 
 	disp_pwm: disp_pwm0@1100e000 {
