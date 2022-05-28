@@ -185,6 +185,8 @@ void imgsys_main_set_init(struct mtk_imgsys_dev *imgsys_dev)
 		iowrite32(0x0, pWpeCtrl);
 	}
 
+	HwIdx = 0;
+
 	if (adlARegBA || adlBRegBA) {
 		/* Reset ADL A */
 		for (HwIdx = 0; HwIdx < ADL_HW_SET; HwIdx++) {
@@ -232,13 +234,13 @@ void imgsys_main_set_init(struct mtk_imgsys_dev *imgsys_dev)
 	iowrite32(0xFFFFFFFF, (void *)(dip2RegBA + SW_RST));
 	iowrite32(0x0, (void *)(dip2RegBA + SW_RST));
 
+	HwIdx = 0;
+
 	for (HwIdx = 0; HwIdx < (WPE_HW_SET - 1); HwIdx++) {
 		if (HwIdx == 0)
 			WpeRegBA = wpedip1RegBA;
-		else if (HwIdx == 1)
-			WpeRegBA = wpedip2RegBA;
 		else
-			WpeRegBA = wpedip3RegBA;
+			WpeRegBA = wpedip2RegBA;
 
 		/* Wpe Macro HW Reset */
 		pWpeCtrl = (void *)(WpeRegBA + SW_RST);
