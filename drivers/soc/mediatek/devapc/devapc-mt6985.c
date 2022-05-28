@@ -304,6 +304,28 @@ static const char *mt6985_bus_id_to_master(uint32_t bus_id, uint32_t vio_addr,
 		}
 	} else if (slave_type == SLAVE_TYPE_MMUP) {
 		return mminfra_domain[domain];
+	} else if (slave_type == SLAVE_TYPE_GPU) {
+		/* PD_BUS */
+		if ((vio_addr >= GPU_PD_START) && (vio_addr <= GPU_PD_END)) {
+			if ((bus_id & 0x3) == 0x0)
+				return "GPUEB_RV33_P";
+			else if ((bus_id & 0x3) == 0x1)
+				return "GPUEB_RV33_D";
+			else if ((bus_id & 0x3) == 0x2)
+				return "GPUEB_DMA";
+			else
+				return infra_mi_trans(bus_id);
+		/* AO_BUS */
+		} else {
+			if (((bus_id >> 8) & 0x3) == 0x0)
+				return "GPUEB_RV33_P";
+			else if (((bus_id >> 8) & 0x3) == 0x1)
+				return "GPUEB_RV33_D";
+			else if (((bus_id >> 8) & 0x3) == 0x2)
+				return "GPUEB_DMA";
+			else
+				return infra_mi_trans(bus_id);
+		}
 	} else {
 		return infra_mi_trans(bus_id);
 	}
