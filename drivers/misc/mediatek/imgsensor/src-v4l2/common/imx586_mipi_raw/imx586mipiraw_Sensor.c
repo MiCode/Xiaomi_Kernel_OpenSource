@@ -3532,8 +3532,12 @@ static void custom3_setting(struct subdrv_ctx *ctx)
 		if (!_is_seamless)
 			write_cmos_sensor_8(ctx, 0x3621, 0x00);
 		else {
-			_i2c_data[_size_to_write++] = 0x3621;
-			_i2c_data[_size_to_write++] = 0x00;
+			if (_size_to_write < _I2C_BUF_SIZE - 2) {
+				_i2c_data[_size_to_write++] = 0x3621;
+				_i2c_data[_size_to_write++] = 0x00;
+			} else {
+				LOG_INF("_too much i2c data for qsc register\n");
+			}
 		}
 	}
 
@@ -3570,8 +3574,12 @@ static void custom4_setting(struct subdrv_ctx *ctx)
 		if (!_is_seamless)
 			write_cmos_sensor_8(ctx, 0x3621, 0x00);
 		else {
-			_i2c_data[_size_to_write++] = 0x3621;
-			_i2c_data[_size_to_write++] = 0x00;
+			if (_size_to_write < _I2C_BUF_SIZE - 2) {
+				_i2c_data[_size_to_write++] = 0x3621;
+				_i2c_data[_size_to_write++] = 0x00;
+			} else {
+				LOG_INF("_too much i2c data for qsc register\n");
+			}
 		}
 	}
 
@@ -4737,7 +4745,7 @@ static kal_uint32 get_sensor_temperature(struct subdrv_ctx *ctx)
 
 	temperature = read_cmos_sensor_8(ctx, 0x013a);
 
-	if (temperature >= 0x0 && temperature <= 0x4F)
+	if (temperature <= 0x4F)
 		temperature_convert = temperature;
 	else if (temperature >= 0x50 && temperature <= 0x7F)
 		temperature_convert = 80;
