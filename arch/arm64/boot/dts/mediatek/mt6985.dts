@@ -4097,6 +4097,32 @@
 			aov_log_buf_sz = <0x100000>;
 		};
 
+		mtk_apu_mem_code: mtk-apu-mem-code {
+			compatible = "mediatek, apu_mem_code";
+			status = "okay";
+			type = <1>;
+			mask = /bits/ 64 <0x00000003ffffffff>;
+			dma-ranges = <0x0 0x0 0x0 0x0 0x1 0x0>;
+			iommus = <&apu_iommu0 M4U_PORT_L40_APU_CODE>;
+		};
+
+		mtk_apu_mem_data: mtk-apu-mem-data {
+			compatible = "mediatek, apu_mem_data";
+			status = "okay";
+			type = <2>;
+			mask = /bits/ 64 <0x00000003ffffffff>;
+			dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
+			iommus = <&apu_iommu1 M4U_PORT_L40_APU_DATA>;
+		};
+
+		mdla {
+			compatible = "mediatek, mdla-rv";
+			core-num = <4>;
+			version = <0x69850305>;
+			dma-ranges = <0x0 0x0 0x0 0x0 0x1 0x0>;
+			iommus = <&apu_iommu0 M4U_PORT_L40_APU_CODE>;
+		};
+
 		apusys_aov {
 			compatible = "mediatek,apusys_aov";
 		};
