@@ -133,7 +133,7 @@ struct mtk_smi_larb_gen {
 	int port_in_larb_gen2[MTK_LARB_NR_MAX + 1];
 	void (*config_port)(struct device *);
 	void (*sleep_ctrl)(struct device *dev, bool toslp);
-	unsigned int			larb_direct_to_common_mask;
+	unsigned long			larb_direct_to_common_mask;
 	bool				has_gals;
 	bool		has_bwl;
 	bool		has_grouping;
@@ -1769,8 +1769,9 @@ static const struct mtk_smi_larb_gen mtk_smi_larb_mt6985 = {
 				 10, 10, 0, 14, 14, 8, 22, 10, 16, 16, 9,
 				 9, 8, 8, 31, 31,},
 	.config_port                = mtk_smi_larb_config_port_gen2_general,
-	.larb_direct_to_common_mask = BIT(24),
-				      /*skip larb: 24*/
+	.larb_direct_to_common_mask = BIT(24) | BIT(36),
+				      /*skip larb: 24, 36*/
+	.has_gals                   = true,
 	.has_bwl                    = true,
 	.has_grouping               = true,
 	.has_bw_thrt                = true,
