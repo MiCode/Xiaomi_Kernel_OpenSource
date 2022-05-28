@@ -478,6 +478,28 @@ static struct match mt6983_match = {
 	.init = &mcupm_init_v1,
 };
 
+static struct id_map map_6985[] = {
+	{"mcu0", 1000},
+	{"mcu1", 2000},
+	{"mcu2", 3000},
+	{"mcu3", 4000},
+	{"mcu4", 5000},
+	{}
+};
+struct hdlr_data_v1 hdlr_data_6985 = {
+	.reg_tr = NULL,
+	.map = map_6985,
+};
+static struct fh_hdlr mcupm_hdlr_6985 = {
+	.ops = &mcupm_ops_v1,
+	.data = &hdlr_data_6985,
+};
+static struct match mt6985_match = {
+	.name = "mediatek,mt6985-fhctl",
+	.hdlr = &mcupm_hdlr_6985,
+	.init = &mcupm_init_v1,
+};
+
 static struct match *matches[] = {
 	&mt6853_match,
 	&mt6855_match,
@@ -487,6 +509,7 @@ static struct match *matches[] = {
 	&mt6885_match,
 	&mt6895_match,
 	&mt6983_match,
+	&mt6985_match,
 	NULL,
 };
 
