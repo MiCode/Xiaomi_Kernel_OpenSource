@@ -295,7 +295,7 @@ static long AF_Ioctl(struct file *a_pstFile, unsigned int a_u4Command,
 		{
 	/* Set Driver Name */
 	int i;
-	struct stAF_MotorName stMotorName;
+	struct stAF_MotorName stMotorName = {'\0'};
 	struct stAF_DrvList *pstAF_CurDrv = NULL;
 	__user struct stAF_MotorName *pstMotorName =
 			(__user struct stAF_MotorName *)a_u4Param;
