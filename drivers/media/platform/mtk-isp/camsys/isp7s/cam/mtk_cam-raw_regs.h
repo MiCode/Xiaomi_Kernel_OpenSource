@@ -21,6 +21,8 @@ static inline u32 _set_field(u32 *val, int pos, int width, u32 fval)
 	return *val;
 }
 
+#define FBIT(field)	BIT(F_ ## field ## _POS)
+
 #define READ_FIELD(val, field)	\
 	_read_field(val, F_ ## field ## _POS, F_ ## field ## _WIDTH)
 

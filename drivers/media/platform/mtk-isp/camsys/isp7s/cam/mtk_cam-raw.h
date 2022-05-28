@@ -113,36 +113,31 @@ struct mtk_raw {
 };
 #endif
 
-void subsample_enable(struct mtk_raw_device *dev);
-
-void stagger_enable(struct mtk_raw_device *dev);
-
-void stagger_disable(struct mtk_raw_device *dev);
-
-void dbload_force(struct mtk_raw_device *dev);
-
-void toggle_db(struct mtk_raw_device *dev);
-
-void enable_tg_db(struct mtk_raw_device *dev, int en);
-
+/* CQ setting */
 void initialize(struct mtk_raw_device *dev, int is_slave);
-
-void stream_on(struct mtk_raw_device *dev, int on);
-
-void immediate_stream_off(struct mtk_raw_device *dev);
+void subsample_enable(struct mtk_raw_device *dev);
+void stagger_enable(struct mtk_raw_device *dev);
+void stagger_disable(struct mtk_raw_device *dev);
 
 void apply_cq(struct mtk_raw_device *dev,
 	      int initial, dma_addr_t cq_addr,
 	      unsigned int cq_size, unsigned int cq_offset,
 	      unsigned int sub_cq_size, unsigned int sub_cq_offset);
+/* db */
+void dbload_force(struct mtk_raw_device *dev);
+void toggle_db(struct mtk_raw_device *dev);
+void enable_tg_db(struct mtk_raw_device *dev, int en);
 
-void trigger_rawi(struct mtk_raw_device *dev, struct mtk_cam_ctx *ctx,
-		signed int hw_scene);
+/* trigger */
+void stream_on(struct mtk_raw_device *dev, int on);
+void immediate_stream_off(struct mtk_raw_device *dev);
+void trigger_rawi(struct mtk_raw_device *dev, signed int hw_scene);
 
+/* reset */
 void reset(struct mtk_raw_device *dev);
 
 void dump_aa_info(struct mtk_cam_ctx *ctx,
-				 struct mtk_ae_debug_data *ae_info);
+		  struct mtk_ae_debug_data *ae_info);
 
 int mtk_cam_translation_fault_callback(int port, dma_addr_t mva, void *data);
 
