@@ -7713,7 +7713,7 @@
 				  <12 100 1>,	/* vow dual mic barge in */
 				  <13 200 0>;	/* ultrasound */
 
-		secure_dump = "disable";   /* enable dump via secure world*/
+		secure_dump = "enable";   /* enable dump via secure world*/
 		secure_dump_size = <0x480000>;
 		scp_pm_notify = "disable";
 
@@ -7731,7 +7731,7 @@
 			      <10 0x2000>, /* sensor debug */
 			      <11 0x100>, /* sensor custom writer */
 			      <12 0x100>, /* sensor custom reader */
-			      <13 0x200000>; /* aov */
+			      <13 0x0>; /* aov */
 
 		memorydump = <0x300000>, /* l2tcm */
 			     <0x03c000>, /* l1c */
