@@ -38,6 +38,26 @@ struct mtk_cam_ctrl {
 	spinlock_t camsys_state_lock;
 	wait_queue_head_t stop_wq;
 };
+struct mtk_camsys_irq_normal_data {
+};
+
+struct mtk_camsys_irq_error_data {
+	int err_status;
+};
+
+struct mtk_camsys_irq_info {
+	enum MTK_CAMSYS_IRQ_EVENT irq_type;
+	int engine;
+	u64 ts_ns;
+	int frame_idx;
+	int frame_idx_inner;
+	int write_cnt;
+	int fbc_cnt;
+	union {
+		struct mtk_camsys_irq_normal_data	n;
+		struct mtk_camsys_irq_error_data	e;
+	};
+};
 
 int mtk_cam_ctrl_isr_event(struct mtk_cam_device *cam,
 	enum MTK_CAMSYS_ENGINE_TYPE engine_type, unsigned int engine_id,

@@ -982,35 +982,30 @@ _frame_done(struct mtk_cam_job *job)
 	struct mtk_cam_device *cam = ctx->cam;
 	int pipe_id = get_raw_subdev_idx(job->req->used_pipe);
 	bool is_normal = job->state == E_STATE_DONE_NORMAL;
-#ifdef NOT_READY
 	u32 *fho_va;
-	uint64_t *pTimestamp;
 	int subsample = 0;
 	int i;
-#endif
+
 	if (pipe_id < 0)
 		return 0;
+	// using cpu's timestamp
+	// (*job->timestamp_buf)[0] = job->timestamp_mono;
+	// (*job->timestamp_buf)[1] = job->timestamp;
 
-	(*job->timestamp_buf)[0] = job->timestamp_mono;
-	(*job->timestamp_buf)[1] = job->timestamp;
-#ifdef NOT_READY
-
-	fho_va = (u32 *)job->cq.vaddr + job->cq.size - 64 * (subsample + 1);
-	pTimestamp = job->timestamp_buf;
+	fho_va = (u32 *)(job->cq.vaddr + job->cq.size - 64 * (subsample + 1));
 	for (i = 0; i < (subsample + 1); i++) {
 		/* timstamp_LSB + timestamp_MSB << 32 */
-		*(pTimestamp + i*2) = mtk_cam_timesync_to_monotonic
+		(*job->timestamp_buf)[i*2] = mtk_cam_timesync_to_monotonic
 		((u64) (*(fho_va + i*16)) + ((u64)(*(fho_va + i*16 + 1)) << 32))
 		/1000;
-		*(pTimestamp + i*2 + 1) = mtk_cam_timesync_to_boot
+		(*job->timestamp_buf)[i*2 + 1] = mtk_cam_timesync_to_boot
 		((u64) (*(fho_va + i*16)) + ((u64)(*(fho_va + i*16 + 1)) << 32))
 		/1000;
 		dev_dbg(ctx->cam->dev,
 			"timestamp TS:momo %ld us boot %ld us, LSB:%d MSB:%d\n",
-			*(pTimestamp + i*2), *(pTimestamp + i*2 + 1),
+			(*job->timestamp_buf)[i*2], (*job->timestamp_buf)[i*2 + 1],
 			*(fho_va + i*16), *(fho_va + i*16 + 1));
 	}
-#endif
 	if (is_normal)
 		mtk_cam_req_buffer_done(job->req, pipe_id, -1,
 			VB2_BUF_STATE_DONE, job->timestamp);
@@ -1021,6 +1016,7 @@ _frame_done(struct mtk_cam_job *job)
 	dev_info(cam->dev, "%s:%s:ctx(%d): seq_no:%d, state:0x%x, is_normal:%d, B/M ts:%lld/%lld\n",
 		__func__, job->req->req.debug_str, job->src_ctx->stream_id,
 		job->frame_seq_no, job->state, is_normal, job->timestamp, job->timestamp_mono);
+
 	return 0;
 }
 static int
@@ -1214,9 +1210,9 @@ static int _apply_cq(struct mtk_cam_job *job)
 	}
 #ifdef NOT_READY
 	/* update sv/mraw's ts */
-	if (mtk_cam_sv_update_all_buffer_ts(ctx, irq_info->ts_ns) == 0)
+	if (mtk_cam_sv_update_all_buffer_ts(ctx, event_info->ts_ns) == 0)
 		dev_dbg(raw_dev->dev, "sv update all buffer ts failed");
-	if (mtk_cam_mraw_update_all_buffer_ts(ctx, irq_info->ts_ns) == 0)
+	if (mtk_cam_mraw_update_all_buffer_ts(ctx, event_info->ts_ns) == 0)
 		dev_dbg(raw_dev->dev, "mraw update all buffer ts failed");
 
 	if (mtk_cam_is_with_w_channel(ctx) && is_apply) {
@@ -1250,19 +1246,19 @@ static int _compose_done(struct mtk_cam_job *job,
 
 static void
 _update_event_sensor_try_set(struct mtk_cam_job *job,
-		struct mtk_camsys_irq_info *irq_info, int *action)
+		struct mtk_cam_job_event_info *event_info, int *action)
 {
 	struct mtk_cam_ctx *ctx = job->src_ctx;
-	int cur_sen_seq_no = irq_info->frame_idx_inner;
-	u64 aftersof_ms = (ktime_get_boottime_ns() - irq_info->ts_ns) / 1000000;
+	int cur_sen_seq_no = event_info->frame_idx_inner;
+	u64 aftersof_ms = (ktime_get_boottime_ns() - event_info->ts_ns) / 1000000;
 
 	if (job->frame_seq_no <= 2) {
 		dev_info(ctx->cam->dev,
 				 "[%s] initial setup sensor job:%d cur/next:%d/%d\n",
-			__func__, job->frame_seq_no, irq_info->frame_idx_inner,
-			irq_info->frame_idx);
+			__func__, job->frame_seq_no, event_info->frame_idx_inner,
+			event_info->frame_idx);
 		if (job->frame_seq_no == cur_sen_seq_no + 1) {
-			*action |= 1 << CAM_JOB_APPLY_SENSOR;
+			*action |= BIT(CAM_JOB_APPLY_SENSOR);
 			return;
 		}
 	}
@@ -1272,7 +1268,7 @@ _update_event_sensor_try_set(struct mtk_cam_job *job,
 			dev_info(ctx->cam->dev,
 				 "[%s] req:%d isn't arrive inner (sen_seq_no:%d)\n",
 				 __func__, job->frame_seq_no, cur_sen_seq_no);
-			*action = 1 << CAM_JOB_HW_DELAY;
+			*action = BIT(CAM_JOB_HW_DELAY);
 			return;
 		}
 	}
@@ -1287,19 +1283,19 @@ _update_event_sensor_try_set(struct mtk_cam_job *job,
 			job->state = E_STATE_CQ_SCQ_DELAY;
 			dev_info(ctx->cam->dev,
 				 "[%s] SCQ DELAY STATE\n", __func__);
-			*action = 1 << CAM_JOB_CQ_DELAY;
+			*action = BIT(CAM_JOB_CQ_DELAY);
 			return;
 		} else if (job->state == E_STATE_CAMMUX_OUTER_CFG) {
 			job->state = E_STATE_CAMMUX_OUTER_CFG_DELAY;
 			dev_info(ctx->cam->dev,
 				"[%s] CAMMUX OUTTER CFG DELAY STATE\n", __func__);
-			*action = 1 << CAM_JOB_SENSOR_DELAY;
+			*action = BIT(CAM_JOB_SENSOR_DELAY);
 			return;
 		} else if (job->state <= E_STATE_SENSOR) {
 			dev_info(ctx->cam->dev,
 				 "[%s] wrong state:%d (sensor delay)\n",
 				 __func__, job->state);
-			*action = 1 << CAM_JOB_SENSOR_DELAY;
+			*action = BIT(CAM_JOB_SENSOR_DELAY);
 			return;
 		}
 	}
@@ -1320,12 +1316,12 @@ _update_event_sensor_try_set(struct mtk_cam_job *job,
 			*action = 0;
 			return;
 		}
-		if (*action & (1 << CAM_JOB_HW_DELAY) ||
-			*action & (1 << CAM_JOB_CQ_DELAY) ||
-			*action & (1 << CAM_JOB_SENSOR_DELAY))
+		if (*action & BIT(CAM_JOB_HW_DELAY) ||
+			*action & BIT(CAM_JOB_CQ_DELAY) ||
+			*action & BIT(CAM_JOB_SENSOR_DELAY))
 			return;
 
-		*action |= 1 << CAM_JOB_APPLY_SENSOR;
+		*action |= BIT(CAM_JOB_APPLY_SENSOR);
 	}
 	if (job->frame_seq_no > cur_sen_seq_no + 1)
 		*action = 0;
@@ -1333,11 +1329,11 @@ _update_event_sensor_try_set(struct mtk_cam_job *job,
 
 static void
 _update_event_meta1_done(struct mtk_cam_job *job,
-		struct mtk_camsys_irq_info *irq_info, int *action)
+		struct mtk_cam_job_event_info *event_info, int *action)
 {
 	struct mtk_cam_ctx *ctx = job->src_ctx;
 	struct mtk_cam_device *cam = ctx->cam;
-	unsigned int frame_seq_no_inner = irq_info->frame_idx_inner;
+	unsigned int frame_seq_no_inner = event_info->frame_idx_inner;
 
 	if (job->frame_seq_no <= frame_seq_no_inner) {
 		if (!(job->flags & MTK_CAM_REQ_S_DATA_FLAG_META1_INDEPENDENT))
@@ -1349,7 +1345,7 @@ _update_event_meta1_done(struct mtk_cam_job *job,
 		}
 		atomic_set(&job->seninf_dump_state, MTK_CAM_REQ_DBGWORK_S_FINISHED);
 		atomic_set(&job->meta1_done_work.is_queued, 1);
-		*action |= 1 << CAM_JOB_DEQUE_META1;
+		*action |= BIT(CAM_JOB_DEQUE_META1);
 		if (job->frame_seq_no == frame_seq_no_inner) {
 			// mark buf normal
 			dev_dbg(cam->dev, "[%s] ctx_id:%d, mark job:%d NORMAL\n",
@@ -1366,11 +1362,11 @@ _update_event_meta1_done(struct mtk_cam_job *job,
 
 static void
 _update_event_frame_done(struct mtk_cam_job *job,
-		struct mtk_camsys_irq_info *irq_info, int *action)
+		struct mtk_cam_job_event_info *event_info, int *action)
 {
 	struct mtk_cam_ctx *ctx = job->src_ctx;
 	struct mtk_cam_device *cam = ctx->cam;
-	unsigned int frame_seq_no_inner = irq_info->frame_idx_inner;
+	unsigned int frame_seq_no_inner = event_info->frame_idx_inner;
 
 	if (is_job_stagger(job)) {
 		/*check if switch request 's previous frame done may trigger tg db toggle */
@@ -1385,7 +1381,7 @@ _update_event_frame_done(struct mtk_cam_job *job,
 		}
 		atomic_set(&job->seninf_dump_state, MTK_CAM_REQ_DBGWORK_S_FINISHED);
 		atomic_set(&job->frame_done_work.is_queued, 1);
-		*action |= 1 <<  CAM_JOB_DEQUE_ALL;
+		*action |= BIT(CAM_JOB_DEQUE_ALL);
 		if (job->frame_seq_no == frame_seq_no_inner) {
 			// mark buf normal
 			_state_trans(job, E_STATE_INNER, E_STATE_DONE_NORMAL);
@@ -1405,24 +1401,24 @@ _update_event_frame_done(struct mtk_cam_job *job,
 
 static void
 _update_event_setting_done(struct mtk_cam_job *job,
-		struct mtk_camsys_irq_info *irq_info, int *action)
+		struct mtk_cam_job_event_info *event_info, int *action)
 {
 	struct mtk_cam_ctx *ctx = job->src_ctx;
 	struct mtk_cam_device *cam = ctx->cam;
 	struct mtk_raw_device *raw_dev =
 		dev_get_drvdata(cam->engines.raw_devs[job->proc_engine & 0xF]);
-	unsigned int frame_seq_no_outer = irq_info->frame_idx;
+	unsigned int frame_seq_no_outer = event_info->frame_idx;
 	int type;
 
 	if ((job->frame_seq_no == frame_seq_no_outer) &&
-		((frame_seq_no_outer - irq_info->isp_request_seq_no) > 0)) {
+		((frame_seq_no_outer - event_info->isp_request_seq_no) > 0)) {
 		/**
 		 * outer number is 1 more from last SOF's
 		 * inner number
 		 */
 		if (frame_seq_no_outer == 1) {
 			job->state = E_STATE_OUTER;
-			*action |= 1 << CAM_JOB_STREAM_ON;
+			*action |= BIT(CAM_JOB_STREAM_ON);
 		}
 		_state_trans(job, E_STATE_CQ, E_STATE_OUTER);
 		_state_trans(job, E_STATE_CQ_SCQ_DELAY, E_STATE_OUTER);
@@ -1457,51 +1453,51 @@ static void _update_event_sensor_vsync_normal(int *action)
 	if (watchdog_scenario(ctx))
 		mtk_ctx_watchdog_kick(ctx);
 #endif
-	*action |= 1 << CAM_JOB_VSYNC;
-	if ((*action & (1 << CAM_JOB_HW_DELAY)) == 0)
-		*action |= 1 << CAM_JOB_SETUP_TIMER;
+	*action |= BIT(CAM_JOB_VSYNC);
+	if ((*action & BIT(CAM_JOB_HW_DELAY)) == 0)
+		*action |= BIT(CAM_JOB_SETUP_TIMER);
 
 }
 
 static void _update_event_frame_start_normal(struct mtk_cam_job *job,
-		struct mtk_camsys_irq_info *irq_info, int *action)
+		struct mtk_cam_job_event_info *event_info, int *action)
 {
 	struct mtk_cam_ctx *ctx = job->src_ctx;
-	int frame_idx_inner = irq_info->frame_idx_inner;
+	int frame_idx_inner = event_info->frame_idx_inner;
 	int write_cnt_offset, write_cnt;
-	u64 time_boot = irq_info->ts_ns;
+	u64 time_boot = event_info->ts_ns;
 	u64 time_mono = ktime_get_ns();
 
 	if (job->state == E_STATE_INNER ||
 		job->state == E_STATE_INNER_HW_DELAY) {
-		write_cnt_offset = irq_info->reset_seq_no - 1;
-		write_cnt = ((irq_info->isp_request_seq_no - write_cnt_offset) / 256)
-					* 256 + irq_info->write_cnt;
+		write_cnt_offset = event_info->reset_seq_no - 1;
+		write_cnt = ((event_info->isp_request_seq_no - write_cnt_offset) / 256)
+					* 256 + event_info->write_cnt;
 		/* job - should be dequeued or re-reading out */
-		if (frame_idx_inner > irq_info->isp_request_seq_no ||
+		if (frame_idx_inner > event_info->isp_request_seq_no ||
 			atomic_read(&job->frame_done_work.is_queued) == 1) {
 			dev_info_ratelimited(ctx->cam->dev,
 				"[SOF] frame done work delay, req(%d),ts(%lu)\n",
-				job->frame_seq_no, irq_info->ts_ns / 1000);
+				job->frame_seq_no, event_info->ts_ns / 1000);
 		} else if (write_cnt >= job->frame_seq_no - write_cnt_offset) {
 			dev_info_ratelimited(ctx->cam->dev,
 				"[SOF] frame done sw reading lost %d frames, req(%d),ts(%lu)\n",
 				write_cnt - (job->frame_seq_no - write_cnt_offset) + 1,
-				job->frame_seq_no, irq_info->ts_ns / 1000);
+				job->frame_seq_no, event_info->ts_ns / 1000);
 			_set_timestamp(job, time_boot - 1000, time_mono - 1000);
 		} else if ((write_cnt >= job->frame_seq_no - write_cnt_offset - 1)
-			&& irq_info->fbc_cnt == 0) {
+			&& event_info->fbc_cnt == 0) {
 			dev_info_ratelimited(ctx->cam->dev,
 				"[SOF] frame done sw reading lost frames, req(%d),ts(%lu)\n",
-				job->frame_seq_no, irq_info->ts_ns / 1000);
+				job->frame_seq_no, event_info->ts_ns / 1000);
 			_set_timestamp(job, time_boot - 1000, time_mono - 1000);
 		} else {
 			_state_trans(job, E_STATE_INNER, E_STATE_INNER_HW_DELAY);
 			dev_info_ratelimited(ctx->cam->dev,
 				"[SOF] HW_IMCOMPLETE state cnt(%d,%d),req(%d),ts(%lu)\n",
-				write_cnt, irq_info->write_cnt, job->frame_seq_no,
-				irq_info->ts_ns / 1000);
-			*action |= 1 << CAM_JOB_HW_DELAY;
+				write_cnt, event_info->write_cnt, job->frame_seq_no,
+				event_info->ts_ns / 1000);
+			*action |= BIT(CAM_JOB_HW_DELAY);
 		}
 	} else if (job->state == E_STATE_CQ ||
 		job->state == E_STATE_OUTER ||
@@ -1509,7 +1505,7 @@ static void _update_event_frame_start_normal(struct mtk_cam_job *job,
 		job->state == E_STATE_OUTER_HW_DELAY) {
 		/* job - reading out */
 		_set_timestamp(job, time_boot, time_mono);
-		if (*action & (1 << CAM_JOB_HW_DELAY)) {
+		if (*action & BIT(CAM_JOB_HW_DELAY)) {
 			_state_trans(job, E_STATE_OUTER,
 			 E_STATE_OUTER_HW_DELAY);
 			_state_trans(job, E_STATE_CAMMUX_OUTER,
@@ -1519,24 +1515,24 @@ static void _update_event_frame_start_normal(struct mtk_cam_job *job,
 		if (job->frame_seq_no > frame_idx_inner) {
 			dev_info(ctx->cam->dev,
 				"[SOF-noDBLOAD] outer_no:%d, inner_idx:%d <= processing_idx:%d,ts:%lu\n",
-				job->frame_seq_no, frame_idx_inner, irq_info->isp_request_seq_no,
-				irq_info->ts_ns / 1000);
-			*action |= (1 << CAM_JOB_CQ_DELAY);
+				job->frame_seq_no, frame_idx_inner, event_info->isp_request_seq_no,
+				event_info->ts_ns / 1000);
+			*action |= BIT(CAM_JOB_CQ_DELAY);
 			return;
 		}
 
 		if (job->frame_seq_no == frame_idx_inner) {
-			if (frame_idx_inner > irq_info->isp_request_seq_no) {
+			if (frame_idx_inner > event_info->isp_request_seq_no) {
 				_state_trans(job, E_STATE_OUTER_HW_DELAY,
 						 E_STATE_INNER_HW_DELAY);
 				_state_trans(job, E_STATE_OUTER, E_STATE_INNER);
 				_state_trans(job, E_STATE_CAMMUX_OUTER,
 						 E_STATE_INNER);
-				*action |= 1 << CAM_JOB_READ_DEQ_NO;
+				*action |= BIT(CAM_JOB_READ_DEQ_NO);
 				dev_dbg(ctx->cam->dev,
 					"[SOF-DBLOAD][%s] frame_seq_no:%d, OUTER->INNER state:%d,ts:%lu\n",
 					__func__, job->frame_seq_no, job->state,
-					irq_info->ts_ns / 1000);
+					event_info->ts_ns / 1000);
 			}
 		}
 		if (job->frame_seq_no == 1)
@@ -1546,20 +1542,20 @@ static void _update_event_frame_start_normal(struct mtk_cam_job *job,
 		job->state == E_STATE_SENINF) {
 		int switch_type = job->feature.switch_feature_type;
 
-		if (*action & (1 << CAM_JOB_HW_DELAY) ||
-			*action & (1 << CAM_JOB_CQ_DELAY))
+		if (*action & BIT(CAM_JOB_HW_DELAY) ||
+			*action & BIT(CAM_JOB_CQ_DELAY))
 			return;
 		/* job - to be set */
 		if (switch_type && job->frame_seq_no > 1 &&
 			job->feature.switch_done == 0) {
 			// _exp_sensor_switch(ctx, job);
-			*action |= 1 << CAM_JOB_SENSOR_SWITCH;
+			*action |= BIT(CAM_JOB_SENSOR_SWITCH);
 			_state_trans(job, E_STATE_READY, E_STATE_SENSOR);
 		} else if (job->state == E_STATE_SENINF) {
 			dev_info(ctx->cam->dev, "[SOF] sensor switch delay\n");
-			*action |= 1 << CAM_JOB_SENSOR_DELAY;
+			*action |= BIT(CAM_JOB_SENSOR_DELAY);
 		} else if (job->state == E_STATE_SENSOR) {
-			*action |= 1 << CAM_JOB_APPLY_CQ;
+			*action |= BIT(CAM_JOB_APPLY_CQ);
 		}
 
 	} else {
@@ -1573,47 +1569,47 @@ static void _update_event_frame_start_normal(struct mtk_cam_job *job,
 
 static int
 _update_event(struct mtk_cam_job *job,
-		struct mtk_camsys_irq_info *irq_info, int *action)
+		struct mtk_cam_job_event_info *event_info, int *action)
 {
 	struct mtk_cam_device *cam = job->src_ctx->cam;
 
 	/* handle frame start */
-	if (irq_info->irq_type & (1 << CAMSYS_IRQ_FRAME_START)) {
+	if (event_info->irq_type & BIT(CAMSYS_IRQ_FRAME_START)) {
 		if (job->job_type == RAW_JOB_DC) {
-			if (irq_info->engine == CAMSYS_ENGINE_CAMSV)
+			if (event_info->engine == CAMSYS_ENGINE_CAMSV)
 				_update_event_sensor_vsync_normal(action);
-			else if (irq_info->engine == CAMSYS_ENGINE_RAW)
+			else if (event_info->engine == CAMSYS_ENGINE_RAW)
 				_update_event_frame_start_normal(
-					job, irq_info, action);
+					job, event_info, action);
 		}
 		if (job->job_type == RAW_JOB_ON_THE_FLY) {
-			if (irq_info->engine == CAMSYS_ENGINE_RAW) {
+			if (event_info->engine == CAMSYS_ENGINE_RAW) {
 				_update_event_frame_start_normal(
-					job, irq_info, action);
+					job, event_info, action);
 				_update_event_sensor_vsync_normal(action);
 			}
 		}
 	}
 	/* handle try set sensor */
-	if (irq_info->irq_type & (1 << CAMSYS_IRQ_TRY_SENSOR_SET))
-		_update_event_sensor_try_set(job, irq_info, action);
+	if (event_info->irq_type & BIT(CAMSYS_IRQ_TRY_SENSOR_SET))
+		_update_event_sensor_try_set(job, event_info, action);
 
 	/* handle setting done */
-	if (irq_info->irq_type & (1 << CAMSYS_IRQ_SETTING_DONE))
-		_update_event_setting_done(job, irq_info, action);
+	if (event_info->irq_type & BIT(CAMSYS_IRQ_SETTING_DONE))
+		_update_event_setting_done(job, event_info, action);
 
 	/* handle frame done */
-	if (irq_info->irq_type & (1 << CAMSYS_IRQ_FRAME_DONE))
-		_update_event_frame_done(job, irq_info, action);
+	if (event_info->irq_type & BIT(CAMSYS_IRQ_FRAME_DONE))
+		_update_event_frame_done(job, event_info, action);
 
 	/* handle meta1 done */
-	if (irq_info->irq_type & (1 << CAMSYS_IRQ_AFO_DONE))
-		_update_event_meta1_done(job, irq_info, action);
+	if (event_info->irq_type & BIT(CAMSYS_IRQ_AFO_DONE))
+		_update_event_meta1_done(job, event_info, action);
 
 	dev_dbg(cam->dev,
 		"[%s] job:%d irq: type:0x%x, out/in:%d/%d, ts:%lld, action:0x%x\n", __func__,
-		job->frame_seq_no, irq_info->irq_type,
-		irq_info->frame_idx, irq_info->frame_idx_inner, irq_info->ts_ns, *action);
+		job->frame_seq_no, event_info->irq_type,
+		event_info->frame_idx, event_info->frame_idx_inner, event_info->ts_ns, *action);
 
 	return 0;
 }

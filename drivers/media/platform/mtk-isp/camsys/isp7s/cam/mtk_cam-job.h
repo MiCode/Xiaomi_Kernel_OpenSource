@@ -65,14 +65,7 @@ enum EXP_CHANGE_TYPE {
 	MSTREAM_EXPOSURE_CHANGE = (1 << 4),
 };
 
-struct mtk_camsys_irq_normal_data {
-};
-
-struct mtk_camsys_irq_error_data {
-	int err_status;
-};
-
-struct mtk_camsys_irq_info {
+struct mtk_cam_job_event_info {
 	enum MTK_CAMSYS_IRQ_EVENT irq_type;
 	int engine;
 	int ctx_id;
@@ -83,10 +76,6 @@ struct mtk_camsys_irq_info {
 	int fbc_cnt;
 	int isp_request_seq_no;
 	int reset_seq_no;
-	union {
-		struct mtk_camsys_irq_normal_data	n;
-		struct mtk_camsys_irq_error_data	e;
-	};
 };
 
 struct mtk_cam_request;
@@ -161,7 +150,7 @@ struct mtk_cam_job {
 
 		/* event handle */
 		int (*update_event)(struct mtk_cam_job *job,
-				    struct mtk_camsys_irq_info *irq_info,
+				    struct mtk_cam_job_event_info *irq_info,
 				    int *action);
 		/* action */
 		int (*stream_on)(struct mtk_cam_job *job,

@@ -157,27 +157,27 @@ static void mtk_cam_try_set_sensor(struct mtk_cam_ctrl *cam_ctrl)
 {
 	struct mtk_cam_device *cam = cam_ctrl->ctx->cam;
 	struct mtk_cam_job *job, *job_sensor = NULL, *job_fs = NULL;
-	struct mtk_camsys_irq_info irq_info;
+	struct mtk_cam_job_event_info event_info;
 	int from_sof = ktime_get_boottime_ns() / 1000000 -
 			   cam_ctrl->sof_time;
 	int action = 0;
 
 	/* create update event for job */
-	irq_info.ctx_id = cam_ctrl->ctx->stream_id;
-	irq_info.irq_type = 1 << CAMSYS_IRQ_TRY_SENSOR_SET;
-	irq_info.frame_idx = atomic_read(&cam_ctrl->sensor_request_seq_no) + 1;
-	irq_info.frame_idx_inner = atomic_read(&cam_ctrl->sensor_request_seq_no);
-	irq_info.ts_ns = cam_ctrl->sof_time * 1000000;
-	irq_info.isp_request_seq_no = atomic_read(&cam_ctrl->isp_request_seq_no);
-	irq_info.reset_seq_no = atomic_read(&cam_ctrl->reset_seq_no);
+	event_info.ctx_id = cam_ctrl->ctx->stream_id;
+	event_info.irq_type = BIT(CAMSYS_IRQ_TRY_SENSOR_SET);
+	event_info.frame_idx = atomic_read(&cam_ctrl->sensor_request_seq_no) + 1;
+	event_info.frame_idx_inner = atomic_read(&cam_ctrl->sensor_request_seq_no);
+	event_info.ts_ns = cam_ctrl->sof_time * 1000000;
+	event_info.isp_request_seq_no = atomic_read(&cam_ctrl->isp_request_seq_no);
+	event_info.reset_seq_no = atomic_read(&cam_ctrl->reset_seq_no);
 	spin_lock(&cam_ctrl->camsys_state_lock);
 	/* Check if previous state was without cq done */
 	list_for_each_entry(job, &cam_ctrl->camsys_state_list,
 			    list) {
-		job->ops.update_event(job, &irq_info, &action);
-		if (action & (1 << CAM_JOB_APPLY_SENSOR))
+		job->ops.update_event(job, &event_info, &action);
+		if (action & BIT(CAM_JOB_APPLY_SENSOR))
 			job_sensor = job;
-		if (action & (1 << CAM_JOB_APPLY_FS))
+		if (action & BIT(CAM_JOB_APPLY_FS))
 			job_fs = job;
 	}
 	spin_unlock(&cam_ctrl->camsys_state_lock);
@@ -338,7 +338,7 @@ mtk_cam_sof_timer_setup(struct mtk_cam_ctrl *cam_ctrl)
 		      HRTIMER_MODE_REL);
 }
 static void handle_setting_done(struct mtk_cam_ctrl *cam_ctrl,
-		unsigned int engine_id, struct mtk_camsys_irq_info *irq_info)
+		unsigned int engine_id, struct mtk_cam_job_event_info *event_info)
 {
 	struct mtk_cam_job *job, *job_expswitch = NULL;
 	struct mtk_cam_job *job_on = NULL, *job_senswitch = NULL;
@@ -348,12 +348,12 @@ static void handle_setting_done(struct mtk_cam_ctrl *cam_ctrl,
 	/* Check if previous state was without cq done */
 	list_for_each_entry(job, &cam_ctrl->camsys_state_list,
 				list) {
-		job->ops.update_event(job, irq_info, &action);
-		if (action & (1 << CAM_JOB_STREAM_ON))
+		job->ops.update_event(job, event_info, &action);
+		if (action & BIT(CAM_JOB_STREAM_ON))
 			job_on = job;
-		if (action & (1 << CAM_JOB_EXP_NUM_SWITCH))
+		if (action & BIT(CAM_JOB_EXP_NUM_SWITCH))
 			job_expswitch = job;
-		if (action & (1 << CAM_JOB_SENSOR_SWITCH))
+		if (action & BIT(CAM_JOB_SENSOR_SWITCH))
 			job_senswitch = job;
 	}
 	spin_unlock(&cam_ctrl->camsys_state_lock);
@@ -372,19 +372,19 @@ static void handle_setting_done(struct mtk_cam_ctrl *cam_ctrl,
 
 }
 static void handle_meta1_done(struct mtk_cam_ctrl *cam_ctrl,
-		unsigned int engine_id, struct mtk_camsys_irq_info *irq_info)
+		unsigned int engine_id, struct mtk_cam_job_event_info *event_info)
 {
 	struct mtk_cam_job *job, *job_afodeq = NULL;
 	int action = 0;
 
 	/* inner register correction */
-	irq_info->frame_idx_inner = atomic_read(&cam_ctrl->dequeued_frame_seq_no);
+	event_info->frame_idx_inner = atomic_read(&cam_ctrl->dequeued_frame_seq_no);
 	spin_lock(&cam_ctrl->camsys_state_lock);
 	/* Check if previous state was without cq done */
 	list_for_each_entry(job, &cam_ctrl->camsys_state_list,
 				list) {
-		job->ops.update_event(job, irq_info, &action);
-		if (action & (1 << CAM_JOB_DEQUE_META1))
+		job->ops.update_event(job, event_info, &action);
+		if (action & BIT(CAM_JOB_DEQUE_META1))
 			job_afodeq = job;
 	}
 	spin_unlock(&cam_ctrl->camsys_state_lock);
@@ -394,19 +394,19 @@ static void handle_meta1_done(struct mtk_cam_ctrl *cam_ctrl,
 		mtk_cam_submit_meta1_done_work(cam_ctrl, job_afodeq);
 }
 static void handle_frame_done(struct mtk_cam_ctrl *cam_ctrl,
-		unsigned int engine_id, struct mtk_camsys_irq_info *irq_info)
+		unsigned int engine_id, struct mtk_cam_job_event_info *event_info)
 {
 	struct mtk_cam_job *job, *job_deq = NULL;
 	int action = 0;
 
 	/* inner register correction */
-	irq_info->frame_idx_inner = atomic_read(&cam_ctrl->dequeued_frame_seq_no);
+	event_info->frame_idx_inner = atomic_read(&cam_ctrl->dequeued_frame_seq_no);
 	spin_lock(&cam_ctrl->camsys_state_lock);
 	/* Check if previous state was without cq done */
 	list_for_each_entry(job, &cam_ctrl->camsys_state_list,
 				list) {
-		job->ops.update_event(job, irq_info, &action);
-		if (action & (1 << CAM_JOB_DEQUE_ALL))
+		job->ops.update_event(job, event_info, &action);
+		if (action & BIT(CAM_JOB_DEQUE_ALL))
 			job_deq = job;
 	}
 	spin_unlock(&cam_ctrl->camsys_state_lock);
@@ -417,8 +417,8 @@ static void handle_frame_done(struct mtk_cam_ctrl *cam_ctrl,
 
 }
 
-static void mtk_cam_raw_frame_start(struct mtk_cam_ctrl *cam_ctrl,
-		unsigned int engine_id, struct mtk_camsys_irq_info *irq_info)
+static void handle_raw_frame_start(struct mtk_cam_ctrl *cam_ctrl,
+		unsigned int engine_id, struct mtk_cam_job_event_info *event_info)
 {
 	struct mtk_cam_job *job, *job_cq = NULL, *job_timer = NULL, *job_swh = NULL;
 	struct mtk_cam_job *job_rd_deqno = NULL, *job_vsync = NULL;
@@ -426,25 +426,25 @@ static void mtk_cam_raw_frame_start(struct mtk_cam_ctrl *cam_ctrl,
 	int from_sof = ktime_get_boottime_ns() / 1000000 -
 			   cam_ctrl->sof_time;
 	int action = 0;
-	int vsync_engine_id = irq_info->engine << 8 | engine_id;
+	int vsync_engine_id = event_info->engine << 8 | engine_id;
 
 	spin_lock(&cam_ctrl->camsys_state_lock);
 	/* Check if previous state was without cq done */
 	list_for_each_entry(job, &cam_ctrl->camsys_state_list,
 				list) {
-		job->ops.update_event(job, irq_info, &action);
+		job->ops.update_event(job, event_info, &action);
 		dev_dbg(ctx->cam->dev,
 		"[%s] job:%d, state:0x%x, action:0x%x\n", __func__,
 			job->frame_seq_no, job->state, action);
-		if (action & (1 << CAM_JOB_APPLY_CQ))
+		if (action & BIT(CAM_JOB_APPLY_CQ))
 			job_cq = job;
-		if (action & (1 << CAM_JOB_EXP_NUM_SWITCH))
+		if (action & BIT(CAM_JOB_EXP_NUM_SWITCH))
 			job_swh = job;
-		if (action & (1 << CAM_JOB_SETUP_TIMER))
+		if (action & BIT(CAM_JOB_SETUP_TIMER))
 			job_timer = job;
-		if (action & (1 << CAM_JOB_READ_DEQ_NO))
+		if (action & BIT(CAM_JOB_READ_DEQ_NO))
 			job_rd_deqno = job;
-		if (action & (1 << CAM_JOB_VSYNC))
+		if (action & BIT(CAM_JOB_VSYNC))
 			job_vsync = job;
 	}
 	spin_unlock(&cam_ctrl->camsys_state_lock);
@@ -455,31 +455,31 @@ static void mtk_cam_raw_frame_start(struct mtk_cam_ctrl *cam_ctrl,
 			dev_dbg(ctx->cam->dev, "cannot find ctx\n");
 			return;
 		}
-		cam_ctrl->sof_time = irq_info->ts_ns / 1000000;
-		mtk_cam_event_frame_sync(cam_ctrl, irq_info->frame_idx_inner);
+		cam_ctrl->sof_time = event_info->ts_ns / 1000000;
+		mtk_cam_event_frame_sync(cam_ctrl, event_info->frame_idx_inner);
 		cam_ctrl->vsync_engine = vsync_engine_id;
 	} else if (vsync_engine_id == cam_ctrl->vsync_engine) {
-		cam_ctrl->sof_time = irq_info->ts_ns / 1000000;
-		mtk_cam_event_frame_sync(cam_ctrl, irq_info->frame_idx_inner);
+		cam_ctrl->sof_time = event_info->ts_ns / 1000000;
+		mtk_cam_event_frame_sync(cam_ctrl, event_info->frame_idx_inner);
 	}
 	/* setup timer for drained event */
 	if (job_timer)
 		mtk_cam_sof_timer_setup(cam_ctrl);
-	else if ((action & (1 << CAM_JOB_HW_DELAY)) == 0 &&
+	else if ((action & BIT(CAM_JOB_HW_DELAY)) == 0 &&
 			vsync_engine_id == cam_ctrl->vsync_engine)
 		mtk_cam_sof_timer_setup(cam_ctrl);
 	/* update cam_ctrl->dequeued_frame_seq_no for sw done */
 	if (job_rd_deqno) {
 		atomic_set(&cam_ctrl->dequeued_frame_seq_no,
-			irq_info->frame_idx_inner);
+			event_info->frame_idx_inner);
 		atomic_set(&cam_ctrl->isp_request_seq_no,
-			irq_info->frame_idx_inner);
+			event_info->frame_idx_inner);
 	}
 	/* trigger cq */
 	if (job_cq) {
 		job_cq->ops.apply_isp(job_cq);
 		dev_info(ctx->cam->dev, "[%s][out/in/deq:%d/%d/%d] ctx:%d, cq-%d triggered(SOF+%dms)\n",
-			__func__, irq_info->frame_idx, irq_info->frame_idx_inner,
+			__func__, event_info->frame_idx, event_info->frame_idx_inner,
 			cam_ctrl->dequeued_frame_seq_no, job_cq->src_ctx->stream_id,
 			job_cq->frame_seq_no, from_sof);
 	}
@@ -493,28 +493,43 @@ static int mtk_cam_event_handle_raw(struct mtk_cam_ctrl *cam_ctrl,
 				       unsigned int engine_id,
 				       struct mtk_camsys_irq_info *irq_info)
 {
-	irq_info->isp_request_seq_no = atomic_read(&cam_ctrl->isp_request_seq_no);
-	irq_info->reset_seq_no = atomic_read(&cam_ctrl->reset_seq_no);
+	struct mtk_cam_job_event_info event_info;
+	unsigned int ctx_id =
+		decode_fh_reserved_data_to_ctx(irq_info->frame_idx);
+	unsigned int seq_nearby =
+		atomic_read(&cam_ctrl->enqueued_frame_seq_no);
+
+	event_info.irq_type = irq_info->irq_type;
+	event_info.engine = irq_info->engine;
+	event_info.ctx_id = ctx_id;
+	event_info.ts_ns = irq_info->ts_ns;
+	event_info.frame_idx =
+		decode_fh_reserved_data_to_seq(seq_nearby, irq_info->frame_idx);
+	event_info.frame_idx_inner =
+		decode_fh_reserved_data_to_seq(seq_nearby, irq_info->frame_idx_inner);
+	event_info.write_cnt = irq_info->write_cnt;
+	event_info.fbc_cnt = irq_info->fbc_cnt;
+	event_info.isp_request_seq_no = atomic_read(&cam_ctrl->isp_request_seq_no);
+	event_info.reset_seq_no = atomic_read(&cam_ctrl->reset_seq_no);
 
 	/* raw's CQ done */
-	if (irq_info->irq_type & (1 << CAMSYS_IRQ_SETTING_DONE)) {
-		handle_setting_done(cam_ctrl, engine_id, irq_info);
-	}
+	if (irq_info->irq_type & BIT(CAMSYS_IRQ_SETTING_DONE))
+		handle_setting_done(cam_ctrl, engine_id, &event_info);
+
 	/* raw's subsample case : try sensor setting */
-	if (irq_info->irq_type & (1 << CAMSYS_IRQ_TRY_SENSOR_SET))
+	if (irq_info->irq_type & BIT(CAMSYS_IRQ_TRY_SENSOR_SET))
 		mtk_cam_submit_kwork(&cam_ctrl->ctx->sensor_worker, cam_ctrl);
 	/* raw's DMA done, we only allow AFO done here */
-	if (irq_info->irq_type & (1 << CAMSYS_IRQ_AFO_DONE))
-		handle_meta1_done(cam_ctrl, engine_id, irq_info);
+	if (irq_info->irq_type & BIT(CAMSYS_IRQ_AFO_DONE))
+		handle_meta1_done(cam_ctrl, engine_id, &event_info);
 
 	/* raw's SW done */
-	if (irq_info->irq_type & (1 << CAMSYS_IRQ_FRAME_DONE))
-		handle_frame_done(cam_ctrl, engine_id, irq_info);
+	if (irq_info->irq_type & BIT(CAMSYS_IRQ_FRAME_DONE))
+		handle_frame_done(cam_ctrl, engine_id, &event_info);
 
 	/* raw's SOF (proc engine frame start) */
-	if (irq_info->irq_type & (1 << CAMSYS_IRQ_FRAME_START)) {
-		mtk_cam_raw_frame_start(cam_ctrl, engine_id, irq_info);
-	}
+	if (irq_info->irq_type & BIT(CAMSYS_IRQ_FRAME_START))
+		handle_raw_frame_start(cam_ctrl, engine_id, &event_info);
 
 	/* DCIF' SOF (dc link engine frame start (first exposure) ) */
 	//if (irq_info->irq_type & (1 << CAMSYS_IRQ_FRAME_START_DCIF_MAIN)) {
@@ -544,7 +559,7 @@ static int mtk_camsys_event_handle_mraw(struct mtk_cam_device *cam,
 	}
 	stream_id = engine_id + MTKCAM_SUBDEV_MRAW_START;
 	/* mraw's SW done */
-	if (irq_info->irq_type & (1 << CAMSYS_IRQ_FRAME_DONE)) {
+	if (irq_info->irq_type & BIT(CAMSYS_IRQ_FRAME_DONE)) {
 		mraw_dev_index = mtk_cam_find_mraw_dev_index(ctx, mraw_dev->id);
 		if (mraw_dev_index == -1) {
 			dev_dbg(mraw_dev->dev,
@@ -555,11 +570,11 @@ static int mtk_camsys_event_handle_mraw(struct mtk_cam_device *cam,
 		mtk_camsys_frame_done(ctx, seq, stream_id);
 	}
 	/* mraw's SOF */
-	if (irq_info->irq_type & (1 << CAMSYS_IRQ_FRAME_START))
+	if (irq_info->irq_type & BIT(CAMSYS_IRQ_FRAME_START))
 		mtk_camsys_mraw_frame_start(mraw_dev, ctx,
 			irq_info->frame_idx_inner, irq_info->ts_ns);
 	/* mraw's CQ done */
-	if (irq_info->irq_type & (1 << CAMSYS_IRQ_SETTING_DONE)) {
+	if (irq_info->irq_type & BIT(CAMSYS_IRQ_SETTING_DONE)) {
 		if (mtk_camsys_is_all_cq_done(ctx, stream_id)) {
 			/* stream on after all pipes' cq done */
 			if (irq_info->frame_idx == 1) {
@@ -608,7 +623,7 @@ static int mtk_camsys_event_handle_camsv(struct mtk_cam_device *cam,
 			int seninf_padidx = cam->sv.pipelines[camsv_dev->id]
 						.seninf_padidx;
 			/*raw/yuv pipeline frame start from camsv engine*/
-			if (irq_info->irq_type & (1 << CAMSYS_IRQ_FRAME_START)) {
+			if (irq_info->irq_type & BIT(CAMSYS_IRQ_FRAME_START)) {
 				/*stream on delayed patch*/
 				mtk_cam_extisp_sv_stream_delayed(ctx,
 					camsv_dev, seninf_padidx);
@@ -623,7 +638,7 @@ static int mtk_camsys_event_handle_camsv(struct mtk_cam_device *cam,
 					irq_info);
 			}
 			/*yuv pipeline frame done from camsv engine*/
-			if (irq_info->irq_type & (1 << CAMSYS_IRQ_FRAME_DONE)) {
+			if (irq_info->irq_type & BIT(CAMSYS_IRQ_FRAME_DONE)) {
 				if (mtk_cam_is_ext_isp_yuv(ctx) &&
 					seninf_padidx == PAD_SRC_RAW_EXT0)
 					mtk_camsys_frame_done(ctx, ctx->dequeued_frame_seq_no,
@@ -632,11 +647,11 @@ static int mtk_camsys_event_handle_camsv(struct mtk_cam_device *cam,
 			return 0;
 		}
 		// first exposure camsv's SOF
-		if (irq_info->irq_type & (1 << CAMSYS_IRQ_FRAME_START)) {
+		if (irq_info->irq_type & BIT(CAMSYS_IRQ_FRAME_START)) {
 			if (!bDcif && camsv_dev->pipeline->exp_order == 0)
 				mtk_camsys_raw_frame_start(raw_dev, ctx, irq_info);
 		}
-		if (irq_info->irq_type & (1 << CAMSYS_IRQ_FRAME_DONE)) {
+		if (irq_info->irq_type & BIT(CAMSYS_IRQ_FRAME_DONE)) {
 			if (camsv_dev->pipeline->exp_order == 0) {
 				ctx->component_dequeued_frame_seq_no =
 					irq_info->frame_idx_inner;
@@ -645,12 +660,12 @@ static int mtk_camsys_event_handle_camsv(struct mtk_cam_device *cam,
 		// time sharing - camsv write DRAM mode
 		if (camsv_dev->pipeline->hw_scen &
 		    (1 << MTKCAM_IPI_HW_PATH_OFFLINE_M2M)) {
-			if (irq_info->irq_type & (1<<CAMSYS_IRQ_FRAME_DONE)) {
+			if (irq_info->irq_type & BIT(CAMSYS_IRQ_FRAME_DONE)) {
 				mtk_camsys_ts_sv_done(ctx, irq_info->frame_idx_inner);
 				mtk_camsys_ts_raw_try_set(raw_dev, ctx,
 						ctx->dequeued_frame_seq_no + 1);
 			}
-			if (irq_info->irq_type & (1<<CAMSYS_IRQ_FRAME_START))
+			if (irq_info->irq_type & BIT(CAMSYS_IRQ_FRAME_START))
 				mtk_camsys_ts_frame_start(ctx, irq_info->frame_idx_inner);
 		}
 	} else {
@@ -661,7 +676,7 @@ static int mtk_camsys_event_handle_camsv(struct mtk_cam_device *cam,
 		}
 		stream_id = engine_id + MTKCAM_SUBDEV_CAMSV_START;
 		/* camsv's SW done */
-		if (irq_info->irq_type & (1<<CAMSYS_IRQ_FRAME_DONE)) {
+		if (irq_info->irq_type & BIT(CAMSYS_IRQ_FRAME_DONE)) {
 			sv_dev_index = mtk_cam_find_sv_dev_index(ctx, camsv_dev->id);
 			if (sv_dev_index == -1) {
 				dev_dbg(camsv_dev->dev,
@@ -672,7 +687,7 @@ static int mtk_camsys_event_handle_camsv(struct mtk_cam_device *cam,
 			mtk_camsys_frame_done(ctx, seq, stream_id);
 		}
 		/* camsv's SOF */
-		if (irq_info->irq_type & (1<<CAMSYS_IRQ_FRAME_START))
+		if (irq_info->irq_type & BIT(CAMSYS_IRQ_FRAME_START))
 			mtk_camsys_camsv_frame_start(camsv_dev, ctx,
 				irq_info->frame_idx_inner, irq_info->ts_ns);
 	}
@@ -689,17 +704,7 @@ int mtk_cam_ctrl_isr_event(struct mtk_cam_device *cam,
 	unsigned int ctx_id =
 		decode_fh_reserved_data_to_ctx(irq_info->frame_idx);
 	struct mtk_cam_ctrl *cam_ctrl = &cam->ctxs[ctx_id].cam_ctrl;
-	unsigned int seq_nearby =
-		atomic_read(&cam_ctrl->enqueued_frame_seq_no);
 	int ret = 0;
-	unsigned int idx = irq_info->frame_idx;
-	unsigned int idx_inner = irq_info->frame_idx_inner;
-
-	irq_info->frame_idx =
-		decode_fh_reserved_data_to_seq(seq_nearby, idx);
-	irq_info->frame_idx_inner =
-		decode_fh_reserved_data_to_seq(seq_nearby, idx_inner);
-	irq_info->ctx_id = ctx_id;
 
 	/* TBC
 	MTK_CAM_TRACE_BEGIN(BASIC, "irq_type %d, inner %d",
@@ -735,7 +740,7 @@ int mtk_cam_ctrl_isr_event(struct mtk_cam_device *cam,
 		break;
 	case CAMSYS_ENGINE_SENINF:
 		/* ToDo - cam mux setting delay handling */
-		if (irq_info->irq_type & (1 << CAMSYS_IRQ_FRAME_DROP))
+		if (irq_info->irq_type & BIT(CAMSYS_IRQ_FRAME_DROP))
 			dev_info(cam->dev, "MTK_CAMSYS_ENGINE_SENINF_TAG engine:%d type:0x%x\n",
 				engine_id, irq_info->irq_type);
 		break;
