@@ -48,6 +48,7 @@ struct  ccci_plat_val {
 	struct regmap *topckgen_clk_base;
 	struct regmap *spm_sleep_base;
 	unsigned int md_gen;
+	unsigned int md_sub_ver;
 	unsigned long offset_epof_md1;
 	void __iomem *md_plat_info;
 	unsigned int power_flow_config;

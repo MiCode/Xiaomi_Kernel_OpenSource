@@ -417,6 +417,7 @@ static int md1_enable_sequencer_setting(struct ccci_modem *md)
 {
 	void __iomem *reg = NULL;
 	int count = 0;
+	u64 wait_seq_val;
 
 	if (!md_cd_plat_val_ptr.md_first_power_on) {
 		CCCI_NORMAL_LOG(0, TAG, "[POWER OFF]%s:md_first_power_on=%u,exit\n",
@@ -439,10 +440,15 @@ static int md1_enable_sequencer_setting(struct ccci_modem *md)
 	CCCI_NORMAL_LOG(0, TAG,
 		"[POWER OFF] %s enable sequencer done\n", __func__);
 
-	/* retry 1000 * 1ms = 1s*/
+	/* retry (1000 * 1)ms = 1s */
 	while (1) {
 		/* wait sequencer done */
-		if (ccci_read32(reg, 0x310) == 0x4040040)
+		if (!md_cd_plat_val_ptr.md_sub_ver)
+			wait_seq_val = 0x4040040; // for md 6298
+		else
+			wait_seq_val = 0x4040080; // for md 6298+
+
+		if (ccci_read32(reg, 0x310) == wait_seq_val)
 			break;
 		count++;
 		udelay(1000);
@@ -526,7 +532,7 @@ static int md_cd_power_off(struct ccci_modem *md, unsigned int timeout)
 #endif
 
 	/* revert sequencer setting to AOC1.0 for gen98 */
-	if (md_cd_plat_val_ptr.md_gen >= 6298) {
+	if (md_cd_plat_val_ptr.md_gen == 6298) {
 		ret = md1_revert_sequencer_setting(md);
 		if (ret)
 			return ret;
@@ -577,7 +583,7 @@ static int md_cd_power_off(struct ccci_modem *md, unsigned int timeout)
 	flight_mode_set_by_atf(md, true);
 
 	/* enable sequencer setting to AOC2.5 for gen98 */
-	if ((md_cd_plat_val_ptr.md_gen >= 6298) && ccci_get_hs2_done_status()) {
+	if ((md_cd_plat_val_ptr.md_gen == 6298) && ccci_get_hs2_done_status()) {
 		ret = md1_enable_sequencer_setting(md);
 		reset_modem_hs2_status();
 		if (ret)
@@ -1099,6 +1105,19 @@ static int md_cd_get_modem_hw_info(struct platform_device *dev_ptr,
 		CCCI_ERROR_LOG(0, TAG, "%s:get DTS:md_gen fail\n",
 			__func__);
 		return -1;
+	}
+
+	/* "mediatek,md_sub_version" = 0 or can't find this properity
+	 * defaults to the MD major generation, such as Gen98;
+	 * when this value is set to 1 in dts, it refers to an advanced
+	 * subversion of the same MD major generation, such as Gen98+
+	 */
+	ret = of_property_read_u32(dev_ptr->dev.of_node,
+		"mediatek,md_sub_version", &md_cd_plat_val_ptr.md_sub_ver);
+	if (ret < 0) {
+		CCCI_NORMAL_LOG(0, TAG, "%s: No md_sun_ver found\n",
+			       __func__);
+		md_cd_plat_val_ptr.md_sub_ver = 0;
 	}
 
 	md_cd_plat_val_ptr.infra_ao_base =
