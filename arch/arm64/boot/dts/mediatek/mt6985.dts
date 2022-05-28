@@ -668,6 +668,13 @@
 		clock-frequency = <13000000>;
 	};
 
+	hwrng: hwrng {
+		compatible = "arm,sec-rng";
+		methods = "smc";
+		method-fid = /bits/ 16 <0x26a>;
+		quality = /bits/ 16 <900>;
+	};
+
 	clk_ao: clk_ao {
 		compatible = "simple-bus";
 	};
