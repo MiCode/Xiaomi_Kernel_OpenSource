@@ -167,6 +167,7 @@ struct imgsensor_info_struct {
 	kal_uint8  xtalk_flag;
 	kal_uint8  i2c_addr_table[5];
 	kal_uint32  i2c_speed; //khz
+	kal_uint32 ob_pedestal; /* OB = 64*/
 	kal_uint32 min_gain;
 	kal_uint32 max_gain;
 	kal_uint32 min_gain_iso;
