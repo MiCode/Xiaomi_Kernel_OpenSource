@@ -3522,7 +3522,7 @@ static const struct mtk_iommu_plat_data mt6985_data_mdp = {
 static const struct mtk_iommu_plat_data mt6985_data_apu0 = {
 	.m4u_plat	= M4U_MT6985,
 	.flags          = TLB_SYNC_EN |/* IOMMU_SEC_EN |*/
-			  GET_DOM_ID_LEGACY | IOVA_34_EN/* | LINK_WITH_APU*/ | IOMMU_MAU_EN |
+			  GET_DOM_ID_LEGACY | IOVA_34_EN | LINK_WITH_APU | IOMMU_MAU_EN |
 			  PM_OPS_SKIP | IOMMU_CLK_AO_EN,
 	.hw_list        = &apu_iommu_list,
 	.inv_sel_reg    = REG_MMU_INV_SEL_GEN2,
@@ -3538,7 +3538,7 @@ static const struct mtk_iommu_plat_data mt6985_data_apu0 = {
 static const struct mtk_iommu_plat_data mt6985_data_apu1 = {
 	.m4u_plat	= M4U_MT6985,
 	.flags          = TLB_SYNC_EN |/* IOMMU_SEC_EN |*/
-			  GET_DOM_ID_LEGACY | IOVA_34_EN/* | LINK_WITH_APU*/ | IOMMU_MAU_EN |
+			  GET_DOM_ID_LEGACY | IOVA_34_EN | LINK_WITH_APU | IOMMU_MAU_EN |
 			  PM_OPS_SKIP | IOMMU_CLK_AO_EN,
 	.hw_list        = &apu_iommu_list,
 	.inv_sel_reg    = REG_MMU_INV_SEL_GEN2,
