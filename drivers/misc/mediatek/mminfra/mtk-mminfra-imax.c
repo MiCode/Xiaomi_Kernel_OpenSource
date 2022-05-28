@@ -296,16 +296,16 @@ static int init_ctrl_base(struct platform_device *pdev)
 		}
 	}
 
-	of_property_read_u32(dev->of_node, "disp_larb0_fake_port", &disp_larb_0_fake);
-	of_property_read_u32(dev->of_node, "disp_larb1_fake_port", &disp_larb_1_fake);
-	of_property_read_u32(dev->of_node, "disp_larb2_fake_port", &disp_larb_2_fake);
-	of_property_read_u32(dev->of_node, "disp_larb3_fake_port", &disp_larb_3_fake);
+	of_property_read_u32(dev->of_node, "disp-larb0-fake-port", &disp_larb_0_fake);
+	of_property_read_u32(dev->of_node, "disp-larb1-fake-port", &disp_larb_1_fake);
+	of_property_read_u32(dev->of_node, "disp-larb2-fake-port", &disp_larb_2_fake);
+	of_property_read_u32(dev->of_node, "disp-larb3-fake-port", &disp_larb_3_fake);
 
-	of_property_read_u32(dev->of_node, "mdp_larb0_fake_port", &mdp_larb_0_fake);
-	of_property_read_u32(dev->of_node, "mdp_larb1_fake_port", &mdp_larb_1_fake);
-	of_property_read_u32(dev->of_node, "mdp_larb2_fake_port", &mdp_larb_2_fake);
+	of_property_read_u32(dev->of_node, "mdp-larb0-fake-port", &mdp_larb_0_fake);
+	of_property_read_u32(dev->of_node, "mdp-larb1-fake-port", &mdp_larb_1_fake);
+	of_property_read_u32(dev->of_node, "mdp-larb2-fake-port", &mdp_larb_2_fake);
 
-	of_property_read_u32(dev->of_node, "mm_sram_base", &mm_sram_base);
+	of_property_read_u32(dev->of_node, "mm-sram-base", &mm_sram_base);
 	return 0;
 }
 
