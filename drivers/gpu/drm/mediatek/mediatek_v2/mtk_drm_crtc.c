@@ -12410,10 +12410,20 @@ int mtk_crtc_enter_tui(struct drm_crtc *crtc)
 	DDP_MUTEX_LOCK(&mtk_crtc->blank_lock, __func__, __LINE__);
 
 	/* TODO: HardCode select OVL0, maybe store in platform data */
-	priv->ddp_comp[DDP_COMPONENT_OVL0]->blank_mode = true;
+	switch (priv->data->mmsys_id) {
+	case MMSYS_MT6985:
+		priv->ddp_comp[DDP_COMPONENT_OVL1_2L]->blank_mode = true;
 
-	if (mtk_crtc->is_dual_pipe)
-		priv->ddp_comp[DDP_COMPONENT_OVL1]->blank_mode = true;
+		if (mtk_crtc->is_dual_pipe)
+			priv->ddp_comp[DDP_COMPONENT_OVL5_2L]->blank_mode = true;
+		break;
+	default:
+		priv->ddp_comp[DDP_COMPONENT_OVL0]->blank_mode = true;
+
+		if (mtk_crtc->is_dual_pipe)
+			priv->ddp_comp[DDP_COMPONENT_OVL1]->blank_mode = true;
+		break;
+	}
 
 	DDP_MUTEX_UNLOCK(&mtk_crtc->blank_lock, __func__, __LINE__);
 
@@ -12432,9 +12442,20 @@ int mtk_crtc_exit_tui(struct drm_crtc *crtc)
 	DDP_MUTEX_LOCK(&mtk_crtc->blank_lock, __func__, __LINE__);
 
 	/* TODO: Hard Code select OVL0, maybe store in platform data */
-	priv->ddp_comp[DDP_COMPONENT_OVL0]->blank_mode = false;
-	if (mtk_crtc->is_dual_pipe)
-		priv->ddp_comp[DDP_COMPONENT_OVL1]->blank_mode = false;
+	switch (priv->data->mmsys_id) {
+	case MMSYS_MT6985:
+		priv->ddp_comp[DDP_COMPONENT_OVL1_2L]->blank_mode = false;
+
+		if (mtk_crtc->is_dual_pipe)
+			priv->ddp_comp[DDP_COMPONENT_OVL5_2L]->blank_mode = false;
+		break;
+	default:
+		priv->ddp_comp[DDP_COMPONENT_OVL0]->blank_mode = false;
+
+		if (mtk_crtc->is_dual_pipe)
+			priv->ddp_comp[DDP_COMPONENT_OVL1]->blank_mode = false;
+		break;
+	}
 
 	mtk_crtc->crtc_blank = false;
 
