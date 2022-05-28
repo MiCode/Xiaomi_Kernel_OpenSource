@@ -2785,6 +2785,7 @@
 			mediatek,mdhif_type = <6>;
 			mediatek,ap_plat_info = <6985>;
 			mediatek,md_generation = <6298>;
+			mediatek,md_sub_version = <1>;
 			/* 0x44: epon offset; */
 			/* 0x06: once a value[1] exist, means in l2sram */
 			/* value[1] not exist means in mddbgsys. the value(6) has no meaningful */
