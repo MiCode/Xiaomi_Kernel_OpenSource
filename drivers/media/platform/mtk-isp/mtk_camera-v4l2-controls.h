@@ -245,6 +245,44 @@ struct mtk_cam_pde_info {
 	__u32 meta_0_size;
 };
 
+/**
+ * enum scl for imgsensor gpio aux function.
+ */
+enum mtk_cam_sensor_i2c_bus_scl {
+	SCL0 = 0,
+	SCL1,
+	SCL2,
+	SCL3,
+	SCL4,
+	SCL5,
+	SCL6,
+	SCL7,
+	SCL8,
+	SCL9,
+	SCL10,
+	SCL_MAXCNT,
+	SCL_ERR = 0xffff,
+};
+
+/**
+ * enum sda for imgsensor gpio aux function.
+ */
+enum mtk_cam_sensor_i2c_bus_sda {
+	SDA0 = 0,
+	SDA1,
+	SDA2,
+	SDA3,
+	SDA4,
+	SDA5,
+	SDA6,
+	SDA7,
+	SDA8,
+	SDA9,
+	SDA10,
+	SDA_MAXCNT,
+	SDA_ERR = 0xffff,
+};
+
 /* I M G S Y S */
 
 /* I M A G E  S E N S O R */
@@ -356,7 +394,11 @@ struct mtk_cam_pde_info {
 #define V4L2_CID_MTK_SENSOR_IDX \
 	(V4L2_CID_USER_MTK_SENSOR_BASE + 36)
 
+#define V4L2_CID_MTK_AOV_SWITCH_I2C_BUS_SCL_AUX \
+	(V4L2_CID_USER_MTK_SENSOR_BASE + 37)
 
+#define V4L2_CID_MTK_AOV_SWITCH_I2C_BUS_SDA_AUX \
+	(V4L2_CID_USER_MTK_SENSOR_BASE + 38)
 
 /* S E N I N F */
 #define V4L2_CID_MTK_SENINF_S_STREAM \

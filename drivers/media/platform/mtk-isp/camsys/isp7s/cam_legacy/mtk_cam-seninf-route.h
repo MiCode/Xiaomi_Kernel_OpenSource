@@ -31,11 +31,15 @@ u8 is_reset_by_user(struct seninf_ctx *ctx);
 int reset_sensor(struct seninf_ctx *ctx);
 int mtk_cam_seninf_s_stream_mux(struct seninf_ctx *ctx);
 
-
 #ifdef SENINF_DEBUG
 void mtk_cam_seninf_release_cam_mux(struct seninf_ctx *ctx);
 int mux2mux_vr(struct seninf_ctx *ctx, int mux, int cammux);
 enum CAM_TYPE_ENUM cammux2camtype(struct seninf_ctx *ctx, int cammux);
 #endif
+
+int aov_switch_i2c_bus_scl_aux(struct seninf_ctx *ctx,
+	enum mtk_cam_sensor_i2c_bus_scl aux);
+int aov_switch_i2c_bus_sda_aux(struct seninf_ctx *ctx,
+	enum mtk_cam_sensor_i2c_bus_sda aux);
 
 #endif

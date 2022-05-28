@@ -1276,11 +1276,69 @@ void notify_fsync_cammux_usage_with_kthread(struct seninf_ctx *ctx)
 }
 
 #if AOV_GET_PARAM
-/* For send value/address to caller: scp */
-/*
- * int mtk_cam_seninf_s_aov_param(unsigned int sensor_id,
- *				struct mtk_seninf_aov_param **aov_seninf_param)
- * {
+#ifdef SENSING_MODE_READY
+/**
+ * @brief: switch i2c bus scl aux function.
+ *
+ * GPIO 183 for R_CAM3_SCL4, its aux function on apmcu side
+ * is 1 (default). So, we need to switch its aux function to 3 for
+ * aov use on scp side.
+ *
+ */
+int aov_switch_i2c_bus_scl_aux(struct seninf_ctx *ctx,
+	enum mtk_cam_sensor_i2c_bus_scl aux)
+{
+	struct v4l2_subdev *sensor_sd = ctx->sensor_sd;
+	struct v4l2_ctrl *ctrl;
+
+	ctrl = v4l2_ctrl_find(sensor_sd->ctrl_handler,
+		V4L2_CID_MTK_AOV_SWITCH_I2C_BUS_SCL_AUX);
+	if (!ctrl) {
+		dev_info(ctx->dev, "no %s in subdev %s\n",
+			__func__,
+			sensor_sd->name);
+		return -EINVAL;
+	}
+
+	v4l2_ctrl_s_ctrl(ctrl, (unsigned int)aux);
+
+	return 0;
+}
+
+/**
+ * @brief: switch i2c bus sda aux function.
+ *
+ * GPIO 184 for R_CAM3_SDA4, its aux function on apmcu side
+ * is 1 (default). So, we need to switch its aux function to 3 for
+ * aov use on scp side.
+ *
+ */
+int aov_switch_i2c_bus_sda_aux(struct seninf_ctx *ctx,
+	enum mtk_cam_sensor_i2c_bus_sda aux)
+{
+	struct v4l2_subdev *sensor_sd = ctx->sensor_sd;
+	struct v4l2_ctrl *ctrl;
+
+	ctrl = v4l2_ctrl_find(sensor_sd->ctrl_handler,
+		V4L2_CID_MTK_AOV_SWITCH_I2C_BUS_SDA_AUX);
+	if (!ctrl) {
+		dev_info(ctx->dev, "no %s in subdev %s\n",
+			__func__,
+			sensor_sd->name);
+		return -EINVAL;
+	}
+
+	v4l2_ctrl_s_ctrl(ctrl, (unsigned int)aux);
+
+	return 0;
+}
+#endif
+
+/**
+ * @brief: send apmcu param to scp.
+ *
+ * As a callee, For sending value/address to caller: scp.
+ *
  */
 int mtk_cam_seninf_s_aov_param(unsigned int sensor_id,
 				struct mtk_seninf_aov_param *aov_seninf_param)
@@ -1312,13 +1370,18 @@ int mtk_cam_seninf_s_aov_param(unsigned int sensor_id,
 
 	/* debug use
 	 * if (g_aov_param.sensor_idx)
-	 *	pr_info("g_aov_param.sensor_idx %d\n",
-	 *		g_aov_param.sensor_idx);
+	 *	pr_info("g_aov_param.sensor_idx %d\n", g_aov_param.sensor_idx);
 	 */
 
 	if (aov_ctx[real_sensor_id] != NULL) {
 		pr_info("sensor idx %d\n", real_sensor_id);
 		ctx = aov_ctx[real_sensor_id];
+#ifdef SENSING_MODE_READY
+		/* switch i2c bus scl from apmcu to scp */
+		aov_switch_i2c_bus_scl_aux(ctx, SCL7);
+		/* switch i2c bus sda from apmcu to scp */
+		aov_switch_i2c_bus_sda_aux(ctx, SDA7);
+#endif
 		vc = mtk_cam_seninf_get_vc_by_pad(ctx, PAD_SRC_RAW0);
 	} else {
 		pr_info("Can't find ctx from input sensor_id:%d!\n",
@@ -1331,10 +1394,10 @@ int mtk_cam_seninf_s_aov_param(unsigned int sensor_id,
 	}
 
 	g_aov_param.vc = *vc;
-	// debug use
-	// pr_info("out_pad %d\n", g_aov_param.vc.out_pad);
+	/* debug use
+	 * pr_info("out_pad %d\n", g_aov_param.vc.out_pad);
+	 */
 	if (aov_seninf_param != NULL) {
-		// aov_seninf_param = &g_aov_param;
 		memcpy((void *)aov_seninf_param, (void *)&g_aov_param,
 			sizeof(struct mtk_seninf_aov_param));
 		/* debug use

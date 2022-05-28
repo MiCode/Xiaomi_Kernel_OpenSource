@@ -93,6 +93,7 @@
 #endif
 
 #define AOV_GET_PARAM 1
+#undef SENSING_MODE_READY	// FIX ME
 
 enum CSI_PORT {
 	CSI_PORT_0 = 0,
@@ -312,7 +313,9 @@ enum TG_FORMAT_ENUM {
 };
 
 enum {
+	/* cam cg */
 	CLK_CAM_SENINF = 0,
+	/* csi clk */
 	CLK_TOP_SENINF,
 	CLK_TOP_SENINF1,
 	CLK_TOP_SENINF2,
@@ -320,7 +323,15 @@ enum {
 	CLK_TOP_SENINF4,
 	CLK_TOP_SENINF5,
 	CLK_TOP_SENINF_END,
+	/* test model clk */
 	CLK_TOP_CAMTM = CLK_TOP_SENINF_END,
+	CLK_TOP_OSC_D4,					// aov 130M seninf csi clk on scp
+	CLK_TOP_MAINPLL2_D9,			// default 242M seninf csi clk on apmcu
+	CLK_TOP_CAMTM_END,
+	/* analog phyD clk */
+	CLK_TOP_CAMTG = CLK_TOP_CAMTM_END,
+	CLK_TOP_OSC_D20,				// aov low power 26M reference clk on scp
+	CLK_TOP_TCK_26M_MX9,			// default 26M analog reference clk on apmcu
 	CLK_MAXCNT,
 };
 
@@ -333,5 +344,10 @@ enum {
 	"clk_top_seninf4", \
 	"clk_top_seninf5", \
 	"clk_top_camtm", \
+	"clk_top_osc_d4", \
+	"clk_top_mainpll2_d9", \
+	"clk_top_camtg", \
+	"clk_top_osc_d20", \
+	"clk_top_tck_26m_mx9", \
 
 #endif

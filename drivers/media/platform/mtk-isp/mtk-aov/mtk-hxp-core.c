@@ -242,13 +242,34 @@ int hxp_core_send_cmd(struct mtk_hxp *hxp_dev, uint32_t cmd,
 						__func__, user.tuning_size);
 					return -ENOMEM;
 				}
-
-				pr_info("mtk_cam_seninf_s_aov_param+\n");
-				mtk_cam_seninf_s_aov_param(user.sensor_id,
+				/* set seninf aov parameters for scp use and
+				 * switch i2c bus aux function here on scp side.
+				 */
+				pr_info("mtk_cam_seninf_s_aov_param(%d)+\n", user.sensor_id);
+				ret = mtk_cam_seninf_s_aov_param(user.sensor_id,
 					(void *)&(init->senif_info));
-				pr_info("mtk_cam_seninf_s_aov_param-\n");
+				if (ret < 0)
+					pr_info(
+						"mtk_cam_seninf_s_aov_param(%d) fail, ret: %d\n",
+						user.sensor_id, ret);
+				pr_info("mtk_cam_seninf_s_aov_param(%d)-\n", user.sensor_id);
 
 				core_info->sensor_id = user.sensor_id;
+
+				/* suspend and set clk parent here to prevent enque
+				 * racing issue when power on/off on scp side.
+				 */
+				// pr_info(
+					// "mtk_cam_seninf_aov_runtime_suspend(%d)+\n",
+					// core_info->sensor_id);
+				// ret = mtk_cam_seninf_aov_runtime_suspend(core_info->sensor_id);
+				// if (ret < 0)
+					// pr_info(
+					// "mtk_cam_seninf_aov_runtime_suspend(%d) fail, ret: %d\n",
+					// core_info->sensor_id, ret);
+				// pr_info(
+					// "mtk_cam_seninf_aov_runtime_suspend(%d)-\n",
+					// core_info->sensor_id);
 
 				//pr_info("mtk_aie_aov_memcpy+\n");
 				//mtk_aie_aov_memcpy((void *)&(init->aie_info));
@@ -333,9 +354,9 @@ int hxp_core_send_cmd(struct mtk_hxp *hxp_dev, uint32_t cmd,
 	} else if (cmd == HXP_AOV_CMD_PWR_ON) {
 		atomic_set(&(core_info->disp_mode), HXP_AOV_MODE_DISP_ON);
 	} else if (cmd == HXP_AOV_CMD_DEINIT) {
-		pr_info("mtk_cam_seninf_aov_runtime_resume(%d)+\n", core_info->sensor_id);
-		mtk_cam_seninf_aov_runtime_resume(core_info->sensor_id);
-		pr_info("mtk_cam_seninf_aov_runtime_resume(%d)-\n", core_info->sensor_id);
+		// pr_info("mtk_cam_seninf_aov_runtime_resume(%d)+\n", core_info->sensor_id);
+		// mtk_cam_seninf_aov_runtime_resume(core_info->sensor_id);
+		// pr_info("mtk_cam_seninf_aov_runtime_resume(%d)-\n", core_info->sensor_id);
 	}
 
 	if (ack)
@@ -367,9 +388,6 @@ int hxp_core_send_cmd(struct mtk_hxp *hxp_dev, uint32_t cmd,
 	}
 
 	if (cmd == HXP_AOV_CMD_INIT) {
-		pr_info("mtk_cam_seninf_aov_runtime_suspend(%d)+\n", core_info->sensor_id);
-		mtk_cam_seninf_aov_runtime_suspend(core_info->sensor_id);
-		pr_info("mtk_cam_seninf_aov_runtime_suspend(%d)-\n", core_info->sensor_id);
 	} else if (cmd == HXP_AOV_CMD_PWR_ON) {
 #if HXP_SLB_ALLOC_FREE
 		struct slbc_data slb;
