@@ -99,6 +99,7 @@ enum ipi_send_offload {
 	OFFLOAD_TSTAMP,
 	OFFLOAD_SCENE,
 	OFFLOAD_CODEC_INFO,
+	OFFLOAD_MDATA_INFO,
 };
 
 #endif

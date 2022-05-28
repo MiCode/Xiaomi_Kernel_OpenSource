@@ -496,7 +496,16 @@ static int mtk_compr_offload_set_metadata(struct snd_soc_component *component,
 					  struct snd_compr_stream *stream,
 					  struct snd_compr_metadata *metadata)
 {
-	pr_debug("%s()\n", __func__);
+	pr_info("%s()\n, metadata.key = %d, metadata.value[0] = %d",
+		 __func__, metadata->key, metadata->value[0]);
+	mtk_scp_ipi_send(get_dspscene_by_dspdaiid(ID),
+			 AUDIO_IPI_MSG_ONLY,
+			 AUDIO_IPI_MSG_BYPASS_ACK,
+			 OFFLOAD_MDATA_INFO,
+			 metadata->key,
+			 metadata->value[0],
+			 NULL);
+
 	return 0;
 }
 
@@ -862,7 +871,6 @@ static int mtk_compr_offload_pause(struct snd_compr_stream *stream)
 	int ret = 0;
 	pr_debug("%s\n", __func__);
 
-	offloadservice_releasewriteblocked();
 #ifdef use_wake_lock
 	mtk_compr_offload_int_wakelock(false);
 #endif
