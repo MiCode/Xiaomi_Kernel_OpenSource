@@ -122,13 +122,11 @@ int add_white_list(char *name)
 	struct name_list *new_thread;
 	struct name_list *pList;
 
+	new_thread = kmalloc(sizeof(struct name_list), GFP_KERNEL);
+	if (!new_thread)
+		return -1;
 	raw_spin_lock(&white_list_lock);
 	if (!white_list) {
-		new_thread = kmalloc(sizeof(struct name_list), GFP_KERNEL);
-		if (!new_thread) {
-			raw_spin_unlock(&white_list_lock);
-			return -1;
-		}
 		strncpy(new_thread->name, name, TASK_COMM_LEN);
 		new_thread->name[TASK_COMM_LEN - 1] = 0;
 		new_thread->next = NULL;
@@ -142,18 +140,13 @@ int add_white_list(char *name)
 		/*find same thread name*/
 		if (strncmp(pList->name, name, TASK_COMM_LEN) == 0) {
 			raw_spin_unlock(&white_list_lock);
+			kfree(new_thread);
 			return 0;
 		}
 		pList = pList->next;
 	}
 
 	/*add new thread name*/
-	new_thread = kmalloc(sizeof(struct name_list), GFP_KERNEL);
-	if (!new_thread) {
-		raw_spin_unlock(&white_list_lock);
-		return -1;
-	}
-
 	strncpy(new_thread->name, name, TASK_COMM_LEN);
 	new_thread->next = white_list;
 	white_list = new_thread;
