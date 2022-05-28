@@ -10,6 +10,7 @@
  * To dubug format/crop related
  */
 #define CAM_DEBUG_FORMAT	0
+#define CAM_DEBUG_IPI_BUF	1
 
 unsigned int cam_debug_opts(void);
 

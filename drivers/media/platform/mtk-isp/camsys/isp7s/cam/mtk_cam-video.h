@@ -38,7 +38,7 @@ struct mtk_cam_cached_image_info {
 	unsigned int width;
 	unsigned int height;
 	unsigned int bytesperline[4];
-	//unsigned int buffersize[4]; /* TODO */
+	unsigned int size[4];
 	struct v4l2_rect crop;
 };
 
@@ -147,19 +147,6 @@ struct mtk_cam_video_device {
 	_ent ? container_of(_ent, struct mtk_cam_video_device, vdev.entity) : \
 		NULL; \
 })
-
-struct mtk_format_info {
-	u32 format;
-	u8 mem_planes;
-	u8 comp_planes;
-	u8 bpp[4];
-	u8 hdiv;
-	u8 vdiv;
-	/* numerator of bit ratio */
-	u8 bit_r_num;
-	/* denominator of bit ratio */
-	u8 bit_r_den;
-};
 
 int mtk_cam_video_register(struct mtk_cam_video_device *video,
 			   struct v4l2_device *v4l2_dev);

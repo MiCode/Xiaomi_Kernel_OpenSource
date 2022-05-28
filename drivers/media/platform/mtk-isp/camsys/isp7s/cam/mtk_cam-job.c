@@ -17,16 +17,11 @@
 
 #include "frame_sync_camsys.h"
 
-static int debug_job;
-module_param(debug_job, int, 0644);
-
-#define _dprintk(bit, fmt, arg...)				\
+#define buf_printk(fmt, arg...)					\
 	do {							\
-		if (debug_job & (1 << bit))			\
+		if (CAM_DEBUG_ENABLED(IPI_BUF))			\
 			pr_info("%s: " fmt, __func__, ##arg);	\
 	} while (0)
-
-#define buf_printk(fmt, arg...)		_dprintk(0, fmt, ##arg)
 
 #define SENSOR_SET_MARGIN_MS  25
 #define SENSOR_SET_MARGIN_MS_STAGGER  27
@@ -2375,114 +2370,25 @@ struct req_buffer_helper {
 	bool filled_hdr_buffer;
 };
 
-/* TODO: refine this function... */
-static int mtk_cam_fill_img_buf(struct mtkcam_ipi_img_output *img_out,
+static int mtk_cam_fill_img_buf(struct mtkcam_ipi_img_output *io,
 				struct mtk_cam_buffer *buf)
 {
-	struct mtk_cam_cached_image_info *info = &buf->image_info;
-
-	u32 pixelformat = info->v4l2_pixelformat;
-	u32 width = info->width;
-	u32 height = info->height;
-	u32 stride = info->bytesperline[0];
-	dma_addr_t daddr = buf->daddr;
-
-	u32 aligned_width;
-	unsigned int addr_offset = 0;
+	struct mtk_cam_cached_image_info *img_info = &buf->image_info;
+	dma_addr_t daddr;
 	int i;
 
-	img_out->buf[0][0].ccd_fd = buf->vbb.vb2_buf.planes[0].m.fd;
+	io->buf[0][0].ccd_fd = buf->vbb.vb2_buf.planes[0].m.fd;
 
-	if (is_mtk_format(pixelformat)) {
-		const struct mtk_format_info *info;
+	daddr = buf->daddr;
+	for (i = 0; i < ARRAY_SIZE(img_info->bytesperline); i++) {
+		unsigned int size = img_info->size[i];
 
-		info = mtk_format_info(pixelformat);
-		if (WARN_ON(!info))
-			return -EINVAL;
+		if (!size)
+			break;
 
-		if (info->mem_planes != 1) {
-			pr_info("do not support non-contiguous mplane\n");
-			return -EINVAL;
-		}
-
-		aligned_width = stride / info->bpp[0];
-		if (is_yuv_ufo(pixelformat)) {
-			aligned_width = ALIGN(width, 64);
-			img_out->buf[0][0].iova = daddr;
-			img_out->fmt.stride[0] = aligned_width * info->bit_r_num
-				/ info->bit_r_den;
-			img_out->buf[0][0].size = img_out->fmt.stride[0] * height;
-			img_out->buf[0][0].size += img_out->fmt.stride[0] * height / 2;
-			img_out->buf[0][0].size += ALIGN((aligned_width / 64), 8) * height;
-			img_out->buf[0][0].size += ALIGN((aligned_width / 64), 8) * height
-				/ 2;
-			img_out->buf[0][0].size += sizeof(struct UfbcBufferHeader);
-
-			buf_printk("plane:%d stride:%d plane_size:%d addr:0x%x\n",
-				   0,
-				   img_out->fmt.stride[0],
-				   img_out->buf[0][0].size,
-				   img_out->buf[0][0].iova);
-		} else if (is_raw_ufo(pixelformat)) {
-			aligned_width = ALIGN(width, 64);
-			img_out->buf[0][0].iova = daddr;
-			img_out->fmt.stride[0] = aligned_width * info->bit_r_num /
-				info->bit_r_den;
-			img_out->buf[0][0].size = img_out->fmt.stride[0] * height;
-			img_out->buf[0][0].size += ALIGN((aligned_width / 64), 8) * height;
-			img_out->buf[0][0].size += sizeof(struct UfbcBufferHeader);
-
-			buf_printk("plane:%d stride:%d plane_size:%d addr:0x%x\n",
-				   0, img_out->fmt.stride[0], img_out->buf[0][0].size,
-				   img_out->buf[0][0].iova);
-		} else {
-			for (i = 0; i < info->comp_planes; i++) {
-				unsigned int hdiv = (i == 0) ? 1 : info->hdiv;
-				unsigned int vdiv = (i == 0) ? 1 : info->vdiv;
-
-				img_out->buf[0][i].iova = daddr + addr_offset;
-				img_out->fmt.stride[i] = info->bpp[i] *
-					DIV_ROUND_UP(aligned_width, hdiv);
-				img_out->buf[0][i].size = img_out->fmt.stride[i]
-					* DIV_ROUND_UP(height, vdiv);
-				addr_offset += img_out->buf[0][i].size;
-
-				buf_printk("plane:%d stride:%d plane_size:%d addr:0x%x\n",
-					   i,
-					   img_out->fmt.stride[i],
-					   img_out->buf[0][i].size,
-					   img_out->buf[0][i].iova);
-			}
-		}
-	} else {
-		const struct v4l2_format_info *info;
-
-		info = v4l2_format_info(pixelformat);
-		if (WARN_ON(!info))
-			return -EINVAL;
-
-		if (info->mem_planes != 1) {
-			pr_info("do not support non contiguous mplane\n");
-			return -EINVAL;
-		}
-
-		aligned_width = stride / info->bpp[0];
-		for (i = 0; i < info->comp_planes; i++) {
-			unsigned int hdiv = (i == 0) ? 1 : info->hdiv;
-			unsigned int vdiv = (i == 0) ? 1 : info->vdiv;
-
-			img_out->buf[0][i].iova = daddr + addr_offset;
-			img_out->fmt.stride[i] = info->bpp[i] *
-				DIV_ROUND_UP(aligned_width, hdiv);
-			img_out->buf[0][i].size = img_out->fmt.stride[i]
-				* DIV_ROUND_UP(height, vdiv);
-			addr_offset += img_out->buf[0][i].size;
-
-			buf_printk("stride:%d plane_size:%d addr:0x%x\n",
-				   img_out->fmt.stride[i],
-				   img_out->buf[0][i].size,
-				   img_out->buf[0][i].iova);
-		}
+		io->buf[0][i].iova = daddr;
+		io->buf[0][i].size = size;
+		daddr += size;
 	}
 
 	return 0;
@@ -2505,6 +2411,7 @@ static int fill_img_fmt(struct mtkcam_ipi_pix_fmt *ipi_pfmt,
 			info->bytesperline[i] : 0;
 	return 0;
 }
+
 static int fill_img_in_hdr(struct mtkcam_ipi_img_input *ii,
 			struct mtk_cam_buffer *buf,
 			struct mtk_cam_video_device *node)
@@ -2517,9 +2424,8 @@ static int fill_img_in_hdr(struct mtkcam_ipi_img_input *ii,
 	/* fmt */
 	ret = fill_img_fmt(&ii->fmt, buf);
 
-
 	/* FIXME: porting workaround */
-	ii->buf[0].size = buf->image_info.bytesperline[0] * buf->image_info.height;
+	ii->buf[0].size = buf->image_info.size[0];
 	ii->buf[0].iova = buf->daddr;
 	ii->buf[0].ccd_fd = buf->vbb.vb2_buf.planes[0].m.fd;
 
@@ -2534,6 +2440,8 @@ static int fill_img_out_hdr(struct mtkcam_ipi_img_output *io,
 			struct mtk_cam_video_device *node)
 {
 	int ret;
+
+	memset(io, 0, sizeof(*io));
 
 	/* uid */
 	io->uid = node->uid;
@@ -2580,6 +2488,8 @@ static int fill_img_in_driver_buf(struct mtkcam_ipi_img_input *ii,
 {
 	int i;
 
+	memset(ii, 0, sizeof(*ii));
+
 	/* uid */
 	ii->uid = uid;
 
@@ -2609,6 +2519,8 @@ static int fill_img_out(struct mtkcam_ipi_img_output *io,
 			struct mtk_cam_video_device *node)
 {
 	int ret;
+
+	memset(io, 0, sizeof(*io));
 
 	/* uid */
 	io->uid = node->uid;

@@ -18,6 +18,46 @@
 
 #define MAX_SUBSAMPLE_PLANE_NUM VB2_MAX_PLANES /* 8 */
 
+static void log_fmt_mp(const char *name, struct v4l2_pix_format_mplane *fmt,
+		       const char *caller)
+{
+	struct v4l2_plane_pix_format *plane;
+
+	plane = &fmt->plane_fmt[0];
+
+	pr_info("%s: %s pixelformat " FMT_FOURCC " %ux%u np %d 0:%u/%u\n",
+		caller, name, MEMBER_FOURCC(fmt->pixelformat),
+		fmt->width, fmt->height,
+		fmt->num_planes,
+		plane->bytesperline, plane->sizeimage);
+}
+
+static void log_fmt_ops(struct mtk_cam_video_device *node,
+			struct v4l2_format *f,
+			const char *caller)
+{
+	struct media_pad *remote_pad;
+	const char *remote_name = "null";
+
+	remote_pad = media_entity_remote_pad(&node->pad);
+	if (remote_pad)
+		remote_name = remote_pad->entity->name;
+
+	if (f->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
+		struct v4l2_pix_format_mplane *pix_mp = &f->fmt.pix_mp;
+
+		log_fmt_mp(remote_pad->entity->name, pix_mp, caller);
+
+	} else if (f->type == V4L2_BUF_TYPE_META_CAPTURE ||
+		   f->type == V4L2_BUF_TYPE_META_OUTPUT) {
+		struct v4l2_meta_format *meta = &f->fmt.meta;
+
+		pr_info("%s: %s node %s: meta (format " FMT_FOURCC " size %u)\n",
+			caller, remote_pad->entity->name, node->desc.name,
+			MEMBER_FOURCC(meta->dataformat), meta->buffersize);
+	}
+}
+
 static int mtk_cam_video_set_fmt(struct mtk_cam_video_device *node,
 				 struct v4l2_format *f);
 
@@ -101,6 +141,122 @@ static int mtk_cam_vb2_buf_init(struct vb2_buffer *vb)
 	return 0;
 }
 
+/* TODO: combine following operation into s_fmt */
+static int _collect_image_info_mp(struct mtk_cam_cached_image_info *cached,
+				  const struct v4l2_pix_format_mplane *fmt)
+{
+	unsigned int pixelformat = fmt->pixelformat;
+	unsigned int stride0;
+	int i;
+
+	cached->v4l2_pixelformat = pixelformat;
+	cached->width = fmt->width;
+	cached->height = fmt->height;
+
+	memset(cached->bytesperline, 0, sizeof(cached->bytesperline));
+	memset(cached->size, 0, sizeof(cached->size));
+
+	/* convert v4l2 single-plane description into multi-plane */
+	/* cached->bytesperline/size */
+	if (is_mtk_format(pixelformat)) {
+		const struct mtk_format_info *info;
+
+		info = mtk_format_info(pixelformat);
+		if (WARN_ON(!info)) {
+			pr_info("%s: failed to find mtk format info for " FMT_FOURCC "\n",
+				__func__, MEMBER_FOURCC(pixelformat));
+			return -EINVAL;
+		}
+
+		if (info->mem_planes != 1) {
+			pr_info("%s: do not support non-contiguous mplane\n",
+				__func__);
+			return -EINVAL;
+		}
+
+		if (is_yuv_ufo(pixelformat) || is_raw_ufo(pixelformat)) {
+			/* 1-plane, use directly */
+			cached->bytesperline[0] = fmt->plane_fmt[0].bytesperline;
+			cached->size[0] = fmt->plane_fmt[0].sizeimage;
+		} else {
+			stride0 = fmt->plane_fmt[0].bytesperline;
+			for (i = 0; i < info->comp_planes; i++) {
+				unsigned int stride_p = (i == 0) ?
+					stride0 :
+					mtk_format_calc_stride(info, i,
+							       fmt->width,
+							       stride0);
+
+				cached->bytesperline[i] = stride_p;
+				cached->size[i] =
+					mtk_format_calc_planesize(info, i,
+								  fmt->height,
+								  stride_p);
+			}
+		}
+	} else {
+		const struct v4l2_format_info *info;
+
+		info = v4l2_format_info(pixelformat);
+		if (!info) {
+			pr_info("%s: failed to find v4l2 format info for " FMT_FOURCC "\n",
+				__func__, MEMBER_FOURCC(pixelformat));
+
+			goto temp_fot_raw_fmt;
+		}
+
+		if (info->mem_planes != 1) {
+			pr_info("%s: do not support non-contiguous mplane\n",
+				__func__);
+			return -EINVAL;
+		}
+
+		stride0 = fmt->plane_fmt[0].bytesperline;
+		for (i = 0; i < info->comp_planes; i++) {
+			unsigned int hdiv = (i == 0) ? 1 : info->hdiv;
+			unsigned int vdiv = (i == 0) ? 1 : info->vdiv;
+
+			unsigned int stride_p = (i == 0) ? stride0 :
+				DIV_ROUND_UP(stride0 * info->bpp[i] / info->bpp[0],
+					     hdiv);
+
+			cached->bytesperline[i] = stride_p;
+			cached->size[i] = stride_p * DIV_ROUND_UP(fmt->height, vdiv);
+		}
+	}
+	return 0;
+
+temp_fot_raw_fmt:
+	pr_info_ratelimited("%s: temp for raw fmt\n", __func__);
+	{
+		unsigned int ipi_fmt = mtk_cam_get_img_fmt(pixelformat);
+
+		switch (ipi_fmt) {
+		case MTKCAM_IPI_IMG_FMT_BAYER8:
+		case MTKCAM_IPI_IMG_FMT_BAYER10:
+		case MTKCAM_IPI_IMG_FMT_BAYER12:
+		case MTKCAM_IPI_IMG_FMT_BAYER14:
+		case MTKCAM_IPI_IMG_FMT_BAYER16:
+		case MTKCAM_IPI_IMG_FMT_BAYER10_MIPI:
+		case MTKCAM_IPI_IMG_FMT_BAYER10_UNPACKED:
+		case MTKCAM_IPI_IMG_FMT_BAYER12_UNPACKED:
+		case MTKCAM_IPI_IMG_FMT_BAYER14_UNPACKED:
+		case MTKCAM_IPI_IMG_FMT_FG_BAYER8:
+		case MTKCAM_IPI_IMG_FMT_FG_BAYER10:
+		case MTKCAM_IPI_IMG_FMT_FG_BAYER12:
+		case MTKCAM_IPI_IMG_FMT_FG_BAYER14:
+			cached->bytesperline[0] = fmt->plane_fmt[0].bytesperline;
+			cached->size[0] = fmt->plane_fmt[0].sizeimage;
+			break;
+		default:
+			pr_info("%s: error for " FMT_FOURCC "\n",
+				__func__, MEMBER_FOURCC(pixelformat));
+			return -EINVAL;
+		}
+	}
+	return 0;
+}
+
 static void mtk_cam_vb2_buf_collect_image_info(struct vb2_buffer *vb)
 {
 	struct mtk_cam_video_device *node = mtk_cam_vbq_to_vdev(vb->vb2_queue);
@@ -108,14 +264,8 @@ static void mtk_cam_vb2_buf_collect_image_info(struct vb2_buffer *vb)
 	struct mtk_cam_cached_image_info *cached = &buf->image_info;
 	const struct v4l2_pix_format_mplane *mpfmt =
 		&node->active_fmt.fmt.pix_mp;
-	int i;
 
-	cached->v4l2_pixelformat = mpfmt->pixelformat;
-	cached->width = mpfmt->width;
-	cached->height = mpfmt->height;
-	for (i = 0; i < ARRAY_SIZE(cached->bytesperline); i++)
-		cached->bytesperline[i] = i >= mpfmt->num_planes ? 0 :
-			mpfmt->plane_fmt[i].bytesperline;
+	WARN_ON(_collect_image_info_mp(cached, mpfmt));
 	cached->crop = node->active_crop.r;
 }
 
@@ -128,10 +278,6 @@ static void mtk_cam_vb2_buf_collect_meta_info(struct vb2_buffer *vb)
 
 	cached->v4l2_pixelformat = meta_fmt->dataformat;
 	cached->buffersize = meta_fmt->buffersize;
-
-	pr_debug("%s: %s buf 0x%llx size %zu\n",
-		 __func__, node->desc.name,
-		 buf, cached->buffersize);
 }
 
 static int mtk_cam_vb2_buf_prepare(struct vb2_buffer *vb)
@@ -255,157 +401,6 @@ static void mtk_cam_vb2_stop_streaming(struct vb2_queue *vq)
 		return;
 	mtk_cam_stop_ctx(ctx, &node->vdev.entity);
 
-}
-
-const struct mtk_format_info *mtk_format_info(u32 format)
-{
-	static const struct mtk_format_info formats[] = {
-		/* YUV planar formats */
-		{ .format = V4L2_PIX_FMT_NV12_10,  .mem_planes = 1, .comp_planes = 2,
-			.bpp = { 1, 2, 0, 0 }, .hdiv = 2, .vdiv = 2,
-			.bit_r_num = 2, .bit_r_den = 1 },
-		{ .format = V4L2_PIX_FMT_NV21_10,  .mem_planes = 1, .comp_planes = 2,
-			.bpp = { 1, 2, 0, 0 }, .hdiv = 2, .vdiv = 2,
-			.bit_r_num = 2, .bit_r_den = 1 },
-		{ .format = V4L2_PIX_FMT_NV16_10,  .mem_planes = 1, .comp_planes = 2,
-			.bpp = { 1, 2, 0, 0 }, .hdiv = 2, .vdiv = 1,
-			.bit_r_num = 2, .bit_r_den = 1 },
-		{ .format = V4L2_PIX_FMT_NV61_10,  .mem_planes = 1, .comp_planes = 2,
-			.bpp = { 1, 2, 0, 0 }, .hdiv = 2, .vdiv = 1,
-			.bit_r_num = 2, .bit_r_den = 1 },
-		{ .format = V4L2_PIX_FMT_YUYV10,	  .mem_planes = 1, .comp_planes = 1,
-			.bpp = { 2, 0, 0, 0 }, .hdiv = 2, .vdiv = 1,
-			.bit_r_num = 2, .bit_r_den = 1 },
-		{ .format = V4L2_PIX_FMT_YVYU10,	  .mem_planes = 1, .comp_planes = 1,
-			.bpp = { 2, 0, 0, 0 }, .hdiv = 2, .vdiv = 1,
-			.bit_r_num = 2, .bit_r_den = 1 },
-		{ .format = V4L2_PIX_FMT_UYVY10,	  .mem_planes = 1, .comp_planes = 1,
-			.bpp = { 2, 0, 0, 0 }, .hdiv = 2, .vdiv = 1,
-			.bit_r_num = 2, .bit_r_den = 1 },
-		{ .format = V4L2_PIX_FMT_VYUY10,	  .mem_planes = 1, .comp_planes = 1,
-			.bpp = { 2, 0, 0, 0 }, .hdiv = 2, .vdiv = 1,
-			.bit_r_num = 2, .bit_r_den = 1 },
-		{ .format = V4L2_PIX_FMT_NV12_12,  .mem_planes = 1, .comp_planes = 2,
-			.bpp = { 1, 2, 0, 0 }, .hdiv = 2, .vdiv = 2,
-			.bit_r_num = 2, .bit_r_den = 1 },
-		{ .format = V4L2_PIX_FMT_NV21_12,  .mem_planes = 1, .comp_planes = 2,
-			.bpp = { 1, 2, 0, 0 }, .hdiv = 2, .vdiv = 2,
-			.bit_r_num = 2, .bit_r_den = 1 },
-		{ .format = V4L2_PIX_FMT_NV16_12,  .mem_planes = 1, .comp_planes = 2,
-			.bpp = { 1, 2, 0, 0 }, .hdiv = 2, .vdiv = 1,
-			.bit_r_num = 2, .bit_r_den = 1 },
-		{ .format = V4L2_PIX_FMT_NV61_12,  .mem_planes = 1, .comp_planes = 2,
-			.bpp = { 1, 2, 0, 0 }, .hdiv = 2, .vdiv = 1,
-			.bit_r_num = 2, .bit_r_den = 1 },
-		{ .format = V4L2_PIX_FMT_YUYV12,	  .mem_planes = 1, .comp_planes = 1,
-			.bpp = { 2, 0, 0, 0 }, .hdiv = 2, .vdiv = 1,
-			.bit_r_num = 2, .bit_r_den = 1 },
-		{ .format = V4L2_PIX_FMT_YVYU12,	  .mem_planes = 1, .comp_planes = 1,
-			.bpp = { 2, 0, 0, 0 }, .hdiv = 2, .vdiv = 1,
-			.bit_r_num = 2, .bit_r_den = 1 },
-		{ .format = V4L2_PIX_FMT_UYVY12,	  .mem_planes = 1, .comp_planes = 1,
-			.bpp = { 2, 0, 0, 0 }, .hdiv = 2, .vdiv = 1,
-			.bit_r_num = 2, .bit_r_den = 1 },
-		{ .format = V4L2_PIX_FMT_VYUY12,	  .mem_planes = 1, .comp_planes = 1,
-			.bpp = { 2, 0, 0, 0 }, .hdiv = 2, .vdiv = 1,
-			.bit_r_num = 2, .bit_r_den = 1 },
-		/* YUV packed formats */
-		{ .format = V4L2_PIX_FMT_MTISP_YUYV10P,	  .mem_planes = 1, .comp_planes = 1,
-			.bpp = { 2, 0, 0, 0 }, .hdiv = 2, .vdiv = 1,
-			.bit_r_num = 5, .bit_r_den = 4 },
-		{ .format = V4L2_PIX_FMT_MTISP_YVYU10P,	  .mem_planes = 1, .comp_planes = 1,
-			.bpp = { 2, 0, 0, 0 }, .hdiv = 2, .vdiv = 1,
-			.bit_r_num = 5, .bit_r_den = 4 },
-		{ .format = V4L2_PIX_FMT_MTISP_UYVY10P,	  .mem_planes = 1, .comp_planes = 1,
-			.bpp = { 2, 0, 0, 0 }, .hdiv = 2, .vdiv = 1,
-			.bit_r_num = 5, .bit_r_den = 4 },
-		{ .format = V4L2_PIX_FMT_MTISP_VYUY10P,	  .mem_planes = 1, .comp_planes = 1,
-			.bpp = { 2, 0, 0, 0 }, .hdiv = 2, .vdiv = 1,
-			.bit_r_num = 5, .bit_r_den = 4 },
-		{ .format = V4L2_PIX_FMT_MTISP_NV12_10P, .mem_planes = 1, .comp_planes = 2,
-			.bpp = { 1, 2, 0, 0 }, .hdiv = 2, .vdiv = 2,
-			.bit_r_num = 5, .bit_r_den = 4 },
-		{ .format = V4L2_PIX_FMT_MTISP_NV21_10P, .mem_planes = 1, .comp_planes = 2,
-			.bpp = { 1, 2, 0, 0 }, .hdiv = 2, .vdiv = 2,
-			.bit_r_num = 5, .bit_r_den = 4 },
-		{ .format = V4L2_PIX_FMT_MTISP_NV16_10P, .mem_planes = 1, .comp_planes = 2,
-			.bpp = { 1, 2, 0, 0 }, .hdiv = 2, .vdiv = 1,
-			.bit_r_num = 5, .bit_r_den = 4 },
-		{ .format = V4L2_PIX_FMT_MTISP_NV61_10P, .mem_planes = 1, .comp_planes = 2,
-			.bpp = { 1, 2, 0, 0 }, .hdiv = 2, .vdiv = 1,
-			.bit_r_num = 5, .bit_r_den = 4 },
-		{ .format = V4L2_PIX_FMT_MTISP_YUYV12P,	  .mem_planes = 1, .comp_planes = 1,
-			.bpp = { 2, 0, 0, 0 }, .hdiv = 2, .vdiv = 1,
-			.bit_r_num = 3, .bit_r_den = 2 },
-		{ .format = V4L2_PIX_FMT_MTISP_YVYU12P,	  .mem_planes = 1, .comp_planes = 1,
-			.bpp = { 2, 0, 0, 0 }, .hdiv = 2, .vdiv = 1,
-			.bit_r_num = 3, .bit_r_den = 2 },
-		{ .format = V4L2_PIX_FMT_MTISP_UYVY12P,	  .mem_planes = 1, .comp_planes = 1,
-			.bpp = { 2, 0, 0, 0 }, .hdiv = 2, .vdiv = 1,
-			.bit_r_num = 3, .bit_r_den = 2 },
-		{ .format = V4L2_PIX_FMT_MTISP_VYUY12P,	  .mem_planes = 1, .comp_planes = 1,
-			.bpp = { 2, 0, 0, 0 }, .hdiv = 2, .vdiv = 1,
-			.bit_r_num = 3, .bit_r_den = 2 },
-		{ .format = V4L2_PIX_FMT_MTISP_NV12_12P, .mem_planes = 1, .comp_planes = 2,
-			.bpp = { 1, 2, 0, 0 }, .hdiv = 2, .vdiv = 2,
-			.bit_r_num = 3, .bit_r_den = 2 },
-		{ .format = V4L2_PIX_FMT_MTISP_NV21_12P, .mem_planes = 1, .comp_planes = 2,
-			.bpp = { 1, 2, 0, 0 }, .hdiv = 2, .vdiv = 2,
-			.bit_r_num = 3, .bit_r_den = 2 },
-		{ .format = V4L2_PIX_FMT_MTISP_NV16_12P, .mem_planes = 1, .comp_planes = 2,
-			.bpp = { 1, 2, 0, 0 }, .hdiv = 2, .vdiv = 1,
-			.bit_r_num = 3, .bit_r_den = 2 },
-		{ .format = V4L2_PIX_FMT_MTISP_NV61_12P, .mem_planes = 1, .comp_planes = 2,
-			.bpp = { 1, 2, 0, 0 }, .hdiv = 2, .vdiv = 1,
-			.bit_r_num = 3, .bit_r_den = 2 },
-		/* YUV UFBC formats */
-		{ .format = V4L2_PIX_FMT_MTISP_NV12_UFBC, .mem_planes = 1, .comp_planes = 2,
-			.bpp = { 1, 2, 0, 0 }, .hdiv = 2, .vdiv = 2,
-			.bit_r_num = 2, .bit_r_den = 1 },
-		{ .format = V4L2_PIX_FMT_MTISP_NV21_UFBC, .mem_planes = 1, .comp_planes = 2,
-			.bpp = { 1, 2, 0, 0 }, .hdiv = 2, .vdiv = 2,
-			.bit_r_num = 2, .bit_r_den = 1 },
-		{ .format = V4L2_PIX_FMT_MTISP_NV12_10_UFBC, .mem_planes = 1, .comp_planes = 2,
-			.bpp = { 1, 2, 0, 0 }, .hdiv = 2, .vdiv = 2,
-			.bit_r_num = 5, .bit_r_den = 4 },
-		{ .format = V4L2_PIX_FMT_MTISP_NV21_10_UFBC, .mem_planes = 1, .comp_planes = 2,
-			.bpp = { 1, 2, 0, 0 }, .hdiv = 2, .vdiv = 2,
-			.bit_r_num = 5, .bit_r_den = 4 },
-		{ .format = V4L2_PIX_FMT_MTISP_NV12_12_UFBC, .mem_planes = 1, .comp_planes = 2,
-			.bpp = { 1, 2, 0, 0 }, .hdiv = 2, .vdiv = 2,
-			.bit_r_num = 3, .bit_r_den = 2 },
-		{ .format = V4L2_PIX_FMT_MTISP_NV21_12_UFBC, .mem_planes = 1, .comp_planes = 2,
-			.bpp = { 1, 2, 0, 0 }, .hdiv = 2, .vdiv = 2,
-			.bit_r_num = 3, .bit_r_den = 2 },
-		{ .format = V4L2_PIX_FMT_MTISP_BAYER8_UFBC, .mem_planes = 1, .comp_planes = 1,
-			.bpp = { 1, 0, 0, 0 }, .hdiv = 1, .vdiv = 1,
-			.bit_r_num = 1, .bit_r_den = 1 },
-		{ .format = V4L2_PIX_FMT_MTISP_BAYER10_UFBC, .mem_planes = 1, .comp_planes = 1,
-			.bpp = { 1, 0, 0, 0 }, .hdiv = 1, .vdiv = 1,
-			.bit_r_num = 5, .bit_r_den = 4 },
-		{ .format = V4L2_PIX_FMT_MTISP_BAYER12_UFBC, .mem_planes = 1, .comp_planes = 1,
-			.bpp = { 1, 0, 0, 0 }, .hdiv = 1, .vdiv = 1,
-			.bit_r_num = 3, .bit_r_den = 2 },
-		{ .format = V4L2_PIX_FMT_MTISP_BAYER14_UFBC, .mem_planes = 1, .comp_planes = 1,
-			.bpp = { 1, 0, 0, 0 }, .hdiv = 1, .vdiv = 1,
-			.bit_r_num = 7, .bit_r_den = 4 },
-		/* Full-G RGB formats */
-		{ .format = V4L2_PIX_FMT_MTISP_SGRB8F, .mem_planes = 1, .comp_planes = 3,
-			.bpp = { 1, 1, 1, 0 }, .hdiv = 2, .vdiv = 2,
-			.bit_r_num = 1, .bit_r_den = 1 },
-		{ .format = V4L2_PIX_FMT_MTISP_SGRB10F, .mem_planes = 1, .comp_planes = 3,
-			.bpp = { 1, 1, 1, 0 }, .hdiv = 2, .vdiv = 2,
-			.bit_r_num = 5, .bit_r_den = 4 },
-		{ .format = V4L2_PIX_FMT_MTISP_SGRB12F, .mem_planes = 1, .comp_planes = 3,
-			.bpp = { 1, 1, 1, 0 }, .hdiv = 2, .vdiv = 2,
-			.bit_r_num = 3, .bit_r_den = 2 },
-	};
-	unsigned int i;
-
-	for (i = 0; i < ARRAY_SIZE(formats); ++i)
-		if (formats[i].format == format)
-			return &formats[i];
-	return NULL;
 }
 
 static int _temp_ipi_pipe_id_to_idx(int pipe_id)
@@ -614,154 +609,138 @@ int mtk_cam_get_fmt_size_factor(unsigned int ipi_fmt)
 	return 100;
 }
 
-static int mtk_cam_format_fill_pixfmt_mp(struct v4l2_pix_format_mplane *pixfmt,
-					 struct v4l2_plane_pix_format *plane,
-					 u32 bus_size, /* TODO: need this? */
-					 u32 pixelformat, u32 width, u32 height)
+/* ref. v4l2_fill_pixfmt_mp */
+static int mtk_cam_fill_v4l2_pixfmt_mp(struct v4l2_pix_format_mplane *pixfmt,
+				       u32 pixelformat, u32 width, u32 height)
 {
-	const struct mtk_format_info *info;
-	u32 aligned_width;
-	u32 stride;
-	u8 i;
+	const struct v4l2_format_info *info;
+	struct v4l2_plane_pix_format *plane;
+	unsigned int stride;
+	int i;
 
-	info = mtk_format_info(pixelformat);
-	pixfmt->num_planes = info->mem_planes;
-
-	if (!info)
+	info = v4l2_format_info(pixelformat);
+	if (!info) {
+		pr_info("%s: failed to find format info for " FMT_FOURCC "\n",
+			__func__, MEMBER_FOURCC(pixelformat));
 		return -EINVAL;
-
-	if (info->mem_planes != 1) {
-		pr_info("do not support non contiguous mplane\n");
-		return 0; /* TODO: return error? */
 	}
 
+	pixfmt->width = width;
+	pixfmt->height = height;
+	pixfmt->pixelformat = pixelformat;
+	pixfmt->num_planes = info->mem_planes;
+
+	/* treat info as mem_planes = 1 */
+	if (info->mem_planes != 1) {
+		pr_info("%s: failed wrong mem_planes(%d) for " FMT_FOURCC "\n",
+			__func__, info->mem_planes, MEMBER_FOURCC(pixelformat));
+		return -EINVAL;
+	}
+
+
+	plane = &pixfmt->plane_fmt[0];
+	stride = v4l2_format_calc_stride(info, 0, width,
+					 plane->bytesperline);
+
+	plane->bytesperline = stride;
+	plane->sizeimage = 0;
+	for (i = 0; i < info->comp_planes; i++) {
+		unsigned int stride_p;
+
+		stride_p = v4l2_format_calc_stride(info, i, width, stride);
+
+		plane->sizeimage +=
+			v4l2_format_calc_planesize(info, i, height, stride_p);
+	}
+	return 0;
+}
+
+static int mtk_cam_fill_mtk_pixfmt_mp(struct v4l2_pix_format_mplane *pixfmt,
+				      u32 pixelformat, u32 width, u32 height)
+{
+	const struct mtk_format_info *info;
+	struct v4l2_plane_pix_format *plane;
+	unsigned int stride;
+	int i;
+
+	info = mtk_format_info(pixelformat);
+	if (!info) {
+		pr_info("%s: failed to find format info for " FMT_FOURCC "\n",
+			__func__, MEMBER_FOURCC(pixelformat));
+		return -EINVAL;
+	}
+
+	pixfmt->width = width;
+	pixfmt->height = height;
+	pixfmt->pixelformat = pixelformat;
+	pixfmt->num_planes = info->mem_planes;
+
+	/* treat info as mem_planes = 1 */
+	if (info->mem_planes != 1) {
+		pr_info("%s: failed wrong mem_planes(%d) for " FMT_FOURCC "\n",
+			__func__, info->mem_planes, MEMBER_FOURCC(pixelformat));
+		return -EINVAL;
+	}
+
+	plane = &pixfmt->plane_fmt[0];
+
 	if (is_yuv_ufo(pixelformat)) {
+		u32 aligned_width;
+
 		/* UFO format width should align 64 pixel */
 		aligned_width = ALIGN(width, 64);
-		stride = aligned_width * info->bit_r_num / info->bit_r_den;
+		stride = aligned_width * info->bitpp[0] / 8;
+		stride = max(plane->bytesperline, stride);
 
-		if (stride > plane->bytesperline)
-			plane->bytesperline = stride;
+		plane->bytesperline = stride;
+
 		plane->sizeimage = stride * height;
 		plane->sizeimage += stride * height / 2;
 		plane->sizeimage += ALIGN((aligned_width / 64), 8) * height;
 		plane->sizeimage += ALIGN((aligned_width / 64), 8) * height / 2;
 		plane->sizeimage += sizeof(struct UfbcBufferHeader);
 	} else if (is_raw_ufo(pixelformat)) {
+		u32 aligned_width;
+
 		/* UFO format width should align 64 pixel */
 		aligned_width = ALIGN(width, 64);
-		stride = aligned_width * info->bit_r_num / info->bit_r_den;
+		stride = aligned_width * info->bitpp[0] / 8;
+		stride = max(plane->bytesperline, stride);
 
-		if (stride > plane->bytesperline)
-			plane->bytesperline = stride;
+		plane->bytesperline = stride;
+
 		plane->sizeimage = stride * height;
 		plane->sizeimage += ALIGN((aligned_width / 64), 8) * height;
 		plane->sizeimage += sizeof(struct UfbcBufferHeader);
 	} else {
-		/* width should be bus_size align */
-		aligned_width = ALIGN(DIV_ROUND_UP(width * info->bit_r_num,
-						   info->bit_r_den), bus_size);
-		stride = aligned_width * info->bpp[0];
 
-		if (stride > plane->bytesperline)
-			plane->bytesperline = stride;
+		stride = mtk_format_calc_stride(info, 0, width,
+						plane->bytesperline);
 
+		plane->bytesperline = stride;
+
+		plane->sizeimage = 0;
 		for (i = 0; i < info->comp_planes; i++) {
-			unsigned int hdiv = (i == 0) ? 1 : info->hdiv;
-			unsigned int vdiv = (i == 0) ? 1 : info->vdiv;
+			unsigned int stride_p;
 
-			if (plane->bytesperline > stride) {
-				if (is_fullg_rb(pixelformat)) {
-					plane->sizeimage +=
-						DIV_ROUND_UP(plane->bytesperline, hdiv)
-						* DIV_ROUND_UP(height, vdiv);
-				} else {
-					plane->sizeimage += plane->bytesperline
-						* DIV_ROUND_UP(height, vdiv);
-				}
-			} else {
-				plane->sizeimage += info->bpp[i]
-					* DIV_ROUND_UP(aligned_width, hdiv)
-					* DIV_ROUND_UP(height, vdiv);
-			}
+			stride_p = mtk_format_calc_stride(info, i, width,
+							  stride);
 
+			plane->sizeimage +=
+				mtk_format_calc_planesize(info, i, height,
+							  stride_p);
 		}
 	}
-	pr_debug("%s stride %d sizeimage %d\n", __func__,
-		 plane->bytesperline, plane->sizeimage);
-
 	return 0;
 }
 
-int mtk_cam_fill_pixfmt_mp(struct v4l2_pix_format_mplane *pixfmt,
-			u32 pixelformat, u32 width, u32 height)
+static void _fill_image_pix_mp(struct v4l2_pix_format_mplane *mp,
+			       u32 pixelformat, u32 width, u32 height,
+			       unsigned int pixel_mode)
 {
-	struct v4l2_plane_pix_format *plane;
 	unsigned int ipi_fmt = mtk_cam_get_img_fmt(pixelformat);
-	u8 pixel_bits = mtk_cam_get_pixel_bits(ipi_fmt);
-	u32 stride;
-	u32 aligned_width;
-	u8 pixel_mode_shift = 0;
-	u8 bus_size;
-	u8 i;
 
-	pixfmt->width = width;
-	pixfmt->height = height;
-	pixfmt->pixelformat = pixelformat;
-	plane = &pixfmt->plane_fmt[0];
-	bus_size = mtk_cam_yuv_dma_bus_size(pixel_bits, pixel_mode_shift);
-	plane->sizeimage = 0;
-
-	if (is_mtk_format(pixelformat))
-		mtk_cam_format_fill_pixfmt_mp(pixfmt, plane, bus_size,
-					      pixelformat, width, height);
-	else {
-		const struct v4l2_format_info *info;
-
-		pr_debug("pixelformat:0x%x sizeimage:%d\n",
-			 pixelformat, plane->sizeimage);
-
-		info = v4l2_format_info(pixelformat);
-		pixfmt->num_planes = info->mem_planes;
-
-		if (!info)
-			return -EINVAL;
-
-		if (info->mem_planes == 1) {
-
-			aligned_width = ALIGN(width, bus_size);
-			stride = aligned_width * info->bpp[0];
-			if (stride > plane->bytesperline)
-				plane->bytesperline = stride;
-
-			for (i = 0; i < info->comp_planes; i++) {
-				unsigned int hdiv = (i == 0) ? 1 : info->hdiv;
-				unsigned int vdiv = (i == 0) ? 1 : info->vdiv;
-
-				plane->sizeimage += info->bpp[i]
-					* DIV_ROUND_UP(aligned_width, hdiv)
-					* DIV_ROUND_UP(height, vdiv);
-			}
-			pr_debug("%s stride %d sizeimage %d\n", __func__,
-				plane->bytesperline, plane->sizeimage);
-		} else {
-			pr_debug("do not support non contiguous mplane\n");
-		}
-	}
-
-	return 0;
-}
-
-static void cal_image_pix_mp(unsigned int node_id,
-			     struct v4l2_pix_format_mplane *mp,
-			     unsigned int pixel_mode)
-{
-	unsigned int ipi_fmt = mtk_cam_get_img_fmt(mp->pixelformat);
-	unsigned int width = mp->width;
-	unsigned int height = mp->height;
-	unsigned int stride, i;
-
-	pr_debug("fmt:0x%x ipi_fmt:%d\n", mp->pixelformat, ipi_fmt);
+	//pr_debug("fmt:0x%x ipi_fmt:%d\n", mp->pixelformat, ipi_fmt);
 	switch (ipi_fmt) {
 	case MTKCAM_IPI_IMG_FMT_BAYER8:
 	case MTKCAM_IPI_IMG_FMT_BAYER10:
@@ -776,13 +755,21 @@ static void cal_image_pix_mp(unsigned int node_id,
 	case MTKCAM_IPI_IMG_FMT_FG_BAYER10:
 	case MTKCAM_IPI_IMG_FMT_FG_BAYER12:
 	case MTKCAM_IPI_IMG_FMT_FG_BAYER14:
-		stride = mtk_cam_dmao_xsize(width, ipi_fmt, pixel_mode);
-		for (i = 0; i < mp->num_planes; i++) {
-			if (stride > mp->plane_fmt[i].bytesperline)
-				mp->plane_fmt[i].bytesperline = stride;
-			mp->plane_fmt[i].sizeimage = mp->plane_fmt[i].bytesperline * height;
+		/* TODO: remove this case */
+		{
+			unsigned int stride, i;
+
+			mp->num_planes = 1;
+			stride = mtk_cam_dmao_xsize(width, ipi_fmt, pixel_mode);
+			for (i = 0; i < mp->num_planes; i++) {
+				if (stride > mp->plane_fmt[i].bytesperline)
+					mp->plane_fmt[i].bytesperline = stride;
+
+				mp->plane_fmt[i].sizeimage =
+					mp->plane_fmt[i].bytesperline * height;
+			}
 		}
-	break;
+		break;
 	case MTKCAM_IPI_IMG_FMT_YUYV:
 	case MTKCAM_IPI_IMG_FMT_YVYU:
 	case MTKCAM_IPI_IMG_FMT_UYVY:
@@ -833,10 +820,73 @@ static void cal_image_pix_mp(unsigned int node_id,
 	case MTKCAM_IPI_IMG_FMT_FG_BAYER8_3P:
 	case MTKCAM_IPI_IMG_FMT_FG_BAYER10_3P_PACKED:
 	case MTKCAM_IPI_IMG_FMT_FG_BAYER12_3P_PACKED:
-		mtk_cam_fill_pixfmt_mp(mp, mp->pixelformat, width, height);
+		{
+			if (is_mtk_format(pixelformat))
+				mtk_cam_fill_mtk_pixfmt_mp(mp, pixelformat,
+							   width, height);
+			else
+				mtk_cam_fill_v4l2_pixfmt_mp(mp, pixelformat,
+							    width, height);
+		}
+		break;
 	default:
+		pr_info("%s: not found ipi fmt %d, pixelformat " FMT_FOURCC "\n",
+			__func__, ipi_fmt, MEMBER_FOURCC(mp->pixelformat));
 		break;
 	}
+
+#ifdef NOT_READY
+#if PDAF_READY
+	/* add header size for vc channel */
+	if (desc->dma_port == MTKCAM_IPI_CAMSV_MAIN_OUT &&
+		desc->id == MTK_CAMSV_MAIN_STREAM_OUT)
+		mp->plane_fmt[0].sizeimage += GET_PLAT_V4L2(meta_sv_ext_size);
+#endif
+#endif
+}
+
+static u32 try_fmt_mp_pixelformat(struct mtk_cam_dev_node_desc *desc,
+				  u32 pixelformat)
+{
+	const struct v4l2_format *dev_fmt;
+
+	/* Validate pixelformat */
+	dev_fmt = mtk_cam_dev_find_fmt(desc, pixelformat);
+	if (!dev_fmt) {
+		pr_info("%s: warn. %s not-supportd pixelformat " FMT_FOURCC "\n",
+			__func__, desc->name,
+			MEMBER_FOURCC(pixelformat));
+
+		/* use default instead */
+		dev_fmt = &desc->fmts[desc->default_fmt_idx].vfmt;
+
+		pr_info("%s: warn. use pixelformat " FMT_FOURCC " instead.\n",
+			__func__, MEMBER_FOURCC(dev_fmt->fmt.pix_mp.pixelformat));
+	}
+
+	return dev_fmt->fmt.pix_mp.pixelformat;
+}
+
+static int fill_fmt_mp_constrainted_by_hw(struct v4l2_pix_format_mplane *fmt,
+					  struct mtk_cam_dev_node_desc *desc,
+					  u32 pixelformat, u32 width, u32 height)
+{
+	width = clamp_val(ALIGN(width, 2),
+		      IMG_MIN_WIDTH, desc->frmsizes->stepwise.max_width);
+	height = clamp_val(ALIGN(height, 2),
+		      IMG_MIN_HEIGHT, desc->frmsizes->stepwise.max_height);
+
+	switch (desc->dma_port) {
+	case MTKCAM_IPI_RAW_IMGO:
+	case MTKCAM_IPI_CAMSV_MAIN_OUT:
+		_fill_image_pix_mp(fmt, pixelformat, width, height, 3 /* 8p */);
+		break;
+	default:
+		_fill_image_pix_mp(fmt, pixelformat, width, height, 0 /* 1p */);
+		break;
+	}
+
+	return 0;
 }
 
 static int mtk_video_init_format(struct mtk_cam_video_device *video)
@@ -858,20 +908,20 @@ static int mtk_video_init_format(struct mtk_cam_video_device *video)
 	}
 
 	active->fmt.pix_mp.pixelformat = default_fmt->fmt.pix_mp.pixelformat;
-	active->fmt.pix_mp.width = default_fmt->fmt.pix_mp.width;
-	active->fmt.pix_mp.height = default_fmt->fmt.pix_mp.height;
-	active->fmt.pix_mp.num_planes = default_fmt->fmt.pix_mp.num_planes;
 
-	/* TODO: may have wrong stride */
-	cal_image_pix_mp(desc->id, &active->fmt.pix_mp, 0);
+	fill_fmt_mp_constrainted_by_hw(&active->fmt.pix_mp,
+				       desc,
+				       default_fmt->fmt.pix_mp.pixelformat,
+				       default_fmt->fmt.pix_mp.width,
+				       default_fmt->fmt.pix_mp.height);
 
 	/**
 	 * TODO: to support multi-plane: for example, yuv or do it as
 	 * following?
 	 */
 	active->fmt.pix_mp.num_planes = 1;
-	active->fmt.pix_mp.colorspace = V4L2_COLORSPACE_SRGB;
 	active->fmt.pix_mp.field = V4L2_FIELD_NONE;
+	active->fmt.pix_mp.colorspace = V4L2_COLORSPACE_SRGB;
 	active->fmt.pix_mp.ycbcr_enc = V4L2_YCBCR_ENC_DEFAULT;
 	active->fmt.pix_mp.quantization = V4L2_QUANTIZATION_DEFAULT;
 	active->fmt.pix_mp.xfer_func = V4L2_XFER_FUNC_SRGB;
@@ -1106,34 +1156,6 @@ int mtk_cam_vidioc_enum_fmt(struct file *file, void *fh,
 	return 0;
 }
 
-static void log_fmt_ops(struct mtk_cam_video_device *node,
-			struct v4l2_format *f,
-			const char *caller)
-{
-	struct media_pad *remote_pad;
-	const char *remote_name = "null";
-
-	remote_pad = media_entity_remote_pad(&node->pad);
-	if (remote_pad)
-		remote_name = remote_pad->entity->name;
-
-	if (f->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
-		struct v4l2_pix_format_mplane *pix_mp = &f->fmt.pix_mp;
-
-		pr_info("%s: %s node %s: pix_mp (%ux%u pixelformat %u plane %u)\n",
-			caller, remote_pad->entity->name, node->desc.name,
-			pix_mp->width, pix_mp->height, pix_mp->pixelformat,
-			pix_mp->num_planes);
-	} else if (f->type == V4L2_BUF_TYPE_META_CAPTURE ||
-		   f->type == V4L2_BUF_TYPE_META_OUTPUT) {
-		struct v4l2_meta_format *meta = &f->fmt.meta;
-
-		pr_info("%s: %s node %s: meta (format %u size %u)\n",
-			caller, remote_pad->entity->name, node->desc.name,
-			meta->dataformat, meta->buffersize);
-	}
-}
-
 int mtk_cam_vidioc_g_fmt(struct file *file, void *fh,
 			 struct v4l2_format *f)
 {
@@ -1153,7 +1175,6 @@ int mtk_cam_vidioc_s_fmt(struct file *file, void *fh,
 	struct mtk_cam_video_device *node = file_to_mtk_cam_node(file);
 	int ret;
 
-
 	ret = mtk_cam_video_set_fmt(node, f);
 	if (!ret)
 		node->active_fmt = *f;
@@ -1167,65 +1188,34 @@ int mtk_cam_vidioc_s_fmt(struct file *file, void *fh,
 int mtk_cam_video_set_fmt(struct mtk_cam_video_device *node,
 			  struct v4l2_format *f)
 {
-	struct mtk_cam_device *cam = video_get_drvdata(&node->vdev);
-	const struct v4l2_format *dev_fmt;
+	//struct mtk_cam_device *cam = video_get_drvdata(&node->vdev);
+	struct mtk_cam_dev_node_desc *desc = &node->desc;
 	struct v4l2_format try_fmt;
-	int i;
+	u32 pixelformat;
 
-	memset(&try_fmt, 0, sizeof(try_fmt));
+	if (WARN_ON(f->type != V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE))
+		return -EINVAL;
+
 	try_fmt.type = f->type;
+	try_fmt.fmt.pix_mp = f->fmt.pix_mp;
 
-	/* Validate pixelformat */
-	dev_fmt = mtk_cam_dev_find_fmt(&node->desc, f->fmt.pix_mp.pixelformat);
-	if (!dev_fmt) {
-		dev_info(cam->dev, "unknown fmt:%d\n",
-			 f->fmt.pix_mp.pixelformat);
-		dev_fmt = &node->desc.fmts[node->desc.default_fmt_idx].vfmt;
-	}
-
-	try_fmt.fmt.pix_mp.pixelformat = dev_fmt->fmt.pix_mp.pixelformat;
-
-	/* TODO: move limitation rules to each pipeline */
-	/* Validate image width & height range */
-	try_fmt.fmt.pix_mp.width = clamp_val(f->fmt.pix_mp.width,
-					     IMG_MIN_WIDTH, IMG_MAX_WIDTH);
-	try_fmt.fmt.pix_mp.height = clamp_val(f->fmt.pix_mp.height,
-					      IMG_MIN_HEIGHT, IMG_MAX_HEIGHT);
-
-	try_fmt.fmt.pix_mp.width = ALIGN(try_fmt.fmt.pix_mp.width, IMG_PIX_ALIGN);
-	try_fmt.fmt.pix_mp.num_planes = 1;
-	/* workaround fix me - start */
-	if (node->desc.id == MTK_RAW_MAIN_STREAM_OUT)
-		try_fmt.fmt.pix_mp.num_planes = 2;
-	/* workaround fix me - end */
-	for (i = 0 ; i < try_fmt.fmt.pix_mp.num_planes ; i++)
-		try_fmt.fmt.pix_mp.plane_fmt[i].bytesperline =
-				f->fmt.pix_mp.plane_fmt[i].bytesperline;
-
-	/* bytesperline & sizeimage calculation */
-	if (node->desc.dma_port == MTKCAM_IPI_CAMSV_MAIN_OUT)
-		cal_image_pix_mp(node->desc.id, &try_fmt.fmt.pix_mp, 3);
-	else
-		cal_image_pix_mp(node->desc.id, &try_fmt.fmt.pix_mp, 0);
-
-#ifdef NOT_READY
-#if PDAF_READY
-	/* add header size for vc channel */
-	if (node->desc.dma_port == MTKCAM_IPI_CAMSV_MAIN_OUT &&
-		node->desc.id == MTK_CAMSV_MAIN_STREAM_OUT)
-		try_fmt.fmt.pix_mp.plane_fmt[0].sizeimage +=
-			GET_PLAT_V4L2(meta_sv_ext_size);
-#endif
-#endif
+	pixelformat = try_fmt_mp_pixelformat(desc,
+					     f->fmt.pix_mp.pixelformat);
+	fill_fmt_mp_constrainted_by_hw(&try_fmt.fmt.pix_mp,
+				       desc,
+				       pixelformat,
+				       f->fmt.pix_mp.width,
+				       f->fmt.pix_mp.height);
 
 	/* Constant format fields */
-	try_fmt.fmt.pix_mp.colorspace = V4L2_COLORSPACE_SRGB;
 	try_fmt.fmt.pix_mp.field = V4L2_FIELD_NONE;
+	try_fmt.fmt.pix_mp.colorspace = V4L2_COLORSPACE_SRGB;
 	try_fmt.fmt.pix_mp.ycbcr_enc = V4L2_YCBCR_ENC_DEFAULT;
 	try_fmt.fmt.pix_mp.quantization = V4L2_QUANTIZATION_DEFAULT;
 	try_fmt.fmt.pix_mp.xfer_func = V4L2_XFER_FUNC_SRGB;
 
 	*f = try_fmt;
+
 	return 0;
 }
 
