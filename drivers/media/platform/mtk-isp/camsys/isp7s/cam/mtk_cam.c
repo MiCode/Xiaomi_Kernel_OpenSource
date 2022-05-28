@@ -2410,21 +2410,21 @@ static int loop_each_engine(struct mtk_cam_engines *eng,
 
 	submask = USED_MASK_GET_SUBMASK(&engine_used, raw);
 	for (i = 0; i < eng->num_raw_devices && submask; i++) {
-		if (!USED_MASK_HAS(&submask, raw, i))
+		if (!SUBMASK_HAS(&submask, raw, i))
 			continue;
 		func(eng->raw_devs[i]);
 	}
 
-	submask = engine_used;
-	for (i = 0; i < eng->num_camsv_devices; i++) {
-		if (!USED_MASK_HAS(&submask, camsv, i))
+	submask = USED_MASK_GET_SUBMASK(&engine_used, camsv);
+	for (i = 0; i < eng->num_camsv_devices && submask; i++) {
+		if (!SUBMASK_HAS(&submask, camsv, i))
 			continue;
 		func(eng->sv_devs[i]);
 	}
 
-	submask = engine_used;
-	for (i = 0; i < eng->num_mraw_devices; i++) {
-		if (!USED_MASK_HAS(&submask, mraw, i))
+	submask = USED_MASK_GET_SUBMASK(&engine_used, mraw);
+	for (i = 0; i < eng->num_mraw_devices && submask; i++) {
+		if (!SUBMASK_HAS(&submask, mraw, i))
 			continue;
 		func(eng->mraw_devs[i]);
 	}

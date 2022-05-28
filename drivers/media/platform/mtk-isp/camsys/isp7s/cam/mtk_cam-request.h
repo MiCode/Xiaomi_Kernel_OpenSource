@@ -49,6 +49,12 @@ static inline int _used_mask_get_submask(int *m, int ofst, int num)
 	return (*m) >> ofst & ((1 << num) - 1);
 }
 
+static inline int _submask_has(int *m, int idx, int num)
+{
+	WARN(idx < 0 || idx >= num, "idx %d num %d", idx, num);
+	return *m & (1 << idx);
+}
+
 #define _RANGE_POS_raw			0
 #define _RANGE_NUM_raw			8
 #define _RANGE_POS_camsv		8
@@ -65,6 +71,9 @@ static inline int _used_mask_get_submask(int *m, int ofst, int num)
 	_used_mask_unset((m), idx, _RANGE_POS_ ## type, _RANGE_NUM_ ## type)
 #define USED_MASK_GET_SUBMASK(m, type)	\
 	_used_mask_get_submask((m), _RANGE_POS_ ## type, _RANGE_NUM_ ## type)
+#define SUBMASK_HAS(m, type, idx)		\
+	_submask_has((m), idx, _RANGE_NUM_ ## type)
+
 #define USED_MASK_CONTAINS(ma, mb)	\
 ({					\
 	typeof(*(ma)) _a = *(ma);	\

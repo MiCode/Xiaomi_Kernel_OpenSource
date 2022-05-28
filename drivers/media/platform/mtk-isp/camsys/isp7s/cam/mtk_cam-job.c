@@ -508,7 +508,7 @@ static int mtk_cam_select_hw(struct mtk_cam_ctx *ctx, struct mtk_cam_job *job)
 
 	/* todo: more rules */
 	for (i = 0; i < cam->engines.num_raw_devices; i++)
-		if (USED_MASK_HAS(&raw_available, raw, i)) {
+		if (SUBMASK_HAS(&raw_available, raw, i)) {
 			USED_MASK_SET(&selected, raw, i);
 			raw = cam->engines.raw_devs[i];
 			break;
@@ -552,7 +552,7 @@ get_raw_subdev_idx(int used_pipe)
 	int i;
 
 	for (i = 0; used_raw; i++)
-		if (USED_MASK_HAS(&used_raw, raw, i))
+		if (SUBMASK_HAS(&used_raw, raw, i))
 			return i;
 
 	return -1;
