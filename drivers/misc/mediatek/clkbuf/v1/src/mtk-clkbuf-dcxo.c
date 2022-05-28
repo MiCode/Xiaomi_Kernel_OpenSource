@@ -796,6 +796,8 @@ int dcxo_pmic_store(const u8 xo_id, const char *cmd)
 		xo_cmd.mode = DCXO_CO_BUF_MODE;
 	} else if (!strcmp(cmd, "INIT")) {
 		xo_cmd.cmd = CLKBUF_CMD_INIT;
+	} else {
+		xo_cmd.cmd = CLKBUF_CMD_NOOP;
 	}
 
 	ret = clkbuf_dcxo_notify(xo_id, &xo_cmd);
