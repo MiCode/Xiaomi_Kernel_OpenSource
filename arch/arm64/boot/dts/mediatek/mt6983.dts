@@ -107,22 +107,10 @@
 		dsc1 = &disp_dsc1_wrap;
 		merge0 = &disp_merge0;
 		merge1 = &disp_merge1;
-		mml_hdr0 = &mml_hdr0;
-		mml_hdr1 = &mml_hdr1;
-		mml_aal0 = &mml_aal0;
-		mml_aal1 = &mml_aal1;
-		mml_rsz0 = &mml_rsz0;
-		mml_rsz1 = &mml_rsz1;
-		mml_tdshp0 = &mml_tdshp0;
-		mml_tdshp1 = &mml_tdshp1;
-		mml_color0 = &mml_color0;
-		mml_color1 = &mml_color1;
-		mml_wrot0 = &mml_wrot0;
-		mml_wrot1 = &mml_wrot1;
-		mml_rsz2 = &mml_rsz2;
-		mml_rsz3 = &mml_rsz3;
-		mml_wrot2 = &mml_wrot2;
-		mml_wrot3 = &mml_wrot3;
+		mml-wrot0 = &mml_wrot0;
+		mml-wrot1 = &mml_wrot1;
+		mml-wrot2 = &mml_wrot2;
+		mml-wrot3 = &mml_wrot3;
 		inlinerotate0 = &inlinerot0;
 		inlinerotate1 = &inlinerot1;
 		y2r0 = &disp_y2r0;
@@ -11252,7 +11240,7 @@
 		mediatek,mml = <&mmlsys_config>;
 	};
 
-	mmlsys_config: mmlsys_config@1f800000 {
+	mmlsys_config: mmlsys-config@1f800000 {
 		compatible = "mediatek,mt6983-mml";
 		reg = <0 0x1f800000 0 0x1000>;
 		clocks = <&mdpsys1_config_clk CLK_MDPSYS1_CONFIG_APB_BUS>,
@@ -11287,14 +11275,14 @@
 		comp-names = "mmlsys",
 			"dli0", "dli1",
 			"dlo0", "dlo1",
-			"dli0_sel", "dli1_sel";
+			"dli0-sel", "dli1-sel";
 		mmlsys-clock-names = "apb_bus";
 		dli0-clock-names = "dli0";
 		dli1-clock-names = "dli1";
 		dlo0-clock-names = "dlo0";
 		dlo1-clock-names = "dlo1";
-		dli0_sel-clock-names = "rdma0";
-		dli1_sel-clock-names = "rdma1";
+		dli0-sel-clock-names = "rdma0";
+		dli1-sel-clock-names = "rdma1";
 		/* as sys component */
 		mux-pins = /bits/ 16 <
 			0 MML_RDMA0     MML_DLI0_SEL  MML_MUX_SLIN DLI0_SEL_IN
@@ -11394,13 +11382,13 @@
 			MML_WROT2 4
 			MML_WROT3 5>;
 		racing-enable;
-		event_ir_mml_ready = /bits/ 16 <CMDQ_SYNC_TOKEN_MML_IR_MML_READY>;
-		event_ir_disp_ready = /bits/ 16 <CMDQ_SYNC_TOKEN_MML_IR_DISP_READY>;
-		event_ir_mml_stop = /bits/ 16 <CMDQ_SYNC_TOKEN_MML_MML_STOP>;
-		event_ir_eof = /bits/ 16 <CMDQ_EVENT_MMSYS_DISP_RDMA0_TARGET_LINE_ENG_EVENT>;
-		event_racing_pipe0 = /bits/ 16 <CMDQ_SYNC_TOKEN_MML_PIPE0>;
-		event_racing_pipe1 = /bits/ 16 <CMDQ_SYNC_TOKEN_MML_PIPE1>;
-		event_racing_pipe1_next = /bits/ 16 <CMDQ_SYNC_TOKEN_MML_PIPE1_NEXT>;
+		event-ir-mml-ready = /bits/ 16 <CMDQ_SYNC_TOKEN_MML_IR_MML_READY>;
+		event-ir-disp-ready = /bits/ 16 <CMDQ_SYNC_TOKEN_MML_IR_DISP_READY>;
+		event-ir-mml-stop = /bits/ 16 <CMDQ_SYNC_TOKEN_MML_MML_STOP>;
+		event-ir-eof = /bits/ 16 <CMDQ_EVENT_MMSYS_DISP_RDMA0_TARGET_LINE_ENG_EVENT>;
+		event-racing-pipe0 = /bits/ 16 <CMDQ_SYNC_TOKEN_MML_PIPE0>;
+		event-racing-pipe1 = /bits/ 16 <CMDQ_SYNC_TOKEN_MML_PIPE1>;
+		event-racing-pipe1-next = /bits/ 16 <CMDQ_SYNC_TOKEN_MML_PIPE1_NEXT>;
 		/* sys register offset */
 		ready-sel = /bits/ 16 <IN_LINE_READY_SEL>;
 		/* as dl component */
@@ -11411,7 +11399,7 @@
 		mediatek,larb = <&smi_larb3 MTK_M4U_TO_PORT(M4U_PORT_L3_MDP_DISP_FAKE1)>;
 	};
 
-	mml_mutex0@1f801000 {
+	mml-mutex0@1f801000 {
 		compatible = "mediatek,mt6983-mml_mutex";
 		reg = <0 0x1f801000 0 0x1000>;
 		clocks = <&mdpsys1_config_clk CLK_MDPSYS1_CONFIG_MDP_MUTEX0>;
@@ -11421,7 +11409,7 @@
 		mutex-comps = "rdma0", "rdma1", "hdr0", "hdr1", "aal0", "aal1",
 			"rsz0", "rsz1", "tdshp0", "tdshp1", "color0", "color1",
 			"wrot0", "wrot1",
-			"dli_async0", "dli_async1", "dlo_async0", "dlo_async1",
+			"dli-async0", "dli-async1", "dlo-async0", "dlo-async1",
 			"rsz2", "rsz3", "wrot2", "wrot3";
 		rdma0 = <MML_RDMA0 0 0>;
 		rdma1 = <MML_RDMA1 0 1>;
@@ -11437,10 +11425,10 @@
 		color1 = <MML_COLOR1 0 11>;
 		wrot0 = <MML_WROT0 0 12>;
 		wrot1 = <MML_WROT1 0 13>;
-		dli_async0 = <MML_DLI0 0 16>;
-		dli_async1 = <MML_DLI1 0 17>;
-		dlo_async0 = <MML_DLO0 0 18>;
-		dlo_async1 = <MML_DLO1 0 19>;
+		dli-async0 = <MML_DLI0 0 16>;
+		dli-async1 = <MML_DLI1 0 17>;
+		dlo-async0 = <MML_DLO0 0 18>;
+		dlo-async1 = <MML_DLO1 0 19>;
 		rsz2 = <MML_RSZ2 0 20>;
 		rsz3 = <MML_RSZ3 0 21>;
 		wrot2 = <MML_WROT2 0 22>;
@@ -11485,17 +11473,16 @@
 		clock-names = "apb", "smi";
 	};
 
-	mml_rdma0@1f803000 {
+	mml-rdma0@1f803000 {
 		compatible = "mediatek,mt6983-mml_rdma";
 		reg = <0 0x1f803000 0 0x1000>;
 		clocks = <&mdpsys1_config_clk CLK_MDPSYS1_CONFIG_MDP_RDMA0>;
 		clock-names = "rdma0";
 		mediatek,larb = <&smi_larb3 MTK_M4U_TO_PORT(M4U_PORT_L3_MDP_RDMA1)>;
 		comp-ids = <MML_RDMA0>;
-		event_sw_rst_done = /bits/ 16
-			<CMDQ_EVENT_MDPSYS1_MDP_RDMA0_SW_RST_DONE_ENG_EVENT>;
-		event_frame_done = /bits/ 16
+		event-frame-done = /bits/ 16
 			<CMDQ_EVENT_MDPSYS1_MDP_RDMA0_FRAME_DONE>;
+		#size-cells = <2>;
 		dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
 		iommus = <&mdp_iommu M4U_PORT_L3_MDP_RDMA1>;
 		interconnects =
@@ -11504,17 +11491,16 @@
 		interconnect-names = "mml_dma";
 	};
 
-	mml_rdma1@1f804000 {
+	mml-rdma1@1f804000 {
 		compatible = "mediatek,mt6983-mml_rdma";
 		reg = <0 0x1f804000 0 0x1000>;
 		clocks = <&mdpsys1_config_clk CLK_MDPSYS1_CONFIG_MDP_RDMA1>;
 		clock-names = "rdma1";
 		mediatek,larb = <&smi_larb3 MTK_M4U_TO_PORT(M4U_PORT_L3_MDP_RDMA3)>;
 		comp-ids = <MML_RDMA1>;
-		event_sw_rst_done = /bits/ 16
-			<CMDQ_EVENT_MDPSYS1_MDP_RDMA1_SW_RST_DONE_ENG_EVENT>;
-		event_frame_done = /bits/ 16
+		event-frame-done = /bits/ 16
 			<CMDQ_EVENT_MDPSYS1_MDP_RDMA1_FRAME_DONE>;
+		#size-cells = <2>;
 		dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
 		iommus = <&mdp_iommu M4U_PORT_L3_MDP_RDMA3>;
 		interconnects =
@@ -11523,7 +11509,7 @@
 		interconnect-names = "mml_dma";
 	};
 
-	mml_hdr0: mml_hdr0@1f805000 {
+	mml_hdr0: mml-hdr0@1f805000 {
 		compatible = "mediatek,mt6983-mml_hdr";
 		reg = <0 0x1f805000 0 0x1000>;
 		clocks = <&mdpsys1_config_clk CLK_MDPSYS1_CONFIG_MDP_HDR0>;
@@ -11532,7 +11518,7 @@
 		comp-names = "hdr0";
 	};
 
-	mml_hdr1: mml_hdr1@1f806000 {
+	mml_hdr1: mml-hdr1@1f806000 {
 		compatible = "mediatek,mt6983-mml_hdr";
 		reg = <0 0x1f806000 0 0x1000>;
 		clocks = <&mdpsys1_config_clk CLK_MDPSYS1_CONFIG_MDP_HDR1>;
@@ -11541,31 +11527,29 @@
 		comp-names = "hdr1";
 	};
 
-	mml_aal0: mml_aal0@1f807000 {
+	mml_aal0: mml-aal0@1f807000 {
 		compatible = "mediatek,mt6983-mml_aal";
 		reg = <0 0x1f807000 0 0x1000>;
 		clocks = <&mdpsys1_config_clk CLK_MDPSYS1_CONFIG_MDP_AAL0>;
 		clock-names = "aal0";
 		comp-ids = <MML_AAL0>;
 		comp-names = "aal0";
-		gpr_poll = /bits/ 8 <GCE_GPR_R08>;
-		sram_curve_base = /bits/ 32 <4608>;
-		sram_his_base = /bits/ 32 <1536>;
+		sram-urve-base = /bits/ 32 <4608>;
+		sram-his-base = /bits/ 32 <1536>;
 	};
 
-	mml_aal1: mml_aal1@1f808000 {
+	mml_aal1: mml-aal1@1f808000 {
 		compatible = "mediatek,mt6983-mml_aal";
 		reg = <0 0x1f808000 0 0x1000>;
 		clocks = <&mdpsys1_config_clk CLK_MDPSYS1_CONFIG_MDP_AAL1>;
 		clock-names = "aal1";
 		comp-ids = <MML_AAL1>;
 		comp-names = "aal1";
-		gpr_poll = /bits/ 8 <GCE_GPR_R09>;
-		sram_curve_base = /bits/ 32 <4608>;
-		sram_his_base = /bits/ 32 <1536>;
+		sram-curve-base = /bits/ 32 <4608>;
+		sram-his-base = /bits/ 32 <1536>;
 	};
 
-	mml_rsz0: mml_rsz0@1f809000 {
+	mml_rsz0: mml-rsz0@1f809000 {
 		compatible = "mediatek,mt6983-mml_rsz";
 		reg = <0 0x1f809000 0 0x1000>;
 		clocks = <&mdpsys1_config_clk CLK_MDPSYS1_CONFIG_MDP_RSZ0>;
@@ -11574,7 +11558,7 @@
 		comp-names = "rsz0";
 	};
 
-	mml_rsz1: mml_rsz1@1f80a000 {
+	mml_rsz1: mml-rsz1@1f80a000 {
 		compatible = "mediatek,mt6983-mml_rsz";
 		reg = <0 0x1f80a000 0 0x1000>;
 		clocks = <&mdpsys1_config_clk CLK_MDPSYS1_CONFIG_MDP_RSZ1>;
@@ -11583,7 +11567,7 @@
 		comp-names = "rsz1";
 	};
 
-	mml_tdshp0: mml_tdshp0@1f80b000 {
+	mml_tdshp0: mml-tdshp0@1f80b000 {
 		compatible = "mediatek,mt6983-mml_tdshp",
 			"mediatek,mml-tuning-mml_tdshp0";
 		reg = <0 0x1f80b000 0 0x1000>;
@@ -11593,7 +11577,7 @@
 		comp-names = "tdshp0";
 	};
 
-	mml_tdshp1: mml_tdshp1@1f80c000 {
+	mml_tdshp1: mml-tdshp1@1f80c000 {
 		compatible = "mediatek,mt6983-mml_tdshp",
 			"mediatek,mml-tuning-mml_tdshp1";
 		reg = <0 0x1f80c000 0 0x1000>;
@@ -11603,7 +11587,7 @@
 		comp-names = "tdshp1";
 	};
 
-	mml_color0: mml_color0@1f80d000 {
+	mml_color0: mml-color0@1f80d000 {
 		compatible = "mediatek,mt6983-mml_color",
 			"mediatek,mml-tuning-mml_color0";
 		reg = <0 0x1f80d000 0 0x1000>;
@@ -11613,7 +11597,7 @@
 		comp-names = "color0";
 	};
 
-	mml_color1: mml_color1@1f80e000 {
+	mml_color1: mml-color1@1f80e000 {
 		compatible = "mediatek,mt6983-mml_color",
 			"mediatek,mml-tuning-mml_color1";
 		reg = <0 0x1f80e000 0 0x1000>;
@@ -11623,7 +11607,7 @@
 		comp-names = "color1";
 	};
 
-	mml_wrot0: mml_wrot0@1f80f000 {
+	mml_wrot0: mml-wrot0@1f80f000 {
 		compatible = "mediatek,mt6983-mml_wrot";
 		reg = <0 0x1f80f000 0 0x1000>;
 		clocks = <&mdpsys1_config_clk CLK_MDPSYS1_CONFIG_MDP_WROT0>;
@@ -11631,13 +11615,12 @@
 		mediatek,larb = <&smi_larb3 MTK_M4U_TO_PORT(M4U_PORT_L3_MDP_WROT1)>;
 		comp-ids = <MML_WROT0>;
 		comp-names = "wrot0";
-		event_sw_rst_done = /bits/ 16
-			<CMDQ_EVENT_MDPSYS1_MDP_WROT0_SW_RST_DONE_ENG_EVENT>;
-		event_frame_done = /bits/ 16
+		event-frame-done = /bits/ 16
 			<CMDQ_EVENT_MDPSYS1_MDP_WROT0_FRAME_DONE>;
-		event_bufa = /bits/ 16 <CMDQ_SYNC_TOKEN_MML_BUFA>;
-		event_bufb = /bits/ 16 <CMDQ_SYNC_TOKEN_MML_BUFB>;
-		event_buf_next = /bits/ 16 <CMDQ_SYNC_TOKEN_MML_BUF_NEXT>;
+		event-bufa = /bits/ 16 <CMDQ_SYNC_TOKEN_MML_BUFA>;
+		event-bufb = /bits/ 16 <CMDQ_SYNC_TOKEN_MML_BUFB>;
+		event-buf-next = /bits/ 16 <CMDQ_SYNC_TOKEN_MML_BUF_NEXT>;
+		#size-cells = <2>;
 		dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
 		iommus = <&mdp_iommu M4U_PORT_L3_MDP_WROT1>;
 		interconnects =
@@ -11647,7 +11630,7 @@
 		inlinerot = <&inlinerot0>, <&inlinerot1>;
 	};
 
-	mml_wrot1: mml_wrot1@1f810000 {
+	mml_wrot1: mml-wrot1@1f810000 {
 		compatible = "mediatek,mt6983-mml_wrot";
 		reg = <0 0x1f810000 0 0x1000>;
 		clocks = <&mdpsys1_config_clk CLK_MDPSYS1_CONFIG_MDP_WROT1>;
@@ -11655,13 +11638,12 @@
 		mediatek,larb = <&smi_larb3 MTK_M4U_TO_PORT(M4U_PORT_L3_MDP_WROT3)>;
 		comp-ids = <MML_WROT1>;
 		comp-names = "wrot1";
-		event_sw_rst_done = /bits/ 16
-			<CMDQ_EVENT_MDPSYS1_MDP_WROT1_SW_RST_DONE_ENG_EVENT>;
-		event_frame_done = /bits/ 16
+		event-frame-done = /bits/ 16
 			<CMDQ_EVENT_MDPSYS1_MDP_WROT1_FRAME_DONE>;
-		event_bufa = /bits/ 16 <CMDQ_SYNC_TOKEN_MML_BUFA>;
-		event_bufb = /bits/ 16 <CMDQ_SYNC_TOKEN_MML_BUFB>;
-		event_buf_next = /bits/ 16 <CMDQ_SYNC_TOKEN_MML_BUF_NEXT>;
+		event-bufa = /bits/ 16 <CMDQ_SYNC_TOKEN_MML_BUFA>;
+		event-bufb = /bits/ 16 <CMDQ_SYNC_TOKEN_MML_BUFB>;
+		event-buf-next = /bits/ 16 <CMDQ_SYNC_TOKEN_MML_BUF_NEXT>;
+		#size-cells = <2>;
 		dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
 		iommus = <&mdp_iommu M4U_PORT_L3_MDP_WROT3>;
 		interconnects =
@@ -11671,7 +11653,7 @@
 		inlinerot = <&inlinerot0>, <&inlinerot1>;
 	};
 
-	mml_rsz2: mml_rsz2@1f813000 {
+	mml_rsz2: mml-rsz2@1f813000 {
 		compatible = "mediatek,mt6983-mml_rsz";
 		reg = <0 0x1f813000 0 0x1000>;
 		clocks = <&mdpsys1_config_clk CLK_MDPSYS1_CONFIG_MDP_RSZ2>;
@@ -11680,7 +11662,7 @@
 		comp-names = "rsz2";
 	};
 
-	mml_rsz3: mml_rsz3@1f814000 {
+	mml_rsz3: mml-rsz3@1f814000 {
 		compatible = "mediatek,mt6983-mml_rsz";
 		reg = <0 0x1f814000 0 0x1000>;
 		clocks = <&mdpsys1_config_clk CLK_MDPSYS1_CONFIG_MDP_RSZ3>;
@@ -11689,7 +11671,7 @@
 		comp-names = "rsz3";
 	};
 
-	mml_wrot2: mml_wrot2@1f815000 {
+	mml_wrot2: mml-wrot2@1f815000 {
 		compatible = "mediatek,mt6983-mml_wrot";
 		reg = <0 0x1f815000 0 0x1000>;
 		clocks = <&mdpsys1_config_clk CLK_MDPSYS1_CONFIG_MDP_WROT2>;
@@ -11697,10 +11679,9 @@
 		mediatek,larb = <&smi_larb3 MTK_M4U_TO_PORT(M4U_PORT_L3_MDP_WDMA1)>;
 		comp-ids = <MML_WROT2>;
 		comp-names = "wrot2";
-		event_sw_rst_done = /bits/ 16
-			<CMDQ_EVENT_MDPSYS1_MDP_WROT2_SW_RST_DONE_ENG_EVENT>;
-		event_frame_done = /bits/ 16
+		event-frame-done = /bits/ 16
 			<CMDQ_EVENT_MDPSYS1_MDP_WROT2_FRAME_DONE>;
+		#size-cells = <2>;
 		dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
 		iommus = <&mdp_iommu M4U_PORT_L3_MDP_WDMA1>;
 		interconnects =
@@ -11709,7 +11690,7 @@
 		interconnect-names = "mml_dma";
 	};
 
-	mml_wrot3: mml_wrot3@1f816000 {
+	mml_wrot3: mml-wrot3@1f816000 {
 		compatible = "mediatek,mt6983-mml_wrot";
 		reg = <0 0x1f816000 0 0x1000>;
 		clocks = <&mdpsys1_config_clk CLK_MDPSYS1_CONFIG_MDP_WROT3>;
@@ -11717,10 +11698,9 @@
 		mediatek,larb = <&smi_larb3 MTK_M4U_TO_PORT(M4U_PORT_L3_MDP_WDMA3)>;
 		comp-ids = <MML_WROT3>;
 		comp-names = "wrot3";
-		event_sw_rst_done = /bits/ 16
-			<CMDQ_EVENT_MDPSYS1_MDP_WROT3_SW_RST_DONE_ENG_EVENT>;
-		event_frame_done = /bits/ 16
+		event-frame-done = /bits/ 16
 			<CMDQ_EVENT_MDPSYS1_MDP_WROT3_FRAME_DONE>;
+		#size-cells = <2>;
 		dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
 		iommus = <&mdp_iommu M4U_PORT_L3_MDP_WDMA3>;
 		interconnects =
