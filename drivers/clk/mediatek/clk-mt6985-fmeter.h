@@ -1,0 +1,316 @@
+/* SPDX-License-Identifier: GPL-2.0 */
+/*
+ * Copyright (c) 2022 MediaTek Inc.
+ * Author: Owen Chen <owen.chen@mediatek.com>
+ */
+
+#ifndef _CLK_MT6985_FMETER_H
+#define _CLK_MT6985_FMETER_H
+
+/* generate from clock_table.xlsx from TOPCKGEN DE */
+
+/* CKGEN Part */
+#define FM_AXI_CK				1
+#define FM_FAXI_CK				2
+#define FM_U_FAXI_CK				3
+#define FM_BUS_AXIMEM_CK			4
+#define FM_DISP0_CK				5
+#define FM_DISP1_CK				6
+#define FM_OVL0_CK				7
+#define FM_OVL1_CK				8
+#define FM_MDP0_CK				9
+#define FM_MDP1_CK				10
+#define FM_MMINFRA_CK				11
+#define FM_MMUP_CK				12
+#define FM_DSP_CK				13
+#define FM_MFG_REF_CK				15
+#define FM_MFGSC_REF_CK				16
+#define FM_CAMTG_CK				17
+#define FM_CAMTG2_CK				18
+#define FM_CAMTG3_CK				19
+#define FM_CAMTG4_CK				20
+#define FM_CAMTG5_CK				21
+#define FM_CAMTG6_CK				22
+#define FM_CAMTG7_CK				23
+#define FM_CAMTG8_CK				24
+#define FM_UART_CK				25
+#define FM_SPI_CK				26
+#define FM_MSDC_MACRO_CK			27
+#define FM_MSDC30_1_CK				28
+#define FM_MSDC30_2_CK				29
+#define FM_AUDIO_CK				30
+#define FM_AUD_INTBUS_CK			31
+#define FM_ATB_CK				32
+#define FM_DP_CK				33
+#define FM_DISP_PWM_CK				34
+#define FM_USB_CK				35
+#define FM_USB_XHCI_CK				36
+#define FM_USB_1P_CK				37
+#define FM_USB_XHCI_1P_CK			38
+#define FM_I2C_CK				39
+#define FM_SENINF_CK				40
+#define FM_SENINF1_CK				41
+#define FM_SENINF2_CK				42
+#define FM_SENINF3_CK				43
+#define FM_SENINF4_CK				44
+#define FM_SENINF5_CK				45
+#define FM_AUD_ENGEN1_CK			47
+#define FM_AUD_ENGEN2_CK			48
+#define FM_AES_UFSFDE_CK			49
+#define FM_U_CK					50
+#define FM_U_MBIST_CK				51
+#define FM_PEXTP_MBIST_CK			52
+#define FM_AUD_1_CK				53
+#define FM_AUD_2_CK				54
+#define FM_ADSP_CK				55
+#define FM_DPMAIF_MAIN_CK			56
+#define FM_VENC_CK				57
+#define FM_VDEC_CKSYS1_CK			58
+#define FM_PWM_CK				59
+#define FM_AUDIO_H_CK				60
+#define FM_MCUPM_CK				61
+#define FM_MEM_SUB_CK				62
+#define FM_FMEM_SUB_CK				63
+#define FM_U_FMEM_SUB_CK			64
+#define FM_EMI_N_CK				65
+#define FM_EMI_S_CK				66
+#define FM_CCU_AHB_CK				67
+#define FM_AP2CONN_HOST_CK			68
+#define FM_IMG1_CK				69
+#define FM_IPE_CK				70
+#define FM_CAM_CK				71
+#define FM_CCUSYS_CK				72
+#define FM_CAMTM_CK				73
+#define FM_MCU_ACP_CK				74
+#define FM_SFLASH_CK				75
+#define FM_MCU_L3GIC_CK				76
+#define FM_IPSEAST_CK				78
+#define FM_IPSSOUTH_CK				79
+#define FM_IPSWEST_CK				80
+#define FM_IPSNORTH_CK				81
+#define FM_IPSMID_CK				82
+#define FM_TL_CK				83
+#define FM_TL_P1				84
+#define FM_PEXTP_FAXI_CK			85
+#define FM_PEXTP_FMEM_SUB_CK			86
+#define FM_AUDIO_LOCAL_B			87
+#define FM_EMI_INTERFACE_546_CK			88
+#define FM_DUMMY_CK				88
+#define FM_DUMMY_2_CK				87
+#define FM_CKGEN_NUM				88
+/* ABIST Part */
+#define FM_LVTS_CKMON_LM			2
+#define FM_LVTS_CKMON_L9			3
+#define FM_LVTS_CKMON_L8			4
+#define FM_LVTS_CKMON_L7			5
+#define FM_LVTS_CKMON_L6			6
+#define FM_LVTS_CKMON_L5			7
+#define FM_LVTS_CKMON_L4			8
+#define FM_LVTS_CKMON_L3			9
+#define FM_LVTS_CKMON_L2			10
+#define FM_LVTS_CKMON_L1			11
+#define FM_RCLRPLL_DIV4_CHD			12
+#define FM_RPHYPLL_DIV4_CHD			13
+#define FM_RCLRPLL_DIV4_CHC			16
+#define FM_RPHYPLL_DIV4_CHC			17
+#define FM_RCLRPLL_DIV4_CHB			20
+#define FM_RPHYPLL_DIV4_CHB			21
+#define FM_RCLRPLL_DIV4_CHA			24
+#define FM_RPHYPLL_DIV4_CHA			25
+#define FM_ADSPPLL_CK				28
+#define FM_APLL1_CK				29
+#define FM_APLL2_CK				30
+#define FM_DSI1_LNTC_DSICLK			32
+#define FM_DSI1_MPPLL_TST_CK			33
+#define FM_CSI0A_DPHY_DELAYCAL_CK		37
+#define FM_CSI0B_DPHY_DELAYCAL_CK		38
+#define FM_CSI1A_DPHY_DELAYCAL_CK		39
+#define FM_CSI1B_DPHY_DELAYCAL_CK		40
+#define FM_CSI2A_DPHY_DELAYCAL_CK		41
+#define FM_CSI2B_DPHY_DELAYCAL_CK		42
+#define FM_CSI3A_DPHY_DELAYCAL_CK		43
+#define FM_CSI3B_DPHY_DELAYCAL_CK		44
+#define FM_CSI4A_DPHY_DELAYCAL_CK		45
+#define FM_CSI4B_DPHY_DELAYCAL_CK		46
+#define FM_CSI5A_DPHY_DELAYCAL_CK		47
+#define FM_CSI5B_DPHY_DELAYCAL_CK		48
+#define FM_DSI0_LNTC_DSICLK			49
+#define FM_DSI0_MPPLL_TST_CK			50
+#define FM_MAINPLL_CK				52
+#define FM_MDPLL1_FS26M_GUIDE			53
+#define FM_MMPLL_CK				55
+#define FM_MMPLL_D3_CK				56
+#define FM_MPLL_CK				57
+#define FM_MSDCPLL_CK				58
+#define FM_IMGPLL_CK				59
+#define FM_EMIPLL_CK				60
+#define FM_TVDPLL_CK				61
+#define FM_ULPOSC2_MON_V_VCORE_CK		62
+#define FM_ULPOSC_MON_VCROE_CK			63
+#define FM_UNIVPLL_CK				64
+#define FM_UNIVPLL_192M_CK			66
+#define FM_U_CLK2FREQ				67
+#define FM_WBG_DIG_BPLL_CK			68
+#define FM_466M_FMEM_INFRASYS			70
+#define FM_MCUSYS_ARM_OUT_ALL			71
+#define FM_MSDC11_IN_CK				73
+#define FM_MSDC12_IN_CK				74
+#define FM_MSDC21_IN_CK				75
+#define FM_MSDC22_IN_CK				76
+#define FM_F32K_VCORE_CK			79
+#define FM_UNIVPLL_DIV3_CK			84
+#define FM_APLL2_CKDIV_CK			85
+#define FM_APLL1_CKDIV_CK			86
+#define FM_ADSPPLL_CKDIV_CK			87
+#define FM_TVDPLL_CKDIV_CK			88
+#define FM_MPLL_CKDIV_CK			89
+#define FM_MMPLL_CKDIV_CK			90
+#define FM_MAINPLL_CKDIV_CK			91
+#define FM_IMGPLL_CKDIV_CK			92
+#define FM_EMIPLL_CKDIV_CK			93
+#define FM_MSDCPLL_CKDIV_CK			94
+#define FM_RO_OUT_FM				95
+#define FM_ABIST_NUM				96
+/* CKGEN_2 Part */
+#define FM_AXI_CK_2				1
+#define FM_FAXI_CK_2				2
+#define FM_U_FAXI_CK_2				3
+#define FM_BUS_AXIMEM_CK_2			4
+#define FM_DISP0_CK_2				5
+#define FM_DISP1_CK_2				6
+#define FM_OVL0_CK_2				7
+#define FM_OVL1_CK_2				8
+#define FM_MDP0_CK_2				9
+#define FM_MDP1_CK_2				10
+#define FM_MMINFRA_CK_2				11
+#define FM_MMUP_CK_2				12
+#define FM_DSP_CK_2				13
+#define FM_MFG_REF_CK_2				15
+#define FM_MFGSC_REF_CK_2			16
+#define FM_CAMTG_CK_2				17
+#define FM_CAMTG2_CK_2				18
+#define FM_CAMTG3_CK_2				19
+#define FM_CAMTG4_CK_2				20
+#define FM_CAMTG5_CK_2				21
+#define FM_CAMTG6_CK_2				22
+#define FM_CAMTG7_CK_2				23
+#define FM_CAMTG8_CK_2				24
+#define FM_UART_CK_2				25
+#define FM_SPI_CK_2				26
+#define FM_MSDC_MACRO_CK_2			27
+#define FM_MSDC30_1_CK_2			28
+#define FM_MSDC30_2_CK_2			29
+#define FM_AUDIO_CK_2				30
+#define FM_AUD_INTBUS_CK_2			31
+#define FM_ATB_CK_2				32
+#define FM_DP_CK_2				33
+#define FM_DISP_PWM_CK_2			34
+#define FM_USB_CK_2				35
+#define FM_USB_XHCI_CK_2			36
+#define FM_USB_1P_CK_2				37
+#define FM_USB_XHCI_1P_CK_2			38
+#define FM_I2C_CK_2				39
+#define FM_SENINF_CK_2				40
+#define FM_SENINF1_CK_2				41
+#define FM_SENINF2_CK_2				42
+#define FM_SENINF3_CK_2				43
+#define FM_SENINF4_CK_2				44
+#define FM_SENINF5_CK_2				45
+#define FM_AUD_ENGEN1_CK_2			47
+#define FM_AUD_ENGEN2_CK_2			48
+#define FM_AES_UFSFDE_CK_2			49
+#define FM_U_CK_2				50
+#define FM_U_MBIST_CK_2				51
+#define FM_PEXTP_MBIST_CK_2			52
+#define FM_AUD_1_CK_2				53
+#define FM_AUD_2_CK_2				54
+#define FM_ADSP_CK_2				55
+#define FM_DPMAIF_MAIN_CK_2			56
+#define FM_VENC_CK_2				57
+#define FM_VDEC_CK				58
+#define FM_PWM_CK_2				59
+#define FM_AUDIO_H_CK_2				60
+#define FM_MCUPM_CK_2				61
+#define FM_MEM_SUB_CK_2				62
+#define FM_FMEM_SUB_CK_2			63
+#define FM_U_FMEM_SUB_CK_2			64
+#define FM_EMI_N_CK_2				65
+#define FM_EMI_S_CK_2				66
+#define FM_CCU_AHB_CK_2				67
+#define FM_AP2CONN_HOST_CK_2			68
+#define FM_IMG1_CK_2				69
+#define FM_IPE_CK_2				70
+#define FM_CAM_CK_2				71
+#define FM_CCUSYS_CK_2				72
+#define FM_CAMTM_CK_2				73
+#define FM_MCU_ACP_CK_2				74
+#define FM_SFLASH_CK_2				75
+#define FM_MCU_L3GIC_CK_2			76
+#define FM_IPSEAST_CK_2				78
+#define FM_IPSSOUTH_CK_2			79
+#define FM_IPSWEST_CK_2				80
+#define FM_IPSNORTH_CK_2			81
+#define FM_IPSMID_CK_2				82
+#define FM_TL_CK_2				83
+#define FM_PEXTP_FAXI_CK_2			85
+#define FM_PEXTP_FMEM_SUB_CK_2			86
+#define FM_AUDIO_LOCAL_B_2			87
+#define FM_EMI_INTERFACE_546_CK_2		88
+#define FM_EMI_INTERFACE_624_CK			89
+#define FM_DUMMY_CK_2				88
+#define FM_DUMMY_2_CK_2				87
+#define FM_CKGEN_2_NUM				88
+/* ABIST_2 Part */
+#define FM_IMGPLL_CK_2				27
+#define FM_IMGPLL_D3_CK				28
+#define FM_MAINPLL2_CK				52
+#define FM_MMPLL2_CK				55
+#define FM_MMPLL2_D3_CK				56
+#define FM_UNIVPLL2_CK				64
+#define FM_UNIVPLL2_192M_CK			66
+#define FM_UNIV2_832M_CK			84
+#define FM_MMPLL2_CKDIV_CK			90
+#define FM_MAINPLL2_CKDIV_CK			91
+#define FM_IMGPLL_CKDIV_CK_2			92
+#define FM_ABIST_2_NUM				93
+/* VLPCK Part */
+#define FM_SCP_CK				1
+#define FM_SCP_SPI_CK				2
+#define FM_SCP_IIC_CK				3
+#define FM_PWRAP_ULPOSC_CK			4
+#define FM_APTGPT_CK				5
+#define FM_DXCC_VLP_CK				6
+#define FM_DPSW_CK				7
+#define FM_SPMI_M_CK				8
+#define FM_DVFSRC_CK				9
+#define FM_PWM_VLP_CK				10
+#define FM_AXI_VLP_CK				11
+#define FM_DBGAO_26M_CK				12
+#define FM_SYSTIMER_26M_CK			13
+#define FM_SSPM_CK				14
+#define FM_SRCK_CK				15
+#define FM_SRAMRC_CK				16
+#define FM_CAMTG_CK_2				17
+#define FM_IPS_CK				18
+#define FM_F26M_SSPM_CK				19
+#define FM_ULPOSC_SSPM_CK			20
+#define FM_OSC_CK				21
+#define FM_OSC_2				22
+#define FM_VLPCK_NUM				23
+
+enum fm_sys_id {
+	FM_TOPCKGEN = 0,
+	FM_APMIXED = 1,
+	FM_VLP_CKSYS = 2,
+	FM_MFGPLL = 3,
+	FM_GPUEBPLL = 4,
+	FM_MFGSCPLL = 5,
+	FM_CCIPLL = 6,
+	FM_ARMPLL_LL = 7,
+	FM_ARMPLL_BL = 8,
+	FM_ARMPLL_B = 9,
+	FM_PTPPLL = 10,
+	FM_SYS_NUM = 11,
+};
+
+#endif /* _CLK_MT6985_FMETER_H */

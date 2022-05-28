@@ -144,7 +144,7 @@ def get_gki_denyfile():
     os.system(cmd)
     # get redount strings in file path ex. out_abi/android12-5.10/common and replace "/" as "\/" cause sed
     cmd = options.tool_chain + "llvm-dwarfdump --debug-info "+ options.google_vmlinux + " | grep -m 1 \"DW_AT_comp_dir\" | awk 'BEGIN {FS=\"\\\"\"} {print $2}'"
-    #print(cmd)
+    print(cmd)
     output = os.popen(cmd)
     restr1 = output.read().splitlines()[0]
     restr2 = restr1
@@ -562,6 +562,13 @@ def update_white_list(filename):
     os.system("sort -u  tmp.txt > " + filename)
     os.system("rm tmp.txt")
 
+def getClangVersion(croot):
+    with open (croot+"/kernel-5.15/build.config.constants") as f:
+        for line in f.readlines():
+            if 'CLANG_VERSION' in line:
+                return line.split('=')[1]
+    return '*********' #fixme
+
 def getExecuteOptions(self, args=[]):
     parser = OptionParser()
     croot = ""
@@ -574,7 +581,7 @@ def getExecuteOptions(self, args=[]):
                       help="Checker output folder")
     parser.add_option("-k", "--kpath", nargs=1, dest="kernel_path", default=croot+"/kernel-5.15/",
                       help="Kernel path")
-    parser.add_option("-t", "--tcpath", nargs=1, dest="tool_chain", default=croot+"/kernel/prebuilts-master/clang/host/linux-x86/clang-r445002/bin/",
+    parser.add_option("-t", "--tcpath", nargs=1, dest="tool_chain", default=croot+"/kernel/prebuilts-master/clang/host/linux-x86/clang-"+getClangVersion(croot).strip()+"/bin/",
                       help="Extract tool chain")
     parser.add_option("-c", "--ct", nargs=1, dest="config_tool", default=croot+"/kernel-5.15/scripts/extract-ikconfig",
                       help="Config extract script")

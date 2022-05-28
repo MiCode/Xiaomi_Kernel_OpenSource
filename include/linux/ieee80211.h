@@ -4282,6 +4282,17 @@ static inline bool for_each_element_completed(const struct element *element,
 #define IEEE80211_TBTT_INFO_OFFSET_BSSID_BSS_PARAM		9
 #define IEEE80211_TBTT_INFO_OFFSET_BSSID_SSSID_BSS_PARAM	13
 
+/*
+ * TBTT Information field, based on Draft P802.11be_D1.4
+ * section 9.4.2.170.2
+ */
+#define IEEE80211_TBTT_INFO_BSSID_SSID_BSS_PARAM_PSD		13
+#define IEEE80211_TBTT_INFO_BSSID_SSID_BSS_PARAM_PSD_MLD_PARAM	16
+#define IEEE80211_TBTT_TYPE_MASK	0xC0
+#define IEEE80211_TBTT_COUNT_MASK	0x0F
+/* TBTT infomation header(2) + Operating class(1) + Channel number(1) */
+#define IEEE80211_NBR_AP_INFO_LEN	4
+
 #define IEEE80211_RNR_TBTT_PARAMS_OCT_RECOMMENDED		0x01
 #define IEEE80211_RNR_TBTT_PARAMS_SAME_SSID			0x02
 #define IEEE80211_RNR_TBTT_PARAMS_MULTI_BSSID			0x04

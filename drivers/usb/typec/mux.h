@@ -4,15 +4,18 @@
 #define __USB_TYPEC_MUX__
 
 #include <linux/usb/typec_mux.h>
+#include <linux/android_kabi.h>
 
 struct typec_switch {
 	struct device dev;
 	typec_switch_set_fn_t set;
+	ANDROID_KABI_RESERVE(1);
 };
 
 struct typec_mux {
 	struct device dev;
 	typec_mux_set_fn_t set;
+	ANDROID_KABI_RESERVE(1);
 };
 
 #define to_typec_switch(_dev_) container_of(_dev_, struct typec_switch, dev)

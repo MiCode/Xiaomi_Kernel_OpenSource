@@ -82,7 +82,7 @@ extern void rotat_task_newtask(void __always_unused *data, struct task_struct *p
 #endif
 extern bool check_freq_update_for_time(struct update_util_data *hook, u64 time);
 extern void mtk_hook_after_enqueue_task(void *data, struct rq *rq,
-				struct task_struct *p);
+				struct task_struct *p, int flags);
 extern void mtk_select_task_rq_rt(void *data, struct task_struct *p, int cpu, int sd_flag,
 				int flags, int *target_cpu);
 extern int mtk_sched_asym_cpucapacity;

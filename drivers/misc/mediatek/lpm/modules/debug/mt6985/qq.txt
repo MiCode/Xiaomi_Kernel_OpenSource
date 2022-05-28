@@ -1,0 +1,10 @@
+./lpm_trace_event.h
+./dbg_power_gs.h
+./dbg_init.c
+./dbg_spm_fs.c
+./lpm_trace_event.c
+./lpm_logger.c
+./lpm_logger.h
+./dbg_power_gs.c
+./dbg_fs.h
+./dbg_fs.c

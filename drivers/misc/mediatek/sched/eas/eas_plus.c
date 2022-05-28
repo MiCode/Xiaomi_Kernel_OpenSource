@@ -597,7 +597,7 @@ void hook_scheduler_tick(void *data, struct rq *rq)
 }
 
 void mtk_hook_after_enqueue_task(void *data, struct rq *rq,
-				struct task_struct *p)
+				struct task_struct *p, int flags)
 {
 	struct update_util_data *fdata;
 	bool should_update = false;

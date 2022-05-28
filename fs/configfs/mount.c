@@ -173,6 +173,7 @@ MODULE_AUTHOR("Oracle");
 MODULE_LICENSE("GPL");
 MODULE_VERSION("0.0.2");
 MODULE_DESCRIPTION("Simple RAM filesystem for user driven kernel subsystem configuration.");
+MODULE_IMPORT_NS(VFS_internal_I_am_really_a_filesystem_and_am_NOT_a_driver);
 
 core_initcall(configfs_init);
 module_exit(configfs_exit);

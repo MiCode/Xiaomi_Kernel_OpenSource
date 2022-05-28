@@ -7,9 +7,7 @@
 #include <linux/bio.h>
 #include <linux/blkdev.h>
 #include <linux/scatterlist.h>
-#ifndef __GENKSYMS__
 #include <linux/blk-cgroup.h>
-#endif
 
 #include <trace/events/block.h>
 
