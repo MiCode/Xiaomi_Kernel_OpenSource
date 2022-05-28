@@ -4599,7 +4599,7 @@
 		aov: aov@0 {
 			compatible = "mediatek,aov";
 			status = "okay";
-			op_mode = <0>;
+			op_mode = <1>;
 		};
 
 		hcp: hcp@0 {
@@ -7873,7 +7873,7 @@
 			      <10 0x2000>, /* sensor debug */
 			      <11 0x100>, /* sensor custom writer */
 			      <12 0x100>, /* sensor custom reader */
-			      <13 0x0>; /* aov */
+			      <13 0x300000>; /* aov */
 
 		memorydump = <0x300000>, /* l2tcm */
 			     <0x03c000>, /* l1c */
