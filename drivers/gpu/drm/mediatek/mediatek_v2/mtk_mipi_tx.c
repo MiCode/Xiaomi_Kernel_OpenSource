@@ -396,7 +396,7 @@ unsigned int mtk_mipi_tx_pll_get_rate(struct phy *phy)
 	posdiv = DISP_REG_GET_FIELD(FLD_RG_DSI_PLL_POSDIV_,
 				    MIPITX_PLL_CON1 + mipi_tx->regs);
 	posdiv = (1 << posdiv);
-	DDPINFO("%s, pcw: %d, prediv: %d, posdiv: %d", __func__, pcw, prediv,
+	DDPINFO("%s, pcw: %d, prediv: %d, posdiv: %d\n", __func__, pcw, prediv,
 		posdiv);
 	i = prediv * posdiv;
 	if (i > 0)
@@ -410,6 +410,11 @@ int mtk_mipi_tx_dump(struct phy *phy)
 #ifndef CONFIG_FPGA_EARLY_PORTING
 	struct mtk_mipi_tx *mipi_tx = phy_get_drvdata(phy);
 	int k;
+
+	if (!mipi_tx->regs) {
+		DDPDUMP("%s, mipi-tx is NULL!\n", __func__);
+		return 0;
+	}
 
 	DDPDUMP("== MIPI REGS:0x%x ==\n", mipi_tx->regs_pa);
 	for (k = 0; k < 0x6A0; k += 16) {

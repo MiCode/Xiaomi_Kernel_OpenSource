@@ -3696,7 +3696,7 @@ static void mtk_crtc_update_ddp_state(struct drm_crtc *crtc,
 	}
 	/*set_hrt_bw for pan display ,set 4 for two RGB layer*/
 	if (index == 0 && hrt_valid == false) {
-		if (disp_helper_get_stage() == DISP_HELPER_STAGE_NORMAL)
+		if (mtk_drm_helper_get_opt(mtk_drm->helper_opt, MTK_DRM_OPT_HRT))
 			DDPMSG("%s frame:%u correct invalid hrt to:%u, mode:%u->%u\n",
 				__func__, prop_lye_idx, pan_disp_frame_weight,
 				old_mtk_state->prop_val[CRTC_PROP_DISP_MODE_IDX],

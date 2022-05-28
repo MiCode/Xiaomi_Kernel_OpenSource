@@ -956,7 +956,8 @@ int mtk_ddp_comp_init(struct device *dev, struct device_node *node,
 	comp->clk = of_clk_get(node, 0);
 	if (IS_ERR(comp->clk)) {
 		comp->clk = NULL;
-		DDPPR_ERR("comp:%d get clock fail!\n", comp_id);
+		DDPPR_ERR("%s, %s get clock fail!\n", __func__,
+				mtk_dump_comp_str_id(comp_id));
 	}
 
 	if (comp_id == DDP_COMPONENT_BLS || comp_id == DDP_COMPONENT_PWM0) {

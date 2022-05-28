@@ -1763,8 +1763,9 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 	if (!pending->addr)
 		con |= BIT(28);
 
-	DDPINFO("%s+ id %d, idx:%d, lye_idx:%d, ext_idx:%d, enable:%d, fmt:0x%x, ",
-		__func__, comp->id, idx, lye_idx, ext_lye_idx, pending->enable, pending->format);
+	DDPINFO("%s+ id %s, idx:%d, lye_idx:%d, ext_idx:%d, enable:%d, fmt:0x%x\n",
+		__func__, mtk_dump_comp_str_id(comp->id), idx, lye_idx, ext_lye_idx,
+		pending->enable, pending->format);
 	DDPINFO("addr 0x%lx, compr %d, con 0x%x, mml_mode %d\n",
 		(unsigned long)pending->addr,
 		(unsigned int)pending->prop_val[PLANE_PROP_COMPRESS], con,

@@ -2406,7 +2406,6 @@ static void mtk_dsi_init_vfp_early_stop(struct mtk_dsi *dsi,
 				__func__, value, max_vfp_for_msync);
 }
 
-
 static void mtk_dsi_disable_vfp_early_stop(struct mtk_dsi *dsi,
 				struct cmdq_pkt *handle, struct mtk_ddp_comp *comp)
 {
@@ -2442,7 +2441,6 @@ static void mtk_dsi_disable_vfp_early_stop(struct mtk_dsi *dsi,
 	}
 	DDPINFO("[Msync] %s, VFP_EARLY_STOP = 0x%x\n", __func__, value);
 }
-
 
 /***********************Msync 2.0 function end************************/
 static void mtk_output_dsi_enable(struct mtk_dsi *dsi,
@@ -2749,9 +2747,6 @@ static void mtk_dsi_encoder_disable(struct drm_encoder *encoder)
 	switch (priv->data->mmsys_id) {
 	case MMSYS_MT6855:
 		DDPMSG("%s force return\n", __func__);
-		return;
-	case MMSYS_MT6985:
-		DDPMSG("%s force disable return\n", __func__);
 		return;
 	default:
 		break;
@@ -3319,10 +3314,11 @@ int mtk_dsi_dump(struct mtk_ddp_comp *comp)
 			readl(dsi->regs + k + 0x8),
 			readl(dsi->regs + k + 0xc));
 	}
-	DDPDUMP("shadow reg 0xc04:0x%x\n", readl(dsi->regs + 0xc04));
-	DDPDUMP("- DSI CMD REGS:0x%x -\n", comp->regs_pa);
+	DDPDUMP("dsi shadow reg 0xc04:0x%x\n", readl(dsi->regs + 0xc04));
+	DDPDUMP("- DSI CMD REGS -\n");
 	for (k = 0; k < 512; k += 16) {
-		DDPDUMP("0x%04x: 0x%08x 0x%08x 0x%08x 0x%08x\n", k,
+		DDPDUMP("0x%04x: 0x%08x 0x%08x 0x%08x 0x%08x\n",
+			dsi->driver_data->reg_cmdq0_ofs + k,
 			readl(dsi->regs + dsi->driver_data->reg_cmdq0_ofs + k),
 			readl(dsi->regs + dsi->driver_data->reg_cmdq0_ofs + k + 0x4),
 			readl(dsi->regs + dsi->driver_data->reg_cmdq0_ofs + k + 0x8),
