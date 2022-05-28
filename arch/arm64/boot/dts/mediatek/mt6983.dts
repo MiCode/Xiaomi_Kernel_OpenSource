@@ -10850,7 +10850,7 @@
 		< 0 0 18>,/* IPI_OUT_VDEC_1 */
 		< 2 1  2>,/* IPI_OUT_C_SLEEP_0 */
 		< 3 1  1>,/* IPI_OUT_TEST_0 */
-		< 9 1  1>,/* IPI_OUT_MMDVFS */
+		< 9 1  2>,/* IPI_OUT_MMDVFS */
 		<11 2 18>,/* IPI_OUT_VENC_0 */
 		<13 2  4>,/* IPI_OUT_VCP_MPOOL_0 */
 		<15 3  2>,/* IPI_OUT_C_SLEEP_1 */
@@ -10866,7 +10866,7 @@
 		< 4 1 10 0>,/* IPI_IN_VCP_ERROR_INFO_0 */
 		< 5 1  1 0>,/* IPI_IN_VCP_READY_0 */
 		< 6 1  2 0>,/* IPI_IN_VCP_RAM_DUMP_0 */
-		<10 1  1 0>,/* IPI_IN_MMDVFS */
+		<10 1  2 0>,/* IPI_IN_MMDVFS */
 		<12 2 18 0>,/* IPI_IN_VENC_0 */
 		<14 2  4 0>,/* IPI_IN_VCP_MPOOL_0 */
 		<15 3  1 1>,/* IPI_OUT_C_SLEEP_1 */
@@ -10884,7 +10884,8 @@
 			      <4 0x400>, /* VENC_SET_PROP_MEM_ID 1KB */
 			      <5 0x400>, /* VDEC_VCP_LOG_INFO_ID 1KB */
 			      <6 0x400>, /* VENC_VCP_LOG_INFO_ID 1KB */
-			      <7 0x100000>; /* GCE_MEM_ID 256*4KB */
+			      <7 0x100000>, /* GCE_MEM_ID 256*4KB */
+			      <8 0x1000>; /* MMDVFS_MEM_ID 4KB */
 
 		power-domains = <&scpsys MT6983_POWER_DOMAIN_MM_PROC_DORMANT>;
 		clocks = <&topckgen_clk CLK_TOPCKGEN_MMUP_SEL>,
