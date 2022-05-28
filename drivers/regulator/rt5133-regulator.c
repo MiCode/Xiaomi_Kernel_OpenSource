@@ -526,7 +526,7 @@ static int rt5133_validate_vendor_info(struct rt5133_priv *priv)
 	if (ret)
 		return ret;
 
-	for (i = 0; i < sizeof(regulator_data); i++) {
+	for (i = 0; i < ARRAY_SIZE(regulator_data); i++) {
 		if ((val & RT5133_VENDOR_ID_MASK) ==
 						regulator_data[i].vendor_id){
 			priv->cdata = &regulator_data[i];
