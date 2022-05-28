@@ -7386,7 +7386,7 @@
 		compatible = "mediatek,mmdvfs";
 		operating-points-v2 = <&opp_table_disp0>;
 		mediatek,support_mux = "disp0", "disp1",
-		"mminfra", "venc", "vdec", "mdp0", "mdp1";
+		"mminfra", "mdp0", "mdp1";
 		mediatek,mux_disp0 = "TOP_UNIVPLL_D6_D2",
 			"TOP_UNIVPLL_D5_D2", "TOP_MAINPLL_D5",
 			"TOP_UNIVPLL_D4", "TOP_MMPLL_D4";
@@ -7396,12 +7396,6 @@
 		mediatek,mux_mminfra = "TOP_MAINPLL_D5_D2",
 			"TOP_MAINPLL_D4_D2", "TOP_MAINPLL_D5",
 			"TOP_UNIVPLL_D4", "TOP_MMPLL_D4";
-		mediatek,mux_venc = "TOP_UNIVPLL_D5_D2",
-			"TOP_UNIVPLL_D4_D2", "TOP_MMPLL_D6",
-			"TOP_UNIVPLL_D4", "TOP_UNIVPLL_D4";
-		mediatek,mux_vdec = "TOP_MAINPLL_D5_D2",
-			"TOP_UNIVPLL_D5_D2", "TOP_UNIVPLL_D6",
-			"TOP_TVDPLL_CK", "TOP_IMGPLL_D2";
 		mediatek,mux_mdp0 = "TOP_MMPLL_D6_D2",
 			"TOP_MAINPLL_D4_D2", "TOP_MAINPLL_D5",
 			"TOP_UNIVPLL_D4", "TOP_MMPLL_D4";
@@ -7412,45 +7406,41 @@
 		dvfsrc-vcore-supply = <&dvfsrc_vcore>;
 
 		clocks = <&topckgen_clk CLK_TOPCKGEN_DISP0_SEL>,	/* 0 */
-			<&topckgen_clk CLK_TOPCKGEN_DISP1_SEL>,	/* 1 */
+			<&topckgen_clk CLK_TOPCKGEN_DISP1_SEL>,		/* 1 */
 			<&topckgen_clk CLK_TOPCKGEN_MMINFRA_SEL>,	/* 2 */
-			<&topckgen_clk CLK_TOPCKGEN_VENC_SEL>,	/* 3 */
-			<&topckgen_clk CLK_TOPCKGEN_VDEC_SEL>,	/* 4 */
-			<&topckgen_clk CLK_TOPCKGEN_MDP0_SEL>,	/* 5 */
-			<&topckgen_clk CLK_TOPCKGEN_MDP1_SEL>,	/* 6 */
-			<&topckgen_clk CLK_TOPCKGEN_UNIVPLL_D6_D2>,	/* 7 */
-			<&topckgen_clk CLK_TOPCKGEN_UNIVPLL_D5_D2>,	/* 8 */
-			<&topckgen_clk CLK_TOPCKGEN_MAINPLL_D5>,	/* 9 */
-			<&topckgen_clk CLK_TOPCKGEN_UNIVPLL_D4>,	/* 10 */
-			<&topckgen_clk CLK_TOPCKGEN_MMPLL_D4>,	/* 11 */
-			<&topckgen_clk CLK_TOPCKGEN_MMPLL_D6_D2>,	/* 15 */
-			<&topckgen_clk CLK_TOPCKGEN_MAINPLL_D4_D2>,	/* 16 */
-			<&topckgen_clk CLK_TOPCKGEN_UNIVPLL_D4_D2>,	/* 17 */
-			<&topckgen_clk CLK_TOPCKGEN_MMPLL_D6>,	/* 18 */
-			<&topckgen_clk CLK_TOPCKGEN_MAINPLL_D5_D2>,	/* 19 */
-			<&topckgen_clk CLK_TOPCKGEN_UNIVPLL_D6>,	/* 20 */
-			<&topckgen_clk CLK_TOPCKGEN_TVDPLL_CK>,	/* 20 */
-			<&topckgen_clk CLK_TOPCKGEN_IMGPLL_D2>;
-		clock-names = "disp0",	/* 0 */
-			"disp1",	/* 1 */
-			"mminfra",	/* 2 */
-			"venc",	/* 3 */
-			"vdec",	/* 4 */
-			"mdp0",	/* 5 */
-			"mdp1",	/* 6 */
-			"TOP_UNIVPLL_D6_D2",	/* 7 */
-			"TOP_UNIVPLL_D5_D2",	/* 8 */
-			"TOP_MAINPLL_D5",	/* 9 */
-			"TOP_UNIVPLL_D4",	/* 10 */
-			"TOP_MMPLL_D4",	/* 11 */
-			"TOP_MMPLL_D6_D2",	/* 15 */
-			"TOP_MAINPLL_D4_D2",	/* 16 */
-			"TOP_UNIVPLL_D4_D2",	/* 17 */
-			"TOP_MMPLL_D6",	/* 18 */
-			"TOP_MAINPLL_D5_D2",	/* 19 */
-			"TOP_UNIVPLL_D6",	/* 20 */
-			"TOP_TVDPLL_CK",	/* 20 */
-			"TOP_IMGPLL_D2";
+			<&topckgen_clk CLK_TOPCKGEN_MDP0_SEL>,		/* 3 */
+			<&topckgen_clk CLK_TOPCKGEN_MDP1_SEL>,		/* 4 */
+			<&topckgen_clk CLK_TOPCKGEN_UNIVPLL_D6_D2>,	/* 5 */
+			<&topckgen_clk CLK_TOPCKGEN_UNIVPLL_D5_D2>,	/* 6 */
+			<&topckgen_clk CLK_TOPCKGEN_MAINPLL_D5>,	/* 7 */
+			<&topckgen_clk CLK_TOPCKGEN_UNIVPLL_D4>,	/* 8 */
+			<&topckgen_clk CLK_TOPCKGEN_MMPLL_D4>,		/* 9 */
+			<&topckgen_clk CLK_TOPCKGEN_MMPLL_D6_D2>,	/* 10 */
+			<&topckgen_clk CLK_TOPCKGEN_MAINPLL_D4_D2>,	/* 11 */
+			<&topckgen_clk CLK_TOPCKGEN_UNIVPLL_D4_D2>,	/* 12 */
+			<&topckgen_clk CLK_TOPCKGEN_MMPLL_D6>,		/* 13 */
+			<&topckgen_clk CLK_TOPCKGEN_MAINPLL_D5_D2>,	/* 14 */
+			<&topckgen_clk CLK_TOPCKGEN_UNIVPLL_D6>,	/* 15 */
+			<&topckgen_clk CLK_TOPCKGEN_TVDPLL_CK>,		/* 16 */
+			<&topckgen_clk CLK_TOPCKGEN_IMGPLL_D2>;		/* 17 */
+		clock-names = "disp0",		/* 0 */
+			"disp1",		/* 1 */
+			"mminfra",		/* 2 */
+			"mdp0",			/* 3 */
+			"mdp1",			/* 4 */
+			"TOP_UNIVPLL_D6_D2",	/* 5 */
+			"TOP_UNIVPLL_D5_D2",	/* 6 */
+			"TOP_MAINPLL_D5",	/* 7 */
+			"TOP_UNIVPLL_D4",	/* 8 */
+			"TOP_MMPLL_D4",		/* 9 */
+			"TOP_MMPLL_D6_D2",	/* 10 */
+			"TOP_MAINPLL_D4_D2",	/* 11 */
+			"TOP_UNIVPLL_D4_D2",	/* 12 */
+			"TOP_MMPLL_D6",		/* 13 */
+			"TOP_MAINPLL_D5_D2",	/* 14 */
+			"TOP_UNIVPLL_D6",	/* 15 */
+			"TOP_TVDPLL_CK",	/* 16 */
+			"TOP_IMGPLL_D2";	/* 17 */
 	};
 
 	disp_chist0: disp_chist@14011000 {
@@ -9665,9 +9655,9 @@
 			<0 0x16008000 0 0x1000>, /* mini_mdp1_wdma */
 			<0 0x1600f000 0 0x10000>; /* VDEC_SOC_GCON */
 		clocks = <&vdec_soc_gcon_base_clk CLK_VDEC_SOC_GCON_BASE_VDEC_CKEN>,
-			<&vdec_soc_gcon_base_clk CLK_VDEC_SOC_GCON_BASE_MINI_MDP_CKEN>;
-		clock-names = "MT_CG_VDEC","MT_CG_MINI_MDP";
-		mmdvfs-dvfsrc-vcore-supply = <&dvfsrc_vcore>;
+			<&vdec_soc_gcon_base_clk CLK_VDEC_SOC_GCON_BASE_MINI_MDP_CKEN>,
+			<&mmdvfs_clk CLK_MMDVFS_VFMT>;
+		clock-names = "MT_CG_VDEC","MT_CG_MINI_MDP","mmdvfs_clk";
 		mediatek,fmt_gce_th_num = <2>; /* FMT GCE HW THREAD NUM */
 		mediatek,fmt_rdma_swwa = <1>; /* FMT RDMA need SW workaround */
 		mboxes = <&gce_m 6 0 CMDQ_THR_PRIO_1>,
@@ -9828,7 +9818,7 @@
 		clock-names = "MT_CG_VENC0",
 			"MT_CG_VENC1";
 		operating-points-v2 = <&opp_table_venc>;
-		dvfsrc-vcore-supply = <&dvfsrc_vcore>;
+		//dvfsrc-vcore-supply = <&dvfsrc_vcore>;
 		port_arg_num = <3>;
 
 		port-def = <0 M4U_PORT_L7_VENC_RCPU_DISP 0>,
@@ -10109,8 +10099,9 @@
 		compatible = "mediatek,mtk-jpgenc";
 		reg = <0 0x17030000 0 0x10000>;
 		interrupts = <GIC_SPI 451 IRQ_TYPE_LEVEL_HIGH 0>;
-		clocks = <&venc_gcon_clk CLK_VEN1_CKE2_JPGENC>;
-		clock-names = "jpgenc";
+		clocks = <&venc_gcon_clk CLK_VEN1_CKE2_JPGENC>,
+			<&mmdvfs_clk CLK_MMDVFS_JPEGENC>;
+		clock-names = "jpgenc", "mmdvfs_clk";
 		power-domains = <&scpsys MT6983_POWER_DOMAIN_VEN0>;
 		mediatek,larb = <&smi_larb7>;
 		dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
@@ -10131,7 +10122,6 @@
 				"path_jpegenc_q_table",
 				"path_jpegenc_bsdma";
 		operating-points-v2 = <&opp_table_venc>;
-		mmdvfs-dvfsrc-vcore-supply = <&dvfsrc_vcore>;
 	};
 
 	jpgdec0@17040000 {
@@ -10142,11 +10132,12 @@
 			<GIC_SPI 453 IRQ_TYPE_LEVEL_HIGH 0>;
 		mediatek,larbs = <&smi_larb7>;
 		operating-points-v2 = <&opp_table_venc>;
-		mmdvfs-dvfsrc-vcore-supply = <&dvfsrc_vcore>;
 		clocks = <&venc_gcon_clk CLK_VEN1_CKE3_JPGDEC>,
-			<&venc_gcon_clk CLK_VEN1_CKE4_JPGDEC_C1>;
+			<&venc_gcon_clk CLK_VEN1_CKE4_JPGDEC_C1>,
+			<&mmdvfs_clk CLK_MMDVFS_JPEGDEC>;
 		clock-names = "MT_CG_VENC_JPGDEC",
-					"MT_CG_VENC_JPGDEC_C1";
+					"MT_CG_VENC_JPGDEC_C1",
+					"mmdvfs_clk";
 		power-domains = <&scpsys MT6983_POWER_DOMAIN_VEN0>;
 		dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
 		iommus = <&disp_iommu M4U_PORT_L7_JPGDEC_WDMA_0_DISP>,
