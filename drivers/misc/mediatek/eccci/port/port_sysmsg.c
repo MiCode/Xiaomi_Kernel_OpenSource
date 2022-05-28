@@ -29,10 +29,8 @@ struct md_rf_notify_struct {
 };
 
 #define MD_RF_NOTIFY(bit, func, name) \
-	__weak void func(unsigned int para0, unsigned int para1) \
-	{ \
-		pr_debug("[ccci1/SYS]weak %s", __func__); \
-	}
+extern void func(unsigned int para0, unsigned int para1);
+
 #include "mdrf_notify_list.h"
 
 #undef MD_RF_NOTIFY
