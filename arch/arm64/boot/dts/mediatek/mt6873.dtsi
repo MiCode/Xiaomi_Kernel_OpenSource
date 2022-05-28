@@ -3576,7 +3576,7 @@ fw_devlink.strict=on";
 			#iommu-cells = <1>;
 		};
 
-		disp_smi_2x1_sub_common_u0@14022000 {
+		disp-smi-2x1-sub-common-u0@14022000 {
 			compatible = "mediatek,disp_smi_2x1_sub_common_u0",
 				     "mediatek,mt6873-smi-common";
 			reg = <0 0x14022000 0 0x1000>;
@@ -3588,7 +3588,7 @@ fw_devlink.strict=on";
 			clock-names = "apb", "smi", "gals0", "gals1";
 		};
 
-		disp_smi_2x1_sub_common_u1@14023000 {
+		disp-smi-2x1-sub-common-u1@14023000 {
 			compatible = "mediatek,disp_smi_2x1_sub_common_u1",
 				     "mediatek,mt6873-smi-common";
 			reg = <0 0x14023000 0 0x1000>;
@@ -3600,7 +3600,7 @@ fw_devlink.strict=on";
 			clock-names = "apb", "smi", "gals0", "gals1";
 		};
 
-		img0_smi_2x1_sub_common@14024000 {
+		img0-smi-2x1-sub-common@14024000 {
 			compatible = "mediatek,img0_smi_2x1_sub_common",
 				     "mediatek,mt6873-smi-common";
 			reg = <0 0x14024000 0 0x1000>;
@@ -3612,7 +3612,7 @@ fw_devlink.strict=on";
 			clock-names = "apb", "smi", "gals0", "gals1";
 		};
 
-		img1_smi_2x1_sub_common@14025000 {
+		img1-smi-2x1-sub-common@14025000 {
 			compatible = "mediatek,img1_smi_2x1_sub_common",
 				     "mediatek,mt6873-smi-common";
 			reg = <0 0x14025000 0 0x1000>;
@@ -4026,7 +4026,7 @@ fw_devlink.strict=on";
 					"path_lat0_rg_ctrl", "path_vdec_ufo_enc";
 		};
 
-		vdec_smi_subcom@1600a000 {
+		vdec-smi-subcom@1600a000 {
 			compatible = "mediatek,vdec_smi_subcom",
 				     "mediatek,mt6873-smi-common";
 			reg = <0 0x1600a000 0 0x1000>;
@@ -4924,7 +4924,7 @@ fw_devlink.strict=on";
 			clock-names = "apb", "smi";
 		};
 
-		cam_smi_subcom@1a00c000 {
+		cam-smi-subcom@1a00c000 {
 			compatible = "mediatek,cam_smi_subcom",
 				     "mediatek,mt6873-smi-common";
 			reg = <0 0x1a00c000 0 0x1000>;
@@ -4936,7 +4936,7 @@ fw_devlink.strict=on";
 			clock-names = "apb", "smi", "gals0", "gals1";
 		};
 
-		cam_smi_subcom@1a00d000 {
+		cam-smi-subcom@1a00d000 {
 			compatible = "mediatek,cam_smi_subcom",
 				     "mediatek,mt6873-smi-common";
 			reg = <0 0x1a00d000 0 0x1000>;
@@ -5312,7 +5312,7 @@ fw_devlink.strict=on";
 				      "RSC_CLK_IPE_LARB20";
 		};
 
-		ipe_smi_subcom@1b00e000 {
+		ipe-smi-subcom@1b00e000 {
 			compatible = "mediatek,ipe_smi_subcom",
 				     "mediatek,mt6873-smi-common";
 			reg = <0 0x1b00e000 0 0x1000>;
