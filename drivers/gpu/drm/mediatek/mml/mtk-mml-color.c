@@ -80,6 +80,10 @@ static const struct color_data mt6895_color_data = {
 	.reg_table = colo_reg_table_mt6983,
 };
 
+static const struct color_data mt6886_color_data = {
+	.reg_table = colo_reg_table_mt6983,
+};
+
 static const struct color_data mt6985_color_data = {
 	.reg_table = colo_reg_table_mt6983,
 };
@@ -511,7 +515,7 @@ const struct of_device_id mml_color_driver_dt_match[] = {
 	},
 	{
 		.compatible = "mediatek,mt6886-mml_color",
-		.data = &mt6895_color_data,
+		.data = &mt6886_color_data,
 	},
 	{},
 };

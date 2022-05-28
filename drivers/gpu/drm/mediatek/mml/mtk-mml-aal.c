@@ -196,6 +196,16 @@ static const struct aal_data mt6985_aal_data = {
 	.reg_table = aal_reg_table_mt6983,
 };
 
+static const struct aal_data mt6886_aal0_data = {
+	.min_tile_width = 50,
+	.tile_width = 1300,
+	.min_hist_width = 128,
+	.vcp_readback = false,
+	.gpr = {CMDQ_GPR_R08, CMDQ_GPR_R10},
+	.cpr = {CMDQ_CPR_MML_PQ0_ADDR, CMDQ_CPR_MML_PQ1_ADDR},
+	.reg_table = aal_reg_table_mt6983,
+};
+
 struct mml_comp_aal {
 	struct mtk_ddp_comp ddp_comp;
 	struct mml_comp comp;
@@ -1482,7 +1492,7 @@ const struct of_device_id mml_aal_driver_dt_match[] = {
 	},
 	{
 		.compatible = "mediatek,mt6886-mml_aal",
-		.data = &mt6895_aal0_data
+		.data = &mt6886_aal0_data
 	},
 	{},
 };
