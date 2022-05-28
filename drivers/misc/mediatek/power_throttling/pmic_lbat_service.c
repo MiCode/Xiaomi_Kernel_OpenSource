@@ -41,11 +41,6 @@
 
 #define LBAT_SERVICE_DBG	0
 
-enum lbat_thd_type {
-	LBAT_HV,
-	LBAT_LV,
-};
-
 struct lbat_thd_t {
 	unsigned int thd_volt;
 	struct lbat_user *user;
@@ -249,11 +244,17 @@ static void dump_lbat_list(void)
 }
 #endif
 
-static void modify_lbat_list(enum lbat_thd_type type, struct lbat_thd_t *thd)
+/*
+ * lbat_list_add - add a lbat_thd entry to the lbat_list
+ * @thd: a lbat_thd entry to be added
+ * @lbat_list: lbat_list head to add it
+ *
+ * Insert a lbat_thd entry to the specified lbat_list head.
+ */
+static void lbat_list_add(struct lbat_thd_t *thd, struct list_head *lbat_list)
 {
-	switch (type) {
-	case LBAT_HV:
-		list_move(&thd->list, &lbat_hv_list);
+	list_move(&thd->list, lbat_list);
+	if (lbat_list == &lbat_hv_list) {
 		list_sort(NULL, &lbat_hv_list, hv_list_cmp);
 		thd = list_first_entry(&lbat_hv_list, struct lbat_thd_t, list);
 		if (cur_hv_ptr != thd) {
@@ -261,9 +262,7 @@ static void modify_lbat_list(enum lbat_thd_type type, struct lbat_thd_t *thd)
 			__regmap_update_bits(regmap, &lbat_regs->volt_max,
 					     VOLT_TO_RAW(cur_hv_ptr->thd_volt));
 		}
-		break;
-	case LBAT_LV:
-		list_move(&thd->list, &lbat_lv_list);
+	} else if (lbat_list == &lbat_lv_list) {
 		list_sort(NULL, &lbat_lv_list, lv_list_cmp);
 		thd = list_first_entry(&lbat_lv_list, struct lbat_thd_t, list);
 		if (cur_lv_ptr != thd) {
@@ -271,7 +270,6 @@ static void modify_lbat_list(enum lbat_thd_type type, struct lbat_thd_t *thd)
 			__regmap_update_bits(regmap, &lbat_regs->volt_min,
 					     VOLT_TO_RAW(cur_lv_ptr->thd_volt));
 		}
-		break;
 	}
 #if LBAT_SERVICE_DBG
 	dump_lbat_list();
@@ -288,9 +286,9 @@ static void lbat_hv_set_next_thd(struct lbat_user *user, struct lbat_thd_t *thd)
 	list_sort(NULL, &user->thd_list, lv_list_cmp);
 	/* HV is triggered */
 	if (!list_is_first(&thd->list, &user->thd_list)) /* Not first */
-		modify_lbat_list(LBAT_HV, list_prev_entry(thd, list));
+		lbat_list_add(list_prev_entry(thd, list), &lbat_hv_list);
 	if (!list_is_last(&thd->list, &user->thd_list)) /* Not last */
-		modify_lbat_list(LBAT_LV, list_next_entry(thd, list));
+		lbat_list_add(list_next_entry(thd, list), &lbat_lv_list);
 }
 
 static void lbat_lv_set_next_thd(struct lbat_user *user, struct lbat_thd_t *thd)
@@ -300,21 +298,21 @@ static void lbat_lv_set_next_thd(struct lbat_user *user, struct lbat_thd_t *thd)
 	list_sort(NULL, &user->thd_list, lv_list_cmp);
 	/* LV is triggered */
 	if (!list_is_first(&thd->list, &user->thd_list)) /* Not first */
-		modify_lbat_list(LBAT_HV, list_prev_entry(thd, list));
+		lbat_list_add(list_prev_entry(thd, list), &lbat_hv_list);
 	if (!list_is_last(&thd->list, &user->thd_list)) /* Not last */
-		modify_lbat_list(LBAT_LV, list_next_entry(thd, list));
+		lbat_list_add(list_next_entry(thd, list), &lbat_lv_list);
 }
 
 static void lbat_set_next_thd(struct lbat_user *user, struct lbat_thd_t *thd)
 {
 	if (thd == user->hv_thd) {
-		modify_lbat_list(LBAT_LV, user->lv1_thd);
+		lbat_list_add(user->lv1_thd, &lbat_lv_list);
 		if (user->lv2_thd && !list_empty(&user->lv2_thd->list))
 			list_del_init(&user->lv2_thd->list);
 	} else if (thd == user->lv1_thd) {
-		modify_lbat_list(LBAT_HV, user->hv_thd);
+		lbat_list_add(user->hv_thd, &lbat_hv_list);
 		if (user->lv2_thd && list_empty(&user->lv2_thd->list))
-			modify_lbat_list(LBAT_LV, user->lv2_thd);
+			lbat_list_add(user->lv2_thd, &lbat_lv_list);
 	}
 }
 
@@ -333,7 +331,7 @@ static void lbat_deb_handler(struct work_struct *work)
 		/* LBAT user HV de-bounce */
 		if (lbat_read_volt() < user->deb_thd_ptr->thd_volt) {
 			/* ignore this event and reset lbat_list */
-			modify_lbat_list(LBAT_HV, user->deb_thd_ptr);
+			lbat_list_add(user->deb_thd_ptr, &lbat_hv_list);
 			goto done;
 		}
 		deb_prd = user->hv_deb_prd;
@@ -343,7 +341,7 @@ static void lbat_deb_handler(struct work_struct *work)
 		/* LBAT user LV de-bounce */
 		if (lbat_read_volt() > user->deb_thd_ptr->thd_volt) {
 			/* ignore this event and reset lbat_list */
-			modify_lbat_list(LBAT_LV, user->deb_thd_ptr);
+			lbat_list_add(user->deb_thd_ptr, &lbat_lv_list);
 			goto done;
 		}
 		deb_prd = user->lv_deb_prd;
@@ -399,7 +397,7 @@ static int lbat_user_update(struct lbat_user *user)
 				       struct lbat_thd_t, list);
 		thd = list_next_entry(thd, list);
 	}
-	modify_lbat_list(LBAT_LV, thd);
+	lbat_list_add(thd, &lbat_lv_list);
 	if (user_count == 0)
 		lbat_irq_enable();
 	lbat_user_table[user_count++] = user;
@@ -528,7 +526,6 @@ int lbat_user_modify_thd(struct lbat_user *user, unsigned int hv_thd_volt,
 			 unsigned int lv1_thd_volt, unsigned int lv2_thd_volt)
 {
 	int i, ret = 0;
-	struct lbat_thd_t *thd;
 
 	if (!regmap)
 		return -EPROBE_DEFER;
@@ -551,27 +548,17 @@ int lbat_user_modify_thd(struct lbat_user *user, unsigned int hv_thd_volt,
 	}
 	pr_info("[%s] name=%s, hv=%d, lv1=%d, lv2=%d\n",
 		__func__, user->name, hv_thd_volt, lv1_thd_volt, lv2_thd_volt);
-	user->hv_thd->thd_volt = hv_thd_volt;
-	user->lv1_thd->thd_volt = lv1_thd_volt;
-	if (user->lv2_thd)
+	if (hv_thd_volt != user->hv_thd->thd_volt) {
+		user->hv_thd->thd_volt = hv_thd_volt;
+		lbat_list_add(user->hv_thd, &lbat_hv_list);
+	}
+	if (lv1_thd_volt != user->lv1_thd->thd_volt) {
+		user->lv1_thd->thd_volt = lv1_thd_volt;
+		lbat_list_add(user->lv1_thd, &lbat_lv_list);
+	}
+	if (user->lv2_thd && lv2_thd_volt != user->lv2_thd->thd_volt)
 		user->lv2_thd->thd_volt = lv2_thd_volt;
-	list_sort(NULL, &lbat_hv_list, hv_list_cmp);
-	list_sort(NULL, &lbat_lv_list, lv_list_cmp);
 
-	if (cur_hv_ptr) {
-		thd = list_first_entry(&lbat_hv_list, struct lbat_thd_t, list);
-		if (cur_hv_ptr)
-			cur_hv_ptr = thd;
-		__regmap_update_bits(regmap, &lbat_regs->volt_max,
-				     VOLT_TO_RAW(cur_hv_ptr->thd_volt));
-	}
-	if (cur_lv_ptr) {
-		thd = list_first_entry(&lbat_lv_list, struct lbat_thd_t, list);
-		if (cur_lv_ptr != thd)
-			cur_lv_ptr = thd;
-		__regmap_update_bits(regmap, &lbat_regs->volt_min,
-				     VOLT_TO_RAW(cur_lv_ptr->thd_volt));
-	}
 #if LBAT_SERVICE_DBG
 	dump_lbat_list();
 #endif
