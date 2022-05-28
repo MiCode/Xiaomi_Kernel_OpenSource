@@ -212,7 +212,7 @@ static void rt9490_del_irq_chip(struct rt9490_data *data)
 static const struct regmap_config rt9490_regmap_config = {
 	.reg_bits = 8,
 	.val_bits = 8,
-	.max_register = 0xFF,
+	.max_register = RT9490_REG_ADD_IRQ_MASK,
 };
 
 static int rt9490_check_vendor_info(struct rt9490_data *data)
@@ -257,14 +257,6 @@ static int rt9490_probe(struct i2c_client *i2c)
 		return ret;
 	}
 
-	/* Trigger the whole chip register reset */
-	ret = regmap_update_bits(data->regmap, RT9490_REG_EOC_CTRL,
-				 RT9490_RSTRG_MASK, RT9490_RSTRG_MASK);
-	if (ret) {
-		dev_err(&i2c->dev, "Failed to reset registers\n");
-		return ret;
-	}
-
 	ret = rt9490_add_irq_chip(data);
 	if (ret)
 		return ret;
@@ -286,6 +278,18 @@ static int rt9490_remove(struct i2c_client *i2c)
 
 	rt9490_del_irq_chip(data);
 	return 0;
+}
+
+static void rt9490_shutdown(struct i2c_client *i2c)
+{
+	struct rt9490_data *data = i2c_get_clientdata(i2c);
+	int ret;
+
+	/* Trigger the whole chip register reset */
+	ret = regmap_update_bits(data->regmap, RT9490_REG_EOC_CTRL,
+				 RT9490_RSTRG_MASK, RT9490_RSTRG_MASK);
+	if (ret)
+		dev_err(&i2c->dev, "Failed to reset registers(%d)\n", ret);
 }
 
 static int __maybe_unused rt9490_suspend(struct device *dev)
@@ -324,6 +328,7 @@ static struct i2c_driver rt9490_driver = {
 	},
 	.probe_new = rt9490_probe,
 	.remove = rt9490_remove,
+	.shutdown = rt9490_shutdown,
 };
 module_i2c_driver(rt9490_driver);
 

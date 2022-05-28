@@ -59,6 +59,7 @@ module_param(dbg_log_en, bool, 0644);
 #define RT9490_REG_FAULT_STAT1	0x21
 #define RT9490_REG_PUMP_EXP	0x49
 #define RT9490_REG_ADD_CTRL0	0x4A
+#define RT9490_REG_ADD_CTRL2	0x4C
 
 #define RT9490_OTGLBP_MASK	BIT(4)
 #define RT9490_OTGOVP_MASK	BIT(5)
@@ -103,7 +104,6 @@ enum rt9490_fields {
 	F_MIVR,
 	F_VPRECHG,
 	F_IPRECHG,
-	F_RSTRG,
 	F_IEOC,
 	F_TRECHG,
 	F_VRECHG,
@@ -141,6 +141,7 @@ enum rt9490_fields {
 	F_TD_EOC,
 	F_EOC_RST,
 	F_AUTO_MIVR,
+	F_SPEC_TA_EN,
 	F_MAX_FIELDS
 };
 
@@ -255,7 +256,6 @@ static struct reg_field rt9490_reg_fields[] = {
 	[F_MIVR]	= REG_FIELD(RT9490_REG_MIVR_CTRL, 0, 7),
 	[F_VPRECHG]	= REG_FIELD(RT9490_REG_PRE_CHG, 6, 7),
 	[F_IPRECHG]	= REG_FIELD(RT9490_REG_PRE_CHG, 0, 5),
-	[F_RSTRG]	= REG_FIELD(RT9490_REG_EOC_CTRL, 6, 6),
 	[F_IEOC]	= REG_FIELD(RT9490_REG_EOC_CTRL, 0, 4),
 	[F_TRECHG]	= REG_FIELD(RT9490_REG_RECHG, 4, 5),
 	[F_VRECHG]	= REG_FIELD(RT9490_REG_RECHG, 0, 3),
@@ -293,6 +293,7 @@ static struct reg_field rt9490_reg_fields[] = {
 	[F_TD_EOC]	= REG_FIELD(RT9490_REG_ADD_CTRL0, 4, 4),
 	[F_EOC_RST]	= REG_FIELD(RT9490_REG_ADD_CTRL0, 3, 3),
 	[F_AUTO_MIVR]	= REG_FIELD(RT9490_REG_ADD_CTRL0, 2, 2),
+	[F_SPEC_TA_EN]	= REG_FIELD(RT9490_REG_ADD_CTRL2, 2, 2),
 };
 
 #define RT9490_LINEAR_RANGE(_idx, _min, _min_sel, _max_sel, _step) \
@@ -1820,6 +1821,11 @@ static int rt9490_do_charger_init(struct rt9490_chg_data *data)
 	if (ret)
 		return ret;
 
+	/* Disable Special TA detecion */
+	ret = regmap_field_write(data->rm_field[F_SPEC_TA_EN], 0);
+	if (ret)
+		return ret;
+
 	if (data->vbus_ready == vbus_ready)
 		return 0;
 
@@ -2272,14 +2278,8 @@ static void rt9490_charger_shutdown(struct platform_device *pdev)
 {
 	struct rt9490_chg_data *data = platform_get_drvdata(pdev);
 
-	int ret;
-
 	if (data->ceb_gpio)
 		gpiod_set_value(data->ceb_gpio, true);
-	/* Trigger the whole chip register reset */
-	ret = regmap_field_write(data->rm_field[F_RSTRG], 1);
-	if (ret)
-		dev_info(data->dev, "Failed to reset registers\n");
 }
 static const struct of_device_id rt9490_charger_of_match_table[] = {
 	{ .compatible = "richtek,rt9490-chg", },
