@@ -2006,13 +2006,10 @@ static kal_uint32 seamless_switch(struct subdrv_ctx *ctx,
 				sizeof(imx766dual_seamless_custom9) / sizeof(kal_uint16));
 
 		if (ae_ctrl) {
-			LOG_DEBUG("call SENSOR_SCENARIO_ID_CUSTOM9 %d %d %d %d %d %d",
-				ae_ctrl[0],	0, ae_ctrl[1],
-				ae_ctrl[5],	0, ae_ctrl[6]);
-			hdr_write_tri_shutter_w_gph(ctx,
-				ae_ctrl[0],	0, ae_ctrl[1], KAL_FALSE);
-			hdr_write_tri_gain_w_gph(ctx,
-				ae_ctrl[5],	0, ae_ctrl[6], KAL_FALSE);
+			LOG_DEBUG("call SENSOR_SCENARIO_ID_CUSTOM12 %d %d",
+					ae_ctrl[0], ae_ctrl[5]);
+			set_shutter_w_gph(ctx, ae_ctrl[0], KAL_FALSE);
+			set_gain_w_gph(ctx, ae_ctrl[5], KAL_FALSE);
 		}
 		FMC_GPH_END;
 	}
@@ -2033,13 +2030,10 @@ static kal_uint32 seamless_switch(struct subdrv_ctx *ctx,
 				sizeof(imx766dual_seamless_custom10) / sizeof(kal_uint16));
 
 		if (ae_ctrl) {
-			LOG_DEBUG("call SENSOR_SCENARIO_ID_CUSTOM10 %d %d %d %d %d %d",
-				ae_ctrl[0], ae_ctrl[1], ae_ctrl[2],
-				ae_ctrl[5], ae_ctrl[6], ae_ctrl[7]);
-			hdr_write_tri_shutter_w_gph(ctx,
-				ae_ctrl[0],	ae_ctrl[1], ae_ctrl[2], KAL_FALSE);
-			hdr_write_tri_gain_w_gph(ctx,
-				ae_ctrl[5],	ae_ctrl[6], ae_ctrl[7], KAL_FALSE);
+			LOG_DEBUG("call SENSOR_SCENARIO_ID_CUSTOM12 %d %d",
+					ae_ctrl[0], ae_ctrl[5]);
+			set_shutter_w_gph(ctx, ae_ctrl[0], KAL_FALSE);
+			set_gain_w_gph(ctx, ae_ctrl[5], KAL_FALSE);
 		}
 		FMC_GPH_END;
 	}
@@ -2084,10 +2078,13 @@ static kal_uint32 seamless_switch(struct subdrv_ctx *ctx,
 				sizeof(imx766dual_seamless_custom12) / sizeof(kal_uint16));
 
 		if (ae_ctrl) {
-			LOG_DEBUG("call SENSOR_SCENARIO_ID_CUSTOM12 %d %d",
-					ae_ctrl[0], ae_ctrl[5]);
-			set_shutter_w_gph(ctx, ae_ctrl[0], KAL_FALSE);
-			set_gain_w_gph(ctx, ae_ctrl[5], KAL_FALSE);
+			LOG_DEBUG("call SENSOR_SCENARIO_ID_CUSTOM4 %d %d %d %d %d %d",
+				ae_ctrl[0], 0, ae_ctrl[1],
+				ae_ctrl[5], 0, ae_ctrl[6]);
+			hdr_write_tri_shutter_w_gph(ctx,
+				ae_ctrl[0],	0, ae_ctrl[1], KAL_FALSE);
+			hdr_write_tri_gain_w_gph(ctx,
+				ae_ctrl[5],	0, ae_ctrl[6], KAL_FALSE);
 		}
 		FMC_GPH_END;
 	}
@@ -2180,10 +2177,13 @@ static kal_uint32 seamless_switch(struct subdrv_ctx *ctx,
 				sizeof(imx766dual_seamless_custom16) / sizeof(kal_uint16));
 
 		if (ae_ctrl) {
-			LOG_DEBUG("call SENSOR_SCENARIO_ID_CUSTOM12 %d %d",
-					ae_ctrl[0], ae_ctrl[5]);
-			set_shutter_w_gph(ctx, ae_ctrl[0], KAL_FALSE);
-			set_gain_w_gph(ctx, ae_ctrl[5], KAL_FALSE);
+			LOG_DEBUG("call SENSOR_SCENARIO_ID_CUSTOM4 %d %d %d %d %d %d",
+				ae_ctrl[0], 0, ae_ctrl[1],
+				ae_ctrl[5], 0, ae_ctrl[6]);
+			hdr_write_tri_shutter_w_gph(ctx,
+				ae_ctrl[0],	0, ae_ctrl[1], KAL_FALSE);
+			hdr_write_tri_gain_w_gph(ctx,
+				ae_ctrl[5],	0, ae_ctrl[6], KAL_FALSE);
 		}
 		FMC_GPH_END;
 	}
