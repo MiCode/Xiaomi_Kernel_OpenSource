@@ -84,7 +84,7 @@ endef
 
 .PHONY: all build clean check-env
 
-all: check-env build install
+all: check-env build install list_ko
 build:
 	$(kernel-make) modules $(EXT_CONFIG)
 install: build
@@ -92,9 +92,9 @@ install: build
 clean:
 	$(kernel-make) clean
 	# clean *.lds
-	$(shell find -name "*.lds" -exec rm {} \;)
+	find -name "*.lds" -exec rm {} \;
 	# clean out
-	$(shell rm -rf $(OUT_DIR))
+	rm -rf $(OUT_DIR)
 check-env:
 ifndef KDIR
 	$(error KDIR (prebuilt kernel path) is undefined)
@@ -103,5 +103,8 @@ $(info prebuilt kernel = $(KDIR))
 
 checkpatch:
 	$(check-patch)
+list_ko: install
+	@echo "list of ko:"
+	@find -name *.ko -exec ls -l {} \;
 
 endif
