@@ -1044,20 +1044,58 @@ struct mtk_cam_ctx *mtk_cam_find_ctx(struct mtk_cam_device *cam,
 	return NULL;
 }
 
-static struct mtk_cam_ctx *mtk_cam_get_ctx(struct mtk_cam_device *cam)
+static bool _is_streaming_locked(struct mtk_cam_device *cam, int stream_id)
 {
-	struct mtk_cam_ctx *ctx;
+	return cam->streaming_ctx & (1 << stream_id);
+}
 
-	/* TODO: select available ctx & ctx pool */
-	ctx = &cam->ctxs[0];
+static void _update_streaming_locked(struct mtk_cam_device *cam, int stream_id,
+				     bool streaming)
+{
+	if (WARN_ON(_is_streaming_locked(cam, stream_id) == streaming))
+		pr_info("streaming_ctx %x: stread_id %d, streaming %d\n",
+			cam->streaming_ctx, stream_id, streaming);
 
-	dev_info(cam->dev, "%s: workaround. not implemented yet\n", __func__);
+	if (streaming)
+		cam->streaming_ctx |= 1 << stream_id;
+	else
+		cam->streaming_ctx &= ~(1 << stream_id);
+}
+
+static struct mtk_cam_ctx *mtk_cam_ctx_get(struct mtk_cam_device *cam)
+{
+	struct mtk_cam_ctx *ctx = NULL;
+	unsigned int i;
+
+	spin_lock(&cam->streaming_lock);
+	for (i = 0; i < cam->max_stream_num; i++) {
+		if (!(cam->streaming_ctx & (1 << i))) {
+
+			ctx = &cam->ctxs[i];
+			_update_streaming_locked(cam, i, 1);
+			break;
+		}
+	}
+	spin_unlock(&cam->streaming_lock);
+
+	if (!ctx) {
+		dev_info(cam->dev, "%s: failed to get ctx: streaming 0x%x\n",
+			 __func__, cam->streaming_ctx);
+		return NULL;
+	}
+
+	WARN_ON(ctx->stream_id != i);
+	dev_info(cam->dev, "ctx_get: stream_id %d\n", ctx->stream_id);
 	return ctx;
 }
 
 static void mtk_cam_ctx_put(struct mtk_cam_ctx *ctx)
 {
-	/* todo */
+	struct mtk_cam_device *cam = ctx->cam;
+
+	spin_lock(&cam->streaming_lock);
+	_update_streaming_locked(ctx->cam, ctx->stream_id, 0);
+	spin_unlock(&cam->streaming_lock);
 }
 
 static int _find_raw_sd_idx(struct mtk_raw_pipeline *raw, int num_raw,
@@ -1443,7 +1481,7 @@ struct mtk_cam_ctx *mtk_cam_start_ctx(struct mtk_cam_device *cam,
 	if (mtk_cam_initialize(cam) < 0)
 		return NULL;
 
-	ctx = mtk_cam_get_ctx(cam);
+	ctx = mtk_cam_ctx_get(cam);
 	if (!ctx)
 		goto fail_uninitialze;
 
@@ -1468,8 +1506,6 @@ struct mtk_cam_ctx *mtk_cam_start_ctx(struct mtk_cam_device *cam,
 
 	mtk_cam_update_pipe_used(ctx, &cam->pipelines);
 	mtk_cam_ctrl_start(&ctx->cam_ctrl, ctx);
-
-	WARN_ON(mtk_cam_mark_streaming(cam, ctx->stream_id));
 
 	return ctx;
 
@@ -1499,8 +1535,6 @@ void mtk_cam_stop_ctx(struct mtk_cam_ctx *ctx, struct media_entity *entity)
 
 	dev_info(cam->dev, "%s: by node %s\n", __func__, entity->name);
 
-	WARN_ON(mtk_cam_unmark_streaming(cam, ctx->stream_id));
-
 	mtk_cam_ctx_unprepare_session(ctx);
 	mtk_cam_ctx_destroy_pool(ctx);
 	mtk_cam_ctx_destroy_workers(ctx);
@@ -1513,6 +1547,7 @@ void mtk_cam_stop_ctx(struct mtk_cam_ctx *ctx, struct media_entity *entity)
 	}
 
 	ctx->used_pipe = 0;
+	mtk_cam_ctx_put(ctx);
 
 	mtk_cam_uninitialize(cam);
 }
@@ -2266,39 +2301,6 @@ static void mtk_cam_debug_fs_deinit(struct mtk_cam_device *cam)
 	if (cam->debug_fs)
 		cam->debug_fs->ops->deinit(cam->debug_fs);
 #endif
-}
-
-int mtk_cam_mark_streaming(struct mtk_cam_device *cam, int stream_id)
-{
-	int stream_mask = 1 << stream_id;
-	int err_stream;
-
-	spin_lock(&cam->streaming_lock);
-	err_stream = cam->streaming_ctx & stream_mask;
-	if (!err_stream)
-		cam->streaming_ctx |= stream_mask;
-	spin_unlock(&cam->streaming_lock);
-
-	if (err_stream)
-		dev_info(cam->dev, "%s: streams 0x%x are already streaming\n",
-			 __func__, err_stream);
-	return err_stream ? -1 : 0;
-}
-
-int mtk_cam_unmark_streaming(struct mtk_cam_device *cam, int stream_id)
-{
-	int stream_mask = 1 << stream_id;
-	int err_stream;
-
-	spin_lock(&cam->streaming_lock);
-	err_stream = (cam->streaming_ctx & stream_mask) ^ stream_mask;
-	cam->streaming_ctx &= ~stream_mask;
-	spin_unlock(&cam->streaming_lock);
-
-	if (err_stream)
-		dev_info(cam->dev, "%s: streams 0x%x are not streaming\n",
-			 __func__, err_stream);
-	return err_stream ? -1 : 0;
 }
 
 bool mtk_cam_is_any_streaming(struct mtk_cam_device *cam)

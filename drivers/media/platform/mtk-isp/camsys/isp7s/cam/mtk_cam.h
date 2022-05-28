@@ -174,6 +174,7 @@ struct mtk_cam_device {
 	struct mtk_cam_v4l2_pipelines	pipelines;
 	struct mtk_cam_engines		engines;
 
+	/* to guarantee the enque sequence */
 	atomic_t is_queuing;
 
 	unsigned int max_stream_num;
@@ -219,8 +220,6 @@ int mtk_cam_set_dev_mraw(struct device *dev, int idx, struct device *mraw);
 int mtk_cam_set_dev_larb(struct device *dev, struct device *larb);
 struct device *mtk_cam_get_larb(struct device *dev, int larb_id);
 
-int mtk_cam_mark_streaming(struct mtk_cam_device *cam, int stream_id);
-int mtk_cam_unmark_streaming(struct mtk_cam_device *cam, int stream_id);
 bool mtk_cam_is_any_streaming(struct mtk_cam_device *cam);
 bool mtk_cam_are_all_streaming(struct mtk_cam_device *cam, int stream_mask);
 
