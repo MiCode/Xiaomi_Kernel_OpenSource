@@ -2306,6 +2306,14 @@
 			125000 44>;
 	};
 
+	therm_intf: therm-intf@114000 {
+		compatible = "mediatek,therm_intf";
+		reg = <0 0x00114000 0 0x400>,
+		      <0 0x190e1000 0 0x1000>;
+		reg-names = "therm_sram",
+			    "apu_mbox";
+	};
+
 	thermal_zones: thermal-zones {
 		ap_ntc: ap_ntc {
 			polling-delay = <0>; /* milliseconds */
