@@ -3259,7 +3259,7 @@ static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 			unsigned int used_cammux = ctx->vcinfo.vc[j].cam;
 
 			for (i = 0; i < _seninf_ops->cam_mux_num; i++) {
-				if ((used_cammux == i) && (enabled & (1<<i))) {
+				if ((used_cammux == i) && ((enabled >> i) & 1)) {
 					u32 res, irq_st;
 
 					res = SENINF_READ_REG(ctx->reg_if_cam_mux_pcsr[i],
@@ -3376,7 +3376,7 @@ static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 			for (i = 0; i < _seninf_ops->cam_mux_num; i++) {
 				unsigned int used_cammux = ctx->vcinfo.vc[j].cam;
 
-				if ((used_cammux == i) && (enabled & (1<<i))) {
+				if ((used_cammux == i) && ((enabled >> i) & 1)) {
 					dev_info(ctx->dev,
 					"cam_mux_%d CTRL(0x%x) RES(0x%x) EXP(0x%x) ERR(0x%x) OPT(0x%x) IRQ(0x%x)\n",
 					i,
