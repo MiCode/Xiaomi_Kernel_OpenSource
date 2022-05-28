@@ -61,7 +61,7 @@ TRACE_EVENT(md_tx_pwr_limit,
 	TP_ARGS(md_cdev, status),
 
 	TP_STRUCT__entry(
-		__field(unsigned int, state)
+		__field(unsigned long, state)
 		__field(unsigned int, pwr)
 		__field(unsigned int, id)
 		__field(enum md_cooling_status, status)
