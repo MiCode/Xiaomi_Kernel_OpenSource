@@ -729,29 +729,10 @@ static void debug_dump(unsigned int id, unsigned int pwr_sta)
 	BUG_ON(1);
 }
 
-static enum chk_sys_id log_dump_id[] = {
-	ifr_bus,
-	ufscfg_ao_bus,
-	gpu_eb_rpc,
-	img_sub0_bus,
-	img_sub1_bus,
-	cam_sub0_bus,
-	cam_sub2_bus,
-	cam_sub1_bus,
-	spm,
-	vlpcfg,
-	chk_sys_num,
-};
-
 static void log_dump(unsigned int id, unsigned int pwr_sta)
 {
 	if (id >= MT6985_CHK_PD_NUM)
 		return;
-
-	if (id == MT6985_POWER_DOMAIN_MD) {
-		set_subsys_reg_dump_mt6985(log_dump_id);
-		get_subsys_reg_dump_mt6985();
-	}
 }
 
 static struct pd_sta pd_pwr_sta[] = {
