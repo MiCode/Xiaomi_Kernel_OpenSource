@@ -2239,6 +2239,55 @@ static void process_dbg_opt(const char *opt)
 		mtk_ddp_comp_io_cmd(comp, NULL,
 			DSI_DUMP_LCM_INFO, NULL);
 		DDPMSG("%s, finished lcm dump\n", __func__);
+	} else if (strncmp(opt, "lcm0_cust", 9) == 0) {
+		struct mtk_ddp_comp *comp;
+		struct drm_crtc *crtc;
+		struct mtk_drm_crtc *mtk_crtc;
+		struct lcm_sample_cust_data *cust_data =
+				kzalloc(sizeof(struct lcm_sample_cust_data), GFP_KERNEL);
+
+		/* this debug cmd only for crtc0 */
+		crtc = list_first_entry(&(drm_dev)->mode_config.crtc_list,
+					typeof(*crtc), head);
+		if (!crtc) {
+			DDPPR_ERR("find crtc fail\n");
+			return;
+		}
+
+		mtk_crtc = to_mtk_crtc(crtc);
+		comp = mtk_ddp_comp_request_output(mtk_crtc);
+		if (!comp || !comp->funcs || !comp->funcs->io_cmd) {
+			DDPINFO("cannot find output component\n");
+			return;
+		}
+		if (IS_ERR_OR_NULL(cust_data)) {
+			DDPMSG("%s, %d, failed to allocate buffer\n",
+				__func__, __LINE__);
+			return;
+		}
+
+		cust_data->name = kzalloc(sizeof(128), GFP_KERNEL);
+		if (!IS_ERR_OR_NULL(cust_data->name)) {
+			DDPMSG("%s, %d, get cust name\n",
+				__func__, __LINE__);
+			cust_data->cmd = 0;
+			comp->funcs->io_cmd(comp, NULL, LCM_CUST_FUNC, (void *)cust_data);
+			DDPMSG("%s, %d, >>>> cmd:%d name:%s\n",
+				__func__, __LINE__, cust_data->cmd, cust_data->name);
+			kfree(cust_data->name);
+		}
+
+		DDPMSG("%s, %d, get cust type\n",
+			__func__, __LINE__);
+		cust_data->cmd = 1;
+		comp->funcs->io_cmd(comp, NULL, LCM_CUST_FUNC, (void *)cust_data);
+		DDPMSG("%s, %d, >>>> cmd:%d type:0x%x\n",
+			__func__, __LINE__, cust_data->cmd, cust_data->type);
+
+		DDPMSG("%s, %d, do cust pre-prepare\n",
+			__func__, __LINE__);
+		cust_data->cmd = 2;
+		comp->funcs->io_cmd(comp, NULL, LCM_CUST_FUNC, (void *)cust_data);
 	} else if (strncmp(opt, "lcm0_reset", 10) == 0) {
 		struct mtk_ddp_comp *comp;
 		struct drm_crtc *crtc;

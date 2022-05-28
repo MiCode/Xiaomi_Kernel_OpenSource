@@ -23,6 +23,7 @@ extern unsigned long long mtk_lcm_total_size;
 
 #define MTK_LCM_MODE_UNIT (4)
 #define MTK_LCM_DEBUG_DUMP (0)
+#define MTK_LCM_DATA_OFFSET (2)
 
 /* mtk_lcm_ops_table
  * used to store the lcm operation commands
@@ -286,37 +287,53 @@ struct mtk_lcm_ops_input_packet {
 };
 
 /* customization callback of private panel operation
+ * funcs:
+ *      the private drm panel funcs used to replace common drm funcs
+ * ext_funcs:
+ *      the private ext panel funcs used to replace common ext funcs
+ * cust_funcs:
+ *      the private panel funcs customized by customer
  * parse_params:
  *      used to save panel parameters parsed from dtsi
  * parse_ops:
  *      used to save panel operation cmd list parsed from dtsi
- * func:
+ * execute_ops:
  *      used to execute the customized operation cmd
- * dump:
- *      used to dump the customized settings in params (optional)
- * free:
- *      used to deallocate the memory buffer of panel parsing result
+ * dump_params:
+ *      used to dump the customized settings in customer params
+ * dump_ops:
+ *      used to dump the customized settings in customer ops
+ * free_params:
+ *      used to deallocate the memory buffer of customer params
+ * free_ops:
+ *      used to deallocate the memory buffer of customer ops
  */
 struct mtk_panel_cust {
-	atomic_t cust_enabled;
+	struct drm_panel_funcs funcs;
+	struct mtk_panel_funcs ext_funcs;
+	int (*cust_funcs)(struct drm_panel *panel,
+		int cmd, void *params, void *handle, void **output);
 	int (*parse_params)(struct device_node *np);
-	int (*parse_ops)(unsigned int func,
-		int type, u8 *data_in, size_t size_in,
-		void *cust_data);
-	int (*func)(struct mtk_lcm_ops_data *op,
+	int (*parse_ops_table)(struct device_node *np,
+		unsigned int flag_len);
+	int (*parse_ops)(struct mtk_lcm_ops_data *lcm_op,
+		u8 *dts, unsigned int flag_len);
+	int (*execute_ops)(struct mtk_lcm_ops_data *op,
 		struct mtk_lcm_ops_input_packet *input);
 	void (*dump_params)(void);
+	void (*dump_ops_table)(const char *owner, char func);
 	void (*dump_ops)(struct mtk_lcm_ops_data *op,
 		const char *owner, unsigned int id);
-	void (*free_ops)(unsigned int func);
 	void (*free_params)(unsigned int func);
+	void (*free_ops_table)(void);
+	void (*free_ops)(struct mtk_lcm_ops_data *op);
 };
 
 struct mtk_panel_resource {
 	unsigned int version;
 	struct mtk_lcm_params params;
 	struct mtk_lcm_ops ops;
-	struct mtk_panel_cust cust;
+	const struct mtk_panel_cust *cust;
 };
 
 int load_panel_resource_from_dts(struct device_node *lcm_np,
@@ -325,7 +342,7 @@ int load_panel_resource_from_dts(struct device_node *lcm_np,
 int parse_lcm_ops_func(struct device_node *np,
 		struct mtk_lcm_ops_table *table, char *func,
 		unsigned int flag_len, unsigned int panel_type,
-		struct mtk_panel_cust *cust, unsigned int phase);
+		const struct mtk_panel_cust *cust, unsigned int phase);
 
 /* function: execute lcm operations
  * input: dev: the target dsi device
@@ -403,46 +420,56 @@ int parse_lcm_params_dsi(struct device_node *np,
 int parse_lcm_ops_dbi(struct device_node *np,
 		struct mtk_lcm_ops_dbi *ops,
 		struct mtk_lcm_params_dbi *params,
-		struct mtk_panel_cust *cust);
+		const struct mtk_panel_cust *cust);
 int parse_lcm_ops_dpi(struct device_node *np,
 		struct mtk_lcm_ops_dpi *ops,
 		struct mtk_lcm_params_dpi *params,
-		struct mtk_panel_cust *cust);
+		const struct mtk_panel_cust *cust);
 int parse_lcm_ops_dsi(struct device_node *np,
 		struct mtk_lcm_ops_dsi *ops,
 		struct mtk_lcm_params_dsi *params,
-		struct mtk_panel_cust *cust);
+		const struct mtk_panel_cust *cust);
 
-void free_lcm_params_dbi(struct mtk_lcm_params_dbi *params);
-void free_lcm_params_dpi(struct mtk_lcm_params_dpi *params);
-void free_lcm_params_dsi(struct mtk_lcm_params_dsi *params);
-void free_lcm_ops_dbi(struct mtk_lcm_ops_dbi *ops);
-void free_lcm_ops_dpi(struct mtk_lcm_ops_dpi *ops);
-void free_lcm_ops_dsi(struct mtk_lcm_ops_dsi *ops);
+void free_lcm_params_dbi(struct mtk_lcm_params_dbi *params,
+	const struct mtk_panel_cust *cust);
+void free_lcm_params_dpi(struct mtk_lcm_params_dpi *params,
+	const struct mtk_panel_cust *cust);
+void free_lcm_params_dsi(struct mtk_lcm_params_dsi *params,
+	const struct mtk_panel_cust *cust);
+void free_lcm_ops_dbi(struct mtk_lcm_ops_dbi *ops,
+	const struct mtk_panel_cust *cust);
+void free_lcm_ops_dpi(struct mtk_lcm_ops_dpi *ops,
+	const struct mtk_panel_cust *cust);
+void free_lcm_ops_dsi(struct mtk_lcm_ops_dsi *ops,
+	const struct mtk_panel_cust *cust);
 
-/* function: dump dts settings of lcm driver*/
+/* function: dump ops data*/
+int dump_lcm_ops_func(struct mtk_lcm_ops_data *lcm_op,
+		const struct mtk_panel_cust *cust, unsigned int id, const char *owner);
+
+/* function: dump ops table*/
 void dump_lcm_ops_table(struct mtk_lcm_ops_table *table,
-		struct mtk_panel_cust *cust,
+		const struct mtk_panel_cust *cust,
 		const char *owner);
 void dump_lcm_dsi_fps_settings(struct mtk_lcm_mode_dsi *mode);
 void dump_lcm_params_basic(struct mtk_lcm_params *params);
 void dump_lcm_params_dsi(struct mtk_lcm_params_dsi *params,
-		struct mtk_panel_cust *cust);
+		const struct mtk_panel_cust *cust);
 void dump_lcm_ops_dsi(struct mtk_lcm_ops_dsi *ops,
 		struct mtk_lcm_params_dsi *params,
-		struct mtk_panel_cust *cust);
+		const struct mtk_panel_cust *cust);
 void dump_lcm_params_dbi(struct mtk_lcm_params_dbi *params,
-		struct mtk_panel_cust *cust);
+		const struct mtk_panel_cust *cust);
 void dump_lcm_ops_dbi(struct mtk_lcm_ops_dbi *ops,
 		struct mtk_lcm_params_dbi *params,
-		struct mtk_panel_cust *cust);
+		const struct mtk_panel_cust *cust);
 void dump_lcm_params_dpi(struct mtk_lcm_params_dpi *params,
-		struct mtk_panel_cust *cust);
+		const struct mtk_panel_cust *cust);
 void dump_lcm_ops_dpi(struct mtk_lcm_ops_dpi *ops,
 		struct mtk_lcm_params_dpi *params,
-		struct mtk_panel_cust *cust);
+		const struct mtk_panel_cust *cust);
 void mtk_lcm_dump_all(char func, struct mtk_panel_resource *resource,
-		struct mtk_panel_cust *cust);
+		const struct mtk_panel_cust *cust);
 
 /* function: dsi ddic write
  * input: data: the data buffer
@@ -466,7 +493,8 @@ int mtk_panel_dsi_dcs_read_buffer(struct mipi_dsi_device *dsi,
 /* function: free lcm operation data
  * input: operation cmd list, and size
  */
-void free_lcm_ops_table(struct mtk_lcm_ops_table *table);
+void free_lcm_ops_table(struct mtk_lcm_ops_table *table,
+	const struct mtk_panel_cust *cust);
 void free_lcm_resource(char func, struct mtk_panel_resource *data);
 
 /* function: create an input package

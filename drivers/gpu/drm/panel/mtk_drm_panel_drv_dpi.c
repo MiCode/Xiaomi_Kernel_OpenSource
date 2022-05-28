@@ -7,9 +7,14 @@
 
 //static struct mtk_panel_context *ctx_dpi;
 
-int mtk_panel_register_dpi_customization_callback(
-		void *dev,
-		struct mtk_panel_cust *cust)
+int mtk_panel_register_dpi_customization_funcs(
+		const struct mtk_panel_cust *cust)
+{
+	return 0;
+}
+
+int mtk_panel_deregister_dpi_customization_funcs(
+		const struct mtk_panel_cust *cust)
 {
 	return 0;
 }

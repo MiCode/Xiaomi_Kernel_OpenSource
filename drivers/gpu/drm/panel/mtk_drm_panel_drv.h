@@ -62,22 +62,35 @@ extern struct mipi_dsi_driver mtk_drm_panel_dsi_driver;
  * cust: customized function callback
  * return: 0 for success, else for failed
  */
-int mtk_panel_register_drv_customization_callback(char func,
-		void *dev, struct mtk_panel_cust *cust);
-int mtk_panel_register_dbi_customization_callback(
-		void *dev, struct mtk_panel_cust *cust);
-int mtk_panel_register_dpi_customization_callback(
-		void *dev, struct mtk_panel_cust *cust);
-int mtk_panel_register_dsi_customization_callback(
-		struct mipi_dsi_device *dsi,
-		struct mtk_panel_cust *cust);
+int mtk_panel_register_drv_customization_funcs(char func,
+		const struct mtk_panel_cust *cust);
+int mtk_panel_register_dbi_customization_funcs(
+		const struct mtk_panel_cust *cust);
+int mtk_panel_register_dpi_customization_funcs(
+		const struct mtk_panel_cust *cust);
+int mtk_panel_register_dsi_customization_funcs(
+		const struct mtk_panel_cust *cust);
 
-/* function: delay of ms/us,
- * input: func: DSI/DBI/DPI, type: ms/us, time: period
- * output: 0 for success, else for failed
+
+/* deregister customization callback of panel operation
+ * func: MTK_LCM_FUNC_DBI/DPI/DSI
+ * cust: customized function callback
+ * return: 0 for success, else for failed
  */
+int mtk_panel_deregister_drv_customization_funcs(char func,
+		const struct mtk_panel_cust *cust);
+int mtk_panel_deregister_dbi_customization_funcs(
+		const struct mtk_panel_cust *cust);
+int mtk_panel_deregister_dpi_customization_funcs(
+		const struct mtk_panel_cust *cust);
+int mtk_panel_deregister_dsi_customization_funcs(
+		const struct mtk_panel_cust *cust);
 
 int mtk_lcm_dsi_power_on(void);
 int mtk_lcm_dsi_power_off(void);
 int mtk_lcm_dsi_power_reset(int value);
+
+struct mtk_panel_context *panel_to_lcm(
+		struct drm_panel *panel);
+
 #endif

@@ -107,7 +107,13 @@ mediatek-drm-panel-drv-y :=  \
 		  mtk_drm_panel_drv_dsi.o \
 		  mtk_drm_panel_drv.o
 
+mediatek-cust-panel-sample-y :=  \
+		  cust_panel/mtk_cust_panel_sample/mtk_drm_panel_cust.o \
+		  cust_panel/cust_lcm_hal.o
+
+
 obj-$(CONFIG_DRM_MEDIATEK_PANEL) += mediatek-drm-gateic.o
 obj-$(CONFIG_DRM_MEDIATEK_PANEL) += mediatek-drm-panel-drv.o
+obj-$(CONFIG_DRM_MEDIATEK_PANEL) += mediatek-cust-panel-sample.o
 
 ccflags-$(CONFIG_DRM_MEDIATEK_PANEL) += -I$(srctree)/drivers/leds/

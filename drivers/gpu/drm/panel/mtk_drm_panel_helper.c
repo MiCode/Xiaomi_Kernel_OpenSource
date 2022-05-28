@@ -38,12 +38,14 @@ int mtk_lcm_dts_read_u32_array(struct device_node *np, char *prop,
 
 	return len;
 }
+EXPORT_SYMBOL(mtk_lcm_dts_read_u32_array);
 
 void mtk_lcm_dts_read_u32(struct device_node *np, char *prop,
 		u32 *out)
 {
 	mtk_lcm_dts_read_u32_array(np, prop, out, 0, 1);
 }
+EXPORT_SYMBOL(mtk_lcm_dts_read_u32);
 
 void mtk_lcm_dts_read_u8(struct device_node *np, char *prop,
 		u8 *out)
@@ -55,6 +57,7 @@ void mtk_lcm_dts_read_u8(struct device_node *np, char *prop,
 	if (ret == 0)
 		*out = (u8)data;
 }
+EXPORT_SYMBOL(mtk_lcm_dts_read_u8);
 
 /* read u32 array and parsing into u8 buffer */
 int mtk_lcm_dts_read_u8_array_from_u32(struct device_node *np, char *prop,
@@ -98,6 +101,7 @@ int mtk_lcm_dts_read_u8_array_from_u32(struct device_node *np, char *prop,
 	LCM_KFREE(data, sizeof(u32) * max_len);
 	return len;
 }
+EXPORT_SYMBOL(mtk_lcm_dts_read_u8_array_from_u32);
 
 /* read u8 array and parsing into u8 buffer */
 int mtk_lcm_dts_read_u8_array(struct device_node *np, char *prop,
@@ -134,6 +138,7 @@ int mtk_lcm_dts_read_u8_array(struct device_node *np, char *prop,
 
 	return len;
 }
+EXPORT_SYMBOL(mtk_lcm_dts_read_u8_array);
 
 static int parse_lcm_params_dt_node(struct device_node *np,
 		struct mtk_lcm_params *params)
@@ -159,7 +164,7 @@ static int parse_lcm_params_dt_node(struct device_node *np,
 			&params->physical_width);
 	mtk_lcm_dts_read_u32(np, "lcm-params-physical_height",
 			&params->physical_height);
-	dump_lcm_params_basic(params);
+	//dump_lcm_params_basic(params);
 
 	switch (params->type) {
 	case MTK_LCM_FUNC_DBI:
@@ -168,7 +173,7 @@ static int parse_lcm_params_dt_node(struct device_node *np,
 					"mediatek,lcm-params-dbi")) {
 				ret = parse_lcm_params_dbi(type_np,
 						&params->dbi_params);
-				if (ret >= 0)
+				if (ret != 0)
 					dump_lcm_params_dbi(&params->dbi_params, NULL);
 			}
 		}
@@ -179,7 +184,7 @@ static int parse_lcm_params_dt_node(struct device_node *np,
 					"mediatek,lcm-params-dpi")) {
 				ret = parse_lcm_params_dpi(type_np,
 						&params->dpi_params);
-				if (ret >= 0)
+				if (ret != 0)
 					dump_lcm_params_dpi(&params->dpi_params, NULL);
 			}
 		}
@@ -190,7 +195,7 @@ static int parse_lcm_params_dt_node(struct device_node *np,
 					"mediatek,lcm-params-dsi")) {
 				ret = parse_lcm_params_dsi(type_np,
 						&params->dsi_params);
-				if (ret >= 0)
+				if (ret != 0)
 					dump_lcm_params_dsi(&params->dsi_params, NULL);
 			}
 		}
@@ -203,7 +208,7 @@ static int parse_lcm_params_dt_node(struct device_node *np,
 
 	return ret;
 }
-#define MTK_LCM_DATA_OFFSET (2)
+
 static int parse_lcm_ops_func_util(struct mtk_lcm_ops_data *lcm_op, u8 *dts,
 		unsigned int len)
 {
@@ -436,24 +441,20 @@ static int parse_lcm_ops_func_gpio(struct mtk_lcm_ops_data *lcm_op, u8 *dts,
 }
 
 static int parse_lcm_ops_func_cust(struct mtk_lcm_ops_data *lcm_op,
-		u8 *dts, struct mtk_panel_cust *cust)
+		u8 *dts, const struct mtk_panel_cust *cust, unsigned int flag_len)
 {
 	if (IS_ERR_OR_NULL(lcm_op) ||
-	    IS_ERR_OR_NULL(dts) || IS_ERR_OR_NULL(cust))
-		return -EINVAL;
-
-	if (atomic_read(&cust->cust_enabled) == 0 ||
+	    IS_ERR_OR_NULL(dts) || IS_ERR_OR_NULL(cust) ||
 	    IS_ERR_OR_NULL(cust->parse_ops))
 		return -EINVAL;
 
-	cust->parse_ops(lcm_op->func, lcm_op->type,
-		 dts, lcm_op->size,	lcm_op->param.cust_data);
+	cust->parse_ops(lcm_op, dts, flag_len);
 
 	return 0;
 }
 
 static int parse_lcm_ops_basic(struct mtk_lcm_ops_data *lcm_op, u8 *dts,
-		struct mtk_panel_cust *cust,
+		const struct mtk_panel_cust *cust,
 		unsigned int len, unsigned int flag_len)
 {
 	int ret = 0;
@@ -482,9 +483,11 @@ static int parse_lcm_ops_basic(struct mtk_lcm_ops_data *lcm_op, u8 *dts,
 	    lcm_op->type < MTK_LCM_GPIO_TYPE_END)
 		ret = parse_lcm_ops_func_gpio(lcm_op, dts, len);
 	else if (lcm_op->type > MTK_LCM_CUST_TYPE_START &&
-	    lcm_op->type < MTK_LCM_CUST_TYPE_END)
+	    lcm_op->type < MTK_LCM_CUST_TYPE_END) {
+		DDPDBG("%s, cust ops:%d\n", __func__, lcm_op->type);
 		ret = parse_lcm_ops_func_cust(lcm_op,
-				dts, cust);
+				dts, cust, flag_len);
+	}
 	else {
 		DDPPR_ERR("%s %d: invalid type:0x%x\n",
 			__func__, __LINE__, lcm_op->type);
@@ -537,7 +540,7 @@ u8 table_dts_buf[MTK_PANEL_TABLE_OPS_COUNT * 1024];
 int parse_lcm_ops_func(struct device_node *np,
 		struct mtk_lcm_ops_table *table, char *func,
 		unsigned int flag_len, unsigned int panel_type,
-		struct mtk_panel_cust *cust, unsigned int phase)
+		const struct mtk_panel_cust *cust, unsigned int phase)
 {
 	unsigned int i = 0, skip_count = 0;
 	u8 *tmp;
@@ -602,11 +605,13 @@ int parse_lcm_ops_func(struct device_node *np,
 		    op->type != MTK_LCM_PHASE_TYPE_END) {
 			ret = parse_lcm_ops_basic(op, tmp, cust, len, flag_len);
 #if MTK_LCM_DEBUG_DUMP
-			DDPMSG(
-				"[%s+%d] >>>func:%u,type:%u,size:%u,dts:%u,op:%u,ret:%d,phase:0x%x,skip:%d\n",
-				func, i, op->func, op->type,
-				op->size, len, tmp_len, ret,
-				phase, phase_skip_flag);
+			if (op->type > MTK_LCM_CUST_TYPE_START &&
+			    op->type < MTK_LCM_CUST_TYPE_END)
+				DDPMSG(
+					"[%s+%d] >>>func:%u,type:%u,size:%u,dts:%u,op:%u,ret:%d,phase:0x%x,skip:%d\n",
+					func, i, op->func, op->type,
+					op->size, len, tmp_len, ret,
+					phase, phase_skip_flag);
 #endif
 			if (ret < 0) {
 				DDPMSG(
@@ -620,9 +625,11 @@ int parse_lcm_ops_func(struct device_node *np,
 			table->size++;
 		} else {
 #if MTK_LCM_DEBUG_DUMP
-			DDPMSG("[%s+%d] >>>func:%u,type:%u skipped:0x%x,phase:0x%x\n",
-				func, i, op->func, op->type,
-				phase_skip_flag, phase);
+			if (op->type > MTK_LCM_CUST_TYPE_START &&
+			    op->type < MTK_LCM_CUST_TYPE_END)
+				DDPMSG("[%s+%d] >>>func:%u,type:%u skipped:0x%x,phase:0x%x\n",
+					func, i, op->func, op->type,
+					phase_skip_flag, phase);
 #endif
 			LCM_KFREE(op, sizeof(struct mtk_lcm_ops_data));
 			skip_count++;
@@ -650,7 +657,7 @@ EXPORT_SYMBOL(parse_lcm_ops_func);
 
 static int parse_lcm_ops_dt_node(struct device_node *np,
 		struct mtk_lcm_ops *ops, struct mtk_lcm_params *params,
-		struct mtk_panel_cust *cust)
+		const struct mtk_panel_cust *cust)
 {
 	struct device_node *type_np = NULL;
 	int ret = 0;
@@ -662,7 +669,6 @@ static int parse_lcm_ops_dt_node(struct device_node *np,
 		return -ENOMEM;
 	}
 
-	//DDPMSG("%s ++\n", __func__);
 	switch (params->type) {
 	case MTK_LCM_FUNC_DBI:
 		for_each_available_child_of_node(np, type_np) {
@@ -678,7 +684,7 @@ static int parse_lcm_ops_dt_node(struct device_node *np,
 				DDPMSG("%s, LCM parse dbi params\n", __func__);
 				ret = parse_lcm_ops_dbi(type_np,
 						ops->dbi_ops, &params->dbi_params, cust);
-				if (ret >= 0)
+				if (ret != 0)
 					dump_lcm_ops_dbi(ops->dbi_ops, &params->dbi_params, NULL);
 			}
 		}
@@ -696,7 +702,7 @@ static int parse_lcm_ops_dt_node(struct device_node *np,
 				DDPMSG("%s, LCM parse dpi params\n", __func__);
 				ret = parse_lcm_ops_dpi(type_np,
 						ops->dpi_ops, &params->dpi_params, cust);
-				if (ret >= 0)
+				if (ret != 0)
 					dump_lcm_ops_dpi(ops->dpi_ops, &params->dpi_params, NULL);
 			}
 		}
@@ -713,7 +719,7 @@ static int parse_lcm_ops_dt_node(struct device_node *np,
 				}
 				ret = parse_lcm_ops_dsi(type_np,
 						ops->dsi_ops, &params->dsi_params, cust);
-				if (ret >= 0)
+				if (ret != 0)
 					dump_lcm_ops_dsi(ops->dsi_ops, &params->dsi_params, NULL);
 			}
 		}
@@ -752,12 +758,12 @@ int load_panel_resource_from_dts(struct device_node *lcm_np,
 			DDPMSG("%s: parsing lcm-params, total_size:%lluByte\n",
 				__func__, mtk_lcm_total_size);
 
-			if (atomic_read(&data->cust.cust_enabled) == 1 &&
-			    data->cust.parse_params != NULL) {
-				DDPMSG("%s: parsing cust settings, enable:%d, func:0x%lx\n",
-					__func__, atomic_read(&data->cust.cust_enabled),
-					(unsigned long)data->cust.parse_params);
-				ret = data->cust.parse_params(np);
+			if (data->cust != NULL &&
+			    data->cust->parse_params != NULL) {
+				DDPMSG("%s: parsing cust params, func:0x%lx\n",
+					__func__,
+					(unsigned long)data->cust->parse_params);
+				ret = data->cust->parse_params(np);
 				if (ret < 0)
 					DDPMSG("%s, failed at cust parsing, %d\n",
 						__func__, ret);
@@ -771,11 +777,35 @@ int load_panel_resource_from_dts(struct device_node *lcm_np,
 	for_each_available_child_of_node(lcm_np, np) {
 		if (of_device_is_compatible(np, "mediatek,lcm-ops")) {
 			ret = parse_lcm_ops_dt_node(np, &data->ops,
-				&data->params, &data->cust);
+				&data->params, data->cust);
 			if (ret < 0) {
 				DDPMSG("%s, failed to parse operations, %d\n", __func__, ret);
 				return ret;
 			}
+
+			if (data->cust != NULL &&
+				data->cust->parse_ops_table != NULL) {
+				DDPMSG("%s: parsing cust ops table, func:0x%lx\n",
+					__func__,
+					(unsigned long)data->cust->parse_ops_table);
+				switch (data->params.type) {
+				case MTK_LCM_FUNC_DBI:
+					data->cust->parse_ops_table(np,
+						data->ops.dbi_ops->flag_len);
+					break;
+				case MTK_LCM_FUNC_DPI:
+					data->cust->parse_ops_table(np,
+						data->ops.dpi_ops->flag_len);
+					break;
+				case MTK_LCM_FUNC_DSI:
+					data->cust->parse_ops_table(np,
+						data->ops.dsi_ops->flag_len);
+					break;
+				default:
+					break;
+				}
+			}
+
 			DDPMSG("%s: parsing lcm-ops, total_size:%lluByte\n",
 				__func__, mtk_lcm_total_size);
 		}
@@ -1102,8 +1132,8 @@ static void dump_lcm_ops_func_gpio(struct mtk_lcm_ops_data *lcm_op,
 	}
 }
 
-static int dump_lcm_ops_func(struct mtk_lcm_ops_data *lcm_op,
-		struct mtk_panel_cust *cust, unsigned int id, const char *owner)
+int dump_lcm_ops_func(struct mtk_lcm_ops_data *lcm_op,
+		const struct mtk_panel_cust *cust, unsigned int id, const char *owner)
 {
 	if (IS_ERR_OR_NULL(lcm_op))
 		return -EINVAL;
@@ -1120,7 +1150,6 @@ static int dump_lcm_ops_func(struct mtk_lcm_ops_data *lcm_op,
 	else if (lcm_op->type > MTK_LCM_CUST_TYPE_START &&
 	    lcm_op->type < MTK_LCM_CUST_TYPE_END) {
 		if (cust != NULL &&
-		    atomic_read(&cust->cust_enabled) != 0 &&
 		    cust->dump_ops != NULL)
 			cust->dump_ops(lcm_op, owner, id);
 	} else
@@ -1128,9 +1157,10 @@ static int dump_lcm_ops_func(struct mtk_lcm_ops_data *lcm_op,
 
 	return 0;
 }
+EXPORT_SYMBOL(dump_lcm_ops_func);
 
 void dump_lcm_ops_table(struct mtk_lcm_ops_table *table,
-		struct mtk_panel_cust *cust,
+		const struct mtk_panel_cust *cust,
 		const char *owner)
 {
 	struct mtk_lcm_ops_data *lcm_op = NULL;
@@ -2407,12 +2437,20 @@ int mtk_panel_execute_operation(struct mipi_dsi_device *dev,
 					panel_resource->params.dsi_params.lcm_pinctrl_count);
 		else if (op->type > MTK_LCM_CUST_TYPE_START &&
 			op->type < MTK_LCM_CUST_TYPE_END) {
-			if (atomic_read(
-					&panel_resource->cust.cust_enabled) == 0 ||
-				IS_ERR_OR_NULL(panel_resource->cust.func))
+			if (IS_ERR_OR_NULL(panel_resource->cust)) {
+				DDPPR_ERR("%s, %d, no cust for cmd:%u\n",
+					__func__, __LINE__, op->type);
 				return -EINVAL;
+			}
+			if (IS_ERR_OR_NULL(panel_resource->cust->execute_ops)) {
+				DDPPR_ERR("%s, %d, no cust ops for cmd:%u\n",
+					__func__, __LINE__, op->type);
+				return -EINVAL;
+			}
 
-			ret = panel_resource->cust.func(op, input);
+			DDPDBG("%s-op%d, func:%u, type:%u, execute cust ops\n",
+				owner, i, op->func, op->type);
+			ret = panel_resource->cust->execute_ops(op, input);
 		} else {
 			ret = -EINVAL;
 		}
@@ -2450,25 +2488,25 @@ void dump_lcm_params_basic(struct mtk_lcm_params *params)
 }
 
 void mtk_lcm_dump_all(char func, struct mtk_panel_resource *resource,
-		struct mtk_panel_cust *cust)
+		const struct mtk_panel_cust *cust)
 {
 	dump_lcm_params_basic(&resource->params);
 
 	switch (func) {
 	case MTK_LCM_FUNC_DBI:
-		dump_lcm_params_dbi(&resource->params.dbi_params, &resource->cust);
+		dump_lcm_params_dbi(&resource->params.dbi_params, resource->cust);
 		dump_lcm_ops_dbi(resource->ops.dbi_ops,
-				&resource->params.dbi_params, &resource->cust);
+				&resource->params.dbi_params, resource->cust);
 		break;
 	case MTK_LCM_FUNC_DPI:
-		dump_lcm_params_dpi(&resource->params.dpi_params, &resource->cust);
+		dump_lcm_params_dpi(&resource->params.dpi_params, resource->cust);
 		dump_lcm_ops_dpi(resource->ops.dpi_ops,
-				&resource->params.dpi_params, &resource->cust);
+				&resource->params.dpi_params, resource->cust);
 		break;
 	case MTK_LCM_FUNC_DSI:
-		dump_lcm_params_dsi(&resource->params.dsi_params, &resource->cust);
+		dump_lcm_params_dsi(&resource->params.dsi_params, resource->cust);
 		dump_lcm_ops_dsi(resource->ops.dsi_ops,
-				&resource->params.dsi_params, &resource->cust);
+				&resource->params.dsi_params, resource->cust);
 		break;
 	default:
 		DDPDUMP("%s, invalid func:%d\n", __func__, func);
@@ -2476,10 +2514,20 @@ void mtk_lcm_dump_all(char func, struct mtk_panel_resource *resource,
 	}
 }
 
-static void free_lcm_ops_data(struct mtk_lcm_ops_data *lcm_op)
+static void free_lcm_ops_data(struct mtk_lcm_ops_data *lcm_op,
+	const struct mtk_panel_cust *cust)
 {
 	if (IS_ERR_OR_NULL(lcm_op))
 		return;
+
+	if (lcm_op->type > MTK_LCM_CUST_TYPE_START &&
+	    lcm_op->type < MTK_LCM_CUST_TYPE_END) {
+		if (IS_ERR_OR_NULL(cust) ||
+		    IS_ERR_OR_NULL(cust->free_ops))
+			return;
+		cust->free_ops(lcm_op);
+		return;
+	}
 
 	switch (lcm_op->type) {
 	case MTK_LCM_CMD_TYPE_WRITE_BUFFER:
@@ -2533,7 +2581,8 @@ static void free_lcm_ops_data(struct mtk_lcm_ops_data *lcm_op)
 	}
 }
 
-void free_lcm_ops_table(struct mtk_lcm_ops_table *table)
+void free_lcm_ops_table(struct mtk_lcm_ops_table *table,
+	const struct mtk_panel_cust *cust)
 {
 	struct mtk_lcm_ops_data *op = NULL, *tmp = NULL;
 
@@ -2542,48 +2591,51 @@ void free_lcm_ops_table(struct mtk_lcm_ops_table *table)
 
 	list_for_each_entry_safe(op, tmp, &table->list, node) {
 		list_del(&op->node);
-		free_lcm_ops_data(op);
+		free_lcm_ops_data(op, cust);
 		LCM_KFREE(op, sizeof(struct mtk_lcm_ops_data));
 	}
 	table->size = 0;
 }
+EXPORT_SYMBOL(free_lcm_ops_table);
 
-static void free_lcm_params(char func, struct mtk_lcm_params *params)
+static void free_lcm_params(char func, struct mtk_lcm_params *params,
+	const struct mtk_panel_cust *cust)
 {
 	if (IS_ERR_OR_NULL(params))
 		return;
 
 	switch (func) {
 	case MTK_LCM_FUNC_DBI:
-		free_lcm_params_dbi(&params->dbi_params);
+		free_lcm_params_dbi(&params->dbi_params, cust);
 		break;
 	case MTK_LCM_FUNC_DPI:
-		free_lcm_params_dpi(&params->dpi_params);
+		free_lcm_params_dpi(&params->dpi_params, cust);
 		break;
 	case MTK_LCM_FUNC_DSI:
-		free_lcm_params_dsi(&params->dsi_params);
+		free_lcm_params_dsi(&params->dsi_params, cust);
 		break;
 	default:
 		break;
 	}
 }
 
-static void free_lcm_ops(char func, struct mtk_lcm_ops *ops)
+static void free_lcm_ops(char func, struct mtk_lcm_ops *ops,
+	const struct mtk_panel_cust *cust)
 {
 	if (ops == NULL)
 		return;
 
 	switch (func) {
 	case MTK_LCM_FUNC_DBI:
-		free_lcm_ops_dbi(ops->dbi_ops);
+		free_lcm_ops_dbi(ops->dbi_ops, cust);
 		ops->dbi_ops = NULL;
 		break;
 	case MTK_LCM_FUNC_DPI:
-		free_lcm_ops_dpi(ops->dpi_ops);
+		free_lcm_ops_dpi(ops->dpi_ops, cust);
 		ops->dpi_ops = NULL;
 		break;
 	case MTK_LCM_FUNC_DSI:
-		free_lcm_ops_dsi(ops->dsi_ops);
+		free_lcm_ops_dsi(ops->dsi_ops, cust);
 		ops->dsi_ops = NULL;
 		break;
 	default:
@@ -2593,18 +2645,15 @@ static void free_lcm_ops(char func, struct mtk_lcm_ops *ops)
 
 void free_lcm_resource(char func, struct mtk_panel_resource *data)
 {
+	const struct mtk_panel_cust *cust = data->cust;
 	if (IS_ERR_OR_NULL(data))
 		return;
 
 	DDPMSG("%s, %d\n", __func__, __LINE__);
-	free_lcm_ops(func, &data->ops);
-	free_lcm_params(func, &data->params);
+	free_lcm_ops(func, &data->ops, cust);
+	free_lcm_params(func, &data->params, cust);
 
-	if (atomic_read(&data->cust.cust_enabled) == 1) {
-		if (data->cust.free_ops != NULL)
-			data->cust.free_ops(func);
-		if (data->cust.free_params != NULL)
-			data->cust.free_params(func);
-	}
+	if (cust != NULL && cust->free_params != NULL)
+		cust->free_params(func);
 	LCM_KFREE(data, sizeof(struct mtk_panel_resource));
 }

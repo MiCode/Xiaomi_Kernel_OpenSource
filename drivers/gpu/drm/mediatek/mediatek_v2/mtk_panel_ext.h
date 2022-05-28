@@ -47,6 +47,12 @@ struct mtk_panel_para_table {
  *	DSI_GERNERIC_READ_2_PARAM					0x24
  */
 
+struct lcm_sample_cust_data {
+	unsigned int cmd;
+	char *name;
+	unsigned int type;
+};
+
 /**
  * struct mtk_ddic_dsi_msg - MTK write/read DDIC RG cmd buffer
  * @channel: virtual channel id
@@ -581,6 +587,8 @@ struct mtk_panel_funcs {
 	int (*ddic_ops)(struct drm_panel *panel, enum MTK_PANEL_DDIC_OPS ops,
 		struct mtk_lcm_dsi_cmd_packet *packet, void *misc);
 	int (*set_value)(int value);
+	int (*cust_funcs)(struct drm_panel *panel,
+		int cmd, void *params, void *handle, void **output);
 };
 
 void mtk_panel_init(struct mtk_panel_ctx *ctx);

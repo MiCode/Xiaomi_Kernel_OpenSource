@@ -7494,6 +7494,20 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 			panel_ext->funcs->reset(dsi->panel, *(int *)params);
 	}
 		break;
+	case LCM_CUST_FUNC:
+	{
+		struct mtk_dsi *dsi =
+			container_of(comp, struct mtk_dsi, ddp_comp);
+		struct lcm_sample_cust_data *data = (struct lcm_sample_cust_data *)params;
+
+		panel_ext = mtk_dsi_get_panel_ext(comp);
+		if (panel_ext && panel_ext->funcs
+			&& panel_ext->funcs->cust_funcs) {
+			panel_ext->funcs->cust_funcs(dsi->panel, data->cmd,
+					NULL, NULL, &params);
+		}
+	}
+		break;
 	case DSI_SEND_DDIC_CMD_PACK:
 	{
 		struct mtk_dsi *dsi =

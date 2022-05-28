@@ -19,7 +19,7 @@ EXPORT_SYMBOL(parse_lcm_params_dbi);
 int parse_lcm_ops_dbi(struct device_node *np,
 		struct mtk_lcm_ops_dbi *ops,
 		struct mtk_lcm_params_dbi *params,
-		struct mtk_panel_cust *cust)
+		const struct mtk_panel_cust *cust)
 {
 	if (IS_ERR_OR_NULL(ops) || IS_ERR_OR_NULL(params) || IS_ERR_OR_NULL(np))
 		return -EINVAL;
@@ -32,24 +32,26 @@ int parse_lcm_ops_dbi(struct device_node *np,
 EXPORT_SYMBOL(parse_lcm_ops_dbi);
 
 void dump_lcm_params_dbi(struct mtk_lcm_params_dbi *params,
-	struct mtk_panel_cust *cust)
+	const struct mtk_panel_cust *cust)
 {
 }
 EXPORT_SYMBOL(dump_lcm_params_dbi);
 
 void dump_lcm_ops_dbi(struct mtk_lcm_ops_dbi *ops,
 		struct mtk_lcm_params_dbi *params,
-		struct mtk_panel_cust *cust)
+		const struct mtk_panel_cust *cust)
 {
 }
 EXPORT_SYMBOL(dump_lcm_ops_dbi);
 
-void free_lcm_params_dbi(struct mtk_lcm_params_dbi *params)
+void free_lcm_params_dbi(struct mtk_lcm_params_dbi *params,
+	const struct mtk_panel_cust *cust)
 {
 }
 EXPORT_SYMBOL(free_lcm_params_dbi);
 
-void free_lcm_ops_dbi(struct mtk_lcm_ops_dbi *ops)
+void free_lcm_ops_dbi(struct mtk_lcm_ops_dbi *ops,
+	const struct mtk_panel_cust *cust)
 {
 	LCM_KFREE(ops, sizeof(struct mtk_lcm_ops_dbi));
 }

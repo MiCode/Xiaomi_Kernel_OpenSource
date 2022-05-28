@@ -1008,7 +1008,7 @@ EXPORT_SYMBOL(parse_lcm_params_dsi);
 int parse_lcm_ops_dsi(struct device_node *np,
 		struct mtk_lcm_ops_dsi *ops,
 		struct mtk_lcm_params_dsi *params,
-		struct mtk_panel_cust *cust)
+		const struct mtk_panel_cust *cust)
 {
 	struct device_node *mode_np = NULL;
 	struct mtk_lcm_mode_dsi *mode_node;
@@ -1594,7 +1594,7 @@ EXPORT_SYMBOL(dump_lcm_dsi_fps_settings);
 
 /* dump dsi settings*/
 void dump_lcm_params_dsi(struct mtk_lcm_params_dsi *params,
-	struct mtk_panel_cust *cust)
+	const struct mtk_panel_cust *cust)
 {
 	struct mtk_lcm_mode_dsi *mode_node;
 	int i = 0;
@@ -1621,7 +1621,6 @@ void dump_lcm_params_dsi(struct mtk_lcm_params_dsi *params,
 	DDPDUMP("=============================================\n");
 
 	if (IS_ERR_OR_NULL(cust) ||
-	    atomic_read(&cust->cust_enabled) == 0 ||
 	    IS_ERR_OR_NULL(cust->dump_params))
 		return;
 
@@ -1633,7 +1632,7 @@ EXPORT_SYMBOL(dump_lcm_params_dsi);
 
 void dump_lcm_ops_dsi(struct mtk_lcm_ops_dsi *ops,
 		struct mtk_lcm_params_dsi *params,
-		struct mtk_panel_cust *cust)
+		const struct mtk_panel_cust *cust)
 {
 	char mode_name[128] = {0};
 	struct mtk_lcm_mode_dsi *mode_node;
@@ -1721,6 +1720,11 @@ void dump_lcm_ops_dsi(struct mtk_lcm_ops_dsi *ops,
 		}
 	}
 
+	if (cust != NULL &&
+		cust->dump_ops_table != NULL) {
+		cust->dump_ops_table(__func__, MTK_LCM_FUNC_DSI);
+	}
+
 	DDPDUMP("=============================================\n");
 }
 EXPORT_SYMBOL(dump_lcm_ops_dsi);
@@ -1740,7 +1744,8 @@ void free_lcm_msync_min_fps_list(struct list_head *msync_fps_list)
 	}
 }
 
-void free_lcm_params_dsi(struct mtk_lcm_params_dsi *params)
+void free_lcm_params_dsi(struct mtk_lcm_params_dsi *params,
+	const struct mtk_panel_cust *cust)
 {
 	struct mtk_lcm_mode_dsi *mode_node = NULL, *tmp = NULL;
 
@@ -1752,15 +1757,15 @@ void free_lcm_params_dsi(struct mtk_lcm_params_dsi *params)
 
 	list_for_each_entry_safe(mode_node, tmp, &params->mode_list, list) {
 		if (mode_node->fps_switch_bfoff.size > 0) {
-			free_lcm_ops_table(&mode_node->fps_switch_bfoff);
+			free_lcm_ops_table(&mode_node->fps_switch_bfoff, cust);
 			mode_node->fps_switch_bfoff.size = 0;
 		}
 		if (mode_node->fps_switch_afon.size > 0) {
-			free_lcm_ops_table(&mode_node->fps_switch_afon);
+			free_lcm_ops_table(&mode_node->fps_switch_afon, cust);
 			mode_node->fps_switch_afon.size = 0;
 		}
 		if (mode_node->msync_switch_mte.size > 0) {
-			free_lcm_ops_table(&mode_node->msync_switch_mte);
+			free_lcm_ops_table(&mode_node->msync_switch_mte, cust);
 			mode_node->msync_switch_mte.size = 0;
 		}
 		if (mode_node->msync_min_fps_count > 0) {
@@ -1778,7 +1783,8 @@ void free_lcm_params_dsi(struct mtk_lcm_params_dsi *params)
 }
 EXPORT_SYMBOL(free_lcm_params_dsi);
 
-void free_lcm_ops_dsi(struct mtk_lcm_ops_dsi *ops)
+void free_lcm_ops_dsi(struct mtk_lcm_ops_dsi *ops,
+	const struct mtk_panel_cust *cust)
 {
 	if (IS_ERR_OR_NULL(ops)) {
 		DDPPR_ERR("%s:%d, ERROR: invalid params/ops\n",
@@ -1789,8 +1795,8 @@ void free_lcm_ops_dsi(struct mtk_lcm_ops_dsi *ops)
 	DDPMSG("%s: LCM free dsi ops:0x%lx\n",
 		__func__, (unsigned long)ops);
 
-	free_lcm_ops_table(&ops->prepare);
-	free_lcm_ops_table(&ops->unprepare);
+	free_lcm_ops_table(&ops->prepare, cust);
+	free_lcm_ops_table(&ops->unprepare, cust);
 
 #ifdef MTK_PANEL_SUPPORT_COMPARE_ID
 	if (ops->compare_id_value_length > 0 &&
@@ -1800,27 +1806,27 @@ void free_lcm_ops_dsi(struct mtk_lcm_ops_dsi *ops)
 		ops->compare_id_value_length = 0;
 	}
 
-	free_lcm_ops_table(&ops->compare_id);
+	free_lcm_ops_table(&ops->compare_id, cust);
 #endif
 
-	free_lcm_ops_table(&ops->set_backlight_cmdq);
+	free_lcm_ops_table(&ops->set_backlight_cmdq, cust);
 	if (ops->ata_id_value_length > 0 &&
 	    ops->ata_id_value_data != NULL) {
 		LCM_KFREE(ops->ata_id_value_data,
 				ops->ata_id_value_length);
 		ops->ata_id_value_length = 0;
 	}
-	free_lcm_ops_table(&ops->ata_check);
-	free_lcm_ops_table(&ops->set_aod_light);
-	free_lcm_ops_table(&ops->doze_enable);
-	free_lcm_ops_table(&ops->doze_disable);
-	free_lcm_ops_table(&ops->doze_enable_start);
-	free_lcm_ops_table(&ops->doze_area);
-	free_lcm_ops_table(&ops->doze_post_disp_on);
-	free_lcm_ops_table(&ops->hbm_set_cmdq);
-	free_lcm_ops_table(&ops->msync_set_min_fps);
-	free_lcm_ops_table(&ops->msync_close_mte);
-	free_lcm_ops_table(&ops->msync_default_mte);
+	free_lcm_ops_table(&ops->ata_check, cust);
+	free_lcm_ops_table(&ops->set_aod_light, cust);
+	free_lcm_ops_table(&ops->doze_enable, cust);
+	free_lcm_ops_table(&ops->doze_disable, cust);
+	free_lcm_ops_table(&ops->doze_enable_start, cust);
+	free_lcm_ops_table(&ops->doze_area, cust);
+	free_lcm_ops_table(&ops->doze_post_disp_on, cust);
+	free_lcm_ops_table(&ops->hbm_set_cmdq, cust);
+	free_lcm_ops_table(&ops->msync_set_min_fps, cust);
+	free_lcm_ops_table(&ops->msync_close_mte, cust);
+	free_lcm_ops_table(&ops->msync_default_mte, cust);
 
 	LCM_KFREE(ops, sizeof(struct mtk_lcm_ops_dsi));
 }

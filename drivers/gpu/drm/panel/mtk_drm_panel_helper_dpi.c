@@ -19,7 +19,7 @@ EXPORT_SYMBOL(parse_lcm_params_dpi);
 int parse_lcm_ops_dpi(struct device_node *np,
 		struct mtk_lcm_ops_dpi *ops,
 		struct mtk_lcm_params_dpi *params,
-		struct mtk_panel_cust *cust)
+		const struct mtk_panel_cust *cust)
 {
 	if (IS_ERR_OR_NULL(ops) || IS_ERR_OR_NULL(params) || IS_ERR_OR_NULL(np))
 		return -EINVAL;
@@ -32,24 +32,26 @@ int parse_lcm_ops_dpi(struct device_node *np,
 EXPORT_SYMBOL(parse_lcm_ops_dpi);
 
 void dump_lcm_params_dpi(struct mtk_lcm_params_dpi *params,
-	struct mtk_panel_cust *cust)
+	const struct mtk_panel_cust *cust)
 {
 }
 EXPORT_SYMBOL(dump_lcm_params_dpi);
 
 void dump_lcm_ops_dpi(struct mtk_lcm_ops_dpi *ops,
 		struct mtk_lcm_params_dpi *params,
-		struct mtk_panel_cust *cust)
+		const struct mtk_panel_cust *cust)
 {
 }
 EXPORT_SYMBOL(dump_lcm_ops_dpi);
 
-void free_lcm_params_dpi(struct mtk_lcm_params_dpi *params)
+void free_lcm_params_dpi(struct mtk_lcm_params_dpi *params,
+	const struct mtk_panel_cust *cust)
 {
 }
 EXPORT_SYMBOL(free_lcm_params_dpi);
 
-void free_lcm_ops_dpi(struct mtk_lcm_ops_dpi *ops)
+void free_lcm_ops_dpi(struct mtk_lcm_ops_dpi *ops,
+	const struct mtk_panel_cust *cust)
 {
 	LCM_KFREE(ops, sizeof(struct mtk_lcm_ops_dpi));
 }
