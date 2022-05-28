@@ -44,6 +44,18 @@ static struct apu_power apupw = {
 static uint32_t g_opp_cfg_acx0;
 static uint32_t g_opp_cfg_acx1;
 
+static void aputop_dump_reg(enum apupw_reg idx, uint32_t offset, uint32_t size)
+{
+	char buf[32];
+
+	// reg dump for RPC
+	memset(buf, 0, sizeof(buf));
+	snprintf(buf, 32, "phys 0x%08x: ",
+			(ulong)(apupw.regs[idx]) + offset);
+	print_hex_dump(KERN_ERR, buf, DUMP_PREFIX_OFFSET, 16, 4,
+			apupw.regs[idx] + offset, size, true);
+}
+
 static int init_reg_base(struct platform_device *pdev)
 {
 	struct resource *res;
@@ -505,10 +517,9 @@ static int mt6985_apu_top_func(struct platform_device *pdev,
 		test_ipi_wakeup_apu();
 		break;
 	case APUTOP_FUNC_ARE_DUMP1:
-		//TODO
-		break;
 	case APUTOP_FUNC_ARE_DUMP2:
-		//TODO
+		aputop_dump_reg(apu_are, 0x0, 0x4000);
+		aputop_dump_reg(apu_vcore, 0x3000, 0x10);
 		break;
 	case APUTOP_FUNC_BOOT_HOST:
 		return plat_apu_boot_host();
