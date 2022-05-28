@@ -56,6 +56,7 @@ enum slbc_uid {
 	UID_AISR_MML,
 	UID_SH_P1,
 	UID_SMT,
+	UID_APU,
 	UID_MAX,
 };
 

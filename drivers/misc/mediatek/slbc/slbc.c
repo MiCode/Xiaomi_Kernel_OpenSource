@@ -53,6 +53,7 @@ char *slbc_uid_str[UID_MAX] = {
 	"UID_AISR_MML",
 	"UID_SH_P1",
 	"UID_SMT",
+	"UID_APU",
 };
 EXPORT_SYMBOL_GPL(slbc_uid_str);
 
