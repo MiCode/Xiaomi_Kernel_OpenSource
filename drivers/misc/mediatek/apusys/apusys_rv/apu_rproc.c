@@ -564,6 +564,9 @@ static int apu_remove(struct platform_device *pdev)
 #ifndef MT6879_APUSYS_RV_PLAT_DATA
 const struct mtk_apu_platdata mt6879_platdata;
 #endif
+#ifndef MT6886_APUSYS_RV_PLAT_DATA
+const struct mtk_apu_platdata mt6886_platdata;
+#endif
 #ifndef MT6893_APUSYS_RV_PLAT_DATA
 const struct mtk_apu_platdata mt6893_platdata;
 #endif
@@ -582,6 +585,7 @@ const struct mtk_apu_platdata mt8188_platdata;
 
 static const struct of_device_id mtk_apu_of_match[] = {
 	{ .compatible = "mediatek,mt6879-apusys_rv", .data = &mt6879_platdata},
+	{ .compatible = "mediatek,mt6886-apusys_rv", .data = &mt6886_platdata},
 	{ .compatible = "mediatek,mt6893-apusys_rv", .data = &mt6893_platdata},
 	{ .compatible = "mediatek,mt6895-apusys_rv", .data = &mt6895_platdata},
 	{ .compatible = "mediatek,mt6983-apusys_rv", .data = &mt6983_platdata},

@@ -213,6 +213,10 @@ ifneq ($(wildcard $(srctree)/drivers/misc/mediatek/apusys/apusys_rv/2.0/mt6879_p
 subdir-ccflags-y += -DMT6879_APUSYS_RV_PLAT_DATA
 apusys-objs += apusys_rv/2.0/mt6879_plat.o
 endif
+ifneq ($(wildcard $(srctree)/drivers/misc/mediatek/apusys/apusys_rv/2.0/mt6886_plat.c),)
+subdir-ccflags-y += -DMT6886_APUSYS_RV_PLAT_DATA
+apusys-objs += apusys_rv/2.0/mt6886_plat.o
+endif
 ifneq ($(wildcard $(srctree)/drivers/misc/mediatek/apusys/apusys_rv/1.0/mt6893_plat.c),)
 subdir-ccflags-y += -DMT6893_APUSYS_RV_PLAT_DATA
 apusys-objs += apusys_rv/1.0/mt6893_plat.o
