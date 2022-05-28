@@ -7032,38 +7032,38 @@
 		compatible = "mediatek,mmdvfs";
 
 		operating-points-v2 = <&opp_table_vdo>;
-		mediatek,support_mux =  "vdo", "cam",
+		mediatek,support-mux =  "vdo", "cam",
 					"img", "warp", "ethdr",
 					"ipe","venc", "vdec",
 					"vpp", "ccu";
-		mediatek,mux_vdo = "TOP_MAINPLL_D5_D2",
+		mediatek,mux-vdo = "TOP_MAINPLL_D5_D2",
 				   "TOP_UNIVPLL_D4_D2", "TOP_UNIVPLL_D6",
 				   "TOP_TVDPLL1_CK";
-		mediatek,mux_cam = "TOP_MAINPLL_D4_D2",
+		mediatek,mux-cam = "TOP_MAINPLL_D4_D2",
 				   "TOP_MMPLL_D7", "TOP_UNIVPLL_D6",
 				   "TOP_UNIVPLL_D5";
-		mediatek,mux_img = "TOP_UNIVPLL_D5_D2",
+		mediatek,mux-img = "TOP_UNIVPLL_D5_D2",
 				   "TOP_MMPLL_D4_D2", "TOP_MMPLL_D6",
 				   "TOP_IMGPLL_CK";
-		mediatek,mux_warp = "TOP_MAINPLL_D4_D2",
+		mediatek,mux-warp = "TOP_MAINPLL_D4_D2",
 				    "TOP_MAINPLL_D6", "TOP_MAINPLL_D5",
 				    "TOP_UNIVPLL_D4";
-		mediatek,mux_ethdr = "TOP_MMPLL_D5_D4",
+		mediatek,mux-ethdr = "TOP_MMPLL_D5_D4",
 				     "TOP_UNIVPLL_D6_D2", "TOP_MMPLL_D7",
 				     "TOP_UNIVPLL_D6";
-		mediatek,mux_ipe = "TOP_MAINPLL_D4_D2",
+		mediatek,mux-ipe = "TOP_MAINPLL_D4_D2",
 				   "TOP_MAINPLL_D6", "TOP_MMPLL_D6",
 				   "TOP_MAINPLL_D4";
-		mediatek,mux_venc = "TOP_UNIVPLL_D5_D2",
+		mediatek,mux-venc = "TOP_UNIVPLL_D5_D2",
 				    "TOP_MMPLL_D4_D2", "TOP_MMPLL_D6",
 				    "TOP_UNIVPLL_D4";
-		mediatek,mux_vdec = "TOP_MAINPLL_D5_D2",
+		mediatek,mux-vdec = "TOP_MAINPLL_D5_D2",
 				    "TOP_UNIVPLL_D4_D2", "TOP_MMPLL_D6",
 				    "TOP_VDECPLL_CK";
-		mediatek,mux_vpp = "TOP_MAINPLL_D5_D2",
+		mediatek,mux-vpp = "TOP_MAINPLL_D5_D2",
 				   "TOP_UNIVPLL_D4_D2", "TOP_UNIVPLL_D6",
 				   "TOP_TVDPLL1_CK";
-		mediatek,mux_ccu = "TOP_MAINPLL_D4_D2",
+		mediatek,mux-ccu = "TOP_MAINPLL_D4_D2",
 				   "TOP_UNIVPLL_D7", "TOP_UNIVPLL_D6",
 				   "TOP_UNIVPLL_D6";
 

@@ -10224,7 +10224,7 @@
 	mmdvfs_clk: mmdvfs-clk {
 		compatible = "mediatek,mtk-mmdvfs-v3";
 		#mmdvfs,clock-cells = <6>;
-		mediatek,mmdvfs_clocks =
+		mediatek,mmdvfs-clocks =
 			<&mmdvfs_clk CLK_MMDVFS_DISP PWR_MMDVFS_VCORE 1
 				IPI_MMDVFS_VCP SPEC_MMDVFS_ALONE &opp_table_disp>,
 			<&mmdvfs_clk CLK_MMDVFS_MDP PWR_MMDVFS_VCORE 2
@@ -10257,7 +10257,7 @@
 				IPI_MMDVFS_VCP SPEC_MMDVFS_NORMAL &opp_table_vote>,
 			<&mmdvfs_clk CLK_MMDVFS_VMM PWR_MMDVFS_VMM 12
 				IPI_MMDVFS_VCP SPEC_MMDVFS_NORMAL &opp_table_vote>;
-		mediatek,mmdvfs_clock_names = "disp", "mdp", "mml", "smi_common0", "smi_common1",
+		mediatek,mmdvfs-clock-names = "disp", "mdp", "mml", "smi_common0", "smi_common1",
 			"venc", "jpegenc", "vdec", "vfmt", "jpegdec", "img", "ipe", "cam", "ccu",
 			"vcore", "vmm";
 		#clock-cells = <1>;
@@ -10278,30 +10278,30 @@
 	mmdvfs {
 		compatible = "mediatek,mmdvfs";
 		operating-points-v2 = <&opp_table_disp>;
-		mediatek,support_mux = "disp0", "disp1", "disp2", "disp3",
+		mediatek,support-mux = "disp0", "disp1", "disp2", "disp3",
 			"mminfra", "mdp0", "mdp1", "venc";
-		mediatek,mux_disp0 = "TOP_MMPLL_D6_D2",
+		mediatek,mux-disp0 = "TOP_MMPLL_D6_D2",
 			"TOP_MAINPLL_D6", "TOP_MMPLL_D6",
 			"TOP_UNIVPLL_D4", "TOP_MAINPLL_D3";
-		mediatek,mux_disp1 = "TOP_MMPLL_D6_D2",
+		mediatek,mux-disp1 = "TOP_MMPLL_D6_D2",
 			"TOP_MAINPLL_D6", "TOP_MMPLL_D6",
 			"TOP_UNIVPLL_D4", "TOP_MAINPLL_D3";
-		mediatek,mux_disp2 = "TOP_MMPLL_D6_D2",
+		mediatek,mux-disp2 = "TOP_MMPLL_D6_D2",
 			"TOP_MAINPLL_D6", "TOP_MMPLL_D6",
 			"TOP_UNIVPLL_D4", "TOP_MAINPLL_D3";
-		mediatek,mux_disp3 = "TOP_MMPLL_D6_D2",
+		mediatek,mux-disp3 = "TOP_MMPLL_D6_D2",
 			"TOP_MAINPLL_D6", "TOP_MMPLL_D6",
 			"TOP_UNIVPLL_D4", "TOP_MAINPLL_D3";
-		mediatek,mux_mminfra = "TOP_MAINPLL_D5_D2",
+		mediatek,mux-mminfra = "TOP_MAINPLL_D5_D2",
 			"TOP_MMPLL_D4_D2", "TOP_MMPLL_D6",
 			"TOP_UNIVPLL_D4", "TOP_MAINPLL_D3";
-		mediatek,mux_mdp0 = "TOP_UNIVPLL_D5_D2",
+		mediatek,mux-mdp0 = "TOP_UNIVPLL_D5_D2",
 			"TOP_MAINPLL_D6", "TOP_MMPLL_D6",
 			"TOP_UNIVPLL_D4", "TOP_MAINPLL_D3";
-		mediatek,mux_mdp1 = "TOP_UNIVPLL_D5_D2",
+		mediatek,mux-mdp1 = "TOP_UNIVPLL_D5_D2",
 			"TOP_MAINPLL_D6", "TOP_MMPLL_D6",
 			"TOP_UNIVPLL_D4", "TOP_MAINPLL_D3";
-		mediatek,mux_venc = "TOP_UNIVPLL2_D5_D2",
+		mediatek,mux-venc = "TOP_UNIVPLL2_D5_D2",
 			"TOP_UNIVPLL2_D4_D2", "TOP_MMPLL2_D6",
 			"TOP_UNIVPLL2_D4", "TOP_MMPLL2_D4";
 
