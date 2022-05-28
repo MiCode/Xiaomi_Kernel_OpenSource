@@ -1175,7 +1175,7 @@ static int probe(struct platform_device *pdev)
 	mutex_init(&priv->sram_mutex);
 	mml_log("comp(rdma) %u smi larb con %#lx", priv->comp.id, priv->smi_larb_con);
 
-	if (of_property_read_u16(dev->of_node, "event_frame_done",
+	if (of_property_read_u16(dev->of_node, "event-frame-done",
 				 &priv->event_eof))
 		dev_err(dev, "read event frame_done fail\n");
 

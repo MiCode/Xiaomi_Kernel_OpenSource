@@ -2263,17 +2263,17 @@ static int probe(struct platform_device *pdev)
 		SMI_LARB_NON_SEC_CON + priv->comp.larb_port * 4;
 	mutex_init(&priv->sram_mutex);
 
-	of_property_read_u16(dev->of_node, "event_frame_done",
+	of_property_read_u16(dev->of_node, "event-frame-done",
 			     &priv->event_eof);
-	of_property_read_u16(dev->of_node, "event_bufa",
+	of_property_read_u16(dev->of_node, "event-bufa",
 			     &priv->event_bufa);
-	of_property_read_u16(dev->of_node, "event_bufb",
+	of_property_read_u16(dev->of_node, "event-bufb",
 			     &priv->event_bufb);
-	of_property_read_u16(dev->of_node, "event_buf_next",
+	of_property_read_u16(dev->of_node, "event-buf-next",
 			     &priv->event_buf_next);
 
 	/* get index of wrot by alias */
-	priv->idx = of_alias_get_id(dev->of_node, "mml_wrot");
+	priv->idx = of_alias_get_id(dev->of_node, "mml-wrot");
 
 	/* parse inline rot node for racing mode */
 	priv->irot_base[0] = mml_get_node_base_pa(pdev, "inlinerot", 0, &priv->irot_va[0]);

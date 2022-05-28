@@ -1113,16 +1113,16 @@ static int mml_probe(struct platform_device *pdev)
 
 	mml->racing_en = of_property_read_bool(dev->of_node, "racing-enable");
 
-	if (of_property_read_u8(dev->of_node, "racing_height", &mml->racing_height))
+	if (of_property_read_u8(dev->of_node, "racing-height", &mml->racing_height))
 		mml->racing_height = 64;	/* default height 64px */
 
-	if (!of_property_read_u16(dev->of_node, "event_ir_mml_ready", &mml->event_mml_ready))
+	if (!of_property_read_u16(dev->of_node, "event-ir-mml-ready", &mml->event_mml_ready))
 		mml_log("racing event event_mml_ready %hu", mml->event_mml_ready);
 
-	if (!of_property_read_u16(dev->of_node, "event_ir_disp_ready", &mml->event_disp_ready))
+	if (!of_property_read_u16(dev->of_node, "event-ir-disp-ready", &mml->event_disp_ready))
 		mml_log("racing event event_disp_ready %hu", mml->event_disp_ready);
 
-	if (!of_property_read_u16(dev->of_node, "event_ir_mml_stop", &mml->event_mml_stop))
+	if (!of_property_read_u16(dev->of_node, "event-ir-mml-stop", &mml->event_mml_stop))
 		mml_log("racing event event_mml_stop %hu", mml->event_mml_stop);
 
 	mml->cmdq_base = cmdq_register_device(dev);

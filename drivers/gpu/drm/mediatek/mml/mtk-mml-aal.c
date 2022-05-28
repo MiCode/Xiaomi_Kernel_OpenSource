@@ -1418,10 +1418,10 @@ static int probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	if (of_property_read_u32(dev->of_node, "sram_curve_base", &priv->sram_curve_start))
+	if (of_property_read_u32(dev->of_node, "sram-curve-base", &priv->sram_curve_start))
 		dev_err(dev, "read curve base fail\n");
 
-	if (of_property_read_u32(dev->of_node, "sram_his_base", &priv->sram_hist_start))
+	if (of_property_read_u32(dev->of_node, "sram-his-base", &priv->sram_hist_start))
 		dev_err(dev, "read his base fail\n");
 
 	/* assign ops */

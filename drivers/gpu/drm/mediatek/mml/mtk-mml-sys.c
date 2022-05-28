@@ -1420,13 +1420,13 @@ static int mml_sys_init(struct platform_device *pdev, struct mml_sys *sys,
 		ret = component_add(dev, comp_ops);
 
 	/* events for racing mode */
-	of_property_read_u16(dev->of_node, "event_racing_pipe0",
+	of_property_read_u16(dev->of_node, "event-racing-pipe0",
 			     &sys->event_racing_pipe0);
-	of_property_read_u16(dev->of_node, "event_racing_pipe1",
+	of_property_read_u16(dev->of_node, "event-racing-pipe1",
 			     &sys->event_racing_pipe1);
-	of_property_read_u16(dev->of_node, "event_racing_pipe1_next",
+	of_property_read_u16(dev->of_node, "event-racing-pipe1-next",
 			     &sys->event_racing_pipe1_next);
-	of_property_read_u16(dev->of_node, "event_ir_eof",
+	of_property_read_u16(dev->of_node, "event-ir-eof",
 			     &sys->event_ir_eof);
 	return 0;
 
