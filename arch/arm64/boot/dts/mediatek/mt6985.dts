@@ -7532,7 +7532,8 @@
 				<0 0x13fb9c00 0 0x100>,   /* MFG_CPE_CTRL_MCU */
 				<0 0x13fb6000 0 0x1000>,  /* MFG_CPE_SENSOR */
 				<0 0x13fbc000 0 0x1000>,  /* MFG_SECURE */
-				<0 0x1000d000 0 0x1000>;  /* DRM_DEBUG */
+				<0 0x1000d000 0 0x1000>,  /* DRM_DEBUG */
+				<0 0x13fe0000 0 0x1000>;  /* MFG_IPS */
 			reg-names =
 				"mfg_top_config",
 				"mfg_pll",
@@ -7553,7 +7554,8 @@
 				"mfg_cpe_ctrl_mcu",
 				"mfg_cpe_sensor",
 				"mfg_secure",
-				"drm_debug";
+				"drm_debug",
+				"mfg_ips";
 			clocks =
 				<&topckgen_clk CLK_TOP_MFG_INT0_SEL>,
 				<&topckgen_clk CLK_TOP_MFGPLL>,
