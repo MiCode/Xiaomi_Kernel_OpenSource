@@ -161,8 +161,10 @@ struct dma_fence *mtk_vcodec_create_fence(int fence_count)
 CREATE_FENCE_FAIL:
 
 	if (fences) {
-		for (i = 0; i < fence_count; i++)
-			kfree(fences[i]);
+		for (i = 0; i < fence_count; i++) {
+			if (fences[i])
+				kfree(fences[i]);
+		}
 		kfree(fences);
 	}
 
