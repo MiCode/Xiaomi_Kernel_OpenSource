@@ -8955,6 +8955,66 @@
 				<&vdec_soc_gcon_base_clk CLK_VDE1_LARB1_CKEN>;
 		clock-names = "apb", "smi", "gals";
 	};
+	vdec_fmt: vdec-fmt@16005000 {
+		compatible = "mediatek-vdec-fmt";
+		mediatek,fmtname = "vdec-fmt";
+		reg = <0 0x16005000 0 0x1000>, /* mini_mdp0_rdma */
+			<0 0x16006000 0 0x1000>, /* mini_mdp0_wdma */
+			<0 0x16007000 0 0x1000>, /* mini_mdp1_wdma */
+			<0 0x16008000 0 0x1000>, /* mini_mdp1_wdma */
+			<0 0x1600f000 0 0x10000>; /* VDEC_SOC_GCON */
+		clocks = <&vdec_soc_gcon_base_clk CLK_VDE1_VDEC_CKEN>,
+			<&vdec_soc_gcon_base_clk CLK_VDE1_MINI_MDP_EN>;
+		clock-names = "MT_CG_VDEC","MT_CG_MINI_MDP";
+		mmdvfs-dvfsrc-vcore-supply = <&dvfsrc_vcore>;
+		mediatek,fmt-gce-th-num = <2>; /* FMT GCE HW THREAD NUM */
+		mboxes = <&gce_m 6 0 CMDQ_THR_PRIO_1>,
+				<&gce_m 7 0 CMDQ_THR_PRIO_1>;
+		/* rdma0_sw_rst_done_eng_event */
+		rdma0-sw-rst-done-eng =
+		/bits/ 16 <CMDQ_EVENT_VDEC1_MDP0_RDMA_SW_RST_DONE_ENG_EVENT>;
+		/* rdma0_tile_done */
+		rdma0-tile-done = /bits/ 16 <CMDQ_EVENT_VDEC1_MDP0_RDMA_TILE_DONE>;
+		/* wdma0_sw_rst_done_eng_event */
+		wdma0-sw-rst-done-eng =
+		/bits/ 16 <CMDQ_EVENT_VDEC1_MDP0_WDMA_SW_RST_DONE_ENG_EVENT>;
+		/* wdma0_tile_done */
+		wdma0-tile-done = /bits/ 16 <CMDQ_EVENT_VDEC1_MDP0_WDMA_TILE_DONE>;
+		/* rdma1_sw_rst_done_eng_event */
+		rdma1-sw-rst-done-eng =
+		/bits/ 16 <CMDQ_EVENT_VDEC1_MDP1_RDMA_SW_RST_DONE_ENG_EVENT>;
+		/* rdma1_tile_done */
+		rdma1-tile-done = /bits/ 16 <CMDQ_EVENT_VDEC1_MDP1_RDMA_TILE_DONE>;
+		/* wdma1_sw_rst_done_eng_event */
+		wdma1-sw-rst-done-eng =
+		/bits/ 16 <CMDQ_EVENT_VDEC1_MDP1_WDMA_SW_RST_DONE_ENG_EVENT>;
+		/* wdma1_tile_done */
+		wdma1-tile-done = /bits/ 16 <CMDQ_EVENT_VDEC1_MDP1_WDMA_TILE_DONE>;
+		gce-gpr = <GCE_GPR_R10>;
+		iommus = <&disp_iommu M4U_PORT_L6_HW_MINI_MDP_R0_EXT>,
+				<&disp_iommu M4U_PORT_L6_HW_MINI_MDP_W0_EXT>,
+				<&disp_iommu M4U_PORT_L6_HW_MINI_MDP_R1_EXT>,
+				<&disp_iommu M4U_PORT_L6_HW_MINI_MDP_W1_EXT>;
+		dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
+		power-domains = <&scpsys MT6985_POWER_DOMAIN_VDE0>;
+		mediatek,larbs = <&smi_larb6>;
+		operating-points-v2 = <&opp_table_vdec>;
+		dvfsrc-vcore-supply = <&dvfsrc_vcore>;
+		interconnects =
+		<&mmqos MASTER_LARB_PORT(M4U_PORT_L6_HW_MINI_MDP_R0_EXT) &mmqos SLAVE_COMMON(0)>,
+		<&mmqos MASTER_LARB_PORT(M4U_PORT_L6_HW_MINI_MDP_W0_EXT) &mmqos SLAVE_COMMON(0)>,
+		<&mmqos MASTER_LARB_PORT(M4U_PORT_L6_HW_MINI_MDP_R1_EXT) &mmqos SLAVE_COMMON(0)>,
+		<&mmqos MASTER_LARB_PORT(M4U_PORT_L6_HW_MINI_MDP_W1_EXT) &mmqos SLAVE_COMMON(0)>;
+		interconnect-names = "path_mini_mdp_r0",
+							"path_mini_mdp_w0",
+							"path_mini_mdp_r1",
+							"path_mini_mdp_w1";
+		m4u-ports =
+			<M4U_PORT_L6_HW_MINI_MDP_R0_EXT>,
+			<M4U_PORT_L6_HW_MINI_MDP_W0_EXT>,
+			<M4U_PORT_L6_HW_MINI_MDP_R1_EXT>,
+			<M4U_PORT_L6_HW_MINI_MDP_W1_EXT>;
+	};
 
 	smi_larb6: smi_larb6@16009000 {
 		compatible = "mediatek,smi_larb6",

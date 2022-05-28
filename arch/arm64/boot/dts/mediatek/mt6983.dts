@@ -9660,26 +9660,26 @@
 			<&vdec_soc_gcon_base_clk CLK_VDEC_SOC_GCON_BASE_MINI_MDP_CKEN>,
 			<&mmdvfs_clk CLK_MMDVFS_VFMT>;
 		clock-names = "MT_CG_VDEC","MT_CG_MINI_MDP","mmdvfs_clk";
-		mediatek,fmt_gce_th_num = <2>; /* FMT GCE HW THREAD NUM */
-		mediatek,fmt_rdma_swwa = <1>; /* FMT RDMA need SW workaround */
+		mediatek,fmt-gce-th-num = <2>; /* FMT GCE HW THREAD NUM */
+		mediatek,fmt-rdma-swwa = <1>; /* FMT RDMA need SW workaround */
 		mboxes = <&gce_m 6 0 CMDQ_THR_PRIO_1>,
 				<&gce_m 7 0 CMDQ_THR_PRIO_1>;
 		/* rdma0_sw_rst_done_eng_event */
-		rdma0_sw_rst_done_eng = /bits/ 16 <CMDQ_EVENT_VDEC1_EVENT_16>;
+		rdma0-sw-rst-done-eng = /bits/ 16 <CMDQ_EVENT_VDEC1_EVENT_16>;
 		/* rdma0_tile_done */
-		rdma0_tile_done = /bits/ 16 <CMDQ_EVENT_VDEC1_EVENT_17>;
+		rdma0-tile-done = /bits/ 16 <CMDQ_EVENT_VDEC1_EVENT_17>;
 		/* wdma0_sw_rst_done_eng_event */
-		wdma0_sw_rst_done_eng = /bits/ 16 <CMDQ_EVENT_VDEC1_EVENT_18>;
+		wdma0-sw-rst-done-eng = /bits/ 16 <CMDQ_EVENT_VDEC1_EVENT_18>;
 		/* wdma0_tile_done */
-		wdma0_tile_done = /bits/ 16 <CMDQ_EVENT_VDEC1_EVENT_19>;
+		wdma0-tile-done = /bits/ 16 <CMDQ_EVENT_VDEC1_EVENT_19>;
 		/* rdma1_sw_rst_done_eng_event */
-		rdma1_sw_rst_done_eng = /bits/ 16 <CMDQ_EVENT_VDEC1_EVENT_20>;
+		rdma1-sw-rst-done-eng = /bits/ 16 <CMDQ_EVENT_VDEC1_EVENT_20>;
 		/* rdma1_tile_done */
-		rdma1_tile_done = /bits/ 16 <CMDQ_EVENT_VDEC1_EVENT_21>;
+		rdma1-tile-done = /bits/ 16 <CMDQ_EVENT_VDEC1_EVENT_21>;
 		/* wdma1_sw_rst_done_eng_event */
-		wdma1_sw_rst_done_eng = /bits/ 16 <CMDQ_EVENT_VDEC1_EVENT_22>;
+		wdma1-sw-rst-done-eng = /bits/ 16 <CMDQ_EVENT_VDEC1_EVENT_22>;
 		/* wdma1_tile_done */
-		wdma1_tile_done = /bits/ 16 <CMDQ_EVENT_VDEC1_EVENT_23>;
+		wdma1-tile-done = /bits/ 16 <CMDQ_EVENT_VDEC1_EVENT_23>;
 		gce-gpr = <GCE_GPR_R10>;
 		iommus = <&disp_iommu M4U_PORT_L6_VDEC_MINI_MDP_R0_EXT>,
 				<&disp_iommu M4U_PORT_L6_VDEC_MINI_MDP_W0_EXT>,
