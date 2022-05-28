@@ -2,6 +2,7 @@
 /*
  * Copyright (C) 2021 MediaTek Inc.
  */
+#include <dt-bindings/clock/mmdvfs-clk.h>
 #include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/device.h>
@@ -11,13 +12,19 @@
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
 #include <linux/regulator/consumer.h>
-#include <soc/mediatek/mmdvfs.h>
+#include <linux/soc/mediatek/mtk_mmdvfs.h>
+#include <soc/mediatek/mmdvfs_v3.h>
+
+
+#define MMDVFS_DBG_VER1	BIT(0)
+#define MMDVFS_DBG_VER3	BIT(1)
 
 static struct device *dev;
 static struct regulator *reg;
 static struct clk *vcore_clk;
 static unsigned int force_step0 = 0xff;
 static int vcore_step_cnt;
+static unsigned int debug_version;
 
 static int wait_mmdvfs_init_thread(void *data)
 {
@@ -68,6 +75,7 @@ static int mmdvfs_debug_probe(struct platform_device *pdev)
 		pr_notice("%s: force_step0 not set\n", __func__);
 		return 0;
 	}
+	of_property_read_u32(node, "debug-version", &debug_version);
 
 	/* Force set step 0 during first probe */
 	if (!reg) {
@@ -124,6 +132,60 @@ void mtk_mmdvfs_debug_release_step0(void)
 	}
 }
 EXPORT_SYMBOL_GPL(mtk_mmdvfs_debug_release_step0);
+
+static int mtk_mmdvfs_debug_set_force_step(const char *val, const struct kernel_param *kp)
+{
+	unsigned int pwr = 0;
+	int ret, opp = 0;
+
+	ret = sscanf(val, "%u %d", &pwr, &opp);
+	if (ret != 2 || pwr >= PWR_MMDVFS_NUM) {
+		pr_notice("%s failed:%d pwr:%u opp:%d", __func__, ret, pwr, opp);
+		return ret;
+	}
+
+	if (pwr == PWR_MMDVFS_VCORE &&
+		(debug_version == 0 || debug_version & MMDVFS_DBG_VER1))
+		mmdvfs_set_force_step(opp);
+
+	if (debug_version & MMDVFS_DBG_VER3)
+		mtk_mmdvfs_v3_set_force_step(pwr, opp);
+
+	return 0;
+}
+
+static struct kernel_param_ops mmdvfs_set_force_step_ops = {
+	.set = mtk_mmdvfs_debug_set_force_step,
+};
+module_param_cb(force_step, &mmdvfs_set_force_step_ops, NULL, 0644);
+MODULE_PARM_DESC(force_step, "force mmdvfs to specified step");
+
+static int mtk_mmdvfs_debug_set_vote_step(const char *val, const struct kernel_param *kp)
+{
+	unsigned int idx = 0;
+	int ret, opp = 0;
+
+	ret = sscanf(val, "%u %d", &idx, &opp);
+	if (ret != 2 || idx >= PWR_MMDVFS_NUM) {
+		pr_notice("%s failed:%d idx:%u opp:%d", __func__, ret, idx, opp);
+		return ret;
+	}
+
+	if (idx == PWR_MMDVFS_VCORE &&
+		(debug_version == 0 || debug_version & MMDVFS_DBG_VER1))
+		mmdvfs_set_vote_step(opp);
+
+	if (debug_version & MMDVFS_DBG_VER3)
+		mtk_mmdvfs_v3_set_vote_step(idx, opp);
+
+	return 0;
+}
+
+static struct kernel_param_ops mmdvfs_set_vote_step_ops = {
+	.set = mtk_mmdvfs_debug_set_vote_step,
+};
+module_param_cb(vote_step, &mmdvfs_set_vote_step_ops, NULL, 0644);
+MODULE_PARM_DESC(vote_step, "vote mmdvfs to specified step");
 
 static const struct of_device_id of_mmdvfs_debug_match_tbl[] = {
 	{

@@ -357,7 +357,13 @@ int mmdvfs_dbg_clk_set(int step, bool is_force)
 	return ret;
 }
 
-int set_force_step(const char *val, const struct kernel_param *kp)
+int mmdvfs_set_force_step(int force_step)
+{
+	return mmdvfs_dbg_clk_set(force_step, true);
+}
+EXPORT_SYMBOL_GPL(mmdvfs_set_force_step);
+
+static int set_force_step(const char *val, const struct kernel_param *kp)
 {
 	int result;
 	int new_force_step;
@@ -367,7 +373,7 @@ int set_force_step(const char *val, const struct kernel_param *kp)
 		pr_notice("mmdvfs set force step failed: %d\n", result);
 		return result;
 	}
-	return mmdvfs_dbg_clk_set(new_force_step, true);
+	return mmdvfs_set_force_step(new_force_step);
 }
 
 static struct kernel_param_ops set_force_step_ops = {
@@ -376,7 +382,13 @@ static struct kernel_param_ops set_force_step_ops = {
 module_param_cb(force_step, &set_force_step_ops, NULL, 0644);
 MODULE_PARM_DESC(force_step, "force mmdvfs to specified step");
 
-int set_vote_step(const char *val, const struct kernel_param *kp)
+int mmdvfs_set_vote_step(int vote_step)
+{
+	return mmdvfs_dbg_clk_set(vote_step, false);
+}
+EXPORT_SYMBOL_GPL(mmdvfs_set_vote_step);
+
+static int set_vote_step(const char *val, const struct kernel_param *kp)
 {
 	int result;
 	int vote_step;
@@ -387,7 +399,7 @@ int set_vote_step(const char *val, const struct kernel_param *kp)
 		return result;
 	}
 
-	return mmdvfs_dbg_clk_set(vote_step, false);
+	return mmdvfs_set_vote_step(vote_step);
 }
 
 static struct kernel_param_ops set_vote_step_ops = {
