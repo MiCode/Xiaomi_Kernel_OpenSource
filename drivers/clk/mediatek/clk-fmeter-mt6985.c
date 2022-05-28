@@ -52,12 +52,6 @@ static DEFINE_SPINLOCK(subsys_meter_lock);
 #define MFGPLL_FQMTR_CON0				(0x0040)
 #define MFGPLL_FQMTR_CON1				(0x0044)
 
-/* GPUEBPLL_PLL_CTRL Register */
-#define GPUEBPLL_CON0					(0x0008)
-#define GPUEBPLL_CON1					(0x000C)
-#define GPUEBPLL_FQMTR_CON0				(0x0040)
-#define GPUEBPLL_FQMTR_CON1				(0x0044)
-
 /* MFGSCPLL_PLL_CTRL Register */
 #define MFGSCPLL_CON0					(0x0008)
 #define MFGSCPLL_CON1					(0x000C)
@@ -110,8 +104,6 @@ static struct fmeter_data subsys_fm[] = {
 		0, 0, VLP_FQMTR_CON0, VLP_FQMTR_CON1},
 	[FM_MFGPLL] = {FM_MFGPLL, "fm_mfgpll",
 		MFGPLL_CON0, MFGPLL_CON1, MFGPLL_FQMTR_CON0, MFGPLL_FQMTR_CON1},
-	[FM_GPUEBPLL] = {FM_GPUEBPLL, "fm_gpuebpll",
-		GPUEBPLL_CON0, GPUEBPLL_CON1, GPUEBPLL_FQMTR_CON0, GPUEBPLL_FQMTR_CON1},
 	[FM_MFGSCPLL] = {FM_MFGSCPLL, "fm_mfgscpll",
 		MFGSCPLL_CON0, MFGSCPLL_CON1, MFGSCPLL_FQMTR_CON0, MFGSCPLL_FQMTR_CON1},
 	[FM_CCIPLL] = {FM_CCIPLL, "fm_ccipll",
@@ -131,7 +123,6 @@ const char *comp_list[] = {
 	[FM_APMIXED] = "mediatek,mt6985-apmixedsys",
 	[FM_VLP_CKSYS] = "mediatek,mt6985-vlp_cksys",
 	[FM_MFGPLL] = "mediatek,mt6985-mfgpll_pll_ctrl",
-	[FM_GPUEBPLL] = "mediatek,mt6985-gpuebpll_pll_ctrl",
 	[FM_MFGSCPLL] = "mediatek,mt6985-mfgscpll_pll_ctrl",
 	[FM_CCIPLL] = "mediatek,mt6985-ccipll_pll_ctrl",
 	[FM_ARMPLL_LL] = "mediatek,mt6985-armpll_ll_pll_ctrl",
@@ -416,7 +407,6 @@ static const struct fmeter_clk fclks[] = {
 	FMCLK2(VLPCK, FM_SCP_SPI_CK, "fm_scp_spi_ck", 0x0010, 15, 1),
 	FMCLK2(VLPCK, FM_SCP_IIC_CK, "fm_scp_iic_ck", 0x0010, 23, 1),
 	FMCLK2(VLPCK, FM_PWRAP_ULPOSC_CK, "fm_pwrap_ulposc_ck", 0x0010, 31, 1),
-	FMCLK2(VLPCK, FM_APTGPT_CK, "fm_aptgpt_ck", 0x0020, 7, 1),
 	FMCLK2(VLPCK, FM_DXCC_VLP_CK, "fm_dxcc_vlp_ck", 0x0020, 15, 1),
 	FMCLK2(VLPCK, FM_DPSW_CK, "fm_dpsw_ck", 0x0020, 23, 1),
 	FMCLK2(VLPCK, FM_SPMI_M_CK, "fm_spmi_m_ck", 0x0020, 31, 1),
@@ -428,15 +418,14 @@ static const struct fmeter_clk fclks[] = {
 	FMCLK2(VLPCK, FM_SSPM_CK, "fm_sspm_ck", 0x0040, 15, 1),
 	FMCLK2(VLPCK, FM_SRCK_CK, "fm_srck_ck", 0x0040, 23, 1),
 	FMCLK2(VLPCK, FM_SRAMRC_CK, "fm_sramrc_ck", 0x0040, 31, 1),
-	FMCLK(VLPCK, FM_CAMTG_CK_2, "fm_camtg_ck_2", 1),
+	FMCLK2(VLPCK, FM_CAMTG_VLP_CK, "fm_camtg_vlp_ck", 0x0050, 7, 1),
 	FMCLK2(VLPCK, FM_IPS_CK, "fm_ips_ck", 0x0050, 15, 1),
-	FMCLK(VLPCK, FM_F26M_SSPM_CK, "fm_f26m_sspm_ck", 1),
+	FMCLK2(VLPCK, FM_F26M_SSPM_CK, "fm_f26m_sspm_ck", 0x0050, 23, 1),
 	FMCLK2(VLPCK, FM_ULPOSC_SSPM_CK, "fm_ulposc_sspm_ck", 0x0050, 31, 1),
 	FMCLK(VLPCK, FM_OSC_CK, "fm_osc_ck", 1),
 	FMCLK(VLPCK, FM_OSC_2, "fm_osc_2", 1),
 	/* SUBSYS Part */
 	FMCLK(SUBSYS, FM_MFGPLL, "fm_mfgpll", 1),
-	FMCLK(SUBSYS, FM_GPUEBPLL, "fm_gpuebpll", 1),
 	FMCLK(SUBSYS, FM_MFGSCPLL, "fm_mfgscpll", 1),
 	FMCLK(SUBSYS, FM_CCIPLL, "fm_ccipll", 1),
 	FMCLK(SUBSYS, FM_ARMPLL_LL, "fm_armpll_ll", 1),

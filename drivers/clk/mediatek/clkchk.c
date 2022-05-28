@@ -455,14 +455,6 @@ static bool is_pll_chk_bug_on(void)
  * clkchk vf table checking
  */
 
-static struct mtk_vf *clkchk_get_vf_table(void)
-{
-	if (clkchk_ops == NULL || clkchk_ops->get_vf_table == NULL)
-		return NULL;
-
-	return clkchk_ops->get_vf_table();
-}
-
 static int get_vcore_opp(void)
 {
 	if (clkchk_ops == NULL || clkchk_ops->get_vcore_opp == NULL)
@@ -471,32 +463,35 @@ static int get_vcore_opp(void)
 	return clkchk_ops->get_vcore_opp();
 }
 
-void warn_vcore(int opp, const char *clk_name, int rate, int freq)
+static void warn_vcore(int opp, const char *clk_name, int rate, int id)
 {
-	if ((opp >= 0) && (freq > 0) && ((rate/1000) > freq)) {
-		pr_notice("%s Choose %d FAIL!!!![MAX(%d): %d]\r\n",
-				clk_name, rate/1000, opp, freq);
+	int vf_opp;
+
+	if (!clkchk_ops || !clkchk_ops->get_vf_opp)
+		return;
+
+	vf_opp = clkchk_ops->get_vf_opp(id, opp);
+	if ((opp >= 0) && (id >= 0) && (vf_opp > 0) &&
+			((rate/1000) > vf_opp)) {
+		pr_notice("%s Choose %d FAIL!!!![MAX(%d/%d): %d]\r\n",
+				clk_name, rate/1000, id, opp,
+				vf_opp);
 
 		BUG_ON(1);
 	}
 }
 
-static int mtk_mux2opp(const char *mux_name, int opp)
+static int mtk_mux2id(const char **mux_name)
 {
-	struct mtk_vf *vf_table = clkchk_get_vf_table();
 	int i = 0;
 
-	if (!vf_table || opp < 0)
+	if (!clkchk_ops || !clkchk_ops->get_vf_name
+			|| !clkchk_ops->get_vf_num)
 		return -EINVAL;
 
-	for (; vf_table != NULL && vf_table->name != NULL; vf_table++, i++) {
-		const char *name = vf_table->name;
-
-		if (!name)
-			continue;
-
-		if (strcmp(mux_name, name) == 0)
-			return vf_table->freq_table[opp];
+	for (i = 0; clkchk_ops->get_vf_num(); i++) {
+		if (strcmp(*mux_name, clkchk_ops->get_vf_name(i)) == 0)
+			return i;
 	}
 
 	return -EINVAL;
@@ -516,7 +511,7 @@ static int mtk_clk_rate_change(struct notifier_block *nb,
 
 	if (flags == PRE_RATE_CHANGE && clk_name) {
 		warn_vcore(vcore_opp, clk_name,
-			ndata->new_rate, mtk_mux2opp(clk_name, vcore_opp));
+			ndata->new_rate, mtk_mux2id(&clk_name));
 	}
 
 	return NOTIFY_OK;
@@ -528,30 +523,27 @@ static struct notifier_block mtk_clk_notifier = {
 
 int mtk_clk_check_muxes(void)
 {
-	struct mtk_vf *vf_table;
 	struct clk *clk;
+	int i;
 
-	if (clkchk_ops == NULL || clkchk_ops->get_vf_table == NULL
-			|| clkchk_ops->get_vcore_opp == NULL)
+	if (!clkchk_ops || !clkchk_ops->get_vf_name
+			|| !clkchk_ops->get_vf_num)
 		return -EINVAL;
 
-	vf_table = clkchk_ops->get_vf_table();
-	if (vf_table == NULL)
-		return -EINVAL;
-
-	for (; vf_table->name != NULL; vf_table++) {
-		const char *name = vf_table->name;
+	for (i = 0; i < clkchk_ops->get_vf_num(); i++) {
+		const char *name = clkchk_ops->get_vf_name(i);
 
 		if (!name)
 			continue;
-		pr_notice("name: %s\n", name);
 
+		pr_notice("name: %s\n", name);
 		clk = __clk_chk_lookup(name);
 		clk_notifier_register(clk, &mtk_clk_notifier);
 	}
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(mtk_clk_check_muxes);
 
 static int clk_chk_dev_pm_suspend(struct device *dev)
 {

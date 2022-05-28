@@ -199,15 +199,7 @@ const char * const *get_mt6985_all_clk_names(void)
 		"perao_i2c",
 		"perao_dma_b",
 		"perao_ssusb0_frmcnt",
-		"perao_ssusb0_sys",
-		"perao_ssusb0_xhci",
-		"perao_ssusb0_f",
-		"perao_ssusb0_h",
 		"perao_ssusb1_frmcnt",
-		"perao_ssusb1_sys",
-		"perao_ssusb1_xhci",
-		"perao_ssusb1_f",
-		"perao_ssusb1_h",
 		"perao_msdc1",
 		"perao_msdc1_f",
 		"perao_msdc1_h",
@@ -264,14 +256,6 @@ const char * const *get_mt6985_all_clk_names(void)
 		"afe_etdm_in1_bclk",
 		"afe_etdm_out1_bclk",
 
-		/* ssusb_sifslv_ippc */
-		"usb_sif_usb_u2_p",
-		"usb_sif_usb_u3_p",
-
-		/* ssusb_sifslv_ippc_p1 */
-		"usb_sif_p1_usb_u2_p",
-		"usb_sif_p1_usb_u3_p",
-
 		/* imp_iic_wrap_c */
 		"impc_i2c5",
 
@@ -318,9 +302,6 @@ const char * const *get_mt6985_all_clk_names(void)
 
 		/* mfgpll_pll_ctrl */
 		"mfg_ao_mfgpll",
-
-		/* gpuebpll_pll_ctrl */
-		"gpueb_ao_gpuebpll",
 
 		/* mfgscpll_pll_ctrl */
 		"mfgsc_ao_mfgscpll",
@@ -572,7 +553,6 @@ const char * const *get_mt6985_all_clk_names(void)
 		"vlp_scp_spi_sel",
 		"vlp_scp_iic_sel",
 		"vlp_pwrap_ulposc_sel",
-		"vlp_aptgpt_sel",
 		"vlp_dxcc_vlp_sel",
 		"vlp_dpsw_sel",
 		"vlp_spmi_m_sel",

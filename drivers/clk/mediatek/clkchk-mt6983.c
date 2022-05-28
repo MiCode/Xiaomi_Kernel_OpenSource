@@ -435,6 +435,16 @@ static struct pvd_msk *get_pvd_pwr_mask(void)
  * Opp4 : 0p55v
  */
 #if CHECK_VCORE_FREQ
+struct mtk_vf {
+	const char *name;
+	int freq_table[5];
+};
+
+#define MTK_VF_TABLE(_n, _freq0, _freq1, _freq2, _freq3, _freq4) {		\
+		.name = _n,		\
+		.freq_table = {_freq0, _freq1, _freq2, _freq3, _freq4},	\
+	}
+
 static struct mtk_vf vf_table[] = {
 	/* Opp0, Opp1, Opp2, Opp3, Opp4 */
 	MTK_VF_TABLE("axi_sel", 156000, 156000, 156000, 156000, 156000),
@@ -502,12 +512,30 @@ static struct mtk_vf vf_table[] = {
 };
 #endif
 
-static struct mtk_vf *get_vf_table(void)
+static const char *get_vf_name(int id)
 {
 #if CHECK_VCORE_FREQ
-	return vf_table;
+	return vf_table[id].name;
 #else
 	return NULL;
+#endif
+}
+
+static int get_vf_opp(int id, int opp)
+{
+#if CHECK_VCORE_FREQ
+	return vf_table[id].freq_table[opp];
+#else
+	return 0;
+#endif
+}
+
+static u32 get_vf_num(void)
+{
+#if CHECK_VCORE_FREQ
+	return ARRAY_SIZE(vf_table) - 1;
+#else
+	return 0;
 #endif
 }
 
@@ -618,7 +646,9 @@ static struct clkchk_ops clkchk_mt6983_ops = {
 	.get_off_pll_names = get_off_pll_names,
 	.get_notice_pll_names = get_notice_pll_names,
 	.is_pll_chk_bug_on = is_pll_chk_bug_on,
-	.get_vf_table = get_vf_table,
+	.get_vf_name = get_vf_name,
+	.get_vf_opp = get_vf_opp,
+	.get_vf_num = get_vf_num,
 	.get_vcore_opp = get_vcore_opp,
 	.devapc_dump = devapc_dump,
 };
@@ -631,6 +661,10 @@ static int clk_chk_mt6983_probe(struct platform_device *pdev)
 
 #if IS_ENABLED(CONFIG_MTK_DEVAPC)
 	register_devapc_vio_callback(&devapc_vio_handle);
+#endif
+
+#if CHECK_VCORE_FREQ
+	mtk_clk_check_muxes();
 #endif
 
 	return 0;

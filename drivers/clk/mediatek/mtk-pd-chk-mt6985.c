@@ -547,37 +547,37 @@ struct subsys_cgs_check {
 };
 
 struct subsys_cgs_check mtk_subsys_check[] = {
-	{MT6985_POWER_DOMAIN_AUDIO, afe_swcgs, afe},
-	{MT6985_POWER_DOMAIN_CAM_MAIN, camsys_main_swcgs, cam_m},
-	{MT6985_POWER_DOMAIN_CAM_MRAW, camsys_mraw_swcgs, cam_mr},
-	{MT6985_POWER_DOMAIN_CAM_SUBA, camsys_rawa_swcgs, cam_ra},
-	{MT6985_POWER_DOMAIN_CAM_SUBB, camsys_rawb_swcgs, cam_rb},
-	{MT6985_POWER_DOMAIN_CAM_SUBC, camsys_rawc_swcgs, cam_rc},
-	{MT6985_POWER_DOMAIN_CAM_SUBA, camsys_yuva_swcgs, cam_ya},
-	{MT6985_POWER_DOMAIN_CAM_SUBB, camsys_yuvb_swcgs, cam_yb},
-	{MT6985_POWER_DOMAIN_CAM_SUBC, camsys_yuvc_swcgs, cam_yc},
-	{MT6985_POWER_DOMAIN_CAM_MAIN, ccu_main_swcgs, ccu},
-	{MT6985_POWER_DOMAIN_ISP_DIP1, dip_nr1_dip1_swcgs, dip_nr1_dip1},
-	{MT6985_POWER_DOMAIN_ISP_DIP1, dip_nr2_dip1_swcgs, dip_nr2_dip1},
-	{MT6985_POWER_DOMAIN_ISP_DIP1, dip_top_dip1_swcgs, dip_top_dip1},
-	{MT6985_POWER_DOMAIN_DIS1_SHUTDOWN, dispsys1_config_swcgs, mm1},
-	{MT6985_POWER_DOMAIN_DIS0_SHUTDOWN, dispsys_config_swcgs, mm},
-	{MT6985_POWER_DOMAIN_ISP_MAIN, imgsys_main_swcgs, img},
-	{MT6985_POWER_DOMAIN_MDP1_SHUTDOWN, mdpsys1_config_swcgs, mdp1},
-	{MT6985_POWER_DOMAIN_MDP0_SHUTDOWN, mdpsys_config_swcgs, mdp},
-	{MT6985_POWER_DOMAIN_MM_INFRA, mminfra_config_swcgs, mminfra_config},
-	{MT6985_POWER_DOMAIN_OVLSYS1_SHUTDOWN, ovlsys1_config_swcgs, ovl1},
-	{MT6985_POWER_DOMAIN_OVLSYS_SHUTDOWN, ovlsys_config_swcgs, ovl},
-	{MT6985_POWER_DOMAIN_SSR, ssr_top_swcgs, ssr_top},
-	{MT6985_POWER_DOMAIN_ISP_DIP1, traw_dip1_swcgs, traw_dip1},
-	{MT6985_POWER_DOMAIN_VDE1, vdec_gcon_base_swcgs, vde2},
-	{MT6985_POWER_DOMAIN_VDE0, vdec_soc_gcon_base_swcgs, vde1},
-	{MT6985_POWER_DOMAIN_VEN0, venc_gcon_swcgs, ven},
-	{MT6985_POWER_DOMAIN_VEN1, venc_gcon_core1_swcgs, ven_c1},
-	{MT6985_POWER_DOMAIN_VEN2, venc_gcon_core2_swcgs, ven_c2},
-	{MT6985_POWER_DOMAIN_ISP_DIP1, wpe1_dip1_swcgs, wpe1_dip1},
-	{MT6985_POWER_DOMAIN_ISP_DIP1, wpe2_dip1_swcgs, wpe2_dip1},
-	{MT6985_POWER_DOMAIN_ISP_DIP1, wpe3_dip1_swcgs, wpe3_dip1},
+	{MT6985_CHK_PD_AUDIO, afe_swcgs, afe},
+	{MT6985_CHK_PD_CAM_MAIN, camsys_main_swcgs, cam_m},
+	{MT6985_CHK_PD_CAM_MRAW, camsys_mraw_swcgs, cam_mr},
+	{MT6985_CHK_PD_CAM_SUBA, camsys_rawa_swcgs, cam_ra},
+	{MT6985_CHK_PD_CAM_SUBB, camsys_rawb_swcgs, cam_rb},
+	{MT6985_CHK_PD_CAM_SUBC, camsys_rawc_swcgs, cam_rc},
+	{MT6985_CHK_PD_CAM_SUBA, camsys_yuva_swcgs, cam_ya},
+	{MT6985_CHK_PD_CAM_SUBB, camsys_yuvb_swcgs, cam_yb},
+	{MT6985_CHK_PD_CAM_SUBC, camsys_yuvc_swcgs, cam_yc},
+	{MT6985_CHK_PD_CAM_MAIN, ccu_main_swcgs, ccu},
+	{MT6985_CHK_PD_ISP_DIP1, dip_nr1_dip1_swcgs, dip_nr1_dip1},
+	{MT6985_CHK_PD_ISP_DIP1, dip_nr2_dip1_swcgs, dip_nr2_dip1},
+	{MT6985_CHK_PD_ISP_DIP1, dip_top_dip1_swcgs, dip_top_dip1},
+	{MT6985_CHK_PD_DIS1, dispsys1_config_swcgs, mm1},
+	{MT6985_CHK_PD_DIS0, dispsys_config_swcgs, mm},
+	{MT6985_CHK_PD_ISP_MAIN, imgsys_main_swcgs, img},
+	{MT6985_CHK_PD_MDP1, mdpsys1_config_swcgs, mdp1},
+	{MT6985_CHK_PD_MDP0, mdpsys_config_swcgs, mdp},
+	{MT6985_CHK_PD_MM_INFRA, mminfra_config_swcgs, mminfra_config},
+	{MT6985_CHK_PD_OVLSYS1, ovlsys1_config_swcgs, ovl1},
+	{MT6985_CHK_PD_OVLSYS, ovlsys_config_swcgs, ovl},
+	{MT6985_CHK_PD_SSRSYS, ssr_top_swcgs, ssr_top},
+	{MT6985_CHK_PD_ISP_DIP1, traw_dip1_swcgs, traw_dip1},
+	{MT6985_CHK_PD_VDE1, vdec_gcon_base_swcgs, vde2},
+	{MT6985_CHK_PD_VDE0, vdec_soc_gcon_base_swcgs, vde1},
+	{MT6985_CHK_PD_VEN0, venc_gcon_swcgs, ven},
+	{MT6985_CHK_PD_VEN1, venc_gcon_core1_swcgs, ven_c1},
+	{MT6985_CHK_PD_VEN2, venc_gcon_core2_swcgs, ven_c2},
+	{MT6985_CHK_PD_ISP_DIP1, wpe1_dip1_swcgs, wpe1_dip1},
+	{MT6985_CHK_PD_ISP_DIP1, wpe2_dip1_swcgs, wpe2_dip1},
+	{MT6985_CHK_PD_ISP_DIP1, wpe3_dip1_swcgs, wpe3_dip1},
 };
 
 static struct pd_check_swcg *get_subsys_cg(unsigned int id)
@@ -691,7 +691,6 @@ static enum chk_sys_id debug_dump_id[] = {
 	ufscfg_ao_bus,
 	gpu_eb_rpc,
 	mfg_ao,
-	gpueb_ao,
 	mfgsc_ao,
 	img_sub0_bus,
 	img_sub1_bus,
@@ -729,10 +728,21 @@ static void debug_dump(unsigned int id, unsigned int pwr_sta)
 	BUG_ON(1);
 }
 
+static enum chk_sys_id log_dump_id[] = {
+	ifr_bus,
+	spm,
+	chk_sys_num,
+};
+
 static void log_dump(unsigned int id, unsigned int pwr_sta)
 {
 	if (id >= MT6985_CHK_PD_NUM)
 		return;
+
+	if (id == MT6985_CHK_PD_MD1) {
+		set_subsys_reg_dump_mt6985(log_dump_id);
+		get_subsys_reg_dump_mt6985();
+	}
 }
 
 static struct pd_sta pd_pwr_sta[] = {

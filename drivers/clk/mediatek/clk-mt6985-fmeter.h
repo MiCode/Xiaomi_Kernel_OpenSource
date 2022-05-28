@@ -278,7 +278,6 @@
 #define FM_SCP_SPI_CK				2
 #define FM_SCP_IIC_CK				3
 #define FM_PWRAP_ULPOSC_CK			4
-#define FM_APTGPT_CK				5
 #define FM_DXCC_VLP_CK				6
 #define FM_DPSW_CK				7
 #define FM_SPMI_M_CK				8
@@ -290,7 +289,7 @@
 #define FM_SSPM_CK				14
 #define FM_SRCK_CK				15
 #define FM_SRAMRC_CK				16
-#define FM_CAMTG_CK_2				17
+#define FM_CAMTG_VLP_CK				17
 #define FM_IPS_CK				18
 #define FM_F26M_SSPM_CK				19
 #define FM_ULPOSC_SSPM_CK			20
@@ -303,14 +302,13 @@ enum fm_sys_id {
 	FM_APMIXED = 1,
 	FM_VLP_CKSYS = 2,
 	FM_MFGPLL = 3,
-	FM_GPUEBPLL = 4,
-	FM_MFGSCPLL = 5,
-	FM_CCIPLL = 6,
-	FM_ARMPLL_LL = 7,
-	FM_ARMPLL_BL = 8,
-	FM_ARMPLL_B = 9,
-	FM_PTPPLL = 10,
-	FM_SYS_NUM = 11,
+	FM_MFGSCPLL = 4,
+	FM_CCIPLL = 5,
+	FM_ARMPLL_LL = 6,
+	FM_ARMPLL_BL = 7,
+	FM_ARMPLL_B = 8,
+	FM_PTPPLL = 9,
+	FM_SYS_NUM = 10,
 };
 
 #endif /* _CLK_MT6985_FMETER_H */

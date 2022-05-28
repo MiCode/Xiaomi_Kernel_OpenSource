@@ -18,11 +18,6 @@ struct seq_file;
 #define clk_setl(addr, val)	clk_writel(addr, clk_readl(addr) | (val))
 #define clk_clrl(addr, val)	clk_writel(addr, clk_readl(addr) & ~(val))
 
-#define MTK_VF_TABLE(_n, _freq0, _freq1, _freq2, _freq3) {		\
-		.name = _n,		\
-		.freq_table = {_freq0, _freq1, _freq2, _freq3},	\
-	}
-
 #define ADDR(rn)	(rn->base->virt + rn->ofs)
 #define PHYSADDR(rn)	(rn->base->phys + rn->ofs)
 
@@ -79,11 +74,6 @@ struct regname {
 	const char *name;
 };
 
-struct mtk_vf {
-	const char *name;
-	int freq_table[4];
-};
-
 struct clkchk_ops {
 	const struct regname *(*get_all_regnames)(void);
 	u32 *(*get_spm_pwr_status_array)(void);
@@ -94,7 +84,9 @@ struct clkchk_ops {
 	const char * const *(*get_off_pll_names)(void);
 	const char * const *(*get_notice_pll_names)(void);
 	bool (*is_pll_chk_bug_on)(void);
-	struct mtk_vf *(*get_vf_table)(void);
+	const char *(*get_vf_name)(int id);
+	int (*get_vf_opp)(int id, int opp);
+	u32 (*get_vf_num)(void);
 	int (*get_vcore_opp)(void);
 	bool (*is_pwr_on)(struct provider_clk *pvdck);
 	void (*devapc_dump)(void);
@@ -110,6 +102,7 @@ int clkchk_pvdck_is_on(struct provider_clk *pvdck);
 bool clkchk_pvdck_is_prepared(struct provider_clk *pvdck);
 bool clkchk_pvdck_is_enabled(struct provider_clk *pvdck);
 bool is_valid_reg(void __iomem *addr);
+int mtk_clk_check_muxes(void);
 int set_clkchk_notify(void);
 void set_clkchk_ops(const struct clkchk_ops *ops);
 

@@ -25,7 +25,7 @@
 #include "clkchk-mt6985.h"
 
 #define BUG_ON_CHK_ENABLE		0
-#define CHECK_VCORE_FREQ		0
+#define CHECK_VCORE_FREQ		1
 #define CG_CHK_PWRON_ENABLE		0
 
 #define HWV_ADDR_HISTORY_0		0x1F04
@@ -65,10 +65,6 @@ static struct regbase rb[] = {
 	[ssr_top] = REGBASE_V(0x10400000, ssr_top, MT6985_CHK_PD_SSRSYS, CLK_NULL),
 	[perao] = REGBASE_V(0x11036000, perao, PD_NULL, CLK_NULL),
 	[afe] = REGBASE_V(0x11050000, afe, MT6985_CHK_PD_AUDIO, CLK_NULL),
-	[usb_d] = REGBASE_V(0x11201000, usb_d, PD_NULL, CLK_NULL),
-	[usb_sif] = REGBASE_V(0x11203e00, usb_sif, PD_NULL, CLK_NULL),
-	[usb_d_p1] = REGBASE_V(0x11211000, usb_d_p1, PD_NULL, CLK_NULL),
-	[usb_sif_p1] = REGBASE_V(0x11213e00, usb_sif_p1, PD_NULL, CLK_NULL),
 	[impc] = REGBASE_V(0x11281000, impc, PD_NULL, "i2c_ck"),
 	[ufscfg_ao_bus] = REGBASE_V(0x112B8000, ufscfg_ao_bus, PD_NULL, CLK_NULL),
 	[ufsao] = REGBASE_V(0x112b8000, ufsao, PD_NULL, CLK_NULL),
@@ -78,7 +74,6 @@ static struct regbase rb[] = {
 	[impn] = REGBASE_V(0x11F06000, impn, PD_NULL, "i2c_ck"),
 	[gpu_eb_rpc] = REGBASE_V(0x13F91000, gpu_eb_rpc, PD_NULL, CLK_NULL),
 	[mfg_ao] = REGBASE_V(0x13fa0000, mfg_ao, PD_NULL, CLK_NULL),
-	[gpueb_ao] = REGBASE_V(0x13fa0800, gpueb_ao, PD_NULL, CLK_NULL),
 	[mfgsc_ao] = REGBASE_V(0x13fa0c00, mfgsc_ao, PD_NULL, CLK_NULL),
 	[mm] = REGBASE_V(0x14000000, mm, MT6985_CHK_PD_DIS0, CLK_NULL),
 	[mm1] = REGBASE_V(0x14200000, mm1, MT6985_CHK_PD_DIS1, CLK_NULL),
@@ -279,18 +274,6 @@ static struct regname rn[] = {
 	REGNAME(afe, 0x0, AUDIO_TOP_0),
 	REGNAME(afe, 0x4, AUDIO_TOP_1),
 	REGNAME(afe, 0x8, AUDIO_TOP_2),
-	/* SSUSB_DEVICE register */
-	REGNAME(usb_d, 0xC84, MISC_CTRL),
-	/* SSUSB_SIFSLV_IPPC register */
-	REGNAME(usb_sif, 0x80, SSUSB_DMA_CTRL),
-	REGNAME(usb_sif, 0x50, SSUSB_U2_CTRL_0P),
-	REGNAME(usb_sif, 0x30, SSUSB_U3_CTRL_0P),
-	/* SSUSB_DEVICE_P1 register */
-	REGNAME(usb_d_p1, 0xC84, MISC_CTRL),
-	/* SSUSB_SIFSLV_IPPC_P1 register */
-	REGNAME(usb_sif_p1, 0x80, SSUSB_DMA_CTRL),
-	REGNAME(usb_sif_p1, 0x50, SSUSB_U2_CTRL_0P),
-	REGNAME(usb_sif_p1, 0x30, SSUSB_U3_CTRL_0P),
 	/* IMP_IIC_WRAP_C register */
 	REGNAME(impc, 0xE00, AP_CLOCK_CG_CEN),
 	/* UFSCFG_AO_BUS register */
@@ -333,11 +316,6 @@ static struct regname rn[] = {
 	REGNAME(mfg_ao, 0xc, MFGPLL_CON1),
 	REGNAME(mfg_ao, 0x10, MFGPLL_CON2),
 	REGNAME(mfg_ao, 0x14, MFGPLL_CON3),
-	/* GPUEBPLL_PLL_CTRL register */
-	REGNAME(gpueb_ao, 0x8, GPUEBPLL_CON0),
-	REGNAME(gpueb_ao, 0xc, GPUEBPLL_CON1),
-	REGNAME(gpueb_ao, 0x10, GPUEBPLL_CON2),
-	REGNAME(gpueb_ao, 0x14, GPUEBPLL_CON3),
 	/* MFGSCPLL_PLL_CTRL register */
 	REGNAME(mfgsc_ao, 0x8, MFGSCPLL_CON0),
 	REGNAME(mfgsc_ao, 0xc, MFGSCPLL_CON1),
@@ -602,6 +580,9 @@ static int get_pvd_pwr_data_idx(const char *pvdname)
 	return -1;
 }
 
+/*
+ * clkchk pwr_status
+ */
 static u32 get_pwr_status(s32 idx)
 {
 	if (idx < 0 || idx >= MT6985_CHK_PD_NUM)
@@ -621,103 +602,132 @@ static bool is_cg_chk_pwr_on(void)
 	return false;
 }
 
+#if CHECK_VCORE_FREQ
 /*
  * clkchk vf table
  */
 
+struct mtk_vf {
+	const char *name;
+	int freq_table[5];
+};
+
+#define MTK_VF_TABLE(_n, _freq0, _freq1, _freq2, _freq3, _freq4) {		\
+		.name = _n,		\
+		.freq_table = {_freq0, _freq1, _freq2, _freq3, _freq4},	\
+	}
+
 /*
- * Opp0 : 0p725v
- * Opp1 : 0p65v
- * Opp2 : 0p60v
- * Opp3 : 0p55v
+ * Opp0 : 0p825v
+ * Opp1 : 0p725v
+ * Opp2 : 0p65v
+ * Opp3 : 0p60v
+ * Opp4 : 0p575v
  */
-#if CHECK_VCORE_FREQ
 static struct mtk_vf vf_table[] = {
-	/* Opp0, Opp1, Opp2, Opp3 */
-	MTK_VF_TABLE("axi_sel", 156000, 156000, 156000, 156000),
-	MTK_VF_TABLE("peri_faxi_sel", 156000, 156000, 156000, 156000),
-	MTK_VF_TABLE("ufs_faxi_sel", 156000, 156000, 156000, 156000),
-	MTK_VF_TABLE("bus_aximem_sel", 218400, 218400, 218400, 218400),
-	MTK_VF_TABLE("disp0_sel", 624000, 458333, 364000, 229167),
-	MTK_VF_TABLE("disp1_sel", 624000, 458333, 364000, 229167),
-	MTK_VF_TABLE("ovl0_sel", 624000, 458333, 364000, 229167),
-	MTK_VF_TABLE("ovl1_sel", 624000, 458333, 364000, 229167),
-	MTK_VF_TABLE("mdp0_sel", 624000, 458333, 364000, 249600),
-	MTK_VF_TABLE("mdp1_sel", 624000, 458333, 364000, 249600),
-	MTK_VF_TABLE("mminfra_sel", 624000, 458333, 343750, 218400),
-	MTK_VF_TABLE("mmup_sel", 728000, 728000, 728000, 728000),
-	MTK_VF_TABLE("dsp_sel", 208000, 208000, 208000, 208000),
-	MTK_VF_TABLE("mfg_ref_sel", 26000, 26000, 26000, 26000),
-	MTK_VF_TABLE("uart_sel", 104000, 104000, 104000, 104000),
-	MTK_VF_TABLE("spi_sel", 208000, 208000, 208000, 208000),
-	MTK_VF_TABLE("msdc_macro_sel", 384000, 384000, 384000, 384000),
-	MTK_VF_TABLE("msdc30_1_sel", 192000, 192000, 192000, 192000),
-	MTK_VF_TABLE("msdc30_2_sel", 192000, 192000, 192000, 192000),
-	MTK_VF_TABLE("audio_sel", 54600, 54600, 54600, 54600),
-	MTK_VF_TABLE("aud_intbus_sel", 136500, 136500, 136500, 136500),
-	MTK_VF_TABLE("atb_sel", 273000, 273000, 273000, 273000),
-	MTK_VF_TABLE("dp_sel", 297000, 297000, 297000, 148500),
-	MTK_VF_TABLE("disp_pwm_sel", 130000, 130000, 130000, 130000),
-	MTK_VF_TABLE("usb_sel", 124800, 124800, 124800, 124800),
-	MTK_VF_TABLE("ssusb_xhci_sel", 124800, 124800, 124800, 124800),
-	MTK_VF_TABLE("usb_1p_sel", 124800, 124800, 124800, 124800),
-	MTK_VF_TABLE("ssusb_xhci_1p_sel", 124800, 124800, 124800, 124800),
-	MTK_VF_TABLE("i2c_sel", 136500, 136500, 136500, 136500),
-	MTK_VF_TABLE("aud_engen1_sel", 45158, 45158, 45158, 45158),
-	MTK_VF_TABLE("aud_engen2_sel", 49152, 49152, 49152, 49152),
-	MTK_VF_TABLE("aes_ufsfde_sel", 546000, 546000, 546000, 546000),
-	MTK_VF_TABLE("ufs_sel", 458333, 458333, 458333, 458333),
-	MTK_VF_TABLE("ufs_mbist_sel", 594000, 594000, 594000, 594000),
-	MTK_VF_TABLE("pextp_mbist_sel", 249600, 249600, 249600, 249600),
-	MTK_VF_TABLE("aud_1_sel", 180634, 180634, 180634, 180634),
-	MTK_VF_TABLE("aud_2_sel", 196608, 196608, 196608, 196608),
-	MTK_VF_TABLE("adsp_sel", 800000, 800000, 800000, 800000),
-	MTK_VF_TABLE("dpmaif_main_sel", 436800, 364000, 273000, 273000),
-	MTK_VF_TABLE("pwm_sel", 78000, 78000, 78000, 78000),
-	MTK_VF_TABLE("audio_h_sel", 196608, 196608, 196608, 196608),
-	MTK_VF_TABLE("mcupm_sel", 218400, 218400, 218400, 218400),
-	MTK_VF_TABLE("mem_sub_sel", 546000, 436800, 364000, 218400),
-	MTK_VF_TABLE("peri_fmem_sub_sel", 546000, 436800, 364000, 218400),
-	MTK_VF_TABLE("ufs_fmem_sub_sel", 546000, 436800, 364000, 218400),
-	MTK_VF_TABLE("emi_n_sel", 680000, 680000, 680000, 680000),
-	MTK_VF_TABLE("emi_s_sel", 680000, 680000, 680000, 680000),
-	MTK_VF_TABLE("ap2conn_host_sel", 78000, 78000, 78000, 78000),
-	MTK_VF_TABLE("mcu_acp_sel", 546000, 392857, 275000, 156000),
-	MTK_VF_TABLE("sflash_sel", 52000, 52000, 52000, 52000),
-	MTK_VF_TABLE("mcu_l3gic_sel", 156000, 156000, 156000, 156000),
-	MTK_VF_TABLE("ipseast_sel", 832000, 624000, 312000, 312000),
-	MTK_VF_TABLE("ipssouth_sel", 832000, 624000, 312000, 312000),
-	MTK_VF_TABLE("ipswest_sel", 832000, 624000, 312000, 312000),
-	MTK_VF_TABLE("tl_sel", 136500, 136500, 136500, 136500),
-	MTK_VF_TABLE("pextp_faxi_sel", 156000, 156000, 156000, 156000),
-	MTK_VF_TABLE("pextp_fmem_sub_sel", 546000, 436800, 364000, 218400),
-	MTK_VF_TABLE("audio_local_bus_sel", 546000, 416000, 312000, 218400),
-	MTK_VF_TABLE("md_emi_sel", 546000, 546000, 546000, 546000),
-	MTK_VF_TABLE("camtg_sel", 26000, 26000, 26000, 26000),
-	MTK_VF_TABLE("camtg2_sel", 52000, 52000, 52000, 52000),
-	MTK_VF_TABLE("camtg3_sel", 52000, 52000, 52000, 52000),
-	MTK_VF_TABLE("camtg4_sel", 52000, 52000, 52000, 52000),
-	MTK_VF_TABLE("camtg5_sel", 52000, 52000, 52000, 52000),
-	MTK_VF_TABLE("camtg6_sel", 52000, 52000, 52000, 52000),
-	MTK_VF_TABLE("camtg7_sel", 52000, 52000, 52000, 52000),
-	MTK_VF_TABLE("camtg8_sel", 52000, 52000, 52000, 52000),
-	MTK_VF_TABLE("seninf_sel", 499200, 416000, 312000, 242667),
-	MTK_VF_TABLE("seninf1_sel", 499200, 416000, 312000, 242667),
-	MTK_VF_TABLE("seninf2_sel", 499200, 416000, 312000, 242667),
-	MTK_VF_TABLE("seninf3_sel", 499200, 416000, 312000, 242667),
-	MTK_VF_TABLE("seninf4_sel", 499200, 416000, 312000, 242667),
-	MTK_VF_TABLE("seninf5_sel", 499200, 416000, 312000, 242667),
-	MTK_VF_TABLE("venc_sel", 624000, 458333, 312000, 249600),
+	/* Opp0, Opp1, Opp2, Opp3, Opp4 */
+	MTK_VF_TABLE("axi_sel", 156000, 156000, 156000, 156000, 156000),
+	MTK_VF_TABLE("peri_faxi_sel", 156000, 156000, 156000, 156000, 156000),
+	MTK_VF_TABLE("ufs_faxi_sel", 156000, 156000, 156000, 156000, 156000),
+	MTK_VF_TABLE("bus_aximem_sel", 218400, 218400, 218400, 218400, 218400),
+	MTK_VF_TABLE("disp0_sel", 728000, 624000, 458333, 364000, 229167),
+	MTK_VF_TABLE("disp1_sel", 728000, 624000, 458333, 364000, 229167),
+	MTK_VF_TABLE("ovl0_sel", 728000, 624000, 458333, 364000, 229167),
+	MTK_VF_TABLE("ovl1_sel", 728000, 624000, 458333, 364000, 229167),
+	MTK_VF_TABLE("mdp0_sel", 728000, 624000, 458333, 364000, 249600),
+	MTK_VF_TABLE("mdp1_sel", 728000, 624000, 458333, 364000, 249600),
+	MTK_VF_TABLE("mminfra_sel", 728000, 624000, 458333, 343750, 218400),
+	MTK_VF_TABLE("mmup_sel", 728000, 728000, 728000, 728000, 728000),
+	MTK_VF_TABLE("dsp_sel", 208000, 208000, 208000, 208000, 208000),
+	MTK_VF_TABLE("mfg_ref_sel", 26000, 26000, 26000, 26000, 26000),
+	MTK_VF_TABLE("uart_sel", 104000, 104000, 104000, 104000, 104000),
+	MTK_VF_TABLE("spi_sel", 208000, 208000, 208000, 208000, 208000),
+	MTK_VF_TABLE("msdc_macro_sel", 384000, 384000, 384000, 384000, 384000),
+	MTK_VF_TABLE("msdc30_1_sel", 192000, 192000, 192000, 192000, 192000),
+	MTK_VF_TABLE("msdc30_2_sel", 192000, 192000, 192000, 192000, 192000),
+	MTK_VF_TABLE("audio_sel", 54600, 54600, 54600, 54600, 54600),
+	MTK_VF_TABLE("aud_intbus_sel", 136500, 136500, 136500, 136500, 136500),
+	MTK_VF_TABLE("atb_sel", 273000, 273000, 273000, 273000, 273000),
+	MTK_VF_TABLE("dp_sel", 297000, 297000, 297000, 297000, 148500),
+	MTK_VF_TABLE("disp_pwm_sel", 130000, 130000, 130000, 130000, 130000),
+	MTK_VF_TABLE("usb_sel", 124800, 124800, 124800, 124800, 124800),
+	MTK_VF_TABLE("ssusb_xhci_sel", 124800, 124800, 124800, 124800, 124800),
+	MTK_VF_TABLE("usb_1p_sel", 124800, 124800, 124800, 124800, 124800),
+	MTK_VF_TABLE("ssusb_xhci_1p_sel", 124800, 124800, 124800, 124800, 124800),
+	MTK_VF_TABLE("i2c_sel", 136500, 136500, 136500, 136500, 136500),
+	MTK_VF_TABLE("aud_engen1_sel", 45158, 45158, 45158, 45158, 45158),
+	MTK_VF_TABLE("aud_engen2_sel", 49152, 49152, 49152, 49152, 49152),
+	MTK_VF_TABLE("aes_ufsfde_sel", 546000, 546000, 546000, 546000, 546000),
+	MTK_VF_TABLE("ufs_sel", 458333, 458333, 458333, 458333, 458333),
+	MTK_VF_TABLE("ufs_mbist_sel", 594000, 594000, 594000, 594000, 594000),
+	MTK_VF_TABLE("pextp_mbist_sel", 249600, 249600, 249600, 249600, 249600),
+	MTK_VF_TABLE("aud_1_sel", 180634, 180634, 180634, 180634, 180634),
+	MTK_VF_TABLE("aud_2_sel", 196608, 196608, 196608, 196608, 196608),
+	MTK_VF_TABLE("adsp_sel", 800000, 800000, 800000, 800000, 800000),
+	MTK_VF_TABLE("dpmaif_main_sel", 499200, 436800, 364000, 273000, 273000),
+	MTK_VF_TABLE("pwm_sel", 78000, 78000, 78000, 78000, 78000),
+	MTK_VF_TABLE("audio_h_sel", 196608, 196608, 196608, 196608, 196608),
+	MTK_VF_TABLE("mcupm_sel", 218400, 218400, 218400, 218400, 218400),
+	MTK_VF_TABLE("mem_sub_sel", 728000, 546000, 436800, 364000, 218400),
+	MTK_VF_TABLE("peri_fmem_sub_sel", 624000, 546000, 436800, 364000, 218400),
+	MTK_VF_TABLE("ufs_fmem_sub_sel", 546000, 546000, 436800, 364000, 218400),
+	MTK_VF_TABLE("emi_n_sel", 680000, 680000, 680000, 680000, 680000),
+	MTK_VF_TABLE("emi_s_sel", 680000, 680000, 680000, 680000, 680000),
+	MTK_VF_TABLE("ap2conn_host_sel", 78000, 78000, 78000, 78000, 78000),
+	MTK_VF_TABLE("mcu_acp_sel", 624000, 546000, 392857, 275000, 156000),
+	MTK_VF_TABLE("sflash_sel", 52000, 52000, 52000, 52000, 52000),
+	MTK_VF_TABLE("mcu_l3gic_sel", 156000, 156000, 156000, 156000, 156000),
+	MTK_VF_TABLE("ipseast_sel", 832000, 624000, 312000, 312000, 1248000),
+	MTK_VF_TABLE("ipssouth_sel", 832000, 624000, 312000, 312000, 1248000),
+	MTK_VF_TABLE("ipswest_sel", 832000, 624000, 312000, 312000, 1248000),
+	MTK_VF_TABLE("tl_sel", 136500, 136500, 136500, 136500, 136500),
+	MTK_VF_TABLE("pextp_faxi_sel", 156000, 156000, 156000, 156000, 156000),
+	MTK_VF_TABLE("pextp_fmem_sub_sel", 546000, 546000, 436800, 364000, 218400),
+	MTK_VF_TABLE("audio_local_bus_sel", 624000, 546000, 416000, 312000, 218400),
+	MTK_VF_TABLE("md_emi_sel", 546000, 546000, 546000, 546000, 546000),
+	MTK_VF_TABLE("camtg_sel", 26000, 26000, 26000, 26000, 26000),
+	MTK_VF_TABLE("camtg2_sel", 52000, 52000, 52000, 52000, 52000),
+	MTK_VF_TABLE("camtg3_sel", 52000, 52000, 52000, 52000, 52000),
+	MTK_VF_TABLE("camtg4_sel", 52000, 52000, 52000, 52000, 52000),
+	MTK_VF_TABLE("camtg5_sel", 52000, 52000, 52000, 52000, 52000),
+	MTK_VF_TABLE("camtg6_sel", 52000, 52000, 52000, 52000, 52000),
+	MTK_VF_TABLE("camtg7_sel", 52000, 52000, 52000, 52000, 52000),
+	MTK_VF_TABLE("camtg8_sel", 52000, 52000, 52000, 52000, 52000),
+	MTK_VF_TABLE("seninf_sel", 499200, 499200, 416000, 312000, 242667),
+	MTK_VF_TABLE("seninf1_sel", 499200, 499200, 416000, 312000, 242667),
+	MTK_VF_TABLE("seninf2_sel", 499200, 499200, 416000, 312000, 242667),
+	MTK_VF_TABLE("seninf3_sel", 499200, 499200, 416000, 312000, 242667),
+	MTK_VF_TABLE("seninf4_sel", 499200, 499200, 416000, 312000, 242667),
+	MTK_VF_TABLE("seninf5_sel", 499200, 499200, 416000, 312000, 242667),
+	MTK_VF_TABLE("venc_sel", 687500, 624000, 458333, 312000, 249600),
 	{},
 };
 #endif
 
-static struct mtk_vf *get_vf_table(void)
+static const char *get_vf_name(int id)
 {
 #if CHECK_VCORE_FREQ
-	return vf_table;
+	return vf_table[id].name;
 #else
 	return NULL;
+#endif
+}
+
+static int get_vf_opp(int id, int opp)
+{
+#if CHECK_VCORE_FREQ
+	return vf_table[id].freq_table[opp];
+#else
+	return 0;
+#endif
+}
+
+static u32 get_vf_num(void)
+{
+#if CHECK_VCORE_FREQ
+	return ARRAY_SIZE(vf_table) - 1;
+#else
+	return 0;
 #endif
 }
 
@@ -786,7 +796,7 @@ void print_subsys_reg_mt6985(enum chk_sys_id id)
 	const struct regname *rns = &rn[0];
 	int i;
 
-	if (id >= chk_sys_num || id < 0) {
+	if (id >= chk_sys_num) {
 		pr_info("wrong id:%d\n", id);
 		return;
 	}
@@ -823,7 +833,6 @@ static enum chk_sys_id devapc_dump_id[] = {
 	ufscfg_ao_bus,
 	gpu_eb_rpc,
 	mfg_ao,
-	gpueb_ao,
 	mfgsc_ao,
 	img_sub0_bus,
 	img_sub1_bus,
@@ -990,7 +999,9 @@ static struct clkchk_ops clkchk_mt6985_ops = {
 	.get_off_pll_names = get_off_pll_names,
 	.get_notice_pll_names = get_notice_pll_names,
 	.is_pll_chk_bug_on = is_pll_chk_bug_on,
-	.get_vf_table = get_vf_table,
+	.get_vf_name = get_vf_name,
+	.get_vf_opp = get_vf_opp,
+	.get_vf_num = get_vf_num,
 	.get_vcore_opp = get_vcore_opp,
 	.devapc_dump = devapc_dump,
 	.dump_hwv_history = dump_hwv_history,
@@ -1009,6 +1020,10 @@ static int clk_chk_mt6985_probe(struct platform_device *pdev)
 
 #if IS_ENABLED(CONFIG_MTK_DEVAPC)
 	register_devapc_vio_callback(&devapc_vio_handle);
+#endif
+
+#if CHECK_VCORE_FREQ
+	mtk_clk_check_muxes();
 #endif
 
 	return 0;

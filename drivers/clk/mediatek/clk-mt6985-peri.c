@@ -189,21 +189,21 @@ static const struct mtk_gate perao_clks[] = {
 	GATE_PERAO0(CLK_PERAO_DISP_PWM1, "perao_disp_pwm1",
 			"disp_pwm_ck"/* parent */, 11),
 	GATE_PERAO0(CLK_PERAO_SPI0_B, "perao_spi0_b",
-			"i2c_ck"/* parent */, 12),
+			"spi_ck"/* parent */, 12),
 	GATE_PERAO0(CLK_PERAO_SPI1_B, "perao_spi1_b",
-			"i2c_ck"/* parent */, 13),
+			"spi_ck"/* parent */, 13),
 	GATE_PERAO0(CLK_PERAO_SPI2_B, "perao_spi2_b",
-			"i2c_ck"/* parent */, 14),
+			"spi_ck"/* parent */, 14),
 	GATE_PERAO0(CLK_PERAO_SPI3_B, "perao_spi3_b",
-			"i2c_ck"/* parent */, 15),
+			"spi_ck"/* parent */, 15),
 	GATE_PERAO0(CLK_PERAO_SPI4_B, "perao_spi4_b",
-			"i2c_ck"/* parent */, 16),
+			"spi_ck"/* parent */, 16),
 	GATE_PERAO0(CLK_PERAO_SPI5_B, "perao_spi5_b",
-			"i2c_ck"/* parent */, 17),
+			"spi_ck"/* parent */, 17),
 	GATE_PERAO0(CLK_PERAO_SPI6_B, "perao_spi6_b",
-			"i2c_ck"/* parent */, 18),
+			"spi_ck"/* parent */, 18),
 	GATE_PERAO0(CLK_PERAO_SPI7_B, "perao_spi7_b",
-			"i2c_ck"/* parent */, 19),
+			"spi_ck"/* parent */, 19),
 	GATE_PERAO0(CLK_PERAO_SPI0_H, "perao_spi0_h",
 			"peri_faxi_ck"/* parent */, 20),
 	GATE_PERAO0(CLK_PERAO_SPI1_H, "perao_spi1_h",
@@ -235,24 +235,8 @@ static const struct mtk_gate perao_clks[] = {
 			"peri_faxi_ck"/* parent */, 1),
 	GATE_PERAO1(CLK_PERAO_SSUSB0_FRMCNT, "perao_ssusb0_frmcnt",
 			"clk26m"/* parent */, 4),
-	GATE_PERAO1(CLK_PERAO_SSUSB0_SYS, "perao_ssusb0_sys",
-			"usb_ck"/* parent */, 6),
-	GATE_PERAO1(CLK_PERAO_SSUSB0_XHCI, "perao_ssusb0_xhci",
-			"ssusb_xhci_ck"/* parent */, 7),
-	GATE_PERAO1(CLK_PERAO_SSUSB0_F, "perao_ssusb0_f",
-			"peri_faxi_ck"/* parent */, 8),
-	GATE_PERAO1(CLK_PERAO_SSUSB0_H, "perao_ssusb0_h",
-			"peri_faxi_ck"/* parent */, 9),
 	GATE_PERAO1(CLK_PERAO_SSUSB1_FRMCNT, "perao_ssusb1_frmcnt",
 			"clk26m"/* parent */, 11),
-	GATE_PERAO1(CLK_PERAO_SSUSB1_SYS, "perao_ssusb1_sys",
-			"usb_1p_ck"/* parent */, 13),
-	GATE_PERAO1(CLK_PERAO_SSUSB1_XHCI, "perao_ssusb1_xhci",
-			"ssusb_xhci_1p_ck"/* parent */, 14),
-	GATE_PERAO1(CLK_PERAO_SSUSB1_F, "perao_ssusb1_f",
-			"peri_faxi_ck"/* parent */, 15),
-	GATE_PERAO1(CLK_PERAO_SSUSB1_H, "perao_ssusb1_h",
-			"peri_faxi_ck"/* parent */, 16),
 	GATE_PERAO1(CLK_PERAO_MSDC1, "perao_msdc1",
 			"msdc30_1_ck"/* parent */, 17),
 	GATE_PERAO1(CLK_PERAO_MSDC1_F, "perao_msdc1_f",
@@ -332,98 +316,6 @@ static const struct mtk_clk_desc pext_mcd = {
 	.num_clks = CLK_PEXT_NR_CLK,
 };
 
-
-
-
-
-static const struct mtk_gate_regs usb_sif0_cg_regs = {
-	.set_ofs = 0x30,
-	.clr_ofs = 0x30,
-	.sta_ofs = 0x30,
-};
-
-static const struct mtk_gate_regs usb_sif1_cg_regs = {
-	.set_ofs = 0x50,
-	.clr_ofs = 0x50,
-	.sta_ofs = 0x50,
-};
-
-#define GATE_USB_SIF0(_id, _name, _parent, _shift) {	\
-		.id = _id,				\
-		.name = _name,				\
-		.parent_name = _parent,			\
-		.regs = &usb_sif0_cg_regs,			\
-		.shift = _shift,			\
-		.ops = &mtk_clk_gate_ops_no_setclr,	\
-	}
-
-#define GATE_USB_SIF1(_id, _name, _parent, _shift) {	\
-		.id = _id,				\
-		.name = _name,				\
-		.parent_name = _parent,			\
-		.regs = &usb_sif1_cg_regs,			\
-		.shift = _shift,			\
-		.ops = &mtk_clk_gate_ops_no_setclr,	\
-	}
-
-static const struct mtk_gate usb_sif_clks[] = {
-	/* USB_SIF0 */
-	GATE_USB_SIF0(CLK_USB_SIF_USB_U3_P, "usb_sif_usb_u3_p",
-			"usb_ck"/* parent */, 0),
-	/* USB_SIF1 */
-	GATE_USB_SIF1(CLK_USB_SIF_USB_U2_P, "usb_sif_usb_u2_p",
-			"usb_ck"/* parent */, 0),
-};
-
-static const struct mtk_clk_desc usb_sif_mcd = {
-	.clks = usb_sif_clks,
-	.num_clks = CLK_USB_SIF_NR_CLK,
-};
-
-static const struct mtk_gate_regs usb_sif_p10_cg_regs = {
-	.set_ofs = 0x30,
-	.clr_ofs = 0x30,
-	.sta_ofs = 0x30,
-};
-
-static const struct mtk_gate_regs usb_sif_p11_cg_regs = {
-	.set_ofs = 0x50,
-	.clr_ofs = 0x50,
-	.sta_ofs = 0x50,
-};
-
-#define GATE_USB_SIF_P10(_id, _name, _parent, _shift) {	\
-		.id = _id,				\
-		.name = _name,				\
-		.parent_name = _parent,			\
-		.regs = &usb_sif_p10_cg_regs,			\
-		.shift = _shift,			\
-		.ops = &mtk_clk_gate_ops_no_setclr,	\
-	}
-
-#define GATE_USB_SIF_P11(_id, _name, _parent, _shift) {	\
-		.id = _id,				\
-		.name = _name,				\
-		.parent_name = _parent,			\
-		.regs = &usb_sif_p11_cg_regs,			\
-		.shift = _shift,			\
-		.ops = &mtk_clk_gate_ops_no_setclr,	\
-	}
-
-static const struct mtk_gate usb_sif_p1_clks[] = {
-	/* USB_SIF_P10 */
-	GATE_USB_SIF_P10(CLK_USB_SIF_P1_USB_U3_P, "usb_sif_p1_usb_u3_p",
-			"usb_ck"/* parent */, 0),
-	/* USB_SIF_P11 */
-	GATE_USB_SIF_P11(CLK_USB_SIF_P1_USB_U2_P, "usb_sif_p1_usb_u2_p",
-			"usb_ck"/* parent */, 0),
-};
-
-static const struct mtk_clk_desc usb_sif_p1_mcd = {
-	.clks = usb_sif_p1_clks,
-	.num_clks = CLK_USB_SIF_P1_NR_CLK,
-};
-
 static const struct mtk_gate_regs ufsao_cg_regs = {
 	.set_ofs = 0x8,
 	.clr_ofs = 0xC,
@@ -498,12 +390,6 @@ static const struct of_device_id of_match_clk_mt6985_peri[] = {
 	}, {
 		.compatible = "mediatek,mt6985-pextpcfg_ao",
 		.data = &pext_mcd,
-	}, {
-		.compatible = "mediatek,mt6985-ssusb_sifslv_ippc",
-		.data = &usb_sif_mcd,
-	}, {
-		.compatible = "mediatek,mt6985-ssusb_sifslv_ippc_p1",
-		.data = &usb_sif_p1_mcd,
 	}, {
 		.compatible = "mediatek,mt6985-ufscfg_ao",
 		.data = &ufsao_mcd,

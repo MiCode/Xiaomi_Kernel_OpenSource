@@ -226,7 +226,6 @@
 #define TOP_MUX_SCP_SPI_SHIFT			1
 #define TOP_MUX_SCP_IIC_SHIFT			2
 #define TOP_MUX_PWRAP_ULPOSC_SHIFT		3
-#define TOP_MUX_26M_APXGPT_BCLK_SHIFT		4
 #define TOP_MUX_DXCC_VLP_SHIFT			5
 #define TOP_MUX_DPSW_SHIFT			6
 #define TOP_MUX_SPMI_M_MST_SHIFT		7
@@ -315,10 +314,6 @@
 #define MFGPLL_CON1				0x00C
 #define MFGPLL_CON2				0x010
 #define MFGPLL_CON3				0x014
-#define GPUEBPLL_CON0				0x008
-#define GPUEBPLL_CON1				0x00C
-#define GPUEBPLL_CON2				0x010
-#define GPUEBPLL_CON3				0x014
 #define MFGSCPLL_CON0				0x008
 #define MFGSCPLL_CON1				0x00C
 #define MFGSCPLL_CON2				0x010
@@ -596,6 +591,8 @@ static const struct mtk_fixed_factor top_divs[] = {
 			"mfg_ref_sel", 1, 1),
 	FACTOR(CLK_TOP_UART, "uart_ck",
 			"uart_sel", 1, 1),
+	FACTOR(CLK_TOP_SPI, "spi_ck",
+			"spi_sel", 1, 1),
 	FACTOR(CLK_TOP_MSDC_MACRO, "msdc_macro_ck",
 			"msdc_macro_sel", 1, 1),
 	FACTOR(CLK_TOP_MSDC30_1, "msdc30_1_ck",
@@ -608,14 +605,6 @@ static const struct mtk_fixed_factor top_divs[] = {
 			"aud_intbus_sel", 1, 1),
 	FACTOR(CLK_TOP_DISP_PWM, "disp_pwm_ck",
 			"disp_pwm_sel", 1, 1),
-	FACTOR(CLK_TOP_USB_TOP, "usb_ck",
-			"usb_sel", 1, 1),
-	FACTOR(CLK_TOP_USB_XHCI, "ssusb_xhci_ck",
-			"ssusb_xhci_sel", 1, 1),
-	FACTOR(CLK_TOP_USB_TOP_1P, "usb_1p_ck",
-			"usb_1p_sel", 1, 1),
-	FACTOR(CLK_TOP_USB_XHCI_1P, "ssusb_xhci_1p_ck",
-			"ssusb_xhci_1p_sel", 1, 1),
 	FACTOR(CLK_TOP_I2C, "i2c_ck",
 			"i2c_sel", 1, 1),
 	FACTOR(CLK_TOP_AUD_ENGEN1, "aud_engen1_ck",
@@ -709,11 +698,6 @@ static const char * const vlp_pwrap_ulposc_parents[] = {
 	"osc_d16",
 	"osc_d32",
 	"mainpll_d7_d8"
-};
-
-static const char * const vlp_aptgpt_parents[] = {
-	"tck_26m_mx9_ck",
-	"osc_d20"
 };
 
 static const char * const vlp_dxcc_vlp_parents[] = {
@@ -840,10 +824,6 @@ static const struct mtk_mux vlp_ck_muxes[] = {
 		VLP_CLK_CFG_0_CLR/* set parent */, 24/* lsb */, 3/* width */,
 		VLP_CLK_CFG_UPDATE/* upd ofs */, TOP_MUX_PWRAP_ULPOSC_SHIFT/* upd shift */),
 	/* VLP_CLK_CFG_1 */
-	MUX_CLR_SET_UPD(CLK_VLP_CK_26M_APXGPT_BCLK_SEL/* dts */, "vlp_aptgpt_sel",
-		vlp_aptgpt_parents/* parent */, VLP_CLK_CFG_1, VLP_CLK_CFG_1_SET,
-		VLP_CLK_CFG_1_CLR/* set parent */, 0/* lsb */, 1/* width */,
-		VLP_CLK_CFG_UPDATE/* upd ofs */, TOP_MUX_26M_APXGPT_BCLK_SHIFT/* upd shift */),
 	MUX_CLR_SET_UPD(CLK_VLP_CK_DXCC_VLP_SEL/* dts */, "vlp_dxcc_vlp_sel",
 		vlp_dxcc_vlp_parents/* parent */, VLP_CLK_CFG_1, VLP_CLK_CFG_1_SET,
 		VLP_CLK_CFG_1_CLR/* set parent */, 8/* lsb */, 3/* width */,
@@ -927,10 +907,6 @@ static const struct mtk_mux vlp_ck_muxes[] = {
 		VLP_CLK_CFG_0_CLR/* set parent */, 24/* lsb */, 3/* width */,
 		VLP_CLK_CFG_UPDATE/* upd ofs */, TOP_MUX_PWRAP_ULPOSC_SHIFT/* upd shift */),
 	/* VLP_CLK_CFG_1 */
-	MUX_CLR_SET_UPD(CLK_VLP_CK_26M_APXGPT_BCLK_SEL/* dts */, "vlp_aptgpt_sel",
-		vlp_aptgpt_parents/* parent */, VLP_CLK_CFG_1, VLP_CLK_CFG_1_SET,
-		VLP_CLK_CFG_1_CLR/* set parent */, 0/* lsb */, 1/* width */,
-		VLP_CLK_CFG_UPDATE/* upd ofs */, TOP_MUX_26M_APXGPT_BCLK_SHIFT/* upd shift */),
 	MUX_CLR_SET_UPD(CLK_VLP_CK_DXCC_VLP_SEL/* dts */, "vlp_dxcc_vlp_sel",
 		vlp_dxcc_vlp_parents/* parent */, VLP_CLK_CFG_1, VLP_CLK_CFG_1_SET,
 		VLP_CLK_CFG_1_CLR/* set parent */, 8/* lsb */, 3/* width */,
@@ -2919,7 +2895,6 @@ enum subsys_id {
 	ARMPLL_B_PLL_CTRL = 5,
 	ARMPLL_LL_PLL_CTRL = 6,
 	MFGSCPLL_PLL_CTRL = 7,
-	GPUEBPLL_PLL_CTRL = 8,
 	PLL_SYS_NUM,
 };
 
@@ -3113,15 +3088,6 @@ static const struct mtk_pll_data mfgsc_ao_plls[] = {
 		MFGSCPLL_CON1, 0, 22/*pcw*/),
 };
 
-static const struct mtk_pll_data gpueb_ao_plls[] = {
-	PLL(CLK_GPUEB_AO_GPUEBPLL, "gpueb_ao_gpuebpll", GPUEBPLL_CON0/*base*/,
-		GPUEBPLL_CON0, 0, 0/*en*/,
-		GPUEBPLL_CON3/*pwr*/, PLL_AO, BIT(0)/*rstb*/,
-		GPUEBPLL_CON1, 24/*pd*/,
-		0, 0, 0/*tuner*/,
-		GPUEBPLL_CON1, 0, 22/*pcw*/),
-};
-
 static int clk_mt6985_pll_registration(enum subsys_id id,
 		const struct mtk_pll_data *plls,
 		struct platform_device *pdev,
@@ -3198,12 +3164,6 @@ static int clk_mt6985_cci_probe(struct platform_device *pdev)
 {
 	return clk_mt6985_pll_registration(CCIPLL_PLL_CTRL, cci_plls,
 			pdev, ARRAY_SIZE(cci_plls));
-}
-
-static int clk_mt6985_gpueb_ao_probe(struct platform_device *pdev)
-{
-	return clk_mt6985_pll_registration(GPUEBPLL_PLL_CTRL, gpueb_ao_plls,
-			pdev, ARRAY_SIZE(gpueb_ao_plls));
 }
 
 static int clk_mt6985_mfg_ao_probe(struct platform_device *pdev)
@@ -3359,9 +3319,6 @@ static const struct of_device_id of_match_clk_mt6985[] = {
 	}, {
 		.compatible = "mediatek,mt6985-ccipll_pll_ctrl",
 		.data = clk_mt6985_cci_probe,
-	}, {
-		.compatible = "mediatek,mt6985-gpuebpll_pll_ctrl",
-		.data = clk_mt6985_gpueb_ao_probe,
 	}, {
 		.compatible = "mediatek,mt6985-mfgpll_pll_ctrl",
 		.data = clk_mt6985_mfg_ao_probe,

@@ -33,8 +33,8 @@ static const struct mtk_gate_regs mm11_cg_regs = {
 };
 
 static const struct mtk_gate_regs mm12_cg_regs = {
-	.set_ofs = 0x1A0,
-	.clr_ofs = 0x1A0,
+	.set_ofs = 0x1A4,
+	.clr_ofs = 0x1A8,
 	.sta_ofs = 0x1A0,
 };
 
@@ -62,7 +62,7 @@ static const struct mtk_gate_regs mm12_cg_regs = {
 		.parent_name = _parent,			\
 		.regs = &mm12_cg_regs,			\
 		.shift = _shift,			\
-		.ops = &mtk_clk_gate_ops_no_setclr,	\
+		.ops = &mtk_clk_gate_ops_setclr,	\
 	}
 
 static const struct mtk_gate mm1_clks[] = {
@@ -175,8 +175,8 @@ static const struct mtk_gate_regs mm1_cg_regs = {
 };
 
 static const struct mtk_gate_regs mm2_cg_regs = {
-	.set_ofs = 0x1A0,
-	.clr_ofs = 0x1A0,
+	.set_ofs = 0x1A4,
+	.clr_ofs = 0x1A8,
 	.sta_ofs = 0x1A0,
 };
 
@@ -204,7 +204,7 @@ static const struct mtk_gate_regs mm2_cg_regs = {
 		.parent_name = _parent,			\
 		.regs = &mm2_cg_regs,			\
 		.shift = _shift,			\
-		.ops = &mtk_clk_gate_ops_no_setclr,	\
+		.ops = &mtk_clk_gate_ops_setclr,	\
 	}
 
 static const struct mtk_gate mm_clks[] = {

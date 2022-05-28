@@ -20,7 +20,7 @@
 #include "clkchk-mt6853.h"
 
 #define BUG_ON_CHK_ENABLE	1
-#define CHECK_VCORE_FREQ		1
+#define CHECK_VCORE_FREQ	1
 
 /*
  * clkchk dump_regs
@@ -309,6 +309,7 @@ static struct pvd_msk *get_pvd_pwr_mask(void)
 	return pvd_pwr_mask;
 }
 
+#if CHECK_VCORE_FREQ
 /*
  * clkchk vf table
  */
@@ -387,20 +388,33 @@ static struct mtk_vf vf_table[] = {
 	MTK_VF_TABLE("sflash_sel", 62400, 62400, 62400, 62400),
 	{},
 };
+#endif
 
 static const char *get_vf_name(int id)
 {
+#if CHECK_VCORE_FREQ
 	return vf_table[id].name;
+#else
+	return NULL;
+#endif
 }
 
 static int get_vf_opp(int id, int opp)
 {
+#if CHECK_VCORE_FREQ
 	return vf_table[id].freq_table[opp];
+#else
+	return 0;
+#endif
 }
 
 static u32 get_vf_num(void)
 {
+#if CHECK_VCORE_FREQ
 	return ARRAY_SIZE(vf_table) - 1;
+#else
+	return 0;
+#endif
 }
 
 #if IS_ENABLED(CONFIG_MTK_DEVAPC)
@@ -551,6 +565,10 @@ void clkchk_set_cfg(void)
 	init_regbase();
 
 	set_clkchk_ops(&clkchk_mt6853_ops);
+
+#if CHECK_VCORE_FREQ
+	mtk_clk_check_muxes();
+#endif
 
 #if IS_ENABLED(CONFIG_MTK_DEVAPC)
 	register_devapc_vio_callback(&devapc_vio_handle);
