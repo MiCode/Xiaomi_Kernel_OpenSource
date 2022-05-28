@@ -1580,7 +1580,11 @@ static void fbt_set_min_cap_locked(struct render_info *thr, int min_cap,
 			fbt_set_per_task_cap(fl->pid,
 				(!loading_policy) ? 0
 				: min_cap * loading_policy / 100, max_cap);
-			fbt_set_task_policy(fl, llf_task_policy,
+			if (llf_task_policy == FPSGO_TPOLICY_NONE && boost_affinity)
+				fbt_set_task_policy(fl, FPSGO_TPOLICY_AFFINITY,
+					FPSGO_PREFER_L_M, 0);
+			else
+				fbt_set_task_policy(fl, llf_task_policy,
 					FPSGO_PREFER_LITTLE, 0);
 		} else if (heavy_pid && heavy_pid == fl->pid) {
 			fpsgo_systrace_c_fbt(thr->pid, thr->buffer_id,
