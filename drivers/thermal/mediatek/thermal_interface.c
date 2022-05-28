@@ -52,6 +52,8 @@ void __iomem *thermal_apu_mbox_base;
 EXPORT_SYMBOL(thermal_apu_mbox_base);
 struct frs_info frs_data;
 EXPORT_SYMBOL(frs_data);
+struct vtskin_data *plat_vtskin_info;
+EXPORT_SYMBOL(plat_vtskin_info);
 
 static struct md_info md_info_data;
 

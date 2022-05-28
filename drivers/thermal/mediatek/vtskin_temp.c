@@ -14,9 +14,6 @@
 #include <linux/thermal.h>
 #include "vtskin_temp.h"
 
-struct vtskin_data *plat_vtskin_info;
-EXPORT_SYMBOL(plat_vtskin_info);
-
 static int vtskin_get_temp(void *data, int *temp)
 {
 	struct vtskin_temp_tz *skin_tz = (struct vtskin_temp_tz *)data;
