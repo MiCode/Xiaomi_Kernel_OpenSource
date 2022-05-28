@@ -57,6 +57,10 @@
 #define I_DL8_CH2 (49 - I_32_OFFSET)
 #define I_DL9_CH1 (50 - I_32_OFFSET)
 #define I_DL9_CH2 (51 - I_32_OFFSET)
+#define I_I2S6_CH1 (52 - I_32_OFFSET)
+#define I_I2S6_CH2 (53 - I_32_OFFSET)
+#define I_I2S8_CH1 (54 - I_32_OFFSET)
+#define I_I2S8_CH2 (55 - I_32_OFFSET)
 
 /* in port define >= 64 */
 #define I_64_OFFSET 64

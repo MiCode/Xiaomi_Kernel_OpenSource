@@ -1191,7 +1191,6 @@ static struct snd_soc_dai_link mt6985_mt6338_dai_links[] = {
 		.no_pcm = 1,
 		.dpcm_capture = 1,
 		.ignore_suspend = 1,
-		.be_hw_params_fixup = mt6985_i2s_hw_params_fixup,
 		SND_SOC_DAILINK_REG(i2s8),
 	},
 	{
@@ -1202,7 +1201,6 @@ static struct snd_soc_dai_link mt6985_mt6338_dai_links[] = {
 		.no_pcm = 1,
 		.dpcm_playback = 1,
 		.ignore_suspend = 1,
-		.be_hw_params_fixup = mt6985_i2s_hw_params_fixup,
 		SND_SOC_DAILINK_REG(i2s9),
 	},
 	{

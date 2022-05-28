@@ -224,6 +224,9 @@ static SOC_VALUE_ENUM_SINGLE_AUTODISABLE_DECL(i2s_mux_map_enum,
 static const struct snd_kcontrol_new i2s0_in_mux_control =
 	SOC_DAPM_ENUM("I2S0 In Select", i2s_mux_map_enum);
 
+static const struct snd_kcontrol_new i2s8_in_mux_control =
+	SOC_DAPM_ENUM("I2S8 In Select", i2s_mux_map_enum);
+
 static const struct snd_kcontrol_new i2s1_out_mux_control =
 	SOC_DAPM_ENUM("I2S1 Out Select", i2s_mux_map_enum);
 
