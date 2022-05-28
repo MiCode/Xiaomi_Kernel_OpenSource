@@ -639,22 +639,9 @@
 			<&afe_clk CLK_AFE_3RD_DAC>,
 			<&afe_clk CLK_AFE_3RD_DAC_PREDIS>,
 			<&afe_clk CLK_AFE_3RD_DAC_TML>,
-			<&afe_clk CLK_AFE_3RD_DAC_HIRES>,
-			<&afe_clk CLK_AFE_I2S5_BCLK>,
-			<&afe_clk CLK_AFE_I2S6_BCLK>,
-			<&afe_clk CLK_AFE_I2S7_BCLK>,
-			<&afe_clk CLK_AFE_I2S8_BCLK>,
-			<&afe_clk CLK_AFE_I2S9_BCLK>,
-			<&afe_clk CLK_AFE_ETDM_IN0_BCLK>,
-			<&afe_clk CLK_AFE_ETDM_OUT0_BCLK>,
-			<&afe_clk CLK_AFE_I2S1_BCLK>,
-			<&afe_clk CLK_AFE_I2S2_BCLK>,
-			<&afe_clk CLK_AFE_I2S3_BCLK>,
-			<&afe_clk CLK_AFE_I2S4_BCLK>,
-			<&afe_clk CLK_AFE_I2S10_BCLK>,
-			<&afe_clk CLK_AFE_ETDM_IN1_BCLK>,
-			<&afe_clk CLK_AFE_ETDM_OUT1_BCLK>;
+			<&afe_clk CLK_AFE_3RD_DAC_HIRES>;
 			power-domains = <&scpsys MT6985_POWER_DOMAIN_AUDIO>;
+			#set-syscore-device;
 	};
 
 	disable-unused-clk-pericfg_ao {
