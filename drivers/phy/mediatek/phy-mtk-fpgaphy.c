@@ -397,6 +397,9 @@ unsigned int _U3Read_Reg(unsigned int address)
 	unsigned int ret;
 
 	pu1Buf = kmalloc(1, GFP_NOIO);
+	if (!pu1Buf)
+		return -ENOMEM;
+
 	ret = I2cReadReg(U3_PHY_I2C_DEV, address, pu1Buf);
 	if (ret == PHY_FALSE) {
 		pr_info("Read failed\n");
@@ -1110,6 +1113,11 @@ static void dbg_write_reg(struct fpga_phy_instance *instance, const char *buf)
 	u32 param;
 
 	param = sscanf(buf, "%*s 0x%x 0x%x 0x%x", &i2c_addr, &addr, &value);
+	if (param != 3) {
+		dev_info(dev, "buf invalid\n");
+		return;
+	}
+
 	dev_info(dev, "params-%d (i2c_addr:%#x, addr:%#x, value:%#x)\n",
 			param, i2c_addr, addr, value);
 #ifdef CONFIG_U3_PHY_GPIO_SUPPORT
@@ -1135,6 +1143,11 @@ static void dbg_read_reg(struct fpga_phy_instance *instance, const char *buf)
 	u32 param;
 
 	param = sscanf(buf, "%*s 0x%x 0x%x", &i2c_addr, &addr);
+	if (param != 2) {
+		dev_info(dev, "buf invalid\n");
+		return;
+	}
+
 	dev_info(dev, "params-%d (i2c_addr: %#x, addr: %#x)\n",
 			param, i2c_addr, addr);
 
@@ -1153,6 +1166,11 @@ static void dbg_set_pclk(struct fpga_phy_instance *instance, const char *buf)
 	u32 param;
 
 	param = sscanf(buf, "%*s 0x%x", &pclk);
+	if (param != 1) {
+		dev_info(dev, "buf invalid\n");
+		return;
+	}
+
 	dev_info(dev, "params-%d (pclk: %#x)\n", param, pclk);
 	fpga_phy_set_pclk(instance->phy, pclk);
 }
@@ -1178,7 +1196,7 @@ static ssize_t phy_reg_write(struct file *file,
 {
 	struct seq_file *sf = file->private_data;
 	struct fpga_phy_instance *instance = sf->private;
-	char buf[128];
+	char buf[128] = {};
 
 	if (copy_from_user(&buf, ubuf, min_t(size_t, sizeof(buf) - 1, count)))
 		return -EFAULT;
