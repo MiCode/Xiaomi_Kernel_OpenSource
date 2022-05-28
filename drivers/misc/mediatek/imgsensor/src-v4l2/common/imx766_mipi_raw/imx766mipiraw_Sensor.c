@@ -5348,9 +5348,9 @@ static struct subdrv_pw_seq_entry pw_seq[] = {
 	{HW_ID_MCLK, 24, 0},
 	{HW_ID_PDN, 0, 0},
 	{HW_ID_RST, 0, 1},
-	{HW_ID_AVDD, 2800000, 3},
+	{HW_ID_AVDD, 1800000, 3}, // power 1.8V to enable 2.8V
 	{HW_ID_AVDD1, 1800000, 3},
-	{HW_ID_AFVDD, 2800000, 3},
+	{HW_ID_AFVDD, 1800000, 3}, // power 1.8V to enable 2.8V
 	{HW_ID_DVDD, 1100000, 4},
 	{HW_ID_DOVDD, 1800000, 1},
 	{HW_ID_MCLK_DRIVING_CURRENT, 4, 6},
