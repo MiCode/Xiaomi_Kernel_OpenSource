@@ -9,6 +9,7 @@
 #include <linux/types.h>
 #include "ged_type.h"
 #include "ged_dvfs.h"
+#include "ged_gpu_bm.h"
 
 /**************************************************
  * GPU FAST DVFS Log Setting
@@ -29,25 +30,27 @@
  **************************************************/
 #define SYSRAM_LOG_SIZE sizeof(int)
 
+/* Need to sync to kernel & sspm of GPU QoS (BM) */
 enum gpu_fastdvfs_counter {
-	FASTDVFS_COUNTER_CURRENT_FREQUENCY          = 0,
-	FASTDVFS_COUNTER_PREDICTED_FREQUENCY        = 1,
-	FASTDVFS_COUNTER_FINISHED_WORKLOAD          = 2,
-	FASTDVFS_COUNTER_PREDICTED_WORKLOAD         = 3,
-	FASTDVFS_COUNTER_FRAGMENT_LOADING           = 4,
-	FASTDVFS_COUNTER_KERNEL_FRAME_DONE_INTERVAL = 5,
-	FASTDVFS_COUNTER_EB_FRAME_DONE_INTERVAL     = 6,
-	FASTDVFS_COUNTER_TARGET_TIME                = 7,
-	FASTDVFS_COUNTER_FRAME_BOUNDARY             = 8,
-	FASTDVFS_COUNTER_LEFT_WL                    = 9,
-	FASTDVFS_COUNTER_ELAPSED_TIME               = 10,
-	FASTDVFS_COUNTER_LEFT_TIME                  = 11,
-	FASTDVFS_COUNTER_FRAME_END_HINT_COUNT       = 12,
-	FASTDVFS_COUNTER_UNDER_HINT_WL              = 13,
-	FASTDVFS_COUNTER_UNDER_HINT_CNT             = 14,
-	FASTDVFS_COUNTER_JS0_DELTA                  = 15,
-	FASTDVFS_COUNTER_COMMIT_PROFILE             = 16,
-	FASTDVFS_COUNTER_DCS	                    = 17,
+	FASTDVFS_COUNTER_FIRST_ENTRY                 = NR_BM_COUNTER, // 5
+	FASTDVFS_COUNTER_CURRENT_FREQUENCY           = 6,
+	FASTDVFS_COUNTER_PREDICTED_FREQUENCY         = 7,
+	FASTDVFS_COUNTER_FINISHED_WORKLOAD           = 8,
+	FASTDVFS_COUNTER_PREDICTED_WORKLOAD          = 9,
+	FASTDVFS_COUNTER_FRAGMENT_LOADING            = 10,
+	FASTDVFS_COUNTER_KERNEL_FRAME_DONE_INTERVAL  = 11,
+	FASTDVFS_COUNTER_EB_FRAME_DONE_INTERVAL      = 12,
+	FASTDVFS_COUNTER_TARGET_TIME                 = 13,
+	FASTDVFS_COUNTER_FRAME_BOUNDARY              = 14,
+	FASTDVFS_COUNTER_LEFT_WL                     = 15,
+	FASTDVFS_COUNTER_ELAPSED_TIME                = 16,
+	FASTDVFS_COUNTER_LEFT_TIME                   = 17,
+	FASTDVFS_COUNTER_FRAME_END_HINT_COUNT        = 18,
+	FASTDVFS_COUNTER_UNDER_HINT_WL               = 19,
+	FASTDVFS_COUNTER_UNDER_HINT_CNT              = 20,
+	FASTDVFS_COUNTER_JS0_DELTA                   = 21,
+	FASTDVFS_COUNTER_COMMIT_PROFILE              = 22,
+	FASTDVFS_COUNTER_DCS                         = 23,
 
 	NR_FASTDVFS_COUNTER
 };
