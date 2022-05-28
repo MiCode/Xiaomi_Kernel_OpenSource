@@ -35,23 +35,43 @@ static const char * const state_names[] = {
 	ADAPTOR_STATE_NAMES
 };
 
-static struct clk *get_clk_by_freq(struct adaptor_ctx *ctx, int freq)
+static struct clk *get_clk_by_idx_freq(struct adaptor_ctx *ctx,
+				unsigned long long idx, int freq)
 {
-	switch (freq) {
-	case 6:
-		return ctx->clk[CLK_6M];
-	case 12:
-		return ctx->clk[CLK_12M];
-	case 13:
-		return ctx->clk[CLK_13M];
-	case 19:
-		return ctx->clk[CLK_19_2M];
-	case 24:
-		return ctx->clk[CLK_24M];
-	case 26:
-		return ctx->clk[CLK_26M];
-	case 52:
-		return ctx->clk[CLK_52M];
+	if (idx == CLK_MCLK) {
+		switch (freq) {
+		case 6:
+			return ctx->clk[CLK_6M];
+		case 12:
+			return ctx->clk[CLK_12M];
+		case 13:
+			return ctx->clk[CLK_13M];
+		case 19:
+			return ctx->clk[CLK_19_2M];
+		case 24:
+			return ctx->clk[CLK_24M];
+		case 26:
+			return ctx->clk[CLK_26M];
+		case 52:
+			return ctx->clk[CLK_52M];
+		}
+	} else if (idx == CLK1_MCLK1) {
+		switch (freq) {
+		case 6:
+			return ctx->clk[CLK1_6M];
+		case 12:
+			return ctx->clk[CLK1_12M];
+		case 13:
+			return ctx->clk[CLK1_13M];
+		case 19:
+			return ctx->clk[CLK1_19_2M];
+		case 24:
+			return ctx->clk[CLK1_24M];
+		case 26:
+			return ctx->clk[CLK1_26M];
+		case 52:
+			return ctx->clk[CLK1_52M];
+		}
 	}
 
 	return NULL;
@@ -65,7 +85,7 @@ static int set_mclk(struct adaptor_ctx *ctx, void *data, int val)
 
 	idx = (unsigned long long)data;
 	mclk = ctx->clk[idx];
-	mclk_src = get_clk_by_freq(ctx, val);
+	mclk_src = get_clk_by_idx_freq(ctx, idx, val);
 
 	ret = clk_prepare_enable(mclk);
 	if (ret) {
@@ -95,7 +115,7 @@ static int unset_mclk(struct adaptor_ctx *ctx, void *data, int val)
 
 	idx = (unsigned long long)data;
 	mclk = ctx->clk[idx];
-	mclk_src = get_clk_by_freq(ctx, val);
+	mclk_src = get_clk_by_idx_freq(ctx, idx, val);
 
 	clk_disable_unprepare(mclk_src);
 	clk_disable_unprepare(mclk);
@@ -376,7 +396,7 @@ int adaptor_hw_init(struct adaptor_ctx *ctx)
 
 	INST_OPS(ctx, clk, CLK_MCLK, HW_ID_MCLK, set_mclk, unset_mclk);
 
-	INST_OPS(ctx, clk, CLK_MCLK1, HW_ID_MCLK1, set_mclk, unset_mclk);
+	INST_OPS(ctx, clk, CLK1_MCLK1, HW_ID_MCLK1, set_mclk, unset_mclk);
 
 	INST_OPS(ctx, regulator, REGULATOR_AVDD, HW_ID_AVDD,
 			set_reg, unset_reg);

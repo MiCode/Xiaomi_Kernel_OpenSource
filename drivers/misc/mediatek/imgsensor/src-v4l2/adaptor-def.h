@@ -21,7 +21,14 @@ enum {
 	CLK_26M,
 	CLK_52M,
 	CLK_MCLK,
-	CLK_MCLK1,
+	CLK1_6M,
+	CLK1_12M,
+	CLK1_13M,
+	CLK1_19_2M,
+	CLK1_24M,
+	CLK1_26M,
+	CLK1_52M,
+	CLK1_MCLK1,
 	CLK_MAXCNT,
 };
 
@@ -34,7 +41,14 @@ enum {
 	"26", \
 	"52", \
 	"mclk", \
-	"mclk1", \
+	"clk1_6", \
+	"clk1_12", \
+	"clk1_13", \
+	"clk1_19.2", \
+	"clk1_24", \
+	"clk1_26", \
+	"clk1_52", \
+	"clk1_mclk1", \
 
 enum {
 	STATE_MCLK_OFF = 0,
