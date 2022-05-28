@@ -193,6 +193,7 @@ irqreturn_t mtk_vcodec_lat_dec_irq_handler(int irq, void *priv)
 
 		/* clear interrupt */
 		if ((core_id == MTK_VDEC_LAT) &&
+			(dev->dec_reg_base[VDEC_LAT_TOP] != NULL) &&
 			((readl(dev->dec_reg_base[VDEC_LAT_TOP] + 75 * 4) & 0x01)
 			== 1)) {  //multi lat clear interrupt
 			if (((readl(dev->dec_reg_base[VDEC_LAT_WDMA] + 9 * 4) &
