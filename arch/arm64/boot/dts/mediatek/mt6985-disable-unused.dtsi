@@ -610,20 +610,6 @@
 			<&imp_iic_wrap_c_clk CLK_IMPC_I2C5>;
 	};
 
-	disable-unused-clk-ssusb_sifslv_ippc_p1 {
-		compatible = "mediatek,clk-disable-unused";
-		clocks =
-			<&ssusb_sifslv_ippc_p1_clk CLK_USB_SIF_P1_USB_U2_P>,
-			<&ssusb_sifslv_ippc_p1_clk CLK_USB_SIF_P1_USB_U3_P>;
-	};
-
-	disable-unused-clk-ssusb_sifslv_ippc {
-		compatible = "mediatek,clk-disable-unused";
-		clocks =
-			<&ssusb_sifslv_ippc_clk CLK_USB_SIF_USB_U2_P>,
-			<&ssusb_sifslv_ippc_clk CLK_USB_SIF_USB_U3_P>;
-	};
-
 	disable-unused-clk-audiosys {
 		compatible = "mediatek,clk-disable-unused";
 		clocks =
@@ -709,15 +695,7 @@
 			<&pericfg_ao_clk CLK_PERAO_I2C>,
 			<&pericfg_ao_clk CLK_PERAO_DMA_B>,
 			<&pericfg_ao_clk CLK_PERAO_SSUSB0_FRMCNT>,
-			<&pericfg_ao_clk CLK_PERAO_SSUSB0_SYS>,
-			<&pericfg_ao_clk CLK_PERAO_SSUSB0_XHCI>,
-			<&pericfg_ao_clk CLK_PERAO_SSUSB0_F>,
-			<&pericfg_ao_clk CLK_PERAO_SSUSB0_H>,
 			<&pericfg_ao_clk CLK_PERAO_SSUSB1_FRMCNT>,
-			<&pericfg_ao_clk CLK_PERAO_SSUSB1_SYS>,
-			<&pericfg_ao_clk CLK_PERAO_SSUSB1_XHCI>,
-			<&pericfg_ao_clk CLK_PERAO_SSUSB1_F>,
-			<&pericfg_ao_clk CLK_PERAO_SSUSB1_H>,
 			<&pericfg_ao_clk CLK_PERAO_MSDC1>,
 			<&pericfg_ao_clk CLK_PERAO_MSDC1_F>,
 			<&pericfg_ao_clk CLK_PERAO_MSDC1_H>,
@@ -788,8 +766,6 @@
 			<&topckgen_clk CLK_TOP_MMINFRA_SEL>,
 			<&topckgen_clk CLK_TOP_MMUP_SEL>,
 			<&topckgen_clk CLK_TOP_DSP_SEL>,
-			<&topckgen_clk CLK_TOP_MFG_REF_SEL>,
-			<&topckgen_clk CLK_TOP_MFGSC_REF_SEL>,
 			<&topckgen_clk CLK_TOP_UART_SEL>,
 			<&topckgen_clk CLK_TOP_SPI_SEL>,
 			<&topckgen_clk CLK_TOP_MSDC_MACRO_SEL>,
@@ -822,8 +798,6 @@
 			<&topckgen_clk CLK_TOP_IPSWEST_SEL>,
 			<&topckgen_clk CLK_TOP_TL_SEL>,
 			<&topckgen_clk CLK_TOP_AUDIO_LOCAL_BUS_SEL>,
-			<&topckgen_clk CLK_TOP_MFG_INT0_SEL>,
-			<&topckgen_clk CLK_TOP_MFG1_INT1_SEL>,
 			<&topckgen_clk CLK_TOP_APLL_I2S0_MCK_SEL>,
 			<&topckgen_clk CLK_TOP_APLL_I2S1_MCK_SEL>,
 			<&topckgen_clk CLK_TOP_APLL_I2S2_MCK_SEL>,
@@ -878,24 +852,6 @@
 			<&apmixedsys_clk CLK_APMIXED_MPLL>,
 			<&apmixedsys_clk CLK_APMIXED_EMIPLL>,
 			<&apmixedsys_clk CLK_APMIXED_IMGPLL>;
-	};
-
-	disable-unused-clk-mfgpll_pll_ctrl {
-		compatible = "mediatek,clk-disable-unused";
-		clocks =
-			<&mfgpll_pll_ctrl_clk CLK_MFG_AO_MFGPLL>;
-	};
-
-	disable-unused-clk-gpuebpll_pll_ctrl {
-		compatible = "mediatek,clk-disable-unused";
-		clocks =
-			<&gpuebpll_pll_ctrl_clk CLK_GPUEB_AO_GPUEBPLL>;
-	};
-
-	disable-unused-clk-mfgscpll_pll_ctrl {
-		compatible = "mediatek,clk-disable-unused";
-		clocks =
-			<&mfgscpll_pll_ctrl_clk CLK_MFGSC_AO_MFGSCPLL>;
 	};
 
 	disable-unused-clk-ccipll_pll_ctrl {

@@ -869,18 +869,6 @@
 		#clock-cells = <1>;
 	};
 
-	ssusb_sifslv_ippc_clk: syscon@11203e00 {
-		compatible = "mediatek,mt6985-ssusb_sifslv_ippc", "syscon";
-		reg = <0 0x11203e00 0 0x1000>;
-		#clock-cells = <1>;
-	};
-
-	ssusb_sifslv_ippc_p1_clk: syscon@11213e00 {
-		compatible = "mediatek,mt6985-ssusb_sifslv_ippc_p1", "syscon";
-		reg = <0 0x11213e00 0 0x1000>;
-		#clock-cells = <1>;
-	};
-
 	imp_iic_wrap_c_clk: syscon@11281000 {
 		compatible = "mediatek,mt6985-imp_iic_wrap_c", "syscon";
 		reg = <0 0x11281000 0 0x1000>;
@@ -960,13 +948,7 @@
 
 	mfgpll_pll_ctrl_clk: syscon@13fa0000 {
 		compatible = "mediatek,mt6985-mfgpll_pll_ctrl", "syscon";
-		reg = <0 0x13fa0000 0 0x0800>;
-		#clock-cells = <1>;
-	};
-
-	gpuebpll_pll_ctrl_clk: syscon@13fa0800 {
-		compatible = "mediatek,mt6985-gpuebpll_pll_ctrl", "syscon";
-		reg = <0 0x13fa0800 0 0x0400>;
+		reg = <0 0x13fa0000 0 0x0C00>;
 		#clock-cells = <1>;
 	};
 
@@ -1130,6 +1112,7 @@
 			<&camsys_main_clk CLK_CAM_MAIN_LARB13_CON_0>,
 			<&camsys_main_clk CLK_CAM_MAIN_LARB14_CON_0>,
 			<&camsys_main_clk CLK_CAM_MAIN_LARB27_CON_0>,
+			<&camsys_main_clk CLK_CAM_MAIN_LARB29_CON_0>,
 			<&camsys_main_clk CLK_CAM_MAIN_CAM2MM0_GALS_CON_0>,
 			<&camsys_main_clk CLK_CAM_MAIN_CAM2MM1_GALS_CON_0>,
 			<&camsys_main_clk CLK_CAM_MAIN_CAM2SYS_GALS_CON_0>,
@@ -1142,7 +1125,6 @@
 			<&mdpsys_config_clk CLK_MDP_SMI0>,
 			<&mdpsys1_config_clk CLK_MDP1_SMI0>,
 			<&imgsys_main_clk CLK_IMG_LARB9>,
-			<&imgsys_main_clk CLK_IMG_SMI_ADL_LARB0>,
 			<&vdec_soc_gcon_base_clk CLK_VDE1_LARB1_CKEN>,
 			<&vdec_gcon_base_clk CLK_VDE2_LARB1_CKEN>,
 			<&camsys_main_clk CLK_CAM_MAIN_CAM_SUBA_CON_0>,
@@ -1164,10 +1146,10 @@
 			"disp", "disp1", "mdp", "mdp1", "ovl", "ovl1",
 			"mm_infra", "mmup", "isp", "vde", "ven",
 			"cam_lp-0", "cam_lp-1", "cam_lp-2", "cam_lp-3",
-			"cam_lp-4", "cam_lp-5", "cam_lp-6",
+			"cam_lp-4", "cam_lp-5", "cam_lp-6", "cam_lp-7",
 			"mm_infra_lp-0", "disp-0", "disp1-0",
 			"ovl-0", "ovl1-0", "mdp-0", "mdp1-0",
-			"isp-0", "isp-1", "vde0-0", "vde1-0",
+			"isp-0", "vde0-0", "vde1-0",
 			"cam_suba-0", "cam_suba-1", "cam_suba-2",
 			"cam_subb-0", "cam_subb-1", "cam_subb-2",
 			"cam_subc-0", "cam_subc-1", "cam_subc-2",
@@ -2725,7 +2707,7 @@
 				method = "fhctl-ap";
 				gpueb_ao_gpuebpll {
 					fh-id = <0>;
-					pll-id = <CLK_GPUEB_AO_GPUEBPLL>;
+					pll-id = <999>;
 				};
 			};
 
