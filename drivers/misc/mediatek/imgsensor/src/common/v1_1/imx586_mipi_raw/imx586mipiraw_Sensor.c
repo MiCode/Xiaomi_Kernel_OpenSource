@@ -3142,8 +3142,12 @@ static void custom3_setting(void)
 		if (!imx586_is_seamless)
 			write_cmos_sensor_8(0x3621, 0x00);
 		else {
-			imx586_i2c_data[imx586_size_to_write++] = 0x3621;
-			imx586_i2c_data[imx586_size_to_write++] = 0x0;
+			if (imx586_size_to_write < _I2C_BUF_SIZE - 2) {
+				imx586_i2c_data[imx586_size_to_write++] = 0x3621;
+				imx586_i2c_data[imx586_size_to_write++] = 0x0;
+			} else {
+				pr_debug("_too much i2c data for qsc register\n");
+			}
 		}
 	}
 
@@ -3179,8 +3183,12 @@ static void custom4_setting(void)
 		if (!imx586_is_seamless)
 			write_cmos_sensor_8(0x3621, 0x00);
 		else {
-			imx586_i2c_data[imx586_size_to_write++] = 0x3621;
-			imx586_i2c_data[imx586_size_to_write++] = 0x0;
+			if (imx586_size_to_write < _I2C_BUF_SIZE - 2) {
+				imx586_i2c_data[imx586_size_to_write++] = 0x3621;
+				imx586_i2c_data[imx586_size_to_write++] = 0x0;
+			} else {
+				pr_debug("_too much i2c data for qsc register\n");
+			}
 		}
 	}
 
@@ -4311,7 +4319,7 @@ static kal_uint32 get_sensor_temperature(void)
 
 	temperature = read_cmos_sensor_8(0x013a);
 
-	if (temperature >= 0x0 && temperature <= 0x4F)
+	if (temperature <= 0x4F)
 		temperature_convert = temperature;
 	else if (temperature >= 0x50 && temperature <= 0x7F)
 		temperature_convert = 80;

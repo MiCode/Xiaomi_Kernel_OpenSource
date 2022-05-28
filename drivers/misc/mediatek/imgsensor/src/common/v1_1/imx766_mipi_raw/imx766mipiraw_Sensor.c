@@ -3214,16 +3214,19 @@ static void hdr_write_tri_shutter_w_gph(kal_uint16 le, kal_uint16 me, kal_uint16
 	//3exp 12 + 6, 2exp 8 + 6, 6 is fine integ time
 	if (le) {
 		le -= 6;   // subtract fine integ time 6
+		exposure_cnt = (exposure_cnt == 0) ? 1 : exposure_cnt;
 		le = round_up(le/exposure_cnt, 4);
 	}
 
 	if (me) {
 		me -= 6;
+		exposure_cnt = (exposure_cnt == 0) ? 1 : exposure_cnt;
 		me = round_up(me/exposure_cnt, 4);
 	}
 
 	if (se) {
 		se -= 6;
+		exposure_cnt = (exposure_cnt == 0) ? 1 : exposure_cnt;
 		se = round_up(se/exposure_cnt, 4);
 	}
 
@@ -5467,7 +5470,7 @@ static kal_int32 get_sensor_temperature(void)
 
 	temperature = read_cmos_sensor_8(0x013a);
 
-	if (temperature >= 0x0 && temperature <= 0x60)
+	if (temperature <= 0x60)
 		temperature_convert = temperature;
 	else if (temperature >= 0x61 && temperature <= 0x7F)
 		temperature_convert = 97;
