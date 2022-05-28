@@ -563,7 +563,10 @@ static int mtk_afe_etdm_apll_connect(struct snd_soc_dapm_widget *source,
 
 	/* which apll */
 	cur_apll = mt6983_get_apll_by_name(afe, source->name);
-	apll = mt6983_get_apll_by_rate(afe, etdm_priv->etdm_rate);
+	if (etdm_priv)
+		apll = mt6983_get_apll_by_rate(afe, etdm_priv->etdm_rate);
+	else
+		dev_info(cmpnt->dev, "%s(), get etdm_priv null\n", __func__);
 
 	return (apll == cur_apll) ? 1 : 0;
 }
