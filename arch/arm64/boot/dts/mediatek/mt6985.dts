@@ -2437,6 +2437,13 @@
 		compatible = "simple-bus";
 		ranges;
 
+		drm:drm@1000d000 {
+			compatible = "mediatek,dbgtop-drm";
+			reg = <0 0x1000d000 0 0x1000>;
+			rgu_timeout = <0xea60>; // for ddr-reserved mode
+			ver = <2>;
+		};
+
 		lkg: lkg@114400 {
 			compatible = "mediatek,mtk-lkg";
 			reg = <0 0x00114400 0 0xc00>;
