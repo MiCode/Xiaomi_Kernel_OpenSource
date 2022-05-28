@@ -46,13 +46,17 @@ unsigned int init_dcm_type =
 		MCUSYS_DSU_STALL_DCM_TYPE | MCUSYS_MISC_DCM_TYPE);
 
 #if defined(__KERNEL__) && defined(CONFIG_OF)
-unsigned long dcm_topckgen_base;
 unsigned long dcm_ifrbus_ao_base;
+unsigned long dcm_ifrrsi_base;
+unsigned long dcm_ifriommu_base;
 unsigned long dcm_peri_ao_bcrm_base;
 unsigned long dcm_ufs0_ao_bcrm_base;
 unsigned long dcm_pcie0_ao_bcrm_base;
 unsigned long dcm_vlp_ao_bcrm_base;
 unsigned long dcm_mcusys_par_wrap_base;
+unsigned long dcm_mcusys_cpc_base;
+unsigned long dcm_mcusys_par_wrap_complex0_base;
+unsigned long dcm_mcusys_par_wrap_complex1_base;
 
 #define DCM_NODE "mediatek,mt6985-dcm"
 
@@ -313,8 +317,7 @@ int dcm_mcsi(int on)
 
 void dcm_dump_regs(void)
 {
-	dcm_pr_info("\n******** dcm dump register *********\n");
-
+	dcm_pr_info("\n******** dcm dump register-kernel *********\n");
 	REG_DUMP(MCUSYS_PAR_WRAP_MP_ADB_DCM_CFG0);
 	REG_DUMP(MCUSYS_PAR_WRAP_ADB_FIFO_DCM_EN);
 	REG_DUMP(MCUSYS_PAR_WRAP_MP0_DCM_CFG0);
@@ -386,13 +389,17 @@ struct DCM_OPS dcm_ops = {
 };
 
 struct DCM_BASE dcm_base_array[] = {
-	DCM_BASE_INFO(dcm_topckgen_base),
 	DCM_BASE_INFO(dcm_ifrbus_ao_base),
+	DCM_BASE_INFO(dcm_ifrrsi_base),
+	DCM_BASE_INFO(dcm_ifriommu_base),
 	DCM_BASE_INFO(dcm_peri_ao_bcrm_base),
 	DCM_BASE_INFO(dcm_ufs0_ao_bcrm_base),
 	DCM_BASE_INFO(dcm_pcie0_ao_bcrm_base),
 	DCM_BASE_INFO(dcm_vlp_ao_bcrm_base),
 	DCM_BASE_INFO(dcm_mcusys_par_wrap_base),
+	DCM_BASE_INFO(dcm_mcusys_cpc_base),
+	DCM_BASE_INFO(dcm_mcusys_par_wrap_complex0_base),
+	DCM_BASE_INFO(dcm_mcusys_par_wrap_complex1_base),
 };
 
 struct DCM dcm_array[NR_DCM_TYPE] = {
