@@ -460,6 +460,9 @@ static int mt6360_charger_get_property(struct power_supply *psy,
 	struct mt6360_chg_info *mci = power_supply_get_drvdata(psy);
 	int ret = 0;
 
+	if (!mci)
+		return -EINVAL;
+
 	switch (psp) {
 	case POWER_SUPPLY_PROP_ONLINE:
 		ret = mt6360_charger_get_online(mci, val);
@@ -509,6 +512,9 @@ static int mt6360_charger_set_property(struct power_supply *psy,
 {
 	struct mt6360_chg_info *mci = power_supply_get_drvdata(psy);
 	int ret;
+
+	if (!mci)
+		return -EINVAL;
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_ONLINE:

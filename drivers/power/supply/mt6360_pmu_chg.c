@@ -2818,10 +2818,11 @@ static int mt6360_set_shipping_mode(struct mt6360_chg_info *mci)
 	/* disable shipping mode rst */
 	ret = regmap_update_bits(mci->regmap, MT6360_PMU_CORE_CTRL2,
 				 MT6360_MASK_SHIP_RST_DIS, 0xff);
-	if (ret < 0)
+	if (ret < 0) {
 		dev_err(mci->dev,
 			"%s: fail to disable ship reset\n", __func__);
 		goto out;
+	}
 	/* enter shipping mode and disable cfo_en/chg_en */
 	ret = regmap_write(mci->regmap, MT6360_PMU_CHG_CTRL2, 0x80);
 	if (ret < 0)
@@ -2892,6 +2893,9 @@ static int mt6360_charger_get_property(struct power_supply *psy,
 	int ret = 0;
 	bool pwr_rdy = false, chg_en = false;
 
+	if (!mci)
+		return -EINVAL;
+
 	dev_dbg(mci->dev, "%s: prop = %d\n", __func__, psp);
 	switch (psp) {
 	case POWER_SUPPLY_PROP_ONLINE:
@@ -2950,6 +2954,9 @@ static int mt6360_charger_set_property(struct power_supply *psy,
 {
 	struct mt6360_chg_info *mci = power_supply_get_drvdata(psy);
 	int ret;
+
+	if (!mci)
+		return -EINVAL;
 
 	dev_dbg(mci->dev, "%s: prop = %d\n", __func__, psp);
 	switch (psp) {
@@ -3083,7 +3090,7 @@ static int mt6360_boost_get_current_limit(struct regulator_dev *rdev)
 	if (ret < 0)
 		return ret;
 	ret = (regval & desc->csel_mask) >> shift;
-	if (ret > ARRAY_SIZE(mt6360_otg_oc_threshold))
+	if (ret < 0 || ret >= ARRAY_SIZE(mt6360_otg_oc_threshold))
 		return -EINVAL;
 	return mt6360_otg_oc_threshold[ret];
 }
