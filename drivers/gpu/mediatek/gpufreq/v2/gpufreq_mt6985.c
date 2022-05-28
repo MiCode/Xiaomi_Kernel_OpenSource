@@ -2365,15 +2365,16 @@ static unsigned int __gpufreq_calculate_pcw(unsigned int freq, enum gpufreq_posd
 	 * |  3800   |  1500   |    8   |    475MHz   |  187.5MHz   |
 	 * |  3800   |  2000   |   16   |  237.5MHz   |    125MHz   |
 	 */
-	unsigned int pcw = 0;
+	unsigned long long pcw = 0;
 
-	if ((freq >= POSDIV_16_MIN_FREQ) && (freq <= POSDIV_2_MAX_FREQ)) {
-		pcw = (((freq / TO_MHZ_HEAD * (1 << posdiv)) << DDS_SHIFT)
-			/ MFGPLL_FIN + ROUNDING_VALUE) / TO_MHZ_TAIL;
-	} else
+	if ((freq >= POSDIV_16_MIN_FREQ) && (freq <= POSDIV_2_MAX_FREQ))
+		pcw = (((unsigned long long)freq * (1 << posdiv)) << DDS_SHIFT) / MFGPLL_FIN / 1000;
+	else
 		__gpufreq_abort("out of range Freq: %d", freq);
 
-	return pcw;
+	GPUFREQ_LOGD("target freq: %d, posdiv: %d, pcw: 0x%llx", freq, posdiv, pcw);
+
+	return (unsigned int)pcw;
 }
 
 static enum gpufreq_posdiv __gpufreq_get_real_posdiv_gpu(void)
@@ -3033,21 +3034,19 @@ static unsigned int __gpufreq_get_fmeter_sub_fstack(void)
  */
 static unsigned int __gpufreq_get_real_fgpu(void)
 {
-	unsigned int mfgpll = 0;
-	unsigned int posdiv_power = 0;
-	unsigned int freq = 0;
-	unsigned int pcw = 0;
+	u32 con1 = 0;
+	unsigned int posdiv = 0;
+	unsigned long long freq = 0, pcw = 0;
 
-	mfgpll = readl(MFG_PLL_CON1);
+	con1 = readl(MFG_PLL_CON1);
 
-	pcw = mfgpll & (0x3FFFFF);
+	pcw = con1 & GENMASK(21, 0);
 
-	posdiv_power = (mfgpll & GENMASK(26, 24)) >> POSDIV_SHIFT;
+	posdiv = (con1 & GENMASK(26, 24)) >> POSDIV_SHIFT;
 
-	freq = (((pcw * TO_MHZ_TAIL + ROUNDING_VALUE) * MFGPLL_FIN) >> DDS_SHIFT) /
-		(1 << posdiv_power) * TO_MHZ_HEAD;
+	freq = (((pcw * 1000) * MFGPLL_FIN) >> DDS_SHIFT) / (1 << posdiv);
 
-	return freq;
+	return FREQ_ROUNDUP_TO_10((unsigned int)freq);
 }
 
 /*
@@ -3056,21 +3055,19 @@ static unsigned int __gpufreq_get_real_fgpu(void)
  */
 static unsigned int __gpufreq_get_real_fstack(void)
 {
-	unsigned int mfgpll = 0;
-	unsigned int posdiv_power = 0;
-	unsigned int freq = 0;
-	unsigned int pcw = 0;
+	u32 con1 = 0;
+	unsigned int posdiv = 0;
+	unsigned long long freq = 0, pcw = 0;
 
-	mfgpll = readl(MFGSC_PLL_CON1);
+	con1 = readl(MFGSC_PLL_CON1);
 
-	pcw = mfgpll & (0x3FFFFF);
+	pcw = con1 & GENMASK(21, 0);
 
-	posdiv_power = (mfgpll & GENMASK(26, 24)) >> POSDIV_SHIFT;
+	posdiv = (con1 & GENMASK(26, 24)) >> POSDIV_SHIFT;
 
-	freq = (((pcw * TO_MHZ_TAIL + ROUNDING_VALUE) * MFGPLL_FIN) >> DDS_SHIFT) /
-		(1 << posdiv_power) * TO_MHZ_HEAD;
+	freq = (((pcw * 1000) * MFGPLL_FIN) >> DDS_SHIFT) / (1 << posdiv);
 
-	return freq;
+	return FREQ_ROUNDUP_TO_10((unsigned int)freq);
 }
 
 /* API: get real current Vgpu from regulator (mV * 100) */

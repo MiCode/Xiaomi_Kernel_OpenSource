@@ -49,14 +49,12 @@
 #define POSDIV_16_MIN_FREQ              (125000)          /* KHz */
 #define POSDIV_SHIFT                    (24)              /* bit */
 #define DDS_SHIFT                       (14)              /* bit */
-#define TO_MHZ_HEAD                     (100)
-#define TO_MHZ_TAIL                     (10)
-#define ROUNDING_VALUE                  (5)
 #define MFGPLL_FIN                      (26)              /* MHz */
 #define MFG_INT0_SEL_MASK               (BIT(16))         /* [16] */
 #define MFGSC_INT1_SEL_MASK             (BIT(17))         /* [17] */
 #define MFG_REF_SEL_MASK                (GENMASK(17, 16)) /* [17:16] */
 #define MFGSC_REF_SEL_MASK              (GENMASK(25, 24)) /* [25:24] */
+#define FREQ_ROUNDUP_TO_10(freq)        ((freq % 10) ? (freq - (freq % 10) + 10) : freq)
 
 /**************************************************
  * Frequency Hopping Setting
@@ -177,8 +175,7 @@ struct gpufreq_core_mask_info g_core_mask_table[] = {
 #define VSRAM_MIN_VOLT                  (30000)         /* mV x 100 */
 #define VSRAM_THRESH                    (75000)         /* mV x 100 */
 #define PMIC_STEP                       (625)           /* mV x 100 */
-#define VOLT_NORMALIZATION(volt) \
-	((volt % 625) ? (volt - (volt % 625) + 625) : volt)
+#define VOLT_NORMALIZATION(volt)        ((volt % 625) ? (volt - (volt % 625) + 625) : volt)
 
 /**************************************************
  * Power Throttling Setting
