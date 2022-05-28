@@ -42,21 +42,14 @@ int g_uarthub_disable;
 #define UARTHUB_DEBUG_LOG 1
 #define UARTHUB_CONFIG_TRX_GPIO 0
 #define UARTHUB_CONFIG_GLUE_CTR 0
-#define SUPPORT_SSPM_DRIVER 1
+#define SUPPORT_SSPM_DRIVER 0
 #define UARTHUB_ERR_IRQ_ASSERT_ENABLE 0
 
 #if !(SUPPORT_SSPM_DRIVER)
-
-#ifdef CLK_CTRL_UNIVPLL_REQ
-#undef CLK_CTRL_UNIVPLL_REQ
-#endif
-#define CLK_CTRL_UNIVPLL_REQ 1
-
 #ifdef INIT_UARTHUB_DEFAULT
 #undef INIT_UARTHUB_DEFAULT
 #endif
 #define INIT_UARTHUB_DEFAULT 1
-
 #endif
 
 struct uarthub_reg_base_addr reg_base_addr;
@@ -786,7 +779,7 @@ int uarthub_core_open(void)
 
 	g_uarthub_open = 1;
 
-	uarthub_core_bypass_mode_ctrl(1);
+	//uarthub_core_bypass_mode_ctrl(1);
 	uarthub_core_crc_ctrl(1);
 #if UARTHUB_DEBUG_LOG
 	uarthub_core_debug_info_with_tag("uarthub_core_open");
