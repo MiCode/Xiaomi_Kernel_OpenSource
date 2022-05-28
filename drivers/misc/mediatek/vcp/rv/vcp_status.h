@@ -15,6 +15,7 @@ typedef int (*vcp_deregister_feature_fp)(enum feature_id id);
 typedef unsigned int (*is_vcp_ready_fp)(enum vcp_core_id id);
 typedef void (*vcp_A_register_notify_fp)(struct notifier_block *nb);
 typedef void (*vcp_A_unregister_notify_fp)(struct notifier_block *nb);
+typedef unsigned int (*vcp_cmd_fp)(enum vcp_cmd_id id);
 
 struct vcp_status_fp {
 	vcp_get_reserve_mem_phys_fp	vcp_get_reserve_mem_phys;
@@ -24,6 +25,7 @@ struct vcp_status_fp {
 	is_vcp_ready_fp				is_vcp_ready;
 	vcp_A_register_notify_fp	vcp_A_register_notify;
 	vcp_A_unregister_notify_fp	vcp_A_unregister_notify;
+	vcp_cmd_fp				vcp_cmd;
 };
 
 extern int pwclkcnt;

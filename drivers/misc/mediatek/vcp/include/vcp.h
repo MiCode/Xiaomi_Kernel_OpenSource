@@ -166,6 +166,14 @@ enum feature_id {
 	NUM_FEATURE_ID,
 };
 
+
+/* vcp cmd ID definition */
+enum vcp_cmd_id {
+	VCP_SET_HALT = 0,
+	VCP_SET_DISP_SYNC = 1,
+	VCP_GET_GEN = 2,
+};
+
 extern struct mtk_mbox_device vcp_mboxdev;
 extern struct mtk_ipi_device vcp_ipidev;
 extern struct mtk_mbox_pin_send *vcp_mbox_pin_send;
@@ -212,6 +220,7 @@ extern int vcp_deregister_feature(enum feature_id id);
 
 /* APIs for reset vcp */
 extern void vcp_wdt_reset(int cpu_id);
+extern unsigned int vcp_cmd(enum vcp_cmd_id id);
 
 #endif
 

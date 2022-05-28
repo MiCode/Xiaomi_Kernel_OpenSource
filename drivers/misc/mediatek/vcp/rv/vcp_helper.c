@@ -201,6 +201,7 @@ struct vcp_status_fp vcp_helper_fp = {
 	.is_vcp_ready				= is_vcp_ready,
 	.vcp_A_register_notify		= vcp_A_register_notify,
 	.vcp_A_unregister_notify	= vcp_A_unregister_notify,
+	.vcp_cmd					= vcp_cmd,
 };
 
 #undef pr_debug
@@ -638,6 +639,15 @@ void trigger_vcp_halt(enum vcp_core_id id)
 }
 EXPORT_SYMBOL_GPL(trigger_vcp_halt);
 
+void trigger_vcp_disp_sync(enum vcp_core_id id)
+{
+	if (mmup_enable_count() && vcp_ready[id]) {
+		/* trigger disp sync isr */
+		writel(B_GIPC0_SETCLR_0, R_GIPC_IN_SET);
+	}
+}
+EXPORT_SYMBOL_GPL(trigger_vcp_disp_sync);
+
 /*
  * @return: 1 if vcp is ready for running tasks
  */
@@ -658,6 +668,24 @@ unsigned int get_vcp_generation(void)
 	return vcp_reset_counts;
 }
 EXPORT_SYMBOL_GPL(get_vcp_generation);
+
+unsigned int vcp_cmd(enum vcp_cmd_id id)
+{
+	switch (id) {
+	case VCP_SET_HALT:
+		trigger_vcp_halt(VCP_A_ID);
+		break;
+	case VCP_SET_DISP_SYNC:
+		trigger_vcp_disp_sync(VCP_A_ID);
+		break;
+	case VCP_GET_GEN:
+		return get_vcp_generation();
+	default:
+		pr_notice("[VCP] %s wrong cmd id %d", __func__, id);
+		break;
+	}
+	return 0;
+}
 
 uint32_t vcp_wait_ready_sync(enum feature_id id)
 {

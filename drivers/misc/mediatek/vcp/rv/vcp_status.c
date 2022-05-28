@@ -105,6 +105,14 @@ void vcp_A_unregister_notify_ex(struct notifier_block *nb)
 }
 EXPORT_SYMBOL_GPL(vcp_A_unregister_notify_ex);
 
+unsigned int vcp_cmd_ex(enum vcp_cmd_id id)
+{
+	if (!vcp_fp || !vcp_fp->vcp_cmd)
+		return 0;
+	return vcp_fp->vcp_cmd(id);
+}
+EXPORT_SYMBOL_GPL(vcp_cmd_ex);
+
 static void __exit mtk_vcp_status_exit(void)
 {
 }
