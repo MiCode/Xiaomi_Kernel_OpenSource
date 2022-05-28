@@ -10003,14 +10003,13 @@
 		apmixedsys = <&apmixedsys_clk>;
 		infracfg = <&infracfg_ao_clk>;
 		power-domains = <&scpsys MT6985_POWER_DOMAIN_AUDIO>;
-#if 0
 		clocks = <&afe_clk CLK_AFE_AFE>,
 			<&afe_clk CLK_AFE_DAC>,
 			<&afe_clk CLK_AFE_DAC_PREDIS>,
 			<&afe_clk CLK_AFE_ADC>,
 			<&afe_clk CLK_AFE_ADDA6_ADC>,
 			<&afe_clk CLK_AFE_22M>,
-			<&afe_clk CLK_AFE_24M>
+			<&afe_clk CLK_AFE_24M>,
 			<&afe_clk CLK_AFE_APLL_TUNER>,
 			<&afe_clk CLK_AFE_APLL2_TUNER>,
 			<&afe_clk CLK_AFE_TDM>,
@@ -10113,7 +10112,6 @@
 			"top_apll12_div9",
 			"top_mux_audio_h",
 			"top_clk26m_clk";
-#endif
 		pinctrl-names = "aud_clk_mosi_off",
 				"aud_clk_mosi_on",
 				"aud_dat_mosi_off",
