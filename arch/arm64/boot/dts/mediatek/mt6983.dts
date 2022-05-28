@@ -1623,13 +1623,13 @@
 
 			power-domains = <&scpsys MT6983_POWER_DOMAIN_ADSP_TOP_DORMANT>;
 			clocks = <&topckgen_clk CLK_TOP_ADSP_SEL>,
-				<&clk26m>,
+				<&topckgen_clk CLK_TOP_TCK_26M_MX9>,
 				<&topckgen_clk CLK_TOP_ADSPPLL>;
 			clock-names = "clk_top_adsp_sel",
 				"clk_top_clk26m",
 				"clk_top_adsppll";
 
-			core_num = <2>;    /* core number */
+			core-num = <2>;    /* core number */
 			adsp-rsv-ipidma-a = <0x100000>;
 			adsp-rsv-ipidma-b = <0x100000>;
 			adsp-rsv-logger-a = <0x80000>;
@@ -1642,7 +1642,7 @@
 			adsp-rsv-audio = <0x5c0000>;
 		};
 
-		adsp_core0: adsp_core0@1e020000 {
+		adsp_core0: adsp-core0@1e020000 {
 			compatible = "mediatek,mt6983-adsp_core_0";
 			status = "okay";
 			reg = <0 0x1e050000 0 0x40000>, /* ITCM */
@@ -1653,10 +1653,10 @@
 				<GIC_SPI 674 IRQ_TYPE_LEVEL_HIGH 0>;
 			mboxes = <&adspsys 0>, /*channel 0*/
 				<&adspsys 1>; /*channel 1*/
-			feature_control_bits = <0x8e783ff>;
+			feature-control-bits = <0x8e783ff>;
 		};
 
-		adsp_core1: adsp_core1@1e090000 {
+		adsp_core1: adsp-core1@1e090000 {
 			compatible = "mediatek,mt6983-adsp_core_1";
 			status = "okay";
 			reg = <0 0x1e0c0000 0 0x40000>, /* ITCM */
@@ -1667,7 +1667,7 @@
 				<GIC_SPI 675 IRQ_TYPE_LEVEL_HIGH 0>;
 			mboxes = <&adspsys 2>, /*channel 2*/
 				<&adspsys 3>; /*channel 3*/
-			feature_control_bits = <0x1118700f>;
+			feature-control-bits = <0x1118700f>;
 		};
 
 		gpio_usage_mapping:gpio {
