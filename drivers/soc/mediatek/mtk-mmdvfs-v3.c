@@ -505,8 +505,8 @@ static int mmdvfs_vcp_init_thread(void *data)
 
 static int mmdvfs_v3_probe(struct platform_device *pdev)
 {
-	const char *MMDVFS_CLK_NAMES = "mediatek,mmdvfs_clock_names";
-	const char *MMDVFS_CLKS = "mediatek,mmdvfs_clocks";
+	const char *MMDVFS_CLK_NAMES = "mediatek,mmdvfs-clock-names";
+	const char *MMDVFS_CLKS = "mediatek,mmdvfs-clocks";
 	struct device_node *node = pdev->dev.of_node;
 	struct clk_onecell_data *clk_data;
 	struct task_struct *kthr;

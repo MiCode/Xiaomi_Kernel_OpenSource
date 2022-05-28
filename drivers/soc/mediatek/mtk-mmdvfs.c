@@ -513,7 +513,7 @@ static int mmdvfs_probe(struct platform_device *pdev)
 	drv_data = devm_kzalloc(dev, sizeof(*drv_data), GFP_KERNEL);
 	if (!drv_data)
 		return -ENOMEM;
-	of_property_for_each_string(dev->of_node, "mediatek,support_mux",
+	of_property_for_each_string(dev->of_node, "mediatek,support-mux",
 				    mux_prop, mux_name) {
 		if (num_mux >= MAX_MUX_NUM) {
 			pr_notice("Too many items in support_mux\n");
@@ -522,7 +522,7 @@ static int mmdvfs_probe(struct platform_device *pdev)
 		drv_data->muxes[num_mux].mux = devm_clk_get(dev, mux_name);
 		drv_data->muxes[num_mux].mux_name = mux_name;
 		snprintf(prop_name, sizeof(prop_name) - 1,
-			 "mediatek,mux_%s", mux_name);
+			 "mediatek,mux-%s", mux_name);
 		num_clksrc = 0;
 		of_property_for_each_string(dev->of_node, prop_name,
 					    clksrc_prop, clksrc_name) {
@@ -538,7 +538,7 @@ static int mmdvfs_probe(struct platform_device *pdev)
 	}
 
 	drv_data->num_muxes = num_mux;
-	of_property_for_each_string(dev->of_node, "mediatek,support_hopping",
+	of_property_for_each_string(dev->of_node, "mediatek,support-hopping",
 				    hopping_prop, hopping_name) {
 		if (num_hopping >= MAX_HOPPING_CLK_NUM) {
 			pr_notice("Too many items in support_hopping\n");
@@ -548,7 +548,7 @@ static int mmdvfs_probe(struct platform_device *pdev)
 					devm_clk_get(dev, hopping_name);
 		drv_data->hoppings[num_hopping].hopping_name = hopping_name;
 		snprintf(prop_name, sizeof(prop_name) - 1,
-			 "mediatek,hopping_%s", hopping_name);
+			 "mediatek,hopping-%s", hopping_name);
 		num_hopping_rate = 0;
 		of_property_for_each_u32(dev->of_node, prop_name,
 					 hopping_rate_prop, p, hopping_rate) {
