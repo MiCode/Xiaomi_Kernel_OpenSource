@@ -2106,6 +2106,19 @@ static int alloc_hdr_buffer(struct mtk_cam_ctx *ctx,
 	return 0;
 }
 
+static int apply_raw_target_clk(struct mtk_cam_ctx *ctx,
+				struct mtk_cam_request *req)
+{
+	struct mtk_raw_request_data *raw_data;
+	struct mtk_cam_resource_driver *res;
+
+	raw_data = &req->raw_data[ctx->raw_subdev_idx];
+	res = &raw_data->ctrl.resource;
+
+	return mtk_cam_dvfs_update(&ctx->cam->dvfs, ctx->stream_id,
+				   res->clk_target);
+}
+
 int mtk_cam_job_pack(struct mtk_cam_job *job, struct mtk_cam_ctx *ctx,
 		     struct mtk_cam_request *req)
 {
@@ -2184,6 +2197,8 @@ int mtk_cam_job_pack(struct mtk_cam_job *job, struct mtk_cam_ctx *ctx,
 		}
 
 		ctx->not_first_job = true;
+
+		apply_raw_target_clk(ctx, req);
 	}
 
 	ret = mtk_cam_job_fill_ipi_frame(job);

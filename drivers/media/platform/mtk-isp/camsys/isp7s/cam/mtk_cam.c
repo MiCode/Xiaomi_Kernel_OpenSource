@@ -1691,7 +1691,6 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 	mtk_cam_dev_req_try_queue(ctx->cam);
 
 	//ctx_stream_on_seninf_sensor later
-	mtk_cam_dvfs_update(&ctx->cam->dvfs, ctx->stream_id, 416000000);
 	/* note
 	 * 1. collect 1st request info
 	 * 2. select HW engines

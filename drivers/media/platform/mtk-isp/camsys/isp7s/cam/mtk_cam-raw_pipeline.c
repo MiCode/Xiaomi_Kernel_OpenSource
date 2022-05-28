@@ -12,6 +12,7 @@
 #include "mtk_cam-dvfs_qos.h"
 //#include "mtk_cam-feature.h"
 #include "mtk_cam-raw_pipeline.h"
+#include "mtk_cam-resource_calc.h"
 #include "mtk_cam-plat.h"
 #include "mtk_cam-fmt_utils.h"
 
@@ -231,24 +232,178 @@ __maybe_unused static int mtk_cam_raw_set_res_ctrl(struct v4l2_ctrl *ctrl)
 	return 0;
 }
 
+static int res_calc_fill_sensor(struct mtk_cam_res_calc *c,
+				const struct mtk_cam_resource_sensor *s,
+				int w, int h)
+{
+	c->line_time = 1000000000L
+		* s->interval.numerator / s->interval.denominator
+		/ (h + s->vblank);
+	c->width = w;
+	c->height = h;
+	return 0;
+}
+
+struct raw_resource_stepper {
+	/* pixel mode */
+	int pixel_mode_min;
+	int pixel_mode_max;
+
+	/* raw num */
+	int num_raw_min;
+	int num_raw_max;
+
+	/* freq */
+	int opp_num;
+	const struct camsys_opp_table *tbl;
+
+	int pixel_mode;
+	int num_raw;
+	int opp_idx;
+};
+
+static int step_next_raw_num(struct raw_resource_stepper *stepper)
+{
+	if (stepper->num_raw < stepper->num_raw_max) {
+		++stepper->num_raw;
+		return 0;
+	}
+	stepper->num_raw = stepper->num_raw_min;
+	return -1;
+}
+
+static int step_next_opp(struct raw_resource_stepper *stepper)
+{
+	++stepper->opp_idx;
+	if (stepper->opp_idx < stepper->opp_num)
+		return 0;
+
+	stepper->opp_idx = 0;
+	return -1;
+}
+
+static int step_next_pixel_mode(struct raw_resource_stepper *stepper)
+{
+	if (stepper->pixel_mode < stepper->pixel_mode_max) {
+		++stepper->pixel_mode;
+		return 0;
+	}
+	stepper->pixel_mode = stepper->pixel_mode_min;
+	return -1;
+}
+
+typedef int (*step_fn_t)(struct raw_resource_stepper *stepper);
+
+static bool valid_resouce_set(struct raw_resource_stepper *stepper)
+{
+	/* invalid sets */
+	bool invalid =
+		(stepper->pixel_mode == 1 && stepper->opp_idx != 0) ||
+		(stepper->pixel_mode == 1 && stepper->num_raw > 1);
+
+	return !invalid;
+}
+
+static int loop_resource_till_valid(struct mtk_cam_res_calc *c,
+				    struct raw_resource_stepper *stepper,
+				    const step_fn_t *arr_step, int arr_size)
+{
+	const bool enable_log = true;
+	int i;
+	int ret = -1;
+
+	do {
+		bool pass;
+
+		i = 0;
+		if (valid_resouce_set(stepper)) {
+
+			c->raw_pixel_mode = stepper->pixel_mode;
+			c->raw_num = stepper->num_raw;
+			c->clk = stepper->tbl[stepper->opp_idx].freq_hz;
+
+			pass = mtk_cam_raw_check_line_buffer(c, enable_log) &&
+				mtk_cam_raw_check_throughput(c, enable_log);
+			if (pass) {
+				ret = 0;
+				break;
+			}
+		}
+
+		if (arr_step[0](stepper)) {
+
+			i = 1;
+			while (i < arr_size && arr_step[i](stepper))
+				++i;
+		}
+	} while (i < arr_size);
+
+	return ret;
+}
+
+static int mtk_raw_find_combination(struct mtk_cam_res_calc *c,
+				    struct raw_resource_stepper *stepper)
+{
+	static const step_fn_t policy[] = {
+		step_next_pixel_mode,
+		step_next_opp,
+		step_next_raw_num
+	};
+
+	/* initial value */
+	stepper->pixel_mode = stepper->pixel_mode_min;
+	stepper->num_raw = stepper->num_raw_min;
+	stepper->opp_idx = 0;
+
+	return loop_resource_till_valid(c, stepper,
+					policy, ARRAY_SIZE(policy));
+}
+
 static int mtk_raw_calc_raw_resource(struct mtk_raw_pipeline *pipeline,
 				     struct mtk_cam_resource *user_ctrl,
 				     struct mtk_cam_resource_driver *drv_data)
 {
-	struct device *dev = subdev_to_cam_dev(&pipeline->subdev);
+	struct mtk_cam_device *cam = subdev_to_cam_device(&pipeline->subdev);
 	struct mtk_cam_resource_sensor *s = &user_ctrl->sensor_res;
 	struct mtk_cam_resource_raw *r = &user_ctrl->raw_res;
+	struct mtk_cam_res_calc c;
+	struct raw_resource_stepper stepper;
+	int w, h;
+	int ret;
 
-	dev_info(dev, "calc_resource: sensor fps(%u/%u) blank(%u/%u) prate(%llu), raw f %lld\n",
-		 s->interval.denominator,
-		 s->interval.numerator,
-		 s->hblank, s->vblank, s->pixel_rate,
-		 r->feature);
+	/* FIXME: use pad size temporarily */
+	w = pipeline->pad_cfg[MTK_RAW_SINK].mbus_fmt.width;
+	h = pipeline->pad_cfg[MTK_RAW_SINK].mbus_fmt.height;
 
-	r->pixel_mode = 2;
-	drv_data->clk_target = 546000000;
+	res_calc_fill_sensor(&c, s, w, h);
+	c.cbn_type = 0; /* 0: disable, 1: 2x2, 2: 3x3 3: 4x4 */
+	c.qbnd_en = 0;
+	c.qbn_type = 0; /* 0: disable, 1: w/2, 2: w/4 */
+	c.bin_en = 0;
 
-	return 0;
+	/* constraints */
+	stepper.pixel_mode_min = 1;
+	stepper.pixel_mode_max = 2;
+	stepper.num_raw_min = 1;
+	stepper.num_raw_max = 2;
+	stepper.opp_num = mtk_cam_dvfs_get_opp_table(&cam->dvfs, &stepper.tbl);
+
+	ret = mtk_raw_find_combination(&c, &stepper);
+	if (ret)
+		dev_info(cam->dev, "failed to find valid resource\n");
+
+	r->pixel_mode = c.raw_pixel_mode;
+	r->raw_used = c.raw_num;
+
+	drv_data->clk_target = c.clk;
+
+	dev_info(cam->dev,
+		 "calc_resource: sensor fps %u/%u %dx%d blank %u/%u linet %ld prate %llu clk %d pxlmode %d num %d\n",
+		 s->interval.denominator, s->interval.numerator,
+		 c.width, c.height, s->hblank, s->vblank, c.line_time,
+		 s->pixel_rate,
+		 c.clk, c.raw_pixel_mode, c.raw_num);
+	return ret;
 }
 
 static int mtk_raw_try_ctrl(struct v4l2_ctrl *ctrl)

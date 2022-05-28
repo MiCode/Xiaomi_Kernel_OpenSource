@@ -44,6 +44,14 @@ int mtk_cam_dvfs_regulator_disable(struct mtk_camsys_dvfs *dvfs);
 int mtk_cam_dvfs_update(struct mtk_camsys_dvfs *dvfs,
 			int stream_id, unsigned int target_freq_hz);
 
+static inline
+int mtk_cam_dvfs_get_opp_table(struct mtk_camsys_dvfs *dvfs,
+			       const struct camsys_opp_table **tbl)
+{
+	*tbl = dvfs->opp;
+	return dvfs->opp_num;
+}
+
 struct mtk_camsys_qos_path;
 struct mtk_camsys_qos {
 	int n_path;
