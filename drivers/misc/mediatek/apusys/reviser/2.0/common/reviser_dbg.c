@@ -63,8 +63,8 @@ static uint32_t g_rvr_debug_op;
 static uint32_t g_rvr_remote_klog;
 static uint32_t g_reviser_vlm_ctx;
 static uint32_t g_reviser_mem_tcm_bank;
-static uint32_t g_reviser_mem_dram_bank;
-static uint32_t g_reviser_mem_dram_ctx;
+static uint16_t g_reviser_mem_dram_bank;
+static uint16_t g_reviser_mem_dram_ctx;
 
 //----------------------------------------------
 // user table dump
@@ -362,32 +362,32 @@ static void reviser_print_plat(void *drvinfo, void *s_file)
 	LOG_CON(s, "=============================\n");
 	LOG_CON(s, " reviser platform info\n");
 	LOG_CON(s, "-----------------------------\n");
-	LOG_CON(s, "boundary: 0x%lx\n", rdv->plat.boundary);
-	LOG_CON(s, "bank_size: 0x%lx\n", rdv->plat.bank_size);
-	LOG_CON(s, "vlm_size: 0x%lx\n", rdv->plat.vlm_size);
-	LOG_CON(s, "vlm_bank_max: 0x%lx\n", rdv->plat.vlm_bank_max);
-	LOG_CON(s, "vlm_addr: 0x%lx\n", rdv->plat.vlm_addr);
-	LOG_CON(s, "dram_max: 0x%lx\n", rdv->plat.dram_max);
-	LOG_CON(s, "pool_max: 0x%lx\n", rdv->plat.pool_max);
+	LOG_CON(s, "boundary: 0x%x\n", rdv->plat.boundary);
+	LOG_CON(s, "bank_size: 0x%x\n", rdv->plat.bank_size);
+	LOG_CON(s, "vlm_size: 0x%x\n", rdv->plat.vlm_size);
+	LOG_CON(s, "vlm_bank_max: 0x%x\n", rdv->plat.vlm_bank_max);
+	LOG_CON(s, "vlm_addr: 0x%x\n", rdv->plat.vlm_addr);
+	LOG_CON(s, "dram_max: 0x%x\n", rdv->plat.dram_max);
+	LOG_CON(s, "pool_max: 0x%x\n", rdv->plat.pool_max);
 	for (i = 0; i < rdv->plat.pool_max; i++) {
 		LOG_CON(s, "-----------Pool[%d]--------------\n", i);
-		LOG_CON(s, "pool_type: 0x%lx\n", rdv->plat.pool_type[i]);
-		LOG_CON(s, "pool_base: 0x%lx\n", rdv->plat.pool_base[i]);
-		LOG_CON(s, "pool_step: 0x%lx\n", rdv->plat.pool_step[i]);
-		LOG_CON(s, "pool_size: 0x%lx\n", rdv->plat.pool_size[i]);
-		LOG_CON(s, "pool_bank_max: 0x%lx\n", rdv->plat.pool_bank_max[i]);
-		LOG_CON(s, "pool_addr: 0x%lx\n", rdv->plat.pool_addr[i]);
+		LOG_CON(s, "pool_type: 0x%x\n", rdv->plat.pool_type[i]);
+		LOG_CON(s, "pool_base: 0x%x\n", rdv->plat.pool_base[i]);
+		LOG_CON(s, "pool_step: 0x%x\n", rdv->plat.pool_step[i]);
+		LOG_CON(s, "pool_size: 0x%x\n", rdv->plat.pool_size[i]);
+		LOG_CON(s, "pool_bank_max: 0x%x\n", rdv->plat.pool_bank_max[i]);
+		LOG_CON(s, "pool_addr: 0x%x\n", rdv->plat.pool_addr[i]);
 		LOG_CON(s, "-----------Pool[%d]--------------\n", i);
 	}
 
-	LOG_CON(s, "MDLA: 0x%lx\n", rdv->plat.device[REVISER_DEVICE_MDLA]);
-	LOG_CON(s, "VPU: 0x%lx\n", rdv->plat.device[REVISER_DEVICE_VPU]);
-	LOG_CON(s, "EDMA: 0x%lx\n", rdv->plat.device[REVISER_DEVICE_EDMA]);
-	LOG_CON(s, "SECURE_MD32: 0x%lx\n", rdv->plat.device[REVISER_DEVICE_SECURE_MD32]);
+	LOG_CON(s, "MDLA: 0x%x\n", rdv->plat.device[REVISER_DEVICE_MDLA]);
+	LOG_CON(s, "VPU: 0x%x\n", rdv->plat.device[REVISER_DEVICE_VPU]);
+	LOG_CON(s, "EDMA: 0x%x\n", rdv->plat.device[REVISER_DEVICE_EDMA]);
+	LOG_CON(s, "SECURE_MD32: 0x%x\n", rdv->plat.device[REVISER_DEVICE_SECURE_MD32]);
 	LOG_CON(s, "dram: 0x%llx\n", rdv->plat.dram[0]);
 
-	LOG_CON(s, "hw_ver: 0x%lx\n", rdv->plat.hw_ver);
-	LOG_CON(s, "sw_ver: 0x%lx\n", rdv->plat.sw_ver);
+	LOG_CON(s, "hw_ver: 0x%x\n", rdv->plat.hw_ver);
+	LOG_CON(s, "sw_ver: 0x%x\n", rdv->plat.sw_ver);
 	LOG_CON(s, "=============================\n");
 }
 //----------------------------------------------
@@ -759,12 +759,12 @@ int reviser_dbg_init(struct reviser_dev_info *rdv, struct dentry *apu_dbg_root)
 	/*  dump dram */
 	debugfs_create_u32("dram_bank", 0644,
 			reviser_dbg_mem,
-			&g_reviser_mem_dram_bank);
+			(uint32_t *) &g_reviser_mem_dram_bank);
 
 
 	debugfs_create_u32("dram_ctx", 0644,
 			reviser_dbg_mem,
-			&g_reviser_mem_dram_ctx);
+			(uint32_t *) &g_reviser_mem_dram_ctx);
 
 	reviser_dbg_mem_dram = debugfs_create_file("dram", 0644,
 			reviser_dbg_mem, rdv,

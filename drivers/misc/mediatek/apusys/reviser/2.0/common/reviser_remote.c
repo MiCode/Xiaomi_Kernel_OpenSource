@@ -128,7 +128,6 @@ wait:
 				g_rvr_msg->lock.wait_rx,
 				g_rvr_msg->count,
 				msecs_to_jiffies(REVISER_REMOTE_TIMEOUT));
-
 	if (ret == -ERESTARTSYS) {
 		LOG_ERR("Wake up by signal!, retry again %d\n", retry);
 		msleep(20);

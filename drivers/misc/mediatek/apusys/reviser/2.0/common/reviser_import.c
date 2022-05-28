@@ -15,6 +15,9 @@ int reviser_alloc_slb(uint32_t type, uint32_t size, uint64_t *ret_addr, uint64_t
 	int ret = 0;
 	struct slbc_data slb;
 
+	slb.paddr = 0;
+	slb.size = 0;
+
 	switch (type) {
 	case REVISER_MEM_TYPE_EXT:
 		/* TODO, should allocate via reviser function */
