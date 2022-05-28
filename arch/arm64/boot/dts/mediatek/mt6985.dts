@@ -10281,6 +10281,7 @@
 		power_path_support;
 		max_charger_voltage = <6500000>;
 		fast_charge_voltage = <3000000>;
+		boot_battery_voltage = <3600000>;
 
 		/* charging current */
 		usb_charger_current = <500000>;
@@ -10579,6 +10580,7 @@
 
 		algorithm_name = "Basic";
 		charger_configuration= <0>;
+		alg_new_arbitration;
 
 		/* common */
 		battery_cv = <4350000>;
