@@ -8,7 +8,6 @@
 
 #include <drm/drm.h>
 
-
 #define MTK_SUBMIT_NO_IMPLICIT   0x0 /* disable implicit sync */
 #define MTK_SUBMIT_IN_FENCE   0x1 /* enable input fence */
 #define MTK_SUBMIT_OUT_FENCE  0x2  /* enable output fence */
@@ -612,17 +611,17 @@ struct wb_frame_info {
 	__u32 src_width, src_height;
 	__u32 dst_width, dst_height;
 };
-
+#define LYE_CRTC 4
 struct drm_mtk_layering_info {
-	struct drm_mtk_layer_config *input_config[3];
-	int disp_mode[3];
+	struct drm_mtk_layer_config *input_config[LYE_CRTC];
+	int disp_mode[LYE_CRTC];
 	/* index of crtc display mode including resolution, fps... */
-	int disp_mode_idx[3];
-	int layer_num[3];
-	int gles_head[3];
-	int gles_tail[3];
-	uint32_t disp_caps[3];
-	uint32_t frame_idx[3];
+	int disp_mode_idx[LYE_CRTC];
+	int layer_num[LYE_CRTC];
+	int gles_head[LYE_CRTC];
+	int gles_tail[LYE_CRTC];
+	uint32_t disp_caps[LYE_CRTC];
+	uint32_t frame_idx[LYE_CRTC];
 	int hrt_num;
 	__u32 disp_idx;
 	__u32 disp_list;
@@ -630,8 +629,8 @@ struct drm_mtk_layering_info {
 	int res_idx;
 	__u32 hrt_weight;
 	__u32 hrt_idx;
-	struct mml_frame_info *mml_cfg[3];
-	struct wb_frame_info wb_cfg[3];
+	struct mml_frame_info *mml_cfg[LYE_CRTC];
+	struct wb_frame_info wb_cfg[LYE_CRTC];
 };
 
 /**
