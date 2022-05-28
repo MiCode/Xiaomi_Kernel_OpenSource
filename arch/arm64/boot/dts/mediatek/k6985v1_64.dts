@@ -10,11 +10,10 @@
 #include <dt-bindings/phy/phy.h>
 
 &chosen {
-bootargs_ext = "console=tty0 console=ttyS0,921600n1 root=/dev/ram vmalloc=400M \
+bootargs_ext = "console=tty0 root=/dev/ram vmalloc=400M \
 loglevel=8 \
 androidboot.hardware=mt6985 \
 8250.nr_uarts=4 \
-earlycon=uart8250,mmio32,0x11001000 \
 initcall_debug=1 \
 mtk_printk_ctrl.disable_uart=0";
 };
