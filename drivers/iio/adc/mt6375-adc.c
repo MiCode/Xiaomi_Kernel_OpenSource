@@ -195,7 +195,7 @@ static irqreturn_t mt6375_adc_trigger_handler(int irq, void *p)
 		u16 values[MT6375_ADC_MAX_CHANNEL];
 		int64_t timestamp;
 	} data __aligned(8);
-	int i = 0, bit, val, ret;
+	int i = 0, bit, val = 0, ret;
 
 	memset(&data, 0, sizeof(data));
 	for_each_set_bit(bit, indio_dev->active_scan_mask, indio_dev->masklength) {
