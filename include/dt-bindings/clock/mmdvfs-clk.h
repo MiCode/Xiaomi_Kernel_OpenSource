@@ -46,5 +46,6 @@
 /* spec type */
 #define SPEC_MMDVFS_NORMAL	(0)
 #define SPEC_MMDVFS_ALONE	(1)
+#define SPEC_MMDVFS_DVFSRC	(2)
 
 #endif /* _DT_BINDINGS_MMDVFS_CLK_H */
