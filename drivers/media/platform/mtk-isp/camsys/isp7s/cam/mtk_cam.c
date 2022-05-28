@@ -1578,6 +1578,29 @@ int PipeIDtoTGIDX(int pipe_id)
 	return -1;
 }
 #endif
+int ctx_stream_on_seninf_sensor_hdr(struct mtk_cam_ctx *ctx,
+	int enable, int seninf_pad, int pixel_mode, int tg_idx)
+{
+	struct device *dev = ctx->cam->dev;
+	struct v4l2_subdev *seninf = ctx->seninf;
+	int ret;
+
+
+	if (WARN_ON(!seninf))
+		return -1;
+
+	mtk_cam_seninf_set_camtg(seninf, seninf_pad, tg_idx);
+
+	ret = mtk_cam_seninf_set_pixelmode(seninf, seninf_pad, pixel_mode);
+
+	ret = v4l2_subdev_call(ctx->seninf, video, s_stream, enable);
+	if (ret) {
+		dev_info(dev, "ctx %d failed to stream_on %s %d:%d\n",
+			 ctx->stream_id, seninf->name, enable, ret);
+		return -EPERM;
+	}
+	return ret;
+}
 
 int ctx_stream_on_seninf_sensor(struct mtk_cam_ctx *ctx, int enable)
 {
@@ -1791,7 +1814,13 @@ static int mtk_alloc_pipelines(struct mtk_cam_device *cam)
 			 __func__, ppls->num_raw);
 		ret = -ENOMEM;
 	}
-
+	ppls->num_camsv = GET_PLAT_V4L2(camsv_pipeline_num);
+	ppls->camsv = mtk_camsv_pipeline_create(cam->dev, ppls->num_camsv);
+	if (ppls->num_camsv && !ppls->camsv) {
+		dev_info(cam->dev, "%s: failed at alloc camsv pipelines: %d\n",
+			 __func__, ppls->num_raw);
+		ret = -ENOMEM;
+	}
 	dev_info(cam->dev, "pipeline num: raw %d camsv %d mraw %d\n",
 		 ppls->num_raw,
 		 ppls->num_camsv,
@@ -1842,12 +1871,13 @@ static int mtk_cam_master_bind(struct device *dev)
 		goto fail_unbind_all;
 	}
 
-#ifdef NOT_READY
-	ret = mtk_camsv_setup_dependencies(&cam_dev->sv, &cam_dev->larb);
+
+	ret = mtk_camsv_setup_dependencies(&cam_dev->engines);
 	if (ret) {
 		dev_dbg(dev, "Failed to mtk_camsv_setup_dependencies: %d\n", ret);
 		goto fail_remove_dependencies;
 	}
+#ifdef NOT_READY
 
 	ret = mtk_mraw_setup_dependencies(&cam_dev->mraw, &cam_dev->larb);
 	if (ret) {
@@ -1869,12 +1899,16 @@ static int mtk_cam_master_bind(struct device *dev)
 		goto fail_remove_dependencies;
 	}
 
-#ifdef NOT_READY
-	ret = mtk_camsv_register_entities(&cam_dev->sv, &cam_dev->v4l2_dev);
+
+	ret = mtk_camsv_register_entities(cam_dev->engines.sv_devs,
+					cam_dev->pipelines.camsv,
+					cam_dev->pipelines.num_camsv,
+					&cam_dev->v4l2_dev);
 	if (ret) {
 		dev_dbg(dev, "Failed to init camsv subdevs: %d\n", ret);
 		goto fail_unreg_raw_entities;
 	}
+#ifdef NOT_READY
 
 	ret = mtk_mraw_register_entities(&cam_dev->mraw, &cam_dev->v4l2_dev);
 	if (ret) {
@@ -1901,10 +1935,13 @@ fail_unreg_mraw_entities:
 	mtk_mraw_unregister_entities(&cam_dev->mraw);
 
 fail_unreg_camsv_entities:
-	mtk_camsv_unregister_entities(&cam_dev->sv);
+#endif
+
+	mtk_camsv_unregister_entities(cam_dev->pipelines.camsv,
+				    cam_dev->pipelines.num_camsv);
 
 fail_unreg_raw_entities:
-#endif
+
 	mtk_raw_unregister_entities(cam_dev->pipelines.raw,
 				    cam_dev->pipelines.num_raw);
 
@@ -1934,10 +1971,11 @@ static void mtk_cam_master_unbind(struct device *dev)
 
 	mtk_raw_unregister_entities(cam_dev->pipelines.raw,
 				    cam_dev->pipelines.num_raw);
-#ifdef NOT_READY
-	mtk_camsv_unregister_entities(&cam_dev->sv);
+
+	mtk_camsv_unregister_entities(cam_dev->pipelines.camsv,
+				    cam_dev->pipelines.num_camsv);
 	//TODO: mraw
-#endif
+
 	mtk_cam_dvfs_uninit(cam_dev);
 	component_unbind_all(dev, cam_dev);
 
@@ -2024,10 +2062,9 @@ static struct component_match *mtk_cam_match_add(struct device *dev)
 	eng->num_larb_devices =
 		add_match_by_driver(dev, &match, &mtk_cam_larb_driver);
 
-#ifdef NOT_READY
 	eng->num_camsv_devices =
 		add_match_by_driver(dev, &match, &mtk_cam_sv_driver);
-
+#ifdef NOT_READY
 	eng->num_mraw_devices =
 		add_match_by_driver(dev, &match, &mtk_cam_mraw_driver);
 #endif
@@ -2369,14 +2406,14 @@ static int loop_each_engine(struct mtk_cam_engines *eng,
 		func(eng->raw_devs[i]);
 	}
 
-	submask = USED_MASK_GET_SUBMASK(&engine_used, camsv);
+	submask = engine_used;
 	for (i = 0; i < eng->num_camsv_devices; i++) {
 		if (!USED_MASK_HAS(&submask, camsv, i))
 			continue;
 		func(eng->sv_devs[i]);
 	}
 
-	submask = USED_MASK_GET_SUBMASK(&engine_used, mraw);
+	submask = engine_used;
 	for (i = 0; i < eng->num_mraw_devices; i++) {
 		if (!USED_MASK_HAS(&submask, mraw, i))
 			continue;
@@ -2420,13 +2457,13 @@ static int register_sub_drivers(struct device *dev)
 		goto REGISTER_SENINF_CORE_FAIL;
 	}
 
-#ifdef NOT_READY
+
 	ret = platform_driver_register(&mtk_cam_sv_driver);
 	if (ret) {
 		dev_info(dev, "%s mtk_cam_sv_driver fail\n", __func__);
 		goto REGISTER_CAMSV_FAIL;
 	}
-
+#ifdef NOT_READY
 	ret = platform_driver_register(&mtk_cam_mraw_driver);
 	if (ret) {
 		dev_info(dev, "%s mtk_cam_mraw_driver fail\n", __func__);
@@ -2471,9 +2508,9 @@ REGISTER_RAW_FAIL:
 	//platform_driver_unregister(&mtk_cam_mraw_driver);
 
 //REGISTER_MRAW_FAIL:
-	//platform_driver_unregister(&mtk_cam_sv_driver);
+	platform_driver_unregister(&mtk_cam_sv_driver);
 
-//REGISTER_CAMSV_FAIL:
+REGISTER_CAMSV_FAIL:
 	platform_driver_unregister(&seninf_core_pdrv);
 
 REGISTER_SENINF_CORE_FAIL:

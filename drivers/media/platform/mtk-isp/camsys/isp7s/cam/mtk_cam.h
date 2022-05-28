@@ -26,6 +26,7 @@
 #include "mtk_cam-request.h"
 #include "mtk_cam-seninf-drv.h"
 #include "mtk_cam-seninf-if.h"
+#include "mtk_cam-sv.h"
 #include "mtk_camera-v4l2-controls.h"
 #include "mtk_cam-dvfs_qos.h"
 
@@ -65,7 +66,7 @@ struct mtk_cam_ctx {
 
 	/* TODO */
 	int raw_subdev_idx;
-	//int camsv_subdev_idx[2];
+	int camsv_subdev_idx[2];
 
 	/* job pool */
 	struct mtk_cam_job_data jobs[JOB_NUM_PER_STREAM];
@@ -122,6 +123,9 @@ struct mtk_cam_v4l2_pipelines {
 	int num_mraw;
 	struct mtk_mraw_pipeline *mraw;
 };
+int ctx_stream_on_seninf_sensor_hdr(struct mtk_cam_ctx *ctx,
+	int enable, int seninf_pad, int pixel_mode, int tg_idx);
+
 int ctx_stream_on_seninf_sensor(struct mtk_cam_ctx *ctx, int enable);
 
 struct mtk_cam_engines {

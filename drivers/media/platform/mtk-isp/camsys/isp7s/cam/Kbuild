@@ -53,13 +53,11 @@ $(CAM_MODULE)-objs := \
     mtk_cam-raw_debug.o \
     mtk_cam-tg-flash.o \
     mtk_cam-ctrl.o \
-    mtk_cam-dvfs_qos.o
+    mtk_cam-dvfs_qos.o \
+    mtk_cam-sv.o
 
-    #mtk_cam-ctrl.o
     #mtk_cam-smem.o \
-    #mtk_cam-dvfs_qos.o \
     #mtk_cam-debug.o \
-    #mtk_cam-sv.o \
     #mtk_cam-feature.o \
     #mtk_cam-mraw.o\
 

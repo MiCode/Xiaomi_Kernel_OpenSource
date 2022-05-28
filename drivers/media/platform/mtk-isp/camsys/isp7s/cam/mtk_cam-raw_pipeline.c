@@ -330,6 +330,23 @@ static int mtk_raw_set_ctrl(struct v4l2_ctrl *ctrl)
 	}
 	return ret;
 #else
+	// FIXME - temp workaround
+	struct mtk_raw_pipeline *pipeline;
+	struct device *dev = mtk_cam_root_dev();
+
+	pipeline = mtk_cam_ctrl_handler_to_raw_pipeline(ctrl->handler);
+
+	switch (ctrl->id) {
+	case V4L2_CID_MTK_CAM_FEATURE:
+		pipeline->ctrl_data.feature = *ctrl->p_new.p_s64;
+		dev_info(dev, "%s:pipe(%d):streaming(%d), feature(0x%x)\n",
+			__func__, pipeline->id, pipeline->subdev.entity.stream_count,
+			pipeline->ctrl_data.feature);
+	default:
+		// dev_info(dev, "%s:pipe(%d)ctrl_id:(0x%x) :not ready\n",
+		// __func__, pipeline->id, ctrl->id);
+		break;
+	}
 	return 0;
 #endif
 }

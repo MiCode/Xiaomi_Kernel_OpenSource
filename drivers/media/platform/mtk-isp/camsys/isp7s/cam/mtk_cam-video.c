@@ -57,7 +57,12 @@ static int mtk_cam_vb2_queue_setup(struct vb2_queue *vq,
 	} else {
 		*num_planes = 1;
 		sizes[0] = size;
-
+		/* workaround */
+		if (fmt->fmt.pix_mp.num_planes > 1) {
+			*num_planes = fmt->fmt.pix_mp.num_planes;
+			for (i = 0; i < *num_planes; i++)
+				sizes[i] = size;
+		}
 		for (i = 0; i < *num_planes; i++)
 			dev_dbg(cam->dev, "[%s] id:%d, name:%s, np:%d, i:%d, size:%d\n",
 				__func__,
@@ -1154,7 +1159,10 @@ int mtk_cam_video_set_fmt(struct mtk_cam_video_device *node,
 
 	try_fmt.fmt.pix_mp.width = ALIGN(try_fmt.fmt.pix_mp.width, IMG_PIX_ALIGN);
 	try_fmt.fmt.pix_mp.num_planes = 1;
-
+	/* workaround fix me - start */
+	if (node->desc.id == MTK_RAW_MAIN_STREAM_OUT)
+		try_fmt.fmt.pix_mp.num_planes = 2;
+	/* workaround fix me - end */
 	for (i = 0 ; i < try_fmt.fmt.pix_mp.num_planes ; i++)
 		try_fmt.fmt.pix_mp.plane_fmt[i].bytesperline =
 				f->fmt.pix_mp.plane_fmt[i].bytesperline;

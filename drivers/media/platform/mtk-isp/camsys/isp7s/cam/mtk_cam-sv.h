@@ -266,12 +266,16 @@ static inline bool mtk_camsv_is_yuv_format(unsigned int fmt)
 
 	return ret;
 }
+struct mtk_camsv_pipeline *mtk_camsv_pipeline_create(
+	struct device *dev, int n);
 
-struct mtk_larb;
-int mtk_camsv_setup_dependencies(struct mtk_camsv *sv, struct mtk_larb *larb);
-int mtk_camsv_register_entities(
-	struct mtk_camsv *sv, struct v4l2_device *v4l2_dev);
-void mtk_camsv_unregister_entities(struct mtk_camsv *sv);
+struct mtk_cam_engines;
+int mtk_camsv_setup_dependencies(struct mtk_cam_engines *eng);
+int mtk_camsv_register_entities(struct device **devs,
+	struct mtk_camsv_pipeline *arr_pipe, int num,
+	struct v4l2_device *v4l2_dev);
+void mtk_camsv_unregister_entities(
+	struct mtk_camsv_pipeline *arr_pipe, int num);
 int mtk_camsv_call_pending_set_fmt(struct v4l2_subdev *sd,
 				 struct v4l2_subdev_format *fmt);
 int mtk_cam_sv_select(
@@ -321,21 +325,26 @@ int mtk_cam_sv_vf_on(struct mtk_camsv_device *dev, unsigned int is_on);
 int mtk_cam_sv_is_vf_on(struct mtk_camsv_device *dev);
 int mtk_cam_sv_enquehwbuf(struct mtk_camsv_device *dev,
 	dma_addr_t ba, unsigned int seq_no);
+#ifdef NOT_READY_CAMSV_SUBDEV
 bool mtk_cam_sv_finish_buf(struct mtk_cam_request_stream_data *s_data);
 int mtk_cam_find_sv_dev_index(struct mtk_cam_ctx *ctx, unsigned int idx);
 int mtk_cam_sv_update_all_buffer_ts(struct mtk_cam_ctx *ctx, u64 ts_ns);
 int mtk_cam_sv_apply_all_buffers(struct mtk_cam_ctx *ctx, bool is_check_ts);
 int mtk_cam_sv_apply_next_buffer(struct mtk_cam_ctx *ctx, unsigned int pipe_id, u64 ts_ns);
-int mtk_cam_sv_rgbw_apply_next_buffer(
-	struct mtk_cam_request_stream_data *s_data);
+int mtk_cam_sv_rgbw_apply_next_buffer(struct mtk_cam_request_stream_data *s_data);
 int mtk_cam_sv_apply_switch_buffers(struct mtk_cam_ctx *ctx);
+#endif
+
 int mtk_cam_sv_write_rcnt(struct mtk_cam_ctx *ctx, unsigned int pipe_id);
 int mtk_cam_sv_write_rcnt_sv_dev(struct mtk_camsv_device *camsv_dev);
 bool mtk_cam_sv_is_zero_fbc_cnt(struct mtk_cam_ctx *ctx, unsigned int pipe_id);
+#ifdef NOT_READY_CAMSV_SUBDEV
 int mtk_cam_sv_cal_cfg_info(struct mtk_cam_ctx *ctx,
 	const struct v4l2_format *img_fmt, struct mtk_camsv_frame_params *params);
 int mtk_cam_sv_setup_cfg_info(struct mtk_camsv_device *dev,
 	struct mtk_cam_request_stream_data *s_data);
+#endif
+
 int mtk_cam_sv_frame_no_inner(struct mtk_camsv_device *dev);
 int mtk_cam_sv_fbc(struct mtk_camsv_device *dev);
 #ifdef CAMSYS_TF_DUMP_71_1

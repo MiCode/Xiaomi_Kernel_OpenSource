@@ -34,6 +34,7 @@ struct mtk_cam_ctrl {
 	atomic_t ref_cnt;
 	int initial_cq_done;
 	int vsync_engine;
+	int component_dequeued_frame_seq_no;
 	struct list_head camsys_state_list;
 	spinlock_t camsys_state_lock;
 	wait_queue_head_t stop_wq;
@@ -47,7 +48,6 @@ struct mtk_camsys_irq_error_data {
 
 struct mtk_camsys_irq_info {
 	enum MTK_CAMSYS_IRQ_EVENT irq_type;
-	int engine;
 	u64 ts_ns;
 	int frame_idx;
 	int frame_idx_inner;
