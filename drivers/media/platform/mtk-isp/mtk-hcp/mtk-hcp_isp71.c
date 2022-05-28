@@ -4,9 +4,7 @@
  */
 #include <linux/slab.h>
 #include <linux/kref.h>
-#ifdef DMA_DEBUG_NAME
-#include "mtk_heap.h"
-#endif
+#include <mtk_heap.h>
 #include "mtk-hcp_isp71.h"
 
 static struct mtk_hcp_reserve_mblock *mb;
@@ -416,8 +414,8 @@ struct mtk_hcp_reserve_mblock isp71_reserve_mblock[] = {
 
 phys_addr_t isp71_get_reserve_mem_phys(unsigned int id)
 {
-	if ((id < 0) || (id >= NUMS_MEM_ID)) {
-		pr_info("[HCP] no reserve memory for %d", id);
+	if (id >= NUMS_MEM_ID) {
+		pr_info("[HCP] no reserve memory for %u", id);
 		return 0;
 	} else {
 		return mb[id].start_phys;
@@ -427,8 +425,8 @@ EXPORT_SYMBOL(isp71_get_reserve_mem_phys);
 
 void *isp71_get_reserve_mem_virt(unsigned int id)
 {
-	if ((id < 0) || (id >= NUMS_MEM_ID)) {
-		pr_info("[HCP] no reserve memory for %d", id);
+	if (id >= NUMS_MEM_ID) {
+		pr_info("[HCP] no reserve memory for %u", id);
 		return 0;
 	} else
 		return mb[id].start_virt;
@@ -437,8 +435,8 @@ EXPORT_SYMBOL(isp71_get_reserve_mem_virt);
 
 phys_addr_t isp71_get_reserve_mem_dma(unsigned int id)
 {
-	if ((id < 0) || (id >= NUMS_MEM_ID)) {
-		pr_info("[HCP] no reserve memory for %d", id);
+	if (id >= NUMS_MEM_ID) {
+		pr_info("[HCP] no reserve memory for %u", id);
 		return 0;
 	} else {
 		return mb[id].start_dma;
@@ -448,8 +446,8 @@ EXPORT_SYMBOL(isp71_get_reserve_mem_dma);
 
 phys_addr_t isp71_get_reserve_mem_size(unsigned int id)
 {
-	if ((id < 0) || (id >= NUMS_MEM_ID)) {
-		pr_info("[HCP] no reserve memory for %d", id);
+	if (id >= NUMS_MEM_ID) {
+		pr_info("[HCP] no reserve memory for %u", id);
 		return 0;
 	} else {
 		return mb[id].size;
@@ -459,8 +457,8 @@ EXPORT_SYMBOL(isp71_get_reserve_mem_size);
 
 uint32_t isp71_get_reserve_mem_fd(unsigned int id)
 {
-	if ((id < 0) || (id >= NUMS_MEM_ID)) {
-		pr_info("[HCP] no reserve memory for %d", id);
+	if (id >= NUMS_MEM_ID) {
+		pr_info("[HCP] no reserve memory for %u", id);
 		return 0;
 	} else
 		return mb[id].fd;
@@ -482,13 +480,13 @@ EXPORT_SYMBOL(isp71_get_hwid_virt);
 
 int isp71_allocate_working_buffer(struct mtk_hcp *hcp_dev, unsigned int mode)
 {
-	enum isp71_rsv_mem_id_t id;
-	struct mtk_hcp_reserve_mblock *mblock;
-	unsigned int block_num;
-	struct sg_table *sgt;
-	struct dma_buf_attachment *attach;
-	struct dma_heap *pdma_heap;
-	struct dma_buf_map map;
+	enum isp71_rsv_mem_id_t id = 0;
+	struct mtk_hcp_reserve_mblock *mblock = NULL;
+	unsigned int block_num = 0;
+	struct sg_table *sgt = NULL;
+	struct dma_buf_attachment *attach = NULL;
+	struct dma_heap *pdma_heap = NULL;
+	struct dma_buf_map map = {0};
 	int ret = 0;
 
 	if (mode)
@@ -521,9 +519,7 @@ int isp71_allocate_working_buffer(struct mtk_hcp *hcp_dev, unsigned int mode)
 					PTR_ERR(mblock[id].d_buf));
 					return -1;
 				}
-#ifdef DMA_DEBUG_NAME
 				mtk_dma_buf_set_name(mblock[id].d_buf, mblock[id].name);
-#endif
 				mblock[id].attach = dma_buf_attach(
 				mblock[id].d_buf, hcp_dev->dev);
 				attach = mblock[id].attach;
@@ -558,8 +554,9 @@ int isp71_allocate_working_buffer(struct mtk_hcp *hcp_dev, unsigned int mode)
 				dma_buf_get(mblock[id].fd);
 				dma_buf_begin_cpu_access(mblock[id].d_buf, DMA_BIDIRECTIONAL);
 				kref_init(&mblock[id].kref);
-				pr_info("%s:[HCP][%s] phys:0x%llx, virt:0x%llx, dma:0x%llx, size:0x%llx, is_dma_buf:%d, fd:%d, d_buf:0x%llx\n",
-					__func__, mblock[id].name, isp71_get_reserve_mem_phys(id),
+				pr_info("%s:[HCP][%s] phys:0x%llx, virt:0x%p, dma:0x%llx, size:0x%llx, is_dma_buf:%d, fd:%d, d_buf:0x%p\n",
+					__func__, mblock[id].name,
+					isp71_get_reserve_mem_phys(id),
 					isp71_get_reserve_mem_virt(id),
 					isp71_get_reserve_mem_dma(id),
 					isp71_get_reserve_mem_size(id),
@@ -585,9 +582,7 @@ int isp71_allocate_working_buffer(struct mtk_hcp *hcp_dev, unsigned int mode)
 					PTR_ERR(mblock[id].d_buf));
 					return -1;
 				}
-#ifdef DMA_DEBUG_NAME
 				mtk_dma_buf_set_name(mblock[id].d_buf, mblock[id].name);
-#endif
 				mblock[id].attach = dma_buf_attach(
 				mblock[id].d_buf, hcp_dev->dev);
 				attach = mblock[id].attach;
@@ -616,7 +611,8 @@ int isp71_allocate_working_buffer(struct mtk_hcp *hcp_dev, unsigned int mode)
 				}
 				mblock[id].start_virt = (void *)map.vaddr;
 				mblock[id].map = map;
-				mblock[id].fd = dma_buf_fd(mblock[id].d_buf, O_RDWR | O_CLOEXEC);
+				mblock[id].fd =
+					dma_buf_fd(mblock[id].d_buf, O_RDWR | O_CLOEXEC);
 				dma_buf_get(mblock[id].fd);
 				break;
 			}
@@ -630,8 +626,9 @@ int isp71_allocate_working_buffer(struct mtk_hcp *hcp_dev, unsigned int mode)
 			mblock[id].start_dma = 0;
 		}
 		pr_debug(
-			"%s: [HCP][mem_reserve-%d] phys:0x%llx, virt:0x%llx, dma:0x%llx, size:0x%llx, is_dma_buf:%d, fd:%d, d_buf:0x%llx\n",
-			__func__, id, isp71_get_reserve_mem_phys(id),
+			"%s: [HCP][mem_reserve-%d] phys:0x%llx, virt:0x%p, dma:0x%llx, size:0x%llx, is_dma_buf:%d, fd:%d, d_buf:0x%p\n",
+			__func__, id,
+			isp71_get_reserve_mem_phys(id),
 			isp71_get_reserve_mem_virt(id),
 			isp71_get_reserve_mem_dma(id),
 			isp71_get_reserve_mem_size(id),
@@ -655,8 +652,9 @@ static void gce_release(struct kref *ref)
 	dma_buf_detach(mblock->d_buf, mblock->attach);
 	dma_buf_end_cpu_access(mblock->d_buf, DMA_BIDIRECTIONAL);
 	dma_buf_put(mblock->d_buf);
-	pr_info("%s:[HCP][%s] phys:0x%llx, virt:0x%llx, dma:0x%llx, size:0x%llx, is_dma_buf:%d, fd:%d, d_buf:0x%llx\n",
-		__func__, mblock->name, isp71_get_reserve_mem_phys(IMG_MEM_G_ID),
+	pr_info("%s:[HCP][%s] phys:0x%llx, virt:0x%p, dma:0x%llx, size:0x%llx, is_dma_buf:%d, fd:%d, d_buf:0x%p\n",
+		__func__, mblock->name,
+		isp71_get_reserve_mem_phys(IMG_MEM_G_ID),
 		isp71_get_reserve_mem_virt(IMG_MEM_G_ID),
 		isp71_get_reserve_mem_dma(IMG_MEM_G_ID),
 		isp71_get_reserve_mem_size(IMG_MEM_G_ID),
@@ -732,8 +730,9 @@ int isp71_release_working_buffer(struct mtk_hcp *hcp_dev)
 			mblock[id].mmap_cnt = 0;
 		}
 		pr_debug(
-			"%s: [HCP][mem_reserve-%d] phys:0x%llx, virt:0x%llx, dma:0x%llx, size:0x%llx, is_dma_buf:%d, fd:%d\n",
-			__func__, id, isp71_get_reserve_mem_phys(id),
+			"%s: [HCP][mem_reserve-%d] phys:0x%llx, virt:0x%p, dma:0x%llx, size:0x%llx, is_dma_buf:%d, fd:%d\n",
+			__func__, id,
+			isp71_get_reserve_mem_phys(id),
 			isp71_get_reserve_mem_virt(id),
 			isp71_get_reserve_mem_dma(id),
 			isp71_get_reserve_mem_size(id),

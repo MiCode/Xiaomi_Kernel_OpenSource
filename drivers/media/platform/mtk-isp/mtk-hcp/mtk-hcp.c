@@ -56,9 +56,7 @@
 #include "m4u_port.h"
 #endif
 
-#ifdef DMA_DEBUG_NAME
-#include "mtk_heap.h"
-#endif
+#include <mtk_heap.h>
 
 #include "slbc_ops.h"
 
@@ -88,24 +86,6 @@
 
 #define SYNC_SEND               1
 #define ASYNC_SEND              0
-/*
- * define magic number for reserved memory to use in mmap function.
- */
-#define START_ISP_MEM_ADDR        0x12345000
-#define START_DIP_MEM_FOR_HW_ADDR 0x12346000
-#define START_MDP_MEM_ADDR        0x12347000
-#define START_FD_MEM_ADDR         0x12348000
-#define START_DIP_MEM_FOR_SW_ADDR 0x12349000
-
-/*
- * define module register mmap address
- */
-#define ISP_UNI_A_BASE_HW 0x1A003000
-#define ISP_A_BASE_HW           0x1A004000
-#define ISP_B_BASE_HW           0x1A006000
-#define ISP_C_BASE_HW           0x1A008000
-#define DIP_BASE_HW             0x15021000
-#define FD_BASE_HW              0x1502B000
 
 static struct mtk_hcp *hcp_mtkdev;
 
@@ -172,7 +152,8 @@ static int hcp_send_internal(struct mtk_hcp *hcp_dev,
 
 static struct msg *msg_pool_get(struct mtk_hcp *hcp_dev)
 {
-	unsigned long flag, empty;
+	unsigned long flag = 0;
+	unsigned long empty = 0;
 	struct msg *msg = NULL;
 
 	spin_lock_irqsave(&hcp_dev->msglock, flag);
@@ -188,9 +169,13 @@ static struct msg *msg_pool_get(struct mtk_hcp *hcp_dev)
 
 static void chans_pool_dump(struct mtk_hcp *hcp_dev)
 {
-	unsigned long flag;
-	struct msg *msg, *tmp;
-	int i = 0, seq_id, req_fd, hcp_id;
+	unsigned long flag = 0;
+	struct msg *msg = NULL;
+	struct msg *tmp = NULL;
+	int i = 0;
+	int seq_id = 0;
+	int req_fd = 0;
+	int hcp_id = 0;
 
 	spin_lock_irqsave(&hcp_dev->msglock, flag);
 	for (i = 0; i < MODULE_MAX_ID; i++) {
@@ -212,9 +197,11 @@ static void chans_pool_dump(struct mtk_hcp *hcp_dev)
 	spin_unlock_irqrestore(&hcp_dev->msglock, flag);
 }
 
-static struct msg *chan_pool_get(struct mtk_hcp *hcp_dev, int module_id)
+static struct msg *chan_pool_get
+	(struct mtk_hcp *hcp_dev, unsigned int module_id)
 {
-	unsigned long flag, empty;
+	unsigned long flag = 0;
+	unsigned long empty = 0;
 	struct msg *msg = NULL;
 
 	spin_lock_irqsave(&hcp_dev->msglock, flag);
@@ -233,7 +220,8 @@ static struct msg *chan_pool_get(struct mtk_hcp *hcp_dev, int module_id)
 
 static bool chan_pool_available(struct mtk_hcp *hcp_dev, int module_id)
 {
-	unsigned long flag, empty;
+	unsigned long flag = 0;
+	unsigned long empty = 0;
 
 	spin_lock_irqsave(&hcp_dev->msglock, flag);
 	empty = list_empty(&hcp_dev->chans[module_id]);
@@ -248,7 +236,7 @@ inline int hcp_id_to_ipi_id(struct mtk_hcp *hcp_dev, enum hcp_id id)
 {
 	int ipi_id = -EINVAL;
 
-	if (id < HCP_INIT_ID || id >= HCP_MAX_ID) {
+	if (id >= HCP_MAX_ID) {
 		dev_info(hcp_dev->dev, "%s: Invalid hcp id %d\n", __func__, id);
 		return -EINVAL;
 	}
@@ -267,7 +255,7 @@ inline int hcp_id_to_module_id(struct mtk_hcp *hcp_dev, enum hcp_id id)
 {
 	int module_id = -EINVAL;
 
-	if (id < HCP_INIT_ID || id >= HCP_MAX_ID) {
+	if (id >= HCP_MAX_ID) {
 		dev_info(hcp_dev->dev, "%s: Invalid hcp id %d\n", __func__, id);
 		return -EINVAL;
 	}
@@ -325,8 +313,8 @@ static inline bool mtk_hcp_running(struct mtk_hcp *hcp_dev)
 #ifdef AED_SET_EXTRA_FUNC_READY_ON_K515
 int hcp_notify_aee(void)
 {
-	struct msg *msg;
-	char dummy;
+	struct msg *msg = NULL;
+	char dummy = 0;
 
 	pr_info("HCP trigger AEE dump+\n");
 	msg = msg_pool_get(hcp_mtkdev);
@@ -349,9 +337,11 @@ int proc_open(struct inode *inode, struct file *file)
 {
 	struct mtk_hcp *hcp_dev = hcp_mtkdev;
 
-	const char *name;
+	const char *name = NULL;
 
-	try_module_get(THIS_MODULE);
+	if (!try_module_get(THIS_MODULE))
+		return -ENODEV;
+
 
 	name = file->f_path.dentry->d_name.name;
 	if (!strcmp(name, "daemon")) {
@@ -367,6 +357,7 @@ int proc_open(struct inode *inode, struct file *file)
 
 	if (file->private_data == NULL) {
 		pr_info("failed to allocate proc file(%s) buffer", name);
+		module_put(THIS_MODULE);
 		return -ENOMEM;
 	}
 
@@ -379,7 +370,9 @@ static ssize_t proc_read(struct file *file, char __user *buf, size_t lbuf,
 	loff_t *ppos)
 {
 	struct proc_info *info = (struct proc_info *)file->private_data;
-	int nbytes, maxbytes, bytes_to_do;
+	int nbytes = 0;
+	int maxbytes = 0;
+	int bytes_to_do = 0;
 
 	maxbytes = info->count - *ppos;
 	bytes_to_do = (maxbytes > lbuf) ? lbuf : maxbytes;
@@ -399,7 +392,9 @@ static ssize_t proc_write(struct file *file, const char __user *buf,
 	size_t lbuf, loff_t *ppos)
 {
 	struct proc_info *info = (struct proc_info *)file->private_data;
-	int nbytes, maxbytes, bytes_to_do;
+	int nbytes = 0;
+	int maxbytes = 0;
+	int bytes_to_do = 0;
 	unsigned long bytes_remain = 0;
 
 	maxbytes = info->size - *ppos;
@@ -435,8 +430,8 @@ static const struct proc_ops aee_ops = {
 
 static void hcp_aee_reset(struct mtk_hcp *hcp_dev)
 {
-	int i;
-	struct hcp_aee *aee_info;
+	int i = 0;
+	struct hcp_aee *aee_info = NULL;
 
 	dev_info(hcp_dev->dev, "%s -s\n", __func__);
 	aee_info = &hcp_dev->aee_info;
@@ -451,7 +446,7 @@ static void hcp_aee_reset(struct mtk_hcp *hcp_dev)
 
 int hcp_aee_init(struct mtk_hcp *hcp_dev)
 {
-	struct hcp_aee *aee_info;
+	struct hcp_aee *aee_info = NULL;
 
 	dev_info(hcp_dev->dev, "%s -s\n", __func__);
 	aee_info = &hcp_dev->aee_info;
@@ -562,13 +557,14 @@ int mtk_hcp_register(struct platform_device *pdev,
 				 const char *name, void *priv)
 {
 	struct mtk_hcp *hcp_dev = platform_get_drvdata(pdev);
+	unsigned int idx = 0;
 
 	if (hcp_dev == NULL) {
 		pr_info("%s hcp device in not ready\n", __func__);
 		return -EPROBE_DEFER;
 	}
 
-	if (id >= HCP_INIT_ID && id < HCP_MAX_ID && handler != NULL) {
+	if (id < HCP_MAX_ID && handler != NULL) {
 #if MTK_CM4_SUPPORT
 		if (mtk_hcp_cm4_support(hcp_dev, id) == true) {
 			int ipi_id = hcp_id_to_ipi_id(hcp_dev, id);
@@ -576,12 +572,12 @@ int mtk_hcp_register(struct platform_device *pdev,
 			scp_ipi_registration(ipi_id, hcp_ipi_handler, name);
 		}
 #endif
-		hcp_dev->hcp_desc_table[id].name = name;
-		hcp_dev->hcp_desc_table[id].handler = handler;
-		hcp_dev->hcp_desc_table[id].priv = priv;
+		idx = (unsigned int)id;
+		hcp_dev->hcp_desc_table[idx].name = name;
+		hcp_dev->hcp_desc_table[idx].handler = handler;
+		hcp_dev->hcp_desc_table[idx].priv = priv;
 		return 0;
 	}
-
 
 	dev_info(&pdev->dev, "%s register hcp id %d with invalid arguments\n",
 								__func__, id);
@@ -593,20 +589,21 @@ EXPORT_SYMBOL(mtk_hcp_register);
 int mtk_hcp_unregister(struct platform_device *pdev, enum hcp_id id)
 {
 	struct mtk_hcp *hcp_dev = platform_get_drvdata(pdev);
+	unsigned int idx = (unsigned int)id;
 
 	if (hcp_dev == NULL) {
 		dev_info(&pdev->dev, "%s hcp device in not ready\n", __func__);
 		return -EPROBE_DEFER;
 	}
 
-	if (id >= HCP_INIT_ID && id < HCP_MAX_ID) {
-		memset((void *)&hcp_dev->hcp_desc_table[id], 0,
+	if (idx < HCP_MAX_ID) {
+		memset((void *)&hcp_dev->hcp_desc_table[idx], 0,
 						sizeof(struct hcp_desc));
 		return 0;
 	}
 
-	dev_info(&pdev->dev, "%s register hcp id %d with invalid arguments\n",
-								__func__, id);
+	dev_info(&pdev->dev, "%s register hcp id %u with invalid arguments\n",
+		__func__, idx);
 
 	return -EINVAL;
 }
@@ -617,17 +614,17 @@ static int hcp_send_internal(struct mtk_hcp *hcp_dev,
 		 unsigned int len, int req_fd,
 		 unsigned int wait)
 {
-	struct share_buf send_obj;
-	unsigned long timeout, flag;
-	struct msg *msg;
+	struct share_buf send_obj = {0};
+	unsigned long timeout = 0;
+	unsigned long flag = 0;
+	struct msg *msg = NULL;
 	int ret = 0;
-	unsigned int no;
+	unsigned int no = 0;
 
 	dev_dbg(hcp_dev->dev, "%s id:%d len %d\n",
-				__func__, id, len);
+		__func__, id, len);
 
-	if (id < HCP_INIT_ID || id >= HCP_MAX_ID ||
-			len > sizeof(send_obj.share_data) || buf == NULL) {
+	if (id >= HCP_MAX_ID || len > sizeof(send_obj.share_data) || buf == NULL) {
 		dev_info(hcp_dev->dev,
 			"%s failed to send hcp message (Invalid arg.), len/sz(%d/%d)\n",
 			__func__, len, sizeof(send_obj.share_data));
@@ -664,6 +661,12 @@ static int hcp_send_internal(struct mtk_hcp *hcp_dev,
 			dev_info(hcp_dev->dev, "%s id:%d refill interrupted !\n",
 				__func__, id);
 			return -ERESTARTSYS;
+		}
+
+		if (msg == NULL) {
+			dev_info(hcp_dev->dev, "%s id:%d msg poll is full!\n",
+				__func__, id);
+			return -EAGAIN;
 		}
 
 		atomic_set(&hcp_dev->hcp_id_ack[id], 0);
@@ -709,9 +712,9 @@ static int hcp_send_internal(struct mtk_hcp *hcp_dev,
 			dev_info(hcp_dev->dev, "%s hcp id:%d ack time out !\n",
 				__func__, id);
 			/*
-				* clear un-success event to prevent unexpected flow
-				* cauesd be remaining data
-				*/
+			* clear un-success event to prevent unexpected flow
+			* cauesd be remaining data
+			*/
 			return -EIO;
 		} else if (-ERESTARTSYS == ret) {
 			dev_info(hcp_dev->dev, "%s hcp id:%d ack wait interrupted !\n",
@@ -758,9 +761,9 @@ int mtk_hcp_set_apu_dc(struct platform_device *pdev,
 #ifndef CONFIG_FPGA_EARLY_PORTING
 	struct mtk_hcp *hcp_dev = platform_get_drvdata(pdev);
 
-	struct slbc_data slb;
-	struct ctrl_data ctrl;
-	int ret;
+	struct slbc_data slb = {0};
+	struct ctrl_data ctrl = {0};
+	int ret = 0;
 
 	if (value) {
 		if (atomic_inc_return(&(hcp_dev->have_slb)) == 1) {
@@ -808,8 +811,8 @@ EXPORT_SYMBOL_GPL(mtk_hcp_set_apu_dc);
 struct platform_device *mtk_hcp_get_plat_device(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
-	struct device_node *hcp_node;
-	struct platform_device *hcp_pdev;
+	struct device_node *hcp_node = NULL;
+	struct platform_device *hcp_pdev = NULL;
 
 	dev_dbg(&pdev->dev, "- E. hcp get platform device.\n");
 
@@ -831,420 +834,53 @@ struct platform_device *mtk_hcp_get_plat_device(struct platform_device *pdev)
 EXPORT_SYMBOL(mtk_hcp_get_plat_device);
 
 #if HCP_RESERVED_MEM
-phys_addr_t mtk_hcp_mem_base_phys;
-phys_addr_t mtk_hcp_mem_base_virt;
-phys_addr_t mtk_hcp_mem_size;
-
-/* Use isp generation files */
-#define ISP_GEN_TBL
-#ifdef ISP_GEN_TBL
-#define NUMS_MEM_ID (0)
-struct mtk_hcp_reserve_mblock mtk_hcp_reserve_mblock[10];
-#else
-/*static */struct mtk_hcp_reserve_mblock mtk_hcp_reserve_mblock[] = {
-	/* NEED_LEGACY_MEM not defined */
-	#ifdef NEED_LEGACY_MEM
-	{
-		.num = ISP_MEM_ID,
-		.start_phys = 0x0,
-		.start_virt = 0x0,
-		.start_dma  = 0x0,
-		.size = 0x200000,  /*need 20MB*/
-		.is_dma_buf = true,
-		.mmap_cnt = 0,
-		.mem_priv = NULL,
-		.d_buf = NULL,
-		.fd = -1,
-		.pIonHandle = NULL,
-		.attach = NULL,
-		.sgt = NULL
-	},
-	{
-		.num = DIP_MEM_FOR_HW_ID,
-		.start_phys = 0x0,
-		.start_virt = 0x0,
-		.start_dma  = 0x0,
-		.size = 0x400000,   /*need more than 4MB*/
-		.is_dma_buf = true,
-		.mmap_cnt = 0,
-		.mem_priv = NULL,
-		.d_buf = NULL,
-		.fd = -1,
-		.pIonHandle = NULL,
-		.attach = NULL,
-		.sgt = NULL
-	},
-	{
-		.num = DIP_MEM_FOR_SW_ID,
-		.start_phys = 0x0,
-		.start_virt = 0x0,
-		.start_dma  = 0x0,
-		.size = 0x100000,   /*1MB*/
-		.is_dma_buf = false, /* Kurt ToDo: shall be false */
-		.mmap_cnt = 0,
-		.mem_priv = NULL,
-		.d_buf = NULL,
-		.fd = -1,
-		.pIonHandle = NULL,
-		.attach = NULL,
-		.sgt = NULL
-	},
-	{
-		.num = MDP_MEM_ID,
-		.start_phys = 0x0,
-		.start_virt = 0x0,
-		.start_dma  = 0x0,
-		.size = 0x400000,   /*4MB*/
-		.is_dma_buf = true,
-		.mmap_cnt = 0,
-		.mem_priv = NULL,
-		.d_buf = NULL,
-		.fd = -1,
-		.pIonHandle = NULL,
-		.attach = NULL,
-		.sgt = NULL
-	},
-	{
-		.num = FD_MEM_ID,
-		.start_phys = 0x0,
-		.start_virt = 0x0,
-		.start_dma  = 0x0,
-		.size = 0x100000,   /*1MB*/
-		.is_dma_buf = true,
-		.mmap_cnt = 0,
-		.mem_priv = NULL,
-		.d_buf = NULL,
-		.fd = -1,
-		.pIonHandle = NULL,
-		.attach = NULL,
-		.sgt = NULL
-
-	},
-	#else
-	{
-		/*share buffer for frame setting, to be sw usage*/
-		.num = IMG_MEM_FOR_HW_ID,
-		.start_phys = 0x0,
-		.start_virt = 0x0,
-		.start_dma  = 0x0,
-		.size = 0x400000,   /*need more than 4MB*/
-		.is_dma_buf = true,
-		.mmap_cnt = 0,
-		.mem_priv = NULL,
-		.d_buf = NULL,
-		.fd = -1,
-		.pIonHandle = NULL,
-		.attach = NULL,
-		.sgt = NULL
-	},
-	#endif
-	{
-		.num = WPE_MEM_C_ID,
-		.start_phys = 0x0,
-		.start_virt = 0x0,
-		.start_dma  = 0x0,
-		.size = 0x100000,   /*1MB*/
-		.is_dma_buf = true,
-		.mmap_cnt = 0,
-		.mem_priv = NULL,
-		.d_buf = NULL,
-		.fd = -1,
-		.pIonHandle = NULL,
-		.attach = NULL,
-		.sgt = NULL
-	},
-	{
-		.num = WPE_MEM_T_ID,
-		.start_phys = 0x0,
-		.start_virt = 0x0,
-		.start_dma  = 0x0,
-		.size = 0x100000,   /*1MB*/
-		.is_dma_buf = true,
-		.mmap_cnt = 0,
-		.mem_priv = NULL,
-		.d_buf = NULL,
-		.fd = -1,
-		.pIonHandle = NULL,
-		.attach = NULL,
-		.sgt = NULL
-	},
-	{
-		.num = TRAW_MEM_C_ID,
-		.start_phys = 0x0,
-		.start_virt = 0x0,
-		.start_dma  = 0x0,
-		.size = 0x400000,   /*4MB*/
-		.is_dma_buf = true,
-		.mmap_cnt = 0,
-		.mem_priv = NULL,
-		.d_buf = NULL,
-		.fd = -1,
-		.pIonHandle = NULL,
-		.attach = NULL,
-		.sgt = NULL
-	},
-	{
-		.num = TRAW_MEM_T_ID,
-		.start_phys = 0x0,
-		.start_virt = 0x0,
-		.start_dma  = 0x0,
-		.size = 0x1400000,   /*20MB*/
-		.is_dma_buf = true,
-		.mmap_cnt = 0,
-		.mem_priv = NULL,
-		.d_buf = NULL,
-		.fd = -1,
-		.pIonHandle = NULL,
-		.attach = NULL,
-		.sgt = NULL
-	},
-	{
-		.num = DIP_MEM_C_ID,
-		.start_phys = 0x0,
-		.start_virt = 0x0,
-		.start_dma  = 0x0,
-		.size = 0x1700000,   /*23MB*/
-		.is_dma_buf = true,
-		.mmap_cnt = 0,
-		.mem_priv = NULL,
-		.d_buf = NULL,
-		.fd = -1,
-		.pIonHandle = NULL,
-		.attach = NULL,
-		.sgt = NULL
-	},
-	{
-		.num = DIP_MEM_T_ID,
-		.start_phys = 0x0,
-		.start_virt = 0x0,
-		.start_dma  = 0x0,
-		.size = 0x1D00000,   /*29MB*/
-		.is_dma_buf = true,
-		.mmap_cnt = 0,
-		.mem_priv = NULL,
-		.d_buf = NULL,
-		.fd = -1,
-		.pIonHandle = NULL,
-		.attach = NULL,
-		.sgt = NULL
-	},
-	{
-		.num = PQDIP_MEM_C_ID,
-		.start_phys = 0x0,
-		.start_virt = 0x0,
-		.start_dma  = 0x0,
-		.size = 0x300000,   /*3MB*/
-		.is_dma_buf = true,
-		.mmap_cnt = 0,
-		.mem_priv = NULL,
-		.d_buf = NULL,
-		.fd = -1,
-		.pIonHandle = NULL,
-		.attach = NULL,
-		.sgt = NULL
-	},
-	{
-		.num = PQDIP_MEM_T_ID,
-		.start_phys = 0x0,
-		.start_virt = 0x0,
-		.start_dma  = 0x0,
-		.size = 0x200000,   /*2MB*/
-		.is_dma_buf = true,
-		.mmap_cnt = 0,
-		.mem_priv = NULL,
-		.d_buf = NULL,
-		.fd = -1,
-		.pIonHandle = NULL,
-		.attach = NULL,
-		.sgt = NULL
-	},
-	{
-		.num = ADL_MEM_C_ID,
-		.start_phys = 0x0,
-		.start_virt = 0x0,
-		.start_dma  = 0x0,
-		.size = 0x100000,   /*1MB*/
-		.is_dma_buf = true,
-		.mmap_cnt = 0,
-		.mem_priv = NULL,
-		.d_buf = NULL,
-		.fd = -1,
-		.pIonHandle = NULL
-	},
-	{
-		.num = ADL_MEM_T_ID,
-		.start_phys = 0x0,
-		.start_virt = 0x0,
-		.start_dma  = 0x0,
-		.size = 0x100000,   /*1MB*/
-		.is_dma_buf = true,
-		.mmap_cnt = 0,
-		.mem_priv = NULL,
-		.d_buf = NULL,
-		.fd = -1,
-		.pIonHandle = NULL
-	},
-	{
-		.num = IMG_MEM_G_ID,
-		.start_phys = 0x0,
-		.start_virt = 0x0,
-		.start_dma  = 0x0,
-		.size = 0x1188000,   /*15MB GCE + 2MB TPIPE + 30KB BW*/
-		.is_dma_buf = true,
-		.mmap_cnt = 0,
-		.mem_priv = NULL,
-		.d_buf = NULL,
-		.fd = -1,
-		.pIonHandle = NULL,
-		.attach = NULL,
-		.sgt = NULL
-	},
-};
-#endif
-
-#ifdef NEED_LEGACY_MEM
-int mtk_hcp_reserve_mem_of_init(struct reserved_mem *rmem)
-{
-	unsigned int id;
-	phys_addr_t accumlate_memory_size = 0;
-
-	mtk_hcp_mem_base_phys = (phys_addr_t) rmem->base;
-	mtk_hcp_mem_size = (phys_addr_t) rmem->size;
-
-	pr_debug("[HCP] phys:0x%llx - 0x%llx (0x%llx)\n",
-			(phys_addr_t)rmem->base,
-			(phys_addr_t)rmem->base + (phys_addr_t)rmem->size,
-						(phys_addr_t)rmem->size);
-	accumlate_memory_size = 0;
-	for (id = 0; id < NUMS_MEM_ID; id++) {
-		mtk_hcp_reserve_mblock[id].start_phys =
-			mtk_hcp_mem_base_phys + accumlate_memory_size;
-		accumlate_memory_size += mtk_hcp_reserve_mblock[id].size;
-		pr_debug(
-		"[HCP][reserve_mem:%d]: phys:0x%llx - 0x%llx (0x%llx)\n", id,
-			mtk_hcp_reserve_mblock[id].start_phys,
-			mtk_hcp_reserve_mblock[id].start_phys +
-			mtk_hcp_reserve_mblock[id].size,
-			mtk_hcp_reserve_mblock[id].size);
-	}
-	return 0;
-}
-RESERVEDMEM_OF_DECLARE(mtk_hcp_reserve_mem_init, MTK_HCP_MEM_RESERVED_KEY,
-						mtk_hcp_reserve_mem_of_init);
-
-
-static int mtk_hcp_reserve_memory_ioremap(void)
-{
-	unsigned int id;
-	phys_addr_t accumlate_memory_size;
-
-	accumlate_memory_size = 0;
-
-	mtk_hcp_mem_base_virt =
-			(phys_addr_t)(size_t)ioremap_wc(mtk_hcp_mem_base_phys,
-							mtk_hcp_mem_size);
-	pr_debug("[HCP]reserve mem: virt:0x%llx - 0x%llx (0x%llx)\n",
-		(phys_addr_t)mtk_hcp_mem_base_virt,
-		(phys_addr_t)mtk_hcp_mem_base_virt +
-						(phys_addr_t)mtk_hcp_mem_size,
-		mtk_hcp_mem_size);
-	for (id = 0; id < NUMS_MEM_ID; id++) {
-		mtk_hcp_reserve_mblock[id].start_virt =
-			mtk_hcp_mem_base_virt + accumlate_memory_size;
-		accumlate_memory_size += mtk_hcp_reserve_mblock[id].size;
-	}
-	/* the reserved memory should be larger then expected memory
-	 * or vpu_reserve_mblock does not match dts
-	 */
-	WARN_ON(accumlate_memory_size > mtk_hcp_mem_size);
-#ifdef DEBUG
-	for (id = 0; id < NUMS_MEM_ID; id++) {
-		pr_info("[HCP][mem_reserve-%d] phys:0x%llx,virt:0x%llx,size:0x%llx\n",
-			id, mtk_hcp_get_reserve_mem_phys(id),
-			mtk_hcp_get_reserve_mem_virt(id),
-			mtk_hcp_get_reserve_mem_size(id));
-	}
-#endif
-	return 0;
-}
-#endif
-
 phys_addr_t mtk_hcp_get_reserve_mem_phys(unsigned int id)
 {
-	if ((id < 0) || (id >= NUMS_MEM_ID)) {
-		pr_info("[HCP] no reserve memory for %d", id);
-		return 0;
-	} else {
-		return mtk_hcp_reserve_mblock[id].start_phys;
-	}
+	return 0;
 }
 EXPORT_SYMBOL(mtk_hcp_get_reserve_mem_phys);
 
 void mtk_hcp_set_reserve_mem_virt(unsigned int id,
 	void *virmem)
 {
-	if ((id < 0) || (id >= NUMS_MEM_ID))
-		pr_info("[HCP] no reserve memory for %d in set_reserve_mem_virt", id);
-	else
-		mtk_hcp_reserve_mblock[id].start_virt = virmem;
+	return;
 }
 EXPORT_SYMBOL(mtk_hcp_set_reserve_mem_virt);
 
 void *mtk_hcp_get_reserve_mem_virt(unsigned int id)
 {
-	if ((id < 0) || (id >= NUMS_MEM_ID)) {
-		pr_info("[HCP] no reserve memory for %d", id);
-		return 0;
-	} else
-		return mtk_hcp_reserve_mblock[id].start_virt;
+	return NULL;
 }
 EXPORT_SYMBOL(mtk_hcp_get_reserve_mem_virt);
 
 phys_addr_t mtk_hcp_get_reserve_mem_dma(unsigned int id)
 {
-	if ((id < 0) || (id >= NUMS_MEM_ID)) {
-		pr_info("[HCP] no reserve memory for %d", id);
-		return 0;
-	} else {
-		return mtk_hcp_reserve_mblock[id].start_dma;
-	}
+	return 0;
 }
 EXPORT_SYMBOL(mtk_hcp_get_reserve_mem_dma);
 
 phys_addr_t mtk_hcp_get_reserve_mem_size(unsigned int id)
 {
-	if ((id < 0) || (id >= NUMS_MEM_ID)) {
-		pr_info("[HCP] no reserve memory for %d", id);
-		return 0;
-	} else {
-		return mtk_hcp_reserve_mblock[id].size;
-	}
+	return 0;
 }
 EXPORT_SYMBOL(mtk_hcp_get_reserve_mem_size);
 
 void mtk_hcp_set_reserve_mem_fd(unsigned int id, uint32_t fd)
 {
-	if ((id < 0) || (id >= NUMS_MEM_ID))
-		pr_info("[HCP] no reserve memory for %d", id);
-	else
-		mtk_hcp_reserve_mblock[id].fd = fd;
+	return;
 }
 EXPORT_SYMBOL(mtk_hcp_set_reserve_mem_fd);
 
 uint32_t mtk_hcp_get_reserve_mem_fd(unsigned int id)
 {
-	if ((id < 0) || (id >= NUMS_MEM_ID)) {
-		pr_info("[HCP] no reserve memory for %d", id);
-		return 0;
-	} else
-		return mtk_hcp_reserve_mblock[id].fd;
+	return 0;
 }
 EXPORT_SYMBOL(mtk_hcp_get_reserve_mem_fd);
 
 void *mtk_hcp_get_gce_mem_virt(struct platform_device *pdev)
 {
 	struct mtk_hcp *hcp_dev = platform_get_drvdata(pdev);
-	void *buffer;
+	void *buffer = NULL;
 
 	if (!hcp_dev->data->get_gce_virt) {
 		dev_info(&pdev->dev, "%s: not supported\n", __func__);
@@ -1302,7 +938,7 @@ EXPORT_SYMBOL(mtk_hcp_get_hwid_mem_virt);
 
 static int mtk_hcp_open(struct inode *inode, struct file *file)
 {
-	struct mtk_hcp *hcp_dev;
+	struct mtk_hcp *hcp_dev = NULL;
 
 	hcp_dev = container_of(inode->i_cdev, struct mtk_hcp, hcp_cdev);
 	dev_dbg(hcp_dev->dev, "open inode->i_cdev = 0x%p\n", inode->i_cdev);
@@ -1344,8 +980,8 @@ static int mtk_hcp_release(struct inode *inode, struct file *file)
 {
 	struct mtk_hcp *hcp_dev = (struct mtk_hcp *)file->private_data;
 #ifndef CONFIG_FPGA_EARLY_PORTING
-	struct slbc_data slb;
-	int ret;
+	struct slbc_data slb = {0};
+	int ret = 0;
 #endif
 
 	dev_dbg(hcp_dev->dev, "- E. hcp release.\n");
@@ -1369,130 +1005,7 @@ static int mtk_hcp_release(struct inode *inode, struct file *file)
 
 static int mtk_hcp_mmap(struct file *file, struct vm_area_struct *vma)
 {
-	struct mtk_hcp *hcp_dev = (struct mtk_hcp *)file->private_data;
-	int reserved_memory_id = -1;
-	long length = 0;
-	unsigned long pfn = 0x0;
-	int mem_id = 0;
-
-	/* dealing with register remap */
-	length = vma->vm_end - vma->vm_start;
-	dev_info(hcp_dev->dev,
-		"start:0x%llx end:0x%llx offset:0x%llx, legth:0x%llx",
-		vma->vm_start, vma->vm_end, vma->vm_pgoff, length);
-	/*  */
-	pfn = vma->vm_pgoff << PAGE_SHIFT;
-	switch (pfn) {
-#if HCP_RESERVED_MEM
-	#ifdef NEED_LEGACY_MEM
-	case START_ISP_MEM_ADDR:
-		reserved_memory_id = ISP_MEM_ID;
-		break;
-	case START_MDP_MEM_ADDR:
-		reserved_memory_id = MDP_MEM_ID;
-		break;
-	case START_FD_MEM_ADDR:
-		reserved_memory_id = FD_MEM_ID;
-		break;
-	#endif
-	default:
-		for (mem_id = 0; mem_id < NUMS_MEM_ID; mem_id++) {
-			if (pfn == mtk_hcp_reserve_mblock[mem_id].start_phys) {
-				reserved_memory_id = mem_id;
-				break;
-			}
-		}
-		break;
-#endif
-	}
-
-	if (reserved_memory_id < 0 || reserved_memory_id >= NUMS_MEM_ID) {
-		dev_info(hcp_dev->dev, " %s invalid reserved memory id %d", __func__,
-			reserved_memory_id);
-		return -EPERM;
-	}
-
-	if ((length <= 0) || (length != (long)mtk_hcp_reserve_mblock[reserved_memory_id].size)) {
-		dev_info(hcp_dev->dev,
-				" %s size is not allowed: id:%d, pfn:0x%llx, length: 0x%lx != 0x%lx\n",
-				__func__, reserved_memory_id, pfn, length,
-				mtk_hcp_reserve_mblock[reserved_memory_id].size);
-		return -EPERM;
-	}
-
-	if (pfn) {
-		mtk_hcp_reserve_mblock[reserved_memory_id].mmap_cnt += 1;
-		dev_info(hcp_dev->dev, "reserved_memory_id:%d, pfn:0x%llx, mmap_cnt:%d\n",
-			reserved_memory_id, pfn,
-			mtk_hcp_reserve_mblock[reserved_memory_id].mmap_cnt);
-
-		if (reserved_memory_id != -1) {
-			vma->vm_pgoff = (unsigned long)
-	(mtk_hcp_reserve_mblock[reserved_memory_id].start_phys >> PAGE_SHIFT);
-			vma->vm_page_prot =
-			pgprot_writecombine(vma->vm_page_prot);
-
-			switch (reserved_memory_id) {
-#ifndef ISP_GEN_TBL
-			case IMG_MEM_FOR_HW_ID:
-				vma->vm_pgoff = (unsigned long)
-	(mtk_hcp_reserve_mblock[reserved_memory_id].start_phys >> PAGE_SHIFT);
-				vma->vm_page_prot =
-						pgprot_writecombine(vma->vm_page_prot);
-				break;
-			case IMG_MEM_G_ID:
-#endif
-			default:
-		hcp_dev->mem_ops->mmap(mtk_hcp_reserve_mblock[reserved_memory_id].mem_priv,
-					vma);
-			pr_info("%s: [HCP][%d] after mem_ops->mmap vb2_dc_buf refcount(%d)\n",
-			__func__, reserved_memory_id,
-	hcp_dev->mem_ops->num_users(mtk_hcp_reserve_mblock[reserved_memory_id].mem_priv));
-				goto dma_buf_out;
-			}
-		} else {
-			/*vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);*/
-			dev_info(hcp_dev->dev,
-				" %s ONLY SUPPORT MMAP FOR RESERVED MEM: id:%d, pfn:0x%llx !\n",
-				__func__, reserved_memory_id, pfn);
-			return -EPERM;
-		}
-		goto remap;
-	} else {
-		dev_info(hcp_dev->dev,
-				" %s wrong pfn: id:%d, pfn:0x%llx !\n",
-				__func__, reserved_memory_id, pfn);
-		return -EPERM;
-	}
-
-	/* dealing with share memory, not supported */
-	#ifdef EXTMEM_SUPPORT
-	hcp_dev->extmem.d_va = kmalloc(length, GFP_KERNEL);
-	if (hcp_dev->extmem.d_va == NULL) {
-		int ret;
-
-		ret = -ENOMEM;
-		dev_info(hcp_dev->dev, " %s Allocate share buffer fail !!!\n",
-								__func__);
-		return ret;
-	}
-
-	hcp_dev->extmem.d_pa = virt_to_phys(hcp_dev->extmem.d_va);
-	vma->vm_pgoff = (unsigned long) (hcp_dev->extmem.d_pa >> PAGE_SHIFT);
-	dev_info(hcp_dev->dev, "sharememory va:0x%p pa:0x%llx",
-		hcp_dev->extmem.d_va, hcp_dev->extmem.d_pa);
-		#endif
-remap:
-	dev_info(hcp_dev->dev, "remap info id(%d) start:0x%llx pgoff:0x%llx page_prot:0x%llx length:0x%llx",
-		reserved_memory_id, vma->vm_start, vma->vm_pgoff, vma->vm_page_prot, length);
-	if (remap_pfn_range(vma, vma->vm_start, vma->vm_pgoff,
-		length, vma->vm_page_prot) != 0) {
-		dev_info(hcp_dev->dev, " %s remap_pfn_range fail !!!\n",
-								__func__);
-		return -EAGAIN;
-	}
-dma_buf_out:
-	return 0;
+	return -EOPNOTSUPP;
 }
 
 static void module_notify(struct mtk_hcp *hcp_dev,
@@ -1503,11 +1016,10 @@ static void module_notify(struct mtk_hcp *hcp_dev,
 		return;
 	}
 
-	if ((user_data_addr->id < HCP_INIT_ID) || (user_data_addr->id >= HCP_MAX_ID)) {
+	if (user_data_addr->id >= HCP_MAX_ID) {
 		dev_info(hcp_dev->dev, "%s invalid hcp id %d", __func__, user_data_addr->id);
 		return;
 	}
-
 
 	dev_dbg(hcp_dev->dev, " %s with message id:%d\n",
 				__func__, user_data_addr->id);
@@ -1522,14 +1034,14 @@ static void module_notify(struct mtk_hcp *hcp_dev,
 static void module_wake_up(struct mtk_hcp *hcp_dev,
 					struct share_buf *user_data_addr)
 {
-	int module_id;
+	int module_id = 0;
 
 	if (!user_data_addr) {
 		dev_info(hcp_dev->dev, "%s invalid null share buffer", __func__);
 		return;
 	}
 
-	if ((user_data_addr->id < HCP_INIT_ID) || (user_data_addr->id >= HCP_MAX_ID)) {
+	if (user_data_addr->id >= HCP_MAX_ID) {
 		dev_info(hcp_dev->dev, "%s invalid hcp id %d", __func__, user_data_addr->id);
 		return;
 	}
@@ -1550,31 +1062,37 @@ static long mtk_hcp_ioctl(struct file *file, unsigned int cmd,
 	long ret = -1;
 	//void *mem_priv;
 	struct mtk_hcp *hcp_dev = (struct mtk_hcp *)file->private_data;
-	struct share_buf buffer;
-	struct packet data;
-	int index;
-	struct msg *msg;
-	unsigned long flag;
+	struct share_buf buffer = {0};
+	struct packet data = {0};
+	unsigned int index = 0;
+	struct msg *msg = NULL;
+	unsigned long flag = 0;
 
 	switch (cmd) {
 	case HCP_GET_OBJECT:
-		// pr_info("[HCP] HCP_GET_OBJECT+");
 		(void)copy_from_user(&data, (void *)arg, sizeof(struct packet));
-		// pr_info("[HCP] send count %d", data.count);
-		for (index = 0; index < data.count; index++) {
+		if (data.count > IPI_MAX_BUFFER_COUNT || data.count < 0) {
+			dev_info(hcp_dev->dev, "Get_OBJ # of buf:%u in cmd:%d exceed %u",
+				data.count, cmd, IPI_MAX_BUFFER_COUNT);
+			return -EINVAL;
+		}
+		for (index = 0; index < IPI_MAX_BUFFER_COUNT; index++) {
+			if (index >= data.count)
+				break;
+
+			if (data.buffer[index] == NULL) {
+				dev_info(hcp_dev->dev, "Get_OBJ buf[%u] is NULL", index);
+				return -EINVAL;
+			}
 			(void)copy_from_user((void *)&buffer, (void *)data.buffer[index],
 				sizeof(struct share_buf));
 			if (buffer.info.cmd == HCP_COMPLETE) {
-				// pr_info("[HCP] HCP_COMPLETE+");
 				module_notify(hcp_dev, &buffer);
 				module_wake_up(hcp_dev, &buffer);
-				// pr_info("[HCP] HCP_COMPLETE-");
 			} else if (buffer.info.cmd == HCP_NOTIFY) {
-				// pr_info("[HCP] HCP_NOTIFY+");
 				module_notify(hcp_dev, &buffer);
-				// pr_info("[HCP] HCP_NOTIFY-");
 			} else {
-				pr_info("[HCP] Unknown commands 0x%x, %d", data.buffer[index],
+				pr_info("[HCP] Unknown commands 0x%p, %d", data.buffer[index],
 					buffer.info.cmd);
 				return ret;
 			}
@@ -1586,19 +1104,20 @@ static long mtk_hcp_ioctl(struct file *file, unsigned int cmd,
 				break;
 
 			msg = chan_pool_get(hcp_dev, MODULE_IMG);
+			if (msg != NULL) {
+				ret = copy_to_user((void *)data.buffer[index++], &msg->user_obj,
+					(unsigned long)sizeof(struct share_buf));
 
-			// pr_info("[HCP] Copy to user+: %d", index);
-			ret = copy_to_user((void *)data.buffer[index++], &msg->user_obj,
-				(unsigned long)sizeof(struct share_buf));
-			// pr_info("[HCP] Copy to user-");
+				// dev_info(hcp_dev->dev, "copy req fd(%d), obj id(%d) to user",
+				//	req_fd, hcp_id);
 
-			// dev_info(hcp_dev->dev, "copy req fd(%d), obj id(%d) to user",
-			//	req_fd, hcp_id);
-
-			spin_lock_irqsave(&hcp_dev->msglock, flag);
-			list_add_tail(&msg->entry, &hcp_dev->msg_list);
-			spin_unlock_irqrestore(&hcp_dev->msglock, flag);
-			wake_up(&hcp_dev->msg_wq);
+				spin_lock_irqsave(&hcp_dev->msglock, flag);
+				list_add_tail(&msg->entry, &hcp_dev->msg_list);
+				spin_unlock_irqrestore(&hcp_dev->msglock, flag);
+				wake_up(&hcp_dev->msg_wq);
+			} else {
+				dev_info(hcp_dev->dev, "can't get msg from chan_pool");
+			}
 		}
 
 		put_user(index, (int32_t *)(arg + offsetof(struct packet, count)));
@@ -1607,29 +1126,22 @@ static long mtk_hcp_ioctl(struct file *file, unsigned int cmd,
 		//ret = mtk_hcp_get_data(hcp_dev, arg);
 
 		ret = 0;
-		// pr_info("[HCP] HCP_GET_OBJECT-: %d", index);
 		break;
 	case HCP_COMPLETE:
-		pr_info("[HCP] HCP_COMPLETE+");
 		(void)copy_from_user(&buffer, (void *)arg, sizeof(struct share_buf));
 		module_notify(hcp_dev, &buffer);
 		module_wake_up(hcp_dev, &buffer);
-		pr_info("[HCP] HCP_COMPLETE-");
 		ret = 0;
 		break;
 	case HCP_NOTIFY:
-		pr_info("[HCP] HCP_NOTIFY+");
 		(void)copy_from_user(&buffer, (void *)arg, sizeof(struct share_buf));
 		module_notify(hcp_dev, &buffer);
-		pr_info("[HCP] HCP_NOTIFY-");
 		ret = 0;
 		break;
 	case HCP_WAKEUP:
 		//(void)copy_from_user(&buffer, (void*)arg, sizeof(struct share_buf));
 		//module_wake_up(hcp_dev, &buffer);
-		pr_info("[HCP] HCP_WAKEUP+");
 		wake_up(&hcp_dev->poll_wq[MODULE_IMG]);
-		pr_info("[HCP] HCP_WAKEUP-");
 		ret = 0;
 		break;
 	case HCP_TIMEOUT:
@@ -1650,7 +1162,7 @@ static long mtk_hcp_compat_ioctl(struct file *file, unsigned int cmd,
 {
 	struct mtk_hcp *hcp_dev = (struct mtk_hcp *)file->private_data;
 	long ret = -1;
-	struct share_buf __user *share_data32;
+	struct share_buf __user *share_data32 = NULL;
 
 	switch (cmd) {
 	case COMPAT_HCP_GET_OBJECT:
@@ -1681,33 +1193,16 @@ static const struct file_operations hcp_fops = {
 #endif
 };
 
-static phys_addr_t rmem_base_phys;
-static phys_addr_t rmem_size;
-
-
-int hcp_reserve_mem_of_init(struct reserved_mem *rmem)
-{
-	rmem_base_phys = (phys_addr_t) rmem->base;
-	rmem_size = (phys_addr_t) rmem->size;
-	pr_info("%s: phys_addr is 0x%lx with size(0x%lx)",
-				__func__, rmem_base_phys, rmem_size);
-
-	return 0;
-}
-#define HCP_RESERVE_MEM_KEY "mediatek,imgsys-reserve-memory"
-RESERVEDMEM_OF_DECLARE(hcp_reserve_mem_init, HCP_RESERVE_MEM_KEY, hcp_reserve_mem_of_init);
-
-
 int allocate_working_buffer_helper(struct platform_device *pdev)
 {
-	unsigned int id;
-	struct mtk_hcp_reserve_mblock *mblock;
-	unsigned int block_num;
-	struct sg_table *sgt;
-	struct dma_buf_attachment *attach;
+	unsigned int id = 0;
+	struct mtk_hcp_reserve_mblock *mblock = NULL;
+	unsigned int block_num = 0;
+	struct sg_table *sgt = NULL;
+	struct dma_buf_attachment *attach = NULL;
 	struct mtk_hcp *hcp_dev = platform_get_drvdata(pdev);
-	struct dma_heap *pdma_heap;
-	struct dma_buf_map map;
+	struct dma_heap *pdma_heap = NULL;
+	struct dma_buf_map map = {0};
 	int ret = 0;
 
 	mblock = hcp_dev->data->mblock;
@@ -1717,63 +1212,6 @@ int allocate_working_buffer_helper(struct platform_device *pdev)
 	for (id = 0; id < block_num; id++) {
 		if (mblock[id].is_dma_buf) {
 			switch (id) {
-#ifndef ISP_GEN_TBL
-			case IMG_MEM_FOR_HW_ID:
-				/*allocated at probe via dts*/
-				break;
-			case IMG_MEM_G_ID:
-				/* all supported heap name you can find with cmd */
-				/* (ls /dev/dma_heap/) in shell */
-				pdma_heap = dma_heap_find("mtk_mm");
-				if (!pdma_heap) {
-					pr_info("pdma_heap find fail\n");
-					return -1;
-				}
-				mblock[id].d_buf = dma_heap_buffer_alloc(
-					pdma_heap,
-					mblock[id].size, O_RDWR | O_CLOEXEC,
-					DMA_HEAP_VALID_HEAP_FLAGS);
-				if (IS_ERR(mblock[id].d_buf)) {
-					pr_info("dma_heap_buffer_alloc fail :%lld\n",
-					PTR_ERR(mblock[id].d_buf));
-					return -1;
-				}
-#ifdef DMA_DEBUG_NAME
-				mtk_dma_buf_set_name(mblock[id].d_buf, mblock[id].name);
-#endif
-				mblock[id].attach = dma_buf_attach(
-				mblock[id].d_buf, hcp_dev->dev);
-				attach = mblock[id].attach;
-				if (IS_ERR(attach)) {
-					pr_info("dma_buf_attach fail :%lld\n",
-					PTR_ERR(attach));
-					return -1;
-				}
-
-				mblock[id].sgt = dma_buf_map_attachment(attach,
-				DMA_TO_DEVICE);
-				sgt = mblock[id].sgt;
-				if (IS_ERR(sgt)) {
-					dma_buf_detach(mblock[id].d_buf, attach);
-					pr_info("dma_buf_map_attachment fail sgt:%lld\n",
-					PTR_ERR(sgt));
-					return -1;
-				}
-				mblock[id].start_phys = sg_dma_address(sgt->sgl);
-				mblock[id].start_dma =
-				mblock[id].start_phys;
-				ret = dma_buf_vmap(mblock[id].d_buf, &map);
-				if (ret) {
-					pr_info("sg_dma_address fail\n");
-					return ret;
-				}
-				mblock[id].start_virt = (void *)map.vaddr;
-				mblock[id].fd =
-				dma_buf_fd(mblock[id].d_buf,
-				O_RDWR | O_CLOEXEC);
-				dma_buf_get(mblock[id].fd);
-				break;
-#endif
 			default:
 
 				/* all supported heap name you can find with cmd */
@@ -1792,9 +1230,7 @@ int allocate_working_buffer_helper(struct platform_device *pdev)
 					PTR_ERR(mblock[id].d_buf));
 					return -1;
 				}
-#ifdef DMA_DEBUG_NAME
 				mtk_dma_buf_set_name(mblock[id].d_buf, mblock[id].name);
-#endif
 				mblock[id].attach = dma_buf_attach(
 				mblock[id].d_buf, hcp_dev->dev);
 				attach = mblock[id].attach;
@@ -1845,13 +1281,10 @@ EXPORT_SYMBOL(allocate_working_buffer_helper);
 
 int release_working_buffer_helper(struct platform_device *pdev)
 {
-	unsigned int id;
-	struct mtk_hcp_reserve_mblock *mblock;
-	unsigned int block_num;
+	unsigned int id = 0;
+	struct mtk_hcp_reserve_mblock *mblock = NULL;
+	unsigned int block_num = 0;
 	struct mtk_hcp *hcp_dev = platform_get_drvdata(pdev);
-	#ifdef NEED_FORCE_MMAP_PAIR
-	int i = 0;
-	#endif
 
 	mblock = hcp_dev->data->mblock;
 	block_num = hcp_dev->data->block_num;
@@ -1860,11 +1293,6 @@ int release_working_buffer_helper(struct platform_device *pdev)
 	for (id = 0; id < block_num; id++) {
 		if (mblock[id].is_dma_buf) {
 			switch (id) {
-#ifndef ISP_GEN_TBL
-			case IMG_MEM_FOR_HW_ID:
-				/*allocated at probe via dts*/
-				break;
-#endif
 			default:
 				/* free va */
 				dma_buf_vunmap(mblock[id].d_buf,
@@ -1947,9 +1375,10 @@ EXPORT_SYMBOL(mtk_hcp_get_init_info);
 void mtk_hcp_purge_msg(struct platform_device *pdev)
 {
 	struct mtk_hcp *hcp_dev = platform_get_drvdata(pdev);
-	unsigned long flag;
-	int i;
-	struct msg *msg, *tmp;
+	unsigned long flag = 0;
+	int i = 0;
+	struct msg *msg = NULL;
+	struct msg *tmp = NULL;
 
 	spin_lock_irqsave(&hcp_dev->msglock, flag);
 	for (i = 0; i < MODULE_MAX_ID; i++) {
@@ -1966,8 +1395,8 @@ EXPORT_SYMBOL(mtk_hcp_purge_msg);
 
 static int mtk_hcp_probe(struct platform_device *pdev)
 {
-	struct mtk_hcp *hcp_dev;
-	struct msg *msgs;
+	struct mtk_hcp *hcp_dev = NULL;
+	struct msg *msgs = NULL;
 	int ret = 0;
 	int i = 0;
 
@@ -2095,9 +1524,6 @@ static int mtk_hcp_probe(struct platform_device *pdev)
 	/* mtk_hcp_reserve_mblock[IMG_MEM_FOR_HW_ID].start_dma = */
 	/* (phys_addr_t)rmem_base_phys; */
 	/* mtk_hcp_reserve_mblock[IMG_MEM_FOR_HW_ID].size = rmem_size; */
-#ifndef ISP_GEN_TBL
-	mtk_hcp_reserve_mblock[IMG_MEM_FOR_HW_ID].size = rmem_size;
-#endif
 #endif
 	return 0;
 
@@ -2133,21 +1559,10 @@ static int mtk_hcp_remove(struct platform_device *pdev)
 
 	struct mtk_hcp *hcp_dev = platform_get_drvdata(pdev);
 	int i = 0;
-#if HCP_RESERVED_MEM
-	unsigned int id;
-#endif
 
 	dev_dbg(&pdev->dev, "- E. hcp driver remove.\n");
 	hcp_aee_deinit(hcp_dev);
 
-#if HCP_RESERVED_MEM
-	//remove reserved memory
-	for (id = 0; id < NUMS_MEM_ID; id++) {
-		dma_free_coherent(hcp_dev->dev, mtk_hcp_reserve_mblock[id].size,
-			mtk_hcp_reserve_mblock[id].start_virt,
-			mtk_hcp_reserve_mblock[id].start_dma);
-	}
-#endif
 
 	for (i = 0; i < MODULE_MAX_ID; i++) {
 		if (hcp_dev->daemon_notify_wq[i]) {
