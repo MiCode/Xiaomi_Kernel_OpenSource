@@ -10080,6 +10080,50 @@
 		};
 	};
 
+	mmdvfs_clk: mmdvfs-clk {
+		compatible = "mediatek,mtk-mmdvfs-v3";
+		#mmdvfs,clock-cells = <6>;
+		mediatek,mmdvfs_clocks =
+			<&mmdvfs_clk CLK_MMDVFS_DISP PWR_MMDVFS_VCORE 1
+				IPI_MMDVFS_VCP SPEC_MMDVFS_ALONE &opp_table_disp>,
+			<&mmdvfs_clk CLK_MMDVFS_MDP PWR_MMDVFS_VCORE 2
+				IPI_MMDVFS_VCP SPEC_MMDVFS_NORMAL &opp_table_mdp>,
+			<&mmdvfs_clk CLK_MMDVFS_MML PWR_MMDVFS_VCORE 3
+				IPI_MMDVFS_VCP SPEC_MMDVFS_NORMAL &opp_table_mdp>,
+			<&mmdvfs_clk CLK_MMDVFS_SMI_COMMON0 PWR_MMDVFS_VCORE 4
+				IPI_MMDVFS_VCP SPEC_MMDVFS_NORMAL &opp_table_mminfra>,
+			<&mmdvfs_clk CLK_MMDVFS_SMI_COMMON1 PWR_MMDVFS_VCORE 4
+				IPI_MMDVFS_VCP SPEC_MMDVFS_NORMAL &opp_table_mminfra>,
+			<&mmdvfs_clk CLK_MMDVFS_VENC PWR_MMDVFS_VCORE 5
+				IPI_MMDVFS_VCP SPEC_MMDVFS_NORMAL &opp_table_venc>,
+			<&mmdvfs_clk CLK_MMDVFS_JPEGENC PWR_MMDVFS_VCORE 6
+				IPI_MMDVFS_VCP SPEC_MMDVFS_NORMAL &opp_table_venc>,
+			<&mmdvfs_clk CLK_MMDVFS_VDEC PWR_MMDVFS_VMM 7
+				IPI_MMDVFS_VCP SPEC_MMDVFS_NORMAL &opp_table_vdec>,
+			<&mmdvfs_clk CLK_MMDVFS_VFMT PWR_MMDVFS_VMM 8
+				IPI_MMDVFS_VCP SPEC_MMDVFS_NORMAL &opp_table_vdec>,
+			<&mmdvfs_clk CLK_MMDVFS_JPEGDEC PWR_MMDVFS_VMM 6
+				IPI_MMDVFS_VCP SPEC_MMDVFS_NORMAL &opp_table_venc>,
+			<&mmdvfs_clk CLK_MMDVFS_IMG PWR_MMDVFS_VMM 9
+				IPI_MMDVFS_CCU SPEC_MMDVFS_NORMAL &opp_table_img>,
+			<&mmdvfs_clk CLK_MMDVFS_IPE PWR_MMDVFS_VMM 9
+				IPI_MMDVFS_CCU SPEC_MMDVFS_NORMAL &opp_table_img>,
+			<&mmdvfs_clk CLK_MMDVFS_CAM PWR_MMDVFS_VMM 10
+				IPI_MMDVFS_VCP SPEC_MMDVFS_ALONE &opp_table_cam>,
+			<&mmdvfs_clk CLK_MMDVFS_CCU PWR_MMDVFS_VMM 10
+				IPI_MMDVFS_VCP SPEC_MMDVFS_NORMAL &opp_table_cam>,
+			<&mmdvfs_clk CLK_MMDVFS_VCORE PWR_MMDVFS_VCORE 11
+				IPI_MMDVFS_VCP SPEC_MMDVFS_NORMAL &opp_table_vote>,
+			<&mmdvfs_clk CLK_MMDVFS_VMM PWR_MMDVFS_VMM 12
+				IPI_MMDVFS_VCP SPEC_MMDVFS_NORMAL &opp_table_vote>;
+		mediatek,mmdvfs_clock_names = "disp", "mdp", "mml", "smi_common0", "smi_common1",
+			"venc", "jpegenc", "vdec", "vfmt", "jpegdec", "img", "ipe", "cam", "ccu",
+			"vcore", "vmm";
+		#clock-cells = <1>;
+		clocks = <&mmdvfs_clk CLK_MMDVFS_VCORE>, <&mmdvfs_clk CLK_MMDVFS_VMM>;
+		clock-names = "vcore", "vmm";
+	};
+
 	mmdvfs-debug {
 		compatible = "mediatek,mmdvfs-debug";
 		dvfsrc-vcore-supply = <&dvfsrc_vcore>;
@@ -10094,7 +10138,7 @@
 		compatible = "mediatek,mmdvfs";
 		operating-points-v2 = <&opp_table_disp>;
 		mediatek,support_mux = "disp0", "disp1", "disp2", "disp3",
-			"mminfra", "mdp0", "mdp1";
+			"mminfra", "mdp0", "mdp1", "venc";
 		mediatek,mux_disp0 = "TOP_MMPLL_D6_D2",
 			"TOP_MAINPLL_D6", "TOP_MMPLL_D6",
 			"TOP_UNIVPLL_D4", "TOP_MAINPLL_D3";
@@ -10116,6 +10160,9 @@
 		mediatek,mux_mdp1 = "TOP_UNIVPLL_D5_D2",
 			"TOP_MAINPLL_D6", "TOP_MMPLL_D6",
 			"TOP_UNIVPLL_D4", "TOP_MAINPLL_D3";
+		mediatek,mux_venc = "TOP_UNIVPLL2_D5_D2",
+			"TOP_UNIVPLL2_D4_D2", "TOP_MMPLL2_D6",
+			"TOP_UNIVPLL2_D4", "TOP_MMPLL2_D4";
 
 		dvfsrc-vcore-supply = <&dvfsrc_vcore>;
 
@@ -10126,14 +10173,20 @@
 			<&topckgen_clk CLK_TOP_MMINFRA_SEL>,	/* 4 */
 			<&topckgen_clk CLK_TOP_MDP0_SEL>,	/* 5 */
 			<&topckgen_clk CLK_TOP_MDP1_SEL>,	/* 6 */
-			<&topckgen_clk CLK_TOP_MMPLL_D6_D2>,	/* 7 */
-			<&topckgen_clk CLK_TOP_MAINPLL_D6>,	/* 8 */
-			<&topckgen_clk CLK_TOP_MMPLL_D6>,	/* 9 */
-			<&topckgen_clk CLK_TOP_UNIVPLL_D4>,	/* 10 */
-			<&topckgen_clk CLK_TOP_MAINPLL_D3>,	/* 11 */
-			<&topckgen_clk CLK_TOP_MAINPLL_D5_D2>,	/* 12 */
-			<&topckgen_clk CLK_TOP_MMPLL_D4_D2>,	/* 13 */
-			<&topckgen_clk CLK_TOP_UNIVPLL_D5_D2>;	/* 14 */
+			<&topckgen_clk CLK_TOP_VENC_SEL>,	/* 7 */
+			<&topckgen_clk CLK_TOP_MMPLL_D6_D2>,	/* 8 */
+			<&topckgen_clk CLK_TOP_MAINPLL_D6>,	/* 9 */
+			<&topckgen_clk CLK_TOP_MMPLL_D6>,	/* 10 */
+			<&topckgen_clk CLK_TOP_UNIVPLL_D4>,	/* 11 */
+			<&topckgen_clk CLK_TOP_MAINPLL_D3>,	/* 12 */
+			<&topckgen_clk CLK_TOP_MAINPLL_D5_D2>,	/* 13 */
+			<&topckgen_clk CLK_TOP_MMPLL_D4_D2>,	/* 14 */
+			<&topckgen_clk CLK_TOP_UNIVPLL_D5_D2>,	/* 15 */
+			<&topckgen_clk CLK_TOP_UNIVPLL2_D5_D2>,	/* 16 */
+			<&topckgen_clk CLK_TOP_UNIVPLL2_D4_D2>,	/* 17 */
+			<&topckgen_clk CLK_TOP_MMPLL2_D6>,	/* 18 */
+			<&topckgen_clk CLK_TOP_UNIVPLL2_D4>,	/* 19 */
+			<&topckgen_clk CLK_TOP_MMPLL2_D4>;	/* 20 */
 
 		clock-names = "disp0",		/* 0 */
 			"disp1",		/* 1 */
@@ -10142,14 +10195,20 @@
 			"mminfra",		/* 4 */
 			"mdp0",			/* 5 */
 			"mdp1",			/* 6 */
-			"TOP_MMPLL_D6_D2",	/* 7 */
-			"TOP_MAINPLL_D6",	/* 8 */
-			"TOP_MMPLL_D6",		/* 9 */
-			"TOP_UNIVPLL_D4",	/* 10 */
-			"TOP_MAINPLL_D3",	/* 11 */
-			"TOP_MAINPLL_D5_D2",	/* 12 */
-			"TOP_MMPLL_D4_D2",	/* 13 */
-			"TOP_UNIVPLL_D5_D2";	/* 14 */
+			"venc",			/* 7 */
+			"TOP_MMPLL_D6_D2",	/* 8 */
+			"TOP_MAINPLL_D6",	/* 9 */
+			"TOP_MMPLL_D6",		/* 10 */
+			"TOP_UNIVPLL_D4",	/* 11 */
+			"TOP_MAINPLL_D3",	/* 12 */
+			"TOP_MAINPLL_D5_D2",	/* 13 */
+			"TOP_MMPLL_D4_D2",	/* 14 */
+			"TOP_UNIVPLL_D5_D2",	/* 15 */
+			"TOP_UNIVPLL2_D5_D2",	/* 16 */
+			"TOP_UNIVPLL2_D4_D2",	/* 17 */
+			"TOP_MMPLL2_D6",	/* 18 */
+			"TOP_UNIVPLL2_D4",	/* 19 */
+			"TOP_MMPLL2_D4";	/* 20 */
 	};
 
 	slbc: slbc {
