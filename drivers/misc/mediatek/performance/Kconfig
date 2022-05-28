@@ -31,3 +31,10 @@ config MTK_LOAD_TRACKER
 	  Service designed by MTK, which is a service to get CPU Loading
 	  information. User can register callback and config polling
 	  duration to get CPU loading.
+
+config MTK_PERF_IOCTL_MAGT
+	tristate "Mediatek Adaptive Gaming Technology"
+	help
+	  Support MAGT analysis performance.
+          If you are not sure about this, set n.
+
