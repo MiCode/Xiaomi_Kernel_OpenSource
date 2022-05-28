@@ -855,6 +855,15 @@ struct SET_SENSOR_ISO {
 	MUINT32 ISO;
 };
 
+struct PD_MAP_INFO_T {
+	MUINT32 i4VCFeature;
+	MUINT32 i4PDPattern;
+	MUINT32 i4BinFacX;
+	MUINT32 i4BinFacY;
+	MUINT32 i4PDRepetition;
+	MUINT32 i4PDOrder[16];
+};
+
 struct SET_PD_BLOCK_INFO_T {
 	/* start offset of first PD block */
 	MUINT32 i4OffsetX;
@@ -877,6 +886,15 @@ struct SET_PD_BLOCK_INFO_T {
 	/* 1: 1st line is long exposure, 0: 1st line is short exposure*/
 	MUINT32 i4LeFirst;
 	MUINT32 i4Crop[SENSOR_SCENARIO_ID_MAX][2]; /* [scenario][crop] -> (xcrop, ycrop) */
+	MUINT32 i4VolumeX;
+	MUINT32 i4VolumeY;
+	MUINT32 i4FullRawW;
+	MUINT32 i4FullRawH;
+	MUINT32 i4VCPackNum;
+	MUINT32 i4ModeIndex;
+	MUINT32 i4NoTrs;
+	MUINT32 PDAF_Support;
+	struct PD_MAP_INFO_T sPDMapInfo[4];
 };
 
 enum IMGSENSOR_HDR_SUPPORT_TYPE_ENUM {
@@ -915,6 +933,7 @@ enum IMGSENSOR_PDAF_SUPPORT_TYPE_ENUM {
 	PDAF_SUPPORT_CAMSV_DUALPD = 5,
 	PDAF_SUPPORT_RAW_LEGACY = 6,
 	PDAF_SUPPORT_CAMSV_QPD = 7,
+	PDAF_SUPPORT_CAMSV_RGBW = 8,
 };
 
 enum SENSOR_PHY_TYPE_ENUM {
