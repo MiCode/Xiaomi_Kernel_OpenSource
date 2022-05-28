@@ -860,10 +860,12 @@ void mddp_enqueue_md_log(enum mddp_md_log_id_e id, ...)
 	md_log_buffer_size += entry->rb_len;
 	while (md_log_buffer_size > MDDP_DSTATE_MAX_BUF_SZ) {
 		entry = mddp_dev_rb_dequeue(list);
-		md_log_buffer_size -= entry->rb_len;
-		kfree(((struct mddp_md_log_t *)entry->rb_data)->str);
-		kfree(entry->rb_data);
-		kfree(entry);
+		if (entry) {
+			md_log_buffer_size -= entry->rb_len;
+			kfree(((struct mddp_md_log_t *)entry->rb_data)->str);
+			kfree(entry->rb_data);
+			kfree(entry);
+		}
 	}
 }
 
