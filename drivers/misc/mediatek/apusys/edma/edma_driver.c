@@ -157,7 +157,7 @@ int edma_send_cmd(int cmd, void *hnd, struct apusys_device *adev)
 
 		edma_ext->reg_addr = (u32)apusys_mem_query_iova((uint64_t)cmd_hnd->cmdbufs[1].kva);
 
-		LOG_INF("%s cmdbufs[1].kva = 0x%x\n", __func__, cmd_hnd->cmdbufs[1].kva);
+		LOG_INF("%s cmdbufs[1].kva = %p\n", __func__, cmd_hnd->cmdbufs[1].kva);
 
 		LOG_INF("%s edma_ext.reg_addr = 0x%x\n", __func__, edma_ext->reg_addr);
 

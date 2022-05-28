@@ -93,7 +93,7 @@ static int edma_rpmsg_probe(struct rpmsg_device *rpdev)
 		edma_rpmsg_cb, &eRdev, chinfo);
 
 
-	LOG_INF("Done, eRdev.ept = 0x%x\n", eRdev.ept);
+	LOG_INF("Done, eRdev.ept = %p\n", eRdev.ept);
 
 	return ret;
 }
