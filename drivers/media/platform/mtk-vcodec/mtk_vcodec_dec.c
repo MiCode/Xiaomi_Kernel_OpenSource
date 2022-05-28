@@ -674,7 +674,7 @@ static struct vb2_buffer *get_free_bs_buffer(struct mtk_vcodec_ctx *ctx,
 		srcbuf->queued_in_vb2);
 	if (srcbuf->vb.flags & V4L2_BUF_FLAG_OUTPUT_NOT_GENERATED) {
 		mtk_vdec_ts_remove_last(ctx);
-		v4l2_m2m_buf_done(&srcbuf->vb, VB2_BUF_STATE_ERROR);
+		v4l2_m2m_buf_done(&srcbuf->vb, VB2_BUF_STATE_DONE);
 	} else {
 		v4l2_m2m_buf_done(&srcbuf->vb, VB2_BUF_STATE_DONE);
 	}

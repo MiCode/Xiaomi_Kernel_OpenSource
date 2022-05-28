@@ -295,7 +295,8 @@ static int mtk_vcodec_enc_probe(struct platform_device *pdev)
 	struct mtk_vcodec_dev *dev;
 	struct video_device *vfd_enc;
 	struct resource *res;
-	int i = 0, j = 0, k = 0, reg_index = 0, ret;
+	int i = 0, reg_index = 0, ret;
+	int port_num[MTK_VENC_HW_NUM] = {0};
 	const char *name = NULL;
 	int port_args_num = 0, port_data_len = 0, total_port_num = 0;
 	unsigned int offset = 0;
@@ -342,6 +343,8 @@ static int mtk_vcodec_enc_probe(struct platform_device *pdev)
 			reg_index = VENC_SYS;
 		} else if (!strcmp(MTK_VDEC_REG_NAME_VENC_C1_SYS, name)) {
 			reg_index = VENC_C1_SYS;
+		} else if (!strcmp(MTK_VDEC_REG_NAME_VENC_C2_SYS, name)) {
+			reg_index = VENC_C2_SYS;
 		} else if (!strcmp(MTK_VDEC_REG_NAME_VENC_GCON, name)) {
 			reg_index = VENC_GCON;
 		} else {
@@ -414,20 +417,17 @@ static int mtk_vcodec_enc_probe(struct platform_device *pdev)
 			goto err_res;
 		}
 
-		if (core_id == 0) {
-			dev->venc_ports[0].port_id[j] = port_id;
-			dev->venc_ports[0].ram_type[j] = ram_type;
-			j++;
-		} else {
-			dev->venc_ports[1].port_id[k] = port_id;
-			dev->venc_ports[1].ram_type[k] = ram_type;
-			k++;
+		if (core_id < MTK_VENC_HW_NUM) {
+			dev->venc_ports[core_id].port_id[port_num[core_id]] = port_id;
+			dev->venc_ports[core_id].ram_type[port_num[core_id]] = ram_type;
+			port_num[core_id]++;
 		}
 
 	}
-	dev->venc_ports[0].total_port_num = j;
-	dev->venc_ports[1].total_port_num = k;
-	pr_info("after get port-def  port num %d %d\n", j, k);
+	for (i = 0; i < MTK_VENC_HW_NUM; i++) {
+		dev->venc_ports[i].total_port_num = port_num[i];
+		pr_info("after get port-def  port num [%d] %d\n", i, port_num[i]);
+	}
 
 	for (i = 0; i < MTK_VENC_HW_NUM; i++) {
 		sema_init(&dev->enc_sem[i], 1);
@@ -569,6 +569,7 @@ static const struct of_device_id mtk_vcodec_enc_match[] = {
 	{.compatible = "mediatek,mt6879-vcodec-enc",},
 	{.compatible = "mediatek,mt6895-vcodec-enc",},
 	{.compatible = "mediatek,mt6855-vcodec-enc",},
+	{.compatible = "mediatek,mt6985-vcodec-enc",},
 	{.compatible = "mediatek,mt8195-vcodec-enc",},
 	{.compatible = "mediatek,venc_gcon",},
 	{},

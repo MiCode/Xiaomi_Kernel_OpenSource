@@ -1544,7 +1544,7 @@ static int vcp_reserve_memory_ioremap(struct platform_device *pdev)
 
 #if (!VCP_IOMMU_ENABLE)
 	/* Get reserved memory */
-	ret = of_property_read_string(pdev->dev.of_node, "vcp_mem_key",
+	ret = of_property_read_string(pdev->dev.of_node, "vcp-mem-key",
 			&mem_key);
 	if (ret) {
 		pr_info("[VCP] cannot find property\n");
@@ -1593,17 +1593,17 @@ static int vcp_reserve_memory_ioremap(struct platform_device *pdev)
 	/* Set reserved memory table */
 	vcp_mem_num = of_property_count_u32_elems(
 				pdev->dev.of_node,
-				"vcp_mem_tbl")
+				"vcp-mem-tbl")
 				/ MEMORY_TBL_ELEM_NUM;
 	if (vcp_mem_num <= 0) {
-		pr_notice("[VCP] vcp_mem_tbl not found\n");
+		pr_notice("[VCP] vcp-mem-tbl not found\n");
 		vcp_mem_num = 0;
 	}
-	pr_info("[VCP] vcp_mem_tbl vcp_mem_num %d\n", vcp_mem_num);
+	pr_info("[VCP] vcp-mem-tbl vcp_mem_num %d\n", vcp_mem_num);
 
 	for (i = 0; i < vcp_mem_num; i++) {
 		ret = of_property_read_u32_index(pdev->dev.of_node,
-				"vcp_mem_tbl",
+				"vcp-mem-tbl",
 				i * MEMORY_TBL_ELEM_NUM,
 				&m_idx);
 		if (ret) {
@@ -1612,7 +1612,7 @@ static int vcp_reserve_memory_ioremap(struct platform_device *pdev)
 		}
 
 		ret = of_property_read_u32_index(pdev->dev.of_node,
-				"vcp_mem_tbl",
+				"vcp-mem-tbl",
 				(i * MEMORY_TBL_ELEM_NUM) + 1,
 				&m_size);
 		if (ret) {
@@ -2056,21 +2056,21 @@ static bool vcp_ipi_table_init(struct mtk_mbox_device *vcp_mboxdev, struct platf
 	};
 	u32 i, ret, mbox_id, recv_opt;
 
-	of_property_read_u32(pdev->dev.of_node, "mbox_count", &vcp_mboxdev->count);
+	of_property_read_u32(pdev->dev.of_node, "mbox-count", &vcp_mboxdev->count);
 	if (!vcp_mboxdev->count) {
 		pr_notice("[VCP] mbox count not found\n");
 		return false;
 	}
 
 	vcp_mboxdev->send_count =
-		of_property_count_u32_elems(pdev->dev.of_node, "send_table") / send_item_num;
+		of_property_count_u32_elems(pdev->dev.of_node, "send-table") / send_item_num;
 	if (vcp_mboxdev->send_count <= 0) {
 		pr_notice("[VCP] vcp send table not found\n");
 		return false;
 	}
 
 	vcp_mboxdev->recv_count =
-		of_property_count_u32_elems(pdev->dev.of_node, "recv_table") / recv_item_num;
+		of_property_count_u32_elems(pdev->dev.of_node, "recv-table") / recv_item_num;
 	if (vcp_mboxdev->recv_count <= 0) {
 		pr_notice("[VCP] vcp recv table not found\n");
 		return false;
@@ -2094,7 +2094,7 @@ static bool vcp_ipi_table_init(struct mtk_mbox_device *vcp_mboxdev, struct platf
 	vcp_mbox_pin_send = vcp_mboxdev->pin_send_table;
 	for (i = 0; i < vcp_mboxdev->send_count; ++i) {
 		ret = of_property_read_u32_index(pdev->dev.of_node,
-				"send_table",
+				"send-table",
 				i * send_item_num,
 				&vcp_mbox_pin_send[i].chan_id);
 		if (ret) {
@@ -2102,7 +2102,7 @@ static bool vcp_ipi_table_init(struct mtk_mbox_device *vcp_mboxdev, struct platf
 			return false;
 		}
 		ret = of_property_read_u32_index(pdev->dev.of_node,
-				"send_table",
+				"send-table",
 				i * send_item_num + 1,
 				&mbox_id);
 		if (ret) {
@@ -2112,7 +2112,7 @@ static bool vcp_ipi_table_init(struct mtk_mbox_device *vcp_mboxdev, struct platf
 		/* because mbox and recv_opt is a bit-field */
 		vcp_mbox_pin_send[i].mbox = mbox_id;
 		ret = of_property_read_u32_index(pdev->dev.of_node,
-				"send_table",
+				"send-table",
 				i * send_item_num + 2,
 				&vcp_mbox_pin_send[i].msg_size);
 		if (ret) {
@@ -2128,7 +2128,7 @@ static bool vcp_ipi_table_init(struct mtk_mbox_device *vcp_mboxdev, struct platf
 	vcp_mbox_pin_recv = vcp_mboxdev->pin_recv_table;
 	for (i = 0; i < vcp_mboxdev->recv_count; ++i) {
 		ret = of_property_read_u32_index(pdev->dev.of_node,
-				"recv_table",
+				"recv-table",
 				i * recv_item_num,
 				&vcp_mbox_pin_recv[i].chan_id);
 		if (ret) {
@@ -2136,7 +2136,7 @@ static bool vcp_ipi_table_init(struct mtk_mbox_device *vcp_mboxdev, struct platf
 			return false;
 		}
 		ret = of_property_read_u32_index(pdev->dev.of_node,
-				"recv_table",
+				"recv-table",
 				i * recv_item_num + 1,
 				&mbox_id);
 		if (ret) {
@@ -2146,7 +2146,7 @@ static bool vcp_ipi_table_init(struct mtk_mbox_device *vcp_mboxdev, struct platf
 		/* because mbox and recv_opt is a bit-field */
 		vcp_mbox_pin_recv[i].mbox = mbox_id;
 		ret = of_property_read_u32_index(pdev->dev.of_node,
-				"recv_table",
+				"recv-table",
 				i * recv_item_num + 2,
 				&vcp_mbox_pin_recv[i].msg_size);
 		if (ret) {
@@ -2154,7 +2154,7 @@ static bool vcp_ipi_table_init(struct mtk_mbox_device *vcp_mboxdev, struct platf
 			return false;
 		}
 		ret = of_property_read_u32_index(pdev->dev.of_node,
-				"recv_table",
+				"recv-table",
 				i * recv_item_num + 3,
 				&recv_opt);
 		if (ret) {
@@ -2352,7 +2352,7 @@ static int vcp_device_probe(struct platform_device *pdev)
 	pr_debug("[VCP] cfg_mmu base = 0x%p\n", vcpreg.cfg_mmu);
 #endif
 
-	of_property_read_u32(pdev->dev.of_node, "vcp_sramSize"
+	of_property_read_u32(pdev->dev.of_node, "vcp-sramSize"
 						, &vcpreg.vcp_tcmsize);
 	if (!vcpreg.vcp_tcmsize) {
 		pr_notice("[VCP] total_tcmsize not found\n");
@@ -2361,17 +2361,17 @@ static int vcp_device_probe(struct platform_device *pdev)
 	pr_debug("[VCP] vcpreg.vcp_tcmsize = %d\n", vcpreg.vcp_tcmsize);
 
 	/* vcp core 0 */
-	if (of_property_read_string(pdev->dev.of_node, "core_0", &core_status))
+	if (of_property_read_string(pdev->dev.of_node, "core-0", &core_status))
 		return -1;
 
 	if (strcmp(core_status, "enable") != 0)
-		pr_notice("[VCP] core_0 not enable\n");
+		pr_notice("[VCP] core-0 not enable\n");
 	else {
-		pr_debug("[VCP] core_0 enable\n");
+		pr_debug("[VCP] core-0 enable\n");
 		vcp_enable[VCP_A_ID] = 1;
 	}
 
-	of_property_read_u32(pdev->dev.of_node, "core_nums"
+	of_property_read_u32(pdev->dev.of_node, "core-nums"
 						, &vcpreg.core_nums);
 	if (!vcpreg.core_nums) {
 		pr_notice("[VCP] core number not found\n");
@@ -2379,7 +2379,7 @@ static int vcp_device_probe(struct platform_device *pdev)
 	}
 	pr_notice("[VCP] vcpreg.core_nums = %d\n", vcpreg.core_nums);
 
-	of_property_read_u32(pdev->dev.of_node, "femter_ck"
+	of_property_read_u32(pdev->dev.of_node, "femter-ck"
 						, &vcpreg.femter_ck);
 	of_property_read_u32(pdev->dev.of_node, "twohart"
 						, &vcpreg.twohart);

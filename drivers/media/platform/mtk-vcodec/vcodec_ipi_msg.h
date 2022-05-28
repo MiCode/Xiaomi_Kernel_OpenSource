@@ -28,7 +28,8 @@
 enum mtk_venc_hw_id {
 	MTK_VENC_CORE_0 = 0,
 	MTK_VENC_CORE_1 = 1,
-	MTK_VENC_HW_NUM = 2,
+	MTK_VENC_CORE_2 = 2,
+	MTK_VENC_HW_NUM = 3,
 };
 
 enum mtk_vdec_hw_id {

@@ -29,9 +29,9 @@
 #define MTK_VDEC_CLK_SOC_PREFIX		"SOC"
 #define MTK_VDEC_CLK_MAIN_PREFIX	"MAIN"
 
-#define MTK_MAX_VENC_CLK_COUNT 2
-#define MTK_MAX_VENC_CLK_CORE_COUNT 2
-#define MTK_VENC_MAX_LARB_COUNT 2
+#define MTK_MAX_VENC_CLK_COUNT 3
+#define MTK_MAX_VENC_CLK_CORE_COUNT 3
+#define MTK_VENC_MAX_LARB_COUNT 3
 
 
 #define IS_SPECIFIC_CLK_TYPE(clk_name, prefix) \
@@ -210,6 +210,7 @@ static char *dec_port_name[NUM_MAX_VDEC_M4U_PORT+1] = {
 
 #define MTK_VDEC_REG_NAME_VENC_SYS				"VENC_SYS"
 #define MTK_VDEC_REG_NAME_VENC_C1_SYS				"VENC_C1_SYS"
+#define MTK_VDEC_REG_NAME_VENC_C2_SYS				"VENC_C2_SYS"
 #define MTK_VDEC_REG_NAME_VENC_GCON				"VENC_GCON"
 
 
@@ -236,6 +237,7 @@ enum mtk_dec_dtsi_reg_idx {
 enum mtk_enc_dtsi_reg_idx {
 	VENC_SYS,
 	VENC_C1_SYS,
+	VENC_C2_SYS,
 	VENC_GCON,
 	NUM_MAX_VENC_REG_BASE
 };
