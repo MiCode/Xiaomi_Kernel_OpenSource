@@ -12,31 +12,10 @@
 #include <linux/regmap.h>
 #include <linux/slab.h>
 #include <linux/thermal.h>
+#include "vtskin_temp.h"
 
-
-#define MAX_REF_NUM 10
-
-struct vtskin_coef {
-	char *sensor_name;
-	long long sensor_coef;
-};
-
-struct vtskin_tz_param {
-	unsigned int ref_num;
-	struct vtskin_coef vtskin_ref[MAX_REF_NUM];
-};
-
-struct vtskin_data {
-	struct device *dev;
-	int num_sensor;
-	struct vtskin_tz_param *params;
-};
-
-struct vtskin_temp_tz {
-	unsigned int id;
-	struct vtskin_data *skin_data;
-	struct vtskin_tz_param *skin_param;
-};
+struct vtskin_data *plat_vtskin_info;
+EXPORT_SYMBOL(plat_vtskin_info);
 
 static int vtskin_get_temp(void *data, int *temp)
 {
@@ -45,8 +24,13 @@ static int vtskin_get_temp(void *data, int *temp)
 	struct vtskin_tz_param *skin_param = skin_data->params;
 	struct thermal_zone_device *tzd;
 	long long vtskin = 0, coef;
-	int tz_temp, i;
+	int tz_temp, i, ret;
 	char *sensor_name;
+
+	if (skin_param[skin_tz->id].ref_num == 0) {
+		*temp = THERMAL_TEMP_INVALID;
+		return 0;
+	}
 
 	for (i = 0; i < skin_param[skin_tz->id].ref_num; i++) {
 		sensor_name = skin_param[skin_tz->id].vtskin_ref[i].sensor_name;
@@ -63,12 +47,27 @@ static int vtskin_get_temp(void *data, int *temp)
 			return -EINVAL;
 		}
 
-		tzd->ops->get_temp(tzd, &tz_temp);
-		coef = skin_param[skin_tz->id].vtskin_ref[i].sensor_coef;
-		vtskin += tz_temp * coef;
-	}
+		ret = tzd->ops->get_temp(tzd, &tz_temp);
+		if (ret < 0) {
+			dev_err(skin_data->dev, "%s get_temp fail %d\n", sensor_name, ret);
+			*temp = THERMAL_TEMP_INVALID;
+			return -EINVAL;
+		}
 
-	*temp = (int)(vtskin / 100000000);
+		if (skin_param[skin_tz->id].operation == OP_MAX) {
+			if (i == 0)
+				*temp = THERMAL_TEMP_INVALID;
+
+			if (tz_temp > *temp)
+				*temp = tz_temp;
+
+		} else if (skin_param[skin_tz->id].operation == OP_COEF) {
+			coef = skin_param[skin_tz->id].vtskin_ref[i].sensor_coef;
+			vtskin += tz_temp * coef;
+			if (i == skin_param[skin_tz->id].ref_num - 1)
+				*temp = (int)(vtskin / 100000000);
+		}
+	}
 
 	return 0;
 }
@@ -118,24 +117,40 @@ static int vtskin_probe(struct platform_device *pdev)
 			return ret;
 		}
 
+		ret = snprintf(skin_data->params[i].tz_name, THERMAL_NAME_LENGTH, tzdev->type);
+		if (ret < 0)
+			dev_notice(dev, "copy tz_name fail %s\n", tzdev->type);
 	}
+
+	plat_vtskin_info = skin_data;
 
 	return 0;
 }
 
 enum mt6983_vtskin_sensor_enum {
+	MT6983_VTSKIN_MAX,
 	MT6983_VTSKIN_1,
 	MT6983_VTSKIN_2,
 	MT6983_VTSKIN_3,
 	MT6983_VTSKIN_4,
 	MT6983_VTSKIN_5,
 	MT6983_VTSKIN_6,
-	MT6983_NUM_VTSKIN,
+	MT6983_VTSKIN_NUM,
 };
 
 struct vtskin_tz_param mt6983_vtskin_params[] = {
+	[MT6983_VTSKIN_MAX] = {
+		.ref_num = 4,
+		.operation = OP_MAX,
+		.vtskin_ref = {
+			{          "vtskin1",          0},
+			{          "vtskin2",          0},
+			{          "vtskin3",          0},
+			{          "vtskin4",          0}},
+	},
 	[MT6983_VTSKIN_1] = {
 		.ref_num = 8,
+		.operation = OP_COEF,
 		.vtskin_ref = {
 			{          "soc_top",    2313635},
 			{           "ap_ntc",  -17278441},
@@ -148,6 +163,7 @@ struct vtskin_tz_param mt6983_vtskin_params[] = {
 	},
 	[MT6983_VTSKIN_2] = {
 		.ref_num = 8,
+		.operation = OP_COEF,
 		.vtskin_ref = {
 			{          "soc_top",    3255065},
 			{           "ap_ntc",  -62150677},
@@ -160,6 +176,7 @@ struct vtskin_tz_param mt6983_vtskin_params[] = {
 	},
 	[MT6983_VTSKIN_3] = {
 		.ref_num = 8,
+		.operation = OP_COEF,
 		.vtskin_ref = {
 			{          "soc_top",     574011},
 			{           "ap_ntc",  -46643505},
@@ -172,6 +189,7 @@ struct vtskin_tz_param mt6983_vtskin_params[] = {
 	},
 	[MT6983_VTSKIN_4] = {
 		.ref_num = 8,
+		.operation = OP_COEF,
 		.vtskin_ref = {
 			{          "soc_top",    1025071},
 			{           "ap_ntc",  -46468989},
@@ -183,7 +201,8 @@ struct vtskin_tz_param mt6983_vtskin_params[] = {
 			{          "battery",  -21612202}},
 	},
 	[MT6983_VTSKIN_5] = {
-		.ref_num = 0,
+		.ref_num = 8,
+		.operation = OP_COEF,
 		.vtskin_ref = {
 			{          "soc_top",    2272107},
 			{           "ap_ntc",  -12028723},
@@ -195,7 +214,8 @@ struct vtskin_tz_param mt6983_vtskin_params[] = {
 			{          "battery",  -21683366}},
 	},
 	[MT6983_VTSKIN_6] = {
-		.ref_num = 0,
+		.ref_num = 8,
+		.operation = OP_COEF,
 		.vtskin_ref = {
 			{          "soc_top",    1192347},
 			{           "ap_ntc",  -26876988},
@@ -209,7 +229,7 @@ struct vtskin_tz_param mt6983_vtskin_params[] = {
 };
 
 static struct vtskin_data mt6983_vtskin_data = {
-	.num_sensor = MT6983_NUM_VTSKIN,
+	.num_sensor = MT6983_VTSKIN_NUM,
 	.params = mt6983_vtskin_params,
 };
 
