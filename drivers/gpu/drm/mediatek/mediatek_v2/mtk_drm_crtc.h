@@ -116,9 +116,10 @@ enum DISP_PMQOS_SLOT {
 #define DISP_SLOT_DSI_STATE_DBG7_2 (DISP_SLOT_DSI_STATE_DBG7 + 0x4)
 
 #define DISP_SLOT_TE1_EN (DISP_SLOT_DSI_STATE_DBG7_2 + 0x4)
+#define DISP_SLOT_REQUEST_TE_EN (DISP_SLOT_TE1_EN + 0x4)
 
 #define DISP_SLOT_LAYER_AVG_RATIO(n)                                          \
-	(DISP_SLOT_TE1_EN + 0x14 + (0x8 * (n)))
+	(DISP_SLOT_REQUEST_TE_EN + 0x14 + (0x8 * (n)))
 #define DISP_SLOT_LAYER_PEAK_RATIO(n)                                          \
 	(DISP_SLOT_LAYER_AVG_RATIO(n) + 0x4)
 #define DISP_SLOT_SIZE            \

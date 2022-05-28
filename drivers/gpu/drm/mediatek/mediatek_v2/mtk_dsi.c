@@ -7760,7 +7760,7 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 				dsi->ext->funcs->msync_te_level_switch_grp)
 			dsi->ext->funcs->msync_te_level_switch_grp(dsi,
 					mipi_dsi_dcs_grp_write_gce,
-						handle, *fps_level);
+						handle, dsi->panel, *fps_level);
 	}
 		break;
 	case DSI_MSYNC_CMD_SET_MIN_FPS:

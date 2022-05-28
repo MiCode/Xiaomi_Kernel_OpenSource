@@ -1257,7 +1257,7 @@ out:
 }
 
 static int mtk_panel_msync_te_level_switch_grp(void *dsi, dcs_grp_write_gce cb,
-		void *handle, unsigned int fps_level)
+		void *handle, struct drm_panel *panel, unsigned int fps_level)
 {
 	struct mipi_dsi_device *dsi_dev = to_mipi_dsi_device(ctx_dsi->dev);
 	struct mtk_lcm_mode_dsi *mode_node = NULL;

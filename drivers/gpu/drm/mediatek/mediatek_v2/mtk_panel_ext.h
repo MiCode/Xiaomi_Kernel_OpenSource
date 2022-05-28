@@ -379,6 +379,7 @@ struct msync_request_te_table {
 	unsigned char valid_te_end_2_mask;
 	struct msync_cmd_list rte_cmd_list[MSYNC_MAX_CMD_NUM];
 	struct msync_request_te_level request_te_level[MSYNC_MAX_LEVEL];
+	struct msync_level_table rte_te_level[MSYNC_MAX_LEVEL];
 };
 
 struct msync_multi_te_table {
@@ -508,7 +509,7 @@ struct mtk_panel_funcs {
 	int (*msync_te_level_switch)(void *dsi, dcs_write_gce cb,
 		void *handle, unsigned int fps_level);
 	int (*msync_te_level_switch_grp)(void *dsi, dcs_grp_write_gce cb,
-		void *handle, unsigned int fps_level);
+		void *handle, struct drm_panel *panel, unsigned int fps_level);
 	int (*msync_cmd_set_min_fps)(void *dsi, dcs_write_gce cb,
 			void *handle, unsigned int flag);
 	int (*get_virtual_heigh)(void);

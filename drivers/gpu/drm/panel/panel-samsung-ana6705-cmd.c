@@ -39,6 +39,7 @@
 #define MODE_2_FPS (90)
 #define MODE_3_FPS (120)
 #define MTE_OFF (0xFFFF)
+static int current_fps = 120;
 
 struct lcm {
 	struct device *dev;
@@ -1826,12 +1827,27 @@ int convert_mode_id_to_pmode_id(struct drm_panel *panel,
 	return -1;
 }
 
+struct drm_display_mode *get_mode_by_id(struct drm_connector *connector,
+	unsigned int mode)
+{
+	struct drm_display_mode *m;
+	unsigned int i = 0;
+
+	list_for_each_entry(m, &connector->modes, head) {
+		if (i == mode)
+			return m;
+		i++;
+	}
+	return NULL;
+}
+
 static int mtk_panel_ext_param_set(struct drm_panel *panel,
 			struct drm_connector *connector, unsigned int mode)
 {
 	struct mtk_panel_ext *ext = find_panel_ext(panel);
 	int ret = 0;
 	int pmode_id = convert_mode_id_to_pmode_id(panel, connector, mode);
+	struct drm_display_mode *m = get_mode_by_id(connector, mode);
 
 	DDPMSG("%s mode:%d, pmode_id:%d\n", __func__, mode, pmode_id);
 
@@ -1857,6 +1873,9 @@ static int mtk_panel_ext_param_set(struct drm_panel *panel,
 	default:
 		ret = 1;
 	}
+
+	if (!ret)
+		current_fps = drm_mode_vrefresh(m);
 
 	return ret;
 }
@@ -3039,27 +3058,56 @@ static int msync_te_level_switch(void *dsi, dcs_write_gce cb,
 }
 
 static int msync_te_level_switch_grp(void *dsi, dcs_grp_write_gce cb,
-		void *handle, unsigned int fps_level)
+		void *handle, struct drm_panel *panel, unsigned int fps_level)
 {
 	int ret = 0;
+	struct mtk_panel_ext *ext = find_panel_ext(panel);
 
 	DDPMSG("%s:%d fps_level:%d\n", __func__, __LINE__, fps_level);
 	if (fps_level <= MODE_0_FPS) { /*switch to 60 */
 		DDPMSG("%s:%d switch to 60fps\n", __func__, __LINE__);
 		cb(dsi, handle, msync_level_60, ARRAY_SIZE(msync_level_60));
+		ext->params->pll_clk = ext_params.pll_clk;
+		ext->params->data_rate = ext_params.data_rate;
 
 	} else if (fps_level <= MODE_1_FPS) { /*switch to 72 */
 		DDPMSG("%s:%d switch to 72fps\n", __func__, __LINE__);
 		cb(dsi, handle, msync_level_72, ARRAY_SIZE(msync_level_72));
+		ext->params->pll_clk = ext_params_wqhd.pll_clk;
+		ext->params->data_rate = ext_params_wqhd.data_rate;
 
 	} else if (fps_level <= MODE_2_FPS) { /*switch to 90 */
 		DDPMSG("%s:%d switch to 90fps\n", __func__, __LINE__);
 		cb(dsi, handle, msync_level_90, ARRAY_SIZE(msync_level_90));
+		ext->params->pll_clk = ext_params_wqhd.pll_clk;
+		ext->params->data_rate = ext_params_wqhd.data_rate;
+
 	} else if (fps_level <= MODE_3_FPS) { /*switch to 120 */
 		DDPMSG("%s:%d switch to 120fps\n", __func__, __LINE__);
 		cb(dsi, handle, msync_level_120, ARRAY_SIZE(msync_level_120));
+		ext->params->pll_clk = ext_params_wqhd.pll_clk;
+		ext->params->data_rate = ext_params_wqhd.data_rate;
+
 	} else if (fps_level == MTE_OFF) { /*close multi te */
 		DDPMSG("%s:%d Close MTE done\n", __func__, __LINE__);
+
+		if (current_fps == MODE_0_FPS) {
+			ext->params->pll_clk = ext_params.pll_clk;
+			ext->params->data_rate = ext_params.data_rate;
+
+		} else if (current_fps ==  MODE_1_FPS) {
+			ext->params->pll_clk = ext_params_wqhd.pll_clk;
+			ext->params->data_rate = ext_params_wqhd.data_rate;
+
+		} else if (current_fps == MODE_2_FPS) {
+			ext->params->pll_clk = ext_params_wqhd.pll_clk;
+			ext->params->data_rate = ext_params_wqhd.data_rate;
+
+		} else {
+			ext->params->pll_clk = ext_params_wqhd.pll_clk;
+			ext->params->data_rate = ext_params_wqhd.data_rate;
+		}
+
 		/*cb(dsi, handle, msync_close_mte, ARRAY_SIZE(msync_close_mte));*/
 		/*cb(dsi, handle, msync_default, ARRAY_SIZE(msync_default));*/
 	} else
@@ -3597,3 +3645,4 @@ module_mipi_dsi_driver(lcm_driver);
 MODULE_AUTHOR("MEDIATEK");
 MODULE_DESCRIPTION("Samsung ANA6705 AMOLED CMD LCD Panel Driver");
 MODULE_LICENSE("GPL v2");
+
