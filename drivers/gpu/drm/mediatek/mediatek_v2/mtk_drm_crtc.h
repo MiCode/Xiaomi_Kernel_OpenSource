@@ -837,6 +837,7 @@ struct mtk_drm_crtc {
 	unsigned int mml_debug;
 	bool is_force_mml_scen;
 	bool mml_cmd_ir;
+	bool mml_ir_enable;
 	enum MML_IR_STATE mml_ir_state;
 
 	atomic_t signal_irq_for_pre_fence;

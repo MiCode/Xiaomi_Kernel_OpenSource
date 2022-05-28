@@ -3142,7 +3142,32 @@ static void process_dbg_opt(const char *opt)
 
 		if (mtk_crtc)
 			mtk_crtc->mml_cmd_ir = mml_cmd_ir;
+	} else if (strncmp(opt, "mml_enable_ir:", 14) == 0) {
+		struct drm_crtc *crtc;
+		struct mtk_drm_crtc *mtk_crtc;
+		bool mml_ir_enable = false;
+
+		if (strncmp(opt + 14, "1", 1) == 0)
+			mml_ir_enable = true;
+		else if (strncmp(opt + 14, "0", 1) == 0)
+			mml_ir_enable = false;
+		DDPMSG("mml_enable_ir:%d", mml_ir_enable);
+
+		/* this debug cmd only for crtc0 */
+		crtc = list_first_entry(&(drm_dev)->mode_config.crtc_list,
+					typeof(*crtc), head);
+
+		if (!crtc) {
+			pr_info("find crtc fail\n");
+			return;
+		}
+
+		mtk_crtc = to_mtk_crtc(crtc);
+
+		if (mtk_crtc)
+			mtk_crtc->mml_ir_enable = mml_ir_enable;
 	}
+
 }
 
 static void process_dbg_cmd(char *cmd)

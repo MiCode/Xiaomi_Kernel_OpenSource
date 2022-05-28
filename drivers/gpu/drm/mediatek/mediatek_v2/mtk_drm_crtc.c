@@ -10487,6 +10487,7 @@ int mtk_drm_crtc_create(struct drm_device *drm_dev,
 	mtk_crtc->path_data = path_data;
 	mtk_crtc->is_dual_pipe = false;
 	mtk_crtc->is_force_mml_scen = mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_MML_PQ);
+	mtk_crtc->mml_ir_enable = mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_MML_IR);
 
 	if (priv->data->mmsys_id == MMSYS_MT6985) {
 		mtk_crtc->ovlsys0_regs = priv->ovlsys0_regs;
