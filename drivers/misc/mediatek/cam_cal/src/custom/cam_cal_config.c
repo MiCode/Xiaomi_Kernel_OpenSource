@@ -868,6 +868,7 @@ unsigned int get_is_need_power_on(struct EEPROM_DRV_FD_DATA *pdata, unsigned int
 				(struct STRUCT_CAM_CAL_NEED_POWER_ON *)pGetNeedPowerOn;
 
 	enum ENUM_CAMERA_CAM_CAL_TYPE_ENUM lsCommand = pCamCalNeedPowerOn->Command;
+	unsigned int uint_lsCommand = (unsigned int)lsCommand;
 	unsigned int result = CAM_CAL_ERR_NO_DEVICE;
 	int preloadLayoutIndex = IMGSENSOR_SENSOR_DUAL2IDX(pCamCalNeedPowerOn->deviceID);
 
@@ -910,7 +911,7 @@ unsigned int get_is_need_power_on(struct EEPROM_DRV_FD_DATA *pdata, unsigned int
 		pCamCalNeedPowerOn->deviceID, last_sensor_id, pCamCalNeedPowerOn->sensorID,
 		cam_cal_config->name);
 		pCamCalNeedPowerOn->needPowerOn = cam_cal_config->has_stored_data &&
-			cam_cal_config->layout->cal_layout_tbl[lsCommand].Include;
+			cam_cal_config->layout->cal_layout_tbl[uint_lsCommand].Include;
 		result = CAM_CAL_ERR_NO_ERR;
 		return result;
 	}
@@ -918,7 +919,7 @@ unsigned int get_is_need_power_on(struct EEPROM_DRV_FD_DATA *pdata, unsigned int
 		"device_id = %u last_sensor_id = 0x%x current_sensor_id = 0x%x layout type not found",
 		pCamCalNeedPowerOn->deviceID, last_sensor_id, pCamCalNeedPowerOn->sensorID);
 
-	result = CamCalReturnErr[lsCommand];
+	result = CamCalReturnErr[uint_lsCommand];
 	show_cmd_error_log(lsCommand);
 	return result;
 }
@@ -929,6 +930,7 @@ unsigned int get_cal_data(struct EEPROM_DRV_FD_DATA *pdata, unsigned int *pGetSe
 				(struct STRUCT_CAM_CAL_DATA_STRUCT *)pGetSensorCalData;
 
 	enum ENUM_CAMERA_CAM_CAL_TYPE_ENUM lsCommand = pCamCalData->Command;
+	unsigned int uint_lsCommand = (unsigned int)lsCommand;
 	unsigned int result = CAM_CAL_ERR_NO_DEVICE;
 	int preloadLayoutIndex = IMGSENSOR_SENSOR_DUAL2IDX(pCamCalData->deviceID);
 
@@ -974,15 +976,15 @@ unsigned int get_cal_data(struct EEPROM_DRV_FD_DATA *pdata, unsigned int *pGetSe
 		pCamCalData->deviceID, last_sensor_id, pCamCalData->sensorID, cam_cal_config->name);
 		pCamCalData->DataVer =
 			(enum ENUM_CAM_CAL_DATA_VER_ENUM)cam_cal_config->layout->data_ver;
-		if ((cam_cal_config->layout->cal_layout_tbl[lsCommand].Include != 0) &&
-			(cam_cal_config->layout->cal_layout_tbl[lsCommand].GetCalDataProcess
+		if ((cam_cal_config->layout->cal_layout_tbl[uint_lsCommand].Include != 0) &&
+			(cam_cal_config->layout->cal_layout_tbl[uint_lsCommand].GetCalDataProcess
 			!= NULL)) {
 			result =
-				cam_cal_config->layout->cal_layout_tbl[lsCommand].GetCalDataProcess(
-				pdata,
-				cam_cal_config->layout->cal_layout_tbl[lsCommand].start_addr,
-				cam_cal_config->layout->cal_layout_tbl[lsCommand].block_size,
-				pGetSensorCalData);
+			cam_cal_config->layout->cal_layout_tbl[uint_lsCommand].GetCalDataProcess(
+			pdata,
+			cam_cal_config->layout->cal_layout_tbl[uint_lsCommand].start_addr,
+			cam_cal_config->layout->cal_layout_tbl[uint_lsCommand].block_size,
+			pGetSensorCalData);
 			return result;
 		}
 	} else
@@ -990,7 +992,7 @@ unsigned int get_cal_data(struct EEPROM_DRV_FD_DATA *pdata, unsigned int *pGetSe
 		"device_id = %u last_sensor_id = 0x%x current_sensor_id = 0x%x layout type not found",
 		pCamCalData->deviceID, last_sensor_id, pCamCalData->sensorID);
 
-	result = CamCalReturnErr[lsCommand];
+	result = CamCalReturnErr[uint_lsCommand];
 	show_cmd_error_log(lsCommand);
 	return result;
 }
