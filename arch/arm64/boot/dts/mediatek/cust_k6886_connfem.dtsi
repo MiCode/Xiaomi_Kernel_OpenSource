@@ -1,0 +1,46 @@
+// SPDX-License-Identifier: (GPL-2.0 OR MIT)
+/*
+ * Copyright (C) 2020 MediaTek Inc.
+ */
+&connfem {
+	epa_elna_mtk {
+		parts = <&nofem &nofem>,		/* [0]iPA/iLNA */
+			<&wlan7207h &wlan7207c>,	/* [1]NXP eFEM - Closed-Loop */
+			<&wlan7207h &wlan7207c>,	/* [2]NXP eFEM - Closed-Loop+BT Bypass */
+			<&qm42195 &qm45197>,		/* [3]Qorvo eFEM - Closed-Loop */
+			<&qm42195 &qm45197>;		/* [4]Qorvo eFEM - Closed-Loop+BT Bypass */
+
+		wifi {
+			flags-1 {
+				/* open-loop; */
+			};
+			flags-2 {
+				/* open-loop; */
+			};
+			flags-3 {
+				/* open-loop; */
+			};
+			flags-4 {
+				/* open-loop; */
+			};
+		};
+		bt {
+			flags-1 {
+				/* choose one of: epa_elna / epa / elna / bypass */
+				epa_elna;
+			};
+			flags-2 {
+				/* choose one of: epa_elna / epa / elna / bypass */
+				bypass;
+			};
+			flags-3 {
+				/* choose one of: epa_elna / epa / elna / bypass */
+				epa_elna;
+			};
+			flags-4 {
+				/* choose one of: epa_elna / epa / elna / bypass */
+				bypass;
+			};
+		};
+	};
+};
