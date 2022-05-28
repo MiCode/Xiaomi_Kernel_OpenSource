@@ -226,6 +226,7 @@
 #define TOP_MUX_SCP_SPI_SHIFT			1
 #define TOP_MUX_SCP_IIC_SHIFT			2
 #define TOP_MUX_PWRAP_ULPOSC_SHIFT		3
+#define TOP_MUX_26M_APXGPT_BCLK_SHIFT		4
 #define TOP_MUX_DXCC_VLP_SHIFT			5
 #define TOP_MUX_DPSW_SHIFT			6
 #define TOP_MUX_SPMI_M_MST_SHIFT		7
@@ -842,7 +843,7 @@ static const struct mtk_mux vlp_ck_muxes[] = {
 	MUX_CLR_SET_UPD(CLK_VLP_CK_26M_APXGPT_BCLK_SEL/* dts */, "vlp_aptgpt_sel",
 		vlp_aptgpt_parents/* parent */, VLP_CLK_CFG_1, VLP_CLK_CFG_1_SET,
 		VLP_CLK_CFG_1_CLR/* set parent */, 0/* lsb */, 1/* width */,
-		INV_OFS/* upd ofs */, INV_BIT/* upd shift */),
+		VLP_CLK_CFG_UPDATE/* upd ofs */, TOP_MUX_26M_APXGPT_BCLK_SHIFT/* upd shift */),
 	MUX_CLR_SET_UPD(CLK_VLP_CK_DXCC_VLP_SEL/* dts */, "vlp_dxcc_vlp_sel",
 		vlp_dxcc_vlp_parents/* parent */, VLP_CLK_CFG_1, VLP_CLK_CFG_1_SET,
 		VLP_CLK_CFG_1_CLR/* set parent */, 8/* lsb */, 3/* width */,
@@ -929,7 +930,7 @@ static const struct mtk_mux vlp_ck_muxes[] = {
 	MUX_CLR_SET_UPD(CLK_VLP_CK_26M_APXGPT_BCLK_SEL/* dts */, "vlp_aptgpt_sel",
 		vlp_aptgpt_parents/* parent */, VLP_CLK_CFG_1, VLP_CLK_CFG_1_SET,
 		VLP_CLK_CFG_1_CLR/* set parent */, 0/* lsb */, 1/* width */,
-		INV_OFS/* upd ofs */, INV_BIT/* upd shift */),
+		VLP_CLK_CFG_UPDATE/* upd ofs */, TOP_MUX_26M_APXGPT_BCLK_SHIFT/* upd shift */),
 	MUX_CLR_SET_UPD(CLK_VLP_CK_DXCC_VLP_SEL/* dts */, "vlp_dxcc_vlp_sel",
 		vlp_dxcc_vlp_parents/* parent */, VLP_CLK_CFG_1, VLP_CLK_CFG_1_SET,
 		VLP_CLK_CFG_1_CLR/* set parent */, 8/* lsb */, 3/* width */,
@@ -2275,14 +2276,12 @@ static const struct mtk_mux top_muxes[] = {
 		CLK_CFG_21_CLR/* set parent */, 24/* lsb */, 1/* width */,
 		CLK_CFG_UPDATE2/* upd ofs */, TOP_MUX_EMI_INTERFACE_546_SHIFT/* upd shift */),
 	/* CLK_CFG_30 */
-	MUX_CLR_SET_UPD(CLK_TOP_MFG_INT0_SEL/* dts */, "mfg_int0_sel",
+	MUX_CLR_SET(CLK_TOP_MFG_INT0_SEL/* dts */, "mfg_int0_sel",
 		mfg_int0_parents/* parent */, CLK_CFG_30, CLK_CFG_30_SET,
-		CLK_CFG_30_CLR/* set parent */, 16/* lsb */, 1/* width */,
-		INV_OFS/* upd ofs */, INV_BIT/* upd shift */),
-	MUX_CLR_SET_UPD(CLK_TOP_MFG1_INT1_SEL/* dts */, "mfg1_int1_sel",
+		CLK_CFG_30_CLR/* set parent */, 16/* lsb */, 1/* width */),
+	MUX_CLR_SET(CLK_TOP_MFG1_INT1_SEL/* dts */, "mfg1_int1_sel",
 		mfg1_int1_parents/* parent */, CLK_CFG_30, CLK_CFG_30_SET,
-		CLK_CFG_30_CLR/* set parent */, 17/* lsb */, 1/* width */,
-		INV_OFS/* upd ofs */, INV_BIT/* upd shift */),
+		CLK_CFG_30_CLR/* set parent */, 17/* lsb */, 1/* width */),
 	/* CKSYS2_CLK_CFG_4 */
 	MUX_CLR_SET_UPD(CLK_TOP_CAMTG_SEL/* dts */, "camtg_sel",
 		camtg_parents/* parent */, CKSYS2_CLK_CFG_4, CKSYS2_CLK_CFG_4_SET,
@@ -2687,14 +2686,12 @@ static const struct mtk_mux top_muxes[] = {
 		CLK_CFG_21_CLR/* set parent */, 24/* lsb */, 1/* width */,
 		CLK_CFG_UPDATE2/* upd ofs */, TOP_MUX_EMI_INTERFACE_546_SHIFT/* upd shift */),
 	/* CLK_CFG_30 */
-	MUX_CLR_SET_UPD(CLK_TOP_MFG_INT0_SEL/* dts */, "mfg_int0_sel",
+	MUX_CLR_SET(CLK_TOP_MFG_INT0_SEL/* dts */, "mfg_int0_sel",
 		mfg_int0_parents/* parent */, CLK_CFG_30, CLK_CFG_30_SET,
-		CLK_CFG_30_CLR/* set parent */, 16/* lsb */, 1/* width */,
-		INV_OFS/* upd ofs */, INV_BIT/* upd shift */),
-	MUX_CLR_SET_UPD(CLK_TOP_MFG1_INT1_SEL/* dts */, "mfg1_int1_sel",
+		CLK_CFG_30_CLR/* set parent */, 16/* lsb */, 1/* width */),
+	MUX_CLR_SET(CLK_TOP_MFG1_INT1_SEL/* dts */, "mfg1_int1_sel",
 		mfg1_int1_parents/* parent */, CLK_CFG_30, CLK_CFG_30_SET,
-		CLK_CFG_30_CLR/* set parent */, 17/* lsb */, 1/* width */,
-		INV_OFS/* upd ofs */, INV_BIT/* upd shift */),
+		CLK_CFG_30_CLR/* set parent */, 17/* lsb */, 1/* width */),
 	/* CKSYS2_CLK_CFG_4 */
 	MUX_GATE_CLR_SET_UPD(CLK_TOP_CAMTG_SEL/* dts */, "camtg_sel",
 		camtg_parents/* parent */, CKSYS2_CLK_CFG_4, CKSYS2_CLK_CFG_4_SET,
@@ -3141,7 +3138,7 @@ static int clk_mt6985_pll_registration(enum subsys_id id,
 	pr_notice("%s init begin\n", __func__);
 #endif
 
-	if (id < 0 || id >= PLL_SYS_NUM) {
+	if (id >= PLL_SYS_NUM) {
 		pr_notice("%s init invalid id(%d)\n", __func__, id);
 		return 0;
 	}

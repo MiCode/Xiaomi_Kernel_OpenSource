@@ -247,29 +247,7 @@ static u8 mtk_clk_mux_get_parent(struct clk_hw *hw)
 	return val;
 }
 
-static int mtk_clk_mux_set_parent_lock(struct clk_hw *hw, u8 index)
-{
-	struct mtk_clk_mux *mux = to_mtk_clk_mux(hw);
-	u32 mask = GENMASK(mux->data->mux_width - 1, 0);
-	unsigned long flags = 0;
-
-	if (mux->lock)
-		spin_lock_irqsave(mux->lock, flags);
-	else
-		__acquire(mux->lock);
-
-	regmap_update_bits(mux->regmap, mux->data->mux_ofs, mask,
-		index << mux->data->mux_shift);
-
-	if (mux->lock)
-		spin_unlock_irqrestore(mux->lock, flags);
-	else
-		__release(mux->lock);
-
-	return 0;
-}
-
-static int mtk_clk_mux_set_parent_setclr_lock(struct clk_hw *hw, u8 index)
+static int __mtk_clk_mux_set_parent_lock(struct clk_hw *hw, u8 index, bool setclr, bool upd)
 {
 	struct mtk_clk_mux *mux = to_mtk_clk_mux(hw);
 	u32 mask = GENMASK(mux->data->mux_width - 1, 0);
@@ -281,20 +259,24 @@ static int mtk_clk_mux_set_parent_setclr_lock(struct clk_hw *hw, u8 index)
 	else
 		__acquire(mux->lock);
 
-	regmap_read(mux->regmap, mux->data->mux_ofs, &orig);
-	val = (orig & ~(mask << mux->data->mux_shift))
-			| (index << mux->data->mux_shift);
+	if (setclr) {
+		regmap_read(mux->regmap, mux->data->mux_ofs, &orig);
+		val = (orig & ~(mask << mux->data->mux_shift))
+				| (index << mux->data->mux_shift);
 
-	if (val != orig) {
-		regmap_write(mux->regmap, mux->data->clr_ofs,
-				mask << mux->data->mux_shift);
-		regmap_write(mux->regmap, mux->data->set_ofs,
-				index << mux->data->mux_shift);
+		if (val != orig) {
+			regmap_write(mux->regmap, mux->data->clr_ofs,
+					mask << mux->data->mux_shift);
+			regmap_write(mux->regmap, mux->data->set_ofs,
+					index << mux->data->mux_shift);
+		}
 
-		if (mux->data->upd_shift >= 0)
+		if (upd)
 			regmap_write(mux->regmap, mux->data->upd_ofs,
 					BIT(mux->data->upd_shift));
-	}
+	} else
+		regmap_update_bits(mux->regmap, mux->data->mux_ofs, mask,
+			index << mux->data->mux_shift);
 
 	if (mux->lock)
 		spin_unlock_irqrestore(mux->lock, flags);
@@ -304,15 +286,37 @@ static int mtk_clk_mux_set_parent_setclr_lock(struct clk_hw *hw, u8 index)
 	return 0;
 }
 
+static int mtk_clk_mux_set_parent_lock(struct clk_hw *hw, u8 index)
+{
+	return __mtk_clk_mux_set_parent_lock(hw, index, false, false);
+}
+
+static int mtk_clk_mux_set_parent_setclr_lock(struct clk_hw *hw, u8 index)
+{
+	return __mtk_clk_mux_set_parent_lock(hw, index, true, false);
+}
+
+static int mtk_clk_mux_set_parent_setclr_upd_lock(struct clk_hw *hw, u8 index)
+{
+	return __mtk_clk_mux_set_parent_lock(hw, index, true, true);
+}
+
 const struct clk_ops mtk_mux_ops = {
 	.get_parent = mtk_clk_mux_get_parent,
 	.set_parent = mtk_clk_mux_set_parent_lock,
 };
-EXPORT_SYMBOL(mtk_mux_ops);
+EXPORT_SYMBOL_GPL(mtk_mux_ops);
+
+
+const struct clk_ops mtk_mux_clr_set_ops = {
+	.get_parent = mtk_clk_mux_get_parent,
+	.set_parent = mtk_clk_mux_set_parent_setclr_lock,
+};
+EXPORT_SYMBOL_GPL(mtk_mux_clr_set_ops);
 
 const struct clk_ops mtk_mux_clr_set_upd_ops = {
 	.get_parent = mtk_clk_mux_get_parent,
-	.set_parent = mtk_clk_mux_set_parent_setclr_lock,
+	.set_parent = mtk_clk_mux_set_parent_setclr_upd_lock,
 };
 EXPORT_SYMBOL_GPL(mtk_mux_clr_set_upd_ops);
 
@@ -330,7 +334,7 @@ const struct clk_ops mtk_mux_gate_clr_set_upd_ops = {
 	.disable = mtk_clk_mux_disable_setclr,
 	.is_enabled = mtk_clk_mux_is_enabled,
 	.get_parent = mtk_clk_mux_get_parent,
-	.set_parent = mtk_clk_mux_set_parent_setclr_lock,
+	.set_parent = mtk_clk_mux_set_parent_setclr_upd_lock,
 };
 EXPORT_SYMBOL_GPL(mtk_mux_gate_clr_set_upd_ops);
 
@@ -339,7 +343,7 @@ const struct clk_ops mtk_hwv_mux_ops = {
 	.disable = mtk_clk_hwv_mux_disable,
 	.is_enabled = mtk_clk_hwv_mux_is_enabled,
 	.get_parent = mtk_clk_mux_get_parent,
-	.set_parent = mtk_clk_mux_set_parent_setclr_lock,
+	.set_parent = mtk_clk_mux_set_parent_setclr_upd_lock,
 };
 EXPORT_SYMBOL_GPL(mtk_hwv_mux_ops);
 

@@ -42,6 +42,7 @@ struct mtk_mux {
 };
 
 extern const struct clk_ops mtk_mux_ops;
+extern const struct clk_ops mtk_mux_clr_set_ops;
 extern const struct clk_ops mtk_mux_clr_set_upd_ops;
 extern const struct clk_ops mtk_mux_gate_ops;
 extern const struct clk_ops mtk_mux_gate_clr_set_upd_ops;
@@ -97,6 +98,20 @@ extern const struct clk_ops mtk_hwv_mux_ops;
 			_mux_ofs, _mux_set_ofs, _mux_clr_ofs, _shift,	\
 			_width, _upd_ofs, _upd, CLK_SET_RATE_PARENT)
 
+#define MUX_CLR_SET(_id, _name, _parents, _mux_ofs,			\
+			_mux_set_ofs, _mux_clr_ofs, _shift, _width) {	\
+		.id = _id,						\
+		.name = _name,						\
+		.mux_ofs = _mux_ofs,					\
+		.set_ofs = _mux_set_ofs,				\
+		.clr_ofs = _mux_clr_ofs,				\
+		.mux_shift = _shift,					\
+		.mux_width = _width,					\
+		.parent_names = _parents,				\
+		.num_parents = ARRAY_SIZE(_parents),			\
+		.flags = CLK_SET_RATE_PARENT,				\
+		.ops = &mtk_mux_clr_set_ops,				\
+	}
 
 #define MUX_HWV(_id, _name, _parents, _mux_ofs,		\
 			_mux_set_ofs, _mux_clr_ofs, _hwv_sta_ofs,	\
