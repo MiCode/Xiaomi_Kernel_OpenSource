@@ -272,6 +272,7 @@ void mtk_drm_crtc_dump(struct drm_crtc *crtc)
 	struct mtk_ddp_comp *comp;
 	int crtc_id = drm_crtc_index(crtc);
 	struct mtk_panel_params *panel_ext = mtk_drm_get_lcm_ext_params(crtc);
+	enum addon_scenario scn;
 
 	if (disp_helper_get_stage() == DISP_HELPER_STAGE_NORMAL) {
 		if (!priv->power_state) {
@@ -375,6 +376,27 @@ void mtk_drm_crtc_dump(struct drm_crtc *crtc)
 		}
 	}
 
+	//addon from disp_dump
+	if (!crtc->state)
+		DDPDUMP("%s dump nothing for null state\n", __func__);
+	else {
+		state = to_mtk_crtc_state(crtc->state);
+		if (state->prop_val[CRTC_PROP_OUTPUT_ENABLE]) {
+			if (state->prop_val[CRTC_PROP_OUTPUT_SCENARIO] == 0)
+				scn = WDMA_WRITE_BACK_OVL;
+			else
+				scn = WDMA_WRITE_BACK;
+			addon_data = mtk_addon_get_scenario_data(__func__, crtc,
+						scn);
+			mtk_drm_crtc_addon_dump(crtc, addon_data);
+			if (mtk_crtc->is_dual_pipe) {
+				addon_data = mtk_addon_get_scenario_data_dual
+					(__func__, crtc, scn);
+				mtk_drm_crtc_addon_dump(crtc, addon_data);
+			}
+		}
+	}
+
 	//addon from layering rule
 	if (!crtc->state)
 		DDPDUMP("%s dump nothing for null state\n", __func__);
@@ -432,6 +454,7 @@ void mtk_drm_crtc_analysis(struct drm_crtc *crtc)
 	const struct mtk_addon_scenario_data *addon_data;
 	struct mtk_ddp_comp *comp;
 	int crtc_id = drm_crtc_index(crtc);
+	enum addon_scenario scn;
 
 	if (disp_helper_get_stage() == DISP_HELPER_STAGE_NORMAL) {
 		if (!priv->power_state) {
@@ -565,6 +588,27 @@ void mtk_drm_crtc_analysis(struct drm_crtc *crtc)
 			addon_data = mtk_addon_get_scenario_data_dual
 				(__func__, crtc, mtk_crtc->cwb_info->scn);
 			mtk_drm_crtc_addon_analysis(crtc, addon_data);
+		}
+	}
+
+	//addon from disp_dump
+	if (!crtc->state)
+		DDPDUMP("%s dump nothing for null state\n", __func__);
+	else {
+		state = to_mtk_crtc_state(crtc->state);
+		if (state->prop_val[CRTC_PROP_OUTPUT_ENABLE]) {
+			if (state->prop_val[CRTC_PROP_OUTPUT_SCENARIO] == 0)
+				scn = WDMA_WRITE_BACK_OVL;
+			else
+				scn = WDMA_WRITE_BACK;
+			addon_data = mtk_addon_get_scenario_data(__func__, crtc,
+						scn);
+			mtk_drm_crtc_addon_analysis(crtc, addon_data);
+			if (mtk_crtc->is_dual_pipe) {
+				addon_data = mtk_addon_get_scenario_data_dual
+					(__func__, crtc, scn);
+				mtk_drm_crtc_addon_analysis(crtc, addon_data);
+			}
 		}
 	}
 
