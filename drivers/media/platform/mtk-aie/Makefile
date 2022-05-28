@@ -17,6 +17,7 @@ mem/aie_videobuf2-dma-contig.o\
 mem/aie_videobuf2-memops.o\
 mem/aie_videobuf2-vmalloc.o\
 mtk_aie_53.o\
-mtk_aie_drv.o
+mtk_aie_drv_isp71.o \
+mtk_aie_drv_isp7s.o
 
 obj-$(CONFIG_MTK_CAMERA_FD_ISP7S) += mtk_aie.o

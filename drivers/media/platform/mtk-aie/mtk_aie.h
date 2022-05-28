@@ -18,6 +18,9 @@
 #include "mtk-interconnect.h"
 #include "mtk_imgsys-dev.h"
 
+#define AIE_IOVA_BITS_SHIFT 4
+#define AIE_IOVA(IOVA) (IOVA >> AIE_IOVA_BITS_SHIFT)
+
 #define V4L2_META_FMT_MTFD_RESULT  v4l2_fourcc('M', 'T', 'f', 'd')
 
 #define MTK_AIE_OPP_SET			1
@@ -406,328 +409,131 @@
 #define DMA_BW_SELF_TEST_HW                (FDVT_BASE_HW + 0x3f8)
 
 /* AIE 3.0 FLD register offset */
-#define FLD_EN                       0x400
-#define FLD_BASE_ADDR_FACE_0         0x404
-#define FLD_BASE_ADDR_FACE_1         0x408
-#define FLD_BASE_ADDR_FACE_2         0x40C
-#define FLD_BASE_ADDR_FACE_3         0x410
-#define FLD_BASE_ADDR_FACE_4         0x414
-#define FLD_BASE_ADDR_FACE_5         0x418
-#define FLD_BASE_ADDR_FACE_6         0x41C
-#define FLD_BASE_ADDR_FACE_7         0x420
-#define FLD_BASE_ADDR_FACE_8         0x424
-#define FLD_BASE_ADDR_FACE_9         0x428
-#define FLD_BASE_ADDR_FACE_10        0x42C
-#define FLD_BASE_ADDR_FACE_11        0x430
-#define FLD_BASE_ADDR_FACE_12        0x434
-#define FLD_BASE_ADDR_FACE_13        0x438
-#define FLD_BASE_ADDR_FACE_14        0x43C
+#define FLD_IMG_BASE_ADDR		0x400
+#define FLD_MS_BASE_ADDR		0x404
+#define FLD_FP_BASE_ADDR		0x408
+#define FLD_TR_BASE_ADDR		0x40C
+#define FLD_SH_BASE_ADDR		0x410
+#define FLD_CV_BASE_ADDR		0x414
+#define FLD_BS_BASE_ADDR		0x418
+#define FLD_PP_BASE_ADDR		0x41C
+#define FLD_FP_FORT_OFST		0x420
+#define FLD_TR_FORT_OFST		0x424
+#define FLD_SH_FORT_OFST		0x428
+#define FLD_CV_FORT_OFST		0x42C
 
-#define FLD_INFO_0_FACE_0            0x440
-#define FLD_INFO_1_FACE_0            0x444
-#define FLD_INFO_2_FACE_0            0x448
-#define FLD_INFO_0_FACE_1            0x44C
-#define FLD_INFO_1_FACE_1            0x450
-#define FLD_INFO_2_FACE_1            0x454
-#define FLD_INFO_0_FACE_2            0x458
-#define FLD_INFO_1_FACE_2            0x45C
-#define FLD_INFO_2_FACE_2            0x460
-#define FLD_INFO_0_FACE_3            0x464
-#define FLD_INFO_1_FACE_3            0x468
-#define FLD_INFO_2_FACE_3            0x46C
-#define FLD_INFO_0_FACE_4            0x470
-#define FLD_INFO_1_FACE_4            0x474
-#define FLD_INFO_2_FACE_4            0x478
-#define FLD_INFO_0_FACE_5            0x47C
-#define FLD_INFO_1_FACE_5            0x480
-#define FLD_INFO_2_FACE_5            0x484
-#define FLD_INFO_0_FACE_6            0x488
-#define FLD_INFO_1_FACE_6            0x48C
-#define FLD_INFO_2_FACE_6            0x490
-#define FLD_INFO_0_FACE_7            0x494
-#define FLD_INFO_1_FACE_7            0x498
+#define FLD_FACE_0_INFO_0		0x430
+#define FLD_FACE_0_INFO_1		0x434
+#define FLD_FACE_1_INFO_0		0x438
+#define FLD_FACE_1_INFO_1		0x43C
+#define FLD_FACE_2_INFO_0		0x440
+#define FLD_FACE_2_INFO_1		0x444
+#define FLD_FACE_3_INFO_0		0x448
+#define FLD_FACE_3_INFO_1		0x44C
+#define FLD_FACE_4_INFO_0		0x450
+#define FLD_FACE_4_INFO_1		0x454
+#define FLD_FACE_5_INFO_0		0x458
+#define FLD_FACE_5_INFO_1		0x45C
+#define FLD_FACE_6_INFO_0		0x460
+#define FLD_FACE_6_INFO_1		0x464
+#define FLD_FACE_7_INFO_0		0x468
+#define FLD_FACE_7_INFO_1		0x46C
+#define FLD_FACE_8_INFO_0		0x470
+#define FLD_FACE_8_INFO_1		0x474
+#define FLD_FACE_9_INFO_0		0x478
+#define FLD_FACE_9_INFO_1		0x47C
+#define FLD_FACE_10_INFO_0		0x480
+#define FLD_FACE_10_INFO_1		0x484
+#define FLD_FACE_11_INFO_0		0x488
+#define FLD_FACE_11_INFO_1		0x48C
+#define FLD_FACE_12_INFO_0		0x490
+#define FLD_FACE_12_INFO_1		0x494
+#define FLD_FACE_13_INFO_0		0x498
+#define FLD_FACE_13_INFO_1		0x49C
+#define FLD_FACE_14_INFO_0		0x4A0
+#define FLD_FACE_14_INFO_1		0x4A4
 
-#define FLD_INFO_2_FACE_7            0x4A0
-#define FLD_INFO_0_FACE_8            0x4A4
-#define FLD_INFO_1_FACE_8            0x4A8
-#define FLD_INFO_2_FACE_8            0x4AC
-#define FLD_INFO_0_FACE_9            0x4B0
-#define FLD_INFO_1_FACE_9            0x4B4
-#define FLD_INFO_2_FACE_9            0x4B8
-#define FLD_INFO_0_FACE_10           0x4BC
-#define FLD_INFO_1_FACE_10           0x4C0
-#define FLD_INFO_2_FACE_10           0x4C4
-#define FLD_INFO_0_FACE_11           0x4C8
-#define FLD_INFO_1_FACE_11           0x4CC
-#define FLD_INFO_2_FACE_11           0x4D0
-#define FLD_INFO_0_FACE_12           0x4D4
-#define FLD_INFO_1_FACE_12           0x4D8
-#define FLD_INFO_2_FACE_12           0x4DC
-#define FLD_INFO_0_FACE_13           0x4E0
-#define FLD_INFO_1_FACE_13           0x4E4
-#define FLD_INFO_2_FACE_13           0x4E8
-#define FLD_INFO_0_FACE_14           0x4EC
-#define FLD_INFO_1_FACE_14           0x4F0
-#define FLD_INFO_2_FACE_14           0x4F4
+/* FLD CMDQ FACE INFO */
+#define FLD_CMDQ_FACE_0_INFO_0		(FDVT_BASE_HW + 0x430)
+#define FLD_CMDQ_FACE_0_INFO_1		(FDVT_BASE_HW + 0x434)
+#define FLD_CMDQ_FACE_1_INFO_0		(FDVT_BASE_HW + 0x438)
+#define FLD_CMDQ_FACE_1_INFO_1		(FDVT_BASE_HW + 0x43C)
+#define FLD_CMDQ_FACE_2_INFO_0		(FDVT_BASE_HW + 0x440)
+#define FLD_CMDQ_FACE_2_INFO_1		(FDVT_BASE_HW + 0x444)
+#define FLD_CMDQ_FACE_3_INFO_0		(FDVT_BASE_HW + 0x448)
+#define FLD_CMDQ_FACE_3_INFO_1		(FDVT_BASE_HW + 0x44C)
+#define FLD_CMDQ_FACE_4_INFO_0		(FDVT_BASE_HW + 0x450)
+#define FLD_CMDQ_FACE_4_INFO_1		(FDVT_BASE_HW + 0x454)
+#define FLD_CMDQ_FACE_5_INFO_0		(FDVT_BASE_HW + 0x458)
+#define FLD_CMDQ_FACE_5_INFO_1		(FDVT_BASE_HW + 0x45C)
+#define FLD_CMDQ_FACE_6_INFO_0		(FDVT_BASE_HW + 0x460)
+#define FLD_CMDQ_FACE_6_INFO_1		(FDVT_BASE_HW + 0x464)
+#define FLD_CMDQ_FACE_7_INFO_0		(FDVT_BASE_HW + 0x468)
+#define FLD_CMDQ_FACE_7_INFO_1		(FDVT_BASE_HW + 0x46C)
+#define FLD_CMDQ_FACE_8_INFO_0		(FDVT_BASE_HW + 0x470)
+#define FLD_CMDQ_FACE_8_INFO_1		(FDVT_BASE_HW + 0x474)
+#define FLD_CMDQ_FACE_9_INFO_0		(FDVT_BASE_HW + 0x478)
+#define FLD_CMDQ_FACE_9_INFO_1		(FDVT_BASE_HW + 0x47C)
+#define FLD_CMDQ_FACE_10_INFO_0		(FDVT_BASE_HW + 0x480)
+#define FLD_CMDQ_FACE_10_INFO_1		(FDVT_BASE_HW + 0x484)
+#define FLD_CMDQ_FACE_11_INFO_0		(FDVT_BASE_HW + 0x488)
+#define FLD_CMDQ_FACE_11_INFO_1		(FDVT_BASE_HW + 0x48C)
+#define FLD_CMDQ_FACE_12_INFO_0		(FDVT_BASE_HW + 0x490)
+#define FLD_CMDQ_FACE_12_INFO_1		(FDVT_BASE_HW + 0x494)
+#define FLD_CMDQ_FACE_13_INFO_0		(FDVT_BASE_HW + 0x498)
+#define FLD_CMDQ_FACE_13_INFO_1		(FDVT_BASE_HW + 0x49C)
+#define FLD_CMDQ_FACE_14_INFO_0		(FDVT_BASE_HW + 0x4A0)
+#define FLD_CMDQ_FACE_14_INFO_1		(FDVT_BASE_HW + 0x4A4)
 
-#define FLD_MODEL_PARA0              0x4F8
-#define FLD_MODEL_PARA1              0x4FC
-#define FLD_MODEL_PARA2              0x500
-#define FLD_MODEL_PARA3              0x504
-#define FLD_MODEL_PARA4              0x508
-#define FLD_MODEL_PARA5              0x50C
-#define FLD_MODEL_PARA6              0x510
-#define FLD_MODEL_PARA7              0x514
-#define FLD_MODEL_PARA8              0x518
-#define FLD_MODEL_PARA9              0x51C
-#define FLD_MODEL_PARA10             0x520
-#define FLD_MODEL_PARA11             0x524
-#define FLD_MODEL_PARA12             0x528
-#define FLD_MODEL_PARA13             0x52C
-#define FLD_MODEL_PARA14             0x530
-#define FLD_MODEL_PARA15             0x534
-#define FLD_MODEL_PARA16             0x538
-#define FLD_DEBUG_INFO0              0x53C
-#define FLD_DEBUG_INFO1              0x540
+#define FLD_NUM_CONFIG_0		0x4A8
+#define FLD_FACE_NUM			0x4AC
+#define FLD_CMDQ_FACE_NUM		(FDVT_BASE_HW + 0x4AC)
 
-#define FLD_BUSY                     0x544
-#define FLD_DONE                     0x548
-#define FLD_SRC_WD_HT                0x54C
-
-#define FLD_PL_IN_BASE_ADDR_0_0      0x550
-#define FLD_PL_IN_BASE_ADDR_0_1      0x554
-#define FLD_PL_IN_BASE_ADDR_0_2      0x558
-#define FLD_PL_IN_BASE_ADDR_0_3      0x55C
-#define FLD_PL_IN_BASE_ADDR_0_4      0x560
-#define FLD_PL_IN_BASE_ADDR_0_5      0x564
-#define FLD_PL_IN_BASE_ADDR_0_6      0x568
-#define FLD_PL_IN_BASE_ADDR_0_7      0x56C
-#define FLD_PL_IN_BASE_ADDR_0_8      0x570
-#define FLD_PL_IN_BASE_ADDR_0_9      0x574
-#define FLD_PL_IN_BASE_ADDR_0_10     0x578
-#define FLD_PL_IN_BASE_ADDR_0_11     0x57C
-#define FLD_PL_IN_BASE_ADDR_0_12     0x580
-#define FLD_PL_IN_BASE_ADDR_0_13     0x584
-#define FLD_PL_IN_BASE_ADDR_0_14     0x588
-#define FLD_PL_IN_BASE_ADDR_0_15     0x58C
-#define FLD_PL_IN_BASE_ADDR_0_16     0x590
-#define FLD_PL_IN_BASE_ADDR_0_17     0x594
-#define FLD_PL_IN_BASE_ADDR_0_18     0x598
-#define FLD_PL_IN_BASE_ADDR_0_19     0x59C
-#define FLD_PL_IN_BASE_ADDR_0_20     0x5A0
-#define FLD_PL_IN_BASE_ADDR_0_21     0x5A4
-#define FLD_PL_IN_BASE_ADDR_0_22     0x5A8
-#define FLD_PL_IN_BASE_ADDR_0_23     0x5AC
-#define FLD_PL_IN_BASE_ADDR_0_24     0x5B0
-#define FLD_PL_IN_BASE_ADDR_0_25     0x5B4
-#define FLD_PL_IN_BASE_ADDR_0_26     0x5B8
-#define FLD_PL_IN_BASE_ADDR_0_27     0x5BC
-#define FLD_PL_IN_BASE_ADDR_0_28     0x5C0
-#define FLD_PL_IN_BASE_ADDR_0_29     0x5C4
-
-#define FLD_PL_IN_BASE_ADDR_1_0      0x5C8
-#define FLD_PL_IN_BASE_ADDR_1_1      0x5CC
-#define FLD_PL_IN_BASE_ADDR_1_2      0x5D0
-#define FLD_PL_IN_BASE_ADDR_1_3      0x5D4
-#define FLD_PL_IN_BASE_ADDR_1_4      0x5D8
-#define FLD_PL_IN_BASE_ADDR_1_5      0x5DC
-#define FLD_PL_IN_BASE_ADDR_1_6      0x5E0
-#define FLD_PL_IN_BASE_ADDR_1_7      0x5E4
-#define FLD_PL_IN_BASE_ADDR_1_8      0x5E8
-#define FLD_PL_IN_BASE_ADDR_1_9      0x5EC
-#define FLD_PL_IN_BASE_ADDR_1_10     0x5F0
-#define FLD_PL_IN_BASE_ADDR_1_11     0x5F4
-#define FLD_PL_IN_BASE_ADDR_1_12     0x5F8
-#define FLD_PL_IN_BASE_ADDR_1_13     0x5FC
-#define FLD_PL_IN_BASE_ADDR_1_14     0x600
-#define FLD_PL_IN_BASE_ADDR_1_15     0x604
-#define FLD_PL_IN_BASE_ADDR_1_16     0x608
-#define FLD_PL_IN_BASE_ADDR_1_17     0x60C
-#define FLD_PL_IN_BASE_ADDR_1_18     0x610
-#define FLD_PL_IN_BASE_ADDR_1_19     0x614
-#define FLD_PL_IN_BASE_ADDR_1_20     0x618
-#define FLD_PL_IN_BASE_ADDR_1_21     0x61C
-#define FLD_PL_IN_BASE_ADDR_1_22     0x620
-#define FLD_PL_IN_BASE_ADDR_1_23     0x624
-#define FLD_PL_IN_BASE_ADDR_1_24     0x628
-#define FLD_PL_IN_BASE_ADDR_1_25     0x62C
-#define FLD_PL_IN_BASE_ADDR_1_26     0x630
-#define FLD_PL_IN_BASE_ADDR_1_27     0x634
-#define FLD_PL_IN_BASE_ADDR_1_28     0x638
-#define FLD_PL_IN_BASE_ADDR_1_29     0x63C
-
-#define FLD_PL_IN_BASE_ADDR_2_0      0x640
-#define FLD_PL_IN_BASE_ADDR_2_1      0x644
-#define FLD_PL_IN_BASE_ADDR_2_2      0x648
-#define FLD_PL_IN_BASE_ADDR_2_3      0x64C
-#define FLD_PL_IN_BASE_ADDR_2_4      0x650
-#define FLD_PL_IN_BASE_ADDR_2_5      0x654
-#define FLD_PL_IN_BASE_ADDR_2_6      0x658
-#define FLD_PL_IN_BASE_ADDR_2_7      0x65C
-#define FLD_PL_IN_BASE_ADDR_2_8      0x660
-#define FLD_PL_IN_BASE_ADDR_2_9      0x664
-#define FLD_PL_IN_BASE_ADDR_2_10     0x668
-#define FLD_PL_IN_BASE_ADDR_2_11     0x66C
-#define FLD_PL_IN_BASE_ADDR_2_12     0x670
-#define FLD_PL_IN_BASE_ADDR_2_13     0x674
-#define FLD_PL_IN_BASE_ADDR_2_14     0x678
-#define FLD_PL_IN_BASE_ADDR_2_15     0x67C
-#define FLD_PL_IN_BASE_ADDR_2_16     0x680
-#define FLD_PL_IN_BASE_ADDR_2_17     0x684
-#define FLD_PL_IN_BASE_ADDR_2_18     0x688
-#define FLD_PL_IN_BASE_ADDR_2_19     0x68C
-#define FLD_PL_IN_BASE_ADDR_2_20     0x690
-#define FLD_PL_IN_BASE_ADDR_2_21     0x694
-#define FLD_PL_IN_BASE_ADDR_2_22     0x698
-#define FLD_PL_IN_BASE_ADDR_2_23     0x69C
-#define FLD_PL_IN_BASE_ADDR_2_24     0x6A0
-#define FLD_PL_IN_BASE_ADDR_2_25     0x6A4
-#define FLD_PL_IN_BASE_ADDR_2_26     0x6A8
-#define FLD_PL_IN_BASE_ADDR_2_27     0x6AC
-#define FLD_PL_IN_BASE_ADDR_2_28     0x6B0
-#define FLD_PL_IN_BASE_ADDR_2_29     0x6B4
-
-#define FLD_PL_IN_BASE_ADDR_3_0      0x6B8
-#define FLD_PL_IN_BASE_ADDR_3_1      0x6BC
-#define FLD_PL_IN_BASE_ADDR_3_2      0x6C0
-#define FLD_PL_IN_BASE_ADDR_3_3      0x6C4
-#define FLD_PL_IN_BASE_ADDR_3_4      0x6C8
-#define FLD_PL_IN_BASE_ADDR_3_5      0x6CC
-#define FLD_PL_IN_BASE_ADDR_3_6      0x6D0
-#define FLD_PL_IN_BASE_ADDR_3_7      0x6D4
-#define FLD_PL_IN_BASE_ADDR_3_8      0x6D8
-#define FLD_PL_IN_BASE_ADDR_3_9      0x6DC
-#define FLD_PL_IN_BASE_ADDR_3_10     0x6E0
-#define FLD_PL_IN_BASE_ADDR_3_11     0x6E4
-#define FLD_PL_IN_BASE_ADDR_3_12     0x6E8
-#define FLD_PL_IN_BASE_ADDR_3_13     0x6EC
-#define FLD_PL_IN_BASE_ADDR_3_14     0x6F0
-#define FLD_PL_IN_BASE_ADDR_3_15     0x6F4
-#define FLD_PL_IN_BASE_ADDR_3_16     0x6F8
-#define FLD_PL_IN_BASE_ADDR_3_17     0x6FC
-#define FLD_PL_IN_BASE_ADDR_3_18     0x700
-#define FLD_PL_IN_BASE_ADDR_3_19     0x704
-#define FLD_PL_IN_BASE_ADDR_3_20     0x708
-#define FLD_PL_IN_BASE_ADDR_3_21     0x70C
-#define FLD_PL_IN_BASE_ADDR_3_22     0x710
-#define FLD_PL_IN_BASE_ADDR_3_23     0x714
-#define FLD_PL_IN_BASE_ADDR_3_24     0x718
-#define FLD_PL_IN_BASE_ADDR_3_25     0x71C
-#define FLD_PL_IN_BASE_ADDR_3_26     0x720
-#define FLD_PL_IN_BASE_ADDR_3_27     0x724
-#define FLD_PL_IN_BASE_ADDR_3_28     0x728
-#define FLD_PL_IN_BASE_ADDR_3_29     0x72C
-
-#define FLD_PL_IN_SIZE_0             0x730
-#define FLD_PL_IN_STRIDE_0           0x734
-#define FLD_PL_IN_SIZE_1             0x738
-#define FLD_PL_IN_STRIDE_1           0x73C
-#define FLD_PL_IN_SIZE_2_0           0x740
-#define FLD_PL_IN_STRIDE_2_0         0x744
-#define FLD_PL_IN_SIZE_2_1           0x748
-#define FLD_PL_IN_STRIDE_2_1         0x74C
-#define FLD_PL_IN_SIZE_2_2           0x750
-#define FLD_PL_IN_STRIDE_2_2         0x754
-#define FLD_PL_IN_SIZE_3             0x758
-#define FLD_PL_IN_STRIDE_3           0x75C
-
-#define FLD_SH_IN_BASE_ADDR_0        0x760
-#define FLD_SH_IN_BASE_ADDR_1        0x764
-#define FLD_SH_IN_BASE_ADDR_2        0x768
-#define FLD_SH_IN_BASE_ADDR_3        0x76C
-#define FLD_SH_IN_BASE_ADDR_4        0x770
-#define FLD_SH_IN_BASE_ADDR_5        0x774
-#define FLD_SH_IN_BASE_ADDR_6        0x778
-#define FLD_SH_IN_BASE_ADDR_7        0x77C
-#define FLD_SH_IN_BASE_ADDR_8        0x780
-#define FLD_SH_IN_BASE_ADDR_9        0x784
-#define FLD_SH_IN_BASE_ADDR_10       0x788
-#define FLD_SH_IN_BASE_ADDR_11       0x78C
-#define FLD_SH_IN_BASE_ADDR_12       0x790
-#define FLD_SH_IN_BASE_ADDR_13       0x794
-#define FLD_SH_IN_BASE_ADDR_14       0x798
-#define FLD_SH_IN_BASE_ADDR_15       0x79C
-#define FLD_SH_IN_BASE_ADDR_16       0x7A0
-#define FLD_SH_IN_BASE_ADDR_17       0x7A4
-#define FLD_SH_IN_BASE_ADDR_18       0x7A8
-#define FLD_SH_IN_BASE_ADDR_19       0x7AC
-#define FLD_SH_IN_BASE_ADDR_20       0x7B0
-#define FLD_SH_IN_BASE_ADDR_21       0x7B4
-#define FLD_SH_IN_BASE_ADDR_22       0x7B8
-#define FLD_SH_IN_BASE_ADDR_23       0x7BC
-#define FLD_SH_IN_BASE_ADDR_24       0x7C0
-#define FLD_SH_IN_BASE_ADDR_25       0x7C4
-#define FLD_SH_IN_BASE_ADDR_26       0x7C8
-#define FLD_SH_IN_BASE_ADDR_27       0x7CC
-#define FLD_SH_IN_BASE_ADDR_28       0x7D0
-#define FLD_SH_IN_BASE_ADDR_29       0x7D4
-
-#define FLD_SH_IN_SIZE_0             0x7D8
-#define FLD_SH_IN_STRIDE_0           0x7DC
-#define FLD_TR_OUT_BASE_ADDR_0       0x7E0
-#define FLD_TR_OUT_SIZE_0            0x7E4
-#define FLD_TR_OUT_STRIDE_0          0x7E8
-#define FLD_PP_OUT_BASE_ADDR_0       0x7EC
-#define FLD_PP_OUT_SIZE_0            0x7F0
-#define FLD_PP_OUT_STRIDE_0          0x7F4
-#define FLD_SPARE                    0x7F8
-
-#define FLD_BASE_ADDR_FACE_0_7_MSB 0x7FC
-#define FLD_BASE_ADDR_FACE_8_14_MSB 0x800
-
-#define FLD_PL_IN_BASE_ADDR_0_0_7_MSB 0x804
-#define FLD_PL_IN_BASE_ADDR_0_8_15_MSB 0x808
-#define FLD_PL_IN_BASE_ADDR_0_16_23_MSB 0x80C
-#define FLD_PL_IN_BASE_ADDR_0_24_29_MSB 0x810
-
-#define FLD_PL_IN_BASE_ADDR_1_0_7_MSB 0x814
-#define FLD_PL_IN_BASE_ADDR_1_8_15_MSB 0x818
-#define FLD_PL_IN_BASE_ADDR_1_16_23_MSB 0x81C
-#define FLD_PL_IN_BASE_ADDR_1_24_29_MSB 0x820
-
-#define FLD_PL_IN_BASE_ADDR_2_0_7_MSB 0x824
-#define FLD_PL_IN_BASE_ADDR_2_8_15_MSB 0x828
-#define FLD_PL_IN_BASE_ADDR_2_16_23_MSB 0x82C
-#define FLD_PL_IN_BASE_ADDR_2_24_29_MSB 0x830
-
-#define FLD_PL_IN_BASE_ADDR_3_0_7_MSB 0x834
-#define FLD_PL_IN_BASE_ADDR_3_8_15_MSB 0x838
-#define FLD_PL_IN_BASE_ADDR_3_16_23_MSB 0x83C
-#define FLD_PL_IN_BASE_ADDR_3_24_29_MSB 0x840
-
-#define FLD_SH_IN_BASE_ADDR_0_7_MSB 0x844
-#define FLD_SH_IN_BASE_ADDR_8_15_MSB 0x848
-#define FLD_SH_IN_BASE_ADDR_16_23_MSB 0x84C
-#define FLD_SH_IN_BASE_ADDR_24_29_MSB 0x850
-
-#define FLD_BS_IN_BASE_ADDR_0_7_MSB 0x8d4
-#define FLD_BS_IN_BASE_ADDR_8_15_MSB 0x8d8
-
-#define FLD_TR_OUT_BASE_ADDR_0_MSB 0x854
-#define FLD_PP_OUT_BASE_ADDR_0_MSB 0x858
-
-#define FLD_BS_IN_BASE_ADDR_00       0x85C
-#define FLD_BS_IN_BASE_ADDR_01       0x860
-#define FLD_BS_IN_BASE_ADDR_02       0x864
-#define FLD_BS_IN_BASE_ADDR_03       0x868
-#define FLD_BS_IN_BASE_ADDR_04       0x86C
-#define FLD_BS_IN_BASE_ADDR_05       0x870
-#define FLD_BS_IN_BASE_ADDR_06       0x874
-#define FLD_BS_IN_BASE_ADDR_07       0x878
-#define FLD_BS_IN_BASE_ADDR_08       0x87C
-#define FLD_BS_IN_BASE_ADDR_09       0x880
-#define FLD_BS_IN_BASE_ADDR_10       0x884
-#define FLD_BS_IN_BASE_ADDR_11       0x888
-#define FLD_BS_IN_BASE_ADDR_12       0x88C
-#define FLD_BS_IN_BASE_ADDR_13       0x890
-#define FLD_BS_IN_BASE_ADDR_14       0x894
-#define FLD_BS_BIAS                  0x8E4
-#define FLD_CV_FM_RANGE_0            0x8E8
-#define FLD_CV_FM_RANGE_1            0x8EC
-#define FLD_CV_PM_RANGE_0            0x8F0
-#define FLD_CV_PM_RANGE_1            0x8F4
-#define FLD_BS_RANGE_0               0x8F8
-#define FLD_BS_RANGE_1               0x8FC
+#define FLD_PCA_MEAN_SCALE_0	0x4B0
+#define FLD_PCA_MEAN_SCALE_1	0x4B4
+#define FLD_PCA_MEAN_SCALE_2	0x4B8
+#define FLD_PCA_MEAN_SCALE_3	0x4BC
+#define FLD_PCA_MEAN_SCALE_4	0x4C0
+#define FLD_PCA_MEAN_SCALE_5	0x4C4
+#define FLD_PCA_MEAN_SCALE_6	0x4C8
+#define FLD_PCA_VEC_0			0x4CC
+#define FLD_PCA_VEC_1			0x4D0
+#define FLD_PCA_VEC_2			0x4D4
+#define FLD_PCA_VEC_3			0x4D8
+#define FLD_PCA_VEC_4			0x4DC
+#define FLD_PCA_VEC_5			0x4E0
+#define FLD_PCA_VEC_6			0x4E4
+#define FLD_CV_BIAS_FR_0		0x4E8
+#define FLD_CV_BIAS_PF_0		0x4EC
+#define FLD_CV_RANGE_FR_0		0x4F0
+#define FLD_CV_RANGE_FR_1		0x4F4
+#define FLD_CV_RANGE_PF_0		0x4F8
+#define FLD_CV_RANGE_PF_1		0x4FC
+#define FLD_PP_COEF				0x500
+#define FLD_SRC_SIZE			0x504
+#define FLD_CMDQ_SRC_SIZE		(FDVT_BASE_HW + 0x504)
+#define FLD_SRC_PITCH			0x508
+#define FLD_CMDQ_SRC_PITCH		(FDVT_BASE_HW + 0x508)
+#define FLD_BS_CONFIG0			0x50C
+#define FLD_BS_CONFIG1			0x510
+#define FLD_BS_CONFIG2			0x514
+#define FLD_FLD_BUSY			0x518
+#define FLD_FLD_DONE			0x51C
+#define FLD_FLD_SECURE			0x520
+#define FLD_FLD_SECURE_W		0x524
+#define FLD_FLD_DBG_SEL			0x528
+#define FLD_FLD_STM_DBG_DATA0	0x52C
+#define FLD_FLD_STM_DBG_DATA1	0x530
+#define FLD_FLD_STM_DBG_DATA2	0x534
+#define FLD_FLD_STM_DBG_DATA3	0x538
+#define FLD_FLD_SH_DBG_DATA0	0x53C
+#define FLD_FLD_SH_DBG_DATA1	0x540
+#define FLD_FLD_SH_DBG_DATA2	0x544
+#define FLD_FLD_SH_DBG_DATA3	0x548
+#define FLD_FLD_SH_DBG_DATA4	0x54C
+#define FLD_FLD_SH_DBG_DATA5	0x550
+#define FLD_FLD_SH_DBG_DATA6	0x554
+#define FLD_FLD_SH_DBG_DATA7	0x558
 
 #define MTK_FD_OUTPUT_MIN_WIDTH 0U
 #define MTK_FD_OUTPUT_MIN_HEIGHT 0U
@@ -753,68 +559,36 @@
 
 extern struct mtk_aie_user_para g_user_param;
 
-static const unsigned int fld_face_info_0[FLD_MAX_INPUT] = {
-	FLD_INFO_0_FACE_0, FLD_INFO_0_FACE_1, FLD_INFO_0_FACE_2,
-	FLD_INFO_0_FACE_3, FLD_INFO_0_FACE_4, FLD_INFO_0_FACE_5,
-	FLD_INFO_0_FACE_6, FLD_INFO_0_FACE_7, FLD_INFO_0_FACE_8,
-	FLD_INFO_0_FACE_9, FLD_INFO_0_FACE_10, FLD_INFO_0_FACE_11,
-	FLD_INFO_0_FACE_12, FLD_INFO_0_FACE_13, FLD_INFO_0_FACE_14
+static const unsigned int fld_face_info_idx_0[FLD_MAX_INPUT] = {
+	FLD_FACE_0_INFO_0, FLD_FACE_1_INFO_0, FLD_FACE_2_INFO_0,
+	FLD_FACE_3_INFO_0, FLD_FACE_4_INFO_0, FLD_FACE_5_INFO_0,
+	FLD_FACE_6_INFO_0, FLD_FACE_7_INFO_0, FLD_FACE_8_INFO_0,
+	FLD_FACE_9_INFO_0, FLD_FACE_10_INFO_0, FLD_FACE_11_INFO_0,
+	FLD_FACE_12_INFO_0, FLD_FACE_13_INFO_0, FLD_FACE_14_INFO_0
 };
 
-static const unsigned int fld_face_info_1[FLD_MAX_INPUT] = {
-	FLD_INFO_1_FACE_0, FLD_INFO_1_FACE_1, FLD_INFO_1_FACE_2,
-	FLD_INFO_1_FACE_3, FLD_INFO_1_FACE_4, FLD_INFO_1_FACE_5,
-	FLD_INFO_1_FACE_6, FLD_INFO_1_FACE_7, FLD_INFO_1_FACE_8,
-	FLD_INFO_1_FACE_9, FLD_INFO_1_FACE_10, FLD_INFO_1_FACE_11,
-	FLD_INFO_1_FACE_12, FLD_INFO_1_FACE_13, FLD_INFO_1_FACE_14
+static const unsigned int fld_face_info_idx_1[FLD_MAX_INPUT] = {
+	FLD_FACE_0_INFO_1, FLD_FACE_1_INFO_1, FLD_FACE_2_INFO_1,
+	FLD_FACE_3_INFO_1, FLD_FACE_4_INFO_1, FLD_FACE_5_INFO_1,
+	FLD_FACE_6_INFO_1, FLD_FACE_7_INFO_1, FLD_FACE_8_INFO_1,
+	FLD_FACE_9_INFO_1, FLD_FACE_10_INFO_1, FLD_FACE_11_INFO_1,
+	FLD_FACE_12_INFO_1, FLD_FACE_13_INFO_1, FLD_FACE_14_INFO_1
 };
 
-static const unsigned int fld_face_info_2[FLD_MAX_INPUT] = {
-	FLD_INFO_2_FACE_0, FLD_INFO_2_FACE_1, FLD_INFO_2_FACE_2,
-	FLD_INFO_2_FACE_3, FLD_INFO_2_FACE_4, FLD_INFO_2_FACE_5,
-	FLD_INFO_2_FACE_6, FLD_INFO_2_FACE_7, FLD_INFO_2_FACE_8,
-	FLD_INFO_2_FACE_9, FLD_INFO_2_FACE_10, FLD_INFO_2_FACE_11,
-	FLD_INFO_2_FACE_12, FLD_INFO_2_FACE_13, FLD_INFO_2_FACE_14
+static const unsigned int fld_face_info_cmdq_idx_0[FLD_MAX_INPUT] = {
+	FLD_CMDQ_FACE_0_INFO_0, FLD_CMDQ_FACE_1_INFO_0, FLD_CMDQ_FACE_2_INFO_0,
+	FLD_CMDQ_FACE_3_INFO_0, FLD_CMDQ_FACE_4_INFO_0, FLD_CMDQ_FACE_5_INFO_0,
+	FLD_CMDQ_FACE_6_INFO_0, FLD_CMDQ_FACE_7_INFO_0, FLD_CMDQ_FACE_8_INFO_0,
+	FLD_CMDQ_FACE_9_INFO_0, FLD_CMDQ_FACE_10_INFO_0, FLD_CMDQ_FACE_11_INFO_0,
+	FLD_CMDQ_FACE_12_INFO_0, FLD_CMDQ_FACE_13_INFO_0, FLD_CMDQ_FACE_14_INFO_0
 };
 
-static const unsigned int fld_pl_in_addr_0[FLD_MAX_INPUT] = {
-	FLD_PL_IN_BASE_ADDR_0_0, FLD_PL_IN_BASE_ADDR_0_1, FLD_PL_IN_BASE_ADDR_0_2,
-	FLD_PL_IN_BASE_ADDR_0_3, FLD_PL_IN_BASE_ADDR_0_4, FLD_PL_IN_BASE_ADDR_0_5,
-	FLD_PL_IN_BASE_ADDR_0_6, FLD_PL_IN_BASE_ADDR_0_7, FLD_PL_IN_BASE_ADDR_0_8,
-	FLD_PL_IN_BASE_ADDR_0_9, FLD_PL_IN_BASE_ADDR_0_10, FLD_PL_IN_BASE_ADDR_0_11,
-	FLD_PL_IN_BASE_ADDR_0_12, FLD_PL_IN_BASE_ADDR_0_13, FLD_PL_IN_BASE_ADDR_0_14
-};
-
-static const unsigned int fld_pl_in_addr_1[FLD_MAX_INPUT] = {
-	FLD_PL_IN_BASE_ADDR_1_0, FLD_PL_IN_BASE_ADDR_1_1, FLD_PL_IN_BASE_ADDR_1_2,
-	FLD_PL_IN_BASE_ADDR_1_3, FLD_PL_IN_BASE_ADDR_1_4, FLD_PL_IN_BASE_ADDR_1_5,
-	FLD_PL_IN_BASE_ADDR_1_6, FLD_PL_IN_BASE_ADDR_1_7, FLD_PL_IN_BASE_ADDR_1_8,
-	FLD_PL_IN_BASE_ADDR_1_9, FLD_PL_IN_BASE_ADDR_1_10, FLD_PL_IN_BASE_ADDR_1_11,
-	FLD_PL_IN_BASE_ADDR_1_12, FLD_PL_IN_BASE_ADDR_1_13, FLD_PL_IN_BASE_ADDR_1_14
-};
-
-static const unsigned int fld_pl_in_addr_2[FLD_MAX_INPUT] = {
-	FLD_PL_IN_BASE_ADDR_2_0, FLD_PL_IN_BASE_ADDR_2_1, FLD_PL_IN_BASE_ADDR_2_2,
-	FLD_PL_IN_BASE_ADDR_2_3, FLD_PL_IN_BASE_ADDR_2_4, FLD_PL_IN_BASE_ADDR_2_5,
-	FLD_PL_IN_BASE_ADDR_2_6, FLD_PL_IN_BASE_ADDR_2_7, FLD_PL_IN_BASE_ADDR_2_8,
-	FLD_PL_IN_BASE_ADDR_2_9, FLD_PL_IN_BASE_ADDR_2_10, FLD_PL_IN_BASE_ADDR_2_11,
-	FLD_PL_IN_BASE_ADDR_2_12, FLD_PL_IN_BASE_ADDR_2_13, FLD_PL_IN_BASE_ADDR_2_14
-};
-
-static const unsigned int fld_pl_in_addr_3[FLD_MAX_INPUT] = {
-	FLD_PL_IN_BASE_ADDR_3_0, FLD_PL_IN_BASE_ADDR_3_1, FLD_PL_IN_BASE_ADDR_3_2,
-	FLD_PL_IN_BASE_ADDR_3_3, FLD_PL_IN_BASE_ADDR_3_4, FLD_PL_IN_BASE_ADDR_3_5,
-	FLD_PL_IN_BASE_ADDR_3_6, FLD_PL_IN_BASE_ADDR_3_7, FLD_PL_IN_BASE_ADDR_3_8,
-	FLD_PL_IN_BASE_ADDR_3_9, FLD_PL_IN_BASE_ADDR_3_10, FLD_PL_IN_BASE_ADDR_3_11,
-	FLD_PL_IN_BASE_ADDR_3_12, FLD_PL_IN_BASE_ADDR_3_13, FLD_PL_IN_BASE_ADDR_3_14
-};
-
-static const unsigned int fld_sh_in_addr[FLD_MAX_INPUT] = {
-	FLD_SH_IN_BASE_ADDR_0, FLD_SH_IN_BASE_ADDR_1, FLD_SH_IN_BASE_ADDR_2,
-	FLD_SH_IN_BASE_ADDR_3, FLD_SH_IN_BASE_ADDR_4, FLD_SH_IN_BASE_ADDR_5,
-	FLD_SH_IN_BASE_ADDR_6, FLD_SH_IN_BASE_ADDR_7, FLD_SH_IN_BASE_ADDR_8,
-	FLD_SH_IN_BASE_ADDR_9, FLD_SH_IN_BASE_ADDR_10, FLD_SH_IN_BASE_ADDR_11,
-	FLD_SH_IN_BASE_ADDR_12, FLD_SH_IN_BASE_ADDR_13, FLD_SH_IN_BASE_ADDR_14
+static const unsigned int fld_face_info_cmdq_idx_1[FLD_MAX_INPUT] = {
+	FLD_CMDQ_FACE_0_INFO_1, FLD_CMDQ_FACE_1_INFO_1, FLD_CMDQ_FACE_2_INFO_1,
+	FLD_CMDQ_FACE_3_INFO_1, FLD_CMDQ_FACE_4_INFO_1, FLD_CMDQ_FACE_5_INFO_1,
+	FLD_CMDQ_FACE_6_INFO_1, FLD_CMDQ_FACE_7_INFO_1, FLD_CMDQ_FACE_8_INFO_1,
+	FLD_CMDQ_FACE_9_INFO_1, FLD_CMDQ_FACE_10_INFO_1, FLD_CMDQ_FACE_11_INFO_1,
+	FLD_CMDQ_FACE_12_INFO_1, FLD_CMDQ_FACE_13_INFO_1, FLD_CMDQ_FACE_14_INFO_1
 };
 
 struct aie_static_info {
@@ -838,7 +612,7 @@ enum aie_state {
 	STATE_INIT = 1
 };
 
-enum aie_mode { FDMODE = 0, ATTRIBUTEMODE = 1, POSEMODE = 2 };
+enum aie_mode { FDMODE = 0, ATTRIBUTEMODE = 1, POSEMODE = 2, FLDMODE = 3 };
 enum FLDROP { NORMAL = 0, RIGHT = 1, LEFT = 2 };
 enum FLDRIP { FLD_0 = 0, FLD_1 = 1, FLD_2 = 2, FLD_3 = 3, FLD_4 = 4, FLD_5 = 5, FLD_6 = 6,
 	FLD_7 = 7, FLD_8 = 8, FLD_9 = 9, FLD_10 = 10, FLD_11 = 11};
@@ -1050,7 +824,7 @@ struct aie_fd_dma_para {
 	void *fld_leafnode_va[FLD_MAX_INPUT];
 	void *fld_fp_va[FLD_MAX_INPUT];
 	void *fld_tree02_va[FLD_MAX_INPUT];
-	void *fld_tree13_va[FLD_MAX_INPUT];
+	void *fld_shape_va[FLD_MAX_INPUT];
 	void *fld_blink_weight_va;
 	void *fld_output_va;
 
@@ -1059,7 +833,7 @@ struct aie_fd_dma_para {
 	dma_addr_t fld_leafnode_pa[FLD_MAX_INPUT];
 	dma_addr_t fld_fp_pa[FLD_MAX_INPUT];
 	dma_addr_t fld_tree02_pa[FLD_MAX_INPUT];
-	dma_addr_t fld_tree13_pa[FLD_MAX_INPUT];
+	dma_addr_t fld_shape_pa[FLD_MAX_INPUT];
 	dma_addr_t fld_output_pa;
 
 	dma_addr_t fd_out_hw_pa[fd_loop_num][output_WDMA_WRA_num];
@@ -1163,6 +937,24 @@ struct ipesys_aie_clocks {
 	unsigned int clk_num;
 };
 
+struct mtk_aie_drv_ops {
+	void (*reset)(struct mtk_aie_dev *fd);
+	int (*alloc_buf)(struct mtk_aie_dev *fd);
+	int (*init)(struct mtk_aie_dev *fd);
+	void (*uninit)(struct mtk_aie_dev *fd);
+	int (*prepare)(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg);
+	void (*execute)(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg);
+	void (*get_fd_result)(struct mtk_aie_dev *fd,
+			struct aie_enq_info *aie_cfg);
+	void (*get_attr_result)(struct mtk_aie_dev *fd,
+			struct aie_enq_info *aie_cfg);
+	void (*get_fld_result)(struct mtk_aie_dev *fd,
+			struct aie_enq_info *aie_cfg);
+	void (*irq_handle)(struct mtk_aie_dev *fd);
+	void (*config_fld_buf_reg)(struct mtk_aie_dev *fd);
+	void (*fdvt_dump_reg)(struct mtk_aie_dev *fd);
+};
+
 struct mtk_aie_dev {
 	struct device *dev;
 	struct platform_device *img_pdev;
@@ -1175,13 +967,6 @@ struct mtk_aie_dev {
 	struct v4l2_m2m_dev *m2m_dev;
 	struct media_device mdev;
 	struct video_device vfd;
-	struct clk *vcore_gals;
-	struct clk *main_gals;
-	struct clk *img_ipe;
-	struct clk *ipe_fdvt;
-	struct clk *ipe_fdvt1;
-	struct clk *ipe_smi_larb12;
-	struct clk *ipe_top;
 	struct device *larb;
 
 	/* Lock for V4L2 operations */
@@ -1215,11 +1000,13 @@ struct mtk_aie_dev {
 	struct imem_buf_info fld_fp_hw;
 	struct imem_buf_info fld_leafnode_hw;
 	struct imem_buf_info fld_tree_02_hw;
-	struct imem_buf_info fld_tree_13_hw;
+	struct imem_buf_info fld_shape_hw;
 	struct imem_buf_info fld_blink_weight_hw;
 	struct imem_buf_info fld_output_hw;
 
-	/*MSB*/
+	/* Image information */
+	unsigned long long img_y;
+	unsigned long long img_uv;
 	unsigned int img_msb_y;
 	unsigned int img_msb_uv;
 
@@ -1265,6 +1052,9 @@ struct mtk_aie_dev {
 	wait_queue_head_t flushing_waitq;
 	atomic_t num_composing;
 
+	/* AIE driver operation */
+	const struct mtk_aie_drv_ops *drv_ops;
+
 	struct workqueue_struct *frame_done_wq;
 	struct mtk_aie_req_work req_work;
 };
@@ -1278,28 +1068,14 @@ struct mtk_aie_ctx {
 	struct v4l2_meta_format dst_fmt;
 };
 
+extern const struct mtk_aie_drv_ops aie_ops_isp71;
+extern const struct mtk_aie_drv_ops aie_ops_isp7s;
+
 /**************************************************************************/
 /*                   C L A S S    D E C L A R A T I O N                   */
 /**************************************************************************/
 
-void aie_reset(struct mtk_aie_dev *fd);
-int aie_alloc_aie_buf(struct mtk_aie_dev *fd);
-int aie_init(struct mtk_aie_dev *fd);
-void aie_uninit(struct mtk_aie_dev *fd);
-int aie_prepare(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg);
-void aie_execute(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg);
-void aie_execute_pose(struct mtk_aie_dev *fd);
-void aie_irqhandle(struct mtk_aie_dev *fd);
-void config_aie_cmdq_hw(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg);
 //void config_aie_cmdq_secure_init(struct mtk_aie_dev *fd);
 //void aie_enable_secure_domain(struct mtk_aie_dev *fd);
 //void aie_disable_secure_domain(struct mtk_aie_dev *fd);
-void aie_get_fd_result(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg);
-void aie_get_attr_result(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg);
-void aie_get_fld_result(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg);
-struct dma_buf *aie_imem_sec_alloc(struct mtk_aie_dev *fd, u32 size, bool IsSecure);
-unsigned long long aie_get_sec_iova(struct mtk_aie_dev *fd, struct dma_buf *my_dma_buf,
-					struct imem_buf_info *bufinfo);
-void *aie_get_va(struct mtk_aie_dev *fd, struct dma_buf *my_dma_buf, struct imem_buf_info *bufinfo);
-extern signed int fdvt_dump_reg(struct mtk_aie_dev *fd);
 #endif /*__MTK_AIE_H__*/

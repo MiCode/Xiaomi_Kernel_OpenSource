@@ -25,6 +25,394 @@
 #include <dt-bindings/memory/mt6983-larb-port.h>
 #endif
 
+/* AIE 3.0 FLD register offset */
+#define FLD_EN                       0x400
+#define FLD_BASE_ADDR_FACE_0         0x404
+#define FLD_BASE_ADDR_FACE_1         0x408
+#define FLD_BASE_ADDR_FACE_2         0x40C
+#define FLD_BASE_ADDR_FACE_3         0x410
+#define FLD_BASE_ADDR_FACE_4         0x414
+#define FLD_BASE_ADDR_FACE_5         0x418
+#define FLD_BASE_ADDR_FACE_6         0x41C
+#define FLD_BASE_ADDR_FACE_7         0x420
+#define FLD_BASE_ADDR_FACE_8         0x424
+#define FLD_BASE_ADDR_FACE_9         0x428
+#define FLD_BASE_ADDR_FACE_10        0x42C
+#define FLD_BASE_ADDR_FACE_11        0x430
+#define FLD_BASE_ADDR_FACE_12        0x434
+#define FLD_BASE_ADDR_FACE_13        0x438
+#define FLD_BASE_ADDR_FACE_14        0x43C
+
+#define FLD_INFO_0_FACE_0            0x440
+#define FLD_INFO_1_FACE_0            0x444
+#define FLD_INFO_2_FACE_0            0x448
+#define FLD_INFO_0_FACE_1            0x44C
+#define FLD_INFO_1_FACE_1            0x450
+#define FLD_INFO_2_FACE_1            0x454
+#define FLD_INFO_0_FACE_2            0x458
+#define FLD_INFO_1_FACE_2            0x45C
+#define FLD_INFO_2_FACE_2            0x460
+#define FLD_INFO_0_FACE_3            0x464
+#define FLD_INFO_1_FACE_3            0x468
+#define FLD_INFO_2_FACE_3            0x46C
+#define FLD_INFO_0_FACE_4            0x470
+#define FLD_INFO_1_FACE_4            0x474
+#define FLD_INFO_2_FACE_4            0x478
+#define FLD_INFO_0_FACE_5            0x47C
+#define FLD_INFO_1_FACE_5            0x480
+#define FLD_INFO_2_FACE_5            0x484
+#define FLD_INFO_0_FACE_6            0x488
+#define FLD_INFO_1_FACE_6            0x48C
+#define FLD_INFO_2_FACE_6            0x490
+#define FLD_INFO_0_FACE_7            0x494
+#define FLD_INFO_1_FACE_7            0x498
+
+#define FLD_INFO_2_FACE_7            0x4A0
+#define FLD_INFO_0_FACE_8            0x4A4
+#define FLD_INFO_1_FACE_8            0x4A8
+#define FLD_INFO_2_FACE_8            0x4AC
+#define FLD_INFO_0_FACE_9            0x4B0
+#define FLD_INFO_1_FACE_9            0x4B4
+#define FLD_INFO_2_FACE_9            0x4B8
+#define FLD_INFO_0_FACE_10           0x4BC
+#define FLD_INFO_1_FACE_10           0x4C0
+#define FLD_INFO_2_FACE_10           0x4C4
+#define FLD_INFO_0_FACE_11           0x4C8
+#define FLD_INFO_1_FACE_11           0x4CC
+#define FLD_INFO_2_FACE_11           0x4D0
+#define FLD_INFO_0_FACE_12           0x4D4
+#define FLD_INFO_1_FACE_12           0x4D8
+#define FLD_INFO_2_FACE_12           0x4DC
+#define FLD_INFO_0_FACE_13           0x4E0
+#define FLD_INFO_1_FACE_13           0x4E4
+#define FLD_INFO_2_FACE_13           0x4E8
+#define FLD_INFO_0_FACE_14           0x4EC
+#define FLD_INFO_1_FACE_14           0x4F0
+#define FLD_INFO_2_FACE_14           0x4F4
+
+#define FLD_MODEL_PARA0              0x4F8
+#define FLD_MODEL_PARA1              0x4FC
+#define FLD_MODEL_PARA2              0x500
+#define FLD_MODEL_PARA3              0x504
+#define FLD_MODEL_PARA4              0x508
+#define FLD_MODEL_PARA5              0x50C
+#define FLD_MODEL_PARA6              0x510
+#define FLD_MODEL_PARA7              0x514
+#define FLD_MODEL_PARA8              0x518
+#define FLD_MODEL_PARA9              0x51C
+#define FLD_MODEL_PARA10             0x520
+#define FLD_MODEL_PARA11             0x524
+#define FLD_MODEL_PARA12             0x528
+#define FLD_MODEL_PARA13             0x52C
+#define FLD_MODEL_PARA14             0x530
+#define FLD_MODEL_PARA15             0x534
+#define FLD_MODEL_PARA16             0x538
+#define FLD_DEBUG_INFO0              0x53C
+#define FLD_DEBUG_INFO1              0x540
+
+#define FLD_BUSY                     0x544
+#define FLD_DONE                     0x548
+#define FLD_SRC_WD_HT                0x54C
+
+#define FLD_PL_IN_BASE_ADDR_0_0      0x550
+#define FLD_PL_IN_BASE_ADDR_0_1      0x554
+#define FLD_PL_IN_BASE_ADDR_0_2      0x558
+#define FLD_PL_IN_BASE_ADDR_0_3      0x55C
+#define FLD_PL_IN_BASE_ADDR_0_4      0x560
+#define FLD_PL_IN_BASE_ADDR_0_5      0x564
+#define FLD_PL_IN_BASE_ADDR_0_6      0x568
+#define FLD_PL_IN_BASE_ADDR_0_7      0x56C
+#define FLD_PL_IN_BASE_ADDR_0_8      0x570
+#define FLD_PL_IN_BASE_ADDR_0_9      0x574
+#define FLD_PL_IN_BASE_ADDR_0_10     0x578
+#define FLD_PL_IN_BASE_ADDR_0_11     0x57C
+#define FLD_PL_IN_BASE_ADDR_0_12     0x580
+#define FLD_PL_IN_BASE_ADDR_0_13     0x584
+#define FLD_PL_IN_BASE_ADDR_0_14     0x588
+#define FLD_PL_IN_BASE_ADDR_0_15     0x58C
+#define FLD_PL_IN_BASE_ADDR_0_16     0x590
+#define FLD_PL_IN_BASE_ADDR_0_17     0x594
+#define FLD_PL_IN_BASE_ADDR_0_18     0x598
+#define FLD_PL_IN_BASE_ADDR_0_19     0x59C
+#define FLD_PL_IN_BASE_ADDR_0_20     0x5A0
+#define FLD_PL_IN_BASE_ADDR_0_21     0x5A4
+#define FLD_PL_IN_BASE_ADDR_0_22     0x5A8
+#define FLD_PL_IN_BASE_ADDR_0_23     0x5AC
+#define FLD_PL_IN_BASE_ADDR_0_24     0x5B0
+#define FLD_PL_IN_BASE_ADDR_0_25     0x5B4
+#define FLD_PL_IN_BASE_ADDR_0_26     0x5B8
+#define FLD_PL_IN_BASE_ADDR_0_27     0x5BC
+#define FLD_PL_IN_BASE_ADDR_0_28     0x5C0
+#define FLD_PL_IN_BASE_ADDR_0_29     0x5C4
+
+#define FLD_PL_IN_BASE_ADDR_1_0      0x5C8
+#define FLD_PL_IN_BASE_ADDR_1_1      0x5CC
+#define FLD_PL_IN_BASE_ADDR_1_2      0x5D0
+#define FLD_PL_IN_BASE_ADDR_1_3      0x5D4
+#define FLD_PL_IN_BASE_ADDR_1_4      0x5D8
+#define FLD_PL_IN_BASE_ADDR_1_5      0x5DC
+#define FLD_PL_IN_BASE_ADDR_1_6      0x5E0
+#define FLD_PL_IN_BASE_ADDR_1_7      0x5E4
+#define FLD_PL_IN_BASE_ADDR_1_8      0x5E8
+#define FLD_PL_IN_BASE_ADDR_1_9      0x5EC
+#define FLD_PL_IN_BASE_ADDR_1_10     0x5F0
+#define FLD_PL_IN_BASE_ADDR_1_11     0x5F4
+#define FLD_PL_IN_BASE_ADDR_1_12     0x5F8
+#define FLD_PL_IN_BASE_ADDR_1_13     0x5FC
+#define FLD_PL_IN_BASE_ADDR_1_14     0x600
+#define FLD_PL_IN_BASE_ADDR_1_15     0x604
+#define FLD_PL_IN_BASE_ADDR_1_16     0x608
+#define FLD_PL_IN_BASE_ADDR_1_17     0x60C
+#define FLD_PL_IN_BASE_ADDR_1_18     0x610
+#define FLD_PL_IN_BASE_ADDR_1_19     0x614
+#define FLD_PL_IN_BASE_ADDR_1_20     0x618
+#define FLD_PL_IN_BASE_ADDR_1_21     0x61C
+#define FLD_PL_IN_BASE_ADDR_1_22     0x620
+#define FLD_PL_IN_BASE_ADDR_1_23     0x624
+#define FLD_PL_IN_BASE_ADDR_1_24     0x628
+#define FLD_PL_IN_BASE_ADDR_1_25     0x62C
+#define FLD_PL_IN_BASE_ADDR_1_26     0x630
+#define FLD_PL_IN_BASE_ADDR_1_27     0x634
+#define FLD_PL_IN_BASE_ADDR_1_28     0x638
+#define FLD_PL_IN_BASE_ADDR_1_29     0x63C
+
+#define FLD_PL_IN_BASE_ADDR_2_0      0x640
+#define FLD_PL_IN_BASE_ADDR_2_1      0x644
+#define FLD_PL_IN_BASE_ADDR_2_2      0x648
+#define FLD_PL_IN_BASE_ADDR_2_3      0x64C
+#define FLD_PL_IN_BASE_ADDR_2_4      0x650
+#define FLD_PL_IN_BASE_ADDR_2_5      0x654
+#define FLD_PL_IN_BASE_ADDR_2_6      0x658
+#define FLD_PL_IN_BASE_ADDR_2_7      0x65C
+#define FLD_PL_IN_BASE_ADDR_2_8      0x660
+#define FLD_PL_IN_BASE_ADDR_2_9      0x664
+#define FLD_PL_IN_BASE_ADDR_2_10     0x668
+#define FLD_PL_IN_BASE_ADDR_2_11     0x66C
+#define FLD_PL_IN_BASE_ADDR_2_12     0x670
+#define FLD_PL_IN_BASE_ADDR_2_13     0x674
+#define FLD_PL_IN_BASE_ADDR_2_14     0x678
+#define FLD_PL_IN_BASE_ADDR_2_15     0x67C
+#define FLD_PL_IN_BASE_ADDR_2_16     0x680
+#define FLD_PL_IN_BASE_ADDR_2_17     0x684
+#define FLD_PL_IN_BASE_ADDR_2_18     0x688
+#define FLD_PL_IN_BASE_ADDR_2_19     0x68C
+#define FLD_PL_IN_BASE_ADDR_2_20     0x690
+#define FLD_PL_IN_BASE_ADDR_2_21     0x694
+#define FLD_PL_IN_BASE_ADDR_2_22     0x698
+#define FLD_PL_IN_BASE_ADDR_2_23     0x69C
+#define FLD_PL_IN_BASE_ADDR_2_24     0x6A0
+#define FLD_PL_IN_BASE_ADDR_2_25     0x6A4
+#define FLD_PL_IN_BASE_ADDR_2_26     0x6A8
+#define FLD_PL_IN_BASE_ADDR_2_27     0x6AC
+#define FLD_PL_IN_BASE_ADDR_2_28     0x6B0
+#define FLD_PL_IN_BASE_ADDR_2_29     0x6B4
+
+#define FLD_PL_IN_BASE_ADDR_3_0      0x6B8
+#define FLD_PL_IN_BASE_ADDR_3_1      0x6BC
+#define FLD_PL_IN_BASE_ADDR_3_2      0x6C0
+#define FLD_PL_IN_BASE_ADDR_3_3      0x6C4
+#define FLD_PL_IN_BASE_ADDR_3_4      0x6C8
+#define FLD_PL_IN_BASE_ADDR_3_5      0x6CC
+#define FLD_PL_IN_BASE_ADDR_3_6      0x6D0
+#define FLD_PL_IN_BASE_ADDR_3_7      0x6D4
+#define FLD_PL_IN_BASE_ADDR_3_8      0x6D8
+#define FLD_PL_IN_BASE_ADDR_3_9      0x6DC
+#define FLD_PL_IN_BASE_ADDR_3_10     0x6E0
+#define FLD_PL_IN_BASE_ADDR_3_11     0x6E4
+#define FLD_PL_IN_BASE_ADDR_3_12     0x6E8
+#define FLD_PL_IN_BASE_ADDR_3_13     0x6EC
+#define FLD_PL_IN_BASE_ADDR_3_14     0x6F0
+#define FLD_PL_IN_BASE_ADDR_3_15     0x6F4
+#define FLD_PL_IN_BASE_ADDR_3_16     0x6F8
+#define FLD_PL_IN_BASE_ADDR_3_17     0x6FC
+#define FLD_PL_IN_BASE_ADDR_3_18     0x700
+#define FLD_PL_IN_BASE_ADDR_3_19     0x704
+#define FLD_PL_IN_BASE_ADDR_3_20     0x708
+#define FLD_PL_IN_BASE_ADDR_3_21     0x70C
+#define FLD_PL_IN_BASE_ADDR_3_22     0x710
+#define FLD_PL_IN_BASE_ADDR_3_23     0x714
+#define FLD_PL_IN_BASE_ADDR_3_24     0x718
+#define FLD_PL_IN_BASE_ADDR_3_25     0x71C
+#define FLD_PL_IN_BASE_ADDR_3_26     0x720
+#define FLD_PL_IN_BASE_ADDR_3_27     0x724
+#define FLD_PL_IN_BASE_ADDR_3_28     0x728
+#define FLD_PL_IN_BASE_ADDR_3_29     0x72C
+
+#define FLD_PL_IN_SIZE_0             0x730
+#define FLD_PL_IN_STRIDE_0           0x734
+#define FLD_PL_IN_SIZE_1             0x738
+#define FLD_PL_IN_STRIDE_1           0x73C
+#define FLD_PL_IN_SIZE_2_0           0x740
+#define FLD_PL_IN_STRIDE_2_0         0x744
+#define FLD_PL_IN_SIZE_2_1           0x748
+#define FLD_PL_IN_STRIDE_2_1         0x74C
+#define FLD_PL_IN_SIZE_2_2           0x750
+#define FLD_PL_IN_STRIDE_2_2         0x754
+#define FLD_PL_IN_SIZE_3             0x758
+#define FLD_PL_IN_STRIDE_3           0x75C
+
+#define FLD_SH_IN_BASE_ADDR_0        0x760
+#define FLD_SH_IN_BASE_ADDR_1        0x764
+#define FLD_SH_IN_BASE_ADDR_2        0x768
+#define FLD_SH_IN_BASE_ADDR_3        0x76C
+#define FLD_SH_IN_BASE_ADDR_4        0x770
+#define FLD_SH_IN_BASE_ADDR_5        0x774
+#define FLD_SH_IN_BASE_ADDR_6        0x778
+#define FLD_SH_IN_BASE_ADDR_7        0x77C
+#define FLD_SH_IN_BASE_ADDR_8        0x780
+#define FLD_SH_IN_BASE_ADDR_9        0x784
+#define FLD_SH_IN_BASE_ADDR_10       0x788
+#define FLD_SH_IN_BASE_ADDR_11       0x78C
+#define FLD_SH_IN_BASE_ADDR_12       0x790
+#define FLD_SH_IN_BASE_ADDR_13       0x794
+#define FLD_SH_IN_BASE_ADDR_14       0x798
+#define FLD_SH_IN_BASE_ADDR_15       0x79C
+#define FLD_SH_IN_BASE_ADDR_16       0x7A0
+#define FLD_SH_IN_BASE_ADDR_17       0x7A4
+#define FLD_SH_IN_BASE_ADDR_18       0x7A8
+#define FLD_SH_IN_BASE_ADDR_19       0x7AC
+#define FLD_SH_IN_BASE_ADDR_20       0x7B0
+#define FLD_SH_IN_BASE_ADDR_21       0x7B4
+#define FLD_SH_IN_BASE_ADDR_22       0x7B8
+#define FLD_SH_IN_BASE_ADDR_23       0x7BC
+#define FLD_SH_IN_BASE_ADDR_24       0x7C0
+#define FLD_SH_IN_BASE_ADDR_25       0x7C4
+#define FLD_SH_IN_BASE_ADDR_26       0x7C8
+#define FLD_SH_IN_BASE_ADDR_27       0x7CC
+#define FLD_SH_IN_BASE_ADDR_28       0x7D0
+#define FLD_SH_IN_BASE_ADDR_29       0x7D4
+
+#define FLD_SH_IN_SIZE_0             0x7D8
+#define FLD_SH_IN_STRIDE_0           0x7DC
+#define FLD_TR_OUT_BASE_ADDR_0       0x7E0
+#define FLD_TR_OUT_SIZE_0            0x7E4
+#define FLD_TR_OUT_STRIDE_0          0x7E8
+#define FLD_PP_OUT_BASE_ADDR_0       0x7EC
+#define FLD_PP_OUT_SIZE_0            0x7F0
+#define FLD_PP_OUT_STRIDE_0          0x7F4
+#define FLD_SPARE                    0x7F8
+
+#define FLD_BASE_ADDR_FACE_0_7_MSB 0x7FC
+#define FLD_BASE_ADDR_FACE_8_14_MSB 0x800
+
+#define FLD_PL_IN_BASE_ADDR_0_0_7_MSB 0x804
+#define FLD_PL_IN_BASE_ADDR_0_8_15_MSB 0x808
+#define FLD_PL_IN_BASE_ADDR_0_16_23_MSB 0x80C
+#define FLD_PL_IN_BASE_ADDR_0_24_29_MSB 0x810
+
+#define FLD_PL_IN_BASE_ADDR_1_0_7_MSB 0x814
+#define FLD_PL_IN_BASE_ADDR_1_8_15_MSB 0x818
+#define FLD_PL_IN_BASE_ADDR_1_16_23_MSB 0x81C
+#define FLD_PL_IN_BASE_ADDR_1_24_29_MSB 0x820
+
+#define FLD_PL_IN_BASE_ADDR_2_0_7_MSB 0x824
+#define FLD_PL_IN_BASE_ADDR_2_8_15_MSB 0x828
+#define FLD_PL_IN_BASE_ADDR_2_16_23_MSB 0x82C
+#define FLD_PL_IN_BASE_ADDR_2_24_29_MSB 0x830
+
+#define FLD_PL_IN_BASE_ADDR_3_0_7_MSB 0x834
+#define FLD_PL_IN_BASE_ADDR_3_8_15_MSB 0x838
+#define FLD_PL_IN_BASE_ADDR_3_16_23_MSB 0x83C
+#define FLD_PL_IN_BASE_ADDR_3_24_29_MSB 0x840
+
+#define FLD_SH_IN_BASE_ADDR_0_7_MSB 0x844
+#define FLD_SH_IN_BASE_ADDR_8_15_MSB 0x848
+#define FLD_SH_IN_BASE_ADDR_16_23_MSB 0x84C
+#define FLD_SH_IN_BASE_ADDR_24_29_MSB 0x850
+
+#define FLD_BS_IN_BASE_ADDR_0_7_MSB 0x8d4
+#define FLD_BS_IN_BASE_ADDR_8_15_MSB 0x8d8
+
+#define FLD_TR_OUT_BASE_ADDR_0_MSB 0x854
+#define FLD_PP_OUT_BASE_ADDR_0_MSB 0x858
+
+#define FLD_BS_IN_BASE_ADDR_00       0x85C
+#define FLD_BS_IN_BASE_ADDR_01       0x860
+#define FLD_BS_IN_BASE_ADDR_02       0x864
+#define FLD_BS_IN_BASE_ADDR_03       0x868
+#define FLD_BS_IN_BASE_ADDR_04       0x86C
+#define FLD_BS_IN_BASE_ADDR_05       0x870
+#define FLD_BS_IN_BASE_ADDR_06       0x874
+#define FLD_BS_IN_BASE_ADDR_07       0x878
+#define FLD_BS_IN_BASE_ADDR_08       0x87C
+#define FLD_BS_IN_BASE_ADDR_09       0x880
+#define FLD_BS_IN_BASE_ADDR_10       0x884
+#define FLD_BS_IN_BASE_ADDR_11       0x888
+#define FLD_BS_IN_BASE_ADDR_12       0x88C
+#define FLD_BS_IN_BASE_ADDR_13       0x890
+#define FLD_BS_IN_BASE_ADDR_14       0x894
+#define FLD_BS_BIAS                  0x8E4
+#define FLD_CV_FM_RANGE_0            0x8E8
+#define FLD_CV_FM_RANGE_1            0x8EC
+#define FLD_CV_PM_RANGE_0            0x8F0
+#define FLD_CV_PM_RANGE_1            0x8F4
+#define FLD_BS_RANGE_0               0x8F8
+#define FLD_BS_RANGE_1               0x8FC
+
+static const unsigned int fld_face_info_0[FLD_MAX_INPUT] = {
+	FLD_INFO_0_FACE_0, FLD_INFO_0_FACE_1, FLD_INFO_0_FACE_2,
+	FLD_INFO_0_FACE_3, FLD_INFO_0_FACE_4, FLD_INFO_0_FACE_5,
+	FLD_INFO_0_FACE_6, FLD_INFO_0_FACE_7, FLD_INFO_0_FACE_8,
+	FLD_INFO_0_FACE_9, FLD_INFO_0_FACE_10, FLD_INFO_0_FACE_11,
+	FLD_INFO_0_FACE_12, FLD_INFO_0_FACE_13, FLD_INFO_0_FACE_14
+};
+
+static const unsigned int fld_face_info_1[FLD_MAX_INPUT] = {
+	FLD_INFO_1_FACE_0, FLD_INFO_1_FACE_1, FLD_INFO_1_FACE_2,
+	FLD_INFO_1_FACE_3, FLD_INFO_1_FACE_4, FLD_INFO_1_FACE_5,
+	FLD_INFO_1_FACE_6, FLD_INFO_1_FACE_7, FLD_INFO_1_FACE_8,
+	FLD_INFO_1_FACE_9, FLD_INFO_1_FACE_10, FLD_INFO_1_FACE_11,
+	FLD_INFO_1_FACE_12, FLD_INFO_1_FACE_13, FLD_INFO_1_FACE_14
+};
+
+static const unsigned int fld_face_info_2[FLD_MAX_INPUT] = {
+	FLD_INFO_2_FACE_0, FLD_INFO_2_FACE_1, FLD_INFO_2_FACE_2,
+	FLD_INFO_2_FACE_3, FLD_INFO_2_FACE_4, FLD_INFO_2_FACE_5,
+	FLD_INFO_2_FACE_6, FLD_INFO_2_FACE_7, FLD_INFO_2_FACE_8,
+	FLD_INFO_2_FACE_9, FLD_INFO_2_FACE_10, FLD_INFO_2_FACE_11,
+	FLD_INFO_2_FACE_12, FLD_INFO_2_FACE_13, FLD_INFO_2_FACE_14
+};
+
+static const unsigned int fld_pl_in_addr_0[FLD_MAX_INPUT] = {
+	FLD_PL_IN_BASE_ADDR_0_0, FLD_PL_IN_BASE_ADDR_0_1, FLD_PL_IN_BASE_ADDR_0_2,
+	FLD_PL_IN_BASE_ADDR_0_3, FLD_PL_IN_BASE_ADDR_0_4, FLD_PL_IN_BASE_ADDR_0_5,
+	FLD_PL_IN_BASE_ADDR_0_6, FLD_PL_IN_BASE_ADDR_0_7, FLD_PL_IN_BASE_ADDR_0_8,
+	FLD_PL_IN_BASE_ADDR_0_9, FLD_PL_IN_BASE_ADDR_0_10, FLD_PL_IN_BASE_ADDR_0_11,
+	FLD_PL_IN_BASE_ADDR_0_12, FLD_PL_IN_BASE_ADDR_0_13, FLD_PL_IN_BASE_ADDR_0_14
+};
+
+static const unsigned int fld_pl_in_addr_1[FLD_MAX_INPUT] = {
+	FLD_PL_IN_BASE_ADDR_1_0, FLD_PL_IN_BASE_ADDR_1_1, FLD_PL_IN_BASE_ADDR_1_2,
+	FLD_PL_IN_BASE_ADDR_1_3, FLD_PL_IN_BASE_ADDR_1_4, FLD_PL_IN_BASE_ADDR_1_5,
+	FLD_PL_IN_BASE_ADDR_1_6, FLD_PL_IN_BASE_ADDR_1_7, FLD_PL_IN_BASE_ADDR_1_8,
+	FLD_PL_IN_BASE_ADDR_1_9, FLD_PL_IN_BASE_ADDR_1_10, FLD_PL_IN_BASE_ADDR_1_11,
+	FLD_PL_IN_BASE_ADDR_1_12, FLD_PL_IN_BASE_ADDR_1_13, FLD_PL_IN_BASE_ADDR_1_14
+};
+
+static const unsigned int fld_pl_in_addr_2[FLD_MAX_INPUT] = {
+	FLD_PL_IN_BASE_ADDR_2_0, FLD_PL_IN_BASE_ADDR_2_1, FLD_PL_IN_BASE_ADDR_2_2,
+	FLD_PL_IN_BASE_ADDR_2_3, FLD_PL_IN_BASE_ADDR_2_4, FLD_PL_IN_BASE_ADDR_2_5,
+	FLD_PL_IN_BASE_ADDR_2_6, FLD_PL_IN_BASE_ADDR_2_7, FLD_PL_IN_BASE_ADDR_2_8,
+	FLD_PL_IN_BASE_ADDR_2_9, FLD_PL_IN_BASE_ADDR_2_10, FLD_PL_IN_BASE_ADDR_2_11,
+	FLD_PL_IN_BASE_ADDR_2_12, FLD_PL_IN_BASE_ADDR_2_13, FLD_PL_IN_BASE_ADDR_2_14
+};
+
+static const unsigned int fld_pl_in_addr_3[FLD_MAX_INPUT] = {
+	FLD_PL_IN_BASE_ADDR_3_0, FLD_PL_IN_BASE_ADDR_3_1, FLD_PL_IN_BASE_ADDR_3_2,
+	FLD_PL_IN_BASE_ADDR_3_3, FLD_PL_IN_BASE_ADDR_3_4, FLD_PL_IN_BASE_ADDR_3_5,
+	FLD_PL_IN_BASE_ADDR_3_6, FLD_PL_IN_BASE_ADDR_3_7, FLD_PL_IN_BASE_ADDR_3_8,
+	FLD_PL_IN_BASE_ADDR_3_9, FLD_PL_IN_BASE_ADDR_3_10, FLD_PL_IN_BASE_ADDR_3_11,
+	FLD_PL_IN_BASE_ADDR_3_12, FLD_PL_IN_BASE_ADDR_3_13, FLD_PL_IN_BASE_ADDR_3_14
+};
+
+static const unsigned int fld_sh_in_addr[FLD_MAX_INPUT] = {
+	FLD_SH_IN_BASE_ADDR_0, FLD_SH_IN_BASE_ADDR_1, FLD_SH_IN_BASE_ADDR_2,
+	FLD_SH_IN_BASE_ADDR_3, FLD_SH_IN_BASE_ADDR_4, FLD_SH_IN_BASE_ADDR_5,
+	FLD_SH_IN_BASE_ADDR_6, FLD_SH_IN_BASE_ADDR_7, FLD_SH_IN_BASE_ADDR_8,
+	FLD_SH_IN_BASE_ADDR_9, FLD_SH_IN_BASE_ADDR_10, FLD_SH_IN_BASE_ADDR_11,
+	FLD_SH_IN_BASE_ADDR_12, FLD_SH_IN_BASE_ADDR_13, FLD_SH_IN_BASE_ADDR_14
+};
+
 #define FDVT_USE_GCE 1
 #define FLD
 #define FLD_ALIGN 128
@@ -34,7 +422,7 @@
 
 #define AIE_ALIGN32(x) round_up(x, 32)
 
-struct cmdq_pkt *g_sec_pkt;
+//static struct cmdq_pkt *g_sec_pkt;
 static const unsigned int fd_wdma_en[fd_loop_num][output_WDMA_WRA_num] = {
 	{1, 0, 0, 0}, {1, 0, 1, 0}, {1, 0, 1, 0}, {1, 0, 0, 0}, {1, 1, 1, 1},
 	{1, 1, 1, 1}, {1, 0, 0, 0}, {1, 0, 1, 0}, {1, 1, 0, 0}, {1, 0, 0, 0},
@@ -351,7 +739,7 @@ static unsigned int attr_wdma_aligned_size[attr_loop_num][output_WDMA_WRA_num];
 
 
 #ifdef FDVT_TF_DUMP
-int FDVT_M4U_TranslationFault_callback(int port,
+static int FDVT_M4U_TranslationFault_callback(int port,
 							   unsigned int mva,
 							   void *data)
 {
@@ -371,6 +759,391 @@ int FDVT_M4U_TranslationFault_callback(int port,
 	return 1;
 }
 #endif
+
+static void FDVT_DumpDRAMOut(struct mtk_aie_dev *fd, unsigned int *hw, unsigned int size)
+{
+	unsigned int i;
+	unsigned int comparetimes = size / 4;
+
+	for (i = 0; i < comparetimes; i += 4) {
+		dev_info(fd->dev, "0x%08x, 0x%08x, 0x%08x, 0x%08x", hw[i],
+						hw[i + 1], hw[i + 2], hw[i + 3]);
+	}
+	dev_info(fd->dev, "Dump End");
+}
+
+static void aie_fdvt_dump_reg(struct mtk_aie_dev *fd)
+{
+	int fld_face_num = fd->aie_cfg->fld_face_num;
+	unsigned int loop_num = 1;
+	int i = 0;
+
+	if (fd->aie_cfg->sel_mode == 3) {
+		dev_info(fd->dev, "Blink Addr: %x\n", fd->dma_para->fld_blink_weight_pa);
+		for (i = 0; i < 15; i++) {
+			dev_info(fd->dev, "[%d]CV Addr: %x\n", i, fd->dma_para->fld_cv_pa[i]);
+			dev_info(fd->dev, "[%d]LEAFNODE Addr: %x\n", i,
+						fd->dma_para->fld_leafnode_pa[i]);
+			dev_info(fd->dev, "[%d]FP Addr: %x\n", i, fd->dma_para->fld_fp_pa[i]);
+			dev_info(fd->dev, "[%d]Tree02 Addr: %x\n", i,
+						fd->dma_para->fld_tree02_pa[i]);
+			dev_info(fd->dev, "[%d]Tree03 Addr: %x\n", i,
+						fd->dma_para->fld_shape_pa[i]);
+		}
+		dev_info(fd->dev, "OUT Addr: %x\n", fd->dma_para->fld_output_pa);
+
+		dev_info(fd->dev, "- E.");
+		dev_info(fd->dev, "FLD Config Info\n");
+		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)AIE_START_REG,
+					(unsigned int)readl(fd->fd_base + AIE_START_REG));
+
+		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)AIE_DMA_CTL_REG,
+					(unsigned int)readl(fd->fd_base + AIE_DMA_CTL_REG));
+		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)FLD_EN,
+					(unsigned int)readl(fd->fd_base + FLD_EN));
+
+		dev_info(fd->dev, "Width Hieght:\n");
+		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)FLD_SRC_WD_HT,
+					(unsigned int)readl(fd->fd_base + FLD_SRC_WD_HT));
+
+		dev_info(fd->dev, "FLD busy\n");
+		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)FLD_BUSY,
+					(unsigned int)readl(fd->fd_base + FLD_BUSY));
+
+		dev_info(fd->dev, "FLD done\n");
+		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)FLD_DONE,
+		(unsigned int)readl(fd->fd_base + FLD_DONE));
+					dev_info(fd->dev, "FLD Crop\n");
+
+		for (i = 0; i < fld_face_num; i++) {
+			dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)FLD_BASE_ADDR_FACE_0 +
+			i * 0x4, (unsigned int)readl(fd->fd_base + FLD_BASE_ADDR_FACE_0 + i * 0x4));
+
+			dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)fld_face_info_0[i],
+				(unsigned int)readl(fd->fd_base + fld_face_info_0[i]));
+
+			dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)fld_face_info_1[i],
+				(unsigned int)readl(fd->fd_base + fld_face_info_1[i]));
+
+			dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)fld_face_info_2[i],
+				(unsigned int)readl(fd->fd_base + fld_face_info_2[i]));
+		}
+		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_MODEL_PARA1,
+					(unsigned int)readl(fd->fd_base + FLD_MODEL_PARA1));
+		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_MODEL_PARA14,
+					(unsigned int)readl(fd->fd_base + FLD_MODEL_PARA14));
+
+		for (i = 0; i < FLD_MAX_INPUT; i++) {
+			dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) fld_pl_in_addr_0[i],
+					(unsigned int)readl(fd->fd_base + fld_pl_in_addr_0[i]));
+			dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) fld_pl_in_addr_1[i],
+					(unsigned int)readl(fd->fd_base + fld_pl_in_addr_1[i]));
+			dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) fld_pl_in_addr_2[i],
+					(unsigned int)readl(fd->fd_base + fld_pl_in_addr_2[i]));
+			dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) fld_pl_in_addr_3[i],
+					(unsigned int)readl(fd->fd_base + fld_pl_in_addr_3[i]));
+			dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) fld_sh_in_addr[i],
+					(unsigned int)readl(fd->fd_base + fld_sh_in_addr[i]));
+		}
+
+		dev_info(fd->dev, "MSB BIT\n");
+		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_PL_IN_BASE_ADDR_0_0_7_MSB,
+				(unsigned int)readl(fd->fd_base + FLD_PL_IN_BASE_ADDR_0_0_7_MSB));
+		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_PL_IN_BASE_ADDR_0_8_15_MSB,
+				(unsigned int)readl(fd->fd_base + FLD_PL_IN_BASE_ADDR_0_8_15_MSB));
+
+		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_PL_IN_BASE_ADDR_1_0_7_MSB,
+				(unsigned int)readl(fd->fd_base + FLD_PL_IN_BASE_ADDR_1_0_7_MSB));
+		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_PL_IN_BASE_ADDR_1_8_15_MSB,
+				(unsigned int)readl(fd->fd_base + FLD_PL_IN_BASE_ADDR_1_8_15_MSB));
+
+		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_PL_IN_BASE_ADDR_2_0_7_MSB,
+				(unsigned int)readl(fd->fd_base + FLD_PL_IN_BASE_ADDR_2_0_7_MSB));
+		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_PL_IN_BASE_ADDR_2_8_15_MSB,
+				(unsigned int)readl(fd->fd_base + FLD_PL_IN_BASE_ADDR_2_8_15_MSB));
+
+		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_PL_IN_BASE_ADDR_3_0_7_MSB,
+				(unsigned int)readl(fd->fd_base + FLD_PL_IN_BASE_ADDR_3_0_7_MSB));
+		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_PL_IN_BASE_ADDR_3_8_15_MSB,
+				(unsigned int)readl(fd->fd_base + FLD_PL_IN_BASE_ADDR_3_8_15_MSB));
+
+		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_SH_IN_BASE_ADDR_0_7_MSB,
+				(unsigned int)readl(fd->fd_base + FLD_SH_IN_BASE_ADDR_0_7_MSB));
+		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_SH_IN_BASE_ADDR_8_15_MSB,
+				(unsigned int)readl(fd->fd_base + FLD_SH_IN_BASE_ADDR_8_15_MSB));
+
+		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_BS_IN_BASE_ADDR_8_15_MSB,
+				(unsigned int)readl(fd->fd_base + FLD_BS_IN_BASE_ADDR_8_15_MSB));
+
+		dev_info(fd->dev, "OUT\n");
+
+		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_SH_IN_SIZE_0,
+				(unsigned int)readl(fd->fd_base + FLD_SH_IN_SIZE_0));
+		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_SH_IN_STRIDE_0,
+				(unsigned int)readl(fd->fd_base + FLD_SH_IN_STRIDE_0));
+
+		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_TR_OUT_BASE_ADDR_0,
+				(unsigned int)readl(fd->fd_base + FLD_TR_OUT_BASE_ADDR_0));
+		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_TR_OUT_SIZE_0,
+				(unsigned int)readl(fd->fd_base + FLD_TR_OUT_SIZE_0));
+
+		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_TR_OUT_STRIDE_0,
+				(unsigned int)readl(fd->fd_base + FLD_TR_OUT_STRIDE_0));
+		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_PP_OUT_BASE_ADDR_0,
+				(unsigned int)readl(fd->fd_base + FLD_PP_OUT_BASE_ADDR_0));
+
+		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_PP_OUT_SIZE_0,
+				(unsigned int)readl(fd->fd_base + FLD_PP_OUT_SIZE_0));
+		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_PP_OUT_STRIDE_0,
+				(unsigned int)readl(fd->fd_base + FLD_PP_OUT_STRIDE_0));
+
+		/*cv score*/
+		dev_info(fd->dev, "CV Score\n");
+		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_BS_BIAS,
+						(unsigned int)readl(fd->fd_base + FLD_BS_BIAS));
+		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_CV_FM_RANGE_0,
+					(unsigned int)readl(fd->fd_base + FLD_CV_FM_RANGE_0));
+		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_CV_FM_RANGE_1,
+					(unsigned int)readl(fd->fd_base + FLD_CV_FM_RANGE_1));
+
+		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_CV_PM_RANGE_0,
+					(unsigned int)readl(fd->fd_base + FLD_CV_PM_RANGE_0));
+		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_CV_PM_RANGE_1,
+					(unsigned int)readl(fd->fd_base + FLD_CV_PM_RANGE_1));
+
+		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_BS_RANGE_0,
+					(unsigned int)readl(fd->fd_base + FLD_BS_RANGE_0));
+		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_BS_RANGE_1,
+					(unsigned int)readl(fd->fd_base + FLD_BS_RANGE_1));
+
+		/*input settings*/
+		dev_info(fd->dev, "input settings\n");
+		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_PL_IN_SIZE_0,
+					(unsigned int)readl(fd->fd_base + FLD_PL_IN_SIZE_0));
+		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_PL_IN_STRIDE_0,
+					(unsigned int)readl(fd->fd_base + FLD_PL_IN_STRIDE_0));
+		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_PL_IN_SIZE_1,
+					(unsigned int)readl(fd->fd_base + FLD_PL_IN_SIZE_1));
+
+		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_PL_IN_STRIDE_1,
+					(unsigned int)readl(fd->fd_base + FLD_PL_IN_STRIDE_1));
+		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_PL_IN_SIZE_2_0,
+					(unsigned int)readl(fd->fd_base + FLD_PL_IN_SIZE_2_0));
+
+		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_PL_IN_STRIDE_2_0,
+					(unsigned int)readl(fd->fd_base + FLD_PL_IN_STRIDE_2_0));
+		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_PL_IN_SIZE_2_1,
+					(unsigned int)readl(fd->fd_base + FLD_PL_IN_SIZE_2_1));
+
+		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_PL_IN_STRIDE_2_1,
+					(unsigned int)readl(fd->fd_base + FLD_PL_IN_STRIDE_2_1));
+
+		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_PL_IN_SIZE_2_2,
+					(unsigned int)readl(fd->fd_base + FLD_PL_IN_SIZE_2_2));
+		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_PL_IN_STRIDE_2_2,
+					(unsigned int)readl(fd->fd_base + FLD_PL_IN_STRIDE_2_2));
+
+		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_PL_IN_SIZE_3,
+					(unsigned int)readl(fd->fd_base + FLD_PL_IN_SIZE_3));
+		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_PL_IN_STRIDE_3,
+					(unsigned int)readl(fd->fd_base + FLD_PL_IN_STRIDE_3));
+
+	} else {
+		dev_info(fd->dev, "- E.");
+		dev_info(fd->dev, "FDVT Config Info\n");
+		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)AIE_START_REG,
+		(unsigned int)readl(fd->fd_base + AIE_START_REG));
+		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)AIE_ENABLE_REG,
+			(unsigned int)readl(fd->fd_base + AIE_ENABLE_REG));
+		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)AIE_LOOP_REG,
+			(unsigned int)readl(fd->fd_base + AIE_LOOP_REG));
+		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)AIE_INT_EN_REG,
+			(unsigned int)readl(fd->fd_base + AIE_INT_EN_REG));
+		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)FDVT_SRC_WD_HT,
+			(unsigned int)readl(fd->fd_base + FDVT_SRC_WD_HT));
+		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)FDVT_DES_WD_HT,
+			(unsigned int)readl(fd->fd_base + FDVT_DES_WD_HT));
+		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)FDVT_DEBUG_INFO_0,
+			(unsigned int)readl(fd->fd_base + FDVT_DEBUG_INFO_0));
+		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)FDVT_DEBUG_INFO_1,
+			(unsigned int)readl(fd->fd_base + FDVT_DEBUG_INFO_1));
+		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)FDVT_YUV2RGB_CON,
+			(unsigned int)readl(fd->fd_base + FDVT_YUV2RGB_CON));
+		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)AIE_RS_CON_BASE_ADR_REG,
+			(unsigned int)readl(fd->fd_base + AIE_RS_CON_BASE_ADR_REG));
+		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)AIE_FD_CON_BASE_ADR_REG,
+			(unsigned int)readl(fd->fd_base + AIE_FD_CON_BASE_ADR_REG));
+		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)AIE_YUV2RGB_CON_BASE_ADR_REG,
+			(unsigned int)readl(fd->fd_base + AIE_YUV2RGB_CON_BASE_ADR_REG));
+		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)FDVT_IN_BASE_ADR_0,
+			(unsigned int)readl(fd->fd_base + FDVT_IN_BASE_ADR_0));
+		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)FDVT_IN_BASE_ADR_1,
+			(unsigned int)readl(fd->fd_base + FDVT_IN_BASE_ADR_1));
+		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)FDVT_IN_BASE_ADR_2,
+			(unsigned int)readl(fd->fd_base + FDVT_IN_BASE_ADR_2));
+		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)FDVT_IN_BASE_ADR_3,
+			(unsigned int)readl(fd->fd_base + FDVT_IN_BASE_ADR_3));
+		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)FDVT_OUT_BASE_ADR_0,
+			(unsigned int)readl(fd->fd_base + FDVT_OUT_BASE_ADR_0));
+		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)FDVT_OUT_BASE_ADR_1,
+			(unsigned int)readl(fd->fd_base + FDVT_OUT_BASE_ADR_1));
+		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)FDVT_OUT_BASE_ADR_2,
+			(unsigned int)readl(fd->fd_base + FDVT_OUT_BASE_ADR_2));
+		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)FDVT_OUT_BASE_ADR_3,
+			(unsigned int)readl(fd->fd_base + FDVT_OUT_BASE_ADR_3));
+		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)FDVT_KERNEL_BASE_ADR_0,
+			(unsigned int)readl(fd->fd_base + FDVT_KERNEL_BASE_ADR_0));
+		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)FDVT_KERNEL_BASE_ADR_1,
+			(unsigned int)readl(fd->fd_base + FDVT_KERNEL_BASE_ADR_1));
+
+		dev_info(fd->dev,
+			"fdmode_fdvt_yuv2rgb_config:	0x%x, fdmode_fdvt_yuv2rgb_config_size:	%d",
+			fd->base_para->fd_yuv2rgb_cfg_va, fd->fd_yuv2rgb_cfg_size);
+		FDVT_DumpDRAMOut(fd, (u32 *)fd->base_para->fd_yuv2rgb_cfg_va,
+								fd->fd_yuv2rgb_cfg_size);
+		dev_info(fd->dev,
+			"fdmode_fdvt_rs_config:	  0x%x, fdmode_fdvt_rs_config_size:	 %d",
+			fd->base_para->fd_rs_cfg_va, fd->fd_rs_cfg_size);
+		FDVT_DumpDRAMOut(fd, (u32 *)fd->base_para->fd_rs_cfg_va, fd->fd_rs_cfg_size);
+
+		loop_num = (unsigned int)readl(fd->fd_base + FDVT_DEBUG_INFO_0) & 0xFF;
+
+		dev_info(fd->dev,
+			"fdmode_fdvt_fd_config:	0x%x, fdmode_fdvt_fd_config_size:	%d",
+			(unsigned int *)fd->base_para->fd_fd_cfg_va,
+			((fd->fd_fd_cfg_aligned_size)/87) * loop_num);
+		FDVT_DumpDRAMOut(fd, (u32 *)fd->base_para->fd_fd_cfg_va,
+			((fd->fd_fd_cfg_aligned_size)/87) * loop_num);
+
+		dev_info(fd->dev, "FDVT DMA Debug Info\n");
+
+		writel(((unsigned int)readl(fd->fd_base + FDVT_CTRL_REG)) & 0xFFFFF00B,
+					fd->fd_base + DMA_DEBUG_SEL_REG); //0x3f4
+		writel(((unsigned int)readl(fd->fd_base + FDVT_CTRL_REG)) & 0xFFFF1FFF,
+					fd->fd_base + FDVT_CTRL_REG); //0x0098 bit[15:13] = 0
+		dev_info(fd->dev, "[FDVT_CTRL]: 0x%08X %08X\n",
+		  (fd->fd_base + FDVT_CTRL_REG),
+		  (unsigned int)readl(fd->fd_base + FDVT_CTRL_REG));
+		dev_info(fd->dev, "[FDVT_DEBUG_INFO_2 - %x]: 0x%08X %08X\n", i,
+			(fd->fd_base + FDVT_DEBUG_INFO_2),
+			(unsigned int)readl(fd->fd_base + FDVT_DEBUG_INFO_2));
+
+		writel(((unsigned int)readl(fd->fd_base + FDVT_CTRL_REG)) & 0xFFFFF00C,
+			fd->fd_base + DMA_DEBUG_SEL_REG);
+		writel(((unsigned int)readl(fd->fd_base + FDVT_CTRL_REG)) & 0xFFFF1FFF,
+			fd->fd_base + FDVT_CTRL_REG); //0x0098 bit[15:13] = 0
+		dev_info(fd->dev, "[FDVT_CTRL]: 0x%08X %08X\n",
+		  (fd->fd_base + FDVT_CTRL_REG),
+		  (unsigned int)readl(fd->fd_base + FDVT_CTRL_REG));
+		dev_info(fd->dev, "[FDVT_DEBUG_INFO_2 - %x]: 0x%08X %08X\n", i,
+			(fd->fd_base + FDVT_DEBUG_INFO_2),
+			(unsigned int)readl(fd->fd_base + FDVT_DEBUG_INFO_2));
+
+		writel(((unsigned int)readl(fd->fd_base + FDVT_CTRL_REG)) & 0xFFFFF00D,
+			fd->fd_base + DMA_DEBUG_SEL_REG);
+		writel(((unsigned int)readl(fd->fd_base + FDVT_CTRL_REG)) & 0xFFFF1FFF,
+			fd->fd_base + FDVT_CTRL_REG); //0x0098 bit[15:13] = 0
+		dev_info(fd->dev, "[FDVT_CTRL]: 0x%08X %08X\n",
+		  (fd->fd_base + FDVT_CTRL_REG),
+		  (unsigned int)readl(fd->fd_base + FDVT_CTRL_REG));
+		dev_info(fd->dev, "[FDVT_DEBUG_INFO_2 - %x]: 0x%08X %08X\n", i,
+			(fd->fd_base + FDVT_DEBUG_INFO_2),
+			(unsigned int)readl(fd->fd_base + FDVT_DEBUG_INFO_2));
+
+		writel(((unsigned int)readl(fd->fd_base + FDVT_CTRL_REG)) & 0xFFFFF00E,
+			fd->fd_base + DMA_DEBUG_SEL_REG);
+		writel(((unsigned int)readl(fd->fd_base + FDVT_CTRL_REG)) & 0xFFFF1FFF,
+			fd->fd_base + FDVT_CTRL_REG); //0x0098 bit[15:13] = 0
+		dev_info(fd->dev, "[FDVT_CTRL]: 0x%08X %08X\n",
+		  (fd->fd_base + FDVT_CTRL_REG),
+		  (unsigned int)readl(fd->fd_base + FDVT_CTRL_REG));
+		dev_info(fd->dev, "[FDVT_DEBUG_INFO_2 - %x]: 0x%08X %08X\n", i,
+			(fd->fd_base + FDVT_DEBUG_INFO_2),
+			(unsigned int)readl(fd->fd_base + FDVT_DEBUG_INFO_2));
+
+		writel(((unsigned int)readl(fd->fd_base + FDVT_CTRL_REG)) & 0xFFFF1FFF,
+			fd->fd_base + FDVT_CTRL_REG);
+		dev_info(fd->dev, "[FDVT_CTRL - %x]: 0x%08X %08X\n", i,
+		  (fd->fd_base + FDVT_CTRL_REG),
+		  (unsigned int)readl(fd->fd_base + FDVT_CTRL_REG));
+
+		writel((((unsigned int)readl(fd->fd_base + DMA_DEBUG_SEL_REG)) &
+		   0xFFFFFF00) | 0x13, fd->fd_base + DMA_DEBUG_SEL_REG);
+
+		for (i = 0; i <= 0x27; i++) {
+			if (i > 0x7 && i < 0x10)
+				continue;
+			writel((((unsigned int)readl(fd->fd_base + DMA_DEBUG_SEL_REG)) &
+			   0xFFFF00FF) | (i << 8), fd->fd_base + DMA_DEBUG_SEL_REG);
+			dev_info(fd->dev, "[FDVT_DEBUG_SEL - %x]: 0x%08X %08X\n", i,
+				(fd->fd_base + DMA_DEBUG_SEL_REG),
+				(unsigned int)readl(fd->fd_base + DMA_DEBUG_SEL_REG));
+
+			dev_info(fd->dev, "[FDVT_DEBUG_INFO_2 - %x]: 0x%08X %08X\n", i,
+				(fd->fd_base + FDVT_DEBUG_INFO_2),
+				(unsigned int)readl(fd->fd_base + FDVT_DEBUG_INFO_2));
+		}
+
+		dev_info(fd->dev, "FDVT SMI Debug Info\n");
+		dev_info(fd->dev, "FDVT Write FDVT_A_DMA_DEBUG_SEL[15:8] = 0x1\n");
+		dev_info(fd->dev, "FDVT Write FDVT_A_DMA_DEBUG_SEL[23:16] = 0x0\n");
+		writel((((unsigned int)readl(fd->fd_base + DMA_DEBUG_SEL_REG)) &
+			0xFFFF00FF) | (1 << 8), fd->fd_base + DMA_DEBUG_SEL_REG);
+		writel(((unsigned int)readl(fd->fd_base + DMA_DEBUG_SEL_REG))
+			& 0xFF00FFFF, fd->fd_base + DMA_DEBUG_SEL_REG);
+
+		for (i = 1; i <= 0xe; i++) {
+			writel((((unsigned int)readl(fd->fd_base + DMA_DEBUG_SEL_REG)) &
+				0xFFFFFF00) | i, fd->fd_base + DMA_DEBUG_SEL_REG);
+			dev_info(fd->dev, "[FDVT_DEBUG_SEL SMI - %x]: 0x%08X %08X\n", i,
+				(fd->fd_base + DMA_DEBUG_SEL_REG),
+				(unsigned int)readl(fd->fd_base + DMA_DEBUG_SEL_REG));
+			dev_info(fd->dev, "[FDVT_DEBUG_INFO_2 SMI - %x]: 0x%08X %08X\n", i,
+				(fd->fd_base + FDVT_DEBUG_INFO_2),
+				(unsigned int)readl(fd->fd_base + FDVT_DEBUG_INFO_2));
+		}
+
+		dev_info(fd->dev, "FDVT fifo_debug_data_case1\n");
+		dev_info(fd->dev, "FDVT Write FDVT_A_DMA_DEBUG_SEL[15:8] = 0x2\n");
+		dev_info(fd->dev, "FDVT Write FDVT_A_DMA_DEBUG_SEL[23:16] = 0x1\n");
+		writel((((unsigned int)readl(fd->fd_base + DMA_DEBUG_SEL_REG)) &
+			0xFFFF00FF) | (2 << 8), fd->fd_base + DMA_DEBUG_SEL_REG);
+		writel((((unsigned int)readl(fd->fd_base + DMA_DEBUG_SEL_REG)) &
+			0xFF00FFFF) | (1 << 16), fd->fd_base + DMA_DEBUG_SEL_REG);
+
+		for (i = 1; i <= 0xe; i++) {
+			writel((((unsigned int)readl(fd->fd_base + DMA_DEBUG_SEL_REG)) &
+				0xFFFFFF00) | i, fd->fd_base + DMA_DEBUG_SEL_REG);
+			dev_info(fd->dev, "[FDVT_DEBUG_SEL SMI - %x]: 0x%08X %08X\n", i,
+				(fd->fd_base + DMA_DEBUG_SEL_REG),
+				(unsigned int)readl(fd->fd_base + DMA_DEBUG_SEL_REG));
+			dev_info(fd->dev, "[FDVT_DEBUG_INFO_2 SMI - %x]: 0x%08X %08X\n", i,
+				(fd->fd_base + FDVT_DEBUG_INFO_2),
+				(unsigned int)readl(fd->fd_base + FDVT_DEBUG_INFO_2));
+		}
+
+		dev_info(fd->dev, "FDVT fifo_debug_data_case3\n");
+		dev_info(fd->dev, "FDVT Write FDVT_A_DMA_DEBUG_SEL[15:8] = 0x2\n");
+		dev_info(fd->dev, "FDVT Write FDVT_A_DMA_DEBUG_SEL[23:16] = 0x3\n");
+		writel((((unsigned int)readl(fd->fd_base + DMA_DEBUG_SEL_REG)) &
+			0xFFFF00FF) | (2 << 8), fd->fd_base + DMA_DEBUG_SEL_REG);
+		writel((((unsigned int)readl(fd->fd_base + DMA_DEBUG_SEL_REG)) &
+			0xFF00FFFF) | (3 << 16), fd->fd_base + DMA_DEBUG_SEL_REG);
+
+		for (i = 1; i <= 0xe; i++) {
+			writel((((unsigned int)readl(fd->fd_base + DMA_DEBUG_SEL_REG)) &
+			   0xFFFFFF00) | i, fd->fd_base + DMA_DEBUG_SEL_REG);
+			dev_info(fd->dev, "[FDVT_DEBUG_SEL SMI - %x]: 0x%08X %08X\n", i,
+				(fd->fd_base + DMA_DEBUG_SEL_REG),
+				(unsigned int)readl(fd->fd_base + DMA_DEBUG_SEL_REG));
+			dev_info(fd->dev, "[FDVT_DEBUG_INFO_2 SMI - %x]: 0x%08X %08X\n", i,
+				(fd->fd_base + FDVT_DEBUG_INFO_2),
+				(unsigned int)readl(fd->fd_base + FDVT_DEBUG_INFO_2));
+		}
+	}
+
+}
+
 static void aie_free_dmabuf(struct mtk_aie_dev *fd, struct imem_buf_info *bufinfo)
 {
 	if (bufinfo->dmabuf) {
@@ -471,40 +1244,7 @@ void *aie_get_va(struct mtk_aie_dev *fd, struct dma_buf *my_dma_buf,
 	}
 	return buf_ptr;
 }
-#if CHECK_SERVICE_IF_0
-static int aie_imem_alloc(struct mtk_aie_dev *fd, u32 size,
-			  struct imem_buf_info *bufinfo)
-{
-	struct device *dev = fd->dev;
-	void *va;
-	dma_addr_t dma_handle;
 
-	va = dma_alloc_coherent(dev, size, &dma_handle, GFP_KERNEL);
-	if (!va)
-		return -ENOMEM;
-
-	bufinfo->va = va;
-	bufinfo->pa = dma_handle;
-	bufinfo->size = size;
-
-	dev_info(fd->dev, "%s: vAddr(0x%p)(0x%llx), pAddr(0x%pad), size(%d)\n",
-		__func__, va, (u64 *)va, &dma_handle, size);
-
-	return 0;
-}
-
-static void aie_imem_free(struct mtk_aie_dev *fd, struct imem_buf_info *bufinfo)
-{
-	dev_info(fd->dev, "%s: vAddr(0x%p)(0x%llx), pAddr(0x%p), size(%d)\n",
-		__func__, bufinfo->va, (u64 *)bufinfo->va, bufinfo->pa,
-		bufinfo->size);
-
-	if (bufinfo->size != 0) {
-		dma_free_coherent(fd->dev, bufinfo->size, bufinfo->va, bufinfo->pa);
-		bufinfo->size = 0;
-	}
-}
-#endif
 static void aie_init_table(struct mtk_aie_dev *fd, u16 pym_width,
 			   u16 pym_height)
 {
@@ -755,11 +1495,10 @@ static void aie_get_data_size(struct mtk_aie_dev *fd, u16 max_img_width,
 	fd->rs_pym_out_size[2] = AIE_ALIGN32(fd->rs_pym_out_size[0] / 16);
 
 	/* FDMODE Dram Buffer Size */
-	for (i = rpn1_loop_num + 1 ; i < rpn0_loop_num - 1; i++) {
-		for (j = 0; j < output_WDMA_WRA_num; j++) {
+	for (i = rpn1_loop_num + 1 ; i < rpn0_loop_num - 1; i++)
+		for (j = 0; j < output_WDMA_WRA_num; j++)
 			fd->fd_dma_max_size += pstv->fd_wdma_size[i][j];
-		}
-	}
+
 	fd->fd_dma_rst_max_size = pstv->fd_wdma_size[rpn2_loop_num][0] +
 					pstv->fd_wdma_size[rpn1_loop_num][0] +
 					pstv->fd_wdma_size[rpn0_loop_num][0];
@@ -1119,7 +1858,7 @@ static int aie_alloc_fddma_buf(struct mtk_aie_dev *fd)
 
 	return 0;
 }
-#ifdef FLD
+
 static int aie_alloc_fld_buf(struct mtk_aie_dev *fd)
 {
 
@@ -1232,23 +1971,23 @@ static int aie_alloc_fld_buf(struct mtk_aie_dev *fd)
 
 	fd->fld_tree_02_hw.va = va;
 
-	//ret = aie_imem_alloc(fd, alloc_size, &fd->fld_tree_13_hw);
+	//ret = aie_imem_alloc(fd, alloc_size, &fd->fld_shape_hw);
 	ret_buf = aie_imem_sec_alloc(fd, alloc_size, false);
 	if (!ret_buf)
 		return -1;
 
-	fd->fld_tree_13_hw.dmabuf = ret_buf;
-	fd->fld_tree_13_hw.size = alloc_size;
-	iova = aie_get_sec_iova(fd, ret_buf, &fd->fld_tree_13_hw);
+	fd->fld_shape_hw.dmabuf = ret_buf;
+	fd->fld_shape_hw.size = alloc_size;
+	iova = aie_get_sec_iova(fd, ret_buf, &fd->fld_shape_hw);
 	if (!iova)
 		return -1;
 
-	fd->fld_tree_13_hw.pa = iova;
-	va = aie_get_va(fd, ret_buf, &fd->fld_tree_13_hw);
+	fd->fld_shape_hw.pa = iova;
+	va = aie_get_va(fd, ret_buf, &fd->fld_shape_hw);
 	if (!va)
 		return -1;
 
-	fd->fld_tree_13_hw.va = va;
+	fd->fld_shape_hw.va = va;
 
 	alloc_size = fld_result_size;
 	//ret = aie_imem_alloc(fd, alloc_size, &fd->fld_output_hw);
@@ -1276,7 +2015,7 @@ static int aie_alloc_fld_buf(struct mtk_aie_dev *fd)
 
 	return 0;
 }
-#endif
+
 static void aie_arrange_fddma_buf(struct mtk_aie_dev *fd)
 {
 	dma_addr_t currentPA;
@@ -1337,12 +2076,6 @@ static void aie_arrange_fddma_buf(struct mtk_aie_dev *fd)
 					    4 * pstv->out_xsize_plus_1[27];
 
 	fd->dma_para->fd_out_hw_pa[29][0] = fd->fd_dma_hw.pa;
-#if CHECK_SERVICE_0
-	fd->dma_para->fd_out_hw_pa[29][0] =
-		fd->dma_para->fd_out_hw_pa[25][0] + pstv->fd_wdma_size[25][0] +
-		pstv->fd_wdma_size[25][1] + pstv->fd_wdma_size[26][0] +
-		pstv->fd_wdma_size[26][1] + pstv->fd_wdma_size[27][0];
-#endif
 	aie_alloc_normal(fd, 30, 47);
 	/* 48~56 */
 	fd->dma_para->fd_out_hw_pa[48][0] =
@@ -1394,12 +2127,6 @@ static void aie_arrange_fddma_buf(struct mtk_aie_dev *fd)
 
 	/* 58~76 */
 	fd->dma_para->fd_out_hw_pa[58][0] = fd->fd_dma_hw.pa;
-#if CHECK_SERVICE_0
-	fd->dma_para->fd_out_hw_pa[58][0] =
-		fd->dma_para->fd_out_hw_pa[54][0] + pstv->fd_wdma_size[54][0] +
-		pstv->fd_wdma_size[54][1] + pstv->fd_wdma_size[55][0] +
-		pstv->fd_wdma_size[55][1] + pstv->fd_wdma_size[56][0];
-#endif
 	aie_alloc_normal(fd, 59, 76);
 
 	/* 77~85 */
@@ -1449,35 +2176,11 @@ static void aie_arrange_fddma_buf(struct mtk_aie_dev *fd)
 					    3 * pstv->out_xsize_plus_1[84];
 	fd->dma_para->fd_out_hw_pa[85][0] = fd->dma_para->fd_out_hw_pa[83][0] +
 					    4 * pstv->out_xsize_plus_1[85];
-#if CHECK_SERVICE_0
-	/* VA : except 28, 57, 86 */
-	/* 0~86 */
-	fd->dma_para->fd_out_hw_va[0][0] = fd->fd_dma_hw.va;
-	for (i = 1; i < fd_loop_num; i++) {
-		if (i == rpn2_loop_num || i == rpn1_loop_num ||
-		    i == rpn0_loop_num)
-			continue;
-		for (j = 0; j < 4; j++) {
-			if (fd_wdma_en[i][j]) {
-				fd->dma_para->fd_out_hw_va[i][j] =
-					fd->fd_dma_hw.va +
-					fd->dma_para->fd_out_hw_pa[i][j] -
-					fd->fd_dma_hw.pa;
-			}
-		}
-	}
-#endif
+
 	currentPA = fd->dma_para->fd_out_hw_pa[83][0] +
 		    pstv->fd_wdma_size[83][0] + pstv->fd_wdma_size[83][1] +
 		    pstv->fd_wdma_size[84][0] + pstv->fd_wdma_size[84][1] +
 		    pstv->fd_wdma_size[85][0];
-
-#if CHECK_SERVICE_0
-	currentVA = fd->dma_para->fd_out_hw_va[83][0] +
-		    pstv->fd_wdma_size[83][0] + pstv->fd_wdma_size[83][1] +
-		    pstv->fd_wdma_size[84][0] + pstv->fd_wdma_size[84][1] +
-		    pstv->fd_wdma_size[85][0];
-#endif
 }
 
 static void aie_arrange_kernel_buf(struct mtk_aie_dev *fd)
@@ -1614,7 +2317,7 @@ static void aie_arrange_result_dma_buf(struct mtk_aie_dev *fd)
 	memset(fd->fd_dma_result_hw.va, 0, fd->fd_dma_result_hw.size);
 
 }
-#ifdef FLD
+
 static void aie_arrange_fld_buf(struct mtk_aie_dev *fd)
 {
 	int input_index = 0;
@@ -1639,8 +2342,8 @@ static void aie_arrange_fld_buf(struct mtk_aie_dev *fd)
 	fd->dma_para->fld_leafnode_pa[0] = fd->fld_leafnode_hw.pa;
 	fd->dma_para->fld_tree02_va[0] = fd->fld_tree_02_hw.va;
 	fd->dma_para->fld_tree02_pa[0] = fd->fld_tree_02_hw.pa;
-	fd->dma_para->fld_tree13_va[0] = fd->fld_tree_13_hw.va;
-	fd->dma_para->fld_tree13_pa[0] = fd->fld_tree_13_hw.pa;
+	fd->dma_para->fld_shape_va[0] = fd->fld_shape_hw.va;
+	fd->dma_para->fld_shape_pa[0] = fd->fld_shape_hw.pa;
 
 	fd->dma_para->fld_cv_va[1] = fd->dma_para->fld_cv_va[0] + fld_cv_size_00;
 	fd->dma_para->fld_cv_pa[1] = fd->dma_para->fld_cv_pa[0] + fld_cv_size_00;
@@ -1650,8 +2353,8 @@ static void aie_arrange_fld_buf(struct mtk_aie_dev *fd)
 	fd->dma_para->fld_leafnode_pa[1] = fd->dma_para->fld_leafnode_pa[0] + fld_leafnode_size;
 	fd->dma_para->fld_tree02_va[1] = fd->dma_para->fld_tree02_va[0] + fld_tree_size;
 	fd->dma_para->fld_tree02_pa[1] = fd->dma_para->fld_tree02_pa[0] + fld_tree_size;
-	fd->dma_para->fld_tree13_va[1] = fd->dma_para->fld_tree13_va[0] + fld_tree_size;
-	fd->dma_para->fld_tree13_pa[1] = fd->dma_para->fld_tree13_pa[0] + fld_tree_size;
+	fd->dma_para->fld_shape_va[1] = fd->dma_para->fld_shape_va[0] + fld_tree_size;
+	fd->dma_para->fld_shape_pa[1] = fd->dma_para->fld_shape_pa[0] + fld_tree_size;
 
 	for (input_index = 1; input_index < FLD_MAX_INPUT - 1; input_index++) {
 		fd->dma_para->fld_cv_va[input_index + 1] = fd->dma_para->fld_cv_va[input_index] +
@@ -1670,10 +2373,10 @@ static void aie_arrange_fld_buf(struct mtk_aie_dev *fd)
 				fd->dma_para->fld_tree02_va[input_index] + fld_tree_size;
 		fd->dma_para->fld_tree02_pa[input_index + 1] =
 				fd->dma_para->fld_tree02_pa[input_index] + fld_tree_size;
-		fd->dma_para->fld_tree13_va[input_index + 1] =
-				fd->dma_para->fld_tree13_va[input_index] + fld_tree_size;
-		fd->dma_para->fld_tree13_pa[input_index + 1] =
-				fd->dma_para->fld_tree13_pa[input_index] + fld_tree_size;
+		fd->dma_para->fld_shape_va[input_index + 1] =
+				fd->dma_para->fld_shape_va[input_index] + fld_tree_size;
+		fd->dma_para->fld_shape_pa[input_index + 1] =
+				fd->dma_para->fld_shape_pa[input_index] + fld_tree_size;
 	}
 	//fp
 	msb_bit_0 = (fd->dma_para->fld_fp_pa[0] & 0xf00000000) >> 32;
@@ -1788,14 +2491,14 @@ static void aie_arrange_fld_buf(struct mtk_aie_dev *fd)
 	writel(set_msb_bit, fd->fd_base + FLD_PL_IN_BASE_ADDR_0_8_15_MSB);
 
 	//13tree
-	msb_bit_0 = (fd->dma_para->fld_tree13_pa[0] & 0xf00000000) >> 32;
-	msb_bit_1 = (fd->dma_para->fld_tree13_pa[1] & 0xf00000000) >> 32;
-	msb_bit_2 = (fd->dma_para->fld_tree13_pa[2] & 0xf00000000) >> 32;
-	msb_bit_3 = (fd->dma_para->fld_tree13_pa[3] & 0xf00000000) >> 32;
-	msb_bit_4 = (fd->dma_para->fld_tree13_pa[4] & 0xf00000000) >> 32;
-	msb_bit_5 = (fd->dma_para->fld_tree13_pa[5] & 0xf00000000) >> 32;
-	msb_bit_6 = (fd->dma_para->fld_tree13_pa[6] & 0xf00000000) >> 32;
-	msb_bit_7 = (fd->dma_para->fld_tree13_pa[7] & 0xf00000000) >> 32;
+	msb_bit_0 = (fd->dma_para->fld_shape_pa[0] & 0xf00000000) >> 32;
+	msb_bit_1 = (fd->dma_para->fld_shape_pa[1] & 0xf00000000) >> 32;
+	msb_bit_2 = (fd->dma_para->fld_shape_pa[2] & 0xf00000000) >> 32;
+	msb_bit_3 = (fd->dma_para->fld_shape_pa[3] & 0xf00000000) >> 32;
+	msb_bit_4 = (fd->dma_para->fld_shape_pa[4] & 0xf00000000) >> 32;
+	msb_bit_5 = (fd->dma_para->fld_shape_pa[5] & 0xf00000000) >> 32;
+	msb_bit_6 = (fd->dma_para->fld_shape_pa[6] & 0xf00000000) >> 32;
+	msb_bit_7 = (fd->dma_para->fld_shape_pa[7] & 0xf00000000) >> 32;
 
 	set_msb_bit = msb_bit_0 | msb_bit_1 << 4 | msb_bit_2 << 8 | msb_bit_3 << 12
 		| msb_bit_4 << 16 | msb_bit_5 << 20 | msb_bit_6 << 24 | msb_bit_7 << 28;
@@ -1803,13 +2506,13 @@ static void aie_arrange_fld_buf(struct mtk_aie_dev *fd)
 	writel(set_msb_bit, fd->fd_base + FLD_PL_IN_BASE_ADDR_1_0_7_MSB);
 
 
-	msb_bit_0 = (fd->dma_para->fld_tree13_pa[8] & 0xf00000000) >> 32;
-	msb_bit_1 = (fd->dma_para->fld_tree13_pa[9] & 0xf00000000) >> 32;
-	msb_bit_2 = (fd->dma_para->fld_tree13_pa[10] & 0xf00000000) >> 32;
-	msb_bit_3 = (fd->dma_para->fld_tree13_pa[11] & 0xf00000000) >> 32;
-	msb_bit_4 = (fd->dma_para->fld_tree13_pa[12] & 0xf00000000) >> 32;
-	msb_bit_5 = (fd->dma_para->fld_tree13_pa[13] & 0xf00000000) >> 32;
-	msb_bit_6 = (fd->dma_para->fld_tree13_pa[14] & 0xf00000000) >> 32;
+	msb_bit_0 = (fd->dma_para->fld_shape_pa[8] & 0xf00000000) >> 32;
+	msb_bit_1 = (fd->dma_para->fld_shape_pa[9] & 0xf00000000) >> 32;
+	msb_bit_2 = (fd->dma_para->fld_shape_pa[10] & 0xf00000000) >> 32;
+	msb_bit_3 = (fd->dma_para->fld_shape_pa[11] & 0xf00000000) >> 32;
+	msb_bit_4 = (fd->dma_para->fld_shape_pa[12] & 0xf00000000) >> 32;
+	msb_bit_5 = (fd->dma_para->fld_shape_pa[13] & 0xf00000000) >> 32;
+	msb_bit_6 = (fd->dma_para->fld_shape_pa[14] & 0xf00000000) >> 32;
 
 	set_msb_bit = msb_bit_0 | msb_bit_1 << 4 | msb_bit_2 << 8 | msb_bit_3 << 12
 		| msb_bit_4 << 16 | msb_bit_5 << 20 | msb_bit_6 << 24;
@@ -1817,7 +2520,7 @@ static void aie_arrange_fld_buf(struct mtk_aie_dev *fd)
 	writel(set_msb_bit, fd->fd_base + FLD_PL_IN_BASE_ADDR_1_8_15_MSB);
 
 }
-#endif
+
 static void aie_update_fddma_buf(struct mtk_aie_dev *fd)
 {
 	struct aie_static_info *pstv;
@@ -1966,26 +2669,8 @@ static void aie_update_fddma_buf(struct mtk_aie_dev *fd)
 					    3 * pstv->out_xsize_plus_1[84];
 	fd->dma_para->fd_out_hw_pa[85][0] = fd->dma_para->fd_out_hw_pa[83][0] +
 					    4 * pstv->out_xsize_plus_1[85];
-
-	/* VA : except 28, 57, 86 */
-	/* 0~86 */
-#if CHECK_SERVICE_0
-	fd->dma_para->fd_out_hw_va[0][0] = fd->fd_dma_hw.va;
-	for (i = 1; i < fd_loop_num; i++) {
-		if (i == rpn2_loop_num || i == rpn1_loop_num ||
-		    i == rpn0_loop_num)
-			continue;
-		for (j = 0; j < 4; j++) {
-			if (fd_wdma_en[i][j]) {
-				fd->dma_para->fd_out_hw_va[i][j] =
-					fd->fd_dma_hw.va +
-					fd->dma_para->fd_out_hw_pa[i][j] -
-					fd->fd_dma_hw.pa;
-			}
-		}
-	}
-#endif
 }
+
 static void aie_free_sec_buf(struct mtk_aie_dev *fd)
 {
 	aie_free_iova(fd, &fd->rs_output_hw);
@@ -2042,7 +2727,7 @@ static void aie_free_fddma_buf(struct mtk_aie_dev *fd)
 	aie_free_dmabuf(fd, &fd->fd_dma_result_hw);
 
 }
-#ifdef FLD
+
 static void aie_free_fld_buf(struct mtk_aie_dev *fd)
 {
 	//aie_imem_free(fd, &fd->fld_blink_weight_hw);
@@ -2070,42 +2755,17 @@ static void aie_free_fld_buf(struct mtk_aie_dev *fd)
 	aie_free_va(fd, &fd->fld_tree_02_hw);
 	aie_free_dmabuf(fd, &fd->fld_tree_02_hw);
 
-	//aie_imem_free(fd, &fd->fld_tree_13_hw);
-	aie_free_iova(fd, &fd->fld_tree_13_hw);
-	aie_free_va(fd, &fd->fld_tree_13_hw);
-	aie_free_dmabuf(fd, &fd->fld_tree_13_hw);
+	//aie_imem_free(fd, &fd->fld_shape_hw);
+	aie_free_iova(fd, &fd->fld_shape_hw);
+	aie_free_va(fd, &fd->fld_shape_hw);
+	aie_free_dmabuf(fd, &fd->fld_shape_hw);
 
 	//aie_imem_free(fd, &fd->fld_output_hw);
 	aie_free_iova(fd, &fd->fld_output_hw);
 	aie_free_va(fd, &fd->fld_output_hw);
 	aie_free_dmabuf(fd, &fd->fld_output_hw);
 }
-#endif
-#if CHECK_SERVICE_0
-static int aie_copy_fw(struct mtk_aie_dev *fd, const char *name, void *buf,
-		       unsigned int size)
-{
-	int ret = 0;
-	const struct firmware *fw = NULL;
 
-	ret = request_firmware(&fw, name, fd->dev);
-	if (ret) {
-		dev_info(fd->dev, "%s: fail to load firmware %s\n", __func__,
-			 name);
-		return ret;
-	}
-
-	if (size < fw->size) {
-		release_firmware(fw);
-		return -EINVAL;
-	}
-
-	memcpy(buf, fw->data, fw->size);
-	release_firmware(fw);
-
-	return ret;
-}
-#endif
 static int aie_load_fw(struct mtk_aie_dev *fd)
 {
 	int ret = 0;
@@ -2742,35 +3402,35 @@ static int aie_load_fw(struct mtk_aie_dev *fd)
 	memcpy(fd->dma_para->fld_leafnode_va[13], &fdvt_fld_leafnode_forest13, fld_leafnode_size);
 	memcpy(fd->dma_para->fld_leafnode_va[14], &fdvt_fld_leafnode_forest14, fld_leafnode_size);
 
-	memcpy(fd->dma_para->fld_tree13_va[0], &fdvt_fld_tree_forest00_km13,
+	memcpy(fd->dma_para->fld_shape_va[0], &fdvt_fld_tree_forest00_km13,
 								fld_tree_size_non_align);
-	memcpy(fd->dma_para->fld_tree13_va[1], &fdvt_fld_tree_forest01_km13,
+	memcpy(fd->dma_para->fld_shape_va[1], &fdvt_fld_tree_forest01_km13,
 								fld_tree_size_non_align);
-	memcpy(fd->dma_para->fld_tree13_va[2], &fdvt_fld_tree_forest02_km13,
+	memcpy(fd->dma_para->fld_shape_va[2], &fdvt_fld_tree_forest02_km13,
 								fld_tree_size_non_align);
-	memcpy(fd->dma_para->fld_tree13_va[3], &fdvt_fld_tree_forest03_km13,
+	memcpy(fd->dma_para->fld_shape_va[3], &fdvt_fld_tree_forest03_km13,
 								fld_tree_size_non_align);
-	memcpy(fd->dma_para->fld_tree13_va[4], &fdvt_fld_tree_forest04_km13,
+	memcpy(fd->dma_para->fld_shape_va[4], &fdvt_fld_tree_forest04_km13,
 								fld_tree_size_non_align);
-	memcpy(fd->dma_para->fld_tree13_va[5], &fdvt_fld_tree_forest05_km13,
+	memcpy(fd->dma_para->fld_shape_va[5], &fdvt_fld_tree_forest05_km13,
 								fld_tree_size_non_align);
-	memcpy(fd->dma_para->fld_tree13_va[6], &fdvt_fld_tree_forest06_km13,
+	memcpy(fd->dma_para->fld_shape_va[6], &fdvt_fld_tree_forest06_km13,
 								fld_tree_size_non_align);
-	memcpy(fd->dma_para->fld_tree13_va[7], &fdvt_fld_tree_forest07_km13,
+	memcpy(fd->dma_para->fld_shape_va[7], &fdvt_fld_tree_forest07_km13,
 								fld_tree_size_non_align);
-	memcpy(fd->dma_para->fld_tree13_va[8], &fdvt_fld_tree_forest08_km13,
+	memcpy(fd->dma_para->fld_shape_va[8], &fdvt_fld_tree_forest08_km13,
 								fld_tree_size_non_align);
-	memcpy(fd->dma_para->fld_tree13_va[9], &fdvt_fld_tree_forest09_km13,
+	memcpy(fd->dma_para->fld_shape_va[9], &fdvt_fld_tree_forest09_km13,
 								fld_tree_size_non_align);
-	memcpy(fd->dma_para->fld_tree13_va[10], &fdvt_fld_tree_forest10_km13,
+	memcpy(fd->dma_para->fld_shape_va[10], &fdvt_fld_tree_forest10_km13,
 								fld_tree_size_non_align);
-	memcpy(fd->dma_para->fld_tree13_va[11], &fdvt_fld_tree_forest11_km13,
+	memcpy(fd->dma_para->fld_shape_va[11], &fdvt_fld_tree_forest11_km13,
 								fld_tree_size_non_align);
-	memcpy(fd->dma_para->fld_tree13_va[12], &fdvt_fld_tree_forest12_km13,
+	memcpy(fd->dma_para->fld_shape_va[12], &fdvt_fld_tree_forest12_km13,
 								fld_tree_size_non_align);
-	memcpy(fd->dma_para->fld_tree13_va[13], &fdvt_fld_tree_forest13_km13,
+	memcpy(fd->dma_para->fld_shape_va[13], &fdvt_fld_tree_forest13_km13,
 								fld_tree_size_non_align);
-	memcpy(fd->dma_para->fld_tree13_va[14], &fdvt_fld_tree_forest14_km13,
+	memcpy(fd->dma_para->fld_shape_va[14], &fdvt_fld_tree_forest14_km13,
 								fld_tree_size_non_align);
 
 	memcpy(fd->dma_para->fld_tree02_va[0], &fdvt_fld_tree_forest00_km02,
@@ -2941,7 +3601,7 @@ static int aie_load_fw(struct mtk_aie_dev *fd)
 		if (ret < 0)
 			return ret;
 
-		ret = aie_copy_fw(fd, name, fd->dma_para->fld_tree13_va[i], fld_tree_size);
+		ret = aie_copy_fw(fd, name, fd->dma_para->fld_shape_va[i], fld_tree_size);
 		if (ret)
 			return ret;
 
@@ -2959,29 +3619,7 @@ static int aie_load_fw(struct mtk_aie_dev *fd)
 
 	return ret;
 }
-#if  CHECK_SERVICE_0
-static void aie_reset_output_buf(struct mtk_aie_dev *fd,
-				 struct aie_enq_info *aie_cfg)
-{
-	if (aie_cfg->sel_mode == 0) {
-		memset(fd->rs_output_hw.va, 0, fd->rs_output_hw.size);
 
-		memset(fd->dma_para->fd_out_hw_va[rpn0_loop_num][0], 0,
-		       result_size);
-		memset(fd->dma_para->fd_out_hw_va[rpn1_loop_num][0], 0,
-		       result_size);
-		memset(fd->dma_para->fd_out_hw_va[rpn2_loop_num][0], 0,
-		       result_size);
-	} else if (aie_cfg->sel_mode == 1) {
-		memset(fd->base_para->rs_pym_rst_va[0][0], 0,
-		       fd->rs_pym_out_size[0]);
-		memset(fd->base_para->rs_pym_rst_va[0][1], 0,
-		       fd->rs_pym_out_size[0]);
-		memset(fd->base_para->rs_pym_rst_va[0][2], 0,
-		       fd->rs_pym_out_size[0]);
-	}
-}
-#endif
 static int aie_update_cfg(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg)
 {
 	int crop_width;
@@ -4051,13 +4689,13 @@ static int aie_config_dram(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg)
 	return ret;
 }
 
-void aie_reset(struct mtk_aie_dev *fd)
+static void aie_reset(struct mtk_aie_dev *fd)
 {
 	writel(0x30000, fd->fd_base + AIE_START_REG);
 	writel(0x0, fd->fd_base + AIE_START_REG);
 }
 
-int aie_alloc_aie_buf(struct mtk_aie_dev *fd)
+static int aie_alloc_aie_buf(struct mtk_aie_dev *fd)
 {
 	int ret = -ENOMEM;
 	int err_tag = 0;
@@ -4090,7 +4728,7 @@ int aie_alloc_aie_buf(struct mtk_aie_dev *fd)
 		fd->rs_output_hw.pa, fd->fd_dma_hw.pa, fd->fd_dma_result_hw.pa,
 		fd->fd_kernel_hw.pa, fd->fd_attr_dma_hw.pa, fd->fld_cv_hw.pa,
 		fd->fld_fp_hw.pa, fd->fld_leafnode_hw.pa, fd->fld_tree_02_hw.pa,
-		fd->fld_tree_13_hw.pa, fd->fld_blink_weight_hw.pa, fd->fld_output_hw.pa
+		fd->fld_shape_hw.pa, fd->fld_blink_weight_hw.pa, fd->fld_output_hw.pa
 	);
 	aie_arrange_fddma_buf(fd);
 	aie_arrange_kernel_buf(fd);
@@ -4132,7 +4770,7 @@ dram_fail:
 
 }
 
-int aie_init(struct mtk_aie_dev *fd)
+static int aie_init(struct mtk_aie_dev *fd)
 {
 	int err_tag = 0;
 
@@ -4207,7 +4845,7 @@ attr_para_fail:
 	return -ENOMEM;
 }
 
-void aie_uninit(struct mtk_aie_dev *fd)
+static void aie_uninit(struct mtk_aie_dev *fd)
 {
 	fd->fd_state = STATE_NA;
 
@@ -4241,7 +4879,7 @@ void aie_uninit(struct mtk_aie_dev *fd)
 #endif
 }
 
-int aie_prepare(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg)
+static int aie_prepare(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg)
 {
 	int ret = 0;
 
@@ -4347,7 +4985,7 @@ int aie_prepare(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg)
 	return ret;
 }
 
-#ifdef FDVT_USE_GCE
+
 static void AIECmdqCB(struct cmdq_cb_data data)
 {
 	struct mtk_aie_dev *fd = (struct mtk_aie_dev *)data.data;
@@ -4406,7 +5044,7 @@ void aie_disable_secure_domain(struct mtk_aie_dev *fd)
 	cmdq_pkt_destroy(pkt);
 }
 #endif
-void config_aie_cmdq_hw(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg)
+static void config_aie_cmdq_hw(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg)
 {
 	struct cmdq_pkt *pkt = NULL;
 	unsigned int loop_num = 0;
@@ -4491,7 +5129,7 @@ void config_aie_cmdq_hw(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg)
 			cmdq_pkt_write(pkt, NULL, FDVT_BASE_HW + fld_pl_in_addr_0[i],
 						fd->dma_para->fld_tree02_pa[i], CMDQ_REG_MASK);
 			cmdq_pkt_write(pkt, NULL, FDVT_BASE_HW + fld_pl_in_addr_1[i],
-						fd->dma_para->fld_tree13_pa[i], CMDQ_REG_MASK);
+						fd->dma_para->fld_shape_pa[i], CMDQ_REG_MASK);
 			cmdq_pkt_write(pkt, NULL, FDVT_BASE_HW + fld_pl_in_addr_2[i],
 						fd->dma_para->fld_cv_pa[i], CMDQ_REG_MASK);
 			cmdq_pkt_write(pkt, NULL, FDVT_BASE_HW + fld_pl_in_addr_3[i],
@@ -4580,129 +5218,13 @@ void config_aie_cmdq_hw(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg)
 	/* release resource */
 	cmdq_pkt_destroy(pkt);
 }
-#endif
-void aie_execute(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg)
+
+static void aie_execute(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg)
 {
-#ifndef FDVT_USE_GCE
-
-	unsigned int loop_num = 0;
-	unsigned int loop_reg_val = 0;
-
-	if (aie_cfg->sel_mode == 0) {
-		writel(0x00000111, fd->fd_base + AIE_ENABLE_REG);
-		loop_num = fd_loop_num / 3 * (aie_cfg->number_of_pyramid);
-		loop_reg_val = (loop_num << 8) |
-			(aie_cfg->number_of_pyramid - 1);
-		writel(loop_reg_val, fd->fd_base + AIE_LOOP_REG);
-		writel(0x1, fd->fd_base + AIE_INT_EN_REG);
-		writel(fd->reg_cfg.rs_adr,
-			fd->fd_base + AIE_RS_CON_BASE_ADR_REG);
-		writel(fd->reg_cfg.fd_adr,
-			fd->fd_base + AIE_FD_CON_BASE_ADR_REG);
-		writel(fd->reg_cfg.yuv2rgb_adr,
-			fd->fd_base + AIE_YUV2RGB_CON_BASE_ADR_REG);
-		writel(0x1, fd->fd_base + AIE_START_REG);
-	} else if (aie_cfg->sel_mode == 1) {
-		writel(0x00000101, fd->fd_base + AIE_ENABLE_REG);
-		writel(0x00001A00, fd->fd_base + AIE_LOOP_REG);
-		writel(0x1, fd->fd_base + AIE_INT_EN_REG);
-		writel(fd->reg_cfg.rs_adr,
-		       fd->fd_base + AIE_RS_CON_BASE_ADR_REG);
-		writel(fd->reg_cfg.fd_adr,
-		       fd->fd_base + AIE_FD_CON_BASE_ADR_REG);
-		writel(fd->reg_cfg.yuv2rgb_adr,
-		       fd->fd_base + AIE_YUV2RGB_CON_BASE_ADR_REG);
-		writel(0x1, fd->fd_base + AIE_START_REG);
-	} else if (aie_cfg->sel_mode == 3) {
-		int i = 0;
-
-		writel(0x10, fd->fd_base + AIE_START_REG);
-		writel(0x00011111, fd->fd_base + AIE_DMA_CTL_REG);
-		writel(0x01111111, fd->fd_base + FLD_EN);
-		for (i = 0; i < aie_cfg->fld_face_num; i++) {
-			writel(aie_cfg->src_img_addr, fd->fd_base + FLD_BASE_ADDR_FACE_0 + i * 0x4);
-			writel((aie_cfg->fld_input[i].fld_in_crop.x1 << 16) |
-			aie_cfg->fld_input[i].fld_in_crop.y1,
-						fd->fd_base + fld_face_info_0[i]);
-			writel((aie_cfg->fld_input[i].fld_in_crop.x2 << 16) |
-						aie_cfg->fld_input[i].fld_in_crop.y2,
-						fd->fd_base + fld_face_info_1[i]);
-			writel(aie_cfg->fld_input[i].fld_in_rip << 4 |
-						aie_cfg->fld_input[i].fld_in_rop,
-						fd->fd_base + fld_face_info_2[i]);
-		}
-
-
-		writel((fld_forest << 16) | (aie_cfg->fld_face_num << 28) | fld_point,
-								fd->fd_base + FLD_MODEL_PARA1);
-		writel((0xd << 16) | 0xfe9, fd->fd_base + FLD_MODEL_PARA14);
-
-		/*fld kernel model pa setting*/
-		for (i = 0; i < FLD_MAX_INPUT; i++) {
-			writel(fd->dma_para->fld_tree02_pa[i], fd->fd_base + fld_pl_in_addr_0[i]);
-			writel(fd->dma_para->fld_tree13_pa[i], fd->fd_base + fld_pl_in_addr_1[i]);
-			writel(fd->dma_para->fld_cv_pa[i], fd->fd_base + fld_pl_in_addr_2[i]);
-			writel(fd->dma_para->fld_fp_pa[i], fd->fd_base + fld_pl_in_addr_3[i]);
-			writel(fd->dma_para->fld_leafnode_pa[i], fd->fd_base + fld_sh_in_addr[i]);
-		}
-		writel(fd->dma_para->fld_blink_weight_pa, fd->fd_base + FLD_BS_IN_BASE_ADDR_14);
-
-		writel((aie_cfg->src_img_width << 16) |
-					aie_cfg->src_img_height, fd->fd_base + FLD_SRC_WD_HT);
-
-		/*input settings*/
-		writel(0x007c003f, fd->fd_base + FLD_PL_IN_SIZE_0);
-		writel(0x0040000f, fd->fd_base + FLD_PL_IN_STRIDE_0);
-		writel(0x007c003f, fd->fd_base + FLD_PL_IN_SIZE_1);
-		writel(0x0040000f, fd->fd_base + FLD_PL_IN_STRIDE_1);
-		writel(0x0016003f, fd->fd_base + FLD_PL_IN_SIZE_2_0);
-		writel(0x0040000f, fd->fd_base + FLD_PL_IN_STRIDE_2_0);
-		writel(0x0013003f, fd->fd_base + FLD_PL_IN_SIZE_2_1);
-		writel(0x0040000f, fd->fd_base + FLD_PL_IN_STRIDE_2_1);
-		writel(0x0013003f, fd->fd_base + FLD_PL_IN_SIZE_2_2);
-		writel(0x0040000f, fd->fd_base + FLD_PL_IN_STRIDE_2_2);
-		writel(0x00a6001f, fd->fd_base + FLD_PL_IN_SIZE_3);
-		writel(0x0020000f, fd->fd_base + FLD_PL_IN_STRIDE_3);
-
-		/*output setting*/
-		writel((2400 * aie_cfg->fld_face_num - 1) << 16 | 127,
-						fd->fd_base + FLD_SH_IN_SIZE_0);
-		writel(0x0010000f, fd->fd_base + FLD_SH_IN_STRIDE_0);
-		writel(fd->dma_para->fld_output_pa, fd->fd_base + FLD_TR_OUT_BASE_ADDR_0);
-		writel((aie_cfg->fld_face_num - 1) << 16 | 0x6f, fd->fd_base + FLD_TR_OUT_SIZE_0);
-		writel(0x0070000f, fd->fd_base + FLD_TR_OUT_STRIDE_0);
-		writel(fd->dma_para->fld_output_pa, fd->fd_base + FLD_PP_OUT_BASE_ADDR_0);
-		writel((aie_cfg->fld_face_num - 1) << 16 | 0x6f, fd->fd_base + FLD_PP_OUT_SIZE_0);
-		writel(0x0070000f, fd->fd_base + FLD_PP_OUT_STRIDE_0);
-
-		/*cv score*/
-		writel(0x00000001, fd->fd_base + FLD_BS_BIAS);
-		writel(0x0000b835, fd->fd_base + FLD_CV_FM_RANGE_0); //8E8
-		writel(0xffff5cba, fd->fd_base + FLD_CV_FM_RANGE_1); //8EC
-		writel(0x00005ed5, fd->fd_base + FLD_CV_PM_RANGE_0); //8F0
-		writel(0xffff910d, fd->fd_base + FLD_CV_PM_RANGE_1); //8F4 //temp 310
-		writel(0x0000031e, fd->fd_base + FLD_BS_RANGE_0); //8F8
-		writel(0xfffffcae, fd->fd_base + FLD_BS_RANGE_1); //8FC
-
-		/*fld mode + trigger start*/
-		writel(0x11, fd->fd_base + AIE_START_REG);
-	}
-#else
 	config_aie_cmdq_hw(fd, aie_cfg);
-#endif
-
 }
 
-void aie_execute_pose(struct mtk_aie_dev *fd)
-{
-	writel(0x00000100, fd->fd_base + AIE_ENABLE_REG);
-	writel(0x00000300, fd->fd_base + AIE_LOOP_REG);
-	writel(0x1, fd->fd_base + AIE_INT_EN_REG);
-	writel(fd->reg_cfg.fd_pose_adr, fd->fd_base + AIE_FD_CON_BASE_ADR_REG);
-	writel(0x1, fd->fd_base + AIE_START_REG);
-}
-
-void aie_irqhandle(struct mtk_aie_dev *fd)
+static void aie_irqhandle(struct mtk_aie_dev *fd)
 {
 	int status;
 
@@ -4713,7 +5235,7 @@ void aie_irqhandle(struct mtk_aie_dev *fd)
 }
 
 /* return aie_cfg to user space */
-void aie_get_fd_result(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg)
+static void aie_get_fd_result(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg)
 {
 	void *fd_pym_result[PYM_NUM];
 	u32 fd_result_hw, fd_result_1_hw;
@@ -4757,7 +5279,7 @@ void aie_get_fd_result(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg)
 	       sizeof(aie_cfg->fd_out.rpn95_rlt));
 }
 
-void aie_get_attr_result(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg)
+static void aie_get_attr_result(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg)
 {
 	u32 *attr_race_result, *attr_gender_result;
 	u32 *attr_age_result, *attr_isIndian_result;
@@ -4798,8 +5320,7 @@ void aie_get_attr_result(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg)
 	fd->attr_para->r_idx = (fd->attr_para->r_idx + 1) % MAX_ENQUE_FRAME_NUM;
 }
 
-
-void aie_get_fld_result(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg)
+static void aie_get_fld_result(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg)
 {
 	aie_cfg->sel_mode = fd->fld_para->sel_mode;
 	aie_cfg->src_img_width = fd->fld_para->img_width;
@@ -4814,3 +5335,31 @@ void aie_get_fld_result(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg)
 		sizeof(struct FLD_CROP_RIP_ROP) * aie_cfg->fld_face_num);
 
 }
+
+static void aie_config_fld_buf_reg(struct mtk_aie_dev *fd)
+{
+	unsigned int set_msb_bit = 0;
+	unsigned int img_msb = fd->img_msb_y;
+
+	set_msb_bit = img_msb | img_msb << 4 | img_msb << 8 | img_msb << 12;
+	set_msb_bit = set_msb_bit | set_msb_bit << 16;
+
+	writel(set_msb_bit, fd->fd_base + FLD_BASE_ADDR_FACE_0_7_MSB);
+	set_msb_bit = set_msb_bit & 0xfffffff;
+	writel(set_msb_bit, fd->fd_base + FLD_BASE_ADDR_FACE_8_14_MSB);
+}
+
+const struct mtk_aie_drv_ops aie_ops_isp71 = {
+	.reset = aie_reset,
+	.alloc_buf = aie_alloc_aie_buf,
+	.init = aie_init,
+	.uninit = aie_uninit,
+	.prepare = aie_prepare,
+	.execute = aie_execute,
+	.get_fd_result = aie_get_fd_result,
+	.get_attr_result = aie_get_attr_result,
+	.get_fld_result = aie_get_fld_result,
+	.irq_handle = aie_irqhandle,
+	.config_fld_buf_reg = aie_config_fld_buf_reg,
+	.fdvt_dump_reg = aie_fdvt_dump_reg,
+};

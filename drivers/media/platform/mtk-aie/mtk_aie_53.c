@@ -48,15 +48,6 @@
 #define AIE_WRITE3_AVG_BW 127
 #define CHECK_SERVICE_0 0
 #define CHECK_SERVICE_1 1
-#define CLK_SINGLE 1
-#if CHECK_SERVICE_0 //Remove CID
-#define V4L2_CID_MTK_AIE_INIT (V4L2_CID_USER_MTK_FD_BASE + 1)
-#define V4L2_CID_MTK_AIE_PARAM (V4L2_CID_USER_MTK_FD_BASE + 2)
-#define V4L2_CID_MTK_AIE_FD_VER (V4L2_CID_USER_MTK_FD_BASE + 3)
-#define V4L2_CID_MTK_AIE_ATTR_VER (V4L2_CID_USER_MTK_FD_BASE + 4)
-
-#define V4L2_CID_MTK_AIE_MAX 4
-#endif
 
 struct mtk_aie_user_para g_user_param;
 static struct device *aie_pm_dev;
@@ -90,7 +81,13 @@ static const struct v4l2_pix_format_mplane mtk_aie_img_fmts[] = {
 	},
 };
 
-struct clk_bulk_data ipesys_isp7_aie_clks[] = {
+struct aie_data {
+	struct clk_bulk_data *clks;
+	unsigned int clk_num;
+	const struct mtk_aie_drv_ops *drv_ops;
+};
+
+static struct clk_bulk_data ipesys_isp7_aie_clks[] = {
 	{ .id = "VCORE_GALS" },
 	{ .id = "MAIN_GALS" },
 	{ .id = "IMG_IPE" },
@@ -99,14 +96,26 @@ struct clk_bulk_data ipesys_isp7_aie_clks[] = {
 	{ .id = "IPE_TOP" },
 	{ .id = "IPE_SMI_LARB12" },
 };
-#if CHECK_SERVICE_0
-static struct mtk_aie_qos_path aie_qos_path[AIE_QOS_MAX] = {
-	{NULL, "l12_fdvt_rda", 0},
-	{NULL, "l12_fdvt_rdb", 0},
-	{NULL, "l12_fdvt_wra", 0},
-	{NULL, "l12_fdvt_wrb", 0}
+
+static struct clk_bulk_data ipesys_isp7s_aie_clks[] = {
+	{ .id = "VCORE_GALS" },
+	{ .id = "IPE_FDVT" },
+	{ .id = "IPE_SMI_LARB12" },
+	{ .id = "IMG_IPE" },
 };
-#endif
+
+static struct aie_data data_isp71 = {
+	.clks = ipesys_isp7_aie_clks,
+	.clk_num = ARRAY_SIZE(ipesys_isp7_aie_clks),
+	.drv_ops = &aie_ops_isp71,
+};
+
+static struct aie_data data_isp7s = {
+	.clks = ipesys_isp7s_aie_clks,
+	.clk_num = ARRAY_SIZE(ipesys_isp7s_aie_clks),
+	.drv_ops = &aie_ops_isp7s,
+};
+
 static int mtk_aie_suspend(struct device *dev)
 {
 	struct mtk_aie_dev *fd = dev_get_drvdata(dev);
@@ -161,6 +170,7 @@ static int mtk_aie_resume(struct device *dev)
 	}
 
 	dev_dbg(dev, "%s: resume aie job end)\n", __func__);
+
 	return 0;
 }
 
@@ -435,7 +445,7 @@ static void mtk_aie_fill_init_param(struct mtk_aie_dev *fd,
 #endif
 static int mtk_aie_hw_enable(struct mtk_aie_dev *fd)
 {
-	return aie_init(fd);
+	return fd->drv_ops->init(fd);
 }
 
 static void mtk_aie_hw_job_finish(struct mtk_aie_dev *fd,
@@ -472,66 +482,22 @@ static int mtk_aie_ccf_enable(struct device *dev)
 	struct mtk_aie_dev *fd = dev_get_drvdata(dev);
 	int ret;
 
-#ifdef CLK_SINGLE
-	ret = clk_prepare_enable(fd->vcore_gals);
-	if (ret) {
-		dev_info(dev, "Failed to open vcore_gals clk:%d\n", ret);
-		return ret;
-	}
-
-	ret = clk_prepare_enable(fd->main_gals);
-	if (ret) {
-		dev_info(dev, "Failed to open main_gals clk:%d\n", ret);
-		return ret;
-	}
-
-	ret = clk_prepare_enable(fd->img_ipe);
-	if (ret) {
-		dev_info(dev, "Failed to open img_ipe clk:%d\n", ret);
-		return ret;
-	}
-
-	ret = clk_prepare_enable(fd->ipe_fdvt);
-	if (ret) {
-		dev_info(dev, "Failed to open ipe_fdvt clk:%d\n", ret);
-		return ret;
-	}
-
-	ret = clk_prepare_enable(fd->ipe_smi_larb12);
-	if (ret) {
-		dev_info(dev, "Failed to open ipe_smi_larb12 clk:%d\n", ret);
-		return ret;
-	}
-
-	ret = clk_prepare_enable(fd->ipe_top);
-	if (ret) {
-		dev_info(dev, "Failed to open ipe_top clk:%d\n", ret);
-		return ret;
-	}
-
-#else
-
 	ret = clk_bulk_prepare_enable(fd->aie_clk.clk_num, fd->aie_clk.clks);
 	if (ret) {
-		dev_info("failed to enable AIE clock:%d\n", ret);
+		dev_info(fd->dev, "failed to enable AIE clock:%d\n", ret);
 		return ret;
 	}
-#endif
+
 	return 0;
-
-
 }
 
 static int mtk_aie_ccf_disable(struct device *dev)
 {
 	struct mtk_aie_dev *fd = dev_get_drvdata(dev);
 
-	clk_disable_unprepare(fd->ipe_top);
-	clk_disable_unprepare(fd->ipe_smi_larb12);
-	clk_disable_unprepare(fd->ipe_fdvt);
-	clk_disable_unprepare(fd->img_ipe);
-	clk_disable_unprepare(fd->main_gals);
-	clk_disable_unprepare(fd->vcore_gals);
+	clk_bulk_disable_unprepare(fd->aie_clk.clk_num,
+			fd->aie_clk.clks);
+
 	return 0;
 }
 
@@ -540,8 +506,6 @@ static int mtk_aie_hw_connect(struct mtk_aie_dev *fd)
 	int ret = 0;
 
 	pm_runtime_get_sync((fd->dev));
-	//mtk_aie_ccf_enable((fd->dev));
-	//mtk_imgsys_pwr(fd->img_pdev, true);
 
 	fd->fd_stream_count++;
 	if (fd->fd_stream_count == 1) {
@@ -564,9 +528,9 @@ static void mtk_aie_hw_disconnect(struct mtk_aie_dev *fd)
 		//aie_disable_secure_domain(fd);
 		//cmdq_sec_mbox_stop(fd->fdvt_secure_clt);
 	}
-	//mtk_aie_ccf_disable(fd->dev);
+
 	pm_runtime_put_sync(fd->dev);
-	//mtk_imgsys_pwr(fd->img_pdev, false);
+
 	dev_info(fd->dev, "[%s] stream_count:%d map_count%d\n", __func__,
 			fd->fd_stream_count, fd->map_count);
 	fd->fd_stream_count--;
@@ -582,7 +546,7 @@ static void mtk_aie_hw_disconnect(struct mtk_aie_dev *fd)
 			dev_info(fd->dev, "[%s] stream_count:%d map_count%d\n", __func__,
 					fd->fd_stream_count, fd->map_count);
 		}
-		aie_uninit(fd);
+		fd->drv_ops->uninit(fd);
 	}
 }
 
@@ -715,392 +679,6 @@ static int mtk_aie_vb2_start_streaming(struct vb2_queue *vq, unsigned int count)
 	return 0;
 }
 
-void FDVT_DumpDRAMOut(struct mtk_aie_dev *fd, unsigned int *hw, unsigned int size)
-{
-	unsigned int i;
-	unsigned int comparetimes = size / 4;
-
-	for (i = 0; i < comparetimes; i += 4) {
-		dev_info(fd->dev, "0x%08x, 0x%08x, 0x%08x, 0x%08x", hw[i],
-						hw[i + 1], hw[i + 2], hw[i + 3]);
-	}
-	dev_info(fd->dev, "Dump End");
-}
-
-signed int fdvt_dump_reg(struct mtk_aie_dev *fd)
-{
-	signed int ret = 0;
-	int fld_face_num = fd->aie_cfg->fld_face_num;
-	unsigned int loop_num = 1;
-	int i = 0;
-
-	if (fd->aie_cfg->sel_mode == 3) {
-		dev_info(fd->dev, "Blink Addr: %x\n", fd->dma_para->fld_blink_weight_pa);
-		for (i = 0; i < 15; i++) {
-			dev_info(fd->dev, "[%d]CV Addr: %x\n", i, fd->dma_para->fld_cv_pa[i]);
-			dev_info(fd->dev, "[%d]LEAFNODE Addr: %x\n", i,
-						fd->dma_para->fld_leafnode_pa[i]);
-			dev_info(fd->dev, "[%d]FP Addr: %x\n", i, fd->dma_para->fld_fp_pa[i]);
-			dev_info(fd->dev, "[%d]Tree02 Addr: %x\n", i,
-						fd->dma_para->fld_tree02_pa[i]);
-			dev_info(fd->dev, "[%d]Tree03 Addr: %x\n", i,
-						fd->dma_para->fld_tree13_pa[i]);
-		}
-		dev_info(fd->dev, "OUT Addr: %x\n", fd->dma_para->fld_output_pa);
-
-		dev_info(fd->dev, "- E.");
-		dev_info(fd->dev, "FLD Config Info\n");
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)AIE_START_REG,
-					(unsigned int)readl(fd->fd_base + AIE_START_REG));
-
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)AIE_DMA_CTL_REG,
-					(unsigned int)readl(fd->fd_base + AIE_DMA_CTL_REG));
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)FLD_EN,
-					(unsigned int)readl(fd->fd_base + FLD_EN));
-
-		dev_info(fd->dev, "Width Hieght:\n");
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)FLD_SRC_WD_HT,
-					(unsigned int)readl(fd->fd_base + FLD_SRC_WD_HT));
-
-		dev_info(fd->dev, "FLD busy\n");
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)FLD_BUSY,
-					(unsigned int)readl(fd->fd_base + FLD_BUSY));
-
-		dev_info(fd->dev, "FLD done\n");
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)FLD_DONE,
-		(unsigned int)readl(fd->fd_base + FLD_DONE));
-					dev_info(fd->dev, "FLD Crop\n");
-
-		for (i = 0; i < fld_face_num; i++) {
-			dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)FLD_BASE_ADDR_FACE_0 +
-			i * 0x4, (unsigned int)readl(fd->fd_base + FLD_BASE_ADDR_FACE_0 + i * 0x4));
-
-			dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)fld_face_info_0[i],
-				(unsigned int)readl(fd->fd_base + fld_face_info_0[i]));
-
-			dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)fld_face_info_1[i],
-				(unsigned int)readl(fd->fd_base + fld_face_info_1[i]));
-
-			dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)fld_face_info_2[i],
-				(unsigned int)readl(fd->fd_base + fld_face_info_2[i]));
-		}
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_MODEL_PARA1,
-					(unsigned int)readl(fd->fd_base + FLD_MODEL_PARA1));
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_MODEL_PARA14,
-					(unsigned int)readl(fd->fd_base + FLD_MODEL_PARA14));
-
-		for (i = 0; i < FLD_MAX_INPUT; i++) {
-			dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) fld_pl_in_addr_0[i],
-					(unsigned int)readl(fd->fd_base + fld_pl_in_addr_0[i]));
-			dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) fld_pl_in_addr_1[i],
-					(unsigned int)readl(fd->fd_base + fld_pl_in_addr_1[i]));
-			dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) fld_pl_in_addr_2[i],
-					(unsigned int)readl(fd->fd_base + fld_pl_in_addr_2[i]));
-			dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) fld_pl_in_addr_3[i],
-					(unsigned int)readl(fd->fd_base + fld_pl_in_addr_3[i]));
-			dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) fld_sh_in_addr[i],
-					(unsigned int)readl(fd->fd_base + fld_sh_in_addr[i]));
-		}
-
-		dev_info(fd->dev, "MSB BIT\n");
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_PL_IN_BASE_ADDR_0_0_7_MSB,
-				(unsigned int)readl(fd->fd_base + FLD_PL_IN_BASE_ADDR_0_0_7_MSB));
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_PL_IN_BASE_ADDR_0_8_15_MSB,
-				(unsigned int)readl(fd->fd_base + FLD_PL_IN_BASE_ADDR_0_8_15_MSB));
-
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_PL_IN_BASE_ADDR_1_0_7_MSB,
-				(unsigned int)readl(fd->fd_base + FLD_PL_IN_BASE_ADDR_1_0_7_MSB));
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_PL_IN_BASE_ADDR_1_8_15_MSB,
-				(unsigned int)readl(fd->fd_base + FLD_PL_IN_BASE_ADDR_1_8_15_MSB));
-
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_PL_IN_BASE_ADDR_2_0_7_MSB,
-				(unsigned int)readl(fd->fd_base + FLD_PL_IN_BASE_ADDR_2_0_7_MSB));
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_PL_IN_BASE_ADDR_2_8_15_MSB,
-				(unsigned int)readl(fd->fd_base + FLD_PL_IN_BASE_ADDR_2_8_15_MSB));
-
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_PL_IN_BASE_ADDR_3_0_7_MSB,
-				(unsigned int)readl(fd->fd_base + FLD_PL_IN_BASE_ADDR_3_0_7_MSB));
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_PL_IN_BASE_ADDR_3_8_15_MSB,
-				(unsigned int)readl(fd->fd_base + FLD_PL_IN_BASE_ADDR_3_8_15_MSB));
-
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_SH_IN_BASE_ADDR_0_7_MSB,
-				(unsigned int)readl(fd->fd_base + FLD_SH_IN_BASE_ADDR_0_7_MSB));
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_SH_IN_BASE_ADDR_8_15_MSB,
-				(unsigned int)readl(fd->fd_base + FLD_SH_IN_BASE_ADDR_8_15_MSB));
-
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_BS_IN_BASE_ADDR_8_15_MSB,
-				(unsigned int)readl(fd->fd_base + FLD_BS_IN_BASE_ADDR_8_15_MSB));
-
-		dev_info(fd->dev, "OUT\n");
-
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_SH_IN_SIZE_0,
-				(unsigned int)readl(fd->fd_base + FLD_SH_IN_SIZE_0));
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_SH_IN_STRIDE_0,
-				(unsigned int)readl(fd->fd_base + FLD_SH_IN_STRIDE_0));
-
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_TR_OUT_BASE_ADDR_0,
-				(unsigned int)readl(fd->fd_base + FLD_TR_OUT_BASE_ADDR_0));
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_TR_OUT_SIZE_0,
-				(unsigned int)readl(fd->fd_base + FLD_TR_OUT_SIZE_0));
-
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_TR_OUT_STRIDE_0,
-				(unsigned int)readl(fd->fd_base + FLD_TR_OUT_STRIDE_0));
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_PP_OUT_BASE_ADDR_0,
-				(unsigned int)readl(fd->fd_base + FLD_PP_OUT_BASE_ADDR_0));
-
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_PP_OUT_SIZE_0,
-				(unsigned int)readl(fd->fd_base + FLD_PP_OUT_SIZE_0));
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_PP_OUT_STRIDE_0,
-				(unsigned int)readl(fd->fd_base + FLD_PP_OUT_STRIDE_0));
-
-		/*cv score*/
-		dev_info(fd->dev, "CV Score\n");
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_BS_BIAS,
-						(unsigned int)readl(fd->fd_base + FLD_BS_BIAS));
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_CV_FM_RANGE_0,
-					(unsigned int)readl(fd->fd_base + FLD_CV_FM_RANGE_0));
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_CV_FM_RANGE_1,
-					(unsigned int)readl(fd->fd_base + FLD_CV_FM_RANGE_1));
-
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_CV_PM_RANGE_0,
-					(unsigned int)readl(fd->fd_base + FLD_CV_PM_RANGE_0));
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_CV_PM_RANGE_1,
-					(unsigned int)readl(fd->fd_base + FLD_CV_PM_RANGE_1));
-
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_BS_RANGE_0,
-					(unsigned int)readl(fd->fd_base + FLD_BS_RANGE_0));
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_BS_RANGE_1,
-					(unsigned int)readl(fd->fd_base + FLD_BS_RANGE_1));
-
-		/*input settings*/
-		dev_info(fd->dev, "input settings\n");
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_PL_IN_SIZE_0,
-					(unsigned int)readl(fd->fd_base + FLD_PL_IN_SIZE_0));
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_PL_IN_STRIDE_0,
-					(unsigned int)readl(fd->fd_base + FLD_PL_IN_STRIDE_0));
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_PL_IN_SIZE_1,
-					(unsigned int)readl(fd->fd_base + FLD_PL_IN_SIZE_1));
-
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_PL_IN_STRIDE_1,
-					(unsigned int)readl(fd->fd_base + FLD_PL_IN_STRIDE_1));
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_PL_IN_SIZE_2_0,
-					(unsigned int)readl(fd->fd_base + FLD_PL_IN_SIZE_2_0));
-
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_PL_IN_STRIDE_2_0,
-					(unsigned int)readl(fd->fd_base + FLD_PL_IN_STRIDE_2_0));
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_PL_IN_SIZE_2_1,
-					(unsigned int)readl(fd->fd_base + FLD_PL_IN_SIZE_2_1));
-
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_PL_IN_STRIDE_2_1,
-					(unsigned int)readl(fd->fd_base + FLD_PL_IN_STRIDE_2_1));
-
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_PL_IN_SIZE_2_2,
-					(unsigned int)readl(fd->fd_base + FLD_PL_IN_SIZE_2_2));
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_PL_IN_STRIDE_2_2,
-					(unsigned int)readl(fd->fd_base + FLD_PL_IN_STRIDE_2_2));
-
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_PL_IN_SIZE_3,
-					(unsigned int)readl(fd->fd_base + FLD_PL_IN_SIZE_3));
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_PL_IN_STRIDE_3,
-					(unsigned int)readl(fd->fd_base + FLD_PL_IN_STRIDE_3));
-
-	} else {
-		dev_info(fd->dev, "- E.");
-		dev_info(fd->dev, "FDVT Config Info\n");
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)AIE_START_REG,
-		(unsigned int)readl(fd->fd_base + AIE_START_REG));
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)AIE_ENABLE_REG,
-			(unsigned int)readl(fd->fd_base + AIE_ENABLE_REG));
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)AIE_LOOP_REG,
-			(unsigned int)readl(fd->fd_base + AIE_LOOP_REG));
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)AIE_INT_EN_REG,
-			(unsigned int)readl(fd->fd_base + AIE_INT_EN_REG));
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)FDVT_SRC_WD_HT,
-			(unsigned int)readl(fd->fd_base + FDVT_SRC_WD_HT));
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)FDVT_DES_WD_HT,
-			(unsigned int)readl(fd->fd_base + FDVT_DES_WD_HT));
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)FDVT_DEBUG_INFO_0,
-			(unsigned int)readl(fd->fd_base + FDVT_DEBUG_INFO_0));
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)FDVT_DEBUG_INFO_1,
-			(unsigned int)readl(fd->fd_base + FDVT_DEBUG_INFO_1));
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)FDVT_YUV2RGB_CON,
-			(unsigned int)readl(fd->fd_base + FDVT_YUV2RGB_CON));
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)AIE_RS_CON_BASE_ADR_REG,
-			(unsigned int)readl(fd->fd_base + AIE_RS_CON_BASE_ADR_REG));
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)AIE_FD_CON_BASE_ADR_REG,
-			(unsigned int)readl(fd->fd_base + AIE_FD_CON_BASE_ADR_REG));
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)AIE_YUV2RGB_CON_BASE_ADR_REG,
-			(unsigned int)readl(fd->fd_base + AIE_YUV2RGB_CON_BASE_ADR_REG));
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)FDVT_IN_BASE_ADR_0,
-			(unsigned int)readl(fd->fd_base + FDVT_IN_BASE_ADR_0));
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)FDVT_IN_BASE_ADR_1,
-			(unsigned int)readl(fd->fd_base + FDVT_IN_BASE_ADR_1));
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)FDVT_IN_BASE_ADR_2,
-			(unsigned int)readl(fd->fd_base + FDVT_IN_BASE_ADR_2));
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)FDVT_IN_BASE_ADR_3,
-			(unsigned int)readl(fd->fd_base + FDVT_IN_BASE_ADR_3));
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)FDVT_OUT_BASE_ADR_0,
-			(unsigned int)readl(fd->fd_base + FDVT_OUT_BASE_ADR_0));
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)FDVT_OUT_BASE_ADR_1,
-			(unsigned int)readl(fd->fd_base + FDVT_OUT_BASE_ADR_1));
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)FDVT_OUT_BASE_ADR_2,
-			(unsigned int)readl(fd->fd_base + FDVT_OUT_BASE_ADR_2));
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)FDVT_OUT_BASE_ADR_3,
-			(unsigned int)readl(fd->fd_base + FDVT_OUT_BASE_ADR_3));
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)FDVT_KERNEL_BASE_ADR_0,
-			(unsigned int)readl(fd->fd_base + FDVT_KERNEL_BASE_ADR_0));
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)FDVT_KERNEL_BASE_ADR_1,
-			(unsigned int)readl(fd->fd_base + FDVT_KERNEL_BASE_ADR_1));
-#if CHECK_SERVICE_1
-		dev_info(fd->dev,
-			"fdmode_fdvt_yuv2rgb_config:	0x%x, fdmode_fdvt_yuv2rgb_config_size:	%d",
-			fd->base_para->fd_yuv2rgb_cfg_va, fd->fd_yuv2rgb_cfg_size);
-		FDVT_DumpDRAMOut(fd, (u32 *)fd->base_para->fd_yuv2rgb_cfg_va,
-								fd->fd_yuv2rgb_cfg_size);
-		dev_info(fd->dev,
-			"fdmode_fdvt_rs_config:	  0x%x, fdmode_fdvt_rs_config_size:	 %d",
-			fd->base_para->fd_rs_cfg_va, fd->fd_rs_cfg_size);
-		FDVT_DumpDRAMOut(fd, (u32 *)fd->base_para->fd_rs_cfg_va, fd->fd_rs_cfg_size);
-
-		loop_num = (unsigned int)readl(fd->fd_base + FDVT_DEBUG_INFO_0) & 0xFF;
-
-		dev_info(fd->dev,
-			"fdmode_fdvt_fd_config:	0x%x, fdmode_fdvt_fd_config_size:	%d",
-			(unsigned int *)fd->base_para->fd_fd_cfg_va,
-			((fd->fd_fd_cfg_aligned_size)/87) * loop_num);
-		FDVT_DumpDRAMOut(fd, (u32 *)fd->base_para->fd_fd_cfg_va,
-			((fd->fd_fd_cfg_aligned_size)/87) * loop_num);
-
-		dev_info(fd->dev, "FDVT DMA Debug Info\n");
-
-		writel(((unsigned int)readl(fd->fd_base + FDVT_CTRL_REG)) & 0xFFFFF00B,
-					fd->fd_base + DMA_DEBUG_SEL_REG); //0x3f4
-		writel(((unsigned int)readl(fd->fd_base + FDVT_CTRL_REG)) & 0xFFFF1FFF,
-					fd->fd_base + FDVT_CTRL_REG); //0x0098 bit[15:13] = 0
-		dev_info(fd->dev, "[FDVT_CTRL]: 0x%08X %08X\n",
-		  (fd->fd_base + FDVT_CTRL_REG),
-		  (unsigned int)readl(fd->fd_base + FDVT_CTRL_REG));
-		dev_info(fd->dev, "[FDVT_DEBUG_INFO_2 - %x]: 0x%08X %08X\n", i,
-			(fd->fd_base + FDVT_DEBUG_INFO_2),
-			(unsigned int)readl(fd->fd_base + FDVT_DEBUG_INFO_2));
-
-		writel(((unsigned int)readl(fd->fd_base + FDVT_CTRL_REG)) & 0xFFFFF00C,
-			fd->fd_base + DMA_DEBUG_SEL_REG);
-		writel(((unsigned int)readl(fd->fd_base + FDVT_CTRL_REG)) & 0xFFFF1FFF,
-			fd->fd_base + FDVT_CTRL_REG); //0x0098 bit[15:13] = 0
-		dev_info(fd->dev, "[FDVT_CTRL]: 0x%08X %08X\n",
-		  (fd->fd_base + FDVT_CTRL_REG),
-		  (unsigned int)readl(fd->fd_base + FDVT_CTRL_REG));
-		dev_info(fd->dev, "[FDVT_DEBUG_INFO_2 - %x]: 0x%08X %08X\n", i,
-			(fd->fd_base + FDVT_DEBUG_INFO_2),
-			(unsigned int)readl(fd->fd_base + FDVT_DEBUG_INFO_2));
-
-		writel(((unsigned int)readl(fd->fd_base + FDVT_CTRL_REG)) & 0xFFFFF00D,
-			fd->fd_base + DMA_DEBUG_SEL_REG);
-		writel(((unsigned int)readl(fd->fd_base + FDVT_CTRL_REG)) & 0xFFFF1FFF,
-			fd->fd_base + FDVT_CTRL_REG); //0x0098 bit[15:13] = 0
-		dev_info(fd->dev, "[FDVT_CTRL]: 0x%08X %08X\n",
-		  (fd->fd_base + FDVT_CTRL_REG),
-		  (unsigned int)readl(fd->fd_base + FDVT_CTRL_REG));
-		dev_info(fd->dev, "[FDVT_DEBUG_INFO_2 - %x]: 0x%08X %08X\n", i,
-			(fd->fd_base + FDVT_DEBUG_INFO_2),
-			(unsigned int)readl(fd->fd_base + FDVT_DEBUG_INFO_2));
-
-		writel(((unsigned int)readl(fd->fd_base + FDVT_CTRL_REG)) & 0xFFFFF00E,
-			fd->fd_base + DMA_DEBUG_SEL_REG);
-		writel(((unsigned int)readl(fd->fd_base + FDVT_CTRL_REG)) & 0xFFFF1FFF,
-			fd->fd_base + FDVT_CTRL_REG); //0x0098 bit[15:13] = 0
-		dev_info(fd->dev, "[FDVT_CTRL]: 0x%08X %08X\n",
-		  (fd->fd_base + FDVT_CTRL_REG),
-		  (unsigned int)readl(fd->fd_base + FDVT_CTRL_REG));
-		dev_info(fd->dev, "[FDVT_DEBUG_INFO_2 - %x]: 0x%08X %08X\n", i,
-			(fd->fd_base + FDVT_DEBUG_INFO_2),
-			(unsigned int)readl(fd->fd_base + FDVT_DEBUG_INFO_2));
-
-		writel(((unsigned int)readl(fd->fd_base + FDVT_CTRL_REG)) & 0xFFFF1FFF,
-			fd->fd_base + FDVT_CTRL_REG);
-		dev_info(fd->dev, "[FDVT_CTRL - %x]: 0x%08X %08X\n", i,
-		  (fd->fd_base + FDVT_CTRL_REG),
-		  (unsigned int)readl(fd->fd_base + FDVT_CTRL_REG));
-
-		writel((((unsigned int)readl(fd->fd_base + DMA_DEBUG_SEL_REG)) &
-		   0xFFFFFF00) | 0x13, fd->fd_base + DMA_DEBUG_SEL_REG);
-
-		for (i = 0; i <= 0x27; i++) {
-			if (i > 0x7 && i < 0x10)
-				continue;
-			writel((((unsigned int)readl(fd->fd_base + DMA_DEBUG_SEL_REG)) &
-			   0xFFFF00FF) | (i << 8), fd->fd_base + DMA_DEBUG_SEL_REG);
-			dev_info(fd->dev, "[FDVT_DEBUG_SEL - %x]: 0x%08X %08X\n", i,
-				(fd->fd_base + DMA_DEBUG_SEL_REG),
-				(unsigned int)readl(fd->fd_base + DMA_DEBUG_SEL_REG));
-
-			dev_info(fd->dev, "[FDVT_DEBUG_INFO_2 - %x]: 0x%08X %08X\n", i,
-				(fd->fd_base + FDVT_DEBUG_INFO_2),
-				(unsigned int)readl(fd->fd_base + FDVT_DEBUG_INFO_2));
-		}
-
-		dev_info(fd->dev, "FDVT SMI Debug Info\n");
-		dev_info(fd->dev, "FDVT Write FDVT_A_DMA_DEBUG_SEL[15:8] = 0x1\n");
-		dev_info(fd->dev, "FDVT Write FDVT_A_DMA_DEBUG_SEL[23:16] = 0x0\n");
-		writel((((unsigned int)readl(fd->fd_base + DMA_DEBUG_SEL_REG)) &
-			0xFFFF00FF) | (1 << 8), fd->fd_base + DMA_DEBUG_SEL_REG);
-		writel(((unsigned int)readl(fd->fd_base + DMA_DEBUG_SEL_REG))
-			& 0xFF00FFFF, fd->fd_base + DMA_DEBUG_SEL_REG);
-
-		for (i = 1; i <= 0xe; i++) {
-			writel((((unsigned int)readl(fd->fd_base + DMA_DEBUG_SEL_REG)) &
-				0xFFFFFF00) | i, fd->fd_base + DMA_DEBUG_SEL_REG);
-			dev_info(fd->dev, "[FDVT_DEBUG_SEL SMI - %x]: 0x%08X %08X\n", i,
-				(fd->fd_base + DMA_DEBUG_SEL_REG),
-				(unsigned int)readl(fd->fd_base + DMA_DEBUG_SEL_REG));
-			dev_info(fd->dev, "[FDVT_DEBUG_INFO_2 SMI - %x]: 0x%08X %08X\n", i,
-				(fd->fd_base + FDVT_DEBUG_INFO_2),
-				(unsigned int)readl(fd->fd_base + FDVT_DEBUG_INFO_2));
-		}
-
-		dev_info(fd->dev, "FDVT fifo_debug_data_case1\n");
-		dev_info(fd->dev, "FDVT Write FDVT_A_DMA_DEBUG_SEL[15:8] = 0x2\n");
-		dev_info(fd->dev, "FDVT Write FDVT_A_DMA_DEBUG_SEL[23:16] = 0x1\n");
-		writel((((unsigned int)readl(fd->fd_base + DMA_DEBUG_SEL_REG)) &
-			0xFFFF00FF) | (2 << 8), fd->fd_base + DMA_DEBUG_SEL_REG);
-		writel((((unsigned int)readl(fd->fd_base + DMA_DEBUG_SEL_REG)) &
-			0xFF00FFFF) | (1 << 16), fd->fd_base + DMA_DEBUG_SEL_REG);
-
-		for (i = 1; i <= 0xe; i++) {
-			writel((((unsigned int)readl(fd->fd_base + DMA_DEBUG_SEL_REG)) &
-				0xFFFFFF00) | i, fd->fd_base + DMA_DEBUG_SEL_REG);
-			dev_info(fd->dev, "[FDVT_DEBUG_SEL SMI - %x]: 0x%08X %08X\n", i,
-				(fd->fd_base + DMA_DEBUG_SEL_REG),
-				(unsigned int)readl(fd->fd_base + DMA_DEBUG_SEL_REG));
-			dev_info(fd->dev, "[FDVT_DEBUG_INFO_2 SMI - %x]: 0x%08X %08X\n", i,
-				(fd->fd_base + FDVT_DEBUG_INFO_2),
-				(unsigned int)readl(fd->fd_base + FDVT_DEBUG_INFO_2));
-		}
-
-		dev_info(fd->dev, "FDVT fifo_debug_data_case3\n");
-		dev_info(fd->dev, "FDVT Write FDVT_A_DMA_DEBUG_SEL[15:8] = 0x2\n");
-		dev_info(fd->dev, "FDVT Write FDVT_A_DMA_DEBUG_SEL[23:16] = 0x3\n");
-		writel((((unsigned int)readl(fd->fd_base + DMA_DEBUG_SEL_REG)) &
-			0xFFFF00FF) | (2 << 8), fd->fd_base + DMA_DEBUG_SEL_REG);
-		writel((((unsigned int)readl(fd->fd_base + DMA_DEBUG_SEL_REG)) &
-			0xFF00FFFF) | (3 << 16), fd->fd_base + DMA_DEBUG_SEL_REG);
-
-		for (i = 1; i <= 0xe; i++) {
-			writel((((unsigned int)readl(fd->fd_base + DMA_DEBUG_SEL_REG)) &
-			   0xFFFFFF00) | i, fd->fd_base + DMA_DEBUG_SEL_REG);
-			dev_info(fd->dev, "[FDVT_DEBUG_SEL SMI - %x]: 0x%08X %08X\n", i,
-				(fd->fd_base + DMA_DEBUG_SEL_REG),
-				(unsigned int)readl(fd->fd_base + DMA_DEBUG_SEL_REG));
-			dev_info(fd->dev, "[FDVT_DEBUG_INFO_2 SMI - %x]: 0x%08X %08X\n", i,
-				(fd->fd_base + FDVT_DEBUG_INFO_2),
-				(unsigned int)readl(fd->fd_base + FDVT_DEBUG_INFO_2));
-		}
-#endif
-	}
-	return ret;
-}
-
 static void mtk_aie_job_timeout_work(struct work_struct *work)
 {
 	struct mtk_aie_dev *fd =
@@ -1142,9 +720,10 @@ static void mtk_aie_job_timeout_work(struct work_struct *work)
 	if (fd->aie_cfg->sel_mode == 1)
 		dev_info(fd->dev, "[ATTRMODE] w_idx = %d, r_idx = %d\n",
 			 fd->attr_para->w_idx, fd->attr_para->r_idx);
-	fdvt_dump_reg(fd);
-	aie_irqhandle(fd);
-	aie_reset(fd);
+	fd->drv_ops->fdvt_dump_reg(fd);
+
+	fd->drv_ops->irq_handle(fd);
+	fd->drv_ops->reset(fd);
 	mtk_aie_hw_job_finish(fd, VB2_BUF_STATE_ERROR);
 	atomic_dec(&fd->num_composing);
 	wake_up(&fd->flushing_waitq);
@@ -1362,7 +941,7 @@ int mtk_aie_vidioc_qbuf(struct file *file, void *priv,
 				//aie_enable_secure_domain(fd);
 			}
 
-			ret = aie_alloc_aie_buf(fd);
+			ret = fd->drv_ops->alloc_buf(fd);
 			if (ret)
 				return ret;
 			fd->map_count++;
@@ -1449,74 +1028,7 @@ static int mtk_aie_queue_init(void *priv, struct vb2_queue *src_vq,
 
 	return vb2_queue_init(dst_vq);
 }
-#if CHECK_SERVICE_0 //Remove CID
-static struct v4l2_ctrl_config mtk_aie_controls[] = {
-	{
-		.id = V4L2_CID_MTK_AIE_INIT,
-		.name = "FD detection init",
-		.type = V4L2_CTRL_TYPE_U32,
-		.min = 0,
-		.max = 0xffffffff,
-		.step = 1,
-		.def = 0,
-		.dims = {sizeof(struct user_init) / 4},
-	},
-	{
-		.id = V4L2_CID_MTK_AIE_PARAM,
-		.name = "FD detection param",
-		.type = V4L2_CTRL_TYPE_U32,
-		.min = 0,
-		.max = 0xffffffff,
-		.step = 1,
-		.def = 0,
-		.dims = {sizeof(struct user_param) / 4},
-	},
-	{
-		.id = V4L2_CID_MTK_AIE_FD_VER,
-		.name = "FD detection fd ver",
-		.type = V4L2_CTRL_TYPE_U32,
-		.min = 0,
-		.max = 0xffffffff,
-		.step = 1,
-		.def = FD_VERSION,
-		.dims = {1},
-	},
-	{
-		.id = V4L2_CID_MTK_AIE_ATTR_VER,
-		.name = "FD detection attr ver",
-		.type = V4L2_CTRL_TYPE_U32,
-		.min = 0,
-		.max = 0xffffffff,
-		.step = 1,
-		.def = ATTR_VERSION,
-		.dims = {1},
-	},
-};
 
-static int mtk_aie_ctrls_setup(struct mtk_aie_ctx *ctx)
-{
-	struct v4l2_ctrl_handler *hdl = &ctx->hdl;
-	int i;
-
-	v4l2_ctrl_handler_init(hdl, V4L2_CID_MTK_AIE_MAX);
-	if (hdl->error)
-		return hdl->error;
-
-	for (i = 0; i < ARRAY_SIZE(mtk_aie_controls); i++) {
-		v4l2_ctrl_new_custom(hdl, &mtk_aie_controls[i], ctx);
-		if (hdl->error) {
-			v4l2_ctrl_handler_free(hdl);
-			dev_info(ctx->dev, "Failed to register controls:%d", i);
-			return hdl->error;
-		}
-	}
-
-	ctx->fh.ctrl_handler = &ctx->hdl;
-	v4l2_ctrl_handler_setup(hdl);
-
-	return 0;
-}
-#endif
 static void init_ctx_fmt(struct mtk_aie_ctx *ctx)
 {
 	struct v4l2_pix_format_mplane *src_fmt = &ctx->src_fmt;
@@ -1554,13 +1066,6 @@ static int mtk_vfd_open(struct file *filp)
 	filp->private_data = &ctx->fh;
 
 	init_ctx_fmt(ctx);
-#if CHECK_SERVICE_0 //Remove CID
-	ret = mtk_aie_ctrls_setup(ctx);
-	if (ret) {
-		dev_info(ctx->dev, "Failed to set up controls:%d\n", ret);
-		goto err_fh_exit;
-	}
-#endif
 	ctx->fh.m2m_ctx =
 		v4l2_m2m_ctx_init(fd->m2m_dev, ctx, &mtk_aie_queue_init);
 	if (IS_ERR(ctx->fh.m2m_ctx)) {
@@ -1573,10 +1078,6 @@ static int mtk_vfd_open(struct file *filp)
 	return 0;
 
 err_free_ctrl_handler:
-#if CHECK_SERVICE_0 //Remove CID
-	v4l2_ctrl_handler_free(&ctx->hdl);
-err_fh_exit:
-#endif
 	v4l2_fh_exit(&ctx->fh);
 	kfree(ctx);
 
@@ -1610,18 +1111,7 @@ static const struct v4l2_file_operations fd_video_fops = {
 #endif
 
 };
-#if CHECK_SERVICE_0
-static void mtk_aie_fill_user_param(struct mtk_aie_dev *fd,
-				    struct user_param *user_param,
-				    struct v4l2_ctrl_handler *hdl)
-{
-	struct v4l2_ctrl *ctrl;
 
-	ctrl = v4l2_ctrl_find(hdl, V4L2_CID_MTK_AIE_PARAM);
-	if (ctrl)
-		memcpy(user_param, ctrl->p_new.p_u32, sizeof(struct user_param));
-}
-#endif
 static void mtk_aie_device_run(void *priv)
 {
 	struct mtk_aie_ctx *ctx = priv;
@@ -1629,32 +1119,27 @@ static void mtk_aie_device_run(void *priv)
 	struct vb2_v4l2_buffer *src_buf, *dst_buf;
 	struct fd_enq_param fd_param;
 	void *plane_vaddr;
-	unsigned long long img_y = 0;
-	unsigned long long img_uv = 0;
-	unsigned int img_msb = 0;
-	unsigned int set_msb_bit = 0;
 	int ret = 0;
 
 	src_buf = v4l2_m2m_next_src_buf(ctx->fh.m2m_ctx);
 	dst_buf = v4l2_m2m_next_dst_buf(ctx->fh.m2m_ctx);
 
-	img_y = vb2_dma_contig_plane_dma_addr(&src_buf->vb2_buf, 0);
-	fd_param.src_img[0].dma_addr = img_y & 0xffffffff;
+	fd->img_y = vb2_dma_contig_plane_dma_addr(&src_buf->vb2_buf, 0);
+	fd->img_msb_y = (fd->img_y & 0Xf00000000) >> 32;
+	fd_param.src_img[0].dma_addr = fd->img_y & 0xffffffff;
 
 	if (ctx->src_fmt.num_planes == 2) {
-		img_uv = vb2_dma_contig_plane_dma_addr(&src_buf->vb2_buf, 1);
-		fd_param.src_img[1].dma_addr = img_uv & 0xffffffff;
+		fd->img_uv = vb2_dma_contig_plane_dma_addr(&src_buf->vb2_buf, 1);
+		fd_param.src_img[1].dma_addr = fd->img_uv & 0xffffffff;
 	}
-	fd->img_msb_y = (img_y & 0Xf00000000) >> 32;
 
-	vb2_dma_contig_plane_dma_addr(&src_buf->vb2_buf, 1);
-#if CHECK_SERVICE_0 //Remove CID
-	mtk_aie_fill_user_param(fd, &fd_param.user_param, &ctx->hdl);
-#endif
 	plane_vaddr = vb2_plane_vaddr(&dst_buf->vb2_buf, 0);
+	if (plane_vaddr == NULL) {
+		dev_info(fd->dev, "vb2 plane vaddr is null");
+		return;
+	}
 
 	fd->aie_cfg = (struct aie_enq_info *)plane_vaddr;
-
 	fd->aie_cfg->sel_mode = g_user_param.user_param.fd_mode;
 	fd->aie_cfg->src_img_fmt = g_user_param.user_param.src_img_fmt;
 	fd->aie_cfg->src_img_width = g_user_param.user_param.src_img_width;
@@ -1676,17 +1161,16 @@ static void mtk_aie_device_run(void *priv)
 	fd->aie_cfg->src_padding.up = g_user_param.user_param.src_padding_up;
 	fd->aie_cfg->freq_level = g_user_param.user_param.freq_level;
 
-	if (fd->aie_cfg->sel_mode == 3) {
+	if (fd->aie_cfg->sel_mode == FLDMODE) {
 		fd->aie_cfg->fld_face_num = g_user_param.user_param.fld_face_num;
 		memcpy(fd->aie_cfg->fld_input, g_user_param.user_param.fld_input,
 		sizeof(struct FLD_CROP_RIP_ROP)*g_user_param.user_param.fld_face_num);
-	}
-	if (!(fd->aie_cfg->sel_mode == 3) & (fd->aie_cfg->src_img_fmt == FMT_YUV420_1P)) {
+	} else if (fd->aie_cfg->src_img_fmt == FMT_YUV420_1P) {
 		/*FLD Just have Y*/
 		fd_param.src_img[1].dma_addr = fd_param.src_img[0].dma_addr +
 			g_user_param.user_param.src_img_stride *
 			g_user_param.user_param.src_img_height;
-		fd->img_msb_uv = ((img_y +
+		fd->img_msb_uv = ((fd->img_y +
 			g_user_param.user_param.src_img_stride *
 			g_user_param.user_param.src_img_height) &
 			0Xf00000000) >> 32;
@@ -1695,20 +1179,8 @@ static void mtk_aie_device_run(void *priv)
 	fd->aie_cfg->src_img_addr = fd_param.src_img[0].dma_addr;
 	fd->aie_cfg->src_img_addr_uv = fd_param.src_img[1].dma_addr;
 
-	if (!(fd->aie_cfg->sel_mode == 3)) {
-		ret = aie_prepare(fd, fd->aie_cfg);//fld just setting debug param
-	} else {
-
-		img_msb = fd->img_msb_y;  //MASK MSB-BIT
-		set_msb_bit = img_msb | img_msb << 4 | img_msb << 8 | img_msb << 12;
-		set_msb_bit = set_msb_bit | set_msb_bit << 16;
-
-		writel(set_msb_bit, fd->fd_base + FLD_BASE_ADDR_FACE_0_7_MSB);
-		set_msb_bit = set_msb_bit & 0xfffffff;
-		writel(set_msb_bit, fd->fd_base + FLD_BASE_ADDR_FACE_8_14_MSB);
-		//for UT
-		//writel(0x33333333, fd->fd_base + FLD_BASE_ADDR_FACE_0_7_MSB);
-		//writel(0x03333333, fd->fd_base + FLD_BASE_ADDR_FACE_8_14_MSB);
+	if (fd->aie_cfg->sel_mode == FLDMODE) {
+		fd->drv_ops->config_fld_buf_reg(fd);
 
 		fd->fld_para->sel_mode = fd->aie_cfg->sel_mode;
 		fd->fld_para->img_height = fd->aie_cfg->src_img_height;
@@ -1717,7 +1189,8 @@ static void mtk_aie_device_run(void *priv)
 		fd->fld_para->src_img_addr = fd->aie_cfg->src_img_addr;
 		memcpy(fd->fld_para->fld_input, fd->aie_cfg->fld_input,
 			sizeof(struct FLD_CROP_RIP_ROP) * fd->aie_cfg->fld_face_num);
-	}
+	} else
+		ret = fd->drv_ops->prepare(fd, fd->aie_cfg);
 
 	/* mmdvfs */
 	//mtk_aie_mmdvfs_set(fd, 1, fd->aie_cfg->freq_level);
@@ -1731,7 +1204,7 @@ static void mtk_aie_device_run(void *priv)
 		return;
 	}
 
-	aie_execute(fd, fd->aie_cfg);
+	fd->drv_ops->execute(fd, fd->aie_cfg);
 }
 
 static struct v4l2_m2m_ops fd_m2m_ops = {
@@ -1874,34 +1347,27 @@ static void mtk_aie_dev_v4l2_release(struct mtk_aie_dev *fd)
 	v4l2_m2m_release(fd->m2m_dev);
 	v4l2_device_unregister(&fd->v4l2_dev);
 }
-#if CHECK_SERVICE_0
-static irqreturn_t mtk_aie_irq(int irq, void *data)
-{
-	struct mtk_aie_dev *fd = (struct mtk_aie_dev *)data;
 
-	aie_irqhandle(fd);
-
-	queue_work(fd->frame_done_wq, &fd->req_work.work);
-
-	return IRQ_HANDLED;
-}
-#endif
 static void mtk_aie_frame_done_worker(struct work_struct *work)
 {
 	struct mtk_aie_req_work *req_work = (struct mtk_aie_req_work *)work;
 	struct mtk_aie_dev *fd = (struct mtk_aie_dev *)req_work->fd_dev;
 
-	if (fd->reg_cfg.fd_mode == 0) {
+	switch (fd->aie_cfg->sel_mode) {
+	case FDMODE:
 		fd->reg_cfg.hw_result = readl(fd->fd_base + AIE_RESULT_0_REG);
 		fd->reg_cfg.hw_result1 = readl(fd->fd_base + AIE_RESULT_1_REG);
+		fd->drv_ops->get_fd_result(fd, fd->aie_cfg);
+	break;
+	case ATTRIBUTEMODE:
+		fd->drv_ops->get_attr_result(fd, fd->aie_cfg);
+	break;
+	case FLDMODE:
+		fd->drv_ops->get_fld_result(fd, fd->aie_cfg);
+	break;
+	default:
+	break;
 	}
-
-	if (fd->aie_cfg->sel_mode == 0)
-		aie_get_fd_result(fd, fd->aie_cfg);
-	else if (fd->aie_cfg->sel_mode == 1)
-		aie_get_attr_result(fd, fd->aie_cfg);
-	else if (fd->aie_cfg->sel_mode == 3)
-		aie_get_fld_result(fd, fd->aie_cfg);
 
 	mtk_aie_hw_done(fd, VB2_BUF_STATE_DONE);
 }
@@ -1912,20 +1378,27 @@ static int mtk_aie_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 
 	struct resource *res;
-	//int irq;
 	int ret;
 	struct device_node *img_node;
 	struct platform_device *img_pdev;
+	const struct aie_data *data;
 
 	dev_info(dev, "probe start\n");
 
 	fd = devm_kzalloc(&pdev->dev, sizeof(*fd), GFP_KERNEL);
-
-	memset(fd, 0, sizeof(*fd));
 	if (!fd) {
 		dev_info(dev, "devm_kzalloc fail!\n");
 		return -ENOMEM;
 	}
+	memset(fd, 0, sizeof(*fd));
+
+	data = of_device_get_match_data(&pdev->dev);
+	if (!data) {
+		dev_info(dev, "match data is NULL\n");
+		return PTR_ERR(data);
+	}
+	fd->drv_ops = data->drv_ops;
+
 	if (dma_set_mask_and_coherent(dev, DMA_BIT_MASK(34)))
 		dev_info(dev, "%s: No suitable DMA available\n", __func__);
 
@@ -1944,25 +1417,9 @@ static int mtk_aie_probe(struct platform_device *pdev)
 
 	dev_set_drvdata(dev, fd);
 	fd->dev = dev;
-#if CHECK_SERVICE_0
-	irq = platform_get_irq(pdev, 0);
-	if (irq < 0) {
-		dev_info(dev, "Failed to get irq by platform: %d\n", irq);
-		return irq;
-	}
 
-	ret = devm_request_irq(dev, irq, mtk_aie_irq, IRQF_SHARED,
-			       dev_driver_string(dev), fd);
-	if (ret) {
-		dev_info(dev, "Failed to request irq\n");
-		return ret;
-	}
-#endif
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	fd->fd_base = devm_ioremap_resource(dev, res);
-
-#ifdef CLK_SINGLE
-
 	if (IS_ERR(fd->fd_base)) {
 		dev_info(dev, "Failed to get fd reg base\n");
 		return PTR_ERR(fd->fd_base);
@@ -1974,46 +1431,14 @@ static int mtk_aie_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	fd->vcore_gals = devm_clk_get(dev, "VCORE_GALS");
-	if (IS_ERR(fd->vcore_gals)) {
-		dev_info(dev, "Failed to get vcore_gals clock\n");
-		return PTR_ERR(fd->vcore_gals);
-	}
-
-	fd->main_gals = devm_clk_get(dev, "MAIN_GALS");
-	if (IS_ERR(fd->main_gals)) {
-		dev_info(dev, "Failed to get main_gals clock\n");
-		return PTR_ERR(fd->main_gals);
-	}
-
-	fd->img_ipe = devm_clk_get(dev, "IMG_IPE");
-	if (IS_ERR(fd->img_ipe)) {
-		dev_info(dev, "Failed to get img_ipe clock\n");
-		return PTR_ERR(fd->img_ipe);
-	}
-
-	fd->ipe_top = devm_clk_get(dev, "IPE_TOP");
-	if (IS_ERR(fd->ipe_top)) {
-		dev_info(dev, "Failed to get ipe_top clock\n");
-		return PTR_ERR(fd->ipe_top);
-	}
-
-	fd->ipe_fdvt = devm_clk_get(dev, "IPE_FDVT");
-	if (IS_ERR(fd->ipe_fdvt)) {
-		dev_info(dev, "Failed to get ipe_fdvt clock\n");
-		return PTR_ERR(fd->ipe_fdvt);
-	}
-#if CHECK_SERVICE_0
-	fd->ipe_fdvt1 = devm_clk_get(dev, "IPE_FDVT1");
-	if (IS_ERR(fd->ipe_fdvt1)) {
-		dev_info(dev, "Failed to get ipe_fdvt1 clock\n");
-		return PTR_ERR(fd->ipe_fdvt1);
-	}
-#endif
-	fd->ipe_smi_larb12 = devm_clk_get(dev, "IPE_SMI_LARB12");
-	if (IS_ERR(fd->ipe_smi_larb12)) {
-		dev_info(dev, "Failed to get ipe_smi_larb12 clock\n");
-		return PTR_ERR(fd->ipe_smi_larb12);
+	fd->aie_clk.clk_num = data->clk_num;
+	fd->aie_clk.clks = data->clks;
+	ret = devm_clk_bulk_get(dev,
+			fd->aie_clk.clk_num,
+			fd->aie_clk.clks);
+	if (ret) {
+		dev_info(dev, "Failed to get clks: %d\n", ret);
+		return ret;
 	}
 
 	fd->fdvt_clt = cmdq_mbox_create(dev, 0);
@@ -2022,15 +1447,6 @@ static int mtk_aie_probe(struct platform_device *pdev)
 		dev_info(dev, "cmdq mbox create fail\n");
 	else
 		dev_info(dev, "cmdq mbox create done\n");
-#else
-	fd->aie_clk.clk_num = ARRAY_SIZE(ipesys_isp7_aie_clks);
-	fd->aie_clk.clks = ipesys_isp7_aie_clks;
-	ret = devm_clk_bulk_get(&pdev->dev, fd->aie_clk.clk_num, fd->aie_clk.clks);
-	if (ret) {
-		dev_info("failed to get raw AIE clock: %d\n", ret);
-		return ret;
-	}
-#endif
 
 /*
 	fd->fdvt_secure_clt = cmdq_mbox_create(dev, 1);
@@ -2071,6 +1487,7 @@ static int mtk_aie_probe(struct platform_device *pdev)
 	//mtk_aie_mmdvfs_init(fd);
 	//mtk_aie_mmqos_init(fd);
 	pm_runtime_enable(dev);
+
 	ret = mtk_aie_dev_v4l2_init(fd);
 	if (ret) {
 		dev_info(dev, "Failed to init v4l2 device: %d\n", ret);
@@ -2101,7 +1518,7 @@ static int mtk_aie_probe(struct platform_device *pdev)
 	}
 	of_node_put(img_node);
 	fd->img_pdev = img_pdev;
-	dev_info(dev, "AIE : Success to %s >W<\n", __func__);
+	dev_info(dev, "AIE : Success to %s\n", __func__);
 
 	return 0;
 
@@ -2120,7 +1537,9 @@ static int mtk_aie_remove(struct platform_device *pdev)
 	struct mtk_aie_dev *fd = dev_get_drvdata(&pdev->dev);
 
 	mtk_aie_dev_v4l2_release(fd);
+
 	pm_runtime_disable(&pdev->dev);
+
 	//mtk_aie_mmdvfs_uninit(fd);
 	//mtk_aie_mmqos_uninit(fd);
 	destroy_workqueue(fd->frame_done_wq);
@@ -2129,7 +1548,6 @@ static int mtk_aie_remove(struct platform_device *pdev)
 
 	return 0;
 }
-
 
 static int mtk_aie_runtime_suspend(struct device *dev)
 {
@@ -2154,6 +1572,11 @@ static const struct dev_pm_ops mtk_aie_pm_ops = {
 static const struct of_device_id mtk_aie_of_ids[] = {
 	{
 		.compatible = "mediatek,aie-hw3.0",
+		.data = &data_isp71,
+	},
+	{
+		.compatible = "mediatek,aie-isp7s",
+		.data = &data_isp7s,
 	},
 	{} };
 MODULE_DEVICE_TABLE(of, mtk_aie_of_ids);
