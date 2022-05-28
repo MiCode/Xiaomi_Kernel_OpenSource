@@ -11736,6 +11736,11 @@
 		/* reserved for overlay by odm */
 	};
 
+	uarthub: uarthub {
+		compatible = "mediatek,uarthub";
+		uarthub_disable = <1>;
+	};
+
 	extcon_usb: extcon_usb {
 		compatible = "mediatek,extcon-usb";
 		vbus-supply = <&mt6375_otg_vbus>;
