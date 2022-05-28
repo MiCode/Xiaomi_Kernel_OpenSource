@@ -1163,8 +1163,8 @@ void apply_cq(struct mtk_raw_device *dev,
 
 	if (initial)
 		dev_info(dev->dev,
-			"apply 1st raw%d cq - addr:0x%llx ,size:%d/%d,offset:%d,cq_en(0x%x),period(%d)\n",
-			dev->id, cq_addr, cq_size, sub_cq_size, sub_cq_offset,
+			"apply 1st raw%d cq - addr:0x%llx ,size:%d/%d,offset:%d/%d,cq_en(0x%x),period(%d)\n",
+			dev->id, cq_addr, cq_size, sub_cq_size, cq_offset, sub_cq_offset,
 			readl_relaxed(dev->base + REG_CQ_EN),
 			readl_relaxed(dev->base + REG_SCQ_START_PERIOD));
 	else

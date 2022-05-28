@@ -137,9 +137,9 @@ int mtk_mraw_translation_fault_callback(int port, dma_addr_t mva, void *data)
 	dev_info(mraw_dev->dev, "mod_en:0x%x mod2_en:0x%x cq_thr0_addr:0x%x_%x cq_thr0_desc_size:0x%x\n",
 		readl_relaxed(mraw_dev->base_inner + REG_MRAW_MRAWCTL_MOD_EN),
 		readl_relaxed(mraw_dev->base_inner + REG_MRAW_MRAWCTL_MOD2_EN),
-		readl_relaxed(mraw_dev->base_inner + REG_MRAW_CQ_THR0_BASEADDR_MSB),
-		readl_relaxed(mraw_dev->base_inner + REG_MRAW_CQ_THR0_BASEADDR),
-		readl_relaxed(mraw_dev->base_inner + REG_MRAW_CQ_THR0_DESC_SIZE));
+		readl_relaxed(mraw_dev->base_inner + REG_MRAWCQ_CQ_SUB_THR0_BASEADDR_2_MSB),
+		readl_relaxed(mraw_dev->base_inner + REG_MRAWCQ_CQ_SUB_THR0_BASEADDR_2),
+		readl_relaxed(mraw_dev->base_inner + REG_MRAWCQ_CQ_SUB_THR0_DESC_SIZE_2));
 
 	dev_info(mraw_dev->dev, "imgo_fbc_ctrl1:0x%x imgo_fbc_ctrl2:0x%x imgBo_fbc_ctrl1:0x%x imgBo_fbc_ctrl2:0x%x cpio_fbc_ctrl1:0x%x cpio_fbc_ctrl2:0x%x\n",
 		readl_relaxed(mraw_dev->base_inner + REG_MRAW_FBC_IMGO_CTL1),
@@ -621,21 +621,21 @@ void apply_mraw_cq(struct mtk_mraw_device *dev,
 	u32 cq_addr_lsb = (cq_addr + cq_offset) & CQ_VADDR_MASK;
 	u32 cq_addr_msb = ((cq_addr + cq_offset) >> 32);
 
-	dev_dbg(dev->dev,
-		"apply mraw%d cq - addr:0x%llx ,size:%d,offset:%d, REG_MRAW_CQ_THR0_CTL:0x%8x\n",
+	dev_info(dev->dev,
+		"apply mraw%d cq - addr:0x%llx ,size:%d,offset:%d, REG_MRAW_CQ_SUB_THR0_CTL:0x%8x\n",
 		dev->id, cq_addr, cq_size, cq_offset,
-		readl_relaxed(dev->base + REG_MRAW_CQ_THR0_CTL));
+		readl_relaxed(dev->base + REG_MRAW_CQ_SUB_THR0_CTL));
 
 	if (cq_size == 0)
 		return;
 
-	writel_relaxed(cq_addr_lsb, dev->base + REG_MRAW_CQ_THR0_BASEADDR);
-	writel_relaxed(cq_addr_msb, dev->base + REG_MRAW_CQ_THR0_BASEADDR_MSB);
-	writel_relaxed(cq_size, dev->base + REG_MRAW_CQ_THR0_DESC_SIZE);
+	writel_relaxed(cq_addr_lsb, dev->base + REG_MRAWCQ_CQ_SUB_THR0_BASEADDR_2);
+	writel_relaxed(cq_addr_msb, dev->base + REG_MRAWCQ_CQ_SUB_THR0_BASEADDR_2_MSB);
+	writel_relaxed(cq_size, dev->base + REG_MRAWCQ_CQ_SUB_THR0_DESC_SIZE_2);
 
 	wmb(); /* TBC */
 	if (initial) {
-		writel_relaxed(MRAWCTL_CQ_THR0_DONE_ST,
+		writel_relaxed(MRAWCTL_CQ_SUB_THR0_DONE_EN,
 			       dev->base + REG_MRAW_CTL_INT6_EN);
 		writel_relaxed(MRAWCTL_CQ_THR0_START,
 			       dev->base + REG_MRAW_CTL_START);
@@ -1415,9 +1415,9 @@ int mtk_cam_mraw_top_config(struct mtk_mraw_device *dev)
 	unsigned int int_en1 = (MRAW_INT_EN1_TG_ERR_EN |
 							MRAW_INT_EN1_TG_GBERR_EN |
 							MRAW_INT_EN1_TG_SOF_INT_EN |
-							MRAW_INT_EN1_CQ_CODE_ERR_EN |
+							MRAW_INT_EN1_CQ_SUB_CODE_ERR_EN |
 							MRAW_INT_EN1_CQ_DB_LOAD_ERR_EN |
-							MRAW_INT_EN1_CQ_VS_ERR_EN |
+							MRAW_INT_EN1_CQ_SUB_VS_ERR_EN |
 							MRAW_INT_EN1_CQ_TRIG_DLY_INT_EN |
 							MRAW_INT_EN1_SW_PASS1_DONE_EN |
 							MRAW_INT_EN1_DMA_ERR_EN
@@ -1447,63 +1447,62 @@ int mtk_cam_mraw_dma_config(struct mtk_mraw_device *dev)
 
 	/* imgo con */
 	MRAW_WRITE_REG(dev->base + REG_MRAW_M_IMGO_ORIWDMA_CON0,
-		0x10000280);  // BURST_LEN and FIFO_SIZE
+		0x10000188);  // BURST_LEN and FIFO_SIZE
 	MRAW_WRITE_REG(dev->base + REG_MRAW_M_IMGO_ORIWDMA_CON1,
-		0x00A00150);  // Threshold for pre-ultra
+		0x004F0028);  // Threshold for pre-ultra
 	MRAW_WRITE_REG(dev->base + REG_MRAW_M_IMGO_ORIWDMA_CON2,
-		0x014000F0);  // Threshold for ultra
+		0x009D0076);  // Threshold for ultra
 	MRAW_WRITE_REG(dev->base + REG_MRAW_M_IMGO_ORIWDMA_CON3,
-		0x01AB049E);  // Threshold for urgent
+		0x00EC00C4);  // Threshold for urgent
 	MRAW_WRITE_REG(dev->base + REG_MRAW_M_IMGO_ORIWDMA_CON4,
-		0x00500000);  // Threshold for DVFS
+		0x00280000);  // Threshold for DVFS
 
 	/* imgbo con */
 	MRAW_WRITE_REG(dev->base + REG_MRAW_M_IMGBO_ORIWDMA_CON0,
-		0x10000280);  // BURST_LEN and FIFO_SIZE
+		0x10000140);  // BURST_LEN and FIFO_SIZE
 	MRAW_WRITE_REG(dev->base + REG_MRAW_M_IMGBO_ORIWDMA_CON1,
-		0x00A00150);  // Threshold for pre-ultra
+		0x00400020);  // Threshold for pre-ultra
 	MRAW_WRITE_REG(dev->base + REG_MRAW_M_IMGBO_ORIWDMA_CON2,
-		0x014000F0);  // Threshold for ultra
+		0x00800060);  // Threshold for ultra
 	MRAW_WRITE_REG(dev->base + REG_MRAW_M_IMGBO_ORIWDMA_CON3,
-		0x01AB049E);  // Threshold for urgent
+		0x00C000A0);  // Threshold for urgent
 	MRAW_WRITE_REG(dev->base + REG_MRAW_M_IMGBO_ORIWDMA_CON4,
-		0x00500000);  // Threshold for DVFS
+		0x00200000);  // Threshold for DVFS
 
 	/* cpio con */
 	MRAW_WRITE_REG(dev->base + REG_MRAW_M_CPIO_ORIWDMA_CON0,
-		0x10000100);  // BURST_LEN and FIFO_SIZE
+		0x10000040);  // BURST_LEN and FIFO_SIZE
 	MRAW_WRITE_REG(dev->base + REG_MRAW_M_CPIO_ORIWDMA_CON1,
-		0x00400020);  // Threshold for pre-ultra
+		0x000D0007);  // Threshold for pre-ultra
 	MRAW_WRITE_REG(dev->base + REG_MRAW_M_CPIO_ORIWDMA_CON2,
-		0x00800060);  // Threshold for ultra
+		0x001A0014);  // Threshold for ultra
 	MRAW_WRITE_REG(dev->base + REG_MRAW_M_CPIO_ORIWDMA_CON3,
-		0x018001D9);  // Threshold for urgent
+		0x00270020);  // Threshold for urgent
 	MRAW_WRITE_REG(dev->base + REG_MRAW_M_CPIO_ORIWDMA_CON4,
-		0x00200000);  // Threshold for DVFS
-
-	/* lsci con */
-	MRAW_WRITE_REG(dev->base + REG_MRAW_M_LSCI_ORIRDMA_CON0,
-		0x10000080);  // BURST_LEN and FIFO_SIZE
-	MRAW_WRITE_REG(dev->base + REG_MRAW_M_LSCI_ORIRDMA_CON1,
-		0x00200010);  // Threshold for pre-ultra
-	MRAW_WRITE_REG(dev->base + REG_MRAW_M_LSCI_ORIRDMA_CON2,
-		0x00400030);  // Threshold for ultra
-	MRAW_WRITE_REG(dev->base + REG_MRAW_M_LSCI_ORIRDMA_CON3,
-		0x00560046);  // Threshold for urgent
-	MRAW_WRITE_REG(dev->base + REG_MRAW_M_LSCI_ORIRDMA_CON4,
-		0x00100000);  // Threshold for DVFS
+		0x00070000);  // Threshold for DVFS
 
 	/* cqi con */
 	MRAW_WRITE_REG(dev->base + REG_MRAW_M1_CQI_ORIRDMA_CON0,
 		0x10000040);  // BURST_LEN and FIFO_SIZE
 	MRAW_WRITE_REG(dev->base + REG_MRAW_M1_CQI_ORIRDMA_CON1,
-		0x00100008);  // Threshold for pre-ultra
+		0x000D0007);  // Threshold for pre-ultra
 	MRAW_WRITE_REG(dev->base + REG_MRAW_M1_CQI_ORIRDMA_CON2,
-		0x00200018);  // Threshold for ultra
+		0x001A0014);  // Threshold for ultra
 	MRAW_WRITE_REG(dev->base + REG_MRAW_M1_CQI_ORIRDMA_CON3,
-		0x002B0023);  // Threshold for urgent
+		0x00270020);  // Threshold for urgent
 	MRAW_WRITE_REG(dev->base + REG_MRAW_M1_CQI_ORIRDMA_CON4,
-		0x00080000);  // Threshold for DVFS
+		0x00070000);  // Threshold for DVFS
+
+	MRAW_WRITE_REG(dev->base + REG_MRAW_M2_CQI_ORIRDMA_CON0,
+		0x10000040);  // BURST_LEN and FIFO_SIZE
+	MRAW_WRITE_REG(dev->base + REG_MRAW_M2_CQI_ORIRDMA_CON1,
+		0x000D0007);  // Threshold for pre-ultra
+	MRAW_WRITE_REG(dev->base + REG_MRAW_M2_CQI_ORIRDMA_CON2,
+		0x001A0014);  // Threshold for ultra
+	MRAW_WRITE_REG(dev->base + REG_MRAW_M2_CQI_ORIRDMA_CON3,
+		0x00270020);  // Threshold for urgent
+	MRAW_WRITE_REG(dev->base + REG_MRAW_M2_CQI_ORIRDMA_CON4,
+		0x00070000);  // Threshold for DVFS
 	return ret;
 }
 
@@ -1549,7 +1548,7 @@ int mtk_cam_mraw_cq_disable(struct mtk_mraw_device *dev)
 {
 	int ret = 0;
 
-	writel_relaxed(~CQ_THR0_EN, dev->base + REG_MRAW_CQ_THR0_CTL);
+	writel_relaxed(~CQ_SUB_THR0_EN, dev->base + REG_MRAW_CQ_SUB_THR0_CTL);
 	wmb(); /* TBC */
 
 	return ret;
@@ -1619,14 +1618,13 @@ int mtk_cam_mraw_cq_config(struct mtk_mraw_device *dev)
 
 	val = readl_relaxed(dev->base + REG_MRAW_CQ_EN);
 	val = val & (~CQ_DB_EN);
-	writel_relaxed(val | SCQ_EN, dev->base + REG_MRAW_CQ_EN);
-
+	writel_relaxed(val, dev->base + REG_MRAW_CQ_EN);
 	writel_relaxed(0xffffffff, dev->base + REG_MRAW_SCQ_START_PERIOD);
 	wmb(); /* TBC */
 #endif
-	writel_relaxed(CQ_THR0_MODE_IMMEDIATE | CQ_THR0_EN,
-		       dev->base + REG_MRAW_CQ_THR0_CTL);
-	writel_relaxed(MRAWCTL_CQ_THR0_DONE_ST,
+	writel_relaxed(CQ_SUB_THR0_MODE_IMMEDIATE | CQ_SUB_THR0_EN,
+		       dev->base + REG_MRAW_CQ_SUB_THR0_CTL);
+	writel_relaxed(MRAWCTL_CQ_SUB_THR0_DONE_EN,
 		       dev->base + REG_MRAW_CTL_INT6_EN);
 	wmb(); /* TBC */
 
@@ -1635,7 +1633,7 @@ int mtk_cam_mraw_cq_config(struct mtk_mraw_device *dev)
 	dev_info(dev->dev, "%s - REG_CQ_EN:0x%x ,REG_CQ_THR0_CTL:0x%8x\n",
 		__func__,
 			readl_relaxed(dev->base + REG_MRAW_CQ_EN),
-			readl_relaxed(dev->base + REG_MRAW_CQ_THR0_CTL));
+			readl_relaxed(dev->base + REG_MRAW_CQ_SUB_THR0_CTL));
 
 	return ret;
 }
@@ -1653,7 +1651,7 @@ int mtk_cam_mraw_cq_enable(struct mtk_cam_ctx *ctx,
 		, dev->base + REG_MRAW_SCQ_START_PERIOD);
 #else
 	writel_relaxed(CQ_THR0_MODE_CONTINUOUS | CQ_THR0_EN,
-				dev->base + REG_MRAW_CQ_THR0_CTL);
+				dev->base + REG_MRAW_CQ_SUB_THR0_CTL);
 
 	writel_relaxed(CQ_DB_EN | CQ_DB_LOAD_MODE,
 				dev->base + REG_MRAW_CQ_EN);
@@ -1662,7 +1660,7 @@ int mtk_cam_mraw_cq_enable(struct mtk_cam_ctx *ctx,
 	dev_info(dev->dev, "%s - REG_CQ_EN:0x%x ,REG_CQ_THR0_CTL:0x%8x\n",
 		__func__,
 			readl_relaxed(dev->base + REG_MRAW_CQ_EN),
-			readl_relaxed(dev->base + REG_MRAW_CQ_THR0_CTL));
+			readl_relaxed(dev->base + REG_MRAW_CQ_SUB_THR0_CTL));
 #endif
 	return ret;
 }
@@ -1718,8 +1716,6 @@ int mtk_cam_mraw_dma_disable(struct mtk_mraw_device *dev)
 		MRAW_CTL_MOD2_EN, MRAWCTL_IMGBO_M1_EN, 0);
 	MRAW_WRITE_BITS(dev->base + REG_MRAW_CTL_MOD2_EN,
 		MRAW_CTL_MOD2_EN, MRAWCTL_CPIO_M1_EN, 0);
-	MRAW_WRITE_BITS(dev->base + REG_MRAW_CTL_MOD2_EN,
-		MRAW_CTL_MOD2_EN, MRAWCTL_LSCI_M1_EN, 0);
 
 	return ret;
 }
@@ -2222,7 +2218,7 @@ static irqreturn_t mtk_irq_mraw(int irq, void *data)
 		dev_dbg(dev, "sof block cnt:%d\n", mraw_dev->sof_count);
 	}
 	/* CQ done */
-	if (irq_status6 & MRAWCTL_CQ_THR0_DONE_ST) {
+	if (irq_status6 & MRAWCTL_CQ_SUB_THR0_DONE_ST) {
 		irq_info.irq_type |= (1 << CAMSYS_IRQ_SETTING_DONE);
 		dev_dbg(dev, "CQ done:%d\n", mraw_dev->sof_count);
 	}

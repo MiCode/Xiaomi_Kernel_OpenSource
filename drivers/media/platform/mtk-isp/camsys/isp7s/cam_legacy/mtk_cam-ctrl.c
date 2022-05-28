@@ -4437,8 +4437,10 @@ static bool mtk_camsys_is_all_cq_done(struct mtk_cam_ctx *ctx,
 		ret = true;
 	}
 	spin_unlock(&ctx->first_cq_lock);
-	dev_info(ctx->cam->dev, "[1st-CQD] all done:%d, pipe_id:%d (using raw/mraw:%d/%d)\n",
-		ctx->is_first_cq_done, pipe_id, ctx->used_raw_num, ctx->used_mraw_num);
+	dev_info(ctx->cam->dev, "[1st-CQD] all done:%d, pipe_id:%d (using raw/mraw/sv:%d/%d/%d) sv_tag_cnt:%d\n",
+		ctx->is_first_cq_done, pipe_id, ctx->used_raw_num, ctx->used_mraw_num,
+		(ctx->sv_dev) ? ctx->sv_dev->id + MTKCAM_SUBDEV_CAMSV_START : 0,
+		(ctx->sv_dev) ? ctx->sv_dev->used_tag_cnt : 0);
 EXIT:
 	return ret;
 }
