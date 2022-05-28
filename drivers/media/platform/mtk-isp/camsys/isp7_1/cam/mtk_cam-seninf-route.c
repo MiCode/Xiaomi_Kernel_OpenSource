@@ -415,6 +415,7 @@ int mtk_cam_seninf_get_vcinfo(struct seninf_ctx *ctx)
 		vc->vc = fd.entry[i].bus.csi2.channel;
 		vc->dt = fd.entry[i].bus.csi2.data_type;
 		desc = fd.entry[i].bus.csi2.user_data_desc;
+		vc->dt_remap_to_type = fd.entry[i].bus.csi2.dt_remap_to_type;
 
 		switch (desc) {
 		case VC_3HDR_Y:

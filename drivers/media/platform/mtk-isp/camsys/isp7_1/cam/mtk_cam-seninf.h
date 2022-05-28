@@ -32,6 +32,7 @@ struct seninf_cam_mux {
 	int idx;
 };
 
+#define DT_REMAP_MAX_CNT 4
 struct seninf_vc {
 	u8 vc;
 	u8 dt;
@@ -45,6 +46,7 @@ struct seninf_vc {
 	u16 exp_hsize;
 	u16 exp_vsize;
 	u8 bit_depth;
+	u8 dt_remap_to_type;
 };
 
 struct seninf_vcinfo {

@@ -42,6 +42,7 @@ struct seninf_cam_mux {
 	int idx;
 };
 
+#define DT_REMAP_MAX_CNT 4
 struct seninf_vcinfo {
 	struct seninf_vc vc[SENINF_VC_MAXCNT];
 	int cnt;

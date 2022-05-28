@@ -181,8 +181,12 @@ static void frame_desc_to_vcinfo2(
 		vc->VC_DataType = entry->data_type;
 		vc->VC_SIZEH_PIXEL = entry->hsize;
 		vc->VC_SIZEV = entry->vsize;
-		vc->VC_SIZEH_BYTE = vc->VC_DataType != 0x2b ?
-			vc->VC_SIZEH_PIXEL : vc->VC_SIZEH_PIXEL * 10 / 8;
+		vc->DT_REMAP_TO_TYPE = entry->dt_remap_to_type;
+		if (vc->VC_DataType == 0x2b ||
+			vc->DT_REMAP_TO_TYPE == MTK_MBUS_FRAME_DESC_REMAP_TO_RAW10)
+			vc->VC_SIZEH_BYTE = vc->VC_SIZEH_PIXEL * 10 / 8;
+		else
+			vc->VC_SIZEH_BYTE = vc->VC_SIZEH_PIXEL;
 	}
 }
 #else /* IMGSENSOR_VC_ROUTING */

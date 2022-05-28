@@ -6,7 +6,6 @@
 #ifndef __MTK_CAM_AOV_H
 #define __MTK_CAM_AOV_H
 
-
 struct seninf_vc {
 	u8 vc;
 	u8 dt;
@@ -23,6 +22,7 @@ struct seninf_vc {
 	u16 exp_hsize;
 	u16 exp_vsize;
 	u8 bit_depth;
+	u8 dt_remap_to_type;
 };
 
 /* camsys supported parameter */

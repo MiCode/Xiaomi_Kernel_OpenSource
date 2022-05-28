@@ -823,12 +823,50 @@ static int mtk_cam_seninf_set_cammux_src(struct seninf_ctx *ctx, int src, int ta
 	return 0;
 }
 
+static int mtk_cam_seninf_remap_dt(void *pSeninf_csi2, struct seninf_vc *vc, int dt_remap_index)
+{
+
+	if (!vc || !pSeninf_csi2)
+		return -1;
+
+	switch (dt_remap_index) {
+	case 0:
+		SENINF_BITS(pSeninf_csi2, SENINF_CSI2_FORCEDT0, RG_FORCE_DT0, vc->dt);
+		SENINF_BITS(pSeninf_csi2, SENINF_CSI2_FORCEDT0, RG_FORCE_DT0_SEL,
+						vc->dt_remap_to_type);
+		SENINF_BITS(pSeninf_csi2, SENINF_CSI2_FORCEDT0, RG_FORCE_DT0_EN, 0x1);
+		break;
+	case 1:
+		SENINF_BITS(pSeninf_csi2, SENINF_CSI2_FORCEDT0, RG_FORCE_DT1, vc->dt);
+		SENINF_BITS(pSeninf_csi2, SENINF_CSI2_FORCEDT0, RG_FORCE_DT1_SEL,
+						vc->dt_remap_to_type);
+		SENINF_BITS(pSeninf_csi2, SENINF_CSI2_FORCEDT0, RG_FORCE_DT1_EN, 0x1);
+		break;
+	case 2:
+		SENINF_BITS(pSeninf_csi2, SENINF_CSI2_FORCEDT1, RG_FORCE_DT2, vc->dt);
+		SENINF_BITS(pSeninf_csi2, SENINF_CSI2_FORCEDT1, RG_FORCE_DT2_SEL,
+						vc->dt_remap_to_type);
+		SENINF_BITS(pSeninf_csi2, SENINF_CSI2_FORCEDT1, RG_FORCE_DT2_EN, 0x1);
+		break;
+	case 3:
+		SENINF_BITS(pSeninf_csi2, SENINF_CSI2_FORCEDT1, RG_FORCE_DT3, vc->dt);
+		SENINF_BITS(pSeninf_csi2, SENINF_CSI2_FORCEDT1, RG_FORCE_DT3_SEL,
+						vc->dt_remap_to_type);
+		SENINF_BITS(pSeninf_csi2, SENINF_CSI2_FORCEDT1, RG_FORCE_DT3_EN, 0x1);
+		break;
+	default:
+		break;
+	}
+
+	return 0;
+}
 static int mtk_cam_seninf_set_vc(struct seninf_ctx *ctx, int intf,
 			  struct seninf_vcinfo *vcinfo)
 {
 	void *pSeninf_csi2 = ctx->reg_if_csi2[(unsigned int)intf];
-	int i;
+	int i, ret, dt_remap_index = 0, j;
 	struct seninf_vc *vc;
+	int dt_remap_table[4] = {0};
 
 	if (!vcinfo || !vcinfo->cnt)
 		return 0;
@@ -847,8 +885,34 @@ static int mtk_cam_seninf_set_vc(struct seninf_ctx *ctx, int intf,
 	SENINF_WRITE_REG(pSeninf_csi2, SENINF_CSI2_CH2_CTRL, 0);
 	SENINF_WRITE_REG(pSeninf_csi2, SENINF_CSI2_CH3_CTRL, 0);
 
+	SENINF_WRITE_REG(pSeninf_csi2, SENINF_CSI2_FORCEDT0, 0);
+	SENINF_WRITE_REG(pSeninf_csi2, SENINF_CSI2_FORCEDT1, 0);
+
 	for (i = 0; i < vcinfo->cnt; i++) {
 		vc = &vcinfo->vc[i];
+		if (vc->dt_remap_to_type > MTK_MBUS_FRAME_DESC_REMAP_NONE &&
+			vc->dt_remap_to_type <= MTK_MBUS_FRAME_DESC_REMAP_TO_RAW14) {
+			if (dt_remap_index == 0) {
+				dt_remap_table[dt_remap_index] = vc->dt;
+				ret = mtk_cam_seninf_remap_dt(pSeninf_csi2, vc, dt_remap_index);
+				dt_remap_index++;
+			} else {
+				j = 0;
+				while (j < dt_remap_index && dt_remap_index < DT_REMAP_MAX_CNT) {
+					if (vc->dt != dt_remap_table[j])
+						j++;
+					else
+						break;
+				}
+
+				if (j == dt_remap_index && dt_remap_index < DT_REMAP_MAX_CNT) {
+					dt_remap_table[dt_remap_index] = vc->dt;
+					ret = mtk_cam_seninf_remap_dt(pSeninf_csi2, vc,
+									dt_remap_index);
+					dt_remap_index++;
+				}
+			}
+		}
 
 		/* General Long Packet Data Types: 0x10-0x17 */
 		if (vc->dt >= 0x10 && vc->dt <= 0x17) {

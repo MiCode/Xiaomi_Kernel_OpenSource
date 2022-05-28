@@ -332,10 +332,19 @@ struct mtk_sensor_static_param {
 	__u32 grab_w;
 	__u32 grab_h;
 };
+
+enum mtk_mbus_frame_desc_dt_remap_type {
+	MTK_MBUS_FRAME_DESC_REMAP_NONE = 0,
+	MTK_MBUS_FRAME_DESC_REMAP_TO_RAW10,
+	MTK_MBUS_FRAME_DESC_REMAP_TO_RAW12,
+	MTK_MBUS_FRAME_DESC_REMAP_TO_RAW14,
+};
+
 struct mtk_mbus_frame_desc_entry_csi2 {
 	u8 channel;
 	u8 data_type;
 	u8 enable;
+	u8 dt_remap_to_type;
 	u16 hsize;
 	u16 vsize;
 	u16 user_data_desc;
