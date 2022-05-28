@@ -217,6 +217,7 @@ static enum IMGSENSOR_RETURN imgsensor_hw_power_sequence(
 	int                               pin_cnt = 0;
 
 	static DEFINE_RATELIMIT_STATE(ratelimit, 1 * HZ, 30);
+	unsigned int pwr_id_index_unit = 0;
 
 #ifdef CONFIG_FPGA_EARLY_PORTING  /*for FPGA*/
 	if (1) {
@@ -248,8 +249,13 @@ static enum IMGSENSOR_RETURN imgsensor_hw_power_sequence(
 
 		if (pwr_status == IMGSENSOR_HW_POWER_STATUS_ON) {
 			if (ppwr_info->pin != IMGSENSOR_HW_PIN_UNDEF) {
-				if (psensor_pwr->id[ppwr_info->pin] != IMGSENSOR_HW_ID_MAX_NUM) {
-					pdev = phw->pdev[psensor_pwr->id[ppwr_info->pin]];
+
+				pwr_id_index_unit = (psensor_pwr->id[ppwr_info->pin] < 0)
+				? 0
+				: psensor_pwr->id[ppwr_info->pin];
+
+				if (pwr_id_index_unit != IMGSENSOR_HW_ID_MAX_NUM) {
+					pdev = phw->pdev[pwr_id_index_unit];
 
 					if (__ratelimit(&ratelimit))
 						PK_DBG(
@@ -281,8 +287,12 @@ static enum IMGSENSOR_RETURN imgsensor_hw_power_sequence(
 			pin_cnt--;
 
 			if (ppwr_info->pin != IMGSENSOR_HW_PIN_UNDEF) {
-				if (psensor_pwr->id[ppwr_info->pin] != IMGSENSOR_HW_ID_MAX_NUM) {
-					pdev = phw->pdev[psensor_pwr->id[ppwr_info->pin]];
+				pwr_id_index_unit = (psensor_pwr->id[ppwr_info->pin] < 0)
+				? 0
+				: psensor_pwr->id[ppwr_info->pin];
+
+				if (pwr_id_index_unit != IMGSENSOR_HW_ID_MAX_NUM) {
+					pdev = phw->pdev[pwr_id_index_unit];
 
 					if (__ratelimit(&ratelimit))
 						PK_DBG(
