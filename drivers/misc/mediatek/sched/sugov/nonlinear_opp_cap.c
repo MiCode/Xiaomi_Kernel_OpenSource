@@ -8,7 +8,6 @@
 #include <linux/cpumask.h>
 #include <linux/percpu.h>
 #include <linux/sort.h>
-#include <linux/log2.h>
 #include <sched/sched.h>
 #include <linux/energy_model.h>
 #include "cpufreq.h"
@@ -28,92 +27,101 @@ unsigned int get_nr_gears(void)
 }
 EXPORT_SYMBOL_GPL(get_nr_gears);
 
-static inline int map_freq_opp_by_tbl(struct pd_capacity_info *pd_info, unsigned long freq)
+static inline int map_freq_idx_by_tbl(struct pd_capacity_info *pd_info, unsigned long freq)
 {
 	int idx;
 
-	freq = clamp_val(freq, pd_info->table[pd_info->nr_caps - 1].freq, pd_info->table[0].freq);
-	idx = (pd_info->table[0].freq - freq) >> pd_info->freq_opp_shift;
-	return pd_info->freq_opp_map[idx];
+	freq = min(freq, pd_info->table[0].freq);
+	if (freq <= pd_info->table[pd_info->nr_caps - 1].freq)
+		return pd_info->nr_freq_opp_map - 1;
+
+	idx = mul_u64_u32_shr((u32) pd_info->table[0].freq - freq, pd_info->inv_DFreq, 32);
+	return idx;
 }
 
-static inline int map_util_opp_by_tbl(struct pd_capacity_info *pd_info, unsigned long util)
+static inline int map_util_idx_by_tbl(struct pd_capacity_info *pd_info, unsigned long util)
 {
 	int idx;
 
 	util = clamp_val(util, pd_info->table[pd_info->nr_caps - 1].capacity,
 		pd_info->table[0].capacity);
 	idx = pd_info->table[0].capacity - util;
-	return pd_info->util_opp_map[idx];
+	return idx;
 }
 
 unsigned long pd_get_util_opp(int cpu, unsigned long util)
 {
-	int i;
+	int i, idx;
 	struct pd_capacity_info *pd_info;
 
 	i = per_cpu(gear_id, cpu);
 	pd_info = &pd_capacity_tbl[i];
-	return map_util_opp_by_tbl(pd_info, util);
+	idx = map_util_idx_by_tbl(pd_info, util);
+	return pd_info->util_opp_map[idx];
 }
 EXPORT_SYMBOL_GPL(pd_get_util_opp);
 
 unsigned long pd_get_util_freq(int cpu, unsigned long util)
 {
-	int i, opp;
+	int i, idx;
 	struct pd_capacity_info *pd_info;
 
 	i = per_cpu(gear_id, cpu);
 	pd_info = &pd_capacity_tbl[i];
-	opp = map_util_opp_by_tbl(pd_info, util);
-	return pd_info->table[opp].freq;
+	idx = map_util_idx_by_tbl(pd_info, util);
+	idx = pd_info->util_opp_map[idx];
+	return pd_info->table[idx].freq;
 }
 EXPORT_SYMBOL_GPL(pd_get_util_freq);
 
 unsigned long pd_get_util_pwr_eff(int cpu, unsigned long util)
 {
-	int i, opp;
+	int i, idx;
 	struct pd_capacity_info *pd_info;
 
 	i = per_cpu(gear_id, cpu);
 	pd_info = &pd_capacity_tbl[i];
-	opp = map_util_opp_by_tbl(pd_info, util);
-	return pd_info->table[opp].pwr_eff;
+	idx = map_util_idx_by_tbl(pd_info, util);
+	idx = pd_info->util_opp_map[idx];
+	return pd_info->table[idx].pwr_eff;
 }
 EXPORT_SYMBOL_GPL(pd_get_util_pwr_eff);
 
 unsigned long pd_get_freq_opp(int cpu, unsigned long freq)
 {
-	int i;
+	int i, idx;
 	struct pd_capacity_info *pd_info;
 
 	i = per_cpu(gear_id, cpu);
 	pd_info = &pd_capacity_tbl[i];
-	return map_freq_opp_by_tbl(pd_info, freq);
+	idx = map_freq_idx_by_tbl(pd_info, freq);
+	return pd_info->freq_opp_map[idx];
 }
 EXPORT_SYMBOL_GPL(pd_get_freq_opp);
 
 unsigned long pd_get_freq_util(int cpu, unsigned long freq)
 {
-	int i, opp;
+	int i, idx;
 	struct pd_capacity_info *pd_info;
 
 	i = per_cpu(gear_id, cpu);
 	pd_info = &pd_capacity_tbl[i];
-	opp = map_freq_opp_by_tbl(pd_info, freq);
-	return pd_info->table[opp].capacity;
+	idx = map_freq_idx_by_tbl(pd_info, freq);
+	idx = pd_info->freq_opp_map[idx];
+	return pd_info->table[idx].capacity;
 }
 EXPORT_SYMBOL_GPL(pd_get_freq_util);
 
 unsigned long pd_get_freq_pwr_eff(int cpu, unsigned long freq)
 {
-	int i, opp;
+	int i, idx;
 	struct pd_capacity_info *pd_info;
 
 	i = per_cpu(gear_id, cpu);
 	pd_info = &pd_capacity_tbl[i];
-	opp = map_freq_opp_by_tbl(pd_info, freq);
-	return pd_info->table[opp].pwr_eff;
+	idx = map_freq_idx_by_tbl(pd_info, freq);
+	idx = pd_info->freq_opp_map[idx];
+	return pd_info->table[idx].pwr_eff;
 }
 EXPORT_SYMBOL_GPL(pd_get_freq_pwr_eff);
 
@@ -178,10 +186,10 @@ static void free_capacity_table(void)
 
 static int init_util_freq_opp_mapping_table(void)
 {
-	int i, j, k, nr_opp, next_k;
+	int i, j, k, nr_opp, next_k, opp;
 	unsigned long min_gap;
 	unsigned long min_cap, max_cap;
-	unsigned long min_freq, max_freq;
+	unsigned long min_freq, max_freq, curr_freq;
 	struct pd_capacity_info *pd_info;
 
 	for (i = 0; i < pd_count; i++) {
@@ -191,8 +199,8 @@ static int init_util_freq_opp_mapping_table(void)
 		/* init util_opp_map */
 		max_cap = pd_info->table[0].capacity;
 		min_cap = pd_info->table[nr_opp - 1].capacity;
-		pd_info->nr_util_opp_map = max_cap - min_cap;
-		pd_info->util_opp_map = kcalloc(pd_info->nr_util_opp_map + 1, sizeof(int),
+		pd_info->nr_util_opp_map = max_cap - min_cap + 1;
+		pd_info->util_opp_map = kcalloc(pd_info->nr_util_opp_map, sizeof(int),
 									GFP_KERNEL);
 		if (!pd_info->util_opp_map)
 			goto nomem;
@@ -205,24 +213,31 @@ static int init_util_freq_opp_mapping_table(void)
 
 		/* init freq_opp_map */
 		min_gap = ULONG_MAX;
-		for (j = 0; j < nr_opp - 1; j++)
+		/* skip opp=0, nr_opp-1 because potential irregular freq delta*/
+		for (j = 1; j < nr_opp - 2; j++)
 			min_gap = min(min_gap, pd_info->table[j].freq - pd_info->table[j + 1].freq);
-		pd_info->freq_opp_shift = ilog2(min_gap);
+		pd_info->DFreq = min_gap;
+		pd_info->inv_DFreq = (u32) DIV_ROUND_UP((u64) UINT_MAX, pd_info->DFreq);
 		max_freq = pd_info->table[0].freq;
-		min_freq = pd_info->table[nr_opp - 1].freq;
-		pd_info->nr_freq_opp_map = (max_freq - min_freq)
-			>> pd_info->freq_opp_shift;
-		pd_info->freq_opp_map = kcalloc(pd_info->nr_freq_opp_map + 1, sizeof(int),
-									GFP_KERNEL);
+		min_freq = rounddown(pd_info->table[nr_opp - 1].freq, pd_info->DFreq);
+
+		pd_info->nr_freq_opp_map = DIV_ROUND_UP(max_freq - min_freq, pd_info->DFreq) + 1;
+		pd_info->freq_opp_map = kcalloc(pd_info->nr_freq_opp_map, sizeof(int), GFP_KERNEL);
+
 		if (!pd_info->freq_opp_map)
 			goto nomem;
-		for (j = 0; j < nr_opp; j++) {
-			k = (max_freq - pd_info->table[j].freq) >> pd_info->freq_opp_shift;
-			next_k = (max_freq - pd_info->table[min(nr_opp - 1, j + 1)].freq)
-				>> pd_info->freq_opp_shift;
-			for (; k <= next_k; k++)
-				pd_info->freq_opp_map[k] = j;
+		opp = 0;
+		curr_freq = pd_info->table[opp].freq;
+
+		for (j = 0; j < pd_info->nr_freq_opp_map - 1; j++) {
+			if (curr_freq <= pd_info->table[opp + 1].freq)
+				opp++;
+
+			pd_info->freq_opp_map[j] = opp;
+			curr_freq -= pd_info->DFreq;
 		}
+		/* fill last element with min_freq opp */
+		pd_info->freq_opp_map[pd_info->nr_freq_opp_map - 1] = opp + 1;
 	}
 	return 0;
 nomem:

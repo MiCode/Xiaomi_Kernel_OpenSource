@@ -33,7 +33,8 @@ struct pd_capacity_info {
 	int *util_opp_map;
 
 	// for freq mapping in O(1)
-	int freq_opp_shift;
+	unsigned int DFreq;
+	u32 inv_DFreq;
 	int nr_freq_opp_map;
 	int *freq_opp_map;
 };
