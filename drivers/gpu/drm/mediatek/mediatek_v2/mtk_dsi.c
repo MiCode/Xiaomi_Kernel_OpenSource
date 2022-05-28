@@ -1838,8 +1838,6 @@ static void mtk_dsi_cmdq_poll(struct mtk_ddp_comp *comp,
 
 static s32 mtk_dsi_poll_for_idle(struct mtk_dsi *dsi, struct cmdq_pkt *handle)
 {
-	struct mtk_ddp_comp *comp = &dsi->ddp_comp;
-	struct mtk_drm_crtc *mtk_crtc = comp->mtk_crtc;
 	unsigned int loop_cnt = 0;
 	s32 tmp;
 
@@ -1848,9 +1846,6 @@ static s32 mtk_dsi_poll_for_idle(struct mtk_dsi *dsi, struct cmdq_pkt *handle)
 		mtk_dsi_cmdq_poll(&dsi->ddp_comp, handle,
 				  dsi->ddp_comp.regs_pa + DSI_INTSTA, 0,
 				  0x80000000);
-		if (mtk_crtc)
-			cmdq_pkt_clear_event(handle, mtk_crtc->gce_obj.event[EVENT_CMD_EOF]);
-
 		return 1;
 	}
 #endif
