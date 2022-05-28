@@ -129,91 +129,91 @@
 		//	cpu-idle-states = <&cpuoff_l &clusteroff_l &mcusysoff
 		//				&system_mem &system_pll &system_bus
 		//				&s2idle>;
-			capacity-dmips-mhz = <423>;
+			capacity-dmips-mhz = <297>;
 		};
 
 		cpu1: cpu@001 {
 			device_type = "cpu";
 			compatible = "arm,cortex-a55";
-		//  performance-domains = <&performance 0>;
+			performance-domains = <&performance 0>;
 			reg = <0x0100>;
 			enable-method = "psci";
 		//	cpu-idle-states = <&cpuoff_l &clusteroff_l &mcusysoff
 		//				&system_mem &system_pll &system_bus
 		//				&s2idle>;
-		//  capacity-dmips-mhz = <423>;
+			capacity-dmips-mhz = <297>;
 		};
 
 		cpu2: cpu@002 {
 			device_type = "cpu";
 			compatible = "arm,cortex-a55";
-		//  performance-domains = <&performance 0>;
+			performance-domains = <&performance 0>;
 			reg = <0x0200>;
 			enable-method = "psci";
 		//	cpu-idle-states = <&cpuoff_l &clusteroff_l &mcusysoff
 		//				&system_mem &system_pll &system_bus
 		//				&s2idle>;
-		//  capacity-dmips-mhz = <423>;
+			capacity-dmips-mhz = <297>;
 		};
 
 		cpu3: cpu@003 {
 			device_type = "cpu";
 			compatible = "arm,cortex-a55";
-		//  performance-domains = <&performance 0>;
+			performance-domains = <&performance 0>;
 			reg = <0x0300>;
 			enable-method = "psci";
 		//	cpu-idle-states = <&cpuoff_l &clusteroff_l &mcusysoff
 		//				&system_mem &system_pll &system_bus
 		//				&s2idle>;
-		//  capacity-dmips-mhz = <423>;
+			capacity-dmips-mhz = <297>;
 		};
 
 		cpu4: cpu@100 {
 			device_type = "cpu";
 			compatible = "arm,cortex-a78";
-		//  performance-domains = <&performance 1>;
+			performance-domains = <&performance 1>;
 			reg = <0x0400>;
 			enable-method = "psci";
 		//	cpu-idle-states = <&cpuoff_b &clusteroff_m &mcusysoff
 		//				&system_mem &system_pll &system_bus
 		//				&s2idle>;
-		//  capacity-dmips-mhz = <871>;
+			capacity-dmips-mhz = <828>;
 		};
 
 		cpu5: cpu@101 {
 			device_type = "cpu";
 			compatible = "arm,cortex-a78";
-		//  performance-domains = <&performance 1>;
+			performance-domains = <&performance 1>;
 			reg = <0x0500>;
 			enable-method = "psci";
 		//	cpu-idle-states = <&cpuoff_b &clusteroff_m &mcusysoff
 		//				&system_mem &system_pll &system_bus
 		//				&s2idle>;
-		//  capacity-dmips-mhz = <871>;
+			capacity-dmips-mhz = <828>;
 		};
 
 		cpu6: cpu@102 {
 			device_type = "cpu";
 			compatible = "arm,cortex-a78";
-		//  performance-domains = <&performance 1>;
+			performance-domains = <&performance 1>;
 			reg = <0x0600>;
 			enable-method = "psci";
 		//	cpu-idle-states = <&cpuoff_b &clusteroff_m &mcusysoff
 		//				&system_mem &system_pll &system_bus
 		//				&s2idle>;
-		//  capacity-dmips-mhz = <871>;
+			capacity-dmips-mhz = <828>;
 		};
 
 		cpu7: cpu@200 {
 			device_type = "cpu";
 			compatible = "arm,cortex-a78";
-		//  performance-domains = <&performance 2>;
+			performance-domains = <&performance 2>;
 			reg = <0x0700>;
 			enable-method = "psci";
 		//	cpu-idle-states = <&cpuoff_b &clusteroff_b &mcusysoff
 		//				&system_mem &system_pll &system_bus
 		//				&s2idle>;
-		//  capacity-dmips-mhz = <1024>;
+			capacity-dmips-mhz = <1024>;
 		};
 
 		cpu-map {
@@ -757,11 +757,10 @@
 		compatible = "mediatek,cpufreq-hybrid";
 		reg = <0 0x00114400 0 0xc00>,
 			<0 0x0011bc00 0 0x1400>,
-			<0 0x00112800 0 0x1800>,
-			<0 0x00114f40 0 0xc0>;
+			<0 0x00118800 0 0x800>;
 		reg-names = "USRAM", "CSRAM", "ESRAM";
 		cslog-range = <0x03d0>, <0x0fa0>;
-		tbl-off = <4>, <76>, <148>;
+		tbl-off = <4>, <76>, <148>, <220>;
 
 		/* pll mcucfg */
 		mcucfg-ver = <0>;
