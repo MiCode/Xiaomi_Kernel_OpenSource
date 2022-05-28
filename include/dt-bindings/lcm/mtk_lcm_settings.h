@@ -5,6 +5,7 @@
  */
 
 #include "mtk_lcm_lk_settings.h"
+#include "mtk_lcm_cust_settings.h"
 
 #ifndef MTK_LCM_SETTINGS_H
 #define MTK_LCM_SETTINGS_H
