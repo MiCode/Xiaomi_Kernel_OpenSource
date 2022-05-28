@@ -63,7 +63,8 @@ enum {
 	FUNC_GET_OPP, /* user, user, user */
 	FUNC_SET_OPP, /* user, opp */
 	FUNC_FORCE_OPP, /* power, opp */
-	FUNC_CAMERA_ON, /* on */
+	FUNC_CAMERA_ON, /* enable */
+	FUNC_STRESS, /* enable */
 	FUNC_LOG,
 	FUNC_NUM
 };

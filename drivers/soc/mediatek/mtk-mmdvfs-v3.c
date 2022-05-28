@@ -149,7 +149,7 @@ static int mtk_mmdvfs_set_rate(struct clk_hw *hw, unsigned long rate,
 
 	slot = *(struct mmdvfs_ipi_data *)(u32 *)&ret;
 	if (log_level & 1 << log_ipi)
-		MMDVFS_DBG("ipi:%d slot:%#x idx:%hhu opp:%hhu", ret, slot, slot.idx, slot.ack);
+		MMDVFS_DBG("ipi:%#x slot:%#x idx:%hhu opp:%hhu", ret, slot, slot.idx, slot.ack);
 	return 0;
 }
 
@@ -190,7 +190,7 @@ int mmdvfs_camera_notify(const bool enable)
 	ret = mmdvfs_vcp_ipi_send(FUNC_CAMERA_ON, enable, MAX_OPP, MAX_OPP);
 
 	slot = *(struct mmdvfs_ipi_data *)(u32 *)&ret;
-	MMDVFS_DBG("ipi:%d slot:%#x ena:%hhu", ret, slot, slot.ack);
+	MMDVFS_DBG("ipi:%#x slot:%#x ena:%hhu", ret, slot, slot.ack);
 
 	return 0;
 }
@@ -217,16 +217,16 @@ int mmdvfs_set_force_step(const char *val, const struct kernel_param *kp)
 	ret = mmdvfs_vcp_ipi_send(FUNC_FORCE_OPP, idx, opp, MAX_OPP);
 
 	slot = *(struct mmdvfs_ipi_data *)(u32 *)&ret;
-	MMDVFS_DBG("ipi:%d slot:%#x idx:%hhu opp:%hhu",
+	MMDVFS_DBG("ipi:%#x slot:%#x idx:%hhu opp:%hhu",
 		ret, slot, slot.idx, slot.ack);
 
 	return 0;
 }
 
-static struct kernel_param_ops mmdvfs_set_force_step_ops = {
+static struct kernel_param_ops mmdvfs_force_step_ops = {
 	.set = mmdvfs_set_force_step,
 };
-module_param_cb(force_step, &mmdvfs_set_force_step_ops, NULL, 0644);
+module_param_cb(force_step, &mmdvfs_force_step_ops, NULL, 0644);
 MODULE_PARM_DESC(force_step, "force mmdvfs to specified step");
 
 int mmdvfs_set_vote_step(const char *val, const struct kernel_param *kp)
@@ -261,10 +261,10 @@ int mmdvfs_set_vote_step(const char *val, const struct kernel_param *kp)
 	return 0;
 }
 
-static struct kernel_param_ops mmdvfs_set_vote_step_ops = {
+static struct kernel_param_ops mmdvfs_vote_step_ops = {
 	.set = mmdvfs_set_vote_step,
 };
-module_param_cb(vote_step, &mmdvfs_set_vote_step_ops, NULL, 0644);
+module_param_cb(vote_step, &mmdvfs_vote_step_ops, NULL, 0644);
 MODULE_PARM_DESC(vote_step, "vote mmdvfs to specified step");
 
 int mmdvfs_dump_setting(char *buf, const struct kernel_param *kp)
@@ -311,6 +311,32 @@ static struct kernel_param_ops mmdvfs_dump_setting_ops = {
 module_param_cb(dump_setting, &mmdvfs_dump_setting_ops, NULL, 0444);
 MODULE_PARM_DESC(dump_setting, "dump mmdvfs current setting");
 
+int mmdvfs_set_vcp_stress(const char *val, const struct kernel_param *kp)
+{
+	struct mmdvfs_ipi_data slot;
+	u16 ena = 0;
+	int ret;
+
+	ret = kstrtou16(val, 0, &ena);
+	if (ret) {
+		MMDVFS_ERR("failed:%d ena:%hu", ret, ena);
+		return ret;
+	}
+
+	ret = mmdvfs_vcp_ipi_send(FUNC_STRESS, ena, MAX_OPP, MAX_OPP);
+
+	slot = *(struct mmdvfs_ipi_data *)(u32 *)&ret;
+	MMDVFS_DBG("ipi:%#x slot:%#x ena:%d ena:%#x", ret, slot, ena, slot.ack);
+
+	return 0;
+}
+
+static struct kernel_param_ops mmdvfs_vcp_stress_ops = {
+	.set = mmdvfs_set_vcp_stress,
+};
+module_param_cb(vcp_stress, &mmdvfs_vcp_stress_ops, NULL, 0644);
+MODULE_PARM_DESC(vcp_stress, "trigger mmdvfs vcp stress");
+
 int mmdvfs_get_vcp_log(char *buf, const struct kernel_param *kp)
 {
 	struct mmdvfs_ipi_data slot;
@@ -340,7 +366,7 @@ int mmdvfs_set_vcp_log(const char *val, const struct kernel_param *kp)
 	ret = mmdvfs_vcp_ipi_send(FUNC_LOG, log, MAX_OPP, MAX_OPP);
 
 	slot = *(struct mmdvfs_ipi_data *)(u32 *)&ret;
-	MMDVFS_DBG("ipi:%d slot:%#x log:%hu log:%#x", ret, slot, log, slot.ack);
+	MMDVFS_DBG("ipi:%#x slot:%#x log:%hu log:%#x", ret, slot, log, slot.ack);
 
 	return 0;
 }
@@ -487,6 +513,7 @@ static int mmdvfs_v3_probe(struct platform_device *pdev)
 	ret = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
 	if (ret) {
 		MMDVFS_ERR("add clk provider failed:%d", ret);
+		mtk_free_clk_data(clk_data);
 		return ret;
 	}
 
