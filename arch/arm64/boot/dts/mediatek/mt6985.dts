@@ -1193,6 +1193,19 @@
 		reg = <0 0x1c00c000 0 0x1000>;
 	};
 
+	masp: masp@1c009000 {
+		compatible = "mediatek,masp";
+		reg = <0 0x1c009000 0 0x1000>;
+		interrupts = <GIC_SPI 327 IRQ_TYPE_LEVEL_HIGH 0>;
+		/* GIC_IRQ ID(sej_axgpt_irq) - 32 = 359 - 32 = 327 */
+	};
+
+	security_ao@1c00b000 {
+		compatible = "mediatek,security_ao";
+		reg = <0 0x1c00b000 0 0x1000>;
+	};
+
+
 	systimer: systimer@1C011000 {
 		compatible = "mediatek,mt6985-timer",
 			      "mediatek,mt6765-timer";
