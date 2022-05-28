@@ -8360,7 +8360,7 @@
 
 		helper-value = <0>, /*MTK_DRM_OPT_STAGE*/
 			<1>, /*MTK_DRM_OPT_USE_CMDQ*/
-			<0>, /*MTK_DRM_OPT_USE_M4U*/
+			<1>, /*MTK_DRM_OPT_USE_M4U*/
 			<0>, /*MTK_DRM_OPT_MMQOS_SUPPORT*/
 			<0>, /*MTK_DRM_OPT_MMDVFS_SUPPORT*/
 			<0>, /*MTK_DRM_OPT_SODI_SUPPORT*/
@@ -9311,8 +9311,8 @@
 		clocks = <&dispsys_config_clk CLK_OVL_OVL0_2L>;
 //		mediatek,larb = <&smi_larb0>;
 		mediatek,smi-id = <0>;
-//		iommus = <&disp_iommu M4U_PORT_L0_DISP_OVL0_2L_RDMA0>,
-//			 <&disp_iommu M4U_PORT_L0_DISP_OVL0_2L_HDR>;
+		iommus = <&disp_iommu M4U_PORT_L0_DISP_OVL0_2L_RDMA0>,
+			 <&disp_iommu M4U_PORT_L0_DISP_OVL0_2L_HDR>;
 	};
 
 	disp_ovl1_2l: disp_ovl1@14403000 {
