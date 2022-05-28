@@ -578,6 +578,12 @@
 		sspm_res_ram_size = <0x510000>; /* 5M + 64K */
 	};
 
+	teeperf {
+		compatible = "mediatek,teeperf";
+		cpu-type = <1>; /* 1: CPU_V9_TYPE, 2: CPU_V8_TYPE */
+		cpu-map = <1>; /* 1: CPU_4_3_1_MAP, 2: CPU_6_2_MAP */
+	};
+
 	/* Microtrust SW IRQ number 114(146 - 32) ~ 115(147 - 32) */
 	utos: utos {
 		compatible = "microtrust,utos";
