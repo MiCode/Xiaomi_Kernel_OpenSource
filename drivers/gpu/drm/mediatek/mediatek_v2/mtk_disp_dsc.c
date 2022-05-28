@@ -800,6 +800,13 @@ static const struct mtk_disp_dsc_data mt6983_dsc_driver_data = {
 	.dsi_buffer = true,
 };
 
+static const struct mtk_disp_dsc_data mt6985_dsc_driver_data = {
+	.support_shadow     = false,
+	.need_bypass_shadow = false,
+	.need_obuf_sw = true,
+	.dsi_buffer = true,
+};
+
 static const struct mtk_disp_dsc_data mt6895_dsc_driver_data = {
 	.support_shadow     = false,
 	.need_bypass_shadow = false,
@@ -843,6 +850,8 @@ static const struct of_device_id mtk_disp_dsc_driver_dt_match[] = {
 	  .data = &mt6885_dsc_driver_data},
 	{ .compatible = "mediatek,mt6983-disp-dsc",
 	  .data = &mt6983_dsc_driver_data},
+	{ .compatible = "mediatek,mt6985-disp-dsc",
+	  .data = &mt6985_dsc_driver_data},
 	{ .compatible = "mediatek,mt6895-disp-dsc",
 	  .data = &mt6895_dsc_driver_data},
 	{ .compatible = "mediatek,mt6886-disp-dsc",

@@ -1113,6 +1113,12 @@
 	#define DISP_DLI_RELAY4_TO_COMP_OUT_CROSSBAR4	BIT(4)
 	#define DISP_DLI_RELAY4_TO_COMP_OUT_CROSSBAR5	BIT(5)
 
+#define MT6985_PANEL_COMP_OUT_CROSSBAR1_SEL_IN 0xf60
+	#define  DISP_PQ_OUT_CROSSBAR1_SEL_IN 0x00000001
+
+#define MT6985_PANEL_COMP_OUT_CROSSBAR3_SEL_IN 0xf68
+	#define  DISP_PQ_OUT_CROSSBAR3_SEL_IN 0x00000001
+
 #define MT6985_PQ_IN_CROSSBAR0_MOUT_EN 0xf74
 	#define DISP_DLI_RELAY0_TO_RSZ0				BIT(0)
 	#define DISP_DLI_RELAY0_TO_TDSHP1			BIT(1)
@@ -13687,14 +13693,30 @@ void mtk_ddp_insert_dsc_prim_MT6985(struct mtk_drm_crtc *mtk_crtc,
 {
 	unsigned int addr, value;
 
-	if (!mtk_crtc->is_dual_pipe)
-		return;
-
-	/* DLI_ASYNC4 to  DISP_DSC_WRAP0 */
-	addr = MT6985_PANEL_COMP_OUT_CROSSBAR4_MOUT_EN;
-	value = DISP_DLI_RELAY4_TO_DSC_1;
+	/* PANEL_COMP_OUT_CROSSBAR1_MOUT to  DISP_DSC_WRAP0 */
+	addr = MT6985_PANEL_COMP_OUT_CROSSBAR1_MOUT_EN;
+	value = DISP_DLI_RELAY4_TO_DSC_0;
 	cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
 		       mtk_crtc->config_regs_pa + addr, value, ~0);
+	addr =  MT6985_PANEL_COMP_OUT_CROSSBAR1_SEL_IN;
+	value = DISP_PQ_OUT_CROSSBAR1_SEL_IN;
+	cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
+		       mtk_crtc->config_regs_pa + addr, value, ~0);
+	addr =  MT6985_PANEL_COMP_OUT_CROSSBAR3_SEL_IN;
+	value = 0;
+	cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
+		       mtk_crtc->config_regs_pa + addr, value, ~0);
+	addr =  MT6985_COMP_OUT_CROSSBAR3_MOUT_EN;
+	value = 0;
+	cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
+		       mtk_crtc->config_regs_pa + addr, value, ~0);
+	addr =  MT6985_COMP_OUT_CROSSBAR1_MOUT_EN;
+	value = DISP_DSC_0_TO_MERGE_OUT_CROSSBAR0;
+	cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
+		       mtk_crtc->config_regs_pa + addr, value, ~0);
+
+	if (!mtk_crtc->is_dual_pipe)
+		return;
 
 }
 
@@ -13703,10 +13725,27 @@ void mtk_ddp_remove_dsc_prim_MT6985(struct mtk_drm_crtc *mtk_crtc,
 {
 	unsigned int addr, value;
 
-	addr = MT6985_PANEL_COMP_OUT_CROSSBAR4_MOUT_EN;
+	addr = MT6985_PANEL_COMP_OUT_CROSSBAR1_MOUT_EN;
+	value = DISP_PQ_OUT_CROSSBAR1_TO_COMP_OUT_CROSSBAR3;
+	cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
+		       mtk_crtc->config_regs_pa + addr, value, ~0);
+	addr =  MT6985_PANEL_COMP_OUT_CROSSBAR3_SEL_IN;
+	value = DISP_PQ_OUT_CROSSBAR3_SEL_IN;
+	cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
+		       mtk_crtc->config_regs_pa + addr, value, ~0);
+	addr =  MT6985_PANEL_COMP_OUT_CROSSBAR1_SEL_IN;
 	value = 0;
 	cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
 		       mtk_crtc->config_regs_pa + addr, value, ~0);
+	addr = MT6985_COMP_OUT_CROSSBAR3_MOUT_EN;
+	value = DISP_PANEL_COMP_OUT_CROSSBAR3_TO_MERGE_OUT_CROSSBAR0;
+	cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
+		       mtk_crtc->config_regs_pa + addr, value, ~0);
+	addr =  MT6985_COMP_OUT_CROSSBAR1_MOUT_EN;
+	value = 0;
+	cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
+		       mtk_crtc->config_regs_pa + addr, value, ~0);
+
 }
 
 /* mt6886 is the same as mt6895  exclude dual pipe */
