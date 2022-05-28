@@ -7409,13 +7409,14 @@
 			compatible = "mediatek,mt8183-ufshci";
 			reg = <0 0x112b0000 0 0x2300>;
 			interrupts = <GIC_SPI 168 IRQ_TYPE_LEVEL_HIGH 0>;
-#if 0
+
 			clocks =
 				<&ufscfg_ao_clk CLK_UFSAO_UNIPRO_TX_SYM>,
 				<&ufscfg_ao_clk CLK_UFSAO_UNIPRO_RX_SYM0>,
 				<&ufscfg_ao_clk CLK_UFSAO_UNIPRO_RX_SYM1>,
 				<&ufscfg_ao_clk CLK_UFSAO_UNIPRO_SYS>,
-				<&topckgen_clk CLK_TOP_U_FAXI_SEL>,
+				<&ufscfg_pdn_clk CLK_UFSPDN_UFSHCI_UFS>,
+				<&ufscfg_pdn_clk CLK_UFSPDN_UFSHCI_AES>,
 				<&topckgen_clk CLK_TOP_AES_UFSFDE_SEL>,
 				<&topckgen_clk CLK_TOP_U_SEL>,
 				<&topckgen_clk CLK_TOP_U_MBIST_SEL>;
@@ -7424,7 +7425,8 @@
 				"unipro_rx_sym0",
 				"unipro_rx_sym1",
 				"unipro_sys",
-				"ufs_faxi",
+				"ufshci_ufs",
+				"ufshci_aes",
 				"ufs_fde",
 				"ufs",
 				"ufs_mbist";
@@ -7436,20 +7438,19 @@
 				<0 0>,
 				<0 0>,
 				<0 0>,
+				<0 0>,
 				<0 0>;
 
-			power-domains = <&scpsys MT6985_POWER_DOMAIN_UFS0_SHUTDOWN>,
-					<&scpsys MT6985_POWER_DOMAIN_UFS0_PHY_SHUTDOWN>;
+			power-domains = <&scpsys MT6985_POWER_DOMAIN_UFS0_SHUTDOWN>;
+
 			vcc-supply = <&mt6363_vemc>;
 
 			resets = <&ufscfgao_rst 0>, <&ufscfgpdn_rst 0>,
 				<&ufscfgpdn_rst 1>;
 			reset-names = "unipro_rst", "crypto_rst", "hci_rst";
-#endif
 
 			bootmode = <&chosen>;
 
-			mediatek,ufs-disable-ah8;
 			mediatek,ufs-qos;
 			mediatek,ufs-pmc-via-fastauto;
 		};
@@ -12637,10 +12638,6 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 };
 
 &mt6363_vsram_apu {
-	regulator-always-on;
-};
-
-&mt6363_vemc {
 	regulator-always-on;
 };
 

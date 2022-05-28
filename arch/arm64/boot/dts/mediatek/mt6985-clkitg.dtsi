@@ -25,9 +25,6 @@
 			<&topckgen_clk CLK_TOP_DP_SEL>,
 			<&topckgen_clk CLK_TOP_DISP_PWM_SEL>,
 			<&topckgen_clk CLK_TOP_I2C_SEL>,
-			<&topckgen_clk CLK_TOP_AES_UFSFDE_SEL>,
-			<&topckgen_clk CLK_TOP_U_SEL>,
-			<&topckgen_clk CLK_TOP_U_MBIST_SEL>,
 			<&topckgen_clk CLK_TOP_PEXTP_MBIST_SEL>,
 			<&topckgen_clk CLK_TOP_ADSP_SEL>,
 			<&topckgen_clk CLK_TOP_VDEC_CKSYS1_SEL>,
@@ -113,12 +110,6 @@
 			<&pericfg_ao_clk CLK_PERAO_AUDIO_MST>,
 			<&pericfg_ao_clk CLK_PERAO_AUDIO_INTBUS>,
 			<&imp_iic_wrap_c_clk CLK_IMPC_I2C5>,
-			<&ufscfg_ao_clk CLK_UFSAO_UNIPRO_TX_SYM>,
-			<&ufscfg_ao_clk CLK_UFSAO_UNIPRO_RX_SYM0>,
-			<&ufscfg_ao_clk CLK_UFSAO_UNIPRO_RX_SYM1>,
-			<&ufscfg_ao_clk CLK_UFSAO_UNIPRO_SYS>,
-			<&ufscfg_pdn_clk CLK_UFSPDN_UFSHCI_UFS>,
-			<&ufscfg_pdn_clk CLK_UFSPDN_UFSHCI_AES>,
 			<&pextpcfg_ao_clk CLK_PEXT_MAC0_26M>,
 			<&pextpcfg_ao_clk CLK_PEXT_MAC0_P1_PCLK_250M>,
 			<&pextpcfg_ao_clk CLK_PEXT_MAC0_GFMUX_TL>,
@@ -469,11 +460,6 @@
 			<&ssr_top_clk CLK_SSR_TOP_RQ_RW_SSR_DMA>,
 			<&ssr_top_clk CLK_SSR_TOP_RQ_RW_SSR_KDF>,
 			<&ssr_top_clk CLK_SSR_TOP_RQ_RW_SSR_PKA>;
-	};
-
-	bring-up-pd-ufs0_shutdown {
-		compatible = "mediatek,scpsys-bring-up";
-		power-domains = <&scpsys MT6985_POWER_DOMAIN_UFS0_SHUTDOWN>;
 	};
 
 	bring-up-pd-ufs0_phy_shutdown {
