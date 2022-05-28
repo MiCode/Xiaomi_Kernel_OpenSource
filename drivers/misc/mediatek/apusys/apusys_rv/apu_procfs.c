@@ -169,7 +169,11 @@ static void apu_mrdump_register(struct mtk_apu *apu)
 		if (ret)
 			dev_info(dev, "%s: APUSYS_RV_XFILE add fail(%d)\n",
 				__func__, ret);
+	} else {
+		/* not F_PRELOAD_FIRMWARE just return */
+		return;
 	}
+
 	xfile_len = (size_t) size;
 	xfile_base = (void *) base_va;
 
