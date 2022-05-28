@@ -6609,6 +6609,10 @@
 			iommus = <&mdp_iommu M4U_PORT_L3_MDP_RDMA0>;
 			event-frame-done = /bits/ 16
 				<CMDQ_EVENT_MMLSYS1_MDP_RDMA0_FRAME_DONE>;
+			interconnects =
+				<&mmqos MASTER_LARB_PORT(M4U_PORT_L3_MDP_RDMA0)
+					&mmqos SLAVE_COMMON(1)>;
+			interconnect-names = "mml_dma";
 		};
 
 		mml_rdma1: mml-rdma1@1f804000 {
@@ -6624,6 +6628,10 @@
 			iommus = <&mdp_iommu M4U_PORT_L3_MDP_RDMA1>;
 			event-frame-done = /bits/ 16
 				<CMDQ_EVENT_MMLSYS1_MDP_RDMA1_FRAME_DONE>;
+			interconnects =
+				<&mmqos MASTER_LARB_PORT(M4U_PORT_L3_MDP_RDMA1)
+					&mmqos SLAVE_COMMON(1)>;
+			interconnect-names = "mml_dma";
 		};
 
 		mml_hdr0: mml-hdr0@1f805000 {
@@ -6741,6 +6749,10 @@
 			event-bufb = /bits/ 16 <CMDQ_SYNC_TOKEN_MML_BUFB>;
 			event-buf-next = /bits/ 16 <CMDQ_SYNC_TOKEN_MML_BUF_NEXT>;
 			inlinerot = <&inlinerot0>, <&inlinerot1>;
+			interconnects =
+				<&mmqos MASTER_LARB_PORT(M4U_PORT_L3_MDP_WROT0)
+					&mmqos SLAVE_COMMON(1)>;
+			interconnect-names = "mml_dma";
 		};
 
 		mml_wrot1: mml-wrot1@1f810000 {
@@ -6760,6 +6772,10 @@
 			event-bufb = /bits/ 16 <CMDQ_SYNC_TOKEN_MML_BUFB>;
 			event-buf-next = /bits/ 16 <CMDQ_SYNC_TOKEN_MML_BUF_NEXT>;
 			inlinerot = <&inlinerot0>, <&inlinerot1>;
+			interconnects =
+				<&mmqos MASTER_LARB_PORT(M4U_PORT_L3_MDP_WROT1)
+					&mmqos SLAVE_COMMON(1)>;
+			interconnect-names = "mml_dma";
 		};
 
 		mml_rdma2: mml-rdma2@1f811000 {
@@ -6773,6 +6789,10 @@
 			#size-cells = <2>;
 			dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
 			iommus = <&mdp_iommu M4U_PORT_L3_MDP_RDMA2>;
+			interconnects =
+				<&mmqos MASTER_LARB_PORT(M4U_PORT_L3_MDP_RDMA2)
+					&mmqos SLAVE_COMMON(1)>;
+			interconnect-names = "mml_dma";
 		};
 
 		mml_rdma3: mml-rdma3@1f812000 {
@@ -6786,6 +6806,10 @@
 			#size-cells = <2>;
 			dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
 			iommus = <&mdp_iommu M4U_PORT_L3_MDP_RDMA3>;
+			interconnects =
+				<&mmqos MASTER_LARB_PORT(M4U_PORT_L3_MDP_RDMA3)
+					&mmqos SLAVE_COMMON(1)>;
+			interconnect-names = "mml_dma";
 		};
 
 		mml_rsz2: mml-rsz2@1f813000 {
@@ -6819,6 +6843,10 @@
 			iommus = <&mdp_iommu M4U_PORT_L3_MDP_WDMA2>;
 			event-frame-done = /bits/ 16
 				<CMDQ_EVENT_MMLSYS1_MDP_WROT2_FRAME_DONE>;
+			interconnects =
+				<&mmqos MASTER_LARB_PORT(M4U_PORT_L3_MDP_WDMA2)
+					&mmqos SLAVE_COMMON(1)>;
+			interconnect-names = "mml_dma";
 		};
 
 		mml_wrot3: mml-wrot3@1f816000 {
@@ -6834,6 +6862,10 @@
 			iommus = <&mdp_iommu M4U_PORT_L3_MDP_WDMA3>;
 			event-frame-done = /bits/ 16
 				<CMDQ_EVENT_MMLSYS1_MDP_WROT3_FRAME_DONE>;
+			interconnects =
+				<&mmqos MASTER_LARB_PORT(M4U_PORT_L3_MDP_WDMA3)
+					&mmqos SLAVE_COMMON(1)>;
+			interconnect-names = "mml_dma";
 		};
 
 		hre_top_mdpsys@1f817000 {
