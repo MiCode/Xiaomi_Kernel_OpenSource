@@ -432,14 +432,41 @@ static int get_seninf_ops(struct device *dev, struct seninf_core *core)
 			&g_seninf_ops->pref_mux_num);
 
 		for (i = 0; i < TYPE_MAX_NUM; i++) {
-			of_property_read_u32_index(dev->of_node, mux_range_name[i],
+			ret = of_property_read_u32_index(dev->of_node, mux_range_name[i],
 						   0, &core->mux_range[i].first);
-			of_property_read_u32_index(dev->of_node, mux_range_name[i],
+			if (ret) {
+				dev_info(dev,
+					"%s: ERROR: read property index:(mux_range_name[%d] (first)) failed, not modify pointer, ret:%d\n",
+					__func__, i, ret);
+				return -1;
+			}
+
+			ret = of_property_read_u32_index(dev->of_node, mux_range_name[i],
 						   1, &core->mux_range[i].second);
-			of_property_read_u32_index(dev->of_node, cammux_range_name[i],
+			if (ret) {
+				dev_info(dev,
+					"%s: ERROR: read property index:(mux_range_name[%d] (second)) failed, not modify pointer, ret:%d\n",
+					__func__, i, ret);
+				return -1;
+			}
+
+			ret = of_property_read_u32_index(dev->of_node, cammux_range_name[i],
 						   0, &core->cammux_range[i].first);
-			of_property_read_u32_index(dev->of_node, cammux_range_name[i],
+			if (ret) {
+				dev_info(dev,
+					"%s: ERROR: read property index:(cammux_range_name[%d] (first)) failed, not modify pointer, ret:%d\n",
+					__func__, i, ret);
+				return -1;
+			}
+
+			ret = of_property_read_u32_index(dev->of_node, cammux_range_name[i],
 						   1, &core->cammux_range[i].second);
+			if (ret) {
+				dev_info(dev,
+					"%s: ERROR: read property index:(cammux_range_name[%d] (second)) failed, not modify pointer, ret:%d\n",
+					__func__, i, ret);
+				return -1;
+			}
 		}
 
 		dev_info(dev, "%s: seninf_num = %d, mux_num = %d, cam_mux_num = %d, pref_mux_num =%d\n",
@@ -750,7 +777,7 @@ static int mtk_cam_seninf_set_fmt(struct v4l2_subdev *sd,
 	struct v4l2_mbus_framefmt *format;
 	char bSinkFormatChanged = 0;
 
-	if (fmt->pad < PAD_SINK || fmt->pad >= PAD_MAXCNT)
+	if (fmt->pad >= PAD_MAXCNT)
 		return -EINVAL;
 
 	format = &ctx->fmt[fmt->pad].format;
@@ -879,8 +906,8 @@ static int set_aov_test_model_param(struct seninf_ctx *ctx,
 			clk_disable_unprepare(ctx->core->clk[CLK_TOP_CAMTM]);
 		pm_runtime_put_sync(ctx->dev);
 
-		if (g_aov_param.sensor_idx >= IMGSENSOR_SENSOR_IDX_MIN_NUM &&
-			g_aov_param.sensor_idx < IMGSENSOR_SENSOR_IDX_MAX_NUM){
+		/* because array size of aov_ctx[] is 6 */
+		if (g_aov_param.sensor_idx < 6) {
 			aov_ctx[g_aov_param.sensor_idx] = NULL;
 			memset(&g_aov_param, 0, sizeof(struct mtk_seninf_aov_param));
 		}
@@ -1334,8 +1361,8 @@ static int seninf_csi_s_stream(struct v4l2_subdev *sd, int enable)
 #if AOV_GET_PARAM
 		/* get sensor idx by get_sensor_idx */
 		idx = get_sensor_idx(ctx);
-		if (idx >= IMGSENSOR_SENSOR_IDX_MIN_NUM &&
-			idx < IMGSENSOR_SENSOR_IDX_MAX_NUM) {
+		/* because array size of aov_ctx[] is 6 */
+		if (idx < 6) {
 			g_aov_param.sensor_idx = idx;
 			aov_ctx[g_aov_param.sensor_idx] = ctx;
 			g_aov_param.is_test_model = 0;
@@ -1405,8 +1432,8 @@ static int seninf_csi_s_stream(struct v4l2_subdev *sd, int enable)
 		pm_runtime_put_sync(ctx->dev);
 
 #if AOV_GET_PARAM
-		if (g_aov_param.sensor_idx >= IMGSENSOR_SENSOR_IDX_MIN_NUM &&
-			g_aov_param.sensor_idx < IMGSENSOR_SENSOR_IDX_MAX_NUM) {
+		/* because array size of aov_ctx[] is 6 */
+		if (g_aov_param.sensor_idx < 6) {
 			aov_ctx[g_aov_param.sensor_idx] = NULL;
 			memset(&g_aov_param, 0, sizeof(struct mtk_seninf_aov_param));
 		}
@@ -1809,7 +1836,8 @@ static int register_subdev(struct seninf_ctx *ctx, struct v4l2_device *v4l2_dev)
 			dev_info(dev, "failed to snprintf\n");
 	} else {
 		ret = snprintf(sd->name, sizeof(sd->name), "%s-%s",
-			dev_driver_string(dev), csi_port_names[ctx->port]);
+			dev_driver_string(dev),
+			csi_port_names[(unsigned int)ctx->port]);
 		if (ret < 0)
 			dev_info(dev, "failed to snprintf\n");
 	}
@@ -2311,9 +2339,9 @@ void mtk_cam_seninf_set_secure(struct v4l2_subdev *sd, int enable, unsigned int 
 
 int mtk_cam_seninf_aov_runtime_suspend(unsigned int sensor_id)
 {
-	int real_sensor_id = 0;
 	struct seninf_ctx *ctx = NULL;
 	struct seninf_core *core = NULL;
+	unsigned int real_sensor_id = 0;
 	int i = 0;
 
 	pwr_refcnt_for_aov++;
@@ -2330,16 +2358,13 @@ int mtk_cam_seninf_aov_runtime_suspend(unsigned int sensor_id)
 	} else {
 		if (sensor_id == g_aov_param.sensor_idx) {
 			real_sensor_id = g_aov_param.sensor_idx;
-			pr_info("input sensor id:%d success\n", real_sensor_id);
+			pr_info("input sensor id:%u success\n", real_sensor_id);
 		} else {
-			char seninf_name[256];
-			int cnt = 0;
-
 			real_sensor_id = sensor_id;
-			pr_info("input sensor id:%d fail\n", real_sensor_id);
-			cnt = snprintf(seninf_name, 256,
-				"[%s] input sensor id:%d fail", __func__, real_sensor_id);
-			seninf_aee_print("[AEE] %s", seninf_name);
+			pr_info("input sensor id:%u fail\n", real_sensor_id);
+			seninf_aee_print(
+				"[AEE] [%s] input sensor id:%u fail",
+				__func__, real_sensor_id);
 			return -ENODEV;
 		}
 	}
@@ -2351,7 +2376,7 @@ int mtk_cam_seninf_aov_runtime_suspend(unsigned int sensor_id)
 	 */
 
 	if (aov_ctx[real_sensor_id] != NULL) {
-		pr_info("sensor idx %d\n", real_sensor_id);
+		pr_info("sensor idx %u\n", real_sensor_id);
 		ctx = aov_ctx[real_sensor_id];
 	} else {
 		pr_info("Can't find ctx from input sensor_id!\n");
@@ -2443,9 +2468,9 @@ EXPORT_SYMBOL(mtk_cam_seninf_aov_runtime_suspend);
 
 int mtk_cam_seninf_aov_runtime_resume(unsigned int sensor_id)
 {
-	int real_sensor_id = 0;
 	struct seninf_ctx *ctx = NULL;
 	struct seninf_core *core = NULL;
+	unsigned int real_sensor_id = 0;
 	int i = 0;
 	int ret = 0;
 
@@ -2463,16 +2488,13 @@ int mtk_cam_seninf_aov_runtime_resume(unsigned int sensor_id)
 	} else {
 		if (sensor_id == g_aov_param.sensor_idx) {
 			real_sensor_id = g_aov_param.sensor_idx;
-			pr_info("input sensor id:%d success\n", real_sensor_id);
+			pr_info("input sensor id:%u success\n", real_sensor_id);
 		} else {
-			char seninf_name[256];
-			int cnt = 0;
-
 			real_sensor_id = sensor_id;
-			pr_info("input sensor id:%d fail\n", real_sensor_id);
-			cnt = snprintf(seninf_name, 256,
-				"[%s] input sensor id:%d fail", __func__, real_sensor_id);
-			seninf_aee_print("[AEE] %s", seninf_name);
+			pr_info("input sensor id:%u fail\n", real_sensor_id);
+			seninf_aee_print(
+				"[AEE] [%s] input sensor id:%u fail",
+				__func__, real_sensor_id);
 			return -ENODEV;
 		}
 	}
@@ -2484,7 +2506,7 @@ int mtk_cam_seninf_aov_runtime_resume(unsigned int sensor_id)
 	 */
 
 	if (aov_ctx[real_sensor_id] != NULL) {
-		pr_info("sensor idx %d\n", real_sensor_id);
+		pr_info("sensor idx %u\n", real_sensor_id);
 		ctx = aov_ctx[real_sensor_id];
 #ifdef SENSING_MODE_READY
 		/* switch i2c bus scl from scp to apmcu */
