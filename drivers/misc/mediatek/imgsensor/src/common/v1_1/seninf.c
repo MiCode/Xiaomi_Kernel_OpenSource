@@ -154,7 +154,7 @@ static int seninf_pm_runtime_get_sync(struct SENINF *seninf)
 
 	if (seninf->pm_domain_cnt == 1)
 		pm_runtime_get_sync(seninf->dev);
-	else {
+	else if (seninf->pm_domain_cnt > 1) {
 		if (!seninf->pm_domain_devs)
 			return -EINVAL;
 

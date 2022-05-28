@@ -1936,7 +1936,6 @@ static inline int adopt_CAMERA_HW_FeatureControl(void *pBuf)
 				if (copy_from_user
 					((void *)pData, (void __user *)usr_ptr,
 					sizeof(struct SET_SENSOR_PATTERN_SOLID_COLOR))) {
-					kfree(pData);
 					PK_DBG("[CAMERA_HW]ERROR: copy_from_user fail\n");
 					kfree(pFeaturePara);
 					return -EFAULT;
@@ -2246,10 +2245,9 @@ static long imgsensor_ioctl(
 			PK_DBG("[CAMERA SENSOR] ioctl allocate mem failed\n");
 			i4RetValue = -ENOMEM;
 			goto CAMERA_HW_Ioctl_EXIT;
+		} else {
+			memset(pBuff, 0x0, _IOC_SIZE(a_u4Command));
 		}
-
-		memset(pBuff, 0x0, _IOC_SIZE(a_u4Command));
-
 		if (_IOC_WRITE & _IOC_DIR(a_u4Command)) {
 			if (copy_from_user(pBuff, (void *)a_u4Param,
 			_IOC_SIZE(a_u4Command))) {
