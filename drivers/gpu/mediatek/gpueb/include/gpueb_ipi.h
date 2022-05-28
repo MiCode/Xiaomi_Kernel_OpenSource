@@ -27,7 +27,9 @@ int gpueb_get_recv_PIN_ID_by_name(char *recv_PIN_name);
 void *get_gpueb_ipidev(void);
 
 #if IPI_TEST
-int gpueb_ipi_test(struct platform_device *pdev);
+int gpueb_ipi_test_init(void);
+int gpueb_ipi_send_compl_test(int ipi, int msg);
+int gpueb_get_send_pin_count(void);
 #endif
 
 #endif /* __GPUEB_IPI_H__ */

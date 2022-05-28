@@ -24,6 +24,7 @@
 
 #include "gpueb_helper.h"
 #include "gpueb_debug.h"
+#include "gpueb_ipi.h"
 
 /**
  * ===============================================
@@ -189,9 +190,60 @@ done:
 	return (ret < 0) ? ret : count;
 }
 
+#if IPI_TEST
+/* PROCFS: GPUEB ipi test */
+static int gpueb_ipi_test_proc_show(struct seq_file *m, void *v)
+{
+	int i, ret;
+	int send_msg;
+
+	seq_puts(m, "[GPUEB-TEST] Test AP <-> EB IPI\n");
+
+	for (i = 0; i < gpueb_get_send_pin_count(); i++) {
+		send_msg = i * 10 + 1;
+		ret = gpueb_ipi_send_compl_test(i, send_msg);
+		if (ret < 0)
+			seq_printf(m, "ipi #%d send_compl failed, ret=%d\n", i, ret);
+		else
+			seq_printf(m, "ipi #%d, send %d, recv %d\n", i, send_msg, ret);
+	}
+	return 0;
+}
+
+static ssize_t gpueb_ipi_test_proc_write(struct file *file,
+		const char __user *buffer, size_t count, loff_t *data)
+{
+	int ret = 0;
+	char buf[64];
+	unsigned int len = 0;
+	int ipi_id, send_msg;
+
+	len = (count < (sizeof(buf) - 1)) ? count : (sizeof(buf) - 1);
+	if (copy_from_user(buf, buffer, len)) {
+		ret = -1;
+		goto done;
+	}
+	buf[len] = '\0';
+
+	if (sscanf(buf, "%d %d", &ipi_id, &send_msg) == 2) {
+		ret = gpueb_ipi_send_compl_test(ipi_id, send_msg);
+		if (ret < 0)
+			gpueb_pr_info("ipi send failed, ret=%d", ret);
+		else
+			gpueb_pr_info("ipi send %d, recv %d", send_msg, ret);
+	}
+
+done:
+	return (ret < 0) ? ret : count;
+}
+#endif
+
 /* PROCFS : initialization */
 PROC_FOPS_RO(gpueb_status);
 PROC_FOPS_RW(force_trigger_wdt);
+#if IPI_TEST
+PROC_FOPS_RW(gpueb_ipi_test);
+#endif
 
 static int gpueb_create_procfs(void)
 {
@@ -206,6 +258,9 @@ static int gpueb_create_procfs(void)
 	const struct pentry default_entries[] = {
 		PROC_ENTRY(gpueb_status),
 		PROC_ENTRY(force_trigger_wdt),
+#if IPI_TEST
+		PROC_ENTRY(gpueb_ipi_test)
+#endif
 	};
 
 	dir = proc_mkdir("gpueb", NULL);

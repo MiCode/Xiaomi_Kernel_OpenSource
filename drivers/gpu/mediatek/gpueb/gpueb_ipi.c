@@ -40,6 +40,13 @@ unsigned int g_mbox_size = 0;
 unsigned int g_slot_size = 0;
 unsigned int g_ts_mbox;
 
+#if IPI_TEST
+struct test_msg {
+	int msg;
+	int padding[3];
+} msg_tx[32], msg_rx[32];
+#endif
+
 static int gpueb_ipi_table_init(struct platform_device *pdev)
 {
 	enum table_item_num {
@@ -350,29 +357,22 @@ int gpueb_ipi_init(struct platform_device *pdev)
 	gpueb_pr_debug("mbox probe done\n");
 
 #if IPI_TEST
-	/* Do IPI test with EB via every channel */
-	ret = gpueb_ipi_test(pdev);
-	if (ret != 0)
-		gpueb_pr_info("@%s: gpueb_ipi_test fail, ret = %d\n", __func__, ret);
-	gpueb_pr_info("@%s: gpueb_ipi_test pass, ret = %d\n", __func__, ret);
+	ret = gpueb_ipi_test_init();
+	if (ret) {
+		gpueb_pr_info("@%s: fail to init ipi register (%d)\n", __func__, ret);
+		WARN_ON(1);
+		return ret;
+	}
 #endif
-
 	return 0;
 }
 
 #if IPI_TEST
-int gpueb_ipi_test(struct platform_device *pdev)
+int gpueb_ipi_test_init(void)
 {
 	int ret = 0;
 	int ipi = 0;
 	unsigned int ipi_count = gpueb_mboxdev.send_count;
-	struct test_msg {
-		int msg;
-		int padding[10];
-	};
-	struct test_msg msg_tx[8] = {0};
-	struct test_msg msg_rx[8] = {0};
-	int test_result = 0;
 
 	/* Register IPI channel */
 	for (ipi = 0; ipi < ipi_count; ipi++) {
@@ -384,112 +384,60 @@ int gpueb_ipi_test(struct platform_device *pdev)
 		if (ret != IPI_ACTION_DONE) {
 			gpueb_pr_debug("%s: ipi:#%d register fail! ret = %d\n",
 					__func__, ipi, ret);
-			if (ret != IPI_DUPLEX)
-				return ret;
+			if (ret == IPI_DUPLEX) {
+				/* ipi already registered, unregister it and register again */
+				gpueb_pr_debug("%s: ipi:#%d register: IPI_DUPLEX\n",
+					__func__, ipi);
+				ret = mtk_ipi_unregister(&gpueb_ipidev, ipi);
+				if (ret != IPI_ACTION_DONE) {
+					gpueb_pr_debug("%s: ipi:#%d unregister fail! ret = %d\n",
+						__func__, ipi, ret);
+					break;
+				}
+				ret = mtk_ipi_register(&gpueb_ipidev, ipi, NULL, NULL,
+					(void *)&msg_rx[ipi]);
+				if (ret != IPI_ACTION_DONE) {
+					gpueb_pr_debug("%s: ipi:#%d register fail again! ret = %d\n",
+						__func__, ipi, ret);
+					break;
+				}
+			} else {
+				break;
+			}
 		}
 	}
+	return ret;
+}
 
-	/* IPI Test Round 1 */
-	for (ipi = 0; ipi < ipi_count; ipi++) {
-		if (ipi % 2 == 0) {
-			/* Test mtk_ipi_send_compl */
-			msg_tx[ipi].msg = (ipi + 1) * 10;
-			gpueb_pr_debug("%s: ipi:#%d mtk_ipi_send_compl data: %d\n",
-					__func__, ipi, msg_tx[ipi].msg);
-			ret = mtk_ipi_send_compl(
-				&gpueb_ipidev, // GPUEB's IPI device
-				ipi, // Send channel
-				0, // 0: wait, 1: polling
-				(void *)&msg_tx[ipi], // Send data
-				1, // 1 slot message = 1 * 4 = 4 bytes
-				IPI_TIMEOUT_MS); // Timeout value in milisecond
+int gpueb_ipi_send_compl_test(int ipi, int msg)
+{
+	int ret = 0;
 
-			if (ret != IPI_ACTION_DONE) {
-				gpueb_pr_info("%s: IPI fail ret=%d\n", __func__, ret);
-				return ret;
-			}
-			gpueb_pr_debug("%s: ipi:#%d ack data: %d\n",
-					__func__, ipi, msg_rx[ipi].msg);
-		} else {
-			/* Test mtk_ipi_send */
-			msg_tx[ipi].msg = ipi + 1;
-			gpueb_pr_debug("%s: ipi:#%d mtk_ipi_send data: %d\n",
-					__func__, ipi, msg_tx[ipi].msg);
-			ret = mtk_ipi_send(
-				&gpueb_ipidev, // GPUEB's IPI device
-				ipi, // Send channel
-				0, // 0: wait, 1: polling
-				(void *)&msg_tx[ipi], // Send data
-				1, // 1 slot message = 1 * 4 = 4 bytes
-				IPI_TIMEOUT_MS); // Timeout value in milisecond
+	/* Test mtk_ipi_send_compl */
+	msg_tx[ipi].msg = msg;
+	gpueb_pr_debug("%s: ipi:#%d mtk_ipi_send_compl data: %d\n",
+			__func__, ipi, msg_tx[ipi].msg);
+	ret = mtk_ipi_send_compl(
+		&gpueb_ipidev, // GPUEB's IPI device
+		ipi, // Send channel
+		0, // 0: wait, 1: polling
+		(void *)&msg_tx[ipi], // Send data
+		1, // 1 slot message = 1 * 4 = 4 bytes
+		IPI_TIMEOUT_MS); // Timeout value in milisecond
 
-			if (ret != IPI_ACTION_DONE) {
-				gpueb_pr_info("%s: IPI fail ret=%d\n", __func__, ret);
-				return ret;
-			}
-			/* Test mtk_ipi_send */
-			gpueb_pr_debug("%s: ipi:#%d mtk_ipi_recv data\n", __func__, ipi);
-			ret = mtk_ipi_recv(
-				&gpueb_ipidev, // GPUEB's IPI device
-				ipi);
-			if (ret != IPI_ACTION_DONE) {
-				gpueb_pr_info("%s: IPI mtk_ipi_recv fail ret=%d\n", __func__, ret);
-				return ret;
-			}
-			gpueb_pr_debug("%s: ipi:#%d recv data: %d\n",
-					__func__, ipi, msg_rx[ipi].msg);
-		}
-
-		test_result = (msg_rx[ipi].msg - msg_tx[ipi].msg != 1);
+	if (ret != IPI_ACTION_DONE) {
+		gpueb_pr_info("%s: IPI fail ret=%d\n", __func__, ret);
+		return ret;
 	}
+	gpueb_pr_debug("%s: ipi:#%d ack data: %d\n",
+			__func__, ipi, msg_rx[ipi].msg);
 
-	/* IPI Test Round 2 */
-	for (ipi = 0; ipi < ipi_count; ipi++) {
-		if  (ipi % 2 == 0) {
-			/* Test mtk_ipi_send */
-			msg_tx[ipi].msg = ipi + 1;
-			gpueb_pr_debug("%s: ipi:#%d mtk_ipi_send data: %d\n",
-					__func__, ipi, msg_tx[ipi].msg);
-			ret = mtk_ipi_send(&gpueb_ipidev, ipi, 0,
-					(void *)&msg_tx[ipi], 1, IPI_TIMEOUT_MS);
-			if (ret != IPI_ACTION_DONE) {
-				gpueb_pr_info("%s: IPI fail ret=%d\n", __func__, ret);
-				return ret;
-			}
-			/* Test mtk_ipi_send */
-			gpueb_pr_debug("%s: ipi:#%d receiving data\n", __func__, ipi);
-			ret = mtk_ipi_recv(&gpueb_ipidev, ipi);
-			if (ret != IPI_ACTION_DONE) {
-				gpueb_pr_info("%s: IPI mtk_ipi_recv fail ret=%d\n", __func__, ret);
-				return ret;
-			}
-			gpueb_pr_debug("%s: ipi:#%d recv data: %d\n",
-					__func__, ipi, msg_rx[ipi].msg);
-		} else {
-			/* Test mtk_ipi_send_compl */
-			msg_tx[ipi].msg = (ipi + 1) * 10;
-			gpueb_pr_debug("%s: ipi:#%d mtk_ipi_send_compl data: %d\n",
-					__func__, ipi, msg_tx[ipi].msg);
-			ret = mtk_ipi_send_compl(
-				&gpueb_ipidev, // GPUEB's IPI device
-				ipi, // Send channel
-				0, // 0: wait, 1: polling
-				(void *)&msg_tx[ipi], // Send data
-				1, // 1 slot message = 1 * 4 = 4 bytes
-				IPI_TIMEOUT_MS); // Timeout value in milisecond
+	return msg_rx[ipi].msg;
+}
 
-			if (ret != IPI_ACTION_DONE) {
-				gpueb_pr_info("%s: IPI fail ret=%d\n", __func__, ret);
-				return ret;
-			}
-			gpueb_pr_debug("%s: ipi:#%d ack data: %d\n",
-					__func__, ipi, msg_rx[ipi].msg);
-		}
-
-		test_result = (msg_rx[ipi].msg - msg_tx[ipi].msg != 1);
-	}
-
-	return test_result;
+int gpueb_get_send_pin_count(void)
+{
+	return gpueb_mboxdev.send_count;
 }
 #endif
 
