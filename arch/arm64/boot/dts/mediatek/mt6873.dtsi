@@ -1777,7 +1777,7 @@ fw_devlink.strict=on";
 		ktf-cmdq-test {
 			compatible = "mediatek,ktf-cmdq-test";
 			mediatek,gce = <&gce>;
-			mmsys_config = <&mmsys>;
+			mmsys-config = <&mmsys>;
 			mboxes = <&gce 11 0 CMDQ_THR_PRIO_1>,
 				<&gce 15 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_1>,
 				<&gce 16 0 CMDQ_THR_PRIO_1>;
@@ -1785,8 +1785,8 @@ fw_devlink.strict=on";
 			gce-subsys = <&gce 0x14000000 SUBSYS_1400XXXX>,
 				<&gce 0x14010000 SUBSYS_1401XXXX>,
 				<&gce 0x14020000 SUBSYS_1402XXXX>;
-			token_user0 = /bits/ 16 <CMDQ_SYNC_TOKEN_USER_0>;
-			token_gpr_set4 = /bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_4>;
+			token-user0 = /bits/ 16 <CMDQ_SYNC_TOKEN_USER_0>;
+			token-gpr-set4 = /bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_4>;
 			gce-event-names = "disp_rdma0_sof",
 				"disp_rdsz0_sof",
 				"mdp_rdma0_sof";
@@ -1798,10 +1798,10 @@ fw_devlink.strict=on";
 		cmdq-test {
 			compatible = "mediatek,cmdq-test";
 			mediatek,gce = <&gce>;
-			mmsys_config = <&mmsys>;
+			mmsys-config = <&mmsys>;
 			mediatek,gce-subsys = <99>, <SUBSYS_1400XXXX>;
-			token_user0 = /bits/ 16 <CMDQ_SYNC_TOKEN_USER_0>;
-			token_gpr_set4 = /bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_4>;
+			token-user0 = /bits/ 16 <CMDQ_SYNC_TOKEN_USER_0>;
+			token-gpr-set4 = /bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_4>;
 			mboxes = <&gce 8 0 CMDQ_THR_PRIO_1>,
 				<&gce 9 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_1>,
 				<&gce 23 0 CMDQ_THR_PRIO_1>;
@@ -1835,7 +1835,7 @@ fw_devlink.strict=on";
 			#mbox-cells = <3>;
 			#gce-event-cells = <1>;
 			#gce-subsys-cells = <2>;
-			default_tokens = /bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_0>,
+			default-tokens = /bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_0>,
 				/bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_1>,
 				/bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_2>,
 				/bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_3>,
