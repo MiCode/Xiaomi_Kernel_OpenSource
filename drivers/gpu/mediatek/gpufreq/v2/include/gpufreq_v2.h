@@ -15,7 +15,7 @@
 #define GPUFREQ_UNREFERENCED(param)     ((void)(param))
 #define GPUFREQ_DEBUG_ENABLE            (0)
 #define GPUFREQ_TRACE_ENABLE            (0)
-#define GPUFREQ_FORCE_WDT_ENABLE        (1)
+#define GPUFREQ_FORCE_WDT_ENABLE        (0)
 #define GPUFERQ_TAG                     "[GPU/FREQ]"
 #define GPUFREQ_TRACE_TAG               "[GPU/TRACE]"
 #define GPUFREQ_MEM_TABLE_IDX           (1)
