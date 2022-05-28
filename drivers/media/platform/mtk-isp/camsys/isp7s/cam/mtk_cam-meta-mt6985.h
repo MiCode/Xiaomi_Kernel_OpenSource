@@ -249,6 +249,9 @@ struct mtk_cam_uapi_af_param {
 	__u32 fir_type;
 	__u32 iir_type;
 	__u32 data_gain[7];
+	__u32 low_bit_lowpower_en;
+	__u32 blf_r_lvl;
+	__u32 blf_d_lvl;
 };
 
 enum mtk_cam_uapi_flk_hdr_path_control {
@@ -737,7 +740,7 @@ struct mtk_cam_uapi_meta_raw_stats_cfg {
 	struct mtk_cam_uapi_wb_param wb_param;
 	struct mtk_cam_uapi_pde_param pde_param;
 
-	__u8 bytes[97632];
+	__u8 bytes[97628];
 };
 
 struct mtk_cam_uapi_meta_raw_stats_w_cfg {
@@ -758,7 +761,7 @@ struct mtk_cam_uapi_meta_raw_stats_w_cfg {
 	struct mtk_cam_uapi_wb_param wb_param;
 	struct mtk_cam_uapi_pde_param pde_param;
 
-	__u8 bytes[45908];
+	__u8 bytes[45920];
 };
 
 struct mtk_cam_uapi_meta_raw_stats_rgbw_cfg {
@@ -841,7 +844,7 @@ struct mtk_cam_uapi_meta_camsv_stats_0 {
 };
 
 #define MTK_CAM_META_VERSION_MAJOR 1
-#define MTK_CAM_META_VERSION_MINOR 2
+#define MTK_CAM_META_VERSION_MINOR 3
 #define MTK_CAM_META_PLATFORM_NAME "isp7s"
 #define MTK_CAM_META_CHIP_NAME "mt6985"
 
