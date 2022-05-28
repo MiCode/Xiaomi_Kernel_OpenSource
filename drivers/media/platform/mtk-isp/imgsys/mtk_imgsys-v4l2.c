@@ -2536,37 +2536,52 @@ static void mtk_imgsys_res_release(struct mtk_imgsys_dev *imgsys_dev)
 	mutex_destroy(&imgsys_dev->imgsys_users.user_lock);
 }
 
+static bool mtk_imgsys_idle(struct device *dev)
+{
+	int num;
+	bool idle = true;
+	struct mtk_imgsys_dev *imgsys_dev = dev_get_drvdata(dev);
+	struct mtk_imgsys_pipe *pipe = &imgsys_dev->imgsys_pipe[0];
+
+	num = atomic_read(&imgsys_dev->num_composing);
+	if (pipe->streaming || num)
+		idle = false;
+
+	return idle;
+}
+
 int __maybe_unused mtk_imgsys_pm_suspend(struct device *dev)
 {
 	struct mtk_imgsys_dev *imgsys_dev = dev_get_drvdata(dev);
 	int ret, num;
+	bool idle = true;
 
 	ret = wait_event_timeout
-		(imgsys_dev->flushing_waitq,
-		 !(num = atomic_read(&imgsys_dev->num_composing)),
+		(imgsys_dev->flushing_waitq, (idle = mtk_imgsys_idle(dev)),
 		 msecs_to_jiffies(1000 / 30 * DIP_COMPOSING_MAX_NUM * 3));
-	if (!ret && num) {
-		dev_info(dev, "%s: flushing SCP job timeout, num(%d)\n",
-			__func__, num);
+	num = atomic_read(&imgsys_dev->num_composing);
+	if (!ret && !idle) {
+		dev_info(dev, "%s: flushing SCP job timeout, num(%d), idle(%d)\n",
+			__func__, num, idle);
 
-		return -EBUSY;
+		return NOTIFY_BAD;
 	}
 #ifdef NEED_PM
 
 	if (pm_runtime_suspended(dev)) {
 		dev_info(dev, "%s: pm_runtime_suspended is true, no action\n",
 			__func__);
-		return 0;
+		return NOTIFY_DONE;
 	}
 
 	ret = pm_runtime_put_sync(dev);
 	if (ret) {
 		dev_info(dev, "%s: pm_runtime_put_sync failed:(%d)\n",
 			__func__, ret);
-		return ret;
+		return NOTIFY_BAD;
 	}
 #endif
-	return 0;
+	return NOTIFY_DONE;
 }
 
 int __maybe_unused mtk_imgsys_pm_resume(struct device *dev)
@@ -2577,17 +2592,17 @@ int __maybe_unused mtk_imgsys_pm_resume(struct device *dev)
 	if (pm_runtime_suspended(dev)) {
 		dev_info(dev, "%s: pm_runtime_suspended is true, no action\n",
 			__func__);
-		return 0;
+		return NOTIFY_DONE;
 	}
 
 	ret = pm_runtime_get_sync(dev);
 	if (ret) {
 		dev_info(dev, "%s: pm_runtime_get_sync failed:(%d)\n",
 			__func__, ret);
-		return ret;
+		return NOTIFY_BAD;
 	}
 #endif
-	return 0;
+	return NOTIFY_DONE;
 }
 
 
@@ -2597,26 +2612,29 @@ static int imgsys_pm_event(struct notifier_block *notifier,
 {
 	struct timespec64 ts;
 	struct rtc_time tm;
-
+	int ret = NOTIFY_OK;
 	ktime_get_ts64(&ts);
 	rtc_time64_to_tm(ts.tv_sec, &tm);
 
 	switch (pm_event) {
 	case PM_HIBERNATION_PREPARE:
-		return NOTIFY_DONE;
+		ret = NOTIFY_DONE;
+		break;
 	case PM_RESTORE_PREPARE:
-		return NOTIFY_DONE;
+		ret = NOTIFY_DONE;
+		break;
 	case PM_POST_HIBERNATION:
-		return NOTIFY_DONE;
+		ret = NOTIFY_DONE;
+		break;
 	case PM_SUSPEND_PREPARE: /*enter suspend*/
-		mtk_imgsys_pm_suspend(imgsys_pm_dev);
-		return NOTIFY_DONE;
+		ret = mtk_imgsys_pm_suspend(imgsys_pm_dev);
+		break;
 	case PM_POST_SUSPEND:    /*after resume*/
-		mtk_imgsys_pm_resume(imgsys_pm_dev);
-		return NOTIFY_DONE;
+		ret = mtk_imgsys_pm_resume(imgsys_pm_dev);
+		break;
 	}
 
-	return NOTIFY_OK;
+	return ret;
 }
 
 static struct notifier_block imgsys_notifier_block = {
