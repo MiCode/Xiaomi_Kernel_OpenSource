@@ -46,6 +46,9 @@ const char *cmdq_event_module_dispatch(phys_addr_t gce_pa, const u16 event,
 	s32 thread)
 {
 	switch (event) {
+	case CMDQ_EVENT_VDEC1_MDP0_RDMA_SW_RST_DONE_ENG_EVENT
+		... CMDQ_EVENT_VDEC1_MDP1_WDMA_TILE_DONE:
+		return "VFMT";
 	case CMDQ_SYNC_TOKEN_CONFIG_DIRTY:
 	case CMDQ_SYNC_TOKEN_STREAM_EOF:
 	case CMDQ_SYNC_TOKEN_ESD_EOF:
