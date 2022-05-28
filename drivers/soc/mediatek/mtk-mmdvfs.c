@@ -11,6 +11,7 @@
 #include <linux/platform_device.h>
 #include <linux/pm_opp.h>
 #include <linux/regulator/consumer.h>
+#include <linux/soc/mediatek/mtk_mmdvfs.h>
 #include "../../misc/mediatek/smi/mtk-smi-dbg.h"
 
 #define MMDVFS_DBG
@@ -76,6 +77,14 @@ enum mmdvfs_log_level {
 };
 
 static BLOCKING_NOTIFIER_HEAD(mmdvfs_notifier_list);
+
+static record_opp record_opp_fp;
+
+void mmdvfs_debug_record_opp_set_fp(record_opp fp)
+{
+	record_opp_fp = fp;
+}
+EXPORT_SYMBOL_GPL(mmdvfs_debug_record_opp_set_fp);
 
 /**
  * register_mmdvfs_notifier - register multimedia clk changing notifier
@@ -208,6 +217,7 @@ static void set_all_clk(struct mmdvfs_drv_data *drv_data,
 	mmdvfs_dbg->time[mmdvfs_dbg->idx] = ktime_get();
 	mmdvfs_dbg->opp_level[mmdvfs_dbg->idx] = opp_level;
 	mmdvfs_dbg->idx = (mmdvfs_dbg->idx + 1) % MMDVFS_RECORD_NUM;
+	record_opp_fp(opp_level);
 
 #if IS_ENABLED(CONFIG_MMPROFILE)
 	mmprofile_log_ex(
