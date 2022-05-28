@@ -10,7 +10,7 @@
  * GPUFREQ Config
  **************************************************/
 /* 0 -> power on once then never off and disable DDK power on/off callback */
-#define GPUFREQ_POWER_CTRL_ENABLE       (0)
+#define GPUFREQ_POWER_CTRL_ENABLE       (1)
 /* 0 -> disable DDK runtime active-idle callback */
 #define GPUFREQ_ACTIVE_IDLE_CTRL_ENABLE (0)
 /*
@@ -20,7 +20,7 @@
  * (0, 1) -> DVFS disable but init to CUST_INIT_OPPIDX (do DVFS only onces)
  * (0, 0) -> DVFS disable
  */
-#define GPUFREQ_DVFS_ENABLE             (0)
+#define GPUFREQ_DVFS_ENABLE             (1)
 #define GPUFREQ_CUST_INIT_ENABLE        (0)
 #define GPUFREQ_CUST_INIT_OPPIDX        (0)
 /* MFGSYS Feature */
