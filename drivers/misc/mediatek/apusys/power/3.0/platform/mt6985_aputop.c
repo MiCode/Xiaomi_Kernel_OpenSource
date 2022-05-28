@@ -432,6 +432,9 @@ static int mt6985_apu_top_pb(struct platform_device *pdev)
 	init_reg_base(pdev);
 	if (apupw.env < MP)
 		ret = mt6985_all_on(pdev, &apupw);
+
+	/* runtime wake up apu_top, let rv close it */
+	pm_runtime_get_sync(&pdev->dev);
 	mt6985_init_remote_data_sync(apupw.regs[apu_md32_mbox]);
 	return ret;
 }
