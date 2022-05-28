@@ -3929,6 +3929,48 @@
 			clock-names = "parent-clk", "sel-clk", "spi-clk";
 		};
 
+		apu_top_3: apu_top_3 {
+			compatible = "mt6985,apu_top_3";
+			vapu-supply = <&mt6319_15_vbuck1>;
+			vsram_core-supply = <&mt6363_vbuck4>;
+			vcore-supply = <&mt6363_vbuck6>;
+			reg = <0 0x1c000000 0 0x1000>,		// sys_vlp
+				<0 0x1c001000 0 0x1000>,	// sys_spm
+				<0 0x19020000 0 0x1000>,	// apu_rcx
+				<0 0x190e0000 0 0x4000>,	// apu_vcore
+				<0 0x19001000 0 0x1000>,	// apu_md32_mbox
+				<0 0x190f0000 0 0x1000>,	// apu_rpc
+				<0 0x190f1000 0 0x1000>,	// apu_pcu
+				<0 0x190f2000 0 0x1000>,	// apu_ao_ctl
+				<0 0x190f3000 0 0x3000>,        // apu_pll
+				<0 0x190f3000 0 0x3000>,	// apu_acc
+				<0 0x190f6000 0 0x4000>,	// apu_are
+				<0 0x19100000 0 0x40000>,	// apu_acx0
+				<0 0x19140000 0 0x1000>,	// apu_acx0_rpc_lite
+				<0 0x19200000 0 0x40000>,	// apu_acx1
+				<0 0x19240000 0 0x1000>,	// apu_acx1_rpc_lite
+				<0 0x19300000 0 0x40000>,	// apu_ncx
+				<0 0x19340000 0 0x1000>;	// apu_ncx_rpc_lite
+			reg-names =
+				"sys_vlp",
+				"sys_spm",
+				"apu_rcx",
+				"apu_vcore",
+				"apu_md32_mbox",
+				"apu_rpc",
+				"apu_pcu",
+				"apu_ao_ctl",
+				"apu_pll",
+				"apu_acc",
+				"apu_are",
+				"apu_acx0",
+				"apu_acx0_rpc_lite",
+				"apu_acx1",
+				"apu_acx1_rpc_lite",
+				"apu_ncx",
+				"apu_ncx_rpc_lite";
+		};
+
 		apusys_rv: apusys_rv {
 			compatible = "mediatek,mt6985-apusys_rv";
 			status = "disabled";
@@ -11235,52 +11277,6 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 				regulator-always-on;
 			};
 		};
-	};
-	apu_top_3: apu_top_3 {
-		compatible = "mt6985,apu_top_3";
-		vapu-supply = <&mt6319_15_vbuck1>;
-		vsram_core-supply = <&mt6363_vbuck4>;
-		vcore-supply = <&mt6363_vbuck6>;
-		status = "disabled";
-		reg = <0 0x1c000000 0 0x1000>,		// sys_vlp
-			<0 0x1c001000 0 0x1000>,	// sys_spm
-			<0 0x19020000 0 0x1000>,	// apu_rcx
-			<0 0x190e0000 0 0x4000>,	// apu_vcore
-			<0 0x19001000 0 0x1000>,	// apu_md32_mbox
-			<0 0x190f0000 0 0x1000>,	// apu_rpc
-			<0 0x190f1000 0 0x1000>,	// apu_pcu
-			<0 0x190f2000 0 0x1000>,	// apu_ao_ctl
-			<0 0x190f3000 0 0x1000>,        // apu_pll
-			<0 0x190f4000 0 0x1000>,	// apu_acc
-			<0 0x190f6000 0 0x4000>,	// apu_are
-			<0 0x19100000 0 0x40000>,	// apu_acx0
-			<0 0x19140000 0 0x1000>,	// apu_acx0_rpc_lite
-			<0 0x19200000 0 0x40000>,	// apu_acx1
-			<0 0x19240000 0 0x1000>,	// apu_acx1_rpc_lite
-			<0 0x19300000 0 0x40000>,	// apu_ncx
-			<0 0x19340000 0 0x1000>;	// apu_ncx_rpc_lite
-		reg-names =
-			"sys_vlp",
-			"sys_spm",
-			"apu_rcx",
-			"apu_vcore",
-			"apu_md32_mbox",
-			"apu_rpc",
-			"apu_pcu",
-			"apu_ao_ctl",
-			"apu_pll",
-			"apu_acc",
-			"apu_are",
-			"apu_acx0",
-			"apu_acx0_rpc_lite",
-			"apu_acx1",
-			"apu_acx1_rpc_lite",
-			"apu_ncx",
-			"apu_ncx_rpc_lite";
-	};
-
-	apusys_power_dummy: apusys_power_dummy {
-		compatible = "mt6893,apusys_power_dummy";
 	};
 
 	clock_buffer_ctrl: clock_buffer_ctrl {
