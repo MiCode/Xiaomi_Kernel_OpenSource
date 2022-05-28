@@ -32,7 +32,7 @@
 
 #ifdef DUMP_MORE_LOG
 #define NUM_LVTS_DEVICE_REG (9)
-#define LVTS_CONTROLLER_DEBUG_NUM (10)
+#define LVTS_CONTROLLER_DEBUG_NUM (12)
 
 static const unsigned int g_lvts_device_addrs[NUM_LVTS_DEVICE_REG] = {
 	RG_TSFM_DATA_0,
@@ -1018,12 +1018,13 @@ static bool lvts_tfa_init_check(struct lvts_data *lvts_data)
 		/* Check LVTS device ID */
 		data = (readl(LVTSSPARE2_0 + base) & GENMASK(11, 0));
 
-		if (data != LK_LVTS_MAGIC) {
-			dev_info(dev, "%s, %d\n", __func__, i);
-			return false;
+		if (data == LK_LVTS_MAGIC) {
+			dev_info(dev, "%s, tfa init controller%d\n", __func__, i);
+			return true;
 		}
 	}
-	return true;
+	dev_info(dev, "%s, tfa no init\n", __func__);
+	return false;
 }
 
 static int read_calibration_data(struct lvts_data *lvts_data)
@@ -1066,11 +1067,14 @@ static int lvts_init(struct lvts_data *lvts_data)
 	int ret = 0;
 	bool lk_init, tfa_init;
 
-	ret = clk_prepare_enable(lvts_data->clk);
-	if (ret)
-		dev_err(dev,
-			"Error: Failed to enable lvts controller clock: %d\n",
-			ret);
+	if (!lvts_data->clock_gate_no_need) {
+		ret = clk_prepare_enable(lvts_data->clk);
+		if (ret)
+			dev_err(dev,
+				"Error: Failed to enable lvts controller clock: %d\n",
+				ret);
+
+	}
 
 	tfa_init = lvts_tfa_init_check(lvts_data);
 	if (tfa_init == true) {
@@ -1099,7 +1103,9 @@ static int lvts_init(struct lvts_data *lvts_data)
 		return ret;
 	}
 
-	lvts_reset(lvts_data);
+	if (!lvts_data->reset_no_need)
+		lvts_reset(lvts_data);
+
 
 	if (ops->device_identification)
 		ops->device_identification(lvts_data);
@@ -1222,7 +1228,7 @@ static int prepare_calibration_data(struct lvts_data *lvts_data)
 	struct sensor_cal_data *cal_data = &lvts_data->cal_data;
 	struct platform_ops *ops = &lvts_data->ops;
 	struct tc_settings *tc = lvts_data->tc;
-	int i, offset, size;
+	int i, offset, size, ret;
 	char buffer[512];
 
 	cal_data->count_r = devm_kcalloc(dev, lvts_data->num_sensor,
@@ -1245,33 +1251,41 @@ static int prepare_calibration_data(struct lvts_data *lvts_data)
 
 	size = sizeof(buffer);
 	offset = snprintf(buffer, size, "[lvts_cal] num:g_count:g_count_rc ");
-	if (offset < 0)
-		return -EINVAL;
-	if (offset >= size)
-		return -ENOMEM;
-	for (i = 0; i < lvts_data->num_sensor; i++)
-		offset += snprintf(buffer + offset, size - offset, "%d:%d:%d ",
+	for (i = 0; i < lvts_data->num_sensor; i++) {
+		ret = snprintf(buffer + offset, size - offset, "%d:%d:%d ",
 				i, cal_data->count_r[i], cal_data->count_rc[i]);
 
-	if (offset < 0)
-		return -EINVAL;
-	if (offset >= size)
-		return -ENOMEM;
+		if (ret < 0) {
+			dev_err(dev, "%s, %d, encode wrong\n", __func__, __LINE__);
+			return -EINVAL;
+		} else if (ret >= size - offset) {
+			buffer[offset] = '\0';
+			dev_info(dev, "%s\n", buffer);
+			i--;
+			offset = 0;
+		} else {
+			offset += ret;
+		}
+	}
 
-	buffer[offset] = '\0';
 	dev_info(dev, "%s\n", buffer);
 
 	offset = snprintf(buffer, size, "[lvts_cal] num_tc:g_golden_temp");
-	if (offset < 0)
-		return -EINVAL;
-	if (offset >= size)
-		return -ENOMEM;
-
-	for (i = 0; i < lvts_data->num_tc; i++)
-		offset += snprintf(buffer + offset, size - offset, "%d:%d ",
+	for (i = 0; i < lvts_data->num_tc; i++) {
+		ret = snprintf(buffer + offset, size - offset, "%d:%d ",
 				i, tc[i].coeff.golden_temp);
-
-	buffer[offset] = '\0';
+		if (ret < 0) {
+			dev_err(dev, "%s, %d, encode wrong\n", __func__, __LINE__);
+			return -EINVAL;
+		} else if (ret >= size - offset) {
+			buffer[offset] = '\0';
+			dev_info(dev, "%s\n", buffer);
+			i--;
+			offset = 0;
+		} else {
+			offset += ret;
+		}
+	}
 	dev_info(dev, "%s\n", buffer);
 
 	return 0;
@@ -1335,10 +1349,12 @@ static int of_update_lvts_data(struct lvts_data *lvts_data,
 	unsigned int i;
 	int ret;
 
-	lvts_data->clk = devm_clk_get(dev, "lvts_clk");
-	if (IS_ERR(lvts_data->clk))
-		return PTR_ERR(lvts_data->clk);
+	if (!lvts_data->clock_gate_no_need) {
+		lvts_data->clk = devm_clk_get(dev, "lvts_clk");
+		if (IS_ERR(lvts_data->clk))
+			return PTR_ERR(lvts_data->clk);
 
+	}
 	domain = devm_kcalloc(dev, lvts_data->num_domain, sizeof(*domain),
 			GFP_KERNEL);
 	if (!domain)
@@ -1366,11 +1382,13 @@ static int of_update_lvts_data(struct lvts_data *lvts_data,
 		}
 		domain[i].irq_num = res->start;
 
-		/* Get reset control */
-		domain[i].reset = devm_reset_control_get_by_index(dev, i);
-		if (IS_ERR(domain[i].reset)) {
-			dev_err(dev, "Failed to get, index %d\n", i);
-			return PTR_ERR(domain[i].reset);
+		if (!lvts_data->reset_no_need) {
+			/* Get reset control */
+			domain[i].reset = devm_reset_control_get_by_index(dev, i);
+			if (IS_ERR(domain[i].reset)) {
+				dev_err(dev, "Failed to get, index %d\n", i);
+				return PTR_ERR(domain[i].reset);
+			}
 		}
 	}
 
@@ -1415,7 +1433,9 @@ static void lvts_close(struct lvts_data *lvts_data)
 	disable_all_sensing_points(lvts_data);
 	wait_all_tc_sensing_point_idle(lvts_data);
 	lvts_device_close(lvts_data);
-	clk_disable_unprepare(lvts_data->clk);
+	if (!lvts_data->clock_gate_no_need)
+		clk_disable_unprepare(lvts_data->clk);
+
 }
 
 static void tc_irq_handler(struct lvts_data *lvts_data, int tc_id)
@@ -1572,7 +1592,6 @@ static int lvts_probe(struct platform_device *pdev)
 	int ret;
 
 	lvts_data = (struct lvts_data *) of_device_get_match_data(dev);
-
 	if (!lvts_data)	{
 		dev_err(dev, "Error: Failed to get lvts platform data\n");
 		return -ENODATA;
@@ -3408,6 +3427,650 @@ static struct lvts_data mt6983_lvts_data = {
 };
 
 /*==================================================
+ * LVTS MT6985
+ *==================================================
+ */
+#define SET_TS_DIS_6985 (DEVICE_WRITE | RG_TSV2F_CTRL_0 << 8	\
+						| 0xB1)
+
+#define SET_LVTS_MANUAL_RCK_OPERATION_6985 (DEVICE_WRITE | RG_TSV2F_CTRL_6 << 8 | 0x00)
+
+
+#define TSV2F_CHOP_CKSEL_AND_TSV2F_EN_6985_1 (DEVICE_WRITE | RG_TSV2F_CTRL_2 << 8	\
+						| 0x30)
+
+#define TSV2F_CHOP_CKSEL_AND_TSV2F_EN_6985_2 (DEVICE_WRITE | RG_TSV2F_CTRL_3 << 8	\
+						| 0x03)
+
+#define TSBG_DEM_CKSEL_X_TSBG_CHOP_EN_6985 (DEVICE_WRITE | RG_TSV2F_CTRL_4 << 8	\
+						| 0xFF)
+
+#define SET_DEVICE_LOW_POWER_SINGLE_MODE_6985 (DEVICE_WRITE | RG_TSFM_CTRL_3 << 8	\
+						| 0xF8)
+
+#define SET_TS_RSV_6985 (DEVICE_WRITE | RG_TSV2F_CTRL_1 << 8 | 0x95)
+#define SET_TS_CHOP_CTRL_6985 (DEVICE_WRITE | RG_TSV2F_CTRL_0 << 8 | 0xF1)
+#define SET_TS_DIV_EN_6985 (DEVICE_WRITE | RG_TSV2F_CTRL_0 << 8 | 0xB5)
+#define SET_VCO_RST_6985 (DEVICE_WRITE | RG_TSV2F_CTRL_0 << 8 | 0xBD)
+#define COF_A_T_SLP_GLD_6985 224280
+#define COF_A_COUNT_R_GLD_6985 14698
+#define COF_A_CONST_OFS_6985 280000
+#define COF_A_OFS_6985 (COF_A_T_SLP_GLD_6985 - COF_A_CONST_OFS_6985)
+#define COF_A_T_SLP_GLD_HT_6985 279280
+#define COF_A_COUNT_R_GLD_HT_6985 18302
+#define COF_A_CONST_OFS_HT_6985 170000
+#define COF_A_OFS_HT_6985 (COF_A_T_SLP_GLD_HT_6985 - COF_A_CONST_OFS_HT_6985)
+
+
+static void mt6985_device_enable_and_init(struct lvts_data *lvts_data)
+{
+	unsigned int i;
+
+	for (i = 0; i < lvts_data->num_tc; i++) {
+		lvts_write_device(lvts_data, STOP_COUNTING_V4, i);
+		lvts_write_device(lvts_data, SET_RG_TSFM_LPDLY_V4, i);
+		lvts_write_device(lvts_data, SET_COUNTING_WINDOW_20US1_V4, i);
+		lvts_write_device(lvts_data, SET_COUNTING_WINDOW_47US2, i);
+		lvts_write_device(lvts_data, TSV2F_CHOP_CKSEL_AND_TSV2F_EN_6985_1, i);
+		lvts_write_device(lvts_data, TSV2F_CHOP_CKSEL_AND_TSV2F_EN_6985_2, i);
+		lvts_write_device(lvts_data, TSBG_DEM_CKSEL_X_TSBG_CHOP_EN_6985, i);
+		lvts_write_device(lvts_data, SET_TS_RSV_6985, i);
+		lvts_write_device(lvts_data, SET_TS_CHOP_CTRL_6985, i);
+	}
+
+	lvts_data->counting_window_us = 20;
+}
+
+static int mt6985_device_read_count_rc_n(struct lvts_data *lvts_data)
+{
+
+	/* Resistor-Capacitor Calibration */
+	/* count_RC_N: count RC now */
+	struct device *dev = lvts_data->dev;
+	struct tc_settings *tc = lvts_data->tc;
+	struct sensor_cal_data *cal_data = &lvts_data->cal_data;
+	unsigned int offset, size, s_index, data;
+	void __iomem *base;
+	int ret, i, j;
+	char buffer[512];
+	unsigned int  rc_data;
+	int refine_data_idx[4] = {0};
+	int count_rc_delta = 0;
+
+	if (lvts_data->init_done) {
+
+		for (i = 0; i < lvts_data->num_tc; i++) {
+			lvts_write_device(lvts_data, SET_SENSOR_NO_RCK_V4, i);
+			lvts_write_device(lvts_data, SET_DEVICE_LOW_POWER_SINGLE_MODE_6985, i);
+		}
+		return 0;
+	}
+
+
+	cal_data->count_rc_now =
+		devm_kcalloc(dev, lvts_data->num_sensor,
+			sizeof(*cal_data->count_rc_now), GFP_KERNEL);
+
+	cal_data->efuse_data =
+		devm_kcalloc(dev, lvts_data->num_sensor,
+			sizeof(*cal_data->efuse_data), GFP_KERNEL);
+
+	if ((!cal_data->count_rc_now) || (!cal_data->efuse_data))
+		return -ENOMEM;
+
+
+	for (i = 0; i < lvts_data->num_tc; i++) {
+		base = GET_BASE_ADDR(i);
+		lvts_write_device(lvts_data, SET_LVTS_MANUAL_RCK_OPERATION_6985, i);
+
+		for (j = 0; j < tc[i].num_sensor; j++) {
+			if (tc[i].sensor_on_off[j] != SEN_ON)
+				continue;
+
+			refine_data_idx[j] = 0xff;
+			s_index = tc[i].sensor_map[j];
+
+			lvts_write_device(lvts_data, SELECT_SENSOR_RCK_V4(j), i);
+			lvts_write_device(lvts_data, SET_DEVICE_LOW_POWER_SINGLE_MODE_6985, i);
+			lvts_write_device(lvts_data, SET_TS_DIV_EN_6985, i);
+			lvts_write_device(lvts_data, SET_VCO_RST_6985, i);
+			lvts_write_device(lvts_data, SET_TS_DIV_EN_6985, i);
+			udelay(20);
+
+			lvts_write_device(lvts_data, KICK_OFF_RCK_COUNTING_V4, i);
+			ret = readl_poll_timeout(LVTS_CONFIG_0 + base, data,
+				!(data & DEVICE_SENSING_STATUS),
+				2, 200);
+			if (ret)
+				dev_info(dev,
+					"Error: LVTS %d DEVICE_SENSING_STATUS didn't ready\n", i);
+
+			lvts_write_device(lvts_data, SET_TS_DIS_6985, i);
+			data = lvts_read_device(lvts_data, 0x00, i);
+			udelay(5);
+
+			rc_data = (data & GENMASK(23, 0));
+
+			if (rc_data == 0) {
+				refine_data_idx[j] = s_index;
+				dev_info(dev, "rc_data %d, data_idx[%d]=%d\n", rc_data, j,
+					s_index);
+			} else {
+				if (cal_data->count_rc[i] > rc_data)
+					count_rc_delta = (cal_data->count_rc[i] * 1000) / rc_data;
+				else
+					count_rc_delta = (rc_data * 1000) / cal_data->count_rc[i];
+
+				if (count_rc_delta > 1061) {
+					refine_data_idx[j] = s_index;
+					dev_info(dev,
+						"delta %d, data_idx[%d]=%d\n",
+						count_rc_delta, j, s_index);
+				}
+			}
+
+			ret = readl_poll_timeout(LVTS_CONFIG_0 + base, data,
+				!(data & DEVICE_ACCESS_STARTUS),
+				2, 200);
+			if (ret)
+				dev_info(dev,
+					"Error: LVTS %d DEVICE_ACCESS_START didn't ready\n",
+					i);
+
+			if (refine_data_idx[j] != 0xff) {
+				dev_info(dev, "refine_data_idx[%d]=%d\n", j, refine_data_idx[j]);
+				cal_data->count_rc_now[s_index] = cal_data->count_rc[i];
+			} else
+				cal_data->count_rc_now[s_index] = (rc_data & GENMASK(23, 0));
+
+			/*count data here that want to set to efuse later*/
+			cal_data->efuse_data[s_index] = (((unsigned long long)
+				cal_data->count_rc_now[s_index]) *
+				cal_data->count_r[s_index]) >> 14;
+		}
+
+		/* Recover Setting for Normal Access on
+		 * temperature fetch
+		 */
+		lvts_write_device(lvts_data, SET_SENSOR_NO_RCK_V4, i);
+		lvts_write_device(lvts_data, SET_DEVICE_LOW_POWER_SINGLE_MODE_6985, i);
+	}
+
+
+	size = sizeof(buffer);
+	offset = snprintf(buffer, size, "[COUNT_RC_NOW] ");
+	for (i = 0; i < lvts_data->num_sensor; i++)
+		offset += snprintf(buffer + offset, size - offset, "%d:%d ",
+				i, cal_data->count_rc_now[i]);
+
+	buffer[offset] = '\0';
+	dev_info(dev, "%s\n", buffer);
+
+	return 0;
+}
+
+#define MT6985_NUM_LVTS (ARRAY_SIZE(mt6985_tc_settings))
+
+enum mt6985_lvts_domain {
+	MT6985_AP_DOMAIN,
+	MT6985_MCU_DOMAIN,
+	MT6985_GPU_DOMAIN,
+	MT6985_NUM_DOMAIN
+};
+
+enum mt6985_lvts_sensor_enum {
+	MT6985_TS1_0,
+	MT6985_TS1_1,
+	MT6985_TS1_2,
+	MT6985_TS1_3,
+	MT6985_TS2_0,
+	MT6985_TS2_1,
+	MT6985_TS2_2,
+	MT6985_TS2_3,
+	MT6985_TS3_0,
+	MT6985_TS3_1,
+	MT6985_TS3_2,
+	MT6985_TS3_3,
+	MT6985_TS4_0,
+	MT6985_TS4_1,
+	MT6985_TS4_2,
+	MT6985_TS4_3,
+	MT6985_TS5_0,
+	MT6985_TS5_1,
+	MT6985_TS5_2,
+	MT6985_TS5_3,
+	MT6985_TS6_0,
+	MT6985_TS7_0,
+	MT6985_TS7_1,
+	MT6985_TS7_2,
+	MT6985_TS7_3,
+	MT6985_TS8_0,
+	MT6985_TS8_1,
+	MT6985_TS8_2,
+	MT6985_TS8_3,
+	MT6985_TS9_0,
+	MT6985_TS9_1,
+	MT6985_TS9_2,
+	MT6985_TS9_3,
+	MT6985_TS30_0,
+	MT6985_TS31_0,
+	MT6985_TS31_1,
+	MT6985_TS31_2,
+	MT6985_TS31_3,
+	MT6985_TS32_0,
+	MT6985_TS32_1,
+	MT6985_NUM_TS
+
+};
+
+enum mt6985_lvts_controller_enum {
+	MT6985_LVTS_MCU_CTRL0,
+	MT6985_LVTS_MCU_CTRL1,
+	MT6985_LVTS_MCU_CTRL2,
+	MT6985_LVTS_MCU_CTRL3,
+	MT6985_LVTS_AP_CTRL0,
+	MT6985_LVTS_AP_CTRL1,
+	MT6985_LVTS_AP_CTRL2,
+	MT6985_LVTS_AP_CTRL3,
+	MT6985_LVTS_AP_CTRL4,
+	MT6985_LVTS_GPU_CTRL0,
+	MT6985_LVTS_GPU_CTRL1,
+	MT6985_LVTS_GPU_CTRL2,
+	MT6985_LVTS_CTRL_NUM
+};
+
+static void mt6985_device_identification(struct lvts_data *lvts_data)
+{
+	struct device *dev = lvts_data->dev;
+	unsigned int i, data;
+	void __iomem *base;
+	unsigned int lvts_dev_id;
+
+	for (i = 0; i < lvts_data->num_tc; i++) {
+		base = GET_BASE_ADDR(i);
+
+		writel(ENABLE_LVTS_CTRL_CLK, LVTSCLKEN_0 + base);
+
+		lvts_write_device(lvts_data, RESET_ALL_DEVICES, i);
+
+		lvts_write_device(lvts_data, READ_BACK_DEVICE_ID | 0x55, i);
+
+		/* Check LVTS device ID */
+		data = (readl(LVTS_ID_0 + base) & GENMASK(7, 0));
+
+		lvts_dev_id = 0x81 + i;
+
+		if (data != lvts_dev_id) {
+			dev_err(dev, "LVTS_TC_%d, Device ID should be 0x%x, but 0x%x\n",
+				i, lvts_dev_id, data);
+		}
+	}
+}
+
+static void mt6985_efuse_to_cal_data(struct lvts_data *lvts_data)
+{
+	struct sensor_cal_data *cal_data = &lvts_data->cal_data;
+	struct tc_settings *tc = lvts_data->tc;
+	int i = 0;
+
+	cal_data->cali_mode = GET_CAL_DATA_BIT(15, 31);
+	cal_data->golden_temp_ht = GET_CAL_DATA_BITMASK(15, 15, 8);
+	cal_data->golden_temp = GET_CAL_DATA_BITMASK(15, 7, 0);
+
+	for (i = 0; i < lvts_data->num_tc; i++)
+		tc[i].coeff.golden_temp = cal_data->golden_temp;
+
+	if (cal_data->cali_mode == 1) {
+		for (i = 0; i < 3; i++) {
+			tc[i].coeff.golden_temp = cal_data->golden_temp_ht;
+			tc[i].coeff.cali_mode = CALI_HT;
+		}
+	}
+	cal_data->count_r[MT6985_TS1_0] = GET_CAL_DATA_BITMASK(16, 31, 16);
+	cal_data->count_r[MT6985_TS1_1] = GET_CAL_DATA_BITMASK(16, 15, 0);
+	cal_data->count_r[MT6985_TS1_2] = GET_CAL_DATA_BITMASK(17, 31, 16);
+	cal_data->count_r[MT6985_TS1_3] = GET_CAL_DATA_BITMASK(17, 15, 0);
+
+	cal_data->count_r[MT6985_TS2_0] = GET_CAL_DATA_BITMASK(18, 31, 16);
+	cal_data->count_r[MT6985_TS2_1] = GET_CAL_DATA_BITMASK(18, 15, 0);
+	cal_data->count_r[MT6985_TS2_2] = GET_CAL_DATA_BITMASK(19, 31, 16);
+	cal_data->count_r[MT6985_TS2_3] = GET_CAL_DATA_BITMASK(19, 15, 0);
+
+	cal_data->count_r[MT6985_TS3_0] = GET_CAL_DATA_BITMASK(20, 31, 16);
+	cal_data->count_r[MT6985_TS3_1] = GET_CAL_DATA_BITMASK(20, 15, 0);
+	cal_data->count_r[MT6985_TS3_2] = GET_CAL_DATA_BITMASK(21, 31, 16);
+	cal_data->count_r[MT6985_TS3_3] = GET_CAL_DATA_BITMASK(21, 15, 0);
+
+	cal_data->count_r[MT6985_TS4_0] = GET_CAL_DATA_BITMASK(22, 31, 16);
+	cal_data->count_r[MT6985_TS4_1] = GET_CAL_DATA_BITMASK(22, 15, 0);
+	cal_data->count_r[MT6985_TS4_2] = GET_CAL_DATA_BITMASK(23, 31, 16);
+	cal_data->count_r[MT6985_TS4_3] = GET_CAL_DATA_BITMASK(23, 15, 0);
+
+	cal_data->count_r[MT6985_TS5_0] = GET_CAL_DATA_BITMASK(24, 31, 16);
+	cal_data->count_r[MT6985_TS5_1] = GET_CAL_DATA_BITMASK(24, 15, 0);
+	cal_data->count_r[MT6985_TS5_2] = GET_CAL_DATA_BITMASK(25, 31, 16);
+	cal_data->count_r[MT6985_TS5_3] = GET_CAL_DATA_BITMASK(25, 15, 0);
+
+	cal_data->count_r[MT6985_TS6_0] = GET_CAL_DATA_BITMASK(26, 31, 16);
+
+	cal_data->count_r[MT6985_TS7_0] = GET_CAL_DATA_BITMASK(26, 15, 0);
+	cal_data->count_r[MT6985_TS7_1] = GET_CAL_DATA_BITMASK(27, 31, 16);
+	cal_data->count_r[MT6985_TS7_2] = GET_CAL_DATA_BITMASK(27, 15, 0);
+	cal_data->count_r[MT6985_TS7_3] = GET_CAL_DATA_BITMASK(28, 31, 16);
+
+	cal_data->count_r[MT6985_TS8_0] = GET_CAL_DATA_BITMASK(28, 15, 0);
+	cal_data->count_r[MT6985_TS8_1] = GET_CAL_DATA_BITMASK(0, 31, 16);
+	cal_data->count_r[MT6985_TS8_2] = GET_CAL_DATA_BITMASK(0, 15, 0);
+	cal_data->count_r[MT6985_TS8_3] = GET_CAL_DATA_BITMASK(1, 31, 16);
+
+	cal_data->count_r[MT6985_TS9_0] = GET_CAL_DATA_BITMASK(1, 15, 0);
+	cal_data->count_r[MT6985_TS9_1] = GET_CAL_DATA_BITMASK(2, 31, 16);
+	cal_data->count_r[MT6985_TS9_2] = GET_CAL_DATA_BITMASK(2, 15, 0);
+	cal_data->count_r[MT6985_TS9_3] = GET_CAL_DATA_BITMASK(3, 31, 16);
+
+	cal_data->count_r[MT6985_TS30_0] = GET_CAL_DATA_BITMASK(5, 15, 0);
+	cal_data->count_r[MT6985_TS31_1] = GET_CAL_DATA_BITMASK(6, 31, 16);
+	cal_data->count_r[MT6985_TS31_3] = GET_CAL_DATA_BITMASK(6, 15, 0);
+	cal_data->count_r[MT6985_TS32_0] = GET_CAL_DATA_BITMASK(7, 31, 16);
+	cal_data->count_r[MT6985_TS32_1] = GET_CAL_DATA_BITMASK(7, 15, 0);
+
+	cal_data->count_rc[MT6985_LVTS_MCU_CTRL0] = GET_CAL_DATA_BITMASK(8, 23, 0);
+	cal_data->count_rc[MT6985_LVTS_MCU_CTRL1] = GET_CAL_DATA_BITMASK(9, 23, 0);
+	cal_data->count_rc[MT6985_LVTS_MCU_CTRL2] = GET_CAL_DATA_BITMASK(10, 23, 0);
+	cal_data->count_rc[MT6985_LVTS_MCU_CTRL3] = GET_CAL_DATA_BITMASK(11, 23, 0);
+	cal_data->count_rc[MT6985_LVTS_AP_CTRL0] = GET_CAL_DATA_BITMASK(12, 23, 0);
+	cal_data->count_rc[MT6985_LVTS_AP_CTRL1] = GET_CAL_DATA_BITMASK(13, 23, 0);
+	cal_data->count_rc[MT6985_LVTS_AP_CTRL2] = GET_CAL_DATA_BITMASK(14, 23, 0);
+	cal_data->count_rc[MT6985_LVTS_AP_CTRL3] = GET_CAL_DATA_BITMASK(29, 23, 0);
+	cal_data->count_rc[MT6985_LVTS_AP_CTRL4] = GET_CAL_DATA_BITMASK(30, 23, 0);
+
+	cal_data->count_rc[MT6985_LVTS_GPU_CTRL0] = GET_CAL_DATA_BITMASK(32, 23, 0);
+	cal_data->count_rc[MT6985_LVTS_GPU_CTRL1] = GET_CAL_DATA_BITMASK(33, 23, 0);
+	cal_data->count_rc[MT6985_LVTS_GPU_CTRL2] = GET_CAL_DATA_BITMASK(34, 23, 0);
+}
+
+static void mt6985_check_cal_data(struct lvts_data *lvts_data)
+{
+	struct device *dev = lvts_data->dev;
+	struct sensor_cal_data *cal_data = &lvts_data->cal_data;
+	struct tc_settings *tc = lvts_data->tc;
+	int i;
+
+	cal_data->use_fake_efuse = 1;
+	if ((cal_data->golden_temp != 0) || (cal_data->golden_temp_ht != 0)) {
+		cal_data->use_fake_efuse = 0;
+	} else {
+		for (i = 0; i < lvts_data->num_sensor; i++) {
+			if (cal_data->count_r[i] != 0 ||
+				cal_data->count_rc[i] != 0) {
+				cal_data->use_fake_efuse = 0;
+				break;
+			}
+		}
+	}
+	if (cal_data->use_fake_efuse) {
+		/* It means all efuse data are equal to 0 */
+		dev_err(dev,
+			"[lvts_cal] This sample is not calibrated, fake !!\n");
+		for (i = 0; i < lvts_data->num_sensor; i++)
+			cal_data->count_r[i] = cal_data->default_count_r;
+
+
+		for (i = 0; i < lvts_data->num_tc; i++)
+			cal_data->count_rc[i] = cal_data->default_count_rc;
+
+		for (i = 0; i < lvts_data->num_tc; i++) {
+			if (tc[i].coeff.cali_mode == CALI_HT &&
+				cal_data->cali_mode == 1)
+				tc[i].coeff.golden_temp = cal_data->default_golden_temp_ht;
+			else
+				tc[i].coeff.golden_temp = cal_data->default_golden_temp;
+		}
+	}
+}
+
+static void mt6985_update_coef_data(struct lvts_data *lvts_data)
+{
+	struct sensor_cal_data *cal_data = &lvts_data->cal_data;
+	struct tc_settings *tc = lvts_data->tc;
+	unsigned int i, j, s_index;
+
+	for (i = 0; i < lvts_data->num_tc; i++) {
+		for  (j = 0; j < tc[i].num_sensor; j++) {
+			if (tc[i].sensor_on_off[j] != SEN_ON)
+				continue;
+
+			s_index = tc[i].sensor_map[j];
+			if (tc[i].coeff.cali_mode == CALI_HT &&
+				cal_data->cali_mode == 1) {
+				tc[i].coeff.a[j] = COF_A_OFS_HT_6985 + (COF_A_CONST_OFS_HT_6985 *
+					cal_data->count_r[s_index] / COF_A_COUNT_R_GLD_HT_6985);
+			} else {
+				tc[i].coeff.a[j] = COF_A_OFS_6985 + (COF_A_CONST_OFS_6985 *
+					cal_data->count_r[s_index] / COF_A_COUNT_R_GLD_6985);
+			}
+			dev_info(lvts_data->dev, "%s tc[%d].coeff.a[%d]=%d\n", __func__,
+				i, j, tc[i].coeff.a[j]);
+		}
+	}
+}
+
+static struct tc_settings mt6985_tc_settings[] = {
+	[MT6985_LVTS_MCU_CTRL0] = {
+		.domain_index = MT6985_MCU_DOMAIN,
+		.addr_offset = 0x0,
+		.num_sensor = 4,
+		.sensor_map = {MT6985_TS1_0, MT6985_TS1_1, MT6985_TS1_2, MT6985_TS1_3},
+		.sensor_on_off = {SEN_ON, SEN_ON, SEN_ON, SEN_ON},
+		.tc_speed = SET_TC_SPEED_IN_US(360, 360, 360, 360),
+		.hw_filter = LVTS_FILTER_1,
+		.dominator_sensing_point = SENSING_POINT3,
+		.hw_reboot_trip_point = 116500,
+		.irq_bit = BIT(1),
+		.coeff = {
+			.cali_mode = CALI_HT,
+		},
+	},
+	[MT6985_LVTS_MCU_CTRL1] = {
+		.domain_index = MT6985_MCU_DOMAIN,
+		.addr_offset = 0x100,
+		.num_sensor = 4,
+		.sensor_map = {MT6985_TS2_0, MT6985_TS2_1, MT6985_TS2_2, MT6985_TS2_3},
+		.sensor_on_off = {SEN_ON, SEN_ON, SEN_ON, SEN_ON},
+		.tc_speed = SET_TC_SPEED_IN_US(10, 10, 10, 10),
+		.hw_filter = LVTS_FILTER_1,
+		.dominator_sensing_point = SENSING_POINT0,
+		.hw_reboot_trip_point = 116500,
+		.irq_bit = BIT(2),
+		.coeff = {
+			.cali_mode = CALI_HT,
+		},
+	},
+	[MT6985_LVTS_MCU_CTRL2] = {
+		.domain_index = MT6985_MCU_DOMAIN,
+		.addr_offset = 0x200,
+		.num_sensor = 4,
+		.sensor_map = {MT6985_TS3_0, MT6985_TS3_1, MT6985_TS3_2, MT6985_TS3_3},
+		.sensor_on_off = {SEN_ON, SEN_ON, SEN_ON, SEN_ON},
+		.tc_speed = SET_TC_SPEED_IN_US(857, 857, 857, 857),
+		.hw_filter = LVTS_FILTER_1,
+		.dominator_sensing_point = SENSING_POINT3,
+		.hw_reboot_trip_point = 116500,
+		.irq_bit = BIT(3),
+		.coeff = {
+			.cali_mode = CALI_HT,
+		},
+	},
+	[MT6985_LVTS_MCU_CTRL3] = {
+		.domain_index = MT6985_MCU_DOMAIN,
+		.addr_offset = 0x300,
+		.num_sensor = 4,
+		.sensor_map = {MT6985_TS4_0, MT6985_TS4_1, MT6985_TS4_2, MT6985_TS4_3},
+		.sensor_on_off = {SEN_ON, SEN_ON, SEN_ON, SEN_ON},
+		.tc_speed = SET_TC_SPEED_IN_US(118, 118, 118, 118),
+		.hw_filter = LVTS_FILTER_1,
+		.dominator_sensing_point = SENSING_POINT2,
+		.hw_reboot_trip_point = 116500,
+		.irq_bit = BIT(4),
+		.coeff = {
+			.cali_mode = CALI_HT,
+		},
+	},
+	[MT6985_LVTS_AP_CTRL0] = {
+		.domain_index = MT6985_AP_DOMAIN,
+		.addr_offset = 0x0,
+		.num_sensor = 4,
+		.sensor_map = {MT6985_TS5_0, MT6985_TS5_1, MT6985_TS5_2, MT6985_TS5_3},
+		.sensor_on_off = {SEN_ON, SEN_ON, SEN_ON, SEN_ON},
+		.tc_speed = SET_TC_SPEED_IN_US(2345, 2345, 2345, 2345),
+		.hw_filter = LVTS_FILTER_1,
+		.dominator_sensing_point = SENSING_POINT0,
+		.hw_reboot_trip_point = 116500,
+		.irq_bit = BIT(1),
+		.coeff = {
+			.cali_mode = CALI_NT,
+		},
+	},
+	[MT6985_LVTS_AP_CTRL1] = {
+		.domain_index = MT6985_AP_DOMAIN,
+		.addr_offset = 0x100,
+		.num_sensor = 1,
+		.sensor_map = {MT6985_TS6_0},
+		.sensor_on_off = {SEN_ON},
+		.tc_speed = SET_TC_SPEED_IN_US(2345, 2345, 2345, 2345),
+		.hw_filter = LVTS_FILTER_1,
+		.dominator_sensing_point = SENSING_POINT0,
+		.hw_reboot_trip_point = 116500,
+		.irq_bit = BIT(2),
+		.coeff = {
+			.cali_mode = CALI_NT,
+		},
+	},
+	[MT6985_LVTS_AP_CTRL2] = {
+		.domain_index = MT6985_AP_DOMAIN,
+		.addr_offset = 0x200,
+		.num_sensor = 4,
+		.sensor_map = {MT6985_TS7_0, MT6985_TS7_1, MT6985_TS7_2, MT6985_TS7_3},
+		.sensor_on_off = {SEN_ON, SEN_ON, SEN_ON, SEN_ON},
+		.tc_speed = SET_TC_SPEED_IN_US(2345, 2345, 2345, 2345),
+		.hw_filter = LVTS_FILTER_1,
+		.dominator_sensing_point = SENSING_POINT0,
+		.hw_reboot_trip_point = 116500,
+		.irq_bit = BIT(3),
+		.coeff = {
+			.cali_mode = CALI_NT,
+		},
+	},
+	[MT6985_LVTS_AP_CTRL3] = {
+		.domain_index = MT6985_AP_DOMAIN,
+		.addr_offset = 0x300,
+		.num_sensor = 4,
+		.sensor_map = {MT6985_TS8_0, MT6985_TS8_1, MT6985_TS8_2, MT6985_TS8_3},
+		.sensor_on_off = {SEN_ON, SEN_ON, SEN_ON, SEN_ON},
+		.tc_speed = SET_TC_SPEED_IN_US(2345, 2345, 2345, 2345),
+		.hw_filter = LVTS_FILTER_1,
+		.dominator_sensing_point = SENSING_POINT0,
+		.hw_reboot_trip_point = 116500,
+		.irq_bit = BIT(4),
+		.coeff = {
+			.cali_mode = CALI_NT,
+		},
+	},
+	[MT6985_LVTS_AP_CTRL4] = {
+		.domain_index = MT6985_AP_DOMAIN,
+		.addr_offset = 0x400,
+		.num_sensor = 4,
+		.sensor_map = {MT6985_TS9_0, MT6985_TS9_1, MT6985_TS9_2, MT6985_TS9_3},
+		.sensor_on_off = {SEN_ON, SEN_ON, SEN_ON, SEN_ON},
+		.tc_speed = SET_TC_SPEED_IN_US(2345, 2345, 2345, 2345),
+		.hw_filter = LVTS_FILTER_1,
+		.dominator_sensing_point = SENSING_POINT3,
+		.hw_reboot_trip_point = 116500,
+		.irq_bit = BIT(5),
+		.coeff = {
+			.cali_mode = CALI_NT,
+		},
+	},
+	[MT6985_LVTS_GPU_CTRL0] = {
+		.domain_index = MT6985_GPU_DOMAIN,
+		.addr_offset = 0x0,
+		.num_sensor = 1,
+		.sensor_map = {MT6985_TS30_0},
+		.sensor_on_off = {SEN_ON},
+		.tc_speed = SET_TC_SPEED_IN_US(2345, 2345, 2345, 2345),
+		.hw_filter = LVTS_FILTER_1,
+		.dominator_sensing_point = SENSING_POINT0,
+		.hw_reboot_trip_point = 116500,
+		.irq_bit = BIT(1),
+		.coeff = {
+			.cali_mode = CALI_NT,
+		},
+	},
+	[MT6985_LVTS_GPU_CTRL1] = {
+		.domain_index = MT6985_GPU_DOMAIN,
+		.addr_offset = 0x100,
+		.num_sensor = 4,
+		.sensor_map = {MT6985_TS31_0, MT6985_TS31_1, MT6985_TS31_2, MT6985_TS31_3},
+		.sensor_on_off = {SEN_OFF, SEN_ON, SEN_OFF, SEN_ON},
+		.tc_speed = SET_TC_SPEED_IN_US(2345, 2345, 2345, 2345),
+		.hw_filter = LVTS_FILTER_1,
+		.dominator_sensing_point = SENSING_POINT1,
+		.hw_reboot_trip_point = 116500,
+		.irq_bit = BIT(2),
+		.coeff = {
+			.cali_mode = CALI_NT,
+		},
+	},
+	[MT6985_LVTS_GPU_CTRL2] = {
+		.domain_index = MT6985_GPU_DOMAIN,
+		.addr_offset = 0x200,
+		.num_sensor = 2,
+		.sensor_map = {MT6985_TS32_0, MT6985_TS32_1},
+		.sensor_on_off = {SEN_ON, SEN_ON},
+		.tc_speed = SET_TC_SPEED_IN_US(2345, 2345, 2345, 2345),
+		.hw_filter = LVTS_FILTER_1,
+		.dominator_sensing_point = SENSING_POINT0,
+		.hw_reboot_trip_point = 116500,
+		.irq_bit = BIT(3),
+		.coeff = {
+			.cali_mode = CALI_NT,
+		},
+	},
+};
+
+static struct lvts_data mt6985_lvts_data = {
+	.num_domain = MT6985_NUM_DOMAIN,
+	.num_tc = MT6985_LVTS_CTRL_NUM,
+	.tc = mt6985_tc_settings,
+	.num_sensor = MT6985_NUM_TS,
+	.ops = {
+		.device_identification = mt6985_device_identification,
+		.efuse_to_cal_data = mt6985_efuse_to_cal_data,
+		.device_enable_and_init = mt6985_device_enable_and_init,
+		.device_enable_auto_rck = device_enable_auto_rck_v4,
+		.device_read_count_rc_n = mt6985_device_read_count_rc_n,
+		.set_cal_data = set_calibration_data_v4,
+		.init_controller = init_controller_v5,
+		.lvts_temp_to_raw = lvts_temp_to_raw_v2,
+		.lvts_raw_to_temp = lvts_raw_to_temp_v2,
+		.check_cal_data = mt6985_check_cal_data,
+		.update_coef_data = mt6985_update_coef_data,
+	},
+	.feature_bitmap = FEATURE_DEVICE_AUTO_RCK,
+	.num_efuse_addr = 35,
+	.num_efuse_block = 2,
+	.cal_data = {
+		.default_golden_temp = 60,
+		.default_golden_temp_ht = 170,
+		.default_count_r = 14698,
+		.default_count_rc = 13349,
+	},
+	.init_done = false,
+	.enable_dump_log = 0,
+	.clock_gate_no_need = true,
+	.reset_no_need = true,
+};
+/*==================================================
  * LVTS MT6895
  *==================================================
  */
@@ -4987,6 +5650,10 @@ static const struct of_device_id lvts_of_match[] = {
 	{
 		.compatible = "mediatek,mt6983-lvts",
 		.data = (void *)&mt6983_lvts_data,
+	},
+	{
+		.compatible = "mediatek,mt6985-lvts",
+		.data = (void *)&mt6985_lvts_data,
 	},
 	{
 		.compatible = "mediatek,mt6879-lvts",

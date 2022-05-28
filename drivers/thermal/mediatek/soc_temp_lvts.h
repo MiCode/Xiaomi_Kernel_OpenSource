@@ -224,6 +224,8 @@ struct lvts_data {
 	bool init_done; /*lvts driver init finish*/
 	unsigned int *irq_bitmap;
 	int enable_dump_log;
+	bool clock_gate_no_need;
+	bool reset_no_need;
 };
 
 struct soc_temp_tz {
