@@ -93,6 +93,7 @@ struct adaptor_ctx {
 	struct v4l2_ctrl *hdr_tri_shutter;
 	struct v4l2_ctrl *hdr_tri_gain;
 	struct v4l2_ctrl *fsync_map_id;
+	struct v4l2_ctrl *fsync_listen_target;
 	struct v4l2_ctrl *hdr_ae_ctrl;
 
 	/* hw handles */

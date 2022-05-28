@@ -1368,8 +1368,6 @@ static int seninf_csi_s_stream(struct v4l2_subdev *sd, int enable)
 			return ret;
 		}
 
-		notify_fsync_cammux_usage(ctx);
-
 #ifdef SENINF_VC_ROUTING
 		//update_sensor_frame_desc(ctx);
 #endif
@@ -1428,8 +1426,10 @@ static int seninf_s_stream(struct v4l2_subdev *sd, int enable)
 	if (ctx->is_test_model)
 		return set_test_model(ctx, enable);
 
-	if (!ctx->streaming)
+	if (!ctx->streaming) {
 		mtk_cam_seninf_s_stream_mux(ctx);
+		notify_fsync_listen_target(ctx);
+	}
 
 	ctx->streaming = enable;
 

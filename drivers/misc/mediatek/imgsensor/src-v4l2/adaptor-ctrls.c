@@ -760,6 +760,13 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 		notify_fsync_mgr_update_tg(ctx, (u64)ctrl->val);
 		break;
 
+	case V4L2_CID_FSYNC_LISTEN_TARGET:
+		notify_fsync_mgr_update_target_tg(ctx, (u64)ctrl->val);
+		dev_info(dev,
+			"V4L2_CID_FSYNC_LISTEN_TARGET (update_tg), value:%d\n",
+			ctrl->val);
+		break;
+
 	case V4L2_CID_MTK_AWB_GAIN:
 		{
 			struct mtk_awb_gain *info = ctrl->p_new.p;
@@ -1142,6 +1149,15 @@ static const struct v4l2_ctrl_config cfg_fsync_map_id = {
 	.ops = &ctrl_ops,
 	.id = V4L2_CID_FSYNC_MAP_ID,
 	.name = "fsync_map_id",
+	.type = V4L2_CTRL_TYPE_INTEGER,
+	.max = 0xffff,
+	.step = 1,
+};
+
+static const struct v4l2_ctrl_config cfg_fsync_listen_target = {
+	.ops = &ctrl_ops,
+	.id = V4L2_CID_FSYNC_LISTEN_TARGET,
+	.name = "fsync_listen_target",
 	.type = V4L2_CTRL_TYPE_INTEGER,
 	.max = 0xffff,
 	.step = 1,
@@ -1753,6 +1769,13 @@ int adaptor_init_ctrls(struct adaptor_ctx *ctx)
 	/* update fsync map id (cammux idx) */
 	ctx->fsync_map_id = v4l2_ctrl_new_custom(&ctx->ctrls,
 		&cfg_fsync_map_id, NULL);
+
+	/*
+	 * update fsync listen target (the id vsync listen to), this is
+	 * replacment of fsync_map_id
+	 */
+	ctx->fsync_listen_target = v4l2_ctrl_new_custom(&ctx->ctrls,
+		&cfg_fsync_listen_target, NULL);
 
 	v4l2_ctrl_new_custom(&ctx->ctrls, &cfg_vsync_notify, NULL);
 	v4l2_ctrl_new_custom(&ctx->ctrls, &cfg_stagger_info, NULL);

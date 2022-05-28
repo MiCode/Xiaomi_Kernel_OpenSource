@@ -138,6 +138,33 @@ enum CAM_TYPE_ENUM cammux2camtype(struct seninf_ctx *ctx, int cammux)
 	return type;
 }
 
+static int cammux_tag_2_fsync_target_id(struct seninf_ctx *ctx, int cammux, int tag)
+{
+	int cammux_factor = 8;
+	int fsync_camsv_start_id = 5;
+	struct seninf_core *core = ctx->core;
+	enum CAM_TYPE_ENUM type = cammux2camtype(ctx, cammux);
+	int ret = 0xff;
+
+	if (cammux < 0 || cammux >= 0xff) {
+		ret = 0xff;
+	} else if (type == TYPE_CAMSV_SAT) {
+		ret = fsync_camsv_start_id
+			+ (cammux - core->cammux_range[TYPE_CAMSV_SAT].first);
+	} else if (type == TYPE_CAMSV_NORMAL) {
+		ret = ((cammux - core->cammux_range[TYPE_CAMSV_NORMAL].first) * cammux_factor)
+			+ core->cammux_range[TYPE_CAMSV_NORMAL].first
+			+ fsync_camsv_start_id + tag;
+	} else if (type == TYPE_RAW) {
+		ret = 1 + (cammux - core->cammux_range[TYPE_RAW].first);
+	}
+
+	dev_info(ctx->dev, "%s cammux = %d, tag = %d, target_id = %d\n",
+		 __func__, cammux, tag, ret);
+
+	return ret;
+}
+
 void mtk_cam_seninf_mux_put(struct seninf_ctx *ctx, struct seninf_mux *mux)
 {
 	struct seninf_core *core = ctx->core;
@@ -849,7 +876,7 @@ int _mtk_cam_seninf_set_camtg(struct v4l2_subdev *sd,
 			g_seninf_ops->_cammux(ctx, vc->cam);
 			if (pad_id == PAD_SRC_RAW0) {
 				// notify vc->cam
-				notify_fsync_cammux_usage_with_kthread(ctx);
+				notify_fsync_listen_target_with_kthread(ctx);
 			}
 
 			if (!seninf_ca_open_session())
@@ -901,7 +928,7 @@ int _mtk_cam_seninf_set_camtg(struct v4l2_subdev *sd,
 					g_aov_param.camtg = 33;
 #endif
 					// notify vc->cam
-					notify_fsync_cammux_usage_with_kthread(ctx);
+					notify_fsync_listen_target_with_kthread(ctx);
 				}
 			}
 			dev_info(ctx->dev, "%s: pad %d mux %d cam %d -> %d\n",
@@ -1051,7 +1078,7 @@ static int mtk_cam_seninf_get_raw_cam_info(struct seninf_ctx *ctx)
 	for (i = 0; i < vcinfo->cnt; i++) {
 		vc = &vcinfo->vc[i];
 		if (vc->out_pad == PAD_SRC_RAW0) /* first raw */
-			return vc->cam;
+			return cammux_tag_2_fsync_target_id(ctx, vc->cam, vc->tag);
 	}
 
 	dev_info(ctx->dev, "%s: no raw data in vc channel\n", __func__);
@@ -1218,19 +1245,19 @@ int reset_sensor(struct seninf_ctx *ctx)
 }
 
 
-int notify_fsync_cammux_usage(struct seninf_ctx *ctx)
+int notify_fsync_listen_target(struct seninf_ctx *ctx)
 {
 	int cam_idx = mtk_cam_seninf_get_raw_cam_info(ctx);
 	struct v4l2_subdev *sensor_sd = ctx->sensor_sd;
 	struct v4l2_ctrl *ctrl;
 
-	if (cam_idx < 0)
+	if (cam_idx < 0 || cam_idx >= 0xff)
 		return -EINVAL;
 
 	ctrl = v4l2_ctrl_find(sensor_sd->ctrl_handler,
-			V4L2_CID_FSYNC_MAP_ID);
+			V4L2_CID_FSYNC_LISTEN_TARGET);
 	if (!ctrl) {
-		dev_info(ctx->dev, "no fsync map id in %s\n",
+		dev_info(ctx->dev, "no fsync listen target in %s\n",
 			sensor_sd->name);
 		return -EINVAL;
 	}
@@ -1242,7 +1269,7 @@ int notify_fsync_cammux_usage(struct seninf_ctx *ctx)
 	return 0;
 }
 
-static void mtk_notify_cammux_usage_fn(struct kthread_work *work)
+static void mtk_notify_listen_target_fn(struct kthread_work *work)
 {
 	struct mtk_seninf_work *seninf_work = NULL;
 	struct seninf_ctx *ctx = NULL;
@@ -1252,13 +1279,13 @@ static void mtk_notify_cammux_usage_fn(struct kthread_work *work)
 	if (seninf_work) {
 		ctx = seninf_work->ctx;
 		if (ctx)
-			notify_fsync_cammux_usage(ctx);
+			notify_fsync_listen_target(ctx);
 
 		kfree(seninf_work);
 	}
 }
 
-void notify_fsync_cammux_usage_with_kthread(struct seninf_ctx *ctx)
+void notify_fsync_listen_target_with_kthread(struct seninf_ctx *ctx)
 {
 	struct mtk_seninf_work *seninf_work = NULL;
 
@@ -1267,7 +1294,7 @@ void notify_fsync_cammux_usage_with_kthread(struct seninf_ctx *ctx)
 					GFP_ATOMIC);
 		if (seninf_work) {
 			kthread_init_work(&seninf_work->work,
-					mtk_notify_cammux_usage_fn);
+					mtk_notify_listen_target_fn);
 			seninf_work->ctx = ctx;
 			kthread_queue_work(&ctx->core->seninf_worker,
 					&seninf_work->work);
