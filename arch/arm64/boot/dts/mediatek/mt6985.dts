@@ -1174,6 +1174,67 @@
 		#clock-cells = <1>;
 	};
 
+	ccu_rproc: ccu_rproc@1b080000 {
+		compatible = "mediatek,ccu_rproc";
+		reg = <0 0x1b080000 0 0x9000>;
+		interrupts = <GIC_SPI 516 IRQ_TYPE_LEVEL_HIGH 0>;
+		power-domains = <&scpsys MT6985_POWER_DOMAIN_CAM_MAIN>,
+				<&scpsys MT6985_POWER_DOMAIN_CAM_MRAW>;
+		mediatek,larbs = <&smi_larb19>;
+		clocks =        <&topckgen_clk CLK_TOP_CCUSYS>,
+				<&topckgen_clk CLK_TOP_CCU_AHB>,
+				<&ccu_main_clk CLK_CCU_LARB19>,
+				<&ccu_main_clk CLK_CCU_AHB>,
+				<&ccu_main_clk CLK_CCUSYS_CCU0>,
+				<&camsys_main_clk CLK_CAM_MAIN_CCUSYS_CON_0>,
+				<&camsys_main_clk CLK_CAM_MAIN_CAM2SYS_GALS_CON_0>,
+				<&camsys_main_clk CLK_CAM_MAIN_CAM2MM1_GALS_CON_0>,
+				<&camsys_main_clk CLK_CAM_MAIN_CAM2MM0_GALS_CON_0>,
+				<&camsys_main_clk CLK_CAM_MAIN_CAM_MRAW_CON_0>,
+				<&camsys_main_clk CLK_CAM_MAIN_CAM_CON_0>;
+		clock-names =   "CLK_TOP_CCUSYS_SEL",
+				"CLK_TOP_CCU_AHB_SEL",
+				"CLK_CCU_LARB",
+				"CLK_CCU_AHB",
+				"CLK_CCUSYS_CCU0",
+				"CAM_CCUSYS",
+				"CAM_CAM2SYS_GALS",
+				"CAM_CAM2MM1_GALS",
+				"CAM_CAM2MM0_GALS",
+				"CAM_MRAW",
+				"CAM_CG";
+		mediatek,ccu_rproc1 = <&ccu_rproc1>;
+		dma-ranges = <0x1 0x0 0x1 0x0 0x1 0x0>;
+		iommus = <&mdp_iommu M4U_PORT_L19_CCUO>,
+			 <&mdp_iommu M4U_PORT_L19_CCUI>;
+#if 0
+		interconnects =
+		<&mmqos SLAVE_LARB(39) &mmqos SLAVE_COMMON(1)>,
+		<&mmqos MASTER_LARB_PORT(M4U_PORT_L19_CCUO)
+			&mmqos SLAVE_COMMON(0)>,
+		<&mmqos MASTER_LARB_PORT(M4U_PORT_L19_CCUI)
+			&mmqos SLAVE_COMMON(0)>;
+		interconnect-names =
+			"ccu_g",
+			"ccu_o",
+			"ccu_i";
+#endif
+		secured = "yes";
+		ccu_version = <72>;
+		ccu_sramSize = <0x00020000>;
+		ccu_sramOffset = <0x00020000>;
+		ccu_dramSize = <0x00100000>;
+		ccu_dramAddr = <0x80000000>;
+		ccu_emiRegion = <20>;
+	};
+
+	ccu_rproc1: ccu_rproc1 {
+		compatible = "mediatek,ccu_rproc1";
+		dma-ranges = <0x1 0x0 0x1 0x0 0x1 0x0>;
+		iommus = <&mdp_iommu M4U_PORT_L19_CCUO2>,
+			<&mdp_iommu M4U_PORT_L19_CCUI2>;
+	};
+
 	ccu_main_clk: syscon@1b200000 {
 		compatible = "mediatek,mt6985-ccu", "syscon";
 		reg = <0 0x1b200000 0 0x1000>;
