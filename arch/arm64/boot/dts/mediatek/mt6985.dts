@@ -103,6 +103,10 @@
 		mml-wrot1 = &mml_wrot1;
 		mml-wrot2 = &mml_wrot2;
 		mml-wrot3 = &mml_wrot3;
+		mtksmmu0 = &disp_iommu;
+		mtksmmu1 = &mdp_iommu;
+		mtksmmu2 = &apu_iommu0;
+		mtksmmu3 = &apu_iommu1;
 	};
 
 	/* chosen */
@@ -438,6 +442,13 @@
 			size = <0 0x10000000>;
 			alignment = <0 0x1000000>;
 		};
+
+		ssheap_cma_mem: ssheap-reserved-cma_memory {
+			compatible = "shared-dma-pool";
+			reusable;
+			size = <0 0x10000000>;
+			alignment = <0 0x200000>;
+		};
 	};
 
 	memory_ssmr_features: memory-ssmr-features {
@@ -454,6 +465,11 @@
 	ssmr {
 		compatible = "mediatek,trusted_mem";
 		memory-region = <&ssmr_cma_mem>;
+	};
+
+	ssheap {
+		compatible = "mediatek,trusted_mem_ssheap";
+		memory-region = <&ssheap_cma_mem>;
 	};
 
 	qos:qos@0011bb00 {
