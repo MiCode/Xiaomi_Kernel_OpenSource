@@ -548,6 +548,7 @@ static const struct snd_kcontrol_new mtk_i2s9_ch1_mix[] = {
 	SOC_DAPM_SINGLE_AUTODISABLE("DL4_CH1", AFE_CONN56_1, I_DL4_CH1, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("DL5_CH1", AFE_CONN56_1, I_DL5_CH1, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("DL9_CH1", AFE_CONN56_1, I_DL9_CH1, 1, 0),
+	SOC_DAPM_SINGLE_AUTODISABLE("DL13_CH1", AFE_CONN56_2, I_DL13_CH1, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("GAIN1_OUT_CH1", AFE_CONN56,
 				    I_GAIN1_OUT_CH1, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("ADDA_UL_CH1", AFE_CONN56,
@@ -567,6 +568,7 @@ static const struct snd_kcontrol_new mtk_i2s9_ch2_mix[] = {
 	SOC_DAPM_SINGLE_AUTODISABLE("DL4_CH2", AFE_CONN57_1, I_DL4_CH2, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("DL5_CH2", AFE_CONN57_1, I_DL5_CH2, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("DL9_CH2", AFE_CONN57_1, I_DL9_CH2, 1, 0),
+	SOC_DAPM_SINGLE_AUTODISABLE("DL13_CH2", AFE_CONN57_2, I_DL13_CH2, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("GAIN1_OUT_CH2", AFE_CONN57,
 				    I_GAIN1_OUT_CH2, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("ADDA_UL_CH2", AFE_CONN57,
@@ -1480,6 +1482,9 @@ static const struct snd_soc_dapm_route mtk_dai_i2s_routes[] = {
 	{"I2S9", NULL, "I2S9_CH1"},
 	{"I2S9", NULL, "I2S9_CH2"},
 
+	{"I2S9_CH1", "DL13_CH1", "DL13"},
+	{"I2S9_CH2", "DL13_CH2", "DL13"},
+
 	{"I2S9", NULL, "I2S0_EN", mtk_afe_i2s_share_connect},
 	{"I2S9", NULL, "I2S1_EN", mtk_afe_i2s_share_connect},
 	{"I2S9", NULL, "I2S2_EN", mtk_afe_i2s_share_connect},
@@ -1529,6 +1534,9 @@ static const struct snd_soc_dapm_route mtk_dai_i2s_routes[] = {
 
 	{"I2S7_Out_Mux", "Dummy_Widget", "I2S7"},
 	{"I2S_DUMMY_OUT", NULL, "I2S7_Out_Mux"},
+
+	{"I2S8", NULL, "I2S8_In_Mux"},
+	{"I2S8_In_Mux", "Dummy_Widget", "I2S_DUMMY_IN"},
 
 	{"I2S9_Out_Mux", "Dummy_Widget", "I2S9"},
 	{"I2S_DUMMY_OUT", NULL, "I2S9_Out_Mux"},

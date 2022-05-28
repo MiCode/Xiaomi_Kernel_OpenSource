@@ -66,6 +66,7 @@
 #define I_64_OFFSET 64
 #define I_SRC_3_OUT_CH1 (78 - I_64_OFFSET)
 #define I_SRC_3_OUT_CH2 (79 - I_64_OFFSET)
-
+#define I_DL13_CH1 (83 - I_64_OFFSET)
+#define I_DL13_CH2 (84 - I_64_OFFSET)
 
 #endif

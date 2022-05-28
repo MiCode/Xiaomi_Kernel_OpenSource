@@ -35,6 +35,161 @@ enum {
 #define AFE_ON_MASK                                           0x1
 #define AFE_ON_MASK_SFT                                       (0x1 << 0)
 
+/* AFE_VUL10_CON0 */
+#define VUL10_MODE_SFT                                        24
+#define VUL10_MODE_MASK                                       0xf
+#define VUL10_MODE_MASK_SFT                                   (0xf << 24)
+#define VUL10_SW_CLEAR_BUF_FULL_SFT                           15
+#define VUL10_SW_CLEAR_BUF_FULL_MASK                          0x1
+#define VUL10_SW_CLEAR_BUF_FULL_MASK_SFT                      (0x1 << 15)
+#define VUL10_4CH_EN_SFT                                      11
+#define VUL10_4CH_EN_MASK                                     0x1
+#define VUL10_4CH_EN_MASK_SFT                                 (0x1 << 11)
+#define VUL10_R_MONO_SFT                                      9
+#define VUL10_R_MONO_MASK                                     0x1
+#define VUL10_R_MONO_MASK_SFT                                 (0x1 << 9)
+#define VUL10_MONO_SFT                                        8
+#define VUL10_MONO_MASK                                       0x1
+#define VUL10_MONO_MASK_SFT                                   (0x1 << 8)
+#define VUL10_WR_SIGN_SFT                                     6
+#define VUL10_WR_SIGN_MASK                                    0x1
+#define VUL10_WR_SIGN_MASK_SFT                                (0x1 << 6)
+#define VUL10_NORMAL_MODE_SFT                                 5
+#define VUL10_NORMAL_MODE_MASK                                0x1
+#define VUL10_NORMAL_MODE_MASK_SFT                            (0x1 << 5)
+#define VUL10_HALIGN_SFT                                      4
+#define VUL10_HALIGN_MASK                                     0x1
+#define VUL10_HALIGN_MASK_SFT                                 (0x1 << 4)
+#define VUL10_HD_MODE_SFT                                     0
+#define VUL10_HD_MODE_MASK                                    0x3
+#define VUL10_HD_MODE_MASK_SFT                                (0x3 << 0)
+
+/* AFE_VUL10_BASE_MSB */
+#define AFE_VUL10_BASE_MSB_SFT                                0
+#define AFE_VUL10_BASE_MSB_MASK                               0x3
+#define AFE_VUL10_BASE_MSB_MASK_SFT                           (0x3 << 0)
+
+/* AFE_VUL10_BASE */
+#define AFE_VUL10_BASE_SFT                                    4
+#define AFE_VUL10_BASE_MASK                                   0xfffffff
+#define AFE_VUL10_BASE_MASK_SFT                               (0xfffffff << 4)
+
+/* AFE_VUL10_CUR_MSB */
+#define AFE_VUL10_CUR_MSB_SFT                                 0
+#define AFE_VUL10_CUR_MSB_MASK                                0x3
+#define AFE_VUL10_CUR_MSB_MASK_SFT                            (0x3 << 0)
+
+/* AFE_VUL10_CUR */
+#define AFE_VUL10_CUR_SFT                                     0
+#define AFE_VUL10_CUR_MASK                                    0xffffffff
+#define AFE_VUL10_CUR_MASK_SFT                                (0xffffffff << 0)
+
+/* AFE_VUL10_END_MSB */
+#define AFE_VUL10_END_MSB_SFT                                 0
+#define AFE_VUL10_END_MSB_MASK                                0x3
+#define AFE_VUL10_END_MSB_MASK_SFT                            (0x3 << 0)
+
+/* AFE_VUL10_END */
+#define AFE_VUL10_END_SFT                                     3
+#define AFE_VUL10_END_MASK                                    0x1fffffff
+#define AFE_VUL10_END_MASK_SFT                                (0x1fffffff << 3)
+#define AFE_VUL10_END_LSB_SFT                                 0
+#define AFE_VUL10_END_LSB_MASK                                0x7
+#define AFE_VUL10_END_LSB_MASK_SFT                            (0x7 << 0)
+
+/* AFE_VUL10_RCH_MON */
+#define VUL10_RCH_DATA_SFT                                    0
+#define VUL10_RCH_DATA_MASK                                   0xffffffff
+#define VUL10_RCH_DATA_MASK_SFT                               (0xffffffff << 0)
+
+/* AFE_VUL10_LCH_MON */
+#define VUL10_LCH_DATA_SFT                                    0
+#define VUL10_LCH_DATA_MASK                                   0xffffffff
+#define VUL10_LCH_DATA_MASK_SFT                               (0xffffffff << 0)
+
+/* AFE_VUL11_RCH_MON */
+#define VUL11_RCH_DATA_SFT                                    0
+#define VUL11_RCH_DATA_MASK                                   0xffffffff
+#define VUL11_RCH_DATA_MASK_SFT                               (0xffffffff << 0)
+
+/* AFE_VUL11_CON0 */
+#define VUL11_MODE_SFT                                        24
+#define VUL11_MODE_MASK                                       0xf
+#define VUL11_MODE_MASK_SFT                                   (0xf << 24)
+#define VUL11_SW_CLEAR_BUF_FULL_SFT                           15
+#define VUL11_SW_CLEAR_BUF_FULL_MASK                          0x1
+#define VUL11_SW_CLEAR_BUF_FULL_MASK_SFT                      (0x1 << 15)
+#define VUL11_4CH_EN_SFT                                      11
+#define VUL11_4CH_EN_MASK                                     0x1
+#define VUL11_4CH_EN_MASK_SFT                                 (0x1 << 11)
+#define VUL11_R_MONO_SFT                                      9
+#define VUL11_R_MONO_MASK                                     0x1
+#define VUL11_R_MONO_MASK_SFT                                 (0x1 << 9)
+#define VUL11_MONO_SFT                                        8
+#define VUL11_MONO_MASK                                       0x1
+#define VUL11_MONO_MASK_SFT                                   (0x1 << 8)
+#define VUL11_WR_SIGN_SFT                                     6
+#define VUL11_WR_SIGN_MASK                                    0x1
+#define VUL11_WR_SIGN_MASK_SFT                                (0x1 << 6)
+#define VUL11_NORMAL_MODE_SFT                                 5
+#define VUL11_NORMAL_MODE_MASK                                0x1
+#define VUL11_NORMAL_MODE_MASK_SFT                            (0x1 << 5)
+#define VUL11_HALIGN_SFT                                      4
+#define VUL11_HALIGN_MASK                                     0x1
+#define VUL11_HALIGN_MASK_SFT                                 (0x1 << 4)
+#define VUL11_HD_MODE_SFT                                     0
+#define VUL11_HD_MODE_MASK                                    0x3
+#define VUL11_HD_MODE_MASK_SFT                                (0x3 << 0)
+
+/* AFE_VUL11_BASE_MSB */
+#define AFE_VUL11_BASE_MSB_SFT                                0
+#define AFE_VUL11_BASE_MSB_MASK                               0x3
+#define AFE_VUL11_BASE_MSB_MASK_SFT                           (0x3 << 0)
+
+/* AFE_VUL11_BASE */
+#define AFE_VUL11_BASE_SFT                                    4
+#define AFE_VUL11_BASE_MASK                                   0xfffffff
+#define AFE_VUL11_BASE_MASK_SFT                               (0xfffffff << 4)
+
+/* AFE_VUL11_CUR_MSB */
+#define AFE_VUL11_CUR_MSB_SFT                                 0
+#define AFE_VUL11_CUR_MSB_MASK                                0x3
+#define AFE_VUL11_CUR_MSB_MASK_SFT                            (0x3 << 0)
+
+/* AFE_VUL11_CUR */
+#define AFE_VUL11_CUR_SFT                                     0
+#define AFE_VUL11_CUR_MASK                                    0xffffffff
+#define AFE_VUL11_CUR_MASK_SFT                                (0xffffffff << 0)
+
+/* AFE_VUL11_END_MSB */
+#define AFE_VUL11_END_MSB_SFT                                 0
+#define AFE_VUL11_END_MSB_MASK                                0x3
+#define AFE_VUL11_END_MSB_MASK_SFT                            (0x3 << 0)
+
+/* AFE_VUL11_END */
+#define AFE_VUL11_END_SFT                                     3
+#define AFE_VUL11_END_MASK                                    0x1fffffff
+#define AFE_VUL11_END_MASK_SFT                                (0x1fffffff << 3)
+#define AFE_VUL11_END_LSB_SFT                                 0
+#define AFE_VUL11_END_LSB_MASK                                0x7
+#define AFE_VUL11_END_LSB_MASK_SFT                            (0x7 << 0)
+
+/* AFE_VUL11_LCH_MON */
+#define VUL11_LCH_DATA_SFT                                    0
+#define VUL11_LCH_DATA_MASK                                   0xffffffff
+#define VUL11_LCH_DATA_MASK_SFT                               (0xffffffff << 0)
+
+/* AFE_AGENT_ON2 */
+#define VUL11_ON_SFT                                          17
+#define VUL11_ON_MASK                                         0x1
+#define VUL11_ON_MASK_SFT                                     (0x1 << 17)
+#define VUL10_ON_SFT                                          16
+#define VUL10_ON_MASK                                         0x1
+#define VUL10_ON_MASK_SFT                                     (0x1 << 16)
+#define DL13_ON_SFT                                           0
+#define DL13_ON_MASK                                          0x1
+#define DL13_ON_MASK_SFT                                      (0x1 << 0)
+
 /* AFE_AGENT_ON */
 #define VUL12_ON_SFT                                          31
 #define VUL12_ON_MASK                                         0x1
@@ -1548,6 +1703,38 @@ enum {
 #define DL11_HD_MODE_MASK                                     0x3
 #define DL11_HD_MODE_MASK_SFT                                 (0x3 << 0)
 
+/* AFE_DL13_CON0 */
+#define DL13_CH_NUM_SFT                                       28
+#define DL13_CH_NUM_MASK                                      0xf
+#define DL13_CH_NUM_MASK_SFT                                  (0xf << 28)
+#define DL13_MODE_SFT                                         24
+#define DL13_MODE_MASK                                        0xf
+#define DL13_MODE_MASK_SFT                                    (0xf << 24)
+#define DL13_MINLEN_SFT                                       20
+#define DL13_MINLEN_MASK                                      0xf
+#define DL13_MINLEN_MASK_SFT                                  (0xf << 20)
+#define DL13_MAXLEN_SFT                                       16
+#define DL13_MAXLEN_MASK                                      0xf
+#define DL13_MAXLEN_MASK_SFT                                  (0xf << 16)
+#define DL13_SW_CLEAR_BUF_EMPTY_SFT                           15
+#define DL13_SW_CLEAR_BUF_EMPTY_MASK                          0x1
+#define DL13_SW_CLEAR_BUF_EMPTY_MASK_SFT                      (0x1 << 15)
+#define DL13_PBUF_SIZE_SFT                                    12
+#define DL13_PBUF_SIZE_MASK                                   0x3
+#define DL13_PBUF_SIZE_MASK_SFT                               (0x3 << 12)
+#define DL13_MONO_SFT                                         8
+#define DL13_MONO_MASK                                        0x1
+#define DL13_MONO_MASK_SFT                                    (0x1 << 8)
+#define DL13_NORMAL_MODE_SFT                                  5
+#define DL13_NORMAL_MODE_MASK                                 0x1
+#define DL13_NORMAL_MODE_MASK_SFT                             (0x1 << 5)
+#define DL13_HALIGN_SFT                                       4
+#define DL13_HALIGN_MASK                                      0x1
+#define DL13_HALIGN_MASK_SFT                                  (0x1 << 4)
+#define DL13_HD_MODE_SFT                                      0
+#define DL13_HD_MODE_MASK                                     0x3
+#define DL13_HD_MODE_MASK_SFT                                 (0x3 << 0)
+
 /* AFE_AWB_CON0 */
 #define AWB_MODE_SFT                                          24
 #define AWB_MODE_MASK                                         0xf
@@ -1891,6 +2078,64 @@ enum {
 #define VUL9_HD_MODE_SFT                                      0
 #define VUL9_HD_MODE_MASK                                     0x3
 #define VUL9_HD_MODE_MASK_SFT                                 (0x3 << 0)
+
+/* AFE_VUL10_CON0 */
+#define VUL10_MODE_SFT                                        24
+#define VUL10_MODE_MASK                                       0xf
+#define VUL10_MODE_MASK_SFT                                   (0xf << 24)
+#define VUL10_SW_CLEAR_BUF_FULL_SFT                           15
+#define VUL10_SW_CLEAR_BUF_FULL_MASK                          0x1
+#define VUL10_SW_CLEAR_BUF_FULL_MASK_SFT                      (0x1 << 15)
+#define VUL10_4CH_EN_SFT                                      11
+#define VUL10_4CH_EN_MASK                                     0x1
+#define VUL10_4CH_EN_MASK_SFT                                 (0x1 << 11)
+#define VUL10_R_MONO_SFT                                      9
+#define VUL10_R_MONO_MASK                                     0x1
+#define VUL10_R_MONO_MASK_SFT                                 (0x1 << 9)
+#define VUL10_MONO_SFT                                        8
+#define VUL10_MONO_MASK                                       0x1
+#define VUL10_MONO_MASK_SFT                                   (0x1 << 8)
+#define VUL10_WR_SIGN_SFT                                     6
+#define VUL10_WR_SIGN_MASK                                    0x1
+#define VUL10_WR_SIGN_MASK_SFT                                (0x1 << 6)
+#define VUL10_NORMAL_MODE_SFT                                 5
+#define VUL10_NORMAL_MODE_MASK                                0x1
+#define VUL10_NORMAL_MODE_MASK_SFT                            (0x1 << 5)
+#define VUL10_HALIGN_SFT                                      4
+#define VUL10_HALIGN_MASK                                     0x1
+#define VUL10_HALIGN_MASK_SFT                                 (0x1 << 4)
+#define VUL10_HD_MODE_SFT                                     0
+#define VUL10_HD_MODE_MASK                                    0x3
+#define VUL10_HD_MODE_MASK_SFT                                (0x3 << 0)
+
+/* AFE_VUL11_CON0 */
+#define VUL11_MODE_SFT                                        24
+#define VUL11_MODE_MASK                                       0xf
+#define VUL11_MODE_MASK_SFT                                   (0xf << 24)
+#define VUL11_SW_CLEAR_BUF_FULL_SFT                           15
+#define VUL11_SW_CLEAR_BUF_FULL_MASK                          0x1
+#define VUL11_SW_CLEAR_BUF_FULL_MASK_SFT                      (0x1 << 15)
+#define VUL11_4CH_EN_SFT                                      11
+#define VUL11_4CH_EN_MASK                                     0x1
+#define VUL11_4CH_EN_MASK_SFT                                 (0x1 << 11)
+#define VUL11_R_MONO_SFT                                      9
+#define VUL11_R_MONO_MASK                                     0x1
+#define VUL11_R_MONO_MASK_SFT                                 (0x1 << 9)
+#define VUL11_MONO_SFT                                        8
+#define VUL11_MONO_MASK                                       0x1
+#define VUL11_MONO_MASK_SFT                                   (0x1 << 8)
+#define VUL11_WR_SIGN_SFT                                     6
+#define VUL11_WR_SIGN_MASK                                    0x1
+#define VUL11_WR_SIGN_MASK_SFT                                (0x1 << 6)
+#define VUL11_NORMAL_MODE_SFT                                 5
+#define VUL11_NORMAL_MODE_MASK                                0x1
+#define VUL11_NORMAL_MODE_MASK_SFT                            (0x1 << 5)
+#define VUL11_HALIGN_SFT                                      4
+#define VUL11_HALIGN_MASK                                     0x1
+#define VUL11_HALIGN_MASK_SFT                                 (0x1 << 4)
+#define VUL11_HD_MODE_SFT                                     0
+#define VUL11_HD_MODE_MASK                                    0x3
+#define VUL11_HD_MODE_MASK_SFT                                (0x3 << 0)
 
 /* AFE_DAI_CON0 */
 #define DAI_MODE_SFT                                          24
@@ -3598,12 +3843,14 @@ enum {
 #define AFE_DL9_CON0                           0x0fbc
 #define AFE_DL9_BASE_MSB                       0x0fc0
 #define AFE_DL9_BASE                           0x0fc4
+#define AFE_PROT_SIDEBAND1_MON                 0x1000
 #define AFE_SE_SECURE_CON                      0x1004
 #define AFE_PROT_SIDEBAND_MON                  0x1008
 #define AFE_DOMAIN_SIDEBAND0_MON               0x100c
 #define AFE_DOMAIN_SIDEBAND1_MON               0x1010
 #define AFE_DOMAIN_SIDEBAND2_MON               0x1014
 #define AFE_DOMAIN_SIDEBAND3_MON               0x1018
+#define AFE_DOMAIN_SIDEBAND4_MON               0x101c
 #define AFE_SECURE_MASK_CONN0                  0x1020
 #define AFE_SECURE_MASK_CONN1                  0x1024
 #define AFE_SECURE_MASK_CONN2                  0x1028
@@ -3967,6 +4214,7 @@ enum {
 #define AFE_TINY_CONN10                        0x1668
 #define AFE_TINY_CONN11                        0x166c
 #define AFE_TINY_CONN12                        0x1670
+#define AFE_TINY_CONN13                        0x1674
 #define ETDM_IN0_CON9                          0x18a8
 #define ETDM_IN1_CON9                          0x18ac
 #define ETDM_0_3_COWORK_CON0                   0x18b0
@@ -4010,13 +4258,194 @@ enum {
 #define AFE_DL11_CUR                           0x19b0
 #define AFE_DL11_END_MSB                       0x19b4
 #define AFE_DL11_END                           0x19b8
+#define AFE_DL11_RCH_MON                       0x19bc
+#define AFE_DL11_LCH_MON                       0x19c0
+#define AFE_DL13_CON0                          0x19cc
+#define AFE_DL13_BASE_MSB                      0x19d0
+#define AFE_DL13_BASE                          0x19d4
+#define AFE_DL13_CUR_MSB                       0x19d8
+#define AFE_DL13_CUR                           0x19dc
+#define AFE_DL13_END_MSB                       0x19e0
+#define AFE_DL13_END                           0x19e4
+#define AFE_DL13_RCH_MON                       0x19e8
+#define AFE_DL13_LCH_MON                       0x19ec
 #define AFE_DAC_CON0_USER1                     0x1a00
 #define AFE_DAC_CON0_USER2                     0x1a04
+#define AFE_CONN84                                0x1a10
+#define AFE_CONN85                                0x1a14
+#define AFE_CONN86                                0x1a18
+#define AFE_CONN87                                0x1a1c
+#define AFE_CONN84_1                              0x1a20
+#define AFE_CONN85_1                              0x1a24
+#define AFE_CONN86_1                              0x1a28
+#define AFE_CONN87_1                              0x1a2c
+#define AFE_CONN84_2                              0x1a30
+#define AFE_CONN85_2                              0x1a34
+#define AFE_CONN86_2                              0x1a38
+#define AFE_CONN87_2                              0x1a3c
+#define AFE_SECURE_MASK_CONN84_1                  0x1a40
+#define AFE_SECURE_MASK_CONN85_1                  0x1a44
+#define AFE_SECURE_MASK_CONN86_1                  0x1a48
+#define AFE_SECURE_MASK_CONN87_1                  0x1a4c
+#define AFE_SECURE_MASK_CONN84_2                  0x1a50
+#define AFE_SECURE_MASK_CONN85_2                  0x1a54
+#define AFE_SECURE_MASK_CONN86_2                  0x1a58
+#define AFE_SECURE_MASK_CONN87_2                  0x1a5c
+#define AFE_VUL10_CON0                            0x1a80
+#define AFE_VUL10_BASE_MSB                        0x1a84
+#define AFE_VUL10_BASE                            0x1a88
+#define AFE_VUL10_CUR_MSB                         0x1a8c
+#define AFE_VUL10_CUR                             0x1a90
+#define AFE_VUL10_END_MSB                         0x1a94
+#define AFE_VUL10_END                             0x1a98
+#define AFE_VUL10_RCH_MON                         0x1a9c
+#define AFE_VUL10_LCH_MON                         0x1aa0
+#define AFE_VUL11_RCH_MON                         0x1aac
+#define AFE_VUL11_CON0                            0x1ab0
+#define AFE_VUL11_BASE_MSB                        0x1ab4
+#define AFE_VUL11_BASE                            0x1ab8
+#define AFE_VUL11_CUR_MSB                         0x1abc
+#define AFE_VUL11_CUR                             0x1ac0
+#define AFE_VUL11_END_MSB                         0x1ac4
+#define AFE_VUL11_END                             0x1ac8
+#define AFE_VUL11_LCH_MON                         0x1ad0
+#define AFE_AGENT_ON2                          0x1af4
+#define AFE_AGENT_ON2_SET                      0x1af8
+#define AFE_AGENT_ON2_CLR                      0x1afc
 #define AFE_AGENT_ON                           0x1b00
 #define AFE_AGENT_ON_SET                       0x1b04
 #define AFE_AGENT_ON_CLR                       0x1b08
+#define VUL_BASE_ADDR_MSB_CUR                     0x1b10
+#define VUL_BASE_ADDR_CUR                         0x1b14
+#define VUL_END_ADDR_MSB_CUR                      0x1b18
+#define VUL_END_ADDR_CUR                          0x1b1c
+#define VUL2_BASE_ADDR_MSB_CUR                    0x1b20
+#define VUL2_BASE_ADDR_CUR                        0x1b24
+#define VUL2_END_ADDR_MSB_CUR                     0x1b28
+#define VUL2_END_ADDR_CUR                         0x1b2c
+#define VUL3_BASE_ADDR_MSB_CUR                    0x1b30
+#define VUL3_BASE_ADDR_CUR                        0x1b34
+#define VUL3_END_ADDR_MSB_CUR                     0x1b38
+#define VUL3_END_ADDR_CUR                         0x1b3c
+#define VUL4_BASE_ADDR_MSB_CUR                    0x1b40
+#define VUL4_BASE_ADDR_CUR                        0x1b44
+#define VUL4_END_ADDR_MSB_CUR                     0x1b48
+#define VUL4_END_ADDR_CUR                         0x1b4c
+#define VUL5_BASE_ADDR_MSB_CUR                    0x1b50
+#define VUL5_BASE_ADDR_CUR                        0x1b54
+#define VUL5_END_ADDR_MSB_CUR                     0x1b58
+#define VUL5_END_ADDR_CUR                         0x1b5c
+#define VUL6_BASE_ADDR_MSB_CUR                    0x1b60
+#define VUL6_BASE_ADDR_CUR                        0x1b64
+#define VUL6_END_ADDR_MSB_CUR                     0x1b68
+#define VUL6_END_ADDR_CUR                         0x1b6c
+#define VUL7_BASE_ADDR_MSB_CUR                    0x1b70
+#define VUL7_BASE_ADDR_CUR                        0x1b74
+#define VUL7_END_ADDR_MSB_CUR                     0x1b78
+#define VUL7_END_ADDR_CUR                         0x1b7c
+#define VUL7_2_BASE_ADDR_MSB_CUR                  0x1b80
+#define VUL7_2_BASE_ADDR_CUR                      0x1b84
+#define VUL7_2_END_ADDR_MSB_CUR                   0x1b88
+#define VUL7_2_END_ADDR_CUR                       0x1b8c
+#define VUL8_BASE_ADDR_MSB_CUR                    0x1b90
+#define VUL8_BASE_ADDR_CUR                        0x1b94
+#define VUL8_END_ADDR_MSB_CUR                     0x1b98
+#define VUL8_END_ADDR_CUR                         0x1b9c
+#define VUL9_BASE_ADDR_MSB_CUR                    0x1ba0
+#define VUL9_BASE_ADDR_CUR                        0x1ba4
+#define VUL9_END_ADDR_MSB_CUR                     0x1ba8
+#define VUL9_END_ADDR_CUR                         0x1bac
+#define VUL10_BASE_ADDR_MSB_CUR                   0x1bb0
+#define VUL10_BASE_ADDR_CUR                       0x1bb4
+#define VUL10_END_ADDR_MSB_CUR                    0x1bb8
+#define VUL10_END_ADDR_CUR                        0x1bbc
+#define VUL11_BASE_ADDR_MSB_CUR                   0x1bc0
+#define VUL11_BASE_ADDR_CUR                       0x1bc4
+#define VUL11_END_ADDR_MSB_CUR                    0x1bc8
+#define VUL11_END_ADDR_CUR                        0x1bcc
+#define VUL12_BASE_ADDR_MSB_CUR                   0x1bd0
+#define VUL12_BASE_ADDR_CUR                       0x1bd4
+#define VUL12_END_ADDR_MSB_CUR                    0x1bd8
+#define VUL12_END_ADDR_CUR                        0x1bdc
+#define AWB_BASE_ADDR_MSB_CUR                     0x1be0
+#define AWB_BASE_ADDR_CUR                         0x1be4
+#define AWB_END_ADDR_MSB_CUR                      0x1be8
+#define AWB_END_ADDR_CUR                          0x1bec
+#define AWB2_BASE_ADDR_MSB_CUR                    0x1bf0
+#define AWB2_BASE_ADDR_CUR                        0x1bf4
+#define AWB2_END_ADDR_MSB_CUR                     0x1bf8
+#define AWB2_END_ADDR_CUR                         0x1bfc
+#define DL1_BASE_ADDR_MSB_CUR                     0x1c00
+#define DL1_BASE_ADDR_CUR                         0x1c04
+#define DL1_END_ADDR_MSB_CUR                      0x1c08
+#define DL1_END_ADDR_CUR                          0x1c0c
+#define DL2_BASE_ADDR_MSB_CUR                     0x1c10
+#define DL2_BASE_ADDR_CUR                         0x1c14
+#define DL2_END_ADDR_MSB_CUR                      0x1c18
+#define DL2_END_ADDR_CUR                          0x1c1c
+#define DL3_BASE_ADDR_MSB_CUR                     0x1c20
+#define DL3_BASE_ADDR_CUR                         0x1c24
+#define DL3_END_ADDR_MSB_CUR                      0x1c28
+#define DL3_END_ADDR_CUR                          0x1c2c
+#define DL4_BASE_ADDR_MSB_CUR                     0x1c30
+#define DL4_BASE_ADDR_CUR                         0x1c34
+#define DL4_END_ADDR_MSB_CUR                      0x1c38
+#define DL4_END_ADDR_CUR                          0x1c3c
+#define DL5_BASE_ADDR_MSB_CUR                     0x1c40
+#define DL5_BASE_ADDR_CUR                         0x1c44
+#define DL5_END_ADDR_MSB_CUR                      0x1c48
+#define DL5_END_ADDR_CUR                          0x1c4c
+#define DL6_BASE_ADDR_MSB_CUR                     0x1c50
+#define DL6_BASE_ADDR_CUR                         0x1c54
+#define DL6_END_ADDR_MSB_CUR                      0x1c58
+#define DL6_END_ADDR_CUR                          0x1c5c
+#define DL7_BASE_ADDR_MSB_CUR                     0x1c60
+#define DL7_BASE_ADDR_CUR                         0x1c64
+#define DL7_END_ADDR_MSB_CUR                      0x1c68
+#define DL7_END_ADDR_CUR                          0x1c6c
+#define DL8_BASE_ADDR_MSB_CUR                     0x1c70
+#define DL8_BASE_ADDR_CUR                         0x1c74
+#define DL8_END_ADDR_MSB_CUR                      0x1c78
+#define DL8_END_ADDR_CUR                          0x1c7c
+#define DL9_BASE_ADDR_MSB_CUR                     0x1c80
+#define DL9_BASE_ADDR_CUR                         0x1c84
+#define DL9_END_ADDR_MSB_CUR                      0x1c88
+#define DL9_END_ADDR_CUR                          0x1c8c
+#define DL10_BASE_ADDR_MSB_CUR                    0x1c90
+#define DL10_BASE_ADDR_CUR                        0x1c94
+#define DL10_END_ADDR_MSB_CUR                     0x1c98
+#define DL10_END_ADDR_CUR                         0x1c9c
+#define DL11_BASE_ADDR_MSB_CUR                    0x1ca0
+#define DL11_BASE_ADDR_CUR                        0x1ca4
+#define DL11_END_ADDR_MSB_CUR                     0x1ca8
+#define DL11_END_ADDR_CUR                         0x1cac
+#define DL12_BASE_ADDR_MSB_CUR                    0x1cb0
+#define DL12_BASE_ADDR_CUR                        0x1cb4
+#define DL12_END_ADDR_MSB_CUR                     0x1cb8
+#define DL12_END_ADDR_CUR                         0x1cbc
+#define DL13_BASE_ADDR_MSB_CUR                    0x1cc0
+#define DL13_BASE_ADDR_CUR                        0x1cc4
+#define DL13_END_ADDR_MSB_CUR                     0x1cc8
+#define DL13_END_ADDR_CUR                         0x1ccc
+#define HDMI_OUT_BASE_ADDR_MSB_CUR                0x1cd0
+#define HDMI_OUT_BASE_ADDR_CUR                    0x1cd4
+#define HDMI_OUT_END_ADDR_MSB_CUR                 0x1cd8
+#define HDMI_OUT_END_ADDR_CUR                     0x1cdc
+#define DAI_BASE_ADDR_MSB_CUR                     0x1ce0
+#define DAI_BASE_ADDR_CUR                         0x1ce4
+#define DAI_END_ADDR_MSB_CUR                      0x1ce8
+#define DAI_END_ADDR_CUR                          0x1cec
+#define DAI2_BASE_ADDR_MSB_CUR                    0x1cf0
+#define DAI2_BASE_ADDR_CUR                        0x1cf4
+#define DAI2_END_ADDR_MSB_CUR                     0x1cf8
+#define DAI2_END_ADDR_CUR                         0x1cfc
+#define MOD_DAI_BASE_ADDR_MSB_CUR                 0x1d00
+#define MOD_DAI_BASE_ADDR_CUR                     0x1d04
+#define MOD_DAI_END_ADDR_MSB_CUR                  0x1d08
+#define MOD_DAI_END_ADDR_CUR                      0x1d0c
 
-#define AFE_MAX_REGISTER AFE_AGENT_ON_CLR
+
+#define AFE_MAX_REGISTER MOD_DAI_END_ADDR_CUR
 
 #define AFE_IRQ_STATUS_BITS 0x87FFFFFF
 #define AFE_IRQ_CNT_SHIFT 0

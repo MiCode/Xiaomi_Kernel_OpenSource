@@ -412,6 +412,18 @@ static struct snd_soc_dai_driver mt6985_memif_dai_driver[] = {
 		.ops = &mt6985_memif_dai_ops,
 	},
 	{
+		.name = "DL13",
+		.id = MT6985_MEMIF_DL13,
+		.playback = {
+			.stream_name = "DL13",
+			.channels_min = 1,
+			.channels_max = 2,
+			.rates = MTK_PCM_RATES,
+			.formats = MTK_PCM_FORMATS,
+		},
+		.ops = &mt6985_memif_dai_ops,
+	},
+	{
 		.name = "UL1",
 		.id = MT6985_MEMIF_VUL12,
 		.capture = {
@@ -512,6 +524,30 @@ static struct snd_soc_dai_driver mt6985_memif_dai_driver[] = {
 		.id = MT6985_MEMIF_VUL7,
 		.capture = {
 			.stream_name = "UL9",
+			.channels_min = 1,
+			.channels_max = 2,
+			.rates = MTK_PCM_RATES,
+			.formats = MTK_PCM_FORMATS,
+		},
+		.ops = &mt6985_memif_dai_ops,
+	},
+	{
+		.name = "UL10",
+		.id = MT6985_MEMIF_VUL10,
+		.capture = {
+			.stream_name = "UL10",
+			.channels_min = 1,
+			.channels_max = 2,
+			.rates = MTK_PCM_RATES,
+			.formats = MTK_PCM_FORMATS,
+		},
+		.ops = &mt6985_memif_dai_ops,
+	},
+	{
+		.name = "UL11",
+		.id = MT6985_MEMIF_VUL11,
+		.capture = {
+			.stream_name = "UL11",
 			.channels_min = 1,
 			.channels_max = 2,
 			.rates = MTK_PCM_RATES,
@@ -1619,6 +1655,16 @@ static const struct snd_kcontrol_new memif_ul9_ch2_mix[] = {
 				    I_ADDA_UL_CH2, 1, 0),
 };
 
+static const struct snd_kcontrol_new memif_ul11_ch1_mix[] = {
+	SOC_DAPM_SINGLE_AUTODISABLE("I2S8_CH1", AFE_CONN86_1,
+				    I_I2S8_CH1, 1, 0),
+};
+
+static const struct snd_kcontrol_new memif_ul11_ch2_mix[] = {
+	SOC_DAPM_SINGLE_AUTODISABLE("I2S8_CH2", AFE_CONN87_1,
+				    I_I2S8_CH2, 1, 0),
+};
+
 static const struct snd_kcontrol_new memif_ul_mono_1_mix[] = {
 	SOC_DAPM_SINGLE_AUTODISABLE("PCM_1_CAP_CH1", AFE_CONN12,
 				    I_PCM_1_CAP_CH1, 1, 0),
@@ -1752,6 +1798,11 @@ static const struct snd_soc_dapm_widget mt6985_memif_widgets[] = {
 			   memif_ul9_ch1_mix, ARRAY_SIZE(memif_ul9_ch1_mix)),
 	SND_SOC_DAPM_MIXER("UL9_CH2", SND_SOC_NOPM, 0, 0,
 			   memif_ul9_ch2_mix, ARRAY_SIZE(memif_ul9_ch2_mix)),
+
+	SND_SOC_DAPM_MIXER("UL11_CH1", SND_SOC_NOPM, 0, 0,
+			   memif_ul11_ch1_mix, ARRAY_SIZE(memif_ul11_ch1_mix)),
+	SND_SOC_DAPM_MIXER("UL11_CH2", SND_SOC_NOPM, 0, 0,
+			   memif_ul11_ch2_mix, ARRAY_SIZE(memif_ul11_ch2_mix)),
 
 	SND_SOC_DAPM_MIXER("UL_MONO_1_CH1", SND_SOC_NOPM, 0, 0,
 			   memif_ul_mono_1_mix,
@@ -1921,6 +1972,12 @@ static const struct snd_soc_dapm_route mt6985_memif_routes[] = {
 	{"UL9_CH2", "SRC_1_OUT_CH2", "HW_SRC_1_Out"},
 	{"UL9_CH1", "ADDA_UL_CH1", "ADDA_UL_Mux"},
 	{"UL9_CH2", "ADDA_UL_CH2", "ADDA_UL_Mux"},
+
+	{"UL11", NULL, "UL11_CH1"},
+	{"UL11", NULL, "UL11_CH2"},
+
+	{"UL11_CH1", "I2S8_CH1", "I2S8"},
+	{"UL11_CH2", "I2S8_CH2", "I2S8"},
 
 	{"DL_TO_DSP", NULL, "Hostless_DSP_DL DL"},
 	{"Hostless_DSP_DL DL", NULL, "DSP_DL"},
@@ -2227,6 +2284,35 @@ static const struct mtk_base_memif_data memif_data[MT6985_MEMIF_NUM] = {
 		.minlen_mask = DL9_MINLEN_MASK,
 		.minlen_shift = DL9_MINLEN_SFT,
 	},
+	[MT6985_MEMIF_DL13] = {
+		.name = "DL13",
+		.id = MT6985_MEMIF_DL13,
+		.reg_ofs_base = AFE_DL13_BASE,
+		.reg_ofs_cur = AFE_DL13_CUR,
+		.reg_ofs_end = AFE_DL13_END,
+		.reg_ofs_base_msb = AFE_DL13_BASE_MSB,
+		.reg_ofs_cur_msb = AFE_DL13_CUR_MSB,
+		.reg_ofs_end_msb = AFE_DL13_END_MSB,
+		.fs_reg = AFE_DL13_CON0,
+		.fs_shift = DL13_MODE_SFT,
+		.fs_maskbit = DL13_MODE_MASK,
+		.mono_reg = AFE_DL13_CON0,
+		.mono_shift = DL13_MONO_SFT,
+		.enable_reg = AFE_AGENT_ON,
+		.enable_shift = DL13_ON_SFT,
+		.hd_reg = AFE_DL13_CON0,
+		.hd_shift = DL13_HD_MODE_SFT,
+		.agent_disable_reg = -1,
+		.agent_disable_shift = -1,
+		.msb_reg = -1,
+		.msb_shift = -1,
+		.pbuf_reg = AFE_DL13_CON0,
+		.pbuf_mask = DL13_PBUF_SIZE_MASK,
+		.pbuf_shift = DL13_PBUF_SIZE_SFT,
+		.minlen_reg = AFE_DL13_CON0,
+		.minlen_mask = DL13_MINLEN_MASK,
+		.minlen_shift = DL13_MINLEN_SFT,
+	},
 	[MT6985_MEMIF_DAI] = {
 		.name = "DAI",
 		.id = MT6985_MEMIF_DAI,
@@ -2504,6 +2590,52 @@ static const struct mtk_base_memif_data memif_data[MT6985_MEMIF_NUM] = {
 		.enable_shift = VUL7_ON_SFT,
 		.hd_reg = AFE_VUL7_CON0,
 		.hd_shift = VUL7_HD_MODE_SFT,
+		.agent_disable_reg = -1,
+		.agent_disable_shift = -1,
+		.msb_reg = -1,
+		.msb_shift = -1,
+	},
+	[MT6985_MEMIF_VUL10] = {
+		.name = "VUL10",
+		.id = MT6985_MEMIF_VUL10,
+		.reg_ofs_base = AFE_VUL10_BASE,
+		.reg_ofs_cur = AFE_VUL10_CUR,
+		.reg_ofs_end = AFE_VUL10_END,
+		.reg_ofs_base_msb = AFE_VUL10_BASE_MSB,
+		.reg_ofs_cur_msb = AFE_VUL10_CUR_MSB,
+		.reg_ofs_end_msb = AFE_VUL10_END_MSB,
+		.fs_reg = AFE_VUL10_CON0,
+		.fs_shift = VUL10_MODE_SFT,
+		.fs_maskbit = VUL10_MODE_MASK,
+		.mono_reg = AFE_VUL10_CON0,
+		.mono_shift = VUL10_MONO_SFT,
+		.enable_reg = AFE_AGENT_ON,// TODO: does this need to be modified?
+		.enable_shift = VUL10_ON_SFT,
+		.hd_reg = AFE_VUL10_CON0,
+		.hd_shift = VUL10_HD_MODE_SFT,
+		.agent_disable_reg = -1,
+		.agent_disable_shift = -1,
+		.msb_reg = -1,
+		.msb_shift = -1,
+	},
+	[MT6985_MEMIF_VUL11] = {
+		.name = "VUL11",
+		.id = MT6985_MEMIF_VUL11,
+		.reg_ofs_base = AFE_VUL11_BASE,
+		.reg_ofs_cur = AFE_VUL11_CUR,
+		.reg_ofs_end = AFE_VUL11_END,
+		.reg_ofs_base_msb = AFE_VUL11_BASE_MSB,
+		.reg_ofs_cur_msb = AFE_VUL11_CUR_MSB,
+		.reg_ofs_end_msb = AFE_VUL11_END_MSB,
+		.fs_reg = AFE_VUL11_CON0,
+		.fs_shift = VUL11_MODE_SFT,
+		.fs_maskbit = VUL11_MODE_MASK,
+		.mono_reg = AFE_VUL11_CON0,
+		.mono_shift = VUL11_MONO_SFT,
+		.enable_reg = AFE_AGENT_ON,// TODO: does this need to be modified?
+		.enable_shift = VUL11_ON_SFT,
+		.hd_reg = AFE_VUL11_CON0,
+		.hd_shift = VUL11_HD_MODE_SFT,
 		.agent_disable_reg = -1,
 		.agent_disable_shift = -1,
 		.msb_reg = -1,
@@ -3043,6 +3175,9 @@ static const int memif_irq_usage[MT6985_MEMIF_NUM] = {
 	[MT6985_MEMIF_VUL5] = MT6985_IRQ_19,
 	[MT6985_MEMIF_VUL6] = MT6985_IRQ_20,
 	[MT6985_MEMIF_VUL7] = MT6985_IRQ_21,
+	[MT6985_MEMIF_VUL10] = MT6985_IRQ_22,
+	[MT6985_MEMIF_VUL11] = MT6985_IRQ_23,
+	[MT6985_MEMIF_DL13] = MT6985_IRQ_24,
 	[MT6985_MEMIF_HDMI] = MT6985_IRQ_31,
 };
 
