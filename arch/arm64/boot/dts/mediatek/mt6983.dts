@@ -14851,6 +14851,8 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 	regulator-min-microvolt = <0>;
 };
 
+/delete-node/ &mt6363_vbuck4_sshub;
+
 &mddriver {
 	/* for md pmic voltage setting*/
 	md_vmodem-supply = <&mt6363_vbuck6>;
