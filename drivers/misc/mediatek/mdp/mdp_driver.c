@@ -229,6 +229,7 @@ void cmdq_driver_dump_readback(dma_addr_t *addrs, u32 count, u32 *values)
 {
 	u32 i, n, len, cur;
 	char buf[72];
+	int ret;
 
 	if (likely(!cmdq_core_profile_pqreadback_enabled() &&
 		!cmdq_core_profile_pqreadback_once_enabled()))
@@ -238,14 +239,24 @@ void cmdq_driver_dump_readback(dma_addr_t *addrs, u32 count, u32 *values)
 
 	i = 0;
 	while (i < count) {
-		len = snprintf(buf, sizeof(buf), "%#lx:", addrs[i]);
+		ret = snprintf(buf, sizeof(buf), "%#lx:", addrs[i]);
+		if (ret < 0)
+			CMDQ_ERR("%s snprintf failed!!!\n", __func__);
+		else
+			len = ret;
+
 		cur = addrs[i] & 0xFFFFFFF0;
 
 		/* limit max num 4 in line */
 		for (n = 0; n < 4 && i < count &&
 			cur == (addrs[i] & 0xFFFFFFF0); n++) {
-			len += snprintf(buf + len, sizeof(buf) - len,
+			ret = snprintf(buf + len, sizeof(buf) - len,
 				" %#010x", values[i]);
+			if (ret < 0)
+				CMDQ_ERR("%s snprintf failed!!!\n", __func__);
+			else
+				len += ret;
+
 			i++;
 		}
 
@@ -590,9 +601,6 @@ static s32 cmdq_driver_copy_handle_prop_from_user(void *from, u32 size,
 {
 	void *task_prop = NULL;
 
-	/* considering backward compatible,
-	 * we won't return error when argument not available
-	 */
 	if (from && size && to) {
 		task_prop = kzalloc(size, GFP_KERNEL);
 		if (!task_prop) {
@@ -609,9 +617,6 @@ static s32 cmdq_driver_copy_handle_prop_from_user(void *from, u32 size,
 		}
 
 		*to = task_prop;
-	} else {
-		CMDQ_LOG("Initialize prop_addr to NULL...\n");
-		*to = NULL;
 	}
 
 	return 0;
@@ -631,7 +636,7 @@ static void cmdq_release_handle_property(void **prop_addr, u32 *prop_size)
 
 s32 cmdq_driver_ioctl_exec_command(struct file *pf, unsigned long param)
 {
-	struct cmdqCommandStruct command;
+	struct cmdqCommandStruct command = {0};
 	struct task_private desc_private = {0};
 	s32 status;
 
@@ -639,7 +644,8 @@ s32 cmdq_driver_ioctl_exec_command(struct file *pf, unsigned long param)
 		sizeof(struct cmdqCommandStruct)))
 		return -EFAULT;
 
-	if (command.regRequest.count > CMDQ_MAX_DUMP_REG_COUNT ||
+	if (!command.regRequest.count ||
+		command.regRequest.count > CMDQ_MAX_DUMP_REG_COUNT ||
 		!command.blockSize ||
 		command.blockSize > CMDQ_MAX_COMMAND_SIZE ||
 		command.prop_size > CMDQ_MAX_USER_PROP_SIZE) {
@@ -692,7 +698,7 @@ s32 cmdq_driver_ioctl_query_usage(struct file *pf, unsigned long param)
 s32 cmdq_driver_ioctl_async_job_exec(struct file *pf,
 	unsigned long param)
 {
-	struct cmdqJobStruct job;
+	struct cmdqJobStruct job = {0};
 	struct task_private desc_private = {0};
 	struct cmdqRecStruct *handle = NULL;
 	u32 userRegCount;
@@ -793,7 +799,7 @@ s32 cmdq_driver_ioctl_async_job_exec(struct file *pf,
 
 s32 cmdq_driver_ioctl_async_job_wait_and_close(unsigned long param)
 {
-	struct cmdqJobResultStruct jobResult;
+	struct cmdqJobResultStruct jobResult = {0};
 	struct cmdqRecStruct *handle;
 	u32 *userRegValue = NULL;
 	/* backup value after task release */
@@ -849,13 +855,13 @@ s32 cmdq_driver_ioctl_async_job_wait_and_close(unsigned long param)
 	 * which contains kernel + user space requests
 	 */
 	userRegValue = CMDQ_U32_PTR(jobResult.regValue.regValues);
-	jobResult.regValue.regValues = (cmdqU32Ptr_t)(unsigned long)(
-		kzalloc(handle->reg_count + sizeof(u32), GFP_KERNEL));
-	jobResult.regValue.count = handle->reg_count;
-	if (CMDQ_U32_PTR(jobResult.regValue.regValues) == NULL) {
+	if (!userRegValue) {
 		CMDQ_ERR("no reg value buffer\n");
 		return -ENOMEM;
 	}
+	jobResult.regValue.regValues = (cmdqU32Ptr_t)(unsigned long)(
+		kzalloc(handle->reg_count + sizeof(u32), GFP_KERNEL));
+	jobResult.regValue.count = handle->reg_count;
 
 	/* wait for task done */
 	status = cmdq_mdp_wait(handle, &jobResult.regValue);

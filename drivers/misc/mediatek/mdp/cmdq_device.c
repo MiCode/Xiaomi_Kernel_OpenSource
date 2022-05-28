@@ -307,7 +307,7 @@ void cmdq_dev_get_subsys_by_name(struct device_node *node,
 	struct SubsysStruct *gceSubsysStruct = NULL;
 
 	do {
-		if (subsys < 0 || subsys >= (u32)CMDQ_SUBSYS_MAX_COUNT)
+		if (subsys >= (u32)CMDQ_SUBSYS_MAX_COUNT)
 			break;
 
 		gceSubsysStruct = cmdq_core_get_dts_data()->subsys;
@@ -331,7 +331,7 @@ void cmdq_dev_test_subsys_correctness_impl(enum CMDQ_SUBSYS_ENUM subsys)
 {
 	struct SubsysStruct *gceSubsysStruct = NULL;
 
-	if (subsys >= 0 && subsys < CMDQ_SUBSYS_MAX_COUNT) {
+	if (subsys < CMDQ_SUBSYS_MAX_COUNT) {
 		gceSubsysStruct = cmdq_core_get_dts_data()->subsys;
 
 		if (gceSubsysStruct[subsys].subsysID != -1) {
@@ -433,7 +433,7 @@ void cmdq_dev_init_resource(CMDQ_DEV_INIT_RESOURCE_CB init_cb)
 		return;
 
 	for (index = 0; index < count; index++) {
-		u32 engine, event;
+		u32 engine = 0, event = 0;
 
 		status = of_property_read_u32_index(
 			gCmdqDev.pDev->of_node, "sram_share_engine",

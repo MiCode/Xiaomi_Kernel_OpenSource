@@ -612,6 +612,11 @@ static void cmdq_mdp_lock_thread(struct cmdqRecStruct *handle)
 	u64 engine_flag = handle->engineFlag;
 	s32 thread = handle->thread;
 
+	if (unlikely(thread < 0)) {
+		CMDQ_ERR("%s invalid thread:%d engine:0x%llx\n",
+			__func__, thread, engine_flag);
+		return;
+	}
 	/* engine clocks enable flag decide here but call clock on before flush
 	 * common clock enable here to avoid disable when mdp engines still
 	 * need use for later tasks
@@ -672,6 +677,11 @@ void cmdq_mdp_unlock_thread(struct cmdqRecStruct *handle)
 	u64 engine_flag = handle->engineFlag;
 	s32 thread = handle->thread;
 
+	if (unlikely(thread < 0)) {
+		CMDQ_ERR("%s invalid thread:%d engine:0x%llx\n",
+			__func__, thread, engine_flag);
+		return;
+	}
 	mutex_lock(&mdp_thread_mutex);
 
 	/* get not use engine using engine flag for disable clock. */
@@ -924,7 +934,7 @@ static s32 cmdq_mdp_consume_handle(void)
 	CMDQ_PROF_MMP(mdp_mmp_get_event()->consume_done, MMPROFILE_FLAG_START,
 		current->pid, 0);
 
-	handle = list_first_entry_or_null(&mdp_ctx.tasks_wait, typeof(*handle),
+	handle = list_first_entry_or_null(&mdp_ctx.tasks_wait, struct cmdqRecStruct,
 		list_entry);
 	if (handle)
 		secure_run = handle->secData.is_secure;
@@ -952,6 +962,11 @@ static s32 cmdq_mdp_consume_handle(void)
 				"fail to get thread handle:0x%p engine:0x%llx\n",
 				handle, handle->engineFlag);
 			continue;
+		}
+
+		if (handle->thread < 0) {
+			CMDQ_ERR("%s handle->thread:%d is invalid!!!\n",
+				__func__, handle->thread);
 		}
 
 		/* lock thread for counting and clk */
@@ -1041,7 +1056,7 @@ static s32 cmdq_mdp_copy_cmd_to_task(struct cmdqRecStruct *handle,
 static void cmdq_mdp_store_debug(struct cmdqCommandStruct *desc,
 	struct cmdqRecStruct *handle)
 {
-	u32 len;
+	s32 len;
 
 	if (!desc->userDebugStr || !desc->userDebugStrLen)
 		return;
@@ -1159,6 +1174,10 @@ static s32 cmdq_mdp_setup_sec(struct cmdqCommandStruct *desc,
 	 * and it is necessary to know client first before append backup code.
 	 */
 	cl = cmdq_helper_mbox_client(handle->thread);
+	if (unlikely(!cl)) {
+		CMDQ_ERR("%s: secure client is invalid, thread:%d\n", __func__, handle->thread);
+		return -EINVAL;
+	}
 	handle->pkt->cl = (void *)cl;
 	handle->pkt->dev = cl->chan->mbox->dev;
 
@@ -1182,6 +1201,14 @@ static s32 cmdq_mdp_setup_sec(struct cmdqCommandStruct *desc,
 
 	cmdq_sec_pkt_set_data(handle->pkt, dapc, port,
 		CMDQ_SEC_USER_MDP, meta_type);
+
+	if (desc->secData.addrMetadataCount >=
+		CMDQ_IWC_MAX_ADDR_LIST_LENGTH) {
+		CMDQ_ERR("addrMetadataCount %u reach the max %u\n",
+			 desc->secData.addrMetadataCount,
+			 CMDQ_IWC_MAX_ADDR_LIST_LENGTH);
+		return -EFAULT;
+	}
 
 	cmdq_sec_pkt_assign_metadata(handle->pkt,
 		desc->secData.addrMetadataCount,
@@ -1303,7 +1330,7 @@ s32 cmdq_mdp_handle_sec_setup(struct cmdqSecDataStruct *secData,
 #ifdef CMDQ_SECURE_PATH_SUPPORT
 	u64 dapc, port;
 	enum cmdq_sec_meta_type meta_type = CMDQ_METAEX_NONE;
-	void *user_addr_meta = CMDQ_U32_PTR(secData->addrMetadatas);
+	void *user_addr_meta = NULL;
 	void *addr_meta = NULL;
 	u32 addr_meta_size;
 	struct cmdq_client *cl = NULL;
@@ -1329,6 +1356,14 @@ s32 cmdq_mdp_handle_sec_setup(struct cmdqSecDataStruct *secData,
 		return -EINVAL;
 	}
 
+	if (secData->addrMetadataCount >= CMDQ_IWC_MAX_ADDR_LIST_LENGTH) {
+		CMDQ_ERR(
+			"[secData]addrMetadataCount %u reach the max %u\n",
+			 secData->addrMetadataCount, CMDQ_IWC_MAX_ADDR_LIST_LENGTH);
+		return -EINVAL;
+	}
+	user_addr_meta = CMDQ_U32_PTR(secData->addrMetadatas);
+
 	dapc = cmdq_mdp_get_func()->mdpGetSecEngine(
 		secData->enginesNeedDAPC);
 	port = cmdq_mdp_get_func()->mdpGetSecEngine(
@@ -1340,6 +1375,10 @@ s32 cmdq_mdp_handle_sec_setup(struct cmdqSecDataStruct *secData,
 	 * and it is necessary to know client first before append backup code.
 	 */
 	cl = cmdq_helper_mbox_client(handle->thread);
+	if (unlikely(!cl)) {
+		CMDQ_ERR("%s: secure client is invalid, thread:%d\n", __func__, handle->thread);
+		return -EINVAL;
+	}
 	handle->pkt->cl = (void *)cl;
 	handle->pkt->dev = cl->chan->mbox->dev;
 
@@ -1743,6 +1782,11 @@ static void cmdq_mdp_pool_create(void)
 {
 	if (unlikely(mdp_pool.pool)) {
 		cmdq_msg("mdp buffer pool already created");
+		return;
+	}
+
+	if (unlikely(!cmdq_mbox_dev_get())) {
+		CMDQ_ERR("%s mbox device is not exist\n", __func__);
 		return;
 	}
 
@@ -2332,6 +2376,11 @@ const char *cmdq_mdp_dispatch_virtual(u64 engineFlag)
 
 void cmdq_mdp_trackTask_virtual(const struct cmdqRecStruct *task)
 {
+	if (unlikely(mdp_tasks_idx < 0)) {
+		CMDQ_ERR("%s mdp_tasks_idx:%d\n", __func__, mdp_tasks_idx);
+		return;
+	}
+
 	if (task) {
 		memcpy(mdp_tasks[mdp_tasks_idx].callerName,
 			task->caller_name, sizeof(task->caller_name));
@@ -2431,7 +2480,7 @@ static void mdp_request_voltage(unsigned long frequency, bool is_mdp)
 		low_volt = volts[index];
 	}
 
-	CMDQ_LOG_PMQOS("%s is_mdp %d, frequency %u, low_volt %d\n",
+	CMDQ_LOG_PMQOS("%s is_mdp %d, frequency %lu, low_volt %d\n",
 		__func__, is_mdp, frequency, low_volt);
 
 	if (is_mdp) {
@@ -2466,10 +2515,10 @@ static void mdp_update_voltage(u32 thread_id, u64 freq, bool is_mdp)
 	u32 i;
 	unsigned long max_freq = 0;
 
-	CMDQ_LOG_PMQOS("%s thread %u freq %u, is_mdp %u\n",
+	CMDQ_LOG_PMQOS("%s thread %u freq %llu, is_mdp %u\n",
 		__func__, thread_id, freq, is_mdp);
 
-	CMDQ_SYSTRACE_BEGIN("%s %u %u\n", __func__, thread_id, freq);
+	CMDQ_SYSTRACE_BEGIN("%s %u %llu\n", __func__, thread_id, freq);
 	mdp_current_freq[thread_id] = freq;
 
 	/* scan for max freq */
@@ -2711,7 +2760,7 @@ static void cmdq_mdp_begin_task_virtual(struct cmdqRecStruct *handle,
 
 		for (i = 0; i < PMQOS_MDP_PORT_NUM
 			&& target_pmqos->qos2_mdp_count > i
-			&& target_pmqos->qos2_mdp_port[i] >= 0; i++) {
+			&& target_pmqos->qos2_mdp_port[i]; i++) {
 			u32 port = cmdq_mdp_get_func()->qosTransPort(
 					target_pmqos->qos2_mdp_port[i]);
 			struct icc_path *port_path =
@@ -2968,8 +3017,7 @@ static void cmdq_mdp_end_task_virtual(struct cmdqRecStruct *handle,
 		/* turn off current first */
 		for (i = 0; i < PMQOS_ISP_PORT_NUM &&
 			mdp_curr_pmqos->qos2_isp_count > i &&
-			mdp_curr_pmqos->qos2_isp_port[i] >= 0; i++) {
-
+			mdp_curr_pmqos->qos2_isp_port[i]; i++) {
 			struct icc_path *port_path =
 				cmdq_mdp_get_func()->qosGetPath(thread_id,
 				mdp_curr_pmqos->qos2_isp_port[i]);
@@ -2983,7 +3031,7 @@ static void cmdq_mdp_end_task_virtual(struct cmdqRecStruct *handle,
 		/* turn on next ports */
 		for (i = 0; i < PMQOS_ISP_PORT_NUM &&
 			target_pmqos->qos2_isp_count > i &&
-			target_pmqos->qos2_isp_port[i] >= 0; i++) {
+			target_pmqos->qos2_isp_port[i]; i++) {
 
 			struct icc_path *port_path =
 				cmdq_mdp_get_func()->qosGetPath(thread_id,
@@ -3017,7 +3065,7 @@ static void cmdq_mdp_end_task_virtual(struct cmdqRecStruct *handle,
 		/* turn off current first */
 		for (i = 0; i < PMQOS_MDP_PORT_NUM &&
 			mdp_curr_pmqos->qos2_mdp_count > i &&
-			mdp_curr_pmqos->qos2_mdp_port[i] >= 0; i++) {
+			mdp_curr_pmqos->qos2_mdp_port[i]; i++) {
 
 			u32 port = cmdq_mdp_get_func()->qosTransPort(
 				mdp_curr_pmqos->qos2_mdp_port[i]);
@@ -3034,7 +3082,7 @@ static void cmdq_mdp_end_task_virtual(struct cmdqRecStruct *handle,
 		/* turn on next ports */
 		for (i = 0; i < PMQOS_MDP_PORT_NUM &&
 			target_pmqos->qos2_mdp_count > i &&
-			target_pmqos->qos2_mdp_port[i] >= 0; i++) {
+			target_pmqos->qos2_mdp_port[i]; i++) {
 
 			u32 port = cmdq_mdp_get_func()->qosTransPort(
 					target_pmqos->qos2_mdp_port[i]);
@@ -3147,7 +3195,7 @@ static u32 mdp_get_dummy_wpe(void)
 	return 0;
 }
 
-static const char *const mdp_get_engine_group_name(void)
+static const char **const mdp_get_engine_group_name(void)
 {
 	return NULL;
 }
@@ -4398,10 +4446,9 @@ phys_addr_t cmdq_mdp_get_hw_reg(u32 base, u16 offset)
 	mdp_base = mdp_engine_base_get();
 
 	if (!count || !mdp_base) {
-		CMDQ_ERR("%s count:%u base:%lx\n", __func__, count, mdp_base);
+		CMDQ_ERR("%s count:%u base:%pa\n", __func__, count, &mdp_base);
 		return 0;
 	}
-
 
 	if (offset > 0x1000) {
 		CMDQ_ERR("%s: invalid offset:%#x\n", __func__, offset);
@@ -4427,7 +4474,7 @@ phys_addr_t cmdq_mdp_get_hw_reg_msb(u32 base, u16 offset)
 	mdp_base = mdp_engine_base_get();
 
 	if (!count || !mdp_base) {
-		CMDQ_ERR("%s count:%u base:%lx\n", __func__, count, mdp_base);
+		CMDQ_ERR("%s count:%u base:%pa\n", __func__, count, &mdp_base);
 		return 0;
 	}
 

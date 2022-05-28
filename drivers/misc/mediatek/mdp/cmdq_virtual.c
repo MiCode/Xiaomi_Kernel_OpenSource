@@ -43,7 +43,7 @@ u64 cmdq_virtual_flag_from_scenario_default(enum CMDQ_SCENARIO_ENUM scn)
 		break;
 
 	default:
-		if (scn < 0 || scn >= CMDQ_MAX_SCENARIO_COUNT) {
+		if (scn >= CMDQ_MAX_SCENARIO_COUNT) {
 			/* Error status print */
 			CMDQ_ERR("Unknown scenario type %d\n", scn);
 		}
