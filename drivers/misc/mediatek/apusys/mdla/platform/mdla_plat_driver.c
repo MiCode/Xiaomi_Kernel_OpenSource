@@ -80,7 +80,7 @@ int mdla_plat_init(struct platform_device *pdev)
 	struct mdla_plat_drv *drv;
 	u32 major_ver = 0;
 
-	of_property_read_u32(dev->of_node, "core_num", &nr_core_ids);
+	of_property_read_u32(dev->of_node, "core-num", &nr_core_ids);
 	if (nr_core_ids > MAX_CORE_NUM) {
 		dev_info(dev, "Invalid core number: %d\n", nr_core_ids);
 		nr_core_ids = 1;
