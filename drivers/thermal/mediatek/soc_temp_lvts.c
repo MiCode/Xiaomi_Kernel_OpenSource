@@ -107,7 +107,7 @@ static unsigned int lvts_temp_to_raw_v1(struct formula_coeff *co, unsigned int s
 {
 	unsigned int msr_raw = 0;
 
-	msr_raw = ((long long)((co->golden_temp * 500 - co->a[0] - temp)) << 14)
+	msr_raw = ((long long)(((long long)co->golden_temp * 500 - co->a[0] - temp)) << 14)
 		/ (-1 * co->a[0]);
 
 	return msr_raw;
@@ -1262,6 +1262,11 @@ static int prepare_calibration_data(struct lvts_data *lvts_data)
 	dev_info(dev, "%s\n", buffer);
 
 	offset = snprintf(buffer, size, "[lvts_cal] num_tc:g_golden_temp");
+	if (offset < 0)
+		return -EINVAL;
+	if (offset >= size)
+		return -ENOMEM;
+
 	for (i = 0; i < lvts_data->num_tc; i++)
 		offset += snprintf(buffer + offset, size - offset, "%d:%d ",
 				i, tc[i].coeff.golden_temp);
@@ -1719,9 +1724,9 @@ static int device_read_count_rc_n_v4(struct lvts_data *lvts_data)
 	struct device *dev = lvts_data->dev;
 	struct tc_settings *tc = lvts_data->tc;
 	struct sensor_cal_data *cal_data = &lvts_data->cal_data;
-	unsigned int offset, size, s_index, data;
+	unsigned int size, s_index, data;
 	void __iomem *base;
-	int ret, i, j;
+	int ret, i, j, offset;
 	char buffer[512];
 
 
@@ -2452,9 +2457,9 @@ static int mt6893_device_read_count_rc_n(struct lvts_data *lvts_data)
 	struct device *dev = lvts_data->dev;
 	struct tc_settings *tc = lvts_data->tc;
 	struct sensor_cal_data *cal_data = &lvts_data->cal_data;
-	unsigned int offset, size, s_index, data;
+	unsigned int size, s_index, data;
 	void __iomem *base;
-	int ret, i, j;
+	int ret, i, j, offset;
 	char buffer[512];
 	unsigned int  rc_data;
 	int refine_data_idx[4] = {0};
