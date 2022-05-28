@@ -354,7 +354,7 @@
 
 	lastbus: lastbus {
 		compatible = "mediatek,lastbus";
-		enabled = <0>;
+		enabled = <1>;
 		sw_version = <1>;
 		timeout_ms = <200>;
 		timeout_type = <0>;
@@ -362,20 +362,22 @@
 			monitor1 {
 				monitor_name = "debug_ctrl_ao_INFRA_AO";
 				base = <0x10023000>;
-				num_ports = <76>;
+				num_ports = <39>;
 				bus_freq_mhz = <78>;
 			};
 			monitor2 {
 				monitor_name = "debug_ctrl_ao_INFRA_AO1";
 				base = <0x1002b000>;
-				num_ports = <164>;
+				num_ports = <60>;
 				bus_freq_mhz = <78>;
 			};
 			monitor3 {
 				monitor_name = "debug_ctrl_ao_EMI_AO";
 				base = <0x10042000>;
-				num_ports = <17>;
-				bus_freq_mhz = <78>;
+				num_ports = <20>;
+				idle_masks = <0xc 0xffff8000>,
+					       <0x10 0x3fff>;
+				bus_freq_mhz = <625>;
 			};
 			monitor4 {
 				monitor_name = "debug_ctrl_ao_PERI_PAR_AO";
