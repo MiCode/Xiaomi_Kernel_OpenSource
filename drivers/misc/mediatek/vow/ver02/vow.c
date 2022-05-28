@@ -2528,6 +2528,10 @@ static long VowDrv_ioctl(struct file *fp, unsigned int cmd, unsigned long arg)
 			ret = -EFAULT;
 		break;
 	case VOW_CHECK_STATUS:
+		if (arg != 0) {
+			VOWDRV_DEBUG("VOW_CHECK_STATUS(%lu) para err, break", arg);
+			break;
+		}
 		/* VOW disable already, then bypass second one */
 		VowDrv_ChangeStatus();
 		VOWDRV_DEBUG("VOW_CHECK_STATUS(%lu)", arg);
