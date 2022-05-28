@@ -12,9 +12,11 @@
 
 enum UARTHUB_baud_rate {
 	baud_rate_unknown = -1,
-	baud_rate_3m = 0,
-	baud_rate_4m,
-	baud_rate_12m,
+	baud_rate_115200 = 115200,
+	baud_rate_3m = 3000000,
+	baud_rate_4m = 4000000,
+	baud_rate_12m = 12000000,
+	baud_rate_24m = 24000000,
 };
 
 enum UARTHUB_irq_err_type {
@@ -59,6 +61,7 @@ typedef void (*UARTHUB_IRQ_CB) (enum UARTHUB_irq_err_type err_type);
 #define KERNEL_UARTHUB_sw_reset                   UARTHUB_sw_reset
 #define KERNEL_UARTHUB_md_adsp_fifo_ctrl          UARTHUB_md_adsp_fifo_ctrl
 #define KERNEL_UARTHUB_dump_debug_info            UARTHUB_dump_debug_info
+#define KERNEL_UARTHUB_dump_debug_info_with_tag   UARTHUB_dump_debug_info_with_tag
 #define KERNEL_UARTHUB_loopback_test              UARTHUB_loopback_test
 
 int UARTHUB_open(void);
@@ -79,6 +82,7 @@ int UARTHUB_assert_state_ctrl(int assert_ctrl);
 int UARTHUB_sw_reset(void);
 int UARTHUB_md_adsp_fifo_ctrl(int enable);
 int UARTHUB_dump_debug_info(void);
+int UARTHUB_dump_debug_info_with_tag(const char *tag);
 int UARTHUB_loopback_test(int dev_index, int tx_to_rx, int enable);
 
 #endif /* UARTHUB_DRV_EXPORT_H */

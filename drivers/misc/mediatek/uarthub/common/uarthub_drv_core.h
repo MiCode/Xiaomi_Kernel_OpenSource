@@ -25,6 +25,26 @@ struct assert_ctrl {
 	struct work_struct trigger_assert_work;
 };
 
+static char * const UARTHUB_irq_err_type_str[] = {
+	"dev0_crc_err",
+	"dev1_crc_err",
+	"dev2_crc_err",
+	"dev0_tx_timeout_err",
+	"dev1_tx_timeout_err",
+	"dev2_tx_timeout_err",
+	"dev0_tx_pkt_type_err",
+	"dev1_tx_pkt_type_err",
+	"dev2_tx_pkt_type_err",
+	"dev0_rx_timeout_err",
+	"dev1_rx_timeout_err",
+	"dev2_rx_timeout_err",
+	"rx_pkt_type_err",
+	"intfhub_restore_err",
+	"intfhub_dev0_tx_err",
+	"intfhub_dev1_tx_err",
+	"intfhub_dev2_tx_err"
+};
+
 /*******************************************************************************
  *                              internal function
  *******************************************************************************/
@@ -72,5 +92,6 @@ int uarthub_core_assert_state_ctrl(int assert_ctrl);
 int uarthub_core_reset(void);
 int uarthub_core_loopback_test(int dev_index, int tx_to_rx, int enable);
 int uarthub_core_debug_info(void);
+int uarthub_core_debug_info_with_tag(const char *tag);
 
 #endif /* UARTHUB_DRV_CORE_H */
