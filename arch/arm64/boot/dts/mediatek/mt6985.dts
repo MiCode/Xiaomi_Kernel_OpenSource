@@ -1267,6 +1267,61 @@
 		#clock-cells = <1>;
 	};
 
+	pda: pda@1a180000 {
+		compatible = "mediatek,camera-pda";
+		reg = <0 0x1a180000 0 0x1000>;
+		dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
+		interrupts = <GIC_SPI 500 IRQ_TYPE_LEVEL_HIGH 0>;
+		clocks = <&camsys_mraw_clk CLK_CAM_MR_PDA0>,
+			<&camsys_mraw_clk CLK_CAM_MR_PDA1>,
+			<&camsys_mraw_clk CLK_CAM_MR_LARBX>,
+			<&camsys_main_clk CLK_CAM_MAIN_CAM2MM0_GALS_CON_0>,
+			<&camsys_main_clk CLK_CAM_MAIN_CAM2MM1_GALS_CON_0>,
+			<&camsys_main_clk CLK_CAM_MAIN_CAM_CON_0>;
+		clock-names = "camsys_mraw_pda0",
+				"camsys_mraw_pda1",
+				"mraw_larbx",
+				"cam_main_cam2mm0_gals_cg_con",
+				"cam_main_cam2mm1_gals_cg_con",
+				"cam_main_cam_cg_con";
+		power-domains = <&scpsys MT6985_POWER_DOMAIN_CAM_MRAW>;
+		mediatek,pda2 = <&pda2>;
+		mediatek,larbs = <&smi_larb25>;
+		iommus = <&disp_iommu M4U_PORT_L25_PDAI_A_0>,
+			<&disp_iommu M4U_PORT_L25_PDAI_A_1>,
+			<&disp_iommu M4U_PORT_L25_PDAI_A_2>,
+			<&disp_iommu M4U_PORT_L25_PDAI_A_3>,
+			<&disp_iommu M4U_PORT_L25_PDAI_A_4>,
+			<&disp_iommu M4U_PORT_L25_PDAO_A_0>;
+	};
+
+	pda2: pda2@1a181000 {
+		compatible = "mediatek,camera-pda2";
+		reg = <0 0x1a181000 0 0x1000>;
+		dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
+		interrupts = <GIC_SPI 501 IRQ_TYPE_LEVEL_HIGH 0>;
+		clocks = <&camsys_mraw_clk CLK_CAM_MR_PDA0>,
+			<&camsys_mraw_clk CLK_CAM_MR_PDA1>,
+			<&camsys_mraw_clk CLK_CAM_MR_LARBX>,
+			<&camsys_main_clk CLK_CAM_MAIN_CAM2MM0_GALS_CON_0>,
+			<&camsys_main_clk CLK_CAM_MAIN_CAM2MM1_GALS_CON_0>,
+			<&camsys_main_clk CLK_CAM_MAIN_CAM_CON_0>;
+		clock-names = "camsys_mraw_pda0",
+				"camsys_mraw_pda1",
+				"mraw_larbx",
+				"cam_main_cam2mm0_gals_cg_con",
+				"cam_main_cam2mm1_gals_cg_con",
+				"cam_main_cam_cg_con";
+		power-domains = <&scpsys MT6985_POWER_DOMAIN_CAM_MRAW>;
+		mediatek,larbs = <&smi_larb26>;
+		iommus = <&mdp_iommu M4U_PORT_L26_PDAI_B_0>,
+			<&mdp_iommu M4U_PORT_L26_PDAI_B_1>,
+			<&mdp_iommu M4U_PORT_L26_PDAI_B_2>,
+			<&mdp_iommu M4U_PORT_L26_PDAI_B_3>,
+			<&mdp_iommu M4U_PORT_L26_PDAI_B_4>,
+			<&mdp_iommu M4U_PORT_L26_PDAO_B_0>;
+	};
+
 	camera-fsync-ccu {
 		compatible = "mediatek,camera-fsync-ccu";
 		mediatek,ccu-rproc = <&ccu_rproc>;
