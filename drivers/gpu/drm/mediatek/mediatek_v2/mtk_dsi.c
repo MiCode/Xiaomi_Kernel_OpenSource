@@ -3514,9 +3514,6 @@ static const char *mtk_dsi_mode_spy(enum DSI_MODE_CON mode)
 
 int mtk_dsi_analysis(struct mtk_ddp_comp *comp)
 {
-#ifndef CONFIG_FPGA_EARLY_PORTING
-	struct mtk_dsi *dsi = container_of(comp, struct mtk_dsi, ddp_comp);
-#endif
 	void __iomem *baddr = comp->regs;
 	unsigned int reg_val;
 
@@ -3526,11 +3523,11 @@ int mtk_dsi_analysis(struct mtk_ddp_comp *comp)
 	}
 
 	DDPDUMP("== %s ANALYSIS:0x%x ==\n", mtk_dump_comp_str(comp), comp->regs_pa);
+	if (disp_helper_get_stage() == DISP_HELPER_STAGE_NORMAL) {
+		struct mtk_dsi *dsi = container_of(comp, struct mtk_dsi, ddp_comp);
 
-#ifndef CONFIG_FPGA_EARLY_PORTING
-	DDPDUMP("MIPITX Clock:%d\n",
-		mtk_mipi_tx_pll_get_rate(dsi->phy));
-#endif
+		DDPDUMP("MIPITX Clock:%d\n", mtk_mipi_tx_pll_get_rate(dsi->phy));
+	}
 
 	DDPDUMP("start:%x,busy:%d,DSI_DUAL_EN:%d\n",
 		DISP_REG_GET_FIELD(START_FLD_REG_START, baddr + DSI_START),
