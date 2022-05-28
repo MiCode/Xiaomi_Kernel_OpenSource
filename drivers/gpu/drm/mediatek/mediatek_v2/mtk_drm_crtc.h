@@ -831,7 +831,7 @@ struct mtk_drm_crtc {
 	struct mml_submit *mml_cfg_pq;
 	struct mtk_mml_cb_para mml_cb;
 
-	atomic_t mml_last_job_is_flushed;
+	atomic_t wait_mml_last_job_is_flushed;
 	wait_queue_head_t signal_mml_last_job_is_flushed_wq;
 	bool is_mml;
 	unsigned int mml_debug;

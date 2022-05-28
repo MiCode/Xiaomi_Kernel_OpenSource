@@ -1463,9 +1463,10 @@ static int mtk_atomic_commit(struct drm_device *drm,
 		if (mtk_crtc->is_mml) {
 			ret = wait_event_interruptible(
 				mtk_crtc->signal_mml_last_job_is_flushed_wq
-				, atomic_read(&mtk_crtc->mml_last_job_is_flushed));
-			atomic_set(&(mtk_crtc->mml_last_job_is_flushed), 0);
+				, atomic_read(&mtk_crtc->wait_mml_last_job_is_flushed));
 		}
+		atomic_set(&(mtk_crtc->wait_mml_last_job_is_flushed), 0);
+
 		DRM_MMP_MARK(mutex_lock, (unsigned long)&mtk_crtc->lock, i);
 
 		DDP_MUTEX_LOCK_NESTED(&mtk_crtc->lock, i, __func__, __LINE__);

@@ -4978,7 +4978,7 @@ static void ddp_cmdq_cb(struct cmdq_cb_data data)
 	DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 
 	if (cb_data->is_mml) {
-		atomic_set(&(mtk_crtc->mml_last_job_is_flushed), 1);
+		atomic_set(&(mtk_crtc->wait_mml_last_job_is_flushed), 1);
 		wake_up_interruptible(&(mtk_crtc->signal_mml_last_job_is_flushed_wq));
 	}
 
@@ -10769,7 +10769,7 @@ int mtk_drm_crtc_create(struct drm_device *drm_dev,
 #endif
 	atomic_set(&(mtk_crtc->mml_cb.mml_job_submit_done), 0);
 	init_waitqueue_head(&(mtk_crtc->mml_cb.mml_job_submit_wq));
-	atomic_set(&(mtk_crtc->mml_last_job_is_flushed), 1);
+	atomic_set(&(mtk_crtc->wait_mml_last_job_is_flushed), 0);
 	init_waitqueue_head(&(mtk_crtc->signal_mml_last_job_is_flushed_wq));
 
 	atomic_set(&mtk_crtc->signal_irq_for_pre_fence, 0);
