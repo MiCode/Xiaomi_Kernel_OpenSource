@@ -190,6 +190,16 @@ static int aputop_dbg_set_parameter(int param, int argc, int *args)
 			ret = -EINVAL;
 		}
 		break;
+	case APUPWR_DBG_ARE:
+		if (argc == 1) {
+			rpmsg_data.cmd = APUTOP_ARE_DBG;
+			// args[0] = are hw id
+			rpmsg_data.data0 = args[0];
+			aputop_send_rpmsg(&rpmsg_data, 100);
+		} else {
+			pr_info("%s invalid param num:%d\n", __func__, argc);
+			ret = -EINVAL;
+		}
 	default:
 		pr_info("%s unsupport the pwr param:%d\n", __func__, param);
 		ret = -EINVAL;
@@ -384,6 +394,8 @@ ssize_t mt6985_apu_top_dbg_write(
 		param = APUPWR_DBG_CURR_STATUS;
 	else if (!strcmp(token, "pwr_profiling"))
 		param = APUPWR_DBG_PROFILING;
+	else if (!strcmp(token, "are_dump"))
+		param = APUPWR_DBG_ARE;
 	else {
 		ret = -EINVAL;
 		pr_info("no power param[%s]!\n", token);
