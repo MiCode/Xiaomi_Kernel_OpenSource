@@ -417,6 +417,7 @@ struct dma_buf *aie_imem_sec_alloc(struct mtk_aie_dev *fd, u32 size, bool IsSecu
 		O_CLOEXEC, DMA_HEAP_VALID_HEAP_FLAGS);
 	if (IS_ERR(my_dma_buf)) {
 		dev_info(fd->dev, "buffer alloc fail\n");
+		dma_heap_put(dma_heap);
 		return NULL;
 	}
 	mtk_dma_buf_set_name(my_dma_buf, BUFTAG);
