@@ -978,6 +978,7 @@ static const struct dvfsrc_debug_data mt6985_data = {
 	.config = &mt6983_dvfsrc_config,
 	.opps_desc = dvfsrc_opp_mt6985_desc,
 	.num_opp_desc = ARRAY_SIZE(dvfsrc_opp_mt6985_desc),
+	.spm_stamp_en = true,
 };
 
 static struct dvfsrc_opp dvfsrc_opp_mt6886[] = {
