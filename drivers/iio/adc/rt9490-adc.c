@@ -161,6 +161,11 @@ static int rt9490_adc_probe(struct platform_device *pdev)
 	}
 
 	data = iio_priv(iio_dev);
+	if (!data) {
+		dev_err(&pdev->dev, "Failed to get iio data\n");
+		return -ENODATA;
+	}
+
 	data->dev = &pdev->dev;
 	mutex_init(&data->lock);
 

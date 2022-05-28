@@ -330,8 +330,8 @@ static int rt9758_charger_get_property(struct power_supply *psy,
 {
 	struct rt9758_priv *priv = power_supply_get_drvdata(psy);
 
-	if (IS_ERR_OR_NULL(priv))
-		return PTR_ERR_OR_ZERO(priv);
+	if (!priv)
+		return -ENODATA;
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_STATUS:
@@ -359,8 +359,8 @@ static int rt9758_charger_set_property(struct power_supply *psy,
 {
 	struct rt9758_priv *priv = power_supply_get_drvdata(psy);
 
-	if (IS_ERR_OR_NULL(priv))
-		return PTR_ERR_OR_ZERO(priv);
+	if (!priv)
+		return -ENODATA;
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_STATUS:

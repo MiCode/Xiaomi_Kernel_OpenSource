@@ -697,8 +697,8 @@ static int rt9490_charger_get_property(struct power_supply *psy,
 {
 	struct rt9490_chg_data *data = power_supply_get_drvdata(psy);
 
-	if (IS_ERR_OR_NULL(data))
-		return PTR_ERR_OR_ZERO(data);
+	if (!data)
+		return -ENODATA;
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_STATUS:
@@ -751,8 +751,8 @@ static int rt9490_charger_set_property(struct power_supply *psy,
 {
 	struct rt9490_chg_data *data = power_supply_get_drvdata(psy);
 
-	if (IS_ERR_OR_NULL(data))
-		return PTR_ERR_OR_ZERO(data);
+	if (!data)
+		return -ENODATA;
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_ONLINE:
