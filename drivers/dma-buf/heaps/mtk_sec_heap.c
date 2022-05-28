@@ -194,7 +194,7 @@ static bool region_heap_is_aligned(struct dma_heap *heap)
 
 static int get_heap_base_type(const struct dma_heap *heap)
 {
-	int i, j;
+	int i, j, k;
 
 	for (i = SVP_REGION; i < REGION_HEAPS_NUM; i++) {
 		for (j = REGION_HEAP_NORMAL; j < REGION_TYPE_NUM; j++) {
@@ -202,8 +202,8 @@ static int get_heap_base_type(const struct dma_heap *heap)
 				return REGION_BASE;
 		}
 	}
-	for (i = SVP_PAGE; i < PAGE_HEAPS_NUM; i++) {
-		if (mtk_sec_heap_page[i].heap == heap)
+	for (k = SVP_PAGE; k < PAGE_HEAPS_NUM; k++) {
+		if (mtk_sec_heap_page[k].heap == heap)
 			return PAGE_BASE;
 	}
 	return HEAP_TYPE_INVALID;
@@ -382,7 +382,7 @@ static void tmem_region_free(struct dma_buf *dmabuf)
 
 	ret = region_base_free(sec_heap, buffer);
 	if (ret) {
-		pr_err("%s fail, heap:%s\n", __func__, sec_heap->heap_type);
+		pr_err("%s fail, heap:%u\n", __func__, sec_heap->heap_type);
 		return;
 	}
 	sg_free_table(&buffer->sg_table);
@@ -412,7 +412,7 @@ static void tmem_page_free(struct dma_buf *dmabuf)
 
 	ret = page_base_free(sec_heap, buffer);
 	if (ret) {
-		pr_err("%s fail, heap:%s\n", __func__, sec_heap->heap_type);
+		pr_err("%s fail, heap:%u\n", __func__, sec_heap->heap_type);
 		return;
 	}
 	sg_free_table(&buffer->sg_table);
@@ -501,7 +501,7 @@ static int fill_sec_buffer_info(struct mtk_sec_heap_buffer *buf,
 				struct sg_table *table,
 				struct dma_buf_attachment *a,
 				enum dma_data_direction dir,
-				int tab_id, int dom_id)
+				unsigned int tab_id, unsigned int dom_id)
 {
 	struct sg_table *new_table = NULL;
 	int ret = 0;
@@ -573,7 +573,7 @@ static struct sg_table *mtk_sec_heap_page_map_dma_buf(struct dma_buf_attachment 
 	struct mtk_sec_heap_buffer *buffer;
 	struct secure_heap_page *sec_heap;
 	struct iommu_fwspec *fwspec = dev_iommu_fwspec_get(attachment->dev);
-	int tab_id = MTK_M4U_TAB_NR_MAX, dom_id = MTK_M4U_DOM_NR_MAX;
+	unsigned int tab_id = MTK_M4U_TAB_NR_MAX, dom_id = MTK_M4U_DOM_NR_MAX;
 	int attr = attachment->dma_map_attrs | DMA_ATTR_SKIP_CPU_SYNC;
 
 	//pr_info("%s start dev:%s\n", __func__, dev_name(attachment->dev));
@@ -660,7 +660,7 @@ static struct sg_table *mtk_sec_heap_region_map_dma_buf(struct dma_buf_attachmen
 	struct mtk_sec_heap_buffer *buffer;
 	struct secure_heap_region *sec_heap;
 	struct iommu_fwspec *fwspec = dev_iommu_fwspec_get(attachment->dev);
-	int tab_id = MTK_M4U_TAB_NR_MAX, dom_id = MTK_M4U_DOM_NR_MAX;
+	unsigned int tab_id = MTK_M4U_TAB_NR_MAX, dom_id = MTK_M4U_DOM_NR_MAX;
 	int ret;
 	dma_addr_t dma_address;
 	uint64_t phy_addr = 0;
@@ -924,6 +924,10 @@ static int region_base_alloc(struct secure_heap_region *sec_heap,
 	pr_info("%s start: [%s], req_size:0x%lx, align:0x%x(%d)\n",
 		__func__, dma_heap_get_name(buffer->heap), buffer->len, alignment, aligned);
 
+	if (buffer->len > UINT_MAX) {
+		pr_err("%s error. len more than UINT_MAX\n", __func__);
+		return -EINVAL;
+	}
 	ret = trusted_mem_api_alloc(sec_heap->tmem_type, alignment, (unsigned int *)&buffer->len,
 				    &refcount, &sec_handle,
 				    (uint8_t *)dma_heap_get_name(buffer->heap),
@@ -998,6 +1002,10 @@ static int page_base_alloc(struct secure_heap_page *sec_heap, struct mtk_sec_hea
 	pr_info("%s start: [%s], req_size:0x%lx\n",
 		__func__, dma_heap_get_name(sec_heap->heap), buffer->len);
 
+	if (buffer->len > UINT_MAX) {
+		pr_err("%s error. len more than UINT_MAX\n", __func__);
+		return -EINVAL;
+	}
 	ret = trusted_mem_api_alloc(sec_heap->tmem_type, 0, (unsigned int *)&buffer->len,
 				    &refcount, &sec_handle,
 				    (uint8_t *)dma_heap_get_name(sec_heap->heap),
@@ -1192,7 +1200,7 @@ static const struct dma_heap_ops sec_heap_region_ops = {
 static int sec_buf_priv_dump(const struct dma_buf *dmabuf,
 			     struct seq_file *s)
 {
-	int i = 0, j = 0;
+	unsigned int i = 0, j = 0;
 	dma_addr_t iova = 0;
 	int region_buf = 0;
 	struct mtk_sec_heap_buffer *buf = dmabuf->priv;
@@ -1230,11 +1238,12 @@ static int sec_buf_priv_dump(const struct dma_buf *dmabuf,
 			if (region_buf) {
 				sec_handle = (dma_addr_t)dmabuf_to_secure_handle(dmabuf);
 				len = scnprintf(tmp_str, 39, "sec_handle:0x%x", sec_handle);
-				tmp_str[len] = '\0';/* No need memset */
+				if (len >= 0)
+					tmp_str[len] = '\0';/* No need memset */
 			}
 
 			dmabuf_dump(s,
-				    "\t\tbuf_priv: tab:%-2d dom:%-2d map:%d iova:0x%-12lx %s attr:0x%-4lx dir:%-2d dev:%s\n",
+				    "\t\tbuf_priv: tab:%-2u dom:%-2u map:%d iova:0x%-12lx %s attr:0x%-4lx dir:%-2d dev:%s\n",
 				    i, j, mapped, iova,
 				    region_buf ? tmp_str : "",
 				    buf->dev_info[i][j].map_attrs,

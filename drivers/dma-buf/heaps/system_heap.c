@@ -185,7 +185,7 @@ static int fill_buffer_info(struct system_heap_buffer *buffer,
 			    struct sg_table *table,
 			    struct dma_buf_attachment *a,
 			    enum dma_data_direction dir,
-			    int tab_id, int dom_id)
+			    unsigned int tab_id, unsigned int dom_id)
 {
 	struct sg_table *new_table = NULL;
 	int ret = 0;
@@ -282,7 +282,7 @@ static struct sg_table *mtk_mm_heap_map_dma_buf(struct dma_buf_attachment *attac
 	int ret;
 
 	struct iommu_fwspec *fwspec = dev_iommu_fwspec_get(attachment->dev);
-	int dom_id = MTK_M4U_DOM_NR_MAX, tab_id = MTK_M4U_TAB_NR_MAX;
+	unsigned int dom_id = MTK_M4U_DOM_NR_MAX, tab_id = MTK_M4U_TAB_NR_MAX;
 	struct system_heap_buffer *buffer = attachment->dmabuf->priv;
 
 	if (a->uncached)
@@ -586,7 +586,10 @@ static void mtk_mm_heap_dma_buf_release(struct dma_buf *dmabuf)
 			if (compound_order(page) == orders[j])
 				break;
 		}
-		dmabuf_page_pool_free(pools[j], page);
+		if (j < NUM_ORDERS)
+			dmabuf_page_pool_free(pools[j], page);
+		else
+			pr_info("%s error: order %u\n", __func__, compound_order(page));
 	}
 	sg_free_table(table);
 	kfree(buffer);
@@ -619,7 +622,10 @@ static void system_heap_dma_buf_release(struct dma_buf *dmabuf)
 			if (compound_order(page) == orders[j])
 				break;
 		}
-		dmabuf_page_pool_free(pools[j], page);
+		if (j < NUM_ORDERS)
+			dmabuf_page_pool_free(pools[j], page);
+		else
+			pr_info("%s error: order %u\n", __func__, compound_order(page));
 	}
 	sg_free_table(table);
 	kfree(buffer);
@@ -784,7 +790,7 @@ static struct page *alloc_largest_available(unsigned long size,
 					    unsigned int max_order)
 {
 	struct page *page;
-	int i;
+	unsigned int i;
 
 	for (i = 0; i < NUM_ORDERS; i++) {
 		if (size <  (PAGE_SIZE << orders[i]))
