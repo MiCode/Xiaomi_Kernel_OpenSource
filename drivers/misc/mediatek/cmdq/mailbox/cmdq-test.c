@@ -1507,6 +1507,19 @@ static void cmdq_test_tf(struct cmdq_test *test)
 	cmdq_pkt_destroy(pkt);
 }
 
+static void cmdq_test_mbox_access_illegal(struct cmdq_test *test)
+{
+	struct cmdq_pkt *pkt;
+	s32 i, count = 5;
+
+	pkt = cmdq_pkt_create(test->clt);
+	for (i = 0; i < count; i++)
+		cmdq_pkt_write(pkt, NULL, 0x1f800400, i, ~0);
+	cmdq_pkt_flush(pkt);
+	cmdq_dump_pkt(pkt, 0, true);
+	cmdq_pkt_destroy(pkt);
+}
+
 static void
 cmdq_test_trigger(struct cmdq_test *test, enum CMDQ_SECURE_STATE_ENUM sec, const s32 id)
 {
@@ -1634,6 +1647,9 @@ cmdq_test_trigger(struct cmdq_test *test, enum CMDQ_SECURE_STATE_ENUM sec, const
 		break;
 	case 24:
 		cmdq_test_tf(test);
+		break;
+	case 25:
+		cmdq_test_mbox_access_illegal(test);
 		break;
 	default:
 		break;
@@ -1793,10 +1809,10 @@ static int cmdq_test_probe(struct platform_device *pdev)
 		test->token_user0 = CMDQ_EVENT_MAX;
 	}
 
-	ret = of_property_read_u16(pdev->dev.of_node, "token_gpr_set4",
+	ret = of_property_read_u16(pdev->dev.of_node, "token-gpr-set4",
 		&test->token_gpr_set4);
 	if (ret < 0) {
-		cmdq_err("no token_gpr_set4 err:%d", ret);
+		cmdq_err("no token-gpr-set4 err:%d", ret);
 		test->token_gpr_set4 = CMDQ_EVENT_MAX;
 	}
 

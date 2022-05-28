@@ -2076,7 +2076,7 @@ static void cmdq_config_dma_mask(struct device *dev)
 	u32 dma_mask_bit = 0;
 	s32 ret;
 
-	ret = of_property_read_u32(dev->of_node, "dma_mask_bit",
+	ret = of_property_read_u32(dev->of_node, "dma-mask-bit",
 		&dma_mask_bit);
 	/* if not assign from dts, give default 32bit for legacy chip */
 	if (ret != 0 || !dma_mask_bit)
@@ -2090,7 +2090,7 @@ static void cmdq_config_default_token(struct device *dev, struct cmdq *cmdq)
 {
 	int count, ret;
 
-	count = of_property_count_u16_elems(dev->of_node, "default_tokens");
+	count = of_property_count_u16_elems(dev->of_node, "default-tokens");
 	if (count <= 0) {
 		cmdq_err("no default tokens:%d", count);
 		return;
@@ -2100,7 +2100,7 @@ static void cmdq_config_default_token(struct device *dev, struct cmdq *cmdq)
 	cmdq->tokens = devm_kcalloc(dev, count, sizeof(*cmdq->tokens),
 		GFP_KERNEL);
 	ret = of_property_read_u16_array(dev->of_node,
-		"default_tokens", cmdq->tokens, count);
+		"default-tokens", cmdq->tokens, count);
 	if (ret < 0) {
 		cmdq_err("of_property_read_u16_array fail err:%d", ret);
 		cmdq->token_cnt = 0;
@@ -2216,7 +2216,7 @@ static int cmdq_probe(struct platform_device *pdev)
 	if (of_property_read_bool(dev->of_node, "skip-poll-sleep"))
 		skip_poll_sleep = true;
 
-	if (of_property_read_bool(dev->of_node, "gce_in_vcp"))
+	if (of_property_read_bool(dev->of_node, "gce-in-vcp"))
 		gce_in_vcp = true;
 
 	if (!of_property_read_bool(dev->of_node, "cmdq-log-perf-off"))
