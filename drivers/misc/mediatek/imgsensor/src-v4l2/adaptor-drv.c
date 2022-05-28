@@ -788,8 +788,7 @@ static int imgsensor_set_stream(struct v4l2_subdev *sd, int enable)
 	ctx->is_streaming = enable;
 	mutex_unlock(&ctx->mutex);
 
-	dev_info(ctx->dev, "%s: en %d, cammux usage %d\n",
-		__func__, enable, ctx->fsync_map_id->val);
+	dev_info(ctx->dev, "%s: en %d\n", __func__, enable);
 
 	return 0;
 

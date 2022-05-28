@@ -144,6 +144,8 @@ struct fs_streaming_st {
 	unsigned int sensor_id;
 	unsigned int sensor_idx;
 
+	unsigned int cammux_id;          // need to map to CCU TG ID
+	unsigned int target_tg;          // ISP7s: already direct map to CCU tg ID
 	unsigned int tg;
 
 	unsigned int fl_active_delay;
@@ -232,6 +234,8 @@ struct FrameSync {
 
 	/* for cam mux switch and sensor streaming on before setup cam mux */
 	void (*fs_update_tg)(unsigned int ident, unsigned int tg);
+	/* ISP7s HW change, seninf assign target tg ID (direct map to CCU tg ID) */
+	void (*fs_update_target_tg)(unsigned int ident, unsigned int target_tg);
 
 
 	/* update fs_perframe_st data */

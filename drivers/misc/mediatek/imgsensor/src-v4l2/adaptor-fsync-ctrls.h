@@ -38,6 +38,7 @@ void notify_fsync_mgr_streaming(struct adaptor_ctx *ctx, unsigned int flag);
 int chk_s_exp_with_fl_by_fsync_mgr(struct adaptor_ctx *ctx);
 
 void notify_fsync_mgr_update_tg(struct adaptor_ctx *ctx, u64 val);
+void notify_fsync_mgr_update_target_tg(struct adaptor_ctx *ctx, u64 val);
 
 void notify_fsync_mgr_set_sync(struct adaptor_ctx *ctx, u64 en);
 

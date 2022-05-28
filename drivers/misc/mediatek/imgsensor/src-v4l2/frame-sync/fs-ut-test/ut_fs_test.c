@@ -662,7 +662,9 @@ void *ut_set_fs_streaming_and_synced(void *ut_fs_test_sensor_cfg)
 	/* 0. setup ut streaming data */
 	s_sensor = *sensor_cfg->sensor;
 	s_sensor.sensor_idx = sensor_cfg->sensor_idx;
-	s_sensor.tg = sensor_cfg->tg;
+	// s_sensor.tg = sensor_cfg->tg;
+	s_sensor.cammux_id = sensor_cfg->tg;
+	s_sensor.target_tg = CAMMUX_ID_INVALID;
 
 
 	/* 1. call fs_streaming() */
@@ -1454,7 +1456,9 @@ static void ut_set_fs_streaming(void)
 		scanf("%d", &input);
 		tg = input;
 
-		streaming_sensors[i].sensor->tg = tg;
+		// streaming_sensors[i].sensor->tg = tg;
+		streaming_sensors[i].sensor->cammux_id = tg;
+		streaming_sensors[i].sensor->target_tg = CAMMUX_ID_INVALID;
 
 		/* !!! Becareful !!! */
 		/* prevent choose same sensor with different tg */

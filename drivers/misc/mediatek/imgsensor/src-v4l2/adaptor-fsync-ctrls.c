@@ -297,9 +297,11 @@ void notify_fsync_mgr_streaming(struct adaptor_ctx *ctx, unsigned int flag)
 	s_info.sensor_idx = ctx->idx;
 
 	/* fsync_map_id is cam_mux no */
-	s_info.tg = ctx->fsync_map_id->val + 1;
-	s_info.fl_active_delay = ctx->subctx.frame_time_delay_frame;
+	s_info.cammux_id = (ctx->fsync_map_id->val > 0)
+		? (ctx->fsync_map_id->val + 1) : 0;
+	// s_info.target_tg = ;
 
+	s_info.fl_active_delay = ctx->subctx.frame_time_delay_frame;
 
 	/* using ctx->subctx.frame_length instead of ctx->cur_mode->fll */
 	/* for any settings before streaming on */
@@ -339,9 +341,10 @@ void notify_fsync_mgr_streaming(struct adaptor_ctx *ctx, unsigned int flag)
 
 #if !defined(REDUCE_FSYNC_CTRLS_LOG)
 	dev_info(ctx->dev,
-		"%s: sidx:%d, tg:%u, fl_delay:%u(must be 3 or 2), fl(def/max):%u/%u, def_exp:%u, lineTime:%u(pclk:%u/linelength:%u), hw_sync_mode:%u(N:0/M:1/S:2)\n",
+		"%s: sidx:%d, cammux_id:%u/target_tg:%u, fl_delay:%u(must be 3 or 2), fl(def/max):%u/%u, def_exp:%u, lineTime:%u(pclk:%u/linelength:%u), hw_sync_mode:%u(N:0/M:1/S:2)\n",
 		__func__, ctx->idx,
-		s_info.tg,
+		s_info.cammux_id,
+		s_info.target_tg,
 		s_info.fl_active_delay,
 		s_info.def_fl_lc,
 		s_info.max_fl_lc,
@@ -411,6 +414,25 @@ void notify_fsync_mgr_update_tg(struct adaptor_ctx *ctx, u64 val)
 	}
 
 	ctx->fsync_mgr->fs_update_tg(ctx->idx, val + 1);
+}
+
+/* ISP7S new add */
+void notify_fsync_mgr_update_target_tg(struct adaptor_ctx *ctx, u64 val)
+{
+	/* not expected case */
+	if (unlikely(ctx->fsync_mgr == NULL)) {
+
+#if !defined(FORCE_DISABLE_FSYNC_MGR)
+		dev_info(ctx->dev,
+			"%s: sidx:%d, NOTICE: set update tg:%llu, but ctx->fsync_mgr is NULL, return\n",
+			__func__, ctx->idx,
+			val);
+#endif
+
+		return;
+	}
+
+	ctx->fsync_mgr->fs_update_target_tg(ctx->idx, val);
 }
 
 void notify_fsync_mgr_set_sync(struct adaptor_ctx *ctx, u64 en)

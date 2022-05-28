@@ -2150,6 +2150,83 @@ void fs_update_tg(unsigned int ident, unsigned int tg)
 }
 
 
+/*
+ * update fs_streaming_st data
+ *     (for cam_mux switch & sensor stream on before cam mux setup)
+ *     ISP7s HW change, seninf assign target tg ID (direct map to CCU tg ID)
+ */
+void fs_update_target_tg(const unsigned int ident,
+	const unsigned int target_tg)
+{
+	unsigned int idx = 0;
+
+	idx = fs_get_reg_sensor_pos(ident);
+	if (check_idx_valid(idx) == 0) {
+		LOG_INF(
+			"NOTICE: [%u] %s is not register, ident:%u, return\n",
+			idx, REG_INFO, ident);
+		return;
+	}
+
+#ifdef USING_CCU
+	/* 0. check ccu pwr ON, and disable INT(previous tg) */
+	if (FS_CHECK_BIT(idx, &fs_mgr.power_on_ccu_bits))
+		frm_reset_ccu_vsync_timestamp(idx, 0);
+#endif
+
+
+	/* 1. update the fs_streaming_st data */
+	fs_alg_update_tg(idx, target_tg);
+	frm_update_tg(idx, target_tg);
+
+
+#if !defined(REDUCE_FS_DRV_LOG)
+	LOG_MUST(
+		"[%u] ID:%#x(sidx:%u), updated target_tg:%u (fs_alg, frm)\n",
+		idx,
+		fs_get_reg_sensor_id(idx),
+		fs_get_reg_sensor_idx(idx),
+		target_tg);
+#endif
+
+
+#ifdef USING_CCU
+	/* 2. on the fly change cam_mux/tg */
+	/*    => reset/re-init frame info data for after using */
+	if (FS_CHECK_BIT(idx, &fs_mgr.power_on_ccu_bits)) {
+		// frm_reset_frame_info(idx);
+
+		// frm_init_frame_info_st_data(idx,
+		//	info.sensor_id, info.sensor_idx,
+		//	tg);
+
+		frm_reset_ccu_vsync_timestamp(idx, 1);
+	}
+#endif
+}
+
+
+static unsigned int fs_chk_and_get_tg_value(
+	const unsigned int cammux_id, const unsigned int target_tg)
+{
+	unsigned int tg = CAMMUX_ID_INVALID;
+
+	if ((cammux_id != 0) && (cammux_id != CAMMUX_ID_INVALID))
+		tg = frm_convert_cammux_id_to_ccu_tg_id(cammux_id);
+
+	if ((target_tg != 0) && (target_tg != CAMMUX_ID_INVALID))
+		tg = target_tg;
+
+	LOG_MUST(
+		"get cammux_id:%u, target_tg:%u, => ret tg:%u\n",
+		cammux_id,
+		target_tg,
+		tg);
+
+	return tg;
+}
+
+
 static inline void fs_reset_idx_ctx(unsigned int idx)
 {
 	/* unset sync */
@@ -2229,10 +2306,9 @@ unsigned int fs_streaming(const unsigned int flag,
 
 	/* 3. if fs_streaming on, set information of this idx correctlly */
 	if (flag > 0) {
-		/* convert cammux id to ccu tg id */
-		sensor_info->tg =
-			// frm_convert_cammux_tg_to_ccu_tg(sensor_info->tg);
-			frm_convert_cammux_id_to_ccu_tg_id(sensor_info->tg);
+		/* get tg by check cammux_id and target_tg value */
+		sensor_info->tg = fs_chk_and_get_tg_value(
+			sensor_info->cammux_id, sensor_info->target_tg);
 
 		/* set data to frm, fs algo, and frame recorder */
 		frm_init_frame_info_st_data(idx,
@@ -3093,6 +3169,7 @@ static struct FrameSync frameSync = {
 	fs_set_shutter,
 	fs_update_shutter,
 	fs_update_tg,
+	fs_update_target_tg,
 	fs_update_auto_flicker_mode,
 	fs_update_min_framelength_lc,
 	fs_set_extend_framelength,

@@ -20,7 +20,8 @@
 #endif // !FS_UT
 
 #ifdef FS_UT
-#include <stdint.h> // for uint32_t
+// #include <stdint.h> // for uint32_t
+typedef unsigned long long uint64_t;
 #endif
 
 
@@ -204,7 +205,14 @@ void dump_vsync_recs(const struct vsync_rec (*pData), const char *caller)
 /******************************************************************************/
 #ifdef USING_CCU
 #ifndef FS_UT
-static unsigned int get_ccu_device(void)
+/*
+ * return:
+ *     0: NO error.
+ *     1: find compatiable node failed.
+ *     2: get ccu_pdev failed.
+ *     < 0: read node property failed.
+ */
+static unsigned int get_ccu_device(const char *caller)
 {
 	int ret = 0;
 
@@ -217,15 +225,20 @@ static unsigned int get_ccu_device(void)
 	frm_inst.ccu_pdev = NULL;
 	frm_inst.handle = 0;
 
-	node = of_find_compatible_node(NULL, NULL, "mediatek,camera_fsync_ccu");
+	node = of_find_compatible_node(NULL, NULL, "mediatek,camera-fsync-ccu");
 	if (!node) {
-		LOG_PR_ERR("ERROR: find mediatek,camera_fsync_ccu failed!!!\n");
-		return 1;
+		ret = 1;
+		LOG_MUST(
+			"[%s]: ERROR: find DTS compatiable node:(mediatek,camera-fsync-ccu) failed, ret:%d\n",
+			caller, ret);
+		return ret;
 	}
 
-	ret = of_property_read_u32(node, "mediatek,ccu_rproc", &handle);
+	ret = of_property_read_u32(node, "mediatek,ccu-rproc", &handle);
 	if (ret < 0) {
-		LOG_PR_ERR("ERROR: ccu_rproc of_property_read_u32:%d\n", ret);
+		LOG_MUST(
+			"[%s]: ERROR: read DTS node:(mediatek,camera-fsync-ccu) property:(mediatek,ccu-rproc) failed, ret:%d\n",
+			caller, ret);
 		return ret;
 	}
 
@@ -234,15 +247,20 @@ static unsigned int get_ccu_device(void)
 		frm_inst.ccu_pdev = of_find_device_by_node(rproc_np);
 
 		if (!frm_inst.ccu_pdev) {
-			LOG_PR_ERR("ERROR: failed to find ccu rproc pdev\n");
+			LOG_MUST(
+				"[%s]: ERROR: find DTS device by node failed (ccu rproc pdev), ret:%d->2\n",
+				caller, ret);
 			frm_inst.ccu_pdev = NULL;
+			ret = 2;
 			return ret;
 		}
 
 		/* keep for rproc_get_by_phandle() using */
 		frm_inst.handle = handle;
 
-		LOG_MUST("get ccu proc pdev successfully\n");
+		LOG_MUST(
+			"[%s]: get ccu proc pdev successfully, ret:%d\n",
+			caller, ret);
 	}
 #endif
 
@@ -269,8 +287,11 @@ static unsigned int query_ccu_vsync_data(struct vsync_rec (*pData))
 
 
 #ifndef FS_UT
-	if (!frm_inst.ccu_pdev)
-		get_ccu_device();
+	if (unlikely(!frm_inst.ccu_pdev)) {
+		ret = get_ccu_device(__func__);
+		if (unlikely(ret != 0))
+			return ret;
+	}
 
 	/* using ccu_rproc_ipc_send to get vsync timestamp data */
 	ret = mtk_ccu_rproc_ipc_send(
@@ -613,8 +634,11 @@ void frm_power_on_ccu(unsigned int flag)
 	struct rproc *ccu_rproc = NULL;
 
 
-	if (!frm_inst.ccu_pdev)
-		get_ccu_device();
+	if (unlikely(!frm_inst.ccu_pdev)) {
+		ret = get_ccu_device(__func__);
+		if (unlikely(ret != 0))
+			return;
+	}
 
 	ccu_rproc = rproc_get_by_phandle(frm_inst.handle);
 
@@ -671,7 +695,7 @@ void frm_power_on_ccu(unsigned int flag)
 void frm_reset_ccu_vsync_timestamp(unsigned int idx, unsigned int en)
 {
 	unsigned int tg = 0;
-	uint32_t selbits = 0;
+	uint64_t selbits = 0;
 	int ret = 0;
 
 	tg = frm_inst.f_info[idx].tg;
@@ -694,8 +718,11 @@ void frm_reset_ccu_vsync_timestamp(unsigned int idx, unsigned int en)
 
 
 #ifndef FS_UT
-	if (unlikely(!frm_inst.ccu_pdev))
-		get_ccu_device();
+	if (unlikely(!frm_inst.ccu_pdev)) {
+		ret = get_ccu_device(__func__);
+		if (unlikely(ret != 0))
+			return;
+	}
 
 	/* call CCU to reset vsync timestamp */
 	ret = mtk_ccu_rproc_ipc_send(
@@ -709,11 +736,11 @@ void frm_reset_ccu_vsync_timestamp(unsigned int idx, unsigned int en)
 
 	if (ret != 0)
 		LOG_PR_ERR(
-			"ERROR: call CCU reset(1)/clear(0):%u, tg:%u (selbits:%u) vsync data, ret:%u\n",
+			"ERROR: call CCU reset(1)/clear(0):%u, tg:%u (selbits:%#llx) vsync data, ret:%u\n",
 			en, tg, selbits, ret);
 	else
 		LOG_MUST(
-			"called CCU reset(1)/clear(0):%u, tg:%u (selbits:%u) vsync data, ret:%u\n",
+			"called CCU reset(1)/clear(0):%u, tg:%u (selbits:%#llx) vsync data, ret:%u\n",
 			en, tg, selbits, ret);
 }
 
