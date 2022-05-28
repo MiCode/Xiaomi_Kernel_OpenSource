@@ -48,10 +48,12 @@ static void aputop_dump_reg(enum apupw_reg idx, uint32_t offset, uint32_t size)
 {
 	char buf[32];
 
-	// reg dump for RPC
+	/* prepare pa address */
 	memset(buf, 0, sizeof(buf));
 	snprintf(buf, 32, "phys 0x%08x: ",
-			(ulong)(apupw.regs[idx]) + offset);
+			(ulong)(apupw.phy_addr[idx]) + offset);
+
+	/* dump content with pa as prefix */
 	print_hex_dump(KERN_ERR, buf, DUMP_PREFIX_OFFSET, 16, 4,
 			apupw.regs[idx] + offset, size, true);
 }

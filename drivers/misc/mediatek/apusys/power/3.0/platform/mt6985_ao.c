@@ -1016,7 +1016,10 @@ static int __apu_wake_rpc_acx(struct device *dev, enum t_acx_id acx_id)
 		readl(papw->regs[acx_base] + APU_ACX_CONN_CG_CON));
 
 	/* clear acx0/1 CGs */
-	apu_writel(0xFFFFFFFF, papw->regs[acx_base] + APU_ACX_CONN_CG_CLR);
+	if (acx_id == NCX)
+		apu_writel(0xFFFFFFFF, papw->regs[acx_base] + APU_NCX_CONN_CG_CLR);
+	else
+		apu_writel(0xFFFFFFFF, papw->regs[acx_base] + APU_ACX_CONN_CG_CLR);
 
 	dev_info(dev, "%s ACX%d APU_ACX_CONN_CG_CON 0x%x = 0x%x\n",
 		__func__, acx_id,

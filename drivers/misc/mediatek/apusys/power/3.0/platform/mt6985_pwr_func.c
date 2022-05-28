@@ -22,7 +22,7 @@ static const char * const pll_name[] = {
 static const char * const buck_name[] = {
 				"BUCK_VAPU", "BUCK_VSRAM", "BUCK_VCORE"};
 static const char * const cluster_name[] = {
-				"ACX0", "ACX1", "RCX", "NCX"};
+				"ACX0", "ACX1", "NCX", "RCX"};
 
 #define _OPP_LMT_TBL(_opp_lmt_reg) {    \
 	.opp_lmt_reg = _opp_lmt_reg,    \
@@ -61,7 +61,7 @@ static void _opp_limiter(int vpu_max, int vpu_min, int dla_max, int dla_min,
 	pr_info("%s type:%d, %d/%d/%d/%d\n", __func__, type,
 			vpu_max, vpu_min, dla_max, dla_min);
 #endif
-	for (i = 0 ; i < CLUSTER_NUM ; i++) {
+	for (i = 0 ; i < NCX ; i++) {
 		opp_limit_tbl[i].dev_opp_lmt.vpu_max = vpu_max & 0x3f;
 		opp_limit_tbl[i].dev_opp_lmt.vpu_min = vpu_min & 0x3f;
 		opp_limit_tbl[i].dev_opp_lmt.dla_max = dla_max & 0x3f;
@@ -321,9 +321,7 @@ static int aputop_show_curr_status(struct seq_file *s, void *unused)
 			cluster_dump[CLUSTER_NUM].rpc_reg_status,
 			cluster_dump[CLUSTER_NUM].conn_reg_status,
 			cluster_dump[CLUSTER_NUM].vcore_reg_status);
-
 	seq_puts(s, "\n");
-
 	return 0;
 }
 
