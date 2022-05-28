@@ -49,10 +49,7 @@ static int gt9895_ts_event_polling(void *arg);
 static int gt9895_polling_flag;
 
 #if IS_ENABLED(CONFIG_TRUSTONIC_TRUSTED_UI)
-/*
- * struct goodix_ts_core *ts_core_for_tui;
- * EXPORT_SYMBOL_GPL(ts_core_for_tui);
- */
+struct goodix_ts_core *ts_core_gt9895_tui;
 #endif
 
 static int goodix_send_ic_config(struct goodix_ts_core *cd, int type);
@@ -1224,7 +1221,7 @@ static int goodix_parse_dt(struct device_node *node,
 }
 #endif
 
-static void goodix_ts_report_finger(struct input_dev *dev,
+void goodix_ts_report_finger(struct input_dev *dev,
 		struct goodix_touch_data *touch_data)
 {
 	unsigned int touch_num = touch_data->touch_num;
@@ -2051,7 +2048,7 @@ static int goodix_ts_disp_notifier_callback(struct notifier_block *nb,
 			ts_info("%s IN", __func__);
 			if (*data == MTK_DISP_BLANK_UNBLANK) {
 #if IS_ENABLED(CONFIG_TRUSTONIC_TRUSTED_UI)
-			/*	if (!atomic_read(&gt9895_tui_flag)) */
+				if (!atomic_read(&gt9895_tui_flag))
 #endif
 					goodix_ts_resume(core_data);
 			}
@@ -2065,7 +2062,7 @@ static int goodix_ts_disp_notifier_callback(struct notifier_block *nb,
 			if (*data == MTK_DISP_BLANK_POWERDOWN) {
 
 #if IS_ENABLED(CONFIG_TRUSTONIC_TRUSTED_UI)
-			/*	if (!atomic_read(&gt9895_tui_flag)) */
+				if (!atomic_read(&gt9895_tui_flag))
 #endif
 					goodix_ts_suspend(core_data);
 			}
@@ -2417,7 +2414,7 @@ static int goodix_ts_probe(struct platform_device *pdev)
 
 	/* for tui touch */
 #if IS_ENABLED(CONFIG_TRUSTONIC_TRUSTED_UI)
-	/* ts_core_for_tui = core_data; */
+	ts_core_gt9895_tui = core_data;
 #endif
 
 	/* generic notifier callback */

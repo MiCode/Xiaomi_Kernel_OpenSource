@@ -7,43 +7,43 @@
 #include "goodix_ts_core.h"
 
 atomic_t gt9895_tui_flag = ATOMIC_INIT(0);
-/* EXPORT_SYMBOL_GPL(gt9895_tui_flag); */
+EXPORT_SYMBOL_GPL(gt9895_tui_flag);
 
-int tpd_enter_tui(void)
+int tpd_gt9895_enter_tui(void)
 {
 	int ret = 0;
 
 	ts_info("[%s] enter TUI", __func__);
 
-	ts_core_for_tui->ts_event.touch_data.touch_num = 0;
-	goodix_ts_report_finger(ts_core_for_tui->input_dev,
-		&ts_core_for_tui->ts_event.touch_data);
+	ts_core_gt9895_tui->ts_event.touch_data.touch_num = 0;
+	goodix_ts_report_finger(ts_core_gt9895_tui->input_dev,
+		&ts_core_gt9895_tui->ts_event.touch_data);
 
-	ts_core_for_tui->hw_ops->irq_enable(ts_core_for_tui, false);
+	ts_core_gt9895_tui->hw_ops->irq_enable(ts_core_gt9895_tui, false);
 
-	mt_spi_enable_master_clk(ts_core_for_tui->bus->spi_dev);
+	mt_spi_enable_master_clk(ts_core_gt9895_tui->bus->spi_dev);
 
 	atomic_set(&gt9895_tui_flag, true);
 
 	return ret;
 }
-/* EXPORT_SYMBOL(tpd_enter_tui); */
+EXPORT_SYMBOL(tpd_gt9895_enter_tui);
 
-int tpd_exit_tui(void)
+int tpd_gt9895_exit_tui(void)
 {
 	int ret = 0;
 
 	ts_info("[%s] exit TUI", __func__);
 
-	mt_spi_disable_master_clk(ts_core_for_tui->bus->spi_dev);
+	mt_spi_disable_master_clk(ts_core_gt9895_tui->bus->spi_dev);
 
-	ts_core_for_tui->hw_ops->irq_enable(ts_core_for_tui, false);
-	ts_core_for_tui->hw_ops->irq_enable(ts_core_for_tui, true);
+	ts_core_gt9895_tui->hw_ops->irq_enable(ts_core_gt9895_tui, false);
+	ts_core_gt9895_tui->hw_ops->irq_enable(ts_core_gt9895_tui, true);
 
 	atomic_set(&gt9895_tui_flag, false);
 
 	return ret;
 }
-/* EXPORT_SYMBOL(tpd_exit_tui); */
+EXPORT_SYMBOL(tpd_gt9895_exit_tui);
 #endif
 

@@ -7,6 +7,5 @@ gt9895-y := \
 				goodix_brl_hw.o \
 				goodix_cfg_bin.o \
 				goodix_ts_utils.o \
-				goodix_brl_fwupdate.o
-
-
+				goodix_brl_fwupdate.o \
+				goodix_ts_tui.o
