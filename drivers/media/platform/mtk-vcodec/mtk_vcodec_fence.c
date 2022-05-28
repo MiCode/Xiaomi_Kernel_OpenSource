@@ -119,6 +119,7 @@ struct dma_fence *mtk_vcodec_create_fence(int fence_count)
 	struct dma_fence **fences = NULL;
 	u64 context;
 	int i, len;
+	int created_fence_count = 0;
 
 	// no need to use fence
 	if (fence_count <= 0)
@@ -146,6 +147,7 @@ struct dma_fence *mtk_vcodec_create_fence(int fence_count)
 		dma_fence_init(&mtk_fence->fence, &mtk_vcodec_fence_ops, &mtk_fence->lock,
 			       context, 0);
 		fences[i] = &mtk_fence->fence;
+		created_fence_count++;
 	}
 
 	fence_array = dma_fence_array_create(fence_count, fences, context, 0, false);
@@ -161,10 +163,8 @@ struct dma_fence *mtk_vcodec_create_fence(int fence_count)
 CREATE_FENCE_FAIL:
 
 	if (fences) {
-		for (i = 0; i < fence_count; i++) {
-			if (fences[i])
-				kfree(fences[i]);
-		}
+		for (i = 0; i < created_fence_count; i++)
+			kfree(fences[i]);
 		kfree(fences);
 	}
 
