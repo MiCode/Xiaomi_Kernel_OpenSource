@@ -902,7 +902,7 @@ static void wrot_config_addr(const struct mml_frame_dest *dest,
 {
 	u64 addr_c, addr_v, addr;
 
-	if (MML_FMT_COMPRESS(dest_fmt)) {
+	if (MML_FMT_AFBC(dest_fmt)) {
 		/* wrot afbc output case */
 		u32 block_x;
 		u32 frame_size;
@@ -1027,12 +1027,12 @@ static s32 wrot_config_frame(struct mml_comp *comp, struct mml_task *task,
 		wrot_frm->mat_en = 0;
 
 		if (wrot->data->rb_swap == 1) {
-			if (!MML_FMT_COMPRESS(src_fmt) && !MML_FMT_10BIT(src_fmt))
+			if (!MML_FMT_AFBC(src_fmt) && !MML_FMT_10BIT(src_fmt))
 				out_swap ^= MML_FMT_SWAP(src_fmt);
-			else if (MML_FMT_COMPRESS(src_fmt) && !MML_FMT_10BIT(src_fmt))
+			else if (MML_FMT_AFBC(src_fmt) && !MML_FMT_10BIT(src_fmt))
 				out_swap =
 					(MML_FMT_SWAP(src_fmt) == MML_FMT_SWAP(dest_fmt)) ? 1 : 0;
-			else if (MML_FMT_COMPRESS(src_fmt) && MML_FMT_10BIT(src_fmt))
+			else if (MML_FMT_AFBC(src_fmt) && MML_FMT_10BIT(src_fmt))
 				out_swap = out_swap ? 0 : 1;
 		}
 	}
@@ -1152,7 +1152,7 @@ static s32 wrot_config_frame(struct mml_comp *comp, struct mml_task *task,
 		bit_num = 1;
 	}
 	/* DMA_SUPPORT_AFBC */
-	if (MML_FMT_COMPRESS(dest_fmt)) {
+	if (MML_FMT_AFBC(dest_fmt)) {
 		scan_10bit = 0;
 		pending_zero = 1;
 	}
@@ -1162,7 +1162,7 @@ static s32 wrot_config_frame(struct mml_comp *comp, struct mml_task *task,
 	cmdq_pkt_write(pkt, NULL, base_pa + VIDO_CTRL_2, bit_num,
 		       0x00000007);
 
-	if (MML_FMT_COMPRESS(dest_fmt)) {
+	if (MML_FMT_AFBC(dest_fmt)) {
 		pvric |= BIT(0);
 		if (MML_FMT_10BIT(dest_fmt))
 			pvric |= BIT(1);
@@ -1674,7 +1674,7 @@ static s32 wrot_config_tile(struct mml_comp *comp, struct mml_task *task,
 	u32 buf_line_num;
 
 	/* Fill the the tile settings */
-	if (MML_FMT_COMPRESS(dest_fmt))
+	if (MML_FMT_AFBC(dest_fmt))
 		wrot_tile_calc_comp(dest, wrot_frm, tile, &ofst);
 	else
 		wrot_tile_calc(task, wrot, dest, tout, tile, idx, cfg->info.mode,
@@ -1930,7 +1930,7 @@ static s32 update_frame_addr(struct mml_comp *comp, struct mml_task *task,
 	}
 
 	/* DMA_SUPPORT_AFBC */
-	if (MML_FMT_COMPRESS(dest_fmt)) {
+	if (MML_FMT_AFBC(dest_fmt)) {
 		u32 block_x;
 
 		/* Write frame base address */

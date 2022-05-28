@@ -41,10 +41,12 @@ enum isp_tile_message tile_rdma_init(struct tile_func_block *ptr_func,
 		ptr_func->in_tile_width = ((data->max_width >> 5) - 1) << 5;
 	} else if (MML_FMT_YUV_COMPRESS(data->src_fmt)) {
 		ptr_func->in_tile_width = ((data->max_width >> 4) - 1) << 4;
+	} else if (MML_FMT_HYFBC(data->src_fmt)) {
+		/* For HyFBC block size 32x16, so tile rule same as RGB AFBC */
+		ptr_func->in_tile_width = ((data->max_width >> 5) - 1) << 5;
 	} else if (MML_FMT_BLOCK(data->src_fmt)) {
 		ptr_func->in_tile_width = (data->max_width >> 6) << 6;
-	} else if (MML_FMT_YUV420(data->src_fmt) ||
-		   MML_FMT_COMPRESS(data->src_fmt)) {
+	} else if (MML_FMT_YUV420(data->src_fmt)) {
 		ptr_func->in_tile_width = data->max_width;
 	} else if (MML_FMT_YUV422(data->src_fmt)) {
 		ptr_func->in_tile_width = data->max_width * 2;
@@ -65,7 +67,8 @@ enum isp_tile_message tile_rdma_init(struct tile_func_block *ptr_func,
 	}
 
 	if (MML_FMT_10BIT_PACKED(data->src_fmt) &&
-	    !MML_FMT_COMPRESS(data->src_fmt) &&
+	    !MML_FMT_HYFBC(data->src_fmt) &&
+	    !MML_FMT_AFBC(data->src_fmt) &&
 	    !MML_FMT_IS_RGB(data->src_fmt) &&
 	    !MML_FMT_BLOCK(data->src_fmt)) {
 		/* 10-bit packed, not compress, not rgb, not blk */
@@ -238,7 +241,7 @@ enum isp_tile_message tile_wrot_init(struct tile_func_block *ptr_func,
 		ptr_func->out_tile_height = 65535;
 	}
 
-	if (MML_FMT_COMPRESS(data->dest_fmt))
+	if (MML_FMT_AFBC(data->dest_fmt))
 		ptr_func->out_tile_width = MIN(128, ptr_func->out_tile_width);
 
 	/* For tile calculation */
@@ -572,7 +575,7 @@ static enum isp_tile_message tile_wrot_align_out_width(
 	s32 alignment = 1;
 	s32 remain = 0;
 
-	if (MML_FMT_COMPRESS(data->dest_fmt))
+	if (MML_FMT_AFBC(data->dest_fmt))
 		alignment = 32;
 	else if (MML_FMT_10BIT_PACKED(data->dest_fmt))
 		alignment = 4;

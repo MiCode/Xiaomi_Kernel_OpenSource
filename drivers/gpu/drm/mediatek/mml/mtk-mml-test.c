@@ -1515,7 +1515,7 @@ static int mml_test_alloc_frame(struct dma_heap *heap, struct mml_buffer *buf,
 
 	mml_log("[test]%s format %#x res %u %u", __func__, format, width, height);
 
-	if (MML_FMT_COMPRESS(format)) {
+	if (MML_FMT_AFBC(format)) {
 		mml_err("[test]not support format %#x", format);
 		return -EINVAL;
 	}

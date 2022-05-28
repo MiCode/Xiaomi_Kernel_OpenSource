@@ -420,9 +420,9 @@ static s32 command_reuse(struct mml_task *task, u32 pipe)
 
 static void get_frame_str(char *frame, size_t sz, const struct mml_frame_data *data)
 {
-	snprintf(frame, sz, "(%u, %u)[%u %u] %#010x C%u%s%s%s%s%s%s%s P%hu%s",
+	snprintf(frame, sz, "(%u, %u)[%u %u] %#010x C%u%s%s%s%s%s%s%s%s P%hu%s",
 		data->width, data->height, data->y_stride,
-		MML_FMT_COMPRESS(data->format) ? data->vert_stride : data->uv_stride,
+		MML_FMT_AFBC(data->format) ? data->vert_stride : data->uv_stride,
 		data->format,
 		MML_FMT_HW_FORMAT(data->format),
 		MML_FMT_SWAP(data->format) ? "s" : "",
@@ -433,7 +433,8 @@ static void get_frame_str(char *frame, size_t sz, const struct mml_frame_data *d
 		MML_FMT_10BIT_PACKED(data->format) ? "p" :
 		MML_FMT_10BIT_LOOSE(data->format) ? "l" : "",
 		MML_FMT_10BIT_JUMP(data->format) ? "j" : "",
-		MML_FMT_COMPRESS(data->format) ? "c" : "",
+		MML_FMT_AFBC(data->format) ? "c" : "",
+		MML_FMT_HYFBC(data->format) ? "h" : "",
 		data->profile,
 		data->secure ? " sec" : "");
 }

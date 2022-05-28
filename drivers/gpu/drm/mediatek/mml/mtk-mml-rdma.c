@@ -830,6 +830,7 @@ static void rdma_color_fmt(struct mml_frame_config *cfg,
 		break;
 	case MML_FMT_YUV420_AFBC:
 	case MML_FMT_YVU420_AFBC:
+	case MML_FMT_NV12_HYFBC:
 		rdma_frm->bits_per_pixel_y = 12;
 		rdma_frm->bits_per_pixel_uv = 0;
 		rdma_frm->hor_shift_uv = 1;
@@ -882,6 +883,7 @@ static void rdma_color_fmt(struct mml_frame_config *cfg,
 		break;
 	case MML_FMT_YUV420_10P_AFBC:
 	case MML_FMT_YVU420_10P_AFBC:
+	case MML_FMT_P010_HYFBC:
 		rdma_frm->bits_per_pixel_y = 16;
 		rdma_frm->bits_per_pixel_uv = 0;
 		rdma_frm->hor_shift_uv = 1;
@@ -978,6 +980,37 @@ s32 check_setting(struct mml_file_buf *src_buf, struct mml_frame_data *src)
 		src->height &= ~1;
 
 	return 0;
+}
+
+static void calc_hyfbc(struct mml_file_buf *src_buf, struct mml_frame_data *src,
+		       u64 *y_header_addr, u64 *y_data_addr,
+		       u64 *c_header_addr, u64 *c_data_addr)
+{
+	u64 buf_addr = src_buf->dma[0].iova;
+	u32 width = ((src->width + 63) >> 6) << 6;
+	u32 height = ((src->height + 63) >> 6) << 6;
+	u32 y_data_sz = width * height;
+	u32 c_data_sz;
+	u32 y_header_sz;
+	u32 c_header_sz;
+	u32 total_sz;
+
+	if (MML_FMT_10BIT(src->format))
+		y_data_sz = y_data_sz * 6 >> 2;
+
+	c_data_sz = y_data_sz >> 1;
+	y_header_sz = (width * height + 63) >> 6;
+	c_header_sz = ((width * height >> 1) + 63) >> 6;
+
+	*y_data_addr = (((buf_addr + y_header_sz + 4095) >> 12) << 12);
+	*y_header_addr = *y_data_addr - y_header_sz;	// should be 64 aligned
+	*c_data_addr = ((*y_data_addr + y_data_sz + c_header_sz + 4095) >> 12) << 12;
+	*c_header_addr = ((*c_data_addr - c_header_sz) >> 6) << 6;
+
+	total_sz = (u32)(*c_data_addr + c_data_sz - buf_addr);
+	if (src_buf->size[0] != total_sz)
+		mml_log("[rdma]warn %s hyfbc buf size %u calc size %u",
+			__func__, src_buf->size[0], total_sz);
 }
 
 static void calc_ufo(struct mml_file_buf *src_buf, struct mml_frame_data *src,
@@ -1131,7 +1164,6 @@ static s32 rdma_config_frame(struct mml_comp *comp, struct mml_task *task,
 	u8 afbc_y2r = 0;
 	u8 hyfbc = 0;
 	u8 ufbdc = 0;
-	u8 ufbdc_sec_mode = 0;
 	u8 output_10bit = 0;
 	u32 width_in_pxl = 0;
 	u32 height_in_pxl = 0;
@@ -1206,13 +1238,12 @@ static s32 rdma_config_frame(struct mml_comp *comp, struct mml_task *task,
 
 	in_swap = rdma_frm->swap;
 
-	if (MML_FMT_COMPRESS(dst_fmt) &&
-	    MML_FMT_10BIT(dst_fmt)) {
+	if (MML_FMT_AFBC(dst_fmt) && MML_FMT_10BIT(dst_fmt)) {
 		if (rdma->data->rb_swap == 1) {
 			if (cfg->alpharot) {
-				if ((MML_FMT_COMPRESS(src->format) &&
+				if ((MML_FMT_AFBC(src->format) &&
 				    MML_FMT_SWAP(dst_fmt)) ||
-				    (!MML_FMT_COMPRESS(src->format) &&
+				    (!MML_FMT_AFBC(src->format) &&
 				    !MML_FMT_SWAP(dst_fmt)))
 					in_swap = in_swap ? 0 : 1;
 			} else {
@@ -1246,7 +1277,12 @@ static s32 rdma_config_frame(struct mml_comp *comp, struct mml_task *task,
 	else
 		ufo_auo = MML_FMT_AUO(src->format);
 
-	if (MML_FMT_COMPRESS(src->format)) {
+	if (MML_FMT_HYFBC(src->format)) {
+		hyfbc = 1;
+		ufbdc = 1;
+		width_in_pxl = ((src->width + 31) >> 5) << 5;
+		height_in_pxl = ((src->height + 15) >> 4) << 4;
+	} else if (MML_FMT_AFBC(src->format)) {
 		afbc = 1;
 		if (MML_FMT_IS_ARGB(src->format))
 			afbc_y2r = 1;
@@ -1258,8 +1294,6 @@ static s32 rdma_config_frame(struct mml_comp *comp, struct mml_task *task,
 			width_in_pxl = ((src->width + 31) >> 5) << 5;
 			height_in_pxl = ((src->height + 7) >> 3) << 3;
 		}
-		if (src->secure)
-			ufbdc_sec_mode = 1;
 	} else if (rdma_frm->enable_ufo && rdma_frm->blk_10bit) {
 		width_in_pxl = (src->y_stride << 2) / 5;
 	}
@@ -1282,14 +1316,35 @@ static s32 rdma_config_frame(struct mml_comp *comp, struct mml_task *task,
 		   (afbc_y2r << 21) +
 		   (0 << 20) +	/* pvric_en */
 		   (1 << 19) +	/* SHORT_BURST */
-		   (ufbdc_sec_mode << 18) +
 		   (12 << 14) +	/* UFBDC_HG_DISABLE */
 		   (hyfbc << 13) +
 		   (ufbdc << 12) +
 		   (1 << 11),	/* payload_ost */
 		   write_sec);
 
-	if (rdma_frm->enable_ufo) {
+	if (MML_FMT_HYFBC(src->format)) {
+		/* ufo_dec_length_y: Y header addr
+		 * ufo_dec_length_c: C header addr
+		 * src->plane_offset[0]: offset from buf addr to Y data addr
+		 * src->plane_offset[1]: offset from buf addr to C data addr
+		 */
+		calc_hyfbc(src_buf, src, &ufo_dec_length_y, &iova[0],
+			&ufo_dec_length_c, &iova[1]);
+
+		rdma_write_addr(pkt, base_pa, hw_pipe,
+				CPR_RDMA_UFO_DEC_LENGTH_BASE_Y,
+				ufo_dec_length_y,
+				reuse, cache,
+				&rdma_frm->labels[RDMA_LABEL_UFO_DEC_BASE_Y],
+				write_sec);
+
+		rdma_write_addr(pkt, base_pa, hw_pipe,
+				CPR_RDMA_UFO_DEC_LENGTH_BASE_C,
+				ufo_dec_length_c,
+				reuse, cache,
+				&rdma_frm->labels[RDMA_LABEL_UFO_DEC_BASE_C],
+				write_sec);
+	} else if (rdma_frm->enable_ufo) {
 		calc_ufo(src_buf, src, &ufo_dec_length_y, &ufo_dec_length_c,
 			 &u4pic_size_bs, &u4pic_size_y_bs);
 
@@ -1327,6 +1382,7 @@ static s32 rdma_config_frame(struct mml_comp *comp, struct mml_task *task,
 		iova[0] = rdma->sram_pa;
 		iova[1] = rdma->sram_pa + rdma->data->sram_size;
 		iova[2] = 0;
+		mml_msg("%s sram %#011llx", __func__, iova[0]);
 
 	} else if (unlikely(cfg->info.mode == MML_MODE_SRAM_READ)) {
 		iova[0] = rdma->sram_pa + src->plane_offset[0];
@@ -1335,6 +1391,16 @@ static s32 rdma_config_frame(struct mml_comp *comp, struct mml_task *task,
 
 		cmdq_pkt_write(pkt, NULL, rdma->smi_larb_con,
 			GENMASK(19, 16), GENMASK(19, 16));
+
+		mml_msg("%s sram %#011llx", __func__, iova[0]);
+
+	} else if (MML_FMT_HYFBC(src->format)) {
+		/* clear since not use */
+		iova[2] = 0;
+
+		mml_msg("%s y %#011llx %#011llx c %#011llx %#011llx",
+			__func__, ufo_dec_length_y, iova[0],
+			ufo_dec_length_c, iova[1]);
 
 	} else if (rdma_frm->enable_ufo) {
 		if (MML_FMT_10BIT_JUMP(src->format) ||
@@ -1349,14 +1415,17 @@ static s32 rdma_config_frame(struct mml_comp *comp, struct mml_task *task,
 				  u4pic_size_y_bs;
 			iova[2] = src_buf->dma[2].iova + src->plane_offset[2];
 		}
+
+		mml_msg("%s src %#011llx %#011llx ufo %#011llx %#011llx",
+			__func__, iova[0], iova[1],
+			ufo_dec_length_y, ufo_dec_length_c);
 	} else {
 		iova[0] = src_buf->dma[0].iova + src->plane_offset[0];
 		iova[1] = src_buf->dma[1].iova + src->plane_offset[1];
 		iova[2] = src_buf->dma[2].iova + src->plane_offset[2];
+		mml_msg("%s src %#011llx %#011llx %#011llx",
+			__func__, iova[0], iova[1], iova[2]);
 	}
-
-	mml_msg("%s src %#011llx %#011llx %#011llx",
-		__func__, iova[0], iova[1], iova[2]);
 
 	if (cfg->info.mode == MML_MODE_APUDC) {
 		cmdq_pkt_write(pkt, NULL, base_pa + APU_SRC_BASE_0_A, iova[0], U32_MAX);
@@ -1452,7 +1521,7 @@ static s32 rdma_config_tile(struct mml_comp *comp, struct mml_task *task,
 			rdma_frm->vdo_blk_shift_h);
 	}
 
-	if (MML_FMT_COMPRESS(src->format)) {
+	if (MML_FMT_AFBC(src->format) || MML_FMT_HYFBC(src->format)) {
 		src_offset_wp = in_xs;
 		src_offset_hp = in_ys;
 	}
