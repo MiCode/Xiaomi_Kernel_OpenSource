@@ -91,7 +91,7 @@ static kal_uint16 previous_exp_cnt;
 static struct imgsensor_info_struct imgsensor_info = {
 	.sensor_id = IMX766_SENSOR_ID,
 
-	.checksum_value = 0x8ac2d94a,
+	.checksum_value = 0xaf3e324f,
 
 	.pre = { /* QBIN_HVBin_4096x3072_30FPS */
 		.pclk = 1488000000,

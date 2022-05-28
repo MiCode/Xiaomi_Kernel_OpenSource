@@ -3239,6 +3239,7 @@ static int get_imgsensor_id(struct subdrv_ctx *ctx, UINT32 *sensor_id)
 					ctx->mirror = IMAGE_HV_MIRROR;
 					imgsensor_info.sensor_output_dataformat =
 						SENSOR_OUTPUT_FORMAT_RAW_Gb;
+					imgsensor_info.checksum_value = 0xe4087030;
 				}
 				return ERROR_NONE;
 			}
@@ -3296,6 +3297,7 @@ static int open(struct subdrv_ctx *ctx)
 					ctx->mirror = IMAGE_HV_MIRROR;
 					imgsensor_info.sensor_output_dataformat =
 						SENSOR_OUTPUT_FORMAT_RAW_Gb;
+					imgsensor_info.checksum_value = 0xe4087030;
 				}
 				break;
 			}
