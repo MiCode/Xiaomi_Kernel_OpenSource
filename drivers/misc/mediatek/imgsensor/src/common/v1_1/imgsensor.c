@@ -1937,6 +1937,7 @@ static inline int adopt_CAMERA_HW_FeatureControl(void *pBuf)
 					((void *)pData, (void __user *)usr_ptr,
 					sizeof(struct SET_SENSOR_PATTERN_SOLID_COLOR))) {
 					PK_DBG("[CAMERA_HW]ERROR: copy_from_user fail\n");
+					kfree(pData);
 					kfree(pFeaturePara);
 					return -EFAULT;
 				}
