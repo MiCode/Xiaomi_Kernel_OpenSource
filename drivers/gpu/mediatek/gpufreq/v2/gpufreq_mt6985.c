@@ -3123,6 +3123,10 @@ static void __gpufreq_set_semaphore(enum gpufreq_sema_op op)
 {
 	int i = 0;
 
+	/*
+	 * GPU Master @ APMCU: SPM_SEMA_M3[3]
+	 * GPU Master @ GPUEB: SPM_SEMA_M4[3]
+	 */
 	/* acquire HW semaphore: SPM_SEMA_M3 0x1C0016A8 [3] = 1'b1 */
 	if (op == SEMA_ACQUIRE) {
 		do {
@@ -3135,9 +3139,12 @@ static void __gpufreq_set_semaphore(enum gpufreq_sema_op op)
 	/* signal HW semaphore: SPM_SEMA_M3 0x1C0016A8 [3] = 1'b1 */
 	} else if (op == SEMA_RELEASE) {
 		writel(BIT(3), SPM_SEMA_M3);
-		udelay(10);
-		if (readl(SPM_SEMA_M3) & BIT(3))
-			goto fail;
+		do {
+			/* 10ms timeout */
+			if (unlikely(++i > 1000))
+				goto fail;
+			udelay(10);
+		} while (readl(SPM_SEMA_M3) & BIT(3));
 	}
 
 	return;
@@ -3596,7 +3603,7 @@ static void __gpufreq_mfg1_rpc_control(enum gpufreq_power_state power)
 		/* IFR_MFGSYS_PROT_EN_W1C_0 0x1002C1A8 [3:0] = 4'b1111 */
 		writel(GENMASK(3, 0), IFR_MFGSYS_PROT_EN_W1C_0);
 	} else {
-		/* IFR_MFGSYS_PROT_EN_W1S_0 0x1002C1A8 [3:0] = 4'b1111 */
+		/* IFR_MFGSYS_PROT_EN_W1S_0 0x1002C1A4 [3:0] = 4'b1111 */
 		writel(GENMASK(3, 0), IFR_MFGSYS_PROT_EN_W1S_0);
 		/* IFR_MFGSYS_PROT_RDY_STA_0 0x1002C1AC [3:0] = 4'b1111 */
 		i = 0;

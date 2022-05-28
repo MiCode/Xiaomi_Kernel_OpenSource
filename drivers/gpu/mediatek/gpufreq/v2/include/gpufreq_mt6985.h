@@ -480,21 +480,17 @@ static struct gpufreq_opp_info g_stack_default_opp_table[] = {
  * OPP Adjustment
  **************************************************/
 static struct gpufreq_adj_info g_gpu_avs_table[NUM_GPU_SIGNED_IDX] = {
-#if GPUFREQ_AVS_ENABLE
 	ADJOP(GPU_SIGNED_OPP_0, 0, 0, 0),
 	ADJOP(GPU_SIGNED_OPP_1, 0, 0, 0),
 	ADJOP(GPU_SIGNED_OPP_2, 0, 0, 0),
 	ADJOP(GPU_SIGNED_OPP_3, 0, 0, 0),
-#endif /* GPUFREQ_AVS_ENABLE */
 };
 
 static struct gpufreq_adj_info g_stack_avs_table[NUM_STACK_SIGNED_IDX] = {
-#if GPUFREQ_AVS_ENABLE
 	ADJOP(STACK_SIGNED_OPP_0, 0, 0, 0),
 	ADJOP(STACK_SIGNED_OPP_1, 0, 0, 0),
 	ADJOP(STACK_SIGNED_OPP_2, 0, 0, 0),
 	ADJOP(STACK_SIGNED_OPP_3, 0, 0, 0),
-#endif /* GPUFREQ_AVS_ENABLE */
 };
 
 static struct gpufreq_adj_info g_gpu_aging_table[][NUM_GPU_SIGNED_IDX] = {
@@ -504,7 +500,6 @@ static struct gpufreq_adj_info g_gpu_aging_table[][NUM_GPU_SIGNED_IDX] = {
 		ADJOP(GPU_SIGNED_OPP_2, 0, 625, 0),
 		ADJOP(GPU_SIGNED_OPP_3, 0, 0, 0),
 	},
-#if GPUFREQ_ASENSOR_ENABLE
 	{ /* aging table 1 */
 		ADJOP(GPU_SIGNED_OPP_0, 0, 0, 0),
 		ADJOP(GPU_SIGNED_OPP_1, 0, 0, 0),
@@ -513,7 +508,6 @@ static struct gpufreq_adj_info g_gpu_aging_table[][NUM_GPU_SIGNED_IDX] = {
 	},
 	/* aging table 2: remove for code size */
 	/* aging table 3: remove for code size */
-#endif /* GPUFREQ_ASENSOR_ENABLE */
 };
 
 static struct gpufreq_adj_info g_stack_aging_table[][NUM_STACK_SIGNED_IDX] = {
@@ -523,7 +517,6 @@ static struct gpufreq_adj_info g_stack_aging_table[][NUM_STACK_SIGNED_IDX] = {
 		ADJOP(STACK_SIGNED_OPP_2, 0, 625, 0),
 		ADJOP(STACK_SIGNED_OPP_3, 0, 0, 0),
 	},
-#if GPUFREQ_ASENSOR_ENABLE
 	{ /* aging table 1 */
 		ADJOP(STACK_SIGNED_OPP_0, 0, 0, 0),
 		ADJOP(STACK_SIGNED_OPP_1, 0, 0, 0),
@@ -532,7 +525,6 @@ static struct gpufreq_adj_info g_stack_aging_table[][NUM_STACK_SIGNED_IDX] = {
 	},
 	/* aging table 2: remove for code size */
 	/* aging table 3: remove for code size */
-#endif /* GPUFREQ_ASENSOR_ENABLE */
 };
 
 #endif /* __GPUFREQ_MT6985_H__ */
