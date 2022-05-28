@@ -23,7 +23,8 @@
 #define MMDVFS_DBG(fmt, args...) \
 	pr_notice("[mmdvfs_dbg][dbg]%s: "fmt"\n", __func__, ##args)
 
-#define MMDVFS_RECORD_NUM (16)
+#define MMDVFS_RECORD_OBJ	(4)
+#define MMDVFS_RECORD_NUM	(16)
 
 struct mmdvfs_record {
 	u64 sec;
@@ -36,7 +37,7 @@ struct mmdvfs_debug {
 	struct proc_dir_entry *proc;
 	u32 debug_version;
 
-	/* v1 */
+	/* MMDVFS_DBG_VER1 */
 	struct regulator *reg;
 	u32 reg_cnt_vol;
 	u32 force_step0;
@@ -46,8 +47,9 @@ struct mmdvfs_debug {
 	u8 rec_cnt;
 	struct mmdvfs_record rec[MMDVFS_RECORD_NUM];
 
-	/* v3 */
+	/* MMDVFS_DBG_VER3 */
 	struct clk *clk;
+	void *base;
 };
 
 static struct mmdvfs_debug *g_mmdvfs;
@@ -68,9 +70,9 @@ static int mmdvfs_debug_set_force_step(const char *val,
 	u8 idx = 0, opp = 0;
 	int ret;
 
-	ret = sscanf(val, "%llu %llu", &idx, &opp);
+	ret = sscanf(val, "%hhu %hhu", &idx, &opp);
 	if (ret != 2 || idx >= PWR_MMDVFS_NUM) {
-		MMDVFS_DBG("failed:%d idx:%llu opp:%llu", ret, idx, opp);
+		MMDVFS_DBG("failed:%d idx:%hhu opp:%hhu", ret, idx, opp);
 		return -EINVAL;
 	}
 
@@ -96,9 +98,9 @@ static int mmdvfs_debug_set_vote_step(const char *val,
 	u8 idx = 0, opp = 0;
 	int ret;
 
-	ret = sscanf(val, "%llu %llu", &idx, &opp);
+	ret = sscanf(val, "%hhu %hhu", &idx, &opp);
 	if (ret != 2 || idx >= PWR_MMDVFS_NUM) {
-		MMDVFS_DBG("failed:%d idx:%llu opp:%llu", ret, idx, opp);
+		MMDVFS_DBG("failed:%d idx:%hhu opp:%hhu", ret, idx, opp);
 		return -EINVAL;
 	}
 
@@ -141,27 +143,52 @@ static void mmdvfs_debug_record_opp(const u8 opp)
 
 static int mmdvfs_debug_opp_show(struct seq_file *file, void *data)
 {
-	unsigned long flags;
-	s32 i;
+	unsigned long cnt, mem[MMDVFS_RECORD_OBJ], flags;
+	s32 i, j;
+
+	/* MMDVFS_DBG_VER1 */
+	seq_puts(file, "VER1: mux controlled by vcore regulator:\n");
 
 	spin_lock_irqsave(&g_mmdvfs->lock, flags);
 
-	for (i = g_mmdvfs->rec_cnt; i < ARRAY_SIZE(g_mmdvfs->rec); i++)
-		seq_printf(file, "[%5llu.%06llu] i:%2d opp:%2u\n",
-			g_mmdvfs->rec[i].sec, g_mmdvfs->rec[i].nsec, i,
-			g_mmdvfs->rec[i].opp);
+	if (g_mmdvfs->rec[g_mmdvfs->rec_cnt].sec)
+		for (i = g_mmdvfs->rec_cnt; i < ARRAY_SIZE(g_mmdvfs->rec); i++)
+			seq_printf(file, "[%5llu.%06llu] opp:%u\n",
+				g_mmdvfs->rec[i].sec, g_mmdvfs->rec[i].nsec,
+				g_mmdvfs->rec[i].opp);
 
 	for (i = 0; i < g_mmdvfs->rec_cnt; i++)
-		seq_printf(file, "[%5llu.%06llu] i:%2d opp:%2u\n",
+		seq_printf(file, "[%5llu.%06llu] opp:%u\n",
 			g_mmdvfs->rec[i].sec, g_mmdvfs->rec[i].nsec, i,
 			g_mmdvfs->rec[i].opp);
 
 	spin_unlock_irqrestore(&g_mmdvfs->lock, flags);
 
-	for (i = 0; i < ARRAY_SIZE(g_mmdvfs->rec); i++)
-		MMDVFS_DBG("[%5llu.%06llu] i:%2d opp:%2hhu",
-			g_mmdvfs->rec[i].sec, g_mmdvfs->rec[i].nsec, i,
-			g_mmdvfs->rec[i].opp);
+	/* MMDVFS_DBG_VER3 */
+	seq_puts(file, "VER3: mux controlled by vcp:\n");
+
+	if (!g_mmdvfs->base)
+		g_mmdvfs->base = mtk_mmdvfs_vcp_get_base();
+
+	cnt = readl(g_mmdvfs->base);
+	if (readl(g_mmdvfs->base + (((cnt + 1) * MMDVFS_RECORD_OBJ) << 2)))
+		for (i = cnt; i < MMDVFS_RECORD_NUM; i++) {
+			for (j = 0; j < ARRAY_SIZE(mem); j++)
+				mem[j] = readl(g_mmdvfs->base + (((i + 1) *
+					MMDVFS_RECORD_OBJ + j) << 2));
+
+			seq_printf(file, "[%5lu.%3lu] rec:%lu opp:%lu\n",
+				mem[0], mem[1], mem[2], mem[3]);
+		}
+
+	for (i = 0; i < cnt; i++) {
+		for (j = 0; j < ARRAY_SIZE(mem); j++)
+			mem[j] = readl(g_mmdvfs->base + (((i + 1) *
+				MMDVFS_RECORD_OBJ + j) << 2));
+
+		seq_printf(file, "[%5lu.%3lu] rec:%lu opp:%lu\n",
+			mem[0], mem[1], mem[2], mem[3]);
+	}
 
 	return 0;
 }
@@ -178,7 +205,7 @@ static const struct proc_ops mmdvfs_debug_opp_fops = {
 	.proc_release = single_release,
 };
 
-static int mmdvfs_debug_thread(void *data)
+static int mmdvfs_v3_debug_thread(void *data)
 {
 	unsigned long rate;
 	int ret = 0;
@@ -244,6 +271,7 @@ static int mmdvfs_debug_probe(struct platform_device *pdev)
 		MMDVFS_DBG("debug_version:%u failed:%d",
 			g_mmdvfs->debug_version, ret);
 
+	/* MMDVFS_DBG_VER1 */
 	reg = devm_regulator_get(g_mmdvfs->dev, "dvfsrc-vcore");
 	if (IS_ERR_OR_NULL(reg)) {
 		MMDVFS_DBG("devm_regulator_get failed:%d", PTR_ERR(reg));
@@ -284,14 +312,16 @@ static int mmdvfs_debug_probe(struct platform_device *pdev)
 		MMDVFS_DBG("release_step0:%u failed:%d",
 			g_mmdvfs->release_step0, ret);
 
+	/* MMDVFS_DBG_VER3 */
 	spin_lock_init(&g_mmdvfs->lock);
 
 	clk = devm_clk_get(g_mmdvfs->dev, "vcore");
 	if (IS_ERR_OR_NULL(clk))
 		MMDVFS_DBG("devm_clk_get failed:%d", PTR_ERR(clk));
-	else { // for v3
+	else {
 		g_mmdvfs->clk = clk;
-		kthr = kthread_run(mmdvfs_debug_thread, NULL, "mmdvfs-dbg-vcp");
+		kthr = kthread_run(
+			mmdvfs_v3_debug_thread, NULL, "mmdvfs-dbg-vcp");
 	}
 
 	return 0;

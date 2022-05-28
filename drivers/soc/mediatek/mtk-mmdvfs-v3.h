@@ -65,7 +65,8 @@ enum {
 	FUNC_FORCE_OPP, /* power, opp */
 	FUNC_CAMERA_ON, /* enable */
 	FUNC_STRESS, /* enable */
-	FUNC_LOG,
+	FUNC_SET_MEM, /* base */
+	FUNC_SET_LOG,
 	FUNC_NUM
 };
 
@@ -74,6 +75,7 @@ struct mmdvfs_ipi_data {
 	uint8_t idx;
 	uint8_t opp;
 	uint8_t ack;
+	uint32_t base;
 };
 
 #endif /* __DRV_CLK_MMDVFS_V3_H */

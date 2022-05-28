@@ -13,6 +13,9 @@
 #include "clk-mtk.h"
 //#include "clk-mux.h"
 #include "mtk-mmdvfs-v3.h"
+
+#include "vcp.h"
+#include "vcp_reg.h"
 #include "vcp_status.h"
 
 static u8 mmdvfs_clk_num;
@@ -21,11 +24,13 @@ static struct mtk_mmdvfs_clk *mtk_mmdvfs_clks;
 static u8 mmdvfs_pwr_opp[PWR_MMDVFS_NUM];
 static struct clk *mmdvfs_pwr_clk[PWR_MMDVFS_NUM];
 
-static u32 mmdvfs_vcp_ipi_data;
+static u64 mmdvfs_vcp_ipi_data;
 static DEFINE_MUTEX(mmdvfs_vcp_ipi_mutex);
 
 static log_level;
 static bool mmdvfs_init_done;
+
+static phys_addr_t mmdvfs_vcp_base;
 
 enum mmdvfs_log_level {
 	log_ipi,
@@ -53,10 +58,8 @@ static int mmdvfs_vcp_is_ready(void)
 	return 1;
 }
 
-static int mmdvfs_vcp_ipi_send(const u8 func, const u8 idx, const u8 opp,
-	const u8 ack) // ap > vcp
+static int mmdvfs_vcp_ipi_send_impl(struct mmdvfs_ipi_data *slot) // ap > vcp
 {
-	struct mmdvfs_ipi_data slot = {func, idx, opp, ack};
 	int ret;
 
 	if (!mmdvfs_vcp_is_ready()) {
@@ -65,26 +68,41 @@ static int mmdvfs_vcp_ipi_send(const u8 func, const u8 idx, const u8 opp,
 	}
 
 	mutex_lock(&mmdvfs_vcp_ipi_mutex);
-	mmdvfs_vcp_ipi_data =
-		(func << 0) | (idx << 8) | (opp << 16) | (ack << 24);
+	mmdvfs_vcp_ipi_data = *(u64 *)slot;
 
 	ret = mtk_ipi_send(vcp_get_ipidev(), IPI_OUT_MMDVFS, IPI_SEND_WAIT,
-		&slot, PIN_OUT_SIZE_MMDVFS, IPI_TIMEOUT_MS);
+		slot, PIN_OUT_SIZE_MMDVFS, IPI_TIMEOUT_MS);
 
 	if (ret != IPI_ACTION_DONE) {
-		MMDVFS_ERR("mtk_ipi_send failed:%d slot:%#x data:%#x",
-			ret, slot, mmdvfs_vcp_ipi_data);
+		MMDVFS_ERR("mtk_ipi_send failed:%d slot:%#llx data:%#llx",
+			ret, *slot, mmdvfs_vcp_ipi_data);
 
 		mutex_unlock(&mmdvfs_vcp_ipi_mutex);
 		return ret;
 	}
 
-	while ((mmdvfs_vcp_ipi_data & 0xff) == func)
+	while ((mmdvfs_vcp_ipi_data & 0xff) == slot->func)
 		udelay(100);
 
 	ret = mmdvfs_vcp_ipi_data;
 	mutex_unlock(&mmdvfs_vcp_ipi_mutex);
 	return ret;
+}
+
+static int mmdvfs_vcp_ipi_send(const u8 func, const u8 idx, const u8 opp,
+	const u8 ack)
+{
+	struct mmdvfs_ipi_data slot = {func, idx, opp, ack, 0U};
+
+	return mmdvfs_vcp_ipi_send_impl(&slot);
+}
+
+static int mmdvfs_vcp_ipi_send_base(const u64 base)
+{
+	struct mmdvfs_ipi_data slot = {
+		FUNC_SET_MEM, 0, 0, base >> 32, (u32)base};
+
+	return mmdvfs_vcp_ipi_send_impl(&slot);
 }
 
 static int mmdvfs_vcp_ipi_cb(unsigned int ipi_id, void *prdata, void *data,
@@ -182,6 +200,12 @@ static const struct clk_ops mtk_mmdvfs_req_ops = {
 	.recalc_rate	= mtk_mmdvfs_recalc_rate,
 };
 
+void *mtk_mmdvfs_vcp_get_base(void)
+{
+	return (void *)vcp_get_reserve_mem_virt_ex(MMDVFS_MEM_ID);
+}
+EXPORT_SYMBOL_GPL(mtk_mmdvfs_vcp_get_base);
+
 int mtk_mmdvfs_camera_notify(const bool enable)
 {
 	struct mmdvfs_ipi_data slot;
@@ -214,7 +238,7 @@ int mtk_mmdvfs_v3_set_force_step(u16 pwr_idx, s16 opp)
 	struct mmdvfs_ipi_data slot;
 	int ret;
 
-	if (mmdvfs_clk_num)
+	if (!mmdvfs_clk_num)
 		return -ENODEV;
 
 	if (pwr_idx >= PWR_MMDVFS_NUM || opp >= MAX_OPP) {
@@ -266,7 +290,7 @@ int mtk_mmdvfs_v3_set_vote_step(u16 pwr_idx, s16 opp)
 	u32 freq = 0;
 	int ret = 0, i;
 
-	if (mmdvfs_clk_num)
+	if (!mmdvfs_clk_num)
 		return -ENODEV;
 
 	if (pwr_idx >= PWR_MMDVFS_NUM || opp >= MAX_OPP) {
@@ -400,7 +424,7 @@ int mmdvfs_get_vcp_log(char *buf, const struct kernel_param *kp)
 	struct mmdvfs_ipi_data slot;
 	int len = 0, ret;
 
-	ret = mmdvfs_vcp_ipi_send(FUNC_LOG, LOG_NUM, MAX_OPP, MAX_OPP);
+	ret = mmdvfs_vcp_ipi_send(FUNC_SET_LOG, LOG_NUM, MAX_OPP, MAX_OPP);
 
 	slot = *(struct mmdvfs_ipi_data *)(u32 *)&ret;
 	len += snprintf(
@@ -421,7 +445,7 @@ int mmdvfs_set_vcp_log(const char *val, const struct kernel_param *kp)
 		return ret;
 	}
 
-	ret = mmdvfs_vcp_ipi_send(FUNC_LOG, log, MAX_OPP, MAX_OPP);
+	ret = mmdvfs_vcp_ipi_send(FUNC_SET_LOG, log, MAX_OPP, MAX_OPP);
 
 	slot = *(struct mmdvfs_ipi_data *)(u32 *)&ret;
 	MMDVFS_DBG("ipi:%#x slot:%#x log:%hu log:%#x", ret, slot, log, slot.ack);
@@ -460,6 +484,7 @@ static int mmdvfs_vcp_init_thread(void *data)
 		MMDVFS_DBG("vcp is not ready yet");
 		msleep(2000);
 	}
+
 	while (!(vcp_ipi_dev = vcp_get_ipidev())) {
 		MMDVFS_DBG("cannot get vcp ipidev");
 		msleep(1000);
@@ -469,6 +494,9 @@ static int mmdvfs_vcp_init_thread(void *data)
 		mmdvfs_vcp_ipi_cb, NULL, &mmdvfs_vcp_ipi_data);
 	if (ret)
 		MMDVFS_DBG("mtk_ipi_register failed:%d ipi_id:%d", ret, IPI_IN_MMDVFS);
+
+	mmdvfs_vcp_base = vcp_get_reserve_mem_phys_ex(MMDVFS_MEM_ID);
+	mmdvfs_vcp_ipi_send_base(mmdvfs_vcp_base);
 
 	mmdvfs_init_done = true;
 
