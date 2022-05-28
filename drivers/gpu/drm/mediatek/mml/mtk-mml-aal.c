@@ -1480,6 +1480,10 @@ const struct of_device_id mml_aal_driver_dt_match[] = {
 		.compatible = "mediatek,mt6985-mml_aal",
 		.data = &mt6985_aal_data
 	},
+	{
+		.compatible = "mediatek,mt6886-mml_aal",
+		.data = &mt6895_aal0_data
+	},
 	{},
 };
 MODULE_DEVICE_TABLE(of, mml_aal_driver_dt_match);

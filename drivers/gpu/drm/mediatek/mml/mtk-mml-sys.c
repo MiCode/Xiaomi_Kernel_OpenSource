@@ -1682,6 +1682,22 @@ static const struct mml_data mt6985_mml_data = {
 	.use_aidsel_engine = true,
 };
 
+static const struct mml_data mt6886_mml_data = {
+	.comp_inits = {
+		[MML_CT_SYS] = &sys_comp_init,
+		[MML_CT_DL_IN] = &dli_comp_init,
+		[MML_CT_DL_OUT] = &dlo_comp_init,
+	},
+	.ddp_comp_funcs = {
+		[MML_CT_SYS] = &sys_ddp_funcs,
+		[MML_CT_DL_IN] = &dl_ddp_funcs,
+		[MML_CT_DL_OUT] = &dl_ddp_funcs,
+	},
+	.aid_sel = sys_config_aid_sel_engine,
+	.gpr = {CMDQ_GPR_R08, CMDQ_GPR_R10},
+	.use_aidsel_engine = true,
+};
+
 const struct of_device_id mtk_mml_of_ids[] = {
 	{
 		.compatible = "mediatek,mt6983-mml",
@@ -1702,6 +1718,10 @@ const struct of_device_id mtk_mml_of_ids[] = {
 	{
 		.compatible = "mediatek,mt6985-mml",
 		.data = &mt6985_mml_data,
+	},
+	{
+		.compatible = "mediatek,mt6886-mml",
+		.data = &mt6886_mml_data,
 	},
 	{},
 };

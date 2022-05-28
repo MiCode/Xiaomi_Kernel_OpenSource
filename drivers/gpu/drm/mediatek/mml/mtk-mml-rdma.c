@@ -511,6 +511,25 @@ static const struct rdma_data mt6985_rdma_data = {
 	},
 };
 
+static const struct rdma_data mt6886_rdma_data = {
+	.tile_width = 1312,
+	.rb_swap = 1,
+	.golden = {
+		[GOLDEN_FMT_ARGB] = {
+			.cnt = ARRAY_SIZE(th_argb_mt6983),
+			.settings = th_argb_mt6983,
+		},
+		[GOLDEN_FMT_RGB] = {
+			.cnt = ARRAY_SIZE(th_rgb_mt6983),
+			.settings = th_rgb_mt6983,
+		},
+		[GOLDEN_FMT_YUV420] = {
+			.cnt = ARRAY_SIZE(th_yuv420_mt6983),
+			.settings = th_yuv420_mt6983,
+		},
+	},
+};
+
 struct mml_comp_rdma {
 	struct mml_comp comp;
 	const struct rdma_data *data;
@@ -1994,6 +2013,10 @@ const struct of_device_id mml_rdma_driver_dt_match[] = {
 	{
 		.compatible = "mediatek,mt6985-mml_rdma",
 		.data = &mt6985_rdma_data,
+	},
+	{
+		.compatible = "mediatek,mt6886-mml_rdma",
+		.data = &mt6886_rdma_data,
 	},
 	{},
 };

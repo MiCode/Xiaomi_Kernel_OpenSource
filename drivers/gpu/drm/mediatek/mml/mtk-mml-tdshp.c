@@ -112,6 +112,11 @@ static const struct tdshp_data mt6985_tdshp_data = {
 	.reg_table = tdshp_reg_table_mt6985,
 };
 
+static const struct tdshp_data mt6886_tdshp_data = {
+	.tile_width = 1300,
+	.reg_table = tdshp_reg_table_mt6983,
+};
+
 struct mml_comp_tdshp {
 	struct mtk_ddp_comp ddp_comp;
 	struct mml_comp comp;
@@ -603,6 +608,10 @@ const struct of_device_id mml_tdshp_driver_dt_match[] = {
 	{
 		.compatible = "mediatek,mt6985-mml_tdshp",
 		.data = &mt6983_tdshp_data,
+	},
+	{
+		.compatible = "mediatek,mt6886-mml_tdshp",
+		.data = &mt6886_tdshp_data
 	},
 	{},
 };
