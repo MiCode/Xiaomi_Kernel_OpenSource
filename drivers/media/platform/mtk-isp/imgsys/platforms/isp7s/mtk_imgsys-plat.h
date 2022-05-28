@@ -34,13 +34,10 @@ struct clk_bulk_data imgsys_isp7_clks[] = {
 		.id = "IMGSYS_CG_IMG_WPE2",
 	},
 	{
-		.id = "IMGSYS_CG_IMG_ADL_LARB",
-	},
-	{
 		.id = "IMGSYS_CG_IMG_ADL_TOP0",
 	},
 	{
-		.id = "IMGSYS_CG_IMG_ADL_TOP1",
+		.id = "IMGSYS_CG_IMG_AVS",
 	},
 	{
 		.id = "IMGSYS_CG_IMG_GALS",
@@ -49,7 +46,13 @@ struct clk_bulk_data imgsys_isp7_clks[] = {
 		.id = "DIP_TOP_DIP_TOP",
 	},
 	{
-		.id = "DIP_NR_DIP_NR",
+		.id = "DIP_NR1_DIP1_LARB",
+	},
+	{
+		.id = "DIP_NR1_DIP_NR1",
+	},
+	{
+		.id = "DIP_NR2_DIP_NR",
 	},
 	{
 		.id = "WPE1_CG_DIP1_WPE",
@@ -61,24 +64,16 @@ struct clk_bulk_data imgsys_isp7_clks[] = {
 		.id = "WPE3_CG_DIP1_WPE",
 	},
 	{
-		.id = "ME_CG_IPE"
+		.id = "TRAW_CG_DIP1_TRAW",
 	},
 	{
-		.id = "ME_CG_IPE_TOP"
+		.id = "IMGSYS_CG_IMG_IPE"
 	},
 	{
 		.id = "ME_CG"
 	},
 	{
-		.id = "IPE_FDVT"
-	},
-#ifdef USE_FDVT1
-	{
-		.id = "IPE_FDVT1"
-	}
-#endif
-	{
-		.id = "ME_CG_LARB12"
+		.id = "MMG_CG"
 	}
 };
 
