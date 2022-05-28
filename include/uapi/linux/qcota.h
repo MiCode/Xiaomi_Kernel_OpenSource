@@ -55,7 +55,6 @@ struct qce_f8_req {
 	__u8   ckey[OTA_KEY_SIZE];
 	enum qce_ota_dir_enum  direction;
 	enum qce_ota_algo_enum algorithm;
-	int current_req_info;
 };
 
 /**
@@ -203,7 +202,6 @@ struct qce_f9_req {
 	enum qce_ota_dir_enum direction;
 	__u8    ikey[OTA_KEY_SIZE];
 	enum qce_ota_algo_enum algorithm;
-	int current_req_info;
 };
 
 #define QCOTA_IOC_MAGIC     0x85
