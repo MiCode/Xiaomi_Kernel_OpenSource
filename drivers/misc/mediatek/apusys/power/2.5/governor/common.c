@@ -90,10 +90,11 @@ free_passdata:
 void apu_dump_list(struct apu_gov_data *gov_data)
 {
 	struct apu_req *ptr;
-	char buffer[__LOG_BUF_LEN];
+	char *buffer = NULL;
 	int n_pos = 0;
 
 	if (apupw_dbg_get_loglvl() >= VERBOSE_LVL) {
+		buffer = kmalloc(__LOG_BUF_LEN, GFP_KERNEL);
 		n_pos += scnprintf(buffer + n_pos, (sizeof(buffer) - n_pos),
 				   "[%s] head:", apu_dev_name(gov_data->this->dev.parent));
 		list_for_each_entry(ptr, &gov_data->head, list)
@@ -106,16 +107,18 @@ void apu_dump_list(struct apu_gov_data *gov_data)
 						   "->%s[%d]",
 						   apu_dev_name(ptr->dev), ptr->value);
 		pr_info("%s", buffer);
+		kfree(buffer);
 	}
 }
 
 void apu_dump_pe_gov(struct apu_dev *ad, struct list_head *head)
 {
 	struct apu_req *ptr;
-	char buffer[__LOG_BUF_LEN];
+	char *buffer = NULL;
 	int n_pos = 0;
 
 	if (apupw_dbg_get_loglvl() >= VERBOSE_LVL) {
+		buffer = kmalloc(__LOG_BUF_LEN, GFP_KERNEL);
 		n_pos += scnprintf(buffer + n_pos, (sizeof(buffer) - n_pos),
 			"[%s][pe_gov] head:", ad->name);
 		list_for_each_entry(ptr, head, list) {
@@ -124,6 +127,7 @@ void apu_dump_pe_gov(struct apu_dev *ad, struct list_head *head)
 					apu_dev_name(ptr->dev), ptr->value);
 		}
 		pr_info("%s", buffer);
+		kfree(buffer);
 	}
 }
 
