@@ -232,20 +232,34 @@ irqreturn_t mtk_ccu_isr_handler(int irq, void *priv)
 
 	if (!ccu->poweron) {
 		LOG_DBG_IPI("ccu->poweron false.\n");
+#ifdef REQUEST_IRQ_IN_INIT
+		if (spin_trylock(&ccu->ccu_irq_lock)) {
+			if (ccu->disirq) {
+				ccu->disirq = false;
+				spin_unlock(&ccu->ccu_irq_lock);
+				disable_irq_nosync(ccu->irq_num);
+			} else
+				spin_unlock(&ccu->ccu_irq_lock);
+		}
+#endif
 		spin_unlock(&ccu->ccu_poweron_lock);
 		goto ISR_EXIT;
 	}
 
 	/*clear interrupt status*/
 #if defined(SECURE_CCU)
+	if (ccu->ccu_version > CCU_VER_ISP71)
+		writel(1, ccu->ccu_base + MTK_CCU_INT_CLR_EXCH);
+	else {
 #ifdef CONFIG_ARM64
-	arm_smccc_smc(MTK_SIP_KERNEL_CCU_CONTROL, (u64) CCU_SMC_REQ_CLEAR_INT,
-			(u64)1, 0, 0, 0, 0, 0, &res);
+		arm_smccc_smc(MTK_SIP_KERNEL_CCU_CONTROL, (u64) CCU_SMC_REQ_CLEAR_INT,
+				(u64)1, 0, 0, 0, 0, 0, &res);
 #endif
 #ifdef CONFIG_ARM_PSCI
-	arm_smccc_smc(MTK_SIP_KERNEL_CCU_CONTROL, (u32) CCU_SMC_REQ_CLEAR_INT,
-			(u32)1, 0, 0, 0, 0, 0, &res);
+		arm_smccc_smc(MTK_SIP_KERNEL_CCU_CONTROL, (u32) CCU_SMC_REQ_CLEAR_INT,
+				(u32)1, 0, 0, 0, 0, 0, &res);
 #endif
+	}
 #else
 	writel(0xFF, ccu->ccu_base + MTK_CCU_INT_CLR);
 	// int_st = readl(ccu->ccu_base + MTK_CCU_INT_ST);
@@ -256,8 +270,14 @@ irqreturn_t mtk_ccu_isr_handler(int irq, void *priv)
 	while (1) {
 		mb_cnt = mtk_ccu_mb_rx(ccu, &msg);
 		if (mb_cnt == 0) {
-			if (ccu->disirq)
-				disable_irq_nosync(ccu->irq_num);
+			if (spin_trylock(&ccu->ccu_irq_lock)) {
+				if (ccu->disirq) {
+					ccu->disirq = false;
+					spin_unlock(&ccu->ccu_irq_lock);
+					disable_irq_nosync(ccu->irq_num);
+				} else
+					spin_unlock(&ccu->ccu_irq_lock);
+			}
 			goto ISR_EXIT;
 		}
 

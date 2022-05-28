@@ -12,6 +12,11 @@
 #include <linux/spinlock.h>
 
 #define SECURE_CCU
+/*
+ * devm_request_threaded_irq() may return -EINTR and retry fails too.
+ * so can not request_irq/free_irq at ccu boot/shutdown.
+ */
+#define REQUEST_IRQ_IN_INIT
 
 #define MTK_CCU_DEV_NAME            "ccu_rproc"
 #define MTK_CCU1_DEV_NAME           "ccu_rproc1"
@@ -27,7 +32,13 @@
 #define MTK_CCU_IOCTL_SET_LOG_LEVEL          _IOW(MTK_CCU_MAGICNO,   1, int)
 #define MTK_CCU_IOCTL_FLUSH_LOG              _IOW(MTK_CCU_MAGICNO,   2, int)
 
-#define MTK_CCU_CLK_PWR_NUM 7
+#define CCU_VER_ISP7	70
+#define CCU_VER_ISP71	71
+#define CCU_VER_ISP7S	72
+#define CCU_VER_ISP7SP	73
+
+#define MTK_CCU_CLK_PWR_NUM 20
+#define MTK_CCU_CLK_NAME_LEN 32
 #define MTK_CCU_MAILBOX_QUEUE_SIZE 8
 
 #define MTK_CCU_SRAM_LOG_OFFSET	 (0x1000)
@@ -41,6 +52,8 @@
 #define MTK_CCU_MRDUMP_BUF_DRAM_SIZE (128 * 1024)
 #define MTK_CCU_MRDUMP_BUF_SIZE (MTK_CCU_MRDUMP_SRAM_BUF_SIZE + 2 * MTK_CCU_MRDUMP_BUF_DRAM_SIZE)
 #define LOG_ENDEND 0xDDDDDDDD
+#define LOG_DEFAULT_LEVEL 4
+#define LOG_DEFAULT_TAG   0x021182A6
 
 struct mtk_ccu_ipc_desc {
 	mtk_ccu_ipc_handle_t handler;
@@ -120,11 +133,17 @@ struct mtk_ccu {
 	struct rproc *rproc;
 	uint32_t ccu_hw_base;
 	uint32_t ccu_hw_size;
+	uint32_t ccu_version;
+	uint32_t ccu_sram_size;
+	uint32_t ccu_sram_offset;
 	void __iomem *ccu_base;
 	void __iomem *bin_base;
 	void __iomem *dmem_base;
 	void __iomem *pmem_base;
 	void __iomem *ddrmem_base;
+#ifdef CCU_RAW_CAMSV_UT
+	void __iomem *cam_base;
+#endif
 	unsigned int irq_num;
 	struct icc_path *path_ccug;
 	struct icc_path *path_ccuo;
@@ -134,6 +153,9 @@ struct mtk_ccu {
 	struct mutex ipc_desc_lock;
 	spinlock_t ipc_send_lock;
 	spinlock_t ccu_poweron_lock;
+	spinlock_t ccu_irq_lock;
+	unsigned int clock_num;
+	struct mtk_ccu_clk_name *clock_name;
 	struct clk *ccu_clk_pwr_ctrl[MTK_CCU_CLK_PWR_NUM];
 	struct mtk_ccu_mem_handle buffer_handle[MTK_CCU_BUF_MAX];
 	struct mtk_ccu_mem_handle ext_buf;
@@ -149,6 +171,11 @@ struct mtk_ccu {
 	int log_taglevel;
 	uint32_t ipc_tout_fid;
 	uint32_t ipc_tout_mid;
+};
+
+struct mtk_ccu_clk_name {
+	bool enable;
+	char name[MTK_CCU_CLK_NAME_LEN];
 };
 
 /*---------------------------------------------------------------------------*/

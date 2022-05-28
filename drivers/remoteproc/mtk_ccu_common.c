@@ -254,7 +254,7 @@ void mtk_ccu_ipc_assert_handle(uint32_t data, uint32_t len, void *priv)
 {
 	struct mtk_ccu *ccu = priv;
 
-	dev_err(ccu->dev, "got AP_ISR_CCU_ASSERT:%d\n", data);
+	dev_err(ccu->dev, "got AP_ISR_CCU_ASSERT:%d, para 0x%x\n", data, len);
 	ccu->bWaitCond = true;
 	ccu->g_LogBufIdx = 0xFFFFFFFF;
 	wake_up_interruptible(&ccu->WaitQueueHead);

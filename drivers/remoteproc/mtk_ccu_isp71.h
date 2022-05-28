@@ -24,6 +24,7 @@
 #define MTK_CCU_CACHE_SIZE  (0)
 #define MTK_CCU_CACHE_BASE (0x40000000)
 #define MTK_CCU_SHARED_BUF_OFFSET 0 //at DCCM start
+#define MTK_CCU_BASE_MASK  (0xFFF00000)
 
 #define MTK_CCU_REG_RESET    (0x0)
 #define MTK_CCU_HW_RESET_BIT (0x000d0100)
@@ -34,6 +35,7 @@
 #define MTK_CCU_REG_CORE_STATUS     (0x28)
 #define MTK_CCU_INT_TRG         (0x8010)	// (0x2C)
 #define MTK_CCU_INT_CLR         (0x5C)
+#define MTK_CCU_INT_CLR_EXCH    (0x80A4)
 #define MTK_CCU_INT_ST          (0x60)
 #define MTK_CCU_MON_ST          (0x78)
 

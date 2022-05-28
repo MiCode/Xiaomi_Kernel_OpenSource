@@ -43,13 +43,37 @@
 #define LOG_DBG(format, args...) \
 	pr_info(MTK_CCU_TAG "[%s] " format, __func__, ##args)
 
+struct mtk_ccu_clk_name ccu_clk_name_isp71[] = {
+	{true, "CLK_TOP_CCUSYS_SEL"},
+	{true, "CLK_TOP_CCU_AHB_SEL"},
+	{true, "CLK_CCU_LARB"},
+	{true, "CLK_CCU_AHB"},
+	{true, "CLK_CCUSYS_CCU0"},
+	{true, "CAM_LARB14"},
+	{true, "CAM_MM1_GALS"},
+	{false, ""}};
+
+struct mtk_ccu_clk_name ccu_clk_name_isp7s[] = {
+	{true, "CLK_TOP_CCUSYS_SEL"},
+	{true, "CLK_TOP_CCU_AHB_SEL"},
+	{true, "CLK_CCU_LARB"},
+	{true, "CLK_CCU_AHB"},
+	{true, "CLK_CCUSYS_CCU0"},
+	{true, "CAM_CCUSYS"},
+	{true, "CAM_CAM2SYS_GALS"},
+	{true, "CAM_CAM2MM1_GALS"},
+	{true, "CAM_CAM2MM0_GALS"},
+	{true, "CAM_MRAW"},
+	{true, "CAM_CG"},
+	{false, ""}};
+
 #if IS_ENABLED(CONFIG_MTK_AEE_IPANIC)
 static struct mtk_ccu *dev_ccu;
 #endif
 static int mtk_ccu_probe(struct platform_device *dev);
 static int mtk_ccu_remove(struct platform_device *dev);
 static int mtk_ccu_read_platform_info_from_dt(struct device_node
-	*node, uint32_t *ccu_hw_base, uint32_t *ccu_hw_size);
+	*node, struct mtk_ccu *ccu);
 static int mtk_ccu_get_power(struct device *dev);
 static void mtk_ccu_put_power(struct device *dev);
 
@@ -199,8 +223,13 @@ static int mtk_ccu_run(struct mtk_ccu *ccu)
 	remapOffset = bin_mem->mva - MTK_CCU_CACHE_BASE;
 	writel(remapOffset >> 4, ccu_base + MTK_CCU_REG_AXI_REMAP);
 #endif
+#if IS_ENABLED(CONFIG_MTK_CCU_DEBUG)
 	writel(ccu->log_level, ccu_base + MTK_CCU_SPARE_REG04);
 	writel(ccu->log_taglevel, ccu_base + MTK_CCU_SPARE_REG05);
+#else
+	writel(LOG_DEFAULT_LEVEL, ccu_base + MTK_CCU_SPARE_REG04);
+	writel(LOG_DEFAULT_TAG, ccu_base + MTK_CCU_SPARE_REG05);
+#endif
 
 #if defined(SECURE_CCU)
 	writel(CCU_GO_TO_RUN, ccu_base + MTK_CCU_SPARE_REG06);
@@ -283,11 +312,12 @@ static int mtk_ccu_clk_prepare(struct mtk_ccu *ccu)
 		goto ERROR_poweroff_ccu;
 #endif
 
-	LOG_DBG("Clock on CCU\n");
-	for (i = 0; i < MTK_CCU_CLK_PWR_NUM; ++i) {
+	LOG_DBG("Clock on CCU(%d)\n", ccu->clock_num);
+	for (i = 0; (i < ccu->clock_num) && (i < MTK_CCU_CLK_PWR_NUM); ++i) {
 		ret = clk_prepare_enable(ccu->ccu_clk_pwr_ctrl[i]);
 		if (ret) {
-			dev_err(dev, "failed to enable CCU clocks #%d\n", i);
+			dev_err(dev, "failed to enable CCU clocks #%d %s\n",
+				i, ccu->clock_name[i].name);
 			goto ERROR;
 		}
 	}
@@ -311,7 +341,8 @@ static void mtk_ccu_clk_unprepare(struct mtk_ccu *ccu)
 {
 	int i;
 
-	for (i = 0; i < MTK_CCU_CLK_PWR_NUM; ++i)
+	LOG_DBG("Clock off CCU(%d)\n", ccu->clock_num);
+	for (i = 0; (i < ccu->clock_num) && (i < MTK_CCU_CLK_PWR_NUM); ++i)
 		clk_disable_unprepare(ccu->ccu_clk_pwr_ctrl[i]);
 	mtk_ccu_put_power(ccu->dev);
 #if defined(CCU1_DEVICE)
@@ -323,6 +354,9 @@ static int mtk_ccu_start(struct rproc *rproc)
 {
 	struct mtk_ccu *ccu = (struct mtk_ccu *)rproc->priv;
 	uint8_t *ccu_base = (uint8_t *)ccu->ccu_base;
+#ifndef REQUEST_IRQ_IN_INIT
+	int rc;
+#endif
 
 	/*1. Set CCU log memory address from user space*/
 	writel((uint32_t)((ccu->log_info[0].mva) >> 8), ccu_base + MTK_CCU_SPARE_REG02);
@@ -348,14 +382,21 @@ static int mtk_ccu_start(struct rproc *rproc)
 	spin_unlock(&ccu->ccu_poweron_lock);
 
 	ccu->disirq = false;
-	if (devm_request_threaded_irq(ccu->dev, ccu->irq_num, NULL,
-		mtk_ccu_isr_handler, IRQF_ONESHOT, "ccu_rproc", ccu)) {
-		dev_err(ccu->dev, "fail to request ccu irq!\n");
+
+#ifdef REQUEST_IRQ_IN_INIT
+	enable_irq(ccu->irq_num);
+#else
+	rc = devm_request_threaded_irq(ccu->dev, ccu->irq_num, NULL,
+		mtk_ccu_isr_handler, IRQF_ONESHOT, "ccu_rproc", ccu);
+	if (rc) {
+		dev_err(ccu->dev, "fail to request ccu irq(%d, %d)!\n", ccu->irq_num, rc);
 		return -ENODEV;
 	}
+#endif
 
 	/*1. Set CCU run*/
 	mtk_ccu_run(ccu);
+
 	return 0;
 }
 
@@ -463,7 +504,17 @@ static int mtk_ccu_stop(struct rproc *rproc)
 	mtk_icc_set_bw(ccu->path_ccug, MBps_to_icc(0), MBps_to_icc(0));
 #endif
 
+#ifdef REQUEST_IRQ_IN_INIT
+	spin_lock(&ccu->ccu_irq_lock);
+	if (ccu->disirq) {
+		ccu->disirq = false;
+		spin_unlock(&ccu->ccu_irq_lock);
+		disable_irq(ccu->irq_num);
+	} else
+		spin_unlock(&ccu->ccu_irq_lock);
+#else
 	devm_free_irq(ccu->dev, ccu->irq_num, ccu);
+#endif
 
 	spin_lock(&ccu->ccu_poweron_lock);
 	ccu->poweron = false;
@@ -559,14 +610,17 @@ ccu_elf_load_segments(struct rproc *rproc, const struct firmware *fw)
 }
 #endif
 
+#define ERROR_DESC_LEN	80
+
 static int mtk_ccu_load(struct rproc *rproc, const struct firmware *fw)
 {
 	struct mtk_ccu *ccu = rproc->priv;
-	int ret;
+	int ret, rc, i;
+	unsigned int clks;
 #if defined(SECURE_CCU)
 	struct arm_smccc_res res;
 #endif
-	char error_desc[80];
+	char error_desc[ERROR_DESC_LEN];
 
 	/*1. prepare CCU's clks & power*/
 	ret = mtk_ccu_clk_prepare(ccu);
@@ -589,15 +643,15 @@ static int mtk_ccu_load(struct rproc *rproc, const struct firmware *fw)
 #endif
 	ret = (int)(res.a0);
 	if (ret != 0) {
-		snprintf(error_desc, 80, "load CCU binary fail(%d), clock: %d %d %d %d %d %d %d",
-			ret,
-			__clk_is_enabled(ccu->ccu_clk_pwr_ctrl[0]),
-			__clk_is_enabled(ccu->ccu_clk_pwr_ctrl[1]),
-			__clk_is_enabled(ccu->ccu_clk_pwr_ctrl[2]),
-			__clk_is_enabled(ccu->ccu_clk_pwr_ctrl[3]),
-			__clk_is_enabled(ccu->ccu_clk_pwr_ctrl[4]),
-			__clk_is_enabled(ccu->ccu_clk_pwr_ctrl[5]),
-			__clk_is_enabled(ccu->ccu_clk_pwr_ctrl[6]));
+		for (i = 0, clks = 0; i < ccu->clock_num; ++i)
+			if (__clk_is_enabled(ccu->ccu_clk_pwr_ctrl[i]))
+				clks |= (1 << i);
+		rc = snprintf(error_desc, ERROR_DESC_LEN, "load CCU binary fail(%d), clock: 0x%x",
+			ret, clks);
+		if (rc < 0) {
+			strncpy(error_desc, "load CCU binary fail", ERROR_DESC_LEN);
+			error_desc[ERROR_DESC_LEN - 1] = 0;
+		}
 		dev_err(ccu->dev, "%s\n", error_desc);
 #if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 		aee_kernel_warning_api(__FILE__, __LINE__, DB_OPT_DEFAULT, "CCU",
@@ -750,6 +804,7 @@ static int mtk_ccu_probe(struct platform_device *pdev)
 	int ret = 0;
 	uint32_t phy_addr;
 	uint32_t phy_size;
+	uint32_t clki;
 	static struct lock_class_key ccu_lock_key;
 	const char *ccu_lock_name = "ccu_lock_class";
 #if defined(CCU1_DEVICE)
@@ -770,10 +825,9 @@ static int mtk_ccu_probe(struct platform_device *pdev)
 	ccu->rproc = rproc;
 
 	platform_set_drvdata(pdev, ccu);
-	ret = mtk_ccu_read_platform_info_from_dt(node, &ccu->ccu_hw_base,
-		&ccu->ccu_hw_size);
+	ret = mtk_ccu_read_platform_info_from_dt(node, ccu);
 	if (ret) {
-		dev_err(ccu->dev, "Get CLK_TOP_CCU_SEL fail.\n");
+		dev_err(ccu->dev, "Get CCU DT info fail.\n");
 		return ret;
 	}
 
@@ -785,15 +839,15 @@ static int mtk_ccu_probe(struct platform_device *pdev)
 	LOG_DBG("ccu_base va: 0x%lx\n", (uint64_t)ccu->ccu_base);
 
 	/*remap dmem_base*/
-	phy_addr = MTK_CCU_DMEM_BASE;
-	phy_size = MTK_CCU_DMEM_SIZE;
+	phy_addr = (ccu->ccu_hw_base & MTK_CCU_BASE_MASK) + ccu->ccu_sram_offset;
+	phy_size = ccu->ccu_sram_size;
 	ccu->dmem_base = devm_ioremap(dev, phy_addr, phy_size);
 	LOG_DBG("dmem_base pa: 0x%x, size: 0x%x\n", phy_addr, phy_size);
 	LOG_DBG("dmem_base va: 0x%lx\n", (uint64_t)ccu->dmem_base);
 
 	/*remap pmem_base*/
-	phy_addr = MTK_CCU_PMEM_BASE;
-	phy_size = MTK_CCU_PMEM_SIZE;
+	phy_addr = ccu->ccu_hw_base & MTK_CCU_BASE_MASK;
+	phy_size = ccu->ccu_sram_size;
 	ccu->pmem_base = devm_ioremap(dev, phy_addr, phy_size);
 	LOG_DBG("pmem_base pa: 0x%x, size: 0x%x\n", phy_addr, phy_size);
 	LOG_DBG("pmem_base va: 0x%lx\n", (uint64_t)ccu->pmem_base);
@@ -819,50 +873,30 @@ static int mtk_ccu_probe(struct platform_device *pdev)
 	}
 	pm_runtime_enable(ccu->dev);
 
-	ccu->ccu_clk_pwr_ctrl[0] = devm_clk_get(ccu->dev,
-		"CLK_TOP_CCUSYS_SEL");
-	if (IS_ERR(ccu->ccu_clk_pwr_ctrl[0])) {
-		dev_err(ccu->dev, "Get CLK_TOP_CCUSYS_SEL fail.\n");
-		return PTR_ERR(ccu->ccu_clk_pwr_ctrl[0]);
-	}
-	ccu->ccu_clk_pwr_ctrl[1] = devm_clk_get(ccu->dev,
-		"CLK_TOP_CCU_AHB_SEL");
-	if (IS_ERR(ccu->ccu_clk_pwr_ctrl[1])) {
-		dev_err(ccu->dev, "Get CLK_TOP_CCU_AHB_SEL fail.\n");
-		return PTR_ERR(ccu->ccu_clk_pwr_ctrl[1]);
-	}
-	ccu->ccu_clk_pwr_ctrl[2] = devm_clk_get(ccu->dev,
-		"CLK_CCU_LARB");
-	if (IS_ERR(ccu->ccu_clk_pwr_ctrl[2])) {
-		dev_err(ccu->dev, "Get CLK_CCU_LARB fail.\n");
-		return PTR_ERR(ccu->ccu_clk_pwr_ctrl[2]);
-	}
-	ccu->ccu_clk_pwr_ctrl[3] = devm_clk_get(ccu->dev,
-		"CLK_CCU_AHB");
-	if (IS_ERR(ccu->ccu_clk_pwr_ctrl[3])) {
-		dev_err(ccu->dev, "Get CLK_CCU_AHB fail.\n");
-		return PTR_ERR(ccu->ccu_clk_pwr_ctrl[3]);
-	}
-	ccu->ccu_clk_pwr_ctrl[4] = devm_clk_get(ccu->dev,
-		"CLK_CCUSYS_CCU0");
-	if (IS_ERR(ccu->ccu_clk_pwr_ctrl[4])) {
-		dev_err(ccu->dev, "Get CLK_CCUSYS_CCU0 fail.\n");
-		return PTR_ERR(ccu->ccu_clk_pwr_ctrl[4]);
+	ccu->clock_num = 0;
+	if (ccu->ccu_version == CCU_VER_ISP7S)
+		ccu->clock_name = ccu_clk_name_isp7s;
+	else
+		ccu->clock_name = ccu_clk_name_isp71;
+
+	for (clki = 0; clki < MTK_CCU_CLK_PWR_NUM; ++clki) {
+		if (!ccu->clock_name[clki].enable)
+			break;
+		ccu->ccu_clk_pwr_ctrl[clki] = devm_clk_get(ccu->dev,
+			ccu->clock_name[clki].name);
+		if (IS_ERR(ccu->ccu_clk_pwr_ctrl[clki])) {
+			dev_err(ccu->dev, "Get %s fail.\n", ccu->clock_name[clki].name);
+			return PTR_ERR(ccu->ccu_clk_pwr_ctrl[clki]);
+		}
 	}
 
-	ccu->ccu_clk_pwr_ctrl[5] = devm_clk_get(ccu->dev,
-		"CAM_LARB14");
-	if (IS_ERR(ccu->ccu_clk_pwr_ctrl[5])) {
-		dev_err(ccu->dev, "Get CAM_LARB14 fail.\n");
-		return PTR_ERR(ccu->ccu_clk_pwr_ctrl[5]);
+	if (clki >= MTK_CCU_CLK_PWR_NUM) {
+		dev_err(ccu->dev, "ccu_clk_pwr_ctrl[] too small(%d).\n", clki);
+		return -EINVAL;
 	}
 
-	ccu->ccu_clk_pwr_ctrl[6] = devm_clk_get(ccu->dev,
-		"CAM_MM1_GALS");
-	if (IS_ERR(ccu->ccu_clk_pwr_ctrl[6])) {
-		dev_err(ccu->dev, "Get CAM_MM1_GALS fail.\n");
-		return PTR_ERR(ccu->ccu_clk_pwr_ctrl[6]);
-	}
+	ccu->clock_num = clki;
+	LOG_DBG("CCU got %d clocks\n", clki);
 
 #if defined(CCU_SET_MMQOS)
 	ccu->path_ccug = of_mtk_icc_get(ccu->dev, "ccu_g");
@@ -890,7 +924,25 @@ static int mtk_ccu_probe(struct platform_device *pdev)
 	mutex_init(&ccu->ipc_desc_lock);
 	spin_lock_init(&ccu->ipc_send_lock);
 	spin_lock_init(&ccu->ccu_poweron_lock);
+	spin_lock_init(&ccu->ccu_irq_lock);
 	init_waitqueue_head(&ccu->WaitQueueHead);
+
+#ifdef REQUEST_IRQ_IN_INIT
+	ccu->disirq = true;
+	ret = devm_request_threaded_irq(ccu->dev, ccu->irq_num, NULL,
+		mtk_ccu_isr_handler, IRQF_ONESHOT, "ccu_rproc", ccu);
+	if (ret) {
+		dev_err(ccu->dev, "fail to request ccu irq(%d,%d)!\n", ccu->irq_num, ret);
+		return -ENODEV;
+	}
+	spin_lock(&ccu->ccu_irq_lock);
+	if (ccu->disirq) {
+		ccu->disirq = false;
+		spin_unlock(&ccu->ccu_irq_lock);
+		disable_irq(ccu->irq_num);
+	} else
+		spin_unlock(&ccu->ccu_irq_lock);
+#endif
 
 #if IS_ENABLED(CONFIG_MTK_CCU_DEBUG)
 	/*register char dev for log ioctl*/
@@ -941,7 +993,9 @@ static int mtk_ccu_remove(struct platform_device *pdev)
 	kfree(ccu->mrdump_buf);
 #endif
 	mtk_ccu_deallocate_mem(ccu->dev, &ccu->ext_buf);
-	disable_irq(ccu->irq_num);
+#ifdef REQUEST_IRQ_IN_INIT
+	devm_free_irq(ccu->dev, ccu->irq_num, ccu);
+#endif
 	rproc_del(ccu->rproc);
 	rproc_free(ccu->rproc);
 	pm_runtime_disable(ccu->dev);
@@ -952,7 +1006,7 @@ static int mtk_ccu_remove(struct platform_device *pdev)
 }
 
 static int mtk_ccu_read_platform_info_from_dt(struct device_node
-		*node, uint32_t *ccu_hw_base, uint32_t *ccu_hw_size)
+		*node, struct mtk_ccu *ccu)
 {
 	uint32_t reg[4] = {0, 0, 0, 0};
 	int ret = 0;
@@ -961,8 +1015,18 @@ static int mtk_ccu_read_platform_info_from_dt(struct device_node
 	if (ret < 0)
 		return ret;
 
-	*ccu_hw_base = reg[1];
-	*ccu_hw_size = reg[3];
+	ccu->ccu_hw_base = reg[1];
+	ccu->ccu_hw_size = reg[3];
+
+	ret = of_property_read_u32(node, "ccu_version", reg);
+	ccu->ccu_version = (ret < 0) ? CCU_VER_ISP71 : reg[0];
+
+	ret = of_property_read_u32(node, "ccu_sramSize", reg);
+	ccu->ccu_sram_size = (ret < 0) ? MTK_CCU_PMEM_SIZE : reg[0];
+
+	ret = of_property_read_u32(node, "ccu_sramOffset", reg);
+	ccu->ccu_sram_offset = (ret < 0) ? MTK_CCU_PMEM_SIZE : reg[0];
+
 	return 0;
 }
 
