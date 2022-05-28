@@ -3973,7 +3973,7 @@
 
 		apusys_rv: apusys_rv {
 			compatible = "mediatek,mt6985-apusys_rv";
-			status = "disabled";
+			status = "okay";
 
 			reg = <0 0x190e1000 0 0x1000>,
 			      <0 0x19001000 0 0x1000>,
@@ -4081,7 +4081,7 @@
 
 		apusys_hw_logger: apusys_hw_logger {
 			compatible = "mediatek,apusys_hw_logger";
-			status = "disabled";
+			status = "okay";
 
 			reg = <0 0x19024000 0 0x1000>,
 				<0 0x190e1000 0 0x1000>;
