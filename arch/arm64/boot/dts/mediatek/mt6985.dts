@@ -10955,7 +10955,12 @@
 			<&topckgen_clk CLK_TOP_SENINF3_SEL>,
 			<&topckgen_clk CLK_TOP_SENINF4_SEL>,
 			<&topckgen_clk CLK_TOP_SENINF5_SEL>,
-			<&topckgen_clk CLK_TOP_CAMTM_SEL>;
+			<&topckgen_clk CLK_TOP_CAMTM_SEL>,
+			<&topckgen_clk CLK_TOP_OSC_D4>,
+			<&topckgen_clk CLK_TOP_MAINPLL2_D9>,
+			<&topckgen_clk CLK_TOP_CAMTG_SEL>,
+			<&topckgen_clk CLK_TOP_OSC_D20>,
+			<&topckgen_clk CLK_TOP_TCK_26M_MX9>;
 		clock-names = "clk_cam_seninf",
 			 "clk_top_seninf",
 			 "clk_top_seninf1",
@@ -10963,7 +10968,12 @@
 			 "clk_top_seninf3",
 			 "clk_top_seninf4",
 			 "clk_top_seninf5",
-			 "clk_top_camtm";
+			 "clk_top_camtm",
+			 "clk_top_osc_d4",
+			 "clk_top_mainpll2_d9",
+			 "clk_top_camtg",
+			 "clk_top_osc_d20",
+			 "clk_top_tck_26m_mx9";
 	};
 
 	camisp_l13 {
