@@ -588,8 +588,17 @@
 			<&topckgen_clk CLK_TOP_TCK_26M_MX9>,
 			<&topckgen_clk CLK_TOP_UNIVPLL2_D6_D8>,
 			<&topckgen_clk CLK_TOP_CAMTG4_SEL>,
-			<&topckgen_clk CLK_TOP_CAMTG_SEL>;
-		clock-names = "6", "12", "13", "19.2", "24", "26", "52", "mclk", "mclk1";
+			<&topckgen_clk CLK_TOP_UNIVPLL_192M_D32>,
+			<&topckgen_clk CLK_TOP_UNIVPLL_192M_D16>,
+			<&topckgen_clk CLK_TOP_UNIVPLL_192M_D32>,
+			<&topckgen_clk CLK_TOP_UNIVPLL_192M_D10>,
+			<&topckgen_clk CLK_TOP_UNIVPLL_192M_D8>,
+			<&topckgen_clk CLK_TOP_UNIVPLL_D6_D16>,
+			<&topckgen_clk CLK_TOP_UNIVPLL_D6_D8>,
+			<&vlp_cksys_clk CLK_VLP_CK_CAMTG_VLP_SEL>;
+		clock-names = "6", "12", "13", "19.2", "24", "26", "52", "mclk",
+			      "clk1_6", "clk1_12", "clk1_13", "clk1_19.2",
+			      "clk1_24", "clk1_26", "clk1_52", "clk1_mclk1";
 
 		status = "okay";
 
