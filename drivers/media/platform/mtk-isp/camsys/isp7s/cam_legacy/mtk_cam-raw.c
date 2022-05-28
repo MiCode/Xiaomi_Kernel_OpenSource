@@ -5072,15 +5072,185 @@ static const struct mtk_cam_format_desc drzs4no3_out_fmts[] = {
 	}
 };
 
-//Dujac todo
 static const struct mtk_cam_format_desc drzb2no1_out_fmts[] = {
 	{
 		.vfmt.fmt.pix_mp = {
-			.width = DRZB2NO1_MAX_WIDTH,
-			.height = DRZB2NO1_MAX_HEIGHT,
-			.pixelformat = V4L2_PIX_FMT_GREY,
+			.width = IMG_MAX_WIDTH,
+			.height = IMG_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_SBGGR12,
+			.num_planes = 1,
 		},
-	}
+		.pfmt = {
+			.code = MEDIA_BUS_FMT_SBGGR12_1X12,
+		}
+	},
+	{
+		.vfmt.fmt.pix_mp = {
+			.width = IMG_MAX_WIDTH,
+			.height = IMG_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_SGBRG12,
+			.num_planes = 1,
+		},
+		.pfmt = {
+			.code = MEDIA_BUS_FMT_SGBRG12_1X12,
+		}
+
+	},
+	{
+		.vfmt.fmt.pix_mp = {
+			.width = IMG_MAX_WIDTH,
+			.height = IMG_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_SGRBG12,
+			.num_planes = 1,
+		},
+		.pfmt = {
+			.code = MEDIA_BUS_FMT_SGRBG12_1X12,
+		}
+	},
+	{
+		.vfmt.fmt.pix_mp = {
+			.width = IMG_MAX_WIDTH,
+			.height = IMG_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_SRGGB12,
+			.num_planes = 1,
+		},
+		.pfmt = {
+			.code = MEDIA_BUS_FMT_SRGGB12_1X12,
+		}
+	},
+	{
+		.vfmt.fmt.pix_mp = {
+			.width = IMG_MAX_WIDTH,
+			.height = IMG_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_SBGGR14,
+			 .num_planes = 1,
+		},
+		.pfmt = {
+			.code = MEDIA_BUS_FMT_SBGGR14_1X14,
+		}
+	},
+	{
+		.vfmt.fmt.pix_mp = {
+			.width = IMG_MAX_WIDTH,
+			.height = IMG_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_SGBRG14,
+			.num_planes = 1,
+		},
+		.pfmt = {
+			.code = MEDIA_BUS_FMT_SGBRG14_1X14,
+		}
+	},
+	{
+		.vfmt.fmt.pix_mp = {
+			.width = IMG_MAX_WIDTH,
+			.height = IMG_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_SGRBG14,
+			.num_planes = 1,
+		},
+		.pfmt = {
+			.code = MEDIA_BUS_FMT_SGRBG14_1X14,
+		}
+	},
+	{
+		.vfmt.fmt.pix_mp = {
+			.width = IMG_MAX_WIDTH,
+			.height = IMG_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_SRGGB14,
+			.num_planes = 1,
+		},
+		.pfmt = {
+			.code = MEDIA_BUS_FMT_SRGGB14_1X14,
+		}
+	},
+	{
+		.vfmt.fmt.pix_mp = {
+			.width = IMG_MAX_WIDTH,
+			.height = IMG_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_MTISP_SBGGR12,
+			.num_planes = 1,
+		},
+		.pfmt = {
+			.code = MEDIA_BUS_FMT_MTISP_SBGGR12_1X12,
+		}
+	},
+	{
+		.vfmt.fmt.pix_mp = {
+			.width = IMG_MAX_WIDTH,
+			.height = IMG_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_MTISP_SGBRG12,
+			.num_planes = 1,
+		},
+		.pfmt = {
+			.code = MEDIA_BUS_FMT_MTISP_SGBRG12_1X12,
+		}
+
+	},
+	{
+		.vfmt.fmt.pix_mp = {
+			.width = IMG_MAX_WIDTH,
+			.height = IMG_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_MTISP_SGRBG12,
+			.num_planes = 1,
+		},
+		.pfmt = {
+			.code = MEDIA_BUS_FMT_MTISP_SGRBG12_1X12,
+		}
+	},
+	{
+		.vfmt.fmt.pix_mp = {
+			.width = IMG_MAX_WIDTH,
+			.height = IMG_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_MTISP_SRGGB12,
+			.num_planes = 1,
+		},
+		.pfmt = {
+			.code = MEDIA_BUS_FMT_MTISP_SRGGB12_1X12,
+		}
+	},
+	{
+		.vfmt.fmt.pix_mp = {
+			.width = IMG_MAX_WIDTH,
+			.height = IMG_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_MTISP_SBGGR14,
+			.num_planes = 1,
+		},
+		.pfmt = {
+			.code = MEDIA_BUS_FMT_MTISP_SBGGR14_1X14,
+		}
+	},
+	{
+		.vfmt.fmt.pix_mp = {
+			.width = IMG_MAX_WIDTH,
+			.height = IMG_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_MTISP_SGBRG14,
+			.num_planes = 1,
+		},
+		.pfmt = {
+			.code = MEDIA_BUS_FMT_MTISP_SGBRG14_1X14,
+		}
+	},
+	{
+		.vfmt.fmt.pix_mp = {
+			.width = IMG_MAX_WIDTH,
+			.height = IMG_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_MTISP_SGRBG14,
+			.num_planes = 1,
+		},
+		.pfmt = {
+			.code = MEDIA_BUS_FMT_MTISP_SGRBG14_1X14,
+		}
+	},
+	{
+		.vfmt.fmt.pix_mp = {
+			.width = IMG_MAX_WIDTH,
+			.height = IMG_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_MTISP_SRGGB14,
+			.num_planes = 1,
+		},
+		.pfmt = {
+			.code = MEDIA_BUS_FMT_MTISP_SRGGB14_1X14,
+		}
+	},
 };
 
 //Dujac todo

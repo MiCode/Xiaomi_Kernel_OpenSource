@@ -49,8 +49,8 @@ struct mtk_cam_request_stream_data;
 #define RZH1N2TO3_MAX_WIDTH	1280
 #define RZH1N2TO3_MAX_HEIGHT	600
 //Dujac todo
-#define DRZB2NO1_MAX_WIDTH	2400
-#define DRZB2NO1_MAX_HEIGHT	1080
+#define DRZB2NO1_MAX_WIDTH	5416
+#define DRZB2NO1_MAX_HEIGHT	4062
 #define IPUO_MAX_WIDTH	2400
 #define IPUO_MAX_HEIGHT	1080
 
