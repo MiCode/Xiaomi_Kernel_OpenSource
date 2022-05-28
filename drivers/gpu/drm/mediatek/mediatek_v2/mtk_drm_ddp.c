@@ -12391,6 +12391,15 @@ void mtk_ddp_remove_comp_from_path(struct mtk_drm_crtc *mtk_crtc,
 				reg_data->dispsys_map[cur] == 1)
 			config_regs = mtk_crtc->side_config_regs;
 
+		if (reg_data->dispsys_map[cur] == OVLSYS0 ||
+			reg_data->dispsys_map[next] == OVLSYS0) {
+			config_regs = mtk_crtc->ovlsys0_regs;
+		} else if (mtk_crtc->ovlsys_num > 1 && reg_data->dispsys_map &&
+				(reg_data->dispsys_map[cur] == OVLSYS1 ||
+			reg_data->dispsys_map[next] == OVLSYS1)) {
+			config_regs = mtk_crtc->ovlsys1_regs;
+		}
+
 		value = mtk_ddp_ovl_con_MT6985(cur, next, &addr);
 		if (value >= 0) {
 			reg = readl_relaxed(config_regs + addr) & ~(unsigned int)value;
@@ -12552,6 +12561,15 @@ void mtk_ddp_remove_comp_from_path_with_cmdq(struct mtk_drm_crtc *mtk_crtc,
 		if (mtk_crtc->dispsys_num > 1 && reg_data->dispsys_map &&
 				reg_data->dispsys_map[cur] == 1)
 			config_regs_pa = mtk_crtc->side_config_regs_pa;
+
+		if (reg_data->dispsys_map[cur] == OVLSYS0 ||
+			reg_data->dispsys_map[next] == OVLSYS0) {
+			config_regs_pa = mtk_crtc->ovlsys0_regs_pa;
+		} else if (mtk_crtc->ovlsys_num > 1 && reg_data->dispsys_map &&
+				(reg_data->dispsys_map[cur] == OVLSYS1 ||
+			reg_data->dispsys_map[next] == OVLSYS1)) {
+			config_regs_pa = mtk_crtc->ovlsys1_regs_pa;
+		}
 
 		value = mtk_ddp_ovl_con_MT6985(cur, next, &addr);
 		if (value >= 0)

@@ -1714,6 +1714,8 @@ static const enum mtk_ddp_comp_id mt6983_mtk_ddp_main[] = {
 
 static const enum mtk_ddp_comp_id mt6985_mtk_ddp_main_bringup[] = {
 	DDP_COMPONENT_OVL0_2L,
+	DDP_COMPONENT_OVL1_2L,
+	DDP_COMPONENT_OVL2_2L,
 	DDP_COMPONENT_OVLSYS_DLO_ASYNC3,
 	DDP_COMPONENT_DLI_ASYNC0,
 	DDP_COMPONENT_PQ0_OUT_CB3,
