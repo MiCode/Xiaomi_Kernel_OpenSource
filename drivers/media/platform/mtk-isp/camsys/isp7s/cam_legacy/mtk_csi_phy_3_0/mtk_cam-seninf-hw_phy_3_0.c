@@ -3153,7 +3153,7 @@ static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 	unsigned int mipi_packet_cnt = 0;
 	unsigned int tmp_mipi_packet_cnt = 0;
 	unsigned long total_delay = 0;
-	int enabled = 0;
+	unsigned long long enabled = 0;
 	int ret = 0;
 	int j, i;
 	unsigned long debug_ft = FT_30_FPS * SCAN_TIME ;//FIXME
@@ -3250,7 +3250,9 @@ static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 		debug_vb, debug_ft);
 
 
-	enabled = SENINF_READ_REG(ctx->reg_if_cam_mux_gcsr, SENINF_CAM_MUX_GCSR_MUX_EN);
+	enabled = ((unsigned long long)SENINF_READ_REG(ctx->reg_if_cam_mux_gcsr,
+						SENINF_CAM_MUX_GCSR_MUX_EN_H) << 32) |
+		SENINF_READ_REG(ctx->reg_if_cam_mux_gcsr, SENINF_CAM_MUX_GCSR_MUX_EN);
 	/* clear cam mux irq */
 	for (j = 0; j < ctx->vcinfo.cnt; j++) {
 		if (ctx->vcinfo.vc[j].enable) {
