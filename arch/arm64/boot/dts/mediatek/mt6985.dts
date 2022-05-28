@@ -12006,7 +12006,28 @@
 		dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
 		iommus = <&mdp_iommu M4U_PORT_L14_CQI_0>,
 			 <&mdp_iommu M4U_PORT_L14_CAMSV_0_WDMA>;
-
+		power-domains = <&scpsys MT6985_POWER_DOMAIN_CAM_MAIN>;
+		clocks = <&camsys_main_clk CLK_CAM_MAIN_LARB14_CON_0>,
+				<&camsys_main_clk CLK_CAM_MAIN_CAM_CON_0>,
+				<&camsys_main_clk CLK_CAM_MAIN_CAMTG_CON_0>,
+				<&camsys_main_clk CLK_CAM_MAIN_CAMSV_TOP_CON_0>,
+				<&camsys_main_clk CLK_CAM_MAIN_CAMSV_A_CON_1>,
+				<&topckgen_clk CLK_TOP_CAM_SEL>,
+				<&topckgen_clk CLK_TOP_CAMTG_SEL>,
+				<&topckgen_clk CLK_TOP_CAMTM_SEL>;
+		clock-names = "cam_main_larb14_con",
+					"cam_main_cam_con",
+					"cam_main_camtg_con",
+					"cam_main_camsv_top_con",
+					"cam_main_camsv_a_con",
+					"topckgen_top_cam_sel",
+					"topckgen_top_camtg_sel",
+					"topckgen_top_camtm_sel";
+		interconnects =
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L14_CAMSV_0_WDMA)
+				&mmqos SLAVE_COMMON(1)>;
+		interconnect-names =
+			"l14_imgo_a";
 	};
 	camsv2@1a101000 {
 		compatible = "mediatek,camsv";
@@ -12028,6 +12049,28 @@
 		iommus = <&disp_iommu M4U_PORT_L13_CQI_1>,
 			 <&disp_iommu M4U_PORT_L13_CAMSV_1_WDMA>,
 			 <&disp_iommu M4U_PORT_L13_FAKE_ENG>;
+		power-domains = <&scpsys MT6985_POWER_DOMAIN_CAM_MAIN>;
+		clocks = <&camsys_main_clk CLK_CAM_MAIN_LARB13_CON_0>,
+				<&camsys_main_clk CLK_CAM_MAIN_CAM_CON_0>,
+				<&camsys_main_clk CLK_CAM_MAIN_CAMTG_CON_0>,
+				<&camsys_main_clk CLK_CAM_MAIN_CAMSV_TOP_CON_0>,
+				<&camsys_main_clk CLK_CAM_MAIN_CAMSV_B_CON_1>,
+				<&topckgen_clk CLK_TOP_CAM_SEL>,
+				<&topckgen_clk CLK_TOP_CAMTG_SEL>,
+				<&topckgen_clk CLK_TOP_CAMTM_SEL>;
+		clock-names = "cam_main_larb13_con",
+					"cam_main_cam_con",
+					"cam_main_camtg_con",
+					"cam_main_camsv_top_con",
+					"cam_main_camsv_b_con",
+					"topckgen_top_cam_sel",
+					"topckgen_top_camtg_sel",
+					"topckgen_top_camtm_sel";
+		interconnects =
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L13_CAMSV_1_WDMA)
+				&mmqos SLAVE_COMMON(1)>;
+		interconnect-names =
+			"l13_imgo_b";
 	};
 	camsv3@1a102000 {
 		compatible = "mediatek,camsv";
@@ -12054,6 +12097,28 @@
 			 <&disp_iommu M4U_PORT_L29_CAMSV_3_WDMA>,
 			 <&disp_iommu M4U_PORT_L29_CAMSV_4_WDMA>,
 			 <&disp_iommu M4U_PORT_L29_CAMSV_5_WDMA>;
+		power-domains = <&scpsys MT6985_POWER_DOMAIN_CAM_MAIN>;
+		clocks = <&camsys_main_clk CLK_CAM_MAIN_LARB29_CON_0>,
+				<&camsys_main_clk CLK_CAM_MAIN_CAM_CON_0>,
+				<&camsys_main_clk CLK_CAM_MAIN_CAMTG_CON_0>,
+				<&camsys_main_clk CLK_CAM_MAIN_CAMSV_TOP_CON_0>,
+				<&camsys_main_clk CLK_CAM_MAIN_CAMSV_C_CON_1>,
+				<&topckgen_clk CLK_TOP_CAM_SEL>,
+				<&topckgen_clk CLK_TOP_CAMTG_SEL>,
+				<&topckgen_clk CLK_TOP_CAMTM_SEL>;
+		clock-names = "cam_main_larb29_con",
+					"cam_main_cam_con",
+					"cam_main_camtg_con",
+					"cam_main_camsv_top_con",
+					"cam_main_camsv_c_con",
+					"topckgen_top_cam_sel",
+					"topckgen_top_camtg_sel",
+					"topckgen_top_camtm_sel";
+		interconnects =
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L29_CAMSV_2_WDMA)
+				&mmqos SLAVE_COMMON(0)>;
+		interconnect-names =
+			"l29_imgo_c";
 	};
 	camsv4@1a103000 {
 		compatible = "mediatek,camsv";
@@ -12080,6 +12145,28 @@
 			 <&disp_iommu M4U_PORT_L29_CAMSV_3_WDMA>,
 			 <&disp_iommu M4U_PORT_L29_CAMSV_4_WDMA>,
 			 <&disp_iommu M4U_PORT_L29_CAMSV_5_WDMA>;
+		power-domains = <&scpsys MT6985_POWER_DOMAIN_CAM_MAIN>;
+		clocks = <&camsys_main_clk CLK_CAM_MAIN_LARB29_CON_0>,
+				<&camsys_main_clk CLK_CAM_MAIN_CAM_CON_0>,
+				<&camsys_main_clk CLK_CAM_MAIN_CAMTG_CON_0>,
+				<&camsys_main_clk CLK_CAM_MAIN_CAMSV_TOP_CON_0>,
+				<&camsys_main_clk CLK_CAM_MAIN_CAMSV_D_CON_1>,
+				<&topckgen_clk CLK_TOP_CAM_SEL>,
+				<&topckgen_clk CLK_TOP_CAMTG_SEL>,
+				<&topckgen_clk CLK_TOP_CAMTM_SEL>;
+		clock-names = "cam_main_larb29_con",
+					"cam_main_cam_con",
+					"cam_main_camtg_con",
+					"cam_main_camsv_top_con",
+					"cam_main_camsv_d_con",
+					"topckgen_top_cam_sel",
+					"topckgen_top_camtg_sel",
+					"topckgen_top_camtm_sel";
+		interconnects =
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L29_CAMSV_3_WDMA)
+				&mmqos SLAVE_COMMON(0)>;
+		interconnect-names =
+			"l29_imgo_d";
 	};
 	camsv5@1a104000 {
 		compatible = "mediatek,camsv";
@@ -12106,6 +12193,28 @@
 			 <&disp_iommu M4U_PORT_L29_CAMSV_3_WDMA>,
 			 <&disp_iommu M4U_PORT_L29_CAMSV_4_WDMA>,
 			 <&disp_iommu M4U_PORT_L29_CAMSV_5_WDMA>;
+		power-domains = <&scpsys MT6985_POWER_DOMAIN_CAM_MAIN>;
+		clocks = <&camsys_main_clk CLK_CAM_MAIN_LARB29_CON_0>,
+				<&camsys_main_clk CLK_CAM_MAIN_CAM_CON_0>,
+				<&camsys_main_clk CLK_CAM_MAIN_CAMTG_CON_0>,
+				<&camsys_main_clk CLK_CAM_MAIN_CAMSV_TOP_CON_0>,
+				<&camsys_main_clk CLK_CAM_MAIN_CAMSV_E_CON_1>,
+				<&topckgen_clk CLK_TOP_CAM_SEL>,
+				<&topckgen_clk CLK_TOP_CAMTG_SEL>,
+				<&topckgen_clk CLK_TOP_CAMTM_SEL>;
+		clock-names = "cam_main_larb29_con",
+					"cam_main_cam_con",
+					"cam_main_camtg_con",
+					"cam_main_camsv_top_con",
+					"cam_main_camsv_e_con",
+					"topckgen_top_cam_sel",
+					"topckgen_top_camtg_sel",
+					"topckgen_top_camtm_sel";
+		interconnects =
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L29_CAMSV_4_WDMA)
+				&mmqos SLAVE_COMMON(0)>;
+		interconnect-names =
+			"l29_imgo_e";
 	};
 	camsv6@1a105000 {
 		compatible = "mediatek,camsv";
@@ -12132,6 +12241,28 @@
 			 <&disp_iommu M4U_PORT_L29_CAMSV_3_WDMA>,
 			 <&disp_iommu M4U_PORT_L29_CAMSV_4_WDMA>,
 			 <&disp_iommu M4U_PORT_L29_CAMSV_5_WDMA>;
+		power-domains = <&scpsys MT6985_POWER_DOMAIN_CAM_MAIN>;
+		clocks = <&camsys_main_clk CLK_CAM_MAIN_LARB29_CON_0>,
+				<&camsys_main_clk CLK_CAM_MAIN_CAM_CON_0>,
+				<&camsys_main_clk CLK_CAM_MAIN_CAMTG_CON_0>,
+				<&camsys_main_clk CLK_CAM_MAIN_CAMSV_TOP_CON_0>,
+				<&camsys_main_clk CLK_CAM_MAIN_CAMSV_CON_1>,
+				<&topckgen_clk CLK_TOP_CAM_SEL>,
+				<&topckgen_clk CLK_TOP_CAMTG_SEL>,
+				<&topckgen_clk CLK_TOP_CAMTM_SEL>;
+		clock-names = "cam_main_larb29_con",
+					"cam_main_cam_con",
+					"cam_main_camtg_con",
+					"cam_main_camsv_top_con",
+					"cam_main_camsv_f_con",
+					"topckgen_top_cam_sel",
+					"topckgen_top_camtg_sel",
+					"topckgen_top_camtm_sel";
+		interconnects =
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L29_CAMSV_5_WDMA)
+				&mmqos SLAVE_COMMON(0)>;
+		interconnect-names =
+			"l29_imgo_f";
 	};
 
 	mraw1@1a130000 {
@@ -12155,6 +12286,28 @@
 			 <&disp_iommu M4U_PORT_L25_PDAO_A_0>,
 			 <&disp_iommu M4U_PORT_L25_MRAW0_IMGO_M1>,
 			 <&disp_iommu M4U_PORT_L25_MRAW2_IMGO_M1>;
+		power-domains = <&scpsys MT6985_POWER_DOMAIN_CAM_MRAW>;
+		clocks = <&camsys_main_clk CLK_CAM_MAIN_CAM_MRAW_CON_0>,
+				<&camsys_mraw_clk CLK_CAM_MR_LARBX>,
+				<&camsys_mraw_clk CLK_CAM_MR_CAMTG>,
+				<&camsys_mraw_clk CLK_CAM_MR_MRAW0>,
+				<&topckgen_clk CLK_TOP_CAMTM_SEL>;
+		clock-names = "cam_main_mraw_cg_con",
+					"camsys_mraw_larbx",
+					"camsys_mraw_camtg",
+					"camsys_main_mraw0",
+					"topckgen_top_muxcamtm";
+		interconnects =
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L25_MRAW0_CQI_M1)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L25_MRAW0_IMGBO_M1)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L25_MRAW0_IMGO_M1)
+				&mmqos SLAVE_COMMON(0)>;
+		interconnect-names =
+			"l25_cqi_m1_0",
+			"l25_imgo_m1_0",
+			"l25_imgbo_m1_0";
 	};
 	mraw2@1a140000 {
 		compatible = "mediatek,mraw";
@@ -12177,6 +12330,28 @@
 			 <&mdp_iommu M4U_PORT_L26_PDAO_B_0>,
 			 <&mdp_iommu M4U_PORT_L26_MRAW1_IMGO_M1>,
 			 <&mdp_iommu M4U_PORT_L26_MRAW3_IMGO_M1>;
+		power-domains = <&scpsys MT6985_POWER_DOMAIN_CAM_MRAW>;
+		clocks = <&camsys_main_clk CLK_CAM_MAIN_CAM_MRAW_CON_0>,
+				<&camsys_mraw_clk CLK_CAM_MR_LARBX>,
+				<&camsys_mraw_clk CLK_CAM_MR_CAMTG>,
+				<&camsys_mraw_clk CLK_CAM_MR_MRAW1>,
+				<&topckgen_clk CLK_TOP_CAMTM_SEL>;
+		clock-names = "cam_main_mraw_cg_con",
+					"camsys_mraw_larbx",
+					"camsys_mraw_camtg",
+					"camsys_main_mraw1",
+					"topckgen_top_muxcamtm";
+		interconnects =
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L26_MRAW1_CQI_M1)
+				&mmqos SLAVE_COMMON(1)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L26_MRAW1_IMGBO_M1)
+				&mmqos SLAVE_COMMON(1)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L26_MRAW1_IMGO_M1)
+				&mmqos SLAVE_COMMON(1)>;
+		interconnect-names =
+			"l26_cqi_m1_1",
+			"l26_imgo_m1_1",
+			"l26_imgbo_m1_1";
 	};
 	mraw3@1a150000 {
 		compatible = "mediatek,mraw";
@@ -12199,6 +12374,28 @@
 			 <&disp_iommu M4U_PORT_L25_PDAO_A_0>,
 			 <&disp_iommu M4U_PORT_L25_MRAW0_IMGO_M1>,
 			 <&disp_iommu M4U_PORT_L25_MRAW2_IMGO_M1>;
+		power-domains = <&scpsys MT6985_POWER_DOMAIN_CAM_MRAW>;
+		clocks = <&camsys_main_clk CLK_CAM_MAIN_CAM_MRAW_CON_0>,
+				<&camsys_mraw_clk CLK_CAM_MR_LARBX>,
+				<&camsys_mraw_clk CLK_CAM_MR_CAMTG>,
+				<&camsys_mraw_clk CLK_CAM_MR_MRAW2>,
+				<&topckgen_clk CLK_TOP_CAMTM_SEL>;
+		clock-names = "cam_main_mraw_cg_con",
+					"camsys_mraw_larbx",
+					"camsys_mraw_camtg",
+					"camsys_main_mraw2",
+					"topckgen_top_muxcamtm";
+		interconnects =
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L25_MRAW2_CQI_M1)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L25_MRAW2_IMGBO_M1)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L25_MRAW2_IMGO_M1)
+				&mmqos SLAVE_COMMON(0)>;
+		interconnect-names =
+			"l25_cqi_m1_2",
+			"l25_imgo_m1_2",
+			"l25_imgbo_m1_2";
 	};
 	mraw4@1a160000 {
 		compatible = "mediatek,mraw";
@@ -12220,6 +12417,28 @@
 			 <&mdp_iommu M4U_PORT_L26_PDAO_B_0>,
 			 <&mdp_iommu M4U_PORT_L26_MRAW1_IMGO_M1>,
 			 <&mdp_iommu M4U_PORT_L26_MRAW3_IMGO_M1>;
+		power-domains = <&scpsys MT6985_POWER_DOMAIN_CAM_MRAW>;
+		clocks = <&camsys_main_clk CLK_CAM_MAIN_CAM_MRAW_CON_0>,
+				<&camsys_mraw_clk CLK_CAM_MR_LARBX>,
+				<&camsys_mraw_clk CLK_CAM_MR_CAMTG>,
+				<&camsys_mraw_clk CLK_CAM_MR_MRAW3>,
+				<&topckgen_clk CLK_TOP_CAMTM_SEL>;
+		clock-names = "cam_main_mraw_cg_con",
+					"camsys_mraw_larbx",
+					"camsys_mraw_camtg",
+					"camsys_main_mraw3",
+					"topckgen_top_muxcamtm";
+		interconnects =
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L26_MRAW3_CQI_M1)
+				&mmqos SLAVE_COMMON(1)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L26_MRAW3_IMGBO_M1)
+				&mmqos SLAVE_COMMON(1)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L26_MRAW3_IMGO_M1)
+				&mmqos SLAVE_COMMON(1)>;
+		interconnect-names =
+			"l26_cqi_m1_3",
+			"l26_imgo_m1_3",
+			"l26_imgbo_m1_3";
 	};
 
 	remoteproc_ccd: remoteproc_ccd@1a030000 {
