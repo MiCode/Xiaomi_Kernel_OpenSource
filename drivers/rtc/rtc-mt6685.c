@@ -1153,6 +1153,11 @@ static int mtk_rtc_probe(struct platform_device *pdev)
 	struct tag_bootmode *tag = NULL;
 #endif
 
+	if (!of_device_is_available(np)) {
+		dev_err(&pdev->dev, "rtc disabled\n");
+		return -1;
+	}
+
 	rtc = devm_kzalloc(&pdev->dev, sizeof(struct mt6685_rtc), GFP_KERNEL);
 	if (!rtc) {
 		//dev_err(&pdev->dev, "devm_kzalloc failed\n");
@@ -1226,6 +1231,7 @@ static int mtk_rtc_probe(struct platform_device *pdev)
 	rtc->irq = of_irq_get(np, 0);
 	if (rtc->irq < 0) {
 		dev_err(&pdev->dev, "Failed to get irq(%d)\n", rtc->irq);
+		rtc_pm_notifier_registered = false;
 		unregister_pm_notifier(&rtc->pm_nb);
 		return rtc->irq;
 	}
@@ -1237,6 +1243,7 @@ static int mtk_rtc_probe(struct platform_device *pdev)
 	if (ret) {
 		dev_err(&pdev->dev, "Failed to request alarm IRQ: %d: %d\n",
 			rtc->irq, ret);
+		rtc_pm_notifier_registered = false;
 		unregister_pm_notifier(&rtc->pm_nb);
 		return ret;
 	}
