@@ -25,6 +25,7 @@ mtk_aov-objs := \
 	mtk-aov-drv.o	\
 	mtk-aov-core.o \
 	mtk-aov-queue.o \
+	mtk-aie-model.o \
 	alloc/tlsf/tlsf_alloc.o
 
 obj-${CONFIG_VIDEO_MTK_ISP_AOV} += mtk_aov.o

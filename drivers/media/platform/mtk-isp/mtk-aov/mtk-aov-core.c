@@ -271,9 +271,9 @@ int aov_core_send_cmd(struct mtk_aov *aov_dev, uint32_t cmd,
 					"mtk_cam_seninf_aov_runtime_suspend(%d)-\n",
 					core_info->sensor_id);
 
-				//pr_info("mtk_aie_aov_memcpy+\n");
-				//mtk_aie_aov_memcpy((void *)&(init->aie_info));
-				//pr_info("mtk_aie_aov_memcpy-\n");
+				pr_info("mtk_aie_aov_memcpy+\n");
+				mtk_aie_aov_memcpy((void *)&(init->aie_info));
+				pr_info("mtk_aie_aov_memcpy-\n");
 
 				/* debug use
 				 * pr_info("out_pad %d\n", init->aov_seninf_param.vc.out_pad);
