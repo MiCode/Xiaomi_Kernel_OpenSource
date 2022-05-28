@@ -6055,6 +6055,8 @@
 
 		bt: bt {
 			compatible = "mediatek,bt";
+			hub-en = <1>;
+			baudrate = <12000000>;
 			pinctrl-names = "bt_combo_gpio_init",
 					"bt_combo_gpio_pre_on",
 					"bt_combo_gpio_on",
@@ -13000,34 +13002,6 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 			bias-pull-down;
 			drive-strength = <0>;
 		};
-		/* PCM_CLK, GPIO235*/
-		pins_cmd3_dat {
-			pinmux = <PINMUX_GPIO235__FUNC_GPIO235>;
-			slew-rate = <0>;
-			bias-pull-down;
-			drive-strength = <0>;
-		};
-		/* PCM_SYNC, GPIO236*/
-		pins_cmd4_dat {
-			pinmux = <PINMUX_GPIO236__FUNC_GPIO236>;
-			slew-rate = <0>;
-			bias-pull-down;
-			drive-strength = <0>;
-		};
-		/* PCM_OUT, GPIO237*/
-		pins_cmd5_dat {
-			pinmux = <PINMUX_GPIO237__FUNC_GPIO237>;
-			slew-rate = <0>;
-			bias-pull-down;
-			drive-strength = <0>;
-		};
-		/* PCM_IN, GPIO238*/
-		pins_cmd6_dat {
-			pinmux = <PINMUX_GPIO238__FUNC_GPIO238>;
-			slew-rate = <0>;
-			bias-pull-down;
-			drive-strength = <0>;
-		};
 		/* BT_RST, GPIO240*/
 		pins_cmd7_dat {
 			pinmux = <PINMUX_GPIO240__FUNC_GPIO240>;
@@ -13038,6 +13012,16 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 	};
 	bt_combo_gpio_pre_on: bt_combo_gpio_pre_on {
 		pins_cmd1_dat {
+			pinmux = <PINMUX_GPIO224__FUNC_GPIO224>;
+			bias-pull-up;
+		};
+		pins_cmd2_dat {
+			pinmux = <PINMUX_GPIO225__FUNC_GPIO225>;
+			bias-pull-up;
+		};
+	};
+	bt_combo_gpio_on: bt_combo_gpio_on {
+		pins_cmd1_dat {
 			pinmux = <PINMUX_GPIO224__FUNC_UARTHUB_UART_TX>;
 			bias-pull-up;
 			output-high;
@@ -13046,23 +13030,6 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 			pinmux = <PINMUX_GPIO225__FUNC_UARTHUB_UART_RX>;
 			bias-pull-up;
 			input-enable;
-		};
-	};
-	bt_combo_gpio_on: bt_combo_gpio_on {
-		pins_cmd1_dat {
-			pinmux = <PINMUX_GPIO235__FUNC_I2S9_BCK>;
-			output-high;
-		};
-		pins_cmd2_dat {
-			pinmux = <PINMUX_GPIO236__FUNC_I2S9_LRCK>;
-			output-high;
-		};
-		pins_cmd3_dat {
-			pinmux = <PINMUX_GPIO237__FUNC_I2S9_DO>;
-			output-high;
-		};
-		pins_cmd4_dat {
-			pinmux = <PINMUX_GPIO238__FUNC_I2S8_DI>;
 		};
 	};
 	bt_rst_on: bt_rst_on {
