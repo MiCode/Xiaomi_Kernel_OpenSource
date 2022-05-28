@@ -85,7 +85,17 @@ int vdec_if_get_param(struct mtk_vcodec_ctx *ctx, enum vdec_get_param_type type,
 int vdec_if_set_param(struct mtk_vcodec_ctx *ctx,
 					  enum vdec_set_param_type type,
 					  void *in);
-
+/*
+ * vdec_if_flush - Set parameter to driver
+ * @ctx  : [in] v4l2 context
+ * @bs  : [in] input bitstream
+ * @fb  : [in] frame buffer to store decoded frame, when null menas parse
+ *      header only
+ * @type : [in] flush from bitstream or frame buffer
+ * Return: 0 if flush successfully, otherwise it is failed.
+ */
+int vdec_if_flush(struct mtk_vcodec_ctx *ctx, struct mtk_vcodec_mem *bs,
+				   struct vdec_fb *fb, enum vdec_flush_type type);
 
 void vdec_decode_prepare(void *ctx_prepare,
 	unsigned int hw_id);

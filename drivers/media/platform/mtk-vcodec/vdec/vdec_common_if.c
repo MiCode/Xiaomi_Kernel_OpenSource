@@ -682,12 +682,35 @@ static int vdec_set_param(unsigned long h_vdec,
 	return ret;
 }
 
+static int vdec_flush(unsigned long h_vdec, struct vdec_fb *fb,
+	enum vdec_flush_type type)
+{
+	struct vdec_inst *inst = (struct vdec_inst *)h_vdec;
+	struct vdec_vcu_inst *vcu = &inst->vcu;
+	int ret;
+
+	mtk_vcodec_debug(inst, "+ flush with type %d", type);
+
+	inst->vsi->flush_type = type;
+	if (fb == NULL)
+		ret = vcu_dec_reset(vcu, VDEC_FLUSH); // flush (0)
+	else if (fb->status == 0)
+		ret = vcu_dec_reset(vcu, VDEC_DRAIN); // drain (1)
+	else
+		ret = vcu_dec_reset(vcu, VDEC_DRAIN_EOS); // drain & return EOS frame (2)
+
+
+	mtk_vcodec_debug(inst, "+ flush ret %d", ret);
+	return ret;
+}
+
 static struct vdec_common_if vdec_if = {
 	vdec_init,
 	vdec_decode,
 	vdec_get_param,
 	vdec_set_param,
 	vdec_deinit,
+	vdec_flush,
 };
 
 const struct vdec_common_if *get_dec_vcu_if(void);

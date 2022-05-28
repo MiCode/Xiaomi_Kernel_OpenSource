@@ -89,6 +89,11 @@ enum vdec_ipi_msg_id {
 	AP_IPIMSG_DEC_CHECK_CODEC_ID_DONE
 };
 
+enum vdec_flush_type {
+	FLUSH_BITSTREAM = (1 << 0),
+	FLUSH_FRAME     = (1 << 1),
+};
+
 /**
  * enum vdec_reset_type - decoder reset type
  * @VDEC_FLUSH      : flush, no need to cotinue decode and return all frame buffers
@@ -434,6 +439,7 @@ struct vdec_vsi {
 	struct v4l2_vdec_hdr10_info hdr10_info;
 	__u8 hdr10_info_valid;
 	__u8 trick_mode;
+	__u8 flush_type;
 };
 
 #endif

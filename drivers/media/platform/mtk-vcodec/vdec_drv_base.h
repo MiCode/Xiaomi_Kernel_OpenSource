@@ -51,6 +51,15 @@ struct vdec_common_if {
 	 * @h_vdec : [in] driver handle to be deinit
 	 */
 	void (*deinit)(unsigned long h_vdec);
+
+	/**
+	 * (*flush)() - flush driver.
+	 * @h_vdec : [in] driver handle to be deinit
+	 * @fb      : [in] frame buffer to store decoded frame
+	 * @type   : [in] input flushes type
+	 */
+	 int (*flush)(unsigned long h_vdec, struct vdec_fb *fb,
+		enum vdec_flush_type type);
 };
 
 #endif

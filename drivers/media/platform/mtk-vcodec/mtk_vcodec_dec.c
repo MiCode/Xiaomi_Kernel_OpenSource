@@ -1079,9 +1079,8 @@ void mtk_vdec_queue_error_event(struct mtk_vcodec_ctx *ctx)
 }
 
 static void mtk_vdec_reset_decoder(struct mtk_vcodec_ctx *ctx, bool is_drain,
-	struct mtk_vcodec_mem *current_bs)
+	struct mtk_vcodec_mem *current_bs, enum v4l2_buf_type type)
 {
-	unsigned int src_chg = 0;
 	struct vdec_fb drain_fb;
 	int i, ret = 0;
 	struct vb2_v4l2_buffer *dst_vb2_v4l2, *src_vb2_v4l2;
@@ -1129,7 +1128,8 @@ static void mtk_vdec_reset_decoder(struct mtk_vcodec_ctx *ctx, bool is_drain,
 
 	if (is_drain) {
 		memset(&drain_fb, 0, sizeof(struct vdec_fb));
-		ret = vdec_if_decode(ctx, NULL, &drain_fb, &src_chg);
+		ret = vdec_if_flush(ctx, NULL, &drain_fb,
+			V4L2_TYPE_IS_OUTPUT(type) ? FLUSH_BITSTREAM : FLUSH_FRAME);
 	} else {
 		ctx->is_flushing = true;
 		if (ctx->input_driven == INPUT_DRIVEN_PUT_FRM) {
@@ -1140,7 +1140,8 @@ static void mtk_vdec_reset_decoder(struct mtk_vcodec_ctx *ctx, bool is_drain,
 				mtk_vdec_queue_error_event(ctx);
 			}
 		}
-		ret = vdec_if_decode(ctx, NULL, NULL, &src_chg);
+		ret = vdec_if_flush(ctx, NULL, NULL,
+			V4L2_TYPE_IS_OUTPUT(type) ? FLUSH_BITSTREAM : FLUSH_FRAME);
 	}
 
 	dstq = &ctx->m2m_ctx->cap_q_ctx.q;
@@ -1452,7 +1453,7 @@ static void mtk_vdec_worker(struct work_struct *work)
 		memset(&drain_fb, 0, sizeof(struct vdec_fb));
 		if (src_buf->planes[0].bytesused == 0)
 			drain_fb.status = FB_ST_EOS;
-		vdec_if_decode(ctx, NULL, &drain_fb, &src_chg);
+		vdec_if_flush(ctx, NULL, &drain_fb, FLUSH_BITSTREAM | FLUSH_FRAME);
 
 		if (!ctx->input_driven) {
 			mtk_vdec_cancel_put_fb_job(ctx);
@@ -1612,7 +1613,7 @@ static void mtk_vdec_worker(struct work_struct *work)
 		 * remaining buffers from before the resolution change
 		 * point, so call flush decode here
 		 */
-		mtk_vdec_reset_decoder(ctx, 1, NULL);
+		mtk_vdec_reset_decoder(ctx, 1, NULL, V4L2_BUF_TYPE_VIDEO_CAPTURE);
 		if (ctx->input_driven != NON_INPUT_DRIVEN)
 			*(ctx->ipi_blocked) = true;
 		/*
@@ -3394,9 +3395,9 @@ static void vb2ops_vdec_stop_streaming(struct vb2_queue *q)
 				src_buf_info =
 					container_of(src_vb2_v4l2, struct mtk_video_dec_buf, vb);
 				/* for bs buffer reuse case & avoid put to done twice*/
-				mtk_vdec_reset_decoder(ctx, 0, &src_buf_info->bs_buffer);
+				mtk_vdec_reset_decoder(ctx, 0, &src_buf_info->bs_buffer, q->type);
 			} else {
-				mtk_vdec_reset_decoder(ctx, 0, NULL);
+				mtk_vdec_reset_decoder(ctx, 0, NULL, q->type);
 			}
 		}
 
@@ -3429,7 +3430,7 @@ static void vb2ops_vdec_stop_streaming(struct vb2_queue *q)
 			ctx->last_decoded_picinfo.buf_h,
 			ctx->picinfo.bitdepth);
 
-		mtk_vdec_reset_decoder(ctx, 0, NULL);
+		mtk_vdec_reset_decoder(ctx, 0, NULL, q->type);
 	}
 
 	while ((dst_vb2_v4l2 = v4l2_m2m_dst_buf_remove(ctx->m2m_ctx))) {

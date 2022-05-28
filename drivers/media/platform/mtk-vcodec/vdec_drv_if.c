@@ -178,6 +178,21 @@ void vdec_if_deinit(struct mtk_vcodec_ctx *ctx)
 	ctx->drv_handle = 0;
 }
 
+int vdec_if_flush(struct mtk_vcodec_ctx *ctx, struct mtk_vcodec_mem *bs,
+				   struct vdec_fb *fb, enum vdec_flush_type type)
+{
+	if (ctx->drv_handle == 0)
+		return -EIO;
+
+	if (ctx->dec_if->flush == NULL) {
+		unsigned int src_chg;
+
+		return vdec_if_decode(ctx, bs, fb, &src_chg);
+	}
+
+	return ctx->dec_if->flush(ctx->drv_handle, fb, type);
+}
+
 void vdec_decode_prepare(void *ctx_prepare,
 	unsigned int hw_id)
 {
