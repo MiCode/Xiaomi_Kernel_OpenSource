@@ -395,9 +395,7 @@ static int mtk_ccu_start(struct rproc *rproc)
 #endif
 
 	/*1. Set CCU run*/
-	mtk_ccu_run(ccu);
-
-	return 0;
+	return mtk_ccu_run(ccu);
 }
 
 void *mtk_ccu_da_to_va(struct rproc *rproc, u64 da, size_t len, bool *is_iomem)
