@@ -206,6 +206,7 @@ struct mtk_cam_stagger_job {
 	int switch_feature_type;
 	bool dcif_enable;
 	bool need_drv_buffer_check;
+	bool is_dc_stagger;
 };
 struct mtk_cam_mstream_job {
 	struct mtk_cam_job job; /* always on top */
