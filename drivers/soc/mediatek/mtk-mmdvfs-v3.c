@@ -196,6 +196,13 @@ int mtk_mmdvfs_camera_notify(const bool enable)
 }
 EXPORT_SYMBOL_GPL(mtk_mmdvfs_camera_notify);
 
+int mtk_mmdvfs_aov_cam_ulposc(bool enable)
+{
+	MMDVFS_DBG("enable=%d\n", enable);
+	return 0;
+}
+EXPORT_SYMBOL_GPL(mtk_mmdvfs_aov_cam_ulposc);
+
 bool mtk_is_mmdvfs_init_done(void)
 {
 	return mmdvfs_init_done;
