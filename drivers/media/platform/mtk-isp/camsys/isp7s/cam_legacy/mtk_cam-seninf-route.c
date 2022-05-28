@@ -1036,7 +1036,7 @@ int mtk_cam_seninf_s_stream_mux(struct seninf_ctx *ctx)
 			vc_sel = vc->vc;
 			dt_sel = vc->dt;
 			dt_en = !!dt_sel;
-			if (first_tag && (vc->tag > 0)) {
+			if (first_tag && (vc->tag >= 0)) {
 				first_vc = 1;
 				first_tag = 0;
 			} else
