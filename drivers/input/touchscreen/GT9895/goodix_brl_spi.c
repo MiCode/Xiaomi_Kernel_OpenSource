@@ -222,7 +222,7 @@ static int goodix_spi_probe(struct spi_device *spi)
 	/* init spi_device */
 	spi->mode            = SPI_MODE_0;
 	spi->bits_per_word   = 8;
-	spi->max_speed_hz    = 20 * 1000 * 1000;
+	spi->max_speed_hz    = 6 * 1000 * 1000;
 	spi->cs_setup.value = 1;
 	spi->cs_setup.unit = 0;
 	spi->cs_hold.value = 1;
