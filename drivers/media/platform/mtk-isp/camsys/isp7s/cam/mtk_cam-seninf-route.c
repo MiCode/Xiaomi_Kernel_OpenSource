@@ -1119,4 +1119,11 @@ void notify_fsync_cammux_usage_with_kthread(struct seninf_ctx *ctx)
 		}
 	}
 }
+/* for build pass with aov */
+int mtk_cam_seninf_s_aov_param(unsigned int sensor_id,
+	struct mtk_seninf_aov_param *aov_seninf_param)
+{
+	return 0;
+}
+EXPORT_SYMBOL(mtk_cam_seninf_s_aov_param);
 
