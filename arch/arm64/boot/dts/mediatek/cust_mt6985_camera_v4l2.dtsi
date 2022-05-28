@@ -590,7 +590,7 @@
 			<&topckgen_clk CLK_TOP_CAMTG4_SEL>,
 			<&topckgen_clk CLK_TOP_UNIVPLL_192M_D32>,
 			<&topckgen_clk CLK_TOP_UNIVPLL_192M_D16>,
-			<&topckgen_clk CLK_TOP_UNIVPLL_192M_D32>,
+			<&topckgen_clk CLK_TOP_F26M_CK_D2>,
 			<&topckgen_clk CLK_TOP_UNIVPLL_192M_D10>,
 			<&topckgen_clk CLK_TOP_UNIVPLL_192M_D8>,
 			<&topckgen_clk CLK_TOP_UNIVPLL_D6_D16>,
