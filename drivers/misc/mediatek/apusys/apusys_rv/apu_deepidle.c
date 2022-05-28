@@ -46,9 +46,13 @@ struct dpidle_msg {
 	uint32_t ack;
 };
 
+/* #define APU_DEEPIDLE_WQ */
+
 static struct mtk_apu *g_apu;
 static struct work_struct pwron_dbg_wk;
+#ifdef APU_DEEPIDLE_WQ
 static struct workqueue_struct *apu_deepidle_workq;
+#endif
 static struct dpidle_msg recv_msg;
 
 static void apu_deepidle_pwron_dbg_fn(struct work_struct *work)
@@ -189,9 +193,8 @@ static int apu_deepidle_send_ack(struct mtk_apu *apu, uint32_t cmd, uint32_t ack
 	return ret;
 }
 
-static void apu_deepidle_work_func(struct work_struct *work)
+static void __apu_deepidle(struct mtk_apu *apu)
 {
-	struct mtk_apu *apu = container_of(work, struct mtk_apu, deepidle_work);
 	struct mtk_apu_hw_ops *hw_ops = &apu->platdata->ops;
 	struct dpidle_msg *msg = &recv_msg;
 	int ret;
@@ -203,24 +206,24 @@ static void apu_deepidle_work_func(struct work_struct *work)
 			dev_info(apu->dev, "%s: IPI busy, ret=%d\n",
 				 __func__, ret);
 			apu_deepidle_send_ack(apu, DPIDLE_CMD_LOCK_IPI,
-					      DPIDLE_ACK_LOCK_BUSY);
+					DPIDLE_ACK_LOCK_BUSY);
 			return;
 		}
 		apu_deepidle_send_ack(apu, DPIDLE_CMD_LOCK_IPI,
-				      DPIDLE_ACK_OK);
+					DPIDLE_ACK_OK);
 		break;
 
 	case DPIDLE_CMD_UNLOCK_IPI:
 		apu_ipi_unlock(apu);
 		apu_deepidle_send_ack(apu, DPIDLE_CMD_UNLOCK_IPI,
-				      DPIDLE_ACK_OK);
+					DPIDLE_ACK_OK);
 		break;
 
 	case DPIDLE_CMD_PDN_UNLOCK:
 		hw_logger_deep_idle_enter_pre();
 
 		apu_deepidle_send_ack(apu, DPIDLE_CMD_PDN_UNLOCK,
-				      DPIDLE_ACK_OK);
+					DPIDLE_ACK_OK);
 
 		ret = hw_ops->power_off(apu);
 		if (ret) {
@@ -242,12 +245,27 @@ static void apu_deepidle_work_func(struct work_struct *work)
 	}
 }
 
+#ifdef APU_DEEPIDLE_WQ
+static void apu_deepidle_work_func(struct work_struct *work)
+{
+	struct mtk_apu *apu = container_of(work,
+		struct mtk_apu, deepidle_work);
+
+	__apu_deepidle(apu);
+}
+#endif
+
 static void apu_deepidle_ipi_handler(void *data, unsigned int len, void *priv)
 {
 	struct mtk_apu *apu = (struct mtk_apu *)priv;
 
 	memcpy(&recv_msg, data, len);
+
+#ifdef APU_DEEPIDLE_WQ
 	queue_work(apu_deepidle_workq, &apu->deepidle_work);
+#else
+	__apu_deepidle(apu);
+#endif
 }
 
 int apu_deepidle_init(struct mtk_apu *apu)
@@ -255,6 +273,7 @@ int apu_deepidle_init(struct mtk_apu *apu)
 	struct device *dev = apu->dev;
 	int ret;
 
+#ifdef APU_DEEPIDLE_WQ
 	apu_deepidle_workq = alloc_workqueue("apu_deepidle",
 					     WQ_UNBOUND | WQ_HIGHPRI, 0);
 	if (!apu_deepidle_workq) {
@@ -264,6 +283,7 @@ int apu_deepidle_init(struct mtk_apu *apu)
 	}
 
 	INIT_WORK(&apu->deepidle_work, apu_deepidle_work_func);
+#endif
 
 	ret = apu_ipi_register(apu, APU_IPI_DEEP_IDLE,
 			       apu_deepidle_ipi_handler, apu);
@@ -286,7 +306,9 @@ void apu_deepidle_exit(struct mtk_apu *apu)
 
 	apu_ipi_unregister(apu, APU_IPI_DEEP_IDLE);
 
+#ifdef APU_DEEPIDLE_WQ
 	if (apu_deepidle_workq)
 		destroy_workqueue(apu_deepidle_workq);
+#endif
 }
 
