@@ -433,6 +433,12 @@ enum MTK_CRTC_COLOR_FMT {
 		MAKE_CRTC_COLOR_FMT(1, 32, 0, 0, 3, 0, 0, 45),
 };
 
+/*
+ * use CLIENT_DSI_CFG guideline :
+ * 1. send DSI VM CMD
+ * 2. process register operation which not invovle stop DSI &
+ *    enable DSI and intend process with lower priority
+ */
 /* CLIENT_SODI_LOOP for sw workaround to fix gce hw bug */
 #define DECLARE_GCE_CLIENT(EXPR)                                               \
 	EXPR(CLIENT_CFG)                                                       \
