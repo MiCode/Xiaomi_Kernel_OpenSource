@@ -72,6 +72,7 @@ static struct oc_debug_t mt6879_oc_debug[] = {
 	REG_OC_DEBUG(mt6368_vcn33_1),
 	REG_OC_DEBUG(mt6368_vcn33_2),
 	REG_OC_DEBUG(mt6368_vefuse),
+	MD_REG_OC_DEBUG(mt6368_vpa, BIT(0)),
 };
 
 static struct oc_debug_t mt6983_oc_debug[] = {

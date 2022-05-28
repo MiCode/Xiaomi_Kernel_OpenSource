@@ -116,6 +116,7 @@ static const struct resource mt6368_accdet_resources[] = {
 };
 
 static const struct resource mt6368_regulators_resources[] = {
+	DEFINE_RES_IRQ_NAMED(MT6368_IRQ_VPA_OC, "VPA"),
 	DEFINE_RES_IRQ_NAMED(MT6368_IRQ_VUSB_OC, "VUSB"),
 	DEFINE_RES_IRQ_NAMED(MT6368_IRQ_VAUX18_OC, "VAUX18"),
 	DEFINE_RES_IRQ_NAMED(MT6368_IRQ_VRF13_AIF_OC, "VRF13_AIF"),
