@@ -31,6 +31,20 @@
 
 typedef uint32_t pseudo_gce_cmd_addr_t;
 
+
+#define IMGSYS_CMDQ_SYSTRACE_BEGIN(fmt, args...) do { \
+	if (imgsys_cmdq_ftrace_enabled()) { \
+		IMGSYS_TRACE_FORCE_BEGIN(fmt, ##args); \
+	} \
+} while (0)
+
+#define IMGSYS_CMDQ_SYSTRACE_END() do { \
+	if (imgsys_cmdq_ftrace_enabled()) { \
+		IMGSYS_TRACE_FORCE_END(); \
+	} \
+} while (0)
+
+
 struct task_timestamp {
 	dma_addr_t dma_pa;
 	uint32_t *dma_va;
@@ -170,6 +184,8 @@ int imgsys_cmdq_sec_sendtask(struct mtk_imgsys_dev *imgsys_dev);
 void imgsys_cmdq_sec_cmd(struct cmdq_pkt *pkt);
 */
 void imgsys_cmdq_clearevent(struct mtk_imgsys_dev *imgsys_dev, int event_id);
+
+bool imgsys_cmdq_ftrace_enabled(void);
 
 #if DVFS_QOS_READY
 void mtk_imgsys_mmdvfs_init(struct mtk_imgsys_dev *imgsys_dev);

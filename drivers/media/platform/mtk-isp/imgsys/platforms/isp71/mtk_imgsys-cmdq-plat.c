@@ -435,7 +435,7 @@ static void imgsys_cmdq_cb_work_plat71(struct work_struct *work)
 
 		/* PMQOS API */
 		tsDvfsQosStart = ktime_get_boottime_ns()/1000;
-		IMGSYS_SYSTRACE_BEGIN(
+		IMGSYS_CMDQ_SYSTRACE_BEGIN(
 			"%s_%s|Imgsys MWFrame:#%d MWReq:#%d ReqFd:%d Own:%llx\n",
 			__func__, "dvfs_qos", cb_param->frm_info->frame_no,
 			cb_param->frm_info->request_no, cb_param->frm_info->request_fd,
@@ -460,23 +460,23 @@ static void imgsys_cmdq_cb_work_plat71(struct work_struct *work)
 			isLastTaskInReq = 1;
 		} else
 			isLastTaskInReq = 0;
-		IMGSYS_SYSTRACE_END();
+		IMGSYS_CMDQ_SYSTRACE_END();
 		tsDvfsQosEnd = ktime_get_boottime_ns()/1000;
 
 		user_cb_data.err = cb_param->err;
 		user_cb_data.data = (void *)cb_param->frm_info;
 		cb_param->cmdqTs.tsUserCbStart = ktime_get_boottime_ns()/1000;
-		IMGSYS_SYSTRACE_BEGIN(
+		IMGSYS_CMDQ_SYSTRACE_BEGIN(
 			"%s_%s|Imgsys MWFrame:#%d MWReq:#%d ReqFd:%d Own:%llx\n",
 			__func__, "user_cb", cb_param->frm_info->frame_no,
 			cb_param->frm_info->request_no, cb_param->frm_info->request_fd,
 			cb_param->frm_info->frm_owner);
 		cb_param->user_cmdq_cb(user_cb_data, cb_param->frm_idx, isLastTaskInReq);
-		IMGSYS_SYSTRACE_END();
+		IMGSYS_CMDQ_SYSTRACE_END();
 		cb_param->cmdqTs.tsUserCbEnd = ktime_get_boottime_ns()/1000;
 	}
 
-	IMGSYS_SYSTRACE_BEGIN(
+	IMGSYS_CMDQ_SYSTRACE_BEGIN(
 		"%s_%s|Imgsys MWFrame:#%d MWReq:#%d ReqFd:%d fidx:%d hw_comb:0x%x Own:%llx cb:%p thd:%d frm(%d/%d/%d) DvfsSt(%lld) SetCmd(%lld) HW(%lld/%d-%d-%d-%d) Cmdqcb(%lld) WK(%lld) UserCb(%lld) DvfsEnd(%lld)\n",
 		__func__, "wait_pkt", cb_param->frm_info->frame_no,
 		cb_param->frm_info->request_no, cb_param->frm_info->request_fd,
@@ -495,7 +495,7 @@ static void imgsys_cmdq_cb_work_plat71(struct work_struct *work)
 	cmdq_pkt_wait_complete(cb_param->pkt);
 	cmdq_pkt_destroy(cb_param->pkt);
 	cb_param->cmdqTs.tsReqEnd = ktime_get_boottime_ns()/1000;
-	IMGSYS_SYSTRACE_END();
+	IMGSYS_CMDQ_SYSTRACE_END();
 
 	if (imgsys_cmdq_ts_dbg_enable_plat71())
 		dev_dbg(imgsys_dev->dev,
@@ -714,7 +714,7 @@ int imgsys_cmdq_sendtask_plat71(struct mtk_imgsys_dev *imgsys_dev,
 
 	/* PMQOS API */
 	tsDvfsQosStart = ktime_get_boottime_ns()/1000;
-	IMGSYS_SYSTRACE_BEGIN("%s_%s|Imgsys MWFrame:#%d MWReq:#%d ReqFd:%d Own:%llx\n",
+	IMGSYS_CMDQ_SYSTRACE_BEGIN("%s_%s|Imgsys MWFrame:#%d MWReq:#%d ReqFd:%d Own:%llx\n",
 		__func__, "dvfs_qos", frm_info->frame_no, frm_info->request_no,
 		frm_info->request_fd, frm_info->frm_owner);
 	mutex_lock(&(imgsys_dev->dvfs_qos_lock));
@@ -724,7 +724,7 @@ int imgsys_cmdq_sendtask_plat71(struct mtk_imgsys_dev *imgsys_dev,
 	mtk_imgsys_mmqos_set_by_scen_plat71(imgsys_dev, frm_info, 1);
 	#endif
 	mutex_unlock(&(imgsys_dev->dvfs_qos_lock));
-	IMGSYS_SYSTRACE_END();
+	IMGSYS_CMDQ_SYSTRACE_END();
 	tsDvfsQosEnd = ktime_get_boottime_ns()/1000;
 
 	/* is_stream_off = 0; */
@@ -860,7 +860,7 @@ int imgsys_cmdq_sendtask_plat71(struct mtk_imgsys_dev *imgsys_dev,
 					pkt->priority = IMGSYS_PRI_HIGH;
 			}
 
-			IMGSYS_SYSTRACE_BEGIN(
+			IMGSYS_CMDQ_SYSTRACE_BEGIN(
 				"%s_%s|Imgsys MWFrame:#%d MWReq:#%d ReqFd:%d fidx:%d hw_comb:0x%x Own:%llx frm(%d/%d) blk(%d)\n",
 				__func__, "cmd_parser", frm_info->frame_no, frm_info->request_no,
 				frm_info->request_fd, frm_info->user_info[frm_idx].subfrm_idx,
@@ -890,7 +890,7 @@ int imgsys_cmdq_sendtask_plat71(struct mtk_imgsys_dev *imgsys_dev,
 				imgsys_cmdq_sec_cmd(pkt);
 			#endif
 
-			IMGSYS_SYSTRACE_END();
+			IMGSYS_CMDQ_SYSTRACE_END();
 
 			/* Check for packing gce task */
 			pkt_ofst[task_cnt] = pkt->cmd_buf_size - CMDQ_INST_SIZE;
@@ -980,7 +980,7 @@ int imgsys_cmdq_sendtask_plat71(struct mtk_imgsys_dev *imgsys_dev,
 
 				/* flush synchronized, block API */
 				cb_param->cmdqTs.tsFlushStart = ktime_get_boottime_ns()/1000;
-				IMGSYS_SYSTRACE_BEGIN(
+				IMGSYS_CMDQ_SYSTRACE_BEGIN(
 					"%s_%s|Imgsys MWFrame:#%d MWReq:#%d ReqFd:%d fidx:%d hw_comb:0x%x Own:%llx cb(%p) frm(%d/%d) blk(%d/%d)\n",
 					__func__, "pkt_flush", frm_info->frame_no,
 					frm_info->request_no, frm_info->request_fd,
@@ -991,7 +991,7 @@ int imgsys_cmdq_sendtask_plat71(struct mtk_imgsys_dev *imgsys_dev,
 
 				ret_flush = cmdq_pkt_flush_async(pkt, imgsys_cmdq_task_cb_plat71,
 								(void *)cb_param);
-				IMGSYS_SYSTRACE_END();
+				IMGSYS_CMDQ_SYSTRACE_END();
 				if (ret_flush < 0)
 					pr_info(
 					"%s: [ERROR] cmdq_pkt_flush_async fail(%d) for frm(%d/%d)!\n",
@@ -1476,7 +1476,7 @@ void mtk_imgsys_mmqos_set_by_scen_plat71(struct mtk_imgsys_dev *imgsys_dev,
 				qos_info->qos_path[IMGSYS_L12_COMMON_R_1].bw = bw_final[2];
 				qos_info->qos_path[IMGSYS_L15_COMMON_W_1].bw = bw_final[3];
 
-				IMGSYS_SYSTRACE_BEGIN("SetQos");
+				IMGSYS_CMDQ_SYSTRACE_BEGIN("SetQos");
 #ifndef CONFIG_FPGA_EARLY_PORTING
 				mtk_icc_set_bw(qos_info->qos_path[IMGSYS_L9_COMMON_R_0].path,
 						Bps_to_icc(bw_final[0]),
@@ -1491,7 +1491,7 @@ void mtk_imgsys_mmqos_set_by_scen_plat71(struct mtk_imgsys_dev *imgsys_dev,
 						Bps_to_icc(bw_final[3]),
 						0);
 #endif
-				IMGSYS_SYSTRACE_END();
+				IMGSYS_CMDQ_SYSTRACE_END();
 			}
 		}
 	}

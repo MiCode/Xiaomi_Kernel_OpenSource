@@ -21,6 +21,8 @@
 
 static struct mtk_imgcmdq_dev *imgsys_cmdq_dev;
 
+int imgsys_cmdq_ftrace_en;
+module_param(imgsys_cmdq_ftrace_en, int, 0644);
 
 int imgsys_cmdq_ts_en;
 module_param(imgsys_cmdq_ts_en, int, 0644);
@@ -62,6 +64,11 @@ bool imgsys_cmdq_ts_dbg_enable(void)
 bool imgsys_dvfs_dbg_enable(void)
 {
 	return imgsys_dvfs_dbg_en;
+}
+
+bool imgsys_cmdq_ftrace_enabled(void)
+{
+	return imgsys_cmdq_ftrace_en;
 }
 
 /*#####*/
