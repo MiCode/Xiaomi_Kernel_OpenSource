@@ -10509,7 +10509,7 @@
 			      <3 0x180000>, /* logger */
 			      <4 0x19000>, /* audio */
 			      <5 0xa000>, /* vow bargein */
-			      <7 0x19F00>, /* ultrasound*/
+			      <7 0x1a000>, /* ultrasound*/
 			      <8 0x10000>, /* sensor supper*/
 			      <9 0x1000>, /* sensor list */
 			      <10 0x2000>, /* sensor debug */
