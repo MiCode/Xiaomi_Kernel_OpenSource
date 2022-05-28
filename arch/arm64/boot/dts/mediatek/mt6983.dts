@@ -1142,6 +1142,8 @@
 
 		ccci_scp:ccci_scp {
 			compatible = "mediatek,ccci_md_scp";
+			reg = <0 0x1023c000 0 0x1000>, /* AP_CCIF2_BASE */
+			      <0 0x1023d000 0 0x1000>; /* MD_CCIF2_BASE */
 			clocks = <&infracfg_ao_clk CLK_INFRACFG_AO_CCIF2_AP_CG>,
 				<&infracfg_ao_clk CLK_INFRACFG_AO_CCIF2_MD_CG>;
 			clock-names = "infra-ccif2-ap",
