@@ -268,6 +268,7 @@
 		interrupt-controller;
 		interrupts = <GIC_SPI 235 IRQ_TYPE_LEVEL_HIGH 0>;
 		#interrupt-cells = <2>;
+		mediatek,eint = <&eint>;
 
 		watchdog_pins_default: watchdog_pins {
 			wdt_op {
@@ -713,13 +714,19 @@
 		compatible = "mediatek,mt8195-wdt",
 				 "mediatek,mt6589-wdt";
 		reg = <0 0x10007000 0 0x100>;
-	//	pinctrl-names = "default";
-	//	pinctrl-0 = <&watchdog_pins_default>;
 	};
 
 	stc: stc@10008000 {
 		compatible = "mediatek,gpt-stc";
 		reg = <0 0x10008000 0 0x40>;
+	};
+
+	eint: apirq@1000b000 {
+		compatible = "mediatek,mtk-eint";
+		reg = <0 0x1000b000 0 0x1000>;
+		reg-name = "eint";
+		interrupts = <GIC_SPI 235 IRQ_TYPE_LEVEL_HIGH 0>;
+		mediatek,total-pin-number = <192>;
 	};
 
 	apmixedsys: syscon@1000c000 {
@@ -1012,11 +1019,15 @@
 	};
 
 	iommu4: infra-iommu@10315000 {
-		cell-index = <4>;
-		compatible = "mediatek,mt8195-m4u-infra";
-		reg = <0 0x10315000 0 0x1000>,
-		      <0 0x11003000 0 0x1000>;
-		interrupts = <GIC_SPI 795 IRQ_TYPE_LEVEL_HIGH 0>;
+		compatible = "mediatek,mt8195-iommu-infra";
+		reg = <0 0x10315000 0 0x5000>;
+		interrupts = <GIC_SPI 795 IRQ_TYPE_LEVEL_HIGH 0>,
+			     <GIC_SPI 796 IRQ_TYPE_LEVEL_HIGH 0>,
+			     <GIC_SPI 797 IRQ_TYPE_LEVEL_HIGH 0>,
+			     <GIC_SPI 798 IRQ_TYPE_LEVEL_HIGH 0>,
+			     <GIC_SPI 799 IRQ_TYPE_LEVEL_HIGH 0>;
+		clocks = <&clk26m>;
+		clock-names = "bclk";
 		#iommu-cells = <1>;
 	};
 
@@ -1603,53 +1614,8 @@
 		compatible = "mediatek,mt6577-uart";
 		reg = <0 0x11001100 0 0x100>;
 		interrupts = <GIC_SPI 141 IRQ_TYPE_LEVEL_HIGH 0>;
-		clocks = <&clk26m>, <&infracfg_ao CLK_INFRA_AO_UART0>;
+		clocks = <&clk26m>, <&clk26m>;
 		clock-names = "baud", "bus";
-		status = "disabled";
-	};
-
-	uart1: serial@11001200 {
-		compatible = "mediatek,mt6577-uart";
-		reg = <0 0x11001200 0 0x100>;
-		interrupts = <GIC_SPI 142 IRQ_TYPE_LEVEL_HIGH 0>;
-		clocks = <&clk26m>, <&infracfg_ao CLK_INFRA_AO_UART1>;
-		clock-names = "baud", "bus";
-	};
-
-	uart2: serial@11001300 {
-		compatible = "mediatek,mt6577-uart";
-		reg = <0 0x11001300 0 0x100>;
-		interrupts = <GIC_SPI 143 IRQ_TYPE_LEVEL_HIGH 0>;
-		clocks = <&clk26m>, <&infracfg_ao CLK_INFRA_AO_UART2>;
-		clock-names = "baud", "bus";
-		status = "disabled";
-	};
-
-	uart3: serial@11001400 {
-		compatible = "mediatek,mt6577-uart";
-		reg = <0 0x11001400 0 0x100>;
-		interrupts = <GIC_SPI 723 IRQ_TYPE_LEVEL_HIGH 0>;
-		clocks = <&clk26m>, <&infracfg_ao CLK_INFRA_AO_UART3>;
-		clock-names = "baud", "bus";
-		status = "disabled";
-	};
-
-	uart4: serial@11001500 {
-		compatible = "mediatek,mt6577-uart";
-		reg = <0 0x11001500 0 0x100>;
-		interrupts = <GIC_SPI 724 IRQ_TYPE_LEVEL_HIGH 0>;
-		clocks = <&clk26m>, <&infracfg_ao CLK_INFRA_AO_UART4>;
-		clock-names = "baud", "bus";
-		status = "disabled";
-	};
-
-	uart5: serial@11001600 {
-		compatible = "mediatek,mt6577-uart";
-		reg = <0 0x11001600 0 0x100>;
-		interrupts = <GIC_SPI 725 IRQ_TYPE_LEVEL_HIGH 0>;
-		clocks = <&clk26m>, <&infracfg_ao CLK_INFRA_AO_UART5>;
-		clock-names = "baud", "bus";
-		status = "disabled";
 	};
 
 	auxadc: adc@11002000 {
@@ -1860,17 +1826,20 @@
 	};
 
 	ssusb: usb@11201000 {
-		compatible = "mediatek,mtu3";
+		compatible = "mediatek,mt8195-mtu3";
 		reg = <0 0x11201000 0 0x2dff>,
 		      <0 0x11203e00 0 0x0100>;
 		reg-names = "mac", "ippc";
 		interrupts = <GIC_SPI 128 IRQ_TYPE_LEVEL_HIGH 0>;
 		phys = <&u2port0 PHY_TYPE_USB2>,
 		       <&u3port0 PHY_TYPE_USB3>;
-		clocks = <&clk26m>,
-			 <&clk26m>,
-			 <&clk26m>;
+		assigned-clocks = <&topckgen CLK_TOP_USB_SEL>;
+		assigned-clock-parents = <&topckgen CLK_TOP_UNIVPLL_D5_D4>;
+		clocks = <&infracfg_ao CLK_INFRA_AO_SSUSB>,
+			 <&topckgen CLK_TOP_SSUSB_REF>,
+			 <&infracfg_ao CLK_INFRA_AO_SSUSB_XHCI>;
 		clock-names = "sys_ck", "ref_ck", "mcu_ck";
+		mediatek,syscon-wakeup = <&pericfg 0x400 5>;
 		#address-cells = <2>;
 		#size-cells = <2>;
 		ranges;
@@ -1880,7 +1849,11 @@
 			compatible = "mediatek,mt8195-xhci";
 			reg = <0 0x11200000 0 0x1000>;
 			reg-names = "mac";
-			clocks = <&clk26m>;
+			interrupts-extended = <&gic GIC_SPI 129 IRQ_TYPE_LEVEL_HIGH 0>,
+					      <&pio 219 IRQ_TYPE_EDGE_FALLING>;
+			assigned-clocks = <&topckgen CLK_TOP_SSUSB_XHCI_SEL>;
+			assigned-clock-parents = <&topckgen CLK_TOP_UNIVPLL_D5_D4>;
+			clocks = <&infracfg_ao CLK_INFRA_AO_SSUSB_XHCI>;
 			clock-names = "sys_ck";
 			status = "disabled";
 		};
@@ -1891,10 +1864,7 @@
 		reg = <0 0x11230000 0 0x10000>,
 		      <0 0x11f50000 0 0x1000>;
 		interrupts = <GIC_SPI 131 IRQ_TYPE_LEVEL_HIGH 0>;
-		clocks = <&topckgen CLK_TOP_MSDC50_0_SEL>,
-			 <&infracfg_ao CLK_INFRA_AO_MSDC0>,
-			 <&infracfg_ao CLK_INFRA_AO_MSDC0_SRC>,
-			 <&infracfg_ao CLK_INFRA_AO_AES_MSDCFDE_0P>;
+		clocks = <&clk26m>, <&clk26m>, <&clk26m>, <&clk26m>;
 		clock-names = "source", "hclk", "source_cg", "crypto_clk";
 		status = "disabled";
 	};
@@ -2060,6 +2030,7 @@
 		ranges = <0x82000000 0 0x20000000
 			  0x0 0x20000000 0 0x04000000>;
 		iommu-map = <0x0000 &iommu4 M4U_PORT_INFRA_PCIE0_BASE 0xFFFF>;
+		iommu-map-mask = <0x0>;
 		status = "disabled";
 
 		clocks = <&infracfg_ao CLK_INFRA_AO_PCIE_TL_26M>,
@@ -2098,6 +2069,7 @@
 		ranges = <0x82000000 0 0x24000000
 			  0x0 0x24000000 0 0x04000000>;
 		iommu-map = <0x0000 &iommu4 M4U_PORT_INFRA_PCIE1_BASE 0xFFFF>;
+		iommu-map-mask = <0x0>;
 		status = "disabled";
 
 		resets = <&infracfg_rst 3>;
@@ -2143,6 +2115,12 @@
 		#address-cells = <1>;
 		#size-cells = <1>;
 
+		edp_calibration: edp_data {
+			reg = <0x1ac 0x10>;
+		};
+		dp_calibration: dp_data {
+			reg = <0x1ac 0x10>;
+		};
 		lvts_e_data1: data1 {
 			reg = <0x1cc 0x14>;
 		};
@@ -2379,7 +2357,7 @@
 
 	u3phy1: usb-phy1@11e30000 {
 		compatible = "mediatek,mt8195-tphy",
-			     "mediatek,generic-tphy-v2";
+			     "mediatek,generic-tphy-v3";
 		clocks = <&topckgen CLK_TOP_SSUSB_PHY_P1_REF>;
 		clock-names = "u3phya_ref";
 		#address-cells = <2>;
@@ -2408,8 +2386,8 @@
 
 	u3phy0: usb-phy0@11e40000 {
 		compatible = "mediatek,mt8195-tphy",
-			     "mediatek,generic-tphy-v2";
-		clocks = <&clk26m>;
+			     "mediatek,generic-tphy-v3";
+		clocks = <&topckgen CLK_TOP_SSUSB_PHY_REF>;
 		clock-names = "u3phya_ref";
 		#address-cells = <2>;
 		#size-cells = <2>;
@@ -2418,7 +2396,7 @@
 
 		u2port0: usb2-phy0@11e40000 {
 			reg = <0 0x11e40000 0 0x700>;
-			clocks = <&clk26m>;
+			clocks = <&apmixedsys CLK_APMIXED_USB1PLL>;
 			clock-names = "ref";
 			mediatek,eye-rev6 = <1>;
 			#phy-cells = <1>;
@@ -2427,7 +2405,7 @@
 
 		u3port0: usb3-phy0@11e40700 {
 			reg = <0 0x11e40700 0 0x700>;
-			clocks = <&clk26m>;
+			clocks = <&apmixedsys CLK_APMIXED_PLL_SSUSB26M>;
 			clock-names = "ref";
 			#phy-cells = <1>;
 			status = "disabled";
@@ -2979,7 +2957,7 @@
 			 <&vppsys0 CLK_VPP0_GALS_INFRA>,
 			 <&vppsys0 CLK_VPP0_GALS_CAMSYS>,
 			 <&vppsys0 CLK_VPP0_SMI_REORDER>;
-		clock-names = "apb", "smi", "gals0", "gals1", "reorder";
+		clock-names = "apb", "smi", "gals0", "gals1", "gals2";
 		power-domains = <&spm MT8195_POWER_DOMAIN_VPPSYS0>;
 	};
 
@@ -2991,7 +2969,7 @@
 			 <&vppsys0 CLK_VPP0_SMI_COMMON_LARB4>,
 			 <&vppsys0 CLK_VPP0_GALS_EMI0_EMI1>,
 			 <&vppsys0 CLK_VPP0_SMI_SUB_COMMON_REORDER>;
-		clock-names = "apb", "smi", "gals0", "reorder";
+		clock-names = "apb", "smi", "gals0", "gals1";
 		power-domains = <&spm MT8195_POWER_DOMAIN_VPPSYS0>;
 	};
 
@@ -3007,16 +2985,17 @@
 	};
 
 	iommu1: mm-iommu@14018000 {
-		cell-index = <1>;
-		compatible = "mediatek,mt8195-m4u";
-		reg = <0 0x14018000 0 0x1000>,
-		      <0 0x14016000 0 0x1000>,
-		      <0 0x14017000 0 0x1000>;
+		compatible = "mediatek,mt8195-iommu-vpp";
+		reg = <0 0x14018000 0 0x1000>;
 		mediatek,larbs = <&larb1 &larb3 &larb4 &larb6 &larb8
 				  &larb12 &larb14 &larb16 &larb18
 				  &larb20 &larb22 &larb23 &larb26
 				  &larb27>;
-		interrupts = <GIC_SPI 594 IRQ_TYPE_LEVEL_HIGH 0>;
+		interrupts = <GIC_SPI 594 IRQ_TYPE_LEVEL_HIGH 0>,
+			     <GIC_SPI 595 IRQ_TYPE_LEVEL_HIGH 0>,
+			     <GIC_SPI 596 IRQ_TYPE_LEVEL_HIGH 0>,
+			     <GIC_SPI 597 IRQ_TYPE_LEVEL_HIGH 0>,
+			     <GIC_SPI 598 IRQ_TYPE_LEVEL_HIGH 0>;
 		clocks = <&vppsys0 CLK_VPP0_SMI_IOMMU>,
 			 <&vppsys0 CLK_VPP0_SMI_RSI>;
 		clock-names = "bclk", "rsi";
@@ -3024,11 +3003,10 @@
 		power-domains = <&spm MT8195_POWER_DOMAIN_VPPSYS0>;
 	};
 
-	iommu1_sec: mm-iommu@1401c000 {
+	sec_iommu1: vpp_sec_iommu {
 		compatible = "mediatek,secure_m4u";
-		reg = <0 0x1401c000 0 0x1000>;
 		main-bank = <&iommu1>;
-		interrupts = <GIC_SPI 598 IRQ_TYPE_LEVEL_HIGH 0>;
+		iommus = <&iommu1 M4U_PORT_L1_DISP_FAKE0>;
 	};
 
 	wpesys: syscon@14e00000 {
@@ -5188,41 +5166,19 @@
 	};
 
 	iommu2: apu-iommu@19010000 {
-		cell-index = <2>;
-		compatible = "mediatek,mt8195-m4u-vpu";
+		compatible = "mediatek,mt8195-iommu-apu";
 		reg = <0 0x19010000 0 0x1000>;
 		interrupts = <GIC_SPI 426 IRQ_TYPE_LEVEL_HIGH 0>;
-		mediatek,apu_power = <&apusys_power>;
+		/* mediatek,apu_power = <&apusys_rv>; */
 		#iommu-cells = <1>;
-		power-domains = <&apuspm MT8195_POWER_DOMAIN_APUSYS_TOP>;
-	};
-
-	iommu2_sec: apu-iommu@19014000 {
-		compatible = "mediatek,secure_m4u";
-		reg = <0 0x19014000 0 0x1000>;
-		main-bank = <&iommu2>;
-		interrupts = <GIC_SPI 430 IRQ_TYPE_LEVEL_HIGH 0>;
-		clocks = <&clk26m>;
-		clock-names = "bclk";
 	};
 
 	iommu3: apu-iommu@19015000 {
-		cell-index = <3>;
-		compatible = "mediatek,mt8195-m4u-vpu";
+		compatible = "mediatek,mt8195-iommu-apu";
 		reg = <0 0x19015000 0 0x1000>;
 		interrupts = <GIC_SPI 431 IRQ_TYPE_LEVEL_HIGH 0>;
-		mediatek,apu_power = <&apusys_power>;
+		/* mediatek,apu_power = <&apusys_rv>; */
 		#iommu-cells = <1>;
-		power-domains = <&apuspm MT8195_POWER_DOMAIN_APUSYS_TOP>;
-	};
-
-	iommu3_sec: apu-iommu@19019000 {
-		compatible = "mediatek,secure_m4u";
-		reg = <0 0x19019000 0 0x1000>;
-		main-bank = <&iommu3>;
-		interrupts = <GIC_SPI 435 IRQ_TYPE_LEVEL_HIGH 0>;
-		clocks = <&clk26m>;
-		clock-names = "bclk";
 	};
 
 	apu_conn: syscon@19020000 {
@@ -5871,7 +5827,7 @@
 	};
 
 	dp_intf0: dp_intf0@1c015000 {
-		compatible = "mediatek,mt6885-dp-intf";
+		compatible = "mediatek,mt8195-dp_intf", "mediatek,mt8188-dp_intf";
 		reg = <0 0x1c015000 0 0x1000>;
 		power-domains = <&spm MT8195_POWER_DOMAIN_VDOSYS0>;
 		interrupts = <GIC_SPI 657 IRQ_TYPE_LEVEL_HIGH 0>;
@@ -5883,14 +5839,14 @@
 			 <&topckgen CLK_TOP_TVDPLL1_D8>,
 			 <&topckgen CLK_TOP_TVDPLL1_D16>,
 			 <&topckgen CLK_TOP_TVDPLL1>;
-		clock-names = "hf_fmm_ck",
-			      "hf_fdp_ck",
-			      "MUX_DP",
+		clock-names = "engine",
+			      "ck_cg",
+			      "pixel",
 			      "TVDPLL_D2",
 			      "TVDPLL_D4",
 			      "TVDPLL_D8",
 			      "TVDPLL_D16",
-			      "DPI_CK";
+			      "pll";
 		status = "disabled";
 	};
 
@@ -6124,16 +6080,17 @@
 	};
 
 	iommu0: mm-iommu@1c01f000 {
-		cell-index = <0>;
-		compatible = "mediatek,mt8195-m4u";
-		reg = <0 0x1c01f000 0 0x1000>,
-		      <0 0x1c024000 0 0x1000>,
-		      <0 0x1c025000 0 0x1000>;
+		compatible = "mediatek,mt8195-iommu-vdo";
+		reg = <0 0x1c01f000 0 0x1000>;
 		mediatek,larbs = <&larb0 &larb2 &larb5 &larb7 &larb9
 				  &larb10 &larb11 &larb13 &larb17
 				  &larb19 &larb21 &larb24 &larb25
 				  &larb28>;
-		interrupts = <GIC_SPI 669 IRQ_TYPE_LEVEL_HIGH 0>;
+		interrupts = <GIC_SPI 669 IRQ_TYPE_LEVEL_HIGH 0>,
+			     <GIC_SPI 670 IRQ_TYPE_LEVEL_HIGH 0>,
+			     <GIC_SPI 671 IRQ_TYPE_LEVEL_HIGH 0>,
+			     <GIC_SPI 672 IRQ_TYPE_LEVEL_HIGH 0>,
+			     <GIC_SPI 673 IRQ_TYPE_LEVEL_HIGH 0>;
 		clocks = <&vdosys0 CLK_VDO0_SMI_IOMMU>,
 			 <&vdosys0 CLK_VDO0_SMI_RSI>;
 		clock-names = "bclk", "rsi";
@@ -6141,11 +6098,10 @@
 		power-domains = <&spm MT8195_POWER_DOMAIN_VDOSYS0>;
 	};
 
-	iommu0_sec: mm-iommu@1c023000 {
+	sec_iommu0: vdo_sec_iommu {
 		compatible = "mediatek,secure_m4u";
-		reg = <0 0x1c023000 0 0x1000>;
 		main-bank = <&iommu0>;
-		interrupts = <GIC_SPI 673 IRQ_TYPE_LEVEL_HIGH 0>;
+		iommus = <&iommu0 M4U_PORT_L0_DISP_FAKE0>;
 	};
 
 	vdosys1: syscon@1c100000 {
@@ -6296,7 +6252,7 @@
 	};
 
 	dp_intf1: dp_intf1@1c113000 {
-		compatible = "mediatek,mt6885-dp-intf";
+		compatible = "mediatek,mt8195-dp_intf", "mediatek,mt8188-dp_intf";
 		reg = <0 0x1c113000 0 0x1000>;
 		interrupts = <GIC_SPI 513 IRQ_TYPE_LEVEL_HIGH 0>;
 		power-domains = <&spm MT8195_POWER_DOMAIN_VDOSYS1>;
@@ -6308,14 +6264,14 @@
 			 <&topckgen CLK_TOP_TVDPLL2_D8>,
 			 <&topckgen CLK_TOP_TVDPLL2_D16>,
 			 <&topckgen CLK_TOP_TVDPLL2>;
-		clock-names = "hf_fmm_ck",
-			      "hf_fdp_ck",
-			      "MUX_DP",
+		clock-names = "engine",
+			      "ck_cg",
+			      "pixel",
 			      "TVDPLL_D2",
 			      "TVDPLL_D4",
 			      "TVDPLL_D8",
 			      "TVDPLL_D16",
-			      "DPI_CK";
+			      "pll";
 		status = "disabled";
 	};
 
@@ -6415,16 +6371,25 @@
 	};
 
 	edp_tx: edp_tx@1c500000 {
-		compatible = "mediatek,mt6885-dp_tx";
+		compatible = "mediatek,mt8195-edp-tx";
 		reg = <0 0x1c500000 0 0x8000>;
+		nvmem-cells = <&edp_calibration>;
+		nvmem-cell-names = "edp_calibration_data";
 		power-domains = <&spm MT8195_POWER_DOMAIN_EPD_TX>;
 		interrupts = <GIC_SPI 676 IRQ_TYPE_LEVEL_HIGH 0>;
 		status = "disabled";
 	};
 
+	panel1: panel@1 {
+		compatible = "panel-edp";
+		status = "disabled";
+	};
+
 	dp_tx: dp_tx@1c600000 {
-		compatible = "mediatek,mt6885-dp_tx";
+		compatible = "mediatek,mt8195-dp-tx";
 		reg = <0 0x1c600000 0 0x8000>;
+		nvmem-cells = <&dp_calibration>;
+		nvmem-cell-names = "dp_calibration_data";
 		power-domains = <&spm MT8195_POWER_DOMAIN_DP_TX>;
 		interrupts = <GIC_SPI 458 IRQ_TYPE_LEVEL_HIGH 0>;
 		status = "disabled";
@@ -6535,8 +6500,7 @@
 	};
 
 	chosen: chosen {
-		bootargs = "console=tty0 console=ttyS0,921600n1 root=/dev/ram androidboot.hardware=mt8195 earlycon=uart8250,mmio32,0x11001100 vmalloc=496M swiotlb=noforce firmware_class.path=/vendor/firmware page_owner=on cgroup.memory=nosocket,nokmem maxcpus=8 loop.max_part=7";
-
+		bootargs = "console=tty0 console=ttyS0,921600n1 root=/dev/ram androidboot.hardware=mt8195 earlycon=uart8250,mmio32,0x11001100 8250.nr_uarts=4 vmalloc=496M swiotlb=noforce firmware_class.path=/vendor/firmware page_owner=on cgroup.memory=nosocket,nokmem maxcpus=8 loop.max_part=7";
 		kaslr-seed = <0 0>;
 	};
 
