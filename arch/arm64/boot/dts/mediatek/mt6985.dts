@@ -9328,7 +9328,7 @@
 		clock-names = "clk0", "clk1", "clk2", "clk3";
 	};
 
-	disp_pwm: disp_pwm0@1100e000 {
+	disp_pwm: disp-pwm0@1100e000 {
 		compatible = "mediatek,disp_pwm0",
 				"mediatek,mt6985-disp-pwm0";
 		reg = <0 0x1100e000 0 0x1000>;
