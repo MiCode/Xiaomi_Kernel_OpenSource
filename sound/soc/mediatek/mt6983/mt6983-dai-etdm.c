@@ -725,8 +725,8 @@ static int mtk_dai_etdm_hw_params(struct snd_pcm_substream *substream,
 	unsigned int channels = params_channels(params);
 	snd_pcm_format_t format = params_format(params);
 
-	dev_info(afe->dev, "%s(), id %d, stream %d, rate %d channels %d format %d\n",
-		 __func__, etdm_id, substream->stream, rate, channels, format);
+	dev_info(afe->dev, "%s(), %s(%d), stream %d, rate %d channels %d format %d\n",
+		 __func__, dai->name, etdm_id, substream->stream, rate, channels, format);
 
 	etdm_priv->etdm_rate = rate;
 
@@ -734,130 +734,136 @@ static int mtk_dai_etdm_hw_params(struct snd_pcm_substream *substream,
 	if ((channels % 2) != 0)
 		dev_info(afe->dev, "%s(), channels(%d) not even\n", __func__, channels);
 
-	/* ---etdm in --- */
-	regmap_update_bits(afe->regmap, ETDM_IN1_CON1,
-			   REG_INITIAL_COUNT_MASK_SFT,
-			   0x5 << REG_INITIAL_COUNT_SFT);
-	/* 3: pad top 5: no pad top */
-	regmap_update_bits(afe->regmap, ETDM_IN1_CON1,
-			   REG_INITIAL_POINT_MASK_SFT,
-			   0x5 << REG_INITIAL_POINT_SFT);
-	regmap_update_bits(afe->regmap, ETDM_IN1_CON1,
-			   REG_LRCK_RESET_MASK_SFT,
-			   0x1 << REG_LRCK_RESET_SFT);
-	regmap_update_bits(afe->regmap, ETDM_IN1_CON2,
-			   REG_CLOCK_SOURCE_SEL_MASK_SFT,
-			   ETDM_CLK_SOURCE_APLL << REG_CLOCK_SOURCE_SEL_SFT);
-	/* 0: manual 1: auto */
-	regmap_update_bits(afe->regmap, ETDM_IN1_CON2,
-			   REG_CK_EN_SEL_AUTO_MASK_SFT,
-			   0x1 << REG_CK_EN_SEL_AUTO_SFT);
-	/* 0: One IP multi-channel 1: Multi-IP 2-channel */
-	regmap_update_bits(afe->regmap, ETDM_IN1_CON2,
-			   REG_MULTI_IP_MODE_MASK_SFT,
-			   0x0 << REG_MULTI_IP_MODE_SFT);
-	regmap_update_bits(afe->regmap, ETDM_IN1_CON3,
-			   REG_FS_TIMING_SEL_MASK_SFT,
-			   get_etdm_rate(rate) << REG_FS_TIMING_SEL_SFT);
-	regmap_update_bits(afe->regmap, ETDM_IN1_CON4,
-			   REG_RELATCH_1X_EN_SEL_MASK_SFT,
-			   get_etdm_inconn_rate(rate) << REG_RELATCH_1X_EN_SEL_SFT);
+	if (etdm_id == MT6983_DAI_ETDMIN) {
+		/* ---etdm in --- */
+		regmap_update_bits(afe->regmap, ETDM_IN1_CON1,
+				   REG_INITIAL_COUNT_MASK_SFT,
+				   0x5 << REG_INITIAL_COUNT_SFT);
+		/* 3: pad top 5: no pad top */
+		regmap_update_bits(afe->regmap, ETDM_IN1_CON1,
+				   REG_INITIAL_POINT_MASK_SFT,
+				   0x5 << REG_INITIAL_POINT_SFT);
+		regmap_update_bits(afe->regmap, ETDM_IN1_CON1,
+				   REG_LRCK_RESET_MASK_SFT,
+				   0x1 << REG_LRCK_RESET_SFT);
+		regmap_update_bits(afe->regmap, ETDM_IN1_CON2,
+				   REG_CLOCK_SOURCE_SEL_MASK_SFT,
+				   ETDM_CLK_SOURCE_APLL << REG_CLOCK_SOURCE_SEL_SFT);
+		/* 0: manual 1: auto */
+		regmap_update_bits(afe->regmap, ETDM_IN1_CON2,
+				   REG_CK_EN_SEL_AUTO_MASK_SFT,
+				   0x1 << REG_CK_EN_SEL_AUTO_SFT);
+		/* 0: One IP multi-channel 1: Multi-IP 2-channel */
+		regmap_update_bits(afe->regmap, ETDM_IN1_CON2,
+				   REG_MULTI_IP_MODE_MASK_SFT,
+				   0x0 << REG_MULTI_IP_MODE_SFT);
+		regmap_update_bits(afe->regmap, ETDM_IN1_CON3,
+				   REG_FS_TIMING_SEL_MASK_SFT,
+				   get_etdm_rate(rate) << REG_FS_TIMING_SEL_SFT);
+		regmap_update_bits(afe->regmap, ETDM_IN1_CON4,
+				   REG_RELATCH_1X_EN_SEL_MASK_SFT,
+				   get_etdm_inconn_rate(rate) << REG_RELATCH_1X_EN_SEL_SFT);
 
-	regmap_update_bits(afe->regmap, ETDM_IN1_CON8,
-			   REG_ETDM_USE_AFIFO_MASK_SFT,
-			   0x0 << REG_ETDM_USE_AFIFO_SFT);
-	regmap_update_bits(afe->regmap, ETDM_IN1_CON8,
-			   REG_AFIFO_MODE_MASK_SFT,
-			   0x0 << REG_AFIFO_MODE_SFT);
-	regmap_update_bits(afe->regmap, ETDM_IN1_CON9,
-			   REG_ALMOST_END_CH_COUNT_MASK_SFT,
-			   0x0 << REG_ALMOST_END_CH_COUNT_SFT);
-	regmap_update_bits(afe->regmap, ETDM_IN1_CON9,
-			   REG_ALMOST_END_BIT_COUNT_MASK_SFT,
-			   0x0 << REG_ALMOST_END_BIT_COUNT_SFT);
-	regmap_update_bits(afe->regmap, ETDM_IN1_CON9,
-			   REG_OUT2_LATCH_TIME_MASK_SFT,
-			   0x6 << REG_OUT2_LATCH_TIME_SFT);
+		regmap_update_bits(afe->regmap, ETDM_IN1_CON8,
+				   REG_ETDM_USE_AFIFO_MASK_SFT,
+				   0x0 << REG_ETDM_USE_AFIFO_SFT);
+		regmap_update_bits(afe->regmap, ETDM_IN1_CON8,
+				   REG_AFIFO_MODE_MASK_SFT,
+				   0x0 << REG_AFIFO_MODE_SFT);
+		regmap_update_bits(afe->regmap, ETDM_IN1_CON9,
+				   REG_ALMOST_END_CH_COUNT_MASK_SFT,
+				   0x0 << REG_ALMOST_END_CH_COUNT_SFT);
+		regmap_update_bits(afe->regmap, ETDM_IN1_CON9,
+				   REG_ALMOST_END_BIT_COUNT_MASK_SFT,
+				   0x0 << REG_ALMOST_END_BIT_COUNT_SFT);
+		regmap_update_bits(afe->regmap, ETDM_IN1_CON9,
+				   REG_OUT2_LATCH_TIME_MASK_SFT,
+				   0x6 << REG_OUT2_LATCH_TIME_SFT);
 
-	/* 5:  TDM Mode */
-	regmap_update_bits(afe->regmap, ETDM_IN1_CON0,
-			   REG_FMT_MASK_SFT, 0x5 << REG_FMT_SFT);
-	regmap_update_bits(afe->regmap, ETDM_IN1_CON0,
-			   REG_CH_NUM_MASK_SFT, (channels - 1) << REG_CH_NUM_SFT);
-	/* APLL */
-	regmap_update_bits(afe->regmap, ETDM_IN1_CON0,
-			   REG_RELATCH_1X_EN_SEL_DOMAIN_MASK_SFT,
-			   ETDM_RELATCH_SEL_APLL
-			   << REG_RELATCH_1X_EN_SEL_DOMAIN_SFT);
-	regmap_update_bits(afe->regmap, ETDM_IN1_CON0,
-			   REG_BIT_LENGTH_MASK_SFT,
-			   get_etdm_lrck_width(format) << REG_BIT_LENGTH_SFT);
-	regmap_update_bits(afe->regmap, ETDM_IN1_CON0,
-			   REG_WORD_LENGTH_MASK_SFT,
-			   get_etdm_wlen(format) << REG_WORD_LENGTH_SFT);
+		/* 5:  TDM Mode */
+		regmap_update_bits(afe->regmap, ETDM_IN1_CON0,
+				   REG_FMT_MASK_SFT, 0x5 << REG_FMT_SFT);
+		regmap_update_bits(afe->regmap, ETDM_IN1_CON0,
+				   REG_CH_NUM_MASK_SFT, (channels - 1) << REG_CH_NUM_SFT);
+		/* APLL */
+		regmap_update_bits(afe->regmap, ETDM_IN1_CON0,
+				   REG_RELATCH_1X_EN_SEL_DOMAIN_MASK_SFT,
+				   ETDM_RELATCH_SEL_APLL
+				   << REG_RELATCH_1X_EN_SEL_DOMAIN_SFT);
+		regmap_update_bits(afe->regmap, ETDM_IN1_CON0,
+				   REG_BIT_LENGTH_MASK_SFT,
+				   get_etdm_lrck_width(format) << REG_BIT_LENGTH_SFT);
+		regmap_update_bits(afe->regmap, ETDM_IN1_CON0,
+				   REG_WORD_LENGTH_MASK_SFT,
+				   get_etdm_wlen(format) << REG_WORD_LENGTH_SFT);
+	} else {
+		/* ---etdm out --- */
+		regmap_update_bits(afe->regmap, ETDM_OUT1_CON1,
+				   REG_INITIAL_COUNT_MASK_SFT,
+				   0x5 << REG_INITIAL_COUNT_SFT);
+		regmap_update_bits(afe->regmap, ETDM_OUT1_CON1,
+				   REG_INITIAL_POINT_MASK_SFT,
+				   0x6 << REG_INITIAL_POINT_SFT);
+		regmap_update_bits(afe->regmap, ETDM_OUT1_CON1,
+				   REG_LRCK_RESET_MASK_SFT,
+				   0x1 << REG_LRCK_RESET_SFT);
+		regmap_update_bits(afe->regmap, ETDM_OUT1_CON4,
+				   OUT_REG_FS_TIMING_SEL_MASK_SFT,
+				   get_etdm_rate(rate) << OUT_REG_FS_TIMING_SEL_SFT);
+		regmap_update_bits(afe->regmap, ETDM_OUT1_CON4,
+				   OUT_REG_CLOCK_SOURCE_SEL_MASK_SFT,
+				   ETDM_CLK_SOURCE_APLL << OUT_REG_CLOCK_SOURCE_SEL_SFT);
+		regmap_update_bits(afe->regmap, ETDM_OUT1_CON4,
+				   INTERCONN_OUT_EN_SEL_MASK_SFT,
+				   get_etdm_inconn_rate(rate) << INTERCONN_OUT_EN_SEL_SFT);
+		/* 5:  TDM Mode */
+		regmap_update_bits(afe->regmap, ETDM_OUT1_CON0,
+				   REG_FMT_MASK_SFT, 0x5 << REG_FMT_SFT);
+		regmap_update_bits(afe->regmap, ETDM_OUT1_CON0,
+				   REG_CH_NUM_MASK_SFT, (channels - 1) << REG_CH_NUM_SFT);
+		/* APLL */
+		regmap_update_bits(afe->regmap, ETDM_OUT1_CON0,
+				   REG_RELATCH_1X_EN_SEL_DOMAIN_MASK_SFT,
+				   ETDM_RELATCH_SEL_APLL
+				   << REG_RELATCH_1X_EN_SEL_DOMAIN_SFT);
+		regmap_update_bits(afe->regmap, ETDM_OUT1_CON0,
+				   REG_BIT_LENGTH_MASK_SFT,
+				   get_etdm_lrck_width(format) << REG_BIT_LENGTH_SFT);
+		regmap_update_bits(afe->regmap, ETDM_OUT1_CON0,
+				   REG_WORD_LENGTH_MASK_SFT,
+				   get_etdm_wlen(format) << REG_WORD_LENGTH_SFT);
+	}
 
-	/* ---etdm out --- */
-	regmap_update_bits(afe->regmap, ETDM_OUT1_CON1,
-			   REG_INITIAL_COUNT_MASK_SFT,
-			   0x5 << REG_INITIAL_COUNT_SFT);
-	regmap_update_bits(afe->regmap, ETDM_OUT1_CON1,
-			   REG_INITIAL_POINT_MASK_SFT,
-			   0x6 << REG_INITIAL_POINT_SFT);
-	regmap_update_bits(afe->regmap, ETDM_OUT1_CON1,
-			   REG_LRCK_RESET_MASK_SFT,
-			   0x1 << REG_LRCK_RESET_SFT);
-	regmap_update_bits(afe->regmap, ETDM_OUT1_CON4,
-			   OUT_REG_FS_TIMING_SEL_MASK_SFT,
-			   get_etdm_rate(rate) << OUT_REG_FS_TIMING_SEL_SFT);
-	regmap_update_bits(afe->regmap, ETDM_OUT1_CON4,
-			   OUT_REG_CLOCK_SOURCE_SEL_MASK_SFT,
-			   ETDM_CLK_SOURCE_APLL << OUT_REG_CLOCK_SOURCE_SEL_SFT);
-	regmap_update_bits(afe->regmap, ETDM_OUT1_CON4,
-			   INTERCONN_OUT_EN_SEL_MASK_SFT,
-			   get_etdm_inconn_rate(rate) << INTERCONN_OUT_EN_SEL_SFT);
-	/* 5:  TDM Mode */
-	regmap_update_bits(afe->regmap, ETDM_OUT1_CON0,
-			   REG_FMT_MASK_SFT, 0x5 << REG_FMT_SFT);
-	regmap_update_bits(afe->regmap, ETDM_OUT1_CON0,
-			   REG_CH_NUM_MASK_SFT, (channels - 1) << REG_CH_NUM_SFT);
-	/* APLL */
-	regmap_update_bits(afe->regmap, ETDM_OUT1_CON0,
-			   REG_RELATCH_1X_EN_SEL_DOMAIN_MASK_SFT,
-			   ETDM_RELATCH_SEL_APLL
-			   << REG_RELATCH_1X_EN_SEL_DOMAIN_SFT);
-	regmap_update_bits(afe->regmap, ETDM_OUT1_CON0,
-			   REG_BIT_LENGTH_MASK_SFT,
-			   get_etdm_lrck_width(format) << REG_BIT_LENGTH_SFT);
-	regmap_update_bits(afe->regmap, ETDM_OUT1_CON0,
-			   REG_WORD_LENGTH_MASK_SFT,
-			   get_etdm_wlen(format) << REG_WORD_LENGTH_SFT);
-
-	/* ---etdm cowork --- */
-	regmap_update_bits(afe->regmap, ETDM_0_3_COWORK_CON0,
-			   ETDM_OUT0_SLAVE_SEL_MASK_SFT,
-			   ETDM_SLAVE_SEL_ETDMIN0_MASTER
-			   << ETDM_OUT0_SLAVE_SEL_SFT);
-	regmap_update_bits(afe->regmap, ETDM_0_3_COWORK_CON0,
-			   ETDM_OUT1_SLAVE_SEL_MASK_SFT,
-			   ETDM_SLAVE_SEL_ETDMIN1_MASTER
-			   << ETDM_OUT1_SLAVE_SEL_SFT);
-	regmap_update_bits(afe->regmap, ETDM_0_3_COWORK_CON0,
-			   ETDM_IN0_SLAVE_SEL_MASK_SFT,
-			   ETDM_SLAVE_SEL_ETDMOUT0_MASTER
-			   << ETDM_IN0_SLAVE_SEL_SFT);
-	regmap_update_bits(afe->regmap, ETDM_0_3_COWORK_CON1,
-			   ETDM_IN1_SLAVE_SEL_MASK_SFT,
-			   ETDM_SLAVE_SEL_ETDMOUT1_MASTER
-			   << ETDM_IN1_SLAVE_SEL_SFT);
-
-	/* INTERCONN mux */
-	regmap_update_bits(afe->regmap, ETDM_0_3_COWORK_CON1,
-			   ETDM_IN0_INTERCONN_MUX_SEL_MASK_SFT,
-			   0x0 << ETDM_IN0_INTERCONN_MUX_SEL_SFT);//24
-	regmap_update_bits(afe->regmap, ETDM_0_3_COWORK_CON1,
-			   ETDM_OUT0_INTERCONN_MUX_SEL_MASK_SFT,
-			   0x1 << ETDM_OUT0_INTERCONN_MUX_SEL_SFT);//25
-
+	if (etdm_id == MT6983_DAI_ETDMIN) {
+		/* ---etdm cowork --- */
+		regmap_update_bits(afe->regmap, ETDM_0_3_COWORK_CON0,
+				   ETDM_IN0_SLAVE_SEL_MASK_SFT,
+				   ETDM_SLAVE_SEL_ETDMOUT0_MASTER
+				   << ETDM_IN0_SLAVE_SEL_SFT);
+		regmap_update_bits(afe->regmap, ETDM_0_3_COWORK_CON1,
+				   ETDM_IN1_SLAVE_SEL_MASK_SFT,
+				   ETDM_SLAVE_SEL_ETDMOUT1_MASTER
+				   << ETDM_IN1_SLAVE_SEL_SFT);
+	} else {
+		regmap_update_bits(afe->regmap, ETDM_0_3_COWORK_CON0,
+				   ETDM_OUT0_SLAVE_SEL_MASK_SFT,
+				   ETDM_SLAVE_SEL_ETDMIN0_MASTER
+				   << ETDM_OUT0_SLAVE_SEL_SFT);
+		regmap_update_bits(afe->regmap, ETDM_0_3_COWORK_CON0,
+				   ETDM_OUT1_SLAVE_SEL_MASK_SFT,
+				   ETDM_SLAVE_SEL_ETDMIN1_MASTER
+				   << ETDM_OUT1_SLAVE_SEL_SFT);
+	}
+	if (etdm_id == MT6983_DAI_ETDMIN) {
+		/* INTERCONN mux */
+		regmap_update_bits(afe->regmap, ETDM_0_3_COWORK_CON1,
+				   ETDM_IN0_INTERCONN_MUX_SEL_MASK_SFT,
+				   0x0 << ETDM_IN0_INTERCONN_MUX_SEL_SFT);//24
+	} else {
+		regmap_update_bits(afe->regmap, ETDM_0_3_COWORK_CON1,
+				   ETDM_OUT0_INTERCONN_MUX_SEL_MASK_SFT,
+				   0x1 << ETDM_OUT0_INTERCONN_MUX_SEL_SFT);//25
+	}
 	return 0;
 }
 
@@ -866,36 +872,34 @@ static int mtk_dai_etdm_trigger(struct snd_pcm_substream *substream,
 {
 	struct mtk_base_afe *afe = snd_soc_dai_get_drvdata(dai);
 
-	dev_info(afe->dev, "%s(), cmd %d\n", __func__, cmd);
+	dev_info(afe->dev, "%s(), %s(%d): cmd %d\n", __func__, dai->name, dai->id, cmd);
+
 	switch (cmd) {
 	case SNDRV_PCM_TRIGGER_START:
 	case SNDRV_PCM_TRIGGER_RESUME:
-		/* enable Out control */
-		regmap_update_bits(afe->regmap, AFE_DAC_CON0,
-			AFE_ON_MASK_SFT, 0x1 << AFE_ON_SFT);
-
 		/* enable etdm in/out */
-		regmap_update_bits(afe->regmap, ETDM_IN1_CON0,
-				   REG_ETDM_IN_EN_MASK_SFT,
-				   0x1 << REG_ETDM_IN_EN_SFT);
-		regmap_update_bits(afe->regmap, ETDM_OUT1_CON0,
-				   REG_ETDM_OUT_EN_MASK_SFT,
-				   0x1 << REG_ETDM_OUT_EN_SFT);
+		if (dai->id == MT6983_DAI_ETDMIN) {
+			regmap_update_bits(afe->regmap, ETDM_IN1_CON0,
+					   REG_ETDM_IN_EN_MASK_SFT,
+					   0x1 << REG_ETDM_IN_EN_SFT);
+		} else {
+			regmap_update_bits(afe->regmap, ETDM_OUT1_CON0,
+					   REG_ETDM_OUT_EN_MASK_SFT,
+					   0x1 << REG_ETDM_OUT_EN_SFT);
+		}
 		break;
 	case SNDRV_PCM_TRIGGER_STOP:
 	case SNDRV_PCM_TRIGGER_SUSPEND:
 		/* disable etdm in/out */
-		regmap_update_bits(afe->regmap, ETDM_IN1_CON0,
-				   REG_ETDM_IN_EN_MASK_SFT,
-				   0x0 << REG_ETDM_IN_EN_SFT);
-		regmap_update_bits(afe->regmap, ETDM_OUT1_CON0,
-				   REG_ETDM_OUT_EN_MASK_SFT,
-				   0x0 << REG_ETDM_OUT_EN_SFT);
-
-		/* disable Out control */
-		regmap_update_bits(afe->regmap, AFE_DAC_CON0,
-				   AFE_ON_MASK_SFT,
-				   0x0 << AFE_ON_SFT);
+		if (dai->id == MT6983_DAI_ETDMIN) {
+			regmap_update_bits(afe->regmap, ETDM_IN1_CON0,
+					   REG_ETDM_IN_EN_MASK_SFT,
+					   0x0 << REG_ETDM_IN_EN_SFT);
+		} else {
+			regmap_update_bits(afe->regmap, ETDM_OUT1_CON0,
+					   REG_ETDM_OUT_EN_MASK_SFT,
+					   0x0 << REG_ETDM_OUT_EN_SFT);
+		}
 		break;
 	default:
 		return -EINVAL;

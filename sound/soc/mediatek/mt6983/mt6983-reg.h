@@ -2804,15 +2804,15 @@ enum {
 #define RESERVED_01_SFT                                       14
 #define RESERVED_01_MASK                                      0x3
 #define RESERVED_01_MASK_SFT                                  (0x3 << 14)
-#define O_48_CFG_SFT                                          8
-#define O_48_CFG_MASK                                         0x3f
-#define O_48_CFG_MASK_SFT                                     (0x3f << 8)
+#define O_49_CFG_SFT                                          8
+#define O_49_CFG_MASK                                         0x3f
+#define O_49_CFG_MASK_SFT                                     (0x3f << 8)
 #define RESERVED_00_SFT                                       6
 #define RESERVED_00_MASK                                      0x3
 #define RESERVED_00_MASK_SFT                                  (0x3 << 6)
-#define O_49_CFG_SFT                                          0
-#define O_49_CFG_MASK                                         0x3f
-#define O_49_CFG_MASK_SFT                                     (0x3f << 0)
+#define O_48_CFG_SFT                                          0
+#define O_48_CFG_MASK                                         0x3f
+#define O_48_CFG_MASK_SFT                                     (0x3f << 0)
 
 /* AFE_MEMIF_CONN */
 #define VUL9_USE_TINY_SFT                                     12
