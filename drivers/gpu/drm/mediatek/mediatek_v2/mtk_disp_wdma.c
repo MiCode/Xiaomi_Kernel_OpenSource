@@ -838,6 +838,7 @@ static unsigned int wdma_fmt_convert(unsigned int fmt)
 	case DRM_FORMAT_YVU420:
 		return MEM_MODE_INPUT_FORMAT_IYUV | MEM_MODE_INPUT_SWAP;
 	case DRM_FORMAT_ARGB2101010:
+	case DRM_FORMAT_ABGR2101010:
 		return MEM_MODE_INPUT_FORMAT_ARGB2101010;
 	}
 }
