@@ -130,8 +130,10 @@ int adsp_core0_suspend(void)
 		/* if have more core, wait it suspend done */
 		if (get_adsp_core_total() > 1) {
 			ret = wait_another_core_suspend(pdata);
-			if (ret)
+			if (ret) {
+				pdata = adsp_cores[ADSP_B_ID];
 				goto ERROR;
+			}
 		}
 
 		if (get_adsp_state(pdata) == ADSP_RESET) {
