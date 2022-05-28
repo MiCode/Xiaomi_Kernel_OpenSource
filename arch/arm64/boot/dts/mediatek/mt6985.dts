@@ -7867,7 +7867,7 @@
 		#mbox-cells = <3>;
 		#gce-event-cells = <1>;
 		#gce-subsys-cells = <2>;
-		default_tokens = /bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_0>,
+		default-tokens = /bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_0>,
 				 /bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_1>,
 				 /bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_2>,
 				 /bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_3>,
@@ -7878,16 +7878,19 @@
 				 /bits/ 16 <CMDQ_SYNC_TOKEN_PREBUILT_MML_LOCK>,
 				 /bits/ 16 <CMDQ_SYNC_TOKEN_PREBUILT_VFMT_LOCK>,
 				 /bits/ 16 <CMDQ_SYNC_TOKEN_PREBUILT_DISP_LOCK>;
-		//power-domains = <&scpsys MT6985_POWER_DOMAIN_MM_INFRA>;
-		//mediatek,smi = <&smi_mdp_common>;
-		//prebuilt-enable;
 		mboxes = <&gce 13 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_1>;
-		//clocks = <&mminfra_config_clk CLK_MMINFRA_CONFIG_GCE_D>,
-			 //<&mminfra_config_clk CLK_MMINFRA_CONFIG_GCE_26M>;
-		//clock-names = "gce","gce-timer";
-		//dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
-		//iommus = <&mdp_iommu M4U_PORT_L32_GCE_DM>;
-		//dma_mask_bit = <34>;
+#if 0
+		power-domains = <&scpsys MT6985_POWER_DOMAIN_MM_INFRA>;
+		mediatek,smi = <&smi_mdp_common>;
+		prebuilt-enable;
+		clocks = <&mminfra_config_clk CLK_MMINFRA_CONFIG_GCE_D>,
+			 <&mminfra_config_clk CLK_MMINFRA_CONFIG_GCE_26M>;
+		clock-names = "gce","gce-timer";
+		#size-cells = <2>;
+		dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
+		iommus = <&mdp_iommu M4U_PORT_L32_GCE_DM>;
+		dma-mask-bit = <34>;
+#endif
 	};
 
 	gce_m: gce@1e990000 {
@@ -7897,7 +7900,7 @@
 		#mbox-cells = <3>;
 		#gce-event-cells = <1>;
 		#gce-subsys-cells = <2>;
-		default_tokens = /bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_0>,
+		default-tokens = /bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_0>,
 				 /bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_1>,
 				 /bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_2>,
 				 /bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_3>,
@@ -7908,16 +7911,19 @@
 				 /bits/ 16 <CMDQ_SYNC_TOKEN_PREBUILT_MML_LOCK>,
 				 /bits/ 16 <CMDQ_SYNC_TOKEN_PREBUILT_VFMT_LOCK>,
 				 /bits/ 16 <CMDQ_SYNC_TOKEN_PREBUILT_DISP_LOCK>;
-		//power-domains = <&scpsys MT6983_POWER_DOMAIN_MM_INFRA>;
-		//mediatek,smi = <&smi_mdp_common>;
-		//prebuilt-enable;
 		mboxes = <&gce_m 13 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_1>;
-		//clocks = <&mminfra_config_clk CLK_MMINFRA_CONFIG_GCE_M>,
-			 //<&mminfra_config_clk CLK_MMINFRA_CONFIG_GCE_26M>;
-		//clock-names = "gce","gce-timer";
-		//dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
-		//iommus = <&mdp_iommu M4U_PORT_L32_GCE_MM>;
-		//dma_mask_bit = <34>;
+#if 0
+		power-domains = <&scpsys MT6983_POWER_DOMAIN_MM_INFRA>;
+		mediatek,smi = <&smi_mdp_common>;
+		prebuilt-enable;
+		clocks = <&mminfra_config_clk CLK_MMINFRA_CONFIG_GCE_M>,
+			 <&mminfra_config_clk CLK_MMINFRA_CONFIG_GCE_26M>;
+		clock-names = "gce","gce-timer";
+		#size-cells = <2>;
+		dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
+		iommus = <&mdp_iommu M4U_PORT_L32_GCE_MM>;
+		dma-mask-bit = <34>;
+#endif
 	};
 
 	cmdq-test {
@@ -7927,8 +7933,8 @@
 		mboxes = <&gce 14 0 CMDQ_THR_PRIO_1>,
 			 <&gce_m 14 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_1>;
 			 //<&gce_m_sec 9 0 CMDQ_THR_PRIO_1>;
-		token_user0 = /bits/ 16 <CMDQ_SYNC_TOKEN_USER_0>;
-		token_gpr_set4 = /bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_4>;
+		token-user0 = /bits/ 16 <CMDQ_SYNC_TOKEN_USER_0>;
+		token-gpr-set4 = /bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_4>;
 	};
 
 	connfem: connfem {
