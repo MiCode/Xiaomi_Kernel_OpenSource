@@ -5775,6 +5775,7 @@
 			reg = <0 0x19010000 0 0x1000>;
 			table_id = <1>;
 			mediatek,apu_power = <&apusys_rv>;
+			power-domains = <&scpsys MT6985_POWER_DOMAIN_APU>;
 			mediatek,iommu_banks = <&apu_iommu0_bank1 &apu_iommu0_bank2
 						&apu_iommu0_bank3 &apu_iommu0_bank4>;
 			interrupts = <GIC_SPI 623 IRQ_TYPE_LEVEL_HIGH 0>;
@@ -5814,6 +5815,7 @@
 			reg = <0 0x19015000 0 0x1000>;
 			table_id = <1>;
 			mediatek,apu_power = <&apusys_rv>;
+			power-domains = <&scpsys MT6985_POWER_DOMAIN_APU>;
 			mediatek,iommu_banks = <&apu_iommu1_bank1 &apu_iommu1_bank2
 						&apu_iommu1_bank3 &apu_iommu1_bank4>;
 			interrupts = <GIC_SPI 628 IRQ_TYPE_LEVEL_HIGH 0>;
