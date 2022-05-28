@@ -4,6 +4,7 @@
 // Author: Owen Chen <owen.chen@mediatek.com>
 
 #include <linux/clk-provider.h>
+#include <linux/device.h>
 #include <linux/platform_device.h>
 #include <linux/pm_domain.h>
 #include <linux/pm_runtime.h>
@@ -119,14 +120,13 @@ static void pdchk_dump_enabled_power_domain(struct generic_pm_domain *pd)
 
 	list_for_each_entry(pdd, &pd->dev_list, list_node) {
 		struct device *d = pdd->dev;
-		struct platform_device *p = to_platform_device(d);
 
-		if (!p || !d)
+		if (!d)
 			continue;
 
 		pr_notice("\t%c (%-80s %3d %3d %3d %3d %3d:  %10s)\n",
 				pm_runtime_active(d) ? '+' : '-',
-				p->name,
+				dev_name(d),
 				atomic_read(&d->power.usage_count),
 				d->power.is_noirq_suspended,
 				d->power.syscore,
