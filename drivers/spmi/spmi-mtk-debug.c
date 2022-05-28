@@ -1341,7 +1341,7 @@ static const u32 mt6885_pmif_dbg_regs[] = {
 	[PMIF_ACC_VIO_INFO_2] =			0x0F88,
 };
 
-static char d_log_buf[1280];
+static char d_log_buf[2560];
 static struct spmi_controller *dbg_ctrl;
 static char *wp;
 
@@ -1360,6 +1360,13 @@ void spmi_dump_wdt_reg(void)
 		tmp_dat = readl(arb->base + offset);
 		log_size += sprintf(wp + log_size, "(0x%x)=0x%x ",
 				    offset, tmp_dat);
+	}
+	if (!IS_ERR(arb->base_p)) {
+		for (offset = start; offset <= end; offset += 4) {
+			tmp_dat = readl(arb->base_p + offset);
+			log_size += sprintf(wp + log_size, "(0x%x)=0x%x ",
+					    offset, tmp_dat);
+		}
 	}
 	log_size += sprintf(wp + log_size, "\n");
 	if (log_size < 0)
@@ -1468,11 +1475,19 @@ static char *get_pmif_busy_reg_dump(void)
 	start = arb->dbgregs[PMIF_INF_BUSY_STA];
 	end = arb->dbgregs[PMIF_OTHER_BUSY_STA_1];
 
-	log_size += sprintf(wp, "");
+	log_size += sprintf(wp, "\n[PMIF-M] ");
 	for (offset = start; offset <= end; offset += 4) {
 		tmp_dat = readl(arb->base + offset);
 		log_size += sprintf(wp + log_size, "(0x%x)=0x%x ",
 				    offset, tmp_dat);
+	}
+	if (!IS_ERR(arb->base_p)) {
+		log_size += sprintf(wp + log_size, "\n[PMIF-P] ");
+		for (offset = start; offset <= end; offset += 4) {
+			tmp_dat = readl(arb->base_p + offset);
+			log_size += sprintf(wp + log_size, "(0x%x)=0x%x ",
+					    offset, tmp_dat);
+		}
 	}
 	log_size += sprintf(wp + log_size, "\n");
 	if (log_size < 0)
@@ -1491,7 +1506,7 @@ static char *get_pmif_swinf_reg_dump(void)
 	unsigned int req, fsm, en;
 
 	step = arb->dbgregs[PMIF_SWINF_1_ACC] - arb->dbgregs[PMIF_SWINF_0_ACC];
-	log_size += sprintf(wp, "");
+	log_size += sprintf(wp, "\n[PMIF-M] ");
 	for (swinf = 0; swinf < 4; swinf++) {
 		offset = arb->dbgregs[PMIF_SWINF_0_ACC] + swinf * step;
 		tmp_dat = readl(arb->base + offset);
@@ -1549,6 +1564,67 @@ static char *get_pmif_swinf_reg_dump(void)
 			qfreecnt, qempty, qfull, req);
 		log_size += sprintf(wp + log_size, "fsm:%d, en:%d]\n", fsm, en);
 	}
+
+	if (!IS_ERR(arb->base_p)) {
+		log_size += sprintf(wp + log_size, "\n[PMIF-P] ");
+		for (swinf = 0; swinf < 4; swinf++) {
+			offset = arb->dbgregs[PMIF_SWINF_0_ACC] + swinf * step;
+			tmp_dat = readl(arb->base_p + offset);
+			cmd = (tmp_dat & (0x3 << 30)) >> 30;
+			is_write = (tmp_dat & (0x1 << 29)) >> 29;
+			slvid = (tmp_dat & (0xf << 24)) >> 24;
+			bytecnt = (tmp_dat & (0xf << 16)) >> 16;
+			addr = (tmp_dat & (0xffff << 0)) >> 0;
+
+			offset = arb->dbgregs[PMIF_SWINF_0_WDATA_31_0] + swinf * step;
+			wd_31_0 = readl(arb->base_p + offset);
+			if (!bytecnt)
+				wd_31_0 &= 0xff;
+
+			offset = arb->dbgregs[PMIF_SWINF_0_RDATA_31_0] + swinf * step;
+			rd_31_0 = readl(arb->base_p + offset);
+			if (!bytecnt)
+				rd_31_0 &= 0xff;
+
+			offset = arb->dbgregs[PMIF_SWINF_0_STA] + swinf * step;
+			tmp_dat = readl(arb->base_p + offset);
+			err = (tmp_dat & (0x1 << 18)) >> 18;
+			sbusy = (tmp_dat & (0x1 << 17)) >> 17;
+			done = (tmp_dat & (0x1 << 15)) >> 15;
+			qfillcnt = (tmp_dat & (0xf << 11)) >> 11;
+			qfreecnt = (tmp_dat & (0xf << 7)) >> 7;
+			qempty = (tmp_dat & (0x1 << 6)) >> 6;
+			qfull = (tmp_dat & (0x1 << 5)) >> 5;
+			req = (tmp_dat & (0x1 << 4)) >> 4;
+			fsm = (tmp_dat & (0x7 << 1)) >> 1;
+			en = (tmp_dat & (0x1 << 0)) >> 0;
+
+			log_size += sprintf(
+				wp + log_size,
+				"[swinf:%d, cmd:0x%x, is_write:%d, slvid:%d ",
+				swinf, cmd, is_write, slvid);
+			if (is_write) {
+				log_size += sprintf(
+					wp + log_size,
+					"bytecnt:%d (write addr 0x%x=0x%x)]\n",
+					bytecnt, addr, wd_31_0);
+			} else {
+				log_size += sprintf(
+					wp + log_size,
+					"bytecnt:%d (read addr 0x%x=0x%x)]\n",
+					bytecnt, addr, rd_31_0);
+			}
+			log_size += sprintf(
+				wp + log_size,
+				"[err:%d, sbusy:%d, done:%d, qfillcnt:%d ",
+				err, sbusy, done, qfillcnt);
+			log_size += sprintf(
+				wp + log_size,
+				"qfreecnt:%d, qempty:%d, qfull:%d, req:%d ",
+				qfreecnt, qempty, qfull, req);
+			log_size += sprintf(wp + log_size, "fsm:%d, en:%d]\n", fsm, en);
+		}
+	}
 	log_size += sprintf(wp + log_size, "\n");
 	if (log_size < 0)
 		pr_notice("sprintf failed\n");
@@ -1565,14 +1641,14 @@ static char *get_spmimst_all_reg_dump(void)
 	start = arb->spmimst_regs[SPMI_OP_ST_CTRL];
 	end = arb->spmimst_regs[SPMI_REC4];
 
-	log_size += sprintf(wp, "\n[SPMI] ");
+	log_size += sprintf(wp, "\n[SPMI-M] ");
 	for (offset = start; offset <= end; offset += 4) {
 		tmp_dat = readl(arb->spmimst_base + offset);
 		log_size += sprintf(wp + log_size,
 				    "(0x%x)=0x%x ", offset, tmp_dat);
 		i++;
 		if (i % 8 == 0)
-			log_size += sprintf(wp + log_size, "\n[SPMI] ");
+			log_size += sprintf(wp + log_size, "\n[SPMI-M] ");
 	}
 	if (arb->dbgver != 0x1) {
 		offset = arb->spmimst_regs[SPMI_DEC_DBG];
@@ -1583,6 +1659,27 @@ static char *get_spmimst_all_reg_dump(void)
 	offset = arb->spmimst_regs[SPMI_MST_DBG];
 	tmp_dat = readl(arb->spmimst_base + offset);
 	log_size += sprintf(wp + log_size, "(0x%x)=0x%x\n", offset, tmp_dat);
+
+	if (!IS_ERR(arb->spmimst_base_p)) {
+		log_size += sprintf(wp + log_size, "\n[SPMI-P] ");
+		for (offset = start; offset <= end; offset += 4) {
+			tmp_dat = readl(arb->spmimst_base_p + offset);
+			log_size += sprintf(wp + log_size,
+					    "(0x%x)=0x%x ", offset, tmp_dat);
+			i++;
+			if (i % 8 == 0)
+				log_size += sprintf(wp + log_size, "\n[SPMI-P] ");
+		}
+		if (arb->dbgver != 0x1) {
+			offset = arb->spmimst_regs[SPMI_DEC_DBG];
+			tmp_dat = readl(arb->spmimst_base_p + offset);
+			log_size += sprintf(wp + log_size, "(0x%x)=0x%x ",
+					offset, tmp_dat);
+		}
+		offset = arb->spmimst_regs[SPMI_MST_DBG];
+		tmp_dat = readl(arb->spmimst_base_p + offset);
+		log_size += sprintf(wp + log_size, "(0x%x)=0x%x\n", offset, tmp_dat);
+	}
 	if (log_size < 0)
 		pr_notice("sprintf failed\n");
 	return wp;
@@ -1619,7 +1716,7 @@ void spmi_dump_pmif_all_reg(void)
 	start = arb->dbgregs[PMIF_INIT_DONE];
 	end = arb->dbgregs[PMIF_RESERVED_0];
 
-	log_size += sprintf(wp, "");
+	log_size += sprintf(wp, "\n[PMIF-M] ");
 	for (offset = start; offset <= end; offset += 4) {
 		tmp_dat = readl(arb->base + offset);
 		log_size += sprintf(wp + log_size, "(0x%x)=0x%x ",
@@ -1630,6 +1727,20 @@ void spmi_dump_pmif_all_reg(void)
 			log_size = 0;
 		} else if (i % 8 == 0)
 			log_size += sprintf(wp + log_size, "\n[PMIF] ");
+	}
+	if (!IS_ERR(arb->base_p)) {
+		log_size += sprintf(wp + log_size, "\n[PMIF-P] ");
+		for (offset = start; offset <= end; offset += 4) {
+			tmp_dat = readl(arb->base_p + offset);
+			log_size += sprintf(wp + log_size, "(0x%x)=0x%x ",
+					    offset, tmp_dat);
+			i++;
+			if (i % 64 == 0) {
+				pr_notice("\n[PMIF-P] %s", wp);
+				log_size = 0;
+			} else if (i % 8 == 0)
+				log_size += sprintf(wp + log_size, "\n[PMIF-P] ");
+		}
 	}
 	if (log_size < 0)
 		pr_notice("sprintf failed\n");
@@ -1646,9 +1757,17 @@ static void spmi_dump_pmif_all_reg_d(struct seq_file *m)
 	start = arb->dbgregs[PMIF_INIT_DONE];
 	end = arb->dbgregs[PMIF_RESERVED_0];
 
+	seq_puts(m, "\n[PMIF-M] ");
 	for (offset = start; offset <= end; offset += 4) {
 		tmp_dat = readl(arb->base + offset);
 		seq_printf(m, "(0x%x)=0x%x ", offset, tmp_dat);
+	}
+	if (!IS_ERR(arb->base_p)) {
+		seq_puts(m, "\n[PMIF-P] ");
+		for (offset = start; offset <= end; offset += 4) {
+			tmp_dat = readl(arb->base_p + offset);
+			seq_printf(m, "(0x%x)=0x%x ", offset, tmp_dat);
+		}
 	}
 	seq_puts(m, "\n");
 }
@@ -1704,6 +1823,52 @@ void spmi_dump_pmif_record_reg(void)
 	tmp_dat = readl(arb->base + arb->dbgregs[PMIF_MONITOR_CTRL]);
 	writel(tmp_dat | BIT(2), arb->base + arb->dbgregs[PMIF_MONITOR_CTRL]);
 
+	if (!IS_ERR(arb->base_p)) {
+		/* disable monitor channel 0 before dump */
+		tmp_dat = readl(arb->base_p + arb->dbgregs[PMIF_MONITOR_CTRL]);
+		writel(tmp_dat & (~BIT(2)), arb->base_p + arb->dbgregs[PMIF_MONITOR_CTRL]);
+
+		step = arb->dbgregs[PMIF_MONITOR_RECORD_1_0] -
+			arb->dbgregs[PMIF_MONITOR_RECORD_0_0];
+
+		log_size += sprintf(wp + log_size, "");
+		for (i = 0; i < 32; i++) {
+			offset = arb->dbgregs[PMIF_MONITOR_RECORD_0_0] + i * step;
+			tmp_dat = readl(arb->base_p + offset);
+			chan = (tmp_dat & (0x1f << 27)) >> 27;
+			cmd = (tmp_dat & (0x3 << 25)) >> 25;
+			is_write = (tmp_dat & (0x1 << 24)) >> 24;
+			slvid = (tmp_dat & (0xf << 20)) >> 20;
+			bytecnt = (tmp_dat & (0xf << 16)) >> 16;
+			addr = (tmp_dat & (0xffff << 0)) >> 0;
+
+			offset = arb->dbgregs[PMIF_MONITOR_RECORD_0_1] + i * step;
+			wd_31_0 = readl(arb->base_p + offset);
+			if (!bytecnt)
+				wd_31_0 &= 0xff;
+
+			log_size += sprintf(wp + log_size,
+				"[PMIF] (%d)[chan:%d, cmd:0x%x, rw:0x%x, slvid:%d, bytecnt:%d, ",
+				i, chan, cmd, is_write, slvid, bytecnt);
+			if (is_write)
+				log_size += sprintf(wp + log_size, "(addr 0x%x=0x%x)]\n",
+						addr, wd_31_0);
+			else
+				log_size += sprintf(wp + log_size, "(addr 0x%x)]\n", addr);
+
+			if ((i + 1) % 8 == 0) {
+				pr_info("\n%s", wp);
+				log_size = 0;
+			}
+		}
+		/* logging mode no need to clear record */
+		if (log_size < 0)
+			pr_notice("sprintf failed\n");
+
+		/* enable monitor channel 0 after dump */
+		tmp_dat = readl(arb->base_p + arb->dbgregs[PMIF_MONITOR_CTRL]);
+		writel(tmp_dat | BIT(2), arb->base_p + arb->dbgregs[PMIF_MONITOR_CTRL]);
+	}
 }
 EXPORT_SYMBOL_GPL(spmi_dump_pmif_record_reg);
 
@@ -1717,6 +1882,7 @@ static void spmi_dump_pmif_record_reg_d(struct seq_file *m)
 	step = arb->dbgregs[PMIF_MONITOR_RECORD_1_0] -
 		arb->dbgregs[PMIF_MONITOR_RECORD_0_0];
 
+	seq_puts(m, "\n[PMIF-M] ");
 	for (i = 0; i < 32; i++) {
 		offset = arb->dbgregs[PMIF_MONITOR_RECORD_0_0] + i * step;
 		tmp_dat = readl(arb->base + offset);
@@ -1738,6 +1904,31 @@ static void spmi_dump_pmif_record_reg_d(struct seq_file *m)
 			seq_printf(m, "(addr 0x%x=0x%x)]\n", addr, wd_31_0);
 		else
 			seq_printf(m, "(addr 0x%x)]\n", addr);
+	}
+	if (!IS_ERR(arb->base_p)) {
+		seq_puts(m, "\n[PMIF-P] ");
+		for (i = 0; i < 32; i++) {
+			offset = arb->dbgregs[PMIF_MONITOR_RECORD_0_0] + i * step;
+			tmp_dat = readl(arb->base_p + offset);
+			chan = (tmp_dat & (0x1f << 27)) >> 27;
+			cmd = (tmp_dat & (0x3 << 25)) >> 25;
+			is_write = (tmp_dat & (0x1 << 24)) >> 24;
+			slvid = (tmp_dat & (0xf << 20)) >> 20;
+			bytecnt = (tmp_dat & (0xf << 16)) >> 16;
+			addr = (tmp_dat & (0xffff << 0)) >> 0;
+
+			offset = arb->dbgregs[PMIF_MONITOR_RECORD_0_1] + i * step;
+			wd_31_0 = readl(arb->base_p + offset);
+			if (!bytecnt)
+				wd_31_0 &= 0xff;
+
+			seq_printf(m, "(%d)[chan:%d, cmd:0x%x, rw:0x%x, slvid:%d, bytecnt:%d, ",
+				   i, chan, cmd, is_write, slvid, bytecnt);
+			if (is_write)
+				seq_printf(m, "(addr 0x%x=0x%x)]\n", addr, wd_31_0);
+			else
+				seq_printf(m, "(addr 0x%x)]\n", addr);
+		}
 	}
 	/* logging mode no need to clear record */
 }

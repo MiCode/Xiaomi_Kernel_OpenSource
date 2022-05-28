@@ -1002,6 +1002,17 @@ static int mtk_spmi_probe(struct platform_device *pdev)
 		err = PTR_ERR(arb->spmimst_base);
 		goto err_put_ctrl;
 	}
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "pmif-p");
+	arb->base_p = devm_ioremap_resource(&pdev->dev, res);
+	if (IS_ERR(arb->base_p))
+		dev_notice(&pdev->dev, "[PMIF]:no pmif-p found\n");
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "spmimst-p");
+	arb->spmimst_base_p = devm_ioremap_resource(&pdev->dev, res);
+	if (IS_ERR(arb->spmimst_base_p))
+		dev_notice(&pdev->dev, "[PMIF]:no spmimst-p found\n");
+
 #if !defined(CONFIG_FPGA_EARLY_PORTING)
 
 	if (arb->caps == 1) {

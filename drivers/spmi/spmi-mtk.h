@@ -19,8 +19,10 @@ struct ch_reg {
 
 struct pmif {
 	void __iomem	*base;
+	void __iomem	*base_p;
 	const u32	*regs;
 	void __iomem	*spmimst_base;
+	void __iomem	*spmimst_base_p;
 	const u32	*spmimst_regs;
 	const u32	*dbgregs;
 	u32		dbgver;
