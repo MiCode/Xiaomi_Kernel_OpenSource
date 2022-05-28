@@ -6941,7 +6941,7 @@
 			mediatek,force-vbus;
 			mediatek,clk-mgr;
 			mediatek,noise-still-tr;
-			mediatek,hwrscs-vers = <1>;
+			/* mediatek,hwrscs-vers = <1>; */
 			usb-role-switch;
 			port {
 				mtu3_drd_switch1: endpoint@0 {
