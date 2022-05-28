@@ -3055,7 +3055,8 @@ unsigned int fs_sync_frame(unsigned int flag)
 
 #ifdef SUPPORT_FS_NEW_METHOD
 	if (FS_READ_BITS(&fs_mgr.hw_sync_bits) == 0
-		&& FS_ATOMIC_READ(&fs_mgr.using_sa_ver) != 0) {
+		&& (FS_ATOMIC_READ(&fs_mgr.using_sa_ver) != 0
+			|| fs_user_sa_config())) {
 		/* Only using SW soltuion and using SA algo for Frame-Sync */
 		return 0;
 	}

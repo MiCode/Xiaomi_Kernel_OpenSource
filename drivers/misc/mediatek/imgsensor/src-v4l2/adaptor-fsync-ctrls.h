@@ -8,7 +8,7 @@
 
 
 /* !!! ONLY for testing or bypass fsync mgr !!! */
-// #define FORCE_DISABLE_FSYNC_MGR
+#define FORCE_DISABLE_FSYNC_MGR
 
 
 /*******************************************************************************
