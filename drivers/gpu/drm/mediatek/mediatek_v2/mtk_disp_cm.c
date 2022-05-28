@@ -177,15 +177,15 @@ static void mtk_cm_config(struct mtk_ddp_comp *comp,
 	struct mtk_panel_cm_params *cm_tune_params;
 	unsigned int width;
 
+	if (!comp->mtk_crtc || !comp->mtk_crtc->panel_ext)
+		return;
+	DDPFUNC();
+
 	if (comp->mtk_crtc->is_dual_pipe)
 		width = cfg->w / 2;
 	else
 		width = cfg->w;
 
-	DDPINFO("%s,\n", __func__);
-	if (!comp->mtk_crtc || !comp->mtk_crtc->panel_ext)
-		return;
-	DDPMSG("mtk_cm_config111\n");
 	cm_params = &comp->mtk_crtc->panel_ext->params->cm_params;
 	cm_tune_params = comp->mtk_crtc->panel_cm_params;
 

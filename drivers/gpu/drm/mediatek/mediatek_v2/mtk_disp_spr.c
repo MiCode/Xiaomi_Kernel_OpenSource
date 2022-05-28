@@ -729,14 +729,14 @@ static void mtk_spr_config(struct mtk_ddp_comp *comp,
 	u32 reg_val;
 	unsigned int width;
 
+	if (!comp->mtk_crtc || !comp->mtk_crtc->panel_ext)
+		return;
+	DDPFUNC();
+
 	if (comp->mtk_crtc->is_dual_pipe)
 		width = cfg->w / 2;
 	else
 		width = cfg->w;
-
-	if (!comp->mtk_crtc || !comp->mtk_crtc->panel_ext)
-		return;
-	DDPINFO("%s\n", __func__);
 
 	spr_params = &comp->mtk_crtc->panel_ext->params->spr_params;
 	spr_params_tune = comp->mtk_crtc->panel_spr_params;
