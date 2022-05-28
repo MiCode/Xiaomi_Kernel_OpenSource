@@ -512,7 +512,8 @@ int isp7s_allocate_working_buffer(struct mtk_hcp *hcp_dev, unsigned int mode)
 				}
 				mblock[id].d_buf = dma_heap_buffer_alloc(
 					pdma_heap,
-					mblock[id].size, O_RDWR | O_CLOEXEC,
+					mblock[id].size,
+					O_RDWR | O_CLOEXEC,
 					DMA_HEAP_VALID_HEAP_FLAGS);
 				if (IS_ERR(mblock[id].d_buf)) {
 					pr_info("dma_heap_buffer_alloc fail :%lld\n",
@@ -520,8 +521,8 @@ int isp7s_allocate_working_buffer(struct mtk_hcp *hcp_dev, unsigned int mode)
 					return -1;
 				}
 				mtk_dma_buf_set_name(mblock[id].d_buf, mblock[id].name);
-				mblock[id].attach = dma_buf_attach(
-				mblock[id].d_buf, hcp_dev->dev);
+				mblock[id].attach =
+					dma_buf_attach(mblock[id].d_buf, hcp_dev->dev);
 				attach = mblock[id].attach;
 				if (IS_ERR(attach)) {
 					pr_info("dma_buf_attach fail :%lld\n",
@@ -529,8 +530,8 @@ int isp7s_allocate_working_buffer(struct mtk_hcp *hcp_dev, unsigned int mode)
 					return -1;
 				}
 
-				mblock[id].sgt = dma_buf_map_attachment(attach,
-				DMA_BIDIRECTIONAL);
+				mblock[id].sgt =
+					dma_buf_map_attachment(attach, DMA_BIDIRECTIONAL);
 				sgt = mblock[id].sgt;
 				if (IS_ERR(sgt)) {
 					dma_buf_detach(mblock[id].d_buf, attach);
@@ -539,8 +540,7 @@ int isp7s_allocate_working_buffer(struct mtk_hcp *hcp_dev, unsigned int mode)
 					return -1;
 				}
 				mblock[id].start_phys = sg_dma_address(sgt->sgl);
-				mblock[id].start_dma =
-				mblock[id].start_phys;
+				mblock[id].start_dma = mblock[id].start_phys;
 				ret = dma_buf_vmap(mblock[id].d_buf, &map);
 				if (ret) {
 					pr_info("sg_dma_address fail\n");
@@ -548,10 +548,9 @@ int isp7s_allocate_working_buffer(struct mtk_hcp *hcp_dev, unsigned int mode)
 				}
 				mblock[id].start_virt = (void *)map.vaddr;
 				mblock[id].map = map;
+				get_dma_buf(mblock[id].d_buf);
 				mblock[id].fd =
-				dma_buf_fd(mblock[id].d_buf,
-				O_RDWR | O_CLOEXEC);
-				dma_buf_get(mblock[id].fd);
+					dma_buf_fd(mblock[id].d_buf, O_RDWR | O_CLOEXEC);
 				dma_buf_begin_cpu_access(mblock[id].d_buf, DMA_BIDIRECTIONAL);
 				kref_init(&mblock[id].kref);
 				pr_info("%s:[HCP][%s] phys:0x%llx, virt:0x%p, dma:0x%llx, size:0x%llx, is_dma_buf:%d, fd:%d, d_buf:0x%p\n",
@@ -592,8 +591,7 @@ int isp7s_allocate_working_buffer(struct mtk_hcp *hcp_dev, unsigned int mode)
 					return -1;
 				}
 
-				mblock[id].sgt = dma_buf_map_attachment(attach,
-				DMA_TO_DEVICE);
+				mblock[id].sgt = dma_buf_map_attachment(attach, DMA_TO_DEVICE);
 				sgt = mblock[id].sgt;
 				if (IS_ERR(sgt)) {
 					dma_buf_detach(mblock[id].d_buf, attach);
@@ -602,8 +600,7 @@ int isp7s_allocate_working_buffer(struct mtk_hcp *hcp_dev, unsigned int mode)
 					return -1;
 				}
 				mblock[id].start_phys = sg_dma_address(sgt->sgl);
-				mblock[id].start_dma =
-				mblock[id].start_phys;
+				mblock[id].start_dma = mblock[id].start_phys;
 				ret = dma_buf_vmap(mblock[id].d_buf, &map);
 				if (ret) {
 					pr_info("sg_dma_address fail\n");
@@ -611,9 +608,9 @@ int isp7s_allocate_working_buffer(struct mtk_hcp *hcp_dev, unsigned int mode)
 				}
 				mblock[id].start_virt = (void *)map.vaddr;
 				mblock[id].map = map;
+				get_dma_buf(mblock[id].d_buf);
 				mblock[id].fd =
 					dma_buf_fd(mblock[id].d_buf, O_RDWR | O_CLOEXEC);
-				dma_buf_get(mblock[id].fd);
 				break;
 			}
 		} else {

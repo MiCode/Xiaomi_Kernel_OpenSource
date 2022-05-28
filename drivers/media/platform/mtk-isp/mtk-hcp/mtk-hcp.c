@@ -1223,7 +1223,8 @@ int allocate_working_buffer_helper(struct platform_device *pdev)
 				}
 				mblock[id].d_buf = dma_heap_buffer_alloc(
 					pdma_heap,
-					mblock[id].size, O_RDWR | O_CLOEXEC,
+					mblock[id].size,
+					O_RDWR | O_CLOEXEC,
 					DMA_HEAP_VALID_HEAP_FLAGS);
 				if (IS_ERR(mblock[id].d_buf)) {
 					pr_info("dma_heap_buffer_alloc fail :%lld\n",
@@ -1231,8 +1232,8 @@ int allocate_working_buffer_helper(struct platform_device *pdev)
 					return -1;
 				}
 				mtk_dma_buf_set_name(mblock[id].d_buf, mblock[id].name);
-				mblock[id].attach = dma_buf_attach(
-				mblock[id].d_buf, hcp_dev->dev);
+				mblock[id].attach =
+					dma_buf_attach(mblock[id].d_buf, hcp_dev->dev);
 				attach = mblock[id].attach;
 				if (IS_ERR(attach)) {
 					pr_info("dma_buf_attach fail :%lld\n",
@@ -1240,8 +1241,7 @@ int allocate_working_buffer_helper(struct platform_device *pdev)
 					return -1;
 				}
 
-				mblock[id].sgt = dma_buf_map_attachment(attach,
-				DMA_TO_DEVICE);
+				mblock[id].sgt = dma_buf_map_attachment(attach, DMA_TO_DEVICE);
 				sgt = mblock[id].sgt;
 				if (IS_ERR(sgt)) {
 					dma_buf_detach(mblock[id].d_buf, attach);
@@ -1250,18 +1250,16 @@ int allocate_working_buffer_helper(struct platform_device *pdev)
 					return -1;
 				}
 				mblock[id].start_phys = sg_dma_address(sgt->sgl);
-				mblock[id].start_dma =
-				mblock[id].start_phys;
+				mblock[id].start_dma = mblock[id].start_phys;
 				ret = dma_buf_vmap(mblock[id].d_buf, &map);
 				if (ret) {
 					pr_info("sg_dma_address fail\n");
 					return ret;
 				}
 				mblock[id].start_virt = (void *)map.vaddr;
+				get_dma_buf(mblock[id].d_buf);
 				mblock[id].fd =
-				dma_buf_fd(mblock[id].d_buf,
-				O_RDWR | O_CLOEXEC);
-				dma_buf_get(mblock[id].fd);
+					dma_buf_fd(mblock[id].d_buf, O_RDWR | O_CLOEXEC);
 				break;
 			}
 		} else {
@@ -1336,7 +1334,9 @@ int mtk_hcp_allocate_working_buffer(struct platform_device *pdev, unsigned int m
 {
 	struct mtk_hcp *hcp_dev = platform_get_drvdata(pdev);
 
-	if (!hcp_dev->data->allocate) {
+	if ((hcp_dev == NULL)
+		|| (hcp_dev->data == NULL)
+		|| (hcp_dev->data->allocate == NULL)) {
 		dev_info(&pdev->dev, "%s:allocate not supported\n", __func__);
 		return allocate_working_buffer_helper(pdev);
 	}
@@ -1349,7 +1349,9 @@ int mtk_hcp_release_working_buffer(struct platform_device *pdev)
 {
 	struct mtk_hcp *hcp_dev = platform_get_drvdata(pdev);
 
-	if (!hcp_dev->data->release) {
+	if ((hcp_dev == NULL)
+		|| (hcp_dev->data == NULL)
+		|| (hcp_dev->data->allocate == NULL)) {
 		dev_info(&pdev->dev, "%s:release not supported\n", __func__);
 		return release_working_buffer_helper(pdev);
 	}
@@ -1363,7 +1365,10 @@ int mtk_hcp_get_init_info(struct platform_device *pdev,
 {
 	struct mtk_hcp *hcp_dev = platform_get_drvdata(pdev);
 
-	if (!hcp_dev->data->get_init_info || !info) {
+	if ((hcp_dev == NULL)
+		|| (hcp_dev->data == NULL)
+		|| (hcp_dev->data->get_init_info == NULL)
+		|| (info == NULL)) {
 		dev_info(&pdev->dev, "%s:not supported\n", __func__);
 		return -1;
 	}
