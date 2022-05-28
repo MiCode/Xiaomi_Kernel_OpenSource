@@ -65,10 +65,12 @@
 #define pmic_main_chip			mt6397_chip
 #endif
 
-#define PMIC_PHANDLE_NAME		"pmic"
-#define SCP_CLK_CTRL_PHANDLE_NAME	"scp_clk_ctrl"
-#define FM_CLK_PHANDLE_NAME		"fmeter_clksys"
-#define ULPOSC_CLK_PHANDLE_NAME		"ulposc_clksys"
+#define SCP_DVFS_DISABLE_PHANDLE_NAME    "scp-dvfs-disable"
+#define PMIC_PHANDLE_NAME                "pmic"
+#define FM_CLK_PHANDLE_NAME              "fmeter-clksys"
+#define ULPOSC_CLK_PHANDLE_NAME          "ulposc-clksys"
+#define SCP_CLK_CTRL_PHANDLE_NAME        "scp-clk-ctrl"
+#define SCP_DVFS_FLAG_PHANDLE_NAME       "scp-dvfs-flag"
 
 #define FM_CNT2FREQ(cnt)	(cnt * 26 / CALI_DIV_VAL)
 #define FM_FREQ2CNT(freq)	(freq * CALI_DIV_VAL / 26)
@@ -98,6 +100,8 @@ static struct mt_scp_pll_t mt_scp_pll;
 static struct wakeup_source *scp_suspend_lock;
 static int g_scp_dvfs_init_flag = -1;
 static int g_scp_dvfs_enable; /* feature enabled */
+
+static bool g_scp_dvfs_state_dump_enable; /* enable log */
 
 static struct scp_dvfs_hw dvfs;
 
@@ -850,6 +854,9 @@ void mt_scp_dvfs_state_dump(void)
 	unsigned int scp_state, slp_pwr_ctrl, power_status;
 	char *scp_status = 0;
 
+	if (!g_scp_dvfs_state_dump_enable)
+		return;
+
 	scp_state = readl(SCP_A_SLEEP_DEBUG_REG);
 	scp_status = ((scp_state & IN_DEBUG_IDLE) == IN_DEBUG_IDLE) ? "idle mode"
 			: ((scp_state & ENTERING_SLEEP) == ENTERING_SLEEP) ?
@@ -884,6 +891,8 @@ void mt_scp_dvfs_state_dump(void)
 static int mt_scp_dvfs_state_proc_show(struct seq_file *m, void *v)
 {
 	unsigned int scp_state, slp_pwr_ctrl, power_status;
+
+	g_scp_dvfs_state_dump_enable = !g_scp_dvfs_state_dump_enable;
 
 	scp_state = readl(SCP_A_SLEEP_DEBUG_REG);
 	seq_printf(m, "scp status: %s\n",
@@ -2466,7 +2475,7 @@ static int __init mt_scp_dts_init(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
-	is_scp_dvfs_disable = of_property_read_bool(node, "scp-dvfs-disable");
+	is_scp_dvfs_disable = of_property_read_bool(node, SCP_DVFS_DISABLE_PHANDLE_NAME);
 	if (is_scp_dvfs_disable) {
 		g_scp_dvfs_enable = 0;
 		pr_notice("SCP DVFS is disabled, so bypass its init\n");
@@ -2623,7 +2632,7 @@ static int __init mt_scp_dts_init(struct platform_device *pdev)
 	pr_notice("secure_access_scp: %s\n", dvfs.secure_access_scp?"enable":"disable");
 
 	/* get SCP DVFS enable/disable flag */
-	of_property_read_string(node, "scp_dvfs_flag", &str);
+	of_property_read_string(node, SCP_DVFS_FLAG_PHANDLE_NAME, &str);
 	if (str && strcmp(str, "disable") == 0) {
 		scp_dvfs_flag = 0;
 		pr_notice("scp_dvfs_flag = 0\n");
@@ -2720,7 +2729,7 @@ static struct platform_driver mt_scp_dvfs_pdrv __refdata = {
 	.probe = mt_scp_dvfs_pdrv_probe,
 	.remove = mt_scp_dvfs_pdrv_remove,
 	.driver = {
-		.name = "scp_dvfs",
+		.name = "scp-dvfs",
 		.owner = THIS_MODULE,
 		.of_match_table = scpdvfs_of_ids,
 	},
