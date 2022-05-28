@@ -118,6 +118,7 @@
 			allow_mismatched_32bit_el0 \
 			firmware_class.path=/vendor/firmware pelt=8";
 			kaslr-seed = <0 0>;
+			mkp_panic="on";
 	};
 
 	cpus {
