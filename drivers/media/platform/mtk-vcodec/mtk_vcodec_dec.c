@@ -539,7 +539,8 @@ static struct vb2_v4l2_buffer *get_free_buffer(struct mtk_vcodec_ctx *ctx)
 			dstbuf->queued_in_vb2, dstbuf->queued_in_v4l2, ctx->input_driven);
 	} else if (dstbuf->used) {
 		for (i = 0; i < free_frame_buffer->num_planes; i++) {
-			fput(free_frame_buffer->fb_base[i].dmabuf->file);
+			if (free_frame_buffer->fb_base[i].dmabuf)
+				fput(free_frame_buffer->fb_base[i].dmabuf->file);
 			mtk_v4l2_debug(4, "[Ref cnt] id=%d Ref put dma %p",
 				free_frame_buffer->index, free_frame_buffer->fb_base[i].dmabuf);
 		}
@@ -626,7 +627,8 @@ static struct vb2_v4l2_buffer *get_free_buffer(struct mtk_vcodec_ctx *ctx)
 	return &dstbuf->vb;
 err_in_rdyq:
 	for (i = 0; i < free_frame_buffer->num_planes; i++) {
-		get_file(free_frame_buffer->fb_base[i].dmabuf->file);
+		if (free_frame_buffer->fb_base[i].dmabuf)
+			get_file(free_frame_buffer->fb_base[i].dmabuf->file);
 		mtk_v4l2_debug(4, "[Ref cnt] id=%d Ref get dma %p",
 			free_frame_buffer->index, free_frame_buffer->fb_base[i].dmabuf);
 	}
@@ -1421,7 +1423,8 @@ static void mtk_vdec_worker(struct work_struct *work)
 			pfb->fb_base[i].dmabuf = dst_buf->planes[i].dbuf;
 
 			if (dst_buf_info->used == false) {
-				get_file(dst_buf->planes[i].dbuf->file);
+				if (dst_buf->planes[i].dbuf)
+					get_file(dst_buf->planes[i].dbuf->file);
 				mtk_v4l2_debug(4, "[Ref cnt] id=%d Ref get dma %p", dst_buf->index,
 					dst_buf->planes[i].dbuf);
 			}
@@ -3292,7 +3295,8 @@ static void vb2ops_vdec_buf_cleanup(struct vb2_buffer *vb)
 		mutex_lock(&ctx->buf_lock);
 		if (buf->used == true) {
 			for (i = 0; i < buf->frame_buffer.num_planes; i++) {
-				fput(buf->frame_buffer.fb_base[i].dmabuf->file);
+				if (buf->frame_buffer.fb_base[i].dmabuf)
+					fput(buf->frame_buffer.fb_base[i].dmabuf->file);
 				mtk_v4l2_debug(4, "[Ref cnt] id=%d Ref put dma %p",
 				    buf->frame_buffer.index, buf->frame_buffer.fb_base[i].dmabuf);
 			}
