@@ -10523,18 +10523,13 @@
 			     <0x100000>; /* dram */
 	};
 
-	scp_clk_ctrl: scp_clk_ctrl@1C721000 {
-		compatible = "mediatek,scp_clk_ctrl", "syscon";
+	scp_clk_ctrl: scp-clk-ctrl@1c721000 {
+		compatible = "mediatek,scp-clk-ctrl", "syscon";
 		reg = <0 0x1C721000 0 0x1000>; /* clk*/
 	};
 
-	scp_gpio: scp_gpio@10005000 {
-		compatible = "mediatek,scp_gpio", "syscon";
-		reg = <0 0x10005000 0 0x1000>;
-	};
-
-	scp_dvfs {
-		compatible = "mediatek,scp_dvfs";
+	scp-dvfs {
+		compatible = "mediatek,scp-dvfs";
 		clocks = <&vlp_cksys_clk CLK_VLP_CKSYS_SCP_SEL>,
 			<&topckgen_clk CLK_TOP_TCK_26M_MX9>;
 
@@ -10552,14 +10547,10 @@
 		< 750000	750000	0xff		0xfff		350  0	0x0>,
 		< 750000	750000	0xff		0xfff		700  0	0x0>;
 
-		gpio-base = <&scp_gpio>;
-		gpio-vreq-mode = <1>;
-		gpio-vreq = <0x350 0x7 24>;
-
 		do-ulposc-cali;
-		fmeter_clksys = <&vlp_cksys_clk>;
-		ulposc_clksys = <&vlp_cksys_clk>;
-		scp_clk_ctrl = <&scp_clk_ctrl>;
+		fmeter-clksys = <&vlp_cksys_clk>;
+		ulposc-clksys = <&vlp_cksys_clk>;
+		scp-clk-ctrl = <&scp_clk_ctrl>;
 		scp-clk-hw-ver = "v1";
 		ulposc-cali-ver = "v2";
 		ulposc-cali-num = <1>;
@@ -10569,6 +10560,7 @@
 			<0x071292c0	0x2400	0xC>;
 		clk-dbg-ver = "v2";
 		ccf-fmeter-support;
+		scp-dvfs-flag = "enable"; /* enable/disable */
 	};
 
 	gce: gce@1e980000 {

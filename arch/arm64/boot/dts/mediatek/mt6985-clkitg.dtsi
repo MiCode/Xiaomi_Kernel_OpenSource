@@ -205,7 +205,6 @@
 			<&imp_iic_wrap_n_clk CLK_IMPN_I2C11>,
 			<&imp_iic_wrap_n_clk CLK_IMPN_I2C12>,
 			<&imp_iic_wrap_n_clk CLK_IMPN_I2C13>,
-			<&vlp_cksys_clk CLK_VLP_CK_SCP_SEL>,
 			<&vlp_cksys_clk CLK_VLP_CK_DPSW_SEL>,
 			<&vlp_cksys_clk CLK_VLP_CK_PWM_VLP_SEL>,
 			<&vlp_cksys_clk CLK_VLP_CK_SRCK_SEL>,
