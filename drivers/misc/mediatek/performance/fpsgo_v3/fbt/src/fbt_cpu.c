@@ -37,6 +37,7 @@
 
 #include <mt-plat/fpsgo_common.h>
 
+#include "fpsgo_usedext.h"
 #include "fpsgo_base.h"
 #include "fpsgo_sysfs.h"
 #include "fbt_usedext.h"
@@ -2940,14 +2941,16 @@ static int update_quota(struct fbt_boost_info *boost_info, int target_fps,
 		boost_info->quota = 0;
 		boost_info->quota_fps = target_fps;
 		boost_info->enq_sum = 0;
+		boost_info->deq_sum = 0;
 	}
 
 	if (boost_info->enq_avg * 100 > s32_target_time * gcc_enq_bound_thrs ||
-		s32_t_deq_len * 100 > s32_target_time * gcc_deq_bound_thrs) {
+		boost_info->deq_avg * 100 > s32_target_time * gcc_deq_bound_thrs) {
 		boost_info->quota_cur_idx = -1;
 		boost_info->quota_cnt = 0;
 		boost_info->quota = 0;
 		boost_info->enq_sum = 0;
+		boost_info->deq_sum = 0;
 	}
 
 	new_idx = boost_info->quota_cur_idx + 1;
@@ -2957,7 +2960,7 @@ static int update_quota(struct fbt_boost_info *boost_info, int target_fps,
 
 	if (boost_info->enq_avg * 100 > s32_target_time * gcc_enq_bound_thrs)
 		boost_info->quota_raw[new_idx] = target_time * gcc_enq_bound_quota / 100;
-	else if (s32_t_deq_len * 100 > s32_target_time * gcc_deq_bound_thrs)
+	else if (boost_info->deq_avg * 100 > s32_target_time * gcc_deq_bound_thrs)
 		boost_info->quota_raw[new_idx] = target_time * gcc_deq_bound_quota / 100;
 	else
 		boost_info->quota_raw[new_idx] = target_time - s32_t_Q2Q;
@@ -2966,6 +2969,8 @@ static int update_quota(struct fbt_boost_info *boost_info, int target_fps,
 
 	boost_info->enq_raw[new_idx] = s32_t_enq_len;
 	boost_info->enq_sum += boost_info->enq_raw[new_idx];
+	boost_info->deq_raw[new_idx] = s32_t_deq_len;
+	boost_info->deq_sum += boost_info->deq_raw[new_idx];
 
 	if (boost_info->quota_cnt >= window_cnt) {
 		rm_idx = new_idx - window_cnt;
@@ -2978,6 +2983,7 @@ static int update_quota(struct fbt_boost_info *boost_info, int target_fps,
 
 		boost_info->quota -= boost_info->quota_raw[rm_idx];
 		boost_info->enq_sum -= boost_info->enq_raw[rm_idx];
+		boost_info->deq_sum -= boost_info->deq_raw[rm_idx];
 	} else {
 		first_idx = new_idx - boost_info->quota_cnt;
 		if (first_idx < 0)
@@ -2990,7 +2996,7 @@ static int update_quota(struct fbt_boost_info *boost_info, int target_fps,
 	/* remove outlier */
 	avg = boost_info->quota / boost_info->quota_cnt;
 	boost_info->enq_avg = boost_info->enq_sum / boost_info->quota_cnt;
-
+	boost_info->deq_avg = boost_info->deq_sum / boost_info->quota_cnt;
 
 	if (first_idx <= new_idx)
 		for (i = first_idx; i <= new_idx; i++)
@@ -3058,11 +3064,12 @@ static int update_quota(struct fbt_boost_info *boost_info, int target_fps,
 		boost_info->quota_mod = -s32_target_time;
 
 	fpsgo_main_trace(
-		"%s raw[%d]:%d raw[%d]:%d window_cnt:%d target_fpks:%d cnt:%d sum:%d avg:%d std_sqr:%lld quota:%d mod:%d enq:%d enq_avg:%d",
+		"%s raw[%d]:%d raw[%d]:%d window_cnt:%d target_fpks:%d cnt:%d sum:%d avg:%d std_sqr:%lld quota:%d mod:%d enq:%d enq_avg:%d deq:%d deq_avg:%d",
 		__func__, first_idx, boost_info->quota_raw[first_idx],
 		new_idx, boost_info->quota_raw[new_idx], window_cnt, target_fpks,
 		boost_info->quota_cnt, boost_info->quota, avg, std_square, quota_adj,
-		boost_info->quota_mod, s32_t_enq_len, boost_info->enq_avg);
+		boost_info->quota_mod, s32_t_enq_len, boost_info->enq_avg,
+		s32_t_deq_len, boost_info->deq_avg);
 
 	return s32_target_time;
 }
@@ -5145,6 +5152,19 @@ void fbt_xgff_list_loading_del(struct fbt_thread_loading *ploading)
 	kfree(ploading);
 }
 
+static void fbt_xgff_set_min_cap(unsigned int min_cap)
+{
+	int tgt_opp, tgt_freq, fbt_min_cap;
+
+	if (min_cap > 1024)
+		min_cap = 1024;
+
+	fbt_min_cap = (min_cap * 100 / 1024) + 1;
+	tgt_opp = fbt_get_opp_by_normalized_cap(fbt_min_cap, 0);
+	tgt_freq = cpu_dvfs[0].power[tgt_opp];
+	fbt_cpu_L_ceiling_min(tgt_freq);
+}
+
 static ssize_t light_loading_policy_show(struct kobject *kobj,
 		struct kobj_attribute *attr,
 		char *buf)
@@ -6281,6 +6301,8 @@ int __init fbt_cpu_init(void)
 
 	limit_clus_ceil =
 		kcalloc(cluster_num, sizeof(struct fbt_syslimit), GFP_KERNEL);
+
+	xgff_frame_min_cap_fp = fbt_xgff_set_min_cap;
 
 	fbt_init_sjerk();
 

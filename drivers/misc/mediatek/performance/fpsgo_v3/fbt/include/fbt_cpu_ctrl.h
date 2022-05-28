@@ -25,6 +25,7 @@ int fbt_cpu_ctrl_init(void);
 int fbt_cpu_ctrl_exit(void);
 int fbt_set_cpu_freq_ceiling(int num, int *freq);
 void update_userlimit_cpu_freq(int kicker, int cluster_num, struct cpu_ctrl_data *pld);
+void fbt_cpu_L_ceiling_min(int freq);
 int fbt_cpu_ctrl_get_ceil(void);
 
 int cfp_mon_enable(int kicker, cfp_notifier_fn_t cb);

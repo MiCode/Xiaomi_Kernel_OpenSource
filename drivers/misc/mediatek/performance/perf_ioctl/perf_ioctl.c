@@ -512,6 +512,8 @@ EXPORT_SYMBOL(xgff_frame_startend_fp);
 void (*xgff_frame_getdeplist_maxsize_fp)(
 		unsigned int *pdeplistsize);
 EXPORT_SYMBOL(xgff_frame_getdeplist_maxsize_fp);
+void (*xgff_frame_min_cap_fp)(unsigned int min_cap);
+EXPORT_SYMBOL(xgff_frame_min_cap_fp);
 
 static int xgff_show(struct seq_file *m, void *v)
 {
@@ -585,6 +587,14 @@ static long xgff_ioctl_impl(struct file *filp,
 
 		kfree(vpdeplist);
 
+		break;
+
+	case XGFFRAME_MIN_CAP:
+		if (!xgff_frame_min_cap_fp) {
+			ret = -EAGAIN;
+			goto ret_ioctl;
+		}
+		xgff_frame_min_cap_fp((unsigned int)msgKM->min_cap);
 		break;
 
 	default:
