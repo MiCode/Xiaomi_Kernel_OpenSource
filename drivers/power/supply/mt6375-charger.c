@@ -249,6 +249,7 @@ struct mt6375_chg_data {
 	atomic_t eoc_cnt;
 	atomic_t tchg;
 	int vbat0_flag;
+	unsigned int detach_irq;
 };
 
 struct mt6375_chg_platform_data {
@@ -1607,10 +1608,21 @@ static int mt6375_run_aicc(struct charger_device *chgdev, u32 *uA)
 	}
 
 	mutex_lock(&ddata->pe_lock);
-	ret = mt6375_chg_field_set(ddata, F_AICC_EN, 1);
-	if (ret < 0)
+	disable_irq(ddata->detach_irq);
+	if (!ddata->pwr_rdy) {
+		enable_irq(ddata->detach_irq);
+		dev_info(ddata->dev, "detach\n");
+		ret = -EPERM;
 		goto out;
+	}
 	reinit_completion(&ddata->aicc_done);
+	ret = mt6375_chg_field_set(ddata, F_AICC_EN, 1);
+	if (ret < 0) {
+		enable_irq(ddata->detach_irq);
+		goto out;
+	}
+	enable_irq(ddata->detach_irq);
+
 	/* worst case = 128steps * 52msec = 6656ms */
 	ret_comp = wait_for_completion_interruptible_timeout(&ddata->aicc_done,
 		msecs_to_jiffies(7000));
@@ -1622,6 +1634,11 @@ static int mt6375_run_aicc(struct charger_device *chgdev, u32 *uA)
 		ret = 0;
 	if (ret < 0) {
 		dev_err(ddata->dev, "failed to wait aicc (%d)\n", ret);
+		goto out;
+	}
+	if (!ddata->pwr_rdy) {
+		dev_info(ddata->dev, "detach\n");
+		ret = -EPERM;
 		goto out;
 	}
 	ret = mt6375_chg_field_get(ddata, F_AICC_RPT, uA);
@@ -1654,10 +1671,21 @@ static int mt6375_run_pe(struct mt6375_chg_data *ddata, bool pe20)
 	ret = mt6375_chg_field_set(ddata, F_PE_SEL, pe20);
 	if (ret < 0)
 		return ret;
-	ret = mt6375_chg_field_set(ddata, F_PE_EN, 1);
-	if (ret < 0)
-		return ret;
+	disable_irq(ddata->detach_irq);
+	if (!ddata->pwr_rdy) {
+		enable_irq(ddata->detach_irq);
+		dev_info(ddata->dev, "detach\n");
+		ret = -EPERM;
+		goto out;
+	}
 	reinit_completion(&ddata->pe_done);
+	ret = mt6375_chg_field_set(ddata, F_PE_EN, 1);
+	if (ret < 0) {
+		enable_irq(ddata->detach_irq);
+		goto out;
+	}
+	enable_irq(ddata->detach_irq);
+
 	ret_comp = wait_for_completion_interruptible_timeout(&ddata->pe_done,
 		msecs_to_jiffies(timeout));
 	if (ret_comp == 0)
@@ -1666,8 +1694,17 @@ static int mt6375_run_pe(struct mt6375_chg_data *ddata, bool pe20)
 		ret = -EINTR;
 	else
 		ret = 0;
-	if (ret < 0)
+	if (ret < 0) {
 		dev_err(ddata->dev, "failed to wait pe (%d)\n", ret);
+		goto out;
+	}
+	if (!ddata->pwr_rdy) {
+		dev_info(ddata->dev, "detach\n");
+		ret = -EPERM;
+		goto out;
+	}
+out:
+	mt6375_chg_field_set(ddata, F_PE_EN, 0);
 	return ret;
 }
 
@@ -2165,6 +2202,8 @@ static irqreturn_t mt6375_fl_detach_handler(int irq, void *data)
 
 	mt_dbg(ddata->dev, "++\n");
 	mt6375_chg_pwr_rdy_process(ddata);
+	complete(&ddata->aicc_done);
+	complete(&ddata->pe_done);
 	return IRQ_HANDLED;
 }
 
@@ -2519,9 +2558,10 @@ static int mt6375_chg_init_chgdev(struct mt6375_chg_data *ddata)
 static int mt6375_chg_init_irq(struct mt6375_chg_data *ddata)
 {
 	int i, ret;
-	const struct {
-		char *name;
-		irq_handler_t hdlr;
+	struct {
+		const char * const name;
+		irq_handler_t const hdlr;
+		unsigned int irq;
 	} mt6375_chg_irqs[] = {
 		MT6375_CHG_IRQ(fl_wdt),
 		MT6375_CHG_IRQ(fl_pwr_rdy),
@@ -2553,7 +2593,9 @@ static int mt6375_chg_init_irq(struct mt6375_chg_data *ddata)
 				mt6375_chg_irqs[i].name);
 			return ret;
 		}
+		mt6375_chg_irqs[i].irq = ret;
 	}
+	ddata->detach_irq = mt6375_chg_irqs[4].irq;
 	return 0;
 }
 
