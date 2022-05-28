@@ -4115,6 +4115,19 @@
 			iommus = <&apu_iommu1 M4U_PORT_L40_APU_DATA>;
 		};
 
+		apusys-reviser@1903c000 {
+			compatible = "mediatek, rv-reviser";
+			reg = <0 0x1903c000 0 0x1000>,          /* apu_sctrl_reviser  */
+			<0 0x02000000 0 0xc00000>,    /* VLM          */
+			<0 0x1d900000 0 0x600000>,    /* TCM          */
+			<0 0x19001000 0 0x1000>;              /* apusys int */
+			//interrupts = <GIC_SPI 406 IRQ_TYPE_LEVEL_HIGH>;
+			default-dram = <0x0>;
+			dma-ranges = <0x0 0x0 0x0 0x0 0x1 0x0>;
+			boundary = <0x0>;
+			iommus = <&apu_iommu0 M4U_PORT_L40_APU_CODE>;
+		};
+
 		mdla {
 			compatible = "mediatek, mdla-rv";
 			core-num = <4>;
