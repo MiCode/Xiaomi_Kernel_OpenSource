@@ -187,7 +187,7 @@ static struct attribute *perf_attrs[] = {
 	&perf_gpu_pmu_enable_attr.attr,
 	&perf_gpu_pmu_period_attr.attr,
 #endif
-
+	&perf_mcupm_freq_enable_attr.attr,
 #endif
 
 	NULL,

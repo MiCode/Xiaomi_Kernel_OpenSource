@@ -63,7 +63,7 @@ extern int insert_freq_qos_hook(void);
 extern void remove_freq_qos_hook(void);
 extern void init_perf_freq_tracker(void);
 extern void exit_perf_freq_tracker(void);
-
+extern struct kobj_attribute perf_mcupm_freq_enable_attr;
 #else
 static inline void perf_tracker(u64 wallclock,
 				bool hit_long_check) {}

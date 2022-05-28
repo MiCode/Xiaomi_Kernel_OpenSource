@@ -105,7 +105,14 @@ TRACE_EVENT(perf_index_l,
 		__field(int, io_reqc_w)
 		__field(int, io_dur)
 		__field(int, io_q_dept)
-		__array(int, stall, 8)
+		__field(int, stall_0)
+		__field(int, stall_1)
+		__field(int, stall_2)
+		__field(int, stall_3)
+		__field(int, stall_4)
+		__field(int, stall_5)
+		__field(int, stall_6)
+		__field(int, stall_7)
 	),
 
 	TP_fast_assign(
@@ -122,7 +129,14 @@ TRACE_EVENT(perf_index_l,
 		__entry->io_reqc_w  = iostatptr->reqcnt_w;
 		__entry->io_dur     = iostatptr->duration;
 		__entry->io_q_dept  = iostatptr->q_depth;
-		memcpy(__entry->stall, stall, sizeof(int)*8);
+		__entry->stall_0    = stall[0];
+		__entry->stall_1    = stall[1];
+		__entry->stall_2    = stall[2];
+		__entry->stall_3    = stall[3];
+		__entry->stall_4    = stall[4];
+		__entry->stall_5    = stall[5];
+		__entry->stall_6    = stall[6];
+		__entry->stall_7    = stall[7];
 	),
 
 	TP_printk(
@@ -140,14 +154,14 @@ TRACE_EVENT(perf_index_l,
 		__entry->io_reqc_w,
 		__entry->io_dur,
 		__entry->io_q_dept,
-		__entry->stall[0],
-		__entry->stall[1],
-		__entry->stall[2],
-		__entry->stall[3],
-		__entry->stall[4],
-		__entry->stall[5],
-		__entry->stall[6],
-		__entry->stall[7]
+		__entry->stall_0,
+		__entry->stall_1,
+		__entry->stall_2,
+		__entry->stall_3,
+		__entry->stall_4,
+		__entry->stall_5,
+		__entry->stall_6,
+		__entry->stall_7
 		)
 );
 
@@ -204,19 +218,19 @@ TRACE_EVENT(charger,
 );
 
 TRACE_EVENT(perf_index_sbin,
-	TP_PROTO(u32 *raw_data, u32 lens),
-	TP_ARGS(raw_data, lens),
+	TP_PROTO(char *raw_data, u32 lens, u32 controls),
+	TP_ARGS(raw_data, lens, controls),
 	TP_STRUCT__entry(
-		__dynamic_array(u32, raw_data, lens)
+		__string(data, raw_data)
 		__field(u32, lens)
+		__field(u32, ctl)
 	),
 	TP_fast_assign(
-		memcpy(__get_dynamic_array(raw_data), raw_data,
-			lens * sizeof(u32));
+		__assign_str(data, raw_data);
 		__entry->lens = lens;
+		__entry->ctl = controls;
 	),
-	TP_printk("data=%s", __print_array(__get_dynamic_array(raw_data),
-		__entry->lens, sizeof(u32)))
+	TP_printk("raw_data=%s lens=%d ctl=%d", __get_str(data), __entry->lens, __entry->ctl)
 );
 
 TRACE_EVENT(freq_qos_user_setting,
