@@ -111,7 +111,7 @@
 			8250.nr_uarts=4 \
 			initcall_debug=1 cma=64M transparent_hugepage=never \
 			allow_mismatched_32bit_el0 \
-			firmware_class.path=/vendor/firmware";
+			firmware_class.path=/vendor/firmware pelt=8";
 			kaslr-seed = <0 0>;
 	};
 
