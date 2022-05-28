@@ -1677,6 +1677,26 @@ bool mtk_drm_set_cwb_roi(struct mtk_rect rect)
 
 }
 
+void mtk_wakeup_pf_wq(void)
+{
+	struct drm_crtc *crtc;
+	struct mtk_drm_crtc *mtk_crtc;
+
+	crtc = list_first_entry(&(drm_dev)->mode_config.crtc_list,
+				typeof(*crtc), head);
+	if (!crtc) {
+		DDPPR_ERR("find crtc fail\n");
+		return;
+	}
+	mtk_crtc = to_mtk_crtc(crtc);
+
+	if (mtk_crtc &&
+		mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base)) {
+		atomic_set(&mtk_crtc->pf_event, 1);
+		wake_up_interruptible(&mtk_crtc->present_fence_wq);
+	}
+}
+
 void mtk_drm_cwb_backup_copy_size(void)
 {
 	struct drm_crtc *crtc;

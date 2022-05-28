@@ -46,6 +46,7 @@ struct mtk_disp_ddp_data {
 	unsigned int mutex_mod_reg;
 	unsigned int mutex_sof_reg;
 	const unsigned int *dispsys_map;
+	bool wakeup_pf_wq;
 };
 
 struct mtk_ddp {

@@ -3650,6 +3650,7 @@ static const struct mtk_disp_ddp_data mt6985_ddp_driver_data = {
 	.mutex_mod_reg = MT6983_DISP_MUTEX0_MOD0,
 	.mutex_sof_reg = MT6983_DISP_MUTEX0_SOF,
 	.dispsys_map = mt6985_dispsys_map,
+	.wakeup_pf_wq = 1,
 };
 
 static const struct mtk_disp_ddp_data mt6895_ddp_driver_data = {
@@ -14872,6 +14873,8 @@ static irqreturn_t mtk_disp_mutex_irq_handler(int irq, void *dev_id)
 			DDPIRQ("[IRQ] mutex%d sof!\n", m_id);
 			DRM_MMP_MARK(mutex[m_id], val, 0);
 
+			if (m_id == 0 && ddp->data->wakeup_pf_wq)
+				mtk_wakeup_pf_wq();
 			if (disp_helper_get_stage() == DISP_HELPER_STAGE_NORMAL) {
 				irq_debug[3] = sched_clock();
 				mtk_drm_cwb_backup_copy_size();
