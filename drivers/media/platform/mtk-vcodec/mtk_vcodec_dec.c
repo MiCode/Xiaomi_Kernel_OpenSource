@@ -55,6 +55,7 @@ void mtk_vdec_do_gettimeofday(struct timespec64 *tv)
 	tv->tv_nsec = now.tv_nsec; // micro sec = ((long)(now.tv_nsec)/1000);
 }
 
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
 static void set_vdec_vcp_data(struct mtk_vcodec_ctx *ctx, enum vcp_reserve_mem_id_t id)
 {
 	char tmp_buf[1024] = "";
@@ -100,6 +101,7 @@ static void set_vdec_vcp_data(struct mtk_vcodec_ctx *ctx, enum vcp_reserve_mem_i
 		mtk_v4l2_err("[%d] id not support %d", ctx->id, id);
 	}
 }
+#endif
 
 static void get_supported_format(struct mtk_vcodec_ctx *ctx)
 {
@@ -1807,10 +1809,14 @@ void mtk_vcodec_dec_set_default_params(struct mtk_vcodec_ctx *ctx)
 
 	get_supported_format(ctx);
 	get_supported_framesizes(ctx);
+
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
 	if (mtk_vcodec_vcp & (1 << MTK_INST_DECODER)) {
 		set_vdec_vcp_data(ctx, VDEC_VCP_LOG_INFO_ID);
 		set_vdec_vcp_data(ctx, VDEC_SET_PROP_MEM_ID);
 	}
+#endif
+
 	q_data = &ctx->q_data[MTK_Q_DATA_SRC];
 	memset(q_data, 0, sizeof(struct mtk_q_data));
 	q_data->visible_width = DFT_CFG_WIDTH;

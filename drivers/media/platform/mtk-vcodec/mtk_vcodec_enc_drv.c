@@ -176,7 +176,9 @@ static int fops_vcodec_release(struct file *file)
 {
 	struct mtk_vcodec_dev *dev = video_drvdata(file);
 	struct mtk_vcodec_ctx *ctx = fh_to_ctx(file->private_data);
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
 	int ret = 0;
+#endif
 
 	mtk_v4l2_debug(0, "[%d] encoder", ctx->id);
 	mutex_lock(&dev->dev_mutex);

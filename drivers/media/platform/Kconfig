@@ -308,13 +308,12 @@ config VIDEO_MEDIATEK_VCODEC
 	depends on MTK_IOMMU || COMPILE_TEST
 	depends on VIDEO_DEV && VIDEO_V4L2
 	depends on ARCH_MEDIATEK || COMPILE_TEST
-	depends on VIDEO_MEDIATEK_VPU || MTK_SCP || MTK_TINYSYS_VCP_SUPPORT
+	depends on VIDEO_MEDIATEK_VPU || MTK_SCP || MTK_TINYSYS_VCP_SUPPORT || VIDEO_MEDIATEK_VCU
 	# The two following lines ensure we have the same state ("m" or "y") as
 	# our dependencies, to avoid missing symbols during link.
 	depends on VIDEO_MEDIATEK_VPU || !VIDEO_MEDIATEK_VPU
 	depends on MTK_SCP || !MTK_SCP
 	depends on MTK_TINYSYS_VCP_SUPPORT || !MTK_TINYSYS_VCP_SUPPORT
-	select VIDEO_MEDIATEK_VCU
 	depends on MTK_SMI || (COMPILE_TEST && MTK_SMI=n)
 	select VIDEOBUF2_DMA_CONTIG
 	select V4L2_MEM2MEM_DEV

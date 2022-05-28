@@ -858,14 +858,16 @@ static int mtk_vdec_uP_translation_fault_callback(
 	int port, dma_addr_t mva, void *data)
 {
 	struct mtk_vcodec_dev *dev = (struct mtk_vcodec_dev *)data;
-	struct mtk_vcodec_ctx *ctx, *dec_ctx[MTK_VDEC_HW_NUM];
+	struct mtk_vcodec_ctx *dec_ctx[MTK_VDEC_HW_NUM];
 	u32 dec_fourcc[MTK_VDEC_HW_NUM];
 	char dec_codec_name[MTK_VDEC_HW_NUM][5];
 	int dec_ctx_id[MTK_VDEC_HW_NUM];
 	enum mtk_vcodec_ipm vdec_hw_ipm;
 	int hw_id, i;
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
+	struct mtk_vcodec_ctx *ctx;
 	struct list_head *list_ptr, *tmp;
-
+#endif
 	if (dev->pm.mtkdev == NULL) {
 		mtk_v4l2_err("fail to get vdec_hw_ipm");
 		vdec_hw_ipm = VCODEC_IPM_V2;
@@ -894,7 +896,6 @@ static int mtk_vdec_uP_translation_fault_callback(
 		dec_ctx_id[MTK_VDEC_LAT], dec_codec_name[MTK_VDEC_LAT], dec_fourcc[MTK_VDEC_LAT],
 		dec_ctx_id[MTK_VDEC_CORE], dec_codec_name[MTK_VDEC_CORE],
 		dec_fourcc[MTK_VDEC_CORE], vdec_hw_ipm);
-
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
 	mtk_v4l2_err("dec working buffer:");
 	mutex_lock(&dev->ctx_mutex);

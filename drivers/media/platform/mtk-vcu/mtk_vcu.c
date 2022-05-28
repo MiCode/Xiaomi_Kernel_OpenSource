@@ -1879,8 +1879,9 @@ static long mtk_vcu_allocation(
 		mem_priv = mtk_vcu_get_buffer(vcu_queue, mem_buff_ptr);
 	} else if (cmd == VCU_UBE_MVA_ALLOCATION) {
 		struct device *io_dev = vcu_queue->dev;
-
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
 		vcu_queue->dev = vcp_get_io_device(VCP_IOMMU_UBE_LAT);
+#endif
 		if (vcu_queue->dev == NULL)
 			vcu_queue->dev = io_dev;
 		mem_priv = mtk_vcu_get_buffer(vcu_queue, mem_buff_ptr);
@@ -1920,7 +1921,9 @@ static long mtk_vcu_free(
 	} else if (cmd == VCU_UBE_MVA_FREE) {
 		struct device *io_dev = vcu_queue->dev;
 
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
 		vcu_queue->dev = vcp_get_io_device(VCP_IOMMU_UBE_LAT);
+#endif
 		if (vcu_queue->dev == NULL)
 			vcu_queue->dev = io_dev;
 		ret = mtk_vcu_free_buffer(vcu_queue, mem_buff_ptr);

@@ -48,6 +48,7 @@ inline unsigned int log2_enc(__u32 value)
 	return x;
 }
 
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
 static void set_venc_vcp_data(struct mtk_vcodec_ctx *ctx, enum vcp_reserve_mem_id_t id)
 {
 	struct venc_enc_param enc_prm;
@@ -100,6 +101,7 @@ static void set_venc_vcp_data(struct mtk_vcodec_ctx *ctx, enum vcp_reserve_mem_i
 
 	kfree(enc_prm.set_vcp_buf);
 }
+#endif
 static void get_supported_format(struct mtk_vcodec_ctx *ctx)
 {
 	unsigned int i;
@@ -3059,10 +3061,12 @@ void mtk_vcodec_enc_set_default_params(struct mtk_vcodec_ctx *ctx)
 	get_supported_format(ctx);
 	get_supported_framesizes(ctx);
 
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
 	if (mtk_vcodec_vcp & (1 << MTK_INST_ENCODER)) {
 		set_venc_vcp_data(ctx, VENC_VCP_LOG_INFO_ID);
 		set_venc_vcp_data(ctx, VENC_SET_PROP_MEM_ID);
 	}
+#endif
 
 	q_data = &ctx->q_data[MTK_Q_DATA_SRC];
 	memset(q_data, 0, sizeof(struct mtk_q_data));
