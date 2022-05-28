@@ -14,9 +14,11 @@
 #include <media/v4l2-async.h>
 #include <media/v4l2-device.h>
 
+/* for seninf pad enum... */
 #include "imgsensor-user.h"
 
 #include "mtk_cam-ctrl.h"
+#include "mtk_cam-debug_option.h"
 #include "mtk_cam-hsf-def.h"
 #include "mtk_cam-ipi_7_1.h"
 #include "mtk_cam-job.h"
@@ -32,8 +34,6 @@
 
 #define CCD_READY 1
 
-
-#define SENSOR_FMT_MASK			0xFFFF
 
 struct mtk_cam_debug_fs;
 struct mtk_cam_request;
@@ -217,15 +217,14 @@ struct mtk_cam_device {
 	//wait_queue_head_t debug_exception_waitq;
 };
 
-static inline struct mtk_cam_device *subdev_to_cam_device(struct v4l2_subdev *sd)
-{
-	return container_of(sd->v4l2_dev->mdev,
-			    struct mtk_cam_device, media_dev);
-}
-
 static inline struct device *subdev_to_cam_dev(struct v4l2_subdev *sd)
 {
-	return ((struct mtk_cam_device *)subdev_to_cam_device(sd))->dev;
+	return sd->v4l2_dev->dev;
+}
+
+static inline struct mtk_cam_device *subdev_to_cam_device(struct v4l2_subdev *sd)
+{
+	return dev_get_drvdata(subdev_to_cam_dev(sd));
 }
 
 struct device *mtk_cam_root_dev(void);
@@ -257,6 +256,7 @@ static inline int mtk_cam_occupy_engine(struct mtk_cam_device *cam, int engines)
 int mtk_cam_pm_runtime_engines(struct mtk_cam_engines *eng,
 			       int engine_mask, int enable);
 
+/* note: flag V4L2_MBUS_FRAMEFMT_PAD_ENABLE is defined by mtk internally */
 static inline void
 mtk_cam_pad_fmt_enable(struct v4l2_mbus_framefmt *framefmt, bool enable)
 {

@@ -575,7 +575,6 @@ int is_fullg_rb(unsigned int pixelformat)
 	}
 }
 
-#define SENSOR_FMT_MASK			0xFFFF
 unsigned int sensor_mbus_to_ipi_fmt(unsigned int mbus_code)
 {
 	unsigned int fmt = MTKCAM_IPI_IMG_FMT_UNKNOWN;

@@ -10,11 +10,7 @@
 #include "mtk_cam-video.h"
 #include "mtk_cam-tg-flash.h"
 #include "mtk_camera-v4l2-controls.h"
-#include "mtk_cam-raw_nodes.h"
-
-
-#define MTK_CAMSYS_RES_STEP_NUM	8 //TODO: remove
-
+#include "mtk_cam-raw_pads.h"
 
 /* FIXME: dynamic config image max/min w/h */
 #define IMG_MAX_WIDTH		12000
@@ -180,8 +176,8 @@ struct mtk_raw_request_data {
 struct mtk_raw_pipeline {
 	unsigned int id;
 	struct v4l2_subdev subdev;
-	struct media_pad pads[MTK_RAW_PIPELINE_PADS_NUM];
 	struct mtk_cam_video_device vdev_nodes[MTK_RAW_TOTAL_NODES];
+	struct media_pad pads[MTK_RAW_PIPELINE_PADS_NUM];
 	struct mtk_raw_pad_config pad_cfg[MTK_RAW_PIPELINE_PADS_NUM];
 	struct v4l2_ctrl_handler ctrl_handler;
 
@@ -208,33 +204,24 @@ int mtk_raw_register_entities(struct mtk_raw_pipeline *arr_pipe, int num,
 			      struct v4l2_device *v4l2_dev);
 void mtk_raw_unregister_entities(struct mtk_raw_pipeline *arr_pipe, int num);
 
-struct mtk_cam_ctx;
-int mtk_cam_raw_select(struct mtk_cam_ctx *ctx,
-		       struct mtkcam_ipi_input_param *cfg_in_param);
-
-int mtk_cam_get_subsample_ratio(int raw_feature);
-
-int mtk_raw_call_pending_set_fmt(struct v4l2_subdev *sd,
-				 struct v4l2_subdev_format *fmt);
-
+/* TODO: move to cam */
 struct v4l2_subdev *mtk_cam_find_sensor(struct mtk_cam_ctx *ctx,
 					struct media_entity *entity);
 
-void mtk_cam_update_sensor(struct mtk_cam_ctx *ctx,
-			   struct v4l2_subdev *sensor);
+/* helper function */
+static inline struct mtk_cam_video_device *
+mtk_raw_get_node(struct mtk_raw_pipeline *pipe, int pad)
+{
+	int idx;
 
-bool
-mtk_raw_sel_get_res(struct v4l2_subdev *sd, struct v4l2_subdev_selection *sel,
-		    struct mtk_cam_resource *res);
-bool
-mtk_raw_fmt_get_res(struct v4l2_subdev *sd, struct v4l2_subdev_format *fmt,
-		    struct mtk_cam_resource *res);
+	if (WARN_ON(pad < MTK_RAW_SINK_NUM))
+		return NULL;
 
-unsigned int mtk_raw_get_hdr_scen_id(struct mtk_cam_ctx *ctx);
+	idx = raw_pad_to_node_idx(pad);
+	if (WARN_ON(idx < 0 || idx >= ARRAY_SIZE(pipe->vdev_nodes)))
+		return NULL;
 
-struct v4l2_rect*
-mtk_raw_pipeline_get_selection(struct mtk_raw_pipeline *pipe,
-			       struct v4l2_subdev_state *state,
-			       int pad, int which);
+	return &pipe->vdev_nodes[idx];
+}
 
 #endif /*__MTK_CAM_RAW_PIPELINE_H*/

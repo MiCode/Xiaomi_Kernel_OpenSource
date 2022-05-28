@@ -75,11 +75,6 @@ struct mtk_cam_format_desc {
 	struct v4l2_mbus_framefmt pfmt;
 };
 
-struct mtk_cam_pad_ops {
-	set_pad_fmt_func_t set_pad_fmt;
-	set_pad_selection_func_t set_pad_selection;
-};
-
 /*
  * struct mtk_cam_dev_node_desc - MTK camera device node descriptor
  *

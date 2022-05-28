@@ -1106,12 +1106,43 @@ int mtk_cam_vidioc_enum_fmt(struct file *file, void *fh,
 	return 0;
 }
 
+static void log_fmt_ops(struct mtk_cam_video_device *node,
+			struct v4l2_format *f,
+			const char *caller)
+{
+	struct media_pad *remote_pad;
+	const char *remote_name = "null";
+
+	remote_pad = media_entity_remote_pad(&node->pad);
+	if (remote_pad)
+		remote_name = remote_pad->entity->name;
+
+	if (f->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
+		struct v4l2_pix_format_mplane *pix_mp = &f->fmt.pix_mp;
+
+		pr_info("%s: %s node %s: pix_mp (%ux%u pixelformat %u plane %u)\n",
+			caller, remote_pad->entity->name, node->desc.name,
+			pix_mp->width, pix_mp->height, pix_mp->pixelformat,
+			pix_mp->num_planes);
+	} else if (f->type == V4L2_BUF_TYPE_META_CAPTURE ||
+		   f->type == V4L2_BUF_TYPE_META_OUTPUT) {
+		struct v4l2_meta_format *meta = &f->fmt.meta;
+
+		pr_info("%s: %s node %s: meta (format %u size %u)\n",
+			caller, remote_pad->entity->name, node->desc.name,
+			meta->dataformat, meta->buffersize);
+	}
+}
+
 int mtk_cam_vidioc_g_fmt(struct file *file, void *fh,
 			 struct v4l2_format *f)
 {
 	struct mtk_cam_video_device *node = file_to_mtk_cam_node(file);
 
 	f->fmt = node->active_fmt.fmt;
+
+	if (CAM_DEBUG_ENABLED(FORMAT))
+		log_fmt_ops(node, f, __func__);
 
 	return 0;
 }
@@ -1122,9 +1153,13 @@ int mtk_cam_vidioc_s_fmt(struct file *file, void *fh,
 	struct mtk_cam_video_device *node = file_to_mtk_cam_node(file);
 	int ret;
 
+
 	ret = mtk_cam_video_set_fmt(node, f);
 	if (!ret)
 		node->active_fmt = *f;
+
+	if (CAM_DEBUG_ENABLED(FORMAT))
+		log_fmt_ops(node, f, __func__);
 
 	return ret;
 }
@@ -1291,6 +1326,8 @@ int mtk_cam_vidioc_g_meta_fmt(struct file *file, void *fh,
 		"%s: node:%s dataformat:%d buffersize:%d\n",
 		__func__, node->desc.name, f->fmt.meta.dataformat, f->fmt.meta.buffersize);
 
+	log_fmt_ops(node, f, __func__);
+
 	return 0;
 
 }
@@ -1318,8 +1355,15 @@ static int refine_valid_selection(struct mtk_cam_video_device *node,
 		if (WARN_ON_ONCE(!remote_pad))
 			return -1;
 
+		if (CAM_DEBUG_ENABLED(FORMAT))
+			pr_info("%s: remote %s node %s: sel (%d,%d %ux%u)\n",
+				__func__,
+				remote_pad->entity->name, node->desc.name,
+				s->r.left, s->r.top, s->r.width, s->r.height);
+
 		pipe = container_of(remote_pad->entity,
 				    struct mtk_raw_pipeline, subdev.entity);
+
 		sink_w = pipe->pad_cfg[MTK_RAW_SINK].mbus_fmt.width;
 		sink_h = pipe->pad_cfg[MTK_RAW_SINK].mbus_fmt.height;
 
