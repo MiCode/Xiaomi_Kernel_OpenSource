@@ -47,7 +47,6 @@ $(TARGET_KERNEL_CONFIG): $(wildcard kernel/build/*.sh) $(GEN_KERNEL_BUILD_CONFIG
 	if ! cmp -s $@.timestamp $@; then rm -f $@.timestamp; else mv -f $@.timestamp $@; fi
 
 ifeq (yes,$(strip $(BUILD_KERNEL)))
-.KATI_RESTAT: $(KERNEL_ZIMAGE_OUT)
 $(KERNEL_ZIMAGE_OUT): PRIVATE_DIR := $(KERNEL_DIR)
 $(KERNEL_ZIMAGE_OUT): PRIVATE_KERNEL_OUT := $(REL_KERNEL_OUT)
 $(KERNEL_ZIMAGE_OUT): PRIVATE_DIST_DIR := $(REL_KERNEL_OUT)
