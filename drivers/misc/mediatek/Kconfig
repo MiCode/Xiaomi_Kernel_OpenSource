@@ -104,6 +104,15 @@ config MTK_RTNL_LOCK_DEBUG
 	  out to help locate the problem.
 	  If unsure, say N.
 
+config MTK_VM_DEBUG
+	bool "MTK_VM"
+	def_bool n
+	help
+	  This is used for debugging kernel memory management related
+	  seldom issues.
+	  Say Y here if you need debug kernel memory management.
+	  If unsure, say N
+
 source "drivers/misc/mediatek/blocktag/Kconfig"
 source "drivers/misc/mediatek/mtprof/Kconfig"
 source "drivers/misc/mediatek/locking/Kconfig"
