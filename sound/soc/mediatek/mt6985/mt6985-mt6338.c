@@ -710,7 +710,7 @@ SND_SOC_DAILINK_DEFS(dspoffload,
 	DAILINK_COMP_ARRAY(COMP_PLATFORM("mt_soc_offload_common")));
 #endif
 #endif
-#if IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP) && !defined(SKIP_SB)
+#if IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP)
 SND_SOC_DAILINK_DEFS(dspvoip,
 	DAILINK_COMP_ARRAY(COMP_CPU("audio_task_voip_dai")),
 	DAILINK_COMP_ARRAY(COMP_DUMMY()),
@@ -1371,7 +1371,7 @@ static struct snd_soc_dai_link mt6985_mt6338_dai_links[] = {
 	},
 #endif
 #endif
-#if IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP) && !defined(SKIP_SB)
+#if IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP)
 	{
 		.name = "DSP_Playback_Voip",
 		.stream_name = "DSP_Playback_Voip",

@@ -111,7 +111,7 @@ static int adspsys_drv_probe(struct platform_device *pdev)
 	adspsys->cfg_secure = devm_ioremap_resource(dev, res);
 	adspsys->cfg_secure_size = resource_size(res);
 
-	of_property_read_u32(dev->of_node, "core_num", &adspsys->num_cores);
+	of_property_read_u32(dev->of_node, "core-num", &adspsys->num_cores);
 
 	ret = adsp_clk_probe(pdev, &adspsys->clk_ops);
 	if (ret) {
@@ -208,7 +208,7 @@ static int adsp_core_drv_probe(struct platform_device *pdev)
 		return -ENODEV;
 	pdata->sysram = ioremap_wc(pdata->sysram_phys, pdata->sysram_size);
 
-	of_property_read_u32(dev->of_node, "feature_control_bits",
+	of_property_read_u32(dev->of_node, "feature-control-bits",
 			     &pdata->feature_set);
 
 	/* mailbox channel parsing */
@@ -254,7 +254,7 @@ static struct platform_driver adsp_core0_driver = {
 	.probe = adsp_core_drv_probe,
 	.remove = adsp_core_drv_remove,
 	.driver = {
-		.name = "adsp_core0",
+		.name = "adsp-core0",
 		.owner = THIS_MODULE,
 #if IS_ENABLED(CONFIG_OF)
 		.of_match_table = adsp_core_of_ids,
@@ -266,7 +266,7 @@ static struct platform_driver adsp_core1_driver = {
 	.probe = adsp_core_drv_probe,
 	.remove = adsp_core_drv_remove,
 	.driver = {
-		.name = "adsp_core1",
+		.name = "adsp-core1",
 		.owner = THIS_MODULE,
 #if IS_ENABLED(CONFIG_OF)
 		.of_match_table = adsp_core_of_ids,

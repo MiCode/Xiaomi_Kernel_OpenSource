@@ -53,7 +53,7 @@ static bool is_adsp_core_suspend(struct adsp_priv *pdata)
 
 	if (pdata->id == ADSP_A_ID) {
 		return check_hifi_status(ADSP_A_IS_WFI) &&
-		       check_hifi_status(ADSP_AXI_BUS_IS_IDLE) &&
+		       (check_hifi_status(ADSP_AXI_BUS_IS_IDLE) || is_adsp_axibus_idle()) &&
 		       (status == ADSP_SUSPEND);
 	} else { /* ADSP_B_ID */
 		return check_hifi_status(ADSP_B_IS_WFI) &&

@@ -7,16 +7,6 @@
 #define __ADSP_REG_H
 
 /*#define ADSP_BASE in use file */
-#define ADSP_CFGREG_SW_RSTN         (ADSP_BASE + 0x0000)
-#define ADSP_A_SW_RSTN              (0x11)
-#define ADSP_B_SW_RSTN              (0x22)
-#define ADSP_SW_RSTN                (0x33)
-
-#define ADSP_HIFI3_IO_CONFIG        (ADSP_BASE + 0x000C)
-#define ADSP_A_RUNSTALL             (1 << 31)
-#define ADSP_B_RUNSTALL             (1 << 30)
-#define ADSP_RUNSTALL               (ADSP_A_RUNSTALL | ADSP_B_RUNSTALL)
-
 #define ADSP_A_INTR_STATUS          (ADSP_BASE + 0x0010)
 #define ADSP_B_INTR_STATUS          (ADSP_BASE + 0x0014)
 #define INFRABUS_TIMEOUT_IRQ        (1 << 24)
