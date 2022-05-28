@@ -22,9 +22,9 @@ ccflags-y += -I$(srctree)/drivers/dma-buf/heaps
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/slbc
 
 mtk_aov-objs := \
-	mtk-hxp-drv.o	\
-	mtk-hxp-core.o \
-	mtk-hxp-queue.o \
+	mtk-aov-drv.o	\
+	mtk-aov-core.o \
+	mtk-aov-queue.o \
 	alloc/tlsf/tlsf_alloc.o
 
 obj-${CONFIG_VIDEO_MTK_ISP_AOV} += mtk_aov.o

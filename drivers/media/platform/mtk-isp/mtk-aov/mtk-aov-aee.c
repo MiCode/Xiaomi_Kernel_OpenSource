@@ -10,44 +10,22 @@
 
 #include <aee.h>
 
-#include "mtk-hxp-drv.h"
-#include "mtk-hxp-aee.h"
-#include "mtk-hxp-core.h"
+#include "mtk-aov-drv.h"
+#include "mtk-aov-aee.h"
+#include "mtk-aov-core.h"
 
-int hxp_notify_aee(void)
+int aov_notify_aee(void)
 {
-	//unsigned long flag;
-	//struct msg *msg;
-	//char dummy;
+	pr_info("aov trigger aee dump+\n");
 
-	pr_info("HCP trigger AEE dump+\n");
-
-	//msg = msg_pool_get(hxp_mtkdev);
-	//msg->user_obj.id = HXP_IMGSYS_AEE_DUMP_ID;
-	//msg->user_obj.len = 0;
-	//msg->user_obj.info.send.hcp = HXP_IMGSYS_AEE_DUMP_ID;
-	//msg->user_obj.info.send.req = 0;
-	//msg->user_obj.info.send.ack = 0;
-
-	//spin_lock_irqsave(&hxp_mtkdev->msglock, flag);
-	//msg->user_obj.info.send.seq = atomic_inc_return(&hxp_mtkdev->seq);
-
-	//list_add_tail(&msg->entry, &hxp_mtkdev->chans[MODULE_AOV]);
-	//spin_unlock_irqrestore(&hxp_mtkdev->msglock, flag);
-	//wake_up(&hxp_mtkdev->poll_wq[MODULE_IMG]);
-
-	//hxp_core_send_cmd(hxp_mtkdev, HXP_IMGSYS_AEE_DUMP_ID, &dummy, 1, 0, 1);
-
-	//module_notify(hxp_mtkdev, &msg->user_obj);
-
-	pr_info("HCP trigger AEE dump-\n");
+	pr_info("aov trigger AEE dump-\n");
 
 	return 0;
 }
 
 int proc_open(struct inode *inode, struct file *file)
 {
-	struct mtk_hxp *hxp_dev = hxp_core_get_device();
+	struct mtk_aov *aov_dev = aov_core_get_device();
 
 	const char *name;
 
@@ -55,11 +33,11 @@ int proc_open(struct inode *inode, struct file *file)
 
 	name = file->f_path.dentry->d_name.name;
 	if (!strcmp(name, "daemon")) {
-		file->private_data = &hxp_dev->aee_info.data[0];
+		file->private_data = &aov_dev->aee_info.data[0];
 	} else if (!strcmp(name, "kernel")) {
-		file->private_data = &hxp_dev->aee_info.data[1];
+		file->private_data = &aov_dev->aee_info.data[1];
 	} else if (!strcmp(name, "stream")) {
-		file->private_data = &hxp_dev->aee_info.data[2];
+		file->private_data = &aov_dev->aee_info.data[2];
 	} else {
 		module_put(THIS_MODULE);
 		return -EPERM;
@@ -132,19 +110,19 @@ static const struct proc_ops aee_ops = {
 	.proc_release = proc_close
 };
 
-int hxp_aee_init(struct mtk_hxp *hxp_dev)
+int aov_aee_init(struct mtk_aov *aov_dev)
 {
-	struct hxp_aee *aee_info = &hxp_dev->aee_info;
+	struct aov_aee *aee_info = &aov_dev->aee_info;
 
-	//aed_set_extra_func(hxp_notify_aee);
+	//aed_set_extra_func(aov_notify_aee);
 
 	aee_info->entry = proc_mkdir("mtk_img_debug", NULL);
 	if (aee_info->entry) {
-		aee_info->data[0].size = HXP_AEE_MAX_BUFFER_SIZE;
+		aee_info->data[0].size = aov_AEE_MAX_BUFFER_SIZE;
 		aee_info->data[0].count = 0;
-		aee_info->data[1].size = HXP_AEE_MAX_BUFFER_SIZE;
+		aee_info->data[1].size = aov_AEE_MAX_BUFFER_SIZE;
 		aee_info->data[1].count = 0;
-		aee_info->data[2].size = HXP_AEE_MAX_BUFFER_SIZE;
+		aee_info->data[2].size = aov_AEE_MAX_BUFFER_SIZE;
 		aee_info->data[2].count = 0;
 
 		aee_info->daemon = proc_create(
@@ -160,9 +138,9 @@ int hxp_aee_init(struct mtk_hxp *hxp_dev)
 	return 0;
 }
 
-int hxp_aee_uninit(struct mtk_hxp *hxp_dev)
+int aov_aee_uninit(struct mtk_aov *aov_dev)
 {
-	struct hxp_aee *aee_info = &hxp_dev->aee_info;
+	struct aov_aee *aee_info = &aov_dev->aee_info;
 
 	if (aee_info->kernel)
 		proc_remove(aee_info->kernel);

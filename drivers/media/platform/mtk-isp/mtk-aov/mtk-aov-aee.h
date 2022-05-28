@@ -3,21 +3,21 @@
  * Copyright (c) 2019 MediaTek Inc.
  */
 
-#ifndef MTK_HXP_AEE_H
-#define MTK_HXP_AEE_H
+#ifndef MTK_AOV_AEE_H
+#define MTK_AOV_AEE_H
 
-#define HXP_AEE_MAX_BUFFER_SIZE		(16384)
+#define AOV_AEE_MAX_BUFFER_SIZE		(16384)
 
 // Forward declaration
-struct mtk_hxp;
+struct mtk_aov;
 
 struct proc_info {
-	uint8_t buffer[HXP_AEE_MAX_BUFFER_SIZE];
+	uint8_t buffer[AOV_AEE_MAX_BUFFER_SIZE];
 	size_t size;
 	size_t count;
 };
 
-struct hxp_aee {
+struct aov_aee {
 	struct proc_dir_entry *entry;
 	struct proc_dir_entry *daemon;
 	struct proc_dir_entry *kernel;
@@ -25,8 +25,8 @@ struct hxp_aee {
 	struct proc_info data[3];
 };
 
-int hxp_aee_init(struct mtk_hxp *hxp_dev);
+int aov_aee_init(struct mtk_aov *aov_dev);
 
-int hxp_aee_uninit(struct mtk_hxp *hxp_dev);
+int aov_aee_uninit(struct mtk_aov *aov_dev);
 
-#endif  // MTK_HXP_AEE_H
+#endif  // MTK_AOV_AEE_H

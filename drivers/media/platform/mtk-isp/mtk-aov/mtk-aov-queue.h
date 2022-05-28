@@ -3,8 +3,8 @@
  * Copyright (c) 2019 MediaTek Inc.
  */
 
-#ifndef __MTK_HXP_QUEUE_H__
-#define __MTK_HXP_QUEUE_H__
+#ifndef __MTK_AOV_QUEUE_H__
+#define __MTK_AOV_QUEUE_H__
 
 #include <linux/types.h>
 #include <linux/string.h>
@@ -57,4 +57,4 @@ int32_t queue_deinit(struct queue *queue);
 }
 #endif
 
-#endif  // __MTK_HXP_QUEUE_H__
+#endif  // __MTK_AOV_QUEUE_H__

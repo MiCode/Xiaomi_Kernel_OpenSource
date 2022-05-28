@@ -6,7 +6,7 @@
 #include <linux/mm.h>
 #include <linux/kernel.h>
 
-#include "mtk-hxp-queue.h"
+#include "mtk-aov-queue.h"
 
 #if defined(CONFIG_HAVE_CMPXCHG_DOUBLE)
 

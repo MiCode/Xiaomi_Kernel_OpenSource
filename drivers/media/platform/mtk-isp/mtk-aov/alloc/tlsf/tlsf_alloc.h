@@ -16,8 +16,9 @@
 #define TLSF_FL_INDEX_MAX     (30)
 #define TLSF_FL_INDEX_SHIFT   (TLSF_SL_INDEX_LOG2 + TLSF_ALIGN_SIZE_LOG2)
 #define TLSF_FL_INDEX_COUNT   (TLSF_FL_INDEX_MAX - TLSF_FL_INDEX_SHIFT + 1)
-#define TLSF_MIN_BLOCK_SIZE   (1 << TLSF_FL_INDEX_SHIFT)
 
+#define TLSF_BLOCK_SIZE_MAX   (1UL << TLSF_FL_INDEX_MAX)
+#define TLSF_BLOCK_SIZE_MIN   (sizeof(struct tlsf_block) - sizeof(struct tlsf_block *))
 #define TLSF_BLOCK_CURR_FREE  (0x01)
 #define TLSF_BLOCK_PREV_FREE  (0x02)
 

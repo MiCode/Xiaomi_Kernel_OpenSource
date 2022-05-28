@@ -6,23 +6,40 @@
 #include "tlsf_alloc.h"
 #include "tlsf_base.h"
 
-static void mapping_insert(size_t size, int32_t *fli, int32_t *sli)
+static int32_t mapping_insert(size_t size, int32_t *fli, int32_t *sli)
 {
-	int32_t fl = tlsf_fls(size);
-	int32_t sl = (size >> (fl - TLSF_SL_INDEX_LOG2)) ^ (1 << TLSF_SL_INDEX_LOG2);
+	int32_t fl;
+	int32_t sl;
+
+	fl = tlsf_fls(size);
+	if (fl < TLSF_SL_INDEX_LOG2) {
+		pr_info("%s: block size(%lu/%d) too small", __func__, size, fl);
+		return -1;
+	}
+
+	sl = (size >> (fl - TLSF_SL_INDEX_LOG2)) ^ (1 << TLSF_SL_INDEX_LOG2);
 
 	*fli = fl;
 	*sli = sl;
+
+	return 0;
 }
 
-static void mapping_search(size_t size, int32_t *fli, int32_t *sli)
+static int32_t mapping_search(size_t size, int32_t *fli, int32_t *sli)
 {
+	int32_t fl;
 	size_t round;
 
-	round = (1 << (tlsf_fls(size) - TLSF_SL_INDEX_LOG2)) - 1;
+	fl = tlsf_fls(size);
+	if (fl < TLSF_SL_INDEX_LOG2) {
+		pr_info("%s: block size(%lu/%d) is too small", __func__, size, fl);
+		return -1;
+	}
+
+	round = (1 << (fl - TLSF_SL_INDEX_LOG2)) - 1;
 	size += round;
 
-	mapping_insert(size, fli, sli);
+	return mapping_insert(size, fli, sli);
 }
 
 static struct tlsf_block *search_suitable_block(struct tlsf_info *info,
@@ -36,6 +53,11 @@ static struct tlsf_block *search_suitable_block(struct tlsf_info *info,
 	fl = *fli;
 	sl = *sli;
 
+	if ((fl < 0) || (fl >= TLSF_FL_INDEX_COUNT)) {
+		pr_info("%s: invalid first level index(%d)", __func__, fl);
+		return NULL;
+	}
+
 	sl_bitmap = info->sl_bitmap[fl] & (~0U << sl);
 	if (sl_bitmap) {
 		sl = tlsf_ffs(sl_bitmap);
@@ -46,6 +68,16 @@ static struct tlsf_block *search_suitable_block(struct tlsf_info *info,
 
 		fl = tlsf_ffs(fl_bitmap);
 		sl = tlsf_ffs(info->sl_bitmap[fl]);
+	}
+
+	if ((fl < 0) || (fl >= TLSF_FL_INDEX_COUNT)) {
+		pr_info("%s: invalid first level index(%d)", __func__, fl);
+		return NULL;
+	}
+
+	if ((sl < 0) || (sl >= TLSF_SL_INDEX_COUNT)) {
+		pr_info("%s: invalid second level index(%d)", __func__, sl);
+		return NULL;
 	}
 
 	*fli = fl;
@@ -89,10 +121,22 @@ static struct tlsf_block *split_curr_block(struct tlsf_block *block,
 	return remaining;
 }
 
-static void insert_free_block(struct tlsf_info *info,
+static int32_t insert_free_block(struct tlsf_info *info,
 	struct tlsf_block *prev, int32_t fli, int sli)
 {
-	struct tlsf_block *next = info->block[fli][sli];
+	struct tlsf_block *next;
+
+	if ((fli < 0) || (fli >= TLSF_FL_INDEX_COUNT)) {
+		pr_info("%s: invalid first level index(%d)", __func__, fli);
+		return -1;
+	}
+
+	if ((sli < 0) || (sli >= TLSF_SL_INDEX_COUNT)) {
+		pr_info("%s: invalid second level index(%d)", __func__, sli);
+		return -1;
+	}
+
+	next = info->block[fli][sli];
 
 	prev->next_free = next;
 	prev->prev_free = &info->block_null;
@@ -101,13 +145,28 @@ static void insert_free_block(struct tlsf_info *info,
 	info->block[fli][sli] = prev;
 	info->fl_bitmap |= (1U << fli);
 	info->sl_bitmap[fli] |= (1U << sli);
+
+	return 0;
 }
 
-static void remove_free_block(struct tlsf_info *info,
+static int32_t remove_free_block(struct tlsf_info *info,
 	struct tlsf_block *block, int32_t fli, int32_t sli)
 {
-	struct tlsf_block *prev = block->prev_free;
-	struct tlsf_block *next = block->next_free;
+	struct tlsf_block *prev;
+	struct tlsf_block *next;
+
+	if ((fli < 0) || (fli >= TLSF_FL_INDEX_COUNT)) {
+		pr_info("%s: invalid first level index(%d)", __func__, fli);
+		return -1;
+	}
+
+	if ((sli < 0) || (sli >= TLSF_FL_INDEX_COUNT)) {
+		pr_info("%s: invalid second level index(%d)", __func__, sli);
+		return -1;
+	}
+
+	prev = block->prev_free;
+	next = block->next_free;
 
 	next->prev_free = prev;
 	prev->next_free = next;
@@ -125,37 +184,36 @@ static void remove_free_block(struct tlsf_info *info,
 				info->fl_bitmap &= ~(1U << fli);
 		}
 	}
+
+	return 0;
 }
 
 static struct tlsf_block *locate_free_block(struct tlsf_info *info, size_t size)
 {
 	int32_t fli;
 	int32_t sli;
+	int32_t ret;
 	struct tlsf_block *block;
 
 	block = NULL;
 	if (size) {
-		mapping_search(size, &fli, &sli);
-		/*
-		 * mapping_search can futz with the size, so for excessively large
-		 * sizes it can sometimes wind up with indices that are off the end
-		 * of the block array.
-		 * So, we protect against that here, since this is the only callsite of
-		 * mapping_search.
-		 * Note that we don't need to check sl, since it comes from a modulo
-		 * operation that guarantees it's always in range.
-		 */
+		ret = mapping_search(size, &fli, &sli);
+		if (ret < 0) {
+			pr_info("%s: failed to searh block size(%lu)", __func__, size);
+			return NULL;
+		}
+
 		if (fli < TLSF_FL_INDEX_COUNT)
 			block = search_suitable_block(info, &fli, &sli);
 	}
 
 	if (block) {
-		//tlsf_assert(block_size(block) >= size);
-		remove_free_block(info, block, fli, sli);
+		ret = remove_free_block(info, block, fli, sli);
+		if (ret < 0) {
+			pr_info("%s: failed to remove free block", __func__);
+			return NULL;
+		}
 	}
-
-	//if (unlikely(block && !block->size))
-	//    block = NULL;
 
 	return block;
 }
@@ -166,12 +224,12 @@ static void insert_block_to_list(struct tlsf_info *info, struct tlsf_block *bloc
 	int32_t sli;
 
 	mapping_insert(get_block_curr_size(block), &fli, &sli);
-	insert_free_block(info, block, fli, sli);
+	(void)insert_free_block(info, block, fli, sli);
 }
 
 static int can_split_block(struct tlsf_block *block, size_t size)
 {
-	return get_block_curr_size(block) >= sizeof(struct tlsf_block) + size;
+	return get_block_curr_size(block) >= (sizeof(struct tlsf_block) + size);
 }
 
 static void trim_free_block(struct tlsf_info *info,
@@ -235,24 +293,18 @@ int32_t tlsf_init(struct tlsf_info *info, void *mem, size_t size)
 	return 0;
 }
 
-static size_t adjust_request_size(size_t size, size_t align)
-{
-	if (size) {
-		size = align_up(size, align);
-		if (size < block_size_max)
-			size = tlsf_max(size, block_size_min);
-	}
-
-	return size;
-}
-
 void *tlsf_malloc(struct tlsf_info *info, size_t size)
 {
 	struct tlsf_block *block;
 
-	size = adjust_request_size(size, TLSF_ALIGN_SIZE_BASE);
-	if (size <= 0)
+	if (size <= 0) {
+		pr_info("%s: invalid malloc size(%lu)", __func__, size);
 		return NULL;
+	}
+
+	size = align_up(size, TLSF_ALIGN_SIZE_BASE);
+	if (size < TLSF_BLOCK_SIZE_MIN)
+		size = TLSF_BLOCK_SIZE_MIN;
 
 	block = locate_free_block(info, size);
 	if (block) {
@@ -279,7 +331,7 @@ static void block_remove(struct tlsf_info *info, struct tlsf_block *block)
 	int32_t sli;
 
 	mapping_insert(get_block_curr_size(block), &fli, &sli);
-	remove_free_block(info, block, fli, sli);
+	(void)remove_free_block(info, block, fli, sli);
 }
 
 static struct tlsf_block *merge_prev_block(struct tlsf_info *info,

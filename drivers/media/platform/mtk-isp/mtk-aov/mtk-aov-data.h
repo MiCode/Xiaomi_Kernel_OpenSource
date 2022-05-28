@@ -3,77 +3,73 @@
  * Copyright (c) 2019 MediaTek Inc.
  */
 
-#ifndef MTK_HXP_AOV_H
-#define MTK_HXP_AOV_H
+#ifndef MTK_AOV_DATA_H
+#define MTK_AOV_DATA_H
 
 #include <linux/ioctl.h>
 
 #include "mtk_cam-aov.h"
 
-/**
- * HCP (Hetero Control Processor ) is a tiny processor controlling
- * the methodology of register programming.
- **/
-#define HXP_AOV_INIT              _IOW('H', 0, struct aov_user)
-#define HXP_AOV_SENSOR_ON         _IOW('H', 1, struct sensor_notify)
-#define HXP_AOV_SENSOR_OFF        _IOW('H', 2, struct sensor_notify)
-#define HXP_AOV_DQEVENT           _IOR('H', 3, struct aov_dqevent)
-#define HXP_AOV_DEINIT            _IO('H', 4)
+/*
+ * For user space <-> kernel communication
+ */
+#define AOV_DEV_INIT              _IOW('H', 0, struct aov_user)
+#define AOV_DEV_SENSOR_ON         _IOW('H', 1, struct sensor_notify)
+#define AOV_DEV_SENSOR_OFF        _IOW('H', 2, struct sensor_notify)
+#define AOV_DEV_DQEVENT           _IOR('H', 3, struct aov_dqevent)
+#define AOV_DEV_DEINIT            _IO('H', 4)
 
 #if IS_ENABLED(CONFIG_COMPAT)
-#define COMPAT_HXP_AOV_INIT       _IOW('H', 0, struct aov_user)
-#define COMPAT_HXP_AOV_DQEVENT    _IOR('H', 1, struct aov_dqevent)
-#define COMPAT_HXP_AOV_SENSOR_ON  _IOW('H', 2, struct sensor_notify)
-#define COMPAT_HXP_AOV_SENSOR_OFF _IOW('H', 3, struct sensor_notify)
-#define COMPAT_HXP_AOV_DEINIT     _IO('H', 4)
+#define COMPAT_AOV_DEV_INIT       _IOW('H', 0, struct aov_user)
+#define COMPAT_AOV_DEV_DQEVENT    _IOR('H', 1, struct aov_dqevent)
+#define COMPAT_AOV_DEV_SENSOR_ON  _IOW('H', 2, struct sensor_notify)
+#define COMPAT_AOV_DEV_SENSOR_OFF _IOW('H', 3, struct sensor_notify)
+#define COMPAT_AOV_DEV_DEINIT     _IO('H', 4)
 #endif
 
 /*
  * For APMCU <-> SCP communication
  */
-#define HXP_AOV_CMD_READY         (0)
-#define HXP_AOV_CMD_INIT          (1)
-#define HXP_AOV_CMD_PWR_ON        (2)
-#define HXP_AOV_CMD_PWR_OFF       (3)
-#define HXP_AOV_CMD_FRAME         (4)
-#define HXP_AOV_CMD_DEINIT        (5)
-#define HXP_AOV_CMD_MAX           (6)
+#define AOV_SCP_CMD_READY         (0)
+#define AOV_SCP_CMD_INIT          (1)
+#define AOV_SCP_CMD_PWR_ON        (2)
+#define AOV_SCP_CMD_PWR_OFF       (3)
+#define AOV_SCP_CMD_FRAME         (4)
+#define AOV_SCP_CMD_DEINIT        (5)
+#define AOV_SCP_CMD_MAX           (6)
+#define AOV_SCP_CMD_ACK           (0x80000000)
 
-#define HXP_AOV_DEBUG_DUMP        (1)  // General debug
-#define HXP_AOV_DEBUG_NDD         (2)  // NDD debug mode
+#define AOV_DEBUG_MODE_DUMP       (1)  // General debug
+#define AOV_DEBUG_MODE_NDD        (2)  // NDD debug mode
 
-#define HXP_AOV_MODE_DISP_OFF     (0)
-#define HXP_AOV_MODE_DISP_ON      (1)
+#define AOV_DISP_MODE_OFF         (0)
+#define AOV_DiSP_MODE_ON          (1)
 
-#define HXP_AOV_MAX_PACKET        (8)
+#define AOV_MAX_EVENT_COUNT       (1)
 
-#define HXP_AOV_PACKET_ACK        (0x80000000)
+#define AOV_MAX_USER_SIZE         (offsetof(struct aov_user, aaa_size))
+#define AOV_MAX_SENIF_SIZE        (2 * 1024)
+#define AOV_MAX_AAA_SIZE          (32 * 1024)
+#define AOV_MAX_TUNING_SIZE       (2 * 1024)
+#define AOV_MAX_AIE_SIZE          (162 * 1024)
 
-#define HXP_MAX_EVENT_COUNT       (1)
+#define AOV_MAX_YUVO1_OUTPUT      (640 * 480 + 640 * 240 + 32)  // 640 x 480
+#define AOV_MAX_YUVO2_OUTPUT      (320 * 240 + 320 * 120 + 32)  // 320 x 240
+#define AOV_MAX_AIE_OUTPUT        (32 * 1024)
+#define AOV_MAX_APU_OUTPUT        (200 * 1024)
+#define AOV_MAX_IMGO_OUTPUT       (921600 + 32)  // 640 x 480, bayer12
+#define AOV_MAX_AAO_OUTPUT        (158 * 1024)
+#define AOV_MAX_AAHO_OUTPUT       (1 * 1024)
+#define AOV_MAX_META_OUTPUT       (6 * 1024)
+#define AOV_MAX_AWB_OUTPUT        (2 * 1024)
 
-#define HXP_MAX_USER_SIZE         (offsetof(struct aov_user, aaa_size))
-#define HXP_MAX_SENIF_SIZE        (2 * 1024)
-#define HXP_MAX_AAA_SIZE          (32 * 1024)
-#define HXP_MAX_TUNING_SIZE       (2 * 1024)
-#define HXP_MAX_AIE_SIZE          (162 * 1024)
-
-#define HXP_MAX_YUVO1_OUTPUT      (640 * 480 + 640 * 240 + 32)  // 640 x 480
-#define HXP_MAX_YUVO2_OUTPUT      (320 * 240 + 320 * 120 + 32)  // 320 x 240
-#define HXP_MAX_AIE_OUTPUT        (32 * 1024)
-#define HXP_MAX_APU_OUTPUT        (200 * 1024)
-#define HXP_MAX_IMGO_OUTPUT       (921600 + 32)  // 640 x 480, bayer12
-#define HXP_MAX_AAO_OUTPUT        (158 * 1024)
-#define HXP_MAX_AAHO_OUTPUT       (1 * 1024)
-#define HXP_MAX_META_OUTPUT       (6 * 1024)
-#define HXP_MAX_AWB_OUTPUT        (2 * 1024)
-
-#define HXP_MAX_SENSOR            (64)
+#define AOV_MAX_SENSOR_COUNT      (64)
 
 extern void mtk_aie_aov_memcpy(char *buffer);
 
 struct sensor_notify {
 	uint32_t count;
-	int32_t sensor[HXP_MAX_SENSOR];
+	int32_t sensor[AOV_MAX_SENSOR_COUNT];
 };
 
 struct aov_dqevent {
@@ -124,32 +120,32 @@ struct aov_event {
 
 	// for general debug
 	uint32_t yuvo1_stride;
-	uint8_t yuvo1_output[HXP_MAX_YUVO1_OUTPUT];
+	uint8_t yuvo1_output[AOV_MAX_YUVO1_OUTPUT];
 
 	uint32_t yuvo2_stride;
-	uint8_t yuvo2_output[HXP_MAX_YUVO2_OUTPUT];
+	uint8_t yuvo2_output[AOV_MAX_YUVO2_OUTPUT];
 
 	uint32_t aie_size;
-	uint8_t aie_output[HXP_MAX_AIE_OUTPUT];
+	uint8_t aie_output[AOV_MAX_AIE_OUTPUT];
 
 	uint32_t apu_size;
-	uint8_t apu_output[HXP_MAX_APU_OUTPUT];
+	uint8_t apu_output[AOV_MAX_APU_OUTPUT];
 
 	// for NDD debug mode
 	uint32_t imgo_stride;
-	uint8_t imgo_output[HXP_MAX_IMGO_OUTPUT];
+	uint8_t imgo_output[AOV_MAX_IMGO_OUTPUT];
 
 	uint32_t aao_size;
-	uint8_t aao_output[HXP_MAX_AAO_OUTPUT];
+	uint8_t aao_output[AOV_MAX_AAO_OUTPUT];
 
 	uint32_t aaho_size;
-	uint8_t aaho_output[HXP_MAX_AAHO_OUTPUT];
+	uint8_t aaho_output[AOV_MAX_AAHO_OUTPUT];
 
 	uint32_t meta_size;
-	uint8_t meta_output[HXP_MAX_META_OUTPUT];
+	uint8_t meta_output[AOV_MAX_META_OUTPUT];
 
 	uint32_t awb_size;
-	uint8_t awb_output[HXP_MAX_AWB_OUTPUT];
+	uint8_t awb_output[AOV_MAX_AWB_OUTPUT];
 } __aligned(4);
 
 enum aov_log_id {
@@ -191,19 +187,19 @@ struct aov_user {
 };
 
 struct senif_init {
-	uint8_t data[HXP_MAX_SENIF_SIZE];
+	uint8_t data[AOV_MAX_SENIF_SIZE];
 } __aligned(8);
 
 struct aaa_init {
-	uint8_t data[HXP_MAX_AAA_SIZE];
+	uint8_t data[AOV_MAX_AAA_SIZE];
 } __aligned(8);
 
 struct tuning {
-	uint8_t data[HXP_MAX_TUNING_SIZE];
+	uint8_t data[AOV_MAX_TUNING_SIZE];
 } __aligned(8);
 
 struct aie_init {
-	uint8_t data[HXP_MAX_AIE_SIZE];
+	uint8_t data[AOV_MAX_AIE_SIZE];
 } __aligned(8);
 
 struct aov_init {
@@ -239,7 +235,7 @@ struct aov_init {
 	struct aie_init aie_info;
 
 	// aov event
-	struct aov_event aov_event[HXP_MAX_EVENT_COUNT];
+	struct aov_event aov_event[AOV_MAX_EVENT_COUNT];
 };
 
 struct packet {
@@ -249,4 +245,4 @@ struct packet {
 	uint32_t length;
 } __packed;
 
-#endif  // MTK_HXP_AOV_H
+#endif  // MTK_AOV_DATA_H

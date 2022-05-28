@@ -9,31 +9,6 @@
 #include <linux/types.h>
 #include <linux/printk.h>
 
-#define tlsf_cast(t, exp) ((t) (exp))
-#define tlsf_min(a, b)    ((a) < (b) ? (a) : (b))
-#define tlsf_max(a, b)    ((a) > (b) ? (a) : (b))
-
-#if defined(_MSC_VER)
-#include <intrin.h>
-
-#pragma intrinsic(_BitScanReverse)
-#pragma intrinsic(_BitScanForward)
-
-static int32_t tlsf_fls(uint32_t value)
-{
-	unsigned long index;
-
-	return _BitScanReverse(&index, value) ? index : -1;
-}
-
-static int32_t tlsf_ffs(uint32_t value)
-{
-	unsigned long index;
-
-	return _BitScanForward(&index, value) ? index : -1;
-}
-
-#else
 static int32_t tlsf_fls(uint32_t value)
 {
 	int32_t bit = value ? (32 - __builtin_clz(value) - 1) : -1;
@@ -47,7 +22,6 @@ static int32_t tlsf_ffs(uint32_t value)
 
 	return bit;
 }
-#endif  // _WIN32
 
 static inline size_t align_up(size_t x, size_t align)
 {
@@ -61,10 +35,10 @@ static inline size_t align_down(size_t x, size_t align)
 
 static inline void set_block_curr_size(struct tlsf_block *block, size_t size)
 {
-	const size_t oldsize = block->block_size;
+	const size_t old = block->block_size;
 
 	block->block_size =
-		size | (oldsize & (TLSF_BLOCK_CURR_FREE | TLSF_BLOCK_PREV_FREE));
+		size | (old & (TLSF_BLOCK_CURR_FREE | TLSF_BLOCK_PREV_FREE));
 }
 
 static inline size_t get_block_curr_size(struct tlsf_block *block)
@@ -109,7 +83,7 @@ static inline void set_block_curr_used(struct tlsf_block *block)
  *                                  [free block header]       [used block header]           |
  *  | struct tlsf_block *prev_block    |  previous free block end  |                        |
  *  |----------------------------------|---------------------------|------------------------|
- *  | size_t    block_size             |  current block size       |  current block size    |
+ *  | size_t            block_size     |  current block size       |  current block size    |
  *  | struct tlsf_block *next_free     |  user data start here     |  user data start here  |
  *  | struct tlsf_block *prev_fre      |                           |                        |
  *  |                                  |                           |                        |
@@ -122,35 +96,23 @@ static inline void set_block_curr_used(struct tlsf_block *block)
 #define BLOCK_HEADER_OVERHEAD   (sizeof(size_t))
 #define BLOCK_USER_DATA_START   (offsetof(struct tlsf_block, block_size) + sizeof(size_t))
 
-static const size_t block_size_min =
-	sizeof(struct tlsf_block) - sizeof(struct tlsf_block *);
-
-static const size_t block_size_max = tlsf_cast(size_t, 1) << TLSF_FL_INDEX_MAX;
-
 static struct tlsf_block *block_from_ptr(const void *ptr)
 {
-	//return tlsf_cast(struct tlsf_block*,
-	//  tlsf_cast(unsigned char*, ptr) - block_start_offset);
-	struct tlsf_block *block = (struct tlsf_block *)((uint8_t *)ptr - BLOCK_USER_DATA_START);
-	return block;
+	return (struct tlsf_block *)((uint8_t *)ptr - BLOCK_USER_DATA_START);
 }
 
 static void *block_to_ptr(const struct tlsf_block *block)
 {
-	return tlsf_cast(void *,
-		tlsf_cast(uint8_t*, block) + BLOCK_USER_DATA_START);
+	return (void *)((uint8_t *)block + BLOCK_USER_DATA_START);
 }
 
-/* Return location of next block after block of given size. */
 static struct tlsf_block *offset_to_block(const void *ptr, size_t size)
 {
-	return tlsf_cast(struct tlsf_block*,
-		tlsf_cast(ptrdiff_t, ptr) + size - BLOCK_HEADER_OVERLAP);
+	return (struct tlsf_block *)((size_t)ptr + size - BLOCK_HEADER_OVERLAP);
 }
 
 static struct tlsf_block *block_prev(const struct tlsf_block *block)
 {
-	//tlsf_assert(block_is_prev_free(block) && "previous block must be free");
 	return block->prev_block;
 }
 

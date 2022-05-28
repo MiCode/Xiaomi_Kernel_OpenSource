@@ -3,30 +3,30 @@
  * Copyright (c) 2019 MediaTek Inc.
  */
 
-#ifndef MTK_HXP_CORE_H
-#define MTK_HXP_CORE_H
+#ifndef MTK_AOV_CORE_H
+#define MTK_AOV_CORE_H
 
 #include <linux/fs.h>
 #include <linux/poll.h>
 #include <linux/dma-heap.h>
 #include <linux/dma-buf.h>
 
-#include "mtk-hxp-aov.h"
-#include "mtk-hxp-queue.h"
+#include "mtk-aov-data.h"
+#include "mtk-aov-queue.h"
 
 #include "./alloc/tlsf/tlsf_alloc.h"
 
-#define HXP_TIMEOUT_MS  4000U
+#define AOV_TIMEOUT_MS  4000U
 
 // Forward declaration
-struct mtk_hxp;
+struct mtk_aov;
 
 struct buffer {
 	struct list_head entry;
 	struct aov_event data;
 };
 
-struct hxp_core {
+struct aov_core {
 	struct packet packet;
 
 	atomic_t debug_mode;
@@ -53,31 +53,31 @@ struct hxp_core {
 	struct list_head event_list;
 	spinlock_t event_lock;
 
-	wait_queue_head_t ack_wq[HXP_AOV_CMD_MAX];
-	atomic_t ack_cmd[HXP_AOV_CMD_MAX];
+	wait_queue_head_t ack_wq[AOV_SCP_CMD_MAX];
+	atomic_t ack_cmd[AOV_SCP_CMD_MAX];
 
 	wait_queue_head_t poll_wq;
 	struct queue queue;
 };
 
-int hxp_core_init(struct mtk_hxp *device);
+int aov_core_init(struct mtk_aov *device);
 
-struct mtk_hxp *hxp_core_get_device(void);
+struct mtk_aov *aov_core_get_device(void);
 
-int hxp_core_send_cmd(struct mtk_hxp *hxp_dev,
+int aov_core_send_cmd(struct mtk_aov *aov_dev,
 	uint32_t cmd, void *data, int len, bool ack);
 
-int hxp_core_notify(struct mtk_hxp *hxp_dev,
+int aov_core_notify(struct mtk_aov *aov_dev,
 	void *data, bool enable);
 
-int hxp_core_copy(struct mtk_hxp *hxp_dev,
+int aov_core_copy(struct mtk_aov *aov_dev,
 	struct aov_dqevent *dequeue);
 
-int hxp_core_poll(struct mtk_hxp *hxp_dev,
+int aov_core_poll(struct mtk_aov *aov_dev,
 	struct file *file, poll_table *wait);
 
-int hxp_core_reset(struct mtk_hxp *device);
+int aov_core_reset(struct mtk_aov *device);
 
-int hxp_core_uninit(struct mtk_hxp *hxp_dev);
+int aov_core_uninit(struct mtk_aov *aov_dev);
 
-#endif  // MTK_HXP_CORE_H
+#endif  // MTK_AOV_CORE_H
