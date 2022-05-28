@@ -372,6 +372,12 @@ static int search_sensor(struct adaptor_ctx *ctx)
 				ctx->subdrv->name);
 			subdrv_call(ctx, init_ctx, ctx->i2c_client,
 				ctx->subctx.i2c_write_id);
+			ctx->ctx_pw_seq = kmalloc_array(ctx->subdrv->pw_seq_cnt,
+					sizeof(struct subdrv_pw_seq_entry),
+					GFP_KERNEL);
+			memcpy(ctx->ctx_pw_seq, ctx->subdrv->pw_seq,
+			       ctx->subdrv->pw_seq_cnt *
+			       sizeof(struct subdrv_pw_seq_entry));
 			return 0;
 		}
 	}
@@ -1088,6 +1094,103 @@ ERR_DEBUG_OPS_STORE:
 
 static DEVICE_ATTR_RW(debug_i2c_ops);
 
+
+static const char * const hw_id_names[] = {
+	HW_ID_NAMES
+};
+
+static ssize_t debug_pwr_ops_show(struct device *dev,
+			   struct device_attribute *attr, char *buf)
+{
+	int len = 0;
+	struct adaptor_ctx *ctx = to_ctx(dev_get_drvdata(dev));
+	int i;
+	const struct subdrv_pw_seq_entry *ent;
+
+	SHOW(buf, len, "sensor%d name %s\n", ctx->idx, ctx->subdrv->name);
+	for (i = 0; i < ctx->subdrv->pw_seq_cnt; i++) {
+		if (ctx->ctx_pw_seq)
+			ent = &ctx->ctx_pw_seq[i]; // use ctx pw seq
+		else
+			ent = &ctx->subdrv->pw_seq[i];
+		SHOW(buf, len, "\t%s power %d with delay %d\n",
+		     hw_id_names[ent->id], ent->val, ent->delay);
+	}
+
+	return len;
+}
+
+enum DBG_PWR_ARG_IDX {
+	DBG_PWR_ARG_IDX_SEQ_IDX,
+	DBG_PWR_ARG_IDX_SEQ_VAL,
+	DBG_PWR_ARG_IDX_SEQ_DELAY,
+	DBG_PWR_ARG_IDX_MAX_NUM,
+};
+
+static ssize_t debug_pwr_ops_store(struct device *dev,
+			   struct device_attribute *attr,
+			   const char *buf, size_t count)
+{
+	char delim[] = " ";
+	char *token = NULL;
+	char *sbuf = kzalloc(sizeof(char) * (count + 1), GFP_KERNEL);
+	char *s = sbuf;
+	unsigned int num_para = 0;
+	char *arg[DBG_PWR_ARG_IDX_MAX_NUM];
+	struct adaptor_ctx *ctx = to_ctx(dev_get_drvdata(dev));
+	struct subdrv_pw_seq_entry *ent;
+	unsigned int seq_idx, seq_val, seq_delay;
+	int ret;
+
+	if (!sbuf)
+		goto ERR_DEBUG_PWR_OPS_STORE;
+
+	if (!ctx->ctx_pw_seq) {
+		dev_info(dev, "ctx pw seq is null\n");
+		goto ERR_DEBUG_PWR_OPS_STORE;
+	}
+
+	memcpy(sbuf, buf, count);
+
+	token = strsep(&s, delim);
+	while (token != NULL && num_para < DBG_PWR_ARG_IDX_MAX_NUM) {
+		if (strlen(token)) {
+			arg[num_para] = token;
+			num_para++;
+		}
+
+		token = strsep(&s, delim);
+	}
+
+	if (num_para > DBG_PWR_ARG_IDX_MAX_NUM) {
+		dev_info(dev, "Wrong command parameter number %u\n", num_para);
+		goto ERR_DEBUG_PWR_OPS_STORE;
+	}
+	ret = kstrtouint(arg[DBG_PWR_ARG_IDX_SEQ_IDX], 0, &seq_idx);
+	if (ret)
+		goto ERR_DEBUG_PWR_OPS_STORE;
+	ret = kstrtouint(arg[DBG_PWR_ARG_IDX_SEQ_VAL], 0, &seq_val);
+	if (ret)
+		goto ERR_DEBUG_PWR_OPS_STORE;
+	ret = kstrtouint(arg[DBG_PWR_ARG_IDX_SEQ_DELAY], 0, &seq_delay);
+	if (ret)
+		goto ERR_DEBUG_PWR_OPS_STORE;
+
+	if (seq_idx < ctx->subdrv->pw_seq_cnt) {
+		ent = &ctx->ctx_pw_seq[seq_idx];
+		ent->val = seq_val;
+		ent->delay = seq_delay;
+	}
+
+ERR_DEBUG_PWR_OPS_STORE:
+
+	kfree(sbuf);
+
+	return count;
+}
+
+static DEVICE_ATTR_RW(debug_pwr_ops);
+
 static int imgsensor_probe(struct i2c_client *client)
 {
 	struct device *dev = &client->dev;
@@ -1216,6 +1319,10 @@ static int imgsensor_probe(struct i2c_client *client)
 	if (ret)
 		dev_info(dev, "failed to create sysfs debug_i2c_ops\n");
 
+	ret = device_create_file(dev, &dev_attr_debug_pwr_ops);
+	if (ret)
+		dev_info(dev, "failed to create sysfs debug_pwr_ops\n");
+
 	ctx->sensor_ws = wakeup_source_register(dev, ctx->sd.name);
 
 	if (!ctx->sensor_ws)
@@ -1248,12 +1355,15 @@ static int imgsensor_remove(struct i2c_client *client)
 		wakeup_source_unregister(ctx->sensor_ws);
 	ctx->sensor_ws = NULL;
 
+	kfree(ctx->ctx_pw_seq);
+
 #ifdef IMGSENSOR_USE_PM_FRAMEWORK
 	pm_runtime_disable(&client->dev);
 #else
 	// TODO
 #endif
 	device_remove_file(ctx->dev, &dev_attr_debug_i2c_ops);
+	device_remove_file(ctx->dev, &dev_attr_debug_pwr_ops);
 
 	mutex_destroy(&ctx->mutex);
 

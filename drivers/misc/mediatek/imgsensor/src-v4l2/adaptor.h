@@ -134,6 +134,8 @@ struct adaptor_ctx {
 	int open_refcnt;
 	int power_refcnt;
 
+	struct subdrv_pw_seq_entry *ctx_pw_seq;
+
 	/* debug var */
 	MSDK_SENSOR_REG_INFO_STRUCT sensorReg;
 

@@ -253,7 +253,10 @@ int do_hw_power_on(struct adaptor_ctx *ctx)
 		op->set(ctx, op->data, 0);
 
 	for (i = 0; i < ctx->subdrv->pw_seq_cnt; i++) {
-		ent = &ctx->subdrv->pw_seq[i];
+		if (ctx->ctx_pw_seq)
+			ent = &ctx->ctx_pw_seq[i]; // use ctx pw seq
+		else
+			ent = &ctx->subdrv->pw_seq[i];
 		op = &ctx->hw_ops[ent->id];
 		if (!op->set) {
 			dev_dbg(ctx->dev, "cannot set comp %d val %d\n",
@@ -300,7 +303,10 @@ int do_hw_power_off(struct adaptor_ctx *ctx)
 		subdrv_call(ctx, power_off, NULL);
 
 	for (i = ctx->subdrv->pw_seq_cnt - 1; i >= 0; i--) {
-		ent = &ctx->subdrv->pw_seq[i];
+		if (ctx->ctx_pw_seq)
+			ent = &ctx->ctx_pw_seq[i]; // use ctx pw seq
+		else
+			ent = &ctx->subdrv->pw_seq[i];
 		op = &ctx->hw_ops[ent->id];
 		if (!op->unset)
 			continue;

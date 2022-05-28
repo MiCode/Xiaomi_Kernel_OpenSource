@@ -41,6 +41,25 @@ enum {
 	HW_ID_MAXCNT,
 };
 
+#define HW_ID_NAMES \
+	"HW_ID_AVDD", \
+	"HW_ID_DVDD", \
+	"HW_ID_DOVDD", \
+	"HW_ID_AFVDD", \
+	"HW_ID_AVDD1", \
+	"HW_ID_PDN", \
+	"HW_ID_RST", \
+	"HW_ID_MCLK", \
+	"HW_ID_MCLK_DRIVING_CURRENT", \
+	"HW_ID_MIPI_SWITCH", \
+	"HW_ID_DVDD1", \
+	"HW_ID_RST1", \
+	"HW_ID_MCLK1", \
+	"HW_ID_MCLK1_DRIVING_CURRENT", \
+	"HW_ID_PONV", \
+	"HW_ID_SCL", \
+	"HW_ID_SDA", \
+
 struct subdrv_pw_seq_entry {
 	int id;
 	int val;
