@@ -23,5 +23,27 @@
 			mediatek,dcxo-de-sense-support;
 			mediatek,dcxo-impedance-support;
 		};
+
+		mt6685_rtc: mt6685_rtc {
+			status = "disabled";
+			compatible = "mediatek,mt6685-rtc";
+			interrupts = <0x9 IRQ_TYPE_NONE>;
+			interrupt-names = "rtc";
+			base = <0x580>;
+
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			fg_init: fg_init {
+				reg = <0 0x1>;
+			};
+			fg_soc: fg_soc {
+				reg = <1 0x1>;
+			};
+			ext_32k: ext_32k {
+				reg = <2 0x1>;
+				bits = <6 1>;
+			};
+		};
 	};
 };

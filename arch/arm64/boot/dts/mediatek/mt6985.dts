@@ -12251,6 +12251,10 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 	};
 };
 
+&mt6685_rtc {
+	status = "okay";
+};
+
 #include "mediatek/cust_mt6985_msdc.dtsi"
 #include "mediatek/rt5133.dtsi"
 #include "mediatek/mt6363.dtsi"
