@@ -128,8 +128,7 @@ static enum IMGSENSOR_RETURN gpio_set(
 	if (pin < IMGSENSOR_HW_PIN_PDN ||
 		pin > IMGSENSOR_HW_PIN_MIPI_SWITCH_SEL ||
 		pin_state < IMGSENSOR_HW_PIN_STATE_LEVEL_0 ||
-		pin_state > IMGSENSOR_HW_PIN_STATE_LEVEL_HIGH ||
-		sensor_idx < 0)
+		pin_state > IMGSENSOR_HW_PIN_STATE_LEVEL_HIGH)
 		return IMGSENSOR_RETURN_ERROR;
 
 	gpio_state = (pin_state > IMGSENSOR_HW_PIN_STATE_LEVEL_0)
