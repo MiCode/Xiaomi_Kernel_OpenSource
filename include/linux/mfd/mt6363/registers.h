@@ -16,6 +16,7 @@
 #define MT6363_PSC_TOP_INT_STATUS0         (0x91b)
 #define MT6363_STRUP_CON11		   (0xa0e)
 #define MT6363_STRUP_CON12		   (0xa0f)
+#define MT6363_PCHR_VREF_ANA_CON1          (0xa89)
 #define MT6363_PCHR_VREF_ANA_CON2          (0xa8a)
 #define MT6363_BM_TOP_INT_CON0             (0xc24)
 #define MT6363_BM_TOP_INT_STATUS0          (0xc36)
@@ -29,6 +30,9 @@
 #define MT6363_CHRDET_DEB_ADDR             MT6363_TOPSTATUS
 #define MT6363_CHRDET_DEB_MASK             (0x1)
 #define MT6363_CHRDET_DEB_SHIFT            (2)
+#define MT6363_RG_VBB_UVLO_VTHL_ADDR       MT6363_PCHR_VREF_ANA_CON1
+#define MT6363_RG_VBB_UVLO_VTHL_MASK       (0xF)
+#define MT6363_RG_VBB_UVLO_VTHL_SHIFT      (0)
 #define MT6363_RG_VSYS_UVLO_VTHL_ADDR      MT6363_PCHR_VREF_ANA_CON2
 #define MT6363_RG_VSYS_UVLO_VTHL_MASK      (0xF)
 #define MT6363_RG_VSYS_UVLO_VTHL_SHIFT     (0)

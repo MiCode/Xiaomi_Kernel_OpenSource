@@ -37,6 +37,7 @@ struct reg_t {
 struct dlpt_regs_t {
 	struct reg_t rgs_chrdet;
 	struct reg_t uvlo_reg;
+	struct reg_t vbb_uvlo_reg;
 	const struct linear_range uvlo_range;
 };
 
@@ -69,6 +70,11 @@ struct dlpt_regs_t mt6363_dlpt_regs = {
 		MT6363_RG_VSYS_UVLO_VTHL_ADDR,
 		MT6363_RG_VSYS_UVLO_VTHL_MASK << MT6363_RG_VSYS_UVLO_VTHL_SHIFT,
 		MT6363_RG_VSYS_UVLO_VTHL_SHIFT
+	},
+	.vbb_uvlo_reg = {
+		MT6363_RG_VBB_UVLO_VTHL_ADDR,
+		MT6363_RG_VBB_UVLO_VTHL_MASK << MT6363_RG_VBB_UVLO_VTHL_SHIFT,
+		MT6363_RG_VBB_UVLO_VTHL_SHIFT
 	},
 	.uvlo_range = {
 		.min = 2000,
@@ -494,7 +500,7 @@ static int linear_range_get_selector(const struct linear_range *r,
 	return 0;
 }
 
-static void pmic_uvlo_init(int uvlo_level)
+static void pmic_uvlo_init(int uvlo_level, int vbb_uvlo_level)
 {
 	int ret, val = 0;
 
@@ -507,25 +513,28 @@ static void pmic_uvlo_init(int uvlo_level)
 			uvlo_level, val);
 	} else
 		pr_notice("[dlpt] Invalid uvlo_level (%d)\n", uvlo_level);
+
+	if (vbb_uvlo_level) {
+		ret = linear_range_get_selector(&dlpt.regs->uvlo_range, vbb_uvlo_level, &val);
+		if (!ret) {
+			regmap_update_bits(dlpt.regmap, dlpt.regs->vbb_uvlo_reg.addr,
+					   dlpt.regs->vbb_uvlo_reg.mask,
+					   val << dlpt.regs->vbb_uvlo_reg.shift);
+			pr_info("[dlpt] VBB_UVLO_VOLT_LEVEL = %d, RG_VBB_UVLO_VTHL = 0x%x\n",
+				vbb_uvlo_level, val);
+		} else
+			pr_notice("[dlpt] Invalid vbb_uvlo_level (%d)\n", vbb_uvlo_level);
+	}
 }
 
 static void dlpt_parse_dt(struct platform_device *pdev)
 {
 	struct device_node *np;
-	int uvlo_level;
+	int uvlo_level = 0, vbb_uvlo_level;
 	int ret;
 
-	/* get power_path_support */
-	np = of_parse_phandle(pdev->dev.of_node, "mediatek,charger", 0);
-	if (!np)
-		dev_notice(&pdev->dev, "get charger node fail\n");
-	else
-		dlpt.is_power_path_supported =
-			of_property_read_bool(np, "power_path_support");
-
 	/* get dlpt device node */
-	np = of_find_node_by_name(pdev->dev.parent->of_node,
-				  "mtk_dynamic_loading_throttling");
+	np = pdev->dev.of_node;
 	if (!np)
 		dev_notice(&pdev->dev, "get dlpt node fail\n");
 	else {
@@ -536,7 +545,19 @@ static void dlpt_parse_dt(struct platform_device *pdev)
 		ret = of_property_read_u32(np, "uvlo-level", &uvlo_level);
 		if (ret)
 			uvlo_level = POWER_UVLO_VOLT_LEVEL;
-		pmic_uvlo_init(uvlo_level);
+		/* get vbb-uvlo-level */
+		ret = of_property_read_u32(np, "vbb-uvlo-level", &vbb_uvlo_level);
+		if (ret)
+			vbb_uvlo_level = 0;
+		pmic_uvlo_init(uvlo_level, vbb_uvlo_level);
+
+		/* get power_path_support */
+		np = of_parse_phandle(pdev->dev.of_node, "mediatek,charger", 0);
+		if (!np)
+			dev_notice(&pdev->dev, "get charger node fail\n");
+		else
+			dlpt.is_power_path_supported =
+				of_property_read_bool(np, "power_path_support");
 	}
 	dev_notice(&pdev->dev, "power_path_support:%d isense_support:%d\n"
 		   , dlpt.is_power_path_supported, dlpt.is_isense_supported);
