@@ -37,6 +37,7 @@
 #define I2C_TRANSAC_START		(1 << 0)
 #define I2C_RS_MUL_CNFG			(1 << 15)
 #define I2C_RS_MUL_TRIG			(1 << 14)
+#define I2C_HS_HOLD_SEL			(1 << 15)
 #define I2C_I3C_EN			(1 << 15)
 #define I2C_HFIFO_UNLOCK		(1 << 15)
 #define I2C_HFIFO_NINTH_BIT		(2 << 8)
@@ -808,7 +809,7 @@ static int mtk_i2c_check_ac_timing(struct mtk_i2c *i2c,
 				I2C_TIME_HS_SPEED_VALUE | (sample_cnt << 12) |
 				(high_cnt << 8);
 			i2c->ac_timing.ltiming &= ~GENMASK(15, 9);
-			i2c->ac_timing.ltiming |= (sample_cnt << 12) |
+			i2c->ac_timing.ltiming |= I2C_HS_HOLD_SEL | (sample_cnt << 12) |
 				(low_cnt << 9);
 			i2c->ac_timing.ext &= ~GENMASK(7, 1);
 			i2c->ac_timing.ext |= (su_sta_cnt << 1) | (1 << 0);
@@ -892,7 +893,7 @@ static int mtk_i2c_calculate_speed(struct mtk_i2c *i2c, unsigned int clk_src,
 			continue;
 
 		if (cnt_mul < best_mul) {
-			ret = mtk_i2c_check_ac_timing(i2c, clk_src,
+			ret = mtk_i2c_check_ac_timing(i2c, vir_clk_src,
 				target_speed, step_cnt - 1, sample_cnt - 1);
 			if (ret)
 				continue;
@@ -949,6 +950,7 @@ static int mtk_i2c_set_speed(struct mtk_i2c *i2c, unsigned int parent_clk)
 
 	for (clk_div = 1; clk_div <= max_clk_div; clk_div++) {
 		clk_src = parent_clk / clk_div;
+		i2c->ac_timing.inter_clk_div = clk_div - 1;
 
 		if (target_speed > I2C_MAX_FAST_MODE_PLUS_FREQ) {
 			/* Set master code speed register */
