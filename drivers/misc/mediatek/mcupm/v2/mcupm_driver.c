@@ -24,7 +24,7 @@ bool skip_logger;
 #endif
 
 #if IS_ENABLED(CONFIG_MTK_CPUQOS_V3)
-#define	CPUQOS_IPI	1
+#define	CPUQOS_IPI	0
 #if CPUQOS_IPI
 static int cpuqos_ipi_cb(unsigned int, void *, void *, unsigned int);
 #endif
