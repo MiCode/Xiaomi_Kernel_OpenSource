@@ -64,6 +64,8 @@ f mm/mmap.c
 f net/core/rtnetlink.c
 f security/selinux/avc.c
 f security/selinux/include/avc.h
+f drivers/tty/tty_baudrate.c
+f include/uapi/asm-generic/termbits.h
 s alloc_io_pgtable_ops
 s arm_lpae_alloc_pgtable
 s arm_v7s_alloc_pgtable
@@ -344,3 +346,18 @@ s vermagic
 s __vma_adjust
 s __vm_area_free
 s vm_area_free
+s acm_tty_set_termios
+s baud_bits
+s baud_table
+s dw8250_set_termios
+s rfcomm_tty_set_termios
+s serial8250_do_set_termios
+s set_termios
+s sprd_set_termios
+s tty_init_termios
+s tty_ldisc_hangup
+s tty_port_close_start
+s tty_standard_install
+s tty_termios_baud_rate
+s tty_termios_input_baud_rate
+s uart_get_baud_rate
