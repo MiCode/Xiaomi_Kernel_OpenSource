@@ -492,6 +492,7 @@ void scp_A_register_notify(struct notifier_block *nb)
 	case SCP_EVENT_READY:
 		nb->notifier_call(nb, SCP_EVENT_READY, NULL);
 		pr_debug("%s callback finished\n", __func__);
+		fallthrough;
 	case SCP_EVENT_STOP:
 		blocking_notifier_chain_register(&scp_A_notifier_list, nb);
 		pr_debug("%s register finished\n", __func__);
