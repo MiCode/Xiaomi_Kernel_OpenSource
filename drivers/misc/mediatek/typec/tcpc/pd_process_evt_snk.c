@@ -424,7 +424,6 @@ static inline bool pd_process_timer_msg(
 		break;
 #endif	/* CONFIG_USB_PD_DFP_READY_DISCOVER_ID */
 #if CONFIG_USB_PD_REV30
-		fallthrough;
 	case PD_TIMER_CK_NOT_SUPPORTED:
 		if (PE_MAKE_STATE_TRANSIT_SINGLE(
 			PE_SNK_CHUNK_RECEIVED, PE_SNK_SEND_NOT_SUPPORTED))

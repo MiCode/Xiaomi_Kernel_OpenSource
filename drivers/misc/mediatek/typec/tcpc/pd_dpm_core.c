@@ -89,11 +89,12 @@ static const struct svdm_svid_ops svdm_svid_ops[] = {
 int dpm_check_supported_modes(void)
 {
 	int i;
+	const int size = ARRAY_SIZE(svdm_svid_ops);
 	bool is_disorder = false;
 	bool found_error = false;
 
-	for (i = 0; i < ARRAY_SIZE(svdm_svid_ops); i++) {
-		if (i < (ARRAY_SIZE(svdm_svid_ops) - 1)) {
+	for (i = 0; i < size; i++) {
+		if (i < (size - 1)) {
 			if (svdm_svid_ops[i + 1].svid <=
 				svdm_svid_ops[i].svid)
 				is_disorder = true;

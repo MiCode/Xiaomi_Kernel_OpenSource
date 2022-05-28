@@ -1968,7 +1968,7 @@ static int mt6375_set_cc_hidet(struct tcpc_device *tcpc, bool en)
 static int mt6375_is_water_detected(struct tcpc_device *tcpc)
 {
 	int ret, i;
-	bool error, wd = false;
+	bool error = false, wd = false;
 	struct mt6375_tcpc_data *ddata = tcpc_get_dev_data(tcpc);
 
 	for (i = 0; i < MT6375_WD_CHAN_NUM; i++) {
