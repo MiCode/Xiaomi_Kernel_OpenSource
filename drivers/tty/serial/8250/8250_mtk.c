@@ -21,7 +21,9 @@
 #include <linux/tty_flip.h>
 
 #include "8250.h"
+#if IS_ENABLED(CONFIG_MTK_UARTHUB)
 #include "../../../misc/mediatek/uarthub/common/uarthub_drv_export.h"
+#endif
 
 #define MTK_UART_HIGHS		0x09	/* Highspeed register */
 #define MTK_UART_SAMPLE_COUNT	0x0a	/* Sample count register */
@@ -69,6 +71,14 @@
 
 #define MTK_UART_HUB_BAUD 12000000
 
+#define UART_REG_READ(addr) \
+	(*((unsigned int *)(addr)))
+
+#define UART_REG_WRITE(addr, data) do {\
+	writel(data, (void *)addr); \
+	mb(); /* make sure register access in order */ \
+} while (0)
+
 #ifdef CONFIG_SERIAL_8250_DMA
 enum dma_rx_status {
 	DMA_RX_START = 0,
@@ -101,7 +111,6 @@ enum {
 	MTK_UART_FC_SW,
 	MTK_UART_FC_HW,
 };
-
 
 #if IS_ENABLED(CONFIG_MTK_UARTHUB)
 int mtk8250_uart_hub_fifo_ctrl(int ctrl)
@@ -685,6 +694,10 @@ static int mtk8250_probe_of(struct platform_device *pdev, struct uart_port *p,
 	int dmacnt;
 #endif
 
+	void __iomem *peri_remap_addr = NULL;
+	unsigned int peri_addr = 0, peri_mask = 0, peri_val = 0;
+	int index = -1;
+
 	data->uart_clk = devm_clk_get(&pdev->dev, "baud");
 	if (IS_ERR(data->uart_clk)) {
 		/*
@@ -719,6 +732,43 @@ static int mtk8250_probe_of(struct platform_device *pdev, struct uart_port *p,
 		data->dma->txconf.dst_maxburst = MTK_UART_TX_TRIGGER;
 	}
 #endif
+
+	if (data->support_hub) {
+		dev_info(&pdev->dev, "switch clock as 104M\n");
+		index = of_property_read_u32_index(pdev->dev.of_node,
+			"peri-clock-con", 0, &peri_addr);
+		if (index) {
+			pr_notice("[%s] get peri_addr fail\n", __func__);
+			return -1;
+		}
+
+		index = of_property_read_u32_index(pdev->dev.of_node,
+			"peri-clock-con", 1, &peri_mask);
+		if (index) {
+			pr_notice("[%s] get peri-clock-con_mask fail\n", __func__);
+			return -1;
+		}
+
+		index = of_property_read_u32_index(pdev->dev.of_node,
+			"peri-clock-con", 2, &peri_val);
+		if (index) {
+			pr_notice("[%s] get peri-clock-con_value fail\n", __func__);
+			return -1;
+		}
+
+		peri_remap_addr = ioremap(peri_addr, 0x10);
+		if (!peri_remap_addr) {
+			pr_notice("[%s] peri_remap_addr(%x) ioremap fail\n", __func__, peri_addr);
+			if (peri_remap_addr)
+				iounmap(peri_remap_addr);
+			return -1;
+			}
+		dev_info(&pdev->dev, "PERSYS: 0x%x = 0x%x\n",
+			peri_addr, ((UART_REG_READ(peri_remap_addr) & (~peri_mask)) | peri_val));
+		UART_REG_WRITE(peri_remap_addr,
+			((UART_REG_READ(peri_remap_addr) & (~peri_mask)) | peri_val));
+		dev_info(&pdev->dev, "PERSYS set as 0x%x\n", (UART_REG_READ(peri_remap_addr)));
+	}
 
 	return 0;
 }
