@@ -198,13 +198,6 @@ int mtk_cam_dma_bus_size(int bpp, int pixel_mode_shift, int is_fg)
 	return bus_size / 8; /* in bytes */
 }
 
-int mtk_cam_yuv_dma_bus_size(int bpp, int pixel_mode_shift)
-{
-	unsigned int bus_size = ALIGN(bpp, 32);
-
-	return bus_size / 8; /* in bytes */
-}
-
 unsigned int mtk_cam_get_pixel_bits(unsigned int ipi_fmt)
 {
 	switch (ipi_fmt) {
@@ -479,58 +472,6 @@ int mtk_cam_dmao_xsize(int w, unsigned int ipi_fmt, int pixel_mode_shift)
 	return ALIGN(bytes, bus_size);
 }
 
-int is_mtk_format(unsigned int pixelformat)
-{
-	switch (pixelformat) {
-	case V4L2_PIX_FMT_YUYV10:
-	case V4L2_PIX_FMT_YVYU10:
-	case V4L2_PIX_FMT_UYVY10:
-	case V4L2_PIX_FMT_VYUY10:
-	case V4L2_PIX_FMT_YUYV12:
-	case V4L2_PIX_FMT_YVYU12:
-	case V4L2_PIX_FMT_UYVY12:
-	case V4L2_PIX_FMT_VYUY12:
-	case V4L2_PIX_FMT_MTISP_YUYV10P:
-	case V4L2_PIX_FMT_MTISP_YVYU10P:
-	case V4L2_PIX_FMT_MTISP_UYVY10P:
-	case V4L2_PIX_FMT_MTISP_VYUY10P:
-	case V4L2_PIX_FMT_MTISP_YUYV12P:
-	case V4L2_PIX_FMT_MTISP_YVYU12P:
-	case V4L2_PIX_FMT_MTISP_UYVY12P:
-	case V4L2_PIX_FMT_MTISP_VYUY12P:
-	case V4L2_PIX_FMT_NV12_10:
-	case V4L2_PIX_FMT_NV21_10:
-	case V4L2_PIX_FMT_NV16_10:
-	case V4L2_PIX_FMT_NV61_10:
-	case V4L2_PIX_FMT_NV12_12:
-	case V4L2_PIX_FMT_NV21_12:
-	case V4L2_PIX_FMT_NV16_12:
-	case V4L2_PIX_FMT_NV61_12:
-	case V4L2_PIX_FMT_MTISP_NV12_10P:
-	case V4L2_PIX_FMT_MTISP_NV21_10P:
-	case V4L2_PIX_FMT_MTISP_NV16_10P:
-	case V4L2_PIX_FMT_MTISP_NV61_10P:
-	case V4L2_PIX_FMT_MTISP_NV12_12P:
-	case V4L2_PIX_FMT_MTISP_NV21_12P:
-	case V4L2_PIX_FMT_MTISP_NV16_12P:
-	case V4L2_PIX_FMT_MTISP_NV61_12P:
-	case V4L2_PIX_FMT_MTISP_NV12_UFBC:
-	case V4L2_PIX_FMT_MTISP_NV21_UFBC:
-	case V4L2_PIX_FMT_MTISP_NV12_10_UFBC:
-	case V4L2_PIX_FMT_MTISP_NV21_10_UFBC:
-	case V4L2_PIX_FMT_MTISP_NV12_12_UFBC:
-	case V4L2_PIX_FMT_MTISP_NV21_12_UFBC:
-	case V4L2_PIX_FMT_MTISP_SGRB8F:
-	case V4L2_PIX_FMT_MTISP_SGRB10F:
-	case V4L2_PIX_FMT_MTISP_SGRB12F:
-		return 1;
-	break;
-	default:
-		return 0;
-	break;
-	}
-}
-
 int is_yuv_ufo(unsigned int pixelformat)
 {
 	switch (pixelformat) {
@@ -574,6 +515,107 @@ int is_fullg_rb(unsigned int pixelformat)
 const struct mtk_format_info *mtk_format_info(u32 format)
 {
 	static const struct mtk_format_info formats[] = {
+		/* RAW formats - packed */
+		/* bayer8, packed */
+		{ .format = V4L2_PIX_FMT_SBGGR8,  .mem_planes = 1, .comp_planes = 1,
+			.bitpp = { 8, 0, 0, 0 }, .hdiv = 1, .vdiv = 1,
+			.bus_align = 2 * 8 /* 8p */ },
+		{ .format = V4L2_PIX_FMT_SGBRG8,  .mem_planes = 1, .comp_planes = 1,
+			.bitpp = { 8, 0, 0, 0 }, .hdiv = 1, .vdiv = 1,
+			.bus_align = 2 * 8 /* 8p */ },
+		{ .format = V4L2_PIX_FMT_SGRBG8,  .mem_planes = 1, .comp_planes = 1,
+			.bitpp = { 8, 0, 0, 0 }, .hdiv = 1, .vdiv = 1,
+			.bus_align = 2 * 8 /* 8p */ },
+		{ .format = V4L2_PIX_FMT_SRGGB8,  .mem_planes = 1, .comp_planes = 1,
+			.bitpp = { 8, 0, 0, 0 }, .hdiv = 1, .vdiv = 1,
+			.bus_align = 2 * 8 /* 8p */ },
+		/* bayer10, packed */
+		{ .format = V4L2_PIX_FMT_MTISP_SBGGR10,  .mem_planes = 1, .comp_planes = 1,
+			.bitpp = { 10, 0, 0, 0 }, .hdiv = 1, .vdiv = 1,
+			.bus_align = 2 * 8 /* 8p */ },
+		{ .format = V4L2_PIX_FMT_MTISP_SGBRG10,  .mem_planes = 1, .comp_planes = 1,
+			.bitpp = { 10, 0, 0, 0 }, .hdiv = 1, .vdiv = 1,
+			.bus_align = 2 * 8 /* 8p */ },
+		{ .format = V4L2_PIX_FMT_MTISP_SGRBG10,  .mem_planes = 1, .comp_planes = 1,
+			.bitpp = { 10, 0, 0, 0 }, .hdiv = 1, .vdiv = 1,
+			.bus_align = 2 * 8 /* 8p */ },
+		{ .format = V4L2_PIX_FMT_MTISP_SRGGB10,  .mem_planes = 1, .comp_planes = 1,
+			.bitpp = { 10, 0, 0, 0 }, .hdiv = 1, .vdiv = 1,
+			.bus_align = 2 * 8 /* 8p */ },
+		/* bayer12, packed */
+		{ .format = V4L2_PIX_FMT_MTISP_SBGGR12,  .mem_planes = 1, .comp_planes = 1,
+			.bitpp = { 12, 0, 0, 0 }, .hdiv = 1, .vdiv = 1,
+			.bus_align = 2 * 8 /* 8p */ },
+		{ .format = V4L2_PIX_FMT_MTISP_SGBRG12,  .mem_planes = 1, .comp_planes = 1,
+			.bitpp = { 12, 0, 0, 0 }, .hdiv = 1, .vdiv = 1,
+			.bus_align = 2 * 8 /* 8p */ },
+		{ .format = V4L2_PIX_FMT_MTISP_SGRBG12,  .mem_planes = 1, .comp_planes = 1,
+			.bitpp = { 12, 0, 0, 0 }, .hdiv = 1, .vdiv = 1,
+			.bus_align = 2 * 8 /* 8p */ },
+		{ .format = V4L2_PIX_FMT_MTISP_SRGGB12,  .mem_planes = 1, .comp_planes = 1,
+			.bitpp = { 12, 0, 0, 0 }, .hdiv = 1, .vdiv = 1,
+			.bus_align = 2 * 8 /* 8p */ },
+		/* bayer14, packed */
+		{ .format = V4L2_PIX_FMT_MTISP_SBGGR14,  .mem_planes = 1, .comp_planes = 1,
+			.bitpp = { 14, 0, 0, 0 }, .hdiv = 1, .vdiv = 1,
+			.bus_align = 2 * 8 /* 8p */ },
+		{ .format = V4L2_PIX_FMT_MTISP_SGBRG14,  .mem_planes = 1, .comp_planes = 1,
+			.bitpp = { 14, 0, 0, 0 }, .hdiv = 1, .vdiv = 1,
+			.bus_align = 2 * 8 /* 8p */ },
+		{ .format = V4L2_PIX_FMT_MTISP_SGRBG14,  .mem_planes = 1, .comp_planes = 1,
+			.bitpp = { 14, 0, 0, 0 }, .hdiv = 1, .vdiv = 1,
+			.bus_align = 2 * 8 /* 8p */ },
+		{ .format = V4L2_PIX_FMT_MTISP_SRGGB14,  .mem_planes = 1, .comp_planes = 1,
+			.bitpp = { 14, 0, 0, 0 }, .hdiv = 1, .vdiv = 1,
+			.bus_align = 2 * 8 /* 8p */ },
+		/* bayer16, packed/unpacked */
+		{ .format = V4L2_PIX_FMT_SBGGR16,  .mem_planes = 1, .comp_planes = 1,
+			.bitpp = { 16, 0, 0, 0 }, .hdiv = 1, .vdiv = 1,
+			.bus_align = 2 * 8 /* 8p */ },
+		{ .format = V4L2_PIX_FMT_SGBRG16,  .mem_planes = 1, .comp_planes = 1,
+			.bitpp = { 16, 0, 0, 0 }, .hdiv = 1, .vdiv = 1,
+			.bus_align = 2 * 8 /* 8p */ },
+		{ .format = V4L2_PIX_FMT_SGRBG16,  .mem_planes = 1, .comp_planes = 1,
+			.bitpp = { 16, 0, 0, 0 }, .hdiv = 1, .vdiv = 1,
+			.bus_align = 2 * 8 /* 8p */ },
+		{ .format = V4L2_PIX_FMT_SRGGB16,  .mem_planes = 1, .comp_planes = 1,
+			.bitpp = { 16, 0, 0, 0 }, .hdiv = 1, .vdiv = 1,
+			.bus_align = 2 * 8 /* 8p */ },
+		/* bayer10, mipi */
+		{ .format = V4L2_PIX_FMT_SBGGR10P,  .mem_planes = 1, .comp_planes = 1,
+			.bitpp = { 10, 0, 0, 0 }, .hdiv = 1, .vdiv = 1,
+			.bus_align = 2 * 8 /* 8p */ },
+		{ .format = V4L2_PIX_FMT_SGBRG10P,  .mem_planes = 1, .comp_planes = 1,
+			.bitpp = { 10, 0, 0, 0 }, .hdiv = 1, .vdiv = 1,
+			.bus_align = 2 * 8 /* 8p */ },
+		{ .format = V4L2_PIX_FMT_SGRBG10P,  .mem_planes = 1, .comp_planes = 1,
+			.bitpp = { 10, 0, 0, 0 }, .hdiv = 1, .vdiv = 1,
+			.bus_align = 2 * 8 /* 8p */ },
+		{ .format = V4L2_PIX_FMT_SRGGB10P,  .mem_planes = 1, .comp_planes = 1,
+			.bitpp = { 10, 0, 0, 0 }, .hdiv = 1, .vdiv = 1,
+			.bus_align = 2 * 8 /* 8p */ },
+
+		/* RAW formats - unpacked */
+
+		/* note: v4l2 supports bayer10 unpack */
+		/* note: v4l2 supports bayer12 unpack */
+
+		/* bayer14, unpacked */
+		{ .format = V4L2_PIX_FMT_MTISP_SBGGR14,  .mem_planes = 1, .comp_planes = 1,
+			.bitpp = { 16, 0, 0, 0 }, .hdiv = 1, .vdiv = 1,
+			.bus_align = 2 * 8 /* 8p */ },
+		{ .format = V4L2_PIX_FMT_MTISP_SGBRG14,  .mem_planes = 1, .comp_planes = 1,
+			.bitpp = { 16, 0, 0, 0 }, .hdiv = 1, .vdiv = 1,
+			.bus_align = 2 * 8 /* 8p */ },
+		{ .format = V4L2_PIX_FMT_MTISP_SGRBG14,  .mem_planes = 1, .comp_planes = 1,
+			.bitpp = { 16, 0, 0, 0 }, .hdiv = 1, .vdiv = 1,
+			.bus_align = 2 * 8 /* 8p */ },
+		{ .format = V4L2_PIX_FMT_MTISP_SRGGB14,  .mem_planes = 1, .comp_planes = 1,
+			.bitpp = { 16, 0, 0, 0 }, .hdiv = 1, .vdiv = 1,
+			.bus_align = 2 * 8 /* 8p */ },
+
+		/* note: FG_BAYERx is out-dated. */
+
 		/* YUV planar formats */
 		{ .format = V4L2_PIX_FMT_NV12_10,  .mem_planes = 1, .comp_planes = 2,
 			.bitpp = { 16, 32, 0, 0 }, .hdiv = 2, .vdiv = 2,

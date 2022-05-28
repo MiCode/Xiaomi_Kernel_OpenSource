@@ -21,18 +21,6 @@ struct mtk_cam_device;
 struct mtk_cam_resource;
 struct mtk_raw_pde_config;
 
-typedef int (*set_pad_fmt_func_t)(struct v4l2_subdev *sd,
-			   struct v4l2_subdev_state *state,
-			   struct v4l2_mbus_framefmt *sink_fmt,
-			   struct mtk_cam_resource *res,
-			   int pad, int which);
-
-typedef int (*set_pad_selection_func_t)(struct v4l2_subdev *sd,
-					  struct v4l2_subdev_state *state,
-					  struct v4l2_mbus_framefmt *sink_fmt,
-					  struct mtk_cam_resource *res,
-					  int pad, int which);
-
 struct mtk_cam_cached_image_info {
 	unsigned int v4l2_pixelformat;
 	unsigned int width;
@@ -120,7 +108,6 @@ struct mtk_cam_dev_node_desc {
 /*
  * struct mtk_cam_video_device - Mediatek video device structure.
  *
- * FIXME
  *
  */
 struct mtk_cam_video_device {
@@ -135,6 +122,13 @@ struct mtk_cam_video_device {
 	struct v4l2_selection active_crop;
 	/* Serializes vb2 queue and video device operations */
 	struct mutex q_lock;
+
+	/* these are update in s_fmt/s_selection callbacks. */
+	union {
+		/* select info according to desc.image */
+		struct mtk_cam_cached_image_info image_info;
+		struct mtk_cam_cached_meta_info meta_info;
+	};
 
 	/* TODO: debug only */
 	struct v4l2_format prev_fmt;

@@ -403,6 +403,12 @@ int fill_yuvo_out_subsample(struct mtkcam_ipi_img_output *io,
 
 	/* FIXME: porting workaround */
 	if (WARN_ON_ONCE(!io->crop.s.w || !io->crop.s.h)) {
+
+		pr_info_ratelimited("%s: warn: %s crop %u,%u-%ux%u\n",
+				    __func__, node->desc.name,
+				    io->crop.p.x, io->crop.p.y,
+				    io->crop.s.w, io->crop.s.h);
+
 		io->crop = (struct mtkcam_ipi_crop) {
 			.p = (struct mtkcam_ipi_point) {
 				.x = 0,
