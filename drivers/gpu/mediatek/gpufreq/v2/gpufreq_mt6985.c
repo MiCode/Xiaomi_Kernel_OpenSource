@@ -617,7 +617,7 @@ unsigned int __gpufreq_get_lkg_pgpu(unsigned int volt)
 /* API: get dynamic Power of GPU */
 unsigned int __gpufreq_get_dyn_pgpu(unsigned int freq, unsigned int volt)
 {
-	unsigned int p_dynamic = GPU_DYN_REF_POWER;
+	unsigned long long p_dynamic = GPU_DYN_REF_POWER;
 	unsigned int ref_freq = GPU_DYN_REF_FREQ;
 	unsigned int ref_volt = GPU_DYN_REF_VOLT;
 
@@ -627,7 +627,7 @@ unsigned int __gpufreq_get_dyn_pgpu(unsigned int freq, unsigned int volt)
 		((volt * 100) / ref_volt) /
 		(100 * 100 * 100);
 
-	return p_dynamic;
+	return (unsigned int)p_dynamic;
 }
 
 /* API: get leakage Power of STACK */
@@ -641,7 +641,7 @@ unsigned int __gpufreq_get_lkg_pstack(unsigned int volt)
 /* API: get dynamic Power of STACK */
 unsigned int __gpufreq_get_dyn_pstack(unsigned int freq, unsigned int volt)
 {
-	unsigned int p_dynamic = STACK_DYN_REF_POWER;
+	unsigned long long p_dynamic = STACK_DYN_REF_POWER;
 	unsigned int ref_freq = STACK_DYN_REF_FREQ;
 	unsigned int ref_volt = STACK_DYN_REF_VOLT;
 
@@ -651,7 +651,7 @@ unsigned int __gpufreq_get_dyn_pstack(unsigned int freq, unsigned int volt)
 		((volt * 100) / ref_volt) /
 		(100 * 100 * 100);
 
-	return p_dynamic;
+	return (unsigned int)p_dynamic;
 }
 
 /*
