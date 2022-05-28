@@ -8,6 +8,7 @@
 
 struct mtk_cam_ctx;
 
+int mtk_cam_working_buf_pool_alloc(struct mtk_cam_ctx *ctx);
 int mtk_cam_working_buf_pool_init(struct mtk_cam_ctx *ctx);
 void mtk_cam_working_buf_pool_release(struct mtk_cam_ctx *ctx);
 void

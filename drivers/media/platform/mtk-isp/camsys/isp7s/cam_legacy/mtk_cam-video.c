@@ -272,16 +272,15 @@ static int mtk_cam_vb2_start_streaming(struct vb2_queue *vq,
 	ctx->streaming_node_cnt++;
 
 #if CCD_READY
-	if (ctx->streaming_node_cnt == 1)
-		if (is_raw_subdev(node->uid.pipe_id)) {
-			if (!isp_composer_create_session(ctx)) {
-				ctx->session_created = 1;
-			} else {
-				complete(&ctx->session_complete);
-				ret = -EBUSY;
-				goto fail_stop_ctx;
-			}
+	if (ctx->streaming_node_cnt == 1) {
+		if (!isp_composer_create_session(ctx)) {
+			ctx->session_created = 1;
+		} else {
+			complete(&ctx->session_complete);
+			ret = -EBUSY;
+			goto fail_stop_ctx;
 		}
+	}
 #endif
 
 	dev_dbg(dev, "%s:%s:ctx(%d): node:%d count info:%d\n", __func__,

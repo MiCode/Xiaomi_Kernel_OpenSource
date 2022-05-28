@@ -884,7 +884,7 @@ void mtk_cam_qos_bw_calc(struct mtk_cam_ctx *ctx, unsigned long raw_dmas, bool f
 			switch (ipi_video_id) {
 			case MTKCAM_IPI_MRAW_META_STATS_CFG:
 				/* common */
-				ipi_fmt = ctx->mraw_pipe[i]->res_config.img_fmt;
+				ipi_fmt = ctx->mraw_pipe[i]->res_config.tg_fmt;
 				pixel_bits = 16;
 				plane_factor = mtk_cam_get_fmt_size_factor(ipi_fmt);
 				mraw_mmqos = &mraw_qos[ctx->mraw_pipe[i]->id -

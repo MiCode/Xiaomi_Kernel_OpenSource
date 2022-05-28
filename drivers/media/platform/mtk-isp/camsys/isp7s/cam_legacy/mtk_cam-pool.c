@@ -25,22 +25,19 @@
 #include <uapi/linux/mtk_ccd_controls.h>
 #endif
 
-int mtk_cam_working_buf_pool_init(struct mtk_cam_ctx *ctx)
+#define WORKING_BUF_SIZE	round_up(CQ_BUF_SIZE, PAGE_SIZE)
+#define MSG_BUF_SIZE		round_up(IPI_FRAME_BUF_SIZE, PAGE_SIZE)
+
+int mtk_cam_working_buf_pool_alloc(struct mtk_cam_ctx *ctx)
 {
-	int i;
 	struct mem_obj smem;
 	struct mtk_ccd *ccd;
 	void *mem_priv;
 	int dmabuf_fd;
 	struct dma_buf *dbuf;
-	const int working_buf_size = round_up(CQ_BUF_SIZE, PAGE_SIZE);
-	const int msg_buf_size = round_up(IPI_FRAME_BUF_SIZE, PAGE_SIZE);
 
-	INIT_LIST_HEAD(&ctx->buf_pool.cam_freelist.list);
-	spin_lock_init(&ctx->buf_pool.cam_freelist.lock);
-	ctx->buf_pool.cam_freelist.cnt = 0;
-	ctx->buf_pool.working_buf_size = CAM_CQ_BUF_NUM * working_buf_size;
-	ctx->buf_pool.msg_buf_size = CAM_CQ_BUF_NUM * msg_buf_size;
+	ctx->buf_pool.working_buf_size = CAM_CQ_BUF_NUM * WORKING_BUF_SIZE;
+	ctx->buf_pool.msg_buf_size = CAM_CQ_BUF_NUM * MSG_BUF_SIZE;
 	ccd = (struct mtk_ccd *)ctx->cam->rproc_handle->priv;
 
 	/* working buffer */
@@ -72,20 +69,30 @@ int mtk_cam_working_buf_pool_init(struct mtk_cam_ctx *ctx)
 	ctx->buf_pool.msg_buf_va = smem.va;
 	ctx->buf_pool.msg_buf_fd = dmabuf_fd;
 
+	return 0;
+}
+
+int mtk_cam_working_buf_pool_init(struct mtk_cam_ctx *ctx)
+{
+	int i;
+
+	INIT_LIST_HEAD(&ctx->buf_pool.cam_freelist.list);
+	spin_lock_init(&ctx->buf_pool.cam_freelist.lock);
+	ctx->buf_pool.cam_freelist.cnt = 0;
 
 	for (i = 0; i < CAM_CQ_BUF_NUM; i++) {
 		struct mtk_cam_working_buf_entry *buf = &ctx->buf_pool.working_buf[i];
 		int offset, offset_msg;
 
 		buf->ctx = ctx;
-		offset = i * working_buf_size;
-		offset_msg = i * msg_buf_size;
+		offset = i * WORKING_BUF_SIZE;
+		offset_msg = i * MSG_BUF_SIZE;
 
 		buf->buffer.va = ctx->buf_pool.working_buf_va + offset;
 		buf->buffer.iova = ctx->buf_pool.working_buf_iova + offset;
-		buf->buffer.size = working_buf_size;
+		buf->buffer.size = WORKING_BUF_SIZE;
 		buf->msg_buffer.va = ctx->buf_pool.msg_buf_va + offset_msg;
-		buf->msg_buffer.size = msg_buf_size;
+		buf->msg_buffer.size = MSG_BUF_SIZE;
 		buf->s_data = NULL;
 
 		dev_dbg(ctx->cam->dev, "%s:ctx(%d):buf(%d), iova(%pad)\n",
@@ -312,15 +319,26 @@ int mtk_cam_sv_working_buf_pool_init(struct mtk_cam_ctx *ctx)
 
 	for (i = 0; i < CAMSV_WORKING_BUF_NUM; i++) {
 		struct mtk_camsv_working_buf_entry *buf = &ctx->buf_pool.sv_working_buf[i];
+		int offset, offset_msg;
 
 		buf->ctx = ctx;
+		offset = i * WORKING_BUF_SIZE;
+		offset_msg = i * MSG_BUF_SIZE;
+
+		buf->buffer.va = ctx->buf_pool.working_buf_va + offset;
+		buf->buffer.iova = ctx->buf_pool.working_buf_iova + offset;
+		buf->buffer.size = WORKING_BUF_SIZE;
+		buf->msg_buffer.va = ctx->buf_pool.msg_buf_va + offset_msg;
+		buf->msg_buffer.size = MSG_BUF_SIZE;
+		buf->s_data = NULL;
 
 		list_add_tail(&buf->list_entry,
 			      &ctx->buf_pool.sv_freelist.list);
 		ctx->buf_pool.sv_freelist.cnt++;
 	}
-	dev_info(ctx->cam->dev, "%s:ctx(%d):freebuf cnt(%d)\n", __func__,
-		 ctx->stream_id, ctx->buf_pool.sv_freelist.cnt);
+	dev_info(ctx->cam->dev, "%s:ctx(%d):freebuf cnt(%d),working(%d),msgfd(%d)\n", __func__,
+		ctx->stream_id, ctx->buf_pool.sv_freelist.cnt,
+		ctx->buf_pool.working_buf_fd, ctx->buf_pool.msg_buf_fd);
 
 	return 0;
 }

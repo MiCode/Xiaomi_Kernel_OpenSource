@@ -32,7 +32,7 @@
 /* for cq working buffers */
 #define CQ_BUF_SIZE  0x10000
 #define CAM_CQ_BUF_NUM 16
-#define CAMSV_WORKING_BUF_NUM 64
+#define CAMSV_WORKING_BUF_NUM CAM_CQ_BUF_NUM
 #define MRAW_WORKING_BUF_NUM 64
 #define IPI_FRAME_BUF_SIZE ALIGN(sizeof(struct mtkcam_ipi_frame_param), SZ_1K)
 
@@ -137,11 +137,15 @@ struct mtk_cam_working_buf_list {
 struct mtk_camsv_working_buf_entry {
 	struct mtk_cam_ctx *ctx;
 	struct mtk_cam_request_stream_data *s_data;
+	struct mtk_cam_working_buf buffer;
+	struct mtk_cam_msg_buf msg_buffer;
 	struct list_head list_entry;
 	u64 ts_raw;
 	u64 ts_sv;
 	atomic_t is_apply;
 	u8 is_stagger;
+	int sv_cq_desc_offset;
+	int sv_cq_desc_size;
 };
 
 struct mtk_camsv_working_buf_list {
@@ -164,10 +168,6 @@ struct mtk_mraw_working_buf_entry {
 	int mraw_cq_desc_offset;
 	int mraw_cq_desc_size;
 	struct mtk_cam_ctx *ctx;
-	u64 ts_raw;
-	u64 ts_mraw;
-	atomic_t is_apply;
-	u8 is_stagger;
 };
 
 struct mtk_mraw_working_buf_list {
@@ -247,9 +247,9 @@ struct mtk_cam_request_stream_data {
 	struct mtk_cam_req_work frame_work;
 	struct mtk_cam_req_work meta1_done_work;
 	struct mtk_cam_req_work frame_done_work;
-	struct mtk_cam_req_work sv_work;
 	struct mtk_camsys_ctrl_state state;
 	struct mtk_cam_working_buf_entry *working_buf;
+	struct mtk_camsv_working_buf_entry *sv_working_buf;
 	unsigned int no_frame_done_cnt;
 	atomic_t seninf_dump_state;
 	struct mtk_cam_req_feature feature;
@@ -278,12 +278,6 @@ enum mtk_cam_request_state {
 	NR_OF_MTK_CAM_REQ_STATE,
 };
 
-enum mtk_cam_exp_order {
-	MTK_CAM_EXP_FIRST,
-	MTK_CAM_EXP_SECOND,
-	MTK_CAM_EXP_LAST
-};
-
 /**
  * mtk_cam_frame_sync: the frame sync state of one request
  *
@@ -304,7 +298,7 @@ struct mtk_cam_req_raw_pipe_data {
 	struct mtk_cam_resource_config res_config;
 	struct mtk_raw_stagger_select stagger_select;
 	int enabled_raw;
-	int enabled_sv_tag;
+	int enabled_sv_tags;
 };
 
 /*
@@ -413,7 +407,6 @@ struct mtk_cam_ctx {
 	struct kthread_worker sensor_worker;
 	struct workqueue_struct *composer_wq;
 	struct workqueue_struct *frame_done_wq;
-	struct workqueue_struct *sv_wq;
 
 	struct completion session_complete;
 	struct completion m2m_complete;
@@ -429,8 +422,9 @@ struct mtk_cam_ctx {
 	struct mtk_cam_working_buf_list composed_buffer_list;
 	struct mtk_cam_working_buf_list processing_buffer_list;
 
-	struct mtk_camsv_working_buf_list sv_using_buffer_list[MAX_SV_PIPES_PER_STREAM];
-	struct mtk_camsv_working_buf_list sv_processing_buffer_list[MAX_SV_PIPES_PER_STREAM];
+	struct mtk_camsv_working_buf_list sv_using_buffer_list;
+	struct mtk_camsv_working_buf_list sv_composed_buffer_list;
+	struct mtk_camsv_working_buf_list sv_processing_buffer_list;
 
 	struct mtk_mraw_working_buf_list mraw_using_buffer_list[MAX_MRAW_PIPES_PER_STREAM];
 	struct mtk_mraw_working_buf_list mraw_composed_buffer_list[MAX_MRAW_PIPES_PER_STREAM];
@@ -452,6 +446,7 @@ struct mtk_cam_ctx {
 	unsigned int working_request_seq;
 	bool trigger_next_drain;
 
+	unsigned int sv_composed_frame_seq_no;
 	unsigned int sv_dequeued_frame_seq_no[MAX_SV_HW_TAGS];
 
 	unsigned int mraw_enqueued_frame_seq_no[MAX_MRAW_PIPES_PER_STREAM];
@@ -579,6 +574,12 @@ mtk_cam_req_get_s_data(struct mtk_cam_request *req, int pipe_id, int idx)
 
 static inline struct mtk_cam_request_stream_data*
 mtk_cam_wbuf_get_s_data(struct mtk_cam_working_buf_entry *buf_entry)
+{
+	return buf_entry->s_data;
+}
+
+static inline struct mtk_cam_request_stream_data*
+mtk_cam_sv_wbuf_get_s_data(struct mtk_camsv_working_buf_entry *buf_entry)
 {
 	return buf_entry->s_data;
 }
@@ -755,6 +756,14 @@ mtk_cam_s_data_set_wbuf(struct mtk_cam_request_stream_data *s_data,
 }
 
 static inline void
+mtk_cam_s_data_set_sv_wbuf(struct mtk_cam_request_stream_data *s_data,
+			struct mtk_camsv_working_buf_entry *buf_entry)
+{
+	buf_entry->s_data = s_data;
+	s_data->sv_working_buf = buf_entry;
+}
+
+static inline void
 mtk_cam_s_data_reset_wbuf(struct mtk_cam_request_stream_data *s_data)
 {
 	if (!s_data->working_buf)
@@ -763,6 +772,17 @@ mtk_cam_s_data_reset_wbuf(struct mtk_cam_request_stream_data *s_data)
 	s_data->working_buf->s_data = NULL;
 	s_data->working_buf = NULL;
 }
+
+static inline void
+mtk_cam_s_data_reset_sv_wbuf(struct mtk_cam_request_stream_data *s_data)
+{
+	if (!s_data->sv_working_buf)
+		return;
+
+	s_data->sv_working_buf->s_data = NULL;
+	s_data->sv_working_buf = NULL;
+}
+
 
 static inline bool
 mtk_cam_s_data_set_buf_state(struct mtk_cam_request_stream_data *s_data,
@@ -876,13 +896,11 @@ int mtk_cam_dequeue_req_frame(struct mtk_cam_ctx *ctx,
 
 void mtk_cam_dev_job_done(struct mtk_cam_request_stream_data *s_data_pipe,
 			  enum vb2_buffer_state state);
-
+int mtk_cam_sv_dev_config(struct mtk_cam_ctx *ctx);
 int mtk_cam_dev_config(struct mtk_cam_ctx *ctx, bool streaming, bool config_pipe);
 void mtk_cam_apply_pending_dev_config(struct mtk_cam_request_stream_data *s_data);
 int mtk_cam_s_data_dev_config(struct mtk_cam_request_stream_data *s_data,
 	bool streaming, bool config_pipe);
-int mtk_cam_s_data_sv_dev_config(struct mtk_cam_request_stream_data *s_data);
-
 int mtk_cam_link_validate(struct v4l2_subdev *sd,
 			  struct media_link *link,
 			  struct v4l2_subdev_format *source_fmt,
@@ -917,7 +935,7 @@ int get_main_sv_tag_id(struct mtk_cam_ctx *ctx, int used_tags);
 int get_sub_sv_tag_id(struct mtk_cam_ctx *ctx, int used_tags);
 int get_last_sv_tag_id(struct mtk_cam_ctx *ctx, int used_tags);
 
-unsigned int mtk_cam_get_sv_mapped_exp_order(
+unsigned int mtk_cam_get_sv_mapped_tag_order(
 	int hw_scen, int exp_no, int tag);
 
 int mtk_cam_dc_last_camsv(int raw_id);

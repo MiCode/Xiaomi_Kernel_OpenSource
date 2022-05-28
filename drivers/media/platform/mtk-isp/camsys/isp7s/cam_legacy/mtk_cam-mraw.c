@@ -355,9 +355,12 @@ static int mtk_mraw_call_set_fmt(struct v4l2_subdev *sd,
 				dev_info(mraw->cam_dev, "%s:Unknown pixelfmt:%d\n"
 					, __func__, ipi_fmt);
 			}
-			pipe->res_config.width = mf->width;
-			pipe->res_config.height = mf->height;
-			pipe->res_config.img_fmt = ipi_fmt;
+			pipe->res_config.tg_crop.p.x = 0;
+			pipe->res_config.tg_crop.p.y = 0;
+			pipe->res_config.tg_crop.s.w = mf->width;
+			pipe->res_config.tg_crop.s.h = mf->height;
+			pipe->res_config.tg_fmt = ipi_fmt;
+			pipe->res_config.pixel_mode = 3;
 		}
 	}
 
@@ -808,10 +811,7 @@ static void mtk_cam_mraw_copy_user_input_param(
 	struct mtkcam_ipi_frame_param *frame_param,
 	struct mtk_mraw_pipeline *mraw_pipline)
 {
-	/* Set tg/crp param from kernel info. */
-	mtk_cam_mraw_update_param(frame_param, mraw_pipline);
-
-	/* Set mraw res_config */
+	/* set mraw res_config */
 	mraw_pipline->res_config.mqe_en = mraw_meta_in_buf->mqe_enable;
 	mraw_pipline->res_config.mqe_mode = mraw_meta_in_buf->mqe_param.mqe_mode;
 
@@ -850,6 +850,8 @@ static void mtk_cam_mraw_set_frame_param_dmao(
 {
 	struct mtkcam_ipi_img_output *mraw_img_outputs, *last_mraw_img_outputs;
 	int i;
+
+	frame_param->mraw_param[0].pipe_id = pipe_id;
 
 	for (i = DMAO_ID_BEGIN; i < DMAO_ID_MAX; i++) {
 		last_mraw_img_outputs = mraw_img_outputs;
@@ -994,8 +996,6 @@ int mtk_cam_mraw_cal_cfg_info(struct mtk_cam_device *cam,
 	struct mtk_mraw_pipeline *pipe =
 		&cam->mraw.pipelines[pipe_id - MTKCAM_SUBDEV_MRAW_START];
 
-	s_data->frame_params.mraw_param[0].is_config = is_config;
-
 	mtk_cam_mraw_set_mraw_dmao_info(cam,
 		pipe_id, &mraw_dmao_info);
 	mtk_cam_mraw_set_frame_param_dmao(cam->dev, &s_data->frame_params,
@@ -1016,8 +1016,8 @@ void mtk_cam_mraw_get_mqe_size(struct mtk_cam_device *cam, unsigned int pipe_id,
 		&cam->mraw.pipelines[pipe_id - MTKCAM_SUBDEV_MRAW_START];
 	struct mtk_cam_mraw_resource_config *res_config = &pipe->res_config;
 
-	*width = res_config->width;
-	*height = res_config->height;
+	*width = res_config->tg_crop.s.w;
+	*height = res_config->tg_crop.s.h;
 
 	if (res_config->mqe_en) {
 		switch (res_config->mqe_mode) {
@@ -1101,44 +1101,9 @@ void mtk_cam_mraw_get_cpi_size(struct mtk_cam_device *cam, unsigned int pipe_id,
 	}
 }
 
-void mtk_cam_mraw_update_param(struct mtkcam_ipi_frame_param *frame_param,
-	struct mtk_mraw_pipeline *mraw_pipline)
-{
-	frame_param->mraw_param[0].tg_pos_x = 0;
-	frame_param->mraw_param[0].tg_pos_y = 0;
-	frame_param->mraw_param[0].tg_size_w = mraw_pipline->res_config.width;
-	frame_param->mraw_param[0].tg_size_h = mraw_pipline->res_config.height;
-	frame_param->mraw_param[0].tg_fmt = mraw_pipline->res_config.img_fmt;
-	frame_param->mraw_param[0].crop_pos_x = 0;
-	frame_param->mraw_param[0].crop_pos_y = 0;
-	frame_param->mraw_param[0].crop_size_w = mraw_pipline->res_config.width;
-	frame_param->mraw_param[0].crop_size_h = mraw_pipline->res_config.height;
-}
-
-int mtk_cam_mraw_update_all_buffer_ts(struct mtk_cam_ctx *ctx, u64 ts_ns)
+int mtk_cam_mraw_apply_all_buffers(struct mtk_cam_ctx *ctx)
 {
 	struct mtk_mraw_working_buf_entry *buf_entry;
-	int i;
-
-	for (i = 0; i < ctx->used_mraw_num; i++) {
-		spin_lock(&ctx->mraw_composed_buffer_list[i].lock);
-		if (list_empty(&ctx->mraw_composed_buffer_list[i].list)) {
-			spin_unlock(&ctx->mraw_composed_buffer_list[i].lock);
-			return 0;
-		}
-		buf_entry = list_first_entry(&ctx->mraw_composed_buffer_list[i].list,
-							struct mtk_mraw_working_buf_entry,
-							list_entry);
-		buf_entry->ts_raw = ts_ns;
-		spin_unlock(&ctx->mraw_composed_buffer_list[i].lock);
-	}
-
-	return 1;
-}
-
-int mtk_cam_mraw_apply_all_buffers(struct mtk_cam_ctx *ctx, bool is_check_ts)
-{
-	struct mtk_mraw_working_buf_entry *buf_entry, *buf_entry_prev;
 	struct mtk_mraw_device *mraw_dev;
 	int i;
 
@@ -1150,33 +1115,9 @@ int mtk_cam_mraw_apply_all_buffers(struct mtk_cam_ctx *ctx, bool is_check_ts)
 			spin_unlock(&ctx->mraw_composed_buffer_list[i].lock);
 			return 0;
 		}
-		list_for_each_entry_safe(buf_entry, buf_entry_prev,
-			&ctx->mraw_composed_buffer_list[i].list, list_entry) {
-			if (atomic_read(&buf_entry->is_apply) == 0) {
-				atomic_set(&buf_entry->is_apply, 1);
-				break;
-			}
-		}
 		buf_entry = list_first_entry(&ctx->mraw_composed_buffer_list[i].list,
 							struct mtk_mraw_working_buf_entry,
 							list_entry);
-		if (mtk_cam_mraw_is_vf_on(mraw_dev) &&
-			(buf_entry->s_data->req->pipe_used &
-			(1 << ctx->mraw_pipe[i]->id)) && is_check_ts) {
-			if (buf_entry->is_stagger == 0 ||
-				(buf_entry->is_stagger == 1 && STAGGER_CQ_LAST_SOF == 0)) {
-				if ((buf_entry->ts_mraw == 0) ||
-					((buf_entry->ts_mraw < buf_entry->ts_raw) &&
-					((buf_entry->ts_raw - buf_entry->ts_mraw) > 3000000))) {
-					dev_dbg(ctx->cam->dev, "%s pipe_id:%d ts_raw:%lld ts_mraw:%lld is_apply:%d",
-						__func__, ctx->mraw_pipe[i]->id,
-						buf_entry->ts_raw, buf_entry->ts_mraw,
-						atomic_read(&buf_entry->is_apply));
-					spin_unlock(&ctx->mraw_composed_buffer_list[i].lock);
-					continue;
-				}
-			}
-		}
 		list_del(&buf_entry->list_entry);
 		ctx->mraw_composed_buffer_list[i].cnt--;
 		spin_unlock(&ctx->mraw_composed_buffer_list[i].lock);
@@ -1194,60 +1135,6 @@ int mtk_cam_mraw_apply_all_buffers(struct mtk_cam_ctx *ctx, bool is_check_ts)
 				buf_entry->mraw_cq_desc_offset, 0);
 		} else {
 			mtk_cam_mraw_vf_on(mraw_dev, 0);
-		}
-	}
-
-	return 1;
-}
-
-int mtk_cam_mraw_apply_next_buffer(struct mtk_cam_ctx *ctx,
-	unsigned int pipe_id, u64 ts_ns)
-{
-	struct mtk_mraw_working_buf_entry *buf_entry;
-	struct mtk_mraw_device *mraw_dev;
-	int i;
-
-	for (i = 0; i < ctx->used_mraw_num; i++) {
-		if (ctx->mraw_pipe[i]->id == pipe_id) {
-			spin_lock(&ctx->mraw_composed_buffer_list[i].lock);
-			if (list_empty(&ctx->mraw_composed_buffer_list[i].list)) {
-				spin_unlock(&ctx->mraw_composed_buffer_list[i].lock);
-				return 0;
-			}
-			buf_entry = list_first_entry(&ctx->mraw_composed_buffer_list[i].list,
-								struct mtk_mraw_working_buf_entry,
-								list_entry);
-			buf_entry->ts_mraw = ts_ns;
-			if ((buf_entry->ts_raw == 0) ||
-				(atomic_read(&buf_entry->is_apply) == 0) ||
-				((buf_entry->ts_mraw < buf_entry->ts_raw) &&
-				((buf_entry->ts_raw - buf_entry->ts_mraw) > 3000000))) {
-				dev_dbg(ctx->cam->dev, "%s pipe_id:%d ts_raw:%lld ts_mraw:%lld",
-					__func__, ctx->mraw_pipe[i]->id,
-					buf_entry->ts_raw, buf_entry->ts_mraw);
-				spin_unlock(&ctx->mraw_composed_buffer_list[i].lock);
-				return 1;
-			}
-			list_del(&buf_entry->list_entry);
-			ctx->mraw_composed_buffer_list[i].cnt--;
-			spin_unlock(&ctx->mraw_composed_buffer_list[i].lock);
-			spin_lock(&ctx->mraw_processing_buffer_list[i].lock);
-			list_add_tail(&buf_entry->list_entry,
-						&ctx->mraw_processing_buffer_list[i].list);
-			ctx->mraw_processing_buffer_list[i].cnt++;
-			spin_unlock(&ctx->mraw_processing_buffer_list[i].lock);
-
-			mraw_dev = get_mraw_dev(ctx->cam, ctx->mraw_pipe[i]);
-			if (buf_entry->s_data->req->pipe_used &
-				(1 << ctx->mraw_pipe[i]->id)) {
-				apply_mraw_cq(mraw_dev,
-					buf_entry->buffer.iova,
-					buf_entry->mraw_cq_desc_size,
-					buf_entry->mraw_cq_desc_offset, 0);
-			} else {
-				mtk_cam_mraw_vf_on(mraw_dev, 0);
-			}
-			break;
 		}
 	}
 
@@ -1386,24 +1273,8 @@ int mtk_cam_mraw_tg_config(struct mtk_mraw_device *dev,
 {
 	int ret = 0;
 
-	switch (pixel_mode) {
-	case 1:
-		MRAW_WRITE_BITS(dev->base + REG_MRAW_TG_SEN_MODE,
-			MRAW_TG_SEN_MODE, TG_DBL_DATA_BUS, 0);
-		break;
-	case 2:
-		MRAW_WRITE_BITS(dev->base + REG_MRAW_TG_SEN_MODE,
-			MRAW_TG_SEN_MODE, TG_DBL_DATA_BUS, 1);
-		break;
-	case 4:
-		MRAW_WRITE_BITS(dev->base + REG_MRAW_TG_SEN_MODE,
-			MRAW_TG_SEN_MODE, TG_DBL_DATA_BUS, 2);
-		break;
-	case 8:
-		MRAW_WRITE_BITS(dev->base + REG_MRAW_TG_SEN_MODE,
-			MRAW_TG_SEN_MODE, TG_DBL_DATA_BUS, 3);
-		break;
-	}
+	MRAW_WRITE_BITS(dev->base + REG_MRAW_TG_SEN_MODE,
+		MRAW_TG_SEN_MODE, TG_DBL_DATA_BUS, pixel_mode);
 
 	return ret;
 }
@@ -1638,8 +1509,7 @@ int mtk_cam_mraw_cq_config(struct mtk_mraw_device *dev)
 	return ret;
 }
 
-int mtk_cam_mraw_cq_enable(struct mtk_cam_ctx *ctx,
-	struct mtk_mraw_device *dev)
+int mtk_cam_mraw_cq_enable(struct mtk_mraw_device *dev)
 {
 	int ret = 0;
 	u32 val;
@@ -1857,7 +1727,7 @@ int mtk_cam_mraw_dev_stream_on(
 		}
 
 	if (streaming)
-		ret = mtk_cam_mraw_cq_enable(ctx, mraw_dev) ||
+		ret = mtk_cam_mraw_cq_enable(mraw_dev) ||
 			mtk_cam_mraw_top_enable(mraw_dev);
 	else {
 		/* reset enqueued status */

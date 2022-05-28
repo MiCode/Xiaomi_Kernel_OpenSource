@@ -22,14 +22,6 @@
 #define SV_IMG_MIN_WIDTH		0
 #define SV_IMG_MIN_HEIGHT		0
 
-/* camsv hardware capability definition: */
-/* [15:0]: hardware scenario             */
-/* [19:16]: group number                 */
-/* [23:20]: exposure order               */
-#define CAMSV_GROUP_SHIFT 16
-#define CAMSV_EXP_ORDER_SHIFT 20
-#define CAMSV_GROUP_AMOUNT 4
-
 enum mtkcam_sv_hw_path_control {
 	MTKCAM_SV_SPECIAL_SCENARIO_ADDITIONAL_RAW = HWPATH_ID(MTKCAM_IPI_HW_PATH_OFFLINE_RGBW) + 1,
 	MTKCAM_SV_SPECIAL_SCENARIO_EXT_ISP = HWPATH_ID(MTKCAM_IPI_HW_PATH_OFFLINE_RGBW) + 2,
@@ -79,8 +71,6 @@ enum mtkcam_sv_hw_path_control {
 	var = readl_relaxed(RegAddr);\
 	var;\
 })
-
-#define CAMSV_MAX_PIPE_USED 4
 
 struct mtk_cam_ctx;
 struct mtk_cam_request;
@@ -202,7 +192,7 @@ struct mtk_camsv_tag_info {
 	struct mtk_camsv_pipeline *sv_pipe;
 	u8 seninf_padidx;
 	unsigned int hw_scen;
-	unsigned int exp_order;
+	unsigned int tag_order;
 	/* camsv todo: move stride to frame param */
 	unsigned int stride;
 	struct mtkcam_ipi_input_param cfg_in_param;
@@ -295,20 +285,28 @@ void mtk_camsv_unregister_entities(struct mtk_camsv *sv);
 int mtk_camsv_call_pending_set_fmt(struct v4l2_subdev *sd,
 				 struct v4l2_subdev_format *fmt);
 void sv_reset(struct mtk_camsv_device *dev);
-int mtk_cam_call_sv_dev_config(
+int mtk_cam_call_sv_pipeline_config(
 	struct mtk_cam_ctx *ctx,
 	unsigned int tag_idx,
 	unsigned int seninf_padidx,
 	unsigned int hw_scen,
-	unsigned int exp_order,
+	unsigned int tag_order,
 	unsigned int pixelmode,
-	struct mtk_camsv_pipeline *pipeline);
-int mtk_cam_sv_dev_config(struct mtk_camsv_device *camsv_dev);
+	unsigned int sub_ratio,
+	struct mtk_camsv_pipeline *pipeline,
+	struct v4l2_mbus_framefmt *mf,
+	struct v4l2_format *img_fmt);
+int mtk_cam_sv_pipeline_config(struct mtk_camsv_device *camsv_dev);
+int mtk_cam_sv_cq_config(struct mtk_camsv_device *camsv_dev);
+int mtk_cam_sv_cq_enable(struct mtk_camsv_device *camsv_dev);
+int mtk_cam_sv_cq_disable(struct mtk_camsv_device *camsv_dev);
 struct mtk_camsv_device *mtk_cam_get_used_sv_dev(struct mtk_cam_ctx *ctx);
-int mtk_cam_get_sv_cammux_id(struct mtk_camsv_device *camsv_dev, int tags);
-int mtk_cam_sv_dev_stream_on(
+int mtk_cam_get_sv_cammux_id(struct mtk_camsv_device *camsv_dev, int tag_idx);
+int mtk_cam_sv_dev_pertag_stream_on(
 	struct mtk_cam_ctx *ctx, unsigned int tag_idx,
 	unsigned int streaming);
+int mtk_cam_sv_dev_stream_on(
+	struct mtk_cam_ctx *ctx, unsigned int streaming);
 unsigned int mtk_cam_sv_format_sel(unsigned int pixel_fmt);
 unsigned int mtk_cam_sv_pak_sel(unsigned int tg_fmt,
 	unsigned int pixel_mode);
@@ -322,23 +320,16 @@ int mtk_cam_sv_dmao_pertag_config(
 	struct mtk_camsv_device *dev, unsigned int tag_idx);
 int mtk_cam_sv_fbc_pertag_config(
 	struct mtk_camsv_device *dev, unsigned int tag_idx);
-int mtk_cam_sv_central_enable(struct mtk_camsv_device *dev);
 int mtk_cam_sv_fbc_pertag_enable(
 	struct mtk_camsv_device *dev, unsigned int tag_idx);
+int mtk_cam_sv_print_fbc_status(struct mtk_camsv_device *dev);
 int mtk_cam_sv_toggle_db(struct mtk_camsv_device *dev);
 int mtk_cam_sv_central_common_enable(struct mtk_camsv_device *dev);
 int mtk_cam_sv_fbc_disable(struct mtk_camsv_device *dev, unsigned int tag_idx);
-int mtk_cam_sv_is_vf_on(struct mtk_camsv_device *dev);
 int mtk_cam_sv_enquehwbuf(struct mtk_camsv_device *dev,
 	dma_addr_t ba, unsigned int seq_no, unsigned int tag);
-bool mtk_cam_sv_finish_buf(struct mtk_cam_request_stream_data *s_data);
-int mtk_cam_sv_update_all_buffer_ts(struct mtk_cam_ctx *ctx, u64 ts_ns);
-int mtk_cam_sv_apply_all_buffers(struct mtk_cam_ctx *ctx, bool is_check_ts);
-int mtk_cam_sv_apply_next_buffer(struct mtk_cam_ctx *ctx, unsigned int pipe_id, u64 ts_ns);
-int mtk_cam_sv_rgbw_apply_next_buffer(
-	struct mtk_cam_request_stream_data *s_data);
-int mtk_cam_sv_apply_switch_buffers(struct mtk_cam_ctx *ctx);
-unsigned int mtk_cam_get_sv_tag(struct mtk_cam_ctx *ctx,
+int mtk_cam_sv_apply_all_buffers(struct mtk_cam_ctx *ctx);
+unsigned int mtk_cam_get_sv_tag_index(struct mtk_cam_ctx *ctx,
 		unsigned int pipe_id);
 int mtk_cam_sv_write_rcnt(
 	struct mtk_camsv_device *camsv_dev,
@@ -349,10 +340,14 @@ int mtk_cam_sv_cal_cfg_info(struct mtk_cam_ctx *ctx,
 int mtk_cam_sv_setup_cfg_info(struct mtk_camsv_device *dev,
 	struct mtk_cam_request_stream_data *s_data, unsigned int tag);
 int mtk_cam_sv_frame_no_inner(struct mtk_camsv_device *dev);
+int mtk_cam_sv_set_group_info(struct mtk_camsv_device *camsv_dev);
+bool mtk_cam_sv_is_multiple_groups(struct mtk_camsv_device *camsv_dev);
+void apply_camsv_cq(struct mtk_camsv_device *dev,
+	      dma_addr_t cq_addr, unsigned int cq_size, unsigned int cq_offset,
+	      int initial);
 #ifdef CAMSYS_TF_DUMP_71_1
 int mtk_camsv_translation_fault_callback(int port, dma_addr_t mva, void *data);
 #endif
-int mtk_cam_get_sv_pixel_mode(struct mtk_cam_ctx *ctx, unsigned int idx);
 
 extern struct platform_driver mtk_cam_sv_driver;
 

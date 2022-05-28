@@ -223,6 +223,12 @@ enum mtkcam_ipi_flow_variant {
 	MTKCAM_IPI_FLOW_OFFLINE,	/* aka, m2m */
 };
 
+enum mtkcam_ipi_tag_order {
+	MTKCAM_IPI_ORDER_FIRST_TAG		= 0,
+	MTKCAM_IPI_ORDER_NORMAL_TAG		= 1,
+	MTKCAM_IPI_ORDER_LAST_TAG		= 2,
+};
+
 /*
  * bit[15:12]: flow
  * bit[11: 8]: variant

@@ -6,6 +6,116 @@
 #ifndef _CAMSV_REGS_H
 #define _CAMSV_REGS_H
 
+#define REG_CAMSV_M1_CQI_ORIRDMA_CON0			0x0520
+#define REG_CAMSV_M1_CQI_ORIRDMA_CON1			0x0524
+#define REG_CAMSV_M1_CQI_ORIRDMA_CON2			0x0528
+#define REG_CAMSV_M1_CQI_ORIRDMA_CON3			0x052C
+#define REG_CAMSV_M1_CQI_ORIRDMA_CON4			0x0530
+
+#define REG_CAMSV_M2_CQI_ORIRDMA_CON0			0x05A0
+#define REG_CAMSV_M2_CQI_ORIRDMA_CON1			0x05A4
+#define REG_CAMSV_M2_CQI_ORIRDMA_CON2			0x05A8
+#define REG_CAMSV_M2_CQI_ORIRDMA_CON3			0x05AC
+#define REG_CAMSV_M2_CQI_ORIRDMA_CON4			0x05A0
+
+#define REG_CAMSVCQ_CQ_SUB_THR0_CTL				0x0170
+union CAMSVCQ_CQ_SUB_THR0_CTL {
+	struct {
+		unsigned int CAMSVCQ_CQ_SUB_THR0_EN			:  1;
+		unsigned int rsv_1							:  3;
+		unsigned int CAMSVCQ_CQ_SUB_THR0_MODE		:  2;
+		unsigned int rsv_6							:  2;
+		unsigned int CAMSVCQ_CQ_SUB_THR0_DONE_SEL	:  1;
+		unsigned int rsv_9							: 23;
+	} Bits;
+	unsigned int Raw;
+};
+
+#define REG_CAMSVCQ_SCQ_START_PERIOD			0x0108
+union CAMSVCQ_SCQ_START_PERIOD {
+	struct {
+		unsigned int CAMSVCQ_SCQ_START_PERIOD		: 32;
+	} Bits;
+	unsigned int Raw;
+};
+
+#define REG_CAMSVCQ_CQ_EN						0x0100
+union CAMSVCQ_CQ_EN {
+	struct {
+		unsigned int CAMSVCQ_CQ_APB_2T				:  1;
+		unsigned int CAMSVCQ_CQ_DROP_FRAME_EN		:  1;
+		unsigned int CAMSVCQ_CQ_SOF_SEL				:  1;
+		unsigned int rsv_3							:  1;
+		unsigned int CAMSVCQ_CQ_DB_EN				:  1;
+		unsigned int rsv_5							:  3;
+		unsigned int CAMSVCQ_CQ_DB_LOAD_MODE		:  1;
+		unsigned int rsv_9							:  3;
+		unsigned int CAMSVCQ_SCQ_STAGGER_MODE		:  1;
+		unsigned int rsv_13							:  3;
+		unsigned int CAMSVCQ_CQ_RESET				:  1;
+		unsigned int rsv_17							:  4;
+		unsigned int CAMSVCQ_SCQ_SUBSAMPLE_EN		:  1;
+		unsigned int rsv_22							:  6;
+		unsigned int CAMSVCQ_CQ_DBG_SEL				:  1;
+		unsigned int CAMSVCQ_CQ_DBG_MAIN_SUB_SEL	:  1;
+		unsigned int rsv_30							:  2;
+	} Bits;
+	unsigned int Raw;
+};
+
+#define REG_CAMSVCQ_CQ_SUB_THR0_DESC_SIZE_2			0x0188
+union CAMSVCQ_CQ_SUB_THR0_DESC_SIZE_2 {
+	struct {
+		unsigned int CAMSVCQ_CQ_SUB_THR0_DESC_SIZE_2	: 16;
+		unsigned int rsv_16					: 16;
+	} Bits;
+	unsigned int Raw;
+};
+
+#define REG_CAMSVCQ_CQ_SUB_THR0_BASEADDR_2_MSB		0x0180
+union CAMSVCQ_CQ_SUB_THR0_BASEADDR_2_MSB {
+	struct {
+		unsigned int CAMSVCQ_CQ_SUB_THR0_BASEADDR_2_MSB	:  3;
+		unsigned int rsv_3					: 29;
+	} Bits;
+	unsigned int Raw;
+};
+
+#define REG_CAMSVCQ_CQ_SUB_THR0_BASEADDR_2			0x017c
+union CAMSVCQ_CQ_SUB_THR0_BASEADDR_2 {
+	struct {
+		unsigned int CAMSVCQ_CQ_SUB_THR0_BASEADDR_2		: 32;
+	} Bits;
+	unsigned int Raw;
+};
+
+#define REG_CAMSVCQTOP_THR_START					0x0014
+union CAMSVCQTOP_THR_START {
+	struct {
+		unsigned int CAMSVCQTOP_CSR_CQ_THR0_START		:  1;
+		unsigned int rsv_1					: 31;
+	} Bits;
+	unsigned int Raw;
+};
+
+#define REG_CAMSVCQTOP_INT_0_EN						0x0018
+union CAMSVCQTOP_INT_0_EN {
+	struct {
+		unsigned int CAMSVCQTOP_CSR_SCQ_SUB_THR_DONE_INT_EN			:  1;
+		unsigned int CAMSVCQTOP_CSR_SCQ_MAX_START_DLY_ERR_INT_EN	:  1;
+		unsigned int CAMSVCQTOP_CSR_SCQ_SUB_CODE_ERR_INT_EN			:  1;
+		unsigned int CAMSVCQTOP_CSR_SCQ_SUB_VB_ERR_INT_EN			:  1;
+		unsigned int CAMSVCQTOP_CSR_SCQ_TRIG_DLY_INT_EN				:  1;
+		unsigned int CAMSVCQTOP_CSR_DMA_ERR_INT_EN			:  1;
+		unsigned int CAMSVCQTOP_CSR_CQI_E1_DONE_INT_EN				:  1;
+		unsigned int CAMSVCQTOP_CSR_CQI_E2_DONE_INT_EN				:  1;
+		unsigned int CAMSVCQTOP_CSR_SCQ_MAX_START_DLY_SMALL_INT_EN	:  1;
+		unsigned int rsv_9					: 22;
+		unsigned int CAMSVCQTOP_CSR_INT_0_WCLR_EN			:  1;
+	} Bits;
+	unsigned int Raw;
+};
+
 /* GROUPS */
 #define REG_CAMSVCENTRAL_GROUP_TAG0				0x01B8
 #define REG_CAMSVCENTRAL_GROUP_TAG_SHIFT		0x4

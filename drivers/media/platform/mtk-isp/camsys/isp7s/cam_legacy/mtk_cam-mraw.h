@@ -182,13 +182,12 @@ struct mtk_cam_mraw_resource_config {
 	__u64 daddr[MAX_MRAW_VIDEO_DEV_NUM];
 	__u8 is_initial;
 	__u32 enque_num;
-	__u32 width;
-	__u32 height;
-	__u32 img_fmt;
+	struct mtkcam_ipi_crop tg_crop;
+	__u32 tg_fmt;
 	__u32 pixel_mode;
+
 	__s8 mqe_en;
 	__u32 mqe_mode;
-
 	__u32 mbn_dir;
 	__u32 mbn_pow;
 	__u32 cpi_pow;
@@ -268,9 +267,7 @@ mtk_cam_dev_get_mraw_pipeline(struct mtk_cam_device *cam,
 int mtk_cam_mraw_pipeline_config(struct mtk_cam_ctx *ctx, unsigned int idx);
 struct device *mtk_cam_find_mraw_dev(
 	struct mtk_cam_device *cam, unsigned int mraw_mask);
-int mtk_cam_mraw_update_all_buffer_ts(struct mtk_cam_ctx *ctx, u64 ts_ns);
-int mtk_cam_mraw_apply_all_buffers(struct mtk_cam_ctx *ctx, bool is_check_ts);
-int mtk_cam_mraw_apply_next_buffer(struct mtk_cam_ctx *ctx, unsigned int pipe_id, u64 ts_ns);
+int mtk_cam_mraw_apply_all_buffers(struct mtk_cam_ctx *ctx);
 int mtk_cam_mraw_dev_config(
 	struct mtk_cam_ctx *ctx, unsigned int idx);
 int mtk_cam_mraw_dev_stream_on(
@@ -305,8 +302,6 @@ int mtk_cam_mraw_cal_cfg_info(struct mtk_cam_device *cam,
 #ifdef CAMSYS_TF_DUMP_71_1
 int mtk_mraw_translation_fault_callback(int port, dma_addr_t mva, void *data);
 #endif
-void mtk_cam_mraw_update_param(struct mtkcam_ipi_frame_param *frame_param,
-	struct mtk_mraw_pipeline *mraw_pipline);
 void mtk_cam_mraw_get_mqe_size(struct mtk_cam_device *cam, unsigned int pipe_id,
 	unsigned int *width, unsigned int *height);
 void mtk_cam_mraw_get_mbn_size(struct mtk_cam_device *cam, unsigned int pipe_id,
