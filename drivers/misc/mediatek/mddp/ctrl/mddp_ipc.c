@@ -199,7 +199,7 @@ int32_t mddp_ipc_send_md(
 		memcpy(ctrl_msg.buf, msg->data, msg->data_len);
 
 	ret = mtk_ccci_send_data(mddp_ipc_tty_port_s, (char *)&ctrl_msg,
-			sizeof(struct mddp_md_msg_t) + msg->data_len);
+			sizeof(struct mdfpm_ctrl_msg_t) + msg->data_len);
 
 	kfree(msg);
 
