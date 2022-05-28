@@ -5801,16 +5801,16 @@
 			compatible = "mediatek,mt6985-connv3";
 			/* BT, WIFI, GPS, FM */
 			radio-support = "wifi", "bt", "md";
-			pinctrl-names = "connsys_pin_ext32k_en_default",
-					"connsys_pin_ext32k_en_set",
-					"connsys_pin_ext32k_en_clr",
+			pinctrl-names = "connsys-pin-ext32k-en-default",
+					"connsys-pin-ext32k-en-set",
+					"connsys-pin-ext32k-en-clr",
 					"connsys_pin_pmic_en_default",
 					"connsys_pin_pmic_en_set",
 					"connsys_pin_pmic_en_clr",
 					"connsys_pin_pmic_faultb_default";
-			pinctrl-0 = <&connsys_pin_ext32_en_default>;
-			pinctrl-1 = <&connsys_pin_ext32_en_set>;
-			pinctrl-2 = <&connsys_pin_ext32_en_clr>;
+			pinctrl-0 = <&connsys_pin_ext32k_en_default>;
+			pinctrl-1 = <&connsys_pin_ext32k_en_set>;
+			pinctrl-2 = <&connsys_pin_ext32k_en_clr>;
 			pinctrl-3 = <&connsys_pin_pmic_en_default>;
 			pinctrl-4 = <&connsys_pin_pmic_en_set>;
 			pinctrl-5 = <&connsys_pin_pmic_en_clr>;
@@ -5883,7 +5883,7 @@
 			mnl-mpe-emi-size = <0x280000>;
 			scp-shm-size = <0x96000>;
 			emi-alignment = <0x100000>;
-			emi-max-addr = <0xffffffff>;
+			emi-max-addr = <0x90000000>;
 		};
 
 		apu_iommu0_bank1: iommu@19011000 {
@@ -12862,19 +12862,19 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 		};
 	};
 
-	connsys_pin_ext32_en_default: connsys_pin_ext32_en_default {
+	connsys_pin_ext32k_en_default: connsys-pin-ext32k-en-default {
 		pins_cmd_data {
 			pinmux = <PINMUX_GPIO159__FUNC_GPIO159>;
 			output-low;
 		};
 	};
-	connsys_pin_ext32_en_set: connsys_pin_ext32_en_set {
+	connsys_pin_ext32k_en_set: connsys-pin-ext32k-en-set {
 		pins_cmd_data {
 			pinmux = <PINMUX_GPIO159__FUNC_GPIO159>;
 			output-high;
 		};
 	};
-	connsys_pin_ext32_en_clr: connsys_pin_ext32_en_clr {
+	connsys_pin_ext32k_en_clr: connsys-pin-ext32k-en-clr {
 		pins_cmd_data {
 			pinmux = <PINMUX_GPIO159__FUNC_GPIO159>;
 			output-low;
