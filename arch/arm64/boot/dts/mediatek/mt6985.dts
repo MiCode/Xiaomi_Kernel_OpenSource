@@ -7297,11 +7297,11 @@
 				"drm_debug";
 			clocks =
 				<&topckgen_clk CLK_TOP_MFG_INT0_SEL>,
-				<&mfgpll_pll_ctrl_clk CLK_MFG_AO_MFGPLL>,
-				<&topckgen_clk CLK_TOP_MFG_REF_SEL>,
+				<&topckgen_clk CLK_TOP_MFGPLL>,
+				<&topckgen_clk CLK_TOP_MFG_REF>,
 				<&topckgen_clk CLK_TOP_MFG1_INT1_SEL>,
-				<&mfgscpll_pll_ctrl_clk CLK_MFGSC_AO_MFGSCPLL>,
-				<&topckgen_clk CLK_TOP_MFGSC_REF_SEL>;
+				<&topckgen_clk CLK_TOP_MFGSCPLL>,
+				<&topckgen_clk CLK_TOP_MFGSC_REF>;
 			clock-names =
 				"clk_mux",
 				"clk_main_parent",
@@ -7359,9 +7359,9 @@
 		gpufreq_wrapper: gpufreq_wrapper {
 			compatible = "mediatek,gpufreq_wrapper";
 			gpufreq-version = <2>;
-			dual-buck = <0>;
+			dual-buck = <1>;
 			gpueb-support = <0>;
-			gpufreq-bringup = <1>;
+			gpufreq-bringup = <0>;
 		};
 
 		ged: ged {
@@ -11469,14 +11469,6 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 	regulator-always-on;
 };
 
-&mt6373_vbuck2 {
-	regulator-always-on;
-};
-
-&mt6373_vbuck4 {
-	regulator-always-on;
-};
-
 &mt6373_vbuck5 {
 	regulator-always-on;
 };
@@ -11493,9 +11485,6 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 	regulator-min-microvolt = <0>;
 };
 
-&mt6373_vsram_digrf_aif {
-	regulator-always-on;
-};
 &mddriver {
 	/* for md pmic voltage setting*/
 	md_vmodem-supply = <&mt6363_vbuck2>;
