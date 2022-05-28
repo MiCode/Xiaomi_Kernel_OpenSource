@@ -1725,11 +1725,15 @@ static void cmdq_sec_reserved_mem_lookup(struct cmdq_sec_shared_mem *shared_mem)
 	static void *va;
 	char buf[NAME_MAX] = {0};
 	u64 pa = 0;
-	s32 i;
+	s32 i, len;
 
 	for (i = 0; i < 32 && !mem; i++) {
 		memset(buf, 0, sizeof(buf));
-		snprintf(buf, NAME_MAX - 1, "mblock-%d-me_cmdq_reserved", i);
+		len = snprintf(buf, NAME_MAX - 1, "mblock-%d-me_cmdq_reserved", i);
+		if (len < 0 || len >= sizeof(buf)) {
+			cmdq_err("mblock-%d-me_cmdq_reserved failed", i);
+			return;
+		}
 		node.full_name = buf;
 		mem = of_reserved_mem_lookup(&node);
 	}
