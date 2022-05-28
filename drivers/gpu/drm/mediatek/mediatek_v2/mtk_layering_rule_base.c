@@ -2233,18 +2233,32 @@ static int mtk_lye_get_comp_id(int disp_idx, struct drm_device *drm_dev,
 			MTK_DRM_OPT_VDS_PATH_SWITCH) &&
 			priv->need_vds_path_switch)
 			return DDP_COMPONENT_OVL0;
-		else if (HRT_GET_FIRST_SET_BIT(
-				 ovl_mapping_tb -
-				 HRT_GET_FIRST_SET_BIT(ovl_mapping_tb)) >=
-			 layer_map_idx) {
-			if ((priv->data->mmsys_id == MMSYS_MT6895) ||
-			    (priv->data->mmsys_id == MMSYS_MT6886) ||
-				(priv->data->mmsys_id == MMSYS_MT6855))
-				return DDP_COMPONENT_OVL1_2L;
-			else
-				return DDP_COMPONENT_OVL0_2L;
-		} else
-			return DDP_COMPONENT_OVL0;
+		else {
+			if (priv->data->mmsys_id == MMSYS_MT6985) {
+				if (HRT_GET_FIRST_SET_BIT(ovl_mapping_tb -
+					HRT_GET_FIRST_SET_BIT(ovl_mapping_tb)) >=
+					layer_map_idx) {
+					return DDP_COMPONENT_OVL0_2L;
+				} else if (HRT_GET_FIRST_SET_BIT(
+					HRT_GET_FIRST_SET_BIT(ovl_mapping_tb -
+					HRT_GET_FIRST_SET_BIT(ovl_mapping_tb))) >=
+					layer_map_idx) {
+					return DDP_COMPONENT_OVL1_2L;
+				} else
+					return DDP_COMPONENT_OVL2_2L;
+			} else {
+				if (HRT_GET_FIRST_SET_BIT(ovl_mapping_tb -
+					HRT_GET_FIRST_SET_BIT(ovl_mapping_tb)) >=
+					layer_map_idx) {
+					if ((priv->data->mmsys_id == MMSYS_MT6895) ||
+						(priv->data->mmsys_id == MMSYS_MT6855))
+						return DDP_COMPONENT_OVL1_2L;
+					else
+						return DDP_COMPONENT_OVL0_2L;
+				} else
+					return DDP_COMPONENT_OVL0;
+			}
+		}
 	} else if (disp_idx == 1) {
 		if (priv->data->mmsys_id == MMSYS_MT6885)
 			return DDP_COMPONENT_OVL2_2L;

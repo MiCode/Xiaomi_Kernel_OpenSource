@@ -9836,11 +9836,11 @@ static int mtk_ddp_ovl_con_MT6985(enum mtk_ddp_comp_id cur,
 			value = DISP_OVL1_2L_TO_BLEND_CROSSBAR1;
 	} else if (cur == DDP_COMPONENT_OVL2_2L || cur == DDP_COMPONENT_OVL6_2L) {
 		if (next == DDP_COMPONENT_OVL3_2L || next == DDP_COMPONENT_OVL7_2L)
-			value = DISP_OVL1_2L_TO_BG_CROSSBAR1;
+			value = DISP_OVL2_2L_TO_BG_CROSSBAR2;
 		else
-			value = DISP_OVL1_2L_TO_BLEND_CROSSBAR1;
+			value = DISP_OVL2_2L_TO_BLEND_CROSSBAR2;
 	} else if (cur == DDP_COMPONENT_OVL3_2L || cur == DDP_COMPONENT_OVL7_2L) {
-		value = DISP_OVL1_2L_TO_BLEND_CROSSBAR1;
+		value = DISP_OVL3_2L_TO_BLEND_CROSSBAR3;
 	} else {
 		value = -1;
 	}

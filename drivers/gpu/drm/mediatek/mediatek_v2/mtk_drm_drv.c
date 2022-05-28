@@ -2311,11 +2311,11 @@ static const struct mtk_addon_scenario_data mt6983_addon_ext[ADDON_SCN_NR] = {
 static const struct mtk_addon_scenario_data mt6985_addon_main[ADDON_SCN_NR] = {
 	[NONE] = {
 		.module_num = 0,
-		.hrt_type = HRT_TB_TYPE_GENERAL0,
+		.hrt_type = HRT_TB_TYPE_GENERAL1,
 	},
 	[TRIPLE_DISP] = {
 		.module_num = 0,
-		.hrt_type = HRT_TB_TYPE_GENERAL0,
+		.hrt_type = HRT_TB_TYPE_GENERAL1,
 	},
 };
 
@@ -2984,7 +2984,7 @@ static const struct mtk_crtc_path_data mt6985_mtk_main_path_data = {
 //	.dual_path_len[0] = ARRAY_SIZE(mt6985_mtk_ddp_dual_main),
 //	.wb_path[DDP_MAJOR] = mt6983_mtk_ddp_main_wb_path,
 //	.wb_path_len[DDP_MAJOR] = ARRAY_SIZE(mt6983_mtk_ddp_main_wb_path),
-//	.addon_data = mt6985_addon_main,
+	.addon_data = mt6985_addon_main,
 //	.addon_data_dual = mt6985_addon_main_dual,
 };
 
