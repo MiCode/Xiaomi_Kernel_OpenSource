@@ -20,13 +20,13 @@
 
 #include "mtk_cam.h"
 #include "mtk_cam-ctrl.h"
+#include "mtk_cam-dvfs_qos_raw.h"
 #include "mtk_cam-feature.h"
 #include "mtk_cam-raw.h"
 #include "mtk_cam-regs.h"
 #include "mtk_cam-seninf-if.h"
 #include "mtk_cam-dmadbg.h"
 #include "mtk_cam-raw_debug.h"
-
 #include "mtk_cam-hsf.h"
 #include "mtk_cam-trace.h"
 
@@ -1328,6 +1328,12 @@ static int mtk_raw_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
+	ret = mtk_cam_qos_probe(dev, &raw_dev->qos,
+				qos_raw_ids,
+				ARRAY_SIZE(qos_raw_ids));
+	if (ret)
+		return ret;
+
 	raw_dev->fifo_size =
 		roundup_pow_of_two(8 * sizeof(struct mtk_camsys_irq_info));
 
@@ -1353,6 +1359,7 @@ static int mtk_raw_remove(struct platform_device *pdev)
 	unregister_pm_notifier(&raw_dev->pm_notifier);
 
 	pm_runtime_disable(dev);
+	mtk_cam_qos_remove(&raw_dev->qos);
 	component_del(dev, &mtk_raw_component_ops);
 
 	for (i = 0; i < raw_dev->num_clks; i++)
@@ -1711,6 +1718,12 @@ static int mtk_yuv_probe(struct platform_device *pdev)
 		return ret;
 	}
 
+	ret = mtk_cam_qos_probe(dev, &drvdata->qos,
+				qos_yuv_ids,
+				ARRAY_SIZE(qos_yuv_ids));
+	if (ret)
+		return ret;
+
 	pm_runtime_enable(dev);
 
 	return component_add(dev, &mtk_yuv_component_ops);
@@ -1727,6 +1740,7 @@ static int mtk_yuv_remove(struct platform_device *pdev)
 	unregister_pm_notifier(&drvdata->pm_notifier);
 
 	pm_runtime_disable(dev);
+	mtk_cam_qos_remove(&drvdata->qos);
 	component_del(dev, &mtk_yuv_component_ops);
 
 	for (i = 0; i < drvdata->num_clks; i++)

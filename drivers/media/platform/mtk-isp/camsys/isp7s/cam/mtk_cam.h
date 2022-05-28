@@ -191,12 +191,23 @@ struct mtk_cam_device {
 	unsigned int running_job_count;
 	spinlock_t running_job_lock;
 
-	struct mtk_camsys_dvfs dvfs_info;
+	struct mtk_camsys_dvfs dvfs;
 	//struct mtk_cam_debug_fs *debug_fs;
 	//struct workqueue_struct *debug_wq;
 	//struct workqueue_struct *debug_exception_wq;
 	//wait_queue_head_t debug_exception_waitq;
 };
+
+static inline struct mtk_cam_device *subdev_to_cam_device(struct v4l2_subdev *sd)
+{
+	return container_of(sd->v4l2_dev->mdev,
+			    struct mtk_cam_device, media_dev);
+}
+
+static inline struct device *subdev_to_cam_dev(struct v4l2_subdev *sd)
+{
+	return ((struct mtk_cam_device *)subdev_to_cam_device(sd))->dev;
+}
 
 struct device *mtk_cam_root_dev(void);
 

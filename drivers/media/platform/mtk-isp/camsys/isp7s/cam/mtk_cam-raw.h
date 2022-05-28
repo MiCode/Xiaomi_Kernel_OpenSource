@@ -9,6 +9,8 @@
 #include <linux/kfifo.h>
 #include "mtk_cam-raw_pipeline.h"
 
+#include "mtk_cam-dvfs_qos.h"
+
 struct mtk_cam_request_stream_data;
 
 #define RAW_PIPELINE_NUM 3 //TODO: remove
@@ -42,6 +44,7 @@ struct mtk_raw_device {
 #endif
 	/* larb */
 	struct platform_device *larb_pdev;
+	struct mtk_camsys_qos qos;
 
 	int		fifo_size;
 	void		*msg_buffer;
@@ -83,6 +86,7 @@ struct mtk_yuv_device {
 	struct notifier_block pm_notifier;
 #endif
 	struct platform_device *larb_pdev;
+	struct mtk_camsys_qos qos;
 };
 
 /* AE information */

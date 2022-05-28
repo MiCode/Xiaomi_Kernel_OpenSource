@@ -7,48 +7,65 @@
 #define __MTK_CAM_DVFS_QOS_H
 
 #include <linux/clk.h>
+#include <linux/interconnect.h>
+#include <linux/spinlock_types.h>
 
 struct device;
 struct regulator;
-struct icc_path;
-struct mtk_cam_device;
-// struct mtk_cam_ctx;
 
-#define ISP_CLK_LEVEL_CNT 10
-//#define MTK_CAM_RAW_PORT_NUM 72
-//#define MTK_CAM_SV_PORT_NUM 16
-//#define MTK_CAM_MRAW_PORT_NUM 16
-#define MAX_CAM_OPP_STEP 10
-
+#define MAX_OPP_NUM 8
+struct dvfs_stream_info;
 struct mtk_camsys_dvfs {
 	struct device *dev;
 	struct regulator *reg_vmm;
-	unsigned int clklv_num;
-	unsigned int clklv[ISP_CLK_LEVEL_CNT];
-	unsigned int voltlv[ISP_CLK_LEVEL_CNT];
-	unsigned int clklv_idx;
-	unsigned int clklv_target;
+
+	unsigned int opp_num;
+	struct camsys_opp_table {
+		unsigned int freq_hz;
+		unsigned int volt_uv;
+	} opp[8];
+
 	struct clk *mux;
-	struct clk *clk_src[MAX_CAM_OPP_STEP];
-	/* TBC
-	unsigned long updated_raw_dmas[RAW_NUM];
-	struct icc_path *qos_req[MTK_CAM_RAW_PORT_NUM];
-	unsigned long qos_bw_avg[MTK_CAM_RAW_PORT_NUM];
-	unsigned long qos_bw_peak[MTK_CAM_RAW_PORT_NUM];
-	struct icc_path *sv_qos_req[MTK_CAM_SV_PORT_NUM];
-	unsigned long sv_qos_bw_avg[MTK_CAM_SV_PORT_NUM];
-	unsigned long sv_qos_bw_peak[MTK_CAM_SV_PORT_NUM];
-	struct icc_path *mraw_qos_req[MTK_CAM_MRAW_PORT_NUM];
-	unsigned long mraw_qos_bw_avg[MTK_CAM_MRAW_PORT_NUM];
-	unsigned long mraw_qos_bw_peak[MTK_CAM_MRAW_PORT_NUM];
-	*/
+	struct clk *clk_src[8];
+
+	spinlock_t lock;
+	int max_stream_num;
+	struct dvfs_stream_info *stream_infos;
+	int cur_opp_idx;
 };
 
-void mtk_cam_dvfs_init(struct mtk_cam_device *cam);
-void mtk_cam_dvfs_uninit(struct mtk_cam_device *cam);
-void mtk_cam_dvfs_update_clk(struct mtk_cam_device *cam);
+int mtk_cam_dvfs_probe(struct device *dev,
+		       struct mtk_camsys_dvfs *dvfs, int max_stream_num);
+int mtk_cam_dvfs_remove(struct mtk_camsys_dvfs *dvfs);
 
-//void mtk_cam_qos_init(struct mtk_cam_device *cam);
-//void mtk_cam_qos_bw_reset(struct mtk_cam_ctx *ctx, unsigned int enabled_sv);
-//void mtk_cam_qos_bw_calc(struct mtk_cam_ctx *ctx, unsigned long raw_dmas, bool force);
-#endif
+int mtk_cam_dvfs_regulator_enable(struct mtk_camsys_dvfs *dvfs);
+int mtk_cam_dvfs_regulator_disable(struct mtk_camsys_dvfs *dvfs);
+
+int mtk_cam_dvfs_update(struct mtk_camsys_dvfs *dvfs,
+			int stream_id, unsigned int target_freq_hz);
+
+struct mtk_camsys_qos_path;
+struct mtk_camsys_qos {
+	int n_path;
+	struct mtk_camsys_qos_path *cam_path;
+};
+
+int mtk_cam_qos_probe(struct device *dev,
+		      struct mtk_camsys_qos *qos,
+		      int *ids, int n_id);
+int mtk_cam_qos_remove(struct mtk_camsys_qos *qos);
+
+static inline u32 to_qos_icc(unsigned long Bps)
+{
+	return kBps_to_icc(Bps / 1024);
+}
+
+int mtk_cam_qos_update(struct mtk_camsys_qos *qos,
+		       int path_id, u32 avg_bw, u32 peak_bw);
+int mtk_cam_qos_reset_all(struct mtk_camsys_qos *qos);
+
+/* note: may sleep */
+/* TODO: only wait if bw changes? */
+int mtk_cam_qos_wait_throttle_done(void);
+
+#endif /* __MTK_CAM_DVFS_QOS_H */

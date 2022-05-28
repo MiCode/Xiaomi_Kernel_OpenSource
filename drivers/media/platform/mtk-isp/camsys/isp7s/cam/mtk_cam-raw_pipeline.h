@@ -138,10 +138,20 @@ struct mtk_raw_stagger_select {
 	int enabled_raw;
 };
 
+struct mtk_cam_resource_driver {
+
+	/* expose to userspace, v4l2_ctrl */
+	struct mtk_cam_resource		user_data;
+
+	/* driver internally cached */
+	unsigned int clk_target; /* Hz */
+};
+
+
 struct mtk_raw_ctrl_data {
 	s64 feature;
 
-	struct mtk_cam_resource user_res;
+	struct mtk_cam_resource_driver resource;
 	int raw_path;
 
 	bool enqueued_tg_flash_req; /* need a better way to collect the request */

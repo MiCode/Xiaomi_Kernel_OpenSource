@@ -231,6 +231,26 @@ __maybe_unused static int mtk_cam_raw_set_res_ctrl(struct v4l2_ctrl *ctrl)
 	return 0;
 }
 
+static int mtk_raw_calc_raw_resource(struct mtk_raw_pipeline *pipeline,
+				     struct mtk_cam_resource *user_ctrl,
+				     struct mtk_cam_resource_driver *drv_data)
+{
+	struct device *dev = subdev_to_cam_dev(&pipeline->subdev);
+	struct mtk_cam_resource_sensor *s = &user_ctrl->sensor_res;
+	struct mtk_cam_resource_raw *r = &user_ctrl->raw_res;
+
+	dev_info(dev, "calc_resource: sensor fps(%u/%u) blank(%u/%u) prate(%llu), raw f %lld\n",
+		 s->interval.denominator,
+		 s->interval.numerator,
+		 s->hblank, s->vblank, s->pixel_rate,
+		 r->feature);
+
+	r->pixel_mode = 2;
+	drv_data->clk_target = 546000000;
+
+	return 0;
+}
+
 static int mtk_raw_try_ctrl(struct v4l2_ctrl *ctrl)
 {
 	struct device *dev = mtk_cam_root_dev();
@@ -332,11 +352,24 @@ static int mtk_raw_set_ctrl(struct v4l2_ctrl *ctrl)
 #else
 	// FIXME - temp workaround
 	struct mtk_raw_pipeline *pipeline;
-	struct device *dev = mtk_cam_root_dev();
+	struct device *dev;
+	int ret = 0;
 
 	pipeline = mtk_cam_ctrl_handler_to_raw_pipeline(ctrl->handler);
+	dev = subdev_to_cam_dev(&pipeline->subdev);
 
 	switch (ctrl->id) {
+	case V4L2_CID_MTK_CAM_RAW_RESOURCE_CALC:
+		{
+			struct mtk_cam_resource *user_ctrl =
+				(struct mtk_cam_resource *)ctrl->p_new.p;
+			struct mtk_cam_resource_driver *drv_res =
+				&pipeline->ctrl_data.resource;
+
+			ret = mtk_raw_calc_raw_resource(pipeline, user_ctrl, drv_res);
+		}
+		break;
+
 	case V4L2_CID_MTK_CAM_FEATURE:
 		pipeline->ctrl_data.feature = *ctrl->p_new.p_s64;
 		dev_info(dev, "%s:pipe(%d):streaming(%d), feature(0x%x)\n",
@@ -347,7 +380,7 @@ static int mtk_raw_set_ctrl(struct v4l2_ctrl *ctrl)
 		// __func__, pipeline->id, ctrl->id);
 		break;
 	}
-	return 0;
+	return ret;
 #endif
 }
 

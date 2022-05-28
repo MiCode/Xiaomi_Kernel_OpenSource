@@ -913,7 +913,7 @@ static int mtk_cam_power_rproc(struct mtk_cam_device *cam, int on)
 static int mtk_cam_power_ctrl_ccu(struct device *dev, int on_off)
 {
 	struct mtk_cam_device *cam_dev = dev_get_drvdata(dev);
-	struct mtk_camsys_dvfs *dvfs_info = &cam_dev->dvfs_info;
+	struct mtk_camsys_dvfs *dvfs = &cam_dev->dvfs;
 	int ret;
 
 	if (on_off) {
@@ -931,17 +931,11 @@ static int mtk_cam_power_ctrl_ccu(struct device *dev, int on_off)
 		if (ret)
 			dev_info(dev, "boot ccu rproc fail\n");
 
-		if (dvfs_info->reg_vmm) {
-			if (regulator_enable(dvfs_info->reg_vmm)) {
-				dev_info(dev, "regulator_enable fail\n");
-				goto out;
-			}
-		}
+		mtk_cam_dvfs_regulator_enable(dvfs);
 
 	} else {
 
-		if (dvfs_info->reg_vmm && regulator_is_enabled(dvfs_info->reg_vmm))
-			regulator_disable(dvfs_info->reg_vmm);
+		mtk_cam_dvfs_regulator_disable(dvfs);
 
 		if (cam_dev->rproc_ccu_handle) {
 			rproc_shutdown(cam_dev->rproc_ccu_handle);
@@ -1649,7 +1643,7 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 	mtk_cam_dev_req_try_queue(ctx->cam);
 
 	//ctx_stream_on_seninf_sensor later
-	mtk_cam_dvfs_update_clk(ctx->cam);
+	mtk_cam_dvfs_update(&ctx->cam->dvfs, ctx->stream_id, 416000000);
 	/* note
 	 * 1. collect 1st request info
 	 * 2. select HW engines
@@ -1925,7 +1919,8 @@ static int mtk_cam_master_bind(struct device *dev)
 		goto fail_unreg_mraw_entities;
 	}
 
-	mtk_cam_dvfs_init(cam_dev);
+	mtk_cam_dvfs_probe(cam_dev->dev,
+			   &cam_dev->dvfs, cam_dev->max_stream_num);
 
 	dev_info(dev, "%s success\n", __func__);
 	return 0;
@@ -1976,7 +1971,7 @@ static void mtk_cam_master_unbind(struct device *dev)
 				    cam_dev->pipelines.num_camsv);
 	//TODO: mraw
 
-	mtk_cam_dvfs_uninit(cam_dev);
+	mtk_cam_dvfs_remove(&cam_dev->dvfs);
 	component_unbind_all(dev, cam_dev);
 
 	media_device_unregister(&cam_dev->media_dev);
