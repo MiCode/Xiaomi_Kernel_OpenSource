@@ -556,12 +556,12 @@ static int apu_logtop_copy_buf(void)
 
 	if (!mutex_trylock(&hw_logger_mutex)) {
 		if (!lock_fail) {
-			HWLOGR_WARN("lock fail\n");
+			HWLOGR_DBG("lock fail\n");
 			lock_fail = true;
 		}
 		return ret;
 	} else if (lock_fail) {
-		HWLOGR_INFO("lock success\n");
+		HWLOGR_DBG("lock success\n");
 		lock_fail = false;
 	}
 
