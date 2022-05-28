@@ -686,10 +686,6 @@ int __gpufreq_power_control(enum gpufreq_power_state power)
 	if (power == POWER_ON && g_stack.power_count == 1) {
 		__gpufreq_footprint_power_step(0x01);
 
-		/* config AOC after MFG0 power on */
-		__gpufreq_aoc_config(POWER_ON);
-		__gpufreq_footprint_power_step(0x02);
-
 		/* enable Buck */
 		ret = __gpufreq_buck_control(POWER_ON);
 		if (unlikely(ret)) {
@@ -697,6 +693,10 @@ int __gpufreq_power_control(enum gpufreq_power_state power)
 			ret = GPUFREQ_EINVAL;
 			goto done_unlock;
 		}
+		__gpufreq_footprint_power_step(0x02);
+
+		/* clear AOC ISO/LATCH after Buck on */
+		__gpufreq_aoc_config(POWER_ON);
 		__gpufreq_footprint_power_step(0x03);
 
 		/* enable MTCMOS */
@@ -777,6 +777,10 @@ int __gpufreq_power_control(enum gpufreq_power_state power)
 		}
 		__gpufreq_footprint_power_step(0x12);
 
+		/* set AOC ISO/LATCH before Buck off */
+		__gpufreq_aoc_config(POWER_OFF);
+		__gpufreq_footprint_power_step(0x13);
+
 		/* disable Buck */
 		ret = __gpufreq_buck_control(POWER_OFF);
 		if (unlikely(ret)) {
@@ -784,10 +788,6 @@ int __gpufreq_power_control(enum gpufreq_power_state power)
 			ret = GPUFREQ_EINVAL;
 			goto done_unlock;
 		}
-		__gpufreq_footprint_power_step(0x13);
-
-		/* config AOC before MFG0 power off */
-		__gpufreq_aoc_config(POWER_OFF);
 		__gpufreq_footprint_power_step(0x14);
 	}
 
@@ -3148,7 +3148,7 @@ fail:
 		readl(SPM_SEMA_M3), readl(SPM_SEMA_M4));
 }
 
-/* AOC2.0: need to latch SRAM when VCORE AO power off */
+/* AOC2.0: set AOC ISO/LATCH before SRAM power off to prevent leakage and SRAM shutdown */
 static void __gpufreq_aoc_config(enum gpufreq_power_state power)
 {
 	/* power on: clear AOCISO -> clear AOCLHENB */
@@ -3157,8 +3157,16 @@ static void __gpufreq_aoc_config(enum gpufreq_power_state power)
 		writel(BIT(9), SPM_SOC_BUCK_ISO_CON_CLR);
 		/* SPM_SOC_BUCK_ISO_CON_CLR 0x1C001F80 [10] AOC_VGPU_SRAM_LATCH_ENB */
 		writel(BIT(10), SPM_SOC_BUCK_ISO_CON_CLR);
+		/* SPM_SOC_BUCK_ISO_CON_CLR 0x1C001F80 [17] AOC_VSTACK_SRAM_ISO_DIN */
+		writel(BIT(17), SPM_SOC_BUCK_ISO_CON_CLR);
+		/* SPM_SOC_BUCK_ISO_CON_CLR 0x1C001F80 [18] AOC_VSTACK_SRAM_LATCH_ENB */
+		writel(BIT(18), SPM_SOC_BUCK_ISO_CON_CLR);
 	/* power off: set AOCLHENB -> set AOCISO */
 	} else {
+		/* SPM_SOC_BUCK_ISO_CON_SET 0x1C001F7C [18] AOC_VSTACK_SRAM_LATCH_ENB */
+		writel(BIT(18), SPM_SOC_BUCK_ISO_CON_SET);
+		/* SPM_SOC_BUCK_ISO_CON_SET 0x1C001F7C [17] AOC_VSTACK_SRAM_ISO_DIN */
+		writel(BIT(17), SPM_SOC_BUCK_ISO_CON_SET);
 		/* SPM_SOC_BUCK_ISO_CON_SET 0x1C001F7C [10] AOC_VGPU_SRAM_LATCH_ENB */
 		writel(BIT(10), SPM_SOC_BUCK_ISO_CON_SET);
 		/* SPM_SOC_BUCK_ISO_CON_SET 0x1C001F7C [9] AOC_VGPU_SRAM_ISO_DIN */
