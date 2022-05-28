@@ -339,7 +339,7 @@ static void lbat_deb_handler(struct work_struct *work)
 		deb_prd = user->hv_deb_prd;
 		deb_times = user->hv_deb_times;
 	} else if (user->deb_thd_ptr == user->lv1_thd ||
-		   user->deb_thd_ptr == user->lv2_thd) {
+		   (user->lv2_thd && user->deb_thd_ptr == user->lv2_thd)) {
 		/* LBAT user LV de-bounce */
 		if (lbat_read_volt() > user->deb_thd_ptr->thd_volt) {
 			/* ignore this event and reset lbat_list */
@@ -502,7 +502,7 @@ struct lbat_user *lbat_user_register(const char *name, unsigned int hv_thd_volt,
 	user->hv_thd = lbat_thd_init(hv_thd_volt, user);
 	user->lv1_thd = lbat_thd_init(lv1_thd_volt, user);
 	user->lv2_thd = lbat_thd_init(lv2_thd_volt, user);
-	if (!user->hv_thd || !user->lv1_thd || !user->lv2_thd) {
+	if (!user->hv_thd || !user->lv1_thd) {
 		ret = -EINVAL;
 		goto out;
 	}
@@ -553,7 +553,8 @@ int lbat_user_modify_thd(struct lbat_user *user, unsigned int hv_thd_volt,
 		__func__, user->name, hv_thd_volt, lv1_thd_volt, lv2_thd_volt);
 	user->hv_thd->thd_volt = hv_thd_volt;
 	user->lv1_thd->thd_volt = lv1_thd_volt;
-	user->lv2_thd->thd_volt = lv2_thd_volt;
+	if (user->lv2_thd)
+		user->lv2_thd->thd_volt = lv2_thd_volt;
 	list_sort(NULL, &lbat_hv_list, hv_list_cmp);
 	list_sort(NULL, &lbat_lv_list, lv_list_cmp);
 
