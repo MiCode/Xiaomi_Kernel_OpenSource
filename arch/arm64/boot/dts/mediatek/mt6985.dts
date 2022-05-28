@@ -767,6 +767,11 @@
 			#clock-cells = <0>;
 			clock-frequency = <10000000>;
 		};
+		clk104m: clk104m {
+			compatible = "fixed-clock";
+			#clock-cells = <0>;
+			clock-frequency = <104000000>;
+		};
 	};
 
 	pmu-a510 {
@@ -2562,10 +2567,11 @@
 			compatible = "mediatek,mt6985-uart";
 			reg = <0 0x11004000 0 0x1000>;
 			interrupts = <GIC_SPI 253 IRQ_TYPE_LEVEL_HIGH 0>;
-			clocks = <&clk26m>, <&pericfg_ao_clk CLK_PERAO_UART3>;
+			clocks = <&clk104m>, <&pericfg_ao_clk CLK_PERAO_UART3>;
 			clock-names = "baud", "bus";
 			dmas = <&apdma 6 &apdma 7>;
 			dma-names = "tx", "rx";
+			peri-clock-con = <0x11036020 0xF00 0x800>;  /*UART ClOCK SEL*/
 		};
 
 		mtk_leds: mtk_leds {
