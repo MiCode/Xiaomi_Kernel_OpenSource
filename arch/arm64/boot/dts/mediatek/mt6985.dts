@@ -6011,6 +6011,29 @@
 #endif
 		};
 
+		aie: aie@15310000 {
+			compatible = "mediatek,aie-isp7s";
+			reg = <0 0x15310000 0 0x1000>;
+			dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
+			mboxes = <&gce_m 20 0 CMDQ_THR_PRIO_1>;
+			mediatek,larb = <&smi_larb12>;
+			mediatek,imgsys_fw = <&imgsys_fw>;
+			fdvt_frame_done = <CMDQ_EVENT_IMG_IMGSYS_IPE_FDVT0_DONE>;
+			sw_sync_token_tzmp_aie_wait = <CMDQ_SYNC_TOKEN_TZMP_AIE_WAIT>;
+			sw_sync_token_tzmp_aie_set = <CMDQ_SYNC_TOKEN_TZMP_AIE_SET>;
+			iommus = <&mdp_iommu M4U_PORT_L12_FDVT_RDA_0>,
+				<&mdp_iommu M4U_PORT_L12_FDVT_WRA_0>;
+			power-domains = <&scpsys MT6985_POWER_DOMAIN_ISP_MAIN>;
+			clocks = <&imgsys_main_clk CLK_IMG_VCORE_GALS>,
+				<&imgsys_main_clk CLK_IMG_FDVT>,
+				<&imgsys_main_clk CLK_IMG_LARB12>,
+				<&imgsys_main_clk CLK_IMG_IPE>;
+			clock-names = "VCORE_GALS",
+				"IPE_FDVT",
+				"IPE_SMI_LARB12",
+				"IMG_IPE";
+		};
+
 		ipesys_me: ipesys_me@15320000 {
 			compatible = "mediatek,ipesys-me-isp7s";
 			reg = <0 0x15320000 0 0x10000>;	/* 9 IMGSYS_ME */
