@@ -1321,9 +1321,8 @@
 		dma-ranges = <0x1 0x0 0x1 0x0 0x1 0x0>;
 		iommus = <&mdp_iommu M4U_PORT_L19_CCUO>,
 			 <&mdp_iommu M4U_PORT_L19_CCUI>;
-#if 0
 		interconnects =
-		<&mmqos SLAVE_LARB(39) &mmqos SLAVE_COMMON(1)>,
+		<&mmqos SLAVE_LARB(39) &mmqos SLAVE_COMMON(0)>,
 		<&mmqos MASTER_LARB_PORT(M4U_PORT_L19_CCUO)
 			&mmqos SLAVE_COMMON(0)>,
 		<&mmqos MASTER_LARB_PORT(M4U_PORT_L19_CCUI)
@@ -1332,7 +1331,6 @@
 			"ccu_g",
 			"ccu_o",
 			"ccu_i";
-#endif
 		secured = "yes";
 		ccu_version = <72>;
 		ccu_sramSize = <0x00020000>;
