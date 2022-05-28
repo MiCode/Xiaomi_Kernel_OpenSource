@@ -517,12 +517,14 @@ static int mtk_uart_apdma_probe(struct platform_device *pdev)
 	if (!mtkd)
 		return -ENOMEM;
 
+#ifndef CONFIG_FPGA_EARLY_PORTING
 	mtkd->clk = devm_clk_get(&pdev->dev, NULL);
 	if (IS_ERR(mtkd->clk)) {
 		dev_err(&pdev->dev, "No clock specified\n");
 		rc = PTR_ERR(mtkd->clk);
 		return rc;
 	}
+#endif
 
 	comp = of_device_get_match_data(&pdev->dev);
 	if (comp == NULL) {
