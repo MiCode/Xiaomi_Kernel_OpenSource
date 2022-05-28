@@ -12,6 +12,7 @@
 #include <linux/io.h>
 #include <linux/rtc.h>
 #include <linux/wakeup_reason.h>
+#include <linux/suspend.h>
 #include <linux/syscore_ops.h>
 #include <linux/ctype.h>
 
@@ -177,6 +178,7 @@ static int lpm_log_timer_func(unsigned long long dur, void *priv)
 			(struct lpm_logger_timer *)priv;
 	struct lpm_logger_fired_info *info = &lpm_logger_fired;
 	static unsigned int mcusys_cnt_prev, mcusys_cnt_cur;
+	char wakeup_sources[MAX_SUSPEND_ABORT_LEN];
 
 	if (timer->fired != info->fired) {
 		if (issuer.log_type >= LOG_SUCCEESS &&
@@ -199,6 +201,10 @@ static int lpm_log_timer_func(unsigned long long dur, void *priv)
 			info->state_name[info->fired_index] :
 			"LPM");
 	}
+
+	pm_get_active_wakeup_sources(wakeup_sources, MAX_SUSPEND_ABORT_LEN);
+	pr_info("[name:spm&] %s\n", wakeup_sources);
+
 	timer->fired = info->fired;
 	return 0;
 }
