@@ -1290,12 +1290,13 @@ static void synx_client_cleanup(struct work_struct *dispatch)
 	struct synx_client *client =
 		container_of(dispatch, struct synx_client, dispatch);
 	struct synx_handle_coredata *curr;
+	struct hlist_node *tmp;
 
 	/*
 	 * go over all the remaining synx obj handles
 	 * un-released from this session and remove them.
 	 */
-	hash_for_each(client->handle_map, i, curr, node) {
+	hash_for_each_safe(client->handle_map, i, tmp, curr, node) {
 		dprintk(SYNX_WARN,
 			"[sess :%llu] un-released handle %u\n",
 			client->id, curr->key);
