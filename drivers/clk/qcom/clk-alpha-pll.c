@@ -2363,6 +2363,7 @@ void clk_zonda_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
 	/* Place the PLL in STANDBY mode */
 	regmap_update_bits(regmap, PLL_MODE(pll), PLL_RESET_N, PLL_RESET_N);
 }
+EXPORT_SYMBOL(clk_zonda_pll_configure);
 
 static int clk_zonda_pll_enable(struct clk_hw *hw)
 {
@@ -2567,6 +2568,7 @@ const struct clk_ops clk_alpha_pll_zonda_ops = {
 	.debug_init = clk_common_debug_init,
 	.init = clk_alpha_pll_zonda_init,
 };
+EXPORT_SYMBOL(clk_alpha_pll_zonda_ops);
 
 static int clk_zonda_5lpe_pll_enable(struct clk_hw *hw)
 {
