@@ -5,7 +5,6 @@
  */
 
 #include <dt-bindings/interconnect/qcom,epss-l3.h>
-#include <dt-bindings/interconnect/qcom,lahaina.h>
 #include <linux/bitfield.h>
 #include <linux/clk.h>
 #include <linux/interconnect-provider.h>
@@ -39,7 +38,7 @@
 	container_of(_provider, struct qcom_epss_l3_icc_provider, provider)
 
 enum {
-	LAHAINA_MASTER_EPSS_L3_APPS = SLAVE_TCU + 1,
+	LAHAINA_MASTER_EPSS_L3_APPS = 5000,
 	LAHAINA_SLAVE_EPSS_L3_CPU0,
 	LAHAINA_SLAVE_EPSS_L3_CPU1,
 	LAHAINA_SLAVE_EPSS_L3_CPU2,
@@ -127,6 +126,31 @@ static struct qcom_icc_node *lahaina_epss_l3_nodes[] = {
 static struct qcom_icc_desc lahaina_epss_l3 = {
 	.nodes = lahaina_epss_l3_nodes,
 	.num_nodes = ARRAY_SIZE(lahaina_epss_l3_nodes),
+};
+
+DEFINE_QNODE(mas_epss_l3_apps_cinder, LAHAINA_MASTER_EPSS_L3_APPS, 1, 0, 0,
+		LAHAINA_SLAVE_EPSS_L3_CPU0, LAHAINA_SLAVE_EPSS_L3_CPU1,
+		LAHAINA_SLAVE_EPSS_L3_CPU2, LAHAINA_SLAVE_EPSS_L3_CPU3,
+		LAHAINA_SLAVE_EPSS_L3_SHARED);
+
+DEFINE_QNODE(slv_epss_l3_cpu0_cinder, LAHAINA_SLAVE_EPSS_L3_CPU0, 1, 1, 0);
+DEFINE_QNODE(slv_epss_l3_cpu1_cinder, LAHAINA_SLAVE_EPSS_L3_CPU1, 1, 1, 1);
+DEFINE_QNODE(slv_epss_l3_cpu2_cinder, LAHAINA_SLAVE_EPSS_L3_CPU2, 1, 1, 2);
+DEFINE_QNODE(slv_epss_l3_cpu3_cinder, LAHAINA_SLAVE_EPSS_L3_CPU3, 1, 1, 3);
+DEFINE_QNODE(slv_epss_l3_shared_cinder, LAHAINA_SLAVE_EPSS_L3_SHARED, 1, 0, 0);
+
+static struct qcom_icc_node *cinder_epss_l3_nodes[] = {
+	[MASTER_EPSS_L3_APPS] = &mas_epss_l3_apps_cinder,
+	[SLAVE_EPSS_L3_CPU0] = &slv_epss_l3_cpu0_cinder,
+	[SLAVE_EPSS_L3_CPU1] = &slv_epss_l3_cpu1_cinder,
+	[SLAVE_EPSS_L3_CPU2] = &slv_epss_l3_cpu2_cinder,
+	[SLAVE_EPSS_L3_CPU3] = &slv_epss_l3_cpu3_cinder,
+	[SLAVE_EPSS_L3_SHARED] = &slv_epss_l3_shared_cinder,
+};
+
+static struct qcom_icc_desc cinder_epss_l3 = {
+	.nodes = cinder_epss_l3_nodes,
+	.num_nodes = ARRAY_SIZE(cinder_epss_l3_nodes),
 };
 
 static int qcom_icc_aggregate(struct icc_node *node, u32 tag, u32 avg_bw,
@@ -302,6 +326,7 @@ err:
 
 static const struct of_device_id epss_l3_of_match[] = {
 	{ .compatible = "qcom,lahaina-epss-l3-cpu", .data = &lahaina_epss_l3 },
+	{ .compatible = "qcom,cinder-epss-l3-cpu", .data = &cinder_epss_l3 },
 	{ },
 };
 MODULE_DEVICE_TABLE(of, epss_l3_of_match);
