@@ -39,7 +39,6 @@ static int gh_##name(struct gh_vm *vm, int vm_status)			 \
 	return ret;							 \
 }
 
-gh_rm_call_and_set_status(vm_init);
 gh_rm_call_and_set_status(vm_start);
 
 int gh_register_vm_notifier(struct notifier_block *nb)
@@ -67,8 +66,10 @@ static void gh_notif_vm_status(struct gh_vm *vm,
 
 	/* Wake up the waiters only if there's a change in any of the states */
 	if (status->vm_status != vm->status.vm_status &&
-		status->vm_status == GH_RM_VM_STATUS_RESET) {
-		pr_info("VM: %d reset complete\n", vm->vmid);
+	   (status->vm_status == GH_RM_VM_STATUS_RESET ||
+	   status->vm_status == GH_RM_VM_STATUS_READY)) {
+		pr_info("VM: %d status %d complete\n", vm->vmid,
+							status->vm_status);
 		vm->status.vm_status = status->vm_status;
 		wake_up_interruptible(&vm->vm_status_wait);
 	}
@@ -558,12 +559,16 @@ long gh_vm_configure(u16 auth_mech, u64 image_offset,
 		return ret;
 	}
 
-	ret = gh_vm_init(vm, GH_RM_VM_STATUS_READY);
+	ret = gh_rm_vm_init(vm->vmid);
 	if (ret) {
 		pr_err("VM_INIT_IMAGE failed for VM:%d %d\n",
 						vm->vmid, ret);
 		return ret;
 	}
+
+	ret = gh_wait_for_vm_status(vm, GH_RM_VM_STATUS_READY);
+		if (ret < 0)
+			pr_err("wait for VM_STATUS_RESET interrupted %d\n", ret);
 
 	ret = gh_rm_populate_hyp_res(vm->vmid, fw_name);
 	if (ret < 0) {
@@ -649,6 +654,7 @@ static struct gh_vm *gh_create_vm(void)
 		return ERR_PTR(-ENOMEM);
 
 	mutex_init(&vm->vm_lock);
+	vm->rm_nb.priority = 1;
 	vm->rm_nb.notifier_call = gh_vm_rm_notifier_fn;
 	ret = gh_rm_register_notifier(&vm->rm_nb);
 	if (ret) {
