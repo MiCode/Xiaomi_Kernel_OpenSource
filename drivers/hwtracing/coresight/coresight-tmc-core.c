@@ -469,6 +469,11 @@ static inline bool tmc_etr_can_use_sg(struct device *dev)
 	return fwnode_property_present(dev->fwnode, "arm,scatter-gather");
 }
 
+static bool tmc_etr_support_mem_mode(struct device *dev)
+{
+	return fwnode_property_present(dev->fwnode, "qcom,mem_support");
+}
+
 static inline bool tmc_etr_has_non_secure_access(struct tmc_drvdata *drvdata)
 {
 	u32 auth = readl_relaxed(drvdata->base + TMC_AUTHSTATUS);
@@ -582,7 +587,6 @@ static int tmc_probe(struct amba_device *adev, const struct amba_id *id)
 	drvdata->pid = -1;
 
 	if (drvdata->config_type == TMC_CONFIG_TYPE_ETR) {
-		drvdata->out_mode = TMC_ETR_OUT_MODE_MEM;
 		drvdata->size = tmc_etr_get_default_buffer_size(dev);
 		drvdata->max_burst_size = tmc_etr_get_max_burst_size(dev);
 	} else {
@@ -630,9 +634,25 @@ static int tmc_probe(struct amba_device *adev, const struct amba_id *id)
 
 		drvdata->byte_cntr = byte_cntr_init(adev, drvdata);
 
+		if (tmc_etr_support_mem_mode(dev))
+			drvdata->mode_support |= BIT(TMC_ETR_OUT_MODE_MEM);
+
 		ret = tmc_etr_usb_init(adev, drvdata);
 		if (ret)
 			goto out;
+
+		ret = tmc_etr_eth_init(adev, drvdata);
+		if (ret)
+			goto out;
+
+		if (drvdata->mode_support & BIT(TMC_ETR_OUT_MODE_MEM))
+			drvdata->out_mode = TMC_ETR_OUT_MODE_MEM;
+		else if (drvdata->mode_support & BIT(TMC_ETR_OUT_MODE_USB))
+			drvdata->out_mode = TMC_ETR_OUT_MODE_USB;
+		else if (drvdata->mode_support & BIT(TMC_ETR_OUT_MODE_ETH))
+			drvdata->out_mode = TMC_ETR_OUT_MODE_ETH;
+		else
+			drvdata->out_mode = TMC_ETR_OUT_MODE_NONE;
 
 		break;
 	case TMC_CONFIG_TYPE_ETF:
