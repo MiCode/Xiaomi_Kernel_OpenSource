@@ -267,6 +267,17 @@ domain names are in general different. For a detailed discussion
 see the ``hostname(1)`` man page.
 
 
+export_pmu_events (arm64 only)
+==============================
+
+Controls the PMU export bit (PMCR_EL0.X), which enables the exporting of
+events over an IMPLEMENTATION DEFINED PMU event export bus to another device.
+
+0: disables exporting of events (default).
+
+1: enables exporting of events.
+
+
 firmware_config
 ===============
 

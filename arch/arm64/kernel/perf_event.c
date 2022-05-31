@@ -287,6 +287,7 @@ PMU_FORMAT_ATTR(event, "config:0-15");
 PMU_FORMAT_ATTR(long, "config1:0");
 
 static int sysctl_perf_user_access __read_mostly;
+static int sysctl_export_pmu_events __read_mostly;
 
 static inline bool armv8pmu_event_is_64bit(struct perf_event *event)
 {
@@ -955,6 +956,17 @@ static int armv8pmu_filter_match(struct perf_event *event)
 	return evtype != ARMV8_PMUV3_PERFCTR_CHAIN;
 }
 
+static int __init export_pmu_events(char *str)
+{
+	/* Enable exporting of pmu events at early bootup with kernel
+	 * arguments.
+	 */
+	sysctl_export_pmu_events = 1;
+	return 0;
+}
+
+early_param("export_pmu_events", export_pmu_events);
+
 static void armv8pmu_reset(void *info)
 {
 	struct arm_pmu *cpu_pmu = (struct arm_pmu *)info;
@@ -976,6 +988,9 @@ static void armv8pmu_reset(void *info)
 	/* Enable long event counter support where available */
 	if (armv8pmu_has_long_event(cpu_pmu))
 		pmcr |= ARMV8_PMU_PMCR_LP;
+
+	if (sysctl_export_pmu_events)
+		pmcr |= ARMV8_PMU_PMCR_X;
 
 	armv8pmu_pmcr_write(pmcr);
 }
@@ -1115,6 +1130,15 @@ static struct ctl_table armv8_pmu_sysctl_table[] = {
 		.proc_handler	= proc_dointvec_minmax,
 		.extra1		= SYSCTL_ZERO,
 		.extra2		= SYSCTL_ONE,
+	},
+	{
+		.procname       = "export_pmu_events",
+		.data           = &sysctl_export_pmu_events,
+		.maxlen         = sizeof(unsigned int),
+		.mode           = 0644,
+		.proc_handler   = proc_dointvec_minmax,
+		.extra1         = SYSCTL_ZERO,
+		.extra2         = SYSCTL_ONE,
 	},
 	{ }
 };
