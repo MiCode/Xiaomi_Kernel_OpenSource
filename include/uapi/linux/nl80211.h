@@ -2713,6 +2713,8 @@ enum nl80211_commands {
  *	various commands that need a link ID to operate.
  * @NL80211_ATTR_MLO_LINKS: A nested array of links, each containing some
  *	per-link information and a link ID.
+ * @NL80211_ATTR_MLD_ADDR: An MLD address, used with various commands such as
+ *	authenticate/associate.
  *
  * @NUM_NL80211_ATTR: total number of nl80211_attrs available
  * @NL80211_ATTR_MAX: highest attribute number currently defined
@@ -3273,6 +3275,9 @@ enum nl80211_attrs {
 /* Link: https://git.kernel.org/pub/scm/linux/kernel/git/wireless/wireless-next.git/commit/?h=mld&id=a353a99fb75e5c1c3b15050e9efaab1997350862 */
 #define NL80211_ATTR_MLO_LINKS NL80211_ATTR_RESERVED_DO_NOT_USE_2
 #define NL80211_ATTR_MLO_LINK_ID NL80211_ATTR_RESERVED_DO_NOT_USE_3
+
+/* Link: https://git.kernel.org/pub/scm/linux/kernel/git/wireless/wireless-next.git/commit/?h=mld&id=e35626979423cadc21bd4a68d4aa14eaeccbbd59 */
+#define NL80211_ATTR_MLD_ADDR NL80211_ATTR_RESERVED_DO_NOT_USE_4
 
 /* source-level API compatibility */
 #define NL80211_ATTR_SCAN_GENERATION NL80211_ATTR_GENERATION
