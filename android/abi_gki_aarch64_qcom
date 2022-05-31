@@ -928,6 +928,7 @@
   irq_domain_set_hwirq_and_chip
   irq_domain_set_info
   irq_domain_update_bus_token
+  irq_do_set_affinity
   irq_domain_xlate_twocell
   irq_find_matching_fwspec
   irq_get_irqchip_state
@@ -1620,6 +1621,7 @@
   resched_curr
   reset_control_assert
   reset_control_deassert
+  __reset_control_get
   root_task_group
   round_jiffies_relative
   rpmsg_get_signals
@@ -1731,6 +1733,7 @@
   sg_free_table
   sg_init_table
   sg_miter_next
+  sg_miter_skip
   sg_miter_start
   sg_miter_stop
   sg_next
@@ -1756,6 +1759,7 @@
   skb_append_pagefrags
   skb_clone
   skb_copy_bits
+  skb_copy_datagram_from_iter
   skb_copy_datagram_iter
   skb_dequeue
   skb_free_datagram
@@ -1795,6 +1799,7 @@
   snprintf
   soc_device_register
   soc_device_unregister
+  sock_alloc_send_pskb
   sock_alloc_send_skb
   sock_create_kern
   sock_gettstamp
@@ -1945,8 +1950,8 @@
   trace_event_raw_init
   trace_event_reg
   trace_handle_return
-  __tracepoint_android_rvh_account_irq_start
   __tracepoint_android_rvh_account_irq_end
+  __tracepoint_android_rvh_account_irq_start
   __tracepoint_android_rvh_after_dequeue_task
   __tracepoint_android_rvh_after_enqueue_task
   __tracepoint_android_rvh_audio_usb_offload_disconnect
@@ -2030,6 +2035,8 @@
   __tracepoint_cpu_idle
   __tracepoint_ipi_entry
   __tracepoint_ipi_raise
+  __tracepoint_irq_handler_entry
+  __tracepoint_android_vh_gic_v3_set_affinity
   tracepoint_probe_register
   tracepoint_probe_register_prio
   tracepoint_probe_unregister
