@@ -47,6 +47,7 @@ clk-qcom.ko
 clk-dummy.ko
 zram.ko
 msm_geni_serial.ko
+msm_rtb.ko
 mem_buf.ko
 mem_buf_dev.ko
 pinctrl-neo.ko

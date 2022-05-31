@@ -12,6 +12,7 @@ lzo.ko
 lzo-rle.ko
 msm-geni-se.ko
 msm_geni_serial.ko
+msm_rtb.ko
 ns.ko
 phy-generic.ko
 pinctrl-msm.ko
