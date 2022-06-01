@@ -1718,7 +1718,7 @@ static int register_subdev(struct seninf_ctx *ctx, struct v4l2_device *v4l2_dev)
 			dev_info(dev, "failed to snprintf\n");
 	} else {
 		ret = snprintf(sd->name, sizeof(sd->name), "%s-%s",
-			dev_driver_string(dev), csi_port_names[ctx->port]);
+			dev_driver_string(dev), csi_port_names[(unsigned int)ctx->port]);
 		if (ret < 0)
 			dev_info(dev, "failed to snprintf\n");
 	}
