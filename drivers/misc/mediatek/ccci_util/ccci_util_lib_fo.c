@@ -469,7 +469,7 @@ int get_nc_smem_region_info(unsigned int id, unsigned int *ap_off,
 
 static void cshare_memory_info_parsing(void)
 {
-	unsigned int size;
+	unsigned int size = 0;
 
 	memset(&csmem_info, 0, sizeof(struct _csmem_item));
 	if (find_ccci_tag_inf("md1_bank4_cache_info", (char *)&csmem_info,
@@ -682,7 +682,9 @@ static void md_mem_info_parsing(void)
 	struct _modem_info md_inf[4];
 	struct _modem_info *curr = NULL;
 	int md_num = 0;
-	int md_id;
+	int md_id = 0;
+
+	memset(md_inf, 0, sizeof(md_inf));
 
 	if (find_ccci_tag_inf("hdr_count",
 						  (char *)&md_num,
@@ -1124,8 +1126,8 @@ _common_process:
 /* functions will be called by external */
 int get_lk_load_md_info(char buf[], int size)
 {
-	int i;
-	int has_write;
+	int i = 0;
+	int has_write = 0;
 
 	if (s_g_lk_load_img_status & LK_LOAD_MD_EN) {
 		has_write = snprintf(buf, size,
@@ -1151,35 +1153,35 @@ int get_lk_load_md_info(char buf[], int size)
 	}
 
 	if ((s_g_lk_load_img_status & (~0x1)) == 0) {
-		has_write += snprintf(&buf[has_write], size - has_write,
+		has_write += scnprintf(&buf[has_write], size - has_write,
 						"LK load MD success!\n");
 		return has_write;
 	}
 
-	has_write += snprintf(&buf[has_write], size - has_write,
+	has_write += scnprintf(&buf[has_write], size - has_write,
 					"LK load MD has error:\n");
-	has_write += snprintf(&buf[has_write], size - has_write,
+	has_write += scnprintf(&buf[has_write], size - has_write,
 					"---- More details ----------------\n");
 	if (s_g_lk_load_img_status & LK_LOAD_MD_ERR_INVALID_MD_ID)
-		has_write += snprintf(&buf[has_write], size - has_write,
+		has_write += scnprintf(&buf[has_write], size - has_write,
 					"Err: Got invalid md id(%d:%s)\n",
 					s_g_lk_ld_md_errno,
 					ld_md_errno_to_str(s_g_lk_ld_md_errno));
 	else if (s_g_lk_load_img_status & LK_LOAD_MD_ERR_NO_MD_LOAD)
-		has_write += snprintf(&buf[has_write], size - has_write,
+		has_write += scnprintf(&buf[has_write], size - has_write,
 					"Err: No valid md image(%d:%s)\n",
 					s_g_lk_ld_md_errno,
 					ld_md_errno_to_str(s_g_lk_ld_md_errno));
 	else if (s_g_lk_load_img_status & LK_LOAD_MD_ERR_LK_INFO_FAIL)
-		has_write += snprintf(&buf[has_write], size - has_write,
+		has_write += scnprintf(&buf[has_write], size - has_write,
 					"Err: Got lk info fail(%d:%s)\n",
 					s_g_lk_ld_md_errno,
 					ld_md_errno_to_str(s_g_lk_ld_md_errno));
 	else if (s_g_lk_load_img_status & LK_KERNEL_SETTING_MIS_SYNC)
-		has_write += snprintf(&buf[has_write], size - has_write,
+		has_write += scnprintf(&buf[has_write], size - has_write,
 					"Err: lk kernel setting mis sync\n");
 
-	has_write += snprintf(&buf[has_write], size - has_write,
+	has_write += scnprintf(&buf[has_write], size - has_write,
 			"ERR> 1:[%d] 2:[%d] 3:[%d] 4:[%d]\n",
 			lk_load_img_err_no[0], lk_load_img_err_no[1],
 			lk_load_img_err_no[2], lk_load_img_err_no[3]);
@@ -1187,7 +1189,7 @@ int get_lk_load_md_info(char buf[], int size)
 	for (i = 0; i < MAX_MD_NUM_AT_LK; i++) {
 		if (lk_load_img_err_no[i] == 0)
 			continue;
-		has_write += snprintf(&buf[has_write], size - has_write,
+		has_write += scnprintf(&buf[has_write], size - has_write,
 			"hint for MD%d: %s\n",
 			i+1, ld_md_errno_to_str(lk_load_img_err_no[i]));
 	}
@@ -1435,20 +1437,15 @@ struct _mpu_cfg *get_mpu_region_cfg_info(int region_id)
 static void cal_md_settings(int md_id)
 {
 	unsigned int md_en = 0;
-	char tmp_buf[30];
+	char tmp_buf[30] = {0};
 	char *node_name = NULL;
 	char *node_name2 = NULL;
 	struct device_node *node = NULL;
 	struct device_node *node2 = NULL;
-	int val;
+	int val = 0;
 
-	val = snprintf(tmp_buf, sizeof(tmp_buf),
+	scnprintf(tmp_buf, sizeof(tmp_buf),
 		"opt_md%d_support", (md_id + 1));
-	if (val < 0 || val >= sizeof(tmp_buf)) {
-		CCCI_UTIL_ERR_MSG_WITH_ID(md_id,
-			"%s-%d:snprintf fail.val=%d\n", __func__, __LINE__, val);
-		return;
-	}
 	/* MTK_ENABLE_MD* */
 	val = ccci_get_opt_val(tmp_buf);
 	if (val > 0)
@@ -1561,8 +1558,8 @@ static void cal_md_settings(int md_id)
 static void cal_md_settings_v2(struct device_node *node)
 {
 	unsigned int tmp = 0;
-	char tmp_buf[30];
-	int i;
+	char tmp_buf[30] = {0};
+	int i = 0;
 
 	CCCI_UTIL_INF_MSG("using kernel dt mem setting for md\n");
 

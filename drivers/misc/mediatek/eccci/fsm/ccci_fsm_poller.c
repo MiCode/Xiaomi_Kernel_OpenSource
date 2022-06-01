@@ -11,13 +11,13 @@
 
 static int fsm_get_no_response_assert_type(struct ccci_fsm_poller *poller_ctl)
 {
-	unsigned long long traffic_info[3];
+	unsigned long long traffic_info[3] = {0};
 	u64 latest_isr_time = 0;
 	u64 latest_q0_isr_time = 0;
 	u64 latest_q0_rx_time = 0;
 	unsigned long long last_poll_time = 0;
-	int md_id = 0, ret;
-	unsigned long rem_nsec0, rem_nsec1, rem_nsec2, rem_nsec3;
+	int md_id = 0, ret = 0;
+	unsigned long rem_nsec0 = 0, rem_nsec1 = 0, rem_nsec2 = 0, rem_nsec3 = 0;
 
 	if (!poller_ctl)
 		return MD_FORCE_ASSERT_BY_MD_NO_RESPONSE;

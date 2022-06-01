@@ -1389,8 +1389,8 @@ EXPORT_SYMBOL(ccci_md_get_smem_by_user_id);
 
 void ccci_md_clear_smem(int md_id, int first_boot)
 {
-	struct ccci_smem_region *region;
-	unsigned int size;
+	struct ccci_smem_region *region = NULL;
+	unsigned int size = 0;
 
 	if (md_id < 0 || md_id >= MAX_MD_NUM) {
 		CCCI_ERROR_LOG(md_id, TAG, "invalid md_id %d!!\n", md_id);

@@ -156,8 +156,7 @@ static inline void ccci_md_inc_tx_seq_num(unsigned char md_id,
 	struct ccci_hif_traffic *traffic_info,
 	struct ccci_header *ccci_h)
 {
-	if (ccci_h->channel >= ARRAY_SIZE(traffic_info->seq_nums[OUT])
-		|| ccci_h->channel < 0) {
+	if (ccci_h->channel >= ARRAY_SIZE(traffic_info->seq_nums[OUT])) {
 		CCCI_NORMAL_LOG(md_id, CORE,
 			"ignore seq inc on channel %x\n",
 			*(((u32 *) ccci_h) + 2));

@@ -47,7 +47,7 @@ static struct list_head user_list;
 
 void inject_pin_status_event(int pin_value, const char pin_name[])
 {
-	struct pin_event_user_ctrl *user_ctrl;
+	struct pin_event_user_ctrl *user_ctrl = NULL;
 	int ret = 0;
 
 	spin_lock(&pin_event_update_lock);

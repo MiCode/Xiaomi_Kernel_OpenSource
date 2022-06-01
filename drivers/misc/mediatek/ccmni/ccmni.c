@@ -469,22 +469,31 @@ static int ccmni_close(struct net_device *dev)
 static netdev_tx_t ccmni_start_xmit(struct sk_buff *skb, struct net_device *dev)
 {
 	int ret = 0;
-	int skb_len = skb->len;
-	struct ccmni_instance *ccmni =
-		(struct ccmni_instance *)netdev_priv(dev);
+	int skb_len = 0;
+	struct ccmni_instance *ccmni = NULL;
 	struct ccmni_ctl_block *ctlb = NULL;
 	unsigned int is_ack = 0;
 	int mac_len = 0;
 	struct md_tag_packet *tag = NULL;
 	unsigned int count = 0;
-	struct ethhdr *eth;
-	__be16 type;
-	struct iphdr *iph;
+	struct ethhdr *eth = NULL;
+	__be16 type = 0;
+	struct iphdr *iph = NULL;
 
 #if defined(CCMNI_MET_DEBUG)
 	char tag_name[32] = { '\0' };
 	unsigned int tag_id = 0;
 #endif
+
+	if (!skb || !dev)
+		return NETDEV_TX_BUSY;
+
+	skb_len = skb->len;
+	ccmni = (struct ccmni_instance *)netdev_priv(dev);
+	if (ccmni == NULL) {
+		CCMNI_INF_MSG(-1, "%s : invalid ccmni\n", __func__);
+		return NETDEV_TX_BUSY;
+	}
 
 	if (ccmni->md_id < 0 || ccmni->md_id >= MAX_MD_NUM) {
 		CCMNI_INF_MSG(-1, "invalid md_id = %d\n", ccmni->md_id);
@@ -1218,8 +1227,7 @@ static int ccmni_init(int md_id, struct ccmni_ccci_ops *ccci_info)
 
 
 	if ((ctlb->ccci_ops->md_ability & MODEM_CAP_CCMNI_IRAT) != 0) {
-		if (ctlb->ccci_ops->irat_md_id < 0 ||
-				ctlb->ccci_ops->irat_md_id >= MAX_MD_NUM) {
+		if (ctlb->ccci_ops->irat_md_id >= MAX_MD_NUM) {
 			CCMNI_PR_DBG(md_id,
 				"md%d IRAT fail: invalid irat md(%d)\n",
 				md_id, ctlb->ccci_ops->irat_md_id);

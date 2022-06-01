@@ -45,11 +45,11 @@ unsigned int get_sim_switch_type(void)
 
 static int fsm_md_data_ioctl(int md_id, unsigned int cmd, unsigned long arg)
 {
-	int ret = 0, retry;
-	int data;
-	char buffer[64];
-	unsigned int sim_slot_cfg[4];
-	char ap_platform[5];
+	int ret = 0, retry = 0;
+	int data = 0;
+	char buffer[64] = {0};
+	unsigned int sim_slot_cfg[4] = {0};
+	char ap_platform[5] = {0};
 	int md_gen = 0;
 	struct device_node *node = NULL;
 	struct ccci_per_md *per_md_data = ccci_get_per_md_data(md_id);
@@ -456,27 +456,15 @@ long ccci_fsm_ioctl(int md_id, unsigned int cmd, unsigned long arg)
 	switch (cmd) {
 	case CCCI_IOC_GET_MD_STATE:
 		state_for_user = ccci_fsm_get_md_state_for_user(md_id);
-		if (state_for_user >= 0) {
-			ret = put_user((unsigned int)state_for_user,
-					(unsigned int __user *)arg);
-		} else {
-			CCCI_ERROR_LOG(md_id, FSM,
-				"Get MD state fail: %d\n", state_for_user);
-			ret = state_for_user;
-		}
+		ret = put_user((unsigned int)state_for_user,
+				(unsigned int __user *)arg);
+
 		break;
 	case CCCI_IOC_GET_OTHER_MD_STATE:
 		state_for_user =
 		ccci_fsm_get_md_state_for_user(GET_OTHER_MD_ID(md_id));
-		if (state_for_user >= 0) {
-			ret = put_user((unsigned int)state_for_user,
-					(unsigned int __user *)arg);
-		} else {
-			CCCI_ERROR_LOG(md_id, FSM,
-				"Get other MD state fail: %d\n",
-				state_for_user);
-			ret = state_for_user;
-		}
+		ret = put_user((unsigned int)state_for_user,
+				(unsigned int __user *)arg);
 		break;
 	case CCCI_IOC_MD_RESET:
 		CCCI_NORMAL_LOG(md_id, FSM,

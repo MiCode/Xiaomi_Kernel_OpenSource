@@ -1649,7 +1649,7 @@ static int dpmaif_get_rx_pkt(struct dpmaif_rx_queue *rxq,
 
 static int ccci_skb_to_list(struct ccci_skb_queue *queue, struct sk_buff *newsk)
 {
-	unsigned long flags;
+	unsigned long flags = 0;
 
 	spin_lock_irqsave(&queue->skb_list.lock, flags);
 	if (queue->skb_list.qlen < queue->max_len) {
@@ -2408,8 +2408,12 @@ static unsigned short dpmaif_relase_tx_buffer(unsigned char q_num,
 
 int hif_empty_query(int qno)
 {
-	struct dpmaif_tx_queue *txq = &dpmaif_ctrl->txq[qno];
+	struct dpmaif_tx_queue *txq = NULL;
 
+	if ((qno) < 0 || (qno >= DPMAIF_TXQ_NUM))
+		return 0;
+
+	txq = &dpmaif_ctrl->txq[qno];
 	if (txq == NULL) {
 		CCCI_ERROR_LOG(dpmaif_ctrl->md_id, TAG,
 			"query dpmaif empty fail for NULL txq\n");
@@ -2453,7 +2457,7 @@ static int dpmaif_tx_release(unsigned char q_num, unsigned short budget)
 	dpmaif_ctrl->tx_done_last_count[q_num] = real_rel_cnt;
 #endif
 
-	if (real_rel_cnt < 0 || txq->que_started == false)
+	if (txq->que_started == false)
 		return ERROR_STOP;
 	else {
 		atomic_set(&s_tx_busy_num[q_num], 0);
