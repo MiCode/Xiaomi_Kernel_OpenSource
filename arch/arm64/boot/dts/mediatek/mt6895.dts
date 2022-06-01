@@ -9998,8 +9998,8 @@
 		reg-names = "gpueb_base";
 		gpr_offset = <0x1FD1C>;
 		gpr_id = <6>;
-		gmpu_table_size = <0x00400000>;
-		protected_reserve_size = <0x1000000>;
+		gmpu_table_size = <0x0>;
+		protected_reserve_size = <0x400000>;
 	};
 
 	mali: mali@13000000 {
