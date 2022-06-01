@@ -286,8 +286,7 @@ int mmdvfs_internal_set_fine_step(const char *adaptor_name,
 		return -1;
 	}
 
-	if ((smi_scenario >= (enum MTK_SMI_BWC_SCEN)MMDVFS_SCEN_COUNT) ||
-		(smi_scenario < SMI_BWC_SCEN_NORMAL)) {
+	if (smi_scenario >= (enum MTK_SMI_BWC_SCEN)MMDVFS_SCEN_COUNT) {
 		MMDVFSERR("invalid scenario\n");
 		return -1;
 	}
