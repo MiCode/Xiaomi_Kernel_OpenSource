@@ -8260,16 +8260,6 @@ static int mtk_ddp_mout_en_MT6895(const struct mtk_mmsys_reg_data *data,
 		*addr = MT6895_DISP_RSZ0_MOUT_EN;
 		value = MT6895_DISP_RSZ0_MOUT_EN_TO_DISP_RSZ0_MAIN_OVL_SOUT_SEL;
 	/* for mt6895 rsz path */
-	} else if ((cur == DDP_COMPONENT_OVL1_2L && next == DDP_COMPONENT_OVL1_2L_VIRTUAL0) ||
-		(cur == DDP_COMPONENT_OVL3_2L && next == DDP_COMPONENT_OVL3_2L_VIRTUAL0)) {
-		*addr = MT6895_MMSYS_OVL_CON;
-		value = MT6895_DISP_OVL1_2L_TO_DISP_OVL1_2L_BLENDOUT_MOUT;
-	} else if ((cur == DDP_COMPONENT_OVL1_2L_VIRTUAL0 &&
-		next == DDP_COMPONENT_RSZ0) ||
-		(cur == DDP_COMPONENT_OVL3_2L_VIRTUAL0 &&
-		next == DDP_COMPONENT_RSZ1)) {
-		*addr = MT6895_DISP_OVL1_2L_BLEND_MOUT_EN;
-		value = DISP_OVL1_2L_BLEND_MOUT_EN_TO_DISP_RSZ0_SEL_IN;
 	} else if ((cur == DDP_COMPONENT_OVL0_2L_NWCG_VIRTUAL0 &&
 		next == DDP_COMPONENT_RDMA1) ||
 		(cur == DDP_COMPONENT_OVL2_2L_NWCG_VIRTUAL0 &&
@@ -8381,11 +8371,6 @@ static int mtk_ddp_sel_in_MT6895(const struct mtk_mmsys_reg_data *data,
 		*addr = MT6895_DISP_DP_INTF0_SEL_IN;
 		value = MT6895_DISP_DP_INTF0_SEL_IN_FROM_DISP_RDMA1_SOUT_SEL;
 	/* for mt6895 rsz path */
-	} else if ((cur == DDP_COMPONENT_OVL1_2L_VIRTUAL0 &&
-		next == DDP_COMPONENT_RSZ0) || (cur == DDP_COMPONENT_OVL3_2L_VIRTUAL0 &&
-		next == DDP_COMPONENT_RSZ1)) {
-		*addr = MT6895_DISP_RSZ0_SEL_IN;
-		value = DISP_RSZ0_SEL_IN_FROM_DISP_OVL1_2L_BLEND_MOUT_EN;
 	} else if ((cur == DDP_COMPONENT_OVL0_2L_NWCG_VIRTUAL0 &&
 		next == DDP_COMPONENT_RDMA1) || (cur == DDP_COMPONENT_OVL2_2L_NWCG_VIRTUAL0 &&
 		next == DDP_COMPONENT_RDMA3)) {
