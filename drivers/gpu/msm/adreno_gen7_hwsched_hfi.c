@@ -916,6 +916,7 @@ poll:
 static void reset_hfi_queues(struct adreno_device *adreno_dev)
 {
 	struct gen7_gmu_device *gmu = to_gen7_gmu(adreno_dev);
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct hfi_queue_table *tbl = gmu->hfi.hfi_mem->hostptr;
 	u32 i;
 
@@ -927,12 +928,15 @@ static void reset_hfi_queues(struct adreno_device *adreno_dev)
 			continue;
 
 		if (hdr->read_index != hdr->write_index) {
-			dev_err(&gmu->pdev->dev,
-			"HFI queue[%d] is not empty before close: rd=%d,wt=%d\n",
-				i, hdr->read_index, hdr->write_index);
-			hdr->read_index = hdr->write_index;
+			/* Don't capture snapshot again in reset path */
+			if (!device->snapshot || device->snapshot->recovered) {
+				dev_err(&gmu->pdev->dev,
+				"HFI queue[%d] is not empty before close: rd=%d,wt=%d\n",
+					i, hdr->read_index, hdr->write_index);
 
-			gmu_core_fault_snapshot(KGSL_DEVICE(adreno_dev));
+				gmu_core_fault_snapshot(device);
+			}
+			hdr->read_index = hdr->write_index;
 		}
 	}
 }

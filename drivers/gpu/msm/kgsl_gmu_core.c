@@ -163,9 +163,7 @@ int gmu_core_dev_wait_for_active_transition(struct kgsl_device *device)
 
 void gmu_core_fault_snapshot(struct kgsl_device *device)
 {
-	device->gmu_fault = true;
-	if (device->snapshot->recovered)
-		kgsl_device_snapshot(device, NULL, true);
+	kgsl_device_snapshot(device, NULL, true);
 }
 
 int gmu_core_timed_poll_check(struct kgsl_device *device,
