@@ -348,10 +348,6 @@ static irqreturn_t mcu_bp_isr(int irq, void *dev_id)
 	arm_smccc_smc(MTK_SIP_SDA_CONTROL, SDA_BUS_PARITY, BP_MCU_CLR, status,
 			0, 0, 0, 0, &res);
 
-	if (res.a0 < 0)
-		pr_notice("%s: can't clear mcu bus pariity(0x%lx)\n",
-				__func__, res.a0);
-
 	spin_unlock(&mcu_bp_isr_lock);
 
 	mcu_bp_dump();
