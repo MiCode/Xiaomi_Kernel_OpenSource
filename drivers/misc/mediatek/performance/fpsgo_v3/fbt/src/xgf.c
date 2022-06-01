@@ -231,7 +231,7 @@ static void *xgf_render_sector_alloc(void)
 
 	if (xgf_render_sector_cachep)
 		pvBuf = kmem_cache_alloc(xgf_render_sector_cachep,
-			GFP_KERNEL | __GFP_ZERO);
+			GFP_ATOMIC | __GFP_ZERO);
 
 	return pvBuf;
 }
@@ -248,7 +248,7 @@ static void *xgf_pid_rec_alloc(void)
 
 	if (xgf_pid_rec_cachep)
 		pvBuf = kmem_cache_alloc(xgf_pid_rec_cachep,
-			GFP_KERNEL | __GFP_ZERO);
+			GFP_ATOMIC | __GFP_ZERO);
 
 	return pvBuf;
 }
@@ -265,7 +265,7 @@ static void *xgf_dep_alloc(void)
 
 	if (xgf_dep_cachep)
 		pvBuf = kmem_cache_alloc(xgf_dep_cachep,
-			GFP_KERNEL | __GFP_ZERO);
+			GFP_ATOMIC | __GFP_ZERO);
 
 	return pvBuf;
 }
@@ -282,7 +282,7 @@ static void *xgf_runtime_sect_alloc(void)
 
 	if (xgf_runtime_sect_cachep)
 		pvBuf = kmem_cache_alloc(xgf_runtime_sect_cachep,
-			GFP_KERNEL | __GFP_ZERO);
+			GFP_ATOMIC | __GFP_ZERO);
 
 	return pvBuf;
 }
@@ -299,7 +299,7 @@ static void *xgf_spid_alloc(void)
 
 	if (xgf_spid_cachep)
 		pvBuf = kmem_cache_alloc(xgf_spid_cachep,
-			GFP_KERNEL | __GFP_ZERO);
+			GFP_ATOMIC | __GFP_ZERO);
 
 	return pvBuf;
 }
