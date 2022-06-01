@@ -648,7 +648,7 @@ static int disp_ccorr_set_coef(
 {
 	int ret = 0;
 	struct DRM_DISP_CCORR_COEF_T *ccorr, *old_ccorr;
-	unsigned int id = index_of_ccorr(comp->id);
+	int id = index_of_ccorr(comp->id);
 
 	ccorr = kmalloc(sizeof(struct DRM_DISP_CCORR_COEF_T), GFP_KERNEL);
 	if (ccorr == NULL) {

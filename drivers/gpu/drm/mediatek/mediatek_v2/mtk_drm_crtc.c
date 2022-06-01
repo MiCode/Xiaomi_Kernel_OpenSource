@@ -8932,11 +8932,11 @@ static void mtk_drm_crtc_enable_fake_layer(struct drm_crtc *crtc,
 		ovl_2l_comp_id = DDP_COMPONENT_OVL0_2L;
 	if (mtk_crtc->is_dual_pipe) {
 		dual_pipe_ovl_comp_id = mtk_drm_crtc_find_ovl_comp_id(priv, 0, 1);
-		if (dual_pipe_ovl_comp_id < 0 && dual_pipe_ovl_comp_id >= DDP_COMPONENT_ID_MAX)
+		if (dual_pipe_ovl_comp_id < 0 || dual_pipe_ovl_comp_id >= DDP_COMPONENT_ID_MAX)
 			dual_pipe_ovl_comp_id = DDP_COMPONENT_OVL1;
 		dual_pipe_ovl_2l_comp_id = mtk_drm_crtc_find_ovl_comp_id(priv, 1, 1);
 		if (dual_pipe_ovl_2l_comp_id < 0
-				&& dual_pipe_ovl_2l_comp_id >= DDP_COMPONENT_ID_MAX)
+				|| dual_pipe_ovl_2l_comp_id >= DDP_COMPONENT_ID_MAX)
 			dual_pipe_ovl_2l_comp_id = DDP_COMPONENT_OVL1_2L;
 	}
 
@@ -12703,7 +12703,7 @@ int mtk_drm_format_plane_cpp(uint32_t format, unsigned int plane)
 	const struct drm_format_info *info;
 
 	info = drm_format_info(format);
-	if (!info || plane >= info->num_planes || plane < 0)
+	if (!info || plane >= info->num_planes)
 		return 0;
 
 	return info->cpp[plane];
