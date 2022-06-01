@@ -628,6 +628,9 @@ unsigned int is_afe_need_triggered(struct mtk_base_afe_memif *memif)
 
 	if (memif->use_adsp_share_mem ||
 	    memif->vow_barge_in_enable ||
+#if IS_ENABLED(CONFIG_MTK_SCP_AUDIO)
+	    memif->use_scp_share_mem ||
+#endif
 	    memif->scp_ultra_enable)
 		return false;
 
