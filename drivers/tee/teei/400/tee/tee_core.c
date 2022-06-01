@@ -779,8 +779,6 @@ static int tee_mmap(struct file *filp, struct vm_area_struct *vma)
 	struct tee_shm *shm = NULL;
 	int retVal = 0;
 
-	mutex_lock(&ctx->mutex);
-
 	shm = isee_shm_kalloc(ctx, size, TEE_SHM_MAPPED | TEE_SHM_DMA_KERN_BUF);
 	if (IS_ERR(shm)) {
 		IMSG_ERROR("Failed to alloc shm %d\n", PTR_ERR(shm));
@@ -798,8 +796,6 @@ static int tee_mmap(struct file *filp, struct vm_area_struct *vma)
 		shm->uaddr = vma->vm_start;
 
 exit:
-	mutex_unlock(&ctx->mutex);
-
 	return retVal;
 }
 
