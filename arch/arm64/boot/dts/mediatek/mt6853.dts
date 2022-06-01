@@ -6903,6 +6903,9 @@ page_owner=on loop.max_part=7";
 			post_aicc_thr = <200000>;
 			shipping_dly_en = <1>;
 			batoc_notify = <0>;
+			phys = <&u2port0 PHY_TYPE_USB2>;
+			phy-names = "usb2-phy";
+			usb = <&ssusb>;
 			otg_vbus: usb-otg-vbus {
 				regulator-compatible = "usb-otg-vbus";
 				regulator-name = "usb-otg-vbus";
