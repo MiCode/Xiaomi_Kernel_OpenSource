@@ -6153,6 +6153,7 @@ int ddp_dsi_power_off(enum DISP_MODULE_ENUM module, void *cmdq_handle)
 
 #ifdef ENABLE_CLK_MGR
 	if (module == DISP_MODULE_DSI0 || module == DISP_MODULE_DSIDUAL) {
+		DISPCHECK("%s power_off\n", ddp_get_module_name(module));
 		ddp_clk_disable_unprepare(CLK_DSI0_MM_CLK);
 		ddp_clk_disable_unprepare(CLK_DSI0_IF_CLK);
 	}

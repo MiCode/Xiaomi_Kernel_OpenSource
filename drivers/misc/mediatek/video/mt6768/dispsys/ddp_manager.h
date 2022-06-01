@@ -446,4 +446,5 @@ int dpmgr_path_dsi_power_off(disp_path_handle dp_handle, void *cmdqhandle);
 
 /* turn on dsi */
 int dpmgr_path_dsi_power_on(disp_path_handle dp_handle, void *cmdqhandle);
+bool dpmgr_is_power_on(void);
 #endif

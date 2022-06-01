@@ -1022,6 +1022,7 @@ int rdma_clock_on(enum DISP_MODULE_ENUM module, void *handle)
 
 int rdma_clock_off(enum DISP_MODULE_ENUM module, void *handle)
 {
+	DISPCHECK("%s clock_off\n", ddp_get_module_name(module));
 	ddp_clk_disable_unprepare(ddp_get_module_clk_id(module));
 	return 0;
 }
