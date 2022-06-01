@@ -29,6 +29,10 @@ static int __reviser_free_iova(struct device *dev, size_t len,
 	size_t ret;
 
 	domain = iommu_get_domain_for_dev(dev);
+	if (domain == NULL) {
+		LOG_ERR("iommu_unmap cannot get domain\n");
+		return -ENOMEM;
+	}
 	iova = given_iova;
 
 	ret = iommu_unmap(domain, iova, size);
@@ -105,6 +109,10 @@ static dma_addr_t __reviser_get_iova(
 	size_t iova_size;
 
 	domain = iommu_get_domain_for_dev(dev);
+	if (domain == NULL) {
+		LOG_ERR("iommu_unmap cannot get domain\n");
+		goto err;
+	}
 
 	iova = given_iova;
 	//Need to check boundary region with iommu team every project
@@ -265,7 +273,7 @@ int reviser_dram_remap_init(void *drvinfo)
 	//_reviser_set_default_iova(drvinfo, g_mem_sys.iova);
 	rdv->rsc.dram.base = (void *) g_mem_sys.kva;
 	for (i = 0; i < rdv->plat.dram_max; i++)
-		rdv->plat.dram[i] = g_mem_sys.iova + rdv->plat.vlm_size * i;
+		rdv->plat.dram[i] = g_mem_sys.iova + rdv->plat.vlm_size * (uint64_t) i;
 
 	return 0;
 }
