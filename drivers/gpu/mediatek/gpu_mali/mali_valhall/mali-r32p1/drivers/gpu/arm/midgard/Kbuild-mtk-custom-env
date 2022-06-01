@@ -86,8 +86,9 @@ endif
 
 # Set default policy always_on
 #ccflags-y += -DMTK_POWER_POLICY_AO
+#CONFIG_MTK_GPU_DEBUG CONFIG_MTK_GPU_DEBUG_DFD related func. defs not available so build error
 ifeq (, $(findstring $(CONFIG_MTK_PLATFORM), "mt6768" "mt6785"))
 ccflags-y += -DCONFIG_MTK_GPU_DEBUG
 ccflags-y += -DCONFIG_MTK_GPU_DEBUG_DFD
-ccflags-y += -DCONFIG_MTK_GPU_MEM_TRACK
 endif
+ccflags-y += -DCONFIG_MTK_GPU_MEM_TRACK
