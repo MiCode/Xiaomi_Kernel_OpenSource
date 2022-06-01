@@ -605,6 +605,23 @@ static int __mt6362_enable_bc12(struct mt6362_chg_data *data, bool en)
 				  MT6362_MASK_BC12_EN, en ? 0xff : 0);
 }
 
+#if defined(CONFIG_MACH_MT6853)
+bool is_usb_rdy(struct device *dev)
+{
+	struct device_node *node;
+	bool ready = false;
+
+	node = of_parse_phandle(dev->of_node, "usb", 0);
+	if (node) {
+		ready = of_property_read_bool(node, "gadget-ready");
+		dev_info(dev, "gadget-ready=%d\n", ready);
+	} else
+		dev_info(dev, "usb node missing or invalid\n");
+
+	return ready;
+}
+#endif
+
 static int mt6362_enable_bc12(struct mt6362_chg_data *data, bool en)
 {
 	struct mt6362_chg_platform_data *pdata = dev_get_platdata(data->dev);
@@ -647,7 +664,7 @@ static int mt6362_enable_bc12(struct mt6362_chg_data *data, bool en)
 			msleep(180);
 		/* Workaround for CDP port */
 		for (i = 0; i < max_wait_cnt; i++) {
-			if (is_usb_rdy())
+			if (is_usb_rdy(data->dev))
 				break;
 			dev_info(data->dev, "%s: CDP block\n", __func__);
 			if (!data->attach) {

@@ -464,7 +464,8 @@ enum usb_state_enum {
 };
 
 #if defined(CONFIG_MACH_MT6877) || defined(CONFIG_MACH_MT6893) \
-	|| defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6785)
+	|| defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6785) \
+	|| defined(CONFIG_MACH_MT6853)
 bool is_usb_rdy(struct device *dev);
 #else
 bool __attribute__((weak)) is_usb_rdy(void)
