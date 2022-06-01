@@ -30,6 +30,8 @@
 			| (val << shift))
 
 #define V_OPP_TYPE_SHIFT 20
+static int dvfsrc_rsrv;
+
 
 #ifdef	CONFIG_MTK_DVFSRC_MT6877_PRETEST
 static struct reg_config dvfsrc_init_configs[][128] = {
@@ -338,7 +340,6 @@ static u32 dvfsrc_calc_hrt_opp(int data)
 		return DDR_OPP_0;
 
 #else
-	int dvfsrc_rsrv;
 
 	if ((dvfsrc_rsrv >> V_OPP_TYPE_SHIFT) & 0x3) {
 		if (data < 0x780)
@@ -479,7 +480,6 @@ void helio_dvfsrc_platform_pre_init(struct helio_dvfsrc *dvfsrc)
 {
 	struct platform_device *pdev = to_platform_device(dvfsrc->dev);
 	struct resource *res;
-	int dvfsrc_rsrv;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
 
@@ -531,7 +531,6 @@ void helio_dvfsrc_platform_init(struct helio_dvfsrc *dvfsrc)
 	int spmfw_idx = 0;
 	struct reg_config *config;
 	int idx = 0;
-	int dvfsrc_rsrv;
 
 	sysfs_merge_group(&dvfsrc->dev->kobj, &mt6877_helio_dvfsrc_attr_group);
 	dvfsrc_rsrv = readl(dvfsrc->regs + DVFSRC_RSRV_4);
