@@ -748,8 +748,10 @@ int mt6983_mck_enable(struct mtk_base_afe *afe, int mck_id, int rate)
 		}
 	}
 	/* debug when migration */
-	dev_info(afe->dev, "%s, clk_prepare_enable & clk_set_rate %s, rate %d success\n",
-		__func__, aud_clks[div_clk_id], rate);
+	if (div_clk_id >= 0) {
+		dev_info(afe->dev, "%s, clk_prepare_enable & clk_set_rate %s, rate %d success\n",
+			 __func__, aud_clks[div_clk_id], rate);
+	}
 
 	return 0;
 }

@@ -65,7 +65,7 @@ static int mt6983_afe_gpio_select(struct mtk_base_afe *afe,
 {
 	int ret = 0;
 
-	if (type >= MT6983_AFE_GPIO_GPIO_NUM) {
+	if (type < MT6983_AFE_GPIO_DAT_MISO0_OFF || type >= MT6983_AFE_GPIO_GPIO_NUM) {
 		dev_err(afe->dev, "%s(), error, invalid gpio type %d\n",
 			__func__, type);
 		return -EINVAL;
