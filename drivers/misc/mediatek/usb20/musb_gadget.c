@@ -15,6 +15,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/slab.h>
 #include <linux/kfifo.h>
+#include <linux/usb/composite.h>
 
 #if IS_ENABLED(CONFIG_USBIF_COMPLIANCE)
 #include <linux/kthread.h>
@@ -35,6 +36,75 @@
 #endif
 
 #include "musb_trace.h"
+
+#include "u_fs.h"
+
+/* workaround for f_fs use after free issue */
+struct ffs_ep {
+	struct usb_ep *ep;
+	struct usb_request *req;
+	struct usb_endpoint_descriptor	*descs[3];
+	u8 num;
+	int status;
+};
+
+struct ffs_function {
+	struct usb_configuration *conf;
+	struct usb_gadget *gadget;
+	struct ffs_data *ffs;
+	struct ffs_ep *eps;
+	u8 eps_revmap[16];
+	short *interfaces_nums;
+	struct usb_function function;
+};
+
+static struct usb_function *musb_ep_to_func(struct musb_ep *mep)
+{
+	struct usb_ep *ep = &mep->end_point;
+	struct usb_composite_dev *cdev;
+	struct usb_function *f = NULL;
+	int addr;
+
+	cdev = get_gadget_data(&mep->musb->g);
+	if (!cdev || !cdev->config)
+		return f;
+
+	if (!mep->current_epnum)
+		return f;
+
+	addr = ((ep->address & 0x80) >> 3)
+			| (ep->address & 0x0f);
+
+	list_for_each_entry(f, &cdev->config->functions, list) {
+		if (test_bit(addr, f->endpoints))
+			break;
+	}
+
+	return f;
+}
+
+static bool musb_ffs_state_valid(struct musb_ep *mep)
+{
+	struct usb_function *f;
+	struct ffs_function *func;
+
+	f = musb_ep_to_func(mep);
+
+	if (!f || strcmp("Function FS Gadget", f->name))
+		return true;
+
+	func = container_of(f, struct ffs_function, function);
+	if (!func->ffs)
+		return false;
+
+	if (!func->ffs->epfiles || func->ffs->state != FFS_ACTIVE) {
+		dev_info(mep->musb->controller, "%s ffs->state!=active\n", __func__);
+		return false;
+	}
+
+	return true;
+}
+/* workaround for f_fs use after free issue */
 
 #define FIFO_START_ADDR 512
 
@@ -1352,6 +1422,13 @@ static int musb_gadget_enable
 	/* enable the interrupts for the endpoint, set the endpoint
 	 * packet size (or fail), set the mode, clear the fifo
 	 */
+
+	/* workaround for f_fs use after free issue */
+	if (!musb_ffs_state_valid(musb_ep)) {
+		DBG(0, "f_fs is invalid, do not enable ep!\n");
+		return -EINVAL;
+	}
+
 	musb_ep_select(mbase, epnum);
 	if (usb_endpoint_dir_in(desc)) {
 
@@ -1488,6 +1565,7 @@ static int musb_gadget_enable
 
 fail:
 	spin_unlock_irqrestore(&musb->lock, flags);
+
 	return status;
 }
 

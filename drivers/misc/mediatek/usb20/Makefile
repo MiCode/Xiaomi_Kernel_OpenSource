@@ -15,6 +15,9 @@
 # for USB OTG silicon based on Mentor Graphics INVENTRA designs
 #
 
+ccflags-y := -I$(srctree)/drivers/usb/gadget/
+ccflags-y += -I$(srctree)/drivers/usb/gadget/function
+
 ifeq ($(MTK_ALPS_BOX_SUPPORT),yes)
 ccflags-y += -DMTK_ALPS_BOX_SUPPORT
 endif
