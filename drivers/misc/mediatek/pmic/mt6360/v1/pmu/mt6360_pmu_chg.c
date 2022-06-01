@@ -511,7 +511,8 @@ static int __maybe_unused mt6360_is_dcd_tout_enable(
 #endif
 
 #if defined(CONFIG_MACH_MT6877) || defined(CONFIG_MACH_MT6893) \
-	|| defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6785)
+	|| defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6785) \
+	|| defined(CONFIG_MACH_MT6853)
 bool is_usb_rdy(struct device *dev)
 {
 	struct device_node *node;
@@ -551,7 +552,8 @@ static int __mt6360_enable_usbchgen(struct mt6360_pmu_chg_info *mpci, bool en)
 		/* Workaround for CDP port */
 		for (i = 0; i < max_wait_cnt; i++) {
 #if defined(CONFIG_MACH_MT6877) || defined(CONFIG_MACH_MT6893) \
-	|| defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6785)
+	|| defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6785) \
+	|| defined(CONFIG_MACH_MT6853)
 			if (is_usb_rdy(mpci->dev))
 				break;
 #else
