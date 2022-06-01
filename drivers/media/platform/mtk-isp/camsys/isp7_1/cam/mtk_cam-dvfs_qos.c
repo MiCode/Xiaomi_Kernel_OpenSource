@@ -388,7 +388,7 @@ void mtk_cam_dvfs_init(struct mtk_cam_device *cam)
 	unsigned long freq = 0;
 	int ret = 0, clk_num = 0, i = 0;
 	struct device *dev = cam->dev;
-	const char *mux_name, *clksrc_name;
+	const char *mux_name = NULL, *clksrc_name;
 	struct property *clksrc_prop;
 	u32 num_clksrc = 0;
 
@@ -425,7 +425,7 @@ void mtk_cam_dvfs_init(struct mtk_cam_device *cam)
 
 	/* Get CLK handles */
 	ret = of_property_read_string(dev->of_node, "mux_name", &mux_name);
-	if (mux_name == NULL) {
+	if (!mux_name) {
 		dev_info(dvfs_info->dev, "can't get mux_name\n");
 		return;
 	}

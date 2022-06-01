@@ -2369,7 +2369,10 @@ static int mtk_camsys_ts_state_handle(
 	int que_cnt = 0;
 	u64 time_boot = ktime_get_boottime_ns();
 	u64 time_mono = ktime_get_ns();
+	int i;
 
+	for (i = 0; i < STATE_NUM_AT_SOF; i++)
+		state_rec[i] = NULL;
 	/* List state-queue status*/
 	spin_lock(&sensor_ctrl->camsys_state_lock);
 	list_for_each_entry(state_temp, &sensor_ctrl->camsys_state_list,
@@ -2391,10 +2394,6 @@ static int mtk_camsys_ts_state_handle(
 		}
 		/* counter for state queue*/
 		que_cnt++;
-	}
-	if (state_rec[0] == NULL) {
-		dev_info(ctx->cam->dev, "state_rec[0] is null\n");
-		return -1;
 	}
 	spin_unlock(&sensor_ctrl->camsys_state_lock);
 	if (que_cnt > 0 && state_rec[0]) {
@@ -4453,7 +4452,10 @@ static int mtk_camsys_camsv_state_handle(
 	struct mtk_cam_request_stream_data *req_stream_data;
 	int stateidx;
 	int que_cnt = 0;
+	int i;
 
+	for (i = 0; i < STATE_NUM_AT_SOF; i++)
+		state_rec[i] = NULL;
 	/* List state-queue status*/
 	spin_lock(&sensor_ctrl->camsys_state_lock);
 	list_for_each_entry(state_temp,
@@ -4778,7 +4780,9 @@ static int mtk_camsys_event_handle_raw(struct mtk_cam_device *cam,
 			mtk_camsys_raw_frame_start(raw_dev, ctx, irq_info);
 
 		if (mtk_cam_hw_is_dc(ctx)) {
-			if (mtk_cam_is_stagger(ctx))
+			if (!get_hdr_sv_dev(ctx, 2) || !get_hdr_sv_dev(ctx, 0))
+				return -1;
+			else if (mtk_cam_is_stagger(ctx))
 				mtk_camsys_check_sv_rcnt(get_hdr_sv_dev(ctx, 2));
 			else
 				mtk_camsys_check_sv_rcnt(get_hdr_sv_dev(ctx, 0));

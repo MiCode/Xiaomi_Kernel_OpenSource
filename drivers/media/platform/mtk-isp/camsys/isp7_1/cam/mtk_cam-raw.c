@@ -5998,7 +5998,7 @@ static int mtk_raw_pipeline_register(unsigned int id, struct device *dev,
 	struct mtk_cam_device *cam = dev_get_drvdata(pipe->raw->cam_dev);
 	struct v4l2_subdev *sd = &pipe->subdev;
 	struct mtk_cam_video_device *video;
-	unsigned int i;
+	int i;
 	int ret;
 
 	pipe->id = id;
