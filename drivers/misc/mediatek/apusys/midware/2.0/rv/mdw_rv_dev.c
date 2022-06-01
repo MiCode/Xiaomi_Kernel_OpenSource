@@ -293,7 +293,7 @@ int mdw_rv_dev_set_param(struct mdw_rv_dev *mrdev, enum mdw_info_type type, uint
 		ret = -EINVAL;
 		goto out;
 	}
-	msg.sync_id = 0;
+	memset(&msg, 0, sizeof(msg));
 	msg.id = MDW_IPI_PARAM;
 	msg.p.type = type;
 	msg.p.dir = MDW_INFO_SET;
@@ -329,7 +329,7 @@ int mdw_rv_dev_get_param(struct mdw_rv_dev *mrdev, enum mdw_info_type type, uint
 		break;
 	case MDW_INFO_MIN_DTIME:
 	case MDW_INFO_MIN_ETIME:
-		msg.sync_id = 0;
+		memset(&msg, 0, sizeof(msg));
 		msg.id = MDW_IPI_PARAM;
 		msg.p.type = type;
 		msg.p.dir = MDW_INFO_GET;
