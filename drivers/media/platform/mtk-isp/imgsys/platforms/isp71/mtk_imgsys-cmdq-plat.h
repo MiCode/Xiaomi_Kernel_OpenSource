@@ -21,7 +21,7 @@
 #define GCE_REC_MAX_TILE_BLOCK      (40)
 #define GCE_REC_MAX_LABEL_COUNT     (2048)
 
-#define IMGSYS_ENG_MAX 10
+#define IMGSYS_NOR_THD 11
 #define IMGSYS_QOS_MAX 56
 #define IMGSYS_SEC_THD 2
 #define IMGSYS_MAX_FPS 60
@@ -614,7 +614,7 @@ static struct imgsys_event_table imgsys_event[] = {
 	{IMGSYS_CMDQ_EVENT_MAX, "imgsys_event_max"},
 };
 
-static struct cmdq_client *imgsys_clt[IMGSYS_ENG_MAX];
+static struct cmdq_client *imgsys_clt[IMGSYS_NOR_THD];
 static struct cmdq_client *imgsys_sec_clt[IMGSYS_SEC_THD];
 
 enum mtk_imgsys_m4u_port {

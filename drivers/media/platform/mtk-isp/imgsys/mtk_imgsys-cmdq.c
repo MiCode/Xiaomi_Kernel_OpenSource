@@ -78,17 +78,17 @@ void imgsys_cmdq_init(struct mtk_imgsys_dev *imgsys_dev, const int nr_imgsys_dev
 	switch (nr_imgsys_dev) {
 	case 1: /* DIP */
 		/* request thread by index (in dts) 0 */
-		for (idx = 0; idx < IMGSYS_ENG_MAX; idx++) {
+		for (idx = 0; idx < IMGSYS_NOR_THD; idx++) {
 			imgsys_clt[idx] = cmdq_mbox_create(dev, idx);
 			pr_info("%s: cmdq_mbox_create(%d, 0x%x)\n", __func__, idx, imgsys_clt[idx]);
 		}
 		#if IMGSYS_SECURE_ENABLE
 		/* request for imgsys secure gce thread */
-		for (idx = IMGSYS_ENG_MAX; idx < (IMGSYS_ENG_MAX + IMGSYS_SEC_THD); idx++) {
-			imgsys_sec_clt[idx-IMGSYS_ENG_MAX] = cmdq_mbox_create(dev, idx);
+		for (idx = IMGSYS_NOR_THD; idx < (IMGSYS_NOR_THD + IMGSYS_SEC_THD); idx++) {
+			imgsys_sec_clt[idx-IMGSYS_NOR_THD] = cmdq_mbox_create(dev, idx);
 			pr_info(
 				"%s: cmdq_mbox_create sec_thd(%d, 0x%x)\n",
-				__func__, idx, imgsys_sec_clt[idx-IMGSYS_ENG_MAX]);
+				__func__, idx, imgsys_sec_clt[idx-IMGSYS_NOR_THD]);
 		}
 		#endif
 		/* parse hardware event */
@@ -116,7 +116,7 @@ void imgsys_cmdq_release(struct mtk_imgsys_dev *imgsys_dev)
 	pr_info("%s: +\n", __func__);
 
 	/* Destroy cmdq client */
-	for (idx = 0; idx < IMGSYS_ENG_MAX; idx++) {
+	for (idx = 0; idx < IMGSYS_NOR_THD; idx++) {
 		cmdq_mbox_destroy(imgsys_clt[idx]);
 		imgsys_clt[idx] = NULL;
 	}
@@ -167,7 +167,7 @@ void imgsys_cmdq_streamoff(struct mtk_imgsys_dev *imgsys_dev)
 	is_stream_off = 1;
 
 	#if CMDQ_STOP_FUNC
-	for (idx = 0; idx < IMGSYS_ENG_MAX; idx++) {
+	for (idx = 0; idx < IMGSYS_NOR_THD; idx++) {
 		cmdq_mbox_stop(imgsys_clt[idx]);
 		dev_dbg(imgsys_dev->dev,
 			"%s: calling cmdq_mbox_stop(%d, 0x%x)\n",
@@ -792,7 +792,7 @@ int imgsys_cmdq_sendtask(struct mtk_imgsys_dev *imgsys_dev,
 		if (isPack == 0) {
 			if (frm_info->group_id == -1) {
 				/* Choose cmdq_client base on hw scenario */
-				for (thd_idx = 0; thd_idx < IMGSYS_ENG_MAX; thd_idx++) {
+				for (thd_idx = 0; thd_idx < IMGSYS_NOR_THD; thd_idx++) {
 					if (hw_comb & 0x1) {
 						clt = imgsys_clt[thd_idx];
 						pr_debug(
@@ -808,13 +808,13 @@ int imgsys_cmdq_sendtask(struct mtk_imgsys_dev *imgsys_dev,
 					clt = imgsys_clt[thd_idx];
 				}
 			} else {
-				if (frm_info->group_id < IMGSYS_ENG_MAX) {
+				if (frm_info->group_id < IMGSYS_NOR_THD) {
 					thd_idx = frm_info->group_id;
 					clt = imgsys_clt[thd_idx];
 				} else {
 					pr_info(
 						"%s: [ERROR] group_id(%d) is over max hw num(%d) for frm(%d/%d)!\n",
-						__func__, frm_info->group_id, IMGSYS_ENG_MAX,
+						__func__, frm_info->group_id, IMGSYS_NOR_THD,
 						frm_info->user_info[frm_idx].hw_comb,
 						frm_idx, frm_num);
 					return -1;
