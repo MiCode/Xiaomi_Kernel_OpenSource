@@ -203,7 +203,8 @@ enum vow_ipi_msgid_t {
 	IPIMSG_VOW_GOOGLE_ARCH = 27,
 	IPIMSG_VOW_SET_CUSTOM_MODEL = 28,
 	IPIMSG_VOW_HAL_REBOOT = 29,
-	IPIMSG_VOW_FLUSH = 30
+	IPIMSG_VOW_FLUSH = 30,
+	IPIMSG_VOW_PMIC_EFUSE_VER = 31
 };
 
 enum vow_eint_status_t {
@@ -290,6 +291,12 @@ enum {
 	VOW_ENABLE_DUAL_MIC = 2,
 	VOW_ENABLE_SINGLE_MAIN_MIC = 1,
 	VOW_ENABLE_SINGLE_REF_MIC = 0
+};
+
+enum {
+	VOW_PMIC_6366_E1 = 0,
+	VOW_PMIC_6366_E2 = 1,
+	VOW_PMIC_6366_NONE
 };
 
 /*****************************************************************************
