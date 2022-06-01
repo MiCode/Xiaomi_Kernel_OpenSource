@@ -2578,7 +2578,7 @@ void skhpb_suspend(struct ufs_hba *hba)
 				map_req = list_first_entry_or_null(&hpb->lh_map_req_retry,
 												   struct skhpb_map_req, list_map_req);
 				if (!map_req) {
-					spin_unlock(&hpb->map_list_lock);
+					spin_unlock_bh(&hpb->map_list_lock);
 					break;
 				}
 				list_del_init(&map_req->list_map_req);
