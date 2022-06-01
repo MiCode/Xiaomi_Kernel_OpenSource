@@ -4197,6 +4197,7 @@ static inline void Prepare_Enable_ccf_clock(void)
 
 	if (dip_clk.DIP_IMG_MFB_DIP != NULL) {
 		ret = mtk_smi_larb_get(dip_devs->larb11);
+		LOG_INF("mtk_smi_larb_get larb11 %d\n", ret);
 	if (ret)
 		LOG_ERR("mtk_smi_larb_get larb11 fail %d\n", ret);
 	}
@@ -4244,11 +4245,13 @@ static inline void Disable_Unprepare_ccf_clock(void)
 
 	clk_disable_unprepare(dip_clk.DIP_IMG_DIP);
 	clk_disable_unprepare(dip_clk.DIP_IMG_LARB9);
-	LOG_INF("%s cnt(%d)\n", __func__, G_u4DipEnClkCnt);
+	LOG_INF("%s cnt(%d),clk_MFB: %d\n", __func__, G_u4DipEnClkCnt, dip_clk.DIP_IMG_MFB_DIP);
 	mtk_smi_larb_put(dip_devs->larb9);
 
-	if (dip_clk.DIP_IMG_MFB_DIP != NULL)
+	if (dip_clk.DIP_IMG_MFB_DIP != NULL) {
 		mtk_smi_larb_put(dip_devs->larb11);
+		LOG_INF("mtk_smi_larb_put larb11 %d\n");
+	}
 
 	pm_runtime_put_sync(dip_devs->dev);
 
