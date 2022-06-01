@@ -36,7 +36,7 @@
 static void __iomem *pmu_base;
 
 struct cpucp_pmu_ctrs {
-	u64 evctrs[MAX_CPUCP_EVT];
+	u32 evctrs[MAX_CPUCP_EVT];
 	u32 valid;
 };
 
@@ -544,7 +544,7 @@ static int memlat_pm_notif(struct notifier_block *nb, unsigned long action,
 	struct cpu_data *cpu_data = per_cpu(cpu_ev_data, cpu);
 	struct event_data *ev;
 	int i, cid, aid;
-	u64 count;
+	u32 count;
 	bool pmu_valid = false;
 	bool read_ev  = true;
 	struct cpucp_pmu_ctrs *base = pmu_base + (sizeof(struct cpucp_pmu_ctrs) * cpu);
@@ -586,7 +586,7 @@ static int memlat_pm_notif(struct notifier_block *nb, unsigned long action,
 		/* Store pmu values in allocated cpucp pmu region */
 		pmu_valid = true;
 		count = cached_count_value(ev, ev->cached_count, is_amu_valid(aid));
-		writeq_relaxed(count, &base->evctrs[cid]);
+		writel_relaxed(count, &base->evctrs[cid]);
 	}
 	/* Set valid cache flag to allow cpucp to read from this memory location */
 	if (pmu_valid)
@@ -651,7 +651,7 @@ static int qcom_pmu_hotplug_going_down(unsigned int cpu)
 	int i, cid, aid;
 	unsigned long flags;
 	bool pmu_valid = false;
-	u64 count;
+	u32 count;
 	struct cpucp_pmu_ctrs *base = pmu_base + (sizeof(struct cpucp_pmu_ctrs) * cpu);
 
 	if (!qcom_pmu_inited)
@@ -673,7 +673,7 @@ static int qcom_pmu_hotplug_going_down(unsigned int cpu)
 		if (pmu_base && is_event_shared(ev)) {
 			pmu_valid = true;
 			count = cached_count_value(ev, ev->cached_count, is_amu_valid(aid));
-			writeq_relaxed(count, &base->evctrs[cid]);
+			writel_relaxed(count, &base->evctrs[cid]);
 		}
 		delete_event(ev);
 	}
@@ -704,11 +704,12 @@ static int qcom_pmu_cpu_hp_init(void) { return 0; }
 static void cache_counters(void)
 {
 	struct cpu_data *cpu_data;
-	int i, cid;
+	int i, cid, aid;
 	unsigned int cpu;
 	struct event_data *event;
 	struct cpucp_pmu_ctrs *base;
 	bool pmu_valid;
+	u32 count;
 
 	for_each_possible_cpu(cpu) {
 		cpu_data = per_cpu(cpu_ev_data, cpu);
@@ -717,14 +718,16 @@ static void cache_counters(void)
 		for (i = 0; i < cpu_data->num_evs; i++) {
 			event = &cpu_data->events[i];
 			cid = event->cid;
+			aid = event->amu_id;
 			if (!is_event_valid(event))
 				continue;
 			read_event(event, false);
 			/* Store pmu values in allocated cpucp pmu region */
 			if (pmu_base && is_event_shared(event)) {
 				pmu_valid = true;
-				writel_relaxed(event->cached_count,
-						&base->evctrs[cid]);
+				count = cached_count_value(event, event->cached_count,
+							   is_amu_valid(aid));
+				writel_relaxed(count, &base->evctrs[cid]);
 			}
 		}
 		if (pmu_valid)
