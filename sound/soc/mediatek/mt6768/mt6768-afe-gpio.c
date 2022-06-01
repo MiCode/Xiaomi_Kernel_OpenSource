@@ -97,7 +97,7 @@ static int mt6768_afe_gpio_select(struct mtk_base_afe *afe,
 {
 	int ret = 0;
 
-	if (type < 0 || type >= MT6768_AFE_GPIO_GPIO_NUM) {
+	if (type < MT6768_AFE_GPIO_DAT_MISO_OFF || type >= MT6768_AFE_GPIO_GPIO_NUM) {
 		dev_err(afe->dev, "%s(), error, invaild gpio type %d\n",
 			__func__, type);
 		return -EINVAL;
