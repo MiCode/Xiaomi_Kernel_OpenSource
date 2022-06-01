@@ -1300,7 +1300,7 @@ void mtk_crtc_prepare_dual_pipe(struct mtk_drm_crtc *mtk_crtc)
 
 	for_each_comp_id_in_dual_pipe(comp_id, mtk_crtc->path_data, i, j) {
 		DDPDBG("prepare comp id in dual pipe %d\n", comp_id);
-		if (comp_id < 0) {
+		if (comp_id >= DDP_COMPONENT_ID_MAX) {
 			DDPPR_ERR("%s: Invalid comp_id:%d\n", __func__, comp_id);
 			return;
 		}
@@ -3779,7 +3779,7 @@ int get_path_wait_event(struct mtk_drm_crtc *mtk_crtc,
 	struct mtk_ddp_comp *comp = NULL;
 	int i;
 
-	if (ddp_path < 0 || ddp_path >= DDP_PATH_NR) {
+	if (ddp_path >= DDP_PATH_NR) {
 		DDPPR_ERR("%s, invalid ddp_path value\n", __func__);
 		return -EINVAL;
 	}
@@ -4422,7 +4422,7 @@ static void ddp_cmdq_cb(struct cmdq_cb_data data)
 	struct drm_atomic_state *atomic_state = crtc_state->state;
 	struct drm_crtc *crtc = crtc_state->crtc;
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
-	struct mtk_drm_private *priv = mtk_crtc->base.dev->dev_private;
+	struct mtk_drm_private *priv = NULL;
 	int session_id, id;
 	unsigned int ovl_status = 0;
 	/*Msync2.0 related*/
@@ -4436,6 +4436,11 @@ static void ddp_cmdq_cb(struct cmdq_cb_data data)
 		atomic_state,
 		crtc);
 
+	if (!mtk_crtc) {
+		DDPINFO("NULL pointer mtk_crtc ");
+		return;
+	}
+	priv = mtk_crtc->base.dev->dev_private;
 	session_id = mtk_get_session_id(crtc);
 
 	id = drm_crtc_index(crtc);
@@ -5278,7 +5283,8 @@ long mtk_crtc_wait_status(struct drm_crtc *crtc, bool status, long timeout)
 
 	ret = wait_event_interruptible_timeout(mtk_crtc->crtc_status_wq,
 				 mtk_crtc->enabled == status, timeout);
-
+	if (ret <= 0)
+		DDPMSG("%s wait event fail, ret = %d\n", __func__, ret);
 	return ret;
 }
 
@@ -7630,7 +7636,7 @@ static void mtk_crtc_msync2_send_cmds_bef_cfg(struct drm_crtc *crtc, unsigned in
 {
 	struct mtk_crtc_state *state = to_mtk_crtc_state(crtc->state);
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
-	struct mtk_ddp_comp *comp = mtk_ddp_comp_request_output(mtk_crtc);
+	struct mtk_ddp_comp *comp = NULL;
 	struct mtk_panel_params *params = mtk_drm_get_lcm_ext_params(crtc);
 	unsigned int fps_level = 0;
 	unsigned int min_fps = 0;
@@ -7645,11 +7651,18 @@ static void mtk_crtc_msync2_send_cmds_bef_cfg(struct drm_crtc *crtc, unsigned in
 	static unsigned int count1;
 	static unsigned int msync_is_close;
 
-
 	DDPMSG("[Msync2.0] Cmd mode send cmds before config\n");
 
-	if (!params || !state || !comp) {
+
+	if (!params || !state || !mtk_crtc) {
 		DDPPR_ERR("[Msync2.0] Some pointer is NULL\n");
+		return;
+	}
+
+	comp = mtk_ddp_comp_request_output(mtk_crtc);
+
+	if (!comp) {
+		DDPPR_ERR("[Msync2.0] comp pointer is NULL\n");
 		return;
 	}
 
@@ -10378,13 +10391,13 @@ int mtk_drm_crtc_create(struct drm_device *drm_dev,
 	for_each_comp_id_in_path_data(comp_id, path_data, i, j, p_mode) {
 		struct device_node *node;
 
-		if (mtk_ddp_comp_get_type(comp_id) == MTK_DISP_VIRTUAL)
-			continue;
-
-		if (comp_id < 0) {
+		if (comp_id >= DDP_COMPONENT_ID_MAX) {
 			DDPPR_ERR("%s: Invalid comp_id:%d\n", __func__, comp_id);
 			return 0;
 		}
+
+		if (mtk_ddp_comp_get_type(comp_id) == MTK_DISP_VIRTUAL)
+			continue;
 
 		node = priv->comp_node[comp_id];
 		if (!node) {

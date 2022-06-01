@@ -977,6 +977,10 @@ static int mtk_panel_ext_param_set(struct drm_panel *panel,
 	struct mtk_panel_ext *ext = find_panel_ext(panel);
 	int ret = 0;
 	struct drm_display_mode *m = get_mode_by_id(connector, mode);
+	if (!m) {
+		pr_err("%s:%d invalid display_mode\n", __func__, __LINE__);
+		return ret;
+	}
 
 	pr_info("%s thh drm_mode_vrefresh = %d, m->hdisplay = %d\n",
 		__func__, drm_mode_vrefresh(m), m->hdisplay);
@@ -1097,7 +1101,10 @@ static int mode_switch(struct drm_panel *panel,
 
 	if (cur_mode == dst_mode)
 		return ret;
-
+	if (!m_dst || !m_cur) {
+		pr_info("%s m_dst or m_cur is NULL\n", __func__);
+		return ret;
+	}
 	isFpsChange = drm_mode_vrefresh(m_dst) == drm_mode_vrefresh(m_cur) ? false : true;
 	isResChange = m_dst->vdisplay == m_cur->vdisplay ? false : true;
 

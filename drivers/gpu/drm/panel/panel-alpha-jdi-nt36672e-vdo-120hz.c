@@ -1264,7 +1264,8 @@ static int mode_switch(struct drm_panel *panel,
 {
 	int ret = 0;
 	struct drm_display_mode *m = get_mode_by_id_hfp(connector, dst_mode);
-
+	if (!m)
+		return ret;
 	pr_info("%s cur_mode = %d dst_mode %d\n", __func__, cur_mode, dst_mode);
 
 	if (m == NULL) {
