@@ -3525,6 +3525,11 @@ int mtk_raw_set_src_pad_selection_default(struct v4l2_subdev *sd,
 
 	pipe = container_of(sd, struct mtk_raw_pipeline, subdev);
 	source_sel = mtk_raw_pipeline_get_selection(pipe, cfg, pad, which);
+	if (!source_sel) {
+		dev_info(sd->v4l2_dev->dev, "%s: source_sel is null\n",
+			__func__);
+		return -1;
+	}
 	if (source_sel->width > sink_fmt->width) {
 		source_sel->width = sink_fmt->width;
 		/* may need some log */
@@ -4112,8 +4117,11 @@ static int mtk_raw_set_fmt(struct v4l2_subdev *sd,
 			sd->name, fmt->pad, v4l2_subdev_format_request_fd(fmt));
 		return -EINVAL;
 	}
-
 	stream_data = mtk_cam_req_get_s_data_no_chk(cam_req, pipe->id, 0);
+	if (!stream_data) {
+		dev_info(cam->dev, "%s: stream_data is null\n",
+		__func__);
+	}
 	stream_data->pad_fmt_update |= (1 << fmt->pad);
 	stream_data->pad_fmt[fmt->pad] = *fmt;
 

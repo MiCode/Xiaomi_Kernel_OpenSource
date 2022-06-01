@@ -392,6 +392,7 @@ static void mtk_cam_stream_on(struct mtk_raw_device *raw_dev,
 					if (dev_sv == NULL) {
 						dev_info(ctx->cam->dev,
 						"[%s] dev_sv not found\n", __func__);
+						spin_unlock(&ctx->streaming_lock);
 						return;
 					}
 					camsv_dev = dev_get_drvdata(dev_sv);
@@ -2395,6 +2396,11 @@ static int mtk_camsys_ts_state_handle(
 		/* counter for state queue*/
 		que_cnt++;
 	}
+	if (state_rec[0] == NULL) {
+		dev_info(ctx->cam->dev, "state_rec[0] is null\n");
+		spin_unlock(&sensor_ctrl->camsys_state_lock);
+		return -1;
+	}
 	spin_unlock(&sensor_ctrl->camsys_state_lock);
 	if (que_cnt > 0 && state_rec[0]) {
 		if (state_rec[0]->estate == E_STATE_TS_READY) {
@@ -2422,7 +2428,7 @@ static void mtk_camsys_ts_frame_start(struct mtk_cam_ctx *ctx,
 	struct mtk_cam_request *req_cq = NULL;
 	struct mtk_cam_request_stream_data *req_stream_data;
 	struct mtk_camsys_sensor_ctrl *sensor_ctrl = &ctx->sensor_ctrl;
-	struct mtk_camsys_ctrl_state *current_state;
+	struct mtk_camsys_ctrl_state *current_state = NULL;
 	enum MTK_CAMSYS_STATE_RESULT state_handle_ret;
 	struct mtk_camsv_device *camsv_dev;
 	struct device *dev_sv;
@@ -4684,7 +4690,7 @@ static int mtk_camsys_event_handle_raw(struct mtk_cam_device *cam,
 
 	raw_dev = dev_get_drvdata(cam->raw.devs[engine_id]);
 	if (!raw_dev) {
-		dev_info(raw_dev->dev, "cannot find raw_dev\n");
+		pr_info("[%s] Error: raw_dev is null\n", __func__);
 		return -EINVAL;
 	}
 	if (raw_dev->pipeline->feature_active & MTK_CAM_FEATURE_TIMESHARE_MASK)
