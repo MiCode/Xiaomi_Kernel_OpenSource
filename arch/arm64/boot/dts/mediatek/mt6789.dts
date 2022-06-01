@@ -3384,6 +3384,14 @@
 			#clock-cells = <1>;
 		};
 
+		vow_pmic_efuse {
+			compatible = "mediatek,vow-efuse";
+			nvmem = <&pmic_efuse>;
+			nvmem-names = "vow_efuse_device";
+			ver_reg = <0xec>;
+			ver_mask= <0x1f>;
+		};
+
 		scp@10500000 {
 			compatible = "mediatek,scp";
 			status = "okay";
