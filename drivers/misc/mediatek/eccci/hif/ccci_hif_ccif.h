@@ -115,7 +115,6 @@ struct md_ccif_ctrl {
 	atomic_t ccif_irq_enabled;
 	atomic_t ccif_irq1_enabled;
 	unsigned long wakeup_ch;
-	atomic_t wakeup_src;
 	unsigned int wakeup_count;
 
 	struct work_struct wdt_work;
@@ -249,27 +248,6 @@ static inline int ccci_ccif_hif_dump_status(unsigned int hif_id,
 
 }
 
-static inline int ccci_ccif_hif_set_wakeup_src(unsigned char hif_id, int value)
-{
-	struct md_ccif_ctrl *md_ctrl =
-		(struct md_ccif_ctrl *)ccci_hif_get_by_id(hif_id);
-	unsigned int ccif_rx_ch = 0;
-
-	if (md_ctrl) {
-
-		if (md_ctrl->ccif_ap_base)
-			ccif_rx_ch = ccif_read32(md_ctrl->ccif_ap_base,
-					APCCIF_RCHNUM);
-		CCCI_NORMAL_LOG(0, "WK", "CCIF RX bitmap:0x%x\r\n",
-				ccif_rx_ch);
-#if (MD_GENERATION >= 6297)
-		if (ccif_rx_ch & AP_MD_CCB_WAKEUP)
-			mtk_ccci_ccb_info_peek();
-#endif
-		return atomic_set(&md_ctrl->wakeup_src, value);
-	} else
-		return -1;
-}
 
 #ifdef CCCI_KMODULE_ENABLE
 
@@ -323,6 +301,7 @@ extern void mt_irq_set_polarity(unsigned int irq, unsigned int polarity);
 /* used for throttling feature - start */
 extern unsigned long ccci_modem_boot_count[];
 extern int md_fsm_exp_info(int md_id, unsigned int channel_id);
+extern char *ccci_port_get_dev_name(unsigned int rx_user_id);
 extern void mt_irq_dump_status(int irq);
 /* used for throttling feature - end */
 #endif				/* __MODEM_CCIF_H__ */

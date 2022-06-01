@@ -624,12 +624,12 @@ static void md_ccif_sram_rx_work(struct work_struct *work)
 		i += 4;
 	}
 
-	if (atomic_cmpxchg(&md_ctrl->wakeup_src, 1, 0) == 1) {
-		md_ctrl->wakeup_count++;
+	if (test_and_clear_bit((D2H_SRAM), &md_ctrl->wakeup_ch)) {
 		CCCI_NOTICE_LOG(md_ctrl->md_id, TAG,
-			"CCIF_MD wakeup source:(SRX_IDX/%d)(%u)\n",
+			"CCIF_MD wakeup source:(SRX_IDX/%d)(%u), HS1\n",
 			ccci_h->channel, md_ctrl->wakeup_count);
 	}
+
 	ccci_hdr = *ccci_h;
 	ccci_md_check_rx_seq_num(md_ctrl->md_id,
 		&md_ctrl->traffic_info, &ccci_hdr, 0);
@@ -943,12 +943,13 @@ static int ccif_rx_collect(struct md_ccif_queue *queue, int budget,
 				c2k_mem_dump(data_ptr, pkg_size);
 			}
 		}
-		if (atomic_cmpxchg(&md_ctrl->wakeup_src, 1, 0) == 1) {
-			md_ctrl->wakeup_count++;
+		if (test_and_clear_bit(queue->index, &md_ctrl->wakeup_ch)) {
 			CCCI_NOTICE_LOG(md_ctrl->md_id, TAG,
-				"CCIF_MD wakeup source:(%d/%d/%x)(%u)\n",
+				"CCIF_MD wakeup source:(%d/%d/%x)(%u) %s\n",
 				queue->index, ccci_h->channel,
-				ccci_h->reserved, md_ctrl->wakeup_count);
+				ccci_h->reserved, md_ctrl->wakeup_count,
+				ccci_port_get_dev_name(ccci_h->channel));
+
 			if (ccci_h->channel == CCCI_FS_RX)
 				ccci_h->data[0] |= CCCI_FS_AP_CCCI_WAKEUP;
 		}
@@ -1271,13 +1272,7 @@ static void md_ccif_launch_work(struct md_ccif_ctrl *md_ctrl)
 
 	if (md_ctrl->channel_id & (1 << AP_MD_CCB_WAKEUP)) {
 		clear_bit(AP_MD_CCB_WAKEUP, &md_ctrl->channel_id);
-		CCCI_DEBUG_LOG(md_ctrl->md_id, TAG, "CCB wakeup\n");
-		if (atomic_cmpxchg(&md_ctrl->wakeup_src, 1, 0) == 1) {
-			md_ctrl->wakeup_count++;
-			CCCI_NOTICE_LOG(md_ctrl->md_id, TAG,
-			"CCIF_MD wakeup source:(CCB)(%u)\n",
-			md_ctrl->wakeup_count);
-		}
+
 #ifdef DEBUG_FOR_CCB
 		md_ctrl->traffic_info.latest_ccb_isr_time
 			= local_clock();
@@ -1829,6 +1824,14 @@ static int ccif_debug(unsigned char hif_id,
 			ccif_read32(ccif_ctrl->ccif_ap_base, APCCIF_RCHNUM));
 		ccif_ctrl->wakeup_ch =
 			ccif_read32(ccif_ctrl->ccif_ap_base, APCCIF_RCHNUM);
+		if (ccif_ctrl->wakeup_ch) {
+			ccif_ctrl->wakeup_count++;
+			CCCI_NOTICE_LOG(-1, TAG,
+				"CCIF_MD wakeup source: (0x%X)(%u)\n",
+				ccif_ctrl->wakeup_ch, ccif_ctrl->wakeup_count);
+		}
+		if (test_and_clear_bit(AP_MD_CCB_WAKEUP, &ccif_ctrl->wakeup_ch))
+			CCCI_NOTICE_LOG(-1, TAG, "CCIF_MD wakeup source:(CCB)\n");
 		ret = 0;
 		break;
 	case CCCI_HIF_DEBUG_RESET:
@@ -2247,7 +2250,7 @@ int ccci_ccif_hif_init(struct platform_device *pdev,
 		syscon_regmap_lookup_by_phandle(node_md,
 		"ccci-infracfg");
 	atomic_set(&md_ctrl->reset_on_going, 1);
-	atomic_set(&md_ctrl->wakeup_src, 0);
+	md_ctrl->wakeup_ch = 0;
 	atomic_set(&md_ctrl->ccif_irq_enabled, 1);
 	atomic_set(&md_ctrl->ccif_irq1_enabled, 1);
 	ccci_reset_seq_num(&md_ctrl->traffic_info);
