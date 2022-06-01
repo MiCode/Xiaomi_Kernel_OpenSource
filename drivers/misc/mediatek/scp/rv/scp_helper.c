@@ -1432,7 +1432,7 @@ static int scp_reserve_memory_ioremap(struct platform_device *pdev)
 void set_scp_mpu(void)
 {
 #if IS_ENABLED(CONFIG_MTK_EMI) || IS_ENABLED(CONFIG_MEDIATEK_EMI)
-	struct emimpu_region_t md_region;
+	struct emimpu_region_t md_region = {};
 
 	mtk_emimpu_init_region(&md_region, MPU_REGION_ID_SCP_SMEM);
 	mtk_emimpu_set_addr(&md_region, scp_mem_base_phys,
@@ -1466,7 +1466,7 @@ void scp_register_feature(enum feature_id id)
 		return;
 	}
 
-	if (id < 0 || id >= NUM_FEATURE_ID) {
+	if (id >= NUM_FEATURE_ID) {
 		pr_notice("[SCP] %s, invalid feature id:%u, max id:%u\n",
 			__func__, id, NUM_FEATURE_ID - 1);
 		return;
@@ -1529,7 +1529,7 @@ void scp_deregister_feature(enum feature_id id)
 		return;
 	}
 
-	if (id < 0 || id >= NUM_FEATURE_ID) {
+	if (id >= NUM_FEATURE_ID) {
 		pr_notice("[SCP] %s, invalid feature id:%u, max id:%u\n",
 			__func__, id, NUM_FEATURE_ID - 1);
 		return;
