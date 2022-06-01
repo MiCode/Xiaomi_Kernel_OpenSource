@@ -5502,7 +5502,7 @@
 			dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
 			iommus = <&disp_iommu M4U_LARB2_PORT2>;
 			interconnects =
-				<&mmqos MTK_M4U_TO_PORT(M4U_LARB2_PORT2)
+				<&mmqos MASTER_LARB_PORT(M4U_LARB2_PORT2)
 					&mmqos SLAVE_COMMON(0)>;
 			interconnect-names = "mml_dma";
 		};
