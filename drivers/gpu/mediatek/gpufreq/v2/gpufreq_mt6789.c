@@ -3669,6 +3669,16 @@ done:
 	return ret;
 }
 
+
+static void __gpufreq_init_acp(void)
+{
+	unsigned int val;
+
+	/* disable acp */
+	val = readl(g_infracfg_ao_base + 0x290) | (0x1 << 9);
+	writel(val, g_infracfg_ao_base + 0x290);
+}
+
 /* API: gpufreq driver probe */
 static int __gpufreq_pdrv_probe(struct platform_device *pdev)
 {
@@ -3749,6 +3759,10 @@ static int __gpufreq_pdrv_probe(struct platform_device *pdev)
 	gpufreq_set_history_state(HISTORY_FREE);
 	gpufreq_set_history_park_volt(0);
 #endif
+
+	/* init ACP */
+	__gpufreq_init_acp();
+
 	/* init OPP table */
 	ret = __gpufreq_init_opp_table(pdev);
 	if (unlikely(ret)) {
