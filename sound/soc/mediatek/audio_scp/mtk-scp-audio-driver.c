@@ -9,6 +9,7 @@
 #include <linux/pm_runtime.h>
 #include <sound/soc.h>
 #include "scp_audio_ipi.h"
+#include "scp.h"
 #include "mtk-scp-audio-base.h"
 #include "mtk-scp-audio-pcm.h"
 #include "mtk-scp-audio-mem-control.h"
@@ -57,6 +58,40 @@ void *get_scp_audio_base(void)
 	return local_scp_audio;
 }
 EXPORT_SYMBOL(get_scp_audio_base);
+
+/* user-space event notify */
+static int scp_user_event_notify(struct notifier_block *nb,
+				 unsigned long event, void *ptr)
+{
+	struct mtk_scp_audio_base *scp_audio = get_scp_audio_base();
+	struct device *dev = scp_audio->dev;
+	int ret = 0;
+
+	if (!dev)
+		return NOTIFY_DONE;
+
+	switch (event) {
+	case SCP_EVENT_STOP:
+		ret = kobject_uevent(&dev->kobj, KOBJ_OFFLINE);
+		break;
+	case SCP_EVENT_READY:
+		ret = kobject_uevent(&dev->kobj, KOBJ_ONLINE);
+		break;
+	default:
+		pr_info("%s, ignore event %lu", __func__, event);
+		break;
+	}
+
+	if (ret)
+		pr_info("%s, uevnet(%lu) fail, ret %d", __func__, event, ret);
+
+	return NOTIFY_OK;
+}
+
+struct notifier_block scp_uevent_notifier = {
+	.notifier_call = scp_user_event_notify,
+};
+
 
 static int scp_audio_dev_probe(struct platform_device *pdev)
 {
@@ -122,6 +157,8 @@ static int scp_audio_dev_probe(struct platform_device *pdev)
 		dev_info(&pdev->dev, "%s() err_platform: %d\n", __func__, ret);
 		return -1;
 	}
+
+	scp_A_register_notify(&scp_uevent_notifier);
 
 	pr_info("%s done, ret:%d\n", __func__, ret);
 	return 0;
