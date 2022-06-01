@@ -1851,7 +1851,7 @@ static kal_uint32 set_test_pattern_mode(kal_uint32 modes,
 
 	pr_info("set_test_pattern enum: %d\n", modes);
 	if (modes) {
-		write_cmos_sensor(0x0600, modes);
+		write_cmos_sensor(0x0601, modes);
 		if (modes == 1 && (pdata != NULL)) { //Solid Color
 			pr_info("R=0x%x,Gr=0x%x,B=0x%x,Gb=0x%x",
 				pdata->COLOR_R, pdata->COLOR_Gr, pdata->COLOR_B, pdata->COLOR_Gb);
@@ -1870,7 +1870,7 @@ static kal_uint32 set_test_pattern_mode(kal_uint32 modes,
 		}
 	}
 	else
-		write_cmos_sensor(0x0600, 0x0000); /*No pattern*/
+		write_cmos_sensor(0x0601, 0x0000); /*No pattern*/
 
 	write_cmos_sensor(0x3200, 0x00);
 	spin_lock(&imgsensor_drv_lock);
