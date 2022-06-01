@@ -1219,6 +1219,8 @@ static void _mtk_atomic_mml_plane(struct drm_device *dev,
 		(mtk_plane_state->prop_val[PLANE_PROP_MML_SUBMIT]);
 
 	submit_kernel = mtk_alloc_mml_submit();
+	if (!submit_kernel)
+		return;
 	ret = copy_mml_submit_from_user(submit_user, submit_kernel);
 	if (ret < 0)
 		goto err_handle_mtk_atomic_mml_plane_free_mml_submit;

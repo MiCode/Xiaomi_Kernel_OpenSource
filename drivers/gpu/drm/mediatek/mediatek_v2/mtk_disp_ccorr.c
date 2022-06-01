@@ -663,7 +663,7 @@ static int disp_ccorr_set_coef(
 		memcpy(ccorr, user_color_corr,
 			sizeof(struct DRM_DISP_CCORR_COEF_T));
 
-		if (id >= 0 && id < DISP_CCORR_TOTAL) {
+		if (id < DISP_CCORR_TOTAL) {
 			mutex_lock(&g_ccorr_global_lock);
 
 			old_ccorr = g_disp_ccorr_coef[id];
