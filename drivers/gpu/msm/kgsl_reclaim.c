@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/kthread.h>
@@ -9,6 +10,7 @@
 
 #include "kgsl_reclaim.h"
 #include "kgsl_sharedmem.h"
+#include "kgsl_trace.h"
 
 /*
  * Reclaiming excessive number of pages from a process will impact launch
@@ -61,6 +63,8 @@ static int kgsl_memdesc_get_reclaimed_pages(struct kgsl_mem_entry *entry)
 	if (ret)
 		return ret;
 
+	trace_kgsl_reclaim_memdesc(entry, false);
+
 	memdesc->priv &= ~KGSL_MEMDESC_RECLAIMED;
 	memdesc->priv &= ~KGSL_MEMDESC_SKIP_RECLAIM;
 
@@ -71,12 +75,14 @@ int kgsl_reclaim_to_pinned_state(
 		struct kgsl_process_private *process)
 {
 	struct kgsl_mem_entry *entry, *valid_entry;
-	int next = 0, ret = 0;
+	int next = 0, ret = 0, count;
 
 	mutex_lock(&process->reclaim_lock);
 
 	if (test_bit(KGSL_PROC_PINNED_STATE, &process->state))
 		goto done;
+
+	count = atomic_read(&process->unpinned_page_count);
 
 	for ( ; ; ) {
 		valid_entry = NULL;
@@ -101,6 +107,7 @@ int kgsl_reclaim_to_pinned_state(
 		next++;
 	}
 
+	trace_kgsl_reclaim_process(process, count, false);
 	set_bit(KGSL_PROC_PINNED_STATE, &process->state);
 done:
 	mutex_unlock(&process->reclaim_lock);
@@ -278,14 +285,19 @@ static u32 kgsl_reclaim_process(struct kgsl_process_private *process,
 
 			reclaim_shmem_address_space(memdesc->shmem_filp->f_mapping);
 			memdesc->priv |= KGSL_MEMDESC_RECLAIMED;
+			trace_kgsl_reclaim_memdesc(entry, true);
 		}
 
 		kgsl_mem_entry_put(entry);
 		next++;
 	}
+
 	if (next)
 		clear_bit(KGSL_PROC_PINNED_STATE, &process->state);
+
+	trace_kgsl_reclaim_process(process, pages_to_reclaim - remaining, true);
 	mutex_unlock(&process->reclaim_lock);
+
 	return (pages_to_reclaim - remaining);
 }
 
