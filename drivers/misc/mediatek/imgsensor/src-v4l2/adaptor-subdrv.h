@@ -106,6 +106,8 @@ struct subdrv_ctx {
 	u32 is_read_preload_eeprom;
 	u32 is_read_four_cell;
 	bool is_streaming;
+	u32 sof_cnt;
+	u32 ref_sof_cnt;
 };
 
 struct subdrv_ops {
@@ -133,6 +135,7 @@ struct subdrv_ops {
 			struct mtk_mbus_frame_desc *fd);
 	int (*get_temp)(struct subdrv_ctx *ctx, int *temp);
 	int (*vsync_notify)(struct subdrv_ctx *ctx, unsigned int sof_cnt);
+	int (*update_sof_cnt)(struct subdrv_ctx *ctx, unsigned int sof_cnt);
 	int (*get_csi_param)(struct subdrv_ctx *ctx,
 		enum SENSOR_SCENARIO_ID_ENUM scenario_id,
 		struct mtk_csi_param *csi_param);

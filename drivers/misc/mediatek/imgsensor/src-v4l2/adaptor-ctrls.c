@@ -875,6 +875,9 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 		return 0;
 
 	switch (ctrl->id) {
+	case V4L2_CID_UPDATE_SOF_CNT:
+		subdrv_call(ctx, update_sof_cnt, (u64)ctrl->val);
+		break;
 	case V4L2_CID_VSYNC_NOTIFY:
 		subdrv_call(ctx, vsync_notify, (u64)ctrl->val);
 		notify_fsync_vsync(ctx);
@@ -1379,6 +1382,15 @@ static const struct v4l2_ctrl_config cfg_vsync_notify = {
 	.step = 1,
 };
 
+static const struct v4l2_ctrl_config cfg_update_sof_cnt = {
+	.ops = &ctrl_ops,
+	.id = V4L2_CID_UPDATE_SOF_CNT,
+	.name = "update_sof_cnt",
+	.type = V4L2_CTRL_TYPE_INTEGER,
+	.flags = V4L2_CTRL_FLAG_EXECUTE_ON_WRITE,
+	.max = 0xffff,
+	.step = 1,
+};
 
 static struct v4l2_ctrl_config cfg_ae_ctrl = {
 	.ops = &ctrl_ops,
@@ -1947,6 +1959,7 @@ int adaptor_init_ctrls(struct adaptor_ctx *ctx)
 		&cfg_fsync_map_id, NULL);
 
 	v4l2_ctrl_new_custom(&ctx->ctrls, &cfg_vsync_notify, NULL);
+	v4l2_ctrl_new_custom(&ctx->ctrls, &cfg_update_sof_cnt, NULL);
 	v4l2_ctrl_new_custom(&ctx->ctrls, &cfg_stagger_info, NULL);
 	v4l2_ctrl_new_custom(&ctx->ctrls, &cfg_stagger_scenario, NULL);
 	v4l2_ctrl_new_custom(&ctx->ctrls, &cfg_stagger_max_exp_time, NULL);
