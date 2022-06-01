@@ -863,7 +863,7 @@ int imgsys_cmdq_sendtask(struct mtk_imgsys_dev *imgsys_dev,
 				pkt_ts_num = 0;
 
 				/* Assign task priority according to is_time_shared */
-				if (frm_info->user_info[frm_idx].is_time_shared)
+				if (frm_info->user_info[frm_idx].task_type == IMG_TASK_TIMESHARED)
 					pkt->priority = IMGSYS_PRI_LOW;
 				else
 					pkt->priority = IMGSYS_PRI_HIGH;
@@ -904,7 +904,7 @@ int imgsys_cmdq_sendtask(struct mtk_imgsys_dev *imgsys_dev,
 			/* Check for packing gce task */
 			pkt_ofst[task_cnt] = pkt->cmd_buf_size - CMDQ_INST_SIZE;
 			task_cnt++;
-			if ((frm_info->user_info[frm_idx].is_time_shared)
+			if ((frm_info->user_info[frm_idx].task_type == IMG_TASK_TIMESHARED)
 				|| (frm_info->user_info[frm_idx].is_secFrm)
 				|| (frm_info->user_info[frm_idx].is_earlycb)
 				|| ((frm_idx + 1) == frm_num)) {

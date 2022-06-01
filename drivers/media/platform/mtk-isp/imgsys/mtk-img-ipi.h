@@ -83,10 +83,16 @@ struct img_init_info {
 	uint32_t	smvr_mode;
 } __attribute__ ((__packed__));
 
+enum imgsys_tasktype {
+	IMG_TASK_NORMAL		= 0,
+	IMG_TASK_SLOW		= 1,
+	IMG_TASK_TIMESHARED	= 2
+};
+
 struct img_swfrm_info {
 	uint32_t hw_comb;
 	int sw_ridx;
-	uint8_t is_time_shared;
+	uint8_t task_type;
 	uint8_t is_secFrm;
 	uint8_t is_earlycb;
 	uint8_t is_lastingroup;
