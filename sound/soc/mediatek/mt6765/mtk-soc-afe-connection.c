@@ -849,9 +849,9 @@ static const struct connection_link_t mConnectionLink[] = {
 
 static const int CONNECTION_LINK_NUM = ARRAY_SIZE(mConnectionLink);
 
-static bool CheckBitsandReg(short regaddr, char bits)
+static bool CheckBitsandReg(unsigned int regaddr, char bits)
 {
-	if (regaddr <= 0 || bits < 0) {
+	if (regaddr == 0 || bits < 0) {
 		pr_debug("regaddr = %x bits = %d\n", regaddr, bits);
 		return false;
 	}
@@ -881,7 +881,7 @@ bool SetConnectionState(unsigned int ConnectionState, unsigned int Input,
 	 * pr_debug("SetinputConnection ConnectionState = %d
 	 * Input = %d Output = %d\n", ConnectionState, Input, Output);
 	 */
-	int connectReg = 0;
+	unsigned int connectReg = 0;
 	int set_bit = 0;
 
 	connectReg = (Input < Soc_Aud_InterConnectionInput_I32
