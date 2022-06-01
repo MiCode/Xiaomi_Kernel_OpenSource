@@ -3495,22 +3495,22 @@ static signed int DIP_Dump_IMGSYS_DIP_Reg(void)
 		cmdq_util_err("PAK_D5_CTRL: 0x%x5B80(0x%x)",
 			DipDumpTL[DIPNo].region,
 			DIP_RD32(dipRegBasAddr + 0x4B80));
-		cmdq_util_err("PAK_D4_CTRL: 0x%x5C80(0x%x)",
+		cmdq_util_err("PAK_D16_CTRL: 0x%x5C80(0x%x)",
 			DipDumpTL[DIPNo].region,
 			DIP_RD32(dipRegBasAddr + 0x4C80));
-		cmdq_util_err("PAK_D4_CTRL: 0x%x7380(0x%x)",
+		cmdq_util_err("PAK_D2_CTRL: 0x%x7380(0x%x)",
 			DipDumpTL[DIPNo].region,
 			DIP_RD32(dipRegBasAddr + 0x6380));
-		cmdq_util_err("PAK_D4_CTRL: 0x%x7600(0x%x)",
+		cmdq_util_err("PAK_D3_CTRL: 0x%x7600(0x%x)",
 			DipDumpTL[DIPNo].region,
 			DIP_RD32(dipRegBasAddr + 0x7600));
-		cmdq_util_err("PAK_D4_CTRL: 0x%x8980(0x%x)",
+		cmdq_util_err("PAK_D6_CTRL: 0x%x8980(0x%x)",
 			DipDumpTL[DIPNo].region,
 			DIP_RD32(dipRegBasAddr + 0x7980));
-		cmdq_util_err("PAK_D4_CTRL: 0x%x89C0(0x%x)",
+		cmdq_util_err("PAK_D7_CTRL: 0x%x89C0(0x%x)",
 			DipDumpTL[DIPNo].region,
 			DIP_RD32(dipRegBasAddr + 0x79C0));
-		cmdq_util_err("PAK_D4_CTRL: 0x%x8A00(0x%x)",
+		cmdq_util_err("PAK_D8_CTRL: 0x%x8A00(0x%x)",
 			DipDumpTL[DIPNo].region,
 			DIP_RD32(dipRegBasAddr + 0x7A00));
 		/*MCRP */
