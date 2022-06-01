@@ -996,6 +996,7 @@
   kobject_add
   kobject_create_and_add
   kobject_del
+  kobject_get
   kobject_get_path
   kobject_init
   kobject_init_and_add
