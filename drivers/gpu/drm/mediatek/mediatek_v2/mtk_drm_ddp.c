@@ -12707,8 +12707,8 @@ void mutex_dump_analysis_mt6873(struct mtk_disp_mutex *mutex)
 			      mtk_ddp_get_mutex_sof_name(
 				      REG_FLD_VAL_GET(SOF_FLD_MUTEX0_EOF, val)),
 			      REG_FLD_VAL_GET(SOF_FLD_MUTEX0_SOF_WAIT, val));
-
-		p += len;
+		if (len >= 0)
+			p += len;
 		for (j = 0; j < 32; j++) {
 			unsigned int regval = readl_relaxed(
 				ddp->regs + DISP_REG_MUTEX_MOD(ddp->data, i));
@@ -12716,7 +12716,8 @@ void mutex_dump_analysis_mt6873(struct mtk_disp_mutex *mutex)
 			if ((regval & (1 << j))) {
 				len = sprintf(p, "%s,",
 					ddp_get_mutex_module0_name_mt6873(j));
-				p += len;
+				if (len >= 0)
+					p += len;
 			}
 		}
 		DDPDUMP("%s)\n", mutex_module);
@@ -12845,7 +12846,8 @@ void mutex_dump_analysis_mt6879(struct mtk_disp_mutex *mutex)
 				      REG_FLD_VAL_GET(SOF_FLD_MUTEX0_EOF, val)),
 			      REG_FLD_VAL_GET(SOF_FLD_MUTEX0_SOF_WAIT, val));
 
-		p += len;
+		if (len >= 0)
+			p += len;
 		mod0 = readl_relaxed(ddp->regs +
 			DISP_REG_MUTEX_MOD(ddp->data, i));
 		for (j = 0; j < 32; j++) {
@@ -12857,7 +12859,8 @@ void mutex_dump_analysis_mt6879(struct mtk_disp_mutex *mutex)
 							__func__, __LINE__, len);
 					continue;
 				}
-				p += len;
+				if (len >= 0)
+					p += len;
 			}
 		}
 
@@ -12867,12 +12870,8 @@ void mutex_dump_analysis_mt6879(struct mtk_disp_mutex *mutex)
 			if ((mod1 & (1 << j))) {
 				len = sprintf(p, "%s,",
 					ddp_get_mutex_module1_name_mt6879(j));
-				if (len < 0) {
-					DDPPR_ERR("%s:%d sprintf fail %d\n",
-							__func__, __LINE__, len);
-					continue;
-				}
-				p += len;
+				if (len >= 0)
+					p += len;
 			}
 		}
 		DDPDUMP("%s)\n", mutex_module);
@@ -13260,7 +13259,8 @@ void mmsys_config_dump_analysis_mt6885(void __iomem *config_regs)
 
 void mmsys_config_dump_analysis_mt6983(void __iomem *config_regs)
 {
-	unsigned int idx = 0, bit = 0, len = 0;
+	unsigned int idx = 0, bit = 0;
+	int len = 0;
 	unsigned int reg = 0;
 	char clock_on[512] = {'\0'};
 	char *pos = NULL;
@@ -13407,7 +13407,8 @@ void mmsys_config_dump_analysis_mt6983(void __iomem *config_regs)
 
 void mmsys_config_dump_analysis_mt6895(void __iomem *config_regs)
 {
-	unsigned int idx = 0, bit = 0, len = 0;
+	unsigned int idx = 0, bit = 0;
+	int len = 0;
 	unsigned int reg = 0;
 	char clock_on[512] = {'\0'};
 	char *pos = NULL;
@@ -13880,7 +13881,8 @@ void mmsys_config_dump_analysis_mt6853(void __iomem *config_regs)
 
 void mmsys_config_dump_analysis_mt6833(void __iomem *config_regs)
 {
-	unsigned int i = 0, len = 0;
+	unsigned int i = 0;
+	int len = 0;
 	unsigned int reg = 0;
 	char clock_on[512] = {'\0'};
 	char *pos = NULL;
