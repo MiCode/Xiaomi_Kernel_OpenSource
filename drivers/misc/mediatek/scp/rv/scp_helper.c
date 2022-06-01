@@ -2689,14 +2689,17 @@ static int __init scp_init(void)
 		scp_resource_req(SCP_REQ_26M);
 	}
 #endif /* SCP_DVFS_INIT_ENABLE */
-
-	if (platform_driver_register(&mtk_scp_device)) {
-		pr_notice("[SCP] scp probe fail\n");
+	ret = platform_driver_register(&mtk_scp_device);
+	if (ret) {
+		pr_notice("[SCP] scp probe fail %d\n", ret);
+		BUG_ON(1);
 		goto err_without_unregister;
 	}
 
-	if (platform_driver_probe(&mtk_scpsys_device, scpsys_device_probe)) {
-		pr_notice("[SCP] scpsys probe fail\n");
+	ret = platform_driver_probe(&mtk_scpsys_device, scpsys_device_probe);
+	if (ret) {
+		pr_notice("[SCP] scpsys probe fail %d\n", ret);
+		BUG_ON(1);
 		goto err;
 	}
 
