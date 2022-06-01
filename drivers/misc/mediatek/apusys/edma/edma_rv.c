@@ -91,7 +91,7 @@ static int edma_rpmsg_probe(struct rpmsg_device *rpdev)
 		edma_rpmsg_cb, &eRdev, chinfo);
 
 
-	LOG_INF("Done, eRdev.ept = 0x%x\n", eRdev.ept);
+	LOG_INF("Done, eRdev.ept = %p\n", eRdev.ept);
 
 	return ret;
 }
@@ -133,7 +133,7 @@ static ssize_t edma_rvlog_store(struct kobject *kobj,
 					struct kobj_attribute *attr,
 					const char *buf, size_t count)
 {
-	unsigned int val;
+	unsigned int val = 0;
 	int ret;
 	struct edma_ipi_data mData;
 

@@ -58,7 +58,8 @@ int edma_initialize(struct edma_device *edma_device)
 		edma_sub->power_state = EDMA_POWER_OFF;
 		mutex_init(&edma_sub->cmd_mutex);
 		init_waitqueue_head(&edma_sub->cmd_wait);
-		sprintf(edma_sub->sub_name, "edma%d", edma_sub->sub);
+		if (sprintf(edma_sub->sub_name, "edma%d", edma_sub->sub) < 0)
+			LOG_ERR("sprintf error\n");
 	}
 
 	return ret;
@@ -154,7 +155,7 @@ int edma_send_cmd(int cmd, void *hnd, struct apusys_device *adev)
 
 			edma_ext->reg_addr = (u32)apusys_mem_query_iova((uint64_t)cmd_hnd->cmdbufs[1].kva);
 
-			LOG_INF("%s cmdbufs[1].kva = 0x%x\n", __func__, cmd_hnd->cmdbufs[1].kva);
+			LOG_INF("%s cmdbufs[1].kva = %p\n", __func__, cmd_hnd->cmdbufs[1].kva);
 
 			LOG_INF("%s edma_ext.reg_addr = 0x%x\n", __func__, edma_ext->reg_addr);
 
