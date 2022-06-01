@@ -395,6 +395,12 @@ static int ep_pcie_clk_init(struct ep_pcie_dev_t *dev)
 		return rc;
 	}
 
+	rc = regulator_enable(dev->gdsc_phy);
+	if (rc) {
+		EP_PCIE_ERR(dev, "PCIe V%d: fail to enable GDSC_PHY for %s\n",
+			dev->rev, dev->pdev->name);
+	}
+
 	/* switch pipe clock source after gdsc is turned on */
 	if (dev->pipe_clk_mux && dev->pipe_clk_ext_src)
 		clk_set_parent(dev->pipe_clk_mux, dev->pipe_clk_ext_src);
@@ -461,6 +467,8 @@ static int ep_pcie_clk_init(struct ep_pcie_dev_t *dev)
 			clk_set_parent(dev->pipe_clk_mux, dev->ref_clk_src);
 
 		regulator_disable(dev->gdsc);
+		if (dev->gdsc_phy)
+			regulator_disable(dev->gdsc_phy);
 	}
 
 	return rc;
@@ -489,6 +497,8 @@ static void ep_pcie_clk_deinit(struct ep_pcie_dev_t *dev)
 			clk_set_parent(dev->pipe_clk_mux, dev->ref_clk_src);
 
 		regulator_disable(dev->gdsc);
+		if (dev->gdsc_phy)
+			regulator_disable(dev->gdsc_phy);
 	}
 }
 
@@ -1240,6 +1250,17 @@ static int ep_pcie_get_resources(struct ep_pcie_dev_t *dev,
 			dev->rev, dev->pdev->name);
 		ret = PTR_ERR(dev->gdsc);
 		goto out;
+	}
+
+	dev->gdsc_phy = devm_regulator_get(&pdev->dev, "gdsc-phy-vdd");
+	if (IS_ERR(dev->gdsc_phy)) {
+		EP_PCIE_ERR(dev, "PCIe V%d:  Failed to get %s GDSC_PHY:%ld\n",
+			dev->rev, dev->pdev->name, PTR_ERR(dev->gdsc_phy));
+		if (PTR_ERR(dev->gdsc_phy) == -EPROBE_DEFER) {
+			EP_PCIE_DBG(dev, "PCIe V%d: EPROBE_DEFER for %s GDSC\n",
+			dev->rev, dev->pdev->name);
+			goto out;
+		}
 	}
 
 	for (i = 0; i < EP_PCIE_MAX_GPIO; i++) {
