@@ -655,12 +655,12 @@ void apply_mraw_cq(struct mtk_mraw_device *dev,
 static unsigned int mtk_cam_mraw_powi(unsigned int x, unsigned int n)
 {
 	unsigned int rst = 1.0;
-	unsigned int m = (n >= 0) ? n : -n;
+	unsigned int m = n;
 
 	while (m--)
 		rst *= x;
 
-	return (n >= 0) ? rst : 1.0 / rst;
+	return rst;
 }
 
 static unsigned int mtk_cam_mraw_xsize_cal(unsigned int length)
@@ -849,13 +849,12 @@ static void mtk_cam_mraw_set_frame_param_dmao(
 	struct mtk_cam_mraw_dmao_info mraw_dmao_info, int pipe_id,
 	dma_addr_t buf_daddr)
 {
-	struct mtkcam_ipi_img_output *mraw_img_outputs, *last_mraw_img_outputs;
+	struct mtkcam_ipi_img_output *mraw_img_outputs = NULL, *last_mraw_img_outputs;
 	int i;
 
 	for (i = DMAO_ID_BEGIN; i < DMAO_ID_MAX; i++) {
 		last_mraw_img_outputs = mraw_img_outputs;
 		mraw_img_outputs = &frame_param->mraw_param[0].mraw_img_outputs[i];
-
 		mraw_img_outputs->uid.id = MTKCAM_IPI_MRAW_META_STATS_0;
 		mraw_img_outputs->uid.pipe_id = pipe_id;
 
@@ -873,8 +872,8 @@ static void mtk_cam_mraw_set_frame_param_dmao(
 				= buf_daddr + sizeof(struct mtk_cam_uapi_meta_mraw_stats_0);
 		else
 			mraw_img_outputs->buf[0][0].iova = last_mraw_img_outputs->buf[0][0].iova
-				+ last_mraw_img_outputs->fmt.stride[0] *
-					last_mraw_img_outputs->fmt.s.h;
+				+ (u64)last_mraw_img_outputs->fmt.stride[0] *
+				(u64)last_mraw_img_outputs->fmt.s.h;
 
 		mraw_img_outputs->buf[0][0].size =
 			mraw_img_outputs->fmt.stride[0] * mraw_img_outputs->fmt.s.h;
@@ -941,10 +940,16 @@ void mtk_cam_mraw_handle_enque(struct vb2_buffer *vb)
 	struct mtkcam_ipi_frame_param *frame_param;
 	struct mtk_cam_uapi_meta_mraw_stats_cfg *mraw_meta_in_buf;
 	struct mtk_mraw_pipeline *mraw_pipline;
-
+	if (!vaddr) {
+		dev_dbg(dev, "vaddr is NULL\n");
+		return;
+	}
 	frame_param = &req_stream_data->frame_params;
 	mraw_pipline = mtk_cam_dev_get_mraw_pipeline(cam, pipe_id);
-
+	if (!mraw_pipline) {
+		dev_dbg(dev, "mraw pipeline is NULL\n");
+		return;
+	}
 	/* TODO: not proper to convert perframe data by using pipeline variable */
 	switch (dma_port) {
 	case MTKCAM_IPI_MRAW_META_STATS_CFG:
@@ -996,7 +1001,7 @@ int mtk_cam_mraw_cal_cfg_info(struct mtk_cam_device *cam,
 		&cam->mraw.pipelines[pipe_id - MTKCAM_SUBDEV_MRAW_START];
 
 	s_data->frame_params.mraw_param[0].is_config = is_config;
-
+	memset(&mraw_dmao_info, 0, sizeof(mraw_dmao_info));
 	mtk_cam_mraw_set_mraw_dmao_info(cam,
 		pipe_id, &mraw_dmao_info);
 	mtk_cam_mraw_set_frame_param_dmao(cam->dev, &s_data->frame_params,
@@ -1164,8 +1169,7 @@ int mtk_cam_mraw_apply_all_buffers(struct mtk_cam_ctx *ctx, bool is_check_ts)
 		if (mtk_cam_mraw_is_vf_on(mraw_dev) &&
 			(buf_entry->s_data->req->pipe_used &
 			(1 << ctx->mraw_pipe[i]->id)) && is_check_ts) {
-			if (buf_entry->is_stagger == 0 ||
-				(buf_entry->is_stagger == 1 && STAGGER_CQ_LAST_SOF == 0)) {
+			if (buf_entry->is_stagger == 0) {
 				if ((buf_entry->ts_mraw == 0) ||
 					((buf_entry->ts_mraw < buf_entry->ts_raw) &&
 					((buf_entry->ts_raw - buf_entry->ts_mraw) > 3000000))) {
@@ -1339,7 +1343,7 @@ int mtk_cam_mraw_pipeline_config(
 {
 	struct mtk_mraw_pipeline *mraw_pipe = ctx->mraw_pipe[idx];
 	struct mtk_mraw *mraw = mraw_pipe->mraw;
-	unsigned int i;
+	unsigned int i, j;
 	int ret;
 
 	/* reset pm_runtime during streaming dynamic change */
@@ -1364,9 +1368,9 @@ int mtk_cam_mraw_pipeline_config(
 		dev_dbg(mraw->cam_dev,
 			"failed at pm_runtime_get_sync: %s\n",
 			dev_driver_string(mraw->devs[i]));
-		for (i = i-1; i >= 0; i--)
-			if (mraw_pipe->enabled_mraw & 1<<i)
-				pm_runtime_put_sync(mraw->devs[i]);
+		for (j = 0; j < i; j++)
+			if (mraw_pipe->enabled_mraw & 1<<j)
+				pm_runtime_put_sync(mraw->devs[j]);
 		return ret;
 	}
 
@@ -1929,7 +1933,7 @@ static int  mtk_mraw_pipeline_register(
 	struct mtk_mraw_device *mraw_dev = dev_get_drvdata(dev);
 	struct v4l2_subdev *sd = &pipe->subdev;
 	struct mtk_cam_video_device *video;
-	unsigned int i;
+	unsigned int i, j;
 	int ret;
 
 	pipe->id = id;
@@ -2006,8 +2010,8 @@ static int  mtk_mraw_pipeline_register(
 	return 0;
 
 fail_unregister_video:
-	for (i = i-1; i >= 0; i--)
-		mtk_cam_video_unregister(pipe->vdev_nodes + i);
+	for (j = 0; j < i; j++)
+		mtk_cam_video_unregister(pipe->vdev_nodes + j);
 
 	return ret;
 }
@@ -2219,7 +2223,6 @@ static irqreturn_t mtk_irq_mraw(int irq, void *data)
 	unsigned int err_status, dma_err_status;
 	unsigned int imgo_overr_status, imgbo_overr_status, cpio_overr_status;
 	bool wake_thread = 0;
-
 	irq_status	= readl_relaxed(mraw_dev->base + REG_MRAW_CTL_INT_STATUS);
 	/*
 	 * [ISP 7.0/7.1] HW Bug Workaround: read MRAWCTL_INT2_STATUS every irq
@@ -2290,7 +2293,7 @@ static irqreturn_t mtk_irq_mraw(int irq, void *data)
 		dev_dbg(dev, "CQ done:%d\n", mraw_dev->sof_count);
 	}
 
-	if (irq_info.irq_type && push_msgfifo(mraw_dev, &irq_info) == 0)
+	if ((unsigned int)irq_info.irq_type && push_msgfifo(mraw_dev, &irq_info) == 0)
 		wake_thread = 1;
 
 	/* Check ISP error status */
