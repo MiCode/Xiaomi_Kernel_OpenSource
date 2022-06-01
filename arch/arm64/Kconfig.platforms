@@ -395,6 +395,8 @@ config MACH_MT6779
 	select MTK_AVB20_SUPPORT
 	select MTK_DVFSRC
 	select MTK_TINYSYS_SCP_CM4_SUPPORT
+	select MTK_PLAT_SRAM_FLAG
+	select MTK_SYSTRACKER_V2
 
 	help
 	  This enables support for MediaTek MT6779. Highly power-efficient,
