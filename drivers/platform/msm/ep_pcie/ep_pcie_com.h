@@ -46,6 +46,15 @@
 #define PCIE20_PARF_INT_ALL_STATUS     0x224
 #define PCIE20_PARF_INT_ALL_CLEAR      0x228
 #define PCIE20_PARF_INT_ALL_MASK       0x22C
+#define PCIE20_PARF_INT_ALL_3_STATUS   0x2D88
+#define PCIE20_PARF_INT_ALL_3_MASK     0x2D8C
+#define PCIE20_PARF_INT_ALL_3_CLEAR    0x2D90
+#define PCIE20_PARF_MHI_BASE_ADDR_VFn_LOWER(n)       (((n) * 8) + 0x3088)
+#define PCIE20_PARF_MHI_BASE_ADDR_VFn_UPPER(n)       (((n) * 8)  + 0x308C)
+#define PCIE20_PARF_MHI_IPA_DBS_VF(n)                (((n) * 0x8) + 0x2E9C)
+#define PCIE20_PARF_MHI_IPA_CDB_VF_TARGET_LOWER(n)   (((n) * 0x18) + 0x2E08)
+#define PCIE20_PARF_MHI_IPA_EDB_VF_TARGET_LOWER(n)   (((n) * 0x18) + 0x2E0C)
+
 
 #define PCIE20_PARF_CLKREQ_OVERRIDE	0x2B0
 #define PCIE20_PARF_CLKREQ_IN_OVERRIDE_STS	BIT(5)
@@ -62,6 +71,8 @@
 #define PCIE20_PARF_SLV_ADDR_MSB_CTRL  0x2C0
 #define PCIE20_PARF_DBI_BASE_ADDR      0x350
 #define PCIE20_PARF_DBI_BASE_ADDR_HI   0x354
+#define PCIE20_PARF_DBI_VF_BASE_ADDR      0x2DA0
+#define PCIE20_PARF_DBI_VF_BASE_ADDR_HI   0x2DA4
 #define PCIE20_PARF_SLV_ADDR_SPACE_SIZE        0x358
 #define PCIE20_PARF_SLV_ADDR_SPACE_SIZE_HI     0x35C
 
@@ -98,11 +109,12 @@
 #define PCIE20_SUBSYSTEM               0x2c
 #define PCIE20_CAP_ID_NXT_PTR          0x40
 #define PCIE20_CON_STATUS              0x44
-#define PCIE20_MSI_CAP_ID_NEXT_CTRL    0x50
-#define PCIE20_MSI_LOWER               0x54
-#define PCIE20_MSI_UPPER               0x58
-#define PCIE20_MSI_DATA                0x5C
-#define PCIE20_MSI_MASK                0x60
+#define PCIE20_MSI_BASE(n)             ((n) * 0x200)
+#define PCIE20_MSI_CAP_ID_NEXT_CTRL(n) (PCIE20_MSI_BASE(n) + 0x50)
+#define PCIE20_MSI_LOWER(n)            (PCIE20_MSI_BASE(n) + 0x54)
+#define PCIE20_MSI_UPPER(n)            (PCIE20_MSI_BASE(n) + 0x58)
+#define PCIE20_MSI_DATA(n)             (PCIE20_MSI_BASE(n) + 0x5C)
+#define PCIE20_MSI_MASK(n)             (PCIE20_MSI_BASE(n) + 0x60)
 #define PCIE20_DEVICE_CAPABILITIES     0x74
 #define PCIE20_MSIX_TABLE_OFFSET_REG   0xB4
 #define PCIE20_MSIX_PBA_OFFSET_REG	0xB8
@@ -120,6 +132,9 @@
 #define PCIE20_MASK_ACK_N_FTS          0xff00
 #define PCIE20_TRGT_MAP_CTRL_OFF       0x81C
 #define PCIE20_MISC_CONTROL_1          0x8BC
+
+#define PCIE20_SRIOV_BAR_OFF(n)        (n * 0x4)
+#define PCIE20_SRIOV_BAR(n)            (PCIE20_SRIOV_BAR_OFF(n) + 0x24)
 
 #define PCIE20_PLR_IATU_VIEWPORT       0x900
 #define PCIE20_PLR_IATU_CTRL1          0x904
@@ -139,6 +154,7 @@
 #define PCIE20_IATU_O_LAR(n)           (PCIE20_IATU_BASE(n) + 0x10)
 #define PCIE20_IATU_O_LTAR(n)          (PCIE20_IATU_BASE(n) + 0x14)
 #define PCIE20_IATU_O_UTAR(n)          (PCIE20_IATU_BASE(n) + 0x18)
+#define PCIE20_IATU_O_CTRL3(n)         (PCIE20_IATU_BASE(n) + 0x1C)
 
 #define PCIE20_IATU_I_CTRL1(n)         (PCIE20_IATU_BASE(n) + 0x100)
 #define PCIE20_IATU_I_CTRL2(n)         (PCIE20_IATU_BASE(n) + 0x104)
@@ -183,6 +199,7 @@
 #define MAX_MSG_LEN 80
 #define MAX_NAME_LEN 80
 #define MAX_IATU_ENTRY_NUM 2
+#define MAX_PCIE_INSTANCES 16
 
 #define EP_PCIE_LOG_PAGES 50
 #define EP_PCIE_MAX_VREG 4
@@ -250,7 +267,9 @@ enum ep_pcie_res {
 	EP_PCIE_RES_PHY,
 	EP_PCIE_RES_MMIO,
 	EP_PCIE_RES_MSI,
+	EP_PCIE_RES_MSI_VF,
 	EP_PCIE_RES_DM_CORE,
+	EP_PCIE_RES_DM_VF_CORE,
 	EP_PCIE_RES_ELBI,
 	EP_PCIE_RES_IATU,
 	EP_PCIE_RES_EDMA,
@@ -345,7 +364,9 @@ struct ep_pcie_dev_t {
 	void __iomem                 *phy;
 	void __iomem                 *mmio;
 	void __iomem                 *msi;
+	void __iomem                 *msi_vf;
 	void __iomem                 *dm_core;
+	void __iomem                 *dm_core_vf;
 	void __iomem                 *edma;
 	void __iomem                 *elbi;
 	void __iomem                 *iatu;
@@ -379,6 +400,9 @@ struct ep_pcie_dev_t {
 	u32                          rev;
 	u32                          phy_rev;
 	u32			     aux_clk_val;
+	/*sriov_mask signifies the BME bit positions in PARF_INT_ALL_3_STATUS register*/
+	ulong                        sriov_mask;
+	ulong                        sriov_enumerated;
 	void                         *ipc_log_sel;
 	void                         *ipc_log_ful;
 	void                         *ipc_log_dump;
@@ -400,6 +424,7 @@ struct ep_pcie_dev_t {
 	ulong                        wake_counter;
 	ulong                        msi_counter;
 	ulong                        global_irq_counter;
+	ulong                        sriov_irq_counter;
 
 	bool                         dump_conf;
 	bool                         config_mmio_init;
@@ -409,14 +434,15 @@ struct ep_pcie_dev_t {
 	bool                         suspending;
 	bool                         l23_ready;
 	bool                         l1ss_enabled;
-	struct ep_pcie_msi_config    msi_cfg;
 	bool                         no_notify;
 	bool                         client_ready;
 	atomic_t		     ep_pcie_dev_wake;
 	atomic_t                     perst_deast;
 	int                          perst_irq;
 	atomic_t                     host_wake_pending;
-	bool			     conf_ipa_msi_iatu;
+	struct ep_pcie_msi_config    msi_cfg[MAX_PCIE_INSTANCES];
+	bool                         conf_ipa_msi_iatu[MAX_PCIE_INSTANCES];
+	bool                         use_iatu_msi;
 
 	struct ep_pcie_register_event *event_reg;
 	struct work_struct           handle_bme_work;
