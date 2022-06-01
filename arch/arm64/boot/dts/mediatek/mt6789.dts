@@ -356,6 +356,11 @@
 				scmi_apmcupm = <8>;
 			};
 		};
+
+		android: android {
+			compatible = "android,firmware";
+			hardware = "mt6789";
+		};
 	};
 
 	sspm: sspm@10400000 {
