@@ -63,6 +63,7 @@ void mtk_cpuidle_ctrl_log_en(bool enable);
 bool mtk_cpuidle_ctrl_log_sta_get(void);
 
 void mtk_cpuidle_state_enable(bool en);
+void mtk_s2idle_state_enable(bool en);
 
 int __init mtk_cpuidle_status_init(void);
 void __exit mtk_cpuidle_status_exit(void);
