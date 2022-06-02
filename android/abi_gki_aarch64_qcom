@@ -112,13 +112,6 @@
   cdev_device_add
   cdev_device_del
   cdev_init
-  cfg80211_gtk_rekey_notify
-  cfg80211_register_netdevice
-  cfg80211_rx_control_port
-  cfg80211_rx_unprot_mlme_mgmt
-  cfg80211_stop_iface
-  cfg80211_update_owe_info_event
-  cfg80211_vendor_cmd_get_sender
   __cfi_slowpath_diag
   cgroup_path_ns
   cgroup_taskset_first
@@ -1611,7 +1604,6 @@
   regulator_set_mode
   regulator_set_voltage
   regulator_unregister_notifier
-  regulatory_set_wiphy_regd
   release_firmware
   __release_region
   release_sock
@@ -2021,7 +2013,7 @@
   __tracepoint_android_vh_ftrace_oops_exit
   __tracepoint_android_vh_ftrace_size_check
   __tracepoint_android_vh_gic_resume
-  __tracepoint_android_vh_gic_v3_set_affinity
+  __tracepoint_android_rvh_gic_v3_set_affinity
   __tracepoint_android_vh_ipi_stop
   __tracepoint_android_vh_jiffies_update
   __tracepoint_android_vh_kswapd_per_node

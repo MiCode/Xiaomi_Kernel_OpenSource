@@ -25,6 +25,7 @@
 #include <linux/pm.h>
 #include <linux/sbitmap.h>
 #include <linux/android_kabi.h>
+#include <linux/android_vendor.h>
 
 struct module;
 struct request_queue;
@@ -1876,6 +1877,7 @@ struct block_device_operations {
 
 	ANDROID_KABI_RESERVE(1);
 	ANDROID_KABI_RESERVE(2);
+	ANDROID_OEM_DATA(1);
 };
 
 #ifdef CONFIG_COMPAT
