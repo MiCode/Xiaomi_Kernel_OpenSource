@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /* Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved. */
 
+#include <linux/delay.h>
+#include <linux/io.h>
+#include <linux/kthread.h>
 #include <linux/genalloc.h>
 #include <linux/module.h>
 #include <linux/of_device.h>
@@ -11,6 +14,7 @@
 #include "qrtr.h"
 
 #define MAX_PKT_SZ		SZ_64K
+#define DEFAULT_POLL_SLEEP	100
 
 #define FIFO_FULL_RESERVE	8
 #define FIFO_SIZE		0x4000
@@ -65,6 +69,7 @@ struct qrtr_genpool_pipe {
  * @tx_avail_notify: wait queue for available tx.
  * @base: base of the shared fifo.
  * @size: fifo size.
+ * @poll_sleep: sleep (ms) between each read.
  */
 struct qrtr_genpool_dev {
 	struct qrtr_endpoint ep;
@@ -78,6 +83,11 @@ struct qrtr_genpool_dev {
 	dma_addr_t dma_addr;
 	void *base;
 	size_t size;
+
+	struct kthread_worker kworker;
+	struct task_struct *task;
+	struct kthread_work read_data;
+	unsigned int poll_sleep;
 };
 
 static void qrtr_genpool_signal(struct qrtr_genpool_dev *qdev)
@@ -341,6 +351,18 @@ static void qrtr_genpool_read(struct qrtr_genpool_dev *qdev)
 	}
 }
 
+static void qrtr_genpool_read_work(struct kthread_work *work)
+{
+	struct qrtr_genpool_dev *qdev = container_of(work,
+						     struct qrtr_genpool_dev,
+						     read_data);
+
+	while (!kthread_should_stop()) {
+		qrtr_genpool_read(qdev);
+		msleep(qdev->poll_sleep);
+	}
+}
+
 /**
  * qrtr_genpool_fifo_init() - init genpool fifo configs
  *
@@ -411,6 +433,22 @@ static int qrtr_genpool_memory_init(struct qrtr_genpool_dev *qdev)
 	return 0;
 }
 
+static void qrtr_genpool_poll_init(struct qrtr_genpool_dev *qdev)
+{
+	qdev->poll_sleep = DEFAULT_POLL_SLEEP;
+	of_property_read_u32(qdev->dev->of_node, "genpool-poll-sleep",
+			     &qdev->poll_sleep);
+
+	kthread_init_worker(&qdev->kworker);
+	kthread_init_work(&qdev->read_data, qrtr_genpool_read_work);
+	qdev->task = kthread_run(kthread_worker_fn, &qdev->kworker,
+				 "qrtr-genpool-read");
+	if (IS_ERR(qdev->task))
+		return;
+
+	kthread_queue_work(&qdev->kworker, &qdev->read_data);
+}
+
 /**
  * qrtr_genpool_probe() - Probe a genpool fifo transport
  *
@@ -450,7 +488,9 @@ static int qrtr_genpool_probe(struct platform_device *pdev)
 	if (rc)
 		goto fail;
 
-	if (qrtr_genpool_rx_avail(&qdev->rx_pipe))
+	if (of_property_read_bool(qdev->dev->of_node, "genpool-poll"))
+		qrtr_genpool_poll_init(qdev);
+	else if (qrtr_genpool_rx_avail(&qdev->rx_pipe))
 		qrtr_genpool_read(qdev);
 
 	return 0;
