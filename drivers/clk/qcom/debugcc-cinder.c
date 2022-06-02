@@ -25,6 +25,47 @@ static struct measure_clk_data debug_mux_priv = {
 	.xo_div4_cbcr = 0x7200C,
 };
 
+static const char *const apss_cc_debug_mux_parent_names[] = {
+	"measure_only_apcs_l3_post_acd_clk",
+	"measure_only_apcs_l3_pre_acd_clk",
+	"measure_only_apcs_silver_post_acd_clk",
+	"measure_only_apcs_silver_pre_acd_clk",
+};
+
+static int apss_cc_debug_mux_sels[] = {
+	0x41,		/* measure_only_apcs_l3_post_acd_clk */
+	0x45,		/* measure_only_apcs_l3_pre_acd_clk */
+	0x21,		/* measure_only_apcs_silver_post_acd_clk */
+	0x44,		/* measure_only_apcs_silver_pre_acd_clk */
+};
+
+static int apss_cc_debug_mux_pre_divs[] = {
+	0x4,		/* measure_only_apcs_l3_post_acd_clk */
+	0x10,		/* measure_only_apcs_l3_pre_acd_clk */
+	0x4,		/* measure_only_apcs_silver_post_acd_clk */
+	0x10,		/* measure_only_apcs_silver_pre_acd_clk */
+};
+
+static struct clk_debug_mux apss_cc_debug_mux = {
+	.priv = &debug_mux_priv,
+	.debug_offset = 0x18,
+	.post_div_offset = 0x18,
+	.cbcr_offset = 0x0,
+	.src_sel_mask = 0x7F0,
+	.src_sel_shift = 4,
+	.post_div_mask = 0x7800,
+	.post_div_shift = 11,
+	.post_div_val = 1,
+	.mux_sels = apss_cc_debug_mux_sels,
+	.pre_div_vals = apss_cc_debug_mux_pre_divs,
+	.hw.init = &(const struct clk_init_data){
+		.name = "apss_cc_debug_mux",
+		.ops = &clk_debug_mux_ops,
+		.parent_names = apss_cc_debug_mux_parent_names,
+		.num_parents = ARRAY_SIZE(apss_cc_debug_mux_parent_names),
+	},
+};
+
 static const char *const ecpri_cc_debug_mux_parent_names[] = {
 	"ecpri_cc_ecpri_cg_clk",
 	"ecpri_cc_ecpri_dma_clk",
@@ -227,6 +268,7 @@ static struct clk_debug_mux ecpri_cc_debug_mux = {
 };
 
 static const char *const gcc_debug_mux_parent_names[] = {
+	"apss_cc_debug_mux",
 	"ecpri_cc_debug_mux",
 	"gcc_aggre_noc_ecpri_dma_clk",
 	"gcc_boot_rom_ahb_clk",
@@ -311,6 +353,7 @@ static const char *const gcc_debug_mux_parent_names[] = {
 };
 
 static int gcc_debug_mux_sels[] = {
+	0xBF,		/* apss_cc_debug_mux */
 	0x115,		/* ecpri_cc_debug_mux */
 	0x2C,		/* gcc_aggre_noc_ecpri_dma_clk */
 	0x92,		/* gcc_boot_rom_ahb_clk */
@@ -428,9 +471,42 @@ static struct clk_debug_mux mc_cc_debug_mux = {
 };
 
 static struct mux_regmap_names mux_list[] = {
+	{ .mux = &apss_cc_debug_mux, .regmap_name = "qcom,apsscc" },
 	{ .mux = &ecpri_cc_debug_mux, .regmap_name = "qcom,ecpricc" },
 	{ .mux = &gcc_debug_mux, .regmap_name = "qcom,gcc" },
 	{ .mux = &mc_cc_debug_mux, .regmap_name = "qcom,mccc" },
+};
+
+static struct clk_dummy measure_only_apcs_l3_post_acd_clk = {
+	.rrate = 1000,
+	.hw.init = &(const struct clk_init_data){
+		.name = "measure_only_apcs_l3_post_acd_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
+static struct clk_dummy measure_only_apcs_l3_pre_acd_clk = {
+	.rrate = 1000,
+	.hw.init = &(const struct clk_init_data){
+		.name = "measure_only_apcs_l3_pre_acd_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
+static struct clk_dummy measure_only_apcs_silver_post_acd_clk = {
+	.rrate = 1000,
+	.hw.init = &(const struct clk_init_data){
+		.name = "measure_only_apcs_silver_post_acd_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
+static struct clk_dummy measure_only_apcs_silver_pre_acd_clk = {
+	.rrate = 1000,
+	.hw.init = &(const struct clk_init_data){
+		.name = "measure_only_apcs_silver_pre_acd_clk",
+		.ops = &clk_dummy_ops,
+	},
 };
 
 static struct clk_dummy measure_only_mccc_clk = {
@@ -466,6 +542,10 @@ static struct clk_dummy measure_only_usb3_phy_wrapper_gcc_usb30_pipe_clk = {
 };
 
 static struct clk_hw *debugcc_cinder_hws[] = {
+	&measure_only_apcs_l3_post_acd_clk.hw,
+	&measure_only_apcs_l3_pre_acd_clk.hw,
+	&measure_only_apcs_silver_post_acd_clk.hw,
+	&measure_only_apcs_silver_pre_acd_clk.hw,
 	&measure_only_mccc_clk.hw,
 	&measure_only_pcie_0_phy_aux_clk.hw,
 	&measure_only_pcie_0_pipe_clk.hw,
@@ -482,6 +562,8 @@ static int clk_debug_cinder_probe(struct platform_device *pdev)
 	struct clk *clk;
 	int ret = 0, i;
 
+	BUILD_BUG_ON(ARRAY_SIZE(apss_cc_debug_mux_parent_names) !=
+		ARRAY_SIZE(apss_cc_debug_mux_sels));
 	BUILD_BUG_ON(ARRAY_SIZE(ecpri_cc_debug_mux_parent_names) !=
 		ARRAY_SIZE(ecpri_cc_debug_mux_sels));
 	BUILD_BUG_ON(ARRAY_SIZE(gcc_debug_mux_parent_names) != ARRAY_SIZE(gcc_debug_mux_sels));
