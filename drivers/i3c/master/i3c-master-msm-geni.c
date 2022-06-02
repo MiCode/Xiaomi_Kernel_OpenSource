@@ -63,9 +63,16 @@
 #define IBI_RCVD_IBI_STATUS(n)		(0x1010 + (0x1000*n))
 #define IBI_RCVD_IBI_CLR(n)		(0x1014 + (0x1000*n))
 #define IBI_ALLOCATED_ENTRIES_GPII(n)	(0x1018 + (0x1000*n))
-#define IBI_CONFIG_ENTRY(n, k)		(0x1800 + (0x1000*n) + (0x40*k))
-#define IBI_RCVD_IBI_INFO_ENTRY(n, k)	(0x1804 + (0x1000*n) + (0x40*k))
-#define IBI_RCVD_IBI_DATA_ENTRY(n, k)	(0x1808 + (0x1000*n) + (0x40*k))
+#define IBI_CONFIG_ENTRY(n, k)		(0x1800 + (0x1000*n) + (0x80*k))
+#define IBI_RCVD_IBI_INFO_ENTRY(n, k)	(0x1804 + (0x1000*n) + (0x80*k))
+#define IBI_RCVD_IBI_DATA_ENTRY_REG0(n, k)	(0x1808 + (0x1000*n) + (0x80*k))
+#define IBI_RCVD_IBI_DATA_ENTRY_REG1(n, k)	(0x1808 + (0x1000*n) + (0x80*k))
+#define IBI_RCVD_IBI_DATA_ENTRY_REG2(n, k)	(0x1808 + (0x1000*n) + (0x80*k))
+#define IBI_RCVD_IBI_DATA_ENTRY_REG3(n, k)	(0x1808 + (0x1000*n) + (0x80*k))
+#define IBI_RCVD_IBI_DATA_ENTRY_REG4(n, k)	(0x1808 + (0x1000*n) + (0x80*k))
+#define IBI_RCVD_IBI_DATA_ENTRY_REG5(n, k)	(0x1808 + (0x1000*n) + (0x80*k))
+#define IBI_RCVD_IBI_DATA_ENTRY_REG6(n, k)	(0x1808 + (0x1000*n) + (0x80*k))
+#define IBI_RCVD_IBI_DATA_ENTRY_REG7(n, k)	(0x1808 + (0x1000*n) + (0x80*k))
 #define IBI_RCVD_IBI_TS_LSB_ENTRY(n, k)	(0x180C + (0x1000*n) + (0x40*k))
 #define IBI_RCVD_IBI_TS_MSB_ENTRY(n, k)	(0x1810 + (0x1000*n) + (0x40*k))
 
@@ -161,12 +168,12 @@
 
 /* IBI_CMD fields */
 #define IBI_CMD_OPCODE        BIT(0)
-#define I3C_SLAVE_RW          BIT(15)
+#define I3C_SLAVE_RW          BIT(12)
 #define STALL                 BIT(21)
-#define I3C_SLAVE_ADDR_SHIFT  8
+#define I3C_SLAVE_ADDR_SHIFT  5
 #define I3C_SLAVE_MASK        0x7f
-#define NUM_OF_MDB_SHIFT      16
-#define IBI_NUM_OF_MDB_MSK    GENMASK(18, 16)
+#define NUM_OF_MDB_SHIFT      13
+#define IBI_NUM_OF_MDB_MSK    GENMASK(18, 13)
 
 /* IBI_GEN_CONFIG fields */
 #define IBI_C_ENABLE	BIT(0)
@@ -663,7 +670,7 @@ static void geni_i3c_handle_received_ibi(struct geni_i3c_dev *gi3c)
 				+ IBI_RCVD_IBI_TS_LSB_ENTRY(0, i));
 		gi3c->ibi.data.payload =
 			readl_relaxed(gi3c->ibi.ibi_base
-				+ IBI_RCVD_IBI_DATA_ENTRY(0, i));
+				+ IBI_RCVD_IBI_DATA_ENTRY_REG0(0, i));
 
 		if (slot->data)
 			memcpy(slot->data, &gi3c->ibi.data.payload,
