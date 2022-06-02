@@ -1898,6 +1898,7 @@
   system_wq
   sys_tz
   task_active_pid_ns
+  task_sched_runtime
   __tasklet_hi_schedule
   tasklet_init
   tasklet_kill
