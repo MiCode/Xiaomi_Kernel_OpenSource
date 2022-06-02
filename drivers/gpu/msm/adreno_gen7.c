@@ -36,6 +36,7 @@ static const u32 gen7_pwrup_reglist[] = {
 	GEN7_GRAS_NC_MODE_CNTL,
 	GEN7_RB_CONTEXT_SWITCH_GMEM_SAVE_RESTORE,
 	GEN7_UCHE_GBIF_GX_CONFIG,
+	GEN7_UCHE_CLIENT_PF,
 };
 
 /* IFPC only static powerup restore list */
@@ -408,7 +409,6 @@ int gen7_start(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	const struct adreno_gen7_core *gen7_core = to_gen7_core(adreno_dev);
-	static bool patch_reglist;
 	u32 bank_bit, mal;
 
 	/* Set up GBIF registers from the GPU core definition */
@@ -485,7 +485,8 @@ int gen7_start(struct adreno_device *adreno_dev)
 	kgsl_regwrite(device, GEN7_RBBM_INTERFACE_HANG_INT_CNTL, BIT(30) |
 			FIELD_PREP(GENMASK(27, 0),
 				gen7_core->hang_detect_cycles));
-	kgsl_regwrite(device, GEN7_UCHE_CLIENT_PF, BIT(0));
+	kgsl_regwrite(device, GEN7_UCHE_CLIENT_PF, BIT(7) |
+			FIELD_PREP(GENMASK(3, 0), adreno_dev->uche_client_pf));
 
 	/* Enable the GMEM save/restore feature for preemption */
 	if (adreno_is_preemption_enabled(adreno_dev))
@@ -537,9 +538,10 @@ int gen7_start(struct adreno_device *adreno_dev)
 	 * miss any register programming when we patch the power up register
 	 * list.
 	 */
-	if (!patch_reglist && (adreno_dev->pwrup_reglist->gpuaddr != 0)) {
+	if (!adreno_dev->patch_reglist &&
+		(adreno_dev->pwrup_reglist->gpuaddr != 0)) {
 		gen7_patch_pwrup_reglist(adreno_dev);
-		patch_reglist = true;
+		adreno_dev->patch_reglist = true;
 	}
 
 	return 0;
@@ -1164,6 +1166,7 @@ int gen7_probe_common(struct platform_device *pdev,
 	adreno_reg_offset_init(gpudev->reg_offsets);
 
 	adreno_dev->hwcg_enabled = true;
+	adreno_dev->uche_client_pf = 1;
 
 	adreno_dev->preempt.preempt_level = 1;
 	adreno_dev->preempt.skipsaverestore = true;
