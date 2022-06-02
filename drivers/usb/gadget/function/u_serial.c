@@ -115,8 +115,6 @@ struct gs_port {
 	struct list_head	write_pool;
 	int write_started;
 	int write_allocated;
-	struct list_head	queued_read_pool;
-	struct list_head	queued_write_pool;
 	struct kfifo		port_write_buf;
 	wait_queue_head_t	drain_wait;	/* wait while writes drain */
 	bool                    write_busy;
@@ -254,6 +252,7 @@ __acquires(&port->port_lock)
 		do_tty_wake = true;
 
 		req->length = len;
+		list_del(&req->list);
 		req->zero = kfifo_is_empty(&port->port_write_buf);
 
 		pr_vdebug("ttyGS%d: tx len=%d, 0x%02x 0x%02x 0x%02x ...\n",
@@ -280,7 +279,6 @@ __acquires(&port->port_lock)
 			break;
 		}
 
-		list_move_tail(&req->list, &port->queued_write_pool);
 		port->write_started++;
 
 		/* abort immediately after disconnect */
@@ -319,6 +317,7 @@ __acquires(&port->port_lock)
 			break;
 
 		req = list_entry(pool->next, struct usb_request, list);
+		list_del(&req->list);
 		req->length = out->maxpacket;
 
 		/* drop lock while we call out; the controller driver
@@ -334,7 +333,6 @@ __acquires(&port->port_lock)
 			list_add(&req->list, pool);
 			break;
 		}
-		list_move_tail(&req->list, &port->queued_read_pool);
 		port->read_started++;
 
 		/* abort immediately after disconnect */
@@ -453,7 +451,7 @@ static void gs_read_complete(struct usb_ep *ep, struct usb_request *req)
 
 	/* Queue all received data until the tty layer is ready for it. */
 	spin_lock(&port->port_lock);
-	list_move_tail(&req->list, &port->read_queue);
+	list_add_tail(&req->list, &port->read_queue);
 	schedule_delayed_work(&port->push, 0);
 	spin_unlock(&port->port_lock);
 }
@@ -463,7 +461,7 @@ static void gs_write_complete(struct usb_ep *ep, struct usb_request *req)
 	struct gs_port	*port = ep->driver_data;
 
 	spin_lock(&port->port_lock);
-	list_move_tail(&req->list, &port->write_pool);
+	list_add(&req->list, &port->write_pool);
 	port->write_started--;
 
 	switch (req->status) {
@@ -1164,8 +1162,6 @@ gs_port_alloc(unsigned port_num, struct usb_cdc_line_coding *coding)
 	INIT_LIST_HEAD(&port->read_pool);
 	INIT_LIST_HEAD(&port->read_queue);
 	INIT_LIST_HEAD(&port->write_pool);
-	INIT_LIST_HEAD(&port->queued_read_pool);
-	INIT_LIST_HEAD(&port->queued_write_pool);
 
 	port->port_num = port_num;
 	port->port_line_coding = *coding;
@@ -1369,26 +1365,6 @@ void gserial_disconnect(struct gserial *gser)
 
 	/* tell the TTY glue not to do I/O here any more */
 	spin_lock_irqsave(&port->port_lock, flags);
-
-	while (!list_empty(&port->queued_read_pool)) {
-		struct usb_request	*read_req;
-
-		read_req = list_first_entry(&port->queued_read_pool,
-				struct usb_request, list);
-		spin_unlock(&port->port_lock);
-		usb_ep_dequeue(port->port_usb->out, read_req);
-		spin_lock(&port->port_lock);
-	}
-
-	while (!list_empty(&port->queued_write_pool)) {
-		struct usb_request	*write_req;
-
-		write_req = list_first_entry(&port->queued_write_pool,
-						struct usb_request, list);
-		spin_unlock(&port->port_lock);
-		usb_ep_dequeue(port->port_usb->in, write_req);
-		spin_lock(&port->port_lock);
-	}
 
 	/* REVISIT as above: how best to track this? */
 	port->port_line_coding = gser->port_line_coding;
