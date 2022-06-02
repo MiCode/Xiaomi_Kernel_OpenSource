@@ -419,19 +419,6 @@ static struct clk_branch gpu_cc_cx_gmu_clk = {
 	},
 };
 
-static struct clk_branch gpu_cc_cx_snoc_dvm_clk = {
-	.halt_reg = 0x9130,
-	.halt_check = BRANCH_HALT_VOTED,
-	.clkr = {
-		.enable_reg = 0x9130,
-		.enable_mask = BIT(0),
-		.hw.init = &(struct clk_init_data){
-			.name = "gpu_cc_cx_snoc_dvm_clk",
-			.ops = &clk_branch2_ops,
-		},
-	},
-};
-
 static struct clk_branch gpu_cc_cxo_aon_clk = {
 	.halt_reg = 0x9004,
 	.halt_check = BRANCH_HALT_VOTED,
@@ -610,7 +597,6 @@ static struct clk_regmap *gpu_cc_diwali_clocks[] = {
 	[GPU_CC_CRC_AHB_CLK] = &gpu_cc_crc_ahb_clk.clkr,
 	[GPU_CC_CX_FF_CLK] = &gpu_cc_cx_ff_clk.clkr,
 	[GPU_CC_CX_GMU_CLK] = &gpu_cc_cx_gmu_clk.clkr,
-	[GPU_CC_CX_SNOC_DVM_CLK] = &gpu_cc_cx_snoc_dvm_clk.clkr,
 	[GPU_CC_CXO_AON_CLK] = &gpu_cc_cxo_aon_clk.clkr,
 	[GPU_CC_CXO_CLK] = &gpu_cc_cxo_clk.clkr,
 	[GPU_CC_DEMET_CLK] = &gpu_cc_demet_clk.clkr,
