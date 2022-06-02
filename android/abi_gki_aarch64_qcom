@@ -114,6 +114,7 @@
   cdev_init
   cfg80211_gtk_rekey_notify
   cfg80211_register_netdevice
+  cfg80211_rx_control_port
   cfg80211_rx_unprot_mlme_mgmt
   cfg80211_stop_iface
   cfg80211_update_owe_info_event
@@ -929,8 +930,8 @@
   irq_domain_set_hwirq_and_chip
   irq_domain_set_info
   irq_domain_update_bus_token
-  irq_do_set_affinity
   irq_domain_xlate_twocell
+  irq_do_set_affinity
   irq_find_matching_fwspec
   irq_get_irqchip_state
   irq_get_irq_data
@@ -2020,6 +2021,7 @@
   __tracepoint_android_vh_ftrace_oops_exit
   __tracepoint_android_vh_ftrace_size_check
   __tracepoint_android_vh_gic_resume
+  __tracepoint_android_vh_gic_v3_set_affinity
   __tracepoint_android_vh_ipi_stop
   __tracepoint_android_vh_jiffies_update
   __tracepoint_android_vh_kswapd_per_node
@@ -2027,6 +2029,7 @@
   __tracepoint_android_vh_logbuf_pr_cont
   __tracepoint_android_vh_printk_hotplug
   __tracepoint_android_vh_rproc_recovery
+  __tracepoint_android_vh_rproc_recovery_set
   __tracepoint_android_vh_scheduler_tick
   __tracepoint_android_vh_show_resume_epoch_val
   __tracepoint_android_vh_show_suspend_epoch_val
@@ -2043,7 +2046,6 @@
   __tracepoint_ipi_entry
   __tracepoint_ipi_raise
   __tracepoint_irq_handler_entry
-  __tracepoint_android_vh_gic_v3_set_affinity
   tracepoint_probe_register
   tracepoint_probe_register_prio
   tracepoint_probe_unregister
