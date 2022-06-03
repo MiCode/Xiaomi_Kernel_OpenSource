@@ -43,14 +43,14 @@
 #define QMI_SDR_MMW		29
 #define QMI_QTM_THERM		30
 #define QMI_BCL_WARN		31
-#define QMI_SDR0_PA		32
+#define QMI_SDR0_PA0		32
 #define QMI_SDR0_PA1		33
 #define QMI_SDR0_PA2		34
 #define QMI_SDR0_PA3		35
 #define QMI_SDR0_PA4		36
 #define QMI_SDR0_PA5		37
 #define QMI_SDR0		38
-#define QMI_SDR1_PA		39
+#define QMI_SDR1_PA0		39
 #define QMI_SDR1_PA1		40
 #define QMI_SDR1_PA2		41
 #define QMI_SDR1_PA3		42
@@ -75,6 +75,8 @@
 #define QMI_SUB2_SCG_FR1_CC	61
 #define QMI_SUB2_SCG_FR2_CC	62
 #define QMI_NSP_ISENSE_TRIM	63
+#define QMI_SDR0_PA		64
+#define QMI_SDR1_PA		65
 
 #define QMI_MODEM_INST_ID	0x0
 #define QMI_ADSP_INST_ID	0x1
