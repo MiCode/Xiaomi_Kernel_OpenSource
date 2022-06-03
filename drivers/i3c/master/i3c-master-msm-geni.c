@@ -1010,8 +1010,11 @@ static int _i3c_geni_execute_command
 				I3C_LOG_ERR(gi3c->ipcl, true, gi3c->se.dev,
 					"Timeout:FSM Reset, rnw:%d\n", rnw);
 		}
-		geni_se_rx_dma_unprep(&gi3c->se, rx_dma, len);
-		geni_se_tx_dma_unprep(&gi3c->se, tx_dma, len);
+
+		if (rnw == READ_TRANSACTION)
+			geni_se_rx_dma_unprep(&gi3c->se, rx_dma, len);
+		else
+			geni_se_tx_dma_unprep(&gi3c->se, tx_dma, len);
 	}
 
 	if (gi3c->err) {
