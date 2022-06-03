@@ -724,13 +724,19 @@ static ssize_t goodix_ts_esd_info_store(struct device *dev,
 					struct device_attribute *attr,
 					const char *buf, size_t count)
 {
+	struct goodix_ts_core *core_data = dev_get_drvdata(dev);
+
 	if (!buf || count <= 0)
 		return -EINVAL;
 
-	if (buf[0] != '0')
+	if (buf[0] != '0') {
+		if (!core_data->esd_initialized)
+			goodix_ts_esd_init(core_data);
 		goodix_ts_blocking_notify(NOTIFY_ESD_ON, NULL);
-	else
+	} else if (core_data->esd_initialized) {
 		goodix_ts_blocking_notify(NOTIFY_ESD_OFF, NULL);
+	}
+
 	return count;
 }
 
@@ -1699,6 +1705,7 @@ int goodix_ts_esd_init(struct goodix_ts_core *cd)
 	ts_esd->esd_notifier.notifier_call = goodix_esd_notifier_callback;
 	goodix_ts_register_notifier(&ts_esd->esd_notifier);
 	goodix_ts_esd_on(cd);
+	cd->esd_initialized = true;
 
 	return 0;
 }
@@ -2034,9 +2041,6 @@ int goodix_ts_stage2_init(struct goodix_ts_core *cd)
 
 	/* create procfs files */
 	goodix_ts_procfs_init(cd);
-
-	/* esd protector */
-	goodix_ts_esd_init(cd);
 
 	/* gesture init */
 	gesture_module_init();
