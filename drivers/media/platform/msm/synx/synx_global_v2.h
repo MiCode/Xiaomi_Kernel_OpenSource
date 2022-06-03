@@ -264,4 +264,11 @@ int synx_global_merge(u32 *idx_list, u32 num_list, u32 p_idx);
  */
 int synx_global_recover(enum synx_core_id id);
 
+/**
+ * synx_global_clean_cdsp_mem - Release handles created/used by CDSP
+ *
+ * @return SYNX_SUCCESS on success. Negative error on failure.
+ */
+int synx_global_clean_cdsp_mem(void);
+
 #endif /* __SYNX_SHARED_MEM_H__ */

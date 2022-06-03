@@ -10,6 +10,7 @@
 #include <linux/module.h>
 #include <linux/poll.h>
 #include <linux/random.h>
+#include <linux/remoteproc/qcom_rproc.h>
 #include <linux/slab.h>
 #include <linux/sync_file.h>
 #include <linux/uaccess.h>
@@ -2485,6 +2486,40 @@ static int synx_local_mem_init(void)
 	return 0;
 }
 
+static int synx_cdsp_restart_notifier(struct notifier_block *nb,
+	unsigned long code, void *data)
+{
+	struct synx_cdsp_ssr *cdsp_ssr = &synx_dev->cdsp_ssr;
+
+	if (&cdsp_ssr->nb != nb) {
+		dprintk(SYNX_ERR, "Invalid SSR Notifier block\n");
+		return NOTIFY_BAD;
+	}
+
+	switch (code) {
+	case QCOM_SSR_BEFORE_SHUTDOWN:
+		break;
+	case QCOM_SSR_AFTER_SHUTDOWN:
+		if (cdsp_ssr->ssrcnt != 0) {
+			dprintk(SYNX_INFO, "Cleaning up global memory\n");
+			synx_global_recover(SYNX_CORE_NSP);
+		}
+		break;
+	case QCOM_SSR_BEFORE_POWERUP:
+		break;
+	case QCOM_SSR_AFTER_POWERUP:
+		dprintk(SYNX_DBG, "CDSP is up");
+		if (cdsp_ssr->ssrcnt == 0)
+			cdsp_ssr->ssrcnt++;
+		break;
+	default:
+		dprintk(SYNX_ERR, "Unknown status code for CDSP SSR\n");
+		break;
+	}
+
+	return NOTIFY_DONE;
+}
+
 static int __init synx_init(void)
 {
 	int rc;
@@ -2536,6 +2571,15 @@ static int __init synx_init(void)
 	rc = synx_global_mem_init();
 	if (rc) {
 		dprintk(SYNX_ERR, "shared mem init failed, err=%d\n", rc);
+		goto err;
+	}
+
+	synx_dev->cdsp_ssr.ssrcnt = 0;
+	synx_dev->cdsp_ssr.nb.notifier_call = synx_cdsp_restart_notifier;
+	synx_dev->cdsp_ssr.handle =
+		qcom_register_ssr_notifier("cdsp", &synx_dev->cdsp_ssr.nb);
+	if (synx_dev->cdsp_ssr.handle == NULL) {
+		dprintk(SYNX_ERR, "SSR registration failed\n");
 		goto err;
 	}
 
