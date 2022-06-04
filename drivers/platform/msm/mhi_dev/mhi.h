@@ -537,7 +537,6 @@ struct mhi_dev {
 	u32				msi_data;
 	u32				msi_lower;
 	spinlock_t			msi_lock;
-	bool				mmio_initialized;
 
 	spinlock_t			lock;
 	/* Host control base information */
@@ -628,6 +627,8 @@ struct mhi_dev {
 
 	/* Denotes if the MHI instance is physcial or virtual */
 	bool				is_mhi_virtual;
+
+	bool				is_flashless;
 
 
 	/* iATU is required to map control and data region */
