@@ -1310,6 +1310,7 @@
   kfree
   kfree_skb
   kfree_skb_list
+  kill_anon_super
   kill_fasync
   kill_litter_super
   kimage_vaddr
