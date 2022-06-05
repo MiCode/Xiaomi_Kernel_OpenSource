@@ -987,7 +987,7 @@ static int spi_geni_prepare_message(struct spi_master *spi,
 
 	if (pm_runtime_status_suspended(mas->dev) && !mas->is_le_vm) {
 		if (!pm_runtime_enabled(mas->dev)) {
-			GENI_SE_ERR(mas->ipc, false, NULL,
+			SPI_LOG_ERR(mas->ipc, true, mas->dev,
 				"%s: System suspended\n", __func__);
 			return -EACCES;
 		}
@@ -2273,7 +2273,7 @@ static int spi_geni_suspend(struct device *dev)
 	struct spi_geni_master *geni_mas = spi_master_get_devdata(spi);
 
 	if (!pm_runtime_status_suspended(dev)) {
-		GENI_SE_ERR(geni_mas->ipc, true, dev,
+		SPI_LOG_ERR(geni_mas->ipc, true, dev,
 			":%s: runtime PM is active\n", __func__);
 		ret = -EBUSY;
 		return ret;

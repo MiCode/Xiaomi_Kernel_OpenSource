@@ -1243,7 +1243,7 @@ static int geni_i2c_xfer(struct i2c_adapter *adap,
 				timeout =
 				wait_for_completion_timeout(&gi2c->xfer, HZ);
 				if (!timeout)
-					GENI_SE_ERR(gi2c->ipcl, true, gi2c->dev,
+					I2C_LOG_ERR(gi2c->ipcl, true, gi2c->dev,
 					"Abort failed\n");
 			}
 		}
