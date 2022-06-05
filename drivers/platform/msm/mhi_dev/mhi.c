@@ -1517,6 +1517,11 @@ static void mhi_hwc_cb(void *priv, enum mhi_dma_event_type event,
 			return;
 		}
 
+		if (mhi_ctx->config_iatu || mhi_ctx->mhi_int) {
+			mhi_ctx->mhi_int_en = true;
+			enable_irq(mhi_ctx->mhi_irq);
+		}
+
 		rc = mhi_enable_int();
 		if (rc) {
 			pr_err("Error configuring interrupts, rc = %d\n", rc);
@@ -3879,10 +3884,13 @@ static void mhi_dev_enable(struct work_struct *work)
 		return;
 	}
 
-	if (mhi_ctx->config_iatu || mhi_ctx->mhi_int) {
-		mhi_ctx->mhi_int_en = true;
-		enable_irq(mhi_ctx->mhi_irq);
+	if (mhi_ctx->use_edma) {
+		if (mhi_ctx->config_iatu || mhi_ctx->mhi_int) {
+			mhi_ctx->mhi_int_en = true;
+			enable_irq(mhi_ctx->mhi_irq);
+		}
 	}
+
 
 	/*
 	 * ctrl_info might already be set to CONNECTED state in the
