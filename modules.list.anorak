@@ -64,3 +64,7 @@ spmi-pmic-arb.ko
 qti-regmap-debugfs.ko
 regmap-spmi.ko
 rtc-pm8xxx.ko
+clk-rpmh.ko
+qcom-cpufreq-hw.ko
+dispcc0-anorak.ko
+dispcc1-anorak.ko
