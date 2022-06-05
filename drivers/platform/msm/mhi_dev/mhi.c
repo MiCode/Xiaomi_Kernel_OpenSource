@@ -96,6 +96,7 @@ static void mhi_dev_cmd_event_msi_cb(void *req);
 static int mhi_dev_alloc_cmd_ack_buf_req(struct mhi_dev *mhi);
 
 static int mhi_dev_ring_init(struct mhi_dev *dev);
+static int mhi_dev_get_event_notify(enum mhi_dev_state state, enum mhi_dev_event *event);
 
 static struct mhi_dev_uevent_info channel_state_info[MHI_MAX_CHANNELS];
 static DECLARE_COMPLETION(read_from_host);
@@ -1506,6 +1507,9 @@ static void mhi_hwc_cb(void *priv, enum mhi_dma_event_type event,
 	unsigned long data)
 {
 	int rc = 0;
+	enum mhi_dev_state state;
+	enum mhi_dev_event mhi_event = 0;
+	u32 mhi_reset;
 
 	switch (event) {
 	case MHI_DMA_EVENT_READY:
@@ -1517,11 +1521,25 @@ static void mhi_hwc_cb(void *priv, enum mhi_dma_event_type event,
 			return;
 		}
 
+		mutex_lock(&mhi_ctx->mhi_lock);
+		rc = mhi_dev_mmio_get_mhi_state(mhi_ctx, &state, &mhi_reset);
+		if (rc) {
+			pr_err("%s: get mhi state failed\n", __func__);
+			mutex_unlock(&mhi_ctx->mhi_lock);
+			return;
+		}
+
+		if (state == MHI_DEV_M0_STATE && !mhi_reset) {
+			mhi_dev_get_event_notify(MHI_DEV_M0_STATE, &mhi_event);
+			mhi_dev_notify_sm_event(mhi_event);
+		}
+
 		if (mhi_ctx->config_iatu || mhi_ctx->mhi_int) {
 			mhi_ctx->mhi_int_en = true;
 			enable_irq(mhi_ctx->mhi_irq);
 		}
 
+		mutex_unlock(&mhi_ctx->mhi_lock);
 		rc = mhi_enable_int();
 		if (rc) {
 			pr_err("Error configuring interrupts, rc = %d\n", rc);
