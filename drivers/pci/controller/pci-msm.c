@@ -4774,12 +4774,6 @@ static int msm_pcie_enable(struct msm_pcie_dev_t *dev)
 		dev->i2c_ctrl.client_i2c_de_emphasis_wa(&dev->i2c_ctrl);
 		msleep(20);
 	}
-	/* bring eps out of reset */
-	if (dev->i2c_ctrl.client && dev->i2c_ctrl.client_i2c_reset
-			 && !dev->i2c_ctrl.ep_reset_postlinkup) {
-		dev->i2c_ctrl.client_i2c_reset(&dev->i2c_ctrl, false);
-		msleep(100);
-	}
 	msm_pcie_config_sid(dev);
 	msm_pcie_config_controller(dev);
 
@@ -4827,11 +4821,13 @@ static int msm_pcie_enable(struct msm_pcie_dev_t *dev)
 	if (dev->enumerated)
 		msm_msi_config(dev_get_msi_domain(&dev->dev->dev));
 
-	/* Bring pine EP out of reset*/
-	if (dev->i2c_ctrl.client && dev->i2c_ctrl.client_i2c_reset
-			 && dev->i2c_ctrl.ep_reset_postlinkup) {
+	/* Bring EP out of reset*/
+	if (dev->i2c_ctrl.client && dev->i2c_ctrl.client_i2c_reset) {
 		dev->i2c_ctrl.client_i2c_reset(&dev->i2c_ctrl, false);
-		msleep(100);
+		PCIE_DBG(dev,
+			 "PCIe: Bring EPs out of reset and then wait for link training.\n");
+		msleep(200);
+		PCIE_DBG(dev, "PCIe: Finish EPs link training wait.\n");
 	}
 	goto out;
 
