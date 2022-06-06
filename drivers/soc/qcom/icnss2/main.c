@@ -128,7 +128,7 @@ static void icnss_set_plat_priv(struct icnss_priv *priv)
 	penv = priv;
 }
 
-static struct icnss_priv *icnss_get_plat_priv()
+struct icnss_priv *icnss_get_plat_priv(void)
 {
 	return penv;
 }
@@ -1093,8 +1093,20 @@ static int icnss_driver_event_fw_ready_ind(struct icnss_priv *priv, void *data)
 
 	icnss_pr_info("WLAN FW is ready: 0x%lx\n", priv->state);
 
-	if (!priv->pon_gpio_control)
+	if (!priv->pon_gpio_control) {
 		icnss_hw_power_off(priv);
+	} else {
+		/* 1. During normal boot when cold cal is not enabled,
+		 *    fw expects the power to be on at the chip.
+		 * 2. During recovery, fw expects the power to be
+		 *    on at the chip.
+		 * So, turn off only when cold cal is enabled and not in SSR
+		 */
+		if (!test_bit(ICNSS_PD_RESTART, &priv->state) &&
+		    priv->cal_done) {
+			icnss_hw_power_off(priv);
+		}
+	}
 
 	if (!priv->pdev) {
 		icnss_pr_err("Device is not ready\n");
@@ -4303,6 +4315,7 @@ static int icnss_probe(struct platform_device *pdev)
 				  "qcom,pon-gpio-control")) {
 		priv->pon_gpio_control = true;
 	}
+
 	spin_lock_init(&priv->event_lock);
 	spin_lock_init(&priv->on_off_lock);
 	spin_lock_init(&priv->soc_wake_msg_lock);
@@ -4359,8 +4372,7 @@ static int icnss_probe(struct platform_device *pdev)
 		init_completion(&priv->smp2p_soc_wake_wait);
 		icnss_runtime_pm_init(priv);
 		icnss_aop_mbox_init(priv);
-		if (!priv->pon_gpio_control)
-			set_bit(ICNSS_COLD_BOOT_CAL, &priv->state);
+		set_bit(ICNSS_COLD_BOOT_CAL, &priv->state);
 		priv->bdf_download_support = true;
 		register_trace_android_vh_rproc_recovery_set(rproc_restart_level_notifier, NULL);
 	}
@@ -4380,7 +4392,7 @@ static int icnss_probe(struct platform_device *pdev)
 	if (priv->pon_gpio_control) {
 		ret = icnss_get_pinctrl(priv);
 		if (ret < 0) {
-			icnss_pr_err("Fail to get pmic pinctrl config from dt\n");
+			icnss_pr_err("Fail to get pinctrl config from dt\n");
 			goto out_unregister_fw_service;
 		}
 	}
