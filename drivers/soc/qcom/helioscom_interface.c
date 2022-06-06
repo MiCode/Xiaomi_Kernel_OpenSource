@@ -47,7 +47,7 @@
 #define RESULT_SUCCESS 0
 #define RESULT_FAILURE -1
 
-#define HELIOSCOM_INTF_N_FILES 2
+#define HELIOSCOM_INTF_N_FILES 3
 #define BUF_SIZE 10
 
 static char btss_state[BUF_SIZE] = "offline";
@@ -161,6 +161,41 @@ static ssize_t helios_dsp_state_sysfs_read
 	return	scnprintf(buf, BUF_SIZE, dspss_state);
 }
 
+static ssize_t helios_sleep_state_sysfs_write
+			(struct class *class, struct class_attribute *attr, const char *buf,
+			 size_t count)
+{
+	long tmp;
+	int ret;
+
+	pr_info("In %s\n", __func__);
+	ret = kstrtol(buf, 10, &tmp);
+
+	if (ret != 0)
+		return ret;
+
+	if (tmp == 1) {
+		/* Set helios is sleep state */
+		ret = set_helios_sleep_state(true);
+	}
+
+	if (tmp == 0) {
+		/* Wakeup helios */
+		ret = set_helios_sleep_state(false);
+	}
+	return count;
+}
+
+static ssize_t helios_sleep_state_sysfs_read
+			(struct class *class, struct class_attribute *attr, char *buf)
+{
+	int ret = 0;
+
+	pr_info("In %s\n", __func__);
+	ret = get_helios_sleep_state();
+	return sysfs_emit(buf, "%d\n", ret);
+}
+
 struct class_attribute helioscom_attr[] = {
 	{
 		.attr = {
@@ -175,6 +210,14 @@ struct class_attribute helioscom_attr[] = {
 			.mode = 0644
 		},
 		.show	= helios_dsp_state_sysfs_read,
+	},
+	{
+		.attr = {
+			.name = "helios_sleep_state",
+			.mode = 0644
+		},
+		.store	= helios_sleep_state_sysfs_write,
+		.show	= helios_sleep_state_sysfs_read,
 	},
 };
 struct class helioscom_intf_class = {
