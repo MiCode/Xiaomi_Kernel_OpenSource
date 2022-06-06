@@ -717,7 +717,7 @@ static int qcom_pmu_cpu_hp_init(void)
 {
 	int ret;
 
-	ret = cpuhp_setup_state_nocalls(CPUHP_AP_ONLINE_DYN,
+	ret = cpuhp_setup_state_nocalls_cpuslocked(CPUHP_AP_ONLINE_DYN,
 				"QCOM_PMU",
 				qcom_pmu_hotplug_coming_up,
 				qcom_pmu_hotplug_going_down);
@@ -769,7 +769,7 @@ static void cache_counters(void)
 				writel_relaxed(1, &base->evctrs_64.valid);
 			else
 				writel_relaxed(1, &base->evctrs_32.valid);
-	}
+		}
 	}
 }
 
