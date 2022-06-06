@@ -24,6 +24,11 @@
 #include <linux/btpower.h>
 #include <linux/of_device.h>
 #include <soc/qcom/cmd-db.h>
+#ifdef CONFIG_ARCH_NEO
+#if IS_ENABLED(CONFIG_ICNSS2)
+#include <soc/qcom/icnss2.h>
+#endif
+#endif
 
 #if defined CONFIG_BT_SLIM_QCA6390 || \
 	defined CONFIG_BT_SLIM_QCA6490 || \
@@ -662,9 +667,15 @@ static int bluetooth_power(int on)
 {
 	int rc = 0;
 
-	pr_debug("%s: on: %d\n", __func__, on);
+	pr_err("%s: on: %d\n", __func__, on);
 
 	if (on == 1) {
+#ifdef CONFIG_ARCH_NEO
+#if IS_ENABLED(CONFIG_ICNSS2)
+		icnss_power_trigger_pinctrl(NULL, ICNSS_PINCTRL_OWNER_BT,
+					    ICNSS_PINCTRL_SEQ_ON);
+#endif
+#endif
 		rc = bt_power_vreg_set(BT_POWER_ENABLE);
 		if (rc < 0) {
 			pr_err("%s: bt_power regulators config failed\n",
@@ -707,6 +718,12 @@ gpio_fail:
 			bt_clk_disable(bt_power_pdata->bt_chip_clk);
 clk_fail:
 regulator_fail:
+#ifdef CONFIG_ARCH_NEO
+#if IS_ENABLED(CONFIG_ICNSS2)
+		icnss_power_trigger_pinctrl(NULL, ICNSS_PINCTRL_OWNER_BT,
+					    ICNSS_PINCTRL_SEQ_OFF);
+#endif
+#endif
 		bt_power_vreg_set(BT_POWER_DISABLE);
 	} else if (on == 2) {
 		/* Retention mode */
@@ -1479,6 +1496,12 @@ static void __exit btpower_exit(void)
 
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("MSM Bluetooth power control driver");
+
+#ifdef CONFIG_ARCH_NEO
+#if IS_ENABLED(CONFIG_ICNSS2)
+MODULE_SOFTDEP("pre: icnss2");
+#endif
+#endif
 
 module_init(btpower_init);
 module_exit(btpower_exit);
