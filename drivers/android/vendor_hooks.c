@@ -67,6 +67,7 @@
 #include <trace/hooks/evdev.h>
 #include <trace/hooks/ipv4.h>
 #include <trace/hooks/signal.h>
+#include <trace/hooks/cfg80211.h>
 
 /*
  * Export tracepoints that act as a bare tracehook (ie: have no trace event
@@ -370,3 +371,5 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_sd_update_bus_speed_mode);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_mmc_attach_sd);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_sdhci_get_cd);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_mmc_gpio_cd_irqt);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_cfg80211_set_context);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_cfg80211_get_context);
