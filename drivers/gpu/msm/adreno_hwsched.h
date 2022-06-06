@@ -69,6 +69,7 @@ struct adreno_hwsched {
 enum adreno_hwsched_flags {
 	ADRENO_HWSCHED_POWER = 0,
 	ADRENO_HWSCHED_ACTIVE,
+	ADRENO_HWSCHED_CTX_BAD_LEGACY,
 };
 
 /**
@@ -143,24 +144,5 @@ static inline bool hwsched_in_fault(struct adreno_hwsched *hwsched)
 
 void adreno_hwsched_retire_cmdobj(struct adreno_hwsched *hwsched,
 	struct kgsl_drawobj_cmd *cmdobj);
-
-/**
- * adreno_hwsched_reset_and_snapshot - Take a snapshot and reset GPU on fault
- * @adreno_dev: A handle to adreno device
- * @fault: The error which triggered the reset and snapshot
- *
- * Reset and snapshot on a GC or LPAC fault
- */
-void adreno_hwsched_reset_and_snapshot(struct adreno_device *adreno_dev, int fault);
-
-/**
- * adreno_hwsched_reset_and_snapshot_legacy - Take a snapshot and reset GPU on fault
- * @adreno_dev: A handle to adreno device
- * @fault: The error which triggered the reset and snapshot
- *
- * Legacy method of handling a context bad command which does not
- * have LPAC info
- */
-void adreno_hwsched_reset_and_snapshot_legacy(struct adreno_device *adreno_dev, int fault);
 
 #endif

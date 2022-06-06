@@ -2729,7 +2729,6 @@ const struct a6xx_gpudev adreno_a6xx_hwsched_gpudev = {
 		.add_to_va_minidump = a6xx_hwsched_add_to_minidump,
 		.gx_is_on = a6xx_gmu_gx_is_on,
 		.send_recurring_cmdobj = a6xx_hwsched_send_recurring_cmdobj,
-		.reset_and_snapshot = a6xx_hwsched_reset_and_snapshot,
 	},
 	.hfi_probe = a6xx_hwsched_hfi_probe,
 	.hfi_remove = a6xx_hwsched_hfi_remove,

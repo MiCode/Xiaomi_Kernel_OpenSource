@@ -18,16 +18,6 @@
 #include "kgsl_trace.h"
 #include "kgsl_util.h"
 
-void a6xx_hwsched_reset_and_snapshot(struct adreno_device *adreno_dev, int fault)
-{
-	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
-
-	if (GMU_VER_MINOR(gmu->ver.hfi) < 2)
-		adreno_hwsched_reset_and_snapshot_legacy(adreno_dev, fault);
-	else
-		adreno_hwsched_reset_and_snapshot(adreno_dev, fault);
-}
-
 static size_t adreno_hwsched_snapshot_rb(struct kgsl_device *device, u8 *buf,
 	size_t remain, void *priv)
 {
@@ -347,6 +337,9 @@ static int a6xx_hwsched_gmu_first_boot(struct adreno_device *adreno_dev)
 	a6xx_gmu_register_config(adreno_dev);
 
 	a6xx_gmu_version_info(adreno_dev);
+
+	if (GMU_VER_MINOR(gmu->ver.hfi) < 2)
+		set_bit(ADRENO_HWSCHED_CTX_BAD_LEGACY, &adreno_dev->hwsched.flags);
 
 	a6xx_gmu_irq_enable(adreno_dev);
 

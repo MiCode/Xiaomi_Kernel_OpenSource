@@ -1465,7 +1465,7 @@ static bool context_is_throttled(struct kgsl_device *device,
 	return false;
 }
 
-void adreno_hwsched_reset_and_snapshot_legacy(struct adreno_device *adreno_dev, int fault)
+static void adreno_hwsched_reset_and_snapshot_legacy(struct adreno_device *adreno_dev, int fault)
 {
 	struct kgsl_drawobj *drawobj = NULL;
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
@@ -1533,7 +1533,7 @@ done:
 	gpudev->reset(adreno_dev);
 }
 
-void adreno_hwsched_reset_and_snapshot(struct adreno_device *adreno_dev, int fault)
+static void adreno_hwsched_reset_and_snapshot(struct adreno_device *adreno_dev, int fault)
 {
 	struct kgsl_drawobj *drawobj = NULL;
 	struct kgsl_drawobj *drawobj_lpac = NULL;
@@ -1631,7 +1631,6 @@ static bool adreno_hwsched_do_fault(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct adreno_hwsched *hwsched = &adreno_dev->hwsched;
-	const struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	int fault;
 
 	fault = atomic_xchg(&hwsched->fault, 0);
@@ -1640,7 +1639,10 @@ static bool adreno_hwsched_do_fault(struct adreno_device *adreno_dev)
 
 	mutex_lock(&device->mutex);
 
-	gpudev->reset_and_snapshot(adreno_dev, fault);
+	if (test_bit(ADRENO_HWSCHED_CTX_BAD_LEGACY, &hwsched->flags))
+		adreno_hwsched_reset_and_snapshot_legacy(adreno_dev, fault);
+	else
+		adreno_hwsched_reset_and_snapshot(adreno_dev, fault);
 
 	adreno_hwsched_replay(adreno_dev);
 
