@@ -211,6 +211,20 @@ static int of_thermal_change_mode(struct thermal_zone_device *tz,
 	return data->ops->change_mode(data->sensor_data, mode);
 }
 
+static void of_thermal_hot_notify(struct thermal_zone_device *tz)
+{
+	struct __thermal_zone *data = tz->devdata;
+
+	data->ops->hot(data->sensor_data);
+}
+
+static void of_thermal_critical_notify(struct thermal_zone_device *tz)
+{
+	struct __thermal_zone *data = tz->devdata;
+
+	data->ops->critical(data->sensor_data);
+}
+
 static int of_thermal_bind(struct thermal_zone_device *thermal,
 			   struct thermal_cooling_device *cdev)
 {
@@ -419,6 +433,11 @@ thermal_zone_of_add_sensor(struct device_node *zone,
 	if (ops->change_mode)
 		tzd->ops->change_mode = of_thermal_change_mode;
 
+	if (ops->hot)
+		tzd->ops->hot = of_thermal_hot_notify;
+
+	if (ops->critical)
+		tzd->ops->critical = of_thermal_critical_notify;
 	mutex_unlock(&tzd->lock);
 
 	return tzd;
@@ -581,6 +600,8 @@ void thermal_zone_of_sensor_unregister(struct device *dev,
 	tzd->ops->get_trend = NULL;
 	tzd->ops->set_emul_temp = NULL;
 	tzd->ops->change_mode = NULL;
+	tzd->ops->hot = NULL;
+	tzd->ops->critical = NULL;
 
 	tz->ops = NULL;
 	tz->sensor_data = NULL;
