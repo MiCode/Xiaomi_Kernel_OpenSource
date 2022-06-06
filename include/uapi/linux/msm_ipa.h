@@ -514,9 +514,18 @@ enum ipa_client_type {
 
 	/* RESERVED PROD                        = 126, */
 	IPA_CLIENT_APPS_LAN_COAL_CONS           = 127,
+
+	IPA_CLIENT_IPSEC_DECAP_PROD		= 128,
+	IPA_CLIENT_IPSEC_DECAP_RECOVERABLE_ERR_CONS = 129,
+
+	IPA_CLIENT_IPSEC_ENCAP_PROD		= 130,
+	IPA_CLIENT_IPSEC_DECAP_NON_RECOVERABLE_ERR_CONS = 131,
+
+	IPA_CLIENT_Q6_DL_NLO_DATA_XLAT_PROD     = 132,
+	IPA_CLIENT_IPSEC_ENCAP_ERR_CONS		= 133,
 };
 
-#define IPA_CLIENT_MAX (IPA_CLIENT_APPS_LAN_COAL_CONS + 1)
+#define IPA_CLIENT_MAX (IPA_CLIENT_IPSEC_ENCAP_ERR_CONS + 1)
 
 #define IPA_CLIENT_WLAN2_PROD IPA_CLIENT_A5_WLAN_AMPDU_PROD
 #define IPA_CLIENT_Q6_DL_NLO_DATA_PROD IPA_CLIENT_Q6_DL_NLO_DATA_PROD
@@ -546,6 +555,13 @@ enum ipa_client_type {
 #define IPA_CLIENT_Q6_DL_NLO_LL_DATA_PROD IPA_CLIENT_Q6_DL_NLO_LL_DATA_PROD
 #define IPA_CLIENT_APPS_LAN_COAL_CONS IPA_CLIENT_APPS_LAN_COAL_CONS
 #define IPA_CLIENT_MHI_COAL_CONS IPA_CLIENT_MHI_COAL_CONS
+#define IPA_CLIENT_IPSEC_DECAP_PROD IPA_CLIENT_IPSEC_DECAP_PROD
+#define IPA_CLIENT_IPSEC_ENCAP_PROD IPA_CLIENT_IPSEC_ENCAP_PROD
+#define IPA_CLIENT_Q6_DL_NLO_DATA_XLAT_PROD IPA_CLIENT_Q6_DL_NLO_DATA_XLAT_PROD
+#define IPA_CLIENT_IPSEC_DECAP_RECOVERABLE_ERR_CONS IPA_CLIENT_IPSEC_DECAP_RECOVERABLE_ERR_CONS
+#define IPA_CLIENT_IPSEC_DECAP_NON_RECOVERABLE_ERR_CONS \
+	IPA_CLIENT_IPSEC_DECAP_NON_RECOVERABLE_ERR_CONS
+#define IPA_CLIENT_IPSEC_ENCAP_ERR_CONS IPA_CLIENT_IPSEC_ENCAP_ERR_CONS
 
 #define IPA_CLIENT_IS_APPS_CONS(client) \
 	((client) == IPA_CLIENT_APPS_LAN_CONS || \
@@ -1016,6 +1032,7 @@ enum ipa_rm_resource_name {
  * @IPA_HW_v5_1: IPA hardware version 5.1
  * @IPA_HW_v5_2: IPA hardware version 5.2
  * @IPA_HW_v5_5: IPA hardware version 5.5
+ * @IPA_HW_v6_0: IPA hardware version 6.0
  */
 enum ipa_hw_type {
 	IPA_HW_None = 0,
@@ -1041,8 +1058,10 @@ enum ipa_hw_type {
 	IPA_HW_v5_1 = 22,
 	IPA_HW_v5_2 = 23,
 	IPA_HW_v5_5 = 24,
+	IPA_HW_v6_0 = 25,
 };
-#define IPA_HW_MAX (IPA_HW_v5_5 + 1)
+
+#define IPA_HW_MAX (IPA_HW_v6_0 + 1)
 
 #define IPA_HW_v4_0 IPA_HW_v4_0
 #define IPA_HW_v4_1 IPA_HW_v4_1
@@ -1055,6 +1074,7 @@ enum ipa_hw_type {
 #define IPA_HW_v5_1 IPA_HW_v5_1
 #define IPA_HW_v5_2 IPA_HW_v5_2
 #define IPA_HW_v5_5 IPA_HW_v5_5
+#define IPA_HW_v6_0 IPA_HW_v6_0
 
 /**
  * struct ipa_rule_attrib - attributes of a routing/filtering
@@ -1088,6 +1108,7 @@ enum ipa_hw_type {
  * @payload_length: Payload length.
  * @ext_attrib_mask: Extended attributes.
  * @l2tp_udp_next_hdr: next header in L2TP tunneling
+ * @frag_encoding: is-frag equation
  */
 struct ipa_rule_attrib {
 	uint32_t attrib_mask;
@@ -1132,7 +1153,7 @@ struct ipa_rule_attrib {
 	__u16 payload_length;
 	__u32 ext_attrib_mask;
 	__u8 l2tp_udp_next_hdr;
-	__u8 padding1;
+	__u8 is_frag_encoding;
 	__u32 padding2;
 };
 
@@ -1257,6 +1278,10 @@ struct ipa_ipfltri_rule_eq {
 	struct ipa_ipfltr_mask_eq_32 metadata_meq32;
 	/*! Specifies if the Fragment equation is present in this rule */
 	uint8_t ipv4_frag_eq_present;
+	/*! The IS-FRAG equation enhancement change since IPA6.0
+	 * values: IS-FRAG-0, Is-Primary-1, Is-Secondary-2, Not-Frag-3
+	 */
+	uint8_t is_frag_encoding;
 };
 
 /**
