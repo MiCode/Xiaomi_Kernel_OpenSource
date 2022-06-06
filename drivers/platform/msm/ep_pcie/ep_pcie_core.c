@@ -1376,15 +1376,6 @@ static int ep_pcie_get_resources(struct ep_pcie_dev_t *dev,
 		}
 	}
 
-	dev->icc_path = of_icc_get(&pdev->dev, "icc_path");
-	if (!dev->icc_path) {
-		EP_PCIE_ERR(dev,
-			"PCIe V%d: Failed to register bus client for %s\n",
-			dev->rev, dev->pdev->name);
-		ret = -ENODEV;
-		goto out;
-	}
-
 	for (i = 0; i < EP_PCIE_MAX_RES; i++) {
 		res_info = &dev->res[i];
 		map = false;
@@ -1449,6 +1440,14 @@ static int ep_pcie_get_resources(struct ep_pcie_dev_t *dev,
 	dev->tcsr_perst_en = dev->res[EP_PCIE_RES_TCSR_PERST].base;
 	dev->aoss_rst_perst = dev->res[EP_PCIE_RES_AOSS_CC_RESET].base;
 	dev->rumi = dev->res[EP_PCIE_RES_RUMI].base;
+
+	dev->icc_path = of_icc_get(&pdev->dev, "icc_path");
+	if (!dev->icc_path && !dev->rumi) {
+		EP_PCIE_ERR(dev,
+			"PCIe V%d: Failed to register bus client for %s\n",
+			dev->rev, dev->pdev->name);
+		ret = -ENODEV;
+	}
 
 out:
 	kfree(clkfreq);
