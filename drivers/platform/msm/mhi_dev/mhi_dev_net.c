@@ -808,7 +808,7 @@ int mhi_dev_net_interface_init(void)
 			 * with mhi_dev_net_open_chan_create_netif().
 			 */
 			ret_val = 0;
-			if (!mhi_ctrl_state_info(mhi_net_client->mhi_net_client[i]->out_chan,
+			if (!mhi_ctrl_state_info(mhi_net_client[i]->out_chan,
 						&info_out_ch)) {
 				if (info_out_ch == MHI_STATE_CONNECTED) {
 					ret_val = mhi_dev_net_open_chan_create_netif
