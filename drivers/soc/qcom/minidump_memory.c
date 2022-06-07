@@ -756,12 +756,12 @@ static int num_handles;
 
 bool is_slub_debug_enabled(void)
 {
-	slab_flags_t slub_debug;
+	bool *slub_debug;
 
-	slub_debug = *(slab_flags_t *)android_debug_symbol(ADS_SLUB_DEBUG);
-	if (slub_debug)
-		return true;
-	return false;
+	slub_debug = (bool *)android_debug_symbol(ADS_SLUB_DEBUG);
+	if (IS_ERR_OR_NULL(slub_debug))
+		return false;
+	return *slub_debug;
 }
 
 static bool find_stack(u32 handle,
