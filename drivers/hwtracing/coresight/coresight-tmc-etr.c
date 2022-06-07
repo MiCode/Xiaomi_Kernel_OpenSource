@@ -1148,9 +1148,10 @@ static int tmc_etr_enable_hw(struct tmc_drvdata *drvdata,
 
 	drvdata->etr_buf = etr_buf;
 	rc = __tmc_etr_enable_hw(drvdata);
-	if (rc)
+	if (rc) {
+		drvdata->etr_buf = NULL;
 		coresight_disclaim_device(drvdata->csdev);
-
+	}
 	return rc;
 }
 
