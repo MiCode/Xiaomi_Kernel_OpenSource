@@ -1008,6 +1008,26 @@ void rproc_add_carveout(struct rproc *rproc, struct rproc_mem_entry *mem)
 EXPORT_SYMBOL(rproc_add_carveout);
 
 /**
+ * rproc_del_carveout() - remove an allocated carveout region
+ * @rproc: rproc handle
+ * @mem: memory entry to register
+ *
+ * This function removes specified memory entry in @rproc carveouts list.
+ */
+void rproc_del_carveout(struct rproc *rproc, struct rproc_mem_entry *mem)
+{
+	struct rproc_mem_entry *entry, *tmp;
+
+	list_for_each_entry_safe(entry, tmp, &rproc->carveouts, node) {
+		if (entry == mem) {
+			list_del(&mem->node);
+			return;
+		}
+	}
+}
+EXPORT_SYMBOL(rproc_del_carveout);
+
+/**
  * rproc_mem_entry_init() - allocate and initialize rproc_mem_entry struct
  * @dev: pointer on device struct
  * @va: virtual address
