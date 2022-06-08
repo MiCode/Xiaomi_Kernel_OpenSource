@@ -66,15 +66,15 @@
 #define IBI_CONFIG_ENTRY(n, k)		(0x1800 + (0x1000*n) + (0x80*k))
 #define IBI_RCVD_IBI_INFO_ENTRY(n, k)	(0x1804 + (0x1000*n) + (0x80*k))
 #define IBI_RCVD_IBI_DATA_ENTRY_REG0(n, k)	(0x1808 + (0x1000*n) + (0x80*k))
-#define IBI_RCVD_IBI_DATA_ENTRY_REG1(n, k)	(0x1808 + (0x1000*n) + (0x80*k))
-#define IBI_RCVD_IBI_DATA_ENTRY_REG2(n, k)	(0x1808 + (0x1000*n) + (0x80*k))
-#define IBI_RCVD_IBI_DATA_ENTRY_REG3(n, k)	(0x1808 + (0x1000*n) + (0x80*k))
-#define IBI_RCVD_IBI_DATA_ENTRY_REG4(n, k)	(0x1808 + (0x1000*n) + (0x80*k))
-#define IBI_RCVD_IBI_DATA_ENTRY_REG5(n, k)	(0x1808 + (0x1000*n) + (0x80*k))
-#define IBI_RCVD_IBI_DATA_ENTRY_REG6(n, k)	(0x1808 + (0x1000*n) + (0x80*k))
-#define IBI_RCVD_IBI_DATA_ENTRY_REG7(n, k)	(0x1808 + (0x1000*n) + (0x80*k))
-#define IBI_RCVD_IBI_TS_LSB_ENTRY(n, k)	(0x180C + (0x1000*n) + (0x40*k))
-#define IBI_RCVD_IBI_TS_MSB_ENTRY(n, k)	(0x1810 + (0x1000*n) + (0x40*k))
+#define IBI_RCVD_IBI_DATA_ENTRY_REG1(n, k)	(0x180C + (0x1000*n) + (0x80*k))
+#define IBI_RCVD_IBI_DATA_ENTRY_REG2(n, k)	(0x1810 + (0x1000*n) + (0x80*k))
+#define IBI_RCVD_IBI_DATA_ENTRY_REG3(n, k)	(0x1814 + (0x1000*n) + (0x80*k))
+#define IBI_RCVD_IBI_DATA_ENTRY_REG4(n, k)	(0x1818 + (0x1000*n) + (0x80*k))
+#define IBI_RCVD_IBI_DATA_ENTRY_REG5(n, k)	(0x181C + (0x1000*n) + (0x80*k))
+#define IBI_RCVD_IBI_DATA_ENTRY_REG6(n, k)	(0x1820 + (0x1000*n) + (0x80*k))
+#define IBI_RCVD_IBI_DATA_ENTRY_REG7(n, k)	(0x1828 + (0x1000*n) + (0x80*k))
+#define IBI_RCVD_IBI_TS_LSB_ENTRY(n, k)	(0x1828 + (0x1000*n) + (0x80*k))
+#define IBI_RCVD_IBI_TS_MSB_ENTRY(n, k)	(0x182C + (0x1000*n) + (0x80*k))
 
 /* SE_GENI_M_CLK_CFG field shifts */
 #define CLK_DEV_VALUE_SHFT	4
@@ -205,6 +205,7 @@ enum geni_i3c_err_code {
 
 #define I3C_AUTO_SUSPEND_DELAY	250
 #define KHZ(freq)		(1000 * freq)
+#define I3C_DDR_VOTE_FACTOR		2
 #define PACKING_BYTES_PW	4
 #define XFER_TIMEOUT		HZ
 #define DFS_INDEX_MAX		7
@@ -1976,11 +1977,25 @@ static int i3c_geni_rsrcs_init(struct geni_i3c_dev *gi3c,
 		gi3c->clk_src_freq = 100000000;
 	}
 
-	ret = geni_se_common_resources_init(&gi3c->se, GENI_DEFAULT_BW,
-				     GENI_DEFAULT_BW, Bps_to_icc(gi3c->clk_src_freq));
+	ret = geni_se_common_resources_init(&gi3c->se,
+			GENI_DEFAULT_BW, GENI_DEFAULT_BW,
+			Bps_to_icc(gi3c->clk_src_freq) * I3C_DDR_VOTE_FACTOR);
 	if (ret) {
 		I3C_LOG_DBG(gi3c->ipcl, false, gi3c->se.dev,
 				"geni_se_common_resources_init Failed:%d\n", ret);
+		return ret;
+	}
+	I3C_LOG_ERR(gi3c->ipcl, false, gi3c->se.dev,
+		"%s: GENI_TO_CORE:%d CPU_TO_GENI:%d GENI_TO_DDR:%d\n", __func__,
+		gi3c->se.icc_paths[GENI_TO_CORE].avg_bw,
+		gi3c->se.icc_paths[CPU_TO_GENI].avg_bw,
+		gi3c->se.icc_paths[GENI_TO_DDR].avg_bw);
+
+	 /* call set_bw for once, then do icc_enable/disable */
+	ret = geni_icc_set_bw(&gi3c->se);
+	if (ret) {
+		dev_err(&pdev->dev, "%s: icc set bw failed ret:%d\n",
+							__func__, ret);
 		return ret;
 	}
 
@@ -2273,6 +2288,9 @@ static int geni_i3c_probe(struct platform_device *pdev)
 		/* NOTE : This may fail on 7E NACK, but should return 0 */
 		ret = 0;
 	}
+	I3C_LOG_ERR(gi3c->ipcl, false, gi3c->se.dev,
+		"I3C bus freq:%ld, I2C bus fres:%ld\n",
+		gi3c->ctrlr.bus.scl_rate.i3c,  gi3c->ctrlr.bus.scl_rate.i2c);
 
 	// hot-join
 	gi3c->hj_wl = wakeup_source_register(gi3c->se.dev,
@@ -2382,18 +2400,6 @@ static int geni_i3c_runtime_resume(struct device *dev)
 		return ret;
 	}
 
-	ret = geni_icc_set_bw(&gi3c->se);
-	if (ret) {
-		I3C_LOG_ERR(gi3c->ipcl, true, gi3c->se.dev,
-			"%s icc set bw failed %d\n", __func__, ret);
-		return ret;
-	}
-	I3C_LOG_DBG(gi3c->ipcl, false, gi3c->se.dev,
-		"%s: GENI_TO_CORE:%d CPU_TO_GENI:%d GENI_TO_DDR:%d\n",
-		__func__, gi3c->se.icc_paths[GENI_TO_CORE].avg_bw,
-		gi3c->se.icc_paths[CPU_TO_GENI].avg_bw,
-		gi3c->se.icc_paths[GENI_TO_DDR].avg_bw);
-
 	ret = geni_se_resources_on(&gi3c->se);
 	if (ret) {
 		I3C_LOG_ERR(gi3c->ipcl, false, gi3c->se.dev,
@@ -2402,7 +2408,6 @@ static int geni_i3c_runtime_resume(struct device *dev)
 	}
 
 	enable_irq(gi3c->irq);
-
 	/* Enable TLMM I3C MODE registers */
 	return 0;
 }
