@@ -744,9 +744,10 @@ static int msm_geni_serial_ioctl(struct uart_port *uport, unsigned int cmd,
 			__func__, uart_error, port->uart_error);
 		ret = uart_error;
 
+		if (!device_pending_suspend(uport))
+			geni_se_dump_dbg_regs(&port->serial_rsc,
+					      uport->membase, port->ipc_log_misc);
 		/* Do not use previous log file from this issue point */
-		geni_se_dump_dbg_regs(&port->serial_rsc,
-				      uport->membase, port->ipc_log_misc);
 		port->ipc_log_rx = port->ipc_log_new;
 		port->ipc_log_tx = port->ipc_log_new;
 		port->ipc_log_misc = port->ipc_log_new;
