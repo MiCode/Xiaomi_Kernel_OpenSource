@@ -664,6 +664,7 @@ static struct cpufreq_driver cpufreq_qcom_hw_driver = {
 	.fast_switch    = qcom_cpufreq_hw_fast_switch,
 	.name		= "qcom-cpufreq-hw",
 	.attr		= qcom_cpufreq_hw_attr,
+	.boost_enabled	= true,
 };
 
 static int qcom_cpufreq_hw_driver_probe(struct platform_device *pdev)
