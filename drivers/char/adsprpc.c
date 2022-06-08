@@ -6140,7 +6140,7 @@ int fastrpc_dspsignal_signal(struct fastrpc_file *fl,
 	}
 
 	msg = (((uint64_t)fl->tgid) << 32) | ((uint64_t)sig->signal_id);
-	err = fastrpc_transport_send(cid, (void *)msg, sizeof(msg), fl->trusted_vm);
+	err = fastrpc_transport_send(cid, (void *)&msg, sizeof(msg), fl->trusted_vm);
 	mutex_unlock(&channel_ctx->smd_mutex);
 
 bail:
