@@ -467,7 +467,6 @@ static int init_shadow_structs(struct kvm *kvm, struct kvm_shadow_vm *vm,
 		shadow_state->vm = vm;
 
 		shadow_vcpu->arch.hw_mmu = &vm->arch.mmu;
-		shadow_vcpu->arch.pkvm.shadow_handle = vm->shadow_handle;
 		shadow_vcpu->arch.pkvm.shadow_vm = vm;
 		shadow_vcpu->arch.power_off = true;
 
@@ -742,7 +741,7 @@ int __pkvm_teardown_shadow(int shadow_handle)
 			per_cpu_ptr(&last_loaded_vcpu, i);
 		struct kvm_vcpu *vcpu = *last_loaded_vcpu_ptr;
 
-		if (vcpu && vcpu->arch.pkvm.shadow_handle == shadow_handle)
+		if (vcpu && vcpu->arch.pkvm.shadow_vm == vm)
 			*last_loaded_vcpu_ptr = NULL;
 	}
 

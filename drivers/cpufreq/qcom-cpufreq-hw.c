@@ -43,6 +43,7 @@ static struct cpufreq_counter qcom_cpufreq_counter[NR_CPUS];
 
 struct qcom_cpufreq_soc_data {
 	u32 reg_enable;
+	u32 reg_domain_state;
 	u32 reg_freq_lut;
 	u32 reg_volt_lut;
 	u32 reg_current_vote;
@@ -331,14 +332,16 @@ static void qcom_get_related_cpus(int index, struct cpumask *m)
 	}
 }
 
-static unsigned int qcom_lmh_get_throttle_freq(struct qcom_cpufreq_data *data)
+static unsigned long qcom_lmh_get_throttle_freq(struct qcom_cpufreq_data *data)
 {
-	const struct qcom_cpufreq_soc_data *soc_data = data->soc_data;
-	unsigned int val = readl_relaxed(data->base + soc_data->reg_current_vote);
+	unsigned int lval;
 
-	val &= soc_data->throttle_freq_mask;
+	if (data->soc_data->reg_current_vote)
+		lval = readl_relaxed(data->base + data->soc_data->reg_current_vote) & 0x3ff;
+	else
+		lval = readl_relaxed(data->base + data->soc_data->reg_domain_state) & 0xff;
 
-	return val * 19200;
+	return lval * xo_rate;
 }
 
 static void qcom_lmh_dcvs_notify(struct qcom_cpufreq_data *data)
@@ -346,10 +349,9 @@ static void qcom_lmh_dcvs_notify(struct qcom_cpufreq_data *data)
 	const struct qcom_cpufreq_soc_data *soc_data = data->soc_data;
 	unsigned long max_capacity, capacity, freq_hz, throttled_freq;
 	struct cpufreq_policy *policy = data->policy;
-	int cpu = cpumask_first(policy->cpus);
+	int cpu = cpumask_first(policy->related_cpus);
 	struct device *dev = get_cpu_device(cpu);
 	struct dev_pm_opp *opp;
-	unsigned int freq;
 	u32 val;
 
 	if (!dev)
@@ -359,8 +361,7 @@ static void qcom_lmh_dcvs_notify(struct qcom_cpufreq_data *data)
 	 * Get the h/w throttled frequency, normalize it using the
 	 * registered opp table and use it to calculate thermal pressure.
 	 */
-	freq = qcom_lmh_get_throttle_freq(data);
-	freq_hz = freq * HZ_PER_KHZ;
+	freq_hz = qcom_lmh_get_throttle_freq(data);
 
 	opp = dev_pm_opp_find_freq_floor(dev, &freq_hz);
 	if (IS_ERR(opp) && PTR_ERR(opp) == -ERANGE)
@@ -448,7 +449,6 @@ static const struct qcom_cpufreq_soc_data qcom_soc_data = {
 	.reg_intr_status = 0x77c,
 	.reg_perf_state = 0x920,
 	.reg_cycle_cntr = 0x9c0,
-	.throttle_freq_mask = 0x3ff,
 	.lut_row_size = 32,
 	.throttle_irq_bit = 1,
 	.accumulative_counter = true,
@@ -456,14 +456,13 @@ static const struct qcom_cpufreq_soc_data qcom_soc_data = {
 
 static const struct qcom_cpufreq_soc_data epss_soc_data = {
 	.reg_enable = 0x0,
-	.reg_current_vote = 0x20,
+	.reg_domain_state = 0x20,
 	.reg_freq_lut = 0x100,
 	.reg_volt_lut = 0x200,
 	.reg_intr_clear = 0x308,
 	.reg_intr_status = 0x30c,
 	.reg_perf_state = 0x320,
 	.reg_cycle_cntr = 0x3c4,
-	.throttle_freq_mask = 0xff,
 	.lut_row_size = 4,
 	.throttle_irq_bit = 2,
 	.accumulative_counter = false,

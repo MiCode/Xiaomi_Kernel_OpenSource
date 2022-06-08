@@ -402,12 +402,15 @@ void vm_area_free(struct vm_area_struct *vma)
 	free_anon_vma_name(vma);
 #ifdef CONFIG_SPECULATIVE_PAGE_FAULT
 	if (atomic_read(&vma->vm_mm->mm_users) > 1) {
-		/* Only anonymous vmas can be torn down asynchronously */
-		if (!vma->vm_file) {
-			call_rcu(&vma->vm_rcu, __vm_area_free);
+		if (vma->vm_file) {
+			struct mm_struct *mm = vma->vm_mm;
+			percpu_down_write(mm->mmu_notifier_lock);
+			____vm_area_free(vma);
+			percpu_up_write(mm->mmu_notifier_lock);
 			return;
 		}
-		synchronize_rcu();
+		call_rcu(&vma->vm_rcu, __vm_area_free);
+		return;
 	}
 #endif
 	____vm_area_free(vma);

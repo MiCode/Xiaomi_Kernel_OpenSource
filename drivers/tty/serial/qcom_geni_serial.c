@@ -4,6 +4,9 @@
  * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
+/* Disable MMIO tracing to prevent excessive logging of unwanted MMIO traces */
+#define __DISABLE_TRACE_MMIO__
+
 #include <linux/clk.h>
 #include <linux/console.h>
 #include <linux/io.h>
@@ -23,6 +26,7 @@
 #include <linux/slab.h>
 #include <linux/tty.h>
 #include <linux/tty_flip.h>
+#include <linux/pinctrl/consumer.h>
 
 static bool con_enabled = IS_ENABLED(CONFIG_SERIAL_QCOM_GENI_CONSOLE_DEFAULT_ENABLED);
 module_param(con_enabled, bool, 0644);
@@ -1363,6 +1367,10 @@ static int qcom_geni_serial_probe(struct platform_device *pdev)
 
 	if (console && !con_enabled) {
 		dev_err(&pdev->dev, "%s, Console Disabled\n", __func__);
+		ret = pinctrl_pm_select_sleep_state(&pdev->dev);
+		if (ret)
+			dev_err(&pdev->dev,
+				"failed to set pinctrl state to sleep %d\n", ret);
 		platform_set_drvdata(pdev, port);
 		return ret;
 	}

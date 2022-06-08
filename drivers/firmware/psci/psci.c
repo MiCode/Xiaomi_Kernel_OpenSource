@@ -55,7 +55,7 @@ bool psci_tos_resident_on(int cpu)
 {
 	bool resident = false;
 
-	trace_android_vh_psci_tos_resident_on(cpu, &resident);
+	trace_android_rvh_psci_tos_resident_on(cpu, &resident);
 	if (resident)
 		return resident;
 
@@ -178,7 +178,7 @@ static int __psci_cpu_suspend(u32 fn, u32 state, unsigned long entry_point)
 	int err;
 	bool deny = false;
 
-	trace_android_vh_psci_cpu_suspend(state, &deny);
+	trace_android_rvh_psci_cpu_suspend(state, &deny);
 	if (deny)
 		return -EPERM;
 
