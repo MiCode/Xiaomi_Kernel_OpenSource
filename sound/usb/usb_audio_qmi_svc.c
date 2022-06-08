@@ -1340,6 +1340,7 @@ static int enable_audio_stream(struct snd_usb_substream *subs,
 	_snd_pcm_hw_param_set(&params, SNDRV_PCM_HW_PARAM_RATE,
 			cur_rate, 0);
 
+	pm_runtime_barrier(&chip->intf[0]->dev);
 	snd_usb_autoresume(chip);
 	fmt = find_format_and_si(&subs->fmt_list, pcm_format, cur_rate,
 			channels, datainterval, subs);
