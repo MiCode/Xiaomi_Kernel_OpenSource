@@ -76,6 +76,7 @@ static struct cpucp_hlos_map cpucp_map[MAX_CPUCP_EVT];
 static struct kobject pmu_kobj;
 static bool pmu_counters_enabled = true;
 static unsigned int pmu_enable_trace;
+static bool llcc_ignore_setup;
 
 /*
  * is_amu_valid: Check if AMUs are supported and if the id corresponds to the
@@ -174,6 +175,12 @@ static int set_event(struct event_data *ev, int cpu,
 		attr->config1 = 1;
 
 	if (ev->event_id == QCOM_LLCC_PMU_RD_EV) {
+		/* Ignore setting up the event if property set. This will avoid
+		 * reading of event as well since ev->pevent will be NULL.
+		 */
+		if (llcc_ignore_setup)
+			goto set_cpu;
+
 		ret = qcom_llcc_pmu_hw_type(&type);
 		if (ret < 0)
 			return ret;
@@ -1080,7 +1087,7 @@ static struct kobj_type pmu_settings_ktype = {
 static int qcom_pmu_driver_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
-	int ret = 0, idx;
+	int ret = 0, idx, len;
 	unsigned int cpu;
 	struct cpu_data *cpu_data;
 	struct resource res;
@@ -1103,6 +1110,11 @@ static int qcom_pmu_driver_probe(struct platform_device *pdev)
 		memset_io(pmu_base, 0, resource_size(&res));
 	}
 skip_pmu:
+	if (of_find_property(dev->of_node, "qcom,ignore-llcc-setup", &len)) {
+		dev_dbg(dev, "Ignoring llcc setup\n");
+		llcc_ignore_setup = true;
+	}
+
 	for_each_possible_cpu(cpu) {
 		cpu_data = devm_kzalloc(dev, sizeof(*cpu_data), GFP_KERNEL);
 		if (!cpu_data)
