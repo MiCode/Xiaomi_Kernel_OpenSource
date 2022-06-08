@@ -744,10 +744,364 @@ static ssize_t rtimd_breg_store(struct device *dev,
 	return count;
 }
 
+static ssize_t rtimd_eye_show(struct kobject *kobj, struct kobj_attribute *attr,
+	char *buf, u16 reg1, u16 reg2, uint8_t slave_addr)
+{
+	int ret;
+	uint8_t sbuf1, sbuf2; /* Single reade buffer */
+	ssize_t count;
+	struct RTIMD_SINGLE_READ_REG_T sw;
+
+	//RMDDBG("Param: %hhu 0x%02X 0x%02X %hhu\n",
+	//	param->bus_num, param->slave_addr, param->reg_addr, param->reg_size);
+
+	rtimd_cb->adap = i2c_get_adapter(0);
+	if (rtimd_cb->adap == NULL) {
+		RMDERR("I2C adapter open failed.\n");
+		return -ENODEV;
+	}
+
+	sw.reg_size = 2;
+	sw.reg_addr = reg1;
+	sw.bus_num = 0;
+	sw.slave_addr = slave_addr;
+
+	ret = i2c_single_read(rtimd_cb->adap, &sw, &sbuf1);
+
+	sw.reg_size = 2;
+	sw.reg_addr = reg2;
+	sw.bus_num = 0;
+	sw.slave_addr = slave_addr;
+
+	ret = i2c_single_read(rtimd_cb->adap, &sw, &sbuf2);
+	if (ret > 0)
+		count = scnprintf(buf, sizeof("%02X %02X\n"), "%02X %02X\n", sbuf1, sbuf2);
+	else
+		count = scnprintf(buf, sizeof("FF\n"), "FF\n");
+
+	i2c_put_adapter(rtimd_cb->adap);
+
+	return count;
+}
+
+static ssize_t rtimd_eye_store(struct kobject *kobj, struct kobj_attribute *attr,
+		const char *buf, size_t count, uint16_t shift, u16 reg1, u16 reg2,
+		uint8_t slave_addr, uint16_t data)
+{
+	int err = 0;
+	unsigned long value;
+	struct RTIMD_SINGLE_WRITE_REG_T sw;
+
+	err = kstrtoul(buf, 10, &value);
+	if (err != 0)
+		return err;
+
+	rtimd_cb->adap = i2c_get_adapter(0);
+
+	sw.reg_size = 2;
+	sw.reg_addr = reg1;
+	sw.bus_num = 0;
+	sw.slave_addr = slave_addr;
+	sw.data = (value & data) >> 8;
+	sw.data = sw.data | shift;
+
+	err = i2c_single_write(rtimd_cb->adap, &sw);
+
+	sw.reg_size = 2;
+	sw.reg_addr = reg2;
+	sw.bus_num = 0;
+	sw.slave_addr = slave_addr;
+	sw.data = value & 0xff;
+
+	err = i2c_single_write(rtimd_cb->adap, &sw);
+
+	i2c_put_adapter(rtimd_cb->adap);
+	return count;
+}
+
+static ssize_t left_eye_shift_left_show(struct kobject *kobj,
+		struct kobj_attribute *attr, char *buf)
+{
+	u16 reg1 = 0x0830;
+	u16 reg2 = 0x0831;
+	uint8_t slave_addr = 0x4A;
+
+	size_t ret = rtimd_eye_show(kobj, attr, buf, reg1, reg2, slave_addr);
+	return ret;
+}
+
+static ssize_t left_eye_shift_left_store(struct kobject *kobj,
+		struct kobj_attribute *attr, const char *buf, size_t count)
+{
+	u16 reg1 = 0x0830;
+	u16 reg2 = 0x0831;
+	uint8_t slave_addr = 0x4A;
+	uint16_t data = 0xf00;
+	uint16_t shift = 0x0;
+
+	size_t ret = rtimd_eye_store(kobj, attr, buf, count,
+		shift, reg1, reg2, slave_addr, data);
+	return ret;
+}
+
+static ssize_t left_eye_shift_right_show(struct kobject *kobj,
+		struct kobj_attribute *attr, char *buf)
+{
+	u16 reg1 = 0x0830;
+	u16 reg2 = 0x0831;
+	uint8_t slave_addr = 0x4A;
+
+	size_t ret = rtimd_eye_show(kobj, attr, buf, reg1, reg2, slave_addr);
+	return ret;
+}
+
+static ssize_t left_eye_shift_right_store(struct kobject *kobj,
+		struct kobj_attribute *attr, const char *buf, size_t count)
+{
+	u16 reg1 = 0x0830;
+	u16 reg2 = 0x0831;
+	uint8_t slave_addr = 0x4A;
+	uint16_t data = 0xf00;
+	uint16_t shift = 0x80;
+
+	size_t ret = rtimd_eye_store(kobj, attr, buf, count,
+		shift, reg1, reg2, slave_addr, data);
+	return ret;
+}
+
+static ssize_t left_eye_shift_top_show(struct kobject *kobj,
+		struct kobj_attribute *attr, char *buf)
+{
+	u16 reg1 = 0x0832;
+	u16 reg2 = 0x0833;
+	uint8_t slave_addr = 0x4A;
+
+	size_t ret = rtimd_eye_show(kobj, attr, buf, reg1, reg2, slave_addr);
+	return ret;
+}
+
+static ssize_t left_eye_shift_top_store(struct kobject *kobj,
+		struct kobj_attribute *attr, const char *buf, size_t count)
+{
+	u16 reg1 = 0x0832;
+	u16 reg2 = 0x0833;
+	uint8_t slave_addr = 0x4A;
+	uint16_t data = 0x1f00;
+	uint16_t shift = 0x0;
+
+	size_t ret = rtimd_eye_store(kobj, attr, buf, count,
+		shift, reg1, reg2, slave_addr, data);
+	return ret;
+}
+
+static ssize_t left_eye_shift_bottom_show(struct kobject *kobj,
+		struct kobj_attribute *attr, char *buf)
+{
+	u16 reg1 = 0x0832;
+	u16 reg2 = 0x0833;
+	uint8_t slave_addr = 0x4A;
+
+	size_t ret = rtimd_eye_show(kobj, attr, buf, reg1, reg2, slave_addr);
+	return ret;
+}
+
+static ssize_t left_eye_shift_bottom_store(struct kobject *kobj,
+		struct kobj_attribute *attr, const char *buf, size_t count)
+{
+	u16 reg1 = 0x0832;
+	u16 reg2 = 0x0833;
+	uint8_t slave_addr = 0x4A;
+	uint16_t data = 0x1f00;
+	uint16_t shift = 0x80;
+
+	size_t ret = rtimd_eye_store(kobj, attr, buf, count,
+		shift, reg1, reg2, slave_addr, data);
+	return ret;
+}
+
+static ssize_t right_eye_shift_left_show(struct kobject *kobj,
+		struct kobj_attribute *attr, char *buf)
+{
+	u16 reg1 = 0x0830;
+	u16 reg2 = 0x0831;
+	uint8_t slave_addr = 0x4C;
+
+	size_t ret = rtimd_eye_show(kobj, attr, buf, reg1, reg2, slave_addr);
+	return ret;
+}
+
+static ssize_t right_eye_shift_left_store(struct kobject *kobj,
+		struct kobj_attribute *attr, const char *buf, size_t count)
+{
+	u16 reg1 = 0x0830;
+	u16 reg2 = 0x0831;
+	uint8_t slave_addr = 0x4C;
+	uint16_t data = 0xf00;
+	uint16_t shift = 0x0;
+
+	size_t ret = rtimd_eye_store(kobj, attr, buf, count,
+		shift, reg1, reg2, slave_addr, data);
+	return ret;
+}
+
+static ssize_t right_eye_shift_right_show(struct kobject *kobj,
+		struct kobj_attribute *attr, char *buf)
+{
+	u16 reg1 = 0x0830;
+	u16 reg2 = 0x0831;
+	uint8_t slave_addr = 0x4C;
+
+	size_t ret = rtimd_eye_show(kobj, attr, buf, reg1, reg2, slave_addr);
+	return ret;
+}
+
+static ssize_t right_eye_shift_right_store(struct kobject *kobj,
+		struct kobj_attribute *attr, const char *buf, size_t count)
+{
+	u16 reg1 = 0x0830;
+	u16 reg2 = 0x0831;
+	uint8_t slave_addr = 0x4C;
+	uint16_t data = 0xf00;
+	uint16_t shift = 0x80;
+
+	size_t ret = rtimd_eye_store(kobj, attr, buf, count,
+		shift, reg1, reg2, slave_addr, data);
+	return ret;
+}
+
+static ssize_t right_eye_shift_top_show(struct kobject *kobj,
+		struct kobj_attribute *attr, char *buf)
+{
+	u16 reg1 = 0x0832;
+	u16 reg2 = 0x0833;
+	uint8_t slave_addr = 0x4C;
+
+	size_t ret = rtimd_eye_show(kobj, attr, buf, reg1, reg2, slave_addr);
+	return ret;
+}
+
+static ssize_t right_eye_shift_top_store(struct kobject *kobj,
+		struct kobj_attribute *attr, const char *buf, size_t count)
+{
+	u16 reg1 = 0x0832;
+	u16 reg2 = 0x0833;
+	uint8_t slave_addr = 0x4C;
+	uint16_t data = 0x1f00;
+	uint16_t shift = 0x0;
+
+	size_t ret = rtimd_eye_store(kobj, attr, buf, count,
+		shift, reg1, reg2, slave_addr, data);
+	return ret;
+}
+
+static ssize_t right_eye_shift_bottom_show(struct kobject *kobj,
+		struct kobj_attribute *attr, char *buf)
+{
+	u16 reg1 = 0x0832;
+	u16 reg2 = 0x0833;
+	uint8_t slave_addr = 0x4C;
+
+	size_t ret = rtimd_eye_show(kobj, attr, buf, reg1, reg2, slave_addr);
+	return ret;
+}
+
+static ssize_t right_eye_shift_bottom_store(struct kobject *kobj,
+		struct kobj_attribute *attr, const char *buf, size_t count)
+{
+	u16 reg1 = 0x0832;
+	u16 reg2 = 0x0833;
+	uint8_t slave_addr = 0x4C;
+	uint16_t data = 0x1f00;
+	uint16_t shift = 0x80;
+
+	size_t ret = rtimd_eye_store(kobj, attr, buf, count,
+		shift, reg1, reg2, slave_addr, data);
+	return ret;
+}
+
 static DEVICE_ATTR_WO(rtimd_srd_param);
 static DEVICE_ATTR_RW(rtimd_sreg);
 static DEVICE_ATTR_WO(rtimd_brd_param);
 static DEVICE_ATTR_RW(rtimd_breg);
+
+static struct kobj_attribute left_eye_shift_left_attr =
+	__ATTR(left_eye_shift_left, 0664,
+			left_eye_shift_left_show, left_eye_shift_left_store);
+
+static struct kobj_attribute left_eye_shift_right_attr =
+	__ATTR(left_eye_shift_right, 0664,
+			left_eye_shift_right_show, left_eye_shift_right_store);
+
+static struct kobj_attribute left_eye_shift_top_attr =
+	__ATTR(left_eye_shift_top, 0664,
+			left_eye_shift_top_show, left_eye_shift_top_store);
+
+static struct kobj_attribute left_eye_shift_bottom_attr =
+	__ATTR(left_eye_shift_bottom, 0664,
+			left_eye_shift_bottom_show, left_eye_shift_bottom_store);
+
+static struct kobj_attribute right_eye_shift_left_attr =
+	__ATTR(right_eye_shift_left, 0664,
+			right_eye_shift_left_show, right_eye_shift_left_store);
+
+static struct kobj_attribute right_eye_shift_right_attr =
+	__ATTR(right_eye_shift_right, 0664,
+			right_eye_shift_right_show, right_eye_shift_right_store);
+
+static struct kobj_attribute right_eye_shift_top_attr =
+	__ATTR(right_eye_shift_top, 0664,
+			right_eye_shift_top_show, right_eye_shift_top_store);
+
+static struct kobj_attribute right_eye_shift_bottom_attr =
+	__ATTR(right_eye_shift_bottom, 0664,
+			right_eye_shift_bottom_show, right_eye_shift_bottom_store);
+
+static struct attribute *rtimd_attributes[] = {
+	&left_eye_shift_left_attr.attr,
+	&left_eye_shift_right_attr.attr,
+	&left_eye_shift_top_attr.attr,
+	&left_eye_shift_bottom_attr.attr,
+	&right_eye_shift_left_attr.attr,
+	&right_eye_shift_right_attr.attr,
+	&right_eye_shift_top_attr.attr,
+	&right_eye_shift_bottom_attr.attr,
+	NULL,
+};
+
+static struct attribute_group rtimd_attribute_group = {
+	.attrs = rtimd_attributes,
+};
+
+static int rtimd_sysfs_create(struct platform_device *pdev)
+{
+	int ret = 0;
+	struct kset *rtimd_kset;
+	struct kobject *rtimd_kobj;
+	struct kobject *client_kobj;
+
+	rtimd_kset = kset_create_and_add("rtimd", NULL, kernel_kobj);
+	if (!rtimd_kset) {
+		pr_err("rtimd_kset create failed\n");
+		return -ENOMEM;
+	}
+
+	rtimd_kobj = &rtimd_kset->kobj;
+
+	client_kobj = kobject_create_and_add("rtimd_eye", rtimd_kobj);
+	if (!client_kobj) {
+		pr_err("right_eye kobject_create_and_add failed\n");
+		return -ENOMEM;
+	}
+
+	ret = sysfs_create_group(client_kobj, &rtimd_attribute_group);
+	if (ret) {
+		pr_err("[EX]: rtimd_eye sysfs_create_group() failed!!\n");
+		sysfs_remove_group(client_kobj, &rtimd_attribute_group);
+		return -ENOMEM;
+	}
+
+	return ret;
+}
 
 static int rtimd_probe(struct platform_device *pdev)
 {
@@ -775,6 +1129,8 @@ static int rtimd_probe(struct platform_device *pdev)
 		unregister_chrdev(RTI_MD_MAJOR_NR, RTI_MD_DEV_NAME);
 		return ret;
 	}
+
+	ret = rtimd_sysfs_create(pdev);
 
 	pr_err("End\n");
 
