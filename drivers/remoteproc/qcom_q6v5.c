@@ -114,6 +114,11 @@ static irqreturn_t q6v5_wdog_interrupt(int irq, void *data)
 
 	q6v5->running = false;
 	trace_rproc_qcom_event(dev_name(q6v5->dev), "q6v5_wdog", msg);
+	dev_err(q6v5->dev, "rproc recovery state: %s\n",
+		q6v5->rproc->recovery_disabled ?
+		"disabled and lead to device crash" :
+		"enabled and kick reovery process");
+
 	if (q6v5->rproc->recovery_disabled) {
 		schedule_work(&q6v5->crash_handler);
 	} else {
@@ -145,6 +150,9 @@ static irqreturn_t q6v5_fatal_interrupt(int irq, void *data)
 
 	q6v5->running = false;
 	trace_rproc_qcom_event(dev_name(q6v5->dev), "q6v5_fatal", msg);
+	dev_err(q6v5->dev, "rproc recovery state: %s\n",
+		q6v5->rproc->recovery_disabled ? "disabled and lead to device crash" :
+		"enabled and kick reovery process");
 	if (q6v5->rproc->recovery_disabled) {
 		schedule_work(&q6v5->crash_handler);
 	} else {
