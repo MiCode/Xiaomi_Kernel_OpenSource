@@ -256,6 +256,16 @@ struct msm_geni_serial_ver_info {
 	int s_fw_ver;
 };
 
+#ifdef CONFIG_CONSOLE_POLL
+/* Number of bytes configured per FIFO word */
+#define BYTES_PER_FIFO_WORD 4
+
+struct msm_geni_private_data {
+	unsigned int poll_cached_bytes;
+	unsigned int poll_cached_bytes_cnt;
+};
+#endif /* CONFIG_CONSOLE_POLL */
+
 struct msm_geni_serial_port {
 	struct uart_port uport;
 	const char *name;
@@ -311,6 +321,9 @@ struct msm_geni_serial_port {
 	atomic_t is_clock_off;
 	enum uart_error_code uart_error;
 	unsigned long ser_clk_cfg;
+#ifdef CONFIG_CONSOLE_POLL
+	struct msm_geni_private_data private_data;
+#endif
 };
 
 static const struct uart_ops msm_geni_serial_pops;
@@ -1035,48 +1048,63 @@ static void msm_geni_serial_poll_tx_done(struct uart_port *uport)
 #ifdef CONFIG_CONSOLE_POLL
 static int msm_geni_serial_get_char(struct uart_port *uport)
 {
+	struct msm_geni_serial_port *port = GET_DEV_PORT(uport);
+	struct msm_geni_private_data *private_data = &port->private_data;
 	unsigned int rx_fifo;
 	unsigned int m_irq_status;
 	unsigned int s_irq_status;
+	unsigned int word_count, rx_fifo_status;
 
-	if (!(msm_geni_serial_poll_bit(uport, SE_GENI_M_IRQ_STATUS,
-			M_SEC_IRQ_EN, true)))
-		return -ENXIO;
+	if (!private_data->poll_cached_bytes_cnt) {
+		m_irq_status = geni_read_reg_nolog(uport->membase,
+						   SE_GENI_M_IRQ_STATUS);
+		s_irq_status = geni_read_reg_nolog(uport->membase,
+						   SE_GENI_S_IRQ_STATUS);
+		geni_write_reg_nolog(m_irq_status, uport->membase,
+				     SE_GENI_M_IRQ_CLEAR);
+		geni_write_reg_nolog(s_irq_status, uport->membase,
+				     SE_GENI_S_IRQ_CLEAR);
+		/*
+		 * Read the Rx FIFO only after clearing the interrupt registers and
+		 * getting valid RX fifo status.
+		 */
+		rx_fifo_status = geni_read_reg_nolog(uport->membase,
+						     SE_GENI_RX_FIFO_STATUS);
 
-	m_irq_status = geni_read_reg_nolog(uport->membase,
-						SE_GENI_M_IRQ_STATUS);
-	s_irq_status = geni_read_reg_nolog(uport->membase,
-						SE_GENI_S_IRQ_STATUS);
-	geni_write_reg_nolog(m_irq_status, uport->membase,
-						SE_GENI_M_IRQ_CLEAR);
-	geni_write_reg_nolog(s_irq_status, uport->membase,
-						SE_GENI_S_IRQ_CLEAR);
+		word_count = rx_fifo_status & RX_FIFO_WC_MSK;
+		if (!word_count)
+			return NO_POLL_CHAR;
+		if (word_count == 1 &&  (rx_fifo_status & RX_LAST))
+			/*
+			 * NOTE: If RX_LAST_BYTE_VALID is 0 it needs to be
+			 * treated as if it was BYTES_PER_FIFO_WORD.
+			 */
+			private_data->poll_cached_bytes_cnt =
+				(rx_fifo_status & RX_LAST_BYTE_VALID_MSK) >>
+				RX_LAST_BYTE_VALID_SHFT;
 
-	if (!(msm_geni_serial_poll_bit(uport, SE_GENI_RX_FIFO_STATUS,
-			RX_FIFO_WC_MSK, true)))
-		return -ENXIO;
+		if (private_data->poll_cached_bytes_cnt == 0)
+			private_data->poll_cached_bytes_cnt = BYTES_PER_FIFO_WORD;
+		private_data->poll_cached_bytes =
+			geni_read_reg_nolog(uport->membase, SE_GENI_RX_FIFOn);
+	}
 
-	/*
-	 * Read the Rx FIFO only after clearing the interrupt registers and
-	 * getting valid RX fifo status.
-	 */
-	mb();
-	rx_fifo = geni_read_reg_nolog(uport->membase, SE_GENI_RX_FIFOn);
-	rx_fifo &= 0xFF;
+	private_data->poll_cached_bytes_cnt--;
+	rx_fifo = private_data->poll_cached_bytes & 0xff;
+	private_data->poll_cached_bytes >>= 8;
 	return rx_fifo;
 }
 
 static void msm_geni_serial_poll_put_char(struct uart_port *uport,
-					unsigned char c)
+					  unsigned char c)
 {
 	int b = (int) c;
-	struct msm_geni_serial_port *port = GET_DEV_PORT(uport);
 
-	geni_write_reg_nolog(port->tx_wm, uport->membase,
-					SE_GENI_TX_WATERMARK_REG);
+	geni_write_reg_nolog(DEF_TX_WM, uport->membase,
+			     SE_GENI_TX_WATERMARK_REG);
 	msm_geni_serial_setup_tx(uport, 1);
 	if (!msm_geni_serial_poll_bit(uport, SE_GENI_M_IRQ_STATUS,
-				M_TX_FIFO_WATERMARK_EN, true))
+				      M_TX_FIFO_WATERMARK_EN, true))
 		WARN_ON(1);
 	geni_write_reg_nolog(b, uport->membase, SE_GENI_TX_FIFOn);
 	geni_write_reg_nolog(M_TX_FIFO_WATERMARK_EN, uport->membase,
@@ -1085,11 +1113,9 @@ static void msm_geni_serial_poll_put_char(struct uart_port *uport,
 	 * Ensure FIFO write goes through before polling for status but.
 	 */
 	mb();
-	msm_serial_try_disable_interrupts(uport);
 	msm_geni_serial_poll_tx_done(uport);
-	msm_geni_serial_enable_interrupts(uport);
 }
-#endif
+#endif /* CONFIG_CONSOLE_POLL */
 
 #if IS_ENABLED(CONFIG_SERIAL_MSM_GENI_CONSOLE) || \
 					IS_ENABLED(CONFIG_CONSOLE_POLL)
