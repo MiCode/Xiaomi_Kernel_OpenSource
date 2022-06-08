@@ -565,8 +565,6 @@ static void video_cc_kalama_fixup_kalamav2(struct regmap *regmap)
 {
 	clk_lucid_ole_pll_configure(&video_cc_pll0, regmap, &video_cc_pll0_config_kalama_v2);
 	clk_lucid_ole_pll_configure(&video_cc_pll1, regmap, &video_cc_pll1_config_kalama_v2);
-	video_cc_ahb_clk_src.clkr.vdd_data.rate_max[VDD_LOWER_D1] = 0;
-	video_cc_ahb_clk_src.clkr.vdd_data.rate_max[VDD_LOWER] = 19200000;
 	video_cc_mvs0_clk_src.freq_tbl = ftbl_video_cc_mvs0_clk_src_kalama_v2;
 	video_cc_mvs0_clk_src.clkr.vdd_data.rate_max[VDD_LOWER_D1] = 0;
 	video_cc_mvs0_clk_src.clkr.vdd_data.rate_max[VDD_HIGH] = 1600000000;
@@ -574,8 +572,6 @@ static void video_cc_kalama_fixup_kalamav2(struct regmap *regmap)
 	video_cc_mvs1_clk_src.clkr.vdd_data.rate_max[VDD_LOWER_D1] = 0;
 	video_cc_sleep_clk_src.clkr.vdd_data.rate_max[VDD_LOWER_D1] = 0;
 	video_cc_sleep_clk_src.clkr.vdd_data.rate_max[VDD_LOWER] = 32000;
-	video_cc_xo_clk_src.clkr.vdd_data.rate_max[VDD_LOWER_D1] = 0;
-	video_cc_xo_clk_src.clkr.vdd_data.rate_max[VDD_LOWER] = 19200000;
 }
 
 static int video_cc_kalama_fixup(struct platform_device *pdev, struct regmap *regmap)
