@@ -1071,6 +1071,7 @@ static void geni_i3c_perform_daa(struct geni_i3c_dev *gi3c)
 		struct i3c_dev_boardinfo *i3cboardinfo = NULL;
 		struct i3c_dev_desc *i3cdev = NULL;
 		u64 pid;
+		u16 mid;
 		u8 bcr, dcr, init_dyn_addr = 0, addr = 0;
 		bool enum_slv = false;
 
@@ -1093,6 +1094,7 @@ static void geni_i3c_perform_daa(struct geni_i3c_dev *gi3c)
 			((u64)rx_buf[3] << 16) |
 			((u64)rx_buf[4] <<  8) |
 			((u64)rx_buf[5]);
+		mid = ((u16)rx_buf[0] << 8) | ((u16)rx_buf[1]);
 
 		list_for_each_entry(i3cboardinfo, &m->boardinfo.i3c, node) {
 			if (pid == i3cboardinfo->pid) {
@@ -1115,13 +1117,13 @@ static void geni_i3c_perform_daa(struct geni_i3c_dev *gi3c)
 
 		if (ret < 0) {
 			I3C_LOG_DBG(gi3c->ipcl, false, gi3c->se.dev,
-			"error during get_free_addr ret:%d for pid:0x:%x\n"
-				, ret, pid);
+			"error:%d during get_free_addr, pid:0x:%x, mid:0x%x\n"
+				, ret, pid, mid);
 			goto daa_err;
 		} else if (ret == init_dyn_addr) {
 			I3C_LOG_DBG(gi3c->ipcl, false, gi3c->se.dev,
-				"assigning requested addr:0x%x for pid:0x:%x\n"
-				, ret, pid);
+			"assign requested addr:0x%x for pid:0x:%x, mid:0x%x\n"
+				, ret, pid, mid);
 		} else if (init_dyn_addr) {
 			i3c_bus_for_each_i3cdev(&m->bus, i3cdev) {
 				if (i3cdev->info.pid == pid) {
@@ -1328,6 +1330,12 @@ static int geni_i3c_master_i2c_xfers
 	struct i3c_master_controller *m = i2c_dev_get_master(dev);
 	struct geni_i3c_dev *gi3c = to_geni_i3c_master(m);
 	int i, ret;
+
+	if (!msgs) {
+		I3C_LOG_ERR(gi3c->ipcl, false, gi3c->se.dev,
+				"%s: client msg is NULL\n", __func__);
+		return 0;
+	}
 
 	ret = i3c_geni_runtime_get_mutex_lock(gi3c);
 	if (ret)
