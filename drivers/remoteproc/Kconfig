@@ -409,6 +409,20 @@ config QCOM_SPSS_AC_RESTRICTION
 	  SP_CNOC_SP_SCSR_XPU4's resource-group-1. Support must be enabled also in
 	  Secure Subsystem remote processor.
 
+config QCOM_RPROC_HELIOS
+    tristate "QCOM Helios remoteproc support"
+    depends on OF && ARCH_QCOM
+    depends on QCOM_SMEM
+    depends on QCOM_SYSMON || QCOM_SYSMON=n
+    select MFD_SYSCON
+    select QCOM_PIL_INFO
+    select QCOM_MDT_LOADER
+    select QCOM_RPROC_COMMON
+    select QCOM_SCM
+    help
+      Say y here to support the TrustZone based Peripheral Image Loader
+      for the QCOM Helios.
+
 endif # REMOTEPROC
 
 endmenu

@@ -12,6 +12,7 @@ lzo.ko
 lzo-rle.ko
 msm-geni-se.ko
 msm_geni_serial.ko
+msm_rtb.ko
 ns.ko
 phy-generic.ko
 pinctrl-msm.ko
@@ -52,6 +53,8 @@ tmecom-intf.ko
 qcom_aoss.ko
 clk-rpmh.ko
 qcom-cpufreq-hw.ko
+sched-walt.ko
+sched-walt-debug.ko
 llcc-qcom.ko
 msm_dma_iommu_mapping.ko
 socinfo.ko

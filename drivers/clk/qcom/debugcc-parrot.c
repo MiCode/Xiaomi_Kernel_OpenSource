@@ -637,7 +637,6 @@ static struct clk_debug_mux gcc_debug_mux = {
 
 static const char *const gpu_cc_debug_mux_parent_names[] = {
 	"gpu_cc_ahb_clk",
-	"gpu_cc_cb_clk",
 	"gpu_cc_crc_ahb_clk",
 	"gpu_cc_cx_ff_clk",
 	"gpu_cc_cx_gmu_clk",
@@ -660,7 +659,6 @@ static const char *const gpu_cc_debug_mux_parent_names[] = {
 
 static int gpu_cc_debug_mux_sels[] = {
 	0x16,		/* gpu_cc_ahb_clk */
-	0x2E,		/* gpu_cc_cb_clk */
 	0x17,		/* gpu_cc_crc_ahb_clk */
 	0x21,		/* gpu_cc_cx_ff_clk */
 	0x1E,		/* gpu_cc_cx_gmu_clk */

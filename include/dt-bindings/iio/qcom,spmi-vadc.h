@@ -2,7 +2,7 @@
 /*
  * Copyright (c) 2012-2014,2018-2021 The Linux Foundation. All rights reserved.
  *
- * Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _DT_BINDINGS_QCOM_SPMI_VADC_H
@@ -327,5 +327,6 @@
 #define ADC_SCALE_HW_CALIB_PM2250_S3_DIE_TEMP		21
 #define ADC_SCALE_HW_CALIB_PM5_CUR			22
 #define ADC_SCALE_HW_CALIB_RESISTANCE_100K_PU_PM7	23
+#define ADC_SCALE_HW_CALIB_THERM_PMR_COMP_100K_PU_PM7	24
 
 #endif /* _DT_BINDINGS_QCOM_SPMI_VADC_H */

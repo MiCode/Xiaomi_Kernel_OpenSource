@@ -104,6 +104,9 @@ uint64_t dynamic_feature_mask = ICNSS_DEFAULT_FEATURE_MASK;
 #define RAMDUMP_NUM_DEVICES		256
 #define ICNSS_RAMDUMP_NAME		"icnss_ramdump"
 
+#define WLAN_EN_TEMP_THRESHOLD		5000
+#define WLAN_EN_DELAY			500
+
 static DEFINE_IDA(rd_minor_id);
 
 enum icnss_pdr_cause_index {
@@ -616,6 +619,33 @@ static void register_early_crash_notifications(struct device *dev)
 	priv->fw_early_crash_irq = irq;
 }
 
+static int icnss_get_temperature(struct icnss_priv *priv, int *temp)
+{
+	struct thermal_zone_device *thermal_dev;
+	const char *tsens;
+	int ret;
+
+	ret = of_property_read_string(priv->pdev->dev.of_node,
+				      "tsens",
+				      &tsens);
+	if (ret)
+		return ret;
+
+	icnss_pr_dbg("Thermal Sensor is %s\n", tsens);
+	thermal_dev = thermal_zone_get_zone_by_name(tsens);
+	if (IS_ERR(thermal_dev)) {
+		icnss_pr_err("Fail to get thermal zone. ret: %d",
+			     PTR_ERR(thermal_dev));
+		return PTR_ERR(thermal_dev);
+	}
+
+	ret = thermal_zone_get_temp(thermal_dev, temp);
+	if (ret)
+		icnss_pr_err("Fail to get temperature. ret: %d", ret);
+
+	return ret;
+}
+
 static irqreturn_t fw_soc_wake_ack_handler(int irq, void *ctx)
 {
 	struct icnss_priv *priv = ctx;
@@ -753,6 +783,7 @@ static int icnss_driver_event_server_arrive(struct icnss_priv *priv,
 						 void *data)
 {
 	int ret = 0;
+	int temp = 0;
 	bool ignore_assert = false;
 
 	if (!priv)
@@ -786,6 +817,12 @@ static int icnss_driver_event_server_arrive(struct icnss_priv *priv,
 	}
 
 	if (priv->device_id == WCN6750_DEVICE_ID) {
+		if (!icnss_get_temperature(priv, &temp)) {
+			icnss_pr_dbg("Temperature: %d\n", temp);
+			if (temp < WLAN_EN_TEMP_THRESHOLD)
+				priv->wlan_en_delay_ms = WLAN_EN_DELAY;
+		}
+
 		ret = wlfw_host_cap_send_sync(priv);
 		if (ret < 0)
 			goto fail;
@@ -811,15 +848,23 @@ static int icnss_driver_event_server_arrive(struct icnss_priv *priv,
 		}
 	}
 
+	if (priv->pon_gpio_control) {
+		ret = icnss_hw_power_on(priv);
+		if (ret)
+			goto fail;
+	}
+
 	ret = wlfw_cap_send_sync_msg(priv);
 	if (ret < 0) {
 		ignore_assert = true;
 		goto fail;
 	}
 
-	ret = icnss_hw_power_on(priv);
-	if (ret)
-		goto fail;
+	if (!priv->pon_gpio_control) {
+		ret = icnss_hw_power_on(priv);
+		if (ret)
+			goto fail;
+	}
 
 	if (priv->device_id == WCN6750_DEVICE_ID) {
 		ret = wlfw_device_info_send_msg(priv);
@@ -1048,7 +1093,8 @@ static int icnss_driver_event_fw_ready_ind(struct icnss_priv *priv, void *data)
 
 	icnss_pr_info("WLAN FW is ready: 0x%lx\n", priv->state);
 
-	icnss_hw_power_off(priv);
+	if (!priv->pon_gpio_control)
+		icnss_hw_power_off(priv);
 
 	if (!priv->pdev) {
 		icnss_pr_err("Device is not ready\n");
@@ -4253,6 +4299,10 @@ static int icnss_probe(struct platform_device *pdev)
 	if (ret)
 		goto out_free_resources;
 
+	if (of_property_read_bool(priv->pdev->dev.of_node,
+				  "qcom,pon-gpio-control")) {
+		priv->pon_gpio_control = true;
+	}
 	spin_lock_init(&priv->event_lock);
 	spin_lock_init(&priv->on_off_lock);
 	spin_lock_init(&priv->soc_wake_msg_lock);
@@ -4309,7 +4359,8 @@ static int icnss_probe(struct platform_device *pdev)
 		init_completion(&priv->smp2p_soc_wake_wait);
 		icnss_runtime_pm_init(priv);
 		icnss_aop_mbox_init(priv);
-		set_bit(ICNSS_COLD_BOOT_CAL, &priv->state);
+		if (!priv->pon_gpio_control)
+			set_bit(ICNSS_COLD_BOOT_CAL, &priv->state);
 		priv->bdf_download_support = true;
 		register_trace_android_vh_rproc_recovery_set(rproc_restart_level_notifier, NULL);
 	}
@@ -4325,6 +4376,14 @@ static int icnss_probe(struct platform_device *pdev)
 	}
 
 	INIT_LIST_HEAD(&priv->icnss_tcdev_list);
+
+	if (priv->pon_gpio_control) {
+		ret = icnss_get_pinctrl(priv);
+		if (ret < 0) {
+			icnss_pr_err("Fail to get pmic pinctrl config from dt\n");
+			goto out_unregister_fw_service;
+		}
+	}
 
 	icnss_pr_info("Platform driver probed successfully\n");
 

@@ -1052,20 +1052,31 @@ static void beac_event_filter_config(struct llcc_perfmon_private *llcc_priv,
 	uint32_t val = 0, mask_val;
 	unsigned int mc_cnt, offset;
 
-	if (filter != PROFILING_TAG) {
+	if (filter == PROFILING_TAG) {
+		if (enable)
+			val = (match << BEAC_PROFTAG_MATCH_SHIFT) |
+				(mask << BEAC_PROFTAG_MASK_SHIFT);
+
+		mask_val = BEAC_PROFTAG_MASK_MASK | BEAC_PROFTAG_MATCH_MASK;
+		for (mc_cnt = 0; mc_cnt < llcc_priv->num_mc; mc_cnt++) {
+			offset = BEAC0_PROF_FILTER_0_CFG5(llcc_priv->drv_ver)
+				+ mc_cnt * BEAC_INST_OFF;
+			llcc_bcast_modify(llcc_priv, offset, val, mask_val);
+		}
+	} else if (filter == MID) {
+		if (enable)
+			val = (match << MID_MATCH_SHIFT) |
+				(mask << MID_MASK_SHIFT);
+
+		mask_val = MID_MATCH_MASK | MID_MASK_MASK;
+		for (mc_cnt = 0; mc_cnt < llcc_priv->num_mc; mc_cnt++) {
+			offset = BEAC0_PROF_FILTER_0_CFG2(llcc_priv->drv_ver)
+				+ mc_cnt * BEAC_INST_OFF;
+			llcc_bcast_modify(llcc_priv, offset, val, mask_val);
+		}
+	} else {
 		pr_err("unknown filter/not supported\n");
 		return;
-	}
-
-	if (enable)
-		val = (match << BEAC_PROFTAG_MATCH_SHIFT) |
-		       (mask << BEAC_PROFTAG_MASK_SHIFT);
-
-	mask_val = BEAC_PROFTAG_MASK_MASK | BEAC_PROFTAG_MATCH_MASK;
-	for (mc_cnt = 0; mc_cnt < llcc_priv->num_mc; mc_cnt++) {
-		offset = BEAC0_PROF_FILTER_0_CFG5(llcc_priv->drv_ver)
-			+ mc_cnt * BEAC_INST_OFF;
-		llcc_bcast_modify(llcc_priv, offset, val, mask_val);
 	}
 
 	if (enable)
@@ -1198,16 +1209,16 @@ static void trp_event_filter_config(struct llcc_perfmon_private *llcc_priv,
 		}
 	} else if (filter == MULTISCID) {
 		if (llcc_priv->version == REV_2) {
-			/* Clear register for multi scid filter settings */
-			if (enable) {
+			if (enable)
 				val = match;
-				mask_val = SCID_MULTI_MATCH_MASK;
-			} else {
+			else
 				val = SCID_MULTI_MATCH_MASK;
-				mask_val = SCID_MULTI_MATCH_MASK;
-			}
-		}
 
+			mask_val = SCID_MULTI_MATCH_MASK;
+		} else {
+			pr_err("unknown filter/not supported\n");
+			return;
+		}
 	} else if (filter == WAY_ID) {
 		if (enable)
 			val = (match << TRP_WAY_ID_MATCH_SHIFT) |

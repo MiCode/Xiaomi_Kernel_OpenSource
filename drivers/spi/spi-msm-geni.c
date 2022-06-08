@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 
@@ -24,7 +25,7 @@
 #define SPI_NUM_CHIPSELECT	(4)
 #define SPI_XFER_TIMEOUT_MS	(250)
 #define SPI_AUTO_SUSPEND_DELAY	(250)
-#define SPI_XFER_TIMEOUT_OFFSET  (5)
+#define SPI_XFER_TIMEOUT_OFFSET	(250)
 /* SPI SE specific registers */
 #define SE_SPI_CPHA		(0x224)
 #define SE_SPI_LOOPBACK		(0x22C)
@@ -1610,6 +1611,7 @@ static int spi_geni_transfer_one(struct spi_master *spi,
 		mas->num_tx_eot = 0;
 		mas->num_rx_eot = 0;
 		mas->num_xfers = 0;
+		mas->qn_err = false;
 		reinit_completion(&mas->tx_cb);
 		reinit_completion(&mas->rx_cb);
 

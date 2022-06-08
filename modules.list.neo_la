@@ -47,6 +47,7 @@ clk-qcom.ko
 clk-dummy.ko
 zram.ko
 msm_geni_serial.ko
+msm_rtb.ko
 mem_buf.ko
 mem_buf_dev.ko
 pinctrl-neo.ko
@@ -66,6 +67,8 @@ rtc-pm8xxx.ko
 secure_buffer.ko
 clk-rpmh.ko
 qcom-cpufreq-hw.ko
+sched-walt.ko
+sched-walt-debug.ko
 tcsrcc.ko
 rpmh-regulator.ko
 qti-fixed-regulator.ko

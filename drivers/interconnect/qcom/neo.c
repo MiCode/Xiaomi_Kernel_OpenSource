@@ -15,9 +15,18 @@
 #include <linux/of_platform.h>
 #include <linux/platform_device.h>
 #include <linux/sort.h>
+#include <linux/soc/qcom/smem.h>
 
 #include "icc-rpmh.h"
 #include "qnoc-qos.h"
+
+#define MSM_ID_SMEM	137
+
+enum target_msm_id {
+	NEO_LE = 525,
+	NEO_LA_V1 = 554,
+	NEO_LA_V2 = 579,
+};
 
 static const struct regmap_config icc_regmap_config = {
 	.reg_bits = 32,
@@ -227,12 +236,23 @@ static struct qcom_icc_node qnm_nsp_gemnoc = {
 	.links = { SLAVE_GEM_NOC_CNOC, SLAVE_LLCC },
 };
 
+static struct qcom_icc_qosbox qnm_pcie_qos = {
+	.regs = icc_qnoc_qos_regs[ICC_QNOC_QOSGEN_TYPE_RPMH],
+	.num_ports = 1,
+	.offsets = { 0xa2000 },
+	.config = &(struct qos_config) {
+		.prio = 2,
+		.urg_fwd = 1,
+	},
+};
+
 static struct qcom_icc_node qnm_pcie = {
 	.name = "qnm_pcie",
 	.id = MASTER_ANOC_PCIE_GEM_NOC,
 	.channels = 1,
 	.buswidth = 16,
 	.noc_ops = &qcom_qnoc4_ops,
+	.qosbox = &qnm_pcie_qos,
 	.num_links = 2,
 	.links = { SLAVE_GEM_NOC_CNOC, SLAVE_LLCC },
 };
@@ -2129,34 +2149,42 @@ static int qnoc_probe(struct platform_device *pdev)
 {
 	const char *compat = NULL;
 	int compatlen = 0;
+	u32 *msm_id;
+	size_t len;
 	int ret;
+
+	msm_id = qcom_smem_get(QCOM_SMEM_HOST_ANY, MSM_ID_SMEM, &len);
+	if (IS_ERR(msm_id))
+		return PTR_ERR(msm_id);
 
 	compat = of_get_property(pdev->dev.of_node, "compatible", &compatlen);
 	if (!compat || (compatlen <= 0))
 		return -EINVAL;
 
-	if (!strcmp(compat, "qcom,neo_la-gem_noc")) {
-		bcm_sh0_disp.voter_idx = 0;
-		bcm_sh1_disp.voter_idx = 0;
-		gem_noc_nodes[MASTER_MNOC_HF_MEM_NOC_DISP] = NULL;
-		gem_noc_nodes[MASTER_ANOC_PCIE_GEM_NOC_DISP] = NULL;
-		gem_noc_nodes[SLAVE_LLCC_DISP] = NULL;
-		neo_gem_noc.num_voters = 1;
-		neo_gem_noc.num_bcms = 2;
-	} else if (!strcmp(compat, "qcom,neo_la-mc_virt")) {
-		bcm_acv_disp.voter_idx = 0;
-		bcm_mc0_disp.voter_idx = 0;
-		mc_virt_nodes[SLAVE_EBI1_DISP] = NULL;
-		mc_virt_nodes[MASTER_LLCC_DISP] = NULL;
-		neo_mc_virt.num_voters = 1;
-		neo_mc_virt.num_bcms = 2;
-	} else if (!strcmp(compat, "qcom,neo_la-mmss_noc")) {
-		bcm_mm0_disp.voter_idx = 0;
-		bcm_mm1_disp.voter_idx = 0;
-		mmss_noc_nodes[MASTER_MDP_DISP] = NULL;
-		mmss_noc_nodes[SLAVE_MNOC_HF_MEM_NOC_DISP] = NULL;
-		neo_mmss_noc.num_voters = 1;
-		neo_mmss_noc.num_bcms = 2;
+	if ((enum target_msm_id) *(++msm_id) == NEO_LA_V1) {
+		if (!strcmp(compat, "qcom,neo-gem_noc")) {
+			bcm_sh0_disp.voter_idx = 0;
+			bcm_sh1_disp.voter_idx = 0;
+			gem_noc_nodes[MASTER_MNOC_HF_MEM_NOC_DISP] = NULL;
+			gem_noc_nodes[MASTER_ANOC_PCIE_GEM_NOC_DISP] = NULL;
+			gem_noc_nodes[SLAVE_LLCC_DISP] = NULL;
+			neo_gem_noc.num_voters = 1;
+			neo_gem_noc.num_bcms = 2;
+		} else if (!strcmp(compat, "qcom,neo-mc_virt")) {
+			bcm_acv_disp.voter_idx = 0;
+			bcm_mc0_disp.voter_idx = 0;
+			mc_virt_nodes[SLAVE_EBI1_DISP] = NULL;
+			mc_virt_nodes[MASTER_LLCC_DISP] = NULL;
+			neo_mc_virt.num_voters = 1;
+			neo_mc_virt.num_bcms = 2;
+		} else if (!strcmp(compat, "qcom,neo-mmss_noc")) {
+			bcm_mm0_disp.voter_idx = 0;
+			bcm_mm1_disp.voter_idx = 0;
+			mmss_noc_nodes[MASTER_MDP_DISP] = NULL;
+			mmss_noc_nodes[SLAVE_MNOC_HF_MEM_NOC_DISP] = NULL;
+			neo_mmss_noc.num_voters = 1;
+			neo_mmss_noc.num_bcms = 2;
+		}
 	}
 
 	ret = qcom_icc_rpmh_probe(pdev);
@@ -2176,17 +2204,11 @@ static const struct of_device_id qnoc_of_match[] = {
 	  .data = &neo_config_noc},
 	{ .compatible = "qcom,neo-gem_noc",
 	  .data = &neo_gem_noc},
-	{ .compatible = "qcom,neo_la-gem_noc",
-	  .data = &neo_gem_noc},
 	{ .compatible = "qcom,neo-lpass_ag_noc",
 	  .data = &neo_lpass_ag_noc},
 	{ .compatible = "qcom,neo-mc_virt",
 	  .data = &neo_mc_virt},
-	{ .compatible = "qcom,neo_la-mc_virt",
-	  .data = &neo_mc_virt},
 	{ .compatible = "qcom,neo-mmss_noc",
-	  .data = &neo_mmss_noc},
-	{ .compatible = "qcom,neo_la-mmss_noc",
 	  .data = &neo_mmss_noc},
 	{ .compatible = "qcom,neo-nsp_noc",
 	  .data = &neo_nsp_noc},

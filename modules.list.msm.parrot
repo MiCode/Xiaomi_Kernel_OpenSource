@@ -10,6 +10,8 @@ gcc-parrot.ko
 gdsc-regulator.ko
 pinctrl-parrot.ko
 qcom-cpufreq-hw.ko
+sched-walt.ko
+sched-walt-debug.ko
 qnoc-parrot.ko
 qcom_wdt_core.ko
 icc-rpmh.ko
