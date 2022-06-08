@@ -30,11 +30,11 @@
 static struct platform_device *rtimd_device;
 static struct class *rtimd_class;
 
-RTIMD_CB_T *rtimd_cb;
+struct RTIMD_CB_T *rtimd_cb;
 
-static RTIMD_SINGLE_READ_REG_T srd_param;
+static struct RTIMD_SINGLE_READ_REG_T srd_param;
 
-static RTIMD_BURST_READ_REG_T brd_param;
+static struct RTIMD_BURST_READ_REG_T brd_param;
 static uint8_t sysfs_brd_wdata[SYSFS_BURST_DATA_BUF_SIZE];
 static uint8_t sysfs_brd_rdata[SYSFS_BURST_DATA_BUF_SIZE];
 
@@ -47,8 +47,7 @@ static int rtimd_remove(struct platform_device *pdev);
 
 static int change_i2c_bus(int new_bus_num)
 {
-	//RMDDBG("New bus number (%d => %d) prev adap(0x%p)\n", rtimd_cb->bus_num, new_bus_num, rtimd_cb->adap);
-
+	int rc = 0;
 	/* Close the previous bus if opened. */
 	if (rtimd_cb->adap)
 		i2c_put_adapter(rtimd_cb->adap);
@@ -56,18 +55,17 @@ static int change_i2c_bus(int new_bus_num)
 	rtimd_cb->adap = i2c_get_adapter(new_bus_num);
 	if (rtimd_cb->adap) {
 		rtimd_cb->bus_num = new_bus_num; /* Set new bus number */
-		return 0;
-	}
-	else {
+		rc = 0;
+	} else {
 		rtimd_cb->bus_num = -1;
 		RMDERR("I2C device not found.\n");
-		return -ENODEV;
+		rc = -ENODEV;
 	}
+	return rc;
 }
 
 static int i2c_burst_read(struct i2c_adapter *adap,
-						RTIMD_BURST_READ_REG_T *br, uint8_t *wbuf,
-						uint8_t *rbuf)
+			struct RTIMD_BURST_READ_REG_T *br, uint8_t *wbuf, uint8_t *rbuf)
 {
 	int ret = 0;
 	struct i2c_msg msgs[2] = {
@@ -85,17 +83,16 @@ static int i2c_burst_read(struct i2c_adapter *adap,
 		}
 	};
 
-	//RMDDBG("bus(%d) slave_addr(0x%02X) msgs[0].buf[0](0x%02X)\n",
-	//		br->bus_num, br->slave_addr, msgs[0].buf[0]);
-
+	pr_debug("bus(%d) slave_addr(0x%02X) msgs[0].buf[0](0x%02X)\n",
+			br->bus_num, br->slave_addr, msgs[0].buf[0]);
 	ret = i2c_transfer(adap, msgs, 2);
 
-	/* If everything went ok, return #bytes transmitted, else error code. */	
+	/* If everything went ok, return #bytes transmitted, else error code. */
 	return (ret == 2) ? br->rsize : ret;
 }
 
 static int i2c_burst_write(struct i2c_adapter *adap,
-							RTIMD_BURST_WRITE_REG_T *bw, uint8_t *wbuf)
+					struct RTIMD_BURST_WRITE_REG_T *bw, uint8_t *wbuf)
 {
 	int ret = 0;
 	struct i2c_msg msgs = {
@@ -110,11 +107,11 @@ static int i2c_burst_write(struct i2c_adapter *adap,
 	/*
 	 * If everything went ok (i.e. 1 msg transmitted), return #bytes
 	 * transmitted, else error code.
-	 */	
+	 */
 	return (ret == 1) ? msgs.len : ret;
 }
 
-static int i2c_single_write(struct i2c_adapter *adap, RTIMD_SINGLE_WRITE_REG_T *sw)
+static int i2c_single_write(struct i2c_adapter *adap, struct RTIMD_SINGLE_WRITE_REG_T *sw)
 {
 	uint8_t wbuf[3]; /* max reg size is 2. max data size is 1 */
 	int ret = 0;
@@ -130,20 +127,20 @@ static int i2c_single_write(struct i2c_adapter *adap, RTIMD_SINGLE_WRITE_REG_T *
 		wbuf[0] = sw->reg_addr & 0xFF;
 		wbuf[1] = sw->data;
 		break;
-	
+
 	case 2:
 		wbuf[0] = sw->reg_addr >> 8;
 		wbuf[1] = sw->reg_addr & 0xFF;
 		wbuf[2] = sw->data;
 		break;
-	
+
 	default:
 		RMDERR("Invalid register size\n");
 		return -EINVAL;
 	}
 
-	//RMDDBG("sw: bus_num(%d) saddr(0x%02X) regaddr(0x%04X) data(0x%02X)\n",
-	//	sw->bus_num, sw->slave_addr, sw->reg_addr, sw->data);
+	pr_debug("sw: bus_num(%d) saddr(0x%02X) regaddr(0x%04X) data(0x%02X)\n",
+		sw->bus_num, sw->slave_addr, sw->reg_addr, sw->data);
 
 	ret = i2c_transfer(adap, &msgs, 1);
 
@@ -155,7 +152,7 @@ static int i2c_single_write(struct i2c_adapter *adap, RTIMD_SINGLE_WRITE_REG_T *
 }
 
 static inline int i2c_single_read(struct i2c_adapter *adap,
-								RTIMD_SINGLE_READ_REG_T *sr, uint8_t *rbuf)
+					struct RTIMD_SINGLE_READ_REG_T *sr, uint8_t *rbuf)
 {
 	uint8_t wbuf[2]; /* max reg size is 2. */
 	int ret = 0;
@@ -178,37 +175,38 @@ static inline int i2c_single_read(struct i2c_adapter *adap,
 	case 1:
 		wbuf[0] = sr->reg_addr & 0xFF;
 		break;
-	
+
 	case 2:
 		wbuf[0] = sr->reg_addr >> 8;
 		wbuf[1] = sr->reg_addr & 0xFF;
 		break;
-	
+
 	default:
 		RMDERR("Invalid register size\n");
 		return -EINVAL;
 	}
 
-	//RMDDBG("adap(0x%p) bus_num(%d) addr(0x%02X) reg_addr(0x%04X) reg_size(%u) wbuf[0](0x%02X)\n",
-	//	rtimd_cb->adap, sr->bus_num, msgs[0].addr, sr->reg_addr, sr->reg_size, wbuf[0]);
+	pr_debug("adap(0x%p) bus_num(%d) addr(0x%02X) reg_size(%u) wbuf[0](0x%02X)\n",
+		rtimd_cb->adap, sr->bus_num, msgs[0].addr, sr->reg_size, wbuf[0]);
 
 	ret = i2c_transfer(adap, msgs, 2);
 
-	if (ret == 2) /* If everything went ok, return #bytes transmitted, else error code. */
-		return msgs[1].len;
-	else {		
+	/* If everything went ok, return #bytes transmitted, else error code. */
+	if (ret != 2) {
 		RMDERR("i2c 0x%0X read failed! ret(%d)\n", sr->reg_addr, ret);
 		return ret;
 	}
+
+	return msgs[1].len;
 }
 
 static inline int ioctl_burst_write(unsigned long arg)
 {
 	int ret;
-	RTIMD_BURST_WRITE_REG_T bw;
-	RTIMD_BURST_WRITE_REG_T __user *argp = (RTIMD_BURST_WRITE_REG_T __user *)arg;
+	struct RTIMD_BURST_WRITE_REG_T bw;
+	struct RTIMD_BURST_WRITE_REG_T __user *argp = (struct RTIMD_BURST_WRITE_REG_T __user *)arg;
 
-	if (copy_from_user(&bw, argp, sizeof(RTIMD_BURST_WRITE_REG_T))) {
+	if (copy_from_user(&bw, argp, sizeof(struct RTIMD_BURST_WRITE_REG_T))) {
 		RMDERR("copy_from_user() failed.\n");
 		return -EFAULT;
 	}
@@ -230,10 +228,11 @@ static inline int ioctl_burst_write(unsigned long arg)
 static inline int ioctl_single_write(unsigned long arg)
 {
 	int ret;
-	RTIMD_SINGLE_WRITE_REG_T sw;
-	RTIMD_SINGLE_WRITE_REG_T __user *argp = (RTIMD_SINGLE_WRITE_REG_T __user *)arg;
+	struct RTIMD_SINGLE_WRITE_REG_T sw;
+	struct RTIMD_SINGLE_WRITE_REG_T __user *argp =
+			(struct RTIMD_SINGLE_WRITE_REG_T __user *)arg;
 
-	if (copy_from_user(&sw, argp, sizeof(RTIMD_SINGLE_WRITE_REG_T))) {
+	if (copy_from_user(&sw, argp, sizeof(struct RTIMD_SINGLE_WRITE_REG_T))) {
 		RMDERR("copy_from_user() failed.\n");
 		return -EFAULT;
 	}
@@ -246,22 +245,21 @@ static inline int ioctl_single_write(unsigned long arg)
 
 	return i2c_single_write(rtimd_cb->adap, &sw);
 }
-//__copy_to_user((u8 __user *)(uintptr_t)u_tmp->rx_buf, rx_buf, u_tmp->len))
 
 static inline int ioctl_burst_read(unsigned long arg)
 {
 	int ret;
-	RTIMD_BURST_READ_REG_T br;
-	RTIMD_BURST_READ_REG_T __user *argp = (RTIMD_BURST_READ_REG_T __user *)arg;
+	struct RTIMD_BURST_READ_REG_T br;
+	struct RTIMD_BURST_READ_REG_T __user *argp = (struct RTIMD_BURST_READ_REG_T __user *)arg;
 
-	if (copy_from_user(&br, argp, sizeof(RTIMD_BURST_READ_REG_T))) {
+	if (copy_from_user(&br, argp, sizeof(struct RTIMD_BURST_READ_REG_T))) {
 		RMDERR("copy_from_user() failed.\n");
 		return -EFAULT;
 	}
 
 	if (br.rsize > MAX_RTIMD_REG_DATA_SIZE) {
 		RMDERR("Invalid count to be read register\n");
-		return -EINVAL;	
+		return -EINVAL;
 	}
 
 	if (copy_from_user(rtimd_cb->write_buf, (u8 __user *)br.wbuf_addr, br.wsize)) {
@@ -289,10 +287,10 @@ static int ioctl_single_read(unsigned long arg)
 {
 	uint8_t sbuf; /* Single reade buffer */
 	int ret;
-	RTIMD_SINGLE_READ_REG_T sr;
-	RTIMD_SINGLE_READ_REG_T __user *argp = (RTIMD_SINGLE_READ_REG_T __user *)arg;
+	struct RTIMD_SINGLE_READ_REG_T sr;
+	struct RTIMD_SINGLE_READ_REG_T __user *argp = (struct RTIMD_SINGLE_READ_REG_T __user *)arg;
 
-	if (copy_from_user(&sr, argp, sizeof(RTIMD_SINGLE_READ_REG_T))) {
+	if (copy_from_user(&sr, argp, sizeof(struct RTIMD_SINGLE_READ_REG_T))) {
 		RMDERR("copy_from_user() failed.\n");
 		return -EFAULT;
 	}
@@ -354,9 +352,9 @@ static long compat_rtimd_ioctl(struct file *file, unsigned int cmd, unsigned lon
 {
 	return rtimd_ioctl(file, cmd, (unsigned long)compat_ptr(arg));
 }
-#endif 
+#endif
 
-/* 
+/*
  * If successful, function returns the number of bytes actually written.
  * NOTE: For the single write mode, count vlaue don't care!
  */
@@ -376,15 +374,11 @@ static ssize_t rtimd_read(struct file *file, char __user *buf, size_t count,
 
 static int rtimd_release(struct inode *inode, struct file *file)
 {
-	if (rtimd_cb->read_buf) {
-		kfree(rtimd_cb->read_buf);
-		rtimd_cb->read_buf = NULL;
-	}
+	kfree(rtimd_cb->read_buf);
+	rtimd_cb->read_buf = NULL;
 
-	if (rtimd_cb->write_buf) {
-		kfree(rtimd_cb->write_buf);
-		rtimd_cb->write_buf = NULL;
-	}
+	kfree(rtimd_cb->write_buf);
+	rtimd_cb->write_buf = NULL;
 
 	if (rtimd_cb->adap) {
 		//RMDDBG("bus_num(%d) adap(0x%p)\n", rtimd_cb->bus_num, rtimd_cb->adap);
@@ -438,11 +432,9 @@ static int rtimd_pm_suspend(struct device *dev)
 
 static int rtimd_pm_resume(struct device *dev)
 {
-	int ret = 0;
-
 	RMDDBG("\n");
 
-	return ret;
+	return 0;
 }
 
 static const struct file_operations rtimd_fops = {
@@ -453,7 +445,7 @@ static const struct file_operations rtimd_fops = {
 	.unlocked_ioctl	= rtimd_ioctl,
 #ifdef CONFIG_COMPAT
 	.compat_ioctl = compat_rtimd_ioctl, /* 32-bit entry */
-#endif	
+#endif
 	.open		= rtimd_open,
 	.release	= rtimd_release,
 };
@@ -468,7 +460,6 @@ static struct platform_driver rtimd_driver = {
 		.remove = __exit_p(rtimd_remove),
 		.driver = {
 				.name = RTI_MD_DEV_NAME,
-				.owner = THIS_MODULE,
 				.pm = &rtimd_dev_pm_ops,
 		}
 };
@@ -481,10 +472,10 @@ static void hex_string_to_digit(uint8_t *out, const char *in, int len)
 
 	//RMDDBG("in bytes(%d): [%s]\n", len, in);
 
-	for (t = 0, i = 0; i < len; i+=2, t++) {
+	for (t = 0, i = 0; i < len; i += 2, t++) {
 		msb_ch = UPPERCASE(in[i]);
 		lsb_ch = UPPERCASE(in[i + 1]);
-	
+
 		hn = (msb_ch > '9') ? (msb_ch - 'A' + 10) : (msb_ch - '0');
 		ln = (lsb_ch > '9') ? (lsb_ch - 'A' + 10) : (lsb_ch - '0');
 		//RMDDBG("hn(%01X) ln(%01X)\n", hn, ln);
@@ -506,15 +497,16 @@ static void hex_string_to_digit(uint8_t *out, const char *in, int len)
  * RA: Register address of RDC or RDP (4 hex)
  * RS: Register size of RDC or RDP (2 hex)
  */
-static ssize_t store_rtimd_srd_set_param(struct device *dev,
+static ssize_t rtimd_srd_param_store(struct device *dev,
 			struct device_attribute *attr, const char *buf, size_t count)
 {
+	int rc = 0;
 	unsigned int bus_num, slave_addr, reg_addr, reg_size;
-	RTIMD_SINGLE_READ_REG_T *param = &srd_param;
+	struct RTIMD_SINGLE_READ_REG_T *param = &srd_param;
 
 	//RMDDBG("%s\n", buf);
 
-	sscanf(buf, "%X %X %X %X", &bus_num, &slave_addr, &reg_addr, &reg_size);
+	rc = sscanf(buf, "%X %X %X %X", &bus_num, &slave_addr, &reg_addr, &reg_size);
 
 	param->bus_num = (uint8_t)bus_num;
 	param->slave_addr = (uint8_t)slave_addr;
@@ -526,18 +518,18 @@ static ssize_t store_rtimd_srd_set_param(struct device *dev,
 
 /**
  * Get a byte from register using the saved parameters
- * in show_rtimd_srd().
+ * in rtimd_sreg_show().
  *
  * ex) cat /sys/devices/platform/rtimd-i2c/rtimd_sreg
  */
-static ssize_t show_rtimd_srd(struct device *dev,
-								struct device_attribute *attr, char *buf)
+static ssize_t rtimd_sreg_show(struct device *dev,
+					struct device_attribute *attr, char *buf)
 {
 	int ret;
 	uint8_t sbuf; /* Single reade buffer */
 	struct i2c_adapter *adap;
 	ssize_t count;
-	RTIMD_SINGLE_READ_REG_T *param = &srd_param;
+	struct RTIMD_SINGLE_READ_REG_T *param = &srd_param;
 
 	//RMDDBG("Param: %hhu 0x%02X 0x%02X %hhu\n",
 	//	param->bus_num, param->slave_addr, param->reg_addr, param->reg_size);
@@ -570,17 +562,17 @@ static ssize_t show_rtimd_srd(struct device *dev,
  * RS: Register size of RDC or RDP (2 hex)
  * VAL: Register value to be written (2 hex)
  */
-static ssize_t store_rtimd_swr(struct device *dev,
+static ssize_t rtimd_sreg_store(struct device *dev,
 			struct device_attribute *attr, const char *buf, size_t count)
 {
+	int rc = 0;
 	struct i2c_adapter *adap;
 	unsigned int bus_num, slave_addr, reg_addr, reg_size, data;
-	static RTIMD_SINGLE_WRITE_REG_T swr_param;
+	static struct RTIMD_SINGLE_WRITE_REG_T swr_param;
 
 	//RMDDBG("%s\n", buf);
 
-	sscanf(buf, "%X %X %X %X %X", &bus_num, &slave_addr,
-								&reg_addr, &reg_size, &data);
+	rc = sscanf(buf, "%X %X %X %X %X", &bus_num, &slave_addr, &reg_addr, &reg_size, &data);
 
 	swr_param.bus_num = (uint8_t)bus_num;
 	swr_param.slave_addr = (uint8_t)slave_addr;
@@ -606,23 +598,25 @@ static ssize_t store_rtimd_swr(struct device *dev,
  *
  * ex) echo 06 44 0001 0005 5E > /sys/devices/platform/rtimd-i2c/rtimd_brd_param
  * Parameters: BNR SA WSIZE RSIZE WDATA
- * 	BNR: Bus Number (2 hex)
+ *	BNR: Bus Number (2 hex)
  *	SA: Slave Address (2 hex)
- * 	WSIZE: Number of bytes to write to the device before READ command in
+ *	WSIZE: Number of bytes to write to the device before READ command in
  *		   I2C protocol. (4 hex)
  * RSIZE: Number of bytes to be read from the device (4 hex)
  * WDATA: Data to write to the device before READ command in I2C protocol.
  */
-static ssize_t store_rtimd_brd_set_param(struct device *dev,
+static ssize_t rtimd_brd_param_store(struct device *dev,
 			struct device_attribute *attr, const char *buf, size_t count)
 {
+	int rc = 0;
 	unsigned int bus_num, slave_addr, wsize, rsize;
 	const char *buf_ptr = buf;
-	RTIMD_BURST_READ_REG_T *param = &brd_param;
+	struct RTIMD_BURST_READ_REG_T *param = &brd_param;
 
 	//RMDDBG("%s\n", buf);
 
-	sscanf(buf, "%X %X %X %X", &bus_num, &slave_addr, &wsize, &rsize);
+	rc = sscanf(buf, "%X %X %X %X", &bus_num, &slave_addr, &wsize, &rsize);
+
 	buf_ptr += SYSFS_BRD_WDATA_OFFSET;
 
 	if (wsize > 512) {
@@ -651,15 +645,15 @@ static ssize_t store_rtimd_brd_set_param(struct device *dev,
  * in store_rtimd_brd_set_param().
  *
  * ex) cat /sys/devices/platform/rtimd-i2c/rtimd_breg
- */ 
-static ssize_t show_rtimd_brd(struct device *dev,
-								struct device_attribute *attr, char *buf)
+ */
+static ssize_t rtimd_breg_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
 {
 	int ret, i;
 	struct i2c_adapter *adap;
 	ssize_t count;
 	char nibble, hex_ch, *buf_ptr = buf;
-	RTIMD_BURST_READ_REG_T *param = &brd_param;
+	struct RTIMD_BURST_READ_REG_T *param = &brd_param;
 
 	//RMDDBG("Param: %hhu 0x%02X 0x%04X 0x%04X\n",
 	//		param->bus_num, param->slave_addr,
@@ -673,13 +667,6 @@ static ssize_t show_rtimd_brd(struct device *dev,
 
 	ret = i2c_burst_read(adap, param, sysfs_brd_wdata, sysfs_brd_rdata);
 	if (ret > 0) {
-#if 0
-		RMDDBG("sysfs_brd_rdata(%d): %02X%02X%02X%02X%02X%02X\n",
-			param->rsize,
-			sysfs_brd_rdata[0], sysfs_brd_rdata[1], sysfs_brd_rdata[2],
-			sysfs_brd_rdata[3], sysfs_brd_rdata[4], sysfs_brd_rdata[5]);
-#endif
-
 		*buf_ptr++ = '0'; /* Success */
 		*buf_ptr++ = '0';
 		*buf_ptr++ = ' ';
@@ -703,8 +690,7 @@ static ssize_t show_rtimd_brd(struct device *dev,
 		 */
 		*buf_ptr = '\0';
 		count = (ssize_t)(buf_ptr - buf);
-	}
-	else
+	} else
 		count = scnprintf(buf, sizeof("FF\n"), "FF\n");
 
 	i2c_put_adapter(adap);
@@ -713,26 +699,26 @@ static ssize_t show_rtimd_brd(struct device *dev,
 }
 
 /**
- * Write the mutiple bytes to register.
+ * Write the multiple bytes to register.
  *
  * ex) echo 06 44 0006 5E123456789A > /sys/devices/platform/rtimd-i2c/rtimd_breg
  * Parameters: BNR SA WSIZE WDATA
- * 	BNR: Bus Number
- * 	SA: Slave Address
- * 	WSIZE: Number of bytes to write to the device (4 ..)
- * 	WDATA: Data to be written
+ *	BNR: Bus Number
+ *	SA: Slave Address
+ *	WSIZE: Number of bytes to write to the device (4 ..)
+ *	WDATA: Data to be written
  */
-static ssize_t store_rtimd_bwr(struct device *dev,
+static ssize_t rtimd_breg_store(struct device *dev,
 			struct device_attribute *attr, const char *buf, size_t count)
 {
 	struct i2c_adapter *adap;
-	int bus_num;
+	int bus_num, rc = 0;
 	unsigned int slave_addr, wsize;
-	RTIMD_BURST_WRITE_REG_T bwr_param;
+	struct RTIMD_BURST_WRITE_REG_T bwr_param;
 
 	//RMDDBG("%s\n", buf);
 
-	sscanf(buf, "%X %X %X", &bus_num, &slave_addr, &wsize);
+	rc = sscanf(buf, "%X %X %X", &bus_num, &slave_addr, &wsize);
 	bwr_param.bus_num = (uint8_t)bus_num;
 	bwr_param.slave_addr = (uint8_t)slave_addr;
 	bwr_param.wsize = (uint16_t)wsize;
@@ -758,21 +744,23 @@ static ssize_t store_rtimd_bwr(struct device *dev,
 	return count;
 }
 
-static DEVICE_ATTR(rtimd_srd_param, S_IWGRP|S_IWUSR, NULL, store_rtimd_srd_set_param);
-static DEVICE_ATTR(rtimd_sreg, S_IWUSR|S_IRUGO, show_rtimd_srd, store_rtimd_swr);
-static DEVICE_ATTR(rtimd_brd_param, S_IWGRP|S_IWUSR, NULL, store_rtimd_brd_set_param);
-static DEVICE_ATTR(rtimd_breg, S_IWUSR|S_IRUGO, show_rtimd_brd, store_rtimd_bwr);
+static DEVICE_ATTR_WO(rtimd_srd_param);
+static DEVICE_ATTR_RW(rtimd_sreg);
+static DEVICE_ATTR_WO(rtimd_brd_param);
+static DEVICE_ATTR_RW(rtimd_breg);
 
 static int rtimd_probe(struct platform_device *pdev)
 {
 	int ret;
 
-	RMDDBG("Enter\n");
+	pr_err("Enter\n");
 
 	/* register the driver */
 	if (register_chrdev(RTI_MD_MAJOR_NR, RTI_MD_DEV_NAME, &rtimd_fops)) {
 		RMDERR("register_chrdev() failed (Major:%d).\n",
 				RTI_MD_MAJOR_NR);
+		pr_err("register_chrdev() %d\n", register_chrdev(RTI_MD_MAJOR_NR,
+			RTI_MD_DEV_NAME, &rtimd_fops));
 		return -EINVAL;
 	}
 
@@ -788,7 +776,7 @@ static int rtimd_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	RMDDBG("End\n");
+	pr_err("End\n");
 
 	return 0;
 }
@@ -814,9 +802,9 @@ static int __init rtimd_dev_init(void)
 	int ret = 0;
 	struct device *dev = NULL;
 
-	RMDDBG("\n");
+	pr_info("%s\n", __func__);
 
-	rtimd_cb = kzalloc(sizeof(RTIMD_CB_T), GFP_KERNEL);
+	rtimd_cb = kzalloc(sizeof(struct RTIMD_CB_T), GFP_KERNEL);
 	if (!rtimd_cb)
 		return -ENOMEM;
 
@@ -862,17 +850,14 @@ static int __init rtimd_dev_init(void)
 	}
 
 	rtimd_cb->bus_num = -1; /* Set default bus number as invalid */
-
 	return 0;
 
 out:
 	platform_device_put(rtimd_device);
 	platform_driver_unregister(&rtimd_driver);
 
-	if (rtimd_cb) {
-		kfree(rtimd_cb);
-		rtimd_cb = NULL;
-	}
+	kfree(rtimd_cb);
+	rtimd_cb = NULL;
 
 	return retval;
 }
@@ -890,19 +875,15 @@ static void __exit rtimd_dev_exit(void)
 
 	platform_driver_unregister(&rtimd_driver);
 
-	if (rtimd_cb->read_buf)
-		kfree(rtimd_cb->read_buf);
+	kfree(rtimd_cb->read_buf);
 
-	if (rtimd_cb->write_buf)
-		kfree(rtimd_cb->write_buf);
+	kfree(rtimd_cb->write_buf);
 
 	if (rtimd_cb->adap)
 		i2c_put_adapter(rtimd_cb->adap);
 
-	if (rtimd_cb) {
-		kfree(rtimd_cb);
-		rtimd_cb = NULL;
-	}
+	kfree(rtimd_cb);
+	rtimd_cb = NULL;
 }
 
 MODULE_LICENSE("GPL");
@@ -911,5 +892,3 @@ MODULE_DESCRIPTION("RAONTECH Micro Display I2C Driver");
 
 module_init(rtimd_dev_init);
 module_exit(rtimd_dev_exit);
-
-
