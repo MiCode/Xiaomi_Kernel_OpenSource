@@ -532,9 +532,6 @@ static int sleepmon_rpmsg_callback(struct rpmsg_device *dev, void *data,
 		 */
 
 		if (!g_adspsleepmon.smem_init_done)
-			adspsleepmon_smem_init();
-
-		if (!g_adspsleepmon.smem_init_done)
 			return 0;
 
 		g_adspsleepmon.audio_stats.num_sessions = 0;
@@ -1552,7 +1549,7 @@ static int sleepmon_rpmsg_probe(struct rpmsg_device *dev)
 	of_platform_populate(dev->dev.of_node, NULL, NULL, &dev->dev);
 	g_adspsleepmon.rpmsgdev = dev;
 
-	return 0;
+	return adspsleepmon_smem_init();
 }
 
 static void sleepmon_rpmsg_remove(struct rpmsg_device *dev)
