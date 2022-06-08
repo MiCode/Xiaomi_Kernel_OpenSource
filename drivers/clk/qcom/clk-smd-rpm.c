@@ -2,7 +2,7 @@
 /*
  * Copyright (c) 2016, Linaro Limited
  * Copyright (c) 2014, The Linux Foundation. All rights reserved.
- * Copyright (c) 2020, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2020, 2022, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/clk-provider.h>
@@ -1186,6 +1186,46 @@ static const struct rpm_smd_clk_desc rpm_clk_holi = {
 	.num_clks = ARRAY_SIZE(holi_clks),
 };
 
+/* Khaje */
+DEFINE_CLK_SMD_RPM_XO_BUFFER(khaje, rf_clk1, rf_clk1_a, 4);
+DEFINE_CLK_SMD_RPM_XO_BUFFER(khaje, rf_clk2, rf_clk2_a, 5);
+
+static struct clk_hw *khaje_clks[] = {
+	[RPM_SMD_XO_CLK_SRC] = &holi_bi_tcxo.hw,
+	[RPM_SMD_XO_A_CLK_SRC] = &holi_bi_tcxo_ao.hw,
+	[RPM_SMD_SNOC_CLK] = &holi_snoc_clk.hw,
+	[RPM_SMD_SNOC_A_CLK] = &holi_snoc_a_clk.hw,
+	[RPM_SMD_BIMC_CLK] = &holi_bimc_clk.hw,
+	[RPM_SMD_BIMC_A_CLK] = &holi_bimc_a_clk.hw,
+	[RPM_SMD_QDSS_CLK] = &holi_qdss_clk.hw,
+	[RPM_SMD_QDSS_A_CLK] = &holi_qdss_a_clk.hw,
+	[RPM_SMD_RF_CLK1] = &khaje_rf_clk1.hw,
+	[RPM_SMD_RF_CLK1_A] = &khaje_rf_clk1_a.hw,
+	[RPM_SMD_RF_CLK2] = &khaje_rf_clk2.hw,
+	[RPM_SMD_RF_CLK2_A] = &khaje_rf_clk2_a.hw,
+	[RPM_SMD_CNOC_CLK] = &holi_cnoc_clk.hw,
+	[RPM_SMD_CNOC_A_CLK] = &holi_cnoc_a_clk.hw,
+	[RPM_SMD_IPA_CLK] = &holi_ipa_clk.hw,
+	[RPM_SMD_IPA_A_CLK] = &holi_ipa_a_clk.hw,
+	[RPM_SMD_QUP_CLK] = &holi_qup_clk.hw,
+	[RPM_SMD_QUP_A_CLK] = &holi_qup_a_clk.hw,
+	[RPM_SMD_MMRT_CLK] = &holi_mmrt_clk.hw,
+	[RPM_SMD_MMRT_A_CLK] = &holi_mmrt_a_clk.hw,
+	[RPM_SMD_MMNRT_CLK] = &holi_mmnrt_clk.hw,
+	[RPM_SMD_MMNRT_A_CLK] = &holi_mmnrt_a_clk.hw,
+	[RPM_SMD_SNOC_PERIPH_CLK] = &holi_snoc_periph_clk.hw,
+	[RPM_SMD_SNOC_PERIPH_A_CLK] = &holi_snoc_periph_a_clk.hw,
+	[RPM_SMD_SNOC_LPASS_CLK] = &holi_snoc_lpass_clk.hw,
+	[RPM_SMD_SNOC_LPASS_A_CLK] = &holi_snoc_lpass_a_clk.hw,
+	[RPM_SMD_CE1_CLK] = &holi_ce1_clk.hw,
+	[RPM_SMD_CE1_A_CLK] = &holi_ce1_a_clk.hw,
+};
+
+static const struct rpm_smd_clk_desc rpm_clk_khaje = {
+	.clks = khaje_clks,
+	.num_clks = ARRAY_SIZE(khaje_clks),
+};
+
 static const struct of_device_id rpm_smd_clk_match_table[] = {
 	{ .compatible = "qcom,rpmcc-mdm9607", .data = &rpm_clk_mdm9607 },
 	{ .compatible = "qcom,rpmcc-msm8226", .data = &rpm_clk_msm8974 },
@@ -1203,6 +1243,7 @@ static const struct of_device_id rpm_smd_clk_match_table[] = {
 	{ .compatible = "qcom,rpmcc-sm6115",  .data = &rpm_clk_sm6115  },
 	{ .compatible = "qcom,rpmcc-sm6125",  .data = &rpm_clk_sm6125  },
 	{ .compatible = "qcom,rpmcc-holi", .data = &rpm_clk_holi},
+	{ .compatible = "qcom,rpmcc-khaje", .data = &rpm_clk_khaje},
 	{ }
 };
 MODULE_DEVICE_TABLE(of, rpm_smd_clk_match_table);
@@ -1233,7 +1274,7 @@ static int rpm_smd_clk_probe(struct platform_device *pdev)
 {
 	struct clk_hw **hw_clks;
 	const struct rpm_smd_clk_desc *desc;
-	int ret, i, is_holi, hw_clk_handoff = false;
+	int ret, i, is_holi, is_khaje, hw_clk_handoff = false;
 
 	desc = of_device_get_match_data(&pdev->dev);
 	if (!desc)
@@ -1241,7 +1282,11 @@ static int rpm_smd_clk_probe(struct platform_device *pdev)
 
 	is_holi = of_device_is_compatible(pdev->dev.of_node,
 						"qcom,rpmcc-holi");
-	if (is_holi) {
+
+	is_khaje = of_device_is_compatible(pdev->dev.of_node,
+						"qcom,rpmcc-khaje");
+
+	if (is_holi || is_khaje) {
 		ret = clk_vote_bimc(&holi_bimc_clk.hw, INT_MAX);
 		if (ret < 0)
 			return ret;
@@ -1285,7 +1330,7 @@ static int rpm_smd_clk_probe(struct platform_device *pdev)
 	if (ret)
 		goto err;
 
-	if (is_holi) {
+	if (is_holi || is_khaje) {
 		/*
 		 * Keep an active vote on CXO in case no other driver
 		 * votes for it.
@@ -1299,6 +1344,10 @@ static int rpm_smd_clk_probe(struct platform_device *pdev)
 		/* Hold an active set vote for the snoc_keepalive_a_clk */
 		clk_set_rate(holi_snoc_a_clk.hw.clk, 19200000);
 		clk_prepare_enable(holi_snoc_a_clk.hw.clk);
+
+		/* Hold an active set vote for qup clock */
+		clk_prepare_enable(holi_qup_a_clk.hw.clk);
+		clk_set_rate(holi_qup_a_clk.hw.clk, 19200000);
 	}
 
 	dev_info(&pdev->dev, "Registered RPM clocks\n");
