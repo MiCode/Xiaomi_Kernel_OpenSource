@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2021, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2022, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 #ifndef __LINUX_USB_REPEATER_H
 #define __LINUX_USB_REPEATER_H
@@ -42,10 +42,10 @@ static inline struct usb_repeater *devm_usb_get_repeater_by_node(
 static inline void usb_put_repeater(struct usb_repeater *r)
 { }
 
-static int usb_add_repeater_dev(struct usb_repeater *r)
+static inline int usb_add_repeater_dev(struct usb_repeater *r)
 { return 0; }
 
-static void usb_remove_repeater_dev(struct usb_repeater *r)
+static inline void usb_remove_repeater_dev(struct usb_repeater *r)
 { }
 #endif
 
