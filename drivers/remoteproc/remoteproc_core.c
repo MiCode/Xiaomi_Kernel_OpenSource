@@ -1076,6 +1076,19 @@ rproc_mem_entry_init(struct device *dev,
 EXPORT_SYMBOL(rproc_mem_entry_init);
 
 /**
+ * rproc_mem_entry_free() - free a rproc_mem_entry struct
+ * @mem: rproc_mem_entry allocated by rproc_mem_entry_init()
+ *
+ * This function frees a rproc_mem_entry_struct that was allocated by
+ * rproc_mem_entry_init().
+ */
+void rproc_mem_entry_free(struct rproc_mem_entry *mem)
+{
+	kfree(mem);
+}
+EXPORT_SYMBOL(rproc_mem_entry_free);
+
+/**
  * rproc_of_resm_mem_entry_init() - allocate and initialize rproc_mem_entry struct
  * from a reserved memory phandle
  * @dev: pointer on device struct

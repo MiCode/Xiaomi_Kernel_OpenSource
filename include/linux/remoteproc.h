@@ -664,6 +664,7 @@ rproc_mem_entry_init(struct device *dev,
 		     int (*alloc)(struct rproc *, struct rproc_mem_entry *),
 		     int (*release)(struct rproc *, struct rproc_mem_entry *),
 		     const char *name, ...);
+void rproc_mem_entry_free(struct rproc_mem_entry *mem);
 
 struct rproc_mem_entry *
 rproc_of_resm_mem_entry_init(struct device *dev, u32 of_resm_idx, size_t len,
