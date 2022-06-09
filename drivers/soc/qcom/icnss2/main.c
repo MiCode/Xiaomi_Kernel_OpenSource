@@ -1860,8 +1860,9 @@ static int icnss_modem_notifier_nb(struct notifier_block *nb,
 	icnss_driver_event_post(priv, ICNSS_DRIVER_EVENT_PD_SERVICE_DOWN,
 				ICNSS_EVENT_SYNC, event_data);
 
-	mod_timer(&priv->recovery_timer,
-		  jiffies + msecs_to_jiffies(ICNSS_RECOVERY_TIMEOUT));
+	if (notif->crashed)
+		mod_timer(&priv->recovery_timer,
+			  jiffies + msecs_to_jiffies(ICNSS_RECOVERY_TIMEOUT));
 out:
 	icnss_pr_vdbg("Exit %s,state: 0x%lx\n", __func__, priv->state);
 	return NOTIFY_OK;
@@ -2031,8 +2032,9 @@ event_post:
 	icnss_driver_event_post(priv, ICNSS_DRIVER_EVENT_PD_SERVICE_DOWN,
 				ICNSS_EVENT_SYNC, event_data);
 
-	mod_timer(&priv->recovery_timer,
-		  jiffies + msecs_to_jiffies(ICNSS_RECOVERY_TIMEOUT));
+	if (event_data->crashed)
+		mod_timer(&priv->recovery_timer,
+			  jiffies + msecs_to_jiffies(ICNSS_RECOVERY_TIMEOUT));
 done:
 	if (notification == SERVREG_NOTIF_SERVICE_STATE_UP_V01)
 		clear_bit(ICNSS_FW_DOWN, &priv->state);
