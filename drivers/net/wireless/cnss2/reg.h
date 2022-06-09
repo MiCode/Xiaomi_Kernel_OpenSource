@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _CNSS_REG_H
@@ -88,6 +88,11 @@
 #define KIWI_DEBUG_PBL_LOG_SRAM_MAX_SIZE	40
 #define KIWI_DEBUG_SBL_LOG_SRAM_MAX_SIZE	48
 #define KIWI_PBL_BOOTSTRAP_STATUS		0x01A10008
+
+#define MANGO_DEBUG_PBL_LOG_SRAM_START		0x01403D98
+#define MANGO_DEBUG_PBL_LOG_SRAM_MAX_SIZE	40
+#define MANGO_DEBUG_SBL_LOG_SRAM_MAX_SIZE	48
+#define MANGO_PBL_BOOTSTRAP_STATUS		0x01A10008
 
 #define TCSR_PBL_LOGGING_REG			0x01B000F8
 #define PCIE_BHI_ERRDBG2_REG			0x01E0E238
