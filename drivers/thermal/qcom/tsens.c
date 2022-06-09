@@ -19,6 +19,7 @@
 #include <linux/slab.h>
 #include <linux/thermal.h>
 #include "tsens.h"
+#include "thermal_zone_internal.h"
 
 /**
  * struct tsens_irq_data - IRQ status and temperature violations
@@ -977,7 +978,7 @@ static int tsens_get_trend(void *data, int trip, enum thermal_trend *trend)
 	if (priv->ops->get_trend)
 		return priv->ops->get_trend(s, trend);
 
-	return -ENOTSUPP;
+	return qti_tz_get_trend(s->tzd, trip, trend);
 }
 
 static int  __maybe_unused tsens_suspend(struct device *dev)
