@@ -466,6 +466,7 @@ enum cinder_functions {
 	msm_mux_gcc_gp1_clk,
 	msm_mux_gcc_gp2_clk,
 	msm_mux_gcc_gp3_clk,
+	msm_mux_gps_pps_in,
 	msm_mux_hardsync_pps_in,
 	msm_mux_intr_c_raw0,
 	msm_mux_intr_c_raw1,
@@ -812,6 +813,9 @@ static const char * const gcc_gp2_clk_groups[] = {
 };
 static const char * const gcc_gp3_clk_groups[] = {
 	"gpio88", "gpio136",
+};
+static const char * const gps_pps_in_groups[] = {
+	"gpio49",
 };
 static const char * const hardsync_pps_in_groups[] = {
 	"gpio47",
@@ -1477,6 +1481,7 @@ static const struct msm_function cinder_functions[] = {
 	FUNCTION(gcc_gp1_clk),
 	FUNCTION(gcc_gp2_clk),
 	FUNCTION(gcc_gp3_clk),
+	FUNCTION(gps_pps_in),
 	FUNCTION(hardsync_pps_in),
 	FUNCTION(intr_c_raw0),
 	FUNCTION(intr_c_raw1),
@@ -1794,7 +1799,7 @@ static const struct msm_pingroup cinder_groups[] = {
 			NA, NA, NA, 0, -1),
 	[48] = PINGROUP(48, tod_pps_in, qdss_cti_trig0, NA, NA, NA, NA, NA, NA,
 			NA, 0x97008, 1),
-	[49] = PINGROUP(49, NA, qdss_cti_trig1, NA, NA, NA, NA, NA, NA, NA, 0x97008, 2),
+	[49] = PINGROUP(49, gps_pps_in, qdss_cti_trig1, NA, NA, NA, NA, NA, NA, NA, 0x97008, 2),
 	[50] = PINGROUP(50, NA, NA, NA, NA, NA, NA, NA, NA, NA, 0x97010, 2),
 	[51] = PINGROUP(51, NA, NA, NA, NA, NA, NA, NA, NA, NA, 0, -1),
 	[52] = PINGROUP(52, NA, NA, NA, NA, NA, NA, NA, NA, NA, 0x97010, 3),
