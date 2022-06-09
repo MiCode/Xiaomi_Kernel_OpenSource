@@ -1887,6 +1887,8 @@
   synchronize_rcu_tasks_trace
   synchronize_srcu
   synchronize_srcu_expedited
+  synth_event_create
+  synth_event_delete
   syscon_node_to_regmap
   syscon_regmap_lookup_by_phandle
   sysctl_sched_features
@@ -1954,8 +1956,11 @@
   trace_event_printf
   trace_event_raw_init
   trace_event_reg
+  trace_get_event_file
   trace_handle_return
   __traceiter_android_vh_ufs_clock_scaling
+  __traceiter_map
+  __traceiter_unmap
   __tracepoint_android_rvh_account_irq_end
   __tracepoint_android_rvh_account_irq_start
   __tracepoint_android_rvh_after_dequeue_task
@@ -2046,12 +2051,14 @@
   __tracepoint_ipi_entry
   __tracepoint_ipi_raise
   __tracepoint_irq_handler_entry
+  __tracepoint_map
   tracepoint_probe_register
   tracepoint_probe_register_prio
   tracepoint_probe_unregister
   __tracepoint_sched_overutilized_tp
   __tracepoint_sched_switch
   __tracepoint_suspend_resume
+  __tracepoint_unmap
   trace_print_array_seq
   trace_raw_output_prep
   trace_seq_printf
