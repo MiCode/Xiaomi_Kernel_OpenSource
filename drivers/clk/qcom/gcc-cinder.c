@@ -1523,6 +1523,71 @@ static struct clk_branch gcc_ecpri_xo_clk = {
 	},
 };
 
+static struct clk_branch gcc_eth_100g_c2c_hm_apb_clk = {
+	.halt_reg = 0x39010,
+	.halt_check = BRANCH_HALT,
+	.clkr = {
+		.enable_reg = 0x39010,
+		.enable_mask = BIT(0),
+		.hw.init = &(const struct clk_init_data){
+			.name = "gcc_eth_100g_c2c_hm_apb_clk",
+			.ops = &clk_branch2_ops,
+		},
+	},
+};
+
+static struct clk_branch gcc_eth_100g_fh_hm_apb_0_clk = {
+	.halt_reg = 0x39004,
+	.halt_check = BRANCH_HALT,
+	.clkr = {
+		.enable_reg = 0x39004,
+		.enable_mask = BIT(0),
+		.hw.init = &(const struct clk_init_data){
+			.name = "gcc_eth_100g_fh_hm_apb_0_clk",
+			.ops = &clk_branch2_ops,
+		},
+	},
+};
+
+static struct clk_branch gcc_eth_100g_fh_hm_apb_1_clk = {
+	.halt_reg = 0x39008,
+	.halt_check = BRANCH_HALT,
+	.clkr = {
+		.enable_reg = 0x39008,
+		.enable_mask = BIT(0),
+		.hw.init = &(const struct clk_init_data){
+			.name = "gcc_eth_100g_fh_hm_apb_1_clk",
+			.ops = &clk_branch2_ops,
+		},
+	},
+};
+
+static struct clk_branch gcc_eth_100g_fh_hm_apb_2_clk = {
+	.halt_reg = 0x3900c,
+	.halt_check = BRANCH_HALT,
+	.clkr = {
+		.enable_reg = 0x3900c,
+		.enable_mask = BIT(0),
+		.hw.init = &(const struct clk_init_data){
+			.name = "gcc_eth_100g_fh_hm_apb_2_clk",
+			.ops = &clk_branch2_ops,
+		},
+	},
+};
+
+static struct clk_branch gcc_eth_dbg_c2c_hm_apb_clk = {
+	.halt_reg = 0x39014,
+	.halt_check = BRANCH_HALT,
+	.clkr = {
+		.enable_reg = 0x39014,
+		.enable_mask = BIT(0),
+		.hw.init = &(const struct clk_init_data){
+			.name = "gcc_eth_dbg_c2c_hm_apb_clk",
+			.ops = &clk_branch2_ops,
+		},
+	},
+};
+
 static struct clk_branch gcc_eth_dbg_snoc_axi_clk = {
 	.halt_reg = 0x3901c,
 	.halt_check = BRANCH_HALT_VOTED,
@@ -2710,6 +2775,11 @@ static struct clk_regmap *gcc_cinder_clocks[] = {
 	[GCC_USB3_PRIM_PHY_COM_AUX_CLK] = &gcc_usb3_prim_phy_com_aux_clk.clkr,
 	[GCC_USB3_PRIM_PHY_PIPE_CLK] = &gcc_usb3_prim_phy_pipe_clk.clkr,
 	[GCC_USB3_PRIM_PHY_PIPE_CLK_SRC] = &gcc_usb3_prim_phy_pipe_clk_src.clkr,
+	[GCC_ETH_100G_C2C_HM_APB_CLK] = &gcc_eth_100g_c2c_hm_apb_clk.clkr,
+	[GCC_ETH_100G_FH_HM_APB_0_CLK] = &gcc_eth_100g_fh_hm_apb_0_clk.clkr,
+	[GCC_ETH_100G_FH_HM_APB_1_CLK] = &gcc_eth_100g_fh_hm_apb_1_clk.clkr,
+	[GCC_ETH_100G_FH_HM_APB_2_CLK] = &gcc_eth_100g_fh_hm_apb_2_clk.clkr,
+	[GCC_ETH_DBG_C2C_HM_APB_CLK] = &gcc_eth_dbg_c2c_hm_apb_clk.clkr,
 };
 
 static const struct qcom_reset_map gcc_cinder_resets[] = {
