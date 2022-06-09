@@ -413,6 +413,7 @@ struct sdhci_msm_reg_data {
 	/* is low power mode setting required for this regulator? */
 	bool lpm_sup;
 	bool set_voltage_sup;
+	bool is_voltage_supplied;
 };
 
 /*
@@ -1791,9 +1792,11 @@ static int sdhci_msm_dt_parse_vreg_info(struct device *dev,
 			"qcom,%s-voltage-level", vreg_name);
 	prop = of_get_property(np, prop_name, &len);
 	if (!prop || (len != (2 * sizeof(__be32)))) {
+		vreg->is_voltage_supplied = false;
 		dev_warn(dev, "%s %s property\n",
 			prop ? "invalid format" : "no", prop_name);
 	} else {
+		vreg->is_voltage_supplied = true;
 		vreg->low_vol_level = be32_to_cpup(&prop[0]);
 		vreg->high_vol_level = be32_to_cpup(&prop[1]);
 	}
@@ -2213,7 +2216,8 @@ static int sdhci_msm_vreg_init_reg(struct device *dev,
 	if (regulator_count_voltages(vreg->reg) > 0) {
 		vreg->set_voltage_sup = true;
 		/* sanity check */
-		if (!vreg->high_vol_level || !vreg->hpm_uA) {
+		if ((vreg->is_voltage_supplied && !vreg->high_vol_level) ||
+				!vreg->hpm_uA) {
 			pr_err("%s: %s invalid constraints specified\n",
 			       __func__, vreg->name);
 			ret = -EINVAL;
@@ -2258,7 +2262,7 @@ static int sdhci_msm_vreg_set_voltage(struct sdhci_msm_reg_data *vreg,
 	sdhci_msm_log_str(vreg->msm_host, "reg=%s min_uV=%d max_uV=%d\n",
 			vreg->name, min_uV, max_uV);
 
-	if (vreg->set_voltage_sup) {
+	if (vreg->set_voltage_sup && vreg->is_voltage_supplied) {
 		ret = regulator_set_voltage(vreg->reg, min_uV, max_uV);
 		if (ret) {
 			pr_err("%s: regulator_set_voltage(%s)failed. min_uV=%d,max_uV=%d,ret=%d\n",
