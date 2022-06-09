@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #define pr_fmt(fmt) "mem_buf_vm: " fmt
@@ -80,6 +81,12 @@ struct mem_buf_vm *pdata_array[] = {
 	&vm_cp_app,
 	NULL,
 };
+
+int mem_buf_current_vmid(void)
+{
+	return current_vmid;
+}
+EXPORT_SYMBOL(mem_buf_current_vmid);
 
 /*
  * Opening this file acquires a refcount on vm->dev's kobject - see
