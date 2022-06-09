@@ -224,6 +224,8 @@ struct ufshcd_lrb {
 
 	bool req_abort_skip;
 
+	ANDROID_VENDOR_DATA(1);
+
 	ANDROID_KABI_RESERVE(1);
 };
 
@@ -970,6 +972,8 @@ struct ufs_hba {
 	u32 luns_avail;
 	bool complete_put;
 
+	ANDROID_VENDOR_DATA(1);
+
 	ANDROID_KABI_RESERVE(1);
 	ANDROID_KABI_RESERVE(2);
 	ANDROID_KABI_RESERVE(3);
@@ -1454,5 +1458,11 @@ static inline int ufshcd_rpm_put(struct ufs_hba *hba)
 {
 	return pm_runtime_put(&hba->sdev_ufs_device->sdev_gendev);
 }
+
+int ufshcd_transfer_rsp_status(struct ufs_hba *hba, struct ufshcd_lrb *lrbp);
+void ufshcd_clk_scaling_start_busy(struct ufs_hba *hba);
+void ufshcd_clk_scaling_update_busy(struct ufs_hba *hba);
+void ufshcd_add_command_trace(struct ufs_hba *hba, unsigned int tag,
+				     enum ufs_trace_str_t str_t);
 
 #endif /* End of Header */
