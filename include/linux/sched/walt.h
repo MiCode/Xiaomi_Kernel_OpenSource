@@ -11,6 +11,12 @@
 #include <linux/spinlock_types.h>
 #include <linux/cpumask.h>
 
+enum pause_reason {
+	PAUSE_CORE_CTL	= 0x01,
+	PAUSE_THERMAL	= 0x02,
+	PAUSE_HYP	= 0x04,
+};
+
 #if IS_ENABLED(CONFIG_SCHED_WALT)
 
 #define MAX_CPUS_PER_CLUSTER 6
@@ -94,6 +100,7 @@ struct walt_task_struct {
 	 * 0 = nothing, 1 = enqueued, 2 = dequeued
 	 */
 	u64				mark_start;
+	u64				window_start;
 	u32				sum, demand;
 	u32				coloc_demand;
 	u32				sum_history[RAVG_HIST_SIZE];
@@ -135,6 +142,8 @@ struct walt_task_struct {
 	int				load_boost;
 	int64_t				boosted_task_load;
 	u8                              hung_detect_status;
+	int				prev_cpu;
+	u8				enqueue_after_migration;
 };
 
 #define wts_to_ts(wts) ({ \
@@ -171,10 +180,11 @@ struct notifier_block;
 extern void core_ctl_notifier_register(struct notifier_block *n);
 extern void core_ctl_notifier_unregister(struct notifier_block *n);
 extern int core_ctl_set_boost(bool boost);
-extern int walt_pause_cpus(struct cpumask *cpus);
-extern int walt_resume_cpus(struct cpumask *cpus);
-extern int walt_halt_cpus(struct cpumask *cpus);
-extern int walt_start_cpus(struct cpumask *cpus);
+
+extern int walt_pause_cpus(struct cpumask *cpus, enum pause_reason reason);
+extern int walt_resume_cpus(struct cpumask *cpus, enum pause_reason reason);
+extern int walt_halt_cpus(struct cpumask *cpus, enum pause_reason reason);
+extern int walt_start_cpus(struct cpumask *cpus, enum pause_reason reason);
 #else
 static inline int sched_lpm_disallowed_time(int cpu, u64 *timeout)
 {
@@ -212,11 +222,11 @@ static inline void core_ctl_notifier_unregister(struct notifier_block *n)
 {
 }
 
-inline int walt_pause_cpus(struct cpumask *cpus)
+inline int walt_pause_cpus(struct cpumask *cpus, enum pause_reason reason)
 {
 	return 0;
 }
-inline int walt_resume_cpus(struct cpumask *cpus)
+inline int walt_resume_cpus(struct cpumask *cpus, enum pause_reason reason)
 {
 	return 0;
 }
