@@ -430,7 +430,7 @@ static int disable_trace_kprobe(struct trace_event_call *call,
 		 */
 		trace_probe_remove_file(tp, file);
 
-	return 0;
+	return 1;
 }
 
 #if defined(CONFIG_DYNAMIC_FTRACE) && \

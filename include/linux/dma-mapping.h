@@ -115,6 +115,14 @@
  */
 #define DMA_ATTR_IOMMU_USE_LLC_NWA	(1UL << 17)
 
+/*
+ * This is a hint to the DMA-mapping subsystem that the device is expected
+ * to overwrite the entire mapped size, thus the caller does not require any
+ * of the previous buffer contents to be preserved. This allows
+ * bounce-buffering implementations to optimise DMA_FROM_DEVICE transfers.
+ */
+#define DMA_ATTR_OVERWRITE		(1UL << 18)
+
 #define DMA_ERROR_CODE       (~(dma_addr_t)0)
 
 /*
