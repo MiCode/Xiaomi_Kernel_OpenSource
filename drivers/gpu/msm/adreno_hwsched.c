@@ -1528,7 +1528,9 @@ static void hwsched_lsr_check(struct work_struct *work)
 {
 	struct adreno_hwsched *hwsched = container_of(work,
 		struct adreno_hwsched, lsr_check_ws);
-	struct kgsl_device *device = kgsl_get_device(0);
+	struct adreno_device *adreno_dev = container_of(hwsched,
+		struct adreno_device, hwsched);
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 
 	mutex_lock(&device->mutex);
 	kgsl_pwrscale_update_stats(device);
