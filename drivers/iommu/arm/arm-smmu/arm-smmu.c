@@ -2128,15 +2128,14 @@ static int arm_smmu_map_pages(struct iommu_domain *domain, unsigned long iova,
 	return ret;
 }
 
-static int __maybe_unused arm_smmu_map_sg(struct iommu_domain *domain, unsigned long iova,
-					  struct scatterlist *sg, unsigned int nents, int prot,
-					  gfp_t gfp, size_t *mapped)
+static int arm_smmu_map_sg(struct iommu_domain *domain, unsigned long iova,
+			   struct scatterlist *sg, unsigned int nents, int prot,
+			   gfp_t gfp, size_t *mapped)
 {
 	struct io_pgtable_ops *ops = to_smmu_domain(domain)->pgtbl_ops;
 	struct arm_smmu_device *smmu = to_smmu_domain(domain)->smmu;
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
-	int ret, i;
-	struct scatterlist *tmp;
+	int ret;
 
 	if (!ops)
 		return -ENODEV;
@@ -2146,19 +2145,7 @@ static int __maybe_unused arm_smmu_map_sg(struct iommu_domain *domain, unsigned 
 		return ret;
 
 	gfp = arm_smmu_domain_gfp_flags(smmu_domain);
-	/*
-	 * Use ops->map_sg() when it is available. While this function is unreachable, this
-	 * has to be implemented as such to avoid the usage of ops->map_sg(), as it
-	 * does not exist.
-	 */
-	for_each_sg(sg, tmp, nents, i) {
-		ret = ops->map(ops, iova + *mapped, sg_phys(tmp), tmp->length, prot, gfp);
-		if (ret)
-			break;
-
-		*mapped += tmp->length;
-	}
-
+	ret = ops->map_sg(ops, iova, sg, nents, prot, gfp, mapped);
 	arm_smmu_rpm_put(smmu);
 	if (!ret)
 		trace_map_sg(smmu_domain, iova, sg, nents);
@@ -2799,6 +2786,7 @@ static struct qcom_iommu_ops arm_smmu_ops = {
 		.attach_dev		= arm_smmu_attach_dev,
 		.map_pages		= arm_smmu_map_pages,
 		.unmap_pages		= arm_smmu_unmap_pages,
+		.map_sg			= arm_smmu_map_sg,
 		.flush_iotlb_all	= arm_smmu_flush_iotlb_all,
 		.iotlb_sync		= arm_smmu_iotlb_sync,
 		.iova_to_phys		= arm_smmu_iova_to_phys,
