@@ -1467,7 +1467,7 @@ int cpucp_memlat_init(struct scmi_device *sdev)
 	ret = ops->sample_ms(memlat_data->ph, memlat_data->cpucp_sample_ms);
 	if (ret < 0) {
 		pr_err("failed to set cpucp sample_ms\n");
-		return ret;
+		goto memlat_unlock;
 	}
 
 	/* Start sampling and voting timer */
