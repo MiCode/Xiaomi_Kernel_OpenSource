@@ -22,6 +22,7 @@ android/abi_gki_aarch64_mtktv
 android/abi_gki_aarch64_mtk
 android/abi_gki_aarch64_qcom
 android/abi_gki_aarch64_unisoc
+android/abi_gki_aarch64_xiaomi
 "
 
 FILES="${FILES}
