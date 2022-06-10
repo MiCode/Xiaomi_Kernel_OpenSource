@@ -15555,7 +15555,6 @@ static int nl80211_add_link(struct sk_buff *skb, struct genl_info *info)
 
 	switch (wdev->iftype) {
 	case NL80211_IFTYPE_AP:
-	case NL80211_IFTYPE_STATION:
 		break;
 	default:
 		return -EINVAL;
@@ -15581,6 +15580,15 @@ static int nl80211_remove_link(struct sk_buff *skb, struct genl_info *info)
 	/* cannot remove if there's no link */
 	if (!info->attrs[NL80211_ATTR_MLO_LINK_ID])
 		return -EINVAL;
+
+	switch (wdev->iftype) {
+	case NL80211_IFTYPE_AP:
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	/* FIXME: stop the link operations first */
 
 	wdev->valid_links &= ~BIT(link_id);
 	eth_zero_addr(wdev->links[link_id].addr);
