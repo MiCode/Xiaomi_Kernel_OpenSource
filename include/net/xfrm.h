@@ -1092,18 +1092,6 @@ static inline bool __xfrm_check_nopolicy(struct net *net, struct sk_buff *skb,
 	return false;
 }
 
-static inline bool __xfrm_check_dev_nopolicy(struct sk_buff *skb,
-					     int dir, unsigned short family)
-{
-	if (dir != XFRM_POLICY_OUT && family == AF_INET) {
-		/* same dst may be used for traffic originating from
-		 * devices with different policy settings.
-		 */
-		return IPCB(skb)->flags & IPSKB_NOPOLICY;
-	}
-	return skb_dst(skb) && (skb_dst(skb)->flags & DST_NOPOLICY);
-}
-
 static inline int __xfrm_policy_check2(struct sock *sk, int dir,
 				       struct sk_buff *skb,
 				       unsigned int family, int reverse)
@@ -1115,7 +1103,7 @@ static inline int __xfrm_policy_check2(struct sock *sk, int dir,
 		return __xfrm_policy_check(sk, ndir, skb, family);
 
 	return __xfrm_check_nopolicy(net, skb, dir) ||
-	       __xfrm_check_dev_nopolicy(skb, dir, family) ||
+	       (skb_dst(skb) && (skb_dst(skb)->flags & DST_NOPOLICY)) ||
 	       __xfrm_policy_check(sk, ndir, skb, family);
 }
 
