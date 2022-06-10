@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2012-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/kernel.h>
@@ -19,6 +20,52 @@ struct kprobe_data {
 	struct dwc3 *dwc;
 	int xi0;
 };
+
+static int entry_dwc3_gadget_init_in_endpoint(struct kretprobe_instance *ri,
+				struct pt_regs *regs)
+{
+	struct dwc3_ep *dep = (struct dwc3_ep *)regs->regs[0];
+	struct dwc3 *dwc = dep->dwc;
+	struct kprobe_data *data = (struct kprobe_data *)ri->data;
+
+	data->dwc = dwc;
+	data->xi0 = dep->number;
+
+	return 0;
+}
+
+static int exit_dwc3_gadget_init_in_endpoint(struct kretprobe_instance *ri,
+				struct pt_regs *regs)
+{
+	struct kprobe_data *data = (struct kprobe_data *)ri->data;
+
+	usb_ep_set_maxpacket_limit(&data->dwc->eps[data->xi0]->endpoint, 1024);
+
+	return 0;
+}
+
+static int entry_dwc3_gadget_init_out_endpoint(struct kretprobe_instance *ri,
+				struct pt_regs *regs)
+{
+	struct dwc3_ep *dep = (struct dwc3_ep *)regs->regs[0];
+	struct dwc3 *dwc = dep->dwc;
+	struct kprobe_data *data = (struct kprobe_data *)ri->data;
+
+	data->dwc = dwc;
+	data->xi0 = dep->number;
+
+	return 0;
+}
+
+static int exit_dwc3_gadget_init_out_endpoint(struct kretprobe_instance *ri,
+				struct pt_regs *regs)
+{
+	struct kprobe_data *data = (struct kprobe_data *)ri->data;
+
+	usb_ep_set_maxpacket_limit(&data->dwc->eps[data->xi0]->endpoint, 1024);
+
+	return 0;
+}
 
 static int entry_dwc3_gadget_run_stop(struct kretprobe_instance *ri,
 				   struct pt_regs *regs)
@@ -239,6 +286,8 @@ static struct kretprobe dwc3_msm_probes[] = {
 	ENTRY(trace_dwc3_gadget_ep_cmd),
 	ENTRY(trace_dwc3_prepare_trb),
 	ENTRY(trace_dwc3_event),
+	ENTRY_EXIT(dwc3_gadget_init_in_endpoint),
+	ENTRY_EXIT(dwc3_gadget_init_out_endpoint),
 };
 
 
