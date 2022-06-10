@@ -665,6 +665,9 @@ static ssize_t goodix_ts_irq_info_show(struct device *dev,
 		return -EINVAL;
 
 	desc = irq_to_desc(core_data->irq);
+	if (!desc)
+		return -EINVAL;
+
 	offset += r;
 	r = scnprintf(&buf[offset], PAGE_SIZE - offset, "disable-depth:%d\n", desc->depth);
 	if (r < 0)
