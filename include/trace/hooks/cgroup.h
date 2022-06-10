@@ -7,12 +7,14 @@
 #define _TRACE_HOOK_CGROUP_H
 #include <trace/hooks/vendor_hooks.h>
 
-struct task_struct;
+/* struct cgroup_subsys */
+#include <linux/cgroup-defs.h>
+/* struct task_struct */
+#include <linux/sched.h>
 DECLARE_HOOK(android_vh_cgroup_set_task,
 	TP_PROTO(int ret, struct task_struct *task),
 	TP_ARGS(ret, task));
 
-struct cgroup_subsys;
 struct cgroup_taskset;
 struct cgroup;
 DECLARE_HOOK(android_vh_cgroup_attach,

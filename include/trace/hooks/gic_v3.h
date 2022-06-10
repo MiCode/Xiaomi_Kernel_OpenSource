@@ -9,8 +9,10 @@
  * Following tracepoints are not exported in tracefs and provide a
  * mechanism for vendor modules to hook and extend functionality
  */
-struct irq_data;
-struct cpumask;
+/* struct cpumask */
+#include <linux/cpumask.h>
+/* struct irq_data */
+#include <linux/irq.h>
 DECLARE_HOOK(android_vh_gic_v3_affinity_init,
 	TP_PROTO(int irq, u32 offset, u64 *affinity),
 	TP_ARGS(irq, offset, affinity));

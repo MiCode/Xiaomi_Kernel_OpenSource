@@ -10,7 +10,8 @@
 #include <linux/tracepoint.h>
 #include <trace/hooks/vendor_hooks.h>
 
-struct blk_mq_tag_set;
+/* struct blk_mq_tag_set */
+#include <linux/blk-mq.h>
 struct blk_mq_tags;
 struct blk_mq_alloc_data;
 
