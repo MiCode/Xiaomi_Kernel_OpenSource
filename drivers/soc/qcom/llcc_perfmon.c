@@ -428,6 +428,11 @@ static ssize_t perfmon_filter_config_store(struct device *dev,
 		if (kstrtoul(token, 0, &port))
 			break;
 
+		if (port >= MAX_NUMBER_OF_PORTS) {
+			pr_err("filter configuration failed, port number above MAX value\n");
+			goto filter_config_free;
+		}
+
 		llcc_priv->filtered_ports |= 1 << port;
 		port_ops = llcc_priv->port_ops[port];
 		if (port_ops->event_filter_config)
@@ -496,6 +501,11 @@ static ssize_t perfmon_filter_remove_store(struct device *dev,
 
 		if (kstrtoul(token, 0, &port))
 			break;
+
+		if (port >= MAX_NUMBER_OF_PORTS) {
+			pr_err("filter configuration failed, port number above MAX value\n");
+			goto filter_remove_free;
+		}
 
 		llcc_priv->filtered_ports &= ~(1 << port);
 		port_ops = llcc_priv->port_ops[port];
