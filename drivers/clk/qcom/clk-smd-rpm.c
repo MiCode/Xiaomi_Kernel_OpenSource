@@ -1426,7 +1426,7 @@ static int clk_smd_rpm_resume(void)
 	clk_prepare_enable(holi_qup_a_clk.hw.clk);
 	clk_set_rate(holi_qup_a_clk.hw.clk, 19200000);
 
-	return clk_smd_rpm_enable_scaling();
+	return 0;
 }
 
 static int clk_smd_rpm_pm_resume(struct device *dev)
@@ -1435,7 +1435,6 @@ static int clk_smd_rpm_pm_resume(struct device *dev)
 	if (pm_suspend_via_firmware())
 		return clk_smd_rpm_resume();
 #endif
-
 	return 0;
 }
 
@@ -1444,11 +1443,31 @@ static int clk_smd_rpm_pm_restore(struct device *dev)
 	return clk_smd_rpm_resume();
 }
 
+static int clk_smd_rpm_pm_notifier(struct notifier_block *nb,
+				unsigned long event, void *unused)
+{
+	switch (event) {
+	case PM_POST_SUSPEND:
+#ifdef CONFIG_DEEPSLEEP
+		if (pm_suspend_via_firmware())
+			return clk_smd_rpm_enable_scaling();
+#endif
+	case PM_POST_HIBERNATION:
+		return clk_smd_rpm_enable_scaling();
+	}
+
+	return 0;
+}
+
 static const struct dev_pm_ops clk_smd_rpm_pm_ops = {
 	.suspend_late =  clk_smd_rpm_pm_suspend,
 	.freeze_late = clk_smd_rpm_pm_freeze,
 	.resume_early = clk_smd_rpm_pm_resume,
 	.restore_early = clk_smd_rpm_pm_restore,
+};
+
+static struct notifier_block rpm_pm_nb = {
+	.notifier_call = clk_smd_rpm_pm_notifier,
 };
 
 static int rpm_smd_clk_probe(struct platform_device *pdev)
@@ -1535,6 +1554,12 @@ static int rpm_smd_clk_probe(struct platform_device *pdev)
 		/* Hold an active set vote for qup clock */
 		clk_prepare_enable(holi_qup_a_clk.hw.clk);
 		clk_set_rate(holi_qup_a_clk.hw.clk, 19200000);
+	}
+
+	if (is_monaco) {
+		ret = register_pm_notifier(&rpm_pm_nb);
+		if (ret)
+			return ret;
 	}
 
 	dev_info(&pdev->dev, "Registered RPM clocks\n");
