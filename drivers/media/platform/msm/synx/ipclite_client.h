@@ -84,6 +84,15 @@ int32_t ipclite_register_test_client(IPCLite_Client cb_func_ptr, void *priv);
 int32_t get_global_partition_info(struct global_region_info *global_ipcmem);
 
 /**
+ * ipclite_hwlock_reset() - Resets the lock if the lock is currently held by core_id
+ *
+ * core_id	: takes the core id of which the lock needs to be resetted.
+ *
+ * @return None.
+ */
+void ipclite_hwlock_reset(enum ipcmem_host_type core_id);
+
+/**
  * ipclite_atomic_init_u32() - Initializes the global memory with uint32_t value.
  *
  * @addr	: Pointer to global memory

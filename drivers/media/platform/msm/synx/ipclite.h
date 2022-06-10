@@ -77,6 +77,7 @@ struct ipcmem_toc {
 	/* as ipcmem is 4k and if host number increases */
 	/* it would create problems*/
 	struct ipclite_features ipclite_features;
+	uint32_t global_atomic_hwlock_owner;
 };
 
 struct ipcmem_region {
