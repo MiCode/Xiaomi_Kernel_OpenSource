@@ -294,6 +294,7 @@ struct geni_i3c_dev {
 	spinlock_t spinlock;
 	u32 clk_src_freq;
 	u32 dfs_idx;
+	u32 prev_dfs_idx;
 	u8 *cur_buf;
 	enum i3c_trans_dir cur_rnw;
 	int cur_len;
@@ -478,6 +479,8 @@ void geni_i3c_se_dump_dbg_regs(struct geni_se *se, void __iomem *base,
 	u32 geni_s_irq_en = 0;
 	u32 geni_dma_tx_irq_en = 0;
 	u32 geni_dma_rx_irq_en = 0;
+	u32 geni_dma_tx_ptr_l = 0;
+	u32 geni_dma_tx_ptr_h = 0;
 
 	m_cmd0 = geni_read_reg(base, SE_GENI_M_CMD0);
 	m_irq_status = geni_read_reg(base, SE_GENI_M_IRQ_STATUS);
@@ -499,6 +502,8 @@ void geni_i3c_se_dump_dbg_regs(struct geni_se *se, void __iomem *base,
 	geni_s_irq_en = geni_read_reg(base, SE_GENI_S_IRQ_EN);
 	geni_dma_tx_irq_en = geni_read_reg(base, SE_DMA_TX_IRQ_EN);
 	geni_dma_rx_irq_en = geni_read_reg(base, SE_DMA_RX_IRQ_EN);
+	geni_dma_tx_ptr_l = geni_read_reg(base, SE_DMA_TX_PTR_L);
+	geni_dma_tx_ptr_h = geni_read_reg(base, SE_DMA_TX_PTR_H);
 
 	I3C_LOG_DBG(ipc, false, se->dev,
 	"%s: m_cmd0:0x%x, m_irq_status:0x%x, geni_status:0x%x, geni_ios:0x%x\n",
@@ -516,7 +521,9 @@ void geni_i3c_se_dump_dbg_regs(struct geni_se *se, void __iomem *base,
 	"dma_txirq_en:0x%x, dma_rxirq_en:0x%x geni_m_irq_en:0x%x geni_s_irq_en:0x%x\n",
 	geni_dma_tx_irq_en, geni_dma_rx_irq_en, geni_m_irq_en,
 	geni_s_irq_en);
-
+	I3C_LOG_DBG(ipc, false, se->dev,
+	"geni_dma_tx_ptr_l:0x%x, geni_dma_tx_ptr_h:0x%x\n",
+	geni_dma_tx_ptr_l, geni_dma_tx_ptr_h);
 }
 
 static int geni_i3c_clk_map_idx(struct geni_i3c_dev *gi3c)
@@ -596,6 +603,12 @@ static void qcom_geni_i3c_conf(struct geni_i3c_dev *gi3c,
 	if (ret)
 		gi3c->dfs_idx = 0;
 
+	if (gi3c->dfs_idx != gi3c->prev_dfs_idx)
+		I3C_LOG_DBG(gi3c->ipcl, false, gi3c->se.dev,
+		"dfs index:%d, prev_dfs_idx:%d\n",
+		__func__, gi3c->dfs_idx, gi3c->prev_dfs_idx);
+
+	gi3c->prev_dfs_idx = gi3c->dfs_idx;
 	writel_relaxed(gi3c->dfs_idx, gi3c->se.base + SE_GENI_CLK_SEL);
 
 	val = itr->clk_div << CLK_DEV_VALUE_SHFT;
@@ -705,6 +718,8 @@ static irqreturn_t geni_i3c_ibi_irq(int irq, void *dev)
 		m_stat_mask = readl_relaxed(gi3c->ibi.ibi_base + IBI_GEN_IRQ_EN);
 		m_stat = readl_relaxed(gi3c->ibi.ibi_base
 				+ IBI_GEN_IRQ_STATUS) & m_stat_mask;
+		I3C_LOG_DBG(gi3c->ipcl, false, gi3c->se.dev,
+			"IBI MGR IRQ IBI_GEN_IRQ_STATUS:0x%x\n", m_stat);
 
 		if ((m_stat & UNEXPECT_IBI_ADDR_IRQ_EN) ||
 			(m_stat & BUS_ERROR_EN))
@@ -724,6 +739,8 @@ static irqreturn_t geni_i3c_ibi_irq(int irq, void *dev)
 				+ IBI_GEN_IRQ_CLR);
 	} else if (irq == gi3c->ibi.gpii_irq[0]) {
 		m_stat = readl_relaxed(gi3c->ibi.ibi_base + IBI_IRQ_STATUS(0));
+		I3C_LOG_DBG(gi3c->ipcl, false, gi3c->se.dev,
+			"IBI GPII IRQ, IBI_IRQ_STATUS:0x%x\n", m_stat);
 
 		if (m_stat & SE_I3C_IBI_ERR)
 			gi3c->ibi.err = m_stat;
@@ -860,7 +877,8 @@ irqret:
 		(dm_rx_st & RX_DMA_DONE) ||
 		(dm_rx_st & RX_RESET_DONE) ||
 		(dm_tx_st & TX_RESET_DONE)) {
-
+		I3C_LOG_DBG(gi3c->ipcl, false, gi3c->se.dev,
+			"%s: DMA mode xfer completed\n", __func__);
 		complete(&gi3c->done);
 	}
 
@@ -969,6 +987,7 @@ static int _i3c_geni_execute_command
 		I3C_LOG_ERR(gi3c->ipcl, true, gi3c->se.dev,
 			"got wait_for_completion timeout\n");
 		geni_i3c_err(gi3c, GENI_TIMEOUT);
+		geni_i3c_se_dump_dbg_regs(&gi3c->se, gi3c->se.base, gi3c->ipcl);
 		gi3c->cur_buf = NULL;
 		gi3c->cur_len = gi3c->cur_idx = 0;
 		gi3c->cur_rnw = 0;
@@ -983,16 +1002,20 @@ static int _i3c_geni_execute_command
 		if (!time_remaining) {
 			I3C_LOG_ERR(gi3c->ipcl, true, gi3c->se.dev,
 				"%s:Cancel cmd failed : Aborting\n", __func__);
-
+			geni_i3c_se_dump_dbg_regs(&gi3c->se,
+				gi3c->se.base, gi3c->ipcl);
 			reinit_completion(&gi3c->done);
 			spin_lock_irqsave(&gi3c->spinlock, flags);
 			geni_se_abort_m_cmd(&gi3c->se);
 			spin_unlock_irqrestore(&gi3c->spinlock, flags);
 			time_remaining =
 			wait_for_completion_timeout(&gi3c->done, XFER_TIMEOUT);
-			if (!time_remaining)
+			if (!time_remaining) {
 				I3C_LOG_ERR(gi3c->ipcl, true, gi3c->se.dev,
 				"%s:Abort Failed\n", __func__);
+				geni_i3c_se_dump_dbg_regs(&gi3c->se,
+					gi3c->se.base, gi3c->ipcl);
+			}
 		}
 	}
 
@@ -1007,9 +1030,12 @@ static int _i3c_geni_execute_command
 					SE_DMA_TX_FSM_RST);
 			time_remaining =
 			wait_for_completion_timeout(&gi3c->done, XFER_TIMEOUT);
-			if (!time_remaining)
+			if (!time_remaining) {
 				I3C_LOG_ERR(gi3c->ipcl, true, gi3c->se.dev,
 					"Timeout:FSM Reset, rnw:%d\n", rnw);
+				geni_i3c_se_dump_dbg_regs(&gi3c->se,
+					gi3c->se.base, gi3c->ipcl);
+			}
 		}
 
 		if (rnw == READ_TRANSACTION)
@@ -2262,6 +2288,8 @@ static int geni_i3c_probe(struct platform_device *pdev)
 	geni_se_init(&gi3c->se, gi3c->tx_wm, tx_depth);
 	geni_se_config_packing(&gi3c->se, BITS_PER_BYTE, PACKING_BYTES_PW, true, true, true);
 
+	I3C_LOG_DBG(gi3c->ipcl, false, gi3c->se.dev,
+			"%s: i3c_ibi_rsrcs_init()\n", __func__);
 	ret = i3c_ibi_rsrcs_init(gi3c, pdev);
 	if (ret) {
 		I3C_LOG_ERR(gi3c->ipcl, false, gi3c->se.dev,
@@ -2393,6 +2421,8 @@ static int geni_i3c_runtime_suspend(struct device *dev)
 		I3C_LOG_ERR(gi3c->ipcl, false, gi3c->se.dev,
 			"%s geni_icc_disable failed %d\n", __func__, ret);
 
+	I3C_LOG_DBG(gi3c->ipcl, false, gi3c->se.dev, "%s():ret:%d\n",
+			 __func__, ret);
 	return 0;
 }
 
@@ -2416,6 +2446,8 @@ static int geni_i3c_runtime_resume(struct device *dev)
 	}
 
 	enable_irq(gi3c->irq);
+	I3C_LOG_DBG(gi3c->ipcl, false, gi3c->se.dev, "%s(): ret:%d\n",
+			__func__, ret);
 	/* Enable TLMM I3C MODE registers */
 	return 0;
 }
