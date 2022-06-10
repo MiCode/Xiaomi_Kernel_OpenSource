@@ -4030,12 +4030,7 @@ static void sdhci_msm_hw_reset(struct sdhci_host *host)
 		host->mmc->cqe_ops->cqe_disable(host->mmc);
 		host->mmc->cqe_enabled = false;
 	}
-	ret = sdhci_msm_gcc_reset(&pdev->dev, host);
-	if (ret) {
-		dev_err(&pdev->dev, "%s: failed, err = %d\n", __func__,
-				ret);
-		goto out;
-	}
+	sdhci_msm_gcc_reset(&pdev->dev, host);
 
 	sdhci_msm_registers_restore(host);
 	msm_host->reg_store = false;
@@ -4045,7 +4040,6 @@ static void sdhci_msm_hw_reset(struct sdhci_host *host)
 	if (host->mmc->card)
 		mmc_power_cycle(host->mmc, host->mmc->card->ocr);
 #endif
-out:
 	return;
 }
 
@@ -4817,9 +4811,7 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 		goto pltfm_free;
 	}
 
-	ret = sdhci_msm_gcc_reset(&pdev->dev, host);
-	if (ret)
-		goto pltfm_free;
+	sdhci_msm_gcc_reset(&pdev->dev, host);
 
 	msm_host->regs_restore.is_supported =
 		of_property_read_bool(dev->of_node,
