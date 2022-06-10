@@ -543,6 +543,7 @@
   down_timeout
   down_trylock
   down_write
+  down_write_killable
   d_path
   dput
   drain_workqueue
@@ -1685,6 +1686,7 @@
   sdio_writeb
   sdio_writel
   sdio_writesb
+  security_file_ioctl
   send_sig
   seq_hex_dump
   seq_lseek
