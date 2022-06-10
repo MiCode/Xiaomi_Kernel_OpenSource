@@ -887,7 +887,7 @@ struct net_device_path_stack {
 
 struct net_device_path_ctx {
 	const struct net_device *dev;
-	u8			daddr[ETH_ALEN];
+	const u8		*daddr;
 
 	int			num_vlans;
 	struct {
