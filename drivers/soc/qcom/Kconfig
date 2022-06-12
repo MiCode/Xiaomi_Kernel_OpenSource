@@ -100,6 +100,16 @@ config SHOW_SUSPEND_EPOCH
           synchronize various subsystem timestamps and have an unique
           timestamp to correlate between various subsystems.
 
+config QCOM_CRM
+	tristate "Qualcomm Technologies, Inc. (QTI) CRM driver"
+	depends on QCOM_RPMH && (ARCH_QCOM || COMPILE_TEST)
+	help
+	  Support for communication with the hardened-CRM blocks in
+	  Qualcomm Technologies, Inc. (QTI) SoCs. CRM provides interface to
+	  vote desired power state of resources local to a subsystem. A set
+	  of hardware components aggregate requests for these resources and
+	  help apply the aggregated power state on the resource.
+
 config QCOM_GENI_SE
 	tristate "QCOM GENI Serial Engine Driver"
 	depends on ARCH_QCOM || COMPILE_TEST
