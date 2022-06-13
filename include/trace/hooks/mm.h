@@ -13,6 +13,8 @@
 #include <linux/oom.h>
 #include <trace/hooks/vendor_hooks.h>
 
+/* struct slabinfo */
+#include <../mm/slab.h>
 DECLARE_RESTRICTED_HOOK(android_rvh_set_skip_swapcache_flags,
 			TP_PROTO(gfp_t *flags),
 			TP_ARGS(flags), 1);
@@ -37,7 +39,6 @@ DECLARE_HOOK(android_vh_alloc_pages_slowpath,
 DECLARE_HOOK(android_vh_print_slabinfo_header,
 	TP_PROTO(struct seq_file *m),
 	TP_ARGS(m));
-struct slabinfo;
 DECLARE_HOOK(android_vh_cache_show,
 	TP_PROTO(struct seq_file *m, struct slabinfo *sinfo, struct kmem_cache *s),
 	TP_ARGS(m, sinfo, s));

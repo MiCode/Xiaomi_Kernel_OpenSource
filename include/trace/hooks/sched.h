@@ -9,6 +9,8 @@
  * Following tracepoints are not exported in tracefs and provide a
  * mechanism for vendor modules to hook and extend functionality
  */
+/* struct cgroup_taskset */
+#include <../kernel/cgroup/cgroup-internal.h>
 /* struct cgroup_subsys_state */
 #include <linux/cgroup-defs.h>
 /* struct em_perf_domain */
@@ -233,7 +235,6 @@ DECLARE_RESTRICTED_HOOK(android_rvh_update_misfit_status,
 	TP_PROTO(struct task_struct *p, struct rq *rq, bool *need_update),
 	TP_ARGS(p, rq, need_update), 1);
 
-struct cgroup_taskset;
 DECLARE_RESTRICTED_HOOK(android_rvh_cpu_cgroup_attach,
 	TP_PROTO(struct cgroup_taskset *tset),
 	TP_ARGS(tset), 1);

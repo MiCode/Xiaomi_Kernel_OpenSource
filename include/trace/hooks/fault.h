@@ -7,7 +7,8 @@
 #define _TRACE_HOOK_FAULT_H
 #include <trace/hooks/vendor_hooks.h>
 
-struct pt_regs;
+/* struct pt_regs */
+#include <asm/ptrace.h>
 DECLARE_RESTRICTED_HOOK(android_rvh_die_kernel_fault,
 	TP_PROTO(const char *msg, unsigned long addr, unsigned int esr, struct pt_regs *regs),
 	TP_ARGS(msg, addr, esr, regs), 1);
