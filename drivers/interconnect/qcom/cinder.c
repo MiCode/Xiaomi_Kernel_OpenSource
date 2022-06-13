@@ -43,16 +43,6 @@ static struct qcom_icc_node qup1_core_master = {
 	.links = { SLAVE_QUP_CORE_1 },
 };
 
-static struct qcom_icc_node ddr_perf_mode_master = {
-	.name = "ddr_perf_mode_master",
-	.id = MASTER_DDR_PERF_MODE,
-	.channels = 1,
-	.buswidth = 4,
-	.noc_ops = &qcom_qnoc4_ops,
-	.num_links = 1,
-	.links = { SLAVE_DDR_PERF_MODE },
-};
-
 static struct qcom_icc_qosbox alm_sys_tcu_qos = {
 	.regs = icc_qnoc_qos_regs[ICC_QNOC_QOSGEN_TYPE_RPMH],
 	.num_ports = 1,
@@ -649,15 +639,6 @@ static struct qcom_icc_node qup1_core_slave = {
 	.num_links = 0,
 };
 
-static struct qcom_icc_node ddr_perf_mode_slave = {
-	.name = "ddr_perf_mode_slave",
-	.id = SLAVE_DDR_PERF_MODE,
-	.channels = 1,
-	.buswidth = 4,
-	.noc_ops = &qcom_qnoc4_ops,
-	.num_links = 0,
-};
-
 static struct qcom_icc_node qns_gem_noc_cnoc = {
 	.name = "qns_gem_noc_cnoc",
 	.id = SLAVE_GEM_NOC_CNOC,
@@ -1127,14 +1108,6 @@ static struct qcom_icc_bcm bcm_acv = {
 	.nodes = { &ebi },
 };
 
-static struct qcom_icc_bcm bcm_acv_perf = {
-	.name = "ACV_PERF",
-	.voter_idx = 0,
-	.enable_mask = 0x2,
-	.num_nodes = 1,
-	.nodes = { &ddr_perf_mode_slave },
-};
-
 static struct qcom_icc_bcm bcm_ce0 = {
 	.name = "CE0",
 	.voter_idx = 0,
@@ -1243,17 +1216,14 @@ static struct qcom_icc_bcm bcm_sn7 = {
 };
 
 static struct qcom_icc_bcm *clk_virt_bcms[] = {
-	&bcm_acv_perf,
 	&bcm_qup0,
 };
 
 static struct qcom_icc_node *clk_virt_nodes[] = {
 	[MASTER_QUP_CORE_0] = &qup0_core_master,
 	[MASTER_QUP_CORE_1] = &qup1_core_master,
-	[MASTER_DDR_PERF_MODE] = &ddr_perf_mode_master,
 	[SLAVE_QUP_CORE_0] = &qup0_core_slave,
 	[SLAVE_QUP_CORE_1] = &qup1_core_slave,
-	[SLAVE_DDR_PERF_MODE] = &ddr_perf_mode_slave,
 };
 
 static char *clk_virt_voters[] = {
