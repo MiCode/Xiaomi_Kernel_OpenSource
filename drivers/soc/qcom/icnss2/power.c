@@ -647,6 +647,12 @@ int icnss_hw_power_on(struct icnss_priv *priv)
 		goto vreg_off;
 
 	if (priv->pon_gpio_control) {
+		/* Better to power off and then power on, to rule
+		 * out state mismatch between WPSS and wlan chip
+		 */
+		icnss_power_trigger_pinctrl(&priv->pdev->dev,
+					    ICNSS_PINCTRL_OWNER_WLAN,
+					    ICNSS_PINCTRL_SEQ_OFF);
 		ret = icnss_power_trigger_pinctrl(&priv->pdev->dev,
 						  ICNSS_PINCTRL_OWNER_WLAN,
 						  ICNSS_PINCTRL_SEQ_ON);
