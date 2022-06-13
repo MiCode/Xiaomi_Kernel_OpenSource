@@ -853,20 +853,13 @@ static void qcom_slim_ngd_disable_irq(struct qcom_slim_ngd_ctrl *ctrl)
 	}
 }
 
-static bool device_pending_suspend(struct qcom_slim_ngd_ctrl *ctrl)
-{
-	int usage_count = atomic_read(&ctrl->ctrl.dev->power.usage_count);
-
-	return (pm_runtime_status_suspended(ctrl->ctrl.dev) || !usage_count);
-}
-
 static irqreturn_t qcom_slim_ngd_interrupt(int irq, void *d)
 {
 	struct qcom_slim_ngd_ctrl *ctrl = d;
 	void __iomem *base = ctrl->ngd->base;
 	u32 stat;
 
-	if (device_pending_suspend(ctrl)) {
+	if (pm_runtime_suspended(ctrl->ctrl.dev)) {
 		SLIM_INFO(ctrl, "Slimbus is in suspend state %d\n",
 			ctrl->irq_disabled);
 		return IRQ_HANDLED;
