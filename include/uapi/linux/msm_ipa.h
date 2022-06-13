@@ -146,8 +146,8 @@
 #define IPA_IOCTL_FLT_MEM_PERIPHERAL_SET_PRIO_HIGH 91
 #define IPA_IOCTL_ADD_MACSEC_MAPPING            92
 #define IPA_IOCTL_DEL_MACSEC_MAPPING            93
-#define IPA_IOCTL_QUERY_CACHED_DRIVER_MSG	94
-
+#define IPA_IOCTL_QUERY_CACHED_DRIVER_MSG       94
+#define IPA_IOCTL_SET_EXT_ROUTER_MODE           95
 /**
  * max size of the header to be inserted
  */
@@ -921,7 +921,13 @@ enum ipa_done_restore_event {
 	#define IPA_DONE_RESTORE_EVENT_MAX IPA_DONE_RESTORE_EVENT_MAX
 };
 
-#define IPA_EVENT_MAX_NUM (IPA_DONE_RESTORE_EVENT_MAX)
+enum ipa_ext_route_evt {
+	IPA_SET_EXT_ROUTER_MODE_EVENT = IPA_DONE_RESTORE_EVENT_MAX,
+	IPA_SET_EXT_ROUTER_MODE_EVENT_MAX
+#define IPA_SET_EXT_ROUTER_MODE_EVENT_MAX IPA_SET_EXT_ROUTER_MODE_EVENT_MAX
+};
+
+#define IPA_EVENT_MAX_NUM (IPA_SET_EXT_ROUTER_MODE_EVENT_MAX)
 #define IPA_EVENT_MAX ((int)IPA_EVENT_MAX_NUM)
 
 /**
@@ -3371,6 +3377,27 @@ struct ipa_ioc_macsec_info {
 	__u32 padding;
 };
 
+
+enum ipa_ext_router_mode {
+	IPA_PREFIX_DISABLED = 0,
+	IPA_PREFIX_SHARING,
+	IPA_PREFIX_DELEGATION
+};
+
+/**
+ * struct ipa_ioc_ext_router_info - provide ext_router info
+ * @ipa_ext_router_mode: prefix sharing, prefix delegation, or disabled mode
+ * @pdn_name: PDN interface name
+ * @ipv6_addr: the prefix addr used for dummy or delegated prefixes
+ * @ipv6_mask: the ipv6 mask used to mask above addr to get the correct prefix
+ */
+struct ipa_ioc_ext_router_info {
+	enum ipa_ext_router_mode mode;
+	char pdn_name[IPA_RESOURCE_NAME_MAX];
+	uint32_t ipv6_addr[4];
+	uint32_t ipv6_mask[4];
+};
+
 /**
  *   actual IOCTLs supported by IPA driver
  */
@@ -3687,6 +3714,11 @@ struct ipa_ioc_macsec_info {
 #define IPA_IOC_DEL_MACSEC_MAPPING _IOWR(IPA_IOC_MAGIC, \
 				IPA_IOCTL_DEL_MACSEC_MAPPING, \
 				struct ipa_ioc_macsec_info)
+
+#define IPA_IOC_SET_EXT_ROUTER_MODE _IOWR(IPA_IOC_MAGIC, \
+				IPA_IOCTL_SET_EXT_ROUTER_MODE, \
+				struct ipa_ioc_ext_router_info)
+
 
 /*
  * unique magic number of the Tethering bridge ioctls
