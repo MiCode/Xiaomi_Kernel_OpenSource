@@ -3819,7 +3819,7 @@ static bool ttwu_queue_wakelist(struct task_struct *p, int cpu, int wake_flags)
 {
 	bool cond = false;
 
-	trace_android_rvh_ttwu_cond(&cond);
+	trace_android_rvh_ttwu_cond(cpu, &cond);
 
 	if ((sched_feat(TTWU_QUEUE) && ttwu_queue_cond(cpu, wake_flags)) ||
 			cond) {
@@ -5267,6 +5267,7 @@ unsigned long long task_sched_runtime(struct task_struct *p)
 
 	return ns;
 }
+EXPORT_SYMBOL_GPL(task_sched_runtime);
 
 #ifdef CONFIG_SCHED_DEBUG
 static u64 cpu_resched_latency(struct rq *rq)
