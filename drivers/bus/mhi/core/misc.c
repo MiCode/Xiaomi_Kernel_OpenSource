@@ -1882,6 +1882,9 @@ int mhi_force_reset(struct mhi_controller *mhi_cntrl)
 		 TO_MHI_STATE_STR(mhi_cntrl->dev_state),
 		 TO_MHI_EXEC_STR(mhi_cntrl->ee));
 
+	/* notify critical clients in absence of RDDM */
+	mhi_report_error(mhi_cntrl);
+
 	mhi_soc_reset(mhi_cntrl);
 	return mhi_rddm_download_status(mhi_cntrl);
 }
