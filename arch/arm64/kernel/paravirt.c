@@ -35,7 +35,7 @@ static u64 native_steal_clock(int cpu)
 DEFINE_STATIC_CALL(pv_steal_clock, native_steal_clock);
 
 struct pv_time_stolen_time_region {
-	struct pvclock_vcpu_stolen_time *kaddr;
+	struct pvclock_vcpu_stolen_time __rcu *kaddr;
 };
 
 static DEFINE_PER_CPU(struct pv_time_stolen_time_region, stolen_time_region);
@@ -84,8 +84,7 @@ static int stolen_time_cpu_down_prepare(unsigned int cpu)
 	if (!reg->kaddr)
 		return 0;
 
-	kaddr = reg->kaddr;
-	rcu_assign_pointer(reg->kaddr, NULL);
+	kaddr = rcu_replace_pointer(reg->kaddr, NULL, true);
 	synchronize_rcu();
 	memunmap(kaddr);
 
@@ -116,8 +115,8 @@ static int stolen_time_cpu_online(unsigned int cpu)
 		return -ENOMEM;
 	}
 
-	if (le32_to_cpu(reg->kaddr->revision) != 0 ||
-	    le32_to_cpu(reg->kaddr->attributes) != 0) {
+	if (le32_to_cpu(kaddr->revision) != 0 ||
+	    le32_to_cpu(kaddr->attributes) != 0) {
 		pr_warn_once("Unexpected revision or attributes in stolen time data\n");
 		return -ENXIO;
 	}

@@ -185,11 +185,13 @@ define_db845c(
         "drivers/watchdog/qcom-wdt.ko",
         # TODO(b/233404531): Remove zsmalloc.ko when db845c is a mixed build
         "mm/zsmalloc.ko",
+        "net/mac80211/mac80211.ko",
         "net/qrtr/ns.ko",
         "net/qrtr/qrtr.ko",
         "net/qrtr/qrtr-mhi.ko",
         "net/qrtr/qrtr-smd.ko",
         "net/qrtr/qrtr-tun.ko",
+        "net/wireless/cfg80211.ko",
         "sound/soc/codecs/snd-soc-dmic.ko",
         "sound/soc/codecs/snd-soc-hdmi-codec.ko",
         "sound/soc/codecs/snd-soc-lpass-va-macro.ko",

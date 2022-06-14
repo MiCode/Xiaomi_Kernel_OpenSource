@@ -686,10 +686,6 @@
   skb_queue_purge
 
 # required by mac80211_hwsim.ko
-  __cfg80211_alloc_event_skb
-  __cfg80211_alloc_reply_skb
-  __cfg80211_send_event_skb
-  cfg80211_vendor_cmd_reply
   debugfs_attr_read
   debugfs_attr_write
   dev_alloc_name
@@ -700,29 +696,6 @@
   genl_notify
   genl_register_family
   genl_unregister_family
-  ieee80211_alloc_hw_nm
-  ieee80211_beacon_cntdwn_is_complete
-  ieee80211_beacon_get_tim
-  ieee80211_csa_finish
-  ieee80211_free_hw
-  ieee80211_free_txskb
-  ieee80211_get_buffered_bc
-  ieee80211_get_tx_rates
-  ieee80211_iterate_active_interfaces_atomic
-  ieee80211_probereq_get
-  ieee80211_queue_delayed_work
-  ieee80211_radar_detected
-  ieee80211_ready_on_channel
-  ieee80211_register_hw
-  ieee80211_remain_on_channel_expired
-  ieee80211_rx_irqsafe
-  ieee80211_scan_completed
-  ieee80211_stop_queues
-  ieee80211_stop_tx_ba_cb_irqsafe
-  ieee80211_tx_prepare_skb
-  ieee80211_tx_status_irqsafe
-  ieee80211_unregister_hw
-  ieee80211_wake_queues
   init_net
   netlink_broadcast
   netlink_register_notifier
@@ -734,7 +707,6 @@
   nla_put_64bit
   nla_put
   register_pernet_device
-  regulatory_hint
   rhashtable_destroy
   rhashtable_init
   rhashtable_insert_slow
@@ -749,7 +721,6 @@
   __skb_ext_put
   skb_unlink
   unregister_pernet_device
-  wiphy_apply_custom_regulatory
 
 # required by nd_virtio.ko
   bio_alloc_bioset
@@ -1025,21 +996,12 @@
   wake_up_process
 
 # required by virt_wifi.ko
-  cfg80211_connect_done
-  cfg80211_disconnected
-  cfg80211_inform_bss_data
-  cfg80211_put_bss
-  cfg80211_scan_done
   __dev_get_by_index
   _dev_printk
   __module_get
   netdev_upper_dev_link
   netif_stacked_transfer_operstate
   unregister_netdevice_many
-  wiphy_free
-  wiphy_new_nm
-  wiphy_register
-  wiphy_unregister
 
 # required by virtio-gpu.ko
   __devm_request_region
