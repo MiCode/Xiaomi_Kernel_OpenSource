@@ -983,6 +983,7 @@ struct ufs_hba {
 	bool complete_put;
 
 	ANDROID_VENDOR_DATA(1);
+	ANDROID_OEM_DATA_ARRAY(1, 2);
 
 	ANDROID_KABI_RESERVE(1);
 	ANDROID_KABI_RESERVE(2);
