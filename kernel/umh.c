@@ -333,33 +333,6 @@ static void helper_unlock(void)
 }
 
 /**
- * Android supported usermode helper executables.
- *
- */
-static const char * const usermode_executable_path[] = {
-		"/sbin/reboot",
-		"/sbin/poweroff"
-};
-
-static bool check_usermodehelper_supported_commands(const char *path)
-{
-	int i;
-
-	if (!strlen(path))
-		return false;
-
-	/*
-	 *  Check path is part of ANDROID supported usermode helper executables or not.
-	 *  Googlge and OEMs can add supported executables to usermode_executable_path.
-	 */
-	for (i = 0; i < ARRAY_SIZE(usermode_executable_path); i++)
-		if (!strcmp(path, usermode_executable_path[i]))
-			return true;
-
-	return false;
-}
-
-/**
  * call_usermodehelper_setup - prepare to call a usermode helper
  * @path: path to usermode executable
  * @argv: arg vector for process
@@ -400,9 +373,6 @@ struct subprocess_info *call_usermodehelper_setup(const char *path, char **argv,
 #else
 	sub_info->path = path;
 #endif
-	if (check_usermodehelper_supported_commands(path))
-		sub_info->path = path;
-
 	sub_info->argv = argv;
 	sub_info->envp = envp;
 
