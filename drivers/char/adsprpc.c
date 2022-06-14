@@ -6957,7 +6957,8 @@ static void  fastrpc_print_debug_data(int cid)
 	scnprintf(mini_dump_buff + strlen(mini_dump_buff),
 			MINI_DUMP_DBG_SIZE - strlen(mini_dump_buff),
 			"gmsg_log_rx:\n %s\n", gmsg_log_rx);
-	chan->buf->size = strlen(mini_dump_buff);
+	if (chan && chan->buf)
+		chan->buf->size = strlen(mini_dump_buff);
 	kfree(gmsg_log_tx);
 	kfree(gmsg_log_rx);
 }
