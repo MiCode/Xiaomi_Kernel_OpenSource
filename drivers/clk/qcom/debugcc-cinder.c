@@ -350,6 +350,11 @@ static const char *const gcc_debug_mux_parent_names[] = {
 	"measure_only_pcie_0_phy_aux_clk",
 	"measure_only_pcie_0_pipe_clk",
 	"measure_only_usb3_phy_wrapper_gcc_usb30_pipe_clk",
+	"gcc_eth_100g_c2c_hm_apb_clk",
+	"gcc_eth_100g_fh_hm_apb_0_clk",
+	"gcc_eth_100g_fh_hm_apb_1_clk",
+	"gcc_eth_100g_fh_hm_apb_2_clk",
+	"gcc_eth_dbg_c2c_hm_apb_clk",
 };
 
 static int gcc_debug_mux_sels[] = {
@@ -435,6 +440,11 @@ static int gcc_debug_mux_sels[] = {
 	0xD5,		/* measure_only_pcie_0_phy_aux_clk */
 	0xD4,		/* measure_only_pcie_0_pipe_clk */
 	0x66,		/* measure_only_usb3_phy_wrapper_gcc_usb30_pipe_clk */
+	0xFF,		/* gcc_eth_100g_c2c_hm_apb_clk */
+	0xFC,		/* gcc_eth_100g_fh_hm_apb_0_clk */
+	0xFD,		/* gcc_eth_100g_fh_hm_apb_1_clk */
+	0xFE,		/* gcc_eth_100g_fh_hm_apb_2_clk */
+	0x100,		/* gcc_eth_dbg_c2c_hm_apb_clk */
 };
 
 static struct clk_debug_mux gcc_debug_mux = {
