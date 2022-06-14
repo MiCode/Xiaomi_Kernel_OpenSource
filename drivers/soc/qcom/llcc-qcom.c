@@ -145,9 +145,13 @@ static u32 llcc_offsets_v2[] = {
 
 static u32 llcc_offsets_v21[] = {
 	0x0,
-	0x400000,
 	0x100000,
-	0x500000
+	0x400000,
+	0x500000,
+	0x800000,
+	0x900000,
+	0xC00000,
+	0xD00000
 };
 
 static u32 llcc_offsets_v41[] = {
