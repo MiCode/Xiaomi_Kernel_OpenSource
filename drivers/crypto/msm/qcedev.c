@@ -351,8 +351,12 @@ void qcedev_sha_req_cb(void *cookie, unsigned char *digest,
 	uint32_t *auth32 = (uint32_t *)authdata;
 
 	areq = (struct qcedev_sha_req *) cookie;
+	if (!areq || !areq->cookie)
+		return;
 	handle = (struct qcedev_handle *) areq->cookie;
 	pdev = handle->cntl;
+	if (!pdev)
+		return;
 
 	if (digest)
 		memcpy(&handle->sha_ctxt.digest[0], digest, 32);
@@ -375,8 +379,12 @@ void qcedev_cipher_req_cb(void *cookie, unsigned char *icv,
 	struct qcedev_async_req *qcedev_areq;
 
 	areq = (struct qcedev_cipher_req *) cookie;
+	if (!areq || !areq->cookie)
+		return;
 	handle = (struct qcedev_handle *) areq->cookie;
 	podev = handle->cntl;
+	if (!podev)
+		return;
 	qcedev_areq = podev->active_command;
 
 	if (iv)
@@ -497,8 +505,12 @@ void qcedev_offload_cipher_req_cb(void *cookie, unsigned char *icv,
 	struct qcedev_async_req *qcedev_areq;
 
 	areq = (struct qcedev_cipher_req *) cookie;
+	if (!areq || !areq->cookie)
+		return;
 	handle = (struct qcedev_handle *) areq->cookie;
 	podev = handle->cntl;
+	if (!podev)
+		return;
 	qcedev_areq = podev->active_command;
 
 	if (iv)
