@@ -106,6 +106,7 @@ enum qce_req_op_enum {
 
 /* Offload operation type */
 enum qce_offload_op_enum {
+	QCE_OFFLOAD_NONE = 0, /* kernel pipe */
 	QCE_OFFLOAD_HLOS_HLOS = 1,
 	QCE_OFFLOAD_HLOS_CPB = 2,
 	QCE_OFFLOAD_CPB_HLOS = 3,
