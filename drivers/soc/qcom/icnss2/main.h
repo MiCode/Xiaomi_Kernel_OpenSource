@@ -17,6 +17,7 @@
 #include <soc/qcom/icnss2.h>
 #include "wlan_firmware_service_v01.h"
 #include <linux/mailbox_client.h>
+#include <linux/timer.h>
 
 #define WCN6750_DEVICE_ID 0x6750
 #define ADRASTEA_DEVICE_ID 0xabcd
@@ -499,6 +500,7 @@ struct icnss_priv {
 	u32 pon_pinctrl_owners;
 	u32 pof_pinctrl_owners;
 	bool pon_in_progress;
+	struct timer_list recovery_timer;
 };
 
 struct icnss_reg_info {
@@ -528,5 +530,6 @@ void icnss_add_fw_prefix_name(struct icnss_priv *priv, char *prefix_name,
 int icnss_aop_mbox_init(struct icnss_priv *priv);
 struct icnss_priv *icnss_get_plat_priv(void);
 int icnss_get_pinctrl(struct icnss_priv *priv);
+void icnss_recovery_timeout_hdlr(struct timer_list *t);
 #endif
 
