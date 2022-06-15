@@ -67,6 +67,7 @@ obj-$(CONFIG_QDRU_ECPRICC_CINDER) += ecpricc-cinder.o
 obj-$(CONFIG_QDRU_GCC_CINDER) += gcc-cinder.o
 obj-$(CONFIG_QDRU_DEBUGCC_CINDER) += debugcc-cinder.o
 obj-$(CONFIG_SC_CAMCC_7180) += camcc-sc7180.o
+obj-$(CONFIG_SC_CAMCC_8180X) += camcc-sc8180x.o
 obj-$(CONFIG_SC_DISPCC_7180) += dispcc-sc7180.o
 obj-$(CONFIG_SC_DISPCC_7280) += dispcc-sc7280.o
 obj-$(CONFIG_SC_GCC_7180) += gcc-sc7180.o
