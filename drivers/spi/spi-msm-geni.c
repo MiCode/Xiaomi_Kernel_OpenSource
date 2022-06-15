@@ -1574,7 +1574,8 @@ static int spi_geni_transfer_one(struct spi_master *spi,
 	}
 
 	tx_timeout = (1000 * xfer->len * BITS_PER_BYTE) / xfer->speed_hz;
-	tx_timeout += SPI_XFER_TIMEOUT_OFFSET;
+	if (!spi->slave)
+		tx_timeout += SPI_XFER_TIMEOUT_OFFSET;
 
 	if (mas->cur_xfer_mode != GSI_DMA) {
 		reinit_completion(&mas->xfer_done);
