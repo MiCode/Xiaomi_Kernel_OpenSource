@@ -738,7 +738,7 @@ static int submit_req(struct qcedev_async_req *qcedev_areq,
 	int ret = 0;
 	struct qcedev_stat *pstat;
 	int current_req_info = 0;
-	int wait = 0;
+	int wait = MAX_CRYPTO_WAIT_TIME;
 	bool print_sts = false;
 
 	qcedev_areq->err = 0;
