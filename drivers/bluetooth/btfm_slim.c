@@ -131,8 +131,8 @@ int btfm_slim_enable_ch(struct btfmslim *btfmslim, struct btfmslim_ch *ch,
 				goto error;
 			}
 		}
-		chan->dai.sconfig.chs[i] = chan->ch;
-		chan->dai.sconfig.port_mask |= BIT(chan->port);
+		chan->dai.sconfig.chs[i] = ch->ch;
+		chan->dai.sconfig.port_mask |= BIT(ch->port);
 	}
 
 	/* Activate the channel immediately */
