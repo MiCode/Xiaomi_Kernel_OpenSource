@@ -87,8 +87,7 @@ int kgsl_reclaim_to_pinned_state(
 			break;
 		}
 
-		if (!entry->pending_free &&
-				(entry->memdesc.priv & KGSL_MEMDESC_RECLAIMED))
+		if (entry->memdesc.priv & KGSL_MEMDESC_RECLAIMED)
 			valid_entry = kgsl_mem_entry_get(entry);
 		spin_unlock(&process->mem_lock);
 
@@ -240,8 +239,7 @@ static u32 kgsl_reclaim_process(struct kgsl_process_private *process,
 		}
 
 		memdesc = &entry->memdesc;
-		if (!entry->pending_free &&
-				(memdesc->priv & KGSL_MEMDESC_CAN_RECLAIM) &&
+		if ((memdesc->priv & KGSL_MEMDESC_CAN_RECLAIM) &&
 				!(memdesc->priv & KGSL_MEMDESC_RECLAIMED) &&
 				!(memdesc->priv & KGSL_MEMDESC_SKIP_RECLAIM))
 			valid_entry = kgsl_mem_entry_get(entry);
