@@ -513,6 +513,7 @@ static int start_offload_cipher_req(struct qcedev_control *podev,
 	u8 patt_sz = 0, proc_data_sz = 0;
 	int ret = 0;
 
+	memset(&creq, 0, sizeof(creq));
 	/* Start the command on the podev->active_command */
 	qcedev_areq = podev->active_command;
 	qcedev_areq->cipher_req.cookie = qcedev_areq->handle;
