@@ -365,6 +365,7 @@
   devm_nvmem_device_get
   devm_nvmem_register
   devm_of_clk_add_hw_provider
+  devm_of_clk_del_provider
   devm_of_icc_get
   __devm_of_phy_provider_register
   devm_of_platform_populate
