@@ -2004,6 +2004,34 @@ static ssize_t link_speed_override_store(struct device *dev,
 }
 static DEVICE_ATTR_RW(link_speed_override);
 
+static ssize_t sbr_link_recovery_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	struct msm_pcie_dev_t *pcie_dev = dev_get_drvdata(dev);
+
+	return scnprintf(buf, PAGE_SIZE,
+			 "PCIe: RC%d: sbr_link_recovery is set to: 0x%x\n",
+			 pcie_dev->rc_idx, pcie_dev->linkdown_recovery_enable);
+}
+
+static ssize_t sbr_link_recovery_store(struct device *dev,
+					 struct device_attribute *attr,
+					 const char *buf, size_t count)
+{
+	u32 linkdown_recovery_enable;
+	struct msm_pcie_dev_t *pcie_dev = dev_get_drvdata(dev);
+
+	if (kstrtou32(buf, 0, &linkdown_recovery_enable))
+		return -EINVAL;
+
+	pcie_dev->linkdown_recovery_enable = linkdown_recovery_enable;
+	PCIE_DBG(pcie_dev, "PCIe: RC%d: sbr_link_recovery is set to: %d\n",
+		 pcie_dev->rc_idx, linkdown_recovery_enable);
+
+	return count;
+}
+static DEVICE_ATTR_RW(sbr_link_recovery);
+
 static struct attribute *msm_pcie_debug_attrs[] = {
 	&dev_attr_link_check_max_count.attr,
 	&dev_attr_enumerate.attr,
@@ -2011,6 +2039,7 @@ static struct attribute *msm_pcie_debug_attrs[] = {
 	&dev_attr_boot_option.attr,
 	&dev_attr_panic_on_aer.attr,
 	&dev_attr_link_speed_override.attr,
+	&dev_attr_sbr_link_recovery.attr,
 	NULL,
 };
 
@@ -3845,10 +3874,6 @@ static int msm_pcie_get_reset(struct msm_pcie_dev_t *pcie_dev)
 			PCIE_DBG(pcie_dev, "Ignoring Linkdown Reset %s\n",
 				reset_info->name);
 			reset_info->hdl = NULL;
-		} else {
-			/* Enable link-recovery if resets are specified */
-			pcie_dev->linkdown_recovery_enable = true;
-			PCIE_DBG(pcie_dev, "Enable Linkdown recovery\n");
 		}
 	}
 
