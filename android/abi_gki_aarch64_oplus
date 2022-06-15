@@ -164,6 +164,7 @@
   schedule
   schedule_timeout
   scnprintf
+  shrink_slab
   set_capacity
   set_capacity_and_notify
   __SetPageMovable
@@ -193,3 +194,11 @@
   vzalloc
   __wake_up
   wake_up_process
+  __traceiter_android_vh_page_referenced_check_bypass
+  __traceiter_android_vh_drain_all_pages_bypass
+  __traceiter_android_vh_cma_drain_all_pages_bypass
+  __traceiter_android_vh_pcplist_add_cma_pages_bypass
+  __tracepoint_android_vh_page_referenced_check_bypass
+  __tracepoint_android_vh_drain_all_pages_bypass
+  __tracepoint_android_vh_cma_drain_all_pages_bypass
+  __tracepoint_android_vh_pcplist_add_cma_pages_bypass
