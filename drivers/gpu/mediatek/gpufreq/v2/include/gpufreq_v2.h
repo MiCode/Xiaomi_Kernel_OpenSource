@@ -19,6 +19,7 @@
 #define GPUFERQ_TAG                     "[GPU/FREQ]"
 #define GPUFREQ_TRACE_TAG               "[GPU/TRACE]"
 #define GPUFREQ_MEM_TABLE_IDX           (1)
+#define GPUFREQ_MAGIC_NUMBER            (0xBABADADA)
 #define GPUFREQ_MAX_OPP_NUM             (70)
 #define GPUFREQ_MAX_ADJ_NUM             (10)
 #define GPUFREQ_MAX_REG_NUM             (70)
@@ -236,6 +237,7 @@ struct gpufreq_reg_info {
  **************************************************/
 #define GPUFREQ_SHARED_STATUS_SIZE      (sizeof(struct gpufreq_shared_status))
 struct gpufreq_shared_status {
+	int magic;
 	int cur_oppidx_gpu;
 	int cur_oppidx_stack;
 	int opp_num_gpu;

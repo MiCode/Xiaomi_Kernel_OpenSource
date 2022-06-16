@@ -1500,6 +1500,7 @@ void __gpufreq_set_shared_status(struct gpufreq_shared_status *shared_status)
 
 	/* update current status to shared memory */
 	if (g_shared_status) {
+		g_shared_status->magic = GPUFREQ_MAGIC_NUMBER;
 		g_shared_status->cur_oppidx_gpu = g_gpu.cur_oppidx;
 		g_shared_status->opp_num_gpu = g_gpu.opp_num;
 		g_shared_status->signed_opp_num_gpu = g_gpu.signed_opp_num;
