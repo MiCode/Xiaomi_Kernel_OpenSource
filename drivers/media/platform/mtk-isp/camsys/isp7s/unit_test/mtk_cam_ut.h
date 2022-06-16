@@ -20,8 +20,6 @@
 #define CAM_MAX_DMA (CAM_MAX_IMAGE_OUTPUT * CAM_MAX_PLANENUM \
 			+ CAM_MAX_META_OUTPUT + CAM_MAX_PIPE_USED)
 
-#define SENINF_OFFSET 0x1000
-
 enum seninf_enum {
 	seninf_0 = 0,
 	seninf_1,

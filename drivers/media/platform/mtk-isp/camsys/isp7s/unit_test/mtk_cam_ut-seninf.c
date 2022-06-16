@@ -29,6 +29,8 @@ static int get_test_hmargin(int w, int h, int clk_cnt, int clk_mhz, int fps)
 	return max(target_h - h, 0x80);
 }
 
+#define SENINF_OFFSET 0x1000
+
 static int ut_seninf_set_testmdl(struct device *dev,
 				 int width, int height,
 				 int pixmode_lg2,
@@ -39,18 +41,12 @@ static int ut_seninf_set_testmdl(struct device *dev,
 	struct mtk_ut_seninf_device *seninf = dev_get_drvdata(dev);
 	unsigned int cam_mux_ctrl;
 	void __iomem *cam_mux_ctrl_addr;
-	void __iomem *base = seninf->base + 6 * SENINF_OFFSET;
+	void __iomem *base = seninf->base + seninf_idx * SENINF_OFFSET;
 	const u16 dummy_pxl = testmdl_hblank, h_margin = 0x1000;
 	const u8 clk_div_cnt = (16 >> pixmode_lg2) - 1;
 	const u16 dum_vsync = get_test_hmargin(width + dummy_pxl,
 					      height + h_margin,
 					      clk_div_cnt, 416, 30);
-
-	(void)seninf_idx;
-	(void)tg_idx;
-
-	(void)cam_mux_ctrl;
-
 
 	dev_info(dev, "%s width %d x height %d dum_vsync %d pixmode_lg2 %d clk_div_cnt %d\n",
 		 __func__, width, height, dum_vsync,
@@ -58,23 +54,25 @@ static int ut_seninf_set_testmdl(struct device *dev,
 	dev_info(dev, "%s seninf_idx %d tg_idx %d\n", __func__, seninf_idx, tg_idx);
 
 	/* test mdl */
-	writel_relaxed((height + h_margin) << 16 | width,
-		       ISP_SENINF_TM_SIZE(base));//F0c
-	writel_relaxed(clk_div_cnt, ISP_SENINF_TM_CLK(base));//f10
-	writel_relaxed(dum_vsync << 16 | dummy_pxl, ISP_SENINF_TM_DUM(base));//f18
-	writel_relaxed(0xa0a << 12 | pattern << 4 | 0x1, ISP_SENINF_TM_CTL(base));//f08
-	writel_relaxed(0x1f << 16 | 3 << 8 | 0x1,
-		       ISP_SENINF_MUX_CTRL_1(base));//d04
-	writel_relaxed(0x1, ISP_SENINF_MUX_CTRL_0(base));//d00
-	writel_relaxed(0x1, ISP_SENINF_TSETMDL_CTRL(base));//220
-	writel_relaxed(0x1, ISP_SENINF_CTRL(base));//200
+	writel((height + h_margin) << 16 | width, ISP_SENINF_TM_SIZE(base));
+	writel(clk_div_cnt, ISP_SENINF_TM_CLK(base));
+	writel(dum_vsync << 16 | dummy_pxl, ISP_SENINF_TM_DUM(base));
+	writel(0xa0a << 12 | pattern << 4 | 0x1, ISP_SENINF_TM_CTL(base));
+	writel(0x1f << 16 | 3 << 8 | 0x1, ISP_SENINF_MUX_CTRL_1(base));
+	writel(0x1, ISP_SENINF_MUX_CTRL_0(base));
+	writel(0x1, ISP_SENINF_TSETMDL_CTRL(base));
+	writel(0x1, ISP_SENINF_CTRL(base));
 
 	/* cam mux ctrl */
-	cam_mux_ctrl_addr = seninf->base + 2 * SENINF_OFFSET + 0x15880;
-	writel_relaxed(0x3f82a2, cam_mux_ctrl_addr);
-
-	/* make sure all the seninf setting take effect */
-	wmb();
+	cam_mux_ctrl_addr = ISP_SENINF_CAM_MUX_PCSR_0(seninf->base) + tg_idx * 0x40;
+	cam_mux_ctrl = readl(cam_mux_ctrl_addr);
+	cam_mux_ctrl &= 0xFFFF7C40;
+	cam_mux_ctrl |= tg_idx;
+	cam_mux_ctrl |= (2 << 8); /* chk pix mode */
+	cam_mux_ctrl |= 0x80; /* cam mux en */
+	cam_mux_ctrl |= 0x8000; /* cam mux check en */
+	writel(cam_mux_ctrl, cam_mux_ctrl_addr);
+	dev_info(dev, "CAM_MUX_PCSR_%d: 0x%x\n", tg_idx, cam_mux_ctrl);
 
 	return 0;
 }
@@ -83,17 +81,20 @@ static int ut_seninf_reset(struct device *dev)
 {
 	struct mtk_ut_seninf_device *seninf = dev_get_drvdata(dev);
 	void __iomem *cam_mux_ctrl_addr;
-	//int i;
 	unsigned int cam_mux_ctrl;
+	int max_cammux_idx = 0;
+	int i;
 
-	//for (i = 0; i < 1; i++) {
-		cam_mux_ctrl_addr = ISP_SENINF_CAM_MUX_PCSR_0(seninf->base) + 34 * 0x40;
+	max_cammux_idx = max(max_cammux_idx, seninf->cammux_camsv_sat_range[1]);
+	max_cammux_idx = max(max_cammux_idx, seninf->cammux_raw_range[1]);
+
+	for (i = 0; i < max_cammux_idx; i++) {
+		cam_mux_ctrl_addr =
+			ISP_SENINF_CAM_MUX_PCSR_0(seninf->base) + i * 0x40;
 		cam_mux_ctrl = readl_relaxed(cam_mux_ctrl_addr);
-		cam_mux_ctrl &= 0xFFFF7F7F;
-		writel_relaxed(cam_mux_ctrl, cam_mux_ctrl_addr);
-	//}
-	/* make sure all the seninf setting take effect */
-	wmb();
+		cam_mux_ctrl &= 0xFFFF7F3F;
+		writel(cam_mux_ctrl, cam_mux_ctrl_addr);
+	}
 
 	return 0;
 }
@@ -133,6 +134,29 @@ static const struct component_ops mtk_ut_seninf_component_ops = {
 	.unbind = mtk_ut_seninf_component_unbind,
 };
 
+static int seninf_of_probe_range(struct device *dev, const char *range_prop,
+				 int range[2])
+{
+	int i, ret;
+
+	for (i = 0; i < 2; i++) {
+
+		ret = of_property_read_u32_index(dev->of_node, range_prop,
+						 i, range + i);
+		if (ret) {
+			dev_info(dev,
+				 "%s: ERROR: read property %s, index %d failed, ret:%d\n",
+				 __func__, range_prop, i, ret);
+			return -1;
+		}
+	}
+
+	dev_info(dev, "%s: %s: range [%d, %d]\n",
+		 __func__, range_prop, range[0], range[1]);
+
+	return 0;
+}
+
 static int mtk_ut_seninf_of_probe(struct platform_device *pdev,
 			    struct mtk_ut_seninf_device *seninf)
 {
@@ -152,7 +176,7 @@ static int mtk_ut_seninf_of_probe(struct platform_device *pdev,
 		dev_info(dev, "failed to map register base\n");
 		return PTR_ERR(seninf->base);
 	}
-	dev_dbg(dev, "seninf, map_addr=0x%pK\n", seninf->base);
+	dev_info(dev, "seninf, map_addr=0x%lx\n", seninf->base);
 
 	clks = of_count_phandle_with_args(pdev->dev.of_node,
 				"clocks", "#clock-cells");
@@ -174,6 +198,24 @@ static int mtk_ut_seninf_of_probe(struct platform_device *pdev,
 			return -ENODEV;
 		}
 	}
+
+	/* mux */
+	if (seninf_of_probe_range(dev, "mux-camsv-sat_range",
+				  seninf->mux_camsv_sat_range))
+		return -ENODEV;
+
+	if (seninf_of_probe_range(dev, "mux-raw_range",
+				  seninf->mux_raw_range))
+		return -ENODEV;
+
+	/* cammux */
+	if (seninf_of_probe_range(dev, "cammux-camsv-sat_range",
+				  seninf->cammux_camsv_sat_range))
+		return -ENODEV;
+
+	if (seninf_of_probe_range(dev, "cammux-raw_range",
+				  seninf->cammux_raw_range))
+		return -ENODEV;
 
 	return 0;
 }

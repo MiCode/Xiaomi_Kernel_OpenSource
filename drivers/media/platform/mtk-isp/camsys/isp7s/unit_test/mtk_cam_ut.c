@@ -423,6 +423,117 @@ static int dequeue_buffer(struct mtk_cam_ut *ut, unsigned int timeout_ms)
 	return 0;
 }
 
+static int set_test_mdl(struct mtk_cam_ut *ut,
+			struct cam_ioctl_set_testmdl *testmdl)
+{
+	struct device *dev = ut->dev;
+	struct device *seninf = ut->seninf;
+	int width, height;
+	int pixel_mode;
+	int pattern;
+
+	width = testmdl->width;
+	height = testmdl->height;
+	pattern = testmdl->pattern;
+
+	pixel_mode = testmdl->pixmode_lg2;
+	if (debug_testmdl_pixmode >= 0) {
+		dev_info(dev, "DEBUG: set testmdl pixel mode (log2) %d\n",
+			 debug_testmdl_pixmode);
+		pixel_mode = debug_testmdl_pixmode;
+	}
+
+	if (testmdl->mode == (u8)-1)
+		dev_info(dev, "without testmdl\n");
+	else {
+		ut->with_testmdl = 1;
+		// reset cam mux
+		CALL_SENINF_OPS(seninf, reset);
+	}
+
+	switch (testmdl->hwScenario) {
+#ifdef NOT_READY
+	case MTKCAM_IPI_HW_PATH_STAGGER:
+		if (testmdl->mode == stagger_3exp) {
+			ut->is_dcif_camsv = 2;
+			CALL_SENINF_OPS(seninf, set_size,
+					width, height,
+					pixel_mode, pattern,
+					seninf_0, camsv_tg_0);
+			mdelay(1);
+			CALL_SENINF_OPS(seninf, set_size,
+					width, height,
+					pixel_mode, pattern,
+					seninf_1, camsv_tg_1);
+			mdelay(1);
+			CALL_SENINF_OPS(seninf, set_size,
+					width, height,
+					pixel_mode, pattern,
+					seninf_2, raw_tg_0);
+		} else if (testmdl->mode == stagger_2exp) {
+			ut->is_dcif_camsv = 1;
+			CALL_SENINF_OPS(seninf, set_size,
+					width, height,
+					pixel_mode, pattern,
+					seninf_0, camsv_tg_0);
+			mdelay(1);
+			CALL_SENINF_OPS(seninf, set_size,
+					width, height,
+					pixel_mode, pattern,
+					seninf_1, raw_tg_0);
+		}
+		break;
+
+	case MTKCAM_IPI_HW_PATH_DC_STAGGER:
+		// temporarily support camsv_a1 + camsv_a2 + raw_a case
+		if (testmdl->mode == stagger_2exp) {
+			ut->is_dcif_camsv = 2;
+			CALL_SENINF_OPS(seninf, set_size,
+					width, height,
+					pixel_mode, pattern,
+					seninf_0, camsv_tg_0);
+			mdelay(1);
+			CALL_SENINF_OPS(seninf, set_size,
+					width, height,
+					pixel_mode, pattern,
+					seninf_1, camsv_tg_1);
+		} else if (testmdl->mode == normal) {
+			ut->is_dcif_camsv = 1;
+			CALL_SENINF_OPS(seninf, set_size,
+					width, height,
+					pixel_mode, pattern,
+					seninf_0, camsv_tg_0);
+		}
+		break;
+#endif
+#if SUPPORT_RAWB
+	case MTKCAM_IPI_HW_PATH_ON_THE_FLY_RAWB:
+		if (ut->with_testmdl == 1) {
+			CALL_SENINF_OPS(seninf, set_size,
+					width, height,
+					pixel_mode, pattern,
+					seninf_mux_raw(seninf, 0),
+					seninf_cammux_raw(seninf, 1));
+		}
+		break;
+#endif
+	case MTKCAM_IPI_HW_PATH_OTF_RGBW:
+		/* TODO: size */
+	default:
+		if (ut->with_testmdl == 1) {
+			CALL_SENINF_OPS(seninf, set_size,
+					width, height,
+					pixel_mode, pattern,
+					seninf_mux_raw(seninf, 0),
+					seninf_cammux_raw(seninf, 0));
+		}
+	}
+
+	return 0;
+}
+
+#define LOG_CMD(cmd)	pr_info("%s, %d: %s\n", __func__, __LINE__, #cmd)
+
 static long cam_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
 	struct mtk_cam_ut *ut = filp->private_data;
@@ -431,9 +542,8 @@ static long cam_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	switch (cmd) {
 	case ISP_UT_IOCTL_SET_TESTMDL: {
 		struct cam_ioctl_set_testmdl testmdl;
-		int pixel_mode;
 
-		pr_info("%s: %d\n", __func__, __LINE__);
+		LOG_CMD(ISP_UT_IOCTL_SET_TESTMDL);
 
 		ut->is_dcif_camsv = 0;
 		ut->with_testmdl = 0;
@@ -444,99 +554,20 @@ static long cam_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			return -EFAULT;
 		}
 
-		pixel_mode = testmdl.pixmode_lg2;
-		if (debug_testmdl_pixmode >= 0) {
-			dev_info(dev, "DEBUG: set testmdl pixel mode (log2) %d\n",
-				debug_testmdl_pixmode);
-			pixel_mode = debug_testmdl_pixmode;
-		}
-
 		// update hardware scenario
 		ut->hardware_scenario = testmdl.hwScenario;
 
 		dev_info(dev, "testmdl.mode=%d testmdl.hwScenario=%d\n",
 			testmdl.mode, testmdl.hwScenario);
-		if (testmdl.mode == (u8)-1)
-			dev_info(dev, "without testmdl\n");
-		else {
-			ut->with_testmdl = 1;
-			// reset cam mux
-			//CALL_SENINF_OPS(ut->seninf, reset);
-		}
 
-		if (testmdl.hwScenario == MTKCAM_IPI_HW_PATH_STAGGER) {
-			if (testmdl.mode == stagger_3exp) {
-				ut->is_dcif_camsv = 2;
-				CALL_SENINF_OPS(ut->seninf, set_size,
-					   testmdl.width, testmdl.height,
-					   pixel_mode, testmdl.pattern,
-					   seninf_0, camsv_tg_0);
-				mdelay(1);
-				CALL_SENINF_OPS(ut->seninf, set_size,
-					   testmdl.width, testmdl.height,
-					   pixel_mode, testmdl.pattern,
-					   seninf_1, camsv_tg_1);
-				mdelay(1);
-				CALL_SENINF_OPS(ut->seninf, set_size,
-					   testmdl.width, testmdl.height,
-					   pixel_mode, testmdl.pattern,
-					   seninf_2, raw_tg_0);
-			} else if (testmdl.mode == stagger_2exp) {
-				ut->is_dcif_camsv = 1;
-				CALL_SENINF_OPS(ut->seninf, set_size,
-					   testmdl.width, testmdl.height,
-					   pixel_mode, testmdl.pattern,
-					   seninf_0, camsv_tg_0);
-				mdelay(1);
-				CALL_SENINF_OPS(ut->seninf, set_size,
-					   testmdl.width, testmdl.height,
-					   pixel_mode, testmdl.pattern,
-					   seninf_1, raw_tg_0);
-			}
-		} else if (testmdl.hwScenario == MTKCAM_IPI_HW_PATH_DC_STAGGER) {
-			// temporarily support camsv_a1 + camsv_a2 + raw_a case
-			if (testmdl.mode == stagger_2exp) {
-				ut->is_dcif_camsv = 2;
-				CALL_SENINF_OPS(ut->seninf, set_size,
-					   testmdl.width, testmdl.height,
-					   pixel_mode, testmdl.pattern,
-					   seninf_0, camsv_tg_0);
-				mdelay(1);
-				CALL_SENINF_OPS(ut->seninf, set_size,
-					   testmdl.width, testmdl.height,
-					   pixel_mode, testmdl.pattern,
-					   seninf_1, camsv_tg_1);
-			} else if (testmdl.mode == normal) {
-				ut->is_dcif_camsv = 1;
-				CALL_SENINF_OPS(ut->seninf, set_size,
-					   testmdl.width, testmdl.height,
-					   pixel_mode, testmdl.pattern,
-					   seninf_0, camsv_tg_0);
-			}
-#if SUPPORT_RAWB
-		} else if (testmdl.hwScenario == MTKCAM_IPI_HW_PATH_ON_THE_FLY_RAWB) {
-			if (ut->with_testmdl == 1) {
-				CALL_SENINF_OPS(ut->seninf, set_size,
-					   testmdl.width, testmdl.height,
-					   pixel_mode, testmdl.pattern,
-					   seninf_0, raw_tg_1);
-			}
-#endif
-		} else {
-			if (ut->with_testmdl == 1) {
-				CALL_SENINF_OPS(ut->seninf, set_size,
-					   testmdl.width, testmdl.height,
-					   pixel_mode, testmdl.pattern,
-					   seninf_0, raw_tg_0);
-			}
-		}
+		set_test_mdl(ut, &testmdl);
 
 		return 0;
 	}
 	case ISP_UT_IOCTL_DEQUE: {
 		unsigned int timeout_ms;
 
-		pr_info("%s: %d\n", __func__, __LINE__);
+		LOG_CMD(ISP_UT_IOCTL_DEQUE);
 
 		if (copy_from_user(&timeout_ms, (void *)arg,
 				   sizeof(unsigned int)) != 0) {
@@ -564,7 +595,7 @@ static long cam_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		struct mtkcam_ipi_buffer *cqbuf;
 		struct mtkcam_ipi_buffer *msgbuf;
 
-		pr_info("%s: %d\n", __func__, __LINE__);
+		LOG_CMD(ISP_UT_IOCTL_CREATE_SESSION);
 		if (copy_from_user(&session, (void *)arg,
 				   sizeof(session)) != 0) {
 			dev_dbg(dev, "[CREATE_SESSION] Fail to get session\n");
@@ -623,7 +654,7 @@ static long cam_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		struct mem_obj smem;
 		int fd, i;
 
-		pr_info("%s: %d\n", __func__, __LINE__);
+		LOG_CMD(ISP_UT_IOCTL_DESTROY_SESSION);
 
 		if (copy_from_user(&cookie, (void *)arg,
 				   sizeof(cookie)) != 0) {
@@ -645,6 +676,8 @@ static long cam_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 				 */
 				CALL_RAW_OPS(ut->raw[1], s_stream, 0);
 			}
+
+			CALL_SENINF_OPS(ut->seninf, reset);
 		}
 
 		smem.va = ut->mem->va;
@@ -681,7 +714,7 @@ static long cam_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 
 		struct cam_ioctl_enque *pEnque;
 
-		pr_info("%s: %d\n", __func__, __LINE__);
+		LOG_CMD(ISP_UT_IOCTL_ENQUE);
 
 		if (copy_from_user(&pEnque, (void *)arg, sizeof(pEnque)) != 0) {
 			dev_dbg(dev, "[ENQUE] Fail to get enque\n");
@@ -750,7 +783,7 @@ static long cam_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		struct mtkcam_ipi_config_param *pParam;
 		int i;
 
-		pr_info("%s: %d\n", __func__, __LINE__);
+		LOG_CMD(ISP_UT_IOCTL_CONFIG);
 
 		if (copy_from_user(&config, (void *)arg,
 				   sizeof(config)) != 0) {
@@ -788,8 +821,7 @@ static long cam_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		void *mem_priv;
 		struct mtk_ccd *ccd;
 
-		pr_info("%s: %d\n", __func__, __LINE__);
-
+		LOG_CMD(ISP_UT_IOCTL_ALLOC_DMABUF);
 
 		if (copy_from_user(&workbuf, (void *)arg,
 				   sizeof(workbuf)) != 0) {
@@ -821,7 +853,7 @@ static long cam_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		struct mem_obj smem;
 		int fd;
 
-		pr_info("%s: %d\n", __func__, __LINE__);
+		LOG_CMD(ISP_UT_IOCTL_FREE_DMABUF);
 
 		if (copy_from_user(&workbuf, (void *)arg,
 				   sizeof(workbuf)) != 0) {
@@ -854,9 +886,10 @@ static int cam_open(struct inode *inode, struct file *filp)
 {
 	struct mtk_cam_ut *ut =	container_of(inode->i_cdev,
 					     struct mtk_cam_ut, cdev);
+	int i;
+
 	get_device(ut->dev);
 
-#if SUPPORT_PM
 	pm_runtime_get_sync(ut->dev);
 
 	for (i = 0; i < ut->num_raw; i++) {
@@ -871,7 +904,6 @@ static int cam_open(struct inode *inode, struct file *filp)
 
 	/* Note: seninf's dts have no power-domains now, so do it after raw's */
 	pm_runtime_get_sync(ut->seninf);
-#endif
 
 	filp->private_data = ut;
 
@@ -883,11 +915,10 @@ static int cam_open(struct inode *inode, struct file *filp)
 static int cam_release(struct inode *inode, struct file *filp)
 {
 	struct mtk_cam_ut *ut = filp->private_data;
-
+	int i;
 
 	cam_composer_uninit(ut);
 
-#if SUPPORT_PM
 	pm_runtime_put(ut->seninf);
 
 	for (i = 0; i < ut->num_camsv; i++)
@@ -899,7 +930,6 @@ static int cam_release(struct inode *inode, struct file *filp)
 	pm_runtime_put(ut->dev);
 
 	put_device(ut->dev);
-#endif
 	return 0;
 }
 
@@ -1257,7 +1287,8 @@ static int mtk_cam_ut_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	//pm_runtime_enable(dev);
+	pm_runtime_enable(dev);
+	pm_runtime_get_sync(dev);
 
 	dev_info(dev, "%s: success\n", __func__);
 	return 0;
@@ -1268,7 +1299,7 @@ static int mtk_cam_ut_remove(struct platform_device *pdev)
 	struct mtk_cam_ut *ut =
 		(struct mtk_cam_ut *)platform_get_drvdata(pdev);
 
-	//pm_runtime_disable(ut->dev);
+	pm_runtime_disable(ut->dev);
 
 	cam_unreg_char_dev(ut);
 
@@ -1280,14 +1311,14 @@ static int mtk_cam_ut_pm_suspend(struct device *dev)
 	int ret = 0;
 
 	dev_dbg(dev, "- %s\n", __func__);
-#if SUPPORT_PM
+
 	if (pm_runtime_suspended(dev))
 		return 0;
 
 	ret = pm_runtime_force_suspend(dev);
 	if (ret)
 		dev_dbg(dev, "failed to force suspend:%d\n", ret);
-#endif
+
 	return ret;
 }
 
@@ -1296,12 +1327,11 @@ static int mtk_cam_ut_pm_resume(struct device *dev)
 	int ret = 0;
 
 	dev_dbg(dev, "- %s\n", __func__);
-#if SUPPORT_PM
+
 	if (pm_runtime_suspended(dev))
 		return 0;
 
 	ret = pm_runtime_force_resume(dev);
-#endif
 	return ret;
 }
 
@@ -1326,6 +1356,7 @@ static const struct dev_pm_ops mtk_cam_pm_ops = {
 
 static const struct of_device_id cam_ut_driver_dt_match[] = {
 	{ .compatible = "mediatek,mt6985-camisp", },
+	{ .compatible = "mediatek,mt6886-camisp", },
 	{}
 };
 MODULE_DEVICE_TABLE(of, cam_ut_driver_dt_match);

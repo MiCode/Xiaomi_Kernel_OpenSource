@@ -136,13 +136,33 @@ struct mtk_ut_seninf_device {
 	struct clk **clks;
 
 	struct engine_ops ops;
+
+	int mux_camsv_sat_range[2];
+	int mux_raw_range[2];
+
+	int cammux_camsv_sat_range[2];
+	int cammux_raw_range[2];
 };
 
-#define CALL_SENINF_OPS(dev, op, ...) \
-{\
-	struct mtk_ut_seninf_device *seninf = dev_get_drvdata(dev);\
-	((dev && seninf->ops.op) ? seninf->ops.op(dev, ##__VA_ARGS__) : -EINVAL);\
+static inline int seninf_mux_raw(struct device *dev, int raw_idx)
+{
+	struct mtk_ut_seninf_device *seninf = dev_get_drvdata(dev);
+
+	return  seninf->mux_raw_range[0] + raw_idx;
 }
+
+static inline int seninf_cammux_raw(struct device *dev, int raw_idx)
+{
+	struct mtk_ut_seninf_device *seninf = dev_get_drvdata(dev);
+
+	return  seninf->cammux_raw_range[0] + raw_idx;
+}
+
+#define CALL_SENINF_OPS(dev, op, ...) \
+({\
+	struct mtk_ut_seninf_device *_seninf = dev_get_drvdata(dev);\
+	((dev && _seninf->ops.op) ? _seninf->ops.op(dev, ##__VA_ARGS__) : -EINVAL);\
+})
 
 extern struct platform_driver mtk_ut_raw_driver;
 extern struct platform_driver mtk_ut_yuv_driver;
@@ -150,7 +170,7 @@ extern struct platform_driver mtk_ut_camsv_driver;
 extern struct platform_driver mtk_ut_seninf_driver;
 #define WITH_LARB_DRIVER 1
 #define WITH_CAMSV_DRIVER 0
-#define SUPPORT_PM 0
+#define SUPPORT_PM 1
 #define SUPPORT_RAWB 0
 extern struct platform_driver mtk_ut_larb_driver;
 
