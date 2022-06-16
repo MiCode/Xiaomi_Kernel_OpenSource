@@ -122,8 +122,6 @@ static int ak7375c_init(struct ak7375c_device *ak7375c)
 	struct i2c_client *client = v4l2_get_subdevdata(&ak7375c->sd);
 	int ret = 0;
 
-	LOG_INF("+\n");
-
 	client->addr = AK7375C_I2C_SLAVE_ADDR >> 1;
 	//ret = i2c_smbus_read_byte_data(client, 0x02);
 
@@ -131,8 +129,6 @@ static int ak7375c_init(struct ak7375c_device *ak7375c)
 
 	/* 00:active mode , 10:Standby mode , x1:Sleep mode */
 	ret = i2c_smbus_write_byte_data(client, 0x02, 0x00);
-
-	LOG_INF("-\n");
 
 	return 0;
 }

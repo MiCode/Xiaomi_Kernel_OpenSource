@@ -165,8 +165,6 @@ static int dw9800v_init(struct dw9800v_device *dw9800v)
 	};
 #endif
 
-	LOG_INF("+\n");
-
 	client->addr = DW9800V_I2C_SLAVE_ADDR >> 1;
 	//ret = i2c_smbus_read_byte_data(client, 0x02);
 
@@ -186,8 +184,6 @@ static int dw9800v_init(struct dw9800v_device *dw9800v)
 			udelay(100);
 		}
 	}
-
-	LOG_INF("-\n");
 
 	return ret;
 }

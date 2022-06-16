@@ -119,16 +119,12 @@ static int gt9772a_init(struct gt9772a_device *gt9772a)
 	struct i2c_client *client = v4l2_get_subdevdata(&gt9772a->sd);
 	int ret = 0;
 
-	LOG_INF("+\n");
-
 	client->addr  = GT9772A_I2C_SLAVE_ADDR >> 1;
 	ret = i2c_smbus_read_byte_data(client, 0x00);
 
 	LOG_INF("Check HW version: %x\n", ret);
 
 	ret = i2c_smbus_write_byte_data(client, 0xed, 0xab);
-
-	LOG_INF("-\n");
 
 	return 0;
 }

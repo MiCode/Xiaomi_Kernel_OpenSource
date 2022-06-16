@@ -118,15 +118,11 @@ static int gt9764_init(struct gt9764_device *gt9764)
 	struct i2c_client *client = v4l2_get_subdevdata(&gt9764->sd);
 	int ret;
 
-	LOG_INF("+\n");
-
 	ret = i2c_smbus_read_byte_data(client, 0x00);
 
 	LOG_INF("Check HW version: %x\n", ret);
 
 	ret = i2c_smbus_write_byte_data(client, 0x02, 0x00);
-
-	LOG_INF("-\n");
 
 	return 0;
 }

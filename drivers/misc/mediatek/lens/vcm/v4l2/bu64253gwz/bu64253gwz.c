@@ -124,8 +124,6 @@ static int bu64253gwz_init(struct bu64253gwz_device *bu64253gwz)
 	char puSendCmd[2];
 	int ret = 0;
 
-	LOG_INF("+\n");
-
 	client->addr = BU64253GWZ_I2C_SLAVE_ADDR >> 1;
 
 	LOG_INF("Enable ISRC\n");
@@ -152,8 +150,6 @@ static int bu64253gwz_init(struct bu64253gwz_device *bu64253gwz)
 		LOG_INF("I2C write failed!!\n");
 		return -1;
 	}
-
-	LOG_INF("-\n");
 
 	return 0;
 }

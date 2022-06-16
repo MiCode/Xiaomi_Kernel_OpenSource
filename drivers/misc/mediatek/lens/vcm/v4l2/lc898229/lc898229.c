@@ -117,8 +117,6 @@ static int lc898229_init(struct lc898229_device *lc898229)
 	struct i2c_client *client = v4l2_get_subdevdata(&lc898229->sd);
 	int ret;
 
-	LOG_INF("+\n");
-
 	ret = i2c_smbus_read_byte_data(client, 0xF0);
 
 	LOG_INF("Check HW version: %x\n", ret);
@@ -137,8 +135,6 @@ static int lc898229_init(struct lc898229_device *lc898229)
 			wait_cnt--;
 		}
 	}
-
-	LOG_INF("-\n");
 
 	return 0;
 }
