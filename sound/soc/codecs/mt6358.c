@@ -3165,6 +3165,8 @@ static int mt_mic_bias_event(struct snd_soc_dapm_widget *w,
 	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
 	struct mt6358_priv *priv = snd_soc_component_get_drvdata(cmpnt);
 	unsigned int mux = priv->mux_select[MUX_MIC_TYPE];
+	unsigned int mux_pga_l = priv->mux_select[MUX_PGA_L];
+	unsigned int mux_pga_r = priv->mux_select[MUX_PGA_R];
 
 	dev_dbg(priv->dev, "%s(), event 0x%x, mux %u, vow_enable: %d\n",
 		__func__, event, mux, priv->vow_enable);
@@ -3172,7 +3174,8 @@ static int mt_mic_bias_event(struct snd_soc_dapm_widget *w,
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
 		if (priv->vow_enable) {
-			if (mux == MIC_TYPE_MUX_DMIC) {
+			if ((mux == MIC_TYPE_MUX_DMIC) &&
+				!((mux_pga_l == PGA_MUX_AIN1 || mux_pga_r == PGA_MUX_AIN1))) {
 				mt6358_vow_dmic_enable(priv);
 				mt6358_vow_cfg_enable(priv);
 			} else {
@@ -3180,7 +3183,8 @@ static int mt_mic_bias_event(struct snd_soc_dapm_widget *w,
 				mt6358_vow_cfg_enable(priv);
 			}
 		} else {
-			if (mux == MIC_TYPE_MUX_DMIC)
+			if ((mux == MIC_TYPE_MUX_DMIC) &&
+				!((mux_pga_l == PGA_MUX_AIN1 || mux_pga_r == PGA_MUX_AIN1)))
 				mt6358_dmic_enable(priv);
 			else
 				mt6358_amic_enable(priv);
@@ -3188,7 +3192,8 @@ static int mt_mic_bias_event(struct snd_soc_dapm_widget *w,
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		if (priv->vow_enable) {
-			if (mux == MIC_TYPE_MUX_DMIC) {
+			if ((mux == MIC_TYPE_MUX_DMIC) &&
+				!((mux_pga_l == PGA_MUX_AIN1 || mux_pga_r == PGA_MUX_AIN1))) {
 				mt6358_vow_cfg_disable(priv);
 				mt6358_vow_dmic_disable(priv);
 			} else {
@@ -3196,7 +3201,8 @@ static int mt_mic_bias_event(struct snd_soc_dapm_widget *w,
 				mt6358_vow_amic_disable(priv);
 			}
 		} else {
-			if (mux == MIC_TYPE_MUX_DMIC)
+			if ((mux == MIC_TYPE_MUX_DMIC) &&
+				!((mux_pga_l == PGA_MUX_AIN1 || mux_pga_r == PGA_MUX_AIN1)))
 				mt6358_dmic_disable(priv);
 			else
 				mt6358_amic_disable(priv);
@@ -3697,7 +3703,7 @@ static const struct snd_soc_dapm_route mt6358_dapm_routes[] = {
 
 	/* mic bias */
 	{"AIN0", NULL, "MIC_BIAS", mt_amic_connect},
-	{"AIN1", NULL, "MIC_BIAS", mt_amic_connect},
+	{"AIN1", NULL, "MIC_BIAS"},
 	{"AIN2", NULL, "MIC_BIAS", mt_amic_connect},
 	{"AIN0_DMIC", NULL, "MIC_BIAS", mt_dmic_connect},
 };
