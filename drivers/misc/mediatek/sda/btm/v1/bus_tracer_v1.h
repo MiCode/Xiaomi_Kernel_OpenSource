@@ -82,6 +82,7 @@
 #define ETB_LAR			0xfb0
 
 #define DEM_DBGRST_ALL		0x28
+#define DEM_ATB_CG		0x68
 #define DEM_ATB_CLK		0x70
 #define INSERT_TS0		0x80
 #define ETR_AWID		0x84

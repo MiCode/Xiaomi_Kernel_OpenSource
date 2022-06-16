@@ -29,18 +29,18 @@ static int start(struct bus_tracer_plt *plt)
 		return -1;
 	}
 
-	if (of_property_read_u32(node, "mediatek,err_flag",
+	if (of_property_read_u32(node, "mediatek,err-flag",
 				&plt->err_flag) != 0)
 		plt->err_flag = 0xFFF8FFFF;
 
-	if (of_property_read_u32(node, "mediatek,num_tracer",
+	if (of_property_read_u32(node, "mediatek,num-tracer",
 				&num_tracer) != 0) {
-		pr_notice("can't find property \"mediatek,num_tracer\"\n");
+		pr_notice("can't find property \"mediatek,num-tracer\"\n");
 		return -1;
 	}
 
 	if (num_tracer <= 0) {
-		pr_notice("[bus tracer] fatal error: num_tracer <= 0\n");
+		pr_notice("[bus tracer] fatal error: num-tracer <= 0\n");
 		return -1;
 	}
 
@@ -56,13 +56,13 @@ static int start(struct bus_tracer_plt *plt)
 		return -ENOMEM;
 
 	for (i = 0; i <= num_tracer-1; ++i) {
-		if (of_property_read_u32_index(node, "mediatek,enabled_tracer",
+		if (of_property_read_u32_index(node, "mediatek,enabled-tracer",
 					i, &ret) == 0)
 			plt->tracer[i].enabled = ret & 0x1;
 		else
 			plt->tracer[i].enabled = 0;
 
-		if (of_property_read_u32_index(node, "mediatek,at_id", i,
+		if (of_property_read_u32_index(node, "mediatek,at-id", i,
 					&ret) == 0)
 			plt->tracer[i].at_id = ret;
 
@@ -140,6 +140,10 @@ static int enable(struct bus_tracer_plt *plt, unsigned char force_enable,
 			return -2;
 		}
 	}
+
+	/* enable ATB CG */
+	writel(0x3, plt->dem_base + DEM_ATB_CG);
+	dsb(sy);
 
 	/* enable ATB clk */
 	writel(0x1, plt->dbgao_base + DEM_ATB_CLK);
