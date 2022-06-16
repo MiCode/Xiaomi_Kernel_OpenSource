@@ -1019,6 +1019,10 @@ static int mode_switch_hs(struct drm_panel *panel, struct drm_connector *connect
 	if (cur_mode == dst_mode)
 		return ret;
 
+	if (!m || !src_m) {
+		DDPPR_ERR("%s:%d invalid display_mode\n", __func__, __LINE__);
+		return -1;
+	}
 	if (stage == BEFORE_DSI_POWERDOWN) {
 		mode_id = get_mode_enum(m);
 		DDPMSG("%s mode_id:%d->%d\n", __func__, get_mode_enum(src_m),
