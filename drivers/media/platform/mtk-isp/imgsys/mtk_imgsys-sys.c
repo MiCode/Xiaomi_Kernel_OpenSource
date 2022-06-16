@@ -1420,7 +1420,6 @@ static void imgsys_scp_handler(void *data, unsigned int len, void *priv)
 	struct img_sw_buffer *swbuf_data = NULL;
 	struct swfrm_info_t *swfrm_info = NULL;
 	struct gce_work *gwork;
-	int swfrm_cnt;
 	u64 time_local_reddonescpStart = 0;
 	int i = 0;
 	void *gce_virt = NULL;
@@ -1546,14 +1545,6 @@ static void imgsys_scp_handler(void *data, unsigned int len, void *priv)
 
 	if (!swfrm_info->user_info[0].subfrm_idx)
 		req->tstate.time_reddonescpStart = time_local_reddonescpStart;
-
-	swfrm_cnt = atomic_inc_return(&req->swfrm_cnt);
-	if (swfrm_cnt == 1)
-		dev_dbg(imgsys_dev->dev,
-		"%d:%d:%s: request num(%d)/frame no(%d), request fd(%d) kva(0x%lx) tfnum(%d) sidx(%d)\n",
-		current->pid, current->tgid, __func__, swfrm_info->request_no,
-		swfrm_info->frame_no, swfrm_info->request_fd, (unsigned long)swfrm_info,
-		swfrm_info->total_frmnum, swfrm_info->user_info[0].subfrm_idx);
 
 	up(&imgsys_dev->sem);
 	/* TODO: log only safe to remove */
