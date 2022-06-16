@@ -25,6 +25,7 @@
 
 #define TDSHP_WAIT_TIMEOUT_MS (50)
 #define DS_REG_NUM (36)
+#define REG_NOT_SUPPORT 0xfff
 
 enum mml_tdshp_reg_index {
 	TDSHP_00,
@@ -41,6 +42,8 @@ enum mml_tdshp_reg_index {
 	TDSHP_OUTPUT_OFFSET,
 	TDSHP_OUTPUT_SIZE,
 	TDSHP_BLANK_WIDTH,
+	/* REGION_PQ_SIZE_PARAMETER_MODE_SEGMENTATION_LENGTH */
+	TDSHP_REGION_PQ_PARAM,
 	TDSHP_SHADOW_CTRL,
 	TDSHP_REG_MAX_COUNT
 };
@@ -60,6 +63,7 @@ static const u16 tdshp_reg_table_mt6983[TDSHP_REG_MAX_COUNT] = {
 	[TDSHP_OUTPUT_OFFSET] = 0x124,
 	[TDSHP_OUTPUT_SIZE] = 0x128,
 	[TDSHP_BLANK_WIDTH] = 0x12c,
+	[TDSHP_REGION_PQ_PARAM] = REG_NOT_SUPPORT,
 	[TDSHP_SHADOW_CTRL] = 0x67c
 };
 
@@ -78,6 +82,7 @@ static const u16 tdshp_reg_table_mt6985[TDSHP_REG_MAX_COUNT] = {
 	[TDSHP_OUTPUT_OFFSET] = 0x124,
 	[TDSHP_OUTPUT_SIZE] = 0x128,
 	[TDSHP_BLANK_WIDTH] = 0x12c,
+	[TDSHP_REGION_PQ_PARAM] = 0x680,
 	[TDSHP_SHADOW_CTRL] = 0x724
 };
 
@@ -238,6 +243,22 @@ static void tdshp_relay(struct mml_comp *comp, struct cmdq_pkt *pkt, const phys_
 	cmdq_pkt_write(pkt, NULL, base_pa + tdshp->data->reg_table[TDSHP_CFG], relay, 0x00000001);
 }
 
+static void tdshp_config_region_pq(struct mml_comp *comp, struct cmdq_pkt *pkt,
+			const phys_addr_t base_pa, const struct mml_pq_config *cfg)
+{
+	struct mml_comp_tdshp *tdshp = comp_to_tdshp(comp);
+
+	if (tdshp->data->reg_table[TDSHP_REGION_PQ_PARAM] != REG_NOT_SUPPORT) {
+		if (!cfg->en_region_pq) {
+			mml_pq_msg("%s:disable region pq", __func__);
+
+			cmdq_pkt_write(pkt, NULL,
+				base_pa + tdshp->data->reg_table[TDSHP_REGION_PQ_PARAM],
+				0, U32_MAX);
+		}
+	}
+}
+
 static s32 tdshp_config_init(struct mml_comp *comp, struct mml_task *task,
 			     struct mml_comp_config *ccfg)
 {
@@ -277,6 +298,8 @@ static s32 tdshp_config_frame(struct mml_comp *comp, struct mml_task *task,
 		cmdq_pkt_write(pkt, NULL,
 			base_pa + tdshp->data->reg_table[TDSHP_CTRL], 0x4, 0x00000004);
 	}
+
+	tdshp_config_region_pq(comp, pkt, base_pa, &dest->pq_config);
 
 	if (!dest->pq_config.en_sharp && !dest->pq_config.en_dc) {
 		/* relay mode */
