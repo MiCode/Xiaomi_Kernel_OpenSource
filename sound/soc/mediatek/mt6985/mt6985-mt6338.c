@@ -843,6 +843,14 @@ SND_SOC_DAILINK_DEFS(dspbleul,
 	DAILINK_COMP_ARRAY(COMP_CPU("audio_task_bleul_dai")),
 	DAILINK_COMP_ARRAY(COMP_DUMMY()),
 	DAILINK_COMP_ARRAY(COMP_PLATFORM("snd-audio-dsp")));
+SND_SOC_DAILINK_DEFS(dspbtdl,
+	DAILINK_COMP_ARRAY(COMP_CPU("audio_task_btdl_dai")),
+	DAILINK_COMP_ARRAY(COMP_DUMMY()),
+	DAILINK_COMP_ARRAY(COMP_PLATFORM("snd-audio-dsp")));
+SND_SOC_DAILINK_DEFS(dspbtul,
+	DAILINK_COMP_ARRAY(COMP_CPU("audio_task_btul_dai")),
+	DAILINK_COMP_ARRAY(COMP_DUMMY()),
+	DAILINK_COMP_ARRAY(COMP_PLATFORM("snd-audio-dsp")));
 #endif
 
 static struct snd_soc_dai_link mt6985_mt6338_dai_links[] = {
@@ -1554,6 +1562,16 @@ static struct snd_soc_dai_link mt6985_mt6338_dai_links[] = {
 		.name = "DSP_Capture_BLE",
 		.stream_name = "DSP_Capture_BLE",
 		SND_SOC_DAILINK_REG(dspbleul),
+	},
+	{
+		.name = "DSP_Playback_BT",
+		.stream_name = "DSP_Playback_BT",
+		SND_SOC_DAILINK_REG(dspbtdl),
+	},
+	{
+		.name = "DSP_Capture_BT",
+		.stream_name = "DSP_Capture_BT",
+		SND_SOC_DAILINK_REG(dspbtul),
 	},
 #endif
 };

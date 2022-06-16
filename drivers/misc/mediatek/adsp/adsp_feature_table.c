@@ -32,6 +32,8 @@ static struct adsp_feature_tb feature_table[ADSP_NUM_FEATURE_ID] = {
 	[BLEUL_FEATURE_ID]            = {.name = "bleul"},
 	[BLEDEC_FEATURE_ID]           = {.name = "bledec"},
 	[BLEENC_FEATURE_ID]           = {.name = "bleenc"},
+	[BTDL_FEATURE_ID]             = {.name = "btdl"},
+	[BTUL_FEATURE_ID]             = {.name = "btul"},
 	[AUDIO_DATAPROVIDER_FEATURE_ID] = {.name = "dataprovider"},
 	[SPK_PROTECT_FEATURE_ID]      = {.name = "spk_protect"},
 	[VOICE_CALL_FEATURE_ID]       = {.name = "voice_call"},

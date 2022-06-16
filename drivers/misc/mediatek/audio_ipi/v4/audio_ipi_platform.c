@@ -47,6 +47,7 @@ uint32_t audio_get_dsp_id(const uint8_t task)
 	case TASK_SCENE_A2DP:
 	case TASK_SCENE_BLEDL:
 	case TASK_SCENE_BLEENC:
+	case TASK_SCENE_BTDL:
 	case TASK_SCENE_DATAPROVIDER:
 	case TASK_SCENE_AUD_DAEMON_A:
 	case TASK_SCENE_AUDIO_CONTROLLER_HIFI3_A:
@@ -68,6 +69,7 @@ uint32_t audio_get_dsp_id(const uint8_t task)
 	case TASK_SCENE_BLEUL:
 	case TASK_SCENE_BLEDEC:
 	case TASK_SCENE_BLECALLUL:
+	case TASK_SCENE_BTUL:
 		if (get_adsp_core_total() > 1)
 			dsp_id = AUDIO_OPENDSP_USE_HIFI3_B;
 		else

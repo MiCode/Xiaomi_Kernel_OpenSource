@@ -205,6 +205,30 @@ static struct audio_dsp_dram
 		},
 };
 
+static struct audio_dsp_dram
+	adsp_sharemem_btdl_mblock[ADSP_TASK_SHAREMEM_NUM] = {
+		{
+			.size = 0x400, /* 1024 bytes */
+			.phy_addr = 0,
+		},
+		{
+			.size = 0x400, /* 1024 bytes */
+			.phy_addr = 0,
+		},
+};
+
+static struct audio_dsp_dram
+	adsp_sharemem_btul_mblock[ADSP_TASK_SHAREMEM_NUM] = {
+		{
+			.size = 0x400, /* 1024 bytes */
+			.phy_addr = 0,
+		},
+		{
+			.size = 0x400, /* 1024 bytes */
+			.phy_addr = 0,
+		},
+};
+
 static struct mtk_adsp_task_attr adsp_task_attr[AUDIO_TASK_DAI_NUM] = {
 	[AUDIO_TASK_VOIP_ID] = {true, -1, -1, -1,
 				VOIP_FEATURE_ID, false},
@@ -226,6 +250,10 @@ static struct mtk_adsp_task_attr adsp_task_attr[AUDIO_TASK_DAI_NUM] = {
 				BLEDL_FEATURE_ID, false},
 	[AUDIO_TASK_BLEUL_ID] = {true, -1, -1, -1,
 				BLEUL_FEATURE_ID, false},
+	[AUDIO_TASK_BTDL_ID] = {true, -1, -1, -1,
+				BTDL_FEATURE_ID, false},
+	[AUDIO_TASK_BTUL_ID] = {true, -1, -1, -1,
+				BTUL_FEATURE_ID, false},
 	[AUDIO_TASK_DATAPROVIDER_ID] = {true, -1, -1, -1,
 				       AUDIO_DATAPROVIDER_FEATURE_ID, false},
 	[AUDIO_TASK_CALL_FINAL_ID] = {true, -1, -1, -1,
@@ -274,6 +302,10 @@ static struct audio_dsp_dram *mtk_get_adsp_sharemem_block(int audio_task_id)
 		return adsp_sharemem_fm_mblock;
 	case AUDIO_TASK_BLEUL_ID:
 		return adsp_sharemem_bleul_mblock;
+	case AUDIO_TASK_BTDL_ID:
+		return adsp_sharemem_btdl_mblock;
+	case AUDIO_TASK_BTUL_ID:
+		return adsp_sharemem_btul_mblock;
 	default:
 		pr_info("%s err audio_task_id = %d\n", __func__, audio_task_id);
 	}

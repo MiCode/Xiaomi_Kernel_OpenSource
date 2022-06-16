@@ -173,7 +173,8 @@ bool check_print_msg_info(const struct ipi_msg_t *p_ipi_msg)
 
 	if ((p_ipi_msg->task_scene == TASK_SCENE_CAPTURE_UL1 ||
 	     p_ipi_msg->task_scene == TASK_SCENE_CAPTURE_RAW ||
-	     p_ipi_msg->task_scene == TASK_SCENE_BLEUL) &&
+	     p_ipi_msg->task_scene == TASK_SCENE_BLEUL ||
+	     p_ipi_msg->task_scene == TASK_SCENE_BTUL) &&
 	    (p_ipi_msg->msg_id == AUDIO_DSP_TASK_ULCOPY))
 		return false;
 
