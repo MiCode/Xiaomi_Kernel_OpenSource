@@ -8721,7 +8721,7 @@
 
 	dispsys_config: dispsys_config@14000000 {
 		compatible = "mediatek,mt6985-disp";
-//		mediatek,mml = <&mmlsys_config>;
+		mediatek,mml = <&mmlsys_config>;
 		dispsys_num = <2>;
 		ovlsys_num = <2>;
 		reg = <0 0x14000000 0 0x1000>,
@@ -8980,7 +8980,7 @@
 			<0>, /*MTK_DRM_OPT_DYN_MIPI_CHANGE*/
 			<0>, /*MTK_DRM_OPT_PRIM_DUAL_PIPE*/
 			<0>, /*MTK_DRM_OPT_MSYNC2_0*/
-			<0>, /*MTK_DRM_OPT_MML_PRIMARY*/
+			<1>, /*MTK_DRM_OPT_MML_PRIMARY*/
 			<0>, /*MTK_DRM_OPT_MML_SUPPORT_CMD_MODE*/
 			<0>, /*MTK_DRM_OPT_MML_PQ*/
 			<0>, /*MTK_DRM_OPT_MML_IR*/
@@ -10504,7 +10504,7 @@
 		compatible = "mediatek,disp_mutex0",
 					"mediatek,mt6985-disp-mutex";
 //		power-domains = <&scpsys MT6985_POWER_DOMAIN_DIS1>;
-//		mediatek,mml = <&mmlsys_config>;
+		mediatek,mml = <&mmlsys_config>;
 		dispsys_num = <2>;
 		ovlsys_num = <2>;
 		reg = <0 0x14001000 0 0x1000>,
