@@ -215,7 +215,7 @@ static void EnableClock(bool En)
 	}
 }
 
-static void pda_reset(int PDA_Index)
+static void pda_reset(unsigned int PDA_Index)
 {
 	unsigned long end = 0;
 
@@ -1244,6 +1244,11 @@ static void FillRegSettings(struct PDA_Data_t *pda_PdaConfig,
 	unsigned int ROI_last = 0;
 	unsigned int pair = 0;
 	unsigned int nTemp = 0;
+
+	if (RoiProcNum > PDA_MAXROI_PER_ROUND) {
+		LOG_INF("RoiProcNum out of range (%d)\n", RoiProcNum);
+		return;
+	}
 
 	// modify roi number register, change [12:6] bit to RoiProcNum
 	pda_PdaConfig->PDA_FrameSetting.PDA_CFG_2.Bits.PDA_RGN_NUM = RoiProcNum;
