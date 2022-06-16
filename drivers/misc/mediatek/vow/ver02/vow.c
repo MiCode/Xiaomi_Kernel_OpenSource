@@ -2848,12 +2848,12 @@ static ssize_t VowDrv_read(struct file *fp,
 		  vowserv.scp_command_keywordid);
 	if (slot < 0) {
 		/* there is no pair id */
-		VOWDRV_DEBUG("%s(), search ID fail, not keyword event, exit\n", __func__);
+		VOWDRV_DEBUG("%s(), search ID fail, not keyword event, eint=%d, exit\n",
+						__func__,
+						VowDrv_QueryVowEINTStatus());
 		vowserv.scp_command_id =  0;
-		if (VowDrv_QueryVowEINTStatus() == 0) { //VOW_EINT_PASS
-			VOWDRV_DEBUG("%s(), vow is resetting...\n", __func__);
-			return -1;
-		}
+		vowserv.confidence_level = 0;
+		goto exit;
 	} else {
 		vowserv.scp_command_id = vowserv.vow_speaker_model[slot].id;
 	}
