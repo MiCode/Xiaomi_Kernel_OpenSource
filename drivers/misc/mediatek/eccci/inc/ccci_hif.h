@@ -63,7 +63,6 @@ void ccci_hif_suspend(unsigned int hif_flag);
 int ccci_hif_send_data(unsigned char hif_id, int tx_qno);
 int ccci_hif_start(unsigned char hif_id);
 int ccci_hif_stop(unsigned char hif_id);
-int ccci_hif_stop_for_ee(unsigned int hif_flag);
 int ccci_hif_all_q_reset(unsigned int hif_flag);
 int ccci_hif_clear_all_queue(unsigned int hif_flag, enum DIRECTION dir);
 int ccci_hif_clear(unsigned int hif_flag);

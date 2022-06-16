@@ -481,6 +481,36 @@ static int md_cldma_hif_dump_status(unsigned char hif_id,
 	return 0;
 }
 
+static inline int ccci_cldma_hif_set_wakeup_src(unsigned char hif_id,
+	int value)
+{
+	struct md_cd_ctrl *md_ctrl =
+		(struct md_cd_ctrl *)ccci_hif_get_by_id(hif_id);
+
+	if (md_ctrl) {
+		arch_atomic_set(&md_ctrl->wakeup_src, value);
+		return value;
+	} else
+		return -1;
+
+}
+
+static int cldma_debug(unsigned char hif_id,
+		enum ccci_hif_debug_flg flag, int *para)
+{
+	int ret = -1;
+
+	switch (flag) {
+	case CCCI_HIF_DEBUG_SET_WAKEUP:
+		ret = ccci_cldma_hif_set_wakeup_src(hif_id, *para);
+		break;
+	default:
+		break;
+	}
+	return ret;
+}
+
+
 #if TRAFFIC_MONITOR_INTERVAL
 //void md_cd_traffic_monitor_func(unsigned long data)
 void md_cd_traffic_monitor_func(struct timer_list *t)
@@ -1931,6 +1961,9 @@ static int cldma_stop_for_ee(unsigned char hif_id)
 
 	CCCI_NORMAL_LOG(0, TAG, "%s from %ps\n",
 		__func__, __builtin_return_address(0));
+
+	md_cldma_hif_dump_status(CLDMA_HIF_ID, DUMP_FLAG_CLDMA, NULL, -1);
+
 	spin_lock_irqsave(&md_ctrl->cldma_timeout_lock, flags);
 	/* stop all Tx and Rx queues, but non-stop Rx ones */
 	count = 0;
@@ -2881,6 +2914,7 @@ static struct ccci_hif_ops ccci_hif_cldma_ops = {
 	.stop_queue = &md_cd_stop_queue,
 	.start_queue = &md_cd_start_queue,
 	.dump_status = &md_cldma_hif_dump_status,
+	.debug = &cldma_debug,
 
 	.start = &cldma_start,
 	.stop = &cldma_stop,
@@ -2932,6 +2966,23 @@ static int ccci_cldma_set_plat_ops(void)
 	ccci_hif_cldma_ops.hw_reset = cldma_ctrl->cldma_plat_ops.hw_reset;
 
 	return 0;
+}
+
+static inline void md_cd_queue_struct_init(struct md_cd_queue *queue,
+	unsigned char hif_id, enum DIRECTION dir, unsigned char index)
+{
+	queue->dir = dir;
+	queue->index = index;
+	queue->hif_id = hif_id;
+	queue->tr_ring = NULL;
+	queue->tr_done = NULL;
+	queue->tx_xmit = NULL;
+	init_waitqueue_head(&queue->req_wq);
+	spin_lock_init(&queue->ring_lock);
+	queue->busy_count = 0;
+#ifdef ENABLE_FAST_HEADER
+	queue->fast_hdr.gpd_count = 0;
+#endif
 }
 
 #define DMA_BIT_MASK(n) (((n) == 64) ? ~0ULL : ((1ULL<<(n))-1))

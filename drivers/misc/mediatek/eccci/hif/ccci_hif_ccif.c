@@ -1555,11 +1555,11 @@ static int ccif_debug(unsigned char hif_id,
 
 	switch (flag) {
 	case CCCI_HIF_DEBUG_SET_WAKEUP:
-		CCCI_NORMAL_LOG(-1, TAG,
-			"CCIF0 Wake up old path: channel_id == 0x%x\n",
-			ccif_read32(ccif_ctrl->ccif_ap_base, APCCIF_RCHNUM));
 		ccif_ctrl->wakeup_ch =
 			ccif_read32(ccif_ctrl->ccif_ap_base, APCCIF_RCHNUM);
+		CCCI_NORMAL_LOG(-1, TAG,
+			"CCIF0 Wake up old path: channel_id == 0x%x\n",
+			ccif_ctrl->wakeup_ch);
 		ret = 0;
 		break;
 	case CCCI_HIF_DEBUG_RESET:

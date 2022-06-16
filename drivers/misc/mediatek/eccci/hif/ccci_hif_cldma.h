@@ -361,92 +361,10 @@ enum {
 	CCCI_TRACE_RX_IRQ = 1,
 };
 
-static inline void md_cd_queue_struct_init(struct md_cd_queue *queue,
-	unsigned char hif_id, enum DIRECTION dir, unsigned char index)
-{
-	queue->dir = dir;
-	queue->index = index;
-	queue->hif_id = hif_id;
-	queue->tr_ring = NULL;
-	queue->tr_done = NULL;
-	queue->tx_xmit = NULL;
-	init_waitqueue_head(&queue->req_wq);
-	spin_lock_init(&queue->ring_lock);
-	queue->busy_count = 0;
-#ifdef ENABLE_FAST_HEADER
-	queue->fast_hdr.gpd_count = 0;
-#endif
-}
-
 struct ccci_cldma_clk_node {
 	struct clk *clk_ref;
 	unsigned char *clk_name;
 };
-
-static inline int ccci_cldma_hif_send_skb(unsigned char hif_id, int tx_qno,
-	struct sk_buff *skb, int from_pool, int blocking)
-{
-	struct md_cd_ctrl *md_ctrl =
-		(struct md_cd_ctrl *)ccci_hif_get_by_id(hif_id);
-
-	if (md_ctrl)
-		return md_ctrl->ops->send_skb(hif_id, tx_qno, skb,
-			from_pool, blocking);
-	else
-		return -1;
-}
-
-static inline int ccci_cldma_hif_write_room(unsigned char hif_id,
-	unsigned char qno)
-{
-	struct md_cd_ctrl *md_ctrl =
-		(struct md_cd_ctrl *)ccci_hif_get_by_id(hif_id);
-
-	if (md_ctrl)
-		return md_ctrl->ops->write_room(hif_id, qno);
-	else
-		return -1;
-
-}
-static inline int ccci_cldma_hif_give_more(unsigned char hif_id, int rx_qno)
-{
-	struct md_cd_ctrl *md_ctrl =
-		(struct md_cd_ctrl *)ccci_hif_get_by_id(hif_id);
-
-	if (md_ctrl)
-		return md_ctrl->ops->give_more(hif_id, rx_qno);
-	else
-		return -1;
-
-}
-
-static inline int ccci_cldma_hif_dump_status(unsigned char hif_id,
-	enum MODEM_DUMP_FLAG dump_flag, void *buff, int length)
-{
-	struct md_cd_ctrl *md_ctrl =
-		(struct md_cd_ctrl *)ccci_hif_get_by_id(hif_id);
-
-	if (md_ctrl)
-		return md_ctrl->ops->dump_status(hif_id, dump_flag,
-			buff, length);
-	else
-		return -1;
-
-}
-
-static inline int ccci_cldma_hif_set_wakeup_src(unsigned char hif_id,
-	int value)
-{
-	struct md_cd_ctrl *md_ctrl =
-		(struct md_cd_ctrl *)ccci_hif_get_by_id(hif_id);
-
-	if (md_ctrl) {
-		arch_atomic_set(&md_ctrl->wakeup_src, value);
-		return value;
-	} else
-		return -1;
-
-}
 
 extern struct regmap *syscon_regmap_lookup_by_phandle(struct device_node *np,
 	const char *property);

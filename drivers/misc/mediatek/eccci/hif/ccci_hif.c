@@ -8,7 +8,8 @@
 
 #include "ccci_debug.h"
 #include "ccci_core.h"
-#include "ccci_hif_cldma.h"
+#include "ccci_hif.h"
+#include "ccci_hif_internal.h"
 #define TAG "hif"
 
 void *ccci_hif[CCCI_HIF_NUM];
@@ -120,35 +121,24 @@ int ccci_hif_all_q_reset(unsigned int hif_flag)
 	return ret;
 }
 
-int ccci_hif_stop_for_ee(unsigned int hif_flag)
-{
-	int ret = 0;
-
-	CCCI_INIT_LOG(-1, TAG,
-		"[%s] flag = 0x%x\n", __func__, hif_flag);
-
-	if (hif_flag & (1 << CLDMA_HIF_ID)) {
-		if (ccci_hif[CLDMA_HIF_ID] &&
-				ccci_hif_op[CLDMA_HIF_ID]->stop_for_ee)
-			ret |= ccci_hif_op[CLDMA_HIF_ID]->stop_for_ee(CLDMA_HIF_ID);
-	}
-
-	return ret;
-}
-
 int ccci_hif_dump_status(unsigned int hif_flag,
 		enum MODEM_DUMP_FLAG dump_flag,
 		void *buff, int length)
 {
 	int ret = 0;
 
-	if (hif_flag & (1 << CLDMA_HIF_ID))
-		ret |= ccci_cldma_hif_dump_status(CLDMA_HIF_ID,
+	if (hif_flag & (1 << CLDMA_HIF_ID) && ccci_hif_op[CLDMA_HIF_ID] &&
+			ccci_hif_op[CLDMA_HIF_ID]->dump_status)
+		ret |= ccci_hif_op[CLDMA_HIF_ID]->dump_status(CLDMA_HIF_ID,
 			dump_flag, buff, length);
-	if (hif_flag & (1 << CCIF_HIF_ID) && ccci_hif[CCIF_HIF_ID])
+
+	if (hif_flag & (1 << CCIF_HIF_ID) && ccci_hif_op[CCIF_HIF_ID] &&
+			ccci_hif_op[CCIF_HIF_ID]->dump_status)
 		ret |= ccci_hif_op[CCIF_HIF_ID]->dump_status(CCIF_HIF_ID,
 			dump_flag, buff, length);
-	if (hif_flag & (1 << DPMAIF_HIF_ID) && ccci_hif[DPMAIF_HIF_ID])
+
+	if (hif_flag & (1 << DPMAIF_HIF_ID) && ccci_hif_op[DPMAIF_HIF_ID] &&
+			ccci_hif_op[DPMAIF_HIF_ID]->dump_status)
 		ret |= ccci_hif_op[DPMAIF_HIF_ID]->dump_status(DPMAIF_HIF_ID,
 			dump_flag, buff, length);
 
@@ -180,8 +170,6 @@ int ccci_hif_set_wakeup_src(unsigned char hif_id, int value)
 
 	switch (hif_id) {
 	case CLDMA_HIF_ID:
-		ret = ccci_cldma_hif_set_wakeup_src(CLDMA_HIF_ID, value);
-		break;
 	case CCIF_HIF_ID:
 	case DPMAIF_HIF_ID:
 		if (ccci_hif[hif_id] && ccci_hif_op[hif_id]->debug)
@@ -202,9 +190,6 @@ int ccci_hif_send_skb(unsigned char hif_id, int tx_qno, struct sk_buff *skb,
 
 	switch (hif_id) {
 	case CLDMA_HIF_ID:
-		ret = ccci_cldma_hif_send_skb(CLDMA_HIF_ID, tx_qno,
-			skb, from_pool, blocking);
-		break;
 	case CCIF_HIF_ID:
 	case DPMAIF_HIF_ID:
 		if (ccci_hif[hif_id] && ccci_hif_op[hif_id]->send_skb)
@@ -233,8 +218,6 @@ int ccci_hif_write_room(unsigned char hif_id, unsigned char qno)
 
 	switch (hif_id) {
 	case CLDMA_HIF_ID:
-		ret = ccci_cldma_hif_write_room(CLDMA_HIF_ID, qno);
-		break;
 	case CCIF_HIF_ID:
 	case DPMAIF_HIF_ID:
 		if (ccci_hif[hif_id] && ccci_hif_op[hif_id]->write_room)
@@ -252,8 +235,6 @@ int ccci_hif_ask_more_request(unsigned char hif_id, int rx_qno)
 
 	switch (hif_id) {
 	case CLDMA_HIF_ID:
-		ret = ccci_cldma_hif_give_more(CLDMA_HIF_ID, rx_qno);
-		break;
 	case CCIF_HIF_ID:
 	case DPMAIF_HIF_ID:
 		if (ccci_hif[hif_id] && ccci_hif_op[hif_id]->give_more)
@@ -414,12 +395,10 @@ void ccci_hif_md_exception(unsigned int hif_flag, unsigned char stage)
 			DUMP_FLAG_IRQ_STATUS, NULL, 0);
 
 		if (hif_flag & (1<<CLDMA_HIF_ID))  {
-			CCCI_ERROR_LOG(0, TAG,
-				"dump cldma on ccif hs0\n");
-			ccci_hif_dump_status(1 << CLDMA_HIF_ID,
-				DUMP_FLAG_CLDMA, NULL, -1);
 			/* disable CLDMA except un-stop queues */
-			ccci_hif_stop_for_ee(1 << CLDMA_HIF_ID);
+			if (ccci_hif[CLDMA_HIF_ID] &&
+					ccci_hif_op[CLDMA_HIF_ID]->stop_for_ee)
+				ccci_hif_op[CLDMA_HIF_ID]->stop_for_ee(CLDMA_HIF_ID);
 			/* purge Tx queue */
 			ccci_hif_clear_all_queue(1 << CLDMA_HIF_ID, OUT);
 		}
