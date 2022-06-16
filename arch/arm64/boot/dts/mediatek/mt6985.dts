@@ -14229,6 +14229,7 @@ l3_hit,l3_mis,pmu_cyc_cnt";
 	ps5170: ps5170@28 {
 		compatible = "parade,ps5170";
 		reg = <0x28>;
+		mediatek,vs-voter = <&pmic 0x189a 0x20 1>;
 		status = "okay";
 	};
 
