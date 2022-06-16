@@ -7498,6 +7498,9 @@ void mtk_drm_crtc_suspend(struct drm_crtc *crtc)
 	case MMSYS_MT6855:
 		DDPMSG("%s force return\n", __func__);
 		return;
+	case MMSYS_MT6886:
+		DDPMSG("%s force return\n", __func__);
+		return;
 	default:
 		break;
 	}
