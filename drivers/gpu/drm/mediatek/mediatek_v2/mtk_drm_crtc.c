@@ -6247,12 +6247,12 @@ void mtk_crtc_restore_plane_setting(struct mtk_drm_crtc *mtk_crtc)
 
 	if (mtk_crtc->is_mml) {
 		comp = priv->ddp_comp[DDP_COMPONENT_OVL0_2L];
-		cmdq_pkt_write(cmdq_handle, NULL, comp->larb_con_pa[0], GENMASK(19, 16),
+		cmdq_pkt_write(cmdq_handle, NULL, comp->larb_cons[0], GENMASK(19, 16),
 			       GENMASK(19, 16));
 
 		if (mtk_crtc->is_dual_pipe) {
 			comp = priv->ddp_comp[DDP_COMPONENT_OVL2_2L];
-			cmdq_pkt_write(cmdq_handle, NULL, comp->larb_con_pa[0], GENMASK(19, 16),
+			cmdq_pkt_write(cmdq_handle, NULL, comp->larb_cons[0], GENMASK(19, 16),
 				       GENMASK(19, 16));
 		}
 	}

@@ -801,9 +801,11 @@ static void mtk_ddp_comp_set_larb(struct device *dev, struct device_node *node,
 	int count, i;
 	struct of_phandle_args larb_args;
 	u32 *larb_ids = NULL;
+	resource_size_t *larb_cons = NULL;
 
 	comp->larb_dev = NULL;
 	comp->larb_devs = NULL;
+	comp->larb_cons = NULL;
 
 	/* check if this module need larb_dev */
 	if (type != MTK_DISP_OVL && type != MTK_DISP_RDMA && type != MTK_DISP_WDMA &&
@@ -853,6 +855,9 @@ static void mtk_ddp_comp_set_larb(struct device *dev, struct device_node *node,
 	larb_ids = devm_kzalloc(dev, sizeof(u32) * count, GFP_KERNEL);
 	if (!larb_ids)
 		goto err_larb;
+	larb_cons = devm_kzalloc(dev, sizeof(resource_size_t) * count, GFP_KERNEL);
+	if (!larb_cons)
+		goto err_larb;
 
 	for (i = 0; i < count; i++) {
 		ret = of_parse_phandle_with_fixed_args(node, "mediatek,larb", 1, i, &larb_args);
@@ -876,15 +881,16 @@ static void mtk_ddp_comp_set_larb(struct device *dev, struct device_node *node,
 		larb_devs[i] = &larb_pdev->dev;
 		/* MTK_M4U_TO_LARB(M4U_PORT_L21_DISP_OVL0_2L_RDMA1) = 21 */
 		larb_ids[i] = MTK_M4U_TO_LARB(larb_args.args[0]);
-		comp->larb_con_pa[i] =
+		larb_cons[i] =
 			res.start + MTK_M4U_TO_PORT(larb_args.args[0]) * 4 + SMI_LARB_NON_SEC_CON;
 
-		DDPMSG("i=%d 0x%x\n", i, comp->larb_con_pa[i]);
+		DDPMSG("i=%d 0x%x\n", i, larb_cons[i]);
 		DDPMSG("%s: %s need larb device, smi-id:%d\n",
 			__func__, mtk_dump_comp_str(comp), larb_ids[i]);
 	}
 	comp->larb_devs = larb_devs;
 	comp->larb_ids = larb_ids;
+	comp->larb_cons = larb_cons;
 	comp->larb_num = count;
 
 	return;
@@ -894,6 +900,8 @@ err_larb:
 		devm_kfree(dev, larb_devs);
 	if (larb_ids)
 		devm_kfree(dev, larb_ids);
+	if (larb_cons)
+		devm_kfree(dev, larb_cons);
 }
 
 unsigned int mtk_drm_find_possible_crtc_by_comp(struct drm_device *drm,

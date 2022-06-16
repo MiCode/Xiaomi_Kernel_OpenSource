@@ -1696,11 +1696,11 @@ static void _ovl_common_config(struct mtk_ddp_comp *comp, unsigned int idx,
 				~0);
 
 			/* setting SMI for read SRAM */
-			if (comp->larb_con_pa[0])
-				cmdq_pkt_write(handle, comp->cmdq_base, comp->larb_con_pa[0],
+			if (comp->larb_cons)
+				cmdq_pkt_write(handle, comp->cmdq_base, comp->larb_cons[0],
 					       GENMASK(19, 16), GENMASK(19, 16));
 			else
-				DDPPR_ERR("%s: comp %d larb_con_pa is null\n", __func__, comp->id);
+				DDPPR_ERR("%s: comp %d larb_cons is null\n", __func__, comp->id);
 
 			write_phy_layer_addr_cmdq(comp, handle, lye_idx, sram_addr);
 		} else {
@@ -2315,8 +2315,8 @@ static bool compr_l_config_AFBC_V1_2(struct mtk_ddp_comp *comp,
 		0, ~0);
 
 	/* setting SMI for read DRAM */
-	if (comp->larb_con_pa[0])
-		cmdq_pkt_write(handle, comp->cmdq_base, comp->larb_con_pa[0], 0, GENMASK(19, 16));
+	if (comp->larb_cons)
+		cmdq_pkt_write(handle, comp->cmdq_base, comp->larb_cons[0], 0, GENMASK(19, 16));
 
 	/* if no compress, do common config and return */
 	if (compress == 0 || (pending->mml_mode == MML_MODE_RACING)) {

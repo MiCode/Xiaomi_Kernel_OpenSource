@@ -630,7 +630,7 @@ struct mtk_ddp_comp {
 	struct clk *clk;
 	void __iomem *regs;
 	resource_size_t regs_pa;
-	resource_size_t larb_con_pa[2];
+	resource_size_t *larb_cons;
 	int irq;
 	struct device *larb_dev;
 	struct device **larb_devs;
