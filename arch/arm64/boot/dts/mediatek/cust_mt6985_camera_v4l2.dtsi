@@ -604,10 +604,10 @@
 		pinctrl-20 = <&camera_pins_cam0_avdd1_0>;
 		pinctrl-21 = <&camera_pins_cam0_avdd1_1>;
 
-		avdd-supply = <&rt5133_gpio2>;
+		avdd2-supply = <&rt5133_gpio2>;
 		dvdd-supply = <&rt5133_ldo7>;
 		dovdd-supply = <&rt5133_ldo1>;
-		afvdd-supply = <&rt5133_gpio1>;
+		afvdd1-supply = <&rt5133_gpio1>;
 		dvdd1-supply = <&rt5133_ldo8>;
 
 		clocks = <&topckgen_clk CLK_TOP_UNIVPLL2_192M_D32>,
