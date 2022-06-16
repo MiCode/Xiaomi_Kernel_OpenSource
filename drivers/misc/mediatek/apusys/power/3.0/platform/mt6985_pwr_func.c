@@ -200,6 +200,7 @@ static int aputop_dbg_set_parameter(int param, int argc, int *args)
 			pr_info("%s invalid param num:%d\n", __func__, argc);
 			ret = -EINVAL;
 		}
+		break;
 	default:
 		pr_info("%s unsupport the pwr param:%d\n", __func__, param);
 		ret = -EINVAL;
