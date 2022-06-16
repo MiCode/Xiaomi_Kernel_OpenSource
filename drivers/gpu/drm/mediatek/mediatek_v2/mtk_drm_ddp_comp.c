@@ -794,51 +794,106 @@ static void mtk_ddp_comp_set_larb(struct device *dev, struct device_node *node,
 {
 	int ret;
 	struct device_node *larb_node = NULL;
+	struct device **larb_devs = NULL;
 	struct platform_device *larb_pdev = NULL;
 	enum mtk_ddp_comp_type type = mtk_ddp_comp_get_type(comp->id);
-	unsigned int larb_id;
 	struct resource res;
-	int port;
+	int count, i;
+	struct of_phandle_args larb_args;
+	u32 *larb_ids = NULL;
 
 	comp->larb_dev = NULL;
-
-	larb_node = of_parse_phandle(node, "mediatek,larb", 0);
-
-	if (larb_node) {
-		larb_pdev = of_find_device_by_node(larb_node);
-		if (larb_pdev)
-			comp->larb_dev = &larb_pdev->dev;
-		of_node_put(larb_node);
-	}
-
-	if (!comp->larb_dev)
-		return;
-
-	ret = of_property_read_u32(node,
-				"mediatek,smi-id", &larb_id);
-	if (ret) {
-		dev_err(comp->larb_dev,
-			"read smi-id failed:%d\n", ret);
-		return;
-	}
-	comp->larb_id = larb_id;
+	comp->larb_devs = NULL;
 
 	/* check if this module need larb_dev */
-	if (type == MTK_DISP_OVL || type == MTK_DISP_RDMA || type == MTK_DISP_WDMA ||
-	    type == MTK_DISP_POSTMASK)
-		DDPMSG("%s: %s need larb device, smi-id:%d\n", __func__, mtk_dump_comp_str(comp),
-		       comp->larb_id);
-	else
+	if (type != MTK_DISP_OVL && type != MTK_DISP_RDMA && type != MTK_DISP_WDMA &&
+		type != MTK_DISP_POSTMASK)
 		return;
 
-	ret = of_address_to_resource(comp->larb_dev->of_node, 0, &res);
-	if (ret != 0) {
-		DDPMSG("Missing reg in %s node\n", comp->larb_dev->of_node->full_name);
+	count = of_property_count_u32_elems(node, "mediatek,larb");
+	if (count <= 0) {
+		DDPPR_ERR("%s %s failed to parse mediatek,larb\n",
+			__func__, mtk_dump_comp_str(comp));
+		return;
+	} else if (count == 1) { /* 1-comp, 1-larb */
+		unsigned int larb_id;
+
+		larb_node = of_parse_phandle(node, "mediatek,larb", 0);
+
+		if (larb_node) {
+			larb_pdev = of_find_device_by_node(larb_node);
+			if (larb_pdev)
+				comp->larb_dev = &larb_pdev->dev;
+			of_node_put(larb_node);
+		}
+
+		if (!comp->larb_dev)
+			return;
+
+		ret = of_property_read_u32(node, "mediatek,smi-id", &larb_id);
+		if (ret) {
+			dev_err(comp->larb_dev, "read smi-id failed:%d\n", ret);
+			return;
+		}
+		comp->larb_id = larb_id;
+		comp->larb_num = 1;
+		DDPMSG("%s: %s need larb device, smi-id:%d\n", __func__, mtk_dump_comp_str(comp),
+		       comp->larb_id);
 		return;
 	}
 
-	if (!of_property_read_u32(node, "larbport", &port))
-		comp->larb_con_pa = res.start + MTK_M4U_TO_PORT(port) * 4 + SMI_LARB_NON_SEC_CON;
+	/* 1-comp to N-larb */
+	count >>= 1;
+	DDPMSG("%s %s has %d larb pair settings\n",
+		__func__, mtk_dump_comp_str(comp), count);
+
+	larb_devs = devm_kzalloc(dev, sizeof(struct device *) * count, GFP_KERNEL);
+	if (!larb_devs)
+		goto err_larb;
+	larb_ids = devm_kzalloc(dev, sizeof(u32) * count, GFP_KERNEL);
+	if (!larb_ids)
+		goto err_larb;
+
+	for (i = 0; i < count; i++) {
+		ret = of_parse_phandle_with_fixed_args(node, "mediatek,larb", 1, i, &larb_args);
+		if (ret) {
+			DDPMSG("%s %s failed to parse\n", __func__, mtk_dump_comp_str(comp));
+			goto err_larb;
+		}
+
+		larb_pdev = of_find_device_by_node(larb_args.np);
+		if (!larb_pdev) {
+			DDPMSG("Failed to get larb device\n");
+			goto err_larb;
+		}
+		ret = of_address_to_resource(larb_args.np, 0, &res);
+		if (ret) {
+			DDPMSG("Missing reg in %s node\n", comp->larb_dev->of_node->full_name);
+			goto err_larb;
+		}
+		of_node_put(larb_args.np);
+
+		larb_devs[i] = &larb_pdev->dev;
+		/* MTK_M4U_TO_LARB(M4U_PORT_L21_DISP_OVL0_2L_RDMA1) = 21 */
+		larb_ids[i] = MTK_M4U_TO_LARB(larb_args.args[0]);
+		comp->larb_con_pa[i] =
+			res.start + MTK_M4U_TO_PORT(larb_args.args[0]) * 4 + SMI_LARB_NON_SEC_CON;
+
+		DDPMSG("i=%d 0x%x\n", i, comp->larb_con_pa[i]);
+		DDPMSG("%s: %s need larb device, smi-id:%d\n",
+			__func__, mtk_dump_comp_str(comp), larb_ids[i]);
+	}
+	comp->larb_devs = larb_devs;
+	comp->larb_ids = larb_ids;
+	comp->larb_num = count;
+
+	return;
+
+err_larb:
+	if (larb_devs)
+		devm_kfree(dev, larb_devs);
+	if (larb_ids)
+		devm_kfree(dev, larb_ids);
 }
 
 unsigned int mtk_drm_find_possible_crtc_by_comp(struct drm_device *drm,
@@ -1038,28 +1093,63 @@ void mtk_ddp_comp_pm_enable(struct mtk_ddp_comp *comp)
 {
 	if (comp->larb_dev)
 		pm_runtime_enable(comp->dev);
+	else if (comp->larb_devs)
+		pm_runtime_enable(comp->dev);
 }
 
 void mtk_ddp_comp_pm_disable(struct mtk_ddp_comp *comp)
 {
 	if (comp->larb_dev)
 		pm_runtime_disable(comp->dev);
+	else if (comp->larb_devs)
+		pm_runtime_disable(comp->dev);
 }
+
+static void mtk_ddp_comp_larb_get(struct mtk_ddp_comp *comp,
+	struct device *larb_dev)
+{
+	if (!larb_dev)
+		return;
+
+#ifdef MTK_SMI_CLK_CTRL
+	mtk_smi_larb_get(larb_dev);
+#else
+	pm_runtime_get_sync(comp->dev);
+#endif
+}
+
+static void mtk_ddp_comp_larb_put(struct mtk_ddp_comp *comp,
+	struct device *larb_dev)
+{
+	if (!larb_dev)
+		return;
+
+#ifdef MTK_SMI_CLK_CTRL
+	mtk_smi_larb_put(larb_dev);
+#else
+	pm_runtime_put_sync(comp->dev);
+#endif
+
+}
+
 
 void mtk_ddp_comp_clk_prepare(struct mtk_ddp_comp *comp)
 {
 	unsigned int index = 0;
-	int ret;
+	int ret, i;
+	struct device *larb_dev;
 
 	if (comp == NULL)
 		return;
 
-	if (comp->larb_dev)
-#ifdef MTK_SMI_CLK_CTRL
-		mtk_smi_larb_get(comp->larb_dev);
-#else
-		pm_runtime_get_sync(comp->dev);
-#endif
+	mtk_ddp_comp_larb_get(comp, comp->larb_dev);
+
+	if (comp->larb_devs) {
+		for (i = 0 ; i < comp->larb_num ; i++) {
+			larb_dev = comp->larb_devs[i];
+			mtk_ddp_comp_larb_get(comp, larb_dev);
+		}
+	}
 
 	if (comp->clk) {
 		ret = clk_prepare_enable(comp->clk);
@@ -1076,6 +1166,8 @@ void mtk_ddp_comp_clk_prepare(struct mtk_ddp_comp *comp)
 void mtk_ddp_comp_clk_unprepare(struct mtk_ddp_comp *comp)
 {
 	unsigned int index = 0;
+	int i;
+	struct device *larb_dev;
 
 	if (comp == NULL)
 		return;
@@ -1084,12 +1176,13 @@ void mtk_ddp_comp_clk_unprepare(struct mtk_ddp_comp *comp)
 		clk_disable_unprepare(comp->clk);
 
 
-	if (comp->larb_dev)
-#ifdef MTK_SMI_CLK_CTRL
-		mtk_smi_larb_put(comp->larb_dev);
-#else
-		pm_runtime_put_sync(comp->dev);
-#endif
+	mtk_ddp_comp_larb_put(comp, comp->larb_dev);
+	if (comp->larb_devs) {
+		for (i = 0 ; i < comp->larb_num ; i++) {
+			larb_dev = comp->larb_devs[i];
+			mtk_ddp_comp_larb_put(comp, larb_dev);
+		}
+	}
 
 	if (comp->mtk_crtc)
 		index = drm_crtc_index(&comp->mtk_crtc->base);
@@ -1101,13 +1194,25 @@ void mtk_ddp_comp_iommu_enable(struct mtk_ddp_comp *comp, struct cmdq_pkt *handl
 	int port, index, ret;
 	struct resource res;
 	struct mtk_drm_private *priv;
+	struct device *larb_dev;
 
-	if (!comp->dev || !comp->larb_dev || !comp->mtk_crtc)
+	if (!comp->dev || (!comp->larb_dev && !comp->larb_devs) || !comp->mtk_crtc)
 		return;
 
 	priv = comp->mtk_crtc->base.dev->dev_private;
 
-	if (of_address_to_resource(comp->larb_dev->of_node, 0, &res) != 0) {
+	if (comp->larb_dev)
+		larb_dev = comp->larb_dev;
+	else
+		larb_dev = comp->larb_devs[0];
+
+	if (IS_ERR_OR_NULL(larb_dev)) {
+		dev_err(comp->dev, "Missing larb_dev in %s comp\n",
+			comp->dev->of_node->full_name);
+		return;
+	}
+
+	if (of_address_to_resource(larb_dev->of_node, 0, &res) != 0) {
 		dev_err(comp->dev, "Missing reg in %s node\n",
 			comp->larb_dev->of_node->full_name);
 		return;
