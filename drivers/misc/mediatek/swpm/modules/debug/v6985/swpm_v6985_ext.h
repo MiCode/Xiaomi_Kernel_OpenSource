@@ -1,12 +1,13 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2021 MediaTek Inc.
+ * Copyright (c) 2022 MediaTek Inc.
  */
 
 #ifndef __MTK_SWPM_SP_PLATFORM_H__
 #define __MTK_SWPM_SP_PLATFORM_H__
 
-#include <swpm_v6985.h>
+#include <swpm_mem_v6985.h>
+#include <swpm_core_v6985.h>
 
 /* numbers of power state (active, idle, off) */
 enum pmsr_power_state {
@@ -18,9 +19,10 @@ enum pmsr_power_state {
 };
 /* #define NR_POWER_STATE (3) */
 
-/* core ip (mmsys, venc, vdec, scp */
+/* core ip (mdp, disp, venc, vdec, scp) */
 enum core_ip_state {
-	CORE_IP_MMSYS,
+	CORE_IP_MDP,
+	CORE_IP_DISP,
 	CORE_IP_VENC,
 	CORE_IP_VDEC,
 	CORE_IP_SCP,
@@ -100,11 +102,6 @@ struct share_ctrl_ext {
 	unsigned int clear_flag;
 };
 
-extern struct core_swpm_rec_data *core_ptr;
-extern struct mem_swpm_rec_data *mem_ptr;
-
-//extern void swpm_v6985_ext_init(phys_addr_t ref_addr,
-			 //phys_addr_t ctrl_addr);
 extern void swpm_v6985_ext_init(void);
 extern void swpm_v6985_ext_exit(void);
 
