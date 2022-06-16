@@ -1137,7 +1137,7 @@ static const struct v4l2_ctrl_config mtk_camsys_hw_mode = {
 void trigger_rawi(struct mtk_raw_device *dev, struct mtk_cam_ctx *ctx,
 		signed int hw_scene)
 {
-#define TRIGGER_RAWI_R6 0x10
+#define TRIGGER_RAWI_R5 0x4
 #define TRIGGER_RAWI_R2 0x01
 
 	u32 cmd = 0;
@@ -1145,7 +1145,7 @@ void trigger_rawi(struct mtk_raw_device *dev, struct mtk_cam_ctx *ctx,
 	if (hw_scene == MTKCAM_IPI_HW_PATH_OFFLINE)
 		cmd = TRIGGER_RAWI_R2;
 	else if (hw_scene == MTKCAM_IPI_HW_PATH_OFFLINE_STAGGER)
-		cmd = TRIGGER_RAWI_R6;
+		cmd = TRIGGER_RAWI_R5;
 
 	dev_dbg(dev->dev, "m2m %s, cmd:%d\n", __func__, cmd);
 
