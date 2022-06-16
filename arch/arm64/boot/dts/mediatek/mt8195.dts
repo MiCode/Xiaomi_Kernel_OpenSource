@@ -1864,7 +1864,10 @@
 		reg = <0 0x11230000 0 0x10000>,
 		      <0 0x11f50000 0 0x1000>;
 		interrupts = <GIC_SPI 131 IRQ_TYPE_LEVEL_HIGH 0>;
-		clocks = <&clk26m>, <&clk26m>, <&clk26m>, <&clk26m>;
+		clocks = <&topckgen CLK_TOP_MSDC50_0_SEL>,
+			 <&infracfg_ao CLK_INFRA_AO_MSDC0>,
+			 <&infracfg_ao CLK_INFRA_AO_MSDC0_SRC>,
+			 <&infracfg_ao CLK_INFRA_AO_AES_MSDCFDE_0P>;
 		clock-names = "source", "hclk", "source_cg", "crypto_clk";
 		status = "disabled";
 	};
@@ -6428,6 +6431,8 @@
 		i2c5 = &i2c5;
 		i2c6 = &i2c6;
 		i2c7 = &i2c7;
+		mmc0 = &mmc0;
+		mmc1 = &mmc1;
 	};
 
 	apuspm: apusys-power-controller {

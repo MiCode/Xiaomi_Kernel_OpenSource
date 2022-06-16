@@ -768,7 +768,6 @@ ROOT_NODE {
 
 &mmc0 {
 	status = "okay";
-	clocks = <&clk26m>, <&clk26m>, <&clk26m>, <&clk26m>;
 	pinctrl-names = "default", "state_uhs";
 	pinctrl-0 = <&mmc0_pins_default>;
 	pinctrl-1 = <&mmc0_pins_uhs>;
@@ -777,7 +776,7 @@ ROOT_NODE {
 	cap-mmc-highspeed;
 	mmc-hs200-1_8v;
 	mmc-hs400-1_8v;
-	mediatek,cqhci;
+	supports-cqe;
 	cap-mmc-hw-reset;
 	no-sdio;
 	no-sd;
