@@ -11,6 +11,7 @@
 #include <sched/sched.h>
 #include <linux/energy_model.h>
 #include "cpufreq.h"
+#include "sugov_trace.h"
 #if IS_ENABLED(CONFIG_MTK_GEARLESS_SUPPORT)
 #include "mtk_energy_model/v2/energy_model.h"
 #else
@@ -449,6 +450,7 @@ static int pd_capacity_tbl_show(struct seq_file *m, void *v)
 {
 	int i, j;
 	struct pd_capacity_info *pd_info;
+	struct em_perf_domain *pd;
 
 	for (i = 0; i < pd_count; i++) {
 		pd_info = &pd_capacity_tbl[i];
@@ -457,11 +459,29 @@ static int pd_capacity_tbl_show(struct seq_file *m, void *v)
 			break;
 
 		seq_printf(m, "Pd table: %d\n", i);
-		seq_printf(m, "nr_caps: %d\n", pd_info->nr_caps);
 		seq_printf(m, "cpus: %*pbl\n", cpumask_pr_args(&pd_info->cpus));
+		pd = em_cpu_get(cpumask_first(&pd_info->cpus));
+		if (!pd) {
+			pr_info("sugov_ext err: pd null in cluster%d\n", i);
+			continue;
+		}
+#if IS_ENABLED(CONFIG_MTK_GEARLESS_SUPPORT)
+		seq_printf(m, "nr_caps.: %d\n", pd->nr_perf_states);
+		for (j = 0; j < pd->nr_perf_states; j++)
+			seq_printf(m, "%d: %lu, %lu\n", j,
+				mtk_em_pd_ptr_public[i].table[j].capacity,
+				mtk_em_pd_ptr_public[i].table[j].freq);
+#else
+		if (pd_info->nr_caps != pd->nr_perf_states) {
+			pr_info("sugov_ext err: pd_info->nr_c. != pd->nr_perf_sta. in clus.=%d\n",
+				i);
+			continue;
+		}
+		seq_printf(m, "nr_caps: %d\n", pd_info->nr_caps);
 		for (j = 0; j < pd_info->nr_caps; j++)
 			seq_printf(m, "%d: %lu, %lu\n", j, pd_info->table[j].capacity,
 				pd_info->table[j].freq);
+#endif
 	}
 
 	return 0;
@@ -516,10 +536,21 @@ void mtk_arch_set_freq_scale(void *data, const struct cpumask *cpus,
 {
 	int cpu = cpumask_first(cpus);
 	unsigned long cap, max_cap;
+	struct cpufreq_policy *policy;
 
+	policy = cpufreq_cpu_get(cpu);
+	if (policy) {
+		freq = policy->cached_target_freq;
+		cpufreq_cpu_put(policy);
+	}
 	cap = pd_get_freq_util(cpu, freq);
 	max_cap = pd_get_freq_util(cpu, max);
 	*scale = SCHED_CAPACITY_SCALE * cap / max_cap;
+}
+
+void mtk_cpufreq_transition(void *data, struct cpufreq_policy *policy)
+{
+	trace_sugov_ext_gear_state(per_cpu(gear_id, policy->cpu), policy->cached_resolved_idx);
 }
 
 unsigned int util_scale = 1280;

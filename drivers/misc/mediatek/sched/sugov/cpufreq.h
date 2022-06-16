@@ -89,7 +89,7 @@ extern unsigned int pd_get_opp_leakage(unsigned int cpu, unsigned int opp,
 #if IS_ENABLED(CONFIG_NONLINEAR_FREQ_CTL)
 void mtk_arch_set_freq_scale(void *data, const struct cpumask *cpus,
 				unsigned long freq, unsigned long max, unsigned long *scale);
-
+void mtk_cpufreq_transition(void *data, struct cpufreq_policy *policy);
 extern int set_sched_capacity_margin_dvfs(unsigned int capacity_margin);
 extern unsigned int get_sched_capacity_margin_dvfs(void);
 #endif

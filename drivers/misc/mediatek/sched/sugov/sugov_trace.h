@@ -34,6 +34,23 @@ TRACE_EVENT(sugov_ext_util,
 		__entry->min,
 		__entry->max)
 );
+
+TRACE_EVENT(sugov_ext_gear_state,
+	TP_PROTO(unsigned int gear_id, unsigned int state),
+	TP_ARGS(gear_id, state),
+	TP_STRUCT__entry(
+		__field(unsigned int, gear_id)
+		__field(unsigned int, state)
+	),
+	TP_fast_assign(
+		__entry->gear_id = gear_id;
+		__entry->state = state;
+	),
+	TP_printk(
+		"gear_id=%u state=%u",
+		__entry->gear_id,
+		__entry->state)
+);
 #endif /* _TRACE_SCHEDULER_H */
 
 #undef TRACE_INCLUDE_PATH

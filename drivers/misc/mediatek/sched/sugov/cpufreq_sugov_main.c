@@ -25,6 +25,7 @@
 #include <trace/events/power.h>
 #include <trace/hooks/sched.h>
 #include <trace/hooks/topology.h>
+#include <trace/hooks/cpufreq.h>
 #include <linux/sched/cpufreq.h>
 #include <linux/kthread.h>
 #include <thermal_interface.h>
@@ -1083,6 +1084,10 @@ static int __init cpufreq_mtk_init(void)
 		pr_info("register android_vh_arch_set_freq_scale failed\n");
 	else
 		topology_clear_scale_freq_source(SCALE_FREQ_SOURCE_ARCH, cpu_possible_mask);
+
+	ret = register_trace_android_rvh_cpufreq_transition(mtk_cpufreq_transition, NULL);
+	if (ret)
+		pr_info("register android_rvh_cpufreq_transition failed\n");
 #endif
 
 	return cpufreq_register_governor(&mtk_gov);
