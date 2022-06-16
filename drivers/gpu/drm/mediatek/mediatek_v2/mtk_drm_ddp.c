@@ -2740,8 +2740,10 @@ static const unsigned int mt6985_ovlsys_mutex_mod[DDP_COMPONENT_ID_MAX] = {
 	[DDP_COMPONENT_OVL6_2L] = MT6985_MUTEX_MOD0_DISP_OVL2_2L,
 		[DDP_COMPONENT_OVL3_2L] = MT6985_MUTEX_MOD0_DISP_OVL3_2L,
 	[DDP_COMPONENT_OVL7_2L] = MT6985_MUTEX_MOD0_DISP_OVL3_2L,
-		[DDP_COMPONENT_RSZ1] = MT6985_MUTEX_MOD0_DISP_RSZ1,
-	[DDP_COMPONENT_RSZ2] = MT6985_MUTEX_MOD0_DISP_RSZ1,
+		[DDP_COMPONENT_RSZ0] = MT6985_MUTEX_MOD0_DISP_RSZ0,
+	[DDP_COMPONENT_RSZ2] = MT6985_MUTEX_MOD0_DISP_RSZ0,
+		[DDP_COMPONENT_OVLSYS_RSZ1] = MT6985_MUTEX_MOD0_DISP_RSZ1,
+	[DDP_COMPONENT_OVLSYS_RSZ2] = MT6985_MUTEX_MOD0_DISP_RSZ1,
 		[DDP_COMPONENT_DMDP_RSZ0] = MT6985_MUTEX_MOD0_DISP_MDP_RSZ0,
 	[DDP_COMPONENT_DMDP_RSZ1] = MT6985_MUTEX_MOD0_DISP_MDP_RSZ0,
 		[DDP_COMPONENT_WDMA0] = MT6985_MUTEX_MOD0_DISP_WDMA0,
@@ -10440,7 +10442,7 @@ static int mtk_ddp_mout_en_MT6985(const struct mtk_mmsys_reg_data *data,
 		value = DISP_COMP_OUT_CROSSBAR0_TO_DSI0;
 	} else {
 		value = -1;
-		DDPINFO("%s, cur=%s->next=%s non-mount\n", __func__,
+		DDPINFO("%s, cur=%s->next=%s not found in MOUT_EN\n", __func__,
 			mtk_dump_comp_str_id(cur), mtk_dump_comp_str_id(next));
 	}
 
@@ -14542,34 +14544,30 @@ void mtk_disp_mutex_add_comp_with_cmdq(struct mtk_drm_crtc *mtk_crtc,
 		if (ddp->data->mutex_mod[id] > 0) {
 			if (ddp->data->mutex_mod[id] <= BIT(31)) {
 				cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
-						   regs_pa +
-							   DISP_REG_MUTEX_MOD(ddp->data,
-									  mutex->id),
-						   ddp->data->mutex_mod[id],
-						   ddp->data->mutex_mod[id]);
+					       regs_pa + DISP_REG_MUTEX_MOD(ddp->data, mutex->id),
+					       ddp->data->mutex_mod[id], ddp->data->mutex_mod[id]);
 			} else {
 				cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
-						   regs_pa +
-							   DISP_REG_MUTEX_MOD2(mutex->id),
-						   ddp->data->mutex_mod[id] & ~BIT(31),
-						   ddp->data->mutex_mod[id] & ~BIT(31));
+					       regs_pa + DISP_REG_MUTEX_MOD2(mutex->id),
+					       ddp->data->mutex_mod[id] & ~BIT(31),
+					       ddp->data->mutex_mod[id] & ~BIT(31));
 			}
 		}
 
 		if (ovlsys_regs_pa) {
 			if (ddp->data->mutex_ovlsys_mod[id] > 0) {
-				if (ddp->data->mutex_mod[id] <= BIT(31)) {
+				if (ddp->data->mutex_ovlsys_mod[id] <= BIT(31)) {
 					cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
 						ovlsys_regs_pa +
 						DISP_REG_MUTEX_MOD(ddp->data, mutex->id),
-						ddp->data->mutex_mod[id],
-						ddp->data->mutex_mod[id]);
+						ddp->data->mutex_ovlsys_mod[id],
+						ddp->data->mutex_ovlsys_mod[id]);
 				} else {
 					cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
 						ovlsys_regs_pa +
 						DISP_REG_MUTEX_MOD2(mutex->id),
-						ddp->data->mutex_mod[id] & ~BIT(31),
-						ddp->data->mutex_mod[id] & ~BIT(31));
+						ddp->data->mutex_ovlsys_mod[id] & ~BIT(31),
+						ddp->data->mutex_ovlsys_mod[id] & ~BIT(31));
 				}
 			}
 		}
@@ -14712,32 +14710,36 @@ void mtk_disp_mutex_remove_comp_with_cmdq(struct mtk_drm_crtc *mtk_crtc,
 				       MUTEX_SOF_SINGLE_MODE, ~0);
 		break;
 	default:
-		if (ddp->data->mutex_mod[id] <= BIT(31)) {
-			cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
-				       regs_pa +
-					       DISP_REG_MUTEX_MOD(ddp->data,
-								  mutex->id),
-				       ~(ddp->data->mutex_mod[id]),
-				       ddp->data->mutex_mod[id]);
-			if (ovlsys_regs_pa)
+		if (ddp->data->mutex_mod[id] > 0) {
+			if (ddp->data->mutex_mod[id] <= BIT(31)) {
 				cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
-					       ovlsys_regs_pa +
-						       DISP_REG_MUTEX_MOD(ddp->data,
-									  mutex->id),
+					       regs_pa + DISP_REG_MUTEX_MOD(ddp->data, mutex->id),
 					       ~(ddp->data->mutex_mod[id]),
 					       ddp->data->mutex_mod[id]);
-		} else {
-			cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
-				       regs_pa +
-					       DISP_REG_MUTEX_MOD2(mutex->id),
-				       ~(ddp->data->mutex_mod[id] & ~BIT(31)),
-				       (ddp->data->mutex_mod[id] & ~BIT(31)));
-			if (ovlsys_regs_pa)
+			} else {
 				cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
-					       ovlsys_regs_pa +
-						       DISP_REG_MUTEX_MOD2(mutex->id),
+					       regs_pa + DISP_REG_MUTEX_MOD2(mutex->id),
 					       ~(ddp->data->mutex_mod[id] & ~BIT(31)),
-					       (ddp->data->mutex_mod[id] & ~BIT(31)));
+					       ddp->data->mutex_mod[id] & ~BIT(31));
+			}
+		}
+
+		if (ovlsys_regs_pa) {
+			if (ddp->data->mutex_ovlsys_mod[id] > 0) {
+				if (ddp->data->mutex_ovlsys_mod[id] <= BIT(31)) {
+					cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
+						       ovlsys_regs_pa +
+							   DISP_REG_MUTEX_MOD(ddp->data, mutex->id),
+						       ~(ddp->data->mutex_ovlsys_mod[id]),
+						       ddp->data->mutex_ovlsys_mod[id]);
+				} else {
+					cmdq_pkt_write(
+					    handle, mtk_crtc->gce_obj.base,
+					    ovlsys_regs_pa + DISP_REG_MUTEX_MOD2(mutex->id),
+					    ~(ddp->data->mutex_ovlsys_mod[id] & ~BIT(31)),
+					    ddp->data->mutex_ovlsys_mod[id] & ~BIT(31));
+				}
+			}
 		}
 		break;
 	}
