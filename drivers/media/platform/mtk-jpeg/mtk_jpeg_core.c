@@ -701,7 +701,9 @@ static void mtk_jpeg_dvfs_begin(struct mtk_jpeg_ctx *ctx)
 	unsigned long active_freq = 0;
 	struct mtk_jpeg_dev *jpeg = ctx->jpeg;
 
-	active_freq = jpeg->freqs[jpeg->freq_cnt - 1];
+	pr_info("%s freq_cnt %d!\n", __func__, jpeg->freq_cnt);
+	if (jpeg->freq_cnt > 0 && jpeg->freq_cnt < MTK_JPEG_MAX_FREQ)
+		active_freq = jpeg->freqs[jpeg->freq_cnt - 1];
 
 	if (jpeg->jpegenc_reg) {
 		opp = dev_pm_opp_find_freq_ceil(jpeg->dev,
