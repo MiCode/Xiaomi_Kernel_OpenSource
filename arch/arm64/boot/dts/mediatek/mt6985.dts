@@ -1014,6 +1014,16 @@
 		reg = <0 0x1002c000 0 0x1000>;
 	};
 
+	ifr_mem_bus: syscon@10270000 {
+		compatible = "mediatek,mt6985-ifr_mem_bus", "syscon";
+		reg = <0 0x10270000 0 0x1000>;
+	};
+
+	semi_bus: syscon@1030e000 {
+		compatible = "mediatek,mt6985-semi_bus", "syscon";
+		reg = <0 0x1030e000 0 0x1000>;
+	};
+
 	ssr_top_clk: syscon@10400000 {
 		compatible = "mediatek,mt6985-ssr_top", "syscon";
 		reg = <0 0x10400000 0 0x1000>;
@@ -1098,6 +1108,9 @@
 		compatible = "mediatek,mt6985-gpusys", "syscon";
 		reg = <0 0x13f91000 0 0x1000>;
 		#power-domain-cells = <1>;
+		clocks = <&topckgen_clk CLK_TOP_MFG_REF_SEL>,
+			<&topckgen_clk CLK_TOP_MFGSC_REF_SEL>;
+		clock-names = "mfg_ref", "mfgsc_ref";
 		ifr_bus = <&ifr_bus>;
 		ufscfg_ao_bus = <&ufscfg_ao_clk>;
 		gpu_eb_rpc = <&gpusys>;
@@ -1293,7 +1306,6 @@
 			<&imgsys_main_clk CLK_IMG_LARB9>,
 			<&imgsys_main_clk CLK_IMG_SMI_ADL_LARB0>,
 			<&vdec_soc_gcon_base_clk CLK_VDE1_LARB1_CKEN>,
-			<&vdec_gcon_base_clk CLK_VDE2_LARB1_CKEN>,
 			<&camsys_main_clk CLK_CAM_MAIN_CAM_SUBA_CON_0>,
 			<&camsys_rawa_clk CLK_CAM_RA_LARBX>,
 			<&camsys_yuva_clk CLK_CAM_YA_LARBX>,
@@ -1315,14 +1327,14 @@
 			<&pextpcfg_ao_clk CLK_PEXT_MAC1_26M>,
 			<&pericfg_ao_clk CLK_PERAO_AUDIO_SLV>;
 		clock-names = "adsp", "audio", "aud_bus",
-			"cam", "ccu", "ccu_ahb",
-			"disp", "disp1", "mdp", "mdp1", "ovl", "ovl1",
-			"mm_infra", "mmup", "isp", "vde", "ven",
+			"cam", "ccu", "ccu_ahb", "disp", "disp1",
+			"mdp", "mdp1", "ovl", "ovl1", "mm_infra",
+			"mmup", "isp", "vde", "ven",
 			"cam-0", "cam-1", "cam-2", "cam-3", "cam-4",
 			"cam-5", "cam_lp-0", "cam_lp-1", "cam_lp-2",
 			"cam_lp-3", "mm_infra_lp-0", "disp-0", "disp1-0",
 			"ovl-0", "ovl1-0", "mdp-0", "mdp1-0",
-			"isp_lp-0", "isp_lp-1", "vde0-0", "vde1-0",
+			"isp_lp-0", "isp_lp-1", "vde0-0",
 			"cam_suba-0", "cam_suba-1", "cam_suba-2",
 			"cam_subb-0", "cam_subb-1", "cam_subb-2",
 			"cam_subc-0", "cam_subc-1", "cam_subc-2",
@@ -1330,6 +1342,7 @@
 			"dip1_lp-1", "dip1_lp-2", "dip1_lp-3", "dip1_lp-4",
 			"dip1_lp-5", "pextp0-0", "pextp1-0", "audio-0";
 		ifr_bus = <&ifr_bus>;
+		ifr_mem_bus = <&ifr_mem_bus>;
 		ufscfg_ao_bus = <&ufscfg_ao_clk>;
 		gpu_eb_rpc = <&gpusys>;
 		img_sub0_bus = <&img_sub0_bus>;
@@ -1338,6 +1351,7 @@
 		cam_sub2_bus = <&cam_sub2_bus>;
 		cam_sub1_bus = <&cam_sub1_bus>;
 		vlpcfg = <&vlpcfg_bus>;
+		semi_bus = <&semi_bus>;
 
 		isp_main-supply = <&mt6319_6_vbuck3>;
 		cam_main-supply = <&mt6319_6_vbuck3>;

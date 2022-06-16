@@ -18,9 +18,4 @@
 		power-domains = <&scpsys MT6985_POWER_DOMAIN_UFS0_PHY_SHUTDOWN>;
 		#set-syscore-device;
 	};
-
-	bring-up-pd-mm_infra {
-		compatible = "mediatek,scpsys-bring-up";
-		power-domains = <&scpsys MT6985_POWER_DOMAIN_MM_INFRA>;
-	};
 };
