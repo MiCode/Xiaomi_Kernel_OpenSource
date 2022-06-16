@@ -1964,7 +1964,7 @@ static irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 			}
 
 			if (dsi_underrun_trigger == 1 && dsi->encoder.crtc) {
-				if (mtk_crtc->is_mml) { /* Temp patch for debug MML */
+				if (mtk_crtc && mtk_crtc->is_mml) { /* Temp patch for debug MML */
 					mmprofile_enable(0);
 				}
 				mtk_drm_crtc_analysis(dsi->encoder.crtc);
