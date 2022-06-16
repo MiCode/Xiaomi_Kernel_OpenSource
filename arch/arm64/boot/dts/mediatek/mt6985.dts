@@ -5650,7 +5650,8 @@
 				<&traw_dip1_clk CLK_TRAW_DIP1_TRAW>,
 				<&imgsys_main_clk CLK_IMG_IPE>,
 				<&imgsys_main_clk CLK_IMG_ME>,
-				<&imgsys_main_clk CLK_IMG_MMG>;
+				<&imgsys_main_clk CLK_IMG_MMG>,
+				<&mmdvfs_clk CLK_MMDVFS_IMG>;
 			clock-names = "IMGSYS_CG_IMG_TRAW0",
 			      "IMGSYS_CG_IMG_TRAW1",
 			      "IMGSYS_CG_IMG_VCORE_GALS",
@@ -5671,9 +5672,10 @@
 			      "TRAW_CG_DIP1_TRAW",
 			      "IMGSYS_CG_IMG_IPE",
 			      "ME_CG",
-			      "MMG_CG";
+			      "MMG_CG",
+			      "mmdvfs_clk";
+			operating-points-v2 = <&opp_table_img>;
 #if 0
-			operating-points-v2 = <&opp_table_img>, <&opp_table_ipe>;
 			dvfsrc-vmm-supply = <&vmm_proxy_label>;
 #endif
 			mediatek,imgsys-qos-sc-motr = <2>;
