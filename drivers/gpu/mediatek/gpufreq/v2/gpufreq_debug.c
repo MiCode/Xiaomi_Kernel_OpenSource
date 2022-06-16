@@ -161,12 +161,15 @@ static int gpufreq_status_proc_show(struct seq_file *m, void *v)
 		g_shared_status->gpm1_mode ? "On" : "Off",
 		g_shared_status->gpm3_mode ? "On" : "Off");
 	seq_printf(m,
-		"%-16s GPU_SB_Ver: 0x%04x, GPU_PTP_Ver: 0x%04x, TempCompensate: %s (%d'C)\n",
+		"%-16s Temperature: %d'C, TemperCompensation: %d\n",
+		"[MFGSYS Config]",
+		g_shared_status->temperature,
+		g_shared_status->temper_compensate);
+	seq_printf(m,
+		"%-16s GPU_SB_Ver: 0x%04x, GPU_PTP_Ver: 0x%04x\n",
 		"[MFGSYS Config]",
 		g_shared_status->sb_version,
-		g_shared_status->ptp_version,
-		g_shared_status->temp_compensate ? "On" : "Off",
-		g_shared_status->temperature);
+		g_shared_status->ptp_version);
 
 	mutex_unlock(&gpufreq_debug_lock);
 

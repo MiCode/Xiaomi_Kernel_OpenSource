@@ -247,6 +247,7 @@ struct gpufreq_shared_status {
 	int cg_count;
 	int active_count;
 	int temperature;
+	int temper_compensate;
 	unsigned int cur_fgpu;
 	unsigned int cur_fstack;
 	unsigned int cur_con1_fgpu;
@@ -279,7 +280,6 @@ struct gpufreq_shared_status {
 	unsigned int cur_f_limiter;
 	unsigned int cur_c_priority;
 	unsigned int cur_f_priority;
-	unsigned int temp_compensate;
 	unsigned int power_control;
 	unsigned int active_idle_control;
 	unsigned int dvfs_state;
