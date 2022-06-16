@@ -561,7 +561,8 @@ s32 mml_comp_init_larb(struct mml_comp *comp, struct device *dev)
 #ifndef MML_FPGA
 	comp->icc_path = of_mtk_icc_get(dev, "mml_dma");
 	if (IS_ERR_OR_NULL(comp->icc_path)) {
-		mml_err("%s not support qos", __func__);
+		mml_log("%s %s not support qos",
+			__func__, comp->name ? comp->name : "");
 		comp->icc_path = NULL;
 	}
 #endif

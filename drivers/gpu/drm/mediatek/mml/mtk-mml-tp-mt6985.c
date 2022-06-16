@@ -751,6 +751,8 @@ static s32 tp_select(struct mml_topology_cache *cache,
 		cfg->dual = cfg->disp_dual;
 		cfg->framemode = true;
 		cfg->nocmd = true;
+	} else if (cfg->info.mode == MML_MODE_APUDC) {
+		cfg->dual = true;
 	} else if (cfg->info.mode == MML_MODE_SRAM_READ) {
 		cfg->dual = false;
 	}

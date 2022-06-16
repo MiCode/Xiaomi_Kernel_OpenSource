@@ -305,6 +305,10 @@ static const enum cpr_reg_idx rdma_preultra_th[] = {
 /* APU-MML DirectCouple handshake height */
 #define MML_RDMA_RACING_MAX		64
 
+/* debug option to change sram read height */
+int mml_racing_rh = MML_RDMA_RACING_MAX;
+module_param(mml_racing_rh, int, 0644);
+
 enum rdma_label {
 	RDMA_LABEL_BASE_0 = 0,
 	RDMA_LABEL_BASE_0_MSB,
@@ -714,11 +718,6 @@ static s32 rdma_tile_prepare(struct mml_comp *comp, struct mml_task *task,
 		data->rdma.crop.top = 0;
 		data->rdma.crop.width = src->width;
 		data->rdma.crop.height = src->height;
-	}
-
-	if (cfg->info.mode == MML_MODE_APUDC) {
-		data->rdma.apu_racing = true;
-		data->rdma.racing_h = MML_RDMA_RACING_MAX;
 	}
 
 	return 0;
@@ -1436,7 +1435,7 @@ static s32 rdma_config_frame(struct mml_comp *comp, struct mml_task *task,
 			0x3, U32_MAX);
 
 		cmdq_pkt_write(pkt, NULL, base_pa + APU_DIRECT_COUPLE_CONTROL,
-			(cfg->dual << 8) + (MML_RDMA_RACING_MAX << 13), U32_MAX);
+			(cfg->dual << 8) + (mml_racing_rh << 13), U32_MAX);
 
 	} else if (!mml_slt) {
 		rdma_write_addr(pkt, base_pa, hw_pipe,

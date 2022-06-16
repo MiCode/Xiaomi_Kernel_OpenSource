@@ -1234,6 +1234,72 @@ static void case_run_crop_manual(struct mml_test *test, struct mml_ut *cur)
 	case_general_submit(test, cur, setup_crop_manual);
 }
 
+/* case_run_sram_frame / setup_read_sram_frame
+ *
+ * format in: MML_FMT_RGB888
+ * format out: MML_FMT_RGB888
+ */
+static void case_config_sram_frame(void)
+{
+	the_case.cfg_src_format = mml_test_in_fmt;
+	the_case.cfg_src_w = mml_test_w;
+	the_case.cfg_src_h = mml_test_h;
+	the_case.cfg_dest_format = mml_test_out_fmt;
+	the_case.cfg_dest_w = mml_test_w;
+	the_case.cfg_dest_h = mml_test_out_h;
+}
+
+static void setup_read_sram_frame(struct mml_submit *task, struct mml_ut *cur)
+{
+	task->info.mode = MML_MODE_APUDC;
+	task->buffer.src.flush = false;
+	task->buffer.src.invalid = false;
+	task->buffer.src.fd[0] = -1;
+
+	task->info.src.height = SRAM_HEIGHT;
+	task->info.dest[0].data.height = SRAM_HEIGHT;
+	task->buffer.src.size[0] /= 2;
+	task->buffer.src.size[1] /= 2;
+	task->buffer.src.size[2] /= 2;
+}
+
+static void case_run_sram_frame(struct mml_test *test, struct mml_ut *cur)
+{
+	struct platform_device *mml_pdev;
+	struct device *dev;
+	struct mml_drm_ctx *mml_ctx;
+	struct mml_drm_param disp = {.vdo_mode = true};
+	void *mml;
+
+	/* create context */
+	mml_pdev = mml_get_plat_device(test->pdev);
+	mml_ctx = mml_drm_get_context(mml_pdev, &disp);
+
+	/* hold sram, for wrot out and rdma in */
+	dev = &mml_pdev->dev;
+	if (unlikely(!dev)) {
+		mml_err("%s dev = null", __func__);
+		return;
+	}
+	mml = dev_get_drvdata(dev);
+	mml_sram_get(mml);
+
+	msleep_interruptible(mml_test_interval);
+
+	/* correct the format in sram */
+	the_case.cfg_src_format = the_case.cfg_dest_format;
+	the_case.cfg_dest_h = SRAM_HEIGHT;
+
+	/* sram -> dram */
+	cur->fd_in = -1;
+	case_general_submit(test, cur, setup_read_sram_frame);
+
+	/* release */
+	mml_sram_put(mml);
+	mml_drm_put_context(mml_ctx);
+}
+
+
 enum mml_ut_case {
 	MML_UT_RGB,			/* 0 */
 	MML_UT_RGB_ROTATE,		/* 1 */
@@ -1259,6 +1325,7 @@ enum mml_ut_case {
 	MML_UT_YUV_AFBC_TO_RGB,		/* 21 */
 	MML_UT_YUV_AFBC_10_TO_RGB,	/* 22 */
 	MML_UT_2IN_2OUT,		/* 23 */
+	MML_UT_SRAM_FRAME,		/* 24 */
 	MML_UT_TOTAL
 };
 
@@ -1358,6 +1425,10 @@ static struct test_case_op cases[MML_UT_TOTAL] = {
 	[MML_UT_2IN_2OUT] = {
 		.config = case_config_2in_2out,
 		.run = case_run_2in_2out,
+	},
+	[MML_UT_SRAM_FRAME] = {
+		.config = case_config_sram_frame,
+		.run = case_run_sram_frame,
 	},
 };
 
