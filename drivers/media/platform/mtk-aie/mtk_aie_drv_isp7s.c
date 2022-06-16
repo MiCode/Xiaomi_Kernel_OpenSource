@@ -4832,8 +4832,6 @@ static void aie_get_fld_result(struct mtk_aie_dev *fd, struct aie_enq_info *aie_
 	memcpy(aie_cfg->fld_raw_out, fd->dma_para->fld_output_va, FLD_MAX_OUT);
 	memcpy((char *)&(aie_cfg->fld_input[0]), (char *)fd->fld_para->fld_input,
 		sizeof(struct FLD_CROP_RIP_ROP) * aie_cfg->fld_face_num);
-
-	aie_fdvt_dump_reg(fd);
 }
 
 static void aie_config_fld_buf_reg(struct mtk_aie_dev *fd)
