@@ -51,6 +51,65 @@ static unsigned int is_gpu_pmu_worked;
 static unsigned int gpu_pmu_period = 8000000; //8ms
 #endif
 static unsigned int mcupm_freq_enable;
+static unsigned int support_cpu_pmu;
+
+static DEFINE_PER_CPU(u64, cpu_last_inst_spec);
+static DEFINE_PER_CPU(u64, cpu_last_cycle);
+static DEFINE_PER_CPU(u64, cpu_last_l3dc);
+static int pmu_init;
+
+static void init_pmu_data(void)
+{
+	int i = 0;
+
+	for (i = 0; i < num_possible_cpus(); i++) {
+		per_cpu(cpu_last_inst_spec, i) = 0;
+		per_cpu(cpu_last_cycle, i) = 0;
+		per_cpu(cpu_last_l3dc, i) = 0;
+	}
+
+	pmu_init = 1;
+}
+
+static void exit_pmu_data(void)
+{
+	pmu_init = 0;
+}
+
+unsigned long get_cpu_pmu(int cpu, unsigned int offset)
+{
+	unsigned long count = 0;
+
+	if (IS_ERR_OR_NULL((void *)csram_base))
+		return count;
+
+	count = __raw_readl(csram_base + offset + (cpu * 0x4));
+	return count;
+}
+EXPORT_SYMBOL_GPL(get_cpu_pmu);
+
+#define DEFINE_GET_CUR_CPU_PMU_FUNC(_name, _pmu_offset)					\
+	unsigned long get_cur_cpu_##_name(int cpu)					\
+	{										\
+		unsigned long cur = 0, res = 0;						\
+											\
+		if (cpu >= nr_cpu_ids || !pmu_init)					\
+			return res;							\
+		cur = get_cpu_pmu(cpu, _pmu_offset);					\
+		/* handle overflow case */						\
+		if (cur < per_cpu(cpu_last_##_name, cpu))				\
+			res = ((u64)0xffffffff -					\
+				per_cpu(cpu_last_##_name, cpu) + (0x7fffffff & cur));	\
+		else									\
+			res = per_cpu(cpu_last_##_name, cpu) == 0 ?			\
+				0 : cur - per_cpu(cpu_last_##_name, cpu);		\
+		per_cpu(cpu_last_##_name, cpu) = cur;					\
+		return res;								\
+	}										\
+
+DEFINE_GET_CUR_CPU_PMU_FUNC(inst_spec, CPU_INST_SPEC_OFFSET);
+DEFINE_GET_CUR_CPU_PMU_FUNC(cycle, CPU_IDX_CYCLES_OFFSET);
+DEFINE_GET_CUR_CPU_PMU_FUNC(l3dc, CPU_L3DC_OFFSET);
 
 #define OFFS_DVFS_CUR_OPP_S	0x98
 #define OFFS_MCUPM_CUR_OPP_S	0x544
@@ -90,7 +149,7 @@ unsigned int csram_read(unsigned int offs)
 	return __raw_readl(csram_base + (offs));
 }
 
-int perf_tracer_enable(int on)
+int perf_tracker_enable(int on)
 {
 	mutex_lock(&perf_ctl_mutex);
 	perf_tracker_on = on;
@@ -98,6 +157,7 @@ int perf_tracer_enable(int on)
 
 	return (perf_tracker_on == on) ? 0 : -1;
 }
+EXPORT_SYMBOL_GPL(perf_tracker_enable);
 
 static inline u32 cpu_stall_ratio(int cpu)
 {
@@ -124,16 +184,28 @@ static inline void format_sbin_data(char *buf, u32 size, u32 *sbin_data, u32 len
 	ptr += snprintf(ptr, buffer_end - ptr, "]");
 }
 
+enum {
+	SBIN_BW_RECORD		= 1U << 0,
+	SBIN_DSU_RECORD		= 1U << 1,
+	SBIN_MCUPM_RECORD	= 1U << 2,
+	SBIN_PMU_RECORD		= 1U << 3,
+};
+
 #define K(x) ((x) << (PAGE_SHIFT - 10))
-#define SBIN_BW_RECORD 0
-#define SBIN_DSU_RECORD 1
-#define SBIN_MCUPM_RECORD 2
 #define PRINT_BUFFER_SIZE 1024
 #define max_cpus 8
 #define bw_hist_nums 8
 #define bw_record_nums 32
 #define dsu_record_nums 2
 #define mcupm_record_nums 9
+/* inst-spec, l3dc, cpu-cycles */
+#define CPU_PMU_NUMS  (3 * max_cpus)
+
+#define for_each_cpu_get_pmu(cpu, _pmu)						\
+	do {									\
+		for ((cpu) = 0; (cpu) < max_cpus; (cpu)++)			\
+			sbin_data[sbin_lens + cpu] = get_cur_cpu_##_pmu(cpu);	\
+	} while (0)
 
 void perf_tracker(u64 wallclock,
 		  bool hit_long_check)
@@ -143,7 +215,7 @@ void perf_tracker(u64 wallclock,
 	struct mtk_btag_mictx_iostat_struct *iostat_ptr = &iostat;
 	int bw_c = 0, bw_g = 0, bw_mm = 0, bw_total = 0, bw_idx = 0xFFFF;
 	u32 bw_record = 0;
-	u32 sbin_data[bw_record_nums+dsu_record_nums+mcupm_record_nums] = {0};
+	u32 sbin_data[bw_record_nums+dsu_record_nums+mcupm_record_nums+CPU_PMU_NUMS] = {0};
 	int sbin_lens = 0;
 	char sbin_data_print[PRINT_BUFFER_SIZE] = {0};
 	u32 sbin_data_ctl = 0;
@@ -200,7 +272,7 @@ void perf_tracker(u64 wallclock,
 	}
 #endif
 	sbin_lens += bw_record_nums;
-	sbin_data_ctl |= 1 << SBIN_BW_RECORD;
+	sbin_data_ctl |= SBIN_BW_RECORD;
 	/* dsu */
 	if (cluster_nr == 2) {
 		dsu_v = csram_read(DSU_VOLT_2_CLUSTER);
@@ -212,7 +284,7 @@ void perf_tracker(u64 wallclock,
 	sbin_data[sbin_lens] = dsu_v;
 	sbin_data[sbin_lens+1] = dsu_f;
 	sbin_lens += dsu_record_nums;
-	sbin_data_ctl |= 1 << SBIN_DSU_RECORD;
+	sbin_data_ctl |= SBIN_DSU_RECORD;
 
 	/* mcupm freq */
 	if (mcupm_freq_enable) {
@@ -221,8 +293,18 @@ void perf_tracker(u64 wallclock,
 				MCUPM_OFFSET_BASE+i*4);
 
 		sbin_lens += mcupm_record_nums;
-		sbin_data_ctl |= 1 << SBIN_MCUPM_RECORD;
+		sbin_data_ctl |= SBIN_MCUPM_RECORD;
 	}
+
+	if (support_cpu_pmu) {
+		/* get pmu */
+		for_each_cpu_get_pmu(i, inst_spec);
+		for_each_cpu_get_pmu(i, cycle);
+		for_each_cpu_get_pmu(i, l3dc);
+		sbin_lens += CPU_PMU_NUMS;
+		sbin_data_ctl |= SBIN_PMU_RECORD;
+	}
+
 	format_sbin_data(sbin_data_print, sizeof(sbin_data_print), sbin_data, sbin_lens);
 	trace_perf_index_sbin(sbin_data_print, sbin_lens, sbin_data_ctl);
 
@@ -308,11 +390,14 @@ static ssize_t store_perf_enable(struct kobject *kobj,
 			is_gpu_pmu_worked = 0;
 		}
 #endif
-		// freq_qos hook
-		if (perf_tracker_on)
+		/* do something after on/off perf_tracker */
+		if (perf_tracker_on) {
 			insert_freq_qos_hook();
-		else
+			init_pmu_data();
+		} else {
 			remove_freq_qos_hook();
+			exit_pmu_data();
+		}
 	}
 
 	mutex_unlock(&perf_ctl_mutex);
@@ -576,6 +661,29 @@ static ssize_t store_mcupm_freq_enable(struct kobject *kobj,
 	return count;
 }
 
+static ssize_t show_cpu_pmu_enable(struct kobject *kobj,
+		struct kobj_attribute *attr, char *buf)
+{
+	unsigned int len = 0;
+	unsigned int max_len = 4096;
+
+	len += snprintf(buf, max_len, "cpu_pmu_enable = %u\n", support_cpu_pmu);
+	return len;
+}
+
+static ssize_t store_cpu_pmu_enable(struct kobject *kobj,
+		struct kobj_attribute *attr, const char *buf, size_t count)
+{
+	mutex_lock(&perf_ctl_mutex);
+
+	if (kstrtouint(buf, 10, &support_cpu_pmu) == 0)
+		support_cpu_pmu = (support_cpu_pmu > 0) ? 1 : 0;
+
+	mutex_unlock(&perf_ctl_mutex);
+
+	return count;
+}
+
 struct kobj_attribute perf_tracker_enable_attr =
 __ATTR(enable, 0600, show_perf_enable, store_perf_enable);
 struct kobj_attribute perf_fuel_gauge_enable_attr =
@@ -599,3 +707,6 @@ __ATTR(gpu_pmu_period, 0600, show_gpu_pmu_period, store_gpu_pmu_period);
 
 struct kobj_attribute perf_mcupm_freq_enable_attr =
 __ATTR(mcupm_freq_enable, 0600, show_mcupm_freq_enable, store_mcupm_freq_enable);
+
+struct kobj_attribute perf_cpu_pmu_enable_attr =
+__ATTR(cpu_pmu_enable, 0600, show_cpu_pmu_enable, store_cpu_pmu_enable);

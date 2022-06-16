@@ -24,6 +24,11 @@ extern struct ppm_data cluster_ppm_info[MAX_CLUSTER_NR];
 extern int cluster_nr;
 
 #if IS_ENABLED(CONFIG_MTK_PERF_TRACKER)
+/* copy from cpu_swpm_internal.h */
+#define CPU_L3DC_OFFSET		0x1254
+#define CPU_INST_SPEC_OFFSET	0x1274
+#define CPU_IDX_CYCLES_OFFSET	0x1294
+
 #if IS_ENABLED(CONFIG_MTK_BLOCK_IO_TRACER)
 #include <mt-plat/mtk_blocktag.h>
 #else
@@ -45,6 +50,7 @@ extern struct kobj_attribute perf_tracker_enable_attr;
 
 extern void perf_tracker(u64 wallclock,
 			 bool hit_long_check);
+extern unsigned long get_cpu_pmu(int cpu, unsigned int offset);
 
 extern struct kobj_attribute perf_fuel_gauge_enable_attr;
 extern struct kobj_attribute perf_fuel_gauge_period_attr;
@@ -64,6 +70,7 @@ extern void remove_freq_qos_hook(void);
 extern void init_perf_freq_tracker(void);
 extern void exit_perf_freq_tracker(void);
 extern struct kobj_attribute perf_mcupm_freq_enable_attr;
+extern struct kobj_attribute perf_cpu_pmu_enable_attr;
 #else
 static inline void perf_tracker(u64 wallclock,
 				bool hit_long_check) {}
