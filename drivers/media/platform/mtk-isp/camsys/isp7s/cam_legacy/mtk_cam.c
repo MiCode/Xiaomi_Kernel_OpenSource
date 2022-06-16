@@ -799,6 +799,7 @@ int mtk_cam_dequeue_req_frame(struct mtk_cam_ctx *ctx,
 
 	dequeue_cnt = 0;
 	s_data_cnt = 0;
+	mutex_lock(&ctx->cleanup_lock);
 	spin_lock(&ctx->cam->running_job_lock);
 	list_for_each_entry_safe(req, req_prev, &ctx->cam->running_job_list, list) {
 		if (!(req->pipe_used & (1 << pipe_id)))
@@ -1000,7 +1001,7 @@ STOP_SCAN:
 					__func__, req->req.debug_str, pipe_id);
 		}
 	}
-
+	mutex_unlock(&ctx->cleanup_lock);
 	return dequeue_cnt;
 }
 
@@ -1065,6 +1066,7 @@ void mtk_cam_dev_req_cleanup(struct mtk_cam_ctx *ctx, int pipe_id, int buf_state
 	int i, num_s_data, s_data_cnt, handled_cnt;
 	bool need_clean_req;
 
+	mutex_lock(&ctx->cleanup_lock);
 	mutex_lock(&cam->queue_lock);
 	mtk_cam_dev_req_clean_pending(cam, pipe_id, buf_state);
 
@@ -1080,6 +1082,8 @@ void mtk_cam_dev_req_cleanup(struct mtk_cam_ctx *ctx, int pipe_id, int buf_state
 		for (i = num_s_data - 1; i >= 0; i--) {
 			s_data = mtk_cam_req_get_s_data(req, pipe_id, i);
 			if (s_data) {
+				/* make sure do not touch req/s_data after vb2_buffe_done */
+				media_request_get(&req->req);
 				clean_s_data[s_data_cnt++] = s_data;
 				if (s_data_cnt >= 18) {
 					dev_info(cam->dev,
@@ -1097,6 +1101,7 @@ void mtk_cam_dev_req_cleanup(struct mtk_cam_ctx *ctx, int pipe_id, int buf_state
 STOP_SCAN:
 	spin_unlock(&cam->running_job_lock);
 	mutex_unlock(&cam->queue_lock);
+	mutex_unlock(&ctx->cleanup_lock);
 
 	for (handled_cnt = 0; handled_cnt < s_data_cnt; handled_cnt++) {
 		s_data = clean_s_data[handled_cnt];
@@ -1213,7 +1218,7 @@ STOP_SCAN:
 				 * if done_status is marked, it means the work
 				 * is running or complete
 				 */
-				if (flush_work(&s_data->frame_done_work.work))
+				if (flush_work(&s_data_pipe->frame_done_work.work))
 					dev_info(cam->dev,
 						 "%s:%s:pipe(%d):seq(%d): flush pipe(%d) frame_done_work\n",
 						 __func__, req->req.debug_str,
@@ -1263,6 +1268,9 @@ STOP_SCAN:
 						pipe_id);
 			}
 		}
+
+		/* make sure do not touch req/s_data after vb2_buffe_done */
+		media_request_put(&req->req);
 	}
 
 	/* all bufs in this node should be returned by req */
@@ -5470,8 +5478,9 @@ static void isp_tx_frame_worker(struct work_struct *work)
 			req_stream_data->frame_params.raw_param.previous_exposure_num,
 			imgo_out_fmt->buf[0][0].iova);
 
-	/* record mmqos  */
+	/* record mmqos */
 	frame_param = &req_stream_data->frame_params;
+	req_stream_data->raw_dmas = 0;
 	for (i = 0; i < CAM_MAX_IMAGE_INPUT; i++) {
 		if (frame_param->img_ins[i].buf[0].iova != 0 &&
 			frame_param->img_ins[i].uid.id != 0)
@@ -8418,7 +8427,7 @@ static void mtk_cam_ctx_init(struct mtk_cam_ctx *ctx,
 	spin_lock_init(&ctx->streaming_lock);
 	spin_lock_init(&ctx->first_cq_lock);
 	spin_lock_init(&ctx->processing_img_buffer_list.lock);
-
+	mutex_init(&ctx->cleanup_lock);
 	mtk_ctx_watchdog_init(ctx);
 }
 

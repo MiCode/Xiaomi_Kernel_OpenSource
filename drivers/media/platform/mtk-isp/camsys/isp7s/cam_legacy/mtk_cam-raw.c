@@ -1868,7 +1868,7 @@ static void immediate_stream_off_log(struct mtk_raw_device *dev, char *reg_name,
 void immediate_stream_off(struct mtk_raw_device *dev)
 
 {
-	u32 chk_val, cur_val, cfg_val;
+	u32 cur_val, cfg_val;
 	u32 offset;
 
 	atomic_set(&dev->vf_en, 0);
@@ -1897,23 +1897,15 @@ void immediate_stream_off(struct mtk_raw_device *dev)
 				 offset, cur_val, cfg_val);
 
 	/* Disable VF */
+	enable_tg_db(dev, 0);
 	offset = REG_TG_VF_CON;
 	cur_val = readl_relaxed(dev->base + offset);
 	cfg_val = cur_val & ~TG_VFDATA_EN;
 	writel(cfg_val, dev->base + offset);
 	wmb(); /* make sure committed */
-	if (readx_poll_timeout(readl, dev->base_inner + offset,
-			       chk_val, chk_val == cfg_val,
-			       1 /* sleep, us */,
-			       10000 /* timeout, us*/) < 0) {
-		dev_info(dev->dev, "%s: wait vf off timeout: TG_VF_CON 0x%x\n",
-			 __func__, chk_val);
-		immediate_stream_off_log(dev, "TG_VF_CON", dev->base,
+	immediate_stream_off_log(dev, "TG_VF_CON", dev->base,
 					 dev->base_inner, offset,
 					 cur_val, cfg_val);
-	} else {
-		dev_dbg(dev->dev, "%s: VF OFF success\n", __func__);
-	}
 
 	/* Disable CMOS */
 	offset = REG_TG_SEN_MODE;
@@ -1951,7 +1943,6 @@ void immediate_stream_off(struct mtk_raw_device *dev)
 void stream_on(struct mtk_raw_device *dev, int on)
 {
 	u32 val;
-	u32 chk_val;
 	u32 cfg_val;
 	struct mtk_raw_pipeline *pipe;
 	u32 fps_ratio = 1;
@@ -2013,7 +2004,6 @@ void stream_on(struct mtk_raw_device *dev, int on)
 			readl_relaxed(dev->base + REG_TG_VF_CON),
 			readl_relaxed(dev->base + REG_SCQ_START_PERIOD));
 	} else {
-		dev_info(dev->dev, "VF off\n");
 		atomic_set(&dev->vf_en, 0);
 
 		writel_relaxed(~CQ_THR0_EN, dev->base + REG_CQ_THR0_CTL);
@@ -2023,6 +2013,7 @@ void stream_on(struct mtk_raw_device *dev, int on)
 		cfg_val |= 0x100;
 		writel(cfg_val, dev->base + REG_TG_PATH_CFG);
 
+		enable_tg_db(dev, 0);
 		val = readl_relaxed(dev->base + REG_TG_VF_CON);
 		val &= ~TG_VFDATA_EN;
 		writel(val, dev->base + REG_TG_VF_CON);
@@ -2035,22 +2026,12 @@ void stream_on(struct mtk_raw_device *dev, int on)
 		//writel_relaxed(val, dev->base_inner + REG_CTL_EN2);
 
 		wmb(); /* make sure committed */
-		enable_tg_db(dev, 0);
-		enable_tg_db(dev, 1);
 
-		dev_dbg(dev->dev,
-			"%s - [Force VF off] TG_VF_CON outer:0x%8x inner:0x%8x\n",
+		dev_info(dev->dev,
+			"%s VF off, TG_VF_CON outer:0x%8x inner:0x%8x\n",
 			__func__, readl_relaxed(dev->base + REG_TG_VF_CON),
 			readl_relaxed(dev->base_inner + REG_TG_VF_CON));
 
-		if (readx_poll_timeout(readl, dev->base_inner + REG_TG_VF_CON,
-				       chk_val, chk_val == val,
-				       1 /* sleep, us */,
-				       33000 /* timeout, us*/) < 0) {
-
-			dev_info(dev->dev, "%s: wait vf off timeout: TG_VF_CON 0x%x\n",
-				 __func__, chk_val);
-		}
 		reset_reg(dev);
 	}
 }

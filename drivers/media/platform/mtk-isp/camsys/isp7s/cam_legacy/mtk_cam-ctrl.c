@@ -2410,6 +2410,11 @@ mtk_cam_raw_prepare_mstream_frame_done(struct mtk_cam_ctx *ctx,
 		if (frame_undone)
 			return false;
 	} else {
+		/* update qos bw for 2exp -> 1 exp */
+		if (s_data->feature.switch_feature_type ==
+			(EXPOSURE_CHANGE_2_to_1 | MSTREAM_EXPOSURE_CHANGE)) {
+			mtk_cam_qos_bw_calc(ctx, s_data->raw_dmas, true);
+		}
 		dev_dbg(cam->dev, "[mstream][SWD] req:%d/state:%d/time:%lld/sync_id:%lld\n",
 			req_stream_data->frame_seq_no, state_entry->estate,
 			req_stream_data->timestamp,

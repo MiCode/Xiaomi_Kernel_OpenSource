@@ -223,6 +223,10 @@ void mtk_cam_dvfs_init(struct mtk_cam_device *cam)
 
 	memset((void *)dvfs_info, 0x0, sizeof(struct mtk_camsys_dvfs));
 	dvfs_info->dev = cam->dev;
+
+	/* mmqos initialize */
+	mtk_cam_qos_init(cam);
+
 	ret = dev_pm_opp_of_add_table(dvfs_info->dev);
 	if (ret < 0) {
 		dev_info(dvfs_info->dev, "fail to init opp table: %d\n", ret);
@@ -250,9 +254,6 @@ void mtk_cam_dvfs_init(struct mtk_cam_device *cam)
 		dvfs_info->mmdvfs_clk = NULL;
 		dev_info(dvfs_info->dev, "can't get mmdvfs_clk\n");
 	}
-
-	/* mmqos initialize */
-	mtk_cam_qos_init(cam);
 
 	return;
 
