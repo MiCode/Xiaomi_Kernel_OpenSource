@@ -1277,32 +1277,7 @@ static ssize_t force_onoff_show(struct kobject *kobj,
 		struct kobj_attribute *attr,
 		char *buf)
 {
-	int result = fpsgo_is_force_enable();
-	char temp[FPSGO_SYSFS_MAX_BUFF_SIZE];
-	int pos = 0;
-	int length;
-
-
-	switch (result) {
-	case FPSGO_FORCE_OFF:
-		length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
-				"force off\n");
-		pos += length;
-		break;
-	case FPSGO_FORCE_ON:
-		length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
-				"force on\n");
-		pos += length;
-		break;
-	case FPSGO_FREE:
-		length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
-				"free\n");
-		pos += length;
-		break;
-	default:
-		break;
-	}
-	return scnprintf(buf, PAGE_SIZE, "%s", temp);
+	return scnprintf(buf, PAGE_SIZE, "%d\n", fpsgo_is_force_enable());
 }
 
 static ssize_t force_onoff_store(struct kobject *kobj,

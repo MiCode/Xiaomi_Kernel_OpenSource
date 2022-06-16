@@ -624,6 +624,11 @@ void fpsgo_switch_enable(int enable)
 		return;
 	}
 
+	if (fpsgo_arch_nr_clusters() <= 0) {
+		FPSGO_LOGE("[%s] DON'T ENABLE FPSGO: nr_cluster <= 0", __func__);
+		return;
+	}
+
 	FPSGO_LOGI("[FPSGO_CTRL] switch enable %d\n", enable);
 
 	if (fpsgo_is_force_enable() !=
