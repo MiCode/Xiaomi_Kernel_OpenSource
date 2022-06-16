@@ -3,10 +3,11 @@
  * Copyright (c) 2019 MediaTek Inc.
  */
 
-#include <linux/types.h>
-
 #ifndef __MTK_CAM_PLAT_H
 #define __MTK_CAM_PLAT_H
+
+#include <linux/types.h>
+#include <linux/media.h>
 
 enum MMQOS_PORT {
 	AAO = 0,
@@ -37,6 +38,8 @@ struct plat_v4l2_data {
 
 	int (*set_sv_meta_stats_info)(int ipi_id, void *addr,
 		unsigned int width, unsigned int height, unsigned int stride);
+
+	u32 (*get_dev_link_flags)(int ipi_id);
 
 	int (*get_port_bw)(enum MMQOS_PORT port,
 		unsigned long height, unsigned long fps);

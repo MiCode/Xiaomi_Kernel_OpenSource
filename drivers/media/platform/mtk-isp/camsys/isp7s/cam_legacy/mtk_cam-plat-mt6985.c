@@ -135,6 +135,13 @@ static int set_sv_meta_stats_info(
 	return -1;
 }
 
+static u32 get_dev_link_flags(int ipi_id)
+{
+	(void) ipi_id;
+
+	return MEDIA_LNK_FL_ENABLED | MEDIA_LNK_FL_IMMUTABLE;
+}
+
 static int get_port_bw(
 	enum MMQOS_PORT port, unsigned long height, unsigned long fps)
 {
@@ -178,6 +185,8 @@ static const struct plat_v4l2_data mt6985_v4l2_data = {
 	.set_meta_stats_info = set_meta_stats_info,
 
 	.set_sv_meta_stats_info = set_sv_meta_stats_info,
+
+	.get_dev_link_flags = get_dev_link_flags,
 
 	.get_port_bw = get_port_bw,
 

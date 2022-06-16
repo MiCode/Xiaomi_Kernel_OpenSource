@@ -6050,6 +6050,8 @@ static void mtk_raw_pipeline_queue_setup(struct mtk_raw_pipeline *pipe)
 
 		vdev->desc = capture_queues[i];
 		vdev->desc.name = capture_queue_names[pipe->id][i];
+		vdev->desc.link_flags = CALL_PLAT_V4L2(
+					get_dev_link_flags, vdev->desc.dma_port);
 
 		++node_idx;
 	}
