@@ -3,5 +3,4 @@
 
 imgsensor-objs += \
 	$(subdrv-rpath)/imx766dualmipiraw_Sensor.o \
-	$(subdrv-rpath)/imx766dual_eeprom.o
 

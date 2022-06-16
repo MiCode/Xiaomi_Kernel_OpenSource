@@ -633,4 +633,7 @@ enum mtk_cam_sensor_i2c_bus_sda {
 #define V4L2_CID_REAL_SENSOR_FOR_AOV_PARAM \
 	(V4L2_CID_USER_MTK_SENINF_BASE + 6)
 
+#define V4L2_CID_UPDATE_SOF_CNT \
+	(V4L2_CID_USER_MTK_SENINF_BASE + 7)
+
 #endif /* __MTK_CAMERA_V4l2_CONTROLS_H */

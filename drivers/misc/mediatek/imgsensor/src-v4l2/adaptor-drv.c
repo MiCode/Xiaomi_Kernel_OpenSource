@@ -365,6 +365,8 @@ static int search_sensor(struct adaptor_ctx *ctx)
 		ctx->subdrv = subdrvs[i];
 		ctx->subctx.i2c_client = ctx->i2c_client;
 		adaptor_hw_power_on(ctx);
+		subdrv_call(ctx, init_ctx, ctx->i2c_client,
+				ctx->subctx.i2c_write_id);
 		ret = subdrv_call(ctx, get_id, &sensor_id);
 		adaptor_hw_power_off(ctx);
 		if (!ret) {

@@ -28,6 +28,7 @@ imgsensor-objs += \
 	adaptor-ctrls.o \
 	adaptor-ioctl.o \
 	adaptor-common-ctrl.o \
+	adaptor-subdrv-ctrl.o \
 	adaptor-fsync-ctrls.o \
 	adaptor-trace.o \
 

@@ -27,7 +27,7 @@
 // SONY sensor: VCID of 2nd frame at 0x3070; VCID of 3rd frame at 0x3080
 // must be two different value
 
-static kal_uint16 imx766_init_setting[] = {
+static u16 imx766_init_setting[] = {
 	0x0136, 0x18,
 	0x0137, 0x00,
 	0x33F0, 0x02,
@@ -294,7 +294,7 @@ static kal_uint16 imx766_init_setting[] = {
 	0x1F08, 0x00,
 };
 
-static kal_uint16 imx766_preview_setting[] = {
+static u16 imx766_preview_setting[] = {
 	0x0112, 0x0A,
 	0x0113, 0x0A,
 	0x0114, 0x02,
@@ -435,8 +435,7 @@ static kal_uint16 imx766_preview_setting[] = {
 	0x0858, 0x00,
 	0x0859, 0x1F,
 };
-
-static kal_uint16 imx766_capture_30_setting[] = {
+static u16 imx766_capture_setting[] = {
 	0x0112, 0x0A,
 	0x0113, 0x0A,
 	0x0114, 0x02,
@@ -577,8 +576,7 @@ static kal_uint16 imx766_capture_30_setting[] = {
 	0x0858, 0x00,
 	0x0859, 0x1F,
 };
-
-static kal_uint16 imx766_normal_video_setting[] = {
+static u16 imx766_normal_video_setting[] = {
 	0x0112, 0x0A,
 	0x0113, 0x0A,
 	0x0114, 0x02,
@@ -719,8 +717,7 @@ static kal_uint16 imx766_normal_video_setting[] = {
 	0x0858, 0x00,
 	0x0859, 0x1F,
 };
-
-static kal_uint16 imx766_hs_video_setting[] = {
+static u16 imx766_hs_video_setting[] = {
 	0x0112, 0x0A,
 	0x0113, 0x0A,
 	0x0114, 0x02,
@@ -861,8 +858,7 @@ static kal_uint16 imx766_hs_video_setting[] = {
 	0x0858, 0x00,
 	0x0859, 0x1F,
 };
-
-static kal_uint16 imx766_slim_video_setting[] = {
+static u16 imx766_slim_video_setting[] = {
 	0x0112, 0x0A,
 	0x0113, 0x0A,
 	0x0114, 0x02,
@@ -1003,8 +999,7 @@ static kal_uint16 imx766_slim_video_setting[] = {
 	0x0858, 0x00,
 	0x0859, 0x1F,
 };
-
-static kal_uint16 imx766_custom1_setting[] = {
+static u16 imx766_custom1_setting[] = {
 	0x0112, 0x0A,
 	0x0113, 0x0A,
 	0x0114, 0x02,
@@ -1145,14 +1140,7 @@ static kal_uint16 imx766_custom1_setting[] = {
 	0x0858, 0x00,
 	0x0859, 0x1F,
 };
-
-// NOTE:
-// for 2 exp setting,  VCID of LE/SE should be 0x00 and 0x02
-// which align 3 exp setting LE/NE/SE 0x00,  0x01,  0x02
-// to seamless switch,  VC ID of SE should remain the same
-// SONY sensor: VCID of 2nd frame at 0x3070; VCID of 3rd frame at 0x3080
-// must be two different value
-static kal_uint16 imx766_custom2_setting[] = {
+static u16 imx766_custom2_setting[] = {
 	0x0112, 0x0A,
 	0x0113, 0x0A,
 	0x0114, 0x02,
@@ -1293,8 +1281,7 @@ static kal_uint16 imx766_custom2_setting[] = {
 	0x0858, 0x00,
 	0x0859, 0x1F,
 };
-
-static kal_uint16 imx766_custom3_setting[] = {
+static u16 imx766_custom3_setting[] = {
 	0x0112, 0x0A,
 	0x0113, 0x0A,
 	0x0114, 0x02,
@@ -1435,8 +1422,7 @@ static kal_uint16 imx766_custom3_setting[] = {
 	0x0858, 0x00,
 	0x0859, 0x1F,
 };
-
-static kal_uint16 imx766_custom4_setting[] = {
+static u16 imx766_custom4_setting[] = {
 	0x0112, 0x0A,
 	0x0113, 0x0A,
 	0x0114, 0x02,
@@ -1577,8 +1563,7 @@ static kal_uint16 imx766_custom4_setting[] = {
 	0x0858, 0x00,
 	0x0859, 0x1F,
 };
-
-static kal_uint16 imx766_custom5_setting[] = {
+static u16 imx766_custom5_setting[] = {
 	0x0112, 0x0A,
 	0x0113, 0x0A,
 	0x0114, 0x02,
@@ -1719,8 +1704,7 @@ static kal_uint16 imx766_custom5_setting[] = {
 	0x0858, 0x00,
 	0x0859, 0x1F,
 };
-
-static kal_uint16 imx766_custom6_setting[] = {
+static u16 imx766_custom6_setting[] = {
 	0x0112, 0x0A,
 	0x0113, 0x0A,
 	0x0114, 0x02,
@@ -1861,8 +1845,7 @@ static kal_uint16 imx766_custom6_setting[] = {
 	0x0858, 0x00,
 	0x0859, 0x1F,
 };
-
-static kal_uint16 imx766_custom7_setting[] = {
+static u16 imx766_custom7_setting[] = {
 	0x0112, 0x0A,
 	0x0113, 0x0A,
 	0x0114, 0x02,
@@ -1992,8 +1975,7 @@ static kal_uint16 imx766_custom7_setting[] = {
 	0x390B, 0x12,
 	0x3911, 0x00,
 };
-
-static kal_uint16 imx766_custom8_setting[] = {
+static u16 imx766_custom8_setting[] = {
 	0x0112, 0x0A,
 	0x0113, 0x0A,
 	0x0114, 0x02,
@@ -2130,8 +2112,7 @@ static kal_uint16 imx766_custom8_setting[] = {
 	0x0858, 0x00,
 	0x0859, 0x1F,
 };
-
-static kal_uint16 imx766_custom9_setting[] = {
+static u16 imx766_custom9_setting[] = {
 	0x0112, 0x0A,
 	0x0113, 0x0A,
 	0x0114, 0x02,
@@ -2261,8 +2242,7 @@ static kal_uint16 imx766_custom9_setting[] = {
 	0x390B, 0x12,
 	0x3911, 0x00,
 };
-
-static kal_uint16 imx766_custom10_setting[] = {
+static u16 imx766_custom10_setting[] = {
 	0x0112, 0x0A,
 	0x0113, 0x0A,
 	0x0114, 0x02,
@@ -2392,8 +2372,7 @@ static kal_uint16 imx766_custom10_setting[] = {
 	0x390B, 0x12,
 	0x3911, 0x00,
 };
-
-static kal_uint16 imx766_custom11_setting[] = {
+static u16 imx766_custom11_setting[] = {
 	0x0112, 0x0A,
 	0x0113, 0x0A,
 	0x0114, 0x02,
@@ -2523,8 +2502,7 @@ static kal_uint16 imx766_custom11_setting[] = {
 	0x390B, 0x12,
 	0x3911, 0x00,
 };
-
-static kal_uint16 imx766_custom12_setting[] = {
+static u16 imx766_custom12_setting[] = {
 	0x0112, 0x0A,
 	0x0113, 0x0A,
 	0x0114, 0x02,
@@ -2654,8 +2632,7 @@ static kal_uint16 imx766_custom12_setting[] = {
 	0x390B, 0x12,
 	0x3911, 0x00,
 };
-
-static kal_uint16 imx766_custom13_setting[] = {
+static u16 imx766_custom13_setting[] = {
 	0x0112, 0x0A,
 	0x0113, 0x0A,
 	0x0114, 0x02,
@@ -2785,8 +2762,7 @@ static kal_uint16 imx766_custom13_setting[] = {
 	0x390B, 0x12,
 	0x3911, 0x00,
 };
-
-static kal_uint16 imx766_custom14_setting[] = {
+static u16 imx766_custom14_setting[] = {
 	0x0112, 0x0A,
 	0x0113, 0x0A,
 	0x0114, 0x02,
@@ -2916,8 +2892,7 @@ static kal_uint16 imx766_custom14_setting[] = {
 	0x390B, 0x12,
 	0x3911, 0x00,
 };
-
-static kal_uint16 imx766_custom15_setting[] = {
+static u16 imx766_custom15_setting[] = {
 	0x0112, 0x0A,
 	0x0113, 0x0A,
 	0x0114, 0x02,
@@ -3047,8 +3022,7 @@ static kal_uint16 imx766_custom15_setting[] = {
 	0x390B, 0x12,
 	0x3911, 0x00,
 };
-
-static kal_uint16 imx766_custom16_setting[] = {
+static u16 imx766_custom16_setting[] = {
 	0x0112, 0x0A,
 	0x0113, 0x0A,
 	0x0114, 0x02,
@@ -3212,13 +3186,13 @@ static kal_uint16 imx766_custom16_setting[] = {
 #define Y_OUT_SIZE_LOWER            0x034F
 
 // video stagger seamless switch (1exp-2exp)
-static kal_uint16 imx766_seamless_normal_video[] = {
+static u16 imx766_seamless_normal_video[] = {
 	PHASE_PIX_OUT_EN, 0x01,
 	FRAME_LEN_UPPER, 0x12,
 	FRAME_LEN_LOWER, 0xBA,
 	DOL_EN, 0x00,
 };
-static kal_uint16 imx766_seamless_custom4[] = {
+static u16 imx766_seamless_custom4[] = {
 	PHASE_PIX_OUT_EN, 0x03,
 	FRAME_LEN_UPPER, 0x09,
 	FRAME_LEN_LOWER, 0x5C,
@@ -3227,7 +3201,7 @@ static kal_uint16 imx766_seamless_custom4[] = {
 
 // stagger seamless switch (1exp-2exp-3exp)
 // normal seamless switch
-static kal_uint16 imx766_seamless_custom9[] = {
+static u16 imx766_seamless_custom9[] = {
 	0x0342, 0x3D,
 	0x0343, 0x00,
 	0x0340, 0x0E,
@@ -3267,7 +3241,7 @@ static kal_uint16 imx766_seamless_custom9[] = {
 	0x3077, 0x01,
 	0x3078, 0x30,
 };
-static kal_uint16 imx766_seamless_custom10[] = {
+static u16 imx766_seamless_custom10[] = {
 	0x0342, 0x2D,
 	0x0343, 0x20,
 	0x0340, 0x14,
@@ -3307,7 +3281,7 @@ static kal_uint16 imx766_seamless_custom10[] = {
 	0x3077, 0x01,
 	0x3078, 0x30,
 };
-static kal_uint16 imx766_seamless_custom11[] = {
+static u16 imx766_seamless_custom11[] = {
 	0x0342, 0x2D,
 	0x0343, 0x20,
 	0x0340, 0x19,
@@ -3347,7 +3321,7 @@ static kal_uint16 imx766_seamless_custom11[] = {
 	0x3077, 0x01,
 	0x3078, 0x30,
 };
-static kal_uint16 imx766_seamless_custom12[] = {
+static u16 imx766_seamless_custom12[] = {
 	0x0340, 0x0C,
 	0x0341, 0x68,
 	0x0202, 0x0A,
@@ -3398,8 +3372,7 @@ static kal_uint16 imx766_seamless_custom12[] = {
 	0x3077, 0x04,
 	0x3078, 0x2B,
 };
-
-static kal_uint16 imx766_seamless_custom13[] = {
+static u16 imx766_seamless_custom13[] = {
 	LINE_LEN_UPPER, 0x3D,
 	LINE_LEN_LOWER, 0x00,
 	FRAME_LEN_UPPER, 0x0E,
@@ -3428,8 +3401,7 @@ static kal_uint16 imx766_seamless_custom13[] = {
 	0x3804, 0x17,
 	0x3805, 0xC0,
 };
-
-static kal_uint16 imx766_seamless_custom14[] = {
+static u16 imx766_seamless_custom14[] = {
 	LINE_LEN_UPPER, 0x5A,
 	LINE_LEN_LOWER, 0x40,
 	FRAME_LEN_UPPER, 0x0A,
@@ -3458,8 +3430,7 @@ static kal_uint16 imx766_seamless_custom14[] = {
 	0x3804, 0x43,
 	0x3805, 0xD0,
 };
-
-static kal_uint16 imx766_seamless_custom15[] = {
+static u16 imx766_seamless_custom15[] = {
 	FRAME_LEN_UPPER, 0x1D,
 	FRAME_LEN_LOWER, 0x4C,
 	0x0202, 0x1D,
@@ -3474,8 +3445,7 @@ static kal_uint16 imx766_seamless_custom15[] = {
 	0x3079, 0x01,
 	0x307A, 0x30,
 };
-
-static kal_uint16 imx766_seamless_custom16[] = {
+static u16 imx766_seamless_custom16[] = {
 	FRAME_LEN_UPPER, 0x0E,
 	FRAME_LEN_LOWER, 0xA4,
 	0x0202, 0x0C,
