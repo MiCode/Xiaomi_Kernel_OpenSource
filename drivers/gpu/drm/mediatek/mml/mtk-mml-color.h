@@ -21,6 +21,7 @@
 	 ((SWAP_ENABLE)	<< 5)  | \
 	 ((UNIQUEID)	<< 0))
 
+#define MML_FMT_COMPRESS(c)		((0x60000000 & (c)) >> 29)
 #define MML_FMT_AFBC(c)			(((0x60000000 & (c)) >> 29) == 1)
 #define MML_FMT_HYFBC(c)		(((0x60000000 & (c)) >> 29) == 2)
 #define MML_FMT_10BIT_PACKED(c)		((0x10000000 & (c)) >> 28)

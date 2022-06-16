@@ -264,7 +264,7 @@ static u32 format_drm_to_mml(u32 drm_format, u64 modifier)
 	/* check afbc modifier with rdma/wrot supported
 	 * 32x8 block and split mode
 	 */
-	if (modifier == MML_AFBC)
+	if (modifier == MML_AFBC && !MML_FMT_COMPRESS(drm_format))
 		return afbc_drm_to_mml(drm_format);
 
 	return drm_format;

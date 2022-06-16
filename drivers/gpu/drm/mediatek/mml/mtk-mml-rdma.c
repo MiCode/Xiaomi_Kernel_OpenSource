@@ -1002,7 +1002,7 @@ static void calc_hyfbc(struct mml_file_buf *src_buf, struct mml_frame_data *src,
 	c_header_sz = ((width * height >> 1) + 63) >> 6;
 
 	*y_data_addr = (((buf_addr + y_header_sz + 4095) >> 12) << 12);
-	*y_header_addr = *y_data_addr - y_header_sz;	// should be 64 aligned
+	*y_header_addr = *y_data_addr - y_header_sz;	/* should be 64 aligned */
 	*c_data_addr = ((*y_data_addr + y_data_sz + c_header_sz + 4095) >> 12) << 12;
 	*c_header_addr = ((*c_data_addr - c_header_sz) >> 6) << 6;
 
@@ -1718,7 +1718,19 @@ static s32 rdma_reconfig_frame(struct mml_comp *comp, struct mml_task *task,
 		return 0;
 	}
 
-	if (rdma_frm->enable_ufo) {
+	if (MML_FMT_HYFBC(src->format)) {
+		calc_hyfbc(src_buf, src, &ufo_dec_length_y, &iova[0],
+			&ufo_dec_length_c, &iova[1]);
+
+		rdma_update_addr(reuse,
+				 rdma_frm->labels[RDMA_LABEL_UFO_DEC_BASE_Y],
+				 rdma_frm->labels[RDMA_LABEL_UFO_DEC_BASE_Y_MSB],
+				 ufo_dec_length_y);
+		rdma_update_addr(reuse,
+				 rdma_frm->labels[RDMA_LABEL_UFO_DEC_BASE_C],
+				 rdma_frm->labels[RDMA_LABEL_UFO_DEC_BASE_C_MSB],
+				 ufo_dec_length_c);
+	} else if (rdma_frm->enable_ufo) {
 		calc_ufo(src_buf, src, &ufo_dec_length_y, &ufo_dec_length_c,
 			 &u4pic_size_bs, &u4pic_size_y_bs);
 
@@ -1733,7 +1745,10 @@ static s32 rdma_reconfig_frame(struct mml_comp *comp, struct mml_task *task,
 	}
 
 	/* Write frame base address */
-	if (rdma_frm->enable_ufo) {
+	if (MML_FMT_HYFBC(src->format)) {
+		/* clear since not use */
+		iova[2] = 0;
+	} else if (rdma_frm->enable_ufo) {
 		if (MML_FMT_10BIT_JUMP(src->format) ||
 			MML_FMT_AUO(src->format)) {
 			iova[0] = src_buf->dma[0].iova + src->plane_offset[0];
