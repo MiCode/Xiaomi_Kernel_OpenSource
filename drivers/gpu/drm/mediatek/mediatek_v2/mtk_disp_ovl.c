@@ -86,6 +86,13 @@ int mtk_dprec_mmp_dump_ovl_layer(struct mtk_plane_state *plane_state);
 #define DISP_REG_OVL_ROI_SIZE 0x0020
 #define DISP_REG_OVL_DATAPATH_CON	(0x024UL)
 #define DISP_OVL_BGCLR_IN_SEL BIT(2)
+#define DATAPATH_PQ_OUT_SEL REG_FLD_MSB_LSB(18, 16)
+#define DISP_OVL_PQ_OUT_EN REG_FLD_MSB_LSB(19, 19)
+#define DISP_OVL_RDMA0_OUT_SEL REG_FLD_MSB_LSB(20, 20)
+#define DISP_OVL_RDMA1_OUT_SEL REG_FLD_MSB_LSB(21, 21)
+#define DISP_OVL_RDMA2_OUT_SEL REG_FLD_MSB_LSB(22, 22)
+#define DISP_OVL_RDMA3_OUT_SEL REG_FLD_MSB_LSB(23, 23)
+#define DISP_OVL_PQ_OUT_OPT REG_FLD_MSB_LSB(23, 23)
 #define DISP_OVL_OUTPUT_CLAMP BIT(26)
 #define DATAPATH_CON_FLD_LAYER_SMI_ID_EN	REG_FLD_MSB_LSB(0, 0)
 #define DATAPATH_CON_FLD_GCLAST_EN		REG_FLD_MSB_LSB(24, 24)
@@ -246,6 +253,12 @@ int mtk_dprec_mmp_dump_ovl_layer(struct mtk_plane_state *plane_state);
 #define DISP_REG_OVL_ADDR_BASE 0x0f40
 #define DISP_REG_OVL_ADDR_MT8173 0x0f40
 #define DISP_REG_OVL_ADDR(module, n) ((module)->data->addr + 0x20 * (n))
+
+#define DISP_REG_OVL_PQ_LOOP_CON (0x2E0UL)
+#define DISP_OVL_PQ_OUT_SIZE_SEL BIT(0)
+#define DISP_REG_OVL_PQ_OUT_SIZE (0x2E4UL)
+#define FLD_OVL_PQ_OUT_SRC_W REG_FLD_MSB_LSB(12, 0)
+#define FLD_OVL_PQ_OUT_SRC_H REG_FLD_MSB_LSB(28, 16)
 
 /* OVL Bandwidth monitor */
 #define DISP_REG_OVL_BURST_MON_CFG (0x97CUL)
@@ -456,6 +469,7 @@ struct mtk_disp_ovl_data {
 	unsigned int (*aid_sel_mapping)(struct mtk_ddp_comp *comp);
 	resource_size_t (*mmsys_mapping)(struct mtk_ddp_comp *comp);
 	unsigned int source_bpc;
+	bool support_pq_selfloop;
 };
 
 #define MAX_LAYER_NUM 4
@@ -972,6 +986,9 @@ static void _get_bg_roi(struct mtk_ddp_comp *comp, int *h, int *w)
 	*h = ovl->bg_h;
 	*w = ovl->bg_w;
 }
+
+static void _ovl_PQ_loop_set_size(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
+				  const u32 layer, const u32 src);
 
 static int mtk_ovl_golden_setting(struct mtk_ddp_comp *comp,
 				  struct mtk_ddp_config *cfg,
@@ -1706,9 +1723,21 @@ static void _ovl_common_config(struct mtk_ddp_comp *comp, unsigned int idx,
 		} else {
 			write_phy_layer_addr_cmdq(comp, handle, lye_idx, addr);
 		}
-		cmdq_pkt_write(handle, comp->cmdq_base,
-			comp->regs_pa + DISP_REG_OVL_SRC_SIZE(lye_idx),
-			src_size, ~0);
+
+		if (ovl->data->support_pq_selfloop) {
+			if (state->comp_state.layer_caps & MTK_DISP_RSZ_LAYER)
+				_ovl_PQ_loop_set_size(comp, handle, lye_idx, src_size);
+			else if (state->comp_state.layer_caps & MTK_MML_DISP_DIRECT_DECOUPLE_LAYER)
+				_ovl_PQ_loop_set_size(comp, handle, lye_idx, 0);
+			else
+				cmdq_pkt_write(handle, comp->cmdq_base,
+					       comp->regs_pa + DISP_REG_OVL_SRC_SIZE(lye_idx),
+					       src_size, ~0);
+		} else
+			cmdq_pkt_write(handle, comp->cmdq_base,
+				       comp->regs_pa + DISP_REG_OVL_SRC_SIZE(lye_idx), src_size,
+				       ~0);
+
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + DISP_REG_OVL_CLIP(lye_idx), clip,
 			~0);
@@ -1830,14 +1859,13 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 	else if (fmt == DRM_FORMAT_ABGR16161616F)
 		fmt_ex = 3;
 
-	if (pending->mml_mode == MML_MODE_RACING &&
-		(comp->id == DDP_COMPONENT_OVL0_2L ||
-		 comp->id == DDP_COMPONENT_OVL1_2L ||
-		 comp->id == DDP_COMPONENT_OVL2_2L ||
-		 comp->id == DDP_COMPONENT_OVL3_2L) &&
-		 comp->mtk_crtc->is_force_mml_scen) {
+	if ((pending->mml_mode == MML_MODE_RACING) && comp->mtk_crtc->is_force_mml_scen &&
+	    !ovl->data->support_pq_selfloop &&
+	    (comp->id == DDP_COMPONENT_OVL0_2L || comp->id == DDP_COMPONENT_OVL1_2L ||
+	     comp->id == DDP_COMPONENT_OVL2_2L || comp->id == DDP_COMPONENT_OVL3_2L)) {
 		con |= REG_FLD_VAL(L_CON_FLD_MTX_AUTO_DIS, 1);
 		con |= REG_FLD_VAL(L_CON_FLD_MTX_EN, 0);
+		/* if pq selfloop is supported, use Y2R inside OVL instead */
 	}
 
 	if (ext_lye_idx != LYE_NORMAL) {
@@ -1861,12 +1889,19 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			       comp->regs_pa + DISP_REG_OVL_CLRFMT_EXT, value,
 			       mask);
+
+		/* do not overwrite LAYER_SRC, it might be set when addon config */
+		mask = ovl->data->support_pq_selfloop ? ~REG_FLD_MASK(L_CON_FLD_LSRC) : ~0;
 		cmdq_pkt_write(handle, comp->cmdq_base,
-			       comp->regs_pa + DISP_REG_OVL_CON(lye_idx), con,
-			       ~0);
+			       comp->regs_pa + DISP_REG_OVL_CON(lye_idx), con, mask);
+
+		if ((state->comp_state.layer_caps & MTK_MML_DISP_DIRECT_DECOUPLE_LAYER) &&
+		    ovl->data->support_pq_selfloop)
+			offset =
+			    mtk_crtc_state->mml_dst_roi.y << 16 | mtk_crtc_state->mml_dst_roi.x;
 		cmdq_pkt_write(handle, comp->cmdq_base,
-			       comp->regs_pa + DISP_REG_OVL_OFFSET(lye_idx),
-			       offset, ~0);
+			       comp->regs_pa + DISP_REG_OVL_OFFSET(lye_idx), offset, ~0);
+
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			       comp->regs_pa + DISP_REG_OVL_L0_CLR(lye_idx),
 			       dim_color, ~0);
@@ -2481,9 +2516,15 @@ static bool compr_l_config_AFBC_V1_2(struct mtk_ddp_comp *comp,
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + DISP_REG_OVL_PITCH(lye_idx),
 			lx_pitch, 0xffff);
-		cmdq_pkt_write(handle, comp->cmdq_base,
-			comp->regs_pa + DISP_REG_OVL_SRC_SIZE(lye_idx),
-			lx_src_size, ~0);
+
+		if (ovl->data->support_pq_selfloop &&
+		    state->comp_state.layer_caps & MTK_DISP_RSZ_LAYER)
+			_ovl_PQ_loop_set_size(comp, handle, lye_idx, lx_src_size);
+		else
+			cmdq_pkt_write(handle, comp->cmdq_base,
+				       comp->regs_pa + DISP_REG_OVL_SRC_SIZE(lye_idx), lx_src_size,
+				       ~0);
+
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + DISP_REG_OVL_CLIP(lye_idx),
 			lx_clip, ~0);
@@ -2518,6 +2559,60 @@ static int _ovl_UFOd_in(struct mtk_ddp_comp *comp, int connect,
 		       comp->regs_pa + DISP_REG_OVL_SRC_CON, 0x10, 0x10);
 
 	return 0;
+}
+
+static void _ovl_PQ_out(struct mtk_ddp_comp *comp, const bool connect, struct cmdq_pkt *handle)
+{
+	u32 value = 0, mask = 0;
+
+	/* TODO: how to get OVL?_2L L? */
+	if (connect) {
+		SET_VAL_MASK(value, mask, 0, DATAPATH_PQ_OUT_SEL); /* from RDMA0 */
+		SET_VAL_MASK(value, mask, 1, DISP_OVL_PQ_OUT_EN);
+		// SET_VAL_MASK(value, mask, 1, DISP_OVL_PQ_OUT_OPT);
+		cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DISP_REG_OVL_DATAPATH_CON,
+			       value, mask);
+	} else {
+		SET_VAL_MASK(value, mask, 0, DISP_OVL_PQ_OUT_EN);
+		cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DISP_REG_OVL_DATAPATH_CON,
+			       value, mask);
+	}
+}
+
+static void _ovl_PQ_in(struct mtk_ddp_comp *comp, const bool connect, struct cmdq_pkt *handle)
+{
+	u32 value = 0, mask = 0;
+
+	/* TODO: how to get OVL?_2L */
+	if (connect) {
+		SET_VAL_MASK(value, mask, 3, L_CON_FLD_LSRC);
+		cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DISP_REG_OVL_CON(0), value,
+			       mask);
+	} else {
+		SET_VAL_MASK(value, mask, 0, L_CON_FLD_LSRC);
+		cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DISP_REG_OVL_CON(0), value,
+			       mask);
+	}
+}
+
+static void _ovl_PQ_loop_set_size(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
+				  const u32 layer, const u32 _src)
+{
+	struct mtk_crtc_state *mtk_crtc_state = to_mtk_crtc_state(comp->mtk_crtc->base.state);
+	u32 src, dst;
+
+	if (_src > 0) {
+		src = _src;
+		dst = mtk_crtc_state->rsz_dst_roi.height << 16 | mtk_crtc_state->rsz_dst_roi.width;
+	} else {
+		src = mtk_crtc_state->mml_src_roi[0].height << 16 |
+		      mtk_crtc_state->mml_src_roi[0].width;
+		dst = mtk_crtc_state->mml_dst_roi.height << 16 | mtk_crtc_state->mml_dst_roi.width;
+	}
+
+	cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DISP_REG_OVL_PQ_OUT_SIZE, src, ~0);
+	cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DISP_REG_OVL_SRC_SIZE(layer), dst,
+		       ~0);
 }
 
 static void
@@ -2571,6 +2666,28 @@ mtk_ovl_addon_rsz_config(struct mtk_ddp_comp *comp, enum mtk_ddp_comp_id prev,
 	}
 }
 
+static void _mtk_ovl_embed_config(struct mtk_ddp_comp *comp, enum mtk_ddp_comp_id prev,
+				  enum mtk_ddp_comp_id next, struct mtk_rect src,
+				  struct mtk_rect dst, struct cmdq_pkt *handle)
+{
+	if ((prev == DDP_COMPONENT_OVLSYS_RSZ1 && next == DDP_COMPONENT_OVLSYS_RSZ1) ||
+	    (prev == DDP_COMPONENT_OVLSYS_RSZ2 && next == DDP_COMPONENT_OVLSYS_RSZ2) ||
+	    (prev == DDP_COMPONENT_OVLSYS_Y2R0 && next == DDP_COMPONENT_OVLSYS_DLO_ASYNC0) ||
+	    (prev == DDP_COMPONENT_OVLSYS_Y2R2 && next == DDP_COMPONENT_OVLSYS_DLO_ASYNC7)) {
+		_ovl_PQ_out(comp, 1, handle);
+		_ovl_PQ_in(comp, 1, handle);
+
+		/* Need to check pq out size */
+		cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DISP_REG_OVL_PQ_LOOP_CON, 1,
+			       DISP_OVL_PQ_OUT_SIZE_SEL);
+	} else {
+		_ovl_PQ_out(comp, 0, handle);
+		_ovl_PQ_in(comp, 0, handle);
+		cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DISP_REG_OVL_PQ_LOOP_CON, 0,
+			       DISP_OVL_PQ_OUT_SIZE_SEL);
+	}
+}
+
 static void mtk_ovl_addon_config(struct mtk_ddp_comp *comp,
 				 enum mtk_ddp_comp_id prev,
 				 enum mtk_ddp_comp_id next,
@@ -2603,6 +2720,26 @@ static void mtk_ovl_addon_config(struct mtk_ddp_comp *comp,
 
 		/* this rsz means enlarge/narrow, not component */
 		mtk_ovl_addon_rsz_config(comp, prev, next, src, dst, handle);
+	}
+
+	if ((addon_config->config_type.module == OVL_RSZ ||
+	     addon_config->config_type.module == OVL_RSZ_1) &&
+	    addon_config->config_type.type == ADDON_EMBED) {
+		struct mtk_addon_rsz_config *config = &addon_config->addon_rsz_config;
+
+		_mtk_ovl_embed_config(comp, prev, next,
+				      config->rsz_src_roi, config->rsz_dst_roi, handle);
+	}
+
+	if ((addon_config->config_type.module == DISP_MML_IR_PQ_v2 ||
+		addon_config->config_type.module == DISP_MML_IR_PQ_v2_1) &&
+		addon_config->config_type.type == ADDON_EMBED) {
+		struct mtk_addon_mml_config *config = &addon_config->addon_mml_config;
+		struct mtk_rect src, dst;
+
+		src = config->mml_src_roi[config->pipe];
+		dst = config->mml_dst_roi[config->pipe];
+		_mtk_ovl_embed_config(comp, prev, next, src, dst, handle);
 	}
 }
 
@@ -3495,6 +3632,7 @@ static void ovl_dump_layer_info(struct mtk_ddp_comp *comp, int layer,
 	void __iomem *baddr = comp->regs;
 	void __iomem *Lx_base;
 	dma_addr_t addr;
+	static const char * const pixel_src[] = { "mem", "color", "ufod", "pq" };
 
 	if (is_ext_layer) {
 		Lx_base = baddr + layer * OVL_LAYER_OFFSET;
@@ -3524,8 +3662,7 @@ static void ovl_dump_layer_info(struct mtk_ddp_comp *comp, int layer,
 	DDPDUMP("pitch=%u,addr=0x%lx,source=%s,aen=%u,alpha=%u,cl=0x%x\n",
 		pitch & 0xffff,
 		(unsigned long)addr, /* unified_color_fmt_name(fmt),*/
-		(REG_FLD_VAL_GET(L_CON_FLD_LSRC, con) == 0) ? "mem"
-							    : "constant_color",
+		pixel_src[REG_FLD_VAL_GET(L_CON_FLD_LSRC, con)],
 		REG_FLD_VAL_GET(L_CON_FLD_AEN, con),
 		REG_FLD_VAL_GET(L_CON_FLD_APHA, con),
 		clip);
@@ -3546,6 +3683,8 @@ int mtk_ovl_analysis(struct mtk_ddp_comp *comp)
 	unsigned int src_con;
 	unsigned int ext_con;
 	unsigned int addcon;
+	unsigned int path_con;
+	unsigned int pq_out_size;
 
 	if (!baddr) {
 		DDPDUMP("%s, %s is NULL!\n", __func__, mtk_dump_comp_str(comp));
@@ -3558,6 +3697,8 @@ int mtk_ovl_analysis(struct mtk_ddp_comp *comp)
 	src_con = readl(DISP_REG_OVL_SRC_CON + baddr);
 	ext_con = readl(DISP_REG_OVL_DATAPATH_EXT_CON + baddr);
 	addcon = readl(DISP_REG_OVL_ADDCON_DBG + baddr);
+	path_con = readl(DISP_REG_OVL_DATAPATH_CON + baddr);
+	pq_out_size = readl(DISP_REG_OVL_PQ_OUT_SIZE + baddr);
 
 	DDPDUMP("== %s ANALYSIS:0x%x ==\n", mtk_dump_comp_str(comp), comp->regs_pa);
 	DDPDUMP("ovl_en=%d,layer_en(%d,%d,%d,%d),bg(%dx%d)\n",
@@ -3577,11 +3718,19 @@ int mtk_ovl_analysis(struct mtk_ddp_comp *comp)
 		REG_FLD_VAL_GET(ADDCON_DBG_FLD_L1_WIN_HIT, addcon),
 		REG_FLD_VAL_GET(ADDCON_DBG_FLD_L2_WIN_HIT, addcon),
 		REG_FLD_VAL_GET(ADDCON_DBG_FLD_L3_WIN_HIT, addcon),
-		DISP_REG_GET_FIELD(DATAPATH_CON_FLD_BGCLR_IN_SEL,
-				   DISP_REG_OVL_DATAPATH_CON + baddr)
-			? "DL"
-			: "const",
+		REG_FLD_VAL_GET(DATAPATH_CON_FLD_BGCLR_IN_SEL, path_con) ? "DL" : "const",
 		readl(DISP_REG_OVL_STA + baddr));
+
+	DDPDUMP("pq_out_en(%u),sel(%u),loop(%u),size(%u,%u),rdma_out_sel(%u,%u,%u,%u)\n",
+		REG_FLD_VAL_GET(DISP_OVL_PQ_OUT_EN, path_con),
+		REG_FLD_VAL_GET(DATAPATH_PQ_OUT_SEL, path_con),
+		readl(DISP_REG_OVL_PQ_LOOP_CON + baddr) & 0x1,
+		REG_FLD_VAL_GET(ADDCON_DBG_FLD_ROI_X, pq_out_size),
+		REG_FLD_VAL_GET(ADDCON_DBG_FLD_ROI_Y, pq_out_size),
+		REG_FLD_VAL_GET(DISP_OVL_RDMA0_OUT_SEL, path_con),
+		REG_FLD_VAL_GET(DISP_OVL_RDMA1_OUT_SEL, path_con),
+		REG_FLD_VAL_GET(DISP_OVL_RDMA2_OUT_SEL, path_con),
+		REG_FLD_VAL_GET(DISP_OVL_RDMA3_OUT_SEL, path_con));
 
 	/* phy layer */
 	for (i = 0; i < mtk_ovl_layer_num(comp); i++) {
@@ -4028,6 +4177,7 @@ static const struct mtk_disp_ovl_data mt6985_ovl_driver_data = {
 	//.aid_sel_mapping = &mtk_ovl_aid_sel_MT6983, //remove till aid is ready
 	//.mmsys_mapping = &mtk_ovl_mmsys_mapping_MT6983, //remove till aid is ready
 	.source_bpc = 10,
+	.support_pq_selfloop = true, /* pq in out self loop */
 };
 
 static const struct compress_info compr_info_mt6895  = {
