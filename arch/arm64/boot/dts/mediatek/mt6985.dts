@@ -4875,6 +4875,16 @@
 				mtk,rpmsg-name = "mvpu-rx-rpmsg";
 			};
 
+			aps-tx-rpmsg {
+				compatible = "mediatek,aps-tx-rpmsg";
+				mtk,rpmsg-name = "aps-tx-rpmsg";
+			};
+
+			aps-rx-rpmsg {
+				compatible = "mediatek,aps-rx-rpmsg";
+				mtk,rpmsg-name = "aps-rx-rpmsg";
+			};
+
 			sapu_lock_rpmsg {
 				compatible = "mediatek,apu-lock-rv-rpmsg";
 				mtk,rpmsg-name = "apu-lock-rv-rpmsg";
