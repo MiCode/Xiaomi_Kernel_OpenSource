@@ -6294,6 +6294,7 @@
 
 		bt: bt {
 			compatible = "mediatek,bt";
+			sleep-en = <1>;
 			hub-en = <1>;
 			baudrate = <12000000>;
 			pinctrl-names = "bt_combo_gpio_init",
