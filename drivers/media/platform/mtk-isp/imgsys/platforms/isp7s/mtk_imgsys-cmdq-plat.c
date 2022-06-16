@@ -1233,13 +1233,22 @@ void mtk_imgsys_mmdvfs_init_plat7s(struct mtk_imgsys_dev *imgsys_dev)
 			"%s: [ERROR] fail to init opp table: %d\n", __func__, ret);
 		return;
 	}
-	dvfs_info->reg = devm_regulator_get(dvfs_info->dev, "dvfsrc-vmm");
+	dvfs_info->reg = devm_regulator_get_optional(dvfs_info->dev, "dvfsrc-vmm");
 	if (IS_ERR_OR_NULL(dvfs_info->reg)) {
-		dev_info(dvfs_info->dev, "%s: [ERROR] can't get dvfsrc-vmm\n", __func__);
-		return;
+		dev_info(dvfs_info->dev,
+			"%s: [ERROR] Failed to get dvfsrc-vmm\n", __func__);
+		dvfs_info->reg = NULL;
+		dvfs_info->mmdvfs_clk = devm_clk_get(dvfs_info->dev, "mmdvfs_clk");
+		if (IS_ERR_OR_NULL(dvfs_info->mmdvfs_clk)) {
+			dev_info(dvfs_info->dev,
+				"%s: [ERROR] Failed to get mmdvfs_clk\n", __func__);
+			dvfs_info->mmdvfs_clk = NULL;
+			return;
+		}
 	}
 
-	opp_num = regulator_count_voltages(dvfs_info->reg);
+	if (dvfs_info->reg)
+		opp_num = regulator_count_voltages(dvfs_info->reg);
 	of_for_each_phandle(
 		&it, ret, dvfs_info->dev->of_node, "operating-points-v2", NULL, 0) {
 		np = of_node_get(it.node);
@@ -1283,14 +1292,17 @@ void mtk_imgsys_mmdvfs_init_plat7s(struct mtk_imgsys_dev *imgsys_dev)
 void mtk_imgsys_mmdvfs_uninit_plat7s(struct mtk_imgsys_dev *imgsys_dev)
 {
 	struct mtk_imgsys_dvfs *dvfs_info = &imgsys_dev->dvfs_info;
-	int volt = 0, ret = 0;
+	int volt = 0, freq = 0, ret = 0;
 
 	dvfs_info->cur_volt = volt;
 
-	if (IS_ERR_OR_NULL(dvfs_info->reg))
-		dev_info(dvfs_info->dev, "%s: [ERROR] reg is err or null\n", __func__);
-	else
+	if (dvfs_info->reg)
 		ret = regulator_set_voltage(dvfs_info->reg, volt, INT_MAX);
+	else if (dvfs_info->mmdvfs_clk)
+		clk_set_rate(dvfs_info->mmdvfs_clk, freq);
+	else
+		dev_info(dvfs_info->dev,
+			"%s: [ERROR] reg and clk is err or null\n", __func__);
 
 }
 
@@ -1305,8 +1317,8 @@ void mtk_imgsys_mmdvfs_set_plat7s(struct mtk_imgsys_dev *imgsys_dev,
 
 	freq = dvfs_info->freq;
 
-	if (IS_ERR_OR_NULL(dvfs_info->reg))
-		dev_dbg(dvfs_info->dev, "%s: [ERROR] reg is err or null\n", __func__);
+	if (IS_ERR_OR_NULL(dvfs_info->reg) && IS_ERR_OR_NULL(dvfs_info->mmdvfs_clk))
+		dev_dbg(dvfs_info->dev, "%s: [ERROR] reg and clk is err or null\n", __func__);
 	else {
 		/* Choose for IPESYS */
 		/* if (hw_comb & IMGSYS_ENG_ME) */
@@ -1319,13 +1331,17 @@ void mtk_imgsys_mmdvfs_set_plat7s(struct mtk_imgsys_dev *imgsys_dev,
 		if (idx == dvfs_info->clklv_num[opp_idx])
 			idx--;
 		volt = dvfs_info->voltlv[opp_idx][idx];
+		freq = dvfs_info->clklv[opp_idx][idx]; // signed-off
 
 		if (dvfs_info->cur_volt != volt) {
 			if (imgsys_dvfs_dbg_enable_plat7s())
 				dev_info(dvfs_info->dev, "[%s] volt change opp=%d, idx=%d, clk=%d volt=%d\n",
 					__func__, opp_idx, idx, dvfs_info->clklv[opp_idx][idx],
 					dvfs_info->voltlv[opp_idx][idx]);
-			ret = regulator_set_voltage(dvfs_info->reg, volt, INT_MAX);
+			if (dvfs_info->reg)
+				ret = regulator_set_voltage(dvfs_info->reg, volt, INT_MAX);
+			else if (dvfs_info->mmdvfs_clk)
+				clk_set_rate(dvfs_info->mmdvfs_clk, freq);
 			dvfs_info->cur_volt = volt;
 		}
 	}

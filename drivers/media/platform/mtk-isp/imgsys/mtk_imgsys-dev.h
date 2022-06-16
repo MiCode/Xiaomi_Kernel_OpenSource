@@ -54,7 +54,7 @@
 #define MTK_DIP_DEV_META_BUF_DEFAULT_SIZE	(1024 * 128)
 #define MTK_DIP_DEV_META_BUF_POOL_MAX_SIZE	(1024 * 1024 * 16)
 #define MTK_IMGSYS_OPP_SET			2
-#define MTK_IMGSYS_CLK_LEVEL_CNT		5
+#define MTK_IMGSYS_CLK_LEVEL_CNT		10
 #define MTK_IMGSYS_DVFS_GROUP			3
 #define MTK_IMGSYS_QOS_GROUP			2
 #define MTK_IMGSYS_QOS_SC_MAX_ID		5
@@ -230,6 +230,7 @@ struct imgsys_user_list {
 struct mtk_imgsys_dvfs {
 	struct device *dev;
 	struct regulator *reg;
+	struct clk *mmdvfs_clk;
 	unsigned int clklv_num[MTK_IMGSYS_OPP_SET];
 	unsigned int clklv[MTK_IMGSYS_OPP_SET][MTK_IMGSYS_CLK_LEVEL_CNT];
 	unsigned int voltlv[MTK_IMGSYS_OPP_SET][MTK_IMGSYS_CLK_LEVEL_CNT];
