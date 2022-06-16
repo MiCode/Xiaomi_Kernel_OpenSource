@@ -183,8 +183,8 @@ enum ADSP_MI_SELECT {
 #define MML_END_ADDR				(0x1FFFFFFF)
 
 /* For GPU Bus Parser */
-#define GPU_PD_START				(0x13C00000)
-#define GPU_PD_END				(0x13C620FF)
+#define GPU_PD_START				(0xC00000)
+#define GPU_PD_END				(0xC620FF)
 
 static const struct mtk_device_info mt6985_devices_infra[] = {
 	/* sys_idx, ctrl_idx, vio_idx, device, vio_irq */
