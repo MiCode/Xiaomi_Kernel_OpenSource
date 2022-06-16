@@ -335,15 +335,6 @@ static struct mddp_sm_entry_t mddpwh_deactivating_state_machine_s[] = {
 {MDDP_EVT_DUMMY,          MDDP_STATE_DEACTIVATING, NULL} /* End of SM. */
 };
 
-static struct mddp_sm_entry_t mddpwh_dead_state_machine_s[] = {
-/* event                  new_state                action */
-{MDDP_EVT_FUNC_ENABLE,    MDDP_STATE_DISABLED,     NULL},
-{MDDP_EVT_FUNC_DISABLE,   MDDP_STATE_DISABLED,     NULL},
-{MDDP_EVT_FUNC_ACT,       MDDP_STATE_DISABLED,     NULL},
-{MDDP_EVT_FUNC_DEACT,     MDDP_STATE_DISABLED,     NULL},
-{MDDP_EVT_DUMMY,          MDDP_STATE_DISABLED,     NULL} /* End of SM. */
-};
-
 struct mddp_sm_entry_t *mddpwh_state_machines_s[MDDP_STATE_CNT] = {
 	mddpwh_uninit_state_machine_s, /* UNINIT */
 	mddpwh_enabling_state_machine_s, /* ENABLING */
@@ -813,7 +804,6 @@ static ssize_t mddpwh_sysfs_callback(
 	char *buf,
 	size_t buf_len)
 {
-	static uint8_t                  mddpwh_state = 1;
 	struct mddpw_net_stat_t        *md_stats;
 	uint8_t                         smem_attr;
 	uint32_t                        smem_size;
@@ -833,8 +823,6 @@ static ssize_t mddpwh_sysfs_callback(
 			return -EINVAL;
 		}
 
-		show_cnt += scnprintf(buf, PAGE_SIZE, "\n[MDDP-WH State]\n%d\n",
-					mddpwh_state);
 		show_cnt += scnprintf(buf + show_cnt, PAGE_SIZE - show_cnt,
 					"[MDDP-WH Statistics]\n");
 		show_cnt += scnprintf(buf + show_cnt, PAGE_SIZE - show_cnt,
@@ -849,23 +837,6 @@ static ssize_t mddpwh_sysfs_callback(
 			md_stats->tx_errors, md_stats->rx_errors);
 		return show_cnt;
 	}
-	if (cmd == MDDP_SYSFS_CMD_ENABLE_WRITE) {
-		if (sysfs_streq(buf, "1")) {
-			app->state_machines[MDDP_STATE_DISABLED] =
-				mddpwh_disabled_state_machine_s;
-			mddpwh_state = 1;
-			MDDP_S_LOG(MDDP_LL_NOTICE, "%s: enable!\n", __func__);
-		} else if (sysfs_streq(buf, "0")) {
-			app->state_machines[MDDP_STATE_DISABLED] =
-				mddpwh_dead_state_machine_s;
-			mddpwh_state = 0;
-			MDDP_S_LOG(MDDP_LL_NOTICE, "%s: disable!\n", __func__);
-		} else
-			buf_len = 0;
-		return buf_len;
-	} else if (cmd == MDDP_SYSFS_CMD_ENABLE_READ)
-		return scnprintf(buf, PAGE_SIZE,
-					"wh_enable(%d)\n", mddpwh_state);
 #ifdef MDDP_EM_SUPPORT
 	if (cmd == MDDP_SYSFS_EM_CMD_TEST_WRITE) {
 		md_msg = kzalloc(sizeof(struct mddp_md_msg_t) +

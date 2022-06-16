@@ -260,44 +260,6 @@ wh_statistic_show(struct device *dev, struct device_attribute *attr, char *buf)
 }
 static DEVICE_ATTR_RO(wh_statistic);
 
-static ssize_t
-wh_enable_show(struct device *dev, struct device_attribute *attr, char *buf)
-{
-	struct mddp_app_t      *app;
-
-	app = mddp_get_app_inst(MDDP_APP_TYPE_WH);
-
-	if (app->sysfs_callback)
-		return app->sysfs_callback(app,
-				MDDP_SYSFS_CMD_ENABLE_READ, buf, 0);
-
-	return scnprintf(buf, PAGE_SIZE,
-				"Cannot change WH mode, mddp-wh config(%d)\n",
-				app->is_config);
-}
-
-static ssize_t
-wh_enable_store(struct device *dev,
-		struct device_attribute *attr,
-		const char *buf,
-		size_t count)
-{
-	struct mddp_app_t      *app;
-
-	app = mddp_get_app_inst(MDDP_APP_TYPE_WH);
-
-	if (app->sysfs_callback) {
-		// OK.
-		app->sysfs_callback(app, MDDP_SYSFS_CMD_ENABLE_WRITE,
-				    (char *)buf, count);
-		return count;
-	}
-
-	// NG. Failed to configure!
-	return count;
-}
-static DEVICE_ATTR_RW(wh_enable);
-
 #ifdef MDDP_EM_SUPPORT
 #define EM_CMD_BUF_SZ 32
 static uint8_t em_cmd_buf[EM_CMD_BUF_SZ];
@@ -427,13 +389,10 @@ static struct attribute *mddp_attrs[] = {
 	&dev_attr_state.attr,
 	&dev_attr_wh_statistic.attr,
 	&dev_attr_debug_log.attr,
-
-	&dev_attr_wh_enable.attr,
 	&dev_attr_md_log.attr,
 #ifdef MDDP_EM_SUPPORT
 	&dev_attr_em_test.attr,
 #endif
-
 	NULL,
 };
 ATTRIBUTE_GROUPS(mddp);

@@ -43,8 +43,6 @@ enum mddp_event_e {
 };
 
 enum mddp_sysfs_cmd_e {
-	MDDP_SYSFS_CMD_ENABLE_READ,  /* User read ENABLE sysfs */
-	MDDP_SYSFS_CMD_ENABLE_WRITE,  /* User write ENABLE sysfs */
 	MDDP_SYSFS_CMD_STATISTIC_READ,  /* User read STATISTIC sysfs */
 
 #ifdef MDDP_EM_SUPPORT
