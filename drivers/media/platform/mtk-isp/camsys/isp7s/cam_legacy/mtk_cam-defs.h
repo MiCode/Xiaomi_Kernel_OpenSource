@@ -115,7 +115,6 @@ enum mtkcam_ipi_raw_video_id {
 	MTKCAM_IPI_RAW_RAWI_2,		/* RAWI_R2 */
 	MTKCAM_IPI_RAW_RAWI_3,		/* RAWI_R3 */
 	MTKCAM_IPI_RAW_RAWI_5,		/* RAWI_R5 */
-	MTKCAM_IPI_RAW_IPUI,		/* ADLRD */
 	MTKCAM_IPI_RAW_IMGO,		/* IMGO_R1 */
 	MTKCAM_IPI_RAW_YUVO_1,		/* YUVO_R1 */
 	MTKCAM_IPI_RAW_YUVO_2,		/* YUVO_R2 */
@@ -216,7 +215,6 @@ enum mtkcam_ipi_flow {
 	MTKCAM_IPI_FLOW_STAGGER		= 1,
 	MTKCAM_IPI_FLOW_MSTREAM		= 2,
 	MTKCAM_IPI_FLOW_RGBW		= 3,
-	MTKCAM_IPI_FLOW_ADL		= 4,
 };
 
 enum mtkcam_ipi_flow_variant {
@@ -250,8 +248,6 @@ enum mtkcam_ipi_tag_order {
 #define MTKCAM_IPI_HW_PATH_OTF_RGBW			_HWPATH(8, RGBW, OTF)
 #define MTKCAM_IPI_HW_PATH_DC_RGBW			_HWPATH(9, RGBW, DC)
 #define MTKCAM_IPI_HW_PATH_OFFLINE_RGBW		_HWPATH(10, RGBW, OFFLINE)
-#define MTKCAM_IPI_HW_PATH_OFFLINE_ADL		_HWPATH(11, ADL, OFFLINE)
-#define MTKCAM_IPI_HW_PATH_DC_ADL		_HWPATH(12, ADL, DC)
 
 #define HWPATH_ID(hw_path) (hw_path & 0xFF)
 

@@ -37,7 +37,6 @@ enum RAW_STREAMON_TYPE {
 	STREAM_FROM_RAWI_R2,
 	STREAM_FROM_RAWI_R5,
 	STREAM_FROM_RAWI_R6,
-	STREAM_FROM_ADLRD,
 };
 
 struct mtk_ut_raw_initial_params {

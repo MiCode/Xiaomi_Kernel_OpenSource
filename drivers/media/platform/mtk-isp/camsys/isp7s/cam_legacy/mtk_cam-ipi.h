@@ -33,6 +33,7 @@ struct mtkcam_ipi_point {
  * @w: width (in pixels).
  * @h: height (in pixels).
  */
+
 struct mtkcam_ipi_size {
 	__u16 w;
 	__u16 h;
@@ -66,11 +67,11 @@ struct mtkcam_ipi_crop {
 	struct mtkcam_ipi_point p;
 	struct mtkcam_ipi_size s;
 } __packed;
-
 struct mtkcam_ipi_uid {
 	__u8 pipe_id;
 	__u8 id;
 } __packed;
+
 
 struct mtkcam_ipi_img_input {
 	struct mtkcam_ipi_uid		uid;
@@ -120,19 +121,12 @@ struct mtkcam_ipi_mraw_input_param {
 
 struct mtkcam_ipi_raw_frame_param {
 	__u8	imgo_path_sel; /* mtkcam_ipi_raw_path_control */
-	__u16	hardware_scenario;
+	__u8	hardware_scenario;
 	__u32	bin_flag;
 	__u8    exposure_num;
 	__u8    previous_exposure_num;
 
 	/* blahblah */
-} __packed;
-
-struct mtkcam_ipi_adl_frame_param {
-	__u8 vpu_i_point;
-	__u8 vpu_o_point;
-	__u8 sysram_en;
-	__u32 block_y_size;
 } __packed;
 
 /* TODO: support CAMSV */
@@ -173,7 +167,6 @@ struct mtkcam_ipi_hw_mapping {
 	__u8 pipe_id; /* ref. to mtkcam_pipe_subdev */
 	__u16 dev_mask; /* ref. to mtkcam_pipe_dev */
 } __packed;
-
 struct mtkcam_ipi_bw_info {
 	/* TBD */
 	/* TODO: define ports in defs.h */
@@ -221,7 +214,6 @@ struct mtkcam_ipi_frame_param {
 	struct mtkcam_ipi_raw_frame_param raw_param;
 	struct mtkcam_ipi_mraw_frame_param mraw_param[MRAW_MAX_PIPE_USED];
 	struct mtkcam_ipi_camsv_frame_param camsv_param[CAMSV_MAX_PIPE_USED][CAMSV_MAX_TAGS];
-	struct mtkcam_ipi_adl_frame_param adl_param;
 
 	struct mtkcam_ipi_timeshared_msg	timeshared_param;
 
@@ -250,7 +242,6 @@ struct mtkcam_ipi_frame_ack_result {
 	struct mtkcam_ipi_cq_desc_entry		mraw[MRAW_MAX_PIPE_USED];
 	struct mtkcam_ipi_cq_desc_entry		camsv[CAMSV_MAX_PIPE_USED];
 } __packed;
-
 struct mtkcam_ipi_ack_info {
 	__u8 ack_cmd_id;
 	__s32 ret;
