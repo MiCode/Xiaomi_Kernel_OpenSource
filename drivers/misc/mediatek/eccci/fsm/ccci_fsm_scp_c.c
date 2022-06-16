@@ -78,6 +78,7 @@ static int ccci_scp_ipi_send(int op_id, void *data)
 	mutex_lock(&scp_ipi_tx_mutex);
 	memset(&scp_ipi_tx_msg, 0, sizeof(scp_ipi_tx_msg));
 
+	scp_ipi_tx_msg.md_id = 0;
 	scp_ipi_tx_msg.op_id = op_id;
 	scp_ipi_tx_msg.data[0] = *((u32 *)data);
 	CCCI_NORMAL_LOG(0, FSM,
@@ -445,11 +446,6 @@ static int fsm_scp_hw_init(struct ccci_fsm_scp *scp_ctl, struct device *dev)
 int fsm_scp_init(struct ccci_fsm_scp *scp_ctl, struct device *dev)
 {
 	int ret = 0;
-
-#ifndef CCCI_KMODULE_ENABLE
-	struct ccci_fsm_ctl *ctl =
-		container_of(scp_ctl, struct ccci_fsm_ctl, scp_ctl);
-#endif
 
 	ret = fsm_scp_hw_init(scp_ctl, dev);
 	if (ret < 0) {

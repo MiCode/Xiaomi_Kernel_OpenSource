@@ -171,6 +171,7 @@ enum ccci_ipi_op_id {
 /************ structures ************/
 
 struct ccci_ipi_msg {
+	u16 md_id; //compatibility member
 	u16 op_id;
 	u32 data[1];
 } __packed;
