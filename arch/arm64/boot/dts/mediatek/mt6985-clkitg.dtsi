@@ -9,7 +9,6 @@
 	bring-up {
 		compatible = "mediatek,clk-bring-up";
 		clocks =
-			<&topckgen_clk CLK_TOP_MMUP_SEL>,
 			<&topckgen_clk CLK_TOP_DSP_SEL>,
 			<&topckgen_clk CLK_TOP_UART_SEL>,
 			<&topckgen_clk CLK_TOP_I2C_SEL>,
@@ -207,11 +206,6 @@
 	bring-up-pd-cam_vcore {
 		compatible = "mediatek,scpsys-bring-up";
 		power-domains = <&scpsys MT6985_POWER_DOMAIN_CAM_VCORE>;
-	};
-
-	bring-up-pd-mm_proc_dormant {
-		compatible = "mediatek,scpsys-bring-up";
-		power-domains = <&scpsys MT6985_POWER_DOMAIN_MM_PROC_DORMANT>;
 	};
 
 	bring-up-pd-csi_rx {
