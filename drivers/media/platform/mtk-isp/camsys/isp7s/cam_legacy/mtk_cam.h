@@ -213,8 +213,6 @@ struct mtk_cam_sensor_work {
  * @frame_work: work queue entry for frame transmission to SCP.
  * @working_buf: command queue buffer associated to this request
  * @mtk_cam_exposure: exposure value of sensor of mstream
- * @deque_list_node: the entry node of s_data for deque
- * @cleanup_list_node: the entry node of s_data for cleanup
  * @req_id: request sequence id from userspace for mstream exposure
  *
  */
@@ -262,8 +260,6 @@ struct mtk_cam_request_stream_data {
 	struct mtk_cam_shutter_gain mtk_cam_exposure;
 	struct mtk_cam_req_dbg_work dbg_work;
 	struct mtk_cam_req_dbg_work dbg_exception_work;
-	struct list_head deque_list_node;
-	struct list_head cleanup_list_node;
 	struct mtk_cam_hdr_timestamp_info hdr_timestamp_cache;
 	atomic_t first_setting_check;
 	int req_id;
@@ -345,6 +341,9 @@ struct mtk_cam_request {
 						       MTKCAM_SUBDEV_RAW_START];
 	s64 sync_id;
 	atomic_t ref_cnt;
+
+	int enqeued_buf_cnt;  // no racing issue
+	atomic_t done_buf_cnt;
 };
 
 struct mtk_cam_working_buf_pool {
@@ -718,15 +717,19 @@ mtk_cam_s_data_get_vbuf_idx(struct mtk_cam_request_stream_data *s_data,
 	return -1;
 }
 
-static inline void
+static inline int
 mtk_cam_s_data_set_vbuf(struct mtk_cam_request_stream_data *s_data,
 			struct mtk_cam_buffer *buf,
 			int node_id)
 {
 	int idx = mtk_cam_s_data_get_vbuf_idx(s_data, node_id);
-
-	if (idx >= 0)
+	if (idx >= 0) {
+		if (s_data->bufs[idx])  /* double enque */
+			return -1;
 		s_data->bufs[idx] = buf;
+		return 0;
+	}
+	return -1;
 }
 
 
@@ -781,6 +784,9 @@ mtk_cam_s_data_reset_vbuf(struct mtk_cam_request_stream_data *s_data, int node_i
 	if (idx >= 0)
 		s_data->bufs[idx] = NULL;
 }
+
+int mtk_cam_mark_vbuf_done(struct mtk_cam_request *req,
+			   struct mtk_cam_buffer *buf);
 
 static inline void
 mtk_cam_s_data_set_wbuf(struct mtk_cam_request_stream_data *s_data,

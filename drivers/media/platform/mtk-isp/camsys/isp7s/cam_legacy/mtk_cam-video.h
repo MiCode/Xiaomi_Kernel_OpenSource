@@ -49,8 +49,7 @@ typedef int (*set_pad_selection_func_t)(struct v4l2_subdev *sd,
  */
 struct mtk_cam_buffer {
 	struct vb2_v4l2_buffer vbb;
-	struct list_head list;
-	struct list_head stream_data_list;
+	int final_state;
 
 	dma_addr_t daddr;
 	dma_addr_t scp_addr;

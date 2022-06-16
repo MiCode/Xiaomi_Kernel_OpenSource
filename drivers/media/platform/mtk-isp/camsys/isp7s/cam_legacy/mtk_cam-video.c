@@ -743,7 +743,17 @@ static void mtk_cam_vb2_buf_queue(struct vb2_buffer *vb)
 		mtk_cam_req_save_raw_vfmts(raw_pipline, req,
 					   req_stream_data);
 	}
-	mtk_cam_s_data_set_vbuf(req_stream_data, buf, node->desc.id);
+	if (WARN_ON(mtk_cam_s_data_set_vbuf(req_stream_data, buf, node->desc.id))) {
+		/* the buffer is invalid, mark done immediately */
+		dev_info(dev, "%s:%s:pipe(%d): doubel enque %s\n",
+			__func__, req->req.debug_str, pipe_id, node->desc.name);
+		vb2_buffer_done(&buf->vbb.vb2_buf, VB2_BUF_STATE_ERROR);
+		return;
+	}
+	req->enqeued_buf_cnt++;
+	dev_dbg(dev, "%s:%s:pipe(%d):add buffer(%s), enqeued_buf_cnt(%d)\n",
+		__func__, req->req.debug_str, pipe_id, node->desc.name,
+		req->enqeued_buf_cnt);
 
 	/* update buffer internal address */
 	switch (dma_port) {
