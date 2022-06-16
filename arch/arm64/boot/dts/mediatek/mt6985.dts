@@ -3228,6 +3228,7 @@
 			clock-names = "baud", "bus";
 			dmas = <&apdma 0 &apdma 1>;
 			dma-names = "tx", "rx";
+			uart_line = <0>;
 		};
 
 		uart1: serial@11002000 {
@@ -3238,6 +3239,7 @@
 			clock-names = "baud", "bus";
 			dmas = <&apdma 2 &apdma 3>;
 			dma-names = "tx", "rx";
+			uart_line = <1>;
 		};
 
 		uart2: serial@11003000 {
@@ -3248,6 +3250,7 @@
 			clock-names = "baud", "bus";
 			dmas = <&apdma 4 &apdma 5>;
 			dma-names = "tx", "rx";
+			uart_line = <2>;
 		};
 
 		uart3: serial@11004000 {
@@ -3259,6 +3262,7 @@
 			dmas = <&apdma 6 &apdma 7>;
 			dma-names = "tx", "rx";
 			peri-clock-con = <0x11036020 0xF00 0x800>;  /*UART ClOCK SEL*/
+			uart_line = <3>;
 		};
 
 		mtk_leds: mtk_leds {
