@@ -10855,6 +10855,13 @@
 		};
 	};
 
+	disp-sec {
+		compatible = "mediatek,disp-sec";
+		sw-sync-token-tzmp-disp-wait = <CMDQ_SYNC_TOKEN_TZMP_DISP_WAIT>;
+		sw-sync-token-tzmp-disp-set = <CMDQ_SYNC_TOKEN_TZMP_DISP_SET>;
+		mboxes = <&gce_sec 8 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_4>;
+	};
+
 	mmdvfs_clk: mmdvfs-clk {
 		compatible = "mediatek,mtk-mmdvfs-v3";
 		#mmdvfs,clock-cells = <6>;
