@@ -378,6 +378,7 @@ int mtk_cam_sensor_switch_start_hw(struct mtk_cam_ctx *ctx,
 	int tgo_pxl_mode;
 	struct mtk_cam_scen scen_first_req;
 	int exp_no = 1;
+	struct mtk_cam_request *req = mtk_cam_s_data_get_req(s_data);
 
 	s_raw_pipe_data = mtk_cam_s_data_get_raw_pipe_data(s_data);
 	if (!s_raw_pipe_data) {
@@ -405,7 +406,6 @@ int mtk_cam_sensor_switch_start_hw(struct mtk_cam_ctx *ctx,
 
 	scen_first_req = *s_data->feature.scen;
 	if (mtk_cam_scen_is_mstream_2exp_types(&scen_first_req)) {
-		struct mtk_cam_request *req = mtk_cam_s_data_get_req(s_data);
 		struct mtk_cam_request_stream_data *mstream_s_data;
 
 		mstream_s_data = mtk_cam_req_get_s_data(req, ctx->stream_id, 1);
@@ -604,6 +604,10 @@ int mtk_cam_sensor_switch_start_hw(struct mtk_cam_ctx *ctx,
 		ctx->composed_buffer_list.cnt = 0;
 		dev_dbg(cam->dev, "[M2M] reset processing_buffer_list.cnt & composed_buffer_list.cnt\n");
 	}
+
+	dev_info(ctx->cam->dev, "%s: stream on seninf:%s\n",
+		 __func__, s_data->seninf_new->name);
+	v4l2_subdev_call(s_data->seninf_new, video, s_stream, 1);
 
 	return 0;
 

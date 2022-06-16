@@ -1035,5 +1035,7 @@ void mtk_cam_resource_to_v1(struct mtk_cam_resource *res,
 void mtk_cam_sensor_switch_stop_reinit_hw(struct mtk_cam_ctx *ctx,
 					  struct mtk_cam_request_stream_data *s_data,
 					  int stream_id);
+bool mtk_cam_is_immediate_switch_req(struct mtk_cam_request *req,
+				     int stream_id);
 
 #endif /*__MTK_CAM_H*/
