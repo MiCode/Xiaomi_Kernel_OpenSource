@@ -36,7 +36,12 @@ void imgsys_adl_init(struct mtk_imgsys_dev *imgsys_dev)
 
 	pr_debug("%s: +\n", __func__);
 
-	of_address_to_resource(imgsys_dev->dev->of_node, REG_MAP_E_ADL_A, &adl);
+	adl.start = 0;
+	if (of_address_to_resource(imgsys_dev->dev->of_node, REG_MAP_E_ADL_A, &adl)) {
+		pr_info("%s: of_address_to_resource fail\n", __func__);
+		return;
+	}
+
 	if (adl.start) {
 		// ADL_A: 0x15005300
 		g_adl_a_va = of_iomap(imgsys_dev->dev->of_node, REG_MAP_E_ADL_A);
@@ -96,7 +101,8 @@ static uint32_t dump_debug_data(struct mtk_imgsys_dev *imgsys_dev,
 }
 
 static void dump_dma_debug_data(struct mtk_imgsys_dev *imgsys_dev,
-	uint32_t reg_base_pa, void __iomem *reg_base_va) {
+	uint32_t reg_base_pa, void __iomem *reg_base_va)
+{
 	uint32_t debug_cmd;
 	uint32_t debug_data;
 	uint32_t debug_rdy;
@@ -322,7 +328,7 @@ void imgsys_adl_debug_dump(struct mtk_imgsys_dev *imgsys_dev,
 	}
 
 	if (engine & IMGSYS_ENG_ADL_B) {
-		dump_dma_debug_data(imgsys_dev, IMGADL_B_REG_BASE, g_adl_a_va);
+		dump_dma_debug_data(imgsys_dev, IMGADL_B_REG_BASE, g_adl_b_va);
 
 		/* 0x2: cq_debug_data */
 		dump_cq_debug_data(imgsys_dev, IMGADL_B_REG_BASE, g_adl_b_va);
