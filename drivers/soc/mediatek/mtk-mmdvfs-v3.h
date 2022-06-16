@@ -9,7 +9,7 @@
 
 #include <dt-bindings/clock/mmdvfs-clk.h>
 
-#define MAX_OPP		(6)
+#define MAX_OPP		(8)
 #define IPI_TIMEOUT_MS	(200U)
 
 #define MMDVFS_DBG(fmt, args...) \
@@ -43,6 +43,7 @@ enum {
 	USER_VDEC_AP,
 	USER_IMG,
 	USER_CAM,
+	USER_AOV,
 	USER_VCORE,
 	USER_VMM,
 	USER_NUM
