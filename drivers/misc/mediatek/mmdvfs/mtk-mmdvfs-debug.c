@@ -305,6 +305,7 @@ static int mmdvfs_debug_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
+	spin_lock_init(&g_mmdvfs->lock);
 	mmdvfs_debug_record_opp_set_fp(mmdvfs_debug_record_opp);
 
 	ret = regulator_list_voltage(
@@ -318,7 +319,6 @@ static int mmdvfs_debug_probe(struct platform_device *pdev)
 			g_mmdvfs->release_step0, ret);
 
 	/* MMDVFS_DBG_VER3 */
-	spin_lock_init(&g_mmdvfs->lock);
 
 	clk = devm_clk_get(g_mmdvfs->dev, "vcore");
 	if (IS_ERR_OR_NULL(clk))
