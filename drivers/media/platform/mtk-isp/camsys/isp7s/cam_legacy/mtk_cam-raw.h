@@ -164,6 +164,9 @@ enum resource_strategy_id {
 
 #define MTK_RAW_TOTAL_NODES (MTK_RAW_PIPELINE_PADS_NUM - MTK_RAW_SINK_NUM)
 
+#define MTK_RAW_CTRL_VALUE	0x0F
+#define MTK_RAW_CTRL_UPDATE	0x10
+
 struct mtk_cam_dev;
 struct mtk_cam_ctx;
 
@@ -284,6 +287,8 @@ struct mtk_raw_pipeline {
 	struct mtk_raw_pde_config pde_config;
 	s64 hw_mode;
 	s64 hw_mode_pending;
+	/* Frame sync */
+	int fs_config;
 };
 
 struct mtk_raw_device {
