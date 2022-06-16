@@ -108,8 +108,8 @@ static const struct mtk_gate_regs img0_cg_regs = {
 };
 
 static const struct mtk_gate_regs img1_cg_regs = {
-	.set_ofs = 0x50,
-	.clr_ofs = 0x50,
+	.set_ofs = 0x54,
+	.clr_ofs = 0x58,
 	.sta_ofs = 0x50,
 };
 
@@ -128,7 +128,7 @@ static const struct mtk_gate_regs img1_cg_regs = {
 		.parent_name = _parent,			\
 		.regs = &img1_cg_regs,			\
 		.shift = _shift,			\
-		.ops = &mtk_clk_gate_ops_no_setclr,	\
+		.ops = &mtk_clk_gate_ops_setclr,	\
 	}
 
 static const struct mtk_gate img_clks[] = {

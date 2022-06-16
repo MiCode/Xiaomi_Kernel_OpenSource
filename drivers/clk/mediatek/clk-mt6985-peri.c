@@ -21,8 +21,8 @@
 #define INV_BIT			-1
 
 static const struct mtk_gate_regs impc_cg_regs = {
-	.set_ofs = 0xE00,
-	.clr_ofs = 0xE00,
+	.set_ofs = 0xE08,
+	.clr_ofs = 0xE04,
 	.sta_ofs = 0xE00,
 };
 
@@ -32,7 +32,7 @@ static const struct mtk_gate_regs impc_cg_regs = {
 		.parent_name = _parent,			\
 		.regs = &impc_cg_regs,			\
 		.shift = _shift,			\
-		.ops = &mtk_clk_gate_ops_no_setclr,	\
+		.ops = &mtk_clk_gate_ops_setclr,	\
 	}
 
 static const struct mtk_gate impc_clks[] = {
@@ -46,8 +46,8 @@ static const struct mtk_clk_desc impc_mcd = {
 };
 
 static const struct mtk_gate_regs impn_cg_regs = {
-	.set_ofs = 0xE00,
-	.clr_ofs = 0xE00,
+	.set_ofs = 0xE08,
+	.clr_ofs = 0xE04,
 	.sta_ofs = 0xE00,
 };
 
@@ -57,7 +57,7 @@ static const struct mtk_gate_regs impn_cg_regs = {
 		.parent_name = _parent,			\
 		.regs = &impn_cg_regs,			\
 		.shift = _shift,			\
-		.ops = &mtk_clk_gate_ops_no_setclr,	\
+		.ops = &mtk_clk_gate_ops_setclr,	\
 	}
 
 static const struct mtk_gate impn_clks[] = {
@@ -81,8 +81,8 @@ static const struct mtk_clk_desc impn_mcd = {
 };
 
 static const struct mtk_gate_regs imps_cg_regs = {
-	.set_ofs = 0xE00,
-	.clr_ofs = 0xE00,
+	.set_ofs = 0xE08,
+	.clr_ofs = 0xE04,
 	.sta_ofs = 0xE00,
 };
 
@@ -92,7 +92,7 @@ static const struct mtk_gate_regs imps_cg_regs = {
 		.parent_name = _parent,			\
 		.regs = &imps_cg_regs,			\
 		.shift = _shift,			\
-		.ops = &mtk_clk_gate_ops_no_setclr,	\
+		.ops = &mtk_clk_gate_ops_setclr,	\
 	}
 
 static const struct mtk_gate imps_clks[] = {
