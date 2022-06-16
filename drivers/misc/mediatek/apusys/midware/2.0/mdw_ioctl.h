@@ -237,6 +237,7 @@ struct mdw_cmd_in {
 			uint32_t priority;
 			uint32_t hardlimit;
 			uint32_t softlimit;
+			uint32_t fastmem_ms;
 			uint32_t power_save;
 			uint32_t power_plcy;
 			uint32_t power_dtime;

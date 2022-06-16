@@ -278,6 +278,7 @@ struct mdw_cmd {
 	uint32_t power_save;
 	uint32_t power_plcy;
 	uint32_t power_dtime;
+	uint32_t fastmem_ms;
 	uint32_t app_type;
 	uint32_t num_subcmds;
 	uint32_t num_links;

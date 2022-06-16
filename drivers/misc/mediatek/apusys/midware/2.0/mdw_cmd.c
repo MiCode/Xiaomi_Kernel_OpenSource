@@ -776,6 +776,7 @@ static struct mdw_cmd *mdw_cmd_create(struct mdw_fpriv *mpriv,
 	c->power_save = in->exec.power_save;
 	c->power_plcy = in->exec.power_plcy;
 	c->power_dtime = in->exec.power_dtime;
+	c->fastmem_ms = in->exec.fastmem_ms;
 	c->app_type = in->exec.app_type;
 	c->num_subcmds = in->exec.num_subcmds;
 	c->num_links = in->exec.num_links;
@@ -851,7 +852,7 @@ static struct mdw_cmd *mdw_cmd_create(struct mdw_fpriv *mpriv,
 	/* alloc idr */
 	c->id = idr_alloc(&mpriv->cmds, c, MDW_CMD_IDR_MIN, MDW_CMD_IDR_MAX, GFP_KERNEL);
 	if (c->id < MDW_CMD_IDR_MIN) {
-		mdw_drv_err("alloc idr fail\n");
+		mdw_drv_err("alloc idr fail(%d)\n", c->id);
 		goto delete_infos;
 	}
 

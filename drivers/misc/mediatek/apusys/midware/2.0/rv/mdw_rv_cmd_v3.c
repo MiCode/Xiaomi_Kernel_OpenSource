@@ -22,7 +22,7 @@ struct mdw_rv_msg_cmd {
 	uint32_t priority;
 	uint32_t hardlimit;
 	uint32_t softlimit;
-	uint32_t power_save;
+	uint32_t fastmem_ms;
 	uint32_t power_plcy;
 	uint32_t power_dtime;
 	uint32_t app_type;
@@ -76,11 +76,11 @@ static void mdw_rv_cmd_print(struct mdw_rv_msg_cmd *rc)
 {
 	mdw_cmd_debug("-------------------------\n");
 	mdw_cmd_debug("rc kid(0x%llx)\n", rc->cmd_id);
-	mdw_cmd_debug(" sesion = 0x%llx\n", rc->session_id);
+	mdw_cmd_debug(" session = 0x%llx\n", rc->session_id);
 	mdw_cmd_debug(" priority = %u\n", rc->priority);
 	mdw_cmd_debug(" hardlimit = %u\n", rc->hardlimit);
 	mdw_cmd_debug(" softlimit = %u\n", rc->softlimit);
-	mdw_cmd_debug(" power_save = %u\n", rc->power_save);
+	mdw_cmd_debug(" fastmem_ms = %u\n", rc->fastmem_ms);
 	mdw_cmd_debug(" power_plcy = %u\n", rc->power_plcy);
 	mdw_cmd_debug(" power_dtime = %u\n", rc->power_dtime);
 	mdw_cmd_debug(" app_type = %u\n", rc->app_type);
@@ -202,7 +202,7 @@ static struct mdw_rv_cmd *mdw_rv_cmd_create(struct mdw_fpriv *mpriv,
 	rmc->priority = c->priority;
 	rmc->hardlimit = c->hardlimit;
 	rmc->softlimit = c->softlimit;
-	rmc->power_save = c->power_save;
+	rmc->fastmem_ms = c->fastmem_ms;
 	rmc->power_plcy = c->power_plcy;
 	rmc->power_dtime = c->power_dtime;
 	rmc->app_type = c->app_type;
