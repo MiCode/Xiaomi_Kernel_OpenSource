@@ -9549,9 +9549,9 @@
 			<0 0x16008000 0 0x1000>, /* mini_mdp1_wdma */
 			<0 0x1600f000 0 0x10000>; /* VDEC_SOC_GCON */
 		clocks = <&vdec_soc_gcon_base_clk CLK_VDE1_VDEC_CKEN>,
-			<&vdec_soc_gcon_base_clk CLK_VDE1_MINI_MDP_EN>;
-		clock-names = "MT_CG_VDEC","MT_CG_MINI_MDP";
-		mmdvfs-dvfsrc-vcore-supply = <&dvfsrc_vcore>;
+			<&vdec_soc_gcon_base_clk CLK_VDE1_MINI_MDP_EN>,
+			<&mmdvfs_clk CLK_MMDVFS_VFMT>;
+		clock-names = "MT_CG_VDEC","MT_CG_MINI_MDP","mmdvfs_clk";
 		mediatek,fmt-gce-th-num = <2>; /* FMT GCE HW THREAD NUM */
 		mboxes = <&gce_m 6 0 CMDQ_THR_PRIO_1>,
 				<&gce_m 7 0 CMDQ_THR_PRIO_1>;
