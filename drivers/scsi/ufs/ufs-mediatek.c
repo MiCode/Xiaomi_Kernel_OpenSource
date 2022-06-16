@@ -54,11 +54,10 @@ static void ufs_mtk_auto_hibern8_disable(struct ufs_hba *hba);
 
 static struct ufs_dev_fix ufs_mtk_dev_fixups[] = {
 	UFS_FIX(UFS_ANY_VENDOR, UFS_ANY_MODEL,
+		UFS_DEVICE_QUIRK_DELAY_BEFORE_LPM |
 		UFS_DEVICE_QUIRK_DELAY_AFTER_LPM),
 	UFS_FIX(UFS_VENDOR_SKHYNIX, "H9HQ21AFAMZDAR",
 		UFS_DEVICE_QUIRK_SUPPORT_EXTENDED_FEATURES),
-	UFS_FIX(UFS_VENDOR_SKHYNIX, "H9HQ15AFAMBDAR",
-		UFS_DEVICE_QUIRK_DELAY_BEFORE_LPM | UFS_DEVICE_QUIRK_DELAY_AFTER_LPM),
 	END_FIX
 };
 
@@ -86,13 +85,6 @@ static bool ufs_mtk_is_broken_vcc(struct ufs_hba *hba)
 	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
 
 	return !!(host->caps & UFS_MTK_CAP_BROKEN_VCC);
-}
-
-static bool ufs_mtk_is_delay_after_vcc_off(struct ufs_hba *hba)
-{
-	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
-
-	return !!(host->caps & UFS_MTK_CAP_DEALY_AFTER_VCC_OFF);
 }
 
 #if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
@@ -647,9 +639,6 @@ static void ufs_mtk_init_host_caps(struct ufs_hba *hba)
 
 	if (of_property_read_bool(np, "mediatek,ufs-broken-vcc"))
 		host->caps |= UFS_MTK_CAP_BROKEN_VCC;
-
-	if (of_property_read_bool(np, "mediatek,ufs-delay-after-vcc-off"))
-		host->caps |= UFS_MTK_CAP_DEALY_AFTER_VCC_OFF;
 
 	if (of_property_read_bool(np, "mediatek,ufs-pmc-via-fastauto"))
 		host->caps |= UFS_MTK_CAP_PMC_VIA_FASTAUTO;
@@ -2358,13 +2347,6 @@ static void ufs_mtk_fixup_dev_quirks(struct ufs_hba *hba)
 
 	if (STR_PRFX_EQUAL("H9HQ15AFAMBDAR", dev_info->model))
 		host->caps |= UFS_MTK_CAP_BROKEN_VCC | UFS_MTK_CAP_FORCE_VSx_LPM;
-
-	if (ufs_mtk_is_delay_after_vcc_off(hba) && hba->vreg_info.vcc) {
-		/*
-		 * Always delay 5ms after VCC off.
-		 */
-		hba->dev_quirks |= UFS_DEVICE_QUIRK_DELAY_AFTER_LPM;
-	}
 
 	if (ufs_mtk_is_broken_vcc(hba) && hba->vreg_info.vcc &&
 	    (hba->dev_quirks & UFS_DEVICE_QUIRK_DELAY_AFTER_LPM)) {
