@@ -5199,9 +5199,6 @@
 			reg-names = "dvfsrc", "spm";
 			#interconnect-cells = <1>;
 
-			dvfsrc,bringup = <1>;
-			dvfsrc_flag = <0x3>;
-
 			dvfsrc_vcore: dvfsrc-vcore {
 				regulator-name = "dvfsrc-vcore";
 				regulator-min-microvolt = <575000>;
