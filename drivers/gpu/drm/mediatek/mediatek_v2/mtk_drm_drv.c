@@ -2037,7 +2037,7 @@ static const enum mtk_ddp_comp_id mt6886_mtk_ddp_main[] = {
 	DDP_COMPONENT_DSI0,	 DDP_COMPONENT_PWM0,
 #ifdef IF_ZERO
 	/* the chist connect by customer config*/
-	DDP_COMPONENT_CHIST0,
+	DDP_COMPONENT_CHIST0, //align mt6895
 #endif
 };
 
@@ -3335,6 +3335,7 @@ const struct mtk_session_mode_tb mt6985_mode_tb[MTK_DRM_SESSION_NUM] = {
 			},
 };
 
+/* mt6886 is the same as mt6895 */
 const struct mtk_session_mode_tb mt6895_mode_tb[MTK_DRM_SESSION_NUM] = {
 		[MTK_DRM_SESSION_DL] = {
 
@@ -3503,6 +3504,7 @@ static const struct mtk_fake_eng_reg mt6895_fake_eng_reg[] = {
 		{.CG_idx = 0, .CG_bit = 6, .share_port = true},
 };
 
+/* mt6886 is the same as mt6895 */
 static const struct mtk_fake_eng_data mt6895_fake_eng_data = {
 	.fake_eng_num =  ARRAY_SIZE(mt6895_fake_eng_reg),
 	.fake_eng_reg = mt6895_fake_eng_reg,
@@ -3668,15 +3670,15 @@ static const struct mtk_mmsys_driver_data mt6886_mmsys_driver_data = {
 	.ext_path_data = &mt6886_mtk_third_path_data,
 	/* WFD path */
 	.third_path_data = &mt6886_mtk_third_path_data,
-	//.fake_eng_data = &mt6886_fake_eng_data,
+	.fake_eng_data = &mt6895_fake_eng_data,
 	.mmsys_id = MMSYS_MT6886,
-	//.mode_tb = mt6886_mode_tb,
+	.mode_tb = mt6895_mode_tb,
 	/* sodi is same as mt6895 */
 	.sodi_config = mt6895_mtk_sodi_config,
 	.has_smi_limitation = false,
-	//.doze_ctrl_pmic = true,
+	.doze_ctrl_pmic = true,
 	.can_compress_rgb565 = true,
-	//.bypass_infra_ddr_control = true,
+	.bypass_infra_ddr_control = true,
 };
 
 static const struct mtk_mmsys_driver_data mt6873_mmsys_driver_data = {

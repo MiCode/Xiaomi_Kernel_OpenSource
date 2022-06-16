@@ -1831,7 +1831,7 @@ static const struct mtk_disp_wdma_data mt6886_wdma_driver_data = {
 	.fifo_size_uv_3plane = 148,
 	/* sodi is same as mt6895 */
 	.sodi_config = mt6895_mtk_sodi_config,
-	//.aid_sel = &mtk_wdma_aid_sel_MT6895,
+	//.aid_sel = &mtk_wdma_aid_sel_MT6886, TBD
 	.support_shadow = false,
 	.need_bypass_shadow = true,
 	.is_support_34bits = true,
