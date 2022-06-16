@@ -35,12 +35,15 @@ static int mr4_v1_init(struct platform_device *pdev,
 }
 
 static int fmeter_v1_init(struct platform_device *pdev,
-	struct fmeter_dev_t *fmeter_dev_ptr)
+	struct fmeter_dev_t *fmeter_dev_ptr, unsigned int fmeter_version)
 {
 	struct device_node *dramc_node = pdev->dev.of_node;
 	int ret;
 
-	fmeter_dev_ptr->version = 1;
+	if (fmeter_version == 1)
+		fmeter_dev_ptr->version = 1;
+	else if (fmeter_version == 2)
+		fmeter_dev_ptr->version = 2;
 
 	ret = of_property_read_u32(dramc_node,
 		"crystal_freq", &(fmeter_dev_ptr->crystal_freq));
@@ -337,14 +340,14 @@ static int dramc_probe(struct platform_device *pdev)
 	}
 	pr_info("%s: fmeter_version(%d)\n", __func__, fmeter_version);
 
-	if (fmeter_version == 1) {
+	if (fmeter_version == 1 || fmeter_version == 2) {
 		dramc_dev_ptr->fmeter_dev_ptr = devm_kmalloc(&pdev->dev,
 			sizeof(struct fmeter_dev_t), GFP_KERNEL);
 		if (!(dramc_dev_ptr->fmeter_dev_ptr)) {
 			pr_info("%s: memory  alloc fail\n", __func__);
 			return -ENOMEM;
 		}
-		ret = fmeter_v1_init(pdev, dramc_dev_ptr->fmeter_dev_ptr);
+		ret = fmeter_v1_init(pdev, dramc_dev_ptr->fmeter_dev_ptr, fmeter_version);
 		if (ret) {
 			pr_info("%s: fmeter_init fail\n", __func__);
 			return -EINVAL;
@@ -417,10 +420,16 @@ EXPORT_SYMBOL(mtk_dramc_get_steps_freq);
 static unsigned int decode_freq(unsigned int vco_freq)
 {
 	switch (vco_freq) {
+	case 8528:
+		return 8533;
+	case 6378:
 	case 6370:
 		return 6400;
+	case 5490:
 	case 5486:
 		return 5500;
+	case 4095:
+		return 4100;
 	case 4264:
 		return 4266;
 	case 3718:
@@ -433,11 +442,14 @@ static unsigned int decode_freq(unsigned int vco_freq)
 		return 2667;
 	case 2366:
 		return 2400;
+	case 2106:
 	case 2132:
 		return 2133;
 	case 1859:
+	case 1846:
 	case 1794:
 		return 1866;
+	case 1542:
 	case 1534:
 		return 1600;
 	case 1144:
@@ -554,6 +566,108 @@ static unsigned int fmeter_v1(struct dramc_dev_t *dramc_dev_ptr)
 	return decode_freq(vco_freq);
 }
 
+static unsigned int fmeter_v2(struct dramc_dev_t *dramc_dev_ptr)
+{
+	struct fmeter_dev_t *fmeter_dev_ptr =
+		(struct fmeter_dev_t *)dramc_dev_ptr->fmeter_dev_ptr;
+	unsigned int shu_lv_val;
+	unsigned int pll_id_val;
+	unsigned int pll_md_val;
+	unsigned int sdmpcw_val;
+	unsigned int prediv_val;
+	unsigned int posdiv_val;
+	unsigned int ckdiv4_val;
+	unsigned int cldiv2_val;
+	unsigned int offset;
+	unsigned int vco_freq;
+	unsigned int fbksel;
+	unsigned int dqsopen;
+	unsigned int dqopen;
+	unsigned int ckdiv4_ca_val;
+
+	shu_lv_val = (readl(dramc_dev_ptr->ddrphy_chn_base_ao[0] +
+		fmeter_dev_ptr->shu_lv.offset) &
+		fmeter_dev_ptr->shu_lv.mask) >>
+		fmeter_dev_ptr->shu_lv.shift;
+
+	pll_id_val = (readl(dramc_dev_ptr->ddrphy_chn_base_ao[0] +
+		fmeter_dev_ptr->pll_id.offset) &
+		fmeter_dev_ptr->pll_id.mask) >>
+		fmeter_dev_ptr->pll_id.shift;
+
+	offset = fmeter_dev_ptr->pll_md[pll_id_val].offset +
+		fmeter_dev_ptr->shu_of * shu_lv_val;
+	pll_md_val = (readl(dramc_dev_ptr->ddrphy_chn_base_ao[0] + offset) &
+		fmeter_dev_ptr->pll_md[pll_id_val].mask) >>
+		fmeter_dev_ptr->pll_md[pll_id_val].shift;
+
+	offset = fmeter_dev_ptr->sdmpcw[pll_id_val].offset +
+		fmeter_dev_ptr->shu_of * shu_lv_val;
+	sdmpcw_val = (readl(dramc_dev_ptr->ddrphy_chn_base_nao[0] + offset) &
+		fmeter_dev_ptr->sdmpcw[pll_id_val].mask) >>
+		fmeter_dev_ptr->sdmpcw[pll_id_val].shift;
+
+	offset = fmeter_dev_ptr->prediv[pll_id_val].offset +
+		fmeter_dev_ptr->shu_of * shu_lv_val;
+	prediv_val = (readl(dramc_dev_ptr->ddrphy_chn_base_nao[0] + offset) &
+		fmeter_dev_ptr->prediv[pll_id_val].mask) >>
+		fmeter_dev_ptr->prediv[pll_id_val].shift;
+
+	offset = fmeter_dev_ptr->posdiv[pll_id_val].offset +
+		fmeter_dev_ptr->shu_of * shu_lv_val;
+	posdiv_val = (readl(dramc_dev_ptr->ddrphy_chn_base_nao[0] + offset) &
+		fmeter_dev_ptr->posdiv[pll_id_val].mask) >>
+		fmeter_dev_ptr->posdiv[pll_id_val].shift;
+
+	offset = fmeter_dev_ptr->ckdiv4[pll_id_val].offset +
+		fmeter_dev_ptr->shu_of * shu_lv_val;
+	ckdiv4_val = (readl(dramc_dev_ptr->ddrphy_chn_base_ao[0] + offset) &
+		fmeter_dev_ptr->ckdiv4[pll_id_val].mask) >>
+		fmeter_dev_ptr->ckdiv4[pll_id_val].shift;
+
+	offset = fmeter_dev_ptr->cldiv2[pll_id_val].offset +
+		fmeter_dev_ptr->shu_of * shu_lv_val;
+	cldiv2_val = (readl(dramc_dev_ptr->ddrphy_chn_base_ao[0] + offset) &
+		fmeter_dev_ptr->cldiv2[pll_id_val].mask) >>
+		fmeter_dev_ptr->cldiv2[pll_id_val].shift;
+
+	offset = fmeter_dev_ptr->fbksel[pll_id_val].offset +
+		fmeter_dev_ptr->shu_of * shu_lv_val;
+	fbksel = (readl(dramc_dev_ptr->ddrphy_chn_base_nao[0] + offset) &
+		fmeter_dev_ptr->fbksel[pll_id_val].mask) >>
+		fmeter_dev_ptr->fbksel[pll_id_val].shift;
+
+	offset = fmeter_dev_ptr->dqsopen[pll_id_val].offset +
+		fmeter_dev_ptr->shu_of * shu_lv_val;
+	dqsopen = (readl(dramc_dev_ptr->ddrphy_chn_base_nao[0] + offset) &
+		fmeter_dev_ptr->dqsopen[pll_id_val].mask) >>
+		fmeter_dev_ptr->dqsopen[pll_id_val].shift;
+
+	offset = fmeter_dev_ptr->dqopen[pll_id_val].offset +
+		fmeter_dev_ptr->shu_of * shu_lv_val;
+	dqopen = (readl(dramc_dev_ptr->ddrphy_chn_base_nao[0] + offset) &
+		fmeter_dev_ptr->dqopen[pll_id_val].mask) >>
+		fmeter_dev_ptr->dqopen[pll_id_val].shift;
+
+	offset = fmeter_dev_ptr->ckdiv4_ca[pll_id_val].offset +
+		fmeter_dev_ptr->shu_of * shu_lv_val;
+	ckdiv4_ca_val = (readl(dramc_dev_ptr->ddrphy_chn_base_ao[0] + offset) &
+		fmeter_dev_ptr->ckdiv4_ca[pll_id_val].mask) >>
+		fmeter_dev_ptr->ckdiv4_ca[pll_id_val].shift;
+
+	vco_freq = ((fmeter_dev_ptr->crystal_freq) *
+		(sdmpcw_val >> 7)) >> posdiv_val >> 1 >> ckdiv4_val
+		<< fbksel;
+
+
+	if ((dqsopen == 1) && (ckdiv4_ca_val == 1))
+		vco_freq >>= 2;
+	else if ((dqsopen == 1) && (ckdiv4_ca_val == 0))
+		vco_freq >>= 1;
+	pr_info("%s: vco_freq = %d\n", __func__, vco_freq);
+	return decode_freq(vco_freq);
+}
+
 /*
  * mtk_dramc_get_data_rate - calculate DRAM data rate
  *
@@ -576,6 +690,8 @@ unsigned int mtk_dramc_get_data_rate(void)
 
 	if (fmeter_dev_ptr->version == 1)
 		return fmeter_v1(dramc_dev_ptr);
+	else if (fmeter_dev_ptr->version == 2)
+		return fmeter_v2(dramc_dev_ptr);
 
 	return 0;
 }
