@@ -636,6 +636,19 @@ static irqreturn_t drv3_isr0(int irq, void *data)
 		}
 	}
 
+	if (g_debug_flags & DEBUG_RXTX_ISR) {
+		struct debug_rxtx_isr_hdr hdr = {0};
+
+		hdr.type = TYPE_RXTX_ISR_ID;
+		hdr.qidx = 0;
+		hdr.time = (unsigned int)(local_clock() >> 16);
+		hdr.rxsr = L2RISAR0;
+		hdr.rxmr = L2RIMR0;
+		hdr.txsr = L2TISAR0;
+		hdr.txmr = L2TIMR0;
+		ccci_dpmaif_debug_add(&hdr, sizeof(hdr));
+	}
+
 	return IRQ_HANDLED;
 }
 
@@ -670,6 +683,16 @@ static irqreturn_t drv3_isr1(int irq, void *data)
 		}
 	}
 
+	if (g_debug_flags & DEBUG_RXTX_ISR) {
+		struct debug_rxtx_isr_hdr hdr = {0};
+
+		hdr.type = TYPE_RXTX_ISR_ID;
+		hdr.qidx = 1;
+		hdr.time = (unsigned int)(local_clock() >> 16);
+		hdr.rxsr = L2RISAR0;
+		hdr.rxmr = L2RIMR0;
+		ccci_dpmaif_debug_add(&hdr, sizeof(hdr));
+	}
 
 	return IRQ_HANDLED;
 }
@@ -733,6 +756,7 @@ static irqreturn_t drv3_isr(int irq, void *data)
 		struct debug_rxtx_isr_hdr hdr = {0};
 
 		hdr.type = TYPE_RXTX_ISR_ID;
+		hdr.qidx = 0;
 		hdr.time = (unsigned int)(local_clock() >> 16);
 		hdr.rxsr = L2RISAR0;
 		hdr.rxmr = L2RIMR0;
