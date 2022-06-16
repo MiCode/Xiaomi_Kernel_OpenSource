@@ -258,8 +258,8 @@ static int charger_cooling_probe(struct platform_device *pdev)
 
 	charger_cdev->pdata = of_device_get_match_data(dev);
 
-	len = (strlen(np->name) > MAX_CHARGER_COOLER_NAME_LEN) ?
-		MAX_CHARGER_COOLER_NAME_LEN : strlen(np->name);
+	len = (strlen(np->name) > (MAX_CHARGER_COOLER_NAME_LEN - 1)) ?
+		(MAX_CHARGER_COOLER_NAME_LEN - 1) : strlen(np->name);
 	strncpy(charger_cdev->name, np->name, len);
 	charger_cdev->target_state = CHARGER_COOLING_UNLIMITED_STATE;
 	charger_cdev->dev = dev;

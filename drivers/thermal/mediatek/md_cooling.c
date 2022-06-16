@@ -355,12 +355,20 @@ static int init_md_cooling_device(struct device *dev, struct device_node *np, in
 {
 	struct thermal_cooling_device *cdev;
 	struct md_cooling_device *md_cdev;
+	int offset, size;
 
 	md_cdev = devm_kzalloc(dev, sizeof(*md_cdev), GFP_KERNEL);
 	if (!md_cdev)
 		return -ENOMEM;
 
-	strncpy(md_cdev->name, np->name, strlen(np->name));
+	size = sizeof(md_cdev->name);
+	offset = snprintf(md_cdev->name, size, np->name);
+
+	if (offset < 0)
+		goto init_fail;
+	if (offset >= size)
+		goto init_fail;
+
 	md_cdev->pa_id = id;
 	md_cdev->target_state = MD_COOLING_UNLIMITED_STATE;
 	md_cdev->dev = dev;

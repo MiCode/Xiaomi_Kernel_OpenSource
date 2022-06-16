@@ -910,7 +910,7 @@ static ssize_t vtskin_info_show(struct kobject *kobj,
 			i, param->tz_name, param->ref_num, param->operation);
 		for (j = 0; j < param->ref_num; j++) {
 			len += snprintf(buf + len, PAGE_SIZE - len,
-				"      %20s, %10d\n", param->vtskin_ref[j].sensor_name,
+				"      %20s, %10lld\n", param->vtskin_ref[j].sensor_name,
 				param->vtskin_ref[j].sensor_coef);
 		}
 		len += snprintf(buf + len, PAGE_SIZE - len, "\n");

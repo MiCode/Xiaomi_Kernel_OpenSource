@@ -120,7 +120,7 @@ static int wifi_cooling_probe(struct platform_device *pdev)
 	struct thermal_cooling_device *cdev;
 	struct wifi_cooling_device *wifi_cdev;
 	struct device_node *np = pdev->dev.of_node;
-	int len;
+	unsigned int len;
 
 	wifi_cdev = devm_kzalloc(dev, sizeof(*wifi_cdev), GFP_KERNEL);
 	if (!wifi_cdev)
