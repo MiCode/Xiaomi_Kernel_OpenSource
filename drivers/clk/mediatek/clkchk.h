@@ -46,12 +46,6 @@ struct pvd_msk {
 	u32 pwr_mask;
 };
 
-struct pwr_data {
-	const char *pvdname;
-	u32 base;
-	u32 ofs;
-};
-
 struct pd_msk {
 	int pd_id;
 	enum PWR_STA_TYPE sta_type;

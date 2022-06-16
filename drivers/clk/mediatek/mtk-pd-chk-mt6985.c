@@ -538,6 +538,7 @@ struct pd_check_swcg wpe3_dip1_swcgs[] = {
 
 struct subsys_cgs_check {
 	unsigned int pd_id;		/* power domain id */
+	int pd_parent;		/* power domain parent id */
 	struct pd_check_swcg *swcgs;	/* those CGs that would be checked */
 	enum chk_sys_id chk_id;		/*
 					 * chk_id is used in
@@ -547,37 +548,37 @@ struct subsys_cgs_check {
 };
 
 struct subsys_cgs_check mtk_subsys_check[] = {
-	{MT6985_CHK_PD_AUDIO, afe_swcgs, afe},
-	{MT6985_CHK_PD_CAM_MAIN, camsys_main_swcgs, cam_m},
-	{MT6985_CHK_PD_CAM_MRAW, camsys_mraw_swcgs, cam_mr},
-	{MT6985_CHK_PD_CAM_SUBA, camsys_rawa_swcgs, cam_ra},
-	{MT6985_CHK_PD_CAM_SUBB, camsys_rawb_swcgs, cam_rb},
-	{MT6985_CHK_PD_CAM_SUBC, camsys_rawc_swcgs, cam_rc},
-	{MT6985_CHK_PD_CAM_SUBA, camsys_yuva_swcgs, cam_ya},
-	{MT6985_CHK_PD_CAM_SUBB, camsys_yuvb_swcgs, cam_yb},
-	{MT6985_CHK_PD_CAM_SUBC, camsys_yuvc_swcgs, cam_yc},
-	{MT6985_CHK_PD_CAM_MAIN, ccu_main_swcgs, ccu},
-	{MT6985_CHK_PD_ISP_DIP1, dip_nr1_dip1_swcgs, dip_nr1_dip1},
-	{MT6985_CHK_PD_ISP_DIP1, dip_nr2_dip1_swcgs, dip_nr2_dip1},
-	{MT6985_CHK_PD_ISP_DIP1, dip_top_dip1_swcgs, dip_top_dip1},
-	{MT6985_CHK_PD_DIS1, dispsys1_config_swcgs, mm1},
-	{MT6985_CHK_PD_DIS0, dispsys_config_swcgs, mm},
-	{MT6985_CHK_PD_ISP_MAIN, imgsys_main_swcgs, img},
-	{MT6985_CHK_PD_MDP1, mdpsys1_config_swcgs, mdp1},
-	{MT6985_CHK_PD_MDP0, mdpsys_config_swcgs, mdp},
-	{MT6985_CHK_PD_MM_INFRA, mminfra_config_swcgs, mminfra_config},
-	{MT6985_CHK_PD_OVLSYS1, ovlsys1_config_swcgs, ovl1},
-	{MT6985_CHK_PD_OVLSYS, ovlsys_config_swcgs, ovl},
-	{MT6985_CHK_PD_SSRSYS, ssr_top_swcgs, ssr_top},
-	{MT6985_CHK_PD_ISP_DIP1, traw_dip1_swcgs, traw_dip1},
-	{MT6985_CHK_PD_VDE1, vdec_gcon_base_swcgs, vde2},
-	{MT6985_CHK_PD_VDE0, vdec_soc_gcon_base_swcgs, vde1},
-	{MT6985_CHK_PD_VEN0, venc_gcon_swcgs, ven},
-	{MT6985_CHK_PD_VEN1, venc_gcon_core1_swcgs, ven_c1},
-	{MT6985_CHK_PD_VEN2, venc_gcon_core2_swcgs, ven_c2},
-	{MT6985_CHK_PD_ISP_DIP1, wpe1_dip1_swcgs, wpe1_dip1},
-	{MT6985_CHK_PD_ISP_DIP1, wpe2_dip1_swcgs, wpe2_dip1},
-	{MT6985_CHK_PD_ISP_DIP1, wpe3_dip1_swcgs, wpe3_dip1},
+	{MT6985_CHK_PD_AUDIO, PD_NULL, afe_swcgs, afe},
+	{MT6985_CHK_PD_CAM_MAIN, MT6985_CHK_PD_CAM_VCORE, camsys_main_swcgs, cam_m},
+	{MT6985_CHK_PD_CAM_MRAW, MT6985_CHK_PD_CAM_MAIN, camsys_mraw_swcgs, cam_mr},
+	{MT6985_CHK_PD_CAM_SUBA, MT6985_CHK_PD_CAM_MAIN, camsys_rawa_swcgs, cam_ra},
+	{MT6985_CHK_PD_CAM_SUBB, MT6985_CHK_PD_CAM_MAIN, camsys_rawb_swcgs, cam_rb},
+	{MT6985_CHK_PD_CAM_SUBC, MT6985_CHK_PD_CAM_MAIN, camsys_rawc_swcgs, cam_rc},
+	{MT6985_CHK_PD_CAM_SUBA, MT6985_CHK_PD_CAM_MAIN, camsys_yuva_swcgs, cam_ya},
+	{MT6985_CHK_PD_CAM_SUBB, MT6985_CHK_PD_CAM_MAIN, camsys_yuvb_swcgs, cam_yb},
+	{MT6985_CHK_PD_CAM_SUBC, MT6985_CHK_PD_CAM_MAIN, camsys_yuvc_swcgs, cam_yc},
+	{MT6985_CHK_PD_CAM_MAIN, MT6985_CHK_PD_CAM_VCORE, ccu_main_swcgs, ccu},
+	{MT6985_CHK_PD_ISP_DIP1, MT6985_CHK_PD_ISP_MAIN, dip_nr1_dip1_swcgs, dip_nr1_dip1},
+	{MT6985_CHK_PD_ISP_DIP1, MT6985_CHK_PD_ISP_MAIN, dip_nr2_dip1_swcgs, dip_nr2_dip1},
+	{MT6985_CHK_PD_ISP_DIP1, MT6985_CHK_PD_ISP_MAIN, dip_top_dip1_swcgs, dip_top_dip1},
+	{MT6985_CHK_PD_DIS1, MT6985_CHK_PD_MM_INFRA, dispsys1_config_swcgs, mm1},
+	{MT6985_CHK_PD_DIS0, MT6985_CHK_PD_MM_INFRA, dispsys_config_swcgs, mm},
+	{MT6985_CHK_PD_ISP_MAIN, MT6985_CHK_PD_ISP_VCORE, imgsys_main_swcgs, img},
+	{MT6985_CHK_PD_MDP1, MT6985_CHK_PD_MM_INFRA, mdpsys1_config_swcgs, mdp1},
+	{MT6985_CHK_PD_MDP0, MT6985_CHK_PD_MM_INFRA, mdpsys_config_swcgs, mdp},
+	{MT6985_CHK_PD_MM_INFRA, PD_NULL, mminfra_config_swcgs, mminfra_config},
+	{MT6985_CHK_PD_OVLSYS1, MT6985_CHK_PD_MM_INFRA, ovlsys1_config_swcgs, ovl1},
+	{MT6985_CHK_PD_OVLSYS, MT6985_CHK_PD_MM_INFRA, ovlsys_config_swcgs, ovl},
+	{MT6985_CHK_PD_SSRSYS, PD_NULL, ssr_top_swcgs, ssr_top},
+	{MT6985_CHK_PD_ISP_DIP1, MT6985_CHK_PD_ISP_MAIN, traw_dip1_swcgs, traw_dip1},
+	{MT6985_CHK_PD_VDE1, MT6985_CHK_PD_VDE_VCORE1, vdec_gcon_base_swcgs, vde2},
+	{MT6985_CHK_PD_VDE0, MT6985_CHK_PD_VDE_VCORE0, vdec_soc_gcon_base_swcgs, vde1},
+	{MT6985_CHK_PD_VEN0, MT6985_CHK_PD_MM_INFRA, venc_gcon_swcgs, ven},
+	{MT6985_CHK_PD_VEN1, MT6985_CHK_PD_MM_INFRA, venc_gcon_core1_swcgs, ven_c1},
+	{MT6985_CHK_PD_VEN2, MT6985_CHK_PD_VEN1, venc_gcon_core2_swcgs, ven_c2},
+	{MT6985_CHK_PD_ISP_DIP1, MT6985_CHK_PD_ISP_MAIN, wpe1_dip1_swcgs, wpe1_dip1},
+	{MT6985_CHK_PD_ISP_DIP1, MT6985_CHK_PD_ISP_MAIN, wpe2_dip1_swcgs, wpe2_dip1},
+	{MT6985_CHK_PD_ISP_DIP1, MT6985_CHK_PD_ISP_MAIN, wpe3_dip1_swcgs, wpe3_dip1},
 };
 
 static struct pd_check_swcg *get_subsys_cg(unsigned int id)
@@ -692,11 +693,6 @@ static enum chk_sys_id debug_dump_id[] = {
 	gpu_eb_rpc,
 	mfg_ao,
 	mfgsc_ao,
-	img_sub0_bus,
-	img_sub1_bus,
-	cam_sub0_bus,
-	cam_sub2_bus,
-	cam_sub1_bus,
 	vlpcfg,
 	vlp_ck,
 	cci,
@@ -709,21 +705,30 @@ static enum chk_sys_id debug_dump_id[] = {
 
 static void debug_dump(unsigned int id, unsigned int pwr_sta)
 {
-	int i;
+	int i, parent_id = PD_NULL;
 
 	if (id >= MT6985_CHK_PD_NUM)
 		return;
 
 	set_subsys_reg_dump_mt6985(debug_dump_id);
 
-	if (pwr_sta == PD_PWR_ON) {
-		for (i = 0; i < ARRAY_SIZE(mtk_subsys_check); i++) {
-			if (mtk_subsys_check[i].pd_id == id)
-				print_subsys_reg_mt6985(mtk_subsys_check[i].chk_id);
+	get_subsys_reg_dump_mt6985();
+
+	for (i = 0; i < ARRAY_SIZE(mtk_subsys_check); i++) {
+		if (mtk_subsys_check[i].pd_id == id) {
+			print_subsys_reg_mt6985(mtk_subsys_check[i].chk_id);
+			parent_id = mtk_subsys_check[i].pd_parent;
+			break;
 		}
 	}
 
-	get_subsys_reg_dump_mt6985();
+	for (i = 0; i < ARRAY_SIZE(mtk_subsys_check); i++) {
+		if (parent_id == PD_NULL)
+			break;
+
+		if (mtk_subsys_check[i].pd_id == parent_id)
+			print_subsys_reg_mt6985(mtk_subsys_check[i].chk_id);
+	}
 
 	BUG_ON(1);
 }

@@ -532,38 +532,46 @@ EXPORT_SYMBOL_GPL(get_mt6985_reg_value);
 /*
  * clkchk pwr_data
  */
+
+struct pwr_data {
+	const char *pvdname;
+	enum chk_sys_id id;
+	u32 base;
+	u32 ofs;
+};
+
 static struct pwr_data pvd_pwr_data[] = {
-	{"audiosys", spm, 0x0E2C},
-	{"camsys_main", spm, 0x0E60},
-	{"camsys_mraw", spm, 0x0E64},
-	{"camsys_rawa", spm, 0x0E68},
-	{"camsys_rawb", spm, 0x0E6C},
-	{"camsys_rawc", spm, 0x0E70},
-	{"camsys_yuva", spm, 0x0E68},
-	{"camsys_yuvb", spm, 0x0E6C},
-	{"camsys_yuvc", spm, 0x0E70},
-	{"ccu", spm, 0x0E60},
-	{"dip_nr1_dip1", spm, 0x0E40},
-	{"dip_nr2_dip1", spm, 0x0E40},
-	{"dip_top_dip1", spm, 0x0E40},
-	{"mmsys1", spm, 0x0E84},
-	{"mmsys0", spm, 0x0E80},
-	{"imgsys_main", spm, 0x0E3C},
-	{"mdpsys1", spm, 0x0E7C},
-	{"mdpsys", spm, 0x0E78},
-	{"mminfra_config", spm, 0x0E90},
-	{"ovlsys1_config", spm, 0x0E8C},
-	{"ovlsys_config", spm, 0x0E88},
-	{"ssr_top", spm, 0x0EDC},
-	{"traw_dip1", spm, 0x0E40},
-	{"vdecsys", spm, 0x0E50},
-	{"vdecsys_soc", spm, 0x0E4C},
-	{"vencsys", spm, 0x0E54},
-	{"vencsys_c1", spm, 0x0E58},
-	{"vencsys_c2", spm, 0x0E5C},
-	{"wpe1_dip1", spm, 0x0E40},
-	{"wpe2_dip1", spm, 0x0E40},
-	{"wpe3_dip1", spm, 0x0E40},
+	{"audiosys", afe, spm, 0x0E2C},
+	{"camsys_main", cam_m, spm, 0x0E60},
+	{"camsys_mraw", cam_mr, spm, 0x0E64},
+	{"camsys_rawa", cam_ra, spm, 0x0E68},
+	{"camsys_rawb", cam_rb, spm, 0x0E6C},
+	{"camsys_rawc", cam_rc, spm, 0x0E70},
+	{"camsys_yuva", cam_ya, spm, 0x0E68},
+	{"camsys_yuvb", cam_yb, spm, 0x0E6C},
+	{"camsys_yuvc", cam_yc, spm, 0x0E70},
+	{"ccu", ccu, spm, 0x0E60},
+	{"dip_nr1_dip1", dip_nr1_dip1, spm, 0x0E40},
+	{"dip_nr2_dip1", dip_nr2_dip1, spm, 0x0E40},
+	{"dip_top_dip1", dip_top_dip1, spm, 0x0E40},
+	{"mmsys1", mm1, spm, 0x0E84},
+	{"mmsys0", mm, spm, 0x0E80},
+	{"imgsys_main", img, spm, 0x0E3C},
+	{"mdpsys1", mdp1, spm, 0x0E7C},
+	{"mdpsys", mdp, spm, 0x0E78},
+	{"mminfra_config", mminfra_config, spm, 0x0E90},
+	{"ovlsys1_config", ovl1, spm, 0x0E8C},
+	{"ovlsys_config", ovl, spm, 0x0E88},
+	{"ssr_top", ssr_top, spm, 0x0EDC},
+	{"traw_dip1", traw_dip1, spm, 0x0E40},
+	{"vdecsys", vde2, spm, 0x0E50},
+	{"vdecsys_soc", vde1, spm, 0x0E4C},
+	{"vencsys", ven, spm, 0x0E54},
+	{"vencsys_c1", ven_c1, spm, 0x0E58},
+	{"vencsys_c2", ven_c2, spm, 0x0E5C},
+	{"wpe1_dip1", wpe1_dip1, spm, 0x0E40},
+	{"wpe2_dip1", wpe2_dip1, spm, 0x0E40},
+	{"wpe3_dip1", wpe3_dip1, spm, 0x0E40},
 };
 
 static int get_pvd_pwr_data_idx(const char *pvdname)
@@ -747,10 +755,10 @@ static bool reg_dump_valid[ARRAY_SIZE(rn) - 1];
 void set_subsys_reg_dump_mt6985(enum chk_sys_id id[])
 {
 	const struct regname *rns = &rn[0];
-	int i, j;
+	int i, j, k;
 
 	for (i = 0; i < ARRAY_SIZE(rn) - 1; i++, rns++) {
-		u32 pg;
+		int pwr_idx = PD_NULL;
 
 		if (!is_valid_reg(ADDR(rns)))
 			continue;
@@ -764,9 +772,15 @@ void set_subsys_reg_dump_mt6985(enum chk_sys_id id[])
 		if (id[j] == chk_sys_num)
 			continue;
 
-		pg = rb[rns->id].pg;
-		if (pg != PD_NULL && pvd_pwr_data[pg].ofs != 0)
-			if (!pwr_hw_is_on(PWR_CON_STA, pg))
+		for (k = 0; k < ARRAY_SIZE(pvd_pwr_data); k++) {
+			if (pvd_pwr_data[k].id == id[j]) {
+				pwr_idx = k;
+				break;
+			}
+		}
+
+		if (pwr_idx != PD_NULL)
+			if (!pwr_hw_is_on(PWR_CON_STA, pwr_idx))
 				continue;
 
 		reg_dump_addr[i] = PHYSADDR(rns);
@@ -794,18 +808,24 @@ void print_subsys_reg_mt6985(enum chk_sys_id id)
 {
 	struct regbase *rb_dump;
 	const struct regname *rns = &rn[0];
+	int pwr_idx = PD_NULL;
 	int i;
 
-	if (id >= chk_sys_num) {
+	if (id >= chk_sys_num || id < 0) {
 		pr_info("wrong id:%d\n", id);
 		return;
+	}
+
+	for (i = 0; i < ARRAY_SIZE(pvd_pwr_data); i++) {
+		if (pvd_pwr_data[i].id == id) {
+			pwr_idx = i;
+			break;
+		}
 	}
 
 	rb_dump = &rb[id];
 
 	for (i = 0; i < ARRAY_SIZE(rn) - 1; i++, rns++) {
-		u32 pg;
-
 		if (!is_valid_reg(ADDR(rns)))
 			return;
 
@@ -813,10 +833,10 @@ void print_subsys_reg_mt6985(enum chk_sys_id id)
 		if (rns->base != rb_dump)
 			continue;
 
-		pg = rb_dump->pg;
-		if (pg != PD_NULL && pvd_pwr_data[pg].ofs != 0)
-			if (!pwr_hw_is_on(PWR_CON_STA, pg))
+		if (pwr_idx != PD_NULL) {
+			if (!pwr_hw_is_on(PWR_CON_STA, pwr_idx))
 				return;
+		}
 
 		pr_info("%-18s: [0x%08x] = 0x%08x\n",
 			rns->name, PHYSADDR(rns), clk_readl(ADDR(rns)));
