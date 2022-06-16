@@ -114,6 +114,15 @@ void connectivity_export_conap_scp_deinit(void)
 }
 EXPORT_SYMBOL(connectivity_export_conap_scp_deinit);
 
+void connectivity_export_conap_scp_state_change(enum conn_event_type type)
+{
+	pr_info("[%s] type=[%d]", __func__, type);
+	mutex_lock(&conn_state_notify_mutex);
+	blocking_notifier_call_chain(&conn_state_notifier_list, type, NULL);
+	mutex_unlock(&conn_state_notify_mutex);
+}
+EXPORT_SYMBOL(connectivity_export_conap_scp_state_change);
+
 
 void connectivity_register_state_notifier(struct notifier_block *nb)
 {
