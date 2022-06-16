@@ -16,6 +16,7 @@
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
+#include <linux/reboot.h>
 #include <linux/rtc.h>
 #include <linux/sched/clock.h>
 #include <linux/sched/signal.h>
@@ -65,6 +66,10 @@ extern void mt_irq_dump_status(unsigned int irq);
 
 #define SYSTIMER_CNTCV_L	(0x8)
 #define SYSTIMER_CNTCV_H	(0xC)
+
+/* bit 11 use set the reboot flag */
+#define REBOOT_FLAG_MASK 0x1
+#define REBOOT_FLAG_OFS 11
 
 /* Delay to change RGU timeout in ms */
 #define CHG_TMO_DLY_SEC		8L
@@ -773,6 +778,54 @@ static void wdt_mark_stage(unsigned int stage)
 	iowrite32(reg, toprgu_base + WDT_NONRST_REG2);
 }
 
+static void reboot_set_flag(bool op)
+{
+	unsigned int reg = ioread32(toprgu_base + WDT_NONRST_REG2);
+
+	pr_info("reboot set flag, old value 0x%x, %d.\n", reg, op);
+	reg = ((reg & ~(REBOOT_FLAG_MASK << REBOOT_FLAG_OFS))
+		| (op ? 1 : 0) << REBOOT_FLAG_OFS);
+	iowrite32(reg, toprgu_base + WDT_NONRST_REG2);
+	pr_info("reboot set flag new value 0x%x.\n", reg);
+}
+
+
+static int aee_reset(struct notifier_block *nb, unsigned long action, void *data)
+{
+	reboot_set_flag(false);
+	return 0;
+}
+
+static struct notifier_block aee_reboot_notify = {
+	.notifier_call = aee_reset,
+};
+
+
+static void aee_reboot_hook_init(void)
+{
+	int ret = 0;
+
+	ret = register_reboot_notifier(&aee_reboot_notify);
+	if (ret)
+		pr_err("register restart handler failed: 0x%x.\n", ret);
+
+	/* set reboot flag */
+	reboot_set_flag(true);
+}
+
+static void aee_reboot_hook_exit(void)
+{
+	int ret = 0;
+
+	ret = unregister_reboot_notifier(&aee_reboot_notify);
+	if (ret != 0)
+		pr_err("unregister restart handler failed: 0x%x.\n", ret);
+
+	/* clear reboot flag */
+	reboot_set_flag(false);
+}
+
+
 static const struct of_device_id toprgu_of_match[] = {
 	{ .compatible = "mediatek,mt6589-wdt" },
 	{},
@@ -853,6 +906,7 @@ static int __init hangdet_init(void)
 	}
 
 	timer_setup(&aee_dump_timer, aee_dump_timer_func, 0);
+	aee_reboot_hook_init();
 
 	return 0;
 }
@@ -861,6 +915,7 @@ static void __exit hangdet_exit(void)
 {
 	unregister_pm_notifier(&wdt_pm_nb);
 	kthread_stop((struct task_struct *)wk_tsk);
+	aee_reboot_hook_exit();
 }
 
 module_init(hangdet_init);
