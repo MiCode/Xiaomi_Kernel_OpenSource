@@ -62,6 +62,7 @@ typedef void (*UARTHUB_IRQ_CB) (enum UARTHUB_irq_err_type err_type);
 #define KERNEL_UARTHUB_md_adsp_fifo_ctrl          UARTHUB_md_adsp_fifo_ctrl
 #define KERNEL_UARTHUB_dump_debug_info            UARTHUB_dump_debug_info
 #define KERNEL_UARTHUB_dump_debug_info_with_tag   UARTHUB_dump_debug_info_with_tag
+#define KERNEL_UARTHUB_dump_debug_uart_ip_info_with_tag  UARTHUB_dump_debug_uart_ip_info_with_tag
 #define KERNEL_UARTHUB_loopback_test              UARTHUB_loopback_test
 
 int UARTHUB_open(void);
@@ -83,6 +84,7 @@ int UARTHUB_sw_reset(void);
 int UARTHUB_md_adsp_fifo_ctrl(int enable);
 int UARTHUB_dump_debug_info(void);
 int UARTHUB_dump_debug_info_with_tag(const char *tag);
+int UARTHUB_dump_debug_uart_ip_info_with_tag(const char *tag);
 int UARTHUB_loopback_test(int dev_index, int tx_to_rx, int enable);
 
 #endif /* UARTHUB_DRV_EXPORT_H */

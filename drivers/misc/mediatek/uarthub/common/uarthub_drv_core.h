@@ -86,7 +86,7 @@ static char * const UARTHUB_irq_err_type_str[] = {
  *******************************************************************************/
 struct uarthub_ops_struct *uarthub_core_get_platform_ic_ops(struct platform_device *pdev);
 int uarthub_core_irq_register(struct platform_device *pdev);
-int uarthub_core_read_reg_from_dts(struct platform_device *pdev);
+int uarthub_core_get_uarthub_reg(void);
 int uarthub_core_check_disable_from_dts(struct platform_device *pdev);
 int uarthub_core_get_max_dev(void);
 int uarthub_core_config_hub_mode_gpio(void);
@@ -104,6 +104,8 @@ int uarthub_core_config_baud_rate(void __iomem *uarthub_dev_base, int rate_index
 int uarthub_core_reset_to_ap_enable_only(int ap_only);
 void uarthub_core_set_trigger_assert_worker(int err_type);
 int uarthub_core_is_apb_bus_clk_enable(void);
+int uarthub_core_is_uarthub_clk_enable(void);
+int uarthub_core_debug_uart_ip_info_with_tag_ex(const char *tag, int boundary);
 
 /*******************************************************************************
  *                              public function
@@ -127,6 +129,7 @@ int uarthub_core_assert_state_ctrl(int assert_ctrl);
 int uarthub_core_reset(void);
 int uarthub_core_loopback_test(int dev_index, int tx_to_rx, int enable);
 int uarthub_core_debug_info(void);
+int uarthub_core_debug_uart_ip_info_with_tag(const char *tag);
 int uarthub_core_debug_info_with_tag(const char *tag);
 
 #endif /* UARTHUB_DRV_CORE_H */
