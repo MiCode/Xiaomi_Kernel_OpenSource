@@ -25,13 +25,14 @@
 #define CLK_MMDVFS_IPE		(11)
 #define CLK_MMDVFS_CAM		(12)
 #define CLK_MMDVFS_CCU		(13)
+#define CLK_MMDVFS_AOV		(14)
 
-#define CLK_MMDVFS_VCORE	(14)
-#define CLK_MMDVFS_VMM		(15)
-#define CLK_MMDVFS_VDISP	(16)
+#define CLK_MMDVFS_VCORE	(15)
+#define CLK_MMDVFS_VMM		(16)
+#define CLK_MMDVFS_VDISP	(17)
 
 /* new clk append here */
-#define CLK_MMDVFS_NUM		(17)
+#define CLK_MMDVFS_NUM		(18)
 
 /* power supplier */
 #define PWR_MMDVFS_VCORE	(0)
