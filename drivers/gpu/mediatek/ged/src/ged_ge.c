@@ -89,6 +89,10 @@ GED_ERROR ged_ge_init(void)
 
 	gPoolCache = kmem_cache_create("gralloc_extra",
 		sizeof(struct GEEntry), 0, flags, NULL);
+	if (!gPoolCache) {
+		GED_LOGE("Failed to kmem_cache_create");
+		return GED_ERROR_FAIL;
+	}
 
 	return err;
 }
