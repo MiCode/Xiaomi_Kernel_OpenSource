@@ -2031,6 +2031,46 @@ err_free_handler:
 	return ret;
 }
 
+static int enable_phya_clk(struct seninf_core *core)
+{
+	int ret = 0;
+
+	if (!core->clk[CLK_TOP_CAMTG] || !core->clk[CLK_TOP_TCK_26M_MX9])
+		return -EINVAL;
+
+	ret = clk_prepare_enable(core->clk[CLK_TOP_CAMTG]);
+	if (ret < 0) {
+		dev_info(core->dev, "fail to enable phya clk, ret: %d\n", ret);
+		return ret;
+	}
+
+	ret = clk_prepare_enable(core->clk[CLK_TOP_TCK_26M_MX9]);
+	if (ret < 0) {
+		dev_info(core->dev, "fail to enable phya clk src, ret: %d\n", ret);
+		return ret;
+	}
+
+	/* set the parent of clk as parent_clk */
+	ret = clk_set_parent(core->clk[CLK_TOP_CAMTG],
+			     core->clk[CLK_TOP_TCK_26M_MX9]);
+	if (ret < 0) {
+		dev_info(core->dev, "fail to set phya parent, ret: %d\n", ret);
+		return ret;
+	}
+
+	return 0;
+}
+
+static int disable_phya_clk(struct seninf_core *core)
+{
+	if (core->clk[CLK_TOP_TCK_26M_MX9])
+		clk_disable_unprepare(core->clk[CLK_TOP_TCK_26M_MX9]);
+	if (core->clk[CLK_TOP_CAMTG])
+		clk_disable_unprepare(core->clk[CLK_TOP_CAMTG]);
+
+	return 0;
+}
+
 static int runtime_suspend(struct device *dev)
 {
 	int i;
@@ -2066,6 +2106,7 @@ static int runtime_suspend(struct device *dev)
 			if (core->clk[i])
 				clk_disable_unprepare(core->clk[i]);
 		} while (i);
+		disable_phya_clk(core);
 		seninf_core_pm_runtime_put(core);
 	}
 
@@ -2092,6 +2133,7 @@ static int runtime_resume(struct device *dev)
 
 	if (core->refcnt == 1) {
 		seninf_core_pm_runtime_get_sync(core);
+		enable_phya_clk(core);
 		/* enable seninf csi clk */
 		for (i = 0; i < CLK_TOP_SENINF_END; i++) {
 			if (core->clk[i]) {
