@@ -41,8 +41,7 @@
 			<&pextpcfg_ao_clk CLK_PEXT_MAC1_FMEM>,
 			<&pextpcfg_ao_clk CLK_PEXT_MAC1_HCLK>,
 			<&pextpcfg_ao_clk CLK_PEXT_PHY1_REF>,
-			<&vlp_cksys_clk CLK_VLP_CK_CAMTG_VLP_SEL>,
-			<&ccu_main_clk CLK_CCUSYS_DPE>;
+			<&vlp_cksys_clk CLK_VLP_CK_CAMTG_VLP_SEL>;
 	};
 
 	bring-up-pd-ufs0_phy_shutdown {
