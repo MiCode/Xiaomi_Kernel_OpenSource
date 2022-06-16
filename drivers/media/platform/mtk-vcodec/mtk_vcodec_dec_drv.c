@@ -389,6 +389,11 @@ static int mtk_vcodec_dec_probe(struct platform_device *pdev)
 		goto err_res;
 	}
 
+	ret = of_property_read_u32(pdev->dev.of_node, "svp-mtee", &dev->svp_mtee);
+	if (ret)
+		mtk_v4l2_debug(0, "[VDEC] Cannot get svp-mtee, skip");
+
+
 	ret = mtk_vcodec_dec_irq_setup(pdev, dev);
 	if (ret)
 		goto err_res;

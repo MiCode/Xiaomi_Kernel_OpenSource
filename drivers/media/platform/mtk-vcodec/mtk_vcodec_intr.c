@@ -76,6 +76,12 @@ irqreturn_t mtk_vcodec_dec_irq_handler(int irq, void *priv)
 	if (ctx == NULL)
 		return IRQ_HANDLED;
 
+	if (ctx->dec_params.svp_mode && dev->svp_mtee) {
+		mtk_v4l2_debug(4, "svp_mode %d don't handle",
+			ctx->dec_params.svp_mode);
+		return IRQ_HANDLED;
+	}
+
 	/* check if HW active or not */
 	cg_status = readl(dev->dec_reg_base[0]);
 	if ((cg_status & MTK_VDEC_HW_ACTIVE) != 0) {
@@ -255,10 +261,16 @@ int mtk_vcodec_dec_irq_setup(struct platform_device *pdev,
 			mtk_v4l2_debug(0, "no IRQ resource, hw id: %d", i);
 			break;
 		}
-		if (i == MTK_VDEC_CORE)
-			ret = devm_request_irq(&pdev->dev, dev->dec_irq[i],
-				mtk_vcodec_dec_irq_handler, 0, pdev->name, dev);
-		else if (i == MTK_VDEC_LAT)
+		if (i == MTK_VDEC_CORE) {
+			if (dev->svp_mtee)
+				ret = devm_request_irq(&pdev->dev, dev->dec_irq[i],
+					mtk_vcodec_dec_irq_handler,
+					IRQF_NO_THREAD | IRQF_SHARED | IRQF_PROBE_SHARED,
+					pdev->name, dev);
+			else
+				ret = devm_request_irq(&pdev->dev, dev->dec_irq[i],
+					mtk_vcodec_dec_irq_handler, 0, pdev->name, dev);
+		} else if (i == MTK_VDEC_LAT)
 			ret = devm_request_irq(&pdev->dev, dev->dec_irq[i],
 				mtk_vcodec_lat_dec_irq_handler, 0,
 					pdev->name, dev);
