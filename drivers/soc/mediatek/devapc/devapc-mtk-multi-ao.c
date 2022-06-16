@@ -1074,6 +1074,7 @@ static irqreturn_t devapc_violation_irq(int irq_number, void *dev_id)
 		if (irq_number == mtk_devapc_ctx->devapc_irq[irq_type]) {
 			pr_info(PFX "irq_type: %d\n", irq_type);
 			mtk_devapc_ctx->current_irq_type = irq_type;
+			break;
 		}
 	}
 
