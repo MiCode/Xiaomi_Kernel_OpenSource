@@ -390,30 +390,6 @@ int mtk_drm_check_fmt(unsigned int fmt, struct mmp_metadata_bitmap_t *bitmap)
 	}
 }
 
-int crtc_mva_map_kernel(unsigned int mva, unsigned int size,
-			unsigned long *map_va, unsigned int *map_size)
-{
-#ifdef IF_ZERO
-	struct disp_iommu_device *disp_dev = disp_get_iommu_dev();
-
-	if ((disp_dev != NULL) && (disp_dev->iommu_pdev != NULL) && (mva != 0))
-		mtk_iommu_iova_to_va(&(disp_dev->iommu_pdev->dev),
-				     mva, map_va, size);
-	else
-		DDPINFO("%s, %d, disp_dev is null\n", __func__, __LINE__);
-#endif
-
-	return 0;
-}
-
-int crtc_mva_unmap_kernel(unsigned int mva, unsigned int size,
-			  unsigned long map_va)
-{
-	vunmap((void *)(map_va & (~DISP_PAGE_MASK)));
-
-	return 0;
-}
-
 void *mtk_drm_buffer_map_kernel(struct drm_framebuffer *fb, struct dma_buf_map *map)
 {
 	struct drm_gem_object *gem_obj = NULL;
@@ -589,12 +565,12 @@ int mtk_drm_mmp_ovl_layer(struct mtk_plane_state *state,
 
 		meta.data_type = MMPROFILE_META_RAW;
 		meta.size = pending->pitch * pending->height;
-		if (crtc_mva_map_kernel(pending->addr, bitmap.data_size,
-					(unsigned long *)&meta.p_data,
-					&meta.size) != 0) {
-			DDPINFO("%s,fail to dump rgb\n", __func__);
+		dma_va = mtk_drm_buffer_map_kernel(state->base.fb, &map);
+		if (!dma_va) {
+			DDPINFO("[MMP]dma_va is null\n", __func__);
 			goto end;
 		}
+		meta.p_data = dma_va;
 
 		event_base = g_CRTC_MMP_Events[crtc_idx].layer_dump;
 		if (event_base)
@@ -602,8 +578,7 @@ int mtk_drm_mmp_ovl_layer(struct mtk_plane_state *state,
 			event_base[state->comp_state.lye_id],
 			MMPROFILE_FLAG_PULSE, &meta);
 
-		crtc_mva_unmap_kernel(pending->addr, meta.size,
-				(unsigned long)meta.p_data);
+		mtk_drm_buffer_unmap_kernel(state->base.fb, &map);
 	}
 
 end:
