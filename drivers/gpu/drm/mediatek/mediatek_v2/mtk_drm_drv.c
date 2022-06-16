@@ -5278,6 +5278,8 @@ static const struct drm_ioctl_desc mtk_ioctls[] = {
 			  DRM_UNLOCKED),
 	DRM_IOCTL_DEF_DRV(MTK_CCORR_GET_IRQ, mtk_drm_ioctl_ccorr_get_irq,
 			  DRM_UNLOCKED),
+	DRM_IOCTL_DEF_DRV(MTK_AIBLD_CV_MODE, mtk_drm_ioctl_aibld_cv_mode,
+			  DRM_UNLOCKED),
 	DRM_IOCTL_DEF_DRV(MTK_SUPPORT_COLOR_TRANSFORM,
 				mtk_drm_ioctl_support_color_matrix,
 				DRM_UNLOCKED),

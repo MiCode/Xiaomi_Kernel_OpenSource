@@ -496,6 +496,8 @@ struct DISP_AAL_TRIG_STATE {
 #define DRM_MTK_GET_PQ_CAPS 0x54
 #define DRM_MTK_SET_PQ_CAPS 0x55
 
+#define DRM_MTK_AIBLD_CV_MODE 0x56
+
 /* C3D */
 #define DISP_C3D_1DLUT_SIZE 32
 
@@ -1006,6 +1008,8 @@ struct drm_mtk_channel_config {
 struct drm_mtk_chist_caps {
 	unsigned int device_id;
 	unsigned int support_color;
+	unsigned int lcm_width;
+	unsigned int lcm_height;
 	struct drm_mtk_channel_config chist_config[MTK_DRM_DISP_CHIST_CHANNEL_COUNT];
 };
 
@@ -1093,6 +1097,9 @@ struct mtk_drm_pq_caps_info {
 
 #define DRM_IOCTL_MTK_CCORR_GET_IRQ     DRM_IOWR(DRM_COMMAND_BASE + \
 		DRM_MTK_CCORR_GET_IRQ, unsigned int)
+
+#define DRM_IOCTL_MTK_AIBLD_CV_MODE     DRM_IOWR(DRM_COMMAND_BASE + \
+		DRM_MTK_AIBLD_CV_MODE, bool)
 
 #define DRM_IOCTL_MTK_SET_GAMMALUT     DRM_IOWR(DRM_COMMAND_BASE + \
 		DRM_MTK_SET_GAMMALUT, struct DISP_GAMMA_LUT_T)
