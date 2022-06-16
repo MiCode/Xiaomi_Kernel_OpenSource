@@ -99,14 +99,21 @@ static int mtk_cpufreq_hw_target_index(struct cpufreq_policy *policy,
 static unsigned int mtk_cpufreq_hw_get(unsigned int cpu)
 {
 	struct cpufreq_mtk *c;
-	unsigned int index;
+	unsigned int index, nr_opp;
 
 	c = mtk_freq_domain_map[cpu];
+	nr_opp = c->nr_opp;
 
 	index = readl_relaxed(c->reg_bases[REG_FREQ_PERF_STATE]);
-	index = min(index, LUT_MAX_ENTRIES - 1);
 
-	return c->table[index].frequency;
+	if (index <= LUT_MAX_ENTRIES - 1) {
+		index = min(index, LUT_MAX_ENTRIES - 1);
+		return c->table[index].frequency;
+	} else if (c->table[0].frequency >= index && index >= c->table[nr_opp - 1].frequency) {
+		return index;
+	}
+
+	return -1;
 }
 
 static unsigned int mtk_cpufreq_hw_fast_switch(struct cpufreq_policy *policy,
@@ -115,13 +122,18 @@ static unsigned int mtk_cpufreq_hw_fast_switch(struct cpufreq_policy *policy,
 	struct cpufreq_mtk *c = policy->driver_data;
 	unsigned int index;
 
+#if IS_ENABLED(CONFIG_MTK_GEARLESS_SUPPORT)
+	index = cpufreq_table_find_index_dl(policy, target_freq);
+
+	writel_relaxed(target_freq, c->reg_bases[REG_FREQ_PERF_STATE]);
+#else
 	if (policy->cached_target_freq == target_freq)
 		index = policy->cached_resolved_idx;
 	else
 		index = cpufreq_table_find_index_dl(policy, target_freq);
 
 	writel_relaxed(index, c->reg_bases[REG_FREQ_PERF_STATE]);
-
+#endif
 	return policy->freq_table[index].frequency;
 }
 

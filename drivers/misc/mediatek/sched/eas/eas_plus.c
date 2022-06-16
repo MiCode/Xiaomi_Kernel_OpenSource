@@ -6,7 +6,11 @@
 #include <sched/sched.h>
 #include <sugov/cpufreq.h>
 #include "common.h"
-#include "mtk_energy_model/energy_model.h"
+#if IS_ENABLED(CONFIG_MTK_GEARLESS_SUPPORT)
+#include "mtk_energy_model/v2/energy_model.h"
+#else
+#include "mtk_energy_model/v1/energy_model.h"
+#endif
 #include "eas_plus.h"
 #include "eas_trace.h"
 #include <linux/sort.h>

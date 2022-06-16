@@ -11,7 +11,12 @@
 #include <sched/sched.h>
 #include <linux/energy_model.h>
 #include "cpufreq.h"
-#include "mtk_energy_model/energy_model.h"
+#if IS_ENABLED(CONFIG_MTK_GEARLESS_SUPPORT)
+#include "mtk_energy_model/v2/energy_model.h"
+#else
+#include "mtk_energy_model/v1/energy_model.h"
+#endif
+
 
 DEFINE_PER_CPU(unsigned int, gear_id) = -1;
 EXPORT_SYMBOL(gear_id);

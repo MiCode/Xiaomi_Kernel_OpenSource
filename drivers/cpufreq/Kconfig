@@ -42,6 +42,14 @@ config CPU_FREQ_TIMES
 
          If in doubt, say N.
 
+config MTK_GEARLESS_SUPPORT
+	bool "MTK CPU DVFS Gearless Control"
+	help
+	  This config is for the gearless DVFS design to enable continuous
+	  scaling.
+	  If you are not sure about whether to enable it or not,
+	  please set n.
+
 choice
 	prompt "Default CPUFreq governor"
 	default CPU_FREQ_DEFAULT_GOV_USERSPACE if ARM_SA1100_CPUFREQ || ARM_SA1110_CPUFREQ

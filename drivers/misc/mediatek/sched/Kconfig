@@ -91,6 +91,23 @@ config MTK_CPUFREQ_SUGOV_EXT
 	   vary optimizations. This config should be enable when
 	   you want full mtk solution.
 
+config MTK_GEARLESS_SUPPORT
+	bool "MTK CPU DVFS Gearless Control"
+	help
+	  This config is for the gearless DVFS design to enable continuous
+	  scaling.
+	  If you are not sure about whether to enable it or not,
+	  please set n.
+
+config MTK_LEAKAGE_HIT
+	bool "Leakage hit method"
+	depends on MTK_GEARLESS_SUPPORT
+	help
+	  This config is for the leakage parameters means leakage
+	  parameters are loaded when someone uses, like cache hit or when
+	  module initialization. If this config is not setted to y, leakage
+	  parameters will be loaded during booting process.
+
 config MTK_OPP_MIN
 	bool "mediatek sugov governor"
 	depends on MTK_CPUFREQ_SUGOV_EXT && MTK_THERMAL_INTERFACE
