@@ -4407,11 +4407,7 @@ static void mtk_drm_ovl_bw_monitor_ratio_prework(struct drm_crtc *crtc,
 					DISP_SLOT_LAYER_PEAK_RATIO(index)));
 				if (is_active)
 					display_fbt_compress_ratio_table.active = 1;
-			}
 
-			if ((plane_index > fbt_gles_head) &&
-				(plane_index <= fbt_gles_tail)) {
-				DDPDBG("BWM Fbt layer continue\n");
 			} else if ((plane_index < MAX_LAYER_RATIO_NUMBER) &&
 					(plane_state->pending.enable)) {
 				display_compress_ratio_table[index].frame_idx = frame_idx;
