@@ -119,7 +119,6 @@ static unsigned int __gpufreq_get_real_vgpu(void);
 static unsigned int __gpufreq_get_real_vstack(void);
 static unsigned int __gpufreq_get_real_vsram(void);
 static unsigned int __gpufreq_get_vsram_by_vlogic(unsigned int volt);
-static void __gpufreq_set_semaphore(enum gpufreq_sema_op op);
 static enum gpufreq_posdiv __gpufreq_get_real_posdiv_gpu(void);
 static enum gpufreq_posdiv __gpufreq_get_real_posdiv_stack(void);
 static enum gpufreq_posdiv __gpufreq_get_posdiv_by_freq(unsigned int freq);
@@ -1097,9 +1096,6 @@ void __gpufreq_dump_infra_status(void)
 	if (!g_gpufreq_ready)
 		return;
 
-	/* acquire sema before access MFG_TOP_CFG */
-	__gpufreq_set_semaphore(SEMA_ACQUIRE);
-
 	GPUFREQ_LOGI("== [GPUFREQ INFRA STATUS] ==");
 	GPUFREQ_LOGI("[Regulator] Vgpu: %d, Vstack: %d, Vsram: %d",
 		__gpufreq_get_real_vgpu(), __gpufreq_get_real_vstack(),
@@ -1179,8 +1175,6 @@ void __gpufreq_dump_infra_status(void)
 		"[MFG15-19]", readl(MFG_RPC_MFG15_PWR_CON),
 		readl(MFG_RPC_MFG16_PWR_CON), readl(MFG_RPC_MFG17_PWR_CON),
 		readl(MFG_RPC_MFG18_PWR_CON), readl(MFG_RPC_MFG19_PWR_CON));
-
-	__gpufreq_set_semaphore(SEMA_RELEASE);
 }
 
 /* API: get working OPP index of STACK limited by BATTERY_OC via given level */
@@ -1308,9 +1302,6 @@ unsigned int __gpufreq_get_core_num(void)
 void __gpufreq_pdca_config(enum gpufreq_power_state power)
 {
 #if GPUFREQ_PDCA_ENABLE
-	/* acquire sema before access MFG_TOP_CFG */
-	__gpufreq_set_semaphore(SEMA_ACQUIRE);
-
 	if (power == POWER_ON) {
 		/* MFG_ACTIVE_POWER_CON_CG 0x13FBF100 [0] rg_cg_active_pwrctl_en = 1'b1 */
 		writel((readl_mfg(MFG_ACTIVE_POWER_CON_CG) | BIT(0)), MFG_ACTIVE_POWER_CON_CG);
@@ -1430,8 +1421,6 @@ void __gpufreq_pdca_config(enum gpufreq_power_state power)
 		/* MFG_ACTIVE_POWER_CON_61 0x13FBF4F4 [31] rg_sc10_active_pwrctl_rsv = 1'b0 */
 		writel((readl_mfg(MFG_ACTIVE_POWER_CON_61) & ~BIT(31)), MFG_ACTIVE_POWER_CON_61);
 	}
-
-	__gpufreq_set_semaphore(SEMA_RELEASE);
 #else
 	GPUFREQ_UNREFERENCED(power);
 #endif /* GPUFREQ_PDCA_ENABLE */
@@ -1564,9 +1553,6 @@ int __gpufreq_mssv_commit(unsigned int target, unsigned int val)
 
 	mutex_lock(&gpufreq_lock);
 
-	/* acquire sema before access MFG_TOP_CFG */
-	__gpufreq_set_semaphore(SEMA_ACQUIRE);
-
 	switch (target) {
 	case TARGET_MSSV_FGPU:
 		if (val > POSDIV_2_MAX_FREQ || val < POSDIV_16_MIN_FREQ)
@@ -1631,8 +1617,6 @@ int __gpufreq_mssv_commit(unsigned int target, unsigned int val)
 			g_shared_status->reg_del_sel.val = readl_mfg(MFG_SRAM_FUL_SEL_ULV);
 		}
 	}
-
-	__gpufreq_set_semaphore(SEMA_RELEASE);
 
 	mutex_unlock(&gpufreq_lock);
 
@@ -1732,9 +1716,6 @@ static void __gpufreq_update_shared_status_power_reg(void)
 	if (!g_shared_status)
 		return;
 
-	/* acquire sema before access MFG_TOP_CFG */
-	__gpufreq_set_semaphore(SEMA_ACQUIRE);
-
 	g_reg_mfgsys[IDX_MFG_CG_CON].val = readl_mfg(MFG_CG_CON);
 	g_reg_mfgsys[IDX_MFG_DCM_CON_0].val = readl_mfg(MFG_DCM_CON_0);
 	g_reg_mfgsys[IDX_MFG_ASYNC_CON].val = readl_mfg(MFG_ASYNC_CON);
@@ -1793,8 +1774,6 @@ static void __gpufreq_update_shared_status_power_reg(void)
 
 	copy_size = sizeof(struct gpufreq_reg_info) * NUM_MFGSYS_REG;
 	memcpy(g_shared_status->reg_mfgsys, g_reg_mfgsys, copy_size);
-
-	__gpufreq_set_semaphore(SEMA_RELEASE);
 #endif /* GPUFREQ_SHARED_STATUS_REG */
 }
 
@@ -1806,9 +1785,6 @@ static void __gpufreq_update_shared_status_active_idle_reg(void)
 	if (!g_shared_status)
 		return;
 
-	/* acquire sema before access MFG_TOP_CFG */
-	__gpufreq_set_semaphore(SEMA_ACQUIRE);
-
 	g_reg_mfgsys[IDX_MFG_PLL_CON0].val = readl(MFG_PLL_CON0);
 	g_reg_mfgsys[IDX_MFG_PLL_CON1].val = readl(MFG_PLL_CON1);
 	g_reg_mfgsys[IDX_MFGSC_PLL_CON0].val = readl(MFGSC_PLL_CON0);
@@ -1818,8 +1794,6 @@ static void __gpufreq_update_shared_status_active_idle_reg(void)
 
 	copy_size = sizeof(struct gpufreq_reg_info) * NUM_MFGSYS_REG;
 	memcpy(g_shared_status->reg_mfgsys, g_reg_mfgsys, copy_size);
-
-	__gpufreq_set_semaphore(SEMA_RELEASE);
 #endif /* GPUFREQ_SHARED_STATUS_REG */
 }
 
@@ -1830,9 +1804,6 @@ static void __gpufreq_update_shared_status_dvfs_reg(void)
 
 	if (!g_shared_status)
 		return;
-
-	/* acquire sema before access MFG_TOP_CFG */
-	__gpufreq_set_semaphore(SEMA_ACQUIRE);
 
 	g_reg_mfgsys[IDX_MFG_DUMMY_REG].val = readl_mfg(MFG_DUMMY_REG);
 	g_reg_mfgsys[IDX_MFG_SRAM_FUL_SEL_ULV].val = readl_mfg(MFG_SRAM_FUL_SEL_ULV);
@@ -1845,8 +1816,6 @@ static void __gpufreq_update_shared_status_dvfs_reg(void)
 
 	copy_size = sizeof(struct gpufreq_reg_info) * NUM_MFGSYS_REG;
 	memcpy(g_shared_status->reg_mfgsys, g_reg_mfgsys, copy_size);
-
-	__gpufreq_set_semaphore(SEMA_RELEASE);
 #endif /* GPUFREQ_SHARED_STATUS_REG */
 }
 
@@ -1879,14 +1848,9 @@ static void __gpufreq_set_dvfs_state(unsigned int set, unsigned int state)
 
 static void __gpufreq_set_ocl_timestamp(void)
 {
-	/* acquire sema before access MFG_TOP_CFG */
-	__gpufreq_set_semaphore(SEMA_ACQUIRE);
-
 	/* MFG_TIMESTAMP 0x13FBF130 [0] top_tsvalueb_en = 1'b1 */
 	/* MFG_TIMESTAMP 0x13FBF130 [1] timer_sel = 1'b1 */
 	writel(GENMASK(1, 0), MFG_TIMESTAMP);
-
-	__gpufreq_set_semaphore(SEMA_RELEASE);
 }
 
 /* API: apply/restore Vaging to working table of STACK */
@@ -2207,9 +2171,6 @@ static void __gpufreq_dvfs_sel_config(enum gpufreq_opp_direct direct, unsigned i
 	stack_sel_volt = g_stack.signed_table[STACK_SEL_OPP].volt;
 	del_sel_volt = g_stack.signed_table[SRAM_DEL_SEL_OPP].volt;
 
-	/* acquire sema before access MFG_TOP_CFG */
-	__gpufreq_set_semaphore(SEMA_ACQUIRE);
-
 	/*
 	 * Vstack @ 670MHz < Vstack                  : STACK_SEL = 0,      DEL_SEL = 0
 	 * Vstack @ 670MHz = Vstack                  : STACK_SEL = 0 or 1, DEL_SEL = 0
@@ -2243,8 +2204,6 @@ static void __gpufreq_dvfs_sel_config(enum gpufreq_opp_direct direct, unsigned i
 	GPUFREQ_LOGD("Vstack: %d (%s) MFG_DUMMY_REG: 0x%08x, MFG_SRAM_FUL_SEL_ULV: 0x%08x",
 		volt, direct == SCALE_DOWN ? "DOWN" : (direct == SCALE_UP ? "UP" : "STAY"),
 		readl_mfg(MFG_DUMMY_REG), readl_mfg(MFG_SRAM_FUL_SEL_ULV));
-
-	__gpufreq_set_semaphore(SEMA_RELEASE);
 }
 
 /* API: use Vstack to find constraint range as Vstack is unique in OPP */
@@ -3293,45 +3252,6 @@ static unsigned int __gpufreq_get_vsram_by_vlogic(unsigned int volt)
 	return vsram;
 }
 
-/* API: use SPM HW semaphore to protect reading MFG_TOP_CFG */
-static void __gpufreq_set_semaphore(enum gpufreq_sema_op op)
-{
-	int i = 0;
-
-	/*
-	 * GPU Master @ APMCU: SPM_SEMA_M3[3]
-	 * GPU Master @ GPUEB: SPM_SEMA_M4[3]
-	 */
-	/* acquire HW semaphore: SPM_SEMA_M3 0x1C0016A8 [3] = 1'b1 */
-	if (op == SEMA_ACQUIRE) {
-		mutex_lock(&spm_sema_lock);
-		do {
-			/* 50ms timeout */
-			if (unlikely(++i > 5000))
-				goto fail;
-			writel(BIT(3), SPM_SEMA_M3);
-			udelay(10);
-		} while ((readl(SPM_SEMA_M3) & BIT(3)) != BIT(3));
-	/* signal HW semaphore: SPM_SEMA_M3 0x1C0016A8 [3] = 1'b1 */
-	} else if (op == SEMA_RELEASE) {
-		writel(BIT(3), SPM_SEMA_M3);
-		do {
-			/* 10ms timeout */
-			if (unlikely(++i > 1000))
-				goto fail;
-			udelay(10);
-		} while (readl(SPM_SEMA_M3) & BIT(3));
-		mutex_unlock(&spm_sema_lock);
-	}
-
-	return;
-
-fail:
-	__gpufreq_abort("fail to %s SPM_SEMA_M3, M3=(0x%08x), M4=(0x%08x)",
-		op == SEMA_ACQUIRE ? "acquire" : "release",
-		readl(SPM_SEMA_M3), readl(SPM_SEMA_M4));
-}
-
 /* AOC2.0: set AOC ISO/LATCH before SRAM power off to prevent leakage and SRAM shutdown */
 static void __gpufreq_aoc_config(enum gpufreq_power_state power)
 {
@@ -3367,9 +3287,6 @@ static void __gpufreq_hwdcm_config(void)
 #if GPUFREQ_HWDCM_ENABLE
 	u32 val = 0;
 
-	/* acquire sema before access MFG_TOP_CFG */
-	__gpufreq_set_semaphore(SEMA_ACQUIRE);
-
 	/* MFG_DCM_CON_0 0x13FBF010 [6:0] BG3D_DBC_CNT = 7'b0111111 */
 	/* MFG_DCM_CON_0 0x13FBF010 [15]  BG3D_DCM_EN = 1'b1 */
 	val = (readl_mfg(MFG_DCM_CON_0) & ~BIT(6)) | GENMASK(5, 0) | BIT(15);
@@ -3399,8 +3316,6 @@ static void __gpufreq_hwdcm_config(void)
 
 	/* MFG_RPC_AO_CLK_CFG 0x13F91034 [0] CG_FAXI_CK_SOC_IN_FREE_RUN = 1'b0 */
 	writel((readl(MFG_RPC_AO_CLK_CFG) & ~BIT(0)), MFG_RPC_AO_CLK_CFG);
-
-	__gpufreq_set_semaphore(SEMA_RELEASE);
 #endif /* GPUFREQ_HWDCM_ENABLE */
 }
 
@@ -3408,9 +3323,6 @@ static void __gpufreq_hwdcm_config(void)
 static void __gpufreq_acp_config(void)
 {
 #if GPUFREQ_ACP_ENABLE
-	/* acquire sema before access MFG_TOP_CFG */
-	__gpufreq_set_semaphore(SEMA_ACQUIRE);
-
 	/* MFG_1TO2AXI_CON_00 0x13FBF8E0 [24:0] mfg_axi1to2_R_dispatch_mode = 0x855 */
 	writel(0x00FFC855, MFG_1TO2AXI_CON_00);
 	/* MFG_1TO2AXI_CON_02 0x13FBF8E8 [24:0] mfg_axi1to2_R_dispatch_mode = 0x855 */
@@ -3442,8 +3354,6 @@ static void __gpufreq_acp_config(void)
 	/* NTH_APU_EMI1_GALS_SLV_CTRL 0x1021C624 [27:25] MFG_ACP_AW_MPAM_2_1_0 = 3'b111 */
 	writel((readl(NTH_APU_ACP_GALS_SLV_CTRL) | GENMASK(27, 25)), NTH_APU_ACP_GALS_SLV_CTRL);
 	writel((readl(NTH_APU_EMI1_GALS_SLV_CTRL) | GENMASK(27, 25)), NTH_APU_EMI1_GALS_SLV_CTRL);
-
-	__gpufreq_set_semaphore(SEMA_RELEASE);
 #endif /* GPUFREQ_ACP_ENABLE */
 }
 
@@ -3451,9 +3361,6 @@ static void __gpufreq_acp_config(void)
 static void __gpufreq_gpm1_config(void)
 {
 #if GPUFREQ_GPM1_ENABLE
-	/* acquire sema before access MFG_TOP_CFG */
-	__gpufreq_set_semaphore(SEMA_ACQUIRE);
-
 	if (g_gpm1_mode) {
 		/* MFG_I2M_PROTECTOR_CFG_00 0x13FBFF60 = 0x20300316 */
 		writel(0x20300316, MFG_I2M_PROTECTOR_CFG_00);
@@ -3473,8 +3380,6 @@ static void __gpufreq_gpm1_config(void)
 		/* MFG_I2M_PROTECTOR_CFG_00 0x13FBFF60 = 0x20300317 */
 		writel(0x20300317, MFG_I2M_PROTECTOR_CFG_00);
 	}
-
-	__gpufreq_set_semaphore(SEMA_RELEASE);
 #endif /* GPUFREQ_GPM1_ENABLE */
 }
 
@@ -3482,9 +3387,6 @@ static void __gpufreq_gpm1_config(void)
 static void __gpufreq_transaction_config(void)
 {
 #if GPUFREQ_MERGER_ENABLE
-	/* acquire sema before access MFG_TOP_CFG */
-	__gpufreq_set_semaphore(SEMA_ACQUIRE);
-
 	/* Merge AXI READ to window size 8T */
 	writel(0x0808FF81, MFG_MERGE_R_CON_00);
 	writel(0x0808FF81, MFG_MERGE_R_CON_02);
@@ -3496,8 +3398,6 @@ static void __gpufreq_transaction_config(void)
 	writel(0x4040FF81, MFG_MERGE_W_CON_02);
 	writel(0x4040FF81, MFG_MERGE_W_CON_04);
 	writel(0x4040FF81, MFG_MERGE_W_CON_06);
-
-	__gpufreq_set_semaphore(SEMA_RELEASE);
 #endif /* GPUFREQ_MERGER_ENABLE */
 }
 
@@ -3505,9 +3405,6 @@ static void __gpufreq_transaction_config(void)
 static void __gpufreq_axuser_priority_config(void)
 {
 #if GPUFREQ_AXUSER_PREULTRA_ENABLE
-	/* acquire sema before access MFG_TOP_CFG */
-	__gpufreq_set_semaphore(SEMA_ACQUIRE);
-
 	/* MFG_MALI_AXUSER_M0_CFG1 0x13FBF704 [2] CSF_rd = 1'b1 */
 	/* MFG_MALI_AXUSER_M0_CFG1 0x13FBF704 [4] MMU_rd = 1'b1 */
 	writel((readl_mfg(MFG_MALI_AXUSER_M0_CFG1) | BIT(2) | BIT(4)), MFG_MALI_AXUSER_M0_CFG1);
@@ -3515,17 +3412,12 @@ static void __gpufreq_axuser_priority_config(void)
 	writel((readl_mfg(MFG_MALI_AXUSER_M0_CFG2) | BIT(2)), MFG_MALI_AXUSER_M0_CFG2);
 	/* Set AR/AW sideband pre-ultra */
 	writel(0x00400400, MFG_MALI_AXUSER_M0_CFG3);
-
-	__gpufreq_set_semaphore(SEMA_RELEASE);
 #endif /* GPUFREQ_AXUSER_PREULTRA_ENABLE */
 }
 
 static void __gpufreq_dfd_config(void)
 {
 #if GPUFREQ_DFD_ENABLE
-	/* acquire sema before access MFG_TOP_CFG */
-	__gpufreq_set_semaphore(SEMA_ACQUIRE);
-
 	if (g_dfd_mode) {
 		if (g_dfd_mode == DFD_FORCE_DUMP)
 			writel(MFG_DEBUGMON_CON_00_ENABLE, MFG_DEBUGMON_CON_00);
@@ -3549,16 +3441,11 @@ static void __gpufreq_dfd_config(void)
 			writel(0x77000001, DRM_DEBUG_MFG_REG);
 		}
 	}
-
-	__gpufreq_set_semaphore(SEMA_RELEASE);
 #endif /* GPUFREQ_DFD_ENABLE */
 }
 
 static void __gpufreq_mfg_backup_restore(enum gpufreq_power_state power)
 {
-	/* acquire sema before access MFG_TOP_CFG */
-	__gpufreq_set_semaphore(SEMA_ACQUIRE);
-
 	/* restore */
 	if (power == POWER_ON) {
 		if (g_stack_sel_reg)
@@ -3574,8 +3461,6 @@ static void __gpufreq_mfg_backup_restore(enum gpufreq_power_state power)
 		/* MFG_SRAM_FUL_SEL_ULV 0x13FBF080 [0] */
 		g_del_sel_reg = readl_mfg(MFG_SRAM_FUL_SEL_ULV) & BIT(0);
 	}
-
-	__gpufreq_set_semaphore(SEMA_RELEASE);
 }
 
 static int __gpufreq_clock_control(enum gpufreq_power_state power)
@@ -4267,9 +4152,6 @@ done:
 
 static void __gpufreq_check_bus_idle(void)
 {
-	/* acquire sema before access MFG_TOP_CFG */
-	__gpufreq_set_semaphore(SEMA_ACQUIRE);
-
 	/* MFG_QCHANNEL_CON 0x13FBF0B4 [0] MFG_ACTIVE_SEL = 1'b1 */
 	writel((readl_mfg(MFG_QCHANNEL_CON) | BIT(0)), MFG_QCHANNEL_CON);
 
@@ -4282,8 +4164,6 @@ static void __gpufreq_check_bus_idle(void)
 	 * 0x1: bus busy
 	 */
 	do {} while (readl_mfg(MFG_DEBUG_TOP) & BIT(0));
-
-	__gpufreq_set_semaphore(SEMA_RELEASE);
 }
 
 /* API: init first OPP idx by init freq set in preloader */
