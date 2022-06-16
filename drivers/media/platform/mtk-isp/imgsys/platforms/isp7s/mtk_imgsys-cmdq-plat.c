@@ -593,11 +593,10 @@ void imgsys_cmdq_task_cb_plat7s(struct cmdq_cb_data data)
 		}
 
 		event = cb_param->pkt->err_data.event;
-		if ((event >= IMGSYS_CMDQ_HW_EVENT_BEGIN) &&
-			(event <= IMGSYS_CMDQ_HW_EVENT_END)) {
-			isHWhang = 1;
+		if ((event >= IMGSYS_CMDQ_HW_TOKEN_BEGIN) &&
+			(event <= IMGSYS_CMDQ_HW_TOKEN_END)) {
 			pr_info(
-				"%s: [ERROR] HW event timeout! wfe(%d) event(%d) isHW(%d)",
+				"%s: [ERROR] HW token timeout! wfe(%d) event(%d) isHW(%d)",
 				__func__,
 				cb_param->pkt->err_data.wfe_timeout,
 				cb_param->pkt->err_data.event, isHWhang);
@@ -656,12 +655,14 @@ void imgsys_cmdq_task_cb_plat7s(struct cmdq_cb_data data)
 				__func__,
 				cb_param->pkt->err_data.wfe_timeout,
 				cb_param->pkt->err_data.event, isHWhang);
-		} else
+		} else {
+			isHWhang = 1;
 			pr_info(
-				"%s: [ERROR] Other event timeout! wfe(%d) event(%d) isHW(%d)",
+				"%s: [ERROR] HW event timeout! wfe(%d) event(%d) isHW(%d)",
 				__func__,
 				cb_param->pkt->err_data.wfe_timeout,
 				cb_param->pkt->err_data.event, isHWhang);
+		}
 
 		imgsys_cmdq_cmd_dump_plat7s(cb_param->frm_info, real_frm_idx);
 
