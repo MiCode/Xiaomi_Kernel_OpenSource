@@ -887,6 +887,26 @@ static inline bool mtk_cam_ctx_has_raw(struct mtk_cam_ctx *ctx)
 	return (ctx && ctx->used_raw_num > 0);
 }
 
+static inline bool
+mtk_cam_is_immediate_switch_req(struct mtk_cam_request *req, int stream_id)
+{
+	if ((req->flags & MTK_CAM_REQ_FLAG_SENINF_IMMEDIATE_UPDATE) &&
+	    (req->ctx_link_update & (1 << stream_id)))
+		return true;
+	else
+		return false;
+}
+
+static inline bool
+mtk_cam_is_nonimmediate_switch_req(struct mtk_cam_request *req,
+				   int stream_id)
+{
+	if ((req->ctx_link_update & (1 << stream_id)) &&
+	    !(req->flags & MTK_CAM_REQ_FLAG_SENINF_IMMEDIATE_UPDATE))
+		return true;
+	else
+		return false;
+}
 
 //TODO: with spinlock or not? depends on how request works [TBD]
 
