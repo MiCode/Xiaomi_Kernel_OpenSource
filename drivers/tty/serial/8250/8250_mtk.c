@@ -621,13 +621,13 @@ static int __maybe_unused mtk8250_runtime_suspend(struct device *dev)
 	struct mtk8250_data *data = dev_get_drvdata(dev);
 	struct uart_8250_port *up = serial8250_get_port(data->line);
 
-	/* wait until UART in idle status */
-	while
-		(serial_in(up, MTK_UART_DEBUG0));
-
 	if (data->clk_count == 0U) {
 		dev_dbg(dev, "%s clock count is 0\n", __func__);
 	} else {
+		/* wait until UART in idle status */
+		while
+			(serial_in(up, MTK_UART_DEBUG0));
+
 		clk_disable_unprepare(data->bus_clk);
 		data->clk_count--;
 	}
