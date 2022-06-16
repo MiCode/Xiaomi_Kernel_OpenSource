@@ -430,8 +430,17 @@ static int get_seninf_ops(struct device *dev, struct seninf_core *core)
 			&g_seninf_ops->cam_mux_num);
 		of_property_read_u32(dev->of_node, "pref_mux_num",
 			&g_seninf_ops->pref_mux_num);
-		of_property_read_string(dev->of_node, "mtk_iomem_ver",
+		ret = of_property_read_string(dev->of_node, "mtk_iomem_ver",
 			&g_seninf_ops->iomem_ver);
+		if (!ret) {
+			dev_info(dev,
+				"%s: NOTICE: read property:(mtk_iomem_ver) success, ret:%d, using special mapping order\n",
+				__func__, ret);
+		} else {
+			dev_info(dev,
+				"%s: NOTICE: read property:(mtk_iomem_ver) not found, ret:%d, using default mapping order\n",
+				__func__, ret);
+		}
 
 		for (i = 0; i < TYPE_MAX_NUM; i++) {
 			ret = of_property_read_u32_index(dev->of_node, mux_range_name[i],
@@ -828,7 +837,7 @@ static int mtk_cam_seninf_get_fmt(struct v4l2_subdev *sd,
 	struct seninf_ctx *ctx = sd_to_ctx(sd);
 	struct v4l2_mbus_framefmt *format;
 
-	if (fmt->pad < PAD_SINK || fmt->pad >= PAD_MAXCNT)
+	if (fmt->pad >= PAD_MAXCNT)
 		return -EINVAL;
 
 	format = &ctx->fmt[fmt->pad].format;
