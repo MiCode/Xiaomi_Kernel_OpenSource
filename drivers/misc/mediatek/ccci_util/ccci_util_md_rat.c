@@ -280,6 +280,19 @@ static unsigned int ccci_rat_str_to_bitmap(char str[])
 	return bitmap;
 }
 
+unsigned int mtk_ccci_get_md_img_cap(void)
+{
+	unsigned int value = 0;
+
+	if (mtk_ccci_find_args_val("md_capability", (unsigned char *)&value, sizeof(unsigned int))
+					!= sizeof(unsigned int))
+		pr_info("ccci: %s: get MD CAP fail\n", __func__);
+
+	return value;
+}
+EXPORT_SYMBOL(mtk_ccci_get_md_img_cap);
+
+
 unsigned int get_md_bin_capability(void)
 {
 	int img_type;

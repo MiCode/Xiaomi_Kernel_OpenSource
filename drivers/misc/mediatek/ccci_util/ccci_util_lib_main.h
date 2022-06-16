@@ -286,11 +286,27 @@ struct md_check_header_v6 {
 
 extern int ccci_common_sysfs_init(void);
 extern void ccci_log_init(void);
+extern int  mtk_ccci_args_key_val_init(void);
+extern int mtk_ccci_compatible_md_chk_hdr_parsing(void);
 extern int __init ccci_util_fo_init(void);
 extern const char *ld_md_errno_to_str(int errno);
 extern int ccci_util_broadcast_init(void);
 extern int ccci_sib_init(void);
 extern int ccci_util_pin_broadcast_init(void);
+
+
+enum args_src {
+	FROM_LK_TAG = 0,
+	FROM_KERNEL,
+};
+
+int mtk_ccci_find_args_val(const char key[], unsigned char o_val[], unsigned int val_buf_size);
+int mtk_ccci_add_new_args(const char key[], unsigned char val[], unsigned int val_size,
+				enum args_src src);
+void mtk_ccci_dump_args_info(void);
+
+int mtk_ccci_get_lk_load_md_info(char buf[], int size);
+
 
 #define MAX_MD_NUM_AT_LK	(4)
 

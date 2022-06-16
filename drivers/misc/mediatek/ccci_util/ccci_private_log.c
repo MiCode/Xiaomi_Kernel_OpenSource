@@ -266,7 +266,7 @@ static const struct proc_ops ccci_log_fops = {
 /******************************************************************************/
 /* Dump buffer part, this type log is NON block read, used for AED dump       */
 /******************************************************************************/
-#define CCCI_INIT_SETTING_BUF		(4096 * 2)
+#define CCCI_INIT_SETTING_BUF		(4096 * 4)
 #define CCCI_BOOT_UP_BUF		(4096 * 16)
 #define CCCI_NORMAL_BUF			(4096 * 2)
 #define CCCI_REPEAT_BUF			(4096 * 32)

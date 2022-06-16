@@ -23,10 +23,9 @@
 #include <linux/memblock.h>
 //#include <asm/memblock.h>
 
-#if IS_ENABLED(CONFIG_OF)
 #include <linux/of.h>
 #include <linux/of_fdt.h>
-#endif
+
 #ifdef CONFIG_OF_RESERVED_MEM
 #include <linux/of_reserved_mem.h>
 #endif
@@ -35,9 +34,11 @@
 #include <linux/atomic.h>
 #include "mt-plat/mtk_ccci_common.h"
 
-//mtk099077: #include <memory-amms.h>
+
 #include "ccci_util_log.h"
 #include "ccci_util_lib_main.h"
+#include "ccci_util_md_mem.h"
+
 /*************************************************************************
  **** Local debug option for this file only ******************************
  *************************************************************************
@@ -117,10 +118,9 @@ static phys_addr_t s_g_tag_phy_addr;
 static unsigned int s_g_tag_cnt;
 /* Note, this for tag info solution version */
 static unsigned int s_g_lk_info_tag_version;
-/* Note, this for feature option solution version */
-static int s_g_curr_ccci_fo_version;
 
-static int find_ccci_tag_inf(char *name, char *buf, unsigned int size)
+
+int lk_tag_inf_parsing_to_args_table(void)
 {
 	unsigned int i;
 
@@ -128,27 +128,23 @@ static int find_ccci_tag_inf(char *name, char *buf, unsigned int size)
 	 * so prepare a temp buffer.
 	 */
 	char tag_name[64];
-	unsigned int data_offset;
-	unsigned int data_size;
-	unsigned int next_tag_offset;
-	unsigned int tmp_buf;
-	int cpy_size;
+	unsigned int data_offset = 0;
+	unsigned int data_size = 0;
+	unsigned int next_tag_offset = 0;
+	unsigned char *tmp_buf = NULL;
 	char *curr = NULL;
 	union u_tag {
 		struct _ccci_tag v1;
 		struct _ccci_tag_v2 v2;
-	} tag;
+	} tag = {0};
 
-	if (buf == NULL)
+	if (s_g_lk_inf_base == NULL) {
+		CCCI_UTIL_INF_MSG("%s: s_g_lk_inf_base NULL\n", __func__);
 		return -1;
-
-	if (s_g_lk_inf_base == NULL)
-		return -2;
+	}
 
 	curr = (char *)s_g_lk_inf_base;
-	CCCI_UTIL_INF_MSG("------curr tags:%s----------\n", name);
 	for (i = 0; i < s_g_tag_cnt; i++) {
-		/* 1. Copy tag */
 		memcpy_fromio(&tag, curr, sizeof(union u_tag));
 		if (s_g_lk_info_tag_version >= CCCI_LK_INFO_VER_V2) {
 			scnprintf(tag_name, 64, "%s", tag.v2.tag_name);
@@ -161,155 +157,15 @@ static int find_ccci_tag_inf(char *name, char *buf, unsigned int size)
 			data_size = tag.v1.data_size;
 			next_tag_offset = tag.v1.next_tag_offset;
 		}
-		memcpy_fromio(&tmp_buf, (void *)(s_g_lk_inf_base + data_offset),
-			sizeof(int));
 
-		#ifdef LK_LOAD_MD_INFO_DEBUG_EN
-		CCCI_UTIL_INF_MSG("tag->name:%s\n", tag_name);
-		CCCI_UTIL_INF_MSG("tag->data_offset:%d\n", data_offset);
-		CCCI_UTIL_INF_MSG("tag->data_size:%d\n", data_size);
-		CCCI_UTIL_INF_MSG("tag->next_tag_offset:%d\n", next_tag_offset);
-		CCCI_UTIL_INF_MSG("tag value:%d\n", tmp_buf);
-		#endif
+		tmp_buf = (unsigned char *)(s_g_lk_inf_base + data_offset);
 
-		/* 2. compare tag value. */
-		if (strcmp(tag_name, name) != 0) {
-			curr = (char *)(s_g_lk_inf_base + next_tag_offset);
-			continue;
-		}
-		/* found it */
-		cpy_size = size > data_size?data_size:size;
-		memcpy_fromio(buf,
-			(void *)(s_g_lk_inf_base + data_offset),
-			cpy_size);
+		mtk_ccci_add_new_args((const char *)tag_name, tmp_buf, data_size, FROM_LK_TAG);
 
-		return cpy_size;
-	}
-	return -1;
-}
-
-/*====================================================== */
-/* Feature option setting support section                */
-/*====================================================== */
-/* Feature Option Setting */
-struct fos_item {
-	char *name;
-	int value;
-};
-
-/* Default value from config file */
-
-/* array for store default option setting,
- * option value may be updated at init if needed
- */
-static struct fos_item ccci_fos_setting[] = {
-	{"opt_md1_support", 1},
-};
-
-/* ccci option relate public function for option */
-int ccci_get_opt_val(char *opt_name)
-{
-	int i;
-	int ret;
-
-	for (i = 0; i < ARRAY_SIZE(ccci_fos_setting); i++) {
-		if (strcmp(opt_name, ccci_fos_setting[i].name) == 0) {
-			ret = ccci_fos_setting[i].value;
-			CCCI_UTIL_INF_MSG("%s:%s->%d\n", __func__,
-				opt_name, ret);
-			return ret;
-		}
+		curr = (char *)(s_g_lk_inf_base + next_tag_offset);
 	}
 
-	/* not found */
-	CCCI_UTIL_INF_MSG("%s:%s->-1\n", __func__, opt_name);
-	return -1;
-}
-EXPORT_SYMBOL(ccci_get_opt_val);
-
-/* ccci option relate private function for option */
-static int ccci_update_opt_tbl(const char *opt_name, int val)
-{
-	int i;
-
-	for (i = 0; i < ARRAY_SIZE(ccci_fos_setting); i++) {
-		if (strcmp(opt_name, ccci_fos_setting[i].name) == 0) {
-			ccci_fos_setting[i].value = val;
-			return 0;
-		}
-	}
-	return -1;
-}
-
-static int ccci_get_opt_tbl_item_num(void)
-{
-	return ARRAY_SIZE(ccci_fos_setting);
-}
-
-static char *ccci_get_opt_name_by_idx(int idx)
-{
-	if ((idx >= 0) && (idx < ARRAY_SIZE(ccci_fos_setting)))
-		return ccci_fos_setting[idx].name;
-	return NULL;
-}
-
-static void ccci_dump_opt_tbl(void)
-{
-	char *ccci_name = NULL;
-	int ccci_value;
-	int i;
-
-	for (i = 0; i < ARRAY_SIZE(ccci_fos_setting); i++) {
-		ccci_name = ccci_fos_setting[i].name;
-		ccci_value = ccci_fos_setting[i].value;
-		CCCI_UTIL_INF_MSG("FO:%s -> %08x\n", ccci_name, ccci_value);
-	}
-}
-
-static void parse_option_setting_from_lk(void)
-{
-	int i = 0;
-	int val;
-	char *name = NULL;
-	int using_default = 1;
-	int using_lk_setting;
-	int opt_list_size = ccci_get_opt_tbl_item_num();
-
-	if (find_ccci_tag_inf("opt_using_lk_val", (char *)&val, sizeof(int))
-			!= sizeof(int))
-		using_lk_setting = 0;
-	else if (val > 0)
-		using_lk_setting = 1;
-	else
-		using_lk_setting = 0;
-
-	if (using_lk_setting) {
-		for (i = 0; i < opt_list_size; i++) {
-			name = ccci_get_opt_name_by_idx(i);
-			if (name == NULL)
-				continue;
-			if (find_ccci_tag_inf(name, (char *)&val, sizeof(int))
-					!= sizeof(int))
-				CCCI_UTIL_ERR_MSG("%s using default\n", name);
-			else {
-				using_default = 0;
-				ccci_update_opt_tbl(name, val);
-			}
-		}
-	}
-
-	if (using_default)
-		CCCI_UTIL_INF_MSG("All option using default setting\n");
-	else {
-		CCCI_UTIL_INF_MSG("LK has new setting, Dump final\n");
-		ccci_dump_opt_tbl();
-	}
-
-	/* Enter here mean's kernel dt not reserve memory */
-	/* So, change to using kernel option to deside if modem is enabled */
-	val = ccci_get_opt_val("opt_md1_support");
-	if (val > 0)
-		s_g_md_usage_case |= (1 << MD_SYS1);
+	return 0;
 }
 
 /*====================================================== */
@@ -322,7 +178,6 @@ static void parse_option_setting_from_lk(void)
 #define LK_LOAD_MD_ERR_LK_INFO_FAIL	(1<<3)
 #define LK_KERNEL_SETTING_MIS_SYNC	(1<<4)
 #define LK_TAG_BUFF_SIZE_NOT_ENOUGH	(1<<5)
-
 
 
 /*---- Memory info parsing section --------------------- */
@@ -341,8 +196,13 @@ struct _smem_layout {
 	unsigned long long base_addr;
 	unsigned int ap_md1_smem_offset;
 	unsigned int ap_md1_smem_size;
+	unsigned int ap_md3_smem_offset;
+	unsigned int ap_md3_smem_size;
+	unsigned int md1_md3_smem_offset;
+	unsigned int md1_md3_smem_size;
 	unsigned int total_smem_size;
 };
+
 
 struct _ccb_layout {
 	unsigned long long ccb_data_buffer_addr;
@@ -394,7 +254,7 @@ static void nc_smem_info_parsing(void)
 {
 	unsigned int size, num = 0, i;
 
-	if (find_ccci_tag_inf("nc_smem_info_ext_num", (char *)&num,
+	if (mtk_ccci_find_args_val("nc_smem_info_ext_num", (unsigned char *)&num,
 		sizeof(unsigned int)) != sizeof(unsigned int)) {
 		CCCI_UTIL_ERR_MSG("nc_smem_info_ext_num get fail\n");
 		s_nc_smem_ext_num = 0;
@@ -409,7 +269,7 @@ static void nc_smem_info_parsing(void)
 		return;
 	}
 
-	if (find_ccci_tag_inf("nc_smem_info_ext", (char *)s_nc_layout,
+	if (mtk_ccci_find_args_val("nc_smem_info_ext", (unsigned char *)s_nc_layout,
 		size) != size) {
 		CCCI_UTIL_ERR_MSG("Invalid nc_layout from tag\n");
 		return;
@@ -461,7 +321,7 @@ static void cshare_memory_info_parsing(void)
 	unsigned int size;
 
 	memset(&csmem_info, 0, sizeof(struct _csmem_item));
-	if (find_ccci_tag_inf("md1_bank4_cache_info", (char *)&csmem_info,
+	if (mtk_ccci_find_args_val("md1_bank4_cache_info", (unsigned char *)&csmem_info,
 		sizeof(struct _csmem_item)) != sizeof(struct _csmem_item)) {
 		CCCI_UTIL_ERR_MSG("Invalid csmem_info dt para\n");
 		if (ccb_info.ccb_data_buffer_addr != 0)
@@ -474,7 +334,7 @@ static void cshare_memory_info_parsing(void)
 		CCCI_UTIL_ERR_MSG("csmem_layout:alloc csmem_layout fail\n");
 		return;
 	}
-	if (find_ccci_tag_inf("md1_bank4_cache_layout", (char *)csmem_layout,
+	if (mtk_ccci_find_args_val("md1_bank4_cache_layout", (unsigned char *)csmem_layout,
 		size) != size) {
 		CCCI_UTIL_ERR_MSG("Invalid csmem_layout dt para\n");
 		return;
@@ -506,10 +366,8 @@ static void share_memory_info_parsing(void)
 {
 	struct _smem_layout smem_layout;
 	/* Get share memory layout */
-	if (find_ccci_tag_inf("smem_layout",
-						  (char *)&smem_layout,
-						  sizeof(struct _smem_layout))
-			!= sizeof(struct _smem_layout)) {
+	if (mtk_ccci_find_args_val("smem_layout", (unsigned char *)&smem_layout,
+			sizeof(struct _smem_layout)) != sizeof(struct _smem_layout)) {
 		CCCI_UTIL_ERR_MSG("load smem layout fail\n");
 		s_g_lk_load_img_status |= LK_LOAD_MD_ERR_LK_INFO_FAIL;
 		/* Reset to zero if get share memory info fail */
@@ -519,10 +377,8 @@ static void share_memory_info_parsing(void)
 
 	/* Get ccb memory layout */
 	memset(&ccb_info, 0, sizeof(struct _ccb_layout));
-	if (find_ccci_tag_inf("ccb_info",
-						  (char *)&ccb_info,
-						  sizeof(struct _ccb_layout))
-			!= sizeof(struct _ccb_layout)) {
+	if (mtk_ccci_find_args_val("ccb_info", (unsigned char *)&ccb_info,
+			sizeof(struct _ccb_layout)) != sizeof(struct _ccb_layout)) {
 		CCCI_UTIL_ERR_MSG("Invalid ccb info dt para\n");
 	}
 
@@ -532,7 +388,7 @@ static void share_memory_info_parsing(void)
 
 	/* Get udc cache&noncache size */
 	memset(&udc_size, 0, sizeof(struct _udc_info));
-	if (find_ccci_tag_inf("udc_layout", (char *)&udc_size,
+	if (mtk_ccci_find_args_val("udc_layout", (unsigned char *)&udc_size,
 		sizeof(struct _udc_info)) != sizeof(struct _udc_info))
 		CCCI_UTIL_ERR_MSG("Invalid udc layout info dt para\n");
 
@@ -541,7 +397,7 @@ static void share_memory_info_parsing(void)
 		udc_size.cache_size, udc_size.noncache_size);
 
 	/*Get sib info */
-	if (find_ccci_tag_inf("md1_sib_info", (char *)&sib_info,
+	if (mtk_ccci_find_args_val("md1_sib_info", (unsigned char *)&sib_info,
 		sizeof(sib_info)) != sizeof(sib_info))
 		CCCI_UTIL_ERR_MSG("get sib info fail\n");
 
@@ -549,7 +405,7 @@ static void share_memory_info_parsing(void)
 			sib_info.md1_sib_addr, sib_info.md1_sib_size);
 
 	/* Get md1_phy_cap_size  */
-	if (find_ccci_tag_inf("md1_phy_cap",  (char *)&md1_phy_cap_size,
+	if (mtk_ccci_find_args_val("md1_phy_cap",  (unsigned char *)&md1_phy_cap_size,
 		sizeof(md1_phy_cap_size)) != sizeof(md1_phy_cap_size))
 		CCCI_UTIL_ERR_MSG("using 0 as phy capture size\n");
 
@@ -557,7 +413,7 @@ static void share_memory_info_parsing(void)
 		md1_phy_cap_size);
 
 	/* Get md1_smem_dfd_size  */
-	if (find_ccci_tag_inf("smem_dfd_size", (char *)&md1_smem_dfd_size,
+	if (mtk_ccci_find_args_val("smem_dfd_size", (unsigned char *)&md1_smem_dfd_size,
 		sizeof(md1_smem_dfd_size)) != sizeof(md1_smem_dfd_size))
 		CCCI_UTIL_ERR_MSG("get smem dfd size fail\n");
 
@@ -565,8 +421,8 @@ static void share_memory_info_parsing(void)
 		md1_smem_dfd_size);
 
 	/* Get smem_amms_pos_size  */
-	if (find_ccci_tag_inf("smem_amms_pos_size",
-		(char *)&smem_amms_pos_size,
+	if (mtk_ccci_find_args_val("smem_amms_pos_size",
+		(unsigned char *)&smem_amms_pos_size,
 		sizeof(smem_amms_pos_size)) != sizeof(smem_amms_pos_size))
 		CCCI_UTIL_ERR_MSG("get smem amms pos size fail\n");
 
@@ -574,8 +430,8 @@ static void share_memory_info_parsing(void)
 		smem_amms_pos_size);
 
 	/* Get smem_align_padding_size  */
-	if (find_ccci_tag_inf("smem_align_padding_size",
-		(char *)&smem_align_padding_size,
+	if (mtk_ccci_find_args_val("smem_align_padding_size",
+		(unsigned char *)&smem_align_padding_size,
 		sizeof(smem_align_padding_size)) !=
 			sizeof(smem_align_padding_size))
 		CCCI_UTIL_ERR_MSG("get smem align padding size fail\n");
@@ -585,8 +441,8 @@ static void share_memory_info_parsing(void)
 
 	/* Get smem cachable offset  */
 	md1_bank4_cache_offset = 0;
-	if (find_ccci_tag_inf("md1_smem_cahce_offset",
-			(char *)&md1_bank4_cache_offset,
+	if (mtk_ccci_find_args_val("md1_smem_cahce_offset",
+			(unsigned char *)&md1_bank4_cache_offset,
 			sizeof(md1_bank4_cache_offset))
 			!= sizeof(md1_bank4_cache_offset))
 		/* Using 128MB offset as default */
@@ -613,7 +469,7 @@ static void share_memory_info_parsing(void)
 		dcs_set_lbw_region(md_resv_smem_addr,
 				(md_resv_smem_addr + md_resv_smem_size));
 #endif
-	if (find_ccci_tag_inf("mtee_support", (char *)&md_mtee_support,
+	if (mtk_ccci_find_args_val("mtee_support", (unsigned char *)&md_mtee_support,
 		sizeof(md_mtee_support)) != sizeof(md_mtee_support))
 		CCCI_UTIL_ERR_MSG("using 0 as MTEE support\n");
 	else
@@ -641,14 +497,15 @@ static void md_mem_info_parsing(void)
 	int md_num = 0;
 
 	memset(&md_inf, 0, sizeof(md_inf));
-	if (find_ccci_tag_inf("hdr_count", (char *)&md_num,
+	if (mtk_ccci_find_args_val("hdr_count", (unsigned char *)&md_num,
 						  sizeof(int)) != sizeof(int)) {
 		CCCI_UTIL_ERR_MSG("get hdr_count fail\n");
 		s_g_lk_load_img_status |= LK_LOAD_MD_ERR_NO_MD_LOAD;
 		return;
 	}
 
-	find_ccci_tag_inf("hdr_tbl_inf", (char *)&md_inf, sizeof(struct _modem_info));
+	mtk_ccci_find_args_val("hdr_tbl_inf", (unsigned char *)&md_inf,
+				sizeof(struct _modem_info));
 
 	/* MD ROM and RW part */
 #ifdef LK_LOAD_MD_INFO_DEBUG_EN
@@ -742,7 +599,7 @@ static void md_chk_hdr_info_parse(void)
 			s_g_md_env_rdy_flag &= ~(1<<MD_SYS1);
 			return;
 		}
-		ret = find_ccci_tag_inf("md1_chk", md1_check_hdr_info, 1024);
+		ret = mtk_ccci_find_args_val("md1_chk", (unsigned char *)md1_check_hdr_info, 1024);
 		if ((ret != sizeof(struct md_check_header_v5))
 				&& (ret != sizeof(struct md_check_header_v6))
 			&& (ret != sizeof(struct md_check_header))) {
@@ -754,7 +611,7 @@ static void md_chk_hdr_info_parse(void)
 		md1_check_hdr_info_size = ret;
 
 		/* Get MD1 raw image size */
-		find_ccci_tag_inf("md1img", (char *)&md1_raw_img_size, sizeof(int));
+		mtk_ccci_find_args_val("md1img", (unsigned char *)&md1_raw_img_size, sizeof(int));
 	}
 }
 
@@ -870,23 +727,6 @@ static void verify_md_enable_setting(void)
 	}
 }
 
-static struct _mpu_cfg *s_g_md_mpu_cfg_list;
-static int s_g_mpu_info_num;
-static void parse_mpu_setting(void)
-{
-	int size;
-
-	/* Get MD MPU config info */
-	find_ccci_tag_inf("md_mpu_num",
-		(char *)&s_g_mpu_info_num, (int)sizeof(int));
-	if (s_g_mpu_info_num) {
-		size = ((int)sizeof(struct _mpu_cfg))*s_g_mpu_info_num;
-		s_g_md_mpu_cfg_list = kmalloc(size, GFP_KERNEL);
-		if (s_g_md_mpu_cfg_list)
-			find_ccci_tag_inf("md_mpu_inf",
-				(char *)s_g_md_mpu_cfg_list, size);
-	}
-}
 
 int __weak free_reserved_memory(phys_addr_t start_phys, phys_addr_t end_phys)
 {
@@ -904,8 +744,8 @@ static void dump_retrieve_info(void)
 
 	md1_mem_addr =  md_resv_mem_addr;
 
-	if (find_ccci_tag_inf("retrieve_num",
-			(char *)&retrieve_num, (int)sizeof(int)) < 0) {
+	if (mtk_ccci_find_args_val("retrieve_num",
+			(unsigned char *)&retrieve_num, (int)sizeof(int)) < 0) {
 		CCCI_UTIL_ERR_MSG("get retrieve_num failed.\n");
 		return;
 	}
@@ -914,16 +754,16 @@ static void dump_retrieve_info(void)
 
 	for (i = 0; i < retrieve_num; i++) {
 		scnprintf(buf, 32, "retrieve%d", i);
-		if (find_ccci_tag_inf(buf,
-				(char *)&array, sizeof(array))) {
+		if (mtk_ccci_find_args_val(buf,
+				(unsigned char *)&array, sizeof(array))) {
 			CCCI_UTIL_INF_MSG(
 				"AP view(0x%llx ~ 0x%llx), MD view(0x%llx ~ 0x%llx)\n",
 				array[0], array[0] + array[1],
 				array[0] - md1_mem_addr,
 				array[0] + array[1] - md1_mem_addr);
 
-			if (find_ccci_tag_inf("free_in_kernel",
-					(char *)&free_in_kernel, sizeof(int))
+			if (mtk_ccci_find_args_val("free_in_kernel",
+					(unsigned char *)&free_in_kernel, sizeof(int))
 					&& free_in_kernel == 1) {
 				ret = free_reserved_memory(array[0],
 						array[0] + array[1]);
@@ -938,6 +778,7 @@ static void dump_retrieve_info(void)
 		}
 	}
 }
+
 
 static int __init collect_lk_boot_arguments(void)
 {
@@ -972,8 +813,11 @@ static int __init collect_lk_boot_arguments(void)
 	return -1;
 
 _common_process:
-	parse_option_setting_from_lk();
-	parse_mpu_setting();
+	s_g_md_usage_case |= (1 << MD_SYS1);
+
+	lk_tag_inf_parsing_to_args_table();
+	mtk_ccci_dump_md_mem_layout();
+	mtk_ccci_md_smem_layout_init();
 	md_mem_info_parsing();
 	dump_retrieve_info();
 	md_chk_hdr_info_parse();
@@ -981,7 +825,6 @@ _common_process:
 	verify_md_enable_setting();
 
 	s_g_lk_load_img_status |= LK_LOAD_MD_EN;
-	s_g_curr_ccci_fo_version = CCCI_FO_VER_02;
 
 	if (s_g_lk_inf_base && s_g_lk_info_tag_version < 3) {
 		/* clear memory to zero that used by tag info. */
@@ -1234,26 +1077,12 @@ unsigned int get_modem_is_enabled(void)
 }
 EXPORT_SYMBOL(get_modem_is_enabled);
 
-struct _mpu_cfg *get_mpu_region_cfg_info(int region_id)
-{
-	int i;
-
-	if (s_g_md_mpu_cfg_list == NULL)
-		return NULL;
-
-	for (i = 0; i < s_g_mpu_info_num; i++)
-		if (s_g_md_mpu_cfg_list[i].region == region_id)
-			return &s_g_md_mpu_cfg_list[i];
-
-	return NULL;
-}
 
 /**************************************************************/
 /* The following functions are back up for old platform       */
 /**************************************************************/
 static void cal_md_settings(void)
 {
-	unsigned int md_en = 0;
 	char tmp_buf[30];
 	char *node_name = NULL;
 	char *node_name2 = NULL;
@@ -1268,12 +1097,8 @@ static void cal_md_settings(void)
 		return;
 	}
 
-	/* MTK_ENABLE_MD* */
-	val = ccci_get_opt_val(tmp_buf);
-	if (val > 0)
-		md_en = 1;
 
-	if (!(md_en && (s_g_md_usage_case & (1 << 0)))) {
+	if (!(s_g_md_usage_case & (1 << 0))) {
 		CCCI_UTIL_INF_MSG("md is disabled\n");
 		return;
 	}
@@ -1437,9 +1262,6 @@ int __init ccci_util_fo_init(void)
 	struct device_node *node = NULL;
 
 	CCCI_UTIL_INF_MSG("%s 0.\n", __func__);
-
-	CCCI_UTIL_INF_MSG("Dump default setting(@P/K)\n");
-	ccci_dump_opt_tbl();
 
 	if (collect_lk_boot_arguments() == 0) {
 		CCCI_UTIL_INF_MSG("using v3.\n");

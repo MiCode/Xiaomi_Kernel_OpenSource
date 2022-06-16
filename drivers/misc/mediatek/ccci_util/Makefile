@@ -50,7 +50,10 @@ ccci_util_lib-$(CCCI_OBJ) := ccci_util_lib_fo.o \
 			ccci_util_pin_broadcast.o \
 			ccci_util_sib.o \
 			ccci_util_lib_reserved_mem.o \
-			ccci_util_md_rat.o
+			ccci_util_md_rat.o \
+			ccci_util_boot_args.o \
+			ccci_util_img_hdr_parse.o \
+			ccci_util_md_mem.o
 
 endif
 endif

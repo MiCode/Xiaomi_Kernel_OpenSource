@@ -31,7 +31,10 @@
 static int __init ccci_util_init(void)
 {
 	ccci_log_init();
+	mtk_ccci_args_key_val_init();
 	ccci_util_fo_init();
+	mtk_ccci_compatible_md_chk_hdr_parsing();
+	mtk_ccci_dump_args_info();
 	ccci_common_sysfs_init();
 	ccci_util_broadcast_init();
 	ccci_sib_init();
