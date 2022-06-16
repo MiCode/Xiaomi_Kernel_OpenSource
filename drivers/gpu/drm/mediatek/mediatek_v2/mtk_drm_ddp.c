@@ -9744,10 +9744,6 @@ static int mtk_ddp_mout_en_MT6983(const struct mtk_mmsys_reg_data *data,
 		next == DDP_COMPONENT_RDMA3)) {
 		*addr = MT6983_DISP_OVL0_2L_NWCG_MOUT_EN;
 		value = DISP_OVL0_2L_NWCG_MOUT_EN_TO_DISP_RDMA1_SEL_IN;
-	} else if (cur == DDP_COMPONENT_OVL0_2L &&
-		next == DDP_COMPONENT_OVL0_2L_VIRTUAL0) {
-		*addr = MT6983_MMSYS_OVL_CON;
-		value = DISP_OVL0_2L_TO_DISP_OVL0_2L_BLEND_MOUT;
 	} else if ((cur == DDP_COMPONENT_OVL0_2L_VIRTUAL0 &&
 		next == DDP_COMPONENT_DLO_ASYNC3) ||
 		(cur == DDP_COMPONENT_OVL2_2L_VIRTUAL0 &&
