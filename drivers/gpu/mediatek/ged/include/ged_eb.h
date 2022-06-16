@@ -217,6 +217,7 @@ enum {
 	GPUFDVFS_IPI_SET_FEEDBACK_INFO      = 8,
 	GPUFDVFS_IPI_SET_MODE               = 9,
 	GPUFDVFS_IPI_GET_MODE               = 10,
+	GPUFDVFS_IPI_SET_GED_READY          = 11,
 
 	NR_GPUFDVFS_IPI,
 };
@@ -299,6 +300,7 @@ extern unsigned int mtk_gpueb_dvfs_set_mode(unsigned int action);
 extern unsigned int is_fdvfs_enable(void);
 extern int mtk_gpueb_power_modle_cmd(unsigned int enable);
 extern void mtk_swpm_gpu_pm_start(void);
+extern int mtk_set_ged_ready(int ged_ready_flag);
 
 
 extern int fastdvfs_proc_init(void);

@@ -68,6 +68,7 @@ static struct workqueue_struct *g_psEBWorkQueue;
 struct GED_EB_EVENT eb_notify[MAX_EB_NOTIFY_CNT];
 int eb_notify_index;
 
+static struct work_struct sg_notify_ged_ready_work;
 
 static void ged_eb_work_cb(struct work_struct *psWork)
 {
@@ -143,6 +144,7 @@ int ged_to_fdvfs_command(unsigned int cmd, struct fdvfs_ipi_data *ipi_data)
 	case GPUFDVFS_IPI_SET_TARGET_FRAME_TIME:
 	case GPUFDVFS_IPI_SET_FEEDBACK_INFO:
 	case GPUFDVFS_IPI_SET_MODE:
+	case GPUFDVFS_IPI_SET_GED_READY:
 		ret = mtk_ipi_send_compl(get_gpueb_ipidev(),
 			g_fast_dvfs_ipi_channel,
 			IPI_SEND_POLLING, ipi_data,
@@ -445,6 +447,15 @@ int mtk_gpueb_power_modle_cmd(unsigned int enable)
 }
 EXPORT_SYMBOL(mtk_gpueb_power_modle_cmd);
 
+int mtk_set_ged_ready(int ged_ready_flag)
+{
+	int ret = 0;
+	struct fdvfs_ipi_data ipi_data;
+
+	ipi_data.u.set_para.arg[0] = ged_ready_flag;
+	ret = ged_to_fdvfs_command(GPUFDVFS_IPI_SET_GED_READY, &ipi_data);
+	return ret;
+}
 
 unsigned int is_fdvfs_enable(void)
 {
@@ -819,6 +830,19 @@ static void gpu_power_change_notify_fdvfs(int power_on)
 	spin_unlock(&counter_info_lock);
 }
 
+static void mtk_set_ged_ready_handler(struct work_struct *work)
+{
+	static int retry_count;
+	int ret = 0;
+
+	do {
+		retry_count += 1;
+		ret = mtk_set_ged_ready(1);
+		GPUFDVFS_LOGI("(attempt %d) mtk_set_ged_ready return %d", retry_count,
+			ret);
+	} while (ret != 0);
+}
+
 void fdvfs_init(void)
 {
 	g_is_fastdvfs_enable = 1;
@@ -857,6 +881,12 @@ void fdvfs_init(void)
 		g_psEBWorkQueue =
 			alloc_ordered_workqueue("ged_eb",
 				WQ_FREEZABLE | WQ_MEM_RECLAIM);
+
+		// send ready message to GPUEB so top clock can now be handled
+		if (g_ged_gpu_freq_notify_support) {
+			INIT_WORK(&sg_notify_ged_ready_work, mtk_set_ged_ready_handler);
+			schedule_work(&sg_notify_ged_ready_work);
+		}
 	}
 
 	GPUFDVFS_LOGI("succeed to register channel: (%d)(%d), ipi_size: %u\n",

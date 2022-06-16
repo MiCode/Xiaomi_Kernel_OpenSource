@@ -53,6 +53,7 @@ extern unsigned long g_ulWorkingPeriod_us;
 extern unsigned int g_fastdvfs_mode;
 extern unsigned int g_ged_gpueb_support;
 extern unsigned int g_ged_fdvfs_support;
+extern unsigned int g_ged_gpu_freq_notify_support;
 extern unsigned int g_fastdvfs_margin;
 extern unsigned int g_loading_stride_size;
 extern unsigned int g_loading_slide_window_size;
