@@ -33,6 +33,7 @@ static DEFINE_MUTEX(mmdvfs_vcp_pwr_mutex);
 static int vcp_power;
 
 static phys_addr_t mmdvfs_vcp_base;
+static bool mmdvfs_free_run;
 
 enum mmdvfs_log_level {
 	log_ipi,
@@ -189,7 +190,7 @@ static int mtk_mmdvfs_set_rate(struct clk_hw *hw, unsigned long rate,
 	struct mtk_mmdvfs_clk *mmdvfs_clk = to_mtk_mmdvfs_clk(hw);
 	u8 i, opp, level, pwr_opp = MAX_OPP, user_opp = MAX_OPP;
 	struct mmdvfs_ipi_data slot;
-	int ret;
+	int ret = 0;
 
 	for (i = 0; i < mmdvfs_clk->freq_num; i++)
 		if (rate <= mmdvfs_clk->freqs[i])
@@ -217,11 +218,15 @@ static int mtk_mmdvfs_set_rate(struct clk_hw *hw, unsigned long rate,
 				&& mtk_mmdvfs_clks[i].opp < user_opp)
 				user_opp = mtk_mmdvfs_clks[i].opp;
 		}
-		ret = mmdvfs_vcp_ipi_send(FUNC_SET_OPP, mmdvfs_clk->user_id, user_opp, MAX_OPP);
+		if (mmdvfs_free_run)
+			ret = mmdvfs_vcp_ipi_send(FUNC_SET_OPP,
+					mmdvfs_clk->user_id, user_opp, MAX_OPP);
 	} else {
 		if (pwr_opp == mmdvfs_pwr_opp[mmdvfs_clk->pwr_id])
 			return 0;
-		ret = mmdvfs_vcp_ipi_send(FUNC_SET_OPP, mmdvfs_clk->user_id, pwr_opp, MAX_OPP);
+		if (mmdvfs_free_run)
+			ret = mmdvfs_vcp_ipi_send(FUNC_SET_OPP,
+					mmdvfs_clk->user_id, pwr_opp, MAX_OPP);
 	}
 
 	mmdvfs_pwr_opp[mmdvfs_clk->pwr_id] = pwr_opp;
@@ -693,6 +698,10 @@ static int mmdvfs_v3_probe(struct platform_device *pdev)
 	}
 
 	kthr = kthread_run(mmdvfs_vcp_init_thread, NULL, "mmdvfs-vcp");
+
+	if (of_property_read_bool(node, "mmdvfs-free-run"))
+		mmdvfs_free_run = true;
+
 	return ret;
 }
 
