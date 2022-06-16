@@ -355,6 +355,7 @@ static int lpm_show_message(int type, const char *prefix, void *data)
 		((strlen(ptr) + strlen(newstr)) < LOG_BUF_SIZE)
 
 	unsigned int spm_26M_off_pct = 0;
+	unsigned int spm_vcore_off_pct = 0;
 	char buf[LOG_BUF_SIZE] = { 0 };
 	char log_buf[LOG_BUF_OUT_SZ] = { 0 };
 	char *local_ptr = NULL;
@@ -589,13 +590,16 @@ static int lpm_show_message(int type, const char *prefix, void *data)
 				spm_26M_off_pct =
 					(100 * plat_mmio_read(SPM_BK_VTCXO_DUR))
 							/ wakesrc->timer_out;
+				spm_vcore_off_pct =
+					(100 * plat_mmio_read(SPM_SW_RSV_4))
+							/ wakesrc->timer_out;
 			}
 			log_size += scnprintf(log_buf + log_size,
 				LOG_BUF_OUT_SZ - log_size,
-				"wlk_cntcv_l = 0x%x, wlk_cntcv_h = 0x%x, 26M_off_pct = %d\n",
+				"wlk_cntcv_l = 0x%x, wlk_cntcv_h = 0x%x, 26M_off_pct = %d, vcore_off_pct = %d\n",
 				plat_mmio_read(SYS_TIMER_VALUE_L),
 				plat_mmio_read(SYS_TIMER_VALUE_H),
-				spm_26M_off_pct);
+				spm_26M_off_pct, spm_vcore_off_pct);
 		}
 	}
 	WARN_ON(log_size >= LOG_BUF_OUT_SZ);
