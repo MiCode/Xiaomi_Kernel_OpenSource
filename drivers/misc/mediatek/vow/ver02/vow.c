@@ -3339,8 +3339,9 @@ static struct platform_driver VowDrv_driver = {
 static int vow_nvmem_device_probe(struct platform_device *pdev)
 {
 	struct nvmem_device *nvmem;
-	int ret;
-	int ver_reg, ver_mask;
+	int ret = -1;
+	int ver_reg = -1;
+	int ver_mask = -1;
 
 	nvmem = devm_nvmem_device_get(&pdev->dev, "vow_efuse_device");
 	if (PTR_ERR(nvmem) == -EPROBE_DEFER)
