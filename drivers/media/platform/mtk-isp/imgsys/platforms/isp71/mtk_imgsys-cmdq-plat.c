@@ -743,7 +743,7 @@ int imgsys_cmdq_sendtask_plat71(struct mtk_imgsys_dev *imgsys_dev,
 
 	#if IMGSYS_SECURE_ENABLE
 	if (frm_info->is_secReq && (is_sec_task_create == 0)) {
-		imgsys_cmdq_sec_sendtask(imgsys_dev);
+		imgsys_cmdq_sec_sendtask_plat71(imgsys_dev);
 		is_sec_task_create = 1;
 		pr_info(
 			"%s: create imgsys secure task is_secReq(%d)\n",
@@ -879,7 +879,7 @@ int imgsys_cmdq_sendtask_plat71(struct mtk_imgsys_dev *imgsys_dev,
 			// Add secure token begin
 			#if IMGSYS_SECURE_ENABLE
 			if (frm_info->user_info[frm_idx].is_secFrm)
-				imgsys_cmdq_sec_cmd(pkt);
+				imgsys_cmdq_sec_cmd_plat71(pkt);
 			#endif
 
 			ret = imgsys_cmdq_parser_plat71(frm_info, pkt, &cmd[cmd_idx], hw_comb,
@@ -897,7 +897,7 @@ int imgsys_cmdq_sendtask_plat71(struct mtk_imgsys_dev *imgsys_dev,
 			// Add secure token end
 			#if IMGSYS_SECURE_ENABLE
 			if (frm_info->user_info[frm_idx].is_secFrm)
-				imgsys_cmdq_sec_cmd(pkt);
+				imgsys_cmdq_sec_cmd_plat71(pkt);
 			#endif
 
 			IMGSYS_CMDQ_SYSTRACE_END();
@@ -1172,7 +1172,7 @@ int imgsys_cmdq_sec_sendtask_plat71(struct mtk_imgsys_dev *imgsys_dev)
 	cmdq_sec_pkt_set_data(pkt_sec, 0, 0, CMDQ_SEC_DEBUG, CMDQ_METAEX_TZMP);
 	cmdq_sec_pkt_set_mtee(pkt_sec, true);
 	cmdq_pkt_finalize_loop(pkt_sec);
-	cmdq_pkt_flush_threaded(pkt_sec, imgsys_cmdq_sec_task_cb, (void *)pkt_sec);
+	cmdq_pkt_flush_threaded(pkt_sec, imgsys_cmdq_sec_task_cb_plat71, (void *)pkt_sec);
 	#endif
 	return ret;
 }
