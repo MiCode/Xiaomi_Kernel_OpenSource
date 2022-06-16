@@ -61,6 +61,8 @@ void __iomem *dev2_base_remap_addr;
 void __iomem *intfhub_base_remap_addr;
 void __iomem *peri_cg_1_set_remap_addr;
 unsigned int peri_cg_1_set_shift;
+void __iomem *hw_ccf_pll_done_remap_addr;
+unsigned int hw_ccf_pll_done_shift;
 
 static int mtk_uarthub_probe(struct platform_device *pdev);
 static int mtk_uarthub_remove(struct platform_device *pdev);
@@ -163,6 +165,7 @@ static int uarthub_core_init(void)
 #endif
 
 	uarthub_core_config_univpll_clk_remap_addr_from_dts(g_uarthub_pdev);
+	uarthub_core_config_hwccf_pll_done_remap_addr_from_dts(g_uarthub_pdev);
 
 #if CLK_CTRL_UNIVPLL_REQ
 	iRet = uarthub_core_clk_get_from_dts(g_uarthub_pdev);
@@ -213,6 +216,9 @@ static void uarthub_core_exit(void)
 
 	if (peri_cg_1_set_remap_addr)
 		iounmap(peri_cg_1_set_remap_addr);
+
+	if (hw_ccf_pll_done_remap_addr)
+		iounmap(hw_ccf_pll_done_remap_addr);
 
 	if (gpio_base_addr.gpio_tx.vir_addr)
 		iounmap(gpio_base_addr.gpio_tx.vir_addr);
@@ -530,7 +536,7 @@ int uarthub_core_config_univpll_clk_remap_addr_from_dts(struct platform_device *
 			return -1;
 		}
 
-		pr_info("[%s] get uart_glue_ctrl info(addr:0x%x,mask:0x%x)\n",
+		pr_info("[%s] get peri_cg_1_set info(addr:0x%x,mask:0x%x)\n",
 			__func__, peri_cg_1_set_addr, peri_cg_1_set_shift);
 	} else {
 		pr_notice("[%s] can't find UARTHUB compatible node\n", __func__);
@@ -541,6 +547,47 @@ int uarthub_core_config_univpll_clk_remap_addr_from_dts(struct platform_device *
 	if (!peri_cg_1_set_remap_addr) {
 		pr_notice("[%s] peri_cg_1_set_remap_addr(%x) ioremap fail\n",
 			__func__, peri_cg_1_set_addr);
+		return -1;
+	}
+
+	return 0;
+}
+
+int uarthub_core_config_hwccf_pll_done_remap_addr_from_dts(struct platform_device *pdev)
+{
+	unsigned int hw_ccf_pll_done_addr = 0;
+	struct device_node *node = NULL;
+	int iRtn = 0;
+
+	if (pdev)
+		node = pdev->dev.of_node;
+
+	if (node) {
+		iRtn = of_property_read_u32_index(node,
+			"hw_ccf_pll_done", 0, &hw_ccf_pll_done_addr);
+		if (iRtn) {
+			pr_notice("[%s] get hw_ccf_pll_done_addr fail\n", __func__);
+			return -1;
+		}
+
+		iRtn = of_property_read_u32_index(node,
+			"hw_ccf_pll_done", 1, &hw_ccf_pll_done_shift);
+		if (iRtn) {
+			pr_notice("[%s] get hw_ccf_pll_done_shift fail\n", __func__);
+			return -1;
+		}
+
+		pr_info("[%s] get hw_ccf_pll_done info(addr:0x%x,mask:0x%x)\n",
+			__func__, hw_ccf_pll_done_addr, hw_ccf_pll_done_shift);
+	} else {
+		pr_notice("[%s] can't find UARTHUB compatible node\n", __func__);
+		return -1;
+	}
+
+	hw_ccf_pll_done_remap_addr = ioremap(hw_ccf_pll_done_addr, 0x10);
+	if (!hw_ccf_pll_done_remap_addr) {
+		pr_notice("[%s] hw_ccf_pll_done_remap_addr(%x) ioremap fail\n",
+			__func__, hw_ccf_pll_done_addr);
 		return -1;
 	}
 
@@ -899,6 +946,9 @@ int uarthub_core_dev0_is_txrx_idle(int rx)
 
 int uarthub_core_dev0_set_txrx_request(void)
 {
+	int retry = 0;
+	unsigned int state = 0;
+
 	if (g_uarthub_disable == 1)
 		return 0;
 
@@ -920,6 +970,14 @@ int uarthub_core_dev0_set_txrx_request(void)
 	pr_info("[%s] g_max_dev=[%d]\n", __func__, g_max_dev);
 #endif
 
+#if UARTHUB_DEBUG_LOG
+	if (hw_ccf_pll_done_remap_addr) {
+		state = (UARTHUB_REG_READ_BIT(hw_ccf_pll_done_remap_addr,
+			(0x1 << hw_ccf_pll_done_shift)) >> hw_ccf_pll_done_shift);
+		pr_info("[%s] hw_ccf_pll_done before set trx req, state=[%d]\n", __func__, state);
+	}
+#endif
+
 	UARTHUB_REG_WRITE(UARTHUB_INTFHUB_DEV0_STA_SET(intfhub_base_remap_addr), 0x3);
 
 #if !(SUPPORT_SSPM_DRIVER)
@@ -929,6 +987,25 @@ int uarthub_core_dev0_set_txrx_request(void)
 	uarthub_core_debug_info_with_tag("uarthub_core_dev0_set_txrx_request");
 #endif
 #endif
+
+	if (hw_ccf_pll_done_remap_addr) {
+		retry = 20;
+		while (retry-- > 0) {
+			state = (UARTHUB_REG_READ_BIT(hw_ccf_pll_done_remap_addr,
+				(0x1 << hw_ccf_pll_done_shift)) >> hw_ccf_pll_done_shift);
+			if (state == 1) {
+				pr_info("[%s] hw_ccf_pll_done pass, retry=[%d]\n",
+					__func__, retry);
+				break;
+			}
+			usleep_range(1000, 1100);
+		}
+
+		if (state == 0) {
+			pr_notice("[%s] hw_ccf_pll_done fail, retry=[%d]\n",
+				__func__, retry);
+		}
+	}
 
 	return 0;
 }
@@ -1452,6 +1529,8 @@ static void trigger_assert_worker_handler(struct work_struct *work)
 
 #if UARTHUB_ERR_IRQ_ASSERT_ENABLE
 	uarthub_core_assert_state_ctrl(1);
+#else
+	uarthub_core_debug_info_with_tag("uarthub_core_assert_state_ctrl");
 #endif
 
 	if (g_core_irq_callback)
@@ -1701,10 +1780,17 @@ int uarthub_core_debug_info_with_tag(const char *tag)
 		((tag == NULL) ? "null" : tag), apb_bus_clk_enable);
 
 	if (peri_cg_1_set_remap_addr) {
-		pr_info("[%s][%s] UNIVPLL CLK=[0x%x]\n",
+		pr_info("[%s][%s] UNIVPLL CLK GATING=[0x%x]\n",
 			__func__, ((tag == NULL) ? "null" : tag),
 			(UARTHUB_REG_READ_BIT(peri_cg_1_set_remap_addr,
 				(0x1 << peri_cg_1_set_shift)) >> peri_cg_1_set_shift));
+	}
+
+	if (hw_ccf_pll_done_remap_addr) {
+		pr_info("[%s][%s] UNIVPLL CLK ON=[0x%x]\n",
+			__func__, ((tag == NULL) ? "null" : tag),
+			(UARTHUB_REG_READ_BIT(hw_ccf_pll_done_remap_addr,
+				(0x1 << hw_ccf_pll_done_shift)) >> hw_ccf_pll_done_shift));
 	}
 
 	if (apb_bus_clk_enable == 0) {

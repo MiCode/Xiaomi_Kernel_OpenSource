@@ -66,6 +66,7 @@ int uarthub_core_check_disable_from_dts(struct platform_device *pdev);
 int uarthub_core_read_max_dev_from_dts(struct platform_device *pdev);
 int uarthub_core_config_gpio_from_dts(struct platform_device *pdev);
 int uarthub_core_config_uart_glue_ctrl_from_dts(struct platform_device *pdev);
+int uarthub_core_config_hwccf_pll_done_remap_addr_from_dts(struct platform_device *pdev);
 int uarthub_core_config_univpll_clk_remap_addr_from_dts(struct platform_device *pdev);
 int uarthub_core_clk_get_from_dts(struct platform_device *pdev);
 int uarthub_core_read_baud_rate_from_dts(int dev_index, struct platform_device *pdev);
