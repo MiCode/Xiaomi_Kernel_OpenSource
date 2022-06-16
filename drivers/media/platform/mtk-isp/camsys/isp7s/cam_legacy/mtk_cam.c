@@ -3874,18 +3874,6 @@ void mtk_cam_dev_req_try_queue(struct mtk_cam_device *cam)
 					s_data->flags |=
 						MTK_CAM_REQ_S_DATA_FLAG_SENSOR_HDL_EN;
 				}
-				scen = &stream_ctx->pipe->user_res.raw_res.scen;
-				/* copy s_data content for mstream case */
-				if (mtk_cam_scen_is_mstream_2exp_types(scen)) {
-					/**
-					 * To be noticed that we can only use ctx->pipe.user_res in
-					 * mtk_cam_dev_req_try_queue(). After that, we should read
-					 * scen through s_data.feature.scen
-					 */
-					req->p_data[i].s_data_num = 2;
-					mtk_cam_req_s_data_init(req, i, 1);
-					fill_sv_mstream_s_data(cam, req, i);
-				}
 			} else if (is_camsv_subdev(i) && i != stream_ctx->stream_id) {
 				/* copy s_data content for mstream case */
 				scen = &stream_ctx->pipe->user_res.raw_res.scen;
@@ -7000,7 +6988,8 @@ void mtk_cam_stop_ctx(struct mtk_cam_ctx *ctx, struct media_entity *entity)
 	}
 
 	/* For M2M feature, signal all waiters */
-	if (mtk_cam_scen_is_m2m(&ctx->pipe->scen_active))
+	if (mtk_cam_ctx_has_raw(ctx) &&
+		mtk_cam_scen_is_m2m(&ctx->pipe->scen_active))
 		complete_all(&ctx->m2m_complete);
 
 	if (!cam->streaming_ctx) {
@@ -7183,10 +7172,10 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 	if (ctx->pipe)
 		scen_active = &ctx->pipe->scen_active;
 
-	/* check exposure number */
-	exp_no = mtk_cam_scen_get_max_exp_num(scen_active);
-
 	if (ctx->used_raw_num) {
+		/* check exposure number */
+		exp_no = mtk_cam_scen_get_max_exp_num(scen_active);
+
 		tgo_pxl_mode = ctx->pipe->res_config.tgo_pxl_mode_before_raw;
 		buf_size = ctx->pipe->vdev_nodes
 			[MTK_RAW_MAIN_STREAM_OUT - MTK_RAW_SINK_NUM].

@@ -1724,7 +1724,8 @@ int mtk_cam_video_set_fmt(struct mtk_cam_video_device *node, struct v4l2_format 
 
 	dev_dbg(cam->dev,
 		"%s:pipe(%d):%s: scen(%s)\n",
-		__func__, node->uid.pipe_id, node->desc.name, scen->dbg_str);
+		__func__, node->uid.pipe_id, node->desc.name,
+		(scen) ? scen->dbg_str : "");
 
 	request_fd = mtk_cam_fmt_get_request(&f->fmt.pix_mp);
 	memset(&try_fmt, 0, sizeof(try_fmt));

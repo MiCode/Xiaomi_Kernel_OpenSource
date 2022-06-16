@@ -328,12 +328,16 @@ mtk_cam_mstream_feature_to_scen(struct mtk_cam_scen_mstream *scen,
 
 static inline bool mtk_cam_scen_is_mstream_types(struct mtk_cam_scen *scen)
 {
+	if (!scen)
+		return false;
 	return (scen->id == MTK_CAM_SCEN_MSTREAM) ||
 	       (scen->id == MTK_CAM_SCEN_ODT_MSTREAM);
 }
 
 static inline bool mtk_cam_scen_is_stagger_types(struct mtk_cam_scen *scen)
 {
+	if (!scen)
+		return false;
 	if (scen->id == MTK_CAM_SCEN_STAGGER ||
 		scen->id == MTK_CAM_SCEN_ODT_STAGGER ||
 		scen->id == MTK_CAM_SCEN_M2M_STAGGER)
@@ -591,12 +595,16 @@ static inline void mtk_cam_scen_to_feature(int *feature,
 /* Utilities */
 static inline bool mtk_cam_scen_is_mstream_m2m(struct mtk_cam_scen *scen)
 {
+	if (!scen)
+		return false;
 	return (scen->id == MTK_CAM_SCEN_ODT_MSTREAM);
 }
 
 
 static inline bool mtk_cam_scen_is_ext_isp_yuv(struct mtk_cam_scen *scen)
 {
+	if (!scen)
+		return false;
 	return (scen->id == MTK_CAM_SCEN_EXT_ISP &&
 		scen->scen.extisp.type == MTK_CAM_EXTISP_CUS_2);
 }
@@ -604,26 +612,36 @@ static inline bool mtk_cam_scen_is_ext_isp_yuv(struct mtk_cam_scen *scen)
 
 static inline bool mtk_cam_scen_is_ext_isp(struct mtk_cam_scen *scen)
 {
+	if (!scen)
+		return false;
 	return (scen->id == MTK_CAM_SCEN_EXT_ISP);
 }
 
 static inline bool mtk_cam_scen_is_mstream(struct mtk_cam_scen *scen)
 {
+	if (!scen)
+		return false;
 	return (scen->id == MTK_CAM_SCEN_MSTREAM);
 }
 
 static inline bool mtk_cam_scen_is_time_shared(struct mtk_cam_scen *scen)
 {
+	if (!scen)
+		return false;
 	return (scen->id == MTK_CAM_SCEN_TIMESHARE);
 }
 
 static inline bool mtk_cam_scen_is_stagger_m2m(struct mtk_cam_scen *scen)
 {
+	if (!scen)
+		return false;
 	return (scen->id == MTK_CAM_SCEN_ODT_STAGGER);
 }
 
 static inline bool mtk_cam_scen_is_stagger_pure_m2m(struct mtk_cam_scen *scen)
 {
+	if (!scen)
+		return false;
 	return (scen->id == MTK_CAM_SCEN_M2M_STAGGER);
 }
 
@@ -638,6 +656,8 @@ static inline bool mtk_cam_scen_is_odt(struct mtk_cam_scen *scen)
 /* is pure offline nad offline */
 static inline bool mtk_cam_scen_is_m2m(struct mtk_cam_scen *scen)
 {
+	if (!scen)
+		return false;
 	return (scen->id == MTK_CAM_SCEN_ODT_NORMAL) ||
 	       (scen->id == MTK_CAM_SCEN_ODT_STAGGER) ||
 	       (scen->id == MTK_CAM_SCEN_ODT_MSTREAM) ||
@@ -663,11 +683,15 @@ static inline bool mtk_cam_scen_is_pure_m2m(struct mtk_cam_scen *scen)
 
 static inline bool mtk_cam_scen_is_stagger(struct mtk_cam_scen *scen)
 {
+	if (!scen)
+		return false;
 	return scen->id == MTK_CAM_SCEN_STAGGER;
 }
 
 static inline bool mtk_cam_scen_is_subsample(struct mtk_cam_scen *scen)
 {
+	if (!scen)
+		return false;
 	return (scen->id == MTK_CAM_SCEN_SMVR);
 }
 
@@ -685,6 +709,8 @@ static inline bool mtk_cam_scen_is_stagger_3_exp(struct mtk_cam_scen *scen)
 
 static inline bool mtk_cam_scen_is_hdr(struct mtk_cam_scen *scen)
 {
+	if (!scen)
+		return false;
 	return mtk_cam_scen_is_mstream_types(scen) ||
 	       mtk_cam_scen_is_stagger_types(scen);
 }
@@ -717,6 +743,8 @@ static inline bool mtk_cam_scen_type_mstream_is_2_exp(struct mtk_cam_scen_mstrea
 
 static inline bool mtk_cam_scen_is_mstream_2exp_types(struct mtk_cam_scen *scen)
 {
+		if (!scen)
+			return false;
 		if (mtk_cam_scen_is_mstream_types(scen) &&
 			mtk_cam_scen_type_mstream_is_2_exp(&scen->scen.mstream))
 			return true;
