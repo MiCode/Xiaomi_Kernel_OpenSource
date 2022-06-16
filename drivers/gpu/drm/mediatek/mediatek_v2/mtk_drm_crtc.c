@@ -2767,9 +2767,6 @@ static void mtk_crtc_mml_clean(struct kref *kref)
 	struct mtk_drm_sram *s = container_of(kref, typeof(*s), ref);
 	struct mtk_drm_crtc *mtk_crtc = container_of(s, typeof(*mtk_crtc), mml_ir_sram);
 
-	if (!mtk_crtc)
-		return;
-
 	DDPMSG("%s: sram_list is empty, free sram\n", __func__);
 	mtk_crtc_free_sram(mtk_crtc);
 
