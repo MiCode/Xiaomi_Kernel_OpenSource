@@ -759,6 +759,20 @@ struct mtk_drm_disp_caps_info {
 	unsigned int msync_level_num;
 };
 
+struct mtk_drm_wb_caps {
+	bool support;
+	bool rsz;
+	bool rsz_crop;
+	unsigned int rsz_out_min_w;
+	unsigned int rsz_out_min_h;
+	unsigned int rsz_out_max_w;
+	unsigned int rsz_out_max_h;
+};
+
+struct mtk_drm_crtc_caps {
+	struct mtk_drm_wb_caps wb_caps[MTK_DRM_DUMP_POINT_NUM];
+};
+
 struct drm_mtk_session_info {
 	unsigned int session_id;
 	unsigned int vsyncFPS;
