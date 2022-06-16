@@ -46,23 +46,6 @@ const char *cmdq_event_module_dispatch(phys_addr_t gce_pa, const u16 event,
 	s32 thread)
 {
 	switch (event) {
-	case CMDQ_EVENT_VDEC1_MDP0_RDMA_SW_RST_DONE_ENG_EVENT
-		... CMDQ_EVENT_VDEC1_MDP1_WDMA_TILE_DONE:
-		return "VFMT";
-	case CMDQ_SYNC_TOKEN_CONFIG_DIRTY:
-	case CMDQ_SYNC_TOKEN_STREAM_EOF:
-	case CMDQ_SYNC_TOKEN_ESD_EOF:
-	case CMDQ_SYNC_TOKEN_STREAM_BLOCK:
-	case CMDQ_SYNC_TOKEN_CABC_EOF:
-		return "DISP";
-	case CMDQ_SYNC_TOKEN_IMGSYS_POOL_1
-		... CMDQ_SYNC_TOKEN_IMGSYS_POOL_100:
-	case CMDQ_SYNC_TOKEN_IMGSYS_WPE_EIS
-		... CMDQ_SYNC_TOKEN_IPESYS_ME:
-	case CMDQ_SYNC_TOKEN_IMGSYS_POOL_101
-		... CMDQ_SYNC_TOKEN_IMGSYS_POOL_140:
-		return "IMGSYS";
-
 	case CMDQ_EVENT_GPR_TIMER ... CMDQ_EVENT_GPR_TIMER + 32:
 		return cmdq_thread_module_dispatch(gce_pa, thread);
 	}
@@ -80,6 +63,12 @@ const char *cmdq_event_module_dispatch(phys_addr_t gce_pa, const u16 event,
 			return "DISP";
 		case CMDQ_EVENT_GCE_EVENT_DSI0_TE_I
 			... CMDQ_EVENT_DPTX_DPTX_EVENT_1:
+			return "DISP";
+		case CMDQ_SYNC_TOKEN_CONFIG_DIRTY:
+		case CMDQ_SYNC_TOKEN_STREAM_EOF:
+		case CMDQ_SYNC_TOKEN_ESD_EOF:
+		case CMDQ_SYNC_TOKEN_STREAM_BLOCK:
+		case CMDQ_SYNC_TOKEN_CABC_EOF:
 			return "DISP";
 		default:
 			return "CMDQ";
@@ -146,6 +135,18 @@ const char *cmdq_event_module_dispatch(phys_addr_t gce_pa, const u16 event,
 		case CMDQ_EVENT_CAM_CAM_SUBA_TG_INT1
 			... CMDQ_EVENT_CAM_ADL_RD_FRAME_DONE:
 			return "CAM";
+		case CMDQ_EVENT_VDEC1_MDP0_RDMA_SW_RST_DONE_ENG_EVENT
+			... CMDQ_EVENT_VDEC1_MDP1_WDMA_TILE_DONE:
+			return "VFMT";
+		case CMDQ_SYNC_TOKEN_IMGSYS_POOL_1
+			... CMDQ_SYNC_TOKEN_IMGSYS_POOL_133:
+		case CMDQ_SYNC_TOKEN_IMGSYS_WPE_EIS
+			... CMDQ_SYNC_TOKEN_IPESYS_ME:
+		case CMDQ_SYNC_TOKEN_IMGSYS_POOL_134
+			... CMDQ_SYNC_TOKEN_IMGSYS_POOL_221:
+		case CMDQ_SYNC_TOKEN_IMGSYS_POOL_222
+			... CMDQ_SYNC_TOKEN_IMGSYS_POOL_250:
+			return "IMGSYS";
 		default:
 			return "CMDQ";
 		}
