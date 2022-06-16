@@ -142,6 +142,11 @@ struct mtk_spi {
 	const struct mtk_spi_compatible *dev_comp;
 	struct pm_qos_request spi_qos_request;
 	u32 spi_clk_hz;
+	/* Add auto_suspend_delay for user to balance
+	 * power consumption and performance, default 0.
+	 */
+	u32 auto_suspend_delay;
+	bool suspend_delay_update;
 };
 
 static const struct mtk_spi_compatible mtk_common_compat;
@@ -415,19 +420,12 @@ static int mtk_spi_set_hw_cs_timing(struct spi_device *spi)
 static int mtk_spi_prepare_message(struct spi_master *master,
 				   struct spi_message *msg)
 {
-	int ret;
 	u16 cpha, cpol;
 	u32 reg_val;
 	struct spi_device *spi = msg->spi;
 	struct mtk_chip_config *chip_config = spi->controller_data;
 	struct mtk_spi *mdata = spi_master_get_devdata(master);
 
-	if (mdata->dev_comp->no_need_unprepare)
-		ret = clk_enable(mdata->spi_clk);
-	else
-		ret = clk_prepare_enable(mdata->spi_clk);
-	if (ret)
-		return ret;
 	cpu_latency_qos_update_request(&mdata->spi_qos_request, 500);
 
 	cpha = spi->mode & SPI_CPHA ? 1 : 0;
@@ -542,11 +540,6 @@ static int mtk_spi_unprepare_message(struct spi_controller *ctlr,
 {
 	struct mtk_spi *mdata = spi_master_get_devdata(ctlr);
 
-	if (mdata->dev_comp->no_need_unprepare)
-		clk_disable(mdata->spi_clk);
-	else
-		clk_disable_unprepare(mdata->spi_clk);
-
 	cpu_latency_qos_update_request(&mdata->spi_qos_request, PM_QOS_DEFAULT_VALUE);
 	return 0;
 }
@@ -554,17 +547,7 @@ static int mtk_spi_unprepare_message(struct spi_controller *ctlr,
 static void mtk_spi_set_cs(struct spi_device *spi, bool enable)
 {
 	u32 reg_val;
-	int ret;
 	struct mtk_spi *mdata = spi_master_get_devdata(spi->master);
-
-	if (mdata->dev_comp->no_need_unprepare)
-		ret = clk_enable(mdata->spi_clk);
-	else
-		ret = clk_prepare_enable(mdata->spi_clk);
-	if (ret < 0) {
-		dev_err(&spi->dev, "failed to enable spi_clk (%d)\n", ret);
-		return;
-	}
 
 	if (spi->mode & SPI_CS_HIGH)
 		enable = !enable;
@@ -579,10 +562,6 @@ static void mtk_spi_set_cs(struct spi_device *spi, bool enable)
 		mdata->state = MTK_SPI_IDLE;
 		mtk_spi_reset(mdata);
 	}
-	if (mdata->dev_comp->no_need_unprepare)
-		clk_disable(mdata->spi_clk);
-	else
-		clk_disable_unprepare(mdata->spi_clk);
 }
 
 static void mtk_spi_prepare_transfer(struct spi_master *master,
@@ -970,7 +949,7 @@ static int mtk_spi_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
-	master->auto_runtime_pm = false;
+	master->auto_runtime_pm = true;
 	master->dev.of_node = pdev->dev.of_node;
 	master->mode_bits = SPI_CPOL | SPI_CPHA | SPI_LSB_FIRST;
 
@@ -1137,6 +1116,28 @@ static int mtk_spi_probe(struct platform_device *pdev)
 		dev_notice(&pdev->dev, "SPI dma_set_mask(%d) failed, ret:%d\n",
 			   addr_bits, ret);
 
+	ret = of_property_read_u32_index(
+				pdev->dev.of_node, "mediatek,autosuspend_delay",
+				0, &mdata->auto_suspend_delay);
+	if (ret < 0) {
+		dev_info(&pdev->dev,
+				"get 'mediatek,autosuspend_delay' fail[%d], set 0\n", ret);
+		mdata->auto_suspend_delay = 0;
+	}
+	pm_runtime_set_autosuspend_delay(&pdev->dev, mdata->auto_suspend_delay);
+	dev_info(&pdev->dev, "SPI probe, set auto_suspend delay = %dmS!\n",
+				mdata->auto_suspend_delay);
+	pm_runtime_use_autosuspend(&pdev->dev);
+	pm_runtime_enable(&pdev->dev);
+
+	if (mdata->dev_comp->no_need_unprepare) {
+		ret = clk_prepare(mdata->spi_clk);
+		if (ret < 0) {
+			dev_err(&pdev->dev, "failed to prepare spi_clk (%d)\n", ret);
+			goto err_put_master;
+		}
+	}
+
 	ret = devm_spi_register_master(&pdev->dev, master);
 	if (ret) {
 		dev_err(&pdev->dev, "failed to register master (%d)\n", ret);
@@ -1157,11 +1158,103 @@ static int mtk_spi_remove(struct platform_device *pdev)
 	struct mtk_spi *mdata = spi_master_get_devdata(master);
 
 	cpu_latency_qos_remove_request(&mdata->spi_qos_request);
-	clk_unprepare(mdata->spi_clk);
+	pm_runtime_disable(&pdev->dev);
 
+	mtk_spi_reset(mdata);
 
 	return 0;
 }
+
+static int mtk_spi_runtime_suspend(struct device *dev)
+{
+	struct spi_master *master = dev_get_drvdata(dev);
+	struct mtk_spi *mdata = spi_controller_get_devdata(master);
+
+	if (mdata->dev_comp->no_need_unprepare)
+		clk_disable(mdata->spi_clk);
+	else
+		clk_disable_unprepare(mdata->spi_clk);
+
+	return 0;
+}
+
+static int mtk_spi_runtime_resume(struct device *dev)
+{
+	struct spi_master *master = dev_get_drvdata(dev);
+	struct mtk_spi *mdata = spi_controller_get_devdata(master);
+	int ret;
+
+	if (mdata->suspend_delay_update) {
+		pm_runtime_set_autosuspend_delay(dev, mdata->auto_suspend_delay);
+		mdata->suspend_delay_update = false;
+		dev_info(dev, "set auto_suspend delay = %dmS!\n", mdata->auto_suspend_delay);
+	}
+
+	if (mdata->dev_comp->no_need_unprepare)
+		ret = clk_enable(mdata->spi_clk);
+	else
+		ret = clk_prepare_enable(mdata->spi_clk);
+
+	if (ret < 0) {
+		dev_err(dev, "failed to enable spi_clk (%d)\n", ret);
+		return ret;
+	}
+
+	return 0;
+}
+
+void mtk_spi_set_autosuspend_delay(struct spi_device *spi, int delay_ms)
+{
+	struct mtk_spi *mdata = spi_master_get_devdata(spi->master);
+
+	/*delay time longer than 10 seconds, WARNING ON*/
+	WARN(delay_ms > 10000, "SPI auto suspend delay too long, pls review it!\n");
+
+	if (!(delay_ms == mdata->auto_suspend_delay)) {
+		mdata->auto_suspend_delay = delay_ms;
+		mdata->suspend_delay_update = true;
+	}
+}
+EXPORT_SYMBOL(mtk_spi_set_autosuspend_delay);
+
+static int mtk_spi_suspend(struct device *dev)
+{
+	struct spi_master *master = dev_get_drvdata(dev);
+	int ret;
+
+	ret = spi_controller_suspend(master);
+	if (ret)
+		return ret;
+
+	if (!pm_runtime_suspended(dev))
+		ret = mtk_spi_runtime_suspend(dev);
+
+	return ret;
+}
+
+static int mtk_spi_resume(struct device *dev)
+{
+	struct spi_master *master = dev_get_drvdata(dev);
+	int ret;
+
+
+	if (!pm_runtime_suspended(dev)) {
+		ret = mtk_spi_runtime_resume(dev);
+		if (ret)
+			goto out;
+	}
+
+	ret = spi_controller_resume(master);
+
+out:
+	return ret;
+}
+
+static const struct dev_pm_ops mtk_spi_pm = {
+	SET_SYSTEM_SLEEP_PM_OPS(mtk_spi_suspend, mtk_spi_resume)
+	SET_RUNTIME_PM_OPS(mtk_spi_runtime_suspend,
+			   mtk_spi_runtime_resume, NULL)
+};
 
 void mt_spi_disable_master_clk(struct spi_device *spidev)
 {
@@ -1187,6 +1280,7 @@ EXPORT_SYMBOL(mt_spi_enable_master_clk);
 static struct platform_driver mtk_spi_driver = {
 	.driver = {
 		.name = "mtk-spi",
+		.pm = &mtk_spi_pm,
 		.of_match_table = mtk_spi_of_match,
 	},
 	.probe = mtk_spi_probe,
