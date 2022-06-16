@@ -4852,9 +4852,6 @@ static int mtk_camsys_event_handle_camsv(struct mtk_cam_device *cam,
 		struct mtk_cam_ctx *ctx =
 			mtk_cam_find_ctx(cam, &pipeline->subdev.entity);
 
-		dev_dbg(camsv_dev->dev, "sv special hw scenario: %d/%d/%d\n",
-			camsv_dev->pipeline->master_pipe_id,
-			raw_dev->id, ctx->stream_id);
 		if (camsv_dev->pipeline->hw_scen &
 			(1 << MTKCAM_SV_SPECIAL_SCENARIO_EXT_ISP)) {
 			int seninf_padidx = cam->sv.pipelines[camsv_dev->id]
@@ -5520,7 +5517,7 @@ void mtk_cam_extisp_sv_frame_start(struct mtk_cam_ctx *ctx,
 		/* Find to-be-set element*/
 		if (state_temp->estate == E_STATE_EXTISP_SENSOR)
 			state_sensor = state_temp;
-		dev_info(ctx->cam->dev,
+		dev_dbg(ctx->cam->dev,
 		"[%s] STATE_CHECK [N-%d] Req:%d / State:0x%x\n",
 		__func__, stateidx, stream_data->frame_seq_no, state_temp->estate);
 	}
@@ -5558,6 +5555,12 @@ void mtk_cam_extisp_sv_frame_start(struct mtk_cam_ctx *ctx,
 						return;
 					}
 					mtk_cam_img_wbuf_set_s_data(buf_entry, stream_data);
+					/* check streaming status - avoid racing with stream off */
+					if (!ctx->streaming) {
+						dev_info(ctx->cam->dev, "%s: stream off\n",
+						__func__);
+						return;
+					}
 					/* put to processing list */
 					spin_lock(&ctx->processing_img_buffer_list.lock);
 					list_add_tail(&buf_entry->list_entry,
@@ -5566,7 +5569,7 @@ void mtk_cam_extisp_sv_frame_start(struct mtk_cam_ctx *ctx,
 					spin_unlock(&ctx->processing_img_buffer_list.lock);
 					iova = buf_entry->img_buffer.iova;
 					finish_img_buf(stream_data);
-					dev_info(ctx->cam->dev, "%s: using img buffer: req:%d seninf_padidx:%d\n",
+					dev_dbg(ctx->cam->dev, "%s: using img buffer: req:%d seninf_padidx:%d\n",
 						__func__, stream_data->frame_seq_no, seninf_padidx);
 				}
 				mtk_cam_sv_enquehwbuf(camsv_dev,
@@ -5660,7 +5663,7 @@ int mtk_camsys_extisp_state_handle(struct mtk_raw_device *raw_dev,
 			if (state_temp->estate == E_STATE_EXTISP_SV_OUTER)
 				if (!state_sv)
 					state_sv = state_temp;
-			dev_info(ctx->cam->dev,
+			dev_dbg(ctx->cam->dev,
 			"[%s] STATE_CHECK [N-%d] Req:%d / State:0x%x\n", __func__,
 			stateidx, stream_data->frame_seq_no, state_temp->estate);
 		}
@@ -5775,6 +5778,12 @@ void mtk_camsys_extisp_yuv_frame_start(struct mtk_camsv_device *camsv,
 				return;
 			}
 			mtk_cam_img_wbuf_set_s_data(buf_entry, req_stream_data);
+			/* check streaming status - avoid racing between stream off */
+			if (!ctx->streaming) {
+				dev_info(ctx->cam->dev, "%s: stream off\n",
+				__func__);
+				return;
+			}
 			/* put to processing list */
 			spin_lock(&ctx->processing_img_buffer_list.lock);
 			list_add_tail(&buf_entry->list_entry,
@@ -5792,7 +5801,7 @@ void mtk_camsys_extisp_yuv_frame_start(struct mtk_camsv_device *camsv,
 			E_STATE_EXTISP_SV_OUTER, E_STATE_EXTISP_OUTER);
 		state_transition(current_state,
 			E_STATE_EXTISP_SV_INNER, E_STATE_EXTISP_OUTER);
-		dev_dbg(camsv->dev,
+		dev_info(camsv->dev,
 		"YUVSOF[ctx:%d-#%d], CQ-%d is update, composed:%d, time:%lld, monotime:%lld\n",
 		ctx->stream_id, dequeued_frame_seq_no, req_stream_data->frame_seq_no,
 		ctx->composed_frame_seq_no, req_stream_data->timestamp,
@@ -5859,6 +5868,12 @@ void mtk_camsys_extisp_raw_frame_start(struct mtk_raw_device *raw_dev,
 		list_del(&buf_entry->list_entry);
 		ctx->composed_buffer_list.cnt--;
 		spin_unlock(&ctx->composed_buffer_list.lock);
+		/* check streaming status - avoid racing between stream off */
+		if (!ctx->streaming) {
+			dev_info(ctx->cam->dev, "%s: stream off\n",
+			__func__);
+			return;
+		}
 		spin_lock(&ctx->processing_buffer_list.lock);
 		list_add_tail(&buf_entry->list_entry,
 			      &ctx->processing_buffer_list.list);
