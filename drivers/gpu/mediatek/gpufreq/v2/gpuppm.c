@@ -18,6 +18,7 @@
 #include <gpufreq_v2.h>
 #include <gpuppm.h>
 #include <gpufreq_common.h>
+#include <gpufreq_history_common.h>
 
 /**
  * ===============================================
@@ -505,6 +506,10 @@ int gpuppm_limited_commit(enum gpufreq_target target, int oppidx)
 	GPUFREQ_LOGD("[%s] restrict OPP index: (%d->%d), limited interval: [%d, %d]",
 		(target == TARGET_STACK) ? "STACK" : "GPU",
 		oppidx, limited_idx, cur_ceiling, cur_floor);
+
+#if GPUFREQ_HISTORY_ENABLE
+	gpufreq_set_history_target_opp(target, oppidx);
+#endif /* GPUFREQ_HISTORY_ENABLE */
 
 	if (target == TARGET_STACK)
 		ret = __gpufreq_generic_commit_stack(limited_idx, DVFS_FREE);
