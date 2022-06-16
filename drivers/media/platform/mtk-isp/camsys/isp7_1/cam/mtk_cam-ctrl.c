@@ -39,6 +39,8 @@
 #define SENSOR_DELAY_GUARD_TIME_60FPS 16
 #define SENSOR_SET_STAGGER_DEADLINE_MS  23
 #define SENSOR_SET_STAGGER_RESERVED_MS  4
+#define SENSOR_SET_EXTISP_DEADLINE_MS  22
+#define SENSOR_SET_EXTISP_RESERVED_MS  5
 
 
 #define STATE_NUM_AT_SOF 5
@@ -5226,6 +5228,13 @@ int mtk_camsys_ctrl_start(struct mtk_cam_ctx *ctx)
 			SENSOR_SET_STAGGER_DEADLINE_MS;
 		camsys_sensor_ctrl->timer_req_sensor =
 			SENSOR_SET_STAGGER_RESERVED_MS;
+	}
+	if (mtk_cam_is_ext_isp(ctx) &&
+		fps_factor == 1 && sub_ratio == 0) {
+		camsys_sensor_ctrl->timer_req_event =
+			SENSOR_SET_EXTISP_DEADLINE_MS;
+		camsys_sensor_ctrl->timer_req_sensor =
+			SENSOR_SET_EXTISP_RESERVED_MS;
 	}
 	INIT_LIST_HEAD(&camsys_sensor_ctrl->camsys_state_list);
 	spin_lock_init(&camsys_sensor_ctrl->camsys_state_lock);
