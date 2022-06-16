@@ -10,6 +10,7 @@
 #include <linux/suspend.h>
 #include <linux/of_address.h>
 #include <linux/of_device.h>
+#include <linux/namei.h>
 #include "vdec_fmt_driver.h"
 #include "vdec_fmt_dmabuf.h"
 #include "vdec_fmt_pm.h"
@@ -344,6 +345,19 @@ static void fmt_dump_addr_reg(void)
 
 	if (fmt->dtsInfo.RDMA_needWA)
 		cmdq_util_prebuilt_dump(1, CMDQ_TOKEN_PREBUILT_VFMT_WAIT);
+
+	if (!fmt->dtsInfo.RDMA_needWA) {
+		for (idx = 0; idx < fmt->dtsInfo.pipeNum; idx++) {
+			fmt_debug(0, "RDMA%d(0x%lx) 0x%x (0x%lx) 0x%x (0x%lx) 0x%x",
+			idx, ADDR0(0xF00), REG0(0xF00), ADDR0(0xF08), REG0(0xF08),
+			ADDR0(0xF10), REG0(0xF10));
+			fmt_debug(0, "RDMA%d(0x%lx) 0x%x (0x%lx) 0x%x (0x%lx) 0x%x",
+			idx, ADDR0(0xF20), REG0(0xF20), ADDR0(0xF28), REG0(0xF28),
+			ADDR0(0xF54), REG0(0xF54));
+		}
+	}
+
+
 	for (idx = 0; idx < fmt->dtsInfo.pipeNum; idx++) {
 		fmt_debug(0, "RDMA%d(0x%lx) 0x%x (0x%lx) 0x%x (0x%lx) 0x%x (0x%lx) 0x%x",
 		idx, ADDR0(0x0), REG0(0x0), ADDR0(0x4), REG0(0x4),
@@ -1263,7 +1277,10 @@ static struct platform_driver vdec_fmt_driver = {
 static int __init fmt_init(void)
 {
 	int ret;
+	struct path path;
+	char *pathname = "/dev/fmt_sync";
 
+	fmt_debug(0, "+ fmt init +");
 	ret = platform_driver_register(&vdec_fmt_driver);
 	if (ret) {
 		fmt_err("failed to init fmt_device");
@@ -1273,6 +1290,15 @@ static int __init fmt_init(void)
 	ret = fmt_sync_device_init();
 	if (ret != 0)
 		fmt_debug(0, "fmt_sync init failed");
+	while (kern_path(pathname, LOOKUP_FOLLOW, &path))
+		NULL;
+
+	fmt_debug(0, "get path success name:%s inode:%lu",
+		path.dentry->d_name.name,
+		path.dentry->d_inode);
+	path_put(&path);
+	fmt_debug(0, "- fmt init -");
+
 	return 0;
 }
 static void __init fmt_exit(void)
@@ -1280,8 +1306,9 @@ static void __init fmt_exit(void)
 	platform_driver_unregister(&vdec_fmt_driver);
 }
 
-module_init(fmt_init);
+subsys_initcall(fmt_init);
 module_exit(fmt_exit);
 
 
 MODULE_LICENSE("GPL");
+MODULE_IMPORT_NS(VFS_internal_I_am_really_a_filesystem_and_am_NOT_a_driver);
