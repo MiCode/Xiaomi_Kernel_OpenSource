@@ -1159,7 +1159,7 @@ static ssize_t md_cd_dump_show(struct ccci_modem *md, char *buf)
 {
 	int count = 0;
 
-	count = snprintf(buf, 256,
+	count = scnprintf(buf, 256,
 		"support: ccif cldma register smem image layout\n");
 	return count;
 }
@@ -1486,7 +1486,7 @@ int ccci_modem_init_common(struct platform_device *plat_dev,
 	/* init modem private data */
 	md_info = (struct md_sys1_info *)md->private_data;
 
-	snprintf(md->trm_wakelock_name, sizeof(md->trm_wakelock_name),
+	scnprintf(md->trm_wakelock_name, sizeof(md->trm_wakelock_name),
 		"md_cldma_trm");
 	md->trm_wake_lock = wakeup_source_register(NULL, md->trm_wakelock_name);
 	if (!md->trm_wake_lock) {
@@ -1495,7 +1495,7 @@ int ccci_modem_init_common(struct platform_device *plat_dev,
 			__func__, __LINE__);
 		return -1;
 	}
-	snprintf(md_info->peer_wakelock_name,
+	scnprintf(md_info->peer_wakelock_name,
 		sizeof(md_info->peer_wakelock_name), "md_cldma_peer");
 
 	md_info->peer_wake_lock =

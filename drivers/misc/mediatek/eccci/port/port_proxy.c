@@ -152,13 +152,7 @@ READ_START:
 		 */
 		if (port->rx_skb_list.qlen == 0)
 			port_ask_more_req_to_md(port);
-		if (port->rx_skb_list.qlen < 0) {
-			spin_unlock_irqrestore(&port->rx_skb_list.lock, flags);
-			CCCI_ERROR_LOG(-1, CHAR,
-				"%s:port->rx_skb_list.qlen < 0 %s\n",
-				__func__, port->name);
-			return -EFAULT;
-		}
+
 	} else {
 		read_len = size;
 	}
@@ -420,13 +414,6 @@ READ_START:
 		 */
 		if (port->rx_skb_list.qlen == 0)
 			port_ask_more_req_to_md(port);
-		if (port->rx_skb_list.qlen < 0) {
-			spin_unlock_irqrestore(&port->rx_skb_list.lock, flags);
-			CCCI_ERROR_LOG(0, CHAR,
-				"%s:port->rx_skb_list.qlen < 0 %s\n",
-				__func__, port->name);
-			return -EFAULT;
-		}
 	} else {
 		read_len = count;
 	}
@@ -1245,8 +1232,20 @@ static inline void proxy_setup_channel_mapping(struct port_proxy *proxy_p)
 		port = proxy_p->ports + i;
 		if (port->rx_ch < CCCI_MAX_CH_NUM)
 			port_list[port->rx_ch] = port;
+		else {
+			CCCI_ERROR_LOG(0, TAG,
+				"%s:%s rx_ch=%d error\n",
+				__func__, port->name, port->rx_ch);
+			continue;
+		}
 		if (port->tx_ch < CCCI_MAX_CH_NUM)
 			port_list[port->tx_ch] = port;
+		else {
+			CCCI_ERROR_LOG(0, TAG,
+				"%s:%s tx_ch=%d error\n",
+				__func__, port->name, port->tx_ch);
+			continue;
+		}
 		/*setup RX_CH=>port list mapping*/
 		list_add_tail(&port->entry, &proxy_p->rx_ch_ports[port->rx_ch]);
 

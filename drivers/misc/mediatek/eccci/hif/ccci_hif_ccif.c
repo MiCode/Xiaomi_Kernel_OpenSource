@@ -630,7 +630,7 @@ static void md_ccif_traffic_work_func(struct work_struct *work)
 	}
 	for (idx = 0; idx < CCIF_CH_NUM; idx++) {
 		ret = snprintf(string_temp, 1024,
-			"%srxq%d isr_cnt=%d;",	string, idx,
+			"%srxq%d isr_cnt=%llu;", string, idx,
 			md_ctrl->isr_cnt[idx]);
 		if (ret < 0 || ret >= 1024) {
 			CCCI_DEBUG_LOG(0, TAG,
@@ -1886,7 +1886,7 @@ static int ccif_hif_hw_init(struct device *dev, struct md_ccif_ctrl *md_ctrl)
 		md_ctrl->md_ccif5_base = of_iomap(node, 0);
 		if (!md_ctrl->md_ccif5_base) {
 			CCCI_ERROR_LOG(-1, TAG,
-				"ccif5_base fail: 0x%p!\n");
+				"ccif5_base fail\n");
 			return -7;
 		}
 	}

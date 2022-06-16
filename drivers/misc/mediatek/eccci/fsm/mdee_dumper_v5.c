@@ -248,7 +248,7 @@ static void mdee_output_debug_info_to_buf(struct ccci_fsm_ee *mdee,
 
 static void mdee_info_dump_v5(struct ccci_fsm_ee *mdee)
 {
-	char *ex_info; /* aed api par4 */
+	char *ex_info = NULL; /* aed api par4 */
 	char *ex_info_temp = NULL;
 	int db_opt = (DB_OPT_DEFAULT | DB_OPT_FTRACE); /* aed api par5 */
 	int dump_flag = 0;

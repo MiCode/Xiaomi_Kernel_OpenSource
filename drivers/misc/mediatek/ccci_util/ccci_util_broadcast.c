@@ -122,10 +122,10 @@ static void inject_event_helper(struct ccci_util_bc_user_ctlb *user_ctlb,
 	user_ctlb->event_buf[user_ctlb->curr_w].md_id = 0;
 	user_ctlb->event_buf[user_ctlb->curr_w].event_type = event_type;
 	if (reason != NULL)
-		snprintf(user_ctlb->event_buf[user_ctlb->curr_w].reason, 32,
+		scnprintf(user_ctlb->event_buf[user_ctlb->curr_w].reason, 32,
 			"%s", reason);
 	else
-		snprintf(user_ctlb->event_buf[user_ctlb->curr_w].reason, 32,
+		scnprintf(user_ctlb->event_buf[user_ctlb->curr_w].reason, 32,
 			"%s", "----");
 	user_ctlb->curr_w++;
 	if (user_ctlb->curr_w >= user_ctlb->buff_cnt)
@@ -151,9 +151,9 @@ static void save_last_md_status(
 	last_md_status.event_type = event_type;
 
 	if (reason != NULL)
-		snprintf(last_md_status.reason, 32, "%s", reason);
+		scnprintf(last_md_status.reason, 32, "%s", reason);
 	else
-		snprintf(last_md_status.reason, 32, "%s", "----");
+		scnprintf(last_md_status.reason, 32, "%s", "----");
 }
 
 static void send_last_md_status_to_user(
@@ -212,7 +212,7 @@ int get_lock_rst_user_list(char list_buff[], int size)
 	list_for_each_entry(user_ctlb,
 		&s_bc_ctl_tbl[0]->user_list, node) {
 		if (user_ctlb->has_request_rst_lock) {
-			cpy_size = snprintf(&list_buff[total_size],
+			cpy_size = scnprintf(&list_buff[total_size],
 			size - total_size,
 			"%s,", user_ctlb->user_name);
 			if (cpy_size > 0)
@@ -254,7 +254,7 @@ static int ccci_util_bc_open(struct inode *inode, struct file *filp)
 	user_ctlb->buff_cnt = EVENT_BUFF_SIZE;
 	user_ctlb->exit = 0;
 	INIT_LIST_HEAD(&user_ctlb->node);
-	snprintf(user_ctlb->user_name, 32, "%s", current->comm);
+	scnprintf(user_ctlb->user_name, 32, "%s", current->comm);
 	filp->private_data = user_ctlb;
 	nonseekable_open(inode, filp);
 

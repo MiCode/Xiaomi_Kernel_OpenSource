@@ -12,7 +12,7 @@
 
 static int fsm_get_no_response_assert_type(struct ccci_fsm_poller *poller_ctl)
 {
-	unsigned long long traffic_info[3];
+	unsigned long long traffic_info[3] = {0};
 	u64 latest_isr_time = 0;
 	u64 latest_q0_isr_time = 0;
 	u64 latest_q0_rx_time = 0;

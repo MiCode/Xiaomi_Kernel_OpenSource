@@ -148,8 +148,7 @@ static inline void ccci_md_inc_tx_seq_num(
 	struct ccci_hif_traffic *traffic_info,
 	struct ccci_header *ccci_h)
 {
-	if (ccci_h->channel >= ARRAY_SIZE(traffic_info->seq_nums[OUT])
-		|| ccci_h->channel < 0) {
+	if (ccci_h->channel >= ARRAY_SIZE(traffic_info->seq_nums[OUT])) {
 		CCCI_NORMAL_LOG(0, CORE,
 			"ignore seq inc on channel %x\n",
 			*(((u32 *) ccci_h) + 2));
@@ -173,7 +172,7 @@ static inline void ccci_md_inc_tx_seq_num(
 static inline void ccci_channel_update_packet_counter(
 	unsigned long *logic_ch_pkt_cnt, struct ccci_header *ccci_h)
 {
-	if ((ccci_h->channel & 0xFF) < CCCI_MAX_CH_NUM)
+	if (ccci_h->channel < CCCI_MAX_CH_NUM)
 		logic_ch_pkt_cnt[ccci_h->channel]++;
 }
 

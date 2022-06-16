@@ -58,7 +58,7 @@ static void ccci_aed_v1(struct ccci_fsm_ee *mdee, unsigned int dump_flag,
 		/* Cut string length to AED_STR_LEN */
 		buff[AED_STR_LEN - 1] = '\0';
 
-	snprintf(buff, AED_STR_LEN, "md:%s%s", aed_str, img_inf);
+	scnprintf(buff, AED_STR_LEN, "md:%s%s", aed_str, img_inf);
 	/* MD ID must sync with aee_dump_ccci_debug_info() */
  err_exit1:
 	if (dump_flag & CCCI_AED_DUMP_CCIF_REG) {
@@ -129,7 +129,7 @@ static void mdee_dumper_info_dump_v1(struct ccci_fsm_ee *mdee)
 	tv.tv_nsec = time_spec64.tv_nsec;
 	tv_android = tv;
 	rtc_time64_to_tm(tv.tv_sec, &tm);
-	tv_android.tv_sec -= sys_tz.tz_minuteswest * 60;
+	tv_android.tv_sec -= (time64_t)sys_tz.tz_minuteswest * 60;
 	rtc_time64_to_tm(tv_android.tv_sec, &tm_android);
 	CCCI_ERROR_LOG(0, FSM,
 	"Sync:%d%02d%02d %02d:%02d:%02d.%u(%02d:%02d:%02d.%03d(TZone))\n",
@@ -160,7 +160,7 @@ static void mdee_dumper_info_dump_v1(struct ccci_fsm_ee *mdee)
 				debug_info->assert.parameters[0],
 				debug_info->assert.parameters[1],
 				debug_info->assert.parameters[2]);
-		snprintf(ex_info, EE_BUF_LEN,
+		scnprintf(ex_info, EE_BUF_LEN,
 			"\n[%s] file:%s line:%d\np1:0x%08x\np2:0x%08x\np3:0x%08x\n",
 			debug_info->name,
 			debug_info->assert.file_name,
@@ -189,13 +189,13 @@ static void mdee_dumper_info_dump_v1(struct ccci_fsm_ee *mdee)
 		CCCI_NORMAL_LOG(0, FSM, "fatal error offender %s\n",
 			debug_info->fatal_error.offender);
 		if (debug_info->fatal_error.offender[0] != '\0') {
-			snprintf(ex_info, EE_BUF_LEN,
+			scnprintf(ex_info, EE_BUF_LEN,
 			"\n[%s] err_code1:%d err_code2:%d\nMD Offender:%s\n",
 			debug_info->name, debug_info->fatal_error.err_code1,
 			debug_info->fatal_error.err_code2,
 			debug_info->fatal_error.offender);
 		} else {
-			snprintf(ex_info, EE_BUF_LEN,
+			scnprintf(ex_info, EE_BUF_LEN,
 			"\n[%s] err_code1:%d err_code2:%d\n", debug_info->name,
 			debug_info->fatal_error.err_code1,
 			debug_info->fatal_error.err_code2);
@@ -206,7 +206,7 @@ static void mdee_dumper_info_dump_v1(struct ccci_fsm_ee *mdee)
 		debug_info->fatal_error.err_code1);
 		CCCI_NORMAL_LOG(0, FSM, "fatal error code 2 = %d\n",
 		debug_info->fatal_error.err_code2);
-		snprintf(ex_info, EE_BUF_LEN,
+		scnprintf(ex_info, EE_BUF_LEN,
 		"\n[%s] err_code1:%d err_code2:%d\n",
 		debug_info->name,
 		debug_info->fatal_error.err_code1,
@@ -217,7 +217,7 @@ static void mdee_dumper_info_dump_v1(struct ccci_fsm_ee *mdee)
 		"md_emi_check: %08X, %08X, %02d, %08X\n",
 		debug_info->data.data0, debug_info->data.data1,
 		debug_info->data.channel, debug_info->data.reserved);
-		snprintf(ex_info, EE_BUF_LEN,
+		scnprintf(ex_info, EE_BUF_LEN,
 		"\n[emi_chk] %08X, %08X, %02d, %08X\n",
 		debug_info->data.data0, debug_info->data.data1,
 		debug_info->data.channel, debug_info->data.reserved);
@@ -234,7 +234,7 @@ static void mdee_dumper_info_dump_v1(struct ccci_fsm_ee *mdee)
 			debug_info->dsp_assert.parameters[0],
 			debug_info->dsp_assert.parameters[1],
 			debug_info->dsp_assert.parameters[2]);
-		snprintf(ex_info, EE_BUF_LEN,
+		scnprintf(ex_info, EE_BUF_LEN,
 			"\n[%s] file:%s line:%d\nexec:%s\np1:%d\np2:%d\np3:%d\n",
 			debug_info->name, debug_info->assert.file_name,
 			debug_info->assert.line_num,
@@ -248,7 +248,7 @@ static void mdee_dumper_info_dump_v1(struct ccci_fsm_ee *mdee)
 			"exec unit = %s, code1:0x%08x\n",
 			debug_info->dsp_exception.execution_unit,
 			debug_info->dsp_exception.code1);
-		snprintf(ex_info, EE_BUF_LEN,
+		scnprintf(ex_info, EE_BUF_LEN,
 			"\n[%s] exec:%s code1:0x%08x\n", debug_info->name,
 			debug_info->dsp_exception.execution_unit,
 			debug_info->dsp_exception.code1);
@@ -261,7 +261,7 @@ static void mdee_dumper_info_dump_v1(struct ccci_fsm_ee *mdee)
 			debug_info->dsp_fatal_err.err_code[0],
 			debug_info->dsp_fatal_err.err_code[1]);
 
-		snprintf(ex_info, EE_BUF_LEN,
+		scnprintf(ex_info, EE_BUF_LEN,
 			"\n[%s] exec:%s err_code1:0x%08x err_code2:0x%08x\n",
 			debug_info->name,
 			debug_info->dsp_fatal_err.execution_unit,
@@ -270,7 +270,7 @@ static void mdee_dumper_info_dump_v1(struct ccci_fsm_ee *mdee)
 		break;
 
 	default:		/* Only display exception name */
-		snprintf(ex_info, EE_BUF_LEN, "\n[%s]\n", debug_info->name);
+		scnprintf(ex_info, EE_BUF_LEN, "\n[%s]\n", debug_info->name);
 		break;
 	}
 
@@ -281,21 +281,21 @@ static void mdee_dumper_info_dump_v1(struct ccci_fsm_ee *mdee)
 			"Fail alloc Mem for ex_info_temp!\n");
 		goto err_exit;
 	}
-	snprintf(ex_info_temp, EE_BUF_LEN, "%s", ex_info);
+	scnprintf(ex_info_temp, EE_BUF_LEN, "%s", ex_info);
 	switch (dumper->more_info) {
 	case MD_EE_CASE_ONLY_SWINT:
-		snprintf(ex_info, EE_BUF_LEN, "%s%s", ex_info_temp,
+		scnprintf(ex_info, EE_BUF_LEN, "%s%s", ex_info_temp,
 			"\nOnly SWINT case\n");
 		break;
 	case MD_EE_CASE_ONLY_EX:
-		snprintf(ex_info, EE_BUF_LEN, "%s%s", ex_info_temp,
+		scnprintf(ex_info, EE_BUF_LEN, "%s%s", ex_info_temp,
 			"\nOnly EX case\n");
 		break;
 	case MD_EE_CASE_NO_RESPONSE:
 		/* use strcpy, otherwise if this happens after a MD EE,
 		 * the former EE info will be printed out
 		 */
-		if (snprintf(ex_info, EE_BUF_LEN,
+		if (scnprintf(ex_info, EE_BUF_LEN,
 			"\n[Others] MD long time no response\n") < 0)
 			ex_info[0] = 0;
 		db_opt |= (unsigned int)DB_OPT_FTRACE;
@@ -309,24 +309,24 @@ static void mdee_dumper_info_dump_v1(struct ccci_fsm_ee *mdee)
 	}
 
 	/* get ELM_status field from MD side */
-	snprintf(ex_info_temp, EE_BUF_LEN, "%s", ex_info);
+	scnprintf(ex_info_temp, EE_BUF_LEN, "%s", ex_info);
 	c = dumper->ex_info.envinfo.ELM_status;
 	CCCI_ERROR_LOG(0, FSM, "ELM_status: %x\n", c);
 	switch (c) {
 	case 0xFF:
-		snprintf(ex_info, EE_BUF_LEN, "%s%s", ex_info_temp,
+		scnprintf(ex_info, EE_BUF_LEN, "%s%s", ex_info_temp,
 			"\nno ELM info\n");
 		break;
 	case 0xAE:
-		snprintf(ex_info, EE_BUF_LEN, "%s%s", ex_info_temp,
+		scnprintf(ex_info, EE_BUF_LEN, "%s%s", ex_info_temp,
 			"\nELM rlat:FAIL\n");
 		break;
 	case 0xBE:
-		snprintf(ex_info, EE_BUF_LEN, "%s%s", ex_info_temp,
+		scnprintf(ex_info, EE_BUF_LEN, "%s%s", ex_info_temp,
 			"\nELM wlat:FAIL\n");
 		break;
 	case 0xDE:
-		snprintf(ex_info, EE_BUF_LEN, "%s%s", ex_info_temp,
+		scnprintf(ex_info, EE_BUF_LEN, "%s%s", ex_info_temp,
 			"\nELM r/wlat:PASS\n");
 		break;
 	default:
@@ -455,7 +455,7 @@ static void mdee_dumper_info_prepare_v1(struct ccci_fsm_ee *mdee)
 
 	case MD_EX_TYPE_ASSERT:
 		debug_info->name = "ASSERT";
-		snprintf(debug_info->assert.file_name,
+		scnprintf(debug_info->assert.file_name,
 			sizeof(debug_info->assert.file_name),
 			ex_info->content.assert.filename);
 		debug_info->assert.line_num =
@@ -503,7 +503,7 @@ static void mdee_dumper_info_prepare_v1(struct ccci_fsm_ee *mdee)
 
 	case MD_EX_TYPE_ASSERT_DUMP:
 		debug_info->name = "ASSERT DUMP";
-		snprintf(debug_info->assert.file_name,
+		scnprintf(debug_info->assert.file_name,
 			sizeof(debug_info->assert.file_name),
 			ex_info->content.assert.filename);
 		debug_info->assert.line_num =
@@ -512,12 +512,12 @@ static void mdee_dumper_info_prepare_v1(struct ccci_fsm_ee *mdee)
 
 	case DSP_EX_TYPE_ASSERT:
 		debug_info->name = "MD DMD ASSERT";
-		snprintf(debug_info->dsp_assert.file_name,
+		scnprintf(debug_info->dsp_assert.file_name,
 			sizeof(debug_info->dsp_assert.file_name),
 			ex_info->content.assert.filename);
 		debug_info->dsp_assert.line_num =
 			ex_info->content.assert.linenumber;
-		snprintf(debug_info->dsp_assert.execution_unit,
+		scnprintf(debug_info->dsp_assert.execution_unit,
 			sizeof(debug_info->dsp_assert.execution_unit),
 			ex_info->envinfo.execution_unit);
 		debug_info->dsp_assert.parameters[0] =
@@ -530,7 +530,7 @@ static void mdee_dumper_info_prepare_v1(struct ccci_fsm_ee *mdee)
 
 	case DSP_EX_TYPE_EXCEPTION:
 		debug_info->name = "MD DMD Exception";
-		snprintf(debug_info->dsp_exception.execution_unit,
+		scnprintf(debug_info->dsp_exception.execution_unit,
 			sizeof(debug_info->dsp_exception.execution_unit),
 			ex_info->envinfo.execution_unit);
 		debug_info->dsp_exception.code1 =
@@ -539,7 +539,7 @@ static void mdee_dumper_info_prepare_v1(struct ccci_fsm_ee *mdee)
 
 	case DSP_EX_FATAL_ERROR:
 		debug_info->name = "MD DMD FATAL ERROR";
-		snprintf(debug_info->dsp_fatal_err.execution_unit,
+		scnprintf(debug_info->dsp_fatal_err.execution_unit,
 			sizeof(debug_info->dsp_fatal_err.execution_unit),
 			ex_info->envinfo.execution_unit);
 		debug_info->dsp_fatal_err.err_code[0] =
@@ -582,14 +582,14 @@ static void mdee_dumper_v1_dump_ee_info(struct ccci_fsm_ee *mdee,
 	dumper->more_info = more_info;
 	if (level == MDEE_DUMP_LEVEL_BOOT_FAIL) {
 		if (md_state == BOOT_WAITING_FOR_HS1) {
-			snprintf(ex_info, EE_BUF_LEN,
+			scnprintf(ex_info, EE_BUF_LEN,
 				"\n[Others] MD_BOOT_UP_FAIL(HS%d)\n", 1);
 			/* Handshake 1 fail */
 			ccci_aed_v1(mdee,
 			CCCI_AED_DUMP_CCIF_REG,
 			ex_info, DB_OPT_DEFAULT);
 		} else if (md_state == BOOT_WAITING_FOR_HS2) {
-			snprintf(ex_info, EE_BUF_LEN,
+			scnprintf(ex_info, EE_BUF_LEN,
 				"\n[Others] MD_BOOT_UP_FAIL(HS%d)\n", 2);
 			/* Handshake 2 fail */
 			CCCI_MEM_LOG_TAG(0, FSM, "Dump MD EX log\n");

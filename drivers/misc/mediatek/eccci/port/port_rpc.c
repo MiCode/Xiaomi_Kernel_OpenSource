@@ -215,8 +215,8 @@ struct eint_node_struct eint_node_prop = {
 
 static int get_eint_attr_val(struct device_node *node, int index)
 {
-	int value;
-	int ret = 0, type;
+	int value = 0;
+	int ret = 0, type = 0;
 
 	/* unit of AP eint is us, but unit of MD eint is ms.
 	 * So need covertion here.
@@ -1207,9 +1207,7 @@ static void rpc_msg_handler(struct port_t *port, struct sk_buff *skb)
 				skb->len, RPC_MAX_BUF_SIZE);
 		goto err_out;
 	}
-	if (rpc_buf->header.reserved < 0 ||
-		rpc_buf->header.reserved > RPC_REQ_BUFFER_NUM ||
-	    rpc_buf->para_num < 0 ||
+	if (rpc_buf->header.reserved > RPC_REQ_BUFFER_NUM ||
 		rpc_buf->para_num > RPC_MAX_ARG_NUM) {
 		CCCI_ERROR_LOG(0, RPC,
 			"invalid RPC index %d/%d\n",

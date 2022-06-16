@@ -173,6 +173,12 @@ void udc_cmd_check(struct port_t *port,
 			spin_lock_irqsave(&port->rx_skb_list.lock, flags);
 			/* dequeue */
 			*skb = __skb_dequeue(&port->rx_skb_list);
+			if ((*skb) == NULL) {
+				CCCI_ERROR_LOG(0, UDC,
+					"%s:__skb_dequeue fail\n", __func__);
+				spin_unlock_irqrestore(&port->rx_skb_list.lock, flags);
+				return;
+			}
 			spin_unlock_irqrestore(&port->rx_skb_list.lock, flags);
 			ccci_udc_deactv
 				= (struct ccci_udc_deactv_param_t *)
@@ -349,8 +355,6 @@ int udc_deactv_handler(struct z_stream_s *zcpr, u32 inst_id)
 				break;
 			}
 			rslt_des = rslt_des_base + ap_write;
-			rslt_des->sdu_idx = rslt_des->sdu_idx;
-			rslt_des->sit_type = rslt_des->sit_type;
 			rslt_des->udc = 0;
 
 			ap_write = (ap_write + 1) % 512;
@@ -470,7 +474,10 @@ static int check_cmp_buf(u32 inst_id,
 		ap_write = rw_index->ap_resp_ins1.write;
 		md_read = rw_index->ap_resp_ins1.read;
 	}
-
+	if (!rslt_des_base) {
+		CCCI_ERROR_LOG(-1, UDC, "rslt_des_base  null\n");
+		return -1;
+	}
 	md_read_len = (rslt_des_base + md_read)->cmp_addr
 		+ (rslt_des_base + md_read)->cmp_len;
 	if (total_comp_size < md_read_len) {
@@ -523,6 +530,12 @@ static int cal_udc_param(struct z_stream_s *zcpr, u32 inst_id,
 
 	if (*max_output_size == 0) {
 		req_des_tmp = req_des_base + ap_read;
+		if (!req_des_tmp) {
+			CCCI_ERROR_LOG(-1, UDC,
+				"%s:req_des_base&ap_read is null\n",
+				__func__);
+			return -1;
+		}
 		if (req_des_tmp->con == 0)
 			*max_output_size = deflateBound_cb(zcpr,
 			req_des_tmp->seg_len);

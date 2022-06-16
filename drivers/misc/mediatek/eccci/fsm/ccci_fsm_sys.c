@@ -14,7 +14,7 @@ void fsm_sys_mdee_info_notify(const char *buf)
 {
 	spin_lock(&mdee_collect.mdee_info_lock);
 	memset(mdee_collect.mdee_info, 0x0, AED_STR_LEN);
-	snprintf(mdee_collect.mdee_info, AED_STR_LEN, "%s", buf);
+	scnprintf(mdee_collect.mdee_info, AED_STR_LEN, "%s", buf);
 	spin_unlock(&mdee_collect.mdee_info_lock);
 }
 
@@ -76,7 +76,7 @@ static ssize_t ccci_mdee_info_show(char *buf)
 	int curr = 0;
 
 	spin_lock(&mdee_collect.mdee_info_lock);
-	curr = snprintf(buf, AED_STR_LEN, "%s\n", mdee_collect.mdee_info);
+	curr = scnprintf(buf, AED_STR_LEN, "%s\n", mdee_collect.mdee_info);
 	spin_unlock(&mdee_collect.mdee_info_lock);
 
 	return curr;

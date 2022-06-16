@@ -113,8 +113,8 @@ static inline void dpmaif_set_cpu_mask(struct cpumask *cpu_mask,
 
 static void dpmaif_handle_wakeup_skb(struct sk_buff *skb)
 {
-	struct iphdr *iph = (struct iphdr *)skb->data;
-	struct ipv6hdr *ip6h = (struct ipv6hdr *)skb->data;
+	struct iphdr *iph = NULL;
+	struct ipv6hdr *ip6h = NULL;
 	struct tcphdr *tcph = NULL;
 	struct udphdr *udph = NULL;
 	int ip_offset = 0;
@@ -124,8 +124,11 @@ static void dpmaif_handle_wakeup_skb(struct sk_buff *skb)
 	u32 dst_port = 0;
 	u32 skb_len  = 0;
 
-	if (!skb)
+	if (!skb || !(skb->data))
 		goto err;
+
+	iph = (struct iphdr *)skb->data;
+	ip6h = (struct ipv6hdr *)skb->data;
 
 	skb_len = skb->len;
 	version = iph->version;
@@ -321,7 +324,7 @@ static void dpmaif_dump_txq_data(int qno)
 		CCCI_MEM_LOG_TAG(0, TAG, "dpmaif: dump txq(%d): data ------->\n", i);
 
 		CCCI_MEM_LOG(0, TAG,
-			"dpmaif: drb(%d) base: 0x%p(%d*%d); txq pos: w/r/rel=(%u, %u, %u)\n",
+			"dpmaif: drb(%d) base: 0x%p(%zu*%d); txq pos: w/r/rel=(%u, %u, %u)\n",
 			txq->index, txq->drb_base, sizeof(struct dpmaif_drb_pd), txq->drb_cnt,
 			atomic_read(&txq->drb_wr_idx), atomic_read(&txq->drb_rd_idx),
 			atomic_read(&txq->drb_rel_rd_idx));
@@ -391,7 +394,7 @@ static inline void rxq_pit_cache_memory_flush(struct dpmaif_rx_queue *rxq,
 	unsigned int cur_pit = atomic_read(&rxq->pit_rd_idx);
 
 	/* flush pit base memory cache for read pit data */
-	cache_start_addr = rxq->pit_phy_addr + (drv.normal_pit_size * cur_pit);
+	cache_start_addr = rxq->pit_phy_addr + ((dma_addr_t)drv.normal_pit_size * cur_pit);
 
 	if ((cur_pit + read_cnt) <= rxq->pit_cnt) {
 		dma_sync_single_for_cpu(dpmaif_ctl->dev, cache_start_addr,
@@ -473,7 +476,7 @@ static inline int dpmaif_rxq_set_frg_to_skb(struct dpmaif_rx_queue *rxq,
 	if (!page) {
 		CCCI_ERROR_LOG(-1, TAG,
 			"[%s] error: frag check fail; buffer_id:%u; skb_idx: %d\n",
-			buffer_id, rxq->skb_idx);
+			__func__, buffer_id, rxq->skb_idx);
 		return DATA_CHECK_FAIL;
 	}
 
@@ -494,8 +497,8 @@ static inline int dpmaif_rxq_set_frg_to_skb(struct dpmaif_rx_queue *rxq,
 static inline void dpmaif_rxq_handle_skb_wakeup(struct dpmaif_rx_queue *rxq,
 		struct sk_buff *skb)
 {
-	struct iphdr *iph = (struct iphdr *)skb->data;
-	struct ipv6hdr *ip6h = (struct ipv6hdr *)skb->data;
+	struct iphdr *iph = NULL;
+	struct ipv6hdr *ip6h = NULL;
 	struct tcphdr *tcph = NULL;
 	struct udphdr *udph = NULL;
 	int ip_offset = 0;
@@ -505,8 +508,11 @@ static inline void dpmaif_rxq_handle_skb_wakeup(struct dpmaif_rx_queue *rxq,
 	u32 dst_port = 0;
 	u32 skb_len  = 0;
 
-	if (!skb)
+	if (!skb || !(skb->data))
 		goto err;
+
+	iph = (struct iphdr *)skb->data;
+	ip6h = (struct ipv6hdr *)skb->data;
 
 	skb_len = skb->len;
 	version = iph->version;
@@ -1314,7 +1320,8 @@ void ccci_dpmaif_txq_release_skb(struct dpmaif_tx_queue *txq, unsigned int relea
 
 static inline int dpmaif_txq_drb_release(struct dpmaif_tx_queue *txq)
 {
-	unsigned int rel_cnt, real_rel_cnt;
+	unsigned int rel_cnt = 0;
+	int real_rel_cnt = 0;
 
 	rel_cnt = dpmaif_get_txq_drb_release_cnt(txq);
 	if (rel_cnt) {
@@ -1322,7 +1329,6 @@ static inline int dpmaif_txq_drb_release(struct dpmaif_tx_queue *txq)
 
 		if (real_rel_cnt == rel_cnt)
 			return ALL_CLEAR;
-
 		if (real_rel_cnt < 0)
 			return ERROR_STOP;
 	}
@@ -1901,8 +1907,8 @@ static int dpmaif_rxqs_hw_stop(void)
 		count++;
 		if (ret && (count >= 1600000)) {
 			CCCI_ERROR_LOG(0, TAG,
-				"[%s] error: stop Rx failed, 0x%x\n",
-				__func__);
+				"[%s] error: stop Rx failed, %d\n",
+				__func__, ret);
 			break;
 		}
 
@@ -2205,7 +2211,7 @@ static void dpmaif_dump_rx_data(void)
 	}
 
 	CCCI_BUF_LOG_TAG(0, CCCI_DUMP_DPMAIF, TAG,
-		"Current bat request base: 0x%p(%u*%u); pos: w/r = %u,%u\n",
+		"Current bat request base: 0x%p(%u*%zu); pos: w/r = %u,%u\n",
 		dpmaif_ctl->bat_skb->bat_base,
 		dpmaif_ctl->bat_skb->bat_cnt, sizeof(struct dpmaif_bat_base),
 		atomic_read(&dpmaif_ctl->bat_skb->bat_wr_idx),
@@ -2420,7 +2426,7 @@ static int dpmaif_init_com(struct device *dev)
 
 	dpmaif_ctl->irq_id = irq_of_parse_and_map(dev->of_node, 0);
 	if (dpmaif_ctl->irq_id == 0) {
-		CCCI_ERROR_LOG(0, TAG, "[%s] error: irq_id error:%d\n", dpmaif_ctl->irq_id);
+		CCCI_ERROR_LOG(0, TAG, "error: irq_id error:%u\n", dpmaif_ctl->irq_id);
 		goto DPMAIF_INIT_FAIL;
 	}
 	dpmaif_ctl->irq_flags = IRQF_TRIGGER_NONE;

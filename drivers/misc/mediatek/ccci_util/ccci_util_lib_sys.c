@@ -235,7 +235,7 @@ CCCI_ATTR(ft_info, 0444, &ccci_ft_inf_show, NULL);
 static ssize_t kcfg_setting_show(char *buf)
 {
 	unsigned int curr = 0;
-	unsigned int actual_write;
+	int actual_write = 0;
 	char md_en;
 	char c_en;
 

@@ -286,15 +286,15 @@ static inline void alloc_page_to_tbl(int page_cnt, int blocking)
 
 static struct dpmaif_bat_request *ccci_dpmaif_bat_create(void)
 {
-	struct dpmaif_bat_request *bat_req;
+	struct dpmaif_bat_request *bat_req = NULL;
 
 	bat_req = kzalloc(sizeof(struct dpmaif_bat_request), GFP_KERNEL|__GFP_RETRY_MAYFAIL);
 
 	if (!bat_req)
 		CCCI_ERROR_LOG(0, TAG,
 			"[%s] error: alloc bat fail.\n", __func__);
-
-	memset(bat_req, 0, sizeof(struct dpmaif_bat_request));
+	else
+		memset(bat_req, 0, sizeof(struct dpmaif_bat_request));
 
 	return bat_req;
 }

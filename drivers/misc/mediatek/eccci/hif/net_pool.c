@@ -61,6 +61,11 @@ static inline u32 fifo_avail(struct fifo_t *fifo)
 
 static inline void fifo_write(struct fifo_t *fifo, void *skb)
 {
+	if (atomic_read(&fifo->w) < 0 || atomic_read(&fifo->w) > DL_POOL_LEN) {
+		CCCI_ERROR_LOG(-1, TAG,
+			"[%s] error\n", __func__);
+		return;
+	}
 	fifo->buf[atomic_read(&fifo->w)] = skb;
 
 	/* wait: fifo->buf[fifo->w] = skb done*/
@@ -74,7 +79,14 @@ static inline void fifo_write(struct fifo_t *fifo, void *skb)
 
 static inline void *fifo_read(struct fifo_t *fifo)
 {
-	void *data = fifo->buf[atomic_read(&fifo->r)];
+	void *data = NULL;
+
+	if (atomic_read(&fifo->r) < 0 || atomic_read(&fifo->r) > DL_POOL_LEN) {
+		CCCI_ERROR_LOG(-1, TAG,
+			"[%s] error\n", __func__);
+		return NULL;
+	}
+	data = fifo->buf[atomic_read(&fifo->r)];
 
 	/* wait: data = fifo->buf[r] done*/
 	mb();

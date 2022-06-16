@@ -416,7 +416,7 @@ int ccci_dump_write(int buf_type, unsigned int flag, const char *fmt, ...)
 
 		if (flag & CCCI_DUMP_ANDROID_TIME_FLAG) {
 			ktime_get_real_ts64(&save_time);
-			save_time.tv_sec -= sys_tz.tz_minuteswest * 60;
+			save_time.tv_sec -= (time64_t)sys_tz.tz_minuteswest * 60;
 			rtc_time64_to_tm(save_time.tv_sec, &android_time);
 
 			write_len = scnprintf(temp_log, CCCI_LOG_MAX_WRITE,
@@ -1052,7 +1052,7 @@ int ccci_event_log(const char *fmt, ...)
 	tv_android.tv_nsec = tv.tv_nsec;
 
 	rtc_time64_to_tm(tv.tv_sec, &tm);
-	tv_android.tv_sec -= sys_tz.tz_minuteswest * 60;
+	tv_android.tv_sec -= (time64_t)sys_tz.tz_minuteswest * 60;
 	rtc_time64_to_tm(tv_android.tv_sec, &tm_android);
 
 	write_len = scnprintf(temp_log, CCCI_LOG_MAX_WRITE,

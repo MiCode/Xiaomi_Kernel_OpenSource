@@ -412,7 +412,7 @@ static int ccif_scp_clk_init(struct device *dev)
 			scp_clk_table[idx].clk_name);
 		if (IS_ERR(scp_clk_table[idx].clk_ref)) {
 			CCCI_ERROR_LOG(-1, FSM,
-				"%s:scp get %s failed\n",
+				"scp get %s failed\n",
 				scp_clk_table[idx].clk_name);
 			scp_clk_table[idx].clk_ref = NULL;
 			return -1;

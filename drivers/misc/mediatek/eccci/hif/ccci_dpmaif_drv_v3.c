@@ -562,7 +562,7 @@ static irqreturn_t drv3_isr(int irq, void *data)
 
 static void drv3_infra_ao_com_set(void)
 {
-	unsigned int value;
+	unsigned int value = 0;
 	int ret;
 
 	ret = regmap_read(dpmaif_ctl->infra_ao_base, 0x0208, &value);
@@ -750,7 +750,7 @@ static void drv3_dump_register(int buf_type)
 
 	len = DPMAIF_PD_UL_ADD_DESC_CH - DPMAIF_PD_UL_ADD_DESC + 4;
 	CCCI_BUF_LOG_TAG(0, buf_type, TAG,
-		"dump AP DPMAIF Tx pdn; pd_ul_base register -> (start addr: 0x%lX, len: %d):\n",
+		"dump AP DPMAIF Tx pdn; pd_ul_base register -> (start addr: 0x%llX, len: %d):\n",
 		dpmaif_ctl->pd_ul_base + NRL2_DPMAIF_UL_ADD_DESC, len);
 	ccci_util_mem_dump(buf_type,
 		dpmaif_ctl->pd_ul_base + NRL2_DPMAIF_UL_ADD_DESC, len);
@@ -758,14 +758,14 @@ static void drv3_dump_register(int buf_type)
 	if (g_plat_inf == 6985) {
 		len = DPMAIF_AO_UL_CHNL3_STA_6985 - DPMAIF_AO_UL_CHNL0_STA_6985 + 4;
 		CCCI_BUF_LOG_TAG(0, buf_type, TAG,
-			"dump AP DPMAIF Tx ao; ao_ul_base register -> (start addr: 0x%lX, len: %d):\n",
+			"dump AP DPMAIF Tx ao; ao_ul_base register -> (start addr: 0x%llX, len: %d):\n",
 			dpmaif_ctl->ao_ul_base + DPMAIF_AO_UL_CHNL0_STA_6985, len);
 		ccci_util_mem_dump(buf_type,
 			dpmaif_ctl->ao_ul_base + DPMAIF_AO_UL_CHNL0_STA_6985, len);
 	} else {
 		len = DPMAIF_AO_UL_CHNL3_STA - DPMAIF_AO_UL_CHNL0_STA + 4;
 		CCCI_BUF_LOG_TAG(0, buf_type, TAG,
-			"dump AP DPMAIF Tx ao; ao_ul_base register -> (start addr: 0x%lX, len: %d):\n",
+			"dump AP DPMAIF Tx ao; ao_ul_base register -> (start addr: 0x%llX, len: %d):\n",
 			dpmaif_ctl->ao_ul_base + DPMAIF_AO_UL_CHNL0_STA, len);
 		ccci_util_mem_dump(buf_type,
 			dpmaif_ctl->ao_ul_base + DPMAIF_AO_UL_CHNL0_STA, len);
@@ -773,40 +773,40 @@ static void drv3_dump_register(int buf_type)
 
 	len = DPMAIF_PD_DL_MISC_CON0 - DPMAIF_PD_DL_BAT_INIT + 4;
 	CCCI_BUF_LOG_TAG(0, buf_type, TAG,
-		"dump AP DPMAIF Rx pdn; pd_dl_base register -> (start addr: 0x%lX, len: %d):\n",
+		"dump AP DPMAIF Rx pdn; pd_dl_base register -> (start addr: 0x%llX, len: %d):\n",
 		dpmaif_ctl->pd_dl_base + DPMAIF_PD_DL_BAT_INIT, len);
 	ccci_util_mem_dump(buf_type,
 		dpmaif_ctl->pd_dl_base + DPMAIF_PD_DL_BAT_INIT, len);
 
 	len = DPMAIF_PD_DL_DBG_STA14 - DPMAIF_PD_DL_STA0 + 4;
 	CCCI_BUF_LOG_TAG(0, buf_type, TAG,
-		"dump AP DPMAIF Rx pdn; pd_dl_base register -> (start addr: 0x%lX, len: %d):\n",
+		"dump AP DPMAIF Rx pdn; pd_dl_base register -> (start addr: 0x%llX, len: %d):\n",
 		dpmaif_ctl->pd_dl_base + DPMAIF_PD_DL_STA0, len);
 	ccci_util_mem_dump(buf_type,
 		dpmaif_ctl->pd_dl_base + DPMAIF_PD_DL_STA0, len);
 
 	CCCI_BUF_LOG_TAG(0, buf_type, TAG,
-		"dump AP DPMAIF dma_rd; pd_dl_base register -> (start addr: 0x%lX, len: %d):\n",
+		"dump AP DPMAIF dma_rd; pd_dl_base register -> (start addr: 0x%llX, len: %d):\n",
 		dpmaif_ctl->pd_dl_base + 0x100, 0xC8);
 	ccci_util_mem_dump(buf_type,
 		dpmaif_ctl->pd_dl_base + 0x100, 0xC8);
 
 	CCCI_BUF_LOG_TAG(0, buf_type, TAG,
-		"dump AP DPMAIF dma_wr; pd_dl_base register -> (start addr: 0x%lX, len: %d):\n",
+		"dump AP DPMAIF dma_wr; pd_dl_base register -> (start addr: 0x%llX, len: %d):\n",
 		dpmaif_ctl->pd_dl_base + 0x200, 0x58 + 4);
 	ccci_util_mem_dump(buf_type,
 		dpmaif_ctl->pd_dl_base + 0x200, 0x58 + 4);
 
 	len = DPMAIF_AO_DL_FRGBAT_STA2 - DPMAIF_AO_DL_PKTINFO_CONO + 4;
 	CCCI_BUF_LOG_TAG(0, buf_type, TAG,
-		"dump AP DPMAIF Rx ao; ao_dl_base register -> (start addr: 0x%lX, len: %d):\n",
+		"dump AP DPMAIF Rx ao; ao_dl_base register -> (start addr: 0x%llX, len: %d):\n",
 		dpmaif_ctl->ao_dl_base + DPMAIF_AO_DL_PKTINFO_CONO, len);
 	ccci_util_mem_dump(buf_type,
 		dpmaif_ctl->ao_dl_base + DPMAIF_AO_DL_PKTINFO_CONO, len);
 
 	len = DPMAIF_PD_AP_CODA_VER - DPMAIF_PD_AP_UL_L2TISAR0 + 4;
 	CCCI_BUF_LOG_TAG(0, buf_type, TAG,
-		"dump AP DPMAIF MISC pdn; pd_misc_base register -> (start addr: 0x%lX, len: %d):\n",
+		"dump AP DPMAIF MISC pdn; pd_misc_base register -> (start addr: 0x%llX, len: %d):\n",
 		dpmaif_ctl->pd_misc_base + DPMAIF_PD_AP_UL_L2TISAR0, len);
 	ccci_util_mem_dump(buf_type,
 		dpmaif_ctl->pd_misc_base + DPMAIF_PD_AP_UL_L2TISAR0, len);
@@ -814,7 +814,7 @@ static void drv3_dump_register(int buf_type)
 	/* open sram clock for debug sram needs sram clock. */
 	DPMA_WRITE_PD_MISC(DPMAIF_PD_AP_CG_EN, 0x36);
 	CCCI_BUF_LOG_TAG(0, buf_type, TAG,
-		"dump AP DPMAIF SRAM pdn; pd_sram_base register -> (start addr: 0x%lX, len: %d):\n",
+		"dump AP DPMAIF SRAM pdn; pd_sram_base register -> (start addr: 0x%llX, len: %d):\n",
 		dpmaif_ctl->pd_sram_base + 0x00, 0x184);
 	ccci_util_mem_dump(buf_type,
 		dpmaif_ctl->pd_sram_base + 0x00, 0x184);
@@ -827,7 +827,7 @@ static void drv3_dump_register(int buf_type)
 
 static void drv3_hw_reset(void)
 {
-	unsigned int value;
+	unsigned int value = 0;
 	int ret;
 
 	ret = regmap_read(dpmaif_ctl->infra_ao_base, 0x0208, &value);
@@ -908,7 +908,7 @@ static void drv3_hw_reset(void)
 
 static void drv3_hw_reset_v1(void)
 {
-	unsigned int value;
+	unsigned int value = 0;
 	int ret;
 
 	ret = regmap_read(dpmaif_ctl->infra_ao_base, 0x0208, &value);

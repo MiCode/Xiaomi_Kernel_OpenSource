@@ -165,7 +165,7 @@ int ccci_md_set_boot_data(unsigned int data[], int len)
 static int fsm_md_data_ioctl(unsigned int cmd, unsigned long arg)
 {
 	int ret = 0, retry;
-	int data;
+	int data = 0;
 	char buffer[64];
 	unsigned int sim_slot_cfg[4];
 	char ap_platform[5];
@@ -531,14 +531,9 @@ long ccci_fsm_ioctl(unsigned int cmd, unsigned long arg)
 	switch (cmd) {
 	case CCCI_IOC_GET_MD_STATE:
 		state_for_user = ccci_fsm_get_md_state_for_user();
-		if (state_for_user >= 0) {
-			ret = put_user((unsigned int)state_for_user,
+		ret = put_user((unsigned int)state_for_user,
 					(unsigned int __user *)arg);
-		} else {
-			CCCI_ERROR_LOG(0, FSM,
-				"Get MD state fail: %d\n", state_for_user);
-			ret = state_for_user;
-		}
+
 		break;
 	case CCCI_IOC_MD_RESET:
 		CCCI_NORMAL_LOG(0, FSM,

@@ -17,7 +17,7 @@ void mdee_set_ex_start_str(struct ccci_fsm_ee *ee_ctl,
 	int ret = 0;
 
 	if (type == MD_FORCE_ASSERT_BY_AP_MPU) {
-		ret = snprintf(ee_ctl->ex_mpu_string, MD_EX_MPU_STR_LEN,
+		ret = scnprintf(ee_ctl->ex_mpu_string, MD_EX_MPU_STR_LEN,
 			"EMI MPU VIOLATION: %s", str);
 		if (ret <= 0 || ret >= MD_EX_MPU_STR_LEN) {
 			CCCI_ERROR_LOG(0, FSM,
@@ -28,7 +28,7 @@ void mdee_set_ex_start_str(struct ccci_fsm_ee *ee_ctl,
 	}
 	ts_nsec = local_clock();
 	rem_nsec = do_div(ts_nsec, 1000000000);
-	snprintf(ee_ctl->ex_start_time, MD_EX_START_TIME_LEN,
+	scnprintf(ee_ctl->ex_start_time, MD_EX_START_TIME_LEN,
 		"AP detect MDEE time:%5lu.%06lu\n",
 		(unsigned long)ts_nsec, rem_nsec / 1000);
 	CCCI_MEM_LOG_TAG(0, FSM, "%s\n",

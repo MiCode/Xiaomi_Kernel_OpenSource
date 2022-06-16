@@ -150,7 +150,7 @@ static int check_md_header_v3(void *parse_addr,
 		*start++ = *ptr++;
 
 	CCCI_UTIL_INF_MSG(
-		"**********MD image check V3 %d**************\n",
+		"**********MD image check V3 %zu**************\n",
 		sizeof(struct md_check_header_v3));
 	ret = strncmp(head->check_header, MD_HEADER_MAGIC_NO, 12);
 	if (ret) {
@@ -860,7 +860,7 @@ void get_md_postfix(const char k[], char buf[], char buf_ex[])
 		scnprintf(buf_ex, IMG_POSTFIX_LEN,
 			"%s_E%d", YY_K, Ex);
 		CCCI_UTIL_DBG_MSG(
-			"MD%d image postfix=%s\n", buf_ex);
+			"MD image postfix=%s\n", buf_ex);
 	}
 }
 static int check_if_bypass_header(void *buf, int *img_size);
