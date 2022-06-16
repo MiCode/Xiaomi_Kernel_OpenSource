@@ -4622,6 +4622,7 @@ static void mtk_camsys_mraw_frame_start(struct mtk_mraw_device *mraw_dev,
 	struct mtk_cam_ctx *ctx, unsigned int dequeued_frame_seq_no, u64 ts_ns)
 {
 	int mraw_dev_index;
+	bool ts_check = !mtk_cam_is_ext_isp(ctx);
 
 	/* inner register dequeue number */
 	mraw_dev_index = mtk_cam_find_mraw_dev_index(ctx, mraw_dev->id);
@@ -4632,7 +4633,7 @@ static void mtk_camsys_mraw_frame_start(struct mtk_mraw_device *mraw_dev,
 	ctx->mraw_dequeued_frame_seq_no[mraw_dev_index] = dequeued_frame_seq_no;
 
 	mtk_cam_mraw_apply_next_buffer(ctx,
-		mraw_dev->id + MTKCAM_SUBDEV_MRAW_START, ts_ns);
+		mraw_dev->id + MTKCAM_SUBDEV_MRAW_START, ts_ns, ts_check);
 }
 
 static bool mtk_camsys_is_all_cq_done(struct mtk_cam_ctx *ctx,
@@ -5477,8 +5478,6 @@ void mtk_cam_extisp_sv_frame_start(struct mtk_cam_ctx *ctx,
 	/* update sv/mraw's ts */
 	if (mtk_cam_sv_update_all_buffer_ts(ctx, irq_info->ts_ns) == 0)
 		dev_dbg(ctx->cam->dev, "sv update all buffer ts failed");
-	if (mtk_cam_mraw_update_all_buffer_ts(ctx, irq_info->ts_ns) == 0)
-		dev_dbg(ctx->cam->dev, "mraw update all buffer ts failed");
 	mtk_cam_event_frame_sync(ctx->pipe, dequeued_frame_seq_no);
 	/*touch watchdog*/
 	mtk_ctx_watchdog_kick(ctx);
@@ -5789,6 +5788,7 @@ void mtk_camsys_extisp_yuv_frame_start(struct mtk_camsv_device *camsv,
 	}
 }
 
+
 void mtk_camsys_extisp_raw_frame_start(struct mtk_raw_device *raw_dev,
 				       struct mtk_cam_ctx *ctx,
 				       struct mtk_camsys_irq_info *irq_info)
@@ -5801,6 +5801,9 @@ void mtk_camsys_extisp_raw_frame_start(struct mtk_raw_device *raw_dev,
 	enum MTK_CAMSYS_STATE_RESULT state_handle_ret;
 	int dequeued_frame_seq_no = irq_info->frame_idx_inner;
 
+	/*mraw update ts*/
+	if (mtk_cam_mraw_update_all_buffer_ts(ctx, irq_info->ts_ns) == 0)
+		dev_dbg(ctx->cam->dev, "mraw update all buffer ts failed");
 	/*touch watchdog*/
 	mtk_ctx_watchdog_kick(ctx);
 	/* inner register dequeue number */

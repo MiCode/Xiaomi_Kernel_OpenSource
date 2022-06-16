@@ -4834,6 +4834,7 @@ static int isp_composer_handle_ack(struct mtk_cam_device *cam,
 
 		return 0;
 	}
+
 	spin_lock(&ctx->composed_buffer_list.lock);
 	list_add_tail(&buf_entry->list_entry,
 		      &ctx->composed_buffer_list.list);
@@ -4843,7 +4844,38 @@ static int isp_composer_handle_ack(struct mtk_cam_device *cam,
 			__func__, ctx->composed_buffer_list.cnt);
 	}
 	spin_unlock(&ctx->composed_buffer_list.lock);
+	/*EXT-ISP enqueue sv buffer first*/
+	if (mtk_cam_is_ext_isp(ctx) &&
+		ctx->composed_frame_seq_no == 1) {
+		mtk_cam_extisp_initial_sv_enque(ctx);
+		mtk_cam_extisp_sv_stream(ctx, 1);
+		/* maintain mraw buffer list*/
+		for (i = 0; i < ctx->used_mraw_num; i++) {
+			spin_lock(&ctx->mraw_processing_buffer_list[i].lock);
+			list_add_tail(&mraw_buf_entry[i]->list_entry,
+					&ctx->mraw_processing_buffer_list[i].list);
+			ctx->mraw_processing_buffer_list[i].cnt++;
+			spin_unlock(&ctx->mraw_processing_buffer_list[i].lock);
+		}
+		spin_unlock(&ctx->using_buffer_list.lock);
+		/* apply mraw CQ for all streams */
+		for (i = 0; i < ctx->used_mraw_num; i++) {
+			mraw_dev = get_mraw_dev(ctx->cam, ctx->mraw_pipe[i]);
+			if (mraw_buf_entry[i]->s_data->req->pipe_used &
+				(1 << ctx->mraw_pipe[i]->id)) {
+				mraw_dev->is_enqueued = 1;
+				apply_mraw_cq(mraw_dev,
+					mraw_buf_entry[i]->buffer.iova,
+					mraw_buf_entry[i]->mraw_cq_desc_size,
+					mraw_buf_entry[i]->mraw_cq_desc_offset,
+					(ctx->composed_frame_seq_no == 1) ? 1 : 0);
+			} else {
+				mtk_cam_mraw_vf_on(mraw_dev, 0);
+			}
+		}
 
+		return 0;
+	}
 	for (i = 0; i < ctx->used_mraw_num; i++) {
 		spin_lock(&ctx->mraw_composed_buffer_list[i].lock);
 		list_add_tail(&mraw_buf_entry[i]->list_entry,
@@ -4858,12 +4890,7 @@ static int isp_composer_handle_ack(struct mtk_cam_device *cam,
 		raw_dev = dev_get_drvdata(dev);
 		mtk_camsys_composed_delay_enque(raw_dev, ctx, s_data);
 	}
-	/*EXT-ISP enqueue sv buffer first*/
-	if (mtk_cam_is_ext_isp(ctx) &&
-		ctx->composed_frame_seq_no == 1) {
-		mtk_cam_extisp_initial_sv_enque(ctx);
-		mtk_cam_extisp_sv_stream(ctx, 1);
-	}
+
 	return 0;
 }
 

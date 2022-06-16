@@ -1210,7 +1210,7 @@ int mtk_cam_mraw_apply_all_buffers(struct mtk_cam_ctx *ctx, bool is_check_ts)
 }
 
 int mtk_cam_mraw_apply_next_buffer(struct mtk_cam_ctx *ctx,
-	unsigned int pipe_id, u64 ts_ns)
+	unsigned int pipe_id, u64 ts_ns, bool is_check_ts)
 {
 	struct mtk_mraw_working_buf_entry *buf_entry;
 	struct mtk_mraw_device *mraw_dev;
@@ -1227,7 +1227,11 @@ int mtk_cam_mraw_apply_next_buffer(struct mtk_cam_ctx *ctx,
 								struct mtk_mraw_working_buf_entry,
 								list_entry);
 			buf_entry->ts_mraw = ts_ns;
-			if ((buf_entry->ts_raw == 0) ||
+			if (!is_check_ts) {
+				dev_dbg(ctx->cam->dev, "%s not check ts : pipe:%d raw:%lld mraw:%lld",
+					__func__, ctx->mraw_pipe[i]->id,
+					buf_entry->ts_raw, buf_entry->ts_mraw);
+			} else if ((buf_entry->ts_raw == 0) ||
 				(atomic_read(&buf_entry->is_apply) == 0) ||
 				((buf_entry->ts_mraw < buf_entry->ts_raw) &&
 				((buf_entry->ts_raw - buf_entry->ts_mraw) > 3000000))) {
