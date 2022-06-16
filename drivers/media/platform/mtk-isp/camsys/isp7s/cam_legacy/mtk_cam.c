@@ -3280,7 +3280,7 @@ static int mtk_cam_config_sv_img_out_imgo(struct mtk_cam_request_stream_data *s_
 	/* update camsv's frame parameter */
 	mtk_cam_fill_sv_frame_param(ctx, frame_param, tag_idx, fmt, iova);
 
-	if (mtk_cam_feature_is_mstream(ctx_stream_data->feature.raw_feature)) {
+	if (mtk_cam_scen_is_mstream_2exp_types(ctx_stream_data->feature.scen)) {
 		ctx_stream_data_mstream =
 			mtk_cam_req_get_s_data(s_data->req, ctx->stream_id, 1);
 		frame_param_mstream = &ctx_stream_data_mstream->frame_params;
