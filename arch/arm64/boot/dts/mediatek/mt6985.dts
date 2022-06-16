@@ -7649,6 +7649,14 @@
 			mediatek,dvfs-req-dis;
 			mediatek,suspend-mode-l12;
 
+			clocks = <&pextpcfg_ao_clk CLK_PEXT_MAC0_26M>,
+				 <&pextpcfg_ao_clk CLK_PEXT_MAC0_P1_PCLK_250M>,
+				 <&pextpcfg_ao_clk CLK_PEXT_MAC0_GFMUX_TL>,
+				 <&pextpcfg_ao_clk CLK_PEXT_MAC0_FMEM>,
+				 <&pextpcfg_ao_clk CLK_PEXT_MAC0_HCLK>,
+				 <&pextpcfg_ao_clk CLK_PEXT_PHY0_REF>;
+			power-domains = <&scpsys MT6985_POWER_DOMAIN_PEXTP_PHY0>;
+
 			#interrupt-cells = <1>;
 			interrupt-map-mask = <0 0 0 7>;
 			interrupt-map = <0 0 0 1 &pcie_intc0 0>,
@@ -7679,6 +7687,14 @@
 			linux,pci-domain = <1>;
 			mediatek,peri-reset-dis;
 			mediatek,dvfs-req-dis;
+
+			clocks = <&pextpcfg_ao_clk CLK_PEXT_MAC1_26M>,
+				 <&pextpcfg_ao_clk CLK_PEXT_MAC1_P1_PCLK_250M>,
+				 <&pextpcfg_ao_clk CLK_PEXT_MAC1_GFMUX_TL>,
+				 <&pextpcfg_ao_clk CLK_PEXT_MAC1_FMEM>,
+				 <&pextpcfg_ao_clk CLK_PEXT_MAC1_HCLK>,
+				 <&pextpcfg_ao_clk CLK_PEXT_PHY1_REF>;
+			power-domains = <&scpsys MT6985_POWER_DOMAIN_PEXTP_PHY1>;
 
 			#interrupt-cells = <1>;
 			interrupt-map-mask = <0 0 0 7>;
