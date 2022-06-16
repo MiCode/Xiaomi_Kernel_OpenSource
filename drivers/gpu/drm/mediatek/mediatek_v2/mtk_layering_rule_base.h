@@ -133,6 +133,7 @@ struct layering_rule_info_t {
 };
 
 enum SCN_FACTOR {
+	SCN_NO_FACTOR = 0,
 	SCN_NEED_VP_PQ = 0x00000001,
 	SCN_NEED_GAME_PQ = 0x00000002,
 	SCN_TRIPLE_DISP =  0x00000004,
@@ -142,7 +143,7 @@ enum SCN_FACTOR {
 
 struct layering_rule_ops {
 	void (*scenario_decision)(struct drm_device *dev,
-		unsigned int scn_decision_flag, unsigned int scale_num);
+		const enum SCN_FACTOR scn_decision_flag, const unsigned int scale_num);
 	int *(*get_bound_table)(enum DISP_HW_MAPPING_TB_TYPE tb_type);
 	uint16_t (*get_mapping_table)(struct drm_device *dev, int disp_idx,
 				      enum DISP_HW_MAPPING_TB_TYPE tb_type,

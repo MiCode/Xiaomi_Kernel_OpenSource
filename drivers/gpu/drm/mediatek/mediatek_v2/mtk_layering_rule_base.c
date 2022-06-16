@@ -3359,9 +3359,18 @@ static bool is_force_mml_scen(struct drm_device *dev)
 	return false;
 }
 
+inline bool mtk_has_mml_caps(struct drm_mtk_layer_config *layer_info)
+{
+	if (layer_info->layer_caps &
+	    (MTK_MML_DISP_DIRECT_LINK_LAYER | MTK_MML_DISP_DIRECT_DECOUPLE_LAYER |
+	     MTK_MML_DISP_DECOUPLE_LAYER | MTK_MML_DISP_MDP_LAYER))
+		return true;
+	return false;
+}
+
 static void check_is_mml_layer(const int disp_idx,
 	struct drm_mtk_layering_info *disp_info, struct drm_device *dev,
-	unsigned int *scn_decision_flag, const unsigned int hrt_idx)
+	enum SCN_FACTOR *scn_decision_flag, const unsigned int hrt_idx)
 {
 	struct drm_crtc *crtc = NULL;
 	struct mtk_drm_crtc *mtk_crtc = NULL;
@@ -3416,7 +3425,7 @@ static void check_is_mml_layer(const int disp_idx,
 		}
 
 		/* If more than 1 MML layer, support only IR+GPU, DC+MDP */
-		if (mml_mask & c->layer_caps) {
+		if (mtk_has_mml_caps(c)) {
 			if (mml_capacity & c->layer_caps) {
 				if (MTK_MML_DISP_DIRECT_DECOUPLE_LAYER & c->layer_caps) {
 					mml_capacity = 0;
@@ -3504,16 +3513,6 @@ static void check_is_mml_layer(const int disp_idx,
 	}
 }
 
-static unsigned int get_scn_decision_flag(
-	struct drm_mtk_layering_info *disp_info)
-{
-	unsigned int scn_decision_flag = 0;
-
-	if (is_triple_disp(disp_info))
-		scn_decision_flag |= SCN_TRIPLE_DISP;
-	return scn_decision_flag;
-}
-
 static int get_crtc_num(
 	struct drm_mtk_layering_info *disp_info_user,
 	int *crtc_mask)
@@ -3583,7 +3582,7 @@ static int layering_rule_start(struct drm_mtk_layering_info *disp_info_user,
 	int overlap_num;
 	struct mtk_drm_lyeblob_ids *lyeblob_ids;
 	unsigned int scale_num = 0;
-	unsigned int scn_decision_flag = 0;
+	enum SCN_FACTOR scn_decision_flag = 0;
 	int crtc_num, crtc_mask;
 	int disp_idx = 0;
 	struct debug_gles_range dbg_gles = {-1, -1};
@@ -3648,7 +3647,8 @@ static int layering_rule_start(struct drm_mtk_layering_info *disp_info_user,
 		ret = l_rule_ops->rollback_to_gpu_by_hw_limitation(
 			dev, &layering_info);
 
-	scn_decision_flag = get_scn_decision_flag(&layering_info);
+	scn_decision_flag = is_triple_disp(&layering_info) ? SCN_TRIPLE_DISP : SCN_NO_FACTOR;
+
 	/* Check and choose the Resize Scenario */
 	if (get_layering_opt(LYE_OPT_RPO)) {
 		bool has_pq = (scn_decision_flag & SCN_NEED_VP_PQ)
@@ -3751,14 +3751,24 @@ static int layering_rule_start(struct drm_mtk_layering_info *disp_info_user,
 	if (l_rule_ops->rollback_all_to_GPU_for_idle != NULL &&
 			l_rule_ops->rollback_all_to_GPU_for_idle(dev)) {
 		int i;
+		struct drm_mtk_layer_config *c;
 
 		roll_gpu_for_idle = 1;
 		rollback_all_to_GPU(&layering_info, HRT_PRIMARY);
 		/* TODO: assume resize layer would be 2 */
-		for (i = 0 ; i < layering_info.layer_num[disp_idx] ; i++)
-			layering_info.input_config[HRT_PRIMARY][i].layer_caps &=
-				~MTK_DISP_RSZ_LAYER;
-		l_rule_info->addon_scn[HRT_PRIMARY] = NONE;
+		for (i = 0 ; i < layering_info.layer_num[disp_idx] ; i++) {
+			c = &layering_info.input_config[HRT_PRIMARY][i];
+			c->layer_caps &= ~MTK_DISP_RSZ_LAYER;
+
+			if (mtk_has_mml_caps(c)) {
+				c->layer_caps &=
+				    ~(MTK_MML_DISP_DIRECT_LINK_LAYER |
+				      MTK_MML_DISP_DIRECT_DECOUPLE_LAYER |
+				      MTK_MML_DISP_DECOUPLE_LAYER | MTK_MML_DISP_MDP_LAYER);
+				c->layer_caps |= MTK_MML_DISP_NOT_SUPPORT;
+			}
+		}
+		scn_decision_flag = SCN_NO_FACTOR;
 		layering_info.hrt_num = HRT_LEVEL_LEVEL0;
 		layering_info.hrt_weight = 400;
 		if (get_layering_opt(LYE_OPT_OVL_BW_MONITOR))

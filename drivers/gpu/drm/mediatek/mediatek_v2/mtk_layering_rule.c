@@ -88,7 +88,7 @@ static uint16_t ovl_mapping_tb_vds_switch[HRT_TB_NUM] = {
 	((l_rule_info.hrt_sys_state >> sys_state) & 0x1)
 
 static void layering_rule_scenario_decision(struct drm_device *dev,
-	unsigned int scn_decision_flag, unsigned int scale_num)
+	const enum SCN_FACTOR scn_decision_flag, const unsigned int scale_num)
 {
 /*TODO: need MMP support*/
 #ifdef IF_ZERO
