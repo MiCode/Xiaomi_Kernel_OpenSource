@@ -4165,6 +4165,20 @@ void mtk_cam_meta1_done_work(struct work_struct *work)
 
 	dev_dbg(ctx->cam->dev, "%s:%s: req(%d) done\n",
 		 __func__, req->req.debug_str, s_data->frame_seq_no);
+	if (mtk_cam_is_ext_isp(ctx)) {
+		buf = mtk_cam_s_data_get_vbuf(s_data, MTK_RAW_META_SV_OUT_0);
+		if (!buf) {
+			dev_info(ctx->cam->dev,
+				 "ctx(%d): extisp:can't get MTK_RAW_META_SV_OUT_0 buf from req(%d)\n",
+				 ctx->stream_id, s_data->frame_seq_no);
+			return;
+		}
+		mtk_cam_s_data_update_timestamp(buf, s_data_ctx);
+		mtk_cam_s_data_reset_vbuf(s_data, MTK_RAW_META_SV_OUT_0);
+		vb2_buffer_done(&buf->vbb.vb2_buf, VB2_BUF_STATE_DONE);
+		dev_info(ctx->cam->dev, "%s:%s: extisp: req(%d) buffer_done for 3a-stat\n",
+			__func__, req->req.debug_str, s_data->frame_seq_no);
+	}
 }
 
 void mtk_cam_sv_work(struct work_struct *work)
