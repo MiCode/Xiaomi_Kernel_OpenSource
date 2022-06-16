@@ -4461,9 +4461,6 @@
 
 		apu_top_3: apu_top_3 {
 			compatible = "mt6985,apu_top_3";
-			vapu-supply = <&mt6319_15_vbuck1>;
-			vsram_core-supply = <&mt6363_vbuck4>;
-			vcore-supply = <&mt6363_vbuck6>;
 			reg = <0 0x1c000000 0 0x1000>,		// sys_vlp
 				<0 0x1c001000 0 0x1000>,	// sys_spm
 				<0 0x19020000 0 0x1000>,	// apu_rcx
@@ -13389,15 +13386,6 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 			buck-size = <2>;
 			buck1-modeset-mask = <0xB>;
 
-			mt6319_15_vbuck1: 15-vbuck1 {
-				regulator-compatible = "vbuck1";
-				regulator-name = "15_vbuck1";
-				regulator-min-microvolt = <300000>;
-				regulator-max-microvolt = <1193750>;
-				regulator-enable-ramp-delay = <256>;
-				regulator-allowed-modes = <0 1 2>;
-				regulator-always-on;
-			};
 			mt6319_15_vbuck3: 15-vbuck3 {
 				regulator-compatible = "vbuck3";
 				regulator-name = "15_vbuck3";
