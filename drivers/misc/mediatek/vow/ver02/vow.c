@@ -2619,7 +2619,7 @@ static long VowDrv_ioctl(struct file *fp, unsigned int cmd, unsigned long arg)
 		break;
 #if IS_ENABLED(CONFIG_MTK_VOW_1STSTAGE_PCMCALLBACK)
 	case VOW_SET_PAYLOADDUMP_INFO: {
-		struct vow_payloaddump_info_t payload;
+		struct vow_payloaddump_info_t payload = NULL;
 
 		copy_from_user((void *)&payload,
 				 (const void __user *)arg,
@@ -2631,6 +2631,10 @@ static long VowDrv_ioctl(struct file *fp, unsigned int cmd, unsigned long arg)
 			     (unsigned int)payload.return_payloaddump_addr,
 			     (unsigned int)payload.max_payloaddump_size);
 			return false;
+		}
+		if (payload.return_payloaddump_size_addr != 0) {
+			VOWDRV_DEBUG("vow size_addr_%x\n",
+			     (unsigned int)payload.return_payloaddump_size_addr);
 		}
 		vowserv.payloaddump_user_addr =
 		    payload.return_payloaddump_addr;
