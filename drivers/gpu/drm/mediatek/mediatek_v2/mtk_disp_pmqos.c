@@ -396,6 +396,9 @@ unsigned long mtk_drm_get_mmclk(struct drm_crtc *crtc, const char *caller)
 	int idx;
 	unsigned long freq;
 
+	if (!crtc || !g_freq_steps)
+		return 0;
+
 	idx = drm_crtc_index(crtc);
 
 	if (g_freq_level[idx] >= 0)

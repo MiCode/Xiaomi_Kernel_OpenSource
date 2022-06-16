@@ -60,6 +60,9 @@ int sum_overlap_w_of_bwm;
 #define DISP_RSZ_LAYER_NUM 2
 
 #define DISP_MML_LAYER_LIMIT 1
+#define DISP_MML_CAPS_MASK                                                                         \
+	(MTK_MML_DISP_DIRECT_LINK_LAYER | MTK_MML_DISP_DIRECT_DECOUPLE_LAYER |                     \
+	 MTK_MML_DISP_DECOUPLE_LAYER | MTK_MML_DISP_MDP_LAYER)
 
 static struct {
 	enum LYE_HELPER_OPT opt;
@@ -3376,10 +3379,7 @@ static void check_is_mml_layer(const int disp_idx,
 	struct mtk_drm_crtc *mtk_crtc = NULL;
 	struct drm_mtk_layer_config *c = NULL;
 	int i = 0;
-	const enum MTK_LAYERING_CAPS mml_mask =
-	    (MTK_MML_DISP_DIRECT_LINK_LAYER | MTK_MML_DISP_DIRECT_DECOUPLE_LAYER |
-	     MTK_MML_DISP_DECOUPLE_LAYER | MTK_MML_DISP_MDP_LAYER);
-	enum MTK_LAYERING_CAPS mml_capacity = mml_mask;
+	enum MTK_LAYERING_CAPS mml_capacity = DISP_MML_CAPS_MASK;
 	static bool last_is_ir;
 	bool curr_is_ir = false;
 
@@ -3425,7 +3425,7 @@ static void check_is_mml_layer(const int disp_idx,
 		}
 
 		/* If more than 1 MML layer, support only IR+GPU, DC+MDP */
-		if (mtk_has_mml_caps(c)) {
+		if (mtk_has_layer_cap(c, DISP_MML_CAPS_MASK)) {
 			if (mml_capacity & c->layer_caps) {
 				if (MTK_MML_DISP_DIRECT_DECOUPLE_LAYER & c->layer_caps) {
 					mml_capacity = 0;
@@ -3435,12 +3435,12 @@ static void check_is_mml_layer(const int disp_idx,
 				} else {
 					mml_capacity &= ~(MTK_MML_DISP_DIRECT_DECOUPLE_LAYER |
 							 MTK_MML_DISP_DIRECT_LINK_LAYER);
-					mml_capacity &= ~(mml_mask & c->layer_caps);
+					mml_capacity &= ~(DISP_MML_CAPS_MASK & c->layer_caps);
 				}
 			} else {
 				DDPINFO("%s capacity exhausted %x -> %x\n", __func__,
-					c->layer_caps & mml_mask, mml_capacity);
-				c->layer_caps &= ~mml_mask;
+					c->layer_caps & DISP_MML_CAPS_MASK, mml_capacity);
+				c->layer_caps &= ~DISP_MML_CAPS_MASK;
 				c->layer_caps |=
 				    (mml_capacity ? mml_capacity : MTK_MML_DISP_NOT_SUPPORT);
 			}
@@ -3488,7 +3488,7 @@ static void check_is_mml_layer(const int disp_idx,
 		/* Scan gles range, bottom up */
 		for (i = disp_info->gles_head[disp_idx]; i <= disp_info->gles_tail[disp_idx]; ++i) {
 			c = &disp_info->input_config[disp_idx][i];
-			if (!(mml_mask & c->layer_caps)) {
+			if (!(DISP_MML_CAPS_MASK & c->layer_caps)) {
 				adjusted_gles_head = i;
 				break;
 			}
@@ -3497,7 +3497,7 @@ static void check_is_mml_layer(const int disp_idx,
 		/* Scan gles range, top down */
 		for (i = disp_info->gles_tail[disp_idx]; i >= disp_info->gles_head[disp_idx]; --i) {
 			c = &disp_info->input_config[disp_idx][i];
-			if (!(mml_mask & c->layer_caps)) {
+			if (!(DISP_MML_CAPS_MASK & c->layer_caps)) {
 				adjusted_gles_tail = i;
 				break;
 			}
@@ -3582,7 +3582,7 @@ static int layering_rule_start(struct drm_mtk_layering_info *disp_info_user,
 	int overlap_num;
 	struct mtk_drm_lyeblob_ids *lyeblob_ids;
 	unsigned int scale_num = 0;
-	enum SCN_FACTOR scn_decision_flag = 0;
+	enum SCN_FACTOR scn_decision_flag = SCN_NO_FACTOR;
 	int crtc_num, crtc_mask;
 	int disp_idx = 0;
 	struct debug_gles_range dbg_gles = {-1, -1};
@@ -3646,8 +3646,6 @@ static int layering_rule_start(struct drm_mtk_layering_info *disp_info_user,
 	if (l_rule_ops->rollback_to_gpu_by_hw_limitation)
 		ret = l_rule_ops->rollback_to_gpu_by_hw_limitation(
 			dev, &layering_info);
-
-	scn_decision_flag = is_triple_disp(&layering_info) ? SCN_TRIPLE_DISP : SCN_NO_FACTOR;
 
 	/* Check and choose the Resize Scenario */
 	if (get_layering_opt(LYE_OPT_RPO)) {
@@ -3760,11 +3758,8 @@ static int layering_rule_start(struct drm_mtk_layering_info *disp_info_user,
 			c = &layering_info.input_config[HRT_PRIMARY][i];
 			c->layer_caps &= ~MTK_DISP_RSZ_LAYER;
 
-			if (mtk_has_mml_caps(c)) {
-				c->layer_caps &=
-				    ~(MTK_MML_DISP_DIRECT_LINK_LAYER |
-				      MTK_MML_DISP_DIRECT_DECOUPLE_LAYER |
-				      MTK_MML_DISP_DECOUPLE_LAYER | MTK_MML_DISP_MDP_LAYER);
+			if (mtk_has_layer_cap(c, DISP_MML_CAPS_MASK)) {
+				c->layer_caps &= ~DISP_MML_CAPS_MASK;
 				c->layer_caps |= MTK_MML_DISP_NOT_SUPPORT;
 			}
 		}
