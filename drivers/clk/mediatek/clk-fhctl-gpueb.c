@@ -406,6 +406,14 @@ static struct match mt6983_match = {
 };
 /*mt6983 end*/
 
+/*mt6985 begin*/
+static struct match mt6985_match = {
+	.name = "mediatek,mt6985-fhctl",
+	.hdlr = &gpueb_hdlr_6983,
+	.init = &gpueb_init_v1,
+};
+/*mt6985 end*/
+
 /*mt6895 begin*/
 static struct match mt6895_match = {
 	.name = "mediatek,mt6895-fhctl",
@@ -451,6 +459,7 @@ static struct match *matches[] = {
 	&mt6879_match,
 	&mt6895_match,
 	&mt6983_match,
+	&mt6985_match,
 	NULL,
 };
 
