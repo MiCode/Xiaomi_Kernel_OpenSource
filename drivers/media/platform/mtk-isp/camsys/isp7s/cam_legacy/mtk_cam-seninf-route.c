@@ -98,9 +98,11 @@ struct seninf_mux *mtk_cam_seninf_mux_get_by_type(struct seninf_ctx *ctx,
 	return NULL;
 }
 
+#define SAT_MUX_FACTOR 8
+
 int mux2mux_vr(struct seninf_ctx *ctx, int mux, int cammux)
 {
-	int sat_mux_factor = 8;
+	int sat_mux_factor = SAT_MUX_FACTOR;
 	struct seninf_core *core = ctx->core;
 	int mux_vr = mux;
 	int sat_mux_first = core->mux_range[TYPE_CAMSV_SAT].first;
@@ -121,10 +123,34 @@ int mux2mux_vr(struct seninf_ctx *ctx, int mux, int cammux)
 	return mux_vr;
 }
 
+int mux_vr2mux(struct seninf_ctx *ctx, int mux_vr)
+{
+	int sat_mux_factor = SAT_MUX_FACTOR;
+	struct seninf_core *core = ctx->core;
+	int mux = mux_vr;
+	int sat_mux_first = core->mux_range[TYPE_CAMSV_SAT].first;
+	int sat_mux_last = core->mux_range[TYPE_CAMSV_SAT].second;
+	int num_sat_mux = sat_mux_last - sat_mux_first + 1;
+	int sat_mux_vr_first = sat_mux_first;
+	int sat_mux_vr_last = sat_mux_first + (sat_mux_factor * num_sat_mux) - 1;
+
+	if (mux_vr < sat_mux_vr_first)
+		mux = mux_vr;
+	else if ((mux_vr >= sat_mux_vr_first) && (mux_vr <= sat_mux_vr_last))
+		mux = sat_mux_first + ((mux_vr - sat_mux_vr_first) / sat_mux_factor);
+	else
+		mux = sat_mux_last + (mux_vr - sat_mux_vr_last);
+
+	if (mux_vr < 0x3f)
+		dev_info(ctx->dev, "mux_vr %d -> mux %d\n", mux_vr, mux);
+
+	return mux;
+}
+
 enum CAM_TYPE_ENUM cammux2camtype(struct seninf_ctx *ctx, int cammux)
 {
 	struct seninf_core *core = ctx->core;
-	enum CAM_TYPE_ENUM type = TYPE_RAW;
+	enum CAM_TYPE_ENUM type = TYPE_CAMSV_SAT;
 	int i;
 
 	for (i = 0; i < TYPE_MAX_NUM; i++) {
@@ -979,7 +1005,7 @@ int _mtk_cam_seninf_set_camtg(struct v4l2_subdev *sd, int pad_id,
 				old_camtg = vc->cam;
 				vc->cam = 0xff;
 				g_seninf_ops->_switch_to_cammux_inner_page(ctx, true);
-				g_seninf_ops->_set_cammux_next_ctrl(ctx, 0x1f, old_camtg);
+				g_seninf_ops->_set_cammux_next_ctrl(ctx, 0x3f, old_camtg);
 				g_seninf_ops->_disable_cammux(ctx, old_camtg);
 			} else {
 				/* disable old */
@@ -987,9 +1013,9 @@ int _mtk_cam_seninf_set_camtg(struct v4l2_subdev *sd, int pad_id,
 				/* enable new */
 				vc->cam = camtg;
 				vc->tag = tag_id;
-				vc->mux_vr = mux2mux_vr(ctx, vc->mux, vc->cam);
+				//vc->mux_vr = mux2mux_vr(ctx, vc->mux, vc->cam);
 				g_seninf_ops->_switch_to_cammux_inner_page(ctx, true);
-				g_seninf_ops->_set_cammux_next_ctrl(ctx, 0x1f, vc->cam);
+				g_seninf_ops->_set_cammux_next_ctrl(ctx, 0x3f, vc->cam);
 
 				g_seninf_ops->_switch_to_cammux_inner_page(ctx, false);
 
@@ -1011,15 +1037,16 @@ int _mtk_cam_seninf_set_camtg(struct v4l2_subdev *sd, int pad_id,
 				}
 				g_seninf_ops->_cammux(ctx, vc->cam); //enable in next sof
 				g_seninf_ops->_switch_to_cammux_inner_page(ctx, true);
-				g_seninf_ops->_set_cammux_next_ctrl(ctx, vc->mux, vc->cam);
+				g_seninf_ops->_set_cammux_next_ctrl(ctx, vc->mux_vr, vc->cam);
 				if (old_camtg != 0xff && disable_last)
 					g_seninf_ops->_set_cammux_next_ctrl(ctx,
-									vc->mux, old_camtg);
+									vc->mux_vr, old_camtg);
 
 				chk_is_fsync_vsync_src(ctx, pad_id);
 			}
-			dev_info(ctx->dev, "%s: pad %d mux %d cam %d -> %d, new tag %d\n",
-				 __func__, vc->out_pad, vc->mux, old_camtg, vc->cam, vc->tag);
+			dev_info(ctx->dev, "%s: pad %d mux %d mux_vr %d cam %d -> %d, new tag %d\n",
+				 __func__, vc->out_pad, vc->mux, vc->mux_vr, old_camtg,
+				 vc->cam, vc->tag);
 
 #ifdef SENSOR_SECURE_MTEE_SUPPORT
 		}
@@ -1090,46 +1117,51 @@ int mtk_cam_seninf_s_stream_mux(struct seninf_ctx *ctx)
 		}
 
 		vc->cam = ctx->pad2cam[vc->out_pad];
+
+		vc->cam_type = cammux2camtype(ctx, vc->cam);
+		switch (vc->cam_type) {
+		case TYPE_RAW:
+		case TYPE_UISP:
+			group_src = MIPI_SENSOR + vc->group;
+			break;
+		default:
+			group_src = MIPI_SENSOR;
+		}
+
+		/* alloc mux by group */
+		if (mux_by_camtype[vc->cam_type]) {
+			mux = mux_by_camtype[vc->cam_type];
+			skip_mux_ctrl = 1;
+		} else {
+			mux = mtk_cam_seninf_mux_get_by_type(ctx, vc->cam_type);
+			mux_by_camtype[vc->cam_type] = mux;
+			skip_mux_ctrl = 0;
+		}
+
+		if (!mux) {
+			mtk_cam_seninf_release_mux(ctx);
+			return -EBUSY;
+		}
+
+		vc->mux = mux->idx;
+
+		if (!skip_mux_ctrl) {
+			g_seninf_ops->_mux(ctx, vc->mux);
+			g_seninf_ops->_set_mux_ctrl(ctx, vc->mux,
+				hsPol, vsPol, group_src, vc->pixel_mode);
+
+			g_seninf_ops->_set_top_mux_ctrl(ctx, vc->mux, intf);
+
+			//TODO
+			//mtk_cam_seninf_set_mux_crop(ctx, vc->mux, 0, 2327, 0);
+		}
+
 		if (vc->cam != 0xff) {
-			vc->tag = ctx->pad_tag_id[vc->out_pad];
-			vc->cam_type = cammux2camtype(ctx, vc->cam);
-			switch (vc->cam_type) {
-			case TYPE_RAW:
-			case TYPE_UISP:
-				group_src = MIPI_SENSOR + vc->group;
-				break;
-			default:
-				group_src = MIPI_SENSOR;
-			}
-
-			/* alloc mux by group */
-			if (mux_by_camtype[vc->cam_type]) {
-				mux = mux_by_camtype[vc->cam_type];
-				skip_mux_ctrl = 1;
-			} else {
-				mux = mtk_cam_seninf_mux_get_by_type(ctx, vc->cam_type);
-				mux_by_camtype[vc->cam_type] = mux;
-				skip_mux_ctrl = 0;
-			}
-
-			if (!mux) {
-				mtk_cam_seninf_release_mux(ctx);
-				return -EBUSY;
-			}
-
-			vc->mux = mux->idx;
 			vc->mux_vr = mux2mux_vr(ctx, vc->mux, vc->cam);
-
-			if (!skip_mux_ctrl) {
-				g_seninf_ops->_mux(ctx, vc->mux);
-				g_seninf_ops->_set_mux_ctrl(ctx, vc->mux,
-					hsPol, vsPol, group_src, vc->pixel_mode);
-
-				g_seninf_ops->_set_top_mux_ctrl(ctx, vc->mux, intf);
-
-				//TODO
-				//mtk_cam_seninf_set_mux_crop(ctx, vc->mux, 0, 2327, 0);
-			}
+			vc->tag = ctx->pad_tag_id[vc->out_pad];
+			// set vc split
+			g_seninf_ops->_set_mux_vc_split(ctx, vc->mux,
+							vc->tag, vc->vc);
 
 			vc_sel = vc->vc;
 			dt_sel = vc->dt;
@@ -1255,7 +1287,8 @@ mtk_cam_seninf_streaming_mux_change(struct mtk_cam_seninf_mux_param *param)
 		} else
 			dev_info(ctx->dev,
 				"%s: param->num %d, pad_id[0] %d, ctx->camtg[0] %d, pad_id[1] %d, ctx->camtg[1] %d %llu|%llu\n",
-				__func__, param->num, pad_id, camtg,
+				__func__, param->num,
+				param->settings[0].source, param->settings[0].camtg,
 				param->settings[1].source, param->settings[1].camtg,
 				ktime_get_boottime_ns(),
 				ktime_get_ns());

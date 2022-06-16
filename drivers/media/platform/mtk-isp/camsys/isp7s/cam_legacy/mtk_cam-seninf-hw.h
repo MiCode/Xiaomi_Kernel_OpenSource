@@ -91,6 +91,8 @@ struct mtk_cam_seninf_ops {
 	int (*_set_mux_ctrl)(struct seninf_ctx *ctx, int mux,
 					int hsPol, int vsPol, int src_sel,
 					int pixel_mode);
+	int (*_set_mux_vc_split)(struct seninf_ctx *ctx, int mux,
+					int tag, int vc);
 	int (*_set_mux_crop)(struct seninf_ctx *ctx, int mux,
 					int start_x, int end_x, int enable);
 	int (*_is_mux_used)(struct seninf_ctx *ctx, int mux);

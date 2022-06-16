@@ -1016,6 +1016,12 @@ static int mtk_cam_seninf_set_mux_ctrl(struct seninf_ctx *ctx, int mux,
 	return 0;
 }
 
+static int mtk_cam_seninf_set_mux_vc_split(struct seninf_ctx *ctx,
+				int mux, int tag, int vc)
+{
+	return 0;
+}
+
 static int mtk_cam_seninf_update_mux_pixel_mode(struct seninf_ctx *ctx, int mux,
 				int pixel_mode)
 {
@@ -3241,6 +3247,7 @@ struct mtk_cam_seninf_ops mtk_csi_phy_2_0 = {
 	._set_cammux_src = mtk_cam_seninf_set_cammux_src,
 	._set_vc = mtk_cam_seninf_set_vc,
 	._set_mux_ctrl = mtk_cam_seninf_set_mux_ctrl,
+	._set_mux_vc_split = mtk_cam_seninf_set_mux_vc_split,
 	._set_mux_crop = mtk_cam_seninf_set_mux_crop,
 	._is_mux_used = mtk_cam_seninf_is_mux_used,
 	._mux = mtk_cam_seninf_mux,

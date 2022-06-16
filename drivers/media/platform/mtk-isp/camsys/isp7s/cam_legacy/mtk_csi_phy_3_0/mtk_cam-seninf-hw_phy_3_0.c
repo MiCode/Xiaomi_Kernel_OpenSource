@@ -29,7 +29,7 @@
 #define CPHY_SETTLE 0x16 //60~80ns
 #define DPHY_TRAIL_SPEC 224
 
-#define DEBUG_CAM_MUX_SWITCH 0
+#define DEBUG_CAM_MUX_SWITCH 1
 //#define SCAN_SETTLE
 #define LOG_MORE 1
 
@@ -84,6 +84,13 @@ static struct mtk_cam_seninf_ops *_seninf_ops = &mtk_csi_phy_3_0;
 	SENINF_BITS(ptr, TM_STAGGER_CON##s, TM_EXP_DT##s, dt); \
 	SENINF_BITS(ptr, TM_STAGGER_CON##s, TM_EXP_VSYNC_VC##s, vc); \
 	SENINF_BITS(ptr, TM_STAGGER_CON##s, TM_EXP_HSYNC_VC##s, vc); \
+} while (0)
+
+#define SET_VC_SPLIT(ptr, sel, b, vc) do { \
+	SENINF_BITS(ptr, SENINF_MUX_VC_SEL##sel, \
+		    RG_SENINF_MUX_B##b##_VC_SEL, vc); \
+	SENINF_BITS(ptr, SENINF_MUX_VC_SEL##sel, \
+		    RG_SENINF_MUX_B##b##_VC_REF_EN, 1); \
 } while (0)
 
 #define SHOW(buf, len, fmt, ...) { \
@@ -381,10 +388,10 @@ static int mtk_cam_seninf_disable_cammux(struct seninf_ctx *ctx, int cam_mux)
 	pSeninf_cam_mux_pcsr = ctx->reg_if_cam_mux_pcsr[cam_mux];
 
 	SENINF_BITS(pSeninf_cam_mux_pcsr,
-			SENINF_CAM_MUX_PCSR_CTRL, CAM_MUX_PCSR_NEXT_SRC_SEL, 0x1f);
+			SENINF_CAM_MUX_PCSR_CTRL, CAM_MUX_PCSR_NEXT_SRC_SEL, 0x3f);
 
 	SENINF_BITS(pSeninf_cam_mux_pcsr,
-			SENINF_CAM_MUX_PCSR_CTRL, RG_SENINF_CAM_MUX_PCSR_SRC_SEL, 0x1f);
+			SENINF_CAM_MUX_PCSR_CTRL, RG_SENINF_CAM_MUX_PCSR_SRC_SEL, 0x3f);
 
 	SENINF_BITS(pSeninf_cam_mux_pcsr,
 			SENINF_CAM_MUX_PCSR_CTRL, RG_SENINF_CAM_MUX_PCSR_EN, 0);
@@ -832,7 +839,7 @@ static int mtk_cam_seninf_set_cammux_next_ctrl(struct seninf_ctx *ctx, int src, 
 	SENINF_BITS(pSeninf_cam_mux_pcsr, SENINF_CAM_MUX_PCSR_CTRL,
 					CAM_MUX_PCSR_NEXT_SRC_SEL, src);
 
-	if (src != 0x1f) {
+	if (src != 0x3f) {
 		u32 in_ctrl, in_opt, out_ctrl, out_opt;
 
 		mtk_cam_seninf_switch_to_cammux_inner_page(ctx, true);
@@ -873,7 +880,7 @@ static int mtk_cam_seninf_set_cammux_src(struct seninf_ctx *ctx, int src, int ta
 	pSeninf_cam_mux_pcsr = ctx->reg_if_cam_mux_pcsr[target];
 
 	/* two times width size when yuv422 */
-	if (dt == 0x1f)
+	if (dt == 0x3f)
 		exp_dt_hsize = exp_hsize << 1;
 
 #if	DEBUG_CAM_MUX_SWITCH
@@ -1063,10 +1070,60 @@ static int mtk_cam_seninf_set_mux_ctrl(struct seninf_ctx *ctx, int mux,
 	SENINF_WRITE_REG(pSeninf_mux, SENINF_MUX_CTRL_0, temp | 0x6);//reset
 	SENINF_WRITE_REG(pSeninf_mux, SENINF_MUX_CTRL_0, temp & 0xFFFFFFF9);
 #if LOG_MORE
-	dev_info(ctx->dev, "SENINF_MUX_CTRL_1(0x%x), SENINF_MUX_OPT(0x%x)",
+	dev_info(ctx->dev, "SENINF_MUX_CTRL_0(0x%x), SENINF_MUX_CTRL_1(0x%x), SENINF_MUX_OPT(0x%x)",
+		 SENINF_READ_REG(pSeninf_mux, SENINF_MUX_CTRL_0),
 		 SENINF_READ_REG(pSeninf_mux, SENINF_MUX_CTRL_1),
 		SENINF_READ_REG(pSeninf_mux, SENINF_MUX_OPT));
 #endif
+	return 0;
+}
+
+static int mtk_cam_seninf_set_mux_vc_split(struct seninf_ctx *ctx,
+				int mux, int tag, int vc)
+{
+	void *pSeninf_mux;
+
+	pSeninf_mux = ctx->reg_if_mux[(unsigned int)mux];
+
+	switch (tag) {
+	case 0:
+		SET_VC_SPLIT(pSeninf_mux, 0, 0, vc);
+		break;
+	case 1:
+		SET_VC_SPLIT(pSeninf_mux, 0, 1, vc);
+		break;
+	case 2:
+		SET_VC_SPLIT(pSeninf_mux, 0, 2, vc);
+		break;
+	case 3:
+		SET_VC_SPLIT(pSeninf_mux, 0, 3, vc);
+		break;
+	case 4:
+		SET_VC_SPLIT(pSeninf_mux, 1, 4, vc);
+		break;
+	case 5:
+		SET_VC_SPLIT(pSeninf_mux, 1, 5, vc);
+		break;
+	case 6:
+		SET_VC_SPLIT(pSeninf_mux, 1, 6, vc);
+		break;
+	case 7:
+		SET_VC_SPLIT(pSeninf_mux, 1, 7, vc);
+		break;
+	default:
+		dev_info(ctx->dev,
+			"%s: skip vc split setting for more than tag 7\n", __func__);
+		break;
+	}
+
+#if LOG_MORE
+	dev_info(ctx->dev,
+		"%s: set mux %d vc split for tag %d vc %d SEL0(0x%x), SEL1(0x%x)\n",
+		__func__, mux, tag, vc,
+		SENINF_READ_REG(pSeninf_mux, SENINF_MUX_VC_SEL0),
+		SENINF_READ_REG(pSeninf_mux, SENINF_MUX_VC_SEL1));
+#endif
+
 	return 0;
 }
 
@@ -1087,9 +1144,10 @@ static int mtk_cam_seninf_update_mux_pixel_mode(struct seninf_ctx *ctx, int mux,
 	SENINF_WRITE_REG(pSeninf_mux, SENINF_MUX_CTRL_0, temp | 0x6);//reset
 	SENINF_WRITE_REG(pSeninf_mux, SENINF_MUX_CTRL_0, temp & 0xFFFFFFF9);
 
-	dev_info(ctx->dev, "%s mux %d SENINF_MUX_CTRL_1(0x%x), SENINF_MUX_OPT(0x%x)",
+	dev_info(ctx->dev, "%s mux %d SENINF_MUX_CTRL_0(0x%x), SENINF_MUX_CTRL_1(0x%x), SENINF_MUX_OPT(0x%x)",
 		__func__,
 		mux,
+		SENINF_READ_REG(pSeninf_mux, SENINF_MUX_CTRL_0),
 		SENINF_READ_REG(pSeninf_mux, SENINF_MUX_CTRL_1),
 		SENINF_READ_REG(pSeninf_mux, SENINF_MUX_OPT));
 
@@ -1132,6 +1190,9 @@ static int mtk_cam_seninf_mux(struct seninf_ctx *ctx, int mux)
 {
 	void *pSeninf_mux = ctx->reg_if_mux[(unsigned int)mux];
 
+	dev_info(ctx->dev, "%s enable mux %d\n",
+		 __func__, mux);
+
 	SENINF_BITS(pSeninf_mux, SENINF_MUX_CTRL_0, SENINF_MUX_EN, 1);
 	return 0;
 }
@@ -1141,11 +1202,14 @@ static int mtk_cam_seninf_disable_mux(struct seninf_ctx *ctx, int mux)
 	int i;
 	void *pSeninf_mux = ctx->reg_if_mux[(unsigned int)mux];
 
+	dev_info(ctx->dev, "%s disable mux %d\n",
+		 __func__, mux);
+
 	SENINF_BITS(pSeninf_mux, SENINF_MUX_CTRL_0, SENINF_MUX_EN, 0);
 
 	//also disable CAM_MUX with input from mux
 	for (i = SENINF_CAM_MUX0; i < _seninf_ops->cam_mux_num; i++) {
-		if (mux == mtk_cam_seninf_get_cammux_ctrl(ctx, i))
+		if (mux == mux_vr2mux(ctx, mtk_cam_seninf_get_cammux_ctrl(ctx, i)))
 			mtk_cam_seninf_disable_cammux(ctx, i);
 	}
 
@@ -4133,6 +4197,7 @@ struct mtk_cam_seninf_ops mtk_csi_phy_3_0 = {
 	._set_cammux_src = mtk_cam_seninf_set_cammux_src,
 	._set_vc = mtk_cam_seninf_set_vc,
 	._set_mux_ctrl = mtk_cam_seninf_set_mux_ctrl,
+	._set_mux_vc_split = mtk_cam_seninf_set_mux_vc_split,
 	._set_mux_crop = mtk_cam_seninf_set_mux_crop,
 	._is_mux_used = mtk_cam_seninf_is_mux_used,
 	._mux = mtk_cam_seninf_mux,
