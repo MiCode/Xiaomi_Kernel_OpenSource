@@ -205,7 +205,7 @@ mtk_addon_get_scenario_data(const char *source, struct drm_crtc *crtc,
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 
-	if (scn < NONE || scn >= ADDON_SCN_NR)
+	if (scn >= ADDON_SCN_NR)
 		goto err;
 
 	if (mtk_crtc->path_data && mtk_crtc->path_data->addon_data)
@@ -222,7 +222,7 @@ mtk_addon_get_scenario_data_dual(const char *source, struct drm_crtc *crtc,
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 
-	if ((scn < NONE) || (scn > ADDON_SCN_NR)) {
+	if (scn >= ADDON_SCN_NR) {
 		DDPPR_ERR("[%s] crtc%d scn is wrong\n", source,
 				drm_crtc_index(crtc));
 		return NULL;
@@ -887,8 +887,10 @@ void mtk_addon_connect_external(struct drm_crtc *crtc, unsigned int ddp_mode,
 	/* 1. connect subpath and add mutex*/
 
 	addon_config->addon_mml_config.config_type.type = ADDON_CONNECT;
-	addon_config->addon_mml_config.mutex.sof_src = (int)output_comp->id;
-	addon_config->addon_mml_config.mutex.eof_src = (int)output_comp->id;
+	addon_config->addon_mml_config.mutex.sof_src =
+		(output_comp != NULL) ? (int)output_comp->id : 0;
+	addon_config->addon_mml_config.mutex.eof_src =
+		(output_comp != NULL) ? (int)output_comp->id : 0;
 	addon_config->addon_mml_config.mutex.is_cmd_mode = mtk_crtc_is_frame_trigger_mode(crtc);
 
 	mtk_addon_path_config(crtc, module_data, addon_config, cmdq_handle);

@@ -35,7 +35,7 @@ static const u32 formats[] = {
 
 unsigned int to_crtc_plane_index(unsigned int plane_index)
 {
-	if ((plane_index >= 0) && (plane_index < OVL_LAYER_NR))
+	if (plane_index < OVL_LAYER_NR)
 		return plane_index;
 	else if (plane_index < (OVL_LAYER_NR + EXTERNAL_INPUT_LAYER_NR))
 		return plane_index - OVL_LAYER_NR;

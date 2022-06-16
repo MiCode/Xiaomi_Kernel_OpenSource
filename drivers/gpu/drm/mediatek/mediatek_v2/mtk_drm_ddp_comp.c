@@ -549,7 +549,7 @@ int mtk_ddp_comp_create_workqueue(struct mtk_ddp_comp *ddp_comp)
 
 bool mtk_ddp_comp_is_output(struct mtk_ddp_comp *comp)
 {
-	if (comp->id < 0 || comp->id >= DDP_COMPONENT_ID_MAX)
+	if (comp->id >= DDP_COMPONENT_ID_MAX)
 		return false;
 
 	return mtk_ddp_matches[comp->id].is_output;
@@ -568,10 +568,7 @@ void mtk_ddp_comp_get_name(struct mtk_ddp_comp *comp, char *buf, int buf_len)
 
 	if (buf_len > sizeof(buf))
 		buf_len = sizeof(buf);
-	if (mtk_ddp_matches[comp->id].type < 0) {
-		DDPPR_ERR("%s invalid type\n", __func__);
-		return;
-	}
+
 	r = snprintf(buf, buf_len, "%s%d",
 		  mtk_ddp_comp_stem[mtk_ddp_matches[comp->id].type],
 		  mtk_ddp_matches[comp->id].alias_id);
@@ -583,7 +580,7 @@ void mtk_ddp_comp_get_name(struct mtk_ddp_comp *comp, char *buf, int buf_len)
 
 int mtk_ddp_comp_get_type(enum mtk_ddp_comp_id comp_id)
 {
-	if (comp_id < 0 || comp_id >= DDP_COMPONENT_ID_MAX)
+	if (comp_id >= DDP_COMPONENT_ID_MAX)
 		return -EINVAL;
 
 	return mtk_ddp_matches[comp_id].type;
@@ -614,9 +611,6 @@ enum mtk_ddp_comp_id mtk_ddp_comp_get_id(struct device_node *node,
 {
 	int id;
 	int i;
-
-	if (comp_type < 0)
-		return -EINVAL;
 
 	id = of_alias_get_id(node, mtk_ddp_comp_stem[comp_type]);
 
@@ -790,7 +784,7 @@ int mtk_ddp_comp_init(struct device *dev, struct device_node *node,
 
 	DDPINFO("%s+\n", __func__);
 
-	if (comp_id < 0 || comp_id >= DDP_COMPONENT_ID_MAX)
+	if (comp_id >= DDP_COMPONENT_ID_MAX)
 		return -EINVAL;
 
 	type = mtk_ddp_matches[comp_id].type;
@@ -866,9 +860,6 @@ int mtk_ddp_comp_register(struct drm_device *drm, struct mtk_ddp_comp *comp)
 	if (private->ddp_comp[comp->id])
 		return -EBUSY;
 
-	if (comp->id < 0)
-		return -EINVAL;
-
 	private->ddp_comp[comp->id] = comp;
 	return 0;
 }
@@ -876,7 +867,7 @@ int mtk_ddp_comp_register(struct drm_device *drm, struct mtk_ddp_comp *comp)
 void mtk_ddp_comp_unregister(struct drm_device *drm, struct mtk_ddp_comp *comp)
 {
 	struct mtk_drm_private *private = drm->dev_private;
-	if (comp && comp->id >= 0)
+	if (comp)
 		private->ddp_comp[comp->id] = NULL;
 }
 
