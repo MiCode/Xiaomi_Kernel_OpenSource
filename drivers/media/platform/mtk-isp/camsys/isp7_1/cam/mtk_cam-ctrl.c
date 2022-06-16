@@ -5608,7 +5608,13 @@ void mtk_cam_extisp_sv_frame_start(struct mtk_cam_ctx *ctx,
 						get_master_raw_dev(cam, ctx->pipe);
 			struct mtk_cam_working_buf_entry *buf_entry;
 			dma_addr_t base_addr;
-
+			if (list_empty(&ctx->composed_buffer_list.list) ||
+				state_out->estate >= E_STATE_EXTISP_CQ) {
+				dev_info_ratelimited(raw_dev->dev,
+					"no buffer update, state:0x%x\n",
+					state_out->estate);
+				return;
+			}
 			spin_lock(&ctx->composed_buffer_list.lock);
 			buf_entry = list_first_entry(&ctx->composed_buffer_list.list,
 						     struct mtk_cam_working_buf_entry,
