@@ -1237,7 +1237,8 @@ static s32 rdma_config_frame(struct mml_comp *comp, struct mml_task *task,
 	rdma_write(pkt, base_pa, hw_pipe, CPR_RDMA_GMCIF_CON,
 		   gmcif_con, write_sec);
 
-	if (MML_FMT_IS_RGB(src->format) && cfg->info.dest[0].pq_config.en_hdr)
+	if (MML_FMT_IS_RGB(src->format) && cfg->info.dest[0].pq_config.en_hdr &&
+		cfg->info.dest_cnt == 1)
 		rdma_frm->color_tran = 0;
 
 	if (MML_FMT_10BIT_LOOSE(src->format))
