@@ -10,26 +10,17 @@
 		compatible = "mediatek,clk-bring-up";
 		clocks =
 			<&topckgen_clk CLK_TOP_DSP_SEL>,
-			<&topckgen_clk CLK_TOP_PEXTP_MBIST_SEL>,
-			<&topckgen_clk CLK_TOP_IPSSOUTH_SEL>,
-			<&topckgen_clk CLK_TOP_TL_SEL>,
-			<&topckgen_clk CLK_TOP_CAM_SEL>,
-			<&topckgen_clk CLK_TOP_CAMTM_SEL>,
-			<&vlp_cksys_clk CLK_VLP_CK_CAMTG_VLP_SEL>;
+			<&topckgen_clk CLK_TOP_TL_SEL>;
 	};
 
 	bring-up-pd-ufs0_phy_shutdown {
 		compatible = "mediatek,scpsys-bring-up";
 		power-domains = <&scpsys MT6985_POWER_DOMAIN_UFS0_PHY_SHUTDOWN>;
+		#set-syscore-device;
 	};
 
-	bring-up-pd-cam_vcore {
+	bring-up-pd-mm_infra {
 		compatible = "mediatek,scpsys-bring-up";
-		power-domains = <&scpsys MT6985_POWER_DOMAIN_CAM_VCORE>;
-	};
-
-	bring-up-pd-csi_rx {
-		compatible = "mediatek,scpsys-bring-up";
-		power-domains = <&scpsys MT6985_POWER_DOMAIN_CSI_RX>;
+		power-domains = <&scpsys MT6985_POWER_DOMAIN_MM_INFRA>;
 	};
 };
