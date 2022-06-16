@@ -736,15 +736,9 @@ void dcm_mcusys_par_wrap_mcu_apb_dcm(int on)
 	}
 }
 
-#define MCUSYS_PAR_WRAP_MCU_BKR_LDCM_REG0_MASK ((0x1 << 0) | \
-			(0x1 << 1) | \
-			(0x1 << 2))
-#define MCUSYS_PAR_WRAP_MCU_BKR_LDCM_REG0_ON ((0x1 << 0) | \
-			(0x1 << 1) | \
-			(0x1 << 2))
-#define MCUSYS_PAR_WRAP_MCU_BKR_LDCM_REG0_OFF ((0x0 << 0) | \
-			(0x0 << 1) | \
-			(0x0 << 2))
+#define MCUSYS_PAR_WRAP_MCU_BKR_LDCM_REG0_MASK ((0x1 << 1))
+#define MCUSYS_PAR_WRAP_MCU_BKR_LDCM_REG0_ON ((0x1 << 1))
+#define MCUSYS_PAR_WRAP_MCU_BKR_LDCM_REG0_OFF ((0x0 << 1))
 
 bool dcm_mcusys_par_wrap_mcu_bkr_ldcm_is_on(void)
 {

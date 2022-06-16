@@ -178,7 +178,7 @@ int dcm_mcusys_bkr(int on)
 
 int dcm_mcusys_dsu_stall(int on)
 {
-	dcm_mcusys_par_wrap_mcu_dsu_stalldcm(on);
+	dcm_mcusys_par_wrap_mcu_dsu_stalldcm(0);
 	return 0;
 }
 
