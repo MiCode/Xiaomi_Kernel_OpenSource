@@ -107,6 +107,7 @@ struct slbc_data {
 	/* below used by slbc driver */
 	void __iomem *paddr;
 	void __iomem *vaddr;
+	void __iomem *emi_paddr;
 	unsigned int sid;
 	unsigned int slot_used;
 	void *config;

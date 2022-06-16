@@ -42,6 +42,10 @@ static struct pm_qos_request slbc_qos_request;
 /* #define SLBC_TRACE */
 #define ENABLE_SLBC
 
+#define SLBC_WAY_A_BASE			0x0f000000
+#define SLBC_WAY_B_BASE			0x680000000
+#define SLBC_PADDR_MASK			0x00ffffff
+
 static struct mtk_slbc *slbc;
 
 static int slb_disable;
@@ -357,14 +361,17 @@ int slbc_request(struct slbc_data *d)
 		d->size = SLBC_WAY_SIZE * popcount(d->slot_used);
 		if (!d->paddr)
 			ret = -1;
+		else
+			d->emi_paddr = (void __iomem *)((((unsigned long)d->paddr)
+					 & SLBC_PADDR_MASK) | SLBC_WAY_B_BASE);
 	} else if ((d->type) == TP_CACHE)
 		ret = slbc_request_cache(d);
 	else if ((d->type) == TP_ACP)
 		ret = slbc_request_acp(d);
 
-	pr_info("#@# %s(%d) uid 0x%x ret %d d->ret %d pa 0x%lx size 0x%lx\n",
+	pr_info("#@# %s(%d) uid 0x%x ret %d d->ret %d pa 0x%lx emipa 0x%lx size 0x%lx\n",
 			__func__, __LINE__, d->uid, ret, d->ret,
-			(unsigned long)d->paddr, d->size);
+			(unsigned long)d->paddr, (unsigned long)d->emi_paddr, d->size);
 
 	if (!ret) {
 #if IS_ENABLED(CONFIG_MTK_SLBC_IPI)
