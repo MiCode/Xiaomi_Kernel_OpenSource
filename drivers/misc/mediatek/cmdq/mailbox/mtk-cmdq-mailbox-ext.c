@@ -2473,7 +2473,7 @@ static __init int cmdq_drv_init(void)
 	return 0;
 }
 
-void cmdq_mbox_enable(void *chan)
+s32 cmdq_mbox_enable(void *chan)
 {
 	struct cmdq *cmdq = container_of(((struct mbox_chan *)chan)->mbox,
 		typeof(*cmdq), mbox);
@@ -2485,7 +2485,7 @@ void cmdq_mbox_enable(void *chan)
 		cmdq_err("cmdq:%pa id:%u suspend:%d cannot enable usage:%d",
 			&cmdq->base_pa, cmdq->hwid, cmdq->suspended,
 			atomic_read(&cmdq->usage));
-		return;
+		return -EFAULT;
 	}
 	pm_runtime_get_sync(cmdq->mbox.dev);
 	mutex_lock(&cmdq->mbox_mutex);
@@ -2505,10 +2505,11 @@ void cmdq_mbox_enable(void *chan)
 			break;
 
 	atomic_inc(&cmdq->thread[i].usage);
+	return atomic_read(&cmdq->thread[i].usage);
 }
 EXPORT_SYMBOL(cmdq_mbox_enable);
 
-void cmdq_mbox_disable(void *chan)
+s32 cmdq_mbox_disable(void *chan)
 {
 	struct cmdq *cmdq = container_of(((struct mbox_chan *)chan)->mbox,
 		typeof(*cmdq), mbox);
@@ -2520,7 +2521,7 @@ void cmdq_mbox_disable(void *chan)
 		cmdq_err("cmdq:%pa id:%u suspend:%d cannot disable usage:%d",
 			&cmdq->base_pa, cmdq->hwid, cmdq->suspended,
 			atomic_read(&cmdq->usage));
-		return;
+		return -EFAULT;
 	}
 
 	for (i = 0; i < ARRAY_SIZE(cmdq->thread); i++)
@@ -2556,6 +2557,7 @@ void cmdq_mbox_disable(void *chan)
 		dump_stack();
 	}
 	pm_runtime_put_sync(cmdq->mbox.dev);
+	return atomic_read(&cmdq->thread[i].usage);
 }
 EXPORT_SYMBOL(cmdq_mbox_disable);
 
