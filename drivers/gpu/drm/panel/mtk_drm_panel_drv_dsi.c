@@ -1367,7 +1367,7 @@ static int mtk_panel_hbm_set_cmdq(struct drm_panel *panel, void *dsi,
 	struct mtk_panel_context *ctx_dsi = panel_to_lcm(panel);
 	struct mtk_lcm_ops_dsi *ops = NULL;
 	struct mipi_dsi_device *dsi_dev = NULL;
-	struct mtk_lcm_ops_input_packet input;
+	struct mtk_lcm_ops_input_packet input = {0};
 	unsigned int prop = MTK_LCM_DSI_CMD_PROP_CMDQ |
 				MTK_LCM_DSI_CMD_PROP_CMDQ_FORCE |
 				MTK_LCM_DSI_CMD_PROP_PACK;
