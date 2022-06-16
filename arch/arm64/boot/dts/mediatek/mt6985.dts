@@ -6067,10 +6067,11 @@
 			pinctrl-names = "connsys-pin-ext32k-en-default",
 					"connsys-pin-ext32k-en-set",
 					"connsys-pin-ext32k-en-clr",
-					"connsys_pin_pmic_en_default",
-					"connsys_pin_pmic_en_set",
-					"connsys_pin_pmic_en_clr",
-					"connsys_pin_pmic_faultb_default",
+					"connsys-pin-pmic-en-default",
+					"connsys-pin-pmic-en-set",
+					"connsys-pin-pmic-en-clr",
+					"connsys-pin-pmic-faultb-default",
+					"connsys-pin-pmic-faultb-enable",
 					"connsys-combo-gpio-init",
 					"connsys-combo-gpio-pre-on",
 					"connsys-combo-gpio-on";
@@ -6081,10 +6082,13 @@
 			pinctrl-4 = <&connsys_pin_pmic_en_set>;
 			pinctrl-5 = <&connsys_pin_pmic_en_clr>;
 			pinctrl-6 = <&connsys_pin_pmic_faultb_default>;
-			pinctrl-7 = <&connsys_combo_gpio_init>;
-			pinctrl-8 = <&connsys_combo_gpio_pre_on>;
-			pinctrl-9 = <&connsys_combo_gpio_on>;
-			interrupts = <GIC_SPI 231 IRQ_TYPE_EDGE_FALLING 0>;
+			pinctrl-7 = <&connsys_pin_pmic_faultb_enable>;
+			pinctrl-8 = <&connsys_combo_gpio_init>;
+			pinctrl-9 = <&connsys_combo_gpio_pre_on>;
+			pinctrl-10 = <&connsys_combo_gpio_on>;
+
+			interrupt-parent = <&pio>;
+			interrupts = <231 IRQ_TYPE_EDGE_FALLING>;
 		};
 
 		bt: bt {
@@ -14069,29 +14073,36 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 		};
 	};
 
-	connsys_pin_pmic_en_default: connsys_pin_pmic_en_default {
+	connsys_pin_pmic_en_default: connsys-pin-pmic-en-default {
 		pins_cmd_dat {
 			pinmux = <PINMUX_GPIO241__FUNC_GPIO241>;
 			output-low;
 		};
 	};
-	connsys_pin_pmic_en_set: connsys_pin_pmic_en_set {
+	connsys_pin_pmic_en_set: connsys-pin-pmic-en-set {
 		pins_cmd_dat {
 			pinmux = <PINMUX_GPIO241__FUNC_GPIO241>;
 			output-high;
 		};
 	};
-	connsys_pin_pmic_en_clr: connsys_pin_pmic_en_clr {
+	connsys_pin_pmic_en_clr: connsys-pin-pmic-en-clr {
 		pins_cmd_dat {
 			pinmux = <PINMUX_GPIO241__FUNC_GPIO241>;
 			output-low;
 		};
 	};
-	connsys_pin_pmic_faultb_default: connsys_pin_pmic_faultb_default {
+	connsys_pin_pmic_faultb_default: connsys-pin-pmic-faultb-default {
 		pins_cmd_dat {
 			pinmux = <PINMUX_GPIO231__FUNC_GPIO231>;
 			input-enable;
-			bias-pull-high;
+			bias-pull-down;
+		};
+	};
+	connsys_pin_pmic_faultb_enable: connsys-pin-pmic-faultb-enable {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO231__FUNC_GPIO231>;
+			input-enable;
+			bias-pull-up;
 		};
 	};
 	connsys_combo_gpio_init: connsys-combo-gpio-init {
