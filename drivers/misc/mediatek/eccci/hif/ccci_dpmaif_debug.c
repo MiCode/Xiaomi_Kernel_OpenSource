@@ -3,6 +3,9 @@
  * Copyright (C) 2016 MediaTek Inc.
  */
 
+#include <linux/poll.h>
+#include <linux/proc_fs.h>
+
 #include "ccci_dpmaif_debug.h"
 #include "ccci_dpmaif_com.h"
 #include "net_pool.h"
@@ -10,6 +13,32 @@
 #include "ccci_hif.h"
 
 #define TAG "dbg"
+
+
+
+
+
+#define DEBUG_BUFFER_LEN   (163840)
+#define DEBUG_MIN_READ_LEN (4000)
+
+
+struct dpmaif_debug_buffer {
+	atomic_t          dbg_user_cnt;
+	wait_queue_head_t dbg_wq;
+	spinlock_t        dbg_lock;
+
+	char         *data;
+	unsigned int  rd;
+	unsigned int  wr;
+
+	int           pre_call_wq;
+};
+
+
+static struct dpmaif_debug_buffer g_debug_buf;
+static unsigned int               g_debug_buf_len;
+
+unsigned int                      g_debug_flags;
 
 
 #ifdef ENABLE_DPMAIF_ISR_LOG
@@ -125,181 +154,253 @@ inline int ccci_dpmaif_record_isr_cnt(unsigned long long ts,
 }
 #endif
 
-#ifdef ENABLE_DPMAIF_DEBUG_LOG
-static char *s_mem_buf_ptr;
-static u32   s_mem_buf_size;
-static u32   s_mem_buf_len;
-static int   s_chn_idx = -1;
-
-static spinlock_t s_mem_buf_lock;
-static wait_queue_head_t *g_rx_wq;
-
-#define MAX_SKB_TBL_CNT 1000
-static struct sk_buff *g_skb_tbl[MAX_SKB_TBL_CNT];
-static unsigned int g_skb_tbl_rdx;
-static unsigned int g_skb_tbl_wdx;
-
-inline struct sk_buff *ccci_dequeue_debug_skb(void)
+void ccci_dpmaif_debug_add(void *data, int len)
 {
-	struct sk_buff *skb = NULL;
+	unsigned long flags = 0;
+	unsigned int free_cnt = 0;
 
-	if (!get_ringbuf_used_cnt(MAX_SKB_TBL_CNT, g_skb_tbl_rdx, g_skb_tbl_wdx))
-		return NULL;
+	spin_lock_irqsave(&g_debug_buf.dbg_lock, flags);
 
-	skb = g_skb_tbl[g_skb_tbl_rdx];
+	if (g_debug_buf.data == NULL)
+		goto _func_exit_;
 
-	g_skb_tbl_rdx = get_ringbuf_next_idx(MAX_SKB_TBL_CNT, g_skb_tbl_rdx, 1);
+	free_cnt = get_ringbuf_free_cnt(g_debug_buf_len, g_debug_buf.rd, g_debug_buf.wr);
+	if (len <= free_cnt) {
+		if ((g_debug_buf.wr + len) > g_debug_buf_len) {
+			memcpy(g_debug_buf.data + g_debug_buf.wr, data,
+						g_debug_buf_len - g_debug_buf.wr);
+			memcpy(g_debug_buf.data, data,
+						len - (g_debug_buf_len - g_debug_buf.wr));
+		} else
+			memcpy(g_debug_buf.data + g_debug_buf.wr, data, len);
 
-	return skb;
+		/* for cpu exec. */
+		smp_wmb();
+
+		g_debug_buf.wr = get_ringbuf_next_idx(g_debug_buf_len, g_debug_buf.wr, len);
+
+		len += (g_debug_buf_len - free_cnt);
+		if (len > g_debug_buf.pre_call_wq) {
+			if ((len - g_debug_buf.pre_call_wq) > DEBUG_MIN_READ_LEN) {
+				g_debug_buf.pre_call_wq += DEBUG_MIN_READ_LEN;
+				wake_up_all(&g_debug_buf.dbg_wq);
+			}
+		} else
+			g_debug_buf.pre_call_wq = len - 1;
+	}
+
+_func_exit_:
+	spin_unlock_irqrestore(&g_debug_buf.dbg_lock, flags);
 }
 
-inline int ccci_get_debug_skb_cnt(void)
+static ssize_t dpmaif_debug_read(struct file *file, char __user *buf,
+		size_t size, loff_t *ppos)
 {
-	return get_ringbuf_used_cnt(MAX_SKB_TBL_CNT, g_skb_tbl_rdx, g_skb_tbl_wdx);
+	unsigned int read_len;
+	int ret, len;
+
+	read_len = get_ringbuf_used_cnt(g_debug_buf_len, g_debug_buf.rd, g_debug_buf.wr);
+	if (read_len == 0)
+		return 0;
+
+	if (read_len > size)
+		read_len = size;
+
+	if ((g_debug_buf.rd + read_len) > g_debug_buf_len) {
+		len = g_debug_buf_len - g_debug_buf.rd;
+
+		ret = copy_to_user(buf, g_debug_buf.data + g_debug_buf.rd, len);
+		if (ret) {
+			CCCI_ERROR_LOG(-1, TAG,
+				"[%s] error: copy_to_user() fail; len: %d(%d)\n",
+				__func__, len, ret);
+			return 0;
+		}
+
+		ret = copy_to_user(buf + len, g_debug_buf.data, read_len - len);
+
+	} else
+		ret = copy_to_user(buf, g_debug_buf.data + g_debug_buf.rd, read_len);
+
+	if (ret) {
+		CCCI_ERROR_LOG(-1, TAG,
+			"[%s] error: copy_to_user() fail; read_len: %d(%d)\n",
+			__func__, read_len, ret);
+		return 0;
+	}
+
+	g_debug_buf.rd = get_ringbuf_next_idx(g_debug_buf_len, g_debug_buf.rd, read_len);
+
+	return read_len;
 }
 
-static inline int ccci_enqueue_debug_skb(struct sk_buff *skb)
+static void dpmaif_sysfs_parse(char *buf, int size)
 {
-	if (get_ringbuf_free_cnt(MAX_SKB_TBL_CNT, g_skb_tbl_rdx, g_skb_tbl_wdx) == 0)
-		return -1;
+	char *psub = NULL, *pname = NULL, *pvalue = NULL, *pdata = NULL;
+	unsigned int debug_buf_len = 0, wake_up_flag = 0;
+	unsigned long flags = 0;
 
-	g_skb_tbl[g_skb_tbl_wdx] = skb;
+	if (!buf || size <= 0)
+		return;
 
-	g_skb_tbl_wdx = get_ringbuf_next_idx(MAX_SKB_TBL_CNT, g_skb_tbl_wdx, 1);
+	CCCI_NORMAL_LOG(-1, TAG, "[%s] size: %d; buf: %s\n", __func__, size, buf);
+
+	pname = buf;
+	while (1) {
+		psub = strchr(pname, '|');
+
+		if (psub) {
+			*psub = '\0';
+			psub += 1;
+		}
+
+		pvalue = strchr(pname, '=');
+		if (pvalue) {
+			*pvalue = '\0';
+			pvalue += 1;
+		}
+
+		if (strstr(pname, "debug_flags")) {
+			if (pvalue && *pvalue)
+				if (kstrtouint(pvalue, 16, &g_debug_flags))
+					return;
+		} else if (strstr(pname, "debug_buf_len")) {
+			if (pvalue && *pvalue)
+				if (kstrtouint(pvalue, 10, &debug_buf_len))
+					return;
+		} else if (strstr(pname, "run_wq")) {
+			if (pvalue && *pvalue)
+				if (kstrtouint(pvalue, 10, &wake_up_flag))
+					return;
+			if (wake_up_flag)
+				wake_up_all(&g_debug_buf.dbg_wq);
+		}
+
+		if (!psub)
+			break;
+
+		pname = psub;
+	}
+
+	if ((debug_buf_len > 0) && (g_debug_buf_len != debug_buf_len)) {
+		spin_lock_irqsave(&g_debug_buf.dbg_lock, flags);
+
+		pdata = g_debug_buf.data;
+		g_debug_buf.data = NULL;
+		g_debug_buf.rd  = 0;
+		g_debug_buf.wr  = 0;
+		g_debug_buf.pre_call_wq = 0;
+		g_debug_buf_len = debug_buf_len;
+
+		spin_unlock_irqrestore(&g_debug_buf.dbg_lock, flags);
+
+		if (pdata)
+			vfree(pdata);
+
+		if (g_debug_buf_len > 0) {
+			g_debug_buf.data = vmalloc(g_debug_buf_len);
+			CCCI_NORMAL_LOG(-1, TAG, "[%s] vmalloc(%u): %p\n",
+				__func__, g_debug_buf_len, g_debug_buf.data);
+		}
+	}
+
+	CCCI_NORMAL_LOG(-1, TAG,
+		"[%s] debug_buf_len: %u; debug_flags: 0x%08X, wake_up_flag: %u\n",
+		__func__, debug_buf_len, g_debug_flags, wake_up_flag);
+}
+
+#define MAX_WRITE_LEN 300
+static ssize_t dpmaif_debug_write(struct file *fp, const char __user *buf,
+	size_t size, loff_t *ppos)
+{
+	char str[MAX_WRITE_LEN] = {0};
+	int ret;
+
+	if (size >= MAX_WRITE_LEN)
+		return 0;
+
+	ret = copy_from_user(str, buf, size);
+	if (ret) {
+		CCCI_ERROR_LOG(-1, TAG,
+			"[%s] error: copy_from_user() fail; size: %lu(%d)\n",
+			__func__, size, ret);
+		return 0;
+	}
+
+	str[MAX_WRITE_LEN-1] = '\0';
+	dpmaif_sysfs_parse(str, size);
+
+	return size;
+}
+
+static unsigned int dpmaif_debug_poll(struct file *fp, struct poll_table_struct *poll)
+{
+	poll_wait(fp, &g_debug_buf.dbg_wq, poll);
+
+	if (get_ringbuf_used_cnt(g_debug_buf_len, g_debug_buf.rd, g_debug_buf.wr))
+		return (POLLIN | POLLRDNORM);
 
 	return 0;
 }
 
-static inline int add_data_to_buf(struct dpmaif_debug_header *hdr,
-		u32 len, void *data)
+static int dpmaif_debug_open(struct inode *inode, struct file *file)
 {
-	if (!data)
-		len = 0;
-
-	if ((s_mem_buf_len + sizeof(struct dpmaif_debug_header) + len)
-				<= s_mem_buf_size) {
-		memcpy(s_mem_buf_ptr + s_mem_buf_len, hdr,
-				sizeof(struct dpmaif_debug_header));
-		s_mem_buf_len += sizeof(struct dpmaif_debug_header);
-
-		if (len > 0) {
-			memcpy(s_mem_buf_ptr + s_mem_buf_len, data, len);
-			s_mem_buf_len += len;
-		}
-
-		return 0;
+	if (atomic_inc_return(&g_debug_buf.dbg_user_cnt) > 1) {
+		atomic_set(&g_debug_buf.dbg_user_cnt, 1);
+		return -EBUSY;
 	}
 
-	return -1;
+	CCCI_ERROR_LOG(-1, TAG, "[%s] name: %s\n", __func__, current->comm);
+	return 0;
 }
 
-static void dpmaif_push_data_to_stack(int is_md_ee)
+static int dpmaif_debug_close(struct inode *inode, struct file *file)
 {
-	struct lhif_header *lhif_h;
-	struct sk_buff *skb;
-	struct iphdr *iph;
-	int ret;
+	if (atomic_dec_return(&g_debug_buf.dbg_user_cnt) < 0)
+		atomic_set(&g_debug_buf.dbg_user_cnt, 0);
 
-	if (s_mem_buf_len == 0 || s_chn_idx < 0)
-		goto alloc_fail;
-
-	skb = __dev_alloc_skb(IPV4_HEADER_LEN + s_mem_buf_size, GFP_ATOMIC);
-	if (!skb)
-		goto alloc_fail;
-
-	skb->len = 0;
-	skb_reset_tail_pointer(skb);
-	skb->ip_summed = 0;
-
-	iph = (struct iphdr *)(skb->data);
-	iph->version = 0;
-	iph->saddr = 0;
-	iph->daddr = 0;
-	iph->ihl = (sizeof(struct iphdr) >> 2);
-	iph->tot_len = htons(IPV4_HEADER_LEN + s_mem_buf_len);
-
-	memcpy(skb->data + IPV4_HEADER_LEN, s_mem_buf_ptr, s_mem_buf_len);
-	skb_put(skb, IPV4_HEADER_LEN + s_mem_buf_len);
-
-	lhif_h = (struct lhif_header *)(skb_push(skb, sizeof(struct lhif_header)));
-	lhif_h->netif = s_chn_idx;
-
-	if (is_md_ee) {
-		if (g_rx_wq)
-			wake_up_all(g_rx_wq);
-
-		ret = ccci_port_recv_skb(DPMAIF_HIF_ID, skb, CLDMA_NET_DATA);
-		if (ret)
-			dev_kfree_skb_any(skb);
-
-	} else {
-		if (ccci_enqueue_debug_skb(skb))
-			dev_kfree_skb_any(skb);
-	}
-
-alloc_fail:
-	s_mem_buf_len = 0;
-}
-
-
-void dpmaif_debug_add(struct dpmaif_debug_header *hdr, void *data)
-{
-	unsigned long flags;
-
-	if (!hdr || s_mem_buf_size <= 0)
-		return;
-
-	spin_lock_irqsave(&s_mem_buf_lock, flags);
-
-	if (add_data_to_buf(hdr, hdr->len, data)) {
-		dpmaif_push_data_to_stack(0);
-		add_data_to_buf(hdr, hdr->len, data);
-	}
-
-	spin_unlock_irqrestore(&s_mem_buf_lock, flags);
-}
-
-void dpmaif_debug_update_rx_chn_idx(int chn_idx)
-{
-	s_chn_idx = chn_idx;
+	g_debug_flags = 0;
+	CCCI_ERROR_LOG(-1, TAG, "[%s] name: %s\n", __func__, current->comm);
+	return 0;
 }
 
 static void dpmaif_md_ee_cb(void)
 {
-	unsigned long flags;
-
-	spin_lock_irqsave(&s_mem_buf_lock, flags);
-
-	dpmaif_push_data_to_stack(1);
-
-	spin_unlock_irqrestore(&s_mem_buf_lock, flags);
+	wake_up_all(&g_debug_buf.dbg_wq);
 }
 
-void ccci_dpmaif_debug_late_init(wait_queue_head_t *rx_wq)
-{
-	g_rx_wq = rx_wq;
-}
-#endif
+static const struct proc_ops g_dpmaif_debug_fops = {
+	.proc_read    = dpmaif_debug_read,
+	.proc_write   = dpmaif_debug_write,
+	.proc_poll    = dpmaif_debug_poll,
+	.proc_open    = dpmaif_debug_open,
+	.proc_release = dpmaif_debug_close,
+
+};
 
 void ccci_dpmaif_debug_init(void)
 {
-#ifdef ENABLE_DPMAIF_DEBUG_LOG
-	spin_lock_init(&s_mem_buf_lock);
+	struct proc_dir_entry *dpmaif_debug_proc;
 
-	s_mem_buf_size = MAX_DEBUG_BUFFER_LEN;
-	s_mem_buf_len  = 0;
-	g_skb_tbl_rdx = 0;
-	g_skb_tbl_wdx = 0;
+	g_debug_buf_len = 0;
+	g_debug_flags   = 0;
 
-	s_mem_buf_ptr = vmalloc(s_mem_buf_size);
-	if (!s_mem_buf_ptr) {
-		s_mem_buf_size = 0;
-		CCCI_ERROR_LOG(0, TAG,
-			"[%s] error: vmalloc fail\n", __func__);
+	atomic_set(&g_debug_buf.dbg_user_cnt, 0);
+	g_debug_buf.data = NULL;
+	g_debug_buf.rd   = 0;
+	g_debug_buf.wr   = 0;
+	g_debug_buf.pre_call_wq = 0;
+
+	dpmaif_debug_proc = proc_create("dpmaif_debug", 0664, NULL, &g_dpmaif_debug_fops);
+	if (dpmaif_debug_proc == NULL) {
+		CCCI_ERROR_LOG(-1, TAG, "[%s] error: proc_create fail.\n", __func__);
+		return;
 	}
 
-	ccci_set_dpmaif_debug_cb(dpmaif_md_ee_cb);
-#endif
+	spin_lock_init(&g_debug_buf.dbg_lock);
+	init_waitqueue_head(&g_debug_buf.dbg_wq);
+
+	ccci_set_dpmaif_debug_cb(&dpmaif_md_ee_cb);
 
 #ifdef ENABLE_DPMAIF_ISR_LOG
 	g_isr_log = kzalloc(sizeof(struct dpmaif_isr_log) * ISR_LOG_DATA_LEN, GFP_KERNEL);

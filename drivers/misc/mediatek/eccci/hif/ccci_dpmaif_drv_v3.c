@@ -503,7 +503,9 @@ static irqreturn_t drv3_isr(int irq, void *data)
 	unsigned int L2RIMR0  = drv3_get_dl_interrupt_mask();
 	unsigned int L2TISAR0 = ccci_drv_get_ul_isr_event();
 	unsigned int L2TIMR0  = DPMA_READ_AO_UL(NRL2_DPMAIF_AO_UL_AP_L2TIMR0);
+#ifdef ENABLE_DPMAIF_ISR_LOG
 	unsigned int L2RISAR0_bak = L2RISAR0, L2TISAR0_bak = L2TISAR0;
+#endif
 
 	/* clear IP busy register wake up cpu case */
 	ccci_drv_clear_ip_busy();
@@ -549,8 +551,19 @@ static irqreturn_t drv3_isr(int irq, void *data)
 		}
 	}
 
+	if (g_debug_flags & DEBUG_RXTX_ISR) {
+		struct debug_rxtx_isr_hdr hdr = {0};
+
+		hdr.type = TYPE_RXTX_ISR_ID;
+		hdr.time = (unsigned int)(local_clock() >> 16);
+		hdr.rxsr = L2RISAR0;
+		hdr.rxmr = L2RIMR0;
+		hdr.txsr = L2TISAR0;
+		hdr.txmr = L2TIMR0;
+		ccci_dpmaif_debug_add(&hdr, sizeof(hdr));
+	}
 #ifdef ENABLE_DPMAIF_ISR_LOG
-	if (dpmaif_ctl->enable_pit_debug > -1) {
+	else {
 		if (ccci_dpmaif_record_isr_cnt(local_clock(), L2TISAR0, L2RISAR0))
 			CCCI_ERROR_LOG(0, TAG, "DPMAIF IRQ L2(%x/%x)(%x/%x)\n",
 					L2TISAR0_bak, L2RISAR0_bak, L2TIMR0, L2RIMR0);
@@ -820,8 +833,7 @@ static void drv3_dump_register(int buf_type)
 		dpmaif_ctl->pd_sram_base + 0x00, 0x184);
 
 #ifdef ENABLE_DPMAIF_ISR_LOG
-	if (dpmaif_ctl->enable_pit_debug > -1)
-		ccci_dpmaif_print_irq_log();
+	ccci_dpmaif_print_irq_log();
 #endif
 }
 

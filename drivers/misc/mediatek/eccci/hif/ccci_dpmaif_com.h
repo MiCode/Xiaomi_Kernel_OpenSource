@@ -432,7 +432,6 @@ struct dpmaif_ctrl {
 	atomic_t                   suspend_flag;
 	unsigned int               capability;
 	unsigned int               support_lro;
-	int                        enable_pit_debug;
 
 	struct dpmaif_bat_request  *bat_skb;
 	struct dpmaif_bat_request  *bat_frg;
