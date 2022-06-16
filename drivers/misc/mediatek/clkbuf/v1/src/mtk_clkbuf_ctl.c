@@ -223,11 +223,7 @@ static ssize_t __clk_buf_dump_bblpm_info(char *buf)
 		return len;
 
 	len += snprintf(buf + len, PAGE_SIZE - len,
-			"bblpm_state: %u ", val);
-
-	val = clk_buf_bblpm_enter_cond();
-	len += snprintf(buf + len, PAGE_SIZE - len,
-			"bblpm_cond: 0x%x\n", val);
+			"bblpm_state: %u\n", val);
 
 	return len;
 }
@@ -324,36 +320,6 @@ int clk_buf_get_xo_en_sta(const char *xo_name)
 	return en;
 }
 EXPORT_SYMBOL(clk_buf_get_xo_en_sta);
-
-int clk_buf_bblpm_enter_cond(void)
-{
-	u32 bblpm_cond = 0;
-	u32 val = 0;
-	int ret = 0;
-	int i;
-
-	if (!clkbuf_ctl.init_done) {
-		pr_notice("clkbuf not init yet\n");
-		return -ENODEV;
-	}
-
-	if (!clkbuf_dcxo_is_bblpm_support()) {
-		pr_notice("clkbuf not support bblpm\n");
-		return -ENODEV;
-	}
-
-	for (i = 1; i < clkbuf_dcxo_get_xo_num(); i++) {
-		if (!clkbuf_dcxo_is_xo_in_use(i))
-			continue;
-		if (clkbuf_dcxo_get_xo_en(i, &val))
-			return ret;
-
-		if (val)
-			bblpm_cond = val << i;
-	}
-
-	return bblpm_cond;
-}
 
 u8 clk_buf_get_xo_num(void)
 {
@@ -645,16 +611,14 @@ static ssize_t clk_buf_pmif_store(struct kobject *kobj,
 		xo_cmd.cmd = CLKBUF_CMD_OFF;
 	else if (!strcmp(cmd, "INIT"))
 		xo_cmd.cmd = CLKBUF_CMD_INIT;
-
-	ret = clkbuf_dcxo_notify(i, &xo_cmd);
-	if (ret) {
-		pr_notice("clkbuf pmif cmd failed: %d\n", ret);
+	else {
+		pr_notice("unknown command: %s, target: %s\n", cmd, target);
 		goto PMIF_STORE_DONE;
 	}
-	goto PMIF_STORE_DONE;
 
-	pr_notice("unknown command: %s, target: %u\n", cmd, target);
-	ret = count;
+	ret = clkbuf_dcxo_notify(i, &xo_cmd);
+	if (ret)
+		pr_notice("clkbuf pmif cmd failed: %d\n", ret);
 
 PMIF_STORE_DONE:
 	return count;
@@ -815,7 +779,6 @@ static ssize_t clk_buf_bblpm_show(struct kobject *kobj,
 		struct kobj_attribute *attr, char *buf)
 {
 	u32 bblpm_stat = 0;
-	u32 bblpm_cond = 0;
 	u32 xo_stat = 0;
 	u32 hwbblpm_sel = 0;
 	int len = 0;
@@ -845,7 +808,6 @@ static ssize_t clk_buf_bblpm_show(struct kobject *kobj,
 				clkbuf_dcxo_get_xo_name(i),
 				xo_stat);
 	}
-	len -= 2;
 	len += snprintf(buf + len, PAGE_SIZE - len, "\n");
 
 	ret = clkbuf_dcxo_get_hwbblpm_sel(&hwbblpm_sel);
@@ -859,12 +821,6 @@ static ssize_t clk_buf_bblpm_show(struct kobject *kobj,
 	if (!ret) {
 		len += snprintf(buf + len, PAGE_SIZE - len, "bblpm en: %d\n",
 			bblpm_stat);
-	}
-
-	bblpm_cond = clk_buf_bblpm_enter_cond();
-	if (bblpm_cond >= 0) {
-		len += snprintf(buf + len, PAGE_SIZE - len, "bblpm enter cond: 0x%x\n",
-			bblpm_cond);
 	}
 
 	len += snprintf(buf + len, PAGE_SIZE - len,
@@ -900,8 +856,6 @@ static ssize_t rc_trace_ctl_store(struct kobject *kobj,
 		return -EPERM;
 
 	if (!strcmp(cmd, "TRACE_NUM")) {
-		if (val < 0)
-			val = 0;
 		rc_trace_dump_num = val;
 		return count;
 	}
@@ -1355,7 +1309,7 @@ static int __clk_buf_dev_pm_dump(void)
 					", %s en: %u", clkbuf_dcxo_get_xo_name(i), en);
 		val |= (en << i);
 	}
-	pr_notice("%s\n", buf+2);
+	pr_debug("%s\n", buf+2);
 	len = 0;
 
 	len += snprintf(buf + len, CLKBUF_STATUS_INFO_SIZE - len,
@@ -1369,7 +1323,7 @@ static int __clk_buf_dev_pm_dump(void)
 
 	strreplace(buf, '\n', ' ');
 
-	pr_notice("%s\n", buf);
+	pr_debug("%s\n", buf);
 
 	vfree(buf);
 

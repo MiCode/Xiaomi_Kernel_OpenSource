@@ -240,7 +240,7 @@ static int mt6685_dcxo_dump_reg_log(char *buf)
 		"DCXO_BBLPM_CW1=0x%x\n", val);
 
 	len += snprintf(buf + len, PAGE_SIZE - len,
-		"DCXO_BUF0_CW0 ~ DCXO_BUF%u_CW0=");
+		"DCXO_BUF0_CW0 ~ DCXO_BUF%u_CW0=", XO_NUM);
 	for (i = 0; i < XO_NUM; i++) {
 		if (clk_buf_read_with_ofs(
 				&mt6685_dcxo.hw,
