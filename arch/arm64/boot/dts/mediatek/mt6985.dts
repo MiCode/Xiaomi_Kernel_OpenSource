@@ -498,6 +498,15 @@
 		memory-region = <&ssheap_cma_mem>;
 	};
 
+	drm_wv: drm_wv {
+		compatible = "mediatek,drm_wv";
+		status = "okay";
+	};
+
+	mtee_svp: mtee_svp {
+		compatible = "medaitek,svp";
+	};
+
 	qos:qos@0011bb00 {
 		compatible = "mediatek,mt6893-qos";
 		reg = <0 0x0011bb00 0 0x100>;
