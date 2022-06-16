@@ -1125,12 +1125,13 @@ static const struct file_operations emul_temp_fops = {
 
 static int gpu_cooler_show(struct seq_file *m, void *unused)
 {
-	/* output: tt, tp, polling_delay, statistics ttj */
-	seq_printf(m, "%d,%d,%d,%d\n",
+	/* output: tt, tp, polling_delay, statistics ttj, leakage info */
+	seq_printf(m, "%d,%d,%d,%d,%d\n",
 		therm_intf_read_csram(GPU_COOLER_BASE+4),
 		therm_intf_read_csram(GPU_COOLER_BASE),
 		therm_intf_read_csram(GPU_COOLER_BASE+8),
-		therm_intf_read_csram(GPU_COOLER_BASE+32));
+		therm_intf_read_csram(GPU_COOLER_BASE+32),
+		therm_intf_read_csram(GPU_COOLER_BASE+36));
 
 	return 0;
 }
