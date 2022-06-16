@@ -4415,6 +4415,10 @@
 			clock-names = "parent-clk", "sel-clk", "spi-clk";
 		};
 
+		goodix_fp: fingerprint {
+			compatible = "mediatek,goodix-fp";
+		};
+
 		apu_top_3: apu_top_3 {
 			compatible = "mt6985,apu_top_3";
 			vapu-supply = <&mt6319_15_vbuck1>;
