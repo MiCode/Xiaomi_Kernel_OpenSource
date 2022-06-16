@@ -36,11 +36,12 @@ struct mm_qos_request {
  *    owner_list to update related setting at once.
  * @req: mm_qos_request to be used for mm_qos mechanism.
  * @master_id: master ID of this request, use SMI_PMQOS_ENC to construct it.
+ * @dst_id: dst id of this request, can use default icc_dst_id if no assign.
  *
  * Returns 0, or -errno
  */
 s32 mm_qos_add_request(struct list_head *owner_list,
-	struct mm_qos_request *req, u32 master_id);
+	struct mm_qos_request *req, u32 master_id, u32 dst_id);
 /**
  * mm_qos_set_request - set requirement to adjust system setting
  *    this API is only used to prepare the setting, call

@@ -43,7 +43,7 @@ static struct wrapper_data *mmqos_wrapper;
 static struct device *dev;
 static BLOCKING_NOTIFIER_HEAD(hrt_bw_throttle_notifier);
 s32 mm_qos_add_request(struct list_head *owner_list,
-	struct mm_qos_request *req, u32 smi_master_id)
+	struct mm_qos_request *req, u32 smi_master_id, u32 dst_id)
 {
 	if (!req) {
 		pr_notice("mm_add: Invalid req pointer\n");
@@ -53,7 +53,9 @@ s32 mm_qos_add_request(struct list_head *owner_list,
 		pr_notice("mm_add(0x%08x) req is init\n", req->master_id);
 		return -EINVAL;
 	}
-	pr_info("[mmqos]mm_qos_add_request1\n");
+
+	dst_id = dst_id ? dst_id : mmqos_wrapper->icc_dst_id;
+	pr_info("[mmqos]mm_qos_add_request1 dst=%#x\n", dst_id);
 	req->master_id = smi_master_id;
 	pr_info("[mmqos]mm_qos_add_request2\n");
 	req->bw_value = 0;
@@ -63,11 +65,11 @@ s32 mm_qos_add_request(struct list_head *owner_list,
 	pr_info("[mmqos]mm_qos_add_request4\n");
 	list_add_tail(&(req->owner_node), owner_list);
 	pr_info("[mmqos]mm_qos_add_request5\n");
-	req->icc_path = mtk_icc_get(dev, smi_master_id, mmqos_wrapper->icc_dst_id);
+	req->icc_path = mtk_icc_get(dev, smi_master_id, dst_id);
 	pr_info("[mmqos]mm_qos_add_request6\n");
 	if (IS_ERR_OR_NULL(req->icc_path)) {
 		pr_notice("get icc path fail: src=%#x dst=%#x\n",
-			smi_master_id, mmqos_wrapper->icc_dst_id);
+			smi_master_id, dst_id);
 		return -EINVAL;
 	}
 	pr_info("[mmqos]mm_qos_add_request7\n");
@@ -95,6 +97,7 @@ s32 mm_qos_set_request(struct mm_qos_request *req, u32 bw_value,
 	if (req->hrt_value == hrt_value &&
 		req->bw_value == bw_value &&
 		req->comp_type == comp_type) {
+		pr_notice("mm_set no change\n");
 		return 0;
 	}
 	mutex_lock(&bw_mutex);
@@ -139,6 +142,8 @@ void mm_qos_update_all_request(struct list_head *owner_list)
 		if (!req->updated)
 			continue;
 		comp_bw = get_comp_value(req->bw_value, req->comp_type);
+		pr_notice("%s: set data_bw=%d peak_bw=%d\n",
+			__func__, comp_bw, req->hrt_value);
 		mtk_icc_set_bw(req->icc_path,
 			(req->bw_value == MTK_MMQOS_MAX_BW)
 			? MTK_MMQOS_MAX_BW : MBps_to_icc(comp_bw),
@@ -272,11 +277,11 @@ struct mm_qos_request ut_req[UT_MAX_REQUEST] = {};
 int mmqos_ut_set(const char *val, const struct kernel_param *kp)
 {
 	int result, value;
-	u32 req_id, master;
+	u32 req_id, master, dst_id;
 
-	result = sscanf(val, "%d %d %i %d", &qos_ut_case,
-		&req_id, &master, &value);
-	if (result != 4) {
+	result = sscanf(val, "%d %d %i %d %i", &qos_ut_case,
+		&req_id, &master, &value, &dst_id);
+	if (result != 4 && result != 5) {
 		pr_notice("invalid input: %s, result(%d)\n", val, result);
 		return -EINVAL;
 	}
@@ -284,40 +289,38 @@ int mmqos_ut_set(const char *val, const struct kernel_param *kp)
 		pr_notice("invalid req_id: %u\n", req_id);
 		return -EINVAL;
 	}
-	pr_notice("ut with (case_id,req_id,master,value)=(%d,%u,%u,%d)\n",
-		qos_ut_case, req_id, master, value);
+	pr_notice("ut with (case_id,req_id,master,value,dst_id)=(%d,%u,0x%x,%d, 0x%x)\n",
+		qos_ut_case, req_id, master, value, dst_id);
 	if (!ut_req_init) {
 		INIT_LIST_HEAD(&ut_req_list);
 		ut_req_init = true;
 	}
+
+	if (qos_ut_case >= 0) {
+		mm_qos_add_request(&ut_req_list, &ut_req[req_id], master, dst_id);
+	}
 	switch (qos_ut_case) {
 	case 0:
-		mm_qos_add_request(&ut_req_list, &ut_req[req_id], master);
 		mm_qos_set_request(&ut_req[req_id], value, 0, BW_COMP_NONE);
 		mm_qos_update_all_request(&ut_req_list);
 		break;
 	case 1:
-		mm_qos_add_request(&ut_req_list, &ut_req[req_id], master);
 		mm_qos_set_request(&ut_req[req_id], value, value, BW_COMP_NONE);
 		mm_qos_update_all_request(&ut_req_list);
 		break;
 	case 2:
-		mm_qos_add_request(&ut_req_list, &ut_req[req_id], master);
 		mm_qos_set_bw_request(&ut_req[req_id], value, BW_COMP_NONE);
 		mm_qos_update_all_request(&ut_req_list);
 		break;
 	case 3:
-		mm_qos_add_request(&ut_req_list, &ut_req[req_id], master);
 		mm_qos_set_hrt_request(&ut_req[req_id], value);
 		mm_qos_update_all_request(&ut_req_list);
 		break;
 	case 4:
-		mm_qos_add_request(&ut_req_list, &ut_req[req_id], master);
 		mm_qos_set_request(&ut_req[req_id], value, 0, BW_COMP_DEFAULT);
 		mm_qos_update_all_request(&ut_req_list);
 		break;
 	case 5:
-		mm_qos_add_request(&ut_req_list, &ut_req[req_id], master);
 		mm_qos_set_request(&ut_req[req_id], value,
 			value, BW_COMP_DEFAULT);
 		mm_qos_update_all_request(&ut_req_list);

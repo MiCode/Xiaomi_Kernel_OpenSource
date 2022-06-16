@@ -20,17 +20,15 @@
 #include "mmqos-mtk.h"
 #include "mtk_qos_bound.h"
 #define SHIFT_ROUND(a, b)	((((a) - 1) >> (b)) + 1)
-#define icc_to_MBps(x)	((x) / 1000)
-#define MASK_8(a) ((a) & 0xff)
-#define MULTIPLY_RATIO(value) ((value)*1000)
+#define icc_to_MBps(x)		((x) / 1000)
+#define MASK_8(a)		((a) & 0xff)
+#define MULTIPLY_RATIO(value)	((value)*1000)
 
-enum mmqos_state_level {
-	MMQOS_DISABLE = 0,
-	OSTD_ENABLE = BIT(0),
-	BWL_ENABLE = BIT(1),
-	DVFSRC_ENABLE = BIT(2),
-	MMQOS_ENABLE = BIT(0) | BIT(1) | BIT(2),
-};
+#define NODE_TYPE(a)		(a >> 16)
+#define LARB_ID(a)		(MASK_8(a))
+#define W_BW_RATIO		(8)
+#define R_BW_RATIO		(7)
+
 static u32 mmqos_state = MMQOS_ENABLE;
 
 struct common_port_node {
@@ -103,6 +101,28 @@ static void mmqos_update_comm_bw(struct device *dev,
 	if (log_level & 1 << log_bw)
 		dev_notice(dev, "comm port=%d bw=%d freq=%d qos_bound=%d value=%#x\n",
 			comm_port, comm_bw, freq, qos_bound, value);
+}
+
+static void mmqos_update_comm_ostdl(struct device *dev, u32 comm_port,
+		u16 max_ratio, struct icc_node *larb)
+{
+	struct larb_node *larb_node = (struct larb_node *)larb->data;
+	u32 value;
+	u16 bw_ratio;
+
+	bw_ratio = larb_node->is_write ? W_BW_RATIO : R_BW_RATIO;
+	if (larb->avg_bw) {
+		value = SHIFT_ROUND(icc_to_MBps(larb->avg_bw), bw_ratio);
+		if (value > max_ratio)
+			value = max_ratio;
+	} else
+		value = 0;
+
+	mtk_smi_common_ostdl_set(dev, comm_port, larb_node->is_write, value);
+	if (log_level & 1 << log_bw)
+		dev_notice(dev, "%s larb_id=%d comm port=%d is_write=%d bw_ratio=%d avg_bw=%d ostdl=%d\n",
+			__func__, LARB_ID(larb->id), comm_port, larb_node->is_write,
+			bw_ratio, larb->avg_bw, value);
 }
 
 static void mmqos_update_setting(struct mtk_mmqos *mmqos)
@@ -290,9 +310,9 @@ static int mtk_mmqos_set(struct icc_node *src, struct icc_node *dst)
 	struct mtk_mmqos *mmqos = container_of(dst->provider,
 					struct mtk_mmqos, prov);
 	u32 value = 1;
-	u32 comm_id, chnn_id;
+	u32 comm_id, chnn_id, port_id;
 
-	switch (dst->id >> 16) {
+	switch (NODE_TYPE(dst->id)) {
 	case MTK_MMQOS_NODE_COMMON:
 		comm_node = (struct common_node *)dst->data;
 		if (!comm_node)
@@ -345,12 +365,18 @@ static int mtk_mmqos_set(struct icc_node *src, struct icc_node *dst)
 		comm_port_node->latest_mix_bw = comm_port_node->base->mix_bw;
 		comm_port_node->latest_peak_bw = dst->peak_bw;
 		comm_port_node->latest_avg_bw = dst->avg_bw;
+		port_id = MASK_8(dst->id);
 		if (mmqos_state & BWL_ENABLE)
 			mmqos_update_comm_bw(comm_port_node->larb_dev,
-				MASK_8(dst->id), comm_port_node->common->freq,
+				port_id, comm_port_node->common->freq,
 				icc_to_MBps(comm_port_node->latest_mix_bw),
 				icc_to_MBps(comm_port_node->latest_peak_bw),
 				mmqos->qos_bound, comm_port_node->hrt_type == HRT_MAX_BWL);
+
+		if ((mmqos_state & P2_COMM_OSTDL_ENABLE)
+			&& larb_node->is_p2_larb)
+			mmqos_update_comm_ostdl(comm_port_node->larb_dev,
+				port_id, mmqos->max_ratio, src);
 
 		mutex_unlock(&comm_port_node->bw_lock);
 		break;
@@ -429,7 +455,7 @@ static int mtk_mmqos_aggregate(struct icc_node *node,
 	if (!node || !node->data)
 		return 0;
 
-	switch (node->id >> 16) {
+	switch (NODE_TYPE(node->id)) {
 	case MTK_MMQOS_NODE_LARB_PORT:
 		larb_port_node = (struct larb_port_node *)node->data;
 		base_node = larb_port_node->base;
@@ -572,7 +598,7 @@ int mtk_mmqos_probe(struct platform_device *pdev)
 			goto err;
 		}
 		base_node->icc_node = node;
-		switch (node->id >> 16) {
+		switch (NODE_TYPE(node->id)) {
 		case MTK_MMQOS_NODE_COMMON:
 			comm_node = devm_kzalloc(
 				&pdev->dev, sizeof(*comm_node), GFP_KERNEL);
@@ -686,6 +712,10 @@ int mtk_mmqos_probe(struct platform_device *pdev)
 				if (node->id == mmqos_desc->dual_pipe_larbs[j])
 					larb_node->dual_pipe_id = (j + 1);
 			}
+			for (j = 0; j < MMQOS_MAX_P2_LARB_NUM; j++) {
+				if (node->id == mmqos_desc->p2_larbs[j])
+					larb_node->is_p2_larb = true;
+			}
 			larb_node->base = base_node;
 			node->data = (void *)larb_node;
 			break;
@@ -716,6 +746,8 @@ int mtk_mmqos_probe(struct platform_device *pdev)
 
 	mmqos->max_ratio = mmqos_desc->max_ratio;
 
+	mmqos_state = mmqos_desc->mmqos_state ?
+			mmqos_desc->mmqos_state : mmqos_state;
 	pr_notice("[mmqos] mmqos probe state: %d", mmqos_state);
 	if (of_property_read_bool(pdev->dev.of_node, "disable-mmqos")) {
 		mmqos_state = MMQOS_DISABLE;
