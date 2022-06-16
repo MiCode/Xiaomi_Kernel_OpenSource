@@ -695,6 +695,38 @@ static int32_t mddpw_drv_get_md_rx_reorder_buf(
 	return 0;
 }
 
+static int32_t mddpw_drv_get_lls_stat(struct wsvc_stat_lls_report_t *stat)
+{
+	struct wsvc_stat_lls_report_t *lls = NULL;
+	uint8_t                       smem_attr;
+	uint32_t                      smem_size;
+
+	if (!stat) {
+		MDDP_S_LOG(MDDP_LL_ERR, "%s: stat is NULL!\n", __func__);
+		return -EINVAL;
+	}
+	memset(stat, 0, sizeof(struct wsvc_stat_lls_report_t));
+
+	if (!mddp_check_subfeature(MF_ID_COMMON, COM_V1_LLS)) //MD not support LLS
+		return -ENOENT;
+
+	if (mddp_ipc_get_md_smem_by_id(MDDP_MD_SMEM_USER_LLS,
+				(void **)&lls, &smem_attr, &smem_size)) {
+		MDDP_S_LOG(MDDP_LL_ERR, "%s: Failed to get smem_id (%d)!\n",
+				__func__, MDDP_MD_SMEM_USER_LLS);
+		return -EFAULT;
+	}
+	if (!lls || smem_size != sizeof(struct wsvc_stat_lls_report_t)) {
+		MDDP_S_LOG(MDDP_LL_ERR,
+				"%s: Invalid share memory data, lls(%llx), smem_size(%u)!\n",
+				__func__, (unsigned long long)lls, smem_size);
+		return -EFAULT;
+	}
+	/* OK */
+	memcpy(stat, lls, smem_size);
+	return 0;
+}
+
 static int32_t mddpw_drv_notify_info(
 	struct mddpw_drv_notify_info_t *wifi_notify)
 {
@@ -793,6 +825,10 @@ static int32_t mddpw_drv_reg_callback(struct mddp_drv_handle_t *handle)
 	wifi_handle->get_sys_stat = mddpw_drv_get_sys_stat;
 	wifi_handle->get_mddp_feature = mddpw_drv_get_mddp_feature;
 	wifi_handle->get_mddp_featset = mddpw_drv_get_mddp_featset;
+	if (lls_mem_exist)
+		wifi_handle->get_lls_stat = mddpw_drv_get_lls_stat;
+	else
+		wifi_handle->get_lls_stat = NULL;
 
 	return 0;
 }
@@ -817,6 +853,7 @@ static int32_t mddpw_drv_dereg_callback(struct mddp_drv_handle_t *handle)
 	wifi_handle->get_sys_stat = NULL;
 	wifi_handle->get_mddp_feature = NULL;
 	wifi_handle->get_mddp_featset = NULL;
+	wifi_handle->get_lls_stat = NULL;
 
 	return 0;
 }

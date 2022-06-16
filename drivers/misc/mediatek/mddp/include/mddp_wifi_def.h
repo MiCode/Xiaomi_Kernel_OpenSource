@@ -12,7 +12,7 @@ enum wfpm_func_mode_e {
 	WFPM_FUNC_MODE_TETHER = 0,
 	WFPM_FUNC_MODE_MAX_NUM
 };
-
+extern uint8_t lls_mem_exist;
 #define WIFI_ONOFF_NOTIFICATION_LEN 1
 #define MAC_ADDR_LEN            6
 struct mddpw_txd_t {
@@ -124,6 +124,41 @@ struct mddpw_md_notify_info_t {
 	uint8_t         buf[0];       /* content that MD need to send to DRV */
 };
 
+#define STATS_LLS_MAX_NSS_NUM 2
+#define STATS_LLS_CCK_NUM 4
+#define STATS_LLS_OFDM_NUM 8
+#define STATS_LLS_HT_NUM 16
+#define STATS_LLS_VHT_NUM 10
+#define STATS_LLS_HE_NUM 12
+#define STATS_LLS_EHT_NUM 16
+#define STATS_LLS_MAX_CCK_BW_NUM 1
+#define STATS_LLS_MAX_OFDM_BW_NUM 1
+#define STATS_LLS_MAX_HT_BW_NUM 2
+#define STATS_LLS_MAX_VHT_BW_NUM 3
+#define STATS_LLS_MAX_HE_BW_NUM 4
+#define STATS_LLS_MAX_EHT_BW_NUM 5
+#define BSS_NUM 4
+#define AC_NUM 4
+#define STA_NUM 27
+
+struct rate_stat_rx_mpdu_t {
+	uint8_t  mac_address[6];
+	uint8_t  padding[2];
+	uint32_t u4RxMpduOFDM[1][STATS_LLS_MAX_OFDM_BW_NUM][STATS_LLS_OFDM_NUM];
+	uint32_t u4RxMpduCCK[1][STATS_LLS_MAX_CCK_BW_NUM][STATS_LLS_CCK_NUM];
+	uint32_t u4RxMpduHT[1][STATS_LLS_MAX_HT_BW_NUM][STATS_LLS_HT_NUM];
+	uint32_t u4RxMpduVHT[STATS_LLS_MAX_NSS_NUM][STATS_LLS_MAX_VHT_BW_NUM][STATS_LLS_VHT_NUM];
+	uint32_t u4RxMpduHE[STATS_LLS_MAX_NSS_NUM][STATS_LLS_MAX_HE_BW_NUM][STATS_LLS_HE_NUM];
+	uint32_t u4RxMpduEHT[STATS_LLS_MAX_NSS_NUM][STATS_LLS_MAX_EHT_BW_NUM][STATS_LLS_EHT_NUM];
+};
+
+struct wsvc_stat_lls_report_t {
+	uint32_t version; // will be 0 if not initialize yet, will be >= 1
+	uint32_t reserved[3];
+	uint32_t wmm_ac_stat_rx_mpdu[BSS_NUM][AC_NUM];
+	struct rate_stat_rx_mpdu_t rate_stat_rx_mpdu[STA_NUM];
+};
+
 typedef int32_t (*drv_cbf_notify_md_info_t) (
 		struct mddpw_md_notify_info_t *);
 
@@ -138,6 +173,7 @@ typedef int32_t (*mddpw_cbf_notify_drv_info_t)(
 typedef int32_t (*mddpw_cbf_get_net_stat_ext_t)(struct mddpw_net_stat_ext_t *);
 typedef int32_t (*mddpw_cbf_get_sys_stat_t)(struct mddpw_sys_stat_t **);
 typedef int32_t (*mddpw_cbf_get_mddp_feature_t)(void);
+typedef int32_t (*mddpw_cbf_get_lls_stat_t)(struct wsvc_stat_lls_report_t *);
 
 enum mddp_vc_mf_id_e {
 	MF_ID_COMMON,
@@ -190,6 +226,7 @@ struct mddpw_drv_handle_t {
 	mddpw_cbf_get_sys_stat_t               get_sys_stat;
 	mddpw_cbf_get_mddp_feature_t           get_mddp_feature;
 	mddpw_cbf_get_mddp_featset_t           get_mddp_featset;
+	mddpw_cbf_get_lls_stat_t               get_lls_stat;
 };
 
 enum mddp_md_smem_user_id_e {
@@ -198,6 +235,9 @@ enum mddp_md_smem_user_id_e {
 	MDDP_MD_SMEM_USER_WIFI_STATISTICS,
 	MDDP_MD_SMEM_USER_WIFI_STATISTICS_EXT,
 	MDDP_MD_SMEM_USER_SYS_STAT_SYNC,
+	MDDP_MD_SMEM_USER_RESERVE1,
+	MDDP_MD_SMEM_USER_RESERVE2,
+	MDDP_MD_SMEM_USER_LLS,
 
 	MDDP_MD_SMEM_USER_NUM,
 };
