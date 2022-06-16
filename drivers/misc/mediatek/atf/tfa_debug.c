@@ -461,6 +461,17 @@ static int lookup_runtime_log(void)
 	return 0;
 }
 
+static int tfa_time_sync_suspend(struct device *dev)
+{
+	struct arm_smccc_res res;
+
+	/* Notify tf-a logger to clear indicator */
+	arm_smccc_smc(MTK_SIP_KERNEL_TIME_SYNC,
+		0, 0, 1, 0, 0, 0, 0, &res);
+
+	return 0;
+}
+
 static int tfa_time_sync_resume(struct device *dev)
 {
 	/* Get local_clock and sync to TF-A */
@@ -477,6 +488,7 @@ static int tfa_time_sync_resume(struct device *dev)
 }
 
 static const struct dev_pm_ops tfa_pm_ops = {
+	.suspend_noirq = tfa_time_sync_suspend,
 	.resume_noirq = tfa_time_sync_resume,
 };
 
