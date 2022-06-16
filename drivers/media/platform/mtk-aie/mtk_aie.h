@@ -958,6 +958,7 @@ struct mtk_aie_drv_ops {
 struct mtk_aie_dev {
 	struct device *dev;
 	struct platform_device *img_pdev;
+	struct platform_device *aov_pdev;
 	struct ipesys_aie_clocks aie_clk;
 	struct cmdq_client *fdvt_clt;
 	struct cmdq_client *fdvt_secure_clt;
@@ -1078,4 +1079,5 @@ extern const struct mtk_aie_drv_ops aie_ops_isp7s;
 void config_aie_cmdq_secure_init(struct mtk_aie_dev *fd);
 void aie_enable_secure_domain(struct mtk_aie_dev *fd);
 void aie_disable_secure_domain(struct mtk_aie_dev *fd);
+extern int mtk_aov_notify(struct platform_device *pdev, unsigned int notify, unsigned int status);
 #endif /*__MTK_AIE_H__*/

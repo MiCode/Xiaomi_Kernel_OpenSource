@@ -48,6 +48,7 @@
 #define AIE_WRITE3_AVG_BW 127
 #define CHECK_SERVICE_0 0
 #define CHECK_SERVICE_1 1
+#define AOV_NOTIFY_AIE_AVAIL 1
 
 struct mtk_aie_user_para g_user_param;
 static struct device *aie_pm_dev;
@@ -510,6 +511,7 @@ static int mtk_aie_hw_connect(struct mtk_aie_dev *fd)
 	fd->fd_stream_count++;
 	if (fd->fd_stream_count == 1) {
 		cmdq_mbox_enable(fd->fdvt_clt->chan);
+		mtk_aov_notify(fd->aov_pdev, AOV_NOTIFY_AIE_AVAIL, 0); //unavailable: 0 available: 1
 		ret = mtk_aie_hw_enable(fd);
 		if (ret)
 			return -EINVAL;
@@ -537,6 +539,7 @@ static void mtk_aie_hw_disconnect(struct mtk_aie_dev *fd)
 	if (fd->fd_stream_count == 0) { //have hw_connect
 		//mtk_aie_mmqos_set(fd, 0);
 		cmdq_mbox_disable(fd->fdvt_clt->chan);
+		mtk_aov_notify(fd->aov_pdev, AOV_NOTIFY_AIE_AVAIL, 1); //unavailable: 0 available: 1
 		//mtk_aie_mmdvfs_set(fd, 0, 0);
 		if (fd->map_count == 1) { //have qbuf + map memory
 			dma_buf_vunmap(fd->dmabuf, &fd->map);
@@ -1517,6 +1520,7 @@ static int mtk_aie_probe(struct platform_device *pdev)
 	}
 	of_node_put(img_node);
 	fd->img_pdev = img_pdev;
+	fd->aov_pdev = pdev;
 	dev_info(dev, "AIE : Success to %s\n", __func__);
 
 	return 0;
