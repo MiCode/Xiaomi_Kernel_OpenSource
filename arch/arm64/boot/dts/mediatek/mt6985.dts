@@ -7804,6 +7804,7 @@
 			operating-points-v2 = <&gpu_mali_opp>;
 			#cooling-cells = <2>;
 			ged-supply = <&ged>;
+			firmware_idle_hytseresis_time_ms = <5>;
 		};
 
 		gpu_mali_opp: opp-table0 {
