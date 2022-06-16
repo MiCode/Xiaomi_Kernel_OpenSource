@@ -9961,7 +9961,7 @@
 		mbox_count = <5>;
 		/* id, mbox, send_size*/
 		send_table =
-		< 0 0  9>,/* IPI_OUT_AUDIO_VOW_1 */
+		< 0 0  11>,/* IPI_OUT_AUDIO_VOW_1 */
 		<14 0  1>,/* IPI_OUT_DVFS_SET_FREQ_1 */
 		<15 0  2>,/* IPI_OUT_C_SLEEP_1 */
 		<16 0  1>,/* IPI_OUT_TEST_1 */
