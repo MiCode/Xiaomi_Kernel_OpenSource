@@ -434,6 +434,7 @@ enum MTK_CRTC_COLOR_FMT {
 	EXPR(CLIENT_SUB_CFG)                                                   \
 	EXPR(CLIENT_DSI_CFG)                                                   \
 	EXPR(CLIENT_SEC_CFG)                                                   \
+	EXPR(CLIENT_PQ)                                                        \
 	EXPR(CLIENT_TYPE_MAX)
 
 enum CRTC_GCE_CLIENT_TYPE { DECLARE_GCE_CLIENT(DECLARE_NUM) };
