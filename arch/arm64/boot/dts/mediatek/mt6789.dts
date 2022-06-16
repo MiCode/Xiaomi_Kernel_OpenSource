@@ -7092,6 +7092,8 @@
 	regulator-min-microvolt = <0>;
 };
 
+/delete-node/ &mt6358_vpa_reg;
+
 &mtk_gauge {
 	charger = <&mt6375_chg>;
 };
