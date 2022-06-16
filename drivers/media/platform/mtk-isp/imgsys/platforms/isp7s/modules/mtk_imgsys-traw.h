@@ -27,7 +27,7 @@
 #define TRAW_B_BASE_ADDR	0x15040000
 
 #define IF_0_DEFINE 1
-#define IOMMU_TF_CB_SUPPORT (0)
+#define IOMMU_TF_CB_SUPPORT (1)
 
 #define TRAW_DMA_NAME_MAX_SIZE	20
 

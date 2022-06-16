@@ -14,7 +14,9 @@
 #include <linux/dma-iommu.h>
 #include <linux/pm_runtime.h>
 #include <linux/remoteproc.h>
-#include <dt-bindings/memory/mtk-memory-port.h>
+#ifdef WPE_TF_DUMP_7S_1
+#include <dt-bindings/memory/mt6985-larb-port.h>
+#endif
 
 // drivers/misc/mediatek/iommu/
 #include "iommu_debug.h"
@@ -37,10 +39,6 @@
 
 #define TRAW_HW_SET		2
 
-#if IOMMU_TF_CB_SUPPORT //YWTBD K DBG
-#define TRAW_L28_PORT_CNT	25
-#define TRAW_L9_PORT_CNT	16
-#endif
 
 /********************************************************************
  * Global Variable
@@ -118,51 +116,40 @@ static unsigned int g_IOMMUDumpPort;
 
 #ifndef CONFIG_FPGA_EARLY_PORTING
 #if IOMMU_TF_CB_SUPPORT //YWTBD K DBG
-static unsigned int g_IOMMUL9Def[TRAW_L9_PORT_CNT] = {
-	MTK_M4U_PORT_ID(0, 0, 9, 0),	/* IMGI_T1_A */
-	MTK_M4U_PORT_ID(0, 0, 9, 1),	/* UFDI_T1_A */
-	MTK_M4U_PORT_ID(0, 0, 9, 2),	/* IMGBI_T1_A */
-	MTK_M4U_PORT_ID(0, 0, 9, 3),	/* IMGCI_T1_A */
-	MTK_M4U_PORT_ID(0, 0, 9, 4),	/* SMTI_T1_A */
-	MTK_M4U_PORT_ID(0, 0, 9, 5),	/* SMTI_T4_A */
-	MTK_M4U_PORT_ID(0, 0, 9, 6),	/* TNCSTI_T1_A */
-	MTK_M4U_PORT_ID(0, 0, 9, 7),	/* TNCSTI_T4_A */
-	MTK_M4U_PORT_ID(0, 0, 9, 8),	/* YUVO_T1_A */
-	MTK_M4U_PORT_ID(0, 0, 9, 9),	/* YUVBO_T1_A */
-	MTK_M4U_PORT_ID(0, 0, 9, 10),	/* YUVCO_T1_A */
-	MTK_M4U_PORT_ID(0, 0, 9, 11),	/* TIMGO_T1_A */
-	MTK_M4U_PORT_ID(0, 0, 9, 12),	/* YUVO_T2_A */
-	MTK_M4U_PORT_ID(0, 0, 9, 13),	/* YUVO_T5_A */
-	MTK_M4U_PORT_ID(0, 0, 9, 14),	/* IMGI_T1_B */
-	MTK_M4U_PORT_ID(0, 0, 9, 15),	/* IMGBI_T1_B */
-	MTK_M4U_PORT_ID(0, 0, 9, 16),	/* IMGCI_T1_B */
-	MTK_M4U_PORT_ID(0, 0, 9, 17),	/* SMTI_T4_B */
-	MTK_M4U_PORT_ID(0, 0, 9, 18),	/* TNCSO_T1_A */
-	MTK_M4U_PORT_ID(0, 0, 9, 19),	/* SMTO_T1_A */
-	MTK_M4U_PORT_ID(0, 0, 9, 20),	/* SMTO_T4_A */
-	MTK_M4U_PORT_ID(0, 0, 9, 21),	/* TNCSTO_T1_A */
-	MTK_M4U_PORT_ID(0, 0, 9, 22),	/* YUVO_T2_B */
-	MTK_M4U_PORT_ID(0, 0, 9, 23),	/* YUVO_T5_B */
-	MTK_M4U_PORT_ID(0, 0, 9, 24)	/* SMTO_T4_B */
-};
-
-static unsigned int g_IOMMUL11Def[TRAW_L11_PORT_CNT] = {
-	MTK_M4U_PORT_ID(0, 0, 11, 9),	/* IMGI_T1_C */
-	MTK_M4U_PORT_ID(0, 0, 11, 10),	/* IMGBI_T1_C */
-	MTK_M4U_PORT_ID(0, 0, 11, 11),	/* IMGCI_T1_C */
-	MTK_M4U_PORT_ID(0, 0, 11, 12),	/* SMTI_T1_C */
-	MTK_M4U_PORT_ID(0, 0, 11, 13),	/* SMTI_T4_C */
-	MTK_M4U_PORT_ID(0, 0, 11, 14),	/* SMTI_T6_C */
-	MTK_M4U_PORT_ID(0, 0, 11, 15),	/* YUVO_T1_C */
-	MTK_M4U_PORT_ID(0, 0, 11, 16),	/* YUVBO_T1_C */
-	MTK_M4U_PORT_ID(0, 0, 11, 17),	/* YUVCO_T1_C */
-	MTK_M4U_PORT_ID(0, 0, 11, 23),	/* TIMGO_T1_C */
-	MTK_M4U_PORT_ID(0, 0, 11, 24),	/* YUVO_T2_C */
-	MTK_M4U_PORT_ID(0, 0, 11, 25),	/* YUVO_T5_C */
-	MTK_M4U_PORT_ID(0, 0, 11, 26),	/* SMTO_T1_C */
-	MTK_M4U_PORT_ID(0, 0, 11, 27),	/* SMTO_T4_C */
-	MTK_M4U_PORT_ID(0, 0, 11, 28),	/* SMTO_T6_C */
-	MTK_M4U_PORT_ID(0, 0, 11, 29)	/* DBGO_T1_C */
+static unsigned int g_IOMMUL9Def[] = {
+#ifdef WPE_TF_DUMP_7S_1
+	M4U_PORT_L9_IMGI_T1_B,
+	M4U_PORT_L9_IMGI_T1_N_B,
+	M4U_PORT_L9_IMGCI_T1_B,
+	M4U_PORT_L9_IMGCI_T1_N_B,
+	M4U_PORT_L9_SMTI_T1_B,
+	M4U_PORT_L9_YUVO_T1_B,
+	M4U_PORT_L9_YUVO_T1_N_B,
+	M4U_PORT_L9_YUVCO_T1_B,
+	M4U_PORT_L9_YUVO_T2_B,
+	M4U_PORT_L9_YUVO_T4_B,
+	M4U_PORT_L9_TNCSTO_T1_B,
+	M4U_PORT_L9_SMTO_T1_B,
+	M4U_PORT_L28_IMGI_T1_A,
+	M4U_PORT_L28_IMGI_T1_N_A,
+	M4U_PORT_L28_IMGCI_T1_A,
+	M4U_PORT_L28_IMGCI_T1_N_A,
+	M4U_PORT_L28_SMTI_T1_A,
+	M4U_PORT_L28_SMTI_T4_A,
+	M4U_PORT_L28_TNCSTI_T1_A,
+	M4U_PORT_L28_TNCSTI_T4_A,
+	M4U_PORT_L28_LTMSTI_T1_A,
+	M4U_PORT_L28_YUVO_T1_A,
+	M4U_PORT_L28_YUVO_T1_N_A,
+	M4U_PORT_L28_YUVCO_T1_A,
+	M4U_PORT_L28_YUVO_T2_A,
+	M4U_PORT_L28_YUVO_T4_A,
+	M4U_PORT_L28_TNCSTO_T1_A,
+	M4U_PORT_L28_TNCSO_T1_A,
+	M4U_PORT_L28_SMTO_T1_A,
+	M4U_PORT_L28_SMTO_T4_A,
+	M4U_PORT_L28_LTMSO_T1_A,
+#endif
 };
 #endif
 #endif
@@ -620,99 +607,9 @@ static void imgsys_traw_dump_dl(struct mtk_imgsys_dev *a_pDev,
 
 #ifndef CONFIG_FPGA_EARLY_PORTING
 #if IOMMU_TF_CB_SUPPORT //YWTBD K DBG
-static int GetFaultDMAAddr(unsigned int port, unsigned int *pStartAddr, unsigned int *pEndAddr)
-{
-	int Result = 1;
-
-	/* IMGI_T1 */
-	if (port == MTK_M4U_PORT_ID(0, 0, 9, 0) ||
-		port == MTK_M4U_PORT_ID(0, 0, 9, 14) ||
-		port == MTK_M4U_PORT_ID(0, 0, 11, 9)) {
-		*pStartAddr = TRAW_DMA_IMGI_ADDR;
-		*pEndAddr = (*pStartAddr + 48);
-	}
-	/* UFDI_T1 */
-	else if (port == MTK_M4U_PORT_ID(0, 0, 9, 1)) {
-		*pStartAddr = TRAW_DMA_UFDI_ADDR;
-		*pEndAddr = (*pStartAddr + 48);
-	}
-	/* IMGBI_T1 */
-	else if (port == MTK_M4U_PORT_ID(0, 0, 9, 2) ||
-		port == MTK_M4U_PORT_ID(0, 0, 9, 15) ||
-		port == MTK_M4U_PORT_ID(0, 0, 11, 10)) {
-		*pStartAddr = TRAW_DMA_IMGBI_ADDR;
-		*pEndAddr = (*pStartAddr + 48);
-	}
-	/* IMGCI_T1 */
-	else if (port == MTK_M4U_PORT_ID(0, 0, 9, 3) ||
-		port == MTK_M4U_PORT_ID(0, 0, 9, 16) ||
-		port == MTK_M4U_PORT_ID(0, 0, 11, 11)) {
-		*pStartAddr = TRAW_DMA_IMGCI_ADDR;
-		*pEndAddr = (*pStartAddr + 48);
-	}
-	/* YUVO_T1 */
-	else if (port == MTK_M4U_PORT_ID(0, 0, 9, 8) ||
-		port == MTK_M4U_PORT_ID(0, 0, 9, 9) ||
-		port == MTK_M4U_PORT_ID(0, 0, 11, 15) ||
-		port == MTK_M4U_PORT_ID(0, 0, 11, 16)) {
-		*pStartAddr = TRAW_DMA_YUVO_T1_ADDR;
-		*pEndAddr = (*pStartAddr + 224);
-	}
-	/* YUVCO_T1 */
-	else if (port == MTK_M4U_PORT_ID(0, 0, 9, 10) ||
-		port == MTK_M4U_PORT_ID(0, 0, 11, 17)) {
-		*pStartAddr = TRAW_DMA_YUVCO_T1_ADDR;
-		*pEndAddr = (*pStartAddr + 224);
-	}
-	/* TIMGO_T1 */
-	else if (port == MTK_M4U_PORT_ID(0, 0, 9, 11) ||
-		port == MTK_M4U_PORT_ID(0, 0, 11, 23)) {
-		*pStartAddr = TRAW_DMA_TIMGO_T1_ADDR;
-		*pEndAddr = (*pStartAddr + 48);
-	}
-	/* YUVO_T2 */
-	else if (port == MTK_M4U_PORT_ID(0, 0, 9, 12) ||
-		port == MTK_M4U_PORT_ID(0, 0, 9, 22) ||
-		port == MTK_M4U_PORT_ID(0, 0, 11, 24)) {
-		*pStartAddr = TRAW_DMA_YUVO_T2_ADDR;
-		*pEndAddr = (*pStartAddr + 368);
-	}
-	/* YUVO_T5 */
-	else if (port == MTK_M4U_PORT_ID(0, 0, 9, 13) ||
-		port == MTK_M4U_PORT_ID(0, 0, 9, 23) ||
-		port == MTK_M4U_PORT_ID(0, 0, 11, 25)) {
-		*pStartAddr = TRAW_DMA_YUVO_T5_ADDR;
-		*pEndAddr = (*pStartAddr + 48);
-	}
-	/* TNCSO_T1 */
-	else if (port == MTK_M4U_PORT_ID(0, 0, 9, 18)) {
-		*pStartAddr = TRAW_DMA_TNCSO_T1_ADDR;
-		*pEndAddr = (*pStartAddr + 240);
-	}
-	/* SMTO_T6 */
-	else if (port == MTK_M4U_PORT_ID(0, 0, 11, 28)) {
-		*pStartAddr = TRAW_DMA_RZH1N2TO_T1_ADDR;
-		*pEndAddr = (*pStartAddr + 176);
-	}
-	/* DBGO_T1 */
-	else if (port == MTK_M4U_PORT_ID(0, 0, 11, 29)) {
-		*pStartAddr = TRAW_DMA_DBGO_T1_ADDR;
-		*pEndAddr = (*pStartAddr + 48);
-	}
-	/* Not Define Port */
-	else
-		Result = 0;
-
-	return Result;
-}
-
 static int imgsys_traw_iommu_cb(int port, dma_addr_t mva, void *cb_data)
 {
-	unsigned int engine = IMGSYS_ENG_TRAW;
-	void __iomem *trawRegBA = 0L;
 	unsigned int i = 0;
-	unsigned int DMAStartAddr = 0, DMAEndAddr = 0;
-	unsigned int RegMap = REG_MAP_E_TRAW;
 	char DbgStr[128];
 
 	if (g_IOMMUDumpPort != port)
@@ -720,48 +617,29 @@ static int imgsys_traw_iommu_cb(int port, dma_addr_t mva, void *cb_data)
 	else
 		return 0;
 
-	/* Set HW Engine */
-	if (port >= MTK_M4U_PORT_ID(0, 0, 9, 0) &&
-		port <= MTK_M4U_PORT_ID(0, 0, 9, 13))
-		engine = IMGSYS_ENG_TRAW;
-	else if (port >= MTK_M4U_PORT_ID(0, 0, 9, 14) &&
-		port <= MTK_M4U_PORT_ID(0, 0, 9, 17))
-		engine = IMGSYS_ENG_LTR;
-	else if (port >= MTK_M4U_PORT_ID(0, 0, 9, 18) &&
-		port <= MTK_M4U_PORT_ID(0, 0, 9, 21))
-		engine = IMGSYS_ENG_TRAW;
-	else if (port >= MTK_M4U_PORT_ID(0, 0, 9, 22) &&
-		port <= MTK_M4U_PORT_ID(0, 0, 9, 24))
-		engine = IMGSYS_ENG_LTR;
-	else
+	if (!g_ltrawRegBA || !g_trawRegBA) {
+		pr_info("%s: base already unmapped, return directly", __func__);
 		return 0;
-
-	/* ltraw */
-	if (engine & IMGSYS_ENG_LTR) {
-		RegMap = REG_MAP_E_LTRAW;
-		g_RegBaseAddr = TRAW_B_BASE_ADDR;
-		trawRegBA = g_ltrawRegBA;
-	}
-	/* traw */
-	else {
-		g_RegBaseAddr = TRAW_A_BASE_ADDR;
-		trawRegBA = g_trawRegBA;
 	}
 
-	if (!trawRegBA)
-		return 0;
-
-	/* Dump Fault DMA registers */
-	if (GetFaultDMAAddr(port, &DMAStartAddr, &DMAEndAddr) == 0)
-		return 0;
-
-	for (i = DMAStartAddr; i <= DMAEndAddr; i += 16) {
+	/* Dma registers */
+	for (i = TRAW_DMA_ADDR_OFST; i <= TRAW_DMA_ADDR_END; i += 16) {
 		if (sprintf(DbgStr, "[0x%08X] 0x%08X 0x%08X 0x%08X 0x%08X",
 			(unsigned int)(g_RegBaseAddr + i),
-			(unsigned int)ioread32((void *)(trawRegBA + i)),
-			(unsigned int)ioread32((void *)(trawRegBA + i + 4)),
-			(unsigned int)ioread32((void *)(trawRegBA + i + 8)),
-			(unsigned int)ioread32((void *)(trawRegBA + i + 12))) > 0)
+			(unsigned int)ioread32((void *)(g_ltrawRegBA + i)),
+			(unsigned int)ioread32((void *)(g_ltrawRegBA + i + 4)),
+			(unsigned int)ioread32((void *)(g_ltrawRegBA + i + 8)),
+			(unsigned int)ioread32((void *)(g_ltrawRegBA + i + 12))) > 0)
+			pr_info("%s\n", DbgStr);
+	}
+
+	for (i = TRAW_DMA_ADDR_OFST; i <= TRAW_DMA_ADDR_END; i += 16) {
+		if (sprintf(DbgStr, "[0x%08X] 0x%08X 0x%08X 0x%08X 0x%08X",
+			(unsigned int)(g_RegBaseAddr + i),
+			(unsigned int)ioread32((void *)(g_trawRegBA + i)),
+			(unsigned int)ioread32((void *)(g_trawRegBA + i + 4)),
+			(unsigned int)ioread32((void *)(g_trawRegBA + i + 8)),
+			(unsigned int)ioread32((void *)(g_trawRegBA + i + 12))) > 0)
 			pr_info("%s\n", DbgStr);
 	}
 
@@ -776,16 +654,8 @@ static void imgsys_traw_reg_iommu_cb(void)
 #if IOMMU_TF_CB_SUPPORT //YWTBD K DBG
 	unsigned int i = 0;
 
-	/* Reg Traw L28 Port Callback */
-	for (i = 0; i < TRAW_L28_PORT_CNT; i++) {
-		mtk_iommu_register_fault_callback(
-			g_IOMMUL28Def[i],
-			(mtk_iommu_fault_callback_t)imgsys_traw_iommu_cb,
-			NULL, false);
-	}
-
 	/* Reg Ltraw L9 Port Callback */
-	for (i = 0; i < TRAW_L9_PORT_CNT; i++) {
+	for (i = 0; i < ARRAY_SIZE(g_IOMMUL9Def); i++) {
 		mtk_iommu_register_fault_callback(
 			g_IOMMUL9Def[i],
 			(mtk_iommu_fault_callback_t)imgsys_traw_iommu_cb,
