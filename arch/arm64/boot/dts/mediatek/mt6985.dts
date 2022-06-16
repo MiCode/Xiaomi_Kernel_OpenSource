@@ -10390,6 +10390,14 @@
 		clock-output-names = "mipi_tx1_pll";
 	};
 
+	touch_panel0: touch_panel@0 {
+		compatible = "mediatek,touch-panel";
+	};
+
+	gateic0: gateic@0 {
+		compatible = "mediatek,mtk-drm-gateic-drv";
+	};
+
 	dsi0: dsi@1400d000 {
 		compatible = "mediatek,dsi0",
 					"mediatek,mt6985-dsi";
