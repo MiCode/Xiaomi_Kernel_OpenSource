@@ -2063,7 +2063,11 @@ static void _mtk_crtc_cwb_addon_module_disconnect(
 		if ((addon_module->type == ADDON_AFTER &&
 			addon_module->module == DISP_WDMA0) ||
 			(addon_module->type == ADDON_AFTER &&
-			addon_module->module == DISP_WDMA0_v2)) {
+			addon_module->module == DISP_WDMA0_v2) ||
+			(addon_module->type == ADDON_AFTER &&
+			addon_module->module == DISP_WDMA0_v3) ||
+			(addon_module->type == ADDON_AFTER &&
+			addon_module->module == DISP_OVLSYS_WDMA0)) {
 			if (mtk_crtc->is_dual_pipe) {
 				/* disconnect left pipe */
 				mtk_addon_disconnect_after(crtc, ddp_mode, addon_module,
@@ -2399,7 +2403,11 @@ _mtk_crtc_cwb_addon_module_connect(
 		if ((addon_module->type == ADDON_AFTER &&
 			addon_module->module == DISP_WDMA0) ||
 			(addon_module->type == ADDON_AFTER &&
-			addon_module->module == DISP_WDMA0_v2)) {
+			addon_module->module == DISP_WDMA0_v2) ||
+			(addon_module->type == ADDON_AFTER &&
+			addon_module->module == DISP_WDMA0_v3) ||
+			(addon_module->type == ADDON_AFTER &&
+			addon_module->module == DISP_OVLSYS_WDMA0)) {
 			buf_idx = cwb_info->buf_idx;
 			fb = cwb_info->buffer[buf_idx].fb;
 			Bpp = mtk_get_format_bpp(fb->format->format);

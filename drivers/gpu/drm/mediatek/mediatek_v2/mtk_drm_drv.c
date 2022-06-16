@@ -2224,6 +2224,24 @@ static const struct mtk_addon_module_data mt6983_addon_wdma2_data_v2[] = {
 	{DISP_WDMA2_v2, ADDON_AFTER, DDP_COMPONENT_OVL1_VIRTUAL0},
 };
 
+static const struct mtk_addon_module_data mt6985_addon_wdma0_data[] = {
+	/* real case: need wait PQ */
+	/* {DISP_WDMA0_v3, ADDON_AFTER, DDP_COMPONENT_PQ0_OUT_CB0}, */
+	{DISP_WDMA0_v3, ADDON_AFTER, DDP_COMPONENT_PANEL0_COMP_OUT_CB1},
+};
+
+static const struct mtk_addon_module_data mt6985_addon_wdma1_data[] = {
+	{DISP_WDMA1, ADDON_AFTER, DDP_COMPONENT_MERGE1_OUT_CB0},
+};
+
+static const struct mtk_addon_module_data mt6985_addon_ovlsys_wdma0_data[] = {
+	{DISP_OVLSYS_WDMA0, ADDON_AFTER, DDP_COMPONENT_OVL2_2L},
+};
+
+static const struct mtk_addon_module_data mt6985_addon_ovlsys_wdma2_data[] = {
+	{DISP_OVLSYS_WDMA2, ADDON_AFTER, DDP_COMPONENT_OVL6_2L},
+};
+
 /* mt6886 is the same as mt6895 */
 static const struct mtk_addon_module_data mt6895_addon_wdma0_data[] = {
 	{DISP_WDMA0, ADDON_AFTER, DDP_COMPONENT_SPR0},
@@ -2458,6 +2476,16 @@ static const struct mtk_addon_scenario_data mt6985_addon_main[ADDON_SCN_NR] = {
 		.module_num = 0,
 		.hrt_type = HRT_TB_TYPE_GENERAL1,
 	},
+	[WDMA_WRITE_BACK] = {
+		.module_num = ARRAY_SIZE(mt6985_addon_wdma0_data),
+		.module_data = mt6985_addon_wdma0_data,
+		.hrt_type = HRT_TB_TYPE_GENERAL1,
+	},
+	[WDMA_WRITE_BACK_OVL] = {
+		.module_num = ARRAY_SIZE(mt6985_addon_ovlsys_wdma0_data),
+		.module_data = mt6985_addon_ovlsys_wdma0_data,
+		.hrt_type = HRT_TB_TYPE_GENERAL1,
+	},
 	[TRIPLE_DISP] = {
 		.module_num = 0,
 		.hrt_type = HRT_TB_TYPE_GENERAL1,
@@ -2487,6 +2515,16 @@ static const struct mtk_addon_scenario_data mt6985_addon_main[ADDON_SCN_NR] = {
 static const struct mtk_addon_scenario_data mt6985_addon_main_dual[ADDON_SCN_NR] = {
 	[NONE] = {
 		.module_num = 0,
+		.hrt_type = HRT_TB_TYPE_GENERAL1,
+	},
+	[WDMA_WRITE_BACK] = {
+		.module_num = ARRAY_SIZE(mt6985_addon_wdma1_data),
+		.module_data = mt6985_addon_wdma1_data,
+		.hrt_type = HRT_TB_TYPE_GENERAL1,
+	},
+	[WDMA_WRITE_BACK_OVL] = {
+		.module_num = ARRAY_SIZE(mt6985_addon_ovlsys_wdma2_data),
+		.module_data = mt6985_addon_ovlsys_wdma2_data,
 		.hrt_type = HRT_TB_TYPE_GENERAL1,
 	},
 	[TRIPLE_DISP] = {

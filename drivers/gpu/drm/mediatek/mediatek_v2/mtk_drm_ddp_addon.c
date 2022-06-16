@@ -62,12 +62,46 @@ static const int disp_wdma0_path_v2[] = {
 	DDP_COMPONENT_WDMA0,
 };
 
+static const int disp_wdma0_path_v3[] = {
+	/* real case(WFD w/o TDSHP): need wait need PQ and VDCM */
+	/* DDP_COMPONENT_PANEL0_COMP_OUT_CB2, */
+	/* DDP_COMPONENT_VDCM0, */
+	/* DDP_COMPONENT_COMP0_OUT_CB0, */
+	/* DDP_COMPONENT_MERGE1, */
+	/* DDP_COMPONENT_MERGE0_OUT_CB6, */
+	/* DDP_COMPONENT_WDMA0, */
+	DDP_COMPONENT_COMP0_OUT_CB3, DDP_COMPONENT_MERGE0_OUT_CB1,
+	DDP_COMPONENT_WDMA0,
+};
+
 static const int disp_wdma1_path[] = {
+	DDP_COMPONENT_WDMA1,
+};
+
+/* real case(WFD w/o TDSHP): need wait need PQ and VDCM */
+static const int disp_wdma1_path_v2[] = {
+	/* DDP_COMPONENT_PANEL1_COMP_OUT_CB2, */
+	/* DDP_COMPONENT_COMP1_OUT_CB4, */
+	/* DDP_COMPONENT_MERGE1_OUT_CB2 */
 	DDP_COMPONENT_WDMA1,
 };
 
 static const int disp_wdma2_path[] = {
 	DDP_COMPONENT_WDMA2,
+};
+
+static const int disp_ovlsys_wdma0_path[] = {
+	/* real case: need wait */
+	/* DDP_COMPONENT_OVLSYS_DRSZ0, */
+	/* DDP_COMPONENT_OVLSYS_WDMA1, */
+	DDP_COMPONENT_OVLSYS_WDMA0,
+};
+
+static const int disp_ovlsys_wdma2_path[] = {
+	/* real case: need wait */
+	/* DDP_COMPONENT_OVLSYS_DRSZ1, */
+	/* DDP_COMPONENT_OVLSYS_WDMA3, */
+	DDP_COMPONENT_OVLSYS_WDMA2,
 };
 
 static const int disp_wdma2_path_v2[] = {
@@ -199,13 +233,29 @@ static const struct mtk_addon_path_data addon_module_path[ADDON_MODULE_NUM] = {
 				.path = disp_wdma0_path_v2,
 				.path_len = ARRAY_SIZE(disp_wdma0_path_v2),
 			},
+		[DISP_WDMA0_v3] = {
+				.path = disp_wdma0_path_v3,
+				.path_len = ARRAY_SIZE(disp_wdma0_path_v3),
+			},
 		[DISP_WDMA1] = {
 				.path = disp_wdma1_path,
 				.path_len = ARRAY_SIZE(disp_wdma1_path),
 			},
+		[DISP_WDMA1_v2] = {
+				.path = disp_wdma1_path_v2,
+				.path_len = ARRAY_SIZE(disp_wdma1_path_v2),
+			},
 		[DISP_WDMA2] = {
 				.path = disp_wdma2_path,
 				.path_len = ARRAY_SIZE(disp_wdma2_path),
+			},
+		[DISP_OVLSYS_WDMA0] = {
+				.path = disp_ovlsys_wdma0_path,
+				.path_len = ARRAY_SIZE(disp_ovlsys_wdma0_path),
+			},
+		[DISP_OVLSYS_WDMA2] = {
+				.path = disp_ovlsys_wdma2_path,
+				.path_len = ARRAY_SIZE(disp_ovlsys_wdma2_path),
 			},
 		[DISP_WDMA2_v2] = {
 				.path = disp_wdma2_path_v2,

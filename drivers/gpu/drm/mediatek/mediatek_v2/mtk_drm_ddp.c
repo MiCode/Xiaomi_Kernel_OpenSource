@@ -10070,7 +10070,8 @@ static int mtk_ddp_ovl_con_MT6985(enum mtk_ddp_comp_id cur,
 	*addr = MT6985_OVLSYS_OVL_CON;
 
 	if (next == DDP_COMPONENT_OVLSYS_DLO_ASYNC0 || next == DDP_COMPONENT_OVLSYS_DLO_ASYNC7 ||
-	    next == DDP_COMPONENT_OVLSYS_RSZ1 || next == DDP_COMPONENT_OVLSYS_RSZ2)
+	    next == DDP_COMPONENT_OVLSYS_RSZ1 || next == DDP_COMPONENT_OVLSYS_RSZ2 ||
+	    next == DDP_COMPONENT_OVLSYS_WDMA0 || next == DDP_COMPONENT_OVLSYS_WDMA2)
 		return 0;
 
 	if (cur == DDP_COMPONENT_OVL0_2L || cur == DDP_COMPONENT_OVL4_2L) {
