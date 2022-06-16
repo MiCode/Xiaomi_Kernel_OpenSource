@@ -738,6 +738,14 @@
 		compatible = "simple-bus";
 	};
 
+	clkchk {
+		compatible = "mediatek,mt6985-clkchk";
+	};
+
+	pdchk {
+		compatible = "mediatek,mt6985-pdchk";
+	};
+
 	clocks {
 		clk_null: clk_null {
 			compatible = "fixed-clock";
@@ -1148,7 +1156,8 @@
 			<&imgsys_main_clk CLK_IMG_WPE1>,
 			<&imgsys_main_clk CLK_IMG_WPE2>,
 			<&imgsys_main_clk CLK_IMG_TRAW0>,
-			<&imgsys_main_clk CLK_IMG_IPE>;
+			<&imgsys_main_clk CLK_IMG_IPE>,
+			<&pextpcfg_ao_clk CLK_PEXT_MAC0_26M>;
 		clock-names = "adsp", "audio", "cam", "ccu", "ccu_ahb",
 			"disp", "disp1", "mdp", "mdp1", "ovl", "ovl1",
 			"mm_infra", "mmup", "isp", "vde", "ven",
@@ -1162,7 +1171,7 @@
 			"cam_subc-0", "cam_subc-1", "cam_subc-2",
 			"cam_mraw-0", "cam_mraw-1", "dip1_lp-0",
 			"dip1_lp-1", "dip1_lp-2", "dip1_lp-3", "dip1_lp-4",
-			"dip1_lp-5";
+			"dip1_lp-5", "pextp-0";
 		ifr_bus = <&ifr_bus>;
 		ufscfg_ao_bus = <&ufscfg_ao_clk>;
 		gpu_eb_rpc = <&gpusys>;

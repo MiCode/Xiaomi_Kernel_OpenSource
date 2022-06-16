@@ -655,18 +655,6 @@
 			<&pericfg_ao_clk CLK_PERAO_SPI5_B>,
 			<&pericfg_ao_clk CLK_PERAO_SPI6_B>,
 			<&pericfg_ao_clk CLK_PERAO_SPI7_B>,
-			<&pericfg_ao_clk CLK_PERAO_SPI0_H>,
-			<&pericfg_ao_clk CLK_PERAO_SPI1_H>,
-			<&pericfg_ao_clk CLK_PERAO_SPI2_H>,
-			<&pericfg_ao_clk CLK_PERAO_SPI3_H>,
-			<&pericfg_ao_clk CLK_PERAO_SPI4_H>,
-			<&pericfg_ao_clk CLK_PERAO_SPI5_H>,
-			<&pericfg_ao_clk CLK_PERAO_SPI6_H>,
-			<&pericfg_ao_clk CLK_PERAO_SPI7_H>,
-			<&pericfg_ao_clk CLK_PERAO_SFLASH>,
-			<&pericfg_ao_clk CLK_PERAO_SFLASH_F>,
-			<&pericfg_ao_clk CLK_PERAO_SFLASH_H>,
-			<&pericfg_ao_clk CLK_PERAO_SFLASH_P>,
 			<&pericfg_ao_clk CLK_PERAO_I2C>,
 			<&pericfg_ao_clk CLK_PERAO_DMA_B>,
 			<&pericfg_ao_clk CLK_PERAO_SSUSB0_FRMCNT>,
@@ -677,9 +665,6 @@
 			<&pericfg_ao_clk CLK_PERAO_MSDC2>,
 			<&pericfg_ao_clk CLK_PERAO_MSDC2_F>,
 			<&pericfg_ao_clk CLK_PERAO_MSDC2_H>,
-			<&pericfg_ao_clk CLK_PERAO_UARTHUB>,
-			<&pericfg_ao_clk CLK_PERAO_UARTHUB_H>,
-			<&pericfg_ao_clk CLK_PERAO_UARTHUB_P>,
 			<&pericfg_ao_clk CLK_PERAO_AUDIO_SLV>,
 			<&pericfg_ao_clk CLK_PERAO_AUDIO_MST>,
 			<&pericfg_ao_clk CLK_PERAO_AUDIO_INTBUS>;
@@ -699,7 +684,6 @@
 		compatible = "mediatek,clk-disable-unused";
 		clocks =
 			<&infracfg_ao_clk CLK_IFRAO_CLDMA_BCLK>,
-			<&infracfg_ao_clk CLK_IFRAO_FBIST2FPC>,
 			<&infracfg_ao_clk CLK_IFRAO_DPMAIF_MAIN>,
 			<&infracfg_ao_clk CLK_IFRAO_RG_MMW_DPMAIF26M_CK>,
 			<&infracfg_ao_clk CLK_IFRAO_RG_AP_I3C>;
@@ -709,12 +693,7 @@
 		compatible = "mediatek,clk-disable-unused";
 		clocks =
 			<&vlp_cksys_clk CLK_VLP_CK_SCP_SEL>,
-			<&vlp_cksys_clk CLK_VLP_CK_DPSW_SEL>,
-			<&vlp_cksys_clk CLK_VLP_CK_PWM_VLP_SEL>,
-			<&vlp_cksys_clk CLK_VLP_CK_SRCK_SEL>,
-			<&vlp_cksys_clk CLK_VLP_CK_SRAMRC_SEL>,
-			<&vlp_cksys_clk CLK_VLP_CK_CAMTG_VLP_SEL>,
-			<&vlp_cksys_clk CLK_VLP_CK_IPS_SEL>;
+			<&vlp_cksys_clk CLK_VLP_CK_CAMTG_VLP_SEL>;
 	};
 
 	disable-unused-clk-topckgen {
@@ -767,7 +746,6 @@
 			<&topckgen_clk CLK_TOP_VDEC_CKSYS1_SEL>,
 			<&topckgen_clk CLK_TOP_PWM_SEL>,
 			<&topckgen_clk CLK_TOP_AUDIO_H_SEL>,
-			<&topckgen_clk CLK_TOP_SFLASH_SEL>,
 			<&topckgen_clk CLK_TOP_IPSEAST_SEL>,
 			<&topckgen_clk CLK_TOP_IPSSOUTH_SEL>,
 			<&topckgen_clk CLK_TOP_IPSWEST_SEL>,
