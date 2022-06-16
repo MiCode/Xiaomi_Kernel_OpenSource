@@ -719,6 +719,12 @@
 				  "mbox7";
 	};
 
+	cpuqos_v3: cpuqos_v3 {
+		compatible = "mediatek,cpuqos_v3";
+		reg = <0 0x00113400 0 0x400>;
+		enable = <1>;
+	};
+
 	sspm: sspm@1c340000 {
 		compatible = "mediatek,sspm";
 		reg = <0 0x1c300000 0 0x30000>,
@@ -12983,7 +12989,9 @@
 			node_0 = "MCUPM_MET_UNIT_TEST", "test";
 
 			node_1 = "__MCUPM_MET_L3CTL__", "op_policy,ct_portion,nct_portion,\
-cpuqos_mode,dnth0,dnth1,upth0,upth1";
+cpuqos_mode,dnth0,dnth1,upth0,upth1,\
+hit0,hit1,hit2,hit3,mis0,mis1,mis2,mis3,\
+l3_hit,l3_mis,pmu_cyc_cnt";
 		};
 
 		sspm_rts_header:sspm-rts-header {
