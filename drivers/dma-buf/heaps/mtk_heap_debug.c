@@ -746,6 +746,9 @@ static int dmabuf_rbtree_add_vmas(struct dump_fd_data *fd_data)
 	struct file *file;
 	struct dma_buf *dmabuf;
 
+	if (t->flags & PF_KTHREAD)
+		return 0;
+
 	mm = get_task_mm(t);
 	if (!mm)
 		return 0;
@@ -1045,6 +1048,7 @@ void dmabuf_rbtree_add_all_pid(struct dump_fd_data *fddata,
 	if (ret)
 		dmabuf_dump(s, "%s: add vma fail:%d\n", __func__, ret);
 
+	task_lock(p);
 	fddata->ret = 0;
 	fddata->err = 0;
 	iterate_fd(p->files, 0, dmabuf_rbtree_add_fd_cb, &fddata->constd);
@@ -1062,6 +1066,7 @@ void dmabuf_rbtree_add_all_pid(struct dump_fd_data *fddata,
 			    p->pid, p->comm,
 			    fddata->err);
 
+	task_unlock(p);
 	put_task_struct(p);
 	put_pid(pid_s);
 }
