@@ -950,6 +950,7 @@ int mmc_execute_tuning(struct mmc_card *card)
 
 	return err;
 }
+EXPORT_SYMBOL_GPL(mmc_execute_tuning);
 
 /*
  * Change the bus mode (open drain/push-pull) of a host.
@@ -959,6 +960,7 @@ void mmc_set_bus_mode(struct mmc_host *host, unsigned int mode)
 	host->ios.bus_mode = mode;
 	mmc_set_ios(host);
 }
+EXPORT_SYMBOL_GPL(mmc_set_bus_mode);
 
 /*
  * Change data bus width of a host.
@@ -968,6 +970,7 @@ void mmc_set_bus_width(struct mmc_host *host, unsigned int width)
 	host->ios.bus_width = width;
 	mmc_set_ios(host);
 }
+EXPORT_SYMBOL_GPL(mmc_set_bus_width);
 
 /*
  * Set initial state after a power cycle or a hw_reset.

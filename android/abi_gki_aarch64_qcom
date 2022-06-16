@@ -2026,6 +2026,7 @@
   __tracepoint_android_vh_ftrace_oops_exit
   __tracepoint_android_vh_ftrace_size_check
   __tracepoint_android_vh_gic_resume
+  __tracepoint_android_vh_handle_tlb_conf
   __tracepoint_android_vh_ipi_stop
   __tracepoint_android_vh_jiffies_update
   __tracepoint_android_vh_kswapd_per_node
@@ -2046,6 +2047,8 @@
   __tracepoint_android_vh_ufs_send_uic_command
   __tracepoint_android_vh_update_topology_flags_workfn
   __tracepoint_android_vh_mmc_sdio_pm_flag_set
+  __tracepoint_android_rvh_partial_init
+  __tracepoint_android_rvh_mmc_cache_card_properties
   __tracepoint_binder_transaction_received
   __tracepoint_cpu_frequency_limits
   __tracepoint_cpu_idle

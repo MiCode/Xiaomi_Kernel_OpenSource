@@ -25,6 +25,10 @@ DECLARE_RESTRICTED_HOOK(android_rvh_do_sp_pc_abort,
 	TP_ARGS(addr, esr, regs),
 	TP_CONDITION(!user_mode(regs)));
 
+DECLARE_HOOK(android_vh_handle_tlb_conf,
+	TP_PROTO(unsigned long addr, unsigned int esr, int *ret),
+	TP_ARGS(addr, esr, ret));
+
 #endif /* _TRACE_HOOK_FAULT_H */
 /* This part must be outside protection */
 #include <trace/define_trace.h>
