@@ -1728,7 +1728,7 @@ exit:
 /**
  * goodix_ts_esd_on - turn on esd protection
  */
-static void goodix_ts_esd_on(struct goodix_ts_core *cd)
+void goodix_ts_esd_on(struct goodix_ts_core *cd)
 {
 	struct goodix_ic_info_misc *misc = &cd->ic_info.misc;
 	struct goodix_ts_esd *ts_esd = &cd->ts_esd;
@@ -1749,7 +1749,7 @@ static void goodix_ts_esd_on(struct goodix_ts_core *cd)
 /**
  * goodix_ts_esd_off - turn off esd protection
  */
-static void goodix_ts_esd_off(struct goodix_ts_core *cd)
+void goodix_ts_esd_off(struct goodix_ts_core *cd)
 {
 	struct goodix_ts_esd *ts_esd = &cd->ts_esd;
 	int ret;

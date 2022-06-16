@@ -23,6 +23,8 @@ int tpd_gt9895_enter_tui(void)
 
 	mt_spi_enable_master_clk(ts_core_gt9895_tui->bus->spi_dev);
 
+	goodix_ts_esd_off(ts_core_gt9895_tui);
+
 	atomic_set(&gt9895_tui_flag, true);
 
 	return ret;
@@ -39,6 +41,8 @@ int tpd_gt9895_exit_tui(void)
 
 	ts_core_gt9895_tui->hw_ops->irq_enable(ts_core_gt9895_tui, false);
 	ts_core_gt9895_tui->hw_ops->irq_enable(ts_core_gt9895_tui, true);
+
+	goodix_ts_esd_on(ts_core_gt9895_tui);
 
 	atomic_set(&gt9895_tui_flag, false);
 

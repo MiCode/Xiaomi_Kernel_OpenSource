@@ -705,6 +705,10 @@ void goodix_tools_exit(void);
 
 void goodix_ts_report_finger(struct input_dev *dev,
 		struct goodix_touch_data *touch_data);
+void goodix_ts_esd_on(struct goodix_ts_core *cd);
+void goodix_ts_esd_off(struct goodix_ts_core *cd);
+
+
 
 #if IS_ENABLED(CONFIG_PINCTRL)
 int goodix_ts_gpio_suspend(struct goodix_ts_core *core_data);
