@@ -5898,8 +5898,8 @@ static const struct of_device_id mtk_ddp_comp_dt_ids[] = {
 	 .data = (void *)MTK_DMDP_AAL},
 	{.compatible = "mediatek,mt6983-disp-y2r",
 	 .data = (void *)MTK_DISP_Y2R},
-//	{.compatible = "mediatek,mt6985-disp-y2r",
-//	 .data = (void *)MTK_DISP_Y2R},
+	{.compatible = "mediatek,mt6985-disp-y2r",
+	 .data = (void *)MTK_DISP_Y2R},
 	/* MML */
 	{.compatible = "mediatek,mt6983-mml_rsz",
 	 .data = (void *)MTK_MML_RSZ},
@@ -5919,14 +5919,20 @@ static const struct of_device_id mtk_ddp_comp_dt_ids[] = {
 	 .data = (void *)MTK_MML_WROT},
 	{.compatible = "mediatek,mt6983-disp-dlo-async3",
 	 .data = (void *)MTK_DISP_DLO_ASYNC},
+	{.compatible = "mediatek,mt6985-disp-dlo-async",
+	 .data = (void *)MTK_DISP_DLO_ASYNC},
 	{.compatible = "mediatek,mt6983-disp-dli-async3",
+	 .data = (void *)MTK_DISP_DLI_ASYNC},
+	{.compatible = "mediatek,mt6985-disp-dli-async",
 	 .data = (void *)MTK_DISP_DLI_ASYNC},
 	{.compatible = "mediatek,mt6983-disp-inlinerotate",
 	 .data = (void *)MTK_DISP_INLINE_ROTATE},
-	{.compatible = "mediatek,mt6983-mmlsys-bypass",
-	 .data = (void *)MTK_MMLSYS_BYPASS},
 	{.compatible = "mediatek,mt6895-disp-inlinerotate",
 	 .data = (void *)MTK_DISP_INLINE_ROTATE},
+	{.compatible = "mediatek,mt6985-disp-inlinerotate",
+	 .data = (void *)MTK_DISP_INLINE_ROTATE},
+	{.compatible = "mediatek,mt6983-mmlsys-bypass",
+	 .data = (void *)MTK_MMLSYS_BYPASS},
 	{} };
 
 static struct disp_iommu_device disp_iommu;

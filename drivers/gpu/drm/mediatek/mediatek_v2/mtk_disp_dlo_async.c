@@ -182,6 +182,7 @@ static int mtk_disp_dlo_async_remove(struct platform_device *pdev)
 static const struct of_device_id mtk_disp_dlo_async_driver_dt_match[] = {
 	{.compatible = "mediatek,mt6983-disp-dlo-async3",},
 	{.compatible = "mediatek,mt6895-disp-dlo-async3",},
+	{.compatible = "mediatek,mt6985-disp-dlo-async",},
 	{},
 };
 MODULE_DEVICE_TABLE(of, mtk_disp_dlo_async_driver_dt_match);

@@ -23,12 +23,13 @@
 #define DISP_REG_INLINEROT_HEIGHT1		0x38
 #define DISP_REG_INLINEROT_WDONE		0x3C
 
-/**
- * struct mtk_disp_inlinerotate - DISP_RSZ driver structure
- * @ddp_comp - structure containing type enum and hardware resources
- */
+struct mtk_disp_inlinerotate_data {
+	unsigned int (*ovl_sel_mapping)(struct mtk_ddp_comp *comp);
+};
+
 struct mtk_disp_inlinerotate {
 	struct mtk_ddp_comp ddp_comp;
+	const struct mtk_disp_inlinerotate_data *data;
 };
 
 static inline struct mtk_disp_inlinerotate *comp_to_inlinerotate(struct mtk_ddp_comp *comp)
@@ -42,9 +43,20 @@ static void mtk_inlinerotate_addon_config(struct mtk_ddp_comp *comp,
 				 union mtk_addon_config *addon_config,
 				 struct cmdq_pkt *handle)
 {
+	struct mtk_ddp_comp *first_ovl = NULL;
+	struct mtk_drm_crtc *mtk_crtc = comp->mtk_crtc;
+	struct mtk_disp_inlinerotate *ir = comp_to_inlinerotate(comp);
+	unsigned int ovl_sel = 0;
+
 	/* config inlinerot only when the first IR frame, bypass addon_connect */
 	if (addon_config)
 		return;
+
+	if (!mtk_crtc)
+		return;
+
+	first_ovl = mtk_crtc->ddp_ctx[mtk_crtc->ddp_mode].ddp_comp[DDP_FIRST_PATH][0];
+	ovl_sel = ir->data->ovl_sel_mapping(first_ovl);
 
 	/* TODO: dynamic OVLSEL */
 #ifdef IF_ZERO
@@ -55,23 +67,18 @@ static void mtk_inlinerotate_addon_config(struct mtk_ddp_comp *comp,
 		return;
 #endif
 
-	DDPINFO("%s+ handle:0x%x, comp->regs_pa:0x%x\n",
-		__func__, handle, comp->regs_pa);
+	DDPINFO("%s+ handle:0x%x, comp->regs_pa:0x%x, ovl_sel:%u\n",
+		__func__, handle, comp->regs_pa, ovl_sel);
 
-	cmdq_pkt_write(handle, comp->cmdq_base,
-		comp->regs_pa + DISP_REG_DISPSYS_SHADOW_CTRL,
-		0x00000002, ~0);
-	cmdq_pkt_write(handle, comp->cmdq_base,
-		comp->regs_pa + DISP_REG_INLINEROT_OVLSEL,
-		12, ~0);
-	cmdq_pkt_write(handle, comp->cmdq_base,
-		comp->regs_pa + DISP_REG_INLINEROT_HEIGHT0,
-		64, ~0);
-	cmdq_pkt_write(handle, comp->cmdq_base,
-		comp->regs_pa + DISP_REG_INLINEROT_HEIGHT1,
-		64, ~0);
+	cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DISP_REG_DISPSYS_SHADOW_CTRL,
+		       0x00000002, ~0);
+	cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DISP_REG_INLINEROT_OVLSEL,
+		       ovl_sel, ~0);
+	cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DISP_REG_INLINEROT_HEIGHT0,
+		       64, ~0);
+	cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DISP_REG_INLINEROT_HEIGHT1,
+		       64, ~0);
 
-	DDPINFO("comp->regs_pa:%x", comp->regs_pa);
 	DDPINFO("%s -\n", __func__);
 }
 
@@ -208,7 +215,7 @@ static int mtk_disp_inlinerotate_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	//priv->data = of_device_get_match_data(dev);
+	priv->data = of_device_get_match_data(dev);
 
 	platform_set_drvdata(pdev, priv);
 
@@ -235,9 +242,52 @@ static int mtk_disp_inlinerotate_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static unsigned int mt6983_ovl_sel_mapping(struct mtk_ddp_comp *comp)
+{
+	switch (comp->id) {
+	case DDP_COMPONENT_OVL0:
+		return 0;
+	case DDP_COMPONENT_OVL0_2L:
+	case DDP_COMPONENT_OVL1_2L:
+		return 12;
+	default:
+		DDPPR_ERR("%s not support comp id %d\n", __func__, comp->id);
+		return 0;
+	}
+}
+
+static unsigned int ovl_sel_mapping(struct mtk_ddp_comp *comp)
+{
+	switch (comp->id) {
+	case DDP_COMPONENT_OVL0_2L:
+		return 0;
+	case DDP_COMPONENT_OVL1_2L:
+		return 5;
+	case DDP_COMPONENT_OVL2_2L:
+		return 10;
+	case DDP_COMPONENT_OVL3_2L:
+		return 15;
+	default:
+		DDPPR_ERR("%s not support comp id %d\n", __func__, comp->id);
+		return 0;
+	}
+}
+
+static const struct mtk_disp_inlinerotate_data mt6983_inlinerotate_driver_data = {
+	.ovl_sel_mapping = &mt6983_ovl_sel_mapping,
+};
+
+static const struct mtk_disp_inlinerotate_data inlinerotate_driver_data = {
+	.ovl_sel_mapping = &ovl_sel_mapping,
+};
+
 static const struct of_device_id mtk_disp_inlinerotate_driver_dt_match[] = {
-	{.compatible = "mediatek,mt6983-disp-inlinerotate",},
-	{.compatible = "mediatek,mt6895-disp-inlinerotate",},
+	{.compatible = "mediatek,mt6983-disp-inlinerotate",
+	 .data = &mt6983_inlinerotate_driver_data},
+	{.compatible = "mediatek,mt6895-disp-inlinerotate",
+	 .data = &mt6983_inlinerotate_driver_data}, /* same as 6983 */
+	{.compatible = "mediatek,mt6985-disp-inlinerotate",
+	 .data = &inlinerotate_driver_data},
 	{},
 };
 MODULE_DEVICE_TABLE(of, mtk_disp_inlinerotate_driver_dt_match);

@@ -49,6 +49,11 @@ static void mtk_y2r_addon_config(struct mtk_ddp_comp *comp,
 {
 	struct mtk_drm_crtc *mtk_crtc = comp->mtk_crtc;
 
+	if (!mtk_crtc) {
+		DDPINFO("%s mtk_crtc is not assigned\n", __func__);
+		return;
+	}
+
 	if (!mtk_crtc->is_force_mml_scen)
 		return;
 
@@ -205,6 +210,7 @@ static int mtk_disp_y2r_remove(struct platform_device *pdev)
 static const struct of_device_id mtk_disp_y2r_driver_dt_match[] = {
 	{.compatible = "mediatek,mt6983-disp-y2r",},
 	{.compatible = "mediatek,mt6895-disp-y2r",},
+	{.compatible = "mediatek,mt6985-disp-y2r",},
 	{},
 };
 MODULE_DEVICE_TABLE(of, mtk_disp_y2r_driver_dt_match);
