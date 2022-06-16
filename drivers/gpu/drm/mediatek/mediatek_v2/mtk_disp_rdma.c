@@ -436,9 +436,11 @@ static irqreturn_t mtk_disp_rdma_irq_handler(int irq, void *dev_id)
 				wake_up_interruptible(
 					&mtk_crtc->esd_ctx->check_task_wq);
 			}
-			if ((val & (1 << 2)) == 0 &&
-				(rdma->id == DDP_COMPONENT_RDMA0 ||
-				rdma->id == DDP_COMPONENT_RDMA2))
+			if (!mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base) &&
+					(val & (1 << 2)) == 0 &&
+					(rdma->id == DDP_COMPONENT_RDMA0 ||
+					 rdma->id == DDP_COMPONENT_RDMA2 ||
+					 rdma->id == DDP_COMPONENT_RDMA3))
 				atomic_set(&mtk_crtc->signal_irq_for_pre_fence, 0);
 		}
 		IF_DEBUG_IRQ_TS(find_work,
