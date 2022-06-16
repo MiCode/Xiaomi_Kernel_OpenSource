@@ -8,7 +8,6 @@
 #include <linux/kernel.h>
 #include "apusys_trace.h"
 #include "sw_logger.h"
-
 static noinline int tracing_mark_write(const char *buf)
 {
 	TRACE_PUTS(buf);
@@ -18,7 +17,7 @@ static noinline int tracing_mark_write(const char *buf)
 void trace_tag_customer(const char *fmt, ...)
 {
 	char buf[TRACE_LEN];
-	uint32_t ret;
+	int ret;
 	va_list args;
 
 	va_start(args, fmt);

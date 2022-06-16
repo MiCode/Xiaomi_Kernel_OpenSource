@@ -169,7 +169,7 @@ int reviser_mem_alloc(struct device *dev, struct reviser_mem *mem, bool fix)
 {
 	int ret = 0;
 	void *kva;
-	dma_addr_t iova;
+	dma_addr_t iova = 0;
 	struct reviser_dev_info *rdv = dev_get_drvdata(dev);
 
 	if (fix) {
