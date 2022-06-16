@@ -2657,7 +2657,6 @@ int cmdq_pkt_wait_complete(struct cmdq_pkt *pkt)
 #endif
 
 	cmdq_trace_end();
-	cmdq_util_helper->track(pkt);
 
 	return item->err;
 }
