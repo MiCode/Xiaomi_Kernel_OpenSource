@@ -88,6 +88,7 @@ struct scp_logger_ctrl_msg {
 
 static unsigned int scp_A_logger_inited;
 static unsigned int scp_A_logger_wakeup_ap;
+static unsigned int scp_A_logger_enable;
 
 static struct log_ctrl_s *SCP_A_log_ctl;
 static struct buffer_info_s *SCP_A_buf_info;
@@ -335,6 +336,7 @@ static unsigned int scp_A_log_enable_set(unsigned int enable)
 	unsigned int retrytimes;
 	struct scp_logger_ctrl_msg msg;
 
+	scp_A_logger_enable = enable;
 	if (scp_A_logger_inited) {
 		/*
 		 *send ipi to invoke scp logger
@@ -717,6 +719,9 @@ static void scp_logger_notify_ws(struct work_struct *ws)
 		SCP_A_log_ctl->enable = 1;
 		pr_notice("[SCP]logger initial fail, ipi ret=%d\n", ret);
 	}
+	if (scp_A_logger_enable)
+		ret = scp_A_log_enable_set(scp_A_logger_enable);
+	pr_notice("[SCP]logger re-enable ret=%d\n", ret);
 
 }
 

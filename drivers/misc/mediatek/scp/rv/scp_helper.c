@@ -61,7 +61,7 @@
 #define SEMAPHORE_TIMEOUT 5000
 #define SEMAPHORE_3WAY_TIMEOUT 5000
 /* scp ready timeout definition */
-#define SCP_READY_TIMEOUT (3 * HZ) /* 30 seconds*/
+#define SCP_READY_TIMEOUT (10 * HZ) /* 30 seconds*/
 #define SCP_A_TIMER 0
 
 /* scp pm notify flag*/
@@ -1680,24 +1680,24 @@ void print_clk_registers(void)
 	unsigned int value;
 
 	// 0x24000 ~ 0x24160 (inclusive)
-	for (offset = 0x0000; offset <= 0x0160; offset += 4) {
+	for (offset = 0x0000; offset <= 0x0170; offset += 4) {
 		value = (unsigned int)readl(cfg + offset);
 		pr_notice("[SCP] cfg[0x%04x]: 0x%08x\n", offset, value);
 	}
 	// 0x21000 ~ 0x210144 (inclusive)
-	for (offset = 0x0000; offset <= 0x0144; offset += 4) {
+	for (offset = 0x0000; offset <= 0x0160; offset += 4) {
 		value = (unsigned int)readl(clkctrl + offset);
 		pr_notice("[SCP] clk[0x%04x]: 0x%08x\n", offset, value);
 	}
 	// 0x30000 ~ 0x30114 (inclusive)
-	for (offset = 0x0000; offset <= 0x0114; offset += 4) {
+	for (offset = 0x0000; offset <= 0x01b0; offset += 4) {
 		value = (unsigned int)readl(cfg_core0 + offset);
 		pr_notice("[SCP] cfg_core0[0x%04x]: 0x%08x\n", offset, value);
 	}
 	if (scpreg.core_nums == 1)
 		return;
 	// 0x40000 ~ 0x40114 (inclusive)
-	for (offset = 0x0000; offset <= 0x0114; offset += 4) {
+	for (offset = 0x0000; offset <= 0x01b0; offset += 4) {
 		value = (unsigned int)readl(cfg_core1 + offset);
 		pr_notice("[SCP] cfg_core1[0x%04x]: 0x%08x\n", offset, value);
 	}
