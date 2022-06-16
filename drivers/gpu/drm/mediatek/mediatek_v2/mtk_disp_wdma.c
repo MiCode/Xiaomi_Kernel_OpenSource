@@ -69,6 +69,7 @@
 #define DISP_REG_WDMA_EXEC_DBG 0x000A4
 #define EXEC_DBG_FLD_WDMA_STA_EXEC REG_FLD_MSB_LSB(31, 0)
 #define DISP_REG_WDMA_INPUT_CNT_DBG 0x000A8
+#define DISP_REG_WDMA_SMI_TRAFFIC_DBG 0x000AC
 #define DISP_REG_WDMA_DEBUG 0x000B8
 #define DISP_REG_WDMA_BUF_CON3 0x0104
 #define BUF_CON3_FLD_ISSUE_REQ_TH_Y REG_FLD_MSB_LSB(8, 0)
@@ -239,6 +240,8 @@ static irqreturn_t mtk_wdma_irq_handler(int irq, void *dev_id)
 	struct mtk_ddp_comp *wdma = NULL;
 	struct mtk_cwb_info *cwb_info = NULL;
 	struct mtk_drm_private *drm_priv = NULL;
+	static unsigned long long underrun_old_ts;
+	unsigned long long underrun_new_ts = 0;
 	unsigned int buf_idx;
 	unsigned int val = 0;
 	unsigned int ret = 0;
@@ -264,6 +267,8 @@ static irqreturn_t mtk_wdma_irq_handler(int irq, void *dev_id)
 
 	if (wdma->id == DDP_COMPONENT_WDMA0)
 		DRM_MMP_MARK(wdma0, val, 0);
+	else if (wdma->id == DDP_COMPONENT_WDMA1)
+		DRM_MMP_MARK(wdma1, val, 0);
 
 	if (val & 0x2)
 		DRM_MMP_MARK(abnormal_irq, val, wdma->id);
@@ -295,9 +300,19 @@ static irqreturn_t mtk_wdma_irq_handler(int irq, void *dev_id)
 		}
 		MMPathTraceDRM(wdma);
 	}
-	if (val & (1 << 1))
+	if (val & (1 << 1)) {
 		DDPPR_ERR("[IRQ] %s: frame underrun!\n",
 			  mtk_dump_comp_str(wdma));
+		underrun_new_ts = sched_clock();
+		if (&(wdma->mtk_crtc->base)
+			&& (underrun_new_ts - underrun_old_ts > 1000*1000*1000)) { //1s
+			mtk_drm_crtc_analysis(&(wdma->mtk_crtc->base));
+			mtk_drm_crtc_dump(&(wdma->mtk_crtc->base));
+			DDPMSG("new: %llu, old: %llu", underrun_new_ts, underrun_old_ts);
+			underrun_old_ts = underrun_new_ts;
+			mtk_smi_dbg_hang_detect("wdma-underrun");
+		}
+	}
 
 	ret = IRQ_HANDLED;
 
@@ -1393,10 +1408,13 @@ int mtk_wdma_dump(struct mtk_ddp_comp *comp)
 				readl(DISP_REG_WDMA_DST_ADDR_OFFSETX_MSB(1) + baddr),
 				readl(DISP_REG_WDMA_DST_ADDR_OFFSETX_MSB(2) + baddr));
 
-		DDPDUMP("0x0a0:0x%08x 0x%08x 0x%08x 0x0b8:0x%08x\n",
+		DDPDUMP("0x0a0:0x%08x 0x%08x 0x%08x 0x%08x\n",
 			readl(DISP_REG_WDMA_FLOW_CTRL_DBG + baddr),
 			readl(DISP_REG_WDMA_EXEC_DBG + baddr),
 			readl(DISP_REG_WDMA_INPUT_CNT_DBG + baddr),
+			readl(DISP_REG_WDMA_SMI_TRAFFIC_DBG + baddr));
+
+		DDPDUMP("0x0b8:0x%08x\n",
 			readl(DISP_REG_WDMA_DEBUG + baddr));
 
 		DDPDUMP("0xf00:0x%08x 0x%08x 0x%08x\n",
