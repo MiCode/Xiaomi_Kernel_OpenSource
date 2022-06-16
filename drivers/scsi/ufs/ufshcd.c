@@ -3762,8 +3762,13 @@ int ufshcd_dme_configure_adapt(struct ufs_hba *hba,
 {
 	int ret;
 
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
+	if (agreed_gear < UFS_HS_G4)
+		adapt_val = PA_NO_ADAPT;
+#else
 	if (agreed_gear != UFS_HS_G4)
 		adapt_val = PA_NO_ADAPT;
+#endif
 
 	ret = ufshcd_dme_set(hba,
 			     UIC_ARG_MIB(PA_TXHSADAPTTYPE),
