@@ -15,6 +15,8 @@
 #include <linux/usb/typec_mux.h>
 #include <linux/atomic.h>
 #include <linux/interrupt.h>
+#include <linux/regmap.h>
+#include <linux/of_device.h>
 #include "tcpm.h"
 
 #if IS_ENABLED(CONFIG_MTK_USB_TYPEC_MUX)
@@ -40,6 +42,13 @@ struct ps5170 {
 	enum typec_orientation orientation;
 
 	atomic_t in_sleep;
+
+	/* pmic vs voter */
+	struct regmap *vsv;
+	u32 vsv_reg;
+	u32 vsv_mask;
+	u32 vsv_vers;
+
 };
 
 #define ps5170_ORIENTATION_NONE                 0x80
@@ -53,6 +62,78 @@ struct ps5170 {
 /* USB + DP */
 #define ps5170_ORIENTATION_NORMAL_USBDP         0xe0
 #define ps5170_ORIENTATION_FLIP_USBDP           0xf0
+
+/* PMIC Voter offset */
+#define VS_VOTER_EN_LO 0x0
+#define VS_VOTER_EN_LO_SET 0x1
+#define VS_VOTER_EN_LO_CLR 0x2
+
+void ps5170_vsvoter_set(struct ps5170 *ps)
+{
+	u32 reg, msk, val;
+
+	if (IS_ERR_OR_NULL(ps->vsv))
+		return;
+
+	/* write 1 to set and clr, update reg address */
+	reg = ps->vsv_reg + VS_VOTER_EN_LO_SET;
+	msk = ps->vsv_mask;
+	val = ps->vsv_mask;
+
+	regmap_update_bits(ps->vsv, reg, msk, val);
+	dev_info(ps->dev, "%s set voter for vs %d\n", __func__);
+
+}
+
+void ps5170_vsvoter_clr(struct ps5170 *ps)
+{
+	u32 reg, msk, val;
+
+	if (IS_ERR_OR_NULL(ps->vsv))
+		return;
+
+	/* write 1 to set and clr, update reg address */
+	reg = ps->vsv_reg + VS_VOTER_EN_LO_CLR;
+	msk = ps->vsv_mask;
+	val = ps->vsv_mask;
+
+	regmap_update_bits(ps->vsv, reg, msk, val);
+	dev_info(ps->dev, "%s clr voter for vs %d\n", __func__);
+
+}
+
+static int ps5170_vsvoter_of_property_parse(struct ps5170 *ps,
+				struct device_node *dn)
+{
+	struct of_phandle_args args;
+	struct platform_device *pdev;
+	int ret;
+
+	/* vs vote function is optional */
+	if (!of_property_read_bool(dn, "mediatek,vs-voter"))
+		return 0;
+
+	ret = of_parse_phandle_with_fixed_args(dn,
+		"mediatek,vs-voter", 3, 0, &args);
+	if (ret)
+		return ret;
+
+	pdev = of_find_device_by_node(args.np->child);
+	if (!pdev)
+		return -ENODEV;
+
+	ps->vsv = dev_get_regmap(pdev->dev.parent, NULL);
+	if (!ps->vsv)
+		return -ENODEV;
+
+	ps->vsv_reg = args.args[0];
+	ps->vsv_mask = args.args[1];
+	ps->vsv_vers = args.args[2];
+	dev_info(ps->dev, "vsv - reg:0x%x, mask:0x%x, version:%d\n",
+			ps->vsv_reg, ps->vsv_mask, ps->vsv_vers);
+
+	return PTR_ERR_OR_ZERO(ps->vsv);
+}
 
 static int ps5170_init(struct ps5170 *ps)
 {
@@ -172,8 +253,12 @@ static void ps5170_switch_set_work(struct work_struct *data)
 		i2c_smbus_write_byte_data(ps->i2c, 0x40, 0x80);
 		if (ps->disable)
 			pinctrl_select_state(ps->pinctrl, ps->disable);
+		/* vote vs to disable  */
+		ps5170_vsvoter_clr(ps);
 		break;
 	case TYPEC_ORIENTATION_NORMAL:
+		/* vote vs to enable */
+		ps5170_vsvoter_set(ps);
 		/* switch cc1 side */
 		if (ps->enable) {
 			pinctrl_select_state(ps->pinctrl, ps->enable);
@@ -185,6 +270,8 @@ static void ps5170_switch_set_work(struct work_struct *data)
 			ps5170_ORIENTATION_FLIP);
 		break;
 	case TYPEC_ORIENTATION_REVERSE:
+		/* vote vs to enable */
+		ps5170_vsvoter_set(ps);
 		/* switch cc2 side */
 		if (ps->enable) {
 			pinctrl_select_state(ps->pinctrl, ps->enable);
@@ -244,6 +331,12 @@ static void ps5170_mux_set_work(struct work_struct *data)
 	}
 
 	if (ps->mode == TCP_NOTIFY_AMA_DP_STATE) {
+
+		if (!dp_data.ama_dp_state.active) {
+			dev_info(ps->dev, "%s Not active\n", __func__);
+			return;
+		}
+
 		switch (dp_data.ama_dp_state.pin_assignment) {
 		case 4:
 		case 16:
@@ -341,6 +434,7 @@ static int ps5170_pinctrl_init(struct ps5170 *ps)
 static int ps5170_probe(struct i2c_client *client)
 {
 	struct device *dev = &client->dev;
+	struct device_node *node = dev->of_node;
 	struct typec_switch_desc sw_desc = { };
 	struct typec_mux_desc mux_desc = { };
 	struct ps5170 *ps;
@@ -354,6 +448,10 @@ static int ps5170_probe(struct i2c_client *client)
 	ps->dev = dev;
 
 	atomic_set(&ps->in_sleep, 0);
+
+	ret = ps5170_vsvoter_of_property_parse(ps, node);
+	if (ret)
+		dev_info(dev, "failed to parse vsv property\n");
 
 	/* Setting Switch callback */
 	sw_desc.drvdata = ps;
