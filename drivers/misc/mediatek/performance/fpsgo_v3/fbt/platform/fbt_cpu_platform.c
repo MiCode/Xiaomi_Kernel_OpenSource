@@ -260,10 +260,6 @@ out:
 	fpsgo_systrace_c_fbt(pid, 0, prefer_type, "set_affinity");
 }
 
-void fbt_set_cpu_prefer(int pid, unsigned int prefer_type)
-{
-}
-
 int fbt_get_L_min_ceiling(void)
 {
 	return 0;

@@ -78,6 +78,8 @@ struct fbt_thread_blc {
 	int pid;
 	unsigned long long buffer_id;
 	unsigned int blc;
+	unsigned int blc_b;
+	unsigned int blc_m;
 	int dep_num;
 	struct fpsgo_loading dep[MAX_DEP_NUM];
 	struct list_head entry;
@@ -87,7 +89,11 @@ struct fbt_boost_info {
 	int target_fps;
 	unsigned long long target_time;
 	unsigned int last_blc;
+	unsigned int last_blc_b;
+	unsigned int last_blc_m;
 	unsigned int last_normal_blc;
+	unsigned int last_normal_blc_b;
+	unsigned int last_normal_blc_m;
 	unsigned int sbe_rescue;
 
 	/* adjust loading */
@@ -96,6 +102,9 @@ struct fbt_boost_info {
 	int hit_cnt;
 	int deb_cnt;
 	int hit_cluster;
+
+	/* SeparateCap */
+	long *cl_loading;
 
 	/* rescue*/
 	struct fbt_proc proc;

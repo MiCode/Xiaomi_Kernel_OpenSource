@@ -29,7 +29,9 @@ void fpsgo_base2fbt_item_del(struct fbt_thread_blc *pblc,
 int fpsgo_base2fbt_get_max_blc_pid(int *pid, unsigned long long *buffer_id);
 void fpsgo_base2fbt_check_max_blc(void);
 void fpsgo_base2fbt_no_one_render(void);
-void fpsgo_base2fbt_set_min_cap(struct render_info *thr, int min_cap);
+void fpsgo_base2fbt_only_bypass(void);
+void fpsgo_base2fbt_set_min_cap(struct render_info *thr, int min_cap,
+					int min_cap_b, int min_cap_m);
 void fpsgo_base2fbt_clear_llf_policy(struct render_info *thr,
 						int orig_policy);
 void fpsgo_base2fbt_cancel_jerk(struct render_info *thr);

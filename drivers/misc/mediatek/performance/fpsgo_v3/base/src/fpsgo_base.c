@@ -803,7 +803,7 @@ static void fpsgo_clear_uclamp_boost_locked(void)
 		iter = rb_entry(n, struct render_info, render_key_node);
 
 		fpsgo_thread_lock(&iter->thr_mlock);
-		fpsgo_base2fbt_set_min_cap(iter, 0);
+		fpsgo_base2fbt_set_min_cap(iter, 0, 0, 0);
 		fpsgo_thread_unlock(&iter->thr_mlock);
 	}
 }
