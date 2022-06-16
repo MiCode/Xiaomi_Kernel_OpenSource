@@ -327,13 +327,14 @@ static int mtk_ctd_probe(struct platform_device *pdev)
 	mci->pd_nb.notifier_call = pd_tcp_notifier_call;
 
 	ret = register_pm_notifier(&mci->pm_nb);
-	if (ret < 0)
+	if (ret)
 		pr_notice("%s: register pm failed\n", __func__);
 
 	ret = register_tcp_dev_notifier(mci->tcpc_dev, &mci->pd_nb,
 					TCP_NOTIFY_TYPE_ALL);
 	if (ret < 0) {
 		pr_notice("%s: register tcpc notifer fail\n", __func__);
+		unregister_pm_notifier(&mci->pm_nb);
 		return -EINVAL;
 	}
 
@@ -341,6 +342,9 @@ static int mtk_ctd_probe(struct platform_device *pdev)
 				       "attach_thread");
 	if (IS_ERR(mci->attach_task)) {
 		pr_notice("%s: run typec attach kthread fail\n", __func__);
+		unregister_pm_notifier(&mci->pm_nb);
+		unregister_tcp_dev_notifier(mci->tcpc_dev, &mci->pd_nb,
+					TCP_NOTIFY_TYPE_ALL);
 		return PTR_ERR(mci->attach_task);
 	}
 	dev_info(mci->dev, "%s: successfully\n", __func__);
