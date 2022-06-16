@@ -92,6 +92,31 @@
 #define V4L2_PIX_FMT_MTISP_SGRB8F  v4l2_fourcc('M', 'F', '8', 'P')
 #define V4L2_PIX_FMT_MTISP_SGRB10F  v4l2_fourcc('M', 'F', 'A', 'P')
 #define V4L2_PIX_FMT_MTISP_SGRB12F  v4l2_fourcc('M', 'F', 'C', 'P')
+/* MTK 4 plane RGB, 8bit, BGGR */
+#define V4L2_PIX_FMT_MTISP_PLANAR_BGGR_8  v4l2_fourcc('M', 'T', '8', 'B')
+#define V4L2_PIX_FMT_MTISP_PLANAR_GBRG_8  v4l2_fourcc('M', 'T', '8', 'g')
+#define V4L2_PIX_FMT_MTISP_PLANAR_GRBG_8  v4l2_fourcc('M', 'T', '8', 'G')
+#define V4L2_PIX_FMT_MTISP_PLANAR_RGGB_8  v4l2_fourcc('M', 'T', '8', 'R')
+/* MTK 4 plane RGB, 10bit, BGGR */
+#define V4L2_PIX_FMT_MTISP_PLANAR_BGGR_10  v4l2_fourcc('M', 'T', 'A', 'B')
+#define V4L2_PIX_FMT_MTISP_PLANAR_GBRG_10  v4l2_fourcc('M', 'T', 'A', 'g')
+#define V4L2_PIX_FMT_MTISP_PLANAR_GRBG_10  v4l2_fourcc('M', 'T', 'A', 'G')
+#define V4L2_PIX_FMT_MTISP_PLANAR_RGGB_10  v4l2_fourcc('M', 'T', 'A', 'R')
+/* MTK 4 plane RGB, 12bit, BGGR */
+#define V4L2_PIX_FMT_MTISP_PLANAR_BGGR_12  v4l2_fourcc('M', 'T', 'C', 'B')
+#define V4L2_PIX_FMT_MTISP_PLANAR_GBRG_12  v4l2_fourcc('M', 'T', 'C', 'g')
+#define V4L2_PIX_FMT_MTISP_PLANAR_GRBG_12  v4l2_fourcc('M', 'T', 'C', 'G')
+#define V4L2_PIX_FMT_MTISP_PLANAR_RGGB_12  v4l2_fourcc('M', 'T', 'C', 'R')
+/* MTK 4 plane RGB Packed, 10bit, BGGR */
+#define V4L2_PIX_FMT_MTISP_PLANAR_BGGR_10P  v4l2_fourcc('M', 'T', 'a', 'B')
+#define V4L2_PIX_FMT_MTISP_PLANAR_GBRG_10P  v4l2_fourcc('M', 'T', 'a', 'g')
+#define V4L2_PIX_FMT_MTISP_PLANAR_GRBG_10P  v4l2_fourcc('M', 'T', 'a', 'G')
+#define V4L2_PIX_FMT_MTISP_PLANAR_RGGB_10P  v4l2_fourcc('M', 'T', 'a', 'R')
+/* MTK 4 plane RGB Packed, 12bit, BGGR */
+#define V4L2_PIX_FMT_MTISP_PLANAR_BGGR_12P  v4l2_fourcc('M', 'T', 'c', 'B')
+#define V4L2_PIX_FMT_MTISP_PLANAR_GBRG_12P  v4l2_fourcc('M', 'T', 'c', 'g')
+#define V4L2_PIX_FMT_MTISP_PLANAR_GRBG_12P  v4l2_fourcc('M', 'T', 'c', 'G')
+#define V4L2_PIX_FMT_MTISP_PLANAR_RGGB_12P  v4l2_fourcc('M', 'T', 'c', 'R')
 
 /* To be upstream */
 #define V4L2_BUF_FLAG_TIMESTAMP_BOOT		0x00008000
