@@ -76,6 +76,10 @@
 #define V4L2_CID_MTK_CAM_CAMSYS_HW_MODE \
 	(V4L2_CID_USER_MTK_CAM_BASE + 21)
 
+/* used for v2 resoruce struct testing */
+#define V4L2_CID_MTK_CAM_RAW_RESOURCE_CALC_TEST \
+	(V4L2_CID_USER_MTK_CAM_BASE + 47)
+
 /* Allowed value of V4L2_CID_MTK_CAM_RAW_PATH_SELECT */
 #define V4L2_MTK_CAM_RAW_PATH_SELECT_BPC	1
 #define V4L2_MTK_CAM_RAW_PATH_SELECT_FUS	3
@@ -246,46 +250,204 @@ struct mtk_cam_pde_info {
 };
 
 /**
- * enum scl for imgsensor gpio aux function.
+ *  mtk cam V4l2 ctrl structures V2
  */
-enum mtk_cam_sensor_i2c_bus_scl {
-	SCL0 = 0,
-	SCL1,
-	SCL2,
-	SCL3,
-	SCL4,
-	SCL5,
-	SCL6,
-	SCL7,
-	SCL8,
-	SCL9,
-	SCL10,
-	SCL_MAXCNT,
-	SCL_ERR = 0xffff,
+
+/**
+ * struct mtk_cam_resource_sensor_v2
+ *
+ * @no_bufferd_prate_calc: notify driver don't use buffered pixel rate
+ *			   as the thrpughput requriement; use
+ *			   pixel_rate passed directly. If the pixel_rate is coming
+ *			   from sensor driver's custom pixel rate, please set it
+ *			   true since we can't trust the hblank value in such
+ *			   case;
+ * @driver_buffered_pixel_rate: only used in legacy driver and could be phased-out.
+ */
+struct mtk_cam_resource_sensor_v2 {
+	__u32	width;
+	__u32	height;
+	__u32	code;
+	struct	v4l2_fract interval;
+	__u32	hblank;
+	__u32	vblank;
+	__u64	pixel_rate;
+	__u8	no_bufferd_prate_calc;
+	__u64	driver_buffered_pixel_rate;
 };
 
 /**
- * enum sda for imgsensor gpio aux function.
+ *  enum mtk_cam_scen_id - camsys hardware scenario ids
+ *
+ * @MTK_CAM_SCEN_NORMAL: The default scenario
+ * @MTK_CAM_SCEN_STAGGER: describes stagger scenario including
+ *			  1 exp, 2 exp and 3 exp. To be noticed
+ *			  the user should not use MTK_CAM_SCEN_NORMAL
+ *			  to indicate stagger 1 exp frame, please
+ *			  use MTK_CAM_SCEN_STAGGER with MTK_CAM_STAGGER_1_EXPOSURE
+ *			  type to describe the scenario
+ * MTK_CAM_SCEN_M2M_NORMAL: the m2m scenario used in Video Stream Engine
+ *			    (VSE) and P1B
+ * MTK_CAM_SCEN_M2M_STAGGER: the m2m stagger scenario used in Video Stream Engine
+ *			     (VSE) and P1B
  */
-enum mtk_cam_sensor_i2c_bus_sda {
-	SDA0 = 0,
-	SDA1,
-	SDA2,
-	SDA3,
-	SDA4,
-	SDA5,
-	SDA6,
-	SDA7,
-	SDA8,
-	SDA9,
-	SDA10,
-	SDA_MAXCNT,
-	SDA_ERR = 0xffff,
+enum mtk_cam_scen_id {
+	MTK_CAM_SCEN_NORMAL,
+	MTK_CAM_SCEN_STAGGER,
+	MTK_CAM_SCEN_MSTREAM,
+	MTK_CAM_SCEN_SMVR,
+	MTK_CAM_SCEN_ODT_NORMAL,
+	MTK_CAM_SCEN_ODT_STAGGER,
+	MTK_CAM_SCEN_ODT_MSTREAM,
+	MTK_CAM_SCEN_M2M_NORMAL,
+	MTK_CAM_SCEN_M2M_STAGGER,
+	MTK_CAM_SCEN_TIMESHARE,
+	MTK_CAM_SCEN_CAMSV_RGBW,
+	MTK_CAM_SCEN_STAGGER_RGBW,
+	MTK_CAM_SCEN_EXT_ISP,
+};
+
+enum mtk_cam_stagger_type {
+	MTK_CAM_STAGGER_1_EXPOSURE		= 0,
+	MTK_CAM_STAGGER_2_EXPOSURE_LE_SE	= 1,
+	MTK_CAM_STAGGER_2_EXPOSURE_SE_LE	= 2,
+	MTK_CAM_STAGGER_3_EXPOSURE_LE_NE_SE	= 3,
+	MTK_CAM_STAGGER_3_EXPOSURE_SE_NE_LE	= 4,
+};
+
+/**
+ * struct mtk_cam_scen_stagger - stagger scenario user hints
+ *
+ * @type: the hardware scenario of the frame, please check
+ *	       mtk_cam_stagger_type for the allowed value
+ * @max_exp_num: used when driver need to alloc rawi/camsv image
+ *		 buffers internally
+ * @mem_saving: 1 means enable mem_saving
+ */
+struct mtk_cam_scen_stagger {
+	__u32	type;
+	__u8	max_exp_num;
+	__u8	mem_saving;
+};
+
+enum mtk_cam_mstream_type {
+	MTK_CAM_MSTREAM_1_EXPOSURE		= 0,
+	MTK_CAM_MSTREAM_NE_SE			= 5,
+	MTK_CAM_MSTREAM_SE_NE			= 6,
+};
+
+/**
+ * struct mtk_cam_scen_mstream - mstream scenario user hints
+ *
+ * @type: the hardware scenario of the frame, please check
+ *	       mtk_cam_mstream_type for the allowed value
+ * @mem_saving: 1 means enable mem_saving
+ */
+struct mtk_cam_scen_mstream {
+	__u32	type;
+	__u8	mem_saving;
+};
+
+enum mtk_cam_subsample_num_allowed {
+	MTK_CAM_SMVR_2_SUBSAMPLE		= 2,
+	MTK_CAM_SMVR_4_SUBSAMPLE		= 4,
+	MTK_CAM_SMVR_8_SUBSAMPLE		= 8,
+	MTK_CAM_SMVR_16_SUBSAMPLE		= 16,
+	MTK_CAM_SMVR_32_SUBSAMPLE		= 32,
+};
+
+/**
+ * struct mtk_cam_scen_smvr - smvr scenario user hints
+ *
+ * @subsample_num: the subsample number of the frame, please check
+ *	       mtk_cam_subsample_num_allowed for the allowed value
+ * @output_first_frame_only: set it true when the user donesn't need
+ *		     the images except the first one in SMVR scenario.
+ */
+struct mtk_cam_scen_smvr {
+	__u8 subsample_num;
+	__u8 output_first_frame_only;
+};
+
+enum mtk_cam_extisp_type {
+	MTK_CAM_EXTISP_CUS_1			= 1,
+	MTK_CAM_EXTISP_CUS_2			= 2,
+	MTK_CAM_EXTISP_CUS_3			= 3,
+};
+
+/**
+ * struct mtk_cam_scen_extisp - smvr scenario user hints
+ *
+ * @subsampletype_num: the ext isp type of the frame, please check
+ *	       mtk_cam_extisp_type for the allowed value
+ */
+struct mtk_cam_scen_extisp {
+	enum mtk_cam_extisp_type type;
+};
+
+enum mtk_cam_timeshare_group {
+	MTK_CAM_TIMESHARE_GROUP_1 = 1,
+};
+
+/**
+ * struct mtk_cam_scen_timeshare - smvr scenario user hints
+ *
+ * @group: the time group of the frame, please check
+ *	       mtk_cam_timeshare_group for the allowed value
+ */
+struct mtk_cam_scen_timeshare {
+	__u8 group;
+};
+
+/**
+ * struct mtk_cam_scen - hardware scenario user hints
+ *
+ * @id: the id of the hardware scenario. Please note that if it is
+ *	stagger 1 exp frame, the user must use MTK_CAM_SCEN_STAGGER
+ *	as the id, and assign the MTK_CAM_STAGGER_1_EXPOSURE in
+ *	scen.stagger.type.
+ */
+struct mtk_cam_scen {
+	enum mtk_cam_scen_id id;
+	union {
+		struct mtk_cam_scen_stagger	stagger;
+		struct mtk_cam_scen_mstream	mstream;
+		struct mtk_cam_scen_smvr	smvr;
+		struct mtk_cam_scen_extisp	extisp;
+		struct mtk_cam_scen_timeshare	timeshare;
+	} scen;
+	char dbg_str[16];
+};
+
+#define MTK_CAM_RAW_A	0x0001
+#define MTK_CAM_RAW_B	0x0002
+#define MTK_CAM_RAW_C	0x0004
+
+/**
+ * struct mtk_cam_resource_raw_v2
+ *
+ * @max_img_buf_sz: will be phased out after using dma buf fd for DC buffers
+ */
+struct mtk_cam_resource_raw_v2 {
+	struct mtk_cam_scen scen;
+	__u8	raws;
+	__u8	raws_must;
+	__u8	bin;
+	__u8	raw_pixel_mode;
+	__u8	hw_mode;
+	__u32	img_buf_sz;
+	__u32	max_img_buf_sz;
+};
+
+struct mtk_cam_resource_v2 {
+	struct mtk_cam_resource_sensor_v2 sensor_res;
+	struct mtk_cam_resource_raw_v2 raw_res;
 };
 
 /* I M G S Y S */
 
 /* I M A G E  S E N S O R */
+
 #define V4L2_CID_MTK_TEMPERATURE \
 	(V4L2_CID_USER_MTK_SENSOR_BASE + 1)
 
@@ -399,6 +561,44 @@ enum mtk_cam_sensor_i2c_bus_sda {
 
 #define V4L2_CID_MTK_AOV_SWITCH_I2C_BUS_SDA_AUX \
 	(V4L2_CID_USER_MTK_SENSOR_BASE + 38)
+
+/**
+ * enum scl for imgsensor gpio aux function.
+ */
+enum mtk_cam_sensor_i2c_bus_scl {
+	SCL0 = 0,
+	SCL1,
+	SCL2,
+	SCL3,
+	SCL4,
+	SCL5,
+	SCL6,
+	SCL7,
+	SCL8,
+	SCL9,
+	SCL10,
+	SCL_MAXCNT,
+	SCL_ERR = 0xffff,
+};
+
+/**
+ * enum sda for imgsensor gpio aux function.
+ */
+enum mtk_cam_sensor_i2c_bus_sda {
+	SDA0 = 0,
+	SDA1,
+	SDA2,
+	SDA3,
+	SDA4,
+	SDA5,
+	SDA6,
+	SDA7,
+	SDA8,
+	SDA9,
+	SDA10,
+	SDA_MAXCNT,
+	SDA_ERR = 0xffff,
+};
 
 /* S E N I N F */
 #define V4L2_CID_MTK_SENINF_S_STREAM \
