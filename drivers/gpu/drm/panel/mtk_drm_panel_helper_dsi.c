@@ -322,15 +322,161 @@ static void parse_lcm_dsi_fps_mode(struct device_node *np,
 	mode->vscan = (u16)vscan;
 }
 
+static void parse_lcm_dsi_round_corner_dtsi(
+			struct device_node *rc_np,
+			struct mtk_panel_params *ext_param)
+{
+	struct property *pp = NULL;
+	int rc_len = 0;
+#if MTK_LCM_DEBUG_DUMP
+	unsigned int i = 0;
+	char *addr = NULL;
+#endif
+
+	DDPMSG("%s, %d, round corner pattern from dtsi\n",
+		__func__, __LINE__);
+	mtk_lcm_dts_read_u32(rc_np, "pattern_height",
+			&ext_param->corner_pattern_height);
+	mtk_lcm_dts_read_u32(rc_np, "pattern_height_bot",
+			&ext_param->corner_pattern_height_bot);
+
+	pp = of_find_property(rc_np, "left_top", &rc_len);
+	if (pp != NULL && rc_len > 0) {
+		LCM_KZALLOC(ext_param->corner_pattern_lt_addr, rc_len, GFP_KERNEL);
+		if (IS_ERR_OR_NULL(ext_param->corner_pattern_lt_addr)) {
+			DDPPR_ERR("%s, %d, failed to allocate rc_lt, %d\n",
+				__func__, __LINE__, rc_len);
+			return;
+		}
+		ext_param->corner_pattern_tp_size =
+			mtk_lcm_dts_read_u8_array(rc_np, "left_top",
+				ext_param->corner_pattern_lt_addr, 0, rc_len);
+		if (ext_param->corner_pattern_tp_size <= 0) {
+			DDPMSG("%s, failed to parsing rc_tp, %d\n",
+				__func__, ext_param->corner_pattern_tp_size);
+			ext_param->corner_pattern_tp_size = 0;
+		}
+
+#if MTK_LCM_DEBUG_DUMP
+		DDPMSG("====round corner top pattern size:%u =====\n",
+			ext_param->corner_pattern_tp_size);
+		addr = (char *)ext_param->corner_pattern_lt_addr;
+		for (i = 0; i < ext_param->corner_pattern_tp_size - 12;
+			i += 12)
+			DDPMSG(
+				"rc_tp: 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x\n",
+				 *(addr + i),
+				 *(addr + i + 1),
+				 *(addr + i + 2),
+				 *(addr + i + 3),
+				 *(addr + i + 4),
+				 *(addr + i + 5),
+				 *(addr + i + 6),
+				 *(addr + i + 7),
+				 *(addr + i + 8),
+				 *(addr + i + 9),
+				 *(addr + i + 10),
+				 *(addr + i + 11));
+		DDPMSG("=============================\n");
+#endif
+	}
+
+	pp = of_find_property(rc_np, "left_top_left", &rc_len);
+	if (pp != NULL && rc_len > 0) {
+		LCM_KZALLOC(ext_param->corner_pattern_lt_addr_l,
+				rc_len, GFP_KERNEL);
+		if (IS_ERR_OR_NULL(ext_param->corner_pattern_lt_addr_l)) {
+			DDPPR_ERR("%s, %d, failed to allocate rc_lt_l, %d\n",
+				__func__, __LINE__, rc_len);
+			return;
+		}
+		ext_param->corner_pattern_tp_size_l =
+			mtk_lcm_dts_read_u8_array(rc_np, "left_top_left",
+				ext_param->corner_pattern_lt_addr_l, 0, rc_len);
+		if (ext_param->corner_pattern_tp_size_l <= 0) {
+			DDPMSG("%s, failed to parsing rc_tp_l, %d\n",
+				__func__, ext_param->corner_pattern_tp_size_l);
+			ext_param->corner_pattern_tp_size_l = 0;
+		}
+	}
+
+	pp = of_find_property(rc_np, "left_top_right", &rc_len);
+	if (pp != NULL && rc_len > 0) {
+		LCM_KZALLOC(ext_param->corner_pattern_lt_addr_r,
+				rc_len, GFP_KERNEL);
+		if (IS_ERR_OR_NULL(ext_param->corner_pattern_lt_addr_r)) {
+			DDPPR_ERR("%s, %d, failed to allocate rc_lt_r, %d\n",
+				__func__, __LINE__, rc_len);
+			return;
+		}
+		ext_param->corner_pattern_tp_size_r =
+			mtk_lcm_dts_read_u8_array(rc_np, "left_top_right",
+				ext_param->corner_pattern_lt_addr_r, 0, rc_len);
+		if (ext_param->corner_pattern_tp_size_r <= 0) {
+			DDPMSG("%s, failed to parsing rc_tp_r, %d\n",
+				__func__, ext_param->corner_pattern_tp_size_r);
+			ext_param->corner_pattern_tp_size_r = 0;
+		}
+	}
+}
+
+static void parse_lcm_dsi_round_corner_header(
+			struct device_node *np,
+			struct mtk_panel_params *ext_param)
+{
+	const char *pattern;
+	int ret = 0;
+
+	DDPMSG("%s, %d, round corner pattern from header\n",
+		__func__, __LINE__);
+	ret = of_property_read_string(np,
+			"lcm-params-dsi-corner_pattern_name",
+			&pattern);
+	if (ret < 0 || strlen(pattern) == 0) {
+		DDPMSG("%s,%d: invalid pattern, ret:%d\n",
+			__func__, __LINE__, ret);
+		return;
+	}
+
+	mtk_lcm_dts_read_u32(np,
+			"lcm-params-dsi-corner_pattern_height",
+			&ext_param->corner_pattern_height);
+	mtk_lcm_dts_read_u32(np,
+			"lcm-params-dsi-corner_pattern_height_bot",
+			&ext_param->corner_pattern_height_bot);
+	mtk_lcm_dts_read_u32(np,
+			"lcm-params-dsi-corner_pattern_tp_size",
+			&ext_param->corner_pattern_tp_size);
+	mtk_lcm_dts_read_u32(np,
+			"lcm-params-dsi-corner_pattern_tp_size_left",
+			&ext_param->corner_pattern_tp_size_l);
+	mtk_lcm_dts_read_u32(np,
+			"lcm-params-dsi-corner_pattern_tp_size_right",
+			&ext_param->corner_pattern_tp_size_r);
+
+	DDPMSG("%s, %d, rc pattern:%s\n", __func__, __LINE__, pattern);
+	ext_param->corner_pattern_lt_addr =
+		mtk_lcm_get_rc_addr(pattern,
+			RC_LEFT_TOP, &ext_param->corner_pattern_tp_size);
+
+	ext_param->corner_pattern_lt_addr_l =
+		mtk_lcm_get_rc_addr(pattern,
+			RC_LEFT_TOP_LEFT, &ext_param->corner_pattern_tp_size_l);
+
+	ext_param->corner_pattern_lt_addr_r =
+		mtk_lcm_get_rc_addr(pattern,
+			RC_LEFT_TOP_RIGHT, &ext_param->corner_pattern_tp_size_r);
+}
+
 /* parse dsi fps ext params: mtk_panel_params */
 static void parse_lcm_dsi_fps_ext_param(struct device_node *np,
 			struct mtk_panel_params *ext_param)
 {
 	char prop[128] = { 0 };
-	const char *pattern;
 	u8 temp[RT_MAX_NUM * 2 + 2] = {0};
 	unsigned int i = 0, j = 0;
 	int len = 0, ret = 0;
+	struct device_node *rc_np = NULL;
 
 	if (IS_ERR_OR_NULL(ext_param) || IS_ERR_OR_NULL(np))
 		return;
@@ -368,43 +514,13 @@ static void parse_lcm_dsi_fps_ext_param(struct device_node *np,
 			&ext_param->round_corner_en);
 
 	if (ext_param->round_corner_en == 1) {
-		mtk_lcm_dts_read_u32(np,
-				"lcm-params-dsi-corner_pattern_height",
-				&ext_param->corner_pattern_height);
-		mtk_lcm_dts_read_u32(np,
-				"lcm-params-dsi-corner_pattern_height_bot",
-				&ext_param->corner_pattern_height_bot);
-		mtk_lcm_dts_read_u32(np,
-				"lcm-params-dsi-corner_pattern_tp_size",
-				&ext_param->corner_pattern_tp_size);
-		mtk_lcm_dts_read_u32(np,
-				"lcm-params-dsi-corner_pattern_tp_size_left",
-				&ext_param->corner_pattern_tp_size_l);
-		mtk_lcm_dts_read_u32(np,
-				"lcm-params-dsi-corner_pattern_tp_size_right",
-				&ext_param->corner_pattern_tp_size_r);
+		rc_np = of_parse_phandle(np,
+				"lcm-params-dsi-round_corner_pattern", 0);
 
-		ret = of_property_read_string(np, "lcm-params-dsi-corner_pattern_name",
-				&pattern);
-		if (ret < 0 || strlen(pattern) == 0) {
-			DDPMSG("%s,%d: invalid pattern, ret:%d\n",
-				__func__, __LINE__, ret);
-			return;
-		}
-
-		DDPMSG("%s, %d, rc pattern:%s\n", __func__, __LINE__, pattern);
-		ext_param->corner_pattern_lt_addr =
-			mtk_lcm_get_rc_addr(pattern,
-				RC_LEFT_TOP, &ext_param->corner_pattern_tp_size);
-
-		ext_param->corner_pattern_lt_addr_l =
-			mtk_lcm_get_rc_addr(pattern,
-				RC_LEFT_TOP_LEFT, &ext_param->corner_pattern_tp_size_l);
-
-		ext_param->corner_pattern_lt_addr_r =
-			mtk_lcm_get_rc_addr(pattern,
-				RC_LEFT_TOP_RIGHT, &ext_param->corner_pattern_tp_size_r);
-
+		if (!IS_ERR_OR_NULL(rc_np))
+			parse_lcm_dsi_round_corner_dtsi(rc_np, ext_param);
+		else
+			parse_lcm_dsi_round_corner_header(np, ext_param);
 	}
 
 	mtk_lcm_dts_read_u32(np,
