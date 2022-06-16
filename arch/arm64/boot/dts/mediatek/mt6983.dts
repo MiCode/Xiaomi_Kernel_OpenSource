@@ -11254,7 +11254,7 @@
 	};
 
 	uarthub: uarthub {
-		compatible = "mediatek,uarthub";
+		compatible = "mediatek,mt6983-uarthub";
 		uarthub_disable = <1>;
 	};
 

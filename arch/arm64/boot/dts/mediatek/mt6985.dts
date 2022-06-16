@@ -7218,17 +7218,8 @@
 		};
 
 		uarthub: uarthub@11005000 {
-			compatible = "mediatek,uarthub";
-			reg = <0 0x11005000 0 0x500>; /*uarthub base*/
-				/*uarthub irq*/
-			interrupts = <GIC_SPI 236 IRQ_TYPE_LEVEL_HIGH 0>;
-			max_dev = <3>;
-			baud_rate = <12000000 12000000 12000000 12000000>;
-			gpio = <0x100054C0 0x7 0x2>, /*UARTHUB UART TX*/
-				<0x100054C0 0x70 0x20>; /*UARTHUB UART RX*/
-			uart_glue_ctrl = <0x11036B90 0x1 0x0>; /*UART GLUE CTRL*/
-			peri_cg_1_set = <0x1103602C 23>; /*UNIVPLL CLK GATING*/
-			hw_ccf_pll_done = <0x1032140C 4>; /*UNIVPLL CLK GATING*/
+			compatible = "mediatek,mt6985-uarthub";
+			interrupts = <GIC_SPI 236 IRQ_TYPE_LEVEL_HIGH 0>; /*uarthub irq*/
 			clocks = <&apmixedsys_clk CLK_APMIXED_UNIVPLL>;
 			clock-names = "univpll";
 		};
