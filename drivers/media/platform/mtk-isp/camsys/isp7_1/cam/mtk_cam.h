@@ -444,6 +444,7 @@ struct mtk_cam_ctx {
 
 	atomic_t enqueued_frame_seq_no;
 	atomic_t composed_delay_seq_no;
+	u64 composed_delay_sof_tsns;
 	unsigned int composed_frame_seq_no;
 	unsigned int dequeued_frame_seq_no;
 	unsigned int component_dequeued_frame_seq_no;
