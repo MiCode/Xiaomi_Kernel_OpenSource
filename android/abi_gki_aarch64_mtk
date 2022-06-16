@@ -1753,6 +1753,8 @@
   sort
   __spi_alloc_controller
   spi_bus_type
+  spi_controller_resume
+  spi_controller_suspend
   spi_delay_to_ns
   spi_finalize_current_transfer
   __spi_register_driver
@@ -1871,6 +1873,7 @@
   trace_handle_return
   __traceiter_android_rvh_after_enqueue_task
   __traceiter_android_rvh_commit_creds
+  __traceiter_android_rvh_cpufreq_transition
   __traceiter_android_rvh_cpu_overutilized
   __traceiter_android_rvh_dequeue_task
   __traceiter_android_rvh_enqueue_task
@@ -1934,6 +1937,7 @@
   trace_output_call
   __tracepoint_android_rvh_after_enqueue_task
   __tracepoint_android_rvh_commit_creds
+  __tracepoint_android_rvh_cpufreq_transition
   __tracepoint_android_rvh_cpu_overutilized
   __tracepoint_android_rvh_dequeue_task
   __tracepoint_android_rvh_enqueue_task
