@@ -25,7 +25,6 @@
 			<&infracfg_ao_clk CLK_IFRAO_CLDMA_BCLK>,
 			<&infracfg_ao_clk CLK_IFRAO_DPMAIF_MAIN>,
 			<&infracfg_ao_clk CLK_IFRAO_RG_MMW_DPMAIF26M_CK>,
-			<&pericfg_ao_clk CLK_PERAO_I2C>,
 			<&pericfg_ao_clk CLK_PERAO_DMA_B>,
 			<&pericfg_ao_clk CLK_PERAO_AUDIO_SLV>,
 			<&pericfg_ao_clk CLK_PERAO_AUDIO_MST>,
@@ -43,11 +42,7 @@
 			<&pextpcfg_ao_clk CLK_PEXT_MAC1_HCLK>,
 			<&pextpcfg_ao_clk CLK_PEXT_PHY1_REF>,
 			<&vlp_cksys_clk CLK_VLP_CK_CAMTG_VLP_SEL>,
-			<&ccu_main_clk CLK_CCUSYS_DPE>,
-			<&ssr_top_clk CLK_SSR_TOP_RG_RW_SSR_RNG>,
-			<&ssr_top_clk CLK_SSR_TOP_RQ_RW_SSR_DMA>,
-			<&ssr_top_clk CLK_SSR_TOP_RQ_RW_SSR_KDF>,
-			<&ssr_top_clk CLK_SSR_TOP_RQ_RW_SSR_PKA>;
+			<&ccu_main_clk CLK_CCUSYS_DPE>;
 	};
 
 	bring-up-pd-ufs0_phy_shutdown {
@@ -89,15 +84,4 @@
 		compatible = "mediatek,scpsys-bring-up";
 		power-domains = <&scpsys MT6985_POWER_DOMAIN_CSI_RX>;
 	};
-
-	bring-up-pd-ssrsys {
-		compatible = "mediatek,scpsys-bring-up";
-		power-domains = <&scpsys MT6985_POWER_DOMAIN_SSR>;
-	};
-
-	bring-up-pd-dxcc_shutdown {
-		compatible = "mediatek,scpsys-bring-up";
-		power-domains = <&scpsys MT6985_POWER_DOMAIN_DXCC_SHUTDOWN>;
-	};
-
 };

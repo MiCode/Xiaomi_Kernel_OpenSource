@@ -655,7 +655,6 @@
 			<&pericfg_ao_clk CLK_PERAO_SPI5_B>,
 			<&pericfg_ao_clk CLK_PERAO_SPI6_B>,
 			<&pericfg_ao_clk CLK_PERAO_SPI7_B>,
-			<&pericfg_ao_clk CLK_PERAO_I2C>,
 			<&pericfg_ao_clk CLK_PERAO_DMA_B>,
 			<&pericfg_ao_clk CLK_PERAO_SSUSB0_FRMCNT>,
 			<&pericfg_ao_clk CLK_PERAO_SSUSB1_FRMCNT>,
@@ -668,16 +667,6 @@
 			<&pericfg_ao_clk CLK_PERAO_AUDIO_SLV>,
 			<&pericfg_ao_clk CLK_PERAO_AUDIO_MST>,
 			<&pericfg_ao_clk CLK_PERAO_AUDIO_INTBUS>;
-	};
-
-	disable-unused-clk-ssr_top {
-		compatible = "mediatek,clk-disable-unused";
-		clocks =
-			<&ssr_top_clk CLK_SSR_TOP_RG_RW_SSR_RNG>,
-			<&ssr_top_clk CLK_SSR_TOP_RQ_RW_SSR_DMA>,
-			<&ssr_top_clk CLK_SSR_TOP_RQ_RW_SSR_KDF>,
-			<&ssr_top_clk CLK_SSR_TOP_RQ_RW_SSR_PKA>;
-			power-domains = <&scpsys MT6985_POWER_DOMAIN_SSR>;
 	};
 
 	disable-unused-clk-infracfg_ao {
@@ -995,16 +984,6 @@
 	disable-unused-pd-csi_rx {
 		compatible = "mediatek,scpsys-disable-unused";
 		power-domains = <&scpsys MT6985_POWER_DOMAIN_CSI_RX>;
-	};
-
-	disable-unused-pd-ssrsys {
-		compatible = "mediatek,scpsys-disable-unused";
-		power-domains = <&scpsys MT6985_POWER_DOMAIN_SSR>;
-	};
-
-	disable-unused-pd-dxcc_shutdown {
-		compatible = "mediatek,scpsys-disable-unused";
-		power-domains = <&scpsys MT6985_POWER_DOMAIN_DXCC_SHUTDOWN>;
 	};
 
 	disable-unused-pd-vde_vcore0 {
