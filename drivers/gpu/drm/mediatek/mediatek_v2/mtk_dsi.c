@@ -8581,7 +8581,7 @@ u32 PanelMaster_get_dsi_timing(struct mtk_dsi *dsi, enum MIPI_SETTING_TYPE type)
 	else
 		fbconfig_dsiTmpBufBpp = 3;
 
-	if (spr_params->enable == 1 && spr_params->relay == 0
+	if (spr_params && spr_params->enable == 1 && spr_params->relay == 0
 		&& disp_spr_bypass == 0) {
 		switch (ext->params->spr_output_mode) {
 		case MTK_PANEL_PACKED_SPR_8_BITS:
