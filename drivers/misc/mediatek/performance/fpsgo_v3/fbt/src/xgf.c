@@ -64,6 +64,8 @@ static int xgf_wspid_list_length;
 static int xgf_cfg_spid;
 static int xgf_ema2_enable;
 static int xgf_display_rate = DEFAULT_DFRC;
+static int is_xgff_mips_exp_enable;
+
 int fstb_frame_num = 20;
 EXPORT_SYMBOL(fstb_frame_num);
 int fstb_no_stable_thr = 5;
@@ -2357,19 +2359,71 @@ static int xgff_new_frame(pid_t tID, unsigned long long bufID,
 	return 0;
 }
 
+
+static void switch_xgff_mips_exp_enable(int active)
+{
+	if (active == is_xgff_mips_exp_enable)
+		return;
+	mutex_lock(&xgff_frames_lock);
+	is_xgff_mips_exp_enable = active;
+	mutex_unlock(&xgff_frames_lock);
+}
+
+static int xgff_get_start_runtime(int rpid, unsigned long long queueid,
+	unsigned int deplist_size, unsigned int *deplist,
+	struct xgff_runtime *dep_runtime, int *count_dep_runtime,
+	unsigned long frameid)
+{
+	int ret = XGF_NOTIFY_OK;
+	int i;
+	unsigned long long runtime = 0;
+	struct task_struct *p;
+
+	*count_dep_runtime = 0;
+	if (!dep_runtime || !count_dep_runtime) {
+		ret = XGF_DEP_LIST_ERR;
+		goto out;
+	}
+
+	if (!deplist && deplist_size > 0) {
+		ret = XGF_DEP_LIST_ERR;
+		goto out;
+	}
+
+	for (i = 0; i < deplist_size; i++) {
+		rcu_read_lock();
+		p = find_task_by_vpid(deplist[i]);
+		if (!p) {
+			rcu_read_unlock();
+		} else {
+			get_task_struct(p);
+			rcu_read_unlock();
+			runtime = fpsgo_task_sched_runtime(p);
+			put_task_struct(p);
+
+			dep_runtime[*count_dep_runtime].pid = deplist[i];
+			dep_runtime[*count_dep_runtime].loading = runtime;
+			(*count_dep_runtime)++;
+			xgf_trace("[XGFF] start_dep_runtime: %llu, pid: %d", runtime, deplist[i]);
+		}
+	}
+
+out:
+	xgf_trace("[XGFF][%s] ret=%d, frame_id=%lu, count_dep=%d", __func__, ret,
+		frameid, *count_dep_runtime);
+	return ret;
+}
+
 static int _xgff_frame_start(
 		unsigned int tid,
 		unsigned long long queueid,
 		unsigned long long frameid,
 		unsigned int *pdeplistsize,
+		unsigned int *pdeplist,
 		unsigned long long ts)
 {
 	int ret = XGF_NOTIFY_OK;
 	struct xgff_frame *r, **rframe;
-
-	if (pdeplistsize)
-		*pdeplistsize = XGF_DEP_FRAMES_MAX;
-
 	// ToDo, check if xgf is enabled
 
 	mutex_lock(&xgff_frames_lock);
@@ -2393,18 +2447,100 @@ static int _xgff_frame_start(
 	r->ploading = fbt_xgff_list_loading_add(tid, queueid, ts);
 
 	// ToDo, check tid is related to the caller
-
 	// record index and timestamp
 	xgff_update_start_prev_index_fp(&r->xgfrender);
 
 	hlist_add_head(&r->hlist, &xgff_frames);
 
+	if (!pdeplist || !pdeplistsize) {
+		xgf_trace("[%s] !pdeplist || !pdeplistsize", __func__);
+		r->is_start_dep = 0;
+		ret = XGF_PARAM_ERR;
+		goto qudeq_notify_err;
+	}
+
+	r->is_start_dep = 1;
+	ret = xgff_get_start_runtime(tid, queueid, *pdeplistsize, pdeplist,
+		r->dep_runtime, &r->count_dep_runtime, r->frameid);
+
 qudeq_notify_err:
 	xgf_trace("xgff result:%d at rpid:%d cmd:xgff_frame_start", ret, tid);
+	xgf_trace("[XGFF] tid=%d, queueid=%llu, frameid=%llu, rframe=%lu, is_start_dep=%d",
+		tid, queueid, frameid, rframe, r->is_start_dep);
 
 	mutex_unlock(&xgff_frames_lock);
 
 	return ret;
+}
+
+static int xgff_enter_est_runtime_dep_from_start(int rpid, unsigned long long queueid,
+	struct xgff_runtime *dep_runtime, int count_dep_runtime, unsigned long long *runtime,
+	unsigned long frameid)
+{
+	int ret = XGF_NOTIFY_OK;
+	int i, dep_runtime_size;
+	unsigned long long runtime_tmp, total_runtime = 0;
+	struct task_struct *p;
+
+	if (!dep_runtime) {
+		ret = XGF_DEP_LIST_ERR;
+		goto out;
+	}
+
+	dep_runtime_size = count_dep_runtime;
+
+	for (i = 0; i < dep_runtime_size; i++) {
+		rcu_read_lock();
+		p = find_task_by_vpid(dep_runtime[i].pid);
+		if (!p) {
+			rcu_read_unlock();
+			xgf_trace("[XGFF] Error: Can't get runtime of pid=%d at frame end.",
+				dep_runtime[i].pid);
+			ret = XGF_DEP_LIST_ERR;
+		} else {
+			get_task_struct(p);
+			rcu_read_unlock();
+			runtime_tmp = fpsgo_task_sched_runtime(p);
+			put_task_struct(p);
+			if (runtime_tmp && dep_runtime[i].loading &&
+				runtime_tmp >= dep_runtime[i].loading)
+				dep_runtime[i].loading = runtime_tmp - dep_runtime[i].loading;
+			else
+				dep_runtime[i].loading = 0;
+
+			total_runtime += dep_runtime[i].loading;
+			xgf_trace("[XGFF] dep_runtime: %llu, now: %llu, pid: %d",
+				dep_runtime[i].loading, runtime_tmp, dep_runtime[i].pid);
+		}
+	}
+	*runtime = total_runtime;
+out:
+	xgf_trace("[XGFF][%s] ret=%d, frame_id=%lu, count_dep=%d", __func__, ret,
+		frameid, count_dep_runtime);
+	return ret;
+}
+
+void print_dep(unsigned int deplist_size, unsigned int *deplist)
+{
+	char *dep_str = NULL;
+	char temp[7] = {"\0"};
+	int i = 0;
+
+	dep_str = kcalloc(deplist_size + 1, 7 * sizeof(char),
+				GFP_KERNEL);
+	if (!dep_str)
+		return;
+	for (i = 0; i < deplist_size; i++) {
+		if (strlen(dep_str) == 0)
+			snprintf(temp, sizeof(temp), "%d", deplist[i]);
+		else
+			snprintf(temp, sizeof(temp), ",%d", deplist[i]);
+
+		if (strlen(dep_str) + strlen(temp) < 256)
+			strncat(dep_str, temp, strlen(temp));
+	}
+	xgf_trace("[XGFF] EXP_deplist: %s", dep_str);
+	kfree(dep_str);
 }
 
 static int _xgff_frame_end(
@@ -2417,11 +2553,12 @@ static int _xgff_frame_end(
 		unsigned int *pdeplist,
 		unsigned long long ts)
 {
-	int ret = XGF_NOTIFY_OK;
+	int ret = XGF_NOTIFY_OK, ret_exp = XGF_NOTIFY_OK;
 	struct xgff_frame *r = NULL, **rframe = NULL;
 	int iscancel = 0;
-	unsigned long long raw_runtime = 0;
-	int newdepsize = 0;
+	unsigned long long raw_runtime = 0, raw_runtime_exp = 0;
+	unsigned int newdepsize = 0, deplist_size_exp = 0;
+	unsigned int deplist_exp[XGF_DEP_FRAMES_MAX];
 
 	if (pdeplistsize && *pdeplistsize == 0)
 		iscancel = 1;
@@ -2432,7 +2569,7 @@ static int _xgff_frame_end(
 	mutex_lock(&xgff_frames_lock);
 	rframe = &r;
 	if (xgff_find_frame(tid, queueid, frameid, rframe)) {
-		ret = XGF_THREAD_NOT_FOUND;
+		ret = ret_exp = XGF_THREAD_NOT_FOUND;
 		mutex_unlock(&xgff_frames_lock);
 		goto qudeq_notify_err;
 	}
@@ -2448,21 +2585,38 @@ static int _xgff_frame_end(
 
 		*area = fbt_xgff_get_loading_by_cluster(&(r->ploading), ts, 0);
 
-		// post handle est time
-		r->xgfrender.render = tid;
-
-		ret = xgff_enter_est_runtime(tid, &r->xgfrender, &raw_runtime, ts);
-
-		// copy deplist
-		if (ret != XGF_SLPTIME_OK) {
-			*pdeplistsize = 0;
+		// Sum up all PELT sched_runtime in deplist to reduce MIPS.
+		if (r->is_start_dep) {
+			ret = xgff_enter_est_runtime_dep_from_start(tid, queueid, r->dep_runtime,
+				r->count_dep_runtime, &raw_runtime, r->frameid);
+			fpsgo_systrace_c_fbt(tid, queueid, raw_runtime, "xgff_runtime");
 		} else {
-			newdepsize = xgff_get_dep_list(tid, *pdeplistsize,
-						pdeplist, &r->xgfrender);
-			*pdeplistsize = newdepsize;
-			*cputime = raw_runtime;
+			r->xgfrender.render = tid;
+			ret = xgff_enter_est_runtime(tid, &r->xgfrender, &raw_runtime, ts);
+		}
+		*cputime = raw_runtime;
 
-			ret = XGF_NOTIFY_OK;
+		// post handle est time
+		if (is_xgff_mips_exp_enable && r->is_start_dep) {
+			deplist_size_exp = XGF_DEP_FRAMES_MAX;
+
+			r->xgfrender.render = tid;
+
+			ret_exp = xgff_enter_est_runtime(tid, &r->xgfrender, &raw_runtime_exp, ts);
+
+			// copy deplist
+			if (ret_exp != XGF_SLPTIME_OK) {
+				deplist_size_exp = 0;
+			} else {
+				newdepsize = xgff_get_dep_list(tid, deplist_size_exp,
+							deplist_exp, &r->xgfrender);
+				print_dep(deplist_size_exp, deplist_exp);
+				ret_exp = XGF_NOTIFY_OK;
+			}
+			xgf_trace("[XGFF][EXP] xgf_ret: %d at rpid:%d, runtime:%llu", ret_exp, tid,
+				raw_runtime_exp);
+			fpsgo_systrace_c_fbt_debug(tid, queueid, raw_runtime_exp,
+				"xgff_runtime_original");
 		}
 	}
 
@@ -2474,7 +2628,7 @@ static int _xgff_frame_end(
 	xgf_free(r, XGFF_FRAME);
 
 qudeq_notify_err:
-	xgf_trace("xgff result:%d at rpid:%d cmd:xgff_frame_end", ret, tid);
+	xgf_trace("[XGFF] non_xgf_ret: %d at rpid:%d, runtime:%llu", ret, tid, raw_runtime);
 
 	return ret;
 }
@@ -2499,7 +2653,7 @@ static int xgff_frame_startend(unsigned int startend,
 	fpsgo_systrace_c_xgf(tid, queueid, frameid, "xgffs_frameid");
 
 	if (startend)
-		return _xgff_frame_start(tid, queueid, frameid, pdeplistsize, cur_ts);
+		return _xgff_frame_start(tid, queueid, frameid, pdeplistsize, pdeplist, cur_ts);
 
 	return _xgff_frame_end(tid, queueid, frameid, cputime, area, pdeplistsize,
 				pdeplist, cur_ts);
@@ -3213,6 +3367,32 @@ int __init init_xgf_ko(void)
 	return 0;
 }
 
+static ssize_t xgff_mips_exp_enable_show(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		char *buf)
+{
+	return scnprintf(buf, PAGE_SIZE, "%d\n", is_xgff_mips_exp_enable);
+}
+
+static ssize_t xgff_mips_exp_enable_store(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		const char *buf, size_t count)
+{
+	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
+	int arg;
+
+	if ((count > 0) && (count < FPSGO_SYSFS_MAX_BUFF_SIZE)) {
+		if (scnprintf(acBuffer, FPSGO_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
+			if (kstrtoint(acBuffer, 0, &arg) == 0)
+				switch_xgff_mips_exp_enable(!!arg);
+		}
+	}
+
+	return count;
+}
+
+static KOBJ_ATTR_RW(xgff_mips_exp_enable);
+
 int __init init_xgf(void)
 {
 	init_xgf_ko();
@@ -3226,6 +3406,7 @@ int __init init_xgf(void)
 		fpsgo_sysfs_create_file(xgf_kobj, &kobj_attr_xgf_log_trace_enable);
 		fpsgo_sysfs_create_file(xgf_kobj, &kobj_attr_xgf_status);
 		fpsgo_sysfs_create_file(xgf_kobj, &kobj_attr_xgf_ema2_enable_by_pid);
+		fpsgo_sysfs_create_file(xgf_kobj, &kobj_attr_xgff_mips_exp_enable);
 	}
 
 	xgf_policy_cmd_tree = RB_ROOT;
@@ -3252,6 +3433,7 @@ int __exit exit_xgf(void)
 	fpsgo_sysfs_remove_file(xgf_kobj, &kobj_attr_xgf_log_trace_enable);
 	fpsgo_sysfs_remove_file(xgf_kobj, &kobj_attr_xgf_status);
 	fpsgo_sysfs_remove_file(xgf_kobj, &kobj_attr_xgf_ema2_enable_by_pid);
+	fpsgo_sysfs_remove_file(xgf_kobj, &kobj_attr_xgff_mips_exp_enable);
 
 	fpsgo_sysfs_remove_dir(&xgf_kobj);
 

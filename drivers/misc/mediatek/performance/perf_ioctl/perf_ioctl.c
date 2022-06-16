@@ -550,6 +550,7 @@ static long xgff_ioctl_impl(struct file *filp,
 			goto ret_ioctl;
 		}
 	}
+	xgff_frame_getdeplist_maxsize_fp(&maxsize_deplist);
 
 	switch (cmd) {
 	case XGFFRAME_START:
@@ -558,11 +559,21 @@ static long xgff_ioctl_impl(struct file *filp,
 			goto ret_ioctl;
 		}
 
+		vpdeplist = kcalloc(msgKM->deplist_size, sizeof(__u32), GFP_KERNEL);
+		if (!vpdeplist) {
+			ret = -ENOMEM;
+			goto ret_ioctl;
+		}
+		perfctl_copy_from_user(vpdeplist,
+			msgKM->deplist, msgKM->deplist_size * sizeof(__s32));
+		if (msgKM->deplist_size > maxsize_deplist)
+			msgKM->deplist_size = maxsize_deplist;
 		ret = xgff_frame_startend_fp(1, msgKM->tid, msgKM->queueid,
-			msgKM->frameid, NULL, NULL, &msgKM->deplist_size, NULL);
+			msgKM->frameid, NULL, NULL, &msgKM->deplist_size, vpdeplist);
 
 		perfctl_copy_to_user(msgUM, msgKM, sizeof(struct _XGFFRAME_PACKAGE));
 
+		kfree(vpdeplist);
 		break;
 	case XGFFRAME_END:
 		if (!xgff_frame_startend_fp) {
@@ -570,14 +581,14 @@ static long xgff_ioctl_impl(struct file *filp,
 			goto ret_ioctl;
 		}
 
-		xgff_frame_getdeplist_maxsize_fp(&maxsize_deplist);
+		vpdeplist = kcalloc(msgKM->deplist_size, sizeof(__u32), GFP_KERNEL);
 
-		vpdeplist = kcalloc(maxsize_deplist, sizeof(__u32), GFP_KERNEL);
 		if (!vpdeplist) {
 			ret = -ENOMEM;
 			goto ret_ioctl;
 		}
-
+		perfctl_copy_from_user(vpdeplist,
+			msgKM->deplist, msgKM->deplist_size * sizeof(__s32));
 		if (msgKM->deplist_size > maxsize_deplist)
 			msgKM->deplist_size = maxsize_deplist;
 
@@ -586,9 +597,7 @@ static long xgff_ioctl_impl(struct file *filp,
 			&msgKM->deplist_size, vpdeplist);
 
 		perfctl_copy_to_user(msgUM, msgKM, sizeof(struct _XGFFRAME_PACKAGE));
-		if (msgKM->deplist_size)
-			perfctl_copy_to_user(msgKM->deplist, vpdeplist,
-				msgKM->deplist_size * sizeof(__u32));
+
 
 		kfree(vpdeplist);
 

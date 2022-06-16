@@ -186,6 +186,11 @@ struct xgf_thread_loading {
 	int last_cb_ts;
 };
 
+struct xgff_runtime {
+	int pid;
+	unsigned long long loading;
+};
+
 struct xgff_frame {
 	struct hlist_node hlist;
 	pid_t parent;
@@ -195,6 +200,9 @@ struct xgff_frame {
 	unsigned long long ts;
 	struct xgf_thread_loading ploading;
 	struct xgf_render xgfrender;
+	struct xgff_runtime dep_runtime[XGF_DEP_FRAMES_MAX];
+	int count_dep_runtime;
+	int is_start_dep;
 };
 
 struct xgf_dep {
