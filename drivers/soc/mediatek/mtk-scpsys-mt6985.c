@@ -424,6 +424,7 @@ static const struct scp_domain_data scp_domain_mt6985_spm_data[] = {
 		.ctl_offs = 0xE18,
 		.sram_pdn_bits = GENMASK(8, 8),
 		.sram_pdn_ack_bits = GENMASK(12, 12),
+		.subsys_clk_prefix = "pextp",
 		.bp_table = {
 			BUS_PROT_IGN(VLP_TYPE, 0x0234, 0x0238, 0x0230, 0x0240,
 				MT6985_VLP_AXI_PROT_EN1_PEXTP_MAC0),
@@ -435,6 +436,7 @@ static const struct scp_domain_data scp_domain_mt6985_spm_data[] = {
 		.ctl_offs = 0xE1C,
 		.sram_pdn_bits = GENMASK(8, 8),
 		.sram_pdn_ack_bits = GENMASK(12, 12),
+		.subsys_clk_prefix = "pextp",
 		.bp_table = {
 			BUS_PROT_IGN(VLP_TYPE, 0x0234, 0x0238, 0x0230, 0x0240,
 				MT6985_VLP_AXI_PROT_EN1_PEXTP_MAC1),
