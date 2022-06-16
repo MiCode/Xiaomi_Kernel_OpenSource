@@ -1666,6 +1666,95 @@
 		#clock-cells = <1>;
 	};
 
+	dvs: dvs@1b210000 {
+			compatible = "mediatek,dvs";
+			reg = <0 0x1b210000 0 0x1000>;
+			dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
+			interrupts = <GIC_SPI 517 IRQ_TYPE_LEVEL_HIGH 0>;
+			power-domains = <&scpsys MT6985_POWER_DOMAIN_CAM_MRAW>;
+			mboxes = <&gce_m 21 1000 CMDQ_THR_PRIO_1>;
+			mediatek,larb = <&smi_larb19>;
+			iommus = <&mdp_iommu M4U_PORT_L19_DVS_RDMA>,
+							<&mdp_iommu  M4U_PORT_L19_DVS_WDMA>,
+							<&mdp_iommu  M4U_PORT_L19_DVP_RDMA>,
+							<&mdp_iommu  M4U_PORT_L19_DVP_WDMA>;
+			dvs_done_async_shot	= <CMDQ_EVENT_CAM_DPE_DVS_CMQ_EVENT>;
+			clocks =
+			<&topckgen_clk CLK_TOP_CAM_SEL>,
+			<&topckgen_clk CLK_TOP_CCUSYS>,
+			<&topckgen_clk CLK_TOP_CCU_AHB>,
+			<&camsys_main_clk CLK_CAM_MAIN_CAM_CON_0>,
+			<&camsys_main_clk CLK_CAM_MAIN_CAM_MRAW_CON_0>,
+			<&camsys_main_clk CLK_CAM_MAIN_CAM2MM0_GALS_CON_0>,
+			<&camsys_main_clk CLK_CAM_MAIN_CAM2MM1_GALS_CON_0>,
+			<&camsys_main_clk CLK_CAM_MAIN_CAM2MM2_GALS_CON_0>,
+			<&camsys_main_clk CLK_CAM_MAIN_CCUSYS_CON_0>,
+			<&ccu_main_clk CLK_CCU_LARB19>,
+			<&ccu_main_clk CLK_CCU_AHB>,
+			<&ccu_main_clk CLK_CCUSYS_CCU0>,
+			<&ccu_main_clk CLK_CCUSYS_CCU1>,
+			<&ccu_main_clk CLK_CCUSYS_DPE>;
+			clock-names =  "CLK_TOP_CAM_SEL",
+				"CLK_TOP_CCUSYS_SEL",
+				"CLK_TOP_CCU_AHB_SEL",
+				"CAM_CG",
+				"CAM_MRAW",
+				"CAM_CAM2MM0_GALS",
+				"CAM_CAM2MM1_GALS",
+				"CAM_CAM2MM2_GALS",
+				"CAM_CCUSYS",
+				"CCU_LARB19",
+				"CLK_CCU_AHB",
+				"CLK_CCUSYS_CCU0",
+				"CLK_CCUSYS_CCU1",
+				"CLK_CCUSYS_DPE";
+		};
+
+		dvp: dvp@1b210800 {
+			compatible = "mediatek,dvp";
+			reg = <0 0x1b210800 0 0x1000>;
+			dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
+			interrupts = <GIC_SPI 518 IRQ_TYPE_LEVEL_HIGH 0>;
+			power-domains = <&scpsys MT6985_POWER_DOMAIN_CAM_MRAW>;
+			mboxes = <&gce_m 21 1000 CMDQ_THR_PRIO_1>;
+			mediatek,larb = <&smi_larb19>;
+			iommus = <&mdp_iommu M4U_PORT_L19_DVS_RDMA>,
+							<&mdp_iommu  M4U_PORT_L19_DVS_WDMA>,
+							<&mdp_iommu  M4U_PORT_L19_DVP_RDMA>,
+							<&mdp_iommu  M4U_PORT_L19_DVP_WDMA>;
+			dvp_done_async_shot = <CMDQ_EVENT_CAM_DPE_DVP_CMQ_EVENT>;
+			clocks =
+			<&topckgen_clk CLK_TOP_CAM_SEL>,
+			<&topckgen_clk CLK_TOP_CCUSYS>,
+			<&topckgen_clk CLK_TOP_CCU_AHB>,
+			<&camsys_main_clk CLK_CAM_MAIN_CAM_CON_0>,
+			<&camsys_main_clk CLK_CAM_MAIN_CAM_MRAW_CON_0>,
+			<&camsys_main_clk CLK_CAM_MAIN_CAM2MM0_GALS_CON_0>,
+			<&camsys_main_clk CLK_CAM_MAIN_CAM2MM1_GALS_CON_0>,
+			<&camsys_main_clk CLK_CAM_MAIN_CAM2MM2_GALS_CON_0>,
+			<&camsys_main_clk CLK_CAM_MAIN_CCUSYS_CON_0>,
+			<&ccu_main_clk CLK_CCU_LARB19>,
+			<&ccu_main_clk CLK_CCU_AHB>,
+			<&ccu_main_clk CLK_CCUSYS_CCU0>,
+			<&ccu_main_clk CLK_CCUSYS_CCU1>,
+			<&ccu_main_clk CLK_CCUSYS_DPE>;
+			clock-names =  "CLK_TOP_CAM_SEL",
+				"CLK_TOP_CCUSYS_SEL",
+				"CLK_TOP_CCU_AHB_SEL",
+				"CAM_CG",
+				"CAM_MRAW",
+				"CAM_CAM2MM0_GALS",
+				"CAM_CAM2MM1_GALS",
+				"CAM_CAM2MM2_GALS",
+				"CAM_CCUSYS",
+				"CCU_LARB19",
+				"CLK_CCU_AHB",
+				"CLK_CCUSYS_CCU0",
+				"CLK_CCUSYS_CCU1",
+				"CLK_CCUSYS_DPE";
+		};
+
+
 	mminfra_config_clk: syscon@1e800000 {
 		compatible = "mediatek,mt6985-mminfra_config", "syscon";
 		reg = <0 0x1e800000 0 0x1000>;
