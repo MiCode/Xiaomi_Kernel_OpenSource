@@ -45,6 +45,7 @@ static struct gt9896s_ts_core *ts_core;
 static struct task_struct *gt9896s_polling_thread;
 static int gt9896s_ts_event_polling(void *arg);
 static int gt9896s_polling_flag;
+struct mutex irq_info_mutex;
 
 struct gt9896s_module gt9896s_modules;
 
@@ -654,25 +655,30 @@ static ssize_t gt9896s_ts_irq_info_store(struct device *dev,
 		gt9896s_polling_flag = 1;
 		ts_info("disable irq, polling mode, flag = %d", gt9896s_polling_flag);
 		if (gt9896s_polling_thread == NULL) {
+			mutex_lock(&irq_info_mutex);
 			gt9896s_polling_thread =
 				kthread_run(gt9896s_ts_event_polling,
 				0, GOODIX_CORE_DRIVER_NAME);
 			ts_info("gt9896s_polling_thread, kthread_run");
 			if (IS_ERR(gt9896s_polling_thread)) {
 				ret = PTR_ERR(gt9896s_polling_thread);
+				gt9896s_polling_thread = NULL;
 				ts_err(" failed to create kernel thread: %d\n",
 					ret);
 			}
+			mutex_unlock(&irq_info_mutex);
 		}
 		break;
 	//change to touch irq mode
 	case 1:
 		gt9896s_polling_flag = 0;
 		ts_info("enable irq, irq mode, flag = %d", gt9896s_polling_flag);
+		mutex_lock(&irq_info_mutex);
 		if (gt9896s_polling_thread) {
 			kthread_stop(gt9896s_polling_thread);
 			gt9896s_polling_thread = NULL;
 		}
+		mutex_unlock(&irq_info_mutex);
 		break;
 	//use cmd to make touch power off
 	case 2:
