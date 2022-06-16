@@ -483,9 +483,11 @@ void mtk_dp_inf_video_clock(struct mtk_dp_intf *dp_intf)
 	if (clk_apmixed_base == NULL) {
 		node = of_find_compatible_node(NULL, NULL,
 			dp_intf->driver_data->video_clock_cfg->compatible);
-		if (!node)
+		if (!node) {
 			DDPPR_ERR("dp_intf [CLK_APMIXED] find node failed\n");
-			clk_apmixed_base = of_iomap(node, 0);
+			return;
+		}
+		clk_apmixed_base = of_iomap(node, 0);
 		if (clk_apmixed_base == NULL) {
 			DDPPR_ERR("dp_intf [CLK_APMIXED] io map failed\n");
 			return;
