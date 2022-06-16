@@ -3291,6 +3291,7 @@ static int __maybe_unused msdc_runtime_suspend(struct device *dev)
 	cpu_latency_qos_update_request(&host->pm_qos_req,
 		PM_QOS_DEFAULT_VALUE);
 
+	mmc_mtk_biolog_clk_gating(false);
 	set_mmc_perf_mode(mmc, false);
 
 	return 0;

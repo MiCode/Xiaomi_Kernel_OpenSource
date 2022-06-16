@@ -561,6 +561,13 @@ static void mmc_mtk_bio_init_ctx(struct mmc_mtk_bio_context *ctx)
 	}
 }
 
+void mmc_mtk_biolog_clk_gating(bool clk_on)
+{
+	if (!clk_on)
+		mtk_btag_earaio_boost(clk_on);
+}
+EXPORT_SYMBOL_GPL(mmc_mtk_biolog_clk_gating);
+
 static struct mtk_btag_vops mmc_mtk_btag_vops = {
 	.seq_show       = mmc_mtk_bio_seq_debug_show_info,
 };
@@ -573,6 +580,7 @@ int mmc_mtk_biolog_init(struct mmc_host *mmc)
 	if (!mmc)
 		return -EINVAL;
 
+	mmc_mtk_btag_vops.earaio_enabled = true;
 	if (mmc_mtk_btag_vops.boot_device[BTAG_STORAGE_MMC])
 		return 0;
 

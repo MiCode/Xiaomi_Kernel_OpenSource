@@ -313,6 +313,7 @@ void mmc_mtk_biolog_check(struct mmc_host *mmc, unsigned long req_mask);
 int mmc_mtk_biolog_init(struct mmc_host *mmc);
 int mmc_mtk_biolog_exit(void);
 void set_mmc_perf_mode(struct mmc_host *mmc, bool boost);
+void mmc_mtk_biolog_clk_gating(bool gated);
 
 #else
 
@@ -343,6 +344,7 @@ void set_mmc_perf_mode(struct mmc_host *mmc, bool boost);
 #define mmc_mtk_biolog_init(...)
 #define mmc_mtk_biolog_exit(...)
 #define set_mmc_perf_mode(...)
+#define mmc_mtk_biolog_clk_gating(...)
 #endif
 
 #endif
