@@ -61,6 +61,8 @@
 #include <linux/soc/mediatek/mtk-mbox.h>
 #include "vcp_ipi.h"
 
+#include "vcp_hwvoter_dbg.h"
+
 /* vcp semaphore timeout count definition */
 #define SEMAPHORE_TIMEOUT 5000
 #define SEMAPHORE_3WAY_TIMEOUT 5000
@@ -2818,6 +2820,8 @@ static int __init vcp_init(void)
 		pr_notice("[VCP] create files failed\n");
 		goto err;
 	}
+
+	vcp_hw_voter_dbg_init();
 
 #if VCP_LOGGER_ENABLE
 	/* vcp logger initialise */
