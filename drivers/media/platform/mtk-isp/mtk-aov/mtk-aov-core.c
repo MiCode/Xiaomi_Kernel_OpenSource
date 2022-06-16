@@ -75,7 +75,7 @@ static int ipi_receive(unsigned int id, void *unused,
 	pr_debug("%s: receive id(%d), len(%d), ready(%d)\n", __func__, id, len, aov_ready);
 
 	if (aov_ready == 0) {
-		pr_info("%s: aov stream is not started", __func__);
+		pr_info("%s: aov is not started", __func__);
 		return 0;
 	}
 
@@ -132,13 +132,16 @@ static int send_cmd_internal(struct aov_core *core_info,
 			ret = wait_event_interruptible_timeout(core_info->scp_queue,
 				((scp_ready = atomic_read(&(core_info->scp_ready))) != 0), timeout);
 			if (ret == 0) {
-				pr_info("%s: send cmd(%d) time out !\n",
-					__func__, pkt->command);
+				pr_info("%s: send cmd(%d/%d) time out !\n",
+					__func__, pkt->command, scp_ready);
 				return -EIO;
 			} else if (-ERESTARTSYS == ret) {
-				pr_info("%s: send cmd(%d) interrupted !\n",
-					__func__, pkt->command);
+				pr_info("%s: send cmd(%d/%d) interrupted !\n",
+					__func__, pkt->command, scp_ready);
 				return -ERESTARTSYS;
+			} else {
+				pr_debug("%s: send cmd(%d/%d) done\n",
+					__func__, pkt->command, scp_ready);
 			}
 		} else {
 			scp_ready = atomic_read(&(core_info->scp_ready));
@@ -208,10 +211,15 @@ int aov_core_send_cmd(struct mtk_aov *aov_dev, uint32_t cmd,
 
 				pr_debug("%s: copy aov user data %x, %d+\n",
 					__func__, data, sizeof(struct aov_user));
-				(void)copy_from_user((void *)&user,
+				ret = copy_from_user((void *)&user,
 					(void *)data, sizeof(struct aov_user));
 				pr_debug("%s: copy aov user data %x, %d-\n",
 					__func__, data, sizeof(struct aov_user));
+				if (ret) {
+					pr_info("%s: failed to copy aov user data: %d\n",
+						__func__, ret);
+					return -EFAULT;
+				}
 
 				memcpy(init, &user, AOV_MAX_USER_SIZE);
 
@@ -289,6 +297,8 @@ int aov_core_send_cmd(struct mtk_aov *aov_dev, uint32_t cmd,
 				atomic_set(&(core_info->aov_session), user.session);
 
 				len = sizeof(struct aov_init);
+			} else if (cmd == AOV_SCP_CMD_NOTIFY) {
+				memcpy(buf, (void *)data, sizeof(struct aov_notify));
 			} else {
 				pr_info("%s: data buffer 0x%08x, size %d", __func__, buf, len);
 				(void)copy_from_user(buf, (void *)data, len);
@@ -336,6 +346,11 @@ int aov_core_send_cmd(struct mtk_aov *aov_dev, uint32_t cmd,
 	if (cmd == AOV_SCP_CMD_INIT) {
 		struct aov_init *init = (struct aov_init *)buf;
 
+		if (init == NULL) {
+			pr_info("%s: invalid null aov init info", __func__);
+			return -ENOMEM;
+		}
+
 		// Init queue to receive event
 		queue_init(&(core_info->queue));
 
@@ -345,6 +360,9 @@ int aov_core_send_cmd(struct mtk_aov *aov_dev, uint32_t cmd,
 		// Setup display mode
 		init->disp_mode = atomic_read(&(core_info->disp_mode));
 
+		// Setup aie available
+		init->aie_avail = atomic_read(&(core_info->aie_avail));
+
 		// Record aov_init buffer
 		core_info->aov_init = init;
 
@@ -353,37 +371,51 @@ int aov_core_send_cmd(struct mtk_aov *aov_dev, uint32_t cmd,
 		atomic_set(&(core_info->disp_mode), AOV_DISP_MODE_OFF);
 	} else if (cmd == AOV_SCP_CMD_PWR_ON) {
 		atomic_set(&(core_info->disp_mode), AOV_DiSP_MODE_ON);
+	} else if (cmd == AOV_SCP_CMD_NOTIFY) {
+		struct aov_notify *notify = (struct aov_notify *)buf;
+
+		atomic_set(&(core_info->aie_avail), notify->status);
 	}
 
-	if (ack)
-		atomic_set(&(core_info->ack_cmd[cmd]), 0);
+	if (atomic_read(&(core_info->aov_ready))) {
+		if (ack)
+			atomic_set(&(core_info->ack_cmd[cmd]), 0);
 
-	ret = send_cmd_internal(core_info, &pkt, true);
-	if (ret < 0) {
-		dev_info(aov_dev->dev, "%s: failed to send cmd(%d)", __func__, cmd);
-		return ret;
-	}
+		ret = send_cmd_internal(core_info, &pkt, true);
+		if (ret < 0) {
+			dev_info(aov_dev->dev, "%s: failed to send cmd(%d)\n", __func__, cmd);
+			return ret;
+		}
 
-	if (ack) {
-		timeout = msecs_to_jiffies(AOV_TIMEOUT_MS);
-		ret = wait_event_interruptible_timeout(core_info->ack_wq[cmd],
-			atomic_cmpxchg(&(core_info->ack_cmd[cmd]), 1, 0), timeout);
-		if (ret == 0) {
-			dev_info(aov_dev->dev, "%s: wait ack cmd(%d) timeout\n",
-				__func__, cmd);
-			/*
-			 * clear un-success event to prevent unexpected flow
-			 * cauesd be remaining data
-			 */
-			return -EIO;
-		} else if (-ERESTARTSYS == ret) {
-			dev_info(aov_dev->dev, "%s: wait cmd(%d) ack interrupted\n",
-				__func__, cmd);
-			return -ERESTARTSYS;
+		if (ack) {
+			timeout = msecs_to_jiffies(AOV_TIMEOUT_MS);
+			ret = wait_event_interruptible_timeout(core_info->ack_wq[cmd],
+				atomic_cmpxchg(&(core_info->ack_cmd[cmd]), 1, 0), timeout);
+			if (ret == 0) {
+				dev_info(aov_dev->dev, "%s: wait ack cmd(%d) timeout\n",
+					__func__, cmd);
+				/*
+				 * clear un-success event to prevent unexpected flow
+				 * cauesd be remaining data
+				 */
+				return -EIO;
+			} else if (-ERESTARTSYS == ret) {
+				dev_info(aov_dev->dev, "%s: wait cmd(%d) ack interrupted\n",
+					__func__, cmd);
+				return -ERESTARTSYS;
+			}
+
+			dev_dbg(aov_dev->dev, "%s: wait cmd(%d) ack done\n",
+					__func__, cmd);
 		}
 	}
 
-	if (cmd == AOV_SCP_CMD_PWR_ON) {
+	if (cmd == AOV_SCP_CMD_INIT) {
+		// Free aov_init buffer
+		spin_lock_irqsave(&core_info->buf_lock, flag);
+		tlsf_free(&(core_info->alloc), core_info->aov_init);
+		spin_unlock_irqrestore(&core_info->buf_lock, flag);
+	} else if (cmd == AOV_SCP_CMD_PWR_ON) {
 #if AOV_SLB_ALLOC_FREE
 		struct slbc_data slb;
 
@@ -407,16 +439,16 @@ int aov_core_send_cmd(struct mtk_aov *aov_dev, uint32_t cmd,
 			slb.type = TP_BUFFER;
 			ret = slbc_release(&slb);
 			if (ret < 0)
-				pr_info("failed to release slb buffer");
+				pr_info("%s: failed to release slb buffer\n", __func__);
 		}
 #endif  // AOV_SLB_ALLOC_FREE
+	} else if (cmd == AOV_SCP_CMD_NOTIFY) {
+		// Free aov_notify buffer
+		spin_lock_irqsave(&core_info->buf_lock, flag);
+		tlsf_free(&(core_info->alloc), buf);
+		spin_unlock_irqrestore(&core_info->buf_lock, flag);
 	} else if (cmd == AOV_SCP_CMD_DEINIT) {
 		atomic_set(&(core_info->aov_ready), 0);
-
-		// Free aov_init buffer
-		spin_lock_irqsave(&core_info->buf_lock, flag);
-		tlsf_free(&(core_info->alloc), core_info->aov_init);
-		spin_unlock_irqrestore(&core_info->buf_lock, flag);
 
 		// Reset queue to empty
 		while (!queue_empty(&(core_info->queue))) {
@@ -432,9 +464,9 @@ int aov_core_send_cmd(struct mtk_aov *aov_dev, uint32_t cmd,
 		pr_info("mtk_cam_seninf_aov_runtime_resume(%d)-\n", core_info->sensor_id);
 	}
 
-	dev_info(aov_dev->dev, "%s: mtk_ipi_send: %d-", __func__, len);
+	dev_info(aov_dev->dev, "%s: mtk_ipi_send: %d-\n", __func__, len);
 
-	pr_info("%s-", __func__);
+	pr_info("%s-\n", __func__);
 
 	return 0;
 }
@@ -442,20 +474,33 @@ int aov_core_send_cmd(struct mtk_aov *aov_dev, uint32_t cmd,
 int aov_core_notify(struct mtk_aov *aov_dev,
 	void *data, bool enable)
 {
+	int ret;
 	struct sensor_notify notify;
 	int index;
 
-	pr_info("%s+", __func__);
+	pr_info("%s+\n", __func__);
 
-	(void)copy_from_user((void *)&notify,
+	ret = copy_from_user((void *)&notify,
 		(void *)data, sizeof(struct sensor_notify));
+	if (ret) {
+		dev_info(aov_dev->dev, "%s: failed to copy senor notification: %d\n",
+			__func__, ret);
+		return -EFAULT;
+	}
+
+	if (notify.count >= AOV_MAX_SENSOR_COUNT) {
+		dev_info(aov_dev->dev, "%s: invalid sensor notify count(%d)\n",
+			__func__, notify.count);
+		return -EINVAL;
+	}
+
 
 	for (index = 0; index < notify.count; index++) {
-		dev_info(aov_dev->dev, "%s: notify sensor(%d), status(%d)",
+		dev_info(aov_dev->dev, "%s: notify sensor(%d), status(%d)\n",
 			__func__, notify.sensor[index], enable);
 	}
 
-	pr_info("%s-", __func__);
+	pr_info("%s-\n", __func__);
 
 	return 0;
 }
@@ -469,7 +514,7 @@ static int scp_state_notify(struct notifier_block *this,
 	uint32_t session;
 
 	if (event == SCP_EVENT_STOP) {
-		pr_info("%s: scp stop event(%d)\n", __func__, event);
+		pr_info("%s: receive scp stop(%d)\n", __func__, event);
 		atomic_set(&(core_info->scp_ready), 1);
 	} else if (event == SCP_EVENT_READY) {
 		atomic_set(&(core_info->scp_ready), 2);
@@ -483,7 +528,7 @@ static int scp_state_notify(struct notifier_block *this,
 		pkt.command = AOV_SCP_CMD_READY;
 		pkt.buffer  = 0;
 		pkt.length  = 0;
-		send_cmd_internal(core_info, &pkt, false);
+		(void)send_cmd_internal(core_info, &pkt, false);
 	}
 
 	return NOTIFY_DONE;
@@ -512,7 +557,7 @@ int aov_core_init(struct mtk_aov *aov_dev)
 		ret = mtk_ipi_register(&scp_ipidev, IPI_IN_SCP_AOV,
 			ipi_receive, NULL, &(core_info->packet));
 		if (ret < 0) {
-			pr_info("%s: failed to register ipi: %d", __func__, ret);
+			pr_info("%s: failed to register ipi callback: %d\n", __func__, ret);
 			return ret;
 		}
 
@@ -528,7 +573,7 @@ int aov_core_init(struct mtk_aov *aov_dev)
 
 		tlsf_init(&(core_info->alloc), core_info->buf_va, core_info->buf_size);
 	} else {
-		pr_info("%s: init aov core in bypass mode", __func__);
+		pr_info("%s: init aov core in bypass mode\n", __func__);
 	}
 
 	spin_lock_init(&core_info->buf_lock);
@@ -544,7 +589,7 @@ int aov_core_init(struct mtk_aov *aov_dev)
 
 	dma_heap = dma_heap_find("mtk_mm");
 	if (!dma_heap) {
-		pr_info("%s: failed to find dma heap\n");
+		pr_info("%s: failed to find dma heap\n", __func__);
 		return -ENOMEM;
 	}
 
@@ -553,7 +598,7 @@ int aov_core_init(struct mtk_aov *aov_dev)
 		DMA_HEAP_VALID_HEAP_FLAGS);
 	if (IS_ERR(core_info->dma_buf)) {
 		core_info->dma_buf = NULL;
-		pr_info("%s: failed to alloc dma buffer\n");
+		pr_info("%s: failed to alloc dma buffer\n", __func__);
 		return -ENOMEM;
 	}
 
@@ -561,7 +606,7 @@ int aov_core_init(struct mtk_aov *aov_dev)
 
 	ret = dma_buf_vmap(core_info->dma_buf, &(core_info->dma_map));
 	if (ret) {
-		pr_info("%s: failed to map dmap buffer(%d)\n", ret);
+		pr_info("%s: failed to map dmap buffer(%d)\n", __func__, ret);
 		return -ENOMEM;
 	}
 
@@ -580,6 +625,7 @@ int aov_core_init(struct mtk_aov *aov_dev)
 
 	atomic_set(&(core_info->debug_mode), 0);
 	atomic_set(&(core_info->disp_mode), AOV_DiSP_MODE_ON);
+	atomic_set(&(core_info->aie_avail), 0);
 
 	return 0;
 }
@@ -592,16 +638,16 @@ int aov_core_copy(struct mtk_aov *aov_dev, struct aov_dqevent *dequeue)
 	uint32_t debug_mode;
 	int ret = 0;
 
-	dev_info(aov_dev->dev, "%s: copy aov event+", __func__);
+	dev_info(aov_dev->dev, "%s: copy aov event+\n", __func__);
 
 	if (atomic_read(&(core_info->aov_ready)) == 0) {
-		dev_info(aov_dev->dev, "%s: aov not ready", __func__);
+		dev_info(aov_dev->dev, "%s: aov is not started\n", __func__);
 		return -EIO;
 	}
 
 	event = queue_pop(&(core_info->queue));
 	if (event == NULL) {
-		dev_info(aov_dev->dev, "%s: event is null", __func__);
+		dev_info(aov_dev->dev, "%s: event is null\n", __func__);
 		return -EIO;
 	}
 
@@ -629,7 +675,7 @@ int aov_core_copy(struct mtk_aov *aov_dev, struct aov_dqevent *dequeue)
 		get_user(buffer, (void **)((uintptr_t)dequeue +
 			offsetof(struct aov_dqevent, yuvo1_output)));
 
-		dev_info(aov_dev->dev, "%s: copy yuvo1 output from(%x) to(%x) size(%d)+",
+		dev_info(aov_dev->dev, "%s: copy yuvo1 output from(%x) to(%x) size(%d)\n",
 				__func__, ALIGN16(&(event->yuvo1_output[0])),
 				buffer, AOV_MAX_YUVO1_OUTPUT);
 
@@ -638,8 +684,8 @@ int aov_core_copy(struct mtk_aov *aov_dev, struct aov_dqevent *dequeue)
 		if (ret) {
 			buffer_release(core_info, event);
 			dev_info(aov_dev->dev,
-				"%s: failed to copy yuvo1 output(%d)", ret);
-			return -EIO;
+				"%s: failed to copy yuvo1 output(%d)\n", __func__, ret);
+			return -EFAULT;
 		}
 
 		// Setup yuvo2 stride
@@ -650,7 +696,7 @@ int aov_core_copy(struct mtk_aov *aov_dev, struct aov_dqevent *dequeue)
 		get_user(buffer, (void **)((uintptr_t)dequeue +
 			offsetof(struct aov_dqevent, yuvo2_output)));
 
-		dev_info(aov_dev->dev, "%s: copy yuvo1 output from(%x) to(%x) size(%d)+",
+		dev_info(aov_dev->dev, "%s: copy yuvo1 output from(%x) to(%x) size(%d)\n",
 				__func__, ALIGN16(&(event->yuvo2_output[0])),
 				buffer, AOV_MAX_YUVO2_OUTPUT);
 
@@ -659,8 +705,8 @@ int aov_core_copy(struct mtk_aov *aov_dev, struct aov_dqevent *dequeue)
 		if (ret) {
 			buffer_release(core_info, event);
 			dev_info(aov_dev->dev,
-				"%s: failed to copy yuvo2 output(%d)", ret);
-			return -EIO;
+				"%s: failed to copy yuvo2 output(%d)\n", __func__, ret);
+			return -EFAULT;
 		}
 
 		// Setup aie output size
@@ -670,8 +716,8 @@ int aov_core_copy(struct mtk_aov *aov_dev, struct aov_dqevent *dequeue)
 		if (event->aie_size) {
 			if (event->aie_size > AOV_MAX_AIE_OUTPUT) {
 				buffer_release(core_info, event);
-				dev_info(aov_dev->dev, "%s: invalid aie output overflow(%d/%d)",
-					event->aie_size, AOV_MAX_AIE_OUTPUT);
+				dev_info(aov_dev->dev, "%s: invalid aie output overflow(%d/%d)\n",
+					__func__, event->aie_size, AOV_MAX_AIE_OUTPUT);
 				return -ENOMEM;
 			}
 
@@ -679,7 +725,7 @@ int aov_core_copy(struct mtk_aov *aov_dev, struct aov_dqevent *dequeue)
 			get_user(buffer, (void **)((uintptr_t)dequeue +
 				offsetof(struct aov_dqevent, aie_output)));
 
-			dev_info(aov_dev->dev, "%s: copy aie output from(%x) to(%x) size(%d)+",
+			dev_info(aov_dev->dev, "%s: copy aie output from(%x) to(%x) size(%d)\n",
 				__func__, ALIGN16(&(event->aie_output[0])),
 				buffer, event->aie_size);
 
@@ -688,8 +734,8 @@ int aov_core_copy(struct mtk_aov *aov_dev, struct aov_dqevent *dequeue)
 			if (ret) {
 				buffer_release(core_info, event);
 				dev_info(aov_dev->dev,
-					"%s: failed to copy aie output(%d)", ret);
-				return -EIO;
+					"%s: failed to copy aie output(%d)\n", __func__, ret);
+				return -EFAULT;
 			}
 		}
 
@@ -700,8 +746,8 @@ int aov_core_copy(struct mtk_aov *aov_dev, struct aov_dqevent *dequeue)
 		if (event->apu_size) {
 			if (event->apu_size > AOV_MAX_APU_OUTPUT) {
 				buffer_release(core_info, event);
-				dev_info(aov_dev->dev, "%s: invalid apu output overflow(%d/%d)",
-					event->apu_size, AOV_MAX_APU_OUTPUT);
+				dev_info(aov_dev->dev, "%s: invalid apu output overflow(%d/%d)\n",
+					__func__, event->apu_size, AOV_MAX_APU_OUTPUT);
 				return -ENOMEM;
 			}
 
@@ -709,7 +755,7 @@ int aov_core_copy(struct mtk_aov *aov_dev, struct aov_dqevent *dequeue)
 			get_user(buffer, (void **)((uintptr_t)dequeue +
 				offsetof(struct aov_dqevent, apu_output)));
 
-			dev_info(aov_dev->dev, "%s: copy apu output from(%x) to(%x) size(%d)+",
+			dev_info(aov_dev->dev, "%s: copy apu output from(%x) to(%x) size(%d)\n",
 				__func__, ALIGN16(&(event->apu_output[0])),
 				buffer, event->apu_size);
 
@@ -718,8 +764,8 @@ int aov_core_copy(struct mtk_aov *aov_dev, struct aov_dqevent *dequeue)
 			if (ret) {
 				buffer_release(core_info, event);
 				dev_info(aov_dev->dev,
-					"%s: failed to copy apu output(%d)", ret);
-				return -EIO;
+					"%s: failed to copy apu output(%d)", __func__, ret);
+				return -EFAULT;
 			}
 		}
 	}
@@ -733,7 +779,7 @@ int aov_core_copy(struct mtk_aov *aov_dev, struct aov_dqevent *dequeue)
 		get_user(buffer, (void **)((uintptr_t)dequeue +
 			offsetof(struct aov_dqevent, imgo_output)));
 
-		dev_info(aov_dev->dev, "%s: copy imgo output from(%x) to(%x) size(%d)+",
+		dev_info(aov_dev->dev, "%s: copy imgo output from(%x) to(%x) size(%d)\n",
 				__func__, ALIGN16(&(event->imgo_output[0])),
 				buffer, AOV_MAX_IMGO_OUTPUT);
 
@@ -742,8 +788,8 @@ int aov_core_copy(struct mtk_aov *aov_dev, struct aov_dqevent *dequeue)
 		if (ret) {
 			buffer_release(core_info, event);
 			dev_info(aov_dev->dev,
-				"%s: failed to copy imgo output(%d)", ret);
-			return -EIO;
+				"%s: failed to copy imgo output(%d)\n", __func__, ret);
+			return -EFAULT;
 		}
 
 		// Setup aao output size
@@ -753,8 +799,8 @@ int aov_core_copy(struct mtk_aov *aov_dev, struct aov_dqevent *dequeue)
 		if (event->aao_size) {
 			if (event->aao_size > AOV_MAX_AAO_OUTPUT) {
 				buffer_release(core_info, event);
-				dev_info(aov_dev->dev, "%s: invalid aao output overflow(%d/%d)",
-					event->aao_size, AOV_MAX_AAO_OUTPUT);
+				dev_info(aov_dev->dev, "%s: invalid aao output overflow(%d/%d)\n",
+					__func__, event->aao_size, AOV_MAX_AAO_OUTPUT);
 				return -ENOMEM;
 			}
 
@@ -762,7 +808,7 @@ int aov_core_copy(struct mtk_aov *aov_dev, struct aov_dqevent *dequeue)
 			get_user(buffer, (void **)((uintptr_t)dequeue +
 				offsetof(struct aov_dqevent, aao_output)));
 
-			dev_info(aov_dev->dev, "%s: copy aao output from(%x) to(%x) size(%d)+",
+			dev_info(aov_dev->dev, "%s: copy aao output from(%x) to(%x) size(%d)\n",
 				__func__, ALIGN16(&(event->aao_output[0])),
 				buffer, event->aao_size);
 
@@ -771,8 +817,8 @@ int aov_core_copy(struct mtk_aov *aov_dev, struct aov_dqevent *dequeue)
 			if (ret) {
 				buffer_release(core_info, event);
 				dev_info(aov_dev->dev,
-					"%s: failed to copy aao output(%d)", ret);
-				return -EIO;
+					"%s: failed to copy aao output(%d)\n", __func__, ret);
+				return -EFAULT;
 			}
 		}
 
@@ -783,8 +829,8 @@ int aov_core_copy(struct mtk_aov *aov_dev, struct aov_dqevent *dequeue)
 		if (event->aaho_size) {
 			if (event->aaho_size > AOV_MAX_AAHO_OUTPUT) {
 				buffer_release(core_info, event);
-				dev_info(aov_dev->dev, "%s: invalid aaho output overflow(%d/%d)",
-					event->aaho_size, AOV_MAX_AAHO_OUTPUT);
+				dev_info(aov_dev->dev, "%s: invalid aaho output overflow(%d/%d)\n",
+					__func__, event->aaho_size, AOV_MAX_AAHO_OUTPUT);
 				return -ENOMEM;
 			}
 
@@ -792,7 +838,7 @@ int aov_core_copy(struct mtk_aov *aov_dev, struct aov_dqevent *dequeue)
 			get_user(buffer, (void **)((uintptr_t)dequeue +
 				offsetof(struct aov_dqevent, aaho_output)));
 
-			dev_info(aov_dev->dev, "%s: copy aaho output from(%x) to(%x) size(%d)+",
+			dev_info(aov_dev->dev, "%s: copy aaho output from(%x) to(%x) size(%d)\n",
 				__func__, ALIGN16(&(event->aaho_output[0])),
 				buffer, event->aaho_size);
 
@@ -801,8 +847,8 @@ int aov_core_copy(struct mtk_aov *aov_dev, struct aov_dqevent *dequeue)
 			if (ret) {
 				buffer_release(core_info, event);
 				dev_info(aov_dev->dev,
-					"%s: failed to copy aaho output(%d)", ret);
-				return -EIO;
+					"%s: failed to copy aaho output(%d)\n", __func__, ret);
+				return -EFAULT;
 			}
 		}
 
@@ -813,8 +859,8 @@ int aov_core_copy(struct mtk_aov *aov_dev, struct aov_dqevent *dequeue)
 		if (event->meta_size) {
 			if (event->meta_size > AOV_MAX_META_OUTPUT) {
 				buffer_release(core_info, event);
-				dev_info(aov_dev->dev, "%s: invalid meta output overflow(%d/%d)",
-					event->meta_size, AOV_MAX_META_OUTPUT);
+				dev_info(aov_dev->dev, "%s: invalid meta output overflow(%d/%d)\n",
+					__func__, event->meta_size, AOV_MAX_META_OUTPUT);
 				return -ENOMEM;
 			}
 
@@ -822,7 +868,7 @@ int aov_core_copy(struct mtk_aov *aov_dev, struct aov_dqevent *dequeue)
 			get_user(buffer, (void **)((uintptr_t)dequeue +
 				offsetof(struct aov_dqevent, meta_output)));
 
-			dev_info(aov_dev->dev, "%s: copy meta output from(%x) to(%x) size(%d)+",
+			dev_info(aov_dev->dev, "%s: copy meta output from(%x) to(%x) size(%d)\n",
 				__func__, ALIGN16(&(event->meta_output[0])),
 				buffer, event->meta_size);
 
@@ -831,8 +877,8 @@ int aov_core_copy(struct mtk_aov *aov_dev, struct aov_dqevent *dequeue)
 			if (ret) {
 				buffer_release(core_info, event);
 				dev_info(aov_dev->dev,
-					"%s: failed to copy meta output(%d)", ret);
-				return -EIO;
+					"%s: failed to copy meta output(%d)\n", __func__, ret);
+				return -EFAULT;
 			}
 		}
 
@@ -843,8 +889,8 @@ int aov_core_copy(struct mtk_aov *aov_dev, struct aov_dqevent *dequeue)
 		if (event->awb_size) {
 			if (event->awb_size > AOV_MAX_AWB_OUTPUT) {
 				buffer_release(core_info, event);
-				dev_info(aov_dev->dev, "%s: invalid awb output overflow(%d/%d)",
-					event->awb_size, AOV_MAX_AWB_OUTPUT);
+				dev_info(aov_dev->dev, "%s: invalid awb output overflow(%d/%d)\n",
+					__func__, event->awb_size, AOV_MAX_AWB_OUTPUT);
 				return -ENOMEM;
 			}
 
@@ -852,7 +898,7 @@ int aov_core_copy(struct mtk_aov *aov_dev, struct aov_dqevent *dequeue)
 			get_user(buffer, (void **)((uintptr_t)dequeue +
 				offsetof(struct aov_dqevent, awb_output)));
 
-			dev_info(aov_dev->dev, "%s: copy tuning output from(%x) to(%x) size(%d)+",
+			dev_info(aov_dev->dev, "%s: copy tuning output from(%x) to(%x) size(%d)\n",
 				__func__, ALIGN16(&(event->awb_output[0])),
 				buffer, event->awb_size);
 
@@ -861,15 +907,15 @@ int aov_core_copy(struct mtk_aov *aov_dev, struct aov_dqevent *dequeue)
 			if (ret) {
 				buffer_release(core_info, event);
 				dev_info(aov_dev->dev,
-					"%s: failed to copy awb output(%d)", ret);
-				return -EIO;
+					"%s: failed to copy awb output(%d)\n", __func__, ret);
+				return -EFAULT;
 			}
 		}
 	}
 
 	buffer_release(core_info, event);
 
-	dev_info(aov_dev->dev, "%s: copy aov event-", __func__);
+	dev_info(aov_dev->dev, "%s: copy aov event-\n", __func__);
 
 	return ret;
 }
@@ -879,21 +925,22 @@ int aov_core_poll(struct mtk_aov *aov_dev, struct file *file,
 {
 	struct aov_core *core_info = &aov_dev->core_info;
 
-	dev_info(aov_dev->dev, "%s: poll start+", __func__);
+	dev_dbg(aov_dev->dev, "%s: poll start+\n", __func__);
 
 	if (!queue_empty(&(core_info->queue))) {
-		dev_info(aov_dev->dev, "%s: poll start-: %d", __func__, POLLPRI);
+		dev_info(aov_dev->dev, "%s: poll start-: %d\n", __func__, POLLPRI);
 		return POLLPRI;
 	}
 
 	poll_wait(file, &core_info->poll_wq, wait);
 
 	if (!queue_empty(&(core_info->queue))) {
-		dev_info(aov_dev->dev, "%s: poll start-: %d", __func__, POLLPRI);
+		dev_info(aov_dev->dev, "%s: poll start-: %d\n", __func__, POLLPRI);
 		return POLLPRI;
 	}
 
-	dev_info(aov_dev->dev, "%s: poll start-: 0", __func__);
+	dev_dbg(aov_dev->dev, "%s: poll start-: 0\n", __func__);
+
 	return 0;
 }
 
@@ -907,7 +954,7 @@ int aov_core_reset(struct mtk_aov *aov_dev)
 		struct slbc_data slb;
 #endif  // AOV_SLB_ALLOC_FREE
 
-		dev_info(aov_dev->dev, "%s: force aov deinit+", __func__);
+		dev_info(aov_dev->dev, "%s: force aov deinit+\n", __func__);
 		ret = aov_core_send_cmd(aov_dev,
 			AOV_SCP_CMD_DEINIT, NULL, 0, false);
 
@@ -922,7 +969,7 @@ int aov_core_reset(struct mtk_aov *aov_dev)
 			slb.type = TP_BUFFER;
 			ret = slbc_release(&slb);
 			if (ret < 0)
-				pr_info("failed to release slb buffer");
+				pr_info("%s: failed to release slb buffer\n", __func__);
 		}
 #endif  // AOV_SLB_ALLOC_FREE
 

@@ -35,8 +35,9 @@
 #define AOV_SCP_CMD_PWR_ON        (2)
 #define AOV_SCP_CMD_PWR_OFF       (3)
 #define AOV_SCP_CMD_FRAME         (4)
-#define AOV_SCP_CMD_DEINIT        (5)
-#define AOV_SCP_CMD_MAX           (6)
+#define AOV_SCP_CMD_NOTIFY        (5)
+#define AOV_SCP_CMD_DEINIT        (6)
+#define AOV_SCP_CMD_MAX           (7)
 #define AOV_SCP_CMD_ACK           (0x80000000)
 
 #define AOV_DEBUG_MODE_DUMP       (1)  // General debug
@@ -56,7 +57,7 @@
 #define AOV_MAX_YUVO1_OUTPUT      (640 * 480 + 640 * 240 + 32)  // 640 x 480
 #define AOV_MAX_YUVO2_OUTPUT      (320 * 240 + 320 * 120 + 32)  // 320 x 240
 #define AOV_MAX_AIE_OUTPUT        (32 * 1024)
-#define AOV_MAX_APU_OUTPUT        (200 * 1024)
+#define AOV_MAX_APU_OUTPUT        (256 * 1024)
 #define AOV_MAX_IMGO_OUTPUT       (921600 + 32)  // 640 x 480, bayer12
 #define AOV_MAX_AAO_OUTPUT        (158 * 1024)
 #define AOV_MAX_AAHO_OUTPUT       (1 * 1024)
@@ -166,6 +167,7 @@ enum aov_log_id {
 struct aov_user {
 	uint32_t session;
 	uint32_t sensor_id;
+	uint32_t sensor_scene;
 	int32_t  sensor_orient;
 	uint32_t sensor_face;
 	uint32_t sensor_type;
@@ -178,6 +180,7 @@ struct aov_user {
 	uint32_t frame_mode;
 	uint32_t debug_mode;
 	uint32_t debug_level[AOV_LOG_ID_MAX];
+	uint32_t reserved[5];
 
 	uint32_t aaa_size;
 	void *aaa_info;
@@ -205,7 +208,8 @@ struct aie_init {
 struct aov_init {
 	// user parameter
 	uint32_t session;
-	int32_t sensor_id;
+	uint32_t sensor_id;
+	uint32_t sensor_scene;
 	int32_t  sensor_orient;
 	uint32_t sensor_face;
 	uint32_t sensor_type;
@@ -218,9 +222,13 @@ struct aov_init {
 	uint32_t frame_mode;
 	uint32_t debug_mode;
 	uint32_t debug_level[AOV_LOG_ID_MAX];
+	uint32_t reserved[5];
 
 	// display on/off
 	uint32_t disp_mode;
+
+	// aie available
+	uint32_t aie_avail;
 
 	// seninf/sensor
 	struct senif_init senif_info;
@@ -236,6 +244,13 @@ struct aov_init {
 
 	// aov event
 	struct aov_event aov_event[AOV_MAX_EVENT_COUNT];
+};
+
+#define AOV_NOTIFY_AIE_AVAIL  (1)
+
+struct aov_notify {
+	uint32_t notify;
+	uint32_t status;
 };
 
 struct packet {

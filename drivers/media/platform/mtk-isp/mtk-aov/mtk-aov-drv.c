@@ -13,6 +13,58 @@
 #include "mtk-aov-aee.h"
 #include "mtk-aov-data.h"
 
+static struct mtk_aov *query_aov_dev(struct platform_device *pdev)
+{
+	struct device *dev = &pdev->dev;
+	struct device_node *aov_node;
+	struct platform_device *aov_pdev;
+	struct mtk_aov *aov_dev;
+
+	dev_dbg(&pdev->dev, "%s+\n", __func__);
+
+	aov_node = of_parse_phandle(dev->of_node, "mediatek,aov", 0);
+	if (aov_node == NULL) {
+		dev_info(&pdev->dev, "%s: failed to get aov node.\n", __func__);
+		return NULL;
+	}
+
+	aov_pdev = of_find_device_by_node(aov_node);
+	if (WARN_ON(aov_pdev == NULL) == true) {
+		dev_info(&pdev->dev, "%s: failed to get aov pdev\n", __func__);
+		of_node_put(aov_node);
+		return NULL;
+	}
+
+	aov_dev = platform_get_drvdata(aov_pdev);
+	if (aov_dev == NULL)
+		dev_info(&pdev->dev, "%s aov dev is null\n", __func__);
+
+	dev_dbg(&pdev->dev, "%s-\n", __func__);
+
+	return aov_dev;
+}
+
+int mtk_aov_notify(struct platform_device *pdev, uint32_t notify, uint32_t status)
+{
+	struct mtk_aov *aov_dev;
+	struct aov_notify info;
+	int ret;
+
+	aov_dev = query_aov_dev(pdev);
+	if (aov_dev == NULL) {
+		dev_info(&pdev->dev, "%s: invalid aov device\n", __func__);
+		return -EIO;
+	}
+
+	info.notify = notify;
+	info.status = status;
+	ret = aov_core_send_cmd(aov_dev, AOV_SCP_CMD_NOTIFY,
+		(void *)&info, sizeof(struct aov_notify), true);
+
+	return 0;
+}
+EXPORT_SYMBOL(mtk_aov_notify);
+
 static inline bool mtk_aov_is_open(struct mtk_aov *aov_dev)
 {
 	return aov_dev->is_open;
@@ -248,7 +300,6 @@ static int mtk_aov_remove(struct platform_device *pdev)
 
 	return 0;
 }
-
 
 static int aov_runtime_suspend(struct device *dev)
 {
