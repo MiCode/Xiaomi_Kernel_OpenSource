@@ -550,6 +550,7 @@
 		wfd-page-based-size = <0 0x4000000>;
 		prot-region-based-size = <0 0x8000000>;
 		prot-page-based-size = <0 0>;
+		sapu-data-shm-size = <0 0x400000>;
 	};
 
 	ssmr {
@@ -14238,3 +14239,11 @@ l3_hit,l3_mis,pmu_cyc_cnt";
 #include "mediatek/mt6985-clkitg.dtsi"
 #include "mediatek/mt6985-disable-unused.dtsi"
 #include "mediatek/trusty.dtsi"
+
+&trusty {
+	trusty-sapu {
+		compatible = "android,trusty-sapu";
+		iommus = <&apu_iommu0 M4U_PORT_L40_APU_CODE>;
+		status = "okay";
+	};
+};

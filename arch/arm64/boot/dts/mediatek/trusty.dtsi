@@ -4,7 +4,7 @@
  */
 
 / {
-	trusty {
+	trusty:trusty {
 		compatible = "android,trusty-smc-v1";
 		ranges;
 		#address-cells = <2>;
