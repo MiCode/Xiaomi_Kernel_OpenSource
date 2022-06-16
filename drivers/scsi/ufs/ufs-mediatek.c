@@ -934,6 +934,11 @@ static void ufs_mtk_trace_vh_compl_command(void *data, struct ufs_hba *hba, stru
 #endif
 }
 
+static void ufs_mtk_trace_vh_update_sdev(void *data, struct scsi_device *sdev)
+{
+	sdev->broken_fua = 1;
+}
+
 static struct tracepoints_table interests[] = {
 	{
 		.name = "android_vh_ufs_send_command",
@@ -942,6 +947,10 @@ static struct tracepoints_table interests[] = {
 	{
 		.name = "android_vh_ufs_compl_command",
 		.func = ufs_mtk_trace_vh_compl_command
+	},
+	{
+		.name = "android_vh_ufs_update_sdev",
+		.func = ufs_mtk_trace_vh_update_sdev,
 	},
 #if defined(CONFIG_UFSFEATURE)
 	{
