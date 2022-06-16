@@ -1002,7 +1002,7 @@ static int drv3_setting_hw_reset_func(void)
 		}
 	}
 
-	if (hw_reset_ver == 1 || g_plat_inf == 6985)  // for mt6855&mt6985
+	if (hw_reset_ver == 1)  // for mt6855&mt6985
 		ops.drv_hw_reset = &drv3_hw_reset_v1;
 	else  // for other 98 dpmaif chip
 		ops.drv_hw_reset = &drv3_hw_reset;
