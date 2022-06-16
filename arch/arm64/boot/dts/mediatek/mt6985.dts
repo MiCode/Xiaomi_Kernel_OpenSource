@@ -838,6 +838,11 @@
 		nvmem-cell-names = "lkginfo";
 	};
 
+	hwv: syscon@10320000 {
+		compatible = "mediatek,mt6985-hwv", "syscon";
+		reg = <0 0x10320000 0 0x2000>;
+	};
+
 	topckgen_clk: syscon@10000000 {
 		compatible = "mediatek,mt6985-topckgen", "syscon";
 		reg = <0 0x10000000 0 0x1000>;
@@ -853,6 +858,7 @@
 	apmixedsys_clk: syscon@1000c000 {
 		compatible = "mediatek,mt6985-apmixedsys", "syscon";
 		reg = <0 0x1000c000 0 0x1000>;
+		hw-voter-regmap = <&hwv>;
 		#clock-cells = <1>;
 	};
 
