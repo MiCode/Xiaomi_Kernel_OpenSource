@@ -21,6 +21,10 @@
 #include "apu_ipi.h"
 #include "mdw_rv_msg.h"
 
+#include "aov_recovery.h"
+
+#define MDW_TIMEOUT_MS (100)
+
 struct aov_rpmsg_ctx {
 	struct rpmsg_endpoint *ept;
 	struct rpmsg_device *rpdev;
@@ -91,6 +95,24 @@ static int apu_tx_thread(void *data)
 
 		wait_for_completion_interruptible_timeout(&ctx->notify_tx_apu, timeout);
 
+		/* If apu is recovering, skip sending to apu */
+		if (get_aov_recovery_state() == AOV_APU_RECOVERING) {
+			retry_cnt = 10;
+
+			do {
+				send_msg.cmd = NPU_SCP_NP_MDW;
+				send_msg.act = NPU_SCP_NP_MDW_ACK;
+				send_msg.arg = MDW_SCP_IPI_BUSY;
+
+				ret = npu_scp_ipi_send(&send_msg, NULL, MDW_TIMEOUT_MS);
+				if (ret)
+					pr_info("%s Failed to send to scp, ret %d, retry_cnt %d\n",
+						__func__, ret, retry_cnt);
+			} while (ret != 0 && retry_cnt-- > 0);
+
+			continue;
+		}
+
 		param = atomic_read(&ctx->param);
 
 		do {
@@ -111,9 +133,9 @@ static int apu_tx_thread(void *data)
 		do {
 			send_msg.cmd = NPU_SCP_NP_MDW;
 			send_msg.act = NPU_SCP_NP_MDW_ACK;
-			send_msg.arg = ret;
+			send_msg.arg = 0;
 
-			ret = npu_scp_ipi_send(&send_msg, NULL, SCP_IPI_TIMEOUT_MS);
+			ret = npu_scp_ipi_send(&send_msg, NULL, MDW_TIMEOUT_MS);
 			if (ret)
 				pr_info("%s Failed to send ack to scp, ret %d, retry_cnt %d\n",
 					__func__, ret, retry_cnt);
@@ -142,7 +164,7 @@ static int scp_tx_thread(void *data)
 			send_msg.cmd = NPU_SCP_NP_MDW;
 			send_msg.act = NPU_SCP_NP_MDW_TO_SCP;
 
-			ret = npu_scp_ipi_send(&send_msg, NULL, SCP_IPI_TIMEOUT_MS);
+			ret = npu_scp_ipi_send(&send_msg, NULL, MDW_TIMEOUT_MS);
 			if (ret)
 				pr_info("%s Failed to send to scp, ret %d, retry_cnt %d\n",
 					__func__, ret, retry_cnt);

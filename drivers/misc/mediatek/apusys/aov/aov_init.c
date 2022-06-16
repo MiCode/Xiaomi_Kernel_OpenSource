@@ -22,7 +22,9 @@
 
 #define MAX_DEBUG_CMD_SIZE (1024)
 
-#define APUSYS_AOV_KVERSION "v1.0.0.0-ko"
+#define APUSYS_AOV_KVERSION "v1.1.0.0-ko"
+
+#define STATE_TIMEOUT_MS (20)
 
 struct apusys_aov_ctx {
 	atomic_t aov_enabled;
@@ -431,20 +433,20 @@ static int apusys_aov_suspend(struct platform_device *pdev, pm_message_t state)
 {
 	struct apusys_aov_ctx *ctx = platform_get_drvdata(pdev);
 	struct npu_scp_ipi_param send_msg = { 0, 0, 0, 0 };
-	int ret;
+	int ret, retry_cnt = 10;
 
 	if (!atomic_read(&ctx->aov_enabled)) {
 		dev_dbg(ctx->dev, "%s aov is disabled\n", __func__);
 		return 0;
 	}
 
-	send_msg.cmd = NPU_SCP_STATE_CHANGE;
-	send_msg.act = NPU_SCP_STATE_CHANGE_TO_SUSPEND;
-	ret = npu_scp_ipi_send(&send_msg, NULL, SCP_IPI_TIMEOUT_MS);
-	if (ret) {
-		dev_info(ctx->dev, "%s failed to send scp ipi, ret %d\n", __func__, ret);
-		return 0;
-	}
+	do {
+		send_msg.cmd = NPU_SCP_STATE_CHANGE;
+		send_msg.act = NPU_SCP_STATE_CHANGE_TO_SUSPEND;
+		ret = npu_scp_ipi_send(&send_msg, NULL, STATE_TIMEOUT_MS);
+		if (ret)
+			dev_info(ctx->dev, "%s failed to send scp ipi, ret %d\n", __func__, ret);
+	} while (ret != 0 && retry_cnt-- > 0);
 
 	dev_info(ctx->dev, "%s send suspend done\n", __func__);
 
@@ -455,19 +457,24 @@ static int apusys_aov_resume(struct platform_device *pdev)
 {
 	struct apusys_aov_ctx *ctx = platform_get_drvdata(pdev);
 	struct npu_scp_ipi_param send_msg = { 0, 0, 0, 0 };
-	int ret;
+	int ret, retry_cnt = 10;
 
 	if (!atomic_read(&ctx->aov_enabled)) {
 		dev_dbg(ctx->dev, "%s aov is disabled\n", __func__);
 		return 0;
 	}
 
-	send_msg.cmd = NPU_SCP_STATE_CHANGE;
-	send_msg.act = NPU_SCP_STATE_CHANGE_TO_RESUME;
-	ret = npu_scp_ipi_send(&send_msg, NULL, SCP_IPI_TIMEOUT_MS);
+	do {
+		send_msg.cmd = NPU_SCP_STATE_CHANGE;
+		send_msg.act = NPU_SCP_STATE_CHANGE_TO_RESUME;
+		ret = npu_scp_ipi_send(&send_msg, NULL, STATE_TIMEOUT_MS);
+		if (ret)
+			dev_info(ctx->dev, "%s failed to send scp ipi, ret %d\n", __func__, ret);
+	} while (ret != 0 && retry_cnt-- > 0);
+
 	if (ret) {
-		dev_info(ctx->dev, "%s failed to send scp ipi, ret %d\n", __func__, ret);
-		return 0;
+		// TODO: SCP may not be alive, release SLB
+		dev_info(ctx->dev, "%s forcibly release slb\n", __func__);
 	}
 
 	dev_info(ctx->dev, "%s send resume done\n", __func__);

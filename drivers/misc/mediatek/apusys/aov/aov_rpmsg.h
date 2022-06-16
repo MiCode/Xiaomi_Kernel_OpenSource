@@ -10,6 +10,8 @@
 #include "apusys_core.h"
 #include "npu_scp_ipi.h"
 
+#define MDW_SCP_IPI_BUSY (16)
+
 int scp_mdw_handler(struct npu_scp_ipi_param *recv_msg);
 
 int aov_rpmsg_init(struct apusys_core_info *info);

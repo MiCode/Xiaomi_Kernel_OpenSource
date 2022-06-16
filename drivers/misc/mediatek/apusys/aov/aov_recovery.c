@@ -20,7 +20,9 @@
 #include "apusys_core.h"
 #include "aov_recovery.h"
 #include "apu_ipi.h"
-//#include "apu_hw_sema.h"
+#include "apu_hw_sema.h"
+
+#define RECOVERY_TIMEOUT_MS (100)
 
 struct aov_recovery_ctx {
 	struct rpmsg_endpoint *ept;
@@ -38,6 +40,16 @@ struct aov_recovery_ctx {
 };
 
 static struct aov_recovery_ctx *recovery_ctx;
+
+enum aov_apu_recovery_status get_aov_recovery_state(void)
+{
+	if (recovery_ctx)
+		return (enum aov_apu_recovery_status)atomic_read(&recovery_ctx->apu_status);
+
+	pr_info("%s recovery context is not initialized\n", __func__);
+
+	return AOV_APU_INIT;
+}
 
 int aov_recovery_handler(struct npu_scp_ipi_param *recv_msg)
 {
@@ -76,7 +88,6 @@ static int apu_tx_thread(void *data)
 
 		wait_for_completion_interruptible_timeout(&ctx->notify_tx_apu, timeout);
 
-
 		do {
 			uint32_t param = APU_IPI_SCP_NP_RECOVER;
 
@@ -113,7 +124,6 @@ static int scp_tx_thread(void *data)
 		wait_for_completion_interruptible_timeout(&ctx->notify_tx_scp, timeout);
 
 		status = atomic_read(&recovery_ctx->apu_status);
-
 		if (status == AOV_APU_RECOVER_DONE) {
 			send_msg.cmd = NPU_SCP_RECOVERY;
 			send_msg.act = NPU_SCP_RECOVERY_TO_SCP;
@@ -121,7 +131,7 @@ static int scp_tx_thread(void *data)
 
 			pr_info("%s send NPU_SCP_RECOVERY_TO_SCP\n", __func__); //debug
 
-			ret = npu_scp_ipi_send(&send_msg, NULL, SCP_IPI_TIMEOUT_MS);
+			ret = npu_scp_ipi_send(&send_msg, NULL, RECOVERY_TIMEOUT_MS);
 			if (ret)
 				pr_info("%s Failed to send to scp, ret %d, retry_cnt %d\n",
 					__func__, ret, retry_cnt);
@@ -139,7 +149,7 @@ static int scp_tx_thread(void *data)
 
 			do {
 
-				ret = npu_scp_ipi_send(&send_msg, NULL, SCP_IPI_TIMEOUT_MS);
+				ret = npu_scp_ipi_send(&send_msg, NULL, RECOVERY_TIMEOUT_MS);
 				if (ret)
 					pr_info("%s Failed to send to scp, ret %d, retry_cnt %d\n",
 						__func__, ret, retry_cnt);
@@ -165,11 +175,11 @@ static int aov_recovery_scp_notifier_call(struct notifier_block *this,
 	if (event == SCP_EVENT_STOP) {
 		pr_info("%s receive scp stop event\n", __func__); //debug
 
-		// if ( apu_boot_host() != SYS_SCP_LP) {
-		//	pr_info("%s SCP stop when APU is not LP mode\n", __func__);
-		//	atomic_set(&recovery_ctx->apu_status, AOV_APU_RECOVERING);
-		//	complete(&recovery_ctx->notify_tx_apu);
-		// }
+		if (apu_boot_host() != SYS_SCP_LP) {
+			pr_info("%s SCP stop when APU is not LP mode\n", __func__);
+			atomic_set(&recovery_ctx->apu_status, AOV_APU_RECOVERING);
+			complete(&recovery_ctx->notify_tx_apu);
+		}
 	} else if (event == SCP_EVENT_READY)
 		pr_info("%s receive scp ready event\n", __func__); //debug
 

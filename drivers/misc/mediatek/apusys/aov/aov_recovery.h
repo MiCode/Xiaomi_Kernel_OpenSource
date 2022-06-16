@@ -20,6 +20,8 @@ int aov_recovery_handler(struct npu_scp_ipi_param *recv_msg);
 
 int aov_recovery_init(struct apusys_core_info *info);
 
+enum aov_apu_recovery_status get_aov_recovery_state(void);
+
 void aov_recovery_exit(void);
 
 #endif // __AOV_RECOVERY_H__
