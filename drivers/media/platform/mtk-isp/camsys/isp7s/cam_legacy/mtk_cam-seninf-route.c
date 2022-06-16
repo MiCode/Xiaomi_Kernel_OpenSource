@@ -967,6 +967,14 @@ int mtk_cam_seninf_set_camtg_camsv(struct v4l2_subdev *sd, int pad_id, int camtg
 	return 0;
 }
 
+int mtk_cam_seninf_get_tag_order(struct v4l2_subdev *sd, int pad_id)
+{
+	/* seninf todo: tag order */
+	/* 0: first exposure 1: second exposure 2: last exposure */
+
+	return 0;
+}
+
 int mtk_cam_seninf_set_camtg(struct v4l2_subdev *sd, int pad_id, int camtg)
 {
 	//return _mtk_cam_seninf_set_camtg(sd, pad_id, camtg, true);

@@ -215,8 +215,10 @@ struct mtk_camsv_device {
 	unsigned int enabled_tags;
 	unsigned int ctx_stream_id;
 	struct mtk_camsv_tag_info tag_info[MAX_SV_HW_TAGS];
-
-	unsigned int group_info[MAX_SV_HW_GROUPS];
+	unsigned int cfg_group_info[MAX_SV_HW_GROUPS];
+	unsigned int active_group_info[MAX_SV_HW_GROUPS];
+	unsigned int first_tag;
+	unsigned int last_tag;
 
 	int fifo_size;
 	void *msg_buffer;
@@ -327,17 +329,18 @@ int mtk_cam_sv_enquehwbuf(struct mtk_camsv_device *dev,
 int mtk_cam_sv_apply_all_buffers(struct mtk_cam_ctx *ctx);
 unsigned int mtk_cam_get_sv_tag_index(struct mtk_cam_ctx *ctx,
 		unsigned int pipe_id);
-int mtk_cam_sv_write_rcnt(
+int mtk_cam_sv_dev_pertag_write_rcnt(
 	struct mtk_camsv_device *camsv_dev,
-	unsigned int tag);
+	unsigned int tag_idx);
 bool mtk_cam_sv_is_zero_fbc_cnt(struct mtk_cam_ctx *ctx, unsigned int pipe_id);
+void mtk_cam_sv_check_fbc_cnt(struct mtk_camsv_device *camsv_dev,
+	unsigned int tag_idx);
 int mtk_cam_sv_cal_cfg_info(struct mtk_cam_ctx *ctx,
 	const struct v4l2_format *img_fmt, struct mtk_camsv_frame_params *params);
 int mtk_cam_sv_setup_cfg_info(struct mtk_camsv_device *dev,
 	struct mtk_cam_request_stream_data *s_data, unsigned int tag);
 int mtk_cam_sv_frame_no_inner(struct mtk_camsv_device *dev);
 int mtk_cam_sv_set_group_info(struct mtk_camsv_device *camsv_dev);
-bool mtk_cam_sv_is_multiple_groups(struct mtk_camsv_device *camsv_dev);
 void apply_camsv_cq(struct mtk_camsv_device *dev,
 	      dma_addr_t cq_addr, unsigned int cq_size, unsigned int cq_offset,
 	      int initial);

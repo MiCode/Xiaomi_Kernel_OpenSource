@@ -945,9 +945,9 @@ struct mtk_raw_pipeline *mtk_cam_dev_get_raw_pipeline(struct mtk_cam_device *cam
 						      unsigned int id);
 bool finish_img_buf(struct mtk_cam_request_stream_data *req_stream_data);
 
-int get_main_sv_tag_id(struct mtk_cam_ctx *ctx, int used_tags);
-int get_sub_sv_tag_id(struct mtk_cam_ctx *ctx, int used_tags);
-int get_last_sv_tag_id(struct mtk_cam_ctx *ctx, int used_tags);
+int get_first_sv_tag_idx(struct mtk_cam_ctx *ctx, unsigned int exp_no);
+int get_second_sv_tag_idx(struct mtk_cam_ctx *ctx, unsigned int exp_no);
+int get_last_sv_tag_idx(struct mtk_cam_ctx *ctx, unsigned int exp_no);
 
 unsigned int mtk_cam_get_sv_mapped_tag_order(
 	int hw_scen, int exp_no, int tag);
