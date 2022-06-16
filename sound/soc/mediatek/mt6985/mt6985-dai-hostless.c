@@ -159,6 +159,9 @@ static const struct snd_soc_dapm_route mtk_dai_hostless_routes[] = {
 	{"I2S3", NULL, "Hostless_ADDA_DL_I2S_OUT DL"},
 	{"I2S5", NULL, "Hostless_ADDA_DL_I2S_OUT DL"},
 
+	/* Hostless BT DL */
+	{"I2S9", NULL, "Hostless BT DL"},
+
 	/* Hostless SRC 1 */
 	{"ADDA_DL_CH1", "SRC_1_OUT_CH1", "Hostless_SRC_1_DL"},
 	{"ADDA_DL_CH2", "SRC_1_OUT_CH2", "Hostless_SRC_1_DL"},
@@ -288,6 +291,25 @@ static struct snd_soc_dai_driver mtk_dai_hostless_driver[] = {
 		},
 		.capture = {
 			.stream_name = "Hostless Speech UL",
+			.channels_min = 1,
+			.channels_max = 2,
+			.rates = MTK_HOSTLESS_RATES,
+			.formats = MTK_HOSTLESS_FORMATS,
+		},
+		.ops = &mtk_dai_hostless_ops,
+	},
+	{
+		.name = "Hostless BT DAI",
+		.id = MT6985_DAI_HOSTLESS_BT,
+		.playback = {
+			.stream_name = "Hostless BT DL",
+			.channels_min = 1,
+			.channels_max = 2,
+			.rates = MTK_HOSTLESS_RATES,
+			.formats = MTK_HOSTLESS_FORMATS,
+		},
+		.capture = {
+			.stream_name = "Hostless BT UL",
 			.channels_min = 1,
 			.channels_max = 2,
 			.rates = MTK_HOSTLESS_RATES,

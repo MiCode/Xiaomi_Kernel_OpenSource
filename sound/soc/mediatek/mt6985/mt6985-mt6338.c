@@ -609,6 +609,10 @@ SND_SOC_DAILINK_DEFS(hostless_speech,
 	DAILINK_COMP_ARRAY(COMP_CPU("Hostless Speech DAI")),
 	DAILINK_COMP_ARRAY(COMP_DUMMY()),
 	DAILINK_COMP_ARRAY(COMP_EMPTY()));
+SND_SOC_DAILINK_DEFS(hostless_bt,
+	DAILINK_COMP_ARRAY(COMP_CPU("Hostless BT DAI")),
+	DAILINK_COMP_ARRAY(COMP_DUMMY()),
+	DAILINK_COMP_ARRAY(COMP_EMPTY()));
 SND_SOC_DAILINK_DEFS(hostless_sph_echo_ref,
 	DAILINK_COMP_ARRAY(COMP_CPU("Hostless_Sph_Echo_Ref_DAI")),
 	DAILINK_COMP_ARRAY(COMP_DUMMY()),
@@ -1109,6 +1113,17 @@ static struct snd_soc_dai_link mt6985_mt6338_dai_links[] = {
 		.dpcm_capture = 1,
 		.ignore_suspend = 1,
 		SND_SOC_DAILINK_REG(hostless_speech),
+	},
+	{
+		.name = "Hostless_BT",
+		.stream_name = "Hostless_BT",
+		.trigger = {SND_SOC_DPCM_TRIGGER_PRE,
+			    SND_SOC_DPCM_TRIGGER_PRE},
+		.dynamic = 1,
+		.dpcm_playback = 1,
+		.dpcm_capture = 1,
+		.ignore_suspend = 1,
+		SND_SOC_DAILINK_REG(hostless_bt),
 	},
 	{
 		.name = "Hostless_Sph_Echo_Ref",
