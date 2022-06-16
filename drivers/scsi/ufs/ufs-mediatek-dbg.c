@@ -907,8 +907,7 @@ static ssize_t ufs_mtk_clkscale_downdifferential_store(struct device *dev,
 		return -EINVAL;
 
 	mutex_lock(&hba->devfreq->lock);
-	if (value < 0 || value > 100 ||
-	    value > hba->vps->ondemand_data.upthreshold) {
+	if (value > 100 || value > hba->vps->ondemand_data.upthreshold) {
 		err = -EINVAL;
 		goto out;
 	}
@@ -938,8 +937,7 @@ static ssize_t ufs_mtk_clkscale_upthreshold_store(struct device *dev,
 		return -EINVAL;
 
 	mutex_lock(&hba->devfreq->lock);
-	if (value < 0 || value > 100 ||
-	    value < hba->vps->ondemand_data.downdifferential) {
+	if (value > 100 || value < hba->vps->ondemand_data.downdifferential) {
 		err = -EINVAL;
 		goto out;
 	}
