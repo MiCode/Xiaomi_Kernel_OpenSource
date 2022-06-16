@@ -6350,6 +6350,11 @@ static void mtk_dsi_vdo_timing_change(struct mtk_dsi *dsi,
 
 	DDPINFO("%s+\n", __func__);
 
+	if (!dsi) {
+		DDPINFO("%s:%d, dis is NULL", __func__, __LINE__);
+		return;
+	}
+
 	if (dsi->ext && dsi->ext->funcs &&
 		dsi->ext->funcs->ext_param_set)
 		dsi->ext->funcs->ext_param_set(dsi->panel, &dsi->conn,

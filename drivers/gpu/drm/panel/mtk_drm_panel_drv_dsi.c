@@ -230,10 +230,8 @@ static int mtk_drm_panel_do_prepare(struct mtk_panel_context *ctx_dsi)
 
 	/*deallocate input data*/
 	mtk_lcm_destroy_input(input.data);
-	input.data = NULL;
 fail1:
 	mtk_lcm_destroy_input(input.condition);
-	input.condition = NULL;
 fail2:
 	mtk_lcm_destroy_input_packet(&input);
 	return ret;

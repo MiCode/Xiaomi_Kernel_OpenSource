@@ -1210,6 +1210,8 @@ static u32 *mtk_get_ovl_csc(enum mtk_ovl_colorspace in,
 {
 	static u32 *ovl_csc[OVL_CS_NUM][OVL_CS_NUM];
 	static bool inited;
+	int ovl_in = (in < OVL_CS_NUM) ? in : 0;
+	int ovl_out = (out < OVL_CS_NUM) ? out : 0;
 
 	if (inited)
 		goto done;
@@ -1220,7 +1222,7 @@ static u32 *mtk_get_ovl_csc(enum mtk_ovl_colorspace in,
 	inited = true;
 
 done:
-	return ovl_csc[in][out];
+	return ovl_csc[ovl_in][ovl_out];
 }
 
 static int mtk_ovl_do_csc(unsigned int idx, enum mtk_drm_dataspace plane_ds,
