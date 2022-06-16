@@ -192,10 +192,8 @@ static int fpsgo_com_refetch_buffer(struct render_info *f_render, int pid,
 
 	f_render->buffer_id = buffer_id;
 	f_render->queue_SF = queue_SF;
-	if (f_render->frame_type != BY_PASS_TYPE &&
-		(!f_render->pLoading || !f_render->p_blc)) {
+	if (!f_render->pLoading || !f_render->p_blc)
 		fpsgo_base2fbt_node_init(f_render);
-	}
 
 	FPSGO_COM_TRACE("%s: refetch %d: %llu, %llu, %d\n", __func__,
 				pid, identifier, buffer_id, queue_SF);
