@@ -25,6 +25,7 @@
 #include "adsp_excep.h"
 #include "adsp_logger.h"
 
+#define ADSP_MAGIC_PATTERN      (0xAD5BAD5B)
 #define ADSP_MISC_BUF_SIZE      0x10000 //64KB
 #define ADSP_TEST_EE_PATTERN    "Assert-Test"
 
@@ -62,37 +63,63 @@ static inline u32 copy_from_adsp_shared_memory(void *buf, u32 offset,
 	return copy_from_buffer(buf, -1, mem_addr, mem_size, offset, size);
 }
 
-#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
-static inline u32 dump_adsp_shared_memory(void *buf, size_t size, int id)
+static u32 write_mem_header(void *buf, size_t size, const char *mem_name, u32 mem_size)
 {
+	struct adsp_mem_header hd = {0};
+
+	if (!buf || size < sizeof(hd) || !mem_name || !mem_size)
+		return 0;
+
+	hd.magic = ADSP_MAGIC_PATTERN;
+	hd.size = mem_size;
+	strncpy(hd.name, mem_name, sizeof(hd.name));
+	memcpy(buf, &hd, sizeof(hd));
+
+	return sizeof(hd);
+}
+
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
+static inline u32 dump_adsp_shared_memory(void *buf, size_t size, int id, const char *mem_name)
+{
+	u32 n = 0;
 	void *mem_addr = adsp_get_reserve_mem_virt(id);
 	size_t mem_size = adsp_get_reserve_mem_size(id);
 
-	if (!mem_addr)
+	if (!mem_addr || !mem_size || !mem_name)
 		return 0;
 
-	return copy_from_buffer(buf, size, mem_addr, mem_size, 0, -1);
+	n += write_mem_header(buf + n, size - n, mem_name, mem_size);
+	n += copy_from_buffer(buf + n, size - n, mem_addr, mem_size, 0, -1);
+
+	return n;
 }
 
-static u32 dump_adsp_internal_mem(struct adsp_priv *pdata,
-				  void *buf, size_t size)
+static u32 dump_adsp_internal_memory(void *buf, size_t size, struct adsp_priv *pdata)
 {
 	u32 n = 0;
 
 	adsp_enable_clock();
 	adsp_latch_dump_region(true);
 
-	n += copy_from_buffer(buf + n, size - n,
-				adspsys->cfg, adspsys->cfg_size, 0, -1);
-	n += copy_from_buffer(buf + n, size - n,
-				adspsys->cfg2, adspsys->cfg2_size, 0, -1);
-	n += copy_from_buffer(buf + n, size - n,
-				pdata->itcm, pdata->itcm_size, 0, -1);
-	n += copy_from_buffer(buf + n, size - n,
-				pdata->dtcm, pdata->dtcm_size, 0, -1);
+	n += write_mem_header(buf + n, size - n, "cfg", adspsys->cfg_size);
+	n += copy_from_buffer(buf + n, size - n, adspsys->cfg, adspsys->cfg_size, 0, -1);
+
+	n += write_mem_header(buf + n, size - n, "cfg2", adspsys->cfg2_size);
+	n += copy_from_buffer(buf + n, size - n, adspsys->cfg2, adspsys->cfg2_size, 0, -1);
+
+	n += write_mem_header(buf + n, size - n, "itcm", pdata->itcm_size);
+	n += copy_from_buffer(buf + n, size - n, pdata->itcm, pdata->itcm_size, 0, -1);
+
+	n += write_mem_header(buf + n, size - n, "dtcm", pdata->dtcm_size);
+	n += copy_from_buffer(buf + n, size - n, pdata->dtcm, pdata->dtcm_size, 0, -1);
 
 	adsp_latch_dump_region(false);
 	adsp_disable_clock();
+
+	/* sysram not rely on adsp clk */
+	n += write_mem_header(buf + n, size - n, "sysram", pdata->sysram_size);
+	n += copy_from_buffer(buf + n, size - n, pdata->sysram, pdata->sysram_size, 0, -1);
+
 	return n;
 }
 
@@ -118,7 +145,8 @@ static int dump_buffer(struct adsp_exception_control *ctrl, int coredump_id)
 			return -EBUSY;
 	}
 
-	total = adspsys->cfg_size
+	total = 8 * sizeof(struct adsp_mem_header)
+		+ adspsys->cfg_size
 		+ adspsys->cfg2_size
 		+ pdata->itcm_size
 		+ pdata->dtcm_size
@@ -131,12 +159,10 @@ static int dump_buffer(struct adsp_exception_control *ctrl, int coredump_id)
 	if (!buf)
 		return -ENOMEM;
 
-	n += dump_adsp_internal_mem(pdata, buf + n, total - n);
-	n += copy_from_buffer(buf + n, total - n,
-			pdata->sysram, pdata->sysram_size, 0, -1);
-	n += dump_adsp_shared_memory(buf + n, total - n, coredump_id);
-	n += dump_adsp_shared_memory(buf + n, total - n, ADSP_A_LOGGER_MEM_ID);
-	n += dump_adsp_shared_memory(buf + n, total - n, ADSP_B_LOGGER_MEM_ID);
+	n += dump_adsp_internal_memory(buf + n, total - n, pdata);
+	n += dump_adsp_shared_memory(buf + n, total - n, coredump_id, "coredump");
+	n += dump_adsp_shared_memory(buf + n, total - n, ADSP_A_LOGGER_MEM_ID, "log_a");
+	n += dump_adsp_shared_memory(buf + n, total - n, ADSP_B_LOGGER_MEM_ID, "log_b");
 
 	reinit_completion(&ctrl->done);
 	ctrl->buf_backup = buf;

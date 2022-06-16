@@ -50,6 +50,12 @@ struct adsp_exception_control {
 	unsigned int wdt_counter;
 };
 
+struct adsp_mem_header {
+	u32 magic;
+	u32 size;
+	u8 name[8];
+};
+
 void adsp_wdt_handler(int irq, void *data, int cid);
 bool adsp_aed_dispatch(enum adsp_excep_id type, void *data);
 int init_adsp_exception_control(struct device *dev,
