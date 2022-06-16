@@ -116,7 +116,8 @@ int connsys_scp_platform_data_init(unsigned int chip_info, phys_addr_t emi_phy_a
 	}
 #endif
 #if IS_ENABLED(CONFIG_MTK_COMBO_CHIP_CONSYS_6985)
-	if (chip_info == 0x6985) {
+	//if (chip_info == 0x6985) {
+	if (false) {
 		g_adp_shm_ptr = &g_adp_shm_mt6985;
 		g_adp_batching_ptr = &g_adp_batching_mt6985;
 		return 0;
