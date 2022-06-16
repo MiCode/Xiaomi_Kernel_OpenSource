@@ -493,7 +493,13 @@ static int mtk_gamma_sof_irq_trigger(void *data)
 	while (1) {
 		disp_gamma_wait_sof_irq();
 		atomic_set(&g_gamma_sof_irq_available, 0);
+
+		if (kthread_should_stop()) {
+			DDPPR_ERR("%s stopped\n", __func__);
+			break;
+		}
 	}
+	return 0;
 }
 
 static void mtk_gamma_start(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)

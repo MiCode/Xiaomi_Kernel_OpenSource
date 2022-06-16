@@ -2437,9 +2437,9 @@ static void mtk_aal_prepare(struct mtk_ddp_comp *comp)
 			atomic_read(&aal_data->is_clock_on),
 			atomic_read(&g_aal_data->is_clock_on));
 
-	if (g_aal_fo->mtk_dre30_support) {
-		if (aal_data->dre3_hw.clk)
-			clk_prepare(aal_data->dre3_hw.clk);
+	if (g_aal_fo->mtk_dre30_support && aal_data->dre3_hw.clk) {
+		if (clk_prepare(aal_data->dre3_hw.clk))
+			AALERR("%s clk prepare error\n", __func__);
 	}
 	if (!first_restore && !debug_skip_first_br)
 		return;
@@ -2727,7 +2727,13 @@ static int mtk_aal_sof_irq_trigger(void *data)
 	while (1) {
 		disp_aal_wait_sof_irq();
 		atomic_set(&g_aal_sof_irq_available, 0);
+
+		if (kthread_should_stop()) {
+			AALERR("%s stopped\n", __func__);
+			break;
+		}
 	}
+	return 0;
 }
 
 static irqreturn_t mtk_disp_aal_irq_handler(int irq, void *dev_id)

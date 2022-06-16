@@ -610,6 +610,7 @@ static int mtk_dither_user_cmd(struct mtk_ddp_comp *comp,
 			mtk_dither_set_param(comp_dither1, handle, relay, mode);
 		}
 	}
+	break;
 	case BYPASS_DITHER:
 	{
 		int *value = data;
