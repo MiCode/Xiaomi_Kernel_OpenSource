@@ -309,13 +309,6 @@
 #define CLK_APMIXED_IMGPLL				13
 #define CLK_APMIXED_NR_CLK				14
 
-/* SSR_TOP */
-#define CLK_SSR_TOP_RG_RW_SSR_RNG			0
-#define CLK_SSR_TOP_RQ_RW_SSR_DMA			1
-#define CLK_SSR_TOP_RQ_RW_SSR_KDF			2
-#define CLK_SSR_TOP_RQ_RW_SSR_PKA			3
-#define CLK_SSR_TOP_NR_CLK				4
-
 /* PERICFG_AO */
 #define CLK_PERAO_UART0					0
 #define CLK_PERAO_UART1					1
@@ -337,20 +330,19 @@
 #define CLK_PERAO_SPI5_B				17
 #define CLK_PERAO_SPI6_B				18
 #define CLK_PERAO_SPI7_B				19
-#define CLK_PERAO_I2C					20
-#define CLK_PERAO_DMA_B					21
-#define CLK_PERAO_SSUSB0_FRMCNT				22
-#define CLK_PERAO_SSUSB1_FRMCNT				23
-#define CLK_PERAO_MSDC1					24
-#define CLK_PERAO_MSDC1_F				25
-#define CLK_PERAO_MSDC1_H				26
-#define CLK_PERAO_MSDC2					27
-#define CLK_PERAO_MSDC2_F				28
-#define CLK_PERAO_MSDC2_H				29
-#define CLK_PERAO_AUDIO_SLV				30
-#define CLK_PERAO_AUDIO_MST				31
-#define CLK_PERAO_AUDIO_INTBUS				32
-#define CLK_PERAO_NR_CLK				33
+#define CLK_PERAO_DMA_B					20
+#define CLK_PERAO_SSUSB0_FRMCNT				21
+#define CLK_PERAO_SSUSB1_FRMCNT				22
+#define CLK_PERAO_MSDC1					23
+#define CLK_PERAO_MSDC1_F				24
+#define CLK_PERAO_MSDC1_H				25
+#define CLK_PERAO_MSDC2					26
+#define CLK_PERAO_MSDC2_F				27
+#define CLK_PERAO_MSDC2_H				28
+#define CLK_PERAO_AUDIO_SLV				29
+#define CLK_PERAO_AUDIO_MST				30
+#define CLK_PERAO_AUDIO_INTBUS				31
+#define CLK_PERAO_NR_CLK				32
 
 /* AFE */
 #define CLK_AFE_AUD_PAD_TOP_CLOCK_EN			0
