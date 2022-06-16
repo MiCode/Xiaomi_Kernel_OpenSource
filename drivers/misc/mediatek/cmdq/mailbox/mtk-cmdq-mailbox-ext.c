@@ -246,15 +246,28 @@ static struct cmdq *g_cmdq[2];
 
 void cmdq_dump_usage(void)
 {
-	s32 i;
+	s32 i, j, usage[CMDQ_THR_MAX_COUNT];
 
-	for (i = 0; i < 2; i++)
+	for (i = 0; i < 2; i++) {
 		cmdq_msg(
-			"%s: hwid:%d suspend:%d usage:%d mbox_usage:%d wake_lock:%d",
+			"%s: hwid:%hu suspend:%d usage:%d mbox_usage:%d wake_lock:%d",
 			__func__, g_cmdq[i]->hwid, g_cmdq[i]->suspended,
 			atomic_read(&g_cmdq[i]->usage),
 			atomic_read(&g_cmdq[i]->mbox_usage),
 			g_cmdq[i]->wake_locked);
+
+		for (j = 0; j < ARRAY_SIZE(g_cmdq[i]->thread); j++)
+			usage[j] = atomic_read(&g_cmdq[i]->thread[j].usage);
+
+		cmdq_msg(
+			"%s: thread usage:%d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d",
+			__func__,
+			usage[0], usage[1], usage[2], usage[3], usage[4],
+			usage[5], usage[6], usage[7], usage[8], usage[9],
+			usage[10], usage[11], usage[12], usage[13], usage[14],
+			usage[15], usage[16], usage[17], usage[18], usage[19],
+			usage[20], usage[21], usage[22], usage[23]);
+	}
 }
 EXPORT_SYMBOL(cmdq_dump_usage);
 
@@ -2465,6 +2478,7 @@ void cmdq_mbox_enable(void *chan)
 	struct cmdq *cmdq = container_of(((struct mbox_chan *)chan)->mbox,
 		typeof(*cmdq), mbox);
 	s32 mbox_usage;
+	s32 i;
 
 	WARN_ON(cmdq->suspended);
 	if (cmdq->suspended) {
@@ -2485,6 +2499,12 @@ void cmdq_mbox_enable(void *chan)
 	mutex_unlock(&cmdq->mbox_mutex);
 
 	cmdq_clk_enable(cmdq);
+
+	for (i = 0; i < ARRAY_SIZE(cmdq->thread); i++)
+		if (cmdq->thread[i].chan == chan)
+			break;
+
+	atomic_inc(&cmdq->thread[i].usage);
 }
 EXPORT_SYMBOL(cmdq_mbox_enable);
 
@@ -2493,6 +2513,7 @@ void cmdq_mbox_disable(void *chan)
 	struct cmdq *cmdq = container_of(((struct mbox_chan *)chan)->mbox,
 		typeof(*cmdq), mbox);
 	s32 mbox_usage;
+	s32 i;
 
 	WARN_ON(cmdq->suspended);
 	if (cmdq->suspended) {
@@ -2501,6 +2522,17 @@ void cmdq_mbox_disable(void *chan)
 			atomic_read(&cmdq->usage));
 		return;
 	}
+
+	for (i = 0; i < ARRAY_SIZE(cmdq->thread); i++)
+		if (cmdq->thread[i].chan == chan)
+			break;
+
+	mbox_usage = atomic_dec_return(&cmdq->thread[i].usage);
+	if (mbox_usage < 0)
+		// cmdq_util_thread_module_dispatch(cmdq->base_pa, i)
+		cmdq_util_aee("CMDQ", "hwid:%hu idx:%d usage:d",
+			cmdq->hwid, i, mbox_usage);
+
 	cmdq_clk_disable(cmdq);
 
 	mutex_lock(&cmdq->mbox_mutex);
