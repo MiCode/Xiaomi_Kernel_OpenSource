@@ -286,7 +286,7 @@ uint32_t hal_tui_deactivate(void)
 	 */
 
 #ifdef TUI_ENABLE_TOUCH
-	tpd_gt9895_enter_tui();
+	tpd_enter_tui();
 #endif
 #ifdef TUI_LOCK_I2C
 	i2c_tui_clock_enable(0);
@@ -331,7 +331,7 @@ uint32_t hal_tui_activate(void)
 	 */
 	/* Clear linux TUI flag */
 #ifdef TUI_ENABLE_TOUCH
-	tpd_gt9895_exit_tui();
+	tpd_exit_tui();
 #endif
 
 #ifdef TUI_LOCK_I2C
