@@ -221,7 +221,7 @@ uint32_t get_avail_session_id(void)
 	uint32_t cnt = 0;
 	uint32_t session_id = -1;
 
-	for (cnt = 0; cnt < MAX_SAVE_HASH; cnt++) {
+	for (cnt = 0; cnt < MAX_SAVE_SESSION; cnt++) {
 		if (saved_session[cnt] == NULL) {
 			pr_info("[MVPU][Sec] error: saved_session[%d] is NULL\n",
 						cnt);
@@ -501,7 +501,12 @@ int update_hash_pool(void *session, bool algo_in_img,
 				} else {
 					pr_info("[MVPU][Sec] buf[%d]: copy to pool\n",
 								cnt);
-					memcpy(cp_buff, buf_kva, buf_size);
+					if (buf_size < UINT_MAX) {
+						memcpy(cp_buff, buf_kva, buf_size);
+					} else {
+						pr_info("[MVPU][Sec] buf_size error\n");
+						return -1;
+					}
 				}
 			} else {
 				pr_info("[MVPU][Sec] buf[%d]: bypass cmd_buf\n",
@@ -535,11 +540,12 @@ int update_new_base_addr(bool algo_in_img, uint32_t session_id, uint32_t hash_id
 	int ret = 0;
 	uint32_t cnt = 0;
 	uint32_t ker_img_cnt = 0;
-	uint32_t *target_pool_addr;
+	uint32_t *target_pool_addr = NULL;
 	uint32_t target_pool_ofst = 0;
 
 	target_pool_addr =
-		kcalloc(hash_pool[session_id]->buf_num, sizeof(uint32_t), GFP_KERNEL);
+		kzalloc(hash_pool[session_id]->buf_num * sizeof(uint32_t), GFP_KERNEL);
+
 
 	if (!target_pool_addr)
 		return -ENOMEM;

@@ -67,7 +67,7 @@ static int apusys_mvpu_handler_lite(int type, void *hnd, struct apusys_device *d
 	uint32_t ker_bin_offset = 0;
 	//uint32_t ker_size = 0;
 	uint32_t ker_bin_num = 0;
-	uint32_t *ker_bin_each_iova;
+	uint32_t *ker_bin_each_iova = NULL;
 
 	uint32_t session_id = -1;
 	uint32_t hash_id = -1;
@@ -399,6 +399,11 @@ END:
 
 	if (target_buf_new_map != NULL)
 		kfree(target_buf_new_map);
+
+	if (ker_bin_each_iova != NULL) {
+		kfree(ker_bin_each_iova);
+		ker_bin_each_iova = NULL;
+	}
 
 	return ret;
 }
