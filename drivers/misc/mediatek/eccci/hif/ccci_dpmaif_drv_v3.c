@@ -476,6 +476,16 @@ static void drv3_unmask_dl_interrupt(void)
 	DPMA_WRITE_AO_UL(NRL2_DPMAIF_AO_UL_APDL_L2TIMCR0, DPMAIF_DL_INT_QDONE_MSK);
 }
 
+void drv3_unmask_dl_lro0_interrupt(void)
+{
+	DPMA_WRITE_AO_UL(NRL2_DPMAIF_AO_UL_APDL_L2TIMCR0, DPMAIF_DL_INT_LRO0_QDONE_MSK);
+}
+
+void drv3_unmask_dl_lro1_interrupt(void)
+{
+	DPMA_WRITE_AO_UL(NRL2_DPMAIF_AO_UL_APDL_L2TIMCR0, DPMAIF_DL_INT_LRO1_QDONE_MSK);
+}
+
 static void drv3_unmask_ul_interrupt(unsigned char q_num)
 {
 	DPMA_WRITE_AO_UL(NRL2_DPMAIF_AO_UL_AP_L2TIMCR0,
@@ -487,9 +497,37 @@ static void drv3_unmask_ul_interrupt(unsigned char q_num)
 	 */
 }
 
-static unsigned int drv3_dl_get_wridx(void)
+static unsigned int drv3_dl_get_wridx(unsigned char q_num)
 {
 	return (DPMA_READ_AO_DL_SRAM(DPMAIF_AO_DL_PIT_STA3) & DPMAIF_DL_PIT_WRIDX_MSK);
+}
+
+static inline unsigned int drv3_dl_get_lro0_wridx(void)
+{
+	unsigned int widx;
+
+	widx = DPMA_READ_AO_DL_SRAM(NRL2_DPMAIF_AO_DL_LRO_STA5);
+	widx &= DPMAIF_DL_PIT_WRIDX_MSK;
+
+	return widx;
+}
+
+static inline drv3_dl_get_lro1_wridx(void)
+{
+	unsigned int widx;
+
+	widx = DPMA_READ_AO_DL_SRAM(NRL2_DPMAIF_AO_DL_LRO_STA13);
+	widx &= DPMAIF_DL_PIT_WRIDX_MSK;
+
+	return widx;
+}
+
+static unsigned int drv3_dl_get_lro_wridx(unsigned char q_num)
+{
+	if (q_num == 0)
+		return drv3_dl_get_lro0_wridx();
+	else
+		return drv3_dl_get_lro1_wridx();
 }
 
 static inline unsigned int drv3_get_dl_interrupt_mask(void)
@@ -497,8 +535,148 @@ static inline unsigned int drv3_get_dl_interrupt_mask(void)
 	return DPMA_READ_AO_UL(NRL2_DPMAIF_AO_UL_APDL_L2TIMR0);
 }
 
+static void drv3_irq_rx_lro_lenerr_handler(unsigned int rx_int_isr)
+{
+	/*SKB buffer size error*/
+	if ((rx_int_isr & DP_DL_INT_LRO0_PITCNT_LEN_ERR) ||
+		(rx_int_isr & DP_DL_INT_LRO1_PITCNT_LEN_ERR)) {
+		CCCI_NOTICE_LOG(0, TAG,
+			"[%s] dpmaif: dl skb error L2: %X\n",
+			__func__, rx_int_isr);
+	}
+
+	/*Rx data length more than error*/
+	if (rx_int_isr & DPMAIF_DL_INT_MTU_ERR_MSK) {
+		CCCI_NOTICE_LOG(0, TAG,
+			"[%s] dpmaif: dl mtu error L2: %X\n",
+			__func__, rx_int_isr);
+	}
+}
+
+static void drv3_mask_dl_lro0_interrupt(void)
+{
+	int count = 0;
+
+	DPMA_WRITE_AO_UL(NRL2_DPMAIF_AO_UL_APDL_L2TIMSR0, DPMAIF_DL_INT_LRO0_QDONE_MSK);
+
+	/*check mask sts*/
+	while ((DPMA_READ_AO_UL(NRL2_DPMAIF_AO_UL_APDL_L2TIMR0) &
+		DPMAIF_DL_INT_LRO0_QDONE_MSK) != DPMAIF_DL_INT_LRO0_QDONE_MSK) {
+		if (++count >= 1600000) {
+			CCCI_ERROR_LOG(0, TAG,
+				"[%s] error: mask dl lro0 irq fail\n", __func__);
+			break;
+		}
+	}
+}
+
+static void drv3_mask_dl_lro1_interrupt(void)
+{
+	int count = 0;
+
+	DPMA_WRITE_AO_UL(NRL2_DPMAIF_AO_UL_APDL_L2TIMSR0, DPMAIF_DL_INT_LRO1_QDONE_MSK);
+
+	/*check mask sts*/
+	while ((DPMA_READ_AO_UL(NRL2_DPMAIF_AO_UL_APDL_L2TIMR0) &
+		DPMAIF_DL_INT_LRO1_QDONE_MSK) != DPMAIF_DL_INT_LRO1_QDONE_MSK) {
+		if (++count >= 1600000) {
+			CCCI_ERROR_LOG(0, TAG,
+				"[%s] error: mask dl lro1 irq fail\n", __func__);
+			break;
+		}
+	}
+}
+
+static irqreturn_t drv3_isr0(int irq, void *data)
+{
+	struct dpmaif_rx_queue *rxq = (struct dpmaif_rx_queue *)data;
+	unsigned int L2RISAR0 = ccci_drv_get_dl_isr_event();
+	unsigned int L2RIMR0  = drv3_get_dl_interrupt_mask();
+	unsigned int L2TISAR0 = ccci_drv_get_ul_isr_event();
+	unsigned int L2TIMR0  = DPMA_READ_AO_UL(NRL2_DPMAIF_AO_UL_AP_L2TIMR0);
+
+	/* clear IP busy register wake up cpu case */
+	ccci_drv_clear_ip_busy();
+
+	if (atomic_read(&dpmaif_ctl->wakeup_src) == 1)
+		CCCI_NOTICE_LOG(0, TAG, "[%s] wake up by MD0 HIF L2(%x/%x)(%x/%x)!\n",
+			__func__, L2TISAR0, L2TIMR0, L2RISAR0, L2RIMR0);
+
+	/* TX interrupt */
+	if (L2TISAR0) {
+		L2TISAR0 &= ~(L2TIMR0);
+		DPMA_WRITE_PD_MISC(DPMAIF_PD_AP_UL_L2TISAR0, L2TISAR0);
+
+		/* this log may be printed frequently, so first cancel it*/
+		if (L2TISAR0 & DPMAIF_UL_INT_ERR_MSK)
+			CCCI_ERROR_LOG(0, TAG, "[%s] dpmaif: ul error L2(%x)\n",
+				__func__, L2TISAR0);
+
+		/* tx done */
+		if (L2TISAR0 & DPMAIF_UL_INT_QDONE_MSK)
+			drv3_irq_tx_done(L2TISAR0 & DPMAIF_UL_INT_QDONE_MSK);
+	}
+
+	/* RX interrupt */
+	if (L2RISAR0) {
+		L2RISAR0 &= ~(L2RIMR0|DPMAIF_DL_INT_LRO1_QDONE_MSK);
+		if (L2RISAR0 & AP_DL_L2INTR_ERR_En_Msk)
+			drv3_irq_rx_lro_lenerr_handler(L2RISAR0 & AP_DL_L2INTR_ERR_En_Msk);
+
+		/* ACK interrupt after lenerr_handler*/
+		/* ACK RX interrupt */
+		DPMA_WRITE_PD_MISC(DPMAIF_PD_AP_DL_L2TISAR0, L2RISAR0);
+
+		if (L2RISAR0 & DP_DL_INT_LRO0_QDONE_SET) {
+			/* disable RX_DONE  interrupt */
+			drv3_mask_dl_lro0_interrupt();
+
+			/*always start work due to no napi*/
+			tasklet_hi_schedule(&rxq->rxq_task);
+		}
+	}
+
+	return IRQ_HANDLED;
+}
+
+static irqreturn_t drv3_isr1(int irq, void *data)
+{
+	struct dpmaif_rx_queue *rxq = (struct dpmaif_rx_queue *)data;
+	unsigned int L2RISAR0 = ccci_drv_get_dl_isr_event();
+	unsigned int L2RIMR0  = drv3_get_dl_interrupt_mask();
+
+	/* clear IP busy register wake up cpu case */
+	ccci_drv_clear_ip_busy();
+
+	if (atomic_read(&dpmaif_ctl->wakeup_src) == 1)
+		CCCI_NOTICE_LOG(0, TAG, "[%s] wake up by MD0 HIF L2(%x/%x)!\n",
+			__func__, L2RISAR0, L2RIMR0);
+
+
+	/* RX interrupt */
+	if (L2RISAR0) {
+		//if (L2RISAR0 & DP_DL_INT_LRO1_QDONE_SET)
+		//	ccci_irq_rx_lenerr_handler(L2RISAR0 & AP_DL_L2INTR_ERR_En_Msk);
+
+		/* ACK interrupt after lenerr_handler*/
+		/* ACK RX interrupt */
+		//DPMA_WRITE_PD_MISC(DPMAIF_PD_AP_DL_L2TISAR0, L2RISAR0);
+
+		if (L2RISAR0 & DP_DL_INT_LRO1_QDONE_SET) {
+			/* disable RX_DONE  interrupt */
+			drv3_mask_dl_lro1_interrupt();
+			/*always start work due to no napi*/
+			tasklet_hi_schedule(&rxq->rxq_task);
+		}
+	}
+
+
+	return IRQ_HANDLED;
+}
+
 static irqreturn_t drv3_isr(int irq, void *data)
 {
+	struct dpmaif_rx_queue *rxq = (struct dpmaif_rx_queue *)data;
 	unsigned int L2RISAR0 = ccci_drv_get_dl_isr_event();
 	unsigned int L2RIMR0  = drv3_get_dl_interrupt_mask();
 	unsigned int L2TISAR0 = ccci_drv_get_ul_isr_event();
@@ -547,7 +725,7 @@ static irqreturn_t drv3_isr(int irq, void *data)
 
 			/*always start work due to no napi*/
 			/*for (i = 0; i < DPMAIF_HW_MAX_DLQ_NUM; i++)*/
-			tasklet_hi_schedule(&dpmaif_ctl->rxq[0].rxq_task);
+			tasklet_hi_schedule(&rxq->rxq_task);
 		}
 	}
 
@@ -625,22 +803,41 @@ static int drv3_intr_hw_init(void)
 		}
 	}
 
-	/*Set DL/RX interrupt*/
-	/* 1. clear dummy sts*/
-	DPMA_WRITE_PD_MISC(NRL2_DPMAIF_AP_MISC_APDL_L2TISAR0, 0xFFFFFFFF);
-	/* 2. clear interrupt enable mask*/
-	DPMA_WRITE_AO_UL(NRL2_DPMAIF_AO_UL_APDL_L2TIMCR0, AP_DL_L2INTR_En_Msk);
-	/*set interrupt enable mask*/
-	DPMA_WRITE_AO_UL(NRL2_DPMAIF_AO_UL_APDL_L2TIMSR0, ~(AP_DL_L2INTR_En_Msk));
+	if (!dpmaif_ctl->support_2rxq) {
+		/*Set DL/RX interrupt*/
+		/* 1. clear dummy sts*/
+		DPMA_WRITE_PD_MISC(NRL2_DPMAIF_AP_MISC_APDL_L2TISAR0, 0xFFFFFFFF);
+		/* 2. clear interrupt enable mask*/
+		DPMA_WRITE_AO_UL(NRL2_DPMAIF_AO_UL_APDL_L2TIMCR0, AP_DL_L2INTR_En_Msk);
+		/*set interrupt enable mask*/
+		DPMA_WRITE_AO_UL(NRL2_DPMAIF_AO_UL_APDL_L2TIMSR0, ~(AP_DL_L2INTR_En_Msk));
 
-	/* 3. check mask sts*/
-	count = 0;
-	while ((DPMA_READ_AO_UL(NRL2_DPMAIF_AO_UL_APDL_L2TIMR0) &
+		/* 3. check mask sts*/
+		count = 0;
+		while ((DPMA_READ_AO_UL(NRL2_DPMAIF_AO_UL_APDL_L2TIMR0) &
 			AP_DL_L2INTR_En_Msk) == AP_DL_L2INTR_En_Msk) {
-		if (++count >= 1600000) {
-			CCCI_ERROR_LOG(0, TAG,
-				"[%s] error: 2nd fail\n", __func__);
-			return HW_REG_TIME_OUT;
+			if (++count >= 1600000) {
+				CCCI_ERROR_LOG(0, TAG, "[%s] error: 2nd fail\n", __func__);
+				return HW_REG_TIME_OUT;
+			}
+		}
+	} else {
+		/*Set DL/RX interrupt*/
+		/* 1. clear dummy sts*/
+		DPMA_WRITE_PD_MISC(DPMAIF_PD_AP_DL_L2TISAR0, 0xFFFFFFFF);
+		/* 2. clear interrupt enable mask*/
+		DPMA_WRITE_AO_UL(NRL2_DPMAIF_AO_UL_APDL_L2TIMCR0, AP_DL_L2INTR_LRO_En_Msk);
+		/*set interrupt enable mask*/
+		DPMA_WRITE_AO_UL(NRL2_DPMAIF_AO_UL_APDL_L2TIMSR0, ~(AP_DL_L2INTR_LRO_En_Msk));
+
+		/* 3. check mask sts*/
+		count = 0;
+		while ((DPMA_READ_AO_UL(NRL2_DPMAIF_AO_UL_APDL_L2TIMR0) &
+			AP_DL_L2INTR_LRO_En_Msk) == AP_DL_L2INTR_LRO_En_Msk) {
+			if (++count >= 1600000) {
+				CCCI_ERROR_LOG(0, TAG, "[%s] error: 2nd fail\n", __func__);
+				return HW_REG_TIME_OUT;
+			}
 		}
 	}
 
@@ -745,6 +942,199 @@ static void drv3_txq_hw_init(struct dpmaif_tx_queue *txq)
 	drv3_ul_rdy_en(txq->index, true);
 	drv3_ul_arb_en(txq->index, true);
 
+}
+
+static void drv3_dl_set_lro_pit_base_addr(dma_addr_t addr)
+{
+	unsigned int lb_addr = (unsigned int)(addr & 0xFFFFFFFF);
+	unsigned int value;
+
+	DPMA_WRITE_PD_DL_LRO(NRL2_DPMAIF_DL_LROPIT_INIT_CON0, lb_addr);
+
+	value = DPMA_READ_PD_DL_LRO(NRL2_DPMAIF_DL_LROPIT_INIT_CON1);
+	value |= ((addr >> 8) & DPMAIF_PIT_ADDRH_MSK);
+	DPMA_WRITE_PD_DL_LRO(NRL2_DPMAIF_DL_LROPIT_INIT_CON1, value);
+}
+
+static void drv3_dl_set_lro_pit_size(unsigned int size)
+{
+	unsigned int value;
+
+	value = DPMA_READ_PD_DL_LRO(NRL2_DPMAIF_DL_LROPIT_INIT_CON1);
+
+	value &= ~(DPMAIF_PIT_SIZE_MSK);
+	value |= (size & DPMAIF_PIT_SIZE_MSK);
+
+	DPMA_WRITE_PD_DL_LRO(NRL2_DPMAIF_DL_LROPIT_INIT_CON1, value);
+}
+
+static void drv3_dl_lro_pit_en(bool enable)
+{
+	unsigned int value;
+
+	value = DPMA_READ_PD_DL_LRO(NRL2_DPMAIF_DL_LROPIT_INIT_CON3);
+
+	if (enable == true)
+		value |= DPMAIF_LROPIT_EN_MSK;
+	else
+		value &= ~DPMAIF_LROPIT_EN_MSK;
+
+	DPMA_WRITE_PD_DL_LRO(NRL2_DPMAIF_DL_LROPIT_INIT_CON3, value);
+}
+
+void drv3_dl_set_ao_lro_pit_chknum(unsigned int pit_idx)
+{
+	unsigned int value;
+
+	value = DPMA_READ_AO_DL(NRL2_DPMAIF_AO_DL_PIT_SEQ_END);
+
+	if (pit_idx == 0) {
+		value &= ~(DPMAIF_LRO_PIT0_CHK_NUM_MASK);
+		value |= (((0xFF)<<DPMAIF_LRO_PIT0_CHK_NUM_OFS)&DPMAIF_LRO_PIT0_CHK_NUM_MASK);
+	} else {
+		value &= ~(DPMAIF_LRO_PIT1_CHK_NUM_MASK);
+		value |= (((0xFF)<<DPMAIF_LRO_PIT1_CHK_NUM_OFS)&DPMAIF_LRO_PIT1_CHK_NUM_MASK);
+	}
+	//DPMA_WRITE_AO_DL(NRL2_DPMAIF_AO_DL_PIT_SEQ_END,value);
+	DPMA_WRITE_AO_DL_SRAM(NRL2_DPMAIF_AO_DL_PIT_SEQ_END, value);
+}
+
+static void drv3_dl_lro_pit_init_done(unsigned int pit_idx)
+{
+	unsigned int dl_pit_init = 0;
+	int count;
+
+	dl_pit_init |= DPMAIF_DL_PIT_INIT_ALLSET;
+	dl_pit_init |= (pit_idx << DPMAIF_LROPIT_CHAN_OFS);
+	dl_pit_init |= DPMAIF_DL_PIT_INIT_EN;
+
+	count = 0;
+	while (1) {
+		if ((DPMA_READ_PD_DL_LRO(NRL2_DPMAIF_DL_LROPIT_INIT) &
+			DPMAIF_DL_PIT_INIT_NOT_READY) == 0) {
+
+			DPMA_WRITE_PD_DL_LRO(NRL2_DPMAIF_DL_LROPIT_INIT, dl_pit_init);
+			break;
+		}
+
+		if (++count >= 1600000) {
+			CCCI_ERROR_LOG(0, TAG, "[%s] 1st error: pit init fail\n", __func__);
+			break;
+		}
+	}
+
+	count = 0;
+	while ((DPMA_READ_PD_DL_LRO(NRL2_DPMAIF_DL_LROPIT_INIT) &
+		DPMAIF_DL_PIT_INIT_NOT_READY) == DPMAIF_DL_PIT_INIT_NOT_READY) {
+
+		if (++count >= 1600000) {
+			CCCI_ERROR_LOG(0, TAG, "[%s] 2nd error: pit init fail\n", __func__);
+			break;
+		}
+	}
+}
+
+void ccci_drv3_dl_config_lro_hw(dma_addr_t addr, unsigned int size,
+	bool enable, unsigned int pit_idx)
+{
+	drv3_dl_set_lro_pit_base_addr(addr);
+	drv3_dl_set_lro_pit_size(size);
+	drv3_dl_lro_pit_en(enable);
+	drv3_dl_set_ao_lro_pit_chknum(pit_idx);
+	drv3_dl_lro_pit_init_done(pit_idx);
+}
+
+static void drv3_hw_hpc_cntl_set(void)
+{
+	unsigned int cfg = 0;
+
+	cfg =  ((DPMAIF_HPC_LRO_PATH_DF & 0x3)  << 0);
+	cfg |= ((DPMAIF_HPC_ADD_MODE_DF & 0x3)  << 2);
+	cfg |= ((DPMAIF_HASH_PRIME_DF   & 0xf)  << 4);
+	cfg |= ((DPMAIF_HPC_TOTAL_NUM   & 0xff) << 8);
+
+	//cfg include hpclro path, hpc add mode, hash prime, hpc total num
+	//DPMA_WRITE_AO_DL(NRL2_DPMAIF_AO_DL_HPC_CNTL, cfg);
+	DPMA_WRITE_AO_DL_SRAM(NRL2_DPMAIF_AO_DL_HPC_CNTL, cfg);
+}
+
+static void drv3_hw_agg_cfg_set(void)
+{
+	unsigned int cfg = 0;
+
+	cfg = ((DPMAIF_AGG_MAX_LEN_DF & 0xffff) << 0);
+	cfg |= ((DPMAIF_AGG_TBL_ENT_NUM_DF & 0xffff) << 16);
+
+	//cfg include agg max length, agg table num
+	//DPMA_WRITE_AO_DL(NRL2_DPMAIF_AO_DL_LRO_AGG_CFG, cfg);
+	DPMA_WRITE_AO_DL_SRAM(NRL2_DPMAIF_AO_DL_LRO_AGG_CFG, cfg);
+}
+
+static void drv3_hw_hash_bit_choose_set(void)
+{
+	unsigned int cfg = 0;
+
+	cfg = ((DPMAIF_LRO_HASH_BIT_CHOOSE_DF & 0x7) << 0);
+
+	DPMA_WRITE_AO_DL(NRL2_DPMAIF_AO_DL_LROPIT_INIT_CON5, cfg);
+}
+
+static void drv3_hw_mid_pit_timeout_thres_set(void)
+{
+	//DPMA_WRITE_AO_DL(NRL2_DPMAIF_AO_DL_LROPIT_TIMEOUT0, DPMAIF_MID_TIMEOUT_THRES_DF);
+	DPMA_WRITE_AO_DL_SRAM(NRL2_DPMAIF_AO_DL_LROPIT_TIMEOUT0, DPMAIF_MID_TIMEOUT_THRES_DF);
+}
+
+static void drv3_hw_lro_timeout_thres_set(void)
+{
+	unsigned int tmp, idx;
+
+	for (idx = 0; idx < DPMAIF_HPC_MAX_TOTAL_NUM; idx++) {
+		//tmp = DPMA_READ_AO_DL(NRL2_DPMAIF_AO_DL_LROPIT_TIMEOUT1 + 4*(idx/2));
+		tmp = DPMA_READ_AO_DL_SRAM(NRL2_DPMAIF_AO_DL_LROPIT_TIMEOUT1 + 4*(idx/2));
+		if (idx % 2)  //odd idx
+			tmp = ((tmp & 0xFFFF) | (DPMAIF_LRO_TIMEOUT_THRES_DF << 16));
+		else  //even idx
+			tmp = ((tmp & 0xFFFF0000) | (DPMAIF_LRO_TIMEOUT_THRES_DF));
+
+		//DPMA_WRITE_AO_DL(NRL2_DPMAIF_AO_DL_LROPIT_TIMEOUT1 + (4*(idx/2)), tmp);
+		DPMA_WRITE_AO_DL_SRAM(NRL2_DPMAIF_AO_DL_LROPIT_TIMEOUT1 + (4*(idx/2)), tmp);
+	}
+}
+
+static void drv3_hw_lro_start_prs_thres_set(void)
+{
+	unsigned int cfg = 0;
+
+	cfg = (DPMAIF_LRO_PRS_THRES_DF & 0x3FFFF);
+
+	DPMA_WRITE_AO_DL(NRL2_DPMAIF_AO_DL_LROPIT_TRIG_THRES, cfg);
+}
+
+static void drv3_hw_lro_set_agg_en_df(bool enable)
+{
+	unsigned int value;
+
+	value = DPMA_READ_AO_DL_SRAM(DPMAIF_AO_DL_RDY_CHK_FRG_THRES);
+	value &= ~(0xFF<<20);
+
+	if (enable == true)
+		value |= (0xFF<<20);
+	else
+		value &= ~(0xFF<<20);
+
+	DPMA_WRITE_AO_DL_SRAM(DPMAIF_AO_DL_RDY_CHK_FRG_THRES, value);
+}
+
+void ccci_drv3_dl_lro_hpc_hw_init(void)
+{
+	drv3_hw_hpc_cntl_set();
+	drv3_hw_agg_cfg_set();
+	drv3_hw_hash_bit_choose_set();
+	drv3_hw_mid_pit_timeout_thres_set();
+	drv3_hw_lro_timeout_thres_set();
+	drv3_hw_lro_start_prs_thres_set();
+	drv3_hw_lro_set_agg_en_df(true);
 }
 
 static int drv3_suspend_noirq(struct device *dev)
@@ -1026,6 +1416,132 @@ static int drv3_setting_hw_reset_func(void)
 	return 0;
 }
 
+static spinlock_t g_add_pit_cnt_lro_lock;
+static int drv3_dl_add_lro0_pit_remain_cnt(unsigned short pit_remain_cnt)
+{
+	unsigned int dl_update;
+	int count = 0, ret = 0;
+
+	dl_update = ((pit_remain_cnt & 0x0003FFFF) | DPMAIF_DL_ADD_UPDATE);
+
+	if (dpmaif_ctl->support_2rxq)
+		spin_lock(&g_add_pit_cnt_lro_lock);
+
+	while (1) {
+		if ((DPMA_READ_PD_DL_LRO(NRL2_DPMAIF_DL_LROPIT_ADD)
+				& DPMAIF_DL_ADD_NOT_READY) == 0) {
+			DPMA_WRITE_PD_DL_LRO(NRL2_DPMAIF_DL_LROPIT_ADD, dl_update);
+			break;
+		}
+
+		if (++count >= 1600000) {
+			CCCI_ERROR_LOG(0, TAG,
+				"[%s] error: 1st DPMAIF_PD_DL_PIT_ADD read fail\n", __func__);
+			ret = HW_REG_TIME_OUT;
+			goto fun_exit;
+		}
+	}
+
+	count = 0;
+	while ((DPMA_READ_PD_DL_LRO(NRL2_DPMAIF_DL_LROPIT_ADD) &
+			DPMAIF_DL_ADD_NOT_READY) == DPMAIF_DL_ADD_NOT_READY) {
+		if (++count >= 1600000) {
+			CCCI_ERROR_LOG(0, TAG,
+				 "[%s] error: 2nd DPMAIF_PD_DL_PIT_ADD read fail\n", __func__);
+			ret = HW_REG_TIME_OUT;
+			goto fun_exit;
+		}
+	}
+
+fun_exit:
+	if (dpmaif_ctl->support_2rxq)
+		spin_unlock(&g_add_pit_cnt_lro_lock);
+
+	return ret;
+}
+
+static int drv3_dl_add_lro1_pit_remain_cnt(unsigned short pit_remain_cnt)
+{
+	unsigned int dl_update;
+	int count = 0, ret = 0;
+
+	dl_update = (pit_remain_cnt & 0x0003FFFF);
+	dl_update |= (DPMAIF_DL_ADD_UPDATE | DPMAIF_ADD_LRO_PIT_CHAN_OFS);
+
+	if (dpmaif_ctl->support_2rxq)
+		spin_lock(&g_add_pit_cnt_lro_lock);
+
+	while (1) {
+		if ((DPMA_READ_PD_DL_LRO(NRL2_DPMAIF_DL_LROPIT_ADD) &
+				DPMAIF_DL_ADD_NOT_READY) == 0) {
+			DPMA_WRITE_PD_DL_LRO(NRL2_DPMAIF_DL_LROPIT_ADD, dl_update);
+			break;
+		}
+
+		if (++count >= 1600000) {
+			CCCI_ERROR_LOG(0, TAG,
+				"[%s] error: 1st DPMAIF_PD_DL_PIT_ADD read fail\n", __func__);
+			ret = HW_REG_TIME_OUT;
+			goto fun_exit;
+		}
+	}
+
+	count = 0;
+	while ((DPMA_READ_PD_DL_LRO(NRL2_DPMAIF_DL_LROPIT_ADD) &
+			DPMAIF_DL_ADD_NOT_READY) == DPMAIF_DL_ADD_NOT_READY) {
+		if (++count >= 1600000) {
+			CCCI_ERROR_LOG(0, TAG,
+				 "[%s] error: 2nd DPMAIF_PD_DL_PIT_ADD read fail\n", __func__);
+			ret = HW_REG_TIME_OUT;
+			goto fun_exit;
+		}
+	}
+
+fun_exit:
+	if (dpmaif_ctl->support_2rxq)
+		spin_unlock(&g_add_pit_cnt_lro_lock);
+
+	return 0;
+}
+
+static int drv3_init_rxq_cb(void)
+{
+	int i;
+	struct dpmaif_rx_queue *rxq;
+
+	if (dpmaif_ctl->support_2rxq)
+		spin_lock_init(&g_add_pit_cnt_lro_lock);
+
+	for (i = 0; i < dpmaif_ctl->real_rxq_num; i++) {
+		rxq = &dpmaif_ctl->rxq[i];
+
+		if (dpmaif_ctl->support_2rxq) {
+			if (i == 0) {
+				rxq->rxq_isr = drv3_isr0;
+				rxq->rxq_drv_unmask_dl_interrupt = &drv3_unmask_dl_lro0_interrupt;
+				rxq->rxq_drv_dl_add_pit_remain_cnt =
+					&drv3_dl_add_lro0_pit_remain_cnt;
+			} else if (i == 1) {
+				rxq->rxq_isr = drv3_isr1;
+				rxq->rxq_drv_unmask_dl_interrupt = &drv3_unmask_dl_lro1_interrupt;
+				rxq->rxq_drv_dl_add_pit_remain_cnt =
+					&drv3_dl_add_lro1_pit_remain_cnt;
+			} else {
+				CCCI_ERROR_LOG(0, TAG,
+					"[%s] error: no isr func for rxq%d\n",
+					__func__, i);
+				return -1;
+			}
+		} else {
+			rxq->rxq_isr = &drv3_isr;
+			rxq->rxq_drv_unmask_dl_interrupt = &drv3_unmask_dl_interrupt;
+			rxq->rxq_drv_dl_add_pit_remain_cnt = &ccci_drv_dl_add_pit_remain_cnt;
+		}
+	}
+
+	return 0;
+}
+
 int ccci_dpmaif_drv3_init(void)
 {
 	int ret;
@@ -1036,6 +1552,11 @@ int ccci_dpmaif_drv3_init(void)
 	dpmaif_ctl->ao_md_dl_base = dpmaif_ctl->ao_ul_base + 0x800;
 	dpmaif_ctl->pd_rdma_base  = dpmaif_ctl->pd_ul_base + 0x200;
 	dpmaif_ctl->pd_wdma_base  = dpmaif_ctl->pd_ul_base + 0x300;
+
+	if (dpmaif_ctl->support_2rxq) {
+		dpmaif_ctl->pd_mmw_hpc_base = dpmaif_ctl->pd_ul_base + 0x600;
+		dpmaif_ctl->pd_dl_lro_base  = dpmaif_ctl->pd_ul_base + 0x900;
+	}
 
 	/* for 98 dpmaif new register */
 	dpmaif_ctl->ao_dl_sram_base   = dpmaif_ctl->pd_ul_base + 0xC00;
@@ -1056,14 +1577,20 @@ int ccci_dpmaif_drv3_init(void)
 	drv.ul_int_qdone_msk = DPMAIF_UL_INT_QDONE_MSK;
 	drv.dl_idle_sts = DPMAIF_DL_IDLE_STS;
 
-	ops.drv_isr = &drv3_isr;
+	if (drv3_init_rxq_cb())
+		return -1;
+
 	ops.drv_start = &drv3_start;
 	ops.drv_suspend_noirq = drv3_suspend_noirq;
 	ops.drv_resume_noirq = drv3_resume_noirq;
 
-	ops.drv_unmask_dl_interrupt = &drv3_unmask_dl_interrupt;
 	ops.drv_unmask_ul_interrupt = &drv3_unmask_ul_interrupt;
-	ops.drv_dl_get_wridx = &drv3_dl_get_wridx;
+
+	if (dpmaif_ctl->support_2rxq)
+		ops.drv_dl_get_wridx = &drv3_dl_get_lro_wridx;
+	else
+		ops.drv_dl_get_wridx = &drv3_dl_get_wridx;
+
 	if (g_plat_inf == 6985) {
 		ops.drv_ul_get_rwidx = &drv3_ul_get_rwidx_6985;
 		ops.drv_ul_get_rdidx = &drv3_ul_get_rdidx_6985;
@@ -1071,6 +1598,7 @@ int ccci_dpmaif_drv3_init(void)
 		ops.drv_ul_get_rwidx = &drv3_ul_get_rwidx;
 		ops.drv_ul_get_rdidx = &drv3_ul_get_rdidx;
 	}
+
 	ops.drv_ul_all_queue_en = &drv3_ul_all_queue_en;
 	ops.drv_ul_idle_check = &drv3_ul_idle_check;
 

@@ -52,12 +52,26 @@ enum error_num {
 	ERROR_STOP_MAX, /* -4 */
 };
 
+#define DPMAIF_MAX_LRO 50
+
+struct rx_lro_data {
+	unsigned int    bid;
+	struct sk_buff *skb;
+	unsigned int    hof;
+};
+
+struct dpmaif_rx_lro_info {
+	struct rx_lro_data data[DPMAIF_MAX_LRO];
+
+	unsigned int    count;
+};
+
 
 #define DPMAIF_CAP_LRO            (1 << 0)
 #define DPMAIF_CAP_2RXQ           (1 << 1)
 #define DPMAIF_CAP_PIT_DEG        (1 << 2)
 
-#define DPMAIF_RXQ_NUM            1
+#define DPMAIF_RXQ_NUM            2
 #define DPMAIF_TXQ_NUM            4
 
 /*Default DPMAIF DL common setting*/
@@ -260,9 +274,9 @@ struct dpmaif_msg_pit_v3 {
 
 
 struct dpmaif_bat_base {
-	unsigned int p_buffer_addr;
-	unsigned int buffer_addr_ext:8;
-	unsigned int reserved:24;
+	unsigned int    p_buffer_addr;
+	unsigned int    buffer_addr_ext:8;
+	unsigned int    reserved:24;
 };
 
 struct dpmaif_bat_skb {
@@ -272,10 +286,10 @@ struct dpmaif_bat_skb {
 };
 
 struct dpmaif_bat_page {
-	struct page   *page;
-	dma_addr_t     data_phy_addr;
-	unsigned long  offset;
-	unsigned int   data_len;
+	struct page    *page;
+	dma_addr_t      data_phy_addr;
+	unsigned long   offset;
+	unsigned int    data_len;
 };
 
 struct dpmaif_bat_request {
@@ -322,10 +336,10 @@ struct dpmaif_drb_skb {
 	unsigned short  data_len;
 
 	/* just for debug */
-	unsigned short drb_idx:13;
-	unsigned short is_msg:1;
-	unsigned short is_frag:1;
-	unsigned short is_last_one:1;
+	unsigned short  drb_idx:13;
+	unsigned short  is_msg:1;
+	unsigned short  is_frag:1;
+	unsigned short  is_last_one:1;
 };
 
 struct dpmaif_rx_queue {
@@ -345,8 +359,8 @@ struct dpmaif_rx_queue {
 	struct task_struct      *rxq_push_thread;
 	atomic_t                 rxq_processing;
 
-	unsigned int             cur_chn_idx:8;
-	unsigned int             check_sum:2;
+	unsigned int             cur_chn_idx;
+	unsigned int             check_sum;
 	int                      skb_idx;
 	unsigned int             pit_dp;
 
@@ -357,6 +371,16 @@ struct dpmaif_rx_queue {
 #ifdef DPMAIF_REDUCE_RX_FLUSH
 	atomic_t                 rxq_need_flush;
 #endif
+	struct dpmaif_rx_lro_info lro_info;
+
+	unsigned int            irq_id;
+	unsigned long           irq_flags;
+	atomic_t                irq_enabled;
+
+	irqreturn_t (*rxq_isr)(int irq, void *data);
+	void (*rxq_tasklet)(unsigned long data);
+	void (*rxq_drv_unmask_dl_interrupt)(void);
+	int  (*rxq_drv_dl_add_pit_remain_cnt)(unsigned short cnt);
 };
 
 
@@ -395,7 +419,7 @@ struct dpmaif_tx_queue {
 struct dpmaif_ctrl {
 	enum   dpmaif_state_t     dpmaif_state;
 	struct dpmaif_tx_queue    txq[DPMAIF_TXQ_NUM];
-	struct dpmaif_rx_queue    rxq[DPMAIF_RXQ_NUM];
+	struct dpmaif_rx_queue   *rxq;
 
 	unsigned char             hif_id;
 	atomic_t                  wakeup_src;
@@ -419,9 +443,8 @@ struct dpmaif_ctrl {
 	void __iomem              *ao_ul_sram_base;
 	void __iomem              *ao_msic_sram_base;
 
-	unsigned int               irq_id;
-	unsigned long              irq_flags;
-	atomic_t                   irq_enabled;
+	void __iomem              *pd_mmw_hpc_base;
+	void __iomem              *pd_dl_lro_base;
 
 	struct regmap             *infra_ao_base;
 	void __iomem              *infra_ao_mem_base;
@@ -432,6 +455,9 @@ struct dpmaif_ctrl {
 	atomic_t                   suspend_flag;
 	unsigned int               capability;
 	unsigned int               support_lro;
+	unsigned int               support_2rxq;
+	unsigned int               real_rxq_num;
+	int                        enable_pit_debug;
 
 	struct dpmaif_bat_request  *bat_skb;
 	struct dpmaif_bat_request  *bat_frg;
@@ -454,7 +480,7 @@ struct dpmaif_ctrl {
 
 #if DPMAIF_TRAFFIC_MONITOR_INTERVAL
 	unsigned int                tx_tfc_pkgs[DPMAIF_TXQ_NUM];
-	unsigned int                rx_tfc_pkgs[DPMAIF_RXQ_NUM];
+	unsigned int               *rx_tfc_pkgs;
 	unsigned int                tx_pre_tfc_pkgs[DPMAIF_TXQ_NUM];
 	unsigned long long          tx_done_last_start_time[DPMAIF_TXQ_NUM];
 
@@ -479,7 +505,7 @@ int ccci_dpmaif_init_v3(struct device *dev);
 u32 get_ringbuf_used_cnt(u32 len, u32 rdx, u32 wdx);
 u32 get_ringbuf_free_cnt(u32 len, u32 rdx, u32 wdx);
 u32 get_ringbuf_next_idx(u32 len, u32 idx, u32 cnt);
-
+u32 get_ringbuf_release_cnt(u32 len, u32 rel_idx, u32 rd_idx);
 
 void ccci_dpmaif_txq_release_skb(struct dpmaif_tx_queue *txq, unsigned int release_cnt);
 
@@ -495,5 +521,7 @@ extern int regmap_read(struct regmap *map,
 extern void ccmni_clr_flush_timer(void);
 
 extern void mt_irq_dump_status(unsigned int irq);
+
+extern void ccmni_set_tcp_is_need_gro(u32 tcp_is_need_gro);
 
 #endif				/* __CCCI_MODEM_DPMA_COMM_H__ */

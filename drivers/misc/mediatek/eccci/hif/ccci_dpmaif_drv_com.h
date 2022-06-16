@@ -26,11 +26,9 @@ struct dpmaif_plat_drv {
 };
 
 struct dpmaif_plat_ops {
-	irqreturn_t  (*drv_isr)(int irq, void *data);
 	unsigned int (*drv_get_dl_interrupt_mask)(void);
-	void         (*drv_unmask_dl_interrupt)(void);
 	void         (*drv_unmask_ul_interrupt)(unsigned char q_num);
-	unsigned int (*drv_dl_get_wridx)(void);
+	unsigned int (*drv_dl_get_wridx)(unsigned char q_num);
 	unsigned int (*drv_ul_get_rwidx)(unsigned char q_num);
 	unsigned int (*drv_ul_get_rdidx)(unsigned char q_num);
 	void         (*drv_ul_all_queue_en)(bool enable);
@@ -140,27 +138,14 @@ int ccci_drv_ul_add_wcnt(unsigned char q_num, unsigned short drb_wcnt);
 
 unsigned int ccci_drv_dl_idle_check(void);
 
+void ccci_drv3_dl_config_lro_hw(dma_addr_t addr, unsigned int size,
+	bool enable, unsigned int pit_idx);
+void ccci_drv3_dl_lro_hpc_hw_init(void);
 
 #define ccci_drv_get_dl_isr_event() \
 	DPMA_READ_PD_MISC(DPMAIF_PD_AP_DL_L2TISAR0)
 #define ccci_drv_get_ul_isr_event() \
 	DPMA_READ_PD_MISC(DPMAIF_PD_AP_UL_L2TISAR0)
-
-
-unsigned int ringbuf_get_next_idx(unsigned int total_cnt,
-	unsigned int buf_idx, unsigned int cnt);
-
-unsigned int ringbuf_readable(unsigned int total_cnt,
-	unsigned int rd_idx, unsigned int wrt_idx);
-
-
-unsigned int ringbuf_writeable(unsigned int total_cnt,
-	unsigned int rel_idx, unsigned int wrt_idx);
-
-
-unsigned int ringbuf_releasable(unsigned int total_cnt,
-	unsigned int rel_idx, unsigned int rd_idx);
-
 
 int ccci_drv2_rxq_update_apit_dummy(struct dpmaif_rx_queue *rxq);
 void ccci_drv2_rxq_hw_int_apit(struct dpmaif_rx_queue *rxq);

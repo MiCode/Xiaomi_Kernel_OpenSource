@@ -303,8 +303,49 @@
 #define AP_UL_L2INTR_En_Msk    (AP_UL_L2INTR_ERR_En_Msk | DPMAIF_UL_INT_QDONE_MSK)
 
 
+#define DPMAIF_DL_INT_LRO0_QDONE_MSK         (0x01 << 8)
+#define DPMAIF_DL_INT_LRO1_QDONE_MSK         (0x01 << 9)
 
+#define DP_DL_INT_LRO0_PITCNT_LEN_ERR        (0x01 << 8)
+#define DP_DL_INT_LRO1_PITCNT_LEN_ERR        (0x01 << 9)
+#define DP_DL_INT_HPC_ENT_TYPE_ERR           (0x01 << 10)
 
+#define DP_DL_INT_LRO0_PITCNT_LEN_MSK        (0x01 << 10)
+#define DP_DL_INT_LRO1_PITCNT_LEN_MSK        (0x01 << 11)
 
+#define DPMAIF_DL_INT_Q2TOQ1_MSK             (0x01 << 24)
+#define DPMAIF_DL_INT_Q2APTOP_MSK            (0x01 << 25)
+#define DPMAIF_DL_INT_Q2PCIETOP_MSK          (0x01 << 30)
+
+#define DPMAIF_HPC_LRO_PATH_MODE0       0
+#define DPMAIF_HPC_LRO_PATH_MODE1       1
+#define DPMAIF_HPC_LRO_PATH_MODE2       2
+#define DPMAIF_HPC_LRO_PATH_MODE3       3
+
+#define DPMAIF_HPC_LRO_PATH_DF          DPMAIF_HPC_LRO_PATH_MODE3
+
+#define DPMAIF_HPC_ADD_MODE_DF          0
+#define DPMAIF_HPC_TOTAL_NUM            8
+#define DPMAIF_HPC_MAX_TOTAL_NUM        8
+#define DPMAIF_AGG_MAX_LEN_DF           65535
+#define DPMAIF_AGG_TBL_ENT_NUM_DF       50
+#define DPMAIF_HASH_BIT_CHS_DF          0
+#define DPMAIF_HASH_PRIME_DF            13
+#define DPMAIF_MID_TIMEOUT_THRES_DF     100
+#define DPMAIF_LRO_TIMEOUT_THRES_DF     100
+#define DPMAIF_LRO_PRS_THRES_DF         10
+#define DPMAIF_LRO_HASH_BIT_CHOOSE_DF   0
+
+#define DPMAIF_LROPIT_EN_MSK            0x100000
+#define DPMAIF_LROPIT_CHAN_OFS          16
+#define DPMAIF_ADD_LRO_PIT_CHAN_OFS     (1 << 20)
+#define DPMAIF_LRO_PIT0_CHK_NUM_OFS     8
+#define DPMAIF_LRO_PIT1_CHK_NUM_OFS     20
+#define DPMAIF_LRO_PIT0_CHK_NUM_MASK    0xFF00
+#define DPMAIF_LRO_PIT1_CHK_NUM_MASK    0xFF00000
+
+#define AP_DL_L2INTR_LRO_En_Msk \
+	(AP_DL_L2INTR_ERR_En_Msk | \
+	DPMAIF_DL_INT_LRO0_QDONE_MSK | DPMAIF_DL_INT_LRO1_QDONE_MSK)
 
 #endif /* __CCCI_DPMAIF_REG_V1_H__ */

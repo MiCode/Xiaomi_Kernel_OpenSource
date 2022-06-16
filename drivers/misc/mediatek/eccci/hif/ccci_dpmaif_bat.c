@@ -390,7 +390,7 @@ static int dpmaif_alloc_bat_req(int update_bat_cnt, atomic_t *paused)
 	else  //version 1, 2
 		atomic_set(&bat_req->bat_rd_idx, ccci_drv2_dl_get_bat_ridx());
 
-	buf_used = ringbuf_readable(bat_req->bat_cnt,
+	buf_used = get_ringbuf_used_cnt(bat_req->bat_cnt,
 					atomic_read(&bat_req->bat_rd_idx),
 					atomic_read(&bat_req->bat_wr_idx));
 	if (buf_used >= alloc_skb_threshold)
@@ -413,7 +413,7 @@ static int dpmaif_alloc_bat_req(int update_bat_cnt, atomic_t *paused)
 		if (bat_skb->skb)
 			break;
 
-		next_wr_idx = ringbuf_get_next_idx(
+		next_wr_idx = get_ringbuf_next_idx(
 						bat_req->bat_cnt, bat_wr_idx, 1);
 
 		next_skb = (struct dpmaif_bat_skb *)bat_req->bat_pkt_addr
@@ -527,7 +527,7 @@ static int dpmaif_alloc_bat_frg(int update_bat_cnt, atomic_t *paused)
 	else  //version 1, 2
 		atomic_set(&bat_req->bat_rd_idx, ccci_drv2_dl_get_frg_bat_ridx());
 
-	buf_used = ringbuf_readable(bat_req->bat_cnt,
+	buf_used = get_ringbuf_used_cnt(bat_req->bat_cnt,
 				atomic_read(&bat_req->bat_rd_idx),
 				atomic_read(&bat_req->bat_wr_idx));
 	if (buf_used >= alloc_frg_threshold)
@@ -551,7 +551,7 @@ static int dpmaif_alloc_bat_frg(int update_bat_cnt, atomic_t *paused)
 		if (bat_page->page)
 			break;
 
-		next_wr_idx = ringbuf_get_next_idx(
+		next_wr_idx = get_ringbuf_next_idx(
 				bat_req->bat_cnt, bat_wr_idx, 1);
 
 		next_page = (struct dpmaif_bat_page *)bat_req->bat_pkt_addr

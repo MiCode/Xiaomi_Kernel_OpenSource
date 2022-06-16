@@ -843,7 +843,7 @@ static void drv2_mask_dl_interrupt(void)
 	 */
 }
 
-static unsigned int drv2_dl_get_wridx(void)
+static unsigned int drv2_dl_get_wridx(unsigned char q_num)
 {
 	return (DPMA_READ_AO_DL(DPMAIF_AO_DL_PIT_STA2) & DPMAIF_DL_PIT_WRIDX_MSK);
 }
@@ -1037,7 +1037,7 @@ static int drv2_resume_noirq(struct device *dev)
 		}
 
 		if (atomic_read(&txq->drb_wr_idx) != atomic_read(&txq->drb_rel_rd_idx)) {
-			rel_cnt = ringbuf_releasable(txq->drb_cnt,
+			rel_cnt = get_ringbuf_release_cnt(txq->drb_cnt,
 					atomic_read(&txq->drb_rel_rd_idx),
 					atomic_read(&txq->drb_wr_idx));
 			ccci_dpmaif_txq_release_skb(txq, rel_cnt);
@@ -1275,12 +1275,13 @@ int ccci_dpmaif_drv2_init(void)
 	drv.ul_int_qdone_msk = DPMAIF_UL_INT_QDONE_MSK;
 	drv.dl_idle_sts = DPMAIF_DL_IDLE_STS;
 
-	ops.drv_isr = &drv2_isr;
+	dpmaif_ctl->rxq[0].rxq_isr = &drv2_isr;
 	ops.drv_start = &drv2_start;
 	ops.drv_suspend_noirq = drv2_suspend_noirq;
 	ops.drv_resume_noirq = drv2_resume_noirq;
 
-	ops.drv_unmask_dl_interrupt = &drv2_unmask_dl_interrupt;
+	dpmaif_ctl->rxq[0].rxq_drv_unmask_dl_interrupt = &drv2_unmask_dl_interrupt;
+	dpmaif_ctl->rxq[0].rxq_drv_dl_add_pit_remain_cnt = &ccci_drv_dl_add_pit_remain_cnt;
 	ops.drv_unmask_ul_interrupt = &drv2_unmask_ul_interrupt;
 	ops.drv_dl_get_wridx = &drv2_dl_get_wridx;
 	ops.drv_ul_get_rwidx = &drv2_ul_get_rwidx;

@@ -98,6 +98,19 @@ inline u32 get_ringbuf_next_idx(u32 len, u32 idx, u32 cnt)
 	return idx;
 }
 
+inline u32 get_ringbuf_release_cnt(u32 len, u32 rel_idx, u32 rd_idx)
+{
+	if (rel_idx <= rd_idx)
+		return (rd_idx - rel_idx);
+
+	return (len + rd_idx - rel_idx);
+}
+
+static void dpmaif_rxq_lro_info_init(struct dpmaif_rx_queue *rxq)
+{
+	memset(&rxq->lro_info, 0, (sizeof(struct dpmaif_rx_lro_info)));
+}
+
 static inline void dpmaif_set_cpu_mask(struct cpumask *cpu_mask,
 		u32 cpus, int cpu_nr)
 {
@@ -154,9 +167,7 @@ static void dpmaif_handle_wakeup_skb(struct sk_buff *skb)
 err:
 	CCCI_NORMAL_LOG(0, TAG,
 		"[%s] ver: %u; pro: %u; spt: %u; dpt: %u; len: %u\n",
-		__func__, version, protocol,
-		src_port, dst_port, skb_len);
-
+		__func__, version, protocol, src_port, dst_port, skb_len);
 }
 
 static void tx_force_md_assert(char buf[])
@@ -169,55 +180,296 @@ static void tx_force_md_assert(char buf[])
 	}
 }
 
-
-inline unsigned int ringbuf_get_next_idx(unsigned int total_cnt,
-	unsigned int buf_idx, unsigned int cnt)
+static inline int my_skb_gro_receive(struct sk_buff *p, struct sk_buff *skb)
 {
-	buf_idx += cnt;
+	struct skb_shared_info *pinfo, *skbinfo = skb_shinfo(skb);
+	unsigned int offset = skb_gro_offset(skb);
+	unsigned int headlen = skb_headlen(skb);
+	unsigned int len = skb_gro_len(skb);
+	unsigned int delta_truesize;
+	struct sk_buff *lp;
 
-	if (buf_idx >= total_cnt)
-		buf_idx -= total_cnt;
+	if (unlikely(p->len + len >= 65536 || NAPI_GRO_CB(skb)->flush))
+		return -1;
 
-	return buf_idx;
+	lp = NAPI_GRO_CB(p)->last;
+	pinfo = skb_shinfo(lp);
+
+	if (headlen <= offset) {
+		skb_frag_t *frag;
+		skb_frag_t *frag2;
+		int i = skbinfo->nr_frags;
+		int nr_frags = pinfo->nr_frags + i;
+
+		if (nr_frags > MAX_SKB_FRAGS)
+			goto merge;
+
+		offset -= headlen;
+		pinfo->nr_frags = nr_frags;
+		skbinfo->nr_frags = 0;
+
+		frag = pinfo->frags + nr_frags;
+		frag2 = skbinfo->frags + i;
+		do {
+			*--frag = *--frag2;
+		} while (--i);
+
+		skb_frag_off_add(frag, offset);
+		skb_frag_size_sub(frag, offset);
+
+		/* all fragments truesize : remove (head size + sk_buff) */
+		delta_truesize = skb->truesize -
+				 SKB_TRUESIZE(skb_end_offset(skb));
+
+		skb->truesize -= skb->data_len;
+		skb->len -= skb->data_len;
+		skb->data_len = 0;
+
+		NAPI_GRO_CB(skb)->free = NAPI_GRO_FREE;
+		goto done;
+
+	} else if (skb->head_frag) {
+		int nr_frags = pinfo->nr_frags;
+		skb_frag_t *frag = pinfo->frags + nr_frags;
+		struct page *page = virt_to_head_page(skb->head);
+		unsigned int first_size = headlen - offset;
+		unsigned int first_offset;
+
+		if (nr_frags + 1 + skbinfo->nr_frags > MAX_SKB_FRAGS)
+			goto merge;
+
+		first_offset = skb->data -
+			       (unsigned char *)page_address(page) +
+			       offset;
+
+		pinfo->nr_frags = nr_frags + 1 + skbinfo->nr_frags;
+
+		__skb_frag_set_page(frag, page);
+		skb_frag_off_set(frag, first_offset);
+		skb_frag_size_set(frag, first_size);
+
+		memcpy(frag + 1, skbinfo->frags, sizeof(*frag) * skbinfo->nr_frags);
+		/* We dont need to clear skbinfo->nr_frags here */
+
+		delta_truesize = skb->truesize - SKB_DATA_ALIGN(sizeof(struct sk_buff));
+		NAPI_GRO_CB(skb)->free = NAPI_GRO_FREE_STOLEN_HEAD;
+		goto done;
+	}
+
+merge:
+	delta_truesize = skb->truesize;
+	if (offset > headlen) {
+		unsigned int eat = offset - headlen;
+
+		skb_frag_off_add(&skbinfo->frags[0], eat);
+		skb_frag_size_sub(&skbinfo->frags[0], eat);
+		skb->data_len -= eat;
+		skb->len -= eat;
+		offset = headlen;
+	}
+
+	__skb_pull(skb, offset);
+
+	if (NAPI_GRO_CB(p)->last == p)
+		skb_shinfo(p)->frag_list = skb;
+	else
+		NAPI_GRO_CB(p)->last->next = skb;
+	NAPI_GRO_CB(p)->last = skb;
+	__skb_header_release(skb);
+	lp = p;
+
+done:
+	NAPI_GRO_CB(p)->count++;
+	p->data_len += len;
+	p->truesize += delta_truesize;
+	p->len += len;
+	if (lp != p) {
+		lp->data_len += len;
+		lp->truesize += delta_truesize;
+		lp->len += len;
+	}
+	NAPI_GRO_CB(skb)->same_flow = 1;
+	return 0;
 }
 
-inline unsigned int ringbuf_readable(unsigned int total_cnt,
-	unsigned int rd_idx, unsigned int wrt_idx)
+static inline void dpmaif_rxq_lro_handle_bid(
+		struct dpmaif_rx_queue *rxq, int free_skb)
 {
-	unsigned int pkt_cnt = 0;
+	int i;
+	struct dpmaif_bat_skb *bat_skb;
+	struct dpmaif_rx_lro_info *lro_info = &rxq->lro_info;
 
-	if (wrt_idx >= rd_idx)
-		pkt_cnt = wrt_idx - rd_idx;
-	else
-		pkt_cnt = total_cnt + wrt_idx - rd_idx;
+	for (i = 0; i < lro_info->count; i++) {
+		if (free_skb)
+			dev_kfree_skb_any(lro_info->data[i].skb);
 
-	return pkt_cnt;
+		bat_skb = ((struct dpmaif_bat_skb *)
+				dpmaif_ctl->bat_skb->bat_pkt_addr +
+				lro_info->data[i].bid);
+		bat_skb->skb = NULL;
+	}
+
+	lro_info->count = 0;
 }
 
-inline unsigned int ringbuf_writeable(unsigned int total_cnt,
-	unsigned int rel_idx, unsigned int wrt_idx)
+static inline void dpmaif_rxq_push_all_skb(struct dpmaif_rx_queue *rxq)
 {
-	unsigned int pkt_cnt = 0;
+	struct lhif_header *lhif_h = NULL;
+	struct dpmaif_rx_lro_info *lro_info = &rxq->lro_info;
+	struct sk_buff *skb;
+	int i;
 
-	if (wrt_idx < rel_idx)
-		pkt_cnt = rel_idx - wrt_idx - 1;
-	else
-		pkt_cnt = total_cnt + rel_idx - wrt_idx - 1;
+	for (i = 0; i < lro_info->count; i++) {
+		skb = lro_info->data[i].skb;
 
-	return pkt_cnt;
+		lhif_h = (struct lhif_header *)(skb_push(skb,
+				sizeof(struct lhif_header)));
+		lhif_h->netif = rxq->cur_chn_idx;
+
+		ccci_dl_enqueue(rxq->index, skb);
+	}
+
+	dpmaif_rxq_lro_handle_bid(rxq, 0);
 }
 
-inline unsigned int ringbuf_releasable(unsigned int total_cnt,
-	unsigned int rel_idx, unsigned int rd_idx)
+static inline void dpmaif_rxq_lro_join_skb(
+		struct dpmaif_rx_queue *rxq,
+		struct sk_buff *skb,
+		unsigned int bid, unsigned int header_offset)
 {
-	unsigned int pkt_cnt = 0;
+	struct dpmaif_rx_lro_info *lro_info = &rxq->lro_info;
 
-	if (rel_idx <= rd_idx)
-		pkt_cnt = rd_idx - rel_idx;
-	else
-		pkt_cnt = total_cnt + rd_idx - rel_idx;
+	if (lro_info->count >= DPMAIF_MAX_LRO) {
+		CCCI_ERROR_LOG(0, TAG,
+			"[%s] lro skb count is too much.\n",
+			__func__);
 
-	return pkt_cnt;
+		dpmaif_rxq_push_all_skb(rxq);
+	}
+
+	lro_info->data[lro_info->count].bid = bid;
+	lro_info->data[lro_info->count].skb = skb;
+	lro_info->data[lro_info->count].hof = header_offset;
+
+	lro_info->count++;
+}
+
+static inline void dpmaif_lro_update_gro_info(
+		struct sk_buff *skb,
+		unsigned int total_len,
+		int gro_skb_num)
+{
+	struct iphdr *iph = (struct iphdr *)skb->data;
+	struct ipv6hdr *ip6h = (struct ipv6hdr *)skb->data;
+	unsigned int gso_type;
+
+	if (iph->version == 4) {
+		gso_type = SKB_GSO_TCPV4;
+		iph->tot_len = htons(total_len);
+		iph->check = 0;
+		iph->check = ip_fast_csum((const void *)iph, iph->ihl);
+
+	} else if (iph->version == 6) {
+		gso_type = SKB_GSO_TCPV6;
+		ip6h->payload_len = htons(total_len - 40);
+
+	} else
+		return;
+
+	skb->ip_summed = CHECKSUM_UNNECESSARY;
+
+	skb_shinfo(skb)->gso_type |= gso_type;
+	skb_shinfo(skb)->gso_size = 0;
+	skb_shinfo(skb)->gso_segs = gro_skb_num;
+}
+
+static inline void dpmaif_rxq_lro_end(struct dpmaif_rx_queue *rxq)
+{
+	struct lhif_header *lhif_h = NULL;
+	struct sk_buff *skb0 = NULL, *skb1 = NULL;
+	int i, ret = 0, start_idx = 0, data_len = 0;
+	unsigned int total_len = 0, lro_num = 0;
+	struct dpmaif_rx_lro_info *lro_info = &rxq->lro_info;
+
+	if (rxq->pit_dp) {
+		dpmaif_rxq_lro_handle_bid(rxq, 1);
+		return;
+	}
+
+	if (lro_info->count == 1) {
+		start_idx = 1;
+		skb0 = lro_info->data[0].skb;
+		goto lro_end;
+	} else
+		start_idx = 0;
+
+lro_continue:
+	lro_num = 0;
+	total_len = 0;
+
+	for (i = start_idx; i < lro_info->count; i++) {
+		if (i == start_idx) {
+			skb0 = lro_info->data[i].skb;
+			total_len = skb0->len;
+			lro_num++;
+
+			if ((lro_info->count - i) == 1) {
+				start_idx = lro_info->count;
+				goto lro_end;
+			}
+
+			NAPI_GRO_CB(skb0)->data_offset = lro_info->data[i].hof;
+			NAPI_GRO_CB(skb0)->last = skb0;
+
+			continue;
+		}
+
+		skb1 = lro_info->data[i].skb;
+		data_len = skb1->len - lro_info->data[i].hof;
+
+		NAPI_GRO_CB(skb1)->data_offset = lro_info->data[i].hof;
+
+		ret = my_skb_gro_receive(skb0, skb1);
+		if (ret) {
+			NAPI_GRO_CB(skb1)->data_offset = 0;
+			start_idx = i;
+			goto gro_too_much_skb;
+		}
+
+		total_len += data_len;
+
+		lro_num++;
+	}
+	start_idx = lro_info->count;
+
+gro_too_much_skb:
+	if (lro_num > 1)
+		dpmaif_lro_update_gro_info(skb0, total_len, lro_num);
+
+lro_end:
+	if (atomic_cmpxchg(&dpmaif_ctl->wakeup_src, 1, 0) == 1) {
+		CCCI_NOTICE_LOG(0, TAG,
+			"DPMA_MD wakeup source:(%d/%d)\n",
+			rxq->index, rxq->cur_chn_idx);
+		dpmaif_handle_wakeup_skb(skb0);
+	}
+
+	lhif_h = (struct lhif_header *)(skb_push(skb0,
+			sizeof(struct lhif_header)));
+	lhif_h->netif = rxq->cur_chn_idx;
+
+	ccci_dl_enqueue(rxq->index, skb0);
+
+	if (start_idx < lro_info->count)
+		goto lro_continue;
+
+#if DPMAIF_TRAFFIC_MONITOR_INTERVAL
+	dpmaif_ctl->rx_tfc_pkgs[rxq->index] += lro_info->count;
+#endif
+
+	dpmaif_rxq_lro_handle_bid(rxq, 0);
+
+	return;
 }
 
 static int dpmaif_read_infra_ao_mem_base(struct device *dev)
@@ -339,10 +591,10 @@ static void dpmaif_dump_rxq_data(int qno)
 	int i = 0;
 	struct dpmaif_rx_queue *rxq;
 
-	if ((qno < 0) || (qno >= DPMAIF_RXQ_NUM))  //dump all rxq
+	if ((qno < 0) || (qno >= dpmaif_ctl->real_rxq_num))  //dump all rxq
 		qno = -1;
 
-	for (; i < DPMAIF_RXQ_NUM; i++) {
+	for (; i < dpmaif_ctl->real_rxq_num; i++) {
 		if ((qno >= 0) && (i != qno))
 			continue;
 
@@ -379,11 +631,11 @@ static void dpmaif_dump_rxq_data(int qno)
 
 static inline unsigned int dpmaif_get_rxq_pit_read_cnt(struct dpmaif_rx_queue *rxq)
 {
-	unsigned int pit_wr_idx = ops.drv_dl_get_wridx();
+	unsigned int pit_wr_idx = ops.drv_dl_get_wridx(rxq->index);
 
 	atomic_set(&rxq->pit_wr_idx, pit_wr_idx);
 
-	return ringbuf_readable(rxq->pit_cnt,
+	return get_ringbuf_used_cnt(rxq->pit_cnt,
 			atomic_read(&rxq->pit_rd_idx), pit_wr_idx);
 }
 
@@ -427,6 +679,7 @@ static inline int dpmaif_rxq_set_data_to_skb(struct dpmaif_rx_queue *rxq,
 	struct sk_buff *skb;
 	struct dpmaif_bat_skb *cur_skb_info =
 		((struct dpmaif_bat_skb *)(dpmaif_ctl->bat_skb->bat_pkt_addr) + buffer_id);
+	unsigned int header_offset = 0;
 
 	skb = cur_skb_info->skb;
 
@@ -456,7 +709,12 @@ static inline int dpmaif_rxq_set_data_to_skb(struct dpmaif_rx_queue *rxq,
 		return DATA_CHECK_FAIL;
 	}
 
-	skb_put(skb, nml_pit_v2->data_len);
+	if (dpmaif_ctl->support_2rxq) {
+		header_offset = (((struct dpmaif_normal_pit_v3 *)nml_pit_v2)->header_offset << 2);
+		dpmaif_rxq_lro_join_skb(rxq, skb, buffer_id, header_offset);
+		skb_put(skb, nml_pit_v2->data_len + header_offset);
+	} else
+		skb_put(skb, nml_pit_v2->data_len);
 
 	skb->ip_summed = (rxq->check_sum == 0) ? CHECKSUM_UNNECESSARY : CHECKSUM_NONE;
 
@@ -625,8 +883,12 @@ static inline int dpmaif_rxq_handle_normal_pit(struct dpmaif_rx_queue *rxq,
 			return ret;
 	}
 
-	if (nml_pit_v2->c_bit == 0)  //is last one, push skb to rx push queue
-		dpmaif_rxq_add_skb_to_rx_push_thread(rxq);
+	if (nml_pit_v2->c_bit == 0) {  //is last one, push skb to rx push queue
+		if (dpmaif_ctl->support_lro)
+			dpmaif_rxq_lro_end(rxq);
+		else
+			dpmaif_rxq_add_skb_to_rx_push_thread(rxq);
+	}
 
 	return 0;
 }
@@ -641,7 +903,7 @@ static inline int dpmaifq_rxq_notify_hw_pit_cnt(struct dpmaif_rx_queue *rxq,
 
 	ccci_dpmaif_bat_wakeup_thread();
 
-	ret = ccci_drv_dl_add_pit_remain_cnt(pit_remain_cnt);
+	ret = rxq->rxq_drv_dl_add_pit_remain_cnt(pit_remain_cnt);
 	if (ret < 0) {
 		CCCI_ERROR_LOG(0, TAG,
 			"[%s] error(%d): update pit cnt fail\n",
@@ -713,7 +975,7 @@ static int dpmaif_rxq_start_read_from_pit(struct dpmaif_rx_queue *rxq,
 			}
 		}
 
-		pit_rd_idx = ringbuf_get_next_idx(rxq->pit_cnt, pit_rd_idx, 1);
+		pit_rd_idx = get_ringbuf_next_idx(rxq->pit_cnt, pit_rd_idx, 1);
 
 		pit_hw_update_cnt++;
 		if ((pit_hw_update_cnt & 0x7F) == 0) {
@@ -764,7 +1026,15 @@ static int dpmaif_rxq_data_collect(struct dpmaif_rx_queue *rxq)
 		real_cnt = dpmaif_rxq_start_read_from_pit(rxq, rd_cnt);
 		if (real_cnt >= 0) {
 			/* hw interrupt ack. */
-			L2RISAR0 = (ccci_drv_get_dl_isr_event() & DPMAIF_DL_INT_QDONE_MSK);
+			L2RISAR0 = ccci_drv_get_dl_isr_event();
+			if (dpmaif_ctl->support_2rxq) {
+				if (rxq->index == 0)
+					L2RISAR0 &= DP_DL_INT_LRO0_QDONE_SET;
+				else
+					L2RISAR0 &= DP_DL_INT_LRO1_QDONE_SET;
+			} else
+				L2RISAR0 &= DPMAIF_DL_INT_QDONE_MSK;
+
 			if (L2RISAR0) {
 				DPMA_WRITE_PD_MISC(DPMAIF_PD_AP_DL_L2TISAR0, L2RISAR0);
 				ret = ONCE_MORE;
@@ -804,7 +1074,7 @@ static void dpmaif_rxq_tasklet(unsigned long data)
 	if (ret == ALL_CLEAR) {
 		/* clear IP busy register wake up cpu case */
 		ccci_drv_clear_ip_busy();
-		ops.drv_unmask_dl_interrupt();
+		rxq->rxq_drv_unmask_dl_interrupt();
 
 	} else if (ret == ONCE_MORE) {
 		atomic_set(&rxq->rxq_processing, 0);
@@ -878,16 +1148,32 @@ static int dpmaif_rxq_push_thread(void *arg)
 	return 0;
 }
 
-static void dpmaif_disable_irq(void)
+static void dpmaif_disable_rxq_irq(struct dpmaif_rx_queue *rxq)
 {
-	if (atomic_cmpxchg(&dpmaif_ctl->irq_enabled, 1, 0) == 1)
-		disable_irq(dpmaif_ctl->irq_id);
+	if (atomic_cmpxchg(&rxq->irq_enabled, 1, 0) == 1)
+		disable_irq(rxq->irq_id);
 }
 
-static void dpmaif_enable_irq(void)
+static void dpmaif_disable_all_irq(void)
 {
-	if (atomic_cmpxchg(&dpmaif_ctl->irq_enabled, 0, 1) == 0)
-		enable_irq(dpmaif_ctl->irq_id);
+	int i;
+
+	for (i = 0; i < dpmaif_ctl->real_rxq_num; i++)
+		dpmaif_disable_rxq_irq(&dpmaif_ctl->rxq[i]);
+}
+
+static void dpmaif_enable_rxq_irq(struct dpmaif_rx_queue *rxq)
+{
+	if (atomic_cmpxchg(&rxq->irq_enabled, 0, 1) == 0)
+		enable_irq(rxq->irq_id);
+}
+
+static void dpmaif_enable_all_irq(void)
+{
+	int i;
+
+	for (i = 0; i < dpmaif_ctl->real_rxq_num; i++)
+		dpmaif_enable_rxq_irq(&dpmaif_ctl->rxq[i]);
 }
 
 static int dpmaif_rxq_init_buf(struct dpmaif_rx_queue *rxq)
@@ -911,9 +1197,49 @@ static int dpmaif_rxq_init_buf(struct dpmaif_rx_queue *rxq)
 	return ret;
 }
 
+static int dpmaif_rxq_irq_init(struct dpmaif_rx_queue *rxq)
+{
+	int ret;
+	char irq_name[100];
+
+	ret = snprintf(irq_name, 100, "DPMAIF_AP_RX%d", rxq->index);
+	if (ret < 0 || ret >= 100)
+		CCCI_NORMAL_LOG(0, TAG,
+			"[%s] warning: snprintf() ret = %d\n",
+			__func__, ret);
+
+	/* request IRQ */
+	ret = request_irq(rxq->irq_id, rxq->rxq_isr, rxq->irq_flags, irq_name, rxq);
+	if (ret) {
+		CCCI_ERROR_LOG(0, TAG,
+			"[%s] error: request_irq(%d) fail -> %d\n",
+			__func__, rxq->irq_id, ret);
+		return ret;
+	}
+
+	ret = irq_set_irq_wake(rxq->irq_id, 1);
+	if (ret)
+		CCCI_ERROR_LOG(0, TAG,
+			"[%s] error: irq_set_irq_wake(%d) fail -> %d\n",
+			__func__, rxq->irq_id, ret);
+
+	atomic_set(&rxq->irq_enabled, 1);
+
+	dpmaif_disable_rxq_irq(rxq);
+
+	return 0;
+}
+
 static int dpmaif_rxq_sw_init(struct dpmaif_rx_queue *rxq)
 {
 	int ret = -1;
+
+	ret = dpmaif_rxq_irq_init(rxq);
+	if (ret)
+		return ret;
+
+	if (dpmaif_ctl->support_lro)
+		dpmaif_rxq_lro_info_init(rxq);
 
 	ret = dpmaif_rxq_init_buf(rxq);
 	if (ret)
@@ -936,7 +1262,7 @@ static int dpmaif_rxqs_sw_init(void)
 	struct dpmaif_rx_queue *rxq;
 	int i, ret;
 
-	for (i = 0; i < DPMAIF_RXQ_NUM; i++) {
+	for (i = 0; i < dpmaif_ctl->real_rxq_num; i++) {
 		rxq = &dpmaif_ctl->rxq[i];
 		rxq->index = i;
 		rxq->skb_idx = -1;
@@ -1060,42 +1386,9 @@ static int dpmaif_wakeup_source_init(void)
 	return 0;
 }
 
-static int dpmaif_irq_init(void)
-{
-	int ret;
-
-	/* request IRQ */
-	ret = request_irq(dpmaif_ctl->irq_id, ops.drv_isr,
-			dpmaif_ctl->irq_flags, "DPMAIF_AP", dpmaif_ctl);
-	if (ret) {
-		CCCI_ERROR_LOG(0, TAG,
-			"[%s] error: request_irq(%d) fail -> %d\n",
-			__func__, dpmaif_ctl->irq_id, ret);
-		return ret;
-	}
-
-	if (g_dpmf_ver > 1) {  //version 2, 3
-		ret = irq_set_irq_wake(dpmaif_ctl->irq_id, 1);
-		if (ret)
-			CCCI_ERROR_LOG(0, TAG,
-				"[%s] error: irq_set_irq_wake(%d) fail -> %d\n",
-				__func__, dpmaif_ctl->irq_id, ret);
-	}
-
-	atomic_set(&dpmaif_ctl->irq_enabled, 1);
-
-	dpmaif_disable_irq();
-
-	return 0;
-}
-
 static int dpmaif_late_init(void)
 {
 	int ret;
-
-	ret = dpmaif_irq_init();
-	if (ret)
-		return ret;
 
 	ret = dpmaif_rxqs_sw_init();
 	if (ret)
@@ -1113,11 +1406,11 @@ static int dpmaif_late_init(void)
 	if (ret)
 		return ret;
 
-	if (DPMAIF_RXQ_NUM > 0) {
+	if (dpmaif_ctl->real_rxq_num > 0) {
 		mtk_ccci_spd_qos_set_task(
 			dpmaif_ctl->rxq[0].rxq_push_thread,
 			dpmaif_ctl->bat_alloc_thread,
-			dpmaif_ctl->irq_id);
+			dpmaif_ctl->rxq[0].irq_id);
 	}
 
 	return 0;
@@ -1129,13 +1422,15 @@ static int dpmaif_rxq_hw_init(struct dpmaif_rx_queue *rxq)
 		return 0;
 
 	if (g_dpmf_ver >= 3) {
-		ccci_drv3_dl_set_remain_minsz(DPMAIF_HW_BAT_REMAIN);
-		ccci_drv3_dl_set_bid_maxcnt(DPMAIF_HW_PKT_BIDCNT);
-		ccci_drv3_dl_set_pkt_align(true, DPMAIF_PKT_ALIGN64_MODE);
-		ccci_drv3_dl_set_mtu(DPMAIF_HW_MTU_SIZE);
-		ccci_drv3_dl_set_pit_chknum();
-		ccci_drv3_dl_set_chk_rbnum(DPMAIF_HW_CHK_RB_PIT_NUM);
-		ccci_drv3_dl_set_performance();
+		if (rxq->index == 0) {
+			ccci_drv3_dl_set_remain_minsz(DPMAIF_HW_BAT_REMAIN);
+			ccci_drv3_dl_set_bid_maxcnt(DPMAIF_HW_PKT_BIDCNT);
+			ccci_drv3_dl_set_pkt_align(true, DPMAIF_PKT_ALIGN64_MODE);
+			ccci_drv3_dl_set_mtu(DPMAIF_HW_MTU_SIZE);
+			ccci_drv3_dl_set_pit_chknum();
+			ccci_drv3_dl_set_chk_rbnum(DPMAIF_HW_CHK_RB_PIT_NUM);
+			ccci_drv3_dl_set_performance();
+		}
 
 	} else {  //version 1,2
 		ccci_drv2_dl_set_remain_minsz(DPMAIF_HW_BAT_REMAIN);
@@ -1153,10 +1448,16 @@ static int dpmaif_rxq_hw_init(struct dpmaif_rx_queue *rxq)
 			ccci_drv1_dl_set_pit_chknum();
 	}
 
-	ccci_drv_dl_set_pit_base_addr(rxq->pit_phy_addr);
-	ccci_drv_dl_set_pit_size(rxq->pit_cnt);
-	ccci_drv_dl_pit_en(true);
-	ccci_drv_dl_pit_init_done();
+	if (dpmaif_ctl->support_2rxq)
+		ccci_drv3_dl_config_lro_hw(rxq->pit_phy_addr,
+			rxq->pit_cnt, true, rxq->index);
+
+	else if (rxq->index == 0) {
+		ccci_drv_dl_set_pit_base_addr(rxq->pit_phy_addr);
+		ccci_drv_dl_set_pit_size(rxq->pit_cnt);
+		ccci_drv_dl_pit_en(true);
+		ccci_drv_dl_pit_init_done();
+	}
 
 	return 0;
 }
@@ -1166,7 +1467,7 @@ static int dpmaif_rxqs_start(void)
 	struct dpmaif_rx_queue *rxq;
 	int i;
 
-	for (i = 0; i < DPMAIF_RXQ_NUM; i++) {
+	for (i = 0; i < dpmaif_ctl->real_rxq_num; i++) {
 		rxq = &dpmaif_ctl->rxq[i];
 		rxq->started = true;
 		rxq->budget  = dpmaif_ctl->dl_bat_entry_size - 1;
@@ -1206,7 +1507,7 @@ static inline unsigned int dpmaif_get_txq_drb_release_cnt(struct dpmaif_tx_queue
 
 	atomic_set(&txq->drb_rd_idx, drb_rd_idx);
 
-	return ringbuf_releasable(txq->drb_cnt,
+	return get_ringbuf_release_cnt(txq->drb_cnt,
 			atomic_read(&txq->drb_rel_rd_idx), drb_rd_idx);
 }
 
@@ -1273,7 +1574,7 @@ static inline unsigned int dpmaif_txq_release_buffer(struct dpmaif_tx_queue *txq
 #endif
 		}
 
-		cur_idx = ringbuf_get_next_idx(txq->drb_cnt, cur_idx, 1);
+		cur_idx = get_ringbuf_next_idx(txq->drb_cnt, cur_idx, 1);
 		atomic_set(&txq->drb_rel_rd_idx, cur_idx);
 		atomic_inc(&txq->txq_budget);
 
@@ -1316,8 +1617,7 @@ void ccci_dpmaif_txq_release_skb(struct dpmaif_tx_queue *txq, unsigned int relea
 			}
 		}
 
-		cur_idx = ringbuf_get_next_idx(txq->drb_cnt, cur_idx, 1);
-
+		cur_idx = get_ringbuf_next_idx(txq->drb_cnt, cur_idx, 1);
 	}
 }
 
@@ -1560,7 +1860,7 @@ static inline int dpmaif_txq_full_check(struct dpmaif_tx_queue *txq,
 		return -CCCI_ERR_HIF_NOT_POWER_ON;
 
 	/* 2. buffer check */
-	remain_cnt = ringbuf_writeable(txq->drb_cnt,
+	remain_cnt = get_ringbuf_free_cnt(txq->drb_cnt,
 			atomic_read(&txq->drb_rel_rd_idx), atomic_read(&txq->drb_wr_idx));
 
 	if (remain_cnt < send_cnt) {
@@ -1623,7 +1923,7 @@ static inline int dpmaif_txq_set_skb_data_to_drb(struct dpmaif_tx_queue *txq,
 	drb_skb->is_last_one = 0;
 
 	/* get next index. */
-	cur_idx = ringbuf_get_next_idx(txq->drb_cnt, cur_idx, 1);
+	cur_idx = get_ringbuf_next_idx(txq->drb_cnt, cur_idx, 1);
 
 	payload_cnt = send_cnt - 1;
 	shinfo = skb_shinfo(skb);
@@ -1682,7 +1982,7 @@ static inline int dpmaif_txq_set_skb_data_to_drb(struct dpmaif_tx_queue *txq,
 			ccci_dpmaif_debug_add(&hdr, sizeof(hdr));
 		}
 
-		cur_idx = ringbuf_get_next_idx(txq->drb_cnt, cur_idx, 1);
+		cur_idx = get_ringbuf_next_idx(txq->drb_cnt, cur_idx, 1);
 
 		total_size += data_len;
 	}
@@ -1767,7 +2067,7 @@ __EXIT_FUN:
 static void dpmaif_clear_traffic_data(void)
 {
 	memset(dpmaif_ctl->tx_tfc_pkgs, 0, sizeof(dpmaif_ctl->tx_tfc_pkgs));
-	memset(dpmaif_ctl->rx_tfc_pkgs, 0, sizeof(dpmaif_ctl->rx_tfc_pkgs));
+	memset(dpmaif_ctl->rx_tfc_pkgs, 0, sizeof(unsigned int) * dpmaif_ctl->real_rxq_num);
 	memset(dpmaif_ctl->tx_pre_tfc_pkgs, 0, sizeof(dpmaif_ctl->tx_pre_tfc_pkgs));
 	memset(dpmaif_ctl->tx_done_last_start_time, 0, sizeof(dpmaif_ctl->tx_done_last_start_time));
 }
@@ -1775,7 +2075,7 @@ static void dpmaif_clear_traffic_data(void)
 
 static int dpmaif_start(unsigned char hif_id)
 {
-	int ret = 0;
+	int ret = 0, i;
 	struct cpumask imask;
 
 	if (dpmaif_ctl->dpmaif_state == DPMAIF_STATE_PWRON)
@@ -1792,6 +2092,9 @@ static int dpmaif_start(unsigned char hif_id)
 	if (ret)
 		return -1;
 
+	if (dpmaif_ctl->support_2rxq)
+		ccci_drv3_dl_lro_hpc_hw_init();
+
 	if (dpmaif_rxqs_start())
 		return -1;
 
@@ -1806,14 +2109,16 @@ static int dpmaif_start(unsigned char hif_id)
 		ccci_drv_clear_ip_busy();
 	}
 
-	dpmaif_enable_irq();
+	dpmaif_enable_all_irq();
 
 	dpmaif_ctl->dpmaif_state = DPMAIF_STATE_PWRON;
 	atomic_set(&g_tx_busy_assert_on, 0);
 
-	cpumask_clear(&imask);
-	cpumask_set_cpu(1, &imask);
-	irq_set_affinity_hint(dpmaif_ctl->irq_id, &imask);
+	for (i = 0; i < dpmaif_ctl->real_rxq_num; i++) {
+		cpumask_clear(&imask);
+		cpumask_set_cpu(1 + i, &imask);
+		irq_set_affinity_hint(dpmaif_ctl->rxq[i].irq_id, &imask);
+	}
 
 #if DPMAIF_TRAFFIC_MONITOR_INTERVAL
 	dpmaif_clear_traffic_data();
@@ -1877,7 +2182,7 @@ static int dpmaif_rxqs_hw_stop(void)
 	int i, count, ret;
 
 	/* ===Disable DL/RX SW active=== */
-	for (i = 0; i < DPMAIF_RXQ_NUM; i++) {
+	for (i = 0; i < dpmaif_ctl->real_rxq_num; i++) {
 		rxq = &dpmaif_ctl->rxq[i];
 
 		rxq->started = false;
@@ -1967,7 +2272,7 @@ static void dpmaif_txqs_sw_stop(void)
 		}
 
 		if (atomic_read(&txq->drb_wr_idx) != atomic_read(&txq->drb_rel_rd_idx)) {
-			rel_cnt = ringbuf_releasable(txq->drb_cnt,
+			rel_cnt = get_ringbuf_release_cnt(txq->drb_cnt,
 						atomic_read(&txq->drb_rel_rd_idx),
 						atomic_read(&txq->drb_wr_idx));
 			ccci_dpmaif_txq_release_skb(txq, rel_cnt);
@@ -1986,14 +2291,27 @@ static void dpmaif_txqs_sw_stop(void)
 	}
 }
 
+static void dpmaif_rxq_stop_lro(struct dpmaif_rx_queue *rxq)
+{
+	int i;
+
+	for (i = 0; i < rxq->lro_info.count; i++)
+		dev_kfree_skb_any(rxq->lro_info.data[i].skb);
+
+	rxq->lro_info.count = 0;
+}
+
 static void dpmaif_rxqs_sw_stop(void)
 {
 	struct dpmaif_rx_queue *rxq;
 	int i;
 
 	/* rx clear */
-	for (i = 0; i < DPMAIF_RXQ_NUM; i++) {
+	for (i = 0; i < dpmaif_ctl->real_rxq_num; i++) {
 		rxq = &dpmaif_ctl->rxq[i];
+
+		if (dpmaif_ctl->support_lro)
+			dpmaif_rxq_stop_lro(rxq);
 
 		if (!rxq->pit_base)
 			continue;
@@ -2032,7 +2350,7 @@ static int dpmaif_stop(unsigned char hif_id)
 	del_timer(&dpmaif_ctl->traffic_monitor);
 #endif
 
-	dpmaif_disable_irq();
+	dpmaif_disable_all_irq();
 
 	if (dpmaif_txqs_hw_stop())
 		goto occur_err;
@@ -2125,8 +2443,10 @@ static void dpmaif_total_spd_cb(u64 total_ul_speed, u64 total_dl_speed)
 #endif
 }
 
-static void dpmaif_init_cap(struct device *dev)
+static int dpmaif_init_cap(struct device *dev)
 {
+	u32 len = 0;
+
 	if (of_property_read_u32(dev->of_node,
 			"mediatek,dpmaif_cap", &dpmaif_ctl->capability)) {
 		dpmaif_ctl->capability = 0;
@@ -2136,6 +2456,14 @@ static void dpmaif_init_cap(struct device *dev)
 	}
 
 	dpmaif_ctl->support_lro = dpmaif_ctl->capability & DPMAIF_CAP_LRO;
+	dpmaif_ctl->support_2rxq = (dpmaif_ctl->capability & DPMAIF_CAP_2RXQ);
+	if (dpmaif_ctl->support_2rxq || dpmaif_ctl->support_lro) {
+		dpmaif_ctl->real_rxq_num = DPMAIF_RXQ_NUM;
+		dpmaif_ctl->support_lro = 1;
+		dpmaif_ctl->support_2rxq = 1;
+		ccmni_set_tcp_is_need_gro(0);
+	} else
+		dpmaif_ctl->real_rxq_num = 1;
 
 	if (of_property_read_u32(dev->of_node,
 			"dl_bat_entry_size", &dpmaif_ctl->dl_bat_entry_size))
@@ -2145,7 +2473,23 @@ static void dpmaif_init_cap(struct device *dev)
 		"[%s] dpmaif capability: 0x%x; dl_bat_entry_size: %u\n",
 		__func__, dpmaif_ctl->capability, dpmaif_ctl->dl_bat_entry_size);
 
+	len = sizeof(struct dpmaif_rx_queue) * dpmaif_ctl->real_rxq_num;
+	dpmaif_ctl->rxq = kzalloc(len, GFP_KERNEL);
+	if (!dpmaif_ctl->rxq) {
+		CCCI_ERROR_LOG(0, TAG, "[%s] error: kzalloc() rxq fail\n", __func__);
+		return -1;
+	}
+
+	dpmaif_ctl->rx_tfc_pkgs = kzalloc(sizeof(unsigned int) * dpmaif_ctl->real_rxq_num,
+			GFP_KERNEL);
+	if (!dpmaif_ctl->rx_tfc_pkgs) {
+		CCCI_ERROR_LOG(0, TAG, "[%s] error: kzalloc() rx_tfc_pkgs fail\n", __func__);
+		return -1;
+	}
+
 	mtk_ccci_register_speed_1s_callback(dpmaif_total_spd_cb);
+
+	return 0;
 }
 
 static int dpmaif_stop_queue(unsigned char hif_id, unsigned char qno,
@@ -2162,7 +2506,13 @@ static int dpmaif_start_queue(unsigned char hif_id, unsigned char qno,
 
 static int dpmaif_give_more(unsigned char hif_id, unsigned char qno)
 {
-	tasklet_hi_schedule(&dpmaif_ctl->rxq[0].rxq_task);
+	struct dpmaif_rx_queue *rxq;
+	int i;
+
+	for (i = 0; i < dpmaif_ctl->real_rxq_num; i++) {
+		rxq = &dpmaif_ctl->rxq[i];
+		tasklet_hi_schedule(&rxq->rxq_task);
+	}
 
 	return 0;
 }
@@ -2189,7 +2539,7 @@ static void dpmaif_dump_rx_data(void)
 	int i;
 	struct dpmaif_rx_queue *rxq = NULL;
 
-	for (i = 0; i < DPMAIF_RXQ_NUM; i++) {
+	for (i = 0; i < dpmaif_ctl->real_rxq_num; i++) {
 		rxq = &dpmaif_ctl->rxq[i];
 
 		CCCI_BUF_LOG_TAG(0, CCCI_DUMP_DPMAIF, TAG,
@@ -2199,6 +2549,8 @@ static void dpmaif_dump_rx_data(void)
 
 		ccci_util_mem_dump(CCCI_DUMP_DPMAIF, rxq->pit_base,
 			rxq->pit_cnt * drv.normal_pit_size);
+
+		break;
 	}
 
 	CCCI_BUF_LOG_TAG(0, CCCI_DUMP_DPMAIF, TAG,
@@ -2216,6 +2568,10 @@ static void dpmaif_dump_rx_data(void)
 static int dpmaif_dump_status(unsigned char hif_id,
 		enum MODEM_DUMP_FLAG flag, void *buff, int length)
 {
+#if IS_ENABLED(CONFIG_MTK_IRQ_DBG)
+	int i;
+#endif
+
 	CCCI_MEM_LOG_TAG(0, TAG, "[%s]: flag = 0x%X; length = %d\n", __func__, flag, length);
 
 	if (flag & DUMP_FLAG_TOGGLE_NET_SPD)
@@ -2230,8 +2586,10 @@ static int dpmaif_dump_status(unsigned char hif_id,
 	}
 
 #if IS_ENABLED(CONFIG_MTK_IRQ_DBG)
-	CCCI_NORMAL_LOG(0, TAG, "Dump AP DPMAIF IRQ status:\n");
-	mt_irq_dump_status(dpmaif_ctl->irq_id);
+	for (i = 0; i < dpmaif_ctl->real_rxq_num; i++) {
+		CCCI_NORMAL_LOG(0, TAG, "Dump AP DPMAIF IRQ%d status:\n", i);
+		mt_irq_dump_status(dpmaif_ctl->rxq[i].irq_id);
+	}
 #endif
 
 	return 0;
@@ -2372,7 +2730,7 @@ static void dpmaif_traffic_monitor_func(struct timer_list *t)
 			dpmaif_ctl->tx_done_last_start_time[3]);
 	}
 
-	for (i = 0; i < DPMAIF_RXQ_NUM; i++) {
+	for (i = 0; i < dpmaif_ctl->real_rxq_num; i++) {
 		CCCI_NORMAL_LOG(0, TAG,
 			"dpmaif-rxq%d: received:%u; q_state=%u; budget:%u; w/r=(%u,%u)\n",
 			i, dpmaif_ctl->rx_tfc_pkgs[i],
@@ -2386,6 +2744,31 @@ static void dpmaif_traffic_monitor_func(struct timer_list *t)
 			jiffies + DPMAIF_TRAFFIC_MONITOR_INTERVAL * HZ);
 }
 #endif
+
+static int dpmaif_init_rx_irq_and_tasklet(struct device *dev)
+{
+	int i;
+	struct dpmaif_rx_queue *rxq;
+
+	for (i = 0; i < dpmaif_ctl->real_rxq_num; i++) {
+		rxq = &dpmaif_ctl->rxq[i];
+
+		rxq->rxq_tasklet = dpmaif_rxq_tasklet;
+		rxq->irq_id = irq_of_parse_and_map(dev->of_node, i);
+		if (rxq->irq_id == 0) {
+			CCCI_ERROR_LOG(0, TAG,
+				"[%s] error: get dpmaif rx[%d] irq fail.\n",
+				__func__, i);
+			return -1;
+		}
+
+		rxq->irq_flags = IRQF_TRIGGER_NONE;
+		CCCI_NORMAL_LOG(0, TAG, "[%s] rx[%d]->irq_id: %u\n",
+			__func__, i, rxq->irq_id);
+	}
+
+	return 0;
+}
 
 static u64 g_dpmaif_dmamask = DMA_BIT_MASK(40);
 
@@ -2415,19 +2798,18 @@ static int dpmaif_init_com(struct device *dev)
 	if (dpmaif_init_register(dev))
 		goto DPMAIF_INIT_FAIL;
 
-	dpmaif_ctl->irq_id = irq_of_parse_and_map(dev->of_node, 0);
-	if (dpmaif_ctl->irq_id == 0) {
-		CCCI_ERROR_LOG(0, TAG, "error: irq_id error:%u\n", dpmaif_ctl->irq_id);
-		goto DPMAIF_INIT_FAIL;
-	}
-	dpmaif_ctl->irq_flags = IRQF_TRIGGER_NONE;
-
 	arch_atomic_set(&dpmaif_ctl->wakeup_src, 0);
 
-	if (ccci_dl_pool_init(DPMAIF_RXQ_NUM))
+	ret = dpmaif_init_cap(dev);
+	if (ret < 0)
 		goto DPMAIF_INIT_FAIL;
 
-	dpmaif_init_cap(dev);
+	ret = dpmaif_init_rx_irq_and_tasklet(dev);
+	if (ret < 0)
+		goto DPMAIF_INIT_FAIL;
+
+	if (ccci_dl_pool_init(dpmaif_ctl->real_rxq_num))
+		goto DPMAIF_INIT_FAIL;
 
 	ret = ccci_dpmaif_bat_init(dev);
 	if (ret)

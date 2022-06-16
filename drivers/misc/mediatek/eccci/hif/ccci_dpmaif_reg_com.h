@@ -16,23 +16,25 @@
  *
  ***********************************************************************/
 /***********************************************************************
- *void __iomem *dpmaif_ao_ul_base;        0x10014000
- *void __iomem *dpmaif_ao_dl_base;        0x10014400
- *void __iomem *dpmaif_ao_md_dl_base;     0x10014800
+*void __iomem *dpmaif_ao_ul_base;        0x10014000
+*void __iomem *dpmaif_ao_dl_base;        0x10014400
+*void __iomem *dpmaif_ao_md_dl_base;     0x10014800
 
- *void __iomem *dpmaif_pd_md_misc_base;   0x1022C000
+*void __iomem *dpmaif_pd_md_misc_base;   0x1022C000
 
- *void __iomem *dpmaif_pd_ul_base;        0x1022D000
- *void __iomem *dpmaif_pd_dl_base;        0x1022D100
- *void __iomem *dpmaif_pd_rdma_base;      0x1022D200
- *void __iomem *dpmaif_pd_wdma_base;      0x1022D300
- *void __iomem *dpmaif_pd_misc_base;      0x1022D400
- *void __iomem *dpmaif_ao_dl_sram_base;   0x1022DC00
- *void __iomem *dpmaif_ao_ul_sram_base;   0x1022DD00
- *void __iomem *dpmaif_ao_msic_sram_base; 0x1022DE00
+*void __iomem *dpmaif_pd_ul_base;        0x1022D000
+*void __iomem *dpmaif_pd_dl_base;        0x1022D100
+*void __iomem *dpmaif_pd_rdma_base;      0x1022D200
+*void __iomem *dpmaif_pd_wdma_base;      0x1022D300
+*void __iomem *dpmaif_pd_misc_base;      0x1022D400
+*void __iomem *dpmaif_pd_mmw_hpc_base;   0x1022D600
+*void __iomem *dpmaif_pd_dl_lro_base;    0x1022D900
+*void __iomem *dpmaif_ao_dl_sram_base;   0x1022DC00
+*void __iomem *dpmaif_ao_ul_sram_base;   0x1022DD00
+*void __iomem *dpmaif_ao_msic_sram_base; 0x1022DE00
 
- *void __iomem *dpmaif_pd_sram_base;      0x1022E000
- ***********************************************************************/
+*void __iomem *dpmaif_pd_sram_base;      0x1022E000
+***********************************************************************/
 
 #define BASE_DPMAIF_UL                0
 #define BASE_DPMAIF_DL                0
@@ -122,7 +124,6 @@ do { \
 
 #define DPMA_READ_AO_UL_SRAM(a) \
 	dpmaif_read32(dpmaif_ctl->ao_ul_sram_base, (a))
-
 #define DPMA_WRITE_AO_UL_SRAM(a, v) \
 	dpmaif_write32(dpmaif_ctl->ao_ul_sram_base, (a), v)
 
@@ -135,6 +136,19 @@ do { \
 	dpmaif_read32(dpmaif_ctl->pd_md_misc_base, (a))
 #define DPMA_WRITE_PD_MD_MISC(a, v) \
 	dpmaif_write32(dpmaif_ctl->pd_md_misc_base, (a), v)
+
+
+#define DPMA_READ_PD_DL_LRO(a) \
+	dpmaif_read32(dpmaif_ctl->pd_dl_lro_base, (a))
+#define DPMA_WRITE_PD_DL_LRO(a, v) \
+	dpmaif_write32(dpmaif_ctl->pd_dl_lro_base, (a), v)
+
+#define DPMA_READ_PD_MMW_HPC(a) \
+	dpmaif_read32(dpmaif_ctl->pd_mmw_hpc_base, (a))
+#define DPMA_WRITE_PD_MMW_HPC(a, v) \
+	dpmaif_write32(dpmaif_ctl->pd_mmw_hpc_base, (a), v)
+
+
 
 /* INFRA */
 #define INFRA_RST0_REG_PD      (0x0150)/* reset dpmaif reg */
@@ -648,7 +662,8 @@ do { \
 #define DPMAIF_ULQ_ADD_DESC_CH_n(q_num)     \
 	((NRL2_DPMAIF_UL_ADD_DESC_CH0) + (0x04 * (q_num)))
 
-
+#define DP_DL_INT_LRO0_QDONE_SET       (0x01 << 13)
+#define DP_DL_INT_LRO1_QDONE_SET       (0x01 << 14)
 
 
 #endif /* __CCCI_DPMAIF_REG_COM_H__ */
