@@ -1416,6 +1416,62 @@ static ssize_t perfserv_ta_store(struct kobject *kobj,
 
 static KOBJ_ATTR_RW(perfserv_ta);
 
+static ssize_t render_loading_show(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		char *buf)
+{
+	struct rb_node *n;
+	struct render_info *iter;
+	char temp[FPSGO_SYSFS_MAX_BUFF_SIZE];
+	int pos = 0, i;
+	int length;
+
+	fpsgo_render_tree_lock(__func__);
+
+	for (n = rb_first(&render_pid_tree); n != NULL; n = rb_next(n)) {
+		iter = rb_entry(n, struct render_info, render_key_node);
+
+		length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
+				"PID  TGID  BufferID\n");
+		pos += length;
+
+		length = scnprintf(temp + pos,
+				FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
+				"%d %4d 0x%llx\n", iter->pid, iter->tgid, iter->buffer_id);
+		pos += length;
+
+		length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
+				"AVG FREQ\n");
+		pos += length;
+
+		length = scnprintf(temp + pos,
+				FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
+				"%d\n", iter->avg_freq);
+		pos += length;
+
+		length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
+				"DEP LOADING\n");
+		pos += length;
+
+		for (i = 0; i < iter->dep_valid_size; i++) {
+			length = scnprintf(temp + pos,
+				FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
+				"%d(%d) ", iter->dep_arr[i].pid, iter->dep_arr[i].loading);
+			pos += length;
+		}
+
+		length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
+				"\n");
+		pos += length;
+	}
+
+	fpsgo_render_tree_unlock(__func__);
+
+	return scnprintf(buf, PAGE_SIZE, "%s", temp);
+}
+
+static KOBJ_ATTR_RO(render_loading);
+
 int init_fpsgo_common(void)
 {
 	render_pid_tree = RB_ROOT;
@@ -1431,6 +1487,7 @@ int init_fpsgo_common(void)
 		fpsgo_sysfs_create_file(base_kobj, &kobj_attr_render_info);
 		fpsgo_sysfs_create_file(base_kobj, &kobj_attr_BQid);
 		fpsgo_sysfs_create_file(base_kobj, &kobj_attr_perfserv_ta);
+		fpsgo_sysfs_create_file(base_kobj, &kobj_attr_render_loading);
 	}
 
 	fpsgo_update_tracemark();

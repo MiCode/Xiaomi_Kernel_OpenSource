@@ -256,6 +256,7 @@ static int boost_LR;
 static int aa_retarget;
 static int sbe_rescue_enable;
 static int loading_ignore_enable;
+static int loading_enable;
 
 module_param(bhr, int, 0644);
 module_param(bhr_opp, int, 0644);
@@ -326,6 +327,7 @@ module_param(gcc_positive_clamp, int, 0644);
 module_param(boost_LR, int, 0644);
 module_param(aa_retarget, int, 0644);
 module_param(loading_ignore_enable, int, 0644);
+module_param(loading_enable, int, 0644);
 
 static DEFINE_SPINLOCK(freq_slock);
 static DEFINE_MUTEX(fbt_mlock);
@@ -1523,7 +1525,7 @@ static void fbt_set_min_cap_locked(struct render_info *thr, int min_cap,
 				(int)cpu_dvfs[cluster].capacity_ratio[min(mbhr_opp, i)]);
 	}
 
-	if (loading_th || boost_affinity || boost_LR)
+	if (loading_th || boost_affinity || boost_LR || loading_enable)
 		fbt_query_dep_list_loading(thr);
 
 	if (boost_affinity || boost_LR)
@@ -4007,6 +4009,9 @@ static void fbt_frame_start(struct render_info *thr, unsigned long long ts)
 	loading = fbt_get_loading(thr, ts);
 	fpsgo_systrace_c_fbt_debug(thr->pid, thr->buffer_id,
 		loading, "compute_loading");
+
+	if (thr->Q2Q_time != 0)
+		thr->avg_freq = loading / nsec_to_100usec(thr->Q2Q_time);
 
 	/* unreliable targetfps */
 	if (targetfps == -1) {
