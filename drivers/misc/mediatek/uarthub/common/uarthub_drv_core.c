@@ -42,7 +42,7 @@ int g_uarthub_disable;
 #define UARTHUB_DEBUG_LOG 1
 #define UARTHUB_CONFIG_TRX_GPIO 0
 #define UARTHUB_CONFIG_GLUE_CTR 0
-#define SUPPORT_SSPM_DRIVER 0
+#define SUPPORT_SSPM_DRIVER 1
 #define UARTHUB_ERR_IRQ_ASSERT_ENABLE 0
 
 #if !(SUPPORT_SSPM_DRIVER)
@@ -53,6 +53,7 @@ int g_uarthub_disable;
 #endif
 
 struct uarthub_reg_base_addr reg_base_addr;
+struct uarthub_gpio_trx_info gpio_base_addr;
 void __iomem *cmm_base_remap_addr;
 void __iomem *dev0_base_remap_addr;
 void __iomem *dev1_base_remap_addr;
@@ -151,8 +152,8 @@ static int uarthub_core_init(void)
 	if (iRet)
 		goto ERROR;
 
-#if UARTHUB_CONFIG_TRX_GPIO
 	iRet = uarthub_core_config_gpio_from_dts(g_uarthub_pdev);
+#if UARTHUB_CONFIG_TRX_GPIO
 	if (iRet)
 		goto ERROR;
 #endif
@@ -212,11 +213,24 @@ static void uarthub_core_exit(void)
 
 	if (peri_cg_1_set_remap_addr)
 		iounmap(peri_cg_1_set_remap_addr);
+
+	if (gpio_base_addr.gpio_tx.vir_addr)
+		iounmap(gpio_base_addr.gpio_tx.vir_addr);
+
+	if (gpio_base_addr.gpio_rx.vir_addr)
+		iounmap(gpio_base_addr.gpio_rx.vir_addr);
 }
 
 static irqreturn_t uarthub_irq_isr(int irq, void *arg)
 {
 	int err_type = -1;
+
+	if (uarthub_core_is_bypass_mode() == 1) {
+		pr_info("[%s] ignore irq error in bypass mode\n", __func__);
+		uarthub_core_irq_mask_ctrl(1);
+		uarthub_core_irq_clear_ctrl();
+		return IRQ_HANDLED;
+	}
 
 	uarthub_core_irq_mask_ctrl(1);
 	err_type = uarthub_core_check_irq_err_type();
@@ -327,6 +341,9 @@ int uarthub_core_check_irq_err_type(void)
 			break;
 		}
 	}
+
+	if (err_type == -1)
+		pr_info("[%s] cannot find the irq error type\n", __func__);
 
 	return err_type;
 }
@@ -589,12 +606,8 @@ int uarthub_core_config_uart_glue_ctrl_from_dts(struct platform_device *pdev)
 
 int uarthub_core_config_gpio_from_dts(struct platform_device *pdev)
 {
-	unsigned int tx_addr = 0, tx_mask = 0, tx_value = 0;
-	unsigned int rx_addr = 0, rx_mask = 0, rx_value = 0;
 	unsigned int tmp_addr = 0, tmp_mask = 0, tmp_value = 0;
 	int i = 0, gpio_index = 0;
-	void __iomem *tx_remap_addr = NULL;
-	void __iomem *rx_remap_addr = NULL;
 	struct device_node *node = NULL;
 	int iRtn = 0;
 
@@ -636,46 +649,47 @@ int uarthub_core_config_gpio_from_dts(struct platform_device *pdev)
 			}
 
 			if (i == 0) {
-				tx_addr = tmp_addr;
-				tx_mask = tmp_mask;
-				tx_value = tmp_value;
+				gpio_base_addr.gpio_tx.phy_addr = tmp_addr;
+				gpio_base_addr.gpio_tx.mask = tmp_mask;
+				gpio_base_addr.gpio_tx.value = tmp_value;
 			} else {
-				rx_addr = tmp_addr;
-				rx_mask = tmp_mask;
-				rx_value = tmp_value;
+				gpio_base_addr.gpio_rx.phy_addr = tmp_addr;
+				gpio_base_addr.gpio_rx.mask = tmp_mask;
+				gpio_base_addr.gpio_rx.value = tmp_value;
 			}
 
 			pr_info("[%s] get gpio uarthub uart %s info(addr:0x%x,mask:0x%x,value:0x%x)\n",
-				__func__, ((i == 0) ? "tx" : "rx"), ((i == 0) ? tx_addr : rx_addr),
-				((i == 0) ? tx_mask : rx_mask), ((i == 0) ? tx_value : rx_value));
+				__func__, ((i == 0) ? "tx" : "rx"),
+				tmp_addr, tmp_mask, tmp_value);
 		}
 	} else {
 		pr_notice("[%s] can't find UARTHUB compatible node\n", __func__);
 		return -1;
 	}
 
-	tx_remap_addr = ioremap(tx_addr, 0x10);
-	if (!tx_remap_addr) {
-		pr_notice("[%s] tx_remap_addr(%x) ioremap fail\n", __func__, tx_addr);
-		return -1;
+	if (gpio_base_addr.gpio_tx.phy_addr != 0)
+		gpio_base_addr.gpio_tx.vir_addr = ioremap(gpio_base_addr.gpio_tx.phy_addr, 0x10);
+	if (gpio_base_addr.gpio_tx.vir_addr == 0) {
+		pr_notice("[%s] gpio_base_addr.gpio_tx.vir_addr(0x%x) ioremap fail\n",
+			__func__, gpio_base_addr.gpio_tx.phy_addr);
 	}
 
-	rx_remap_addr = ioremap(rx_addr, 0x10);
-	if (!rx_remap_addr) {
-		pr_notice("[%s] rx_remap_addr(%x) ioremap fail\n", __func__, tx_addr);
-		if (tx_remap_addr)
-			iounmap(tx_remap_addr);
-		return -1;
+	if (gpio_base_addr.gpio_rx.phy_addr != 0)
+		gpio_base_addr.gpio_rx.vir_addr = ioremap(gpio_base_addr.gpio_rx.phy_addr, 0x10);
+	if (gpio_base_addr.gpio_rx.vir_addr == 0) {
+		pr_notice("[%s] gpio_base_addr.gpio_rx.vir_addr(0x%x) ioremap fail\n",
+			__func__, gpio_base_addr.gpio_rx.phy_addr);
 	}
 
-	UARTHUB_REG_WRITE_MASK(tx_remap_addr, tx_value, tx_mask);
-	UARTHUB_REG_WRITE_MASK(rx_remap_addr, rx_value, rx_mask);
+	if (gpio_base_addr.gpio_tx.vir_addr == 0 || gpio_base_addr.gpio_rx.vir_addr == 0)
+		return -1;
 
-	if (tx_remap_addr)
-		iounmap(tx_remap_addr);
-
-	if (rx_remap_addr)
-		iounmap(rx_remap_addr);
+#if UARTHUB_CONFIG_TRX_GPIO
+	UARTHUB_REG_WRITE_MASK(gpio_base_addr.gpio_tx.vir_addr,
+		gpio_base_addr.gpio_tx.value, gpio_base_addr.gpio_tx.mask);
+	UARTHUB_REG_WRITE_MASK(gpio_base_addr.gpio_rx.vir_addr,
+		gpio_base_addr.gpio_rx.value, gpio_base_addr.gpio_rx.mask);
+#endif
 
 	return 0;
 }
@@ -779,7 +793,7 @@ int uarthub_core_open(void)
 
 	g_uarthub_open = 1;
 
-	//uarthub_core_bypass_mode_ctrl(1);
+	uarthub_core_bypass_mode_ctrl(1)
 	uarthub_core_crc_ctrl(1);
 #if UARTHUB_DEBUG_LOG
 	uarthub_core_debug_info_with_tag("uarthub_core_open");
@@ -1065,10 +1079,15 @@ int uarthub_core_bypass_mode_ctrl(int enable)
 	pr_info("[%s] enable=[%d]\n", __func__, enable);
 #endif
 
-	if (enable == 1)
+	if (enable == 1) {
+		uarthub_core_irq_mask_ctrl(1);
+		uarthub_core_irq_clear_ctrl();
 		UARTHUB_SET_BIT(UARTHUB_INTFHUB_CON2(intfhub_base_remap_addr), (0x1 << 2));
-	else
+	} else {
 		UARTHUB_CLR_BIT(UARTHUB_INTFHUB_CON2(intfhub_base_remap_addr), (0x1 << 2));
+		uarthub_core_irq_clear_ctrl();
+		uarthub_core_irq_mask_ctrl(0);
+	}
 
 	return 0;
 }
@@ -1111,10 +1130,6 @@ int uarthub_core_md_adsp_fifo_ctrl(int enable)
 				dev2_base_remap_addr)) & (~(0x1))) | (0x1)));
 		}
 	}
-
-#if UARTHUB_DEBUG_LOG
-	uarthub_core_debug_info_with_tag("uarthub_core_md_adsp_fifo_ctrl");
-#endif
 
 	return 0;
 }
@@ -1697,6 +1712,24 @@ int uarthub_core_debug_info_with_tag(const char *tag)
 			__func__, ((tag == NULL) ? "null" : tag));
 		return -2;
 	}
+
+	pr_info("[%s][%s] GPIO TX=[vir_addr:%p, phy_addr:0x%x, mask:0x%x, exp_value:0x%x, read_value:0x%x]\n",
+		__func__, ((tag == NULL) ? "null" : tag),
+		gpio_base_addr.gpio_tx.vir_addr,
+		gpio_base_addr.gpio_tx.phy_addr,
+		gpio_base_addr.gpio_tx.mask,
+		gpio_base_addr.gpio_tx.value,
+		((gpio_base_addr.gpio_tx.vir_addr == NULL) ? 0 : UARTHUB_REG_READ(
+			gpio_base_addr.gpio_tx.vir_addr)));
+
+	pr_info("[%s][%s] GPIO RX=[vir_addr:%p, phy_addr:0x%x, mask:0x%x, exp_value:0x%x, read_value:0x%x]\n",
+		__func__, ((tag == NULL) ? "null" : tag),
+		gpio_base_addr.gpio_rx.vir_addr,
+		gpio_base_addr.gpio_rx.phy_addr,
+		gpio_base_addr.gpio_rx.mask,
+		gpio_base_addr.gpio_rx.value,
+		((gpio_base_addr.gpio_rx.vir_addr == NULL) ? 0 : UARTHUB_REG_READ(
+			gpio_base_addr.gpio_rx.vir_addr)));
 
 	pr_info("[%s][%s] FEATURE_SEL=[d0:0x%x, d1:0x%x, d2:0x%x, cmm:0x%x]\n",
 		__func__, ((tag == NULL) ? "null" : tag),

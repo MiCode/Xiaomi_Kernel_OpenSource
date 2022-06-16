@@ -25,6 +25,18 @@ struct assert_ctrl {
 	struct work_struct trigger_assert_work;
 };
 
+struct uarthub_gpio_base_addr {
+	void __iomem *vir_addr;
+	unsigned int phy_addr;
+	unsigned int mask;
+	unsigned int value;
+};
+
+struct uarthub_gpio_trx_info {
+	struct uarthub_gpio_base_addr gpio_tx;
+	struct uarthub_gpio_base_addr gpio_rx;
+};
+
 static char * const UARTHUB_irq_err_type_str[] = {
 	"dev0_crc_err",
 	"dev1_crc_err",
