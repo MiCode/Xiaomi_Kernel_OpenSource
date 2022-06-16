@@ -1393,7 +1393,8 @@ static int get_layer_weight(struct drm_device *dev, int disp_idx,
 		for (i = 0; i < MAX_FRAME_RATIO_NUMBER; i++) {
 			if ((fbt_layer_compress_ratio_tb[i].key_value == key_value) &&
 					(fbt_layer_compress_ratio_tb[i].valid == 1) &&
-					(fbt_layer_compress_ratio_tb[i].peak_ratio != 0)) {
+					(fbt_layer_compress_ratio_tb[i].peak_ratio != 0) &&
+					(fbt_layer_compress_ratio_tb[i].peak_ratio <= 1000)) {
 				weight *= fbt_layer_compress_ratio_tb[i].peak_ratio;
 				do_div(weight, 1000);
 				DDPDBG("BWM: fbt layer frame_idx:%u key:%lu\n",
@@ -1421,7 +1422,8 @@ static int get_layer_weight(struct drm_device *dev, int disp_idx,
 		for (i = 0; i < MAX_FRAME_RATIO_NUMBER * MAX_LAYER_RATIO_NUMBER; i++) {
 			if ((normal_layer_compress_ratio_tb[i].key_value == key_value) &&
 				(normal_layer_compress_ratio_tb[i].valid == 1) &&
-				(normal_layer_compress_ratio_tb[i].peak_ratio != 0)) {
+				(normal_layer_compress_ratio_tb[i].peak_ratio != 0) &&
+				(normal_layer_compress_ratio_tb[i].peak_ratio <= 1000)) {
 				weight *= normal_layer_compress_ratio_tb[i].peak_ratio;
 				do_div(weight, 1000);
 				DDPDBG("BWM:f_idx:%u alloc_id:%lu key:%lu ratio:%u weight:%d\n",
@@ -1471,7 +1473,7 @@ static bool _calc_gpu_cache_layerset_hrt_num(struct drm_device *dev,
 	bool has_gles = false;
 	struct drm_mtk_layer_config *layer_info;
 	int overlap_w_of_bwm = 0;
-	int overlap_w_ratio = 0;
+	int overlap_w_diff = 0;
 	int overlap_w_tmp = 0;
 	int overlap_w_tmp_of_bwm = 0;
 	int sum_overlap_w_gc = 0;
@@ -1681,14 +1683,14 @@ static bool _calc_gpu_cache_layerset_hrt_num(struct drm_device *dev,
 	    has_hrt_limit(disp_info, HRT_SECONDARY) || force_scan_y) {
 		sum_overlap_w =
 			scan_y_overlap(disp_info, disp, overlap_l_bound);
-		overlap_w_ratio = sum_overlap_w*1000/overlap_w_tmp;
+		overlap_w_diff = overlap_w_tmp - sum_overlap_w;
 		if ((disp == HRT_PRIMARY) && bw_monitor_is_on) {
-			sum_overlap_w_bwm = (overlap_w_tmp_of_bwm*overlap_w_ratio)/1000;
+			sum_overlap_w_bwm = overlap_w_tmp_of_bwm - overlap_w_diff;
 			DDPDBG("GPUC line:%d sum_overlap_w:%d sum_overlap_w_bwm:%d\n",
 				__LINE__, sum_overlap_w, sum_overlap_w_bwm);
 		}
 		if (((disp == HRT_PRIMARY) && gpu_cache_is_on)) {
-			sum_overlap_w_gc = (sum_overlap_w_gc*overlap_w_ratio)/1000;
+			sum_overlap_w_gc = sum_overlap_w_gc - overlap_w_diff;
 			DDPDBG("GPUC line:%d sum_overlap_w:%d sum_overlap_w_gc:%d\n",
 					__LINE__, sum_overlap_w, sum_overlap_w_gc);
 		}
@@ -1771,7 +1773,7 @@ static int _calc_hrt_num(struct drm_device *dev,
 	int layerset_head = -1;
 	int layerset_tail = -1;
 	int overlap_w_of_bwm = 0;
-	int overlap_w_ratio = 0;
+	int overlap_w_diff = 0;
 	int overlap_w_tmp = 0;
 	int overlap_w_tmp_of_bwm = 0;
 	int bw_monitor_is_on = 0;
@@ -1977,8 +1979,8 @@ static int _calc_hrt_num(struct drm_device *dev,
 		sum_overlap_w =
 			scan_y_overlap(disp_info, disp, overlap_l_bound);
 		if ((disp == HRT_PRIMARY) && bw_monitor_is_on) {
-			overlap_w_ratio = sum_overlap_w*1000/overlap_w_tmp;
-			sum_overlap_w_of_bwm = (overlap_w_tmp_of_bwm*overlap_w_ratio)/1000;
+			overlap_w_diff = overlap_w_tmp - sum_overlap_w;
+			sum_overlap_w_of_bwm = overlap_w_tmp_of_bwm - overlap_w_diff;
 			DDPDBG("BWM line:%d sum_overlap_w:%d sum_overlap_w_of_bwm:%d\n",
 				__LINE__, sum_overlap_w, sum_overlap_w_of_bwm);
 		}

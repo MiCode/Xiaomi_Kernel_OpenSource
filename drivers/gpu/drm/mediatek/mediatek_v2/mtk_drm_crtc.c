@@ -4384,7 +4384,7 @@ static void mtk_drm_ovl_bw_monitor_ratio_prework(struct drm_crtc *crtc,
 		int index = plane_index;
 		int is_active = 0;
 
-		DDPDBG("BWM: layer caps:%u\n", plane_state->comp_state.layer_caps);
+		DDPDBG("BWM: layer caps:0x%08x\n", plane_state->comp_state.layer_caps);
 		if ((plane_state->comp_state.layer_caps & MTK_HWC_UNCHANGED_LAYER) ||
 			(plane_state->comp_state.layer_caps & MTK_HWC_INACTIVE_LAYER) ||
 			(plane_state->comp_state.layer_caps & MTK_HWC_UNCHANGED_FBT_LAYER))
@@ -4463,6 +4463,7 @@ static void mtk_drm_ovl_bw_monitor_ratio_get(struct drm_crtc *crtc,
 	struct drm_plane *plane = NULL;
 	unsigned int plane_mask = 0;
 	struct mtk_crtc_state *state = mtk_crtc_state;
+	struct mtk_drm_private *priv = crtc->dev->dev_private;
 
 	plane_mask = old_crtc_state->plane_mask;
 
@@ -4475,7 +4476,7 @@ static void mtk_drm_ovl_bw_monitor_ratio_get(struct drm_crtc *crtc,
 			mtk_crtc_get_plane_comp(crtc, plane_state);
 		int lye_id = plane_state->comp_state.lye_id;
 		int ext_lye_id = plane_state->comp_state.ext_lye_id;
-		unsigned int src_w = plane_state->pending.width/2;
+		unsigned int src_w = plane_state->pending.width;
 		unsigned int src_h = plane_state->pending.height;
 		unsigned int bpp =
 			mtk_get_format_bpp(plane_state->pending.format);
@@ -4491,6 +4492,10 @@ static void mtk_drm_ovl_bw_monitor_ratio_get(struct drm_crtc *crtc,
 		unsigned int peak_inter_value = 0;
 		struct cmdq_operand lop;
 		struct cmdq_operand rop;
+
+		if (mtk_drm_helper_get_opt(priv->helper_opt,
+			    MTK_DRM_OPT_PRIM_DUAL_PIPE))
+			src_w = src_w/2;
 
 		/*
 		 * Layer SRT compress ratio =

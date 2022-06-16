@@ -1977,7 +1977,9 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 				for (i = 0; i < MAX_FRAME_RATIO_NUMBER; i++) {
 					if ((key == fbt_layer_compress_ratio_tb[i].key_value) &&
 						(fbt_layer_compress_ratio_tb[i].average_ratio
-						!= 0)) {
+						!= 0) &&
+						(fbt_layer_compress_ratio_tb[i].average_ratio
+						<= 1000)) {
 						avg_ratio =
 						fbt_layer_compress_ratio_tb[i].average_ratio;
 						temp_bw = temp_bw * avg_ratio;
@@ -1991,7 +1993,9 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 					i++) {
 					if ((key == normal_layer_compress_ratio_tb[i].key_value) &&
 						(normal_layer_compress_ratio_tb[i].average_ratio
-						!= 0)) {
+						!= 0) &&
+						(normal_layer_compress_ratio_tb[i].average_ratio
+						<= 1000)) {
 						avg_ratio =
 						normal_layer_compress_ratio_tb[i].average_ratio;
 						temp_bw = temp_bw * avg_ratio;
@@ -3898,6 +3902,7 @@ mtk_ovl_config_trigger(struct mtk_ddp_comp *comp, struct cmdq_pkt *pkt,
 
 static const struct mtk_ddp_comp_funcs mtk_disp_ovl_funcs = {
 	.config = mtk_ovl_config,
+	.first_cfg = mtk_ovl_config,
 	.start = mtk_ovl_start,
 	.stop = mtk_ovl_stop,
 #ifdef IF_ZERO
