@@ -384,25 +384,25 @@ TRACE_EVENT(sched_select_task_rq_rt,
 );
 
 TRACE_EVENT(sched_aware_energy_rt,
-	TP_PROTO(int target_cpu, unsigned long this_pwr_eff, unsigned long pwr_eff,
+	TP_PROTO(int target_cpu, unsigned long this_pwr, unsigned long pwr,
 			unsigned int task_util),
-	TP_ARGS(target_cpu, this_pwr_eff, pwr_eff, task_util),
+	TP_ARGS(target_cpu, this_pwr, pwr, task_util),
 	TP_STRUCT__entry(
 		__field(int, target_cpu)
-		__field(unsigned long, this_pwr_eff)
-		__field(unsigned long, pwr_eff)
+		__field(unsigned long, this_pwr)
+		__field(unsigned long, pwr)
 		__field(unsigned int, task_util)
 	),
 	TP_fast_assign(
 		__entry->target_cpu	= target_cpu;
-		__entry->this_pwr_eff	= this_pwr_eff;
-		__entry->pwr_eff		= pwr_eff;
+		__entry->this_pwr	= this_pwr;
+		__entry->pwr		= pwr;
 		__entry->task_util		= task_util;
 	),
-	TP_printk("target=%d this_pwr_eff=%lu pwr_eff=%lu util=%u ",
+	TP_printk("target=%d this_pwr=%lu pwr=%lu util=%u ",
 		__entry->target_cpu,
-		__entry->this_pwr_eff,
-		__entry->pwr_eff,
+		__entry->this_pwr,
+		__entry->pwr,
 		__entry->task_util)
 );
 

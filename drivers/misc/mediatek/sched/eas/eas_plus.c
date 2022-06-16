@@ -689,15 +689,15 @@ void mtk_select_task_rq_rt(void *data, struct task_struct *p, int source_cpu,
 	struct rq *rq;
 	int lowest_cpu = -1;
 	int lowest_prio = 0;
-	int cpu;
+	int cpu, opp;
 	int select_reason = -1;
 	bool sync = !!(flags & WF_SYNC);
 	struct root_domain *rd = cpu_rq(smp_processor_id())->rd;
 	struct perf_domain *pd;
 	unsigned int task_util;
 	int best_idle_cpu = -1;
-	unsigned long pwr_eff = ULONG_MAX;
-	unsigned long this_pwr_eff = ULONG_MAX;
+	unsigned long pwr = ULONG_MAX;
+	unsigned long this_pwr = ULONG_MAX;
 
 	*target_cpu = -1;
 	/* For anything but wake ups, just return the task_cpu */
@@ -728,13 +728,14 @@ void mtk_select_task_rq_rt(void *data, struct task_struct *p, int source_cpu,
 
 			if (idle_cpu(cpu)) {
 				task_util = mtk_task_cap(p, cpu);
-				task_util += (task_util >> 2);
-				this_pwr_eff = pd_get_util_pwr_eff(cpu, task_util);
+				opp = pd_get_util_opp(cpu, map_util_perf(task_util));
+				this_pwr = pd_get_opp_pwr_eff(cpu, opp) * task_util
+					+ mtk_get_leakage(cpu, opp, get_cpu_temp(cpu) / 1000);
 
-				trace_sched_aware_energy_rt(cpu, this_pwr_eff, pwr_eff, task_util);
+				trace_sched_aware_energy_rt(cpu, this_pwr, pwr, task_util);
 
-				if (this_pwr_eff < pwr_eff) {
-					pwr_eff = this_pwr_eff;
+				if (this_pwr < pwr) {
+					pwr = this_pwr;
 					best_idle_cpu = cpu;
 				}
 				break;
