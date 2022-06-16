@@ -61,7 +61,7 @@ static int dsp_task_attr_set(struct snd_kcontrol *kcontrol,
 	const char *name = NULL;
 
 	/* get task attribute id */
-	if (strstr(kcontrol->id.name, "ref_runtime"))
+	if (strstr(kcontrol->id.name, "_ref_runtime"))
 		attr_id = ADSP_TASK_ATTR_REF_RUNTIME;
 	else if (strstr(kcontrol->id.name, "runtime"))
 		attr_id = ADSP_TASK_ATTR_RUNTIME;
@@ -105,7 +105,7 @@ static int dsp_task_attr_get(struct snd_kcontrol *kcontrol,
 	const char *name = NULL;
 
 	/* get task attribute id */
-	if (strstr(kcontrol->id.name, "ref_runtime"))
+	if (strstr(kcontrol->id.name, "_ref_runtime"))
 		attr_id = ADSP_TASK_ATTR_REF_RUNTIME;
 	else if (strstr(kcontrol->id.name, "runtime"))
 		attr_id = ADSP_TASK_ATTR_RUNTIME;
@@ -286,6 +286,10 @@ static const struct snd_kcontrol_new dsp_platform_kcontrols[] = {
 		       dsp_task_attr_get, dsp_task_attr_set),
 	SOC_SINGLE_EXT("dsp_fm_default_en", SND_SOC_NOPM, 0, 0x1, 0,
 		       dsp_task_attr_get, dsp_task_attr_set),
+	SOC_SINGLE_EXT("dsp_ulproc_default_en", SND_SOC_NOPM, 0, 0x1, 0,
+		       dsp_task_attr_get, dsp_task_attr_set),
+	SOC_SINGLE_EXT("dsp_echoref_default_en", SND_SOC_NOPM, 0, 0x1, 0,
+		       dsp_task_attr_get, dsp_task_attr_set),
 	SOC_SINGLE_EXT("dsp_primary_runtime_en", SND_SOC_NOPM, 0, 0x1, 0,
 		       dsp_task_attr_get, dsp_task_attr_set),
 	SOC_SINGLE_EXT("dsp_deepbuf_runtime_en", SND_SOC_NOPM, 0, 0x1, 0,
@@ -321,6 +325,10 @@ static const struct snd_kcontrol_new dsp_platform_kcontrols[] = {
 	SOC_SINGLE_EXT("dsp_fm_runtime_en", SND_SOC_NOPM, 0, 0x1, 0,
 		       dsp_task_attr_get, dsp_task_attr_set),
 	SOC_SINGLE_EXT("dsp_call_final_runtime_en", SND_SOC_NOPM, 0, 0x1, 0,
+		       dsp_task_attr_get, dsp_task_attr_set),
+	SOC_SINGLE_EXT("dsp_ulproc_runtime_en", SND_SOC_NOPM, 0, 0x1, 0,
+		       dsp_task_attr_get, dsp_task_attr_set),
+	SOC_SINGLE_EXT("dsp_echoref_runtime_en", SND_SOC_NOPM, 0, 0x1, 0,
 		       dsp_task_attr_get, dsp_task_attr_set),
 	SOC_SINGLE_EXT("dsp_captureul1_ref_runtime_en", SND_SOC_NOPM, 0, 0x1, 0,
 		       dsp_task_attr_get, dsp_task_attr_set),

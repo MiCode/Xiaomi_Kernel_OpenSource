@@ -38,7 +38,7 @@ static struct adsp_feature_tb feature_table[ADSP_NUM_FEATURE_ID] = {
 	[SPK_PROTECT_FEATURE_ID]      = {.name = "spk_protect"},
 	[VOICE_CALL_FEATURE_ID]       = {.name = "voice_call"},
 	[VOIP_FEATURE_ID]             = {.name = "voip"},
-	[CAPTURE_UL1_FEATURE_ID]      = {.name = "capture_ul1"},
+	[CAPTURE_FEATURE_ID]          = {.name = "capture"},
 	[CALL_FINAL_FEATURE_ID]       = {.name = "call_final"},
 	[FAST_FEATURE_ID]             = {.name = "fast"},
 	[KTV_FEATURE_ID]              = {.name = "ktv"},

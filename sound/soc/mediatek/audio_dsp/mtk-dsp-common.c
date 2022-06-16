@@ -51,6 +51,8 @@ static char *dsp_task_name[AUDIO_TASK_DAI_NUM] = {
 	[AUDIO_TASK_FAST_ID]         = "fast",
 	[AUDIO_TASK_KTV_ID]          = "ktv",
 	[AUDIO_TASK_FM_ADSP_ID]      = "fm",
+	[AUDIO_TASK_UL_PROCESS_ID]   = "ulproc",
+	[AUDIO_TASK_ECHO_REF_ID]     = "echoref",
 };
 
 static int dsp_task_scence[AUDIO_TASK_DAI_NUM] = {
@@ -72,6 +74,8 @@ static int dsp_task_scence[AUDIO_TASK_DAI_NUM] = {
 	[AUDIO_TASK_FAST_ID]        = TASK_SCENE_FAST,
 	[AUDIO_TASK_KTV_ID]         = TASK_SCENE_KTV,
 	[AUDIO_TASK_FM_ADSP_ID]     = TASK_SCENE_FM_ADSP,
+	[AUDIO_TASK_UL_PROCESS_ID]  = TASK_SCENE_UL_PROCESS,
+	[AUDIO_TASK_ECHO_REF_ID]    = TASK_SCENE_ECHO_REF_UL,
 };
 
 int audio_set_dsp_afe(struct mtk_base_afe *afe)
@@ -232,7 +236,8 @@ int afe_get_pcmdir(int dir, struct audio_hw_buffer buf)
 	memif = buf.audio_memiftype;
 	for (i = 0; i < AUDIO_TASK_DAI_NUM; i++) {
 		if (get_afememref_by_afe_taskid(i) == memif &&
-		   buf.hw_buffer == BUFFER_TYPE_HW_MEM) {
+		   buf.hw_buffer == BUFFER_TYPE_HW_MEM &&
+		   get_task_attr(i, ADSP_TASK_ATTR_REF_RUNTIME) == 1) {
 			ret = AUDIO_DSP_TASK_PCM_HWPARAM_REF;
 			break;
 		}
