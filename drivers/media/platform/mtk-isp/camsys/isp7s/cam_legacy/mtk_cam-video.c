@@ -730,6 +730,7 @@ static void mtk_cam_vb2_buf_queue(struct vb2_buffer *vb)
 	struct mtkcam_ipi_meta_input *meta_in;
 	struct mtkcam_ipi_meta_output *meta_out;
 	struct mtk_raw_pipeline *raw_pipline;
+	int pdo_max_sz;
 
 	dma_port = node->desc.dma_port;
 	pipe_id = node->uid.pipe_id;
@@ -758,7 +759,6 @@ static void mtk_cam_vb2_buf_queue(struct vb2_buffer *vb)
 		break;
 	case MTKCAM_IPI_RAW_META_STATS_0:
 	case MTKCAM_IPI_RAW_META_STATS_1:
-		pde_cfg = &cam->raw.pipelines[node->uid.pipe_id].pde_config;
 		desc_id = node->desc.id-MTK_RAW_META_OUT_BEGIN;
 		meta_out = &frame_param->meta_outputs[desc_id];
 		meta_out->buf.ccd_fd = vb->planes[0].m.fd;
@@ -766,9 +766,13 @@ static void mtk_cam_vb2_buf_queue(struct vb2_buffer *vb)
 		meta_out->buf.iova = buf->daddr;
 		meta_out->uid.id = dma_port;
 		vaddr = vb2_plane_vaddr(vb, 0);
-		CALL_PLAT_V4L2(set_meta_stats_info, dma_port, vaddr,
-			(pde_cfg && pde_cfg->pde_info.pd_table_offset) ?
-				pde_cfg->pde_info.pdo_max_size : 0);
+		pdo_max_sz = 0;
+		if (raw_pipline) {
+			pde_cfg = &raw_pipline->pde_config;
+			if (pde_cfg->pde_info[CAM_SET_CTRL].pd_table_offset)
+				pdo_max_sz = pde_cfg->pde_info[CAM_SET_CTRL].pdo_max_size;
+		}
+		CALL_PLAT_V4L2(set_meta_stats_info, dma_port, vaddr, pdo_max_sz);
 		break;
 	default:
 		dev_dbg(dev, "%s:pipe(%d):buffer with invalid port(%d)\n",
@@ -2389,34 +2393,7 @@ int mtk_cam_vidioc_g_meta_fmt(struct file *file, void *fh,
 	struct mtk_cam_dev_node_desc *desc = &node->desc;
 	const struct v4l2_format *default_fmt =
 		&desc->fmts[desc->default_fmt_idx].vfmt;
-	struct mtk_raw_pde_config *pde_cfg;
-	struct mtk_cam_pde_info *pde_info;
 	u32 extmeta_size = 0;
-
-	if (node->desc.dma_port == MTKCAM_IPI_RAW_META_STATS_CFG) {
-		pde_cfg = &cam->raw.pipelines[node->uid.pipe_id].pde_config;
-		pde_info = &pde_cfg->pde_info;
-		if (pde_info->pd_table_offset) {
-			node->active_fmt.fmt.meta.buffersize =
-				default_fmt->fmt.meta.buffersize
-				+ pde_info->pdi_max_size;
-			dev_dbg(cam->dev, "PDE: node(%d), enlarge meta size()",
-				node->desc.dma_port,
-				node->active_fmt.fmt.meta.buffersize);
-		}
-	}
-	if (node->desc.dma_port == MTKCAM_IPI_RAW_META_STATS_0) {
-		pde_cfg = &cam->raw.pipelines[node->uid.pipe_id].pde_config;
-		pde_info = &pde_cfg->pde_info;
-		if (pde_info->pd_table_offset) {
-			node->active_fmt.fmt.meta.buffersize =
-				default_fmt->fmt.meta.buffersize
-				+ pde_info->pdo_max_size;
-			dev_dbg(cam->dev, "PDE: node(%d), enlarge meta size()",
-				node->desc.dma_port,
-				node->active_fmt.fmt.meta.buffersize);
-		}
-	}
 
 	switch (node->desc.id) {
 	case MTK_RAW_MAIN_STREAM_SV_1_OUT:
