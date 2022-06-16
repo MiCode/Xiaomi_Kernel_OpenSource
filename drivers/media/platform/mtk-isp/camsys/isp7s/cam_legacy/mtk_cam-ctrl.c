@@ -5007,6 +5007,27 @@ int mtk_camsv_special_hw_scenario_handler(struct mtk_cam_device *cam,
 			    seninf_padidx == PAD_SRC_RAW_EXT0)
 				mtk_camsys_frame_done(ctx, ctx->dequeued_frame_seq_no,
 					ctx->stream_id);
+			/* TBR - moved meta deque earlier to meta done */
+			if (mtk_cam_scen_is_ext_isp(&ctx->pipe->scen_active) &&
+				seninf_padidx == PAD_SRC_GENERAL0) {
+				struct mtk_cam_buffer *buf;
+				struct mtk_cam_request_stream_data *s_data;
+
+				s_data = mtk_cam_get_req_s_data(ctx, ctx->stream_id,
+					ctx->component_dequeued_frame_seq_no);
+				buf = mtk_cam_s_data_get_vbuf(s_data, MTK_RAW_META_SV_OUT_0);
+				if (!buf) {
+					dev_info(ctx->cam->dev,
+						 "ctx(%d): extisp:can't get MTK_RAW_META_SV_OUT_0 buf from req(%d)\n",
+						 ctx->stream_id, s_data->frame_seq_no);
+					return 0;
+				}
+				mtk_cam_s_data_update_timestamp(buf, s_data);
+				mtk_cam_s_data_reset_vbuf(s_data, MTK_RAW_META_SV_OUT_0);
+				vb2_buffer_done(&buf->vbb.vb2_buf, VB2_BUF_STATE_DONE);
+				dev_info(ctx->cam->dev, "%s:%s: extisp: buffer_done for 3a-stat\n",
+					__func__, s_data->frame_seq_no);
+			}
 		}
 		return 0;
 	}
@@ -5484,6 +5505,8 @@ void mtk_cam_extisp_sv_frame_start(struct mtk_cam_ctx *ctx,
 			state_out = state_temp;
 			mtk_cam_set_timestamp(stream_data,
 						      time_boot, time_mono);
+			ctx->component_dequeued_frame_seq_no =
+				dequeued_frame_seq_no;
 		}
 		/* Find to-be-set element*/
 		if (state_temp->estate == E_STATE_EXTISP_SENSOR)
