@@ -6301,7 +6301,7 @@
 				<GIC_SPI 737 IRQ_TYPE_LEVEL_HIGH 0>;
 			mboxes = <&adspsys 0>, /*channel 0*/
 				<&adspsys 1>; /*channel 1*/
-			feature-control-bits = <0x8e783ff>;
+			feature-control-bits = <0x28e783ff>;
 		};
 
 		adsp_core1: adsp-core1@1e090000 {
@@ -6315,7 +6315,7 @@
 				<GIC_SPI 738 IRQ_TYPE_LEVEL_HIGH 0>;
 			mboxes = <&adspsys 2>, /*channel 2*/
 				<&adspsys 3>; /*channel 3*/
-			feature-control-bits = <0x1118700f>;
+			feature-control-bits = <0x5118700f>;
 		};
 
 		disp_iommu_bank1: iommu@1e803000 {
@@ -11442,6 +11442,8 @@
 		mtk-dsp-ver = <0x1>;
 		swdsp-smartpa-process-enable = <0x5>;
 		mtk-dsp-mem-afe = <0x1 0x40000>;
+		mtk-dsp-btdl = <0x1 0xa 0xffffffff 0xffffffff 0x30000>;
+		mtk-dsp-btul = <0x1 0xffffffff 0x16 0x17 0x20000>;
 	};
 
 	speech_usip_mem: speech_usip_mem {
