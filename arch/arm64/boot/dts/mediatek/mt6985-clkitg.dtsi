@@ -236,34 +236,9 @@
 		power-domains = <&scpsys MT6985_POWER_DOMAIN_CAM_VCORE>;
 	};
 
-	bring-up-pd-dis0_shutdown {
-		compatible = "mediatek,scpsys-bring-up";
-		power-domains = <&scpsys MT6985_POWER_DOMAIN_DIS0_SHUTDOWN>;
-	};
-
-	bring-up-pd-dis1_shutdown {
-		compatible = "mediatek,scpsys-bring-up";
-		power-domains = <&scpsys MT6985_POWER_DOMAIN_DIS1_SHUTDOWN>;
-	};
-
-	bring-up-pd-ovlsys_shutdown {
-		compatible = "mediatek,scpsys-bring-up";
-		power-domains = <&scpsys MT6985_POWER_DOMAIN_OVLSYS_SHUTDOWN>;
-	};
-
-	bring-up-pd-ovlsys1_shutdown {
-		compatible = "mediatek,scpsys-bring-up";
-		power-domains = <&scpsys MT6985_POWER_DOMAIN_OVLSYS1_SHUTDOWN>;
-	};
-
 	bring-up-pd-mm_proc_dormant {
 		compatible = "mediatek,scpsys-bring-up";
 		power-domains = <&scpsys MT6985_POWER_DOMAIN_MM_PROC_DORMANT>;
-	};
-
-	bring-up-pd-dp_tx {
-		compatible = "mediatek,scpsys-bring-up";
-		power-domains = <&scpsys MT6985_POWER_DOMAIN_DP_TX>;
 	};
 
 	bring-up-pd-csi_rx {
