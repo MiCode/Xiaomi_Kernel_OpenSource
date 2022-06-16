@@ -4,6 +4,7 @@
  */
 
 #include <linux/circ_buf.h>
+#include <linux/debugfs.h>
 #include <linux/io.h>
 #include <linux/module.h>
 #include <linux/of_address.h>
@@ -71,6 +72,35 @@ static int start(struct bus_tracer_plt *plt)
 	}
 
 	return 0;
+}
+
+static void enable_etb_cm7(void __iomem *base)
+{
+	unsigned int depth, i;
+
+	if (!base)
+		return;
+
+	CS_UNLOCK(base);
+	writel(0x0, base + ETB_CTRL);
+	writel(0x0, base + ETB_REG28);
+	writel(0x0, base + ETB_REG110);
+	writel(0x0, base + ETB_TRIGGERCOUNT);
+	writel(0x0, base + ETB_TRIGGERCOUNT);
+	writel(0x323, base + ETB_REG304);
+
+	depth = readl(base + ETB_DEPTH);
+	writel(0x0, base + ETB_WRITEADDR);
+
+	for (i = 0; i < depth; ++i)
+		writel(0x0, base + ETB_RWD);
+
+	writel(0x0, base + ETB_WRITEADDR);
+	writel(0x0, base + ETB_READADDR);
+
+	writel(0x1, base + ETB_CTRL);
+	CS_LOCK(base);
+	dsb(sy);
 }
 
 static void enable_etb(void __iomem *base)
@@ -323,6 +353,140 @@ static struct bus_tracer_plt_operations bus_tracer_ops = {
 struct bus_tracer_plt *plt;
 EXPORT_SYMBOL(plt);
 
+#define CIRC_CNT(head, tail, size) (((head) - (tail)) & ((size)-1))
+static ssize_t tracer_dbgfs_etb_read(struct file *file, char __user *buf, size_t size, loff_t *ppos)
+{
+	unsigned int depth, etb_rp, etb_wp, ret, offset = 0;
+	unsigned int nr_words;
+	unsigned int i;
+	unsigned char *etb_data;
+
+	if (!plt)
+		return -ENOMEM;
+
+	for (i = 0; i <= plt->num_tracer - 1; ++i) {
+		if (plt->tracer[i].enabled) {
+			pr_notice("%s:%d:[ETB] Only support GPU DEBUG\n", __func__, __LINE__);
+			return 0;
+		}
+	}
+
+	CS_UNLOCK(plt->etb_base);
+
+	ret = readl(plt->etb_base + ETB_STATUS);
+	etb_rp = readl(plt->etb_base + ETB_READADDR);
+	etb_wp = readl(plt->etb_base + ETB_WRITEADDR);
+
+	/* depth is counted in byte */
+	if (ret & 0x1)
+		depth = readl(plt->etb_base + ETB_DEPTH) << 2;
+	else
+		depth = CIRC_CNT(etb_wp, etb_rp, readl(plt->etb_base + ETB_DEPTH) << 2);
+
+	pr_notice("%s:%d:[ETB] etb read siez=%ld\n", __func__, __LINE__, (unsigned long)size);
+	pr_notice("%s:%d:[ETB] depth = 0x%lx bytes\n", __func__, __LINE__, depth);
+	if (depth == 0) {
+		/* enable ETB before dump */
+		writel(0x1, plt->etb_base + ETB_CTRL);
+		CS_LOCK(plt->etb_base);
+		return 0;
+	}
+
+	if (size < depth)
+		depth = size;
+
+	/* disable ETB before dump */
+	writel(0x0, plt->etb_base + ETB_CTRL);
+
+	etb_data = kmalloc(depth, GFP_KERNEL);
+
+	nr_words = depth / 4;
+	for (i = 0; i < nr_words; ++i) {
+		ret = readl(plt->etb_base + ETB_READMEM);
+		memcpy(etb_data + offset, (unsigned char *)(&ret), 4);
+		offset += 4;
+	}
+	ret = copy_to_user(buf, (void *)etb_data, depth);
+	if (ret)
+		pr_notice("%s:%d:[ETB] copy_to_user fail=%lx.\n", __func__, __LINE__, ret);
+	kfree(etb_data);
+
+	/* enable ETB before dump */
+	writel(0x1, plt->etb_base + ETB_CTRL);
+	CS_LOCK(plt->etb_base);
+
+	pr_notice("%s:%d:[ETB] *ppos=0x%llx.\n", __func__, __LINE__, *ppos);
+	*ppos += depth;
+	return depth;
+}
+
+void enable_etb_for_gpu_mcu(void)
+{
+	unsigned int i = 0, ret = 0;
+	struct device_node *node;
+	void __iomem *mfg_top_config_base = NULL;
+
+	if (!plt->tracer) {
+		pr_notice("%s:%d:[ETB] plt->tracer == NULL\n", __func__, __LINE__);
+		return;
+	}
+
+	node = of_find_compatible_node(NULL, NULL, "mediatek,gpufreq");
+	if (!node) {
+		pr_notice("%s:%d:[ETB] can't find compatible node\n", __func__, __LINE__);
+		return;
+	}
+
+	mfg_top_config_base = of_iomap(node, 0);
+
+	for (i = 0; i <= plt->num_tracer - 1; ++i) {
+		if (!plt->tracer[i].enabled)
+			continue;
+
+		plt->tracer[i].enabled = 0;
+		/* disable tracer */
+		ret = readl(plt->tracer[i].base);
+		writel(ret & ~(BUS_TRACE_EN), plt->tracer[i].base +
+				BUS_TRACE_CON);
+		dsb(sy);
+		plt->tracer[i].recording = 0;
+		pr_notice("%s:%d:[ETB] disable trace[%d]\n", __func__, __LINE__, i);
+	}
+
+	pr_notice("%s:%d:[ETB]: GPU/Cotrex-M7\n", __func__, __LINE__);
+	/* funnel setup */
+	CS_UNLOCK(plt->funnel_base);
+	writel(0x320, plt->funnel_base + FUNNEL_CTRL_REG);
+	CS_LOCK(plt->funnel_base);
+	dsb(sy);
+
+	/* enable ETB for Cotrex-M7 */
+	enable_etb_cm7(plt->etb_base);
+
+	/* enable tracer: enable pwr_on_atb for GPU MCU */
+	writel(0x2, mfg_top_config_base + CM7_PWR_ON_ATB);
+	pr_notice("%s:%d:[ETB]: pwr_on_atb\n", __func__, __LINE__);
+	dsb(sy);
+}
+EXPORT_SYMBOL(enable_etb_for_gpu_mcu);
+
+void disable_etb_capture(void)
+{
+	CS_UNLOCK(plt->etb_base);
+	writel(0x0, plt->etb_base + ETB_CTRL);
+	pr_notice("%s:%d:[ETB]: Disable ETB before DFD trig or BUG_ON\n", __func__, __LINE__);
+	CS_LOCK(plt->etb_base);
+}
+EXPORT_SYMBOL(disable_etb_capture);
+
+static const struct file_operations tracer_dbgfs_etb_fops = {
+	.read = tracer_dbgfs_etb_read,
+	.llseek = generic_file_llseek,
+};
+
+static struct dentry *g_p_debug_fs_dir;
+static struct dentry *g_p_debug_fs_etb;
+
 static int __init bus_tracer_init(void)
 {
 	plt = kzalloc(sizeof(struct bus_tracer_plt), GFP_KERNEL);
@@ -332,6 +496,16 @@ static int __init bus_tracer_init(void)
 	plt->ops = &bus_tracer_ops;
 	plt->min_buf_len = 8192; /* 8K */
 
+	g_p_debug_fs_dir = debugfs_create_dir("tracer", NULL);
+	if (g_p_debug_fs_dir) {
+		/* Create debugfs files. */
+		g_p_debug_fs_etb = debugfs_create_file("etb",
+							0444,
+							g_p_debug_fs_dir,
+							NULL,
+							&tracer_dbgfs_etb_fops);
+	}
+
 	//set_sram_flag_timestamp();
 
 	return 0;
@@ -339,6 +513,8 @@ static int __init bus_tracer_init(void)
 
 static void __exit bus_tracer_exit(void)
 {
+	debugfs_remove(g_p_debug_fs_etb);
+	debugfs_remove(g_p_debug_fs_dir);
 	kfree(plt);
 }
 

@@ -79,6 +79,9 @@
 #define ETB_TRIGGERCOUNT	0x1c
 #define ETB_CTRL		0x20
 #define ETB_RWD			0x24
+#define ETB_REG28		0x28
+#define ETB_REG110		0x110
+#define ETB_REG304		0x304
 #define ETB_LAR			0xfb0
 
 #define DEM_DBGRST_ALL		0x28
@@ -109,6 +112,9 @@
 #define CORESIGHT_LAR		0xfb0
 #define CORESIGHT_UNLOCK        0xc5acce55
 
+/* enable pwr_on_atb */
+#define CM7_PWR_ON_ATB		0x8
+
 static inline void CS_LOCK(void __iomem *addr)
 {
 	do {
@@ -126,6 +132,9 @@ static inline void CS_UNLOCK(void __iomem *addr)
 		mb();
 	} while (0);
 }
+
+void disable_etb_capture(void);
+void enable_etb_for_gpu_mcu(void);
 
 #endif /* end of __BUS_TRACER_V1_H__ */
 
