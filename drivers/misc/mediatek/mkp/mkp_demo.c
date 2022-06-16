@@ -722,27 +722,19 @@ static bool cred_is_not_matched(const struct cred *curr, pid_t index)
 
 static void check_cred(struct ratelimit_state *rs)
 {
-	struct task_struct *cur = NULL, *task;
+	struct task_struct *cur = NULL;
 
 	ratelimit_set_flags(rs, RATELIMIT_MSG_ON_RELEASE);
 	if (!__ratelimit(rs) || (g_ro_cred_handle == 0))
 		return;
 
 	cur = get_current();
-	task = get_task_struct(cur->group_leader);
-
-	/* If this thread group is exiting, just bypass */
-	if (task->flags & PF_EXITING)
-		goto exit;
 
 	/* Start matching */
 	if (cred_is_not_matched(cur->cred, cur->pid)) {
 		MKP_ERR("%s:%d: cred is not matched\n", __func__, __LINE__);
 		handle_mkp_err_action(MKP_POLICY_TASK_CRED);
 	}
-
-exit:
-	put_task_struct(task);
 }
 
 static void probe_android_vh_check_mmap_file(void *ignore,
