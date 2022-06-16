@@ -50,3 +50,11 @@ config MTK_PANIC_ON_WARN
 	help
 	  MTK_PANIC_ON_WARN is the kernel config of warning as panic.
 	  help us catch more exception.
+
+ config MTK_AEE_UT
+	tristate "control AED debug file"
+	help
+	  MTK_AEE_UT is the kernel config of aed-debug.c
+	  aed-debug.c is AEE UT test case file, just for generate some vendor
+	  exception to test AEE dump flow, include in KE, HWT, HW_reboot, EE,
+	  and kernelAPI exception

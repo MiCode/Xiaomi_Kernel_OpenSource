@@ -70,6 +70,7 @@ static struct proc_dir_entry *aed_proc_dir;
 
 #define MaxStackSize 8100
 #define MaxMapsSize 65536
+#define MAX_PROCTITLE_AUDIT_LEN 128
 
 static int ee_num;
 static int kernelapi_num;
@@ -1008,11 +1009,83 @@ static void ee_worker(struct work_struct *work)
 }
 
 /******************************************************************************
+ * aee_get_cmdline is a copy of get_cmdline in mm/util.c, please pay attension to
+ *whether this function has changed when the kernel version is upgraded.
+ *****************************************************************************/
+static int aee_get_cmdline(struct task_struct *task, char *buffer, int buflen)
+{
+	int res = 0;
+	unsigned int len;
+	struct mm_struct *mm = get_task_mm(task);
+	unsigned long arg_start, arg_end, env_start, env_end;
+
+	if (!mm)
+		goto out;
+	if (!mm->arg_end)
+		goto out_mm;	/* Shh! No looking before we're done */
+
+	spin_lock(&mm->arg_lock);
+	arg_start = mm->arg_start;
+	arg_end = mm->arg_end;
+	env_start = mm->env_start;
+	env_end = mm->env_end;
+	spin_unlock(&mm->arg_lock);
+
+	len = arg_end - arg_start;
+
+	if (len > buflen)
+		len = buflen;
+
+	res = access_process_vm(task, arg_start, buffer, len, FOLL_FORCE);
+
+	/*
+	 * If the nul at the end of args has been overwritten, then
+	 * assume application is using setproctitle(3).
+	 */
+	if (res > 0 && buffer[res-1] != '\0' && len < buflen) {
+		len = strnlen(buffer, res);
+		if (len < res) {
+			res = len;
+		} else {
+			len = env_end - env_start;
+			if (len > buflen - res)
+				len = buflen - res;
+			res += access_process_vm(task, env_start,
+						 buffer+res, len,
+						 FOLL_FORCE);
+			res = strnlen(buffer, res);
+		}
+	}
+out_mm:
+	mmput(mm);
+out:
+	return res;
+}
+
+static int compare_cmdline(void)
+{
+	int len = 0;
+	char buf[MAX_PROCTITLE_AUDIT_LEN] = {0};
+
+	len = aee_get_cmdline(current, buf, MAX_PROCTITLE_AUDIT_LEN);
+	if (len == 0)
+		return -1;
+
+	if (strncmp(buf, "/system_ext/bin/aee_aed", 23) &&
+		strncmp(buf, "/system/system_ext/bin/aee_aed", 30) &&
+		strncmp(buf,  "/vendor/bin/aee_aed", 19)) {
+		pr_debug("%s:open failed!\n", __func__);
+		return -1;
+	}
+	return 0;
+}
+
+/******************************************************************************
  * AED EE File operations
  *****************************************************************************/
 static int aed_ee_open(struct inode *inode, struct file *filp)
 {
-	if (strncmp(current->comm, "aee_aed", 7))
+	if (compare_cmdline() != 0)
 		return -1;
 	pr_debug("%s:%d:%d\n", __func__, MAJOR(inode->i_rdev),
 						MINOR(inode->i_rdev));
@@ -1135,7 +1208,7 @@ static int aed_ke_open(struct inode *inode, struct file *filp)
 	int minor;
 	unsigned char *devname;
 
-	if (strncmp(current->comm, "aee_aed", 7) || is_compat_task())
+	if (compare_cmdline() != 0)
 		return -1;
 
 	major = MAJOR(inode->i_rdev);
@@ -1352,6 +1425,7 @@ static ssize_t aed_ke_write(struct file *filp, const char __user *buf,
 	return count;
 }
 
+#if IS_ENABLED(CONFIG_MTK_AVOID_TRUNCATE_COREDUMP)
 void Maps2Buffer(unsigned char *Userthread_maps, int *Userthread_mapsLength,
 	const char *fmt, ...)
 {
@@ -1547,6 +1621,7 @@ done:
 	}
 }
 
+#endif
 /*
  * aed process daemon and other command line may access me
  * concurrently
@@ -1557,9 +1632,11 @@ static long aed_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	int ret = 0;
 	int aee_mode_tmp = 0;
 	int aee_force_exp_tmp = 0;
-	struct aee_thread_reg *tmp;
 	int pid;
 	struct aee_siginfo aee_si;
+#if IS_ENABLED(CONFIG_MTK_AVOID_TRUNCATE_COREDUMP)
+	struct aee_thread_reg *tmp;
+#endif
 
 	if (!arg && (cmd != AEEIOCTL_DAL_CLEAN)) {
 		pr_info("ERR: %s arg=NULL\n", __func__);
@@ -1609,6 +1686,7 @@ static long aed_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 
 		pr_debug("set aee force_exp = %d\n", aee_force_exp);
 		break;
+#if IS_ENABLED(CONFIG_MTK_AVOID_TRUNCATE_COREDUMP)
 	case AEEIOCTL_GET_THREAD_REG:
 		pr_debug("%s: get thread registers ioctl\n", __func__);
 
@@ -1908,6 +1986,7 @@ static long aed_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		}
 		break;
 	}
+#endif
 	case AEEIOCTL_CHECK_SUID_DUMPABLE:
 		pr_debug("%s: check suid dumpable ioctl\n", __func__);
 
@@ -2243,7 +2322,9 @@ static int aed_proc_init(void)
 	AED_PROC_ENTRY(current-ee-coredump, current_ke_ee_coredump, 0400);
 
 	aee_rr_proc_init(aed_proc_dir);
+#if IS_ENABLED(CONFIG_MTK_AEE_UT)
 	aed_proc_debug_init(aed_proc_dir);
+#endif
 
 	return 0;
 }
@@ -2253,7 +2334,9 @@ static int aed_proc_done(void)
 	remove_proc_entry(CURRENT_EE_COREDUMP, aed_proc_dir);
 
 	aee_rr_proc_done(aed_proc_dir);
+#if IS_ENABLED(CONFIG_MTK_AEE_UT)
 	aed_proc_debug_done(aed_proc_dir);
+#endif
 
 	remove_proc_entry("aed", NULL);
 	return 0;
