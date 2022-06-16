@@ -8161,7 +8161,7 @@
 				  "mbox4";
 
 		core_0 = "enable";
-		scp_hwvoter = "enable";
+		scp-hwvoter = "enable";
 		scp_sramSize = <0x00300000>;
 		core_nums = <2>;	/* core number */
 		twohart = <1>;		/* two hart arch */
