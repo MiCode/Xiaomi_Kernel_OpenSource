@@ -7906,6 +7906,12 @@
 			compatible = "mediatek,gpu_fdvfs";
 			reg = <0 0x112000 0 0x400>;
 			fdvfs-policy-support = <0>;
+			gpu-freq-notify-support = <1>;
+		};
+
+		gpu_afs: gpu-afs {
+			compatible = "mediatek,gpu_afs";
+			afs-policy-support = <1>;
 		};
 
 		gpu_qos: gpu-qos {
