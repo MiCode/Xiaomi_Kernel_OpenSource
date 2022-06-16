@@ -145,8 +145,13 @@ static ssize_t ccd_debug_read(struct file *filp,
 {
 	char buf[256];
 	u32  len = 0;
+	struct mtk_ccd *ccd = (struct mtk_ccd *)filp->private_data;
 
 	len = snprintf(buf, sizeof(buf), "ccu_debug_read\n");
+	if (len < 0 || len >= sizeof(buf)) {
+		dev_info(ccd->dev, "%s: %p\n", __func__, ccd);
+		return -1;
+	}
 
 	return simple_read_from_buffer(user_buf, count, ppos, buf, len);
 }
@@ -214,6 +219,7 @@ static long ccd_unlocked_ioctl(struct file *filp, unsigned int cmd,
 		break;
 	case IOCTL_CCD_MASTER_DESTROY:
 		dev_dbg(ccd->dev, "enter IOCTL_CCD_MASTER_DESTROY\n");
+		memset(&master_obj, 0, sizeof(master_obj));
 		ret = copy_from_user(&master_obj, user_addr,
 				     sizeof(master_obj));
 		/*  TBD: Protect by lock? */
@@ -227,6 +233,7 @@ static long ccd_unlocked_ioctl(struct file *filp, unsigned int cmd,
 				   sizeof(struct ccd_master_listen_item));
 		break;
 	case IOCTL_CCD_WORKER_READ:
+		memset(&work_obj, 0, sizeof(work_obj));
 		ret = copy_from_user(&work_obj, user_addr,
 				     sizeof(struct ccd_worker_item));
 
