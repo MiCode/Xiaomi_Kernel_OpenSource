@@ -68,7 +68,8 @@ static int mdw_drv_open(struct inode *inode, struct file *filp)
 	mutex_init(&mpriv->mtx);
 	INIT_LIST_HEAD(&mpriv->mems);
 	INIT_LIST_HEAD(&mpriv->invokes);
-	INIT_LIST_HEAD(&mpriv->cmds);
+	atomic_set(&mpriv->active_cmds, 0);
+	idr_init(&mpriv->cmds);
 
 	if (!atomic_read(&g_inited)) {
 		ret = mdw_dev->dev_funcs->sw_init(mdw_dev);
@@ -104,8 +105,8 @@ static int mdw_drv_close(struct inode *inode, struct file *filp)
 	mdw_flw_debug("mpriv(0x%llx)\n", (uint64_t)mpriv);
 	mutex_lock(&mpriv->mtx);
 	atomic_set(&mpriv->active, 0);
-	mdw_mem_pool_destroy(&mpriv->cmd_buf_pool);
 	mdw_cmd_mpriv_release(mpriv);
+	mdw_mem_pool_destroy(&mpriv->cmd_buf_pool);
 	mutex_unlock(&mpriv->mtx);
 	mpriv->put(mpriv);
 

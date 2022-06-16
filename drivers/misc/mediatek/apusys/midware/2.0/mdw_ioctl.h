@@ -158,6 +158,8 @@ union mdw_mem_args {
 
 enum mdw_cmd_ioctl_op {
 	MDW_CMD_IOCTL_RUN,
+	MDW_CMD_IOCTL_RUN_STALE,
+	MDW_CMD_IOCTL_DEL,
 };
 
 enum {
@@ -227,7 +229,8 @@ struct mdw_subcmd_link_v1 {
 
 struct mdw_cmd_in {
 	uint32_t op;
-	uint64_t reserve;
+	uint64_t reserved;
+	int64_t id;
 	union {
 		struct {
 			uint64_t uid;

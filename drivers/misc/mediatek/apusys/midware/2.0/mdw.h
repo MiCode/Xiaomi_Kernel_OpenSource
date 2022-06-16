@@ -35,6 +35,9 @@
 #define MDW_BOOST_MAX (100)
 #define MDW_DEFAULT_ALIGN (16)
 
+#define MDW_CMD_IDR_MIN (1)
+#define MDW_CMD_IDR_MAX (16)
+
 #define MDW_ALIGN(x, align) ((x+align-1) & (~(align-1)))
 
 
@@ -225,9 +228,10 @@ struct mdw_fpriv {
 
 	struct list_head mems;
 	struct list_head invokes;
-	struct list_head cmds;
 	struct mutex mtx;
 	struct mdw_mem_pool cmd_buf_pool;
+	struct idr cmds;
+	atomic_t active_cmds;
 
 	/* ref count for cmd/mem */
 	atomic_t active;
@@ -288,8 +292,10 @@ struct mdw_cmd {
 	struct mdw_subcmd_link_v1 *links;
 
 	struct mutex mtx;
-	struct list_head u_item;
 	struct list_head map_invokes; // mdw_cmd_map_invoke
+
+	int id;
+	struct kref ref;
 
 	uint64_t start_ts;
 	uint64_t end_ts;
