@@ -207,7 +207,7 @@ static int mtk_mminfra_pd_callback(struct notifier_block *nb,
 		}
 		test_base = ioremap(0x1e800280, 4);
 		val = readl_relaxed(test_base);
-		if (val != 0xfff) {
+		if ((val & 0xf) != 0xf) {
 			pr_notice("%s: HRE restore failed 0x1e800280=%x\n",
 				__func__, val);
 #if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
