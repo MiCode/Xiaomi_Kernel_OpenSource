@@ -35,6 +35,8 @@
 #include <gpufreq_mt6985.h>
 #include <gpufreq_reg_mt6985.h>
 #include <mtk_gpu_utility.h>
+#include <gpufreq_history_common.h>
+#include <gpufreq_history_mt6985.h>
 
 #if IS_ENABLED(CONFIG_MTK_BATTERY_OC_POWER_THROTTLING)
 #include <mtk_battery_oc_throttling.h>
@@ -994,6 +996,12 @@ int __gpufreq_generic_commit_stack(int target_oppidx, enum gpufreq_dvfs_state ke
 		__gpufreq_update_shared_status_dvfs_reg();
 	}
 
+#ifdef GPUFREQ_HISTORY_ENABLE
+	/* update history record to shared memory */
+	if (target_oppidx != cur_oppidx)
+		__gpufreq_record_history_entry(HISTORY_FREE);
+#endif /* GPUFREQ_HISTORY_ENABLE */
+
 done_unlock:
 	mutex_unlock(&gpufreq_lock);
 
@@ -1026,6 +1034,10 @@ int __gpufreq_fix_target_oppidx_stack(int oppidx)
 		ret = GPUFREQ_SUCCESS;
 	} else if (oppidx >= 0 && oppidx < opp_num) {
 		__gpufreq_set_dvfs_state(true, DVFS_DEBUG_KEEP);
+
+#ifdef GPUFREQ_HISTORY_ENABLE
+		gpufreq_set_history_target_opp(TARGET_STACK, oppidx);
+#endif /* GPUFREQ_HISTORY_ENABLE */
 
 		ret = __gpufreq_generic_commit_stack(oppidx, DVFS_DEBUG_KEEP);
 		if (unlikely(ret))
@@ -2201,6 +2213,11 @@ static void __gpufreq_dvfs_sel_config(enum gpufreq_opp_direct direct, unsigned i
 			writel((readl_mfg(MFG_SRAM_FUL_SEL_ULV) & ~BIT(0)), MFG_SRAM_FUL_SEL_ULV);
 	}
 
+#if GPUFREQ_HISTORY_ENABLE
+	__gpufreq_set_sel_bit((readl_mfg(MFG_DUMMY_REG) & BIT(31)) >> 31);
+	__gpufreq_set_delsel_bit(readl_mfg(MFG_SRAM_FUL_SEL_ULV) & BIT(0));
+#endif /* GPUFREQ_HISTORY_ENABLE */
+
 	GPUFREQ_LOGD("Vstack: %d (%s) MFG_DUMMY_REG: 0x%08x, MFG_SRAM_FUL_SEL_ULV: 0x%08x",
 		volt, direct == SCALE_DOWN ? "DOWN" : (direct == SCALE_UP ? "UP" : "STAY"),
 		readl_mfg(MFG_DUMMY_REG), readl_mfg(MFG_SRAM_FUL_SEL_ULV));
@@ -2647,6 +2664,11 @@ static int __gpufreq_freq_scale_gpu(unsigned int freq_old, unsigned int freq_new
 #endif /* GPUFREQ_FHCTL_ENABLE && CONFIG_COMMON_CLK_MTK_FREQ_HOPPING */
 
 	g_gpu.cur_freq = __gpufreq_get_real_fgpu();
+
+#ifdef GPUFREQ_HISTORY_ENABLE
+	__gpufreq_record_history_entry(HISTORY_CHANGE_FREQ_TOP);
+#endif /* GPUFREQ_HISTORY_ENABLE */
+
 	if (unlikely(g_gpu.cur_freq != freq_new))
 		__gpufreq_abort("inconsistent cur_freq: %d, target_freq: %d",
 			g_gpu.cur_freq, freq_new);
@@ -2759,6 +2781,11 @@ static int __gpufreq_freq_scale_stack(unsigned int freq_old, unsigned int freq_n
 #endif /* GPUFREQ_FHCTL_ENABLE && CONFIG_COMMON_CLK_MTK_FREQ_HOPPING */
 
 	g_stack.cur_freq = __gpufreq_get_real_fstack();
+
+#ifdef GPUFREQ_HISTORY_ENABLE
+	__gpufreq_record_history_entry(HISTORY_CHANGE_FREQ_STACK);
+#endif /* GPUFREQ_HISTORY_ENABLE */
+
 	if (unlikely(g_stack.cur_freq != freq_new))
 		__gpufreq_abort("inconsistent cur_freq: %d, target_freq: %d",
 			g_stack.cur_freq, freq_new);
@@ -2845,6 +2872,11 @@ static int __gpufreq_volt_scale_gpu(unsigned int volt_old, unsigned int volt_new
 	udelay(t_settle);
 
 	g_gpu.cur_volt = __gpufreq_get_real_vgpu();
+
+#if GPUFREQ_HISTORY_ENABLE
+	__gpufreq_record_history_entry(HISTORY_CHANGE_VOLT_TOP);
+#endif /* GPUFREQ_HISTORY_ENABLE */
+
 	if (unlikely(g_gpu.cur_volt != volt_new))
 		__gpufreq_abort("inconsistent cur_volt: %d, target_volt: %d",
 			g_gpu.cur_volt, volt_new);
@@ -2882,6 +2914,11 @@ static int __gpufreq_volt_scale_stack(unsigned int volt_old, unsigned int volt_n
 	udelay(t_settle);
 
 	g_stack.cur_volt = __gpufreq_get_real_vstack();
+
+#if GPUFREQ_HISTORY_ENABLE
+	__gpufreq_record_history_entry(HISTORY_CHANGE_VOLT_STACK);
+#endif /* GPUFREQ_HISTORY_ENABLE */
+
 	if (unlikely(g_stack.cur_volt != volt_new))
 		__gpufreq_abort("inconsistent cur_volt: %d, target_volt: %d",
 			g_stack.cur_volt, volt_new);
@@ -2920,6 +2957,11 @@ static int __gpufreq_volt_scale_sram(unsigned int volt_old, unsigned int volt_ne
 
 	g_gpu.cur_vsram = __gpufreq_get_real_vsram();
 	g_stack.cur_vsram = g_gpu.cur_vsram;
+
+#if GPUFREQ_HISTORY_ENABLE
+	__gpufreq_record_history_entry(HISTORY_VSRAM_PARK);
+#endif /* GPUFREQ_HISTORY_ENABLE */
+
 	if (unlikely(g_stack.cur_vsram != volt_new))
 		__gpufreq_abort("inconsistent cur_volt: %d, target_volt: %d",
 			g_stack.cur_vsram, volt_new);
@@ -5849,6 +5891,10 @@ static int __gpufreq_pdrv_probe(struct platform_device *pdev)
 	/* init shader present */
 	__gpufreq_init_shader_present();
 
+#if GPUFREQ_HISTORY_ENABLE
+	__gpufreq_history_memory_init();
+#endif /* GPUFREQ_HISTORY_ENABLE */
+
 	/* power on to init first OPP index */
 	ret = __gpufreq_power_control(POWER_ON);
 	if (unlikely(ret < 0)) {
@@ -5872,6 +5918,11 @@ static int __gpufreq_pdrv_probe(struct platform_device *pdev)
 	/* never power off if power control is disabled */
 	else
 		GPUFREQ_LOGI("power control always on");
+
+#if GPUFREQ_HISTORY_ENABLE
+	__gpufreq_history_memory_reset();
+	__gpufreq_record_history_entry(HISTORY_FREE);
+#endif /* GPUFREQ_HISTORY_ENABLE */
 
 register_fp:
 	/*
@@ -5959,6 +6010,10 @@ done:
 static void __exit __gpufreq_exit(void)
 {
 	platform_driver_unregister(&g_gpufreq_pdrv);
+
+#if GPUFREQ_HISTORY_ENABLE
+	__gpufreq_history_memory_uninit();
+#endif /* GPUFREQ_HISTORY_ENABLE */
 }
 
 module_init(__gpufreq_init);
