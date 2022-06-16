@@ -276,6 +276,8 @@ void cm_mgr_register_hook(struct cm_mgr_hook *hook)
 		hook->cm_mgr_perf_platform_set_status;
 	hk.cm_mgr_perf_set_status =
 		hook->cm_mgr_perf_set_status;
+	hk.cm_mgr_get_latency_awareness_model_indexes =
+		hook->cm_mgr_get_latency_awareness_model_indexes;
 }
 EXPORT_SYMBOL_GPL(cm_mgr_register_hook);
 
@@ -286,6 +288,7 @@ void cm_mgr_unregister_hook(struct cm_mgr_hook *hook)
 	hk.check_cm_mgr_status = NULL;
 	hk.cm_mgr_perf_platform_set_status = NULL;
 	hk.cm_mgr_perf_set_status = NULL;
+	hk.cm_mgr_get_latency_awareness_model_indexes = NULL;
 }
 EXPORT_SYMBOL_GPL(cm_mgr_unregister_hook);
 
@@ -384,6 +387,15 @@ int cm_mgr_to_sspm_command(u32 cmd, int val)
 }
 EXPORT_SYMBOL_GPL(cm_mgr_to_sspm_command);
 #endif /* CONFIG_MTK_CM_IPI */
+
+int cm_mgr_get_latency_awareness_model_info(unsigned int *buf)
+{
+	if (!hk.cm_mgr_get_latency_awareness_model_indexes)
+		return 0;
+
+	return hk.cm_mgr_get_latency_awareness_model_indexes(buf);
+}
+EXPORT_SYMBOL_GPL(cm_mgr_get_latency_awareness_model_info);
 
 #if IS_ENABLED(CONFIG_MTK_CM_IPI)
 int cm_mgr_judge_perfs_dram_opp(int dram_opp)

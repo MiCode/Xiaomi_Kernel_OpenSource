@@ -30,6 +30,7 @@ struct cm_mgr_hook {
 			unsigned int freq, unsigned int idx);
 	void (*cm_mgr_perf_platform_set_status)(int enable);
 	void (*cm_mgr_perf_set_status)(int enable);
+	int (*cm_mgr_get_latency_awareness_model_indexes)(unsigned int *buf);
 };
 
 #if !IS_ENABLED(CONFIG_MTK_CM_IPI)
@@ -100,5 +101,6 @@ extern void cm_mgr_register_hook(struct cm_mgr_hook *hook);
 extern void cm_mgr_unregister_hook(struct cm_mgr_hook *hook);
 extern void cm_mgr_set_dram_opp_ceiling(int opp);
 extern void cm_mgr_set_dram_opp_floor(int opp);
+extern int cm_mgr_get_latency_awareness_model_info(unsigned int *buf);
 
 #endif	/* __MTK_CM_MGR_H__ */

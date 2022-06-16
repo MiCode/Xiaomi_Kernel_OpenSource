@@ -63,9 +63,8 @@ static int cm_mgr_init_done;
 static int cm_mgr_idx = -1;
 spinlock_t cm_mgr_lock;
 
-#if IS_ENABLED(CONFIG_MTK_CM_IPI)
-void __iomem *csram_base;
 
+void __iomem *csram_base;
 
 static void cm_get_base_addr(void)
 {
@@ -105,13 +104,38 @@ static void cm_get_base_addr(void)
 	}
 }
 
+unsigned int csram_read(unsigned int offs)
+{
+	if (IS_ERR_OR_NULL((void *)csram_base))
+		return 0;
+	return __raw_readl(csram_base + (offs));
+}
+
 void csram_write(unsigned int offs, unsigned int val)
 {
 	if (IS_ERR_OR_NULL((void *)csram_base))
 		return;
 	__raw_writel(val, csram_base + (offs));
 }
-#endif
+
+
+int cm_mgr_get_latency_awareness_model_indexes_mt6985(unsigned int *buf)
+{
+	int i = 0;
+
+	if (csram_read(CM_LATENCY_AWARENESS_STATUS) == 1)
+		return 0;
+
+	for (i = 0; i < 8; i++)
+		buf[i] = csram_read(CM_CPU0_AVG_OUTER_STALL_RATIO + i * 4) / 100;
+
+	buf[i] = csram_read(CM_DRAM_AVG_FREQ) / 1000;
+
+	csram_write(CM_LATENCY_AWARENESS_STATUS, 1);
+
+	return 1;
+}
+
 
 u32 cm_mgr_get_perfs_mt6985(int num)
 {
@@ -464,6 +488,8 @@ static int platform_cm_mgr_probe(struct platform_device *pdev)
 		cm_mgr_perf_platform_set_status_mt6985;
 	local_hk.cm_mgr_perf_set_status =
 		cm_mgr_perf_set_status_mt6985;
+	local_hk.cm_mgr_get_latency_awareness_model_indexes =
+		cm_mgr_get_latency_awareness_model_indexes_mt6985;
 
 	cm_mgr_register_hook(&local_hk);
 
