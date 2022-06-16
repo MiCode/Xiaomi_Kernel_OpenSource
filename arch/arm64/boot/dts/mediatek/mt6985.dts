@@ -7067,6 +7067,11 @@
 			mediatek,mml = <&mmlsys_config>;
 		};
 
+		mml-ait {
+			compatible = "mediatek,mml-ait";
+			mediatek,mml = <&mmlsys_config>;
+		};
+
 		mml-mutex0@1f801000 {
 			compatible = "mediatek,mt6985-mml_mutex";
 			reg = <0 0x1f801000 0 0x1000>;
