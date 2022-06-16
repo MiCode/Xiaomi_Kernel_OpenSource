@@ -754,6 +754,9 @@ s32 mml_drm_submit(struct mml_drm_ctx *ctx, struct mml_submit *submit,
 		}
 	}
 
+	if (submit->info.dest_cnt > MML_MAX_OUTPUTS)
+		submit->info.dest_cnt = MML_MAX_OUTPUTS;
+
 	/* always fixup format/modifier for afbc case
 	 * the format in info should change to fourcc format in future design
 	 * and store mml format in another structure
