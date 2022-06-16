@@ -113,19 +113,21 @@ int mtk_inlinerotate_analysis(struct mtk_ddp_comp *comp)
 static void mtk_inlinerotate_start(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 {
 	DDPINFO("%s\n", __func__);
-	/* cmdq_pkt_write(handle, comp->cmdq_base,
-		comp->regs_pa + DISP_REG_INLINEROT_SWRST,
-		0, ~0);
-	*/
 }
 
 static void mtk_inlinerotate_stop(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 {
 	DDPINFO("%s\n", __func__);
-	/* cmdq_pkt_write(handle, comp->cmdq_base,
-		comp->regs_pa + DISP_REG_INLINEROT_SWRST,
-		1, ~0);
-	*/
+}
+
+static void mtk_inlinerotate_reset(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
+{
+	DDPINFO("%s+ %s\n", __func__, mtk_dump_comp_str(comp));
+	cmdq_pkt_write(handle, comp->cmdq_base,
+			comp->regs_pa + DISP_REG_INLINEROT_SWRST, 1, ~0);
+	cmdq_pkt_write(handle, comp->cmdq_base,
+			comp->regs_pa + DISP_REG_INLINEROT_SWRST, 0, ~0);
+	DDPINFO("%s-\n", __func__);
 }
 
 static void mtk_inlinerotate_prepare(struct mtk_ddp_comp *comp)
@@ -143,6 +145,7 @@ static void mtk_inlinerotate_unprepare(struct mtk_ddp_comp *comp)
 static const struct mtk_ddp_comp_funcs mtk_disp_inlinerotate_funcs = {
 	.start = mtk_inlinerotate_start,
 	.stop = mtk_inlinerotate_stop,
+	.reset = mtk_inlinerotate_reset,
 	.addon_config = mtk_inlinerotate_addon_config,
 	.prepare = mtk_inlinerotate_prepare,
 	.unprepare = mtk_inlinerotate_unprepare,

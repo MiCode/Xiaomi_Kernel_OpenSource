@@ -1052,6 +1052,7 @@ void mtk_gce_backup_slot_init(struct mtk_drm_crtc *mtk_crtc);
 
 void mtk_crtc_mml_racing_resubmit(struct drm_crtc *crtc, struct cmdq_pkt *_cmdq_handle);
 void mtk_crtc_mml_racing_stop_sync(struct drm_crtc *crtc, struct cmdq_pkt *_cmdq_handle);
+void mtk_crtc_mml_force_stop(struct drm_crtc *crtc);
 
 bool mtk_crtc_alloc_sram(struct mtk_drm_crtc *mtk_crtc, unsigned int hrt_idx);
 

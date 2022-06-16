@@ -6656,9 +6656,11 @@ skip:
 			mtk_crtc_stop_sodi_loop(crtc);
 	}
 
-	{
+	if (mtk_crtc->is_mml) {
 		struct mtk_drm_sram_list *entry, *tmp;
+		struct mml_drm_ctx *mml_ctx = mtk_drm_get_mml_drm_ctx(crtc->dev, crtc);
 
+		mml_drm_stop(mml_ctx, mtk_crtc->mml_cfg, true);
 		mutex_lock(&mtk_crtc->mml_ir_sram.lock);
 		list_for_each_entry_safe(entry, tmp, &mtk_crtc->mml_ir_sram.list.head, head) {
 			list_del_init(&entry->head);
@@ -13039,8 +13041,7 @@ void mtk_crtc_mml_racing_resubmit(struct drm_crtc *crtc, struct cmdq_pkt *_cmdq_
 
 	for (; i <= mtk_crtc->is_dual_pipe; ++i) {
 		comp = priv->ddp_comp[id[i]];
-		mtk_ddp_comp_stop(comp, cmdq_handle);
-		mtk_ddp_comp_start(comp, cmdq_handle);
+		mtk_ddp_comp_reset(comp, cmdq_handle);
 		mtk_ddp_comp_addon_config(comp, 0, 0, NULL, cmdq_handle);
 		mtk_disp_mutex_add_comp_with_cmdq(
 		    mtk_crtc, id[i], false, cmdq_handle,

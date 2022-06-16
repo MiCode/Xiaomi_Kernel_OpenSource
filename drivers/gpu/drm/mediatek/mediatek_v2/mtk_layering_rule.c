@@ -103,8 +103,6 @@ static void layering_rule_scenario_decision(struct drm_device *dev,
 		l_rule_info.addon_scn[HRT_PRIMARY] = MML_SRAM_ONLY;
 	else if (scn_decision_flag & SCN_MML) {
 		l_rule_info.addon_scn[HRT_PRIMARY] = MML;
-		DDPMSG("%s:%d + addon_scn:%d\n",
-			__func__, __LINE__, l_rule_info.addon_scn[HRT_PRIMARY]);
 	} else if (scn_decision_flag & SCN_NEED_GAME_PQ)
 		l_rule_info.addon_scn[HRT_PRIMARY] = GAME_PQ;
 	else if (scn_decision_flag & SCN_NEED_VP_PQ)

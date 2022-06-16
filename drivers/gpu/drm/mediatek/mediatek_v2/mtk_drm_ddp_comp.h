@@ -623,6 +623,7 @@ struct mtk_ddp_comp_funcs {
 			     union mtk_addon_config *addon_config,
 			     struct cmdq_pkt *handle);
 	void (*dump)(struct mtk_ddp_comp *comp);
+	void (*reset)(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle);
 };
 
 struct mtk_ddp_comp {
@@ -686,6 +687,13 @@ static inline void mtk_ddp_comp_stop(struct mtk_ddp_comp *comp,
 {
 	if (comp && comp->funcs && comp->funcs->stop && !comp->blank_mode)
 		comp->funcs->stop(comp, handle);
+}
+
+static inline void mtk_ddp_comp_reset(struct mtk_ddp_comp *comp,
+				     struct cmdq_pkt *handle)
+{
+	if (comp && comp->funcs && comp->funcs->reset && !comp->blank_mode)
+		comp->funcs->reset(comp, handle);
 }
 
 static inline void mtk_ddp_comp_enable_vblank(struct mtk_ddp_comp *comp,
