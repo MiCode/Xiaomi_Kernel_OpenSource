@@ -3627,6 +3627,21 @@ static int fbt_boost_policy(
 
 		blc_wt = boost_info->filter_blc;
 		fpsgo_systrace_c_fbt(pid, buffer_id, blc_wt, "after filter");
+		if (separate_aa) {
+			fpsgo_systrace_c_fbt_debug(pid, buffer_id, blc_wt_b, "before_filter_b");
+			filter_ret = fbt_filter_frame(aa_b, target_fps, blc_wt_b,
+			&(boost_info->filter_frames_count_b), &(boost_info->filter_index_b),
+			(boost_info->filter_loading_b), &(boost_info->filter_blc), pid, buffer_id);
+			blc_wt_b = boost_info->filter_blc;
+			fpsgo_systrace_c_fbt_debug(pid, buffer_id, blc_wt_b, "after_filter_b");
+
+			fpsgo_systrace_c_fbt_debug(pid, buffer_id, blc_wt_m, "before_filter_m");
+			filter_ret = fbt_filter_frame(aa_m, target_fps, blc_wt_m,
+			&(boost_info->filter_frames_count_m), &(boost_info->filter_index_m),
+			(boost_info->filter_loading_m), &(boost_info->filter_blc), pid, buffer_id);
+			blc_wt_m = boost_info->filter_blc;
+			fpsgo_systrace_c_fbt_debug(pid, buffer_id, blc_wt_m, "after_filter_m");
+		}
 	}
 
 	/* update quota */
@@ -4196,7 +4211,7 @@ static unsigned long long fbt_adjust_loading_exp(struct render_info *thr,
 	}
 
 	for (i = 0; i < cluster_num; i++) {
-		ret |= fbt_get_cl_loading_exp(thr->pid, thr->buffer_id, thr->render_last_cb_ts,
+		ret = fbt_get_cl_loading_exp(thr->pid, thr->buffer_id, thr->render_last_cb_ts,
 			&loading_result, new_ts_100us, i);
 		fpsgo_systrace_c_fbt_debug(thr->pid, thr->buffer_id, loading_result,
 			"q2q_loading_cl[%d]", i);

@@ -119,8 +119,15 @@ struct fbt_boost_info {
 
 	/* filter heavy frames */
 	struct fbt_loading_info filter_loading[FBT_FILTER_MAX_WINDOW];
+	struct fbt_loading_info filter_loading_b[FBT_FILTER_MAX_WINDOW];
+	struct fbt_loading_info filter_loading_m[FBT_FILTER_MAX_WINDOW];
+
 	int filter_index;
+	int filter_index_b;
+	int filter_index_m;
 	unsigned int filter_frames_count;
+	unsigned int filter_frames_count_b;
+	unsigned int filter_frames_count_m;
 	int filter_blc;
 
 	/* quota */
