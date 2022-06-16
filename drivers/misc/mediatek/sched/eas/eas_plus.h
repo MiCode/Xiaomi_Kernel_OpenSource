@@ -61,6 +61,7 @@ extern int init_sram_info(void);
 extern void mtk_tick_entry(void *data, struct rq *rq);
 extern void mtk_set_wake_flags(void *data, int *wake_flags, unsigned int *mode);
 extern void mtk_update_cpu_capacity(void *data, int cpu, unsigned long *capacity);
+extern void mtk_pelt_rt_tp(void *data, struct rq *rq);
 
 #if IS_ENABLED(CONFIG_MTK_NEWIDLE_BALANCE)
 extern void mtk_sched_newidle_balance(void *data, struct rq *this_rq,

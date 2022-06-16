@@ -766,3 +766,9 @@ out:
 	trace_sched_select_task_rq_rt(p, select_reason, *target_cpu, sd_flag, sync);
 }
 
+#if IS_ENABLED(CONFIG_MTK_EAS)
+void mtk_pelt_rt_tp(void *data, struct rq *rq)
+{
+	cpufreq_update_util(rq, 0);
+}
+#endif

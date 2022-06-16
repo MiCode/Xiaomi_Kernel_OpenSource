@@ -196,6 +196,10 @@ static int __init mtk_scheduler_init(void)
 	if (ret)
 		pr_info("register android_rvh_update_cpu_capacity failed\n");
 
+	ret = register_trace_pelt_rt_tp(mtk_pelt_rt_tp, NULL);
+	if (ret)
+		pr_info("register mtk_pelt_rt_tp hooks failed, returned %d\n", ret);
+
 #if IS_ENABLED(CONFIG_MTK_NEWIDLE_BALANCE)
 	ret = register_trace_android_rvh_sched_newidle_balance(
 			mtk_sched_newidle_balance, NULL);
