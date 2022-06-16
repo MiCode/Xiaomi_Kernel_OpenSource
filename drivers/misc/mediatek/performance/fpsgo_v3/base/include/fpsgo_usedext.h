@@ -50,5 +50,6 @@ extern int (*xgff_frame_startend_fp)(unsigned int startend,
 		unsigned int *pdeplist);
 extern void (*xgff_frame_getdeplist_maxsize_fp)
 		(unsigned int *pdeplistsize);
+extern void (*xgff_frame_min_cap_fp)(unsigned int min_cap);
 
 #endif

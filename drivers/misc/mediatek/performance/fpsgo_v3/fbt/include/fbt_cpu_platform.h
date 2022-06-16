@@ -44,6 +44,7 @@ int fbt_get_default_qr_enable(void);
 int fbt_get_default_gcc_enable(void);
 int fbt_get_default_sbe_rescue_enable(void);
 int fbt_get_l_min_bhropp(void);
+int fbt_get_default_gcc_chk_avg_deq(void);
 void init_fbt_platform(void);
 void exit_fbt_platform(void);
 

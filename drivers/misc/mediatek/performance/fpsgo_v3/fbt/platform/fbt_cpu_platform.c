@@ -21,6 +21,7 @@ static unsigned int peak_bw;
 static int plat_gcc_enable;
 static int plat_sbe_rescue_enable;
 static int plat_cpu_limit;
+static int plat_gcc_chk_avg_deq;
 
 void fbt_notify_CM_limit(int reach_limit)
 {
@@ -56,6 +57,13 @@ static int platform_fpsgo_probe(struct platform_device *pdev)
 		plat_gcc_enable = retval;
 	else
 		FPSGO_LOGE("%s unable to get plat_gcc_enable\n", __func__);
+
+	ret = of_property_read_u32(node,
+			 "gcc_chk_avg_deq", &retval);
+	if (!ret)
+		plat_gcc_chk_avg_deq = retval;
+	else
+		FPSGO_LOGE("%s unable to get plat_gcc_chk_avg_deq\n", __func__);
 
 	ret = of_property_read_u32(node,
 			 "cpu_limit", &retval);
@@ -335,5 +343,10 @@ int fbt_get_default_sbe_rescue_enable(void)
 int fbt_get_l_min_bhropp(void)
 {
 	return 0;
+}
+
+int fbt_get_default_gcc_chk_avg_deq(void)
+{
+	return plat_gcc_chk_avg_deq;
 }
 

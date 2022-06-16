@@ -66,6 +66,8 @@ static int cfp_up_time;
 static int cfp_down_time;
 static int cfp_up_loading;
 static int cfp_down_loading;
+static int L_ceiling_min;
+static int L_min_cap_enable;
 
 module_param(cfp_onoff, int, 0644);
 module_param(cfp_polling_ms, int, 0644);
@@ -73,6 +75,8 @@ module_param(cfp_up_time, int, 0644);
 module_param(cfp_down_time, int, 0644);
 module_param(cfp_up_loading, int, 0644);
 module_param(cfp_down_loading, int, 0644);
+module_param(L_ceiling_min, int, 0644);
+module_param(L_min_cap_enable, int, 0644);
 
 static int cfp_cur_up_time;
 static int cfp_cur_down_time;
@@ -95,8 +99,11 @@ static struct cpu_info *cur_wall_time, *cur_idle_time,
 /* local function */
 static void __cpu_ctrl_freq_systrace(int policy, int freq)
 {
-	if (policy == 0)
+	if (policy == 0) {
 		__cpu_ctrl_systrace(freq, "cpu_ceil_cluster_0");
+		__cpu_ctrl_systrace(L_min_cap_enable ? L_ceiling_min : -1,
+			"L_ceiling_min");
+	}
 	else if (policy == 1)
 		__cpu_ctrl_systrace(freq, "cpu_ceil_cluster_1");
 	else if (policy == 2)
@@ -124,8 +131,7 @@ static void __update_cpu_freq_locked(void)
 			if (fbt_final_ceiling[i] != ceiling_to_set) {
 				fbt_final_ceiling[i] = ceiling_to_set;
 				freq_qos_update_request(&(fbt_cpu_rq[i]), fbt_final_ceiling[i]);
-				__cpu_ctrl_systrace(fbt_final_ceiling[i],
-					"cpu_ceil_cluster_%d", i);
+				__cpu_ctrl_freq_systrace(i, fbt_final_ceiling[i]);
 			}
 		} else {
 			freq_qos_update_request(&(fbt_cpu_rq[i]), fbt_max_freq[i]);
@@ -461,6 +467,10 @@ int fbt_set_cpu_freq_ceiling(int num, int *freq)
 	int i, need_cfp = 0;
 	int need_update = 0;
 
+	if (L_min_cap_enable && L_ceiling_min != 0 &&
+		freq[0] >= 0 && freq[0] < L_ceiling_min)
+		freq[0] = L_ceiling_min;
+
 	mutex_lock(&cpu_ctrl_lock);
 
 	for (i = 0; i < policy_num && i < num; i++) {
@@ -512,8 +522,11 @@ void update_userlimit_cpu_freq(int kicker, int cluster_num, struct cpu_ctrl_data
 	fbt_set_cpu_freq_ceiling(cluster_num, freq);
 
 	kfree(freq);
+}
 
-	return;
+void fbt_cpu_L_ceiling_min(int freq)
+{
+	L_ceiling_min = freq;
 }
 
 int fbt_cpu_ctrl_get_ceil(void)
@@ -592,6 +605,9 @@ int fbt_cpu_ctrl_init(void)
 	cfp_down_time    = 16;
 	cfp_up_loading   = 90;
 	cfp_down_loading = 80;
+
+	L_ceiling_min = 0;
+	L_min_cap_enable = 1;
 
 	/* cfp request */
 	for (i = 0; i < CFP_KIR_MAX_NUM; i++) {

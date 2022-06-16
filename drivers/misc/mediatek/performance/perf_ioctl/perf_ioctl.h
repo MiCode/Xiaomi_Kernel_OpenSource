@@ -149,6 +149,7 @@ struct _XGFFRAME_PACKAGE {
 	union {
 		__u32 *deplist;
 		__u64 p_dummy_deplist;
+		__u32 min_cap;
 	};
 };
 
@@ -203,6 +204,7 @@ struct _CPUQOS_V3_PACKAGE {
 
 #define XGFFRAME_START              _IOW('g', 1, struct _XGFFRAME_PACKAGE)
 #define XGFFRAME_END                _IOW('g', 2, struct _XGFFRAME_PACKAGE)
+#define XGFFRAME_MIN_CAP            _IOW('g', 3, struct _XGFFRAME_PACKAGE)
 
 #endif
 
