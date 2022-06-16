@@ -33,6 +33,8 @@
 //#define SCAN_SETTLE
 #define LOG_MORE 0
 
+#define MT6886_IOMOM_VERSIONS "mt6886"
+
 static struct mtk_cam_seninf_ops *_seninf_ops = &mtk_csi_phy_3_0;
 
 
@@ -93,79 +95,136 @@ static int mtk_cam_seninf_init_iomem(struct seninf_ctx *ctx,
 {
 	int i, j, k;
 
-	ctx->reg_ana_csi_rx[CSI_PORT_0] =
-	ctx->reg_ana_csi_rx[CSI_PORT_0A] = ana_base + 0;
-	ctx->reg_ana_csi_rx[CSI_PORT_0B] = ana_base + 0x1000;
+	if (_seninf_ops->iomem_ver == NULL) {
+		// for Dujac mapping flow
+		ctx->reg_ana_csi_rx[CSI_PORT_0] =
+		ctx->reg_ana_csi_rx[CSI_PORT_0A] = ana_base + 0;
+		ctx->reg_ana_csi_rx[CSI_PORT_0B] = ana_base + 0x1000;
 
-	ctx->reg_ana_csi_rx[CSI_PORT_1] =
-	ctx->reg_ana_csi_rx[CSI_PORT_1A] = ana_base + 0x10000;
-	ctx->reg_ana_csi_rx[CSI_PORT_1B] = ana_base + 0x11000;
+		ctx->reg_ana_csi_rx[CSI_PORT_1] =
+		ctx->reg_ana_csi_rx[CSI_PORT_1A] = ana_base + 0x10000;
+		ctx->reg_ana_csi_rx[CSI_PORT_1B] = ana_base + 0x11000;
 
-	ctx->reg_ana_csi_rx[CSI_PORT_2A] =
-	ctx->reg_ana_csi_rx[CSI_PORT_2] = ana_base + 0x4000;
-	ctx->reg_ana_csi_rx[CSI_PORT_2B] = ana_base + 0x5000;
+		ctx->reg_ana_csi_rx[CSI_PORT_2A] =
+		ctx->reg_ana_csi_rx[CSI_PORT_2] = ana_base + 0x4000;
+		ctx->reg_ana_csi_rx[CSI_PORT_2B] = ana_base + 0x5000;
 
-	ctx->reg_ana_csi_rx[CSI_PORT_3A] =
-	ctx->reg_ana_csi_rx[CSI_PORT_3] = ana_base + 0x14000;
-	ctx->reg_ana_csi_rx[CSI_PORT_3B] = ana_base + 0x15000;
+		ctx->reg_ana_csi_rx[CSI_PORT_3A] =
+		ctx->reg_ana_csi_rx[CSI_PORT_3] = ana_base + 0x14000;
+		ctx->reg_ana_csi_rx[CSI_PORT_3B] = ana_base + 0x15000;
 
-	ctx->reg_ana_csi_rx[CSI_PORT_4A] =
-	ctx->reg_ana_csi_rx[CSI_PORT_4] = ana_base + 0x8000;
-	ctx->reg_ana_csi_rx[CSI_PORT_4B] = ana_base + 0x9000;
+		ctx->reg_ana_csi_rx[CSI_PORT_4A] =
+		ctx->reg_ana_csi_rx[CSI_PORT_4] = ana_base + 0x8000;
+		ctx->reg_ana_csi_rx[CSI_PORT_4B] = ana_base + 0x9000;
 
-	ctx->reg_ana_csi_rx[CSI_PORT_5A] =
-	ctx->reg_ana_csi_rx[CSI_PORT_5] = ana_base + 0xc000;
-	ctx->reg_ana_csi_rx[CSI_PORT_5B] = ana_base + 0xd000;
-
-
-	ctx->reg_ana_dphy_top[CSI_PORT_0A] =
-	ctx->reg_ana_dphy_top[CSI_PORT_0B] =
-	ctx->reg_ana_dphy_top[CSI_PORT_0] = ana_base + 0x2000;
-
-	ctx->reg_ana_dphy_top[CSI_PORT_1A] =
-	ctx->reg_ana_dphy_top[CSI_PORT_1B] =
-	ctx->reg_ana_dphy_top[CSI_PORT_1] = ana_base + 0x12000;
-
-	ctx->reg_ana_dphy_top[CSI_PORT_2A] =
-	ctx->reg_ana_dphy_top[CSI_PORT_2B] =
-	ctx->reg_ana_dphy_top[CSI_PORT_2] = ana_base + 0x6000;
-
-	ctx->reg_ana_dphy_top[CSI_PORT_3A] =
-	ctx->reg_ana_dphy_top[CSI_PORT_3B] =
-	ctx->reg_ana_dphy_top[CSI_PORT_3] = ana_base + 0x16000;
-
-	ctx->reg_ana_dphy_top[CSI_PORT_4A] =
-	ctx->reg_ana_dphy_top[CSI_PORT_4B] =
-	ctx->reg_ana_dphy_top[CSI_PORT_4] = ana_base + 0xa000;
-
-	ctx->reg_ana_dphy_top[CSI_PORT_5A] =
-	ctx->reg_ana_dphy_top[CSI_PORT_5B] =
-	ctx->reg_ana_dphy_top[CSI_PORT_5] = ana_base + 0xe000;
-
-	ctx->reg_ana_cphy_top[CSI_PORT_0A] =
-	ctx->reg_ana_cphy_top[CSI_PORT_0B] =
-	ctx->reg_ana_cphy_top[CSI_PORT_0] = ana_base + 0x3000;
-
-	ctx->reg_ana_cphy_top[CSI_PORT_1A] =
-	ctx->reg_ana_cphy_top[CSI_PORT_1B] =
-	ctx->reg_ana_cphy_top[CSI_PORT_1] = ana_base + 0x13000;
+		ctx->reg_ana_csi_rx[CSI_PORT_5A] =
+		ctx->reg_ana_csi_rx[CSI_PORT_5] = ana_base + 0xc000;
+		ctx->reg_ana_csi_rx[CSI_PORT_5B] = ana_base + 0xd000;
 
 
-	ctx->reg_ana_cphy_top[CSI_PORT_2A] =
-	ctx->reg_ana_cphy_top[CSI_PORT_2B] =
-	ctx->reg_ana_cphy_top[CSI_PORT_2] = ana_base + 0x7000;
+		ctx->reg_ana_dphy_top[CSI_PORT_0A] =
+		ctx->reg_ana_dphy_top[CSI_PORT_0B] =
+		ctx->reg_ana_dphy_top[CSI_PORT_0] = ana_base + 0x2000;
 
-	ctx->reg_ana_cphy_top[CSI_PORT_3A] =
-	ctx->reg_ana_cphy_top[CSI_PORT_3B] =
-	ctx->reg_ana_cphy_top[CSI_PORT_3] = ana_base + 0x17000;
+		ctx->reg_ana_dphy_top[CSI_PORT_1A] =
+		ctx->reg_ana_dphy_top[CSI_PORT_1B] =
+		ctx->reg_ana_dphy_top[CSI_PORT_1] = ana_base + 0x12000;
 
-	ctx->reg_ana_cphy_top[CSI_PORT_4A] =
-	ctx->reg_ana_cphy_top[CSI_PORT_4B] =
-	ctx->reg_ana_cphy_top[CSI_PORT_4] = ana_base + 0xb000;
+		ctx->reg_ana_dphy_top[CSI_PORT_2A] =
+		ctx->reg_ana_dphy_top[CSI_PORT_2B] =
+		ctx->reg_ana_dphy_top[CSI_PORT_2] = ana_base + 0x6000;
 
-	ctx->reg_ana_cphy_top[CSI_PORT_5A] =
-	ctx->reg_ana_cphy_top[CSI_PORT_5B] =
-	ctx->reg_ana_cphy_top[CSI_PORT_5] = ana_base + 0xf000;
+		ctx->reg_ana_dphy_top[CSI_PORT_3A] =
+		ctx->reg_ana_dphy_top[CSI_PORT_3B] =
+		ctx->reg_ana_dphy_top[CSI_PORT_3] = ana_base + 0x16000;
+
+		ctx->reg_ana_dphy_top[CSI_PORT_4A] =
+		ctx->reg_ana_dphy_top[CSI_PORT_4B] =
+		ctx->reg_ana_dphy_top[CSI_PORT_4] = ana_base + 0xa000;
+
+		ctx->reg_ana_dphy_top[CSI_PORT_5A] =
+		ctx->reg_ana_dphy_top[CSI_PORT_5B] =
+		ctx->reg_ana_dphy_top[CSI_PORT_5] = ana_base + 0xe000;
+
+		ctx->reg_ana_cphy_top[CSI_PORT_0A] =
+		ctx->reg_ana_cphy_top[CSI_PORT_0B] =
+		ctx->reg_ana_cphy_top[CSI_PORT_0] = ana_base + 0x3000;
+
+		ctx->reg_ana_cphy_top[CSI_PORT_1A] =
+		ctx->reg_ana_cphy_top[CSI_PORT_1B] =
+		ctx->reg_ana_cphy_top[CSI_PORT_1] = ana_base + 0x13000;
+
+
+		ctx->reg_ana_cphy_top[CSI_PORT_2A] =
+		ctx->reg_ana_cphy_top[CSI_PORT_2B] =
+		ctx->reg_ana_cphy_top[CSI_PORT_2] = ana_base + 0x7000;
+
+		ctx->reg_ana_cphy_top[CSI_PORT_3A] =
+		ctx->reg_ana_cphy_top[CSI_PORT_3B] =
+		ctx->reg_ana_cphy_top[CSI_PORT_3] = ana_base + 0x17000;
+
+		ctx->reg_ana_cphy_top[CSI_PORT_4A] =
+		ctx->reg_ana_cphy_top[CSI_PORT_4B] =
+		ctx->reg_ana_cphy_top[CSI_PORT_4] = ana_base + 0xb000;
+
+		ctx->reg_ana_cphy_top[CSI_PORT_5A] =
+		ctx->reg_ana_cphy_top[CSI_PORT_5B] =
+		ctx->reg_ana_cphy_top[CSI_PORT_5] = ana_base + 0xf000;
+
+	} else if (!strcasecmp(_seninf_ops->iomem_ver, MT6886_IOMOM_VERSIONS)) {
+		// for climens mapping flow
+		dev_info(ctx->dev, "Apply mt6886 iomom rule\n");
+		ctx->reg_ana_csi_rx[CSI_PORT_0] =
+		ctx->reg_ana_csi_rx[CSI_PORT_0A] = ana_base + 0;
+		ctx->reg_ana_csi_rx[CSI_PORT_0B] = ana_base + 0x1000;
+
+		ctx->reg_ana_csi_rx[CSI_PORT_1] =
+		ctx->reg_ana_csi_rx[CSI_PORT_1A] = ana_base + 0x4000;
+		ctx->reg_ana_csi_rx[CSI_PORT_1B] = ana_base + 0x5000;
+
+		ctx->reg_ana_csi_rx[CSI_PORT_2A] =
+		ctx->reg_ana_csi_rx[CSI_PORT_2] = ana_base + 0x8000;
+		ctx->reg_ana_csi_rx[CSI_PORT_2B] = ana_base + 0x9000;
+
+		ctx->reg_ana_csi_rx[CSI_PORT_3A] =
+		ctx->reg_ana_csi_rx[CSI_PORT_3] = ana_base + 0xc000;
+		ctx->reg_ana_csi_rx[CSI_PORT_3B] = ana_base + 0xd000;
+
+		ctx->reg_ana_dphy_top[CSI_PORT_0A] =
+		ctx->reg_ana_dphy_top[CSI_PORT_0B] =
+		ctx->reg_ana_dphy_top[CSI_PORT_0] = ana_base + 0x2000;
+
+		ctx->reg_ana_dphy_top[CSI_PORT_1A] =
+		ctx->reg_ana_dphy_top[CSI_PORT_1B] =
+		ctx->reg_ana_dphy_top[CSI_PORT_1] = ana_base + 0x6000;
+
+		ctx->reg_ana_dphy_top[CSI_PORT_2A] =
+		ctx->reg_ana_dphy_top[CSI_PORT_2B] =
+		ctx->reg_ana_dphy_top[CSI_PORT_2] = ana_base + 0xa000;
+
+		ctx->reg_ana_dphy_top[CSI_PORT_3A] =
+		ctx->reg_ana_dphy_top[CSI_PORT_3B] =
+		ctx->reg_ana_dphy_top[CSI_PORT_3] = ana_base + 0xe000;
+
+		ctx->reg_ana_cphy_top[CSI_PORT_0A] =
+		ctx->reg_ana_cphy_top[CSI_PORT_0B] =
+		ctx->reg_ana_cphy_top[CSI_PORT_0] = ana_base + 0x3000;
+
+		ctx->reg_ana_cphy_top[CSI_PORT_1A] =
+		ctx->reg_ana_cphy_top[CSI_PORT_1B] =
+		ctx->reg_ana_cphy_top[CSI_PORT_1] = ana_base + 0x7000;
+
+		ctx->reg_ana_cphy_top[CSI_PORT_2A] =
+		ctx->reg_ana_cphy_top[CSI_PORT_2B] =
+		ctx->reg_ana_cphy_top[CSI_PORT_2] = ana_base + 0xb000;
+
+		ctx->reg_ana_cphy_top[CSI_PORT_3A] =
+		ctx->reg_ana_cphy_top[CSI_PORT_3B] =
+		ctx->reg_ana_cphy_top[CSI_PORT_3] = ana_base + 0xf000;
+	} else {
+		dev_info(ctx->dev, "iomem_ver is invalid\n");
+		return -EINVAL;
+	}
 
 	ctx->reg_if_top = if_base;
 
@@ -4100,5 +4159,6 @@ struct mtk_cam_seninf_ops mtk_csi_phy_3_0 = {
 	.mux_num = 22,
 	.cam_mux_num = 41,
 	.pref_mux_num = 17,
+	.iomem_ver = NULL,
 	._show_err_status = mtk_cam_seninf_show_err_status,
 };

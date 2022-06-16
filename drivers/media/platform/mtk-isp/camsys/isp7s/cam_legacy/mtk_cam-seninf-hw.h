@@ -125,6 +125,7 @@ struct mtk_cam_seninf_ops {
 	unsigned int mux_num;
 	unsigned int cam_mux_num;
 	unsigned int pref_mux_num;
+	const char *iomem_ver;
 
 };
 

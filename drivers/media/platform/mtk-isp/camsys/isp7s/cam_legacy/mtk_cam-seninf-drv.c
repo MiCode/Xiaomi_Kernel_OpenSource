@@ -430,6 +430,8 @@ static int get_seninf_ops(struct device *dev, struct seninf_core *core)
 			&g_seninf_ops->cam_mux_num);
 		of_property_read_u32(dev->of_node, "pref_mux_num",
 			&g_seninf_ops->pref_mux_num);
+		of_property_read_string(dev->of_node, "mtk_iomem_ver",
+			&g_seninf_ops->iomem_ver);
 
 		for (i = 0; i < TYPE_MAX_NUM; i++) {
 			ret = of_property_read_u32_index(dev->of_node, mux_range_name[i],
@@ -2006,7 +2008,11 @@ static int seninf_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	g_seninf_ops->_init_iomem(ctx, core->reg_if, core->reg_ana);
+	ret = g_seninf_ops->_init_iomem(ctx, core->reg_if, core->reg_ana);
+	if (ret) {
+		dev_info(dev, "g_seninf_ops->_init_iomem failed ret %d\n", ret);
+		return ret;
+	}
 	g_seninf_ops->_init_port(ctx, port);
 	init_fmt(ctx);
 
