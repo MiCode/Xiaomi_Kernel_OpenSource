@@ -4709,6 +4709,146 @@ static const struct mtk_cam_format_desc yuv_out_group1_fmts[] = {
 			.height = YUV_GROUP1_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_MTISP_SGRB12F,
 		},
+	},
+	{
+		.vfmt.fmt.pix_mp = {
+			.width = YUV_GROUP1_MAX_WIDTH,
+			.height = YUV_GROUP1_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_MTISP_PLANAR_BGGR_8,
+		},
+	},
+	{
+		.vfmt.fmt.pix_mp = {
+			.width = YUV_GROUP1_MAX_WIDTH,
+			.height = YUV_GROUP1_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_MTISP_PLANAR_GBRG_8,
+		},
+	},
+	{
+		.vfmt.fmt.pix_mp = {
+			.width = YUV_GROUP1_MAX_WIDTH,
+			.height = YUV_GROUP1_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_MTISP_PLANAR_GRBG_8,
+		},
+	},
+	{
+		.vfmt.fmt.pix_mp = {
+			.width = YUV_GROUP1_MAX_WIDTH,
+			.height = YUV_GROUP1_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_MTISP_PLANAR_RGGB_8,
+		},
+	},
+	{
+		.vfmt.fmt.pix_mp = {
+			.width = YUV_GROUP1_MAX_WIDTH,
+			.height = YUV_GROUP1_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_MTISP_PLANAR_BGGR_10,
+		},
+	},
+	{
+		.vfmt.fmt.pix_mp = {
+			.width = YUV_GROUP1_MAX_WIDTH,
+			.height = YUV_GROUP1_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_MTISP_PLANAR_GBRG_10,
+		},
+	},
+	{
+		.vfmt.fmt.pix_mp = {
+			.width = YUV_GROUP1_MAX_WIDTH,
+			.height = YUV_GROUP1_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_MTISP_PLANAR_GRBG_10,
+		},
+	},
+	{
+		.vfmt.fmt.pix_mp = {
+			.width = YUV_GROUP1_MAX_WIDTH,
+			.height = YUV_GROUP1_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_MTISP_PLANAR_RGGB_10,
+		},
+	},
+	{
+		.vfmt.fmt.pix_mp = {
+			.width = YUV_GROUP1_MAX_WIDTH,
+			.height = YUV_GROUP1_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_MTISP_PLANAR_BGGR_12,
+		},
+	},
+	{
+		.vfmt.fmt.pix_mp = {
+			.width = YUV_GROUP1_MAX_WIDTH,
+			.height = YUV_GROUP1_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_MTISP_PLANAR_GBRG_12,
+		},
+	},
+	{
+		.vfmt.fmt.pix_mp = {
+			.width = YUV_GROUP1_MAX_WIDTH,
+			.height = YUV_GROUP1_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_MTISP_PLANAR_GRBG_12,
+		},
+	},
+	{
+		.vfmt.fmt.pix_mp = {
+			.width = YUV_GROUP1_MAX_WIDTH,
+			.height = YUV_GROUP1_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_MTISP_PLANAR_RGGB_12,
+		},
+	},
+	{
+		.vfmt.fmt.pix_mp = {
+			.width = YUV_GROUP1_MAX_WIDTH,
+			.height = YUV_GROUP1_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_MTISP_PLANAR_BGGR_10P,
+		},
+	},
+	{
+		.vfmt.fmt.pix_mp = {
+			.width = YUV_GROUP1_MAX_WIDTH,
+			.height = YUV_GROUP1_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_MTISP_PLANAR_GBRG_10P,
+		},
+	},
+	{
+		.vfmt.fmt.pix_mp = {
+			.width = YUV_GROUP1_MAX_WIDTH,
+			.height = YUV_GROUP1_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_MTISP_PLANAR_GRBG_10P,
+		},
+	},
+	{
+		.vfmt.fmt.pix_mp = {
+			.width = YUV_GROUP1_MAX_WIDTH,
+			.height = YUV_GROUP1_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_MTISP_PLANAR_RGGB_10P,
+		},
+	},
+	{
+		.vfmt.fmt.pix_mp = {
+			.width = YUV_GROUP1_MAX_WIDTH,
+			.height = YUV_GROUP1_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_MTISP_PLANAR_BGGR_12P,
+		},
+	},
+	{
+		.vfmt.fmt.pix_mp = {
+			.width = YUV_GROUP1_MAX_WIDTH,
+			.height = YUV_GROUP1_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_MTISP_PLANAR_GBRG_12P,
+		},
+	},
+	{
+		.vfmt.fmt.pix_mp = {
+			.width = YUV_GROUP1_MAX_WIDTH,
+			.height = YUV_GROUP1_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_MTISP_PLANAR_GRBG_12P,
+		},
+	},
+	{
+		.vfmt.fmt.pix_mp = {
+			.width = YUV_GROUP1_MAX_WIDTH,
+			.height = YUV_GROUP1_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_MTISP_PLANAR_RGGB_12P,
+		},
 	}
 };
 

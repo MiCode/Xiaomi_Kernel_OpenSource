@@ -404,6 +404,26 @@ int is_mtk_format(u32 pixelformat)
 	case V4L2_PIX_FMT_MTISP_SGRB8F:
 	case V4L2_PIX_FMT_MTISP_SGRB10F:
 	case V4L2_PIX_FMT_MTISP_SGRB12F:
+	case V4L2_PIX_FMT_MTISP_PLANAR_BGGR_8:
+	case V4L2_PIX_FMT_MTISP_PLANAR_GBRG_8:
+	case V4L2_PIX_FMT_MTISP_PLANAR_GRBG_8:
+	case V4L2_PIX_FMT_MTISP_PLANAR_RGGB_8:
+	case V4L2_PIX_FMT_MTISP_PLANAR_BGGR_10:
+	case V4L2_PIX_FMT_MTISP_PLANAR_GBRG_10:
+	case V4L2_PIX_FMT_MTISP_PLANAR_GRBG_10:
+	case V4L2_PIX_FMT_MTISP_PLANAR_RGGB_10:
+	case V4L2_PIX_FMT_MTISP_PLANAR_BGGR_12:
+	case V4L2_PIX_FMT_MTISP_PLANAR_GBRG_12:
+	case V4L2_PIX_FMT_MTISP_PLANAR_GRBG_12:
+	case V4L2_PIX_FMT_MTISP_PLANAR_RGGB_12:
+	case V4L2_PIX_FMT_MTISP_PLANAR_BGGR_10P:
+	case V4L2_PIX_FMT_MTISP_PLANAR_GBRG_10P:
+	case V4L2_PIX_FMT_MTISP_PLANAR_GRBG_10P:
+	case V4L2_PIX_FMT_MTISP_PLANAR_RGGB_10P:
+	case V4L2_PIX_FMT_MTISP_PLANAR_BGGR_12P:
+	case V4L2_PIX_FMT_MTISP_PLANAR_GBRG_12P:
+	case V4L2_PIX_FMT_MTISP_PLANAR_GRBG_12P:
+	case V4L2_PIX_FMT_MTISP_PLANAR_RGGB_12P:
 		return 1;
 	break;
 	default:
@@ -434,6 +454,35 @@ int is_raw_ufo(u32 pixelformat)
 	case V4L2_PIX_FMT_MTISP_BAYER10_UFBC:
 	case V4L2_PIX_FMT_MTISP_BAYER12_UFBC:
 	case V4L2_PIX_FMT_MTISP_BAYER14_UFBC:
+		return 1;
+	default:
+		return 0;
+	}
+}
+
+int is_4_plane_rgb(u32 pixelformat)
+{
+	switch (pixelformat) {
+	case V4L2_PIX_FMT_MTISP_PLANAR_BGGR_8:
+	case V4L2_PIX_FMT_MTISP_PLANAR_GBRG_8:
+	case V4L2_PIX_FMT_MTISP_PLANAR_GRBG_8:
+	case V4L2_PIX_FMT_MTISP_PLANAR_RGGB_8:
+	case V4L2_PIX_FMT_MTISP_PLANAR_BGGR_10:
+	case V4L2_PIX_FMT_MTISP_PLANAR_GBRG_10:
+	case V4L2_PIX_FMT_MTISP_PLANAR_GRBG_10:
+	case V4L2_PIX_FMT_MTISP_PLANAR_RGGB_10:
+	case V4L2_PIX_FMT_MTISP_PLANAR_BGGR_12:
+	case V4L2_PIX_FMT_MTISP_PLANAR_GBRG_12:
+	case V4L2_PIX_FMT_MTISP_PLANAR_GRBG_12:
+	case V4L2_PIX_FMT_MTISP_PLANAR_RGGB_12:
+	case V4L2_PIX_FMT_MTISP_PLANAR_BGGR_10P:
+	case V4L2_PIX_FMT_MTISP_PLANAR_GBRG_10P:
+	case V4L2_PIX_FMT_MTISP_PLANAR_GRBG_10P:
+	case V4L2_PIX_FMT_MTISP_PLANAR_RGGB_10P:
+	case V4L2_PIX_FMT_MTISP_PLANAR_BGGR_12P:
+	case V4L2_PIX_FMT_MTISP_PLANAR_GBRG_12P:
+	case V4L2_PIX_FMT_MTISP_PLANAR_GRBG_12P:
+	case V4L2_PIX_FMT_MTISP_PLANAR_RGGB_12P:
 		return 1;
 	default:
 		return 0;
@@ -594,6 +643,67 @@ const struct mtk_format_info *mtk_format_info(u32 format)
 		{ .format = V4L2_PIX_FMT_MTISP_SGRB12F, .mem_planes = 1, .comp_planes = 3,
 			.bpp = { 1, 1, 1, 0 }, .hdiv = 2, .vdiv = 2,
 			.bit_r_num = 3, .bit_r_den = 2 },
+		/* RGB 4P formats */
+		{ .format = V4L2_PIX_FMT_MTISP_PLANAR_BGGR_8, .mem_planes = 1, .comp_planes = 4,
+			.bpp = { 1, 1, 1, 1 }, .hdiv = 2, .vdiv = 2,
+			.bit_r_num = 1, .bit_r_den = 1, .pixel_id = 0 },
+		{ .format = V4L2_PIX_FMT_MTISP_PLANAR_GBRG_8, .mem_planes = 1, .comp_planes = 4,
+			.bpp = { 1, 1, 1, 1 }, .hdiv = 2, .vdiv = 2,
+			.bit_r_num = 1, .bit_r_den = 1, .pixel_id = 1 },
+		{ .format = V4L2_PIX_FMT_MTISP_PLANAR_GRBG_8, .mem_planes = 1, .comp_planes = 4,
+			.bpp = { 1, 1, 1, 1 }, .hdiv = 2, .vdiv = 2,
+			.bit_r_num = 1, .bit_r_den = 1, .pixel_id = 2 },
+		{ .format = V4L2_PIX_FMT_MTISP_PLANAR_RGGB_8, .mem_planes = 1, .comp_planes = 4,
+			.bpp = { 1, 1, 1, 1 }, .hdiv = 2, .vdiv = 2,
+			.bit_r_num = 1, .bit_r_den = 1, .pixel_id = 3 },
+		{ .format = V4L2_PIX_FMT_MTISP_PLANAR_BGGR_10, .mem_planes = 1, .comp_planes = 4,
+			.bpp = { 1, 1, 1, 1 }, .hdiv = 2, .vdiv = 2,
+			.bit_r_num = 2, .bit_r_den = 1, .pixel_id = 0 },
+		{ .format = V4L2_PIX_FMT_MTISP_PLANAR_GBRG_10, .mem_planes = 1, .comp_planes = 4,
+			.bpp = { 1, 1, 1, 1 }, .hdiv = 2, .vdiv = 2,
+			.bit_r_num = 2, .bit_r_den = 1, .pixel_id = 1 },
+		{ .format = V4L2_PIX_FMT_MTISP_PLANAR_GRBG_10, .mem_planes = 1, .comp_planes = 4,
+			.bpp = { 1, 1, 1, 1 }, .hdiv = 2, .vdiv = 2,
+			.bit_r_num = 2, .bit_r_den = 1, .pixel_id = 2 },
+		{ .format = V4L2_PIX_FMT_MTISP_PLANAR_RGGB_10, .mem_planes = 1, .comp_planes = 4,
+			.bpp = { 1, 1, 1, 1 }, .hdiv = 2, .vdiv = 2,
+			.bit_r_num = 2, .bit_r_den = 1, .pixel_id = 3 },
+		{ .format = V4L2_PIX_FMT_MTISP_PLANAR_BGGR_12, .mem_planes = 1, .comp_planes = 4,
+			.bpp = { 1, 1, 1, 1 }, .hdiv = 2, .vdiv = 2,
+			.bit_r_num = 2, .bit_r_den = 1, .pixel_id = 0 },
+		{ .format = V4L2_PIX_FMT_MTISP_PLANAR_GBRG_12, .mem_planes = 1, .comp_planes = 4,
+			.bpp = { 1, 1, 1, 1 }, .hdiv = 2, .vdiv = 2,
+			.bit_r_num = 2, .bit_r_den = 1, .pixel_id = 1 },
+		{ .format = V4L2_PIX_FMT_MTISP_PLANAR_GRBG_12, .mem_planes = 1, .comp_planes = 4,
+			.bpp = { 1, 1, 1, 1 }, .hdiv = 2, .vdiv = 2,
+			.bit_r_num = 2, .bit_r_den = 1, .pixel_id = 2 },
+		{ .format = V4L2_PIX_FMT_MTISP_PLANAR_RGGB_12, .mem_planes = 1, .comp_planes = 4,
+			.bpp = { 1, 1, 1, 1 }, .hdiv = 2, .vdiv = 2,
+			.bit_r_num = 2, .bit_r_den = 1, .pixel_id = 3 },
+		{ .format = V4L2_PIX_FMT_MTISP_PLANAR_BGGR_10P, .mem_planes = 1, .comp_planes = 4,
+			.bpp = { 1, 1, 1, 1 }, .hdiv = 2, .vdiv = 2,
+			.bit_r_num = 5, .bit_r_den = 4, .pixel_id = 0 },
+		{ .format = V4L2_PIX_FMT_MTISP_PLANAR_GBRG_10P, .mem_planes = 1, .comp_planes = 4,
+			.bpp = { 1, 1, 1, 1 }, .hdiv = 2, .vdiv = 2,
+			.bit_r_num = 5, .bit_r_den = 4, .pixel_id = 1 },
+		{ .format = V4L2_PIX_FMT_MTISP_PLANAR_GRBG_10P, .mem_planes = 1, .comp_planes = 4,
+			.bpp = { 1, 1, 1, 1 }, .hdiv = 2, .vdiv = 2,
+			.bit_r_num = 5, .bit_r_den = 4, .pixel_id = 2 },
+		{ .format = V4L2_PIX_FMT_MTISP_PLANAR_RGGB_10P, .mem_planes = 1, .comp_planes = 4,
+			.bpp = { 1, 1, 1, 1 }, .hdiv = 2, .vdiv = 2,
+			.bit_r_num = 5, .bit_r_den = 4, .pixel_id = 3 },
+		{ .format = V4L2_PIX_FMT_MTISP_PLANAR_BGGR_12P, .mem_planes = 1, .comp_planes = 4,
+			.bpp = { 1, 1, 1, 1 }, .hdiv = 2, .vdiv = 2,
+			.bit_r_num = 3, .bit_r_den = 2, .pixel_id = 0 },
+		{ .format = V4L2_PIX_FMT_MTISP_PLANAR_GBRG_12P, .mem_planes = 1, .comp_planes = 4,
+			.bpp = { 1, 1, 1, 1 }, .hdiv = 2, .vdiv = 2,
+			.bit_r_num = 3, .bit_r_den = 2, .pixel_id = 1 },
+		{ .format = V4L2_PIX_FMT_MTISP_PLANAR_GRBG_12P, .mem_planes = 1, .comp_planes = 4,
+			.bpp = { 1, 1, 1, 1 }, .hdiv = 2, .vdiv = 2,
+			.bit_r_num = 3, .bit_r_den = 2, .pixel_id = 2 },
+		{ .format = V4L2_PIX_FMT_MTISP_PLANAR_RGGB_12P, .mem_planes = 1, .comp_planes = 4,
+			.bpp = { 1, 1, 1, 1 }, .hdiv = 2, .vdiv = 2,
+			.bit_r_num = 3, .bit_r_den = 2, .pixel_id = 3 },
 	};
 	unsigned int i;
 
@@ -936,6 +1046,30 @@ unsigned int mtk_cam_get_pixel_bits(unsigned int ipi_fmt)
 	case MTKCAM_IPI_IMG_FMT_RGB_12B_3P:
 	case MTKCAM_IPI_IMG_FMT_FG_BAYER12_3P:
 		return 16;
+	case MTKCAM_IPI_IMG_FMT_BAYER_8B_4P_BGGR:
+	case MTKCAM_IPI_IMG_FMT_BAYER_8B_4P_GBRG:
+	case MTKCAM_IPI_IMG_FMT_BAYER_8B_4P_GRBG:
+	case MTKCAM_IPI_IMG_FMT_BAYER_8B_4P_RGGB:
+		return 8;
+	case MTKCAM_IPI_IMG_FMT_BAYER_10B_4P_BGGR:
+	case MTKCAM_IPI_IMG_FMT_BAYER_10B_4P_GBRG:
+	case MTKCAM_IPI_IMG_FMT_BAYER_10B_4P_GRBG:
+	case MTKCAM_IPI_IMG_FMT_BAYER_10B_4P_RGGB:
+	case MTKCAM_IPI_IMG_FMT_BAYER_12B_4P_BGGR:
+	case MTKCAM_IPI_IMG_FMT_BAYER_12B_4P_GBRG:
+	case MTKCAM_IPI_IMG_FMT_BAYER_12B_4P_GRBG:
+	case MTKCAM_IPI_IMG_FMT_BAYER_12B_4P_RGGB:
+		return 16;
+	case MTKCAM_IPI_IMG_FMT_BAYER_10B_4P_BGGR_PACKED:
+	case MTKCAM_IPI_IMG_FMT_BAYER_10B_4P_GBRG_PACKED:
+	case MTKCAM_IPI_IMG_FMT_BAYER_10B_4P_GRBG_PACKED:
+	case MTKCAM_IPI_IMG_FMT_BAYER_10B_4P_RGGB_PACKED:
+		return 10;
+	case MTKCAM_IPI_IMG_FMT_BAYER_12B_4P_BGGR_PACKED:
+	case MTKCAM_IPI_IMG_FMT_BAYER_12B_4P_GBRG_PACKED:
+	case MTKCAM_IPI_IMG_FMT_BAYER_12B_4P_GRBG_PACKED:
+	case MTKCAM_IPI_IMG_FMT_BAYER_12B_4P_RGGB_PACKED:
+		return 12;
 
 	default:
 		break;
@@ -1107,6 +1241,46 @@ unsigned int mtk_cam_get_img_fmt(unsigned int fourcc)
 		return MTKCAM_IPI_IMG_FMT_FG_BAYER10_3P_PACKED;
 	case V4L2_PIX_FMT_MTISP_SGRB12F:
 		return MTKCAM_IPI_IMG_FMT_FG_BAYER12_3P_PACKED;
+	case V4L2_PIX_FMT_MTISP_PLANAR_BGGR_8:
+		return MTKCAM_IPI_IMG_FMT_BAYER_8B_4P_BGGR;
+	case V4L2_PIX_FMT_MTISP_PLANAR_GBRG_8:
+		return MTKCAM_IPI_IMG_FMT_BAYER_8B_4P_GBRG;
+	case V4L2_PIX_FMT_MTISP_PLANAR_GRBG_8:
+		return MTKCAM_IPI_IMG_FMT_BAYER_8B_4P_GRBG;
+	case V4L2_PIX_FMT_MTISP_PLANAR_RGGB_8:
+		return MTKCAM_IPI_IMG_FMT_BAYER_8B_4P_RGGB;
+	case V4L2_PIX_FMT_MTISP_PLANAR_BGGR_10:
+		return MTKCAM_IPI_IMG_FMT_BAYER_10B_4P_BGGR;
+	case V4L2_PIX_FMT_MTISP_PLANAR_GBRG_10:
+		return MTKCAM_IPI_IMG_FMT_BAYER_10B_4P_GBRG;
+	case V4L2_PIX_FMT_MTISP_PLANAR_GRBG_10:
+		return MTKCAM_IPI_IMG_FMT_BAYER_10B_4P_GRBG;
+	case V4L2_PIX_FMT_MTISP_PLANAR_RGGB_10:
+		return MTKCAM_IPI_IMG_FMT_BAYER_10B_4P_RGGB;
+	case V4L2_PIX_FMT_MTISP_PLANAR_BGGR_12:
+		return MTKCAM_IPI_IMG_FMT_BAYER_12B_4P_BGGR;
+	case V4L2_PIX_FMT_MTISP_PLANAR_GBRG_12:
+		return MTKCAM_IPI_IMG_FMT_BAYER_12B_4P_GBRG;
+	case V4L2_PIX_FMT_MTISP_PLANAR_GRBG_12:
+		return MTKCAM_IPI_IMG_FMT_BAYER_12B_4P_GRBG;
+	case V4L2_PIX_FMT_MTISP_PLANAR_RGGB_12:
+		return MTKCAM_IPI_IMG_FMT_BAYER_12B_4P_RGGB;
+	case V4L2_PIX_FMT_MTISP_PLANAR_BGGR_10P:
+		return MTKCAM_IPI_IMG_FMT_BAYER_10B_4P_BGGR_PACKED;
+	case V4L2_PIX_FMT_MTISP_PLANAR_GBRG_10P:
+		return MTKCAM_IPI_IMG_FMT_BAYER_10B_4P_GBRG_PACKED;
+	case V4L2_PIX_FMT_MTISP_PLANAR_GRBG_10P:
+		return MTKCAM_IPI_IMG_FMT_BAYER_10B_4P_GRBG_PACKED;
+	case V4L2_PIX_FMT_MTISP_PLANAR_RGGB_10P:
+		return MTKCAM_IPI_IMG_FMT_BAYER_10B_4P_RGGB_PACKED;
+	case V4L2_PIX_FMT_MTISP_PLANAR_BGGR_12P:
+		return MTKCAM_IPI_IMG_FMT_BAYER_12B_4P_BGGR_PACKED;
+	case V4L2_PIX_FMT_MTISP_PLANAR_GBRG_12P:
+		return MTKCAM_IPI_IMG_FMT_BAYER_12B_4P_GBRG_PACKED;
+	case V4L2_PIX_FMT_MTISP_PLANAR_GRBG_12P:
+		return MTKCAM_IPI_IMG_FMT_BAYER_12B_4P_GRBG_PACKED;
+	case V4L2_PIX_FMT_MTISP_PLANAR_RGGB_12P:
+		return MTKCAM_IPI_IMG_FMT_BAYER_12B_4P_RGGB_PACKED;
 	default:
 		return MTKCAM_IPI_IMG_FMT_UNKNOWN;
 	}
@@ -1177,6 +1351,26 @@ int mtk_cam_get_fmt_size_factor(unsigned int ipi_fmt)
 	case MTKCAM_IPI_IMG_FMT_YVU_P210_PACKED:
 	case MTKCAM_IPI_IMG_FMT_YUV_P212_PACKED:
 	case MTKCAM_IPI_IMG_FMT_YVU_P212_PACKED:
+	case MTKCAM_IPI_IMG_FMT_BAYER_8B_4P_BGGR:
+	case MTKCAM_IPI_IMG_FMT_BAYER_8B_4P_GBRG:
+	case MTKCAM_IPI_IMG_FMT_BAYER_8B_4P_GRBG:
+	case MTKCAM_IPI_IMG_FMT_BAYER_8B_4P_RGGB:
+	case MTKCAM_IPI_IMG_FMT_BAYER_10B_4P_BGGR:
+	case MTKCAM_IPI_IMG_FMT_BAYER_10B_4P_GBRG:
+	case MTKCAM_IPI_IMG_FMT_BAYER_10B_4P_GRBG:
+	case MTKCAM_IPI_IMG_FMT_BAYER_10B_4P_RGGB:
+	case MTKCAM_IPI_IMG_FMT_BAYER_12B_4P_BGGR:
+	case MTKCAM_IPI_IMG_FMT_BAYER_12B_4P_GBRG:
+	case MTKCAM_IPI_IMG_FMT_BAYER_12B_4P_GRBG:
+	case MTKCAM_IPI_IMG_FMT_BAYER_12B_4P_RGGB:
+	case MTKCAM_IPI_IMG_FMT_BAYER_10B_4P_BGGR_PACKED:
+	case MTKCAM_IPI_IMG_FMT_BAYER_10B_4P_GBRG_PACKED:
+	case MTKCAM_IPI_IMG_FMT_BAYER_10B_4P_GRBG_PACKED:
+	case MTKCAM_IPI_IMG_FMT_BAYER_10B_4P_RGGB_PACKED:
+	case MTKCAM_IPI_IMG_FMT_BAYER_12B_4P_BGGR_PACKED:
+	case MTKCAM_IPI_IMG_FMT_BAYER_12B_4P_GBRG_PACKED:
+	case MTKCAM_IPI_IMG_FMT_BAYER_12B_4P_GRBG_PACKED:
+	case MTKCAM_IPI_IMG_FMT_BAYER_12B_4P_RGGB_PACKED:
 		return 200;
 	case MTKCAM_IPI_IMG_FMT_FG_BAYER8_3P:
 	case MTKCAM_IPI_IMG_FMT_FG_BAYER10_3P:
@@ -1247,6 +1441,16 @@ int mtk_cam_fill_pixfmt_mp(struct v4l2_pix_format_mplane *pixfmt,
 				plane->sizeimage = stride * height;
 				plane->sizeimage += ALIGN((aligned_width / 64), 8) * height;
 				plane->sizeimage += sizeof(struct UfbcBufferHeader);
+			} else if (is_4_plane_rgb(pixelformat)) {
+				/* width should be bus_size align */
+				aligned_width = ALIGN(DIV_ROUND_UP(width / 2
+					* info->bit_r_num, info->bit_r_den), bus_size);
+				stride = aligned_width * info->bpp[0];
+
+				if (stride > plane->bytesperline)
+					plane->bytesperline = stride;
+
+				plane->sizeimage = plane->bytesperline * height / 2 * 4;
 			} else {
 				/* width should be bus_size align */
 				aligned_width = ALIGN(DIV_ROUND_UP(width
@@ -1397,6 +1601,26 @@ static void cal_image_pix_mp(unsigned int node_id,
 	case MTKCAM_IPI_IMG_FMT_FG_BAYER8_3P:
 	case MTKCAM_IPI_IMG_FMT_FG_BAYER10_3P_PACKED:
 	case MTKCAM_IPI_IMG_FMT_FG_BAYER12_3P_PACKED:
+	case MTKCAM_IPI_IMG_FMT_BAYER_8B_4P_BGGR:
+	case MTKCAM_IPI_IMG_FMT_BAYER_8B_4P_GBRG:
+	case MTKCAM_IPI_IMG_FMT_BAYER_8B_4P_GRBG:
+	case MTKCAM_IPI_IMG_FMT_BAYER_8B_4P_RGGB:
+	case MTKCAM_IPI_IMG_FMT_BAYER_10B_4P_BGGR:
+	case MTKCAM_IPI_IMG_FMT_BAYER_10B_4P_GBRG:
+	case MTKCAM_IPI_IMG_FMT_BAYER_10B_4P_GRBG:
+	case MTKCAM_IPI_IMG_FMT_BAYER_10B_4P_RGGB:
+	case MTKCAM_IPI_IMG_FMT_BAYER_12B_4P_BGGR:
+	case MTKCAM_IPI_IMG_FMT_BAYER_12B_4P_GBRG:
+	case MTKCAM_IPI_IMG_FMT_BAYER_12B_4P_GRBG:
+	case MTKCAM_IPI_IMG_FMT_BAYER_12B_4P_RGGB:
+	case MTKCAM_IPI_IMG_FMT_BAYER_10B_4P_BGGR_PACKED:
+	case MTKCAM_IPI_IMG_FMT_BAYER_10B_4P_GBRG_PACKED:
+	case MTKCAM_IPI_IMG_FMT_BAYER_10B_4P_GRBG_PACKED:
+	case MTKCAM_IPI_IMG_FMT_BAYER_10B_4P_RGGB_PACKED:
+	case MTKCAM_IPI_IMG_FMT_BAYER_12B_4P_BGGR_PACKED:
+	case MTKCAM_IPI_IMG_FMT_BAYER_12B_4P_GBRG_PACKED:
+	case MTKCAM_IPI_IMG_FMT_BAYER_12B_4P_GRBG_PACKED:
+	case MTKCAM_IPI_IMG_FMT_BAYER_12B_4P_RGGB_PACKED:
 		mtk_cam_fill_pixfmt_mp(mp, mp->pixelformat, width, height);
 	default:
 		break;

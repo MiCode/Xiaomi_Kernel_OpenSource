@@ -2464,6 +2464,52 @@ int mtk_cam_fill_img_buf(struct mtkcam_ipi_img_output *img_out,
 				pr_debug("plane:%d stride:%d plane_size:%d addr:0x%x\n",
 					0, img_out->fmt.stride[0], img_out->buf[0][0].size,
 					img_out->buf[0][0].iova);
+			} else if (is_4_plane_rgb(pixelformat)) {
+				u8 rgb_4p_size[4];
+
+				switch (info->pixel_id) {
+				case 0:
+					rgb_4p_size[0] = 2;
+					rgb_4p_size[1] = 3;
+					rgb_4p_size[2] = 0;
+					rgb_4p_size[3] = 1;
+					break;
+				case 1:
+					rgb_4p_size[0] = 3;
+					rgb_4p_size[1] = 2;
+					rgb_4p_size[2] = 1;
+					rgb_4p_size[3] = 0;
+					break;
+				case 2:
+					rgb_4p_size[0] = 0;
+					rgb_4p_size[1] = 1;
+					rgb_4p_size[2] = 2;
+					rgb_4p_size[3] = 3;
+					break;
+				case 3:
+					rgb_4p_size[0] = 1;
+					rgb_4p_size[1] = 0;
+					rgb_4p_size[2] = 3;
+					rgb_4p_size[3] = 2;
+					break;
+				default:
+					rgb_4p_size[0] = 0;
+					rgb_4p_size[1] = 1;
+					rgb_4p_size[2] = 2;
+					rgb_4p_size[3] = 3;
+					break;
+				}
+
+				for (i = 0; i < info->comp_planes; i++) {
+					img_out->fmt.stride[i] = stride;
+					img_out->buf[0][i].size = img_out->fmt.stride[i] *
+						height / 2;
+					img_out->buf[0][i].iova = daddr +
+						img_out->buf[0][i].size * rgb_4p_size[i];
+					pr_debug("plane:%d stride:%d plane_size:%d addr:0x%x\n",
+						i, img_out->fmt.stride[i], img_out->buf[0][i].size,
+						img_out->buf[0][i].iova);
+				}
 			} else {
 				for (i = 0; i < info->comp_planes; i++) {
 					unsigned int hdiv = (i == 0) ? 1 : info->hdiv;
@@ -8861,6 +8907,66 @@ static void fill_ext_fmtdesc_hook(void *data, struct v4l2_fmtdesc *p, const char
 	case V4L2_PIX_FMT_MTISP_SGRB12F:
 		*descr = "12-bit 3 plane GRB Packed";
 		break;
+	case V4L2_PIX_FMT_MTISP_PLANAR_BGGR_8:
+			*descr = "8-bit 4 plane BGGR";
+			break;
+	case V4L2_PIX_FMT_MTISP_PLANAR_GBRG_8:
+			*descr = "8-bit 4 plane GBRG";
+			break;
+	case V4L2_PIX_FMT_MTISP_PLANAR_GRBG_8:
+			*descr = "8-bit 4 plane GRBG";
+			break;
+	case V4L2_PIX_FMT_MTISP_PLANAR_RGGB_8:
+			*descr = "8-bit 4 plane BGGB";
+			break;
+	case V4L2_PIX_FMT_MTISP_PLANAR_BGGR_10:
+			*descr = "10-bit 4 plane BGGR";
+			break;
+	case V4L2_PIX_FMT_MTISP_PLANAR_GBRG_10:
+			*descr = "10-bit 4 plane GBRG";
+			break;
+	case V4L2_PIX_FMT_MTISP_PLANAR_GRBG_10:
+			*descr = "10-bit 4 plane GRBG";
+			break;
+	case V4L2_PIX_FMT_MTISP_PLANAR_RGGB_10:
+			*descr = "10-bit 4 plane RGGB";
+			break;
+	case V4L2_PIX_FMT_MTISP_PLANAR_BGGR_12:
+			*descr = "12-bit 4 plane BGGR";
+			break;
+	case V4L2_PIX_FMT_MTISP_PLANAR_GBRG_12:
+			*descr = "12-bit 4 plane GBRG";
+			break;
+	case V4L2_PIX_FMT_MTISP_PLANAR_GRBG_12:
+			*descr = "12-bit 4 plane GRBG";
+			break;
+	case V4L2_PIX_FMT_MTISP_PLANAR_RGGB_12:
+			*descr = "12-bit 4 plane RGGB";
+			break;
+	case V4L2_PIX_FMT_MTISP_PLANAR_BGGR_10P:
+			*descr = "10-bit 4 plane BGGR packed";
+			break;
+	case V4L2_PIX_FMT_MTISP_PLANAR_GBRG_10P:
+			*descr = "10-bit 4 plane GBRG packed";
+			break;
+	case V4L2_PIX_FMT_MTISP_PLANAR_GRBG_10P:
+			*descr = "10-bit 4 plane GRBG packed";
+			break;
+	case V4L2_PIX_FMT_MTISP_PLANAR_RGGB_10P:
+			*descr = "10-bit 4 plane RGGB packed";
+			break;
+	case V4L2_PIX_FMT_MTISP_PLANAR_BGGR_12P:
+			*descr = "12-bit 4 plane BGGR packed";
+			break;
+	case V4L2_PIX_FMT_MTISP_PLANAR_GBRG_12P:
+			*descr = "12-bit 4 plane GBRG packed";
+			break;
+	case V4L2_PIX_FMT_MTISP_PLANAR_GRBG_12P:
+			*descr = "12-bit 4 plane GRBG packed";
+			break;
+	case V4L2_PIX_FMT_MTISP_PLANAR_RGGB_12P:
+			*descr = "12-bit 4 plane RGGB packed";
+			break;
 	default:
 		break;
 	}

@@ -146,6 +146,7 @@ struct mtk_format_info {
 	u8 bit_r_num;
 	/* denominator of bit ratio */
 	u8 bit_r_den;
+	u8 pixel_id;
 };
 
 int mtk_cam_dmao_xsize(int w, unsigned int ipi_fmt, int pixel_mode_shift);
@@ -230,6 +231,8 @@ int is_mtk_format(u32 pixelformat);
 int is_yuv_ufo(u32 pixelformat);
 
 int is_raw_ufo(u32 pixelformat);
+
+int is_4_plane_rgb(u32 pixelformat);
 
 int is_fullg_rb(u32 pixelformat);
 
