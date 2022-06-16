@@ -306,15 +306,15 @@ static long xgff_ioctl_impl(struct file *filp,
 			goto ret_ioctl;
 		}
 	}
-	xgff_frame_getdeplist_maxsize_fp(&maxsize_deplist);
 
 	switch (cmd) {
 	case XGFFRAME_START:
-		if (!xgff_frame_startend_fp) {
+		if (!xgff_frame_startend_fp || !xgff_frame_getdeplist_maxsize_fp) {
 			ret = -EAGAIN;
 			goto ret_ioctl;
 		}
 
+		xgff_frame_getdeplist_maxsize_fp(&maxsize_deplist);
 		vpdeplist = kcalloc(msgKM->deplist_size, sizeof(__u32), GFP_KERNEL);
 		if (!vpdeplist) {
 			ret = -ENOMEM;
@@ -332,11 +332,12 @@ static long xgff_ioctl_impl(struct file *filp,
 		kfree(vpdeplist);
 		break;
 	case XGFFRAME_END:
-		if (!xgff_frame_startend_fp) {
+		if (!xgff_frame_startend_fp || !xgff_frame_getdeplist_maxsize_fp) {
 			ret = -EAGAIN;
 			goto ret_ioctl;
 		}
 
+		xgff_frame_getdeplist_maxsize_fp(&maxsize_deplist);
 		vpdeplist = kcalloc(msgKM->deplist_size, sizeof(__u32), GFP_KERNEL);
 
 		if (!vpdeplist) {
