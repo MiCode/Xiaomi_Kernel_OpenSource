@@ -13,6 +13,8 @@
 
 struct mtk_cam_request_stream_data;
 
+#define PR_DETECT
+
 #define RAW_PIPELINE_NUM 3
 #define SCQ_DEADLINE_MS  15 // ~1/2 frame length
 #define SCQ_DEFAULT_CLK_RATE 208 // default 208MHz

@@ -2369,12 +2369,9 @@ void raw_irq_handle_tg_grab_err(struct mtk_raw_device *raw_dev,
 	if (s_data) {
 		mtk_cam_debug_seninf_dump(s_data);
 		tg_full_sel = ((inner_val & TG_FULLSEL_BIT_MASK) >> 15);
-
-		if (tg_full_sel == 1)
-			mtk_cam_req_dump(s_data, MTK_CAM_REQ_DUMP_CHK_DEQUEUE_FAILED,
-					"TG Grab Err", false);
-		else
-			dev_info(raw_dev->dev, "tg_full_sel 0x%x\n", __func__, tg_full_sel);
+		dev_info(raw_dev->dev, "tg_full_sel 0x%x\n", __func__, tg_full_sel);
+		mtk_cam_req_dump(s_data, MTK_CAM_REQ_DUMP_CHK_DEQUEUE_FAILED,
+				"TG Grab Err", false);
 	} else {
 		dev_info(raw_dev->dev,
 			 "%s: req(%d) can't be found for seninf dump\n",
@@ -2506,11 +2503,10 @@ static void raw_irq_handle_tg_overrun_err(struct mtk_raw_device *raw_dev,
 			mtk_cam_debug_seninf_dump(s_data);
 
 		tg_full_sel = ((inner_val & TG_FULLSEL_BIT_MASK) >> 15);
-		if (tg_full_sel == 1)
-			mtk_cam_req_dump(s_data, MTK_CAM_REQ_DUMP_CHK_DEQUEUE_FAILED,
-					"TG Overrun Err", true);
-		else
-			dev_info(raw_dev->dev, "tg_full_sel 0x%x:\n", __func__, tg_full_sel);
+		dev_info(raw_dev->dev, "tg_full_sel 0x%x:\n", __func__, tg_full_sel);
+
+		mtk_cam_req_dump(s_data, MTK_CAM_REQ_DUMP_CHK_DEQUEUE_FAILED,
+				"TG Overrun Err", true);
 	} else {
 		dev_info(raw_dev->dev, "%s: req(%d) can't be found for dump\n",
 			__func__, dequeued_frame_seq_no);
