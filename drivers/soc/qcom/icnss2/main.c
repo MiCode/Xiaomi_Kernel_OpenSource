@@ -2591,6 +2591,14 @@ static int icnss_tcdev_set_cur_state(struct thermal_cooling_device *tcdev,
 	icnss_pr_vdbg("Cooling device set current state: %ld,for cdev id %d",
 		      thermal_state, icnss_tcdev->tcdev_id);
 
+	/* If wlan is not on, do not report therm state */
+	if (penv->pon_gpio_control) {
+		if ((penv->pon_pinctrl_owners &
+		    BIT(ICNSS_PINCTRL_OWNER_WLAN)) == 0) {
+			return 0;
+		}
+	}
+
 	mutex_lock(&penv->tcdev_lock);
 	ret = penv->ops->set_therm_cdev_state(dev, thermal_state,
 					      icnss_tcdev->tcdev_id);
