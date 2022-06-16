@@ -121,6 +121,8 @@ static struct regbase rb[] = {
 	[cpu_bl] = REGBASE_V(0xc030800, cpu_bl, PD_NULL, CLK_NULL),
 	[cpu_b] = REGBASE_V(0xc030c00, cpu_b, PD_NULL, CLK_NULL),
 	[ptp] = REGBASE_V(0xc034000, ptp, PD_NULL, CLK_NULL),
+	[ifr_mem] = REGBASE_V(0x10270000, ifr_mem, PD_NULL, CLK_NULL),
+	[semi] = REGBASE_V(0x1030e000, semi, PD_NULL, CLK_NULL),
 	{},
 };
 
@@ -496,6 +498,10 @@ static struct regname rn[] = {
 	REGNAME(ptp, 0xc, PTPPLL_CON1),
 	REGNAME(ptp, 0x10, PTPPLL_CON2),
 	REGNAME(ptp, 0x14, PTPPLL_CON3),
+	REGNAME(ifr_mem, 0x84, EMI_SET0),
+	REGNAME(ifr_mem, 0x8c, EMI_RDY0),
+	REGNAME(semi, 0x84, EMI_SET1),
+	REGNAME(semi, 0x8c, EMI_RDY1),
 	{},
 };
 
@@ -679,6 +685,7 @@ static struct mtk_vf vf_table[] = {
 	MTK_VF_TABLE("emi_s_sel", 200000, 200000, 200000, 200000, 200000),
 	MTK_VF_TABLE("ap2conn_host_sel", 78000, 78000, 78000, 78000, 78000),
 	MTK_VF_TABLE("mcu_acp_sel", 624000, 546000, 392857, 275000, 156000),
+	MTK_VF_TABLE("sflash_sel", 52000, 52000, 52000, 52000, 52000),
 	MTK_VF_TABLE("mcu_l3gic_sel", 156000, 156000, 156000, 156000, 156000),
 	MTK_VF_TABLE("ipseast_sel", 832000, 624000, 312000, 312000, 1248000),
 	MTK_VF_TABLE("ipssouth_sel", 832000, 624000, 312000, 312000, 1248000),

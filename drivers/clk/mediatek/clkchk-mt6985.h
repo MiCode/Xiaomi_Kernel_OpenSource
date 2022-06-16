@@ -73,7 +73,9 @@ enum chk_sys_id {
 	cpu_bl = 62,
 	cpu_b = 63,
 	ptp = 64,
-	chk_sys_num = 65,
+	ifr_mem = 65,
+	semi = 66,
+	chk_sys_num = 67,
 };
 
 enum chk_pd_id {

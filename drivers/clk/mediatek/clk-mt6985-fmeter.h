@@ -82,6 +82,7 @@
 #define FM_CCUSYS_CK				72
 #define FM_CAMTM_CK				73
 #define FM_MCU_ACP_CK				74
+#define FM_SFLASH_CK				75
 #define FM_MCU_L3GIC_CK				76
 #define FM_IPSEAST_CK				78
 #define FM_IPSSOUTH_CK				79

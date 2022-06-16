@@ -190,6 +190,7 @@
 #define TOP_MUX_EMI_S_SHIFT			3
 #define TOP_MUX_AP2CONN_HOST_SHIFT		5
 #define TOP_MUX_MCU_ACP_SHIFT			11
+#define TOP_MUX_SFLASH_SHIFT			12
 #define TOP_MUX_MCU_L3GIC_SHIFT			13
 #define TOP_MUX_IPSEAST_SHIFT			15
 #define TOP_MUX_IPSSOUTH_SHIFT			16
@@ -720,6 +721,8 @@ static const struct mtk_fixed_factor top_divs[] = {
 			"pwm_sel", 1, 1),
 	FACTOR(CLK_TOP_AUDIO_H, "audio_h_ck",
 			"audio_h_sel", 1, 1),
+	FACTOR(CLK_TOP_SFLASH, "sflash_ck",
+			"sflash_sel", 1, 1),
 	FACTOR(CLK_TOP_TL, "tl_ck",
 			"tl_sel", 1, 1),
 	FACTOR(CLK_TOP_PEXTP_FAXI, "pextp_faxi_ck",
@@ -1580,6 +1583,12 @@ static const char * const mcu_acp_parents[] = {
 	"univpll_d4"
 };
 
+static const char * const sflash_parents[] = {
+	"tck_26m_mx9_ck",
+	"mainpll_d7_d8",
+	"univpll_d6_d8"
+};
+
 static const char * const mcu_l3gic_parents[] = {
 	"tck_26m_mx9_ck",
 	"mainpll_d4_d4",
@@ -2288,6 +2297,10 @@ static const struct mtk_mux top_muxes[] = {
 		mcu_acp_parents/* parent */, CLK_CFG_18, CLK_CFG_18_SET,
 		CLK_CFG_18_CLR/* set parent */, 8/* lsb */, 3/* width */,
 		CLK_CFG_UPDATE2/* upd ofs */, TOP_MUX_MCU_ACP_SHIFT/* upd shift */),
+	MUX_CLR_SET_UPD(CLK_TOP_SFLASH_SEL/* dts */, "sflash_sel",
+		sflash_parents/* parent */, CLK_CFG_18, CLK_CFG_18_SET,
+		CLK_CFG_18_CLR/* set parent */, 16/* lsb */, 2/* width */,
+		CLK_CFG_UPDATE2/* upd ofs */, TOP_MUX_SFLASH_SHIFT/* upd shift */),
 	MUX_CLR_SET_UPD(CLK_TOP_MCU_L3GIC_SEL/* dts */, "mcu_l3gic_sel",
 		mcu_l3gic_parents/* parent */, CLK_CFG_18, CLK_CFG_18_SET,
 		CLK_CFG_18_CLR/* set parent */, 24/* lsb */, 3/* width */,
@@ -2688,6 +2701,11 @@ static const struct mtk_mux top_muxes[] = {
 		mcu_acp_parents/* parent */, CLK_CFG_18, CLK_CFG_18_SET,
 		CLK_CFG_18_CLR/* set parent */, 8/* lsb */, 3/* width */,
 		CLK_CFG_UPDATE2/* upd ofs */, TOP_MUX_MCU_ACP_SHIFT/* upd shift */),
+	MUX_GATE_CLR_SET_UPD(CLK_TOP_SFLASH_SEL/* dts */, "sflash_sel",
+		sflash_parents/* parent */, CLK_CFG_18, CLK_CFG_18_SET,
+		CLK_CFG_18_CLR/* set parent */, 16/* lsb */, 2/* width */,
+		23/* pdn */, CLK_CFG_UPDATE2/* upd ofs */,
+		TOP_MUX_SFLASH_SHIFT/* upd shift */),
 	MUX_CLR_SET_UPD(CLK_TOP_MCU_L3GIC_SEL/* dts */, "mcu_l3gic_sel",
 		mcu_l3gic_parents/* parent */, CLK_CFG_18, CLK_CFG_18_SET,
 		CLK_CFG_18_CLR/* set parent */, 24/* lsb */, 3/* width */,

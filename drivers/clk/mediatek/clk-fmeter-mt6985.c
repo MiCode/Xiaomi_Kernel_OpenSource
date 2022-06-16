@@ -215,6 +215,7 @@ static const struct fmeter_clk fclks[] = {
 	FMCLK(CKGEN, FM_CCUSYS_CK, "fm_ccusys_ck", 1),
 	FMCLK(CKGEN, FM_CAMTM_CK, "fm_camtm_ck", 1),
 	FMCLK2(CKGEN, FM_MCU_ACP_CK, "fm_mcu_acp_ck", 0x0130, 15, 1),
+	FMCLK2(CKGEN, FM_SFLASH_CK, "fm_sflash_ck", 0x0130, 23, 1),
 	FMCLK2(CKGEN, FM_MCU_L3GIC_CK, "fm_mcu_l3gic_ck", 0x0130, 31, 1),
 	FMCLK2(CKGEN, FM_IPSEAST_CK, "fm_ipseast_ck", 0x0140, 15, 1),
 	FMCLK2(CKGEN, FM_IPSSOUTH_CK, "fm_ipssouth_ck", 0x0140, 23, 1),
