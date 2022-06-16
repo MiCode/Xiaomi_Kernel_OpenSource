@@ -221,16 +221,14 @@ static int apll2_mux_setting(struct mtk_base_afe *afe, bool enable)
 EXIT:
 	return 0;
 }
-
-int mt6985_afe_enable_clock(struct mtk_base_afe *afe)
+int mt6985_afe_enable_ao_clock(struct mtk_base_afe *afe)
 {
 	struct mt6985_afe_private *afe_priv = afe->platform_priv;
 	int ret = 0;
-	struct arm_smccc_res res;
 
 	dev_dbg(afe->dev, "%s() successfully start\n", __func__);
 
-
+	/* Peri clock AO enable */
 	ret = clk_prepare_enable(afe_priv->clk[CLK_PERAO_INTBUS_CK_PERI]);
 	if (ret) {
 		dev_err(afe->dev, "%s() clk_prepare_enable %s fail %d\n",
@@ -251,6 +249,25 @@ int mt6985_afe_enable_clock(struct mtk_base_afe *afe)
 			__func__, aud_clks[CLK_PERAO_AUDIO_MST_CK_PERI], ret);
 		goto CLK_PERAO_AUDIO_MST_CK_PERI_ERR;
 	}
+	return 0;
+
+CLK_PERAO_AUDIO_MST_CK_PERI_ERR:
+	clk_disable_unprepare(afe_priv->clk[CLK_PERAO_AUDIO_MST_CK_PERI]);
+CLK_PERAO_AUDIO_SLV_CK_PERI_ERR:
+	clk_disable_unprepare(afe_priv->clk[CLK_PERAO_AUDIO_SLV_CK_PERI]);
+CLK_PERAO_INTBUS_CK_PERI_ERR:
+	clk_disable_unprepare(afe_priv->clk[CLK_PERAO_INTBUS_CK_PERI]);
+
+	return ret;
+}
+
+int mt6985_afe_enable_clock(struct mtk_base_afe *afe)
+{
+	struct mt6985_afe_private *afe_priv = afe->platform_priv;
+	int ret = 0;
+	struct arm_smccc_res res;
+
+	dev_dbg(afe->dev, "%s() successfully start\n", __func__);
 
 	ret = clk_prepare_enable(afe_priv->clk[CLK_MUX_AUDIO]);
 	if (ret) {
@@ -305,12 +322,6 @@ CLK_MUX_AUDIO_INTBUS_ERR:
 	clk_disable_unprepare(afe_priv->clk[CLK_MUX_AUDIOINTBUS]);
 CLK_MUX_AUDIO_ERR:
 	clk_disable_unprepare(afe_priv->clk[CLK_MUX_AUDIO]);
-CLK_PERAO_AUDIO_MST_CK_PERI_ERR:
-	clk_disable_unprepare(afe_priv->clk[CLK_PERAO_AUDIO_MST_CK_PERI]);
-CLK_PERAO_AUDIO_SLV_CK_PERI_ERR:
-	clk_disable_unprepare(afe_priv->clk[CLK_PERAO_AUDIO_SLV_CK_PERI]);
-CLK_PERAO_INTBUS_CK_PERI_ERR:
-	clk_disable_unprepare(afe_priv->clk[CLK_PERAO_INTBUS_CK_PERI]);
 
 	return ret;
 }
@@ -326,9 +337,6 @@ void mt6985_afe_disable_clock(struct mtk_base_afe *afe)
 	mt6985_set_audio_int_bus_parent(afe, CLK_CLK26M);
 	clk_disable_unprepare(afe_priv->clk[CLK_MUX_AUDIOINTBUS]);
 	clk_disable_unprepare(afe_priv->clk[CLK_MUX_AUDIO]);
-	clk_disable_unprepare(afe_priv->clk[CLK_PERAO_AUDIO_MST_CK_PERI]);
-	clk_disable_unprepare(afe_priv->clk[CLK_PERAO_AUDIO_SLV_CK_PERI]);
-	clk_disable_unprepare(afe_priv->clk[CLK_PERAO_INTBUS_CK_PERI]);
 }
 
 int mt6985_afe_dram_request(struct device *dev)
@@ -831,7 +839,7 @@ int mt6985_init_clock(struct mtk_base_afe *afe)
 			__func__, PTR_ERR(afe_priv->infracfg));
 		return PTR_ERR(afe_priv->infracfg);
 	}
-
+	mt6985_afe_enable_ao_clock(afe);
 	return 0;
 }
 #endif
