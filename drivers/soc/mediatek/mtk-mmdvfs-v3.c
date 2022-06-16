@@ -39,6 +39,8 @@ static bool mmdvfs_free_run;
 
 static struct platform_device *ccu_pdev;
 static struct rproc *ccu_rproc;
+static DEFINE_MUTEX(mmdvfs_ccu_pwr_mutex);
+static int ccu_power;
 
 enum mmdvfs_log_level {
 	log_ipi,
@@ -50,6 +52,49 @@ static inline struct mtk_mmdvfs_clk *to_mtk_mmdvfs_clk(struct clk_hw *hw)
 {
 	return container_of(hw, struct mtk_mmdvfs_clk, clk_hw);
 }
+
+int mtk_mmdvfs_enable_ccu(bool enable)
+{
+
+	int ret = 0;
+
+	if (!mmdvfs_clk_num) {
+		MMDVFS_DBG("mmdvfs_v3 not supported!");
+		return 0;
+	}
+
+	if (!ccu_rproc) {
+		MMDVFS_ERR("there is no ccu_rproc\n");
+		return -1;
+	}
+
+	mutex_lock(&mmdvfs_ccu_pwr_mutex);
+	if (enable) {
+		if (ccu_power == 0) {
+			ret = rproc_boot(ccu_rproc);
+			if (ret) {
+				MMDVFS_ERR("boot ccu rproc fail\n");
+				mutex_unlock(&mmdvfs_ccu_pwr_mutex);
+				return ret;
+			}
+		}
+		ccu_power++;
+	} else {
+		if (ccu_power == 0) {
+			MMDVFS_ERR("disable vcp when vcp_power==0");
+			mutex_unlock(&mmdvfs_ccu_pwr_mutex);
+			return -1;
+		}
+		if (ccu_power == 1)
+			rproc_shutdown(ccu_rproc);
+		ccu_power--;
+	}
+
+	mutex_unlock(&mmdvfs_ccu_pwr_mutex);
+
+	return ret;
+}
+EXPORT_SYMBOL_GPL(mtk_mmdvfs_enable_ccu);
 
 static int mmdvfs_vcp_is_ready(void)
 {
@@ -239,6 +284,7 @@ static int mtk_mmdvfs_set_rate(struct clk_hw *hw, unsigned long rate,
 		if (mmdvfs_free_run) {
 			if (mmdvfs_clk->ipi_type == IPI_MMDVFS_CCU) {
 				if (ccu_pdev) {
+					mtk_mmdvfs_enable_ccu(true);
 					ret = mtk_ccu_rproc_ipc_send(
 						ccu_pdev,
 						MTK_CCU_FEATURE_ISPDVFS,
@@ -246,6 +292,7 @@ static int mtk_mmdvfs_set_rate(struct clk_hw *hw, unsigned long rate,
 						(void *)&img_clk, sizeof(unsigned int));
 					if (ret)
 						MMDVFS_ERR("mtk_ccu_rproc_ipc_send fail(%d)", ret);
+					mtk_mmdvfs_enable_ccu(false);
 				}
 			} else {
 				ret = mmdvfs_vcp_ipi_send(FUNC_SET_OPP,
@@ -307,32 +354,6 @@ void *mtk_mmdvfs_vcp_get_base(void)
 	return (void *)vcp_get_reserve_mem_virt_ex(MMDVFS_MEM_ID);
 }
 EXPORT_SYMBOL_GPL(mtk_mmdvfs_vcp_get_base);
-
-int mtk_mmdvfs_enable_ccu(bool enable)
-{
-
-	int ret = 0;
-
-	if (!ccu_rproc) {
-		MMDVFS_ERR("there is no ccu_rproc\n");
-		return -1;
-	}
-
-	if (enable) {
-		ret = rproc_boot(ccu_rproc);
-		if (ret) {
-			MMDVFS_ERR("boot ccu rproc fail\n");
-			return ret;
-		}
-	} else {
-		rproc_shutdown(ccu_rproc);
-	}
-
-	MMDVFS_DBG("enable=%d successfully", enable);
-
-	return ret;
-}
-EXPORT_SYMBOL_GPL(mtk_mmdvfs_enable_ccu);
 
 int mtk_mmdvfs_camera_notify(const bool enable)
 {
@@ -477,6 +498,41 @@ static struct kernel_param_ops mmdvfs_vote_step_ops = {
 };
 module_param_cb(vote_step, &mmdvfs_vote_step_ops, NULL, 0644);
 MODULE_PARM_DESC(vote_step, "vote mmdvfs to specified step");
+
+int mmdvfs_set_ccu_ipi(const char *val, const struct kernel_param *kp)
+{
+	unsigned int freq = 0;
+	int ret;
+
+	ret = kstrtou32(val, 0, &freq);
+	if (ret) {
+		MMDVFS_ERR("failed:%d freq:%hu", ret, freq);
+		return ret;
+	}
+
+	if (ccu_pdev) {
+		mtk_mmdvfs_enable_ccu(true);
+		ret = mtk_ccu_rproc_ipc_send(
+			ccu_pdev,
+			MTK_CCU_FEATURE_ISPDVFS,
+			4, /*DVFS_IMG_CLK*/
+			(void *)&freq, sizeof(unsigned int));
+		if (ret)
+			MMDVFS_ERR("mtk_ccu_rproc_ipc_send fail(%d)", ret);
+		mtk_mmdvfs_enable_ccu(false);
+		MMDVFS_DBG("mtk_ccu_rproc_ipc_send freq:%u done", freq);
+	} else {
+		MMDVFS_DBG("ccu_pdev is not ready");
+	}
+
+	return 0;
+}
+
+static struct kernel_param_ops mmdvfs_ccu_ipi_ops = {
+	.set = mmdvfs_set_ccu_ipi,
+};
+module_param_cb(ccu_ipi_test, &mmdvfs_ccu_ipi_ops, NULL, 0644);
+MODULE_PARM_DESC(ccu_ipi_test, "trigger ccu ipi test");
 
 int mmdvfs_dump_setting(char *buf, const struct kernel_param *kp)
 {
