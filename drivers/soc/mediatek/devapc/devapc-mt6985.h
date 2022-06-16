@@ -1845,7 +1845,7 @@ static const struct mtk_device_info mt6985_devices_mminfra[] = {
 	{1, 183, 439, "MML_APB_S-22", true},
 
 	/* 440 */
-	{1, 184, 440, "MML_APB_S-23", true},
+	{1, 184, 440, "MML_APB_S-23", false},
 	{1, 185, 441, "MML_APB_S-24", true},
 	{1, 186, 442, "MML_APB_S-25", true},
 	{1, 187, 443, "MML_APB_S-26", true},
@@ -1876,7 +1876,7 @@ static const struct mtk_device_info mt6985_devices_mminfra[] = {
 	{1, 208, 464, "MML1_APB_S-20", true},
 	{1, 209, 465, "MML1_APB_S-21", true},
 	{1, 210, 466, "MML1_APB_S-22", true},
-	{1, 211, 467, "MML1_APB_S-23", true},
+	{1, 211, 467, "MML1_APB_S-23", false},
 	{1, 212, 468, "MML1_APB_S-24", true},
 	{1, 213, 469, "MML1_APB_S-25", true},
 
