@@ -62,9 +62,6 @@ struct video_info *fstb_search_and_add_video_info(int pid, int add_node);
 void fstb_delete_video_info(int pid);
 void fstb_set_video_pid(int pid);
 void fstb_clear_video_pid(int pid);
-int fpsgo_fbt2fstb_get_video_active(void);
-void fstb_set_video_active(int is_active);
-int fstb_get_video_active(void);
 
 #else
 static inline int is_fstb_enable(void) { return 0; }
@@ -104,13 +101,10 @@ static inline void eara2fstb_tfps_mdiff(int pid, unsigned long long buf_id,
 		int diff, int tfps) { }
 
 /* Video rb-tree */
-struct video_info *fstb_search_and_add_video_info(int pid, int add_node) { return NULL; }
-void fstb_delete_video_info(int pid) { }
-void fstb_set_video_pid(int pid) { }
-void fstb_clear_video_pid(int pid) { }
-int fpsgo_fbt2fstb_get_video_active(void) { return 0; }
-void fstb_set_video_active(int is_active) { }
-int fstb_get_video_active(void) { return 0; }
+static struct video_info *fstb_search_and_add_video_info(int pid, int add_node) { return NULL; }
+static void fstb_delete_video_info(int pid) { }
+static void fstb_set_video_pid(int pid) { }
+static void fstb_clear_video_pid(int pid) { }
 
 #endif
 
