@@ -274,7 +274,7 @@ int reviser_dram_remap_init(void *drvinfo)
 	//_reviser_set_default_iova(drvinfo, g_mem_sys.iova);
 	rdv->rsc.dram.base = (void *) g_mem_sys.kva;
 	for (i = 0; i < rdv->plat.dram_max; i++)
-		rdv->plat.dram[i] = g_mem_sys.iova + rdv->plat.vlm_size * i;
+		rdv->plat.dram[i] = g_mem_sys.iova + rdv->plat.vlm_size * (uint64_t) i;
 
 	return 0;
 }

@@ -1182,7 +1182,7 @@ void reviser_table_print_vlm(void *drvinfo, uint32_t ctx, void *s_file)
 	uint32_t i;
 	struct seq_file *s = (struct seq_file *)s_file;
 	char strtype[8];
-	uint8_t ret;
+	int ret;
 
 	DEBUG_TAG;
 

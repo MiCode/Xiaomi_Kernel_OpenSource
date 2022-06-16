@@ -320,8 +320,8 @@ static ssize_t reviser_dbg_read_mem_dram(struct file *filp, char *buffer,
 
 	dram_max = rdv->plat.vlm_size * rdv->plat.dram_max;
 
-	dram_offset = g_reviser_mem_dram_ctx * rdv->plat.vlm_size +
-			g_reviser_mem_dram_bank * rdv->plat.bank_size;
+	dram_offset = (uint64_t) g_reviser_mem_dram_ctx * (uint64_t) rdv->plat.vlm_size +
+			(uint64_t) g_reviser_mem_dram_bank * (uint64_t) rdv->plat.bank_size;
 	if (dram_offset >= dram_max) {
 		LOG_ERR("copy dram out of range. 0x%llx\n", dram_offset);
 		return res;
