@@ -1352,7 +1352,7 @@ static int mtk_cam_ctx_alloc_pool(struct mtk_cam_ctx *ctx)
 
 	ret = _alloc_pool("CAM_MEM_MSG_ID", &ctx->ipi_buffer, &ctx->ipi_pool,
 			  dev_to_attach, IPI_FRAME_BUF_SIZE, CAM_CQ_BUF_NUM,
-			  false);
+			  true);
 	if (ret)
 		goto fail_destroy_cq;
 

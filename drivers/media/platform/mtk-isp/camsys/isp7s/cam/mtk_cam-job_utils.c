@@ -10,7 +10,7 @@
 
 #define buf_printk(fmt, arg...)					\
 	do {							\
-		if (CAM_DEBUG_ENABLED(IPI_BUF))			\
+		if (unlikely(CAM_DEBUG_ENABLED(IPI_BUF)))	\
 			pr_info("%s: " fmt, __func__, ##arg);	\
 	} while (0)
 
@@ -133,7 +133,6 @@ static int fill_img_in_driver_buf(struct mtkcam_ipi_img_input *ii,
 {
 	int i;
 
-	memset(ii, 0, sizeof(*ii));
 	/* uid */
 	ii->uid = uid;
 
@@ -153,8 +152,8 @@ static int fill_img_in_driver_buf(struct mtkcam_ipi_img_input *ii,
 	ii->buf[0].iova = desc->daddr;
 	ii->buf[0].ccd_fd = 0; /* TODO: ufo : desc->fd; */
 
-	buf_printk("%s: %dx%d sz %zu\n",
-		   __func__, desc->width, desc->height, desc->size);
+	buf_printk("%dx%d sz %zu\n",
+		   desc->width, desc->height, desc->size);
 	return 0;
 }
 
@@ -205,24 +204,21 @@ int fill_img_in_hdr(struct mtkcam_ipi_img_input *ii,
 			struct mtk_cam_buffer *buf,
 			struct mtk_cam_video_device *node)
 {
-	int ret;
-
 	/* uid */
 	ii->uid = node->uid;
 	ii->uid.id = MTKCAM_IPI_RAW_RAWI_2;
 	/* fmt */
-	ret = fill_img_fmt(&ii->fmt, buf);
-
+	fill_img_fmt(&ii->fmt, buf);
 
 	/* FIXME: porting workaround */
 	ii->buf[0].size = buf->image_info.size[0];
 	ii->buf[0].iova = buf->daddr;
 	ii->buf[0].ccd_fd = buf->vbb.vb2_buf.planes[0].m.fd;
 
-	pr_debug("[%s] buf->daddr:0x%x, io->buf[0][0].iova:0x%x, size%d", __func__,
-		buf->daddr, ii->buf[0].iova, ii->buf[0].size);
+	buf_printk("buf->daddr:0x%x, io->buf[0][0].iova:0x%x, size%d",
+		   buf->daddr, ii->buf[0].iova, ii->buf[0].size);
 
-	return ret;
+	return 0;
 }
 
 struct mtkcam_ipi_crop
@@ -246,92 +242,58 @@ int fill_imgo_out_subsample(struct mtkcam_ipi_img_output *io,
 			int subsample_ratio)
 {
 	int i;
-	int ret;
 
 	/* uid */
 	io->uid = node->uid;
 
 	/* fmt */
-	ret = fill_img_fmt(&io->fmt, buf);
+	fill_img_fmt(&io->fmt, buf);
 
 	for (i = 0; i < subsample_ratio; i++) {
 		/* FIXME: porting workaround */
 		io->buf[i][0].size = buf->image_info.size[0];
 		io->buf[i][0].iova = buf->daddr + io->buf[i][0].size;
 		io->buf[i][0].ccd_fd = buf->vbb.vb2_buf.planes[0].m.fd;
-		pr_info("[%s] buf->daddr:0x%x, io->buf[0][0].iova:0x%x, size:%d", __func__,
-			buf->daddr, io->buf[i][0].iova, io->buf[i][0].size);
+		buf_printk("i=%d: buf->daddr:0x%x, io->buf[i][0].iova:0x%x, size:%d",
+			   i, buf->daddr, io->buf[i][0].iova, io->buf[i][0].size);
 	}
 
 	/* crop */
 	io->crop = v4l2_rect_to_ipi_crop(&buf->image_info.crop);
 
-	/* FIXME: porting workaround */
-	if (WARN_ON_ONCE(!io->crop.s.w || !io->crop.s.h)) {
-		io->crop = (struct mtkcam_ipi_crop) {
-			.p = (struct mtkcam_ipi_point) {
-				.x = 0,
-				.y = 0,
-			},
-			.s = (struct mtkcam_ipi_size) {
-				.w = io->fmt.s.w,
-				.h = io->fmt.s.h,
-			},
-		};
-	}
-
-	buf_printk("%s: %s %dx%d @%d,%d-%dx%d\n",
-		   __func__,
+	buf_printk("%s %dx%d @%d,%d-%dx%d\n",
 		   node->desc.name,
 		   io->fmt.s.w, io->fmt.s.h,
 		   io->crop.p.x, io->crop.p.y, io->crop.s.w, io->crop.s.h);
 
-	return ret;
+	return 0;
 }
 int fill_img_out_hdr(struct mtkcam_ipi_img_output *io,
 			struct mtk_cam_buffer *buf,
 			struct mtk_cam_video_device *node)
 {
-	int ret;
-
-	memset(io, 0, sizeof(*io));
 	/* uid */
 	io->uid = node->uid;
 
 	/* fmt */
-	ret = fill_img_fmt(&io->fmt, buf);
-
+	fill_img_fmt(&io->fmt, buf);
 
 	/* FIXME: porting workaround */
 	io->buf[0][0].size = buf->image_info.size[0];
 	io->buf[0][0].iova = buf->daddr + io->buf[0][0].size;
 	io->buf[0][0].ccd_fd = buf->vbb.vb2_buf.planes[0].m.fd;
 
-	pr_info("[%s] buf->daddr:0x%x, io->buf[0][0].iova:0x%x, size:%d", __func__,
-		buf->daddr, io->buf[0][0].iova, io->buf[0][0].size);
 	/* crop */
 	io->crop = v4l2_rect_to_ipi_crop(&buf->image_info.crop);
 
-	/* FIXME: porting workaround */
-	if (WARN_ON_ONCE(!io->crop.s.w || !io->crop.s.h)) {
-		io->crop = (struct mtkcam_ipi_crop) {
-			.p = (struct mtkcam_ipi_point) {
-				.x = 0,
-				.y = 0,
-			},
-			.s = (struct mtkcam_ipi_size) {
-				.w = io->fmt.s.w,
-				.h = io->fmt.s.h,
-			},
-		};
-	}
-	buf_printk("%s: %s %dx%d @%d,%d-%dx%d\n",
-		   __func__,
+	buf_printk("buf->daddr:0x%x, io->buf[0][0].iova:0x%x, size:%d",
+		   buf->daddr, io->buf[0][0].iova, io->buf[0][0].size);
+	buf_printk("%s %dx%d @%d,%d-%dx%d\n",
 		   node->desc.name,
 		   io->fmt.s.w, io->fmt.s.h,
 		   io->crop.p.x, io->crop.p.y, io->crop.s.w, io->crop.s.h);
 
-	return ret;
+	return 0;
 }
 
 static int mtk_cam_fill_img_buf(struct mtkcam_ipi_img_output *io,
@@ -388,93 +350,43 @@ int fill_yuvo_out_subsample(struct mtkcam_ipi_img_output *io,
 			struct mtk_cam_video_device *node,
 			int sub_ratio)
 {
-	int ret;
-
 	/* uid */
 	io->uid = node->uid;
 
 	/* fmt */
-	ret = fill_img_fmt(&io->fmt, buf);
+	fill_img_fmt(&io->fmt, buf);
 
-	ret = ret || mtk_cam_fill_img_buf_subsample(io, buf, sub_ratio);
+	mtk_cam_fill_img_buf_subsample(io, buf, sub_ratio);
 
 	/* crop */
 	io->crop = v4l2_rect_to_ipi_crop(&buf->image_info.crop);
 
-	/* FIXME: porting workaround */
-	if (WARN_ON_ONCE(!io->crop.s.w || !io->crop.s.h)) {
-
-		pr_info_ratelimited("%s: warn: %s crop %u,%u-%ux%u\n",
-				    __func__, node->desc.name,
-				    io->crop.p.x, io->crop.p.y,
-				    io->crop.s.w, io->crop.s.h);
-
-		io->crop = (struct mtkcam_ipi_crop) {
-			.p = (struct mtkcam_ipi_point) {
-				.x = 0,
-				.y = 0,
-			},
-			.s = (struct mtkcam_ipi_size) {
-				.w = io->fmt.s.w,
-				.h = io->fmt.s.h,
-			},
-		};
-	}
-
-	buf_printk("%s: %s %dx%d @%d,%d-%dx%d\n",
-		   __func__,
+	buf_printk("%s %dx%d @%d,%d-%dx%d\n",
 		   node->desc.name,
 		   io->fmt.s.w, io->fmt.s.h,
 		   io->crop.p.x, io->crop.p.y, io->crop.s.w, io->crop.s.h);
-	return ret;
+	return 0;
 }
 
 int fill_img_out(struct mtkcam_ipi_img_output *io,
 			struct mtk_cam_buffer *buf,
 			struct mtk_cam_video_device *node)
 {
-	int ret;
-
-	memset(io, 0, sizeof(*io));
 	/* uid */
 	io->uid = node->uid;
 
 	/* fmt */
-	ret = fill_img_fmt(&io->fmt, buf);
+	fill_img_fmt(&io->fmt, buf);
 
-
-	/* FIXME: porting workaround */
-	if (node->desc.dma_port == MTKCAM_IPI_RAW_IMGO) {
-		io->buf[0][0].iova = buf->daddr;
-		io->buf[0][0].ccd_fd = buf->vbb.vb2_buf.planes[0].m.fd;
-	} else {
-		/* buf */
-		ret = ret || mtk_cam_fill_img_buf(io, buf);
-	}
+	mtk_cam_fill_img_buf(io, buf);
 
 	/* crop */
 	io->crop = v4l2_rect_to_ipi_crop(&buf->image_info.crop);
 
-	/* FIXME: porting workaround */
-	if (WARN_ON_ONCE(!io->crop.s.w || !io->crop.s.h)) {
-		io->crop = (struct mtkcam_ipi_crop) {
-			.p = (struct mtkcam_ipi_point) {
-				.x = 0,
-				.y = 0,
-			},
-			.s = (struct mtkcam_ipi_size) {
-				.w = io->fmt.s.w,
-				.h = io->fmt.s.h,
-			},
-		};
-	}
-
-	buf_printk("%s: %s %dx%d @%d,%d-%dx%d\n",
-		   __func__,
+	buf_printk("%s %dx%d @%d,%d-%dx%d\n",
 		   node->desc.name,
 		   io->fmt.s.w, io->fmt.s.h,
 		   io->crop.p.x, io->crop.p.y, io->crop.s.w, io->crop.s.h);
-
-	return ret;
+	return 0;
 }
 
