@@ -537,6 +537,8 @@ struct v4l2_subdev *mtk_cam_find_sensor(struct mtk_cam_ctx *ctx,
 	graph = &ctx->pipeline.graph;
 	media_graph_walk_start(graph, entity);
 
+	mutex_lock(&ctx->cam->v4l2_dev.mdev->graph_mutex);
+
 	while ((entity = media_graph_walk_next(graph))) {
 		dev_dbg(ctx->cam->dev, "linked entity: %s\n", entity->name);
 		sensor = NULL;
@@ -552,6 +554,8 @@ struct v4l2_subdev *mtk_cam_find_sensor(struct mtk_cam_ctx *ctx,
 		if (sensor)
 			break;
 	}
+
+	mutex_unlock(&ctx->cam->v4l2_dev.mdev->graph_mutex);
 
 	return sensor;
 }

@@ -6873,6 +6873,8 @@ struct mtk_cam_ctx *mtk_cam_start_ctx(struct mtk_cam_device *cam,
 	graph = &ctx->pipeline.graph;
 	media_graph_walk_start(graph, entity);
 
+	mutex_lock(&cam->v4l2_dev.mdev->graph_mutex);
+
 	i = 0;
 	while ((entity = media_graph_walk_next(graph))) {
 		dev_dbg(cam->dev, "linked entity %s\n", entity->name);
@@ -6911,10 +6913,12 @@ struct mtk_cam_ctx *mtk_cam_start_ctx(struct mtk_cam_device *cam,
 		if (is_media_entity_v4l2_subdev(entity))
 			*target_sd = media_entity_to_v4l2_subdev(entity);
 	}
+	mutex_unlock(&cam->v4l2_dev.mdev->graph_mutex);
 
 	return ctx;
 
 fail_stop_pipeline:
+	mutex_unlock(&cam->v4l2_dev.mdev->graph_mutex);
 	media_pipeline_stop(entity);
 fail_uninit_frame_done_wq:
 	destroy_workqueue(ctx->frame_done_wq);

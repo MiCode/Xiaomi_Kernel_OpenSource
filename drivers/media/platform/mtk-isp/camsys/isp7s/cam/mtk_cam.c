@@ -1172,6 +1172,8 @@ static int mtk_cam_ctx_pipeline_start(struct mtk_cam_ctx *ctx,
 	graph = &ctx->pipeline.graph;
 	media_graph_walk_start(graph, entity);
 
+	mutex_lock(&ctx->cam->v4l2_dev.mdev->graph_mutex);
+
 	i = 0;
 	while ((entity = media_graph_walk_next(graph))) {
 		dev_dbg(dev, "linked entity %s\n", entity->name);
@@ -1215,11 +1217,14 @@ static int mtk_cam_ctx_pipeline_start(struct mtk_cam_ctx *ctx,
 			*target_sd = media_entity_to_v4l2_subdev(entity);
 	}
 
+	mutex_unlock(&ctx->cam->v4l2_dev.mdev->graph_mutex);
+
 	mtk_cam_ctx_match_pipe_subdevs(ctx);
 
 	return 0;
 
 fail_stop_pipeline:
+	mutex_unlock(&ctx->cam->v4l2_dev.mdev->graph_mutex);
 	media_pipeline_stop(entity);
 	return -EPIPE;
 }
@@ -1976,9 +1981,11 @@ static int mtk_cam_master_bind(struct device *dev)
 	}
 #endif
 
+	mutex_lock(&cam_dev->v4l2_dev.mdev->graph_mutex);
 	mtk_cam_create_links(cam_dev);
 	/* Expose all subdev's nodes */
 	ret = v4l2_device_register_subdev_nodes(&cam_dev->v4l2_dev);
+	mutex_unlock(&cam_dev->v4l2_dev.mdev->graph_mutex);
 	if (ret) {
 		dev_dbg(dev, "Failed to register subdev nodes\n");
 		goto fail_unreg_mraw_entities;
