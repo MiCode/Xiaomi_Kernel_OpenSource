@@ -11836,6 +11836,8 @@
 		mediatek,ccd = <&remoteproc_ccd>;
 		power-domains = <&scpsys MT6985_POWER_DOMAIN_CAM_MAIN>;
 		operating-points-v2 = <&opp_table_cam>;
+		clocks = <&mmdvfs_clk CLK_MMDVFS_CAM>;
+		clock-names = "mmdvfs_clk";
 	};
 
 	cam_raw_a@1a030000 {
@@ -11976,9 +11978,9 @@
 		power-domains = <&scpsys MT6985_POWER_DOMAIN_CAM_MAIN>;
 		clocks = <&camsys_main_clk CLK_CAM_MAIN_CAM_CON_0>,
 			<&camsys_main_clk CLK_CAM_MAIN_CAMTG_CON_0>,
-			<&camsys_rawa_clk CLK_CAM_RB_LARBX>,
-			<&camsys_rawa_clk CLK_CAM_RB_CAM>,
-			<&camsys_rawa_clk CLK_CAM_RB_CAMTG>,
+			<&camsys_rawb_clk CLK_CAM_RB_LARBX>,
+			<&camsys_rawb_clk CLK_CAM_RB_CAM>,
+			<&camsys_rawb_clk CLK_CAM_RB_CAMTG>,
 			<&topckgen_clk CLK_TOP_CAM_SEL>,
 			<&topckgen_clk CLK_TOP_CAMTG_SEL>,
 			<&topckgen_clk CLK_TOP_CAMTM_SEL>;
@@ -12048,13 +12050,13 @@
 			  <0 0x1a098000 0 0x8000>;
 		reg-names = "base", "inner_base";
 		mediatek,cam-id = <1>;
-		mediatek,larbs = <&smi_larb30>;
+		mediatek,larbs = <&smi_larb34>;
 		interrupts = <GIC_SPI 489 IRQ_TYPE_LEVEL_HIGH 0>;
 		dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
 		power-domains = <&scpsys MT6985_POWER_DOMAIN_CAM_MAIN>;
-		clocks = <&camsys_yuva_clk CLK_CAM_YB_LARBX>,
-			<&camsys_yuva_clk CLK_CAM_YB_CAM>,
-			<&camsys_yuva_clk CLK_CAM_YB_CAMTG>;
+		clocks = <&camsys_yuvb_clk CLK_CAM_YB_LARBX>,
+			<&camsys_yuvb_clk CLK_CAM_YB_CAM>,
+			<&camsys_yuvb_clk CLK_CAM_YB_CAMTG>;
 		clock-names = "camsys_yuvb_larbx_cgpdn",
 			"camsys_yuvb_cam_cgpdn",
 			"camsys_yuvb_camtg_cgpdn";
@@ -12102,9 +12104,9 @@
 		power-domains = <&scpsys MT6985_POWER_DOMAIN_CAM_MAIN>;
 		clocks = <&camsys_main_clk CLK_CAM_MAIN_CAM_CON_0>,
 			<&camsys_main_clk CLK_CAM_MAIN_CAMTG_CON_0>,
-			<&camsys_rawa_clk CLK_CAM_RC_LARBX>,
-			<&camsys_rawa_clk CLK_CAM_RC_CAM>,
-			<&camsys_rawa_clk CLK_CAM_RC_CAMTG>,
+			<&camsys_rawc_clk CLK_CAM_RC_LARBX>,
+			<&camsys_rawc_clk CLK_CAM_RC_CAM>,
+			<&camsys_rawc_clk CLK_CAM_RC_CAMTG>,
 			<&topckgen_clk CLK_TOP_CAM_SEL>,
 			<&topckgen_clk CLK_TOP_CAMTG_SEL>,
 			<&topckgen_clk CLK_TOP_CAMTM_SEL>;
@@ -12178,9 +12180,9 @@
 		interrupts = <GIC_SPI 491 IRQ_TYPE_LEVEL_HIGH 0>;
 		dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
 		power-domains = <&scpsys MT6985_POWER_DOMAIN_CAM_MAIN>;
-		clocks = <&camsys_yuva_clk CLK_CAM_YC_LARBX>,
-			<&camsys_yuva_clk CLK_CAM_YC_CAM>,
-			<&camsys_yuva_clk CLK_CAM_YC_CAMTG>;
+		clocks = <&camsys_yuvc_clk CLK_CAM_YC_LARBX>,
+			<&camsys_yuvc_clk CLK_CAM_YC_CAM>,
+			<&camsys_yuvc_clk CLK_CAM_YC_CAMTG>;
 		clock-names = "camsys_yuvc_larbx_cgpdn",
 			"camsys_yuvc_cam_cgpdn",
 			"camsys_yuvc_camtg_cgpdn";
