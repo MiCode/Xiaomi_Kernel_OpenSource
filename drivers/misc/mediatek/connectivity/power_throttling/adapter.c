@@ -264,7 +264,7 @@ int conn_pwr_set_customer_level(enum conn_pwr_drv_type type, enum conn_pwr_low_b
 	unsigned int inactive_time = 0;
 
 	if (type < CONN_PRW_DRV_ALL || type >= CONN_PWR_DRV_MAX || level < CONN_PWR_THR_LV_0 ||
-		level >= CONN_PWR_LOW_BATTERY_MAX) {
+		level >= CONN_PWR_THR_LV_MAX) {
 		pr_info("%s, invalid parameter, type = %d, level = %d\n", __func__, type, level);
 		return CONN_CUSTOMER_SET_LEVEL_FAILED;
 	}

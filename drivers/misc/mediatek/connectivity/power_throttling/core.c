@@ -203,7 +203,7 @@ int conn_pwr_set_level(struct conn_pwr_update_info *info, int radio_power_level[
 		radio_value =
 			CONN_PWR_GET_CUSTOMER_POWER_LEVEL(
 				g_platform_pwr_level[CONN_PWR_PLAT_CUSTOMER], i);
-		if (radio_power_level[i] < radio_value && radio_value < CONN_PWR_LOW_BATTERY_MAX)
+		if (radio_power_level[i] < radio_value && radio_value < CONN_PWR_THR_LV_MAX)
 			radio_power_level[i] = radio_value;
 	}
 
@@ -249,12 +249,23 @@ int conn_pwr_get_thermal(struct conn_pwr_event_max_temp *temp)
 }
 EXPORT_SYMBOL(conn_pwr_get_thermal);
 
+static int conn_pwr_is_adie_support(void)
+{
+	int adie_id;
+
+	adie_id = conn_pwr_get_adie_id();
+	if (adie_id == 0x6637 || adie_id == 0x6686)
+		return 1;
+
+	pr_info("%s no support 0x%x", __func__, adie_id);
+	return 0;
+}
+
 int conn_pwr_arbitrate(struct conn_pwr_update_info *info)
 {
 	int radio_power_level[CONN_PWR_DRV_MAX] = {CONN_PWR_THR_LV_0};
 	int i;
 	int current_temp = 0;
-	int adie;
 	unsigned long flag;
 
 	if (!g_enable) {
@@ -265,11 +276,8 @@ int conn_pwr_arbitrate(struct conn_pwr_update_info *info)
 	if (info == NULL)
 		return -1;
 
-	adie = conn_pwr_get_adie_id();
-	if (adie != 0x6637) {
-		pr_info("%s no support 0x%x", __func__, adie);
+	if (conn_pwr_is_adie_support() == 0)
 		return 0;
-	}
 
 	if (info->reason == CONN_PWR_ARB_SUBSYS_ON_OFF) {
 		if (info->drv == CONN_PWR_DRV_WIFI) {

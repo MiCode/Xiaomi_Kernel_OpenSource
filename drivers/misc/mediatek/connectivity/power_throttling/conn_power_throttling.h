@@ -51,7 +51,7 @@ enum conn_pwr_low_battery_level {
 	CONN_PWR_THR_LV_3 = 3,
 	CONN_PWR_THR_LV_4 = 4,
 	CONN_PWR_THR_LV_5 = 5,
-	CONN_PWR_LOW_BATTERY_MAX
+	CONN_PWR_THR_LV_MAX
 };
 
 enum conn_pwr_thermal_level {
