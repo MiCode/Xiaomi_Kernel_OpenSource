@@ -1251,6 +1251,10 @@ static int prepare_calibration_data(struct lvts_data *lvts_data)
 
 	size = sizeof(buffer);
 	offset = snprintf(buffer, size, "[lvts_cal] num:g_count:g_count_rc ");
+	if (offset < 0)
+		return -EINVAL;
+	if (offset >= size)
+		return -ENOMEM;
 	for (i = 0; i < lvts_data->num_sensor; i++) {
 		ret = snprintf(buffer + offset, size - offset, "%d:%d:%d ",
 				i, cal_data->count_r[i], cal_data->count_rc[i]);
@@ -1271,6 +1275,10 @@ static int prepare_calibration_data(struct lvts_data *lvts_data)
 	dev_info(dev, "%s\n", buffer);
 
 	offset = snprintf(buffer, size, "[lvts_cal] num_tc:g_golden_temp");
+	if (offset < 0)
+		return -EINVAL;
+	if (offset >= size)
+		return -ENOMEM;
 	for (i = 0; i < lvts_data->num_tc; i++) {
 		ret = snprintf(buffer + offset, size - offset, "%d:%d ",
 				i, tc[i].coeff.golden_temp);
