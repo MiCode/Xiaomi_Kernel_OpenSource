@@ -2487,8 +2487,6 @@ _mtk_crtc_cwb_addon_module_connect(
 				mtk_addon_connect_after(crtc, ddp_mode, addon_module,
 							  &addon_config, cmdq_handle);
 			}
-			mtk_addon_connect_after(crtc, ddp_mode, addon_module,
-						  &addon_config, cmdq_handle);
 		} else
 			DDPPR_ERR("addon type:%d + module:%d not support\n",
 				  addon_module->type, addon_module->module);
