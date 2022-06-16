@@ -794,6 +794,7 @@ static int ged_dvfs_fb_gpu_dvfs(int t_gpu, int t_gpu_target,
 			num_pre_frames = 0;
 			for (i = 0; i < GED_DVFS_BUSY_CYCLE_MONITORING_WINDOW_NUM; i++)
 				busy_cycle[i] = 0;
+			ged_cancel_backup_timer();
 		}
 
 	}

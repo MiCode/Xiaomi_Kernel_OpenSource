@@ -309,6 +309,7 @@ unsigned int g_eb_coef;
 
 int pid_sysui;
 int pid_sf;
+int policy_state = -1;/*0:init 1:frame base 2:fallback 3:loading*/
 
 /* ------------------------------------------------------------------- */
 void (*ged_kpi_output_gfx_info2_fp)(long long t_gpu, unsigned int cur_freq
@@ -1208,20 +1209,46 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 					mtk_gpueb_dvfs_set_frame_base_dvfs(0);
 			}
 		}
-
-		if (main_head == psHead)
-			gpu_freq_pre = ged_kpi_gpu_dvfs(time_spent, psKPI->t_gpu_target
-				, psKPI->target_fps_margin
-				, g_force_gpu_dvfs_fallback);
-		else if (g_force_gpu_dvfs_fallback)
-			gpu_freq_pre = ged_kpi_gpu_dvfs(
-				time_spent, psKPI->t_gpu_target
-				, psKPI->target_fps_margin, 1); /* fallback mode */
-		else
-			/* t_gpu is not accurate, so hint -1 */
-			gpu_freq_pre = ged_kpi_gpu_dvfs(
-				-1, psKPI->t_gpu_target
-				, psKPI->target_fps_margin, 0); /* do nothing */
+			if (main_head == psHead) {
+				if (!g_force_gpu_dvfs_fallback) {
+					policy_state = 1;
+					if (g_loading_slide_enable)
+						ged_set_backup_timer_timeout(
+							psKPI->t_gpu_target * 2);
+					else
+						ged_set_backup_timer_timeout(0);
+				} else {
+					policy_state = 0;
+					if (g_loading_slide_enable)
+						ged_set_backup_timer_timeout(
+							g_loading_stride_size * 1000000);
+					else
+						ged_set_backup_timer_timeout(
+							psKPI->t_gpu_target << 1);
+				}
+				gpu_freq_pre = ged_kpi_gpu_dvfs(
+					time_spent, psKPI->t_gpu_target
+					, psKPI->target_fps_margin
+					, g_force_gpu_dvfs_fallback);
+			} else if (g_force_gpu_dvfs_fallback) {
+				policy_state = 0;
+				if (g_loading_slide_enable)
+					ged_set_backup_timer_timeout(
+						g_loading_stride_size * 1000000);
+				else
+					ged_set_backup_timer_timeout(
+						psKPI->t_gpu_target << 1);
+				gpu_freq_pre = ged_kpi_gpu_dvfs(
+					time_spent, psKPI->t_gpu_target
+					, psKPI->target_fps_margin
+					, 1); /* fallback mode */
+			} else {
+				/* t_gpu is not accurate, so hint -1 */
+				gpu_freq_pre = ged_kpi_gpu_dvfs(
+					-1, psKPI->t_gpu_target
+					, psKPI->target_fps_margin
+					, 0); /* do nothing */
+		}
 
 		psKPI->cpu_gpu_info.gpu.gpu_freq_target = gpu_freq_pre;
 		last_3D_done = cur_3D_done;
@@ -1240,15 +1267,6 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 			g_psGIFT->eara_fps_margin = 0;
 			g_psGIFT->gpu_time = -1;
 		}
-
-		if (!g_force_gpu_dvfs_fallback)
-			ged_set_backup_timer_timeout(0);
-		else if (g_loading_slide_enable)
-			ged_set_backup_timer_timeout(
-			g_loading_stride_size * GED_KPI_MSEC_DIVIDER);
-		else
-			ged_set_backup_timer_timeout(
-			psKPI->t_gpu_target << 1);
 
 
 		if (psHead->last_TimeStamp1 != psKPI->ullTimeStamp1)

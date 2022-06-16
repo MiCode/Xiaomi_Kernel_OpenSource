@@ -105,10 +105,18 @@ static void ged_notify_sw_sync_work_handle(struct work_struct *psWork)
 	unsigned long long temp;
 	GED_DVFS_COMMIT_TYPE eCommitType;
 
-	if (GED_DVFS_TIMER_TIMEOUT == GED_DVFS_FB_TIMER_TIMEOUT)
+	if (g_loading_slide_enable && policy_state == 1) {
 		eCommitType = GED_DVFS_FB_FALLBACK_COMMIT;
-	else
+		policy_state = 2;
+		ged_set_backup_timer_timeout(g_loading_stride_size * 1000000);
+		ged_cancel_backup_timer();
+	} else {
 		eCommitType = GED_DVFS_LOADING_BASE_COMMIT;
+		policy_state = 0;
+	}
+
+	if (!g_loading_slide_enable && (GED_DVFS_TIMER_TIMEOUT == GED_DVFS_FB_TIMER_TIMEOUT))
+		eCommitType = GED_DVFS_FB_FALLBACK_COMMIT;
 
 	temp = 0;
 	if (psNotify) {
@@ -179,7 +187,7 @@ static void ged_timer_switch_work_handle(struct work_struct *psWork)
 
 void ged_set_backup_timer_timeout(u64 time_out)
 {
-	if (time_out != 0)
+	if (time_out != 0 && time_out < GED_DVFS_FB_TIMER_TIMEOUT)
 		g_fallback_time_out = time_out;
 	else
 		g_fallback_time_out = GED_DVFS_FB_TIMER_TIMEOUT;

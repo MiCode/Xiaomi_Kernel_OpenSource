@@ -59,6 +59,7 @@ extern unsigned int g_loading_stride_size;
 extern unsigned int g_loading_slide_window_size;
 extern unsigned int g_loading_slide_enable;
 extern int g_ged_slide_window_support;
+extern int policy_state;
 
 
 extern unsigned int ged_is_fdvfs_support(void);
