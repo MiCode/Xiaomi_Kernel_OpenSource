@@ -540,13 +540,13 @@
 		};
 	};
 
-	camera_af_main_three@2a {
-		compatible = "mediatek,bu64253gwz";
-		reg = <0x2a>;
+	camera_af_main_three@2b {
+		compatible = "mediatek,ak7377a";
+		reg = <0x2b>;
 		vin-supply = <&rt5133_gpio1>;
 		port {
-			main_af_cam7: endpoint {
-				remote-endpoint = <&main_af_cam7_endpoint>;
+			main_af_cam5: endpoint {
+				remote-endpoint = <&main_af_cam5_endpoint>;
 			};
 		};
 	};
@@ -686,12 +686,12 @@
 	};
 
 	camera_af_main@0a {
-		compatible = "mediatek,ak7377a";
+		compatible = "mediatek,ak7375c";
 		reg = <0x0a>;
 		vin-supply = <&rt5133_ldo3>;
 		port {
-			main_af_cam5: endpoint {
-				remote-endpoint = <&main_af_cam5_endpoint>;
+			main_af_cam6: endpoint {
+				remote-endpoint = <&main_af_cam6_endpoint>;
 			};
 		};
 	};
@@ -778,13 +778,13 @@
 		};
 	};
 
-	camera_af_main_two@2b {
-		compatible = "mediatek,ak7375c";
-		reg = <0x2b>;
+	camera_af_main_two@2a {
+		compatible = "mediatek,bu64253gwz";
+		reg = <0x2a>;
 		vin-supply = <&rt5133_ldo2>;
 		port {
-			main_af_cam6: endpoint {
-				remote-endpoint = <&main_af_cam6_endpoint>;
+			main_af_cam7: endpoint {
+				remote-endpoint = <&main_af_cam7_endpoint>;
 			};
 		};
 	};
