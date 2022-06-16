@@ -15,7 +15,7 @@
 	pinctrl-1 = <&mmc1_pins_uhs>;
 	bus-width = <4>;
 	max-frequency = <200000000>;
-	ocr-voltage = <0x00030000>;
+	ocr-voltage = <0x00070000>;
 	cap-sd-highspeed;
 	sd-uhs-sdr12;
 	sd-uhs-sdr25;
@@ -64,13 +64,13 @@
 				<PINMUX_GPIO97__FUNC_MSDC1_DAT3>,
 				<PINMUX_GPIO96__FUNC_MSDC1_CMD>;
 			input-enable;
-			drive-strength = <1>;
+			drive-strength = <3>;
 			bias-pull-up = <MTK_PUPD_SET_R1R0_01>;
 		};
 
 		pins_clk {
 			pinmux = <PINMUX_GPIO95__FUNC_MSDC1_CLK>;
-			drive-strength = <1>;
+			drive-strength = <3>;
 			bias-pull-down = <MTK_PUPD_SET_R1R0_10>;
 		};
 	};
