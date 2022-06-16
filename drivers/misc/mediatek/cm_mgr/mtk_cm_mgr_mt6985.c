@@ -151,8 +151,8 @@ static int cm_mgr_check_dram_type(void)
 	int ddr_type = mtk_dramc_get_ddr_type();
 	int ddr_hz = mtk_dramc_get_steps_freq(0);
 
-	if (ddr_type == TYPE_LPDDR4X || ddr_type == TYPE_LPDDR4)
-		cm_mgr_idx = CM_MGR_LP4;
+	if (ddr_type == TYPE_LPDDR5 || ddr_type == TYPE_LPDDR5X)
+		cm_mgr_idx = CM_MGR_LP5;
 	pr_info("#@# %s(%d) ddr_type 0x%x, ddr_hz %d, cm_mgr_idx 0x%x\n",
 			__func__, __LINE__, ddr_type, ddr_hz, cm_mgr_idx);
 #else

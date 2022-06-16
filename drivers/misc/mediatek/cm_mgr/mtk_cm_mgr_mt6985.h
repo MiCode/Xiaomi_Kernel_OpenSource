@@ -30,7 +30,7 @@
 #define CM_LATENCY_AWARENESS_STATUS 0x1328
 
 enum {
-	CM_MGR_LP4 = 0,
+	CM_MGR_LP5 = 0,
 	CM_MGR_MAX,
 };
 
