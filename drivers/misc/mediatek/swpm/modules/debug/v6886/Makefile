@@ -29,12 +29,27 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/swpm/modules/include/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/swpm/modules/debug/$(MTK_SWPM_DBG_VERSION)/
 ccflags-y += -I$(SWPM_MODULES_FOLDER)/debug/v6886/
+ccflags-y += -I$(SWPM_MODULES_FOLDER)/debug/v6886/subsys/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/
 ccflags-y += -I$(SWPM_MODULES_FOLDER)/include/v6886/
 
 BUILD_SWPM_DBG_MODUDLE_NAME=mtk-swpm-dbg-v6886
 obj-$(CONFIG_MTK_SWPM_MODULE) += ${BUILD_SWPM_DBG_MODUDLE_NAME}.o
-
 ${BUILD_SWPM_DBG_MODUDLE_NAME}-objs += swpm_v6886.o
 ${BUILD_SWPM_DBG_MODUDLE_NAME}-objs += swpm_v6886_ext.o
 ${BUILD_SWPM_DBG_MODUDLE_NAME}-objs += swpm_v6886_dbg_init.o
+
+BUILD_SWPM_CPU_DBG_MODUDLE_NAME=mtk-swpm-cpu-dbg-v6886
+obj-$(CONFIG_MTK_SWPM_MODULE) += ${BUILD_SWPM_CPU_DBG_MODUDLE_NAME}.o
+${BUILD_SWPM_CPU_DBG_MODUDLE_NAME}-objs += subsys/swpm_cpu_v6886.o
+${BUILD_SWPM_CPU_DBG_MODUDLE_NAME}-objs += subsys/swpm_cpu_v6886_dbg_init.o
+
+BUILD_SWPM_MEM_DBG_MODUDLE_NAME=mtk-swpm-mem-dbg-v6886
+obj-$(CONFIG_MTK_SWPM_MODULE) += ${BUILD_SWPM_MEM_DBG_MODUDLE_NAME}.o
+${BUILD_SWPM_MEM_DBG_MODUDLE_NAME}-objs += subsys/swpm_mem_v6886.o
+${BUILD_SWPM_MEM_DBG_MODUDLE_NAME}-objs += subsys/swpm_mem_v6886_dbg_init.o
+
+BUILD_SWPM_CORE_DBG_MODUDLE_NAME=mtk-swpm-core-dbg-v6886
+obj-$(CONFIG_MTK_SWPM_MODULE) += ${BUILD_SWPM_CORE_DBG_MODUDLE_NAME}.o
+${BUILD_SWPM_CORE_DBG_MODUDLE_NAME}-objs += subsys/swpm_core_v6886.o
+${BUILD_SWPM_CORE_DBG_MODUDLE_NAME}-objs += subsys/swpm_core_v6886_dbg_init.o
