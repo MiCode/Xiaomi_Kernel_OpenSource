@@ -21,6 +21,9 @@
 #include <soc/mediatek/emi.h>
 #include <linux/ratelimit.h>
 
+static const unsigned int bypass_register[] = {0x1d8, 0x3d8, 0x1d0, 0x3d0, 0x1e4, 0x3e4, 0x1e8,
+						0x3e8};
+
 static void set_regs(
 	struct reg_info_t *reg_list, unsigned int reg_cnt,
 	void __iomem *emi_cen_base)
@@ -123,6 +126,7 @@ static void emimpu_vio_dump(struct work_struct *work)
 	struct emi_mpu *mpu;
 
 	mpu = global_emi_mpu;
+
 	if (!mpu)
 		return;
 
@@ -142,7 +146,7 @@ static irqreturn_t emimpu_violation_irq(int irq, void *dev_id)
 	void __iomem *miu_mpu_base;
 	unsigned int emi_id, i;
 	ssize_t msg_len;
-	int nr_vio;
+	int nr_vio, prefetch;
 	bool violation, miu_violation;
 	irqreturn_t irqret;
 	const unsigned int hp_mask = 0x600000;
@@ -151,6 +155,7 @@ static irqreturn_t emimpu_violation_irq(int irq, void *dev_id)
 
 	nr_vio = 0;
 	msg_len = 0;
+	prefetch = 0;
 
 	for (emi_id = 0; emi_id < mpu->emi_cen_cnt; emi_id++) {
 		violation = false;
@@ -214,6 +219,12 @@ static irqreturn_t emimpu_violation_irq(int irq, void *dev_id)
 		nr_vio++;
 
 		if (miu_violation) {
+			/* MPUT_2ND[28] = CPU-preftech flag*/
+			prefetch = (dump_reg[2].value >> 28) & 0x1;
+			if (msg_len < MTK_EMI_MAX_CMD_LEN)
+				msg_len += scnprintf(mpu->vio_msg + msg_len,
+						MTK_EMI_MAX_CMD_LEN - msg_len,
+						"\n[MIUMPU]cpu-prefetch:%d\n", prefetch);
 			/* Dump MIUMPU violation info */
 			if (msg_len < MTK_EMI_MAX_CMD_LEN)
 				msg_len += scnprintf(mpu->vio_msg + msg_len,
@@ -303,7 +314,7 @@ static int emimpu_probe(struct platform_device *pdev)
 	struct emi_mpu *mpu;
 	int ret, size, i;
 	struct resource *res;
-	unsigned int *dump_list, *miukp_dump_list, *miumpu_dump_list;
+	unsigned int *dump_list, *miukp_dump_list, *miumpu_dump_list, *miumpu_bypass_list;
 
 	dev_info(&pdev->dev, "driver probed\n");
 
@@ -326,7 +337,6 @@ static int emimpu_probe(struct platform_device *pdev)
 		sizeof(struct emi_mpu), GFP_KERNEL);
 	if (!mpu)
 		return -ENOMEM;
-
 //dump emi start
 	size = of_property_count_elems_of_size(emimpu_node,
 		"dump", sizeof(char));
@@ -337,6 +347,7 @@ static int emimpu_probe(struct platform_device *pdev)
 	dump_list = devm_kmalloc(&pdev->dev, size, GFP_KERNEL);
 	if (!dump_list)
 		return -ENOMEM;
+
 	size >>= 2;
 	mpu->dump_cnt = size;
 	ret = of_property_read_u32_array(emimpu_node, "dump",
@@ -349,6 +360,7 @@ static int emimpu_probe(struct platform_device *pdev)
 		size * sizeof(struct reg_info_t), GFP_KERNEL);
 	if (!(mpu->dump_reg))
 		return -ENOMEM;
+
 	for (i = 0; i < mpu->dump_cnt; i++) {
 		mpu->dump_reg[i].offset = dump_list[i];
 		mpu->dump_reg[i].value = 0;
@@ -377,6 +389,7 @@ static int emimpu_probe(struct platform_device *pdev)
 		size * sizeof(struct reg_info_t), GFP_KERNEL);
 	if (!(mpu->miukp_dump_reg))
 		return -ENOMEM;
+
 	for (i = 0; i < mpu->miukp_dump_cnt; i++) {
 		mpu->miukp_dump_reg[i].offset = miukp_dump_list[i];
 		mpu->miukp_dump_reg[i].value = 0;
@@ -393,6 +406,7 @@ static int emimpu_probe(struct platform_device *pdev)
 	miumpu_dump_list = devm_kmalloc(&pdev->dev, size, GFP_KERNEL);
 	if (!miumpu_dump_list)
 		return -ENOMEM;
+
 	size >>= 2;
 	mpu->miumpu_dump_cnt = size;
 	ret = of_property_read_u32_array(miumpu_node, "dump",
@@ -405,6 +419,7 @@ static int emimpu_probe(struct platform_device *pdev)
 		size * sizeof(struct reg_info_t), GFP_KERNEL);
 	if (!(mpu->miumpu_dump_reg))
 		return -ENOMEM;
+
 	for (i = 0; i < mpu->miumpu_dump_cnt; i++) {
 		mpu->miumpu_dump_reg[i].offset = miumpu_dump_list[i];
 		mpu->miumpu_dump_reg[i].value = 0;
@@ -422,6 +437,7 @@ static int emimpu_probe(struct platform_device *pdev)
 		size, GFP_KERNEL);
 	if (!(mpu->clear_reg))
 		return -ENOMEM;
+
 	mpu->clear_reg_cnt = size / sizeof(struct reg_info_t);
 	size >>= 2;
 	ret = of_property_read_u32_array(emimpu_node, "clear",
@@ -443,6 +459,7 @@ static int emimpu_probe(struct platform_device *pdev)
 		size, GFP_KERNEL);
 	if (!(mpu->clear_md_reg))
 		return -ENOMEM;
+
 	mpu->clear_md_reg_cnt = size / sizeof(struct reg_info_t);
 	size >>= 2;
 	ret = of_property_read_u32_array(emimpu_node, "clear_md",
@@ -463,6 +480,7 @@ static int emimpu_probe(struct platform_device *pdev)
 		size, GFP_KERNEL);
 	if (!(mpu->clear_hp_reg))
 		return -ENOMEM;
+
 	mpu->clear_hp_reg_cnt = size / sizeof(struct reg_info_t);
 	size >>= 2;
 	ret = of_property_read_u32_array(emimpu_node, "clear_hp",
@@ -483,6 +501,7 @@ static int emimpu_probe(struct platform_device *pdev)
 		size, GFP_KERNEL);
 	if (!(mpu->clear_miukp_reg))
 		return -ENOMEM;
+
 	mpu->clear_miukp_reg_cnt = size / sizeof(struct reg_info_t);
 	size >>= 2;
 	ret = of_property_read_u32_array(miukp_node, "clear",
@@ -503,6 +522,7 @@ static int emimpu_probe(struct platform_device *pdev)
 		size, GFP_KERNEL);
 	if (!(mpu->clear_miumpu_reg))
 		return -ENOMEM;
+
 	mpu->clear_miumpu_reg_cnt = size / sizeof(struct reg_info_t);
 	size >>= 2;
 	ret = of_property_read_u32_array(miumpu_node, "clear",
@@ -512,6 +532,42 @@ static int emimpu_probe(struct platform_device *pdev)
 		return -ENXIO;
 	}
 //clear miumpu end
+//bypass miumpu start
+	size = of_property_count_elems_of_size(miumpu_node,
+		"bypass", sizeof(char));
+	if (size <= 0) {
+		/* for previous platform*/
+		size = sizeof(bypass_register) / sizeof(unsigned int);
+		mpu->bypass_num = size;
+		mpu->bypass = devm_kmalloc(&pdev->dev,
+			size *sizeof(unsigned int), GFP_KERNEL);
+		if (!(mpu->bypass))
+			return -ENOMEM;
+
+		for (i = 0; i < mpu->bypass_num; i++)
+			mpu->bypass[i].offset = bypass_register[i];
+	} else {
+		miumpu_bypass_list = devm_kmalloc(&pdev->dev, size, GFP_KERNEL);
+		if (!miumpu_bypass_list)
+			return -ENOMEM;
+
+		size >>= 2;
+		mpu->bypass_num = size;
+		ret = of_property_read_u32_array(miumpu_node, "bypass",
+			miumpu_bypass_list, size);
+		if (ret) {
+			pr_info("No bypass miu mpu\n");
+			return -ENXIO;
+		}
+		mpu->bypass = devm_kmalloc(&pdev->dev,
+			size *sizeof(unsigned int), GFP_KERNEL);
+		if (!(mpu->bypass))
+			return -ENOMEM;
+
+		for (i = 0; i < size; i++)
+			mpu->bypass[i].offset = miumpu_bypass_list[i];
+	}
+//bypass miumpu end
 //reg base start
 	mpu->emi_cen_cnt = of_property_count_elems_of_size(
 			emicen_node, "reg", sizeof(unsigned int) * 4);

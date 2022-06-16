@@ -24,6 +24,16 @@ static bool axi_id_is_gpu(unsigned int axi_id)
 	else
 		return false;
 }
+int bypass_info(unsigned int offset)
+{
+	unsigned int i;
+
+	for (i = 0; i < global_emi_mpu->bypass_num; i++) {
+		if (offset == global_emi_mpu->bypass[i].offset)
+			return i;
+	}
+	return -1;
+}
 
 static irqreturn_t emi_mpu_isr_hook(unsigned int emi_id,
 					struct reg_info_t *dump,
@@ -36,30 +46,43 @@ static irqreturn_t emi_mpu_isr_hook(unsigned int emi_id,
 	static DEFINE_RATELIMIT_STATE(ratelimit, 1 * HZ, 3);
 
 	for (i = 0; i < leng; i++) {
-		if (dump[i].offset == 0x1D8)
+		switch (bypass_info(dump[i].offset)) {
+		case WRITE_SRINFO:
 			srinfo_w = dump[i].value;
-		else if (dump[i].offset == 0x3D8)
+			break;
+		case READ_SRINFO:
 			srinfo_r = dump[i].value;
-
-		if (dump[i].offset == 0x1D0)
+			break;
+		case WRITE_VIO:
 			err_case_w = dump[i].value;
-		else if (dump[i].offset == 0x3D0)
+			break;
+		case READ_VIO:
 			err_case_r = dump[i].value;
-
-		if (srinfo_w == 3) {
-			if (dump[i].offset == 0x1E4) {
-				axi_id_w |= dump[i].value & (BIT_MASK(16) - 1);
-			} else if (dump[i].offset == 0x1E8) {
+			break;
+		case WRITE_AXI:
+			if (srinfo_w == 3)
+				axi_id_w |= dump[i].value & (BIT_MASK(20) - 1);
+			break;
+		case READ_AXI:
+			if (srinfo_r == 3)
+				axi_id_r |= dump[i].value & (BIT_MASK(20) - 1);
+			break;
+		case WRITE_AXI_MSB:
+			if (srinfo_w == 3) {
+				axi_id_w &= (BIT_MASK(16) - 1);
 				axi_id_w |=
-				(dump[i].value & (BIT_MASK(4) - 1)) << 16;
+					(dump[i].value & (BIT_MASK(4) - 1)) << 16;
 			}
-		} else if (srinfo_r == 3) {
-			if (dump[i].offset == 0x3E4) {
-				axi_id_r |= dump[i].value & (BIT_MASK(16) - 1);
-			} else if (dump[i].offset == 0x3E8) {
+			break;
+		case READ_AXI_MSB:
+			if (srinfo_r == 3) {
+				axi_id_r &= (BIT_MASK(16) - 1);
 				axi_id_r |=
-				(dump[i].value & (BIT_MASK(4) - 1)) << 16;
+					(dump[i].value & (BIT_MASK(4) - 1)) << 16;
 			}
+			break;
+		default:
+			break;
 		}
 	}
 

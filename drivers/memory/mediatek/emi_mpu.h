@@ -9,6 +9,14 @@
 #include <linux/types.h>
 #include <soc/mediatek/emi.h>
 
+#define WRITE_SRINFO 0
+#define READ_SRINFO 1
+#define WRITE_VIO 2
+#define READ_VIO 3
+#define WRITE_AXI 4
+#define READ_AXI 5
+#define WRITE_AXI_MSB 6
+#define READ_AXI_MSB 7
 typedef irqreturn_t (*emimpu_isr_hook)(
 	unsigned int emi_id, struct reg_info_t *dump, unsigned int leng);
 
@@ -67,6 +75,10 @@ struct emi_mpu {
 
 	/* EMIMPU VERSION */
 	unsigned int version;
+
+	/* bypass list*/
+	struct reg_info_t *bypass;
+	unsigned int bypass_num;
 };
 
 extern struct emi_mpu *global_emi_mpu;
