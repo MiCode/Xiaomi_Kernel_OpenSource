@@ -82,13 +82,6 @@ struct afe_offload_codec_t {
 	unsigned int target_samplerate;
 };
 
-enum ipi_received_offload {
-	OFFLOAD_NEEDDATA = 21,
-	OFFLOAD_PCMCONSUMED = 22,
-	OFFLOAD_DRAINDONE = 23,
-	OFFLOAD_DECODE_ERROR = 24,
-};
-
 enum ipi_send_offload {
 	OFFLOAD_RESUME = 0x300,
 	OFFLOAD_PAUSE,
@@ -100,6 +93,16 @@ enum ipi_send_offload {
 	OFFLOAD_SCENE,
 	OFFLOAD_CODEC_INFO,
 	OFFLOAD_MDATA_INFO,
+	OFFLOAD_SEND_MAX,
 };
+
+enum ipi_received_offload {
+	OFFLOAD_NEEDDATA = OFFLOAD_SEND_MAX + 1,
+	OFFLOAD_PCMCONSUMED,
+	OFFLOAD_DRAINDONE,
+	OFFLOAD_DECODE_ERROR,
+	OFFLOAD_RECEIVE_MAX
+};
+
 
 #endif
