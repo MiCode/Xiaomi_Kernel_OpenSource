@@ -898,14 +898,6 @@
 		#size-cells = <2>;
 		ranges;
 
-		reserve-memory-vcp_share {
-			compatible = "mediatek,reserve-memory-vcp_share";
-			no-map;
-			size = <0 0x00201000>; /* 2MB */
-			alignment = <0 0x1000000>;
-			alloc-ranges = <0 0x50000000 0 0x40000000>;
-		};
-
 		ssmr_cma_mem: ssmr-reserved-cma_memory {
 			compatible = "shared-dma-pool";
 			reusable;
@@ -10882,7 +10874,17 @@
 		<22 3  2 0>,/* IPI_IN_VCP_RAM_DUMP_1 */
 		<24 4  4 0>;/* IPI_IN_VCP_MPOOL_1 */
 
-		vcp-mem-key = "mediatek,reserve-memory-vcp_share";
+		vcp-secure-dump = <1>;   /* enable dump via secure world*/
+		vcp-secure-dump-size = <0x200000>;
+		vcp-secure-dump-offset = <0x600000>;
+		vcp-sec-dump-key = "mediatek,me_vcp_reserved";
+
+		memorydump = <0x40000>, /* l2tcm */
+			<0x03c000>, /* l1c */
+			<0x003f00>, /* regdump */
+			<0x000400>, /* trace buffer */
+			<0x160000>; /* dram */
+
 		vcp-mem-tbl = <0 0x78000>, /* VDEC_MEM_ID 480KB */
 			      <1 0x8000>, /* VENC_MEM_ID 32KB */
 			      <2 0x180000>, /* LOGGER 1MB 512KB*/
@@ -10891,7 +10893,8 @@
 			      <5 0x400>, /* VDEC_VCP_LOG_INFO_ID 1KB */
 			      <6 0x400>, /* VENC_VCP_LOG_INFO_ID 1KB */
 			      <7 0x100000>, /* GCE_MEM_ID 256*4KB */
-			      <8 0x1000>; /* MMDVFS_MEM_ID 4KB */
+			      <8 0x1000>, /* MMDVFS_MEM_ID 4KB */
+			      <9 0x0>; /* secure dump, its size is in secure_dump_size */
 
 		power-domains = <&scpsys MT6983_POWER_DOMAIN_MM_PROC_DORMANT>;
 		clocks = <&topckgen_clk CLK_TOPCKGEN_MMUP_SEL>,
