@@ -62,7 +62,7 @@
 #include <linux/of_platform.h>
 #include <linux/of_irq.h>
 #include <linux/of_address.h>
-
+#include <dt-bindings/memory/mt6789-larb-port.h>
 
 #if IS_ENABLED(CONFIG_MTK_IOMMU_V2)
 #include <mach/mt_iommu.h>
@@ -1240,9 +1240,11 @@ static bool config_fdvt_request(signed int req_idx)
 				request->fdvt_frame_status[j] =
 					FDVT_FRAME_STATUS_RUNNING;
 				spin_unlock_irqrestore(spinlock_lrq_ptr, flags);
-				if (request->frame_config[j].FDVT_IS_SECURE) {
+				if (request->frame_config[j].FDVT_METADATA_TO_GCE.SecMemType
+					== 3)
 					fdvt_sec_fd2handler(
 					&request->frame_config[j], &request->frame_dmabuf[j]);
+				if (request->frame_config[j].FDVT_IS_SECURE) {
 					config_secure_fdvt_hw(
 					&request->frame_config[j], &request->frame_dmabuf[j]);
 				} else
@@ -1293,9 +1295,11 @@ static bool config_fdvt(void)
 						FDVT_FRAME_STATUS_RUNNING;
 					spin_unlock_irqrestore(spinlock_lrq_ptr,
 							       flags);
-					if (request->frame_config[j].FDVT_IS_SECURE) {
+					if (request->frame_config[j].FDVT_METADATA_TO_GCE.SecMemType
+						== 3 && request->frame_config[j].FDVT_IS_SECURE)
 						fdvt_sec_fd2handler(
 					&request->frame_config[j], &request->frame_dmabuf[j]);
+					if (request->frame_config[j].FDVT_IS_SECURE) {
 						config_secure_fdvt_hw(
 					&request->frame_config[j], &request->frame_dmabuf[j]);
 					} else {
@@ -1935,6 +1939,90 @@ static signed int config_fdvt_hw(struct fdvt_config *basic_config)
 }
 #endif
 
+static void fdvt_tzmp2(struct fdvt_config *basic_config, struct FDVT_MEM_RECORD *dmabuf,
+			struct FDVT_SEC_MetaDataToGCE *dmabuf_metadata)
+{
+	dmabuf_metadata->ImgSrcY_Handler = basic_config->FDVT_METADATA_TO_GCE.ImgSrcY_Handler;
+	dmabuf_metadata->ImgSrcUV_Handler = basic_config->FDVT_METADATA_TO_GCE.ImgSrcUV_Handler;
+	dmabuf_metadata->YUVConfig_Handler = fdvt_sec_dma.YUVConfig_Handler;
+	dmabuf_metadata->RSConfig_Handler = fdvt_sec_dma.RSConfig_Handler;
+	dmabuf_metadata->RSOutBuf_Handler = fdvt_sec_dma.RSOutBuf_Handler;
+	dmabuf_metadata->FDConfig_Handler = fdvt_sec_dma.FDConfig_Handler;
+	dmabuf_metadata->FDOutBuf_Handler = fdvt_sec_dma.FDOutBuf_Handler;
+	dmabuf_metadata->FD_POSE_Config_Handler = fdvt_sec_dma.FD_POSE_Config_Handler;
+	dmabuf_metadata->ImgSrcY_IOVA = fdvt_get_sec_iova(dmabuf->ImgSrcY.dmabuf, &dmabuf->ImgSrcY);
+	if (dmabuf_metadata->ImgSrcUV_Handler) {
+		dmabuf_metadata->ImgSrcUV_IOVA =
+			fdvt_get_sec_iova(dmabuf->ImgSrcUV.dmabuf, &dmabuf->ImgSrcUV);
+	}
+	if (fdvt_sec_dma.iova_first_time == 0) {
+		dmabuf_metadata->YUVConfig_IOVA =
+			fdvt_get_sec_iova(fdvt_sec_dma.YUVConfig.dmabuf, &fdvt_sec_dma.YUVConfig);
+		fdvt_sec_dma.YUVConfig.iova = dmabuf_metadata->YUVConfig_IOVA;
+		dmabuf_metadata->RSConfig_IOVA =
+			fdvt_get_sec_iova(fdvt_sec_dma.RSConfig.dmabuf, &fdvt_sec_dma.RSConfig);
+		fdvt_sec_dma.RSConfig.iova = dmabuf_metadata->RSConfig_IOVA;
+		dmabuf_metadata->RSOutBuf_IOVA =
+			fdvt_get_sec_iova(fdvt_sec_dma.RSOutBuf.dmabuf, &fdvt_sec_dma.RSOutBuf);
+		fdvt_sec_dma.RSOutBuf.iova = dmabuf_metadata->RSOutBuf_IOVA;
+		dmabuf_metadata->FDConfig_IOVA =
+			fdvt_get_sec_iova(fdvt_sec_dma.FDConfig.dmabuf, &fdvt_sec_dma.FDConfig);
+		fdvt_sec_dma.FDConfig.iova = dmabuf_metadata->FDConfig_IOVA;
+		dmabuf_metadata->FDOutBuf_IOVA =
+			fdvt_get_sec_iova(fdvt_sec_dma.FDOutBuf.dmabuf, &fdvt_sec_dma.FDOutBuf);
+		fdvt_sec_dma.FDOutBuf.iova = dmabuf_metadata->FDOutBuf_IOVA;
+		dmabuf_metadata->FDPOSE_IOVA =
+			fdvt_get_sec_iova(fdvt_sec_dma.FD_POSE.dmabuf, &fdvt_sec_dma.FD_POSE);
+		fdvt_sec_dma.FD_POSE.iova = dmabuf_metadata->FDPOSE_IOVA;
+		dmabuf_metadata->FDResultBuf_MVA =
+			fdvt_get_sec_iova(fdvt_sec_dma.FDResultBuf_MVA.dmabuf,
+					  &fdvt_sec_dma.FDResultBuf_MVA);
+		fdvt_sec_dma.FDResultBuf_MVA.iova = dmabuf_metadata->FDResultBuf_MVA;
+		fdvt_sec_dma.iova_first_time++;
+	} else {
+		dmabuf_metadata->YUVConfig_IOVA = fdvt_sec_dma.YUVConfig.iova;
+		dmabuf_metadata->RSConfig_IOVA = fdvt_sec_dma.RSConfig.iova;
+		dmabuf_metadata->RSOutBuf_IOVA = fdvt_sec_dma.RSOutBuf.iova;
+		dmabuf_metadata->FDConfig_IOVA = fdvt_sec_dma.FDConfig.iova;
+		dmabuf_metadata->FDOutBuf_IOVA = fdvt_sec_dma.FDOutBuf.iova;
+		dmabuf_metadata->FDPOSE_IOVA = fdvt_sec_dma.FD_POSE.iova;
+		dmabuf_metadata->FDResultBuf_MVA = fdvt_sec_dma.FDResultBuf_MVA.iova;
+	}
+	dmabuf_metadata->ImgSrc_Y_Size = basic_config->FDVT_METADATA_TO_GCE.ImgSrc_Y_Size;
+	dmabuf_metadata->ImgSrc_UV_Size = basic_config->FDVT_METADATA_TO_GCE.ImgSrc_UV_Size;
+	dmabuf_metadata->YUVConfigSize = basic_config->FDVT_METADATA_TO_GCE.YUVConfigSize;
+	dmabuf_metadata->YUVOutBufSize = basic_config->FDVT_METADATA_TO_GCE.YUVOutBufSize;
+	dmabuf_metadata->RSConfigSize = basic_config->FDVT_METADATA_TO_GCE.RSConfigSize;
+	dmabuf_metadata->RSOutBufSize = basic_config->FDVT_METADATA_TO_GCE.RSOutBufSize;
+	dmabuf_metadata->FDConfigSize = basic_config->FDVT_METADATA_TO_GCE.FDConfigSize;
+	dmabuf_metadata->FDOutBufSize = basic_config->FDVT_METADATA_TO_GCE.FDOutBufSize;
+	dmabuf_metadata->FD_POSE_ConfigSize = basic_config->FDVT_METADATA_TO_GCE.FD_POSE_ConfigSize;
+	dmabuf_metadata->FDResultBufSize = basic_config->FDVT_METADATA_TO_GCE.FDResultBufSize;
+	dmabuf_metadata->FDMode = basic_config->FDVT_METADATA_TO_GCE.FDMode;
+	dmabuf_metadata->srcImgFmt = basic_config->FDVT_METADATA_TO_GCE.srcImgFmt;
+	dmabuf_metadata->srcImgWidth = basic_config->FDVT_METADATA_TO_GCE.srcImgWidth;
+	dmabuf_metadata->srcImgHeight = basic_config->FDVT_METADATA_TO_GCE.srcImgHeight;
+	dmabuf_metadata->maxWidth = basic_config->FDVT_METADATA_TO_GCE.maxWidth;
+	dmabuf_metadata->maxHeight = basic_config->FDVT_METADATA_TO_GCE.maxHeight;
+	dmabuf_metadata->rotateDegree = basic_config->FDVT_METADATA_TO_GCE.rotateDegree;
+	dmabuf_metadata->featureTH = basic_config->FDVT_METADATA_TO_GCE.featureTH;
+	dmabuf_metadata->SecMemType = basic_config->FDVT_METADATA_TO_GCE.SecMemType;
+	dmabuf_metadata->enROI = basic_config->FDVT_METADATA_TO_GCE.enROI;
+	dmabuf_metadata->src_roi.x1 = basic_config->FDVT_METADATA_TO_GCE.src_roi.x1;
+	dmabuf_metadata->src_roi.x2 = basic_config->FDVT_METADATA_TO_GCE.src_roi.x2;
+	dmabuf_metadata->src_roi.y1 = basic_config->FDVT_METADATA_TO_GCE.src_roi.y1;
+	dmabuf_metadata->src_roi.y2 = basic_config->FDVT_METADATA_TO_GCE.src_roi.y2;
+	dmabuf_metadata->enPadding = basic_config->FDVT_METADATA_TO_GCE.enPadding;
+	dmabuf_metadata->src_padding.down = basic_config->FDVT_METADATA_TO_GCE.src_padding.down;
+	dmabuf_metadata->src_padding.up = basic_config->FDVT_METADATA_TO_GCE.src_padding.up;
+	dmabuf_metadata->src_padding.left = basic_config->FDVT_METADATA_TO_GCE.src_padding.left;
+	dmabuf_metadata->src_padding.right = basic_config->FDVT_METADATA_TO_GCE.src_padding.right;
+	dmabuf_metadata->SRC_IMG_STRIDE = basic_config->FDVT_METADATA_TO_GCE.SRC_IMG_STRIDE;
+	dmabuf_metadata->pyramid_width = basic_config->FDVT_METADATA_TO_GCE.pyramid_width;
+	dmabuf_metadata->pyramid_height = basic_config->FDVT_METADATA_TO_GCE.pyramid_height;
+	dmabuf_metadata->isReleased = basic_config->FDVT_METADATA_TO_GCE.isReleased;
+}
+
 static signed int config_secure_fdvt_hw(struct fdvt_config *basic_config,
 					struct FDVT_MEM_RECORD *dmabuf)
 #if !BYPASS_REG
@@ -1984,9 +2072,7 @@ static signed int config_secure_fdvt_hw(struct fdvt_config *basic_config,
 			CMDQ_METAEX_FD);
 
 		cmdq_sec_pkt_set_mtee(pkt, true);
-		//if (atomic_cmpxchg(&m4u_gz_init, 0, 1) == 0)
-			//m4u_gz_sec_init(0);
-
+		cmdq_sec_pkt_set_secid(pkt, 0);
 	}
 #endif
 
@@ -2045,88 +2131,11 @@ static signed int config_secure_fdvt_hw(struct fdvt_config *basic_config,
 	log_dbg("MetaData->SecMemType: %d\n",
 		basic_config->FDVT_METADATA_TO_GCE.SecMemType);
 
-	dmabuf_metadata.ImgSrcY_Handler = basic_config->FDVT_METADATA_TO_GCE.ImgSrcY_Handler;
-	dmabuf_metadata.ImgSrcUV_Handler = basic_config->FDVT_METADATA_TO_GCE.ImgSrcUV_Handler;
-	dmabuf_metadata.YUVConfig_Handler = fdvt_sec_dma.YUVConfig_Handler;
-	dmabuf_metadata.RSConfig_Handler = fdvt_sec_dma.RSConfig_Handler;
-	dmabuf_metadata.RSOutBuf_Handler = fdvt_sec_dma.RSOutBuf_Handler;
-	dmabuf_metadata.FDConfig_Handler = fdvt_sec_dma.FDConfig_Handler;
-	dmabuf_metadata.FDOutBuf_Handler = fdvt_sec_dma.FDOutBuf_Handler;
-	dmabuf_metadata.FD_POSE_Config_Handler = fdvt_sec_dma.FD_POSE_Config_Handler;
-	dmabuf_metadata.ImgSrcY_IOVA = fdvt_get_sec_iova(dmabuf->ImgSrcY.dmabuf, &dmabuf->ImgSrcY);
-	if (dmabuf_metadata.ImgSrcUV_Handler) {
-		dmabuf_metadata.ImgSrcUV_IOVA =
-			fdvt_get_sec_iova(dmabuf->ImgSrcUV.dmabuf, &dmabuf->ImgSrcUV);
-	}
-	if (fdvt_sec_dma.iova_first_time == 0) {
-		dmabuf_metadata.YUVConfig_IOVA =
-			fdvt_get_sec_iova(fdvt_sec_dma.YUVConfig.dmabuf, &fdvt_sec_dma.YUVConfig);
-		dmabuf_metadata.RSConfig_IOVA =
-			fdvt_get_sec_iova(fdvt_sec_dma.RSConfig.dmabuf, &fdvt_sec_dma.RSConfig);
-		dmabuf_metadata.RSOutBuf_IOVA =
-			fdvt_get_sec_iova(fdvt_sec_dma.RSOutBuf.dmabuf, &fdvt_sec_dma.RSOutBuf);
-		dmabuf_metadata.FDConfig_IOVA =
-			fdvt_get_sec_iova(fdvt_sec_dma.FDConfig.dmabuf, &fdvt_sec_dma.FDConfig);
-		dmabuf_metadata.FDOutBuf_IOVA =
-			fdvt_get_sec_iova(fdvt_sec_dma.FDOutBuf.dmabuf, &fdvt_sec_dma.FDOutBuf);
-		dmabuf_metadata.FDPOSE_IOVA =
-			fdvt_get_sec_iova(fdvt_sec_dma.FD_POSE.dmabuf, &fdvt_sec_dma.FD_POSE);
-		dmabuf_metadata.FDResultBuf_MVA =
-			fdvt_get_sec_iova(fdvt_sec_dma.FDResultBuf_MVA.dmabuf,
-					  &fdvt_sec_dma.FDResultBuf_MVA);
-		fdvt_sec_dma.iova_first_time++;
-	} else {
-		dmabuf_metadata.YUVConfig_IOVA = fdvt_sec_dma.YUVConfig.iova;
-		dmabuf_metadata.RSConfig_IOVA = fdvt_sec_dma.RSConfig.iova;
-		dmabuf_metadata.RSOutBuf_IOVA = fdvt_sec_dma.RSOutBuf.iova;
-		dmabuf_metadata.FDConfig_IOVA = fdvt_sec_dma.FDConfig.iova;
-		dmabuf_metadata.FDOutBuf_IOVA = fdvt_sec_dma.FDOutBuf.iova;
-		dmabuf_metadata.FDPOSE_IOVA = fdvt_sec_dma.FD_POSE.iova;
-		dmabuf_metadata.FDResultBuf_MVA = fdvt_sec_dma.FDResultBuf_MVA.iova;
-	}
-	dmabuf_metadata.ImgSrc_Y_Size = basic_config->FDVT_METADATA_TO_GCE.ImgSrc_Y_Size;
-	dmabuf_metadata.ImgSrc_UV_Size = basic_config->FDVT_METADATA_TO_GCE.ImgSrc_UV_Size;
-	dmabuf_metadata.YUVConfigSize = basic_config->FDVT_METADATA_TO_GCE.YUVConfigSize;
-	dmabuf_metadata.YUVOutBufSize = basic_config->FDVT_METADATA_TO_GCE.YUVOutBufSize;
-	dmabuf_metadata.RSConfigSize = basic_config->FDVT_METADATA_TO_GCE.RSConfigSize;
-	dmabuf_metadata.RSOutBufSize = basic_config->FDVT_METADATA_TO_GCE.RSOutBufSize;
-	dmabuf_metadata.FDConfigSize = basic_config->FDVT_METADATA_TO_GCE.FDConfigSize;
-	dmabuf_metadata.FDOutBufSize = basic_config->FDVT_METADATA_TO_GCE.FDOutBufSize;
-	dmabuf_metadata.FD_POSE_ConfigSize = basic_config->FDVT_METADATA_TO_GCE.FD_POSE_ConfigSize;
-	dmabuf_metadata.FDResultBufSize = basic_config->FDVT_METADATA_TO_GCE.FDResultBufSize;
-	dmabuf_metadata.FDMode = basic_config->FDVT_METADATA_TO_GCE.FDMode;
-	dmabuf_metadata.srcImgFmt = basic_config->FDVT_METADATA_TO_GCE.srcImgFmt;
-	dmabuf_metadata.srcImgWidth = basic_config->FDVT_METADATA_TO_GCE.srcImgWidth;
-	dmabuf_metadata.srcImgHeight = basic_config->FDVT_METADATA_TO_GCE.srcImgHeight;
-	dmabuf_metadata.maxWidth = basic_config->FDVT_METADATA_TO_GCE.maxWidth;
-	dmabuf_metadata.maxHeight = basic_config->FDVT_METADATA_TO_GCE.maxHeight;
-	dmabuf_metadata.rotateDegree = basic_config->FDVT_METADATA_TO_GCE.rotateDegree;
-	dmabuf_metadata.featureTH = basic_config->FDVT_METADATA_TO_GCE.featureTH;
-	dmabuf_metadata.SecMemType = basic_config->FDVT_METADATA_TO_GCE.SecMemType;
-	dmabuf_metadata.enROI = basic_config->FDVT_METADATA_TO_GCE.enROI;
-	dmabuf_metadata.src_roi.x1 = basic_config->FDVT_METADATA_TO_GCE.src_roi.x1;
-	dmabuf_metadata.src_roi.x2 = basic_config->FDVT_METADATA_TO_GCE.src_roi.x2;
-	dmabuf_metadata.src_roi.y1 = basic_config->FDVT_METADATA_TO_GCE.src_roi.y1;
-	dmabuf_metadata.src_roi.y2 = basic_config->FDVT_METADATA_TO_GCE.src_roi.y2;
-	dmabuf_metadata.enPadding = basic_config->FDVT_METADATA_TO_GCE.enPadding;
-	dmabuf_metadata.src_padding.down = basic_config->FDVT_METADATA_TO_GCE.src_padding.down;
-	dmabuf_metadata.src_padding.up = basic_config->FDVT_METADATA_TO_GCE.src_padding.up;
-	dmabuf_metadata.src_padding.left = basic_config->FDVT_METADATA_TO_GCE.src_padding.left;
-	dmabuf_metadata.src_padding.right = basic_config->FDVT_METADATA_TO_GCE.src_padding.right;
-	dmabuf_metadata.SRC_IMG_STRIDE = basic_config->FDVT_METADATA_TO_GCE.SRC_IMG_STRIDE;
-	dmabuf_metadata.pyramid_width = basic_config->FDVT_METADATA_TO_GCE.pyramid_width;
-	dmabuf_metadata.pyramid_height = basic_config->FDVT_METADATA_TO_GCE.pyramid_height;
-	dmabuf_metadata.isReleased = basic_config->FDVT_METADATA_TO_GCE.isReleased;
+	log_dbg("fdvt use cmdq mail box api\n");
 
-	/*larb20*/
-	cmdq_pkt_write(pkt, NULL, 0x1b00ff80, 0xc2, 0x1f2);
-	cmdq_pkt_write(pkt, NULL, 0x1b00f380, 0x0, 0xff00);
-	cmdq_pkt_write(pkt, NULL, 0x1b00ff84, 0xc2, 0x1f2);
-	cmdq_pkt_write(pkt, NULL, 0x1b00f384, 0x0, 0xff00);
-	cmdq_pkt_write(pkt, NULL, 0x1b00ff88, 0xc2, 0x1f2);
-	cmdq_pkt_write(pkt, NULL, 0x1b00f388, 0x0, 0xff00);
-	cmdq_pkt_write(pkt, NULL, 0x1b00ff8c, 0xc2, 0x1f2);
-	cmdq_pkt_write(pkt, NULL, 0x1b00f38c, 0x0, 0xff00);
+	if (basic_config->FDVT_METADATA_TO_GCE.SecMemType == 3)
+		fdvt_tzmp2(basic_config, dmabuf, &dmabuf_metadata);
+
 
 	if (basic_config->FD_MODE == 0) {
 		cmdq_pkt_write(pkt, NULL, FDVT_ENABLE_HW, 0x00000111,
@@ -2134,37 +2143,43 @@ static signed int config_secure_fdvt_hw(struct fdvt_config *basic_config,
 		cmdq_pkt_write(pkt, NULL, FDVT_LOOP_HW, 0x00006002,
 			       CMDQ_REG_MASK);
 		cmdq_pkt_write(pkt, NULL, FDVT_INT_EN_HW, 0x0, CMDQ_REG_MASK);
-		cmdq_pkt_write(pkt, NULL,
+		if (basic_config->FDVT_METADATA_TO_GCE.SecMemType == 3) {
+			cmdq_pkt_write(pkt, NULL,
 			FDVT_RS_CON_BASE_ADR_HW, dmabuf_metadata.RSConfig_IOVA, CMDQ_REG_MASK);
-		cmdq_pkt_write(pkt, NULL,
+			cmdq_pkt_write(pkt, NULL,
 			FDVT_FD_CON_BASE_ADR_HW, dmabuf_metadata.FDConfig_IOVA, CMDQ_REG_MASK);
-		cmdq_pkt_write(pkt, NULL,
-		FDVT_YUV2RGB_CON_BASE_ADR_HW, dmabuf_metadata.YUVConfig_IOVA, CMDQ_REG_MASK);
-/*
-		cmdq_sec_pkt_write_reg(pkt,
+			cmdq_pkt_write(pkt, NULL,
+			FDVT_YUV2RGB_CON_BASE_ADR_HW, dmabuf_metadata.YUVConfig_IOVA,
+			CMDQ_REG_MASK);
+			cmdq_sec_pkt_set_payload(pkt, 1, sizeof(dmabuf_metadata),
+					(unsigned int *)&dmabuf_metadata);
+		} else {
+			cmdq_sec_pkt_write_reg(pkt,
 			FDVT_RS_CON_BASE_ADR_HW,
 			basic_config->FDVT_RSCON_BASE_ADR,
 			CMDQ_IWC_PH_2_MVA,
 			0,
 			basic_config->FDVT_RSCON_BUFSIZE,
-			M4U_PORT_L20_IPE_FDVT_RDA_DISP);
-		cmdq_sec_pkt_write_reg(pkt,
+				0x280);
+			cmdq_sec_pkt_write_reg(pkt,
 			FDVT_FD_CON_BASE_ADR_HW,
 			basic_config->FDVT_FD_CON_BASE_ADR,
 			CMDQ_IWC_PH_2_MVA,
 			0,
 			basic_config->FDVT_FD_CON_BUFSIZE,
-			M4U_PORT_L20_IPE_FDVT_RDA_DISP);
-		cmdq_sec_pkt_write_reg(pkt,
+				0x280);
+			cmdq_sec_pkt_write_reg(pkt,
 			FDVT_YUV2RGB_CON_BASE_ADR_HW,
 			basic_config->FDVT_YUV2RGBCON_BASE_ADR,
 			CMDQ_IWC_PH_2_MVA,
 			0,
 			basic_config->FDVT_YUV2RGBCON_BUFSIZE,
-			M4U_PORT_L20_IPE_FDVT_RDA_DISP);
-*/
-		cmdq_sec_pkt_set_payload(pkt, 1, sizeof(dmabuf_metadata),
-					(unsigned int *)&dmabuf_metadata);
+				0x280);
+			cmdq_sec_pkt_set_payload(pkt, 1, sizeof(basic_config->FDVT_METADATA_TO_GCE),
+					(unsigned int *)&basic_config->FDVT_METADATA_TO_GCE);
+
+		}
+
 
 		cmdq_pkt_write(pkt, NULL, FDVT_START_HW, 0x1, CMDQ_REG_MASK);
 
@@ -2178,65 +2193,29 @@ static signed int config_secure_fdvt_hw(struct fdvt_config *basic_config,
 			       CMDQ_REG_MASK);
 
 		cmdq_pkt_write(pkt, NULL, FDVT_INT_EN_HW, 0x1, CMDQ_REG_MASK);
-		cmdq_pkt_write(pkt, NULL, FDVT_FD_CON_BASE_ADR_HW,
+		if (basic_config->FDVT_METADATA_TO_GCE.SecMemType == 3) {
+			cmdq_pkt_write(pkt, NULL, FDVT_FD_CON_BASE_ADR_HW,
 			dmabuf_metadata.FDPOSE_IOVA, CMDQ_REG_MASK);
-/*
-		cmdq_sec_pkt_write_reg(pkt,
+		} else {
+			cmdq_sec_pkt_write_reg(pkt,
 			FDVT_FD_CON_BASE_ADR_HW,
 			basic_config->FDVT_FD_POSE_CON_BASE_ADR,
 			CMDQ_IWC_PH_2_MVA,
 			0,
 			basic_config->FDVT_FD_POSE_CON_BUFSIZE,
-			M4U_PORT_L20_IPE_FDVT_RDA_DISP);
-*/
+			0x280);
+
+		}
+
 		cmdq_pkt_write(pkt, NULL, FDVT_START_HW, 0x1, CMDQ_REG_MASK);
 
 		cmdq_pkt_wfe(pkt, fdvt_event_id);
 		/*cmdqRecWait(handle, CMDQ_EVENT_IPE_EVENT_TX_FRAME_DONE_0);*/
 		cmdq_pkt_write(pkt, NULL, FDVT_START_HW, 0x0, CMDQ_REG_MASK);
 
-	} else if (basic_config->FD_MODE == 1) {
-		cmdq_pkt_write(pkt, NULL, FDVT_ENABLE_HW, 0x00000101,
-			       CMDQ_REG_MASK);
-		cmdq_pkt_write(pkt, NULL, FDVT_LOOP_HW, 0x00001A00,
-			       CMDQ_REG_MASK);
-		cmdq_pkt_write(pkt, NULL, FDVT_INT_EN_HW, 0x1, CMDQ_REG_MASK);
-		cmdq_pkt_write(pkt, NULL, FDVT_RS_CON_BASE_ADR_HW,
-			dmabuf_metadata.RSConfig_IOVA, CMDQ_REG_MASK);
-		cmdq_pkt_write(pkt, NULL, FDVT_FD_CON_BASE_ADR_HW,
-			dmabuf_metadata.FDConfig_IOVA, CMDQ_REG_MASK);
-		cmdq_pkt_write(pkt, NULL, FDVT_YUV2RGB_CON_BASE_ADR_HW,
-			dmabuf_metadata.YUVConfig_IOVA, CMDQ_REG_MASK);
-/*
-		cmdq_sec_pkt_write_reg(pkt,
-			FDVT_RS_CON_BASE_ADR_HW,
-			basic_config->FDVT_RSCON_BASE_ADR,
-			CMDQ_IWC_PH_2_MVA,
-			0,
-			basic_config->FDVT_RSCON_BUFSIZE,
-			M4U_PORT_L20_IPE_FDVT_RDA_DISP);
-		cmdq_sec_pkt_write_reg(pkt,
-			FDVT_FD_CON_BASE_ADR_HW,
-			basic_config->FDVT_FD_CON_BASE_ADR,
-			CMDQ_IWC_PH_2_MVA,
-			0,
-			basic_config->FDVT_FD_CON_BUFSIZE,
-			M4U_PORT_L20_IPE_FDVT_RDA_DISP);
-		cmdq_sec_pkt_write_reg(pkt,
-			FDVT_YUV2RGB_CON_BASE_ADR_HW,
-			basic_config->FDVT_YUV2RGBCON_BASE_ADR,
-			CMDQ_IWC_PH_2_MVA,
-			0,
-			basic_config->FDVT_YUV2RGBCON_BUFSIZE,
-			M4U_PORT_L20_IPE_FDVT_RDA_DISP);
-*/
-		cmdq_pkt_write(pkt, NULL, FDVT_START_HW, 0x1, CMDQ_REG_MASK);
+	} else
+		log_err("Not support mode(%x)\n", basic_config->FD_MODE);
 
-		cmdq_pkt_wfe(pkt, fdvt_event_id);
-		/*cmdqRecWait(handle, CMDQ_EVENT_IPE_EVENT_TX_FRAME_DONE_0);*/
-		cmdq_pkt_write(pkt, NULL, FDVT_START_HW, 0x0, CMDQ_REG_MASK);
-
-	}
 
 	/* non-blocking API, Please use cmdqRecFlushAsync() */
 	log_dbg("FDVT CMDQ Task flush\n");
