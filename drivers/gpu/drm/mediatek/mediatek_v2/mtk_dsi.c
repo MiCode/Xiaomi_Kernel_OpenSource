@@ -3609,8 +3609,14 @@ static void mtk_dsi_config_trigger(struct mtk_ddp_comp *comp,
 	struct mtk_panel_ext *ext = dsi->ext;
 	struct mtk_drm_private *priv = NULL;
 
-	if (mtk_crtc && mtk_crtc->base.dev)
+	if (!mtk_crtc) {
+		DDPPR_ERR("%s dsi comp not configure CRTC yet", __func__);
+		return;
+	}
+
+	if (mtk_crtc->base.dev)
 		priv = mtk_crtc->base.dev->dev_private;
+
 	switch (flag) {
 	case MTK_TRIG_FLAG_TRIGGER:
 		mtk_dsi_poll_for_idle(dsi, handle);
