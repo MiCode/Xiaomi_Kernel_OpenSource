@@ -1895,9 +1895,12 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 			       mask);
 
 		/* do not overwrite LAYER_SRC, it might be set when addon config */
-		mask = ovl->data->support_pq_selfloop ? ~REG_FLD_MASK(L_CON_FLD_LSRC) : ~0;
-		if (fmt == DRM_FORMAT_C8)
+		if ((pending->mml_mode == MML_MODE_RACING) && comp->mtk_crtc->is_force_mml_scen &&
+			ovl->data->support_pq_selfloop)
+			mask = ~REG_FLD_MASK(L_CON_FLD_LSRC);
+		else
 			mask = ~0;
+
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			       comp->regs_pa + DISP_REG_OVL_CON(lye_idx), con, mask);
 
@@ -2561,6 +2564,7 @@ static int _ovl_UFOd_in(struct mtk_ddp_comp *comp, int connect,
 
 	SET_VAL_MASK(value, mask, 2, L_CON_FLD_LSRC);
 	SET_VAL_MASK(value, mask, 0, L_CON_FLD_AEN);
+
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		       comp->regs_pa + DISP_REG_OVL_LC_CON, value, mask);
 	cmdq_pkt_write(handle, comp->cmdq_base,
