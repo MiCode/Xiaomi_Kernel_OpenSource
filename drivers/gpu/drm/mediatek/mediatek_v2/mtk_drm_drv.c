@@ -6020,6 +6020,7 @@ static int mtk_drm_probe(struct platform_device *pdev)
 	struct device_node *side_node = NULL;
 	struct device_node *aod_scp_node = NULL;
 	const __be32 *ranges = NULL;
+	bool mml_found = false;
 
 	disp_dbg_probe();
 	PanelMaster_probe();
@@ -6270,18 +6271,20 @@ SKIP_OVLSYS_CONFIG:
 		    comp_type == MTK_DMDP_AAL
 #endif
 		    || comp_type == MTK_DP_INTF || comp_type == MTK_DISP_DPTX
-		    || comp_type == MTK_DISP_Y2R || comp_type == MTK_DISP_DLO_ASYNC
-		    || comp_type == MTK_DISP_DLI_ASYNC
-		    || comp_type == MTK_MML_RSZ || comp_type == MTK_MML_HDR
-		    || comp_type == MTK_MML_AAL || comp_type == MTK_MML_TDSHP
-		    || comp_type == MTK_MML_COLOR
-		    || comp_type == MTK_MML_MML || comp_type == MTK_MML_MUTEX
-		    || comp_type == MTK_MML_WROT
-			|| comp_type == MTK_DISP_INLINE_ROTATE
+		    || comp_type == MTK_DISP_Y2R || comp_type == MTK_DISP_INLINE_ROTATE
+		    || comp_type == MTK_DISP_DLI_ASYNC || comp_type == MTK_DISP_DLO_ASYNC
 		) {
 			dev_info(dev, "Adding component match for %s, comp_id:%d\n",
 				 node->full_name, comp_id);
 			component_match_add(dev, &match, compare_of, node);
+		} else if (comp_type == MTK_MML_MML || comp_type == MTK_MML_MUTEX ||
+			   comp_type == MTK_MML_RSZ || comp_type == MTK_MML_HDR ||
+			   comp_type == MTK_MML_AAL || comp_type == MTK_MML_TDSHP ||
+			   comp_type == MTK_MML_COLOR || comp_type == MTK_MML_WROT) {
+			dev_info(dev, "Adding component match for %s, comp_id:%d\n",
+				 node->full_name, comp_id);
+			component_match_add(dev, &match, compare_of, node);
+			mml_found = true;
 		} else {
 			struct mtk_ddp_comp *comp;
 
@@ -6297,6 +6300,24 @@ SKIP_OVLSYS_CONFIG:
 
 		      private
 			->ddp_comp[comp_id] = comp;
+		}
+	}
+
+	if (!mml_found) { /* if mmlsys is not a sibling of dispsys */
+		const char *path;
+		struct device_node *alias_node = of_find_node_by_path("/aliases");
+
+		if (!of_property_read_string(alias_node, "mmlsys-cfg", &path)) {
+			node = of_find_node_by_path(path);
+			dev_info(dev, "Adding component match for %s\n", node->full_name);
+			component_match_add(dev, &match, compare_of, node);
+			of_node_put(node);
+		}
+		if (!of_property_read_string(alias_node, "mml-mutex", &path)) {
+			node = of_find_node_by_path(path);
+			dev_info(dev, "Adding component match for %s\n", node->full_name);
+			component_match_add(dev, &match, compare_of, node);
+			of_node_put(node);
 		}
 	}
 
