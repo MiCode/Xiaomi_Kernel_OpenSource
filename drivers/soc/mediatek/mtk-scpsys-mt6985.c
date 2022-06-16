@@ -477,7 +477,7 @@ static const struct scp_domain_data scp_domain_mt6985_spm_data[] = {
 		.ctl_offs = 0xE30,
 		.sram_slp_bits = GENMASK(9, 9),
 		.sram_slp_ack_bits = GENMASK(13, 13),
-		.basic_clk_name = {"adsp"},
+		.basic_clk_name = {"adsp", "aud_bus"},
 		.bp_table = {
 			BUS_PROT_IGN(IFR_TYPE, 0x024, 0x028, 0x020, 0x02c,
 				MT6985_TOP_AXI_PROT_EN_INFRASYS1_ADSP_TOP),
