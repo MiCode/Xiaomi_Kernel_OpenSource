@@ -3207,21 +3207,11 @@
 			mediatek,ccif_hw_reset_ver = <1>;
 			/* ccif hw reset bit */
 			mediatek,ccif_hw_reset_bit = <18>;
+			/* no need control ccif0 clk when ccif_clk_free_run = 1 */
+			mediatek,ccif_clk_free_run = <1>;
 			/* DTS/GIC_ID: CCIF0 289/321; CCIF0 290/322 */
 			interrupts = <GIC_SPI 289 IRQ_TYPE_LEVEL_HIGH 0>,
 				     <GIC_SPI 290 IRQ_TYPE_LEVEL_HIGH 0>;
-//			clocks = <&infracfg_ao_clk CLK_INFRACFG_AO_CCIF_AP_CG>,
-//				 <&infracfg_ao_clk CLK_INFRACFG_AO_CCIF_MD_CG>,
-//				 <&infracfg_ao_clk CLK_INFRACFG_AO_CCIF1_AP_CG>,
-//				 <&infracfg_ao_clk CLK_INFRACFG_AO_CCIF1_MD_CG>,
-//				 <&infracfg_ao_clk CLK_INFRACFG_AO_CCIF4_MD_CG>,
-//				 <&infracfg_ao_clk CLK_INFRACFG_AO_CCIF5_MD_CG>;
-//			clock-names = "infra-ccif-ap",
-//				"infra-ccif-md",
-//				"infra-ccif1-ap",
-//				"infra-ccif1-md",
-//				"infra-ccif4-md",
-//				"infra-ccif5-md";
 		};
 
 		mddriver:mddriver {
@@ -3262,10 +3252,8 @@
 			compatible = "mediatek,ccci_md_scp";
 			reg = <0 0x1023c000 0 0x1000>, /* AP_CCIF2_BASE */
 			      <0 0x1023d000 0 0x1000>; /* MD_CCIF2_BASE */
-//			clocks = <&infracfg_ao_clk CLK_IFRAO_CCIF2_AP>,
-//				 <&infracfg_ao_clk CLK_IFRAO_CCIF2_MD>;
-//			clock-names = "infra-ccif2-ap",
-//				"infra-ccif2-md";
+			/* no need control ccif2 clk when scp_clk_free_run = 1 */
+			mediatek,scp_clk_free_run = <1>;
 		};
 
 		gpio_usage_mapping:gpio {
