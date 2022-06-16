@@ -2957,8 +2957,6 @@
 
 				  <0 0x13fa0100 0 0x030>, //GPU0 EN
 				  <0 0x13fa0000 0 0x100>, //GPU APMIX
-				  <0 0x13fa0900 0 0x030>,
-				  <0 0x13fa0800 0 0x100>,
 				  <0 0x13fa0d00 0 0x030>,
 				  <0 0x13fa0c00 0 0x100>,
 
@@ -3016,25 +3014,16 @@
 
 			map6 {
 				domain = "gpu0";
-				method = "fhctl-ap";
+				method = "fhctl-gpueb";
 				mfg_ao_mfgpll {
 					fh-id = <0>;
 					pll-id = <CLK_MFG_AO_MFGPLL>;
 				};
 			};
 
-			map8 {
-				domain = "gpu2";
-				method = "fhctl-ap";
-				gpueb_ao_gpuebpll {
-					fh-id = <0>;
-					pll-id = <999>;
-				};
-			};
-
 			map9 {
 				domain = "gpu3";
-				method = "fhctl-ap";
+				method = "fhctl-gpueb";
 				mfgsc_ao_mfgscpll {
 					fh-id = <0>;
 					pll-id = <CLK_MFGSC_AO_MFGSCPLL>;
