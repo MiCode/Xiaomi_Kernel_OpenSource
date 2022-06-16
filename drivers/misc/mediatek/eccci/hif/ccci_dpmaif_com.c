@@ -1199,17 +1199,12 @@ static int dpmaif_rxq_init_buf(struct dpmaif_rx_queue *rxq)
 
 static int dpmaif_rxq_irq_init(struct dpmaif_rx_queue *rxq)
 {
-	int ret;
-	char irq_name[100];
+	int ret = 0;
 
-	ret = snprintf(irq_name, 100, "DPMAIF_AP_RX%d", rxq->index);
-	if (ret < 0 || ret >= 100)
-		CCCI_NORMAL_LOG(0, TAG,
-			"[%s] warning: snprintf() ret = %d\n",
-			__func__, ret);
+	scnprintf(rxq->irq_name, sizeof(rxq->irq_name), "DPMAIF_AP_RX%d", rxq->index);
 
 	/* request IRQ */
-	ret = request_irq(rxq->irq_id, rxq->rxq_isr, rxq->irq_flags, irq_name, rxq);
+	ret = request_irq(rxq->irq_id, rxq->rxq_isr, rxq->irq_flags, rxq->irq_name, rxq);
 	if (ret) {
 		CCCI_ERROR_LOG(0, TAG,
 			"[%s] error: request_irq(%d) fail -> %d\n",

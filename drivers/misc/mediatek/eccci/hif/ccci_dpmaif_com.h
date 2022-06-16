@@ -376,6 +376,7 @@ struct dpmaif_rx_queue {
 	unsigned int            irq_id;
 	unsigned long           irq_flags;
 	atomic_t                irq_enabled;
+	char                    irq_name[50];
 
 	irqreturn_t (*rxq_isr)(int irq, void *data);
 	void (*rxq_tasklet)(unsigned long data);
