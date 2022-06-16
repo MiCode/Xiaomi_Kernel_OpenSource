@@ -10872,7 +10872,10 @@
 			<&topckgen_clk CLK_TOP_UNIVPLL2_D4_D2>,	/* 17 */
 			<&topckgen_clk CLK_TOP_MMPLL2_D6>,	/* 18 */
 			<&topckgen_clk CLK_TOP_UNIVPLL2_D4>,	/* 19 */
-			<&topckgen_clk CLK_TOP_MMPLL2_D4>;	/* 20 */
+			<&topckgen_clk CLK_TOP_MMPLL2_D4>,	/* 20 */
+			<&topckgen_clk CLK_TOP_MMINFRA_SEL>,	/* 21 */
+			<&topckgen_clk CLK_TOP_OSC_D4>,		/* 22 */
+			<&topckgen_clk CLK_TOP_MAINPLL_D5_D2>;	/* 23 */
 
 		clock-names = "disp0",		/* 0 */
 			"disp1",		/* 1 */
@@ -10894,7 +10897,10 @@
 			"TOP_UNIVPLL2_D4_D2",	/* 17 */
 			"TOP_MMPLL2_D6",	/* 18 */
 			"TOP_UNIVPLL2_D4",	/* 19 */
-			"TOP_MMPLL2_D4";	/* 20 */
+			"TOP_MMPLL2_D4",	/* 20 */
+			"aov_mux",		/* 21 */
+			"aov_lp_clk",		/* 22 */
+			"aov_clk";		/* 23 */
 	};
 
 	vcu: vcu@16000000 {
