@@ -45,8 +45,8 @@
 #include "mtk_cam-trace.h"
 #include "mtk_cam-ufbc-def.h"
 
-#ifdef CAMSYS_TF_DUMP_71_1
-#include <dt-bindings/memory/mt6983-larb-port.h>
+#ifdef CAMSYS_TF_DUMP_7S
+#include <dt-bindings/memory/mt6985-larb-port.h>
 #include "iommu_debug.h"
 #endif
 #if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
@@ -97,170 +97,180 @@ MODULE_DEVICE_TABLE(of, mtk_cam_of_ids);
 
 static void mtk_cam_register_iommu_tf_callback(struct mtk_raw_device *raw)
 {
-#ifdef CAMSYS_TF_DUMP_71_1
+#ifdef CAMSYS_TF_DUMP_7S
 	dev_dbg(raw->dev, "%s : raw->id:%d\n", __func__, raw->id);
 
 	if (raw->id == RAW_A) {
-		mtk_iommu_register_fault_callback(M4U_PORT_L16_CAM2_IMGP_R1,
+		mtk_iommu_register_fault_callback(M4U_PORT_L16_CQI_R1,
 			mtk_cam_translation_fault_callback, (void *)raw, false);
 
-		mtk_iommu_register_fault_callback(M4U_PORT_L16_CAM2_CQI_R1,
+		mtk_iommu_register_fault_callback(M4U_PORT_L16_RAWI_R2,
 			mtk_cam_translation_fault_callback, (void *)raw, false);
 
-		mtk_iommu_register_fault_callback(M4U_PORT_L16_CAM2_CQI_R2,
+		mtk_iommu_register_fault_callback(M4U_PORT_L16_RAWI_R3,
 			mtk_cam_translation_fault_callback, (void *)raw, false);
 
-		mtk_iommu_register_fault_callback(M4U_PORT_L16_CAM2_FHO_R1,
+		mtk_iommu_register_fault_callback(M4U_PORT_L16_RAWI_R5,
 			mtk_cam_translation_fault_callback, (void *)raw, false);
 
-		mtk_iommu_register_fault_callback(M4U_PORT_L16_CAM2_AAO_R1,
+		mtk_iommu_register_fault_callback(M4U_PORT_L16_IMGO_R1,
 			mtk_cam_translation_fault_callback, (void *)raw, false);
 
-		mtk_iommu_register_fault_callback(M4U_PORT_L16_CAM2_TSFSO_R1,
+		mtk_iommu_register_fault_callback(M4U_PORT_L16_BPCI_R1,
 			mtk_cam_translation_fault_callback, (void *)raw, false);
 
-		mtk_iommu_register_fault_callback(M4U_PORT_L16_CAM2_FLKO_R1,
+		mtk_iommu_register_fault_callback(M4U_PORT_L16_LCSI_R1,
 			mtk_cam_translation_fault_callback, (void *)raw, false);
 
-		mtk_iommu_register_fault_callback(M4U_PORT_L16_CAM2_RAWI_R2,
+		mtk_iommu_register_fault_callback(M4U_PORT_L16_UFEO_R1,
 			mtk_cam_translation_fault_callback, (void *)raw, false);
 
-		mtk_iommu_register_fault_callback(M4U_PORT_L16_CAM2_RAWI_R3,
+		mtk_iommu_register_fault_callback(M4U_PORT_L16_LTMSO_R1,
 			mtk_cam_translation_fault_callback, (void *)raw, false);
 
-		mtk_iommu_register_fault_callback(M4U_PORT_L16_CAM2_RAWI_R5,
+		mtk_iommu_register_fault_callback(M4U_PORT_L16_DRZB2NO_R1,
 			mtk_cam_translation_fault_callback, (void *)raw, false);
 
-		mtk_iommu_register_fault_callback(M4U_PORT_L16_CAM2_AAI_R1,
+		mtk_iommu_register_fault_callback(M4U_PORT_L16_AAO_R1,
 			mtk_cam_translation_fault_callback, (void *)raw, false);
 
-		mtk_iommu_register_fault_callback(M4U_PORT_L17_CAM3_YUVO_R1,
+		mtk_iommu_register_fault_callback(M4U_PORT_L16_AFO_R1,
 			mtk_cam_translation_fault_callback, (void *)raw, false);
 
-		mtk_iommu_register_fault_callback(M4U_PORT_L17_CAM3_YUVO_R3,
+		mtk_iommu_register_fault_callback(M4U_PORT_L17_YUVO_R1,
 			mtk_cam_translation_fault_callback, (void *)raw, false);
 
-		mtk_iommu_register_fault_callback(M4U_PORT_L17_CAM3_YUVCO_R1,
+		mtk_iommu_register_fault_callback(M4U_PORT_L17_YUVO_R3,
 			mtk_cam_translation_fault_callback, (void *)raw, false);
 
-		mtk_iommu_register_fault_callback(M4U_PORT_L17_CAM3_YUVO_R2,
+		mtk_iommu_register_fault_callback(M4U_PORT_L17_YUVO_R2,
 			mtk_cam_translation_fault_callback, (void *)raw, false);
 
-		mtk_iommu_register_fault_callback(M4U_PORT_L17_CAM3_RZH1N2TO_R1,
+		mtk_iommu_register_fault_callback(M4U_PORT_L17_YUVO_R5,
 			mtk_cam_translation_fault_callback, (void *)raw, false);
 
-		mtk_iommu_register_fault_callback(M4U_PORT_L17_CAM3_DRZS4NO_R1,
+		mtk_iommu_register_fault_callback(M4U_PORT_L17_RGBWI_R1,
 			mtk_cam_translation_fault_callback, (void *)raw, false);
 
-		mtk_iommu_register_fault_callback(M4U_PORT_L17_CAM3_TNCSO_R1,
+		mtk_iommu_register_fault_callback(M4U_PORT_L17_TCYSO_R1,
 			mtk_cam_translation_fault_callback, (void *)raw, false);
+
+		mtk_iommu_register_fault_callback(M4U_PORT_L17_DRZ4NO_R3,
+			mtk_cam_translation_fault_callback, (void *)raw, false);
+
 	} else if (raw->id == RAW_B) {
-		mtk_iommu_register_fault_callback(M4U_PORT_L27_CAM2_IMGP_R1,
+		mtk_iommu_register_fault_callback(M4U_PORT_L30_CQI_R1,
 			mtk_cam_translation_fault_callback, (void *)raw, false);
 
-		mtk_iommu_register_fault_callback(M4U_PORT_L27_CAM2_CQI_R1,
+		mtk_iommu_register_fault_callback(M4U_PORT_L30_RAWI_R2,
 			mtk_cam_translation_fault_callback, (void *)raw, false);
 
-		mtk_iommu_register_fault_callback(M4U_PORT_L27_CAM2_CQI_R2,
+		mtk_iommu_register_fault_callback(M4U_PORT_L30_RAWI_R3,
 			mtk_cam_translation_fault_callback, (void *)raw, false);
 
-		mtk_iommu_register_fault_callback(M4U_PORT_L27_CAM2_FHO_R1,
+		mtk_iommu_register_fault_callback(M4U_PORT_L30_RAWI_R5,
 			mtk_cam_translation_fault_callback, (void *)raw, false);
 
-		mtk_iommu_register_fault_callback(M4U_PORT_L27_CAM2_AAO_R1,
+		mtk_iommu_register_fault_callback(M4U_PORT_L30_IMGO_R1,
 			mtk_cam_translation_fault_callback, (void *)raw, false);
 
-		mtk_iommu_register_fault_callback(M4U_PORT_L27_CAM2_TSFSO_R1,
+		mtk_iommu_register_fault_callback(M4U_PORT_L30_BPCI_R1,
 			mtk_cam_translation_fault_callback, (void *)raw, false);
 
-		mtk_iommu_register_fault_callback(M4U_PORT_L27_CAM2_FLKO_R1,
+		mtk_iommu_register_fault_callback(M4U_PORT_L30_LCSI_R1,
 			mtk_cam_translation_fault_callback, (void *)raw, false);
 
-		mtk_iommu_register_fault_callback(M4U_PORT_L27_CAM2_RAWI_R2,
+		mtk_iommu_register_fault_callback(M4U_PORT_L30_UFEO_R1,
 			mtk_cam_translation_fault_callback, (void *)raw, false);
 
-		mtk_iommu_register_fault_callback(M4U_PORT_L27_CAM2_RAWI_R3,
+		mtk_iommu_register_fault_callback(M4U_PORT_L30_LTMSO_R1,
 			mtk_cam_translation_fault_callback, (void *)raw, false);
 
-		mtk_iommu_register_fault_callback(M4U_PORT_L27_CAM2_RAWI_R5,
+		mtk_iommu_register_fault_callback(M4U_PORT_L30_DRZB2NO_R1,
 			mtk_cam_translation_fault_callback, (void *)raw, false);
 
-		mtk_iommu_register_fault_callback(M4U_PORT_L27_CAM2_AAI_R1,
+		mtk_iommu_register_fault_callback(M4U_PORT_L30_AAO_R1,
 			mtk_cam_translation_fault_callback, (void *)raw, false);
 
-		mtk_iommu_register_fault_callback(M4U_PORT_L29_CAM3_YUVO_R1,
+		mtk_iommu_register_fault_callback(M4U_PORT_L30_AFO_R1,
 			mtk_cam_translation_fault_callback, (void *)raw, false);
 
-		mtk_iommu_register_fault_callback(M4U_PORT_L29_CAM3_YUVO_R3,
+		mtk_iommu_register_fault_callback(M4U_PORT_L34_YUVO_R1,
 			mtk_cam_translation_fault_callback, (void *)raw, false);
 
-		mtk_iommu_register_fault_callback(M4U_PORT_L29_CAM3_YUVCO_R1,
+		mtk_iommu_register_fault_callback(M4U_PORT_L34_YUVO_R3,
 			mtk_cam_translation_fault_callback, (void *)raw, false);
 
-		mtk_iommu_register_fault_callback(M4U_PORT_L29_CAM3_YUVO_R2,
+		mtk_iommu_register_fault_callback(M4U_PORT_L34_YUVO_R2,
 			mtk_cam_translation_fault_callback, (void *)raw, false);
 
-		mtk_iommu_register_fault_callback(M4U_PORT_L29_CAM3_RZH1N2TO_R1,
+		mtk_iommu_register_fault_callback(M4U_PORT_L34_YUVO_R5,
 			mtk_cam_translation_fault_callback, (void *)raw, false);
 
-		mtk_iommu_register_fault_callback(M4U_PORT_L29_CAM3_DRZS4NO_R1,
+		mtk_iommu_register_fault_callback(M4U_PORT_L34_RGBWI_R1,
 			mtk_cam_translation_fault_callback, (void *)raw, false);
 
-		mtk_iommu_register_fault_callback(M4U_PORT_L29_CAM3_TNCSO_R1,
+		mtk_iommu_register_fault_callback(M4U_PORT_L34_TCYSO_R1,
+			mtk_cam_translation_fault_callback, (void *)raw, false);
+
+		mtk_iommu_register_fault_callback(M4U_PORT_L34_DRZ4NO_R3,
 			mtk_cam_translation_fault_callback, (void *)raw, false);
 	} else if (raw->id == RAW_C) {
-		mtk_iommu_register_fault_callback(M4U_PORT_L28_CAM2_IMGP_R1,
+		mtk_iommu_register_fault_callback(M4U_PORT_L31_CQI_R1,
 			mtk_cam_translation_fault_callback, (void *)raw, false);
 
-		mtk_iommu_register_fault_callback(M4U_PORT_L28_CAM2_CQI_R1,
+		mtk_iommu_register_fault_callback(M4U_PORT_L31_RAWI_R2,
 			mtk_cam_translation_fault_callback, (void *)raw, false);
 
-		mtk_iommu_register_fault_callback(M4U_PORT_L28_CAM2_CQI_R2,
+		mtk_iommu_register_fault_callback(M4U_PORT_L31_RAWI_R3,
 			mtk_cam_translation_fault_callback, (void *)raw, false);
 
-		mtk_iommu_register_fault_callback(M4U_PORT_L28_CAM2_FHO_R1,
+		mtk_iommu_register_fault_callback(M4U_PORT_L31_RAWI_R5,
 			mtk_cam_translation_fault_callback, (void *)raw, false);
 
-		mtk_iommu_register_fault_callback(M4U_PORT_L28_CAM2_AAO_R1,
+		mtk_iommu_register_fault_callback(M4U_PORT_L31_IMGO_R1,
 			mtk_cam_translation_fault_callback, (void *)raw, false);
 
-		mtk_iommu_register_fault_callback(M4U_PORT_L28_CAM2_TSFSO_R1,
+		mtk_iommu_register_fault_callback(M4U_PORT_L31_BPCI_R1,
 			mtk_cam_translation_fault_callback, (void *)raw, false);
 
-		mtk_iommu_register_fault_callback(M4U_PORT_L28_CAM2_FLKO_R1,
+		mtk_iommu_register_fault_callback(M4U_PORT_L31_LCSI_R1,
 			mtk_cam_translation_fault_callback, (void *)raw, false);
 
-		mtk_iommu_register_fault_callback(M4U_PORT_L28_CAM2_RAWI_R2,
+		mtk_iommu_register_fault_callback(M4U_PORT_L31_UFEO_R1,
 			mtk_cam_translation_fault_callback, (void *)raw, false);
 
-		mtk_iommu_register_fault_callback(M4U_PORT_L28_CAM2_RAWI_R3,
+		mtk_iommu_register_fault_callback(M4U_PORT_L31_LTMSO_R1,
 			mtk_cam_translation_fault_callback, (void *)raw, false);
 
-		mtk_iommu_register_fault_callback(M4U_PORT_L28_CAM2_RAWI_R5,
+		mtk_iommu_register_fault_callback(M4U_PORT_L31_DRZB2NO_R1,
 			mtk_cam_translation_fault_callback, (void *)raw, false);
 
-		mtk_iommu_register_fault_callback(M4U_PORT_L28_CAM2_AAI_R1,
+		mtk_iommu_register_fault_callback(M4U_PORT_L31_AAO_R1,
 			mtk_cam_translation_fault_callback, (void *)raw, false);
 
-		mtk_iommu_register_fault_callback(M4U_PORT_L30_CAM3_YUVO_R1,
+		mtk_iommu_register_fault_callback(M4U_PORT_L31_AFO_R1,
 			mtk_cam_translation_fault_callback, (void *)raw, false);
 
-		mtk_iommu_register_fault_callback(M4U_PORT_L30_CAM3_YUVO_R3,
+		mtk_iommu_register_fault_callback(M4U_PORT_L35_YUVO_R1,
 			mtk_cam_translation_fault_callback, (void *)raw, false);
 
-		mtk_iommu_register_fault_callback(M4U_PORT_L30_CAM3_YUVCO_R1,
+		mtk_iommu_register_fault_callback(M4U_PORT_L35_YUVO_R3,
 			mtk_cam_translation_fault_callback, (void *)raw, false);
 
-		mtk_iommu_register_fault_callback(M4U_PORT_L30_CAM3_YUVO_R2,
+		mtk_iommu_register_fault_callback(M4U_PORT_L35_YUVO_R2,
 			mtk_cam_translation_fault_callback, (void *)raw, false);
 
-		mtk_iommu_register_fault_callback(M4U_PORT_L30_CAM3_RZH1N2TO_R1,
+		mtk_iommu_register_fault_callback(M4U_PORT_L35_YUVO_R5,
 			mtk_cam_translation_fault_callback, (void *)raw, false);
 
-		mtk_iommu_register_fault_callback(M4U_PORT_L30_CAM3_DRZS4NO_R1,
+		mtk_iommu_register_fault_callback(M4U_PORT_L35_RGBWI_R1,
 			mtk_cam_translation_fault_callback, (void *)raw, false);
 
-		mtk_iommu_register_fault_callback(M4U_PORT_L30_CAM3_TNCSO_R1,
+		mtk_iommu_register_fault_callback(M4U_PORT_L35_TCYSO_R1,
+			mtk_cam_translation_fault_callback, (void *)raw, false);
+
+		mtk_iommu_register_fault_callback(M4U_PORT_L35_DRZ4NO_R3,
 			mtk_cam_translation_fault_callback, (void *)raw, false);
 	}
 #endif

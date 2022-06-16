@@ -17,8 +17,8 @@ subdir-ccflags-y += -I$(srctree)/drivers/media/platform/mtk-isp \
 	     -I$(src)
 
 
-ifneq ($(wildcard $(srctree)/include/dt-bindings/memory/mt6983-larb-port.h),)
-  subdir-ccflags-y += -DCAMSYS_TF_DUMP_71_1
+ifneq ($(wildcard $(srctree)/include/dt-bindings/memory/mt6985-larb-port.h),)
+  subdir-ccflags-y += -DCAMSYS_TF_DUMP_7S
 endif
 
 # MTEE part

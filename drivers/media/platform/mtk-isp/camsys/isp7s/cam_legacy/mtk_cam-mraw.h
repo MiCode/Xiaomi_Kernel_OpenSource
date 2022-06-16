@@ -299,7 +299,7 @@ void mtk_cam_mraw_handle_enque(struct vb2_buffer *vb);
 int mtk_cam_mraw_cal_cfg_info(struct mtk_cam_device *cam,
 	unsigned int pipe_id, struct mtk_cam_request_stream_data *s_data,
 	unsigned int is_config);
-#ifdef CAMSYS_TF_DUMP_71_1
+#ifdef CAMSYS_TF_DUMP_7S
 int mtk_mraw_translation_fault_callback(int port, dma_addr_t mva, void *data);
 #endif
 void mtk_cam_mraw_get_mqe_size(struct mtk_cam_device *cam, unsigned int pipe_id,

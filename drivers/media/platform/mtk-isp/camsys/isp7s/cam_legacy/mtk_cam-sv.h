@@ -342,7 +342,7 @@ void apply_camsv_cq(struct mtk_camsv_device *dev,
 	      dma_addr_t cq_addr, unsigned int cq_size, unsigned int cq_offset,
 	      int initial);
 bool mtk_cam_sv_is_dcif_scenario(unsigned int scenario);
-#ifdef CAMSYS_TF_DUMP_71_1
+#ifdef CAMSYS_TF_DUMP_7S
 int mtk_camsv_translation_fault_callback(int port, dma_addr_t mva, void *data);
 #endif
 

@@ -462,7 +462,7 @@ bool mtk_raw_resource_calc(struct mtk_cam_device *cam,
 			   s64 pixel_rate, int res_plan,
 			   int in_w, int in_h, int *out_w, int *out_h);
 
-#ifdef CAMSYS_TF_DUMP_71_1
+#ifdef CAMSYS_TF_DUMP_7S
 int
 mtk_cam_translation_fault_callback(int port,
 				dma_addr_t mva,

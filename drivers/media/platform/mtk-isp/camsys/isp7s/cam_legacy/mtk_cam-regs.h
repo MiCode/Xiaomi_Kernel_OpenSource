@@ -408,14 +408,15 @@
 #define REG_YUVDO_R3_BASE_MSB  0x46D4
 
 /* ULCDMA */
-/* CAMSYS_RAW 0x1603 */
+/* CAMSYS_RAW 0x1a03 */
 #define REG_LTMSO_R1_BASE      0x4ac0
+#define REG_LTMSHO_R1_BASE     0x4b00
 #define REG_TSFSO_R1_BASE      0x4a40
 #define REG_TSFSO_R2_BASE      0x4a80
 #define REG_FLKO_R1_BASE       0x4900
 #define REG_UFEO_R1_BASE       0x48c0
 
-/* CAMSYS_YUV 0x1605 */
+/* CAMSYS_YUV 0x1a05 */
 #define REG_YUVO_R2_BASE       0x4780
 #define REG_YUVO_R2_BASE_MSB   0x4784
 #define REG_YUVBO_R2_BASE      0x47c0
@@ -438,18 +439,30 @@
 #define REG_RZH1N2TO_R3_BASE_MSB    0x4b04
 #define REG_RZH1N2TBO_R3_BASE  0x4940
 #define REG_RZH1N2TBO_R3_BASE_MSB   0x4944
+#define REG_TCYSO_R1_BASE      0x4980
+#define REG_TCYSO_R1_BASE_MSB       0x4984
 #define REG_DRZS4NO_R1_BASE    0x4a00
 #define REG_DRZS4NO_R1_BASE_MSB     0x4a04
 #define REG_DRZS4NO_R3_BASE    0x4ac0
 #define REG_DRZS4NO_R3_BASE_MSB     0x4ac4
+#define REG_DRZH2NO_R8_BASE    0x4a40
+#define REG_DRZH2NO_R8_BASE_MSB     0x4a44
+#define REG_RGBWI_R1_BASE      0x4b80
+#define REG_RGBWI_R1_BASE_MSB       0x4b84
 
 /* CAMSYS_RAW 0x1a03 */
 #define REG_RAWI_R2_BASE       0x42c0
 #define REG_RAWI_R2_BASE_MSB   0x4204
 #define REG_UFDI_R2_BASE       0x4330
+#define REG_UFDI_R2_BASE_MSB   0x4334
 #define REG_RAWI_R3_BASE       0x43a0
 #define REG_RAWI_R3_BASE_MSB   0x43a4
 #define REG_UFDI_R3_BASE       0x4410
+#define REG_UFDI_R3_BASE_MSB   0x4414
+#define REG_RAWI_R5_BASE       0x4480
+#define REG_RAWI_R5_BASE_MSB   0x4484
+#define REG_UFDI_R5_BASE       0x44f0
+#define REG_UFDI_R5_BASE_MSB   0x44f4
 #define REG_CQI_R1_BASE        0x4100
 #define REG_CQI_R1_BASE_MSB    0x4104
 #define REG_CQI_R2_BASE        0x4170
@@ -465,6 +478,8 @@
 #define REG_PDI_R1_BASE        0x46a0
 #define REG_AAI_R1_BASE        0x46e0
 #define REG_CACI_R1_BASE       0x4720
-#define REG_RAWI_R5_BASE       0x4480
-#define REG_RAWI_R5_BASE_MSB   0x4484
+#define REG_DRZB2NO_R1_BASE    0x4b40
+#define REG_DRZB2NBO_R1_BASE   0x4b80
+#define REG_DRZB2NCO_R1_BASE   0x4bc0
+
 #endif	/* _CAM_REGS_H */
