@@ -813,5 +813,6 @@ u32 imgsys_wpe_bwlog_enable_plat7s(void);
 bool imgsys_cmdq_ts_dbg_enable_plat7s(void);
 bool imgsys_dvfs_dbg_enable_plat7s(void);
 bool imgsys_qos_dbg_enable_plat7s(void);
+bool imgsys_quick_onoff_enable_plat7s(void);
 #endif /* _MTK_IMGSYS_CMDQ_PLAT_7S_H_ */
 

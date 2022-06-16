@@ -218,7 +218,7 @@ bool imgsys_cmdq_ts_enable(void);
 u32 imgsys_wpe_bwlog_enable(void);
 bool imgsys_cmdq_ts_dbg_enable(void);
 bool imgsys_dvfs_dbg_enable(void);
-
+bool imgsys_quick_onoff_enable(void);
 
 /* ##### */
 
@@ -276,6 +276,7 @@ struct imgsys_cmdq_cust_data {
 	u32 (*wpe_bwlog_en)(void);
 	bool (*cmdq_ts_dbg_en)(void);
 	bool (*dvfs_dbg_en)(void);
+	bool (*quick_onoff_en)(void);
 };
 
 #endif /* _MTK_IMGSYS_CMDQ_H_ */

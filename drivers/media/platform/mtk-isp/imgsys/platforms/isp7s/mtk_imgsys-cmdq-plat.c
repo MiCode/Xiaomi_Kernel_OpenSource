@@ -143,7 +143,9 @@ void imgsys_cmdq_streamon_plat7s(struct mtk_imgsys_dev *imgsys_dev)
 {
 	u32 idx = 0;
 
-	dev_info(imgsys_dev->dev, "%s: cmdq stream on (%d)\n", __func__, is_stream_off);
+	dev_info(imgsys_dev->dev,
+		"%s: cmdq stream on (%d) quick_pwr(%d)\n",
+		__func__, is_stream_off, imgsys_quick_onoff_enable_plat7s());
 	is_stream_off = 0;
 
 	cmdq_mbox_enable(imgsys_clt[0]->chan);
@@ -165,7 +167,8 @@ void imgsys_cmdq_streamoff_plat7s(struct mtk_imgsys_dev *imgsys_dev)
 	u32 idx = 0;
 
 	dev_info(imgsys_dev->dev,
-		"%s: cmdq stream off (%d) idx(%d)\n", __func__, is_stream_off, idx);
+		"%s: cmdq stream off (%d) idx(%d) quick_pwr(%d)\n",
+		__func__, is_stream_off, idx, imgsys_quick_onoff_enable_plat7s());
 	is_stream_off = 1;
 
 	#if CMDQ_STOP_FUNC
@@ -1842,9 +1845,10 @@ void mtk_imgsys_power_ctrl_plat7s(struct mtk_imgsys_dev *imgsys_dev, bool isPowe
 	if (isPowerOn) {
 		user_cnt = atomic_inc_return(&imgsys_dev->imgsys_user_cnt);
 		if (user_cnt == 1) {
-			dev_info(dvfs_info->dev,
-				"[%s] isPowerOn(%d) user(%d)\n",
-				__func__, isPowerOn, user_cnt);
+			if (!imgsys_quick_onoff_enable_plat7s())
+				dev_info(dvfs_info->dev,
+					"[%s] isPowerOn(%d) user(%d)\n",
+					__func__, isPowerOn, user_cnt);
 
 			mutex_lock(&(imgsys_dev->power_ctrl_lock));
 
@@ -1860,9 +1864,10 @@ void mtk_imgsys_power_ctrl_plat7s(struct mtk_imgsys_dev *imgsys_dev, bool isPowe
 	} else {
 		user_cnt = atomic_dec_return(&imgsys_dev->imgsys_user_cnt);
 		if (user_cnt == 0) {
-			dev_info(dvfs_info->dev,
-				"[%s] isPowerOn(%d) user(%d)\n",
-				__func__, isPowerOn, user_cnt);
+			if (!imgsys_quick_onoff_enable_plat7s())
+				dev_info(dvfs_info->dev,
+					"[%s] isPowerOn(%d) user(%d)\n",
+					__func__, isPowerOn, user_cnt);
 
 			mutex_lock(&(imgsys_dev->power_ctrl_lock));
 
@@ -1903,6 +1908,11 @@ bool imgsys_qos_dbg_enable_plat7s(void)
 	return imgsys_qos_dbg_en;
 }
 
+bool imgsys_quick_onoff_enable_plat7s(void)
+{
+	return imgsys_quick_onoff_en;
+}
+
 struct imgsys_cmdq_cust_data imgsys_cmdq_data_7s = {
 	.cmdq_init = imgsys_cmdq_init_plat7s,
 	.cmdq_release = imgsys_cmdq_release_plat7s,
@@ -1931,5 +1941,6 @@ struct imgsys_cmdq_cust_data imgsys_cmdq_data_7s = {
 	.wpe_bwlog_en = imgsys_wpe_bwlog_enable_plat7s,
 	.cmdq_ts_dbg_en = imgsys_cmdq_ts_dbg_enable_plat7s,
 	.dvfs_dbg_en = imgsys_dvfs_dbg_enable_plat7s,
+	.quick_onoff_en = imgsys_quick_onoff_enable_plat7s,
 };
 

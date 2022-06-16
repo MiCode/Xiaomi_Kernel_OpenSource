@@ -48,6 +48,9 @@ module_param(imgsys_qos_blank_int, int, 0644);
 int imgsys_qos_factor;
 module_param(imgsys_qos_factor, int, 0644);
 
+int imgsys_quick_onoff_en;
+module_param(imgsys_quick_onoff_en, int, 0644);
+
 /*#####*/
 bool imgsys_cmdq_ts_enable(void)
 {
@@ -78,6 +81,12 @@ bool imgsys_cmdq_ftrace_enabled(void)
 {
 	return imgsys_cmdq_ftrace_en;
 }
+
+bool imgsys_quick_onoff_enable(void)
+{
+	return imgsys_quick_onoff_en;
+}
+EXPORT_SYMBOL(imgsys_quick_onoff_enable);
 
 /*#####*/
 static void module_uninit(struct kref *kref)

@@ -14,5 +14,6 @@ extern int imgsys_qos_dbg_en;
 extern int imgsys_qos_update_freq;
 extern int imgsys_qos_blank_int;
 extern int imgsys_qos_factor;
+extern int imgsys_quick_onoff_en;
 
 void imgsys_cmdq_setevent(u64 u_id);
