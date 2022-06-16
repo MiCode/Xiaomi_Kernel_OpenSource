@@ -1860,6 +1860,36 @@ void free_lcm_msync_min_fps_list(struct list_head *msync_fps_list)
 	}
 }
 
+void free_lcm_params_dsi_round_corner(
+		struct mtk_panel_params *ext_param)
+{
+	if (IS_ERR_OR_NULL(ext_param) ||
+		ext_param->round_corner_en == 0 ||
+		mtk_lcm_rc_need_free() == false)
+		return;
+
+	if (ext_param->corner_pattern_lt_addr != NULL &&
+	    ext_param->corner_pattern_tp_size > 0) {
+		LCM_KFREE(ext_param->corner_pattern_lt_addr,
+				ext_param->corner_pattern_tp_size);
+		ext_param->corner_pattern_tp_size = 0;
+	}
+
+	if (ext_param->corner_pattern_lt_addr_l != NULL &&
+	    ext_param->corner_pattern_tp_size_l > 0) {
+		LCM_KFREE(ext_param->corner_pattern_lt_addr_l,
+				ext_param->corner_pattern_tp_size_l);
+		ext_param->corner_pattern_tp_size_l = 0;
+	}
+
+	if (ext_param->corner_pattern_lt_addr_r != NULL &&
+	    ext_param->corner_pattern_tp_size_r > 0) {
+		LCM_KFREE(ext_param->corner_pattern_lt_addr_r,
+				ext_param->corner_pattern_tp_size_r);
+		ext_param->corner_pattern_tp_size_r = 0;
+	}
+}
+
 void free_lcm_params_dsi(struct mtk_lcm_params_dsi *params,
 	const struct mtk_panel_cust *cust)
 {
@@ -1888,6 +1918,8 @@ void free_lcm_params_dsi(struct mtk_lcm_params_dsi *params,
 			free_lcm_msync_min_fps_list(&mode_node->msync_min_fps_switch);
 			mode_node->msync_min_fps_count = 0;
 		}
+
+		free_lcm_params_dsi_round_corner(&mode_node->ext_param);
 		list_del(&mode_node->list);
 		LCM_KFREE(mode_node, sizeof(struct mtk_lcm_mode_dsi));
 	}

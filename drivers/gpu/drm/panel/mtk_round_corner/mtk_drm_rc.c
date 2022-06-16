@@ -25,6 +25,13 @@ static const struct mtk_lcm_rc_pattern mtk_lcm_rc_pattern_list[] = {
 	},
 };
 
+static bool rc_not_free;
+
+bool mtk_lcm_rc_need_free(void)
+{
+	return !rc_not_free;
+}
+
 static void lcm_rc_check_size(unsigned int *src, unsigned int dst)
 {
 	if (src == NULL || *src == dst)
@@ -90,8 +97,10 @@ void *mtk_lcm_get_rc_addr(const char *name, enum mtk_lcm_rc_locate locate,
 
 	if (dst_size > 0 && addr != NULL) {
 		lcm_rc_check_size(size, dst_size);
-		pr_info("%s, %d, pattern name:%s, locate:%d, addr=0x%lx,size=%u\n",
-			__func__, __LINE__, name, locate, (unsigned long)addr, *size);
+		rc_not_free = true;
+		pr_info("%s, %d, name:%s,locate:%d,addr=0x%lx,size=%u,free:%d\n",
+			__func__, __LINE__, name, locate,
+			(unsigned long)addr, *size, rc_not_free);
 	} else {
 		pr_info("%s, %d, pattern name:%s, locate:%d, empty pattern\n",
 			__func__, __LINE__, name, locate);

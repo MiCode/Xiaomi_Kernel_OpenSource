@@ -42,4 +42,10 @@ enum mtk_lcm_rc_locate {
  */
 void *mtk_lcm_get_rc_addr(const char *name, enum mtk_lcm_rc_locate locate,
 		unsigned int *size);
+
+/* function: if free rc pattern buffer or not
+ * for header parsing no need to free it
+ * for dtsi parsing do free it
+ */
+bool mtk_lcm_rc_need_free(void);
 #endif
