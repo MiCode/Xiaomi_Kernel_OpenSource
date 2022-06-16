@@ -1773,10 +1773,13 @@ static int rt9759_check_devinfo(struct i2c_client *client, u8 *chip_rev,
 		return ret;
 	}
 	*type = (ret & RT9759_MS_MASK) >> RT9759_MS_SHFT;
-	if (*type < 0)
-		return -EINVAL;
-	dev_info(&client->dev, "%s rev(0x%02X), type(%s)\n", __func__,
-		 *chip_rev, rt9759_type_name[*type]);
+
+	if ((*type >= 0) && (*type < ARRAY_SIZE(rt9759_type_name)))
+		dev_info(&client->dev, "%s rev(0x%02X), type(%s)\n", __func__,
+			*chip_rev, rt9759_type_name[*type]);
+	else
+		dev_info(&client->dev, "%s rev(0x%02X), type(%d)\n", __func__,
+			*chip_rev, *type);
 
 	return 0;
 }
