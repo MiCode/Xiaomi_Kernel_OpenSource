@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2015 MediaTek Inc.
+ * Copyright (c) 2022 MediaTek Inc.
  */
 
 #include <linux/dma-buf.h>
@@ -680,8 +680,9 @@ void vb2_dc_detach_dmabuf(void *mem_priv)
 	dma_buf_detach(buf->db_attach->dmabuf, buf->db_attach);
 	kfree(buf);
 }
+
 void *vb2_dc_attach_dmabuf(struct vb2_buffer *vb, struct device *dev, struct dma_buf *dbuf,
-       unsigned long size)
+			unsigned long size)
 {
 	struct vb2_dc_buf *buf;
 	struct dma_buf_attachment *dba;

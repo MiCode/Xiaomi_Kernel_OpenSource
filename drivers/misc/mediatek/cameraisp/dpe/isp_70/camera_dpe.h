@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2015 MediaTek Inc.
+ * Copyright (c) 2022 MediaTek Inc.
  */
 
 
@@ -55,7 +55,6 @@
 #define WB_ASFRM_SIZE DPE_MAX_FRAME_SIZE
 #define WB_ASFRMExt_SIZE DPE_MAX_FRAME_SIZE
 #define WB_WMFHF_SIZE DPE_MAX_FRAME_SIZE
-#define MAX_FRAMES_VIDIOC_REQUEST 2
 
 #define WB_TOTAL_SIZE \
 	(WB_INT_MEDV_SIZE+WB_DCV_L_SIZE+ \
@@ -581,6 +580,8 @@ struct DPE_Config {
 	struct DVS_Settings	Dpe_DVSSettings;
 	struct DVP_Settings	Dpe_DVPSettings;
 	struct DPE_Config_map DPE_DMapSettings;
+	struct DPE_Kernel_Config DPE_Kernel_DpeConfig;
+	unsigned int Dpe_RegDump;
 	dma_addr_t Dpe_InBuf_SrcImg_Y_L;
 	dma_addr_t Dpe_InBuf_SrcImg_Y_R;
 	dma_addr_t Dpe_InBuf_SrcImg_Y;

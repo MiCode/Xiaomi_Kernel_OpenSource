@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2022 MediaTek Inc.
+ * Copyright (c) 2015 MediaTek Inc.
  */
 
 
@@ -75,21 +75,21 @@ struct engine_requests {
 signed int dpe_init_ring_ctl(struct ring_ctrl *rctl);
 signed int dpe_init_request(struct request_dpe *req);
 signed int dpe_set_frame_data(struct frame *f, void *engine);
-signed int dpe_register_requests(struct engine_requests *eng, size_t size);
-signed int dpe_unregister_requests(struct engine_requests *eng);
-signed int dpe_request_handler(struct engine_requests *eng, spinlock_t *lock);
+signed int dpe_register_requests_isp7s(struct engine_requests *eng, size_t size);
+signed int dpe_unregister_requests_isp7s(struct engine_requests *eng);
+signed int dpe_request_handler_isp7s(struct engine_requests *eng, spinlock_t *lock);
 
 
 /*TODO: APIs to manipulate requests  */
-int dpe_set_engine_ops(struct engine_requests *eng,
+int dpe_set_engine_ops_isp7s(struct engine_requests *eng,
 	const struct engine_ops *ops);
 
-signed int dpe_enque_request(struct engine_requests *eng, unsigned int fcnt,
+signed int dpe_enque_request_isp7s(struct engine_requests *eng, unsigned int fcnt,
 							void *req, pid_t pid);
-signed int dpe_deque_request(struct engine_requests *eng, unsigned int *fcnt,
+signed int dpe_deque_request_isp7s(struct engine_requests *eng, unsigned int *fcnt,
 								void *req);
-int dpe_update_request(struct engine_requests *eng, pid_t *pid);
-bool dpe_request_running(struct engine_requests *eng);
+int dpe_update_request_isp7s(struct engine_requests *eng, pid_t *pid);
+bool dpe_request_running_isp7s(struct engine_requests *eng);
 
-signed int dpe_request_dump(struct engine_requests *eng);
+signed int dpe_request_dump_isp7s(struct engine_requests *eng);
 #endif

@@ -29,10 +29,10 @@ $(warning "Bryan test")
 
 ifeq ($(CONFIG_MTK_CAMERA_DPE_ISP7S),m)
 
-obj-$(CONFIG_MTK_CAMERA_DPE_ISP7S) += camera_dpe_isp70.o
-camera_dpe_isp70-objs += isp_7s/engine_request.o
-camera_dpe_isp70-objs  += isp_7s/camera_dpe.o
-camera_dpe_isp70-objs += isp_7s/videobuf2-dma-contig.o
+obj-$(CONFIG_MTK_CAMERA_DPE_ISP7S) += camera_dpe_isp7s.o
+camera_dpe_isp7s-objs += isp_7s/engine_request.o
+camera_dpe_isp7s-objs  += isp_7s/camera_dpe.o
+camera_dpe_isp7s-objs += isp_7s/videobuf2-dma-contig.o
 
 endif
 

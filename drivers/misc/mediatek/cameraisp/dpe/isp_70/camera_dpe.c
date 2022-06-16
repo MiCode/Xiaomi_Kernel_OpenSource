@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2015 MediaTek Inc.
+ * Copyright (c) 2022 MediaTek Inc.
  */
 /**************************************************************
  * camera_DPE.c - Linux DPE Device Driver
@@ -9,6 +9,7 @@
  *     This file provid the other drivers DPE relative functions
  *
  **************************************************************/
+
 
 #include <linux/cdev.h>
 #include <linux/device.h>
@@ -44,7 +45,8 @@
 #include <linux/dma-direction.h>
 #include <linux/dma-buf.h>
 #endif
-
+/*#include <linux/xlog.h>		 For xlog_printk(). */
+/*  */
 /*#include <mach/hardware.h>*/
 /* #include <mach/mt6593_pll.h> */
 #include "camera_dpe.h"
@@ -74,11 +76,11 @@
 #define SMI_CLK
 #define CMDQ_COMMON
 #define CHECK_SERVICE_IF_0 0
-//!#define DPE_debug_log_en
+#define DPE_debug_log_en
 //#define m4u_en
 //!#define smi_en
 //!#define WAKEUP_INIT
-
+#define ENQUE_FAIL -1
 
 #ifdef m4u_en
 #if IS_ENABLED(CONFIG_MTK_IOMMU_V2)
@@ -268,6 +270,7 @@ static void logPrint(struct work_struct *data);
 struct wakeup_source DPE_wake_lock;
 static DEFINE_MUTEX(gDpeMutex);
 static DEFINE_MUTEX(gDpeDequeMutex);
+static DEFINE_MUTEX(MutexDPERef);
 static DEFINE_MUTEX(gFDMutex);
 static DEFINE_MUTEX(gDVSMutex);
 #if IS_ENABLED(CONFIG_OF)
@@ -425,6 +428,7 @@ struct tee_mmu	*WMF_FILT_mmu;
 struct tee_mmu	*InBuf_OCC_Ext_mmu;
 struct tee_mmu	*ASF_RD_Ext_mmu;
 struct tee_mmu	*ASF_HF_Ext_mmu;
+struct tee_mmu	*RegDumpt_mmu;
 unsigned int DPE_P4_EN;
 unsigned int DVP_is16BitMode;
 unsigned int get_dvs_iova[10];
@@ -455,7 +459,7 @@ struct DPE_IRQ_INFO_STRUCT {
 	unsigned int Mask[DPE_IRQ_TYPE_AMOUNT];
 };
 struct DPE_INFO_STRUCT {
-	spinlock_t SpinLockDPERef;
+	//spinlock_t SpinLockDPERef;
 	spinlock_t SpinLockDPE;
 	spinlock_t SpinLockFD;//!
 	spinlock_t SpinLockIrq[DPE_IRQ_TYPE_AMOUNT];
@@ -1257,17 +1261,18 @@ static bool dpe_get_dma_buffer(struct tee_mmu *mmu, int fd)
 {
 	struct dma_buf *buf;
 
-	//LOG_INF("get_dma_buffer_fd= %d\n", fd);
+	LOG_INF("get_dma_buffer_fd= %d\n", fd);
 	if (fd <= 0)
 		return false;
 	buf = dma_buf_get(fd);
+	//  LOG_INF("dpe_get_dma_buffer buf= %d\n", buf);
 	if (IS_ERR(buf))
 		return false;
-	//LOG_INF("buf_addr = %x\n", buf);
+	LOG_INF("buf_addr = %x\n", buf);
 	mmu->dma_buf = buf;
 	mmu->attach = dma_buf_attach(mmu->dma_buf, gdev);
 
-	//LOG_INF("mmu->attach = %x\n", mmu->attach);
+	//  LOG_INF("mmu->attach = %x\n", mmu->attach);
 
 	if (IS_ERR(mmu->attach))
 		goto err_attach;
@@ -1275,7 +1280,7 @@ static bool dpe_get_dma_buffer(struct tee_mmu *mmu, int fd)
 	mmu->sgt = dma_buf_map_attachment(mmu->attach,
 	DMA_BIDIRECTIONAL);
 
-	//LOG_INF("mmu->sgt = %x\n", mmu->sgt);
+	//  LOG_INF("mmu->sgt = %x\n", mmu->sgt);
 
 	if (IS_ERR(mmu->sgt))
 		goto err_map;
@@ -1296,6 +1301,9 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 {
 	unsigned int f, fcnt, t, ucnt;
 	unsigned int pd_frame_num = 0;
+	unsigned int DVP_ASF_CONF_EN;
+	unsigned int DVP_16bitMode;
+
 	dma_addr_t Dpe_InBuf_SrcImg_Y_L = 0, Dpe_InBuf_SrcImg_Y_R = 0;
 	dma_addr_t Dpe_InBuf_ValidMap_L = 0, Dpe_InBuf_ValidMap_R = 0;
 	dma_addr_t Dpe_OutBuf_OCC = 0, Dpe_OutBuf_OCC_Ext = 0;
@@ -1334,18 +1342,19 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 	LOG_INF("dpe enque star\n");
 	#endif
 
-	//spin_lock(&(DPEInfo.SpinLockFD));
+
 	mutex_lock(&gFDMutex);
 	DPE_P4_EN = (((_req->m_pDpeConfig[ucnt].Dpe_DVSSettings.TuningBuf_ME.DVS_ME_28) &
 							0x400) >> 10);
+	DVP_ASF_CONF_EN	= (_req->m_pDpeConfig[ucnt].Dpe_DVPSettings.SubModule_EN.asf_conf_en);
+	DVP_16bitMode = (_req->m_pDpeConfig[ucnt].Dpe_is16BitMode);
 	mutex_unlock(&gFDMutex);
-	//spin_unlock(&(DPEInfo.SpinLockFD));
+
 	if ((_req->m_pDpeConfig[ucnt].Dpe_engineSelect == MODE_DVS_ONLY) ||
 		(_req->m_pDpeConfig[ucnt].Dpe_engineSelect == MODE_DVS_DVP_BOTH)) {
-		//spin_lock(&(DPEInfo.SpinLockFD));
+
 		mutex_lock(&gFDMutex);
 		if ((DVS_only_en == 0) && (DVS_Num == 0)) {
-			//DVS_mmu = kzalloc(sizeof(struct tee_mmu) * 20, GFP_KERNEL);
 			SrcImg_Y_L_mmu = kzalloc(sizeof(struct tee_mmu) * 4, GFP_KERNEL);
 			SrcImg_Y_R_mmu = kzalloc(sizeof(struct tee_mmu) * 4, GFP_KERNEL);
 			ValidMap_L_mmu = kzalloc(sizeof(struct tee_mmu) * 4, GFP_KERNEL);
@@ -1358,11 +1367,11 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 			InBuf_P4_R_mmu = kzalloc(sizeof(struct tee_mmu) * 4, GFP_KERNEL);
 		}
 		mutex_unlock(&gFDMutex);
-		//spin_unlock(&(DPEInfo.SpinLockFD));
+
 		if (!SrcImg_Y_L_mmu)
 			return -1;
 
-		//spin_lock(&(DPEInfo.SpinLockFD));
+
 		mutex_lock(&gFDMutex);
 		DVS_only_en++;
 		DVS_Num++;
@@ -1372,6 +1381,8 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 		mutex_unlock(&gFDMutex);
 		//spin_unlock(&(DPEInfo.SpinLockFD));
 		#ifdef DPE_debug_log_en
+		LOG_INF("SrcImg_Y_L va = %x\n",
+		_req->m_pDpeConfig[ucnt].Dpe_InBuf_SrcImg_Y_L);
 		LOG_INF("SrcImg_Y_L fd = %d offset = %d\n",
 		_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_SrcImg_Y_L_fd,
 		_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_SrcImg_Y_L_Ofs);
@@ -1397,12 +1408,16 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 			#endif
 		} else {
 			LOG_INF("get Dpe_InBuf_SrcImg_Y_L_fd fail\n");
+			mutex_unlock(&gFDMutex);
+			return ENQUE_FAIL;
 		}
 		mutex_unlock(&gFDMutex);
 		//spin_unlock(&(DPEInfo.SpinLockFD));
 
 
 		#ifdef DPE_debug_log_en
+		LOG_INF("SrcImg_Y_R va = %x\n",
+		_req->m_pDpeConfig[ucnt].Dpe_InBuf_SrcImg_Y_R);
 		LOG_INF("SrcImg_Y_R fd = %d offset = %d\n",
 		_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_SrcImg_Y_R_fd,
 		_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_SrcImg_Y_R_Ofs);
@@ -1422,6 +1437,8 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 			#endif
 		} else {
 			LOG_INF("get Dpe_InBuf_SrcImg_Y_R fail\n");
+			mutex_unlock(&gFDMutex);
+			return ENQUE_FAIL;
 		}
 		mutex_unlock(&gFDMutex);
 		//spin_unlock(&(DPEInfo.SpinLockFD));
@@ -1446,6 +1463,8 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 			#endif
 		} else {
 			LOG_INF("get Dpe_InBuf_ValidMap_L fail\n");
+			mutex_unlock(&gFDMutex);
+			return ENQUE_FAIL;
 		}
 		mutex_unlock(&gFDMutex);
 		//spin_unlock(&(DPEInfo.SpinLockFD));
@@ -1468,10 +1487,12 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 			#ifdef DPE_debug_log_en
 			LOG_INF("Dpe_InBuf_ValidMap_R = %lx, get_dvs_iova [3] = %d\n",
 			_req->m_pDpeConfig[ucnt].Dpe_InBuf_ValidMap_R, get_dvs_iova[3]);
-			LOG_INF("=========================================================\n");
+			LOG_INF("============================================\n");
 			#endif
 		} else {
 			LOG_INF("get Dpe_InBuf_ValidMap_R fail\n");
+			mutex_unlock(&gFDMutex);
+			return ENQUE_FAIL;
 		}
 		mutex_unlock(&gFDMutex);
 		//spin_unlock(&(DPEInfo.SpinLockFD));
@@ -1494,10 +1515,12 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 			#ifdef DPE_debug_log_en
 			LOG_INF("Dpe_OutBuf_OCC = %lx, get_dvs_iova[4] = %d\n",
 			_req->m_pDpeConfig[ucnt].Dpe_OutBuf_OCC, get_dvs_iova[4]);
-			LOG_INF("=========================================================\n");
+			LOG_INF("=========================================\n");
 			#endif
 		} else {
 			LOG_INF("get Dpe_OutBuf_OCC fail\n");
+			mutex_unlock(&gFDMutex);
+			return ENQUE_FAIL;
 		}
 		mutex_unlock(&gFDMutex);
 		//spin_unlock(&(DPEInfo.SpinLockFD));
@@ -1519,10 +1542,12 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 			#ifdef DPE_debug_log_en
 			LOG_INF("Dpe_OutBuf_OCC_Ext = %lx, get_dvs_iova[5] = %d\n",
 			_req->m_pDpeConfig[ucnt].Dpe_OutBuf_OCC_Ext, get_dvs_iova[5]);
-			LOG_INF("=========================================================\n");
+			LOG_INF("=========================================\n");
 			#endif
 		} else {
 			LOG_INF("get Dpe_OutBuf_OCC_Ext fail\n");
+			mutex_unlock(&gFDMutex);
+			return ENQUE_FAIL;
 		}
 		mutex_unlock(&gFDMutex);
 		//spin_unlock(&(DPEInfo.SpinLockFD));
@@ -1551,6 +1576,8 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 				#endif
 			} else {
 				LOG_INF("get Dpe_InBuf_SrcImg_Y_L_Pre fail\n");
+				mutex_unlock(&gFDMutex);
+				return ENQUE_FAIL;
 			}
 
 			#ifdef DPE_debug_log_en
@@ -1574,6 +1601,8 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 				#endif
 			}	else {
 				LOG_INF("get Dpe_InBuf_SrcImg_Y_R_Pre fail\n");
+				mutex_unlock(&gFDMutex);
+				return ENQUE_FAIL;
 			}
 
 			#ifdef DPE_debug_log_en
@@ -1596,6 +1625,8 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 				#endif
 			} else {
 				LOG_INF("get Dpe_InBuf_P4_L_DV fail\n");
+				mutex_unlock(&gFDMutex);
+				return ENQUE_FAIL;
 			}
 
 			#ifdef DPE_debug_log_en
@@ -1618,6 +1649,8 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 				#endif
 			} else {
 				LOG_INF("get Dpe_InBuf_P4_R_DV fail\n");
+				mutex_unlock(&gFDMutex);
+				return ENQUE_FAIL;
 			}
 
 		}
@@ -1634,7 +1667,6 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 		//spin_lock(&(DPEInfo.SpinLockFD));
 		mutex_lock(&gFDMutex);
 		if ((DVP_only_en == 0) && (DVP_Num == 0)) {
-			//DVP_mmu = kzalloc(sizeof(struct tee_mmu) * 10, GFP_KERNEL);
 			SrcImg_Y_mmu = kzalloc(sizeof(struct tee_mmu) * 4, GFP_KERNEL);
 			SrcImg_C_mmu = kzalloc(sizeof(struct tee_mmu) * 4, GFP_KERNEL);
 			InBuf_OCC_mmu = kzalloc(sizeof(struct tee_mmu) * 4, GFP_KERNEL);
@@ -1680,6 +1712,8 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 			#endif
 		} else {
 			LOG_INF("get Dpe_InBuf_SrcImg_Y fail\n");
+			mutex_unlock(&gFDMutex);
+			return ENQUE_FAIL;
 		}
 		//spin_unlock(&(DPEInfo.SpinLockFD));
 		mutex_unlock(&gFDMutex);
@@ -1705,6 +1739,8 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 			#endif
 		} else {
 			LOG_INF("get Dpe_InBuf_SrcImg_C fail\n");
+			mutex_unlock(&gFDMutex);
+			return ENQUE_FAIL;
 		}
 		//spin_unlock(&(DPEInfo.SpinLockFD));
 		mutex_unlock(&gFDMutex);
@@ -1730,6 +1766,8 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 			#endif
 		} else {
 			LOG_INF("get Dpe_InBuf_OCC fail\n");
+			mutex_unlock(&gFDMutex);
+			return ENQUE_FAIL;
 		}
 		//spin_unlock(&(DPEInfo.SpinLockFD));
 		mutex_unlock(&gFDMutex);
@@ -1755,6 +1793,8 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 			#endif
 		} else {
 			LOG_INF("get Dpe_OutBuf_CRM fail\n");
+			mutex_unlock(&gFDMutex);
+			return ENQUE_FAIL;
 		}
 		//spin_unlock(&(DPEInfo.SpinLockFD));
 		mutex_unlock(&gFDMutex);
@@ -1780,6 +1820,8 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 			#endif
 		} else {
 			LOG_INF("get Dpe_OutBuf_ASF_RD fail\n");
+			mutex_unlock(&gFDMutex);
+			return ENQUE_FAIL;
 		}
 		//spin_unlock(&(DPEInfo.SpinLockFD));
 		mutex_unlock(&gFDMutex);
@@ -1806,15 +1848,17 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 			#endif
 		} else {
 			LOG_INF("get Dpe_OutBuf_ASF_HF fail\n");
+			mutex_unlock(&gFDMutex);
+			return ENQUE_FAIL;
 		}
-		//spin_unlock(&(DPEInfo.SpinLockFD));
+
 		mutex_unlock(&gFDMutex);
 		#ifdef DPE_debug_log_en
 		LOG_INF("Dpe_OutBuf_WMF_FILT fd = %d offset = %d\n",
 		_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_WMF_FILT_fd,
 		_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_WMF_FILT_Ofs);
 		#endif
-		//spin_lock(&(DPEInfo.SpinLockFD));
+
 		mutex_lock(&gFDMutex);
 		success = dpe_get_dma_buffer(&WMF_FILT_mmu[DVP_only_en-1],
 		_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_WMF_FILT_fd);
@@ -1830,93 +1874,98 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 			#endif
 		} else {
 			LOG_INF("get Dpe_OutBuf_WMF_FILT fail\n");
-		}
-		//spin_unlock(&(DPEInfo.SpinLockFD));
-		mutex_unlock(&gFDMutex);
-		#ifdef DPE_debug_log_en
-		LOG_INF("Dpe_InBuf_OCC_Ext fd = %d offset = %d\n",
-		_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_OCC_Ext_fd,
-		_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_OCC_Ext_Ofs);
-		#endif
-		//spin_lock(&(DPEInfo.SpinLockFD));
-		mutex_lock(&gFDMutex);
-		success = dpe_get_dma_buffer(&InBuf_OCC_Ext_mmu[DVP_only_en-1],
-		_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_OCC_Ext_fd);
-		if (success) {
-			_req->m_pDpeConfig[ucnt].Dpe_InBuf_OCC_Ext =
-			(sg_dma_address(InBuf_OCC_Ext_mmu[DVP_only_en-1].sgt->sgl) +
-			(_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_OCC_Ext_Ofs));
-			get_dvp_iova[7] += 1;
-			#ifdef DPE_debug_log_en
-			LOG_INF("Dpe_InBuf_OCC_Ext = %lx iova[7] = %d\n",
-			_req->m_pDpeConfig[ucnt].Dpe_InBuf_OCC_Ext, get_dvp_iova[7]);
-			LOG_INF("=========================================================\n");
-			#endif
-		} else {
-			#ifdef DPE_debug_log_en
-			LOG_INF("get Dpe_InBuf_OCC_Ext fail\n");
-			#endif
+			mutex_unlock(&gFDMutex);
+			return ENQUE_FAIL;
 		}
 		mutex_unlock(&gFDMutex);
-		//spin_unlock(&(DPEInfo.SpinLockFD));
 
-		#ifdef DPE_debug_log_en
-		LOG_INF("Dpe_OutBuf_ASF_RD_Ext fd = %d offset = %d\n",
-		_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_ASF_RD_Ext_fd,
-		_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_ASF_RD_Ext_Ofs);
-		#endif
-		//spin_lock(&(DPEInfo.SpinLockFD));
-		mutex_lock(&gFDMutex);
-		success = dpe_get_dma_buffer(&ASF_RD_Ext_mmu[DVP_only_en-1],
-		_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_ASF_RD_Ext_fd);
+		if (((DVP_16bitMode == 1) && (DVP_ASF_CONF_EN == 0)) ||
+			((DVP_16bitMode == 0) && (DVP_ASF_CONF_EN == 1))) {
+			#ifdef DPE_debug_log_en
+			LOG_INF("Dpe_InBuf_OCC_Ext fd = %d offset = %d\n",
+			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_OCC_Ext_fd,
+			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_OCC_Ext_Ofs);
+			#endif
 
-		if (success) {
-			_req->m_pDpeConfig[ucnt].Dpe_OutBuf_ASF_RD_Ext =
-			(sg_dma_address(ASF_RD_Ext_mmu[DVP_only_en-1].sgt->sgl) +
-			(_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_ASF_RD_Ext_Ofs));
-			get_dvp_iova[8] += 1;
-			#ifdef DPE_debug_log_en
-			LOG_INF("Dpe_OutBuf_ASF_RD_Ext = %lx iova[8] = %d\n",
-			_req->m_pDpeConfig[ucnt].Dpe_OutBuf_ASF_RD_Ext, get_dvp_iova[8]);
-			LOG_INF("=========================================================\n");
-			#endif
-		} else {
-			#ifdef DPE_debug_log_en
-			LOG_INF("get Dpe_OutBuf_ASF_RD_Ext fail\n");
-			#endif
-		}
-		//spin_unlock(&(DPEInfo.SpinLockFD));
-		mutex_unlock(&gFDMutex);
-		#ifdef DPE_debug_log_en
-		LOG_INF("Dpe_OutBuf_ASF_HF_Ext fd = %d offset = %d\n",
-		_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_ASF_HF_Ext_fd,
-		_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_ASF_HF_Ext_Ofs);
-		#endif
-		//spin_lock(&(DPEInfo.SpinLockFD));
-		mutex_lock(&gFDMutex);
-		success = dpe_get_dma_buffer(&ASF_HF_Ext_mmu[DVP_only_en-1],
-		_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_ASF_HF_Ext_fd);
-		if (success) {
-			_req->m_pDpeConfig[ucnt].Dpe_OutBuf_ASF_HF_Ext =
-			(sg_dma_address(ASF_HF_Ext_mmu[DVP_only_en-1].sgt->sgl) +
-			(_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_ASF_HF_Ext_Ofs));
+			mutex_lock(&gFDMutex);
+			success = dpe_get_dma_buffer(&InBuf_OCC_Ext_mmu[DVP_only_en-1],
+			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_OCC_Ext_fd);
+			if (success) {
+				_req->m_pDpeConfig[ucnt].Dpe_InBuf_OCC_Ext =
+				(sg_dma_address(InBuf_OCC_Ext_mmu[DVP_only_en-1].sgt->sgl) +
+				(_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_OCC_Ext_Ofs));
+				get_dvp_iova[7] += 1;
+				#ifdef DPE_debug_log_en
+				LOG_INF("Dpe_InBuf_OCC_Ext = %lx iova[7] = %d\n",
+				_req->m_pDpeConfig[ucnt].Dpe_InBuf_OCC_Ext, get_dvp_iova[7]);
+				LOG_INF("==========================================\n");
+				#endif
+			} else {
+				LOG_INF("get Dpe_InBuf_OCC_Ext fail\n");
+				mutex_unlock(&gFDMutex);
+				return ENQUE_FAIL;
+			}
+			mutex_unlock(&gFDMutex);
 
-			LOG_INF("Dpe_OutBuf_ASF_HF_Ext = %lx\n",
-			_req->m_pDpeConfig[ucnt].Dpe_OutBuf_ASF_HF_Ext);
-			get_dvp_iova[9] += 1;
+
 			#ifdef DPE_debug_log_en
-			LOG_INF("Dpe_OutBuf_ASF_HF_Ext = %x iova[9] = %d\n",
-			_req->m_pDpeConfig[ucnt].Dpe_OutBuf_ASF_HF_Ext, get_dvp_iova[9]);
-			LOG_INF("=========================================================\n");
+			LOG_INF("Dpe_OutBuf_ASF_RD_Ext fd = %d offset = %d\n",
+			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_ASF_RD_Ext_fd,
+			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_ASF_RD_Ext_Ofs);
 			#endif
-		} else {
+
+			mutex_lock(&gFDMutex);
+			success = dpe_get_dma_buffer(&ASF_RD_Ext_mmu[DVP_only_en-1],
+			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_ASF_RD_Ext_fd);
+
+			if (success) {
+				_req->m_pDpeConfig[ucnt].Dpe_OutBuf_ASF_RD_Ext =
+				(sg_dma_address(ASF_RD_Ext_mmu[DVP_only_en-1].sgt->sgl) +
+				(_req->m_pDpeConfig[
+				ucnt].DPE_DMapSettings.Dpe_OutBuf_ASF_RD_Ext_Ofs));
+				get_dvp_iova[8] += 1;
+				#ifdef DPE_debug_log_en
+				LOG_INF("Dpe_OutBuf_ASF_RD_Ext = %lx iova[8] = %d\n",
+				_req->m_pDpeConfig[ucnt].Dpe_OutBuf_ASF_RD_Ext, get_dvp_iova[8]);
+				LOG_INF("=======================================\n");
+				#endif
+			} else {
+				LOG_INF("get Dpe_OutBuf_ASF_RD_Ext fail\n");
+				mutex_unlock(&gFDMutex);
+				return ENQUE_FAIL;
+			}
+			mutex_unlock(&gFDMutex);
+
 			#ifdef DPE_debug_log_en
-			LOG_INF("get Dpe_OutBuf_ASF_HF_Ext fail\n");
+			LOG_INF("Dpe_OutBuf_ASF_HF_Ext fd = %d offset = %d\n",
+			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_ASF_HF_Ext_fd,
+			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_ASF_HF_Ext_Ofs);
 			#endif
+
+			mutex_lock(&gFDMutex);
+			success = dpe_get_dma_buffer(&ASF_HF_Ext_mmu[DVP_only_en-1],
+			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_ASF_HF_Ext_fd);
+			if (success) {
+				_req->m_pDpeConfig[ucnt].Dpe_OutBuf_ASF_HF_Ext =
+				(sg_dma_address(ASF_HF_Ext_mmu[DVP_only_en-1].sgt->sgl) +
+				(_req->m_pDpeConfig[
+				ucnt].DPE_DMapSettings.Dpe_OutBuf_ASF_HF_Ext_Ofs));
+
+				LOG_INF("Dpe_OutBuf_ASF_HF_Ext = %lx\n",
+				_req->m_pDpeConfig[ucnt].Dpe_OutBuf_ASF_HF_Ext);
+				get_dvp_iova[9] += 1;
+				#ifdef DPE_debug_log_en
+				LOG_INF("Dpe_OutBuf_ASF_HF_Ext = %x iova[9] = %d\n",
+				_req->m_pDpeConfig[ucnt].Dpe_OutBuf_ASF_HF_Ext, get_dvp_iova[9]);
+				LOG_INF("=============================================\n");
+				#endif
+			} else {
+				LOG_INF("get Dpe_OutBuf_ASF_HF_Ext fail\n");
+				mutex_unlock(&gFDMutex);
+				return ENQUE_FAIL;
+			}
+			mutex_unlock(&gFDMutex);
 		}
-		mutex_unlock(&gFDMutex);
-		//spin_unlock(&(DPEInfo.SpinLockFD));
-		//memcpy(&DVP_mmu[9], &mmu, sizeof(struct tee_mmu));
 	}
 
 //------------
@@ -2718,6 +2767,7 @@ void DPE_Config_DVP(struct DPE_Config *pDpeConfig,
 	unsigned int DVP_ASF_CONF_EN = pDpeConfig->Dpe_DVPSettings.SubModule_EN.asf_conf_en;
 	unsigned int DVP_ASF_DEPTH_MODE = pDpeConfig->Dpe_DVPSettings.SubModule_EN.asf_depth_mode;
 
+
 	engStartX = pDpeConfig->Dpe_DVPSettings.eng_start_x;
 	engStartY = pDpeConfig->Dpe_DVPSettings.eng_start_y;
 	frmWidth = pDpeConfig->Dpe_DVPSettings.frm_width - engStartX;
@@ -2963,6 +3013,8 @@ void DPE_Config_DVP(struct DPE_Config *pDpeConfig,
 			LOG_INF("DVP_EXT_SRC_20_ASF_DV0 = %lx\n",
 			pConfigToKernel->DVP_EXT_SRC_20_ASF_DV0);
 }
+	LOG_INF("pDpeConfig->Dpe_RegDump =%lx\n", pDpeConfig->Dpe_RegDump);
+
 	pConfigToKernel->DVP_CTRL_ATPG = 0x80000000;
 	memcpy(&pConfigToKernel->DVP_CORE_00,
 	&pDpeConfig->Dpe_DVPSettings.TuningBuf_CORE,
@@ -3256,6 +3308,8 @@ signed int CmdqDPEHW(struct frame *frame)
 
 	LOG_DBG("%s request sent to CMDQ driver", __func__);
 	pDpeUserConfig = (struct DPE_Config *) frame->data;
+
+
 	pDpeConfig = &DpeConfig;
 /************** Pass User info to DPE_Kernel_Config **************/
 
@@ -3264,9 +3318,17 @@ signed int CmdqDPEHW(struct frame *frame)
 		DPE_Config_DVP(pDpeUserConfig, pDpeConfig);
 		pDpeConfig->DPE_MODE = 0;
 	} else if (pDpeUserConfig->Dpe_engineSelect == MODE_DVS_ONLY) {
+		LOG_INF("DVS frm_width =%d ", pDpeUserConfig->Dpe_DVSSettings.frm_width);
+		if (pDpeUserConfig->Dpe_DVSSettings.frm_width == 0)
+			return -1;
+
 		DPE_Config_DVS(pDpeUserConfig, pDpeConfig);
 		pDpeConfig->DPE_MODE = 1;
 	} else if (pDpeUserConfig->Dpe_engineSelect == MODE_DVP_ONLY) {
+		LOG_INF("DVP frm_width =%d ", pDpeUserConfig->Dpe_DVPSettings.frm_width);
+		if (pDpeUserConfig->Dpe_DVPSettings.frm_width == 0)
+			return -1;
+
 		DPE_Config_DVP(pDpeUserConfig, pDpeConfig);
 		pDpeConfig->DPE_MODE = 2;
 	}
@@ -3722,9 +3784,263 @@ void Get_Tile_Info(struct DPE_Config *pDpeConfig)
 	}
 #endif
 }
-/*
- *
- */
+
+
+
+static signed int DPE_Dump_kernelReg(struct DPE_Config *cfg)
+{
+	//DVS Register
+	cfg->DPE_Kernel_DpeConfig.DVS_CTRL00 = (unsigned int)DPE_RD32(DVS_CTRL00_REG);
+	LOG_INF("[DPE_Dump_kernelRegdqbuf] DVS_CTRL00 = 0x%0x DVS_CTRL00 = 0x%0x\n",
+		cfg->DPE_Kernel_DpeConfig.DVS_CTRL00, (unsigned int)DPE_RD32(DVS_CTRL00_REG));
+	cfg->DPE_Kernel_DpeConfig.DVS_CTRL01 = (unsigned int)DPE_RD32(DVS_CTRL01_REG);
+		LOG_INF("[DPE_Dump_kernelRegdqbuf] DVS_CTRL01 = 0x%0x DVS_CTRL01 = 0x%0x\n",
+	cfg->DPE_Kernel_DpeConfig.DVS_CTRL01, (unsigned int)DPE_RD32(DVS_CTRL01_REG));
+	cfg->DPE_Kernel_DpeConfig.DVS_CTRL02 = (unsigned int)DPE_RD32(DVS_CTRL02_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_CTRL03 = (unsigned int)DPE_RD32(DVS_CTRL03_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_CTRL06 = (unsigned int)DPE_RD32(DVS_CTRL06_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_CTRL07 = (unsigned int)DPE_RD32(DVS_CTRL07_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_IRQ_00 = (unsigned int)DPE_RD32(DVS_IRQ_00_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_CTRL_STATUS0 = (unsigned int)DPE_RD32(DVS_CTRL_STATUS0_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_CTRL_STATUS2 = (unsigned int)DPE_RD32(DVS_CTRL_STATUS2_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_IRQ_STATUS = (unsigned int)DPE_RD32(DVS_IRQ_STATUS_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_FRM_STATUS0 = (unsigned int)DPE_RD32(DVS_FRM_STATUS0_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_FRM_STATUS1 = (unsigned int)DPE_RD32(DVS_FRM_STATUS1_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_CUR_STATUS = (unsigned int)DPE_RD32(DVS_CUR_STATUS_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_SRC_CTRL = (unsigned int)DPE_RD32(DVS_SRC_CTRL_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_CRC_CTRL = (unsigned int)DPE_RD32(DVS_CRC_CTRL_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_CRC_IN = (unsigned int)DPE_RD32(DVS_CRC_IN_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_DRAM_STA0 = (unsigned int)DPE_RD32(DVS_DRAM_STA0_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_DRAM_STA1 = (unsigned int)DPE_RD32(DVS_DRAM_STA1_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_DRAM_ULT = (unsigned int)DPE_RD32(DVS_DRAM_ULT_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_DRAM_PITCH = (unsigned int)DPE_RD32(DVS_DRAM_PITCH_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_SRC_00 = (unsigned int)DPE_RD32(DVS_SRC_00_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_SRC_01 = (unsigned int)DPE_RD32(DVS_SRC_01_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_SRC_02 = (unsigned int)DPE_RD32(DVS_SRC_02_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_SRC_03 = (unsigned int)DPE_RD32(DVS_SRC_03_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_SRC_04 = (unsigned int)DPE_RD32(DVS_SRC_04_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_SRC_05_L_FRM0 = (unsigned int)DPE_RD32(DVS_SRC_05_L_FRM0_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_SRC_06_L_FRM1 = (unsigned int)DPE_RD32(DVS_SRC_06_L_FRM1_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_SRC_07_L_FRM2 = (unsigned int)DPE_RD32(DVS_SRC_07_L_FRM2_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_SRC_08_L_FRM3 = (unsigned int)DPE_RD32(DVS_SRC_08_L_FRM3_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_SRC_09_R_FRM0 = (unsigned int)DPE_RD32(DVS_SRC_09_R_FRM0_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_SRC_10_R_FRM1 = (unsigned int)DPE_RD32(DVS_SRC_10_R_FRM1_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_SRC_11_R_FRM2 = (unsigned int)DPE_RD32(DVS_SRC_11_R_FRM2_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_SRC_12_R_FRM3 = (unsigned int)DPE_RD32(DVS_SRC_12_R_FRM3_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_SRC_13_L_VMAP0 =
+	(unsigned int)DPE_RD32(DVS_SRC_13_L_VMAP0_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_SRC_14_L_VMAP1 =
+	(unsigned int)DPE_RD32(DVS_SRC_14_L_VMAP1_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_SRC_15_L_VMAP2 =
+	(unsigned int)DPE_RD32(DVS_SRC_15_L_VMAP2_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_SRC_16_L_VMAP3 =
+	(unsigned int)DPE_RD32(DVS_SRC_16_L_VMAP3_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_SRC_17_R_VMAP0 =
+	(unsigned int)DPE_RD32(DVS_SRC_17_R_VMAP0_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_SRC_18_R_VMAP1 =
+	(unsigned int)DPE_RD32(DVS_SRC_18_R_VMAP1_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_SRC_19_R_VMAP2 =
+	(unsigned int)DPE_RD32(DVS_SRC_19_R_VMAP2_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_SRC_20_R_VMAP3 =
+	(unsigned int)DPE_RD32(DVS_SRC_20_R_VMAP3_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_SRC_21_P4_L_DV_ADR =
+	(unsigned int)DPE_RD32(DVS_SRC_21_P4_L_DV_ADR_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_SRC_26_OCCDV0 = (unsigned int)DPE_RD32(DVS_SRC_26_OCCDV0_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_SRC_27_OCCDV1 = (unsigned int)DPE_RD32(DVS_SRC_27_OCCDV1_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_SRC_28_OCCDV2 = (unsigned int)DPE_RD32(DVS_SRC_28_OCCDV2_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_SRC_29_OCCDV3 = (unsigned int)DPE_RD32(DVS_SRC_29_OCCDV3_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_SRC_34_P4_R_DV_ADR =
+	(unsigned int)DPE_RD32(DVS_SRC_34_P4_R_DV_ADR_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_SRC_42_OCCDV_EXT0 =
+	(unsigned int)DPE_RD32(DVS_SRC_42_OCCDV_EXT0_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_SRC_43_OCCDV_EXT1 =
+	(unsigned int)DPE_RD32(DVS_SRC_43_OCCDV_EXT1_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_SRC_44_OCCDV_EXT2 =
+	(unsigned int)DPE_RD32(DVS_SRC_44_OCCDV_EXT2_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_SRC_45_OCCDV_EXT3 =
+	(unsigned int)DPE_RD32(DVS_SRC_45_OCCDV_EXT3_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_SRC_46 = (unsigned int)DPE_RD32(DVS_SRC_46_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_CRC_OUT_0 = (unsigned int)DPE_RD32(DVS_CRC_OUT_0_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_CRC_OUT_1 = (unsigned int)DPE_RD32(DVS_CRC_OUT_1_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_CRC_OUT_2 = (unsigned int)DPE_RD32(DVS_CRC_OUT_2_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_CRC_OUT_3 = (unsigned int)DPE_RD32(DVS_CRC_OUT_3_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_DRAM_SEC = (unsigned int)DPE_RD32(DVS_DRAM_SEC_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_CTRL_RESERVED = (unsigned int)DPE_RD32(DVS_CTRL_RESERVED_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_CTRL_ATPG = (unsigned int)DPE_RD32(DVS_CTRL_ATPG_REG);
+
+	//ME
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_00 = (unsigned int)DPE_RD32(DVS_ME_00_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_01 = (unsigned int)DPE_RD32(DVS_ME_01_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_02 = (unsigned int)DPE_RD32(DVS_ME_02_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_03 = (unsigned int)DPE_RD32(DVS_ME_03_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_04 = (unsigned int)DPE_RD32(DVS_ME_04_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_06 = (unsigned int)DPE_RD32(DVS_ME_06_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_07 = (unsigned int)DPE_RD32(DVS_ME_07_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_08 = (unsigned int)DPE_RD32(DVS_ME_08_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_09 = (unsigned int)DPE_RD32(DVS_ME_09_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_10 = (unsigned int)DPE_RD32(DVS_ME_10_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_11 = (unsigned int)DPE_RD32(DVS_ME_11_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_12 = (unsigned int)DPE_RD32(DVS_ME_12_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_13 = (unsigned int)DPE_RD32(DVS_ME_13_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_14 = (unsigned int)DPE_RD32(DVS_ME_14_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_15 = (unsigned int)DPE_RD32(DVS_ME_15_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_16 = (unsigned int)DPE_RD32(DVS_ME_16_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_17 = (unsigned int)DPE_RD32(DVS_ME_17_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_18 = (unsigned int)DPE_RD32(DVS_ME_18_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_19 = (unsigned int)DPE_RD32(DVS_ME_19_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_20 = (unsigned int)DPE_RD32(DVS_ME_20_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_21 = (unsigned int)DPE_RD32(DVS_ME_21_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_22 = (unsigned int)DPE_RD32(DVS_ME_22_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_23 = (unsigned int)DPE_RD32(DVS_ME_23_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_24 = (unsigned int)DPE_RD32(DVS_ME_24_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_25 = (unsigned int)DPE_RD32(DVS_ME_25_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_26 = (unsigned int)DPE_RD32(DVS_ME_26_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_27 = (unsigned int)DPE_RD32(DVS_ME_27_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_28 = (unsigned int)DPE_RD32(DVS_ME_28_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_29 = (unsigned int)DPE_RD32(DVS_ME_29_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_30 = (unsigned int)DPE_RD32(DVS_ME_30_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_31 = (unsigned int)DPE_RD32(DVS_ME_31_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_32 = (unsigned int)DPE_RD32(DVS_ME_32_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_33 = (unsigned int)DPE_RD32(DVS_ME_33_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_34 = (unsigned int)DPE_RD32(DVS_ME_34_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_35 = (unsigned int)DPE_RD32(DVS_ME_35_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_36 = (unsigned int)DPE_RD32(DVS_ME_36_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_37 = (unsigned int)DPE_RD32(DVS_ME_37_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_38 = (unsigned int)DPE_RD32(DVS_ME_38_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_39 = (unsigned int)DPE_RD32(DVS_ME_39_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_DEBUG = (unsigned int)DPE_RD32(DVS_DEBUG_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_RESERVED = (unsigned int)DPE_RD32(DVS_ME_RESERVED_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_ATPG = (unsigned int)DPE_RD32(DVS_ME_ATPG_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_40 = (unsigned int)DPE_RD32(DVS_ME_40_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_41 = (unsigned int)DPE_RD32(DVS_ME_41_REG);
+
+	//OCC
+	cfg->DPE_Kernel_DpeConfig.DVS_OCC_PQ_0 = (unsigned int)DPE_RD32(DVS_OCC_PQ_0_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_OCC_PQ_1 = (unsigned int)DPE_RD32(DVS_OCC_PQ_1_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_OCC_PQ_2 = (unsigned int)DPE_RD32(DVS_OCC_PQ_2_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_OCC_PQ_3 = (unsigned int)DPE_RD32(DVS_OCC_PQ_3_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_OCC_PQ_4 = (unsigned int)DPE_RD32(DVS_OCC_PQ_4_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_OCC_PQ_5 = (unsigned int)DPE_RD32(DVS_OCC_PQ_5_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_OCC_PQ_6 = (unsigned int)DPE_RD32(DVS_OCC_PQ_6_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_OCC_PQ_7 = (unsigned int)DPE_RD32(DVS_OCC_PQ_7_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_OCC_PQ_8 = (unsigned int)DPE_RD32(DVS_OCC_PQ_8_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_OCC_PQ_9 = (unsigned int)DPE_RD32(DVS_OCC_PQ_9_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_OCC_PQ_10 = (unsigned int)DPE_RD32(DVS_OCC_PQ_10_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_OCC_PQ_11 = (unsigned int)DPE_RD32(DVS_OCC_PQ_11_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_OCC_ATPG = (unsigned int)DPE_RD32(DVS_OCC_ATPG_REG);
+
+	//DVP
+	cfg->DPE_Kernel_DpeConfig.DVP_CTRL00 = (unsigned int)DPE_RD32(DVP_CTRL00_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_CTRL01 = (unsigned int)DPE_RD32(DVP_CTRL01_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_CTRL02 = (unsigned int)DPE_RD32(DVP_CTRL02_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_CTRL03 = (unsigned int)DPE_RD32(DVP_CTRL03_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_CTRL04 = (unsigned int)DPE_RD32(DVP_CTRL04_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_CTRL07 = (unsigned int)DPE_RD32(DVP_CTRL07_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_IRQ_00 = (unsigned int)DPE_RD32(DVP_IRQ_00_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_IRQ_01 = (unsigned int)DPE_RD32(DVP_IRQ_01_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_CTRL_STATUS0 = (unsigned int)DPE_RD32(DVP_CTRL_STATUS0_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_CTRL_STATUS1 = (unsigned int)DPE_RD32(DVP_CTRL_STATUS1_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_CTRL_STATUS2 = (unsigned int)DPE_RD32(DVP_CTRL_STATUS2_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_IRQ_STATUS = (unsigned int)DPE_RD32(DVP_IRQ_STATUS_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_FRM_STATUS0 = (unsigned int)DPE_RD32(DVP_FRM_STATUS0_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_FRM_STATUS2 = (unsigned int)DPE_RD32(DVP_FRM_STATUS2_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_CUR_STATUS = (unsigned int)DPE_RD32(DVP_CUR_STATUS_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_SRC_00 = (unsigned int)DPE_RD32(DVP_SRC_00_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_SRC_01 = (unsigned int)DPE_RD32(DVP_SRC_01_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_SRC_02 = (unsigned int)DPE_RD32(DVP_SRC_02_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_SRC_03 = (unsigned int)DPE_RD32(DVP_SRC_03_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_SRC_04 = (unsigned int)DPE_RD32(DVP_SRC_04_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_SRC_05_Y_FRM0 = (unsigned int)DPE_RD32(DVP_SRC_05_Y_FRM0_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_SRC_06_Y_FRM1 = (unsigned int)DPE_RD32(DVP_SRC_06_Y_FRM1_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_SRC_07_Y_FRM2 = (unsigned int)DPE_RD32(DVP_SRC_07_Y_FRM2_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_SRC_08_Y_FRM3 = (unsigned int)DPE_RD32(DVP_SRC_08_Y_FRM3_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_SRC_09_C_FRM0 = (unsigned int)DPE_RD32(DVP_SRC_09_C_FRM0_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_SRC_10_C_FRM1 = (unsigned int)DPE_RD32(DVP_SRC_10_C_FRM1_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_SRC_11_C_FRM2 = (unsigned int)DPE_RD32(DVP_SRC_11_C_FRM2_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_SRC_12_C_FRM3 = (unsigned int)DPE_RD32(DVP_SRC_12_C_FRM3_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_SRC_13_OCCDV0 = (unsigned int)DPE_RD32(DVP_SRC_13_OCCDV0_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_SRC_14_OCCDV1 = (unsigned int)DPE_RD32(DVP_SRC_14_OCCDV1_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_SRC_15_OCCDV2 = (unsigned int)DPE_RD32(DVP_SRC_15_OCCDV2_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_SRC_16_OCCDV3 = (unsigned int)DPE_RD32(DVP_SRC_16_OCCDV3_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_SRC_17_CRM = (unsigned int)DPE_RD32(DVP_SRC_17_CRM_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_SRC_18_ASF_RMDV =
+	(unsigned int)DPE_RD32(DVP_SRC_18_ASF_RMDV_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_SRC_19_ASF_RDDV =
+	(unsigned int)DPE_RD32(DVP_SRC_19_ASF_RDDV_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_SRC_20_ASF_DV0 =
+	(unsigned int)DPE_RD32(DVP_SRC_20_ASF_DV0_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_SRC_21_ASF_DV1 =
+	(unsigned int)DPE_RD32(DVP_SRC_21_ASF_DV1_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_SRC_22_ASF_DV2 =
+	(unsigned int)DPE_RD32(DVP_SRC_22_ASF_DV2_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_SRC_23_ASF_DV3 =
+	(unsigned int)DPE_RD32(DVP_SRC_23_ASF_DV3_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_SRC_24_WMF_HFDV =
+	(unsigned int)DPE_RD32(DVP_SRC_24_WMF_HFDV_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_SRC_25_WMF_DV0 =
+	(unsigned int)DPE_RD32(DVP_SRC_25_WMF_DV0_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_SRC_26_WMF_DV1 =
+	(unsigned int)DPE_RD32(DVP_SRC_26_WMF_DV1_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_SRC_27_WMF_DV2 =
+	(unsigned int)DPE_RD32(DVP_SRC_27_WMF_DV2_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_SRC_28_WMF_DV3 =
+	(unsigned int)DPE_RD32(DVP_SRC_28_WMF_DV3_REG);
+
+	//CORE
+	cfg->DPE_Kernel_DpeConfig.DVP_CORE_00 = (unsigned int)DPE_RD32(DVP_CORE_00_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_CORE_01 = (unsigned int)DPE_RD32(DVP_CORE_01_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_CORE_02 = (unsigned int)DPE_RD32(DVP_CORE_02_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_CORE_03 = (unsigned int)DPE_RD32(DVP_CORE_03_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_CORE_04 = (unsigned int)DPE_RD32(DVP_CORE_04_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_CORE_05 = (unsigned int)DPE_RD32(DVP_CORE_05_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_CORE_06 = (unsigned int)DPE_RD32(DVP_CORE_06_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_CORE_07 = (unsigned int)DPE_RD32(DVP_CORE_07_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_CORE_08 = (unsigned int)DPE_RD32(DVP_CORE_08_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_CORE_09 = (unsigned int)DPE_RD32(DVP_CORE_09_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_CORE_10 = (unsigned int)DPE_RD32(DVP_CORE_10_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_CORE_11 = (unsigned int)DPE_RD32(DVP_CORE_11_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_CORE_12 = (unsigned int)DPE_RD32(DVP_CORE_12_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_CORE_13 = (unsigned int)DPE_RD32(DVP_CORE_13_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_CORE_14 = (unsigned int)DPE_RD32(DVP_CORE_14_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_CORE_15 = (unsigned int)DPE_RD32(DVP_CORE_15_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_CORE_16 = (unsigned int)DPE_RD32(DVP_CORE_16_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_SRC_CTRL = (unsigned int)DPE_RD32(DVP_SRC_CTRL_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_CTRL_RESERVED = (unsigned int)DPE_RD32(DVP_CTRL_RESERVED_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_CTRL_ATPG = (unsigned int)DPE_RD32(DVP_CTRL_ATPG_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_CRC_OUT_0 = (unsigned int)DPE_RD32(DVP_CRC_OUT_0_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_CRC_OUT_1 = (unsigned int)DPE_RD32(DVP_CRC_OUT_1_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_CRC_OUT_2 = (unsigned int)DPE_RD32(DVP_CRC_OUT_2_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_CRC_CTRL = (unsigned int)DPE_RD32(DVP_CRC_CTRL_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_CRC_OUT = (unsigned int)DPE_RD32(DVP_CRC_OUT_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_CRC_IN = (unsigned int)DPE_RD32(DVP_CRC_IN_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_DRAM_STA = (unsigned int)DPE_RD32(DVP_DRAM_STA_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_DRAM_ULT = (unsigned int)DPE_RD32(DVP_DRAM_ULT_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_DRAM_PITCH = (unsigned int)DPE_RD32(DVP_DRAM_PITCH_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_CORE_CRC_IN = (unsigned int)DPE_RD32(DVP_CORE_CRC_IN_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_EXT_SRC_13_OCCDV0 =
+	(unsigned int)DPE_RD32(DVP_EXT_SRC_13_OCCDV0_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_EXT_SRC_14_OCCDV1 =
+	(unsigned int)DPE_RD32(DVP_EXT_SRC_14_OCCDV1_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_EXT_SRC_15_OCCDV2 =
+	(unsigned int)DPE_RD32(DVP_EXT_SRC_15_OCCDV2_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_EXT_SRC_16_OCCDV3 =
+	(unsigned int)DPE_RD32(DVP_EXT_SRC_16_OCCDV3_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_EXT_SRC_18_ASF_RMDV =
+	(unsigned int)DPE_RD32(DVP_EXT_SRC_18_ASF_RMDV_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_EXT_SRC_19_ASF_RDDV =
+	(unsigned int)DPE_RD32(DVP_EXT_SRC_19_ASF_RDDV_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_EXT_SRC_20_ASF_DV0 =
+	(unsigned int)DPE_RD32(DVP_EXT_SRC_20_ASF_DV0_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_EXT_SRC_21_ASF_DV1 =
+	(unsigned int)DPE_RD32(DVP_EXT_SRC_21_ASF_DV1_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_EXT_SRC_22_ASF_DV2 =
+	(unsigned int)DPE_RD32(DVP_EXT_SRC_22_ASF_DV2_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_EXT_SRC_23_ASF_DV3 =
+	(unsigned int)DPE_RD32(DVP_EXT_SRC_23_ASF_DV3_REG);
+
+	return 0;
+}
+
 static signed int DPE_DumpReg(void)
 #if BYPASS_REG
 {
@@ -4319,12 +4635,12 @@ static inline void DPE_Reset(void)
 {
 	LOG_DBG("- E.");
 	LOG_DBG(" DPE Reset start!\n");
-	spin_lock(&(DPEInfo.SpinLockDPERef));
+	mutex_lock(&(MutexDPERef));
 	if (DPEInfo.UserCount > 1) {
-		spin_unlock(&(DPEInfo.SpinLockDPERef));
+		mutex_unlock(&(MutexDPERef));
 		LOG_DBG("Curr UserCount(%d) users exist", DPEInfo.UserCount);
 	} else {
-		spin_unlock(&(DPEInfo.SpinLockDPERef));
+		mutex_unlock(&(MutexDPERef));
 		/* Reset DPE flow */
 		#ifdef CMdq_en
 		DPE_MASKWR(DVS_CTRL01_REG, 0x70000000, 0x70000000);
@@ -4650,14 +4966,17 @@ static long DPE_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 	/* old: unsigned int flags;*//* FIX to avoid build warning */
 	/*  */
 	if (pFile->private_data == NULL) {
-		LOG_WRN("private_data NULL,(process, pid, tgid)=(%s, %d, %d)",
+		LOG_ERR("private_data NULL,(process, pid, tgid)=(%s, %d, %d)",
 			current->comm,
 				current->pid, current->tgid);
-		return -EFAULT;
+		Ret = -EFAULT;
+		goto EXIT;
 	}
 	/*  */
 	pUserInfo = (struct DPE_USER_INFO_STRUCT *) (pFile->private_data);
 	/*  */
+
+
 	switch (Cmd) {
 	case DPE_RESET:
 		{
@@ -4755,7 +5074,7 @@ static long DPE_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 		{
 			if (copy_from_user(&ClearIrq, (void *)Param,
 				sizeof(struct DPE_CLEAR_IRQ_STRUCT)) == 0) {
-				LOG_DBG("DPE_CLEAR_IRQ Type(%d)",
+				LOG_INF("DPE_CLEAR_IRQ Type(%d)",
 								ClearIrq.Type);
 				if ((ClearIrq.Type >= DPE_IRQ_TYPE_AMOUNT) ||
 							(ClearIrq.Type < 0)) {
@@ -4772,7 +5091,7 @@ static long DPE_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 					Ret = -EFAULT;
 					goto EXIT;
 				}
-				LOG_DBG(
+				LOG_INF(
 				"DPE_CLEAR_IRQ:Type(%d),Status(0x%08X),IrqStatus(0x%08X)\n",
 					ClearIrq.Type, ClearIrq.Status,
 					DPEInfo.IrqInfo.Status[ClearIrq.Type]);
@@ -4792,11 +5111,17 @@ static long DPE_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 	case DPE_ENQNUE_NUM:
 		{
 			if (copy_from_user(&enqueNum, (void *)Param,
-							sizeof(int)) == 0) {
+				sizeof(int)) == 0) {
 				if (DPE_REQUEST_STATE_EMPTY ==
-				    g_DPE_ReqRing.DPEReq_Struct[
-							g_DPE_ReqRing.WriteIdx].
-				    State) {
+					g_DPE_ReqRing.DPEReq_Struct[
+					g_DPE_ReqRing.WriteIdx].
+				  State) {
+					if ((enqueNum < 0) || (enqueNum >
+						_SUPPORT_MAX_DPE_FRAME_REQUEST_)) {
+						LOG_ERR(
+						"DPE Enque Num is bigger Num:%d\n", enqueNum);
+						break;
+					}
 					spin_lock_irqsave(
 					&(DPEInfo.SpinLockIrq[
 						DPE_IRQ_TYPE_INT_DVP_ST]),
@@ -4811,13 +5136,7 @@ static long DPE_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 					spin_unlock_irqrestore(
 					&(DPEInfo.SpinLockIrq[
 					DPE_IRQ_TYPE_INT_DVP_ST]), flags);
-					if (enqueNum >
-					_SUPPORT_MAX_DPE_FRAME_REQUEST_) {
-						LOG_ERR(
-						"DPE Enque Num is bigger than enqueNum:%d\n",
-						     enqueNum);
-					}
-					LOG_DBG(
+					LOG_INF(
 					"DPE_ENQNUE_NUM:%d\n", enqueNum);
 				} else {
 					LOG_ERR(
@@ -4877,9 +5196,9 @@ static long DPE_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 						    (g_DPE_ReqRing.WriteIdx +
 						     1) %
 					_SUPPORT_MAX_DPE_REQUEST_RING_SIZE_;
-						LOG_DBG("DPE enque done!!\n");
+						LOG_INF("DPE enque done!!\n");
 					} else {
-						LOG_DBG("DPE enque frame!!\n");
+						LOG_INF("DPE enque frame!!\n");
 					}
 				} else {
 					LOG_ERR(
@@ -4908,7 +5227,7 @@ static long DPE_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 		{
 			if (copy_from_user(&dpe_DpeReq, (void *)Param,
 					sizeof(struct DPE_Request)) == 0) {
-				LOG_DBG("DPE_ENQNUE_NUM:%d, pid:%d\n",
+				LOG_INF("DPE_ENQNUE_NUM:%d, pid:%d\n",
 					dpe_DpeReq.m_ReqNum, pUserInfo->Pid);
 				if (dpe_DpeReq.m_ReqNum >
 					_SUPPORT_MAX_DPE_FRAME_REQUEST_) {
@@ -4953,7 +5272,7 @@ static long DPE_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 				spin_unlock_irqrestore(
 				&(DPEInfo.SpinLockIrq[DPE_IRQ_TYPE_INT_DVP_ST]),
 						       flags);
-				LOG_DBG("Config DPE Request!!\n");
+				LOG_INF("Config DPE Request!!\n");
 				/* Use a workqueue to set CMDQ to prevent
 				 * HW CMDQ request consuming speed from being
 				 * faster than SW frame-queue update speed.
@@ -5001,7 +5320,7 @@ static long DPE_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 				dequeNum =
 				    g_DPE_ReqRing.DPEReq_Struct[
 					g_DPE_ReqRing.ReadIdx].enqueReqNum;
-				LOG_DBG("DPE_DEQUE_NUM(%d)\n", dequeNum);
+				LOG_INF("DPE_DEQUE_NUM(%d)\n", dequeNum);
 			} else {
 				dequeNum = 0;
 				LOG_ERR(
@@ -5065,7 +5384,7 @@ static long DPE_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 					g_DPE_ReqRing.ReadIdx =
 					(g_DPE_ReqRing.ReadIdx + 1) %
 					_SUPPORT_MAX_DPE_REQUEST_RING_SIZE_;
-					LOG_DBG("DPE ReadIdx(%d)\n",
+					LOG_INF("DPE ReadIdx(%d)\n",
 							g_DPE_ReqRing.ReadIdx);
 				}
 				spin_unlock_irqrestore(
@@ -5412,7 +5731,7 @@ static signed int DPE_open(struct inode *pInode, struct file *pFile)
 	LOG_INF("- E. UserCount: %d.", DPEInfo.UserCount);
 
 	/*  */
-	spin_lock(&(DPEInfo.SpinLockDPERef));
+	mutex_lock(&(MutexDPERef));
 	pFile->private_data = NULL;
 	pFile->private_data = kmalloc(sizeof(struct DPE_USER_INFO_STRUCT),
 								GFP_ATOMIC);
@@ -5421,6 +5740,8 @@ static signed int DPE_open(struct inode *pInode, struct file *pFile)
 								current->comm,
 						current->pid, current->tgid);
 		Ret = -ENOMEM;
+		mutex_unlock(&(MutexDPERef));
+		goto EXIT;
 	} else {
 		pUserInfo = (struct DPE_USER_INFO_STRUCT *) pFile->private_data;
 		pUserInfo->Pid = DPEInfo.UserCount;
@@ -5429,14 +5750,14 @@ static signed int DPE_open(struct inode *pInode, struct file *pFile)
 	/*  */
 	if (DPEInfo.UserCount > 0) {
 		DPEInfo.UserCount++;
-		spin_unlock(&(DPEInfo.SpinLockDPERef));
+		mutex_unlock(&(MutexDPERef));
 		LOG_DBG("Cur Usr(%d), (proc, pid, tgid)=(%s, %d, %d), exist",
 			DPEInfo.UserCount, current->comm, current->pid,
 								current->tgid);
 		goto EXIT;
 	} else {
 		DPEInfo.UserCount++;
-		spin_unlock(&(DPEInfo.SpinLockDPERef));
+
 		/* do wait queue head init when re-enter in camera */
 		/*  */
 		for (i = 0; i < _SUPPORT_MAX_DPE_REQUEST_RING_SIZE_; i++) {
@@ -5473,6 +5794,7 @@ static signed int DPE_open(struct inode *pInode, struct file *pFile)
 		//open dvp
 		dpe_register_requests(&dpe_reqs_dvp, sizeof(struct DPE_Config));
 		dpe_set_engine_ops(&dpe_reqs_dvp, &dpe_ops);
+		mutex_unlock(&(MutexDPERef));
 		//
 		LOG_DBG("Cur Usr(%d), (proc, pid, tgid)=(%s, %d, %d), 1st user",
 			DPEInfo.UserCount, current->comm, current->pid,
@@ -5494,6 +5816,7 @@ static signed int DPE_open(struct inode *pInode, struct file *pFile)
 
 	/* Enable clock */
 	DPE_EnableClock(MTRUE);
+	cmdq_mbox_enable(dpe_clt->chan);
 	g_SuspendCnt = 0;
 	LOG_INF("DPE open g_u4EnableClockCount: %d", g_u4EnableClockCount);
 	/*  */
@@ -5522,22 +5845,24 @@ static signed int DPE_release(struct inode *pInode, struct file *pFile)
 		pFile->private_data = NULL;
 	}
 	/*  */
-	spin_lock(&(DPEInfo.SpinLockDPERef));
+	mutex_lock(&(MutexDPERef));
 	DPEInfo.UserCount--;
 	if (DPEInfo.UserCount > 0) {
-		spin_unlock(&(DPEInfo.SpinLockDPERef));
+		mutex_unlock(&(MutexDPERef));
 		LOG_DBG("Cur UsrCnt(%d), (proc, pid, tgid)=(%s, %d, %d), exist",
 			DPEInfo.UserCount, current->comm, current->pid,
 								current->tgid);
 		goto EXIT;
 	} else {
-		spin_unlock(&(DPEInfo.SpinLockDPERef));
 		dpe_unregister_requests(&dpe_reqs_dvs);
 		dpe_unregister_requests(&dpe_reqs_dvp);
+		mutex_unlock(&(MutexDPERef));
 	}
 	/*  */
 	LOG_INF("Curr UsrCnt(%d), (process, pid, tgid)=(%s, %d, %d), last user",
 		DPEInfo.UserCount, current->comm, current->pid, current->tgid);
+
+	cmdq_mbox_disable(dpe_clt->chan);
 	/* Disable clock. */
 	DPE_EnableClock(MFALSE);
 	LOG_INF("DPE release g_u4EnableClockCount: %d", g_u4EnableClockCount);
@@ -5683,8 +6008,8 @@ static int vidioc_qbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 	struct DPE_USER_INFO_STRUCT *pUserInfo;
 	struct DPE_Request ureq;
 	struct DPE_Request kreq;
-	/* size of cfgs = 2 owing to call stact limitation*/
-	struct DPE_Config cfgs[MAX_FRAMES_VIDIOC_REQUEST];//[MAX_FRAMES_PER_REQUEST];
+	/* size of cfgs = 3 owing to call stact limitation*/
+	struct DPE_Config cfgs[3];//[MAX_FRAMES_PER_REQUEST];
 	struct DPE_Config *pcfgs;
 	//unsigned long flags;
 	unsigned int m_real_ReqNum, f;
@@ -5699,18 +6024,23 @@ static int vidioc_qbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 	#endif
 	pUserInfo = (struct DPE_USER_INFO_STRUCT *) (file->private_data);
 	ret = copy_from_user(&ureq, (void __user *)p->m.userptr, sizeof(ureq));
+	LOG_INF("Copy 1 from userm_ret=%d\n", ret);
 	if (ret != 0)
 		goto EXIT;
-
-	if (ureq.m_ReqNum > MAX_FRAMES_VIDIOC_REQUEST)
+	LOG_INF("Copy 2 from ureq.m_ReqNum =%d\n", ureq.m_ReqNum);
+	//if (ureq.m_ReqNum > MAX_FRAMES_PER_REQUEST)
+	if (ureq.m_ReqNum > 3)
 		goto EXIT;
+	LOG_INF("Copy from userm_ReqNum OK\n");
 	//LOG_INF("[%s]This request has %d configs.\n", __func__, ureq.m_ReqNum);
 	if (ureq.m_pDpeConfig == NULL)
 		goto EXIT;
+	LOG_INF("Copy from user m_pDpeConfig OK\n");
 	ret = copy_from_user(&cfgs[0], (void __user *)ureq.m_pDpeConfig,
 				ureq.m_ReqNum * sizeof(struct DPE_Config));
 	if (ret != 0)
 		goto EXIT;
+	LOG_INF("Copy from user OK\n");
 	m_real_ReqNum = ureq.m_ReqNum;
 	for (f = 0; f < ureq.m_ReqNum; f++) {
 		if (cfgs[f].Dpe_DVSSettings.is_pd_mode) {
@@ -5724,6 +6054,12 @@ static int vidioc_qbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 	#ifdef DPE_debug_log_en
 	LOG_INF("[vidioc qbuf] Dpe engineSelect = %d\n",
 	cfgs[0].Dpe_engineSelect);
+	LOG_INF("[vidioc qbuf] Dpe_RegDump = %lx\n",
+	cfgs[0].Dpe_RegDump);
+	//LOG_INF("[vidioc qbuf] Dpe_RegDump_fd = %d\n",
+	//cfgs[0].DPE_DMapSettings.Dpe_RegDump_fd);
+	LOG_INF("[vidioc qbuf] Dpe_RegDump= %d\n",
+	cfgs[0].Dpe_RegDump);
 	#endif
 
 	//kreq.m_ReqNum = ureq.m_ReqNum;
@@ -5783,15 +6119,15 @@ static int vidioc_dqbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 	signed int Ret = 0;
 	struct DPE_Request ureq;
 	struct DPE_Request kreq;
-	/* size of cfgs = 2 owing to call stact limitation*/
-	struct DPE_Config cfgs[MAX_FRAMES_VIDIOC_REQUEST];
+	/* size of cfgs = 3 owing to call stact limitation*/
+	struct DPE_Config cfgs[3];//[MAX_FRAMES_PER_REQUEST];
 	//unsigned long flags;
 	//unsigned int m_real_ReqNum;
 
 	//struct DPE_Config *pDpeConfig;
 	#ifdef DPE_debug_log_en
 	LOG_INF("DPE_DumpReg  star\n");
-	DPE_DumpReg();//!test
+	//DPE_DumpReg();//!test
 	LOG_INF("DPE_DumpReg end\n");
 	#endif
 	//LOG_INF("[%s]buf address/len = 0x%lx/0x%x, ureq =0x%x\n",
@@ -5806,10 +6142,7 @@ static int vidioc_dqbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 
 		//!mutex_lock(&gDpeDequeMutex);
 		mutex_lock(&gDVSMutex);
-		//spin_lock_irqsave(&(DPEInfo.SpinLockIrq[DPE_IRQ_TYPE_INT_DVP_ST]),
-		//									flags);
 		kreq.m_pDpeConfig = cfgs;
-
 		#ifdef DPE_debug_log_en
 		LOG_INF("[vidioc dqbuf] Dpe_engineSelect = %d\n",
 		cfgs[0].Dpe_engineSelect);
@@ -5833,6 +6166,15 @@ static int vidioc_dqbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 			Ret = -EFAULT;
 			goto EXIT;
 		}
+		//For Register Dump
+		LOG_INF("[vidioc dqbuf] b Dpe_RegDump = %d\n",
+		cfgs[0].Dpe_RegDump);
+
+		if (cfgs[0].Dpe_RegDump == 1)
+			DPE_Dump_kernelReg(&cfgs[0]);//!Kernel Dump
+
+		LOG_INF("[vidioc dqbuf] b DVS_CTRL00 = 0x%x\n",
+		cfgs[0].DPE_Kernel_DpeConfig.DVS_CTRL00);
 		if (copy_to_user
 		    ((void *)ureq.m_pDpeConfig, kreq.m_pDpeConfig,
 		     kreq.m_ReqNum * sizeof(struct DPE_Config)) != 0) {
@@ -5840,18 +6182,18 @@ static int vidioc_dqbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 			    ("DPE_DEQUE_REQ copy_to_user frameconfig failed\n");
 			Ret = -EFAULT;
 		}
-
 		if (copy_to_user
 		    ((void *)p->m.userptr, &ureq, sizeof(ureq)) != 0) {
 			LOG_ERR("DPE_DEQUE_REQ copy_to_user failed\n");
 			Ret = -EFAULT;
 		}
+
 	} else {
 		LOG_ERR("DPE_CMD_DPE_DEQUE_REQ copy_from_user failed\n");
 		Ret = -EFAULT;
 	}
 
-	LOG_DBG("[%s]buf address/len = 0x%lx/0x%x\n",
+	LOG_INF("[%s]buf address/len = 0x%lx/0x%x\n",
 		__func__, p->m.userptr,  p->length);
 EXIT:
 	return 0;
@@ -6172,7 +6514,6 @@ if (DPE_dev->irq > 0) {
 	//pm_runtime_enable(gdev);
 
 		/* Init spinlocks */
-		spin_lock_init(&(DPEInfo.SpinLockDPERef));
 		spin_lock_init(&(DPEInfo.SpinLockDPE));
 		spin_lock_init(&(DPEInfo.SpinLockFD));//!
 		for (n = 0; n < DPE_IRQ_TYPE_AMOUNT; n++)
@@ -6190,9 +6531,9 @@ if (DPE_dev->irq > 0) {
 			tasklet_init(DPE_tasklet[i].pDPE_tkt,
 					DPE_tasklet[i].tkt_cb, 0);
 		/* Init DPEInfo */
-		spin_lock(&(DPEInfo.SpinLockDPERef));
+		mutex_lock(&(MutexDPERef));
 		DPEInfo.UserCount = 0;
-		spin_unlock(&(DPEInfo.SpinLockDPERef));
+		mutex_unlock(&(MutexDPERef));
 		/*  */
 		DPEInfo.IrqInfo.Mask[DPE_IRQ_TYPE_INT_DVP_ST] = INT_ST_MASK_DPE;
 #if defined(DPE_PMQOS_EN) && defined(CONFIG_MTK_QOS_SUPPORT)

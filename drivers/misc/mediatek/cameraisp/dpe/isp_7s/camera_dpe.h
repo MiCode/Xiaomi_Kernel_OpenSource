@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2022 MediaTek Inc.
+ * Copyright (c) 2015 MediaTek Inc.
  */
 
 
@@ -38,8 +38,8 @@
 
 #define DPE_REG_RANGE           (0x1000)
 
-#define DPE_BASE_HW             0x15300000
-
+//#define DPE_BASE_HW             0x15300000
+#define DPE_BASE_HW             0x1B210000
 
 /*This macro is for setting irq status represnted
  * by a local variable,DPEInfo.IrqInfo.Status[DPE_IRQ_TYPE_INT_DPE_ST]

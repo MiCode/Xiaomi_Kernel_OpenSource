@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2022 MediaTek Inc.
+ * Copyright (c) 2015 MediaTek Inc.
  */
 /**************************************************************
  * camera_DPE.c - Linux DPE Device Driver
@@ -145,12 +145,20 @@
 #if !IS_ENABLED(CONFIG_MTK_LEGACY) && IS_ENABLED(CONFIG_COMMON_CLK) /*CCF*/
 #include <linux/clk.h>
 struct DPE_CLK_STRUCT {
-	struct clk *VCORE_GALS;
-	struct clk *MAIN_GALS;
-	struct clk *IMG_IPE;
-	struct clk *IPE_DPE;
-	struct clk *IPE_TOP;
-	struct clk *IPE_SMI_LARB12;
+	struct clk *CLK_TOP_CAM_SEL;
+	struct clk *CLK_TOP_CCUSYS_SEL;
+	struct clk *CLK_TOP_CCU_AHB_SEL;
+	struct clk *CAM_CG;
+	struct clk *CAM_MRAW;
+	struct clk *CAM_CAM2MM0_GALS;
+	struct clk *CAM_CAM2MM1_GALS;
+	struct clk *CAM_CAM2MM2_GALS;
+	struct clk *CAM_CCUSYS;
+	struct clk *CCU_LARB19;
+	struct clk *CLK_CCU_AHB;
+	struct clk *CLK_CCUSYS_CCU0;
+	struct clk *CLK_CCUSYS_CCU1;
+	struct clk *CLK_CCUSYS_DPE;
 };
 struct DPE_CLK_STRUCT dpe_clk;
 #endif
@@ -277,7 +285,8 @@ static DEFINE_MUTEX(gDVSMutex);
 struct DPE_device {
 	void __iomem *regs;
 	struct device *dev;
-	struct device		*larb12;
+	//struct device		*larb12;
+	struct device		*larb19;
 	int irq;
 // V4L2
 	struct v4l2_device v4l2_dev;
@@ -4492,41 +4501,85 @@ static inline void DPE_Prepare_Enable_ccf_clock(void)
 	if (pm_runtime_get_sync(gdev))
 		LOG_INF("pm_runtime_get_sync fail\n");
 
-	ret = clk_prepare_enable(dpe_clk.VCORE_GALS);
+	ret = clk_prepare_enable(dpe_clk.CLK_TOP_CAM_SEL);
 	if (ret)
-		LOG_INF("cannot prepare and enable VCORE_GALS clock\n");
+		LOG_INF("cannot prepare and enable CLK_TOP_CAM_SEL clock\n");
 
-	ret = clk_prepare_enable(dpe_clk.MAIN_GALS);
+	ret = clk_prepare_enable(dpe_clk.CLK_TOP_CCUSYS_SEL);
 	if (ret)
-		LOG_INF("cannot prepare and enable MAIN_GALS clock\n");
+		LOG_INF("cannot prepare and enable CLK_TOP_CCUSYS_SEL clock\n");
 
-	ret = clk_prepare_enable(dpe_clk.IMG_IPE);
+	ret = clk_prepare_enable(dpe_clk.CLK_TOP_CCU_AHB_SEL);
 	if (ret)
-		LOG_INF("cannot prepare and enable IMG_IPE clock\n");
-	ret = clk_prepare_enable(dpe_clk.IPE_DPE);
-	if (ret)
-		LOG_INF("cannot prepare and enable IPE_DPE clock\n");
+		LOG_INF("cannot prepare and enable CLK_TOP_CCU_AHB_SEL clock\n");
 
-	ret = clk_prepare_enable(dpe_clk.IPE_SMI_LARB12);
+	ret = clk_prepare_enable(dpe_clk.CAM_CG);
 	if (ret)
-		LOG_INF("cannot prepare and enable IPE_SMI_LARB12 clock\n");
+		LOG_INF("cannot prepare and enable CAM_CG clock\n");
 
-		ret = clk_prepare_enable(dpe_clk.IPE_TOP);
+	ret = clk_prepare_enable(dpe_clk.CAM_MRAW);
 	if (ret)
-		LOG_INF("cannot prepare and enable IPE_TOP clock\n");
+		LOG_INF("cannot prepare and enable CAM_MRAW clock\n");
 
-	LOG_INF("DPE_Prepare_Enable_ccf_clock_end\n");
+	ret = clk_prepare_enable(dpe_clk.CAM_CAM2MM0_GALS);
+	if (ret)
+		LOG_INF("cannot prepare and enable CAM_CAM2MM0_GALS clock\n");
+
+	ret = clk_prepare_enable(dpe_clk.CAM_CAM2MM1_GALS);
+	if (ret)
+		LOG_INF("cannot prepare and enable CAM_CAM2MM1_GALS clock\n");
+
+	ret = clk_prepare_enable(dpe_clk.CAM_CAM2MM2_GALS);
+	if (ret)
+		LOG_INF("cannot prepare and enable CAM_CAM2MM2_GALS clock\n");
+
+	ret = clk_prepare_enable(dpe_clk.CAM_CCUSYS);
+	if (ret)
+		LOG_INF("cannot prepare and enable CAM_CCUSYS clock\n");
+
+	ret = clk_prepare_enable(dpe_clk.CCU_LARB19);
+	if (ret)
+		LOG_INF("cannot prepare and enable CCU_LARB19 clock\n");
+
+	ret = clk_prepare_enable(dpe_clk.CLK_CCU_AHB);
+	if (ret)
+		LOG_INF("cannot prepare and enable CLK_CCU_AHB clock\n");
+
+	ret = clk_prepare_enable(dpe_clk.CLK_CCUSYS_CCU0);
+	if (ret)
+		LOG_INF("cannot prepare and enable CLK_CCUSYS_CCU0 clock\n");
+
+	ret = clk_prepare_enable(dpe_clk.CLK_CCUSYS_CCU1);
+	if (ret)
+		LOG_INF("cannot prepare and enable CLK_CCUSYS_CCU1 clock\n");
+
+	ret = clk_prepare_enable(dpe_clk.CLK_CCUSYS_DPE);
+	if (ret)
+		LOG_INF("cannot prepare and enable CLK_CCUSYS_DPE clock\n");
+
+LOG_INF("DPE_Prepare_Enable_ccf_clock_end\n");
 
 }
 static inline void DPE_Disable_Unprepare_ccf_clock(void)
 {
-	clk_disable_unprepare(dpe_clk.VCORE_GALS);
-	clk_disable_unprepare(dpe_clk.MAIN_GALS);
-	clk_disable_unprepare(dpe_clk.IMG_IPE);
-	clk_disable_unprepare(dpe_clk.IPE_DPE);
-	clk_disable_unprepare(dpe_clk.IPE_SMI_LARB12);
-	clk_disable_unprepare(dpe_clk.IPE_TOP);
+
+	clk_disable_unprepare(dpe_clk.CLK_TOP_CAM_SEL);
+	clk_disable_unprepare(dpe_clk.CLK_TOP_CCUSYS_SEL);
+	clk_disable_unprepare(dpe_clk.CLK_TOP_CCU_AHB_SEL);
+	clk_disable_unprepare(dpe_clk.CAM_CG);
+	clk_disable_unprepare(dpe_clk.CAM_MRAW);
+	clk_disable_unprepare(dpe_clk.CAM_CAM2MM0_GALS);
+	clk_disable_unprepare(dpe_clk.CAM_CAM2MM1_GALS);
+	clk_disable_unprepare(dpe_clk.CAM_CAM2MM2_GALS);
+	clk_disable_unprepare(dpe_clk.CAM_CCUSYS);
+	clk_disable_unprepare(dpe_clk.CCU_LARB19);
+	clk_disable_unprepare(dpe_clk.CLK_CCU_AHB);
+	clk_disable_unprepare(dpe_clk.CLK_CCUSYS_CCU0);
+	clk_disable_unprepare(dpe_clk.CLK_CCUSYS_CCU1);
+	clk_disable_unprepare(dpe_clk.CLK_CCUSYS_DPE);
+
 	pm_runtime_put_sync(gdev);
+	LOG_INF("	DPE_Disable_Unprepare_ccf_clock	 end\n");
 }
 #endif
 /**************************************************************
@@ -4542,7 +4595,7 @@ static void DPE_EnableClock(bool En)
 	int ret = 0;
 #endif
 	if (En) {		/* Enable clock. */
-/* LOG_DBG("clock enbled. g_u4EnableClockCount: %d.", g_u4EnableClockCount); */
+ /* LOG_DBG("clock enbled. g_u4EnableClockCount: %d.", g_u4EnableClockCount); */
 		//mutex_lock(&gDpeMutex);	//!
 		spin_lock(&(DPEInfo.SpinLockDPE));
 		switch (g_u4EnableClockCount) {
@@ -4910,7 +4963,7 @@ static signed int DPE_WaitIrq(struct DPE_WAIT_IRQ_STRUCT *WaitIrq)
 			DPEInfo.WriteReqIdx, DPEInfo.ReadReqIdx);
 		if (WaitIrq->bDumpReg) {
 			DPE_DumpReg();
-			dpe_request_dump(&dpe_reqs_dvs);
+			dpe_request_dump_isp7s(&dpe_reqs_dvs);
 		}
 		Ret = -EFAULT;
 		goto EXIT;
@@ -5259,13 +5312,13 @@ static long DPE_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 				kDpeReq.m_pDpeConfig->Dpe_engineSelect);
 
 				if (kDpeReq.m_pDpeConfig->Dpe_engineSelect == MODE_DVS_ONLY) {
-					enqnum = dpe_enque_request(&dpe_reqs_dvs,
+					enqnum = dpe_enque_request_isp7s(&dpe_reqs_dvs,
 					kDpeReq.m_ReqNum, &kDpeReq, pUserInfo->Pid);
 				}
 				if ((kDpeReq.m_pDpeConfig->Dpe_engineSelect == MODE_DVP_ONLY) ||
 					(kDpeReq.m_pDpeConfig->Dpe_engineSelect ==
 					MODE_DVS_DVP_BOTH)) {
-					enqnum = dpe_enque_request(&dpe_reqs_dvp,
+					enqnum = dpe_enque_request_isp7s(&dpe_reqs_dvp,
 					kDpeReq.m_ReqNum, &kDpeReq, pUserInfo->Pid);
 				}
 
@@ -5278,13 +5331,13 @@ static long DPE_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 				 * faster than SW frame-queue update speed.
 				 */
 				if (kDpeReq.m_pDpeConfig->Dpe_engineSelect == MODE_DVS_ONLY) {
-					req_temp = dpe_request_running(&dpe_reqs_dvs);
+					req_temp = dpe_request_running_isp7s(&dpe_reqs_dvs);
 					//LOG_INF("[DPE ioctl]dpe_request_running star = %d\n",
 					//req_temp);
 					if (!req_temp) {
-						//if (!dpe_request_running(&dpe_reqs)) {
+						//if (!dpe_request_running_isp7s(&dpe_reqs)) {
 						LOG_INF("[dvs]direct request_handler\n");
-						dpe_request_handler(&dpe_reqs_dvs,
+						dpe_request_handler_isp7s(&dpe_reqs_dvs,
 						&(DPEInfo.SpinLockIrq[
 						DPE_IRQ_TYPE_INT_DVP_ST]));
 					}
@@ -5293,12 +5346,12 @@ static long DPE_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 				if ((kDpeReq.m_pDpeConfig->Dpe_engineSelect == MODE_DVP_ONLY) ||
 					(kDpeReq.m_pDpeConfig->Dpe_engineSelect ==
 					MODE_DVS_DVP_BOTH)) {
-					req_temp = dpe_request_running(&dpe_reqs_dvp);
-					LOG_INF("[DPE ioctl]dpe_request_running star = %d\n",
+					req_temp = dpe_request_running_isp7s(&dpe_reqs_dvp);
+					LOG_INF("[DPE ioctl]dpe_request_running_isp7s star = %d\n",
 					req_temp);
 					if (!req_temp) {
 						LOG_INF("[DPE ioctl DVP]direct request_handler\n");
-						dpe_request_handler(&dpe_reqs_dvp,
+						dpe_request_handler_isp7s(&dpe_reqs_dvp,
 						&(DPEInfo.SpinLockIrq[
 						DPE_IRQ_TYPE_INT_DVP_ST]));
 					}
@@ -5429,13 +5482,13 @@ static long DPE_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 					g_DpeDequeReq_Struct.DpeFrameConfig;
 
 				if (kDpeReq.m_pDpeConfig->Dpe_engineSelect == MODE_DVS_ONLY)
-					dpe_deque_request(&dpe_reqs_dvs,
+					dpe_deque_request_isp7s(&dpe_reqs_dvs,
 					&kDpeReq.m_ReqNum, &kDpeReq);
 
 
 				if ((kDpeReq.m_pDpeConfig->Dpe_engineSelect == MODE_DVP_ONLY) ||
 					(kDpeReq.m_pDpeConfig->Dpe_engineSelect == 0))
-					dpe_deque_request(&dpe_reqs_dvp,
+					dpe_deque_request_isp7s(&dpe_reqs_dvp,
 					&kDpeReq.m_ReqNum, &kDpeReq);
 
 
@@ -5789,11 +5842,11 @@ static signed int DPE_open(struct inode *pInode, struct file *pFile)
 			DPEInfo.IrqInfo.DpeIrqCnt[i] = 0;
 		/*  */
 		//open dvs
-		dpe_register_requests(&dpe_reqs_dvs, sizeof(struct DPE_Config));
-		dpe_set_engine_ops(&dpe_reqs_dvs, &dpe_ops);
+		dpe_register_requests_isp7s(&dpe_reqs_dvs, sizeof(struct DPE_Config));
+		dpe_set_engine_ops_isp7s(&dpe_reqs_dvs, &dpe_ops);
 		//open dvp
-		dpe_register_requests(&dpe_reqs_dvp, sizeof(struct DPE_Config));
-		dpe_set_engine_ops(&dpe_reqs_dvp, &dpe_ops);
+		dpe_register_requests_isp7s(&dpe_reqs_dvp, sizeof(struct DPE_Config));
+		dpe_set_engine_ops_isp7s(&dpe_reqs_dvp, &dpe_ops);
 		mutex_unlock(&(MutexDPERef));
 		//
 		LOG_DBG("Cur Usr(%d), (proc, pid, tgid)=(%s, %d, %d), 1st user",
@@ -5836,7 +5889,7 @@ static signed int DPE_release(struct inode *pInode, struct file *pFile)
 {
 	struct DPE_USER_INFO_STRUCT *pUserInfo;
 	/*unsigned int Reg;*/
-	LOG_DBG("- E. UserCount: %d.", DPEInfo.UserCount);
+	LOG_DBG("- E. release UserCount: %d.", DPEInfo.UserCount);
 	/*  */
 	if (pFile->private_data != NULL) {
 		pUserInfo =
@@ -5854,8 +5907,8 @@ static signed int DPE_release(struct inode *pInode, struct file *pFile)
 								current->tgid);
 		goto EXIT;
 	} else {
-		dpe_unregister_requests(&dpe_reqs_dvs);
-		dpe_unregister_requests(&dpe_reqs_dvp);
+		dpe_unregister_requests_isp7s(&dpe_reqs_dvs);
+		dpe_unregister_requests_isp7s(&dpe_reqs_dvp);
 		mutex_unlock(&(MutexDPERef));
 	}
 	/*  */
@@ -5910,7 +5963,7 @@ static inline signed int DPE_RegCharDev(void)
 {
 	signed int Ret = 0;
 	/*  */
-	LOG_DBG("- E.");
+	LOG_INF("- E.");
 	/*  */
 	Ret = alloc_chrdev_region(&DPEDevNo, 0, 1, DPE_DEV_NAME);
 	if (Ret < 0) {
@@ -5939,7 +5992,7 @@ EXIT:
 	if (Ret < 0)
 		DPE_UnregCharDev();
 	/*  */
-	LOG_DBG("- X.");
+	LOG_INF("- X.");
 	return Ret;
 }
 /*******************************************************************************
@@ -6068,12 +6121,12 @@ static int vidioc_qbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 	//spin_lock_irqsave(&(DPEInfo.SpinLockIrq[DPE_IRQ_TYPE_INT_DVP_ST]),
 	//		       flags);
 	if (cfgs[0].Dpe_engineSelect == MODE_DVS_ONLY)
-		dpe_enque_request(&dpe_reqs_dvs, kreq.m_ReqNum, &kreq, pUserInfo->Pid);
+		dpe_enque_request_isp7s(&dpe_reqs_dvs, kreq.m_ReqNum, &kreq, pUserInfo->Pid);
 
 
 	if ((cfgs[0].Dpe_engineSelect == MODE_DVP_ONLY) ||
 			(cfgs[0].Dpe_engineSelect == MODE_DVS_DVP_BOTH))
-		dpe_enque_request(&dpe_reqs_dvp, kreq.m_ReqNum, &kreq, pUserInfo->Pid);
+		dpe_enque_request_isp7s(&dpe_reqs_dvp, kreq.m_ReqNum, &kreq, pUserInfo->Pid);
 
 
 	//spin_unlock_irqrestore(&(DPEInfo.SpinLockIrq[DPE_IRQ_TYPE_INT_DVP_ST]),
@@ -6083,27 +6136,27 @@ static int vidioc_qbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 	 */
 
 	if (cfgs[0].Dpe_engineSelect == MODE_DVS_ONLY) {
-		temp_req = dpe_request_running(&dpe_reqs_dvs);
+		temp_req = dpe_request_running_isp7s(&dpe_reqs_dvs);
 		#ifdef DPE_debug_log_en
-		LOG_INF("[vidioc qbuf]dpe_request_running stat = %d\n", temp_req);
+		LOG_INF("[vidioc qbuf]dpe_request_running_isp7s stat = %d\n", temp_req);
 		#endif
 		if (!temp_req) {
-			//if (!dpe_request_running(&dpe_reqs)) {
+			//if (!dpe_request_running_isp7s(&dpe_reqs)) {
 			//LOG_INF("[vidioc_qbuf]direct request_handler\n");
-			dpe_request_handler(&dpe_reqs_dvs,
+			dpe_request_handler_isp7s(&dpe_reqs_dvs,
 			&(DPEInfo.SpinLockIrq[DPE_IRQ_TYPE_INT_DVP_ST]));
 		}
 	}
 	if ((cfgs[0].Dpe_engineSelect == MODE_DVP_ONLY) ||
 		(cfgs[0].Dpe_engineSelect == MODE_DVS_DVP_BOTH)) {
-		temp_req = dpe_request_running(&dpe_reqs_dvp);
+		temp_req = dpe_request_running_isp7s(&dpe_reqs_dvp);
 		#ifdef DPE_debug_log_en
-		LOG_INF("[vidioc qbuf]dpe_request_running stat = %d\n", temp_req);
+		LOG_INF("[vidioc qbuf]dpe_request_running_isp7s stat = %d\n", temp_req);
 		#endif
 		if (!temp_req) {
-			//if (!dpe_request_running(&dpe_reqs)) {
+			//if (!dpe_request_running_isp7s(&dpe_reqs)) {
 			//LOG_INF("[vidioc_qbuf]direct request_handler\n");
-			dpe_request_handler(&dpe_reqs_dvp,
+			dpe_request_handler_isp7s(&dpe_reqs_dvp,
 			&(DPEInfo.SpinLockIrq[DPE_IRQ_TYPE_INT_DVP_ST]));
 		}
 	}
@@ -6126,9 +6179,9 @@ static int vidioc_dqbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 
 	//struct DPE_Config *pDpeConfig;
 	#ifdef DPE_debug_log_en
-	LOG_INF("DPE_DumpReg  star\n");
+	//LOG_INF("DPE_DumpReg  star\n");
 	//DPE_DumpReg();//!test
-	LOG_INF("DPE_DumpReg end\n");
+	//LOG_INF("DPE_DumpReg end\n");
 	#endif
 	//LOG_INF("[%s]buf address/len = 0x%lx/0x%x, ureq =0x%x\n",
 	//__func__, p->m.userptr,  p->length, sizeof(ureq));
@@ -6148,12 +6201,12 @@ static int vidioc_dqbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 		cfgs[0].Dpe_engineSelect);
 		#endif
 		if (cfgs[0].Dpe_engineSelect == MODE_DVS_ONLY)
-			dpe_deque_request(&dpe_reqs_dvs, &kreq.m_ReqNum, &kreq);
+			dpe_deque_request_isp7s(&dpe_reqs_dvs, &kreq.m_ReqNum, &kreq);
 
 
 		if ((cfgs[0].Dpe_engineSelect == MODE_DVP_ONLY) ||
 				(cfgs[0].Dpe_engineSelect == MODE_DVS_DVP_BOTH)) {
-			dpe_deque_request(&dpe_reqs_dvp, &kreq.m_ReqNum, &kreq);
+			dpe_deque_request_isp7s(&dpe_reqs_dvp, &kreq.m_ReqNum, &kreq);
 		}
 
 		//spin_unlock_irqrestore(&(DPEInfo.SpinLockIrq[DPE_IRQ_TYPE_INT_DVP_ST]),
@@ -6374,14 +6427,12 @@ if (DPE_dev->irq > 0) {
 	pm_runtime_enable(DPE_dev->dev);
 	if (!pm_runtime_enabled(DPE_dev->dev))
 		goto EXIT;
-
 	//dma_set_mask_and_coherent(DPE_dev->dev, DMA_BIT_MASK(34));
 	ret = dma_set_max_seg_size(DPE_dev->dev, (unsigned int)DMA_BIT_MASK(34));
 	if (ret) {
 		dev_dbg(DPE_dev->dev, "Failed to set DMA segment size\n");
 		goto EXIT;
 	}
-
 	/* Only register char driver in the 1st time */
 	if (nr_DPE_devs == 2) {
 		/* Register char driver */
@@ -6393,13 +6444,14 @@ if (DPE_dev->irq > 0) {
 #ifndef EP_NO_CLKMGR
 #if !IS_ENABLED(CONFIG_MTK_LEGACY) && IS_ENABLED(CONFIG_COMMON_CLK) /*CCF*/
 #ifdef SMI_CLK
-		LOG_INF("nr_DPE_devs=%d, devnode(%s)\n", nr_DPE_devs,
+
+		LOG_INF("2 nr_DPE_devs=%d, devnode(%s)\n", nr_DPE_devs,
 		pDev->dev.of_node->name);
-	/*larb12*/
+	/*larb19*/
 		node = of_parse_phandle(pDev->dev.of_node, "mediatek,larb", 0);
-		LOG_INF("larb12 node =%x\n", node);
+		LOG_INF("larb19 node =%x\n", node);
 		if (!node) {
-			LOG_INF("no get larb12 node\n");
+			LOG_INF("no get larb19 node\n");
 			return -EINVAL;
 		}
 
@@ -6409,50 +6461,109 @@ if (DPE_dev->irq > 0) {
 			return -EINVAL;
 		}
 		of_node_put(node);
-		DPE_devs->larb12 = &DPE_pdev->dev;
+		DPE_devs->larb19 = &DPE_pdev->dev;
 #endif
 		/*CCF: Grab clock pointer (struct clk*) */
 		LOG_INF(" get clock node star\n");
 
-		dpe_clk.VCORE_GALS = devm_clk_get(&pDev->dev,
-							"VCORE_GALS");
-		if (IS_ERR(dpe_clk.VCORE_GALS)) {
-			LOG_INF("cannot get VCORE_GALS clock\n");
-			return PTR_ERR(dpe_clk.VCORE_GALS);
+		dpe_clk.CLK_TOP_CAM_SEL = devm_clk_get(&pDev->dev,
+							"CLK_TOP_CAM_SEL");
+		if (IS_ERR(dpe_clk.CLK_TOP_CAM_SEL)) {
+			LOG_INF("cannot get CLK_TOP_CAM_SEL clock\n");
+			//return PTR_ERR(dpe_clk.CLK_TOP_CAM);
 		}
 
-		dpe_clk.MAIN_GALS = devm_clk_get(&pDev->dev,
-							"MAIN_GALS");
-		if (IS_ERR(dpe_clk.MAIN_GALS)) {
-			LOG_INF("cannot get MAIN_GALS clock\n");
-			return PTR_ERR(dpe_clk.MAIN_GALS);
+		dpe_clk.CLK_TOP_CCUSYS_SEL = devm_clk_get(&pDev->dev,
+							"CLK_TOP_CCUSYS_SEL");
+		if (IS_ERR(dpe_clk.CLK_TOP_CCUSYS_SEL)) {
+			LOG_INF("cannot get CLK_TOP_CCUSYS_SEL clock\n");
+			//return PTR_ERR(dpe_clk.CLK_TOP_CCUSYS_SEL);
 		}
 
-		dpe_clk.IMG_IPE = devm_clk_get(&pDev->dev,
-							"IMG_IPE");
-		if (IS_ERR(dpe_clk.IMG_IPE)) {
-			LOG_INF("cannot get IMG_IPE clock\n");
-			return PTR_ERR(dpe_clk.IMG_IPE);
-		}
-		dpe_clk.IPE_DPE = devm_clk_get(&pDev->dev,
-							"IPE_DPE");
-		if (IS_ERR(dpe_clk.IPE_DPE)) {
-			LOG_INF("cannot get IPE_DPE clock\n");
-			return PTR_ERR(dpe_clk.IPE_DPE);
-		}
-		dpe_clk.IPE_SMI_LARB12 = devm_clk_get(&pDev->dev,
-							"IPE_SMI_LARB12");
-		if (IS_ERR(dpe_clk.IPE_SMI_LARB12)) {
-			LOG_INF("cannot get IPE_SMI_LARB12 clock\n");
-			return PTR_ERR(dpe_clk.IPE_SMI_LARB12);
+		dpe_clk.CLK_TOP_CCU_AHB_SEL = devm_clk_get(&pDev->dev,
+							"CLK_TOP_CCU_AHB_SEL");
+		if (IS_ERR(dpe_clk.CLK_TOP_CCU_AHB_SEL)) {
+			LOG_INF("cannot get CLK_TOP_CCU_AHB_SEL clock\n");
+			//return PTR_ERR(dpe_clk.CLK_TOP_CCU_AHB_SEL);
 		}
 
-		dpe_clk.IPE_TOP = devm_clk_get(&pDev->dev,
-							"IPE_TOP");
-		if (IS_ERR(dpe_clk.IPE_TOP)) {
-			LOG_INF("cannot get IPE_TOP clock\n");
-			return PTR_ERR(dpe_clk.IPE_TOP);
+		dpe_clk.CAM_CG = devm_clk_get(&pDev->dev,
+							"CAM_CG");
+		if (IS_ERR(dpe_clk.CAM_CG)) {
+			LOG_INF("cannot get CAM_CG clock\n");
+			//return PTR_ERR(dpe_clk.CAM_CG);
 		}
+
+		dpe_clk.CAM_MRAW = devm_clk_get(&pDev->dev,
+							"CAM_MRAW");
+		if (IS_ERR(dpe_clk.CAM_MRAW)) {
+			LOG_INF("cannot get CAM_MRAW clock\n");
+			//return PTR_ERR(dpe_clk.CAM_MRAW);
+		}
+
+		dpe_clk.CAM_CAM2MM0_GALS = devm_clk_get(&pDev->dev,
+							"CAM_CAM2MM0_GALS");
+		if (IS_ERR(dpe_clk.CAM_CAM2MM0_GALS)) {
+			LOG_INF("cannot get CAM_CAM2MM0_GALS clock\n");
+			//return PTR_ERR(dpe_clk.CAM_CAM2MM0_GALS);
+		}
+
+		dpe_clk.CAM_CAM2MM1_GALS = devm_clk_get(&pDev->dev,
+							"CAM_CAM2MM1_GALS");
+		if (IS_ERR(dpe_clk.CAM_CAM2MM1_GALS)) {
+			LOG_INF("cannot get CAM_CAM2MM1_GALS clock\n");
+			//return PTR_ERR(dpe_clk.CAM_CAM2MM1_GALS);
+		}
+
+		dpe_clk.CAM_CAM2MM2_GALS = devm_clk_get(&pDev->dev,
+							"CAM_CAM2MM2_GALS");
+		if (IS_ERR(dpe_clk.CAM_CAM2MM2_GALS)) {
+			LOG_INF("cannot get CAM_CAM2MM2_GALS clock\n");
+			//return PTR_ERR(dpe_clk.CAM_CAM2MM2_GALS);
+		}
+
+		dpe_clk.CAM_CCUSYS = devm_clk_get(&pDev->dev,
+							"CAM_CCUSYS");
+		if (IS_ERR(dpe_clk.CAM_CCUSYS)) {
+			LOG_INF("cannot get CAM_CCUSYS clock\n");
+			//return PTR_ERR(dpe_clk.CAM_CCUSYS);
+		}
+
+		dpe_clk.CCU_LARB19 = devm_clk_get(&pDev->dev,
+							"CCU_LARB19");
+		if (IS_ERR(dpe_clk.CCU_LARB19)) {
+			LOG_INF("cannot get CCU_LARB19 clock\n");
+			//return PTR_ERR(dpe_clk.CCU_LARB19);
+		}
+
+		dpe_clk.CLK_CCU_AHB = devm_clk_get(&pDev->dev,
+							"CLK_CCU_AHB");
+		if (IS_ERR(dpe_clk.CLK_CCU_AHB)) {
+			LOG_INF("cannot get CLK_CCU_AHB clock\n");
+			//return PTR_ERR(dpe_clk.CLK_CCU_AHB);
+		}
+
+		dpe_clk.CLK_CCUSYS_CCU0 = devm_clk_get(&pDev->dev,
+							"CLK_CCUSYS_CCU0");
+		if (IS_ERR(dpe_clk.CLK_CCUSYS_CCU0)) {
+			LOG_INF("cannot get CLK_CCUSYS_CCU0 clock\n");
+			//return PTR_ERR(dpe_clk.CLK_CCUSYS_CCU0);
+		}
+
+		dpe_clk.CLK_CCUSYS_CCU1 = devm_clk_get(&pDev->dev,
+							"CLK_CCUSYS_CCU1");
+		if (IS_ERR(dpe_clk.CLK_CCUSYS_CCU1)) {
+			LOG_INF("cannot get CLK_CCUSYS_CCU0 clock\n");
+			//return PTR_ERR(dpe_clk.CLK_CCUSYS_CCU1);
+		}
+
+		dpe_clk.CLK_CCUSYS_DPE = devm_clk_get(&pDev->dev,
+							"CLK_CCUSYS_DPE");
+		if (IS_ERR(dpe_clk.CLK_CCUSYS_DPE)) {
+			LOG_INF("cannot get CLK_CCUSYS_DPE clock\n");
+			//return PTR_ERR(dpe_clk.CLK_CCUSYS_DPE);
+		}
+
 #endif
 #endif
 		/* Create class register */
@@ -7060,7 +7171,7 @@ int32_t DPE_DumpCallback(uint64_t engineFlag, int level)
 {
 	LOG_DBG("DPE DumpCallback");
 	DPE_DumpReg();
-	dpe_request_dump(&dpe_reqs_dvs);
+	dpe_request_dump_isp7s(&dpe_reqs_dvs);
 	return 0;
 }
 int32_t DPE_ResetCallback(uint64_t engineFlag)
@@ -7165,49 +7276,52 @@ static signed int __init DPE_Init(void)
 			   DPE_DumpCallback, DPE_ResetCallback,
 							DPE_ClockOffCallback);
 #endif
-LOG_INF("CONFIG_MTK_M4U");
+LOG_INF("CONFIG_MTK_M4U 530");
 #if IS_ENABLED(CONFIG_MTK_M4U)
 LOG_INF("MTK_DPE_VER = %d", MTK_DPE_VER);
 #if IS_ENABLED(CONFIG_MTK_IOMMU_V2)
+LOG_INF("- E. MTK_DPE_VER Ster");
 	#if (MTK_DPE_VER == 0)
-	mtk_iommu_register_fault_callback(M4U_PORT_L12_IMG_DVP_WDMA,
+	mtk_iommu_register_fault_callback(M4U_PORT_L19_DVS_RDMA,
 					  DPE_M4U_TranslationFault_callback,
 					  NULL);
-	mtk_iommu_register_fault_callback(M4U_PORT_L12_IMG_DVP_RDMA,
+	mtk_iommu_register_fault_callback(M4U_PORT_L19_DVS_WDMA,
 					  DPE_M4U_TranslationFault_callback,
 					  NULL);
-	mtk_iommu_register_fault_callback(M4U_PORT_L12_IMG_DVS_WDMA,
+	mtk_iommu_register_fault_callback(M4U_PORT_L19_DVP_RDMA,
 					  DPE_M4U_TranslationFault_callback,
 					  NULL);
-	mtk_iommu_register_fault_callback(M4U_PORT_L12_IMG_DVS_RDMA,
+	mtk_iommu_register_fault_callback(M4U_PORT_L19_DVP_WDMA,
 					  DPE_M4U_TranslationFault_callback,
 					  NULL);
 	#else
-	mtk_iommu_register_fault_callback(M4U_PORT_L12_IMG_DVP_RDMA,
+	mtk_iommu_register_fault_callback(M4U_PORT_L19_DVS_RDMA,
 					  DPE_M4U_TranslationFault_callback,
 					  NULL);
-	mtk_iommu_register_fault_callback(M4U_PORT_L12_IMG_DVP_WDMA,
+	mtk_iommu_register_fault_callback(M4U_PORT_L19_DVS_WDMA,
 					  DPE_M4U_TranslationFault_callback,
 					  NULL);
-	mtk_iommu_register_fault_callback(M4U_PORT_L12_IMG_DVS_WDMA,
+	mtk_iommu_register_fault_callback(M4U_PORT_L19_DVP_RDMA,
 					  DPE_M4U_TranslationFault_callback,
 					  NULL);
-	mtk_iommu_register_fault_callback(M4U_PORT_L12_IMG_DVS_RDMA,
+	mtk_iommu_register_fault_callback(M4U_PORT_L19_DVP_WDMA,
 					  DPE_M4U_TranslationFault_callback,
 					  NULL);
+
 	#endif
 #else
 	#if (MTK_DPE_VER == 0)
 	LOG_INF("m4u_register_fault_callback");
-	m4u_register_fault_callback(M4U_PORT_L12_IMG_DVS_RDMA,
+	m4u_register_fault_callback(M4U_PORT_L19_DVS_RDMA,
 			DPE_M4U_TranslationFault_callback, NULL);
-	m4u_register_fault_callback(M4U_PORT_L12_IMG_DVS_WDMA,
+	m4u_register_fault_callback(M4U_PORT_L19_DVS_WDMA,
 			DPE_M4U_TranslationFault_callback, NULL);
-	m4u_register_fault_callback(M4U_PORT_L12_IMG_DVP_RDMA,
+	m4u_register_fault_callback(M4U_PORT_L19_DVP_RDMA,
 			DPE_M4U_TranslationFault_callback, NULL);
-	m4u_register_fault_callback(M4U_PORT_L12_IMG_DVP_WDMA,
+	m4u_register_fault_callback(M4U_PORT_L19_DVP_WDMA,
 			DPE_M4U_TranslationFault_callback, NULL);
 	#endif
+
 #endif
 #endif
 
@@ -7247,11 +7361,11 @@ void DPE_ScheduleWork(struct work_struct *data)
 	if (DPE_DBG_DBGLOG & DPEInfo.DebugMask)
 		LOG_INF("- E.");
 
-	dpe_request_handler(&dpe_reqs_dvs,
+	dpe_request_handler_isp7s(&dpe_reqs_dvs,
 			&(DPEInfo.SpinLockIrq[DPE_IRQ_TYPE_INT_DVP_ST]));
 
 
-	if (!dpe_request_running(&dpe_reqs_dvs))
+	if (!dpe_request_running_isp7s(&dpe_reqs_dvs))
 		LOG_INF("[%s]no more requests", __func__);
 
 }
@@ -7262,11 +7376,11 @@ void DVP_ScheduleWork(struct work_struct *data)
 	if (DPE_DBG_DBGLOG & DPEInfo.DebugMask)
 		LOG_INF("- E.");
 
-	dpe_request_handler(&dpe_reqs_dvp,
+	dpe_request_handler_isp7s(&dpe_reqs_dvp,
 			&(DPEInfo.SpinLockIrq[DPE_IRQ_TYPE_INT_DVP_ST]));
 
 
-	if (!dpe_request_running(&dpe_reqs_dvp))
+	if (!dpe_request_running_isp7s(&dpe_reqs_dvp))
 		LOG_INF("[%s]no more requests", __func__);
 
 }
@@ -7303,7 +7417,7 @@ static irqreturn_t ISP_Irq_DVP(signed int Irq, void *DeviceId)
 #ifdef __DPE_KERNEL_PERFORMANCE_MEASURE__
 		mt_kernel_trace_begin("dpe_irq");
 #endif
-		if (dpe_update_request(&dpe_reqs_dvp, &ProcessID) == 0)
+		if (dpe_update_request_isp7s(&dpe_reqs_dvp, &ProcessID) == 0)
 			bResulst = MTRUE;
 		if (bResulst == MTRUE) {
 			#if REQUEST_REGULATION == REQUEST_BASE_REGULATION
@@ -7396,7 +7510,7 @@ static irqreturn_t ISP_Irq_DVS(signed int Irq, void *DeviceId)
 #ifdef __DPE_KERNEL_PERFORMANCE_MEASURE__
 		mt_kernel_trace_begin("dpe_irq");
 #endif
-		if (dpe_update_request(&dpe_reqs_dvs, &ProcessID) == 0)
+		if (dpe_update_request_isp7s(&dpe_reqs_dvs, &ProcessID) == 0)
 			bResulst = MTRUE;
 		if (bResulst == MTRUE) {
 			#if REQUEST_REGULATION == REQUEST_BASE_REGULATION
