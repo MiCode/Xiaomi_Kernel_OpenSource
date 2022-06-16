@@ -1301,7 +1301,8 @@ static void mtk_atomic_mml(struct drm_device *dev,
 		if (drm_atomic_crtc_effectively_active(old_crtc_state) &&
 		    drm_atomic_crtc_needs_modeset(new_crtc_state)) {
 
-			if (s->lye_state.scn[i] == MML || s->lye_state.scn[i] == MML_SRAM_ONLY) {
+			if (s->lye_state.scn[i] == MML_RSZ ||
+			    s->lye_state.scn[i] == MML_SRAM_ONLY) {
 				s->lye_state.scn[i] = NONE;
 				DDPMSG("%s:%d clear MML scn after suspend\n", __func__, __LINE__);
 			}
@@ -2104,28 +2105,44 @@ static const struct mtk_addon_module_data mt6855_addon_wdma0_data[] = {
 	{DISP_WDMA0, ADDON_AFTER, DDP_COMPONENT_SPR0_VIRTUAL},
 };
 
-static const struct mtk_addon_module_data addon_mml_data[] = {
-	{DISP_INLINE_ROTATE, ADDON_BETWEEN, DDP_COMPONENT_OVL0_2L},
-};
-
-static const struct mtk_addon_module_data addon_mml_data_1[] = {
-	{DISP_INLINE_ROTATE_1, ADDON_BETWEEN, DDP_COMPONENT_OVL2_2L},
-};
-
 static const struct mtk_addon_module_data addon_mml_sram_only_data[] = {
-	{DISP_INLINE_ROTATE_SRAM_ONLY, ADDON_BETWEEN, DDP_COMPONENT_OVL0_2L},
+	{DISP_MML_SRAM_ONLY, ADDON_BETWEEN, DDP_COMPONENT_OVL0_2L},
 };
 
-static const struct mtk_addon_module_data addon_mml_sram_only_data_1[] = {
-	{DISP_INLINE_ROTATE_SRAM_ONLY_1, ADDON_BETWEEN, DDP_COMPONENT_OVL2_2L},
+static const struct mtk_addon_module_data mt6895_addon_mml_sram_only_data_1[] = {
+	{DISP_MML_SRAM_ONLY_1, ADDON_BETWEEN, DDP_COMPONENT_OVL2_2L},
 };
 
-static const struct mtk_addon_module_data addon_mml_rsz[] = {
-	{MML_RSZ, ADDON_BETWEEN, DDP_COMPONENT_OVL0}, /* OVL0 is dummy position */
+static const struct mtk_addon_module_data mt6983_addon_mml_sram_only_data_1[] = {
+	{DISP_MML_SRAM_ONLY_1, ADDON_BETWEEN, DDP_COMPONENT_OVL2_2L},
 };
 
-static const struct mtk_addon_module_data addon_mml_rsz_v2[] = {
-	{MML_RSZ, ADDON_BETWEEN, DDP_COMPONENT_DLO_ASYNC7}, /* OVL0 is dummy position */
+static const struct mtk_addon_module_data mt6985_addon_mml_sram_only_data_1[] = {
+	{DISP_MML_SRAM_ONLY_1, ADDON_BETWEEN, DDP_COMPONENT_OVL4_2L},
+};
+
+static const struct mtk_addon_module_data mt6983_addon_mml_rsz_data[] = {
+	{DISP_MML_IR_PQ, ADDON_BETWEEN, DDP_COMPONENT_OVL0_2L},
+};
+
+static const struct mtk_addon_module_data mt6983_addon_mml_rsz_data_1[] = {
+	{DISP_MML_IR_PQ_1, ADDON_BETWEEN, DDP_COMPONENT_OVL2_2L},
+};
+
+static const struct mtk_addon_module_data mt6985_addon_mml_rsz_data[] = {
+	{DISP_MML_IR_PQ_v2, ADDON_EMBED, DDP_COMPONENT_OVL0_2L},
+};
+
+static const struct mtk_addon_module_data mt6985_addon_mml_rsz_data_1[] = {
+	{DISP_MML_IR_PQ_v2_1, ADDON_EMBED, DDP_COMPONENT_OVL4_2L},
+};
+
+static const struct mtk_addon_module_data mt6985_addon_mml_dl_data[] = {
+	{DISP_MML_DL, ADDON_BEFORE, DDP_COMPONENT_OVL0_2L},
+};
+
+static const struct mtk_addon_module_data mt6985_addon_mml_dl_data_1[] = {
+	{DISP_MML_DL_1, ADDON_BEFORE, DDP_COMPONENT_OVL4_2L},
 };
 
 static const struct mtk_addon_scenario_data mt6779_addon_main[ADDON_SCN_NR] = {
@@ -2240,14 +2257,9 @@ static const struct mtk_addon_scenario_data mt6983_addon_main[ADDON_SCN_NR] = {
 				.module_data = mt6983_addon_wdma0_data_v2,
 				.hrt_type = HRT_TB_TYPE_GENERAL1,
 			},
-		[MML_WITH_PQ] = {
-				.module_num = ARRAY_SIZE(addon_mml_rsz),
-				.module_data = addon_mml_rsz,
-				.hrt_type = HRT_TB_TYPE_GENERAL0,
-			},
-		[MML] = {
-				.module_num = ARRAY_SIZE(addon_mml_data),
-				.module_data = addon_mml_data,
+		[MML_RSZ] = {
+				.module_num = ARRAY_SIZE(mt6983_addon_mml_rsz_data),
+				.module_data = mt6983_addon_mml_rsz_data,
 				.hrt_type = HRT_TB_TYPE_RPO_L0,
 			},
 		[MML_SRAM_ONLY] = {
@@ -2282,19 +2294,14 @@ static const struct mtk_addon_scenario_data mt6983_addon_main_dual[ADDON_SCN_NR]
 				.module_data = mt6983_addon_wdma2_data_v2,
 				.hrt_type = HRT_TB_TYPE_GENERAL1,
 			},
-		[MML_WITH_PQ] = {
-				.module_num = ARRAY_SIZE(addon_mml_rsz),
-				.module_data = addon_mml_rsz,
-				.hrt_type = HRT_TB_TYPE_GENERAL0,
-			},
-		[MML] = {
-				.module_num = ARRAY_SIZE(addon_mml_data_1),
-				.module_data = addon_mml_data_1,
+		[MML_RSZ] = {
+				.module_num = ARRAY_SIZE(mt6983_addon_mml_rsz_data_1),
+				.module_data = mt6983_addon_mml_rsz_data_1,
 				.hrt_type = HRT_TB_TYPE_GENERAL1,
 			},
 		[MML_SRAM_ONLY] = {
-				.module_num = ARRAY_SIZE(addon_mml_sram_only_data_1),
-				.module_data = addon_mml_sram_only_data_1,
+				.module_num = ARRAY_SIZE(mt6983_addon_mml_sram_only_data_1),
+				.module_data = mt6983_addon_mml_sram_only_data_1,
 				.hrt_type = HRT_TB_TYPE_GENERAL1,
 			},
 };
@@ -2320,6 +2327,21 @@ static const struct mtk_addon_scenario_data mt6985_addon_main[ADDON_SCN_NR] = {
 		.module_num = 0,
 		.hrt_type = HRT_TB_TYPE_GENERAL1,
 	},
+	[MML_RSZ] = {
+		.module_num = ARRAY_SIZE(mt6985_addon_mml_rsz_data),
+		.module_data = mt6985_addon_mml_rsz_data,
+		.hrt_type = HRT_TB_TYPE_RPO_L0,
+	},
+	[MML_SRAM_ONLY] = {
+		.module_num = ARRAY_SIZE(addon_mml_sram_only_data),
+		.module_data = addon_mml_sram_only_data,
+		.hrt_type = HRT_TB_TYPE_RPO_L0,
+	},
+	[MML_DL] = {
+		.module_num = ARRAY_SIZE(mt6985_addon_mml_dl_data),
+		.module_data = mt6985_addon_mml_dl_data,
+		.hrt_type = HRT_TB_TYPE_RPO_L0,
+	},
 };
 
 static const struct mtk_addon_scenario_data mt6985_addon_main_dual[ADDON_SCN_NR] = {
@@ -2330,6 +2352,21 @@ static const struct mtk_addon_scenario_data mt6985_addon_main_dual[ADDON_SCN_NR]
 	[TRIPLE_DISP] = {
 		.module_num = 0,
 		.hrt_type = HRT_TB_TYPE_GENERAL0,
+	},
+	[MML_RSZ] = {
+		.module_num = ARRAY_SIZE(mt6985_addon_mml_rsz_data_1),
+		.module_data = mt6985_addon_mml_rsz_data_1,
+		.hrt_type = HRT_TB_TYPE_RPO_L0,
+	},
+	[MML_SRAM_ONLY] = {
+		.module_num = ARRAY_SIZE(mt6985_addon_mml_sram_only_data_1),
+		.module_data = mt6985_addon_mml_sram_only_data_1,
+		.hrt_type = HRT_TB_TYPE_RPO_L0,
+	},
+	[MML_DL] = {
+		.module_num = ARRAY_SIZE(mt6985_addon_mml_dl_data_1),
+		.module_data = mt6985_addon_mml_dl_data_1,
+		.hrt_type = HRT_TB_TYPE_RPO_L0,
 	},
 };
 
@@ -2470,8 +2507,8 @@ static const struct mtk_addon_scenario_data mt6895_addon_main_dual[ADDON_SCN_NR]
 				.hrt_type = HRT_TB_TYPE_GENERAL1,
 			},
 		[MML_SRAM_ONLY] = {
-				.module_num = ARRAY_SIZE(addon_mml_sram_only_data_1),
-				.module_data = addon_mml_sram_only_data_1,
+				.module_num = ARRAY_SIZE(mt6895_addon_mml_sram_only_data_1),
+				.module_data = mt6895_addon_mml_sram_only_data_1,
 				.hrt_type = HRT_TB_TYPE_RPO_L0,
 			},
 };
@@ -2988,7 +3025,7 @@ static const struct mtk_crtc_path_data mt6985_mtk_main_path_data = {
 //	.wb_path[DDP_MAJOR] = mt6983_mtk_ddp_main_wb_path,
 //	.wb_path_len[DDP_MAJOR] = ARRAY_SIZE(mt6983_mtk_ddp_main_wb_path),
 	.addon_data = mt6985_addon_main,
-//	.addon_data_dual = mt6985_addon_main_dual,
+	.addon_data_dual = mt6985_addon_main_dual,
 };
 
 static const struct mtk_crtc_path_data mt6985_mtk_ext_path_data = {
@@ -5913,7 +5950,11 @@ static const struct of_device_id mtk_ddp_comp_dt_ids[] = {
 	 .data = (void *)MTK_MML_COLOR},
 	{.compatible = "mediatek,mt6983-mml",
 	 .data = (void *)MTK_MML_MML},
+	{.compatible = "mediatek,mt6985-mml",
+	 .data = (void *)MTK_MML_MML},
 	{.compatible = "mediatek,mt6983-mml_mutex",
+	 .data = (void *)MTK_MML_MUTEX},
+	{.compatible = "mediatek,mt6985-mml_mutex",
 	 .data = (void *)MTK_MML_MUTEX},
 	{.compatible = "mediatek,mt6983-mml_wrot",
 	 .data = (void *)MTK_MML_WROT},

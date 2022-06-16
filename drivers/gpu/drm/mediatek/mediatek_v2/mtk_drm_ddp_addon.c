@@ -82,7 +82,7 @@ static const int mml_rsz_path_v2[] = {
 	DDP_COMPONENT_MML_DLO1,
 };
 
-static const int disp_mml_path[] = {
+static const int disp_mml_rsz_path[] = {
 	DDP_COMPONENT_OVL0_2L_VIRTUAL0,
 	DDP_COMPONENT_DLO_ASYNC3,
 	DDP_COMPONENT_MML_MML0, DDP_COMPONENT_MML_MUTEX0,
@@ -93,10 +93,10 @@ static const int disp_mml_path[] = {
 	DDP_COMPONENT_INLINE_ROTATE0,
 	DDP_COMPONENT_DLI_ASYNC3,
 	DDP_COMPONENT_Y2R0,
-	DDP_COMPONENT_Y2R0_VIRTUAL0
+	DDP_COMPONENT_Y2R0_VIRTUAL0,	/* to describe ufod in */
 };
 
-static const int disp_mml_path_1[] = {
+static const int disp_mml_rsz_path_1[] = {
 	DDP_COMPONENT_OVL2_2L_VIRTUAL0,
 	DDP_COMPONENT_DLO_ASYNC7,
 	DDP_COMPONENT_MML_MML0, DDP_COMPONENT_MML_MUTEX0,
@@ -107,7 +107,35 @@ static const int disp_mml_path_1[] = {
 	DDP_COMPONENT_INLINE_ROTATE1,
 	DDP_COMPONENT_DLI_ASYNC7,
 	DDP_COMPONENT_Y2R1,
-	DDP_COMPONENT_Y2R1_VIRTUAL0
+	DDP_COMPONENT_Y2R1_VIRTUAL0,	/* to describe ufod in */
+};
+
+static const int disp_mml_rsz_path_v2[] = {
+	DDP_COMPONENT_OVLSYS_DLO_ASYNC0,
+	DDP_COMPONENT_MML_MML0, DDP_COMPONENT_MML_MUTEX0,
+	DDP_COMPONENT_INLINE_ROTATE0,
+	DDP_COMPONENT_OVLSYS_DLI_ASYNC0,
+	DDP_COMPONENT_OVLSYS_Y2R0,
+};
+
+static const int disp_mml_rsz_path_v2_1[] = {
+	DDP_COMPONENT_OVLSYS_DLO_ASYNC7,
+	DDP_COMPONENT_MML_MML0, DDP_COMPONENT_MML_MUTEX0,
+	DDP_COMPONENT_INLINE_ROTATE1,
+	DDP_COMPONENT_OVLSYS_DLI_ASYNC3,
+	DDP_COMPONENT_OVLSYS_Y2R2,
+};
+
+static const int disp_mml_dl_path[] = {
+	DDP_COMPONENT_OVLSYS_DLI_ASYNC0,
+	DDP_COMPONENT_OVLSYS_Y2R0,
+	DDP_COMPONENT_Y2R0_VIRTUAL0,	/* to describe ufod in */
+};
+
+static const int disp_mml_dl_path_1[] = {
+	DDP_COMPONENT_OVLSYS_DLI_ASYNC3,
+	DDP_COMPONENT_OVLSYS_Y2R2,
+	DDP_COMPONENT_Y2R1_VIRTUAL0,	/* to describe ufod in */
 };
 
 static const int disp_mml_sram_only_path[] = {
@@ -167,29 +195,37 @@ static const struct mtk_addon_path_data addon_module_path[ADDON_MODULE_NUM] = {
 				.path = disp_wdma2_path_v2,
 				.path_len = ARRAY_SIZE(disp_wdma2_path_v2),
 			},
-		[MML_RSZ] = {
-				.path = mml_rsz_path,
-				.path_len = ARRAY_SIZE(mml_rsz_path),
+		[DISP_MML_IR_PQ] = {
+				.path = disp_mml_rsz_path,
+				.path_len = ARRAY_SIZE(disp_mml_rsz_path),
 			},
-		[MML_RSZ_v2] = {
-				.path = mml_rsz_path_v2,
-				.path_len = ARRAY_SIZE(mml_rsz_path_v2),
+		[DISP_MML_IR_PQ_1] = {
+				.path = disp_mml_rsz_path_1,
+				.path_len = ARRAY_SIZE(disp_mml_rsz_path_1),
 			},
-		[DISP_INLINE_ROTATE] = {
-				.path = disp_mml_path,
-				.path_len = ARRAY_SIZE(disp_mml_path),
+		[DISP_MML_IR_PQ_v2] = {
+				.path = disp_mml_rsz_path_v2,
+				.path_len = ARRAY_SIZE(disp_mml_rsz_path_v2),
 			},
-		[DISP_INLINE_ROTATE_1] = {
-				.path = disp_mml_path_1,
-				.path_len = ARRAY_SIZE(disp_mml_path_1),
+		[DISP_MML_IR_PQ_v2_1] = {
+				.path = disp_mml_rsz_path_v2_1,
+				.path_len = ARRAY_SIZE(disp_mml_rsz_path_v2_1),
 			},
-		[DISP_INLINE_ROTATE_SRAM_ONLY] = {
+		[DISP_MML_SRAM_ONLY] = {
 				.path = disp_mml_sram_only_path,
 				.path_len = ARRAY_SIZE(disp_mml_sram_only_path),
 			},
-		[DISP_INLINE_ROTATE_SRAM_ONLY_1] = {
+		[DISP_MML_SRAM_ONLY_1] = {
 				.path = disp_mml_sram_only_path_1,
 				.path_len = ARRAY_SIZE(disp_mml_sram_only_path_1),
+			},
+		[DISP_MML_DL] = {
+				.path = disp_mml_dl_path,
+				.path_len = ARRAY_SIZE(disp_mml_dl_path),
+			},
+		[DISP_MML_DL_1] = {
+				.path = disp_mml_dl_path_1,
+				.path_len = ARRAY_SIZE(disp_mml_dl_path_1),
 			},
 };
 
@@ -281,8 +317,8 @@ static void mtk_addon_path_stop(struct drm_crtc *crtc,
 		mtk_ddp_comp_stop(add_comp, cmdq_handle);
 
 		if (addon_config &&
-			(addon_config->config_type.module == DISP_INLINE_ROTATE ||
-			addon_config->config_type.module == DISP_INLINE_ROTATE_1) &&
+			(addon_config->config_type.module == DISP_MML_IR_PQ ||
+			addon_config->config_type.module == DISP_MML_IR_PQ_1) &&
 			addon_config->config_type.type == ADDON_DISCONNECT)
 			mtk_ddp_comp_addon_config(add_comp, -1, -1, addon_config, cmdq_handle);
 	}

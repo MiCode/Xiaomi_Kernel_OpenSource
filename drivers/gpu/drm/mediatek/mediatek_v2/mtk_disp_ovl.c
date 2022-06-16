@@ -2591,21 +2591,15 @@ static void mtk_ovl_addon_config(struct mtk_ddp_comp *comp,
 					 config->rsz_dst_roi, handle);
 	}
 
-	if ((addon_config->config_type.module == DISP_INLINE_ROTATE ||
-		addon_config->config_type.module == DISP_INLINE_ROTATE_1) &&
+	if ((addon_config->config_type.module == DISP_MML_IR_PQ ||
+		addon_config->config_type.module == DISP_MML_IR_PQ_1) &&
 		(addon_config->config_type.type == ADDON_CONNECT ||
 		addon_config->config_type.type == ADDON_DISCONNECT)) {
-		struct mtk_addon_mml_config *config =
-			&addon_config->addon_mml_config;
+		struct mtk_addon_mml_config *config = &addon_config->addon_mml_config;
 		struct mtk_rect src, dst;
 
-		if (addon_config->config_type.module == DISP_INLINE_ROTATE_1) {
-			src = config->mml_src_roi[1];
-			dst = config->mml_dst_roi[1];
-		} else {
-			src = config->mml_src_roi[0];
-			dst = config->mml_dst_roi[0];
-		}
+		src = config->mml_src_roi[config->pipe];
+		dst = config->mml_dst_roi[config->pipe];
 
 		/* this rsz means enlarge/narrow, not component */
 		mtk_ovl_addon_rsz_config(comp, prev, next, src, dst, handle);

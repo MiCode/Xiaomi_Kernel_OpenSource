@@ -273,18 +273,13 @@ static void mutex_addon_config(struct mtk_ddp_comp *ddp_comp,
 	struct mml_mutex *mutex = ddp_comp_to_mutex(ddp_comp);
 	struct mtk_addon_mml_config *cfg = &addon_config->addon_mml_config;
 	const struct mml_topology_path *path;
-	u32 pipe;
 
 	if (!cfg->task) {
 		mml_err("%s cannot configure without mml_task", __func__);
 		return;
 	}
 
-	if (cfg->config_type.module == DISP_INLINE_ROTATE_1)
-		pipe = 1;
-	else
-		pipe = 0;
-	path = cfg->task->config->path[pipe];
+	path = cfg->task->config->path[cfg->pipe];
 
 	if (cfg->config_type.type == ADDON_DISCONNECT)
 		mutex_disable(mutex, pkt, path);

@@ -3399,15 +3399,6 @@ static bool is_force_mml_scen(struct drm_device *dev)
 	return false;
 }
 
-inline bool mtk_has_mml_caps(struct drm_mtk_layer_config *layer_info)
-{
-	if (layer_info->layer_caps &
-	    (MTK_MML_DISP_DIRECT_LINK_LAYER | MTK_MML_DISP_DIRECT_DECOUPLE_LAYER |
-	     MTK_MML_DISP_DECOUPLE_LAYER | MTK_MML_DISP_MDP_LAYER))
-		return true;
-	return false;
-}
-
 static void check_is_mml_layer(const int disp_idx,
 	struct drm_mtk_layering_info *disp_info, struct drm_device *dev,
 	enum SCN_FACTOR *scn_decision_flag, const unsigned int hrt_idx)

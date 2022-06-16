@@ -1834,6 +1834,30 @@ static void calc_mml_config(struct drm_crtc *crtc,
 
 	if (mtk_crtc->is_dual_pipe)
 		addon_config->addon_mml_config.mml_dst_roi[1].x -= mid_line;
+
+	crtc_state->mml_src_roi[0] = addon_config->addon_mml_config.mml_src_roi[0];
+	DDPINFO("%s dual:src[0](%d,%d,%d,%d), dst[0](%d,%d,%d,%d)\n", __func__,
+		addon_config->addon_mml_config.mml_src_roi[0].x,
+		addon_config->addon_mml_config.mml_src_roi[0].y,
+		addon_config->addon_mml_config.mml_src_roi[0].width,
+		addon_config->addon_mml_config.mml_src_roi[0].height,
+		addon_config->addon_mml_config.mml_dst_roi[0].x,
+		addon_config->addon_mml_config.mml_dst_roi[0].y,
+		addon_config->addon_mml_config.mml_dst_roi[0].width,
+		addon_config->addon_mml_config.mml_dst_roi[0].height);
+
+	if (mtk_crtc->is_dual_pipe) {
+		crtc_state->mml_src_roi[1] = addon_config->addon_mml_config.mml_src_roi[1];
+		DDPINFO("%s dual:src[1](%d,%d,%d,%d), dst[1](%d,%d,%d,%d)\n", __func__,
+			addon_config->addon_mml_config.mml_src_roi[1].x,
+			addon_config->addon_mml_config.mml_src_roi[1].y,
+			addon_config->addon_mml_config.mml_src_roi[1].width,
+			addon_config->addon_mml_config.mml_src_roi[1].height,
+			addon_config->addon_mml_config.mml_dst_roi[1].x,
+			addon_config->addon_mml_config.mml_dst_roi[1].y,
+			addon_config->addon_mml_config.mml_dst_roi[1].width,
+			addon_config->addon_mml_config.mml_dst_roi[1].height);
+	}
 }
 
 static void mml_addon_module_connect(struct drm_crtc *crtc,
@@ -1881,32 +1905,6 @@ static void mml_addon_module_connect(struct drm_crtc *crtc,
 	addon_config->addon_mml_config.is_entering =
 	    mtk_crtc->mml_ir_state == MML_IR_ENTERING ? true : false;
 
-	crtc_state->mml_src_roi[0] = addon_config->addon_mml_config.mml_src_roi[0];
-	DDPINFO("%s:%d dual:src[0](%d,%d,%d,%d), dst[0](%d,%d,%d,%d)\n",
-			__func__, __LINE__,
-			addon_config->addon_mml_config.mml_src_roi[0].x,
-			addon_config->addon_mml_config.mml_src_roi[0].y,
-			addon_config->addon_mml_config.mml_src_roi[0].width,
-			addon_config->addon_mml_config.mml_src_roi[0].height,
-			addon_config->addon_mml_config.mml_dst_roi[0].x,
-			addon_config->addon_mml_config.mml_dst_roi[0].y,
-			addon_config->addon_mml_config.mml_dst_roi[0].width,
-			addon_config->addon_mml_config.mml_dst_roi[0].height);
-
-	if (mtk_crtc->is_dual_pipe) {
-		crtc_state->mml_src_roi[1] = addon_config->addon_mml_config.mml_src_roi[1];
-		DDPINFO("%s:%d dual:src[1](%d,%d,%d,%d), dst[1](%d,%d,%d,%d)\n",
-			__func__, __LINE__,
-			addon_config->addon_mml_config.mml_src_roi[1].x,
-			addon_config->addon_mml_config.mml_src_roi[1].y,
-			addon_config->addon_mml_config.mml_src_roi[1].width,
-			addon_config->addon_mml_config.mml_src_roi[1].height,
-			addon_config->addon_mml_config.mml_dst_roi[1].x,
-			addon_config->addon_mml_config.mml_dst_roi[1].y,
-			addon_config->addon_mml_config.mml_dst_roi[1].width,
-			addon_config->addon_mml_config.mml_dst_roi[1].height);
-	}
-
 	mtk_addon_connect_between(crtc, ddp_mode, addon_module,
 				  addon_config, cmdq_handle);
 
@@ -1932,42 +1930,39 @@ static void mml_addon_module_disconnect(struct drm_crtc *crtc,
 	struct mtk_rect ovl_roi = {0, 0, w, h};
 
 	addon_config->addon_mml_config.config_type.type = ADDON_DISCONNECT;
+	addon_config->addon_mml_config.pipe = 0;
 
-	{
-		output_comp = mtk_ddp_comp_request_output(mtk_crtc);
-		if (output_comp &&
-			drm_crtc_index(crtc) == 0) {
-			ovl_roi.width = mtk_ddp_comp_io_cmd(
-				output_comp, NULL,
-				DSI_GET_VIRTUAL_WIDTH, NULL);
-			ovl_roi.height = mtk_ddp_comp_io_cmd(
-				output_comp, NULL,
-				DSI_GET_VIRTUAL_HEIGH, NULL);
-		}
-
-		if (mtk_crtc->is_dual_pipe)
-			ovl_roi.width /= 2;
-
-		addon_config->addon_mml_config.mml_src_roi[0] = ovl_roi;
-		addon_config->addon_mml_config.mml_dst_roi[0] = ovl_roi;
-
-		if (mtk_crtc->is_dual_pipe) {
-			addon_config->addon_mml_config.mml_src_roi[1] = ovl_roi;
-			addon_config->addon_mml_config.mml_dst_roi[1] = ovl_roi;
-		}
+	output_comp = mtk_ddp_comp_request_output(mtk_crtc);
+	if (output_comp &&
+		drm_crtc_index(crtc) == 0) {
+		ovl_roi.width = mtk_ddp_comp_io_cmd(
+			output_comp, NULL,
+			DSI_GET_VIRTUAL_WIDTH, NULL);
+		ovl_roi.height = mtk_ddp_comp_io_cmd(
+			output_comp, NULL,
+			DSI_GET_VIRTUAL_HEIGH, NULL);
 	}
 
-	/* 0. attach subpath to crtc*/
-	/* some comp need crtc info in stop*/
+	if (mtk_crtc->is_dual_pipe)
+		ovl_roi.width /= 2;
+
+	addon_config->addon_mml_config.mml_src_roi[0] = ovl_roi;
+	addon_config->addon_mml_config.mml_dst_roi[0] = ovl_roi;
+
+	if (mtk_crtc->is_dual_pipe) {
+		addon_config->addon_mml_config.mml_src_roi[1] = ovl_roi;
+		addon_config->addon_mml_config.mml_dst_roi[1] = ovl_roi;
+	}
+
 	mtk_crtc_attach_addon_path_comp(crtc, addon_module, true);
 	mtk_addon_disconnect_between(crtc, ddp_mode, addon_module,
 			  addon_config, cmdq_handle);
 
 	if (mtk_crtc->is_dual_pipe && addon_module_dual) {
-		/* 0. attach subpath to crtc*/
+		/* addon_mml_config->config_type.module only for mml-sys and mml-mutex */
+		addon_config->addon_mml_config.pipe = 1;
 		addon_config->config_type.module = addon_module_dual->module;
 		addon_config->config_type.type = ADDON_DISCONNECT;
-		/* some comp need crtc info in stop*/
 		mtk_crtc_attach_addon_path_comp(crtc, addon_module_dual, true);
 		mtk_addon_disconnect_between(crtc, ddp_mode, addon_module_dual,
 				  addon_config, cmdq_handle);
@@ -2128,26 +2123,21 @@ static void _mtk_crtc_lye_addon_module_disconnect(
 		addon_config.config_type.type = addon_module->type;
 
 		if (addon_module->type == ADDON_BETWEEN &&
-		    (addon_module->module == DISP_INLINE_ROTATE_SRAM_ONLY)) {
-		} else if (addon_module->type == ADDON_BETWEEN &&
-		    (addon_module->module == DISP_INLINE_ROTATE)) {
+		    (addon_module->module == DISP_MML_SRAM_ONLY)) {
+		} else if (addon_module->module == DISP_MML_IR_PQ ||
+			   addon_module->module == DISP_MML_IR_PQ_v2) {
 			if (mtk_crtc->is_dual_pipe)
 				addon_module_dual = &(addon_data_dual->module_data[i]);
 			else
 				addon_module_dual = NULL;
 			if (mtk_crtc->is_force_mml_scen)
 				mml_addon_module_disconnect(crtc, ddp_mode, addon_module,
-					addon_module_dual, &addon_config, cmdq_handle);
+							    addon_module_dual, &addon_config,
+							    cmdq_handle);
 		} else if (addon_module->type == ADDON_BETWEEN &&
-				(addon_module->module == MML_RSZ ||
-				addon_module->module == MML_RSZ_v2)) {
-			mtk_addon_disconnect_external(
-				crtc, ddp_mode, addon_module, &addon_config,
-				cmdq_handle);
-		} else if (addon_module->type == ADDON_BETWEEN &&
-		    (addon_module->module == DISP_RSZ ||
-		    addon_module->module == DISP_RSZ_v2 ||
-		    addon_module->module == DISP_RSZ_v5)) {
+			   (addon_module->module == DISP_RSZ ||
+			    addon_module->module == DISP_RSZ_v2 ||
+			    addon_module->module == DISP_RSZ_v5)) {
 			int w = crtc->state->adjusted_mode.hdisplay;
 			int h = crtc->state->adjusted_mode.vdisplay;
 			struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
@@ -2517,20 +2507,14 @@ _mtk_crtc_lye_addon_module_connect(
 			addon_module_dual = NULL;
 
 		if ((addon_module->type == ADDON_BETWEEN) &&
-			(addon_module->module == DISP_INLINE_ROTATE_SRAM_ONLY)) {
+			(addon_module->module == DISP_MML_SRAM_ONLY)) {
 			/* do nothing yet */
-		} else if ((addon_module->type == ADDON_BETWEEN) &&
-			(addon_module->module == DISP_INLINE_ROTATE ||
-			addon_module->module == DISP_INLINE_ROTATE_1)) {
+		} else if (addon_module->module == DISP_MML_IR_PQ ||
+			   addon_module->module == DISP_MML_IR_PQ_v2) {
 			if (mtk_crtc->is_force_mml_scen && mtk_crtc->is_mml)
 				mml_addon_module_connect(crtc, ddp_mode, addon_module,
-					addon_module_dual, &addon_config, cmdq_handle);
-		} else if (addon_module->type == ADDON_BETWEEN &&
-				(addon_module->module == MML_RSZ ||
-				addon_module->module == MML_RSZ_v2)) {
-			mtk_addon_connect_external(
-				crtc, ddp_mode, addon_module, &addon_config,
-				cmdq_handle);
+							 addon_module_dual, &addon_config,
+							 cmdq_handle);
 		} else if (addon_module->type == ADDON_BETWEEN &&
 		    (addon_module->module == DISP_RSZ ||
 		    addon_module->module == DISP_RSZ_v2 ||
@@ -2623,13 +2607,14 @@ _mtk_crtc_lye_addon_module_config(
 		addon_config.config_type.type = addon_module->type;
 
 		if (addon_module->type == ADDON_BETWEEN &&
-				(addon_module->module == MML_RSZ ||
-				addon_module->module == MML_RSZ_v2)) {
-			mtk_addon_path_config(crtc,	addon_module, &addon_config,
-			cmdq_handle);
+		    (addon_module->module == DISP_MML_IR_PQ ||
+		     addon_module->module == DISP_MML_IR_PQ_1 ||
+		     addon_module->module == DISP_MML_IR_PQ_v2 ||
+		     addon_module->module == DISP_MML_IR_PQ_v2_1)) {
+			mtk_addon_path_config(crtc, addon_module, &addon_config, cmdq_handle);
 		} else
-			DDPMSG("addon type:%d + module:%d not support\n",
-				  addon_module->type, addon_module->module);
+			DDPMSG("addon type:%d + module:%d not support\n", addon_module->type,
+			       addon_module->module);
 	}
 }
 
@@ -6183,6 +6168,7 @@ void mtk_crtc_restore_plane_setting(struct mtk_drm_crtc *mtk_crtc)
 	struct cmdq_pkt *cmdq_handle;
 	struct mtk_ddp_comp *comp;
 	struct mtk_drm_private *priv = crtc->dev->dev_private;
+	struct mtk_crtc_ddp_ctx *ddp_ctx;
 
 	mtk_crtc_pkt_create(&cmdq_handle, &mtk_crtc->base,
 		mtk_crtc->gce_obj.client[CLIENT_CFG]);
@@ -6203,8 +6189,6 @@ void mtk_crtc_restore_plane_setting(struct mtk_drm_crtc *mtk_crtc)
 		if (plane_state->comp_state.comp_id)
 			comp = priv->ddp_comp[plane_state->comp_state.comp_id];
 		else {
-			struct mtk_crtc_ddp_ctx *ddp_ctx;
-
 			/* TODO: all plane should contain proper mtk_plane_state
 			 */
 			ddp_ctx = &mtk_crtc->ddp_ctx[mtk_crtc->ddp_mode];
@@ -6222,8 +6206,6 @@ void mtk_crtc_restore_plane_setting(struct mtk_drm_crtc *mtk_crtc)
 
 		if (comp->id == DDP_COMPONENT_OVL2_2L
 			&& mtk_crtc->is_dual_pipe) {
-			struct mtk_crtc_ddp_ctx *ddp_ctx;
-
 			DDPFUNC();
 			if (plane_state->pending.addr)
 				plane_state->pending.addr +=
@@ -6246,12 +6228,14 @@ void mtk_crtc_restore_plane_setting(struct mtk_drm_crtc *mtk_crtc)
 		drm_set_dal(&mtk_crtc->base, cmdq_handle);
 
 	if (mtk_crtc->is_mml) {
-		comp = priv->ddp_comp[DDP_COMPONENT_OVL0_2L];
+		ddp_ctx = &mtk_crtc->ddp_ctx[mtk_crtc->ddp_mode];
+		comp = ddp_ctx->ddp_comp[DDP_FIRST_PATH][0];
 		cmdq_pkt_write(cmdq_handle, NULL, comp->larb_cons[0], GENMASK(19, 16),
 			       GENMASK(19, 16));
 
 		if (mtk_crtc->is_dual_pipe) {
-			comp = priv->ddp_comp[DDP_COMPONENT_OVL2_2L];
+			ddp_ctx = &mtk_crtc->dual_pipe_ddp_ctx;
+			comp = ddp_ctx->ddp_comp[DDP_FIRST_PATH][0];
 			cmdq_pkt_write(cmdq_handle, NULL, comp->larb_cons[0], GENMASK(19, 16),
 				       GENMASK(19, 16));
 		}
@@ -7647,10 +7631,9 @@ void mml_cmdq_pkt_init(struct drm_crtc *crtc, struct cmdq_pkt *cmdq_handle)
 	case MML_IR_ENTERING:
 		for (; i <= mtk_crtc->is_dual_pipe; ++i) {
 			comp = priv->ddp_comp[id[i]];
+			comp->mtk_crtc = mtk_crtc;
 			mtk_ddp_comp_addon_config(comp, 0, 0, NULL, cmdq_handle);
-			mtk_disp_mutex_add_comp_with_cmdq(
-			    mtk_crtc, id[i], false, cmdq_handle,
-			    mtk_crtc_get_mutex_id(crtc, mtk_crtc->ddp_mode, DDP_COMPONENT_OVL0));
+			mtk_disp_mutex_add_comp_with_cmdq(mtk_crtc, id[i], false, cmdq_handle, 0);
 		}
 	case MML_IR_RACING:
 		mml_drm_racing_config_sync(mml_ctx, cmdq_handle);
@@ -13190,9 +13173,7 @@ void mtk_crtc_mml_racing_resubmit(struct drm_crtc *crtc, struct cmdq_pkt *_cmdq_
 		comp = priv->ddp_comp[id[i]];
 		mtk_ddp_comp_reset(comp, cmdq_handle);
 		mtk_ddp_comp_addon_config(comp, 0, 0, NULL, cmdq_handle);
-		mtk_disp_mutex_add_comp_with_cmdq(
-		    mtk_crtc, id[i], false, cmdq_handle,
-		    mtk_crtc_get_mutex_id(crtc, mtk_crtc->ddp_mode, DDP_COMPONENT_OVL0));
+		mtk_disp_mutex_add_comp_with_cmdq(mtk_crtc, id[i], false, cmdq_handle, 0);
 	}
 
 	/* prepare racing packet */

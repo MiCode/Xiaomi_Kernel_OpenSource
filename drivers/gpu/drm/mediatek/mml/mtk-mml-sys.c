@@ -1045,35 +1045,23 @@ static void sys_addon_connect(struct mml_sys *sys,
 			      struct mtk_addon_mml_config *cfg,
 			      struct cmdq_pkt *pkt)
 {
-	u32 pipe;
-
-	if (cfg->config_type.module == DISP_INLINE_ROTATE_1)
-		pipe = 1;
-	else
-		pipe = 0;
-
-	if (!cfg->task || !cfg->task->config->tile_output[pipe]) {
+	if (!cfg->task || !cfg->task->config->tile_output[cfg->pipe]) {
 		mml_err("%s no tile for task %p pipe %u", __func__,
-			cfg->task, pipe);
+			cfg->task, cfg->pipe);
 		return;
 	}
 
-	ddp_command_make(cfg->task, pipe, pkt);
+	ddp_command_make(cfg->task, cfg->pipe, pkt);
 
-	sys_ddp_enable(sys, cfg->task, pipe);
+	sys_ddp_enable(sys, cfg->task, cfg->pipe);
 }
 
 static void sys_addon_disconnect(struct mml_sys *sys,
 				 struct mtk_addon_mml_config *cfg)
 {
 	struct mml_dle_ctx *ctx;
-	u32 pipe;
 
-	if (cfg->config_type.module == DISP_INLINE_ROTATE_1) {
-		pipe = 1;
-	} else {
-		pipe = 0;
-
+	if (cfg->pipe == 0) {
 		ctx = sys_get_dle_ctx(sys, NULL);
 		if (IS_ERR_OR_NULL(ctx)) {
 			mml_err("%s fail to get mml ctx", __func__);
@@ -1087,9 +1075,9 @@ static void sys_addon_disconnect(struct mml_sys *sys,
 		}
 	}
 
-	if (!cfg->task || !cfg->task->config->path[pipe]) {
+	if (!cfg->task || !cfg->task->config->path[cfg->pipe]) {
 		mml_err("%s no path for task %p pipe %u", __func__,
-			cfg->task, pipe);
+			cfg->task, cfg->pipe);
 		return;
 	}
 

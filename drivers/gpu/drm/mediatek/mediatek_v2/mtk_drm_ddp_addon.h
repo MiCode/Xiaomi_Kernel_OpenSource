@@ -32,8 +32,9 @@ enum addon_scenario {
 	VP_PQ,
 	TRIPLE_DISP,
 	MML_WITH_PQ,
-	MML,
-	MML_SRAM_ONLY,
+	MML_RSZ,       /* MML Inline Rotate and MML RSZ */
+	MML_DL,	       /* MML Direct Link */
+	MML_SRAM_ONLY, /* MML Inline Rotate */
 	ADDON_SCN_NR,
 };
 
@@ -49,13 +50,15 @@ enum addon_module {
 	DISP_WDMA1,
 	DISP_WDMA2,
 	DISP_WDMA2_v2,
-	MML_RSZ,
-	MML_RSZ_v2,
 	DMDP_PQ_WITH_RDMA,
-	DISP_INLINE_ROTATE,
-	DISP_INLINE_ROTATE_1,
-	DISP_INLINE_ROTATE_SRAM_ONLY,
-	DISP_INLINE_ROTATE_SRAM_ONLY_1,
+	DISP_MML_DL,     /* pq in OVL_2L */
+	DISP_MML_DL_1,
+	DISP_MML_IR_PQ,    /* OVL_2L blend out, ufod in OVL_4L */
+	DISP_MML_IR_PQ_1,
+	DISP_MML_IR_PQ_v2, /* OVL_2L pq out, pq in OVL_2L */
+	DISP_MML_IR_PQ_v2_1,
+	DISP_MML_SRAM_ONLY,
+	DISP_MML_SRAM_ONLY_1,
 	ADDON_MODULE_NUM,
 };
 
@@ -134,6 +137,7 @@ struct mtk_addon_mml_config {
 	struct mtk_rect mml_dst_roi[DISP_PIPE_NUM]; /* [OUT] dst roi for OVL */
 	bool is_yuv;				    /* [OUT] src format */
 	bool is_entering;			    /* [OUT] state of entering or leaving */
+	u8 pipe;				    /* [OUT] pipe indicator 0:left 1:right*/
 };
 
 union mtk_addon_config {
