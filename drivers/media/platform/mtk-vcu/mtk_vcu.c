@@ -886,7 +886,8 @@ static int vcu_check_reg_base(struct mtk_vcu *vcu, u64 addr, u64 length)
 }
 
 static void vcu_set_gce_cmd(struct cmdq_pkt *pkt,
-	struct mtk_vcu *vcu, int gce_index, int gce_order, struct mtk_vcu_queue *q,
+	struct mtk_vcu *vcu, unsigned int gce_index, unsigned int gce_order,
+	struct mtk_vcu_queue *q,
 	unsigned char cmd, u64 addr, u64 data, u32 mask, u32 gpr, u32 dma_offset, u32 dma_size)
 {
 	void *src_page, *dst_page;
@@ -990,7 +991,8 @@ static void vcu_set_gce_cmd(struct cmdq_pkt *pkt,
 }
 
 static void vcu_set_gce_secure_cmd(struct cmdq_pkt *pkt,
-	struct mtk_vcu *vcu, int gce_index, int gce_order, struct mtk_vcu_queue *q,
+	struct mtk_vcu *vcu, unsigned int gce_index, unsigned int gce_order,
+	struct mtk_vcu_queue *q,
 	unsigned char cmd, u64 addr, u64 data, u32 mask, u32 gpr, u32 dma_offset, u32 dma_size)
 {
 	void *src_page, *dst_page;
@@ -1097,7 +1099,8 @@ static void vcu_set_gce_secure_cmd(struct cmdq_pkt *pkt,
 }
 
 static void vcu_set_gce_readstatus_cmd(struct cmdq_pkt *pkt,
-	struct mtk_vcu *vcu, int gce_index, int gce_order, struct mtk_vcu_queue *q,
+	struct mtk_vcu *vcu, unsigned int gce_index, unsigned int gce_order,
+	struct mtk_vcu_queue *q,
 	unsigned char cmd, u64 addr, u64 data, u32 mask, u32 gpr, u32 dma_offset, u32 dma_size)
 {
 	void *src_page, *dst_page;
@@ -1135,7 +1138,7 @@ static void vcu_gce_flush_callback(struct cmdq_cb_data data)
 	struct gce_callback_data *buff;
 	struct mtk_vcu *vcu;
 	unsigned int core_id;
-	int gce_order;
+	unsigned int gce_order;
 
 	buff = (struct gce_callback_data *)data.data;
 	i = (buff->cmdq_buff.codec_type == VCU_VDEC) ? VCU_VDEC : VCU_VENC;
@@ -1256,7 +1259,7 @@ static int vcu_gce_cmd_flush(struct mtk_vcu *vcu,
 	struct gce_cmds *cmds;
 	unsigned int suspend_block_cnt = 0;
 	unsigned int core_id;
-	int gce_order;
+	unsigned int gce_order;
 
 	vcu_dbg_log("[VCU] %s +\n", __func__);
 
