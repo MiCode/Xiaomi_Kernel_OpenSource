@@ -7888,64 +7888,9 @@
 				"drm_debug",
 				"mfg_ips",
 				"sysram_mfg_history";
-			clocks =
-				<&topckgen_clk CLK_TOP_MFG_INT0_SEL>,
-				<&topckgen_clk CLK_TOP_MFGPLL>,
-				<&topckgen_clk CLK_TOP_MFG_REF>,
-				<&topckgen_clk CLK_TOP_MFG1_INT1_SEL>,
-				<&topckgen_clk CLK_TOP_MFGSCPLL>,
-				<&topckgen_clk CLK_TOP_MFGSC_REF>;
-			clock-names =
-				"clk_mux",
-				"clk_main_parent",
-				"clk_sub_parent",
-				"clk_sc_mux",
-				"clk_sc_main_parent",
-				"clk_sc_sub_parent";
-			power-domains =
-				<&gpusys MT6985_POWER_DOMAIN_MFG1>,
-				<&gpusys MT6985_POWER_DOMAIN_MFG2>,
-				<&gpusys MT6985_POWER_DOMAIN_MFG3>,
-				<&gpusys MT6985_POWER_DOMAIN_MFG4>,
-				<&gpusys MT6985_POWER_DOMAIN_MFG5>,
-				<&gpusys MT6985_POWER_DOMAIN_MFG6>,
-				<&gpusys MT6985_POWER_DOMAIN_MFG7>,
-				<&gpusys MT6985_POWER_DOMAIN_MFG8>,
-				<&gpusys MT6985_POWER_DOMAIN_MFG9>,
-				<&gpusys MT6985_POWER_DOMAIN_MFG10>,
-				<&gpusys MT6985_POWER_DOMAIN_MFG11>,
-				<&gpusys MT6985_POWER_DOMAIN_MFG12>,
-				<&gpusys MT6985_POWER_DOMAIN_MFG13>,
-				<&gpusys MT6985_POWER_DOMAIN_MFG14>,
-				<&gpusys MT6985_POWER_DOMAIN_MFG15>,
-				<&gpusys MT6985_POWER_DOMAIN_MFG16>,
-				<&gpusys MT6985_POWER_DOMAIN_MFG17>,
-				<&gpusys MT6985_POWER_DOMAIN_MFG18>,
-				<&gpusys MT6985_POWER_DOMAIN_MFG19>;
-			power-domain-names =
-				"pd_mfg1",
-				"pd_mfg2",
-				"pd_mfg3",
-				"pd_mfg4",
-				"pd_mfg5",
-				"pd_mfg6",
-				"pd_mfg7",
-				"pd_mfg8",
-				"pd_mfg9",
-				"pd_mfg10",
-				"pd_mfg11",
-				"pd_mfg12",
-				"pd_mfg13",
-				"pd_mfg14",
-				"pd_mfg15",
-				"pd_mfg16",
-				"pd_mfg17",
-				"pd_mfg18",
-				"pd_mfg19";
 			vgpu-supply = <&mt6373_vbuck4>;
 			vstack-supply = <&mt6373_vbuck2>;
 			vsram-supply = <&mt6373_vsram_digrf_aif>;
-			// fhctl-supply = <&fhctl>; /* TBD */
 			gpufreq_wrapper-supply = <&gpufreq_wrapper>;
 		};
 
@@ -7953,7 +7898,7 @@
 			compatible = "mediatek,gpufreq_wrapper";
 			gpufreq-version = <2>;
 			dual-buck = <1>;
-			gpueb-support = <0>;
+			gpueb-support = <1>;
 			gpufreq-bringup = <0>;
 		};
 
@@ -13276,6 +13221,18 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 };
 
 &mt6363_vrf12 {
+	regulator-always-on;
+};
+
+&mt6373_vbuck2 {
+	regulator-always-on;
+};
+
+&mt6373_vbuck4 {
+	regulator-always-on;
+};
+
+&mt6373_vsram_digrf_aif {
 	regulator-always-on;
 };
 
