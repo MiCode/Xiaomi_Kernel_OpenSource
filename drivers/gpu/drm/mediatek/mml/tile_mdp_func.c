@@ -84,29 +84,6 @@ enum isp_tile_message tile_rdma_init(struct tile_func_block *ptr_func,
 	return ISP_MESSAGE_TILE_OK;
 }
 
-enum isp_tile_message tile_hdr_init(struct tile_func_block *ptr_func,
-				    struct tile_reg_map *ptr_tile_reg_map)
-{
-	struct hdr_tile_data *data = &ptr_func->data->hdr;
-
-	if (unlikely(!data))
-		return MDP_MESSAGE_NULL_DATA;
-
-	ptr_func->in_tile_width   = 8191;
-	ptr_func->out_tile_width  = 8191;
-	ptr_func->in_tile_height  = 65535;
-	ptr_func->out_tile_height = 65535;
-
-	if (!data->relay_mode) {
-		ptr_func->type |= TILE_TYPE_CROP_EN;
-		ptr_func->in_min_width = data->min_width;
-		ptr_func->l_tile_loss = 8;
-		ptr_func->r_tile_loss = 8;
-	}
-
-	return ISP_MESSAGE_TILE_OK;
-}
-
 enum isp_tile_message tile_aal_init(struct tile_func_block *ptr_func,
 				    struct tile_reg_map *ptr_tile_reg_map)
 {

@@ -92,8 +92,9 @@ struct hdr_data {
 	u32 min_tile_width;
 	u16 cpr[MML_PIPE_CNT];
 	u16 gpr[MML_PIPE_CNT];
-	bool vcp_readback;
 	const u16 *reg_table;
+	u8 tile_loss;
+	bool vcp_readback;
 };
 
 static const struct hdr_data mt6893_hdr_data = {
@@ -102,6 +103,7 @@ static const struct hdr_data mt6893_hdr_data = {
 	.gpr = {CMDQ_GPR_R08, CMDQ_GPR_R10},
 	.vcp_readback = false,
 	.reg_table = hdr_reg_table_mt6983,
+	.tile_loss = 8,
 };
 
 static const struct hdr_data mt6983_hdr_data = {
@@ -110,6 +112,7 @@ static const struct hdr_data mt6983_hdr_data = {
 	.gpr = {CMDQ_GPR_R08, CMDQ_GPR_R10},
 	.vcp_readback = false,
 	.reg_table = hdr_reg_table_mt6983,
+	.tile_loss = 8,
 };
 
 static const struct hdr_data mt6879_hdr_data = {
@@ -118,6 +121,7 @@ static const struct hdr_data mt6879_hdr_data = {
 	.gpr = {CMDQ_GPR_R08, CMDQ_GPR_R10},
 	.vcp_readback = false,
 	.reg_table = hdr_reg_table_mt6983,
+	.tile_loss = 8,
 };
 
 static const struct hdr_data mt6895_hdr_data = {
@@ -126,9 +130,19 @@ static const struct hdr_data mt6895_hdr_data = {
 	.gpr = {CMDQ_GPR_R08, CMDQ_GPR_R10},
 	.vcp_readback = true,
 	.reg_table = hdr_reg_table_mt6983,
+	.tile_loss = 8,
 };
 
 static const struct hdr_data mt6886_hdr_data = {
+	.min_tile_width = 16,
+	.cpr = {CMDQ_CPR_MML_PQ0_ADDR, CMDQ_CPR_MML_PQ1_ADDR},
+	.gpr = {CMDQ_GPR_R08, CMDQ_GPR_R10},
+	.vcp_readback = false,
+	.reg_table = hdr_reg_table_mt6983,
+	.tile_loss = 8,
+};
+
+static const struct hdr_data mt6985_hdr_data = {
 	.min_tile_width = 16,
 	.cpr = {CMDQ_CPR_MML_PQ0_ADDR, CMDQ_CPR_MML_PQ1_ADDR},
 	.gpr = {CMDQ_GPR_R08, CMDQ_GPR_R10},
@@ -216,10 +230,8 @@ static s32 hdr_tile_prepare(struct mml_comp *comp, struct mml_task *task,
 	struct mml_frame_data *src = &cfg->info.src;
 	struct mml_frame_dest *dest = &cfg->info.dest[ccfg->node->out_idx];
 	struct mml_comp_hdr *hdr = comp_to_hdr(comp);
+	bool relay_mode = dest->pq_config.en_hdr ? false : true;
 
-	data->hdr.relay_mode = dest->pq_config.en_hdr ? false : true;
-	data->hdr.min_width = hdr->data->min_tile_width;
-	func->init_func = tile_hdr_init;
 	func->for_func = tile_crop_for;
 	func->data = data;
 
@@ -247,6 +259,20 @@ static s32 hdr_tile_prepare(struct mml_comp *comp, struct mml_task *task,
 	}
 	func->full_size_x_out = func->full_size_x_in;
 	func->full_size_y_out = func->full_size_y_in;
+
+	func->in_tile_width   = 8191;
+	func->out_tile_width  = 8191;
+	func->in_tile_height  = 65535;
+	func->out_tile_height = 65535;
+
+	if (!relay_mode) {
+		if (hdr->data->tile_loss) {
+			func->type |= TILE_TYPE_CROP_EN;
+			func->l_tile_loss = hdr->data->tile_loss;
+			func->r_tile_loss = hdr->data->tile_loss;
+		}
+		func->in_min_width = hdr->data->min_tile_width;
+	}
 
 	return 0;
 }
@@ -1132,7 +1158,7 @@ const struct of_device_id mml_hdr_driver_dt_match[] = {
 	},
 	{
 		.compatible = "mediatek,mt6985-mml_hdr",
-		.data = &mt6983_hdr_data,
+		.data = &mt6985_hdr_data,
 	},
 	{
 		.compatible = "mediatek,mt6886-mml_hdr",

@@ -21,11 +21,6 @@ struct rdma_tile_data {
 	u32 max_width;
 };
 
-struct hdr_tile_data {
-	bool relay_mode;
-	u32 min_width;
-};
-
 struct aal_tile_data {
 	u32 min_width;
 	u32 max_width;
@@ -78,7 +73,6 @@ struct dlo_tile_data {
 
 union mml_tile_data {
 	struct rdma_tile_data rdma;
-	struct hdr_tile_data hdr;
 	struct aal_tile_data aal;
 	struct rsz_tile_data rsz;
 	struct tdshp_tile_data tdshp;
