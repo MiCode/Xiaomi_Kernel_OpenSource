@@ -374,7 +374,7 @@ int adsp_core_common_init(struct adsp_priv *pdata)
 #if IS_ENABLED(CONFIG_DEBUG_FS)
 	char name[10] = {0};
 
-	snprintf(name, 10, "audiodsp%d", pdata->id);
+	ret = snprintf(name, 10, "audiodsp%d", pdata->id);
 	pdata->debugfs = debugfs_create_file(name, S_IFREG | 0644, NULL,
 					     pdata, &adsp_debug_ops);
 #endif
