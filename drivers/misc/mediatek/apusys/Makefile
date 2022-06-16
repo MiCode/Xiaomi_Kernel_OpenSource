@@ -27,6 +27,7 @@ obj-$(CONFIG_MTK_APUSYS_SUPPORT) += apusys.o
 
 # common include path
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/include/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/geniezone/public/
 
 # core makefile
 apusys-objs += core/apusys_core.o
@@ -270,6 +271,9 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/scp/include
 apusys-objs += aov/aov_init.o
 apusys-objs += aov/aov_rpmsg.o
 apusys-objs += aov/aov_recovery.o
+
+# sapu
+obj-$(CONFIG_MTK_APUSYS_SUPPORT) += sapu/
 
 # hw_sema
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/power/3.0/inc/
