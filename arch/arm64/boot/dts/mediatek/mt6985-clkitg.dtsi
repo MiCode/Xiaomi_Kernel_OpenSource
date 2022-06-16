@@ -27,7 +27,6 @@
 			<&topckgen_clk CLK_TOP_I2C_SEL>,
 			<&topckgen_clk CLK_TOP_PEXTP_MBIST_SEL>,
 			<&topckgen_clk CLK_TOP_ADSP_SEL>,
-			<&topckgen_clk CLK_TOP_VDEC_CKSYS1_SEL>,
 			<&topckgen_clk CLK_TOP_PWM_SEL>,
 			<&topckgen_clk CLK_TOP_SFLASH_SEL>,
 			<&topckgen_clk CLK_TOP_IPSEAST_SEL>,
@@ -53,7 +52,6 @@
 			<&topckgen_clk CLK_TOP_SENINF4_SEL>,
 			<&topckgen_clk CLK_TOP_SENINF5_SEL>,
 			<&topckgen_clk CLK_TOP_VENC_SEL>,
-			<&topckgen_clk CLK_TOP_VDEC_SEL>,
 			<&topckgen_clk CLK_TOP_CAM_SEL>,
 			<&topckgen_clk CLK_TOP_CAMTM_SEL>,
 			<&infracfg_ao_clk CLK_IFRAO_CLDMA_BCLK>,
@@ -155,22 +153,6 @@
 			<&mminfra_config_clk CLK_MMINFRA_GCE_M>,
 			<&mminfra_config_clk CLK_MMINFRA_SMI>,
 			<&mminfra_config_clk CLK_MMINFRA_GCE_26M>,
-			<&vdec_soc_gcon_base_clk CLK_VDE1_LARB1_CKEN>,
-			<&vdec_soc_gcon_base_clk CLK_VDE1_LAT_CKEN>,
-			<&vdec_soc_gcon_base_clk CLK_VDE1_LAT_ACTIVE>,
-			<&vdec_soc_gcon_base_clk CLK_VDE1_LAT_CKEN_ENG>,
-			<&vdec_soc_gcon_base_clk CLK_VDE1_MINI_MDP_EN>,
-			<&vdec_soc_gcon_base_clk CLK_VDE1_VDEC_CKEN>,
-			<&vdec_soc_gcon_base_clk CLK_VDE1_VDEC_ACTIVE>,
-			<&vdec_soc_gcon_base_clk CLK_VDE1_VDEC_CKEN_ENG>,
-			<&vdec_soc_gcon_base_clk CLK_VDE1_VDEC_SOC_IPS_EN>,
-			<&vdec_gcon_base_clk CLK_VDE2_LARB1_CKEN>,
-			<&vdec_gcon_base_clk CLK_VDE2_LAT_CKEN>,
-			<&vdec_gcon_base_clk CLK_VDE2_LAT_ACTIVE>,
-			<&vdec_gcon_base_clk CLK_VDE2_LAT_CKEN_ENG>,
-			<&vdec_gcon_base_clk CLK_VDE2_VDEC_CKEN>,
-			<&vdec_gcon_base_clk CLK_VDE2_VDEC_ACTIVE>,
-			<&vdec_gcon_base_clk CLK_VDE2_VDEC_CKEN_ENG>,
 			<&venc_gcon_clk CLK_VEN_CKE0_LARB>,
 			<&venc_gcon_clk CLK_VEN_CKE1_VENC>,
 			<&venc_gcon_clk CLK_VEN_CKE2_JPGENC>,
@@ -464,16 +446,6 @@
 		power-domains = <&scpsys MT6985_POWER_DOMAIN_ADSP_TOP_DORMANT>;
 	};
 
-	bring-up-pd-vde0 {
-		compatible = "mediatek,scpsys-bring-up";
-		power-domains = <&scpsys MT6985_POWER_DOMAIN_VDE0>;
-	};
-
-	bring-up-pd-vde1 {
-		compatible = "mediatek,scpsys-bring-up";
-		power-domains = <&scpsys MT6985_POWER_DOMAIN_VDE1>;
-	};
-
 	bring-up-pd-ven0 {
 		compatible = "mediatek,scpsys-bring-up";
 		power-domains = <&scpsys MT6985_POWER_DOMAIN_VEN0>;
@@ -574,13 +546,4 @@
 		power-domains = <&scpsys MT6985_POWER_DOMAIN_DXCC_SHUTDOWN>;
 	};
 
-	bring-up-pd-vde_vcore0 {
-		compatible = "mediatek,scpsys-bring-up";
-		power-domains = <&scpsys MT6985_POWER_DOMAIN_VDE_VCORE0>;
-	};
-
-	bring-up-pd-vde_vcore1 {
-		compatible = "mediatek,scpsys-bring-up";
-		power-domains = <&scpsys MT6985_POWER_DOMAIN_VDE_VCORE1>;
-	};
 };
