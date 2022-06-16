@@ -834,6 +834,10 @@ static int mtk_dp_intf_probe(struct platform_device *pdev)
 	dp_intf->dev = dev;
 
 	of_id = of_match_device(mtk_dp_intf_driver_dt_match, &pdev->dev);
+	if (!of_id) {
+		dev_err(dev, "DP_intf device match failed\n");
+		return -ENODEV;
+	}
 	dp_intf->driver_data = (struct mtk_dp_intf_driver_data *)of_id->data;
 	DDPMSG("%s:%d\n", __func__, __LINE__);
 
