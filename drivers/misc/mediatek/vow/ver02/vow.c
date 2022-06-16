@@ -1586,7 +1586,7 @@ static void vow_service_GetVowDumpData(void)
 			}
 
 			if (((temp_dump_info.user_dump_idx + idx) > temp_dump_info.user_dump_size)
-				&& (temp_dump_info.user_dump_idx < temp_dump_info.user_dump_size)) {
+			   && (temp_dump_info.user_dump_idx <= temp_dump_info.user_dump_size)) {
 				size = temp_dump_info.user_dump_size -
 						 temp_dump_info.user_dump_idx;
 			} else {

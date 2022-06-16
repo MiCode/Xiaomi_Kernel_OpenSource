@@ -2420,7 +2420,7 @@ static int mt_adc_supply_event(struct snd_soc_dapm_widget *w,
 	struct mt6358_priv *priv = snd_soc_component_get_drvdata(cmpnt);
 	unsigned int mic_type = priv->mux_select[MUX_MIC_TYPE];
 
-	dev_dbg(priv->dev, "%s(), event 0x%x, vow_enable: %d\n",
+	dev_info(priv->dev, "%s(), event 0x%x, vow_enable: %d\n",
 		__func__, event, priv->vow_enable);
 
 	switch (event) {
@@ -2934,6 +2934,7 @@ static int mt6358_vow_amic_enable(struct mt6358_priv *priv)
 {
 	unsigned int mic_type = priv->mux_select[MUX_MIC_TYPE];
 	unsigned int mux_pga_l = priv->mux_select[MUX_PGA_L];
+	unsigned int rc_value = 0, rc_l = 0;
 
 	dev_info(priv->dev, "%s(), mux, mic %u, pga l %u\n",
 		 __func__, mic_type, mux_pga_l);
@@ -3036,11 +3037,13 @@ static int mt6358_vow_amic_enable(struct mt6358_priv *priv)
 					   0x1 << RG_AUDPREAMPLDCCEN_SFT);
 		}
 
+		usleep_range(1000, 1050);
 		/* Audio L ADC input selection: Left Preamplifier */
 		regmap_update_bits(priv->regmap, MT6358_AUDENC_ANA_CON0,
 				   RG_AUDADCLINPUTSEL_MASK_SFT,
 				   ADC_MUX_PREAMPLIFIER <<
 				   RG_AUDADCLINPUTSEL_SFT);
+		usleep_range(1000, 1050);
 		/* Audio L ADC power on */
 		regmap_update_bits(priv->regmap, MT6358_AUDENC_ANA_CON0,
 				   RG_AUDADCLPWRUP_MASK_SFT,
@@ -3049,6 +3052,29 @@ static int mt6358_vow_amic_enable(struct mt6358_priv *priv)
 		regmap_update_bits(priv->regmap, MT6358_AUDENC_ANA_CON3,
 				   0x1 << 12, 0x0);
 	}
+
+	/* adc reset mechanism */
+	regmap_read(priv->regmap, MT6358_AUDENC_ANA_CON12, &rc_value);
+	/* AUDENC_CON12[4:0] => RGS_AUDRCTUNELREAD */
+	rc_l = rc_value & 0x1f;
+	dev_dbg(priv->dev, "%s(), MT6358_AUDENC_CON12(rc_l) = 0x%x(0x%x)\n",
+			__func__, rc_value, rc_l);
+	if (rc_l == 0) {
+		dev_info(priv->dev, "%s(), calibration fail, resetting... %d\n",
+			 __func__);
+		/* Disable audio L ADC */
+		regmap_update_bits(priv->regmap, MT6358_AUDENC_ANA_CON0,
+				   RG_AUDADCLPWRUP_MASK_SFT,
+				   0x0 << RG_AUDADCLPWRUP_SFT);
+		/* Enable audio L ADC */
+		regmap_update_bits(priv->regmap, MT6358_AUDENC_ANA_CON0,
+				   RG_AUDADCLPWRUP_MASK_SFT,
+				   0x1 << RG_AUDADCLPWRUP_SFT);
+	}
+	regmap_read(priv->regmap, MT6358_AUDENC_ANA_CON12, &rc_value);
+	dev_dbg(priv->dev, "%s(), after reset: MT6358_AUDENC_CON12(rc_l) = 0x%x(0x%x)\n",
+			__func__, rc_value, rc_l);
+
 	if (IS_DCC_BASE(mic_type)) {
 		usleep_range(100, 150);
 		/* Audio L preamplifier DCC precharge off */
