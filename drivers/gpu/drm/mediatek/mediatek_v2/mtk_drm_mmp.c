@@ -600,7 +600,7 @@ int mtk_drm_mmp_wdma_buffer(struct drm_crtc *crtc,
 	struct mmp_metadata_t meta;
 	unsigned int fmt = wb_fb->format->format;
 	int ret, raw = 0, yuv = 0;
-	struct dma_buf_map map;
+	struct dma_buf_map map = {0};
 	void *dma_va;
 
 	memset(&bitmap, 0, sizeof(struct mmp_metadata_bitmap_t));
