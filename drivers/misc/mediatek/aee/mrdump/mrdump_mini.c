@@ -60,7 +60,7 @@ struct module_notes_attrs {
 };
 
 #define MAX_KO_NAME_LEN 40
-#define MAX_KO_NUM 400
+#define MAX_KO_NUM 800
 #define LEN_BUILD_ID 20
 #define KO_INFO_VERSION "AEE01"
 
