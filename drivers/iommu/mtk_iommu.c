@@ -3322,7 +3322,7 @@ static const struct mtk_iommu_plat_data mt6886_data_disp = {
 static const struct mtk_iommu_plat_data mt6886_data_apu0 = {
 	.m4u_plat	= M4U_MT6886,
 	.flags          = TLB_SYNC_EN | GET_DOM_ID_LEGACY | /* IOMMU_SEC_EN |*/
-			  IOVA_34_EN/* | LINK_WITH_APU*/ | IOMMU_MAU_EN |
+			  IOVA_34_EN | LINK_WITH_APU | IOMMU_MAU_EN |
 			  PM_OPS_SKIP | IOMMU_CLK_AO_EN,
 	.hw_list        = &apu_iommu_list,
 	.inv_sel_reg    = REG_MMU_INV_SEL_GEN2,
