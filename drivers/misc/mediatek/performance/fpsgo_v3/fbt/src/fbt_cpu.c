@@ -6785,8 +6785,8 @@ void fbt_init_cpu_loading_info(void)
 	lastest_idx = 0;
 	last_cb_ts = 0;
 	for (i = 0; i < LOADING_CNT; i++) {
-		lastest_obv_cl[i] = kcalloc(cluster_num, sizeof(unsigned int), GFP_KERNEL);
-		lastest_is_cl_isolated[i] = kcalloc(cluster_num, sizeof(unsigned int), GFP_KERNEL);
+		lastest_obv_cl[i] = kcalloc(cluster_num, sizeof(unsigned int), GFP_ATOMIC);
+		lastest_is_cl_isolated[i] = kcalloc(cluster_num, sizeof(unsigned int), GFP_ATOMIC);
 		if (!lastest_obv_cl[i] || !lastest_is_cl_isolated[i]) {
 			err_exit = 1;
 			FPSGO_LOGE("ERROR OOM\n");

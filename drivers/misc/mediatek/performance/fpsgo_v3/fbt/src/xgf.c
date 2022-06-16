@@ -2840,7 +2840,7 @@ static ssize_t xgf_ema2_enable_by_pid_show(struct kobject *kobj,
 		iter = rb_entry(rbn, struct xgf_policy_cmd, rb_node);
 		length = scnprintf(temp + pos,
 			FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
-			"tgid:%d\tema2_enable:%dts:%llu\n",
+			"tgid:%d\tema2_enable:%d\tts:%llu\n",
 			iter->tgid, iter->ema2_enable, iter->ts);
 		pos += length;
 	}
