@@ -338,6 +338,102 @@
 #define PTPPLL_CON2				0x010
 #define PTPPLL_CON3				0x014
 
+/* HW Voter REG */
+#define HWV_CG_0_SET				0x000
+#define HWV_CG_0_CLR				0x004
+#define HWV_CG_0_DONE				0x1C00
+#define HWV_CG_1_SET				0x008
+#define HWV_CG_1_CLR				0x00C
+#define HWV_CG_1_DONE				0x1C04
+#define HWV_CG_2_SET				0x010
+#define HWV_CG_2_CLR				0x014
+#define HWV_CG_2_DONE				0x1C08
+#define HWV_CG_3_SET				0x018
+#define HWV_CG_3_CLR				0x01C
+#define HWV_CG_3_DONE				0x1C0C
+#define HWV_CG_4_SET				0x020
+#define HWV_CG_4_CLR				0x024
+#define HWV_CG_4_DONE				0x1C10
+#define HWV_CG_5_SET				0x028
+#define HWV_CG_5_CLR				0x02C
+#define HWV_CG_5_DONE				0x1C14
+#define HWV_CG_6_SET				0x030
+#define HWV_CG_6_CLR				0x034
+#define HWV_CG_6_DONE				0x1C18
+#define HWV_CG_7_SET				0x038
+#define HWV_CG_7_CLR				0x03C
+#define HWV_CG_7_DONE				0x1C1C
+#define HWV_CG_8_SET				0x040
+#define HWV_CG_8_CLR				0x044
+#define HWV_CG_8_DONE				0x1C20
+#define HWV_CG_9_SET				0x048
+#define HWV_CG_9_CLR				0x04C
+#define HWV_CG_9_DONE				0x1C24
+#define HWV_CG_10_SET				0x050
+#define HWV_CG_10_CLR				0x054
+#define HWV_CG_10_DONE				0x1C28
+#define HWV_CG_11_SET				0x058
+#define HWV_CG_11_CLR				0x05C
+#define HWV_CG_11_DONE				0x1C2C
+#define HWV_CG_12_SET				0x060
+#define HWV_CG_12_CLR				0x064
+#define HWV_CG_12_DONE				0x1C30
+#define HWV_CG_13_SET				0x068
+#define HWV_CG_13_CLR				0x06C
+#define HWV_CG_13_DONE				0x1C34
+#define HWV_CG_14_SET				0x070
+#define HWV_CG_14_CLR				0x074
+#define HWV_CG_14_DONE				0x1C38
+#define HWV_CG_15_SET				0x078
+#define HWV_CG_15_CLR				0x07C
+#define HWV_CG_15_DONE				0x1C3C
+#define HWV_CG_16_SET				0x080
+#define HWV_CG_16_CLR				0x084
+#define HWV_CG_16_DONE				0x1C40
+#define HWV_CG_17_SET				0x088
+#define HWV_CG_17_CLR				0x08C
+#define HWV_CG_17_DONE				0x1C44
+#define HWV_CG_18_SET				0x090
+#define HWV_CG_18_CLR				0x094
+#define HWV_CG_18_DONE				0x1C48
+#define HWV_CG_19_SET				0x098
+#define HWV_CG_19_CLR				0x09C
+#define HWV_CG_19_DONE				0x1C4C
+#define HWV_CG_20_SET				0x0A0
+#define HWV_CG_20_CLR				0x0A4
+#define HWV_CG_20_DONE				0x1C50
+#define HWV_CG_21_SET				0x0A8
+#define HWV_CG_21_CLR				0x0AC
+#define HWV_CG_21_DONE				0x1C54
+#define HWV_CG_22_SET				0x0B0
+#define HWV_CG_22_CLR				0x0B4
+#define HWV_CG_22_DONE				0x1C58
+#define HWV_CG_23_SET				0x0B8
+#define HWV_CG_23_CLR				0x0BC
+#define HWV_CG_23_DONE				0x1C5C
+#define HWV_CG_24_SET				0x0C0
+#define HWV_CG_24_CLR				0x0C4
+#define HWV_CG_24_DONE				0x1C60
+#define HWV_CG_25_SET				0x0C8
+#define HWV_CG_25_CLR				0x0CC
+#define HWV_CG_25_DONE				0x1C64
+#define HWV_CG_26_SET				0x0D0
+#define HWV_CG_26_CLR				0x0D4
+#define HWV_CG_26_DONE				0x1C68
+#define HWV_CG_27_SET				0x0D8
+#define HWV_CG_27_CLR				0x0DC
+#define HWV_CG_27_DONE				0x1C6C
+#define HWV_CG_28_SET				0x0E0
+#define HWV_CG_28_CLR				0x0E4
+#define HWV_CG_28_DONE				0x1C70
+#define HWV_CG_29_SET				0x0E8
+#define HWV_CG_29_CLR				0x0EC
+#define HWV_CG_29_DONE				0x1C74
+#define HWV_PLL_SET				0x190
+#define HWV_PLL_CLR				0x194
+#define HWV_PLL_SET_STA				0x1464
+#define HWV_PLL_CLR_STA				0x1468
+#define HWV_PLL_DONE				0x140C
 
 static DEFINE_SPINLOCK(mt6985_clk_lock);
 
@@ -2913,6 +3009,41 @@ static void __iomem *plls_base[PLL_SYS_NUM];
 		.pcwibits = MT6985_INTEGER_BITS,			\
 	}
 
+#define PLL_HWV(_id, _name, _reg, _en_reg, _div_en_msk, _pll_en_bit,	\
+			_pwr_reg, _flags, _rst_bar_mask,		\
+			_pd_reg, _pd_shift, _tuner_reg,			\
+			_tuner_en_reg, _tuner_en_bit,			\
+			_pcw_reg, _pcw_shift, _pcwbits,	\
+			_hwv_set_ofs, _hwv_clr_ofs, _hwv_done_ofs,	\
+			_hwv_set_sta_ofs, _hwv_clr_sta_ofs, _hwv_shift) {	\
+		.id = _id,						\
+		.name = _name,						\
+		.reg = _reg,						\
+		.en_reg = _en_reg,					\
+		.en_mask = _div_en_msk,					\
+		.pll_en_bit = _pll_en_bit,				\
+		.pwr_reg = _pwr_reg,					\
+		.flags = (_flags | PLL_CFLAGS | CLK_USE_HW_VOTER | HWV_CHK_FULL_STA),	\
+		.rst_bar_mask = _rst_bar_mask,			\
+		.fmax = MT6985_PLL_FMAX,				\
+		.fmin = MT6985_PLL_FMIN,				\
+		.pd_reg = _pd_reg,					\
+		.pd_shift = _pd_shift,					\
+		.tuner_reg = _tuner_reg,				\
+		.tuner_en_reg = _tuner_en_reg,				\
+		.tuner_en_bit = _tuner_en_bit,				\
+		.pcw_reg = _pcw_reg,					\
+		.pcw_shift = _pcw_shift,				\
+		.pcwbits = _pcwbits,					\
+		.pcwibits = MT6985_INTEGER_BITS,			\
+		.hwv_set_ofs = _hwv_set_ofs,				\
+		.hwv_clr_ofs = _hwv_clr_ofs,				\
+		.hwv_done_ofs = _hwv_done_ofs,				\
+		.hwv_set_sta_ofs = _hwv_set_sta_ofs,			\
+		.hwv_clr_sta_ofs = _hwv_clr_sta_ofs,			\
+		.hwv_shift = _hwv_shift,				\
+	}
+
 static const struct mtk_pll_data cci_plls[] = {
 	PLL(CLK_CCIPLL, "ccipll", CCIPLL_CON0/*base*/,
 		CCIPLL_CON0, 0, 0/*en*/,
@@ -2947,12 +3078,14 @@ static const struct mtk_pll_data apmixed_plls[] = {
 		MAINPLL_CON1, 24/*pd*/,
 		0, 0, 0/*tuner*/,
 		MAINPLL_CON1, 0, 22/*pcw*/),
-	PLL(CLK_APMIXED_UNIVPLL, "univpll", UNIVPLL_CON0/*base*/,
+	PLL_HWV(CLK_APMIXED_UNIVPLL, "univpll", UNIVPLL_CON0/*base*/,
 		UNIVPLL_CON0, 0xff000000, 0/*en*/,
 		UNIVPLL_CON3/*pwr*/, HAVE_RST_BAR, BIT(23)/*rstb*/,
 		UNIVPLL_CON1, 24/*pd*/,
 		0, 0, 0/*tuner*/,
-		UNIVPLL_CON1, 0, 22/*pcw*/),
+		UNIVPLL_CON1, 0, 22/*pcw*/,
+		HWV_PLL_SET, HWV_PLL_CLR, HWV_PLL_DONE,
+		HWV_PLL_SET_STA, HWV_PLL_CLR_STA, 4),
 	PLL(CLK_APMIXED_MSDCPLL, "msdcpll", MSDCPLL_CON0/*base*/,
 		MSDCPLL_CON0, 0, 0/*en*/,
 		MSDCPLL_CON3/*pwr*/, 0, BIT(0)/*rstb*/,
