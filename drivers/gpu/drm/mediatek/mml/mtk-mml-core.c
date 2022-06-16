@@ -1578,6 +1578,9 @@ static void core_config_task(struct mml_task *task)
 		cfg->task_ops->queue(task, 1);
 	}
 
+	/* hold config in this task to avoid config release before call submit_done */
+	cfg->cfg_ops->get(cfg);
+
 	/* ref count to 2 thus destroy can be one of
 	 * submit done and frame done
 	 */
@@ -1595,6 +1598,7 @@ done:
 		mml_mmp(config_dle, MMPROFILE_FLAG_END, jobid, 0);
 	else
 		mml_mmp(config, MMPROFILE_FLAG_END, jobid, 0);
+	cfg->cfg_ops->put(cfg);
 	mml_trace_end();
 }
 

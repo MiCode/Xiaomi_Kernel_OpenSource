@@ -31,6 +31,7 @@ struct mml_dle_ctx {
 	struct mutex config_mutex;
 	struct mml_dev *mml;
 	const struct mml_task_ops *task_ops;
+	const struct mml_config_ops *cfg_ops;
 	atomic_t job_serial;
 	struct workqueue_struct *wq_config;
 	struct workqueue_struct *wq_destroy;
@@ -194,6 +195,7 @@ static struct mml_frame_config *frame_config_create(
 	cfg->ctx = ctx;
 	cfg->mml = ctx->mml;
 	cfg->task_ops = ctx->task_ops;
+	cfg->cfg_ops = ctx->cfg_ops;
 	cfg->ctx_kt_done = ctx->kt_done;
 	INIT_WORK(&cfg->work_destroy, frame_config_destroy_work);
 	kref_init(&cfg->ref);
@@ -783,6 +785,21 @@ const static struct mml_task_ops dle_task_ops = {
 	.kt_setsched = kt_setsched,
 };
 
+static void config_get(struct mml_frame_config *cfg)
+{
+	kref_get(&cfg->ref);
+}
+
+static void config_put(struct mml_frame_config *cfg)
+{
+	kref_put(&cfg->ref, frame_config_queue_destroy);
+}
+
+static const struct mml_config_ops dle_config_ops = {
+	.get = config_get,
+	.put = config_put,
+};
+
 struct mml_dle_ctx *mml_dle_ctx_create(struct mml_dev *mml)
 {
 	struct mml_dle_ctx *ctx;
@@ -805,6 +822,7 @@ struct mml_dle_ctx *mml_dle_ctx_create(struct mml_dev *mml)
 	mutex_init(&ctx->config_mutex);
 	ctx->mml = mml;
 	ctx->task_ops = &dle_task_ops;
+	ctx->cfg_ops = &dle_config_ops;
 	ctx->wq_destroy = alloc_ordered_workqueue("mml_destroy_dl", 0, 0);
 	ctx->wq_config = alloc_ordered_workqueue("mml_work_dl", WORK_CPU_UNBOUND | WQ_HIGHPRI, 0);
 
