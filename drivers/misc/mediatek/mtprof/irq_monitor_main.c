@@ -795,7 +795,7 @@ static void irq_mon_boot(void)
 	unsigned int override_th2_ms = 500;
 	unsigned int override_th3_ms = 500;
 
-	node = of_find_node_by_name(NULL, "mtk_irq_monitor");
+	node = of_find_node_by_name(NULL, "mtk-irq-monitor");
 	if (node) {
 		b_default_enabled =
 			of_property_read_bool(node, "mediatek,default-enabled");
