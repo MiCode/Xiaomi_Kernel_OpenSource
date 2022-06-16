@@ -7,6 +7,7 @@
 #include <linux/arm-smccc.h>
 #include <linux/cpumask.h>
 #include <linux/delay.h>
+#include <linux/io.h>
 #include <linux/kallsyms.h>
 #include <linux/kdebug.h>
 #include <linux/kprobes.h>
@@ -648,6 +649,91 @@ static ssize_t proc_generate_adsp_write(struct file *file,
 	return 0;
 }
 
+static int test_value[3];
+static ssize_t proc_generate_platform_write(struct file *file,
+					const char __user *buf, size_t size,
+					loff_t *ppos)
+{
+	char msg[BUFSIZE], *name, *cur = msg;
+	int ret = 0, i = 0;
+	void __iomem *base;
+
+	if ((size < 10) || (size > sizeof(msg))) {
+		pr_notice("%s: count = %zx\n", __func__, size);
+		return -EINVAL;
+	}
+	if (!buf) {
+		pr_notice("%s: buf = NULL\n", __func__);
+		return -EINVAL;
+	}
+	if (copy_from_user(msg, buf, size)) {
+		pr_notice("%s: error\n", __func__);
+		return -EFAULT;
+	}
+
+	while ((name = strsep(&cur, " ")) && *name && i < 3) {
+		ret = kstrtoul(name, 16, (unsigned long *)(&test_value[i]));
+		if (ret) {
+			pr_notice("kstrtoul %s error.\n", name);
+			return -EINVAL;
+		}
+		i++;
+	}
+
+	if ((test_value[0] != 0x72656164) && (test_value[0] != 0x77726974))
+		return -EINVAL;
+
+
+	base = ioremap(test_value[1], 0x100);
+	if (!base) {
+		pr_notice("Couldn't map 0x%x.\n", test_value[1]);
+		return 0;
+	}
+
+	pr_info("trigger time: %lx\n", arch_timer_read_counter());
+	if (test_value[0] == 0x72656164 && i == 2) {
+		pr_info("read 0x%x value:", test_value[1]);
+		test_value[2] = readl(base);
+		pr_info("0x%x.\n", test_value[2]);
+	} else if (test_value[0] == 0x77726974 && i == 3) {
+		pr_info("write 0x%x to 0x%x.\n", test_value[2], test_value[1]);
+		writel(test_value[2], base);
+	} else {
+		test_value[0] = 0;
+		test_value[1] = 0;
+		test_value[2] = 0;
+	}
+	pr_info("trigger time: %lx\n", arch_timer_read_counter());
+
+	iounmap(base);
+	return size;
+}
+
+static ssize_t proc_generate_platform_read(struct file *file,
+					char __user *buf, size_t size,
+					loff_t *ppos)
+{
+	char buffer[BUFSIZE];
+	int len = 0;
+
+	if ((*ppos)++)
+		return 0;
+
+	if (test_value[0] == 0x72656164)
+		len = snprintf(buffer, BUFSIZE, "read 0x%x value 0x%x.\n",
+			test_value[1], test_value[2]);
+	else if (test_value[0] == 0x77726974)
+		len = snprintf(buffer, BUFSIZE, "write 0x%x value 0x%x.\n",
+			test_value[1], test_value[2]);
+
+	if (copy_to_user(buf, buffer, len)) {
+		pr_notice("%s fail to output info.\n", __func__);
+		return -EFAULT;
+	}
+	*ppos += len;
+	return len;
+}
+
 
 
 static ssize_t proc_generate_kernel_notify_read(struct file *file,
@@ -736,6 +822,7 @@ AED_FILE_OPS(generate_combo);
 AED_FILE_OPS(generate_md32);
 AED_FILE_OPS(generate_scp);
 AED_FILE_OPS(generate_adsp);
+AED_FILE_OPS(generate_platform);
 
 int aed_proc_debug_init(struct proc_dir_entry *aed_proc_dir)
 {
@@ -752,6 +839,7 @@ int aed_proc_debug_init(struct proc_dir_entry *aed_proc_dir)
 	AED_PROC_ENTRY(generate-md32, generate_md32, 0400);
 	AED_PROC_ENTRY(generate-scp, generate_scp, 0400);
 	AED_PROC_ENTRY(generate-adsp, generate_adsp, 0400);
+	AED_PROC_ENTRY(generate-platform, generate_platform, 0600);
 
 	return 0;
 }
@@ -767,5 +855,6 @@ int aed_proc_debug_done(struct proc_dir_entry *aed_proc_dir)
 	remove_proc_entry("generate-scp", aed_proc_dir);
 	remove_proc_entry("generate-wdt", aed_proc_dir);
 	remove_proc_entry("generate-adsp", aed_proc_dir);
+	remove_proc_entry("generate-platform", aed_proc_dir);
 	return 0;
 }
