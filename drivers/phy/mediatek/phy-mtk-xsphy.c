@@ -52,6 +52,8 @@
 #define P2F_USB_FM_VALID	BIT(0)
 
 #define XSP_USBPHYACR0	((SSUSB_SIFSLV_U2PHY_COM) + 0x00)
+#define P2A0_RG_USB20_TX_PH_ROT_SEL		GENMASK(26, 24)
+#define P2A0_RG_USB20_TX_PH_ROT_SEL_VAL(x)	((0x7 & (x)) << 24)
 #define P2A0_RG_INTR_EN	BIT(5)
 
 #define XSP_USBPHYACR1		((SSUSB_SIFSLV_U2PHY_COM) + 0x04)
@@ -1090,8 +1092,12 @@ static void u2_phy_instance_power_on(struct mtk_xsphy *xsphy,
 	tmp &= ~P2D_RG_SESSEND;
 	writel(tmp, pbase + XSP_U2PHYDTM1);
 
+	tmp = readl(pbase + XSP_USBPHYACR0);
+	tmp &= ~(P2A0_RG_USB20_TX_PH_ROT_SEL);
+	writel(tmp, pbase + XSP_USBPHYACR0);
+
 	tmp = readl(pbase + XSP_USBPHYACR6);
-	tmp &= ~P2A6_RG_U2_PHY_REV6;
+	tmp &= ~(P2A6_RG_U2_PHY_REV6 | P2A6_RG_U2_PHY_REV1);
 	tmp |= P2A6_RG_U2_PHY_REV6_VAL(1);
 	writel(tmp, pbase + XSP_USBPHYACR6);
 
@@ -1105,6 +1111,7 @@ static void u2_phy_instance_power_off(struct mtk_xsphy *xsphy,
 {
 	void __iomem *pbase = inst->port_base;
 	u32 index = inst->index;
+	enum phy_mode mode = inst->phy->attrs.mode;
 	u32 tmp;
 
 	tmp = readl(pbase + XSP_U2PHYDTM0);
@@ -1143,9 +1150,19 @@ static void u2_phy_instance_power_off(struct mtk_xsphy *xsphy,
 	tmp |= (P2D_RG_XCVRSEL_VAL(1) | P2D_DTM0_PART_MASK);
 	writel(tmp, pbase + XSP_U2PHYDTM0);
 
+	tmp = readl(pbase + XSP_USBPHYACR0);
+	tmp |= P2A0_RG_USB20_TX_PH_ROT_SEL_VAL(6);
+	writel(tmp, pbase + XSP_USBPHYACR0);
+
 	tmp = readl(pbase + XSP_USBPHYACR6);
 	tmp |= P2A6_RG_U2_PHY_REV6_VAL(1);
 	writel(tmp, pbase + XSP_USBPHYACR6);
+
+	if (mode == PHY_MODE_INVALID) {
+		tmp = readl(pbase + XSP_USBPHYACR6);
+		tmp |= P2A6_RG_U2_PHY_REV1;
+		writel(tmp, pbase + XSP_USBPHYACR6);
+	}
 
 	udelay(800);
 
@@ -1154,6 +1171,13 @@ static void u2_phy_instance_power_off(struct mtk_xsphy *xsphy,
 	writel(tmp, pbase + XSP_U2PHYDTM0);
 
 	udelay(1);
+
+	/* set BC11_SW_EN to enter L2 power off mode */
+	if (mode == PHY_MODE_INVALID) {
+		tmp = readl(inst->port_base + XSP_USBPHYACR6);
+		tmp |= P2A6_RG_BC11_SW_EN;
+		writel(tmp, inst->port_base + XSP_USBPHYACR6);
+	}
 
 	dev_info(xsphy->dev, "%s(%d)\n", __func__, index);
 }
