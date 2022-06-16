@@ -1748,6 +1748,7 @@ void mml_pq_core_uninit(void)
 	pq_mbox = NULL;
 }
 
+static DEFINE_MUTEX(ut_mutex);
 static s32 ut_case;
 static bool ut_inited;
 static struct list_head ut_mml_tasks;
@@ -1766,8 +1767,10 @@ static void destroy_ut_task(struct mml_task *task)
 {
 	mml_pq_log("destroy mml_task for PQ UT [%lu.%lu]",
 		task->end_time.tv_sec, task->end_time.tv_nsec);
+	mutex_lock(&ut_mutex);
 	list_del(&task->entry);
 	ut_task_cnt--;
+	mutex_unlock(&ut_mutex);
 	kfree(task->config);
 	kfree(task);
 }
@@ -1810,8 +1813,10 @@ static void create_ut_task(const char *case_name)
 	mml_pq_log("start create task for %s\n", case_name);
 	INIT_LIST_HEAD(&task->entry);
 	ktime_get_ts64(&task->end_time);
+	mutex_lock(&ut_mutex);
 	list_add_tail(&task->entry, &ut_mml_tasks);
 	ut_task_cnt++;
+	mutex_unlock(&ut_mutex);
 
 	mml_pq_log("[mml] created mml_task for PQ UT [%lu.%lu]\n",
 		task->end_time.tv_sec, task->end_time.tv_nsec);
@@ -1826,7 +1831,9 @@ static s32 ut_set(const char *val, const struct kernel_param *kp)
 {
 	s32 result;
 
+	mutex_lock(&ut_mutex);
 	ut_init();
+	mutex_unlock(&ut_mutex);
 	result = sscanf(val, "%d", &ut_case);
 	if (result != 1) {
 		mml_pq_err("invalid input: %s, result(%d)\n", val, result);
@@ -1853,9 +1860,12 @@ static s32 ut_get(char *buf, const struct kernel_param *kp)
 	u32 i = 0;
 	struct mml_task *task;
 
+	mutex_lock(&ut_mutex);
 	ut_init();
+	mutex_unlock(&ut_mutex);
 	switch (ut_case) {
 	case 0:
+		mutex_lock(&ut_mutex);
 		length += snprintf(buf + length, PAGE_SIZE - length,
 			"current UT task count: %d\n", ut_task_cnt);
 		list_for_each_entry(task, &ut_mml_tasks, entry) {
@@ -1863,6 +1873,7 @@ static s32 ut_get(char *buf, const struct kernel_param *kp)
 				"  - [%d] task submit time: %lu.%lu\n", i,
 				task->end_time.tv_sec, task->end_time.tv_nsec);
 		}
+		mutex_unlock(&ut_mutex);
 		break;
 	default:
 		pr_notice("not support read for case_id: %d\n", ut_case);
