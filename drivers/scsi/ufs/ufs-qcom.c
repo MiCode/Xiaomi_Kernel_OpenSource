@@ -4173,7 +4173,11 @@ void ufs_qcom_read_nvmem_cell(struct ufs_qcom_host *host)
 	 * Value = 0 : UFS 3.x
 	 * Value = 1 : UFS 2.x
 	 */
-	host->limit_phy_submode = !ufs_dev;
+	if (host->ufs_dev_revert)
+		host->limit_phy_submode = ufs_dev;
+	else
+		host->limit_phy_submode = !ufs_dev;
+
 	if (host->limit_phy_submode)
 		dev_info(host->hba->dev, "(%s) UFS device is 3.x, phy_submode = %d\n",
 						__func__, host->limit_phy_submode);
@@ -4212,6 +4216,7 @@ static void ufs_qcom_parse_limits(struct ufs_qcom_host *host)
 	of_property_read_u32(np, "limit-rate", &host->limit_rate);
 	of_property_read_u32(np, "limit-phy-submode", &host->limit_phy_submode);
 	of_property_read_u32(np, "ufs-dev-types", &host->ufs_dev_types);
+	host->ufs_dev_revert = of_property_read_bool(np, "qcom,ufs-dev-revert");
 
 	if (host->ufs_dev_types >= 2)
 		ufs_qcom_read_nvmem_cell(host);
