@@ -35,6 +35,7 @@
 
 #define SPM_VMM_HW_SEM_REG_OFST 0x6A8
 #define SPM_VMM_ISO_REG_OFST 0xF30
+#define SPM_VMM_ISO_REG_OFST_MT6886 0xF74
 #define SPM_VMM_EXT_BUCK_ISO_BIT 16
 #define SPM_AOC_VMM_SRAM_ISO_DIN_BIT 17
 #define SPM_AOC_VMM_SRAM_LATCH_ENB 18
@@ -216,6 +217,83 @@ static int regulator_event_notify(struct notifier_block *nb,
 	return 0;
 }
 
+static void vmm_buck_isolation_off_mt6886(void __iomem *base)
+{
+	void __iomem *reg_buck_iso_addr = base + SPM_VMM_ISO_REG_OFST_MT6886;
+	void __iomem *hw_sem_addr = base + SPM_VMM_HW_SEM_REG_OFST;
+	u32 reg_buck_iso_val;
+	unsigned long flags;
+
+	if (acquire_hw_semaphore(hw_sem_addr, &flags)) {
+		vmm_dump_spm_sem_reg(base);
+		BUG_ON(1);
+		return;
+	}
+
+	reg_buck_iso_val = readl_relaxed(reg_buck_iso_addr);
+	reg_buck_iso_val &= ~(1UL << SPM_VMM_EXT_BUCK_ISO_BIT_7S);
+	writel_relaxed(reg_buck_iso_val, reg_buck_iso_addr);
+
+	reg_buck_iso_val = readl_relaxed(reg_buck_iso_addr);
+	reg_buck_iso_val &= ~(1UL << SPM_AOC_VMM_SRAM_ISO_DIN_BIT_7S);
+	writel_relaxed(reg_buck_iso_val, reg_buck_iso_addr);
+
+	reg_buck_iso_val = readl_relaxed(reg_buck_iso_addr);
+	reg_buck_iso_val &= ~(1UL << SPM_AOC_VMM_SRAM_LATCH_ENB_7S);
+	writel_relaxed(reg_buck_iso_val, reg_buck_iso_addr);
+
+	release_hw_semaphore(hw_sem_addr, &flags);
+}
+
+static void vmm_buck_isolation_on_mt6886(void __iomem *base)
+{
+	void __iomem *reg_buck_iso_addr = base + SPM_VMM_ISO_REG_OFST_MT6886;
+	void __iomem *hw_sem_addr = base + SPM_VMM_HW_SEM_REG_OFST;
+	u32 reg_buck_iso_val;
+	unsigned long flags;
+
+	if (acquire_hw_semaphore(hw_sem_addr, &flags)) {
+		vmm_dump_spm_sem_reg(base);
+		BUG_ON(1);
+		return;
+	}
+
+	reg_buck_iso_val = readl_relaxed(reg_buck_iso_addr);
+	reg_buck_iso_val |= (1UL << SPM_AOC_VMM_SRAM_LATCH_ENB_7S);
+	writel_relaxed(reg_buck_iso_val, reg_buck_iso_addr);
+
+	reg_buck_iso_val = readl_relaxed(reg_buck_iso_addr);
+	reg_buck_iso_val |= (1UL << SPM_AOC_VMM_SRAM_ISO_DIN_BIT_7S);
+	writel_relaxed(reg_buck_iso_val, reg_buck_iso_addr);
+
+	reg_buck_iso_val = readl_relaxed(reg_buck_iso_addr);
+	reg_buck_iso_val |= (1UL << SPM_VMM_EXT_BUCK_ISO_BIT_7S);
+	writel_relaxed(reg_buck_iso_val, reg_buck_iso_addr);
+
+	release_hw_semaphore(hw_sem_addr, &flags);
+}
+
+static int regulator_event_notify_mt6886(struct notifier_block *nb,
+				  unsigned long event, void *data)
+{
+	struct vmm_spm_drv_data *drv_data = &g_drv_data;
+
+	if (!drv_data->spm_reg) {
+		ISP_LOGE("SPM_BASE is NULL");
+		return -EINVAL;
+	}
+
+	if (event == REGULATOR_EVENT_ENABLE) {
+		vmm_buck_isolation_off_mt6886(drv_data->spm_reg);
+		ISP_LOGI("VMM regulator enable done");
+	} else if (event == REGULATOR_EVENT_PRE_DISABLE) {
+		vmm_buck_isolation_on_mt6886(drv_data->spm_reg);
+		ISP_LOGI("VMM regulator before disable");
+	}
+
+	return 0;
+}
+
 static void vmm_buck_isolation_off_7s(void __iomem *base)
 {
 	void __iomem *addr = base + SOC_BUCK_ISO_CON_CLR;
@@ -284,6 +362,8 @@ static int vmm_spm_probe(struct platform_device *pdev)
 
 	if (of_device_is_compatible(dev->of_node, "mediatek,vmm_spm_7s"))
 		drv_data->nb.notifier_call = regulator_event_notify_7s;
+	else if (of_device_is_compatible(dev->of_node, "mediatek,vmm_spm_mt6886"))
+		drv_data->nb.notifier_call = regulator_event_notify_mt6886;
 	else
 		drv_data->nb.notifier_call = regulator_event_notify;
 	ret = devm_regulator_register_notifier(reg, &drv_data->nb);
@@ -299,6 +379,9 @@ static const struct of_device_id of_vmm_spm_match_tbl[] = {
 	},
 	{
 		.compatible = "mediatek,vmm_spm_7s",
+	},
+	{
+		.compatible = "mediatek,vmm_spm_mt6886",
 	},
 	{}
 };
