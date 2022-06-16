@@ -38,6 +38,18 @@ config INTERCONNECT_MTK_MMQOS_MT6853
 	help
 	  Support MT6853 multimedia QoS.
 
+config INTERCONNECT_MTK_MMQOS_MT6886
+	tristate "Mediatek MT6886 MMQoS interconnect driver"
+	depends on INTERCONNECT_MTK
+	depends on MTK_SMI
+	select INTERCONNECT_MTK_MMQOS_COMMON
+	help
+	  Support MT6886 for multimedia QoS in Mediatek's SoCs.
+	  The Mediatek MMQoS(Multimedia Quality of Service) Interconnect
+	  driver will collect BW requests from MM users, such as display,
+	  camera, mdp and video codec, and configure SMI settings dynamically
+	  according to the aggregated BW.
+
 config INTERCONNECT_MTK_MMQOS_MT6983
 	tristate "Mediatek MT6983 MMQoS interconnect driver"
 	depends on INTERCONNECT_MTK
