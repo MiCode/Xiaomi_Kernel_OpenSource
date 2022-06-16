@@ -1363,6 +1363,8 @@ static int seninf_csi_s_stream(struct v4l2_subdev *sd, int enable)
 		return -EFAULT;
 	}
 
+	dev_info(ctx->dev, "%s: enable %d\n", __func__, enable);
+
 	if (enable) {
 #if AOV_GET_PARAM
 		/* get sensor idx by get_sensor_idx */
@@ -1454,6 +1456,8 @@ static int seninf_s_stream(struct v4l2_subdev *sd, int enable)
 {
 	struct seninf_ctx *ctx = sd_to_ctx(sd);
 
+	dev_info(ctx->dev, "%s: enable %d\n", __func__, enable);
+
 	seninf_csi_s_stream(sd, enable);
 
 	if (ctx->is_test_model)
@@ -1465,7 +1469,7 @@ static int seninf_s_stream(struct v4l2_subdev *sd, int enable)
 		return 0;
 	}
 
-	if (!ctx->streaming) {
+	if (enable && !ctx->streaming) {
 		mtk_cam_seninf_s_stream_mux(ctx);
 		notify_fsync_listen_target(ctx);
 	}

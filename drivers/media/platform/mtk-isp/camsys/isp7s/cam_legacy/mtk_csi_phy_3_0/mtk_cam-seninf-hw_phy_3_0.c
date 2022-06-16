@@ -31,7 +31,7 @@
 
 #define DEBUG_CAM_MUX_SWITCH 0
 //#define SCAN_SETTLE
-#define LOG_MORE 0
+#define LOG_MORE 1
 
 #define MT6886_IOMOM_VERSIONS "mt6886"
 
@@ -368,6 +368,7 @@ static int mtk_cam_seninf_cammux(struct seninf_ctx *ctx, int cam_mux)
 static int mtk_cam_seninf_disable_cammux(struct seninf_ctx *ctx, int cam_mux)
 {
 	void *pSeninf_cam_mux_pcsr = NULL;
+	int i;
 
 	if (cam_mux < 0 || cam_mux >= _seninf_ops->cam_mux_num) {
 		dev_info(ctx->dev,
@@ -387,6 +388,13 @@ static int mtk_cam_seninf_disable_cammux(struct seninf_ctx *ctx, int cam_mux)
 
 	SENINF_BITS(pSeninf_cam_mux_pcsr,
 			SENINF_CAM_MUX_PCSR_CTRL, RG_SENINF_CAM_MUX_PCSR_EN, 0);
+
+	/* clear tags */
+	for (i = 0; i < 4; i++) {
+		SENINF_BITS(pSeninf_cam_mux_pcsr, SENINF_CAM_MUX_PCSR_OPT,
+			    RG_SENINF_CAM_MUX_PCSR_TAG_VC_DT_PAGE_SEL, i);
+		SENINF_WRITE_REG(pSeninf_cam_mux_pcsr, SENINF_CAM_MUX_PCSR_TAG_VC_SEL, 0);
+	}
 
 	SENINF_WRITE_REG(pSeninf_cam_mux_pcsr, SENINF_CAM_MUX_PCSR_IRQ_STATUS,
 			 (1 << RO_SENINF_CAM_MUX_PCSR_HSIZE_ERR_IRQ_SHIFT) |
@@ -3053,8 +3061,8 @@ static int mtk_cam_seninf_set_idle(struct seninf_ctx *ctx)
 	}
 	for (i = 0; i < PAD_MAXCNT; i++)
 		ctx->pad2cam[i] = 0xff;
-#if LOG_MORE != 1
-	dev_info(ctx->dev, "%s	rlease all mux & cam mux set all pd2cam to 0xff\n", __func__);
+#if LOG_MORE
+	dev_info(ctx->dev, "%s release all mux & cam mux set all pd2cam to 0xff\n", __func__);
 #endif
 
 	return 0;

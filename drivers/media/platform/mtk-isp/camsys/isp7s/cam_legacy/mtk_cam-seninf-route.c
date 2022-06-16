@@ -836,13 +836,14 @@ int mtk_cam_seninf_set_pixelmode(struct v4l2_subdev *sd,
 
 	return 0;
 }
-int _mtk_cam_seninf_set_camtg(struct v4l2_subdev *sd,
-					int pad_id, int camtg, bool from_set_camtg)
+int _mtk_cam_seninf_set_camtg(struct v4l2_subdev *sd, int pad_id,
+				int camtg, int tag_id, bool from_set_camtg)
 {
 	int vc_en, old_camtg;
 	struct seninf_ctx *ctx = container_of(sd, struct seninf_ctx, subdev);
 	struct seninf_vc *vc;
 	bool disable_last = from_set_camtg;
+	int en_tag = ((tag_id >= 0) && (tag_id <= 31));
 
 	if (pad_id < PAD_SRC_RAW0 || pad_id >= PAD_MAXCNT)
 		return -EINVAL;
@@ -857,6 +858,7 @@ int _mtk_cam_seninf_set_camtg(struct v4l2_subdev *sd,
 	}
 
 	ctx->pad2cam[pad_id] = camtg;
+	ctx->pad_tag_id[pad_id] = tag_id;
 
 	vc_en = mtk_cam_seninf_is_vc_enabled(ctx, vc);
 
@@ -865,12 +867,13 @@ int _mtk_cam_seninf_set_camtg(struct v4l2_subdev *sd,
 #ifdef SENSOR_SECURE_MTEE_SUPPORT
 		if (ctx->is_secure == 1) {
 			vc->cam = camtg;
+			vc->mux_vr = mux2mux_vr(ctx, vc->mux, vc->cam);
 
 			dev_info(ctx->dev, "Sensor Secure CA");
 			g_seninf_ops->_set_cammux_vc(ctx, vc->cam,
 								vc->vc, vc->dt,
 								!!vc->dt, !!vc->dt);
-			g_seninf_ops->_set_cammux_src(ctx, vc->mux, vc->cam,
+			g_seninf_ops->_set_cammux_src(ctx, vc->mux_vr, vc->cam,
 								vc->exp_hsize,
 								vc->exp_vsize,
 								vc->dt);
@@ -901,6 +904,8 @@ int _mtk_cam_seninf_set_camtg(struct v4l2_subdev *sd,
 				old_camtg = vc->cam;
 				/* enable new */
 				vc->cam = camtg;
+				vc->tag = tag_id;
+				vc->mux_vr = mux2mux_vr(ctx, vc->mux, vc->cam);
 				g_seninf_ops->_switch_to_cammux_inner_page(ctx, true);
 				g_seninf_ops->_set_cammux_next_ctrl(ctx, 0x1f, vc->cam);
 
@@ -909,7 +914,9 @@ int _mtk_cam_seninf_set_camtg(struct v4l2_subdev *sd,
 				g_seninf_ops->_set_cammux_vc(ctx, vc->cam,
 									vc->vc, vc->dt,
 									!!vc->dt, !!vc->dt);
-				g_seninf_ops->_set_cammux_src(ctx, vc->mux, vc->cam,
+				g_seninf_ops->_set_cammux_tag(ctx, vc->cam,
+							vc->vc, vc->dt, vc->tag, en_tag);
+				g_seninf_ops->_set_cammux_src(ctx, vc->mux_vr, vc->cam,
 									vc->exp_hsize,
 									vc->exp_vsize,
 									vc->dt);
@@ -932,15 +939,15 @@ int _mtk_cam_seninf_set_camtg(struct v4l2_subdev *sd,
 					notify_fsync_listen_target_with_kthread(ctx);
 				}
 			}
-			dev_info(ctx->dev, "%s: pad %d mux %d cam %d -> %d\n",
-				 __func__, vc->out_pad, vc->mux, old_camtg, vc->cam);
+			dev_info(ctx->dev, "%s: pad %d mux %d cam %d -> %d, new tag %d\n",
+				 __func__, vc->out_pad, vc->mux, old_camtg, vc->cam, vc->tag);
 
 #ifdef SENSOR_SECURE_MTEE_SUPPORT
 		}
 #endif
 	} else {
-		dev_info(ctx->dev, "%s: pad_id %d, camtg %d, ctx->streaming %d, vc_en %d, vc->cam %d\n",
-			 __func__, pad_id, camtg, ctx->streaming, vc_en, vc->cam);
+		dev_info(ctx->dev, "%s: pad_id %d, camtg %d, ctx->streaming %d, vc_en %d, vc->cam %d, tag %d\n",
+			 __func__, pad_id, camtg, ctx->streaming, vc_en, vc->cam, vc->tag);
 	}
 
 	return 0;
@@ -948,23 +955,7 @@ int _mtk_cam_seninf_set_camtg(struct v4l2_subdev *sd,
 
 int mtk_cam_seninf_set_camtg_camsv(struct v4l2_subdev *sd, int pad_id, int camtg, int tag_id)
 {
-	int vc_en;
-	struct seninf_ctx *ctx = container_of(sd, struct seninf_ctx, subdev);
-	struct seninf_vc *vc;
-
-	if (pad_id < PAD_SRC_RAW0 || pad_id >= PAD_MAXCNT)
-		return -EINVAL;
-
-	vc = mtk_cam_seninf_get_vc_by_pad(ctx, pad_id);
-	if (!vc)
-		return -EINVAL;
-
-	ctx->pad2cam[pad_id] = camtg;
-	ctx->pad_tag_id[pad_id] = tag_id;
-
-	vc_en = mtk_cam_seninf_is_vc_enabled(ctx, vc);
-
-	return 0;
+	return _mtk_cam_seninf_set_camtg(sd, pad_id, camtg, tag_id, true);
 }
 
 int mtk_cam_seninf_get_tag_order(struct v4l2_subdev *sd, int pad_id)
@@ -989,8 +980,8 @@ int mtk_cam_seninf_s_stream_mux(struct seninf_ctx *ctx)
 	int hsPol, vsPol, vc_sel, dt_sel, dt_en;
 	int intf = ctx->seninfIdx;
 	struct seninf_mux *mux, *mux_by_camtype[TYPE_MAX_NUM] = {0};
-	int first_tag = 1;
-	int first_vc = 0;
+	int en_tag = 0;
+	int group_src = MIPI_SENSOR;
 
 	// TODO
 	hsPol = 0;
@@ -1023,6 +1014,14 @@ int mtk_cam_seninf_s_stream_mux(struct seninf_ctx *ctx)
 		if (vc->cam != 0xff) {
 			vc->tag = ctx->pad_tag_id[vc->out_pad];
 			vc->cam_type = cammux2camtype(ctx, vc->cam);
+			switch (vc->cam_type) {
+			case TYPE_RAW:
+			case TYPE_UISP:
+				group_src = MIPI_SENSOR + vc->group;
+				break;
+			default:
+				group_src = MIPI_SENSOR;
+			}
 
 			/* alloc mux by group */
 			if (mux_by_camtype[vc->cam_type]) {
@@ -1045,9 +1044,7 @@ int mtk_cam_seninf_s_stream_mux(struct seninf_ctx *ctx)
 			if (!skip_mux_ctrl) {
 				g_seninf_ops->_mux(ctx, vc->mux);
 				g_seninf_ops->_set_mux_ctrl(ctx, vc->mux,
-							    hsPol, vsPol,
-					MIPI_SENSOR + vc->group,
-					vc->pixel_mode);
+					hsPol, vsPol, group_src, vc->pixel_mode);
 
 				g_seninf_ops->_set_top_mux_ctrl(ctx, vc->mux, intf);
 
@@ -1058,17 +1055,17 @@ int mtk_cam_seninf_s_stream_mux(struct seninf_ctx *ctx)
 			vc_sel = vc->vc;
 			dt_sel = vc->dt;
 			dt_en = !!dt_sel;
-			if (first_tag && (vc->tag <= 31)) {
-				first_vc = 1;
-				first_tag = 0;
-			} else
-				first_vc = 0;
+
+			if (vc->tag <= 31)
+				en_tag = 1;
+			else
+				en_tag = 0;
 
 			/* CMD_SENINF_FINALIZE_CAM_MUX */
 			g_seninf_ops->_set_cammux_vc(ctx, vc->cam,
 						     vc_sel, dt_sel, dt_en, dt_en);
 			g_seninf_ops->_set_cammux_tag(ctx, vc->cam,
-						     vc_sel, dt_sel, vc->tag, first_vc);
+						     vc_sel, dt_sel, vc->tag, en_tag);
 
 			g_seninf_ops->_set_cammux_src(ctx, vc->mux_vr, vc->cam,
 					vc->exp_hsize, vc->exp_vsize, vc->dt);
@@ -1081,11 +1078,11 @@ int mtk_cam_seninf_s_stream_mux(struct seninf_ctx *ctx)
 			dev_info(ctx->dev,
 				"vc[%d] pad %d intf %d mux %d mux_vr %d cam %d tag %d vc 0x%x dt 0x%x first %d\n",
 				i, vc->out_pad, intf, vc->mux, vc->mux_vr, vc->cam, vc->tag,
-				vc_sel, dt_sel, first_vc);
+				vc_sel, dt_sel, en_tag);
 
 		} else
-			dev_info(ctx->dev, "not set camtg yet, vc[%d] pad %d intf %d cam %d\n",
-					 i, vc->out_pad, intf, vc->cam);
+			dev_info(ctx->dev, "not set camtg yet, vc[%d] pad %d intf %d cam %d tag %d\n",
+					 i, vc->out_pad, intf, vc->cam, vc->tag);
 	}
 
 	return 0;
@@ -1113,6 +1110,7 @@ mtk_cam_seninf_streaming_mux_change(struct mtk_cam_seninf_mux_param *param)
 	struct v4l2_subdev *sd = NULL;
 	int pad_id = -1;
 	int camtg = -1;
+	int tag_id = -1;
 	struct seninf_ctx *ctx;
 	int index = 0;
 
@@ -1121,8 +1119,9 @@ mtk_cam_seninf_streaming_mux_change(struct mtk_cam_seninf_mux_param *param)
 		sd = param->settings[0].seninf;
 		pad_id = param->settings[0].source;
 		camtg = param->settings[0].camtg;
+		tag_id = param->settings[0].tag_id;
 		ctx = container_of(sd, struct seninf_ctx, subdev);
-		//_mtk_cam_seninf_set_camtg(sd, pad_id, camtg, true);
+		//_mtk_cam_seninf_set_camtg(sd, pad_id, camtg, tag_id, true);
 		dev_info(ctx->dev,
 			"%s error, should use mtk_cam_seninf_set_camtg directly!!!\n"
 			, __func__);
@@ -1131,6 +1130,7 @@ mtk_cam_seninf_streaming_mux_change(struct mtk_cam_seninf_mux_param *param)
 		sd = param->settings[0].seninf;
 		pad_id = param->settings[0].source;
 		camtg = param->settings[0].camtg;
+		tag_id = param->settings[0].tag_id;
 
 		ctx = container_of(sd, struct seninf_ctx, subdev);
 
@@ -1138,7 +1138,7 @@ mtk_cam_seninf_streaming_mux_change(struct mtk_cam_seninf_mux_param *param)
 		g_seninf_ops->_reset_cam_mux_dyn_en(ctx, index);
 		//k_cam_seninf_set_sw_cfg_busy(ctx, true, index);
 
-		_mtk_cam_seninf_set_camtg(sd, pad_id, camtg, false);
+		_mtk_cam_seninf_set_camtg(sd, pad_id, camtg, tag_id, false);
 		//g_seninf_ops->_enable_cam_mux_vsync_irq(ctx, true, camtg);
 		//k_cam_seninf_set_cam_mux_dyn_en(ctx, true, camtg, index);
 
@@ -1147,7 +1147,8 @@ mtk_cam_seninf_streaming_mux_change(struct mtk_cam_seninf_mux_param *param)
 		sd = param->settings[1].seninf;
 		pad_id = param->settings[1].source;
 		camtg = param->settings[1].camtg;
-		_mtk_cam_seninf_set_camtg(sd, pad_id, camtg, false);
+		tag_id = param->settings[1].tag_id;
+		_mtk_cam_seninf_set_camtg(sd, pad_id, camtg, tag_id, false);
 		//g_seninf_ops->_enable_cam_mux_vsync_irq(ctx, true, camtg);
 		//mtk_cam_seninf_set_cam_mux_dyn_en(ctx, true, camtg, index);
 
@@ -1157,8 +1158,9 @@ mtk_cam_seninf_streaming_mux_change(struct mtk_cam_seninf_mux_param *param)
 			sd = param->settings[2].seninf;
 			pad_id = param->settings[2].source;
 			camtg = param->settings[2].camtg;
+			tag_id = param->settings[2].tag_id;
 
-			_mtk_cam_seninf_set_camtg(sd, pad_id, camtg, false);
+			_mtk_cam_seninf_set_camtg(sd, pad_id, camtg, tag_id, false);
 
 			//g_seninf_ops->_enable_cam_mux_vsync_irq(ctx, true, camtg);
 			//k_cam_seninf_set_cam_mux_dyn_en(ctx, true, camtg, index);
