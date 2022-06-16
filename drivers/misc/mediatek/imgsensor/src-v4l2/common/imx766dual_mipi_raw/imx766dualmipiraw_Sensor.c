@@ -1412,6 +1412,22 @@ static kal_uint16 gain2reg(struct subdrv_ctx *ctx, const kal_uint32 gain)
 static kal_uint32 set_gain_w_gph(struct subdrv_ctx *ctx, kal_uint32 gain, kal_bool gph)
 {
 	kal_uint16 reg_gain;
+	kal_uint32 min_gain, max_gain;
+
+	min_gain = BASEGAIN;
+	max_gain = imgsensor_info.max_gain;
+
+	//16x for full size mode
+	switch (ctx->sensor_mode) {
+	/* non-binning */
+	case IMGSENSOR_MODE_CUSTOM3:
+	case IMGSENSOR_MODE_CUSTOM7:
+		max_gain = 16 * BASEGAIN;
+		break;
+	/* binning */
+	default:
+		break;
+	}
 
 	if (gain < imgsensor_info.min_gain || gain > imgsensor_info.max_gain) {
 		LOG_INF("Error gain setting");
@@ -3545,7 +3561,19 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 		break;
 	case SENSOR_FEATURE_GET_GAIN_RANGE_BY_SCENARIO:
 		*(feature_data + 1) = imgsensor_info.min_gain;
-		*(feature_data + 2) = imgsensor_info.max_gain;
+
+		switch (*feature_data) {
+		/* non-binning */
+		case SENSOR_SCENARIO_ID_CUSTOM3:
+		case SENSOR_SCENARIO_ID_CUSTOM7:
+			*(feature_data + 2) = BASEGAIN * 16;
+			break;
+		/* binning */
+		default:
+			*(feature_data + 2) = imgsensor_info.max_gain;
+			break;
+		}
+
 		break;
 	case SENSOR_FEATURE_GET_BASE_GAIN_ISO_AND_STEP:
 		*(feature_data + 0) = imgsensor_info.min_gain_iso;
