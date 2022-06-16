@@ -161,10 +161,6 @@
 #define MT6985_TOP_AXI_PROT_EN_MMSYS2_MM_PROC	(BIT(12))
 #define MT6985_VLP_AXI_PROT_EN_MM_PROC_2ND	(BIT(12))
 #define MT6985_TOP_AXI_PROT_EN_MMSYS2_MM_PROC_2ND	(BIT(15))
-#define MT6985_TOP_AXI_PROT_EN_MMSYS1_SSRSYS	(BIT(24))
-#define MT6985_TOP_AXI_PROT_EN_SSR0_SSRSYS	(BIT(26))
-#define MT6985_TOP_AXI_PROT_EN_INFRASYS0_SSRSYS	(BIT(4))
-#define MT6985_TOP_AXI_PROT_EN_MMSYS0_SSRSYS	(BIT(21))
 #define MT6985_TOP_AXI_PROT_EN_MMSYS1_VDE_VCORE0	(BIT(26) | BIT(28))
 #define MT6985_TOP_AXI_PROT_EN_MMSYS0_VDE_VCORE0	(BIT(11))
 #define MT6985_TOP_AXI_PROT_EN_MMSYS1_VDE_VCORE0_2ND	(BIT(31))
@@ -424,7 +420,7 @@ static const struct scp_domain_data scp_domain_mt6985_spm_data[] = {
 		.ctl_offs = 0xE18,
 		.sram_pdn_bits = GENMASK(8, 8),
 		.sram_pdn_ack_bits = GENMASK(12, 12),
-		.subsys_clk_prefix = "pextp",
+		.subsys_clk_prefix = "pextp0",
 		.bp_table = {
 			BUS_PROT_IGN(VLP_TYPE, 0x0234, 0x0238, 0x0230, 0x0240,
 				MT6985_VLP_AXI_PROT_EN1_PEXTP_MAC0),
@@ -436,7 +432,7 @@ static const struct scp_domain_data scp_domain_mt6985_spm_data[] = {
 		.ctl_offs = 0xE1C,
 		.sram_pdn_bits = GENMASK(8, 8),
 		.sram_pdn_ack_bits = GENMASK(12, 12),
-		.subsys_clk_prefix = "pextp",
+		.subsys_clk_prefix = "pextp1",
 		.bp_table = {
 			BUS_PROT_IGN(VLP_TYPE, 0x0234, 0x0238, 0x0230, 0x0240,
 				MT6985_VLP_AXI_PROT_EN1_PEXTP_MAC1),
@@ -886,30 +882,6 @@ static const struct scp_domain_data scp_domain_mt6985_spm_data[] = {
 		.name = "csi_rx",
 		.ctl_offs = 0xED8,
 		.caps = MTK_SCPD_IS_PWR_CON_ON,
-	},
-	[MT6985_POWER_DOMAIN_SSR] = {
-		.name = "ssrsys",
-		.ctl_offs = 0xEDC,
-		.sram_pdn_bits = GENMASK(8, 8),
-		.sram_pdn_ack_bits = GENMASK(12, 12),
-		.bp_table = {
-			BUS_PROT_IGN(IFR_TYPE, 0x204, 0x208, 0x200, 0x20c,
-				MT6985_TOP_AXI_PROT_EN_MMSYS1_SSRSYS),
-			BUS_PROT_IGN(IFR_TYPE, 0x804, 0x808, 0x800, 0x80c,
-				MT6985_TOP_AXI_PROT_EN_SSR0_SSRSYS),
-			BUS_PROT_IGN(IFR_TYPE, 0x004, 0x008, 0x000, 0x00c,
-				MT6985_TOP_AXI_PROT_EN_INFRASYS0_SSRSYS),
-			BUS_PROT_IGN(IFR_TYPE, 0x1e4, 0x1e8, 0x1e0, 0x1ec,
-				MT6985_TOP_AXI_PROT_EN_MMSYS0_SSRSYS),
-		},
-		.caps = MTK_SCPD_IS_PWR_CON_ON,
-	},
-	[MT6985_POWER_DOMAIN_DXCC_SHUTDOWN] = {
-		.name = "dxcc_shutdown",
-		.ctl_offs = 0xEE0,
-		.sram_pdn_bits = GENMASK(8, 8),
-		.sram_pdn_ack_bits = GENMASK(12, 12),
-		.caps = MTK_SCPD_SRAM_ISO | MTK_SCPD_IS_PWR_CON_ON,
 	},
 	[MT6985_POWER_DOMAIN_VDE_VCORE0] = {
 		.name = "vde_vcore0",
