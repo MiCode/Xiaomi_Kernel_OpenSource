@@ -1336,6 +1336,28 @@ static void config_img_in_fmt_mstream(struct mtk_cam_device *cam,
 
 }
 
+static void mtk_cam_fill_sv_frame_param(struct mtk_cam_ctx *ctx,
+	struct mtkcam_ipi_frame_param *frame_param, unsigned int tag_idx,
+	struct mtkcam_ipi_pix_fmt fmt, __u64 iova)
+{
+	struct mtkcam_ipi_img_output *out_fmt;
+
+	out_fmt =
+		&frame_param->camsv_param[0][tag_idx].camsv_img_outputs[0];
+
+	frame_param->camsv_param[0][tag_idx].pipe_id =
+		ctx->sv_dev->id + MTKCAM_SUBDEV_CAMSV_START;
+	frame_param->camsv_param[0][tag_idx].tag_id = tag_idx;
+	frame_param->camsv_param[0][tag_idx].tag_order =
+		ctx->sv_dev->tag_info[tag_idx].tag_order;
+	frame_param->camsv_param[0][tag_idx].hardware_scenario =
+		ctx->sv_dev->tag_info[tag_idx].hw_scen;
+	out_fmt->uid.id = MTKCAM_IPI_CAMSV_MAIN_OUT;
+	out_fmt->uid.pipe_id = ctx->sv_dev->id + MTKCAM_SUBDEV_CAMSV_START;
+	out_fmt->fmt = fmt;
+	out_fmt->buf[0][0].iova = iova;
+}
+
 static void config_img_in_fmt_stagger(struct mtk_cam_device *cam,
 				struct mtk_cam_request_stream_data *s_data,
 				struct mtk_cam_video_device *node,
@@ -1344,7 +1366,6 @@ static void config_img_in_fmt_stagger(struct mtk_cam_device *cam,
 {
 	struct mtk_cam_ctx *ctx = s_data->ctx;
 	struct mtkcam_ipi_img_input *in_fmt;
-	struct mtkcam_ipi_img_output *out_fmt;
 	int input_node;
 	int rawi_port_num = 0;
 	int rawi_idx = 0;
@@ -1431,21 +1452,8 @@ static void config_img_in_fmt_stagger(struct mtk_cam_device *cam,
 		in_fmt->fmt.stride[0] = cfg_fmt->fmt.pix_mp.plane_fmt[0].bytesperline;
 
 		if (is_otf || is_dc) {
-			out_fmt =
-				&s_data->frame_params.camsv_param[0][tag_idx].camsv_img_outputs[0];
-
-			/* update camsv's frame parameter */
-			s_data->frame_params.camsv_param[0][tag_idx].pipe_id =
-				ctx->sv_dev->id + MTKCAM_SUBDEV_CAMSV_START;
-			s_data->frame_params.camsv_param[0][tag_idx].tag_id = tag_idx;
-			s_data->frame_params.camsv_param[0][tag_idx].tag_order =
-				ctx->sv_dev->tag_info[tag_idx].tag_order;
-			s_data->frame_params.camsv_param[0][tag_idx].hardware_scenario =
-				ctx->sv_dev->tag_info[tag_idx].hw_scen;
-			out_fmt->uid.id = MTKCAM_IPI_CAMSV_MAIN_OUT;
-			out_fmt->uid.pipe_id = ctx->sv_dev->id + MTKCAM_SUBDEV_CAMSV_START;
-			out_fmt->fmt = in_fmt->fmt;
-			out_fmt->buf[0][0].iova = in_fmt->buf[0].iova;
+			mtk_cam_fill_sv_frame_param(ctx, &s_data->frame_params,
+				tag_idx, in_fmt->fmt, in_fmt->buf[0].iova);
 		}
 
 		dev_dbg(cam->dev,
@@ -1532,7 +1540,6 @@ static void check_stagger_buffer(struct mtk_cam_device *cam,
 				 struct mtk_cam_request *cam_req)
 {
 	struct mtkcam_ipi_img_input *in_fmt;
-	struct mtkcam_ipi_img_output *out_fmt;
 	struct mtk_cam_img_working_buf_entry *buf_entry;
 	struct mtk_cam_video_device *node;
 	struct mtk_cam_request_stream_data *s_data;
@@ -1607,7 +1614,6 @@ static void check_stagger_buffer(struct mtk_cam_device *cam,
 		input_node = ptr_rawi[rawi_idx];
 		in_fmt = &s_data->frame_params.img_ins[
 					input_node - MTKCAM_IPI_RAW_RAWI_2];
-		out_fmt = &s_data->frame_params.camsv_param[0][tag_idx].camsv_img_outputs[0];
 		check_buffer_mem_saving(s_data, in_fmt, rawi_port_num);
 		if (in_fmt->buf[0].iova == 0x0) {
 			node = &ctx->pipe->vdev_nodes[
@@ -1653,17 +1659,8 @@ static void check_stagger_buffer(struct mtk_cam_device *cam,
 			finish_img_buf(s_data);
 
 			/* update camsv's frame parameter */
-			s_data->frame_params.camsv_param[0][tag_idx].pipe_id =
-				ctx->sv_dev->id + MTKCAM_SUBDEV_CAMSV_START;
-			s_data->frame_params.camsv_param[0][tag_idx].tag_id = tag_idx;
-			s_data->frame_params.camsv_param[0][tag_idx].tag_order =
-				ctx->sv_dev->tag_info[tag_idx].tag_order;
-			s_data->frame_params.camsv_param[0][tag_idx].hardware_scenario =
-				ctx->sv_dev->tag_info[tag_idx].hw_scen;
-			out_fmt->uid.id = MTKCAM_IPI_CAMSV_MAIN_OUT;
-			out_fmt->uid.pipe_id = ctx->sv_dev->id + MTKCAM_SUBDEV_CAMSV_START;
-			out_fmt->fmt = in_fmt->fmt;
-			out_fmt->buf[0][0].iova = in_fmt->buf[0].iova;
+			mtk_cam_fill_sv_frame_param(ctx, &s_data->frame_params,
+				tag_idx, in_fmt->fmt, in_fmt->buf[0].iova);
 		}
 		dev_dbg(cam->dev,
 			"[%s:%d] ctx:%d dma_port:%d size=%dx%d, stride:%d, fmt:0x%x (in/out:0x%x/0x%x)\n",
@@ -3225,38 +3222,35 @@ static int mtk_cam_config_sv_img_out_imgo(struct mtk_cam_request_stream_data *s_
 				      struct mtk_cam_buffer *buf)
 {
 	struct mtk_cam_ctx *ctx = s_data->ctx;
-	struct mtkcam_ipi_img_output *out_fmt;
 	unsigned int tag_idx;
 	struct mtk_cam_request_stream_data *ctx_stream_data;
-	struct mtkcam_ipi_frame_param *frame_params;
+	struct mtk_cam_request_stream_data *ctx_stream_data_mstream;
+	struct mtkcam_ipi_frame_param *frame_param;
+	struct mtkcam_ipi_frame_param *frame_param_mstream;
 	struct mtk_cam_video_device *node;
+	struct mtkcam_ipi_pix_fmt fmt;
+	__u64 iova;
 
-	/* camsv todo: check mstream */
 	ctx_stream_data = mtk_cam_req_get_s_data(s_data->req, ctx->stream_id, 0);
 	tag_idx = mtk_cam_get_sv_tag_index(ctx, s_data->pipe_id);
-	frame_params = &ctx_stream_data->frame_params;
-	out_fmt =
-		&frame_params->camsv_param[0][tag_idx].camsv_img_outputs[0];
+	frame_param = &ctx_stream_data->frame_params;
 	node = mtk_cam_vbq_to_vdev(buf->vbb.vb2_buf.vb2_queue);
+	fmt.format = mtk_cam_get_img_fmt(node->active_fmt.fmt.pix_mp.pixelformat);
+	fmt.s.w = node->active_fmt.fmt.pix_mp.width;
+	fmt.s.h = node->active_fmt.fmt.pix_mp.height;
+	fmt.stride[0] = ctx->sv_dev->tag_info[tag_idx].stride;
+	iova = ((((buf->daddr + GET_PLAT_V4L2(meta_sv_ext_size)) + 15) >> 4) << 4);
 
 	/* update camsv's frame parameter */
-	frame_params->camsv_param[0][tag_idx].pipe_id =
-		ctx->sv_dev->id + MTKCAM_SUBDEV_CAMSV_START;
-	frame_params->camsv_param[0][tag_idx].tag_id = tag_idx;
-	frame_params->camsv_param[0][tag_idx].tag_order =
-		ctx->sv_dev->tag_info[tag_idx].tag_order;
-	frame_params->camsv_param[0][tag_idx].hardware_scenario =
-		ctx->sv_dev->tag_info[tag_idx].hw_scen;
-	out_fmt->uid.id = MTKCAM_IPI_CAMSV_MAIN_OUT;
-	out_fmt->uid.pipe_id = ctx->sv_dev->id + MTKCAM_SUBDEV_CAMSV_START;
-	out_fmt->fmt.format =
-		mtk_cam_get_img_fmt(node->active_fmt.fmt.pix_mp.pixelformat);
-	out_fmt->fmt.s.w = node->active_fmt.fmt.pix_mp.width;
-	out_fmt->fmt.s.h = node->active_fmt.fmt.pix_mp.height;
-	out_fmt->fmt.stride[0] =
-		ctx->sv_dev->tag_info[tag_idx].stride;
-	out_fmt->buf[0][0].iova =
-		((((buf->daddr + GET_PLAT_V4L2(meta_sv_ext_size)) + 15) >> 4) << 4);
+	mtk_cam_fill_sv_frame_param(ctx, frame_param, tag_idx, fmt, iova);
+
+	if (mtk_cam_feature_is_mstream(ctx_stream_data->feature.raw_feature)) {
+		ctx_stream_data_mstream =
+			mtk_cam_req_get_s_data(s_data->req, ctx->stream_id, 1);
+		frame_param_mstream = &ctx_stream_data_mstream->frame_params;
+		/* update camsv's frame parameter for mstream */
+		mtk_cam_fill_sv_frame_param(ctx, frame_param_mstream, tag_idx, fmt, iova);
+	}
 
 	return 0;
 }

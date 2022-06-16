@@ -1092,7 +1092,7 @@ void mtk_cam_qos_bw_reset(struct mtk_cam_ctx *ctx)
 	}
 
 	/* camsv todo: take all features into consideration */
-
+#ifdef CAMSV_TODO
 	for (i = 0; i < ctx->used_sv_num; i++) {
 		for (j = 0; j < sv_qos_port_num; j++) {
 			qos_port_id = ((ctx->sv_pipe[i]->id - MTKCAM_SUBDEV_CAMSV_START)
@@ -1105,6 +1105,7 @@ void mtk_cam_qos_bw_reset(struct mtk_cam_ctx *ctx)
 #endif
 		}
 	}
+#endif
 
 	for (i = 0; i < ctx->used_mraw_num; i++) {
 		for (j = 0; j < mraw_qos_port_num; j++) {
