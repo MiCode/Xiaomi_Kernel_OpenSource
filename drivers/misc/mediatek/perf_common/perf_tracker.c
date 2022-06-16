@@ -51,12 +51,22 @@ static unsigned int is_gpu_pmu_worked;
 static unsigned int gpu_pmu_period = 8000000; //8ms
 #endif
 static unsigned int mcupm_freq_enable;
-static unsigned int support_cpu_pmu;
+static unsigned int support_cpu_pmu = 1;
 
 static DEFINE_PER_CPU(u64, cpu_last_inst_spec);
 static DEFINE_PER_CPU(u64, cpu_last_cycle);
 static DEFINE_PER_CPU(u64, cpu_last_l3dc);
 static int pmu_init;
+
+static void set_pmu_enable(unsigned int enable)
+{
+	if (IS_ERR_OR_NULL((void *)csram_base))
+		return;
+
+	__raw_writel((u32)enable, csram_base + PERF_TRACKER_STATUS_OFFSET);
+	/* make sure register access in order */
+	wmb();
+}
 
 static void init_pmu_data(void)
 {
@@ -67,13 +77,14 @@ static void init_pmu_data(void)
 		per_cpu(cpu_last_cycle, i) = 0;
 		per_cpu(cpu_last_l3dc, i) = 0;
 	}
-
+	set_pmu_enable(1);
 	pmu_init = 1;
 }
 
 static void exit_pmu_data(void)
 {
 	pmu_init = 0;
+	set_pmu_enable(0);
 }
 
 unsigned long get_cpu_pmu(int cpu, unsigned int offset)
@@ -231,6 +242,7 @@ enum {
 	do {									\
 		for ((cpu) = 0; (cpu) < max_cpus; (cpu)++)			\
 			sbin_data[sbin_lens + cpu] = get_cur_cpu_##_pmu(cpu);	\
+		sbin_lens += max_cpus;						\
 	} while (0)
 
 void perf_tracker(u64 wallclock,
@@ -327,7 +339,6 @@ void perf_tracker(u64 wallclock,
 		for_each_cpu_get_pmu(i, inst_spec);
 		for_each_cpu_get_pmu(i, cycle);
 		for_each_cpu_get_pmu(i, l3dc);
-		sbin_lens += CPU_PMU_NUMS;
 		sbin_data_ctl |= SBIN_PMU_RECORD;
 	}
 

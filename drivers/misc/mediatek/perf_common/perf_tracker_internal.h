@@ -28,6 +28,7 @@ extern int cluster_nr;
 #define CPU_L3DC_OFFSET		0x1254
 #define CPU_INST_SPEC_OFFSET	0x1274
 #define CPU_IDX_CYCLES_OFFSET	0x1294
+#define PERF_TRACKER_STATUS_OFFSET	0x12E0
 
 #if IS_ENABLED(CONFIG_MTK_BLOCK_IO_TRACER)
 #include <mt-plat/mtk_blocktag.h>
