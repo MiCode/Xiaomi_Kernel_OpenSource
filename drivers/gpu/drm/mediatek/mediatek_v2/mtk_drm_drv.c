@@ -1148,7 +1148,7 @@ static void *fd_to_dma_buf(int32_t fd)
 	return (void *)dmabuf;
 }
 
-static void _mtk_atomic_mml_plane(struct drm_device *dev,
+static bool _mtk_atomic_mml_plane(struct drm_device *dev,
 	struct mtk_plane_state *mtk_plane_state)
 {
 	struct mml_submit *submit_kernel = NULL;
@@ -1165,7 +1165,7 @@ static void _mtk_atomic_mml_plane(struct drm_device *dev,
 
 	mml_ctx = mtk_drm_get_mml_drm_ctx(dev, &(mtk_crtc->base));
 	if (!mml_ctx)
-		return;
+		return false;
 
 	submit_pq = mtk_alloc_mml_submit();
 	if (!submit_pq)
@@ -1225,23 +1225,22 @@ static void _mtk_atomic_mml_plane(struct drm_device *dev,
 
 	CRTC_MMP_MARK(0, mml_dbg, crtc_state->prop_val[CRTC_PROP_LYE_IDX], MMP_MML_SUBMIT);
 
-	// release previous mml_cfg
+	/* release previous mml_cfg */
 	mtk_free_mml_submit(mtk_crtc->mml_cfg);
-	mtk_free_mml_submit(mtk_plane_state->mml_cfg);
+	mtk_free_mml_submit(mtk_crtc->mml_cfg_pq);
 
-	mtk_plane_state->mml_mode = MML_MODE_RACING;
-	mtk_plane_state->mml_cfg = submit_pq;
-
-	mtk_crtc->is_mml = true;
 	mtk_crtc->mml_cfg = submit_kernel;
 	mtk_crtc->mml_cfg_pq = submit_pq;
+
+	mtk_plane_state->mml_mode = MML_MODE_RACING;
+	mtk_plane_state->mml_cfg = mtk_crtc->mml_cfg_pq;
 
 	crtc_state->mml_dst_roi.x = mtk_plane_state->base.dst.x1;
 	crtc_state->mml_dst_roi.y = mtk_plane_state->base.dst.y1;
 	crtc_state->mml_dst_roi.width = submit_pq->info.dest[0].compose.width;
 	crtc_state->mml_dst_roi.height = submit_pq->info.dest[0].compose.height;
 
-	return;
+	return true;
 
 err_submit:
 err_copy_submit:
@@ -1249,6 +1248,7 @@ err_alloc_submit_kernel:
 	mtk_free_mml_submit(submit_kernel);
 err_alloc_submit_pq:
 	mtk_free_mml_submit(submit_pq);
+	return false;
 }
 
 static void mtk_atomic_mml(struct drm_device *dev,
@@ -1277,16 +1277,12 @@ static void mtk_atomic_mml(struct drm_device *dev,
 
 	for_each_old_plane_in_state(state, plane, old_plane_state, i) {
 		plane_state = plane->state;
-		if (plane_state && plane_state->crtc &&
-			drm_crtc_index(plane_state->crtc) == 0) {
+		if (plane_state && plane_state->crtc && drm_crtc_index(plane_state->crtc) == 0) {
 			mtk_plane_state = to_mtk_plane_state(plane_state);
-
-			if (!mtk_plane_state->prop_val[PLANE_PROP_IS_MML])
-				continue;
-
-			DDPINFO("%s _mtk_atomic_mml_plane +", __func__);
-			_mtk_atomic_mml_plane(dev, mtk_plane_state);
-			DDPINFO("%s _mtk_atomic_mml_plane -", __func__);
+			if (mtk_plane_state->prop_val[PLANE_PROP_IS_MML]) {
+				mtk_crtc->is_mml = _mtk_atomic_mml_plane(dev, mtk_plane_state);
+				break;
+			}
 		}
 	}
 
