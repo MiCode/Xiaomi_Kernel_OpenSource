@@ -1213,11 +1213,11 @@ bool is_dma_idle(struct mtk_raw_device *dev)
 	int raw_rst_stat2 = readl(dev->base + REG_DMA_SOFT_RST_STAT2);
 	int yuv_rst_stat = readl(dev->yuv_base + REG_DMA_SOFT_RST_STAT);
 
-	if (raw_rst_stat2 != 0x7 || yuv_rst_stat != 0xfffffff)
+	if (raw_rst_stat2 != RAW_RST_STAT2_CHECK || yuv_rst_stat != YUV_RST_STAT_CHECK)
 		return false;
 
 	/* check beside rawi_r2/r3/r5*/
-	if (~raw_rst_stat & 0x7fffffda)
+	if (~raw_rst_stat & RAW_RST_STAT_CHECK)
 		return false;
 
 	if (~raw_rst_stat & RST_STAT_RAWI_R2) { /* RAWI_R2 */
@@ -1225,7 +1225,7 @@ bool is_dma_idle(struct mtk_raw_device *dev)
 		ret = ((chasing_stat & RAWI_R2_SMI_REQ_ST) == 0 &&
 		 (readl(dev->base + REG_RAWI_R2_BASE + DMA_OFFSET_SPECIAL_DCIF)
 			& DC_CAMSV_STAGER_EN) &&
-		 (readl(dev->base + REG_CTL_MOD6_EN) & 0x1))
+		 (readl(dev->base + REG_CTL_MOD6_EN) & CAMCTL_RAWI_R2_EN))
 			? true:false;
 		dev_info(dev->dev, "%s: chasing_stat: 0x%llx ret=%d\n",
 				__func__, chasing_stat, ret);
@@ -1235,7 +1235,7 @@ bool is_dma_idle(struct mtk_raw_device *dev)
 		ret = ((chasing_stat & RAWI_R3_SMI_REQ_ST) == 0 &&
 		 (readl(dev->base + REG_RAWI_R3_BASE + DMA_OFFSET_SPECIAL_DCIF)
 			& DC_CAMSV_STAGER_EN) &&
-		 (readl(dev->base + REG_CTL_MOD6_EN) & 0x80))
+		 (readl(dev->base + REG_CTL_MOD6_EN) & CAMCTL_RAWI_R3_EN))
 			? true:false;
 		dev_info(dev->dev, "%s: chasing_stat: 0x%llx, ret=%d\n",
 				__func__, chasing_stat, ret);
@@ -1245,7 +1245,7 @@ bool is_dma_idle(struct mtk_raw_device *dev)
 		ret = ((chasing_stat & RAWI_R5_SMI_REQ_ST) == 0 &&
 		 (readl(dev->base + REG_RAWI_R5_BASE + DMA_OFFSET_SPECIAL_DCIF)
 			& DC_CAMSV_STAGER_EN) &&
-		 (readl(dev->base + REG_CTL_MOD6_EN) & 0x1000))
+		 (readl(dev->base + REG_CTL_MOD6_EN) & CAMCTL_RAWI_R5_EN))
 			? true:false;
 		dev_info(dev->dev, "%s: chasing_stat: 0x%llx, ret=%d\n",
 				__func__, chasing_stat, ret);
@@ -1260,13 +1260,13 @@ void reset(struct mtk_raw_device *dev)
 	int ret;
 
 	/* Disable all DMA DCM before reset */
-	writel(0x00000fff, dev->base + REG_CTL_RAW_MOD5_DCM_DIS);
-	writel(0x0007ffff, dev->base + REG_CTL_RAW_MOD6_DCM_DIS);
+	writel(0x00007fff, dev->base + REG_CTL_RAW_MOD5_DCM_DIS);
+	writel(0x0003ffff, dev->base + REG_CTL_RAW_MOD6_DCM_DIS);
 	writel(0xffffffff, dev->yuv_base + REG_CTL_RAW_MOD5_DCM_DIS);
 
 	/* enable CQI_R1 ~ R4 before reset and make sure loaded to inner */
-	writel(readl(dev->base + REG_CTL_MOD6_EN) | 0x78000,
-	       dev->base + REG_CTL_MOD6_EN);
+	writel(readl(dev->base + REG_CTL_MOD6_EN) | CQI_ALL_EN,
+	    dev->base + REG_CTL_MOD6_EN);
 	toggle_db(dev);
 
 	writel(0, dev->base + REG_CTL_SW_CTL);
@@ -1512,18 +1512,39 @@ void enable_tg_db(struct mtk_raw_device *dev, int en)
 	}
 }
 
+#define FIFO_THRESHOLD(FIFO_SIZE, HEIGHT_RATIO, LOW_RATIO) \
+	(((FIFO_SIZE * HEIGHT_RATIO) & 0xFFF) << 16 | \
+	((FIFO_SIZE * LOW_RATIO) & 0xFFF))
+
+void set_fifo_threshold(void __iomem *dma_base, unsigned int fifo_size)
+{
+	writel_relaxed((0x10 << 24) | fifo_size,
+			dma_base + DMA_OFFSET_CON0);
+	writel_relaxed((0x1 << 28) | FIFO_THRESHOLD(fifo_size, 9/10, 1),
+			dma_base + DMA_OFFSET_CON1);
+	writel_relaxed((0x1 << 28) | FIFO_THRESHOLD(fifo_size, 8/10, 9/10),
+			dma_base + DMA_OFFSET_CON2);
+	writel_relaxed((0x1 << 31) | FIFO_THRESHOLD(fifo_size, 6/10, 7/10),
+			dma_base + DMA_OFFSET_CON3);
+	writel_relaxed((0x1 << 31) | FIFO_THRESHOLD(fifo_size, 4/10, 5/10),
+			dma_base + DMA_OFFSET_CON4);
+}
+
 static void init_dma_halt(struct mtk_raw_device *dev)
 {
-	struct mtk_cam_device *cam_dev;
+	struct mtk_cam_device *cam_dev = dev->cam;
 #ifdef SMI_LARB_ULTRA_CTL
 	struct mtk_yuv_device *yuv_dev = get_yuv_dev(dev);
 #endif
 	bool is_srt = mtk_cam_is_srt(dev->pipeline->hw_mode);
 	unsigned int raw_urgent, yuv_urgent;
 
-	cam_dev = dev->cam;
-
 	dev_info(dev->dev, "%s: SRT:%d\n", __func__, is_srt);
+
+	set_fifo_threshold(dev->base + REG_CQI_R1_BASE, 64);
+	set_fifo_threshold(dev->base + REG_CQI_R2_BASE, 64);
+	set_fifo_threshold(dev->base + REG_CQI_R3_BASE, 64);
+	set_fifo_threshold(dev->base + REG_CQI_R4_BASE, 64);
 
 	// TODO: move HALT1,2 to camsv
 	writel_relaxed(CAMSV_1_WDMA_PORT, cam_dev->base + REG_HALT1_EN);

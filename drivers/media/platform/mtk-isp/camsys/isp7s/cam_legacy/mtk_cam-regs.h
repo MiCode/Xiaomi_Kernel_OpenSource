@@ -137,6 +137,13 @@
 
 
 /* DMA Enable Register, DMA_EN */
+#define	CQI_R1_EN			BIT(6)
+#define	CQI_R2_EN			BIT(7)
+#define	CQI_R3_EN			BIT(8)
+#define	CQI_R4_EN			BIT(9)
+#define CQI_ALL_EN (CQI_R1_EN | CQI_R2_EN |\
+		    CQI_R3_EN | CQI_R4_EN)
+
 #define REG_CTL_MOD5_EN					0x0010
 #define REG_CTL_MOD6_EN					0x0014
 /* RAW input trigger*/
@@ -268,9 +275,20 @@
 #define RAWI_R3_SMI_REQ_ST		BIT(16)
 #define RAWI_R5_SMI_REQ_ST		BIT(16)
 
+#define CAMCTL_RAWI_R2_EN		BIT(0)
+#define CAMCTL_RAWI_R3_EN		BIT(2)
+#define CAMCTL_RAWI_R5_EN		BIT(4)
 #define RST_STAT_RAWI_R2		BIT(4)
 #define RST_STAT_RAWI_R3		BIT(6)
 #define RST_STAT_RAWI_R5		BIT(8)
+
+#define RAW_RST_STAT_CHECK		(0x3fffffff ^ \
+					(RST_STAT_RAWI_R2 |\
+					 RST_STAT_RAWI_R3 |\
+					 RST_STAT_RAWI_R5))
+#define RAW_RST_STAT2_CHECK		0x7
+#define YUV_RST_STAT_CHECK		0x1efffff
+
 
 /* use spare register FH_SPARE_5 */
 #define REG_FRAME_SEQ_NUM					0x4874

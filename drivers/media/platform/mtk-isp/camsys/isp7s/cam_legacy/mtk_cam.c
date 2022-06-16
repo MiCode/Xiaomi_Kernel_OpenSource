@@ -7449,6 +7449,9 @@ int mtk_cam_ctx_stream_off(struct mtk_cam_ctx *ctx)
 	cam->streaming_ctx &= ~(1 << ctx->stream_id);
 	spin_unlock(&ctx->streaming_lock);
 
+	// If stagger, need to turn off cam sv in advanced
+	mtk_cam_sv_dev_stream_on(ctx, 0);
+
 	if (ctx->synced) {
 		/* after streaming being off, no one can do V4L2_CID_FRAME_SYNC */
 		struct v4l2_ctrl *ctrl;
@@ -7512,8 +7515,6 @@ int mtk_cam_ctx_stream_off(struct mtk_cam_ctx *ctx)
 			}
 		}
 	}
-
-	mtk_cam_sv_dev_stream_on(ctx, 0);
 
 	for (i = 0 ; i < ctx->used_mraw_num ; i++) {
 		ret = mtk_cam_mraw_dev_stream_on(ctx, i, 0);
