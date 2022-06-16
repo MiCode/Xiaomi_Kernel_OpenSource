@@ -2261,7 +2261,10 @@ _mtk_crtc_wb_addon_module_connect(
 				state->prop_val[CRTC_PROP_OUTPUT_FB_ID]);
 			/* get fb reference conut, put at wb_cmdq_cb */
 //			drm_framebuffer_get(fb);
-
+			if (!fb) {
+				DDPPR_ERR("fb is NULL\n");
+				return;
+			}
 			addon_config.addon_wdma_config.wdma_src_roi = src_roi;
 			addon_config.addon_wdma_config.wdma_dst_roi = dst_roi;
 			addon_config.addon_wdma_config.pitch = fb->pitches[0];
