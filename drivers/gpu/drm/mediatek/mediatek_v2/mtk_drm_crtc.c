@@ -6105,6 +6105,10 @@ void mtk_crtc_connect_default_path(struct mtk_drm_crtc *mtk_crtc)
 		prev_id = (j == 0 ? DDP_COMPONENT_ID_MAX : ddp_comp[j - 1]->id);
 		next_id = ddp_comp[j + 1]->id;
 
+		DDPINFO("%s, %s --> %s --> %s\n", __func__,
+			mtk_dump_comp_str_id(prev_id),
+			mtk_dump_comp_str(ddp_comp[j]),
+			mtk_dump_comp_str_id(next_id));
 		mtk_ddp_add_comp_to_path(mtk_crtc, ddp_comp[j], prev_id,
 					 next_id);
 	}

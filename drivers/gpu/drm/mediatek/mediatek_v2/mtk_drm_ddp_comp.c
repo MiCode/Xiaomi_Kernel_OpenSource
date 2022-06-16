@@ -688,6 +688,7 @@ static const struct mtk_ddp_comp_match mtk_ddp_matches[DDP_COMPONENT_ID_MAX] = {
 	{DDP_COMPONENT_OVLSYS_Y2R3, MTK_DISP_Y2R, 7, NULL, 0},
 	{DDP_COMPONENT_OVL0_BG_CB4, MTK_DISP_VIRTUAL, -1, NULL, 0},
 	{DDP_COMPONENT_OVL1_BG_CB4, MTK_DISP_VIRTUAL, -1, NULL, 0},
+	{DDP_COMPONENT_TDSHP0_VIRTUAL, MTK_DISP_VIRTUAL, -1, NULL, 0},
 };
 
 bool mtk_ddp_comp_is_output(struct mtk_ddp_comp *comp)
