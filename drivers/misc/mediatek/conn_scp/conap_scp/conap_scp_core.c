@@ -74,6 +74,20 @@ static struct notifier_block g_conn_state_notifier = {
 	.notifier_call = conn_state_event_handler,
 };
 
+/* conn drv state */
+enum conn_drv_type {
+	CONN_DRV_WIFI	= 0,
+	CONN_DRV_BT		= 1,
+	CONN_DRV_GPS	= 2,
+	CONN_DRV_SIZE
+};
+
+struct conn_drv_state {
+	uint16_t drv_type;
+	uint16_t drv_en;
+};
+static uint8_t g_conn_drv_state;
+
 
 static int _send_msg(enum conap_scp_drv_type drv_type, uint16_t msg_id,
 				uint8_t *msg_buf, uint32_t msg_sz)
@@ -203,6 +217,25 @@ static int opfunc_scp_state_change(struct msg_op_data *op)
 
 	/* make sure intf is init done */
 	msleep(100);
+
+	pr_info("[%s] drv state=[%d]", __func__, g_conn_drv_state);
+	if (g_conn_drv_state > 0) {
+		struct conn_drv_state state;
+
+		for (i = 0; i < CONN_DRV_SIZE; i++) {
+			if ((g_conn_drv_state & (1 << i)) > 0) {
+				state.drv_type = i;
+				state.drv_en = 1;
+				pr_info("[%s] type=[%d] en", __func__, i);
+				ret = _send_msg(DRV_TYPE_CONN, 0,
+							(unsigned char *)&state, sizeof(state));
+				if (ret)
+					pr_notice("[%s] send msg fail ret=[%d]", __func__, ret);
+			}
+		}
+	}
+
+	/* notify users */
 	for (i = 0; i < CONAP_SCP_DRV_NUM; i++) {
 		if (g_drv_user[i].enable && g_drv_user[i].drv_cb.conap_scp_state_notify_cb)
 			(*g_drv_user[i].drv_cb.conap_scp_state_notify_cb)(cur_state);
@@ -356,40 +389,74 @@ int conn_state_event_handler(struct notifier_block *this,
 			unsigned long event, void *ptr)
 {
 	struct connsys_state_info *info;
-	int ret;
+	int ret = 0;
+	struct conn_drv_state state;
 
-	info = (struct connsys_state_info *)ptr;
+	if (event == conn_pwr_on || event == conn_pwr_off) {
 
-	if (info == NULL)
-		return 0;
+		info = (struct connsys_state_info *)ptr;
+		if (event == 0) {
+			g_core_ctx.enable = 0;
+			return 0;
+		}
 
-	if (event == 0) {
-		g_core_ctx.enable = 0;
+		pr_info("[%s] ========= event =[%d] [%x][%llu]",
+					__func__, event, info->chip_info, info->emi_phy_addr);
+
+		g_core_ctx.chip_info = info->chip_info;
+		g_core_ctx.emi_phy_addr = info->emi_phy_addr;
+
+		ret = connsys_scp_platform_data_init(info->chip_info, info->emi_phy_addr);
+		/* check if platform support */
+		pr_info("[%s] chip_info=[%x] addr[%x] ret=[%d]", __func__,
+							info->chip_info, info->emi_phy_addr, ret);
+
+		if (ret) {
+			pr_info("[%s] conap not support", __func__);
+			return 0;
+		}
+		g_core_ctx.enable = 1;
+
+		ret = msg_thread_send_2(&g_core_ctx.tx_msg_thread,
+				CONAP_SCP_OPID_STATE_CHANGE, STATE_CHG_DRV_CONN, 1);
+		if (ret)
+			pr_notice("[%s] msg_send fail [%d]", __func__, ret);
+
 		return 0;
 	}
 
-	pr_info("[%s] ========= event =[%d] [%x][%llu]",
-				__func__, event, info->chip_info, info->emi_phy_addr);
-
-	g_core_ctx.chip_info = info->chip_info;
-	g_core_ctx.emi_phy_addr = info->emi_phy_addr;
-
-	ret = connsys_scp_platform_data_init(info->chip_info, info->emi_phy_addr);
-	/* check if platform support */
-	pr_info("[%s] chip_info=[%x] addr[%x] ret=[%d]", __func__,
-						info->chip_info, info->emi_phy_addr, ret);
-
-	if (ret) {
-		pr_info("[%s] conap not support", __func__);
-		return 0;
+	pr_info("[%s] event=[%u] +++ ", __func__, event);
+	if (event == conn_wifi_on) {
+		state.drv_type = CONN_DRV_WIFI;
+		state.drv_en = 1;
+		ret = conap_scp_send_message(DRV_TYPE_CONN, 0,
+						(unsigned char *)&state, sizeof(state));
+		if (ret == 0)
+			g_conn_drv_state |= (0x1 << CONN_DRV_WIFI);
+	} else if (event == conn_bt_on) {
+		state.drv_type = CONN_DRV_BT;
+		state.drv_en = 1;
+		ret = conap_scp_send_message(DRV_TYPE_CONN, 0,
+						(unsigned char *)&state, sizeof(state));
+		if (ret == 0)
+			g_conn_drv_state |= (0x1 << CONN_DRV_BT);
+	} else if (event == conn_wifi_off) {
+		state.drv_type = CONN_DRV_WIFI;
+		state.drv_en = 0;
+		ret = conap_scp_send_message(DRV_TYPE_CONN, 0,
+						(unsigned char *)&state, sizeof(state));
+		if (ret == 0)
+			g_conn_drv_state &= ~(0x1 << CONN_DRV_WIFI);
+	} else if (event == conn_bt_off) {
+		state.drv_type = CONN_DRV_BT;
+		state.drv_en = 0;
+		ret = conap_scp_send_message(DRV_TYPE_CONN, 0,
+						(unsigned char *)&state, sizeof(state));
+		if (ret == 0)
+			g_conn_drv_state &= ~(0x1 << CONN_DRV_BT);
 	}
-	g_core_ctx.enable = 1;
 
-	ret = msg_thread_send_2(&g_core_ctx.tx_msg_thread,
-			CONAP_SCP_OPID_STATE_CHANGE, STATE_CHG_DRV_CONN, 1);
-	if (ret)
-		pr_warn("[%s] msg_send fail [%d]", __func__, ret);
-
+	pr_info("[%s] ret=[%d] -------", __func__, ret);
 
 	return 0;
 }

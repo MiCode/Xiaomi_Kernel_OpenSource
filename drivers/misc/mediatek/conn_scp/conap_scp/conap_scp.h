@@ -8,10 +8,11 @@
 
 enum conap_scp_drv_type {
 	DRV_TYPE_CORE		= 0,
-	DRV_TYPE_GPS		= 1,
-	DRV_TYPE_EM			= 2,
-	DRV_TYPE_FLP		= 3,
-	DRV_TYPE_GEOFENCE	= 4,
+	DRV_TYPE_CONN		= 1,
+	DRV_TYPE_GPS		= 2,
+	DRV_TYPE_EM			= 3,
+	DRV_TYPE_FLP		= 4,
+	DRV_TYPE_GEOFENCE	= 5,
 	CONAP_SCP_DRV_NUM
 };
 
