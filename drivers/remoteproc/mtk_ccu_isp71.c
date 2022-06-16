@@ -336,12 +336,14 @@ static int mtk_ccu_start(struct rproc *rproc)
 	mtk_icc_set_bw(ccu->path_ccug, MBps_to_icc(30), MBps_to_icc(30));
 #endif
 
-	LOG_DBG("LogBuf_mva[0](0x%lx)(0x%x << 8)\n",
-		ccu->log_info[0].mva, readl(ccu_base + MTK_CCU_SPARE_REG02));
-	LOG_DBG("LogBuf_mva[1](0x%lx)(0x%x << 8)\n",
-		ccu->log_info[1].mva, readl(ccu_base + MTK_CCU_SPARE_REG03));
-	LOG_DBG("LogBuf_mva[2](0x%lx)(0x%x << 8)\n",
-		ccu->log_info[2].mva, readl(ccu_base + MTK_CCU_SPARE_REG07));
+	/*
+	 * LOG_DBG("LogBuf_mva[0](0x%lx)(0x%x << 8)\n",
+	 *	ccu->log_info[0].mva, readl(ccu_base + MTK_CCU_SPARE_REG02));
+	 * LOG_DBG("LogBuf_mva[1](0x%lx)(0x%x << 8)\n",
+	 *	ccu->log_info[1].mva, readl(ccu_base + MTK_CCU_SPARE_REG03));
+	 * LOG_DBG("LogBuf_mva[2](0x%lx)(0x%x << 8)\n",
+	 *	ccu->log_info[2].mva, readl(ccu_base + MTK_CCU_SPARE_REG07));
+	 */
 	ccu->g_LogBufIdx = 0;
 
 	spin_lock(&ccu->ccu_poweron_lock);
