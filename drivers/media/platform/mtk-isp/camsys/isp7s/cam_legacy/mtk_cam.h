@@ -985,12 +985,17 @@ int isp_composer_create_session(struct mtk_cam_ctx *ctx);
 void isp_composer_destroy_session(struct mtk_cam_ctx *ctx);
 int PipeIDtoTGIDX(int pipe_id);
 void mstream_seamless_buf_update(struct mtk_cam_ctx *ctx,
-				struct mtk_cam_request *req, int pipe_id,
-				struct mtk_cam_scen *scen, struct mtk_cam_scen *scen_prev);
+				 struct mtk_cam_request *req, int pipe_id,
+				 struct mtk_cam_scen *scen,
+				 struct mtk_cam_scen *scen_prev);
 void mtk_cam_resource_to_v2(struct mtk_cam_resource_v2 *res_v2,
 			    struct mtk_cam_resource *res,
 			    struct v4l2_mbus_framefmt *sink_fmt);
 void mtk_cam_resource_to_v1(struct mtk_cam_resource *res,
 			    struct v4l2_mbus_framefmt *sink_fmt,
 			    struct mtk_cam_resource_v2 *res_v2);
+void mtk_cam_sensor_switch_stop_reinit_hw(struct mtk_cam_ctx *ctx,
+					  struct mtk_cam_request_stream_data *s_data,
+					  int stream_id);
+
 #endif /*__MTK_CAM_H*/

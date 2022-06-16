@@ -215,6 +215,10 @@ void mtk_cam_extisp_handle_sv_tstamp(struct mtk_cam_ctx *ctx,
 void mtk_cam_state_add_wo_sensor(struct mtk_cam_ctx *ctx);
 void mtk_cam_state_del_wo_sensor(struct mtk_cam_ctx *ctx,
 							struct mtk_cam_request *req);
+void
+mtk_camsys_raw_change_pipeline(struct mtk_cam_ctx *ctx,
+			       struct mtk_camsys_sensor_ctrl *sensor_ctrl,
+			       unsigned int dequeued_frame_seq_no);
 int mtk_camsv_normal_scenario_handler(struct mtk_cam_device *cam,
 	struct mtk_camsv_device *camsv_dev, struct mtk_camsys_irq_info *irq_info,
 	unsigned int tag_idx);

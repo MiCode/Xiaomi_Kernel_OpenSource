@@ -793,6 +793,7 @@ int mtk_cam_dequeue_req_frame(struct mtk_cam_ctx *ctx,
 	struct mtk_cam_scen *scen;
 	int dequeue_cnt, s_data_cnt, handled_cnt;
 	bool del_job, del_req;
+	bool chk_sensor_change;
 	bool unreliable = false;
 	void *vaddr = NULL;
 	struct mtk_ae_debug_data ae_data;
@@ -831,6 +832,7 @@ STOP_SCAN:
 	spin_unlock(&ctx->cam->running_job_lock);
 
 	for (handled_cnt = 0; handled_cnt < s_data_cnt; handled_cnt++) {
+		chk_sensor_change = false;
 		s_data = deq_s_data[handled_cnt];
 		del_req = false;
 		del_job = false;
@@ -933,6 +935,9 @@ STOP_SCAN:
 				finish_sv_cq_buf(s_data);
 				mtk_cam_mraw_finish_buf(s_data_mstream);
 			}
+
+			if (s_data->frame_seq_no == dequeued_frame_seq_no)
+				chk_sensor_change = true;
 		}
 
 		if (del_req) {
@@ -1000,6 +1005,12 @@ STOP_SCAN:
 					"%s:%s:pipe(%d) return request",
 					__func__, req->req.debug_str, pipe_id);
 		}
+
+		if (chk_sensor_change)
+			mtk_camsys_raw_change_pipeline(ctx,
+						       &ctx->sensor_ctrl,
+						       dequeued_frame_seq_no);
+
 	}
 	mutex_unlock(&ctx->cleanup_lock);
 	return dequeue_cnt;
@@ -3840,6 +3851,7 @@ immediate_link_update_chk(struct mtk_cam_ctx *ctx, int pipe_id,
 				 "%s:req(%s):pipe(%d):link change after last p1 done: seq(%d), running_s_data_num(%d)\n",
 				 __func__, req->req.debug_str, pipe_id,
 				 s_data->frame_seq_no, running_s_data_num);
+			s_data->state.estate = E_STATE_SENINF;
 		}
 	}
 }
