@@ -5917,7 +5917,8 @@
 			compatible = "mediatek,aie-isp7s";
 			reg = <0 0x15310000 0 0x1000>;
 			dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
-			mboxes = <&gce_m 20 0 CMDQ_THR_PRIO_1>;
+			mboxes = <&gce_m 20 0 CMDQ_THR_PRIO_1>,
+					<&gce_m_sec 11 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_2>;
 			mediatek,larb = <&smi_larb12>;
 			mediatek,imgsys_fw = <&imgsys_fw>;
 			fdvt_frame_done = <CMDQ_EVENT_IMG_IMGSYS_IPE_FDVT0_DONE>;
