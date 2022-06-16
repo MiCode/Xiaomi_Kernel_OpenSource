@@ -146,6 +146,37 @@ TRACE_EVENT(cpuqos_set_cpuqos_mode,
 
 );
 
+TRACE_EVENT(cpuqos_debug_info,
+
+	TP_PROTO(int cpuqos_perf_mode,
+		u32 slice,
+		u32 portion
+	),
+
+	TP_ARGS(cpuqos_perf_mode,
+		slice,
+		portion
+	),
+
+	TP_STRUCT__entry(
+		__field(int, cpuqos_perf_mode)
+		__field(u32, slice)
+		__field(u32, portion)
+	),
+
+	TP_fast_assign(
+		__entry->cpuqos_perf_mode = cpuqos_perf_mode;
+		__entry->slice = slice;
+		__entry->portion = portion;
+	),
+
+	TP_printk("cpuqos_mode=%d, slices=%u, cache way mode=%u",
+		__entry->cpuqos_perf_mode,
+		__entry->slice,
+		__entry->portion
+	)
+
+);
 
 
 #endif /* _CPUQOS_V3_TRACE_H */

@@ -12,5 +12,7 @@ extern void cleanup_cpuqos_common_sysfs(void);
 
 extern struct kobj_attribute show_cpuqos_status_attr;
 extern struct kobj_attribute set_cache_size_attr;
+extern struct kobj_attribute trace_enable_attr;
+extern struct kobj_attribute boot_complete_attr;
 
 #endif

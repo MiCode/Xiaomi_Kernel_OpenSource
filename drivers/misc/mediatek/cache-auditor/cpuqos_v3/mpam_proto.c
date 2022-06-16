@@ -47,6 +47,13 @@ MODULE_AUTHOR("Jing-Ting Wu");
 static int cpuqos_subsys_id = cpu_cgrp_id;
 static struct device_node *node;
 static int plat_enable;
+static int boot_complete;
+/* For ftrace */
+static void cpu_qos_handler(struct work_struct *work);
+static int cpu_qos_track_enable;
+static int cpu_qos_delay;
+static struct workqueue_struct *cpuqos_workq;
+static DECLARE_DELAYED_WORK(cpu_qos_tracker, cpu_qos_handler);
 
 /*
  * cgroup path -> PARTID map
@@ -102,7 +109,7 @@ enum partid_rank {
 	TASK_RANK
 };
 
-static enum perf_mode cpuqos_perf_mode = BALANCE;
+static enum perf_mode cpuqos_perf_mode = DISABLE;
 
 int task_curr_clone(const struct task_struct *p)
 {
@@ -489,6 +496,43 @@ int set_cpuqos_mode(int mode)
 }
 EXPORT_SYMBOL_GPL(set_cpuqos_mode);
 
+static void cpuqos_tracer(void)
+{
+	unsigned int csize = 0;
+
+#if IS_ENABLED(CONFIG_MTK_SLBC)
+	csize = slbc_sram_read(SLC_CPU_DEBUG1_R_OFS);
+#else
+	sram_base_addr = ioremap(SLC_SYSRAM_BASE, SLC_SRAM_SIZE);
+
+	if (!sram_base_addr) {
+		pr_info("Remap SLC SYSRAM failed\n");
+		return -EIO;
+	}
+
+	csize = ioread32(sram_base_addr + SLC_CPU_DEBUG1_R_OFS);
+#endif
+	csize &= 0xf;
+
+	if (!boot_complete) {
+		pr_info("cpuqos_mode=%d, slices=%u, cache way mode=%u",
+			cpuqos_perf_mode,
+			(csize & 0xC)>>2, csize & 0x3);
+	}
+
+	trace_cpuqos_debug_info(cpuqos_perf_mode,
+			(csize & 0xC)>>2, csize & 0x3);
+}
+
+static void cpu_qos_handler(struct work_struct *work)
+{
+	if (cpu_qos_track_enable) {
+		cpuqos_tracer();
+		queue_delayed_work(cpuqos_workq, &cpu_qos_tracker,
+				msecs_to_jiffies(cpu_qos_delay));
+	}
+}
+
 static ssize_t show_cpuqos_status(struct kobject *kobj,
 		struct kobj_attribute *attr,
 		char *buf)
@@ -580,11 +624,67 @@ static ssize_t show_cache_size(struct kobject *kobj,
 	return len;
 }
 
+static ssize_t set_trace_enable(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		const char *ubuf,
+		size_t cnt)
+{
+	int enable = 0;
+
+	if (!kstrtoint(ubuf, 10, &enable)) {
+		if (enable) {
+			cpu_qos_track_enable = 1;
+			queue_delayed_work(cpuqos_workq, &cpu_qos_tracker,
+					msecs_to_jiffies(cpu_qos_delay));
+		} else
+			cpu_qos_track_enable = 0;
+	}
+	return cnt;
+}
+
+static ssize_t show_trace_enable(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		char *buf)
+{
+	unsigned int len = 0;
+	unsigned int max_len = 4096;
+
+	len += snprintf(buf+len, max_len-len,
+			"CPU QoS trace enable:%d\n",
+			cpu_qos_track_enable);
+
+	return len;
+}
+
+static ssize_t set_boot_complete(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		const char *ubuf,
+		size_t cnt)
+{
+	int enable = 0;
+
+	if (!kstrtoint(ubuf, 10, &enable)) {
+		if (!boot_complete && (enable == 1)) {
+			set_cpuqos_mode(BALANCE);
+			boot_complete = 1;
+			pr_info("cpuqos working!\n");
+		}
+	}
+
+	return cnt;
+}
+
 struct kobj_attribute show_cpuqos_status_attr =
 __ATTR(cpuqos_status_info, 0400, show_cpuqos_status, NULL);
 
 struct kobj_attribute set_cache_size_attr =
 __ATTR(cpuqos_set_cache_size, 0600, show_cache_size, set_cache_size);
+
+struct kobj_attribute trace_enable_attr =
+__ATTR(cpuqos_trace_enable, 0600, show_trace_enable, set_trace_enable);
+
+struct kobj_attribute boot_complete_attr =
+__ATTR(cpuqos_boot_complete, 0600, NULL, set_boot_complete);
 
 static void mpam_hook_attach(void __always_unused *data,
 			     struct cgroup_subsys *ss, struct cgroup_taskset *tset)
@@ -756,6 +856,11 @@ static int __init mpam_proto_init(void)
 {
 	int ret = 0;
 
+	/* boot configuration */
+	boot_complete = cpu_qos_track_enable = 0;
+	cpu_qos_delay = 25;
+	cpuqos_workq = NULL;
+
 	init_cpuqos_v3_platform();
 	if (!plat_enable) {
 		pr_info("cpuqos_v3 is disable at this platform\n");
@@ -768,8 +873,8 @@ static int __init mpam_proto_init(void)
 		goto out;
 	}
 
-	/* Set default cpuqos mode is BALANCE */
-	cpuqos_perf_mode = BALANCE;
+	/* Set DISABLE mode to initial mode */
+	cpuqos_perf_mode = DISABLE;
 
 	ret = mpam_init_cgroup_partid_map();
 	if (ret) {
@@ -805,6 +910,8 @@ static int __init mpam_proto_init(void)
 		pr_info("init set cpuqos mode failed\n");
 		goto out_attach;
 	}
+	cpuqos_tracer();
+	cpuqos_workq = create_workqueue("cpuqos_wq");
 
 	return 0;
 
@@ -821,6 +928,9 @@ static void mpam_reset_partid(void __always_unused *info)
 
 static void __init mpam_proto_exit(void)
 {
+	if (cpuqos_workq)
+		destroy_workqueue(cpuqos_workq);
+
 	unregister_trace_android_vh_is_fpsimd_save(mpam_hook_switch, NULL);
 	unregister_trace_android_vh_cgroup_attach(mpam_hook_attach, NULL);
 	unregister_trace_task_newtask(mpam_task_newtask, NULL);
