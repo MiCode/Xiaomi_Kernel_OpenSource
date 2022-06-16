@@ -3596,7 +3596,7 @@ static int mtk_cam_req_update(struct mtk_cam_device *cam,
 		ctx = &cam->ctxs[i];
 
 		/* check fs state update (the raw_pipe is updated) */
-		if (ctx->pipe->fs_config & MTK_RAW_CTRL_UPDATE) {
+		if (ctx->pipe && (ctx->pipe->fs_config & MTK_RAW_CTRL_UPDATE)) {
 			ctx->pipe->fs_config &= MTK_RAW_CTRL_VALUE;
 			req->fs.update_ctx |= 1 << ctx->stream_id;
 			req->fs.update_value |=
