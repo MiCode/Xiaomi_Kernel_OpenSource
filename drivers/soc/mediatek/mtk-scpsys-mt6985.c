@@ -157,6 +157,8 @@
 			BIT(27))
 #define MT6985_TOP_AXI_PROT_EN_EMISYS0_MM_INFRA	(BIT(21) | BIT(22))
 #define MT6985_TOP_AXI_PROT_EN_EMISYS1_MM_INFRA	(BIT(21) | BIT(22))
+#define MT6985_IFR_MEM_PROT_EN_EMISYS_MM_INFRA	(BIT(4) | BIT(5))
+#define MT6985_SEMI_PROT_EN_EMISYS_MM_INFRA	(BIT(4) | BIT(5))
 #define MT6985_VLP_AXI_PROT_EN_MM_PROC	(BIT(11))
 #define MT6985_TOP_AXI_PROT_EN_MMSYS2_MM_PROC	(BIT(12))
 #define MT6985_VLP_AXI_PROT_EN_MM_PROC_2ND	(BIT(12))
@@ -170,19 +172,22 @@
 enum regmap_type {
 	INVALID_TYPE = 0,
 	IFR_TYPE = 1,
-	GPU_EB_RPC_TYPE = 2,
-	VLP_TYPE = 3,
-	UFSCFG_AO_TYPE = 4,
-	IMG_SUB0_TYPE = 5,
-	IMG_SUB1_TYPE = 6,
-	CAM_SUB0_TYPE = 7,
-	CAM_SUB2_TYPE = 8,
-	CAM_SUB1_TYPE = 9,
+	IFR_MEM_TYPE = 2,
+	GPU_EB_RPC_TYPE = 3,
+	VLP_TYPE = 4,
+	UFSCFG_AO_TYPE = 5,
+	IMG_SUB0_TYPE = 6,
+	IMG_SUB1_TYPE = 7,
+	CAM_SUB0_TYPE = 8,
+	CAM_SUB2_TYPE = 9,
+	CAM_SUB1_TYPE = 10,
+	SEMI_TYPE = 11,
 	BUS_TYPE_NUM,
 };
 
 static const char *bus_list[BUS_TYPE_NUM] = {
 	[IFR_TYPE] = "ifr_bus",
+	[IFR_MEM_TYPE] = "ifr_mem_bus",
 	[GPU_EB_RPC_TYPE] = "gpu_eb_rpc",
 	[VLP_TYPE] = "vlpcfg",
 	[UFSCFG_AO_TYPE] = "ufscfg_ao_bus",
@@ -191,6 +196,7 @@ static const char *bus_list[BUS_TYPE_NUM] = {
 	[CAM_SUB0_TYPE] = "cam_sub0_bus",
 	[CAM_SUB2_TYPE] = "cam_sub2_bus",
 	[CAM_SUB1_TYPE] = "cam_sub1_bus",
+	[SEMI_TYPE] = "semi_bus",
 };
 
 /*
@@ -202,6 +208,7 @@ static const struct scp_domain_data scp_domain_mt6985_gpu_eb_rpc_data[] = {
 		.name = "mfg1",
 		.ctl_offs = 0x070,
 		.sram_pdn_bits = GENMASK(8, 8),
+		.basic_clk_name = {"mfg_ref", "mfgsc_ref"},
 		.bp_table = {
 			BUS_PROT_IGN(IFR_TYPE, 0x1a4, 0x1a8, 0x1a0, 0x1ac,
 				MT6985_TOP_AXI_PROT_EN_MFGSYS0_MFG1),
@@ -555,7 +562,6 @@ static const struct scp_domain_data scp_domain_mt6985_spm_data[] = {
 		.sram_pdn_bits = GENMASK(8, 8),
 		.sram_pdn_ack_bits = GENMASK(12, 12),
 		.basic_clk_name = {"vde"},
-		.subsys_clk_prefix = "vde1",
 		.bp_table = {
 			BUS_PROT_IGN(IFR_TYPE, 0x1e4, 0x1e8, 0x1e0, 0x1ec,
 				MT6985_TOP_AXI_PROT_EN_MMSYS0_VDE1),
@@ -851,6 +857,10 @@ static const struct scp_domain_data scp_domain_mt6985_spm_data[] = {
 				MT6985_TOP_AXI_PROT_EN_EMISYS0_MM_INFRA),
 			BUS_PROT_IGN(IFR_TYPE, 0x104, 0x108, 0x100, 0x10c,
 				MT6985_TOP_AXI_PROT_EN_EMISYS1_MM_INFRA),
+			BUS_PROT_IGN(IFR_MEM_TYPE, 0x084, 0x088, 0x08c, 0x08c,
+				MT6985_IFR_MEM_PROT_EN_EMISYS_MM_INFRA),
+			BUS_PROT_IGN(SEMI_TYPE, 0x084, 0x088, 0x08c, 0x08c,
+				MT6985_SEMI_PROT_EN_EMISYS_MM_INFRA),
 		},
 		.caps = MTK_SCPD_IS_PWR_CON_ON,
 	},
