@@ -15,8 +15,7 @@
 			<&topckgen_clk CLK_TOP_TL_SEL>,
 			<&topckgen_clk CLK_TOP_CAM_SEL>,
 			<&topckgen_clk CLK_TOP_CAMTM_SEL>,
-			<&vlp_cksys_clk CLK_VLP_CK_CAMTG_VLP_SEL>,
-			<&topckgen_clk CLK_TOP_AUDIO_LOCAL_BUS_SEL>;
+			<&vlp_cksys_clk CLK_VLP_CK_CAMTG_VLP_SEL>;
 	};
 
 	bring-up-pd-ufs0_phy_shutdown {

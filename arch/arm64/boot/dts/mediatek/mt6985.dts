@@ -6172,10 +6172,14 @@
 			power-domains = <&scpsys MT6985_POWER_DOMAIN_ADSP_TOP_DORMANT>;
 			clocks = <&topckgen_clk CLK_TOP_ADSP_SEL>,
 				 <&topckgen_clk CLK_TOP_TCK_26M_MX9>,
-				 <&topckgen_clk CLK_TOP_ADSPPLL>;
+				 <&topckgen_clk CLK_TOP_ADSPPLL>,
+				 <&topckgen_clk CLK_TOP_AUDIO_LOCAL_BUS_SEL>,
+				 <&topckgen_clk CLK_TOP_MAINPLL_D5_D2>;
 			clock-names = "clk_top_adsp_sel",
 				      "clk_top_clk26m",
-				      "clk_top_adsppll";
+				      "clk_top_adsppll",
+				      "clk_top_aud_local_bus_sel",
+				      "clk_top_mainpll_d5_d2";
 
 			core-num = <2>;    /* core number */
 			adsp-rsv-ipidma-a = <0x100000>;
