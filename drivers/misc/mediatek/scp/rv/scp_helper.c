@@ -2627,6 +2627,7 @@ static const struct of_device_id scpsys_of_ids[] = {
 };
 
 static struct platform_driver mtk_scpsys_device = {
+	.probe = scpsys_device_probe,
 	.driver = {
 		.name = "scpsys",
 		.owner = THIS_MODULE,
@@ -2696,7 +2697,7 @@ static int __init scp_init(void)
 		goto err_without_unregister;
 	}
 
-	ret = platform_driver_probe(&mtk_scpsys_device, scpsys_device_probe);
+	ret = platform_driver_register(&mtk_scpsys_device);
 	if (ret) {
 		pr_notice("[SCP] scpsys probe fail %d\n", ret);
 		BUG_ON(1);
