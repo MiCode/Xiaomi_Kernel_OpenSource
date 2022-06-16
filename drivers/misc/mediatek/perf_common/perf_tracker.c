@@ -112,6 +112,31 @@ DEFINE_GET_CUR_CPU_PMU_FUNC(cycle, CPU_IDX_CYCLES_OFFSET);
 DEFINE_GET_CUR_CPU_PMU_FUNC(l3dc, CPU_L3DC_OFFSET);
 
 #define OFFS_DVFS_CUR_OPP_S	0x98
+#if IS_ENABLED(CONFIG_MTK_GEARLESS_SUPPORT)
+#define OFFS_MCUPM_CUR_OPP_S	0x11e0
+static unsigned int cpudvfs_get_cur_freq(int cluster_id, bool is_mcupm)
+{
+	u32 freq = 0;
+	struct ppm_data *p = &cluster_ppm_info[cluster_id];
+
+	if (IS_ERR_OR_NULL((void *)csram_base))
+		return 0;
+
+	if (is_mcupm)
+		freq = __raw_readl(csram_base +
+				(OFFS_MCUPM_CUR_OPP_S +
+				 (cluster_id * 0x4)));
+	else
+		freq = __raw_readl(csram_base +
+				(OFFS_DVFS_CUR_OPP_S +
+				 (cluster_id * 0x120)));
+
+	if (p->init)
+		return freq;
+
+	return 0;
+}
+#else
 #define OFFS_MCUPM_CUR_OPP_S	0x544
 static unsigned int cpudvfs_get_cur_freq(int cluster_id, bool is_mcupm)
 {
@@ -135,6 +160,7 @@ static unsigned int cpudvfs_get_cur_freq(int cluster_id, bool is_mcupm)
 
 	return 0;
 }
+#endif
 
 #define DSU_VOLT_2_CLUSTER	0x514
 #define DSU_FREQ_2_CLUSTER	0x11e8
