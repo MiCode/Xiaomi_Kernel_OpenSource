@@ -708,6 +708,8 @@ static int mtk8250_probe_of(struct platform_device *pdev, struct uart_port *p,
 	void __iomem *peri_remap_addr = NULL;
 	unsigned int peri_addr = 0, peri_mask = 0, peri_val = 0;
 	int index = -1;
+	int uart_line = -1;
+	int err;
 
 	data->uart_clk = devm_clk_get(&pdev->dev, "baud");
 	if (IS_ERR(data->uart_clk)) {
@@ -723,6 +725,14 @@ static int mtk8250_probe_of(struct platform_device *pdev, struct uart_port *p,
 
 		return 0;
 	}
+
+		err = of_property_read_u32(pdev->dev.of_node, "uart_line", &uart_line);
+		if (err < 0) {
+			dev_info(&pdev->dev, "uart_line fail!!!\n");
+		} else {
+			data->line = uart_line;
+			pr_info("probe_uart: data->line: %d:\n", data->line);
+		}
 
 	data->bus_clk = devm_clk_get(&pdev->dev, "bus");
 	if (IS_ERR(data->bus_clk))
@@ -856,10 +866,6 @@ static int mtk8250_probe(struct platform_device *pdev)
 		uart.dma = data->dma;
 #endif
 
-	/* Disable Rate Fix function */
-	writel(0x0, uart.port.membase +
-			(MTK_UART_RATE_FIX << uart.port.regshift));
-
 	platform_set_drvdata(pdev, data);
 
 	pm_runtime_enable(&pdev->dev);
@@ -867,9 +873,13 @@ static int mtk8250_probe(struct platform_device *pdev)
 	if (err)
 		goto err_pm_disable;
 
-	data->line = serial8250_register_8250_port(&uart);
-	if (data->line < 0) {
-		err = data->line;
+	/* Disable Rate Fix function */
+	writel(0x0, uart.port.membase +
+			(MTK_UART_RATE_FIX << uart.port.regshift));
+
+	err = serial8250_register_8250_port(&uart);
+	if (err < 0) {
+		pr_info("probe: err: %d: serial8250 register 8250 port fail!!!", err);
 		goto err_pm_disable;
 	}
 
