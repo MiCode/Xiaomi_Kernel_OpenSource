@@ -321,6 +321,11 @@ struct ssusb_mtk {
 	/* u2 cdp */
 	struct work_struct dp_work;
 	u32 hwrscs_vers;
+	/* pmic vs voter */
+	struct regmap *vsv;
+	u32 vsv_reg;
+	u32 vsv_mask;
+	u32 vsv_vers;
 };
 
 /**
@@ -483,6 +488,8 @@ void ssusb_ip_sw_reset(struct ssusb_mtk *ssusb);
 void ssusb_set_power_state(struct ssusb_mtk *ssusb, enum mtu3_power_state);
 void ssusb_set_txdeemph(struct ssusb_mtk *ssusb);
 void ssusb_set_noise_still_tr(struct ssusb_mtk *ssusb);
+void ssusb_vsvoter_set(struct ssusb_mtk *ssusb);
+void ssusb_vsvoter_clr(struct ssusb_mtk *ssusb);
 struct usb_request *mtu3_alloc_request(struct usb_ep *ep, gfp_t gfp_flags);
 void mtu3_free_request(struct usb_ep *ep, struct usb_request *req);
 void mtu3_req_complete(struct mtu3_ep *mep,

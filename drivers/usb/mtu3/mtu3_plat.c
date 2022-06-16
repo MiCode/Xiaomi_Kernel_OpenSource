@@ -11,9 +11,11 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/of_address.h>
+#include <linux/of_device.h>
 #include <linux/of_irq.h>
 #include <linux/platform_device.h>
 #include <linux/pm_wakeirq.h>
+#include <linux/regmap.h>
 #include <linux/soc/mediatek/mtk_sip_svc.h>
 
 #include "mtu3.h"
@@ -22,6 +24,10 @@
 
 #define PHY_MODE_DPPULLUP_SET 5
 #define PHY_MODE_DPPULLUP_CLR 6
+
+#define VS_VOTER_EN_LO 0x0
+#define VS_VOTER_EN_LO_SET 0x1
+#define VS_VOTER_EN_LO_CLR 0x2
 
 enum ssusb_smc_request {
 	SSUSB_SMC_HWRECS_REQUEST = 0,
@@ -34,6 +40,10 @@ enum ssusb_smc_request {
 enum ssusb_hwrscs_vers {
 	SSUSB_HWRECS_V1 = 1,
 };
+
+/* protect vs voter state */
+static DEFINE_MUTEX(vsv_mutex);
+static unsigned int vsv_use_count;
 
 static void ssusb_hwrscs_req(struct ssusb_mtk *ssusb,
 	enum mtu3_power_state state)
@@ -113,6 +123,95 @@ void ssusb_set_noise_still_tr(struct ssusb_mtk *ssusb)
 		mtu3_setbits(ssusb->ippc_base, U3D_SSUSB_IP_SPARE0,
 			SSUSB_SOF_KEEP);
 	}
+}
+
+void ssusb_vsvoter_set(struct ssusb_mtk *ssusb)
+{
+	u32 reg, msk, val;
+	unsigned int count = vsv_use_count;
+
+	if (ssusb->plat_type == PLAT_FPGA)
+		return;
+
+	if (IS_ERR_OR_NULL(ssusb->vsv))
+		return;
+
+	mutex_lock(&vsv_mutex);
+	if (++vsv_use_count > 1)
+		goto out;
+
+	/* write 1 to set and clr, update reg address */
+	reg = ssusb->vsv_reg + VS_VOTER_EN_LO_SET;
+	msk = ssusb->vsv_mask;
+	val = ssusb->vsv_mask;
+
+	regmap_update_bits(ssusb->vsv, reg, msk, val);
+out:
+	mutex_unlock(&vsv_mutex);
+
+	dev_info(ssusb->dev, "%s count %d to %d\n",
+		__func__, count, vsv_use_count);
+}
+
+void ssusb_vsvoter_clr(struct ssusb_mtk *ssusb)
+{
+	u32 reg, msk, val;
+	unsigned int count = vsv_use_count;
+
+	if (ssusb->plat_type == PLAT_FPGA)
+		return;
+
+	if (IS_ERR_OR_NULL(ssusb->vsv))
+		return;
+
+	mutex_lock(&vsv_mutex);
+	if (--vsv_use_count > 0)
+		goto out;
+
+	/* write 1 to set and clr, update reg address */
+	reg = ssusb->vsv_reg + VS_VOTER_EN_LO_CLR;
+	msk = ssusb->vsv_mask;
+	val = ssusb->vsv_mask;
+
+	regmap_update_bits(ssusb->vsv, reg, msk, val);
+out:
+	mutex_unlock(&vsv_mutex);
+
+	dev_info(ssusb->dev, "%s count %d to %d\n",
+		__func__, count, vsv_use_count);
+}
+
+static int ssusb_vsvoter_of_property_parse(struct ssusb_mtk *ssusb,
+				struct device_node *dn)
+{
+	struct of_phandle_args args;
+	struct platform_device *pdev;
+	int ret;
+
+	/* vs vote function is optional */
+	if (!of_property_read_bool(dn, "mediatek,vs-voter"))
+		return 0;
+
+	ret = of_parse_phandle_with_fixed_args(dn,
+		"mediatek,vs-voter", 3, 0, &args);
+	if (ret)
+		return ret;
+
+	pdev = of_find_device_by_node(args.np->child);
+	if (!pdev)
+		return -ENODEV;
+
+	ssusb->vsv = dev_get_regmap(pdev->dev.parent, NULL);
+	if (!ssusb->vsv)
+		return -ENODEV;
+
+	ssusb->vsv_reg = args.args[0];
+	ssusb->vsv_mask = args.args[1];
+	ssusb->vsv_vers = args.args[2];
+	dev_info(ssusb->dev, "vsv - reg:0x%x, mask:0x%x, version:%d\n",
+			ssusb->vsv_reg, ssusb->vsv_mask, ssusb->vsv_vers);
+
+	return PTR_ERR_OR_ZERO(ssusb->vsv);
 }
 
 void ssusb_set_force_vbus(struct ssusb_mtk *ssusb, bool vbus_on)
@@ -299,6 +398,8 @@ static int ssusb_rscs_init(struct ssusb_mtk *ssusb)
 		goto vusb33_err;
 	}
 
+	ssusb_vsvoter_set(ssusb);
+
 	ret = clk_bulk_prepare_enable(BULK_CLKS_CNT, ssusb->clks);
 	if (ret)
 		goto clks_err;
@@ -326,6 +427,7 @@ phy_init_err:
 
 	clk_bulk_disable_unprepare(BULK_CLKS_CNT, ssusb->clks);
 clks_err:
+	ssusb_vsvoter_clr(ssusb);
 	regulator_disable(ssusb->vusb33);
 vusb33_err:
 	return ret;
@@ -333,10 +435,12 @@ vusb33_err:
 
 static void ssusb_rscs_exit(struct ssusb_mtk *ssusb)
 {
+
 	clk_bulk_disable_unprepare(BULK_CLKS_CNT, ssusb->clks);
 	regulator_disable(ssusb->vusb33);
 	ssusb_phy_power_off(ssusb);
 	ssusb_phy_exit(ssusb);
+	ssusb_vsvoter_clr(ssusb);
 }
 
 void ssusb_ip_sw_reset(struct ssusb_mtk *ssusb)
@@ -430,6 +534,9 @@ get_phy:
 			ssusb->hwrscs_vers = SSUSB_HWRECS_V1;
 	}
 
+	ret = ssusb_vsvoter_of_property_parse(ssusb, node);
+	if (ret)
+		dev_info(dev, "failed to parse vsv property\n");
 
 	ssusb->dr_mode = usb_get_dr_mode(dev);
 	if (ssusb->dr_mode == USB_DR_MODE_UNKNOWN)
