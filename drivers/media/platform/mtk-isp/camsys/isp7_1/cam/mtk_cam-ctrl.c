@@ -3620,7 +3620,8 @@ static void mtk_camsys_raw_cq_done(struct mtk_raw_device *raw_dev,
 		req_stream_data = mtk_cam_ctrl_state_to_req_s_data(state_entry);
 		req = req_stream_data->req;
 		if (mtk_cam_is_subsample(ctx)) {
-			if (raw_dev->sof_count == 0)
+			if (state_entry->estate == E_STATE_SUBSPL_READY &&
+				req_stream_data->frame_seq_no == 1)
 				state_transition(state_entry, E_STATE_SUBSPL_READY,
 						E_STATE_SUBSPL_OUTER);
 			if (state_entry->estate >= E_STATE_SUBSPL_SCQ &&
@@ -4399,7 +4400,9 @@ void mtk_camsys_state_delete(struct mtk_cam_ctx *ctx,
 			(!ctx->sensor && mtk_cam_is_pure_m2m(ctx))) {
 		if (mtk_cam_is_subsample(ctx)) {
 			s_data = mtk_cam_req_get_s_data(req, ctx->stream_id, 0);
-			if (s_data->state.estate <= E_STATE_SUBSPL_SENSOR) {
+			if (s_data->state.estate <= E_STATE_SUBSPL_SENSOR &&
+				s_data->state.estate > E_STATE_SUBSPL_SCQ &&
+				s_data->frame_seq_no > 1) {
 				atomic_set(&sensor_ctrl->isp_request_seq_no,
 					s_data->frame_seq_no);
 				atomic_set(&sensor_ctrl->sensor_request_seq_no,
