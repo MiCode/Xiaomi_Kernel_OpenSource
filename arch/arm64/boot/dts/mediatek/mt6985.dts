@@ -1565,8 +1565,8 @@
 				"CAM_CG";
 		mediatek,ccu_rproc1 = <&ccu_rproc1>;
 		dma-ranges = <0x1 0x0 0x1 0x0 0x1 0x0>;
-		iommus = <&mdp_iommu M4U_PORT_L19_CCUO>,
-			 <&mdp_iommu M4U_PORT_L19_CCUI>;
+		iommus = <&disp_iommu M4U_PORT_L19_CCUO>,
+			 <&disp_iommu M4U_PORT_L19_CCUI>;
 		interconnects =
 		<&mmqos SLAVE_LARB(39) &mmqos SLAVE_COMMON(0)>,
 		<&mmqos MASTER_LARB_PORT(M4U_PORT_L19_CCUO)
@@ -1597,8 +1597,8 @@
 	ccu_rproc1: ccu_rproc1 {
 		compatible = "mediatek,ccu_rproc1";
 		dma-ranges = <0x1 0x0 0x1 0x0 0x1 0x0>;
-		iommus = <&mdp_iommu M4U_PORT_L19_CCUO2>,
-			<&mdp_iommu M4U_PORT_L19_CCUI2>;
+		iommus = <&disp_iommu M4U_PORT_L19_CCUO2>,
+			<&disp_iommu M4U_PORT_L19_CCUI2>;
 	};
 
 	ccu_main_clk: syscon@1b200000 {
