@@ -51,7 +51,7 @@ static void aputop_dump_reg(enum apupw_reg idx, uint32_t offset, uint32_t size)
 
 	/* prepare pa address */
 	memset(buf, 0, sizeof(buf));
-	ret = snprintf(buf, 32, "phys 0x%08x: ",
+	ret = snprintf(buf, 32, "phys 0x%08lx: ",
 			(ulong)(apupw.phy_addr[idx]) + offset);
 
 	/* dump content with pa as prefix */
