@@ -1407,7 +1407,9 @@ static void ccmni_md_state_callback(int ccmni_idx, enum MD_STATE state)
 			ccmni->flags[i] &= ~CCMNI_TX_PRINT_F;
 		}
 		ccmni->rx_seq_num = 0;
+		spin_lock_bh(ccmni->spinlock);
 		ccmni->rx_gro_cnt = 0;
+		spin_unlock_bh(ccmni->spinlock);
 		break;
 
 	case EXCEPTION:
