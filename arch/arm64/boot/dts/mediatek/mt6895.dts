@@ -163,7 +163,7 @@
 		bootargs = "console=tty0 root=/dev/ram \
 			rcupdate.rcu_expedited=1 transparent_hugepage=never \
 			8250.nr_uarts=2 \
-			vmalloc=400M swiotlb=noforce cma=64M \
+			vmalloc=400M swiotlb=noforce \
 			firmware_class.path=/vendor/firmware pelt=8";
 		kaslr-seed = <0 0>;
 	};
