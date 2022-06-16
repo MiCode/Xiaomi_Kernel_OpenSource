@@ -5,6 +5,7 @@
  */
 
 #include "mtk_lcm_settings.h"
+#include "round_corner/nt36672c_fhdp_shenchao_rc.dtsi"
 
 &pio {
 	nt36672c_fhdp_dphy_vdo_shenchao_120hz: nt36672c_fhdp_dphy_vdo_shenchao_120hz {
@@ -35,18 +36,9 @@
 
 			lcm-params-lk-round-corner {
 				compatible = "mediatek,lcm-params-lk-round-corner";
-				lcm-params-lk-rc_round_corner_en = <0>;
-				lcm-params-lk-rc_is_notch;
-				lcm-params-lk-rc_full_content = <0>;
-				lcm-params-lk-rc_width;
-				lcm-params-lk-rc_height;
-				lcm-params-lk-rc_width_bot;
-				lcm-params-lk-rc_height_bot;
-				lcm-params-lk-rc_top_size;
-				lcm-params-lk-rc_top_size_left;
-				lcm-params-lk-rc_top_size_right;
-				lcm-params-lk-rc_bottom_size;
-				lcm-params-lk-rc_pattern_name;
+				lcm-params-lk-rc_round_corner_en = <1>;
+				lcm-params-lk-rc_round_corner_pattern =
+					<&nt36672c_fhdp_shechao_round_corner_pattern>;
 			};
 
 			lcm-params-dbi {
@@ -121,13 +113,9 @@
 					lcm-params-dsi-min_luminance;
 					lcm-params-dsi-average_luminance;
 					lcm-params-dsi-max_luminance;
-					lcm-params-dsi-round_corner_en = <0>;
-					lcm-params-dsi-corner_pattern_height;
-					lcm-params-dsi-corner_pattern_height_bot;
-					lcm-params-dsi-corner_pattern_tp_size;
-					lcm-params-dsi-corner_pattern_tp_size_left;
-					lcm-params-dsi-corner_pattern_tp_size_right;
-					lcm-params-dsi-corner_pattern_name;
+					lcm-params-dsi-round_corner_en = <1>;
+					lcm-params-dsi-round_corner_pattern =
+						<&nt36672c_fhdp_shechao_round_corner_pattern>;
 					lcm-params-dsi-physical_width_um;
 					lcm-params-dsi-physical_height_um;
 					lcm-params-dsi-output_mode =
@@ -384,13 +372,9 @@
 					lcm-params-dsi-min_luminance;
 					lcm-params-dsi-average_luminance;
 					lcm-params-dsi-max_luminance;
-					lcm-params-dsi-round_corner_en = <0>;
-					lcm-params-dsi-corner_pattern_height;
-					lcm-params-dsi-corner_pattern_height_bot;
-					lcm-params-dsi-corner_pattern_tp_size;
-					lcm-params-dsi-corner_pattern_tp_size_left;
-					lcm-params-dsi-corner_pattern_tp_size_right;
-					lcm-params-dsi-corner_pattern_name;
+					lcm-params-dsi-round_corner_en = <1>;
+					lcm-params-dsi-round_corner_pattern =
+						<&nt36672c_fhdp_shechao_round_corner_pattern>;
 					lcm-params-dsi-physical_width_um;
 					lcm-params-dsi-physical_height_um;
 					lcm-params-dsi-output_mode =
@@ -570,13 +554,9 @@
 					lcm-params-dsi-min_luminance;
 					lcm-params-dsi-average_luminance;
 					lcm-params-dsi-max_luminance;
-					lcm-params-dsi-round_corner_en = <0>;
-					lcm-params-dsi-corner_pattern_height;
-					lcm-params-dsi-corner_pattern_height_bot;
-					lcm-params-dsi-corner_pattern_tp_size;
-					lcm-params-dsi-corner_pattern_tp_size_left;
-					lcm-params-dsi-corner_pattern_tp_size_right;
-					lcm-params-dsi-corner_pattern_name;
+					lcm-params-dsi-round_corner_en = <1>;
+					lcm-params-dsi-round_corner_pattern =
+						<&nt36672c_fhdp_shechao_round_corner_pattern>;
 					lcm-params-dsi-physical_width_um;
 					lcm-params-dsi-physical_height_um;
 					lcm-params-dsi-output_mode =
