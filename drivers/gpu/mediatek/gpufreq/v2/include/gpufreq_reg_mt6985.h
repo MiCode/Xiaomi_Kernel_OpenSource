@@ -38,6 +38,13 @@ static inline u32 readl_mfg(const void __iomem *addr)
  **************************************************/
 #define MALI_BASE                       (g_mali_base)                         /* 0x13000000 */
 #define MALI_GPU_ID                     (MALI_BASE + 0x000)                   /* 0x13000000 */
+#define MALI_L2_PWRON_LO                (MALI_BASE + 0x1A0)                   /* 0x130001A0 */
+#define MALI_L2_PWRON_HI                (MALI_BASE + 0x1A4)                   /* 0x130001A4 */
+#define MALI_L2_PWROFF_LO               (MALI_BASE + 0x1E0)                   /* 0x130001E0 */
+#define MALI_L2_PWROFF_HI               (MALI_BASE + 0x1E4)                   /* 0x130001E4 */
+#define MALI_GPU_IRQ_CLEAR              (MALI_BASE + 0x024)                   /* 0x13000024 */
+#define MALI_GPU_IRQ_MASK               (MALI_BASE + 0x028)                   /* 0x13000028 */
+#define MALI_GPU_IRQ_STATUS             (MALI_BASE + 0x02C)                   /* 0x1300002C */
 
 #define MFG_TOP_CFG_BASE                (g_mfg_top_base)                      /* 0x13FBF000 */
 #define MFG_CG_CON                      (MFG_TOP_CFG_BASE + 0x000)            /* 0x13FBF000 */
@@ -155,7 +162,7 @@ static inline u32 readl_mfg(const void __iomem *addr)
 #define MFG_RPC_SLP_PROT_EN_SET         (MFG_RPC_BASE + 0x1040)               /* 0x13F91040 */
 #define MFG_RPC_SLP_PROT_EN_CLR         (MFG_RPC_BASE + 0x1044)               /* 0x13F91044 */
 #define MFG_RPC_SLP_PROT_EN_STA         (MFG_RPC_BASE + 0x1048)               /* 0x13F91048 */
-#define MFG_RPC_MFGIPS_PWR_CON          (MFG_RPC_BASE + 0x10FC)               /* 0x13F910FC */
+#define MFG_RPC_IPS_SES_PWR_CON         (MFG_RPC_BASE + 0x10FC)               /* 0x13F910FC */
 
 #define SPM_BASE                        (g_sleep)                             /* 0x1C001000 */
 #define SPM_SPM2GPUPM_CON               (SPM_BASE + 0x410)                    /* 0x1C001410 */

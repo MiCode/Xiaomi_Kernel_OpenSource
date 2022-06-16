@@ -64,6 +64,9 @@ static void __gpufreq_set_dvfs_state(unsigned int set, unsigned int state);
 static void __gpufreq_set_margin_mode(unsigned int mode);
 static void __gpufreq_set_gpm_mode(unsigned int version, unsigned int mode);
 static void __gpufreq_set_ips_mode(unsigned int mode);
+#if GPUFREQ_IPS_ENABLE
+static void __gpufreq_ips_rpc_control(enum gpufreq_power_state power);
+#endif /* GPUFREQ_IPS_ENABLE */
 static void __gpufreq_apply_restore_margin(enum gpufreq_target target, unsigned int mode);
 static void __gpufreq_measure_power(void);
 static void __iomem *__gpufreq_of_ioremap(const char *node_name, int idx);
@@ -120,6 +123,9 @@ static enum gpufreq_posdiv __gpufreq_get_real_posdiv_gpu(void);
 static enum gpufreq_posdiv __gpufreq_get_real_posdiv_stack(void);
 static enum gpufreq_posdiv __gpufreq_get_posdiv_by_freq(unsigned int freq);
 /* aging sensor function */
+#if GPUFREQ_ASENSOR_ENABLE || GPUFREQ_IPS_ENABLE
+static void __gpufreq_mfg2_force_control(enum gpufreq_power_state power);
+#endif /* GPUFREQ_ASENSOR_ENABLE || GPUFREQ_IPS_ENABLE */
 #if GPUFREQ_ASENSOR_ENABLE
 static unsigned int __gpufreq_asensor_read_efuse(u32 *a_t0_efuse1,
 	u32 *a_t0_efuse2, u32 *a_t0_efuse3, u32 *efuse_error);
@@ -1141,13 +1147,13 @@ void __gpufreq_dump_infra_status(void)
 	/* MFG_DEBUG_SEL */
 	/* MFG_DEBUG_TOP */
 	/* MFG_RPC_SLP_PROT_EN_STA */
-	/* MFG_RPC_MFGIPS_PWR_CON */
+	/* MFG_RPC_IPS_SES_PWR_CON */
 	GPUFREQ_LOGI("%-11s (0x%x): 0x%08x, (0x%x): 0x%08x, (0x%x): 0x%08x, (0x%x): 0x%08x",
 		"[MFG]",
 		0x13FBF170, readl_mfg(MFG_DEBUG_SEL),
 		0x13FBF178, readl_mfg(MFG_DEBUG_TOP),
 		0x13F91048, readl(MFG_RPC_SLP_PROT_EN_STA),
-		0x13F910FC, readl(MFG_RPC_MFGIPS_PWR_CON));
+		0x13F910FC, readl(MFG_RPC_IPS_SES_PWR_CON));
 
 	/* NTH_MFG_EMI1_GALS_SLV_DBG */
 	/* NTH_MFG_EMI0_GALS_SLV_DBG */
@@ -1933,6 +1939,96 @@ static void __gpufreq_set_gpm_mode(unsigned int version, unsigned int mode)
 		g_shared_status->gpm1_mode = g_gpm1_mode;
 }
 
+#if GPUFREQ_IPS_ENABLE
+/* Control IPS MTCMOS on/off */
+static void __gpufreq_ips_rpc_control(enum gpufreq_power_state power)
+{
+	int i = 0;
+
+	if (power == POWER_ON) {
+		/* IPS_SES_PWR_CON 0x13F910FC [2] PWR_ON = 1'b1 */
+		writel((readl(MFG_RPC_IPS_SES_PWR_CON) | BIT(2)), MFG_RPC_IPS_SES_PWR_CON);
+		/* IPS_SES_PWR_CON 0x13F910FC [30] PWR_ACK = 1'b1 */
+		i = 0;
+		while ((readl(MFG_RPC_IPS_SES_PWR_CON) & BIT(30)) != BIT(30)) {
+			udelay(10);
+			if (++i > 10)
+				break;
+		}
+		/* IPS_SES_PWR_CON 0x13F910FC [3] PWR_ON_2ND = 1'b1 */
+		writel((readl(MFG_RPC_IPS_SES_PWR_CON) | BIT(3)), MFG_RPC_IPS_SES_PWR_CON);
+		/* IPS_SES_PWR_CON 0x13F910FC [31] PWR_ACK_2ND = 1'b1 */
+		i = 0;
+		while ((readl(MFG_RPC_IPS_SES_PWR_CON) & BIT(31)) != BIT(31)) {
+			udelay(10);
+			if (++i > 10)
+				break;
+		}
+		/* IPS_SES_PWR_CON 0x13F910FC [30] PWR_ACK = 1'b1 */
+		/* IPS_SES_PWR_CON 0x13F910FC [31] PWR_ACK_2ND = 1'b1 */
+		i = 0;
+		while ((readl(MFG_RPC_IPS_SES_PWR_CON) & GENMASK(31, 30)) != GENMASK(31, 30)) {
+			udelay(10);
+			if (++i > 500)
+				goto timeout;
+		}
+		/* IPS_SES_PWR_CON 0x13F910FC [4] PWR_CLK_DIS = 1'b0 */
+		writel((readl(MFG_RPC_IPS_SES_PWR_CON) & ~BIT(4)), MFG_RPC_IPS_SES_PWR_CON);
+		/* IPS_SES_PWR_CON 0x13F910FC [1] PWR_ISO = 1'b0 */
+		writel((readl(MFG_RPC_IPS_SES_PWR_CON) & ~BIT(1)), MFG_RPC_IPS_SES_PWR_CON);
+		/* IPS_SES_PWR_CON 0x13F910FC [0] PWR_RST_B = 1'b1 */
+		writel((readl(MFG_RPC_IPS_SES_PWR_CON) | BIT(0)), MFG_RPC_IPS_SES_PWR_CON);
+		/* IPS_SES_PWR_CON 0x13F910FC [8] PWR_SRAM_PDN = 1'b0 */
+		writel((readl(MFG_RPC_IPS_SES_PWR_CON) & ~BIT(8)), MFG_RPC_IPS_SES_PWR_CON);
+		/* IPS_SES_PWR_CON 0x13F910FC [12] PWR_SRAM_PDN_ACK = 1'b0 */
+		i = 0;
+		while (readl(MFG_RPC_IPS_SES_PWR_CON) & BIT(12)) {
+			udelay(10);
+			if (++i > 500)
+				goto timeout;
+		}
+	} else {
+		/* IPS_SES_PWR_CON 0x13F910FC [8] PWR_SRAM_PDN = 1'b1 */
+		writel((readl(MFG_RPC_IPS_SES_PWR_CON) | BIT(8)), MFG_RPC_IPS_SES_PWR_CON);
+		/* check SRAM_PDN_ACK */
+		/* IPS_SES_PWR_CON 0x13F910FC [12] PWR_SRAM_PDN_ACK = 1'b1 */
+		i = 0;
+		while ((readl(MFG_RPC_IPS_SES_PWR_CON) & BIT(12)) != BIT(12)) {
+			udelay(10);
+			if (++i > 500)
+				goto timeout;
+		}
+		/* IPS_SES_PWR_CON 0x13F910FC [1] PWR_ISO = 1'b1 */
+		writel((readl(MFG_RPC_IPS_SES_PWR_CON) | BIT(1)), MFG_RPC_IPS_SES_PWR_CON);
+		/* IPS_SES_PWR_CON 0x13F910FC [4] PWR_CLK_DIS = 1'b1 */
+		writel((readl(MFG_RPC_IPS_SES_PWR_CON) | BIT(4)), MFG_RPC_IPS_SES_PWR_CON);
+		/* IPS_SES_PWR_CON 0x13F910FC [0] PWR_RST_B = 1'b0 */
+		writel((readl(MFG_RPC_IPS_SES_PWR_CON) & ~BIT(0)), MFG_RPC_IPS_SES_PWR_CON);
+		/* IPS_SES_PWR_CON 0x13F910FC [2] PWR_ON = 1'b0 */
+		writel((readl(MFG_RPC_IPS_SES_PWR_CON) & ~BIT(2)), MFG_RPC_IPS_SES_PWR_CON);
+		/* IPS_SES_PWR_CON 0x13F910FC [3] PWR_ON_2ND = 1'b0 */
+		writel((readl(MFG_RPC_IPS_SES_PWR_CON) & ~BIT(3)), MFG_RPC_IPS_SES_PWR_CON);
+		/* IPS_SES_PWR_CON 0x13F910FC [30] PWR_ACK = 1'b0 */
+		/* IPS_SES_PWR_CON 0x13F910FC [31] PWR_ACK_2ND = 1'b0 */
+		i = 0;
+		while (readl(MFG_RPC_IPS_SES_PWR_CON) & GENMASK(31, 30)) {
+			udelay(10);
+			if (++i > 500)
+				goto timeout;
+		}
+	}
+
+	GPUFREQ_LOGI("Power %s IPS, (0x13F910FC): 0x%x",
+		power ? "On" : "Off", readl(MFG_RPC_IPS_SES_PWR_CON));
+
+	return;
+
+timeout:
+	__gpufreq_abort("Power %s IPS timeout, (0x13F910FC): 0x%x",
+		power ? "On" : "Off", readl(MFG_RPC_IPS_SES_PWR_CON));
+}
+#endif /* GPUFREQ_IPS_ENABLE */
+
 /* API: enable/disable IPS mode and get Vmin */
 static void __gpufreq_set_ips_mode(unsigned int mode)
 {
@@ -1942,14 +2038,24 @@ static void __gpufreq_set_ips_mode(unsigned int mode)
 	unsigned long long vmin_val = 0;
 
 	if (mode == FEAT_ENABLE) {
+		/* MFG2 should be power-on while using IPS */
+		__gpufreq_mfg2_force_control(POWER_ON);
+		/* enable IPS MTCMOS */
+		__gpufreq_ips_rpc_control(POWER_ON);
 		/* init */
 		writel(0x00000000, MFG_IPS_01);
 		writel(0x00400000, MFG_IPS_13);
 		writel(0x0001A400, MFG_IPS_01);
 		writel(0x044040FE, MFG_IPS_10);
 		writel(0x0001A500, MFG_IPS_01);
+
 		/* delay 500us */
 		udelay(500);
+
+		GPUFREQ_LOGI("IPS_01: 0x%x, IPS_10: 0x%x, IPS_12: 0x%x, IPS_13: 0x%x",
+			readl(MFG_IPS_01), readl(MFG_IPS_10),
+			readl(MFG_IPS_12), readl(MFG_IPS_13));
+
 		/* check autok */
 		val = readl(MFG_IPS_12);
 		/* SupplEyeScanV7P0_12 0x13FE002C [0] AutoCalibDone = 1'b1 */
@@ -1966,6 +2072,9 @@ static void __gpufreq_set_ips_mode(unsigned int mode)
 			autok_result = false;
 		}
 
+		/* clear IRQ config */
+		writel(0x00000000, MFG_IPS_05);
+
 		g_ips_mode = mode;
 		/* update current status to shared memory */
 		if (g_shared_status) {
@@ -1978,6 +2087,10 @@ static void __gpufreq_set_ips_mode(unsigned int mode)
 	} else if (mode == FEAT_DISABLE) {
 		/* reset */
 		writel(0x00000000, MFG_IPS_01);
+		/* disable IPS MTCMOS */
+		__gpufreq_ips_rpc_control(POWER_OFF);
+		/* disalbe MFG2 */
+		__gpufreq_mfg2_force_control(POWER_OFF);
 
 		g_ips_mode = mode;
 		/* update current status to shared memory */
@@ -4363,6 +4476,52 @@ static void __gpufreq_interpolate_volt(enum gpufreq_target target)
 
 	mutex_unlock(&gpufreq_lock);
 }
+
+#if GPUFREQ_ASENSOR_ENABLE || GPUFREQ_IPS_ENABLE
+/* API: force power on MFG2 by PDCA when PDCA enable */
+static void __gpufreq_mfg2_force_control(enum gpufreq_power_state power)
+{
+#if GPUFREQ_PDCA_ENABLE
+	int i = 0;
+
+	GPUFREQ_LOGI("+ MFG2 %s (PWR_STATUS: 0x%x)",
+		power ? "On" : "Off", MFG_0_19_PWR_STATUS);
+
+	if (power == POWER_ON) {
+		/* L2_PWRON_LO 0x130001A0 = 0xFFFFFFFF */
+		writel(0xFFFFFFFF, MALI_L2_PWRON_LO);
+		/* L2_PWRON_HI 0x130001A4 = 0xFFFFFFFF */
+		writel(0xFFFFFFFF, MALI_L2_PWRON_HI);
+	} else if (power == POWER_OFF) {
+		/* L2_PWROFF_LO 0x130001E0 = 0xFFFFFFFF */
+		writel(0xFFFFFFFF, MALI_L2_PWROFF_LO);
+		/* L2_PWROFF_HI 0x130001E4 = 0xFFFFFFFF */
+		writel(0xFFFFFFFF, MALI_L2_PWROFF_HI);
+	}
+
+	/* wait complete IRQ */
+	/* GPU_IRQ_MASK 0x13000028 [10] POWER_CHANGED_ALL = 1'b1 */
+	writel(BIT(10), MALI_GPU_IRQ_MASK);
+	/* GPU_IRQ_STATUS 0x1300002C [10] POWER_CHANGED_ALL = 1'b1 */
+	while (readl(MALI_GPU_IRQ_STATUS) != BIT(10)) {
+		udelay(10);
+		if (++i > 500) {
+			__gpufreq_abort("power %s timeout, IRQ status: 0x%x",
+				power ? "On" : "Off", readl(MALI_GPU_IRQ_STATUS));
+			break;
+		}
+	};
+	/* clear IRQ */
+	/* GPU_IRQ_CLEAR 0x13000024 = 0xFFFFFFFF */
+	writel(0xFFFFFFFF, MALI_GPU_IRQ_CLEAR);
+
+	GPUFREQ_LOGI("- MFG2 %s (PWR_STATUS: 0x%x)",
+		power ? "On" : "Off", MFG_0_19_PWR_STATUS);
+#else
+	GPUFREQ_UNREFERENCED(power);
+#endif /* GPUFREQ_PDCA_ENABLE */
+}
+#endif /* GPUFREQ_ASENSOR_ENABLE || GPUFREQ_IPS_ENABLE */
 
 #if GPUFREQ_ASENSOR_ENABLE
 /* API: resume dvfs to free run */
