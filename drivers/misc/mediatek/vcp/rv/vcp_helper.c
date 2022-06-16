@@ -267,6 +267,9 @@ static void vcp_enable_irqs(void)
 {
 	int i = 0;
 
+	tasklet_enable(&vcp_A_irq0_tasklet);
+	tasklet_enable(&vcp_A_irq1_tasklet);
+
 	for (i = 0; i < vcp_mboxdev.count; i++)
 		enable_irq(vcp_mboxdev.info_table[i].irq_num);
 
@@ -282,6 +285,10 @@ static void vcp_disable_irqs(void)
 
 	for (i = 0; i < vcp_mboxdev.count; i++)
 		disable_irq(vcp_mboxdev.info_table[i].irq_num);
+
+	tasklet_disable(&vcp_A_irq0_tasklet);
+	tasklet_disable(&vcp_A_irq1_tasklet);
+
 	pr_info("[VCP] VCP IRQ disabled\n");
 }
 
