@@ -11398,6 +11398,13 @@
 		udc = <&ssusb>;
 	};
 
+	usb_boost: usb-boost-manager {
+		compatible = "mediatek,usb-boost", "mediatek,mt6985-usb-boost";
+		interconnects = <&dvfsrc MT6873_MASTER_DBGIF &dvfsrc MT6873_SLAVE_DDR_EMI>;
+		interconnect-names = "icc-bw";
+		required-opps = <&dvfsrc_freq_opp0>;
+	};
+
 	smart_pa: smart_pa {
 	};
 
