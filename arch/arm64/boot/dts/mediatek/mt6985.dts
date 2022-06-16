@@ -1169,6 +1169,7 @@
 		#power-domain-cells = <1>;
 		clocks = <&topckgen_clk CLK_TOP_ADSP_SEL>,
 			<&topckgen_clk CLK_TOP_AUD_INTBUS_SEL>,
+			<&topckgen_clk CLK_TOP_AUDIO_LOCAL_BUS_SEL>,
 			<&topckgen_clk CLK_TOP_CAM_SEL>,
 			<&topckgen_clk CLK_TOP_CCUSYS_SEL>,
 			<&topckgen_clk CLK_TOP_CCU_AHB_SEL>,
@@ -1223,10 +1224,9 @@
 			<&imgsys_main_clk CLK_IMG_IPE>,
 			<&pextpcfg_ao_clk CLK_PEXT_MAC0_26M>,
 			<&pextpcfg_ao_clk CLK_PEXT_MAC1_26M>,
-			<&pericfg_ao_clk CLK_PERAO_AUDIO_SLV>,
-			<&pericfg_ao_clk CLK_PERAO_AUDIO_MST>,
-			<&pericfg_ao_clk CLK_PERAO_AUDIO_INTBUS>;
-		clock-names = "adsp", "audio", "cam", "ccu", "ccu_ahb",
+			<&pericfg_ao_clk CLK_PERAO_AUDIO_SLV>;
+		clock-names = "adsp", "audio", "aud_bus",
+			"cam", "ccu", "ccu_ahb",
 			"disp", "disp1", "mdp", "mdp1", "ovl", "ovl1",
 			"mm_infra", "mmup", "isp", "vde", "ven",
 			"cam-0", "cam-1", "cam-2", "cam-3", "cam-4",
@@ -1239,8 +1239,7 @@
 			"cam_subc-0", "cam_subc-1", "cam_subc-2",
 			"cam_mraw-0", "cam_mraw-1", "dip1_lp-0",
 			"dip1_lp-1", "dip1_lp-2", "dip1_lp-3", "dip1_lp-4",
-			"dip1_lp-5", "pextp0-0", "pextp1-0", "audio-0",
-			"audio-1", "audio-2";
+			"dip1_lp-5", "pextp0-0", "pextp1-0", "audio-0";
 		ifr_bus = <&ifr_bus>;
 		ufscfg_ao_bus = <&ufscfg_ao_clk>;
 		gpu_eb_rpc = <&gpusys>;
