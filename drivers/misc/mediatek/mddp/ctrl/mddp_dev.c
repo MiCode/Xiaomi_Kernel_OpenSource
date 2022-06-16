@@ -815,7 +815,6 @@ void mddp_enqueue_md_log(enum mddp_md_log_id_e id, ...)
 			return;
 		}
 		mdfpm_log_str = va_arg(ap, char*);
-		va_end(ap);
 		snprintf(log->str, strSize + MDDP_CURR_TIME_STR_SZ + 3,
 				mddp_md_log_temp_s[id].str,	curr_time_str, mdfpm_log_str);
 		break;
@@ -823,6 +822,7 @@ void mddp_enqueue_md_log(enum mddp_md_log_id_e id, ...)
 		break;
 	}
 
+	va_end(ap);
 	entry->rb_len = strSize + MDDP_CURR_TIME_STR_SZ + 3;
 	entry->rb_data = log;
 	mddp_dev_rb_enqueue_tail(list, entry);

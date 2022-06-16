@@ -124,6 +124,7 @@ static void mddp_handshake_done(void *buf, uint32_t buf_len)
 				case MF_ID_COMMON:
 					app->mddp_feat.common = rsp->fs[i].bm;
 					app->feature |= MDDP_FEATURE_MCIF_WIFI;
+					break;
 				case MF_ID_WFC:
 					app->mddp_feat.wfc = rsp->fs[i].bm;
 					app->feature |= MDDP_FEATURE_MCIF_WIFI;

@@ -183,7 +183,7 @@ int32_t mddp_ipc_send_md(
 {
 	struct mddp_app_t      *app;
 	int32_t                 ret;
-	struct mdfpm_ctrl_msg_t ctrl_msg;
+	struct mdfpm_ctrl_msg_t ctrl_msg = {0};
 
 	if (!in_app)
 		app = mddp_get_default_app_inst();
@@ -194,7 +194,10 @@ int32_t mddp_ipc_send_md(
 		kfree(msg);
 		return -ENODEV;
 	}
-
+	if (msg->data_len > MDFPM_TTY_BUF_SZ) {
+		kfree(msg);
+		return -EFAULT;
+	}
 	ctrl_msg.dest_user_id = (dest_user == MDFPM_USER_ID_NULL)
 		? (app->md_cfg.ipc_md_user_id) : (dest_user);
 
