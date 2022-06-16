@@ -14,7 +14,6 @@
 #include <linux/soc/mediatek/mtk_mmdvfs.h>
 #include "../../misc/mediatek/smi/mtk-smi-dbg.h"
 
-#define MMDVFS_DBG
 #define MAX_OPP_NUM (6)
 #define MAX_MUX_NUM (10)
 #define MAX_HOPPING_CLK_NUM (2)
@@ -32,6 +31,10 @@ static struct mmdvfs_mmp_events_t mmdvfs_mmp_events;
 enum {
 	ACTION_DEFAULT,
 	ACTION_IHDM, /* Voltage Increase: Hopping First, Decrease: MUX First*/
+};
+
+enum {
+	AOV_MUX, AOV_LP_PARENT, AOV_PARENT, AOV_CLK_NUM
 };
 
 struct mmdvfs_mux_data {
@@ -278,13 +281,14 @@ static const struct of_device_id of_mmdvfs_match_tbl[] = {
 	{}
 };
 
-#ifdef MMDVFS_DBG
 struct mmdvfs_dbg_data {
 	struct mmdvfs_drv_data *drv_data;
 	struct regulator *reg;
 	s32 force_step;
 	s32 vote_step;
 	bool is_notifier_registered;
+	bool is_aov_enable;
+	struct clk *aov_clk[AOV_CLK_NUM];
 };
 
 struct mmdvfs_dbg_data *dbg_data;
@@ -420,7 +424,6 @@ MODULE_PARM_DESC(vote_step, "vote mmdvfs to specified step");
 
 module_param(log_level, uint, 0644);
 MODULE_PARM_DESC(log_level, "mmdvfs log level");
-#endif /* MMDVFS_DBG */
 
 #define MAX_DUMP (PAGE_SIZE - 1)
 struct mmdvfs_drv_data *drv_data;
@@ -491,12 +494,15 @@ static int mmdvfs_probe(struct platform_device *pdev)
 	u32 num_clksrc, hopping_rate, num_hopping_rate;
 	struct property *mux_prop, *clksrc_prop;
 	struct property *hopping_prop, *hopping_rate_prop;
+	struct property *aov_prop;
 	const char *mux_name, *clksrc_name, *hopping_name;
 	char prop_name[32];
+	const char *aov_prop_name;
 	const __be32 *p;
-	s32 ret;
+	s32 ret, i = 0;
 	unsigned long freq;
 	struct dev_pm_opp *opp;
+	struct clk *clk;
 
 #if IS_ENABLED(CONFIG_MMPROFILE)
 	mmprofile_enable(1);
@@ -578,7 +584,7 @@ static int mmdvfs_probe(struct platform_device *pdev)
 	reg = devm_regulator_get(dev, "dvfsrc-vcore");
 	if (IS_ERR(reg))
 		return PTR_ERR(reg);
-#ifdef MMDVFS_DBG
+
 	dbg_data = devm_kzalloc(dev, sizeof(*dbg_data), GFP_KERNEL);
 	if (!dbg_data)
 		return -ENOMEM;
@@ -587,7 +593,25 @@ static int mmdvfs_probe(struct platform_device *pdev)
 	dbg_data->force_step = -1;
 	dbg_data->vote_step = -1;
 	dbg_data->is_notifier_registered = true;
-#endif
+
+	of_property_for_each_string(dev->of_node, "clock-names", aov_prop, aov_prop_name) {
+		if (!strncmp("aov", aov_prop_name, 3)) {
+			if (i == AOV_CLK_NUM) {
+				dev_notice(dev, "%s: aov clk num is wrong\n", __func__);
+				ret = -EINVAL;
+				break;
+			}
+			clk = devm_clk_get(dev, aov_prop_name);
+			if (IS_ERR(clk)) {
+				dev_notice(dev, "%s: clks of %s init failed\n",
+					__func__, aov_prop_name);
+				ret = PTR_ERR(clk);
+				break;
+			}
+			dbg_data->aov_clk[i++] = clk;
+		}
+	}
+
 	drv_data->nb.notifier_call = regulator_event_notify;
 	ret = devm_regulator_register_notifier(reg, &drv_data->nb);
 	if (ret)
@@ -609,11 +633,71 @@ static int mmdvfs_probe(struct platform_device *pdev)
 	return ret;
 }
 
+void mtk_mmdvfs_aov_enable(const bool enable)
+{
+	if (!dbg_data)
+		return;
+	dbg_data->is_aov_enable = enable;
+}
+EXPORT_SYMBOL_GPL(mtk_mmdvfs_aov_enable);
+
+static int mmdvfs_set_aov_clk(bool is_sys_resume)
+{
+	int err = 0, i;
+	struct clk *parent;
+
+	if (!dbg_data)
+		return -EINVAL;
+
+	if (dbg_data->is_aov_enable) {
+		for (i = 0; i < AOV_CLK_NUM; i++) {
+			if (!dbg_data->aov_clk[i]) {
+				pr_notice("%s aov_clk[%d] is NULL\n", __func__, i);
+				return -EINVAL;
+			}
+		}
+		err = clk_prepare_enable(dbg_data->aov_clk[AOV_MUX]);
+		if (err) {
+			pr_notice("%s prepare aov_mux fail:%d\n", __func__, err);
+			return -EINVAL;
+		}
+		parent = (is_sys_resume) ? dbg_data->aov_clk[AOV_PARENT] :
+				dbg_data->aov_clk[AOV_LP_PARENT];
+		err = clk_set_parent(dbg_data->aov_clk[AOV_MUX], parent);
+		if (err)
+			pr_notice("%s set parent fail:%d is_sys_resume:%d\n",
+				__func__, err, is_sys_resume);
+		clk_disable_unprepare(dbg_data->aov_clk[AOV_MUX]);
+		pr_notice("%s: is_sys_resume=%d\n", __func__, is_sys_resume);
+
+	}
+
+	return err;
+}
+
+static int mmdvfs_pm_suspend(struct device *dev)
+{
+	mmdvfs_set_aov_clk(false);
+	return 0;
+}
+
+static int mmdvfs_pm_resume(struct device *dev)
+{
+	mmdvfs_set_aov_clk(true);
+	return 0;
+}
+
+static const struct dev_pm_ops mmdvfs_pm_ops = {
+	.suspend = mmdvfs_pm_suspend,
+	.resume  = mmdvfs_pm_resume,
+};
+
 static struct platform_driver mmdvfs_drv = {
 	.probe = mmdvfs_probe,
 	.driver = {
 		.name = "mtk-mmdvfs",
 		.of_match_table = of_mmdvfs_match_tbl,
+		.pm = &mmdvfs_pm_ops,
 	},
 };
 
