@@ -39,6 +39,7 @@ mtk_printk_ctrl.disable_uart=0";
 				fe-ant-cnt = [82];
 				fe-main-bt-share-lp2g = [81];
 				fe-conn-spdt = [8F];
+				fe-reserved = [82];
 			};
 		};
 

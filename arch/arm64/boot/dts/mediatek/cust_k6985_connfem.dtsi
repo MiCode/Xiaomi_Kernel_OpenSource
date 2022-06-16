@@ -19,12 +19,14 @@
 				fe-ant-cnt = [81];
 				fe-main-bt-share-lp2g = [80];
 				fe-conn-spdt = [83];
+				fe-reserved = [80];
 			};
 			flags-1 {
 				rx-mode = [81];
 				fe-ant-cnt = [82];
 				fe-main-bt-share-lp2g = [80];
 				fe-conn-spdt = [83];
+				fe-reserved = [86];
 			};
 			flags-2 {
 				/* SKU5 is not include final SPDT data */
@@ -32,6 +34,7 @@
 				fe-ant-cnt = [82];
 				fe-main-bt-share-lp2g = [80];
 				fe-conn-spdt = [83];
+				fe-reserved = [80];
 			};
 		};
 
