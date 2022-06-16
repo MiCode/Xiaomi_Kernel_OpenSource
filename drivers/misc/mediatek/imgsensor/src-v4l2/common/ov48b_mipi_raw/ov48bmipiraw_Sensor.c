@@ -1118,8 +1118,6 @@ static void custom10_setting(struct subdrv_ctx *ctx)
 			addr_data_pair_custom10,
 			sizeof(addr_data_pair_custom10));
 		_size_to_write += _length;
-		_i2c_data[_size_to_write++] = 0x5001;
-		_i2c_data[_size_to_write++] = 0x3;
 	}
 
 
@@ -1147,8 +1145,6 @@ static void custom11_setting(struct subdrv_ctx *ctx)
 			addr_data_pair_custom11,
 			sizeof(addr_data_pair_custom11));
 		_size_to_write += _length;
-		_i2c_data[_size_to_write++] = 0x5001;
-		_i2c_data[_size_to_write++] = 0x3;
 	}
 
 
@@ -1176,8 +1172,6 @@ static void custom12_setting(struct subdrv_ctx *ctx)
 			addr_data_pair_custom12,
 			sizeof(addr_data_pair_custom12));
 		_size_to_write += _length;
-		_i2c_data[_size_to_write++] = 0x5001;
-		_i2c_data[_size_to_write++] = 0x3;
 	}
 
 
