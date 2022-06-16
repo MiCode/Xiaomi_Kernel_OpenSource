@@ -729,13 +729,15 @@ int vcp_excep_init(void)
 	if (vcpreg.secure_dump) {
 		vcp_dump.ramdump =
 			(uint8_t *)(void *)vcp_get_reserve_mem_virt(VCP_SECURE_DUMP_ID);
+
+		if (!vcp_dump.ramdump)
+			return -1;
+
 		out = (uint32_t *)vcp_dump.ramdump;
 		*out = 0;
 		pr_notice("[VCP] %s %d %d %d %d\n", __func__,
 				*out, *(out + 1), *(out + 2), *(out + 3));
 
-		if (!vcp_dump.ramdump)
-			return -1;
 	} else {
 		pr_notice("[VCP] %s secure dump not supported\n", __func__);
 	}
