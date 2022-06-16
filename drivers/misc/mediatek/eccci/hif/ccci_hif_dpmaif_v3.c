@@ -3636,7 +3636,7 @@ static int dpmaif_stop_tx_sw(unsigned char hif_id)
 static void dpmaif_hw_reset(void)
 {
 	unsigned char md_id = 0;
-	unsigned int value;
+	unsigned int value = 0;
 	int ret;
 
 	//drv3_dpmaif_set_axi_out_gated();
