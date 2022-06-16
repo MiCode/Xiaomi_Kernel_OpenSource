@@ -11352,7 +11352,10 @@
 			<&topckgen_clk CLK_TOP_APLL12_CK_DIV8>,
 			<&topckgen_clk CLK_TOP_APLL12_CK_DIV9>,
 			<&topckgen_clk CLK_TOP_AUDIO_H_SEL>,
-			<&topckgen_clk CLK_TOP_TCK_26M_MX9>;
+			<&topckgen_clk CLK_TOP_TCK_26M_MX9>,
+			<&pericfg_ao_clk  CLK_PERAO_AUDIO_SLV>,
+			<&pericfg_ao_clk  CLK_PERAO_AUDIO_MST>,
+			<&pericfg_ao_clk  CLK_PERAO_AUDIO_INTBUS>;
 
 		clock-names = "aud_afe_clk",
 			"aud_dac_clk",
@@ -11407,7 +11410,10 @@
 			"top_apll12_div8",
 			"top_apll12_div9",
 			"top_mux_audio_h",
-			"top_clk26m_clk";
+			"top_clk26m_clk",
+			"aud_slv_ck_peri",
+			"aud_mst_ck_peri",
+			"aud_intbus_ck_peri";
 		pinctrl-names = "aud_clk_mosi_off",
 				"aud_clk_mosi_on",
 				"aud_dat_mosi_off",
