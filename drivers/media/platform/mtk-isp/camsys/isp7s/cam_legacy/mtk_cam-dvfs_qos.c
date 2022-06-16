@@ -548,7 +548,6 @@ void mtk_cam_qos_bw_calc(struct mtk_cam_ctx *ctx, unsigned long raw_dmas, bool f
 				vdev = &pipe->vdev_nodes[MTK_RAW_DRZS4NO_1_OUT - MTK_RAW_SINK_NUM];
 
 			qos_port_id = engine_id * raw_qos_port_num + tcyso_r1;
-			vdev = &pipe->vdev_nodes[MTK_RAW_MAIN_STREAM_OUT - MTK_RAW_SINK_NUM];
 			ipi_fmt = mtk_cam_get_img_fmt(vdev->active_fmt.fmt.pix_mp.pixelformat);
 			pixel_bits = mtk_cam_get_pixel_bits(ipi_fmt);
 			plane_factor = mtk_cam_get_fmt_size_factor(ipi_fmt);
@@ -587,7 +586,7 @@ void mtk_cam_qos_bw_calc(struct mtk_cam_ctx *ctx, unsigned long raw_dmas, bool f
 
 			if (unlikely(debug_mmqos))
 				dev_info(cam->dev, "[%16s] qos_idx:%2d video_id/ipifmt/bits/plane/w/h : %2d/%2d/%2d/%d/%5d/%5d BW(B/s)(avg:%lu,peak:%lu)\n",
-				  raw_qos.port[tcyso_r1],
+				  raw_qos.port[drzb2no_r1],
 				  qos_port_id, ipi_video_id, ipi_fmt,
 				  pixel_bits, plane_factor,
 				  vdev->active_fmt.fmt.pix_mp.width,
