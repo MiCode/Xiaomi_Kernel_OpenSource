@@ -32,6 +32,7 @@
 static DEFINE_MUTEX(xgf_main_lock);
 static DEFINE_MUTEX(fstb_ko_lock);
 static DEFINE_MUTEX(xgff_frames_lock);
+static DEFINE_MUTEX(xgf_policy_cmd_lock);
 static int xgf_enable;
 int xgf_trace_enable;
 static int xgf_log_trace_enable;
@@ -43,6 +44,7 @@ static struct kmem_cache *xgf_dep_cachep __ro_after_init;
 static struct kmem_cache *xgf_runtime_sect_cachep __ro_after_init;
 static struct kmem_cache *xgf_spid_cachep __ro_after_init;
 static struct kmem_cache *xgff_frame_cachep __ro_after_init;
+static struct rb_root xgf_policy_cmd_tree;
 static unsigned long long last_check2recycle_ts;
 static unsigned long long last_update2spid_ts;
 static unsigned long long xgf_ema_mse;
@@ -60,8 +62,7 @@ static int xgf_sp_name_id;
 static int xgf_spid_list_length;
 static int xgf_wspid_list_length;
 static int xgf_cfg_spid;
-static int xgf_ema2_enable = 1;
-static int xgf_camera_flag;
+static int xgf_ema2_enable;
 static int xgf_display_rate = DEFAULT_DFRC;
 int fstb_frame_num = 20;
 EXPORT_SYMBOL(fstb_frame_num);
@@ -305,13 +306,6 @@ void fpsgo_ctrl2xgf_set_display_rate(int dfrc_fps)
 	xgf_unlock(__func__);
 }
 
-void fpsgo_fstb2xgf_set_camera_flag(int camera_flag)
-{
-	xgf_lock(__func__);
-	xgf_camera_flag = camera_flag;
-	xgf_unlock(__func__);
-}
-
 static inline int xgf_is_enable(void)
 {
 	return xgf_enable;
@@ -502,6 +496,42 @@ void xgf_free(void *pvBuf, int cmd)
 	}
 }
 EXPORT_SYMBOL(xgf_free);
+
+static struct xgf_policy_cmd *xgf_get_policy_cmd(int tgid, int ema2_enable,
+	unsigned long long ts, int force)
+{
+	struct rb_node **p = &xgf_policy_cmd_tree.rb_node;
+	struct rb_node *parent;
+	struct xgf_policy_cmd *iter;
+
+	while (*p) {
+		parent = *p;
+		iter = rb_entry(parent, struct xgf_policy_cmd, rb_node);
+
+		if (tgid < iter->tgid)
+			p = &(*p)->rb_left;
+		else if (tgid > iter->tgid)
+			p = &(*p)->rb_right;
+		else
+			return iter;
+	}
+
+	if (!force)
+		return NULL;
+
+	iter = xgf_alloc(sizeof(*iter), NATIVE_ALLOC);
+	if (!iter)
+		return NULL;
+
+	iter->tgid = tgid;
+	iter->ema2_enable = ema2_enable;
+	iter->ts = ts;
+
+	rb_link_node(&iter->rb_node, parent, p);
+	rb_insert_color(&iter->rb_node, &xgf_policy_cmd_tree);
+
+	return iter;
+}
 
 int set_xgf_spid_list(char *proc_name,
 		char *thrd_name, int action)
@@ -1048,7 +1078,7 @@ static void xgf_ema2_dump_info_frames(struct xgf_ema2_predictor *pt, char *buffe
 
 
 static int xgf_get_render(pid_t rpid, unsigned long long bufID, struct xgf_render **ret,
-	int force, int hwui_flag, unsigned long long queue_end_ts)
+	int force, unsigned long long queue_end_ts)
 {
 	struct xgf_render *iter;
 
@@ -1058,8 +1088,6 @@ static int xgf_get_render(pid_t rpid, unsigned long long bufID, struct xgf_rende
 
 		if (iter->bufID != bufID)
 			continue;
-
-		iter->hwui_flag = hwui_flag;
 
 		if (ret)
 			*ret = iter;
@@ -1111,7 +1139,7 @@ static int xgf_get_render(pid_t rpid, unsigned long long bufID, struct xgf_rende
 		iter->ema_runtime = 0;
 		iter->spid = 0;
 		iter->dep_frames = xgf_prev_dep_frames;
-		iter->hwui_flag = hwui_flag;
+		iter->ema2_enable = 0;
 		iter->ema2_pt = NULL;
 	}
 	hlist_add_head(&iter->hlist, &xgf_renders);
@@ -2031,10 +2059,11 @@ out:
 
 int fpsgo_comp2xgf_qudeq_notify(int rpid, unsigned long long bufID, int cmd,
 	unsigned long long *run_time, unsigned long long *mid,
-	unsigned long long ts, int hwui_flag)
+	unsigned long long ts)
 {
 	int ret = XGF_NOTIFY_OK;
 	struct xgf_render *r, **rrender;
+	struct xgf_policy_cmd *policy;
 	unsigned long long raw_runtime = 0;
 	int new_spid;
 	unsigned long long t_dequeue_time = 0;
@@ -2059,7 +2088,7 @@ int fpsgo_comp2xgf_qudeq_notify(int rpid, unsigned long long bufID, int cmd,
 
 	case XGF_QUEUE_START:
 		rrender = &r;
-		if (xgf_get_render(rpid, bufID, rrender, 0, hwui_flag, ts)) {
+		if (xgf_get_render(rpid, bufID, rrender, 0, ts)) {
 			ret = XGF_THREAD_NOT_FOUND;
 			goto qudeq_notify_err;
 		}
@@ -2069,7 +2098,7 @@ int fpsgo_comp2xgf_qudeq_notify(int rpid, unsigned long long bufID, int cmd,
 
 	case XGF_QUEUE_END:
 		rrender = &r;
-		if (xgf_get_render(rpid, bufID, rrender, 1, hwui_flag, ts)) {
+		if (xgf_get_render(rpid, bufID, rrender, 1, ts)) {
 			ret = XGF_THREAD_NOT_FOUND;
 			goto qudeq_notify_err;
 		}
@@ -2108,8 +2137,19 @@ int fpsgo_comp2xgf_qudeq_notify(int rpid, unsigned long long bufID, int cmd,
 			if (q2q_time && raw_runtime > q2q_time)
 				raw_runtime = q2q_time;
 
-			if (xgf_ema2_enable && !xgf_camera_flag &&
-				(r->hwui_flag == RENDER_INFO_HWUI_NONE)) {
+			mutex_lock(&xgf_policy_cmd_lock);
+			policy = xgf_get_policy_cmd(r->parent, r->ema2_enable, ts, 0);
+			if (xgf_ema2_enable)
+				r->ema2_enable = 1;
+			else if (!policy)
+				r->ema2_enable = 0;
+			else {
+				policy->ts = ts;
+				r->ema2_enable = policy->ema2_enable;
+			}
+			mutex_unlock(&xgf_policy_cmd_lock);
+
+			if (r->ema2_enable) {
 				if (!r->ema2_pt)
 					r->ema2_pt = xgf_ema2_get_pred();
 
@@ -2179,8 +2219,7 @@ int fpsgo_comp2xgf_qudeq_notify(int rpid, unsigned long long bufID, int cmd,
 
 		r->raw_runtime = raw_runtime;
 		fpsgo_systrace_c_fbt(rpid, bufID, raw_runtime, "raw_t_cpu");
-		if (xgf_ema2_enable && !xgf_camera_flag &&
-			(r->hwui_flag == RENDER_INFO_HWUI_NONE))
+		if (r->ema2_enable)
 			fpsgo_systrace_c_fbt(rpid, bufID, tmp_runtime, "ema2_t_cpu");
 
 		xgf_print_critical_path_info(r);
@@ -2188,7 +2227,7 @@ int fpsgo_comp2xgf_qudeq_notify(int rpid, unsigned long long bufID, int cmd,
 
 	case XGF_DEQUEUE_START:
 		rrender = &r;
-		if (xgf_get_render(rpid, bufID, rrender, 0, hwui_flag, ts)) {
+		if (xgf_get_render(rpid, bufID, rrender, 0, ts)) {
 			ret = XGF_THREAD_NOT_FOUND;
 			goto qudeq_notify_err;
 		}
@@ -2197,7 +2236,7 @@ int fpsgo_comp2xgf_qudeq_notify(int rpid, unsigned long long bufID, int cmd,
 
 	case XGF_DEQUEUE_END:
 		rrender = &r;
-		if (xgf_get_render(rpid, bufID, rrender, 0, hwui_flag, ts)) {
+		if (xgf_get_render(rpid, bufID, rrender, 0, ts)) {
 			ret = XGF_THREAD_NOT_FOUND;
 			goto qudeq_notify_err;
 		}
@@ -2311,7 +2350,7 @@ static int xgff_new_frame(pid_t tID, unsigned long long bufID,
 		xriter->ema_runtime = 0;
 		xriter->spid = 0;
 		xriter->dep_frames = xgf_prev_dep_frames;
-		xriter->hwui_flag = 0;
+		xriter->ema2_enable = 0;
 		xriter->ema2_pt = NULL;
 	}
 
@@ -2637,6 +2676,67 @@ static ssize_t xgf_status_show(struct kobject *kobj,
 }
 
 static KOBJ_ATTR_RO(xgf_status);
+
+static ssize_t xgf_ema2_enable_by_pid_show(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		char *buf)
+{
+	char temp[FPSGO_SYSFS_MAX_BUFF_SIZE] = "";
+	int pos = 0;
+	int length;
+	struct xgf_policy_cmd *iter;
+	struct rb_root *rbr;
+	struct rb_node *rbn;
+
+	mutex_lock(&xgf_policy_cmd_lock);
+
+	rbr = &xgf_policy_cmd_tree;
+	for (rbn = rb_first(rbr); rbn; rbn = rb_next(rbn)) {
+		iter = rb_entry(rbn, struct xgf_policy_cmd, rb_node);
+		length = scnprintf(temp + pos,
+			FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
+			"tgid:%d\tema2_enable:%dts:%llu\n",
+			iter->tgid, iter->ema2_enable, iter->ts);
+		pos += length;
+	}
+
+	mutex_unlock(&xgf_policy_cmd_lock);
+
+	return scnprintf(buf, PAGE_SIZE, "%s", temp);
+}
+
+static ssize_t xgf_ema2_enable_by_pid_store(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		const char *buf, size_t count)
+{
+	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
+	int tgid;
+	int ema2_enable;
+	unsigned long long ts = fpsgo_get_time();
+	struct xgf_policy_cmd *iter;
+
+	if ((count > 0) && (count < FPSGO_SYSFS_MAX_BUFF_SIZE)) {
+		if (scnprintf(acBuffer, FPSGO_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
+			if (sscanf(acBuffer, "%d %d", &tgid, &ema2_enable) == 2) {
+				mutex_lock(&xgf_policy_cmd_lock);
+				if (ema2_enable > 0)
+					iter = xgf_get_policy_cmd(tgid, !!ema2_enable, ts, 1);
+				else {
+					iter = xgf_get_policy_cmd(tgid, ema2_enable, ts, 0);
+					if (iter) {
+						rb_erase(&iter->rb_node, &xgf_policy_cmd_tree);
+						kfree(iter);
+					}
+				}
+				mutex_unlock(&xgf_policy_cmd_lock);
+			}
+		}
+	}
+
+	return count;
+}
+
+static KOBJ_ATTR_RW(xgf_ema2_enable_by_pid);
 
 atomic_t xgf_ko_enable;
 EXPORT_SYMBOL(xgf_ko_enable);
@@ -3134,8 +3234,10 @@ int __init init_xgf(void)
 		fpsgo_sysfs_create_file(xgf_kobj, &kobj_attr_xgf_trace_enable);
 		fpsgo_sysfs_create_file(xgf_kobj, &kobj_attr_xgf_log_trace_enable);
 		fpsgo_sysfs_create_file(xgf_kobj, &kobj_attr_xgf_status);
+		fpsgo_sysfs_create_file(xgf_kobj, &kobj_attr_xgf_ema2_enable_by_pid);
 	}
 
+	xgf_policy_cmd_tree = RB_ROOT;
 	xgff_frame_startend_fp = xgff_frame_startend;
 	xgff_frame_getdeplist_maxsize_fp = xgff_frame_getdeplist_maxsize;
 
@@ -3158,6 +3260,7 @@ int __exit exit_xgf(void)
 	fpsgo_sysfs_remove_file(xgf_kobj, &kobj_attr_xgf_trace_enable);
 	fpsgo_sysfs_remove_file(xgf_kobj, &kobj_attr_xgf_log_trace_enable);
 	fpsgo_sysfs_remove_file(xgf_kobj, &kobj_attr_xgf_status);
+	fpsgo_sysfs_remove_file(xgf_kobj, &kobj_attr_xgf_ema2_enable_by_pid);
 
 	fpsgo_sysfs_remove_dir(&xgf_kobj);
 

@@ -175,7 +175,7 @@ struct xgf_render {
 	int spid;
 	int dep_frames;
 
-	int hwui_flag;
+	int ema2_enable;
 	struct xgf_ema2_predictor *ema2_pt;
 };
 
@@ -208,6 +208,14 @@ struct xgf_spid {
 	int tid;
 	unsigned long long bufID;
 	int action;
+};
+
+struct xgf_policy_cmd {
+	struct rb_node rb_node;
+
+	int tgid;
+	int ema2_enable;
+	unsigned long long ts;
 };
 
 struct fpsgo_trace_event {
@@ -272,7 +280,7 @@ void fpsgo_ctrl2xgf_switch_xgf(int val);
 
 int fpsgo_comp2xgf_qudeq_notify(int rpid, unsigned long long bufID, int cmd,
 	unsigned long long *run_time, unsigned long long *mid,
-	unsigned long long ts, int hwui_flag);
+	unsigned long long ts);
 void fpsgo_fstb2xgf_do_recycle(int fstb_active);
 int has_xgf_dep(pid_t tid);
 
@@ -285,7 +293,6 @@ int fpsgo_xgf2ko_calculate_target_fps(int pid, unsigned long long bufID,
 int fpsgo_fstb2xgf_notify_recycle(int pid, unsigned long long bufID);
 void fpsgo_xgf2ko_do_recycle(int pid, unsigned long long bufID);
 void fpsgo_ctrl2xgf_set_display_rate(int dfrc_fps);
-void fpsgo_fstb2xgf_set_camera_flag(int camera_flag);
 int xgf_get_display_rate(void);
 int xgf_get_process_id(int pid);
 int xgf_check_main_sf_pid(int pid, int process_id);

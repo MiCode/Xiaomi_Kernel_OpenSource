@@ -96,6 +96,8 @@ struct FSTB_FRAME_INFO {
 	int fps_raise_flag;
 	int render_idle_cnt;
 	int hwui_flag;
+	int self_ctrl_fps_enable;
+	int tfb_enable;
 };
 
 struct FSTB_RENDER_TARGET_FPS {
@@ -118,6 +120,15 @@ struct FSTB_NOTIFIER_PUSH_TAG {
 	unsigned long long cur_queue_end_ts;
 
 	struct work_struct sWork;
+};
+
+struct FSTB_POLICY_CMD {
+	struct rb_node rb_node;
+
+	int tgid;
+	int self_ctrl_fps_enable;
+	int tfb_enable;
+	unsigned long long ts;
 };
 
 #endif
