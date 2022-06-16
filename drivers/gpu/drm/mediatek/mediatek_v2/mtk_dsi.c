@@ -2055,6 +2055,14 @@ static irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 				wakeup_dsi_wq(&dsi->frame_done);
 
 			if (!mtk_dsi_is_cmd_mode(&dsi->ddp_comp) &&
+				dsi->ddp_comp.id == DDP_COMPONENT_DSI0 &&
+					mtk_crtc && mtk_crtc->pf_ts_type == IRQ_DSI_EOF) {
+				mtk_crtc->pf_time = ktime_get();
+				atomic_set(&mtk_crtc->signal_irq_for_pre_fence, 1);
+				wake_up_interruptible(&(mtk_crtc->signal_irq_for_pre_fence_wq));
+			}
+
+			if (!mtk_dsi_is_cmd_mode(&dsi->ddp_comp) &&
 				mtk_crtc && mtk_crtc->vblank_en) {
 				panel_ext = dsi->ext;
 

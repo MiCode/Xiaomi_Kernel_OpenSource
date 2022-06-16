@@ -506,6 +506,13 @@ enum MML_IR_STATE {
 	MML_IR_LEAVING
 };
 
+enum PF_TS_TYPE {
+	IRQ_RDMA_EOF,
+	IRQ_DSI_EOF,
+	IRQ_CMDQ_CB,
+	NOT_SPECIFIED,
+};
+
 struct mtk_crtc_path_data {
 	const enum mtk_ddp_comp_id *path[DDP_MODE_NR][DDP_PATH_NR];
 	unsigned int path_len[DDP_MODE_NR][DDP_PATH_NR];
@@ -844,6 +851,7 @@ struct mtk_drm_crtc {
 
 	atomic_t signal_irq_for_pre_fence;
 	wait_queue_head_t signal_irq_for_pre_fence_wq;
+	enum PF_TS_TYPE pf_ts_type;
 };
 
 struct mtk_crtc_state {
@@ -884,6 +892,7 @@ struct mtk_cmdq_cb_data {
 	unsigned int wb_fence_idx;
 	unsigned int hrt_idx;
 	struct mtk_lcm_dsi_cmd_packet *ddic_packet;
+	ktime_t signal_ts;
 };
 
 extern unsigned int disp_spr_bypass;

@@ -343,7 +343,8 @@ static irqreturn_t mtk_disp_rdma_irq_handler(int irq, void *dev_id)
 			}
 			if (!mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base) &&
 				(rdma->id == DDP_COMPONENT_RDMA0 ||
-					rdma->id == DDP_COMPONENT_RDMA3)) {
+					rdma->id == DDP_COMPONENT_RDMA3) &&
+					mtk_crtc->pf_ts_type == IRQ_RDMA_EOF) {
 				mtk_crtc->pf_time = ktime_get();
 				atomic_set(&mtk_crtc->signal_irq_for_pre_fence, 1);
 				wake_up_interruptible(&(mtk_crtc->signal_irq_for_pre_fence_wq));

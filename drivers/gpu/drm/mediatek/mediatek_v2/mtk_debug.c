@@ -3245,6 +3245,30 @@ static void process_dbg_opt(const char *opt)
 
 		if (mtk_crtc)
 			mtk_crtc->mml_ir_enable = mml_ir_enable;
+	} else if (strncmp(opt, "pf_ts_type:", 11) == 0) {
+		struct drm_crtc *crtc;
+		struct mtk_drm_crtc *mtk_crtc;
+		int ret, pf_ts_type;
+
+		ret = sscanf(opt, "pf_ts_type:%d\n", &pf_ts_type);
+		if (ret != 1) {
+			DDPPR_ERR("%d error to parse cmd %s\n", __LINE__, opt);
+			return;
+		}
+
+		/* this debug cmd only for crtc0 */
+		crtc = list_first_entry(&(drm_dev)->mode_config.crtc_list,
+					typeof(*crtc), head);
+		if (!crtc) {
+			pr_info("find crtc fail\n");
+			return;
+		}
+		mtk_crtc = to_mtk_crtc(crtc);
+
+		if (mtk_crtc) {
+			mtk_crtc->pf_ts_type = pf_ts_type;
+			mtk_crtc->pf_time = 0;
+		}
 	}
 
 }

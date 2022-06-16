@@ -4840,6 +4840,7 @@ static void mtk_disp_signal_fence_worker_signal(struct drm_crtc *crtc, struct cm
 {
 	struct mtk_drm_crtc *mtk_crtc = NULL;
 	struct cb_data_store *cb_data_s;
+	struct mtk_cmdq_cb_data *cb_data = data.data;
 	int ret;
 
 	if (IS_ERR_OR_NULL(crtc))
@@ -4856,6 +4857,7 @@ static void mtk_disp_signal_fence_worker_signal(struct drm_crtc *crtc, struct cm
 	if (!cb_data_s)
 		DDPMSG("create cb_data_s fail\n");
 	else {
+		cb_data->signal_ts = ktime_get();
 		cb_data_s->data = data;
 		INIT_LIST_HEAD(&cb_data_s->link);
 		ret = mtk_drm_add_cb_data(cb_data_s, drm_crtc_index(crtc));
@@ -4913,7 +4915,18 @@ static void ddp_cmdq_cb(struct cmdq_cb_data data)
 		// only VDO mode panel use CMDQ call
 		if (mtk_crtc && !mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base) &&
 				!cb_data->msync2_enable) {
-			pf_time = mtk_check_preset_fence_timestamp(crtc);
+			enum PF_TS_TYPE pf_ts_type;
+
+			pf_time = 0;
+			pf_ts_type = mtk_crtc->pf_ts_type;
+			if (mtk_crtc->pf_time && (pf_ts_type == IRQ_RDMA_EOF ||
+				pf_ts_type == IRQ_DSI_EOF))
+				pf_time = mtk_check_preset_fence_timestamp(crtc);
+			else if (cb_data->signal_ts && pf_ts_type == IRQ_CMDQ_CB)
+				pf_time = cb_data->signal_ts;
+			else
+				DDPINFO("current pf_time is NULL\n");
+
 			mtk_release_present_fence(session_id, cb_data->pres_fence_idx,
 				pf_time);
 		}
@@ -11152,6 +11165,8 @@ int mtk_drm_crtc_create(struct drm_device *drm_dev,
 	atomic_set(&(mtk_crtc->wait_mml_last_job_is_flushed), 0);
 	init_waitqueue_head(&(mtk_crtc->signal_mml_last_job_is_flushed_wq));
 
+	if (drm_crtc_index(&mtk_crtc->base) == 0)
+		mtk_crtc->pf_ts_type = priv->data->pf_ts_type;
 	atomic_set(&mtk_crtc->signal_irq_for_pre_fence, 0);
 	init_waitqueue_head(&(mtk_crtc->signal_irq_for_pre_fence_wq));
 	if (output_comp && mtk_drm_helper_get_opt(priv->helper_opt,

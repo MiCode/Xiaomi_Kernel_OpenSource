@@ -3645,6 +3645,7 @@ static const struct mtk_mmsys_driver_data mt6985_mmsys_driver_data = {
 	.can_compress_rgb565 = false,
 	.bypass_infra_ddr_control = true,
 	.disable_merge_irq = mtk_ddp_disable_merge_irq,
+	.pf_ts_type = IRQ_CMDQ_CB,
 };
 
 static const struct mtk_mmsys_driver_data mt6895_mmsys_driver_data = {
