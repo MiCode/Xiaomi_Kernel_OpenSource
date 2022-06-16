@@ -20,20 +20,6 @@
 			<&topckgen_clk CLK_TOP_APLL_ETDM_IN1_MCK_SEL>,
 			<&topckgen_clk CLK_TOP_APLL_ETDM_OUT1_MCK_SEL>,
 			<&topckgen_clk CLK_TOP_APLL_I2S10_MCK_SEL>,
-			<&topckgen_clk CLK_TOP_CAMTG_SEL>,
-			<&topckgen_clk CLK_TOP_CAMTG2_SEL>,
-			<&topckgen_clk CLK_TOP_CAMTG3_SEL>,
-			<&topckgen_clk CLK_TOP_CAMTG4_SEL>,
-			<&topckgen_clk CLK_TOP_CAMTG5_SEL>,
-			<&topckgen_clk CLK_TOP_CAMTG6_SEL>,
-			<&topckgen_clk CLK_TOP_CAMTG7_SEL>,
-			<&topckgen_clk CLK_TOP_CAMTG8_SEL>,
-			<&topckgen_clk CLK_TOP_SENINF_SEL>,
-			<&topckgen_clk CLK_TOP_SENINF1_SEL>,
-			<&topckgen_clk CLK_TOP_SENINF2_SEL>,
-			<&topckgen_clk CLK_TOP_SENINF3_SEL>,
-			<&topckgen_clk CLK_TOP_SENINF4_SEL>,
-			<&topckgen_clk CLK_TOP_SENINF5_SEL>,
 			<&topckgen_clk CLK_TOP_CAM_SEL>,
 			<&topckgen_clk CLK_TOP_CAMTM_SEL>,
 			<&infracfg_ao_clk CLK_IFRAO_CLDMA_BCLK>,
@@ -57,60 +43,7 @@
 			<&pextpcfg_ao_clk CLK_PEXT_MAC1_HCLK>,
 			<&pextpcfg_ao_clk CLK_PEXT_PHY1_REF>,
 			<&vlp_cksys_clk CLK_VLP_CK_CAMTG_VLP_SEL>,
-			<&camsys_main_clk CLK_CAM_MAIN_LARB13_CON_0>,
-			<&camsys_main_clk CLK_CAM_MAIN_LARB14_CON_0>,
-			<&camsys_main_clk CLK_CAM_MAIN_LARB27_CON_0>,
-			<&camsys_main_clk CLK_CAM_MAIN_LARB29_CON_0>,
-			<&camsys_main_clk CLK_CAM_MAIN_CAM_CON_0>,
-			<&camsys_main_clk CLK_CAM_MAIN_CAM_SUBA_CON_0>,
-			<&camsys_main_clk CLK_CAM_MAIN_CAM_SUBB_CON_0>,
-			<&camsys_main_clk CLK_CAM_MAIN_CAM_SUBC_CON_0>,
-			<&camsys_main_clk CLK_CAM_MAIN_CAM_MRAW_CON_0>,
-			<&camsys_main_clk CLK_CAM_MAIN_CAMTG_CON_0>,
-			<&camsys_main_clk CLK_CAM_MAIN_SENINF_CON_0>,
-			<&camsys_main_clk CLK_CAM_MAIN_CAMSV_TOP_CON_0>,
-			<&camsys_main_clk CLK_CAM_MAIN_ADLRD_CON_0>,
-			<&camsys_main_clk CLK_CAM_MAIN_ADLWR_CON_0>,
-			<&camsys_main_clk CLK_CAM_MAIN_UISP_CON_0>,
-			<&camsys_main_clk CLK_CAM_MAIN_FAKE_ENG_CON_0>,
-			<&camsys_main_clk CLK_CAM_MAIN_CAM2MM0_GALS_CON_0>,
-			<&camsys_main_clk CLK_CAM_MAIN_CAM2MM1_GALS_CON_0>,
-			<&camsys_main_clk CLK_CAM_MAIN_CAM2SYS_GALS_CON_0>,
-			<&camsys_main_clk CLK_CAM_MAIN_CAM2MM2_GALS_CON_0>,
-			<&camsys_main_clk CLK_CAM_MAIN_IPS_CON_0>,
-			<&camsys_main_clk CLK_CAM_MAIN_CAMSV_A_CON_1>,
-			<&camsys_main_clk CLK_CAM_MAIN_CAMSV_B_CON_1>,
-			<&camsys_main_clk CLK_CAM_MAIN_CAMSV_C_CON_1>,
-			<&camsys_main_clk CLK_CAM_MAIN_CAMSV_D_CON_1>,
-			<&camsys_main_clk CLK_CAM_MAIN_CAMSV_E_CON_1>,
-			<&camsys_main_clk CLK_CAM_MAIN_CAMSV_CON_1>,
 			<&ccu_main_clk CLK_CCUSYS_DPE>,
-			<&camsys_mraw_clk CLK_CAM_MR_LARBX>,
-			<&camsys_mraw_clk CLK_CAM_MR_CAMTG>,
-			<&camsys_mraw_clk CLK_CAM_MR_MRAW0>,
-			<&camsys_mraw_clk CLK_CAM_MR_MRAW1>,
-			<&camsys_mraw_clk CLK_CAM_MR_MRAW2>,
-			<&camsys_mraw_clk CLK_CAM_MR_MRAW3>,
-			<&camsys_mraw_clk CLK_CAM_MR_PDA0>,
-			<&camsys_mraw_clk CLK_CAM_MR_PDA1>,
-			<&camsys_rawa_clk CLK_CAM_RA_LARBX>,
-			<&camsys_rawa_clk CLK_CAM_RA_CAM>,
-			<&camsys_rawa_clk CLK_CAM_RA_CAMTG>,
-			<&camsys_yuva_clk CLK_CAM_YA_LARBX>,
-			<&camsys_yuva_clk CLK_CAM_YA_CAM>,
-			<&camsys_yuva_clk CLK_CAM_YA_CAMTG>,
-			<&camsys_rawb_clk CLK_CAM_RB_LARBX>,
-			<&camsys_rawb_clk CLK_CAM_RB_CAM>,
-			<&camsys_rawb_clk CLK_CAM_RB_CAMTG>,
-			<&camsys_yuvb_clk CLK_CAM_YB_LARBX>,
-			<&camsys_yuvb_clk CLK_CAM_YB_CAM>,
-			<&camsys_yuvb_clk CLK_CAM_YB_CAMTG>,
-			<&camsys_rawc_clk CLK_CAM_RC_LARBX>,
-			<&camsys_rawc_clk CLK_CAM_RC_CAM>,
-			<&camsys_rawc_clk CLK_CAM_RC_CAMTG>,
-			<&camsys_yuvc_clk CLK_CAM_YC_LARBX>,
-			<&camsys_yuvc_clk CLK_CAM_YC_CAM>,
-			<&camsys_yuvc_clk CLK_CAM_YC_CAMTG>,
 			<&ssr_top_clk CLK_SSR_TOP_RG_RW_SSR_RNG>,
 			<&ssr_top_clk CLK_SSR_TOP_RQ_RW_SSR_DMA>,
 			<&ssr_top_clk CLK_SSR_TOP_RQ_RW_SSR_KDF>,
@@ -145,31 +78,6 @@
 	bring-up-pd-audio {
 		compatible = "mediatek,scpsys-bring-up";
 		power-domains = <&scpsys MT6985_POWER_DOMAIN_AUDIO>;
-	};
-
-	bring-up-pd-cam_main {
-		compatible = "mediatek,scpsys-bring-up";
-		power-domains = <&scpsys MT6985_POWER_DOMAIN_CAM_MAIN>;
-	};
-
-	bring-up-pd-cam_mraw {
-		compatible = "mediatek,scpsys-bring-up";
-		power-domains = <&scpsys MT6985_POWER_DOMAIN_CAM_MRAW>;
-	};
-
-	bring-up-pd-cam_suba {
-		compatible = "mediatek,scpsys-bring-up";
-		power-domains = <&scpsys MT6985_POWER_DOMAIN_CAM_SUBA>;
-	};
-
-	bring-up-pd-cam_subb {
-		compatible = "mediatek,scpsys-bring-up";
-		power-domains = <&scpsys MT6985_POWER_DOMAIN_CAM_SUBB>;
-	};
-
-	bring-up-pd-cam_subc {
-		compatible = "mediatek,scpsys-bring-up";
-		power-domains = <&scpsys MT6985_POWER_DOMAIN_CAM_SUBC>;
 	};
 
 	bring-up-pd-cam_vcore {
