@@ -112,6 +112,7 @@
 #define CAM_REG_TG_PATH_CFG(regs)			(regs + 0x0710)
 #define TG_TG_FULL_SEL					BIT(15)
 #define CAM_REG_TG_FRMSIZE_ST(regs)			(regs + 0x0738)
+#define CAM_REG_TG_VSEOL_SUB_CTL(regs)			(regs + 0x0760)
 #define CAM_REG_TG_FRMSIZE_ST_R(regs)			(regs + 0x076C)
 
 #define CAM_REG_CQI_R1A_CON0(regs)			(regs + 0x4120)

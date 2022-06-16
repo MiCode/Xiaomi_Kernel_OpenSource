@@ -61,7 +61,16 @@ struct ut_raw_msg {
 	struct ut_debug_cmd	cmd;
 };
 
-#define RAW_MSG_KFIFO_SIZE	ALIGN(, sizeof(u32))
+void raw_disable_tg_vseol_sub_ctl(struct device *dev)
+{
+	struct mtk_ut_raw_device *raw = dev_get_drvdata(dev);
+	u32 val;
+
+	val = 0x1;
+	writel(val, CAM_REG_TG_VSEOL_SUB_CTL(raw->base));
+	dev_info(dev, "%s: [workaround for ut] set VSEOL_SUB_CTL to 0x%08x\n",
+		 __func__, val);
+}
 
 static int ut_raw_reset(struct device *dev)
 {

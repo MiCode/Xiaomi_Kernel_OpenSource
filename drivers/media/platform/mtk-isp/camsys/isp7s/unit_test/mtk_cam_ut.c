@@ -198,6 +198,11 @@ static int streamon_on_cqdone_once(struct mtk_cam_ut *ut)
 {
 	int i;
 
+	if (ut->hardware_scenario == MTKCAM_IPI_HW_PATH_OTF_RGBW ||
+	    ut->hardware_scenario == MTKCAM_IPI_HW_PATH_OTF_RGBW_DOL) {
+		raw_disable_tg_vseol_sub_ctl(ut->raw[0]);
+	}
+
 	if (ut->hardware_scenario != MTKCAM_IPI_HW_PATH_DC_STAGGER)
 		CALL_RAW_OPS(ut->raw[0], s_stream, 1)
 
@@ -443,7 +448,7 @@ static int set_test_mdl(struct mtk_cam_ut *ut,
 		pixel_mode = debug_testmdl_pixmode;
 	}
 
-	if (testmdl->mode == (u8)-1)
+	if (testmdl->mode == testmdl_disable)
 		dev_info(dev, "without testmdl\n");
 	else {
 		ut->with_testmdl = 1;
@@ -454,7 +459,7 @@ static int set_test_mdl(struct mtk_cam_ut *ut,
 	switch (testmdl->hwScenario) {
 #ifdef NOT_READY
 	case MTKCAM_IPI_HW_PATH_STAGGER:
-		if (testmdl->mode == stagger_3exp) {
+		if (testmdl->mode == testmdl_stagger_3exp) {
 			ut->is_dcif_camsv = 2;
 			CALL_SENINF_OPS(seninf, set_size,
 					width, height,
@@ -470,7 +475,7 @@ static int set_test_mdl(struct mtk_cam_ut *ut,
 					width, height,
 					pixel_mode, pattern,
 					seninf_2, raw_tg_0);
-		} else if (testmdl->mode == stagger_2exp) {
+		} else if (testmdl->mode == testlmdl_stagger_2exp) {
 			ut->is_dcif_camsv = 1;
 			CALL_SENINF_OPS(seninf, set_size,
 					width, height,
@@ -486,7 +491,7 @@ static int set_test_mdl(struct mtk_cam_ut *ut,
 
 	case MTKCAM_IPI_HW_PATH_DC_STAGGER:
 		// temporarily support camsv_a1 + camsv_a2 + raw_a case
-		if (testmdl->mode == stagger_2exp) {
+		if (testmdl->mode == testmdl_stagger_2exp) {
 			ut->is_dcif_camsv = 2;
 			CALL_SENINF_OPS(seninf, set_size,
 					width, height,
@@ -497,7 +502,7 @@ static int set_test_mdl(struct mtk_cam_ut *ut,
 					width, height,
 					pixel_mode, pattern,
 					seninf_1, camsv_tg_1);
-		} else if (testmdl->mode == normal) {
+		} else if (testmdl->mode == testmdl_normal) {
 			ut->is_dcif_camsv = 1;
 			CALL_SENINF_OPS(seninf, set_size,
 					width, height,
@@ -518,7 +523,7 @@ static int set_test_mdl(struct mtk_cam_ut *ut,
 		break;
 #endif
 	case MTKCAM_IPI_HW_PATH_OTF_RGBW:
-		/* TODO: size */
+		width *= 2;
 	default:
 		if (ut->with_testmdl == 1) {
 			CALL_SENINF_OPS(seninf, set_size,
@@ -557,8 +562,8 @@ static long cam_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		// update hardware scenario
 		ut->hardware_scenario = testmdl.hwScenario;
 
-		dev_info(dev, "testmdl.mode=%d testmdl.hwScenario=%d\n",
-			testmdl.mode, testmdl.hwScenario);
+		dev_info(dev, "testmdl.mode=%d testmdl.hwScenario id=%d\n",
+			testmdl.mode, HWPATH_ID(testmdl.hwScenario));
 
 		set_test_mdl(ut, &testmdl);
 

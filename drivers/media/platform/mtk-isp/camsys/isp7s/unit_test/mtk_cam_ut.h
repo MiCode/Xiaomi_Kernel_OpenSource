@@ -54,11 +54,12 @@ enum tg_enum {
 
 // align TestMdlMode in testPlan.h
 enum testmdl_enum {
-	disable = -1,
-	normal = 0,
-	stagger_1exp = 1U << 1,
-	stagger_2exp = 1U << 2,
-	stagger_3exp = 1U << 3,
+	testmdl_disable		= 0,
+	testmdl_normal		= 1,
+	testmdl_stagger_1exp	= 2,
+	testmdl_stagger_2exp	= 3,
+	testmdl_stagger_3exp	= 4,
+	testmdl_rgbw		= 5,
 };
 
 struct mtk_cam_ut_mem_obj {

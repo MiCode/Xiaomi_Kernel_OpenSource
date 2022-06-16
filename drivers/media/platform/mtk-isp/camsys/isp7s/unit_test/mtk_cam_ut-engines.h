@@ -68,6 +68,8 @@ struct mtk_ut_raw_device {
 
 };
 
+void raw_disable_tg_vseol_sub_ctl(struct device *dev);
+
 #define CALL_RAW_OPS(dev, op, ...) \
 {\
 	struct mtk_ut_raw_device *drvdata = dev_get_drvdata(dev);\
