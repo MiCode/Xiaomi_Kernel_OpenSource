@@ -463,6 +463,7 @@ static const struct scp_domain_data scp_domain_mt6985_spm_data[] = {
 		.sram_pdn_bits = GENMASK(8, 8),
 		.sram_pdn_ack_bits = GENMASK(12, 12),
 		.basic_clk_name = {"audio"},
+		.subsys_clk_prefix = "audio",
 		.bp_table = {
 			BUS_PROT_IGN(IFR_TYPE, 0x0e4, 0x0e8, 0x0e0, 0x0ec,
 				MT6985_TOP_AXI_PROT_EN_PERISYS0_AUDIO),
