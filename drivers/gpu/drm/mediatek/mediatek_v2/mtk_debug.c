@@ -1285,6 +1285,9 @@ void ddic_dsi_read_cm_cmd(u8 cm_addr)
 		vmalloc(sizeof(struct mtk_ddic_dsi_msg));
 	u8 tx[10] = {0};
 
+	if (!cmd_msg)
+		return;
+
 	DDPMSG("%s start case_num:%d\n", __func__, cm_addr);
 
 	memset(cmd_msg, 0, sizeof(struct mtk_ddic_dsi_msg));
