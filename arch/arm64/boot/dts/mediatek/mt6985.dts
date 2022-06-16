@@ -1346,6 +1346,43 @@
 			<&disp_iommu M4U_PORT_L25_PDAI_A_3>,
 			<&disp_iommu M4U_PORT_L25_PDAI_A_4>,
 			<&disp_iommu M4U_PORT_L25_PDAO_A_0>;
+		interconnects =
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L25_PDAI_A_0)
+					&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L25_PDAI_A_1)
+					&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L25_PDAI_A_2)
+					&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L25_PDAI_A_3)
+					&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L25_PDAI_A_4)
+					&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L25_PDAO_A_0)
+					&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L26_PDAI_B_0)
+					&mmqos SLAVE_COMMON(1)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L26_PDAI_B_1)
+					&mmqos SLAVE_COMMON(1)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L26_PDAI_B_2)
+					&mmqos SLAVE_COMMON(1)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L26_PDAI_B_3)
+					&mmqos SLAVE_COMMON(1)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L26_PDAI_B_4)
+					&mmqos SLAVE_COMMON(1)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L26_PDAO_B_0)
+					&mmqos SLAVE_COMMON(1)>;
+		interconnect-names = "l25_pdai_a0",
+					"l25_pdai_a1",
+					"l25_pdai_a2",
+					"l25_pdai_a3",
+					"l25_pdai_a4",
+					"l25_pdao_a",
+					"l26_pdai_b0",
+					"l26_pdai_b1",
+					"l26_pdai_b2",
+					"l26_pdai_b3",
+					"l26_pdai_b4",
+					"l26_pdao_b";
 	};
 
 	pda2: pda2@1a181000 {
