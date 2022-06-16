@@ -2422,9 +2422,11 @@ static int _xgff_frame_start(
 		unsigned int *pdeplist,
 		unsigned long long ts)
 {
-	int ret = XGF_NOTIFY_OK;
+	int ret = XGF_NOTIFY_OK, is_start_dep;
 	struct xgff_frame *r, **rframe;
 	// ToDo, check if xgf is enabled
+
+	is_start_dep = 0;
 
 	mutex_lock(&xgff_frames_lock);
 	rframe = &r;
@@ -2454,11 +2456,13 @@ static int _xgff_frame_start(
 
 	if (!pdeplist || !pdeplistsize) {
 		xgf_trace("[%s] !pdeplist || !pdeplistsize", __func__);
+		is_start_dep = 0;
 		r->is_start_dep = 0;
 		ret = XGF_PARAM_ERR;
 		goto qudeq_notify_err;
 	}
 
+	is_start_dep = 1;
 	r->is_start_dep = 1;
 	ret = xgff_get_start_runtime(tid, queueid, *pdeplistsize, pdeplist,
 		r->dep_runtime, &r->count_dep_runtime, r->frameid);
@@ -2466,7 +2470,7 @@ static int _xgff_frame_start(
 qudeq_notify_err:
 	xgf_trace("xgff result:%d at rpid:%d cmd:xgff_frame_start", ret, tid);
 	xgf_trace("[XGFF] tid=%d, queueid=%llu, frameid=%llu, rframe=%lu, is_start_dep=%d",
-		tid, queueid, frameid, rframe, r->is_start_dep);
+		tid, queueid, frameid, rframe, is_start_dep);
 
 	mutex_unlock(&xgff_frames_lock);
 
