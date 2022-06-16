@@ -3520,8 +3520,10 @@
 			reg = <0 0x10226000 0 0x1000>,
 			      <0 0x10225000 0 0x1000>;
 			mediatek,emi-reg = <&emicen>;
+			mediatek,miukp-reg = <&miukp>;
+			mediatek,miumpu-reg = <&miumpu>;
 			interrupts = <GIC_SPI 282 IRQ_TYPE_LEVEL_HIGH 0>;
-			sr_cnt = <48>;
+			sr_cnt = <63>;
 			aid_cnt = <256>;
 			aid_num_per_set = <32>;
 			dump = <0x1f0 0x1f8 0x1fc>;
@@ -3914,6 +3916,28 @@
 		nemi_smpu1@10351000 {
 			compatible = "mediatek,nemi_smpu1";
 			reg = <0 0x10351000 0 0x1000>;
+		};
+
+		miukp: miukp@10351000 {
+		compatible = "mediatek,common-miukp";
+		reg = <0 0x10351000 0 0x1000>,
+		      <0 0x10355000 0 0x1000>;
+		dump = <0xc00 0xc04 0xc10 0xc14>;
+		clear = <0x410 0x1 1>,
+			<0x410 0x0 1>;
+		};
+
+		miumpu: miumpu@10351000 {
+			compatible = "mediatek,common-miumpu";
+			reg = <0 0x10351000 0 0x1000>,
+			      <0 0x10355000 0 0x1000>;
+			dump = <0xe00 0xe08 0xe0c 0xe10 0xe14 0xe18 0xe1c 0xe20 0xe28
+				0xe80 0xe88 0xe8c 0xe90 0xe94 0xe98 0xe9c 0xea0 0xea8>;
+			clear = <0xe00 0x1 1>,
+				<0xe00 0x0 1>,
+				<0xe80 0x1 1>,
+				<0xe80 0x0 1>;
+			bypass = <0xe1c 0xe9c 0xe10 0xe90 0xe28 0xea8>;
 		};
 
 		nemi_smpu2@10352000 {
