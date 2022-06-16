@@ -2340,7 +2340,7 @@ static int scp_device_probe(struct platform_device *pdev)
 		scp_enable[SCP_A_ID] = 1;
 	}
 
-	of_property_read_string(pdev->dev.of_node, "scp_hwvoter", &scp_hwvoter);
+	of_property_read_string(pdev->dev.of_node, "scp-hwvoter", &scp_hwvoter);
 	if (scp_hwvoter) {
 		if (strcmp(scp_hwvoter, "enable") != 0) {
 			pr_notice("[SCP] scp_hwvoter not enable\n");
