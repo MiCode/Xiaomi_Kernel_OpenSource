@@ -5766,6 +5766,8 @@ long mtk_crtc_wait_status(struct drm_crtc *crtc, bool status, long timeout)
 
 	ret = wait_event_interruptible_timeout(mtk_crtc->crtc_status_wq,
 				 mtk_crtc->enabled == status, timeout);
+	if (!ret)
+		DDPPR_ERR("wait %s fail, ret=%d\n", __func__, ret);
 
 	return ret;
 }
