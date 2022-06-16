@@ -11299,7 +11299,7 @@
 
 		dma-ranges = <0x1 0x0 0x1 0x0 0x1 0x0>;
 		iommus = <&mdp_iommu M4U_PORT_L39_VIDEO_UP>;
-//		mediatek,smi = <&smi_mdp_common &smi_sysram_subcommon4>;
+		mediatek,smi = <&mmsram_smi_2x1_sub_comm4 &smi_mdp_2x1_subcommon>;
 
 		core-0 = "enable";
 		vcp-sramSize = <0x00040000>;
