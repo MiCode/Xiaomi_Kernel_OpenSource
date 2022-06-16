@@ -45,22 +45,22 @@ static const struct snd_pcm_hardware audio_dsp_hardware = {
 };
 
 static char *dsp_task_dsp_name[AUDIO_TASK_DAI_NUM] = {
-	[AUDIO_TASK_VOIP_ID]        = "mtk_dsp_voip",
-	[AUDIO_TASK_PRIMARY_ID]     = "mtk_dsp_primary",
-	[AUDIO_TASK_OFFLOAD_ID]     = "mtk_dsp_offload",
-	[AUDIO_TASK_DEEPBUFFER_ID]  = "mtk_dsp_deep",
-	[AUDIO_TASK_PLAYBACK_ID]    = "mtk_dsp_playback",
-	[AUDIO_TASK_MUSIC_ID]       = "mtk_dsp_music",
-	[AUDIO_TASK_CAPTURE_UL1_ID] = "mtk_dsp_capture1",
-	[AUDIO_TASK_A2DP_ID]        = "mtk_dsp_a2dp",
-	[AUDIO_TASK_BLEDL_ID]       = "mtk_dsp_bledl",
-	[AUDIO_TASK_BLEUL_ID]       = "mtk_dsp_bleul",
-	[AUDIO_TASK_DATAPROVIDER_ID] = "mtk_dsp_dataprovider",
-	[AUDIO_TASK_CALL_FINAL_ID]  = "mtk_dsp_call_final",
-	[AUDIO_TASK_FAST_ID]        = "mtk_dsp_fast",
-	[AUDIO_TASK_KTV_ID]         = "mtk_dsp_ktv",
-	[AUDIO_TASK_CAPTURE_RAW_ID] = "mtk_dsp_capture_raw",
-	[AUDIO_TASK_FM_ADSP_ID]     = "mtk_dsp_fm",
+	[AUDIO_TASK_VOIP_ID]        = "mtk-dsp-voip",
+	[AUDIO_TASK_PRIMARY_ID]     = "mtk-dsp-primary",
+	[AUDIO_TASK_OFFLOAD_ID]     = "mtk-dsp-offload",
+	[AUDIO_TASK_DEEPBUFFER_ID]  = "mtk-dsp-deep",
+	[AUDIO_TASK_PLAYBACK_ID]    = "mtk-dsp-playback",
+	[AUDIO_TASK_MUSIC_ID]       = "mtk-dsp-music",
+	[AUDIO_TASK_CAPTURE_UL1_ID] = "mtk-dsp-capture1",
+	[AUDIO_TASK_A2DP_ID]        = "mtk-dsp-a2dp",
+	[AUDIO_TASK_BLEDL_ID]       = "mtk-dsp-bledl",
+	[AUDIO_TASK_BLEUL_ID]       = "mtk-dsp-bleul",
+	[AUDIO_TASK_DATAPROVIDER_ID] = "mtk-dsp-dataprovider",
+	[AUDIO_TASK_CALL_FINAL_ID]  = "mtk-dsp-call-final",
+	[AUDIO_TASK_FAST_ID]        = "mtk-dsp-fast",
+	[AUDIO_TASK_KTV_ID]         = "mtk-dsp-ktv",
+	[AUDIO_TASK_CAPTURE_RAW_ID] = "mtk-dsp-capture-raw",
+	[AUDIO_TASK_FM_ADSP_ID]     = "mtk-dsp-fm",
 };
 
 static int dsp_pcm_taskattr_init(struct platform_device *pdev)
@@ -102,13 +102,13 @@ static int dsp_pcm_taskattr_init(struct platform_device *pdev)
 
 		/* get dsp version */
 		ret = of_property_read_u32(pdev->dev.of_node,
-					   "mtk_dsp_ver",
+					   "mtk-dsp-ver",
 					   &dsp->dsp_ver);
 		if (ret != 0)
-			pr_info("%s mtk_dsp_ver error\n", __func__);
+			pr_info("%s mtk-dsp-ver error\n", __func__);
 
 		ret = of_property_read_u32(pdev->dev.of_node,
-			"swdsp_smartpa_process_enable",
+			"swdsp-smartpa-process-enable",
 			&(task_attr.task_property));
 		if (ret)
 			task_attr.task_property = 0;
@@ -117,7 +117,7 @@ static int dsp_pcm_taskattr_init(struct platform_device *pdev)
 
 		/* a2dp irq clear in adsp */
 		ret = of_property_read_u32(pdev->dev.of_node,
-			"mtk_dsp_a2dp_irq",
+			"mtk-dsp-a2dp-irq",
 			&(task_attr.task_property));
 		if (ret)
 			task_attr.task_property = 0;
@@ -203,14 +203,14 @@ err_platform:
 }
 
 static const struct of_device_id dsp_pcm_dt_match[] = {
-	{ .compatible = "mediatek,snd_audio_dsp", },
+	{ .compatible = "mediatek,snd-audio-dsp", },
 	{},
 };
 MODULE_DEVICE_TABLE(of, dsp_pcm_dt_match);
 
 static struct platform_driver dsp_pcm_driver = {
 	.driver = {
-		   .name = "snd_audio_dsp",
+		   .name = "snd-audio-dsp",
 		   .owner = THIS_MODULE,
 		   .of_match_table = dsp_pcm_dt_match,
 	},

@@ -676,39 +676,39 @@ SND_SOC_DAILINK_DEFS(vow,
 SND_SOC_DAILINK_DEFS(dspvoip,
 	DAILINK_COMP_ARRAY(COMP_CPU("audio_task_voip_dai")),
 	DAILINK_COMP_ARRAY(COMP_DUMMY()),
-	DAILINK_COMP_ARRAY(COMP_PLATFORM("snd_audio_dsp")));
+	DAILINK_COMP_ARRAY(COMP_PLATFORM("snd-audio-dsp")));
 SND_SOC_DAILINK_DEFS(dspprimary,
 	DAILINK_COMP_ARRAY(COMP_CPU("audio_task_primary_dai")),
 	DAILINK_COMP_ARRAY(COMP_DUMMY()),
-	DAILINK_COMP_ARRAY(COMP_PLATFORM("snd_audio_dsp")));
+	DAILINK_COMP_ARRAY(COMP_PLATFORM("snd-audio-dsp")));
 SND_SOC_DAILINK_DEFS(dspdeepbuf,
 	DAILINK_COMP_ARRAY(COMP_CPU("audio_task_deepbuf_dai")),
 	DAILINK_COMP_ARRAY(COMP_DUMMY()),
-	DAILINK_COMP_ARRAY(COMP_PLATFORM("snd_audio_dsp")));
+	DAILINK_COMP_ARRAY(COMP_PLATFORM("snd-audio-dsp")));
 SND_SOC_DAILINK_DEFS(dspfast,
 	DAILINK_COMP_ARRAY(COMP_CPU("audio_task_fast_dai")),
 	DAILINK_COMP_ARRAY(COMP_DUMMY()),
-	DAILINK_COMP_ARRAY(COMP_PLATFORM("snd_audio_dsp")));
+	DAILINK_COMP_ARRAY(COMP_PLATFORM("snd-audio-dsp")));
 SND_SOC_DAILINK_DEFS(dspplayback,
 	DAILINK_COMP_ARRAY(COMP_CPU("audio_task_Playback_dai")),
 	DAILINK_COMP_ARRAY(COMP_DUMMY()),
-	DAILINK_COMP_ARRAY(COMP_PLATFORM("snd_audio_dsp")));
+	DAILINK_COMP_ARRAY(COMP_PLATFORM("snd-audio-dsp")));
 SND_SOC_DAILINK_DEFS(dspcapture1,
 	DAILINK_COMP_ARRAY(COMP_CPU("audio_task_capture_ul1_dai")),
 	DAILINK_COMP_ARRAY(COMP_DUMMY()),
-	DAILINK_COMP_ARRAY(COMP_PLATFORM("snd_audio_dsp")));
+	DAILINK_COMP_ARRAY(COMP_PLATFORM("snd-audio-dsp")));
 SND_SOC_DAILINK_DEFS(dspcallfinal,
 	DAILINK_COMP_ARRAY(COMP_CPU("audio_task_call_final_dai")),
 	DAILINK_COMP_ARRAY(COMP_DUMMY()),
-	DAILINK_COMP_ARRAY(COMP_PLATFORM("snd_audio_dsp")));
+	DAILINK_COMP_ARRAY(COMP_PLATFORM("snd-audio-dsp")));
 SND_SOC_DAILINK_DEFS(dspktv,
 	DAILINK_COMP_ARRAY(COMP_CPU("audio_task_ktv_dai")),
 	DAILINK_COMP_ARRAY(COMP_DUMMY()),
-	DAILINK_COMP_ARRAY(COMP_PLATFORM("snd_audio_dsp")));
+	DAILINK_COMP_ARRAY(COMP_PLATFORM("snd-audio-dsp")));
 SND_SOC_DAILINK_DEFS(dspcaptureraw,
 	DAILINK_COMP_ARRAY(COMP_CPU("audio_task_capture_raw_dai")),
 	DAILINK_COMP_ARRAY(COMP_DUMMY()),
-	DAILINK_COMP_ARRAY(COMP_PLATFORM("snd_audio_dsp")));
+	DAILINK_COMP_ARRAY(COMP_PLATFORM("snd-audio-dsp")));
 #endif
 
 static struct snd_soc_dai_link mt6873_mt6359p_dai_links[] = {
