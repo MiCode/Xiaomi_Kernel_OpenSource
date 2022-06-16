@@ -1758,6 +1758,20 @@ static const enum mtk_ddp_comp_id mt6985_mtk_ddp_main[] = {
 	DDP_COMPONENT_PWM0,
 };
 
+static const enum mtk_ddp_comp_id mt6985_mtk_ddp_dual_main_bringup[] = {
+	DDP_COMPONENT_OVL4_2L,
+	DDP_COMPONENT_OVL5_2L,
+	DDP_COMPONENT_OVL6_2L,
+	DDP_COMPONENT_OVLSYS_DLO_ASYNC10,
+	DDP_COMPONENT_DLI_ASYNC6,
+	DDP_COMPONENT_PQ1_OUT_CB3,
+	DDP_COMPONENT_PANEL1_COMP_OUT_CB1,
+	DDP_COMPONENT_COMP1_OUT_CB3,
+	DDP_COMPONENT_MERGE1_OUT_CB0,
+	DDP_COMPONENT_DLO_ASYNC2,
+	DDP_COMPONENT_DLI_ASYNC4,
+};
+
 static const enum mtk_ddp_comp_id mt6985_mtk_ddp_dual_main[] = {
 	DDP_COMPONENT_OVL4_2L,
 //	DDP_COMPONENT_OVL1_BG_CB0,
@@ -2360,11 +2374,11 @@ static const struct mtk_addon_scenario_data mt6985_addon_main[ADDON_SCN_NR] = {
 static const struct mtk_addon_scenario_data mt6985_addon_main_dual[ADDON_SCN_NR] = {
 	[NONE] = {
 		.module_num = 0,
-		.hrt_type = HRT_TB_TYPE_GENERAL0,
+		.hrt_type = HRT_TB_TYPE_GENERAL1,
 	},
 	[TRIPLE_DISP] = {
 		.module_num = 0,
-		.hrt_type = HRT_TB_TYPE_GENERAL0,
+		.hrt_type = HRT_TB_TYPE_GENERAL1,
 	},
 	[ONE_SCALING] = {
 		.module_num = ARRAY_SIZE(addon_ovl_rsz_data_1),
@@ -3038,8 +3052,8 @@ static const struct mtk_crtc_path_data mt6985_mtk_main_path_data = {
 	.path[DDP_MAJOR][0] = mt6985_mtk_ddp_main_bringup,
 	.path_len[DDP_MAJOR][0] = ARRAY_SIZE(mt6985_mtk_ddp_main_bringup),
 	.path_req_hrt[DDP_MAJOR][0] = true,
-//	.dual_path[0] = mt6985_mtk_ddp_dual_main,
-//	.dual_path_len[0] = ARRAY_SIZE(mt6985_mtk_ddp_dual_main),
+	.dual_path[0] = mt6985_mtk_ddp_dual_main_bringup,
+	.dual_path_len[0] = ARRAY_SIZE(mt6985_mtk_ddp_dual_main_bringup),
 //	.wb_path[DDP_MAJOR] = mt6983_mtk_ddp_main_wb_path,
 //	.wb_path_len[DDP_MAJOR] = ARRAY_SIZE(mt6983_mtk_ddp_main_wb_path),
 	.addon_data = mt6985_addon_main,

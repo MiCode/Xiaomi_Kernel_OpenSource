@@ -512,6 +512,10 @@ int mtk_ovl_layer_num(struct mtk_ddp_comp *comp)
 	case DDP_COMPONENT_OVL1_2L:
 	case DDP_COMPONENT_OVL2_2L:
 	case DDP_COMPONENT_OVL3_2L:
+	case DDP_COMPONENT_OVL4_2L:
+	case DDP_COMPONENT_OVL5_2L:
+	case DDP_COMPONENT_OVL6_2L:
+	case DDP_COMPONENT_OVL7_2L:
 	case DDP_COMPONENT_OVL0_2L_NWCG:
 	case DDP_COMPONENT_OVL1_2L_NWCG:
 	case DDP_COMPONENT_OVL2_2L_NWCG:
@@ -2652,7 +2656,9 @@ mtk_ovl_addon_rsz_config(struct mtk_ddp_comp *comp, enum mtk_ddp_comp_id prev,
 
 	if (prev == DDP_COMPONENT_OVL0 || prev == DDP_COMPONENT_OVL0_2L ||
 		prev == DDP_COMPONENT_OVL1 || prev == DDP_COMPONENT_OVL1_2L ||
-		prev == DDP_COMPONENT_OVL2_2L || prev == DDP_COMPONENT_OVL3_2L)
+		prev == DDP_COMPONENT_OVL2_2L || prev == DDP_COMPONENT_OVL3_2L ||
+		prev == DDP_COMPONENT_OVL4_2L || prev == DDP_COMPONENT_OVL5_2L ||
+		prev == DDP_COMPONENT_OVL6_2L)
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			       comp->regs_pa + DISP_REG_OVL_DATAPATH_CON,
 			       DISP_OVL_BGCLR_IN_SEL, DISP_OVL_BGCLR_IN_SEL);
@@ -2753,7 +2759,9 @@ static void mtk_ovl_connect(struct mtk_ddp_comp *comp,
 {
 	if (prev == DDP_COMPONENT_OVL0 || prev == DDP_COMPONENT_OVL0_2L ||
 		prev == DDP_COMPONENT_OVL1 || prev == DDP_COMPONENT_OVL1_2L ||
-		prev == DDP_COMPONENT_OVL2_2L || prev == DDP_COMPONENT_OVL3_2L)
+		prev == DDP_COMPONENT_OVL2_2L || prev == DDP_COMPONENT_OVL3_2L ||
+		prev == DDP_COMPONENT_OVL4_2L || prev == DDP_COMPONENT_OVL5_2L ||
+		prev == DDP_COMPONENT_OVL6_2L)
 		mtk_ddp_cpu_mask_write(comp, DISP_REG_OVL_DATAPATH_CON,
 				       DISP_OVL_BGCLR_IN_SEL,
 				       DISP_OVL_BGCLR_IN_SEL);

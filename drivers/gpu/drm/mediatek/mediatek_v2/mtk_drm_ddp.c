@@ -1122,10 +1122,13 @@
 	#define DISP_DLI_RELAY4_TO_COMP_OUT_CROSSBAR5	BIT(5)
 
 #define MT6985_PANEL_COMP_OUT_CROSSBAR1_SEL_IN 0xf60
-	#define  DISP_PQ_OUT_CROSSBAR1_SEL_IN 0x00000001
+	#define  DISP_PANEL_COMP_OUT_CROSSBAR1_SEL_IN 0x00000001
+
+#define MT6985_PANEL_COMP_OUT_CROSSBAR2_SEL_IN 0xf64
+	#define  DISP_PANEL_COMP_OUT_CROSSBAR2_SEL_IN 0x00000004
 
 #define MT6985_PANEL_COMP_OUT_CROSSBAR3_SEL_IN 0xf68
-	#define  DISP_PQ_OUT_CROSSBAR3_SEL_IN 0x00000001
+	#define  DISP_PANEL_COMP_OUT_CROSSBAR3_SEL_IN 0x00000001
 
 #define MT6985_PQ_IN_CROSSBAR0_MOUT_EN 0xf74
 	#define DISP_DLI_RELAY0_TO_RSZ0				BIT(0)
@@ -3568,15 +3571,15 @@ static const unsigned int mt6983_mutex_sof[DDP_MUTEX_SOF_MAX] = {
 
 static const unsigned int mt6985_mutex_sof[DDP_MUTEX_SOF_MAX] = {
 //need check
-		[DDP_MUTEX_SOF_SINGLE_MODE] = MT6983_MUTEX_SOF_SINGLE_MODE,
+		[DDP_MUTEX_SOF_SINGLE_MODE] = MT6985_MUTEX_SOF_SINGLE_MODE,
 		[DDP_MUTEX_SOF_DSI0] =
-			MT6983_MUTEX_SOF_DSI0 | MT6983_MUTEX_EOF_DSI0,
+			MT6985_MUTEX_SOF_DSI0 | MT6985_MUTEX_EOF_DSI0,
 		[DDP_MUTEX_SOF_DSI1] =
-			MT6983_MUTEX_SOF_DSI1 | MT6983_MUTEX_EOF_DSI1,
+			MT6985_MUTEX_SOF_DSI1 | MT6985_MUTEX_EOF_DSI1,
 		[DDP_MUTEX_SOF_DPI0] =
-			MT6983_MUTEX_SOF_DPI0 | MT6983_MUTEX_EOF_DPI0,
+			MT6985_MUTEX_SOF_DPI0 | MT6985_MUTEX_EOF_DPI0,
 		[DDP_MUTEX_SOF_DPI1] =
-			MT6983_MUTEX_SOF_DPI1 | MT6983_MUTEX_EOF_DPI1,
+			MT6985_MUTEX_SOF_DPI1 | MT6985_MUTEX_EOF_DPI1,
 };
 
 /* mt6886 is the same as mt6895  exclude dual pipe */
@@ -10330,10 +10333,10 @@ static int mtk_ddp_mout_en_MT6985(const struct mtk_mmsys_reg_data *data,
 		*addr = MT6985_COMP_OUT_CROSSBAR1_MOUT_EN;
 		value = DISP_DSC_0_TO_MERGE_OUT_CROSSBAR3;
 	} else if ((cur == DDP_COMPONENT_COMP1_OUT_CB3 &&
-		next == DDP_COMPONENT_MERGE1_OUT_CB1)) {
+		next == DDP_COMPONENT_MERGE1_OUT_CB0)) {
 		/* COMP_OUT_CROSSBAR */
 		*addr = MT6985_COMP_OUT_CROSSBAR3_MOUT_EN;
-		value = DISP_PANEL_COMP_OUT_CROSSBAR3_TO_MERGE_OUT_CROSSBAR1;
+		value = DISP_PANEL_COMP_OUT_CROSSBAR3_TO_MERGE_OUT_CROSSBAR0;
 	} else if ((cur == DDP_COMPONENT_COMP1_OUT_CB5 &&
 		next == DDP_COMPONENT_MERGE1_OUT_CB3)) {
 		/* COMP_OUT_CROSSBAR */
@@ -10432,7 +10435,9 @@ static int mtk_ddp_mout_en_MT6985(const struct mtk_mmsys_reg_data *data,
 	} else if ((cur == DDP_COMPONENT_DLO_ASYNC3 &&
 		next == DDP_COMPONENT_DLI_ASYNC0)) {
 	} else if ((cur == DDP_COMPONENT_DLI_ASYNC0 &&
-		next == DDP_COMPONENT_PQ0_OUT_CB3)) {
+		next == DDP_COMPONENT_PQ0_OUT_CB3) ||
+		(cur == DDP_COMPONENT_DLI_ASYNC6 &&
+		next == DDP_COMPONENT_PQ1_OUT_CB3)) {
 		/* PQ_IN_CROSSBAR */
 		*addr = MT6985_PQ_IN_CROSSBAR0_MOUT_EN;
 		value = DISP_DLI_RELAY0_TO_PQ_OUT_CROSSBAR3;
@@ -13961,11 +13966,11 @@ void mtk_ddp_insert_dsc_prim_MT6985(struct mtk_drm_crtc *mtk_crtc,
 
 	/* PANEL_COMP_OUT_CROSSBAR1_MOUT to  DISP_DSC_WRAP0 */
 	addr = MT6985_PANEL_COMP_OUT_CROSSBAR1_MOUT_EN;
-	value = DISP_DLI_RELAY4_TO_DSC_0;
+	value = DISP_PQ_OUT_CROSSBAR1_TO_DSC_0;
 	cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
 		       mtk_crtc->config_regs_pa + addr, value, ~0);
 	addr =  MT6985_PANEL_COMP_OUT_CROSSBAR1_SEL_IN;
-	value = DISP_PQ_OUT_CROSSBAR1_SEL_IN;
+	value = DISP_PANEL_COMP_OUT_CROSSBAR1_SEL_IN;
 	cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
 		       mtk_crtc->config_regs_pa + addr, value, ~0);
 	addr =  MT6985_PANEL_COMP_OUT_CROSSBAR3_SEL_IN;
@@ -13984,6 +13989,16 @@ void mtk_ddp_insert_dsc_prim_MT6985(struct mtk_drm_crtc *mtk_crtc,
 	if (!mtk_crtc->is_dual_pipe)
 		return;
 
+	/* PANEL_COMP_OUT_CROSSBAR4_MOUT to DISP_DSC_WRAP0 */
+	addr = MT6985_PANEL_COMP_OUT_CROSSBAR4_MOUT_EN;
+	value = DISP_DLI_RELAY4_TO_DSC_1;
+	cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
+		       mtk_crtc->config_regs_pa + addr, value, ~0);
+	addr =	MT6985_PANEL_COMP_OUT_CROSSBAR2_SEL_IN;
+	value = DISP_PANEL_COMP_OUT_CROSSBAR2_SEL_IN;
+	cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
+		       mtk_crtc->config_regs_pa + addr, value, ~0);
+
 }
 
 void mtk_ddp_remove_dsc_prim_MT6985(struct mtk_drm_crtc *mtk_crtc,
@@ -13996,7 +14011,7 @@ void mtk_ddp_remove_dsc_prim_MT6985(struct mtk_drm_crtc *mtk_crtc,
 	cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
 		       mtk_crtc->config_regs_pa + addr, value, ~0);
 	addr =  MT6985_PANEL_COMP_OUT_CROSSBAR3_SEL_IN;
-	value = DISP_PQ_OUT_CROSSBAR3_SEL_IN;
+	value = DISP_PANEL_COMP_OUT_CROSSBAR3_SEL_IN;
 	cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
 		       mtk_crtc->config_regs_pa + addr, value, ~0);
 	addr =  MT6985_PANEL_COMP_OUT_CROSSBAR1_SEL_IN;
@@ -14008,6 +14023,14 @@ void mtk_ddp_remove_dsc_prim_MT6985(struct mtk_drm_crtc *mtk_crtc,
 	cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
 		       mtk_crtc->config_regs_pa + addr, value, ~0);
 	addr =  MT6985_COMP_OUT_CROSSBAR1_MOUT_EN;
+	value = 0;
+	cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
+		       mtk_crtc->config_regs_pa + addr, value, ~0);
+
+	if (!mtk_crtc->is_dual_pipe)
+		return;
+
+	addr =	MT6985_PANEL_COMP_OUT_CROSSBAR1_SEL_IN;
 	value = 0;
 	cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
 		       mtk_crtc->config_regs_pa + addr, value, ~0);
@@ -14493,6 +14516,13 @@ void mtk_disp_mutex_src_set(struct mtk_drm_crtc *mtk_crtc, bool is_cmd_mode)
 			       DISP_REG_MUTEX_SOF(ddp->data, mutex->id));
 
 	if (ddp->data->dispsys_map && ddp->side_regs) {
+		DDPINFO("%s, disp1 ovlsys1 id:%d, val:0x%x\n", __func__, id,
+			ddp->data->mutex_sof[val]);
+		if (ddp->ovlsys1_regs)
+			writel_relaxed(
+				ddp->data->mutex_sof[val],
+				ddp->ovlsys1_regs + DISP_REG_MUTEX_SOF(ddp->data, mutex->id));
+
 		/* disp0 DSI0 mutex src should mapping to DSI1, and vice versa */
 		if (val == DDP_MUTEX_SOF_DSI0)
 			val = DDP_MUTEX_SOF_DSI1;
@@ -14506,10 +14536,6 @@ void mtk_disp_mutex_src_set(struct mtk_drm_crtc *mtk_crtc, bool is_cmd_mode)
 		writel_relaxed(
 			ddp->data->mutex_sof[val],
 			ddp->side_regs + DISP_REG_MUTEX_SOF(ddp->data, mutex->id));
-		if (ddp->ovlsys1_regs)
-			writel_relaxed(
-				ddp->data->mutex_sof[val],
-				ddp->ovlsys1_regs + DISP_REG_MUTEX_SOF(ddp->data, mutex->id));
 	}
 }
 
