@@ -1382,7 +1382,7 @@ static const struct of_device_id mm_region_match_table[] = {
 };
 
 static const struct of_device_id apu_region_match_table[] = {
-	{.compatible = "mediatek,dmaheap-region-base-apu"},
+	{.compatible = "mediatek,dmaheap-apu-region-base"},
 	{},
 };
 
@@ -1478,6 +1478,7 @@ static void __exit mtk_sec_heap_exit(void)
 		platform_driver_unregister(mtk_region_heap_drivers[i]);
 }
 
+MODULE_SOFTDEP("pre: apusys");
 module_init(mtk_sec_heap_init);
 module_exit(mtk_sec_heap_exit);
 MODULE_LICENSE("GPL v2");
