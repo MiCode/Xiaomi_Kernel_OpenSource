@@ -309,6 +309,7 @@ struct mtk_cam_req_raw_pipe_data {
 	struct mtk_raw_stagger_select stagger_select;
 	int enabled_raw;
 	int enabled_sv_tags;
+	struct mtkcam_ipi_config_param config_param;/* debug only */
 };
 
 /*
@@ -666,6 +667,18 @@ mtk_cam_s_data_get_res(struct mtk_cam_request_stream_data *s_data)
 		return NULL;
 
 	return &s_data->req->raw_pipe_data[s_data->pipe_id].res;
+}
+
+static inline struct mtkcam_ipi_config_param*
+mtk_cam_s_data_get_config_param(struct mtk_cam_request_stream_data *s_data)
+{
+	if (!s_data)
+		return NULL;
+
+	if (!is_raw_subdev(s_data->pipe_id))
+		return NULL;
+
+	return &s_data->req->raw_pipe_data[s_data->pipe_id].config_param;
 }
 
 static inline struct mtk_cam_scen*

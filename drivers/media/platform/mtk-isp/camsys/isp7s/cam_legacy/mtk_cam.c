@@ -5416,6 +5416,7 @@ static void isp_tx_frame_worker(struct work_struct *work)
 	struct mtkcam_ipi_img_output *imgo_out_fmt;
 	struct mtk_cam_buffer *meta1_buf;
 	struct mtk_cam_resource_v2 *res_user;
+	struct mtkcam_ipi_config_param *config_param;
 	int i;
 	struct mtk_cam_scen *scen;
 
@@ -5462,6 +5463,11 @@ static void isp_tx_frame_worker(struct work_struct *work)
 	if (req->ctx_link_update & 1 << ctx->stream_id ||
 	    req_stream_data->flags & MTK_CAM_REQ_S_DATA_FLAG_SINK_FMT_UPDATE)
 		mtk_cam_s_data_dev_config(req_stream_data, true, true);
+
+	/* save config_param for debug and exception dump */
+	config_param = mtk_cam_s_data_get_config_param(req_stream_data);
+	if (config_param)
+		*config_param = ctx->config_params;
 
 	/* handle stagger 1,2,3 exposure */
 	if (mtk_cam_scen_is_stagger(scen) ||
