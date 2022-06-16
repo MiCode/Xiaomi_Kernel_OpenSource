@@ -1522,17 +1522,19 @@ bool mhal_DPTx_AuxRead_Bytes(struct mtk_dp *mtk_dp, BYTE ubCmd,
 			break;
 		}
 
+		if (uAuxIrqStatus & AUX_RX_EDID_RECV_COMPLETE_IRQ_AUX_TX_P0_FLDMASK) {
+			bVaildCmd = true;
+			break;
+		}
+
 		if (uAuxIrqStatus & AUX_400US_TIMEOUT_IRQ_AUX_TX_P0_FLDMASK) {
+			udelay(AUX_NO_REPLY_WAIT_TIME);
 			DPTXMSG("(AUX Read)HW Timeout 400us irq");
 			break;
 		}
 	}
 
-	ubReplyCmd = msReadByte(mtk_dp, REG_3624_AUX_TX_P0) & 0x0F;
-	if (ubReplyCmd)
-		DPTXMSG("ubReplyCmd =%x NACK or Defer\n", ubReplyCmd);
-
-	if ((WaitReplyCount == 0x0) || ubReplyCmd) {
+	if (WaitReplyCount == 0x0) {
 		BYTE phyStatus = 0x00;
 
 		phyStatus = msReadByte(mtk_dp, REG_3628_AUX_TX_P0);
@@ -1549,33 +1551,29 @@ bool mhal_DPTx_AuxRead_Bytes(struct mtk_dp *mtk_dp, BYTE ubCmd,
 		return false;
 	}
 
+	ubReplyCmd = msReadByte(mtk_dp, REG_3624_AUX_TX_P0) & 0x0F;
+	if (ubReplyCmd)
+		DPTXMSG("ubReplyCmd =%x NACK or Defer\n", ubReplyCmd);
+
 	if (ubLength == 0) {
 		msWriteByte(mtk_dp, REG_362C_AUX_TX_P0, 0x00);
-	} else {
-		if (bVaildCmd) {
+	}
+
+	if (ubReplyCmd == AUX_REPLY_ACK) {
+		msWrite2ByteMask(mtk_dp, REG_3620_AUX_TX_P0,
+			0x0 << AUX_RD_MODE_AUX_TX_P0_FLDMASK_POS,
+			AUX_RD_MODE_AUX_TX_P0_FLDMASK);
+
+		for (ubRdCount = 0x0; ubRdCount < ubLength;
+				ubRdCount++) {
 			msWrite2ByteMask(mtk_dp, REG_3620_AUX_TX_P0,
-				0x0 << AUX_RD_MODE_AUX_TX_P0_FLDMASK_POS,
-				AUX_RD_MODE_AUX_TX_P0_FLDMASK);
+			0x01 << AUX_RX_FIFO_R_PULSE_TX_P0_FLDMASK_POS,
+			AUX_RX_FIFO_READ_PULSE_TX_P0_FLDMASK);
 
-			for (ubRdCount = 0x0; ubRdCount < ubLength;
-					ubRdCount++) {
-				msWrite2ByteMask(mtk_dp, REG_3620_AUX_TX_P0,
-				0x01 << AUX_RX_FIFO_R_PULSE_TX_P0_FLDMASK_POS,
-				AUX_RX_FIFO_READ_PULSE_TX_P0_FLDMASK);
-
-				if ((ubCmd == (DP_AUX_I2C_READ
-						| DP_AUX_I2C_MOT))
-					|| (ubCmd == DP_AUX_I2C_READ))
-					udelay(500);
-				//else
-				//	udelay(AUX_WRITE_READ_WAIT_TIME*5);
-
-				*(pRxBuf + ubRdCount)
-					= msReadByte(mtk_dp,
-						REG_3620_AUX_TX_P0);
-			}
-		} else
-			DPTXMSG("Read TimeOut 0x%x\n", usDPCDADDR);
+			*(pRxBuf + ubRdCount)
+				= msReadByte(mtk_dp,
+					REG_3620_AUX_TX_P0);
+		}
 	}
 
 	msWrite2ByteMask(mtk_dp, REG_3650_AUX_TX_P0,
@@ -1583,7 +1581,6 @@ bool mhal_DPTx_AuxRead_Bytes(struct mtk_dp *mtk_dp, BYTE ubCmd,
 		MCU_ACK_TRANSACTION_COMPLETE_AUX_TX_P0_FLDMASK);
 	msWriteByte(mtk_dp, REG_3640_AUX_TX_P0, 0x7F);
 
-	//udelay(AUX_WRITE_READ_WAIT_TIME);
 	return bVaildCmd;
 }
 
@@ -1595,6 +1592,9 @@ bool mhal_DPTx_AuxWrite_Bytes(struct mtk_dp *mtk_dp,
 	BYTE i;
 	WORD WaitReplyCount = AuxWaitReplyLpCntNum;
 	BYTE bRegIndex;
+
+	if ((ubLength > 16) || ((ubCmd == AUX_CMD_NATIVE_W) && (ubLength == 0x0)))
+		return false;
 
 	msWriteByteMask(mtk_dp, REG_3704_AUX_TX_P0,
 		1 << AUX_TX_FIFO_NEW_MODE_EN_AUX_TX_P0_FLDMASK_POS,
@@ -1638,16 +1638,13 @@ bool mhal_DPTx_AuxWrite_Bytes(struct mtk_dp *mtk_dp,
 		}
 
 		if (uAuxIrqStatus & AUX_400US_TIMEOUT_IRQ_AUX_TX_P0_FLDMASK) {
+			udelay(AUX_NO_REPLY_WAIT_TIME);
 			DPTXMSG("(AUX write)HW Timeout 400us irq");
 			break;
 		}
 	}
 
-	ubReplyCmd = msReadByte(mtk_dp, REG_3624_AUX_TX_P0) & 0x0F;
-	if (ubReplyCmd)
-		DPTXMSG("ubReplyCmd =%x NACK or Defer\n", ubReplyCmd);
-
-	if ((WaitReplyCount == 0x0) || ubReplyCmd) {
+	if (WaitReplyCount == 0x0) {
 		BYTE phyStatus = 0x00;
 
 		phyStatus = msReadByte(mtk_dp, REG_3628_AUX_TX_P0);
@@ -1664,13 +1661,16 @@ bool mhal_DPTx_AuxWrite_Bytes(struct mtk_dp *mtk_dp,
 		return false;
 	}
 
+	ubReplyCmd = msReadByte(mtk_dp, REG_3624_AUX_TX_P0) & 0x0F;
+	if (ubReplyCmd)
+		DPTXMSG("ubReplyCmd =%x NACK or Defer\n", ubReplyCmd);
+
 	msWriteByte(mtk_dp, REG_3650_AUX_TX_P0 + 1, 0x01);
 
 	if (ubLength == 0)
 		msWriteByte(mtk_dp, REG_362C_AUX_TX_P0, 0x00);
 
 	msWriteByte(mtk_dp, REG_3640_AUX_TX_P0, 0x7F);
-	udelay(AUX_WRITE_READ_WAIT_TIME);
 
 	return bVaildCmd;
 }
