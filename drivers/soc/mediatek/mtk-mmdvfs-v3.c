@@ -48,16 +48,16 @@ static inline struct mtk_mmdvfs_clk *to_mtk_mmdvfs_clk(struct clk_hw *hw)
 
 static int mmdvfs_vcp_is_ready(void)
 {
-	int ret = 0;
+	int retry = 0;
 
 	while (!is_vcp_ready_ex(VCP_A_ID)) {
-		ret += 1;
-		if (log_level & 1 << log_vcp)
-			MMDVFS_DBG("retry:%d VCP_A_ID:%d not ready", ret, VCP_A_ID);
-		if (ret > 100)
+		if (++retry > 100) {
+			MMDVFS_DBG("VCP_A_ID:%d not ready", VCP_A_ID);
 			return 0;
-		msleep(50);
+		}
+		msleep(100);
 	}
+
 	return 1;
 }
 
@@ -108,15 +108,14 @@ EXPORT_SYMBOL(mtk_mmdvfs_enable_vcp);
 
 static int mmdvfs_vcp_ipi_send_impl(struct mmdvfs_ipi_data *slot) // ap > vcp
 {
-	int ret;
-	int retry = 0;
+	int retry = 0, ret;
 
 	mtk_mmdvfs_enable_vcp(true);
 
 	if (!mmdvfs_vcp_is_ready()) {
 		MMDVFS_ERR("vcp is not ready");
-		mtk_mmdvfs_enable_vcp(false);
-		return -ETIMEDOUT;
+		ret = -ETIMEDOUT;
+		goto ipi_send_impl_disable;
 	}
 
 	mutex_lock(&mmdvfs_vcp_ipi_mutex);
@@ -128,41 +127,48 @@ static int mmdvfs_vcp_ipi_send_impl(struct mmdvfs_ipi_data *slot) // ap > vcp
 	if (ret != IPI_ACTION_DONE) {
 		MMDVFS_ERR("mtk_ipi_send failed:%d slot:%#llx data:%#llx",
 			ret, *slot, mmdvfs_vcp_ipi_data);
-
-		mutex_unlock(&mmdvfs_vcp_ipi_mutex);
-		mtk_mmdvfs_enable_vcp(false);
-		return ret;
+		goto ipi_send_impl_unlock;
 	}
 
 	while ((mmdvfs_vcp_ipi_data & 0xff) == slot->func) {
-		udelay(100);
-		if (retry == 50) {
-			MMDVFS_ERR("wait for vcp ipi timeout");
+		if (++retry > 100) {
+			ret = IPI_COMPL_TIMEOUT;
+			MMDVFS_ERR("ipi ack timeout:%d slot:%#llx data:%#llx",
+				ret, *slot, mmdvfs_vcp_ipi_data);
 			break;
 		}
-		retry++;
+		udelay(100);
 	}
 
-	ret = mmdvfs_vcp_ipi_data;
+ipi_send_impl_unlock:
 	mutex_unlock(&mmdvfs_vcp_ipi_mutex);
 
+ipi_send_impl_disable:
 	mtk_mmdvfs_enable_vcp(false);
 
 	return ret;
-}
-
-static int mmdvfs_vcp_ipi_send(const u8 func, const u8 idx, const u8 opp,
-	const u8 ack)
-{
-	struct mmdvfs_ipi_data slot = {func, idx, opp, ack, 0U};
-
-	return mmdvfs_vcp_ipi_send_impl(&slot);
 }
 
 static int mmdvfs_vcp_ipi_send_base(const u64 base)
 {
 	struct mmdvfs_ipi_data slot = {
 		FUNC_SET_MEM, 0, 0, base >> 32, (u32)base};
+
+	return mmdvfs_vcp_ipi_send_impl(&slot);
+}
+
+static int mmdvfs_vcp_ipi_send(const u8 func, const u8 idx, const u8 opp,
+	const u8 ack)
+{
+	struct mmdvfs_ipi_data slot = {func, idx, opp, ack, 0U};
+	static bool first = true;
+
+	if (first) {
+		mmdvfs_vcp_base = vcp_get_reserve_mem_phys_ex(MMDVFS_MEM_ID);
+		if (mmdvfs_vcp_base)
+			mmdvfs_vcp_ipi_send_base(mmdvfs_vcp_base);
+		first = false;
+	}
 
 	return mmdvfs_vcp_ipi_send_impl(&slot);
 }
@@ -300,13 +306,6 @@ int mtk_mmdvfs_camera_notify(const bool enable)
 	return 0;
 }
 EXPORT_SYMBOL_GPL(mtk_mmdvfs_camera_notify);
-
-int mtk_mmdvfs_aov_cam_ulposc(bool enable)
-{
-	MMDVFS_DBG("enable=%d\n", enable);
-	return 0;
-}
-EXPORT_SYMBOL_GPL(mtk_mmdvfs_aov_cam_ulposc);
 
 bool mtk_is_mmdvfs_init_done(void)
 {
@@ -578,9 +577,6 @@ static int mmdvfs_vcp_init_thread(void *data)
 		mmdvfs_vcp_ipi_cb, NULL, &mmdvfs_vcp_ipi_data);
 	if (ret)
 		MMDVFS_DBG("mtk_ipi_register failed:%d ipi_id:%d", ret, IPI_IN_MMDVFS);
-
-	mmdvfs_vcp_base = vcp_get_reserve_mem_phys_ex(MMDVFS_MEM_ID);
-	mmdvfs_vcp_ipi_send_base(mmdvfs_vcp_base);
 
 	mmdvfs_init_done = true;
 
