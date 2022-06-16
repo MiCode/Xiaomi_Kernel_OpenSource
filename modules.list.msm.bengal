@@ -31,6 +31,7 @@ gh_ctrl.ko
 gh_dbl.ko
 gh_msgq.ko
 gh_rm_drv.ko
+icc-rpm.ko
 icc-bcm-voter.ko
 icc-debug.ko
 iommu-logger.ko
@@ -41,7 +42,7 @@ mem_buf.ko
 msm_dma_iommu_mapping.ko
 pinctrl-khaje.ko
 pinctrl-bengal.ko
-qnoc-khaje.ko
+qnoc-bengal.ko
 ns.ko
 nvmem_qcom-spmi-sdam.ko
 phy-qcom-ufs.ko
@@ -57,7 +58,7 @@ qcom-spmi-pmic.ko
 spmi-pmic-arb.ko
 qcom-reboot-reason.ko
 qcom-scm.ko
-qnoc-qos.ko
+qnoc-qos-rpm.ko
 qrtr.ko
 qti-regmap-debugfs.ko
 regmap-spmi.ko
