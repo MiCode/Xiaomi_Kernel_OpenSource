@@ -608,9 +608,9 @@ void imgsys_cmdq_task_cb_plat71(struct cmdq_cb_data data)
 				__func__,
 				cb_param->pkt->err_data.wfe_timeout,
 				cb_param->pkt->err_data.event, isHWhang);
-		} else if ((event >= IMGSYS_CMDQ_SW_EVENT_BEGIN) &&
-			(event <= IMGSYS_CMDQ_SW_EVENT_END)) {
-			event_sft = event - IMGSYS_CMDQ_SW_EVENT_BEGIN;
+		} else if ((event >= IMGSYS_CMDQ_SW_EVENT1_BEGIN) &&
+			(event <= IMGSYS_CMDQ_SW_EVENT1_END)) {
+			event_sft = event - IMGSYS_CMDQ_SW_EVENT1_BEGIN;
 			event_diff = event_hist[event_sft].set.ts >
 						event_hist[event_sft].wait.ts ?
 						(event_hist[event_sft].set.ts -
@@ -618,7 +618,7 @@ void imgsys_cmdq_task_cb_plat71(struct cmdq_cb_data data)
 						(event_hist[event_sft].wait.ts -
 						event_hist[event_sft].set.ts);
 			pr_info(
-				"%s: [ERROR] SW event timeout! wfe(%d) event(%d) isHW(%d); event st(%d)_ts(%lld)_set(%d/%d/%d/%lld)_wait(%d/%d/%d/%lld)",
+				"%s: [ERROR] SW event1 timeout! wfe(%d) event(%d) isHW(%d); event st(%d)_ts(%lld)_set(%d/%d/%d/%lld)_wait(%d/%d/%d/%lld)",
 				__func__,
 				cb_param->pkt->err_data.wfe_timeout,
 				cb_param->pkt->err_data.event, isHWhang,
@@ -634,7 +634,7 @@ void imgsys_cmdq_task_cb_plat71(struct cmdq_cb_data data)
 		} else if ((event >= IMGSYS_CMDQ_SW_EVENT2_BEGIN) &&
 			(event <= IMGSYS_CMDQ_SW_EVENT2_END)) {
 			event_sft = event - IMGSYS_CMDQ_SW_EVENT2_BEGIN +
-				(IMGSYS_CMDQ_SW_EVENT_END - IMGSYS_CMDQ_SW_EVENT_BEGIN + 1);
+				(IMGSYS_CMDQ_SW_EVENT1_END - IMGSYS_CMDQ_SW_EVENT1_BEGIN + 1);
 			event_diff = event_hist[event_sft].set.ts >
 						event_hist[event_sft].wait.ts ?
 						(event_hist[event_sft].set.ts -
