@@ -177,6 +177,8 @@ static int apply_req_on_composed_m2m_once(struct mtk_cam_ut *ut)
 				dev_info(ut->dev, "can't find correct main rawi\n");
 				return 0;
 			}
+		} else if (ut->hardware_scenario == MTKCAM_IPI_HW_PATH_OFFLINE_ADL) {
+			raw_params.streamon_type = STREAM_FROM_ADLRD;
 		} else
 			raw_params.streamon_type = STREAM_FROM_RAWI_R2;
 	}
