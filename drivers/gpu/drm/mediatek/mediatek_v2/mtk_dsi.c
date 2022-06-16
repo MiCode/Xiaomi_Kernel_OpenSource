@@ -7774,6 +7774,7 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 						mipi_dsi_dcs_write_gce,
 						handle, *fps_level);
 	}
+		break;
 	case DSI_MSYNC_SWITCH_TE_LEVEL_GRP:
 	{
 		unsigned int *fps_level = (unsigned int *)params;
