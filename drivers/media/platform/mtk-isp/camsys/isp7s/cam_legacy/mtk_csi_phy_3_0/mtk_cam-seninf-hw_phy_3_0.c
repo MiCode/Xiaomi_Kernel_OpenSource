@@ -3092,7 +3092,7 @@ static ssize_t mtk_cam_seninf_show_status(struct device *dev,
 		pad = &ctx->pads[PAD_SINK];
 		list_for_each_entry(link, &pad->entity->links, list) {
 			if (link->sink == pad) {
-				SHOW(buf, len, "source %s flags 0x%x\n",
+				SHOW(buf, len, "source %s flags 0x%lx\n",
 				     link->source->entity->name,
 					link->flags);
 			}
