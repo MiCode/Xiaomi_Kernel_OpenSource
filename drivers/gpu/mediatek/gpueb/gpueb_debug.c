@@ -38,6 +38,8 @@ enum gpueb_smc_op {
 };
 
 static void __iomem *g_gpueb_base;
+static void __iomem *g_gpueb_gpr_base;
+static void __iomem *g_gpueb_reg_base;
 static void __iomem *g_gpueb_mbox_ipi;
 static void __iomem *g_gpueb_mbox_sw_int;
 
@@ -50,37 +52,54 @@ void gpueb_dump_status(void)
 {
 	gpueb_pr_info("@%s: == [GPUEB STATUS] ==\n", __func__);
 
-	if (g_gpueb_base) {
+	if (g_gpueb_reg_base) {
 		/* 0x13C60300 */
 		gpueb_pr_info("@%s: GPUEB_INTC_IRQ_EN (0x%x): 0x%08x\n", __func__,
-			(0x13C40000 + 0x20300), readl(g_gpueb_base + 0x20300));
+			(0x13C60000 + 0x300), readl(g_gpueb_reg_base + 0x300));
 		/* 0x13C60338 */
 		gpueb_pr_info("@%s: GPUEB_INTC_IRQ_STA (0x%x): 0x%08x\n", __func__,
-			(0x13C40000 + 0x20338), readl(g_gpueb_base + 0x20338));
+			(0x13C60000 + 0x338), readl(g_gpueb_reg_base + 0x338));
 		/* 0x13C6033C */
 		gpueb_pr_info("@%s: GPUEB_INTC_IRQ_RAW_STA (0x%x): 0x%08x\n", __func__,
-			(0x13C40000 + 0x2033C), readl(g_gpueb_base + 0x2033C));
+			(0x13C60000 + 0x33C), readl(g_gpueb_reg_base + 0x33C));
+		/* 0x13C60348 */
+		gpueb_pr_info("@%s: GPUEB_INTC_IRQ_GRP2_STA (0x%x): 0x%08x\n", __func__,
+			(0x13C60000 + 0x348), readl(g_gpueb_reg_base + 0x348));
+
+		/* 0x13C6060C */
+		gpueb_pr_info("@%s: GPUEB_CFGREG_AXI_CFG (0x%x): 0x%08x\n", __func__,
+			(0x13C60000 + 0x60C), readl(g_gpueb_reg_base + 0x60C));
 		/* 0x13C60610 */
 		gpueb_pr_info("@%s: GPUEB_CFGREG_AXI_STA (0x%x): 0x%08x\n", __func__,
-			(0x13C40000 + 0x20610), readl(g_gpueb_base + 0x20610));
+			(0x13C60000 + 0x610), readl(g_gpueb_reg_base + 0x610));
 		/* 0x13C60618 */
 		gpueb_pr_info("@%s: GPUEB_CFGREG_WDT_CON (0x%x): 0x%08x\n", __func__,
-			(0x13C40000 + 0x20618), readl(g_gpueb_base + 0x20618));
+			(0x13C60000 + 0x618), readl(g_gpueb_reg_base + 0x618));
 		/* 0x13C6061C */
 		gpueb_pr_info("@%s: GPUEB_CFGREG_WDT_KICK (0x%x): 0x%08x\n", __func__,
-			(0x13C40000 + 0x2061C), readl(g_gpueb_base + 0x2061C));
+			(0x13C60000 + 0x61C), readl(g_gpueb_reg_base + 0x61C));
 		/* 0x13C60634 */
 		gpueb_pr_info("@%s: GPUEB_CFGREG_MDSP_CFG (0x%x): 0x%08x\n", __func__,
-			(0x13C40000 + 0x20634), readl(g_gpueb_base + 0x20634));
-		/* 0x13C607E8 */
-		gpueb_pr_info("@%s: GPUEB_CFGREG_SRAMRC_MASTER_CFG (0x%x): 0x%08x\n", __func__,
-			(0x13C40000 + 0x207E8), readl(g_gpueb_base + 0x207E8));
-		/* 0x13C5FD30, 0x13C5FD60 */
-		gpueb_pr_info("@%s: GPUEB LPM footprint: 0x%08x, Gpufreq footprint: 0x%08x\n",
-			__func__,
-			readl(g_gpueb_base + 0x1FD30), readl(g_gpueb_base + 0x1FD60));
+			(0x13C60000 + 0x634), readl(g_gpueb_reg_base + 0x634));
+		/* 0x13C6071C */
+		gpueb_pr_info("@%s: GPUEB_CFGREG_DBG_APB_PC (0x%x): 0x%08x\n", __func__,
+			(0x13C60000 + 0x71C), readl(g_gpueb_reg_base + 0x71C));
+		/* 0x13C60720 */
+		gpueb_pr_info("@%s: GPUEB_CFGREG_DBG_APB_LR (0x%x): 0x%08x\n", __func__,
+			(0x13C60000 + 0x720), readl(g_gpueb_reg_base + 0x720));
+		/* 0x13C60724 */
+		gpueb_pr_info("@%s: GPUEB_CFGREG_DBG_APB_SP (0x%x): 0x%08x\n", __func__,
+			(0x13C60000 + 0x724), readl(g_gpueb_reg_base + 0x724));
 	} else
-		gpueb_pr_info("@%s: skip null g_gpueb_base\n", __func__);
+		gpueb_pr_info("@%s: skip null g_gpueb_reg_base\n", __func__);
+
+	if (g_gpueb_gpr_base) {
+		gpueb_pr_info("@%s: LOW_POWER_FOOTPRINT_GPR: 0x%08x\n", __func__,
+			readl(g_gpueb_gpr_base + 0x14));
+		gpueb_pr_info("@%s: GPUFREQ_FOOTPRINT_GPR: 0x%08x\n", __func__,
+			readl(g_gpueb_gpr_base + 0x44));
+	} else
+		gpueb_pr_info("@%s: skip null g_gpueb_gpr_base\n", __func__);
 
 	if (g_gpueb_mbox_ipi)
 		/* 0x13C62000 */
@@ -127,37 +146,69 @@ EXPORT_SYMBOL(gpu_set_rgx_bus_secure);
 static int gpueb_status_proc_show(struct seq_file *m, void *v)
 {
 	seq_puts(m, "[GPUEB-DEBUG] Current Status of GPUEB\n");
-	if (g_gpueb_base) {
+
+	if (g_gpueb_reg_base) {
 		/* 0x13C60300 */
-		seq_printf(m, "GPUEB_INTC_IRQ_EN (0x%x): 0x%08x\n",
-			(0x13C40000 + 0x20300), readl(g_gpueb_base + 0x20300));
+		seq_printf(m, "@%s: GPUEB_INTC_IRQ_EN (0x%x): 0x%08x\n", __func__,
+			(0x13C60000 + 0x300), readl(g_gpueb_reg_base + 0x300));
 		/* 0x13C60338 */
-		seq_printf(m, "GPUEB_INTC_IRQ_STA (0x%x): 0x%08x\n",
-			(0x13C40000 + 0x20338), readl(g_gpueb_base + 0x20338));
+		seq_printf(m, "@%s: GPUEB_INTC_IRQ_STA (0x%x): 0x%08x\n", __func__,
+			(0x13C60000 + 0x338), readl(g_gpueb_reg_base + 0x338));
 		/* 0x13C6033C */
-		seq_printf(m, "GPUEB_INTC_IRQ_RAW_STA (0x%x): 0x%08x\n",
-			(0x13C40000 + 0x2033C), readl(g_gpueb_base + 0x2033C));
+		seq_printf(m, "@%s: GPUEB_INTC_IRQ_RAW_STA (0x%x): 0x%08x\n", __func__,
+			(0x13C60000 + 0x33C), readl(g_gpueb_reg_base + 0x33C));
+		/* 0x13C60348 */
+		seq_printf(m, "@%s: GPUEB_INTC_IRQ_GRP2_STA (0x%x): 0x%08x\n", __func__,
+			(0x13C60000 + 0x348), readl(g_gpueb_reg_base + 0x348));
+
+		/* 0x13C6060C */
+		seq_printf(m, "@%s: GPUEB_CFGREG_AXI_CFG (0x%x): 0x%08x\n", __func__,
+			(0x13C60000 + 0x60C), readl(g_gpueb_reg_base + 0x60C));
 		/* 0x13C60610 */
-		seq_printf(m, "GPUEB_CFGREG_AXI_STA (0x%x): 0x%08x\n",
-			(0x13C40000 + 0x20610), readl(g_gpueb_base + 0x20610));
+		seq_printf(m, "@%s: GPUEB_CFGREG_AXI_STA (0x%x): 0x%08x\n", __func__,
+			(0x13C60000 + 0x610), readl(g_gpueb_reg_base + 0x610));
 		/* 0x13C60618 */
-		seq_printf(m, "GPUEB_CFGREG_WDT_CON (0x%x): 0x%08x\n",
-			(0x13C40000 + 0x20618), readl(g_gpueb_base + 0x20618));
+		seq_printf(m, "@%s: GPUEB_CFGREG_WDT_CON (0x%x): 0x%08x\n", __func__,
+			(0x13C60000 + 0x618), readl(g_gpueb_reg_base + 0x618));
 		/* 0x13C6061C */
-		seq_printf(m, "GPUEB_CFGREG_WDT_KICK (0x%x): 0x%08x\n",
-			(0x13C40000 + 0x2061C), readl(g_gpueb_base + 0x2061C));
+		seq_printf(m, "@%s: GPUEB_CFGREG_WDT_KICK (0x%x): 0x%08x\n", __func__,
+			(0x13C60000 + 0x61C), readl(g_gpueb_reg_base + 0x61C));
 		/* 0x13C60634 */
-		seq_printf(m, "GPUEB_CFGREG_MDSP_CFG (0x%x): 0x%08x\n",
-			(0x13C40000 + 0x20634), readl(g_gpueb_base + 0x20634));
-	}
+		seq_printf(m, "@%s: GPUEB_CFGREG_MDSP_CFG (0x%x): 0x%08x\n", __func__,
+			(0x13C60000 + 0x634), readl(g_gpueb_reg_base + 0x634));
+		/* 0x13C6071C */
+		seq_printf(m, "@%s: GPUEB_CFGREG_DBG_APB_PC (0x%x): 0x%08x\n", __func__,
+			(0x13C60000 + 0x71C), readl(g_gpueb_reg_base + 0x71C));
+		/* 0x13C60720 */
+		seq_printf(m, "@%s: GPUEB_CFGREG_DBG_APB_LR (0x%x): 0x%08x\n", __func__,
+			(0x13C60000 + 0x720), readl(g_gpueb_reg_base + 0x720));
+		/* 0x13C60724 */
+		seq_printf(m, "@%s: GPUEB_CFGREG_DBG_APB_SP (0x%x): 0x%08x\n", __func__,
+			(0x13C60000 + 0x724), readl(g_gpueb_reg_base + 0x724));
+	} else
+		seq_printf(m, "@%s: skip null g_gpueb_reg_base\n", __func__);
+
+	if (g_gpueb_gpr_base) {
+		seq_printf(m, "@%s: LOW_POWER_FOOTPRINT_GPR: 0x%08x\n", __func__,
+			readl(g_gpueb_gpr_base + 0x14));
+		seq_printf(m, "@%s: GPUFREQ_FOOTPRINT_GPR: 0x%08x\n", __func__,
+			readl(g_gpueb_gpr_base + 0x44));
+	} else
+		seq_printf(m, "@%s: skip null g_gpueb_gpr_base\n", __func__);
+
 	if (g_gpueb_mbox_ipi)
 		/* 0x13C62000 */
-		seq_printf(m, "GPUEB_MBOX_IPI_GPUEB (0x%x): 0x%08x\n",
+		seq_printf(m, "@%s: GPUEB_MBOX_IPI_GPUEB (0x%x): 0x%08x\n", __func__,
 			(0x13C62000), readl(g_gpueb_mbox_ipi));
+	else
+		seq_printf(m, "@%s: skip null g_gpueb_mbox_ipi\n", __func__);
+
 	if (g_gpueb_mbox_sw_int)
 		/* 0x13C62078 */
-		seq_printf(m, "GPUEB_MBOX_SW_INT_STA (0x%x): 0x%08x\n",
+		seq_printf(m, "@%s: GPUEB_MBOX_SW_INT_STA (0x%x): 0x%08x\n", __func__,
 			(0x13C62078), readl(g_gpueb_mbox_sw_int));
+	else
+		seq_printf(m, "@%s: skip null g_gpueb_mbox_sw_int\n", __func__);
 
 	return 0;
 }
@@ -297,7 +348,6 @@ void gpueb_debug_init(struct platform_device *pdev)
 		return;
 	}
 
-	/* 0x13C40000 */
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "gpueb_base");
 	if (unlikely(!res)) {
 		gpueb_pr_info("@%s: fail to get resource GPUEB_BASE\n", __func__);
@@ -308,7 +358,29 @@ void gpueb_debug_init(struct platform_device *pdev)
 		gpueb_pr_info("@%s: fail to ioremap GPUEB_BASE: 0x%llx\n", __func__, res->start);
 		return;
 	}
-	/* 0x13C62000 */
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "gpueb_gpr_base");
+	if (unlikely(!res)) {
+		gpueb_pr_info("@%s: fail to get resource GPUEB_GPR_BASE\n", __func__);
+		return;
+	}
+	g_gpueb_gpr_base = devm_ioremap(gpueb_dev, res->start, resource_size(res));
+	if (unlikely(!g_gpueb_gpr_base)) {
+		gpueb_pr_info("@%s: fail to ioremap gpr base: 0x%llx\n", __func__, res->start);
+		return;
+	}
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "gpueb_reg_base");
+	if (unlikely(!res)) {
+		gpueb_pr_info("@%s: fail to get resource GPUEB_REG_BASE\n", __func__);
+		return;
+	}
+	g_gpueb_reg_base = devm_ioremap(gpueb_dev, res->start, resource_size(res));
+	if (unlikely(!g_gpueb_reg_base)) {
+		gpueb_pr_info("@%s: fail to ioremap reg base: 0x%llx\n", __func__, res->start);
+		return;
+	}
+
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "mbox0_send");
 	if (unlikely(!res)) {
 		gpueb_pr_info("@%s: fail to get resource MBOX0_SEND\n", __func__);
@@ -319,7 +391,7 @@ void gpueb_debug_init(struct platform_device *pdev)
 		gpueb_pr_info("@%s: fail to ioremap MBOX0_SEND: 0x%llx\n", __func__, res->start);
 		return;
 	}
-	/* 0x13C62078 */
+
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "mbox0_recv");
 	if (unlikely(!res)) {
 		gpueb_pr_info("@%s: fail to get resource MBOX0_RECV\n", __func__);
