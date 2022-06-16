@@ -57,13 +57,13 @@ static int scp_ultra_pcm_dev_probe(struct platform_device *pdev)
 	if (!scp_ultra)
 		return -ENOMEM;
 
-	ret = of_property_read_u32(pdev->dev.of_node, "scp_ultra_dl_memif_id",
+	ret = of_property_read_u32(pdev->dev.of_node, "scp-ultra-dl-memif-id",
 			&scp_ultra->scp_ultra_dl_memif_id);
 	if (ret != 0) {
 		pr_info("%s scp_ultra_dl_memif_id error\n", __func__);
 		return 0;
 	}
-	ret = of_property_read_u32(pdev->dev.of_node, "scp_ultra_ul_memif_id",
+	ret = of_property_read_u32(pdev->dev.of_node, "scp-ultra-ul-memif-id",
 			&scp_ultra->scp_ultra_ul_memif_id);
 	if (ret != 0) {
 		pr_info("%s scp_ultra_ul_memif_id error\n", __func__);
@@ -81,7 +81,7 @@ static int scp_ultra_pcm_dev_probe(struct platform_device *pdev)
 	pm_runtime_enable(&pdev->dev);
 
 	if (pdev->dev.of_node) {
-		dev_set_name(&pdev->dev, "%s", "snd_scp_ultra");
+		dev_set_name(&pdev->dev, "%s", "snd-scp-ultra");
 		pdev->name = pdev->dev.kobj.name;
 	} else {
 		pr_debug("%s(), pdev->dev.of_node NULL!!!\n", __func__);
@@ -111,14 +111,14 @@ static int scp_ultra_pcm_dev_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id scp_ultra_pcm_dt_match[] = {
-	{ .compatible = "mediatek,snd_scp_ultra", },
+	{ .compatible = "mediatek,snd-scp-ultra", },
 	{},
 };
 MODULE_DEVICE_TABLE(of, scp_ultra_pcm_dt_match);
 
 static struct platform_driver scp_ultra_pcm_driver = {
 	.driver = {
-		   .name = "snd_scp_ultra",
+		   .name = "snd-scp-ultra",
 		   .owner = THIS_MODULE,
 		   .of_match_table = scp_ultra_pcm_dt_match,
 	},
