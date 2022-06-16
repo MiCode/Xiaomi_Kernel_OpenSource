@@ -5469,6 +5469,12 @@ static void isp_tx_frame_worker(struct work_struct *work)
 	if (config_param)
 		*config_param = ctx->config_params;
 
+/* TBC: camsv:
+ *
+ *	if (mtk_cam_is_immediate_switch_req(req,  ctx->stream_id))
+ *		mtk_cam_s_data_sv_dev_config(req_stream_data);
+ */
+
 	/* handle stagger 1,2,3 exposure */
 	if (mtk_cam_scen_is_stagger(scen) ||
 	    mtk_cam_hw_mode_is_dc(ctx->pipe->hw_mode_pending))
@@ -5871,6 +5877,11 @@ void mtk_cam_sensor_switch_stop_reinit_hw(struct mtk_cam_ctx *ctx,
 			}
 		}
 	}
+/* TBC: camsv:
+ *
+ *	if (mtk_cam_is_nonimmediate_switch_req(req,  ctx->stream_id))
+ *		mtk_cam_s_data_sv_dev_config(s_data);
+ */
 }
 
 void handle_immediate_switch(struct mtk_cam_ctx *ctx,
