@@ -228,12 +228,6 @@ void imgsys_main_set_init(struct mtk_imgsys_dev *imgsys_dev)
 	iowrite32(0xFFFFFFFF, (void *)(dipRegBA + SW_RST));
 	iowrite32(0x0, (void *)(dipRegBA + SW_RST));
 
-	iowrite32(0xFFFFFFFF, (void *)(dip1RegBA + SW_RST));
-	iowrite32(0x0, (void *)(dip1RegBA + SW_RST));
-
-	iowrite32(0xFFFFFFFF, (void *)(dip2RegBA + SW_RST));
-	iowrite32(0x0, (void *)(dip2RegBA + SW_RST));
-
 	HwIdx = 0;
 
 	for (HwIdx = 0; HwIdx < (WPE_HW_SET - 1); HwIdx++) {
