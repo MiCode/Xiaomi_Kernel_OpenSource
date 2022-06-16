@@ -28,8 +28,12 @@
 #define CPU_CUR_FREQ_OFFSET        (0x210)
 #define CPU_MAX_TEMP_OFFSET        (0x220)
 #define CPU_LIMIT_OPP_OFFSET       (0x260)
-#define ATC_OFFSET                 (0x280)
-#define ATC_NUM                    (17)
+#define CPU_ATC_OFFSET                 (0x280)
+#define GPU_ATC_OFFSET                 (0x2C8)
+#define APU_ATC_OFFSET                 (0x2D4)
+#define CPU_ATC_NUM                   (17)
+#define GPU_ATC_NUM                   (3)
+#define APU_ATC_NUM                   (1)
 #define UTC_COUNT_OFFSET           (0x27C)
 #define INFOB_OFFSET               (0x2C4)
 #define GPU_COOLER_BASE             (0x3A0)
@@ -40,6 +44,7 @@
 #define APU_MBOX_LIMIT_OPP_OFFSET  (0x70C)
 #define APU_MBOX_CUR_OPP_OFFSET    (0x710)
 #define APU_MBOX_EMUL_TEMP_OFFSET  (0x714)
+#define APU_MBOX_ATC_MAX_TTJ_ADDR  (0x718)
 
 struct headroom_info {
 	int temp;

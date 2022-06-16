@@ -607,21 +607,55 @@ static ssize_t frs_info_store(struct kobject *kobj,
 	return count;
 }
 
-static ssize_t atc_show(struct kobject *kobj, struct kobj_attribute *attr,
+static ssize_t cpu_atc_show(struct kobject *kobj, struct kobj_attribute *attr,
 	char *buf)
 {
 	int i, len = 0, val;
 
-	for (i = 0; i < ATC_NUM - 1; i++) {
-		val = therm_intf_read_csram_s32(ATC_OFFSET + i * 0x4);
+	for (i = 0; i < CPU_ATC_NUM - 1; i++) {
+		val = therm_intf_read_csram_s32(CPU_ATC_OFFSET + i * 0x4);
 		len += snprintf(buf + len, PAGE_SIZE - len, "%d,", val);
 	}
 
-	val = therm_intf_read_csram_s32(ATC_OFFSET + i * 0x4);
+	val = therm_intf_read_csram_s32(CPU_ATC_OFFSET + i * 0x4);
 	len += snprintf(buf + len, PAGE_SIZE - len, "%d\n", val);
 
 	return len;
 }
+
+static ssize_t gpu_atc_show(struct kobject *kobj, struct kobj_attribute *attr,
+	char *buf)
+{
+	int i, len = 0, val;
+
+	for (i = 0; i < GPU_ATC_NUM - 1; i++) {
+		val = therm_intf_read_csram_s32(GPU_ATC_OFFSET + i * 0x4);
+		len += snprintf(buf + len, PAGE_SIZE - len, "%d,", val);
+	}
+
+	val = therm_intf_read_csram_s32(GPU_ATC_OFFSET + i * 0x4);
+	len += snprintf(buf + len, PAGE_SIZE - len, "%d\n", val);
+
+	return len;
+}
+
+static ssize_t apu_atc_show(struct kobject *kobj, struct kobj_attribute *attr,
+	char *buf)
+{
+	int len = 0, val;
+
+	if (thermal_apu_mbox_base) {
+		val =  therm_intf_read_apu_mbox_s32(APU_MBOX_ATC_MAX_TTJ_ADDR);
+		len += snprintf(buf + len, PAGE_SIZE - len, "%d\n", val);
+	} else {
+		val = therm_intf_read_csram_s32(APU_ATC_OFFSET);
+		len += snprintf(buf + len, PAGE_SIZE - len, "%d\n", val);
+	}
+
+	return len;
+}
+
+
 
 static ssize_t target_tpcb_show(struct kobject *kobj,
 	struct kobj_attribute *attr, char *buf)
@@ -965,7 +999,9 @@ static struct kobj_attribute is_apu_limit_attr = __ATTR_RO(is_apu_limit);
 static struct kobj_attribute frs_info_attr = __ATTR_RW(frs_info);
 static struct kobj_attribute cpu_temp_attr = __ATTR_RO(cpu_temp);
 static struct kobj_attribute headroom_info_attr = __ATTR_RO(headroom_info);
-static struct kobj_attribute atc_attr = __ATTR_RO(atc);
+static struct kobj_attribute cpu_atc_attr = __ATTR_RO(cpu_atc);
+static struct kobj_attribute gpu_atc_attr = __ATTR_RO(gpu_atc);
+static struct kobj_attribute apu_atc_attr = __ATTR_RO(apu_atc);
 static struct kobj_attribute target_tpcb_attr = __ATTR_RW(target_tpcb);
 static struct kobj_attribute md_sensor_info_attr = __ATTR_RW(md_sensor_info);
 static struct kobj_attribute md_actuator_info_attr = __ATTR_RW(md_actuator_info);
@@ -991,7 +1027,9 @@ static struct attribute *thermal_attrs[] = {
 	&frs_info_attr.attr,
 	&cpu_temp_attr.attr,
 	&headroom_info_attr.attr,
-	&atc_attr.attr,
+	&cpu_atc_attr.attr,
+	&gpu_atc_attr.attr,
+	&apu_atc_attr.attr,
 	&target_tpcb_attr.attr,
 	&md_sensor_info_attr.attr,
 	&md_actuator_info_attr.attr,
@@ -1280,7 +1318,7 @@ static int therm_intf_probe(struct platform_device *pdev)
 		dev_info(&pdev->dev, "Failed to get apu_mbox resource\n");
 	} else {
 		addr = ioremap(res->start, res->end - res->start + 1);
-		if (!IS_ERR_OR_NULL(addr))
+		if (IS_ERR_OR_NULL(addr))
 			dev_info(&pdev->dev, "Failed to remap apu_mbox addr\n");
 		else
 			thermal_apu_mbox_base = addr;
