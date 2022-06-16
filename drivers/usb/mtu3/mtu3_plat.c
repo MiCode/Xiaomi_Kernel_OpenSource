@@ -97,6 +97,11 @@ void ssusb_set_txdeemph(struct ssusb_mtk *ssusb)
 	txdeemph &= ~PIPE_TXDEEMPH_MASK;
 	txdeemph |= PIPE_TXDEEMPH(0x1);
 	mtu3_writel(ssusb->mac_base, U3D_TXDEEMPH, txdeemph);
+
+	txdeemph = mtu3_readl(ssusb->mac_base, U3D_CP5_CP7_TXDEEMPH);
+	txdeemph &= ~PIPE_CP5_CP7_TXDEEMPH_MASK;
+	txdeemph |= PIPE_CP5_CP7_TXDEEMPH(0x1);
+	mtu3_writel(ssusb->mac_base, U3D_CP5_CP7_TXDEEMPH, txdeemph);
 }
 
 void ssusb_set_noise_still_tr(struct ssusb_mtk *ssusb)
