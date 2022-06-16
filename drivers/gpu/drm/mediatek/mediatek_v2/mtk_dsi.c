@@ -8784,8 +8784,7 @@ int PanelMaster_DSI_set_timing(struct mtk_dsi *dsi, struct MIPI_TIMING timing)
 		fbconfig_dsiTmpBufBpp = 2;
 	else
 		fbconfig_dsiTmpBufBpp = 3;
-
-	if (spr_params->enable == 1 && spr_params->relay == 0
+	if (spr_params && spr_params->enable == 1 && spr_params->relay == 0
 		&& disp_spr_bypass == 0) {
 		switch (ext->params->spr_output_mode) {
 		case MTK_PANEL_PACKED_SPR_8_BITS:
