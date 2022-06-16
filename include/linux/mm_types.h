@@ -417,6 +417,9 @@ struct vm_area_struct {
 	struct mempolicy *vm_policy;	/* NUMA policy for the VMA */
 #endif
 	struct vm_userfaultfd_ctx vm_userfaultfd_ctx;
+#ifdef CONFIG_SPECULATIVE_PAGE_FAULT
+	atomic_t file_ref_count;
+#endif
 } __randomize_layout;
 
 struct core_thread {
@@ -580,10 +583,10 @@ struct mm_struct {
 		struct file __rcu *exe_file;
 #ifdef CONFIG_MMU_NOTIFIER
 		struct mmu_notifier_subscriptions *notifier_subscriptions;
+#endif	/* CONFIG_MMU_NOTIFIER */
 #ifdef CONFIG_SPECULATIVE_PAGE_FAULT
 		struct percpu_rw_semaphore *mmu_notifier_lock;
 #endif	/* CONFIG_SPECULATIVE_PAGE_FAULT */
-#endif	/* CONFIG_MMU_NOTIFIER */
 #if defined(CONFIG_TRANSPARENT_HUGEPAGE) && !USE_SPLIT_PMD_PTLOCKS
 		pgtable_t pmd_huge_pte; /* protected by page_table_lock */
 #endif

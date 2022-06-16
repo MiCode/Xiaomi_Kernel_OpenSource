@@ -1,3 +1,3 @@
 MTK_CHECK_GKI_CMDS="python3 ${KERNEL_DIR}/scripts/gki_checker.py -k ${KERNEL_DIR} -g ${ROOT_DIR}/../vendor/aosp_gki/${KERNEL_DIR}/aarch64/vmlinux-userdebug -m ${OUT_DIR}/${KERNEL_DIR}/vmlinux -w ${KERNEL_DIR}/scripts/gki_checker_white_list.txt -t ${ROOT_DIR}/${CLANG_PREBUILT_BIN}/ -O ${OUT_DIR}/check_gki/"
 
-POST_KERNEL_BUILD_CMDS="${MTK_CHECK_GKI_CMDS} -o file && ${MTK_CHECK_GKI_CMDS} -o config && ${MTK_CHECK_GKI_CMDS} -o symbol"
+#POST_KERNEL_BUILD_CMDS="${MTK_CHECK_GKI_CMDS} -o file && ${MTK_CHECK_GKI_CMDS} -o config && ${MTK_CHECK_GKI_CMDS} -o symbol"
