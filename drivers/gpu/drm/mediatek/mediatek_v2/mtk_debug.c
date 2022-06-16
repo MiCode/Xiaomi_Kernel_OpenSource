@@ -2281,11 +2281,13 @@ static void process_dbg_opt(const char *opt)
 		comp = mtk_ddp_comp_request_output(mtk_crtc);
 		if (!comp || !comp->funcs || !comp->funcs->io_cmd) {
 			DDPINFO("cannot find output component\n");
+			kfree(cust_data);
 			return;
 		}
 		if (IS_ERR_OR_NULL(cust_data)) {
 			DDPMSG("%s, %d, failed to allocate buffer\n",
 				__func__, __LINE__);
+			kfree(cust_data);
 			return;
 		}
 
@@ -2311,6 +2313,7 @@ static void process_dbg_opt(const char *opt)
 			__func__, __LINE__);
 		cust_data->cmd = 2;
 		comp->funcs->io_cmd(comp, NULL, LCM_CUST_FUNC, (void *)cust_data);
+		kfree(cust_data);
 	} else if (strncmp(opt, "lcm0_reset", 10) == 0) {
 		struct mtk_ddp_comp *comp;
 		struct drm_crtc *crtc;
