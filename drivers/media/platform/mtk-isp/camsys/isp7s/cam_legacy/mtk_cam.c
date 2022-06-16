@@ -4157,13 +4157,17 @@ void mtk_cam_dev_req_try_queue(struct mtk_cam_device *cam)
 				s_data->sensor_hdl_obj = sensor_hdl_obj;
 
 				/* copy s_data content */
-				if (mtk_cam_scen_is_mstream_2exp_types(s_data->feature.scen))
-					fill_mstream_s_data(ctx, req);
-				else if (req->p_data[i].s_data_num == 2)
+				if (mtk_cam_scen_is_mstream_types(s_data->feature.scen)) {
+					if (mtk_cam_scen_get_exp_num(s_data->feature.scen) == 2)
+						fill_mstream_s_data(ctx, req);
+					else
+						req->p_data[i].s_data_num = 1;
+				} else if (req->p_data[i].s_data_num == 2) {
 					dev_info(cam->dev,
 						 "%s:req(%s): undefined s_data_1, scen(%s)\n",
 						 __func__, req->req.debug_str,
 						 s_data->feature.scen->dbg_str);
+				}
 			} else if (is_camsv_subdev(i) && i == stream_ctx->stream_id) {
 				if (!(req->ctx_link_update & (1 << i)))
 					s_data->sensor = stream_ctx->sensor;
