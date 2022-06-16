@@ -1866,7 +1866,7 @@ void vcp_wait_core_stop_timeout(int mmup_enable)
 {
 	uint32_t core0_halt = 0;
 	uint32_t core1_halt = 0;
-	uint32_t val = 0;
+	uint32_t core0_status = 0, core1_status = 0;
 	/* make sure vcp is in idle state */
 	int timeout = 500; /* max wait 0.5s */
 
@@ -1876,14 +1876,17 @@ void vcp_wait_core_stop_timeout(int mmup_enable)
 	}
 
 	while (timeout--) {
-		val = readl(R_CORE0_STATUS);
-		core0_halt = (val == (B_CORE_GATED | B_HART0_HALT | B_HART1_HALT));
-		val = readl(R_CORE1_STATUS);
-		core1_halt = (vcpreg.core_nums == 2) ?
-			(val == (B_CORE_GATED | B_HART0_HALT | B_HART1_HALT)) : 1;
+		core0_status = readl(R_CORE0_STATUS);
+		core0_halt = (core0_status == (B_CORE_GATED | B_HART0_HALT | B_HART1_HALT));
+		if (vcpreg.core_nums == 2) {
+			core1_status = readl(R_CORE1_STATUS);
+			core1_halt = (core1_status == (B_CORE_GATED | B_HART0_HALT | B_HART1_HALT));
+		} else
+			core1_halt = 1;
 
 		pr_debug("[VCP] debug CORE_STATUS vcp: 0x%x, 0x%x\n",
-			readl(R_CORE0_STATUS), readl(R_CORE1_STATUS));
+			core0_status, core1_status);
+
 		if (core0_halt && core1_halt) {
 			/* VCP stops any activities
 			 * and parks at wfi
@@ -1895,8 +1898,7 @@ void vcp_wait_core_stop_timeout(int mmup_enable)
 
 	if (timeout == 0)
 		pr_notice("[VCP] reset timeout, still reset vcp: 0x%x, 0x%x\n",
-			readl(R_CORE0_STATUS), readl(R_CORE1_STATUS));
-
+			core0_status, core1_status);
 }
 
 #if VCP_RECOVERY_SUPPORT
