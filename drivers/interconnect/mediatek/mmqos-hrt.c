@@ -3,7 +3,9 @@
  * Copyright (c) 2019 MediaTek Inc.
  * Author: Anthony Huang <anthony.huang@mediatek.com>
  */
+#include <linux/kthread.h>
 #include <linux/module.h>
+#include <soc/mediatek/mmdvfs_v3.h>
 #include "mmqos-mtk.h"
 #include "mtk-mmdvfs-debug.h"
 #define MULTIPLY_W_DRAM_WEIGHT(value) ((value)*6/5)
@@ -201,11 +203,35 @@ static ssize_t mtk_mmqos_scen_store(struct device *dev,
 
 static DEVICE_ATTR_WO(mtk_mmqos_scen);
 
+static int enable_vcp_blocking(void *data)
+{
+	atomic_inc(&mmqos_hrt->lock_count);
+	pr_notice("%s: increase lock_count=%d\n", __func__,
+		atomic_read(&mmqos_hrt->lock_count));
+
+	mtk_mmdvfs_enable_vcp(true);
+
+	atomic_dec(&mmqos_hrt->lock_count);
+	wake_up(&mmqos_hrt->hrt_wait);
+	pr_notice("%s: decrease lock_count=%d\n", __func__,
+		atomic_read(&mmqos_hrt->lock_count));
+
+	return 0;
+}
 
 static void set_camera_max_bw(u32 bw)
 {
-	mmqos_hrt->cam_max_bw = bw;
+	struct task_struct *pKThread;
+
 	pr_notice("%s: %d\n", __func__, bw);
+
+	if (mmqos_hrt->cam_max_bw == 0 && bw > 0)
+		pKThread = kthread_run(enable_vcp_blocking, NULL, "enable vcp");
+	else if (mmqos_hrt->cam_max_bw > 0 && bw == 0)
+		mtk_mmdvfs_enable_vcp(false);
+
+	mmqos_hrt->cam_max_bw = bw;
+
 	if (mmqos_hrt->blocking && mmqos_hrt->cam_bw_inc) {
 		atomic_inc(&mmqos_hrt->lock_count);
 		pr_notice("%s: increase lock_count=%d\n", __func__,
