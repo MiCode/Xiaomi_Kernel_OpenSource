@@ -2545,9 +2545,6 @@ static int mtk_cam_req_update_ctrl(struct mtk_raw_pipeline *raw_pipe,
 			scen_pre.id,
 			raw_pipe->user_res.raw_res.scen.id);
 	}
-	/* convert legacy feature to scen type */
-	mtk_cam_scen_update_feature_to_type(&raw_pipe->user_res.raw_res.scen,
-					    raw_pipe->feature_pending);
 	raw_pipe_data->res = raw_pipe->user_res;
 	s_data->feature.switch_feature_type =
 		mtk_cam_get_feature_switch(raw_pipe, &scen_pre);

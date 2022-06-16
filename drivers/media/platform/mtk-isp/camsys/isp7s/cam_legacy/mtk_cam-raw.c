@@ -63,6 +63,14 @@ static int debug_dump_fbc;
 module_param(debug_dump_fbc, int, 0644);
 MODULE_PARM_DESC(debug_dump_fbc, "debug: dump fbc");
 
+static int debug_user_raws = -1;
+module_param(debug_user_raws, int, 0644);
+MODULE_PARM_DESC(debug_user_raws, "debug: user raws");
+
+static int debug_user_must_raws;
+module_param(debug_user_must_raws, int, 0644);
+MODULE_PARM_DESC(debug_user_must_raws, "debug: user must raws");
+
 #define MTK_RAW_STOP_HW_TIMEOUT			(33)
 
 #define MTK_CAMSYS_RES_IDXMASK		0xF0
@@ -292,14 +300,14 @@ static int mtk_raw_get_ctrl(struct v4l2_ctrl *ctrl)
 	pipeline = mtk_cam_ctrl_handler_to_raw_pipeline(ctrl->handler);
 	dev = pipeline->raw->devs[pipeline->id];
 
-	if (ctrl->id == V4L2_CID_MTK_CAM_RAW_RESOURCE_CALC) {
+	if (ctrl->id == V4L2_CID_MTK_CAM_RAW_RESOURCE_CALC_TEST) {
 		user_res_legacy = (struct mtk_cam_resource *)ctrl->p_new.p;
 		mtk_cam_resource_to_v1(user_res_legacy, &sink_fmt, &pipeline->user_res);
 		if (user_res_legacy->sink_fmt)
 			ret = mtk_cam_res_copy_fmt_to_user(pipeline,
 							   user_res_legacy,
 							   &sink_fmt);
-	} else if (ctrl->id == V4L2_CID_MTK_CAM_RAW_RESOURCE_CALC_TEST) {
+	} else if (ctrl->id == V4L2_CID_MTK_CAM_RAW_RESOURCE_CALC) {
 		user_res = (struct mtk_cam_resource_v2 *)ctrl->p_new.p;
 		*user_res = pipeline->user_res;
 	} else if (ctrl->id == V4L2_CID_MTK_CAM_RAW_RESOURCE_UPDATE) {
@@ -523,13 +531,25 @@ static s64 mtk_cam_calc_pure_m2m_pixelrate(s64 width, s64 height,
 static bool mtk_cam_res_raw_mask_chk(struct device *dev,
 				     struct mtk_cam_resource_v2 *res_user)
 {
-	int raw_available = res_user->raw_res.raws;
-	const int raw_must_selected = res_user->raw_res.raws_must;
+	int raw_available;
+	int raw_must_selected;
+
+	/* debug only, to fake the user select raws */
+	if (debug_raw && debug_user_raws != -1) {
+		dev_info(dev,
+			 "%s:debug: load raw_must_selected(0x%x), raw_available(0x%x)\n",
+			 __func__, debug_user_must_raws, debug_user_raws);
+		res_user->raw_res.raws = debug_user_raws;
+		res_user->raw_res.raws_must = debug_user_must_raws;
+	}
+
+	raw_available = res_user->raw_res.raws;
+	raw_must_selected = res_user->raw_res.raws_must;
 
 	/* user let driver select raw, in legacy driver, we select it after streaming on */
 	if (raw_available == 0 && raw_must_selected == 0) {
 		dev_info(dev,
-			 "s%: user doesn't select raw, raws_must(0x%x), raws(0x%x)\n",
+			 "%s: user doesn't select raw, raws_must(0x%x), raws(0x%x)\n",
 			 __func__, raw_must_selected, raw_available);
 		return true;
 	}
@@ -537,11 +557,30 @@ static bool mtk_cam_res_raw_mask_chk(struct device *dev,
 	/* check invalid raw_must_selected */
 	if ((raw_available & raw_must_selected) != raw_must_selected) {
 		dev_info(dev,
-			 "s%: raws_must(0x%x) error, raws available(0x%x), may select unavailable raw\n",
+			 "%s: raws_must(0x%x) error, raws(0x%x), may select unavailable raw\n",
 			 __func__, raw_must_selected, raw_available);
 		return false;
 
 	}
+
+	/* simple raw c can't support hdr scenarios */
+	if ((raw_available & MTK_CAM_RAW_C) &&
+	    mtk_cam_scen_is_hdr(&res_user->raw_res.scen)) {
+		dev_info(dev,
+			 "%s: raws_must(0x%x) error, raws(0x%x), scen(%s): can't support HDR\n",
+			 __func__, raw_must_selected, raw_available,
+			 res_user->raw_res.scen.dbg_str);
+		return false;
+	}
+
+	if ((raw_must_selected & MTK_CAM_RAW_A) &&
+	    (raw_must_selected & MTK_CAM_RAW_C)) {
+		dev_info(dev,
+			 "%s: raws_must(0x%x) error, raws(0x%x), cant' select raw a with c\n",
+			 __func__, raw_must_selected, raw_available);
+		return false;
+	}
+	res_user->raw_res.raws = raw_available & raw_must_selected;
 
 	return true;
 }
@@ -952,7 +991,7 @@ static int mtk_raw_try_ctrl(struct v4l2_ctrl *ctrl)
 	dev = pipeline->raw->devs[pipeline->id];
 
 	switch (ctrl->id) {
-	case V4L2_CID_MTK_CAM_RAW_RESOURCE_CALC_TEST:
+	case V4L2_CID_MTK_CAM_RAW_RESOURCE_CALC:
 		res_user_ptr = (struct mtk_cam_resource_v2 *)ctrl->p_new.p;
 		mtk_cam_scen_update_dbg_str(&res_user_ptr->raw_res.scen);
 		mtk_cam_raw_log_res_ctrl(pipeline, res_user_ptr,
@@ -965,7 +1004,7 @@ static int mtk_raw_try_ctrl(struct v4l2_ctrl *ctrl)
 			dev_info(dev, "%s:pipe(%d): res calc failed, please check the param\n",
 				 __func__, pipeline->id);
 		break;
-	case V4L2_CID_MTK_CAM_RAW_RESOURCE_CALC:
+	case V4L2_CID_MTK_CAM_RAW_RESOURCE_CALC_TEST:
 		res_user_legacy = (struct mtk_cam_resource *)ctrl->p_new.p;
 		ret = mtk_cam_raw_res_store(pipeline, res_user_legacy, "try_ctrl", false);
 		if (ret)
@@ -1032,10 +1071,10 @@ static int mtk_raw_set_ctrl(struct v4l2_ctrl *ctrl)
 	dev = pipeline->raw->devs[pipeline->id];
 
 	switch (ctrl->id) {
-	case V4L2_CID_MTK_CAM_RAW_RESOURCE_CALC_TEST:
+	case V4L2_CID_MTK_CAM_RAW_RESOURCE_CALC:
 		ret = mtk_cam_raw_set_res_ctrl(ctrl);
 		break;
-	case V4L2_CID_MTK_CAM_RAW_RESOURCE_CALC:
+	case V4L2_CID_MTK_CAM_RAW_RESOURCE_CALC_TEST:
 		/**
 		 * It also updates V4L2_CID_MTK_CAM_FEATURE and
 		 * V4L2_CID_MTK_CAM_RAW_PATH_SELECT to device
@@ -1289,7 +1328,7 @@ static const struct v4l2_ctrl_config mtk_feature = {
 
 static struct v4l2_ctrl_config cfg_res_ctrl = {
 	.ops = &cam_ctrl_ops,
-	.id = V4L2_CID_MTK_CAM_RAW_RESOURCE_CALC,
+	.id = V4L2_CID_MTK_CAM_RAW_RESOURCE_CALC_TEST,
 	.name = "resource ctrl",
 	.type = V4L2_CTRL_COMPOUND_TYPES, /* V4L2_CTRL_TYPE_U32,*/
 	.flags = V4L2_CTRL_FLAG_EXECUTE_ON_WRITE,
@@ -1300,7 +1339,7 @@ static struct v4l2_ctrl_config cfg_res_ctrl = {
 
 static struct v4l2_ctrl_config cfg_res_v2_ctrl = {
 	.ops = &cam_ctrl_ops,
-	.id = V4L2_CID_MTK_CAM_RAW_RESOURCE_CALC_TEST,
+	.id = V4L2_CID_MTK_CAM_RAW_RESOURCE_CALC,
 	.name = "resource ctrl",
 	.type = V4L2_CTRL_COMPOUND_TYPES, /* V4L2_CTRL_TYPE_U32,*/
 	.flags = V4L2_CTRL_FLAG_EXECUTE_ON_WRITE,
@@ -3253,31 +3292,6 @@ int mtk_cam_raw_select(struct mtk_cam_ctx *ctx,
 	return 0;
 }
 
-static void mtk_raw_legacy_scen_chk_update(struct mtk_cam_scen *scen, int feature)
-{
-	/*
-	 * Non-HDR scenario: the feature pending must the same as
-	 * the feature in legacy raw resource
-	 */
-	if (scen->id == MTK_CAM_SCEN_NORMAL && feature != 0) {
-		pr_info("%s: normal:scen(%s) and pending feature(0x%x) not compatible",
-			__func__, scen->dbg_str, feature);
-
-		/**
-		 * TBC: if the user doesn't write the correct pending feature for the
-		 * stream, we may got some error which can't be recovered.
-		 */
-		mtk_cam_feature_to_scen(scen, feature, feature);
-	}
-
-	/**
-	 * HDR (stagger and mstream) scenario: legacy feature pending
-	 * may be different from the feature in legacy raw resource
-	 * e.g. first frame is stagger or mstream 1 exp
-	 */
-	mtk_cam_scen_update_feature_to_type(scen, feature);
-
-}
 static int mtk_raw_sd_s_stream(struct v4l2_subdev *sd, int enable)
 {
 	struct mtk_raw_pipeline *pipe =
@@ -3291,12 +3305,10 @@ static int mtk_raw_sd_s_stream(struct v4l2_subdev *sd, int enable)
 		return -EINVAL;
 
 	if (enable) {
-		mtk_raw_legacy_scen_chk_update(&pipe->user_res.raw_res.scen,
-					       pipe->feature_pending);
 		pipe->scen_active = pipe->user_res.raw_res.scen;
 		dev_info(sd->v4l2_dev->dev,
-			 "%s:res scen update(%s) from feature(0x%x)\n",
-			 __func__, pipe->scen_active.dbg_str, pipe->feature_pending);
+			 "%s:res scen(%s)\n",
+			 __func__, pipe->scen_active.dbg_str);
 		pipe->enabled_dmas = 0;
 		ctx->pipe = pipe;
 		ctx->used_raw_num++;
