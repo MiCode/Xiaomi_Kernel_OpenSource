@@ -29,44 +29,12 @@
 			<&pericfg_ao_clk CLK_PERAO_AUDIO_SLV>,
 			<&pericfg_ao_clk CLK_PERAO_AUDIO_MST>,
 			<&pericfg_ao_clk CLK_PERAO_AUDIO_INTBUS>,
-			<&pextpcfg_ao_clk CLK_PEXT_MAC0_26M>,
-			<&pextpcfg_ao_clk CLK_PEXT_MAC0_P1_PCLK_250M>,
-			<&pextpcfg_ao_clk CLK_PEXT_MAC0_GFMUX_TL>,
-			<&pextpcfg_ao_clk CLK_PEXT_MAC0_FMEM>,
-			<&pextpcfg_ao_clk CLK_PEXT_MAC0_HCLK>,
-			<&pextpcfg_ao_clk CLK_PEXT_PHY0_REF>,
-			<&pextpcfg_ao_clk CLK_PEXT_MAC1_26M>,
-			<&pextpcfg_ao_clk CLK_PEXT_MAC1_P1_PCLK_250M>,
-			<&pextpcfg_ao_clk CLK_PEXT_MAC1_GFMUX_TL>,
-			<&pextpcfg_ao_clk CLK_PEXT_MAC1_FMEM>,
-			<&pextpcfg_ao_clk CLK_PEXT_MAC1_HCLK>,
-			<&pextpcfg_ao_clk CLK_PEXT_PHY1_REF>,
 			<&vlp_cksys_clk CLK_VLP_CK_CAMTG_VLP_SEL>;
 	};
 
 	bring-up-pd-ufs0_phy_shutdown {
 		compatible = "mediatek,scpsys-bring-up";
 		power-domains = <&scpsys MT6985_POWER_DOMAIN_UFS0_PHY_SHUTDOWN>;
-	};
-
-	bring-up-pd-pextp_mac0_shutdown {
-		compatible = "mediatek,scpsys-bring-up";
-		power-domains = <&scpsys MT6985_POWER_DOMAIN_PEXTP_MAC0_SHUTDOWN>;
-	};
-
-	bring-up-pd-pextp_mac1_shutdown {
-		compatible = "mediatek,scpsys-bring-up";
-		power-domains = <&scpsys MT6985_POWER_DOMAIN_PEXTP_MAC1_SHUTDOWN>;
-	};
-
-	bring-up-pd-pextp_phy0 {
-		compatible = "mediatek,scpsys-bring-up";
-		power-domains = <&scpsys MT6985_POWER_DOMAIN_PEXTP_PHY0>;
-	};
-
-	bring-up-pd-pextp_phy1 {
-		compatible = "mediatek,scpsys-bring-up";
-		power-domains = <&scpsys MT6985_POWER_DOMAIN_PEXTP_PHY1>;
 	};
 
 	bring-up-pd-audio {
