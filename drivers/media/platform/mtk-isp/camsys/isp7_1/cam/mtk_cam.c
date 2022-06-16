@@ -6293,26 +6293,41 @@ int mtk_cam_dev_config(struct mtk_cam_ctx *ctx, bool streaming, bool config_pipe
 			return -EINVAL;
 		}
 		if (ctx->ext_isp_meta_off || ctx->ext_isp_pureraw_off) {
+			int off_sv_pureraw, off_sv_meta, sv_i, padidx;
+
+			for (sv_i = MTKCAM_SUBDEV_CAMSV_START;
+			sv_i < MTKCAM_SUBDEV_CAMSV_END; sv_i++) {
+				if (ctx->pipe->enabled_raw & (1 << sv_i)) {
+					padidx = ctx->cam->sv.pipelines
+					[sv_i - MTKCAM_SUBDEV_CAMSV_START]
+					.seninf_padidx;
+					if (padidx == PAD_SRC_RAW0)
+						off_sv_pureraw = sv_i;
+					else if (padidx == PAD_SRC_GENERAL0)
+						off_sv_meta = sv_i;
+				}
+			}
 			ctx->pipe->enabled_raw &= ~idle_pipes;
 			if (ctx->ext_isp_meta_off && ctx->ext_isp_pureraw_off) {
-				idle_pipes = idle_pipes & (~(1 << MTKCAM_SUBDEV_CAMSV_1));
-				idle_pipes = idle_pipes & (~(1 << MTKCAM_SUBDEV_CAMSV_0));
-				ctx->cam->sv.pipelines[MTKCAM_SUBDEV_CAMSV_0 -
+				idle_pipes = idle_pipes & (~(1 << off_sv_meta));
+				idle_pipes = idle_pipes & (~(1 << off_sv_pureraw));
+				ctx->cam->sv.pipelines[off_sv_pureraw -
 					MTKCAM_SUBDEV_CAMSV_START].is_occupied = 0;
-				ctx->cam->sv.pipelines[MTKCAM_SUBDEV_CAMSV_1 -
+				ctx->cam->sv.pipelines[off_sv_meta -
 					MTKCAM_SUBDEV_CAMSV_START].is_occupied = 0;
 			} else if (ctx->ext_isp_meta_off) {
-				idle_pipes = idle_pipes & (~(1 << MTKCAM_SUBDEV_CAMSV_1));
-				ctx->cam->sv.pipelines[MTKCAM_SUBDEV_CAMSV_1 -
+				idle_pipes = idle_pipes & (~(1 << off_sv_meta));
+				ctx->cam->sv.pipelines[off_sv_meta -
 					MTKCAM_SUBDEV_CAMSV_START].is_occupied = 0;
 			} else if (ctx->ext_isp_pureraw_off) {
-				idle_pipes = idle_pipes & (~(1 << MTKCAM_SUBDEV_CAMSV_0));
-				ctx->cam->sv.pipelines[MTKCAM_SUBDEV_CAMSV_0 -
+				idle_pipes = idle_pipes & (~(1 << off_sv_pureraw));
+				ctx->cam->sv.pipelines[off_sv_pureraw -
 					MTKCAM_SUBDEV_CAMSV_START].is_occupied = 0;
 			}
 			ctx->pipe->enabled_raw |= idle_pipes;
-			dev_info(cam->dev, "force debug enable raw (0x%x) sv pipes(0x%x)",
-				ctx->pipe->enabled_raw, idle_pipes);
+			dev_info(cam->dev, "force raw (0x%x) sv pipes(0x%x), %d/%d",
+				ctx->pipe->enabled_raw, idle_pipes,
+				off_sv_pureraw, off_sv_meta);
 		}
 	}
 
