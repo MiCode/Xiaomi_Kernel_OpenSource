@@ -7344,13 +7344,15 @@
 				IPI_MMDVFS_VCP SPEC_MMDVFS_NORMAL &opp_table_cam>,
 			<&mmdvfs_clk CLK_MMDVFS_CCU PWR_MMDVFS_VCORE 10
 				IPI_MMDVFS_VCP SPEC_MMDVFS_NORMAL &opp_table_ccu>,
-			<&mmdvfs_clk CLK_MMDVFS_VCORE PWR_MMDVFS_VCORE 11
+			<&mmdvfs_clk CLK_MMDVFS_AOV PWR_MMDVFS_VMM 11
+				IPI_MMDVFS_VCP SPEC_MMDVFS_ALONE &opp_table_cam>,
+			<&mmdvfs_clk CLK_MMDVFS_VCORE PWR_MMDVFS_VCORE 12
 				IPI_MMDVFS_VCP SPEC_MMDVFS_NORMAL &opp_table_vote>,
-			<&mmdvfs_clk CLK_MMDVFS_VMM PWR_MMDVFS_VMM 12
+			<&mmdvfs_clk CLK_MMDVFS_VMM PWR_MMDVFS_VMM 13
 				IPI_MMDVFS_VCP SPEC_MMDVFS_NORMAL &opp_table_vote>;
 		mediatek,mmdvfs-clock-names = "disp", "mdp", "mml", "smi_common0", "smi_common1",
 			"venc", "jpegenc", "vdec", "vfmt", "jpegdec", "img", "ipe", "cam", "ccu",
-			"vcore", "vmm";
+			"aov", "vcore", "vmm";
 		#clock-cells = <1>;
 		clocks = <&mmdvfs_clk CLK_MMDVFS_VCORE>, <&mmdvfs_clk CLK_MMDVFS_VMM>;
 		clock-names = "vcore", "vmm";
