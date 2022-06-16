@@ -3249,18 +3249,19 @@ static long FDVT_ioctl(struct file *pFile,
 					[fdvt_req_ring.write_idx];
 			if (FDVT_REQUEST_STATE_EMPTY ==
 				request->state) {
+				if (enqueNum >
+					MAX_FDVT_FRAME_REQUEST || enqueNum < 0) {
+					log_err(
+					"FDVT Enque Num is bigger than enqueNum or negtive:%d\n",
+					enqueNum);
+					break;
+				}
 				spin_lock_irqsave(spinlock_lrq_ptr, flags);
 				request->process_id =
 					pUserInfo->pid;
 				request->enque_req_num =
 					enqueNum;
 				spin_unlock_irqrestore(spinlock_lrq_ptr, flags);
-				if (enqueNum >
-					MAX_FDVT_FRAME_REQUEST) {
-					log_err(
-					"FDVT Enque Num is bigger than enqueNum:%d\n",
-					enqueNum);
-				}
 				log_dbg("FDVT_ENQNUE_NUM:%d\n",
 					enqueNum);
 			} else {

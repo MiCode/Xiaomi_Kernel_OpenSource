@@ -1752,100 +1752,6 @@ EXIT:
 	return Ret;
 }
 
-
-/*******************************************************************************
- *
- ******************************************************************************/
-static signed int RSC_WriteRegToHw(struct RSC_REG_STRUCT *pReg,
-							unsigned int Count)
-{
-	signed int Ret = 0;
-	unsigned int i;
-	bool dbgWriteReg;
-
-	spin_lock(&(RSCInfo.SpinLockRSC));
-	dbgWriteReg = RSCInfo.DebugMask & RSC_DBG_WRITE_REG;
-	spin_unlock(&(RSCInfo.SpinLockRSC));
-
-	if (dbgWriteReg)
-		LOG_DBG("- E.\n");
-
-	for (i = 0; i < Count; i++) {
-		if (dbgWriteReg) {
-			LOG_DBG("Addr(0x%lx), Val(0x%x)\n",
-				(unsigned long)(ISP_RSC_BASE + pReg[i].Addr),
-				(unsigned int) (pReg[i].Val));
-		}
-
-		if (((ISP_RSC_BASE + pReg[i].Addr) <
-						(ISP_RSC_BASE + RSC_REG_RANGE))
-			&& ((pReg[i].Addr & 0x3) == 0)) {
-			RSC_WR32(ISP_RSC_BASE + pReg[i].Addr, pReg[i].Val);
-		} else {
-			LOG_ERR("wrong address(0x%lx)\n",
-				(unsigned long)(ISP_RSC_BASE + pReg[i].Addr));
-		}
-	}
-
-	return Ret;
-}
-
-
-
-/*******************************************************************************
- *
- ******************************************************************************/
-static signed int RSC_WriteReg(struct RSC_REG_IO_STRUCT *pRegIo)
-{
-	signed int Ret = 0;
-	/*
-	 *  signed int TimeVd = 0;
-	 *  signed int TimeExpdone = 0;
-	 *  signed int TimeTasklet = 0;
-	 */
-	/* unsigned char* pData = NULL; */
-	struct RSC_REG_STRUCT *pData = NULL;
-
-	if (RSCInfo.DebugMask & RSC_DBG_WRITE_REG)
-		LOG_DBG("Data(0x%p), Count(%d)\n", (pRegIo->pData),
-							(pRegIo->Count));
-
-	pData = kmalloc((pRegIo->Count) * sizeof(struct RSC_REG_STRUCT),
-								GFP_ATOMIC);
-	if (pData == NULL) {
-		LOG_DBG(
-		"ERROR: kmalloc failed, (process, pid, tgid)=(%s, %d, %d)\n",
-				current->comm, current->pid, current->tgid);
-		Ret = -ENOMEM;
-		goto EXIT;
-	}
-	if ((pRegIo->pData == NULL) || (pRegIo->Count == 0) ||
-		(pRegIo->Count > (RSC_REG_RANGE>>2))) {
-		LOG_ERR("RSC WriteReg pData is NULL or Count:%d is larger!!",
-			pRegIo->Count);
-		Ret = -EFAULT;
-		goto EXIT;
-	}
-
-	if (copy_from_user
-	    (pData, (void __user *)(pRegIo->pData),
-			pRegIo->Count * sizeof(struct RSC_REG_STRUCT)) != 0) {
-		LOG_ERR("copy_from_user failed\n");
-		Ret = -EFAULT;
-		goto EXIT;
-	}
-
-	Ret = RSC_WriteRegToHw(pData, pRegIo->Count);
-
-EXIT:
-	if (pData != NULL) {
-		kfree(pData);
-		pData = NULL;
-	}
-	return Ret;
-}
-
-
 /*******************************************************************************
  *
  ******************************************************************************/
@@ -2091,18 +1997,6 @@ static long RSC_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 			}
 			break;
 		}
-	case RSC_WRITE_REGISTER:
-		{
-			if (copy_from_user(&RegIo, (void *)Param,
-				sizeof(struct RSC_REG_IO_STRUCT)) == 0) {
-				Ret = RSC_WriteReg(&RegIo);
-			} else {
-				LOG_ERR(
-				"RSC_WRITE_REGISTER copy_from_user failed");
-				Ret = -EFAULT;
-			}
-			break;
-		}
 	case RSC_WAIT_IRQ:
 		{
 			if (copy_from_user(&IrqInfo, (void *)Param,
@@ -2201,6 +2095,13 @@ static long RSC_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 				    g_RSC_ReqRing.RSCReq_Struct[
 							g_RSC_ReqRing.WriteIdx].
 				    State) {
+					if (enqueNum >
+						_SUPPORT_MAX_RSC_FRAME_REQUEST_ || enqueNum < 0) {
+						LOG_ERR(
+						"RSC Enque Num is bigger than enqueNum or NEG:%d\n",
+						     enqueNum);
+						break;
+					}
 					spin_lock_irqsave(
 					&(RSCInfo.SpinLockIrq[
 						RSC_IRQ_TYPE_INT_RSC_ST]),
@@ -2215,12 +2116,6 @@ static long RSC_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 					spin_unlock_irqrestore(
 					&(RSCInfo.SpinLockIrq[
 					RSC_IRQ_TYPE_INT_RSC_ST]), flags);
-					if (enqueNum >
-					_SUPPORT_MAX_RSC_FRAME_REQUEST_) {
-						LOG_ERR(
-						"RSC Enque Num is bigger than enqueNum:%d\n",
-						     enqueNum);
-					}
 					LOG_DBG(
 					"RSC_ENQNUE_NUM:%d\n", enqueNum);
 				} else {
