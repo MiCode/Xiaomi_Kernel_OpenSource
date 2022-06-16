@@ -2245,17 +2245,15 @@ int mtk_cam_video_s_fmt_common(struct mtk_cam_video_device *node,
 	 * Note: vhdr m2m main stream is implicitly multiple plane
 	 * but not negotiatied through try format
 	 */
-	dev_info(cam->dev, "%s:%s:pipe(%d):%s\n",
-			 __func__, dbg_str, node->uid.pipe_id, node->desc.name);
 	if (try_fmt.fmt.pix_mp.num_planes <= 0) {
-		dev_info(cam->dev, "%s:%s:pipe(%d):%s:invalid num_planes(%d)\n",
+		dev_info_ratelimited(cam->dev, "%s:%s:pipe(%d):%s:invalid num_planes(%d)\n",
 			 __func__, dbg_str, node->uid.pipe_id, node->desc.name,
 			 try_fmt.fmt.pix_mp.num_planes);
 		try_fmt.fmt.pix_mp.num_planes = 1;
 	}
 
 	if (try_fmt.fmt.pix_mp.num_planes > MAX_SUBSAMPLE_PLANE_NUM) {
-		dev_info(cam->dev, "%s:%s:pipe(%d):%s:invalid num_planes(%d)\n",
+		dev_info_ratelimited(cam->dev, "%s:%s:pipe(%d):%s:invalid num_planes(%d)\n",
 			 __func__, dbg_str, node->uid.pipe_id, node->desc.name,
 			 try_fmt.fmt.pix_mp.num_planes);
 		try_fmt.fmt.pix_mp.num_planes = MAX_SUBSAMPLE_PLANE_NUM;
@@ -2290,7 +2288,7 @@ int mtk_cam_video_s_fmt_common(struct mtk_cam_video_device *node,
 				sizeimage;
 		}
 
-		dev_info(cam->dev,
+		dev_info_ratelimited(cam->dev,
 			 "%s:%s:pipe(%d):%s:stride:%d, size:%d, num_planes(%d)\n",
 			 __func__, dbg_str, node->uid.pipe_id, node->desc.name,
 			 bytesperline, sizeimage,

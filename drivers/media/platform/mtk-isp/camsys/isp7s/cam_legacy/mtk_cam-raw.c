@@ -3279,7 +3279,7 @@ bool mtk_raw_fmt_get_res(struct v4l2_subdev *sd,
 	addr = ((u64)fmt->reserved[1] << 32) | fmt->reserved[2];
 	user_ptr = (void *)addr;
 	if (!user_ptr) {
-		dev_info(sd->v4l2_dev->dev, "%s: mtk_cam_resource is null\n",
+		dev_info_ratelimited(sd->v4l2_dev->dev, "%s: mtk_cam_resource is null\n",
 			__func__);
 		return false;
 	}
