@@ -598,8 +598,6 @@ static int lm3644_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 {
 	int ret;
 
-	pr_info("%s open\n", __func__);
-
 	ret = pm_runtime_get_sync(sd->dev);
 	if (ret < 0) {
 		pm_runtime_put_noidle(sd->dev);
@@ -611,8 +609,6 @@ static int lm3644_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 
 static int lm3644_close(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 {
-	pr_info("%s close\n", __func__);
-
 	pm_runtime_put(sd->dev);
 
 	return 0;
