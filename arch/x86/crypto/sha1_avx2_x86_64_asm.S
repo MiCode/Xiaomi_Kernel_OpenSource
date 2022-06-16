@@ -674,7 +674,7 @@ _loop3:
 	pop	%r12
 	pop	%rbx
 
-	RET
+	ret
 
 	SYM_FUNC_END(\name)
 .endm

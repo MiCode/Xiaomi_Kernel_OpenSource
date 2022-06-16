@@ -740,7 +740,7 @@ SYM_FUNC_START(schedule_tail_wrapper)
 	popl	%eax
 
 	FRAME_END
-	RET
+	ret
 SYM_FUNC_END(schedule_tail_wrapper)
 .popsection
 

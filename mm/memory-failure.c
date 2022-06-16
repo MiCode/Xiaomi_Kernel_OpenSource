@@ -705,10 +705,8 @@ static int kill_accessing_process(struct task_struct *p, unsigned long pfn,
 			      (void *)&priv);
 	if (ret == 1 && priv.tk.addr)
 		kill_proc(&priv.tk, pfn, flags);
-	else
-		ret = 0;
 	mmap_read_unlock(p->mm);
-	return ret > 0 ? -EHWPOISON : -EFAULT;
+	return ret ? -EFAULT : -EHWPOISON;
 }
 
 static const char *action_name[] = {
@@ -1217,7 +1215,7 @@ try_again:
 	}
 out:
 	if (ret == -EIO)
-		pr_err("Memory failure: %#lx: unhandlable page.\n", page_to_pfn(p));
+		dump_page(p, "hwpoison: unhandlable page");
 
 	return ret;
 }

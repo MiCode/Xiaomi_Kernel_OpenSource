@@ -32,14 +32,6 @@
 
 #define VMW_FENCE_WRAP (1 << 24)
 
-static u32 vmw_irqflag_fence_goal(struct vmw_private *vmw)
-{
-	if ((vmw->capabilities2 & SVGA_CAP2_EXTRA_REGS) != 0)
-		return SVGA_IRQFLAG_REG_FENCE_GOAL;
-	else
-		return SVGA_IRQFLAG_FENCE_GOAL;
-}
-
 /**
  * vmw_thread_fn - Deferred (process context) irq handler
  *
@@ -104,7 +96,7 @@ static irqreturn_t vmw_irq_handler(int irq, void *arg)
 		wake_up_all(&dev_priv->fifo_queue);
 
 	if ((masked_status & (SVGA_IRQFLAG_ANY_FENCE |
-			      vmw_irqflag_fence_goal(dev_priv))) &&
+			      SVGA_IRQFLAG_FENCE_GOAL)) &&
 	    !test_and_set_bit(VMW_IRQTHREAD_FENCE, dev_priv->irqthread_pending))
 		ret = IRQ_WAKE_THREAD;
 
@@ -145,7 +137,8 @@ bool vmw_seqno_passed(struct vmw_private *dev_priv,
 	if (likely(dev_priv->last_read_seqno - seqno < VMW_FENCE_WRAP))
 		return true;
 
-	if (!vmw_has_fences(dev_priv) && vmw_fifo_idle(dev_priv, seqno))
+	if (!(vmw_fifo_caps(dev_priv) & SVGA_FIFO_CAP_FENCE) &&
+	    vmw_fifo_idle(dev_priv, seqno))
 		return true;
 
 	/**
@@ -167,7 +160,6 @@ int vmw_fallback_wait(struct vmw_private *dev_priv,
 		      unsigned long timeout)
 {
 	struct vmw_fifo_state *fifo_state = dev_priv->fifo;
-	bool fifo_down = false;
 
 	uint32_t count = 0;
 	uint32_t signal_seq;
@@ -184,14 +176,12 @@ int vmw_fallback_wait(struct vmw_private *dev_priv,
 	 */
 
 	if (fifo_idle) {
+		down_read(&fifo_state->rwsem);
 		if (dev_priv->cman) {
 			ret = vmw_cmdbuf_idle(dev_priv->cman, interruptible,
 					      10*HZ);
 			if (ret)
 				goto out_err;
-		} else if (fifo_state) {
-			down_read(&fifo_state->rwsem);
-			fifo_down = true;
 		}
 	}
 
@@ -228,12 +218,12 @@ int vmw_fallback_wait(struct vmw_private *dev_priv,
 		}
 	}
 	finish_wait(&dev_priv->fence_queue, &__wait);
-	if (ret == 0 && fifo_idle && fifo_state)
+	if (ret == 0 && fifo_idle)
 		vmw_fence_write(dev_priv, signal_seq);
 
 	wake_up_all(&dev_priv->fence_queue);
 out_err:
-	if (fifo_down)
+	if (fifo_idle)
 		up_read(&fifo_state->rwsem);
 
 	return ret;
@@ -276,13 +266,13 @@ void vmw_seqno_waiter_remove(struct vmw_private *dev_priv)
 
 void vmw_goal_waiter_add(struct vmw_private *dev_priv)
 {
-	vmw_generic_waiter_add(dev_priv, vmw_irqflag_fence_goal(dev_priv),
+	vmw_generic_waiter_add(dev_priv, SVGA_IRQFLAG_FENCE_GOAL,
 			       &dev_priv->goal_queue_waiters);
 }
 
 void vmw_goal_waiter_remove(struct vmw_private *dev_priv)
 {
-	vmw_generic_waiter_remove(dev_priv, vmw_irqflag_fence_goal(dev_priv),
+	vmw_generic_waiter_remove(dev_priv, SVGA_IRQFLAG_FENCE_GOAL,
 				  &dev_priv->goal_queue_waiters);
 }
 

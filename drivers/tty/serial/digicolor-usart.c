@@ -471,10 +471,11 @@ static int digicolor_uart_probe(struct platform_device *pdev)
 	if (IS_ERR(uart_clk))
 		return PTR_ERR(uart_clk);
 
-	dp->port.membase = devm_platform_get_and_ioremap_resource(pdev, 0, &res);
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	dp->port.mapbase = res->start;
+	dp->port.membase = devm_ioremap_resource(&pdev->dev, res);
 	if (IS_ERR(dp->port.membase))
 		return PTR_ERR(dp->port.membase);
-	dp->port.mapbase = res->start;
 
 	irq = platform_get_irq(pdev, 0);
 	if (irq < 0)

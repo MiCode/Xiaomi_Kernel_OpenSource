@@ -270,5 +270,5 @@ L_exit:
 	popl	%edi
 	popl	%esi
 	leave
-	RET
+	ret
 SYM_FUNC_END(FPU_u_sub)

@@ -929,7 +929,12 @@ void xprt_connect(struct rpc_task *task)
 	if (!xprt_lock_write(xprt, task))
 		return;
 
-	if (!xprt_connected(xprt) && !test_bit(XPRT_CLOSE_WAIT, &xprt->state)) {
+	if (test_and_clear_bit(XPRT_CLOSE_WAIT, &xprt->state)) {
+		trace_xprt_disconnect_cleanup(xprt);
+		xprt->ops->close(xprt);
+	}
+
+	if (!xprt_connected(xprt)) {
 		task->tk_rqstp->rq_connect_cookie = xprt->connect_cookie;
 		rpc_sleep_on_timeout(&xprt->pending, task, NULL,
 				xprt_request_timeout(task->tk_rqstp));

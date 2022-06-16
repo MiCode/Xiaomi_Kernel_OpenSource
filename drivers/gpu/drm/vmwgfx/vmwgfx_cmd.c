@@ -528,7 +528,7 @@ int vmw_cmd_send_fence(struct vmw_private *dev_priv, uint32_t *seqno)
 		*seqno = atomic_add_return(1, &dev_priv->marker_seq);
 	} while (*seqno == 0);
 
-	if (!vmw_has_fences(dev_priv)) {
+	if (!(vmw_fifo_caps(dev_priv) & SVGA_FIFO_CAP_FENCE)) {
 
 		/*
 		 * Don't request hardware to send a fence. The
@@ -675,14 +675,11 @@ int vmw_cmd_emit_dummy_query(struct vmw_private *dev_priv,
  */
 bool vmw_cmd_supported(struct vmw_private *vmw)
 {
-	bool has_cmdbufs =
-		(vmw->capabilities & (SVGA_CAP_COMMAND_BUFFERS |
-				      SVGA_CAP_CMD_BUFFERS_2)) != 0;
-	if (vmw_is_svga_v3(vmw))
-		return (has_cmdbufs &&
-			(vmw->capabilities & SVGA_CAP_GBOBJECTS) != 0);
+	if ((vmw->capabilities & (SVGA_CAP_COMMAND_BUFFERS |
+				  SVGA_CAP_CMD_BUFFERS_2)) != 0)
+		return true;
 	/*
 	 * We have FIFO cmd's
 	 */
-	return has_cmdbufs || vmw->fifo_mem != NULL;
+	return vmw->fifo_mem != NULL;
 }

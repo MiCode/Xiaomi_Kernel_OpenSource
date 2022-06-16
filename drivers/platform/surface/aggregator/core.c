@@ -816,7 +816,7 @@ err_cpkg:
 err_bus:
 	return status;
 }
-subsys_initcall(ssam_core_init);
+module_init(ssam_core_init);
 
 static void __exit ssam_core_exit(void)
 {

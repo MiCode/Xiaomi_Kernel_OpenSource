@@ -158,8 +158,10 @@ static int bpf_output(struct net *net, struct sock *sk, struct sk_buff *skb)
 	return dst->lwtstate->orig_output(net, sk, skb);
 }
 
-static int xmit_check_hhlen(struct sk_buff *skb, int hh_len)
+static int xmit_check_hhlen(struct sk_buff *skb)
 {
+	int hh_len = skb_dst(skb)->dev->hard_header_len;
+
 	if (skb_headroom(skb) < hh_len) {
 		int nhead = HH_DATA_ALIGN(hh_len - skb_headroom(skb));
 
@@ -271,7 +273,6 @@ static int bpf_xmit(struct sk_buff *skb)
 
 	bpf = bpf_lwt_lwtunnel(dst->lwtstate);
 	if (bpf->xmit.prog) {
-		int hh_len = dst->dev->hard_header_len;
 		__be16 proto = skb->protocol;
 		int ret;
 
@@ -289,7 +290,7 @@ static int bpf_xmit(struct sk_buff *skb)
 			/* If the header was expanded, headroom might be too
 			 * small for L2 header to come, expand as needed.
 			 */
-			ret = xmit_check_hhlen(skb, hh_len);
+			ret = xmit_check_hhlen(skb);
 			if (unlikely(ret))
 				return ret;
 

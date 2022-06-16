@@ -31,7 +31,7 @@ asm (
 "	popq %rsi\n"
 "	popq %rdi\n"
 "	leave\n"
-	ASM_RET
+"	ret\n"
 "	.size		my_tramp, .-my_tramp\n"
 "	.popsection\n"
 );

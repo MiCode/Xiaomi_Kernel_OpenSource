@@ -11,7 +11,6 @@
 #include <linux/statfs.h>
 #include <linux/ethtool.h>
 #include <linux/falloc.h>
-#include <linux/mount.h>
 
 #include "glob.h"
 #include "smb2pdu.h"
@@ -4998,17 +4997,15 @@ static int smb2_get_info_filesystem(struct ksmbd_work *work,
 	case FS_SECTOR_SIZE_INFORMATION:
 	{
 		struct smb3_fs_ss_info *info;
-		unsigned int sector_size =
-			min_t(unsigned int, path.mnt->mnt_sb->s_blocksize, 4096);
 
 		info = (struct smb3_fs_ss_info *)(rsp->Buffer);
 
-		info->LogicalBytesPerSector = cpu_to_le32(sector_size);
+		info->LogicalBytesPerSector = cpu_to_le32(stfs.f_bsize);
 		info->PhysicalBytesPerSectorForAtomicity =
-				cpu_to_le32(sector_size);
-		info->PhysicalBytesPerSectorForPerf = cpu_to_le32(sector_size);
+				cpu_to_le32(stfs.f_bsize);
+		info->PhysicalBytesPerSectorForPerf = cpu_to_le32(stfs.f_bsize);
 		info->FSEffPhysicalBytesPerSectorForAtomicity =
-				cpu_to_le32(sector_size);
+				cpu_to_le32(stfs.f_bsize);
 		info->Flags = cpu_to_le32(SSINFO_FLAGS_ALIGNED_DEVICE |
 				    SSINFO_FLAGS_PARTITION_ALIGNED_ON_DEVICE);
 		info->ByteOffsetForSectorAlignment = 0;
@@ -5771,10 +5768,8 @@ static int set_rename_info(struct ksmbd_work *work, struct ksmbd_file *fp,
 	if (parent_fp) {
 		if (parent_fp->daccess & FILE_DELETE_LE) {
 			pr_err("parent dir is opened with delete access\n");
-			ksmbd_fd_put(work, parent_fp);
 			return -ESHARE;
 		}
-		ksmbd_fd_put(work, parent_fp);
 	}
 next:
 	return smb2_rename(work, fp, user_ns, rename_info,

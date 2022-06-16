@@ -10813,21 +10813,8 @@ int kvm_arch_vcpu_create(struct kvm_vcpu *vcpu)
 		r = kvm_create_lapic(vcpu, lapic_timer_advance_ns);
 		if (r < 0)
 			goto fail_mmu_destroy;
-
-		/*
-		 * Defer evaluating inhibits until the vCPU is first run, as
-		 * this vCPU will not get notified of any changes until this
-		 * vCPU is visible to other vCPUs (marked online and added to
-		 * the set of vCPUs).  Opportunistically mark APICv active as
-		 * VMX in particularly is highly unlikely to have inhibits.
-		 * Ignore the current per-VM APICv state so that vCPU creation
-		 * is guaranteed to run with a deterministic value, the request
-		 * will ensure the vCPU gets the correct state before VM-Entry.
-		 */
-		if (enable_apicv) {
+		if (kvm_apicv_activated(vcpu->kvm))
 			vcpu->arch.apicv_active = true;
-			kvm_make_request(KVM_REQ_APICV_UPDATE, vcpu);
-		}
 	} else
 		static_branch_inc(&kvm_has_noapic_vcpu);
 

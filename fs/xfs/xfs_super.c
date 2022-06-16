@@ -729,7 +729,6 @@ xfs_fs_sync_fs(
 	int			wait)
 {
 	struct xfs_mount	*mp = XFS_M(sb);
-	int			error;
 
 	trace_xfs_fs_sync_fs(mp, __return_address);
 
@@ -739,10 +738,7 @@ xfs_fs_sync_fs(
 	if (!wait)
 		return 0;
 
-	error = xfs_log_force(mp, XFS_LOG_SYNC);
-	if (error)
-		return error;
-
+	xfs_log_force(mp, XFS_LOG_SYNC);
 	if (laptop_mode) {
 		/*
 		 * The disk must be active because we're syncing.

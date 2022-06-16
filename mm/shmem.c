@@ -2395,10 +2395,8 @@ int shmem_mfill_atomic_pte(struct mm_struct *dst_mm,
 				/* don't free the page */
 				goto out_unacct_blocks;
 			}
-
-			flush_dcache_page(page);
 		} else {		/* ZEROPAGE */
-			clear_user_highpage(page, dst_addr);
+			clear_highpage(page);
 		}
 	} else {
 		page = *pagep;

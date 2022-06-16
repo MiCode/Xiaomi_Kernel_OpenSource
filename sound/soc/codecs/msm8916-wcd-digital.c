@@ -1206,16 +1206,9 @@ static int msm8916_wcd_digital_probe(struct platform_device *pdev)
 
 	dev_set_drvdata(dev, priv);
 
-	ret = devm_snd_soc_register_component(dev, &msm8916_wcd_digital,
+	return devm_snd_soc_register_component(dev, &msm8916_wcd_digital,
 				      msm8916_wcd_digital_dai,
 				      ARRAY_SIZE(msm8916_wcd_digital_dai));
-	if (ret)
-		goto err_mclk;
-
-	return 0;
-
-err_mclk:
-	clk_disable_unprepare(priv->mclk);
 err_clk:
 	clk_disable_unprepare(priv->ahbclk);
 	return ret;

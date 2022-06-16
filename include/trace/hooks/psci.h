@@ -10,13 +10,13 @@
 
 #include <trace/hooks/vendor_hooks.h>
 
-DECLARE_RESTRICTED_HOOK(android_rvh_psci_tos_resident_on,
+DECLARE_HOOK(android_vh_psci_tos_resident_on,
 	TP_PROTO(int cpu, bool *resident),
-	TP_ARGS(cpu, resident), 1);
+	TP_ARGS(cpu, resident));
 
-DECLARE_RESTRICTED_HOOK(android_rvh_psci_cpu_suspend,
+DECLARE_HOOK(android_vh_psci_cpu_suspend,
 	TP_PROTO(u32 state, bool *deny),
-	TP_ARGS(state, deny), 1);
+	TP_ARGS(state, deny));
 
 /* macro versions of hooks are no longer required */
 

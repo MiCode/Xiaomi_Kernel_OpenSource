@@ -23,5 +23,5 @@ SYM_FUNC_START(__efi_call)
 	mov %rsi, %rcx
 	CALL_NOSPEC rdi
 	leave
-	RET
+	ret
 SYM_FUNC_END(__efi_call)

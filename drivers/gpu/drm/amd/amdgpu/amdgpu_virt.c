@@ -24,7 +24,6 @@
 #include <linux/module.h>
 
 #include <drm/drm_drv.h>
-#include <xen/xen.h>
 
 #include "amdgpu.h"
 #include "amdgpu_ras.h"
@@ -695,8 +694,7 @@ void amdgpu_detect_virtualization(struct amdgpu_device *adev)
 		adev->virt.caps |= AMDGPU_SRIOV_CAPS_ENABLE_IOV;
 
 	if (!reg) {
-		/* passthrough mode exclus sriov mod */
-		if (is_virtual_machine() && !xen_initial_domain())
+		if (is_virtual_machine())	/* passthrough mode exclus sriov mod */
 			adev->virt.caps |= AMDGPU_PASSTHROUGH_MODE;
 	}
 

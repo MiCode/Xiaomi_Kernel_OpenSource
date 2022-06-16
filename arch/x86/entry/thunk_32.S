@@ -24,7 +24,7 @@ SYM_CODE_START_NOALIGN(\name)
 	popl %edx
 	popl %ecx
 	popl %eax
-	RET
+	ret
 	_ASM_NOKPROBE(\name)
 SYM_CODE_END(\name)
 	.endm

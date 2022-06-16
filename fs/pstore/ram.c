@@ -21,7 +21,6 @@
 #include <linux/pstore_ram.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
-#include <linux/of_reserved_mem.h>
 #include "internal.h"
 
 #define RAMOOPS_KERNMSG_HDR "===="
@@ -634,7 +633,6 @@ static int ramoops_parse_dt(struct platform_device *pdev,
 {
 	struct device_node *of_node = pdev->dev.of_node;
 	struct device_node *parent_node;
-	struct reserved_mem *rmem;
 	struct resource *res;
 	u32 value;
 	int ret;
@@ -643,20 +641,13 @@ static int ramoops_parse_dt(struct platform_device *pdev,
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res) {
-		rmem = of_reserved_mem_lookup(of_node);
-		if (rmem) {
-			pdata->mem_size = rmem->size;
-			pdata->mem_address = rmem->base;
-		} else {
-			dev_err(&pdev->dev,
-				"failed to locate DT /reserved-memory resource\n");
-			return -EINVAL;
-		}
-	} else {
-		pdata->mem_size = resource_size(res);
-		pdata->mem_address = res->start;
+		dev_err(&pdev->dev,
+			"failed to locate DT /reserved-memory resource\n");
+		return -EINVAL;
 	}
 
+	pdata->mem_size = resource_size(res);
+	pdata->mem_address = res->start;
 	/*
 	 * Setting "unbuffered" is deprecated and will be ignored if
 	 * "mem_type" is also specified.

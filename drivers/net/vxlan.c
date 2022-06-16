@@ -711,11 +711,11 @@ static int vxlan_fdb_append(struct vxlan_fdb *f,
 
 	rd = kmalloc(sizeof(*rd), GFP_ATOMIC);
 	if (rd == NULL)
-		return -ENOMEM;
+		return -ENOBUFS;
 
 	if (dst_cache_init(&rd->dst_cache, GFP_ATOMIC)) {
 		kfree(rd);
-		return -ENOMEM;
+		return -ENOBUFS;
 	}
 
 	rd->remote_ip = *ip;

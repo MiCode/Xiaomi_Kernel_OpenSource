@@ -296,7 +296,7 @@ extern void iscsi_host_for_each_session(struct Scsi_Host *shost,
 struct iscsi_endpoint {
 	void *dd_data;			/* LLD private data */
 	struct device dev;
-	int id;
+	uint64_t id;
 	struct iscsi_cls_conn *conn;
 };
 

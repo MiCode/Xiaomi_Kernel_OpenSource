@@ -70,7 +70,7 @@ SYM_CODE_START(hypercall_page)
 	.rept (PAGE_SIZE / 32)
 		UNWIND_HINT_FUNC
 		.skip 31, 0x90
-		RET
+		ret
 	.endr
 
 #define HYPERCALL(n) \

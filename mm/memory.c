@@ -3988,10 +3988,8 @@ static vm_fault_t __do_fault(struct vm_fault *vmf)
 			/*
 			 * The mmap sequence count check guarantees that the
 			 * vma we fetched at the start of the fault was still
-			 * current at that point in time. The notifier lock
-			 * ensures vmf->vma->vm_file stays valid. vma is
-			 * stable because we are operating on a copy made at
-			 * the start of the fault.
+			 * current at that point in time. The rcu read lock
+			 * ensures vmf->vma->vm_file stays valid.
 			 */
 			ret = vma->vm_ops->fault(vmf);
 		}
@@ -5123,13 +5121,6 @@ vm_fault_t do_handle_mm_fault(struct vm_area_struct *vma,
 					    flags & FAULT_FLAG_REMOTE))
 		return VM_FAULT_SIGSEGV;
 
-#ifdef CONFIG_SPECULATIVE_PAGE_FAULT
-	if ((flags & FAULT_FLAG_SPECULATIVE) && vma->vm_file) {
-		if (!atomic_inc_not_zero(&vma->file_ref_count))
-			return VM_FAULT_RETRY;
-	}
-#endif
-
 	/*
 	 * Enable the memcg OOM handling for faults triggered in user
 	 * space.  Kernel faults are handled more gracefully.
@@ -5161,12 +5152,6 @@ vm_fault_t do_handle_mm_fault(struct vm_area_struct *vma,
 	}
 
 	mm_account_fault(regs, address, flags, ret);
-#ifdef CONFIG_SPECULATIVE_PAGE_FAULT
-	if ((flags & FAULT_FLAG_SPECULATIVE) && vma->vm_file) {
-		if (atomic_dec_and_test(&vma->file_ref_count))
-			fput(vma->vm_file);
-	}
-#endif
 
 	return ret;
 }
@@ -5798,8 +5783,6 @@ long copy_huge_page_from_user(struct page *dst_page,
 		ret_val -= (PAGE_SIZE - rc);
 		if (rc)
 			break;
-
-		flush_dcache_page(subpage);
 
 		cond_resched();
 	}

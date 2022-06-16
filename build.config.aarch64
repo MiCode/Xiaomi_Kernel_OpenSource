@@ -14,5 +14,3 @@ modules.builtin.modinfo
 "
 
 NDK_TRIPLE=aarch64-linux-android31
-
-GKI_MODULES_LIST=android/gki_aarch64_modules

@@ -9,83 +9,81 @@
 #include <asm/alternative.h>
 
 /* if you want SMP support, implement these with real spinlocks */
-.macro IRQ_SAVE reg
+.macro LOCK reg
 	pushfl
 	cli
 .endm
 
-.macro IRQ_RESTORE reg
+.macro UNLOCK reg
 	popfl
 .endm
 
-#define BEGIN_IRQ_SAVE(op) \
+#define BEGIN(op) \
 .macro endp; \
 SYM_FUNC_END(atomic64_##op##_386); \
 .purgem endp; \
 .endm; \
 SYM_FUNC_START(atomic64_##op##_386); \
-	IRQ_SAVE v;
+	LOCK v;
 
 #define ENDP endp
 
-#define RET_IRQ_RESTORE \
-	IRQ_RESTORE v; \
-	RET
+#define RET \
+	UNLOCK v; \
+	ret
+
+#define RET_ENDP \
+	RET; \
+	ENDP
 
 #define v %ecx
-BEGIN_IRQ_SAVE(read)
+BEGIN(read)
 	movl  (v), %eax
 	movl 4(v), %edx
-	RET_IRQ_RESTORE
-ENDP
+RET_ENDP
 #undef v
 
 #define v %esi
-BEGIN_IRQ_SAVE(set)
+BEGIN(set)
 	movl %ebx,  (v)
 	movl %ecx, 4(v)
-	RET_IRQ_RESTORE
-ENDP
+RET_ENDP
 #undef v
 
 #define v  %esi
-BEGIN_IRQ_SAVE(xchg)
+BEGIN(xchg)
 	movl  (v), %eax
 	movl 4(v), %edx
 	movl %ebx,  (v)
 	movl %ecx, 4(v)
-	RET_IRQ_RESTORE
-ENDP
+RET_ENDP
 #undef v
 
 #define v %ecx
-BEGIN_IRQ_SAVE(add)
+BEGIN(add)
 	addl %eax,  (v)
 	adcl %edx, 4(v)
-	RET_IRQ_RESTORE
-ENDP
+RET_ENDP
 #undef v
 
 #define v %ecx
-BEGIN_IRQ_SAVE(add_return)
+BEGIN(add_return)
 	addl  (v), %eax
 	adcl 4(v), %edx
 	movl %eax,  (v)
 	movl %edx, 4(v)
-	RET_IRQ_RESTORE
-ENDP
+RET_ENDP
 #undef v
 
 #define v %ecx
-BEGIN_IRQ_SAVE(sub)
+BEGIN(sub)
 	subl %eax,  (v)
 	sbbl %edx, 4(v)
-	RET_IRQ_RESTORE
-ENDP
+RET_ENDP
 #undef v
 
 #define v %ecx
-BEGIN_IRQ_SAVE(sub_return)
+BEGIN(sub_return)
 	negl %edx
 	negl %eax
 	sbbl $0, %edx
@@ -93,52 +91,47 @@ BEGIN_IRQ_SAVE(sub_return)
 	adcl 4(v), %edx
 	movl %eax,  (v)
 	movl %edx, 4(v)
-	RET_IRQ_RESTORE
-ENDP
+RET_ENDP
 #undef v
 
 #define v %esi
-BEGIN_IRQ_SAVE(inc)
+BEGIN(inc)
 	addl $1,  (v)
 	adcl $0, 4(v)
-	RET_IRQ_RESTORE
-ENDP
+RET_ENDP
 #undef v
 
 #define v %esi
-BEGIN_IRQ_SAVE(inc_return)
+BEGIN(inc_return)
 	movl  (v), %eax
 	movl 4(v), %edx
 	addl $1, %eax
 	adcl $0, %edx
 	movl %eax,  (v)
 	movl %edx, 4(v)
-	RET_IRQ_RESTORE
-ENDP
+RET_ENDP
 #undef v
 
 #define v %esi
-BEGIN_IRQ_SAVE(dec)
+BEGIN(dec)
 	subl $1,  (v)
 	sbbl $0, 4(v)
-	RET_IRQ_RESTORE
-ENDP
+RET_ENDP
 #undef v
 
 #define v %esi
-BEGIN_IRQ_SAVE(dec_return)
+BEGIN(dec_return)
 	movl  (v), %eax
 	movl 4(v), %edx
 	subl $1, %eax
 	sbbl $0, %edx
 	movl %eax,  (v)
 	movl %edx, 4(v)
-	RET_IRQ_RESTORE
-ENDP
+RET_ENDP
 #undef v
 
 #define v %esi
-BEGIN_IRQ_SAVE(add_unless)
+BEGIN(add_unless)
 	addl %eax, %ecx
 	adcl %edx, %edi
 	addl  (v), %eax
@@ -150,7 +143,7 @@ BEGIN_IRQ_SAVE(add_unless)
 	movl %edx, 4(v)
 	movl $1, %eax
 2:
-	RET_IRQ_RESTORE
+	RET
 3:
 	cmpl %edx, %edi
 	jne 1b
@@ -160,7 +153,7 @@ ENDP
 #undef v
 
 #define v %esi
-BEGIN_IRQ_SAVE(inc_not_zero)
+BEGIN(inc_not_zero)
 	movl  (v), %eax
 	movl 4(v), %edx
 	testl %eax, %eax
@@ -172,7 +165,7 @@ BEGIN_IRQ_SAVE(inc_not_zero)
 	movl %edx, 4(v)
 	movl $1, %eax
 2:
-	RET_IRQ_RESTORE
+	RET
 3:
 	testl %edx, %edx
 	jne 1b
@@ -181,7 +174,7 @@ ENDP
 #undef v
 
 #define v %esi
-BEGIN_IRQ_SAVE(dec_if_positive)
+BEGIN(dec_if_positive)
 	movl  (v), %eax
 	movl 4(v), %edx
 	subl $1, %eax
@@ -190,6 +183,5 @@ BEGIN_IRQ_SAVE(dec_if_positive)
 	movl %eax,  (v)
 	movl %edx, 4(v)
 1:
-	RET_IRQ_RESTORE
-ENDP
+RET_ENDP
 #undef v

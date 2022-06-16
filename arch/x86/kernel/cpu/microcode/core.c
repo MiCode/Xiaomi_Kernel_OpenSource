@@ -775,9 +775,9 @@ static struct subsys_interface mc_cpu_interface = {
 };
 
 /**
- * microcode_bsp_resume - Update boot CPU microcode during resume.
+ * mc_bp_resume - Update boot CPU microcode during resume.
  */
-void microcode_bsp_resume(void)
+static void mc_bp_resume(void)
 {
 	int cpu = smp_processor_id();
 	struct ucode_cpu_info *uci = ucode_cpu_info + cpu;
@@ -789,7 +789,7 @@ void microcode_bsp_resume(void)
 }
 
 static struct syscore_ops mc_syscore_ops = {
-	.resume			= microcode_bsp_resume,
+	.resume			= mc_bp_resume,
 };
 
 static int mc_cpu_starting(unsigned int cpu)

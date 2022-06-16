@@ -730,7 +730,7 @@ static int bmi160_chip_init(struct bmi160_data *data, bool use_spi)
 
 	ret = regmap_write(data->regmap, BMI160_REG_CMD, BMI160_CMD_SOFTRESET);
 	if (ret)
-		goto disable_regulator;
+		return ret;
 
 	usleep_range(BMI160_SOFTRESET_USLEEP, BMI160_SOFTRESET_USLEEP + 1);
 
@@ -741,37 +741,29 @@ static int bmi160_chip_init(struct bmi160_data *data, bool use_spi)
 	if (use_spi) {
 		ret = regmap_read(data->regmap, BMI160_REG_DUMMY, &val);
 		if (ret)
-			goto disable_regulator;
+			return ret;
 	}
 
 	ret = regmap_read(data->regmap, BMI160_REG_CHIP_ID, &val);
 	if (ret) {
 		dev_err(dev, "Error reading chip id\n");
-		goto disable_regulator;
+		return ret;
 	}
 	if (val != BMI160_CHIP_ID_VAL) {
 		dev_err(dev, "Wrong chip id, got %x expected %x\n",
 			val, BMI160_CHIP_ID_VAL);
-		ret = -ENODEV;
-		goto disable_regulator;
+		return -ENODEV;
 	}
 
 	ret = bmi160_set_mode(data, BMI160_ACCEL, true);
 	if (ret)
-		goto disable_regulator;
+		return ret;
 
 	ret = bmi160_set_mode(data, BMI160_GYRO, true);
 	if (ret)
-		goto disable_accel;
+		return ret;
 
 	return 0;
-
-disable_accel:
-	bmi160_set_mode(data, BMI160_ACCEL, false);
-
-disable_regulator:
-	regulator_bulk_disable(ARRAY_SIZE(data->supplies), data->supplies);
-	return ret;
 }
 
 static int bmi160_data_rdy_trigger_set_state(struct iio_trigger *trig,

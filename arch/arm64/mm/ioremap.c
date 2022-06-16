@@ -108,8 +108,7 @@ void ioremap_phys_range_hook(phys_addr_t phys_addr, size_t size, pgprot_t prot)
 		 * This page will be permanently accessible, similar to a
 		 * saturated refcount.
 		 */
-		if (slab_is_available())
-			ref = kzalloc(sizeof(*ref), GFP_KERNEL);
+		ref = kzalloc(sizeof(*ref), GFP_KERNEL);
 		if (ref) {
 			refcount_set(&ref->count, 1);
 			if (xa_err(xa_store(&ioremap_guard_array, pfn, ref,
@@ -261,12 +260,4 @@ EXPORT_SYMBOL(ioremap_cache);
 void __init early_ioremap_init(void)
 {
 	early_ioremap_setup();
-}
-
-bool arch_memremap_can_ram_remap(resource_size_t offset, size_t size,
-				 unsigned long flags)
-{
-	unsigned long pfn = PHYS_PFN(offset);
-
-	return pfn_is_map_memory(pfn);
 }

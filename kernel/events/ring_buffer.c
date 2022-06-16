@@ -859,6 +859,11 @@ void rb_free(struct perf_buffer *rb)
 }
 
 #else
+static int data_page_nr(struct perf_buffer *rb)
+{
+	return rb->nr_pages << page_order(rb);
+}
+
 static struct page *
 __perf_mmap_to_page(struct perf_buffer *rb, unsigned long pgoff)
 {
