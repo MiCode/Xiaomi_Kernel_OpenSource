@@ -654,6 +654,107 @@ static ssize_t fw_idle_store(struct kobject *kobj,
 }
 static KOBJ_ATTR_RW(fw_idle);
 //-----------------------------------------------------------------------------
+
+unsigned int g_loading_stride_size = GED_DEFAULT_SLIDE_STRIDE_SIZE;
+
+static ssize_t loading_stride_size_show(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		char *buf)
+{
+	return scnprintf(buf, PAGE_SIZE, "%d\n", g_loading_stride_size);
+}
+
+static ssize_t loading_stride_size_store(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		const char *buf, size_t count)
+{
+	char acBuffer[GED_SYSFS_MAX_BUFF_SIZE];
+	int i32Value;
+
+	if ((count > 0) && (count < GED_SYSFS_MAX_BUFF_SIZE)) {
+		if (scnprintf(acBuffer, GED_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
+			if (kstrtoint(acBuffer, 0, &i32Value) == 0) {
+				if (i32Value <= 0)
+					i32Value = 1;
+				g_loading_stride_size = i32Value;
+			}
+		}
+	}
+
+	return count;
+}
+
+static KOBJ_ATTR_RW(loading_stride_size);
+
+//-----------------------------------------------------------------------------
+
+unsigned int g_loading_slide_window_size = GED_DEFAULT_SLIDE_WINDOW_SIZE;
+
+static ssize_t loading_window_size_show(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		char *buf)
+{
+	return scnprintf(buf, PAGE_SIZE, "%d\n", g_loading_slide_window_size);
+}
+
+static ssize_t loading_window_size_store(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		const char *buf, size_t count)
+{
+	char acBuffer[GED_SYSFS_MAX_BUFF_SIZE];
+	int i32Value;
+
+	if ((count > 0) && (count < GED_SYSFS_MAX_BUFF_SIZE)) {
+		if (scnprintf(acBuffer, GED_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
+			if (kstrtoint(acBuffer, 0, &i32Value) == 0) {
+				if (i32Value <= 0)
+					i32Value = 1;
+				g_loading_slide_window_size = i32Value;
+			}
+		}
+	}
+
+	return count;
+}
+
+static KOBJ_ATTR_RW(loading_window_size);
+
+//-----------------------------------------------------------------------------
+
+
+unsigned int g_loading_slide_enable;
+
+static ssize_t loading_slide_enable_show(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		char *buf)
+{
+	return scnprintf(buf, PAGE_SIZE, "%d\n", g_loading_slide_enable);
+}
+
+static ssize_t loading_slide_enable_store(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		const char *buf, size_t count)
+{
+	char acBuffer[GED_SYSFS_MAX_BUFF_SIZE];
+	int i32Value;
+
+	if ((count > 0) && (count < GED_SYSFS_MAX_BUFF_SIZE)) {
+		if (scnprintf(acBuffer, GED_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
+			if (kstrtoint(acBuffer, 0, &i32Value) == 0) {
+				if (i32Value < 0)
+					i32Value = 0;
+				if (g_ged_slide_window_support != -1)
+					g_loading_slide_enable = i32Value;
+			}
+		}
+	}
+
+	return count;
+}
+
+static KOBJ_ATTR_RW(loading_slide_enable);
+
+//-----------------------------------------------------------------------------
 GED_ERROR ged_hal_init(void)
 {
 	GED_ERROR err = GED_OK;
@@ -769,6 +870,27 @@ GED_ERROR ged_hal_init(void)
 		goto ERROR;
 	}
 
+	err = ged_sysfs_create_file(hal_kobj, &kobj_attr_loading_window_size);
+	if (unlikely(err != GED_OK)) {
+		GED_LOGE(
+			"Failed to create loading_window_size entry!\n");
+		goto ERROR;
+	}
+
+	err = ged_sysfs_create_file(hal_kobj, &kobj_attr_loading_slide_enable);
+	if (unlikely(err != GED_OK)) {
+		GED_LOGE(
+			"Failed to create loading_slide_enable entry!\n");
+		goto ERROR;
+	}
+
+
+	err = ged_sysfs_create_file(hal_kobj, &kobj_attr_loading_stride_size);
+	if (unlikely(err != GED_OK)) {
+		GED_LOGE(
+			"Failed to create loading_stride_size entry!\n");
+		goto ERROR;
+	}
 	return err;
 
 ERROR:

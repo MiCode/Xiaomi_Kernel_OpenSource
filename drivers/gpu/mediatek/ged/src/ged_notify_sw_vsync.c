@@ -171,7 +171,6 @@ static void ged_timer_switch_work_handle(struct work_struct *psWork)
 		GED_CONTAINER_OF(psWork, struct GED_NOTIFY_SW_SYNC, sWork);
 	if (psNotify) {
 		ged_sw_vsync_event(false);
-		timer_switch(false);
 
 		psNotify->bUsed = false;
 	}
@@ -381,6 +380,7 @@ enum hrtimer_restart ged_sw_vsync_check_cb(struct hrtimer *timer)
 					ged_timer_switch_work_handle);
 				queue_work(g_psNotifyWorkQueue,
 					&psNotify->sWork);
+				timer_switch(false);
 
 			/* update last freq. before timer off */
 				ged_log_perf_trace_counter("gpu_freq",

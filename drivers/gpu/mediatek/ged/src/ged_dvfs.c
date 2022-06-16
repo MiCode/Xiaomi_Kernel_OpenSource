@@ -38,6 +38,9 @@
  */
 #define GED_DVFS_SKIP_ROUNDS 3
 
+//sliding window
+#define MAX_SLIDE_WINDOW_SIZE 64
+
 spinlock_t gsGpuUtilLock;
 
 static struct mutex gsDVFSLock;
@@ -1056,6 +1059,36 @@ static int _loading_avg(int ui32loading)
 	return sum / ARRAY_SIZE(data);
 }
 
+static int _slide_window_loading(unsigned int ui32loading)
+{
+	static int data[MAX_SLIDE_WINDOW_SIZE];
+	static int idx;
+	unsigned int i = 0;
+	unsigned int slide_loading = 0;
+	unsigned int sum_slide = 0;
+	unsigned int slide_count = (g_loading_slide_window_size/g_loading_stride_size);
+	int cidx = ++idx % slide_count;
+
+	data[cidx] = ui32loading;
+
+	if (slide_count == 0)
+		slide_count = 1;
+
+	if (slide_count > MAX_SLIDE_WINDOW_SIZE)
+		slide_count = MAX_SLIDE_WINDOW_SIZE;
+
+	for (i = 0; i <= slide_count-1; i++)
+		sum_slide += data[i];
+
+	slide_loading = sum_slide / slide_count;
+
+	if (slide_loading > 100)
+		slide_loading = 100;
+
+	return slide_loading;
+
+}
+
 static bool ged_dvfs_policy(
 		unsigned int ui32GPULoading, unsigned int *pui32NewFreqID,
 		unsigned long t, long phase, unsigned long ul3DFenceDoneTime,
@@ -1138,6 +1171,9 @@ static bool ged_dvfs_policy(
 					g_Util_Ex.util_ta,
 					g_Util_Ex.util_compute,
 					loading_mode);
+
+	if (g_loading_slide_enable)
+		ui32GPULoading = _slide_window_loading(ui32GPULoading);
 
 	ged_log_buf_print(ghLogBuf_DVFS,
 		"[GED_K] timer: loading %u", ui32GPULoading);
@@ -1288,7 +1324,7 @@ static bool ged_dvfs_policy(
 		int ultra_low = 20;
 		int ultra_high_step_size = (dvfs_step_mode & 0xff);
 		//ui32GPULoading >= 110 - gx_tb_dvfs_margin_cur || ui32GPULoading >= 95
-		if (ui32GPULoading >= ultra_high) {
+		if (!g_loading_slide_enable && ui32GPULoading >= ultra_high) {
 			if (dvfs_step_mode == 0)
 				i32NewFreqID = 0;
 			else {

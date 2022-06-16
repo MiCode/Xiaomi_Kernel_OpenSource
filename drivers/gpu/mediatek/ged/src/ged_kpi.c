@@ -1243,8 +1243,13 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 
 		if (!g_force_gpu_dvfs_fallback)
 			ged_set_backup_timer_timeout(0);
+		else if (g_loading_slide_enable)
+			ged_set_backup_timer_timeout(
+			g_loading_stride_size * GED_KPI_MSEC_DIVIDER);
 		else
-			ged_set_backup_timer_timeout(psKPI->t_gpu_target << 1);
+			ged_set_backup_timer_timeout(
+			psKPI->t_gpu_target << 1);
+
 
 		if (psHead->last_TimeStamp1 != psKPI->ullTimeStamp1)
 			psHead->last_QedBufferDelay =

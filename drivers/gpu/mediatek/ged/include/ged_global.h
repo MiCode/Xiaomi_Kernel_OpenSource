@@ -8,6 +8,9 @@
 
 #include "ged_dvfs.h"
 
+#define GED_DEFAULT_SLIDE_STRIDE_SIZE 2
+#define GED_DEFAULT_SLIDE_WINDOW_SIZE 8
+
 extern GED_LOG_BUF_HANDLE ghLogBuf_DVFS;
 extern void (*mtk_set_bottom_gpu_freq_fp)(unsigned int idx);
 extern unsigned int (*mtk_get_bottom_gpu_freq_fp)(void);
@@ -51,6 +54,12 @@ extern unsigned int g_fastdvfs_mode;
 extern unsigned int g_ged_gpueb_support;
 extern unsigned int g_ged_fdvfs_support;
 extern unsigned int g_fastdvfs_margin;
+extern unsigned int g_loading_stride_size;
+extern unsigned int g_loading_slide_window_size;
+extern unsigned int g_loading_slide_enable;
+extern int g_ged_slide_window_support;
+
+
 extern unsigned int ged_is_fdvfs_support(void);
 extern void mtk_gpueb_dvfs_commit(unsigned long ui32NewFreqID,
 	GED_DVFS_COMMIT_TYPE eCommitType, int *pbCommited);
