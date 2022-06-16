@@ -12,6 +12,7 @@
 #include <linux/of_platform.h>
 #include <linux/pm_runtime.h>
 #include <linux/kernel.h>
+#include <linux/workqueue.h>
 
 #include "mt-plat/aee.h"
 
@@ -27,6 +28,35 @@
 /* for IPI IRQ affinity tuning*/
 static struct cpumask perf_cpus, normal_cpus;
 
+/* for power off timeout detection */
+static struct mtk_apu *g_apu;
+struct workqueue_struct *apu_workq;
+struct delayed_work timeout_work;
+
+/*
+ * COLD BOOT power off timeout
+ *
+ * exception will trigger
+ * if power on and not power off
+ * without ipi send
+ */
+#define APU_PWROFF_TIMEOUT_MS (300 * 1000)
+
+/*
+ * WARM BOOT power off timeout
+ *
+ * excpetion will trigger
+ * if power off not done after ipi send
+ */
+#define IPI_PWROFF_TIMEOUT_MS (60 * 1000)
+
+static void apu_timeout_work(struct work_struct *work)
+{
+	struct mtk_apu *apu = g_apu;
+	struct device *dev = apu->dev;
+
+	apusys_rv_aee_warn("APUSYS_RV", "APUSYS_RV_BOOT_TIMEOUT");
+}
 
 static uint32_t apusys_rv_smc_call(struct device *dev, uint32_t smc_id,
 	uint32_t a2)
@@ -285,6 +315,7 @@ static int mt6985_apu_power_init(struct mtk_apu *apu)
 	struct device *dev = apu->dev;
 	struct device_node *np;
 	struct platform_device *pdev;
+	char wq_name[sizeof("apupwr")];
 
 	/* power dev */
 	np = of_parse_phandle(dev->of_node, "mediatek,apusys_power", 0);
@@ -362,6 +393,11 @@ static int mt6985_apu_power_init(struct mtk_apu *apu)
 
 	apu->apu_iommu1 = &pdev->dev;
 	of_node_put(np);
+
+	/* init delay worker for power off detection */
+	INIT_DELAYED_WORK(&timeout_work, apu_timeout_work);
+	apu_workq = alloc_ordered_workqueue(wq_name, WQ_MEM_RECLAIM);
+	g_apu = apu;
 
 	return 0;
 }
@@ -450,6 +486,10 @@ iommu_get_error:
 		apusys_rv_aee_warn("APUSYS_RV", "APUSYS_RV_RPM_GET_ERROR");
 		goto error_put_iommu_dev;
 	}
+
+	queue_delayed_work(apu_workq,
+			   &timeout_work,
+			   msecs_to_jiffies(APU_PWROFF_TIMEOUT_MS));
 
 	return 0;
 
@@ -559,6 +599,8 @@ iommu_put_error:
 		goto error_get_power_dev;
 	}
 
+	cancel_delayed_work_sync(&timeout_work);
+
 	return 0;
 
 error_get_power_dev:
@@ -570,6 +612,16 @@ error_get_rv_dev:
 	pm_runtime_get_sync(apu->dev);
 
 	return ret;
+}
+
+static int mt6985_ipi_send_post(struct mtk_apu *apu)
+{
+	cancel_delayed_work_sync(&timeout_work);
+	queue_delayed_work(apu_workq,
+			   &timeout_work,
+			   msecs_to_jiffies(IPI_PWROFF_TIMEOUT_MS));
+
+	return 0;
 }
 
 static int mt6985_irq_affin_init(struct mtk_apu *apu)
@@ -759,6 +811,7 @@ const struct mtk_apu_platdata mt6985_platdata = {
 		.power_init = mt6985_apu_power_init,
 		.power_on = mt6985_apu_power_on,
 		.power_off = mt6985_apu_power_off,
+		.ipi_send_post = mt6985_ipi_send_post,
 		.irq_affin_init = mt6985_irq_affin_init,
 		.irq_affin_set = mt6985_irq_affin_set,
 		.irq_affin_unset = mt6985_irq_affin_unset,

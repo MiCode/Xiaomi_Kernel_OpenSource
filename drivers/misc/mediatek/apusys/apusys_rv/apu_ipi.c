@@ -121,6 +121,7 @@ extern int apu_deepidle_power_on_aputop(struct mtk_apu *apu);
 int apu_ipi_send(struct mtk_apu *apu, u32 id, void *data, u32 len,
 		 u32 wait_ms)
 {
+	struct mtk_apu_hw_ops *hw_ops = &apu->platdata->ops;
 	struct apu_ipi_desc *ipi;
 	struct timespec64 ts, te;
 	struct device *dev;
@@ -197,6 +198,9 @@ int apu_ipi_send(struct mtk_apu *apu, u32 id, void *data, u32 len,
 	ipi_usage_cnt_update(apu, id, 1);
 
 unlock_mutex:
+	if (hw_ops->ipi_send_post)
+		hw_ops->ipi_send_post(apu);
+
 	mutex_unlock(&apu->send_lock);
 
 	ktime_get_ts64(&te);
