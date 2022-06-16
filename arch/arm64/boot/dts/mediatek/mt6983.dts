@@ -13707,9 +13707,9 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 		iommus = <&apu_iommu0 M4U_PORT_L34_APU_CODE>;
 	};
 
-	camera_fsync_ccu {
-		compatible = "mediatek,camera_fsync_ccu";
-		mediatek,ccu_rproc = <&ccu_rproc>;
+	camera-fsync-ccu {
+		compatible = "mediatek,camera-fsync-ccu";
+		mediatek,ccu-rproc = <&ccu_rproc>;
 	};
 
 	camera_camsys_ccu {
