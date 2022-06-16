@@ -11944,7 +11944,8 @@
 		cammux-uisp_range = <34 36>;
 		cammux-pdp_range = <37 40>;
 
-		power-domains = <&scpsys MT6985_POWER_DOMAIN_CAM_MAIN>;
+		power-domains = <&scpsys MT6985_POWER_DOMAIN_CAM_MAIN>,
+				<&scpsys MT6985_POWER_DOMAIN_CSI_RX>;
 
 		clocks = <&camsys_main_clk CLK_CAM_MAIN_SENINF_CON_0>,
 			<&topckgen_clk CLK_TOP_SENINF_SEL>,
