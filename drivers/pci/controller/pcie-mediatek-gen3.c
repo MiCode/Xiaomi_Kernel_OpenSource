@@ -1057,7 +1057,6 @@ int mtk_pcie_remove_port(int port)
 {
 	struct device_node *pcie_node;
 	struct platform_device *pdev;
-	struct mtk_pcie_host *pcie_port;
 
 	pcie_node = mtk_pcie_find_node_by_port(port);
 	if (!pcie_node)
@@ -1069,15 +1068,56 @@ int mtk_pcie_remove_port(int port)
 		return -ENODEV;
 	}
 
-	pcie_port = platform_get_drvdata(pdev);
-	if (!pcie_port)
-		return -ENODEV;
-
 	device_release_driver(&pdev->dev);
 
 	return 0;
 }
 EXPORT_SYMBOL(mtk_pcie_remove_port);
+
+/**
+ * mtk_pcie_mask_msi_to_ap() - Disable msi dispatch to ap
+ * @port: The port number which EP use
+ * @msi_addr: EP message address register for msi
+ * @mask: EP msi dispatch to modem, [like:0xFF00]
+ */
+int mtk_pcie_mask_msi_to_ap(int port, u32 msi_addr, u32 mask)
+{
+	struct device_node *pcie_node;
+	struct platform_device *pdev;
+	struct mtk_pcie_port *pcie_port;
+	u32 offset, val;
+
+	pcie_node = mtk_pcie_find_node_by_port(port);
+	if (!pcie_node)
+		return -ENODEV;
+
+	pdev = of_find_device_by_node(pcie_node);
+	if (!pdev) {
+		pr_info("PCIe platform device not found!\n");
+		return -ENODEV;
+	}
+
+	pcie_port = platform_get_drvdata(pdev);
+	if (!pcie_port)
+		return -ENODEV;
+
+	offset = msi_addr - pcie_port->reg_base;
+	if (offset < PCIE_MSI_SET_BASE_REG || offset > PCIE_MSI_SET_ADDR_HI_BASE) {
+		pr_info("Wrong MSI address: %#x\n", msi_addr);
+		return -EINVAL;
+	}
+
+	val = readl_relaxed(pcie_port->base + offset + PCIE_MSI_SET_ENABLE_OFFSET);
+	val &= ~mask;
+	writel_relaxed(val, pcie_port->base + offset + PCIE_MSI_SET_ENABLE_OFFSET);
+
+	pr_info("port=%d, MSI address=%#x, mask=%#x, Enable status=%#x\n",
+		port, msi_addr, mask,
+		readl_relaxed(pcie_port->base + offset + PCIE_MSI_SET_ENABLE_OFFSET));
+
+	return 0;
+}
+EXPORT_SYMBOL(mtk_pcie_mask_msi_to_ap);
 
 static void __maybe_unused mtk_pcie_irq_save(struct mtk_pcie_port *port)
 {
