@@ -562,6 +562,7 @@ static const struct scp_domain_data scp_domain_mt6985_spm_data[] = {
 		.sram_pdn_bits = GENMASK(8, 8),
 		.sram_pdn_ack_bits = GENMASK(12, 12),
 		.basic_clk_name = {"vde"},
+		.subsys_clk_prefix = "vde1",
 		.bp_table = {
 			BUS_PROT_IGN(IFR_TYPE, 0x1e4, 0x1e8, 0x1e0, 0x1ec,
 				MT6985_TOP_AXI_PROT_EN_MMSYS0_VDE1),
