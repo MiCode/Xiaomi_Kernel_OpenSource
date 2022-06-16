@@ -54,7 +54,6 @@ MTK_FPSGO_COMPOSER = $(mtk_fpsgo_composer_objs:%.o=composer/%.o)
 
 #fbt
 include $(FPSGO_TOP)/fbt/build.mk
-ccflags-y += -DNR_FREQ_CPU=32
 MTK_FPSGO_FBT = $(mtk_fpsgo_fbt_objs:%.o=fbt/%.o)
 
 #fstb

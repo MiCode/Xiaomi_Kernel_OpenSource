@@ -10,10 +10,13 @@
 #include <linux/slab.h>
 #include <linux/sched.h>
 #include <linux/interrupt.h>
+#include <linux/kthread.h>
+#include <linux/irq_work.h>
 #include <linux/sched/clock.h>
 #include <linux/sched/task.h>
 #include <linux/sched/cputime.h>
 #include <linux/cpufreq.h>
+#include "sugov/cpufreq.h"
 #include <linux/kobject.h>
 #include <linux/device.h>
 #include <linux/miscdevice.h>
@@ -152,6 +155,20 @@ int fpsgo_arch_nr_clusters(void)
 
 	return num;
 
+}
+
+int fpsgo_arch_nr_freq_cpu(void)
+{
+	int  cpu, max_opp = 0;
+
+	for_each_possible_cpu(cpu) {
+		int opp = pd_get_cpu_opp(cpu);
+
+		if (opp > max_opp)
+			max_opp = opp;
+	}
+
+	return max_opp;
 }
 
 unsigned int fpsgo_cpufreq_get_freq_by_idx(

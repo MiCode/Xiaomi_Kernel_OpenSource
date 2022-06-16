@@ -248,6 +248,7 @@ void *fpsgo_alloc_atomic(int i32Size);
 void fpsgo_free(void *pvBuf, int i32Size);
 unsigned long long fpsgo_get_time(void);
 int fpsgo_arch_nr_clusters(void);
+int fpsgo_arch_nr_freq_cpu(void);
 unsigned int fpsgo_cpufreq_get_freq_by_idx(
 	int cpu, unsigned int opp);
 bool fpsgo_sentuevent(const char *src);

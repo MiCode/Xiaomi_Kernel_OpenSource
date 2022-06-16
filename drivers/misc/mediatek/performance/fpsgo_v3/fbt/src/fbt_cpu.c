@@ -100,13 +100,11 @@ do {\
 		pr_debug(x);\
 } while (0)
 
-#ifdef NR_FREQ_CPU
 struct fbt_cpu_dvfs_info {
-	unsigned int power[NR_FREQ_CPU];
-	unsigned int capacity_ratio[NR_FREQ_CPU];
+	unsigned int *power;
+	unsigned int *capacity_ratio;
 	int num_cpu;
 };
-#endif
 
 struct fbt_pid_list {
 	int pid;
@@ -354,6 +352,7 @@ static int llf_task_policy;
 static int enable_ceiling;
 
 static int cluster_num;
+static int nr_freq_cpu;
 static unsigned int cpu_max_freq;
 static struct fbt_cpu_dvfs_info *cpu_dvfs;
 static int max_cap_cluster, min_cap_cluster, sec_cap_cluster;
@@ -849,7 +848,7 @@ static void fbt_limit_ceiling_locked(struct cpu_ctrl_data *pld, int is_rescue)
 
 		opp = (is_rescue) ? limit->ropp : limit->copp;
 
-		if (opp <= 0 || opp >= NR_FREQ_CPU)
+		if (opp <= 0 || opp >= nr_freq_cpu)
 			continue;
 
 		pld[cluster].max = MIN(cpu_dvfs[cluster].power[opp],
@@ -872,7 +871,7 @@ static void fbt_set_hard_limit_locked(int input, struct cpu_ctrl_data *pld)
 	set_ceiling = (input & 2) >> 1;
 	is_rescue = !set_margin;
 
-	if (cluster_num == 1 || bhr_opp == (NR_FREQ_CPU - 1)
+	if (cluster_num == 1 || bhr_opp == (nr_freq_cpu - 1)
 		|| (pld && pld[max_cap_cluster].max == -1)) {
 		set_ceiling = 0;
 		set_margin = 0;
@@ -1406,7 +1405,7 @@ static int fbt_get_opp_by_normalized_cap(unsigned int cap, int cluster)
 	if (cluster >= cluster_num)
 		cluster = 0;
 
-	for (tgt_opp = (NR_FREQ_CPU - 1); tgt_opp > 0; tgt_opp--) {
+	for (tgt_opp = (nr_freq_cpu - 1); tgt_opp > 0; tgt_opp--) {
 		if (cpu_dvfs[cluster].capacity_ratio[tgt_opp] >= cap)
 			break;
 	}
@@ -1514,7 +1513,7 @@ static void fbt_set_min_cap_locked(struct render_info *thr, int min_cap,
 		mbhr = (min(mbhr, 100) * cpu_max_freq);
 		mbhr = mbhr / 100;
 
-		for (i = (NR_FREQ_CPU - 1); i >= 0; i--) {
+		for (i = (nr_freq_cpu - 1); i >= 0; i--) {
 			if (cpu_dvfs[cluster].power[i] > mbhr)
 				break;
 		}
@@ -1576,7 +1575,7 @@ static void fbt_set_min_cap_locked(struct render_info *thr, int min_cap,
 		}
 
 		if (fbt_is_light_loading(fl->loading) &&
-			bhr_opp != (NR_FREQ_CPU - 1) && fl->action == 0) {
+			bhr_opp != (nr_freq_cpu - 1) && fl->action == 0) {
 			fbt_set_per_task_cap(fl->pid,
 				(!loading_policy) ? 0
 				: min_cap * loading_policy / 100, max_cap);
@@ -1641,7 +1640,7 @@ static int fbt_get_target_cluster(unsigned int blc_wt)
 	int order = (max_cap_cluster > min_cap_cluster)?1:0;
 
 	while (i != min_cap_cluster) {
-		if (blc_wt >= cpu_dvfs[i].capacity_ratio[NR_FREQ_CPU - 1]) {
+		if (blc_wt >= cpu_dvfs[i].capacity_ratio[nr_freq_cpu - 1]) {
 			cluster = i;
 			break;
 		}
@@ -1738,7 +1737,7 @@ static unsigned int fbt_get_new_base_blc(struct cpu_ctrl_data *pld,
 				fbt_get_opp_by_normalized_cap(blc_wt, cluster);
 
 			opp = MIN(opp, base_opp[cluster]);
-			opp = clamp(opp, 0, NR_FREQ_CPU - 1);
+			opp = clamp(opp, 0, nr_freq_cpu - 1);
 
 			pld[cluster].max = cpu_dvfs[cluster].power[max(
 				(int)(opp - headroom), 0)];
@@ -2572,7 +2571,7 @@ static void fbt_do_boost(unsigned int blc_wt, int pid,
 		mbhr = (min(mbhr, 100U) * cpu_max_freq);
 		mbhr = mbhr / 100U;
 
-		for (i = (NR_FREQ_CPU - 1); i > 0; i--) {
+		for (i = (nr_freq_cpu - 1); i > 0; i--) {
 			if (cpu_dvfs[cluster].power[i] > mbhr)
 				break;
 		}
@@ -2597,7 +2596,7 @@ static void fbt_do_boost(unsigned int blc_wt, int pid,
 	}
 
 	if (cluster_num == 1 || pld[max_cap_cluster].max == -1
-		|| bhr_opp == (NR_FREQ_CPU - 1))
+		|| bhr_opp == (nr_freq_cpu - 1))
 		fbt_set_hard_limit_locked(FPSGO_HARD_NONE, pld);
 	else {
 		if (limit_policy != FPSGO_LIMIT_NONE)
@@ -2735,7 +2734,7 @@ BOOST:
 	if (thread_info && fbt_check_scn(thread_info) == FPSGO_SCN_GAME) {
 		int perf_hint = 0;
 
-		if ((!suppress_ceiling) || (bhr_opp >= (NR_FREQ_CPU - 1)))
+		if ((!suppress_ceiling) || (bhr_opp >= (nr_freq_cpu - 1)))
 			perf_hint = 1;
 
 		thrm_aware_frame_start(thread_info->pid, perf_hint);
@@ -2786,7 +2785,7 @@ static unsigned int fbt_get_max_userlimit_freq(void)
 
 	mutex_lock(&fbt_mlock);
 	for (i = 0; i < cluster_num; i++) {
-		if (clus_max_idx[i] < 0 || clus_max_idx[i] >= NR_FREQ_CPU)
+		if (clus_max_idx[i] < 0 || clus_max_idx[i] >= nr_freq_cpu)
 			continue;
 
 		clus_max_cap[i] = cpu_dvfs[i].capacity_ratio[clus_max_idx[i]];
@@ -4082,7 +4081,7 @@ void fpsgo_ctrl2fbt_cpufreq_cb(int cid, unsigned long freq)
 	curr_cb_ts = fpsgo_get_time();
 	new_ts = nsec_to_100usec(curr_cb_ts);
 
-	for (opp = (NR_FREQ_CPU - 1); opp > 0; opp--) {
+	for (opp = (nr_freq_cpu - 1); opp > 0; opp--) {
 		if (cpu_dvfs[cid].power[opp] >= freq)
 			break;
 	}
@@ -4628,7 +4627,7 @@ static int fbt_get_opp_by_freq(int cluster, unsigned int freq)
 	if (cluster < 0 || cluster >= cluster_num)
 		return INVALID_NUM;
 
-	for (opp = (NR_FREQ_CPU - 1); opp > 0; opp--) {
+	for (opp = (nr_freq_cpu - 1); opp > 0; opp--) {
 		if (cpu_dvfs[cluster].power[opp] == freq)
 			break;
 
@@ -4638,7 +4637,7 @@ static int fbt_get_opp_by_freq(int cluster, unsigned int freq)
 		}
 	}
 
-	opp = clamp(opp, 0, NR_FREQ_CPU - 1);
+	opp = clamp(opp, 0, nr_freq_cpu - 1);
 
 	return opp;
 }
@@ -4658,7 +4657,7 @@ static int check_limit_cap(int is_rescue)
 		if (opp == -1)
 			opp = 0;
 
-		if (opp >= 0 && opp < NR_FREQ_CPU) {
+		if (opp >= 0 && opp < nr_freq_cpu) {
 			cap = cpu_dvfs[cluster].capacity_ratio[opp];
 			if (cap > max_cap)
 				max_cap = cap;
@@ -4739,7 +4738,7 @@ static int cmp_uint(const void *a, const void *b)
 }
 #endif
 
-static void fbt_update_pwd_tbl(void)
+static void fbt_update_pwr_tbl(void)
 {
 	unsigned long long max_cap = 0ULL, min_cap = UINT_MAX;
 	int cluster = 0;
@@ -4759,7 +4758,7 @@ static void fbt_update_pwd_tbl(void)
 
 		cpu_dvfs[cluster].num_cpu = cpumask_weight(policy->cpus);
 
-		for (opp = 0; opp < NR_FREQ_CPU; opp++) {
+		for (opp = 0; opp < nr_freq_cpu; opp++) {
 			cpu_dvfs[cluster].capacity_ratio[opp] =
 				pd_get_opp_capacity(cpu, opp) * 100 >> 10;
 			cpu_dvfs[cluster].power[opp] =
@@ -4767,11 +4766,11 @@ static void fbt_update_pwd_tbl(void)
 		}
 
 		sort(cpu_dvfs[cluster].capacity_ratio,
-				NR_FREQ_CPU,
+				nr_freq_cpu,
 				sizeof(unsigned int),
 				cmp_uint, NULL);
 		sort(cpu_dvfs[cluster].power,
-				NR_FREQ_CPU,
+				nr_freq_cpu,
 				sizeof(unsigned int),
 				cmp_uint, NULL);
 
@@ -5338,7 +5337,7 @@ static ssize_t table_freq_show(struct kobject *kobj,
 	mutex_lock(&fbt_mlock);
 
 	for (cluster = 0; cluster < cluster_num ; cluster++) {
-		for (opp = 0; opp < NR_FREQ_CPU; opp++) {
+		for (opp = 0; opp < nr_freq_cpu; opp++) {
 			length = scnprintf(temp + posi,
 				FPSGO_SYSFS_MAX_BUFF_SIZE - posi,
 				"%d/%2d %d\n",
@@ -5367,7 +5366,7 @@ static ssize_t table_cap_show(struct kobject *kobj,
 	mutex_lock(&fbt_mlock);
 
 	for (cluster = 0; cluster < cluster_num ; cluster++) {
-		for (opp = 0; opp < NR_FREQ_CPU; opp++) {
+		for (opp = 0; opp < nr_freq_cpu; opp++) {
 			length = scnprintf(temp + posi,
 				FPSGO_SYSFS_MAX_BUFF_SIZE - posi,
 				"%d/%2d %d\n",
@@ -6141,6 +6140,8 @@ static KOBJ_ATTR_RW(limit_rfreq_m);
 
 void __exit fbt_cpu_exit(void)
 {
+	int i = 0;
+
 	minitop_exit();
 	thrm_aware_exit();
 	fbt_reg_dram_request(0);
@@ -6185,7 +6186,13 @@ void __exit fbt_cpu_exit(void)
 	kfree(base_opp);
 	kfree(clus_obv);
 	kfree(clus_status);
+
+	for (i = 0; i < cluster_num; i++) {
+		kfree(cpu_dvfs[i].power);
+		kfree(cpu_dvfs[i].capacity_ratio);
+	}
 	kfree(cpu_dvfs);
+
 	kfree(clus_max_cap);
 	kfree(limit_clus_ceil);
 
@@ -6196,13 +6203,17 @@ void __exit fbt_cpu_exit(void)
 
 int __init fbt_cpu_init(void)
 {
+	int i = 0;
+
 	init_fbt_platform();
 
+	cluster_num = fpsgo_arch_nr_clusters();
+	nr_freq_cpu = fpsgo_arch_nr_freq_cpu();
 	bhr = 0;
 	bhr_opp = 0;
 	bhr_opp_l = fbt_get_l_min_bhropp();
 	isolation_limit_cap = 1;
-	rescue_opp_c = (NR_FREQ_CPU - 1);
+	rescue_opp_c = (nr_freq_cpu - 1);
 	rescue_opp_f = 5;
 	rescue_percent = DEF_RESCUE_PERCENT;
 	min_rescue_percent = 10;
@@ -6229,7 +6240,7 @@ int __init fbt_cpu_init(void)
 	rescue_second_g_enable = 1;
 	rescue_second_g_time = 1;
 	rescue_second_g_group = 1;
-	rescue_second_copp = NR_FREQ_CPU - 1;
+	rescue_second_copp = nr_freq_cpu - 1;
 
 	_gdfrc_fps_limit = TARGET_DEFAULT_FPS;
 	vsync_period = GED_VSYNC_MISS_QUANTUM_NS;
@@ -6283,7 +6294,6 @@ int __init fbt_cpu_init(void)
 
 	sbe_rescue_enable = fbt_get_default_sbe_rescue_enable();
 
-	cluster_num = fpsgo_arch_nr_clusters();
 	if (cluster_num <= 0)
 		FPSGO_LOGE("cpufreq policy not found");
 
@@ -6299,6 +6309,12 @@ int __init fbt_cpu_init(void)
 	cpu_dvfs =
 		kcalloc(cluster_num, sizeof(struct fbt_cpu_dvfs_info),
 				GFP_KERNEL);
+	for (i = 0; i < cluster_num; i++) {
+		cpu_dvfs[i].power =
+			kcalloc(nr_freq_cpu, sizeof(unsigned int), GFP_KERNEL);
+		cpu_dvfs[i].capacity_ratio =
+			kcalloc(nr_freq_cpu, sizeof(unsigned int), GFP_KERNEL);
+	}
 
 	clus_max_cap =
 		kcalloc(cluster_num, sizeof(int), GFP_KERNEL);
@@ -6310,7 +6326,7 @@ int __init fbt_cpu_init(void)
 
 	fbt_init_sjerk();
 
-	fbt_update_pwd_tbl();
+	fbt_update_pwr_tbl();
 
 	if (!fpsgo_sysfs_create_dir(NULL, "fbt", &fbt_kobj)) {
 		fpsgo_sysfs_create_file(fbt_kobj,
