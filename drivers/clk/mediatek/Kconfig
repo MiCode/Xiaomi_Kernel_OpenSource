@@ -542,24 +542,6 @@ config COMMON_CLK_MT6886_CCU
 	  If you wish to use clock resources from the ccu device,
 	  say Y. Otherwise, say N.
 
-config COMMON_CLK_MT6886_DBGAO
-	tristate "Clock driver for MediaTek MT6886 dbgao"
-	depends on COMMON_CLK_MT6886
-	help
-	  This driver supports MediaTek MT6886 dbgao clocks,
-	  which is used to control dbgao clock output.
-	  If you wish to use clock resources from the dbgao device,
-	  say Y. Otherwise, say N.
-
-config COMMON_CLK_MT6886_DEM
-	tristate "Clock driver for MediaTek MT6886 dem"
-	depends on COMMON_CLK_MT6886
-	help
-	  This driver supports MediaTek MT6886 dem clocks,
-	  which is used to control dem clock output.
-	  If you wish to use clock resources from the dem device,
-	  say Y. Otherwise, say N.
-
 config COMMON_CLK_MT6886_IMG
 	tristate "Clock driver for MediaTek MT6886 img"
 	depends on COMMON_CLK_MT6886
@@ -603,15 +585,6 @@ config COMMON_CLK_MT6886_MDPSYS
 	  This driver supports MediaTek MT6886 mdpsys clocks,
 	  which is used to control mdpsys clock output.
 	  If you wish to use clock resources from the mdpsys device,
-	  say Y. Otherwise, say N.
-
-config COMMON_CLK_MT6886_MSDC1_TOP
-	tristate "Clock driver for MediaTek MT6886 msdc1_top"
-	depends on COMMON_CLK_MT6886
-	help
-	  This driver supports MediaTek MT6886 msdc1_top clocks,
-	  which is used to control msdc1_top clock output.
-	  If you wish to use clock resources from the msdc1_top device,
 	  say Y. Otherwise, say N.
 
 config COMMON_CLK_MT6886_SCP
