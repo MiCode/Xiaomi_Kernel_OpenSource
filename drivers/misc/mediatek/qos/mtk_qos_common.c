@@ -115,11 +115,20 @@ int mtk_qos_probe(struct platform_device *pdev,
 		return -EINVAL;
 
 	ret = of_property_read_u32(node,
-			"mediatek,qos_enable", &mtk_qos_enable);
+			"mediatek,enable", &mtk_qos_enable);
+
 	if (!ret)
-		pr_info("mtkqos: dts qos_enable = %d\n", mtk_qos_enable);
-	else
-		mtk_qos_enable = 1;
+		pr_info("mtkqos: dts enable = %d\n", mtk_qos_enable);
+	else {
+		ret = of_property_read_u32(node,
+				"mediatek,qos_enable", &mtk_qos_enable);
+		if (!ret)
+			pr_info("mtkqos: dts qos enable = %d\n", mtk_qos_enable);
+		else {
+			pr_info("mtkqos: default enable\n");
+			mtk_qos_enable = 1;
+		}
+	}
 
 	qos->soc = soc;
 	qos->dev = &pdev->dev;
