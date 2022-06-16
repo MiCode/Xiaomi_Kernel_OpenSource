@@ -61,6 +61,7 @@
 static unsigned int __gpufreq_custom_init_enable(void);
 static unsigned int __gpufreq_dvfs_enable(void);
 static void __gpufreq_set_dvfs_state(unsigned int set, unsigned int state);
+static void __gpufreq_set_ocl_timestamp(void);
 static void __gpufreq_set_margin_mode(unsigned int mode);
 static void __gpufreq_set_gpm_mode(unsigned int version, unsigned int mode);
 static void __gpufreq_set_ips_mode(unsigned int mode);
@@ -144,6 +145,7 @@ static void __gpufreq_mfg1_rpc_control(enum gpufreq_power_state power);
 static int __gpufreq_clock_control(enum gpufreq_power_state power);
 static int __gpufreq_mtcmos_control(enum gpufreq_power_state power);
 static int __gpufreq_buck_control(enum gpufreq_power_state power);
+static void __gpufreq_check_bus_idle(void);
 static void __gpufreq_aoc_config(enum gpufreq_power_state power);
 static void __gpufreq_hwdcm_config(void);
 static void __gpufreq_acp_config(void);
@@ -284,8 +286,6 @@ static struct gpufreq_platform_fp platform_ap_fp = {
 	.generic_commit_stack = __gpufreq_generic_commit_stack,
 	.fix_target_oppidx_stack = __gpufreq_fix_target_oppidx_stack,
 	.fix_custom_freq_volt_stack = __gpufreq_fix_custom_freq_volt_stack,
-	.set_timestamp = __gpufreq_set_timestamp,
-	.check_bus_idle = __gpufreq_check_bus_idle,
 	.dump_infra_status = __gpufreq_dump_infra_status,
 	.set_mfgsys_config = __gpufreq_set_mfgsys_config,
 	.get_core_mask_table = __gpufreq_get_core_mask_table,
@@ -298,14 +298,11 @@ static struct gpufreq_platform_fp platform_ap_fp = {
 };
 
 static struct gpufreq_platform_fp platform_eb_fp = {
-	.set_timestamp = __gpufreq_set_timestamp,
-	.check_bus_idle = __gpufreq_check_bus_idle,
 	.dump_infra_status = __gpufreq_dump_infra_status,
 	.get_dyn_pgpu = __gpufreq_get_dyn_pgpu,
 	.get_dyn_pstack = __gpufreq_get_dyn_pstack,
 	.get_core_mask_table = __gpufreq_get_core_mask_table,
 	.get_core_num = __gpufreq_get_core_num,
-	.pdca_config = __gpufreq_pdca_config,
 	.fake_mtcmos_control = __gpufreq_fake_mtcmos_control,
 };
 
@@ -766,13 +763,17 @@ int __gpufreq_power_control(enum gpufreq_power_state power)
 	} else if (power == POWER_OFF && g_stack.power_count == 0) {
 		__gpufreq_footprint_power_step(0x0F);
 
+		/* check all transaction complete before power off */
+		__gpufreq_check_bus_idle();
+		__gpufreq_footprint_power_step(0x10);
+
 		/* freeze DVFS when power off */
 		g_dvfs_state |= DVFS_POWEROFF;
-		__gpufreq_footprint_power_step(0x10);
+		__gpufreq_footprint_power_step(0x11);
 
 		/* backup MFG registers */
 		__gpufreq_mfg_backup_restore(POWER_OFF);
-		__gpufreq_footprint_power_step(0x11);
+		__gpufreq_footprint_power_step(0x12);
 
 		/* disable Clock */
 		ret = __gpufreq_clock_control(POWER_OFF);
@@ -781,7 +782,7 @@ int __gpufreq_power_control(enum gpufreq_power_state power)
 			ret = GPUFREQ_EINVAL;
 			goto done_unlock;
 		}
-		__gpufreq_footprint_power_step(0x12);
+		__gpufreq_footprint_power_step(0x13);
 
 		/* disable MTCMOS */
 		ret = __gpufreq_mtcmos_control(POWER_OFF);
@@ -790,11 +791,11 @@ int __gpufreq_power_control(enum gpufreq_power_state power)
 			ret = GPUFREQ_EINVAL;
 			goto done_unlock;
 		}
-		__gpufreq_footprint_power_step(0x13);
+		__gpufreq_footprint_power_step(0x14);
 
 		/* set AOC ISO/LATCH before Buck off */
 		__gpufreq_aoc_config(POWER_OFF);
-		__gpufreq_footprint_power_step(0x14);
+		__gpufreq_footprint_power_step(0x15);
 
 		/* disable Buck */
 		ret = __gpufreq_buck_control(POWER_OFF);
@@ -803,7 +804,7 @@ int __gpufreq_power_control(enum gpufreq_power_state power)
 			ret = GPUFREQ_EINVAL;
 			goto done_unlock;
 		}
-		__gpufreq_footprint_power_step(0x15);
+		__gpufreq_footprint_power_step(0x16);
 	}
 
 	/* return power count if successfully control power */
@@ -826,9 +827,9 @@ int __gpufreq_power_control(enum gpufreq_power_state power)
 	}
 
 	if (power == POWER_ON)
-		__gpufreq_footprint_power_step(0x16);
-	else if (power == POWER_OFF)
 		__gpufreq_footprint_power_step(0x17);
+	else if (power == POWER_OFF)
+		__gpufreq_footprint_power_step(0x18);
 
 done_unlock:
 	GPUFREQ_LOGD("- PWR_STATUS: 0x%08x", MFG_0_19_PWR_STATUS);
@@ -1091,39 +1092,6 @@ done:
 	return ret;
 }
 
-void __gpufreq_set_timestamp(void)
-{
-	/* acquire sema before access MFG_TOP_CFG */
-	__gpufreq_set_semaphore(SEMA_ACQUIRE);
-
-	/* MFG_TIMESTAMP 0x13FBF130 [0] top_tsvalueb_en = 1'b1 */
-	/* MFG_TIMESTAMP 0x13FBF130 [1] timer_sel = 1'b1 */
-	writel(GENMASK(1, 0), MFG_TIMESTAMP);
-
-	__gpufreq_set_semaphore(SEMA_RELEASE);
-}
-
-void __gpufreq_check_bus_idle(void)
-{
-	/* acquire sema before access MFG_TOP_CFG */
-	__gpufreq_set_semaphore(SEMA_ACQUIRE);
-
-	/* MFG_QCHANNEL_CON 0x13FBF0B4 [0] MFG_ACTIVE_SEL = 1'b1 */
-	writel((readl_mfg(MFG_QCHANNEL_CON) | BIT(0)), MFG_QCHANNEL_CON);
-
-	/* MFG_DEBUG_SEL 0x13FBF170 [1:0] MFG_DEBUG_TOP_SEL = 2'b11 */
-	writel((readl_mfg(MFG_DEBUG_SEL) | GENMASK(1, 0)), MFG_DEBUG_SEL);
-
-	/*
-	 * polling MFG_DEBUG_TOP 0x13FBF178 [0] MFG_DEBUG_TOP
-	 * 0x0: bus idle
-	 * 0x1: bus busy
-	 */
-	do {} while (readl_mfg(MFG_DEBUG_TOP) & BIT(0));
-
-	__gpufreq_set_semaphore(SEMA_RELEASE);
-}
-
 void __gpufreq_dump_infra_status(void)
 {
 	if (!g_gpufreq_ready)
@@ -1140,18 +1108,14 @@ void __gpufreq_dump_infra_status(void)
 		__gpufreq_get_real_fgpu(), readl(TOPCK_CLK_CFG_30) & MFG_INT0_SEL_MASK,
 		__gpufreq_get_real_fstack(), readl(TOPCK_CLK_CFG_30) & MFGSC_INT1_SEL_MASK);
 
-	/* MFG_QCHANNEL_CON 0x13FBF0B4 [0] MFG_ACTIVE_SEL = 1'b1 */
-	writel((readl_mfg(MFG_QCHANNEL_CON) | BIT(0)), MFG_QCHANNEL_CON);
-	/* MFG_DEBUG_SEL 0x13FBF170 [1:0] MFG_DEBUG_TOP_SEL = 2'b11 */
-	writel((readl_mfg(MFG_DEBUG_SEL) | GENMASK(1, 0)), MFG_DEBUG_SEL);
-	/* MFG_DEBUG_SEL */
-	/* MFG_DEBUG_TOP */
+	/* MALI_SHADER_READY_LO */
+	/* MFG_RPC_AO_CLK_CFG */
 	/* MFG_RPC_SLP_PROT_EN_STA */
 	/* MFG_RPC_IPS_SES_PWR_CON */
 	GPUFREQ_LOGI("%-11s (0x%x): 0x%08x, (0x%x): 0x%08x, (0x%x): 0x%08x, (0x%x): 0x%08x",
 		"[MFG]",
-		0x13FBF170, readl_mfg(MFG_DEBUG_SEL),
-		0x13FBF178, readl_mfg(MFG_DEBUG_TOP),
+		0x13000140, readl(MALI_SHADER_READY_LO),
+		0x13F91034, readl(MFG_RPC_AO_CLK_CFG),
 		0x13F91048, readl(MFG_RPC_SLP_PROT_EN_STA),
 		0x13F910FC, readl(MFG_RPC_IPS_SES_PWR_CON));
 
@@ -1170,7 +1134,7 @@ void __gpufreq_dump_infra_status(void)
 	/* NTH_M6M7_IDLE_BIT_EN_0 */
 	/* STH_M6M7_IDLE_BIT_EN_1 */
 	/* STH_M6M7_IDLE_BIT_EN_0 */
-	GPUFREQ_LOGI("%11s (0x%x): 0x%08x, (0x%x): 0x%08x, (0x%x): 0x%08x, (0x%x): 0x%08x",
+	GPUFREQ_LOGI("%-11s (0x%x): 0x%08x, (0x%x): 0x%08x, (0x%x): 0x%08x, (0x%x): 0x%08x",
 		"[EMI]",
 		0x10270228, readl(NTH_M6M7_IDLE_BIT_EN_1),
 		0x1027022C, readl(NTH_M6M7_IDLE_BIT_EN_0),
@@ -1316,6 +1280,9 @@ void __gpufreq_set_mfgsys_config(enum gpufreq_config_target target, enum gpufreq
 		break;
 	case CONFIG_IPS:
 		__gpufreq_set_ips_mode(val);
+		break;
+	case CONFIG_OCL_TIMESTAMP:
+		__gpufreq_set_ocl_timestamp();
 		break;
 	default:
 		GPUFREQ_LOGE("invalid config target: %d", target);
@@ -1908,6 +1875,18 @@ static void __gpufreq_set_dvfs_state(unsigned int set, unsigned int state)
 		g_shared_status->dvfs_state = g_dvfs_state;
 
 	mutex_unlock(&gpufreq_lock);
+}
+
+static void __gpufreq_set_ocl_timestamp(void)
+{
+	/* acquire sema before access MFG_TOP_CFG */
+	__gpufreq_set_semaphore(SEMA_ACQUIRE);
+
+	/* MFG_TIMESTAMP 0x13FBF130 [0] top_tsvalueb_en = 1'b1 */
+	/* MFG_TIMESTAMP 0x13FBF130 [1] timer_sel = 1'b1 */
+	writel(GENMASK(1, 0), MFG_TIMESTAMP);
+
+	__gpufreq_set_semaphore(SEMA_RELEASE);
 }
 
 /* API: apply/restore Vaging to working table of STACK */
@@ -4284,6 +4263,27 @@ done:
 	GPUFREQ_TRACE_END();
 
 	return ret;
+}
+
+static void __gpufreq_check_bus_idle(void)
+{
+	/* acquire sema before access MFG_TOP_CFG */
+	__gpufreq_set_semaphore(SEMA_ACQUIRE);
+
+	/* MFG_QCHANNEL_CON 0x13FBF0B4 [0] MFG_ACTIVE_SEL = 1'b1 */
+	writel((readl_mfg(MFG_QCHANNEL_CON) | BIT(0)), MFG_QCHANNEL_CON);
+
+	/* MFG_DEBUG_SEL 0x13FBF170 [1:0] MFG_DEBUG_TOP_SEL = 2'b11 */
+	writel((readl_mfg(MFG_DEBUG_SEL) | GENMASK(1, 0)), MFG_DEBUG_SEL);
+
+	/*
+	 * polling MFG_DEBUG_TOP 0x13FBF178 [0] MFG_DEBUG_TOP
+	 * 0x0: bus idle
+	 * 0x1: bus busy
+	 */
+	do {} while (readl_mfg(MFG_DEBUG_TOP) & BIT(0));
+
+	__gpufreq_set_semaphore(SEMA_RELEASE);
 }
 
 /* API: init first OPP idx by init freq set in preloader */

@@ -108,6 +108,7 @@ enum gpufreq_config_target {
 	CONFIG_DYN_SRAM_GPU   = 9,
 	CONFIG_DYN_SRAM_STACK = 10,
 	CONFIG_IPS            = 11,
+	CONFIG_OCL_TIMESTAMP  = 12,
 };
 
 enum gpufreq_config_value {
@@ -331,8 +332,6 @@ struct gpufreq_platform_fp {
 	unsigned int (*get_segment_id)(void);
 	int (*power_control)(enum gpufreq_power_state power);
 	int (*active_idle_control)(enum gpufreq_power_state power);
-	void (*set_timestamp)(void);
-	void (*check_bus_idle)(void);
 	void (*dump_infra_status)(void);
 	void (*update_debug_opp_info)(void);
 	void (*set_mfgsys_config)(enum gpufreq_config_target target, enum gpufreq_config_value val);
@@ -415,8 +414,7 @@ unsigned int gpufreq_get_power_state(void);
 unsigned int gpufreq_get_dvfs_state(void);
 unsigned int gpufreq_get_shader_present(void);
 unsigned int gpufreq_get_segment_id(void);
-void gpufreq_set_timestamp(void);
-void gpufreq_check_bus_idle(void);
+void gpufreq_set_ocl_timestamp(void);
 void gpufreq_dump_infra_status(void);
 unsigned int gpufreq_get_cur_freq(enum gpufreq_target target);
 unsigned int gpufreq_get_cur_volt(enum gpufreq_target target);

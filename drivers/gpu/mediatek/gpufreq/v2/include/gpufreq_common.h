@@ -91,8 +91,6 @@ unsigned int __gpufreq_get_dvfs_state(void);
 unsigned int __gpufreq_get_shader_present(void);
 int __gpufreq_power_control(enum gpufreq_power_state power);
 int __gpufreq_active_idle_control(enum gpufreq_power_state power);
-void __gpufreq_set_timestamp(void);
-void __gpufreq_check_bus_idle(void);
 void __gpufreq_dump_infra_status(void);
 int __gpufreq_get_batt_oc_idx(int batt_oc_level);
 int __gpufreq_get_batt_percent_idx(int batt_percent_level);

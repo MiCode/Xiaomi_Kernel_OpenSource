@@ -30,14 +30,15 @@ static char *gpufreq_ipi_cmd_name[] = {
 	"CMD_POWER_CONTROL",          // 6
 	"CMD_ACTIVE_IDLE_CONTROL",    // 7
 	"CMD_COMMIT",                 // 8
+	"CMD_PDCA_CONFIG",            // 9
 	/* Debug */
-	"CMD_UPDATE_DEBUG_OPP_INFO",  // 9
-	"CMD_SWITCH_LIMIT",           // 10
-	"CMD_FIX_TARGET_OPPIDX",      // 11
-	"CMD_FIX_CUSTOM_FREQ_VOLT",   // 12
-	"CMD_SET_MFGSYS_CONFIG",      // 13
-	"CMD_MSSV_COMMIT",            // 14
-	"CMD_NUM",                    // 15
+	"CMD_UPDATE_DEBUG_OPP_INFO",  // 10
+	"CMD_SWITCH_LIMIT",           // 11
+	"CMD_FIX_TARGET_OPPIDX",      // 12
+	"CMD_FIX_CUSTOM_FREQ_VOLT",   // 13
+	"CMD_SET_MFGSYS_CONFIG",      // 14
+	"CMD_MSSV_COMMIT",            // 15
+	"CMD_NUM",                    // 16
 };
 
 enum gpufreq_ipi_cmd {
@@ -51,14 +52,15 @@ enum gpufreq_ipi_cmd {
 	CMD_POWER_CONTROL             = 6,
 	CMD_ACTIVE_IDLE_CONTROL       = 7,
 	CMD_COMMIT                    = 8,
+	CMD_PDCA_CONFIG               = 9,
 	/* Debug */
-	CMD_UPDATE_DEBUG_OPP_INFO     = 9,
-	CMD_SWITCH_LIMIT              = 10,
-	CMD_FIX_TARGET_OPPIDX         = 11,
-	CMD_FIX_CUSTOM_FREQ_VOLT      = 12,
-	CMD_SET_MFGSYS_CONFIG         = 13,
-	CMD_MSSV_COMMIT               = 14,
-	CMD_NUM                       = 15,
+	CMD_UPDATE_DEBUG_OPP_INFO     = 10,
+	CMD_SWITCH_LIMIT              = 11,
+	CMD_FIX_TARGET_OPPIDX         = 12,
+	CMD_FIX_CUSTOM_FREQ_VOLT      = 13,
+	CMD_SET_MFGSYS_CONFIG         = 14,
+	CMD_MSSV_COMMIT               = 15,
+	CMD_NUM                       = 16,
 };
 
 /**************************************************

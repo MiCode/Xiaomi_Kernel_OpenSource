@@ -58,6 +58,7 @@
 static unsigned int __gpufreq_custom_init_enable(void);
 static unsigned int __gpufreq_dvfs_enable(void);
 static void __gpufreq_set_dvfs_state(unsigned int set, unsigned int state);
+static void __gpufreq_set_ocl_timestamp(void);
 static void __gpufreq_set_margin_mode(unsigned int mode);
 static void __gpufreq_set_gpm_mode(unsigned int version, unsigned int mode);
 static void __gpufreq_dump_bringup_status(struct platform_device *pdev);
@@ -130,6 +131,7 @@ static unsigned int __gpufreq_get_aging_table_idx(u32 a_t0_lvt_rt, u32 a_t0_ulvt
 static int __gpufreq_clock_control(enum gpufreq_power_state power);
 static int __gpufreq_mtcmos_control(enum gpufreq_power_state power);
 static int __gpufreq_buck_control(enum gpufreq_power_state power);
+static void __gpufreq_check_bus_idle(void);
 static void __gpufreq_mfg_backup_restore(enum gpufreq_power_state power);
 static void __gpufreq_aoc_control(enum gpufreq_power_state power);
 static void __gpufreq_hw_dcm_control(void);
@@ -253,8 +255,6 @@ static struct gpufreq_platform_fp platform_ap_fp = {
 	.generic_commit_stack = __gpufreq_generic_commit_stack,
 	.fix_target_oppidx_stack = __gpufreq_fix_target_oppidx_stack,
 	.fix_custom_freq_volt_stack = __gpufreq_fix_custom_freq_volt_stack,
-	.set_timestamp = __gpufreq_set_timestamp,
-	.check_bus_idle = __gpufreq_check_bus_idle,
 	.dump_infra_status = __gpufreq_dump_infra_status,
 	.get_core_mask_table = __gpufreq_get_core_mask_table,
 	.get_core_num = __gpufreq_get_core_num,
@@ -263,14 +263,11 @@ static struct gpufreq_platform_fp platform_ap_fp = {
 };
 
 static struct gpufreq_platform_fp platform_eb_fp = {
-	.set_timestamp = __gpufreq_set_timestamp,
-	.check_bus_idle = __gpufreq_check_bus_idle,
 	.dump_infra_status = __gpufreq_dump_infra_status,
 	.get_dyn_pgpu = __gpufreq_get_dyn_pgpu,
 	.get_dyn_pstack = __gpufreq_get_dyn_pstack,
 	.get_core_mask_table = __gpufreq_get_core_mask_table,
 	.get_core_num = __gpufreq_get_core_num,
-	.pdca_config = __gpufreq_pdca_config,
 	.fake_mtcmos_control = __gpufreq_fake_mtcmos_control,
 };
 
@@ -735,14 +732,17 @@ int __gpufreq_power_control(enum gpufreq_power_state power)
 	} else if (power == POWER_OFF && g_stack.power_count == 0) {
 		__gpufreq_footprint_power_step(0x0D);
 
+		/* check all transaction complete before power off */
+		__gpufreq_check_bus_idle();
+		__gpufreq_footprint_power_step(0x0E);
+
 		/* freeze DVFS when power off */
 		g_dvfs_state |= DVFS_POWEROFF;
-
-		__gpufreq_footprint_power_step(0x0E);
+		__gpufreq_footprint_power_step(0x0F);
 
 		/* backup MFG registers */
 		__gpufreq_mfg_backup_restore(POWER_OFF);
-		__gpufreq_footprint_power_step(0x0F);
+		__gpufreq_footprint_power_step(0x10);
 
 		/* control clock */
 		ret = __gpufreq_clock_control(POWER_OFF);
@@ -751,7 +751,7 @@ int __gpufreq_power_control(enum gpufreq_power_state power)
 			ret = GPUFREQ_EINVAL;
 			goto done_unlock;
 		}
-		__gpufreq_footprint_power_step(0x10);
+		__gpufreq_footprint_power_step(0x11);
 
 		/* control MTCMOS */
 		ret = __gpufreq_mtcmos_control(POWER_OFF);
@@ -760,7 +760,7 @@ int __gpufreq_power_control(enum gpufreq_power_state power)
 			ret = GPUFREQ_EINVAL;
 			goto done_unlock;
 		}
-		__gpufreq_footprint_power_step(0x11);
+		__gpufreq_footprint_power_step(0x12);
 
 		/* control Buck */
 		ret = __gpufreq_buck_control(POWER_OFF);
@@ -769,11 +769,11 @@ int __gpufreq_power_control(enum gpufreq_power_state power)
 			ret = GPUFREQ_EINVAL;
 			goto done_unlock;
 		}
-		__gpufreq_footprint_power_step(0x12);
+		__gpufreq_footprint_power_step(0x13);
 
 		/* control AOC before MFG_0 off */
 		__gpufreq_aoc_control(POWER_OFF);
-		__gpufreq_footprint_power_step(0x13);
+		__gpufreq_footprint_power_step(0x14);
 	}
 
 	/* return power count if successfully control power */
@@ -1136,39 +1136,6 @@ done:
 	return ret;
 }
 
-void __gpufreq_set_timestamp(void)
-{
-	/* MFG_TIMESTAMP 0x13FBF130 [0] enable timestamp = 1'b1 */
-	/* MFG_TIMESTAMP 0x13FBF130 [1] timer from internal module = 1'b0 */
-	/* MFG_TIMESTAMP 0x13FBF130 [1] timer from soc = 1'b0 */
-	writel(0x00000003, g_mfg_top_base + 0x130);
-}
-
-void __gpufreq_check_bus_idle(void)
-{
-	u32 val = 0;
-
-	/* MFG_QCHANNEL_CON 0x13FBF0B4 [0] MFG_ACTIVE_SEL = 1'b1 */
-	val = readl(g_mfg_top_base + 0xB4);
-	val |= (1UL << 0);
-	writel(val, g_mfg_top_base + 0xB4);
-
-	/* MFG_DEBUG_SEL 0x13FBF170 [1:0] MFG_DEBUG_TOP_SEL = 2'b11 */
-	val = readl(g_mfg_top_base + 0x170);
-	val |= (1UL << 0);
-	val |= (1UL << 1);
-	writel(val, g_mfg_top_base + 0x170);
-
-	/*
-	 * polling MFG_DEBUG_TOP 0x13FBF178 [0] MFG_DEBUG_TOP
-	 * 0x0: bus idle
-	 * 0x1: bus busy
-	 */
-	do {
-		val = readl(g_mfg_top_base + 0x178);
-	} while (val & 0x1);
-}
-
 void __gpufreq_dump_infra_status(void)
 {
 	u32 val = 0;
@@ -1360,6 +1327,9 @@ void __gpufreq_set_mfgsys_config(enum gpufreq_config_target target, enum gpufreq
 		break;
 	case CONFIG_GPM1:
 		__gpufreq_set_gpm_mode(1, val);
+		break;
+	case CONFIG_OCL_TIMESTAMP:
+		__gpufreq_set_ocl_timestamp();
 		break;
 	default:
 		GPUFREQ_LOGE("invalid config target: %d", target);
@@ -1743,6 +1713,14 @@ static void __gpufreq_set_dvfs_state(unsigned int set, unsigned int state)
 	else
 		g_dvfs_state &= ~state;
 	mutex_unlock(&gpufreq_lock);
+}
+
+static void __gpufreq_set_ocl_timestamp(void)
+{
+	/* MFG_TIMESTAMP 0x13FBF130 [0] enable timestamp = 1'b1 */
+	/* MFG_TIMESTAMP 0x13FBF130 [1] timer from internal module = 1'b0 */
+	/* MFG_TIMESTAMP 0x13FBF130 [1] timer from soc = 1'b0 */
+	writel(0x00000003, g_mfg_top_base + 0x130);
 }
 
 /* API: apply/restore Vaging to working table of STACK */
@@ -3610,6 +3588,31 @@ done:
 	GPUFREQ_TRACE_END();
 
 	return ret;
+}
+
+static void __gpufreq_check_bus_idle(void)
+{
+	u32 val = 0;
+
+	/* MFG_QCHANNEL_CON 0x13FBF0B4 [0] MFG_ACTIVE_SEL = 1'b1 */
+	val = readl(g_mfg_top_base + 0xB4);
+	val |= (1UL << 0);
+	writel(val, g_mfg_top_base + 0xB4);
+
+	/* MFG_DEBUG_SEL 0x13FBF170 [1:0] MFG_DEBUG_TOP_SEL = 2'b11 */
+	val = readl(g_mfg_top_base + 0x170);
+	val |= (1UL << 0);
+	val |= (1UL << 1);
+	writel(val, g_mfg_top_base + 0x170);
+
+	/*
+	 * polling MFG_DEBUG_TOP 0x13FBF178 [0] MFG_DEBUG_TOP
+	 * 0x0: bus idle
+	 * 0x1: bus busy
+	 */
+	do {
+		val = readl(g_mfg_top_base + 0x178);
+	} while (val & 0x1);
 }
 
 static void __gpufreq_slc_control(void)

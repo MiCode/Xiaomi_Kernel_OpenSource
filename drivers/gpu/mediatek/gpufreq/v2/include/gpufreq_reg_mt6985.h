@@ -38,6 +38,7 @@ static inline u32 readl_mfg(const void __iomem *addr)
  **************************************************/
 #define MALI_BASE                       (g_mali_base)                         /* 0x13000000 */
 #define MALI_GPU_ID                     (MALI_BASE + 0x000)                   /* 0x13000000 */
+#define MALI_SHADER_READY_LO            (MALI_BASE + 0x140)                   /* 0x13000140 */
 #define MALI_L2_PWRON_LO                (MALI_BASE + 0x1A0)                   /* 0x130001A0 */
 #define MALI_L2_PWRON_HI                (MALI_BASE + 0x1A4)                   /* 0x130001A4 */
 #define MALI_L2_PWROFF_LO               (MALI_BASE + 0x1E0)                   /* 0x130001E0 */

@@ -235,38 +235,17 @@ unsigned int gpufreq_get_segment_id(void)
 EXPORT_SYMBOL(gpufreq_get_segment_id);
 
 /***********************************************************************************
- * Function Name      : gpufreq_set_timestamp
+ * Function Name      : gpufreq_set_ocl_timestamp
  * Inputs             : -
  * Outputs            : -
  * Returns            : -
  * Description        : Set timestamp for clGetEventProfilingInfo
  ***********************************************************************************/
-void gpufreq_set_timestamp(void)
+void gpufreq_set_ocl_timestamp(void)
 {
-	/* implement on AP */
-	if (gpufreq_fp && gpufreq_fp->set_timestamp)
-		gpufreq_fp->set_timestamp();
-	else
-		GPUFREQ_LOGE("null gpufreq platform function pointer (ENOENT)");
+	gpufreq_set_mfgsys_config(CONFIG_OCL_TIMESTAMP, FEAT_ENABLE);
 }
-EXPORT_SYMBOL(gpufreq_set_timestamp);
-
-/***********************************************************************************
- * Function Name      : gpufreq_check_bus_idle
- * Inputs             : -
- * Outputs            : -
- * Returns            : -
- * Description        : Check bus idle before GPU power-off
- ***********************************************************************************/
-void gpufreq_check_bus_idle(void)
-{
-	/* implement on AP */
-	if (gpufreq_fp && gpufreq_fp->check_bus_idle)
-		gpufreq_fp->check_bus_idle();
-	else
-		GPUFREQ_LOGE("null gpufreq platform function pointer (ENOENT)");
-}
-EXPORT_SYMBOL(gpufreq_check_bus_idle);
+EXPORT_SYMBOL(gpufreq_set_ocl_timestamp);
 
 /***********************************************************************************
  * Function Name      : gpufreq_dump_infra_status
@@ -1025,15 +1004,26 @@ EXPORT_SYMBOL(gpufreq_get_core_num);
  * Inputs             : power          - Target power state
  * Outputs            : -
  * Returns            : -
- * Description        : Manually control PDCv2 setting
+ * Description        : Manually control PDCA setting
  ***********************************************************************************/
 void gpufreq_pdca_config(enum gpufreq_power_state power)
 {
-	/* implement only on AP */
-	if (gpufreq_fp && gpufreq_fp->pdca_config)
-		gpufreq_fp->pdca_config(power);
-	else
-		GPUFREQ_LOGE("null gpufreq platform function pointer (ENOENT)");
+	struct gpufreq_ipi_data send_msg = {};
+	int ret = GPUFREQ_SUCCESS;
+
+	/* implement on EB */
+	if (g_gpueb_support) {
+		send_msg.cmd_id = CMD_PDCA_CONFIG;
+		send_msg.u.power = power;
+
+		ret = gpufreq_ipi_to_gpueb(send_msg);
+	/* implement on AP */
+	} else {
+		if (gpufreq_fp && gpufreq_fp->pdca_config)
+			gpufreq_fp->pdca_config(power);
+		else
+			GPUFREQ_LOGE("null gpufreq platform function pointer (ENOENT)");
+	}
 }
 EXPORT_SYMBOL(gpufreq_pdca_config);
 
