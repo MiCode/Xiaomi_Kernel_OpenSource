@@ -31,6 +31,8 @@ int mtk_drm_ioctl_ccorr_get_irq(struct drm_device *dev, void *data,
 	struct drm_file *file_priv);
 int mtk_drm_ioctl_support_color_matrix(struct drm_device *dev, void *data,
 	struct drm_file *file_priv);
+int mtk_drm_ioctl_aibld_cv_mode(struct drm_device *dev, void *data,
+		struct drm_file *file_priv);
 int mtk_get_ccorr_caps(struct drm_mtk_ccorr_caps *ccorr_caps);
 int mtk_set_ccorr_caps(struct drm_mtk_ccorr_caps *ccorr_caps);
 

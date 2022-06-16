@@ -71,6 +71,7 @@ unsigned int disp_ccorr_linear;
 bool disp_aosp_ccorr;
 static bool g_prim_ccorr_force_linear;
 static bool g_prim_ccorr_pq_nonlinear;
+static bool g_is_aibld_cv_mode;
 
 #define index_of_ccorr(module) ((module == DDP_COMPONENT_CCORR0) ? 0 : \
 		((module == DDP_COMPONENT_CCORR1) ? 1 : \
@@ -648,7 +649,7 @@ static int disp_ccorr_set_coef(
 {
 	int ret = 0;
 	struct DRM_DISP_CCORR_COEF_T *ccorr, *old_ccorr;
-	int id = index_of_ccorr(comp->id);
+	unsigned int id = index_of_ccorr(comp->id);
 
 	ccorr = kmalloc(sizeof(struct DRM_DISP_CCORR_COEF_T), GFP_KERNEL);
 	if (ccorr == NULL) {
@@ -1047,6 +1048,13 @@ int mtk_drm_ioctl_ccorr_get_irq(struct drm_device *dev, void *data,
 	return ret;
 }
 
+int mtk_drm_ioctl_aibld_cv_mode(struct drm_device *dev, void *data,
+		struct drm_file *file_priv)
+{
+	g_is_aibld_cv_mode = *(bool *)data;
+	return 0;
+}
+
 int mtk_drm_ioctl_support_color_matrix(struct drm_device *dev, void *data,
 		struct drm_file *file_priv)
 {
@@ -1323,11 +1331,28 @@ static void mtk_ccorr_unprepare(struct mtk_ddp_comp *comp)
 
 }
 
+static int mtk_ccorr_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
+							enum mtk_ddp_io_cmd cmd, void *params)
+{
+	int enable = 1;
+
+	if (comp->id != DDP_COMPONENT_CCORR0 || !g_is_aibld_cv_mode)
+		return 0;
+
+	if (cmd == FRAME_DIRTY) {
+		DDPDBG("%s FRAME_DIRTY comp id:%d\n", __func__, comp->id);
+		mtk_disp_ccorr_set_interrupt(comp, &enable);
+	}
+	DDPDBG("%s end\n", __func__);
+	return 0;
+}
+
 static const struct mtk_ddp_comp_funcs mtk_disp_ccorr_funcs = {
 	.config = mtk_ccorr_config,
 	.start = mtk_ccorr_start,
 	.bypass = mtk_ccorr_bypass,
 	.user_cmd = mtk_ccorr_user_cmd,
+	.io_cmd = mtk_ccorr_io_cmd,
 	.prepare = mtk_ccorr_prepare,
 	.unprepare = mtk_ccorr_unprepare,
 };
