@@ -12110,30 +12110,6 @@
 			 "clk_top_tck_26m_mx9";
 	};
 
-	camisp_l13 {
-		compatible = "mediatek,camisp-larb";
-		mediatek,larb-id = <13>;
-		dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
-	};
-
-	camisp_l14 {
-		compatible = "mediatek,camisp-larb";
-		mediatek,larb-id = <14>;
-		dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
-	};
-
-	camisp_l25 {
-		compatible = "mediatek,camisp-larb";
-		mediatek,larb-id = <25>;
-		dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
-	};
-
-	camisp_l26 {
-		compatible = "mediatek,camisp-larb";
-		mediatek,larb-id = <26>;
-		dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
-	};
-
 	camisp: camisp@1a000000 {
 		compatible = "mediatek,mt6985-camisp";
 		reg = <0 0x1a000000 0 0x1000>;
@@ -12535,6 +12511,7 @@
 					"inner_base_DMA", "inner_base_SCQ";
 		mediatek,camsv-id = <0>;
 		mediatek,cammux-id = <0>;
+		mediatek,larbs = <&smi_larb14>;
 		interrupts = <GIC_SPI 519 IRQ_TYPE_LEVEL_HIGH 0>,
 					 <GIC_SPI 520 IRQ_TYPE_LEVEL_HIGH 0>,
 					 <GIC_SPI 521 IRQ_TYPE_LEVEL_HIGH 0>,
@@ -12577,6 +12554,7 @@
 					"inner_base_DMA", "inner_base_SCQ";
 		mediatek,camsv-id = <1>;
 		mediatek,cammux-id = <8>;
+		mediatek,larbs = <&smi_larb13>;
 		interrupts = <GIC_SPI 522 IRQ_TYPE_LEVEL_HIGH 0>,
 					 <GIC_SPI 523 IRQ_TYPE_LEVEL_HIGH 0>,
 					 <GIC_SPI 524 IRQ_TYPE_LEVEL_HIGH 0>,
@@ -12620,6 +12598,7 @@
 					"inner_base_DMA", "inner_base_SCQ";
 		mediatek,camsv-id = <2>;
 		mediatek,cammux-id = <16>;
+		mediatek,larbs = <&smi_larb29>;
 		interrupts = <GIC_SPI 525 IRQ_TYPE_LEVEL_HIGH 0>,
 					 <GIC_SPI 526 IRQ_TYPE_LEVEL_HIGH 0>,
 					 <GIC_SPI 527 IRQ_TYPE_LEVEL_HIGH 0>,
@@ -12668,6 +12647,7 @@
 					"inner_base_DMA", "inner_base_SCQ";
 		mediatek,camsv-id = <3>;
 		mediatek,cammux-id = <24>;
+		mediatek,larbs = <&smi_larb29>;
 		interrupts = <GIC_SPI 528 IRQ_TYPE_LEVEL_HIGH 0>,
 					 <GIC_SPI 529 IRQ_TYPE_LEVEL_HIGH 0>,
 					 <GIC_SPI 530 IRQ_TYPE_LEVEL_HIGH 0>,
@@ -12716,6 +12696,7 @@
 					"inner_base_DMA", "inner_base_SCQ";
 		mediatek,camsv-id = <4>;
 		mediatek,cammux-id = <32>;
+		mediatek,larbs = <&smi_larb29>;
 		interrupts = <GIC_SPI 531 IRQ_TYPE_LEVEL_HIGH 0>,
 					 <GIC_SPI 532 IRQ_TYPE_LEVEL_HIGH 0>,
 					 <GIC_SPI 533 IRQ_TYPE_LEVEL_HIGH 0>,
@@ -12764,6 +12745,7 @@
 					"inner_base_DMA", "inner_base_SCQ";
 		mediatek,camsv-id = <5>;
 		mediatek,cammux-id = <33>;
+		mediatek,larbs = <&smi_larb29>;
 		interrupts = <GIC_SPI 534 IRQ_TYPE_LEVEL_HIGH 0>,
 					 <GIC_SPI 535 IRQ_TYPE_LEVEL_HIGH 0>,
 					 <GIC_SPI 536 IRQ_TYPE_LEVEL_HIGH 0>,
@@ -12808,6 +12790,7 @@
 		reg-names = "base", "inner_base";
 		mediatek,mraw-id = <0>;
 		mediatek,cammux-id = <37>;
+		mediatek,larbs = <&smi_larb25>;
 		interrupts = <GIC_SPI 503 IRQ_TYPE_LEVEL_HIGH 0>;
 		dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
 		iommus = <&disp_iommu M4U_PORT_L25_MRAW0_CQI_M1>,
@@ -12852,6 +12835,7 @@
 		reg-names = "base", "inner_base";
 		mediatek,mraw-id = <1>;
 		mediatek,cammux-id = <38>;
+		mediatek,larbs = <&smi_larb26>;
 		interrupts = <GIC_SPI 504 IRQ_TYPE_LEVEL_HIGH 0>;
 		dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
 		iommus = <&mdp_iommu M4U_PORT_L26_MRAW1_CQI_M1>,
@@ -12896,6 +12880,7 @@
 		reg-names = "base", "inner_base";
 		mediatek,mraw-id = <2>;
 		mediatek,cammux-id = <39>;
+		mediatek,larbs = <&smi_larb25>;
 		interrupts = <GIC_SPI 505 IRQ_TYPE_LEVEL_HIGH 0>;
 		dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
 		iommus = <&disp_iommu M4U_PORT_L25_MRAW0_CQI_M1>,
@@ -12940,6 +12925,7 @@
 		reg-names = "base", "inner_base";
 		mediatek,mraw-id = <3>;
 		mediatek,cammux-id = <40>;
+		mediatek,larbs = <&smi_larb26>;
 		interrupts = <GIC_SPI 506 IRQ_TYPE_LEVEL_HIGH 0>;
 		iommus = <&mdp_iommu M4U_PORT_L26_MRAW1_CQI_M1>,
 			 <&mdp_iommu M4U_PORT_L26_MRAW1_IMGBO_M1>,
