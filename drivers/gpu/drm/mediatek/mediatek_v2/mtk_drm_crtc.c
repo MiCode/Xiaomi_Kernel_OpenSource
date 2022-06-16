@@ -4717,7 +4717,7 @@ void mtk_crtc_enable_iommu_runtime(struct mtk_drm_crtc *mtk_crtc,
 		mtk_crtc_fill_fb_para(mtk_crtc);
 
 #ifndef DRM_CMDQ_DISABLE
-	if (disp_helper_get_stage() == DISP_HELPER_STAGE_NORMAL) {
+	if (mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_USE_M4U)) {
 		if (priv->data->mmsys_id == MMSYS_MT6983 ||
 			priv->data->mmsys_id == MMSYS_MT6985 ||
 			priv->data->mmsys_id == MMSYS_MT6879 ||
@@ -6747,6 +6747,7 @@ void mtk_drm_crtc_enable(struct drm_crtc *crtc)
 	unsigned int crtc_id = drm_crtc_index(crtc);
 #ifndef DRM_CMDQ_DISABLE
 	struct cmdq_client *client;
+	struct mtk_drm_private *priv = mtk_crtc->base.dev->dev_private;
 #endif
 	struct mtk_ddp_comp *comp;
 	int i, j;
@@ -6795,8 +6796,7 @@ void mtk_drm_crtc_enable(struct drm_crtc *crtc)
 	client = mtk_crtc->gce_obj.client[CLIENT_CFG];
 	cmdq_mbox_enable(client->chan);
 	CRTC_MMP_MARK(crtc_id, enable, 1, 1);
-
-	if (disp_helper_get_stage() == DISP_HELPER_STAGE_NORMAL)
+	if (mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_USE_M4U))
 		mtk_crtc_prepare_instr(crtc);
 #endif
 
@@ -7500,9 +7500,6 @@ void mtk_drm_crtc_suspend(struct drm_crtc *crtc)
 	//Temp workaround for MT6855 suspend/resume issue
 	switch (priv->data->mmsys_id) {
 	case MMSYS_MT6855:
-		DDPMSG("%s force return\n", __func__);
-		return;
-	case MMSYS_MT6886:
 		DDPMSG("%s force return\n", __func__);
 		return;
 	default:
