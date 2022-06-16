@@ -878,17 +878,21 @@ static kal_uint16 gain2reg(struct subdrv_ctx *ctx, const kal_uint32 gain)
  *************************************************************************/
 static kal_uint32 set_gain(struct subdrv_ctx *ctx, kal_uint32 gain)
 {
-	kal_uint16 reg_gain, min_gain;
-	kal_uint32 max_gain;
+	kal_uint16 reg_gain;
+	kal_uint32 min_gain, max_gain;
 
-	max_gain = imgsensor_info.max_gain;//setuphere for mode use
-	min_gain = BASEGAIN;//setuphere for mode use
+	min_gain = BASEGAIN;
+	max_gain = imgsensor_info.max_gain;
 
-	if (ctx->sensor_mode == IMGSENSOR_MODE_CUSTOM3 ||//16x for full size mode
-			ctx->sensor_mode == IMGSENSOR_MODE_CUSTOM4 ||
-			ctx->sensor_mode == IMGSENSOR_MODE_CUSTOM6) {
-		/* 8K6K */
+	//16x for full size mode
+	switch (ctx->sensor_mode) {
+	case IMGSENSOR_MODE_CUSTOM3:
+	case IMGSENSOR_MODE_CUSTOM4:
+	case IMGSENSOR_MODE_CUSTOM6:
 		max_gain = 16 * BASEGAIN;
+		break;
+	default:
+		break;
 	}
 
 	if (gain < min_gain || gain > max_gain) {
@@ -4831,7 +4835,20 @@ static int feature_control(
 		break;
 	case SENSOR_FEATURE_GET_GAIN_RANGE_BY_SCENARIO:
 		*(feature_data + 1) = imgsensor_info.min_gain;
-		*(feature_data + 2) = imgsensor_info.max_gain;
+
+		switch (*feature_data) {
+		/* non-binning */
+		case SENSOR_SCENARIO_ID_CUSTOM3:
+		case SENSOR_SCENARIO_ID_CUSTOM4:
+		case SENSOR_SCENARIO_ID_CUSTOM6:
+			*(feature_data + 2) = BASEGAIN * 16;
+			break;
+		/* binning */
+		default:
+			*(feature_data + 2) = imgsensor_info.max_gain;
+			break;
+		}
+
 		break;
 	case SENSOR_FEATURE_GET_BASE_GAIN_ISO_AND_STEP:
 		*(feature_data + 0) = imgsensor_info.min_gain_iso;
