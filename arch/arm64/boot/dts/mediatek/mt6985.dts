@@ -7885,6 +7885,17 @@
 			};
 		};
 
+		gpu-fdvfs@112000 {
+			compatible = "mediatek,gpu_fdvfs";
+			reg = <0 0x112000 0 0x400>;
+			fdvfs-policy-support = <0>;
+		};
+
+		gpu_qos: gpu-qos {
+			compatible = "mediatek,gpu_qos";
+			qos-sysram-support = <1>;
+		};
+
 		gpueb: gpueb@13c00000 {
 			compatible = "mediatek,gpueb";
 			gpueb-support = <1>;
