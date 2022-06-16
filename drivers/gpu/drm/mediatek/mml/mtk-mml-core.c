@@ -254,8 +254,10 @@ static s32 core_prepare(struct mml_task *task, u32 pipe)
 		mml_mmp(comp_prepare, MMPROFILE_FLAG_PULSE, comp->id, 0);
 		call_cfg_op(comp, prepare, task, &cache->cfg[i]);
 		ret = call_cfg_op(comp, buf_prepare, task, &cache->cfg[i]);
-		if (ret < 0)
+		if (ret < 0) {
+			mml_err("buf_prepare fail comp %u", comp->id);
 			break;
+		}
 	}
 
 	mml_trace_ex_end();

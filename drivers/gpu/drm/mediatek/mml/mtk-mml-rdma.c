@@ -638,8 +638,18 @@ static s32 rdma_buf_map(struct mml_comp *comp, struct mml_task *task,
 static s32 rdma_buf_prepare(struct mml_comp *comp, struct mml_task *task,
 			    struct mml_comp_config *ccfg)
 {
-	if (!task->buf.src.dma[0].iova)
+	if (task->config->info.mode == MML_MODE_APUDC ||
+		unlikely(task->config->info.mode == MML_MODE_SRAM_READ)) {
+		struct mml_comp_rdma *rdma = comp_to_rdma(comp);
+
+		/* sram read case must have sram pa */
+		if (!rdma->sram_pa)
+			return -EINVAL;
+
+	} else if (!task->buf.src.dma[0].iova) {
+		/* sram read case must have allocated iova */
 		return -EINVAL;
+	}
 
 	return 0;
 }
