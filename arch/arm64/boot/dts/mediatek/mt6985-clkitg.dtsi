@@ -524,11 +524,6 @@
 		power-domains = <&scpsys MT6985_POWER_DOMAIN_MDP0_SHUTDOWN>;
 	};
 
-	bring-up-pd-mdp1_shutdown {
-		compatible = "mediatek,scpsys-bring-up";
-		power-domains = <&scpsys MT6985_POWER_DOMAIN_MDP1_SHUTDOWN>;
-	};
-
 	bring-up-pd-dis0_shutdown {
 		compatible = "mediatek,scpsys-bring-up";
 		power-domains = <&scpsys MT6985_POWER_DOMAIN_DIS0_SHUTDOWN>;
