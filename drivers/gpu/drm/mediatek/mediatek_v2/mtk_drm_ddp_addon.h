@@ -65,6 +65,7 @@ enum addon_type {
 	ADDON_AFTER,
 	ADDON_CONNECT,
 	ADDON_DISCONNECT,
+	ADDON_EMBED,
 };
 
 struct mtk_lye_ddp_state {
@@ -189,6 +190,13 @@ void mtk_addon_disconnect_external(
 	struct drm_crtc *crtc, unsigned int ddp_mode,
 	const struct mtk_addon_module_data *module_data,
 	union mtk_addon_config *addon_config, struct cmdq_pkt *cmdq_handle);
+
+void mtk_addon_connect_embed(struct drm_crtc *crtc, unsigned int ddp_mode,
+			     const struct mtk_addon_module_data *module_data,
+			     union mtk_addon_config *addon_config, struct cmdq_pkt *cmdq_handle);
+void mtk_addon_disconnect_embed(struct drm_crtc *crtc, unsigned int ddp_mode,
+				const struct mtk_addon_module_data *module_data,
+				union mtk_addon_config *addon_config, struct cmdq_pkt *cmdq_handle);
 
 #endif
 
