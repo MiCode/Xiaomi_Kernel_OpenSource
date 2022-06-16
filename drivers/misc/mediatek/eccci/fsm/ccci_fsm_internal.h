@@ -182,6 +182,7 @@ struct ccci_fsm_scp {
 #endif
 	void __iomem *ccif2_ap_base;
 	void __iomem *ccif2_md_base;
+	unsigned int scp_clk_free_run;
 };
 
 struct ccci_fsm_poller {

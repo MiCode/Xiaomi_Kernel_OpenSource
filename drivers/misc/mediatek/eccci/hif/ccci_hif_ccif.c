@@ -1630,11 +1630,9 @@ static void ccif_set_clk_on(unsigned char hif_id)
 	CCCI_NORMAL_LOG(0, TAG, "%s at the begin...\n", __func__);
 
 	for (idx = 0; idx < ARRAY_SIZE(ccif_clk_table); idx++) {
-		if (ccif_clk_table[idx].clk_ref == NULL) {
-			if (!idx)
-				devapc_check_flag = 1;
+		if (ccif_clk_table[idx].clk_ref == NULL)
 			continue;
-		}
+
 		ret = clk_prepare_enable(ccif_clk_table[idx].clk_ref);
 		if (ret)
 			CCCI_ERROR_LOG(0, TAG,
@@ -1720,6 +1718,7 @@ static void ccif_set_clk_off(unsigned char hif_id)
 
 static int ccif_start(unsigned char hif_id)
 {
+	unsigned long flags;
 	struct md_ccif_ctrl *ccif_ctrl =
 		(struct md_ccif_ctrl *)ccci_hif_get_by_id(hif_id);
 
@@ -1730,7 +1729,15 @@ static int ccif_start(unsigned char hif_id)
 	if (hif_id != CCIF_HIF_ID)
 		CCCI_NORMAL_LOG(0, TAG, "%s but %d\n",
 			__func__, hif_id);
-	ccif_set_clk_on(hif_id);
+
+	if (!ccif_ctrl->ccif_clk_free_run)
+		ccif_set_clk_on(hif_id);
+	else {
+		spin_lock_irqsave(&devapc_flag_lock, flags);
+		devapc_check_flag = 1;
+		spin_unlock_irqrestore(&devapc_flag_lock, flags);
+	}
+
 	md_ccif_sram_reset(CCIF_HIF_ID);
 	md_ccif_switch_ringbuf(CCIF_HIF_ID, RB_EXP);
 	md_ccif_reset_queue(CCIF_HIF_ID, 1);
@@ -1760,8 +1767,11 @@ static int ccif_stop(unsigned char hif_id)
 	ccif_ctrl->ccif_state = HIFCCIF_STATE_PWROFF;
 	ccci_reset_ccif_hw(AP_MD1_CCIF,
 		ccif_ctrl->ccif_ap_base, ccif_ctrl->ccif_md_base, ccif_ctrl);
-	/*disable ccif clk*/
-	ccif_set_clk_off(hif_id);
+
+	/* disable ccif clk */
+	if (!ccif_ctrl->ccif_clk_free_run)
+		ccif_set_clk_off(hif_id);
+
 	CCCI_NORMAL_LOG(0, TAG, "%s\n", __func__);
 	return 0;
 }
@@ -1812,11 +1822,26 @@ static struct ccci_hif_ops ccci_hif_ccif_ops = {
 	.fill_rt_header = &ccif_hif_fill_rt_header,
 };
 
+static void ccif_clk_init(struct device *dev)
+{
+	unsigned int idx;
+
+	for (idx = 0; idx < ARRAY_SIZE(ccif_clk_table); idx++) {
+		ccif_clk_table[idx].clk_ref = devm_clk_get(dev,
+			ccif_clk_table[idx].clk_name);
+		if (IS_ERR(ccif_clk_table[idx].clk_ref)) {
+			CCCI_ERROR_LOG(-1, TAG,
+				 "ccif get %s failed\n",
+					ccif_clk_table[idx].clk_name);
+			ccif_clk_table[idx].clk_ref = NULL;
+		}
+	}
+}
+
 static u64 ccif_dmamask = DMA_BIT_MASK(36);
 static int ccif_hif_hw_init(struct device *dev, struct md_ccif_ctrl *md_ctrl)
 {
 	struct device_node *node = NULL;
-	int idx = 0;
 	int ret;
 
 	if (!dev) {
@@ -1855,18 +1880,19 @@ static int ccif_hif_hw_init(struct device *dev, struct md_ccif_ctrl *md_ctrl)
 	md_ctrl->ccif_sram_layout =
 		(struct ccif_sram_layout *)(md_ctrl->ccif_ap_base
 		+ APCCIF_CHDATA);
-	for (idx = 0; idx < ARRAY_SIZE(ccif_clk_table); idx++) {
-		ccif_clk_table[idx].clk_ref = devm_clk_get(dev,
-			ccif_clk_table[idx].clk_name);
-		if (IS_ERR(ccif_clk_table[idx].clk_ref)) {
-			CCCI_ERROR_LOG(-1, TAG,
-				 "ccif get %s failed\n",
-					ccif_clk_table[idx].clk_name);
-			ccif_clk_table[idx].clk_ref = NULL;
-			if (!idx)
-				devapc_check_flag = 1;
-		}
+
+	ret = of_property_read_u32(dev->of_node,
+		"mediatek,ccif_clk_free_run", &md_ctrl->ccif_clk_free_run);
+	if (ret < 0)
+		md_ctrl->ccif_clk_free_run = 0;
+
+	if (!md_ctrl->ccif_clk_free_run)
+		ccif_clk_init(dev);
+	else {
+		devapc_check_flag = 1;
+		CCCI_NORMAL_LOG(0, TAG, "No need control ccif clk\n");
 	}
+
 	dev->dma_mask = &ccif_dmamask;
 	dev->coherent_dma_mask = ccif_dmamask;
 	dev->platform_data = md_ctrl;

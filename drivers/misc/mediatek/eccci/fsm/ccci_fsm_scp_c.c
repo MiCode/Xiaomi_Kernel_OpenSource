@@ -141,6 +141,12 @@ static int scp_set_clk_cg(unsigned int on)
 		}
 	}
 
+	if (ccci_scp_ctl.scp_clk_free_run) {
+		CCCI_NORMAL_LOG(MD_SYS1, FSM, "%s:on=%u set done, free run!\n", __func__, on);
+		scp_clk_last_state = on;
+		return 0;
+	}
+
 	for (idx = 0; idx < ARRAY_SIZE(scp_clk_table); idx++) {
 		if (on) {
 			ret = clk_prepare_enable(scp_clk_table[idx].clk_ref);
@@ -451,22 +457,26 @@ int fsm_scp_init(struct ccci_fsm_scp *scp_ctl, struct device *dev)
 		return ret;
 	}
 
-	ret = ccif_scp_clk_init(dev);
-	if (ret < 0) {
-		CCCI_ERROR_LOG(-1, FSM, "ccif scp clk init fail\n");
-		return ret;
-	}
+	ret = of_property_read_u32(dev->of_node,
+		"mediatek,scp_clk_free_run", &scp_ctl->scp_clk_free_run);
+	if (ret < 0)
+		scp_ctl->scp_clk_free_run = 0;
 
-#ifdef FEATURE_SCP_CCCI_SUPPORT
+	if (!scp_ctl->scp_clk_free_run) {
+		ret = ccif_scp_clk_init(dev);
+		if (ret < 0) {
+			CCCI_ERROR_LOG(-1, FSM, "ccif scp clk init fail\n\n");
+			return ret;
+		}
+	} else
+		CCCI_NORMAL_LOG(0, FSM, "No need control ccif2 clk\n");
+
 	scp_A_register_notify(&apsync_notifier);
-#endif
 
-#ifdef FEATURE_SCP_CCCI_SUPPORT
 	INIT_WORK(&scp_ctl->scp_md_state_sync_work,
 		ccci_scp_md_state_sync_work);
 	register_ccci_sys_call_back(CCISM_SHM_INIT_ACK,
 		fsm_ccism_init_ack_handler);
-#endif
 
 	register_ccci_sys_call_back(MD_SIM_TYPE, fsm_sim_type_handler);
 

@@ -133,6 +133,8 @@ struct md_ccif_ctrl {
 	unsigned int ccif_hw_reset_ver;
 	void __iomem *infracfg_base;
 	unsigned int ccif_hw_reset_bit;
+
+	unsigned int ccif_clk_free_run;
 };
 
 static inline void ccif_set_busy_queue(struct md_ccif_ctrl *md_ctrl,
