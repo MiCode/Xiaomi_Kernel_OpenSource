@@ -367,6 +367,7 @@ static irqreturn_t infra_bp_isr(int irq, void *dev_id)
 {
 	int i;
 	unsigned int status;
+	unsigned int check_count = 0;
 	struct bus_parity_elem *bpm;
 	union bus_parity_err *bpr;
 
@@ -399,8 +400,29 @@ static irqreturn_t infra_bp_isr(int irq, void *dev_id)
 				bpr->slv.araddr[1] = (status << 27) >> 27;
 				bpr->slv.arid = (status << 14) >> 19;
 			}
-		} else
+		} else {
+			check_count++;
 			continue;
+		}
+	}
+
+	/*
+	 * Due to multi-sources (parity fail/timeout/emi parity/tracker) will trigger
+	 * this interrupt, we should ignore if no bus parity fail but receive irq.
+	 *
+	 * TODO: Decouple/distinguish different interrupt sources to avoid bus parity
+	 * get no function after bypassing other sources. Use IRQF_SHARED and return
+	 * IRQ_NONE.
+	 */
+	if (check_count == infra_bp.nr_bpm) {
+		pr_notice("%s: Receive irq but no bus parity fail\n",
+				__func__);
+		if (infra_bp.nr_err < INFRA_BP_IRQ_TRIGGER_THRESHOLD)
+			enable_irq(infra_bp.irq);
+		else
+			pr_notice("%s disable irq %d due to trigger over than %d times.\n",
+				__func__, infra_bp.irq, INFRA_BP_IRQ_TRIGGER_THRESHOLD);
+		return IRQ_HANDLED;
 	}
 
 	schedule_work(&infra_bp.wk);
@@ -560,7 +582,7 @@ static int bus_parity_probe(struct platform_device *pdev)
 	}
 
 	ret = devm_request_irq(dev, infra_bp.irq, infra_bp_isr, IRQF_ONESHOT |
-			IRQF_TRIGGER_NONE,  "infra-bus-parity", NULL);
+			IRQF_TRIGGER_NONE, "infra-bus-parity", NULL);
 	if (ret) {
 		dev_err(dev, "can't request infra-bus-parity irq(%d)\n", ret);
 		return ret;
