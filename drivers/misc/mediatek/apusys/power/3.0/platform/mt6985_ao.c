@@ -986,9 +986,6 @@ static int __apu_wake_rpc_acx(struct device *dev, enum t_acx_id acx_id)
 		return -ENODEV;
 	}
 
-	if (rpc_lite_base < 0 || acx_base < 0)
-		return -EINVAL;
-
 	dev_info(dev, "%s ctl p1:%d p2:%d\n",
 			__func__, rpc_lite_base, acx_base);
 
@@ -1055,9 +1052,6 @@ static int __apu_off_rpc_acx(struct device *dev, enum t_acx_id acx_id)
 		return -ENODEV;
 	}
 
-	if (rpc_lite_base < 0 || acx_base < 0)
-		return -EINVAL;
-
 	rpc_status = apu_readl(papw->regs[rpc_lite_base] + APU_RPC_INTF_PWR_RDY);
 	/* if ACX0/ACX1/NCX alread off, just return */
 	if (!(rpc_status & 0x1UL))
@@ -1109,9 +1103,6 @@ static int __apu_pwr_ctl_acx_engines(struct device *dev,
 	} else {
 		return -ENODEV;
 	}
-
-	if (rpc_lite_base < 0 || acx_base < 0)
-		return -EINVAL;
 
 	switch (dev_id) {
 	case VPU0:
