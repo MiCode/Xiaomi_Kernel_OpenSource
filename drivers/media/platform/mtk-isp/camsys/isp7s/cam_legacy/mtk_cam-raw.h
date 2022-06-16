@@ -149,6 +149,14 @@ enum {
 	MTK_RAW_PIPELINE_PADS_NUM,
 };
 
+enum resource_strategy_id {
+	RESOURCE_STRATEGY_QPR = 0,
+	RESOURCE_STRATEGY_PQR,
+	RESOURCE_STRATEGY_RPQ,
+	RESOURCE_STRATEGY_QRP,
+	RESOURCE_STRATEGY_NUMBER
+};
+
 /* max(pdi_table1, pdi_table2, ...) */
 #define RAW_STATS_CFG_VARIOUS_SIZE ALIGN(0x7500, SZ_1K)
 
@@ -201,7 +209,7 @@ struct mtk_cam_resource_config {
 	s64 vblank;
 	s64 sensor_pixel_rate;
 	u32 res_plan;
-	u32 raw_feature;
+	struct mtk_cam_scen scen;
 	u32 res_strategy[MTK_CAMSYS_RES_STEP_NUM];
 	u32 clk_target;
 	u32 raw_num_used;
@@ -238,14 +246,8 @@ struct mtk_raw_pad_config {
 /*
  * struct mtk_raw_pipeline - sub dev to use raws.
  *
- * @feature_pending: keep the user value of S_CTRL V4L2_CID_MTK_CAM_FEATURE.
- *		     It it safe save to be used in mtk_cam_vidioc_s_fmt,
- *		     mtk_cam_vb2_queue_setup and mtk_cam_vb2_buf_queue
- *		     But considering that we can't when the user calls S_CTRL,
- *		     please use mtk_cam_request_stream_data's
- *		     feature.raw_feature field
- *		     to avoid the CTRL value change tming issue.
- * @feature_active: The active feature during streaming. It can't be changed
+ * @feature_pending: Don't use feature_pending any more, it will be phased-out soon
+ * @scen_active: The active feature during streaming. It can't be changed
  *		    during streaming and can only be used after streaming on.
  *
  */
@@ -264,12 +266,13 @@ struct mtk_raw_pipeline {
 	/* resource controls */
 	struct v4l2_ctrl_handler ctrl_handler;
 	s64 feature_pending;
-	s64 feature_active;
+	struct mtk_cam_scen scen_active;
 	int dynamic_exposure_num_max;
 	bool enqueued_tg_flash_req; /* need a better way to collect the request */
 	struct mtk_cam_tg_flash_config tg_flash_config;
 	/* TODO: merge or integrate with mtk_cam_resource_config */
-	struct mtk_cam_resource user_res;
+	struct mtk_cam_resource_v2 user_res;
+	/* debug only, will be phased-out after passing integration */
 	struct mtk_cam_resource_config res_config;
 	int sensor_mode_update;
 	s64 sync_id;
@@ -370,6 +373,18 @@ mtk_cam_ctrl_handler_to_raw_pipeline(struct v4l2_ctrl_handler *handler)
 	return container_of(handler, struct mtk_raw_pipeline, ctrl_handler);
 };
 
+static inline int mtk_cam_res_get_raw_num(int mask_must)
+{
+	int num = 0, i;
+
+	for (i = 0; i < RAW_PIPELINE_NUM; i++) {
+		if (mask_must & (1 << i))
+			num++;
+	}
+
+	return num;
+}
+
 int mtk_raw_setup_dependencies(struct mtk_raw *raw);
 
 int mtk_raw_register_entities(struct mtk_raw *raw,
@@ -378,6 +393,8 @@ void mtk_raw_unregister_entities(struct mtk_raw *raw);
 
 int mtk_cam_raw_select(struct mtk_cam_ctx *ctx,
 		       struct mtkcam_ipi_input_param *cfg_in_param);
+
+int mtk_cam_raw_get_subsample_ratio(struct mtk_cam_scen *scen);
 
 int mtk_cam_get_subsample_ratio(int raw_feature);
 
@@ -413,7 +430,7 @@ void dump_aa_info(struct mtk_cam_ctx *ctx,
 				 struct mtk_ae_debug_data *ae_info);
 
 int mtk_raw_call_pending_set_fmt(struct v4l2_subdev *sd,
-				 struct v4l2_subdev_format *fmt);
+				 struct v4l2_subdev_format *fmt, struct mtk_cam_scen *scen);
 
 struct v4l2_subdev *mtk_cam_find_sensor(struct mtk_cam_ctx *ctx,
 					struct media_entity *entity);
@@ -443,9 +460,8 @@ mtk_raw_pipeline_get_selection(struct mtk_raw_pipeline *pipe,
 			       int pad, int which);
 int
 mtk_cam_raw_try_res_ctrl(struct mtk_raw_pipeline *pipeline,
-			 struct mtk_cam_resource *res_user,
+			 struct mtk_cam_resource_v2 *res_user,
 			 struct mtk_cam_resource_config *res_cfg,
-			 struct v4l2_mbus_framefmt *sink_fmt,
 			 char *dbg_str, bool log);
 int
 mtk_cam_res_copy_fmt_from_user(struct mtk_raw_pipeline *pipeline,

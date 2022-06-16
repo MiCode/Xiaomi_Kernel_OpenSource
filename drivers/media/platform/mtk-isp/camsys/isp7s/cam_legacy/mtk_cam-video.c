@@ -101,7 +101,9 @@ static int mtk_cam_vb2_queue_setup(struct vb2_queue *vq,
 					*num_planes = raw_pipeline->dynamic_exposure_num_max;
 					for (i = 0; i < *num_planes; i++)
 						sizes[i] = size;
-				} else if (raw_pipeline && raw_pipeline->user_res.raw_res.feature &&
+				} else if (raw_pipeline &&
+					   raw_pipeline->user_res.raw_res.scen.id !=
+					   MTK_CAM_SCEN_NORMAL &&
 					fmt->fmt.pix_mp.num_planes > 1) {
 					*num_planes = fmt->fmt.pix_mp.num_planes;
 
@@ -111,8 +113,10 @@ static int mtk_cam_vb2_queue_setup(struct vb2_queue *vq,
 					*num_planes = 1;
 					sizes[0] = size;
 				}
-			} else if (raw_pipeline && raw_pipeline->user_res.raw_res.feature
-				&& fmt->fmt.pix_mp.num_planes > 1) {
+			} else if (raw_pipeline &&
+				   raw_pipeline->user_res.raw_res.scen.id !=
+				   MTK_CAM_SCEN_NORMAL &&
+				   fmt->fmt.pix_mp.num_planes > 1) {
 				*num_planes = fmt->fmt.pix_mp.num_planes;
 				for (i = 0; i < *num_planes; i++)
 					sizes[i] = size;
@@ -655,7 +659,13 @@ static void mtk_cam_vb2_buf_queue(struct vb2_buffer *vb)
 				pde_cfg->pde_info.pdo_max_size : 0);
 		break;
 	case MTKCAM_IPI_CAMSV_MAIN_OUT:
-		if (mtk_cam_is_with_w_channel(node->ctx) &&
+		/*
+		 * TBC: James, could we move the sv_frame_params setting codes
+		 * to mtk_cam_req_update function to support pre-request updated
+		 * scen. In mtk_cam_vb2_buf_queue, we can only read the scen_active.
+		 */
+		if (node->ctx->used_raw_num &&
+			mtk_cam_scen_is_with_w_channel(&node->ctx->pipe->scen_active) &&
 			node->desc.id == MTK_RAW_MAIN_STREAM_SV_1_OUT) {
 			sv_frame_params->img_out.buf[0][0].iova = buf->daddr;
 		} else if (node->desc.id == MTK_RAW_MAIN_STREAM_SV_1_OUT ||
@@ -1656,15 +1666,17 @@ int mtk_cam_vidioc_s_fmt(struct file *file, void *fh,
 	struct mtk_cam_request_stream_data *stream_data;
 	s32 fd;
 	struct mtk_raw_pipeline *raw_pipeline;
-	int raw_feature = 0;
+	struct mtk_cam_scen scen;
 
 	if (!vb2_is_busy(node->vdev.queue)) {
+		memset(&scen, 0, sizeof(scen));
+
 		/* Get the valid format */
 		raw_pipeline = mtk_cam_dev_get_raw_pipeline(cam, node->uid.pipe_id);
 		if (raw_pipeline)
-			raw_feature = raw_pipeline->user_res.raw_res.feature;
+			scen = raw_pipeline->user_res.raw_res.scen;
 
-		mtk_cam_video_set_fmt(node, f, raw_feature);
+		mtk_cam_video_set_fmt(node, f, &scen);
 
 		/* Configure to video device */
 		node->active_fmt = *f;
@@ -1699,7 +1711,9 @@ int mtk_cam_vidioc_s_fmt(struct file *file, void *fh,
 	return 0;
 }
 
-int mtk_cam_video_set_fmt(struct mtk_cam_video_device *node, struct v4l2_format *f, int raw_feature)
+/* the raw_feature or scen will be removed in try fmt case (vendor hook removal) */
+int mtk_cam_video_set_fmt(struct mtk_cam_video_device *node, struct v4l2_format *f,
+			  struct mtk_cam_scen *scen)
 {
 	struct mtk_cam_device *cam = video_get_drvdata(&node->vdev);
 	const struct v4l2_format *dev_fmt;
@@ -1709,8 +1723,8 @@ int mtk_cam_video_set_fmt(struct mtk_cam_video_device *node, struct v4l2_format 
 	u32 is_hdr = 0, is_hdr_m2m = 0;
 
 	dev_dbg(cam->dev,
-			"%s:pipe(%d):%s:feature(0x%x)\n",
-			__func__, node->uid.pipe_id, node->desc.name, raw_feature);
+		"%s:pipe(%d):%s: scen(%s)\n",
+		__func__, node->uid.pipe_id, node->desc.name, scen->dbg_str);
 
 	request_fd = mtk_cam_fmt_get_request(&f->fmt.pix_mp);
 	memset(&try_fmt, 0, sizeof(try_fmt));
@@ -1735,8 +1749,8 @@ int mtk_cam_video_set_fmt(struct mtk_cam_video_device *node, struct v4l2_format 
 	try_fmt.fmt.pix_mp.width = ALIGN(try_fmt.fmt.pix_mp.width, IMG_PIX_ALIGN);
 	try_fmt.fmt.pix_mp.num_planes = 1;
 
-	if (raw_feature & MTK_CAM_FEATURE_HDR_MASK) {
-		if (raw_feature & MTK_CAM_FEATURE_OFFLINE_M2M_MASK)
+	if (mtk_cam_scen_is_hdr(scen)) {
+		if (mtk_cam_scen_is_odt(scen))
 			is_hdr_m2m = 1;
 		else
 			is_hdr = 1;
@@ -1746,23 +1760,8 @@ int mtk_cam_video_set_fmt(struct mtk_cam_video_device *node, struct v4l2_format 
 	/* Note: vhdr m2m main stream is implicitly multiple plane */
 	/* but not nego through try format */
 	if ((node->desc.id == MTK_RAW_MAIN_STREAM_OUT && is_hdr) ||
-		(node->desc.id == MTK_RAW_RAWI_2_IN && is_hdr_m2m)) {
-
-		switch (raw_feature & MTK_CAM_FEATURE_HDR_MASK) {
-		case STAGGER_2_EXPOSURE_LE_SE:
-		case STAGGER_2_EXPOSURE_SE_LE:
-		case MSTREAM_NE_SE:
-		case MSTREAM_SE_NE:
-			try_fmt.fmt.pix_mp.num_planes = 2;
-			break;
-		case STAGGER_3_EXPOSURE_LE_NE_SE:
-		case STAGGER_3_EXPOSURE_SE_NE_LE:
-			try_fmt.fmt.pix_mp.num_planes = 3;
-			break;
-		default:
-			try_fmt.fmt.pix_mp.num_planes = 1;
-		}
-	}
+		(node->desc.id == MTK_RAW_RAWI_2_IN && is_hdr_m2m))
+		try_fmt.fmt.pix_mp.num_planes = mtk_cam_scen_get_max_exp_num(scen);
 
 	for (i = 0 ; i < try_fmt.fmt.pix_mp.num_planes ; i++)
 		try_fmt.fmt.pix_mp.plane_fmt[i].bytesperline =
@@ -1778,24 +1777,9 @@ int mtk_cam_video_set_fmt(struct mtk_cam_video_device *node, struct v4l2_format 
 	/* subsample */
 	if (node->desc.id >= MTK_RAW_MAIN_STREAM_OUT &&
 		node->desc.id < MTK_RAW_RZH1N2TO_1_OUT &&
-		(raw_feature & MTK_CAM_FEATURE_SUBSAMPLE_MASK)) {
-		switch (raw_feature) {
-		case HIGHFPS_2_SUBSAMPLE:
-			try_fmt.fmt.pix_mp.num_planes = 2;
-			break;
-		case HIGHFPS_4_SUBSAMPLE:
-			try_fmt.fmt.pix_mp.num_planes = 4;
-			break;
-		case HIGHFPS_8_SUBSAMPLE:
-			try_fmt.fmt.pix_mp.num_planes = 8;
-			break;
-		case HIGHFPS_16_SUBSAMPLE:
-			try_fmt.fmt.pix_mp.num_planes =
-				MAX_SUBSAMPLE_PLANE_NUM;
-			break;
-		default:
-			try_fmt.fmt.pix_mp.num_planes = 1;
-		}
+	    mtk_cam_scen_is_subsample(scen)) {
+		try_fmt.fmt.pix_mp.num_planes = scen->scen.smvr.subsample_num;
+
 		bytesperline = try_fmt.fmt.pix_mp.plane_fmt[0].bytesperline;
 		sizeimage = try_fmt.fmt.pix_mp.plane_fmt[0].sizeimage;
 		for (i = 0 ; i < try_fmt.fmt.pix_mp.num_planes ; i++) {
@@ -1804,9 +1788,9 @@ int mtk_cam_video_set_fmt(struct mtk_cam_video_device *node, struct v4l2_format 
 			try_fmt.fmt.pix_mp.plane_fmt[i].sizeimage =
 				sizeimage;
 		}
-		dev_info(cam->dev, "%s id:%d raw_feature:0x%x stride:%d size:%d\n",
-			 __func__, node->desc.id, raw_feature,
-			 bytesperline, sizeimage);
+		dev_info(cam->dev, "%s id:%d scen:(%s) stride:%d size:%d subsample_num(%d)\n",
+			 __func__, node->desc.id, scen->dbg_str,
+			 bytesperline, sizeimage, scen->scen.smvr.subsample_num);
 	}
 	/* add header size for vc channel */
 	if (node->desc.dma_port == MTKCAM_IPI_CAMSV_MAIN_OUT &&
@@ -1824,7 +1808,8 @@ int mtk_cam_video_set_fmt(struct mtk_cam_video_device *node, struct v4l2_format 
 		}
 	/*extisp may use mainstream for yuvformat*/
 	if (node->desc.id == MTK_RAW_MAIN_STREAM_OUT &&
-		raw_feature & EXT_ISP_CUS_2) {
+		mtk_cam_scen_is_ext_isp(scen) &&
+		scen->scen.extisp.type == MTK_CAM_EXTISP_CUS_2) {
 		int stride;
 
 		stride = mtk_cam_dmao_xsize(try_fmt.fmt.pix_mp.width,
@@ -1853,12 +1838,15 @@ int mtk_cam_vidioc_try_fmt(struct file *file, void *fh,
 			   struct v4l2_format *f)
 {
 	struct mtk_cam_video_device *node = file_to_mtk_cam_node(file);
-	int raw_feature = 0;
+	struct mtk_cam_scen scen;
+	int raw_feature_legacy = 0;
 
 	if (is_raw_subdev(node->uid.pipe_id))
-		raw_feature = mtk_cam_fmt_get_raw_feature(&f->fmt.pix_mp);
+		raw_feature_legacy = mtk_cam_fmt_get_raw_feature(&f->fmt.pix_mp);
 
-	mtk_cam_video_set_fmt(node, f, raw_feature);
+	memset(&scen, 0, sizeof(scen));
+	mtk_cam_feature_to_scen(&scen, raw_feature_legacy, raw_feature_legacy);
+	mtk_cam_video_set_fmt(node, f, &scen);
 
 	return 0;
 }

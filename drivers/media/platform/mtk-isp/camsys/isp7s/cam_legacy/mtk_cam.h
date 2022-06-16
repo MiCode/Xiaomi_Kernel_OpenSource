@@ -190,8 +190,8 @@ mtk_cam_req_work_get_s_data(struct mtk_cam_req_work *work)
 }
 
 struct mtk_cam_req_feature {
-	int raw_feature;
-	int prev_feature;
+	struct mtk_cam_scen *scen;
+	struct mtk_cam_scen prev_scen;
 	int switch_feature_type;
 	bool switch_prev_frame_done;
 	bool switch_curr_setting_done;
@@ -294,7 +294,7 @@ struct mtk_cam_frame_sync {
 };
 
 struct mtk_cam_req_raw_pipe_data {
-	struct mtk_cam_resource res;
+	struct mtk_cam_resource_v2 res;
 	struct mtk_cam_resource_config res_config;
 	struct mtk_raw_stagger_select stagger_select;
 	int enabled_raw;
@@ -563,11 +563,18 @@ mtk_cam_req_get_s_data_no_chk(struct mtk_cam_request *req, int pipe_id, int idx)
 static inline struct mtk_cam_request_stream_data*
 mtk_cam_req_get_s_data(struct mtk_cam_request *req, int pipe_id, int idx)
 {
-	if (!req || pipe_id < 0 || pipe_id > MTKCAM_SUBDEV_MAX)
+	if (!req || pipe_id < 0 || pipe_id > MTKCAM_SUBDEV_MAX) {
+		pr_info("%s failed: req(%p), pipe_id(%d), MTKCAM_SUBDEV_MAX(%d)\n",
+			__func__, req, pipe_id, MTKCAM_SUBDEV_MAX);
 		return NULL;
+	}
 
-	if (idx < 0 || idx >= req->p_data[pipe_id].s_data_num)
+	if (idx < 0 || idx >= req->p_data[pipe_id].s_data_num) {
+		pr_info("%s failed: req(%s), pipe_id(%d), idx(%d), s_data_num(%d)\n",
+			__func__, req->req.debug_str, pipe_id, idx,
+			req->p_data[pipe_id].s_data_num);
 		return NULL;
+	}
 
 	return mtk_cam_req_get_s_data_no_chk(req, pipe_id, idx);
 }
@@ -639,7 +646,7 @@ mtk_cam_s_data_get_raw_pipe_data(struct mtk_cam_request_stream_data *s_data)
 	return &s_data->req->raw_pipe_data[s_data->pipe_id];
 }
 
-static inline struct mtk_cam_resource*
+static inline struct mtk_cam_resource_v2*
 mtk_cam_s_data_get_res(struct mtk_cam_request_stream_data *s_data)
 {
 	if (s_data == NULL)
@@ -651,7 +658,7 @@ mtk_cam_s_data_get_res(struct mtk_cam_request_stream_data *s_data)
 	return &s_data->req->raw_pipe_data[s_data->pipe_id].res;
 }
 
-static inline int
+static inline struct mtk_cam_scen*
 mtk_cam_s_data_get_res_feature(struct mtk_cam_request_stream_data *s_data)
 {
 	if (s_data == NULL)
@@ -660,8 +667,12 @@ mtk_cam_s_data_get_res_feature(struct mtk_cam_request_stream_data *s_data)
 	if (!is_raw_subdev(s_data->pipe_id))
 		return 0;
 
-	return s_data->req->raw_pipe_data[s_data->pipe_id].res.raw_res.feature;
+	return &s_data->req->raw_pipe_data[s_data->pipe_id].res.raw_res.scen;
 }
+
+bool
+mtk_cam_s_data_get_scen(struct mtk_cam_scen *scen,
+			struct mtk_cam_request_stream_data *s_data);
 
 static inline int
 mtk_cam_s_data_get_vbuf_idx(struct mtk_cam_request_stream_data *s_data,
@@ -859,6 +870,12 @@ static inline struct device *mtk_cam_find_raw_dev(struct mtk_cam_device *cam,
 	return NULL;
 }
 
+static inline bool mtk_cam_ctx_has_raw(struct mtk_cam_ctx *ctx)
+{
+	return (ctx && ctx->used_raw_num > 0);
+}
+
+
 //TODO: with spinlock or not? depends on how request works [TBD]
 
 struct mtk_cam_ctx *mtk_cam_start_ctx(struct mtk_cam_device *cam,
@@ -956,6 +973,11 @@ void isp_composer_destroy_session(struct mtk_cam_ctx *ctx);
 int PipeIDtoTGIDX(int pipe_id);
 void mstream_seamless_buf_update(struct mtk_cam_ctx *ctx,
 				struct mtk_cam_request *req, int pipe_id,
-				int prev_feature);
-
+				struct mtk_cam_scen *scen, struct mtk_cam_scen *scen_prev);
+void mtk_cam_resource_to_v2(struct mtk_cam_resource_v2 *res_v2,
+			    struct mtk_cam_resource *res,
+			    struct v4l2_mbus_framefmt *sink_fmt);
+void mtk_cam_resource_to_v1(struct mtk_cam_resource *res,
+			    struct v4l2_mbus_framefmt *sink_fmt,
+			    struct mtk_cam_resource_v2 *res_v2);
 #endif /*__MTK_CAM_H*/

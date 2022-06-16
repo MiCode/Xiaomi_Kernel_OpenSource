@@ -1662,6 +1662,12 @@ int mtk_cam_call_sv_pipeline_config(
 	struct mtk_camsv_device *camsv_dev;
 	struct mtkcam_ipi_input_param *cfg_in_param;
 	unsigned int bbp;
+	struct mtk_cam_scen scen;
+
+	mtk_cam_scen_init(&scen);
+	if (mtk_cam_ctx_has_raw(ctx))
+		scen = ctx->pipe->scen_active;
+
 
 	cam = ctx->cam;
 	camsv_dev = ctx->sv_dev;
@@ -1692,8 +1698,9 @@ int mtk_cam_call_sv_pipeline_config(
 	cfg_in_param->in_crop.p.x = 0x0;
 	cfg_in_param->in_crop.p.y = 0x0;
 	cfg_in_param->in_crop.s.w =
-		(mtk_cam_is_ext_isp_yuv(ctx) &&
-			seninf_padidx == PAD_SRC_RAW_EXT0) ?
+		(mtk_cam_ctx_has_raw(ctx) &&
+		 mtk_cam_scen_is_ext_isp_yuv(&ctx->pipe->scen_active) &&
+		 seninf_padidx == PAD_SRC_RAW_EXT0) ?
 		img_fmt->fmt.pix_mp.width * 2 :
 		img_fmt->fmt.pix_mp.width; /* camsv todo: preisp */
 	cfg_in_param->in_crop.s.h = img_fmt->fmt.pix_mp.height;
@@ -1708,9 +1715,9 @@ int mtk_cam_call_sv_pipeline_config(
 		tag_info->stride = bbp;
 
 	dev_info(camsv_dev->dev,
-		"sink pad code:0x%x camsv's imgo w/h/stride:%d/%d/%d feature:%d\n",
+		"sink pad code:0x%x camsv's imgo w/h/stride:%d/%d/%d scen(%s)\n",
 		mf->code, cfg_in_param->in_crop.s.w, cfg_in_param->in_crop.s.h,
-		tag_info->stride, (ctx->used_raw_num) ? ctx->pipe->feature_active : 0);
+		tag_info->stride, scen.dbg_str);
 
 	if (cfg_in_param->in_crop.s.w % (1 << pixelmode))
 		dev_info(camsv_dev->dev, "crop width(%d) is not the multiple of pixel mode(%d)\n",

@@ -4,37 +4,6 @@
 
 #include "mtk_cam-feature.h"
 
-/**
- * TODO: phase out mtk_cam_is_[feature] since it can't be
- * used when feature per-frame chages except mtk_cam_is_stagger(),
- * which is using the raw_feature which is not changed
- * during streaming.
- */
-
-bool mtk_cam_is_ext_isp(struct mtk_cam_ctx *ctx)
-{
-	if (!ctx->used_raw_num)
-		return false;
-
-	return mtk_cam_feature_is_ext_isp(ctx->pipe->feature_active);
-}
-
-bool mtk_cam_is_ext_isp_yuv(struct mtk_cam_ctx *ctx)
-{
-	if (!ctx->used_raw_num)
-		return false;
-
-	return mtk_cam_feature_is_ext_isp_yuv(ctx->pipe->feature_active);
-}
-
-bool mtk_cam_is_time_shared(struct mtk_cam_ctx *ctx)
-{
-	if (!ctx->used_raw_num)
-		return false;
-
-	return mtk_cam_feature_is_time_shared(ctx->pipe->feature_pending);
-}
-
 bool mtk_cam_is_hsf(struct mtk_cam_ctx *ctx)
 {
 	if (!ctx->used_raw_num)
@@ -46,168 +15,52 @@ bool mtk_cam_is_hsf(struct mtk_cam_ctx *ctx)
 		return false;
 }
 
-bool mtk_cam_is_pure_m2m(struct mtk_cam_ctx *ctx)
-{
-	if (!ctx->used_raw_num)
-		return false;
-
-	if (ctx->pipe->feature_pending & MTK_CAM_FEATURE_PURE_OFFLINE_M2M_MASK)
-		return true;
-	else
-		return false;
-}
-
-bool mtk_cam_is_m2m(struct mtk_cam_ctx *ctx)
-{
-	if (!ctx->used_raw_num)
-		return false;
-
-	return mtk_cam_feature_is_m2m(ctx->pipe->feature_pending);
-}
-
-bool mtk_cam_is_stagger_m2m(struct mtk_cam_ctx *ctx)
-{
-	if (!ctx->used_raw_num)
-		return false;
-
-	return mtk_cam_feature_is_stagger_m2m(ctx->pipe->feature_pending);
-}
-
-bool mtk_cam_is_stagger(struct mtk_cam_ctx *ctx)
-{
-	if (!ctx->used_raw_num)
-		return false;
-
-	return mtk_cam_feature_is_stagger(ctx->pipe->feature_active);
-}
-
-bool mtk_cam_is_mstream_m2m(struct mtk_cam_ctx *ctx)
-{
-	if (!ctx->used_raw_num)
-		return false;
-
-	return mtk_cam_feature_is_mstream_m2m(ctx->pipe->feature_pending);
-}
-
-bool mtk_cam_is_mstream(struct mtk_cam_ctx *ctx)
-{
-	if (!ctx->used_raw_num) {
-		pr_debug("not mstream because of used_raw_num=0 !!!\n");
-		return false;
-	}
-
-	return mtk_cam_feature_is_mstream(ctx->pipe->feature_pending);
-}
-
-bool mtk_cam_is_subsample(struct mtk_cam_ctx *ctx)
-{
-	if (!ctx->used_raw_num)
-		return false;
-
-	return mtk_cam_feature_is_subsample(ctx->pipe->feature_pending);
-}
-
-bool mtk_cam_is_2_exposure(struct mtk_cam_ctx *ctx)
-{
-	if (!ctx->used_raw_num)
-		return false;
-
-	return mtk_cam_feature_is_2_exposure(ctx->pipe->feature_pending);
-}
-
-bool mtk_cam_is_3_exposure(struct mtk_cam_ctx *ctx)
-{
-	if (!ctx->used_raw_num)
-		return false;
-
-	return mtk_cam_feature_is_3_exposure(ctx->pipe->feature_pending);
-}
-
-bool mtk_cam_is_with_w_channel(struct mtk_cam_ctx *ctx)
-{
-	if (!ctx->used_raw_num)
-		return false;
-
-	return (ctx->pipe->feature_pending & WITH_W_CHANNEL) != 0;
-}
-
-int mtk_cam_get_sensor_exposure_num(u32 raw_feature)
-{
-	int result = 1;
-
-	raw_feature &= MTK_CAM_FEATURE_HDR_MASK;
-
-	switch (raw_feature) {
-	case STAGGER_3_EXPOSURE_LE_NE_SE:
-	case STAGGER_3_EXPOSURE_SE_NE_LE:
-		result = 3;
-		break;
-	case STAGGER_2_EXPOSURE_LE_SE:
-	case STAGGER_2_EXPOSURE_SE_LE:
-		result = 2;
-		break;
-	default:
-		result = 1;
-		break;
-	}
-	return result;
-}
-
 int mtk_cam_get_feature_switch(struct mtk_raw_pipeline *raw_pipe,
-			       int prev)
+			       struct mtk_cam_scen *prev)
 {
-	int cur = raw_pipe->feature_pending;
+	struct mtk_cam_scen *cur = &raw_pipe->user_res.raw_res.scen;
 	int res = EXPOSURE_CHANGE_NONE;
+	int exp = 1, exp_prev = 1;
 
-	if (cur == prev)
+	exp = mtk_cam_scen_get_exp_num(cur);
+	exp_prev = mtk_cam_scen_get_exp_num(prev);
+
+	if (exp == exp_prev)
 		return EXPOSURE_CHANGE_NONE;
-	if (cur & MTK_CAM_FEATURE_HDR_MASK || prev & MTK_CAM_FEATURE_HDR_MASK) {
-		if (mtk_cam_feature_is_mstream(cur) ||
-				mtk_cam_feature_is_mstream(prev) ||
-				mtk_cam_feature_is_mstream_m2m(cur) ||
-				mtk_cam_feature_is_mstream_m2m(prev)) {
-			/* mask out m2m before comparison */
-			cur &= MTK_CAM_FEATURE_HDR_MASK;
-			prev &= MTK_CAM_FEATURE_HDR_MASK;
 
-			if (prev == 0  && mtk_cam_feature_is_mstream(cur))
-				res = EXPOSURE_CHANGE_1_to_2 |
+	if ((mtk_cam_scen_is_mstream(cur) && mtk_cam_scen_is_mstream(prev)) ||
+	    (mtk_cam_scen_is_mstream_m2m(cur) && mtk_cam_scen_is_mstream_m2m(prev))) {
+		if (exp_prev == 1)
+			res = EXPOSURE_CHANGE_1_to_2 |
 						MSTREAM_EXPOSURE_CHANGE;
-			else if (cur == 0 && mtk_cam_feature_is_mstream(prev))
-				res = EXPOSURE_CHANGE_2_to_1 |
+		else
+			res = EXPOSURE_CHANGE_2_to_1 |
 						MSTREAM_EXPOSURE_CHANGE;
-		} else {
-			cur &= MTK_CAM_FEATURE_HDR_MASK;
-			prev &= MTK_CAM_FEATURE_HDR_MASK;
-			if ((cur == STAGGER_2_EXPOSURE_LE_SE || cur == STAGGER_2_EXPOSURE_LE_SE) &&
-			    (prev == STAGGER_3_EXPOSURE_LE_NE_SE ||
-			     prev == STAGGER_3_EXPOSURE_SE_NE_LE))
-				res = EXPOSURE_CHANGE_3_to_2;
-			else if ((prev == STAGGER_2_EXPOSURE_LE_SE ||
-				  prev == STAGGER_2_EXPOSURE_SE_LE) &&
-				 (cur == STAGGER_3_EXPOSURE_LE_NE_SE ||
-				  cur == STAGGER_3_EXPOSURE_SE_NE_LE))
-				res = EXPOSURE_CHANGE_2_to_3;
-			else if (prev == 0 &&
-				 (cur == STAGGER_3_EXPOSURE_LE_NE_SE ||
-				  cur == STAGGER_3_EXPOSURE_SE_NE_LE))
-				res = EXPOSURE_CHANGE_1_to_3;
-			else if (cur == 0 &&
-				 (prev == STAGGER_3_EXPOSURE_LE_NE_SE ||
-				  prev == STAGGER_3_EXPOSURE_SE_NE_LE))
+	}
+
+	if ((mtk_cam_scen_is_stagger(cur) && mtk_cam_scen_is_stagger(prev)) ||
+	    (mtk_cam_scen_is_stagger_m2m(cur) && mtk_cam_scen_is_stagger_m2m(prev)) ||
+	    (mtk_cam_scen_is_stagger_pure_m2m(cur) && mtk_cam_scen_is_stagger_pure_m2m(prev))) {
+		if (exp_prev == 3) {
+			if (exp == 1)
 				res = EXPOSURE_CHANGE_3_to_1;
-			else if (prev == 0 &&
-				 (cur == STAGGER_2_EXPOSURE_LE_SE ||
-				  cur == STAGGER_2_EXPOSURE_SE_LE))
-				res = EXPOSURE_CHANGE_1_to_2;
-			else if (cur == 0 &&
-				 (prev == STAGGER_2_EXPOSURE_LE_SE ||
-				  prev == STAGGER_2_EXPOSURE_SE_LE))
+			else if (exp == 2)
+				res = EXPOSURE_CHANGE_3_to_2;
+		} else if (exp_prev == 2) {
+			if (exp == 1)
 				res = EXPOSURE_CHANGE_2_to_1;
+			else if (exp == 3)
+				res = EXPOSURE_CHANGE_2_to_3;
+		} else if (exp_prev == 1)  {
+			if (exp == 2)
+				res = EXPOSURE_CHANGE_1_to_2;
+			else if (exp == 3)
+				res = EXPOSURE_CHANGE_1_to_3;
 		}
 	}
-	dev_dbg(raw_pipe->subdev.dev, "[%s] res:%d cur:0x%x prev:0x%x\n",
-			__func__, res, cur, prev);
+
+	dev_dbg(raw_pipe->subdev.dev, "[%s] scen:%d res:%d cur_exp:%d prev_exp:%d\n",
+			__func__, cur->id, res, exp, exp_prev);
 
 	return res;
 }
