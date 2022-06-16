@@ -11160,8 +11160,8 @@
 			opp-microvolt = <7>;
 		};
 		opp-7 {
-			opp-hz = /bits/ 64 <7>;
-			opp-microvolt = <7>;
+			opp-hz = /bits/ 64 <8>;
+			opp-microvolt = <8>;
 		};
 	};
 
