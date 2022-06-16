@@ -5,6 +5,7 @@
 
 #include <linux/module.h>
 #include <linux/soc/mediatek/mtk-cmdq-ext.h>
+#include <linux/of_platform.h>
 
 #include <drm/drm_crtc.h>
 #include "mtk_drm_crtc.h"
@@ -26,6 +27,11 @@ struct mtk_disp_sec_config {
 	u32 tzmp_disp_sec_wait;
 	u32 tzmp_disp_sec_set;
 };
+
+struct mtk_disp_sec_data {
+	u32 legacy_dts_check;
+};
+
 
 struct mtk_disp_sec_config sec_config;
 
@@ -169,14 +175,25 @@ static int disp_sec_probe(struct platform_device *pdev)
 	void **ret;
 	struct device_node *node = pdev->dev.of_node;
 	struct device *dev = &pdev->dev;
+	const struct mtk_disp_sec_data *data;
 
 	DDPINFO("%s+\n", __func__);
+
+	data = of_device_get_match_data(dev);
+
 	sec_config.disp_sec_client = cmdq_mbox_create(dev, 0);
 	if (sec_config.disp_sec_client) {
-		of_property_read_u32(node, "sw_sync_token_tzmp_disp_wait",
-					&sec_config.tzmp_disp_sec_wait);
-		of_property_read_u32(node, "sw_sync_token_tzmp_disp_set",
-					&sec_config.tzmp_disp_sec_set);
+		if (data->legacy_dts_check) {
+			of_property_read_u32(node, "sw_sync_token_tzmp_disp_wait",
+						&sec_config.tzmp_disp_sec_wait);
+			of_property_read_u32(node, "sw_sync_token_tzmp_disp_set",
+						&sec_config.tzmp_disp_sec_set);
+		} else {
+			of_property_read_u32(node, "sw-sync-token-tzmp-disp-wait",
+						&sec_config.tzmp_disp_sec_wait);
+			of_property_read_u32(node, "sw-sync-token-tzmp-disp-set",
+						&sec_config.tzmp_disp_sec_set);
+		}
 		DDPMSG("tzmp_disp_sec_wait %d tzmp_disp_sec_set %d\n",
 					sec_config.tzmp_disp_sec_wait,
 					sec_config.tzmp_disp_sec_set);
@@ -193,9 +210,22 @@ static int disp_sec_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static const struct mtk_disp_sec_data legacy_sec_driver_data = {
+	.legacy_dts_check = 1,
+};
+
+static const struct mtk_disp_sec_data current_sec_driver_data = {
+	.legacy_dts_check = 0,
+};
+
 static const struct of_device_id of_disp_sec_match_tbl[] = {
 	{
 		.compatible = "mediatek,disp_sec",
+		.data = &legacy_sec_driver_data,
+	},
+	{
+		.compatible = "mediatek,disp-sec",
+		.data = &current_sec_driver_data,
 	},
 	{}
 };
