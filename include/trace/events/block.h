@@ -673,8 +673,7 @@ DECLARE_EVENT_CLASS(blk_pm_ret,
 	),
 
 	TP_fast_assign(
-		__entry->dev		= disk_devt(
-			dev_to_disk(kobj_to_dev((q)->kobj.parent)));
+		__entry->dev		= q->dev->devt;
 		__entry->rpm_status	= q->rpm_status;
 		__entry->pm_only	= blk_queue_pm_only(q);
 		__entry->mq_freeze_depth = q->mq_freeze_depth;
@@ -707,8 +706,7 @@ DECLARE_EVENT_CLASS(blk_pm_err,
 	),
 
 	TP_fast_assign(
-		__entry->dev		= disk_devt(
-			dev_to_disk(kobj_to_dev((q)->kobj.parent)));
+		__entry->dev		= q->dev->devt;
 		__entry->rpm_status	= q->rpm_status;
 		__entry->pm_only	= blk_queue_pm_only(q);
 		__entry->mq_freeze_depth = q->mq_freeze_depth;
@@ -740,7 +738,7 @@ DECLARE_EVENT_CLASS(blk_pm,
 	),
 
 	TP_fast_assign(
-		__entry->dev		= disk_devt(dev_to_disk(kobj_to_dev((q)->kobj.parent)));
+		__entry->dev		= q->dev->devt;
 		__entry->rpm_status	= q->rpm_status;
 		__entry->pm_only	= blk_queue_pm_only(q);
 		__entry->mq_freeze_depth = q->mq_freeze_depth;

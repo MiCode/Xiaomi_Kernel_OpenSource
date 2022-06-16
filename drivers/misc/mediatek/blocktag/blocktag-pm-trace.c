@@ -99,7 +99,7 @@ static const char *rpm_status_str(int rpm_status)
 	return ret;
 }
 
-static void btag_blk_pm_add_log(int maj, int min, int rpm, int pm_only,
+static void btag_blk_pm_add_log(int rpm, int pm_only,
 		int dying, int mq_freeze_depth, int ret, int event)
 {
 	uint64_t ns_time = sched_clock();
@@ -125,64 +125,48 @@ static void btag_blk_pm_add_log(int maj, int min, int rpm, int pm_only,
 void btag_blk_pre_runtime_suspend_start(void *data,
 		struct request_queue *q)
 {
-	dev_t dev = disk_devt(
-			dev_to_disk(kobj_to_dev((q)->kobj.parent)));
-	int maj = MAJOR(dev);
-	int min = MINOR(dev);
 	int rpm_status = q->rpm_status;
 	int pm_only = blk_queue_pm_only(q);
 	int mq_freeze_depth = q->mq_freeze_depth;
 	int dying = blk_queue_dying(q);
 
-	btag_blk_pm_add_log(maj, min, rpm_status, pm_only, dying,
+	btag_blk_pm_add_log(rpm_status, pm_only, dying,
 			mq_freeze_depth, 0, PRE_RT_SUSPEND_START);
 }
 
 void btag_blk_pre_runtime_suspend_end(void *data,
 		struct request_queue *q, int ret)
 {
-	dev_t dev = disk_devt(
-			dev_to_disk(kobj_to_dev((q)->kobj.parent)));
-	int maj = MAJOR(dev);
-	int min = MINOR(dev);
 	int rpm_status = q->rpm_status;
 	int pm_only = blk_queue_pm_only(q);
 	int mq_freeze_depth = q->mq_freeze_depth;
 	int dying = blk_queue_dying(q);
 
-	btag_blk_pm_add_log(maj, min, rpm_status, pm_only, dying,
+	btag_blk_pm_add_log(rpm_status, pm_only, dying,
 			mq_freeze_depth, ret, PRE_RT_SUSPEND_END);
 }
 
 void btag_blk_post_runtime_suspend_start(void *data,
 		struct request_queue *q, int err)
 {
-	dev_t dev = disk_devt(
-			dev_to_disk(kobj_to_dev((q)->kobj.parent)));
-	int maj = MAJOR(dev);
-	int min = MINOR(dev);
 	int rpm_status = q->rpm_status;
 	int pm_only = blk_queue_pm_only(q);
 	int mq_freeze_depth = q->mq_freeze_depth;
 	int dying = blk_queue_dying(q);
 
-	btag_blk_pm_add_log(maj, min, rpm_status, pm_only, dying,
+	btag_blk_pm_add_log(rpm_status, pm_only, dying,
 			mq_freeze_depth, err, POST_RT_SUSPEND_START);
 }
 
 void btag_blk_post_runtime_suspend_end(void *data,
 		struct request_queue *q, int err)
 {
-	dev_t dev = disk_devt(
-			dev_to_disk(kobj_to_dev((q)->kobj.parent)));
-	int maj = MAJOR(dev);
-	int min = MINOR(dev);
 	int rpm_status = q->rpm_status;
 	int pm_only = blk_queue_pm_only(q);
 	int mq_freeze_depth = q->mq_freeze_depth;
 	int dying = blk_queue_dying(q);
 
-	btag_blk_pm_add_log(maj, min, rpm_status, pm_only, dying,
+	btag_blk_pm_add_log(rpm_status, pm_only, dying,
 			mq_freeze_depth, err, POST_RT_SUSPEND_END);
 }
 
@@ -190,128 +174,96 @@ void btag_blk_post_runtime_suspend_end(void *data,
 void btag_blk_pre_runtime_resume_start(void *data,
 		struct request_queue *q)
 {
-	dev_t dev = disk_devt(
-			dev_to_disk(kobj_to_dev((q)->kobj.parent)));
-	int maj = MAJOR(dev);
-	int min = MINOR(dev);
 	int rpm_status = q->rpm_status;
 	int pm_only = blk_queue_pm_only(q);
 	int mq_freeze_depth = q->mq_freeze_depth;
 	int dying = blk_queue_dying(q);
 
-	btag_blk_pm_add_log(maj, min, rpm_status, pm_only, dying,
+	btag_blk_pm_add_log(rpm_status, pm_only, dying,
 			mq_freeze_depth, 0, PRE_RT_RESUME_START);
 }
 
 void btag_blk_pre_runtime_resume_end(void *data,
 		struct request_queue *q)
 {
-	dev_t dev = disk_devt(
-			dev_to_disk(kobj_to_dev((q)->kobj.parent)));
-	int maj = MAJOR(dev);
-	int min = MINOR(dev);
 	int rpm_status = q->rpm_status;
 	int pm_only = blk_queue_pm_only(q);
 	int mq_freeze_depth = q->mq_freeze_depth;
 	int dying = blk_queue_dying(q);
 
-	btag_blk_pm_add_log(maj, min, rpm_status, pm_only, dying,
+	btag_blk_pm_add_log(rpm_status, pm_only, dying,
 			mq_freeze_depth, 0, PRE_RT_RESUME_END);
 }
 
 void btag_blk_post_runtime_resume_start(void *data,
 		struct request_queue *q, int err)
 {
-	dev_t dev = disk_devt(
-			dev_to_disk(kobj_to_dev((q)->kobj.parent)));
-	int maj = MAJOR(dev);
-	int min = MINOR(dev);
 	int rpm_status = q->rpm_status;
 	int pm_only = blk_queue_pm_only(q);
 	int mq_freeze_depth = q->mq_freeze_depth;
 	int dying = blk_queue_dying(q);
 
-	btag_blk_pm_add_log(maj, min, rpm_status, pm_only, dying,
+	btag_blk_pm_add_log(rpm_status, pm_only, dying,
 			mq_freeze_depth, err, POST_RT_RESUME_START);
 }
 
 void btag_blk_post_runtime_resume_end(void *data,
 		struct request_queue *q, int err)
 {
-	dev_t dev = disk_devt(
-			dev_to_disk(kobj_to_dev((q)->kobj.parent)));
-	int maj = MAJOR(dev);
-	int min = MINOR(dev);
 	int rpm_status = q->rpm_status;
 	int pm_only = blk_queue_pm_only(q);
 	int mq_freeze_depth = q->mq_freeze_depth;
 	int dying = blk_queue_dying(q);
 
-	btag_blk_pm_add_log(maj, min, rpm_status, pm_only, dying,
+	btag_blk_pm_add_log(rpm_status, pm_only, dying,
 			mq_freeze_depth, err, POST_RT_RESUME_END);
 }
 
 void btag_blk_set_runtime_active_start(void *data,
 		struct request_queue *q)
 {
-	dev_t dev = disk_devt(
-			dev_to_disk(kobj_to_dev((q)->kobj.parent)));
-	int maj = MAJOR(dev);
-	int min = MINOR(dev);
 	int rpm_status = q->rpm_status;
 	int pm_only = blk_queue_pm_only(q);
 	int mq_freeze_depth = q->mq_freeze_depth;
 	int dying = blk_queue_dying(q);
 
-	btag_blk_pm_add_log(maj, min, rpm_status, pm_only, dying,
+	btag_blk_pm_add_log(rpm_status, pm_only, dying,
 			mq_freeze_depth, 0, SET_RT_ACTIVE_START);
 }
 
 void btag_blk_set_runtime_active_end(void *data,
 		struct request_queue *q)
 {
-	dev_t dev = disk_devt(
-			dev_to_disk(kobj_to_dev((q)->kobj.parent)));
-	int maj = MAJOR(dev);
-	int min = MINOR(dev);
 	int rpm_status = q->rpm_status;
 	int pm_only = blk_queue_pm_only(q);
 	int mq_freeze_depth = q->mq_freeze_depth;
 	int dying = blk_queue_dying(q);
 
-	btag_blk_pm_add_log(maj, min, rpm_status, pm_only, dying,
+	btag_blk_pm_add_log(rpm_status, pm_only, dying,
 			mq_freeze_depth, 0, SET_RT_ACTIVE_END);
 }
 
 void btag_blk_queue_enter_sleep(void *data,
 		struct request_queue *q)
 {
-	dev_t dev = disk_devt(
-			dev_to_disk(kobj_to_dev((q)->kobj.parent)));
-	int maj = MAJOR(dev);
-	int min = MINOR(dev);
 	int rpm_status = q->rpm_status;
 	int pm_only = blk_queue_pm_only(q);
 	int mq_freeze_depth = q->mq_freeze_depth;
 	int dying = blk_queue_dying(q);
 
-	btag_blk_pm_add_log(maj, min, rpm_status, pm_only, dying,
+	btag_blk_pm_add_log(rpm_status, pm_only, dying,
 			mq_freeze_depth, 0, BLK_QUEUE_ENTER_SLEEP);
 }
 
 void btag_blk_queue_enter_wakeup(void *data,
 		struct request_queue *q)
 {
-	dev_t dev = disk_devt(
-			dev_to_disk(kobj_to_dev((q)->kobj.parent)));
-	int maj = MAJOR(dev);
-	int min = MINOR(dev);
 	int rpm_status = q->rpm_status;
 	int pm_only = blk_queue_pm_only(q);
 	int mq_freeze_depth = q->mq_freeze_depth;
 	int dying = blk_queue_dying(q);
 
-	btag_blk_pm_add_log(maj, min, rpm_status, pm_only, dying,
+	btag_blk_pm_add_log(rpm_status, pm_only, dying,
 			mq_freeze_depth, 0, BLK_QUEUE_ENTER_WAKEUP);
 }
 
