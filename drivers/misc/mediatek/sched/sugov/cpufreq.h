@@ -14,11 +14,13 @@
 #define CAPACITY_TBL_SIZE 0x100
 #define CAPACITY_ENTRY_SIZE 0x2
 
+#if !IS_ENABLED(CONFIG_MTK_GEARLESS_SUPPORT)
 struct mtk_em_perf_state {
-	unsigned long freq;
-	unsigned long capacity;
-	unsigned long pwr_eff;
+	unsigned int freq;
+	unsigned int capacity;
+	unsigned int pwr_eff;
 };
+#endif
 
 struct pd_capacity_info {
 	int nr_caps;
@@ -82,6 +84,8 @@ extern unsigned long pd_get_util_pwr_eff(int cpu, unsigned long util);
 extern unsigned long pd_get_util_opp(int cpu, unsigned long util);
 extern unsigned long pd_get_opp_pwr_eff(int cpu, int opp);
 extern unsigned int pd_get_cpu_opp(int cpu);
+extern unsigned int pd_get_opp_leakage(unsigned int cpu, unsigned int opp,
+	unsigned int temperature);
 #if IS_ENABLED(CONFIG_NONLINEAR_FREQ_CTL)
 void mtk_arch_set_freq_scale(void *data, const struct cpumask *cpus,
 				unsigned long freq, unsigned long max, unsigned long *scale);

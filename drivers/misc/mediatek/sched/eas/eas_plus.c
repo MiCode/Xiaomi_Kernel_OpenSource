@@ -301,7 +301,7 @@ unsigned long mtk_em_cpu_energy(struct em_perf_domain *pd,
 	for_each_cpu_and(cpu, to_cpumask(pd->cpus), cpu_online_mask) {
 		unsigned int cpu_static_pwr;
 
-		cpu_static_pwr = mtk_get_leakage(cpu, opp, cpu_temp[cpu]);
+		cpu_static_pwr = pd_get_opp_leakage(cpu, opp, cpu_temp[cpu]);
 		static_pwr += cpu_static_pwr;
 
 		trace_sched_leakage(cpu, opp, cpu_temp[cpu], cpu_static_pwr, static_pwr);

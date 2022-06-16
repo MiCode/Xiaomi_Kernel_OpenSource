@@ -37,7 +37,7 @@ static inline int map_freq_idx_by_tbl(struct pd_capacity_info *pd_info, unsigned
 {
 	int idx;
 
-	freq = min(freq, pd_info->table[0].freq);
+	freq = min_t(unsigned int, freq, pd_info->table[0].freq);
 	if (freq <= pd_info->table[pd_info->nr_caps - 1].freq)
 		return pd_info->nr_freq_opp_map - 1;
 
@@ -166,6 +166,12 @@ unsigned int pd_get_cpu_opp(int cpu)
 }
 EXPORT_SYMBOL_GPL(pd_get_cpu_opp);
 
+unsigned int pd_get_opp_leakage(unsigned int cpu, unsigned int opp, unsigned int temperature)
+{
+	return mtk_get_leakage(cpu, opp, temperature);
+}
+EXPORT_SYMBOL_GPL(pd_get_opp_leakage);
+
 static inline int cmpulong_dec(const void *a, const void *b)
 {
 	return -(*(unsigned long *)a - *(unsigned long *)b);
@@ -193,7 +199,7 @@ static void free_capacity_table(void)
 static int init_util_freq_opp_mapping_table(void)
 {
 	int i, j, k, nr_opp, next_k, opp;
-	unsigned long min_gap;
+	unsigned int min_gap;
 	unsigned long min_cap, max_cap;
 	unsigned long min_freq, max_freq, curr_freq;
 	struct pd_capacity_info *pd_info;
@@ -218,7 +224,7 @@ static int init_util_freq_opp_mapping_table(void)
 		}
 
 		/* init freq_opp_map */
-		min_gap = ULONG_MAX;
+		min_gap = UINT_MAX;
 		/* skip opp=0, nr_opp-1 because potential irregular freq delta*/
 		for (j = 1; j < nr_opp - 2; j++)
 			min_gap = min(min_gap, pd_info->table[j].freq - pd_info->table[j + 1].freq);
@@ -227,7 +233,7 @@ static int init_util_freq_opp_mapping_table(void)
 		max_freq = pd_info->table[0].freq;
 		min_freq = rounddown(pd_info->table[nr_opp - 1].freq, pd_info->DFreq);
 
-		pd_info->nr_freq_opp_map = DIV_ROUND_UP(max_freq - min_freq, pd_info->DFreq) + 1;
+		pd_info->nr_freq_opp_map = ((max_freq - min_freq) / pd_info->DFreq) + 1;
 		pd_info->freq_opp_map = kcalloc(pd_info->nr_freq_opp_map, sizeof(int), GFP_KERNEL);
 
 		if (!pd_info->freq_opp_map)
@@ -252,6 +258,32 @@ nomem:
 	return -ENOENT;
 }
 
+#if IS_ENABLED(CONFIG_MTK_GEARLESS_SUPPORT)
+static int init_capacity_table(void)
+{
+	int i, j;
+	struct pd_capacity_info *pd_info;
+
+	for (i = 0; i < pd_count; i++) {
+		pd_info = &pd_capacity_tbl[i];
+		if (!cpumask_equal(&pd_info->cpus, mtk_em_pd_ptr_private[i].cpumask)) {
+			pr_info("cpumask mismatch, pd=%x, em=%x\n", pd_info->cpus,
+				*mtk_em_pd_ptr_private[i].cpumask);
+				return -1;
+		}
+		pd_info->table = mtk_em_pd_ptr_private[i].table;
+		for_each_cpu(j, &pd_info->cpus) {
+			per_cpu(gear_id, j) = i;
+			if (per_cpu(cpu_scale, j) != pd_info->table[0].capacity) {
+				pr_info("per_cpu(cpu_scale, %d)=%d, pd_info->table[0].cap=%d\n",
+					j, per_cpu(cpu_scale, j), pd_info->table[0].capacity);
+				per_cpu(cpu_scale, j) = pd_info->table[0].capacity;
+			}
+		}
+	}
+	return 0;
+}
+#else
 static int init_capacity_table(void)
 {
 	int i, j, cpu;
@@ -337,11 +369,11 @@ err:
 	free_capacity_table();
 	return -ENOENT;
 }
+#endif
 
 static int alloc_capacity_table(void)
 {
 	int cpu = 0;
-	int ret = 0;
 	int cur_tbl = 0;
 	int nr_caps;
 	struct em_perf_domain *pd;
@@ -374,14 +406,21 @@ static int alloc_capacity_table(void)
 
 		WARN_ON(cur_tbl >= pd_count);
 
+#if IS_ENABLED(CONFIG_MTK_GEARLESS_SUPPORT)
+		nr_caps = mtk_get_nr_cap(cur_tbl);
+#else
 		nr_caps = pd->nr_perf_states;
+		pd_capacity_tbl[cur_tbl].table = kcalloc(nr_caps, sizeof(struct mtk_em_perf_state),
+							GFP_KERNEL);
+		if (!pd_capacity_tbl[cur_tbl].table) {
+			free_capacity_table();
+			return -ENOMEM;
+		}
+#endif
 		pd_capacity_tbl[cur_tbl].nr_caps = nr_caps;
 		cpumask_copy(&pd_capacity_tbl[cur_tbl].cpus, to_cpumask(pd->cpus));
 
-		pd_capacity_tbl[cur_tbl].table = kcalloc(nr_caps, sizeof(struct mtk_em_perf_state),
-							GFP_KERNEL);
-		if (!pd_capacity_tbl[cur_tbl].table)
-			goto nomem;
+
 
 		pd_capacity_tbl[cur_tbl].util_opp_map = NULL;
 		pd_capacity_tbl[cur_tbl].freq_opp_map = NULL;
@@ -392,12 +431,6 @@ static int alloc_capacity_table(void)
 	}
 
 	return 0;
-
-nomem:
-	ret = -ENOMEM;
-	free_capacity_table();
-
-	return ret;
 }
 
 static int init_sram_mapping(void)
@@ -427,7 +460,8 @@ static int pd_capacity_tbl_show(struct seq_file *m, void *v)
 		seq_printf(m, "nr_caps: %d\n", pd_info->nr_caps);
 		seq_printf(m, "cpus: %*pbl\n", cpumask_pr_args(&pd_info->cpus));
 		for (j = 0; j < pd_info->nr_caps; j++)
-			seq_printf(m, "%d: %lu\n", j, pd_info->table[j].capacity);
+			seq_printf(m, "%d: %lu, %lu\n", j, pd_info->table[j].capacity,
+				pd_info->table[j].freq);
 	}
 
 	return 0;
