@@ -1188,7 +1188,6 @@ static void show_bt_by_pid(int task_pid)
 					pid_t tid = 0;
 
 					tid = task_pid_vnr(t);
-					state = t->state ? __ffs(t->state) + 1 : 0;
 					/* catch kernel bt */
 					show_thread_info(t, true);
 					log_hang_info("%s sysTid=%d, pid=%d\n", t->comm,
@@ -1212,7 +1211,6 @@ static void show_bt_by_pid(int task_pid)
 					pid_t tid = 0;
 
 					tid = task_pid_vnr(t);
-					state = t->state ? __ffs(t->state) + 1 : 0;
 					/* catch kernel bt */
 					show_thread_info(t, true);
 
@@ -1228,6 +1226,7 @@ static void show_bt_by_pid(int task_pid)
 			} while_each_thread(p, t);
 			rcu_read_unlock();
 		}
+		put_task_struct(p); /* pairing get_pid_task */
 	}
 	put_pid(pid);
 }
