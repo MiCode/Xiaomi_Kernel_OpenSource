@@ -1049,8 +1049,9 @@
 			/* rxq0 irq: 160 288 320 */
 			interrupts = <GIC_SPI 288 IRQ_TYPE_LEVEL_HIGH 0>,
 				<GIC_SPI 792 IRQ_TYPE_LEVEL_HIGH 0>; /* new rxq1 irq: 664 792 824 */
-			mediatek,dpmaif_ver = <3>;
-			mediatek,dpmaif_cap = <0x00000004>;
+			mediatek,dpmaif-ver = <3>;
+			mediatek,dpmaif-cap = <0x00000004>;
+			mediatek,plat-info = <6983>;
 			clocks = <&infracfg_ao_clk CLK_INFRACFG_AO_DPMAIF_MAIN_CG>,
 				<&infracfg_ao_clk CLK_INFRACFG_AO_CLDMA_BCLK_CK>,
 				<&infracfg_ao_clk CLK_INFRACFG_AO_RG_MMW_DPMAIF_F26M_CK_CG>;
@@ -1061,7 +1062,7 @@
 			interconnect-names = "icc-mdspd-bw";
 			required-opps = <&dvfsrc_freq_opp0>,
 					<&dvfsrc_freq_opp1>;
-			net_spd_ver = <4>;
+			net-spd-ver = <4>;
 			dpmaif-infracfg = <&infracfg_ao_clk>;
 		};
 
