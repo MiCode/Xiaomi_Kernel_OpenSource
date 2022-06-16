@@ -1319,7 +1319,7 @@ static int mt_scp_dvfs_create_procfs(void)
 #endif /* CONFIG_PROC_FS */
 
 static const struct of_device_id scpdvfs_of_ids[] = {
-	{.compatible = "mediatek,scp_dvfs",},
+	{.compatible = "mediatek,scp-dvfs",},
 	{}
 };
 
@@ -2625,7 +2625,7 @@ static int __init mt_scp_dts_init(struct platform_device *pdev)
 		dvfs.secure_access_scp = 1;
 	else {
 		dvfs.secure_access_scp = 0;
-		of_property_read_string(node, "secure_access", &str);
+		of_property_read_string(node, "secure-access", &str);
 		if (str && strcmp(str, "enable") == 0)
 			dvfs.secure_access_scp = 1;
 	}
