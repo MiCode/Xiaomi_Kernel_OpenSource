@@ -930,7 +930,10 @@ static void drv3_hw_reset_v1(void)
 	/* DPMAIF HW reset */
 	CCCI_DEBUG_LOG(0, TAG, "%s:rst dpmaif\n", __func__);
 	/* reset dpmaif hw: PD Domain */
-	dpmaif_write32(dpmaif_ctl->infra_reset_pd_base, 0xF50, 1<<22);
+	if (g_plat_inf == 6985)
+		dpmaif_write32(dpmaif_ctl->infra_reset_pd_base, 0xF50, 1<<14);
+	else
+		dpmaif_write32(dpmaif_ctl->infra_reset_pd_base, 0xF50, 1<<22);
 
 	value = dpmaif_read32(dpmaif_ctl->infra_reset_pd_base, 0xF50);
 	CCCI_NORMAL_LOG(0, TAG, "[%s]-%d read 0xF50 value=%d\n",
@@ -964,7 +967,10 @@ static void drv3_hw_reset_v1(void)
 	udelay(500);
 
 	/* reset dpmaif clr */
-	dpmaif_write32(dpmaif_ctl->infra_reset_pd_base, 0xF54, 1<<22);
+	if (g_plat_inf == 6985)
+		dpmaif_write32(dpmaif_ctl->infra_reset_pd_base, 0xF54, 1<<14);
+	else
+		dpmaif_write32(dpmaif_ctl->infra_reset_pd_base, 0xF54, 1<<22);
 
 	value = dpmaif_read32(dpmaif_ctl->infra_reset_pd_base, 0xF54);
 	CCCI_NORMAL_LOG(0, TAG, "[%s]-%d read 0xF54 value=%d\n",
@@ -996,7 +1002,7 @@ static int drv3_setting_hw_reset_func(void)
 		}
 	}
 
-	if (hw_reset_ver == 1)  // for mt6855
+	if (hw_reset_ver == 1 || g_plat_inf == 6985)  // for mt6855&mt6985
 		ops.drv_hw_reset = &drv3_hw_reset_v1;
 	else  // for other 98 dpmaif chip
 		ops.drv_hw_reset = &drv3_hw_reset;
