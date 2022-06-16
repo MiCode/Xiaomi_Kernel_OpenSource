@@ -31,7 +31,7 @@
 // #define FOR_DEBUG_VA_DATA
 // #define SMI_LOG
 #define CHECK_IRQ_COUNT
-// #define PDA_MMQOS
+#define PDA_MMQOS
 // --------------------------------
 
 #define PDA_DEV_NAME "camera-pda"
@@ -2127,6 +2127,10 @@ static long PDA_Ioctl(struct file *a_pstFile,
 			goto EXIT_WITHOUT_FREE_IOVA;
 		}
 
+#ifdef PDA_MMQOS
+		pda_mmqos_bw_set(&g_pda_Pdadata.PDA_FrameSetting);
+#endif
+
 		if (Get_Input_Addr_From_DMABUF(&g_pda_Pdadata) < 0) {
 			g_pda_Pdadata.Status = -26;
 			LOG_INF("Get_Input_Addr_From_DMABUF fail\n");
@@ -2310,10 +2314,6 @@ static int PDA_Open(struct inode *a_pstInode, struct file *a_pstFile)
 	//Enable clock
 	EnableClock(MTRUE);
 	LOG_INF("PDA open g_u4EnableClockCount: %d", g_u4EnableClockCount);
-
-#ifdef PDA_MMQOS
-	pda_mmqos_bw_set();
-#endif
 
 #ifdef CHECK_IRQ_COUNT
 	g_reasonable_IRQCount = 0;
