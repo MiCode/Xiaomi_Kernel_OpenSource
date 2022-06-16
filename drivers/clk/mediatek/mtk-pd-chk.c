@@ -427,6 +427,8 @@ static int set_genpd_notify(void)
 
 			pr_notice("pd-%s add to notifier\n", pds[i]->name);
 
+			dev_pm_syscore_device(&pd_pdev[i]->dev, true);
+
 			pm_runtime_enable(&pd_pdev[i]->dev);
 			pm_runtime_get_noresume(&pd_pdev[i]->dev);
 			pm_runtime_put_noidle(&pd_pdev[i]->dev);
