@@ -75,9 +75,9 @@ static int mdw_rv_dev_send_msg(struct mdw_rv_dev *mrdev, struct mdw_ipi_msg_sync
 
 	/* send & retry */
 	for (i = 0; i < cnt; i++) {
-		mdw_trace_begin("%s ipi", __func__);
+		mdw_trace_begin("apumdw:send_ipi|msg:0x%llx", s_msg->msg.sync_id);
 		ret = rpmsg_send(mrdev->ept, &s_msg->msg, sizeof(s_msg->msg));
-		mdw_trace_end("%s ipi", __func__);
+		mdw_trace_end();
 
 		/* send busy, retry */
 		if (ret == -EBUSY) {
@@ -235,7 +235,7 @@ int mdw_rv_dev_run_cmd(struct mdw_fpriv *mpriv, struct mdw_cmd *c)
 	int ret = 0;
 	uint64_t kid = c->kid, uid = c->uid;
 
-	mdw_trace_begin("%s|cmd(0x%llx/0x%llx)", __func__, kid, uid);
+	mdw_trace_begin("apumdw:dev_run|cmd:0x%llx/0x%llx", uid, kid);
 
 	rc = mrdev->cmd_funcs->create(mpriv, c);
 	if (!rc) {
@@ -251,7 +251,7 @@ int mdw_rv_dev_run_cmd(struct mdw_fpriv *mpriv, struct mdw_cmd *c)
 	mutex_unlock(&mrdev->mtx);
 
 out:
-	mdw_trace_end("%s|cmd(0x%llx/0x%llx)", __func__, kid, uid);
+	mdw_trace_end();
 	return ret;
 }
 

@@ -188,7 +188,7 @@ static int mdw_sched_sc_done(void)
 
 	mdw_flw_debug("\n");
 
-	mdw_trace_begin("check done list|%s", __func__);
+	mdw_trace_begin("apumdw:check_done_list|%s", __func__);
 
 	/* get done sc from done sc list */
 	mutex_lock(&ms_mgr.mtx);
@@ -229,7 +229,7 @@ static int mdw_sched_sc_done(void)
 	};
 
 out:
-	mdw_trace_end("check done list|%s", __func__);
+	mdw_trace_end();
 	return ret;
 }
 
@@ -259,7 +259,7 @@ int mdw_sched_dev_routine(void *arg)
 		if (ret)
 			goto next;
 
-		mdw_trace_begin("dev(%s-%d) routine", d->name, d->idx);
+		mdw_trace_begin("apumdw:dev:%s-%d routine", d->name, d->idx);
 
 		sc = (struct mdw_ap_sc *)d->sc;
 		if (!sc) {
@@ -304,7 +304,7 @@ int mdw_sched_dev_routine(void *arg)
 		/* execute */
 		mdw_sched_trace(sc, d, &h, ret, 0);
 
-		mdw_trace_begin("dev(%s-%d) exec|sc(0x%llx-%d) boost(%u/%u)",
+		mdw_trace_begin("apumdw:dev:%s-%d exec|sc:0x%llx-%d boost:%u/%u",
 			d->name, d->idx, sc->parent->c->kid,
 			sc->idx, h.boost, sc->boost);
 		ktime_get_ts64(&sc->ts_start);
@@ -312,9 +312,7 @@ int mdw_sched_dev_routine(void *arg)
 		ktime_get_ts64(&sc->ts_end);
 		sc->driver_time = mdw_cmn_get_time_diff(&sc->ts_start,
 			&sc->ts_end);
-		mdw_trace_end("dev(%s-%d) exec|sc(0x%llx-%d) time(%u/%u)",
-			d->name, d->idx, sc->parent->c->kid,
-			sc->idx, sc->driver_time, sc->ip_time);
+		mdw_trace_end();
 
 		mdw_sched_trace(sc, d, &h, ret, 1);
 
@@ -327,19 +325,19 @@ int mdw_sched_dev_routine(void *arg)
 
 		mdw_ap_parser.clear_hnd(&h);
 
-		mdw_trace_begin("dev(%s-%d) put dev", d->name, d->idx);
+		mdw_trace_begin("apumdw:dev:%s-%d put dev", d->name, d->idx);
 		/* put device */
 		if (mdw_rsc_put_dev(d))
 			mdw_drv_err("put dev(%d-#%d) fail\n",
 				d->type, d->dev->idx);
-		mdw_trace_end("dev(%s-%d) put dev", d->name, d->idx);
-		mdw_trace_begin("dev(%s-%d) done sc", d->name, d->idx);
+		mdw_trace_end();
+		mdw_trace_begin("apumdw:dev:%s-%d done sc", d->name, d->idx);
 		mdw_sched_enque_done_sc(sc);
-		mdw_trace_end("dev(%s-%d) done sc", d->name, d->idx);
+		mdw_trace_end();
 
 next:
 		mdw_flw_debug("done\n");
-		mdw_trace_end("dev(%s-%d) routine", d->name, d->idx);
+		mdw_trace_end();
 		continue;
 	}
 
@@ -362,7 +360,7 @@ static int mdw_sched_dispatch(struct mdw_ap_sc *sc)
 {
 	int ret = 0;
 
-	mdw_trace_begin("mdw dispatch|sc(0x%llx-%d) pack(%d)",
+	mdw_trace_begin("apumdw:dispatch|sc:0x%llx-%d pack:%d",
 		sc->parent->c->kid, sc->idx, sc->hdr->info->pack_id);
 
 	if (sc->hdr->info->pack_id)
@@ -370,7 +368,7 @@ static int mdw_sched_dispatch(struct mdw_ap_sc *sc)
 	else
 		ret = mdw_dispr_norm(sc);
 
-	mdw_trace_end("mdw dispatch|ret(%d)", ret);
+	mdw_trace_end();
 
 	return ret;
 }

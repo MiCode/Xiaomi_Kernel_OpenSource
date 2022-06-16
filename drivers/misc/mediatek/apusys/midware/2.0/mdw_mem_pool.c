@@ -29,7 +29,7 @@ static int mdw_mem_pool_chunk_add(struct mdw_mem_pool *pool, uint32_t size)
 	struct mdw_mem *m;
 	char buf_name[DMA_BUF_NAME_LEN];
 
-	mdw_trace_begin("%s|size(%u)", __func__, size);
+	mdw_trace_begin("apumdw:pool_chunk_add|size:%u", size);
 
 	m = mdw_mem_alloc(pool->mpriv, pool->type, size, pool->align,
 		pool->flags, false);
@@ -82,7 +82,7 @@ err_map:
 	mdw_mem_free(pool->mpriv, m);
 
 out:
-	mdw_trace_end("%s|size(%u)", __func__, size);
+	mdw_trace_end();
 
 	return ret;
 }
@@ -92,13 +92,13 @@ static void mdw_mem_pool_chunk_del(struct mdw_mem *m)
 {
 	uint32_t size = m->size;
 
-	mdw_trace_begin("%s|size(%u)", __func__, size);
+	mdw_trace_begin("apumdw:pool_chunk_del|size:%u", size);
 	list_del(&m->p_chunk);
 	mdw_mem_debug("free chunk: pool: 0x%llx, mem: 0x%llx",
 		(uint64_t)m->pool, (uint64_t)m);
 	mdw_mem_unmap(m->mpriv, m);
 	mdw_mem_free(m->mpriv, m);
-	mdw_trace_end("%s|size(%u)", __func__, size);
+	mdw_trace_end();
 }
 
 /* create memory pool */
@@ -117,8 +117,7 @@ int mdw_mem_pool_create(struct mdw_fpriv *mpriv, struct mdw_mem_pool *pool,
 		return -EINVAL;
 	}
 
-	mdw_trace_begin("%s|size(%u) align(%u)",
-		__func__, size, align);
+	mdw_trace_begin("apumdw:pool_create|size:%u align:%u", size, align);
 
 	pool->mpriv = mpriv;
 	pool->flags = flags;
@@ -152,8 +151,7 @@ err_add:
 		gen_pool_destroy(pool->gp);
 
 out:
-	mdw_trace_end("%s|size(%u) align(%u)",
-		__func__, size, align);
+	mdw_trace_end();
 
 	return ret;
 }
@@ -169,8 +167,8 @@ static void mdw_mem_pool_release(struct kref *ref)
 	if (IS_ERR_OR_NULL(pool->mpriv))
 		return;
 
-	mdw_trace_begin("%s|size(%u) align(%u)",
-		__func__, pool->chunk_size, pool->align);
+	mdw_trace_begin("apumdw:pool_release|size:%u align:%u",
+		pool->chunk_size, pool->align);
 
 	mpriv = pool->mpriv;
 
@@ -192,8 +190,7 @@ static void mdw_mem_pool_release(struct kref *ref)
 		mdw_mem_pool_chunk_del(m);
 	}
 
-	mdw_trace_end("%s|size(%u) align(%u)",
-		__func__, pool->chunk_size, pool->align);
+	mdw_trace_end();
 }
 
 /* destroy memory pool */
@@ -245,8 +242,8 @@ struct mdw_mem *mdw_mem_pool_alloc(struct mdw_mem_pool *pool, uint32_t size,
 	if (!pool || !size)
 		return NULL;
 
-	mdw_trace_begin("%s|size(%u) align(%u)",
-		__func__, size, align);
+	mdw_trace_begin("apumdw:pool_alloc|size:%u align:%u",
+		size, align);
 
 	/* create mem struct */
 	m = mdw_mem_pool_ent_create(pool);
@@ -308,11 +305,8 @@ out:
 			(uint64_t)m->vaddr, (uint64_t)m->device_va);
 	}
 
-	mdw_trace_end("%s|size(%u) align(%u)",
-		__func__, size, align);
+	mdw_trace_end();
 	return m;
-
-
 }
 
 /* free memory from pool, and free/delete its mdw_mem struct from pool->list */
@@ -332,8 +326,8 @@ void mdw_mem_pool_free(struct mdw_mem *m)
 	size = m->size;
 	align = m->align;
 
-	mdw_trace_begin("%s|size(%u) align(%u)",
-		__func__, size, align);
+	mdw_trace_begin("apumdw:pool_free|size:%u align:%u",
+		size, align);
 
 	mdw_mem_debug("pool: 0x%llx, mem: 0x%llx, size: %d, kva: 0x%llx, iova: 0x%llx",
 		(uint64_t)pool, (uint64_t)m, m->size,
@@ -348,8 +342,7 @@ void mdw_mem_pool_free(struct mdw_mem *m)
 
 	m->release(m);
 
-	mdw_trace_end("%s|size(%u) align(%u)",
-		__func__, size, align);
+	mdw_trace_end();
 }
 
 /* flush a memory, do nothing, if it's non-cacheable */
@@ -361,11 +354,11 @@ int mdw_mem_pool_flush(struct mdw_mem *m)
 	if (m->flags ^ F_MDW_MEM_CACHEABLE)
 		return 0;
 
-	mdw_trace_begin("%s|size(%u)", __func__, m->dva_size);
+	mdw_trace_begin("apumdw:pool_flush|size:%u", m->dva_size);
 	/* TODO: cacheable command buffer */
 	mdw_drv_err("cacheable buffer: pool: 0x%llx, mem: 0x%llx",
 		(uint64_t)m->pool, (uint64_t)m);
-	mdw_trace_end("%s|size(%u)", __func__, m->dva_size);
+	mdw_trace_end();
 
 	return -EINVAL;
 }
@@ -379,11 +372,11 @@ int mdw_mem_pool_invalidate(struct mdw_mem *m)
 	if (m->flags ^ F_MDW_MEM_CACHEABLE)
 		return 0;
 
-	mdw_trace_begin("%s|size(%u)", __func__, m->dva_size);
+	mdw_trace_begin("apumdw:pool_invalidate|size:%u", m->dva_size);
 	/* TODO: cacheable command buffer */
 	mdw_drv_err("cacheable buffer: pool: 0x%llx, mem: 0x%llx",
 		(uint64_t)m->pool, (uint64_t)m);
-	mdw_trace_end("%s|size(%u)", __func__, m->dva_size);
+	mdw_trace_end();
 
 	return -EINVAL;
 }

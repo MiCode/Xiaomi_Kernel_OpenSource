@@ -214,8 +214,8 @@ struct mdw_mem *mdw_mem_alloc(struct mdw_fpriv *mpriv, enum mdw_mem_type type,
 	struct mdw_mem *m = NULL;
 	int ret = -EINVAL;
 
-	mdw_trace_begin("%s|size(%u) align(%u)",
-		__func__, size, align);
+	mdw_trace_begin("apumdw:mem_alloc|size:%u align:%u",
+		size, align);
 
 	/* create mem struct */
 	m = mdw_mem_create(mpriv);
@@ -258,8 +258,7 @@ delete_mem:
 	mdw_mem_release(m, true);
 	m = NULL;
 out:
-	mdw_trace_end("%s|size(%u) align(%u)",
-		__func__, size, align);
+	mdw_trace_end();
 	return m;
 }
 
@@ -269,13 +268,12 @@ void mdw_mem_free(struct mdw_fpriv *mpriv, struct mdw_mem *m)
 
 	mdw_mem_show(m);
 
-	mdw_trace_begin("%s|size(%u) align(%u)",
-		__func__, size, align);
+	mdw_trace_begin("apumdw:mem_free|size:%u align:%u",
+		size, align);
 
 	dma_buf_put(m->dbuf);
 
-	mdw_trace_end("%s|size(%u) align(%u)",
-		__func__, size, align);
+	mdw_trace_end();
 }
 
 static void mdw_mem_map_release(struct kref *ref)
@@ -289,17 +287,15 @@ static void mdw_mem_map_release(struct kref *ref)
 
 	/* unmap device va */
 	mutex_lock(&m->mtx);
-	mdw_trace_begin("map release: detach|size(%u) align(%u)",
+	mdw_trace_begin("apumdw:detach|size:%u align:%u",
 		m->size, m->align);
 	dma_buf_unmap_attachment(map->attach,
 		map->sgt, DMA_BIDIRECTIONAL);
-	mdw_trace_end("map release: detach|size(%u) align(%u)",
-		m->size, m->align);
-	mdw_trace_begin("map release: unmap|size(%u) align(%u)",
+	mdw_trace_end();
+	mdw_trace_begin("apumdw:unmap|size:%u align:%u",
 		m->size, m->align);
 	dma_buf_detach(m->dbuf, map->attach);
-	mdw_trace_end("map release: unmap|size(%u) align(%u)",
-		m->size, m->align);
+	mdw_trace_end();
 	m->device_va = 0;
 	m->dva_size = 0;
 	m->map = NULL;
@@ -368,33 +364,29 @@ static int mdw_mem_map_create(struct mdw_fpriv *mpriv, struct mdw_mem *m)
 	map->put = mdw_mem_map_put;
 
 	/* attach device */
-	mdw_trace_begin("map create: attach|size(%u) align(%u)",
+	mdw_trace_begin("apumdw:attach|size:%u align:%u",
 		m->size, m->align);
 	map->attach = dma_buf_attach(m->dbuf, m->mdev);
 	if (IS_ERR(map->attach)) {
 		ret = PTR_ERR(map->attach);
 		mdw_drv_err("dma_buf_attach failed: %d\n", ret);
-		mdw_trace_end("map create: attach|size(%u) align(%u)",
-			m->size, m->align);
+		mdw_trace_end();
 		goto free_map;
 	}
-	mdw_trace_end("map create: attach|size(%u) align(%u)",
-		m->size, m->align);
+	mdw_trace_end();
 
 	/* map device va */
-	mdw_trace_begin("map create: map|size(%u) align(%u)",
+	mdw_trace_begin("apumdw:map|size:%u align:%u",
 		m->size, m->align);
 	map->sgt = dma_buf_map_attachment(map->attach,
 		DMA_BIDIRECTIONAL);
 	if (IS_ERR(map->sgt)) {
 		ret = PTR_ERR(map->sgt);
 		mdw_drv_err("dma_buf_map_attachment failed: %d\n", ret);
-		mdw_trace_end("map create: map|size(%u) align(%u)",
-			m->size, m->align);
+		mdw_trace_end();
 		goto detach_dbuf;
 	}
-	mdw_trace_end("map create: map|size(%u) align(%u)",
-		m->size, m->align);
+	mdw_trace_end();
 
 	/* get start addr and size */
 	m->device_va = sg_dma_address(map->sgt->sgl);
@@ -537,7 +529,7 @@ int mdw_mem_map(struct mdw_fpriv *mpriv, struct mdw_mem *m)
 		return -EINVAL;
 	}
 
-	mdw_trace_begin("%s|size(%u)", __func__, m->size);
+	mdw_trace_begin("apumdw:mem_map|size:%u", m->size);
 	get_dma_buf(m->dbuf);
 
 	mdw_mem_show(m);
@@ -577,7 +569,7 @@ int mdw_mem_map(struct mdw_fpriv *mpriv, struct mdw_mem *m)
 
 out:
 	dma_buf_put(m->dbuf);
-	mdw_trace_end("%s|size(%u)", __func__, m->size);
+	mdw_trace_end();
 
 	return ret;
 }
@@ -609,7 +601,7 @@ int mdw_mem_flush(struct mdw_fpriv *mpriv, struct mdw_mem *m)
 	if (m->pool)
 		return mdw_mem_pool_flush(m);
 
-	mdw_trace_begin("%s|size(%u)", __func__, m->dva_size);
+	mdw_trace_begin("apumdw:mem_flush|size:%u", m->dva_size);
 	ret = dma_buf_end_cpu_access(m->dbuf, DMA_TO_DEVICE);
 	if (ret) {
 		mdw_drv_err("Flush Fail\n");
@@ -619,7 +611,7 @@ int mdw_mem_flush(struct mdw_fpriv *mpriv, struct mdw_mem *m)
 
 	mdw_mem_show(m);
 out:
-	mdw_trace_end("%s|size(%u)", __func__, m->dva_size);
+	mdw_trace_end();
 	return ret;
 }
 
@@ -630,7 +622,7 @@ int mdw_mem_invalidate(struct mdw_fpriv *mpriv, struct mdw_mem *m)
 	if (m->pool)
 		return mdw_mem_pool_invalidate(m);
 
-	mdw_trace_begin("%s|size(%u)", __func__, m->dva_size);
+	mdw_trace_begin("apumdw:mem_invalidate|size:%u", m->dva_size);
 
 	ret = dma_buf_begin_cpu_access(m->dbuf, DMA_FROM_DEVICE);
 	if (ret) {
@@ -641,7 +633,7 @@ int mdw_mem_invalidate(struct mdw_fpriv *mpriv, struct mdw_mem *m)
 
 	mdw_mem_show(m);
 out:
-	mdw_trace_end("%s|size(%u)", __func__, m->dva_size);
+	mdw_trace_end();
 	return ret;
 }
 

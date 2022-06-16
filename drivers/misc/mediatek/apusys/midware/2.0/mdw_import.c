@@ -21,11 +21,10 @@ int mdw_rvs_set_ctx(int type, int idx, uint8_t ctx)
 {
 	int ret = 0;
 
-	mdw_trace_begin("%s|type(%d) idx(%d) ctx(%u)",
-		__func__, type, idx, ctx);
+	mdw_trace_begin("apumdw:ctx_set|type:%d idx:%d ctx:%u",
+		type, idx, ctx);
 	ret = reviser_set_context(type, idx, ctx);
-	mdw_trace_end("%s|type(%d) idx(%d) ctx(%u)",
-		__func__, type, idx, ctx);
+	mdw_trace_end();
 
 	return ret;
 }
@@ -34,9 +33,9 @@ int mdw_rvs_free_vlm(uint32_t ctx)
 {
 	int ret = 0;
 
-	mdw_trace_begin("%s|ctx(%u)", __func__, ctx);
+	mdw_trace_begin("apumdw:ctx_free|ctx:%u", ctx);
 	ret =  reviser_free_vlm(ctx);
-	mdw_trace_end("%s|ctx(%u)", __func__, ctx);
+	mdw_trace_end();
 
 	return ret;
 }
@@ -46,10 +45,9 @@ int mdw_rvs_get_vlm(uint32_t req_size, bool force,
 {
 	int ret = 0;
 
-	mdw_trace_begin("%s|size(%u)", __func__, req_size);
+	mdw_trace_begin("apumdw:ctx_alloc|size:%u", req_size);
 	ret = reviser_get_vlm(req_size, force, (unsigned long *)id, tcm_size);
-	mdw_trace_end("%s|ctx = %u, size(%u/%u)",
-		__func__, *id, req_size, *tcm_size);
+	mdw_trace_end();
 
 	return ret;
 }

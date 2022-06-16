@@ -116,7 +116,7 @@ static struct mdw_ap_cmd *mdw_ap_cmd_create(struct mdw_cmd *c)
 	struct mdw_subcmd_exec_info *sc_info = NULL;
 	unsigned int i = 0;
 
-	mdw_trace_begin("ap cmd create|c(0x%llx) num_subcmds(%u)",
+	mdw_trace_begin("apumdw:ap_cmd_create|c:0x%llx num_subcmds:%u",
 		c->kid, c->num_subcmds);
 
 	/* alloc ap cmd */
@@ -195,8 +195,7 @@ free_ac:
 	kfree(ac);
 	ac = NULL;
 out:
-	mdw_trace_end("ap cmd create|c(0x%llx) num_subcmds(%u)",
-		c->kid, c->num_subcmds);
+	mdw_trace_end();
 	return ac;
 }
 

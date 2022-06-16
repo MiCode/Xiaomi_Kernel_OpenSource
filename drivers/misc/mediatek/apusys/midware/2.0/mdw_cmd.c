@@ -46,19 +46,15 @@ static void mdw_cmd_cmdbuf_out(struct mdw_fpriv *mpriv, struct mdw_cmd *c)
 				continue;
 			}
 
-			mdw_trace_begin("cbs copy out|sc(0x%llx-%u) cb-#%u/%u",
-				c->kid, i, j, ksubcmd->ori_cbs[j]->size);
-
 			/* cmdbuf copy out */
 			if (ksubcmd->cmdbufs[j].direction != MDW_CB_IN) {
+				mdw_trace_begin("apumdw:cbs_copy_out|cb:%u-%u size:%u type:%u",
+					i, j, ksubcmd->ori_cbs[j]->size, ksubcmd->info->type);
 				memcpy(ksubcmd->ori_cbs[j]->vaddr,
 					(void *)ksubcmd->kvaddrs[j],
 					ksubcmd->ori_cbs[j]->size);
+				mdw_trace_end();
 			}
-
-			mdw_trace_end("cbs copy out|sc(0x%llx-%u) cb-#%u/%u",
-				c->kid, i, j,
-				ksubcmd->ori_cbs[j]->size);
 		}
 	}
 }
@@ -71,7 +67,7 @@ static void mdw_cmd_put_cmdbufs(struct mdw_fpriv *mpriv, struct mdw_cmd *c)
 	if (!c->cmdbufs)
 		return;
 
-	mdw_trace_begin("put cbs|c(0x%llx) num_subcmds(%u) num_cmdbufs(%u)",
+	mdw_trace_begin("apumdw:cbs_put|c:0x%llx num_subcmds:%u num_cmdbufs:%u",
 		c->kid, c->num_subcmds, c->num_cmdbufs);
 
 	for (i = 0; i < c->num_subcmds; i++) {
@@ -91,8 +87,7 @@ static void mdw_cmd_put_cmdbufs(struct mdw_fpriv *mpriv, struct mdw_cmd *c)
 	mdw_mem_pool_free(c->cmdbufs);
 	c->cmdbufs = NULL;
 
-	mdw_trace_end("put cbs|c(0x%llx) num_subcmds(%u) num_cmdbufs(%u)",
-		c->kid, c->num_subcmds, c->num_cmdbufs);
+	mdw_trace_end();
 }
 
 static int mdw_cmd_get_cmdbufs(struct mdw_fpriv *mpriv, struct mdw_cmd *c)
@@ -103,7 +98,7 @@ static int mdw_cmd_get_cmdbufs(struct mdw_fpriv *mpriv, struct mdw_cmd *c)
 	struct mdw_mem *m = NULL;
 	struct apusys_cmdbuf *acbs = NULL;
 
-	mdw_trace_begin("get cbs|c(0x%llx) num_subcmds(%u) num_cmdbufs(%u)",
+	mdw_trace_begin("apumdw:cbs_get|c:0x%llx num_subcmds:%u num_cmdbufs:%u",
 		c->kid, c->num_subcmds, c->num_cmdbufs);
 
 	if (!c->size_cmdbufs || c->cmdbufs)
@@ -158,19 +153,17 @@ static int mdw_cmd_get_cmdbufs(struct mdw_fpriv *mpriv, struct mdw_cmd *c)
 				goto free_cmdbufs;
 			}
 
-			mdw_trace_begin("cbs copy in|sc(0x%llx-%u) cb-#%u/%u",
-				c->kid, i, j,
-				ksubcmd->cmdbufs[j].size);
-
 			/* cmdbuf copy in */
 			if (ksubcmd->cmdbufs[j].direction != MDW_CB_OUT) {
+				mdw_trace_begin("apumdw:cbs_copy_in|cb:%u-%u size:%u type:%u",
+					i, j,
+					ksubcmd->cmdbufs[j].size,
+					ksubcmd->info->type);
 				memcpy(c->cmdbufs->vaddr + ofs,
 					m->vaddr,
 					ksubcmd->cmdbufs[j].size);
+				mdw_trace_end();
 			}
-
-			mdw_trace_end("cbs copy in|sc(0x%llx-%u) cb-#%u/%u",
-				c->kid, i, j, ksubcmd->cmdbufs[j].size);
 
 			/* record buffer info */
 			ksubcmd->ori_cbs[j] = m;
@@ -210,8 +203,7 @@ free_cmdbufs:
 	kfree(acbs);
 out:
 	mdw_cmd_debug("ret(%d)\n", ret);
-	mdw_trace_end("get cbs|c(0x%llx) num_subcmds(%u) num_cmdbufs(%u)",
-		c->kid, c->num_subcmds, c->num_cmdbufs);
+	mdw_trace_end();
 	return ret;
 }
 
@@ -465,7 +457,7 @@ static void mdw_cmd_release(struct kref *ref)
 	struct mdw_fpriv *mpriv = c->mpriv;
 
 	mdw_cmd_show(c, mdw_drv_debug);
-
+	mdw_trace_begin("apumdw:cmd_release|c:0x%llx", c->kid);
 	mdw_cmd_unvoke_map(c);
 	mdw_cmd_delete_infos(c->mpriv, c);
 	mdw_mem_put(c->mpriv, c->exec_infos);
@@ -475,6 +467,7 @@ static void mdw_cmd_release(struct kref *ref)
 	kfree(c);
 
 	mpriv->put(mpriv);
+	mdw_trace_end();
 }
 
 static void mdw_cmd_put(struct mdw_cmd *c)
@@ -651,6 +644,7 @@ static int mdw_cmd_complete(struct mdw_cmd *c, int ret)
 	struct dma_fence *f = &c->fence->base_fence;
 	struct mdw_fpriv *mpriv = c->mpriv;
 
+	mdw_trace_begin("apumdw:cmd_complete|cmd:0x%llx/0x%llx", c->uid, c->kid);
 	mutex_lock(&c->mtx);
 
 	c->end_ts = sched_clock();
@@ -698,6 +692,7 @@ static int mdw_cmd_complete(struct mdw_cmd *c, int ret)
 
 	/* put cmd execution ref */
 	mdw_cmd_put(c);
+	mdw_trace_end();
 
 	return 0;
 }
@@ -723,6 +718,7 @@ static struct mdw_cmd *mdw_cmd_create(struct mdw_fpriv *mpriv,
 	struct mdw_cmd_in *in = (struct mdw_cmd_in *)args;
 	struct mdw_cmd *c = NULL;
 
+	mdw_trace_begin("apumdw:cmd_create|s:0x%llx", (uint64_t)mpriv);
 	mutex_lock(&mpriv->mtx);
 
 	/* get stale cmd */
@@ -749,7 +745,6 @@ static struct mdw_cmd *mdw_cmd_create(struct mdw_fpriv *mpriv,
 		c = NULL;
 	}
 
-	mdw_trace_begin("%s|s(0x%llx)", __func__, (uint64_t)mpriv);
 	/* check num subcmds maximum */
 	if (in->exec.num_subcmds > MDW_SUBCMD_MAX) {
 		mdw_drv_err("too much subcmds(%u)\n", in->exec.num_subcmds);
@@ -889,7 +884,7 @@ free_cmd:
 	c = NULL;
 out:
 	mutex_unlock(&mpriv->mtx);
-	mdw_trace_end("%s|s(0x%llx)", __func__, (uint64_t)mpriv);
+	mdw_trace_end();
 	return c;
 }
 

@@ -133,7 +133,7 @@ static struct mdw_rv_cmd *mdw_rv_cmd_create(struct mdw_fpriv *mpriv,
 	struct mdw_rv_msg_sc *rmsc = NULL;
 	struct mdw_rv_msg_cb *rmcb = NULL;
 
-	mdw_trace_begin("%s|cmd(0x%llx/0x%llx)", __func__, c->uid, c->kid);
+	mdw_trace_begin("apumdw:rv_cmd_create");
 	mutex_lock(&mpriv->mtx);
 
 	/* check mem address for rv */
@@ -254,7 +254,7 @@ free_rc:
 	rc = NULL;
 out:
 	mutex_unlock(&mpriv->mtx);
-	mdw_trace_end("%s|cmd(0x%llx/0x%llx)", __func__, c->uid, c->kid);
+	mdw_trace_end();
 	return rc;
 }
 
@@ -266,10 +266,12 @@ static int mdw_rv_cmd_delete(struct mdw_rv_cmd *rc)
 
 	if (!rc)
 		return -EINVAL;
+
 	c = rc->c;
 	mpriv = c->mpriv;
 	mdw_rv_cmd_set_affinity(c, false);
 
+	mdw_trace_begin("apumdw:rv_cmd_delete");
 	mutex_lock(&mpriv->mtx);
 	/* invalidate */
 	if (mdw_mem_invalidate(c->mpriv, rc->cb))
@@ -293,6 +295,7 @@ static int mdw_rv_cmd_delete(struct mdw_rv_cmd *rc)
 	mdw_mem_pool_free(rc->cb);
 	kfree(rc);
 	mutex_unlock(&mpriv->mtx);
+	mdw_trace_end();
 
 	return 0;
 }
