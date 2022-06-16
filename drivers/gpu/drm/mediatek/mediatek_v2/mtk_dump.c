@@ -228,10 +228,17 @@ void mtk_serial_dump_reg(void __iomem *base, unsigned int offset,
 		num = 4;
 
 	l = snprintf(buf, SERIAL_REG_MAX, "0x%03x:", offset);
-
+	if (l < 0) {
+		/* Handle snprintf() error*/
+		return;
+	}
 	for (i = 0; i < num; i++) {
 		s = snprintf(buf + l, SERIAL_REG_MAX, "0x%08x ",
 			     readl(base + offset + i * 0x4));
+		if (s < 0) {
+			/* Handle snprintf() error*/
+			return;
+		}
 		l += s;
 	}
 
