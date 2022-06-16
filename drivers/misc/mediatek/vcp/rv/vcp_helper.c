@@ -799,7 +799,7 @@ int vcp_enable_pm_clk(enum feature_id id)
 	pwclkcnt++;
 #ifdef VCP_CLK_FMETER
 	pr_notice("[VCP] %s id %d done %d clk %d\n", __func__, id,
-		pwclkcnt, mt_get_fmeter_freq(10, CKGEN));
+		pwclkcnt, mt_get_fmeter_freq(vcpreg.femter_ck, CKGEN));
 #endif
 	mutex_unlock(&vcp_pw_clk_mutex);
 	return ret;
