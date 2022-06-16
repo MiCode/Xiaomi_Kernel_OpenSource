@@ -6324,7 +6324,7 @@
 			mnl-mpe-emi-size = <0x280000>;
 			scp-shm-size = <0x96000>;
 			emi-alignment = <0x100000>;
-			emi-max-addr = <0x90000000>;
+			emi-max-addr = <0xffffffff>;
 		};
 
 		apu_iommu0_bank1: iommu@19011000 {
