@@ -134,9 +134,7 @@ static enum IMGSENSOR_RETURN gpio_set(
 	gpio_state = (pin_state > IMGSENSOR_HW_PIN_STATE_LEVEL_0)
 		? GPIO_STATE_H : GPIO_STATE_L;
 
-	pin_index = (pin >= IMGSENSOR_HW_PIN_PDN)
-		? pin - IMGSENSOR_HW_PIN_PDN
-		: 0;
+	pin_index = pin - IMGSENSOR_HW_PIN_PDN;
 
 	if (pin == IMGSENSOR_HW_PIN_MIPI_SWITCH_EN)
 		ppinctrl_state = pgpio->ppinctrl_state_switch[
