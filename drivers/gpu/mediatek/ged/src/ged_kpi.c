@@ -1549,14 +1549,14 @@ void ged_kpi_gpu_3d_fence_sync_cb(struct dma_fence *sFence,
 		qos_get_frame_nr());
 #endif /* MTK_GPU_BM_2 */
 
-	ged_kpi_time2(psMonitor->pid, psMonitor->ullWdnd,
-		psMonitor->i32FrameID);
-
 	// Hint frame boundary
 	if (ged_is_fdvfs_support() &&
 		(!ged_kpi_check_if_fallback_mode() && !g_force_gpu_dvfs_fallback)
 			&& psMonitor->pid != pid_sf && psMonitor->pid != pid_sysui)
 		g_eb_workload = mtk_gpueb_dvfs_set_frame_done();
+
+	ged_kpi_time2(psMonitor->pid, psMonitor->ullWdnd,
+		psMonitor->i32FrameID);
 
 	dma_fence_put(psMonitor->psSyncFence);
 	ged_free(psMonitor, sizeof(struct GED_KPI_GPU_TS));
@@ -1660,9 +1660,8 @@ GED_ERROR ged_kpi_queue_buffer_ts(int pid, u64 ullWdnd, int i32FrameID,
 			, ged_kpi_gpu_3d_fence_sync_cb);
 
 		if (ret < 0) {
-			dma_fence_put(psMonitor->psSyncFence);
-			ged_free(psMonitor, sizeof(struct GED_KPI_GPU_TS));
-			ret = ged_kpi_time2(pid, ullWdnd, i32FrameID);
+			ged_kpi_gpu_3d_fence_sync_cb(psMonitor->psSyncFence,
+				&psMonitor->sSyncWaiter);
 		}
 	}
 	return ret;
