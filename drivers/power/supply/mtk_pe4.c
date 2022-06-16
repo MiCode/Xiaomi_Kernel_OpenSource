@@ -88,7 +88,7 @@ void mtk_pe40_reset(struct chg_alg_device *alg)
 		pe4_hal_enable_vbus_ovp(alg, true);
 		pe40->polling_interval = 10;
 		pe40->state = PE4_HW_READY;
-		pe4_err("set TD true\n");
+		pe4_dbg("set TD true\n");
 		pe4_hal_enable_termination(alg, CHG1, true);
 		if (alg->config == DUAL_CHARGERS_IN_SERIES) {
 			pe4_hal_enable_charger(alg, CHG2, false);
@@ -206,7 +206,7 @@ static int _pe4_is_algo_ready(struct chg_alg_device *alg)
 		if (ret == ALG_READY) {
 			uisoc = pe4_hal_get_uisoc(alg);
 			tmp = pe4_hal_get_battery_temperature(alg);
-			pe4_err("c:%d,%d uisoc:%d,%d tmp:%d,%d,%d ref_vbat:%d\n",
+			pe4_dbg("c:%d,%d uisoc:%d,%d tmp:%d,%d,%d ref_vbat:%d\n",
 				pe4->input_current_limit1,
 				pe4->charging_current_limit1,
 				uisoc,
@@ -297,7 +297,7 @@ int mtk_pe40_get_setting_by_watt(struct chg_alg_device *alg, int *voltage,
 			max_ibus = pe40->max_ibus;
 		else
 			max_ibus = pe40_cap->ma[i];
-		pe4_err("1.%d %d %d %d\n",
+		pe4_dbg("1.%d %d %d %d\n",
 			pe40_cap->ma[i],
 			pe40->max_ibus,
 			max_ibus,
@@ -307,7 +307,7 @@ int mtk_pe40_get_setting_by_watt(struct chg_alg_device *alg, int *voltage,
 			max_ibus > pe40->input_current_limit1 / 1000)
 			max_ibus = pe40->input_current_limit1 / 1000;
 
-		pe4_err("2.%d %d\n",
+		pe4_dbg("2.%d %d\n",
 			pe40->input_current_limit1,
 			max_ibus);
 
@@ -315,7 +315,7 @@ int mtk_pe40_get_setting_by_watt(struct chg_alg_device *alg, int *voltage,
 			max_ibus > (pe40->pe4_input_current_limit / 1000))
 			max_ibus = pe40->pe4_input_current_limit / 1000;
 
-		pe4_err("3.%d %d\n",
+		pe4_dbg("3.%d %d\n",
 			pe40->pe4_input_current_limit,
 			max_ibus);
 
@@ -323,14 +323,14 @@ int mtk_pe40_get_setting_by_watt(struct chg_alg_device *alg, int *voltage,
 		pe40->max_charger_ibus = max_ibus *
 					(100 - pe40->ibus_err) / 100;
 
-		pe4_err("idx:%d nr:%d mV:%d:%d mA:%d\n",
+		pe4_dbg("idx:%d nr:%d mV:%d:%d mA:%d\n",
 			i,
 			pe40_cap->nr,
 			pe40_cap->max_mv[i],
 			pe40_cap->min_mv[i],
 			pe40_cap->ma[i]);
 
-		pe4_err("ibus:%d %d err:%d\n",
+		pe4_dbg("ibus:%d %d err:%d\n",
 			pe40->max_charger_ibus,
 			max_ibus,
 			pe40->ibus_err);
@@ -412,7 +412,7 @@ int mtk_pe40_get_setting_by_watt(struct chg_alg_device *alg, int *voltage,
 	*actual_current = ibus;
 	*adapter_ibus = ta_ibus;
 
-	pe4_err("%s:[%d,%d]%d vbus:%d ibus:%d aicl:%d current:%d %d\n",
+	pe4_dbg("%s:[%d,%d]%d vbus:%d ibus:%d aicl:%d current:%d %d\n",
 		__func__,
 		idx, i,
 		watt, *voltage,
@@ -444,7 +444,7 @@ int mtk_pe40_pd_1st_request(struct chg_alg_device *alg,
 	pe4_hal_get_input_current(alg, CHG1, &oldmA);
 	oldmA = oldmA / 1000;
 
-	pe4_err("pe40_pd_req:vbus:%d ibus:%d input_current:%d %d\n",
+	pe4_dbg("pe40_pd_req:vbus:%d ibus:%d input_current:%d %d\n",
 		adapter_mv, adapter_ma, ma, oldmA);
 
 #ifdef PE4_DUAL_CHARGER_IN_PARALLEL
@@ -546,7 +546,7 @@ int mtk_pe40_pd_request(struct chg_alg_device *alg,
 
 	ret = pe4_hal_set_adapter_cap(alg, adapter_mv, *adapter_ibus);
 
-	pe4_err("%s: vbus:%d ibus:%d ibus2:%d input_current:%d pdp:%d ret:%d\n",
+	pe4_dbg("%s: vbus:%d ibus:%d ibus2:%d input_current:%d pdp:%d ret:%d\n",
 		__func__, adapter_mv, adapter_ma, *adapter_ibus, ma,
 				pe40->cap.pdp, ret);
 
@@ -646,7 +646,7 @@ int mtk_pe40_get_ibus(struct chg_alg_device *alg, u32 *ibus)
 		}
 		*ibus = chg1_ibus + chg2_ibus;
 
-		pe4_err("[%s] chg2_watt:%d ibat2:%d ibat1:%d ibat:%d ibus1:%d ibus2:%d ibus:%d\n",
+		pe4_dbg("[%s] chg2_watt:%d ibat2:%d ibat1:%d ibat:%d ibus1:%d ibus2:%d ibus:%d\n",
 			__func__, chg2_watt, chg2_ibat, chg1_ibat, ibat * 100,
 			chg1_ibus, chg2_ibus, *ibus);
 	} else {
@@ -718,9 +718,9 @@ int mtk_pe40_get_init_watt(struct chg_alg_device *alg)
 			is_chip_enable = pe4_hal_is_chip_enable(alg, CHG2);
 		}
 
-		pe4_err("[pe40_vbus] vbus1:%d ibus1:%d vbus2:%d ibus2:%d watt:%d en:%d %d vbat:%d %d\n",
+		pe4_dbg("[pe40_vbus] vbus1:%d ibus1:%d vbus2:%d ibus2:%d watt:%d en:%d %d vbat:%d %d log_lv:%d\n",
 			vbus1, ibus1, vbus2, ibus2, voltage1 * ibus1, is_enable,
-			is_chip_enable, vbat1, vbat2);
+			is_chip_enable, vbat1, vbat2, pe4_get_debug_level());
 	}
 
 	return voltage1 * ibus1;
@@ -729,7 +729,7 @@ int mtk_pe40_get_init_watt(struct chg_alg_device *alg)
 void mtk_pe40_end(struct chg_alg_device *alg, int type)
 {
 	mtk_pe40_reset(alg);
-	pe4_err("%s: retry:%d\n", __func__, type);
+	pe4_dbg("%s: retry:%d\n", __func__, type);
 }
 
 int mtk_pe40_init_state(struct chg_alg_device *alg)
@@ -748,7 +748,7 @@ int mtk_pe40_init_state(struct chg_alg_device *alg)
 
 	pe4 = dev_get_drvdata(&alg->dev);
 
-	pe4_err("set TD false\n");
+	pe4_dbg("set TD false\n");
 	pe4_hal_enable_termination(alg, CHG1, false);
 	pe4_hal_enable_vbus_ovp(alg, false);
 
@@ -796,7 +796,7 @@ int mtk_pe40_init_state(struct chg_alg_device *alg)
 		goto err;
 	}
 
-	pe4_err("[pe40_i0] can_query:%d ret:%d\n",
+	pe4_dbg("[pe40_i0] can_query:%d ret:%d\n",
 		pe4->can_query,
 		ret);
 
@@ -804,7 +804,7 @@ int mtk_pe40_init_state(struct chg_alg_device *alg)
 	pe4->TA_vbus = cap.output_mv;
 	pe4->vbus_cali = pe4->TA_vbus - pe4->pmic_vbus;
 
-	pe4_err("[pe40_i0]pmic_vbus:%d TA_vbus:%d cali:%d ibus:%d chip2:%d\n",
+	pe4_dbg("[pe40_i0]pmic_vbus:%d TA_vbus:%d cali:%d ibus:%d chip2:%d\n",
 		pe4->pmic_vbus, pe4->TA_vbus, pe4->vbus_cali,
 		cap.output_ma, chg2_chip_enabled);
 
@@ -872,7 +872,7 @@ int mtk_pe40_init_state(struct chg_alg_device *alg)
 				goto err;
 			}
 
-			pe4_err("[pe40_i11]vbus:%d ibus:%d vbat:%d TA_vbus:%d TA_ibus:%d setting:%d %d\n",
+			pe4_dbg("[pe40_i11]vbus:%d ibus:%d vbat:%d TA_vbus:%d TA_ibus:%d setting:%d %d\n",
 				vbus1, ibus1, vbat1,
 				cap1.output_mv, cap1.output_ma,
 				voltage, actual_current);
@@ -904,7 +904,7 @@ int mtk_pe40_init_state(struct chg_alg_device *alg)
 			if (ret != 0)
 				goto err;
 
-			pe4_err("[pe40_i12]vbus:%d ibus:%d vbat:%d TA_vbus:%d TA_ibus:%d setting:%d %d\n",
+			pe4_dbg("[pe40_i12]vbus:%d ibus:%d vbat:%d TA_vbus:%d TA_ibus:%d setting:%d %d\n",
 				vbus2, ibus2, vbat2,
 				cap2.output_mv, cap2.output_ma,
 				voltage, actual_current);
@@ -912,7 +912,7 @@ int mtk_pe40_init_state(struct chg_alg_device *alg)
 				break;
 		}
 
-		pe4_err("[pe40_i1]vbus:%d,%d,%d,%d ibus:%d,%d,%d,%d vbat:%d,%d\n",
+		pe4_dbg("[pe40_i1]vbus:%d,%d,%d,%d ibus:%d,%d,%d,%d vbat:%d,%d\n",
 			vbus1, vbus2, cap1.output_mv, cap2.output_mv,
 			ibus1, ibus2, cap1.output_ma, cap2.output_ma,
 			vbat1, vbat2);
@@ -938,7 +938,7 @@ int mtk_pe40_init_state(struct chg_alg_device *alg)
 		else if (pe4->r_cable_1 >= pe4->pe40_r_cable_1a_lower)
 			pe4->pe4_input_current_limit = 1000000;
 
-		pe4_err("[pe40_i2]r_sw:%d r_cable:%d r_cable_1:%d r_cable_2:%d pe4_icl:%d\n",
+		pe4_dbg("[pe40_i2]r_sw:%d r_cable:%d r_cable_1:%d r_cable_2:%d pe4_icl:%d\n",
 			pe4->r_sw, pe4->r_cable, pe4->r_cable_1,
 			pe4->r_cable_2, pe4->pe4_input_current_limit);
 		} else
@@ -1062,7 +1062,7 @@ int mtk_pe40_safety_check(struct chg_alg_device *alg)
 			goto err;
 		}
 
-		pe4_err("PD_TA:TA protect: ocp:%d otp:%d ovp:%d tmp:%d\n",
+		pe4_dbg("PD_TA:TA protect: ocp:%d otp:%d ovp:%d tmp:%d\n",
 			TAstatus.ocp,
 			TAstatus.otp,
 			TAstatus.ovp,
@@ -1171,7 +1171,7 @@ int mtk_pe40_cc_state(struct chg_alg_device *alg)
 	icl_threshold = 100;
 	max_watt = pe40->avbus * max_icl;
 
-	pe4_err("[pe40_cc]vbus:%d:%d,ibus:%d,cibus:%d,ibat:%d icl:%d:%d,ccl:%d,%d,vbat:%d,maxIbus:%d,mivr:%d,%d\n",
+	pe4_dbg("[pe40_cc]vbus:%d:%d,ibus:%d,cibus:%d,ibat:%d icl:%d:%d,ccl:%d,%d,vbat:%d,maxIbus:%d,mivr:%d,%d\n",
 		pe40->avbus, vbus,
 		ibus,
 		compare_ibus,
@@ -1454,7 +1454,7 @@ static int pe4_dcs_set_charger(struct chg_alg_device *alg)
 	}
 
 	chg2_chip_enabled = pe4_hal_is_chip_enable(alg, CHG2);
-	pe4_err("chg2_en:%d pe4_state:%d\n",
+	pe4_dbg("chg2_en:%d pe4_state:%d\n",
 		chg2_chip_enabled, pe4->state);
 	if (pe4->state == PE4_RUN) {
 		if (!chg2_chip_enabled)
@@ -1755,7 +1755,7 @@ static int _pe4_notifier_call(struct chg_alg_device *alg,
 	int ret_value;
 
 	pe4 = dev_get_drvdata(&alg->dev);
-	pe4_err("%s evt:%d, state:%s\n", __func__, notify->evt,
+	pe4_dbg("%s evt:%d, state:%s\n", __func__, notify->evt,
 		pe4_state_to_str(pe4->state));
 
 	switch (notify->evt) {

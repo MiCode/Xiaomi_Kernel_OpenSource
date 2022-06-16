@@ -858,7 +858,8 @@ static ssize_t fast_chg_indicator_store(struct device *dev, struct device_attrib
 	else
 		chr_err("%s: format error!\n", __func__);
 
-	if (pinfo->fast_charging_indicator > 0) {
+	if ((pinfo->fast_charging_indicator > 0) &&
+	    (pinfo->bootmode == 8 || pinfo->bootmode == 9)) {
 		pinfo->log_level = CHRLOG_DEBUG_LEVEL;
 		mtk_charger_set_algo_log_level(pinfo, pinfo->log_level);
 	}
@@ -1062,6 +1063,9 @@ static ssize_t charger_log_level_store(struct device *dev,
 		}
 		pinfo->log_level = temp;
 		chr_err("%s: log_level=%d\n", __func__, pinfo->log_level);
+
+		mtk_charger_set_algo_log_level(pinfo, pinfo->log_level);
+		_wake_up_charger(pinfo);
 
 	} else {
 		chr_err("%s: format error!\n", __func__);

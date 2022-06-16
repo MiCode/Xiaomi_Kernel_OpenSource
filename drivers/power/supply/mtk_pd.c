@@ -212,7 +212,7 @@ void __mtk_pdc_init_table(struct chg_alg_device *alg)
 	else
 		pd_err("mtk_is_pdc_ready is fail\n");
 
-	pd_err("[%s] nr:%d default:%d\n", __func__, pd->cap.nr,
+	pd_dbg("[%s] nr:%d default:%d\n", __func__, pd->cap.nr,
 	pd->cap.selected_cap_idx);
 }
 
@@ -237,7 +237,7 @@ void __mtk_pdc_get_reset_idx(struct chg_alg_device *alg)
 			idx = i;
 		}
 		pd->pd_reset_idx = idx;
-		pd_err("[%s]reset idx:%d vbus:%d %d\n", __func__,
+		pd_dbg("[%s]reset idx:%d vbus:%d %d\n", __func__,
 			idx, cap->min_mv[idx], cap->max_mv[idx]);
 	}
 }
@@ -262,7 +262,7 @@ void __mtk_pdc_get_cap_max_watt(struct chg_alg_device *alg)
 					pd->pd_cap_max_watt = cap->maxwatt[i];
 					idx = i;
 				}
-				pd_err("%d %d %d %d %d %d\n",
+				pd_dbg("%d %d %d %d %d %d\n",
 					cap->min_mv[i],
 					cap->max_mv[i],
 					pd->vbus_h,
@@ -272,7 +272,7 @@ void __mtk_pdc_get_cap_max_watt(struct chg_alg_device *alg)
 				continue;
 			}
 		}
-		pd_err("[%s]idx:%d vbus:%d %d maxwatt:%d\n", __func__,
+		pd_dbg("[%s]idx:%d vbus:%d %d maxwatt:%d\n", __func__,
 			idx, cap->min_mv[idx], cap->max_mv[idx],
 			pd->pd_cap_max_watt);
 	}
@@ -478,7 +478,7 @@ int __mtk_pdc_setup(struct chg_alg_device *alg, int idx)
 			&pd->pd_boost_idx, &pd->pd_buck_idx);
 	}
 
-	pd_err("[%s]idx:%d:%d:%d:%d vbus:%d cur:%d ret:%d\n", __func__,
+	pd_dbg("[%s]idx:%d:%d:%d:%d vbus:%d cur:%d ret:%d\n", __func__,
 		pd->pd_idx, idx, pd->pd_boost_idx, pd->pd_buck_idx,
 		pd->cap.max_mv[idx], pd->cap.ma[idx], ret);
 
@@ -492,7 +492,7 @@ void mtk_pdc_reset(struct chg_alg_device *alg)
 {
 	struct mtk_pd *pd = dev_get_drvdata(&alg->dev);
 
-	pd_err("%s: reset to default profile\n", __func__);
+	pd_dbg("%s: reset to default profile\n", __func__);
 	__mtk_pdc_init_table(alg);
 	__mtk_pdc_get_reset_idx(alg);
 	__mtk_pdc_setup(alg, pd->pd_reset_idx);
@@ -538,7 +538,7 @@ int __mtk_pdc_get_setting(struct chg_alg_device *alg, int *newvbus, int *newcur,
 	if (info->data.parallel_vbus) {
 		ret = charger_dev_get_ibat(info->chg1_dev, &chg1_ibat);
 		if (ret < 0)
-			pd_err("[%s] get ibat fail\n", __func__);
+			pd_dbg("[%s] get ibat fail\n", __func__);
 
 		ret = charger_dev_get_ibat(info->chg2_dev, &chg2_ibat);
 		if (ret < 0) {
@@ -552,7 +552,7 @@ int __mtk_pdc_get_setting(struct chg_alg_device *alg, int *newvbus, int *newcur,
 			chg2_watt = chg2_ibat / 1000 * battery_get_bat_voltage()
 					/ info->data.chg2_eff * 100;
 
-		pd_err("[%s] chg2_watt:%d ibat2:%d ibat1:%d ibat:%d\n",
+		pd_dbg("[%s] chg2_watt:%d ibat2:%d ibat1:%d ibat:%d\n",
 			__func__, chg2_watt, chg2_ibat, chg1_ibat, ibat * 100);
 	}
 #endif
@@ -588,7 +588,7 @@ int __mtk_pdc_get_setting(struct chg_alg_device *alg, int *newvbus, int *newcur,
 	if (idx < 0 || idx >= PD_CAP_MAX_NR)
 		idx = selected_idx = 0;
 
-	pd_err("idx:%d %d %d %d %d %d\n", idx,
+	pd_dbg("idx:%d %d %d %d %d %d\n", idx,
 		cap->max_mv[idx],
 		cap->ma[idx],
 		cap->maxwatt[idx],
@@ -640,13 +640,13 @@ int __mtk_pdc_get_setting(struct chg_alg_device *alg, int *newvbus, int *newcur,
 	*newvbus = cap->max_mv[*newidx];
 	*newcur = cap->ma[*newidx];
 
-	pd_err("[%s]watt:%d,%d,%d up:%d,%d vbus:%d ibus:%d, mivr:%d,%d\n",
+	pd_dbg("[%s]watt:%d,%d,%d up:%d,%d vbus:%d ibus:%d, mivr:%d,%d\n",
 		__func__,
 		pd_max_watt, now_max_watt, pd_min_watt,
 		boost, buck,
 		vbus, ibus, chg1_mivr, chg2_mivr);
 
-	pd_err("[%s]vbus:%d:%d:%d current:%d idx:%d default_idx:%d\n",
+	pd_dbg("[%s]vbus:%d:%d:%d current:%d idx:%d default_idx:%d\n",
 		__func__, pd->vbus_h, pd->vbus_l, *newvbus,
 		*newcur, *newidx, selected_idx);
 
@@ -802,7 +802,7 @@ static int pd_dcs_set_charger(struct chg_alg_device *alg)
 	}
 
 	chg2_chip_enabled = pd_hal_is_chip_enable(alg, CHG2);
-	pd_err("chg2_en:%d %d %d\n",
+	pd_dbg("chg2_en:%d %d %d\n",
 		chg2_enable, chg2_chip_enabled, pd->state);
 	if (pd->state == PD_RUN) {
 		if (!chg2_chip_enabled)
@@ -1132,7 +1132,7 @@ static int _pd_notifier_call(struct chg_alg_device *alg,
 	int ret_value = 0;
 
 	pd = dev_get_drvdata(&alg->dev);
-	pd_err("%s evt:%d state:%s\n", __func__, notify->evt,
+	pd_dbg("%s evt:%d state:%s\n", __func__, notify->evt,
 		pd_state_to_str(pd->state));
 
 	switch (notify->evt) {
