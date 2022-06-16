@@ -13473,11 +13473,11 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 		phy-names = "usb2-phy";
 	};
 
-	flashlight_core: flashlight_core {
+	flashlight_core: flashlight-core {
 		compatible = "mediatek,flashlight_core";
 	};
 
-	mtk_composite_v4l2_1: mtk_composite_v4l2_1 {
+	mtk_composite_v4l2_1: mtk-composite-v4l2-1 {
 		compatible = "mediatek,mtk_composite_v4l2_1";
 	};
 

@@ -4,11 +4,15 @@
 #include <dt-bindings/clock/mt6985-clk.h>
 
 &i2c6 {
+	#address-cells = <1>;
+	#size-cells = <0>;
 	lm3643:lm3643@63 {
 		compatible = "mediatek,lm3643";
+		#address-cells = <1>;
+		#size-cells = <0>;
 		reg = <0x63>;
 		#cooling-cells = <2>;
-		pinctrl-names = "default", "hwen_high", "hwen_low";
+		pinctrl-names = "default", "hwen-high", "hwen-low";
 		pinctrl-0 = <&lm3643_pins_default>;
 		pinctrl-1 = <&lm3643_pins_hwen_high>;
 		pinctrl-2 = <&lm3643_pins_hwen_low>;
@@ -18,7 +22,7 @@
 			type = <0>;
 			ct = <0>;
 			part = <0>;
-			port@0 {
+			port {
 				fl_core_0: endpoint {
 					remote-endpoint = <&flashlight_0>;
 				};
@@ -29,7 +33,7 @@
 			type = <0>;
 			ct = <1>;
 			part = <0>;
-			port@1 {
+			port {
 				fl_core_1: endpoint {
 					remote-endpoint = <&flashlight_1>;
 				};
@@ -42,7 +46,7 @@
 	lm3643_pins_default: default {
 	};
 
-	lm3643_pins_hwen_high: hwen_high {
+	lm3643_pins_hwen_high: hwen-high {
 		pins_cmd_dat {
 			pinmux = <PINMUX_GPIO31__FUNC_GPIO31>;
 			slew-rate = <1>;
@@ -50,7 +54,7 @@
 		};
 	};
 
-	lm3643_pins_hwen_low: hwen_low {
+	lm3643_pins_hwen_low: hwen-low {
 		pins_cmd_dat {
 			pinmux = <PINMUX_GPIO31__FUNC_GPIO31>;
 			slew-rate = <1>;
@@ -60,12 +64,16 @@
 };
 
 &mtk_composite_v4l2_1 {
+	#address-cells = <1>;
+	#size-cells = <0>;
 	port@0 {
+		reg = <0>;
 		flashlight_0: endpoint {
 			remote-endpoint = <&fl_core_0>;
 		};
 	};
 	port@1 {
+		reg = <1>;
 		flashlight_1: endpoint {
 			remote-endpoint = <&fl_core_1>;
 		};
