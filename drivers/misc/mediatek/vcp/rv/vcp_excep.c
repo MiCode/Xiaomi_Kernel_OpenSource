@@ -25,6 +25,8 @@
 #include "vcp_reservedmem_define.h"
 #include "vcp_status.h"
 
+#define POLLING_RETRY 100
+
 struct vcp_dump_st {
 	uint8_t *detail_buff;
 	uint8_t *ramdump;
@@ -72,25 +74,25 @@ static struct mutex vcp_excep_mutex;
 int vcp_ee_enable;
 unsigned int vcp_reset_counts = 0xFFFFFFFF;
 
-#ifdef VCP_DEBUG_REMOVED
 static atomic_t coredumping = ATOMIC_INIT(0);
 static DECLARE_COMPLETION(vcp_coredump_comp);
-static uint32_t get_MDUMP_size(MDUMP_t type)
+#ifdef VCP_DEBUG_REMOVED
+static uint32_t get_MDUMP_size(enum MDUMP_t type)
 {
 	return vcp_dump.prefix[type] - vcp_dump.prefix[type - 1];
 }
-
-static uint32_t get_MDUMP_size_accumulate(MDUMP_t type)
+#endif
+static uint32_t get_MDUMP_size_accumulate(enum MDUMP_t type)
 {
 	return vcp_dump.prefix[type];
 }
 
-static uint8_t *get_MDUMP_addr(MDUMP_t type)
+static uint8_t *get_MDUMP_addr(enum MDUMP_t type)
 {
 	return (uint8_t *)(vcp_dump.ramdump + vcp_dump.prefix[type - 1]);
 }
 
-uint32_t memorydump_size_probe(struct platform_device *pdev)
+uint32_t vcp_dump_size_probe(struct platform_device *pdev)
 {
 	uint32_t i, ret;
 
@@ -105,7 +107,6 @@ uint32_t memorydump_size_probe(struct platform_device *pdev)
 	}
 	return 0;
 }
-#endif
 
 void vcp_dump_last_regs(int mmup_enable)
 {
@@ -375,6 +376,27 @@ void vcp_do_tbufdump_RV55(uint32_t *out, uint32_t *out_end)
 	}
 }
 
+static inline unsigned long vcp_do_dump(void)
+{
+	struct arm_smccc_res res;
+
+	arm_smccc_smc(MTK_SIP_TINYSYS_VCP_CONTROL,
+			MTK_TINYSYS_VCP_KERNEL_OP_DUMP_START,
+			0, 0, 0, 0, 0, 0, &res);
+	return res.a0;
+}
+
+static inline unsigned long vcp_do_polling(void)
+{
+	struct arm_smccc_res res;
+
+	arm_smccc_smc(MTK_SIP_TINYSYS_VCP_CONTROL,
+			MTK_TINYSYS_VCP_KERNEL_OP_DUMP_POLLING,
+			0, 0, 0, 0, 0, 0, &res);
+	return res.a0;
+}
+
+
 /*
  * this function need VCP to keeping awaken
  * vcp_crash_dump: dump vcp tcm info.
@@ -386,10 +408,6 @@ static unsigned int vcp_crash_dump(enum vcp_core_id id)
 {
 	unsigned int vcp_dump_size = 0;
 	unsigned int vcp_awake_fail_flag;
-#ifdef VCP_DEBUG_REMOVED
-	uint32_t dram_start = 0;
-	uint32_t dram_size = 0;
-#endif
 
 	/*flag use to indicate vcp awake success or not*/
 	vcp_awake_fail_flag = 0;
@@ -399,30 +417,76 @@ static unsigned int vcp_crash_dump(enum vcp_core_id id)
 		pr_notice("[VCP] %s: awake vcp fail, vcp id=%u\n", __func__, id);
 		vcp_awake_fail_flag = 1;
 	}
-#ifdef VCP_DEBUG_REMOVED
-	//TO DO: SMC aee dump
-	memcpy_from_vcp((void *)get_MDUMP_addr(MDUMP_L2TCM),
-		(void *)(VCP_TCM),
-		(VCP_A_TCM_SIZE));
-	vcp_do_l1cdump((void *)get_MDUMP_addr(MDUMP_L1C),
-		(void *)get_MDUMP_addr(MDUMP_REGDUMP));
-	/* dump sys registers */
-	vcp_do_regdump((void *)&get_MDUMP_addr(MDUMP_REGDUMP),
-		(void *)get_MDUMP_addr(MDUMP_TBUF));
-	vcp_do_tbufdump((void *)get_MDUMP_addr(MDUMP_TBUF),
-		(void *)get_MDUMP_addr(MDUMP_DRAM));
-	vcp_dump_size = get_MDUMP_size_accumulate(MDUMP_TBUF);
+	if (vcpreg.secure_dump) {
+		int polling = 1;
+		int retry = POLLING_RETRY;
 
-	/* dram support? */
-	if ((int)(vcp_region_info_copy.ap_dram_size) <= 0) {
-		pr_notice("[vcp] ap_dram_size <=0\n");
-	} else {
-		dram_start = vcp_region_info_copy.ap_dram_start;
-		dram_size = vcp_region_info_copy.ap_dram_size;
-		/* copy dram data*/
-		memcpy((void *)&(pMemoryDump->dram),
-			vcp_ap_dram_virt, dram_size);
-		vcp_dump_size += roundup(dram_size, 4);
+		vcp_do_dump();
+
+		while (polling != 0 && retry > 0) {
+			polling = vcp_do_polling();
+			if (!polling)
+				break;
+			mdelay(polling);
+			retry--;
+		}
+
+			/* tbuf is different between rv33/rv55 */
+		if (vcpreg.twohart) {
+			/* RV55 */
+			uint32_t *out = (uint32_t *)get_MDUMP_addr(MDUMP_TBUF);
+			int i;
+
+			for (i = 0; i < 32; i++) {
+				pr_notice("[VCP] C0:%02d:0x%08x::0x%08x\n",
+							i, *(out + i * 2), *(out + i * 2 + 1));
+			}
+			for (i = 0; i < 32; i++) {
+				pr_notice("[VCP] C1:%02d:0x%08x::0x%08x\n",
+							i, *(out + 64 + i * 2),
+							*(out + 64 + i * 2 + 1));
+			}
+		} else {
+			/* RV33 */
+			uint32_t *out = (uint32_t *)get_MDUMP_addr(MDUMP_TBUF);
+			int i;
+
+			for (i = 0; i < 16; i++) {
+				pr_notice("[VCP] C0:%02d:0x%08x::0x%08x\n",
+					i, *(out + i * 2), *(out + i * 2 + 1));
+			}
+			for (i = 0; i < 16; i++) {
+				pr_notice("[VCP] C1:%02d:0x%08x::0x%08x\n",
+					i, *(out + i * 2 + 16), *(out + i * 2 + 17));
+			}
+		}
+		vcp_dump_size = get_MDUMP_size_accumulate(MDUMP_DRAM);
+	}
+#ifdef VCP_DEBUG_REMOVED
+	else {
+		memcpy_from_vcp((void *)get_MDUMP_addr(MDUMP_L2TCM),
+			(void *)(VCP_TCM),
+			(VCP_A_TCM_SIZE));
+		vcp_do_l1cdump((void *)get_MDUMP_addr(MDUMP_L1C),
+			(void *)get_MDUMP_addr(MDUMP_REGDUMP));
+		/* dump sys registers */
+		vcp_do_regdump((void *)get_MDUMP_addr(MDUMP_REGDUMP),
+			(void *)get_MDUMP_addr(MDUMP_TBUF));
+		vcp_do_tbufdump((void *)get_MDUMP_addr(MDUMP_TBUF),
+			(void *)get_MDUMP_addr(MDUMP_DRAM));
+		vcp_dump_size = get_MDUMP_size_accumulate(MDUMP_TBUF);
+
+		/* dram support? */
+		if ((int)(vcp_region_info_copy.ap_dram_size) <= 0) {
+			pr_notice("[vcp] ap_dram_size <=0\n");
+		} else {
+			dram_start = vcp_region_info_copy.ap_dram_start;
+			dram_size = vcp_region_info_copy.ap_dram_size;
+			/* copy dram data*/
+			memcpy((void *)get_MDUMP_addr(MDUMP_DRAM),
+				vcp_ap_dram_virt, dram_size);
+			vcp_dump_size += roundup(dram_size, 4);
+		}
 	}
 #endif
 
@@ -448,7 +512,7 @@ static void vcp_prepare_aed_dump(char *aed_str, enum vcp_core_id id)
 	char *vcp_A_log = NULL;
 	size_t offset = 0;
 
-	pr_debug("[VCP] %s begins:%s\n", __func__, aed_str);
+	pr_notice("[VCP] %s begins:%s\n", __func__, aed_str);
 	vcp_dump_last_regs(mmup_enable_count());
 
 	vcp_A_log = vcp_pickup_log_for_aee();
@@ -548,7 +612,7 @@ void vcp_aed(enum VCP_RESET_TYPE type, enum vcp_core_id id)
 			vcp_aed_title = "VCP_B timeout reset";
 		break;
 	}
-	vcp_get_log(id);
+	// vcp_get_log(id);
 	/*print vcp message*/
 	pr_debug("vcp_aed_title=%s\n", vcp_aed_title);
 
@@ -573,6 +637,9 @@ static ssize_t vcp_A_dump_show(struct file *filep,
 {
 	unsigned int length = 0;
 
+	pr_debug("[VCP] %s begins\n", __func__);
+
+
 	mutex_lock(&vcp_excep_mutex);
 
 	if (offset >= 0 && offset < vcp_dump.ramdump_length) {
@@ -583,12 +650,14 @@ static ssize_t vcp_A_dump_show(struct file *filep,
 		length = size;
 
 		/* clean the buff after readed */
-		memset(vcp_dump.ramdump + offset, 0x0, size);
+		memset(vcp_dump.ramdump + offset, 0xff, size);
 		/* log for the first and latest cleanup */
 		if (offset == 0 || size == (vcp_dump.ramdump_length - offset))
 			pr_notice("[VCP] %s ramdump cleaned of:0x%x sz:0x%x\n", __func__,
 				offset, size);
-#ifdef VCP_DEBUG_REMOVED
+
+		//clean the buff after readed
+		memset(vcp_dump.ramdump + offset, 0xff, size);
 		/* the last time read vcp_dump buffer has done
 		 * so the next coredump flow can be continued
 		 */
@@ -598,7 +667,6 @@ static ssize_t vcp_A_dump_show(struct file *filep,
 				atomic_read(&coredumping));
 			complete(&vcp_coredump_comp);
 		}
-#endif
 	}
 
 	mutex_unlock(&vcp_excep_mutex);
@@ -623,6 +691,8 @@ struct bin_attribute bin_attr_vcp_dump = {
  */
 int vcp_excep_init(void)
 {
+	uint32_t *out;
+
 	mutex_init(&vcp_excep_mutex);
 
 	/* alloc dump memory */
@@ -655,10 +725,25 @@ int vcp_excep_init(void)
 	else
 		vcp_do_tbufdump = vcp_do_tbufdump_RV33;
 
+	if (vcpreg.secure_dump) {
+		vcp_dump.ramdump =
+			(uint8_t *)(void *)vcp_get_reserve_mem_virt(VCP_SECURE_DUMP_ID);
+		out = (uint32_t *)vcp_dump.ramdump;
+		*out = 0;
+		pr_notice("[VCP] %s %d %d %d %d\n", __func__,
+				*out, *(out + 1), *(out + 2), *(out + 3));
+
+		if (!vcp_dump.ramdump)
+			return -1;
+	} else {
+		pr_notice("[VCP] %s secure dump not supported\n", __func__);
+	}
+
+
 	/* init global values */
 	vcp_dump.ramdump_length = 0;
 	/* 1: ee on, 0: ee disable */
-	vcp_ee_enable = 0;
+	vcp_ee_enable = 1;
 
 	return 0;
 }
@@ -687,6 +772,10 @@ void vcp_excep_cleanup(void)
 	vfree(vcp_dump.detail_buff);
 	vcp_A_task_context_addr = 0;
 
+	if (vcpreg.secure_dump) {
+		//reset ramdump buffer
+		vcp_dump.ramdump = NULL;
+	}
 	pr_debug("[VCP] %s ends\n", __func__);
 }
 

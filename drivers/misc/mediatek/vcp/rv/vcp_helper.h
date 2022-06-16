@@ -122,6 +122,7 @@ struct vcp_regs {
 	unsigned int core_nums;
 	unsigned int twohart;
 	unsigned int femter_ck;
+	unsigned int secure_dump;
 };
 
 /* vcp work struct definition*/
@@ -218,6 +219,10 @@ extern spinlock_t vcp_awake_spinlock;
 #if IS_ENABLED(CONFIG_MTK_GIC_V3_EXT)
 extern u32 mt_irq_get_pending(unsigned int irq);
 #endif
+void dump_vcp_irq_status(void);
+extern void mt_irq_dump_status(int irq);
+
+
 
 /*extern vcp notify*/
 extern void vcp_send_reset_wq(enum VCP_RESET_TYPE type);

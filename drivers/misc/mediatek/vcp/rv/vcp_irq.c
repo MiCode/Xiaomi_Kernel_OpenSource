@@ -70,9 +70,9 @@ irqreturn_t vcp_A_irq_handler(int irq, void *dev_id)
 	unsigned int reg1 = vcpreg.core_nums == 2 ? readl(R_CORE1_WDT_IRQ) : 0;
 
 	if (reg0 | reg1) {
+		wait_vcp_wdt_irq_done();
 		vcp_A_wdt_handler();
 		/* clear IRQ */
-		wait_vcp_wdt_irq_done();
 		if (reg0)
 			writel(B_WDT_IRQ, R_CORE0_WDT_IRQ);
 		if (reg1)

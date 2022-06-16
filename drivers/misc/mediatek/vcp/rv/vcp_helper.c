@@ -116,6 +116,8 @@ void __iomem *vcp_regdump_virt;
 
 phys_addr_t vcp_mem_base_phys;
 phys_addr_t vcp_mem_base_virt;
+phys_addr_t vcp_sec_dump_base_phys;
+phys_addr_t vcp_sec_dump_base_virt;
 phys_addr_t vcp_mem_size;
 struct vcp_regs vcpreg;
 struct clk *vcpsel;
@@ -245,6 +247,7 @@ static void vcp_enable_irqs(void)
 		enable_irq(vcp_mboxdev.info_table[i].irq_num);
 
 	enable_irq(vcpreg.irq0);
+	pr_info("[VCP] VCP IRQ enabled\n");
 }
 
 static void vcp_disable_irqs(void)
@@ -255,6 +258,7 @@ static void vcp_disable_irqs(void)
 
 	for (i = 0; i < vcp_mboxdev.count; i++)
 		disable_irq(vcp_mboxdev.info_table[i].irq_num);
+	pr_info("[VCP] VCP IRQ disabled\n");
 }
 
 static int vcp_ipi_dbg_resume_noirq(struct device *dev)
@@ -1554,14 +1558,12 @@ static int vcp_reserve_memory_ioremap(struct platform_device *pdev)
 	unsigned int vcp_mem_num = 0;
 	unsigned int i, m_idx, m_size;
 	int ret;
-#if VCP_IOMMU_ENABLE
 	uint64_t iova_upper = 0;
 	uint64_t iova_lower = 0xFFFFFFFFFFFFFFFF;
-#else
 	struct device_node *rmem_node;
 	struct reserved_mem *rmem;
 	const char *mem_key;
-#endif
+	unsigned int vcp_sec_dump_offset, vcp_sec_dump_size;
 
 	if (num != NUMS_MEM_ID) {
 		pr_notice("[VCP] number of entries of reserved memory %u / %u\n",
@@ -1570,9 +1572,9 @@ static int vcp_reserve_memory_ioremap(struct platform_device *pdev)
 		return -1;
 	}
 
-#if (!VCP_IOMMU_ENABLE)
-	/* Get reserved memory */
-	ret = of_property_read_string(pdev->dev.of_node, "vcp-mem-key",
+// Secure dump
+	/* Get reserved memory for secure dump*/
+	ret = of_property_read_string(pdev->dev.of_node, "vcp-sec-dump-key",
 			&mem_key);
 	if (ret) {
 		pr_info("[VCP] cannot find property\n");
@@ -1592,31 +1594,38 @@ static int vcp_reserve_memory_ioremap(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-	vcp_mem_base_phys = (phys_addr_t) rmem->base;
-	vcp_mem_size = (phys_addr_t) rmem->size;
+	ret = of_property_read_u32(pdev->dev.of_node,
+		"vcp-secure-dump-offset",
+		&vcp_sec_dump_offset);
 
-	pr_notice("[VCP] %s is called, 0x%x, 0x%x",
-		__func__,
-		(unsigned int)vcp_mem_base_phys,
-		(unsigned int)vcp_mem_size);
-
-	if ((vcp_mem_base_phys >= (0x90000000ULL)) ||
-			 (vcp_mem_base_phys <= 0x0)) {
-		/* The vcp remapped region is fixed, only
-		 * 0x4000_0000ULL ~ 0x8FFF_FFFFULL is accessible.
-		 */
-		pr_notice("[VCP] Error: Wrong Address (0x%llx)\n",
-			    (uint64_t)vcp_mem_base_phys);
-		WARN_ON(1); //BUG_ON(1);
-		return -1;
+	if (ret) {
+		pr_info("[VCP] cannot find vcp sec dump offset property\n");
+		vcpreg.secure_dump = 0;
 	}
-	vcp_mem_base_virt = (phys_addr_t)(size_t)ioremap_wc(vcp_mem_base_phys,
-		vcp_mem_size);
-	pr_debug("[VCP] rsrv_phy_base = 0x%llx, len:0x%llx\n",
-		(uint64_t)vcp_mem_base_phys, (uint64_t)vcp_mem_size);
-	pr_debug("[VCP] rsrv_vir_base = 0x%llx, len:0x%llx\n",
-		(uint64_t)vcp_mem_base_virt, (uint64_t)vcp_mem_size);
-#endif	//(!VCP_IOMMU_ENABLE)
+
+	ret = of_property_read_u32(pdev->dev.of_node,
+		"vcp-secure-dump-size",
+		&vcp_sec_dump_size);
+
+	if (ret) {
+		pr_info("[VCP] cannot find vcp sec dump size property\n");
+		vcpreg.secure_dump = 0;
+	}
+
+	vcp_sec_dump_base_phys = (phys_addr_t) rmem->base + vcp_sec_dump_offset;
+
+	if (vcp_sec_dump_offset + vcp_sec_dump_size > rmem->size) {
+		pr_info("[VCP] reserved size is not enough for sec dump");
+		vcpreg.secure_dump = 0;
+	}
+	vcp_sec_dump_base_virt =
+		(phys_addr_t)(size_t)ioremap_wc(vcp_sec_dump_base_phys,
+		vcp_sec_dump_size);
+	pr_notice("[VCP] secure dump, 0x%llx (0x%llx), (0x%x + 0x%x) <= 0x%x",
+		vcp_sec_dump_base_phys, vcp_sec_dump_base_virt,
+		vcp_sec_dump_offset, vcp_sec_dump_size,
+		(unsigned int)rmem->size);
+
 
 	/* Set reserved memory table */
 	vcp_mem_num = of_property_count_u32_elems(
@@ -1639,12 +1648,18 @@ static int vcp_reserve_memory_ioremap(struct platform_device *pdev)
 			return -1;
 		}
 
-		ret = of_property_read_u32_index(pdev->dev.of_node,
+		if (m_idx == VCP_SECURE_DUMP_ID && vcpreg.secure_dump) {
+			/* secure_dump */
+			m_size = vcp_sec_dump_size;
+		} else {
+			ret = of_property_read_u32_index(pdev->dev.of_node,
 				"vcp-mem-tbl",
 				(i * MEMORY_TBL_ELEM_NUM) + 1,
 				&m_size);
+		}
+
 		if (ret) {
-			pr_notice("Cannot get memory size(%d)\n", i);
+			pr_notice("Cannot get memory size(%d)(%d)\n", i, m_idx);
 			return -1;
 		}
 
@@ -1657,7 +1672,6 @@ static int vcp_reserve_memory_ioremap(struct platform_device *pdev)
 		pr_notice("@@@@ reserved: <%d  %d>\n", m_idx, m_size);
 	}
 
-#if VCP_IOMMU_ENABLE
 	ret = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(64));
 	if (ret) {
 		dev_info(&pdev->dev, "64-bit DMA enable failed\n");
@@ -1677,19 +1691,25 @@ static int vcp_reserve_memory_ioremap(struct platform_device *pdev)
 		if (vcp_reserve_mblock[id].size == 0)
 			continue;
 
-		vcp_reserve_mblock[id].start_virt =
-			(__u64)dma_alloc_coherent(&pdev->dev, vcp_reserve_mblock[id].size,
-				&vcp_reserve_mblock[id].start_phys,
-				GFP_KERNEL);
-		accumlate_memory_size += vcp_reserve_mblock[id].size;
+		if (id == VCP_SECURE_DUMP_ID) {
+			vcp_reserve_mblock[id].start_phys = vcp_sec_dump_base_phys;
+			vcp_reserve_mblock[id].start_virt = vcp_sec_dump_base_virt;
+		} else {
+			vcp_reserve_mblock[id].start_virt =
+				(__u64)dma_alloc_coherent(&pdev->dev, vcp_reserve_mblock[id].size,
+					&vcp_reserve_mblock[id].start_phys,
+					GFP_KERNEL);
+			accumlate_memory_size += vcp_reserve_mblock[id].size;
 
-		if (vcp_reserve_mblock[id].start_phys < iova_lower)
-			iova_lower = vcp_reserve_mblock[id].start_phys;
-		if ((vcp_reserve_mblock[id].start_phys +  vcp_reserve_mblock[id].size) > iova_upper)
-			iova_upper = vcp_reserve_mblock[id].start_phys +
-				vcp_reserve_mblock[id].size;
+			if (vcp_reserve_mblock[id].start_phys < iova_lower)
+				iova_lower = vcp_reserve_mblock[id].start_phys;
+			if ((vcp_reserve_mblock[id].start_phys + vcp_reserve_mblock[id].size)
+				> iova_upper)
+				iova_upper = vcp_reserve_mblock[id].start_phys +
+					vcp_reserve_mblock[id].size;
+		}
 
-		pr_debug("[VCP] [%d] iova:0x%llx, virt:0x%llx, len:0x%llx\n",
+		pr_notice("[VCP] [%d] iova:0x%llx, virt:0x%llx, len:0x%llx\n",
 			id, (uint64_t)vcp_reserve_mblock[id].start_phys,
 			(uint64_t)vcp_reserve_mblock[id].start_virt,
 			(uint64_t)vcp_reserve_mblock[id].size);
@@ -1697,25 +1717,6 @@ static int vcp_reserve_memory_ioremap(struct platform_device *pdev)
 	}
 	vcp_mem_base_phys = (phys_addr_t)iova_lower;
 	vcp_mem_size = (phys_addr_t)iova_upper - iova_lower;
-#else
-	for (id = 0; id < NUMS_MEM_ID; id++) {
-		if (vcp_reserve_mblock[id].size == 0)
-			continue;
-
-		vcp_reserve_mblock[id].start_phys = vcp_mem_base_phys +
-			accumlate_memory_size;
-		vcp_reserve_mblock[id].start_virt = vcp_mem_base_virt +
-			accumlate_memory_size;
-		accumlate_memory_size += vcp_reserve_mblock[id].size;
-		pr_debug("[VCP] [%d] phys:0x%llx, virt:0x%llx, len:0x%llx\n",
-			id, (uint64_t)vcp_reserve_mblock[id].start_phys,
-			(uint64_t)vcp_reserve_mblock[id].start_virt,
-			(uint64_t)vcp_reserve_mblock[id].size);
-	}
-#if VCP_DEBUG_NODE_ENABLE
-	WARN_ON(accumlate_memory_size > vcp_mem_size); //BUG_ON
-#endif
-#endif  // VCP_IOMMU_ENABLE
 
 #ifdef DEBUG
 	for (id = 0; id < NUMS_MEM_ID; id++) {
@@ -1919,8 +1920,10 @@ void vcp_sys_reset_ws(struct work_struct *ws)
 
 	/*workqueue for vcp ee, vcp reset by cmd will not trigger vcp ee*/
 	if (vcp_reset_by_cmd == 0 && vcp_ee_enable) {
-		vcp_aee_print("[VCP] %s(): vcp_reset_type %d remain %x times, encnt %d\n",
-			__func__, vcp_reset_type, vcp_reset_counts, mmup_enable_count());
+		vcp_aed(vcp_reset_type, VCP_A_ID);
+		/* vcp_aee_print("[VCP] %s(): vcp_reset_type %d remain %x times, encnt %d\n",
+		 *	__func__, vcp_reset_type, vcp_reset_counts, mmup_enable_count());
+		 */
 	}
 	pr_debug("[VCP] %s(): disable logger\n", __func__);
 	/* logger disable must after vcp_aed() */
@@ -2414,6 +2417,11 @@ static int vcp_device_probe(struct platform_device *pdev)
 	pr_notice("[VCP] vcpreg.twohart = %d,  vcpreg.femter_ck = %d\n",
 		vcpreg.twohart, vcpreg.femter_ck);
 
+	of_property_read_u32(pdev->dev.of_node, "vcp-secure-dump"
+						, &vcpreg.secure_dump);
+	pr_notice("[VCP] vcpreg.secure_dump = %d\n", vcpreg.secure_dump);
+
+
 	vcpreg.irq0 = platform_get_irq_byname(pdev, "wdt");
 	if (vcpreg.irq0 < 0)
 		pr_notice("[VCP] wdt irq not exist\n");
@@ -2495,7 +2503,7 @@ static int vcp_device_probe(struct platform_device *pdev)
 
 #if VCP_RESERVED_MEM && defined(CONFIG_OF)
 	/*vcp resvered memory*/
-	pr_notice("[VCP] vcp_reserve_memory_ioremap\n");
+	pr_notice("[VCP] vcp_reserve_memory_ioremap 1\n");
 	ret = vcp_reserve_memory_ioremap(pdev);
 	if (ret) {
 		pr_notice("[VCP]vcp_reserve_memory_ioremap failed\n");
@@ -2557,10 +2565,35 @@ static int vcp_device_probe(struct platform_device *pdev)
 		return PTR_ERR(vcp26m);
 	}
 
+	ret = vcp_dump_size_probe(pdev);
+	if (ret) {
+		vcpreg.secure_dump = 0;
+		pr_info("[VCP] Unable to get memory dump size.\n");
+	}
+
 	pr_info("[VCP] %s done\n", __func__);
 
 	return ret;
 }
+void dump_vcp_irq_status(void)
+{
+	int i;
+
+	pr_info("[VCP] %s Dump wdt irq %d status\n", __func__, vcpreg.irq0);
+	mt_irq_dump_status(vcpreg.irq0);
+
+	pr_info("[VCP] %s Dump reserve irq %d status\n", __func__, vcpreg.irq1);
+	mt_irq_dump_status(vcpreg.irq1);
+
+	for (i = 0; i < vcp_mboxdev.count; i++) {
+		pr_info("[VCP] %s Dump mbox%d irq %d status\n", __func__,
+			i, vcp_mboxdev.info_table[i].irq_num);
+		mt_irq_dump_status(vcp_mboxdev.info_table[i].irq_num);
+	}
+
+}
+EXPORT_SYMBOL_GPL(dump_vcp_irq_status);
+
 
 static int vcp_device_remove(struct platform_device *pdev)
 {
