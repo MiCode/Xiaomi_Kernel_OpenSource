@@ -111,6 +111,7 @@ extern u64 spm_26M_off_duration;
 extern u64 ap_pd_count;
 extern u64 ap_slp_duration;
 extern struct spm_condition spm_cond;
+extern int kernel_suspend_only;
 
 int lpm_dbg_plat_ops_register(struct lpm_dbg_plat_ops *lpm_dbg_plat_ops);
 

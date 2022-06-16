@@ -22,7 +22,7 @@ static int lpm_dbg_probe(struct platform_device *pdev)
 }
 
 #define LPM_KERNEL_SUSPEND "lpm-kernel-suspend"
-static int kernel_suspend_only;
+int kernel_suspend_only;
 static int lpm_dbg_suspend_noirq(struct device *dev)
 {
 	int ret = 0;
