@@ -12016,8 +12016,8 @@ void mtk_ddp_add_comp_to_path(struct mtk_drm_crtc *mtk_crtc,
 				reg_data->dispsys_map[cur] == 1)
 			config_regs = mtk_crtc->side_config_regs;
 
-		if (reg_data->dispsys_map[cur] == OVLSYS0 ||
-			reg_data->dispsys_map[next] == OVLSYS0) {
+		if (reg_data->dispsys_map && (reg_data->dispsys_map[cur] == OVLSYS0 ||
+			reg_data->dispsys_map[next] == OVLSYS0)) {
 			config_regs = mtk_crtc->ovlsys0_regs;
 			addr = MT6985_OVLSYS_BYPASS_MUX_SHADOW;
 			reg = 0x1;
