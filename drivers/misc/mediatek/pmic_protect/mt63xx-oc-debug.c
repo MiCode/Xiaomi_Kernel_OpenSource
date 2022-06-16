@@ -142,6 +142,7 @@ static struct reg_oc_debug_t mt6366_reg_oc_debug[] = {
 	REG_OC_DEBUG(vs1),
 	REG_OC_DEBUG(vs2),
 	MD_REG_OC_DEBUG(vpa, MD_REG_OC_0),
+	MD_REG_OC_DEBUG(VPA, MD_REG_OC_0),
 	REG_OC_DEBUG(vcore_pr),
 	MD_REG_OC_DEBUG(vfe28, MD_REG_OC_1),
 	REG_OC_DEBUG(vxo22),
