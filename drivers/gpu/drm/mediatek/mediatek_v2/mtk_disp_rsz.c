@@ -119,6 +119,13 @@ static inline struct mtk_disp_rsz *comp_to_rsz(struct mtk_ddp_comp *comp)
 
 static void mtk_rsz_start(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 {
+	struct mtk_drm_private *priv = comp->mtk_crtc->base.dev->dev_private;
+
+	if (priv->data->mmsys_id == MMSYS_MT6985 &&
+		((comp->id == DDP_COMPONENT_RSZ0) ||
+		 (comp->id == DDP_COMPONENT_RSZ2)))
+		return;
+
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		       comp->regs_pa + DISP_REG_RSZ_ENABLE, 0x1, ~0);
 	cmdq_pkt_write(handle, comp->cmdq_base,

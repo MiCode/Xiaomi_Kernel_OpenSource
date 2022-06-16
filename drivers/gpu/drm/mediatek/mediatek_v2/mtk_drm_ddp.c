@@ -927,6 +927,14 @@
 	#define DISP_OVL3_2L_TO_DLO_RELAY2	BIT(1)
 	#define DISP_OVL3_2L_TO_RSZ1		BIT(2)
 
+#define MT6985_PQ_PATH_SEL          0x34
+	#define PQ_FAST_PATH_DISABLE        0
+	#define PQ_FAST_PATH1               1
+	#define PQ_FAST_PATH2               2
+	#define PQ_FAST_PATH3               3
+	#define PQ_FAST_PATH4               4
+	#define PQ_FAST_PATH5               5
+	#define PQ_FAST_PATH6               6
 #define MT6985_DISPSYS_BYPASS_MUX_SHADOW	0xC30
 #define MT6985_MMSYS_CROSSBAR_CON	0xE90
 #define MT6985_COMP_OUT_CROSSBAR0_MOUT_EN 0xea0
@@ -2750,8 +2758,6 @@ static const unsigned int mt6985_ovlsys_mutex_mod[DDP_COMPONENT_ID_MAX] = {
 	[DDP_COMPONENT_OVL6_2L] = MT6985_MUTEX_MOD0_DISP_OVL2_2L,
 		[DDP_COMPONENT_OVL3_2L] = MT6985_MUTEX_MOD0_DISP_OVL3_2L,
 	[DDP_COMPONENT_OVL7_2L] = MT6985_MUTEX_MOD0_DISP_OVL3_2L,
-		[DDP_COMPONENT_RSZ0] = MT6985_MUTEX_MOD0_DISP_RSZ0,
-	[DDP_COMPONENT_RSZ2] = MT6985_MUTEX_MOD0_DISP_RSZ0,
 		[DDP_COMPONENT_OVLSYS_RSZ1] = MT6985_MUTEX_MOD0_DISP_RSZ1,
 	[DDP_COMPONENT_OVLSYS_RSZ2] = MT6985_MUTEX_MOD0_DISP_RSZ1,
 		[DDP_COMPONENT_DMDP_RSZ0] = MT6985_MUTEX_MOD0_DISP_MDP_RSZ0,
@@ -2854,7 +2860,7 @@ static const unsigned int mt6985_mutex_mod[DDP_COMPONENT_ID_MAX] = {
 		[DDP_COMPONENT_RELAY0] = MT6985_MUTEX_MOD0_DISP_RELAY0,
 	[DDP_COMPONENT_RELAY1] = MT6985_MUTEX_MOD0_DISP_RELAY0,
 		[DDP_COMPONENT_RSZ0] = MT6985_MUTEX_MOD0_DISP_RSZ0,
-	[DDP_COMPONENT_RSZ1] = MT6985_MUTEX_MOD0_DISP_RSZ0,
+	[DDP_COMPONENT_RSZ2] = MT6985_MUTEX_MOD0_DISP_RSZ0,
 
 		[DDP_COMPONENT_SPR0] = MT6985_MUTEX_MOD1_DISP_SPR0,
 	[DDP_COMPONENT_SPR1] = MT6985_MUTEX_MOD1_DISP_SPR0,
@@ -3252,6 +3258,7 @@ static const unsigned int mt6985_dispsys_map[DDP_COMPONENT_ID_MAX] = {
 		[DDP_COMPONENT_RELAY1] = DISPSYS1,
 			[DDP_COMPONENT_RSZ0] = DISPSYS0,
 		[DDP_COMPONENT_RSZ1] = DISPSYS1,
+		[DDP_COMPONENT_RSZ2] = DISPSYS1,
 			[DDP_COMPONENT_SPR0] = DISPSYS0,
 		[DDP_COMPONENT_SPR1] = DISPSYS1,
 			[DDP_COMPONENT_TDSHP0] = DISPSYS0,
@@ -10212,6 +10219,13 @@ static int mtk_ddp_mout_en_MT6985(const struct mtk_mmsys_reg_data *data,
 		/* PQ_OUT_CROSSBAR */
 		*addr = MT6985_PQ_OUT_CROSSBAR0_MOUT_EN;
 		value = DISP_DITHER0_TO_SPR00;
+	} else if ((cur == DDP_COMPONENT_PQ0_OUT_CB0 &&
+		next == DDP_COMPONENT_PANEL0_COMP_OUT_CB1) ||
+		(cur == DDP_COMPONENT_PQ1_OUT_CB0 &&
+		next == DDP_COMPONENT_PANEL1_COMP_OUT_CB1)) {
+		/* PQ_OUT_CROSSBAR */
+		*addr = MT6985_PQ_OUT_CROSSBAR0_MOUT_EN;
+		value = DISP_DITHER0_TO_PANEL_COMP_OUT_CROSSBAR1;
 	} else if ((cur == DDP_COMPONENT_PQ0_OUT_CB2 &&
 		next == DDP_COMPONENT_PANEL0_COMP_OUT_CB2)) {
 		/* PQ_OUT_CROSSBAR */
@@ -10250,6 +10264,13 @@ static int mtk_ddp_mout_en_MT6985(const struct mtk_mmsys_reg_data *data,
 		/* PANEL_COMP_OUT_CROSSBAR */
 		*addr = MT6985_PANEL_COMP_OUT_CROSSBAR1_MOUT_EN;
 		value = DISP_PQ_OUT_CROSSBAR1_TO_COMP_OUT_CROSSBAR3;
+	} else if ((cur == DDP_COMPONENT_PANEL0_COMP_OUT_CB0 &&
+		next == DDP_COMPONENT_COMP0_OUT_CB3) ||
+		(cur == DDP_COMPONENT_PANEL1_COMP_OUT_CB0 &&
+		next == DDP_COMPONENT_COMP1_OUT_CB3)) {
+		/* PANEL_COMP_OUT_CROSSBAR */
+		*addr = MT6985_PANEL_COMP_OUT_CROSSBAR0_MOUT_EN;
+		value = DISP_POSTALIGN0_TO_COMP_OUT_CROSSBAR3;
 	} else if ((cur == DDP_COMPONENT_PANEL0_COMP_OUT_CB2 &&
 		next == DDP_COMPONENT_COMP0_OUT_CB4)) {
 		/* PANEL_COMP_OUT_CROSSBAR */
@@ -10450,6 +10471,13 @@ static int mtk_ddp_mout_en_MT6985(const struct mtk_mmsys_reg_data *data,
 		/* PQ_IN_CROSSBAR */
 		*addr = MT6985_PQ_IN_CROSSBAR0_MOUT_EN;
 		value = DISP_DLI_RELAY0_TO_PQ_OUT_CROSSBAR3;
+	} else if ((cur == DDP_COMPONENT_DLI_ASYNC0 &&
+		next == DDP_COMPONENT_RSZ0) ||
+		(cur == DDP_COMPONENT_DLI_ASYNC6 &&
+		next == DDP_COMPONENT_RSZ2)) {
+		/* PQ_IN_CROSSBAR */
+		*addr = MT6985_PQ_IN_CROSSBAR0_MOUT_EN;
+		value = DISP_DLI_RELAY0_TO_RSZ0;
 	} else if ((cur == DDP_COMPONENT_PQ0_OUT_CB3 &&
 		next == DDP_COMPONENT_PANEL0_COMP_OUT_CB1)) {
 		/* PQ_OUT_CROSSBAR */
@@ -10507,6 +10535,25 @@ static int mtk_ddp_mout_en_MT6985(const struct mtk_mmsys_reg_data *data,
 		next == DDP_COMPONENT_WDMA1)) {
 		*addr = MT6985_MERGE_OUT_CROSSBAR0_MOUT_EN;
 		value = DISP_COMP_OUT_CROSSBAR0_TO_WDMA1;
+	} else if ((cur == DDP_COMPONENT_GAMMA0 &&
+		next == DDP_COMPONENT_POSTMASK0) ||
+		(cur == DDP_COMPONENT_GAMMA1 &&
+		next == DDP_COMPONENT_POSTMASK1)) {
+		/* PQ_IN_CROSSBAR */
+		*addr = MT6985_PQ_PATH_SEL;
+#if defined(MT6985_FULL_PQ_PATH1)
+		value = PQ_FAST_PATH1;
+#elif defined(MT6985_FULL_PQ_PATH2)
+		value = PQ_FAST_PATH2;
+#elif defined(MT6985_FULL_PQ_PATH3)
+		value = PQ_FAST_PATH3;
+#elif defined(MT6985_FULL_PQ_PATH4)
+		value = PQ_FAST_PATH4;
+#elif defined(MT6985_FULL_PQ_PATH5)
+		value = PQ_FAST_PATH5;
+#elif defined(MT6985_FULL_PQ_PATH6)
+		value = PQ_FAST_PATH6;
+#endif
 	} else {
 		value = -1;
 		DDPINFO("%s, cur=%s->next=%s not found in MOUT_EN\n", __func__,
@@ -13986,7 +14033,11 @@ void mtk_ddp_insert_dsc_prim_MT6985(struct mtk_drm_crtc *mtk_crtc,
 	unsigned int addr, value;
 
 	/* PANEL_COMP_OUT_CROSSBAR1_MOUT to  DISP_DSC_WRAP0 */
+//#ifdef DRM_BYPASS_PQ
+//	addr = MT6985_PANEL_COMP_OUT_CROSSBAR0_MOUT_EN;
+//#else
 	addr = MT6985_PANEL_COMP_OUT_CROSSBAR1_MOUT_EN;
+//#endif
 	value = DISP_PQ_OUT_CROSSBAR1_TO_DSC_0;
 	cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
 		       mtk_crtc->config_regs_pa + addr, value, ~0);
@@ -14027,7 +14078,11 @@ void mtk_ddp_remove_dsc_prim_MT6985(struct mtk_drm_crtc *mtk_crtc,
 {
 	unsigned int addr, value;
 
+//#ifdef DRM_BYPASS_PQ
+//	addr = MT6985_PANEL_COMP_OUT_CROSSBAR0_MOUT_EN;
+//#else
 	addr = MT6985_PANEL_COMP_OUT_CROSSBAR1_MOUT_EN;
+//#endif
 	value = DISP_PQ_OUT_CROSSBAR1_TO_COMP_OUT_CROSSBAR3;
 	cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
 		       mtk_crtc->config_regs_pa + addr, value, ~0);
