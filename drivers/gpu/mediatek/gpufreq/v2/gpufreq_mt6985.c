@@ -2601,15 +2601,13 @@ static enum gpufreq_posdiv __gpufreq_get_real_posdiv_stack(void)
 
 static enum gpufreq_posdiv __gpufreq_get_posdiv_by_freq(unsigned int freq)
 {
-	if (freq > POSDIV_2_MAX_FREQ)
-		return POSDIV_POWER_1;
-	else if (freq > POSDIV_4_MAX_FREQ)
+	if (freq > POSDIV_4_MAX_FREQ)
 		return POSDIV_POWER_2;
-	else if (freq > POSDIV_4_MIN_FREQ)
+	else if (freq > POSDIV_8_MAX_FREQ)
 		return POSDIV_POWER_4;
-	else if (freq > POSDIV_8_MIN_FREQ)
+	else if (freq > POSDIV_16_MAX_FREQ)
 		return POSDIV_POWER_8;
-	else if (freq > POSDIV_16_MIN_FREQ)
+	else if (freq >= POSDIV_16_MIN_FREQ)
 		return POSDIV_POWER_16;
 	else {
 		__gpufreq_abort("invalid freq: %d", freq);
