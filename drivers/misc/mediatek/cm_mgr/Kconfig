@@ -54,6 +54,14 @@ config MTK_CM_MGR_MT6879
 	  on power table.
 	  If unsure, say N.
 
+config MTK_CM_MGR_MT6886
+	tristate "MTK CM_MGR for MT6886"
+	help
+	  This kernel config can be used to enable CM_MGR MT6886. When enable
+	  this option, dram opp level will be changed which will depended
+	  on power table.
+	  If unsure, say N.
+
 config MTK_CM_MGR_MT6893
 	tristate "MTK CM_MGR for MT6893"
 	help
