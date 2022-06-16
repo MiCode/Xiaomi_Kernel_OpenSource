@@ -325,12 +325,14 @@ static void _apu_w_are(int entry, ulong reg, ulong data)
 static void aputop_dump_reg(enum apupw_reg idx, uint32_t offset, uint32_t size)
 {
 	char buf[32];
+	int ret = 0;
 
 	// reg dump for RPC
 	memset(buf, 0, sizeof(buf));
-	snprintf(buf, 32, "phys 0x%08x: ",
-			(u32)(papw->phy_addr[idx]) + offset);
-	print_hex_dump(KERN_ERR, buf, DUMP_PREFIX_OFFSET, 16, 4,
+	ret = snprintf(buf, 32, "phys 0x%08x: ",
+		       (u32)(papw->phy_addr[idx]) + offset);
+	if (ret)
+		print_hex_dump(KERN_ERR, buf, DUMP_PREFIX_OFFSET, 16, 4,
 			papw->regs[idx] + offset, size, true);
 }
 
@@ -795,6 +797,7 @@ static int __apu_are_init(struct device *dev)
 {
 	uint32_t entry = 0;
 	char buf[512];
+	int ret = 0;
 
 	pr_info("ARE init %s %d ++\n", __func__, __LINE__);
 
@@ -820,19 +823,22 @@ static int __apu_are_init(struct device *dev)
 	apu_writel(entry, papw->regs[apu_are] + 0x10);
 
 	memset(buf, 0, sizeof(buf));
-	snprintf(buf, sizeof(buf), "phys 0x%08x ", (u32)(papw->phy_addr[apu_are]));
-	print_hex_dump(KERN_WARNING, buf, DUMP_PREFIX_OFFSET,
-		       16, 4, papw->regs[apu_are], 0x20, 1);
+	ret = snprintf(buf, sizeof(buf), "phys 0x%08x ", (u32)(papw->phy_addr[apu_are]));
+	if (!ret)
+		print_hex_dump(KERN_WARNING, buf, DUMP_PREFIX_OFFSET,
+			       16, 4, papw->regs[apu_are], 0x20, 1);
 
 	memset(buf, 0, sizeof(buf));
-	snprintf(buf, sizeof(buf), "phys 0x%08x ", (u32)(papw->phy_addr[apu_are] + 0x2000));
-	print_hex_dump(KERN_WARNING, buf, DUMP_PREFIX_OFFSET,
-		       16, 4, papw->regs[apu_are] + 0x2000, ce_pwr_on_sz, 1);
+	ret = snprintf(buf, sizeof(buf), "phys 0x%08x ", (u32)(papw->phy_addr[apu_are] + 0x2000));
+	if (!ret)
+		print_hex_dump(KERN_WARNING, buf, DUMP_PREFIX_OFFSET,
+			       16, 4, papw->regs[apu_are] + 0x2000, ce_pwr_on_sz, 1);
 
 	memset(buf, 0, sizeof(buf));
-	snprintf(buf, sizeof(buf), "phys 0x%08x ", (u32)(papw->phy_addr[apu_are] + 0x2400));
-	print_hex_dump(KERN_WARNING, buf, DUMP_PREFIX_OFFSET,
-		       16, 4, papw->regs[apu_are] + 0x2400, ce_pwr_off_sz, 1);
+	ret = snprintf(buf, sizeof(buf), "phys 0x%08x ", (u32)(papw->phy_addr[apu_are] + 0x2400));
+	if (!ret)
+		print_hex_dump(KERN_WARNING, buf, DUMP_PREFIX_OFFSET,
+			       16, 4, papw->regs[apu_are] + 0x2400, ce_pwr_off_sz, 1);
 
 	pr_info("ARE init %s %d --\n", __func__, __LINE__);
 	return 0;

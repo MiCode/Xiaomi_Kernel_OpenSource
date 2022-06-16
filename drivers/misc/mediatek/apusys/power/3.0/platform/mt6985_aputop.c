@@ -47,15 +47,17 @@ static uint32_t g_opp_cfg_acx1;
 static void aputop_dump_reg(enum apupw_reg idx, uint32_t offset, uint32_t size)
 {
 	char buf[32];
+	int ret = 0;
 
 	/* prepare pa address */
 	memset(buf, 0, sizeof(buf));
-	snprintf(buf, 32, "phys 0x%08x: ",
+	ret = snprintf(buf, 32, "phys 0x%08x: ",
 			(ulong)(apupw.phy_addr[idx]) + offset);
 
 	/* dump content with pa as prefix */
-	print_hex_dump(KERN_ERR, buf, DUMP_PREFIX_OFFSET, 16, 4,
-			apupw.regs[idx] + offset, size, true);
+	if (!ret)
+		print_hex_dump(KERN_ERR, buf, DUMP_PREFIX_OFFSET, 16, 4,
+			       apupw.regs[idx] + offset, size, true);
 }
 
 static int init_reg_base(struct platform_device *pdev)
@@ -224,13 +226,15 @@ static void aputop_dump_pwr_reg(struct device *dev)
 static void aputop_dump_rpc_data(void)
 {
 	char buf[32];
+	int ret = 0;
 
 	// reg dump for RPC
 	memset(buf, 0, sizeof(buf));
-	snprintf(buf, 32, "phys 0x%08x: ",
+	ret = snprintf(buf, 32, "phys 0x%08x: ",
 			(u32)(apupw.phy_addr[apu_rpc]));
-	print_hex_dump(KERN_INFO, buf, DUMP_PREFIX_OFFSET, 16, 4,
-			apupw.regs[apu_rpc], 0x20, true);
+	if (!ret)
+		print_hex_dump(KERN_INFO, buf, DUMP_PREFIX_OFFSET, 16, 4,
+			       apupw.regs[apu_rpc], 0x20, true);
 }
 
 static void aputop_dump_pcu_data(struct device *dev)
