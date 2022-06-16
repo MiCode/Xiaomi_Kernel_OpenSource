@@ -1478,9 +1478,9 @@ int mtk_panel_execute_callback(void *dsi, dcs_write_gce cb,
 	int ret = 0, index = 0;
 
 	if (IS_ERR_OR_NULL(master))
-		snprintf(owner, MTK_LCM_NAME_LENGTH - 1, "unknown");
+		ret = snprintf(owner, MTK_LCM_NAME_LENGTH - 1, "unknown");
 	else
-		snprintf(owner, MTK_LCM_NAME_LENGTH - 1, master);
+		ret = snprintf(owner, MTK_LCM_NAME_LENGTH - 1, master);
 	if (ret < 0 || ret >= MTK_LCM_NAME_LENGTH)
 		DDPMSG("%s, failed at snprintf, %d", __func__, ret);
 	ret = 0;
