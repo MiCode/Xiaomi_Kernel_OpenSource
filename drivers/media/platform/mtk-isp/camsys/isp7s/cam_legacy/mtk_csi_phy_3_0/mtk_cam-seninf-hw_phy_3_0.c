@@ -3304,8 +3304,8 @@ static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 	unsigned long long enabled = 0;
 	int ret = 0;
 	int j, i;
-	unsigned long debug_ft = FT_30_FPS * SCAN_TIME ;//FIXME
-	unsigned long debug_vb = 3 * SCAN_TIME;//FIXME
+	unsigned long debug_ft = FT_30_FPS * SCAN_TIME;	// FIXME
+	unsigned long debug_vb = 3 * SCAN_TIME;	// FIXME
 	enum CSI_PORT csi_port = CSI_PORT_0;
 
 	if (ctx->dbg_timeout != 0)

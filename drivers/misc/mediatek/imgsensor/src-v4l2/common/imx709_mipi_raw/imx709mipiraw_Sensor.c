@@ -105,7 +105,7 @@ static kal_uint8 otp_flag;
 static kal_uint32 previous_exp[3];
 static kal_uint16 previous_exp_cnt;
 
-#ifdef AOV_MODE_SENSING_UT
+#ifdef AOV_MODE_SENSING
 static int stream_refcnt_for_aov;
 #endif
 
@@ -1067,6 +1067,7 @@ static kal_uint32 set_gain(struct subdrv_ctx *ctx, kal_uint32 gain)
 	return set_gain_w_gph(ctx, gain, KAL_TRUE);
 }	/* set_gain */
 
+#undef pwr_seq_all_on_for_aov_mode_transition
 static int pwr_seq_reset_view_to_sensing(struct subdrv_ctx *ctx)
 {
 	int ret = 0;
@@ -1083,81 +1084,75 @@ static int pwr_seq_reset_view_to_sensing(struct subdrv_ctx *ctx)
 	if (ret < 0)
 		LOG_INF("fail to select %s\n", state_names[STATE_PONV_LOW]);
 	mdelay(1);	// response time T4-T6 in datasheet
-	/*
-	 * // mclk_driving_current_off
-	 * ret = pinctrl_select_state(ctx->pinctrl, ctx->state[STATE_MCLK1_OFF]);
-	 * if (ret < 0)
-	 *		LOG_INF("fail to select %s\n", state_names[STATE_MCLK1_OFF]);
-	 * mdelay(6);
-	 * // 2. set reg
-	 * ret = regulator_disable(ctx->regulator[REGULATOR_DOVDD]);
-	 * if (ret)
-	 *		LOG_INF("failed to disable %s\n", reg_names[REGULATOR_DOVDD]);
-	 * mdelay(1);
-	 * // disable DVDD1
-	 * ret = regulator_disable(ctx->regulator[REGULATOR_DVDD1]);
-	 * if (ret)
-	 *		LOG_INF("failed to disable %s\n", reg_names[REGULATOR_DVDD1]);
-	 * mdelay(4);
-	 * // disable AVDD
-	 * ret = regulator_disable(ctx->regulator[REGULATOR_AVDD]);
-	 * if (ret)
-	 *		LOG_INF("failed to disable %s\n", reg_names[REGULATOR_AVDD]);
-	 * mdelay(3);
-	 * // 3. set mclk
-	 * // disable mclk
-	 * clk_disable_unprepare(ctx->clk[CLK1_24M]);
-	 * clk_disable_unprepare(ctx->clk[CLK1_MCLK1]);
-	 *
-	 * // switch hw stand-by to sensing mode sw stand-by
-	 * // 1. set mclk
-	 * // 24MHz
-	 * ret = clk_prepare_enable(ctx->clk[CLK1_MCLK1]);
-	 * if (ret)
-	 *		LOG_INF("failed to enable mclk\n");
-	 *
-	 * ret = clk_prepare_enable(ctx->clk[CLK1_24M]);
-	 * if (ret)
-	 *		LOG_INF("failed to enable mclk src\n");
-	 *
-	 * ret = clk_set_parent(ctx->clk[CLK1_MCLK1], ctx->clk[CLK1_24M]);
-	 * if (ret)
-	 *		LOG_INF("failed to enable mclk's parent\n");
-	 * // 2. set reg
-	 * // enable AVDD
-	 * ret = regulator_set_voltage(ctx->regulator[REGULATOR_AVDD], 2900000, 2900000);
-	 * if (ret)
-	 *		LOG_INF("failed to set voltage %s %d\n",
-	 *		reg_names[REGULATOR_AVDD], 2900000);
-	 * ret = regulator_enable(ctx->regulator[REGULATOR_AVDD]);
-	 * if (ret)
-	 *		LOG_INF("failed to enable %s\n", reg_names[REGULATOR_AVDD]);
-	 * mdelay(3);
-	 * // enable DVDD1
-	 * ret = regulator_set_voltage(ctx->regulator[REGULATOR_DVDD1], 855000, 855000);
-	 * if (ret)
-	 *		LOG_INF("failed to set voltage %s %d\n",
-	 *		reg_names[REGULATOR_DVDD1], 855000);
-	 * ret = regulator_enable(ctx->regulator[REGULATOR_DVDD1]);
-	 * if (ret)
-	 *		LOG_INF("failed to enable %s\n", reg_names[REGULATOR_DVDD1]);
-	 * mdelay(4);
-	 * // enable DOVDD
-	 * ret = regulator_set_voltage(ctx->regulator[REGULATOR_DOVDD], 1800000, 1800000);
-	 * if (ret)
-	 *		LOG_INF("failed to set voltage %s %d\n",
-	 *		reg_names[REGULATOR_DOVDD], 1800000);
-	 * ret = regulator_enable(ctx->regulator[REGULATOR_DOVDD]);
-	 * if (ret)
-	 *		LOG_INF("failed to enable %s\n", reg_names[REGULATOR_DOVDD]);
-	 * mdelay(1);
-	 * // 3. set gpio
-	 * // mclk_driving_current_on 6MA
-	 * ret = pinctrl_select_state(ctx->pinctrl, ctx->state[STATE_MCLK1_6MA]);
-	 * if (ret < 0)
-	 *		LOG_INF("fail to select %s\n", state_names[STATE_MCLK1_6MA]);
-	 * mdelay(6);
-	 */
+#ifdef pwr_seq_all_on_for_aov_mode_transition
+	// mclk_driving_current_off
+	ret = pinctrl_select_state(ctx->pinctrl, ctx->state[STATE_MCLK1_OFF]);
+	if (ret < 0)
+		LOG_INF("fail to select %s\n", state_names[STATE_MCLK1_OFF]);
+	mdelay(6);
+	// 2. set reg
+	ret = regulator_disable(ctx->regulator[REGULATOR_DOVDD]);
+	if (ret)
+		LOG_INF("failed to disable %s\n", reg_names[REGULATOR_DOVDD]);
+	mdelay(1);
+	// disable DVDD1
+	ret = regulator_disable(ctx->regulator[REGULATOR_DVDD1]);
+	if (ret)
+		LOG_INF("failed to disable %s\n", reg_names[REGULATOR_DVDD1]);
+	mdelay(4);
+	// disable AVDD2
+	ret = regulator_disable(ctx->regulator[REGULATOR_AVDD2]);
+	if (ret)
+		LOG_INF("failed to disable %s\n", reg_names[REGULATOR_AVDD2]);
+	mdelay(3);
+	// 3. set mclk
+	// disable mclk
+	clk_disable_unprepare(ctx->clk[CLK1_MCLK1]);
+
+	// switch hw stand-by to sensing mode sw stand-by
+	// 1. set mclk
+	// 24MHz
+	ret = clk_prepare_enable(ctx->clk[CLK1_MCLK1]);
+	if (ret)
+		LOG_INF("failed to enable mclk\n");
+	ret = clk_set_parent(ctx->clk[CLK1_MCLK1], ctx->clk[CLK1_24M]);
+	if (ret)
+		LOG_INF("failed to enable mclk's parent\n");
+	// 2. set reg
+	// enable AVDD2
+	ret = regulator_set_voltage(ctx->regulator[REGULATOR_AVDD2], 1800000, 1800000);
+	if (ret)
+		LOG_INF("failed to set voltage %s %d\n",
+			reg_names[REGULATOR_AVDD2], 1800000);
+	ret = regulator_enable(ctx->regulator[REGULATOR_AVDD2]);
+	if (ret)
+		LOG_INF("failed to enable %s\n", reg_names[REGULATOR_AVDD2]);
+	mdelay(3);
+	// enable DVDD1
+	ret = regulator_set_voltage(ctx->regulator[REGULATOR_DVDD1], 855000, 855000);
+	if (ret)
+		LOG_INF("failed to set voltage %s %d\n",
+			reg_names[REGULATOR_DVDD1], 855000);
+	ret = regulator_enable(ctx->regulator[REGULATOR_DVDD1]);
+	if (ret)
+		LOG_INF("failed to enable %s\n", reg_names[REGULATOR_DVDD1]);
+	mdelay(4);
+	// enable DOVDD
+	ret = regulator_set_voltage(ctx->regulator[REGULATOR_DOVDD], 1800000, 1800000);
+	if (ret)
+		LOG_INF("failed to set voltage %s %d\n",
+			reg_names[REGULATOR_DOVDD], 1800000);
+	ret = regulator_enable(ctx->regulator[REGULATOR_DOVDD]);
+	if (ret)
+		LOG_INF("failed to enable %s\n", reg_names[REGULATOR_DOVDD]);
+	mdelay(1);
+	// 3. set gpio
+	// mclk_driving_current_on 6MA
+	ret = pinctrl_select_state(ctx->pinctrl, ctx->state[STATE_MCLK1_6MA]);
+	if (ret < 0)
+		LOG_INF("fail to select %s\n", state_names[STATE_MCLK1_6MA]);
+	mdelay(6);
+#endif
 	// xclr(reset) = 1
 	ret = pinctrl_select_state(ctx->pinctrl, ctx->state[STATE_RST1_HIGH]);
 	if (ret < 0)
@@ -1167,7 +1162,6 @@ static int pwr_seq_reset_view_to_sensing(struct subdrv_ctx *ctx)
 	return ret;
 }
 
-#ifdef AOV_MODE_SENSING_UT
 static int pwr_seq_reset_sens_to_viewing(struct subdrv_ctx *ctx)
 {
 	int ret = 0;
@@ -1179,82 +1173,76 @@ static int pwr_seq_reset_sens_to_viewing(struct subdrv_ctx *ctx)
 	if (ret < 0)
 		LOG_INF("fail to select %s\n", state_names[STATE_RST1_LOW]);
 	mdelay(1);	// response time T2 in datasheet
-	/*
-	 * // mclk_driving_current_off
-	 * ret = pinctrl_select_state(ctx->pinctrl, ctx->state[STATE_MCLK1_OFF]);
-	 * if (ret < 0)
-	 *		LOG_INF("fail to select %s\n", state_names[STATE_MCLK1_OFF]);
-	 * mdelay(6);
-	 * // 2. set reg
-	 * // disable DOVDD
-	 * ret = regulator_disable(ctx->regulator[REGULATOR_DOVDD]);
-	 * if (ret)
-	 *		LOG_INF("failed to disable %s\n", reg_names[REGULATOR_DOVDD]);
-	 * mdelay(1);
-	 * // disable DVDD1
-	 * ret = regulator_disable(ctx->regulator[REGULATOR_DVDD1]);
-	 * if (ret)
-	 *		LOG_INF("failed to disable %s\n", reg_names[REGULATOR_DVDD1]);
-	 * mdelay(4);
-	 * // disable AVDD
-	 * ret = regulator_disable(ctx->regulator[REGULATOR_AVDD]);
-	 * if (ret)
-	 *		LOG_INF("failed to disable %s\n", reg_names[REGULATOR_AVDD]);
-	 * mdelay(3);
-	 * // 3. set mclk
-	 * // disable mclk
-	 * clk_disable_unprepare(ctx->clk[CLK1_24M]);
-	 * clk_disable_unprepare(ctx->clk[CLK1_MCLK1]);
-	 *
-	 * // switch hw stand-by to viewing mode sw stand-by
-	 * // 1. set mclk
-	 * // 24MHz
-	 * ret = clk_prepare_enable(ctx->clk[CLK1_MCLK1]);
-	 * if (ret)
-	 *		LOG_INF("failed to enable mclk\n");
-	 *
-	 * ret = clk_prepare_enable(ctx->clk[CLK1_24M]);
-	 * if (ret)
-	 *		LOG_INF("failed to enable mclk src\n");
-	 *
-	 * ret = clk_set_parent(ctx->clk[CLK1_MCLK1], ctx->clk[CLK1_24M]);
-	 * if (ret)
-	 *		LOG_INF("failed to enable mclk's parent\n");
-	 * // 2. set reg
-	 * // enable AVDD
-	 * ret = regulator_set_voltage(ctx->regulator[REGULATOR_AVDD], 2900000, 2900000);
-	 * if (ret)
-	 *		LOG_INF("failed to set voltage %s %d\n",
-	 *		reg_names[REGULATOR_AVDD], 2900000);
-	 * ret = regulator_enable(ctx->regulator[REGULATOR_AVDD]);
-	 * if (ret)
-	 *		LOG_INF("failed to enable %s\n", reg_names[REGULATOR_AVDD]);
-	 * mdelay(3);
-	 * // enable DVDD1
-	 * ret = regulator_set_voltage(ctx->regulator[REGULATOR_DVDD1], 855000, 855000);
-	 * if (ret)
-	 *		LOG_INF("failed to set voltage %s %d\n",
-	 *		reg_names[REGULATOR_DVDD1], 855000);
-	 * ret = regulator_enable(ctx->regulator[REGULATOR_DVDD1]);
-	 * if (ret)
-	 *		LOG_INF("failed to enable %s\n", reg_names[REGULATOR_DVDD1]);
-	 * mdelay(4);
-	 * // enable DOVDD
-	 * ret = regulator_set_voltage(ctx->regulator[REGULATOR_DOVDD], 1800000, 1800000);
-	 * if (ret)
-	 *		LOG_INF("failed to set voltage %s %d\n",
-	 *		reg_names[REGULATOR_DOVDD], 1800000);
-	 * ret = regulator_enable(ctx->regulator[REGULATOR_DOVDD]);
-	 * if (ret)
-	 *		LOG_INF("failed to enable %s\n", reg_names[REGULATOR_DOVDD]);
-	 * mdelay(1);
-	 * // 3. set gpio
-	 * // mclk_driving_current_on 6MA
-	 * ret = pinctrl_select_state(ctx->pinctrl, ctx->state[STATE_MCLK1_6MA]);
-	 * if (ret < 0)
-	 *		LOG_INF("fail to select %s\n", state_names[STATE_MCLK1_6MA]);
-	 * mdelay(6);
-	 */
+#ifdef pwr_seq_all_on_for_aov_mode_transition
+	// mclk_driving_current_off
+	ret = pinctrl_select_state(ctx->pinctrl, ctx->state[STATE_MCLK1_OFF]);
+	if (ret < 0)
+		LOG_INF("fail to select %s\n", state_names[STATE_MCLK1_OFF]);
+	mdelay(6);
+	// 2. set reg
+	// disable DOVDD
+	ret = regulator_disable(ctx->regulator[REGULATOR_DOVDD]);
+	if (ret)
+		LOG_INF("failed to disable %s\n", reg_names[REGULATOR_DOVDD]);
+	mdelay(1);
+	// disable DVDD1
+	ret = regulator_disable(ctx->regulator[REGULATOR_DVDD1]);
+	if (ret)
+		LOG_INF("failed to disable %s\n", reg_names[REGULATOR_DVDD1]);
+	mdelay(4);
+	// disable AVDD2
+	ret = regulator_disable(ctx->regulator[REGULATOR_AVDD2]);
+	if (ret)
+		LOG_INF("failed to disable %s\n", reg_names[REGULATOR_AVDD2]);
+	mdelay(3);
+	// 3. set mclk
+	// disable mclk
+	clk_disable_unprepare(ctx->clk[CLK1_MCLK1]);
+
+	// switch hw stand-by to viewing mode sw stand-by
+	// 1. set mclk
+	// 24MHz
+	ret = clk_prepare_enable(ctx->clk[CLK1_MCLK1]);
+	if (ret)
+		LOG_INF("failed to enable mclk\n");
+	ret = clk_set_parent(ctx->clk[CLK1_MCLK1], ctx->clk[CLK1_24M]);
+	if (ret)
+		LOG_INF("failed to enable mclk's parent\n");
+	// 2. set reg
+	// enable AVDD2
+	ret = regulator_set_voltage(ctx->regulator[REGULATOR_AVDD2], 1800000, 1800000);
+	if (ret)
+		LOG_INF("failed to set voltage %s %d\n",
+			reg_names[REGULATOR_AVDD2], 1800000);
+	ret = regulator_enable(ctx->regulator[REGULATOR_AVDD2]);
+	if (ret)
+		LOG_INF("failed to enable %s\n", reg_names[REGULATOR_AVDD2]);
+	mdelay(3);
+	// enable DVDD1
+	ret = regulator_set_voltage(ctx->regulator[REGULATOR_DVDD1], 855000, 855000);
+	if (ret)
+		LOG_INF("failed to set voltage %s %d\n",
+			reg_names[REGULATOR_DVDD1], 855000);
+	ret = regulator_enable(ctx->regulator[REGULATOR_DVDD1]);
+	if (ret)
+		LOG_INF("failed to enable %s\n", reg_names[REGULATOR_DVDD1]);
+	mdelay(4);
+	// enable DOVDD
+	ret = regulator_set_voltage(ctx->regulator[REGULATOR_DOVDD], 1800000, 1800000);
+	if (ret)
+		LOG_INF("failed to set voltage %s %d\n",
+			reg_names[REGULATOR_DOVDD], 1800000);
+	ret = regulator_enable(ctx->regulator[REGULATOR_DOVDD]);
+	if (ret)
+		LOG_INF("failed to enable %s\n", reg_names[REGULATOR_DOVDD]);
+	mdelay(1);
+	// 3. set gpio
+	// mclk_driving_current_on 6MA
+	ret = pinctrl_select_state(ctx->pinctrl, ctx->state[STATE_MCLK1_6MA]);
+	if (ret < 0)
+		LOG_INF("fail to select %s\n", state_names[STATE_MCLK1_6MA]);
+	mdelay(6);
+#endif
 	// ponv = 1
 	ret = pinctrl_select_state(ctx->pinctrl, ctx->state[STATE_PONV_HIGH]);
 	if (ret < 0)
@@ -1268,37 +1256,64 @@ static int pwr_seq_reset_sens_to_viewing(struct subdrv_ctx *ctx)
 
 	return ret;
 }
-#endif
+
+static void sensor_init(struct subdrv_ctx *ctx)
+{
+	imx709_table_write_cmos_sensor(ctx, imx709_init_setting,
+		sizeof(imx709_init_setting)/sizeof(kal_uint16));
+
+	LOG_INF("X! init setting!\n");
+}	/* sensor_init	*/
 
 static kal_uint32 streaming_control(struct subdrv_ctx *ctx, kal_bool enable)
 {
 #ifdef AOV_MODE_SENSING_UT
 	int ret = 0;
 #endif
-
 	LOG_INF("streaming_enable(0=Sw Standby,1=streaming):[%d]\n", enable);
 #ifdef AOV_MODE_SENSING
 	if (ctx->sensor_mode >= IMGSENSOR_MODE_CUSTOM1 &&
 		ctx->sensor_mode < IMGSENSOR_MODE_CUSTOM4) {
+#ifdef AOV_MODE_SENSING_UT_ON_SCP
+		if (enable)
+			stream_refcnt_for_aov = 1;
+		else {
+			if (stream_refcnt_for_aov) {
+				if (ctx->sensor_mode >= IMGSENSOR_MODE_CUSTOM1 &&
+					ctx->sensor_mode < IMGSENSOR_MODE_CUSTOM4) {
+					ret = pwr_seq_reset_sens_to_viewing(ctx);
+					if (ret)
+						LOG_INF("pwr_seq_reset_sens_to_viewing fail:%d\n",
+							ret);
+					else
+						LOG_INF("pwr_seq_reset_sens_to_viewing correct\n");
+					sensor_init(ctx);
+				}
+			}
+			stream_refcnt_for_aov = 0;
+		}
 		pr_info(
 			"AOV mode[%d] streaming control on scp side\n",
 			ctx->sensor_mode);
-// #ifndef AOV_MODE_SENSING_UT
 		return ERROR_NONE;
-// #else
-		// pr_info("stream_refcnt_for_aov:[%d]\n", stream_refcnt_for_aov);
-// #endif
+#else
+		pr_info(
+			"AOV mode[%d] streaming control on apmcu side\n",
+			ctx->sensor_mode);
+#endif
 	}
 #endif
 	if (enable) {
-#ifdef AOV_MODE_SENSING_UT
-		stream_refcnt_for_aov = 1;
-#endif
 		if (read_cmos_sensor_8(ctx, 0x0350) != 0x01) {
 			LOG_INF("single cam scenario enable auto-extend\n");
 			write_cmos_sensor_8(ctx, 0x0350, 0x01);
 		}
-#ifdef AOV_MODE_SENSING_UT
+
+		/* enable temperature sensor, TEMP_SEN_CTL: */
+		write_cmos_sensor_8(ctx, 0x0138, 0x01);
+
+#ifndef AOV_MODE_SENSING_UT_ON_SCP
+		stream_refcnt_for_aov = 1;
 		// write_cmos_sensor_8(ctx, 0x32A0, 0x01);
 		write_cmos_sensor_8(ctx, 0x42B0, 0x00);
 #endif
@@ -1306,15 +1321,17 @@ static kal_uint32 streaming_control(struct subdrv_ctx *ctx, kal_bool enable)
 		ctx->test_pattern = 0;
 	} else {
 		write_cmos_sensor_8(ctx, 0x0100, 0x00);
-#ifdef AOV_MODE_SENSING_UT
+#ifndef AOV_MODE_SENSING_UT_ON_SCP
 		if (stream_refcnt_for_aov) {
 			if (ctx->sensor_mode >= IMGSENSOR_MODE_CUSTOM1 &&
 				ctx->sensor_mode < IMGSENSOR_MODE_CUSTOM4) {
 				ret = pwr_seq_reset_sens_to_viewing(ctx);
 				if (ret)
-					LOG_INF("pwr_seq_reset_sens_to_viewing fail\n");
+					LOG_INF("pwr_seq_reset_sens_to_viewing fail:%d\n", ret);
+				else
+					LOG_INF("pwr_seq_reset_sens_to_viewing correct\n");
+				sensor_init(ctx);
 			}
-
 		}
 		stream_refcnt_for_aov = 0;
 #endif
@@ -1364,20 +1381,6 @@ static void extend_frame_length(struct subdrv_ctx *ctx, kal_uint32 ns)
 	LOG_INF("new frame len = %d, old frame len = %d, per_frame_ns = %d, add more %d ns",
 		ctx->frame_length, old_fl, per_frame_ns, ns);
 }
-
-static void sensor_init(struct subdrv_ctx *ctx)
-{
-	imx709_table_write_cmos_sensor(ctx, imx709_init_setting,
-		sizeof(imx709_init_setting)/sizeof(kal_uint16));
-#ifndef AOV_MODE_SENSING_UT
-	imx709_table_write_cmos_sensor(ctx, imx709_rmsc_ip_setting,
-		sizeof(imx709_rmsc_ip_setting)/sizeof(kal_uint16));
-	/* enable temperature sensor, TEMP_SEN_CTL: */
-	write_cmos_sensor_8(ctx, 0x0138, 0x01);
-	// set_mirror_flip(ctx, ctx->mirror);
-#endif
-	LOG_INF("X! init setting!\n");
-}	/* sensor_init	*/
 
 static void preview_setting(struct subdrv_ctx *ctx)
 {
@@ -1801,9 +1804,6 @@ static int open(struct subdrv_ctx *ctx)
 	if (imgsensor_info.sensor_id != sensor_id)
 		return ERROR_SENSOR_CONNECT_FAIL;
 
-	/* initail sequence write in */
-	sensor_init(ctx);
-
 #if EEPROM_READY
 	LOG_INF("write_sensor_QSC Start\n");
 	write_sensor_QSC(ctx);
@@ -1823,9 +1823,7 @@ static int open(struct subdrv_ctx *ctx)
 	ctx->ihdr_mode = 0;
 	ctx->test_pattern = KAL_FALSE;
 	ctx->current_fps = imgsensor_info.pre.max_framerate;
-#ifdef AOV_MODE_SENSING_UT
-	stream_refcnt_for_aov = 0;
-#endif
+
 	return ERROR_NONE;
 }	/* open */
 
@@ -1848,7 +1846,7 @@ static int open(struct subdrv_ctx *ctx)
 static int close(struct subdrv_ctx *ctx)
 {
 	LOG_INF("E\n");
-	/* No Need to implement this function */
+
 	streaming_control(ctx, KAL_FALSE);
 
 	return ERROR_NONE;
@@ -2013,7 +2011,6 @@ static kal_uint32 slim_video(struct subdrv_ctx *ctx,
 	return ERROR_NONE;
 }	/* slim_video */
 
-#ifdef AOV_MODE_SENSING_UT
 static kal_uint32 custom1(struct subdrv_ctx *ctx,
 		MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window,
 		MSDK_SENSOR_CONFIG_STRUCT *sensor_config_data)
@@ -2027,10 +2024,14 @@ static kal_uint32 custom1(struct subdrv_ctx *ctx,
 	ctx->readout_length = imgsensor_info.custom1.readout_length;
 	ctx->read_margin = imgsensor_info.custom1.read_margin;
 	ctx->autoflicker_en = KAL_FALSE;
-	custom1_setting(ctx);
+#ifdef AOV_MODE_SENSING_UT
+	custom1_setting(ctx);	/* custom1 */
+#else
+	motion_detection1_setting(ctx);	/* md1 */
+#endif
 
 	return ERROR_NONE;
-}	/* custom1 */
+}
 
 static kal_uint32 custom2(struct subdrv_ctx *ctx,
 		MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window,
@@ -2045,10 +2046,14 @@ static kal_uint32 custom2(struct subdrv_ctx *ctx,
 	ctx->readout_length = imgsensor_info.custom2.readout_length;
 	ctx->read_margin = imgsensor_info.custom2.read_margin;
 	ctx->autoflicker_en = KAL_FALSE;
-	custom2_setting(ctx);
+#ifdef AOV_MODE_SENSING_UT
+	custom2_setting(ctx);	/* custom2 */
+#else
+	motion_detection2_setting(ctx);	/* md2 */
+#endif
 
 	return ERROR_NONE;
-}	/* custom2 */
+}
 
 static kal_uint32 custom3(struct subdrv_ctx *ctx,
 		MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window,
@@ -2063,35 +2068,14 @@ static kal_uint32 custom3(struct subdrv_ctx *ctx,
 	ctx->readout_length = imgsensor_info.custom3.readout_length;
 	ctx->read_margin = imgsensor_info.custom3.read_margin;
 	ctx->autoflicker_en = KAL_FALSE;
-	custom3_setting(ctx);
-
-	return ERROR_NONE;
-}	/* custom3 */
+#ifdef AOV_MODE_SENSING_UT
+	custom3_setting(ctx);	/* custom3 */
 #else
-static kal_uint32 motion_detection1(struct subdrv_ctx *ctx)
-{
-	LOG_INF("imx709:Enter %s.\n", __func__);
-	motion_detection1_setting(ctx);
-
-	return ERROR_NONE;
-}	/* md1 */
-
-static kal_uint32 motion_detection2(struct subdrv_ctx *ctx)
-{
-	LOG_INF("imx709:Enter %s.\n", __func__);
-	motion_detection2_setting(ctx);
-
-	return ERROR_NONE;
-}	/* md2 */
-
-static kal_uint32 motion_detection3(struct subdrv_ctx *ctx)
-{
-	LOG_INF("imx709:Enter %s.\n", __func__);
-	motion_detection3_setting(ctx);
-
-	return ERROR_NONE;
-}	/* md3 */
+	motion_detection3_setting(ctx);	/* md3 */
 #endif
+
+	return ERROR_NONE;
+}
 
 static kal_uint32 custom4(struct subdrv_ctx *ctx,
 		MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window,
@@ -2221,56 +2205,68 @@ static int control(struct subdrv_ctx *ctx,
 
 	switch (scenario_id) {
 	case SENSOR_SCENARIO_ID_NORMAL_PREVIEW:
+		/* initail sequence write in */
+		sensor_init(ctx);
 		preview(ctx, image_window, sensor_config_data);
 		break;
 	case SENSOR_SCENARIO_ID_NORMAL_CAPTURE:
+		/* initail sequence write in */
+		sensor_init(ctx);
 		capture(ctx, image_window, sensor_config_data);
 		break;
 	case SENSOR_SCENARIO_ID_NORMAL_VIDEO:
+		/* initail sequence write in */
+		sensor_init(ctx);
 		normal_video(ctx, image_window, sensor_config_data);
 		break;
 	case SENSOR_SCENARIO_ID_HIGHSPEED_VIDEO:
+		/* initail sequence write in */
+		sensor_init(ctx);
 		hs_video(ctx, image_window, sensor_config_data);
 		break;
 	case SENSOR_SCENARIO_ID_SLIM_VIDEO:
+		/* initail sequence write in */
+		sensor_init(ctx);
 		slim_video(ctx, image_window, sensor_config_data);
 		break;
 #ifdef AOV_MODE_SENSING
 	case SENSOR_SCENARIO_ID_CUSTOM1:
 		ret = pwr_seq_reset_view_to_sensing(ctx);
 		if (ret)
-			LOG_INF("pwr_seq_reset_view_to_sensing fail\n");
+			LOG_INF("pwr_seq_reset_view_to_sensing fail:%d\n", ret);
+		else
+			LOG_INF("pwr_seq_reset_view_to_sensing correct\n");
+
+		/* initail sequence write in */
 		sensor_init(ctx);
-#ifdef AOV_MODE_SENSING_UT
 		custom1(ctx, image_window, sensor_config_data);
-#else
-		motion_detection1(ctx);
-#endif
 		break;
 	case SENSOR_SCENARIO_ID_CUSTOM2:
 		ret = pwr_seq_reset_view_to_sensing(ctx);
 		if (ret)
-			LOG_INF("pwr_seq_reset_view_to_sensing fail\n");
+			LOG_INF("pwr_seq_reset_view_to_sensing fail:%d\n", ret);
+		else
+			LOG_INF("pwr_seq_reset_view_to_sensing correct\n");
+
+		/* initail sequence write in */
 		sensor_init(ctx);
-#ifdef AOV_MODE_SENSING_UT
 		custom2(ctx, image_window, sensor_config_data);
-#else
-		motion_detection2(ctx);
-#endif
 		break;
 	case SENSOR_SCENARIO_ID_CUSTOM3:
 		ret = pwr_seq_reset_view_to_sensing(ctx);
 		if (ret)
-			LOG_INF("pwr_seq_reset_view_to_sensing fail\n");
+			LOG_INF("pwr_seq_reset_view_to_sensing fail:%d\n", ret);
+		else
+			LOG_INF("pwr_seq_reset_view_to_sensing correct\n");
+
+		/* initail sequence write in */
 		sensor_init(ctx);
-#ifdef AOV_MODE_SENSING_UT
 		custom3(ctx, image_window, sensor_config_data);
-#else
-		motion_detection3(ctx);
-#endif
 		break;
 #endif
 	case SENSOR_SCENARIO_ID_CUSTOM4:
+		/* initail sequence write in */
+		sensor_init(ctx);
 		custom4(ctx, image_window, sensor_config_data);
 		break;
 	default:
@@ -3475,22 +3471,22 @@ static int get_csi_param(struct subdrv_ctx *ctx,
 
 	switch (scenario_id) {
 	case SENSOR_SCENARIO_ID_CUSTOM1:
-		csi_param->dphy_data_settle = 0x15;	//? FIX ME
-		csi_param->dphy_clk_settle = 0x15;	//? FIX ME
-		csi_param->dphy_trail = 0x30;	//83? FIX ME
-		csi_param->dphy_csi2_resync_dmy_cycle = 0x2C;	//? FIX ME
+		csi_param->dphy_data_settle = 0x15;
+		csi_param->dphy_clk_settle = 0x15;
+		csi_param->dphy_trail = 0x30;	//0x83? FIX ME
+		csi_param->dphy_csi2_resync_dmy_cycle = 0x2C;
 		break;
 	case SENSOR_SCENARIO_ID_CUSTOM2:
-		csi_param->dphy_data_settle = 0x10;	//? FIX ME
-		csi_param->dphy_clk_settle = 0x10;	//? FIX ME
-		csi_param->dphy_trail = 0x6A;	//? FIX ME
-		csi_param->dphy_csi2_resync_dmy_cycle = 0x24;	//? FIX ME
+		csi_param->dphy_data_settle = 0x10;
+		csi_param->dphy_clk_settle = 0x10;
+		csi_param->dphy_trail = 0x2F;	//0x6A? FIX ME
+		csi_param->dphy_csi2_resync_dmy_cycle = 0x24;
 		break;
 	case SENSOR_SCENARIO_ID_CUSTOM3:
-		csi_param->dphy_data_settle = 0x15;	//? FIX ME
-		csi_param->dphy_clk_settle = 0x15;	//? FIX ME
-		csi_param->dphy_trail = 0x85;	//? FIX ME
-		csi_param->dphy_csi2_resync_dmy_cycle = 0x2D;	//? FIX ME
+		csi_param->dphy_data_settle = 0x15;
+		csi_param->dphy_clk_settle = 0x15;
+		csi_param->dphy_trail = 0x30;	//0x85? FIX ME
+		csi_param->dphy_csi2_resync_dmy_cycle = 0x2D;
 		break;
 	default:
 		break;
@@ -3518,7 +3514,7 @@ static struct subdrv_pw_seq_entry pw_seq[] = {
 	{HW_ID_MCLK1, 24, 0},
 	{HW_ID_PDN, 0, 0},
 	{HW_ID_RST1, 0, 1},
-	{HW_ID_AVDD, 2900000, 3},
+	{HW_ID_AVDD2, 1800000, 3},
 	{HW_ID_DVDD1, 855000, 4},
 	{HW_ID_DOVDD, 1800000, 1},
 	{HW_ID_MCLK1_DRIVING_CURRENT, 6, 6},

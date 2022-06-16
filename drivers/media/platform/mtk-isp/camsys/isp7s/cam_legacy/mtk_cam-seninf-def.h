@@ -101,9 +101,19 @@
 #endif
 
 #define AOV_GET_PARAM 1
-#define SENSING_MODE_READY	// FIX ME
-#undef AOV_SCP_CLK_SET_PARENT	// FIX ME
-#define AOV_TEST_CLK_ALL_ON_ON_APMCU 1	// FIX ME
+// FIX ME: #define it to switch i2c bus aux function on/off when gpio pin ready
+#define SENSING_MODE_READY
+
+#define AOV_PM_CLK_ALL_USE_ON_APMCU 1	// FIX ME
+#if AOV_PM_CLK_ALL_USE_ON_APMCU
+// FIX ME: #define it to enable pm/clk use on suspend/resume until fix issue done
+#undef AOV_SUSPEND_RESUME_USE_PM_CLK
+// FIX ME: #define it when default clk test ready
+#undef AOV_SET_CLK_PARENT
+#else
+#undef AOV_SUSPEND_RESUME_USE_PM_CLK
+#undef AOV_SET_CLK_PARENT
+#endif
 
 enum CSI_PORT {
 	CSI_PORT_0 = 0,

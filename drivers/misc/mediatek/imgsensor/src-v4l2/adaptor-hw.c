@@ -93,12 +93,6 @@ static int set_mclk(struct adaptor_ctx *ctx, void *data, int val)
 		return ret;
 	}
 
-	ret = clk_prepare_enable(mclk_src);
-	if (ret) {
-		dev_err(ctx->dev, "failed to enable mclk_src\n");
-		return ret;
-	}
-
 	ret = clk_set_parent(mclk, mclk_src);
 	if (ret) {
 		dev_err(ctx->dev, "failed to set mclk's parent\n");
@@ -117,7 +111,6 @@ static int unset_mclk(struct adaptor_ctx *ctx, void *data, int val)
 	mclk = ctx->clk[idx];
 	mclk_src = get_clk_by_idx_freq(ctx, idx, val);
 
-	clk_disable_unprepare(mclk_src);
 	clk_disable_unprepare(mclk);
 
 	return 0;

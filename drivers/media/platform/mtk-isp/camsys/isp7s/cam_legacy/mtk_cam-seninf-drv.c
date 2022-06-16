@@ -854,7 +854,7 @@ static int set_aov_test_model_param(struct seninf_ctx *ctx,
 	struct seninf_vc **vc, char enable, int vc_used)
 {
 	int i = 0;
-#if AOV_TEST_CLK_ALL_ON_ON_APMCU
+#if AOV_PM_CLK_ALL_USE_ON_APMCU
 	int ret = 0;
 #endif
 
@@ -870,7 +870,7 @@ static int set_aov_test_model_param(struct seninf_ctx *ctx,
 		g_aov_param.seninfIdx = ctx->seninfIdx;
 		g_aov_param.cnt = vc_used;
 		g_aov_param.is_test_model = ctx->is_aov_test_model;
-#if AOV_TEST_CLK_ALL_ON_ON_APMCU
+#if AOV_PM_CLK_ALL_USE_ON_APMCU
 		/* must enable mux(clk) before clk_set_parent
 		 * pm_runtime_get_sync will call runtime_resume.
 		 */
@@ -905,7 +905,7 @@ static int set_aov_test_model_param(struct seninf_ctx *ctx,
 			udelay(40);
 		}
 	} else {
-#if AOV_TEST_CLK_ALL_ON_ON_APMCU
+#if AOV_PM_CLK_ALL_USE_ON_APMCU
 		if (ctx->core->clk[CLK_TOP_CAMTM])
 			clk_disable_unprepare(ctx->core->clk[CLK_TOP_CAMTM]);
 		pm_runtime_put_sync(ctx->dev);
@@ -2400,14 +2400,12 @@ void mtk_cam_seninf_set_secure(struct v4l2_subdev *sd, int enable, unsigned int 
 int mtk_cam_seninf_aov_runtime_suspend(unsigned int sensor_id)
 {
 	struct seninf_ctx *ctx = NULL;
-#if AOV_TEST_CLK_ALL_ON_ON_APMCU
-	struct seninf_core *core = NULL;
-#endif
 	unsigned int real_sensor_id = 0;
-#if AOV_TEST_CLK_ALL_ON_ON_APMCU
+#ifdef AOV_SUSPEND_RESUME_USE_PM_CLK
+	struct seninf_core *core = NULL;
 	int i = 0;
 #endif
-#ifdef AOV_SCP_CLK_SET_PARENT
+#ifdef AOV_SET_CLK_PARENT
 	int ret = 0;
 #endif
 
@@ -2449,7 +2447,7 @@ int mtk_cam_seninf_aov_runtime_suspend(unsigned int sensor_id)
 		pr_info("Can't find ctx from input sensor_id!\n");
 		return -ENODEV;
 	}
-#if AOV_TEST_CLK_ALL_ON_ON_APMCU
+#ifdef AOV_SUSPEND_RESUME_USE_PM_CLK
 	core = ctx->core;
 
 	mutex_lock(&core->mutex);
@@ -2457,7 +2455,7 @@ int mtk_cam_seninf_aov_runtime_suspend(unsigned int sensor_id)
 	core->refcnt--;
 	if (core->refcnt == 0) {
 		/* AP side to SCP */
-#ifdef AOV_SCP_CLK_SET_PARENT
+#ifdef AOV_SET_CLK_PARENT
 		/* set the parent of clk as parent_clk */
 		if (core->clk[CLK_TOP_SENINF1] != NULL &&
 			core->clk[CLK_TOP_OSC_D4] != NULL) {
@@ -2479,7 +2477,7 @@ int mtk_cam_seninf_aov_runtime_suspend(unsigned int sensor_id)
 		} while (i);
 		if (g_aov_param.is_test_model) {
 			if (core->clk[CLK_TOP_CAMTM]) {
-#ifdef AOV_SCP_CLK_SET_PARENT
+#ifdef AOV_SET_CLK_PARENT
 				/* set the parent of clk as parent_clk */
 				if (core->clk[CLK_TOP_OSC_D4]) {
 					ret = clk_set_parent(core->clk[CLK_TOP_CAMTM],
@@ -2494,7 +2492,7 @@ int mtk_cam_seninf_aov_runtime_suspend(unsigned int sensor_id)
 				clk_disable_unprepare(core->clk[CLK_TOP_CAMTM]);
 			}
 		}
-#ifdef AOV_SCP_CLK_SET_PARENT
+#ifdef AOV_SET_CLK_PARENT
 		/* set the parent of clk as parent_clk */
 		if (core->clk[CLK_TOP_CAMTG] != NULL &&
 			core->clk[CLK_TOP_OSC_D20] != NULL) {
@@ -2522,11 +2520,9 @@ EXPORT_SYMBOL(mtk_cam_seninf_aov_runtime_suspend);
 int mtk_cam_seninf_aov_runtime_resume(unsigned int sensor_id)
 {
 	struct seninf_ctx *ctx = NULL;
-#if AOV_TEST_CLK_ALL_ON_ON_APMCU
-	struct seninf_core *core = NULL;
-#endif
 	unsigned int real_sensor_id = 0;
-#if AOV_TEST_CLK_ALL_ON_ON_APMCU
+#ifdef AOV_SUSPEND_RESUME_USE_PM_CLK
+	struct seninf_core *core = NULL;
 	int i = 0;
 	int ret = 0;
 #endif
@@ -2577,7 +2573,7 @@ int mtk_cam_seninf_aov_runtime_resume(unsigned int sensor_id)
 		pr_info("Can't find ctx from input sensor_id!\n");
 		return -ENODEV;
 	}
-#if AOV_TEST_CLK_ALL_ON_ON_APMCU
+#ifdef AOV_SUSPEND_RESUME_USE_PM_CLK
 	core = ctx->core;
 
 	mutex_lock(&core->mutex);
@@ -2595,7 +2591,7 @@ int mtk_cam_seninf_aov_runtime_resume(unsigned int sensor_id)
 				return ret;
 			}
 		}
-#ifdef AOV_SCP_CLK_SET_PARENT
+#ifdef AOV_SET_CLK_PARENT
 		/* set the parent of clk as parent_clk */
 		if (core->clk[CLK_TOP_TCK_26M_MX9]) {
 			ret = clk_set_parent(core->clk[CLK_TOP_CAMTG],
@@ -2618,7 +2614,7 @@ int mtk_cam_seninf_aov_runtime_resume(unsigned int sensor_id)
 				}
 			}
 		}
-#ifdef AOV_SCP_CLK_SET_PARENT
+#ifdef AOV_SET_CLK_PARENT
 		/* set the parent of clk as parent_clk */
 		if (core->clk[CLK_TOP_SENINF1] != NULL &&
 			core->clk[CLK_TOP_MAINPLL2_D9] != NULL) {
@@ -2640,7 +2636,7 @@ int mtk_cam_seninf_aov_runtime_resume(unsigned int sensor_id)
 					return ret;
 				}
 			}
-#ifdef AOV_SCP_CLK_SET_PARENT
+#ifdef AOV_SET_CLK_PARENT
 			if (core->clk[CLK_TOP_MAINPLL2_D9]) {
 				/* set the parent of clk as parent_clk */
 				ret = clk_set_parent(core->clk[CLK_TOP_CAMTM],
