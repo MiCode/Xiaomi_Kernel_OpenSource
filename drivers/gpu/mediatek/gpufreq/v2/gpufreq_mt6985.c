@@ -1765,6 +1765,7 @@ static void __gpufreq_update_shared_status_power_reg(void)
 	g_reg_mfgsys[IDX_MFG_CG_CON].val = readl_mfg(MFG_CG_CON);
 	g_reg_mfgsys[IDX_MFG_DCM_CON_0].val = readl_mfg(MFG_DCM_CON_0);
 	g_reg_mfgsys[IDX_MFG_ASYNC_CON].val = readl_mfg(MFG_ASYNC_CON);
+	g_reg_mfgsys[IDX_MFG_ASYNC_CON3].val = readl_mfg(MFG_ASYNC_CON3);
 	g_reg_mfgsys[IDX_MFG_GLOBAL_CON].val = readl_mfg(MFG_GLOBAL_CON);
 	g_reg_mfgsys[IDX_MFG_AXCOHERENCE_CON].val = readl_mfg(MFG_AXCOHERENCE_CON);
 	g_reg_mfgsys[IDX_MFG_DUMMY_REG].val = readl_mfg(MFG_DUMMY_REG);
@@ -3288,6 +3289,11 @@ static void __gpufreq_hwdcm_config(void)
 	/* MFG_ASYNC_CON 0x13FBF020 [25] MEM1_SLV_CG_ENABLE = 1'b1 */
 	val = readl_mfg(MFG_ASYNC_CON) | BIT(23) | BIT(25);
 	writel(val, MFG_ASYNC_CON);
+
+	/* MFG_ASYNC_CON3 0x13FBF02C [13] chip_mfg_axi0_1_out_idle_enable = 1'b1 */
+	/* MFG_ASYNC_CON3 0x13FBF02C [15] chip_mfg_axi1_1_out_idle_enable = 1'b1 */
+	val = readl_mfg(MFG_ASYNC_CON3) | BIT(13) | BIT(15);
+	writel(val, MFG_ASYNC_CON3);
 
 	/* MFG_GLOBAL_CON 0x13FBF0B0 [8]  GPU_SOCIF_MST_FREE_RUN = 1'b0 */
 	/* MFG_GLOBAL_CON 0x13FBF0B0 [10] GPU_CLK_FREE_RUN = 1'b0 */

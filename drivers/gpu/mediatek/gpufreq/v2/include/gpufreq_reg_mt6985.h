@@ -43,6 +43,7 @@ static inline u32 readl_mfg(const void __iomem *addr)
 #define MFG_CG_CON                      (MFG_TOP_CFG_BASE + 0x000)            /* 0x13FBF000 */
 #define MFG_DCM_CON_0                   (MFG_TOP_CFG_BASE + 0x010)            /* 0x13FBF010 */
 #define MFG_ASYNC_CON                   (MFG_TOP_CFG_BASE + 0x020)            /* 0x13FBF020 */
+#define MFG_ASYNC_CON3                  (MFG_TOP_CFG_BASE + 0x02C)            /* 0x13FBF02C */
 #define MFG_GLOBAL_CON                  (MFG_TOP_CFG_BASE + 0x0B0)            /* 0x13FBF0B0 */
 #define MFG_AXCOHERENCE_CON             (MFG_TOP_CFG_BASE + 0x168)            /* 0x13FBF168 */
 #define MFG_1TO2AXI_CON_00              (MFG_TOP_CFG_BASE + 0x8E0)            /* 0x13FBF8E0 */
@@ -259,64 +260,65 @@ enum gpufreq_reg_info_idx {
 	IDX_MFG_CG_CON                   = 0,
 	IDX_MFG_DCM_CON_0                = 1,
 	IDX_MFG_ASYNC_CON                = 2,
-	IDX_MFG_GLOBAL_CON               = 3,
-	IDX_MFG_AXCOHERENCE_CON          = 4,
-	IDX_MFG_DUMMY_REG                = 5,
-	IDX_MFG_SRAM_FUL_SEL_ULV         = 6,
-	IDX_MFG_PLL_CON0                 = 7,
-	IDX_MFG_PLL_CON1                 = 8,
-	IDX_MFGSC_PLL_CON0               = 9,
-	IDX_MFGSC_PLL_CON1               = 10,
-	IDX_MFG_RPC_AO_CLK_CFG           = 11,
-	IDX_MFG_RPC_MFG1_PWR_CON         = 12,
-	IDX_MFG_RPC_MFG2_PWR_CON         = 13,
-	IDX_MFG_RPC_MFG3_PWR_CON         = 14,
-	IDX_MFG_RPC_MFG4_PWR_CON         = 15,
-	IDX_MFG_RPC_MFG5_PWR_CON         = 16,
-	IDX_MFG_RPC_MFG6_PWR_CON         = 17,
-	IDX_MFG_RPC_MFG7_PWR_CON         = 18,
-	IDX_MFG_RPC_MFG8_PWR_CON         = 19,
-	IDX_MFG_RPC_MFG9_PWR_CON         = 20,
-	IDX_MFG_RPC_MFG10_PWR_CON        = 21,
-	IDX_MFG_RPC_MFG11_PWR_CON        = 22,
-	IDX_MFG_RPC_MFG12_PWR_CON        = 23,
-	IDX_MFG_RPC_MFG13_PWR_CON        = 24,
-	IDX_MFG_RPC_MFG14_PWR_CON        = 25,
-	IDX_MFG_RPC_MFG15_PWR_CON        = 26,
-	IDX_MFG_RPC_MFG16_PWR_CON        = 27,
-	IDX_MFG_RPC_MFG17_PWR_CON        = 28,
-	IDX_MFG_RPC_MFG18_PWR_CON        = 29,
-	IDX_MFG_RPC_MFG19_PWR_CON        = 30,
-	IDX_MFG_RPC_SLP_PROT_EN_STA      = 31,
-	IDX_SPM_SPM2GPUPM_CON            = 32,
-	IDX_SPM_MFG0_PWR_CON             = 33,
-	IDX_SPM_SOC_BUCK_ISO_CON         = 34,
-	IDX_TOPCK_CLK_CFG_3              = 35,
-	IDX_TOPCK_CLK_CFG_30             = 36,
-	IDX_EFUSE_PTPOD21_SN             = 37,
-	IDX_EFUSE_PTPOD22_AVS            = 38,
-	IDX_EFUSE_PTPOD23_AVS            = 39,
-	IDX_EFUSE_PTPOD24_AVS            = 40,
-	IDX_EFUSE_PTPOD25_AVS            = 41,
-	IDX_EFUSE_PTPOD26_AVS            = 42,
-	IDX_EFUSE_FAB_INFO5              = 43,
-	IDX_EFUSE_FAB_INFO7              = 44,
-	IDX_NTH_MFG_EMI1_GALS_SLV_DBG    = 45,
-	IDX_NTH_MFG_EMI0_GALS_SLV_DBG    = 46,
-	IDX_STH_MFG_EMI1_GALS_SLV_DBG    = 47,
-	IDX_STH_MFG_EMI0_GALS_SLV_DBG    = 48,
-	IDX_NTH_M6M7_IDLE_BIT_EN_1       = 49,
-	IDX_NTH_M6M7_IDLE_BIT_EN_0       = 50,
-	IDX_STH_M6M7_IDLE_BIT_EN_1       = 51,
-	IDX_STH_M6M7_IDLE_BIT_EN_0       = 52,
-	IDX_IFR_MFGSYS_PROT_EN_STA_0     = 53,
-	IDX_IFR_MFGSYS_PROT_RDY_STA_0    = 54,
-	IDX_IFR_EMISYS_PROTECT_EN_STA_0  = 55,
-	IDX_IFR_EMISYS_PROTECT_EN_STA_1  = 56,
-	IDX_NTH_EMI_AO_DEBUG_CTRL0       = 57,
-	IDX_STH_EMI_AO_DEBUG_CTRL0       = 58,
-	IDX_INFRA_AO_BUS0_U_DEBUG_CTRL0  = 59,
-	IDX_INFRA_AO1_BUS1_U_DEBUG_CTRL0 = 60,
+	IDX_MFG_ASYNC_CON3               = 3,
+	IDX_MFG_GLOBAL_CON               = 4,
+	IDX_MFG_AXCOHERENCE_CON          = 5,
+	IDX_MFG_DUMMY_REG                = 6,
+	IDX_MFG_SRAM_FUL_SEL_ULV         = 7,
+	IDX_MFG_PLL_CON0                 = 8,
+	IDX_MFG_PLL_CON1                 = 9,
+	IDX_MFGSC_PLL_CON0               = 10,
+	IDX_MFGSC_PLL_CON1               = 11,
+	IDX_MFG_RPC_AO_CLK_CFG           = 12,
+	IDX_MFG_RPC_MFG1_PWR_CON         = 13,
+	IDX_MFG_RPC_MFG2_PWR_CON         = 14,
+	IDX_MFG_RPC_MFG3_PWR_CON         = 15,
+	IDX_MFG_RPC_MFG4_PWR_CON         = 16,
+	IDX_MFG_RPC_MFG5_PWR_CON         = 17,
+	IDX_MFG_RPC_MFG6_PWR_CON         = 18,
+	IDX_MFG_RPC_MFG7_PWR_CON         = 19,
+	IDX_MFG_RPC_MFG8_PWR_CON         = 20,
+	IDX_MFG_RPC_MFG9_PWR_CON         = 21,
+	IDX_MFG_RPC_MFG10_PWR_CON        = 22,
+	IDX_MFG_RPC_MFG11_PWR_CON        = 23,
+	IDX_MFG_RPC_MFG12_PWR_CON        = 24,
+	IDX_MFG_RPC_MFG13_PWR_CON        = 25,
+	IDX_MFG_RPC_MFG14_PWR_CON        = 26,
+	IDX_MFG_RPC_MFG15_PWR_CON        = 27,
+	IDX_MFG_RPC_MFG16_PWR_CON        = 28,
+	IDX_MFG_RPC_MFG17_PWR_CON        = 29,
+	IDX_MFG_RPC_MFG18_PWR_CON        = 30,
+	IDX_MFG_RPC_MFG19_PWR_CON        = 31,
+	IDX_MFG_RPC_SLP_PROT_EN_STA      = 32,
+	IDX_SPM_SPM2GPUPM_CON            = 33,
+	IDX_SPM_MFG0_PWR_CON             = 34,
+	IDX_SPM_SOC_BUCK_ISO_CON         = 35,
+	IDX_TOPCK_CLK_CFG_3              = 36,
+	IDX_TOPCK_CLK_CFG_30             = 37,
+	IDX_EFUSE_PTPOD21_SN             = 38,
+	IDX_EFUSE_PTPOD22_AVS            = 39,
+	IDX_EFUSE_PTPOD23_AVS            = 40,
+	IDX_EFUSE_PTPOD24_AVS            = 41,
+	IDX_EFUSE_PTPOD25_AVS            = 42,
+	IDX_EFUSE_PTPOD26_AVS            = 43,
+	IDX_EFUSE_FAB_INFO5              = 44,
+	IDX_EFUSE_FAB_INFO7              = 45,
+	IDX_NTH_MFG_EMI1_GALS_SLV_DBG    = 46,
+	IDX_NTH_MFG_EMI0_GALS_SLV_DBG    = 47,
+	IDX_STH_MFG_EMI1_GALS_SLV_DBG    = 48,
+	IDX_STH_MFG_EMI0_GALS_SLV_DBG    = 49,
+	IDX_NTH_M6M7_IDLE_BIT_EN_1       = 50,
+	IDX_NTH_M6M7_IDLE_BIT_EN_0       = 51,
+	IDX_STH_M6M7_IDLE_BIT_EN_1       = 52,
+	IDX_STH_M6M7_IDLE_BIT_EN_0       = 53,
+	IDX_IFR_MFGSYS_PROT_EN_STA_0     = 54,
+	IDX_IFR_MFGSYS_PROT_RDY_STA_0    = 55,
+	IDX_IFR_EMISYS_PROTECT_EN_STA_0  = 56,
+	IDX_IFR_EMISYS_PROTECT_EN_STA_1  = 57,
+	IDX_NTH_EMI_AO_DEBUG_CTRL0       = 58,
+	IDX_STH_EMI_AO_DEBUG_CTRL0       = 59,
+	IDX_INFRA_AO_BUS0_U_DEBUG_CTRL0  = 60,
+	IDX_INFRA_AO1_BUS1_U_DEBUG_CTRL0 = 61,
 };
 
 #define NUM_MFGSYS_REG                  ARRAY_SIZE(g_reg_mfgsys)
@@ -324,64 +326,65 @@ static struct gpufreq_reg_info g_reg_mfgsys[] = {
 	REGOP(0x13FBF000, 0), /* 0 */
 	REGOP(0x13FBF010, 0), /* 1 */
 	REGOP(0x13FBF020, 0), /* 2 */
-	REGOP(0x13FBF0B0, 0), /* 3 */
-	REGOP(0x13FBF168, 0), /* 4 */
-	REGOP(0x13FBF500, 0), /* 5 */
-	REGOP(0x13FBF080, 0), /* 6 */
-	REGOP(0x13FA0008, 0), /* 7 */
-	REGOP(0x13FA000C, 0), /* 8 */
-	REGOP(0x13FA0C08, 0), /* 9 */
-	REGOP(0x13FA0C0C, 0), /* 10 */
-	REGOP(0x13F91034, 0), /* 11 */
-	REGOP(0x13F91070, 0), /* 12 */
-	REGOP(0x13F910A0, 0), /* 13 */
-	REGOP(0x13F910A4, 0), /* 14 */
-	REGOP(0x13F910A8, 0), /* 15 */
-	REGOP(0x13F910AC, 0), /* 16 */
-	REGOP(0x13F910B0, 0), /* 17 */
-	REGOP(0x13F910B4, 0), /* 18 */
-	REGOP(0x13F910B8, 0), /* 19 */
-	REGOP(0x13F910BC, 0), /* 20 */
-	REGOP(0x13F910C0, 0), /* 21 */
-	REGOP(0x13F910C4, 0), /* 22 */
-	REGOP(0x13F910C8, 0), /* 23 */
-	REGOP(0x13F910CC, 0), /* 24 */
-	REGOP(0x13F910D0, 0), /* 25 */
-	REGOP(0x13F910D4, 0), /* 26 */
-	REGOP(0x13F910D8, 0), /* 27 */
-	REGOP(0x13F910DC, 0), /* 28 */
-	REGOP(0x13F910E0, 0), /* 29 */
-	REGOP(0x13F910E4, 0), /* 30 */
-	REGOP(0x13F91048, 0), /* 31 */
-	REGOP(0x1C001410, 0), /* 32 */
-	REGOP(0x1C001EE8, 0), /* 33 */
-	REGOP(0x1C001F78, 0), /* 34 */
-	REGOP(0x10000040, 0), /* 35 */
-	REGOP(0x100001F0, 0), /* 36 */
-	REGOP(0x11E805D4, 0), /* 37 */
-	REGOP(0x11E805D8, 0), /* 38 */
-	REGOP(0x11E805DC, 0), /* 39 */
-	REGOP(0x11E805E0, 0), /* 40 */
-	REGOP(0x11E805E4, 0), /* 41 */
-	REGOP(0x11E805E8, 0), /* 42 */
-	REGOP(0x11E807B4, 0), /* 43 */
-	REGOP(0x11E807BC, 0), /* 44 */
-	REGOP(0x1021C82C, 0), /* 45 */
-	REGOP(0x1021C830, 0), /* 46 */
-	REGOP(0x1021E82C, 0), /* 47 */
-	REGOP(0x1021E830, 0), /* 48 */
-	REGOP(0x10270228, 0), /* 49 */
-	REGOP(0x1027022C, 0), /* 50 */
-	REGOP(0x1030E228, 0), /* 51 */
-	REGOP(0x1030E22C, 0), /* 52 */
-	REGOP(0x1002C1A0, 0), /* 53 */
-	REGOP(0x1002C1AC, 0), /* 54 */
-	REGOP(0x1002C100, 0), /* 55 */
-	REGOP(0x1002C120, 0), /* 56 */
-	REGOP(0x10042000, 0), /* 57 */
-	REGOP(0x10028000, 0), /* 58 */
-	REGOP(0x10023000, 0), /* 59 */
-	REGOP(0x1002B000, 0), /* 60 */
+	REGOP(0x13FBF02C, 0), /* 3 */
+	REGOP(0x13FBF0B0, 0), /* 4 */
+	REGOP(0x13FBF168, 0), /* 5 */
+	REGOP(0x13FBF500, 0), /* 6 */
+	REGOP(0x13FBF080, 0), /* 7 */
+	REGOP(0x13FA0008, 0), /* 8 */
+	REGOP(0x13FA000C, 0), /* 9 */
+	REGOP(0x13FA0C08, 0), /* 10*/
+	REGOP(0x13FA0C0C, 0), /* 11 */
+	REGOP(0x13F91034, 0), /* 12 */
+	REGOP(0x13F91070, 0), /* 13 */
+	REGOP(0x13F910A0, 0), /* 14 */
+	REGOP(0x13F910A4, 0), /* 15 */
+	REGOP(0x13F910A8, 0), /* 16 */
+	REGOP(0x13F910AC, 0), /* 17 */
+	REGOP(0x13F910B0, 0), /* 18 */
+	REGOP(0x13F910B4, 0), /* 19 */
+	REGOP(0x13F910B8, 0), /* 20 */
+	REGOP(0x13F910BC, 0), /* 21 */
+	REGOP(0x13F910C0, 0), /* 22 */
+	REGOP(0x13F910C4, 0), /* 23 */
+	REGOP(0x13F910C8, 0), /* 24 */
+	REGOP(0x13F910CC, 0), /* 25 */
+	REGOP(0x13F910D0, 0), /* 26 */
+	REGOP(0x13F910D4, 0), /* 27 */
+	REGOP(0x13F910D8, 0), /* 28 */
+	REGOP(0x13F910DC, 0), /* 29 */
+	REGOP(0x13F910E0, 0), /* 30 */
+	REGOP(0x13F910E4, 0), /* 31 */
+	REGOP(0x13F91048, 0), /* 32 */
+	REGOP(0x1C001410, 0), /* 33 */
+	REGOP(0x1C001EE8, 0), /* 34 */
+	REGOP(0x1C001F78, 0), /* 35 */
+	REGOP(0x10000040, 0), /* 36 */
+	REGOP(0x100001F0, 0), /* 37 */
+	REGOP(0x11E805D4, 0), /* 38 */
+	REGOP(0x11E805D8, 0), /* 39 */
+	REGOP(0x11E805DC, 0), /* 40 */
+	REGOP(0x11E805E0, 0), /* 41 */
+	REGOP(0x11E805E4, 0), /* 42 */
+	REGOP(0x11E805E8, 0), /* 43 */
+	REGOP(0x11E807B4, 0), /* 44 */
+	REGOP(0x11E807BC, 0), /* 45 */
+	REGOP(0x1021C82C, 0), /* 46 */
+	REGOP(0x1021C830, 0), /* 47 */
+	REGOP(0x1021E82C, 0), /* 48 */
+	REGOP(0x1021E830, 0), /* 49 */
+	REGOP(0x10270228, 0), /* 50 */
+	REGOP(0x1027022C, 0), /* 51 */
+	REGOP(0x1030E228, 0), /* 52 */
+	REGOP(0x1030E22C, 0), /* 53 */
+	REGOP(0x1002C1A0, 0), /* 54 */
+	REGOP(0x1002C1AC, 0), /* 55 */
+	REGOP(0x1002C100, 0), /* 56 */
+	REGOP(0x1002C120, 0), /* 57 */
+	REGOP(0x10042000, 0), /* 58 */
+	REGOP(0x10028000, 0), /* 59 */
+	REGOP(0x10023000, 0), /* 60 */
+	REGOP(0x1002B000, 0), /* 61 */
 };
 
 #endif /* __GPUFREQ_REG_MT6985_H__ */
