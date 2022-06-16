@@ -7472,6 +7472,7 @@
 			mediatek,hwrscs-vers = <1>;
 			mediatek,syscon-wakeup = <&pericfg_ao_clk 0x200 103>;
 			wakeup-source;
+			mediatek,vs-voter = <&pmic 0x149a 0x1 1>;
 			usb-role-switch;
 			cdp-block;
 			port {
@@ -7513,6 +7514,7 @@
 			mediatek,clk-mgr;
 			mediatek,noise-still-tr;
 			/* mediatek,hwrscs-vers = <1>; */
+			mediatek,vs-voter = <&pmic 0x149a 0x1 1>;
 			usb-role-switch;
 			port {
 				mtu3_drd_switch1: endpoint@0 {
@@ -13684,7 +13686,7 @@ l3_hit,l3_mis,pmu_cyc_cnt";
 	};
 };
 &spmi {
-	pmic@4 {
+	pmic: pmic@4 {
 		mt6363_dynamic_loading_throttling: mtk-dynamic-loading-throttling {
 			compatible = "mediatek,mt6363-dynamic_loading_throttling";
 			/* charger: mtk_charger_thread */
