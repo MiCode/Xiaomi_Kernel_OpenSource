@@ -1038,10 +1038,38 @@ static void set_max_framerate(struct subdrv_ctx *ctx, UINT16 framerate, kal_bool
 		ctx->min_frame_length = ctx->frame_length;
 }	/*	set_max_framerate  */
 
+static kal_bool set_auto_flicker(struct subdrv_ctx *ctx)
+{
+	kal_uint16 realtime_fps = 0;
+
+	if (ctx->autoflicker_en) {
+		realtime_fps = ctx->pclk / ctx->line_length * 10
+				/ ctx->frame_length;
+		LOG_DEBUG("autoflicker enable, realtime_fps = %d\n",
+			realtime_fps);
+		if (realtime_fps >= 587 && realtime_fps <= 615) {
+			set_max_framerate(ctx, 586, 0);
+			write_frame_len(ctx, ctx->frame_length);
+			return KAL_TRUE;
+		}
+		if (realtime_fps >= 297 && realtime_fps <= 305) {
+			set_max_framerate(ctx, 296, 0);
+			write_frame_len(ctx, ctx->frame_length);
+			return KAL_TRUE;
+		}
+		if (realtime_fps >= 147 && realtime_fps <= 150) {
+			set_max_framerate(ctx, 146, 0);
+			write_frame_len(ctx, ctx->frame_length);
+			return KAL_TRUE;
+		}
+	}
+
+	return KAL_FALSE;
+}
+
 #define MAX_CIT_LSHIFT 7
 static void write_shutter(struct subdrv_ctx *ctx, kal_uint32 shutter, kal_bool gph)
 {
-	kal_uint16 realtime_fps = 0;
 	kal_uint16 l_shift = 1;
 	kal_uint32 fineIntegTime = fine_integ_line_table[ctx->current_scenario_id];
 	int i;
@@ -1066,17 +1094,8 @@ static void write_shutter(struct subdrv_ctx *ctx, kal_uint32 shutter, kal_bool g
 
 	if (gph)
 		set_cmos_sensor_8(ctx, 0x0104, 0x01);
-	if (ctx->autoflicker_en) {
-		realtime_fps = ctx->pclk / ctx->line_length * 10
-				/ ctx->frame_length;
-		LOG_DEBUG("autoflicker enable, realtime_fps = %d\n",
-			realtime_fps);
-		if (realtime_fps >= 297 && realtime_fps <= 305)
-			set_max_framerate(ctx, 296, 0);
-		else if (realtime_fps >= 147 && realtime_fps <= 150)
-			set_max_framerate(ctx, 146, 0);
-	}
 
+	set_auto_flicker(ctx);
 	ctx->shutter = shutter;
 
 	/* long expsoure */
@@ -1246,7 +1265,9 @@ static void set_multi_shutter_frame_length(struct subdrv_ctx *ctx,
 	}
 
 	set_cmos_sensor_8(ctx, 0x0104, 0x01);
-	write_frame_len(ctx, ctx->frame_length);
+
+	if (!set_auto_flicker(ctx))
+		write_frame_len(ctx, ctx->frame_length);
 	/* Long exposure */
 	set_cmos_sensor_8(ctx, 0x0202, (le >> 8) & 0xFF);
 	set_cmos_sensor_8(ctx, 0x0203, le & 0xFF);
@@ -1779,7 +1800,6 @@ static void custom16_setting(struct subdrv_ctx *ctx)
 static void hdr_write_tri_shutter_w_gph(struct subdrv_ctx *ctx,
 		kal_uint32 le, kal_uint32 me, kal_uint32 se, kal_bool gph)
 {
-	kal_uint16 realtime_fps = 0;
 	kal_uint16 exposure_cnt = 0;
 	kal_uint32 fineIntegTime = fine_integ_line_table[ctx->current_scenario_id];
 	int i;
@@ -1788,18 +1808,22 @@ static void hdr_write_tri_shutter_w_gph(struct subdrv_ctx *ctx,
 	me = FINE_INTEG_CONVERT(me, fineIntegTime);
 	se = FINE_INTEG_CONVERT(se, fineIntegTime);
 
-	if (le) {
+	if (le)
 		exposure_cnt++;
+	if (me)
+		exposure_cnt++;
+	if (se)
+		exposure_cnt++;
+
+	if (le) {
 		le = (kal_uint16)max(imgsensor_info.min_shutter, (kal_uint32)le);
 		le = round_up((le) / exposure_cnt, 4) * exposure_cnt;
 	}
 	if (me) {
-		exposure_cnt++;
 		me = (kal_uint16)max(imgsensor_info.min_shutter, (kal_uint32)me);
 		me = round_up((me) / exposure_cnt, 4) * exposure_cnt;
 	}
 	if (se) {
-		exposure_cnt++;
 		se = (kal_uint16)max(imgsensor_info.min_shutter, (kal_uint32)se);
 		se = round_up((se) / exposure_cnt, 4) * exposure_cnt;
 	}
@@ -1836,19 +1860,10 @@ static void hdr_write_tri_shutter_w_gph(struct subdrv_ctx *ctx,
 	if (se)
 		se = se / exposure_cnt;
 
-	if (ctx->autoflicker_en) {
-		realtime_fps =
-			ctx->pclk / ctx->line_length * 10 /
-			ctx->frame_length;
-		if (realtime_fps >= 297 && realtime_fps <= 305)
-			set_max_framerate(ctx, 296, 0);
-		else if (realtime_fps >= 147 && realtime_fps <= 150)
-			set_max_framerate(ctx, 146, 0);
-	}
-
 	if (gph)
 		set_cmos_sensor_8(ctx, 0x0104, 0x01);
 
+	set_auto_flicker(ctx);
 	// write_frame_len(ctx, ctx->frame_length);
 
 	/* Long exposure */
