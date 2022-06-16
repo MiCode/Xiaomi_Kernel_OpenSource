@@ -435,6 +435,14 @@ struct mml_task_pipe {
 	} en;
 };
 
+#if IS_ENABLED(CONFIG_MTK_MML_DEBUG)
+enum mml_dump_buf_t {
+	MMLDUMPT_SRC,
+	MMLDUMPT_DEST,
+	MMLDUMPT_CNT
+};
+#endif
+
 struct mml_task {
 	struct list_head entry;
 	struct mml_job job;
@@ -468,6 +476,11 @@ struct mml_task {
 	struct mml_pq_task *pq_task;
 
 	bool err;
+
+#if IS_ENABLED(CONFIG_MTK_MML_DEBUG)
+	/* frame dump */
+	bool dump_queued[MMLDUMPT_CNT];
+#endif
 };
 
 struct tile_func_block;
@@ -834,7 +847,54 @@ s32 mml_write_array(struct cmdq_pkt *pkt, dma_addr_t addr, u32 value, u32 mask,
 void mml_update_array(struct mml_task_reuse *reuse,
 	struct mml_reuse_array *reuses, u32 reuse_idx, u32 off_idx, u32 value);
 
-
 int tracing_mark_write(char *fmt, ...);
+
+#if IS_ENABLED(CONFIG_MTK_MML_DEBUG)
+
+/* debug parameter to enable dumpsrv */
+extern int mml_dump_srv;
+extern int mml_dump_srv_opt;
+
+/* control dumpsrv function work or stop */
+enum dump_srv_ctrl {
+	DUMPCTRL_DISABLE = 0,
+	DUMPCTRL_PAUSE,
+	DUMPCTRL_ENABLE,
+};
+
+/* bits of mml_dump_srv_opt */
+enum dump_srv_option {
+	DUMPOPT_SRC = 0x1,
+	DUMPOPT_DEST = 0x2,
+	DUMPOPT_ALL = 0x3,
+	DUMPOPT_SRC_ASYNC = 0x4,
+	DUMPOPT_DEST_ASYNC = 0x8,
+	DUMPOPT_ONCE = 0x10,
+};
+
+/* mml_dump_buf - wakeup dump service to dump buffer into file
+ *
+ * @task:	mml task to dump
+ * @data:	frame data related to buffer, src or one of dest
+ * @width:	buffer width
+ * @height:	buffer height
+ * @prefix:	string insert into file name
+ * @fmt:	formating string
+ * @buf:	mml buffer to dump
+ * @buf_type:	buffer type, source or destination
+ * @async:	set true to force config thread wait dump complete before next task
+ */
+void mml_dump_buf(struct mml_task *task, struct mml_frame_data *data,
+	u32 width, u32 height, const char *prefix,
+	char *fmt, struct mml_file_buf *buf, enum mml_dump_buf_t buf_type, bool async);
+
+/* mml_dump_wait - wait the dump finish of last call to mml_dump_buf
+ *
+ * @task:	mml task to dump
+ * @buf_type:	buffer type, source or destination
+ */
+void mml_dump_wait(struct mml_task *task, enum mml_dump_buf_t buf_type);
+
+#endif	/* CONFIG_MTK_MML_DEBUG */
 
 #endif	/* __MTK_MML_CORE_H__ */

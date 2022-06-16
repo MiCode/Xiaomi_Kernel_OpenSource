@@ -41,8 +41,15 @@ module_param(mml_comp_dump, int, 0644);
 int mml_trace;
 module_param(mml_trace, int, 0644);
 
+/* MML DVFS/QoS debug option, set following value:
+ * 0: disable mml dvfs/qos feature
+ * 1: default value, enable and calculate by frame data and end time
+ * > MML_DVFS_FORCE_MIN: force overwrite throughput by mask
+ */
 int mml_qos = 1;
 module_param(mml_qos, int, 0644);
+#define MML_DVFS_FORCE_MIN	0xf
+#define MML_DVFS_FORCE_MASK	0xffff
 
 int mml_qos_log;
 module_param(mml_qos_log, int, 0644);
@@ -420,12 +427,9 @@ static s32 command_reuse(struct mml_task *task, u32 pipe)
 	return 0;
 }
 
-static void get_frame_str(char *frame, size_t sz, const struct mml_frame_data *data)
+static void get_color_fmt(char *frame, size_t sz, const struct mml_frame_data *data)
 {
-	snprintf(frame, sz, "(%u, %u)[%u %u] %#010x C%u%s%s%s%s%s%s%s%s P%hu%s",
-		data->width, data->height, data->y_stride,
-		MML_FMT_AFBC(data->format) ? data->vert_stride : data->uv_stride,
-		data->format,
+	snprintf(frame, sz, "%u%s%s%s%s%s%s%s%s",
 		MML_FMT_HW_FORMAT(data->format),
 		MML_FMT_SWAP(data->format) ? "s" : "",
 		MML_FMT_BLOCK(data->format) ? "b" : "",
@@ -436,7 +440,19 @@ static void get_frame_str(char *frame, size_t sz, const struct mml_frame_data *d
 		MML_FMT_10BIT_LOOSE(data->format) ? "l" : "",
 		MML_FMT_10BIT_JUMP(data->format) ? "j" : "",
 		MML_FMT_AFBC(data->format) ? "c" : "",
-		MML_FMT_HYFBC(data->format) ? "h" : "",
+		MML_FMT_HYFBC(data->format) ? "h" : "");
+}
+
+static void get_frame_str(char *frame, size_t sz, const struct mml_frame_data *data)
+{
+	char color_fmt[24];
+
+	get_color_fmt(color_fmt, sizeof(color_fmt), data);
+	snprintf(frame, sz, "(%u, %u)[%u %u] %#010x C%s P%hu%s",
+		data->width, data->height, data->y_stride,
+		MML_FMT_AFBC(data->format) ? data->vert_stride : data->uv_stride,
+		data->format,
+		color_fmt,
 		data->profile,
 		data->secure ? " sec" : "");
 }
@@ -747,6 +763,9 @@ static void mml_core_dvfs_begin(struct mml_task *task, u32 pipe)
 			&task->end_time, &task->submit_time);
 	}
 
+	if (mml_qos > MML_DVFS_FORCE_MIN)
+		task->pipe[pipe].throughput = mml_qos & MML_DVFS_FORCE_MASK;
+
 	if (task->pipe[pipe].throughput) {
 		throughput = task->pipe[pipe].throughput;
 		list_for_each_entry(task_pipe_tmp, &path_clt->tasks, entry_clt) {
@@ -1027,6 +1046,32 @@ char *mml_core_get_dump_inst(u32 *size)
 	*size = mml_inst_dump_sz;
 	return mml_inst_dump;
 }
+
+static bool mml_check_dumpsrv(enum dump_srv_option buf_opt, struct mml_file_buf *buf)
+{
+	bool dump;
+
+	if (mml_dump_srv != DUMPCTRL_ENABLE)
+		return false;
+
+	mutex_lock(&mml_dump_mutex);
+	dump = mml_dump_srv_opt & buf_opt;
+	if (dump) {
+		if (mml_dump_srv_opt & DUMPOPT_ONCE)
+			mml_dump_srv = DUMPCTRL_PAUSE;
+		/* for not dram case remove dump */
+		if (!buf->dma[0].dmabuf) {
+			dump = false;
+			mml_dump_srv_opt = mml_dump_srv_opt & ~buf_opt;
+		}
+	}
+	mutex_unlock(&mml_dump_mutex);
+
+	if (dump && !buf->invalid)
+		mml_buf_invalid(buf);
+
+	return dump;
+}
 #endif	/* CONFIG_MTK_MML_DEBUG */
 
 static void core_taskdone_kt_work(struct kthread_work *work)
@@ -1051,6 +1096,21 @@ static void core_taskdone_kt_work(struct kthread_work *work)
 		mml_mmp(fence_sig, MMPROFILE_FLAG_PULSE, task->job.jobid,
 			mmp_data2_fence(task->fence->context, task->fence->seqno));
 	}
+
+#if IS_ENABLED(CONFIG_MTK_MML_DEBUG)
+	if (mml_check_dumpsrv(DUMPOPT_DEST, &task->buf.dest[0])) {
+		char fmt[24];
+		struct mml_frame_data *data = &task->config->info.dest[0].data;
+
+		get_color_fmt(fmt, sizeof(fmt), data);
+		mml_dump_buf(task, data,
+			data->width + task->config->info.dest[0].compose.left,
+			data->height + task->config->info.dest[0].compose.top,
+			"dest", fmt,
+			&task->buf.dest[0], MMLDUMPT_DEST,
+			mml_dump_srv_opt & DUMPOPT_DEST_ASYNC);
+	}
+#endif
 
 	queue_work(task->config->wq_done, &task->wq_work_done);
 	mml_trace_end();
@@ -1100,6 +1160,13 @@ static void core_taskdone(struct work_struct *work)
 		core_disable(task, 0);
 	if (task->pipe[1].en.clk)
 		core_disable(task, 1);
+
+#if IS_ENABLED(CONFIG_MTK_MML_DEBUG)
+	if (task->dump_queued[MMLDUMPT_SRC])
+		mml_dump_wait(task, MMLDUMPT_SRC);
+	if (task->dump_queued[MMLDUMPT_DEST])
+		mml_dump_wait(task, MMLDUMPT_DEST);
+#endif
 
 	if (task->pkts[0])
 		core_buffer_unprepare(task, 0);
@@ -1417,6 +1484,16 @@ static s32 core_flush(struct mml_task *task, u32 pipe)
 		}
 		mutex_unlock(&mml_dump_mutex);
 	}
+
+	if (pipe == 0 && mml_check_dumpsrv(DUMPOPT_SRC, &task->buf.src)) {
+		char fmt[24];
+		struct mml_frame_data *data = &task->config->info.src;
+
+		get_color_fmt(fmt, sizeof(fmt), data);
+		mml_dump_buf(task, data, data->width, data->height, "src", fmt,
+			&task->buf.src, MMLDUMPT_SRC,
+			mml_dump_srv_opt & DUMPOPT_SRC_ASYNC);
+	}
 #endif
 
 	/* assign error handler */
@@ -1568,6 +1645,11 @@ static void core_config_task(struct mml_task *task)
 	/* before pipe1 start, make sure iova map from device by pipe0 */
 	core_buffer_map(task);
 
+#if IS_ENABLED(CONFIG_MTK_MML_DEBUG)
+	task->dump_queued[MMLDUMPT_SRC] = false;
+	task->dump_queued[MMLDUMPT_DEST] = false;
+#endif
+
 	/* create dual work_thread[1] */
 	if (cfg->dual) {
 		if (cfg->info.mode == MML_MODE_RACING) {
@@ -1591,6 +1673,7 @@ static void core_config_task(struct mml_task *task)
 	/* check single pipe or (dual) pipe 1 done then callback */
 	if (cfg->dual)
 		flush_work(&task->work_config[1]);
+
 	cfg->task_ops->submit_done(task);
 
 done:

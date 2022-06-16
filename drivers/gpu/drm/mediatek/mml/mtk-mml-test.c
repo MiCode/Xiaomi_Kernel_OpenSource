@@ -12,6 +12,7 @@
 #include <linux/module.h>
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
+#include <linux/sched/clock.h>
 #include <linux/sync_file.h>
 #include <uapi/linux/dma-heap.h>
 
@@ -157,6 +158,8 @@ struct mml_test {
 	struct dentry *fs_inst;
 	struct dentry *fs_frame_in;
 	struct dentry *fs_frame_out;
+	struct dentry *fs_dump;
+	struct dentry *fs_dump_dest;
 };
 
 struct test_case_op {
@@ -1857,11 +1860,225 @@ static const struct file_operations mml_frame_out_fops = {
 	.release = single_release,
 };
 
+/* Following code implement mml dump service node */
+int mml_dump_srv;
+module_param(mml_dump_srv, int, 0644);
+
+int mml_dump_srv_opt = DUMPOPT_ALL;
+module_param(mml_dump_srv_opt, int, 0644);
+
+#define MML_DUMP_NAME_MAX 128
+
+enum MML_DUMPSRV_ACTION {
+	DUMPSRV_STOP,
+	DUMPSRV_CONTINUE,
+	DUMPSRV_WRITE_FILE,
+};
+
+/* must sync struct with mdp_ut */
+struct mml_dump_job {
+	uint32_t action;
+	int32_t fd;
+	uint32_t size;
+	char name[MML_DUMP_NAME_MAX];
+};
+
+struct mml_dump_context {
+	wait_queue_head_t dump_queue;
+	struct completion write_done;
+
+	struct mutex job_mutex;
+	u64 stamp;
+	struct dma_buf *frame_dma_buf;
+	u32 size;
+	char name[MML_DUMP_NAME_MAX];
+
+	enum mml_dump_buf_t buf_type;
+
+	bool ready;
+	bool async;
+};
+
+static struct mml_dump_context dump_ctx[MMLDUMPT_CNT] = {
+	[MMLDUMPT_DEST] = {.buf_type = MMLDUMPT_DEST},
+};
+
+void mml_dump_buf(struct mml_task *task, struct mml_frame_data *data,
+	u32 width, u32 height, const char *prefix,
+	char *fmt, struct mml_file_buf *buf, enum mml_dump_buf_t buf_type, bool async)
+{
+	u32 i;
+	u64 stamp;
+
+	if (buf_type >= ARRAY_SIZE(dump_ctx)) {
+		mml_err("[dumpsrv]%s wrong type %d", __func__, buf_type);
+		return;
+	}
+
+	mutex_lock(&dump_ctx[buf_type].job_mutex);
+
+	if (!dump_ctx[buf_type].ready) {
+		mml_err("[dumpsrv]%s type %d skip job %u cause not ready",
+			__func__, buf_type, task->job.jobid);
+		goto exit;
+	}
+
+	dump_ctx[buf_type].stamp = sched_clock();
+	stamp = div_u64(dump_ctx[buf_type].stamp, 1000000);
+
+	dump_ctx[buf_type].async = async;
+	dump_ctx[buf_type].size = 0;
+	for (i = 0; i < MML_MAX_PLANES; i++)
+		dump_ctx[buf_type].size += buf->size[i];
+
+	snprintf(dump_ctx[buf_type].name, sizeof(dump_ctx[buf_type].name),
+		"mml_%u_%u_%s_f%s_%u_%u_%u.bin",
+		stamp, task->job.jobid, prefix, fmt,
+		width, height, data->y_stride);
+	dump_ctx[buf_type].frame_dma_buf = buf->dma[0].dmabuf;
+	dump_ctx[buf_type].ready = false;
+
+	task->dump_queued[buf_type] = true;
+	if (!async)
+		init_completion(&dump_ctx[buf_type].write_done);
+
+	wake_up(&dump_ctx[buf_type].dump_queue);
+
+exit:
+	mutex_unlock(&dump_ctx[buf_type].job_mutex);
+}
+
+void mml_dump_wait(struct mml_task *task, enum mml_dump_buf_t buf_type)
+{
+	if (!dump_ctx[buf_type].async)
+		wait_for_completion(&dump_ctx[buf_type].write_done);
+	mutex_lock(&dump_ctx[buf_type].job_mutex);
+	task->dump_queued[buf_type] = false;
+	dump_ctx[buf_type].ready = true;
+	mutex_unlock(&dump_ctx[buf_type].job_mutex);
+}
+
+static ssize_t dumpsrv_read(struct file *filp, char __user *buf, size_t size,
+	loff_t *offset)
+{
+	struct mml_dump_context *dctx = (struct mml_dump_context *)filp->private_data;
+	struct mml_dump_job job;
+	int ret;
+
+	if (size != sizeof(struct mml_dump_job)) {
+		mml_err("[dumpsrv]size not match %u %zu",
+			size, sizeof(struct mml_dump_job));
+		return -EFAULT;
+	}
+
+	if (copy_from_user(&job, buf, sizeof(struct mml_dump_job))) {
+		mml_err("[dumpsrv]copy_from_user failed len:%zu",
+			sizeof(struct mml_dump_job));
+		return -EFAULT;
+	}
+
+	ret = wait_event_timeout(dctx->dump_queue, dctx->frame_dma_buf != NULL,
+		msecs_to_jiffies(1000));
+	if (!ret) {
+		if (mml_dump_srv == DUMPCTRL_DISABLE)
+			job.action = DUMPSRV_STOP;
+		else
+			job.action = DUMPSRV_CONTINUE;
+		goto exit;
+	}
+
+	mutex_lock(&dctx->job_mutex);
+	job.action = DUMPSRV_WRITE_FILE;
+	get_dma_buf(dctx->frame_dma_buf);
+	job.fd = dma_buf_fd(dctx->frame_dma_buf, O_RDWR | O_CLOEXEC);
+	job.size = dctx->size;
+	memcpy(job.name, dctx->name, sizeof(job.name));
+
+	mml_log("[dumpsrv]%s action %u fd %d size %u name %s buft %d opt %#x",
+		__func__, job.action, job.fd, job.size, job.name, dctx->buf_type,
+		mml_dump_srv_opt);
+
+	dctx->frame_dma_buf = NULL;
+	dctx->size = 0;
+	mutex_unlock(&dctx->job_mutex);
+
+exit:
+	ret = copy_to_user(buf, &job, sizeof(job));
+	if (ret)
+		mml_err("[dumpsrv]%s fail to copy job %d", __func__, ret);
+	*offset += sizeof(job);
+
+	return sizeof(job);
+}
+
+static ssize_t dumpsrv_write(struct file *filp, const char __user *buf, size_t len,
+	loff_t *offset)
+{
+	struct mml_dump_context *dctx = (struct mml_dump_context *)filp->private_data;
+	u64 stamp;
+
+	mutex_lock(&dctx->job_mutex);
+
+	if (dctx->async)
+		dctx->ready = true;
+	else
+		complete(&dctx->write_done);
+	stamp = div_u64(sched_clock() - dctx->stamp, 1000);
+	mml_log("[dumpsrv]%s done cost %lluus async %s",
+		dctx->name, stamp, dctx->async ? "true" : "false");
+
+	mutex_unlock(&dctx->job_mutex);
+
+	return 0;
+}
+
+static int dumpsrv_open(struct inode *node, struct file *filp)
+{
+	mml_log("[dumpsrv]%s %p open", __func__, filp);
+	filp->private_data = &dump_ctx[MMLDUMPT_SRC];
+	dump_ctx[MMLDUMPT_SRC].ready = true;
+	return 0;
+}
+
+static int dumpsrv_dest_open(struct inode *node, struct file *filp)
+{
+	mml_log("[dumpsrv]%s %p open", __func__, filp);
+	filp->private_data = &dump_ctx[MMLDUMPT_DEST];
+	dump_ctx[MMLDUMPT_DEST].ready = true;
+	return 0;
+}
+
+
+static int dumpsrv_release(struct inode *node, struct file *filp)
+{
+	struct mml_dump_context *dctx = (struct mml_dump_context *)filp->private_data;
+
+	dctx->ready = false;
+	filp->private_data = NULL;
+	mml_log("[dumpsrv]%p released", filp);
+	return 0;
+}
+
+static const struct file_operations dumpsrv_fops = {
+	.open = dumpsrv_open,
+	.release = dumpsrv_release,
+	.read = dumpsrv_read,
+	.write = dumpsrv_write,
+};
+
+static const struct file_operations dumpsrv_dest_fops = {
+	.open = dumpsrv_dest_open,
+	.release = dumpsrv_release,
+	.read = dumpsrv_read,
+	.write = dumpsrv_write,
+};
+
 static int probe(struct platform_device *pdev)
 {
 	struct mml_test *test;
 	struct dentry *dir;
 	bool exists = false;
+	u32 i;
 
 	mml_log("[test]mml-test %s begin", __func__);
 	test = devm_kzalloc(&pdev->dev, sizeof(*test), GFP_KERNEL);
@@ -1906,6 +2123,20 @@ static int probe(struct platform_device *pdev)
 		mml_err("[test]debugfs_create_file mml-frame-dump-out failed:%ld",
 			PTR_ERR(test->fs_frame_out));
 
+	test->fs_dump = debugfs_create_file(
+		"mml-dumpsrv", 0444, dir, test, &dumpsrv_fops);
+	if (IS_ERR(test->fs_dump)) {
+		mml_err("debugfs_create_file mml-dumpsrv failed:%pe", test->fs_dump);
+		return PTR_ERR(test->fs_dump);
+	}
+
+	test->fs_dump_dest = debugfs_create_file(
+		"mml-dumpsrv-dest", 0444, dir, test, &dumpsrv_dest_fops);
+	if (IS_ERR(test->fs_dump_dest)) {
+		mml_err("debugfs_create_file mml-dumpsrv-dest failed:%pe", test->fs_dump_dest);
+		return PTR_ERR(test->fs_dump_dest);
+	}
+
 	if (exists)
 		dput(dir);
 
@@ -1913,6 +2144,11 @@ static int probe(struct platform_device *pdev)
 	mml_log("[test]debugfs_create_file mml-test success");
 
 	main_test = test;
+
+	for (i = 0; i < ARRAY_SIZE(dump_ctx); i++) {
+		mutex_init(&dump_ctx[i].job_mutex);
+		init_waitqueue_head(&dump_ctx[i].dump_queue);
+	}
 
 	return 0;
 }
