@@ -11,12 +11,9 @@
 #include <linux/types.h>
 #include <linux/fs.h>
 
-typedef void (*UARTHUB_CORE_IRQ_CB) (int err_type);
-
 struct uarthub_reg_base_addr {
 	unsigned long vir_addr;
 	unsigned long phy_addr;
-	unsigned long long size;
 };
 
 struct assert_ctrl {
@@ -26,15 +23,42 @@ struct assert_ctrl {
 };
 
 struct uarthub_gpio_base_addr {
-	void __iomem *vir_addr;
-	unsigned int phy_addr;
-	unsigned int mask;
-	unsigned int value;
+	unsigned long addr;
+	unsigned long mask;
+	unsigned long value;
+	unsigned long gpio_value;
 };
 
 struct uarthub_gpio_trx_info {
 	struct uarthub_gpio_base_addr gpio_tx;
 	struct uarthub_gpio_base_addr gpio_rx;
+};
+
+typedef void (*UARTHUB_CORE_IRQ_CB) (int err_type);
+
+typedef int(*UARTHUB_PLAT_INIT_REMAP_REG) (void);
+typedef int(*UARTHUB_PLAT_DEINIT_UNMAP_REG) (void);
+typedef int(*UARTHUB_PLAT_GET_MAX_NUM_DEV_HOST) (void);
+typedef int(*UARTHUB_PLAT_GET_DEFAULT_BAUD_RATE) (int dev_index);
+typedef int(*UARTHUB_PLAT_CONFIG_GPIO_TRX) (void);
+typedef int(*UARTHUB_PLAT_GET_GPIO_TRX_INFO) (struct uarthub_gpio_trx_info *info);
+typedef int(*UARTHUB_PLAT_GET_UARTHUB_CLK_GATING_INFO) (void);
+typedef int(*UARTHUB_PLAT_GET_HWCCF_UNIVPLL_DONE_INFO) (void);
+typedef int(*UARTHUB_PLAT_GET_UART_MUX_INFO) (void);
+typedef int(*UARTHUB_PLAT_GET_UARTHUB_ADDR_INFO) (struct uarthub_reg_base_addr *info);
+
+struct uarthub_ops_struct {
+	/* load from dts */
+	UARTHUB_PLAT_INIT_REMAP_REG uarthub_plat_init_remap_reg;
+	UARTHUB_PLAT_DEINIT_UNMAP_REG uarthub_plat_deinit_unmap_reg;
+	UARTHUB_PLAT_GET_MAX_NUM_DEV_HOST uarthub_plat_get_max_num_dev_host;
+	UARTHUB_PLAT_GET_DEFAULT_BAUD_RATE uarthub_plat_get_default_baud_rate;
+	UARTHUB_PLAT_CONFIG_GPIO_TRX uarthub_plat_config_gpio_trx;
+	UARTHUB_PLAT_GET_GPIO_TRX_INFO uarthub_plat_get_gpio_trx_info;
+	UARTHUB_PLAT_GET_UARTHUB_CLK_GATING_INFO uarthub_plat_get_uarthub_clk_gating_info;
+	UARTHUB_PLAT_GET_HWCCF_UNIVPLL_DONE_INFO uarthub_plat_get_hwccf_univpll_done_info;
+	UARTHUB_PLAT_GET_UART_MUX_INFO uarthub_plat_get_uart_mux_info;
+	UARTHUB_PLAT_GET_UARTHUB_ADDR_INFO uarthub_plat_get_uarthub_addr_info;
 };
 
 static char * const UARTHUB_irq_err_type_str[] = {
@@ -60,16 +84,14 @@ static char * const UARTHUB_irq_err_type_str[] = {
 /*******************************************************************************
  *                              internal function
  *******************************************************************************/
+struct uarthub_ops_struct *uarthub_core_get_platform_ic_ops(struct platform_device *pdev);
 int uarthub_core_irq_register(struct platform_device *pdev);
 int uarthub_core_read_reg_from_dts(struct platform_device *pdev);
 int uarthub_core_check_disable_from_dts(struct platform_device *pdev);
-int uarthub_core_read_max_dev_from_dts(struct platform_device *pdev);
-int uarthub_core_config_gpio_from_dts(struct platform_device *pdev);
-int uarthub_core_config_uart_glue_ctrl_from_dts(struct platform_device *pdev);
-int uarthub_core_config_hwccf_pll_done_remap_addr_from_dts(struct platform_device *pdev);
-int uarthub_core_config_univpll_clk_remap_addr_from_dts(struct platform_device *pdev);
+int uarthub_core_get_max_dev(void);
+int uarthub_core_config_hub_mode_gpio(void);
 int uarthub_core_clk_get_from_dts(struct platform_device *pdev);
-int uarthub_core_read_baud_rate_from_dts(int dev_index, struct platform_device *pdev);
+int uarthub_core_get_default_baud_rate(int dev_index);
 int uarthub_core_check_irq_err_type(void);
 int uarthub_core_irq_mask_ctrl(int mask);
 int uarthub_core_irq_clear_ctrl(void);

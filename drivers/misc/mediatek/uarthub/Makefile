@@ -19,6 +19,8 @@ ifneq ($(KERNELRELEASE),)
     subdir-ccflags-y += -I$(srctree)/
     subdir-ccflags-y += -Werror -I$(srctree)/drivers/misc/mediatek/include/mt-plat
     subdir-ccflags-y += -I$(srctree)/drivers/pinctrl/mediatek/
+    subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/uarthub/common
+    subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/uarthub/common/platform/inc
 
     # Do Nothing, move to standalone repo
     MODULE_NAME := uarthub_drv
@@ -26,6 +28,7 @@ ifneq ($(KERNELRELEASE),)
 
     $(MODULE_NAME)-objs += common/uarthub_drv_core.o
     $(MODULE_NAME)-objs += common/uarthub_drv_export.o
+    $(MODULE_NAME)-objs += common/platform/mt6985.o
 
 # Otherwise we were called directly from the command line;
 # invoke the kernel build system.
