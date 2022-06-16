@@ -191,7 +191,7 @@
 				regulator-name = "mt6373_vrf13_aif";
 				regulator-min-microvolt = <600000>;
 				regulator-max-microvolt = <2100000>;
-				regulator-enable-ramp-delay = <723>;
+				regulator-enable-ramp-delay = <720>;
 				regulator-allowed-modes = <0 2>;
 			};
 			mt6373_vrf18_aif: vrf18-aif {
@@ -199,7 +199,7 @@
 				regulator-name = "mt6373_vrf18_aif";
 				regulator-min-microvolt = <600000>;
 				regulator-max-microvolt = <2100000>;
-				regulator-enable-ramp-delay = <722>;
+				regulator-enable-ramp-delay = <720>;
 				regulator-allowed-modes = <0 2>;
 			};
 			mt6373_vrfio18_aif: vrfio18-aif {
@@ -215,7 +215,7 @@
 				regulator-name = "mt6373_vrf09_aif";
 				regulator-min-microvolt = <600000>;
 				regulator-max-microvolt = <2100000>;
-				regulator-enable-ramp-delay = <725>;
+				regulator-enable-ramp-delay = <720>;
 				regulator-allowed-modes = <0 2>;
 			};
 			mt6373_vrf12_aif: vrf12-aif {
@@ -223,7 +223,7 @@
 				regulator-name = "mt6373_vrf12_aif";
 				regulator-min-microvolt = <900000>;
 				regulator-max-microvolt = <1810000>;
-				regulator-enable-ramp-delay = <724>;
+				regulator-enable-ramp-delay = <720>;
 				regulator-allowed-modes = <0 2>;
 			};
 			mt6373_vant18: vant18 {
@@ -231,7 +231,7 @@
 				regulator-name = "mt6373_vant18";
 				regulator-min-microvolt = <600000>;
 				regulator-max-microvolt = <2100000>;
-				regulator-enable-ramp-delay = <721>;
+				regulator-enable-ramp-delay = <720>;
 				regulator-allowed-modes = <0 2>;
 			};
 			mt6373_vsram_digrf_aif: vsram-digrf-aif {
@@ -239,7 +239,7 @@
 				regulator-name = "mt6373_vsram_digrf_aif";
 				regulator-min-microvolt = <400000>;
 				regulator-max-microvolt = <1193750>;
-				regulator-enable-ramp-delay = <726>;
+				regulator-enable-ramp-delay = <180>;
 				regulator-allowed-modes = <0 2>;
 			};
 			mt6373_vibr: vibr {
