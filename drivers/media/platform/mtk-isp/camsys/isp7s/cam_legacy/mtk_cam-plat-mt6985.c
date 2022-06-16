@@ -180,6 +180,8 @@ static const struct plat_v4l2_data mt6985_v4l2_data = {
 	.set_sv_meta_stats_info = set_sv_meta_stats_info,
 
 	.get_port_bw = get_port_bw,
+
+	.cammux_id_raw_start = 34,
 };
 
 struct camsys_platform_data mt6985_data = {

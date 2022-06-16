@@ -7149,14 +7149,15 @@ void mtk_cam_stop_ctx(struct mtk_cam_ctx *ctx, struct media_entity *entity)
 int PipeIDtoTGIDX(int pipe_id)
 {
 	/* camsv/mraw's cammux id is defined in its own dts */
+	int cammux_id_raw_start = GET_PLAT_V4L2(cammux_id_raw_start);
 
 	switch (pipe_id) {
 	case MTKCAM_SUBDEV_RAW_0:
-					return 34;
+		return cammux_id_raw_start;
 	case MTKCAM_SUBDEV_RAW_1:
-					return 35;
+		return cammux_id_raw_start + 1;
 	case MTKCAM_SUBDEV_RAW_2:
-					return 36;
+		return cammux_id_raw_start + 2;
 	default:
 			break;
 	}

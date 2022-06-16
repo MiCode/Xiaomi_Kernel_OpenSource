@@ -40,6 +40,7 @@ struct plat_v4l2_data {
 
 	int (*get_port_bw)(enum MMQOS_PORT port,
 		unsigned long height, unsigned long fps);
+	int cammux_id_raw_start;
 };
 
 struct plat_data_hw {
