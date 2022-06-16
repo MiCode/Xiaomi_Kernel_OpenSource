@@ -26,10 +26,6 @@
 
 #define MMINFRA_MAX_CLK_NUM	(4)
 
-enum {
-	AOV_MUX, AOV_LP_PARENT, AOV_PARENT, AOV_CLK_NUM
-};
-
 struct mminfra_dbg {
 	void __iomem *ctrl_base;
 	void __iomem *mminfra_base;
@@ -45,8 +41,6 @@ static struct clk *mminfra_clk[MMINFRA_MAX_CLK_NUM];
 static atomic_t clk_ref_cnt = ATOMIC_INIT(0);
 static struct device *dev;
 static struct mminfra_dbg *dbg;
-static bool is_aov_enable;
-static struct clk *aov_clk[AOV_CLK_NUM];
 static u32 mminfra_bkrs;
 
 #define MMINFRA_BASE		0x1e800000
@@ -61,11 +55,6 @@ static u32 mminfra_bkrs;
 
 #define GCED				0
 #define GCEM				1
-
-void mtk_mminfra_dbg_aov_enable(const bool enable)
-{
-	is_aov_enable = enable;
-}
 
 static bool mminfra_check_scmi_status(void)
 {
@@ -409,7 +398,7 @@ static int mminfra_debug_probe(struct platform_device *pdev)
 	const char *name;
 	struct clk *clk;
 	u32 comm_id;
-	int ret = 0, i = 0, j = 0, irq;
+	int ret = 0, i = 0, irq;
 
 	dbg = kzalloc(sizeof(*dbg), GFP_KERNEL);
 	if (!dbg)
@@ -485,23 +474,12 @@ static int mminfra_debug_probe(struct platform_device *pdev)
 			break;
 		}
 
-		if (!strncmp("clk", name, 3)) {
-			if (i == MMINFRA_MAX_CLK_NUM) {
-				dev_notice(dev, "%s: clk num is wrong\n", __func__);
-				ret = -EINVAL;
-				break;
-			}
-			mminfra_clk[i++] = clk;
+		if (i == MMINFRA_MAX_CLK_NUM) {
+			dev_notice(dev, "%s: clk num is wrong\n", __func__);
+			ret = -EINVAL;
+			break;
 		}
-
-		if (!strncmp("aov", name, 3)) {
-			if (j == AOV_CLK_NUM) {
-				dev_notice(dev, "%s: aov clk num is wrong\n", __func__);
-				ret = -EINVAL;
-				break;
-			}
-			aov_clk[j++] = clk;
-		}
+		mminfra_clk[i++] = clk;
 	}
 	if (of_property_read_bool(node, "init-clk-on")) {
 		atomic_inc(&clk_ref_cnt);
