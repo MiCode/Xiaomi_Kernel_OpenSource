@@ -2543,25 +2543,28 @@ void cmdq_pkt_err_dump_cb(struct cmdq_cb_data data)
 		cmdq_util_msg("curr inst: Not Available");
 
 	cmdq_pkt_call_item_cb(item);
-	cmdq_dump_pkt(pkt, pc, true);
+
+	if (!pkt->aee_cb)
+		aee = CMDQ_AEE_WARN;
+	else
+		aee = pkt->aee_cb(data);
+
+	if (aee != CMDQ_NO_AEE) {
+		cmdq_dump_pkt(pkt, pc, true);
 
 #ifdef CMDQ_SECURE_SUPPORT
-	if (!pkt->sec_data)
-		cmdq_util_helper->dump_smi();
+		if (!pkt->sec_data)
+			cmdq_util_helper->dump_smi();
 #else
-	cmdq_util_helper->dump_smi();
+		cmdq_util_helper->dump_smi();
 #endif
+	}
 
 	pkt->err_data.offset = cmdq_task_current_offset(pc, pkt);
 	if (inst && inst->op == CMDQ_CODE_WFE) {
 		pkt->err_data.wfe_timeout = true;
 		pkt->err_data.event = inst->arg_a;
 	}
-
-	if (!pkt->aee_cb)
-		aee = CMDQ_AEE_WARN;
-	else
-		aee = pkt->aee_cb(data);
 
 	if (inst && inst->op == CMDQ_CODE_WFE) {
 		mod = cmdq_util_helper->event_module_dispatch(gce_pa, inst->arg_a,
