@@ -181,6 +181,30 @@ u32 cmdq_test_get_subsys_list(u32 **regs_out)
 	return ARRAY_SIZE(regs);
 }
 
+void cmdq_test_set_ostd(void)
+{
+	void __iomem	*va_base;
+	u32 val = 0x01014000;
+	u32 pa_base;
+	u32 preval, newval;
+
+	/* 1. set mdp_smi_common outstanding to 1 : 0x1E80F120 = 0x01014000 */
+	pa_base = 0x1E80F120;
+	va_base = ioremap(pa_base, 0x1000);
+	preval = readl(va_base);
+	writel(val, va_base);
+	newval = readl(va_base);
+	cmdq_msg("%s addr0x%#x: 0x%#x -> 0x%#x  ", __func__, pa_base, preval, newval);
+
+	/* 2. set mdp_sub_common outstanding to 1 : 0x1E818120 = 0x01014000 */
+	pa_base = 0x1E818120;
+	va_base = ioremap(pa_base, 0x1000);
+	preval = readl(va_base);
+	writel(val, va_base);
+	newval = readl(va_base);
+	cmdq_msg("%s addr0x%#x: 0x%#x -> 0x%#x  ", __func__, pa_base, preval, newval);
+}
+
 const char *cmdq_util_hw_name(void *chan)
 {
 	u32 hw_id = cmdq_util_hw_id((u32)cmdq_mbox_get_base_pa(chan));
@@ -226,6 +250,7 @@ struct cmdq_util_platform_fp platform_fp = {
 	.event_module_dispatch = cmdq_event_module_dispatch,
 	.util_hw_id = cmdq_util_hw_id,
 	.test_get_subsys_list = cmdq_test_get_subsys_list,
+	.test_set_ostd = cmdq_test_set_ostd,
 	.util_hw_name = cmdq_util_hw_name,
 	.thread_ddr_module = cmdq_thread_ddr_module,
 	.hw_trace_thread = cmdq_mbox_hw_trace_thread,

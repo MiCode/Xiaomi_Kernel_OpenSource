@@ -31,6 +31,9 @@
 #define CMDQ_GPR_DEBUG_TIMER		CMDQ_GPR_R14
 #define CMDQ_GPR_DEBUG_DUMMY		CMDQ_GPR_R15
 
+#define GCE_BUS_GCTL	0x40
+#define GCE_PC_HIGH		0xd4
+
 enum {
 	CMDQ_TEST_SUBSYS_GCE,
 	CMDQ_TEST_SUBSYS_MMSYS,
@@ -876,7 +879,7 @@ static void cmdq_access_sub_impl(struct cmdq_test *test,
 		cmdq_pkt_destroy(pkt);
 	}
 
-	cmdq_mbox_buf_free(test->clt, va, pa);
+	cmdq_mbox_buf_free(clt, va, pa);
 }
 
 static void cmdq_test_mbox_subsys_access(struct cmdq_test *test)
@@ -908,7 +911,7 @@ static void cmdq_test_devapc_vio(struct cmdq_test *test)
 	int ret;
 
 	pkt = cmdq_pkt_create(test->clt);
-	cmdq_pkt_read(pkt, NULL, 0x14000000, CMDQ_THR_SPR_IDX3);
+	cmdq_pkt_read(pkt, NULL, 0x0, CMDQ_THR_SPR_IDX3);
 	ret = cmdq_pkt_flush(pkt);
 	cmdq_pkt_destroy(pkt);
 
@@ -1520,6 +1523,17 @@ static void cmdq_test_mbox_access_illegal(struct cmdq_test *test)
 	cmdq_pkt_destroy(pkt);
 }
 
+static void cmdq_test_sec_reg(struct cmdq_test *test)
+{
+	writel(0x1 << 4, (void *)(test->gce.va + GCE_BUS_GCTL));
+	cmdq_msg("%s GCE_BUS_GCTL = %#x", __func__,
+		readl((void *)(test->gce.va + GCE_BUS_GCTL)));
+
+	writel(0x1, (void *)(test->gce.va + GCE_PC_HIGH));
+	cmdq_msg("%s GCE_PC_HIGH = %#x", __func__,
+		readl((void *)(test->gce.va + GCE_PC_HIGH)));
+}
+
 static void
 cmdq_test_trigger(struct cmdq_test *test, enum CMDQ_SECURE_STATE_ENUM sec, const s32 id)
 {
@@ -1650,6 +1664,9 @@ cmdq_test_trigger(struct cmdq_test *test, enum CMDQ_SECURE_STATE_ENUM sec, const
 		break;
 	case 25:
 		cmdq_test_mbox_access_illegal(test);
+		break;
+	case 26:
+		cmdq_test_sec_reg(test);
 		break;
 	default:
 		break;
