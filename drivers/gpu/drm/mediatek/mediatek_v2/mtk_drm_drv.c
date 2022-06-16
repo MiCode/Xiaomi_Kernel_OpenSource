@@ -3878,6 +3878,10 @@ static void mtk_drm_get_top_clk(struct mtk_drm_private *priv)
 	pm_runtime_get_sync(dev);
 	if (priv->side_mmsys_dev)
 		pm_runtime_get_sync(priv->side_mmsys_dev);
+	if (priv->ovlsys_dev)
+		pm_runtime_get_sync(priv->ovlsys_dev);
+	if (priv->side_ovlsys_dev)
+		pm_runtime_get_sync(priv->side_ovlsys_dev);
 	for (i = 0; i < priv->top_clk_num; i++) {
 		clk = of_clk_get(node, i);
 
@@ -3924,6 +3928,10 @@ void mtk_drm_top_clk_prepare_enable(struct drm_device *drm)
 	pm_runtime_get_sync(priv->mmsys_dev);
 	if (priv->side_mmsys_dev)
 		pm_runtime_get_sync(priv->side_mmsys_dev);
+	if (priv->ovlsys_dev)
+		pm_runtime_get_sync(priv->ovlsys_dev);
+	if (priv->side_ovlsys_dev)
+		pm_runtime_get_sync(priv->side_ovlsys_dev);
 	for (i = 0; i < priv->top_clk_num; i++) {
 		if (IS_ERR(priv->top_clk[i])) {
 			DDPPR_ERR("%s invalid %d clk\n", __func__, i);
@@ -3983,6 +3991,10 @@ void mtk_drm_top_clk_disable_unprepare(struct drm_device *drm)
 	pm_runtime_put_sync(priv->mmsys_dev);
 	if (priv->side_mmsys_dev)
 		pm_runtime_put_sync(priv->side_mmsys_dev);
+	if (priv->ovlsys_dev)
+		pm_runtime_put_sync(priv->ovlsys_dev);
+	if (priv->side_ovlsys_dev)
+		pm_runtime_put_sync(priv->side_ovlsys_dev);
 	DRM_MMP_MARK(top_clk, atomic_read(&top_clk_ref),
 			atomic_read(&top_isr_ref));
 }
@@ -5947,6 +5959,34 @@ struct disp_iommu_device *disp_get_iommu_dev(void)
 	return &disp_iommu;
 }
 
+struct device *mtk_drm_get_pd_device(struct device *dev, const char *id)
+{
+	int index;
+	struct device_node *np = NULL;
+	struct platform_device *pd_pdev;
+	struct device *pd_dev;
+
+	index = of_property_match_string(dev->of_node, "pd-names", id);
+	np = of_parse_phandle(dev->of_node, "pd-others", index);
+	if (!np) {
+		DDPPR_ERR("can't find %s device node\n", id);
+		return NULL;
+	}
+
+	DDPINFO("get %s power-domain at %s\n", id, np->full_name);
+
+	pd_pdev = of_find_device_by_node(np);
+	if (!pd_pdev) {
+		DDPPR_ERR("can't get %s pdev\n", id);
+		return NULL;
+	}
+
+	pd_dev = get_device(&pd_pdev->dev);
+	of_node_put(np);
+
+	return pd_dev;
+}
+
 static int mtk_drm_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -6035,19 +6075,23 @@ static int mtk_drm_probe(struct platform_device *pdev)
 		}
 		private->side_config_regs_pa = mem->start;
 	}
-	/* tricky method to handle dispsys1 power domain */
-	side_node = of_find_compatible_node(NULL, NULL, "mediatek,disp_mutex0");
-	if (side_node) {
-		side_pdev = of_find_device_by_node(side_node);
-		if (!side_pdev)
-			DDPPR_ERR("can't get side_mmsys_dev\n");
-		else
-			side_dev = get_device(&side_pdev->dev);
-	} else {
-		DDPPR_ERR("can't find side_mmsys node");
-	}
-	of_node_put(side_node);
+	private->mmsys_dev = dev;
 
+	side_dev = mtk_drm_get_pd_device(dev, "side_dispsys");
+	if (!side_dev) {
+		/* tricky method to handle dispsys1 power domain */
+		side_node = of_find_compatible_node(NULL, NULL, "mediatek,disp_mutex0");
+		if (side_node) {
+			side_pdev = of_find_device_by_node(side_node);
+			if (!side_pdev)
+				DDPPR_ERR("can't get side_mmsys_dev\n");
+			else
+				side_dev = get_device(&side_pdev->dev);
+		} else {
+			DDPPR_ERR("can't find side_mmsys node");
+		}
+		of_node_put(side_node);
+	}
 	private->side_mmsys_dev = side_dev;
 
 SKIP_SIDE_DISP:
@@ -6069,6 +6113,9 @@ SKIP_SIDE_DISP:
 		return ret;
 	}
 
+	side_dev = mtk_drm_get_pd_device(dev, "ovlsys");
+	private->ovlsys_dev = side_dev;
+
 	if (private->ovlsys_num == 1)
 		goto SKIP_OVLSYS_CONFIG;
 
@@ -6084,9 +6131,11 @@ SKIP_SIDE_DISP:
 			ret);
 		return ret;
 	}
-SKIP_OVLSYS_CONFIG:
 
-	private->mmsys_dev = dev;
+	side_dev = mtk_drm_get_pd_device(dev, "side_ovlsys");
+	private->side_ovlsys_dev = side_dev;
+
+SKIP_OVLSYS_CONFIG:
 
 	if (private->data->bypass_infra_ddr_control) {
 		struct device_node *infra_node;
@@ -6120,8 +6169,12 @@ SKIP_OVLSYS_CONFIG:
 	}
 
 	pm_runtime_enable(dev);
-	if (side_dev)
-		pm_runtime_enable(side_dev);
+	if (private->side_mmsys_dev)
+		pm_runtime_enable(private->side_mmsys_dev);
+	if (private->ovlsys_dev)
+		pm_runtime_enable(private->ovlsys_dev);
+	if (private->side_ovlsys_dev)
+		pm_runtime_enable(private->side_ovlsys_dev);
 
 	/* Get and enable top clk align to HW */
 	mtk_drm_get_top_clk(private);
@@ -6253,8 +6306,12 @@ SKIP_OVLSYS_CONFIG:
 
 err_pm:
 	pm_runtime_disable(dev);
-	if (side_dev)
-		pm_runtime_disable(side_dev);
+	if (private->side_mmsys_dev)
+		pm_runtime_disable(private->side_mmsys_dev);
+	if (private->ovlsys_dev)
+		pm_runtime_disable(private->ovlsys_dev);
+	if (private->side_ovlsys_dev)
+		pm_runtime_disable(private->side_ovlsys_dev);
 err_node:
 	of_node_put(private->mutex_node);
 	for (i = 0; i < DDP_COMPONENT_ID_MAX; i++)
@@ -6287,6 +6344,10 @@ static int mtk_drm_remove(struct platform_device *pdev)
 	pm_runtime_disable(&pdev->dev);
 	if (private->side_mmsys_dev)
 		pm_runtime_disable(private->side_mmsys_dev);
+	if (private->ovlsys_dev)
+		pm_runtime_disable(private->ovlsys_dev);
+	if (private->side_ovlsys_dev)
+		pm_runtime_disable(private->side_ovlsys_dev);
 	of_node_put(private->mutex_node);
 	for (i = 0; i < DDP_COMPONENT_ID_MAX; i++)
 		of_node_put(private->comp_node[i]);
