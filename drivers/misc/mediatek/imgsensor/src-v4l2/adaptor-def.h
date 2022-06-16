@@ -70,8 +70,12 @@ enum {
 	STATE_DOVDD_ON,
 	STATE_AFVDD_OFF,
 	STATE_AFVDD_ON,
+	STATE_AFVDD1_OFF,
+	STATE_AFVDD1_ON,
 	STATE_AVDD1_OFF,
 	STATE_AVDD1_ON,
+	STATE_AVDD2_OFF,
+	STATE_AVDD2_ON,
 	STATE_MCLK1_OFF,
 	STATE_MCLK1_2MA,
 	STATE_MCLK1_4MA,
@@ -110,8 +114,12 @@ enum {
 	"dovdd_on", \
 	"afvdd_off", \
 	"afvdd_on", \
+	"afvdd1_off", \
+	"afvdd1_on", \
 	"avdd1_off", \
 	"avdd1_on", \
+	"avdd2_off", \
+	"avdd2_on", \
 	"mclk1_off", \
 	"mclk1_2mA", \
 	"mclk1_4mA", \
@@ -133,7 +141,9 @@ enum {
 	REGULATOR_DVDD,
 	REGULATOR_DOVDD,
 	REGULATOR_AFVDD,
+	REGULATOR_AFVDD1,
 	REGULATOR_AVDD1,
+	REGULATOR_AVDD2,
 	REGULATOR_DVDD1,
 	REGULATOR_MAXCNT,
 };
@@ -143,7 +153,9 @@ enum {
 	"dvdd", \
 	"dovdd", \
 	"afvdd", \
+	"afvdd1", \
 	"avdd1", \
+	"avdd2", \
 	"dvdd1", \
 
 /* Format code util */

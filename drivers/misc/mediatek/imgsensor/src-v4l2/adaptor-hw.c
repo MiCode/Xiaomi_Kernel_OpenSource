@@ -416,7 +416,13 @@ int adaptor_hw_init(struct adaptor_ctx *ctx)
 	INST_OPS(ctx, regulator, REGULATOR_AFVDD, HW_ID_AFVDD,
 			set_reg, unset_reg);
 
+	INST_OPS(ctx, regulator, REGULATOR_AFVDD1, HW_ID_AFVDD1,
+			set_reg, unset_reg);
+
 	INST_OPS(ctx, regulator, REGULATOR_AVDD1, HW_ID_AVDD1,
+			set_reg, unset_reg);
+
+	INST_OPS(ctx, regulator, REGULATOR_AVDD2, HW_ID_AVDD2,
 			set_reg, unset_reg);
 
 	INST_OPS(ctx, regulator, REGULATOR_DVDD1, HW_ID_DVDD1,
@@ -452,7 +458,13 @@ int adaptor_hw_init(struct adaptor_ctx *ctx)
 	INST_OPS(ctx, state, STATE_AFVDD_OFF, HW_ID_AFVDD,
 			set_state_boolean, unset_state);
 
+	INST_OPS(ctx, state, STATE_AFVDD1_OFF, HW_ID_AFVDD1,
+			set_state_boolean, unset_state);
+
 	INST_OPS(ctx, state, STATE_AVDD1_OFF, HW_ID_AVDD1,
+			set_state_boolean, unset_state);
+
+	INST_OPS(ctx, state, STATE_AVDD2_OFF, HW_ID_AVDD2,
 			set_state_boolean, unset_state);
 
 	INST_OPS(ctx, state, STATE_DVDD1_OFF, HW_ID_DVDD1,
