@@ -580,6 +580,7 @@ static int bus_parity_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id bus_parity_of_ids[] = {
+	{ .compatible = "mediatek,bus-parity", },
 	{ .compatible = "mediatek,mt6885-bus-parity", },
 	{}
 };
