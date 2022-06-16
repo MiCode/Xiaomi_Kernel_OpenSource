@@ -1266,7 +1266,7 @@ static void smi_hang_detect_bw_monitor(bool is_start)
 	}
 }
 
-s32 mtk_smi_dbg_hang_detect(const char *user)
+s32 mtk_smi_dbg_hang_detect(char *user)
 {
 	struct mtk_smi_dbg	*smi = gsmi;
 	s32			i, j, ret, PRINT_NR = 1, is_busy = 0;
@@ -1284,7 +1284,7 @@ s32 mtk_smi_dbg_hang_detect(const char *user)
 	mtk_emidbg_dump();
 #endif
 
-	raw_notifier_call_chain(&smi_notifier_list, 0, NULL);
+	raw_notifier_call_chain(&smi_notifier_list, 0, user);
 
 	/*start to monitor bw and check ostd*/
 	smi_hang_detect_bw_monitor(true);
