@@ -45,6 +45,8 @@ enum addon_module {
 	DISP_RSZ_v4,
 	DISP_RSZ_v5,
 	DISP_RSZ_v6,
+	OVL_RSZ,         /* OVL_2L pq out, pq in OVL_2L */
+	OVL_RSZ_1,
 	DISP_WDMA0,
 	DISP_WDMA0_v2,
 	DISP_WDMA1,

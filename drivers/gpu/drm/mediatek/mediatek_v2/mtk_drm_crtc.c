@@ -2516,9 +2516,9 @@ _mtk_crtc_lye_addon_module_connect(
 							 addon_module_dual, &addon_config,
 							 cmdq_handle);
 		} else if (addon_module->type == ADDON_BETWEEN &&
-		    (addon_module->module == DISP_RSZ ||
-		    addon_module->module == DISP_RSZ_v2 ||
-		    addon_module->module == DISP_RSZ_v5)) {
+			   (addon_module->module == DISP_RSZ ||
+			    addon_module->module == DISP_RSZ_v2 ||
+			    addon_module->module == DISP_RSZ_v5)) {
 			struct mtk_crtc_state *state =
 				to_mtk_crtc_state(crtc->state);
 

@@ -469,6 +469,15 @@ int mtk_rsz_analysis(struct mtk_ddp_comp *comp)
 		      REG_FLD_VAL_GET(FLD_RSZ_READ_WRK_REG, shadow));
 	DDPDUMP("%s", msg);
 
+	writel(0x7, baddr + DISP_REG_RSZ_DEBUG_SEL);
+	n = snprintf(msg, LEN - n, "in_total_data_cnt:%d",
+		      readl(baddr + DISP_REG_RSZ_DEBUG));
+
+	writel(0xB, baddr + DISP_REG_RSZ_DEBUG_SEL);
+	n += snprintf(msg + n, LEN - n, ",out_total_data_cnt:%d\n",
+		      readl(baddr + DISP_REG_RSZ_DEBUG));
+	DDPDUMP("%s", msg);
+
 	return 0;
 }
 
@@ -643,6 +652,12 @@ static const struct mtk_disp_rsz_data mt6886_rsz_driver_data = {
 	.need_bypass_shadow = true,
 };
 
+static const struct mtk_disp_rsz_data mt6985_rsz_driver_data = {
+	.tile_length = 1660, .in_max_height = 4096,
+	.support_shadow = false,
+	.need_bypass_shadow = true,
+};
+
 static const struct of_device_id mtk_disp_rsz_driver_dt_match[] = {
 	{.compatible = "mediatek,mt6779-disp-rsz",
 	 .data = &mt6779_rsz_driver_data},
@@ -664,6 +679,8 @@ static const struct of_device_id mtk_disp_rsz_driver_dt_match[] = {
 	 .data = &mt6886_rsz_driver_data},
 	{.compatible = "mediatek,mt6855-disp-rsz",
 	 .data = &mt6855_rsz_driver_data},
+	{.compatible = "mediatek,mt6985-disp-rsz",
+	 .data = &mt6985_rsz_driver_data},
 	{},
 };
 MODULE_DEVICE_TABLE(of, mtk_disp_rsz_driver_dt_match);

@@ -2065,6 +2065,14 @@ static const struct mtk_addon_module_data addon_rsz_data_v6[] = {
 	{DISP_RSZ_v6, ADDON_BETWEEN, DDP_COMPONENT_OVL3_2L},
 };
 
+static const struct mtk_addon_module_data addon_ovl_rsz_data[] = {
+	{OVL_RSZ, ADDON_EMBED, DDP_COMPONENT_OVL0_2L},
+};
+
+static const struct mtk_addon_module_data addon_ovl_rsz_data_1[] = {
+	{OVL_RSZ_1, ADDON_EMBED, DDP_COMPONENT_OVL4_2L},
+};
+
 static const struct mtk_addon_module_data addon_wdma0_data[] = {
 	{DISP_WDMA0, ADDON_AFTER, DDP_COMPONENT_DITHER0},
 };
@@ -2327,6 +2335,11 @@ static const struct mtk_addon_scenario_data mt6985_addon_main[ADDON_SCN_NR] = {
 		.module_num = 0,
 		.hrt_type = HRT_TB_TYPE_GENERAL1,
 	},
+	[ONE_SCALING] = {
+		.module_num = ARRAY_SIZE(addon_ovl_rsz_data),
+		.module_data = addon_ovl_rsz_data,
+		.hrt_type = HRT_TB_TYPE_RPO_L0,
+	},
 	[MML_RSZ] = {
 		.module_num = ARRAY_SIZE(mt6985_addon_mml_rsz_data),
 		.module_data = mt6985_addon_mml_rsz_data,
@@ -2352,6 +2365,11 @@ static const struct mtk_addon_scenario_data mt6985_addon_main_dual[ADDON_SCN_NR]
 	[TRIPLE_DISP] = {
 		.module_num = 0,
 		.hrt_type = HRT_TB_TYPE_GENERAL0,
+	},
+	[ONE_SCALING] = {
+		.module_num = ARRAY_SIZE(addon_ovl_rsz_data_1),
+		.module_data = addon_ovl_rsz_data_1,
+		.hrt_type = HRT_TB_TYPE_RPO_L0,
 	},
 	[MML_RSZ] = {
 		.module_num = ARRAY_SIZE(mt6985_addon_mml_rsz_data_1),
@@ -5841,8 +5859,8 @@ static const struct of_device_id mtk_ddp_comp_dt_ids[] = {
 	 .data = (void *)MTK_DISP_RSZ},
 	{.compatible = "mediatek,mt6983-disp-rsz",
 	 .data = (void *)MTK_DISP_RSZ},
-//	{.compatible = "mediatek,mt6985-disp-rsz",
-//	 .data = (void *)MTK_DISP_RSZ},
+	{.compatible = "mediatek,mt6985-disp-rsz",
+	 .data = (void *)MTK_DISP_RSZ},
 	{.compatible = "mediatek,mt6895-disp-rsz",
 	 .data = (void *)MTK_DISP_RSZ},
 	{.compatible = "mediatek,mt6886-disp-rsz",

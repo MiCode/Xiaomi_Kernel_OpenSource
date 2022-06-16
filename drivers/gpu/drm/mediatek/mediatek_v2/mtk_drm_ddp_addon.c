@@ -39,6 +39,14 @@ static const int disp_rsz_path_v6[] = {
 	DDP_COMPONENT_RSZ1,
 };
 
+static const int ovl_rsz_path[] = {
+	DDP_COMPONENT_OVLSYS_RSZ1, /* left pipe */
+};
+
+static const int ovl_rsz_path_1[] = {
+	DDP_COMPONENT_OVLSYS_RSZ2, /* right pipe */
+};
+
 static const int dmdp_pq_with_rdma_path[] = {
 	DDP_COMPONENT_DMDP_RDMA0,  DDP_COMPONENT_DMDP_HDR0,
 	DDP_COMPONENT_DMDP_AAL0,   DDP_COMPONENT_DMDP_RSZ0,
@@ -170,6 +178,14 @@ static const struct mtk_addon_path_data addon_module_path[ADDON_MODULE_NUM] = {
 		[DISP_RSZ_v6] = {
 				.path = disp_rsz_path_v6,
 				.path_len = ARRAY_SIZE(disp_rsz_path_v6),
+			},
+		[OVL_RSZ] = {
+				.path = ovl_rsz_path,
+				.path_len = ARRAY_SIZE(ovl_rsz_path),
+			},
+		[OVL_RSZ_1] = {
+				.path = ovl_rsz_path_1,
+				.path_len = ARRAY_SIZE(ovl_rsz_path_1),
 			},
 		[DMDP_PQ_WITH_RDMA] = {
 				.path = dmdp_pq_with_rdma_path,

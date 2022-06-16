@@ -181,6 +181,8 @@ int mtk_dump_analysis(struct mtk_ddp_comp *comp)
 		break;
 	case DDP_COMPONENT_RSZ0:
 	case DDP_COMPONENT_RSZ1:
+	case DDP_COMPONENT_OVLSYS_RSZ1:
+	case DDP_COMPONENT_OVLSYS_RSZ2:
 		mtk_rsz_analysis(comp);
 		break;
 	case DDP_COMPONENT_DSI0:
