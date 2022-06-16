@@ -223,6 +223,7 @@ struct mtk_cam_resource_config {
 	u32 frz_ratio;
 	u32 tgo_pxl_mode;
 	u32 tgo_pxl_mode_before_raw;
+	u32 raw_pixel_mode; /* only used in 7s*/
 	u32 raw_path;
 	/* sink fmt adjusted according resource used*/
 	struct v4l2_mbus_framefmt sink_fmt;
@@ -464,13 +465,6 @@ void mtk_cam_update_sensor(struct mtk_cam_ctx *ctx,
 
 struct mtk_raw_pipeline*
 mtk_cam_get_link_enabled_raw(struct v4l2_subdev *seninf);
-
-bool
-mtk_raw_sel_get_res(struct v4l2_subdev *sd, struct v4l2_subdev_selection *sel,
-		    struct mtk_cam_resource *res);
-bool
-mtk_raw_fmt_get_res(struct v4l2_subdev *sd, struct v4l2_subdev_format *fmt,
-		    struct mtk_cam_resource *res);
 
 unsigned int mtk_raw_get_hdr_scen_id(struct mtk_cam_ctx *ctx);
 

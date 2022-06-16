@@ -28,13 +28,13 @@ struct mtk_raw_pde_config;
 typedef int (*set_pad_fmt_func_t)(struct v4l2_subdev *sd,
 			   struct v4l2_subdev_state *state,
 			   struct v4l2_mbus_framefmt *sink_fmt,
-			   struct mtk_cam_resource *res,
+			   struct mtk_cam_resource_v2 *res,
 			   int pad, int which);
 
 typedef int (*set_pad_selection_func_t)(struct v4l2_subdev *sd,
 					  struct v4l2_subdev_state *state,
 					  struct v4l2_mbus_framefmt *sink_fmt,
-					  struct mtk_cam_resource *res,
+					  struct mtk_cam_resource_v2 *res,
 					  int pad, int which);
 
 /*
