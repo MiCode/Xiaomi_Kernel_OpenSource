@@ -1545,6 +1545,16 @@ static void fbt_set_min_cap_locked(struct render_info *thr, int min_cap,
 		goto EXIT;
 	}
 
+	if (separate_aa && boost_affinity && (separate_pct_b || separate_pct_m)
+					&& jerk != FPSGO_JERK_SECOND) {
+		raw_min_cap_b = min_cap_b;
+		raw_min_cap_m = min_cap_m;
+		min_cap_b = separate_pct_b ? (min_cap_b * separate_pct_b / 100) : min_cap_b;
+		min_cap_m = separate_pct_m ? (min_cap_m * separate_pct_m / 100) : min_cap_m;
+		min_cap_b = clamp(min_cap_b, 1, 100);
+		min_cap_m = clamp(min_cap_m, 1, 100);
+	}
+
 	max_cap = fbt_get_max_cap(min_cap, bhr_opp_local,
 					bhr_local, thr->pid, thr->buffer_id);
 	if (max_cap < 0)
@@ -1556,14 +1566,6 @@ static void fbt_set_min_cap_locked(struct render_info *thr, int min_cap,
 						bhr_local, thr->pid, thr->buffer_id);
 		if (max_cap_b < 0 || max_cap_m < 0)
 			goto EXIT;
-	}
-
-	if (separate_aa && boost_affinity && (separate_pct_b || separate_pct_m)
-					&& jerk != FPSGO_JERK_SECOND) {
-		raw_min_cap_b = min_cap_b;
-		raw_min_cap_m = min_cap_m;
-		min_cap_b = separate_pct_b ? (min_cap_b * separate_pct_b / 100) : min_cap_b;
-		min_cap_m = separate_pct_m ? (min_cap_m * separate_pct_m / 100) : min_cap_m;
 	}
 
 	if (loading_th || boost_affinity || boost_LR
@@ -6753,7 +6755,7 @@ static ssize_t separate_pct_b_store(struct kobject *kobj,
 		if (scnprintf(acBuffer, FPSGO_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
 			if (kstrtoint(acBuffer, 0, &arg) == 0) {
 				val = arg;
-				if (val < 100 && val >= 0) {
+				if (val < 200 && val >= 0) {
 					mutex_lock(&fbt_mlock);
 					separate_pct_b = val;
 					mutex_unlock(&fbt_mlock);
@@ -6792,7 +6794,7 @@ static ssize_t separate_pct_m_store(struct kobject *kobj,
 		if (scnprintf(acBuffer, FPSGO_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
 			if (kstrtoint(acBuffer, 0, &arg) == 0) {
 				val = arg;
-				if (val < 100 && val >= 0) {
+				if (val < 200 && val >= 0) {
 					mutex_lock(&fbt_mlock);
 					separate_pct_m = val;
 					mutex_unlock(&fbt_mlock);
