@@ -1,4 +1,6 @@
 [abi_symbol_list]
+  LZ4_decompress_safe
+  PDE_DATA
   ___ratelimit
   __alloc_disk_node
   __alloc_pages_nodemask
@@ -40,6 +42,7 @@
   __cpuhp_setup_state_cpuslocked
   __dev_kfree_skb_any
   __dev_kfree_skb_irq
+  __devm_alloc_percpu
   __devm_iio_device_register
   __devm_irq_alloc_descs
   __devm_of_phy_provider_register
@@ -150,9 +153,9 @@
   __srcu_read_unlock
   __stack_chk_fail
   __stack_chk_guard
-  __sw_hweight8
   __sw_hweight32
   __sw_hweight64
+  __sw_hweight8
   __sync_dirty_buffer
   __task_pid_nr_ns
   __tasklet_hi_schedule
@@ -162,7 +165,9 @@
   __tracepoint_android_vh_ipi_stop
   __tracepoint_android_vh_is_fpsimd_save
   __tracepoint_android_vh_kfree_skb
+  __tracepoint_android_vh_printk_store
   __tracepoint_android_vh_ptype_head
+  __tracepoint_android_vh_show_regs
   __tracepoint_android_vh_wq_lockup_pool
   __tracepoint_device_pm_callback_end
   __tracepoint_device_pm_callback_start
@@ -286,6 +291,7 @@
   blk_rq_unmap_user
   blk_stat_enable_accounting
   blk_verify_command
+  blkdev_fsync
   blkdev_get_by_dev
   blkdev_get_by_path
   blkdev_put
@@ -590,6 +596,7 @@
   devm_extcon_register_notifier
   devm_free_irq
   devm_fwnode_get_index_gpiod_from_child
+  devm_gen_pool_create
   devm_gpio_request
   devm_gpio_request_one
   devm_gpiochip_add_data
@@ -609,6 +616,7 @@
   devm_kmalloc
   devm_kmemdup
   devm_kstrdup
+  devm_kstrdup_const
   devm_led_classdev_register_ext
   devm_nvmem_cell_get
   devm_nvmem_device_get
@@ -727,8 +735,8 @@
   dmaengine_unmap_put
   dmam_alloc_attrs
   dmam_free_coherent
-  do_exit
   do_SAK
+  do_exit
   do_wait_intr
   down
   down_interruptible
@@ -1011,6 +1019,7 @@
   find_vpid
   finish_wait
   firmware_request_nowarn
+  fixed_size_llseek
   flush_dcache_page
   flush_delayed_work
   flush_work
@@ -1055,8 +1064,10 @@
   generic_file_splice_read
   generic_handle_irq
   generic_mii_ioctl
+  generic_perform_write
   generic_read_dir
   generic_shutdown_super
+  generic_write_checks
   genl_register_family
   genl_unregister_family
   genlmsg_put
@@ -1068,6 +1079,7 @@
   get_pid_task
   get_random_bytes
   get_random_u32
+  get_random_u64
   get_task_exe_file
   get_task_mm
   get_task_pid
@@ -1101,6 +1113,7 @@
   gpio_to_desc
   gpiochip_add_data_with_key
   gpiochip_add_pin_range
+  gpiochip_find
   gpiochip_generic_free
   gpiochip_generic_request
   gpiochip_get_data
@@ -1110,10 +1123,10 @@
   gpiochip_remove
   gpiochip_set_nested_irqchip
   gpiochip_unlock_as_irq
+  gpiod_cansleep
   gpiod_direction_input
   gpiod_direction_output
   gpiod_direction_output_raw
-  gpiod_cansleep
   gpiod_get_optional
   gpiod_get_raw_value
   gpiod_get_raw_value_cansleep
@@ -1223,9 +1236,9 @@
   iio_read_channel_processed
   iio_read_channel_raw
   import_iovec
+  in6_pton
   in_aton
   in_egroup_p
-  in6_pton
   init_dummy_netdev
   init_net
   init_srcu_struct
@@ -1309,6 +1322,7 @@
   ion_heap_unmap_kernel
   ion_query_heaps_kernel
   iounmap
+  iov_iter_kvec
   iput
   ipv6_stub
   irq_chip_ack_parent
@@ -1362,14 +1376,15 @@
   iterate_dir
   iterate_fd
   jiffies
+  jiffies64_to_msecs
   jiffies_64_to_clock_t
   jiffies_to_msecs
   jiffies_to_usecs
-  jiffies64_to_msecs
   kasprintf
   kern_path
   kernel_bind
   kernel_connect
+  kernel_cpustat
   kernel_getsockname
   kernel_kobj
   kernel_read
@@ -1401,6 +1416,8 @@
   kmem_cache_free
   kmemdup
   kmemdup_nul
+  kmsg_dump_get_line
+  kmsg_dump_rewind
   kobject_add
   kobject_create_and_add
   kobject_del
@@ -1478,7 +1495,6 @@
   lockref_get
   lookup_one_len
   loops_per_jiffy
-  LZ4_decompress_safe
   map_vm_area
   match_int
   match_token
@@ -1593,6 +1609,7 @@
   ns_to_timespec
   ns_to_timespec64
   ns_to_timeval
+  nsec_to_clock_t
   nsecs_to_jiffies
   nvmem_cell_get
   nvmem_cell_put
@@ -1770,7 +1787,6 @@
   pci_write_config_dword
   pcie_capability_read_word
   pcim_enable_device
-  PDE_DATA
   perf_trace_buf_alloc
   perf_trace_run_bpf_submit
   pfn_valid
@@ -1940,6 +1956,7 @@
   regmap_bulk_write
   regmap_field_read
   regmap_field_update_bits_base
+  regmap_mmio_detach_clk
   regmap_multi_reg_write
   regmap_multi_reg_write_bypassed
   regmap_raw_read
@@ -1979,7 +1996,6 @@
   regulatory_set_wiphy_regd_sync_rtnl
   release_firmware
   release_sock
-  regmap_mmio_detach_clk
   remap_pfn_range
   remap_vmalloc_range
   remove_proc_entry
@@ -2023,6 +2039,8 @@
   rpmsg_trysend
   rpmsg_unregister_device
   rps_needed
+  rt_mutex_lock
+  rt_mutex_unlock
   rtc_class_close
   rtc_class_open
   rtc_read_time
@@ -2033,8 +2051,6 @@
   rtnl_is_locked
   rtnl_lock
   rtnl_unlock
-  rt_mutex_lock
-  rt_mutex_unlock
   runqueues
   save_stack_trace
   save_stack_trace_tsk
@@ -2532,6 +2548,8 @@
   unlock_rename
   unmap_mapping_range
   unregister_chrdev_region
+  unregister_console
+  unregister_die_notifier
   unregister_filesystem
   unregister_inet6addr_notifier
   unregister_inetaddr_notifier
@@ -2722,7 +2740,6 @@
   usbnet_write_cmd_nopm
   user_path_at_empty
   usleep_range
-  v4l_bound_align_image
   v4l2_ctrl_find
   v4l2_ctrl_g_ctrl
   v4l2_ctrl_get_name
@@ -2764,6 +2781,7 @@
   v4l2_subdev_call_wrappers
   v4l2_subdev_init
   v4l2_type_names
+  v4l_bound_align_image
   vabits_actual
   vb2_buffer_done
   vb2_common_vm_ops
@@ -2810,6 +2828,7 @@
   vfs_create
   vfs_fallocate
   vfs_fsync
+  vfs_fsync_range
   vfs_getattr
   vfs_getxattr
   vfs_link
