@@ -4,6 +4,7 @@
  */
 
 #include <linux/arm-smccc.h>
+#include <linux/atomic.h>
 #include <linux/io.h>
 #include <linux/module.h>
 #include <linux/of_device.h>
@@ -27,6 +28,8 @@
 #define DEBUG_BUF_ATF_LOGGER_PROC_NAME          "atf_log"
 #define DEBUG_BUF_ATF_LOGGER_SNAPSHOT_PROC_NAME "runtime_snapshot"
 #define DEBUG_BUF_TOTAL_RAW_PROC_NAME           "raw_dump_all"
+
+#define MAGIC_RELEASE_LOG 0x5678
 
 #if CONFIG_OF
 static const struct of_device_id tfa_debug_of_ids[] = {
@@ -101,6 +104,7 @@ struct tfa_debug_info {
 	void __iomem *vaddr;
 	/* Debug buffer entry */
 	struct tfa_debug_entry_info runtime;
+	atomic_t release_log;
 };
 
 struct tfa_debug_instance {
@@ -286,6 +290,8 @@ static ssize_t runtime_log_read(struct file *file,
 			!is_runtime_empty_for_read(file), HZ);
 		if (wait_event_ret != 0)
 			break;
+		if (atomic_read(&info.release_log))
+			break;
 	}
 
 	while (copy_len < count) {
@@ -340,6 +346,11 @@ static ssize_t runtime_log_write(struct file *file,
 
 	pr_info("[%s]param:0x%lx, count:%zu, ret:%ld\n",
 		__func__, param, count, ret);
+
+	if (param == MAGIC_RELEASE_LOG)
+		atomic_set(&info.release_log, 1);
+	else
+		atomic_set(&info.release_log, 0);
 
 	if (!ret) {
 		arm_smccc_smc(MTK_SIP_KERNEL_ATF_DEBUG,
@@ -514,6 +525,7 @@ static int __init tfa_debug_probe(struct platform_device *pdev)
 		pr_info("tfa_debug proc_mkdir failed\n");
 		return -ENOMEM;
 	}
+	atomic_set(&info.release_log, 0);
 	if (lookup_runtime_log() == 0) {
 		runtime_log_snapshot_proc_file =
 			proc_create(DEBUG_BUF_ATF_LOGGER_SNAPSHOT_PROC_NAME, 0440,
