@@ -415,14 +415,18 @@ int kgsl_busmon_get_dev_status(struct device *dev,
 	return 0;
 }
 
-static inline bool _check_fast_hint(u32 flags)
+static int _read_hint(u32 flags)
 {
-	return (flags & DEVFREQ_FLAG_FAST_HINT);
-}
-
-static inline bool _check_slow_hint(u32 flags)
-{
-	return (flags & DEVFREQ_FLAG_SLOW_HINT);
+	switch (flags) {
+	case BUSMON_FLAG_FAST_HINT:
+		return 1;
+	case BUSMON_FLAG_SUPER_FAST_HINT:
+		return 2;
+	case BUSMON_FLAG_SLOW_HINT:
+		return -1;
+	default:
+		return 0;
+	}
 }
 
 /*
@@ -475,10 +479,7 @@ int kgsl_busmon_target(struct device *dev, unsigned long *freq, u32 flags)
 	}
 
 	b = pwr->bus_mod;
-	if (_check_fast_hint(bus_flag))
-		pwr->bus_mod++;
-	else if (_check_slow_hint(bus_flag))
-		pwr->bus_mod--;
+	pwr->bus_mod += _read_hint(bus_flag);
 
 	/* trim calculated change to fit range */
 	if (pwr_level->bus_freq + pwr->bus_mod < pwr_level->bus_min)
@@ -489,7 +490,6 @@ int kgsl_busmon_target(struct device *dev, unsigned long *freq, u32 flags)
 	/* Update bus vote if AB or IB is modified */
 	if ((pwr->bus_mod != b) || (pwr->bus_ab_mbytes != ab_mbytes)) {
 		pwr->bus_percent_ab = device->pwrscale.bus_profile.percent_ab;
-		pwr->ddr_stall_percent = device->pwrscale.bus_profile.wait_active_percent;
 		/*
 		 * When gpu is thermally throttled to its lowest power level,
 		 * drop GPU's AB vote as a last resort to lower CX voltage and
