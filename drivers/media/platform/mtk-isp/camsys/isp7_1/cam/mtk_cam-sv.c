@@ -3016,49 +3016,14 @@ static int mtk_camsv_remove(struct platform_device *pdev)
 static int mtk_camsv_runtime_suspend(struct device *dev)
 {
 	struct mtk_camsv_device *camsv_dev = dev_get_drvdata(dev);
-	struct mtk_cam_device *cam = camsv_dev->cam;
-	struct mtk_cam_ctx *ctx;
 	int i;
-
-	if (camsv_dev->pipeline->hw_scen &
-	    MTK_CAMSV_SUPPORTED_SPECIAL_HW_SCENARIO) {
-		struct mtk_raw_pipeline *pipeline = &camsv_dev->cam->raw
-			.pipelines[camsv_dev->pipeline->master_pipe_id];
-
-		ctx = mtk_cam_find_ctx(cam, &pipeline->subdev.entity);
-	} else {
-		ctx = mtk_cam_find_ctx(cam, &camsv_dev->pipeline->subdev.entity);
-		if (!ctx)
-			dev_info(camsv_dev->dev, "cannot find ctx\n");
-	}
 
 	dev_dbg(dev, "%s:disable clock\n", __func__);
 
 	disable_irq(camsv_dev->irq);
 
-	dev_info(camsv_dev->dev, "%s:tg_sen_mode:0x%x",
-		__func__,
-		readl_relaxed(camsv_dev->base_inner + REG_CAMSV_TG_SEN_MODE));
-	if (CAMSV_READ_BITS(camsv_dev->base_inner + REG_CAMSV_TG_SEN_MODE,
-		CAMSV_TG_SEN_MODE, CMOS_EN) == 1) {
-		mtk_smi_dbg_hang_detect("camsys-camsv");
-		if (ctx && ctx->used_raw_num != 0) {
-			for (i = MTKCAM_SUBDEV_RAW_0; i < MTKCAM_SUBDEV_RAW_END; i++) {
-				if (ctx->pipe->enabled_raw & (1 << i))
-					mtk_cam_dump_raw_hw_debug_info(i);
-			}
-		}
-	}
-
 	for (i = 0; i < camsv_dev->num_clks; i++)
 		clk_disable_unprepare(camsv_dev->clks[i]);
-
-	if (ctx && ctx->used_raw_num != 0) {
-		for (i = MTKCAM_SUBDEV_RAW_0; i < MTKCAM_SUBDEV_RAW_END; i++) {
-			if (ctx->pipe->enabled_raw & (1 << i))
-				mtk_cam_dump_raw_hw_debug_info(i);
-		}
-	}
 
 	return 0;
 }
