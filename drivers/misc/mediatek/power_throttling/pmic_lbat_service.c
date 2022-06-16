@@ -458,13 +458,13 @@ struct lbat_user *lbat_user_register_ext(const char *name, unsigned int *thd_vol
 		user->name, thd_volt_arr[0], thd_volt_arr[thd_volt_size - 1]);
 	ret = lbat_user_update(user);
 out:
+	mutex_unlock(&lbat_mutex);
 	if (ret) {
 		pr_notice("[%s] error ret=%d\n", __func__, ret);
 		if (ret == -EINVAL)
 			kfree(user);
 		return ERR_PTR(ret);
 	}
-	mutex_unlock(&lbat_mutex);
 	return user;
 }
 EXPORT_SYMBOL(lbat_user_register_ext);
@@ -511,13 +511,13 @@ struct lbat_user *lbat_user_register(const char *name, unsigned int hv_thd_volt,
 		__func__, name, hv_thd_volt, lv1_thd_volt, lv2_thd_volt);
 	ret = lbat_user_update(user);
 out:
+	mutex_unlock(&lbat_mutex);
 	if (ret) {
 		pr_notice("[%s] error ret=%d\n", __func__, ret);
 		if (ret == -EINVAL)
 			kfree(user);
 		return ERR_PTR(ret);
 	}
-	mutex_unlock(&lbat_mutex);
 	return user;
 }
 EXPORT_SYMBOL(lbat_user_register);
