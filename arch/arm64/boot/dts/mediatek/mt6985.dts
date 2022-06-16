@@ -51,10 +51,12 @@
 		i2c12 = &i2c12;
 		i2c13 = &i2c13;
 		scp_i2c1 = &scp_i2c1;
-		y2r0 = &ovl_y2r0;
-		y2r1 = &ovl_y2r1;
-		y2r2 = &disp_y2r0;
-		y2r3 = &disp1_y2r0;
+		y2r0 = &disp_y2r0;
+		y2r2 = &disp1_y2r0;
+		y2r4 = &ovl_y2r0;
+		y2r5 = &ovl_y2r1;
+		y2r6 = &ovl1_y2r0;
+		y2r7 = &ovl1_y2r1;
 		ovl3 = &disp_ovl0_2l;
 		ovl4 = &disp_ovl1_2l;
 		ovl5 = &disp_ovl2_2l;
@@ -64,11 +66,11 @@
 //		ovl13 = &disp1_ovl2_2l;
 //		ovl14 = &disp1_ovl3_2l;
 //		rsz0 = &disp_rsz0;
-//		rsz1 = &disp_rsz1;
 //		rsz2 = &disp1_rsz0;
-//		rsz3 = &disp1_rsz1;
-		mdp_rsz0 = &disp_mdp_rsz0;
-		mdp_rsz1 = &disp1_mdp_rsz0;
+		rsz4 = &disp_rsz1;
+		rsz5 = &disp1_rsz1;
+//		mrsz0 = &disp_mdp_rsz0;
+//		mrsz1 = &disp1_mdp_rsz0;
 		wdma0 = &disp_wdma0;
 		wdma1 = &disp_wdma1;
 		wdma2 = &disp_wdma2;
@@ -108,6 +110,14 @@
 		mtksmmu1 = &mdp_iommu;
 		mtksmmu2 = &apu_iommu0;
 		mtksmmu3 = &apu_iommu1;
+		inlinerotate0 = &inlinerot0;
+		inlinerotate1 = &inlinerot1;
+		dli-async12 = &ovl_dli_async0;
+		dli-async15 = &ovl1_dli_async0;
+		dlo-async8 = &ovl_dlo_async0;
+		dlo-async15 = &ovl1_dlo_async0;
+		mmlsys-cfg = &mmlsys_config;
+		mml-mutex = &mml_mutex0;
 	};
 
 	/* chosen */
@@ -5268,18 +5278,6 @@
 			reg = <0 0x14400000 0 0x1000>;
 		};
 
-		inlinerot0: inlinerot@1440b000 {
-			compatible = "mediatek,inlinerot0";
-			reg = <0 0x1440b000 0 0x1000>;
-			clocks = <&ovlsys_config_clk CLK_OVL_INLINEROT>;
-		};
-
-		inlinerot1: inlinerot@1460b000 {
-			compatible = "mediatek,inlinerot0";
-			reg = <0 0x1460b000 0 0x1000>;
-			clocks = <&ovlsys1_config_clk CLK_OVL1_INLINEROT>;
-		};
-
 		aov: aov@0 {
 			compatible = "mediatek,aov";
 			status = "okay";
@@ -6956,7 +6954,7 @@
 			mediatek,mml = <&mmlsys_config>;
 		};
 
-		mml-mutex0@1f801000 {
+		mml_mutex0: mml-mutex0@1f801000 {
 			compatible = "mediatek,mt6985-mml_mutex";
 			reg = <0 0x1f801000 0 0x1000>;
 			clocks = <&mdpsys1_config_clk CLK_MDP1_MDP_MUTEX0>;
@@ -10084,22 +10082,6 @@
 		clocks = <&dispsys1_config_clk CLK_MM1_DISP_RSZ0>;
 	};
 
-	disp_rsz1: disp-rsz1@14406000 {
-		compatible = "mediatek,disp_rsz1",
-				"mediatek,mt6985-disp-rsz";
-		reg = <0 0x14406000 0 0x1000>;
-		interrupts = <GIC_SPI 391 IRQ_TYPE_LEVEL_HIGH 0>;
-		clocks = <&ovlsys_config_clk CLK_OVL_DISP_RSZ1>;
-	};
-
-	disp1_rsz1: disp1-rsz1@14606000 {
-		compatible = "mediatek,disp1_rsz1",
-				"mediatek,mt6985-disp-rsz";
-		reg = <0 0x14606000 0 0x1000>;
-		interrupts = <GIC_SPI 435 IRQ_TYPE_LEVEL_HIGH 0>;
-		clocks = <&ovlsys1_config_clk CLK_OVL1_DISP_RSZ1>;
-	};
-*/
 	disp_mdp_rsz0: disp-mdp-rsz0@14407000 {
 		compatible = "mediatek,disp_mdp_rsz0",
 				"mediatek,mt6985-disp-rsz";
@@ -10115,33 +10097,105 @@
 		interrupts = <GIC_SPI 436 IRQ_TYPE_LEVEL_HIGH 0>;
 		clocks = <&ovlsys1_config_clk CLK_OVL1_MDP_RSZ0>;
 	};
-
-	ovl_y2r0: ovl-y2r0@14400000 {
-		compatible = "mediatek,ovl_y2r0",
-				"mediatek,mt6985-disp-y2r";
-		reg = <0 0x14400000 0 0x1000>;
-		clocks = <&ovlsys_config_clk CLK_OVL_DISP_Y2R0>;
+*/
+	disp_rsz1: disp-rsz1@14406000 {
+		compatible = "mediatek,disp_rsz1",
+			     "mediatek,mt6985-disp-rsz";
+		reg = <0 0x14406000 0 0x1000>;
+		interrupts = <GIC_SPI 391 IRQ_TYPE_LEVEL_HIGH 0>;
+		clocks = <&ovlsys_config_clk CLK_OVL_DISP_RSZ1>;
 	};
 
-	ovl_y2r1: ovl-y2r1@14600000 {
-		compatible = "mediatek,ovl_y2r1",
-				"mediatek,mt6985-disp-y2r";
+	disp1_rsz1: disp1-rsz1@14606000 {
+		compatible = "mediatek,disp1_rsz1",
+			     "mediatek,mt6985-disp-rsz";
+		reg = <0 0x14606000 0 0x1000>;
+		interrupts = <GIC_SPI 435 IRQ_TYPE_LEVEL_HIGH 0>;
+		clocks = <&ovlsys1_config_clk CLK_OVL1_DISP_RSZ1>;
+	};
+
+	inlinerot0: inlinerot@1440b000 {
+		compatible = "mediatek,inlinerot",
+			     "mediatek,mt6985-disp-inlinerotate";
+		clocks = <&ovlsys_config_clk CLK_OVL_INLINEROT>;
+		reg = <0 0x1440b000 0 0x1000>;
+	};
+
+	inlinerot1: inlinerot@1460b000 {
+		compatible = "mediatek,inlinerot",
+			     "mediatek,mt6985-disp-inlinerotate";
+		clocks =  <&ovlsys1_config_clk CLK_OVL1_INLINEROT>;
+		reg = <0 0x1460b000 0 0x1000>;
+	};
+
+	ovl_dli_async0: ovl-dli-async0@14400000 {
+		compatible = "mediatek,ovl_dli_async0",
+			     "mediatek,mt6985-disp-dli-async";
+		reg = <0 0x14400000 0 0x1000>;
+		clocks = <&ovlsys_config_clk CLK_OVL_DISP_DLI_ASYNC0>;
+	};
+
+	ovl1_dli_async0: ovl1-dli-async0@14600000 {
+		compatible = "mediatek,ovl1_dli_async0",
+			     "mediatek,mt6985-disp-dli-async";
 		reg = <0 0x14600000 0 0x1000>;
-		clocks = <&ovlsys1_config_clk CLK_OVL1_DISP_Y2R0>;
+		clocks = <&ovlsys1_config_clk CLK_OVL1_DISP_DLI_ASYNC0>;
+	};
+
+	ovl_dlo_async0: ovl-dlo-async0@14400000 {
+		compatible = "mediatek,ovl_dlo_async0",
+			     "mediatek,mt6985-disp-dlo-async";
+		reg = <0 0x14400000 0 0x1000>;
+		clocks = <&ovlsys_config_clk CLK_OVL_DISP_DLO_ASYNC0>;
+	};
+
+	ovl1_dlo_async0: ovl1-dlo-async0@14600000 {
+		compatible = "mediatek,ovl1_dlo_async0",
+			     "mediatek,mt6985-disp-dlo-async";
+		clocks = <&ovlsys1_config_clk CLK_OVL1_DISP_DLO_ASYNC0>;
+		reg = <0 0x14600000 0 0x1000>;
 	};
 
 	disp_y2r0: disp-y2r0@14000000 {
 		compatible = "mediatek,disp_y2r0",
-				"mediatek,mt6985-disp-y2r";
+			     "mediatek,mt6985-disp-y2r";
 		reg = <0 0x14000000 0 0x1000>;
 		clocks = <&dispsys_config_clk CLK_MM_DISP_Y2R0>;
 	};
 
 	disp1_y2r0: disp1-y2r0@14200000 {
 		compatible = "mediatek,disp1_y2r0",
-				"mediatek,mt6985-disp-y2r";
+			     "mediatek,mt6985-disp-y2r";
 		reg = <0 0x14200000 0 0x1000>;
 		clocks = <&dispsys1_config_clk CLK_MM1_DISP_Y2R0>;
+	};
+
+	ovl_y2r0: ovl-y2r0@14400000 {
+		compatible = "mediatek,ovl_y2r0",
+			     "mediatek,mt6985-disp-y2r";
+		reg = <0 0x14400000 0 0x1000>;
+		clocks = <&ovlsys_config_clk CLK_OVL_DISP_Y2R0>;
+	};
+
+	ovl_y2r1: ovl-y2r1@14400000 {
+		compatible = "mediatek,ovl_y2r1",
+			     "mediatek,mt6985-disp-y2r";
+		reg = <0 0x14400000 0 0x1000>;
+		clocks = <&ovlsys_config_clk CLK_OVL_DISP_Y2R1>;
+	};
+
+	ovl1_y2r0: ovl1-y2r0@14600000 {
+		compatible = "mediatek,ovl1_y2r0",
+			     "mediatek,mt6985-disp-y2r";
+		reg = <0 0x14600000 0 0x1000>;
+		clocks = <&ovlsys1_config_clk CLK_OVL1_DISP_Y2R0>;
+	};
+
+	ovl1_y2r1: ovl1-y2r1@14600000 {
+		compatible = "mediatek,ovl1_y2r1",
+			     "mediatek,mt6985-disp-y2r";
+		reg = <0 0x14600000 0 0x1000>;
+		clocks = <&ovlsys1_config_clk CLK_OVL1_DISP_Y2R1>;
 	};
 
 	disp_wdma0: disp-wdma0@14408000 {
