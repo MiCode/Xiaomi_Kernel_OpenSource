@@ -6060,6 +6060,7 @@ static int mtk_drm_probe(struct platform_device *pdev)
 		return ret;
 	}
 	private->config_regs_pa = mem->start;
+	private->mmsys_dev = dev;
 
 	if (dispsys_num <= 1)
 		goto SKIP_SIDE_DISP;
@@ -6075,7 +6076,6 @@ static int mtk_drm_probe(struct platform_device *pdev)
 		}
 		private->side_config_regs_pa = mem->start;
 	}
-	private->mmsys_dev = dev;
 
 	side_dev = mtk_drm_get_pd_device(dev, "side_dispsys");
 	if (!side_dev) {
