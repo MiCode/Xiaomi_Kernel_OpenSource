@@ -46,7 +46,7 @@ int smap_v6983_init(void)
 	unsigned int offset;
 
 	/* get sbuf offset */
-	offset = swpm_set_and_get_cmd(0, 0, SMAP_CMD_TYPE);
+	offset = swpm_set_and_get_cmd(0, 0, SMAP_GET_ADDR, SMAP_CMD_TYPE);
 
 	/* get sram address */
 	share_data_ref_smap = (struct share_data_smap *)sspm_sbuf_get(offset);

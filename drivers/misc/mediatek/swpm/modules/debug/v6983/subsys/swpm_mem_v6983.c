@@ -79,7 +79,7 @@ int swpm_mem_v6983_init(void)
 {
 	unsigned int offset;
 
-	offset = swpm_set_and_get_cmd(0, 0, MEM_CMD_TYPE);
+	offset = swpm_set_and_get_cmd(0, 0, 0, MEM_CMD_TYPE);
 
 	mem_swpm_data_ptr = (struct mem_swpm_data *)sspm_sbuf_get(offset);
 

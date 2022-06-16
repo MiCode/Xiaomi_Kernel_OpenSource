@@ -66,7 +66,7 @@ static ssize_t smap_config_write(char *FromUser, size_t sz, void *priv)
 		}
 
 		/* TODO: independent SCMI call in after project */
-		swpm_set_cmd(type, val);
+		swpm_set_only_cmd(type, val, SMAP_SET_CFG, SMAP_CMD_TYPE);
 	}
 
 	return sz;

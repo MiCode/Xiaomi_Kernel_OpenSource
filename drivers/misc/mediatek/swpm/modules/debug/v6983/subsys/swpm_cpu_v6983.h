@@ -11,6 +11,11 @@
 #define NR_CPU_CORE				(8)
 #define NR_CPU_L_CORE				(4)
 
+enum cpu_cmd_action {
+	CPU_GET_ADDR,
+	CPU_SET_PMU_MS,
+};
+
 enum cpu_type {
 	CPU_TYPE_L,
 	CPU_TYPE_B,

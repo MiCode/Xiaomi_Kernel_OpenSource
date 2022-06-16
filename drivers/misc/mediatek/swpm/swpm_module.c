@@ -176,6 +176,7 @@ int swpm_reserve_mem_init(phys_addr_t *virt,
 }
 EXPORT_SYMBOL(swpm_reserve_mem_init);
 
+/* TODO:deprecated, compatible with old version */
 void swpm_set_cmd(unsigned int type, unsigned int cnt)
 {
 	swpm_lock(&swpm_mutex);
@@ -185,8 +186,10 @@ void swpm_set_cmd(unsigned int type, unsigned int cnt)
 		struct qos_ipi_data qos_d;
 
 		qos_d.cmd = QOS_IPI_SWPM_SET_UPDATE_CNT;
+#if !IS_ENABLED(CONFIG_MTK_TINYSYS_SCMI)
 		qos_d.u.swpm_set_update_cnt.type = type;
 		qos_d.u.swpm_set_update_cnt.cnt = cnt;
+#endif
 		qos_ipi_to_sspm_scmi_command(qos_d.cmd, type, cnt, 0,
 					     QOS_IPI_SCMI_SET);
 	}
@@ -195,27 +198,66 @@ void swpm_set_cmd(unsigned int type, unsigned int cnt)
 }
 EXPORT_SYMBOL(swpm_set_cmd);
 
-unsigned int swpm_set_and_get_cmd(unsigned int args_0,
-				  unsigned int args_1,
-				  unsigned int args_2)
+void swpm_set_only_cmd(unsigned int args_0,
+		       unsigned int args_1,
+		       unsigned int action,
+		       unsigned int type)
 {
-	unsigned int ret = 0;
+	unsigned int code;
 
 	swpm_lock(&swpm_mutex);
-#if IS_ENABLED(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) &&              \
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) &&		\
 	IS_ENABLED(CONFIG_MTK_QOS_FRAMEWORK)
 	{
 		struct qos_ipi_data qos_d;
 
 		qos_d.cmd = QOS_IPI_SWPM_INIT;
+
+		code = (SWPM_CMD_MAGIC << SWPM_CMD_MAGIC_BIT)
+		 | ((action & SWPM_CMD_ACTION_MASK) << SWPM_CMD_ACTION_BIT)
+		 | ((type & SWPM_CMD_TYPE_MASK) << SWPM_CMD_TYPE_BIT);
+#if !IS_ENABLED(CONFIG_MTK_TINYSYS_SCMI)
 		qos_d.u.swpm_init.dram_addr = args_0;
 		qos_d.u.swpm_init.dram_size = args_1;
-		qos_d.u.swpm_init.dram_ch_num = args_2;
+		qos_d.u.swpm_init.dram_ch_num = code;
+#endif
+		qos_ipi_to_sspm_scmi_command(qos_d.cmd, args_0, args_1, code,
+					     QOS_IPI_SCMI_SET);
+	}
+#endif
+	swpm_unlock(&swpm_mutex);
+}
+EXPORT_SYMBOL(swpm_set_only_cmd);
+
+unsigned int swpm_set_and_get_cmd(unsigned int args_0,
+				  unsigned int args_1,
+				  unsigned int action,
+				  unsigned int type)
+{
+	unsigned int ret = 0;
+	unsigned int code;
+
+	swpm_lock(&swpm_mutex);
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) &&              \
+	IS_ENABLED(CONFIG_MTK_QOS_FRAMEWORK)
+	if (type < NR_SWPM_CMD_TYPE) {
+		struct qos_ipi_data qos_d;
+
+		qos_d.cmd = QOS_IPI_SWPM_INIT;
+
+		code = (SWPM_CMD_MAGIC << SWPM_CMD_MAGIC_BIT)
+		 | ((action & SWPM_CMD_ACTION_MASK) << SWPM_CMD_ACTION_BIT)
+		 | ((type & SWPM_CMD_TYPE_MASK) << SWPM_CMD_TYPE_BIT);
+#if !IS_ENABLED(CONFIG_MTK_TINYSYS_SCMI)
+		qos_d.u.swpm_init.dram_addr = args_0;
+		qos_d.u.swpm_init.dram_size = args_1;
+		qos_d.u.swpm_init.dram_ch_num = code;
+#endif
 		qos_ipi_to_sspm_scmi_command(qos_d.cmd,
-					     args_0, args_1, args_2,
+					     args_0, args_1, code,
 					     QOS_IPI_SCMI_SET);
 		ret = qos_ipi_to_sspm_scmi_command(qos_d.cmd,
-						   args_0, args_1, args_2,
+						   args_0, args_1, code,
 						   QOS_IPI_SCMI_GET);
 	}
 #endif

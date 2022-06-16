@@ -98,7 +98,7 @@ static void swpm_send_init_ipi(unsigned int addr, unsigned int size,
 #if IS_ENABLED(CONFIG_MTK_QOS_FRAMEWORK)
 	unsigned int offset;
 
-	offset = swpm_set_and_get_cmd(addr, size, SWPM_COMMON_INIT);
+	offset = swpm_set_and_get_cmd(addr, size, 0, SWPM_COMMON_INIT);
 
 	if (offset == -1) {
 		pr_notice("qos ipi not ready init fail\n");

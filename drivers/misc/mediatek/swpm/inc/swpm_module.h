@@ -60,9 +60,16 @@ struct swpm_mem_ref_tbl {
 	phys_addr_t *virt;
 };
 
+#define SWPM_CMD_MAGIC		(0xFACE)
+#define SWPM_CMD_MAGIC_BIT	(16)
+#define SWPM_CMD_ACTION_BIT	(8)
+#define SWPM_CMD_ACTION_MASK	(0xFF)
+#define SWPM_CMD_TYPE_BIT	(0)
+#define SWPM_CMD_TYPE_MASK	(0xFF)
 enum swpm_cmd_type {
 	SWPM_COMMON_INIT,
 	SMAP_CMD_TYPE,
+	PMSR_CMD_TYPE,
 	CPU_CMD_TYPE,
 	MEM_CMD_TYPE,
 	CORE_CMD_TYPE,
@@ -127,9 +134,14 @@ extern int swpm_reserve_mem_init(phys_addr_t *virt,
 				 unsigned long long *size);
 
 extern void swpm_set_cmd(unsigned int type, unsigned int cnt);
+extern void swpm_set_only_cmd(unsigned int args_0,
+			      unsigned int args_1,
+			      unsigned int action,
+			      unsigned int type);
 extern unsigned int swpm_set_and_get_cmd(unsigned int args_0,
 					 unsigned int args_1,
-					 unsigned int args_2);
+					 unsigned int action,
+					 unsigned int type);
 
 extern int swpm_register_event_notifier(struct notifier_block *nb);
 extern int swpm_unregister_event_notifier(struct notifier_block *nb);

@@ -6,6 +6,11 @@
 #ifndef __SMAP_V6983_H__
 #define __SMAP_V6983_H__
 
+enum smap_cmd_action {
+	SMAP_GET_ADDR,
+	SMAP_SET_CFG,
+};
+
 /* share sram for smap data */
 struct share_data_smap {
 	unsigned int latest_cnt_0;

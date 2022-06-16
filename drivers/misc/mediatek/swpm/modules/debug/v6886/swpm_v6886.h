@@ -48,6 +48,11 @@ enum swpm_type {
 	NR_SWPM_TYPE,
 };
 
+enum pmsr_cmd_action {
+	PMSR_SET_EN,
+	PMSR_SET_SIG_SEL,
+};
+
 enum power_rail {
 	VPROC2,
 	VPROC1,

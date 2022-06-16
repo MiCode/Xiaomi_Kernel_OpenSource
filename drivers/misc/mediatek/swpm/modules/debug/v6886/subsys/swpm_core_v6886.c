@@ -97,7 +97,7 @@ int swpm_core_v6886_init(void)
 {
 	unsigned int offset;
 
-	offset = swpm_set_and_get_cmd(0, 0, CORE_CMD_TYPE);
+	offset = swpm_set_and_get_cmd(0, 0, 0, CORE_CMD_TYPE);
 
 	core_swpm_data_ptr = (struct core_swpm_data *)sspm_sbuf_get(offset);
 

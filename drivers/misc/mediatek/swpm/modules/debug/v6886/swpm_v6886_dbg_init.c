@@ -116,7 +116,6 @@ static ssize_t swpm_pmsr_en_read(char *ToUser, size_t sz, void *priv)
 	if (!ToUser)
 		return -EINVAL;
 
-	swpm_dbg_log("swpm_pmsr only support disable cmd\n");
 	swpm_dbg_log("%d\n", swpm_pmsr_en);
 
 	return p - ToUser;
@@ -130,10 +129,10 @@ static ssize_t swpm_pmsr_en_write(char *FromUser, size_t sz, void *priv)
 		return -EINVAL;
 
 	if (!kstrtouint(FromUser, 0, &enable)) {
-		if (!enable) {
-			swpm_pmsr_en = enable;
-			swpm_set_cmd(PMSR_CFG_CODE << SWPM_CODE_USER_BIT, 0);
-		}
+		swpm_pmsr_en = !!enable;
+		swpm_set_only_cmd(0, swpm_pmsr_en,
+				  PMSR_SET_EN, PMSR_CMD_TYPE);
+
 	}
 
 	return sz;

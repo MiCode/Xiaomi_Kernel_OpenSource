@@ -69,7 +69,7 @@ int swpm_cpu_v6983_init(void)
 {
 	unsigned int offset;
 
-	offset = swpm_set_and_get_cmd(0, 0, CPU_CMD_TYPE);
+	offset = swpm_set_and_get_cmd(0, 0, CPU_GET_ADDR, CPU_CMD_TYPE);
 
 	cpu_swpm_data_ptr = (struct cpu_swpm_data *)
 		sspm_sbuf_get(offset);

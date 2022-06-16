@@ -53,8 +53,7 @@ static ssize_t pmu_ms_mode_write(char *FromUser, size_t sz, void *priv)
 	if (!kstrtouint(FromUser, 0, &enable)) {
 		pmu_ms_mode = enable;
 
-		swpm_set_cmd(0, (0x1 << SWPM_CODE_USER_BIT) |
-				    pmu_ms_mode);
+		swpm_set_only_cmd(0, pmu_ms_mode, CPU_SET_PMU_MS, CPU_CMD_TYPE);
 	}
 
 	return sz;
