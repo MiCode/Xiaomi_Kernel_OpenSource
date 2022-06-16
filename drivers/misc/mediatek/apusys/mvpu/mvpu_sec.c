@@ -544,7 +544,7 @@ int update_new_base_addr(bool algo_in_img, uint32_t session_id, uint32_t hash_id
 	uint32_t target_pool_ofst = 0;
 
 	target_pool_addr =
-		kzalloc(hash_pool[session_id]->buf_num * sizeof(uint32_t), GFP_KERNEL);
+		kcalloc(hash_pool[session_id]->buf_num, sizeof(uint32_t), GFP_KERNEL);
 
 
 	if (!target_pool_addr)
