@@ -1215,14 +1215,14 @@ static int mtk_senif_get_ccu_phandle(struct seninf_core *core)
 	struct device_node *node;
 	int ret = 0;
 
-	node = of_find_compatible_node(NULL, NULL, "mediatek,camera_fsync_ccu");
+	node = of_find_compatible_node(NULL, NULL, "mediatek,camera-fsync-ccu");
 	if (node == NULL) {
-		dev_info(dev, "of_find mediatek,camera_fsync_ccu fail\n");
+		dev_info(dev, "of_find mediatek,camera-fsync-ccu fail\n");
 		ret = PTR_ERR(node);
 		goto out;
 	}
 
-	ret = of_property_read_u32(node, "mediatek,ccu_rproc",
+	ret = of_property_read_u32(node, "mediatek,ccu-rproc",
 				   &core->rproc_ccu_phandle);
 	if (ret) {
 		dev_info(dev, "fail to get rproc_ccu_phandle:%d\n", ret);
