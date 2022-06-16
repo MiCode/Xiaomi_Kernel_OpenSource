@@ -10332,6 +10332,7 @@ static int dc_main_path_commit_thread(void *data)
 	return 0;
 }
 
+/* This pf release thread only is aiming for frame trigger mode's CRTC */
 static int mtk_drm_pf_release_thread(void *data)
 {
 	struct sched_param param = {.sched_priority = 87};
@@ -10340,7 +10341,6 @@ static int mtk_drm_pf_release_thread(void *data)
 	struct drm_crtc *crtc;
 	unsigned int crtc_idx;
 #ifndef DRM_CMDQ_DISABLE
-	unsigned long flags = 0;
 	ktime_t pf_time;
 	unsigned int fence_idx = 0;
 #endif
@@ -10355,22 +10355,14 @@ static int mtk_drm_pf_release_thread(void *data)
 				 atomic_read(&mtk_crtc->pf_event));
 		atomic_set(&mtk_crtc->pf_event, 0);
 
-#ifndef DRM_CMDQ_DISABLE
 		pf_time = mtk_check_preset_fence_timestamp(crtc);
-		spin_lock_irqsave(&top_clk_lock, flags);
-		if (private->power_state == true) {
-			fence_idx = *(unsigned int *)(mtk_get_gce_backup_slot_va(mtk_crtc,
-					DISP_SLOT_PRESENT_FENCE(crtc_idx)));
-			spin_unlock_irqrestore(&top_clk_lock, flags);
-			mtk_release_present_fence(private->session_id[crtc_idx],
-					fence_idx, pf_time);
-			if (crtc_idx == 0)
-				ktime_get_real_ts64(&rdma_sof_tval);
-		} else {
-			spin_unlock_irqrestore(&top_clk_lock, flags);
-			mtk_release_present_fence(private->session_id[crtc_idx],
-					atomic_read(&private->crtc_present[crtc_idx]), pf_time);
-		}
+#ifndef DRM_CMDQ_DISABLE
+		fence_idx = atomic_read(&private->crtc_rel_present[crtc_idx]);
+
+		mtk_release_present_fence(private->session_id[crtc_idx],
+					  fence_idx, pf_time);
+		if (crtc_idx == 0)
+			ktime_get_real_ts64(&rdma_sof_tval);
 #endif
 	}
 
