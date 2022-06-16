@@ -16,6 +16,8 @@ static void __iomem *spare_reg_base;
 
 // for saving data after sync with remote site
 static struct tiny_dvfs_opp_tbl opp_tbl;
+static struct tiny_dvfs_opp_tbl opp_tbl2;
+
 static struct apu_pwr_curr_info curr_info;
 static const char * const pll_name[] = {
 				"PLL_CONN", "PLL_RV33", "PLL_MVPU", "PLL_MDLA", "PLL_NVE"};
@@ -167,6 +169,16 @@ static int aputop_dbg_set_parameter(int param, int argc, int *args)
 			ret = -EINVAL;
 		}
 		break;
+	case APUPWR_DBG_DUMP_OPP_TBL2:
+		if (argc == 1) {
+			rpmsg_data.cmd = APUTOP_DUMP_OPP_TBL2;
+			rpmsg_data.data0 = args[0]; // pseudo data
+			aputop_send_rpmsg(&rpmsg_data, 100);
+		} else {
+			pr_info("%s invalid param num:%d\n", __func__, argc);
+			ret = -EINVAL;
+		}
+		break;
 	case APUPWR_DBG_CURR_STATUS:
 		if (argc == 1) {
 			rpmsg_data.cmd = APUTOP_CURR_STATUS;
@@ -260,7 +272,7 @@ static void plat_dump_boost_mapping(struct seq_file *s)
 static int aputop_show_opp_tbl(struct seq_file *s, void *unused)
 {
 	struct tiny_dvfs_opp_tbl tbl;
-	int size, i, j;
+	int size, i, j, k;
 
 	pr_info("%s ++\n", __func__);
 	memcpy(&tbl, &opp_tbl, sizeof(struct tiny_dvfs_opp_tbl));
@@ -278,6 +290,18 @@ static int aputop_show_opp_tbl(struct seq_file *s, void *unused)
 
 		for (j = 0 ; j < PLL_NUM ; j++)
 			seq_printf(s, "  %07d |", tbl.opp[i].pll_freq[j]);
+
+		seq_puts(s, "\n");
+	}
+
+	memcpy(&tbl, &opp_tbl2, sizeof(struct tiny_dvfs_opp_tbl));
+	size = tbl.tbl_size;
+	for (k = 0; size > 0 ; size--, i++, k++) {
+		seq_printf(s, "| %d |   %06d  |   %06d  |",
+			i, tbl.opp[k].vapu, tbl.opp[k].vsram);
+
+		for (j = 0 ; j < PLL_NUM ; j++)
+			seq_printf(s, "  %07d |", tbl.opp[k].pll_freq[j]);
 
 		seq_puts(s, "\n");
 	}
@@ -343,7 +367,7 @@ static int apu_top_dbg_show(struct seq_file *s, void *unused)
 
 	pr_info("%s for aputop_rpmsg_cmd : %d\n", __func__, cmd);
 
-	if (cmd == APUTOP_DUMP_OPP_TBL)
+	if (cmd == APUTOP_DUMP_OPP_TBL2)
 		ret = aputop_show_opp_tbl(s, unused);
 	else if (cmd == APUTOP_CURR_STATUS)
 		ret = aputop_show_curr_status(s, unused);
@@ -391,6 +415,8 @@ ssize_t mt6985_apu_top_dbg_write(
 		param = APUPWR_DBG_DVFS_DEBUG;
 	else if (!strcmp(token, "dump_opp_tbl"))
 		param = APUPWR_DBG_DUMP_OPP_TBL;
+	else if (!strcmp(token, "dump_opp_tbl2"))
+		param = APUPWR_DBG_DUMP_OPP_TBL2;
 	else if (!strcmp(token, "curr_status"))
 		param = APUPWR_DBG_CURR_STATUS;
 	else if (!strcmp(token, "pwr_profiling"))
@@ -431,14 +457,16 @@ int mt6985_apu_top_rpmsg_cb(int cmd, void *data, int len, void *priv, u32 src)
 		// do nothing
 		break;
 	case APUTOP_DUMP_OPP_TBL:
-		if (len == sizeof(opp_tbl)) {
-			memcpy(&opp_tbl,
-				(struct tiny_dvfs_opp_tbl *)data, len);
-		} else {
-			pr_info("%s invalid size : %d/%d\n",
-					__func__, len, sizeof(opp_tbl));
+		if (len)
+			memcpy(&opp_tbl, data, len);
+		else
 			ret = -EINVAL;
-		}
+		break;
+	case APUTOP_DUMP_OPP_TBL2:
+		if (len)
+			memcpy(&opp_tbl2, data, len);
+		else
+			ret = -EINVAL;
 		break;
 	case APUTOP_CURR_STATUS:
 		if (len == sizeof(curr_info)) {

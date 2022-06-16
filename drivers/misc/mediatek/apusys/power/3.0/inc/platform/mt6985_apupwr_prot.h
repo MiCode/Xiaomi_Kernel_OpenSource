@@ -37,6 +37,7 @@ enum {
 	APUPWR_DBG_CURR_STATUS,
 	APUPWR_DBG_PROFILING,
 	APUPWR_DBG_ARE,
+	APUPWR_DBG_DUMP_OPP_TBL2,
 };
 
 enum apu_opp_limit_type {
