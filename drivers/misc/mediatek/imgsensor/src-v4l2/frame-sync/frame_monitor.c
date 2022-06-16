@@ -657,7 +657,9 @@ void frm_power_on_ccu(unsigned int flag)
 #endif
 
 		if (ret != 0) {
-			LOG_PR_ERR("ERROR: ccu rproc_boot failed!\n");
+			LOG_MUST(
+				"ERROR: call ccu rproc_boot failed, ret:%d\n",
+				ret);
 			return;
 		}
 
@@ -714,7 +716,7 @@ void frm_reset_ccu_vsync_timestamp(unsigned int idx, unsigned int en)
 
 	/* bit 0 no use, so "bit 1" --> means 2 */
 	/* TG_1 -> bit 1, TG_2 -> bit 2, TG_3 -> bit 3 */
-	selbits = (1 << tg);
+	selbits = ((uint64_t)1 << tg);
 
 
 #ifndef FS_UT
@@ -736,16 +738,16 @@ void frm_reset_ccu_vsync_timestamp(unsigned int idx, unsigned int en)
 
 	if (ret != 0)
 		LOG_PR_ERR(
-			"ERROR: call CCU reset(1)/clear(0):%u, tg:%u (selbits:%#llx) vsync data, ret:%u\n",
+			"ERROR: call CCU reset(1)/clear(0):%u, tg:%u (selbits:%#llx) vsync data, ret:%d\n",
 			en, tg, selbits, ret);
 	else
 		LOG_MUST(
-			"called CCU reset(1)/clear(0):%u, tg:%u (selbits:%#llx) vsync data, ret:%u\n",
+			"called CCU reset(1)/clear(0):%u, tg:%u (selbits:%#llx) vsync data, ret:%d\n",
 			en, tg, selbits, ret);
 }
 
 
-unsigned int frm_get_ccu_pwn_cnt(void)
+int frm_get_ccu_pwn_cnt(void)
 {
 #if !defined(FS_UT)
 	return frm_inst.power_on_cnt;

@@ -60,7 +60,7 @@ void frm_power_on_ccu(unsigned int flag);
 
 void frm_reset_ccu_vsync_timestamp(unsigned int idx, unsigned int en);
 
-unsigned int frm_get_ccu_pwn_cnt(void);
+int frm_get_ccu_pwn_cnt(void);
 #endif
 
 

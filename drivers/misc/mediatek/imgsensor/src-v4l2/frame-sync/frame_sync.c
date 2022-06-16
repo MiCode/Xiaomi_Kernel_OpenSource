@@ -379,7 +379,7 @@ static void fs_dump_status(const int idx, const unsigned int flag,
 #if defined(USING_CCU)
 	ret = snprintf(log_buf + strlen(log_buf),
 		LOG_BUF_STR_LEN - strlen(log_buf),
-		", pw_ccu:%d(cnt:%u)",
+		", pw_ccu:%d(cnt:%d)",
 		FS_ATOMIC_READ(&fs_mgr.power_on_ccu_bits),
 		frm_get_ccu_pwn_cnt());
 
