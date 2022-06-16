@@ -27,14 +27,20 @@ ccflags-$(CONFIG_MTK_IOMMU_V2) += -I$(srctree)/drivers/misc/mediatek/include/mt-
 
 $(warning "Bryan test")
 
+ifeq ($(CONFIG_MTK_CAMERA_DPE_ISP7S),m)
+
+obj-$(CONFIG_MTK_CAMERA_DPE_ISP7S) += camera_dpe_isp70.o
+camera_dpe_isp70-objs += isp_7s/engine_request.o
+camera_dpe_isp70-objs  += isp_7s/camera_dpe.o
+camera_dpe_isp70-objs += isp_7s/videobuf2-dma-contig.o
+
+endif
 
 ifeq ($(CONFIG_MTK_CAMERA_DPE_ISP7),m)
-
 obj-$(CONFIG_MTK_CAMERA_DPE_ISP7) += camera_dpe_isp70.o
 camera_dpe_isp70-objs += isp_70/engine_request.o
 camera_dpe_isp70-objs  += isp_70/camera_dpe.o
 camera_dpe_isp70-objs += isp_70/videobuf2-dma-contig.o
-
 endif
 
 ifeq ($(CONFIG_MTK_CAMERA_DPE_ISP6S),m)
