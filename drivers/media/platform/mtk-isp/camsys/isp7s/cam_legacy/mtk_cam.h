@@ -87,7 +87,6 @@ struct mtk_raw_pipeline;
 #define MTK_CAM_REQ_S_DATA_FLAG_INCOMPLETE BIT(9)
 
 #define v4l2_subdev_format_request_fd(x) x->reserved[0]
-#define v4l2_frame_interval_which(x) x->reserved[0]
 
 struct mtk_cam_working_buf {
 	void *va;
@@ -236,8 +235,10 @@ struct mtk_cam_request_stream_data {
 	u32 pad_fmt_update;
 	u32 vdev_fmt_update;
 	u32 vdev_selection_update;
+	u32 pad_selection_update;
 	struct v4l2_subdev_format seninf_fmt;
 	struct v4l2_subdev_format pad_fmt[MTK_RAW_PIPELINE_PADS_NUM];
+	struct v4l2_rect pad_selection[MTK_RAW_PIPELINE_PADS_NUM];
 	struct v4l2_format vdev_fmt[MTK_RAW_TOTAL_NODES];
 	struct v4l2_selection vdev_selection[MTK_RAW_TOTAL_NODES];
 	struct mtkcam_ipi_frame_param frame_params;
@@ -938,7 +939,15 @@ int mtk_cam_mraw_link_validate(struct v4l2_subdev *sd,
 			  struct media_link *link,
 			  struct v4l2_subdev_format *source_fmt,
 			  struct v4l2_subdev_format *sink_fmt);
-
+int mtk_cam_req_save_link_change(struct mtk_raw_pipeline *pipe,
+				 struct mtk_cam_request *cam_req,
+				 struct mtk_cam_request_stream_data *s_data);
+int mtk_cam_req_save_raw_vfmts(struct mtk_raw_pipeline *pipe,
+			       struct mtk_cam_request *cam_req,
+			       struct mtk_cam_request_stream_data *s_data);
+int mtk_cam_req_save_raw_vsels(struct mtk_raw_pipeline *pipe,
+			       struct mtk_cam_request *cam_req,
+			       struct mtk_cam_request_stream_data *s_data);
 struct mtk_cam_request *mtk_cam_get_req(struct mtk_cam_ctx *ctx,
 					unsigned int frame_seq_no);
 

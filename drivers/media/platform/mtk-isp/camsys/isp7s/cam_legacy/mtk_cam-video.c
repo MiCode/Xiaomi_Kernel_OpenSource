@@ -740,6 +740,12 @@ static void mtk_cam_vb2_buf_queue(struct vb2_buffer *vb)
 	frame_param = &req_stream_data->frame_params;
 	sv_frame_params = &req_stream_data->sv_frame_params;
 	raw_pipline = mtk_cam_dev_get_raw_pipeline(cam, pipe_id);
+	if (raw_pipline) {
+		mtk_cam_req_save_link_change(raw_pipline, req,
+					     req_stream_data);
+		mtk_cam_req_save_raw_vfmts(raw_pipline, req,
+					   req_stream_data);
+	}
 	mtk_cam_s_data_set_vbuf(req_stream_data, buf, node->desc.id);
 
 	/* update buffer internal address */
@@ -1855,6 +1861,243 @@ int mtk_cam_vidioc_enum_framesizes(struct file *filp, void *priv,
 	return 0;
 }
 
+static void fill_ext_fmtdesc(struct v4l2_fmtdesc *fmt)
+{
+	const char *descr = NULL;
+	const unsigned int sz = sizeof(fmt->description);
+
+	switch (fmt->pixelformat) {
+	case V4L2_PIX_FMT_YUYV10:
+		descr = "YUYV 4:2:2 10 bits";
+		break;
+	case V4L2_PIX_FMT_YVYU10:
+		descr = "YVYU 4:2:2 10 bits";
+		break;
+	case V4L2_PIX_FMT_UYVY10:
+		descr = "UYVY 4:2:2 10 bits";
+		break;
+	case V4L2_PIX_FMT_VYUY10:
+		descr = "VYUY 4:2:2 10 bits";
+		break;
+	case V4L2_PIX_FMT_NV12_10:
+		descr = "Y/CbCr 4:2:0 10 bits";
+		break;
+	case V4L2_PIX_FMT_NV21_10:
+		descr = "Y/CrCb 4:2:0 10 bits";
+		break;
+	case V4L2_PIX_FMT_NV16_10:
+		descr = "Y/CbCr 4:2:2 10 bits";
+		break;
+	case V4L2_PIX_FMT_NV61_10:
+		descr = "Y/CrCb 4:2:2 10 bits";
+		break;
+	case V4L2_PIX_FMT_NV12_12:
+		descr = "Y/CbCr 4:2:0 12 bits";
+		break;
+	case V4L2_PIX_FMT_NV21_12:
+		descr = "Y/CrCb 4:2:0 12 bits";
+		break;
+	case V4L2_PIX_FMT_NV16_12:
+		descr = "Y/CbCr 4:2:2 12 bits";
+		break;
+	case V4L2_PIX_FMT_NV61_12:
+		descr = "Y/CrCb 4:2:2 12 bits";
+		break;
+	case V4L2_PIX_FMT_MTISP_SBGGR10:
+		descr = "10-bit Bayer BGGR MTISP Packed";
+		break;
+	case V4L2_PIX_FMT_MTISP_SGBRG10:
+		descr = "10-bit Bayer GBRG MTISP Packed";
+		break;
+	case V4L2_PIX_FMT_MTISP_SGRBG10:
+		descr = "10-bit Bayer GRBG MTISP Packed";
+		break;
+	case V4L2_PIX_FMT_MTISP_SRGGB10:
+		descr = "10-bit Bayer RGGB MTISP Packed";
+		break;
+	case V4L2_PIX_FMT_MTISP_SBGGR12:
+		descr = "12-bit Bayer BGGR MTISP Packed";
+		break;
+	case V4L2_PIX_FMT_MTISP_SGBRG12:
+		descr = "12-bit Bayer GBRG MTISP Packed";
+		break;
+	case V4L2_PIX_FMT_MTISP_SGRBG12:
+		descr = "12-bit Bayer GRBG MTISP Packed";
+		break;
+	case V4L2_PIX_FMT_MTISP_SRGGB12:
+		descr = "12-bit Bayer RGGB MTISP Packed";
+		break;
+	case V4L2_PIX_FMT_MTISP_SBGGR14:
+		descr = "14-bit Bayer BGGR MTISP Packed";
+		break;
+	case V4L2_PIX_FMT_MTISP_SGBRG14:
+		descr = "14-bit Bayer GBRG MTISP Packed";
+		break;
+	case V4L2_PIX_FMT_MTISP_SGRBG14:
+		descr = "14-bit Bayer GRBG MTISP Packed";
+		break;
+	case V4L2_PIX_FMT_MTISP_SRGGB14:
+		descr = "14-bit Bayer RGGB MTISP Packed";
+		break;
+	case V4L2_PIX_FMT_MTISP_SBGGR8F:
+		descr = "8-bit Enhanced BGGR Packed";
+		break;
+	case V4L2_PIX_FMT_MTISP_SGBRG8F:
+		descr = "8-bit Enhanced GBRG Packed";
+		break;
+	case V4L2_PIX_FMT_MTISP_SGRBG8F:
+		descr = "8-bit Enhanced GRBG Packed";
+		break;
+	case V4L2_PIX_FMT_MTISP_SRGGB8F:
+		descr = "8-bit Enhanced RGGB Packed";
+		break;
+	case V4L2_PIX_FMT_MTISP_SBGGR10F:
+		descr = "10-bit Enhanced BGGR Packed";
+		break;
+	case V4L2_PIX_FMT_MTISP_SGBRG10F:
+		descr = "10-bit Enhanced GBRG Packed";
+		break;
+	case V4L2_PIX_FMT_MTISP_SGRBG10F:
+		descr = "10-bit Enhanced GRBG Packed";
+		break;
+	case V4L2_PIX_FMT_MTISP_SRGGB10F:
+		descr = "10-bit Enhanced RGGB Packed";
+		break;
+	case V4L2_PIX_FMT_MTISP_SBGGR12F:
+		descr = "12-bit Enhanced BGGR Packed";
+		break;
+	case V4L2_PIX_FMT_MTISP_SGBRG12F:
+		descr = "12-bit Enhanced GBRG Packed";
+		break;
+	case V4L2_PIX_FMT_MTISP_SGRBG12F:
+		descr = "12-bit Enhanced GRBG Packed";
+		break;
+	case V4L2_PIX_FMT_MTISP_SRGGB12F:
+		descr = "12-bit Enhanced RGGB Packed";
+		break;
+	case V4L2_PIX_FMT_MTISP_SBGGR14F:
+		descr = "14-bit Enhanced BGGR Packed";
+		break;
+	case V4L2_PIX_FMT_MTISP_SGBRG14F:
+		descr = "14-bit Enhanced GBRG Packed";
+		break;
+	case V4L2_PIX_FMT_MTISP_SGRBG14F:
+		descr = "14-bit Enhanced GRBG Packed";
+		break;
+	case V4L2_PIX_FMT_MTISP_SRGGB14F:
+		descr = "14-bit Enhanced RGGB Packed";
+		break;
+	case V4L2_PIX_FMT_MTISP_NV12_10P:
+		descr = "Y/CbCr 4:2:0 10 bits packed";
+		break;
+	case V4L2_PIX_FMT_MTISP_NV21_10P:
+		descr = "Y/CrCb 4:2:0 10 bits packed";
+		break;
+	case V4L2_PIX_FMT_MTISP_NV16_10P:
+		descr = "Y/CbCr 4:2:2 10 bits packed";
+		break;
+	case V4L2_PIX_FMT_MTISP_NV61_10P:
+		descr = "Y/CrCb 4:2:2 10 bits packed";
+		break;
+	case V4L2_PIX_FMT_MTISP_YUYV10P:
+		descr = "YUYV 4:2:2 10 bits packed";
+		break;
+	case V4L2_PIX_FMT_MTISP_YVYU10P:
+		descr = "YVYU 4:2:2 10 bits packed";
+		break;
+	case V4L2_PIX_FMT_MTISP_UYVY10P:
+		descr = "UYVY 4:2:2 10 bits packed";
+		break;
+	case V4L2_PIX_FMT_MTISP_VYUY10P:
+		descr = "VYUY 4:2:2 10 bits packed";
+		break;
+	case V4L2_PIX_FMT_MTISP_NV12_12P:
+		descr = "Y/CbCr 4:2:0 12 bits packed";
+		break;
+	case V4L2_PIX_FMT_MTISP_NV21_12P:
+		descr = "Y/CrCb 4:2:0 12 bits packed";
+		break;
+	case V4L2_PIX_FMT_MTISP_NV16_12P:
+		descr = "Y/CbCr 4:2:2 12 bits packed";
+		break;
+	case V4L2_PIX_FMT_MTISP_NV61_12P:
+		descr = "Y/CrCb 4:2:2 12 bits packed";
+		break;
+	case V4L2_PIX_FMT_MTISP_YUYV12P:
+		descr = "YUYV 4:2:2 12 bits packed";
+		break;
+	case V4L2_PIX_FMT_MTISP_YVYU12P:
+		descr = "YVYU 4:2:2 12 bits packed";
+		break;
+	case V4L2_PIX_FMT_MTISP_UYVY12P:
+		descr = "UYVY 4:2:2 12 bits packed";
+		break;
+	case V4L2_PIX_FMT_MTISP_VYUY12P:
+		descr = "VYUY 4:2:2 12 bits packed";
+		break;
+	case V4L2_PIX_FMT_MTISP_NV12_UFBC:
+		descr = "YCbCr 420 8 bits compress";
+		break;
+	case V4L2_PIX_FMT_MTISP_NV21_UFBC:
+		descr = "YCrCb 420 8 bits compress";
+		break;
+	case V4L2_PIX_FMT_MTISP_NV12_10_UFBC:
+		descr = "YCbCr 420 10 bits compress";
+		break;
+	case V4L2_PIX_FMT_MTISP_NV21_10_UFBC:
+		descr = "YCrCb 420 10 bits compress";
+		break;
+	case V4L2_PIX_FMT_MTISP_NV12_12_UFBC:
+		descr = "YCbCr 420 12 bits compress";
+		break;
+	case V4L2_PIX_FMT_MTISP_NV21_12_UFBC:
+		descr = "YCrCb 420 12 bits compress";
+		break;
+	case V4L2_PIX_FMT_MTISP_BAYER8_UFBC:
+		descr = "RAW 8 bits compress";
+		break;
+	case V4L2_PIX_FMT_MTISP_BAYER10_UFBC:
+		descr = "RAW 10 bits compress";
+		break;
+	case V4L2_PIX_FMT_MTISP_BAYER12_UFBC:
+		descr = "RAW 12 bits compress";
+		break;
+	case V4L2_PIX_FMT_MTISP_BAYER14_UFBC:
+		descr = "RAW 14 bits compress";
+		break;
+	case V4L2_META_FMT_MTISP_3A:
+		descr = "AE/AWB Histogram";
+		break;
+	case V4L2_META_FMT_MTISP_AF:
+		descr = "AF Histogram";
+		break;
+	case V4L2_META_FMT_MTISP_LCS:
+		descr = "Local Contrast Enhancement Stat";
+		break;
+	case V4L2_META_FMT_MTISP_LMV:
+		descr = "Local Motion Vector Histogram";
+		break;
+	case V4L2_META_FMT_MTISP_PARAMS:
+		descr = "MTK ISP Tuning Metadata";
+		break;
+	case V4L2_PIX_FMT_MTISP_SGRB8F:
+		descr = "8-bit 3 plane GRB Packed";
+		break;
+	case V4L2_PIX_FMT_MTISP_SGRB10F:
+		descr = "10-bit 3 plane GRB Packed";
+		break;
+	case V4L2_PIX_FMT_MTISP_SGRB12F:
+		descr = "12-bit 3 plane GRB Packed";
+		break;
+	default:
+		descr = "unknown mtk ext fmt";
+		break;
+	}
+
+	if (descr)
+		WARN_ON(strscpy(fmt->description, descr, sz) < 0);
+}
+
 int mtk_cam_vidioc_enum_fmt(struct file *file, void *fh,
 			    struct v4l2_fmtdesc *f)
 {
@@ -1863,9 +2106,10 @@ int mtk_cam_vidioc_enum_fmt(struct file *file, void *fh,
 	if (f->index >= node->desc.num_fmts)
 		return -EINVAL;
 
-	/* f->description is filled in v4l_fill_fmtdesc function */
 	f->pixelformat = node->desc.fmts[f->index].vfmt.fmt.pix_mp.pixelformat;
 	f->flags = 0;
+	fill_ext_fmtdesc(f);
+
 	return 0;
 }
 
@@ -1879,79 +2123,147 @@ int mtk_cam_vidioc_g_fmt(struct file *file, void *fh,
 	return 0;
 }
 
-int mtk_cam_vidioc_s_fmt(struct file *file, void *fh,
+int mtk_cam_collect_vfmt(struct mtk_raw_pipeline *pipe,
+			 struct mtk_cam_video_device *node,
 			 struct v4l2_format *f)
 {
-	struct mtk_cam_device *cam = video_drvdata(file);
-	struct mtk_cam_video_device *node = file_to_mtk_cam_node(file);
-	struct mtk_cam_request *cam_req;
-	struct media_request *req;
-	struct v4l2_format *vfmt;
-	struct mtk_cam_request_stream_data *stream_data;
-	s32 fd;
-	struct mtk_raw_pipeline *raw_pipeline;
-	struct mtk_cam_scen scen;
+	pipe->req_vfmt_update |= (1 << node->desc.id);
+	node->pending_fmt = *f;
 
-	if (!vb2_is_busy(node->vdev.queue)) {
-		memset(&scen, 0, sizeof(scen));
+	return 0;
+}
 
-		/* Get the valid format */
-		raw_pipeline = mtk_cam_dev_get_raw_pipeline(cam, node->uid.pipe_id);
-		if (raw_pipeline)
-			scen = raw_pipeline->user_res.raw_res.scen;
+/* check the setting from user with scen and log the error for integration test */
+int mtk_cam_video_s_fmt_chk_feature(struct mtk_cam_video_device *node,
+				    struct v4l2_format *f,
+				    struct mtk_cam_scen *scen,
+				    char *dbg_str)
+{
+	struct mtk_cam_device *cam = video_get_drvdata(&node->vdev);
+	struct v4l2_format try_fmt;
+	u32 bytesperline, sizeimage;
+	bool is_hdr = false, is_hdr_m2m = false;
+	int stride, num_planes;
+	int img_fmt;
+	int i;
 
-		mtk_cam_video_set_fmt(node, f, &scen);
-
-		/* Configure to video device */
-		node->active_fmt = *f;
-		return 0;
-	}
-
-	fd = mtk_cam_fmt_get_request(&f->fmt.pix_mp);
-	if (fd < 0)
-		return -EINVAL;
-
-	req = media_request_get_by_fd(&cam->media_dev, fd);
-	if (IS_ERR(req)) {
-		dev_info(cam->dev,
-			"%s:pipe(%d):%s:invalid request_fd:%d\n",
-			__func__, node->uid.pipe_id, node->desc.name, fd);
-
-		return -EINVAL;
-	}
-
-	cam_req = to_mtk_cam_req(req);
 	dev_dbg(cam->dev,
-		"%s:%s:pipe(%d):%s:pending s_fmt: pixelfmt(0x%x), w(%d), h(%d)\n",
-		__func__, cam_req->req.debug_str, node->uid.pipe_id, node->desc.name,
-		f->fmt.pix_mp.pixelformat,  f->fmt.pix_mp.width, f->fmt.pix_mp.height);
+		"%s:pipe(%d):%s: scen(%s)\n",
+		__func__, node->uid.pipe_id, node->desc.name, scen->dbg_str);
 
-	stream_data = mtk_cam_req_get_s_data_no_chk(cam_req, node->uid.pipe_id, 0);
-	stream_data->vdev_fmt_update |= (1 << node->desc.id);
-	vfmt = mtk_cam_s_data_get_vfmt(stream_data, node->desc.id);
-	*vfmt = *f;
-	media_request_put(req);
+	try_fmt = *f;
+
+	if (mtk_cam_scen_is_hdr(scen)) {
+		if (mtk_cam_scen_is_odt(scen))
+			is_hdr_m2m = true;
+		else
+			is_hdr = true;
+	}
+
+	/**
+	 * check HDR num_planes setting from user
+	 * - support 1/2/3 plane
+	 * - vhdr m2m main stream is implicitly multiple plane
+	 */
+	if ((node->desc.id == MTK_RAW_MAIN_STREAM_OUT && is_hdr) ||
+	    (node->desc.id == MTK_RAW_RAWI_2_IN && is_hdr_m2m)) {
+		num_planes = mtk_cam_scen_get_max_exp_num(scen);
+		if (try_fmt.fmt.pix_mp.num_planes < num_planes) {
+			dev_info(cam->dev,
+				 "%s:%s:pipe(%d):%s:scen(%s):invalid num_planes(%d), should be %d\n",
+				 __func__, dbg_str, node->uid.pipe_id,
+				 node->desc.name, scen->dbg_str,
+				 try_fmt.fmt.pix_mp.num_planes, num_planes);
+			try_fmt.fmt.pix_mp.num_planes = num_planes;
+			/* correct the plane_fmt settings */
+			for (i = 0 ; i < try_fmt.fmt.pix_mp.num_planes ; i++)
+				try_fmt.fmt.pix_mp.plane_fmt[i].bytesperline =
+					f->fmt.pix_mp.plane_fmt[i].bytesperline;
+		}
+	}
+
+	/**
+	 * check subsample num_planes setting from user
+	 * - support 1/2/3 plane
+	 * - vhdr m2m main stream is implicitly multiple plane
+	 */
+	if (node->desc.id >= MTK_RAW_MAIN_STREAM_OUT &&
+	    node->desc.id < MTK_RAW_RZH1N2TO_1_OUT &&
+	    mtk_cam_scen_is_subsample(scen)) {
+		if (scen->scen.smvr.subsample_num > MAX_SUBSAMPLE_PLANE_NUM)
+			num_planes = MAX_SUBSAMPLE_PLANE_NUM;
+		else
+			num_planes = scen->scen.smvr.subsample_num;
+
+		if (try_fmt.fmt.pix_mp.num_planes < num_planes) {
+			dev_info(cam->dev,
+				 "%s:%s:pipe(%d):%s:scen(%s):invalid num_planes(%d), should be %d\n",
+				 __func__, dbg_str, node->uid.pipe_id,
+				 node->desc.name, scen->dbg_str,
+				 try_fmt.fmt.pix_mp.num_planes, num_planes);
+			/* correct the plane_fmt settings */
+			bytesperline = try_fmt.fmt.pix_mp.plane_fmt[0].bytesperline;
+			sizeimage = try_fmt.fmt.pix_mp.plane_fmt[0].sizeimage;
+			for (i = 0 ; i < try_fmt.fmt.pix_mp.num_planes ; i++) {
+				try_fmt.fmt.pix_mp.plane_fmt[i].bytesperline =
+					bytesperline;
+				try_fmt.fmt.pix_mp.plane_fmt[i].sizeimage =
+					sizeimage;
+			}
+
+			dev_info(cam->dev,
+				 "%%s:%s:pipe(%d):%s:scen(%s):stride:%d size:%d\n",
+				 __func__, dbg_str, node->uid.pipe_id,
+				 node->desc.name, scen->dbg_str,
+				 bytesperline, sizeimage);
+		}
+	}
+
+	/**
+	 * check extisp settings
+	 * extisp may use mainstream for yuvformat
+	 */
+	if (node->desc.id == MTK_RAW_MAIN_STREAM_OUT &&
+	    mtk_cam_scen_is_ext_isp(scen) &&
+	    scen->scen.extisp.type == MTK_CAM_EXTISP_CUS_2) {
+		img_fmt = mtk_cam_get_img_fmt(try_fmt.fmt.pix_mp.pixelformat);
+		stride = mtk_cam_dmao_xsize(try_fmt.fmt.pix_mp.width,
+					    img_fmt, 0);
+		if (try_fmt.fmt.pix_mp.plane_fmt[0].bytesperline < stride) {
+			dev_info(cam->dev,
+				 " %s:%s:pipe(%d):%s:scen(%s):invalid stride(%d), should be %d\n",
+				 __func__, dbg_str, node->uid.pipe_id,
+				 node->desc.name, scen->dbg_str,
+				 try_fmt.fmt.pix_mp.plane_fmt[0].bytesperline, stride);
+			try_fmt.fmt.pix_mp.plane_fmt[0].bytesperline =
+				stride * 2;
+		}
+
+		sizeimage = stride * try_fmt.fmt.pix_mp.height;
+		if (try_fmt.fmt.pix_mp.plane_fmt[0].sizeimage < sizeimage) {
+			dev_info(cam->dev,
+				 "%s:%s:pipe(%d):%s:scen(%s):invalid stride(%d), should be %d\n",
+				 __func__, dbg_str, node->uid.pipe_id,
+				 node->desc.name, scen->dbg_str,
+				 try_fmt.fmt.pix_mp.plane_fmt[0].sizeimage, sizeimage);
+			try_fmt.fmt.pix_mp.plane_fmt[0].sizeimage = sizeimage;
+		}
+	}
+
+	*f = try_fmt;
 
 	return 0;
 }
 
 /* the raw_feature or scen will be removed in try fmt case (vendor hook removal) */
-int mtk_cam_video_set_fmt(struct mtk_cam_video_device *node, struct v4l2_format *f,
-			  struct mtk_cam_scen *scen)
+int mtk_cam_video_s_fmt_common(struct mtk_cam_video_device *node,
+			       struct v4l2_format *f, char *dbg_str)
 {
 	struct mtk_cam_device *cam = video_get_drvdata(&node->vdev);
 	const struct v4l2_format *dev_fmt;
 	struct v4l2_format try_fmt;
-	s32 request_fd, i;
+	s32 i;
 	u32 bytesperline, sizeimage;
-	u32 is_hdr = 0, is_hdr_m2m = 0;
-
-	dev_dbg(cam->dev,
-		"%s:pipe(%d):%s: scen(%s)\n",
-		__func__, node->uid.pipe_id, node->desc.name,
-		(scen) ? scen->dbg_str : "");
-
-	request_fd = mtk_cam_fmt_get_request(&f->fmt.pix_mp);
 	memset(&try_fmt, 0, sizeof(try_fmt));
 	try_fmt.type = f->type;
 
@@ -1962,6 +2274,7 @@ int mtk_cam_video_set_fmt(struct mtk_cam_video_device *node, struct v4l2_format 
 			f->fmt.pix_mp.pixelformat);
 		dev_fmt = &node->desc.fmts[node->desc.default_fmt_idx].vfmt;
 	}
+
 	try_fmt.fmt.pix_mp.pixelformat = dev_fmt->fmt.pix_mp.pixelformat;
 
 	/* Validate image width & height range */
@@ -1972,21 +2285,27 @@ int mtk_cam_video_set_fmt(struct mtk_cam_video_device *node, struct v4l2_format 
 	/* 4 bytes alignment for width */
 	/* Todo: width and stride should align bus_size */
 	try_fmt.fmt.pix_mp.width = ALIGN(try_fmt.fmt.pix_mp.width, IMG_PIX_ALIGN);
-	try_fmt.fmt.pix_mp.num_planes = 1;
 
-	if (mtk_cam_scen_is_hdr(scen)) {
-		if (mtk_cam_scen_is_odt(scen))
-			is_hdr_m2m = 1;
-		else
-			is_hdr = 1;
+	/**
+	 * The user must provide the num_planes information for special scenario which
+	 * may carry two or more images.
+	 *
+	 * Note: vhdr m2m main stream is implicitly multiple plane
+	 * but not negotiatied through try format
+	 */
+	if (try_fmt.fmt.pix_mp.num_planes <= 0) {
+		dev_info(cam->dev, "%s:%s:pipe(%d):%s:invalid num_planes(%d)\n",
+			 __func__, dbg_str, node->uid.pipe_id, node->desc.name,
+			 try_fmt.fmt.pix_mp.num_planes);
+		try_fmt.fmt.pix_mp.num_planes = 1;
 	}
 
-	/* support 1/2/3 plane */
-	/* Note: vhdr m2m main stream is implicitly multiple plane */
-	/* but not nego through try format */
-	if ((node->desc.id == MTK_RAW_MAIN_STREAM_OUT && is_hdr) ||
-		(node->desc.id == MTK_RAW_RAWI_2_IN && is_hdr_m2m))
-		try_fmt.fmt.pix_mp.num_planes = mtk_cam_scen_get_max_exp_num(scen);
+	if (try_fmt.fmt.pix_mp.num_planes > MAX_SUBSAMPLE_PLANE_NUM) {
+		dev_info(cam->dev, "%s:%s:pipe(%d):%s:invalid num_planes(%d)\n",
+			 __func__, dbg_str, node->uid.pipe_id, node->desc.name,
+			 try_fmt.fmt.pix_mp.num_planes);
+		try_fmt.fmt.pix_mp.num_planes = MAX_SUBSAMPLE_PLANE_NUM;
+	}
 
 	for (i = 0 ; i < try_fmt.fmt.pix_mp.num_planes ; i++)
 		try_fmt.fmt.pix_mp.plane_fmt[i].bytesperline =
@@ -1994,33 +2313,36 @@ int mtk_cam_video_set_fmt(struct mtk_cam_video_device *node, struct v4l2_format 
 
 	/* bytesperline & sizeimage calculation */
 	if (node->desc.dma_port == MTKCAM_IPI_CAMSV_MAIN_OUT ||
-		node->desc.dma_port == MTKCAM_IPI_RAW_IMGO ||
-		node->desc.dma_port == MTKCAM_IPI_RAW_RAWI_2)
+	    node->desc.dma_port == MTKCAM_IPI_RAW_IMGO ||
+	    node->desc.dma_port == MTKCAM_IPI_RAW_RAWI_2)
+
 		cal_image_pix_mp(node->desc.id, &try_fmt.fmt.pix_mp, 3);
 	else
 		cal_image_pix_mp(node->desc.id, &try_fmt.fmt.pix_mp, 0);
 
-	/* subsample */
 	if (node->desc.id >= MTK_RAW_MAIN_STREAM_OUT &&
-		node->desc.id < MTK_RAW_RZH1N2TO_1_OUT &&
-	    mtk_cam_scen_is_subsample(scen)) {
-		if (scen->scen.smvr.subsample_num > MAX_SUBSAMPLE_PLANE_NUM)
-			try_fmt.fmt.pix_mp.num_planes = MAX_SUBSAMPLE_PLANE_NUM;
-		else
-			try_fmt.fmt.pix_mp.num_planes = scen->scen.smvr.subsample_num;
-
+	    node->desc.id < MTK_RAW_RZH1N2TO_1_OUT) {
 		bytesperline = try_fmt.fmt.pix_mp.plane_fmt[0].bytesperline;
 		sizeimage = try_fmt.fmt.pix_mp.plane_fmt[0].sizeimage;
+
+		/**
+		 * Considering subsample case or any multiple image case,
+		 * the user uses num_planes to indicate the number of image
+		 */
 		for (i = 0 ; i < try_fmt.fmt.pix_mp.num_planes ; i++) {
 			try_fmt.fmt.pix_mp.plane_fmt[i].bytesperline =
 				bytesperline;
 			try_fmt.fmt.pix_mp.plane_fmt[i].sizeimage =
 				sizeimage;
 		}
-		dev_info(cam->dev, "%s id:%d scen:(%s) stride:%d size:%d subsample_num(%d)\n",
-			 __func__, node->desc.id, scen->dbg_str,
-			 bytesperline, sizeimage, scen->scen.smvr.subsample_num);
+
+		dev_info(cam->dev,
+			 "%s:%s:pipe(%d):%s:stride:%d, size:%d, num_planes(%d)\n",
+			 __func__, dbg_str, node->uid.pipe_id, node->desc.name,
+			 bytesperline, sizeimage,
+			 try_fmt.fmt.pix_mp.num_planes);
 	}
+
 	/* add header size for vc channel */
 	if (node->desc.dma_port == MTKCAM_IPI_CAMSV_MAIN_OUT &&
 		node->desc.id == MTK_CAMSV_MAIN_STREAM_OUT) {
@@ -2031,25 +2353,11 @@ int mtk_cam_video_set_fmt(struct mtk_cam_video_device *node, struct v4l2_format 
 		try_fmt.fmt.pix_mp.plane_fmt[0].sizeimage += 16;
 
 		dev_info(cam->dev, "%s id:%d stride:%d size:%d\n",
-				__func__, node->desc.id,
-				try_fmt.fmt.pix_mp.plane_fmt[0].bytesperline,
-				try_fmt.fmt.pix_mp.plane_fmt[0].sizeimage);
-		}
-	/*extisp may use mainstream for yuvformat*/
-	if (node->desc.id == MTK_RAW_MAIN_STREAM_OUT &&
-		mtk_cam_scen_is_ext_isp(scen) &&
-		scen->scen.extisp.type == MTK_CAM_EXTISP_CUS_2) {
-		int stride;
-
-		stride = mtk_cam_dmao_xsize(try_fmt.fmt.pix_mp.width,
-			mtk_cam_get_img_fmt(try_fmt.fmt.pix_mp.pixelformat),
-			0);
-		try_fmt.fmt.pix_mp.plane_fmt[0].bytesperline =
-			stride * 2;
-		try_fmt.fmt.pix_mp.plane_fmt[0].sizeimage =
-			try_fmt.fmt.pix_mp.plane_fmt[0].bytesperline *
-			try_fmt.fmt.pix_mp.height;
+			 __func__, node->desc.id,
+			 try_fmt.fmt.pix_mp.plane_fmt[0].bytesperline,
+			 try_fmt.fmt.pix_mp.plane_fmt[0].sizeimage);
 	}
+
 	/* Constant format fields */
 	try_fmt.fmt.pix_mp.colorspace = V4L2_COLORSPACE_SRGB;
 	try_fmt.fmt.pix_mp.field = V4L2_FIELD_NONE;
@@ -2058,7 +2366,54 @@ int mtk_cam_video_set_fmt(struct mtk_cam_video_device *node, struct v4l2_format 
 	try_fmt.fmt.pix_mp.xfer_func = V4L2_XFER_FUNC_SRGB;
 
 	*f = try_fmt;
-	mtk_cam_fmt_set_request(&f->fmt.pix_mp, request_fd);
+
+	return 0;
+}
+
+/* the raw_feature or scen will be removed in try fmt case (vendor hook removal) */
+int mtk_cam_video_set_fmt(struct mtk_cam_video_device *node, struct v4l2_format *f,
+			  struct mtk_cam_scen *scen, char *dbg_str)
+{
+	int ret;
+
+	ret = mtk_cam_video_s_fmt_common(node, f, dbg_str);
+	ret = mtk_cam_video_s_fmt_chk_feature(node, f, scen, dbg_str);
+
+	return ret;
+}
+
+int mtk_cam_vidioc_s_fmt(struct file *file, void *fh, struct v4l2_format *f)
+{
+	struct mtk_cam_device *cam = video_drvdata(file);
+	struct mtk_cam_video_device *node = file_to_mtk_cam_node(file);
+	struct mtk_raw_pipeline *raw_pipeline;
+	struct mtk_cam_scen scen;
+	raw_pipeline = mtk_cam_dev_get_raw_pipeline(cam, node->uid.pipe_id);
+
+	if (!vb2_is_busy(node->vdev.queue)) {
+		mtk_cam_scen_init(&scen);
+
+		/* Get the valid format */
+		raw_pipeline = mtk_cam_dev_get_raw_pipeline(cam, node->uid.pipe_id);
+		if (raw_pipeline)
+			scen = raw_pipeline->user_res.raw_res.scen;
+
+		mtk_cam_video_set_fmt(node, f, &scen, "s_fmt");
+
+		/* Configure to video device */
+		node->active_fmt = *f;
+
+		return 0;
+	}
+
+	if (raw_pipeline)
+		mtk_cam_collect_vfmt(raw_pipeline, node, f);
+	/* TODO: collect mraw and camsv's request-based s_fzmt */
+
+	dev_dbg(cam->dev,
+		"%s:pipe(%d):%s:pending s_fmt: pixelfmt(0x%x), w(%d), h(%d)\n",
+		__func__, node->uid.pipe_id, node->desc.name,
+		f->fmt.pix_mp.pixelformat,  f->fmt.pix_mp.width, f->fmt.pix_mp.height);
 
 	return 0;
 }
@@ -2067,17 +2422,8 @@ int mtk_cam_vidioc_try_fmt(struct file *file, void *fh,
 			   struct v4l2_format *f)
 {
 	struct mtk_cam_video_device *node = file_to_mtk_cam_node(file);
-	struct mtk_cam_scen scen;
-	int raw_feature_legacy = 0;
 
-	if (is_raw_subdev(node->uid.pipe_id))
-		raw_feature_legacy = mtk_cam_fmt_get_raw_feature(&f->fmt.pix_mp);
-
-	memset(&scen, 0, sizeof(scen));
-	mtk_cam_feature_to_scen(&scen, raw_feature_legacy, raw_feature_legacy);
-	mtk_cam_video_set_fmt(node, f, &scen);
-
-	return 0;
+	return mtk_cam_video_s_fmt_common(node, f, "try_fmt");
 }
 
 int mtk_cam_vidioc_meta_enum_fmt(struct file *file, void *fh,
@@ -2088,9 +2434,9 @@ int mtk_cam_vidioc_meta_enum_fmt(struct file *file, void *fh,
 	if (f->index)
 		return -EINVAL;
 
-	/* f->description is filled in v4l_fill_fmtdesc function */
 	f->pixelformat = node->active_fmt.fmt.meta.dataformat;
 	f->flags = 0;
+	fill_ext_fmtdesc(f);
 
 	return 0;
 }
@@ -2166,49 +2512,31 @@ int mtk_cam_vidioc_g_meta_fmt(struct file *file, void *fh,
 	return 0;
 }
 
-int mtk_cam_vidioc_s_selection(struct file *file, void *fh,
+int mtk_cam_collect_vsel(struct mtk_raw_pipeline *pipe,
+			 struct mtk_cam_video_device *node,
 				struct v4l2_selection *s)
+{
+	pipe->req_vsel_update |= (1 << node->desc.id); /* debug only*/
+	node->pending_crop = *s;
+
+	dev_dbg(pipe->subdev.v4l2_dev->dev,
+		"%s:%s:%s:pending vidioc_s_selection (%d,%d,%d,%d)\n",
+		__func__, pipe->subdev.name, node->desc.name,
+		s->r.left, s->r.top, s->r.width, s->r.height);
+
+			return 0;
+}
+
+int mtk_cam_vidioc_s_selection(struct file *file, void *fh,
+			       struct v4l2_selection *s)
 {
 	struct mtk_cam_device *cam = video_drvdata(file);
 	struct mtk_cam_video_device *node = file_to_mtk_cam_node(file);
-	struct mtk_cam_request_stream_data *stream_data;
-	struct mtk_cam_request *cam_req;
-	struct media_request *req;
-	struct v4l2_selection *vsel;
-	s32 fd;
+	struct mtk_raw_pipeline *raw_pipeline;
 
-	fd = mtk_cam_selection_get_request(s);
-	if (fd < 0)
-		return -EINVAL;
-
-	req = media_request_get_by_fd(&cam->media_dev, fd);
-	if (IS_ERR(req)) {
-		if (!vb2_is_busy(node->vdev.queue)) {
-			dev_info(cam->dev,
-				"%s:pipe(%d):%s: apply setting without fd\n",
-				__func__, node->uid.pipe_id, node->desc.name);
-			node->pending_crop = *s;
-			return 0;
-		}
-
-		dev_info(cam->dev,
-			"%s:pipe(%d):%s:invalid request_fd:%d\n",
-			__func__, node->uid.pipe_id, node->desc.name, fd);
-
-		return -EINVAL;
-	}
-
-	cam_req = to_mtk_cam_req(req);
-	stream_data = mtk_cam_req_get_s_data_no_chk(cam_req, node->uid.pipe_id, 0);
-	stream_data->vdev_selection_update |= (1 << node->desc.id);
-	vsel = mtk_cam_s_data_get_vsel(stream_data, node->desc.id);
-	*vsel = *s;
-	dev_dbg(cam->dev,
-		"%s:%s:pipe(%d):%s:pending vidioc_s_selection (%d,%d,%d,%d)\n",
-		__func__, cam_req->req.debug_str, node->uid.pipe_id, node->desc.name,
-		s->r.left, s->r.top, s->r.width, s->r.height);
-
-	media_request_put(req);
+	raw_pipeline = mtk_cam_dev_get_raw_pipeline(cam, node->uid.pipe_id);
+	if (raw_pipeline)
+		mtk_cam_collect_vsel(raw_pipeline, node, s);
 
 	return 0;
 }
@@ -2262,21 +2590,3 @@ void mtk_cam_fmt_set_request(struct v4l2_pix_format_mplane *fmt_mp, int request_
 	reserved[2] = (request_fd & 0x00FF0000) >> 16;
 	reserved[3] = (request_fd & 0xFF000000) >> 24;
 }
-
-int mtk_cam_selection_get_request(struct v4l2_selection *crop)
-{
-	s32 request_fd = 0;
-
-	request_fd = crop->reserved[0];
-	crop->reserved[0] = 0;
-
-	return request_fd;
-}
-
-void mtk_cam_selection_set_request(struct v4l2_selection *crop, int request_fd)
-{
-	u32 *reserved = crop->reserved;
-
-	reserved[0] = request_fd;
-}
-

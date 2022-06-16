@@ -3399,9 +3399,24 @@ mtk_raw_get_sink_pad_framefmt(struct v4l2_subdev *sd,
 	return sink_fmt;
 }
 
+int mtk_cam_collect_psel(struct mtk_raw_pipeline *pipe,
+			 struct v4l2_subdev_selection *sel)
+{
+	pipe->req_psel_update |= 1 << sel->pad;
+	pipe->req_psel[sel->pad] = *sel;
+
+	dev_info(pipe->subdev.v4l2_dev->dev,
+		 "%s:%s:pad(%d), pending s_selection, l/t/w/h=(%d,%d,%d,%d)\n",
+		 __func__, pipe->subdev.name, sel->pad,
+		 sel->r.left, sel->r.top,
+		 sel->r.width, sel->r.height);
+
+	return 0;
+}
+
 static int mtk_raw_set_pad_selection(struct v4l2_subdev *sd,
-					  struct v4l2_subdev_state *state,
-					  struct v4l2_subdev_selection *sel)
+				     struct v4l2_subdev_state *state,
+				     struct v4l2_subdev_selection *sel)
 {
 	struct v4l2_mbus_framefmt *sink_fmt = NULL;
 	struct mtk_raw_pipeline *pipe;
@@ -3414,6 +3429,13 @@ static int mtk_raw_set_pad_selection(struct v4l2_subdev *sd,
 		return -EINVAL;
 
 	pipe = container_of(sd, struct mtk_raw_pipeline, subdev);
+
+	/* if the pipeline is streaming, pending the change */
+	if (sel->which == V4L2_SUBDEV_FORMAT_ACTIVE &&
+	    !sd->entity.stream_count) {
+		mtk_cam_collect_psel(pipe, sel);
+		return 0;
+	}
 
 	/*
 	 * Find the sink pad fmt, there must be one eanbled sink pad at least
@@ -3867,17 +3889,29 @@ int mtk_raw_call_pending_set_fmt(struct v4l2_subdev *sd,
 	return mtk_raw_call_set_fmt(sd, NULL, fmt, true, scen);
 }
 
+static int mtk_cam_collect_pfmt(struct mtk_raw_pipeline *pipe,
+				struct v4l2_subdev_format *fmt)
+{
+	int pad = fmt->pad;
+
+	pipe->req_pfmt_update |= 1 << pad;
+	pipe->req_pad_fmt[pad] = *fmt;
+
+	dev_dbg(pipe->subdev.v4l2_dev->dev,
+		"%s:%s:pad(%d), pending s_fmt, w/h/code=%d/%d/0x%x\n",
+		__func__, pipe->subdev.name,
+		pad, fmt->format.width, fmt->format.height,
+		fmt->format.code);
+
+	return 0;
+}
+
 static int mtk_raw_set_fmt(struct v4l2_subdev *sd,
 			   struct v4l2_subdev_state *state,
 			   struct v4l2_subdev_format *fmt)
 {
-	struct media_request *req;
-	struct mtk_cam_request *cam_req;
-	struct mtk_cam_request_stream_data *stream_data;
-
 	struct mtk_raw_pipeline *pipe =
 		container_of(sd, struct mtk_raw_pipeline, subdev);
-	struct mtk_cam_device *cam = dev_get_drvdata(pipe->raw->cam_dev);
 
 	if (fmt->which == V4L2_SUBDEV_FORMAT_TRY)
 		return mtk_raw_try_pad_fmt(sd, state, fmt);
@@ -3887,26 +3921,7 @@ static int mtk_raw_set_fmt(struct v4l2_subdev *sd,
 		return mtk_raw_call_set_fmt(sd, state, fmt, false,
 					    &pipe->user_res.raw_res.scen);
 
-	if (v4l2_subdev_format_request_fd(fmt) <= 0)
-		return -EINVAL;
-
-	req = media_request_get_by_fd(&cam->media_dev,
-				v4l2_subdev_format_request_fd(fmt));
-	if (req) {
-		cam_req = to_mtk_cam_req(req);
-		dev_info(cam->dev, "sd:%s pad:%d pending success, req fd(%d)\n",
-			sd->name, fmt->pad, v4l2_subdev_format_request_fd(fmt));
-	} else {
-		dev_info(cam->dev, "sd:%s pad:%d pending failed, req fd(%d) invalid\n",
-			sd->name, fmt->pad, v4l2_subdev_format_request_fd(fmt));
-		return -EINVAL;
-	}
-
-	stream_data = mtk_cam_req_get_s_data_no_chk(cam_req, pipe->id, 0);
-	stream_data->pad_fmt_update |= (1 << fmt->pad);
-	stream_data->pad_fmt[fmt->pad] = *fmt;
-
-	media_request_put(req);
+	mtk_cam_collect_pfmt(pipe, fmt);
 
 	return 0;
 }
@@ -4038,6 +4053,10 @@ mtk_cam_get_link_enabled_raw(struct v4l2_subdev *seninf)
 	return NULL;
 }
 
+/**
+ * We didn't support request-based mtk_raw_s_frame_interval, please
+ * use V4L2_CID_MTK_CAM_RAW_RESOURCE_CALC if needed.
+ */
 static int
 mtk_raw_s_frame_interval(struct v4l2_subdev *sd,
 			 struct v4l2_subdev_frame_interval *interval)
@@ -4046,18 +4065,11 @@ mtk_raw_s_frame_interval(struct v4l2_subdev *sd,
 		container_of(sd, struct mtk_raw_pipeline, subdev);
 	struct mtk_raw *raw = pipe->raw;
 
-	if (v4l2_frame_interval_which(interval) == V4L2_SUBDEV_FORMAT_TRY) {
-		dev_dbg(raw->cam_dev, "%s:pipe(%d):try res: fps = %d/%d, not used\n",
-			__func__, pipe->id,
-			interval->interval.numerator,
-			interval->interval.denominator);
-	} else {
 		dev_dbg(raw->cam_dev, "%s:pipe(%d):current res: fps = %d/%d",
 			__func__, pipe->id,
 			interval->interval.numerator,
 			interval->interval.denominator);
 		pipe->res_config.interval = interval->interval;
-	}
 
 	return 0;
 }

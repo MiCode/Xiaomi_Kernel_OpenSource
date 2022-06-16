@@ -55,8 +55,6 @@ enum MTK_CAMSYS_STATE_RESULT {
 	STATE_RESULT_PASS_CQ_HW_DELAY,
 };
 
-#define v4l2_set_frame_interval_which(x, y) (x.reserved[0] = y)
-
 void state_transition(struct mtk_camsys_ctrl_state *state_entry,
 		      enum MTK_CAMSYS_STATE_IDX from,
 		      enum MTK_CAMSYS_STATE_IDX to)
@@ -5190,7 +5188,6 @@ int mtk_camsys_ctrl_start(struct mtk_cam_ctx *ctx)
 	int fps_factor = 1, sub_ratio = 0;
 
 	fi.pad = 0;
-	v4l2_set_frame_interval_which(fi, V4L2_SUBDEV_FORMAT_ACTIVE);
 	v4l2_subdev_call(ctx->sensor, video, g_frame_interval, &fi);
 	fps_factor = (fi.interval.numerator > 0) ?
 			(fi.interval.denominator / fi.interval.numerator / 30) : 1;
@@ -5255,7 +5252,7 @@ void mtk_camsys_ctrl_update(struct mtk_cam_ctx *ctx, int sensor_ctrl_factor)
 		if (sensor_ctrl_factor > 0) {
 			fps_factor = sensor_ctrl_factor;
 		} else {
-			v4l2_set_frame_interval_which(fi, V4L2_SUBDEV_FORMAT_ACTIVE);
+			/* TBC: v4l2_set_frame_interval_which(fi, V4L2_SUBDEV_FORMAT_ACTIVE); */
 			v4l2_subdev_call(ctx->sensor, video, g_frame_interval, &fi);
 			fps_factor = (fi.interval.numerator > 0) ?
 					(fi.interval.denominator / fi.interval.numerator / 30) : 1;

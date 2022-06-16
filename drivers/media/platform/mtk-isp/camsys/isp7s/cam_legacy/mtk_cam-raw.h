@@ -254,7 +254,14 @@ struct mtk_raw_pad_config {
  * @feature_pending: Don't use feature_pending any more, it will be phased-out soon
  * @scen_active: The active feature during streaming. It can't be changed
  *		    during streaming and can only be used after streaming on.
- *
+ * @req_seninf_old: It is used to keep the request-based link setup parameters.
+ *		    The req_seninf_old stores the original seninf in mtk_cam_link_notify()
+ *		    and it should be clean (set to NULL) after mtk_cam_req_queue()
+ *		    is called.
+ * @req_seninf_new: It is used to keep the request-based link setup parameters.
+ *		    The req_seninf_new stores the original seninf in mtk_cam_link_notify()
+ *		    and it should be clean (set to NULL) after mtk_cam_req_queue()
+ *		    is called.
  */
 struct mtk_raw_pipeline {
 	unsigned int id;
@@ -290,6 +297,15 @@ struct mtk_raw_pipeline {
 	s64 hw_mode_pending;
 	/* Frame sync */
 	int fs_config;
+	struct v4l2_subdev *req_sensor_new;
+	struct v4l2_subdev *req_seninf_old;
+	struct v4l2_subdev *req_seninf_new;
+	unsigned int req_vfmt_update;
+	unsigned int req_pfmt_update;
+	unsigned int req_vsel_update;
+	unsigned int req_psel_update;
+	struct v4l2_subdev_format req_pad_fmt[MTK_RAW_PIPELINE_PADS_NUM];
+	struct v4l2_subdev_selection req_psel[MTK_RAW_PIPELINE_PADS_NUM];
 };
 
 struct mtk_raw_device {
