@@ -9,9 +9,21 @@
 #ifndef _MTK_DIP_DIP_H_
 #define _MTK_DIP_DIP_H_
 
+// Standard C header file
+
+// kernel header file
+
+// mtk imgsys local header file
 #include "mtk_imgsys-dev.h"
 #include "mtk_imgsys-cmdq.h"
+
+// Local header file
 #include "./../mtk_imgsys-engine.h"
+
+
+/********************************************************************
+ * Global Define
+ ********************************************************************/
 /* DIP */
 #define DIP_TOP_ADDR	0x15100000
 #define TOP_CTL_OFT	0x0000
@@ -27,9 +39,11 @@
 #define SMT_D1_CTL_OFT	0x83C0
 #define SMT_D1_CTL_SZ	0x3C4
 
-#define DIPCTL_DBG_SEL	0x1D8
-#define DIPCTL_DBG_OUT	0x1DC
-#define NR3D_DBG_SEL	0x501C
+#define DIP_DBG_SEL		0x1D8
+#define DIP_DBG_OUT		0x1DC
+#define DIP_DMA_DBG_SEL		0x10C0
+#define DIP_DMA_DBG_PORT	0x10C4
+#define DIP_NR3D_DBG_SEL	0x501C
 
 /* DIP NR1 */
 #define DIP_NR1_ADDR		0x15150000
@@ -57,7 +71,46 @@
 #define DRZH2N_D2_CTL_OFT	0x6D00
 #define DRZH2N_D2_CTL_SZ	0x54
 
+#define DIP_DMA_NAME_MAX_SIZE	20
 
+#define DIP_IMGI_STATE_CHECKSUM			(0x00100)
+#define DIP_IMGI_LINE_PIX_CNT_TMP		(0x00200)
+#define DIP_IMGI_LINE_PIX_CNT			(0x00300)
+#define DIP_IMGI_IMPORTANT_STATUS		(0x00400)
+#define DIP_IMGI_SMI_DEBUG_DATA_CASE0		(0x00500)
+#define DIP_IMGI_TILEX_BYTE_CNT			(0x00600)
+#define DIP_IMGI_TILEY_CNT			(0x00700)
+#define DIP_IMGI_BURST_LINE_CNT			(0x00800)
+#define DIP_IMGI_XFER_Y_CNT			(0x00900)
+#define DIP_IMGI_FIFO_DEBUG_DATA_CASE1		(0x10600)
+#define DIP_IMGI_FIFO_DEBUG_DATA_CASE3		(0x30600)
+#define DIP_YUVO_T1_FIFO_DEBUG_DATA_CASE1	(0x10700)
+#define DIP_YUVO_T1_FIFO_DEBUG_DATA_CASE3	(0x30700)
+
+/********************************************************************
+ * Enum Define
+ ********************************************************************/
+enum DIPDmaDebugType {
+	DIP_ORI_RDMA_DEBUG,
+	DIP_ORI_RDMA_UFD_DEBUG,
+	DIP_ORI_WDMA_DEBUG,
+	DIP_ULC_RDMA_DEBUG,
+	DIP_ULC_WDMA_DEBUG,
+};
+
+/********************************************************************
+ * Structure Define
+ ********************************************************************/
+struct DIPDmaDebugInfo {
+	char DMAName[DIP_DMA_NAME_MAX_SIZE];
+	enum DIPDmaDebugType DMADebugType;
+};
+
+
+
+//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+// Public Functions
+//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 void imgsys_dip_set_initial_value(struct mtk_imgsys_dev *imgsys_dev);
 void imgsys_dip_set_hw_initial_value(struct mtk_imgsys_dev *imgsys_dev);
 void imgsys_dip_debug_dump(struct mtk_imgsys_dev *imgsys_dev,
