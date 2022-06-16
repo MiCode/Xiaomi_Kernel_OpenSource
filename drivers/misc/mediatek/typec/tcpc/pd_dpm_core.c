@@ -90,22 +90,14 @@ int dpm_check_supported_modes(void)
 {
 	int i;
 	const int size = ARRAY_SIZE(svdm_svid_ops);
-	bool is_disorder = false;
-	bool found_error = false;
 
 	for (i = 0; i < size; i++) {
-		if (i < (size - 1)) {
-			if (svdm_svid_ops[i + 1].svid <=
-				svdm_svid_ops[i].svid)
-				is_disorder = true;
-		}
 		pr_info("SVDM supported mode [%d]: name = %s, svid = 0x%x\n",
 			i, svdm_svid_ops[i].name,
 			svdm_svid_ops[i].svid);
 	}
-	pr_info("%s : found \"disorder\"...\n", __func__);
-	found_error |= is_disorder;
-	return found_error ? -EFAULT : 0;
+
+	return 0;
 }
 
 /*
