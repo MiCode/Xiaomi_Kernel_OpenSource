@@ -496,13 +496,6 @@ int fpsgo_base_is_finished(struct render_info *thr)
 	if (!fpsgo_base2fbt_is_finished(thr))
 		return 0;
 
-	if (thr->uboost_info.uboosting) {
-		FPSGO_LOGE("(%d, %llu)(%p)(%d, %d)\n",
-			thr->pid, thr->buffer_id, thr, thr->linger,
-			thr->uboost_info.uboosting);
-		return 0;
-	}
-
 	return 1;
 }
 
@@ -1259,9 +1252,8 @@ static ssize_t render_info_show(struct kobject *kobj,
 	for (n = rb_first(&linger_tree); n != NULL; n = rb_next(n)) {
 		iter = rb_entry(n, struct render_info, linger_node);
 		length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
-			"(%5d %4llu) linger %d uboost %d timer %d\n",
+			"(%5d %4llu) linger %d timer %d\n",
 			iter->pid, iter->buffer_id, iter->linger,
-			iter->uboost_info.uboosting,
 			fpsgo_base2fbt_is_finished(iter));
 		pos += length;
 	}

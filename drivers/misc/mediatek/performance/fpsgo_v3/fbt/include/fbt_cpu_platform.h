@@ -38,7 +38,6 @@ int fbt_get_default_adj_count(void);
 int fbt_get_default_adj_tdiff(void);
 void fbt_set_affinity(pid_t pid, unsigned int prefer_type);
 int fbt_get_cluster_limit(int *cluster, int *freq, int *r_freq, int *cpu);
-int fbt_get_default_uboost(void);
 int fbt_get_default_qr_enable(void);
 int fbt_get_default_gcc_enable(void);
 int fbt_get_default_sbe_rescue_enable(void);

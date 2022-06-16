@@ -308,11 +308,6 @@ int fbt_get_cluster_limit(int *cluster, int *freq, int *r_freq, int *cpu)
 	return limit;
 }
 
-int fbt_get_default_uboost(void)
-{
-	return 75;
-}
-
 int fbt_get_default_qr_enable(void)
 {
 	return 1;

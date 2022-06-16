@@ -28,8 +28,6 @@
 #include "fstb.h"
 #include "fstb_usedext.h"
 #include "fpsgo_usedext.h"
-#include "utch/utch.h"
-
 
 int (*fpsgo2msync_hint_frameinfo_fp)(unsigned int render_tid, unsigned int reader_bufID,
 		unsigned int target_fps, unsigned long q2q_time, unsigned long q2q_time2);

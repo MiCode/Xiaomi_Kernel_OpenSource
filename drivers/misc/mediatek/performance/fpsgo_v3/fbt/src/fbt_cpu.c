@@ -170,7 +170,6 @@ enum FPSGO_HARD_LIMIT_POLICY {
 enum FPSGO_JERK_STAGE {
 	FPSGO_JERK_INACTIVE = 0,
 	FPSGO_JERK_FIRST,
-	FPSGO_JERK_UBOOST,
 	FPSGO_JERK_SBE,
 	FPSGO_JERK_SECOND,
 };
@@ -220,7 +219,6 @@ static int adjust_loading;
 static int adjust_loading_hwui_hint;
 static int fps_level_range;
 static int check_running;
-static int uboost_enhance_f;
 static int boost_affinity;
 static int cm_big_cap;
 static int cm_tdiff;
@@ -297,7 +295,6 @@ module_param(adjust_loading, int, 0644);
 module_param(adjust_loading_hwui_hint, int, 0644);
 module_param(fps_level_range, int, 0644);
 module_param(check_running, int, 0644);
-module_param(uboost_enhance_f, int, 0644);
 module_param(boost_affinity, int, 0644);
 module_param(cm_big_cap, int, 0644);
 module_param(cm_tdiff, int, 0644);
@@ -4817,75 +4814,6 @@ void fpsgo_base2fbt_cancel_jerk(struct render_info *thr)
 	}
 }
 
-void fpsgo_uboost2fbt_uboost(struct render_info *thr)
-{
-	int floor, blc_wt = 0, blc_wt_b = 0, blc_wt_m = 0;
-	struct cpu_ctrl_data *pld;
-	int headroom;
-
-	if (!thr)
-		return;
-
-	pld = kcalloc(cluster_num, sizeof(struct cpu_ctrl_data), GFP_KERNEL);
-	if (!pld)
-		return;
-
-	mutex_lock(&fbt_mlock);
-
-	floor = thr->boost_info.last_blc;
-	if (!floor)
-		goto leave;
-
-	headroom = rescue_opp_c;
-	if (thr->boost_info.cur_stage == FPSGO_JERK_SECOND)
-		headroom = rescue_second_copp;
-
-	blc_wt = fbt_get_new_base_blc(pld, floor, uboost_enhance_f, headroom);
-	if (separate_aa) {
-		blc_wt_b = fbt_get_new_base_blc(pld, floor, uboost_enhance_f, headroom);
-		blc_wt_m = fbt_get_new_base_blc(pld, floor, uboost_enhance_f, headroom);
-	}
-
-	if (!blc_wt)
-		goto leave;
-
-	if (thr->boost_info.cur_stage != FPSGO_JERK_SECOND) {
-		blc_wt = fbt_limit_capacity(blc_wt, 1);
-		if (separate_aa) {
-			blc_wt_b = fbt_limit_capacity(blc_wt_b, 1);
-			blc_wt_m = fbt_limit_capacity(blc_wt_m, 1);
-		}
-		fbt_set_hard_limit_locked(FPSGO_HARD_CEILING, pld);
-
-		thr->boost_info.cur_stage = FPSGO_JERK_UBOOST;
-
-		if (thr->pid == max_blc_pid && thr->buffer_id == max_blc_buffer_id) {
-			max_blc_stage = FPSGO_JERK_UBOOST;
-			fpsgo_systrace_c_fbt_debug(-100, 0, max_blc_stage, "max_blc_stage");
-		}
-	}
-
-	fbt_set_ceiling(pld, thr->pid, thr->buffer_id);
-
-	if (boost_ta) {
-		fbt_set_boost_value(blc_wt);
-		fpsgo_systrace_c_fbt(thr->pid, thr->buffer_id, blc_wt, "perf idx");
-		max_blc_cur = blc_wt;
-	} else
-		fbt_set_min_cap_locked(thr, blc_wt, blc_wt_b, blc_wt_m, FPSGO_JERK_UBOOST);
-
-	thr->boost_info.last_blc = blc_wt;
-	if (separate_aa) {
-		thr->boost_info.last_blc_b = blc_wt_b;
-		thr->boost_info.last_blc_m = blc_wt_m;
-	}
-
-
-leave:
-	mutex_unlock(&fbt_mlock);
-	kfree(pld);
-}
-
 void fpsgo_sbe2fbt_rescue(struct render_info *thr, int start, int enhance,
 		unsigned long long frame_id)
 {
@@ -6966,7 +6894,6 @@ int __init fbt_cpu_init(void)
 	loading_debnc_cnt = 30;
 	loading_time_diff = fbt_get_default_adj_tdiff();
 	fps_level_range = 10;
-	uboost_enhance_f = fbt_get_default_uboost();
 	cm_big_cap = 95;
 	cm_tdiff = TIME_1MS;
 	rescue_second_time = 2;

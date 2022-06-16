@@ -36,7 +36,6 @@ void fpsgo_base2fbt_clear_llf_policy(struct render_info *thr,
 						int orig_policy);
 void fpsgo_base2fbt_cancel_jerk(struct render_info *thr);
 int fpsgo_base2fbt_is_finished(struct render_info *thr);
-void fpsgo_uboost2fbt_uboost(struct render_info *thr);
 void fpsgo_base2fbt_stop_boost(struct render_info *thr);
 void fpsgo_sbe2fbt_rescue(struct render_info *thr, int start, int enhance,
 		unsigned long long frame_id);
@@ -78,7 +77,6 @@ static inline void fpsgo_base2fbt_clear_llf_policy(struct render_info *thr,
 				int orig_policy) { }
 static inline void fpsgo_base2fbt_cancel_jerk(struct render_info *thr) { }
 static inline int fpsgo_base2fbt_is_finished(struct render_info *thr) { return 0; }
-static inline void fpsgo_uboost2fbt_uboost(struct render_info *thr) { }
 static inline void fpsgo_base2fbt_stop_boost(struct render_info *thr) { }
 static inline void fpsgo_sbe2fbt_rescue(struct render_info *thr, int start, int enhance,
 			unsigned long long frame_id) { }

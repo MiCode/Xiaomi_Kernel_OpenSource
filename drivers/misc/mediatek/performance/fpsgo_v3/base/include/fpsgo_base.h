@@ -155,15 +155,6 @@ struct fbt_boost_info {
 
 };
 
-struct uboost {
-	unsigned long long vsync_u_runtime;
-	unsigned long long checkp_u_runtime;
-	unsigned long long timer_period;
-	int uboosting;
-	struct hrtimer timer;
-	struct work_struct work;
-};
-
 struct render_info {
 	struct rb_node render_key_node;
 	struct list_head bufferid_list;
@@ -207,9 +198,6 @@ struct render_info {
 
 	/*TODO: EARA mid list*/
 	unsigned long long mid;
-
-	/*uboost*/
-	struct uboost uboost_info;
 
 	struct mutex thr_mlock;
 };
