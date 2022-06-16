@@ -3940,7 +3940,7 @@ static void fpsgo_update_cpufreq_to_now(int new_ts_100us)
 	spin_unlock_irqrestore(&freq_slock, spinlock_flag_freq);
 
 	spin_lock_irqsave(&loading_slock, spinlock_flag_loading);
-	if (last_cb_ts != 0) {
+	if (last_cb_ts != 0 && last_cb_ts < new_ts_100us) {
 		idx = lastest_idx;
 		idx = (idx + 1) >= LOADING_CNT ? 0 : (idx + 1);
 		// unit: 100us
@@ -3959,10 +3959,11 @@ static void fpsgo_update_cpufreq_to_now(int new_ts_100us)
 			lastest_obv_cl[idx][i] = cpu_cl_obv[i];
 			lastest_is_cl_isolated[idx][i] = cpu_isolated[i];
 		}
+
+		last_cb_ts = new_ts_100us;
 	}
 
 SKIP:
-	last_cb_ts = new_ts_100us;
 	spin_unlock_irqrestore(&loading_slock, spinlock_flag_loading);
 out:
 	kfree(cpu_isolated);
