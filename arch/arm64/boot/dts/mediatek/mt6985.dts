@@ -2371,6 +2371,46 @@
 			125000 44>;
 	};
 
+	md_cooler: md-cooler {
+		compatible = "mediatek,mt6298-md-cooler";
+
+		pa1: pa1 {
+			mutt_pa1: mutt-pa1 {
+				#cooling-cells = <2>;
+			};
+			tx_pwr_pa1: tx-pwr-pa1 {
+				#cooling-cells = <2>;
+			};
+		};
+		pa2: pa2 {
+			mutt_pa2: mutt-pa2 {
+				#cooling-cells = <2>;
+			};
+			tx_pwr_pa2: tx-pwr-pa2 {
+				#cooling-cells = <2>;
+			};
+			scg_off_pa2: scg-off-pa2 {
+				#cooling-cells = <2>;
+			};
+		};
+	};
+
+	wifi_cooler: wifi-cooler {
+		compatible = "mediatek,wifi-level-cooler";
+		#cooling-cells = <2>;
+	};
+
+	charger_cooler: charger-cooler {
+		compatible = "mediatek,mt6375-charger-cooler";
+		#cooling-cells = <2>;
+	};
+
+	backlight_cooler: backlight-cooler {
+		compatible = "mediatek,backlight-cooler";
+		backlight-names = "lcd-backlight";
+		#cooling-cells = <2>;
+	};
+
 	therm_intf: therm-intf@114000 {
 		compatible = "mediatek,therm_intf";
 		reg = <0 0x00114000 0 0x400>,
@@ -2384,6 +2424,14 @@
 			polling-delay = <0>; /* milliseconds */
 			polling-delay-passive = <0>; /* milliseconds */
 			thermal-sensors = <&lvts 0>;
+
+			trips {
+				soc_max_crit: soc_max_crit@0 {
+					temperature = <119000>;
+					hysteresis = <2000>;
+					type = "critical";
+				};
+			};
 		};
 		cpu_medium1 {
 			polling-delay = <0>; /* milliseconds */
