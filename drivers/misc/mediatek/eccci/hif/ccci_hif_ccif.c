@@ -1970,8 +1970,8 @@ static irqreturn_t md_cd_ccif_isr(int irq, void *data)
 	if (channel_id & (1 << AP_MD_DATA_NOTIFY) &&
 		ccif_irq_cb[ID_CCIF_USER_DATA].cb_func)
 		ccif_irq_cb[ID_CCIF_USER_DATA].cb_func(ccif_irq_cb[ID_CCIF_USER_DATA].id);
-	else
-		md_fsm_exp_info(ccif_ctrl->md_id, channel_id);
+
+	md_fsm_exp_info(ccif_ctrl->md_id, channel_id);
 
 	return IRQ_HANDLED;
 }
