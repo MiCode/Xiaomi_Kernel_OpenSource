@@ -3380,8 +3380,8 @@ unsigned int mtk_dsi_mode_change_index(struct mtk_dsi *dsi,
 			adjust_panel_params = panel_ext->params;
 	}
 
-	if (!(dsi->mipi_hopping_sta && adjust_panel_params &&
-		cur_panel_params && (cur_panel_params->dyn.switch_en ||
+	if (cur_panel_params && adjust_panel_params &&
+		!(dsi->mipi_hopping_sta && (cur_panel_params->dyn.switch_en ||
 		adjust_panel_params->dyn.switch_en))) {
 		if (mtk_drm_helper_get_opt(priv->helper_opt,
 				MTK_DRM_OPT_RES_SWITCH)
@@ -3396,12 +3396,11 @@ unsigned int mtk_dsi_mode_change_index(struct mtk_dsi *dsi,
 		if (drm_mode_hfp(adjust_mode) != drm_mode_hfp(old_mode))
 			mode_chg_index |= MODE_DSI_HFP;
 
-		if (cur_panel_params->data_rate !=
-			adjust_panel_params->data_rate)
+		if (cur_panel_params->data_rate != adjust_panel_params->data_rate)
 			mode_chg_index |= MODE_DSI_CLK;
-		else if (cur_panel_params->pll_clk !=
-				adjust_panel_params->pll_clk)
+		else if (cur_panel_params->pll_clk != adjust_panel_params->pll_clk)
 			mode_chg_index |= MODE_DSI_CLK;
+
 		//else if (adjust_mode->clock != old_mode->clock)
 			//mode_chg_index |= MODE_DSI_CLK;
 	} else if (cur_panel_params && adjust_panel_params) {
