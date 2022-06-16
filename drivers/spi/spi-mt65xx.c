@@ -203,10 +203,6 @@ static const struct mtk_spi_compatible mt6893_compat = {
  */
 static const struct mtk_chip_config mtk_default_chip_info = {
 	.sample_sel = 0,
-
-	.cs_setuptime = 0,
-	.cs_holdtime = 0,
-	.cs_idletime = 0,
 	.tick_delay = 0,
 };
 
@@ -325,15 +321,11 @@ static void spi_dump_config(struct spi_master *master, struct spi_message *msg)
 	struct mtk_chip_config *chip_config = spi->controller_data;
 	struct mtk_spi *mdata = spi_master_get_devdata(master);
 
+	/*Old cs timing settng was forbidden, please use new method*/
+	BUG_ON(chip_config->cs_setuptime | chip_config->cs_holdtime | chip_config->cs_idletime);
 	spi_debug("||**************%s**************||\n", __func__);
 	spi_debug("chip_config->spi_mode:0x%x\n", spi->mode);
 	spi_debug("chip_config->sample_sel:%d\n", chip_config->sample_sel);
-	spi_debug("chip_config->cs_setuptime=%d\n",
-			chip_config->cs_setuptime);
-	spi_debug("chip_config->cs_holdtime=%d\n",
-			chip_config->cs_holdtime);
-	spi_debug("chip_config->cs_idletime=%d\n",
-			chip_config->cs_idletime);
 	spi_debug("chip_config->chip_select:%d,chip_config->pad_sel:%d\n",
 			spi->chip_select, mdata->pad_sel[spi->chip_select]);
 	spi_debug("||**************%s end**************||\n", __func__);
