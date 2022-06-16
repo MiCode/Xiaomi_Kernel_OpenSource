@@ -450,7 +450,7 @@ int mtk_drm_mmp_ovl_layer(struct mtk_plane_state *state,
 	unsigned int fmt = pending->format;
 	int raw = 0;
 	int yuv = 0;
-	struct dma_buf_map map;
+	struct dma_buf_map map = {0};
 	void *dma_va;
 
 	if (!mtk_drm_helper_get_opt(private->helper_opt,
