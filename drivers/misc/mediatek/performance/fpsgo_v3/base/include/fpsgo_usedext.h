@@ -22,16 +22,6 @@ extern int (*fpsgo_get_fstb_active_fp)(long long time_diff);
 extern int (*fpsgo_wait_fstb_active_fp)(void);
 extern void (*fpsgo_notify_sbe_rescue_fp)(int pid, int start, int enhance);
 
-extern void (*fpsgo_notify_nn_job_begin_fp)(unsigned int tid,
-		unsigned long long mid);
-extern void (*fpsgo_notify_nn_job_end_fp)(int pid, int tid,
-		unsigned long long mid, int num_step, __s32 *boost,
-		__s32 *device, __u64 *exec_time);
-extern int (*fpsgo_get_nn_priority_fp)(unsigned int pid,
-		unsigned long long mid);
-extern void (*fpsgo_get_nn_ttime_fp)(unsigned int pid,
-		unsigned long long mid, int num_step, __u64 *time);
-
 extern void (*ged_vsync_notifier_fp)(void);
 
 int fpsgo_is_force_enable(void);
