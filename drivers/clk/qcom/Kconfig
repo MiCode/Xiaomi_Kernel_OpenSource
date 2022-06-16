@@ -863,4 +863,14 @@ config SC_CAMCC_8180X
 	  Say Y if you want to support camera devices and functionality such as
 	  capturing pictures.
 
+config SC_DEBUGCC_SC8180X
+	tristate "SC8180X Debug Clock Controller"
+	depends on COMMON_CLK_QCOM
+	depends on SC_GCC_8180X
+	help
+	  Support for the debug clock controller on Qualcomm Technologies, Inc
+	  SC8180X devices.
+	  Say Y if you want to support the debug clocks such as
+	  clock measurement functionality.
+
 endif
