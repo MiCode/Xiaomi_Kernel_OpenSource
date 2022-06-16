@@ -145,7 +145,7 @@ static int lvts_read_tc_msr_raw(unsigned int *msr_reg)
 	return readl(msr_reg) & MRS_RAW_MASK;
 }
 
-static int lvts_read_all_tc_temperature(struct lvts_data *lvts_data)
+static int lvts_read_all_tc_temperature(struct lvts_data *lvts_data, bool in_isr)
 {
 	struct tc_settings *tc = lvts_data->tc;
 	unsigned int i, j, s_index, msr_raw;
@@ -171,10 +171,14 @@ static int lvts_read_all_tc_temperature(struct lvts_data *lvts_data)
 			if (current_temp > max_temp)
 				max_temp = current_temp;
 
-			mutex_lock(&lvts_data->sen_data_lock);
+			if (!in_isr)
+				mutex_lock(&lvts_data->sen_data_lock);
+
 			lvts_data->sen_data[s_index].msr_raw = msr_raw;
 			lvts_data->sen_data[s_index].temp = current_temp;
-			mutex_unlock(&lvts_data->sen_data_lock);
+			if (!in_isr)
+				mutex_unlock(&lvts_data->sen_data_lock);
+
 		}
 	}
 
@@ -221,7 +225,7 @@ static int soc_temp_lvts_read_temp(void *data, int *temperature)
 	struct lvts_data *lvts_data = lvts_tz->lvts_data;
 
 	if (lvts_tz->id == 0)
-		*temperature = lvts_read_all_tc_temperature(lvts_data);
+		*temperature = lvts_read_all_tc_temperature(lvts_data, false);
 	else if (lvts_tz->id - 1 < lvts_data->num_sensor)
 		*temperature = lvts_read_tc_temperature(lvts_data, lvts_tz->id);
 	else
@@ -1454,7 +1458,7 @@ static void tc_irq_handler(struct lvts_data *lvts_data, int tc_id)
 	int temp;
 
 #ifdef DUMP_MORE_LOG
-	temp = lvts_read_all_tc_temperature(lvts_data);
+	temp = lvts_read_all_tc_temperature(lvts_data, true);
 	dump_lvts_error_info(lvts_data);
 #endif
 
