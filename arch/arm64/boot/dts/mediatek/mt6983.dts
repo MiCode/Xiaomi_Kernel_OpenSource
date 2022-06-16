@@ -10974,89 +10974,91 @@
 	wifi_page_pool: wifi_page_pool {
 	};
 
-	mdpsys_config: mdpsys_config@1f000000 {
+	mdpsys_config: mdpsys-config@1f000000 {
 		compatible = "mediatek,mdpsys_config";
 		reg = <0 0x1f000000 0 0x1000>;
 		#clock-cells = <1>;
 		clocks = <&mdpsys_config_clk CLK_MDP_APB_BUS>;
 		clock-names = "MDP_APB_BUS";
 		dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
+		#address-cells = <2>;
+		#size-cells = <2>;
 		iommus = <&disp_iommu M4U_PORT_L2_MDP_RDMA0>,
 			<&disp_iommu M4U_PORT_L2_MDP_RDMA2>,
 			<&disp_iommu M4U_PORT_L2_MDP_WROT0>,
 			<&disp_iommu M4U_PORT_L2_MDP_WROT2>;
-		dma_mask_bit = <34>;
+		dma-mask-bit = <34>;
 	};
 
 	mdp: mdp@1f000000 {
 		compatible = "mediatek,mdp";
 		reg = <0 0x1f000000 0 0x1000>;
-		thread_count = <24>;
+		thread-count = <24>;
 		mboxes = <&gce 20 0 CMDQ_THR_PRIO_1>,
 			<&gce 21 0 CMDQ_THR_PRIO_1>;
-		mmsys_config = <&mdpsys_config>;
-		mm_mutex   = <&mdp_mutex0>;
-		mdp_rdma0  = <&mdp_rdma0>;
-		mdp_rdma1  = <&mdp_rdma1>;
-		mdp_fg0    = <&mdp_fg0>;
-		mdp_fg1    = <&mdp_fg1>;
-		mdp_rsz0   = <&mdp_rsz0>;
-		mdp_rsz1   = <&mdp_rsz1>;
-		mdp_wrot0  = <&mdp_wrot0>;
-		mdp_wrot1  = <&mdp_wrot1>;
-		mdp_tdshp0 = <&mdp_tdshp0>;
-		mdp_tdshp1 = <&mdp_tdshp1>;
-		mdp_aal0   = <&mdp_aal0>;
-		mdp_aal1   = <&mdp_aal1>;
-		mdp_color0 = <&mdp_color0>;
-		mdp_color1 = <&mdp_color1>;
-		mdp_hdr0   = <&mdp_hdr0>;
-		mdp_hdr1   = <&mdp_hdr1>;
+		mmsys-config = <&mdpsys_config>;
+		mm-mutex   = <&mdp_mutex0>;
+		mdp-rdma0  = <&mdp_rdma0>;
+		mdp-rdma1  = <&mdp_rdma1>;
+		mdp-fg0    = <&mdp_fg0>;
+		mdp-fg1    = <&mdp_fg1>;
+		mdp-rsz0   = <&mdp_rsz0>;
+		mdp-rsz1   = <&mdp_rsz1>;
+		mdp-wrot0  = <&mdp_wrot0>;
+		mdp-wrot1  = <&mdp_wrot1>;
+		mdp-tdshp0 = <&mdp_tdshp0>;
+		mdp-tdshp1 = <&mdp_tdshp1>;
+		mdp-aal0   = <&mdp_aal0>;
+		mdp-aal1   = <&mdp_aal1>;
+		mdp-color0 = <&mdp_color0>;
+		mdp-color1 = <&mdp_color1>;
+		mdp-hdr0   = <&mdp_hdr0>;
+		mdp-hdr1   = <&mdp_hdr1>;
 		mediatek,larb = <&smi_larb2>;
-		mdp_rdma0_sof = <CMDQ_EVENT_MDPSYS0_MDP_RDMA0_SOF>;
-		mdp_rdma1_sof = <CMDQ_EVENT_MDPSYS0_MDP_RDMA1_SOF>;
-		mdp_fg0_sof = <CMDQ_EVENT_MDPSYS0_MDP_FG0_SOF>;
-		mdp_fg1_sof = <CMDQ_EVENT_MDPSYS0_MDP_FG1_SOF>;
-		mdp_wrot0_sof = <CMDQ_EVENT_MDPSYS0_MDP_WROT0_SOF>;
-		mdp_wrot1_sof = <CMDQ_EVENT_MDPSYS0_MDP_WROT1_SOF>;
-		mdp_tdshp_sof = <CMDQ_EVENT_MDPSYS0_MDP_TDSHP0_SOF>;
-		mdp_tdshp1_sof = <CMDQ_EVENT_MDPSYS0_MDP_TDSHP1_SOF>;
-		mdp_wrot1_write_frame_done = <CMDQ_EVENT_MDPSYS0_MDP_WROT1_FRAME_DONE>;
-		mdp_wrot0_write_frame_done = <CMDQ_EVENT_MDPSYS0_MDP_WROT0_FRAME_DONE>;
-		mdp_tdshp1_frame_done = <CMDQ_EVENT_MDPSYS0_MDP_TDSHP1_FRAME_DONE>;
-		mdp_tdshp_frame_done = <CMDQ_EVENT_MDPSYS0_MDP_TDSHP0_FRAME_DONE>;
-		mdp_rsz1_frame_done = <CMDQ_EVENT_MDPSYS0_MDP_RSZ1_FRAME_DONE>;
-		mdp_rsz0_frame_done = <CMDQ_EVENT_MDPSYS0_MDP_RSZ0_FRAME_DONE>;
-		mdp_rdma1_frame_done = <CMDQ_EVENT_MDPSYS0_MDP_RDMA1_FRAME_DONE>;
-		mdp_rdma0_frame_done = <CMDQ_EVENT_MDPSYS0_MDP_RDMA0_FRAME_DONE>;
-		mdp_hdr1_frame_done = <CMDQ_EVENT_MDPSYS0_MDP_HDR1_FRAME_DONE>;
-		mdp_hdr0_frame_done = <CMDQ_EVENT_MDPSYS0_MDP_HDR0_FRAME_DONE>;
-		mdp_fg1_frame_done = <CMDQ_EVENT_MDPSYS0_MDP_FG1_FRAME_DONE>;
-		mdp_fg0_frame_done = <CMDQ_EVENT_MDPSYS0_MDP_FG0_FRAME_DONE>;
-		mdp_color1_frame_done = <CMDQ_EVENT_MDPSYS0_MDP_COLOR1_FRAME_DONE>;
-		mdp_color_frame_done = <CMDQ_EVENT_MDPSYS0_MDP_COLOR0_FRAME_DONE>;
-		mdp_aal1_frame_done = <CMDQ_EVENT_MDPSYS0_MDP_AAL1_FRAME_DONE>;
-		mdp_aal_frame_done = <CMDQ_EVENT_MDPSYS0_MDP_AAL0_FRAME_DONE>;
-		stream_done_0 = <CMDQ_EVENT_MDPSYS0_STREAM_DONE_ENG_EVENT_0>;
-		stream_done_1 = <CMDQ_EVENT_MDPSYS0_STREAM_DONE_ENG_EVENT_1>;
-		stream_done_2 = <CMDQ_EVENT_MDPSYS0_STREAM_DONE_ENG_EVENT_2>;
-		stream_done_3 = <CMDQ_EVENT_MDPSYS0_STREAM_DONE_ENG_EVENT_3>;
-		stream_done_4 = <CMDQ_EVENT_MDPSYS0_STREAM_DONE_ENG_EVENT_4>;
-		stream_done_5 = <CMDQ_EVENT_MDPSYS0_STREAM_DONE_ENG_EVENT_5>;
-		stream_done_6 = <CMDQ_EVENT_MDPSYS0_STREAM_DONE_ENG_EVENT_6>;
-		stream_done_7 = <CMDQ_EVENT_MDPSYS0_STREAM_DONE_ENG_EVENT_7>;
-		stream_done_8 = <CMDQ_EVENT_MDPSYS0_STREAM_DONE_ENG_EVENT_8>;
-		stream_done_9 = <CMDQ_EVENT_MDPSYS0_STREAM_DONE_ENG_EVENT_9>;
-		stream_done_10 = <CMDQ_EVENT_MDPSYS0_STREAM_DONE_ENG_EVENT_10>;
-		stream_done_11 = <CMDQ_EVENT_MDPSYS0_STREAM_DONE_ENG_EVENT_11>;
-		stream_done_12 = <CMDQ_EVENT_MDPSYS0_STREAM_DONE_ENG_EVENT_12>;
-		stream_done_13 = <CMDQ_EVENT_MDPSYS0_STREAM_DONE_ENG_EVENT_13>;
-		stream_done_14 = <CMDQ_EVENT_MDPSYS0_STREAM_DONE_ENG_EVENT_14>;
-		stream_done_15 = <CMDQ_EVENT_MDPSYS0_STREAM_DONE_ENG_EVENT_15>;
-		mdp_wrot1_rst_done = <CMDQ_EVENT_MDPSYS0_MDP_WROT1_SW_RST_DONE_ENG_EVENT>;
-		mdp_wrot0_rst_done = <CMDQ_EVENT_MDPSYS0_MDP_WROT0_SW_RST_DONE_ENG_EVENT>;
-		mdp_rdma1_rst_done = <CMDQ_EVENT_MDPSYS0_MDP_RDMA1_SW_RST_DONE_ENG_EVENT>;
-		mdp_rdma0_rst_done = <CMDQ_EVENT_MDPSYS0_MDP_RDMA0_SW_RST_DONE_ENG_EVENT>;
+		mdp-rdma0-sof = <CMDQ_EVENT_MDPSYS0_MDP_RDMA0_SOF>;
+		mdp-rdma1-sof = <CMDQ_EVENT_MDPSYS0_MDP_RDMA1_SOF>;
+		mdp-fg0-sof = <CMDQ_EVENT_MDPSYS0_MDP_FG0_SOF>;
+		mdp-fg1-sof = <CMDQ_EVENT_MDPSYS0_MDP_FG1_SOF>;
+		mdp-wrot0-sof = <CMDQ_EVENT_MDPSYS0_MDP_WROT0_SOF>;
+		mdp-wrot1-sof = <CMDQ_EVENT_MDPSYS0_MDP_WROT1_SOF>;
+		mdp-tdshp-sof = <CMDQ_EVENT_MDPSYS0_MDP_TDSHP0_SOF>;
+		mdp-tdshp1-sof = <CMDQ_EVENT_MDPSYS0_MDP_TDSHP1_SOF>;
+		mdp-wrot1-write-frame-done = <CMDQ_EVENT_MDPSYS0_MDP_WROT1_FRAME_DONE>;
+		mdp-wrot0-write-frame-done = <CMDQ_EVENT_MDPSYS0_MDP_WROT0_FRAME_DONE>;
+		mdp-tdshp1-frame-done = <CMDQ_EVENT_MDPSYS0_MDP_TDSHP1_FRAME_DONE>;
+		mdp-tdshp-frame-done = <CMDQ_EVENT_MDPSYS0_MDP_TDSHP0_FRAME_DONE>;
+		mdp-rsz1-frame-done = <CMDQ_EVENT_MDPSYS0_MDP_RSZ1_FRAME_DONE>;
+		mdp-rsz0-frame-done = <CMDQ_EVENT_MDPSYS0_MDP_RSZ0_FRAME_DONE>;
+		mdp-rdma1-frame-done = <CMDQ_EVENT_MDPSYS0_MDP_RDMA1_FRAME_DONE>;
+		mdp-rdma0-frame-done = <CMDQ_EVENT_MDPSYS0_MDP_RDMA0_FRAME_DONE>;
+		mdp-hdr1-frame-done = <CMDQ_EVENT_MDPSYS0_MDP_HDR1_FRAME_DONE>;
+		mdp-hdr0-frame-done = <CMDQ_EVENT_MDPSYS0_MDP_HDR0_FRAME_DONE>;
+		mdp-fg1-frame-done = <CMDQ_EVENT_MDPSYS0_MDP_FG1_FRAME_DONE>;
+		mdp-fg0-frame-done = <CMDQ_EVENT_MDPSYS0_MDP_FG0_FRAME_DONE>;
+		mdp-color1-frame-done = <CMDQ_EVENT_MDPSYS0_MDP_COLOR1_FRAME_DONE>;
+		mdp-color-frame-done = <CMDQ_EVENT_MDPSYS0_MDP_COLOR0_FRAME_DONE>;
+		mdp-aal1-frame-done = <CMDQ_EVENT_MDPSYS0_MDP_AAL1_FRAME_DONE>;
+		mdp-aal-frame-done = <CMDQ_EVENT_MDPSYS0_MDP_AAL0_FRAME_DONE>;
+		stream-done-0 = <CMDQ_EVENT_MDPSYS0_STREAM_DONE_ENG_EVENT_0>;
+		stream-done-1 = <CMDQ_EVENT_MDPSYS0_STREAM_DONE_ENG_EVENT_1>;
+		stream-done-2 = <CMDQ_EVENT_MDPSYS0_STREAM_DONE_ENG_EVENT_2>;
+		stream-done-3 = <CMDQ_EVENT_MDPSYS0_STREAM_DONE_ENG_EVENT_3>;
+		stream-done-4 = <CMDQ_EVENT_MDPSYS0_STREAM_DONE_ENG_EVENT_4>;
+		stream-done-5 = <CMDQ_EVENT_MDPSYS0_STREAM_DONE_ENG_EVENT_5>;
+		stream-done-6 = <CMDQ_EVENT_MDPSYS0_STREAM_DONE_ENG_EVENT_6>;
+		stream-done-7 = <CMDQ_EVENT_MDPSYS0_STREAM_DONE_ENG_EVENT_7>;
+		stream-done-8 = <CMDQ_EVENT_MDPSYS0_STREAM_DONE_ENG_EVENT_8>;
+		stream-done-9 = <CMDQ_EVENT_MDPSYS0_STREAM_DONE_ENG_EVENT_9>;
+		stream-done-10 = <CMDQ_EVENT_MDPSYS0_STREAM_DONE_ENG_EVENT_10>;
+		stream-done-11 = <CMDQ_EVENT_MDPSYS0_STREAM_DONE_ENG_EVENT_11>;
+		stream-done-12 = <CMDQ_EVENT_MDPSYS0_STREAM_DONE_ENG_EVENT_12>;
+		stream-done-13 = <CMDQ_EVENT_MDPSYS0_STREAM_DONE_ENG_EVENT_13>;
+		stream-done-14 = <CMDQ_EVENT_MDPSYS0_STREAM_DONE_ENG_EVENT_14>;
+		stream-done-15 = <CMDQ_EVENT_MDPSYS0_STREAM_DONE_ENG_EVENT_15>;
+		mdp-wrot1-rst-done = <CMDQ_EVENT_MDPSYS0_MDP_WROT1_SW_RST_DONE_ENG_EVENT>;
+		mdp-wrot0-rst-done = <CMDQ_EVENT_MDPSYS0_MDP_WROT0_SW_RST_DONE_ENG_EVENT>;
+		mdp-rdma1-rst-done = <CMDQ_EVENT_MDPSYS0_MDP_RDMA1_SW_RST_DONE_ENG_EVENT>;
+		mdp-rdma0-rst-done = <CMDQ_EVENT_MDPSYS0_MDP_RDMA0_SW_RST_DONE_ENG_EVENT>;
 		interconnects =
 			<&mmqos MASTER_LARB_PORT(M4U_PORT_L2_MDP_RDMA0)
 				&mmqos SLAVE_COMMON(0)>,
@@ -11074,10 +11076,10 @@
 		mdp-opp = <&opp_table_mdp0>;
 		operating-points-v2 = <&opp_table_mdp0>;
 		mdp-dvfsrc-vcore-supply = <&dvfsrc_vcore>;
-		dre30_hist_sram_start = <1536>;
+		dre30-hist-sram-start = <1536>;
 	};
 
-	mdp_mutex0: mdp_mutex0@1f001000 {
+	mdp_mutex0: mdp-mutex0@1f001000 {
 		compatible = "mediatek,mdp_mutex0";
 		reg = <0 0x1f001000 0 0x1000>;
 		clocks = <&mdpsys_config_clk CLK_MDPSYS_CONFIG_MDP_MUTEX0>;
@@ -11106,63 +11108,63 @@
 		clock-names = "apb", "smi";
 	};
 
-	mdp_rdma0: mdp_rdma0@1f003000 {
+	mdp_rdma0: mdp-rdma0@1f003000 {
 		compatible = "mediatek,mdp_rdma0";
 		reg = <0 0x1f003000 0 0x1000>;
 		clocks = <&mdpsys_config_clk CLK_MDP_MDP_RDMA0>;
 		clock-names = "MDP_RDMA0";
 	};
 
-	mdp_rdma1: mdp_rdma1@1f004000 {
+	mdp_rdma1: mdp-rdma1@1f004000 {
 		compatible = "mediatek,mdp_rdma1";
 		reg = <0 0x1f004000 0 0x1000>;
 		clocks = <&mdpsys_config_clk CLK_MDP_MDP_RDMA1>;
 		clock-names = "MDP_RDMA1";
 	};
 
-	mdp_hdr0: mdp_hdr0@1f005000 {
+	mdp_hdr0: mdp-hdr0@1f005000 {
 		compatible = "mediatek,mdp_hdr0";
 		reg = <0 0x1f005000 0 0x1000>;
 		clocks = <&mdpsys_config_clk CLK_MDP_MDP_HDR0>;
 		clock-names = "MDP_HDR0";
 	};
 
-	mdp_hdr1: mdp_hdr1@1f006000 {
+	mdp_hdr1: mdp-hdr1@1f006000 {
 		compatible = "mediatek,mdp_hdr1";
 		reg = <0 0x1f006000 0 0x1000>;
 		clocks = <&mdpsys_config_clk CLK_MDP_MDP_HDR1>;
 		clock-names = "MDP_HDR1";
 	};
 
-	mdp_aal0: mdp_aal0@1f007000 {
+	mdp_aal0: mdp-aal0@1f007000 {
 		compatible = "mediatek,mdp_aal0";
 		reg = <0 0x1f007000 0 0x1000>;
 		clocks = <&mdpsys_config_clk CLK_MDP_MDP_AAL0>;
 		clock-names = "MDP_AAL0";
 	};
 
-	mdp_aal1: mdp_aal1@1f008000 {
+	mdp_aal1: mdp-aal1@1f008000 {
 		compatible = "mediatek,mdp_aal1";
 		reg = <0 0x1f008000 0 0x1000>;
 		clocks = <&mdpsys_config_clk CLK_MDP_MDP_AAL1>;
 		clock-names = "MDP_AAL1";
 	};
 
-	mdp_rsz0: mdp_rsz0@1f009000 {
+	mdp_rsz0: mdp-rsz0@1f009000 {
 		compatible = "mediatek,mdp_rsz0";
 		reg = <0 0x1f009000 0 0x1000>;
 		clocks = <&mdpsys_config_clk CLK_MDP_MDP_RSZ0>;
 		clock-names = "MDP_RSZ0";
 	};
 
-	mdp_rsz1: mdp_rsz1@1f00a000 {
+	mdp_rsz1: mdp-rsz1@1f00a000 {
 		compatible = "mediatek,mdp_rsz1";
 		reg = <0 0x1f00a000 0 0x1000>;
 		clocks = <&mdpsys_config_clk CLK_MDP_MDP_RSZ1>;
 		clock-names = "MDP_RSZ1";
 	};
 
-	mdp_tdshp0: mdp_tdshp0@1f00b000 {
+	mdp_tdshp0: mdp-tdshp0@1f00b000 {
 		compatible = "mediatek,mdp_tdshp0",
 			"mediatek,mdp-tuning-mdp_tdshp0";
 		reg = <0 0x1f00b000 0 0x1000>;
@@ -11170,7 +11172,7 @@
 		clock-names = "MDP_TDSHP0";
 	};
 
-	mdp_tdshp1: mdp_tdshp1@1f00c000 {
+	mdp_tdshp1: mdp-tdshp1@1f00c000 {
 		compatible = "mediatek,mdp_tdshp1",
 			"mediatek,mdp-tuning-mdp_tdshp1";
 		reg = <0 0x1f00c000 0 0x1000>;
@@ -11178,7 +11180,7 @@
 		clock-names = "MDP_TDSHP1";
 	};
 
-	mdp_color0: mdp_color0@1f00d000 {
+	mdp_color0: mdp-color0@1f00d000 {
 		compatible = "mediatek,mdp_color0",
 			"mediatek,mdp-tuning-mdp_color0";
 		reg = <0 0x1f00d000 0 0x1000>;
@@ -11186,7 +11188,7 @@
 		clock-names = "MDP_COLOR0";
 	};
 
-	mdp_color1: mdp_color1@1f00e000 {
+	mdp_color1: mdp-color1@1f00e000 {
 		compatible = "mediatek,mdp_color1",
 			"mediatek,mdp-tuning-mdp_color1";
 		reg = <0 0x1f00e000 0 0x1000>;
@@ -11194,28 +11196,28 @@
 		clock-names = "MDP_COLOR1";
 	};
 
-	mdp_wrot0: mdp_wrot0@1f00f000 {
+	mdp_wrot0: mdp-wrot0@1f00f000 {
 		compatible = "mediatek,mdp_wrot0";
 		reg = <0 0x1f00f000 0 0x1000>;
 		clocks = <&mdpsys_config_clk CLK_MDP_MDP_WROT0>;
 		clock-names = "MDP_WROT0";
 	};
 
-	mdp_wrot1: mdp_wrot1@1f010000 {
+	mdp_wrot1: mdp-wrot1@1f010000 {
 		compatible = "mediatek,mdp_wrot1";
 		reg = <0 0x1f010000 0 0x1000>;
 		clocks = <&mdpsys_config_clk CLK_MDP_MDP_WROT1>;
 		clock-names = "MDP_WROT1";
 	};
 
-	mdp_fg0: mdp_fg0@1f011000 {
+	mdp_fg0: mdp-fg0@1f011000 {
 		compatible = "mediatek,mdp_fg0";
 		reg = <0 0x1f011000 0 0x1000>;
 		clocks = <&mdpsys_config_clk CLK_MDP_MDP_FG0>;
 		clock-names = "MDP_FG0";
 	};
 
-	mdp_fg1: mdp_fg1@1f012000 {
+	mdp_fg1: mdp-fg1@1f012000 {
 		compatible = "mediatek,mdp_fg1";
 		reg = <0 0x1f012000 0 0x1000>;
 		clocks = <&mdpsys_config_clk CLK_MDP_MDP_FG1>;
