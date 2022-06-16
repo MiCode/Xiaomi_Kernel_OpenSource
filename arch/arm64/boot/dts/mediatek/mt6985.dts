@@ -378,6 +378,55 @@
 		compatible = "mediatek,tfa_debug";
 	};
 
+	dramc: dramc@10230000 {
+		compatible = "mediatek,mt6985-dramc",
+			     "mediatek,common-dramc";
+		reg = <0 0x10250000 0 0x2000>, /* DRAMC AO CHA */
+			<0 0x10260000 0 0x2000>, /* DRAMC AO CHB */
+			<0 0x10230000 0 0x2000>, /* DRAMC AO CHC */
+			<0 0x10240000 0 0x2000>, /* DRAMC AO CHD */
+			<0 0x10254000 0 0x1000>, /* DRAMC NAO CHA */
+			<0 0x10264000 0 0x1000>, /* DRAMC NAO CHB */
+			<0 0x10234000 0 0x1000>, /* DRAMC NAO CHC */
+			<0 0x10244000 0 0x1000>, /* DRAMC NAO CHD */
+			<0 0x10258000 0 0x2000>, /* DDRPHY AO CHA */
+			<0 0x10268000 0 0x2000>, /* DDRPHY AO CHB */
+			<0 0x10238000 0 0x2000>, /* DDRPHY AO CHC */
+			<0 0x10248000 0 0x2000>, /* DDRPHY AO CHD */
+			<0 0x10256000 0 0x2000>, /* DDRPHY NAO CHA */
+			<0 0x10266000 0 0x2000>, /* DDRPHY NAO CHB */
+			<0 0x10236000 0 0x2000>, /* DDRPHY NAO CHC */
+			<0 0x10246000 0 0x2000>, /* DDRPHY NAO CHD */
+			<0 0x10006000 0 0x1000>; /* SLEEP BASE */
+		mr4_version = <0>;
+		mr4_rg = <0x0090 0x0000ffff 0>;
+		fmeter_version = <2>;
+		crystal_freq = <26>;
+		pll_id = <0x0CB4 0x00000100 8>;
+		shu_lv = <0x0CB4 0x00030000 16>;
+		shu_of = <0x700>;
+		sdmpcw = <0x0908 0x0007FFF8 3>,
+			 <0x0928 0x0007FFF8 3>;
+		prediv = <0x090c 0x0000fffc 14>,
+			 <0x092c 0x0000fffc 14>;
+		posdiv = <0x090c 0x00003800 11>,
+			 <0x092c 0x00003800 11>;
+		ckdiv4 = <0x13ec 0x00000004 2>,
+			 <0x13ec 0x00000004 2>;
+		pll_md = <0x0944 0x00000100 8>,
+			 <0x0944 0x00000100 8>;
+		cldiv2 = <0x0f34 0x00000002 1>,
+			 <0x0f34 0x00000002 1>;
+		fbksel = <0x0910 0x00000020 5>,
+			 <0x0910 0x00000020 5>;
+		dqsopen = <0x0D94 0x02000000 25>,
+			 <0x0D94 0x02000000 25>;
+		dqopen = <0x0D94 0x0001fffe 21>,
+			 <0x0D94 0x0001fffe 21>;
+		ckdiv4_ca = <0x136c 0x00000004 2>,
+			 <0x136c 0x00000004 2>;
+	};
+
 	psci {
 		compatible = "arm,psci-1.0";
 		method = "smc";
