@@ -385,13 +385,16 @@ static irqreturn_t mtk_disp_rdma_irq_handler(int irq, void *dev_id)
 				unsigned int crtc_idx = drm_crtc_index(crtc);
 				unsigned int pf_idx;
 
-				pf_idx = readl(mtk_get_gce_backup_slot_va(mtk_crtc,
-					DISP_SLOT_PRESENT_FENCE(crtc_idx)));
-				atomic_set(&drm_priv->crtc_rel_present[crtc_idx], pf_idx);
-				atomic_set(&mtk_crtc->pf_event, 1);
-				wake_up_interruptible(&mtk_crtc->present_fence_wq);
-				IF_DEBUG_IRQ_TS(find_work,
-					priv->ddp_comp.ts_works[work_id].irq_time, i)
+				if (drm_priv && !mtk_drm_helper_get_opt(drm_priv->helper_opt,
+						MTK_DRM_OPT_PRE_TE)) {
+					pf_idx = readl(mtk_get_gce_backup_slot_va(mtk_crtc,
+						DISP_SLOT_PRESENT_FENCE(crtc_idx)));
+					atomic_set(&drm_priv->crtc_rel_present[crtc_idx], pf_idx);
+					atomic_set(&mtk_crtc->pf_event, 1);
+					wake_up_interruptible(&mtk_crtc->present_fence_wq);
+					IF_DEBUG_IRQ_TS(find_work,
+						priv->ddp_comp.ts_works[work_id].irq_time, i)
+				}
 			}
 			IF_DEBUG_IRQ_TS(find_work,
 				priv->ddp_comp.ts_works[work_id].irq_time, i)
@@ -437,8 +440,32 @@ static irqreturn_t mtk_disp_rdma_irq_handler(int irq, void *dev_id)
 		priv->underflow_cnt++;
 	}
 	if (val & (1 << 5)) {
+		struct mtk_drm_private *drm_priv = NULL;
+		struct drm_crtc *crtc;
+
 		DDPIRQ("[IRQ] %s: target line!\n", mtk_dump_comp_str(rdma));
-		if (mtk_crtc) {
+		if (mtk_crtc && mtk_crtc->base.dev) {
+			drm_priv = mtk_crtc->base.dev->dev_private;
+			if (mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base) &&
+					(rdma->id == DDP_COMPONENT_RDMA0) &&
+					drm_priv && mtk_drm_helper_get_opt(drm_priv->helper_opt,
+						MTK_DRM_OPT_PRE_TE)) {
+				unsigned int pf_idx;
+				unsigned int crtc_idx;
+
+				drm_priv = mtk_crtc->base.dev->dev_private;
+
+				crtc = &mtk_crtc->base;
+				crtc_idx = drm_crtc_index(crtc);
+
+				pf_idx = readl(mtk_get_gce_backup_slot_va(mtk_crtc,
+					DISP_SLOT_PRESENT_FENCE(crtc_idx)));
+				atomic_set(&drm_priv->crtc_rel_present[crtc_idx], pf_idx);
+
+				atomic_set(&mtk_crtc->pf_event, 1);
+				wake_up_interruptible(&mtk_crtc->present_fence_wq);
+			}
+
 			if (mtk_crtc->esd_ctx &&
 				(!(val & (1 << 2)))) {
 				atomic_set(&mtk_crtc->esd_ctx->target_time, 1);
@@ -784,6 +811,9 @@ static void mtk_rdma_set_ultra_l(struct mtk_ddp_comp *comp,
 	unsigned int gs[GS_RDMA_FLD_NUM] = {0};
 	unsigned int val = 0;
 	struct mtk_disp_rdma *rdma = comp_to_rdma(comp);
+	struct golden_setting_context *gsc = cfg->p_golden_setting_context;
+	struct mtk_drm_private *priv =
+		comp->mtk_crtc->base.dev->dev_private;
 
 	if ((comp->id != DDP_COMPONENT_RDMA0)
 		&& (comp->id != DDP_COMPONENT_RDMA1)
@@ -880,8 +910,13 @@ static void mtk_rdma_set_ultra_l(struct mtk_ddp_comp *comp,
 	}
 
 	/*esd will wait this target line irq*/
-	mtk_ddp_write(comp, (cfg->h * 9) / 10,
-		DISP_REG_RDMA_TARGET_LINE, handle);
+	if (gsc->is_vdo_mode ||
+			!mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_PRE_TE))
+		mtk_ddp_write(comp, (cfg->h * 9) / 10,
+			DISP_REG_RDMA_TARGET_LINE, handle);
+	else
+		mtk_ddp_write(comp, (cfg->h * 5) / 100,
+			DISP_REG_RDMA_TARGET_LINE, handle);
 #ifdef IF_ZERO
 	val = gs[GS_RDMA_SELF_FIFO_SIZE] + (gs[GS_RDMA_RSZ_FIFO_SIZE] << 16);
 	cmdq_pkt_write(handle, comp->cmdq_base,

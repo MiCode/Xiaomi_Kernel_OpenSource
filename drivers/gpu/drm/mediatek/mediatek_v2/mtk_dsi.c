@@ -2706,6 +2706,10 @@ static void mtk_output_dsi_disable(struct mtk_dsi *dsi, struct cmdq_pkt *cmdq_ha
 	if (mtk_crtc_with_trigger_loop(dsi->encoder.crtc))
 		mtk_crtc_stop_trig_loop(dsi->encoder.crtc);
 
+	if (mtk_crtc_with_event_loop(dsi->encoder.crtc) &&
+			(mtk_dsi_is_cmd_mode(&dsi->ddp_comp)))
+		mtk_crtc_stop_event_loop(dsi->encoder.crtc);
+
 	/* 3. turn off panel or set to doze mode */
 	if (dsi->panel) {
 		if (!new_doze_state || force_lcm_update) {

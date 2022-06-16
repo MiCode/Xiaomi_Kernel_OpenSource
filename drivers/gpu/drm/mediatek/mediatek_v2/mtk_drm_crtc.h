@@ -437,6 +437,7 @@ enum MTK_CRTC_COLOR_FMT {
 	EXPR(CLIENT_CFG)                                                       \
 	EXPR(CLIENT_TRIG_LOOP)                                                 \
 	EXPR(CLIENT_SODI_LOOP)                                                 \
+	EXPR(CLIENT_EVENT_LOOP)                                                 \
 	EXPR(CLIENT_SUB_CFG)                                                   \
 	EXPR(CLIENT_DSI_CFG)                                                   \
 	EXPR(CLIENT_SEC_CFG)                                                   \
@@ -464,6 +465,8 @@ enum CRTC_GCE_EVENT_TYPE {
 	EVENT_GPIO_TE1,
 	EVENT_SYNC_TOKEN_DISP_VA_START,
 	EVENT_SYNC_TOKEN_DISP_VA_END,
+	EVENT_SYNC_TOKEN_TE,
+	EVENT_SYNC_TOKEN_PRETE,
 	EVENT_TYPE_MAX,
 };
 
@@ -704,6 +707,7 @@ struct mtk_drm_crtc {
 	struct mtk_crtc_gce_obj gce_obj;
 	struct cmdq_pkt *trig_loop_cmdq_handle;
 	struct cmdq_pkt *sodi_loop_cmdq_handle;
+	struct cmdq_pkt *event_loop_cmdq_handle;
 	struct mtk_drm_plane *planes;
 	unsigned int layer_nr;
 	bool pending_planes;
@@ -1000,6 +1004,10 @@ void mtk_crtc_start_trig_loop(struct drm_crtc *crtc);
 bool mtk_crtc_with_sodi_loop(struct drm_crtc *crtc);
 void mtk_crtc_stop_sodi_loop(struct drm_crtc *crtc);
 void mtk_crtc_start_sodi_loop(struct drm_crtc *crtc);
+
+bool mtk_crtc_with_event_loop(struct drm_crtc *crtc);
+void mtk_crtc_stop_event_loop(struct drm_crtc *crtc);
+void mtk_crtc_start_event_loop(struct drm_crtc *crtc);
 
 int mtk_crtc_attach_ddp_comp(struct drm_crtc *crtc, int ddp_mode,
 			     bool is_attach);
