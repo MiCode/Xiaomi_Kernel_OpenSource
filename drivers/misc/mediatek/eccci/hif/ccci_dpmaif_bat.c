@@ -97,21 +97,14 @@ static inline void ccci_dpmaif_skb_wakeup_thread(void)
 static inline int skb_alloc(
 		struct sk_buff **ppskb,
 		unsigned long long *p_base_addr,
-		unsigned int pkt_buf_sz,
-		int blocking)
+		unsigned int pkt_buf_sz)
 {
-	unsigned int rty_cnt = 0;
-
-fast_retry:
-	(*ppskb) = __dev_alloc_skb(pkt_buf_sz, (blocking ? GFP_KERNEL : GFP_ATOMIC));
+	(*ppskb) = __dev_alloc_skb(pkt_buf_sz, GFP_KERNEL);
 
 	if (unlikely(!(*ppskb))) {
-		if ((!blocking) && (rty_cnt++) < 20)
-			goto fast_retry;
-
 		CCCI_ERROR_LOG(-1, TAG,
-			"[%s] error: alloc skb fail. (%u, %u)\n",
-			__func__, pkt_buf_sz, rty_cnt);
+			"[%s] error: alloc skb fail. (%u)\n",
+			__func__, pkt_buf_sz);
 
 		return LOW_MEMORY_SKB;
 	}
@@ -134,7 +127,7 @@ fast_retry:
 	return 0;
 }
 
-static inline void alloc_skb_to_tbl(int skb_cnt, int blocking)
+static inline void alloc_skb_to_tbl(int skb_cnt)
 {
 	int alloc_cnt, i;
 	unsigned int used_cnt, skb_tbl_wdx = atomic_read(&g_skb_tbl_wdx);
@@ -158,7 +151,7 @@ static inline void alloc_skb_to_tbl(int skb_cnt, int blocking)
 	for (i = 0; i < alloc_cnt; i++) {
 		skb_info = &g_skb_tbl[skb_tbl_wdx];
 
-		if (skb_alloc(&skb_info->skb, &skb_info->base_addr, pkt_buf_sz, blocking))
+		if (skb_alloc(&skb_info->skb, &skb_info->base_addr, pkt_buf_sz))
 			break;
 		/*
 		 * The wmb() flushes writes to dram before read g_skb_tbl data.
@@ -190,22 +183,16 @@ static inline int page_alloc(
 		struct page **pp_page,
 		unsigned long long *p_base_addr,
 		unsigned long *offset,
-		unsigned int pkt_buf_sz,
-		int blocking)
+		unsigned int pkt_buf_sz)
 {
-	unsigned int rty_cnt = 0;
 	int size = L1_CACHE_ALIGN(pkt_buf_sz);
 	void *data;
 
-fast_retry:
 	data = netdev_alloc_frag(size);/* napi_alloc_frag(size) */
 	if (unlikely(!data)) {
-		if ((!blocking) && (rty_cnt++) < 20)
-			goto fast_retry;
-
 		CCCI_ERROR_LOG(-1, TAG,
-			"[%s] error: alloc frag fail. (%u,%d)\n",
-			__func__, size, blocking);
+			"[%s] error: alloc frag fail. (%u)\n",
+			__func__, size);
 
 		return LOW_MEMORY_BAT; /*-ENOMEM;*/
 	}
@@ -248,7 +235,7 @@ static inline int get_page_from_tbl(struct temp_page_info *page_info)
 	return 0;
 }
 
-static inline void alloc_page_to_tbl(int page_cnt, int blocking)
+static inline void alloc_page_to_tbl(int page_cnt)
 {
 	int alloc_cnt, i;
 	unsigned int used_cnt, page_tbl_wdx = atomic_read(&g_page_tbl_wdx);
@@ -272,7 +259,7 @@ static inline void alloc_page_to_tbl(int page_cnt, int blocking)
 		page_info = &g_page_tbl[page_tbl_wdx];
 
 		if (page_alloc(&page_info->page, &page_info->base_addr,
-				&page_info->offset, pkt_buf_sz, blocking))
+				&page_info->offset, pkt_buf_sz))
 			break;
 		/*
 		 * The wmb() flushes writes to dram before read g_skb_tbl data.
@@ -341,8 +328,7 @@ static int dpmaif_bat_init(struct dpmaif_bat_request *bat_req, int is_frag)
 static inline int alloc_bat_skb(
 		unsigned int pkt_buf_sz,
 		struct dpmaif_bat_skb *bat_skb,
-		struct dpmaif_bat_base *cur_bat,
-		int blocking)
+		struct dpmaif_bat_base *cur_bat)
 {
 	int ret = 0;
 	struct temp_skb_info skb_info;
@@ -352,7 +338,7 @@ static inline int alloc_bat_skb(
 		bat_skb->data_phy_addr = skb_info.base_addr;
 
 	} else {
-		ret = skb_alloc(&bat_skb->skb, &(bat_skb->data_phy_addr), pkt_buf_sz, blocking);
+		ret = skb_alloc(&bat_skb->skb, &(bat_skb->data_phy_addr), pkt_buf_sz);
 		if (ret)
 			return ret;
 	}
@@ -365,7 +351,7 @@ static inline int alloc_bat_skb(
 	return 0;
 }
 
-static int dpmaif_alloc_bat_req(int update_bat_cnt, atomic_t *paused, int blocking)
+static int dpmaif_alloc_bat_req(int update_bat_cnt, atomic_t *paused)
 {
 	struct dpmaif_bat_request *bat_req = dpmaif_ctl->bat_skb;
 	struct dpmaif_bat_skb *bat_skb, *next_skb;
@@ -413,8 +399,7 @@ static int dpmaif_alloc_bat_req(int update_bat_cnt, atomic_t *paused, int blocki
 		cur_bat = (struct dpmaif_bat_base *)bat_req->bat_base
 					+ bat_wr_idx;
 
-		ret = alloc_bat_skb(bat_req->pkt_buf_sz,
-					bat_skb, cur_bat, blocking);
+		ret = alloc_bat_skb(bat_req->pkt_buf_sz, bat_skb, cur_bat);
 		if (ret)
 			goto alloc_end;
 
@@ -444,8 +429,7 @@ alloc_end:
 static inline int alloc_bat_page(
 		unsigned int pkt_buf_sz,
 		struct dpmaif_bat_page *bat_page,
-		struct dpmaif_bat_base *cur_bat,
-		int blocking)
+		struct dpmaif_bat_base *cur_bat)
 {
 	int ret;
 	struct temp_page_info page_info;
@@ -457,7 +441,7 @@ static inline int alloc_bat_page(
 
 	} else {
 		ret = page_alloc(&bat_page->page, &bat_page->data_phy_addr,
-			&bat_page->offset, pkt_buf_sz, blocking);
+			&bat_page->offset, pkt_buf_sz);
 		if (ret)
 			return ret;
 	}
@@ -470,7 +454,7 @@ static inline int alloc_bat_page(
 	return 0;
 }
 
-static int dpmaif_alloc_bat_frg(int update_bat_cnt, atomic_t *paused, int blocking)
+static int dpmaif_alloc_bat_frg(int update_bat_cnt, atomic_t *paused)
 {
 	struct dpmaif_bat_request *bat_req = dpmaif_ctl->bat_frg;
 	struct dpmaif_bat_page *bat_page, *next_page;
@@ -519,8 +503,7 @@ static int dpmaif_alloc_bat_frg(int update_bat_cnt, atomic_t *paused, int blocki
 		cur_bat = (struct dpmaif_bat_base *)bat_req->bat_base
 					+ bat_wr_idx;
 
-		ret = alloc_bat_page(bat_req->pkt_buf_sz,
-					bat_page, cur_bat, blocking);
+		ret = alloc_bat_page(bat_req->pkt_buf_sz, bat_page, cur_bat);
 		if (ret)
 			goto alloc_end;
 
@@ -649,9 +632,9 @@ static int dpmaif_rx_bat_alloc_thread(void *arg)
 			break;
 		}
 
-		ret = dpmaif_alloc_bat_req(1, &dpmaif_ctl->bat_paused_alloc, 0);
+		ret = dpmaif_alloc_bat_req(1, &dpmaif_ctl->bat_paused_alloc);
 
-		ret = dpmaif_alloc_bat_frg(1, &dpmaif_ctl->bat_paused_alloc, 0);
+		ret = dpmaif_alloc_bat_frg(1, &dpmaif_ctl->bat_paused_alloc);
 
 		if (atomic_read(&dpmaif_ctl->bat_need_alloc) > 1)
 			atomic_set(&dpmaif_ctl->bat_need_alloc, 1);
@@ -711,10 +694,10 @@ static int dpmaif_rx_skb_alloc_thread(void *arg)
 			break;
 		}
 
-		alloc_skb_to_tbl(g_alloc_skb_tbl_threshold, 0);
+		alloc_skb_to_tbl(g_alloc_skb_tbl_threshold);
 
 		if (g_use_page_tbl)
-			alloc_page_to_tbl(g_alloc_frg_tbl_threshold, 0);
+			alloc_page_to_tbl(g_alloc_frg_tbl_threshold);
 
 		dpmaif_ctl->skb_start_alloc = 0;
 	}
@@ -886,7 +869,7 @@ int ccci_dpmaif_bat_start(void)
 
 	dpmaif_bat_hw_init();
 
-	ret = dpmaif_alloc_bat_req(0, NULL, 1);
+	ret = dpmaif_alloc_bat_req(0, NULL);
 	if (ret) {
 		CCCI_ERROR_LOG(-1, TAG,
 			"[%s] dpmaif_alloc_bat_req fail: %d\n",
@@ -894,7 +877,7 @@ int ccci_dpmaif_bat_start(void)
 		goto start_err;
 	}
 
-	ret = dpmaif_alloc_bat_frg(0, NULL, 1);
+	ret = dpmaif_alloc_bat_frg(0, NULL);
 	if (ret) {
 		CCCI_ERROR_LOG(-1, TAG,
 			"[%s] dpmaif_alloc_bat_frg fail: %d\n",
