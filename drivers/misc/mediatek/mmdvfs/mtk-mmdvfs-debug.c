@@ -48,15 +48,16 @@ struct mmdvfs_debug {
 	struct mmdvfs_record rec[MMDVFS_RECORD_NUM];
 
 	/* MMDVFS_DBG_VER3 */
-	struct clk *clk;
 	void *base;
+	u32 use_v3_pwr;
 };
 
 static struct mmdvfs_debug *g_mmdvfs;
 
 void mtk_mmdvfs_debug_release_step0(void)
 {
-	if (!g_mmdvfs || g_mmdvfs->clk || !g_mmdvfs->release_step0)
+	if (!g_mmdvfs || (g_mmdvfs->use_v3_pwr & (1 << PWR_MMDVFS_VCORE))
+		|| !g_mmdvfs->release_step0)
 		return;
 
 	if (!IS_ERR_OR_NULL(g_mmdvfs->reg))
@@ -210,27 +211,21 @@ static const struct proc_ops mmdvfs_debug_opp_fops = {
 
 static int mmdvfs_v3_debug_thread(void *data)
 {
-	unsigned long rate;
-	int retry = 0, ret = 0;
-
-	if (!g_mmdvfs->clk)
-		goto err;
+	int ret = 0, retry = 0;
 
 	while (!mtk_is_mmdvfs_init_done()) {
-		if (++retry > 100) {
+		if (++retry > 50) {
 			MMDVFS_DBG("mmdvfs not ready");
-			ret = -ETIMEDOUT;
 			goto err;
 		}
 		msleep(2000);
 	}
 
-	rate = g_mmdvfs->reg_cnt_vol - 1 - g_mmdvfs->force_step0;
-	ret = clk_set_rate(g_mmdvfs->clk, rate);
-	if (ret) {
-		MMDVFS_DBG("failed:%d rate:%lu", ret, rate);
-		goto err;
-	}
+	if (g_mmdvfs->use_v3_pwr & (1 << PWR_MMDVFS_VCORE))
+		mtk_mmdvfs_v3_set_vote_step(PWR_MMDVFS_VCORE, g_mmdvfs->force_step0);
+
+	if (g_mmdvfs->use_v3_pwr & (1 << PWR_MMDVFS_VMM))
+		mtk_mmdvfs_v3_set_vote_step(PWR_MMDVFS_VMM, g_mmdvfs->force_step0);
 
 	if (!g_mmdvfs->release_step0)
 		goto err;
@@ -238,11 +233,11 @@ static int mmdvfs_v3_debug_thread(void *data)
 	if (!IS_ERR_OR_NULL(g_mmdvfs->reg))
 		regulator_set_voltage(g_mmdvfs->reg, 0, INT_MAX);
 
-	ret = clk_set_rate(g_mmdvfs->clk, 0);
-	if (ret) {
-		MMDVFS_DBG("failed:%d rate:%lu", ret, 0UL);
-		goto err;
-	}
+	if (g_mmdvfs->use_v3_pwr & (1 << PWR_MMDVFS_VCORE))
+		mtk_mmdvfs_v3_set_vote_step(PWR_MMDVFS_VCORE, -1);
+
+	if (g_mmdvfs->use_v3_pwr & (1 << PWR_MMDVFS_VMM))
+		mtk_mmdvfs_v3_set_vote_step(PWR_MMDVFS_VMM, -1);
 
 err:
 	mtk_mmdvfs_enable_vcp(false);
@@ -254,7 +249,6 @@ static int mmdvfs_debug_probe(struct platform_device *pdev)
 	struct proc_dir_entry *dir, *proc;
 	struct task_struct *kthr;
 	struct regulator *reg;
-	struct clk *clk;
 	int ret;
 
 	g_mmdvfs = kzalloc(sizeof(*g_mmdvfs), GFP_KERNEL);
@@ -323,22 +317,18 @@ static int mmdvfs_debug_probe(struct platform_device *pdev)
 			g_mmdvfs->release_step0, ret);
 
 	/* MMDVFS_DBG_VER3 */
+	ret = of_property_read_u32(g_mmdvfs->dev->of_node,
+		"use-v3-pwr", &g_mmdvfs->use_v3_pwr);
 
-	clk = devm_clk_get(g_mmdvfs->dev, "vcore");
-	if (IS_ERR_OR_NULL(clk))
-		MMDVFS_DBG("devm_clk_get failed:%d", PTR_ERR(clk));
-	else {
-		g_mmdvfs->clk = clk;
+	if (g_mmdvfs->use_v3_pwr)
 		kthr = kthread_run(
 			mmdvfs_v3_debug_thread, NULL, "mmdvfs-dbg-vcp");
-	}
 
 	return 0;
 }
 
 static int mmdvfs_debug_remove(struct platform_device *pdev)
 {
-	devm_clk_put(g_mmdvfs->dev, g_mmdvfs->clk);
 	devm_regulator_put(g_mmdvfs->reg);
 	kfree(g_mmdvfs);
 	return 0;
