@@ -571,6 +571,7 @@ static void mtk_vdec_dump_addr_reg(
 	void __iomem *lat_vld_addr = dev->dec_reg_base[VDEC_LAT_VLD];
 	void __iomem *lat_wdma_addr = dev->dec_reg_base[VDEC_LAT_MISC] + 0x800;
 	void __iomem *rctrl_addr = dev->dec_reg_base[VDEC_RACING_CTRL];
+	void __iomem *misc_addr = dev->dec_reg_base[VDEC_MISC];
 	enum mtk_vcodec_ipm vdec_hw_ipm;
 	unsigned long value, values[6];
 	bool is_ufo = false;
@@ -636,6 +637,26 @@ static void mtk_vdec_dump_addr_reg(
 			value = readl(lat_vld_addr + input_lat_vld_reg[i]);
 			mtk_v4l2_err("[LAT][VLD] 0x%x(%d) = 0x%lx",
 				input_lat_vld_reg[i], input_lat_vld_reg[i]/4, value);
+		}
+		if (fourcc == V4L2_PIX_FMT_VP8) {
+			for (i = 41; i < 68; i++) {
+				value = readl(misc_addr + 0x2800 + i*4);
+				mtk_v4l2_err("[VP8_VLD] 0x%x(%d) = 0x%lx",
+					i*4, i, value);
+			}
+			for (i = 72; i < 97; i++) {
+				value = readl(misc_addr + 0x2800 + i*4);
+				mtk_v4l2_err("[VP8_VLD] 0x%x(%d) = 0x%lx",
+					i*4, i, value);
+			}
+			for (i = 66; i < 79; i++) {
+				value = readl(misc_addr + i*4);
+				mtk_v4l2_err("[MISC] 0x%x(%d) = 0x%lx",
+					i*4, i, value);
+			}
+			value = readl(vld_addr + 0x800 + 15*4);
+			mtk_v4l2_err("[VLD_TOP] 0x%x(%d) = 0x%lx",
+				15*4, 15, value);
 		}
 		break;
 	case DUMP_VDEC_OUT_BUF:
