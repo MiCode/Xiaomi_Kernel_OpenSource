@@ -83,6 +83,11 @@
 #define P2A6_RG_U2_DISCTH_VAL(x)	((0xf & (x)) << 4)
 #define P2A6_RG_U2_DISCTH_MASK	(0xf)
 #define P2A6_RG_U2_DISCTH_OFET	(4)
+#define P2A6_RG_U2_SQTH			GENMASK(3, 0)
+#define P2A6_RG_U2_SQTH_VAL(x)		(0xf & (x))
+#define P2A6_RG_U2_SQTH_MASK		(0xf)
+#define P2A6_RG_U2_SQTH_OFET		(0)
+
 
 #define XSP_USBPHYACR3		((SSUSB_SIFSLV_U2PHY_COM) + 0x01c)
 #define P2A3_RG_USB20_PUPD_BIST_EN	BIT(12)
@@ -207,6 +212,7 @@
 #define VRT_SEL_STR "vrt_sel"
 #define PHY_REV6_STR "phy_rev6"
 #define DISCTH_STR "discth"
+#define RX_SQTH_STR "rx_sqth"
 #define SIB_STR	"sib"
 #define LOOPBACK_STR "loopback_test"
 
@@ -266,6 +272,7 @@ struct xsphy_instance {
 	int eye_vrt;
 	int eye_term;
 	int discth;
+	int rx_sqth;
 	int rev6;
 	/* u2 eye diagram for host */
 	int eye_src_host;
@@ -704,6 +711,59 @@ static const struct proc_ops proc_discth_fops = {
 	.proc_release = single_release,
 };
 
+static int proc_rx_sqth_show(struct seq_file *s, void *unused)
+{
+	struct xsphy_instance *inst = s->private;
+	void __iomem *pbase = inst->port_base;
+	u32 tmp;
+	char str[16];
+
+	tmp = readl(pbase + XSP_USBPHYACR6);
+	tmp >>= P2A6_RG_U2_SQTH_OFET;
+	tmp &= P2A6_RG_U2_SQTH_MASK;
+
+	cover_val_to_str(tmp, 4, str);
+
+	seq_printf(s, "\n%s = %s\n", RX_SQTH_STR, str);
+	return 0;
+}
+
+static int proc_rx_sqth_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, proc_rx_sqth_show, PDE_DATA(inode));
+}
+
+static ssize_t proc_rx_sqth_write(struct file *file,
+	const char __user *ubuf, size_t count, loff_t *ppos)
+{
+	struct seq_file *s = file->private_data;
+	struct xsphy_instance *inst = s->private;
+	void __iomem *pbase = inst->port_base;
+	char buf[20];
+	u32 tmp, val;
+
+	memset(buf, 0x00, sizeof(buf));
+	if (copy_from_user(&buf, ubuf, min_t(size_t, sizeof(buf) - 1, count)))
+		return -EFAULT;
+
+	if (kstrtouint(buf, 2, &val))
+		return -EINVAL;
+	tmp = readl(pbase + XSP_USBPHYACR6);
+	tmp &= ~P2A6_RG_U2_SQTH;
+	tmp |= P2A6_RG_U2_SQTH_VAL(val);
+	writel(tmp, pbase + XSP_USBPHYACR6);
+
+	return count;
+}
+
+static const struct proc_ops proc_rx_sqth_fops = {
+	.proc_open = proc_rx_sqth_open,
+	.proc_write = proc_rx_sqth_write,
+	.proc_read = seq_read,
+	.proc_lseek = seq_lseek,
+	.proc_release = single_release,
+};
+
 static int u2_phy_procfs_init(struct mtk_xsphy *xsphy,
 			struct xsphy_instance *inst)
 {
@@ -754,6 +814,14 @@ static int u2_phy_procfs_init(struct mtk_xsphy *xsphy,
 			phy_root, &proc_discth_fops, inst);
 	if (!file) {
 		dev_info(dev, "failed to creat proc file: %s\n", DISCTH_STR);
+		ret = -ENOMEM;
+		goto err1;
+	}
+
+	file = proc_create_data(RX_SQTH_STR, 0644,
+			phy_root, &proc_rx_sqth_fops, inst);
+	if (!file) {
+		dev_info(dev, "failed to creat proc file: %s\n", RX_SQTH_STR);
 		ret = -ENOMEM;
 		goto err1;
 	}
@@ -1260,7 +1328,9 @@ static void phy_parse_property(struct mtk_xsphy *xsphy,
 		device_property_read_u32(dev, "mediatek,eye-term",
 					 &inst->eye_term);
 		device_property_read_u32(dev, "mediatek,discth",
-				 &inst->discth);
+					 &inst->discth);
+		device_property_read_u32(dev, "mediatek,rx-sqth",
+					 &inst->rx_sqth);
 		device_property_read_u32(dev, "mediatek,rev6",
 				 &inst->rev6);
 		device_property_read_u32(dev, "mediatek,eye-src-host",
@@ -1277,9 +1347,9 @@ static void phy_parse_property(struct mtk_xsphy *xsphy,
 		dev_dbg(dev, "src_host:%d, vrt_host:%d, term_host:%d\n",
 			inst->eye_src_host, inst->eye_vrt_host,
 			inst->eye_term_host);
-		dev_dbg(dev, "discth:%d, rev6:%d, rev6_host:%d\n",
-			inst->discth, inst->rev6, inst->rev6_host);
-
+		dev_dbg(dev, "discth:%d, rx_sqth:%d, rev6:%d, rev6_host:%d\n",
+			inst->discth, inst->rx_sqth, inst->rev6,
+			inst->rev6_host);
 		break;
 	case PHY_TYPE_USB3:
 		device_property_read_u32(dev, "mediatek,efuse-intr",
@@ -1344,6 +1414,13 @@ static void u2_phy_props_set(struct mtk_xsphy *xsphy,
 		tmp = readl(pbase + XSP_USBPHYACR6);
 		tmp &= ~P2A6_RG_U2_DISCTH;
 		tmp |= P2A6_RG_U2_DISCTH_VAL(inst->discth);
+		writel(tmp, pbase + XSP_USBPHYACR6);
+	}
+
+	if (inst->rx_sqth) {
+		tmp = readl(pbase + XSP_USBPHYACR6);
+		tmp &= ~P2A6_RG_U2_SQTH;
+		tmp |= P2A6_RG_U2_SQTH_VAL(inst->rx_sqth);
 		writel(tmp, pbase + XSP_USBPHYACR6);
 	}
 
@@ -1444,6 +1521,7 @@ static int mtk_phy_init(struct phy *phy)
 			inst->eye_term_host, inst->rev6_host);
 		dev_info(xsphy->dev, "u2_intr:%d term_cal:%d discth:%d\n",
 			inst->efuse_intr, inst->efuse_term_cal, inst->discth);
+		dev_info(xsphy->dev, "rx_sqth:%d\n", inst->rx_sqth);
 		break;
 	case PHY_TYPE_USB3:
 		u3_phy_props_set(xsphy, inst);
