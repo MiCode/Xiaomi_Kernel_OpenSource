@@ -772,6 +772,7 @@ static int mtk_raw_try_ctrl(struct v4l2_ctrl *ctrl)
 	case V4L2_CID_MTK_CAM_SYNC_ID:
 	case V4L2_CID_MTK_CAM_HSF_EN:
 	case V4L2_CID_MTK_CAM_FRAME_SYNC:
+	case V4L2_CID_MTK_CAM_CAMSYS_HDR_TIMESTAMP:
 		ret = 0;
 		break;
 	default:
@@ -837,6 +838,9 @@ static int mtk_raw_set_ctrl(struct v4l2_ctrl *ctrl)
 		ret = 0;
 	}
 		break;
+	case V4L2_CID_MTK_CAM_CAMSYS_HDR_TIMESTAMP:
+		ret = 0;
+		break;
 	default:
 		ret = mtk_raw_set_res_ctrl(pipeline->raw->devs[pipeline->id],
 					   ctrl, &pipeline->res_config,
@@ -880,6 +884,43 @@ static int mtk_raw_pde_get_ctrl(struct v4l2_ctrl *ctrl)
 
 	return ret;
 }
+
+static int mtk_raw_hdr_timestamp_get_ctrl(struct v4l2_ctrl *ctrl)
+{
+	struct mtk_raw_pipeline *pipeline;
+	struct mtk_cam_hdr_timestamp_info *hdr_ts_info;
+	struct mtk_cam_hdr_timestamp_info *hdr_ts_info_p;
+	struct device *dev;
+	int ret = 0;
+
+	pipeline = mtk_cam_ctrl_handler_to_raw_pipeline(ctrl->handler);
+	hdr_ts_info = &pipeline->hdr_timestamp;
+	hdr_ts_info_p = ctrl->p_new.p;
+	dev = pipeline->raw->devs[pipeline->id];
+
+	switch (ctrl->id) {
+	case V4L2_CID_MTK_CAM_CAMSYS_HDR_TIMESTAMP:
+		hdr_ts_info_p->le = hdr_ts_info->le;
+		hdr_ts_info_p->le_mono = hdr_ts_info->le_mono;
+		hdr_ts_info_p->ne = hdr_ts_info->ne;
+		hdr_ts_info_p->ne_mono = hdr_ts_info->ne_mono;
+		hdr_ts_info_p->se = hdr_ts_info->se;
+		hdr_ts_info_p->se_mono = hdr_ts_info->se_mono;
+		dev_info(dev, "%s [le:%lld,%lld][ne:%lld,%lld][se:%lld,%lld]\n",
+			 __func__,
+			 hdr_ts_info_p->le, hdr_ts_info_p->le_mono,
+			 hdr_ts_info_p->ne, hdr_ts_info_p->ne_mono,
+			 hdr_ts_info_p->se, hdr_ts_info_p->se_mono);
+		break;
+	default:
+		dev_info(dev, "%s(id:0x%x,val:%d) is not handled\n",
+			 __func__, ctrl->id, ctrl->val);
+		ret = -EINVAL;
+	}
+
+	return ret;
+}
+
 
 static int mtk_raw_pde_set_ctrl(struct v4l2_ctrl *ctrl)
 {
@@ -930,6 +971,12 @@ static const struct v4l2_ctrl_ops cam_pde_ctrl_ops = {
 	.g_volatile_ctrl = mtk_raw_pde_get_ctrl,
 	.s_ctrl = mtk_raw_pde_set_ctrl,
 	.try_ctrl = mtk_raw_pde_set_ctrl,
+};
+
+static const struct v4l2_ctrl_ops cam_hdr_ts_info_ctrl_ops = {
+	.g_volatile_ctrl = mtk_raw_hdr_timestamp_get_ctrl,
+	.s_ctrl = mtk_raw_set_ctrl,
+	.try_ctrl = mtk_raw_try_ctrl,
 };
 
 static const struct v4l2_ctrl_config hwn_limit = {
@@ -1131,7 +1178,18 @@ static const struct v4l2_ctrl_config cfg_pde_info = {
 	.def = 0,
 	.dims = {sizeof_u32(struct mtk_cam_pde_info)},
 };
-
+static const struct v4l2_ctrl_config cfg_hdr_timestamp_info = {
+	.ops = &cam_hdr_ts_info_ctrl_ops,
+	.id = V4L2_CID_MTK_CAM_CAMSYS_HDR_TIMESTAMP,
+	.name = "hdr timestamp information",
+	.type = V4L2_CTRL_TYPE_INTEGER,
+	.flags = V4L2_CTRL_FLAG_VOLATILE,
+	.min = 0,
+	.max = 0x1fffffff,
+	.step = 1,
+	.def = 0,
+	.dims = {sizeof_u32(struct mtk_cam_hdr_timestamp_info)},
+};
 static const struct v4l2_ctrl_config mtk_camsys_hw_mode = {
 	.ops = &cam_ctrl_ops,
 	.id = V4L2_CID_MTK_CAM_CAMSYS_HW_MODE,
@@ -6116,6 +6174,7 @@ static void mtk_raw_pipeline_ctrl_setup(struct mtk_raw_pipeline *pipe)
 	// PDE
 	ctrl = v4l2_ctrl_new_custom(ctrl_hdlr, &cfg_pde_info, NULL);
 
+	ctrl = v4l2_ctrl_new_custom(ctrl_hdlr, &cfg_hdr_timestamp_info, NULL);
 	ctrl = v4l2_ctrl_new_custom(ctrl_hdlr, &mtk_feature, NULL);
 	if (ctrl)
 		ctrl->flags |= V4L2_CTRL_FLAG_VOLATILE |

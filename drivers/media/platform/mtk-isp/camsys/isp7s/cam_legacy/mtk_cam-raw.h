@@ -285,6 +285,7 @@ struct mtk_raw_pipeline {
 	struct mtk_cam_mstream_exposure mstream_exposure;
 	/* pde module */
 	struct mtk_raw_pde_config pde_config;
+	struct mtk_cam_hdr_timestamp_info hdr_timestamp;
 	s64 hw_mode;
 	s64 hw_mode_pending;
 	/* Frame sync */

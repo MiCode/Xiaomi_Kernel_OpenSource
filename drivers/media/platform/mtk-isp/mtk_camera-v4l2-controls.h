@@ -77,6 +77,9 @@
 	(V4L2_CID_USER_MTK_CAM_BASE + 21)
 #define V4L2_CID_MTK_CAM_FRAME_SYNC \
 	(V4L2_CID_USER_MTK_CAM_BASE + 22)
+#define V4L2_CID_MTK_CAM_CAMSYS_HDR_TIMESTAMP \
+	(V4L2_CID_USER_MTK_CAM_BASE + 25)
+
 
 /* used for v2 resoruce struct testing */
 #define V4L2_CID_MTK_CAM_RAW_RESOURCE_CALC_TEST \
@@ -103,6 +106,15 @@ struct mtk_cam_tg_flash_config {
 	__u32 flash_high_width;
 	__u32 flash_low_width;
 	__u32 flash_light_id;
+};
+
+struct mtk_cam_hdr_timestamp_info {
+	__u64 le;
+	__u64 le_mono;
+	__u64 ne;
+	__u64 ne_mono;
+	__u64 se;
+	__u64 se_mono;
 };
 
 #define V4L2_MBUS_FRAMEFMT_PAD_ENABLE  BIT(1)

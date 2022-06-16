@@ -1726,6 +1726,81 @@ mtk_cam_set_timestamp(struct mtk_cam_request_stream_data *stream_data,
 	stream_data->timestamp_mono = time_mono;
 }
 
+static void
+mtk_cam_set_hdr_timestamp_first(struct mtk_cam_request_stream_data *stream_data,
+	u64 time_boot, u64 time_mono)
+{
+	switch (stream_data->feature.scen->scen.stagger.type) {
+	case STAGGER_2_EXPOSURE_LE_SE:
+		stream_data->hdr_timestamp_cache.ne = time_boot;
+		stream_data->hdr_timestamp_cache.ne_mono = time_mono;
+		break;
+	case STAGGER_2_EXPOSURE_SE_LE:
+		stream_data->hdr_timestamp_cache.se = time_boot;
+		stream_data->hdr_timestamp_cache.se_mono = time_mono;
+		break;
+	default:
+		break;
+	}
+	dev_dbg(stream_data->ctx->cam->dev,
+			"[%s] req:%d le/ne/se:%lld/%lld/%lld\n", __func__,
+			stream_data->frame_seq_no,
+			stream_data->hdr_timestamp_cache.le,
+			stream_data->hdr_timestamp_cache.ne,
+			stream_data->hdr_timestamp_cache.se);
+}
+
+static void
+mtk_cam_set_hdr_timestamp_last(struct mtk_cam_request_stream_data *stream_data,
+	u64 time_boot, u64 time_mono)
+{
+	switch (stream_data->feature.scen->scen.stagger.type) {
+	case STAGGER_2_EXPOSURE_LE_SE:
+		stream_data->hdr_timestamp_cache.se = time_boot;
+		stream_data->hdr_timestamp_cache.se_mono = time_mono;
+		break;
+	case STAGGER_2_EXPOSURE_SE_LE:
+		stream_data->hdr_timestamp_cache.ne = time_boot;
+		stream_data->hdr_timestamp_cache.ne_mono = time_mono;
+		break;
+	default:
+		break;
+	}
+	dev_dbg(stream_data->ctx->cam->dev,
+			"[%s] req:%d le/ne/se:%lld/%lld/%lld\n", __func__,
+			stream_data->frame_seq_no,
+			stream_data->hdr_timestamp_cache.le,
+			stream_data->hdr_timestamp_cache.ne,
+			stream_data->hdr_timestamp_cache.se);
+}
+
+static void
+mtk_cam_read_hdr_timestamp(struct mtk_cam_ctx *ctx,
+	struct mtk_cam_request_stream_data *stream_data)
+{
+	if (mtk_cam_ctx_has_raw(ctx) &&
+		mtk_cam_scen_is_stagger(&ctx->pipe->scen_active)) {
+		ctx->pipe->hdr_timestamp.le =
+			stream_data->hdr_timestamp_cache.le;
+		ctx->pipe->hdr_timestamp.le_mono =
+			stream_data->hdr_timestamp_cache.le_mono;
+		ctx->pipe->hdr_timestamp.ne =
+			stream_data->hdr_timestamp_cache.ne;
+		ctx->pipe->hdr_timestamp.ne_mono =
+			stream_data->hdr_timestamp_cache.ne_mono;
+		ctx->pipe->hdr_timestamp.se =
+			stream_data->hdr_timestamp_cache.se;
+		ctx->pipe->hdr_timestamp.se_mono =
+			stream_data->hdr_timestamp_cache.se_mono;
+		dev_dbg(ctx->cam->dev,
+			"[hdr timestamp to subdev pipe] req:%d le/ne/se:%lld/%lld/%lld\n",
+			stream_data->frame_seq_no,
+			stream_data->hdr_timestamp_cache.le,
+			stream_data->hdr_timestamp_cache.ne,
+			stream_data->hdr_timestamp_cache.se);
+	}
+}
+
 int mtk_camsys_raw_subspl_state_handle(struct mtk_raw_device *raw_dev,
 				   struct mtk_camsys_sensor_ctrl *sensor_ctrl,
 		struct mtk_camsys_ctrl_state **current_state,
@@ -1896,6 +1971,9 @@ static int mtk_camsys_raw_state_handle(struct mtk_raw_device *raw_dev,
 				if (state_outer == NULL) {
 					state_outer = state_temp;
 					mtk_cam_set_timestamp(req_stream_data,
+						time_boot, time_mono);
+					if (mtk_cam_scen_is_stagger(&ctx->pipe->scen_active))
+						mtk_cam_set_hdr_timestamp_first(req_stream_data,
 						time_boot, time_mono);
 				}
 			}
@@ -3147,9 +3225,13 @@ int mtk_cam_hdr_last_frame_start(struct mtk_raw_device *raw_dev,
 			}
 			/* Find outer state element */
 			if (state_temp->estate == E_STATE_INNER ||
-				state_temp->estate == E_STATE_INNER_HW_DELAY)
+				state_temp->estate == E_STATE_INNER_HW_DELAY) {
 				mtk_cam_set_timestamp(req_stream_data,
 						      time_boot, time_mono);
+				if (mtk_cam_scen_is_stagger(&ctx->pipe->scen_active))
+					mtk_cam_set_hdr_timestamp_last(req_stream_data,
+						time_boot, time_mono);
+			}
 			/*Find CQ element for DCIF stagger*/
 			if (state_temp->estate == E_STATE_CQ)
 				state_cq = state_temp;
@@ -4060,6 +4142,7 @@ static void mtk_cam_meta1_done(struct mtk_cam_ctx *ctx,
 	}
 
 	meta1_done_work = &req_stream_data->meta1_done_work;
+	mtk_cam_read_hdr_timestamp(ctx, req_stream_data);
 	atomic_set(&meta1_done_work->is_queued, 1);
 	queue_work(ctx->frame_done_wq, &meta1_done_work->work);
 }
