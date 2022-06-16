@@ -317,7 +317,7 @@ uint32_t get_avail_session_id(void)
 	uint32_t cnt = 0;
 	uint32_t session_id = -1;
 
-	for (cnt = 0; cnt < MAX_SAVE_HASH; cnt++) {
+	for (cnt = 0; cnt < MAX_SAVE_SESSION; cnt++) {
 		if (saved_session[cnt] == (uint64_t)(-1)) {
 			session_id = cnt;
 			if (mvpu_loglvl_sec >= APUSYS_MVPU_LOG_DBG)
@@ -680,6 +680,10 @@ int update_hash_pool(void *session,
 			}
 
 			if (copy_to_pool) {
+				if (buf_kva == NULL) {
+					pr_info("[MVPU][Sec] buf_kva is NULL, memcpy to cp_buff fail\n");
+					return -ENOMEM;
+				}
 				memcpy(cp_buff, buf_kva, buf_size);
 
 				//alignment
@@ -977,7 +981,7 @@ int update_new_base_addr(bool algo_in_img,
 	uint32_t *target_pool_addr;
 	uint32_t target_pool_ofst = 0;
 	uint32_t *rp_buf_new_base;
-	uint32_t *rp_buf_new_map;
+	uint32_t *rp_buf_new_map = NULL;
 
 	if (mvpu_loglvl_sec >= APUSYS_MVPU_LOG_DBG)
 		pr_info("[MVPU][Sec] %s\n", __func__);
@@ -1010,7 +1014,7 @@ int update_new_base_addr(bool algo_in_img,
 			if (ker_img_cnt > ker_bin_num) {
 				pr_info("[MVPU][IMG] [ERROR] User's KNL buf num > mvpu_algo.img Kernel_*.bin num %d\n",
 							ker_bin_num);
-
+				kfree(target_pool_addr);
 				ret = -1;
 				return ret;
 			}
@@ -1649,9 +1653,9 @@ int update_mpu(void *mvpu_cmd,
 	uint32_t buf_io_total = 0;
 	uint32_t buf_io_total_merged = 0;
 
-	uint32_t *buf_io_addr;
-	uint32_t *buf_io_size;
-	uint32_t *buf_io_addr_merged;
+	uint32_t *buf_io_addr = NULL;
+	uint32_t *buf_io_size = NULL;
+	uint32_t *buf_io_addr_merged = NULL;
 
 	uint32_t total_mpu_cnt = 0;
 
@@ -1786,6 +1790,12 @@ int check_iova(void *session,
 		}
 
 		desc_ptr = (uint32_t *)apusys_mem_query_kva_by_sess(session, chk_base);
+
+		if (desc_ptr == NULL) {
+			pr_info("[MVPU] %s, desc_ptr == NULL\n", __func__);
+			ret = -EINVAL;
+			goto END;
+		}
 
 		if (desc_type == DESC_TYPE_GLSU)
 			desc_addr_ofst = 1;
