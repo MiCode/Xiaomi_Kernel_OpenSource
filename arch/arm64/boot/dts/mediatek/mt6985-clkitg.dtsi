@@ -20,7 +20,6 @@
 			<&topckgen_clk CLK_TOP_DP_SEL>,
 			<&topckgen_clk CLK_TOP_I2C_SEL>,
 			<&topckgen_clk CLK_TOP_PEXTP_MBIST_SEL>,
-			<&topckgen_clk CLK_TOP_ADSP_SEL>,
 			<&topckgen_clk CLK_TOP_PWM_SEL>,
 			<&topckgen_clk CLK_TOP_SFLASH_SEL>,
 			<&topckgen_clk CLK_TOP_IPSEAST_SEL>,
@@ -358,11 +357,6 @@
 	bring-up-pd-audio {
 		compatible = "mediatek,scpsys-bring-up";
 		power-domains = <&scpsys MT6985_POWER_DOMAIN_AUDIO>;
-	};
-
-	bring-up-pd-adsp_top_dormant {
-		compatible = "mediatek,scpsys-bring-up";
-		power-domains = <&scpsys MT6985_POWER_DOMAIN_ADSP_TOP_DORMANT>;
 	};
 
 	bring-up-pd-cam_main {
