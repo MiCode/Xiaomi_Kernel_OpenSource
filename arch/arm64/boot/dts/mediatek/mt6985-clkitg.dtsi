@@ -14,15 +14,9 @@
 			<&topckgen_clk CLK_TOP_IPSSOUTH_SEL>,
 			<&topckgen_clk CLK_TOP_TL_SEL>,
 			<&topckgen_clk CLK_TOP_AUDIO_LOCAL_BUS_SEL>,
-			<&topckgen_clk CLK_TOP_APLL_ETDM_IN1_MCK_SEL>,
-			<&topckgen_clk CLK_TOP_APLL_ETDM_OUT1_MCK_SEL>,
-			<&topckgen_clk CLK_TOP_APLL_I2S10_MCK_SEL>,
 			<&infracfg_ao_clk CLK_IFRAO_CLDMA_BCLK>,
 			<&infracfg_ao_clk CLK_IFRAO_DPMAIF_MAIN>,
-			<&infracfg_ao_clk CLK_IFRAO_RG_MMW_DPMAIF26M_CK>,
-			<&pericfg_ao_clk CLK_PERAO_AUDIO_SLV>,
-			<&pericfg_ao_clk CLK_PERAO_AUDIO_MST>,
-			<&pericfg_ao_clk CLK_PERAO_AUDIO_INTBUS>;
+			<&infracfg_ao_clk CLK_IFRAO_RG_MMW_DPMAIF26M_CK>;
 	};
 
 	bring-up-pd-ufs0_phy_shutdown {
