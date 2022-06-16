@@ -2125,6 +2125,7 @@ static int mtk_cam_calc_pending_res(struct mtk_cam_device *cam,
 	res_cfg->hblank = res_user->sensor_res.hblank;
 	res_cfg->vblank = res_user->sensor_res.vblank;
 	res_cfg->sensor_pixel_rate = res_user->sensor_res.pixel_rate;
+	res_cfg->interval = res_user->sensor_res.interval;
 	res_cfg->res_plan = RESOURCE_STRATEGY_QRP;
 	res_cfg->scen = res_user->raw_res.scen;
 	/* res_cfg->hw_mode can't be changed during streaming in ISP 7.1 */
@@ -4165,31 +4166,6 @@ static const struct media_device_ops mtk_cam_dev_ops = {
 	.req_validate = vb2_request_validate,
 	.req_queue = mtk_cam_req_queue,
 };
-
-static int mtk_cam_get_ccu_phandle(struct mtk_cam_device *cam)
-{
-	struct device *dev = cam->dev;
-	struct device_node *node;
-	int ret = 0;
-
-	node = of_find_compatible_node(NULL, NULL, "mediatek,camera_camsys_ccu");
-	if (node == NULL) {
-		dev_info(dev, "of_find mediatek,camera_camsys_ccu fail\n");
-		ret = PTR_ERR(node);
-		goto out;
-	}
-
-	ret = of_property_read_u32(node, "mediatek,ccu_rproc",
-				   &cam->rproc_ccu_phandle);
-	if (ret) {
-		dev_info(dev, "fail to get ccu rproc_phandle:%d\n", ret);
-		ret = -EINVAL;
-		goto out;
-	}
-
-out:
-	return ret;
-}
 
 static int mtk_cam_of_rproc(struct mtk_cam_device *cam)
 {
@@ -6683,47 +6659,6 @@ faile_release_msg_dev:
 }
 #endif
 
-static int mtk_cam_power_ctrl_ccu(struct device *dev, int on_off)
-{
-	struct mtk_cam_device *cam_dev = dev_get_drvdata(dev);
-	struct mtk_camsys_dvfs *dvfs_info = &cam_dev->camsys_ctrl.dvfs_info;
-	int ret;
-
-	if (on_off) {
-		ret = mtk_cam_get_ccu_phandle(cam_dev);
-		if (ret)
-			goto out;
-		cam_dev->rproc_ccu_handle = rproc_get_by_phandle(cam_dev->rproc_ccu_phandle);
-		if (cam_dev->rproc_ccu_handle == NULL) {
-			dev_info(dev, "Get ccu handle fail\n");
-			ret = PTR_ERR(cam_dev->rproc_ccu_handle);
-			goto out;
-		}
-
-		ret = rproc_boot(cam_dev->rproc_ccu_handle);
-		if (ret)
-			dev_info(dev, "boot ccu rproc fail\n");
-
-		if (dvfs_info->reg_vmm) {
-			if (regulator_enable(dvfs_info->reg_vmm)) {
-				dev_info(dev, "regulator_enable fail\n");
-				goto out;
-			}
-		}
-	} else {
-		if (dvfs_info->reg_vmm && regulator_is_enabled(dvfs_info->reg_vmm))
-			regulator_disable(dvfs_info->reg_vmm);
-
-		if (cam_dev->rproc_ccu_handle) {
-			rproc_shutdown(cam_dev->rproc_ccu_handle);
-			ret = 0;
-		} else
-			ret = -EINVAL;
-	}
-out:
-	return ret;
-}
-
 static int mtk_cam_runtime_suspend(struct device *dev)
 {
 	dev_dbg(dev, "- %s\n", __func__);
@@ -6794,7 +6729,6 @@ struct mtk_cam_ctx *mtk_cam_start_ctx(struct mtk_cam_device *cam,
 		cam->running_job_count = 0;
 
 		dev_info(cam->dev, "%s: power on camsys\n", __func__);
-		mtk_cam_power_ctrl_ccu(cam->dev, 1);
 		pm_runtime_get_sync(cam->dev);
 
 		/* power on the remote proc device */
@@ -6953,7 +6887,6 @@ fail_shutdown:
 	if (is_first_ctx) {
 		pm_runtime_mark_last_busy(cam->dev);
 		pm_runtime_put_sync_autosuspend(cam->dev);
-		mtk_cam_power_ctrl_ccu(cam->dev, 0);
 		rproc_shutdown(cam->rproc_handle);
 	}
 fail_rproc_put:
@@ -7113,7 +7046,6 @@ void mtk_cam_stop_ctx(struct mtk_cam_ctx *ctx, struct media_entity *entity)
 		dev_info(cam->dev, "%s power off camsys\n", __func__);
 		pm_runtime_mark_last_busy(cam->dev);
 		pm_runtime_put_sync_autosuspend(cam->dev);
-		mtk_cam_power_ctrl_ccu(cam->dev, 0);
 #if CCD_READY
 		rproc_shutdown(cam->rproc_handle);
 		rproc_put(cam->rproc_handle);

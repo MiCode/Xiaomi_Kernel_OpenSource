@@ -29,10 +29,10 @@
 #include "mtk_cam-regs.h"
 #include "mtk_cam-video.h"
 #include "mtk_cam-seninf-if.h"
+#include "mtk_cam-resource_calc.h"
 #include "mtk_cam-tg-flash.h"
 #include "mtk_camera-v4l2-controls.h"
 #include "mtk_camera-videodev2.h"
-
 #include "mtk_cam-dmadbg.h"
 #include "mtk_cam-raw_debug.h"
 #ifdef MTK_CAM_HSF_SUPPORT
@@ -501,6 +501,7 @@ mtk_cam_raw_try_res_ctrl(struct mtk_raw_pipeline *pipeline,
 	res_cfg->hblank = res_user->sensor_res.hblank;
 	res_cfg->vblank = res_user->sensor_res.vblank;
 	res_cfg->sensor_pixel_rate = res_user->sensor_res.pixel_rate;
+	res_cfg->interval = res_user->sensor_res.interval;
 	res_cfg->res_plan = RESOURCE_STRATEGY_QRP;
 	res_cfg->scen = res_user->raw_res.scen;
 	res_cfg->hw_mode = res_user->raw_res.hw_mode;
@@ -1976,76 +1977,14 @@ void stream_on(struct mtk_raw_device *dev, int on)
 	}
 }
 
-static int mtk_raw_linebuf_chk(bool b_twin, bool b_bin, bool b_frz, bool b_qbn,
-			       bool b_cbn, int tg_x, int *frz_ratio)
-{
-	int input_x = tg_x;
-	/* max line buffer check for frontal binning and resizer */
-	if (b_twin) {
-		if (input_x > CAM_TWIN_PROCESS_MAX_LINE_BUFFER)
-			return LB_CHECK_TWIN;
-		input_x = input_x >> 1;
-	}
-	if (b_cbn) {
-		if (input_x > CAM_RAW_CBN_MAX_LINE_BUFFER)
-			return LB_CHECK_CBN;
-		input_x = input_x >> 1;
-	}
-	if (b_qbn) {
-		if (input_x > CAM_RAW_QBND_MAX_LINE_BUFFER)
-			return LB_CHECK_QBN;
-		input_x = input_x >> 1;
-	}
-	if (b_bin) {
-		if (input_x > CAM_RAW_BIN_MAX_LINE_BUFFER)
-			return LB_CHECK_BIN;
-		input_x = input_x >> 1;
-	}
-	if (input_x <= CAM_RAW_PROCESS_MAX_LINE_BUFFER) {
-		return LB_CHECK_OK;
-	} else if (b_frz) {
-		if (input_x > CAM_RAW_FRZ_MAX_LINE_BUFFER)
-			return LB_CHECK_FRZ;
-
-		*frz_ratio = input_x * 100 /
-			CAM_RAW_PROCESS_MAX_LINE_BUFFER;
-		return LB_CHECK_OK;
-	} else {
-		return LB_CHECK_RAW;
-	}
-}
-
-static int mtk_raw_pixelmode_calc(int rawpxl, int b_twin, bool b_bin,
-				  bool b_frz, int min_ratio)
-{
-	int pixelmode = rawpxl;
-
-	pixelmode = (b_twin == 2) ? pixelmode << 2 : pixelmode;
-	pixelmode = (b_twin == 1) ? pixelmode << 1 : pixelmode;
-	pixelmode = b_bin ? pixelmode << 1 : pixelmode;
-	pixelmode = (b_frz && (min_ratio < FRZ_PXLMODE_THRES))
-			? pixelmode << 1 : pixelmode;
-	pixelmode = (pixelmode > TGO_MAX_PXLMODE) ?
-		TGO_MAX_PXLMODE : pixelmode;
-
-	return pixelmode;
-}
-
 static void mtk_raw_update_debug_param(struct mtk_cam_device *cam,
-				       struct mtk_cam_resource_config *res,
-				       int *clk_idx)
+				       struct mtk_cam_resource_config *res)
 {
 	struct mtk_camsys_dvfs *clk = &cam->camsys_ctrl.dvfs_info;
 
 	/* skip if debug is not enabled */
 	if (!debug_raw)
 		return;
-
-	dev_dbg(cam->dev, "%s:before:BIN/FRZ/HWN/CLK/pxl/pxl(seninf):", __func__);
-	dev_dbg(cam->dev, "%d/%d(%d)/%d/%d/%d/%d, clk:%d\n",
-		res->bin_enable, res->frz_enable, res->frz_ratio,
-		res->raw_num_used, *clk_idx, res->tgo_pxl_mode,
-		res->tgo_pxl_mode_before_raw, res->clk_target);
 
 	if (debug_raw_num > 0) {
 		dev_info(cam->dev, "DEBUG: force raw_num_used: %d\n",
@@ -2063,28 +2002,14 @@ static void mtk_raw_update_debug_param(struct mtk_cam_device *cam,
 	if (debug_clk_idx >= 0) {
 		dev_info(cam->dev, "DEBUG: force debug_clk_idx: %d\n",
 			 debug_clk_idx);
-		*clk_idx = debug_clk_idx;
 		res->clk_target = clk->clklv[debug_clk_idx];
 	}
 
 	dev_dbg(cam->dev,
-		"%s:after:BIN/FRZ/HWN/CLK/pxl/pxl(seninf)=%d/%d(%d)/%d/%d/%d/%d, clk:%d\n",
-		__func__, res->bin_enable, res->frz_enable, res->frz_ratio,
-		res->raw_num_used, *clk_idx, res->tgo_pxl_mode,
+		"%s:after:BIN/HWN/pxl/pxl(seninf)=%d/%d/%d/%d, clk:%d\n",
+		__func__, res->bin_enable, res->raw_num_used, res->tgo_pxl_mode,
 		res->tgo_pxl_mode_before_raw, res->clk_target);
 
-}
-
-static bool is_cbn_en(int bin_flag)
-{
-	switch (bin_flag) {
-	case CBN_2X2_ON:
-	case CBN_3X3_ON:
-	case CBN_4X4_ON:
-		return true;
-	default:
-		return false;
-	}
 }
 
 bool mtk_raw_resource_calc(struct mtk_cam_device *cam,
@@ -2092,171 +2017,59 @@ bool mtk_raw_resource_calc(struct mtk_cam_device *cam,
 			   s64 pixel_rate, int res_plan,
 			   int in_w, int in_h, int *out_w, int *out_h)
 {
-	struct mtk_camsys_dvfs *clk = &cam->camsys_ctrl.dvfs_info;
-	u64 eq_throughput = clk->clklv[0];
-	int res_step_type = 0;
-	int tgo_pxl_mode = 1;
-	int tgo_pxl_mode_before_raw = 1;
-	int pixel_mode[MTK_CAMSYS_RES_STEP_NUM] = {0};
-	int bin_temp = 0, frz_temp = 0, hwn_temp = 0;
-	int bin_en = 0, frz_en = 0, twin_en = 0, clk_cur = 0;
-	int idx = 0, clk_res = 0, idx_res = 0;
-	bool res_found = false;
-	int lb_chk_res = -1;
-	int frz_ratio = 100;
-	int p;
-	bool find_max = 0;
+	struct mtk_camsys_dvfs *cam_dvfs = &cam->camsys_ctrl.dvfs_info;
+	struct mtk_cam_res_calc calc;
+	struct raw_resource_stepper stepper;
+	int ret;
 
+	calc.line_time = 1000000000L
+		* res->interval.numerator / res->interval.denominator
+		/ (in_h + res->vblank);
+	calc.width = in_w;
+	calc.height = in_h;
+	calc.bin_en = (res->bin_limit >= 1) ? 1:0;
+	calc.cbn_type = 0; /* 0: disable, 1: 2x2, 2: 3x3 3: 4x4 */
+	calc.qbnd_en = 0;
+	calc.qbn_type = 0; /* 0: disable, 1: w/2, 2: w/4 */
+
+	/* constraints */
+	stepper.pixel_mode_min = 1;
+	stepper.pixel_mode_max = 2;
+	stepper.num_raw_min = res->hwn_limit_min;
+	stepper.num_raw_max = res->hwn_limit_max;
+	stepper.voltlv = cam_dvfs->voltlv;
+	stepper.clklv = cam_dvfs->clklv;
+	stepper.opp_num = cam_dvfs->clklv_num;
+
+	dev_dbg(cam->dev,
+		"Res-start w/h(%d/%d) interval(%d/%d) vb(%d) hw_limit(%d/%d) bin(%d)",
+		in_w, in_h, res->interval.numerator, res->interval.denominator,
+		res->vblank, res->hwn_limit_max, res->hwn_limit_min, res->bin_limit);
+
+	ret = mtk_raw_find_combination(&calc, &stepper);
+	if (ret)
+		dev_info(cam->dev, "failed to find valid resource\n");
+
+	res->frz_enable = 0;
+	res->frz_ratio = 100;
 	res->res_plan = res_plan;
 	res->pixel_rate = pixel_rate;
-	/* test pattern */
-	if (res->pixel_rate == 0)
-		res->pixel_rate = 450 * MHz;
-	if (mtk_cam_scen_is_time_shared(&res->scen))
-		res->hwn_limit_max  = 1;
-	dev_dbg(cam->dev,
-		"[Res] PR = %lld, w/h=%d/%d HWN(%d)/BIN(%d)/FRZ(%d),Plan:%d\n",
-		res->pixel_rate, in_w, in_h,
-		res->hwn_limit_max, res->bin_limit, res->frz_limit, res->res_plan);
-	memcpy(res->res_strategy, raw_resource_strategy_plan + res->res_plan,
-	       MTK_CAMSYS_RES_STEP_NUM * sizeof(int));
-	res->bin_enable = 0;
-	res->raw_num_used = 1;
-	res->frz_enable = 0;
-	res->frz_ratio = frz_ratio;
-	for (idx = 0; idx < MTK_CAMSYS_RES_STEP_NUM ; idx++) {
-		res_step_type = res->res_strategy[idx] & MTK_CAMSYS_RES_IDXMASK;
-		switch (res_step_type) {
-		case MTK_CAMSYS_RES_BIN_TAG:
-			bin_temp = res->res_strategy[idx] - E_RES_BIN_S;
-			if (bin_temp <= res->bin_limit)
-				bin_en = bin_temp;
-			if (bin_en && frz_en)
-				frz_en = 0;
-			break;
-		case MTK_CAMSYS_RES_FRZ_TAG:
-			frz_temp = res->res_strategy[idx] - E_RES_FRZ_S;
-			if (res->frz_limit < 100)
-				frz_en = frz_temp;
-			break;
-		case MTK_CAMSYS_RES_HWN_TAG:
-			hwn_temp = res->res_strategy[idx] - E_RES_HWN_S;
-			if (hwn_temp + 1 <= res->hwn_limit_max)
-				twin_en = hwn_temp;
-			break;
-		case MTK_CAMSYS_RES_CLK_TAG:
-			clk_cur = res->res_strategy[idx] - E_RES_CLK_S;
-			break;
-		default:
-			break;
-		}
+	res->tgo_pxl_mode = mtk_pixelmode_val(calc.raw_pixel_mode);
+	res->tgo_pxl_mode_before_raw = 3; //fixed to 8p
+	res->raw_num_used = calc.raw_num;
+	res->clk_target = calc.clk;
+	res->bin_enable = calc.bin_en;
+	*out_w = in_w >> calc.bin_en;
+	*out_h = in_h >> calc.bin_en;
 
-		/* 1 for force bin on */
-		if (res->bin_limit >= 1)
-			bin_en = 1;
+	mtk_raw_update_debug_param(cam, res);
 
-		if (res->hwn_limit_min > 1)
-			twin_en = 1;
+	dev_info(cam->dev,
+		"Res-end bin/raw_num/tg_pxlmode(%d/%d/%d/%d), clk(%d)\n, out(%dx%d)",
+		res->bin_enable, res->raw_num_used, res->tgo_pxl_mode,
+		res->tgo_pxl_mode_before_raw, res->clk_target, *out_w, *out_h);
 
-		/* max line buffer check*/
-		lb_chk_res = mtk_raw_linebuf_chk(twin_en, res->bin_limit & BIN_ON,
-						 frz_en, res->bin_limit & QBND_ON,
-						 is_cbn_en(res->bin_limit),
-						 in_w, &frz_ratio);
-		/* frz ratio*/
-		if (res_step_type == MTK_CAMSYS_RES_FRZ_TAG) {
-			if (eq_throughput > res->pixel_rate &&
-			    lb_chk_res == LB_CHECK_OK)
-				res->frz_ratio = frz_ratio;
-			else
-				res->frz_ratio =
-					res->frz_limit < FRZ_PXLMODE_THRES
-					? res->frz_limit : FRZ_PXLMODE_THRES;
-		}
-		if (mtk_cam_scen_is_time_shared(&res->scen) ||
-			res->hw_mode == HW_MODE_DIRECT_COUPLED) {
-			if (mtk_cam_scen_is_time_shared(&res->scen))
-				find_max = true;
-
-			tgo_pxl_mode = mtk_raw_pixelmode_calc(MTK_CAMSYS_PROC_DEFAULT_PIXELMODE,
-				twin_en, bin_en, frz_en, res->frz_ratio);
-			pixel_mode[idx] = tgo_pxl_mode;
-			if ((lb_chk_res == LB_CHECK_OK) &&
-				(find_max || res_found == false)) {
-				res->bin_enable = bin_en;
-				res->frz_enable = frz_en;
-				res->raw_num_used = twin_en + 1;
-				clk_res = clk_cur;
-				idx_res = idx;
-				res->clk_target = clk->clklv[clk_res];
-				res_found = true;
-			}
-		} else {
-			/*try 1-pixel mode first*/
-			for (p = 1; p <= MTK_CAMSYS_PROC_DEFAULT_PIXELMODE; p++) {
-				tgo_pxl_mode = mtk_raw_pixelmode_calc(p, twin_en, bin_en, frz_en,
-								      res->frz_ratio);
-				/**
-				 * isp throughput along resource strategy
-				 * (compared with pixel rate)
-				 */
-				pixel_mode[idx] = tgo_pxl_mode;
-				eq_throughput = ((u64)tgo_pxl_mode) * clk->clklv[clk_cur];
-				if (eq_throughput > res->pixel_rate &&
-				    lb_chk_res == LB_CHECK_OK) {
-					if (!res_found) {
-						res->bin_enable = bin_en;
-						res->frz_enable = frz_en;
-						res->raw_num_used = twin_en + 1;
-						clk_res = clk_cur;
-						idx_res = idx;
-						res->clk_target = clk->clklv[clk_res];
-						res_found = true;
-						break;
-					}
-				}
-			}
-		}
-		dev_dbg(cam->dev, "Res-%d B/F/H/C=%d/%d/%d/%d -> %d/%d/%d/%d (%d)(%d):%10llu\n",
-			idx, bin_temp, frz_temp, hwn_temp, clk_cur, bin_en,
-			frz_en, twin_en, clk_cur, lb_chk_res, pixel_mode[idx],
-			eq_throughput);
-	}
-
-	tgo_pxl_mode = pixel_mode[idx_res];
-	res->tgo_pxl_mode = mtk_pixelmode_val(tgo_pxl_mode);
-
-	tgo_pxl_mode_before_raw = (res->hw_mode == HW_MODE_DIRECT_COUPLED) ?
-		DC_DEFAULT_CAMSV_PIXELMODE : tgo_pxl_mode;
-	res->tgo_pxl_mode_before_raw = mtk_pixelmode_val(tgo_pxl_mode_before_raw);
-
-	mtk_raw_update_debug_param(cam, res, &clk_res);
-
-	eq_throughput = ((u64)(1 << res->tgo_pxl_mode)) * res->clk_target;
-	if (res_found) {
-		dev_info(cam->dev, "Res-end:%d BIN/FRZ/HWN/CLK/pxl/pxl(seninf):", idx_res);
-		dev_info(cam->dev,
-			"Res-end:%d %d/%d(%d)/%d/%d/%d/%d:%10llu, clk:%d\n",
-			idx_res, res->bin_enable, res->frz_enable, res->frz_ratio,
-			res->raw_num_used, clk_res, res->tgo_pxl_mode,
-			res->tgo_pxl_mode_before_raw, eq_throughput, res->clk_target);
-	} else {
-		dev_dbg(cam->dev, "[%s] Error resource result; use %dMhz\n",
-			__func__, clk->clklv[clk_cur]);
-		res->clk_target = clk->clklv[clk_cur];
-	}
-	if (res->bin_enable) {
-		*out_w = in_w >> 1;
-		*out_h = in_h >> 1;
-	} else if (res->frz_enable) {
-		*out_w = in_w * res->frz_ratio / 100;
-		*out_h = in_h * res->frz_ratio / 100;
-	} else {
-		*out_w = in_w;
-		*out_h = in_h;
-	}
-
-	return res_found;
+	return (ret >= 0);
 }
 
 static void raw_irq_handle_tg_grab_err(struct mtk_raw_device *raw_dev,

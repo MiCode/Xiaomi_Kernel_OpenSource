@@ -3,7 +3,6 @@
 // Copyright (c) 2019 MediaTek Inc.
 
 #include <linux/pm_opp.h>
-#include <linux/regulator/consumer.h>
 
 #include "mtk-interconnect.h"
 #include "mtk_cam.h"
@@ -174,7 +173,7 @@ static void mtk_cam_dvfs_enumget_clktarget(struct mtk_cam_device *cam)
 		}
 	}
 	dvfs->clklv_target = clk_streaming_max;
-	dev_info(cam->dev, "[%s] dvfs->clk=%d", __func__, dvfs->clklv_target);
+	dev_dbg(cam->dev, "[%s] dvfs->clk=%d", __func__, dvfs->clklv_target);
 }
 
 static void mtk_cam_dvfs_get_clkidx(struct mtk_cam_device *cam)
@@ -193,65 +192,16 @@ static void mtk_cam_dvfs_get_clkidx(struct mtk_cam_device *cam)
 		 __func__, dvfs->clklv_target, dvfs->clklv_idx);
 }
 
-static int set_clk_src(struct mtk_camsys_dvfs *dvfs, u32 opp_level)
-{
-	struct clk *mux, *clk_src;
-	s32 err;
-
-	if (opp_level >= MAX_CAM_OPP_STEP) {
-		dev_info(dvfs->dev, "opp level(%d) is out of bound\n", opp_level);
-		return -EINVAL;
-	}
-
-	mux = dvfs->mux;
-	clk_src = dvfs->clk_src[opp_level];
-
-	err = clk_prepare_enable(mux);
-	if (err) {
-		dev_info(dvfs->dev, "prepare cam mux fail:%d opp_level:%d\n",
-				err, opp_level);
-		return err;
-	}
-	err = clk_set_parent(mux, clk_src);
-	if (err)
-		dev_info(dvfs->dev, "set cam mux parent fail:%d opp_level:%d\n",
-				err, opp_level);
-	clk_disable_unprepare(mux);
-
-	return err;
-}
-
 void mtk_cam_dvfs_update_clk(struct mtk_cam_device *cam)
 {
 	struct mtk_camsys_dvfs *dvfs = &cam->camsys_ctrl.dvfs_info;
-	int current_volt;
-	s32 err;
 
-	if (dvfs->clklv_num) {
+	if (dvfs->mmdvfs_clk && dvfs->clklv_num) {
 		mtk_cam_dvfs_enumget_clktarget(cam);
 		mtk_cam_dvfs_get_clkidx(cam);
-		dev_dbg(cam->dev, "[%s] update idx:%d clk:%d volt:%d", __func__,
+		clk_set_rate(dvfs->mmdvfs_clk, dvfs->clklv_target);
+		dev_info(cam->dev, "[%s] update idx:%d clk:%d volt:%d", __func__,
 			dvfs->clklv_idx, dvfs->clklv_target, dvfs->voltlv[dvfs->clklv_idx]);
-		if (dvfs->reg_vmm) {
-			current_volt = regulator_get_voltage(dvfs->reg_vmm);
-			if (dvfs->voltlv[dvfs->clklv_idx] < current_volt) {
-				err = set_clk_src(dvfs, dvfs->clklv_idx);
-				if (err) {
-					dev_info(cam->dev, "[%s] adjust clk fail\n", __func__);
-					return;
-				}
-				regulator_set_voltage(dvfs->reg_vmm,
-						dvfs->voltlv[dvfs->clklv_idx], INT_MAX);
-			} else {
-				err = regulator_set_voltage(dvfs->reg_vmm,
-						dvfs->voltlv[dvfs->clklv_idx], INT_MAX);
-				if (err) {
-					dev_info(cam->dev, "[%s] adjust voltage fail\n", __func__);
-					return;
-				}
-				set_clk_src(dvfs, dvfs->clklv_idx);
-			}
-		}
 	}
 }
 
@@ -270,23 +220,12 @@ void mtk_cam_dvfs_init(struct mtk_cam_device *cam)
 	unsigned long freq = 0;
 	int ret = 0, clk_num = 0, i = 0;
 	struct device *dev = cam->dev;
-	const char *mux_name, *clksrc_name;
-	struct property *clksrc_prop;
-	u32 num_clksrc = 0;
 
 	memset((void *)dvfs_info, 0x0, sizeof(struct mtk_camsys_dvfs));
 	dvfs_info->dev = cam->dev;
-
-	mtk_cam_qos_init(cam);
-
 	ret = dev_pm_opp_of_add_table(dvfs_info->dev);
 	if (ret < 0) {
 		dev_info(dvfs_info->dev, "fail to init opp table: %d\n", ret);
-		goto opp_default_table;
-	}
-	dvfs_info->reg_vmm = devm_regulator_get_optional(dvfs_info->dev, "dvfs-vmm");
-	if (IS_ERR(dvfs_info->reg_vmm)) {
-		dev_info(dvfs_info->dev, "can't get dvfsrc-vcore\n");
 		goto opp_default_table;
 	}
 
@@ -306,23 +245,14 @@ void mtk_cam_dvfs_init(struct mtk_cam_device *cam)
 			 __func__, i, dvfs_info->clklv[i], dvfs_info->voltlv[i]);
 	}
 
-	/* Get CLK handles */
-	ret = of_property_read_string(dev->of_node, "mux_name", &mux_name);
-	dev_info(dev, "mux name(%s)\n", mux_name);
-	dvfs_info->mux = devm_clk_get(dev, mux_name);
-
-	/* Get CLK source */
-	of_property_for_each_string(
-		dev->of_node, "clk_src", clksrc_prop, clksrc_name) {
-		if (num_clksrc >= MAX_CAM_OPP_STEP) {
-			dev_info(dev, "Too many items in clk_src array\n");
-			return;
-		}
-		dev_info(dev, "clksrc name(%s)\n", clksrc_name);
-		dvfs_info->clk_src[num_clksrc] =
-			devm_clk_get(dev, clksrc_name);
-		num_clksrc++;
+	dvfs_info->mmdvfs_clk = devm_clk_get(dev, "mmdvfs_clk");
+	if (IS_ERR(dvfs_info->mmdvfs_clk)) {
+		dvfs_info->mmdvfs_clk = NULL;
+		dev_info(dvfs_info->dev, "can't get mmdvfs_clk\n");
 	}
+
+	/* mmqos initialize */
+	mtk_cam_qos_init(cam);
 
 	return;
 

@@ -23,14 +23,12 @@ struct mtk_cam_ctx;
 
 struct mtk_camsys_dvfs {
 	struct device *dev;
-	struct regulator *reg_vmm;
 	unsigned int clklv_num;
 	unsigned int clklv[ISP_CLK_LEVEL_CNT];
 	unsigned int voltlv[ISP_CLK_LEVEL_CNT];
 	unsigned int clklv_idx;
 	unsigned int clklv_target;
-	struct clk *mux;
-	struct clk *clk_src[MAX_CAM_OPP_STEP];
+	struct clk *mmdvfs_clk;
 	unsigned long updated_raw_dmas[RAW_NUM];
 	struct icc_path *qos_req[MTK_CAM_RAW_PORT_NUM];
 	unsigned long qos_bw_avg[MTK_CAM_RAW_PORT_NUM];
