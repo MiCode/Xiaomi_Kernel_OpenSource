@@ -1225,6 +1225,7 @@ unsigned int mtk_cam_get_img_fmt(unsigned int fourcc)
 	case V4L2_PIX_FMT_MTISP_PLANAR_RGGB_12P:
 		return MTKCAM_IPI_IMG_FMT_BAYER_12B_4P_RGGB_PACKED;
 	default:
+		pr_info("unknown fmt:0x%8x", fourcc);
 		return MTKCAM_IPI_IMG_FMT_UNKNOWN;
 	}
 }
@@ -2230,6 +2231,8 @@ int mtk_cam_video_s_fmt_common(struct mtk_cam_video_device *node,
 	 * Note: vhdr m2m main stream is implicitly multiple plane
 	 * but not negotiatied through try format
 	 */
+	dev_info(cam->dev, "%s:%s:pipe(%d):%s\n",
+			 __func__, dbg_str, node->uid.pipe_id, node->desc.name);
 	if (try_fmt.fmt.pix_mp.num_planes <= 0) {
 		dev_info(cam->dev, "%s:%s:pipe(%d):%s:invalid num_planes(%d)\n",
 			 __func__, dbg_str, node->uid.pipe_id, node->desc.name,
@@ -2424,18 +2427,34 @@ int mtk_cam_vidioc_g_meta_fmt(struct file *file, void *fh,
 	case MTK_RAW_META_SV_OUT_2:
 		if (node->enabled && node->ctx)
 			extmeta_size = cam->raw.pipelines[node->uid.pipe_id]
-				.cfg[MTK_RAW_META_SV_OUT_0].mbus_fmt.width *
+				.cfg[node->desc.id].mbus_fmt.width *
 				cam->raw.pipelines[node->uid.pipe_id]
-				.cfg[MTK_RAW_META_SV_OUT_0].mbus_fmt.height;
-		if (extmeta_size)
-			node->active_fmt.fmt.meta.buffersize = extmeta_size;
-		else
-			node->active_fmt.fmt.meta.buffersize =
+				.cfg[node->desc.id].mbus_fmt.height;
+		if (extmeta_size) {
+			f->fmt.meta.buffersize = extmeta_size;
+			f->fmt.meta.dataformat = default_fmt->fmt.meta.dataformat;
+		} else {
+			f->fmt.meta.buffersize =
 				CAMSV_EXT_META_0_WIDTH * CAMSV_EXT_META_0_HEIGHT;
+			f->fmt.meta.dataformat = default_fmt->fmt.meta.dataformat;
+		}
+		/* fake for backend compose */
+		node->active_fmt.fmt.pix_mp.pixelformat = V4L2_PIX_FMT_SBGGR8;
+		node->active_fmt.fmt.pix_mp.width = cam->raw
+			.pipelines[node->uid.pipe_id].cfg[node->desc.id].mbus_fmt.width;
+		node->active_fmt.fmt.pix_mp.height = cam->raw
+			.pipelines[node->uid.pipe_id].cfg[node->desc.id].mbus_fmt.height;
+		node->active_fmt.fmt.pix_mp.num_planes = 1;
+		cal_image_pix_mp(node->desc.id, &node->active_fmt.fmt.pix_mp, 3);
 		dev_dbg(cam->dev,
-			"%s:extmeta name:%s buffersize:%d\n",
-			__func__, node->desc.name, node->active_fmt.fmt.meta.buffersize);
-		break;
+			"%s:extmeta name:%s buffersize:%d, fmt:0x%x, w/h/byteline:%d/%d/%d\n",
+			__func__, node->desc.name, node->active_fmt.fmt.meta.buffersize,
+			node->active_fmt.fmt.pix_mp.pixelformat,
+			node->active_fmt.fmt.pix_mp.width,
+			node->active_fmt.fmt.pix_mp.height,
+			node->active_fmt.fmt.pix_mp.plane_fmt[0].bytesperline);
+
+		return 0;
 	default:
 		break;
 	}
