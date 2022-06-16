@@ -16,6 +16,7 @@ int aps_init(struct apusys_core_info *info)
 {
 	int ret = 0;
 
+	APS_INFO("%s +\n", __func__);
 	ret = aps_ipi_init();
 	if (ret != 0) {
 		APS_ERR("failed to init aps ipi\n");
@@ -26,6 +27,7 @@ int aps_init(struct apusys_core_info *info)
 		APS_ERR("failed to init aps sysfs\n");
 		return ret;
 	}
+
 	return ret;
 }
 

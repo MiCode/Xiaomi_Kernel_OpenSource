@@ -12,6 +12,8 @@ int mdw_init(struct apusys_core_info *info);
 void mdw_exit(void);
 int edma_init(struct apusys_core_info *info);
 void edma_exit(void);
+int aps_init(struct apusys_core_info *info);
+void aps_exit(void);
 int mdla_init(struct apusys_core_info *info);
 void mdla_exit(void);
 int vpu_init(struct apusys_core_info *info);
@@ -56,6 +58,7 @@ static int (*apusys_init_func[])(struct apusys_core_info *) = {
 	apumem_init,
 	mdw_init,
 	edma_init,
+	aps_init,
 	mdla_init,
 #if IS_ENABLED(CONFIG_MTK_APUSYS_VPU)
 	vpu_init,
@@ -84,6 +87,7 @@ static void (*apusys_exit_func[])(void) = {
 #endif
 	mdla_exit,
 	edma_exit,
+	aps_exit,
 	mdw_exit,
 	apumem_exit,
 	reviser_exit,

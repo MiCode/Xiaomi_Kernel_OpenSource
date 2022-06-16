@@ -70,6 +70,7 @@ int aps_sysfs_init(void)
 	int ret = 0;
 
 	/* create /sys/kernel/aps */
+	APS_INFO("%s +\n", __func__);
 	root_dir = kobject_create_and_add("aps", kernel_kobj);
 	if (!root_dir) {
 		APS_ERR("%s kobject_create_and_add fail for aps, ret %d\n",
