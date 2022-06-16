@@ -211,13 +211,17 @@ static const struct proc_ops mmdvfs_debug_opp_fops = {
 static int mmdvfs_v3_debug_thread(void *data)
 {
 	unsigned long rate;
-	int ret = 0;
+	int retry = 0, ret = 0;
 
 	if (!g_mmdvfs->clk)
 		goto err;
 
 	while (!mtk_is_mmdvfs_init_done()) {
-		MMDVFS_DBG("mmdvfs not ready");
+		if (++retry > 100) {
+			MMDVFS_DBG("mmdvfs not ready");
+			ret = -ETIMEDOUT;
+			goto err;
+		}
 		msleep(2000);
 	}
 

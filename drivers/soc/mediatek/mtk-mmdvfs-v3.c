@@ -660,34 +660,27 @@ static int mmdvfs_vcp_init_thread(void *data)
 	int ret = 0, retry = 0;
 
 	while (mtk_mmdvfs_enable_vcp(true)) {
-		msleep(1000);
-		retry++;
-		if (retry == 50) {
-			ret = -ETIMEDOUT;
+		if (++retry > 100) {
 			MMDVFS_ERR("vcp is not powered on yet");
-			goto error_handle;
+			return -ETIMEDOUT;
 		}
+		msleep(1000);
 	}
 
 	retry = 0;
 	while (!mmdvfs_vcp_is_ready()) {
-		msleep(2000);
-		retry++;
-		if (retry == 50) {
-			ret = -ETIMEDOUT;
+		if (++retry > 100) {
 			MMDVFS_ERR("vcp is not ready yet");
-			goto error_handle;
+			return -ETIMEDOUT;
 		}
+		msleep(1000);
 	}
 
 	retry = 0;
 	while (!(vcp_ipi_dev = vcp_get_ipidev())) {
-		msleep(1000);
-		retry++;
-		if (retry == 50) {
-			ret = -ETIMEDOUT;
+		if (++retry > 100) {
 			MMDVFS_ERR("cannot get vcp ipidev");
-			goto error_handle;
+			return -ETIMEDOUT;
 		}
 	}
 
@@ -695,16 +688,13 @@ static int mmdvfs_vcp_init_thread(void *data)
 		mmdvfs_vcp_ipi_cb, NULL, &mmdvfs_vcp_ipi_data);
 	if (ret) {
 		MMDVFS_ERR("mtk_ipi_register failed:%d ipi_id:%d", ret, IPI_IN_MMDVFS);
-		goto error_handle;
+		return ret;
 	}
 
 	mmdvfs_vcp_base = vcp_get_reserve_mem_phys_ex(MMDVFS_MEM_ID);
-	mmdvfs_vcp_ipi_send_base(mmdvfs_vcp_base);
+	ret = mmdvfs_vcp_ipi_send_base(mmdvfs_vcp_base);
 
 	mmdvfs_init_done = true;
-
-	return 0;
-error_handle:
 	return ret;
 }
 
