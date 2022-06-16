@@ -140,13 +140,17 @@ static int get_port_bw(
 {
 	switch (port) {
 	case AAO:
-		return (MTK_CAM_UAPI_AAO_MAX_BUF_SIZE + MTK_CAM_UAPI_AFO_MAX_BUF_SIZE) * fps;
+		return MTK_CAM_UAPI_AAO_MAX_BUF_SIZE * fps;
 	case AAHO:
 		return MTK_CAM_UAPI_AAHO_HIST_SIZE * fps;
+	case LTMSO:
+		return (MTK_CAM_UAPI_LTMSO_SIZE + MTK_CAM_UAPI_LTMSHO_SIZE) * fps;
 	case TSFSO:
 		return (MTK_CAM_UAPI_TSFSO_SIZE * 2 + MTK_CAM_UAPI_LTMSO_SIZE) * fps;
 	case FLKO:
 		return MTK_CAM_UAPI_FLK_BLK_SIZE * MTK_CAM_UAPI_FLK_MAX_STAT_BLK_NUM * height * fps;
+	case TCYSO:
+		return MTK_CAM_UAPI_TCYSO_SIZE * fps;
 	default:
 		pr_info("%s: no support port(%d)\n", __func__, port);
 	}

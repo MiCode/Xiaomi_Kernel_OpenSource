@@ -14,10 +14,10 @@ struct icc_path;
 struct mtk_cam_device;
 struct mtk_cam_ctx;
 
-//#define DVFS_QOS_READY
+#define DVFS_QOS_READY
 #define ISP_CLK_LEVEL_CNT 10
-#define MTK_CAM_RAW_PORT_NUM 72
-#define MTK_CAM_SV_PORT_NUM 6
+#define MTK_CAM_RAW_PORT_NUM 57
+#define MTK_CAM_SV_PORT_NUM 12
 #define MTK_CAM_MRAW_PORT_NUM 16
 #define MAX_CAM_OPP_STEP 10
 

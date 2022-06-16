@@ -12,7 +12,9 @@ enum MMQOS_PORT {
 	AAO = 0,
 	AAHO,
 	TSFSO,
+	LTMSO,
 	FLKO,
+	TCYSO,
 };
 
 struct plat_v4l2_data {
