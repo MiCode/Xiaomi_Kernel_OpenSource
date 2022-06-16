@@ -2168,6 +2168,41 @@ static void _mtk_crtc_lye_addon_module_disconnect(
 					crtc, ddp_mode, addon_module, &addon_config,
 					cmdq_handle);
 			}
+		} else if (addon_module->type == ADDON_EMBED &&
+			   (addon_module->module == OVL_RSZ ||
+			    addon_module->module == OVL_RSZ_1)) {
+			int w = crtc->state->adjusted_mode.hdisplay;
+			int h = crtc->state->adjusted_mode.vdisplay;
+			struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+			struct mtk_ddp_comp *output_comp;
+			struct mtk_rect rsz_roi = {0, 0, w, h};
+
+			output_comp = mtk_ddp_comp_request_output(mtk_crtc);
+			if (output_comp && drm_crtc_index(crtc) == 0) {
+				rsz_roi.width = mtk_ddp_comp_io_cmd(output_comp, NULL,
+								    DSI_GET_VIRTUAL_WIDTH, NULL);
+				rsz_roi.height = mtk_ddp_comp_io_cmd(output_comp, NULL,
+								     DSI_GET_VIRTUAL_HEIGH, NULL);
+			}
+
+			if (mtk_crtc->is_dual_pipe)
+				rsz_roi.width /= 2;
+
+			addon_config.addon_rsz_config.rsz_src_roi = rsz_roi;
+			addon_config.addon_rsz_config.rsz_dst_roi = rsz_roi;
+			addon_config.addon_rsz_config.lc_tgt_layer = lye_state->lc_tgt_layer;
+
+			mtk_addon_disconnect_embed(crtc, ddp_mode, addon_module, &addon_config,
+						   cmdq_handle);
+
+			if (mtk_crtc->is_dual_pipe) {
+				addon_module = &addon_data_dual->module_data[i];
+				addon_config.config_type.module = addon_module->module;
+				addon_config.config_type.type = addon_module->type;
+
+				mtk_addon_disconnect_embed(crtc, ddp_mode, addon_module,
+							   &addon_config, cmdq_handle);
+			}
 		} else
 			DDPPR_ERR("addon type:%d + module:%d not support\n",
 				  addon_module->type, addon_module->module);
@@ -2557,7 +2592,21 @@ _mtk_crtc_lye_addon_module_connect(
 				mtk_addon_connect_between(crtc, ddp_mode, addon_module,
 							  &addon_config, cmdq_handle);
 			}
+		} else if (addon_module->type == ADDON_EMBED &&
+			   (addon_module->module == OVL_RSZ ||
+			    addon_module->module == OVL_RSZ_1)) {
+			struct mtk_crtc_state *state = to_mtk_crtc_state(crtc->state);
 
+			addon_config.addon_rsz_config.rsz_src_roi = state->rsz_src_roi;
+			addon_config.addon_rsz_config.rsz_dst_roi = state->rsz_dst_roi;
+			addon_config.addon_rsz_config.lc_tgt_layer = lye_state->lc_tgt_layer;
+
+			if (mtk_crtc->is_dual_pipe) {
+				/* TBD */
+			} else {
+				mtk_addon_connect_embed(crtc, ddp_mode, addon_module, &addon_config,
+							cmdq_handle);
+			}
 		} else
 			DDPPR_ERR("addon type:%d + module:%d not support\n",
 				  addon_module->type, addon_module->module);
