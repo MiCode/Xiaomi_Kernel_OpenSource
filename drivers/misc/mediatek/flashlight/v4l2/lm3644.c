@@ -149,8 +149,8 @@ static struct lm3644_flash *lm3644_flash_data;
 #define LM3644_PINCTRL_PIN_HWEN 0
 #define LM3644_PINCTRL_PINSTATE_LOW 0
 #define LM3644_PINCTRL_PINSTATE_HIGH 1
-#define LM3644_PINCTRL_STATE_HWEN_HIGH "hwen_high"
-#define LM3644_PINCTRL_STATE_HWEN_LOW  "hwen_low"
+#define LM3644_PINCTRL_STATE_HWEN_HIGH "hwen-high"
+#define LM3644_PINCTRL_STATE_HWEN_LOW  "hwen-low"
 /******************************************************************************
  * Pinctrl configuration
  *****************************************************************************/

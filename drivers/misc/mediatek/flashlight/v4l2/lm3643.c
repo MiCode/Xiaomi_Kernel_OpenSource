@@ -152,8 +152,8 @@ static int lm3643_set_driver(int set);
 #define LM3643_PINCTRL_PIN_HWEN 0
 #define LM3643_PINCTRL_PINSTATE_LOW 0
 #define LM3643_PINCTRL_PINSTATE_HIGH 1
-#define LM3643_PINCTRL_STATE_HWEN_HIGH "hwen_high"
-#define LM3643_PINCTRL_STATE_HWEN_LOW  "hwen_low"
+#define LM3643_PINCTRL_STATE_HWEN_HIGH "hwen-high"
+#define LM3643_PINCTRL_STATE_HWEN_LOW  "hwen-low"
 /******************************************************************************
  * Pinctrl configuration
  *****************************************************************************/
