@@ -160,7 +160,7 @@ static int32_t remove_free_block(struct tlsf_info *info,
 		return -1;
 	}
 
-	if ((sli < 0) || (sli >= TLSF_FL_INDEX_COUNT)) {
+	if ((sli < 0) || (sli >= TLSF_SL_INDEX_COUNT)) {
 		pr_info("%s: invalid second level index(%d)", __func__, sli);
 		return -1;
 	}
@@ -220,10 +220,16 @@ static struct tlsf_block *locate_free_block(struct tlsf_info *info, size_t size)
 
 static void insert_block_to_list(struct tlsf_info *info, struct tlsf_block *block)
 {
+	int ret;
 	int32_t fli;
 	int32_t sli;
 
-	mapping_insert(get_block_curr_size(block), &fli, &sli);
+	ret = mapping_insert(get_block_curr_size(block), &fli, &sli);
+	if (ret < 0) {
+		pr_info("%s: failed to do mapping insert", __func__);
+		return;
+	}
+
 	(void)insert_free_block(info, block, fli, sli);
 }
 
@@ -327,10 +333,18 @@ static struct tlsf_block *block_absorb(struct tlsf_block *prev,
 
 static void block_remove(struct tlsf_info *info, struct tlsf_block *block)
 {
+	int ret;
 	int32_t fli;
 	int32_t sli;
 
-	mapping_insert(get_block_curr_size(block), &fli, &sli);
+	fli = 0;
+	sli = 0;
+	ret = mapping_insert(get_block_curr_size(block), &fli, &sli);
+	if (ret < 0) {
+		pr_info("%s: failed to do mapping insert", __func__);
+		return;
+	}
+
 	(void)remove_free_block(info, block, fli, sli);
 }
 
