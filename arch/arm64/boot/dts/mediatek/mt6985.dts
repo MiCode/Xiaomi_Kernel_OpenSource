@@ -6169,7 +6169,10 @@
 					"connsys_pin_pmic_en_default",
 					"connsys_pin_pmic_en_set",
 					"connsys_pin_pmic_en_clr",
-					"connsys_pin_pmic_faultb_default";
+					"connsys_pin_pmic_faultb_default",
+					"connsys-combo-gpio-init",
+					"connsys-combo-gpio-pre-on",
+					"connsys-combo-gpio-on";
 			pinctrl-0 = <&connsys_pin_ext32k_en_default>;
 			pinctrl-1 = <&connsys_pin_ext32k_en_set>;
 			pinctrl-2 = <&connsys_pin_ext32k_en_clr>;
@@ -6177,7 +6180,9 @@
 			pinctrl-4 = <&connsys_pin_pmic_en_set>;
 			pinctrl-5 = <&connsys_pin_pmic_en_clr>;
 			pinctrl-6 = <&connsys_pin_pmic_faultb_default>;
-
+			pinctrl-7 = <&connsys_combo_gpio_init>;
+			pinctrl-8 = <&connsys_combo_gpio_pre_on>;
+			pinctrl-9 = <&connsys_combo_gpio_on>;
 			interrupts = <GIC_SPI 231 IRQ_TYPE_EDGE_FALLING 0>;
 		};
 
@@ -14011,19 +14016,19 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 	};
 
 	connsys_pin_ext32k_en_default: connsys-pin-ext32k-en-default {
-		pins_cmd_data {
+		pins-cmd-data {
 			pinmux = <PINMUX_GPIO159__FUNC_GPIO159>;
 			output-low;
 		};
 	};
 	connsys_pin_ext32k_en_set: connsys-pin-ext32k-en-set {
-		pins_cmd_data {
+		pins-cmd-data {
 			pinmux = <PINMUX_GPIO159__FUNC_GPIO159>;
 			output-high;
 		};
 	};
 	connsys_pin_ext32k_en_clr: connsys-pin-ext32k-en-clr {
-		pins_cmd_data {
+		pins-cmd-data {
 			pinmux = <PINMUX_GPIO159__FUNC_GPIO159>;
 			output-low;
 		};
@@ -14052,6 +14057,44 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 			pinmux = <PINMUX_GPIO231__FUNC_GPIO231>;
 			input-enable;
 			bias-pull-high;
+		};
+	};
+	connsys_combo_gpio_init: connsys-combo-gpio-init {
+		/* 228 SCP_WB_UTXD */
+		pins-cmd1-dat {
+			pinmux = <PINMUX_GPIO228__FUNC_GPIO228>;
+			slew-rate = <0>;
+			bias-pull-down;
+		};
+		/* 229 SCP_WB_URXD */
+		pins-cmd2-dat {
+			pinmux = <PINMUX_GPIO229__FUNC_GPIO229>;
+			slew-rate = <0>;
+			bias-pull-down;
+		};
+	};
+	connsys_combo_gpio_pre_on: connsys-combo-gpio-pre-on {
+		/* 228 SCP_WB_UTXD */
+		pins-cmd1-dat {
+			pinmux = <PINMUX_GPIO228__FUNC_GPIO228>;
+			slew-rate = <0>;
+			bias-pull-up;
+		};
+		/* 229 SCP_WB_URXD */
+		pins-cmd2-dat {
+			pinmux = <PINMUX_GPIO229__FUNC_GPIO229>;
+			slew-rate = <0>;
+			bias-pull-up;
+		};
+	};
+	connsys_combo_gpio_on: connsys-combo-gpio-on {
+		/* 228 SCP_WB_UTXD */
+		pins-cmd1-dat {
+			pinmux = <PINMUX_GPIO228__FUNC_TP_UTXD3_VLP>;
+		};
+		/* 229 SCP_WB_URXD */
+		pins-cmd2-dat {
+			pinmux = <PINMUX_GPIO229__FUNC_TP_URXD3_VLP>;
 		};
 	};
 	aud_gpio_i2s8_off: aud_gpio_i2s8_off {
