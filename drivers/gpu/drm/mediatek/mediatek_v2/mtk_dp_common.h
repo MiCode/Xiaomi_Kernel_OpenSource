@@ -13,6 +13,7 @@
 #include <drm/drm_crtc_helper.h>
 #include "mtk_dp_hdcp.h"
 #include "mtk_dp_debug.h"
+#include "mtk_drm_drv.h"
 
 
 #ifndef BYTE

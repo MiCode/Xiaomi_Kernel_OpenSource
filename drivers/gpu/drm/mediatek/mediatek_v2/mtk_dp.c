@@ -2371,6 +2371,7 @@ int mdrv_DPTx_Handle(struct mtk_dp *mtk_dp)
 		if (mtk_dp->video_enable) {
 			mtk_dp_video_config(mtk_dp);
 			mdrv_DPTx_Video_Enable(mtk_dp, true);
+			mhal_DPTx_Set_BS2BS_Cnt(mtk_dp, TRUE, mtk_dp->info.DPTX_OUTBL.Htt);
 		}
 
 		if (mtk_dp->audio_enable && (mtk_dp->info.audio_caps != 0)) {
@@ -3964,6 +3965,8 @@ static int mtk_dp_bind(struct device *dev, struct device *master, void *data)
 	int ret;
 
 	mtk_dp->drm_dev = drm;
+	mtk_dp->priv = drm->dev_private;
+
 	DPTXDBG("%s, %d, mtk_dp 0x%p\n", __func__, __LINE__, mtk_dp);
 	ret = drm_connector_init(drm, &mtk_dp->conn, &mtk_dp_connector_funcs,
 		DRM_MODE_CONNECTOR_DisplayPort);

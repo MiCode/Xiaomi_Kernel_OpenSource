@@ -317,5 +317,6 @@ void mhal_DPTx_SetTxRate(struct mtk_dp *mtk_dp, int Value);
 void mhal_DPTx_AnalogPowerOnOff(struct mtk_dp *mtk_dp, bool enable);
 void mhal_DPTx_DataLanePNSwap(struct mtk_dp *mtk_dp, bool bENABLE);
 void mhal_DPTx_SetAuxSwap(struct mtk_dp *mtk_dp, bool enable);
+void mhal_DPTx_Set_BS2BS_Cnt(struct mtk_dp *mtk_dp, bool bEnable, DWORD uiHTT);
 
 #endif //__DRTX_HAL_H__

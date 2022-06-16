@@ -301,6 +301,37 @@ void mhal_DPTx_SetColorDepth(struct mtk_dp *mtk_dp, BYTE coloer_depth)
 	}
 }
 
+void mhal_DPTx_Set_BS2BS_Cnt(struct mtk_dp *mtk_dp, bool bEnable, DWORD uiHTT)
+{
+	DWORD uiVideoMValue = 0;
+	DWORD uiVideoNValue = 0;
+	DWORD uiBS2BS_Cnt = 1;
+	enum mtk_mmsys_id id = MMSYS_MT6985;
+
+	if (mtk_dp->priv && mtk_dp->priv->data)
+		id = mtk_dp->priv->data->mmsys_id;
+
+	if (id != MMSYS_MT6983)
+		return;
+
+	//For DTPX_BS2BS_CNT_SWMODE_DSCBYPASS, uiPara is HTotal
+	//REG_DPTX_ENCODER_E0_1_78[15:0] = (Htotal * (link_rate/pix_rate) / 4)
+	//                               =  (Htotal x (video_N/video_M) / 4)
+
+	uiVideoNValue = (msRead2Byte(mtk_dp, REG_3050_DP_ENCODER0_P0) |
+					msReadByte(mtk_dp, REG_3054_DP_ENCODER0_P0) << 16);
+	uiVideoMValue = (msRead2Byte(mtk_dp, REG_33C8_DP_ENCODER1_P0) |
+					msReadByte(mtk_dp, REG_33CC_DP_ENCODER1_P0) << 16);
+
+	if (uiVideoMValue != 0)
+		uiBS2BS_Cnt = ((uiHTT >> 2) * uiVideoNValue) / uiVideoMValue;
+
+	msWrite2Byte(mtk_dp, REG_33E0_DP_ENCODER1_P0, uiBS2BS_Cnt-1);
+
+	//REG_DPTX_ENCODER_E0_1_7B[10]:BS to BS cnt SW sel
+	msWriteByteMask(mtk_dp, REG_33EC_DP_ENCODER1_P0 + 1, (bEnable ? BIT2 : 0), BIT2);
+}
+
 
 void mhal_DPTx_SetMISC(struct mtk_dp *mtk_dp, BYTE ucMISC[2])
 {
