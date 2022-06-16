@@ -9859,7 +9859,6 @@
 					&smi_larb31 &smi_larb32 &smi_larb33
 					&smi_larb34 &smi_larb35 &smi_larb37>;
 		mediatek,commons = <&smi_disp_common>, <&smi_mdp_common>;
-		disable-mmqos;
 		clocks = <&topckgen_clk CLK_TOP_MMINFRA_SEL>,
 				<&topckgen_clk CLK_TOP_MMINFRA_SEL>;
 		clock-names = "mm", "mdp";
