@@ -7843,8 +7843,8 @@
 				"IPI_ID_CCF",
 				"IPI_ID_GPUMPU",
 				"IPI_ID_FAST_DVFS",
-				"IPIS_C_MET",
-				"IPIR_C_MET",
+				"CH_IPIR_C_MET", /* = IPIS_C_MET on gpueb side */
+				"CH_IPIS_C_MET", /* = IPIR_C_MET on gpueb side */
 				"IPI_ID_BRISKET";
 
 			/* id, mbox, recv_size, recv_opt */
@@ -7869,8 +7869,8 @@
 				"IPI_ID_CCF",
 				"IPI_ID_GPUMPU",
 				"IPI_ID_FAST_DVFS",
-				"IPIS_C_MET",
-				"IPIR_C_MET",
+				"CH_IPIR_C_MET", /* = IPIS_C_MET on gpueb side */
+				"CH_IPIS_C_MET", /* = IPIR_C_MET on gpueb side */
 				"IPI_ID_BRISKET";
 
 			reg = <0 0x13c00000 0 0x30000>,
