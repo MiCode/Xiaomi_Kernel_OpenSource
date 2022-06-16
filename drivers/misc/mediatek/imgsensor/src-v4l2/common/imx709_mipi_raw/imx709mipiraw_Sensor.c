@@ -1281,7 +1281,7 @@ static kal_uint32 streaming_control(struct subdrv_ctx *ctx, kal_bool enable)
 	if (ctx->sensor_mode >= IMGSENSOR_MODE_CUSTOM1 &&
 		ctx->sensor_mode < IMGSENSOR_MODE_CUSTOM4) {
 		pr_info(
-			"AOV mode[%d] will stream on scp side!\n",
+			"AOV mode[%d] streaming control on scp side\n",
 			ctx->sensor_mode);
 // #ifndef AOV_MODE_SENSING_UT
 		return ERROR_NONE;

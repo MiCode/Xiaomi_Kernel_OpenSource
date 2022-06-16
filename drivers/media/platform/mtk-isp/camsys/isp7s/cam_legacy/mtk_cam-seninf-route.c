@@ -1412,10 +1412,12 @@ int mtk_cam_seninf_s_aov_param(unsigned int sensor_id,
 		pr_info("sensor idx %d\n", real_sensor_id);
 		ctx = aov_ctx[real_sensor_id];
 #ifdef SENSING_MODE_READY
-		/* switch i2c bus scl from apmcu to scp */
-		aov_switch_i2c_bus_scl_aux(ctx, SCL7);
-		/* switch i2c bus sda from apmcu to scp */
-		aov_switch_i2c_bus_sda_aux(ctx, SDA7);
+		if (!g_aov_param.is_test_model) {
+			/* switch i2c bus scl from apmcu to scp */
+			aov_switch_i2c_bus_scl_aux(ctx, SCL7);
+			/* switch i2c bus sda from apmcu to scp */
+			aov_switch_i2c_bus_sda_aux(ctx, SDA7);
+		}
 #endif
 		vc = mtk_cam_seninf_get_vc_by_pad(ctx, PAD_SRC_RAW0);
 	} else {

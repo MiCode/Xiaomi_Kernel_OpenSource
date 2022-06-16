@@ -350,7 +350,6 @@ struct mtk_mbus_frame_desc_entry_csi2 {
 	u16 user_data_desc;
 };
 
-
 struct mtk_mbus_frame_desc_entry {
 	//enum v4l2_mbus_frame_desc_flags flags;
 	//u32 pixelcode;
@@ -359,17 +358,14 @@ struct mtk_mbus_frame_desc_entry {
 		struct mtk_mbus_frame_desc_entry_csi2 csi2;
 	} bus;
 };
+
 #define MTK_FRAME_DESC_ENTRY_MAX 8
-
-
 enum mtk_mbus_frame_desc_type {
 	MTK_MBUS_FRAME_DESC_TYPE_PLATFORM,
 	MTK_MBUS_FRAME_DESC_TYPE_PARALLEL,
 	MTK_MBUS_FRAME_DESC_TYPE_CCP2,
 	MTK_MBUS_FRAME_DESC_TYPE_CSI2,
 };
-
-
 
 struct mtk_mbus_frame_desc {
 	enum mtk_mbus_frame_desc_type type;
@@ -387,7 +383,6 @@ struct mtk_csi_param {
 	__u32 dphy_csi2_resync_dmy_cycle;
 };
 
-
 struct mtk_n_1_mode {
 	__u32 n;
 	__u8 en;
@@ -399,7 +394,6 @@ struct mtk_test_pattern_data {
 	__u32 Channel_Gb;
 	__u32 Channel_B;
 };
-
 
 struct mtk_fine_integ_line {
 	__u32 scenario_id;

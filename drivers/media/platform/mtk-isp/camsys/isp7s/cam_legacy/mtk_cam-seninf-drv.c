@@ -963,8 +963,10 @@ static int set_test_model(struct seninf_ctx *ctx, char enable)
 	}
 
 #if AOV_GET_PARAM
-	if (ctx->is_aov_test_model)
+	if (ctx->is_aov_test_model) {
+		ctx->streaming = enable;
 		return set_aov_test_model_param(ctx, &vc[0], enable, vc_used);
+	}
 #endif
 
 	if (enable) {
@@ -1456,6 +1458,7 @@ static int seninf_s_stream(struct v4l2_subdev *sd, int enable)
 		return set_test_model(ctx, enable);
 
 	if (ctx->is_aov_real_sensor && !enable) {
+		ctx->streaming = enable;
 		dev_info(ctx->dev, "aov real sensor streaming off on apmcu side\n");
 		return 0;
 	}
@@ -2553,10 +2556,12 @@ int mtk_cam_seninf_aov_runtime_resume(unsigned int sensor_id)
 		pr_info("sensor idx %u\n", real_sensor_id);
 		ctx = aov_ctx[real_sensor_id];
 #ifdef SENSING_MODE_READY
-		/* switch i2c bus scl from scp to apmcu */
-		aov_switch_i2c_bus_scl_aux(ctx, SCL4);
-		/* switch i2c bus sda from scp to apmcu */
-		aov_switch_i2c_bus_sda_aux(ctx, SDA4);
+		if (!g_aov_param.is_test_model) {
+			/* switch i2c bus scl from scp to apmcu */
+			aov_switch_i2c_bus_scl_aux(ctx, SCL4);
+			/* switch i2c bus sda from scp to apmcu */
+			aov_switch_i2c_bus_sda_aux(ctx, SDA4);
+		}
 #endif
 	} else {
 		pr_info("Can't find ctx from input sensor_id!\n");
