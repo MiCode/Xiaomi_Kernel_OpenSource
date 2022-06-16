@@ -1181,6 +1181,11 @@
 		cam_sub2_bus = <&cam_sub2_bus>;
 		cam_sub1_bus = <&cam_sub1_bus>;
 		vlpcfg = <&vlpcfg_bus>;
+
+		isp_main-supply = <&mt6319_6_vbuck3>;
+		cam_main-supply = <&mt6319_6_vbuck3>;
+		vde0-supply = <&mt6319_6_vbuck3>;
+		vde1-supply = <&mt6319_6_vbuck3>;
 	};
 
 	watchdog: watchdog@1C007000 {
@@ -1405,6 +1410,14 @@
 		ccu_dramSize = <0x00100000>;
 		ccu_dramAddr = <0x80000000>;
 		ccu_emiRegion = <20>;
+	};
+
+	vmmspm: vmmspm {
+		compatible = "mediatek,vmm_spm_7s";
+		reg = <0 0x1c001000 0 0x1000>;  // sys_spm
+		reg-names = "SPM_BASE";
+
+		vmm-pmic-supply = <&mt6319_6_vbuck3>;
 	};
 
 	ccu_rproc1: ccu_rproc1 {
@@ -13349,7 +13362,6 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 				regulator-max-microvolt = <1193750>;
 				regulator-enable-ramp-delay = <256>;
 				regulator-allowed-modes = <0 1 2>;
-				regulator-always-on;
 			};
 		};
 	};
