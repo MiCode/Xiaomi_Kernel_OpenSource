@@ -726,11 +726,11 @@ uint32_t vcp_wait_ready_sync(enum feature_id id)
 {
 	int i = 0;
 	int j = 0;
-	unsigned long c0, c1;
+	unsigned long c0, c1 = CORE_RDY_TO_REBOOT;
 
 	c0 = readl(VCP_GPR_CORE0_REBOOT);
-	c1 = vcpreg.core_nums == 2 ? readl(VCP_GPR_CORE1_REBOOT) :
-		CORE_RDY_TO_REBOOT;
+	if (vcpreg.core_nums == 2)
+		c1 = readl(VCP_GPR_CORE1_REBOOT);
 
 	if ((c0 == CORE_RDY_TO_REBOOT) && (c1 == CORE_RDY_TO_REBOOT))
 		return 0;
@@ -1936,6 +1936,7 @@ void vcp_sys_reset_ws(struct work_struct *ws)
 					, struct vcp_work_struct, work);
 	unsigned int vcp_reset_type = sws->flags;
 	unsigned long spin_flags;
+	unsigned long c0_rstn = 0, c1_rstn = 0;
 	struct arm_smccc_res res;
 
 	pr_notice("[VCP] %s(): vcp_reset_type %d remain %x times, en_cnt %d\n",
@@ -1962,6 +1963,10 @@ void vcp_sys_reset_ws(struct work_struct *ws)
 	/* logger disable must after vcp_aed() */
 	vcp_logger_init_set(0);
 
+	c0_rstn = readl(R_CORE0_SW_RSTN_SET);
+	if (vcpreg.core_nums == 2)
+		c1_rstn = readl(R_CORE1_SW_RSTN_SET);
+
 	/* vcp reset by CMD, WDT or awake fail */
 	if ((vcp_reset_type == RESET_TYPE_TIMEOUT) ||
 		(vcp_reset_type == RESET_TYPE_AWAKE)) {
@@ -1972,7 +1977,7 @@ void vcp_sys_reset_ws(struct work_struct *ws)
 
 		dsb(SY); /* may take lot of time */
 		pr_notice("[VCP] rstn core0 %x core1 %x ret %lu\n",
-		readl(R_CORE0_SW_RSTN_SET), readl(R_CORE1_SW_RSTN_SET), res.a0);
+			c0_rstn, c1_rstn, res.a0);
 	} else {
 		/* reset type vcp WDT or CMD*/
 		/* make sure vcp is in idle state */
@@ -1983,7 +1988,7 @@ void vcp_sys_reset_ws(struct work_struct *ws)
 
 		dsb(SY); /* may take lot of time */
 		pr_notice("[VCP] rstn core0 %x core1 %x ret %lu\n",
-		readl(R_CORE0_SW_RSTN_SET), readl(R_CORE1_SW_RSTN_SET), res.a0);
+			c0_rstn, c1_rstn, res.a0);
 	}
 
 	/*notify vcp functions stop*/
