@@ -8551,12 +8551,11 @@
 		clocks = <&mminfra_config_clk CLK_MMINFRA_GCE_D>,
 			 <&mminfra_config_clk CLK_MMINFRA_GCE_26M>;
 		clock-names = "gce","gce-timer";
-#if 0
+		prebuilt-enable;
 		#size-cells = <2>;
 		dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
-		iommus = <&mdp_iommu M4U_PORT_L32_GCE_DM>;
+		iommus = <&mdp_iommu M4U_PORT_L39_GCE_DM>;
 		dma-mask-bit = <34>;
-#endif
 	};
 
 	gce_m: gce@1e990000 {
@@ -8583,12 +8582,11 @@
 		clocks = <&mminfra_config_clk CLK_MMINFRA_GCE_M>,
 			 <&mminfra_config_clk CLK_MMINFRA_GCE_26M>;
 		clock-names = "gce","gce-timer";
-#if 0
+		prebuilt-enable;
 		#size-cells = <2>;
 		dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
-		iommus = <&mdp_iommu M4U_PORT_L32_GCE_MM>;
+		iommus = <&mdp_iommu M4U_PORT_L39_GCE_MM>;
 		dma-mask-bit = <34>;
-#endif
 	};
 
 	cmdq-test {
