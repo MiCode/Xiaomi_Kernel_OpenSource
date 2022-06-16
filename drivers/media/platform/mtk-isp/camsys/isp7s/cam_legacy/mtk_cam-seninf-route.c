@@ -480,6 +480,7 @@ int mtk_cam_seninf_get_vcinfo(struct seninf_ctx *ctx)
 	if (!ctrl) {
 		dev_info(ctx->dev, "%s, no V4L2_CID_MTK_FRAME_DESC %s\n",
 			__func__, sensor_sd->name);
+		return -EINVAL;
 	}
 
 	ctrl->p_new.p = &fd;
@@ -1049,7 +1050,7 @@ int mtk_cam_seninf_s_stream_mux(struct seninf_ctx *ctx)
 			vc_sel = vc->vc;
 			dt_sel = vc->dt;
 			dt_en = !!dt_sel;
-			if (first_tag && (vc->tag >= 0) && (vc->tag <= 31)) {
+			if (first_tag && (vc->tag <= 31)) {
 				first_vc = 1;
 				first_tag = 0;
 			} else
@@ -1410,7 +1411,7 @@ int mtk_cam_seninf_s_aov_param(unsigned int sensor_id,
 
 	if (aov_ctx[real_sensor_id] != NULL) {
 		pr_info("sensor idx %d\n", real_sensor_id);
-		ctx = aov_ctx[real_sensor_id];
+		ctx = aov_ctx[(unsigned int)real_sensor_id];
 #ifdef SENSING_MODE_READY
 		if (!g_aov_param.is_test_model) {
 			/* switch i2c bus scl from apmcu to scp */
