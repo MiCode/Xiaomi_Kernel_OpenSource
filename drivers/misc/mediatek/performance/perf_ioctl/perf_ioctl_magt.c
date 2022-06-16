@@ -93,16 +93,12 @@ int init_cpu_time(void)
 
 err_prev_idle_time:
 	kfree(prev_wall_time);
-	prev_idle_time = NULL;
 err_prev_wall_time:
 	kfree(cur_idle_time);
-	prev_wall_time = NULL;
 err_cur_idle_time:
 	kfree(cur_wall_time);
-	cur_idle_time = NULL;
 err_cur_wall_time:
 	pr_debug(TAG "%s failed to alloc cpu time", __func__);
-	cur_wall_time = NULL;
 	mutex_unlock(&cpu_lock);
 	return -ENOMEM;
 }
@@ -118,7 +114,6 @@ int init_num_cpus(void)
 	num_cpus = kcalloc(cluster_nr + 1, sizeof(int), GFP_KERNEL);
 	if (ZERO_OR_NULL_PTR(num_cpus)) {
 		pr_debug(TAG "%s failed to alloc num cpus", __func__);
-		num_cpus = NULL;
 		mutex_unlock(&cpu_lock);
 		return -ENOMEM;
 	}
@@ -126,7 +121,7 @@ int init_num_cpus(void)
 	for (i = 0; i < cluster_nr; i++) {
 		arch_get_cluster_cpus(&cluster_cpus, i);
 		num_cpus[i + 1] = num_cpus[i] + cpumask_weight(&cluster_cpus);
-		pr_info("perf_index num_cpus = %d\n", num_cpus[i]);
+		// pr_info("perf_index num_cpus = %d\n", num_cpus[i]);
 	}
 	mutex_unlock(&cpu_lock);
 	return 0;
@@ -138,14 +133,19 @@ int get_cpu_loading(struct cpu_info *_ci)
 	u64 wall_time = 0, idle_time = 0;
 
 	mutex_lock(&cpu_lock);
-	if (cur_wall_time == NULL) {
+	if (ZERO_OR_NULL_PTR(cur_wall_time)) {
 		mutex_unlock(&cpu_lock);
 		return -ENOMEM;
 	}
 
-	for (i = 0; i < 8; i++)
+	for (i = 0; i < max_cpus; i++)
 		_ci->cpu_loading[i] = 0;
+
 	for_each_possible_cpu(i) {
+
+		if (i >= max_cpus)
+			break;
+
 		cpu_loading = 0;
 		wall_time = 0;
 		idle_time = 0;
@@ -162,7 +162,7 @@ int get_cpu_loading(struct cpu_info *_ci)
 			cpu_loading = div_u64((100 * (wall_time - idle_time)),
 			wall_time);
 		_ci->cpu_loading[i] = cpu_loading;
-		pr_info("CPU %d loading is %d%%\n", i, _ci->cpu_loading[i]);
+		// pr_info("CPU %d loading is %d%%\n", i, _ci->cpu_loading[i]);
 	}
 	mutex_unlock(&cpu_lock);
 	return 0;
@@ -176,7 +176,7 @@ int get_perf_index(struct cpu_info *_ci)
 	cluster_nr = arch_get_nr_clusters();
 
 	mutex_lock(&cpu_lock);
-	if (num_cpus == NULL) {
+	if (ZERO_OR_NULL_PTR(num_cpus)) {
 		mutex_unlock(&cpu_lock);
 		return -ENOMEM;
 	}
@@ -187,8 +187,8 @@ int get_perf_index(struct cpu_info *_ci)
 		if (i == num_cpus[cluster_idx]) {
 			perf_index = div_u64(100 * capacity_curr_of(i), 1024);
 			_ci->perf_index[cluster_idx] = perf_index;
-			pr_info("cluster %d perf_index = %d\n",
-			cluster_idx, _ci->perf_index[cluster_idx]);
+			// pr_info("cluster %d perf_index = %d\n",
+			// cluster_idx, _ci->perf_index[cluster_idx]);
 			cluster_idx++;
 		}
 	}
