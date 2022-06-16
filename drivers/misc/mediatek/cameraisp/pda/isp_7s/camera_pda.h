@@ -26,14 +26,14 @@
 
 #define PDA_MAGIC               'P'
 
-#define KERNEL_VERSION 1000
+#define KERNEL_VERSION 2000
 
 #define PDAROIARRAYMAX 128
 #define FIXROIARRAYMAX 10
 
-#define OUT_BYTE_PER_ROI 1120		//1408
+#define OUT_BYTE_PER_ROI 1120
 
-#define PDA_MAXROI_PER_ROUND 96		//45
+#define PDA_MAXROI_PER_ROUND 96
 
 #define PDA_MAX_QUANTITY 4
 
