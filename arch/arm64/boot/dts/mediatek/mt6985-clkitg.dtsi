@@ -24,8 +24,4 @@
 		power-domains = <&scpsys MT6985_POWER_DOMAIN_UFS0_PHY_SHUTDOWN>;
 	};
 
-	bring-up-pd-audio {
-		compatible = "mediatek,scpsys-bring-up";
-		power-domains = <&scpsys MT6985_POWER_DOMAIN_AUDIO>;
-	};
 };
