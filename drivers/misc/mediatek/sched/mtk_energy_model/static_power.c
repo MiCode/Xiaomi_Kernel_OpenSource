@@ -75,9 +75,9 @@ unsigned int mtk_get_leakage(unsigned int cpu, unsigned int opp, unsigned int te
 	b = ((a >> 12) & 0xFFFFF);
 	a = a & 0xFFF;
 	c = info.tbl[i].c_para[opp];
-	power = (temperature*temperature*a - b*temperature+c)/10;
+	power = temperature * (temperature * a - b) + c / 10;
 
-	return power;
+	return (power /= (i > 0) ? 10 : 100);
 }
 EXPORT_SYMBOL_GPL(mtk_get_leakage);
 
@@ -130,7 +130,8 @@ static int leakage_trial_proc_show(struct seq_file *m, void *v)
 	b = ((a >> 12) & 0xFFFFF);
 	a = a & 0xFFF;
 	c = repo[144+cpu*72+opp*2+1];
-	power = (temp*temp*a - b*temp+c)/10;
+	power = temp * (temp * a - b) + c;
+	power /= (cpu > 0) ? 10 : 100;
 	seq_printf(m, "power: %d, a, b, c = (%d %d %d) %d\n", power, a, b, c, info.instance[cpu]);
 
 	return 0;
