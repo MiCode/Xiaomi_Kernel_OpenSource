@@ -1947,12 +1947,16 @@
 				"IPI_ID_FAST_DVFS";
 
 			reg = <0 0x13c40000 0 0x22000>,
+				<0 0x13c5fd1c 0 0x64>,
+				<0 0x13c60000 0 0x2000>,
 				<0 0x13c5fd80 0 0x280>,
 				<0 0x13c62004 0 0x4>,
 				<0 0x13c62074 0 0x4>,
 				<0 0x13c62000 0 0x4>,
 				<0 0x13c62078 0 0x4>;
 			reg-names = "gpueb_base",
+						"gpueb_gpr_base",
+						"gpueb_reg_base",
 						"mbox0_base",
 						"mbox0_set",
 						"mbox0_clr",
