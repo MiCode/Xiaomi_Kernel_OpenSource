@@ -164,7 +164,8 @@ void mtk_vcodec_enc_clock_on(struct mtk_vcodec_ctx *ctx, int core_id)
 
 
 	if (core_id == MTK_VENC_CORE_0 ||
-		core_id == MTK_VENC_CORE_1) {
+		core_id == MTK_VENC_CORE_1 ||
+		core_id == MTK_VENC_CORE_2) {
 			// enable core clocks
 		for (j = 0; j < clks_data->core_clks_len; j++) {
 			clk_id = clks_data->core_clks[j].clk_id;
@@ -262,7 +263,8 @@ void mtk_vcodec_enc_clock_off(struct mtk_vcodec_ctx *ctx, int core_id)
 	clks_data = &pm->venc_clks_data;
 
 	if (core_id == MTK_VENC_CORE_0 ||
-		core_id == MTK_VENC_CORE_1) {
+		core_id == MTK_VENC_CORE_1 ||
+		core_id == MTK_VENC_CORE_2) {
 		if (clks_data->core_clks_len > 0) {
 			for (i = clks_data->core_clks_len - 1; i >= 0; i--) {
 				clk_id = clks_data->core_clks[i].clk_id;

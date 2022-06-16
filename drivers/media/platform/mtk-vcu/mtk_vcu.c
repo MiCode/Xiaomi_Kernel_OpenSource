@@ -128,7 +128,7 @@ inline unsigned int ipi_id_to_inst_id(int id)
 #define pr_debug vcu_dbg_log
 
 #define MAP_PA_BASE_1GB  0x40000000 /* < 1GB registers */
-#define VCU_MAP_HW_REG_NUM 5
+#define VCU_MAP_HW_REG_NUM 9
 /* VDEC VDEC_LAT VENC_CORE0 VENC_CORE1 */
 
 /* Default vcu_mtkdev[0] handle vdec, vcu_mtkdev[1] handle mdp */

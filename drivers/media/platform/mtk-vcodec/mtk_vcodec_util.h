@@ -211,7 +211,7 @@ enum mtk_vcodec_debug_level {
 
 #endif
 
-static __used unsigned int time_ms_s[2][2], time_ms_e[2][2];
+static __used unsigned int time_ms_s[2][3], time_ms_e[2][3];
 #define time_check_start(is_enc, id) {\
 		if (is_enc >= 0 && id >= 0) \
 			time_ms_s[is_enc][id] = jiffies_to_msecs(jiffies); \
