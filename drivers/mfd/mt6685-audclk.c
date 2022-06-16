@@ -34,6 +34,23 @@ struct mt6685_clk {
 };
 
 struct mt6685_clk *clk;
+void mt6685_set_dcxo_mode(unsigned int mode)
+{
+	if (!clk || !clk->regmap)
+		return;
+
+	/* set BBCK5 mode to 0
+	 * Mode:
+	 * 00: Register controlled by XO_BBCK5_EN_M
+	 * 01: EN_BB
+	 * 10: CLK_SEL
+	 */
+
+	regmap_update_bits(clk->regmap, MT6685_DCXO_EXTBUF5_CW0,
+			   XO_BBCK5_MODE_MSK_SFT, mode << XO_BBCK5_MODE_SFT);
+}
+EXPORT_SYMBOL(mt6685_set_dcxo_mode);
+
 void mt6685_set_dcxo(bool enable)
 {
 	if (!clk || !clk->regmap)
@@ -41,11 +58,11 @@ void mt6685_set_dcxo(bool enable)
 
 	if (enable) {
 		regmap_update_bits(clk->regmap, MT6685_DCXO_EXTBUF5_CW0,
-				XO_BBCK5_EN_M_MSK_SFT,	0x1 << XO_BBCK5_EN_M_SFT);
+				   XO_BBCK5_EN_M_MSK_SFT, 0x1 << XO_BBCK5_EN_M_SFT);
 		usleep_range(400, 420);
 	} else {
 		regmap_update_bits(clk->regmap, MT6685_DCXO_EXTBUF5_CW0,
-				XO_BBCK5_EN_M_MSK_SFT,	0x0 << XO_BBCK5_EN_M_SFT);
+				   XO_BBCK5_EN_M_MSK_SFT, 0x0 << XO_BBCK5_EN_M_SFT);
 	}
 }
 EXPORT_SYMBOL(mt6685_set_dcxo);

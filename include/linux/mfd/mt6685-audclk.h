@@ -6,5 +6,6 @@
 #define _AUDIO_DCXO_H_
 
 /* just be called by audio module for dcxo */
+extern void mt6685_set_dcxo_mode(unsigned int mode);
 extern void mt6685_set_dcxo(bool enable);
 #endif
