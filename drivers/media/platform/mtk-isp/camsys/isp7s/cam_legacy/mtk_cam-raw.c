@@ -611,10 +611,15 @@ mtk_cam_raw_try_res_ctrl(struct mtk_raw_pipeline *pipeline,
 
 	res_cfg->hblank = res_user->sensor_res.hblank;
 	res_cfg->vblank = res_user->sensor_res.vblank;
-	res_cfg->sensor_pixel_rate = res_user->sensor_res.pixel_rate;
-	res_cfg->interval = res_user->sensor_res.interval;
-	res_cfg->res_plan = RESOURCE_STRATEGY_QRP;
 	res_cfg->scen = res_user->raw_res.scen;
+	res_cfg->sensor_pixel_rate = res_user->sensor_res.pixel_rate;
+
+	if (mtk_cam_scen_is_pure_m2m(&res_cfg->scen))
+		res_cfg->interval = pipeline->res_config.interval;
+	else
+		res_cfg->interval = res_user->sensor_res.interval;
+
+	res_cfg->res_plan = RESOURCE_STRATEGY_QRP;
 	res_cfg->hw_mode = res_user->raw_res.hw_mode;
 
 	// currently only support normal & stagger 2-exp
