@@ -237,6 +237,7 @@ struct mtk_sensor_info {
 	__u32 orientation;
 	__u32 horizontalFov;
 	__u32 verticalFov;
+	__u32 dts_idx;
 };
 
 struct mtk_scenario_timing {

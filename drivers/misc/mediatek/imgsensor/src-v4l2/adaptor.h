@@ -114,6 +114,7 @@ struct adaptor_ctx {
 	MSDK_SENSOR_CONFIG_STRUCT sensor_cfg;
 	int fmt_code;
 	int idx; /* requireed by frame-sync modules */
+	int dts_idx; /* dts idx (before reindex) */
 	struct mtk_hdr_ae ae_memento;
 
 	u32 seamless_scenarios[SENSOR_SCENARIO_ID_MAX];

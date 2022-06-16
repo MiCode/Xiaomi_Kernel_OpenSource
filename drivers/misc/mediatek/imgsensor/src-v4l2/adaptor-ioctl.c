@@ -1022,7 +1022,6 @@ static int g_sensor_info(struct adaptor_ctx *ctx, void *arg)
 	int ret = 0;
 
 	ret = snprintf(info->name, sizeof(info->name), "%s", ctx->subdrv->name);
-	info->id = ctx->subdrv->id;
 
 	if (ret < 0)
 		dev_info(ctx->dev, "g_sensor_info fail, ret:%d\n", ret);
@@ -1035,6 +1034,8 @@ static int g_sensor_info(struct adaptor_ctx *ctx, void *arg)
 			&info->orientation);
 	of_property_read_u32(ctx->dev->of_node, "h_fov", &info->horizontalFov);
 	of_property_read_u32(ctx->dev->of_node, "v_fov", &info->verticalFov);
+
+	info->dts_idx = ctx->dts_idx;
 
 	return 0;
 }

@@ -1255,9 +1255,10 @@ static int imgsensor_probe(struct i2c_client *client)
 	ctx->sd.dev = &client->dev;
 	ctx->sd.entity.function = MEDIA_ENT_F_CAM_SENSOR;
 
-	ret = sscanf(dev->of_node->name, OF_SENSOR_NAME_PREFIX"%d", &ctx->idx);
+	ret = sscanf(dev->of_node->name, OF_SENSOR_NAME_PREFIX"%d", &ctx->dts_idx);
 	if (ret != 1)
 		dev_warn(dev, "failed to parse %s\n", dev->of_node->name);
+	ctx->idx = ctx->dts_idx;
 
 	if (!of_property_read_u32(dev->of_node, "reindex-to", &reindex)) {
 		reindex_match_cnt = of_property_read_string_array(dev->of_node,
