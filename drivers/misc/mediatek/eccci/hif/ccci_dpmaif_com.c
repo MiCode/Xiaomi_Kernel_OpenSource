@@ -2443,10 +2443,10 @@ static int dpmaif_init_cap(struct device *dev)
 	u32 len = 0;
 
 	if (of_property_read_u32(dev->of_node,
-			"mediatek,dpmaif_cap", &dpmaif_ctl->capability)) {
+			"mediatek,dpmaif-cap", &dpmaif_ctl->capability)) {
 		dpmaif_ctl->capability = 0;
 		CCCI_ERROR_LOG(0, TAG,
-			"[%s] read mediatek,dpmaif_cap fail!\n",
+			"[%s] read mediatek,dpmaif-cap fail!\n",
 			__func__);
 	}
 
@@ -2853,9 +2853,9 @@ DPMAIF_INIT_FAIL:
 static int dpmaif_probe(struct platform_device *pdev)
 {
 	if (of_property_read_u32(pdev->dev.of_node,
-			"mediatek,dpmaif_ver", &g_dpmf_ver)) {
+			"mediatek,dpmaif-ver", &g_dpmf_ver)) {
 		CCCI_ERROR_LOG(0, TAG,
-			"[%s] error: not find mediatek,dpmaif_ver.\n",
+			"[%s] error: not find mediatek,dpmaif-ver.\n",
 			__func__, g_dpmf_ver);
 		g_dpmf_ver = MAX_DPMAIF_VER;
 	}
@@ -2868,7 +2868,7 @@ static int dpmaif_probe(struct platform_device *pdev)
 	}
 
 	if (of_property_read_u32(pdev->dev.of_node,
-			"mediatek,plat_info", &g_plat_inf))
+			"mediatek,plat-info", &g_plat_inf))
 		g_plat_inf = DEFAULT_PLAT_INF;
 
 	CCCI_NORMAL_LOG(0, TAG,

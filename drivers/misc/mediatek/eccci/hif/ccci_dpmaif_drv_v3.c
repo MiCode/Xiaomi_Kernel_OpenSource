@@ -1385,7 +1385,7 @@ static int drv3_setting_hw_reset_func(void)
 	int hw_reset_ver = 0;
 	struct device_node *node;
 
-	ret = of_property_read_u32(dpmaif_ctl->dev->of_node, "hw_reset_ver",
+	ret = of_property_read_u32(dpmaif_ctl->dev->of_node, "hw-reset-ver",
 			&hw_reset_ver);
 
 	if (hw_reset_ver == 1) {

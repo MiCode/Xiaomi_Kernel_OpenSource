@@ -224,9 +224,9 @@ static void spd_qos_tbl_init(void)
 	node = of_find_compatible_node(NULL, NULL,
 			"mediatek,dpmaif");
 	if (node) {
-		ret = of_property_read_u32(node, "net_spd_ver", &ver);
+		ret = of_property_read_u32(node, "net-spd-ver", &ver);
 		if (ret < 0)
-			pr_info("ccci: spd: [%s] not found: net_spd_ver, ret=%d\n",
+			pr_info("ccci: spd: [%s] not found: net-spd-ver, ret=%d\n",
 				__func__, ret);
 	}
 
