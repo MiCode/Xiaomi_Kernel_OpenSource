@@ -395,8 +395,7 @@ static int set_genpd_notify(void)
 			pa.args_count = 1;
 
 			snprintf(pd_dev_name, DEVN_LEN, "power-domain-chk-%d", i);
-			pd_pdev[i] = platform_device_register_simple(pd_dev_name,
-					-1, NULL, 0);
+			pd_pdev[i] = platform_device_alloc(pd_dev_name, 0);
 
 			if (!pd_pdev[i]) {
 				pr_notice("create pd-%d device fail\n", i);
@@ -406,7 +405,7 @@ static int set_genpd_notify(void)
 			r = of_genpd_add_device(&pa, &pd_pdev[i]->dev);
 			if (r == -EINVAL) {
 				pr_notice("add pd device fail\n");
-				platform_device_unregister(pd_pdev[i]);
+				platform_device_put(pd_pdev[i]);
 				break;
 			} else if (r != 0)
 				pr_notice("%s(): of_genpd_add_device(%d)\n", __func__, r);
@@ -414,6 +413,7 @@ static int set_genpd_notify(void)
 			pds[i] = pd_to_genpd(pd_pdev[i]->dev.pm_domain);
 			if (IS_ERR(pds[i])) {
 				pr_notice("pd-%d is err\n", i);
+				platform_device_put(pd_pdev[i]);
 				break;
 			}
 
@@ -422,6 +422,7 @@ static int set_genpd_notify(void)
 			r = dev_pm_genpd_add_notifier(&pd_pdev[i]->dev, &mtk_pd_notifier[i]);
 			if (r) {
 				pr_notice("pd-%s notifier err\n", pds[i]->name);
+				platform_device_put(pd_pdev[i]);
 				break;
 			}
 
