@@ -268,7 +268,7 @@
 			entry-method = "arm,psci";
 			cpuoff_l: cpuoff_l {
 				compatible = "arm,idle-state";
-				arm,psci-suspend-param = <0x00010001>;
+				arm,psci-suspend-param = <0x00010000>;
 				local-timer-stop;
 				entry-latency-us = <50>;
 				exit-latency-us = <100>;
@@ -276,7 +276,7 @@
 			};
 			cpuoff_m: cpuoff_m {
 				compatible = "arm,idle-state";
-				arm,psci-suspend-param = <0x00010002>;
+				arm,psci-suspend-param = <0x00010000>;
 				local-timer-stop;
 				entry-latency-us = <120>;
 				exit-latency-us = <240>;
@@ -284,7 +284,7 @@
 			};
 			cpuoff_b: cpuoff_b {
 				compatible = "arm,idle-state";
-				arm,psci-suspend-param = <0x00010002>;
+				arm,psci-suspend-param = <0x00010000>;
 				local-timer-stop;
 				entry-latency-us = <120>;
 				exit-latency-us = <240>;
@@ -8432,7 +8432,7 @@
 		lpm-kernel-suspend = <1>;
 		suspend-method = "disable";
 
-		logger-enable-states = "mcusysoff", "system_mem",
+		logger-enable-states = "mcusysoff_l", "mcusysoff_m", "mcusysoff_b", "system_mem",
 					"system_pll", "system_bus";
 
 		irq-remain =	<&edge_keypad>,
