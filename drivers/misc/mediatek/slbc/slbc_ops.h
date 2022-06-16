@@ -131,11 +131,11 @@ struct slbc_ops {
 	struct list_head node;
 	struct slbc_data *data;
 	int (*activate)(struct slbc_data *data);
-	void (*deactivate)(struct slbc_data *data);
+	int (*deactivate)(struct slbc_data *data);
 };
 
 extern unsigned int slbc_enable;
-extern char *slbc_uid_str[UID_MAX];
+extern char *slbc_uid_str[UID_MAX + 1];
 extern int popcount(unsigned int x);
 
 #if IS_ENABLED(CONFIG_MTK_SLBC)
@@ -146,6 +146,8 @@ extern int slbc_power_on(struct slbc_data *d);
 extern int slbc_power_off(struct slbc_data *d);
 extern int slbc_secure_on(struct slbc_data *d);
 extern int slbc_secure_off(struct slbc_data *d);
+extern int slbc_register_activate_ops(struct slbc_ops *ops);
+extern int slbc_activate_status(struct slbc_data *d);
 extern void slbc_update_mm_bw(unsigned int bw);
 extern void slbc_update_mic_num(unsigned int num);
 extern void slbc_update_inner(unsigned int inner);
@@ -176,6 +178,14 @@ __weak int slbc_secure_on(struct slbc_data *d)
 	return -EDISABLED;
 };
 __weak int slbc_secure_off(struct slbc_data *d)
+{
+	return -EDISABLED;
+};
+__weak int slbc_register_activate_ops(struct slbc_ops *ops)
+{
+	return -EDISABLED;
+};
+__weak int slbc_activate_status(struct slbc_data *d)
 {
 	return -EDISABLED;
 };

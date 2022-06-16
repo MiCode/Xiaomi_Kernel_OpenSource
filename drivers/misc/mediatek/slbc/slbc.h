@@ -88,6 +88,8 @@ struct slbc_common_ops {
 	int (*slbc_power_off)(struct slbc_data *d);
 	int (*slbc_secure_on)(struct slbc_data *d);
 	int (*slbc_secure_off)(struct slbc_data *d);
+	int (*slbc_register_activate_ops)(struct slbc_ops *ops);
+	int (*slbc_activate_status)(struct slbc_data *d);
 	u32 (*slbc_sram_read)(u32 offset);
 	void (*slbc_sram_write)(u32 offset, u32 val);
 	void (*slbc_update_mm_bw)(unsigned int bw);

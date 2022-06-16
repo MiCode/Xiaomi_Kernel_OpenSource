@@ -26,7 +26,7 @@ EXPORT_SYMBOL_GPL(slbc_enable);
 struct slbc_common_ops *common_ops;
 
 /* need to modify enum slbc_uid */
-char *slbc_uid_str[UID_MAX] = {
+char *slbc_uid_str[UID_MAX + 1] = {
 	"UID_ZERO",
 	"UID_MM_VENC",
 	"UID_MM_DISP",
@@ -54,6 +54,7 @@ char *slbc_uid_str[UID_MAX] = {
 	"UID_SH_P1",
 	"UID_SMT",
 	"UID_APU",
+	"UID_MAX",
 };
 EXPORT_SYMBOL_GPL(slbc_uid_str);
 
@@ -152,6 +153,24 @@ int slbc_secure_off(struct slbc_data *d)
 		return -ENODEV;
 }
 EXPORT_SYMBOL_GPL(slbc_secure_off);
+
+int slbc_register_activate_ops(struct slbc_ops *ops)
+{
+	if (common_ops && common_ops->slbc_register_activate_ops)
+		return common_ops->slbc_register_activate_ops(ops);
+	else
+		return -ENODEV;
+}
+EXPORT_SYMBOL_GPL(slbc_register_activate_ops);
+
+int slbc_activate_status(struct slbc_data *d)
+{
+	if (common_ops && common_ops->slbc_activate_status)
+		return common_ops->slbc_activate_status(d);
+	else
+		return -ENODEV;
+}
+EXPORT_SYMBOL_GPL(slbc_activate_status);
 
 void slbc_update_mm_bw(unsigned int bw)
 {
