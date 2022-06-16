@@ -1075,7 +1075,7 @@ extern const struct mtk_aie_drv_ops aie_ops_isp7s;
 /*                   C L A S S    D E C L A R A T I O N                   */
 /**************************************************************************/
 
-//void config_aie_cmdq_secure_init(struct mtk_aie_dev *fd);
-//void aie_enable_secure_domain(struct mtk_aie_dev *fd);
-//void aie_disable_secure_domain(struct mtk_aie_dev *fd);
+void config_aie_cmdq_secure_init(struct mtk_aie_dev *fd);
+void aie_enable_secure_domain(struct mtk_aie_dev *fd);
+void aie_disable_secure_domain(struct mtk_aie_dev *fd);
 #endif /*__MTK_AIE_H__*/

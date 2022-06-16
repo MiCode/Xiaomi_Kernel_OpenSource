@@ -34,7 +34,7 @@
 
 #define AIE_ALIGN32(x) round_up(x, 32)
 
-//static struct cmdq_pkt *g_sec_pkt;
+static struct cmdq_pkt *g_sec_pkt;
 static const unsigned int fd_wdma_en[fd_loop_num][output_WDMA_WRA_num] = {
 	{1, 0, 0, 0}, {1, 0, 1, 0}, {1, 0, 1, 0}, {1, 0, 0, 0}, {1, 1, 1, 1},
 	{1, 1, 1, 1}, {1, 0, 0, 0}, {1, 0, 1, 0}, {1, 1, 0, 0}, {1, 0, 0, 0},
@@ -4464,7 +4464,7 @@ static void AIECmdqCB(struct cmdq_cb_data data)
 
 	queue_work(fd->frame_done_wq, &fd->req_work.work);
 }
-#if CHECK_SERVICE_IF_0
+
 static void AIECmdqSecCB(struct cmdq_cb_data data)
 {
 	struct mtk_aie_dev *fd = (struct mtk_aie_dev *)data.data;
@@ -4515,7 +4515,7 @@ void aie_disable_secure_domain(struct mtk_aie_dev *fd)
 	cmdq_pkt_wait_complete(pkt);
 	cmdq_pkt_destroy(pkt);
 }
-#endif
+
 static void config_aie_cmdq_hw(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg)
 {
 	struct cmdq_pkt *pkt = NULL;
