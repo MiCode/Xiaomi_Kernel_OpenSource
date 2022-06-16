@@ -603,7 +603,7 @@ static struct mtk_device_info mt6789_devices_infra[] = {
 	{-1, -1, 387, "OOB_way_en", true},
 	{-1, -1, 388, "OOB_way_en", true},
 	{-1, -1, 389, "OOB_way_en", true},
-	{-1, -1, 390, "Decode_error", true},
+	{-1, -1, 390, "Decode_error", false},
 	{-1, -1, 391, "Decode_error", true},
 
 	/* 390 */
