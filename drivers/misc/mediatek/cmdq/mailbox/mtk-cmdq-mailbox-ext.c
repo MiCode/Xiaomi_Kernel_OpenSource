@@ -2222,6 +2222,7 @@ static int cmdq_probe(struct platform_device *pdev)
 	int err, i;
 	struct gce_plat *plat_data;
 	static u8 hwid;
+	char buf[NAME_MAX];
 
 	cmdq = devm_kzalloc(dev, sizeof(*cmdq), GFP_KERNEL);
 	if (!cmdq)
@@ -2378,7 +2379,8 @@ static int cmdq_probe(struct platform_device *pdev)
 		WARN_ON(clk_prepare(cmdq->clock_timer) < 0);
 	}
 
-	cmdq->wake_lock = wakeup_source_register(dev, "cmdq_pm_lock");
+	snprintf(buf, NAME_MAX, "cmdq_%d_pm_lock", cmdq->hwid);
+	cmdq->wake_lock = wakeup_source_register(dev, buf);
 
 	spin_lock_init(&cmdq->lock);
 
