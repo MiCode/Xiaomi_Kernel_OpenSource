@@ -159,7 +159,7 @@ static void probe_android_vh_set_memory_nx(void *ignore, unsigned long addr,
 }
 
 #ifdef SUPPORT_FULL_KERNEL_CODE_2M
-bool full_kernel_code_2m __initdata;
+bool full_kernel_code_2m;
 #endif
 
 #if !IS_ENABLED(CONFIG_KASAN_GENERIC) && !IS_ENABLED(CONFIG_KASAN_SW_TAGS)
@@ -890,7 +890,7 @@ static const struct of_device_id mkp_of_match[] = {
 MODULE_DEVICE_TABLE(of, mkp_of_match);
 
 #ifndef SUPPORT_FULL_KERNEL_CODE_2M
-static void __init free_reserved_memory(phys_addr_t start_phys, phys_addr_t end_phys)
+static void free_reserved_memory(phys_addr_t start_phys, phys_addr_t end_phys)
 {
 	phys_addr_t pos;
 	unsigned long nr_pages = 0;
@@ -910,7 +910,7 @@ static void __init free_reserved_memory(phys_addr_t start_phys, phys_addr_t end_
 }
 #endif
 
-static int __init get_reserved_memory(struct device *dev)
+static int get_reserved_memory(struct device *dev)
 {
 	struct device_node *np;
 	struct reserved_mem *rmem;
@@ -942,7 +942,7 @@ static int __init get_reserved_memory(struct device *dev)
 	return 0;
 }
 
-static int __init mkp_probe(struct platform_device *pdev)
+static int mkp_probe(struct platform_device *pdev)
 {
 	get_reserved_memory(&pdev->dev);
 
