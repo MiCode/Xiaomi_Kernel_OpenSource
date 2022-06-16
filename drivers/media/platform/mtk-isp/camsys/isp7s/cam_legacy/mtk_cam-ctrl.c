@@ -70,7 +70,15 @@ static void mtk_cam_event_eos(struct mtk_raw_pipeline *pipeline)
 	};
 	v4l2_event_queue(pipeline->subdev.devnode, &event);
 }
-
+void mtk_cam_event_esd_recovery(struct mtk_raw_pipeline *pipeline,
+				     unsigned int frame_seq_no)
+{
+	struct v4l2_event event = {
+		.type = V4L2_EVENT_ESD_RECOVERY,
+		.u.frame_sync.frame_sequence = frame_seq_no,
+	};
+	v4l2_event_queue(pipeline->subdev.devnode, &event);
+}
 static void mtk_cam_sv_event_eos(struct mtk_camsv_pipeline *pipeline)
 {
 	struct v4l2_event event = {

@@ -8309,7 +8309,8 @@ static void mtk_cam_ctx_watchdog_worker(struct work_struct *work)
 				dev_info(ctx->cam->dev, "abnormal vsync\n");
 			atomic_set(&ctx->watchdog_dumped, 1); // fixme
 			atomic_set(&ctx->watchdog_cnt, 0);
-			mtk_cam_seninf_dump(seninf, dequeued_frame_seq_no, true);
+			if (mtk_cam_seninf_dump(seninf, dequeued_frame_seq_no, true))
+				mtk_cam_event_esd_recovery(ctx->pipe, ctx->dequeued_frame_seq_no);
 			/* both reset are required */
 			atomic_set(&ctx->watchdog_cnt, 0);
 			atomic_inc(&ctx->watchdog_dump_cnt);
