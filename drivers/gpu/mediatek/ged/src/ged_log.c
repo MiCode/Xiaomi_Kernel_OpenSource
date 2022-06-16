@@ -1195,6 +1195,241 @@ static noinline int tracing_mark_write(const char *buf)
 	trace_printk(buf);
 	return 0;
 }
+
+noinline void Policy__Frame_based__Frequency(int v1, int v2)
+{
+	char buf[256];
+	int cx;
+
+	if (ged_log_perf_trace_enable) {
+		cx = snprintf(buf, sizeof(buf), "target=%d, floor=%d\n", v1, v2);
+		if (cx >= 0 && cx < sizeof(buf))
+			trace_printk(buf);
+	}
+}
+
+noinline void Policy__Frame_based__Workload(int v1, int v2)
+{
+	char buf[256];
+	int cx;
+
+	if (ged_log_perf_trace_enable) {
+		cx = snprintf(buf, sizeof(buf), "cur=%d, aggregate=%d\n", v1, v2);
+		if (cx >= 0 && cx < sizeof(buf))
+			trace_printk(buf);
+	}
+}
+
+noinline void Policy__Frame_based__Workload__Source(int v1, int v2)
+{
+	char buf[256];
+	int cx;
+
+	if (ged_log_perf_trace_enable) {
+		cx = snprintf(buf, sizeof(buf), "gpueb=%d, ap=%d\n", v1, v2);
+		if (cx >= 0 && cx < sizeof(buf))
+			trace_printk(buf);
+	}
+}
+
+noinline void Policy__Frame_based__GPU_Time(int v1, int v2, int v3)
+{
+	char buf[256];
+	int cx;
+
+	if (ged_log_perf_trace_enable) {
+		cx = snprintf(buf, sizeof(buf),
+			"t_gpu=%d, t_gpu_target=%d, t_gpu_target_hd=%d\n",
+			v1, v2, v3);
+		if (cx >= 0 && cx < sizeof(buf))
+			trace_printk(buf);
+	}
+}
+
+noinline void Policy__Frame_based__Margin(int v1, int v2, int v3)
+{
+	char buf[256];
+	int cx;
+
+	if (ged_log_perf_trace_enable) {
+		cx = snprintf(buf, sizeof(buf), "ceil=%d, cur=%d, floor=%d\n", v1, v2, v3);
+		if (cx >= 0 && cx < sizeof(buf))
+			trace_printk(buf);
+	}
+}
+
+noinline void Policy__Frame_based__Margin__Detail(unsigned int v1, int v2, int v3, int v4, int v5)
+{
+	char buf[256];
+	int cx;
+
+	if (ged_log_perf_trace_enable) {
+		cx = snprintf(buf, sizeof(buf),
+			"margin_mode=%d, target_fps_margin=%d, min_margin_inc_step=%d, min_margin=%d, min_dcs_margin=%d\n",
+			v1, v2, v3, v4, v5);
+		if (cx >= 0 && cx < sizeof(buf))
+			trace_printk(buf);
+	}
+}
+
+noinline void Policy__Loading_based__Opp(int v1)
+{
+	char buf[256];
+	int cx;
+
+	if (ged_log_perf_trace_enable) {
+		cx = snprintf(buf, sizeof(buf), "target=%d\n", v1);
+		if (cx >= 0 && cx < sizeof(buf))
+			trace_printk(buf);
+	}
+}
+
+noinline void Policy__Loading_based__Loading(unsigned int v1, unsigned int v2)
+{
+	char buf[256];
+	int cx;
+
+	if (ged_log_perf_trace_enable) {
+		cx = snprintf(buf, sizeof(buf), "cur=%u, average=%u\n", v1, v2);
+		if (cx >= 0 && cx < sizeof(buf))
+			trace_printk(buf);
+	}
+}
+
+noinline void Policy__Loading_based__Loading__Detail(unsigned int v1, unsigned int v2,
+	unsigned int v3, unsigned int v4, int v5)
+{
+	char buf[256];
+	int cx;
+
+	if (ged_log_perf_trace_enable) {
+		cx = snprintf(buf, sizeof(buf),
+			"active=%u, 3d=%u, ta=%u, compute=%u, mode=%d\n",
+			v1, v2, v3, v4, v5);
+		if (cx >= 0 && cx < sizeof(buf))
+			trace_printk(buf);
+	}
+}
+
+noinline void Policy__Loading_based__Bound(int v1, int v2, int v3, int v4)
+{
+	char buf[256];
+	int cx;
+
+	if (ged_log_perf_trace_enable) {
+		cx = snprintf(buf, sizeof(buf),
+			"ultra_high=%d, high=%d, low=%d, ultra_low=%d\n",
+			v1, v2, v3, v4);
+		if (cx >= 0 && cx < sizeof(buf))
+			trace_printk(buf);
+	}
+}
+
+noinline void Policy__Loading_based__Step(unsigned int v1, unsigned int v2, int v3, int v4)
+{
+	char buf[256];
+	int cx;
+
+	if (ged_log_perf_trace_enable) {
+		cx = snprintf(buf, sizeof(buf),
+			"up_count=%u, down_count=%u, step_limit=%d, ultra_high_step_size=%d\n",
+			v1, v2, v3, v4);
+		if (cx >= 0 && cx < sizeof(buf))
+			trace_printk(buf);
+	}
+}
+
+noinline void Policy__Loading_based__GPU_Time(int v1, int v2, int v3, int v4, int v5)
+{
+	char buf[256];
+	int cx;
+
+	if (ged_log_perf_trace_enable) {
+		cx = snprintf(buf, sizeof(buf),
+			"t_gpu=%d, t_gpu_target=%d, t_gpu_target_hd=%d, t_gpu_real=%d, t_gpu_pipe=%d\n",
+			v1, v2, v3, v4, v5);
+		if (cx >= 0 && cx < sizeof(buf))
+			trace_printk(buf);
+	}
+}
+
+noinline void Policy__Loading_based__Margin(int v1, int v2, int v3)
+{
+	char buf[256];
+	int cx;
+
+	if (ged_log_perf_trace_enable) {
+		cx = snprintf(buf, sizeof(buf), "ceil=%d, cur=%d, floor=%d\n", v1, v2, v3);
+		if (cx >= 0 && cx < sizeof(buf))
+			trace_printk(buf);
+	}
+}
+
+noinline void Policy__Loading_based__Margin__Detail(unsigned int v1, int v2, int v3,
+	unsigned int v4, int v5)
+{
+	char buf[256];
+	int cx;
+
+	if (ged_log_perf_trace_enable) {
+		cx = snprintf(buf, sizeof(buf),
+			"margin_mode=%u, min_margin_inc_step=%d, min_margin=%d, step_margin=%u, min_dcs_margin=%d\n",
+			v1, v2, v3, v4, v5);
+		if (cx >= 0 && cx < sizeof(buf))
+			trace_printk(buf);
+	}
+}
+
+noinline void Policy__DCS(int v1, int v2)
+{
+	char buf[256];
+	int cx;
+
+	if (ged_log_perf_trace_enable) {
+		cx = snprintf(buf, sizeof(buf), "max_core=%d, current_core=%d\n", v1, v2);
+		if (cx >= 0 && cx < sizeof(buf))
+			trace_printk(buf);
+	}
+}
+
+noinline void Policy__DCS__Detail(unsigned int v1)
+{
+	char buf[256];
+	int cx;
+
+	if (ged_log_perf_trace_enable) {
+		cx = snprintf(buf, sizeof(buf), "core_mask=0x%llX\n", v1);
+		if (cx >= 0 && cx < sizeof(buf))
+			trace_printk(buf);
+	}
+}
+
+noinline void Policy__Common__Commit_Reason(int v1, int v2)
+{
+	char buf[256];
+	int cx;
+
+	if (ged_log_perf_trace_enable) {
+		cx = snprintf(buf, sizeof(buf),
+			"main_producer_ratio=%d, fb_dvfs_threshold=%d\n",
+			v1, v2);
+		if (cx >= 0 && cx < sizeof(buf))
+			trace_printk(buf);
+	}
+}
+
+noinline void Frequency__(long long v1, unsigned long v2)
+{
+	char buf[256];
+	int cx;
+
+	if (ged_log_perf_trace_enable) {
+		cx = snprintf(buf, sizeof(buf), "virtual_freq=%lld, real_freq=%lu\n", v1, v2);
+		if (cx >= 0 && cx < sizeof(buf))
+			trace_printk(buf);
+	}
+}
+
 void ged_log_trace_begin(char *name)
 {
 #ifdef ENABLE_GED_SYSTRACE_UTIL

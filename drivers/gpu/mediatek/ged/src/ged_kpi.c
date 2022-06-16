@@ -865,6 +865,10 @@ static int ged_kpi_check_fallback_mode(void)
 	}
 	count += main_head->i32Count;
 
+	int main_producer_ratio = count * 100 / GED_KPI_TOTAL_ITEMS;
+
+	Policy__Common__Commit_Reason(main_producer_ratio, g_fb_dvfs_threshold);
+
 	if (count * 100 / GED_KPI_TOTAL_ITEMS > g_fb_dvfs_threshold)
 		return 0;
 
