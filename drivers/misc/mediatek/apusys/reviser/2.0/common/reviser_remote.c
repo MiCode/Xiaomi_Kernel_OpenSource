@@ -134,7 +134,7 @@ wait:
 		retry++;
 		goto wait;
 	}
-	if (ret == 0) {
+	if (!ret) {
 		LOG_ERR("wait command timeout!!\n");
 		ret = -ETIME;
 		goto out;
