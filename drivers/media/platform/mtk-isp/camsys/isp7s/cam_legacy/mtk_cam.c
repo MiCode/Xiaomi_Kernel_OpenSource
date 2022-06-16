@@ -353,19 +353,17 @@ void mtk_cam_s_data_update_timestamp(struct mtk_cam_buffer *buf,
 	    mtk_cam_scen_is_ext_isp(s_data_ctx->feature.scen)) {
 		switch (node->desc.id) {
 		case MTK_RAW_MAIN_STREAM_SV_1_OUT:
-			vb->timestamp = s_data->preisp_img_ts[0];
-			break;
 		case MTK_RAW_MAIN_STREAM_SV_2_OUT:
-			vb->timestamp = s_data->preisp_img_ts[1];
-			break;
 		case MTK_RAW_META_SV_OUT_0:
-			vb->timestamp = s_data->preisp_meta_ts[0];
-			break;
 		case MTK_RAW_META_SV_OUT_1:
-			vb->timestamp = s_data->preisp_meta_ts[1];
-			break;
 		case MTK_RAW_META_SV_OUT_2:
-			vb->timestamp = s_data->preisp_meta_ts[2];
+			dev_info(ctx->cam->dev,
+			"%s:%s:vb sequence:%d, timestamp:%lld (mono:%d), pure/meta/proc:%lld/%lld/%lld\n",
+			__func__, node->desc.name, buf->vbb.sequence, vb->timestamp,
+			vb->vb2_queue->timestamp_flags & V4L2_BUF_FLAG_TIMESTAMP_MONOTONIC,
+			s_data->preisp_img_ts[0],
+			s_data->preisp_meta_ts[0],
+			s_data->preisp_img_ts[1]);
 			break;
 		default:
 			break;
@@ -432,7 +430,15 @@ static void mtk_cam_req_return_pipe_buffers(struct mtk_cam_request *req,
 	buf_state = atomic_read(&s_data_pipe->buf_state);
 	if (buf_state == -1)
 		buf_state = VB2_BUF_STATE_ERROR;
-
+	if (mtk_cam_scen_is_ext_isp(&s_data_pipe->ctx->pipe->scen_active) &&
+		is_camsv_subdev(pipe_id) &&
+		buf_state == VB2_BUF_STATE_ERROR) {
+		dev_info(cam->dev,
+				"camsv %s:%s: seq:%d FORCED TO DONE\n",
+				__func__, req->req.debug_str,
+				s_data_pipe->frame_seq_no);
+		buf_state = VB2_BUF_STATE_DONE;
+	}
 	dev_dbg(cam->dev,
 		"%s:%s: pipe_id(%d) buf_state(%d) buf_ret_cnt(%d)\n", __func__,
 		req->req.debug_str, pipe_id, buf_state, buf_ret_cnt);
@@ -5932,6 +5938,17 @@ void mtk_cam_dev_req_enqueue(struct mtk_cam_device *cam,
 				continue;
 			atomic_set(&ctx->sensor_ctrl.sensor_enq_seq_no,
 				atomic_read(&ctx->enqueued_frame_seq_no));
+			/* state handling first*/
+			req_stream_data = mtk_cam_req_get_s_data(req, stream_id, 0);
+			scen = req_stream_data->feature.scen;
+			if (mtk_cam_ctx_has_raw(ctx) && mtk_cam_scen_is_time_shared(scen)) {
+				req_stream_data->frame_params.raw_param.hardware_scenario =
+						MTKCAM_IPI_HW_PATH_OFFLINE;
+				req_stream_data->frame_params.raw_param.exposure_num = 1;
+				req_stream_data->state.estate = E_STATE_TS_READY;
+			}
+			if (mtk_cam_ctx_has_raw(ctx) && mtk_cam_scen_is_ext_isp(scen))
+				req_stream_data->state.estate = E_STATE_EXTISP_READY;
 			/*sensor setting after request drained check*/
 			if (ctx->used_raw_num) {
 				req_stream_data = mtk_cam_req_get_s_data(req, stream_id, 0);
@@ -5943,7 +5960,8 @@ void mtk_cam_dev_req_enqueue(struct mtk_cam_device *cam,
 				/* TBC: Ryan, should we use scen_active? */
 				if (scen->id == MTK_CAM_SCEN_NORMAL ||
 				    (mtk_cam_scen_is_mstream(scen) &&
-				     scen->scen.mstream.type == MTK_CAM_MSTREAM_1_EXPOSURE)) {
+				     scen->scen.mstream.type == MTK_CAM_MSTREAM_1_EXPOSURE) ||
+				     mtk_cam_scen_is_ext_isp(scen)) {
 					/* check if deadline timer drained ever triggered */
 					/* should exclude sensor set in below <= second request */
 					if (atomic_read(&sensor_ctrl->sensor_enq_seq_no) ==
@@ -5962,8 +5980,6 @@ void mtk_cam_dev_req_enqueue(struct mtk_cam_device *cam,
 							sensor_ctrl);
 				}
 			}
-			req_stream_data = mtk_cam_req_get_s_data(req, stream_id, 0);
-			scen = req_stream_data->feature.scen;
 			immediate_switch_sensor = mtk_cam_is_immediate_switch_req(req, stream_id);
 
 			/**
@@ -5991,16 +6007,6 @@ void mtk_cam_dev_req_enqueue(struct mtk_cam_device *cam,
 					INIT_WORK(&done_work->work, mtk_cam_meta1_done_work);
 				}
 			}
-
-			if (mtk_cam_ctx_has_raw(ctx) && mtk_cam_scen_is_time_shared(scen)) {
-				req_stream_data->frame_params.raw_param.hardware_scenario =
-						MTKCAM_IPI_HW_PATH_OFFLINE;
-				req_stream_data->frame_params.raw_param.exposure_num = 1;
-				req_stream_data->state.estate = E_STATE_TS_READY;
-			}
-			if (mtk_cam_ctx_has_raw(ctx) && mtk_cam_scen_is_ext_isp(scen))
-				req_stream_data->state.estate = E_STATE_EXTISP_READY;
-
 			if (!immediate_switch_sensor &&
 			    ctx->sensor && (initial_frame || mtk_cam_scen_is_m2m(scen))) {
 				if (mtk_cam_ctx_has_raw(ctx) &&
