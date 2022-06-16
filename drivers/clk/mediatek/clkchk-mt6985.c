@@ -65,13 +65,13 @@ static struct regbase rb[] = {
 	[ssr_top] = REGBASE_V(0x10400000, ssr_top, MT6985_CHK_PD_SSRSYS, CLK_NULL),
 	[perao] = REGBASE_V(0x11036000, perao, PD_NULL, CLK_NULL),
 	[afe] = REGBASE_V(0x11050000, afe, MT6985_CHK_PD_AUDIO, CLK_NULL),
-	[impc] = REGBASE_V(0x11281000, impc, PD_NULL, "i2c_ck"),
+	[impc] = REGBASE_V(0x11281000, impc, PD_NULL, CLK_NULL),
 	[ufscfg_ao_bus] = REGBASE_V(0x112B8000, ufscfg_ao_bus, PD_NULL, CLK_NULL),
 	[ufsao] = REGBASE_V(0x112b8000, ufsao, PD_NULL, CLK_NULL),
 	[ufspdn] = REGBASE_V(0x112bb000, ufspdn, PD_NULL, CLK_NULL),
 	[pext] = REGBASE_V(0x112e0000, pext, PD_NULL, CLK_NULL),
-	[imps] = REGBASE_V(0x11D07000, imps, PD_NULL, "i2c_ck"),
-	[impn] = REGBASE_V(0x11F06000, impn, PD_NULL, "i2c_ck"),
+	[imps] = REGBASE_V(0x11D07000, imps, PD_NULL, CLK_NULL),
+	[impn] = REGBASE_V(0x11F06000, impn, PD_NULL, CLK_NULL),
 	[gpu_eb_rpc] = REGBASE_V(0x13F91000, gpu_eb_rpc, PD_NULL, CLK_NULL),
 	[mfg_ao] = REGBASE_V(0x13fa0000, mfg_ao, PD_NULL, CLK_NULL),
 	[mfgsc_ao] = REGBASE_V(0x13fa0c00, mfgsc_ao, PD_NULL, CLK_NULL),
@@ -80,14 +80,11 @@ static struct regbase rb[] = {
 	[ovl] = REGBASE_V(0x14400000, ovl, MT6985_CHK_PD_OVLSYS, CLK_NULL),
 	[ovl1] = REGBASE_V(0x14600000, ovl1, MT6985_CHK_PD_OVLSYS1, CLK_NULL),
 	[img] = REGBASE_V(0x15000000, img, MT6985_CHK_PD_ISP_MAIN, CLK_NULL),
-	[img_sub0_bus] = REGBASE_V(0x15002000, img_sub0_bus, PD_NULL, CLK_NULL),
-	[img_sub1_bus] = REGBASE_V(0x15003000, img_sub1_bus, PD_NULL, CLK_NULL),
-	[dip_top_dip1] = REGBASE_V(0x15110000, dip_top_dip1, MT6985_CHK_PD_ISP_DIP1,
-			CLK_NULL),
-	[dip_nr1_dip1] = REGBASE_V(0x15130000, dip_nr1_dip1, MT6985_CHK_PD_ISP_DIP1,
-			CLK_NULL),
-	[dip_nr2_dip1] = REGBASE_V(0x15170000, dip_nr2_dip1, MT6985_CHK_PD_ISP_DIP1,
-			CLK_NULL),
+	[img_sub0_bus] = REGBASE_V(0x15002000, img_sub0_bus, MT6985_CHK_PD_ISP_MAIN, CLK_NULL),
+	[img_sub1_bus] = REGBASE_V(0x15003000, img_sub1_bus, MT6985_CHK_PD_ISP_MAIN, CLK_NULL),
+	[dip_top_dip1] = REGBASE_V(0x15110000, dip_top_dip1, MT6985_CHK_PD_ISP_DIP1, CLK_NULL),
+	[dip_nr1_dip1] = REGBASE_V(0x15130000, dip_nr1_dip1, MT6985_CHK_PD_ISP_DIP1, CLK_NULL),
+	[dip_nr2_dip1] = REGBASE_V(0x15170000, dip_nr2_dip1, MT6985_CHK_PD_ISP_DIP1, CLK_NULL),
 	[wpe1_dip1] = REGBASE_V(0x15220000, wpe1_dip1, MT6985_CHK_PD_ISP_DIP1, CLK_NULL),
 	[wpe2_dip1] = REGBASE_V(0x15520000, wpe2_dip1, MT6985_CHK_PD_ISP_DIP1, CLK_NULL),
 	[wpe3_dip1] = REGBASE_V(0x15620000, wpe3_dip1, MT6985_CHK_PD_ISP_DIP1, CLK_NULL),
@@ -104,7 +101,7 @@ static struct regbase rb[] = {
 	[vlpcfg] = REGBASE_V(0x1C00C000, vlpcfg, PD_NULL, CLK_NULL),
 	[vlp_ck] = REGBASE_V(0x1C013000, vlp_ck, PD_NULL, CLK_NULL),
 	[scp] = REGBASE_V(0x1C721000, scp, PD_NULL, CLK_NULL),
-	[scp_iic] = REGBASE_V(0x1C7B8000, scp_iic, PD_NULL, "i2c_ck"),
+	[scp_iic] = REGBASE_V(0x1C7B8000, scp_iic, PD_NULL, CLK_NULL),
 	[cam_m] = REGBASE_V(0x1a000000, cam_m, MT6985_CHK_PD_CAM_MAIN, CLK_NULL),
 	[cam_ra] = REGBASE_V(0x1a04f000, cam_ra, MT6985_CHK_PD_CAM_SUBA, CLK_NULL),
 	[cam_ya] = REGBASE_V(0x1a06f000, cam_ya, MT6985_CHK_PD_CAM_SUBA, CLK_NULL),
@@ -683,7 +680,6 @@ static struct mtk_vf vf_table[] = {
 	MTK_VF_TABLE("emi_s_sel", 200000, 200000, 200000, 200000, 200000),
 	MTK_VF_TABLE("ap2conn_host_sel", 78000, 78000, 78000, 78000, 78000),
 	MTK_VF_TABLE("mcu_acp_sel", 624000, 546000, 392857, 275000, 156000),
-	MTK_VF_TABLE("sflash_sel", 52000, 52000, 52000, 52000, 52000),
 	MTK_VF_TABLE("mcu_l3gic_sel", 156000, 156000, 156000, 156000, 156000),
 	MTK_VF_TABLE("ipseast_sel", 832000, 624000, 312000, 312000, 1248000),
 	MTK_VF_TABLE("ipssouth_sel", 832000, 624000, 312000, 312000, 1248000),
@@ -1049,12 +1045,21 @@ static int clk_chk_mt6985_probe(struct platform_device *pdev)
 	return 0;
 }
 
+static const struct of_device_id of_match_clkchk_mt6985[] = {
+	{
+		.compatible = "mediatek,mt6985-clkchk",
+	}, {
+		/* sentinel */
+	}
+};
+
 static struct platform_driver clk_chk_mt6985_drv = {
 	.probe = clk_chk_mt6985_probe,
 	.driver = {
 		.name = "clk-chk-mt6985",
 		.owner = THIS_MODULE,
 		.pm = &clk_chk_dev_pm_ops,
+		.of_match_table = of_match_clkchk_mt6985,
 	},
 };
 
@@ -1064,12 +1069,6 @@ static struct platform_driver clk_chk_mt6985_drv = {
 
 static int __init clkchk_mt6985_init(void)
 {
-	static struct platform_device *clk_chk_dev;
-
-	clk_chk_dev = platform_device_register_simple("clk-chk-mt6985", -1, NULL, 0);
-	if (IS_ERR(clk_chk_dev))
-		pr_warn("unable to register clk-chk device");
-
 	return platform_driver_register(&clk_chk_mt6985_drv);
 }
 
