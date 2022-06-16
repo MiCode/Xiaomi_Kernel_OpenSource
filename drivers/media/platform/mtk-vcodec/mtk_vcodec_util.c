@@ -464,6 +464,10 @@ void v4l_fill_mtk_fmtdesc(struct v4l2_fmtdesc *fmt)
 	case V4L2_PIX_FMT_RGBA1010102:
 	case V4L2_PIX_FMT_BGRA1010102:
 	    descr = "10-bit for RGB, 2-bit for A"; break;
+	case V4L2_PIX_FMT_NV12_HYFBC:
+		descr = "8-bit yuv 4:2:0 Hybrid FBC mode"; break;
+	case V4L2_PIX_FMT_P010_HYFBC:
+		descr = "10-bit yuv 4:2:0 Hybrid FBC mode"; break;
 	case V4L2_PIX_FMT_MT21:
 	case V4L2_PIX_FMT_MT2110T:
 	case V4L2_PIX_FMT_MT2110R:
