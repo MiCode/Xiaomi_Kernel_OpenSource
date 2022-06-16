@@ -14772,15 +14772,21 @@ void mtk_disp_mutex_remove_comp_with_cmdq(struct mtk_drm_crtc *mtk_crtc,
 			&ddp->mutex[mutex->id], mutex, mutex->id);
 
 	if (ddp->data->dispsys_map && ddp->data->dispsys_map[id] == 1 &&
-			ddp->side_regs_pa) {
+			ddp->side_regs_pa)
 		regs_pa = ddp->side_regs_pa;
-		if (ddp->ovlsys1_regs_pa)
-			ovlsys_regs_pa = ddp->ovlsys1_regs_pa;
-	} else {
+	else
 		regs_pa = ddp->regs_pa;
-		if (ddp->ovlsys0_regs_pa)
+
+	if (ddp->data->dispsys_map &&
+		ddp->data->dispsys_map[id] == OVLSYS1) {
+		if (ddp->ovlsys1_regs)
+			ovlsys_regs_pa = ddp->ovlsys1_regs_pa;
+	} else if (ddp->data->dispsys_map &&
+				ddp->data->dispsys_map[id] == OVLSYS0) {
+		if (ddp->ovlsys0_regs)
 			ovlsys_regs_pa = ddp->ovlsys0_regs_pa;
 	}
+
 	switch (id) {
 	case DDP_COMPONENT_DSI0:
 	case DDP_COMPONENT_DSI1:
