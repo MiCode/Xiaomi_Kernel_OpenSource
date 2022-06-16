@@ -54,7 +54,7 @@ static uint16_t layer_mapping_table[HRT_TB_NUM] = {
 	0x0003, 0x007E, 0x007A, 0x0001
 };
 static uint16_t layer_mapping_table_mt6985[HRT_TB_NUM] = {
-	0x0003, /*0x007E*/0x0006, 0x007A, 0x0001
+	0x0003, 0x007E, 0x007A, 0x0001
 }; //0x0006:one OVL_2L, 0x007E:three OVL_2L
 static uint16_t layer_mapping_table_vds_switch[HRT_TB_NUM] = {
 	0x0078, 0x0078, 0x0078, 0x0078
@@ -78,7 +78,7 @@ static uint16_t ovl_mapping_table[HRT_TB_NUM] = {
 	0x0002, 0x0045, 0x0045, 0x0001
 };
 static uint16_t ovl_mapping_table_mt6985[HRT_TB_NUM] = {
-	0x0002, /*0x0055*/0x0005, 0x0055, 0x0001
+	0x0002, 0x0055, 0x0055, 0x0001
 }; //0x0005:one OVL_2L, 0x0055:three OVL_2L
 static uint16_t ovl_mapping_tb_vds_switch[HRT_TB_NUM] = {
 	0x0045, 0x0045, 0x0045, 0x0045

@@ -2242,9 +2242,10 @@ static int mtk_lye_get_comp_id(int disp_idx, struct drm_device *drm_dev,
 					HRT_GET_FIRST_SET_BIT(ovl_mapping_tb)) >=
 					layer_map_idx) {
 					return DDP_COMPONENT_OVL0_2L;
-				} else if (HRT_GET_FIRST_SET_BIT(
+				} else if (HRT_GET_FIRST_SET_BIT(ovl_mapping_tb -
 					HRT_GET_FIRST_SET_BIT(ovl_mapping_tb -
-					HRT_GET_FIRST_SET_BIT(ovl_mapping_tb))) >=
+					HRT_GET_FIRST_SET_BIT(ovl_mapping_tb)) -
+					HRT_GET_FIRST_SET_BIT(ovl_mapping_tb)) >=
 					layer_map_idx) {
 					return DDP_COMPONENT_OVL1_2L;
 				} else

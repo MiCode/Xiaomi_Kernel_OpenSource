@@ -3990,8 +3990,8 @@ static const struct mtk_disp_ovl_data mt6985_ovl_driver_data = {
 	.issue_req_th_urg_dc = 15,
 	.greq_num_dl = 0x7777,
 	.is_support_34bits = true,
-	.aid_sel_mapping = &mtk_ovl_aid_sel_MT6983,
-	.mmsys_mapping = &mtk_ovl_mmsys_mapping_MT6983,
+	//.aid_sel_mapping = &mtk_ovl_aid_sel_MT6983, //remove till aid is ready
+	//.mmsys_mapping = &mtk_ovl_mmsys_mapping_MT6983, //remove till aid is ready
 	.source_bpc = 10,
 };
 
