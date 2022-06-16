@@ -50,12 +50,19 @@
 #define SPM_VMM_HW_SEM_REG_OFST_M6 0x6B4
 #define SPM_VMM_HW_SEM_REG_OFST_M7 0x6B8
 
+/* Buck ISO control for 7s */
+#define SPM_VMM_EXT_BUCK_ISO_BIT_7S 20
+#define SPM_AOC_VMM_SRAM_ISO_DIN_BIT_7S 21
+#define SPM_AOC_VMM_SRAM_LATCH_ENB_7S 22
+#define SOC_BUCK_ISO_CON_SET 0xF7C
+#define SOC_BUCK_ISO_CON_CLR 0xF80
+
 struct vmm_spm_drv_data {
 	void __iomem *spm_reg;
 	struct notifier_block nb;
 };
 
-struct vmm_spm_drv_data g_drv_data;
+static struct vmm_spm_drv_data g_drv_data;
 
 static void vmm_dump_spm_sem_reg(void __iomem *base)
 {
@@ -209,6 +216,45 @@ static int regulator_event_notify(struct notifier_block *nb,
 	return 0;
 }
 
+static void vmm_buck_isolation_off_7s(void __iomem *base)
+{
+	void __iomem *addr = base + SOC_BUCK_ISO_CON_CLR;
+
+	writel_relaxed((1 << SPM_VMM_EXT_BUCK_ISO_BIT_7S), addr);
+	writel_relaxed((1 << SPM_AOC_VMM_SRAM_ISO_DIN_BIT_7S), addr);
+	writel_relaxed((1 << SPM_AOC_VMM_SRAM_LATCH_ENB_7S), addr);
+}
+
+static void vmm_buck_isolation_on_7s(void __iomem *base)
+{
+	void __iomem *addr = base + SOC_BUCK_ISO_CON_SET;
+
+	writel_relaxed((1 << SPM_AOC_VMM_SRAM_LATCH_ENB_7S), addr);
+	writel_relaxed((1 << SPM_AOC_VMM_SRAM_ISO_DIN_BIT_7S), addr);
+	writel_relaxed((1 << SPM_VMM_EXT_BUCK_ISO_BIT_7S), addr);
+}
+
+static int regulator_event_notify_7s(struct notifier_block *nb,
+				  unsigned long event, void *data)
+{
+	struct vmm_spm_drv_data *drv_data = &g_drv_data;
+
+	if (!drv_data->spm_reg) {
+		ISP_LOGE("SPM_BASE is NULL");
+		return -EINVAL;
+	}
+
+	if (event == REGULATOR_EVENT_ENABLE) {
+		vmm_buck_isolation_off_7s(drv_data->spm_reg);
+		ISP_LOGI("VMM 7s regulator enable done");
+	} else if (event == REGULATOR_EVENT_PRE_DISABLE) {
+		vmm_buck_isolation_on_7s(drv_data->spm_reg);
+		ISP_LOGI("VMM 7s regulator before disable");
+	}
+
+	return 0;
+}
+
 static int vmm_spm_probe(struct platform_device *pdev)
 {
 	struct vmm_spm_drv_data *drv_data = &g_drv_data;
@@ -236,7 +282,10 @@ static int vmm_spm_probe(struct platform_device *pdev)
 		return PTR_ERR(reg);
 	}
 
-	drv_data->nb.notifier_call = regulator_event_notify;
+	if (of_device_is_compatible(dev->of_node, "mediatek,vmm_spm_7s"))
+		drv_data->nb.notifier_call = regulator_event_notify_7s;
+	else
+		drv_data->nb.notifier_call = regulator_event_notify;
 	ret = devm_regulator_register_notifier(reg, &drv_data->nb);
 	if (ret)
 		ISP_LOGE("Failed to register notifier: %d\n", ret);
@@ -247,6 +296,9 @@ static int vmm_spm_probe(struct platform_device *pdev)
 static const struct of_device_id of_vmm_spm_match_tbl[] = {
 	{
 		.compatible = "mediatek,vmm_spm",
+	},
+	{
+		.compatible = "mediatek,vmm_spm_7s",
 	},
 	{}
 };
