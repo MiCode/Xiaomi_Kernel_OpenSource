@@ -22,6 +22,19 @@
 #include "mtk-dsp-platform-driver.h"
 #include "mtk-base-afe.h"
 
+#include <linux/tracepoint.h>
+
+#if IS_ENABLED(CONFIG_MTK_AUDIODSP_SUPPORT)
+#define CREATE_TRACE_POINTS
+#include "mtk-dsp-trace.h"
+#else
+#define trace_mtk_dsp_dl_consume_handler(pRead, pWrite, bufLen, datacount, id)
+#define trace_mtk_dsp_pcm_copy_dl(id, copy_size, availsize)
+#define trace_mtk_dsp_check_exception(param1, param2, underflowed, id)
+#define trace_mtk_dsp_start(underflowed, id)
+#define trace_mtk_dsp_stop(id)
+#endif
+
 static DEFINE_MUTEX(adsp_wakelock_lock);
 
 #define IPIMSG_SHARE_MEM (1024)
@@ -29,7 +42,6 @@ static DEFINE_MUTEX(adsp_wakelock_lock);
 static int adsp_wakelock_count;
 static struct wakeup_source *adsp_audio_wakelock;
 static int ktv_status;
-
 
 //#define DEBUG_VERBOSE
 //#define DEBUG_VERBOSE_IRQ
@@ -553,6 +565,10 @@ static bool mtk_dsp_check_exception(struct mtk_base_dsp *dsp,
 		return false;
 	}
 
+	if (ipi_msg)
+		trace_mtk_dsp_check_exception(ipi_msg->param1, ipi_msg->param2,
+					      dsp->dsp_mem[id].underflowed, id);
+
 	/* adsp reset message */
 	if (ipi_msg && ipi_msg->param2 == ADSP_DL_CONSUME_RESET) {
 		pr_info("%s() %s adsp reset\n", __func__, task_name);
@@ -565,9 +581,7 @@ static bool mtk_dsp_check_exception(struct mtk_base_dsp *dsp,
 	if (ipi_msg && ipi_msg->param2 == ADSP_DL_CONSUME_UNDERFLOW) {
 		pr_info("%s() %s adsp underflow\n", __func__, task_name);
 		dsp->dsp_mem[id].underflowed = true;
-
 		snd_pcm_period_elapsed(dsp->dsp_mem[id].substream);
-
 		return true;
 	}
 
@@ -582,6 +596,7 @@ static void mtk_dsp_dl_consume_handler(struct mtk_base_dsp *dsp,
 	spinlock_t *ringbuf_lock = &dsp->dsp_mem[id].ringbuf_lock;
 	struct snd_pcm_substream *substream;
 	unsigned long flags = 0;
+	struct RingBuf *ring_buf;
 
 	if (!dsp->dsp_mem[id].substream) {
 		return;
@@ -590,8 +605,9 @@ static void mtk_dsp_dl_consume_handler(struct mtk_base_dsp *dsp,
 	if (!snd_pcm_running(dsp->dsp_mem[id].substream)) {
 		return;
 	}
-	substream = dsp->dsp_mem[id].substream;
 
+	substream = dsp->dsp_mem[id].substream;
+	ring_buf = &dsp_mem->ring_buf;
 
 	// handle for no restart pcm, copy audio_hw_buffer from msg payload, others from share mem
 	if ((substream->runtime->stop_threshold > substream->runtime->start_threshold) && ipi_msg) {
@@ -616,6 +632,10 @@ static void mtk_dsp_dl_consume_handler(struct mtk_base_dsp *dsp,
 		&dsp->dsp_mem[id].adsp_buf.aud_buffer.buf_bridge);
 
 	spin_unlock_irqrestore(ringbuf_lock, flags);
+
+	trace_mtk_dsp_dl_consume_handler((unsigned long)(ring_buf->pRead - ring_buf->pBufBase),
+					 (unsigned long)(ring_buf->pWrite - ring_buf->pBufBase),
+					 ring_buf->bufLen, ring_buf->datacount, id);
 
 #ifdef DEBUG_VERBOSE_IRQ
 	dump_rbuf_s("dl_consume after sync", &dsp->dsp_mem[id].ring_buf);
@@ -983,6 +1003,8 @@ static int mtk_dsp_start(struct snd_pcm_substream *substream,
 
 	dsp_mem->underflowed = 0;
 
+	trace_mtk_dsp_start(dsp_mem->underflowed, id);
+
 	ret = mtk_scp_ipi_send(get_dspscene_by_dspdaiid(id), AUDIO_IPI_MSG_ONLY,
 			       AUDIO_IPI_MSG_DIRECT_SEND, AUDIO_DSP_TASK_START,
 			       1, 0, NULL);
@@ -996,6 +1018,8 @@ static int mtk_dsp_stop(struct snd_pcm_substream *substream,
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct snd_soc_dai *cpu_dai = asoc_rtd_to_cpu(rtd, 0);
 	int id = cpu_dai->id;
+
+	trace_mtk_dsp_stop(id);
 
 	/* Avoid print log in alsa stop. If underflow happens,
 	 * log will be printed in ISR.
@@ -1047,6 +1071,7 @@ static int mtk_dsp_pcm_copy_dl(struct snd_pcm_substream *substream,
 			   &dsp_mem->adsp_buf.aud_buffer.buf_bridge);
 #endif
 
+
 	Ringbuf_Check(ringbuf);
 	Ringbuf_Bridge_Check(
 		&dsp_mem->adsp_buf.aud_buffer.buf_bridge);
@@ -1062,6 +1087,7 @@ static int mtk_dsp_pcm_copy_dl(struct snd_pcm_substream *substream,
 			   &dsp_mem->adsp_buf.aud_buffer.buf_bridge);
 		return -1;
 	}
+	trace_mtk_dsp_pcm_copy_dl(id, copy_size, availsize);
 
 	RingBuf_copyFromUserLinear(ringbuf, buf, copy_size);
 	RingBuf_Bridge_update_writeptr(buf_bridge, copy_size);
