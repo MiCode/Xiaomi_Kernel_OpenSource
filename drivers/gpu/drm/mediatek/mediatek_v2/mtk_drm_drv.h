@@ -252,17 +252,21 @@ enum DISP_SEC_SIGNAL {
 };
 
 struct layer_compress_ratio_data {
+	__u32 frame_idx;
 	__u64 key_value;
 	__u32 *average_ratio;
 	__u32 *peak_ratio;
 	__u32 valid;
+	__u32 active;
 };
 
 struct layer_compress_ratio_item {
+	__u32 frame_idx;
 	__u64 key_value;
 	__u32 average_ratio;
 	__u32 peak_ratio;
 	__u32 valid;
+	__u32 active;
 };
 
 struct disp_iommu_device *disp_get_iommu_dev(void);

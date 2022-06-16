@@ -452,7 +452,7 @@ static void dump_disp_info(struct drm_mtk_layering_info *disp_info,
 	"HRT hrt_num:0x%x/mod:%d/dal:%d/addon_scn:(%d, %d, %d)/bd_tb:%d/i:%d\n"
 #define _L_FMT \
 	"L%d->%d/(%d,%d,%d,%d)/(%d,%d,%d,%d)/f0x%x/ds%d/e%d/cap0x%x" \
-	"/compr%d/secure%d\n"
+	"/compr%d/secure%d/frame:%u\n"
 
 	if (debug_level < DISP_DEBUG_LEVEL_INFO) {
 		DDPMSG(_HRT_FMT,
@@ -490,7 +490,8 @@ static void dump_disp_info(struct drm_mtk_layering_info *disp_info,
 				       layer_info->ext_sel_layer,
 				       layer_info->layer_caps,
 				       layer_info->compress,
-				       layer_info->secure);
+				       layer_info->secure,
+				       disp_info->frame_idx[i]);
 			}
 		}
 	} else {
@@ -529,7 +530,8 @@ static void dump_disp_info(struct drm_mtk_layering_info *disp_info,
 					layer_info->ext_sel_layer,
 					layer_info->layer_caps,
 					layer_info->compress,
-					layer_info->secure);
+					layer_info->secure,
+					disp_info->frame_idx[i]);
 			}
 		}
 	}
@@ -1539,6 +1541,17 @@ static bool _calc_gpu_cache_layerset_hrt_num(struct drm_device *dev,
 		disp_info->gles_head[disp], disp_info->gles_tail[disp]);
 
 	for (i = 0; i < disp_info->layer_num[disp]; i++) {
+		layer_info = &disp_info->input_config[disp][i];
+		if ((layer_info != NULL) &&
+			(layer_info->layer_caps & MTK_HWC_UNCHANGED_LAYER))
+			break;
+	}
+	if (i == disp_info->layer_num[disp]) {
+		DDPDBG("%s:%d no unchanged layer, clear bwm flag\n");
+		bw_monitor_is_on = 0;
+	}
+
+	for (i = 0; i < disp_info->layer_num[disp]; i++) {
 		int ovl_idx;
 		int skipped = 0;
 
@@ -1719,16 +1732,16 @@ static bool _calc_gpu_cache_layerset_hrt_num(struct drm_device *dev,
 	/* Judgment conditions for using GPU Cache */
 	/* P.S. should use HRT bw, this use overlap */
 	/* 1. This frame HRT BW(N) need more than one layer no compress HRT BW; */
-	/* 2. Layerset HRT BW(M) need less than N; */
+	/* 2. Layerset HRT BW(M) need less than or equal N; */
 	/* 3. N & M need less than or equal max HRT BW(bound). */
 	if (sum_overlap_w > 400) {
-		if (sum_overlap_w_gc >= sum_overlap_w) {
-			DDPDBG("GPUC: %s:%d M >= N\n", __func__, __LINE__);
+		if (sum_overlap_w_gc > sum_overlap_w) {
+			DDPDBG("GPUC: %s:%d M > N\n", __func__, __LINE__);
 			return false;
 		}
 		if ((disp == HRT_PRIMARY) && bw_monitor_is_on &&
-				(sum_overlap_w_gc >= sum_overlap_w_bwm)) {
-			DDPDBG("GPUC: %s:%d M >= N(with bwm)\n", __func__, __LINE__);
+				(sum_overlap_w_gc > sum_overlap_w_bwm)) {
+			DDPDBG("GPUC: %s:%d M > N(with bwm)\n", __func__, __LINE__);
 			return false;
 		}
 		if (sum_overlap_w_gc > overlap_l_bound) {
@@ -1844,6 +1857,17 @@ static int _calc_hrt_num(struct drm_device *dev,
 			disp_info->gles_tail[disp] = layerset_tail;
 		}
 		DDPDBG("GPUC: 3 layerset head:%d tail:%d\n", layerset_head, layerset_tail);
+	}
+
+	for (i = 0; i < disp_info->layer_num[disp]; i++) {
+		layer_info = &disp_info->input_config[disp][i];
+		if ((layer_info != NULL) &&
+			(layer_info->layer_caps & MTK_HWC_UNCHANGED_LAYER))
+			break;
+	}
+	if (i == disp_info->layer_num[disp]) {
+		bw_monitor_is_on = 0;
+		DDPDBG("%s:%d no unchanged layer, clear bwm flag\n");
 	}
 
 	for (i = 0; i < disp_info->layer_num[disp]; i++) {
@@ -2037,6 +2061,7 @@ static int calc_hrt_num(struct drm_device *dev,
 {
 	int emi_hrt_level;
 	int sum_overlap_w = 0;
+	int sum_overlap_w_of_second_disp = 0;
 #ifdef HAS_LARB_HRT
 	int larb_hrt_level;
 #endif
@@ -2048,24 +2073,29 @@ static int calc_hrt_num(struct drm_device *dev,
 
 	/* Calculate HRT for EMI level */
 	if (has_hrt_limit(disp_info, HRT_PRIMARY)) {
-		if (g_gpuc_direct_push) {
-			need_gpu_cache = true;
-			DDPDBG("GPUC: layerset direct push to gpu cache\n");
-		} else {
-			need_gpu_cache =
-			_calc_gpu_cache_layerset_hrt_num(dev, disp_info,
-			HRT_PRIMARY, HRT_TYPE_EMI,
-			scan_overlap, l_rule_info->dal_enable);
-			DDPDBG("GPUC: layerset need to cal gain\n");
+		if (get_layering_opt(LYE_OPT_GPU_CACHE)) {
+			if (g_gpuc_direct_push) {
+				need_gpu_cache = true;
+				DDPDBG("GPUC: layerset direct push to gpu cache\n");
+			} else {
+				DDPDBG("GPUC: layerset need to cal gain\n");
+				need_gpu_cache =
+					_calc_gpu_cache_layerset_hrt_num(dev, disp_info,
+					HRT_PRIMARY, HRT_TYPE_EMI,
+					scan_overlap, l_rule_info->dal_enable);
+			}
 		}
 		sum_overlap_w =
 			_calc_hrt_num(dev, disp_info, HRT_PRIMARY, HRT_TYPE_EMI,
 				      scan_overlap, l_rule_info->dal_enable, need_gpu_cache);
 	}
 	if (has_hrt_limit(disp_info, HRT_SECONDARY)) {
-		sum_overlap_w +=
+		sum_overlap_w_of_second_disp =
 			_calc_hrt_num(dev, disp_info, HRT_SECONDARY,
 				      HRT_TYPE_EMI, scan_overlap, false, false);
+		sum_overlap_w += sum_overlap_w_of_second_disp;
+		if (get_layering_opt(LYE_OPT_OVL_BW_MONITOR))
+			sum_overlap_w_of_bwm += sum_overlap_w_of_second_disp;
 	}
 	/* Virtual Display should not add to HRT sum: ovl -> wdma */
 	/*
@@ -3717,9 +3747,12 @@ static int layering_rule_start(struct drm_mtk_layering_info *disp_info_user,
 					       ADJUST_LAYOUT_OVERLAP_CAL);
 	overlap_num = calc_hrt_num(dev, &layering_info);
 	layering_info.hrt_weight = overlap_num;
-	DDPINFO("overlap_num %u\n", layering_info.hrt_weight);
-	if (get_layering_opt(LYE_OPT_OVL_BW_MONITOR))
-		DDPINFO("overlap_num of BW monitor:%u\n", sum_overlap_w_of_bwm);
+	DDPINFO("overlap_num %u of frame %u\n", layering_info.hrt_weight,
+		layering_info.frame_idx[HRT_PRIMARY]);
+	if (get_layering_opt(LYE_OPT_OVL_BW_MONITOR) &&
+		(sum_overlap_w_of_bwm != 0))
+		DDPINFO("overlap_num of BW monitor:%u of frame %u\n", sum_overlap_w_of_bwm,
+			layering_info.frame_idx[HRT_PRIMARY]);
 
 	/* If GPU Cache will change gles layer head and tail, So should to re-grouping */
 	if (get_layering_opt(LYE_OPT_GPU_CACHE) &&

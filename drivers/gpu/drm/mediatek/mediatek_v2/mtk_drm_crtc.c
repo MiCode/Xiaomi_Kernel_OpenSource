@@ -4325,16 +4325,20 @@ static void mtk_drm_ovl_bw_monitor_ratio_prework(struct drm_crtc *crtc,
 	int fbt_layer_id = -1;
 
 	for (i = 0; i < MAX_LAYER_RATIO_NUMBER; i++) {
+		display_compress_ratio_table[i].frame_idx = 0;
 		display_compress_ratio_table[i].key_value = 0;
 		display_compress_ratio_table[i].valid = 0;
 		display_compress_ratio_table[i].average_ratio = NULL;
 		display_compress_ratio_table[i].peak_ratio = NULL;
+		display_compress_ratio_table[i].active = 0;
 	}
 
+	display_fbt_compress_ratio_table.frame_idx = 0;
 	display_fbt_compress_ratio_table.key_value = 0;
 	display_fbt_compress_ratio_table.valid = 0;
 	display_fbt_compress_ratio_table.average_ratio = NULL;
 	display_fbt_compress_ratio_table.peak_ratio = NULL;
+	display_fbt_compress_ratio_table.active = 0;
 
 	list_for_each_entry_safe(lyeblob_ids, next, &mtk_drm->lyeblob_head,
 				 list) {
@@ -4352,6 +4356,15 @@ static void mtk_drm_ovl_bw_monitor_ratio_prework(struct drm_crtc *crtc,
 		struct mtk_plane_state *plane_state =
 			to_mtk_plane_state(plane->state);
 		int index = plane_index;
+		int is_active = 0;
+
+		DDPDBG("BWM: layer caps:%u\n", plane_state->comp_state.layer_caps);
+		if ((plane_state->comp_state.layer_caps & MTK_HWC_UNCHANGED_LAYER) ||
+			(plane_state->comp_state.layer_caps & MTK_HWC_INACTIVE_LAYER) ||
+			(plane_state->comp_state.layer_caps & MTK_HWC_UNCHANGED_FBT_LAYER))
+			is_active = 0;
+		else
+			is_active = 1;
 
 		if ((fbt_gles_head != -1) && (fbt_gles_tail != -1)) {
 
@@ -4359,6 +4372,7 @@ static void mtk_drm_ovl_bw_monitor_ratio_prework(struct drm_crtc *crtc,
 					(plane_index == fbt_gles_head) &&
 					(fbt_layer_id != -1) &&
 					(plane_state->pending.enable)) {
+				display_fbt_compress_ratio_table.frame_idx = frame_idx;
 				display_fbt_compress_ratio_table.key_value = frame_idx;
 				display_fbt_compress_ratio_table.valid = 0;
 				display_fbt_compress_ratio_table.average_ratio =
@@ -4367,6 +4381,8 @@ static void mtk_drm_ovl_bw_monitor_ratio_prework(struct drm_crtc *crtc,
 				display_fbt_compress_ratio_table.peak_ratio =
 					(unsigned int *)(mtk_get_gce_backup_slot_va(mtk_crtc,
 					DISP_SLOT_LAYER_PEAK_RATIO(index)));
+				if (is_active)
+					display_fbt_compress_ratio_table.active = 1;
 			}
 
 			if ((plane_index > fbt_gles_head) &&
@@ -4374,6 +4390,7 @@ static void mtk_drm_ovl_bw_monitor_ratio_prework(struct drm_crtc *crtc,
 				DDPDBG("BWM Fbt layer continue\n");
 			} else if ((plane_index < MAX_LAYER_RATIO_NUMBER) &&
 					(plane_state->pending.enable)) {
+				display_compress_ratio_table[index].frame_idx = frame_idx;
 				display_compress_ratio_table[index].key_value = frame_idx +
 					plane_state->prop_val[PLANE_PROP_BUFFER_ALLOC_ID];
 				display_compress_ratio_table[index].valid = 0;
@@ -4383,9 +4400,12 @@ static void mtk_drm_ovl_bw_monitor_ratio_prework(struct drm_crtc *crtc,
 				display_compress_ratio_table[index].peak_ratio =
 					(unsigned int *)(mtk_get_gce_backup_slot_va(mtk_crtc,
 					DISP_SLOT_LAYER_PEAK_RATIO(index)));
+				if (is_active)
+					display_compress_ratio_table[index].active = 1;
 			}
 		} else if ((plane_index < MAX_LAYER_RATIO_NUMBER) &&
 				(plane_state->pending.enable)) {
+			display_compress_ratio_table[index].frame_idx = frame_idx;
 			display_compress_ratio_table[index].key_value = frame_idx +
 				plane_state->prop_val[PLANE_PROP_BUFFER_ALLOC_ID];
 			display_compress_ratio_table[index].valid = 0;
@@ -4395,6 +4415,8 @@ static void mtk_drm_ovl_bw_monitor_ratio_prework(struct drm_crtc *crtc,
 			display_compress_ratio_table[index].peak_ratio =
 				(unsigned int *)(mtk_get_gce_backup_slot_va(mtk_crtc,
 				DISP_SLOT_LAYER_PEAK_RATIO(index)));
+			if (is_active)
+				display_compress_ratio_table[index].active = 1;
 		}
 
 		DDPDBG("BWM: frame idx:%d alloc_id:%lu plane_index:%u enable:%u\n",
@@ -4568,15 +4590,19 @@ static void mtk_drm_ovl_bw_monitor_ratio_save(unsigned int frame_idx)
 	for (i = 0; i < MAX_LAYER_RATIO_NUMBER; i++) {
 		int index = fn*MAX_LAYER_RATIO_NUMBER + i;
 
+		normal_layer_compress_ratio_tb[index].frame_idx = 0;
 		normal_layer_compress_ratio_tb[index].key_value = 0;
 		normal_layer_compress_ratio_tb[index].average_ratio = 0;
 		normal_layer_compress_ratio_tb[index].peak_ratio = 0;
 		normal_layer_compress_ratio_tb[index].valid = 0;
+		normal_layer_compress_ratio_tb[index].active = 0;
 	}
+	fbt_layer_compress_ratio_tb[fn].frame_idx = 0;
 	fbt_layer_compress_ratio_tb[fn].key_value = 0;
 	fbt_layer_compress_ratio_tb[fn].average_ratio = 0;
 	fbt_layer_compress_ratio_tb[fn].peak_ratio = 0;
 	fbt_layer_compress_ratio_tb[fn].valid = 0;
+	fbt_layer_compress_ratio_tb[fn].active = 0;
 
 	/* Copy one frame ratio to table */
 	for (i = 0; i < MAX_LAYER_RATIO_NUMBER; i++) {
@@ -4586,6 +4612,8 @@ static void mtk_drm_ovl_bw_monitor_ratio_save(unsigned int frame_idx)
 			(display_compress_ratio_table[i].average_ratio != NULL) &&
 			(display_compress_ratio_table[i].peak_ratio != NULL)) {
 
+			normal_layer_compress_ratio_tb[index].frame_idx =
+				display_compress_ratio_table[i].frame_idx;
 			normal_layer_compress_ratio_tb[index].key_value =
 				display_compress_ratio_table[i].key_value;
 			normal_layer_compress_ratio_tb[index].average_ratio =
@@ -4594,6 +4622,8 @@ static void mtk_drm_ovl_bw_monitor_ratio_save(unsigned int frame_idx)
 				*(display_compress_ratio_table[i].peak_ratio);
 			normal_layer_compress_ratio_tb[index].valid =
 				display_compress_ratio_table[i].valid;
+			normal_layer_compress_ratio_tb[index].active =
+				display_compress_ratio_table[i].active;
 		}
 	}
 
@@ -4601,6 +4631,8 @@ static void mtk_drm_ovl_bw_monitor_ratio_save(unsigned int frame_idx)
 		(display_fbt_compress_ratio_table.average_ratio != NULL) &&
 		(display_fbt_compress_ratio_table.peak_ratio != NULL)) {
 
+		fbt_layer_compress_ratio_tb[fn].frame_idx =
+			display_fbt_compress_ratio_table.frame_idx;
 		fbt_layer_compress_ratio_tb[fn].key_value =
 			display_fbt_compress_ratio_table.key_value;
 		fbt_layer_compress_ratio_tb[fn].average_ratio =
@@ -4609,30 +4641,36 @@ static void mtk_drm_ovl_bw_monitor_ratio_save(unsigned int frame_idx)
 			*(display_fbt_compress_ratio_table.peak_ratio);
 		fbt_layer_compress_ratio_tb[fn].valid =
 			display_fbt_compress_ratio_table.valid;
+		fbt_layer_compress_ratio_tb[fn].active =
+			display_fbt_compress_ratio_table.active;
 	}
 
 	DDPDBG("BWM: fn:%u frame_idx:%u\n", fn, frame_idx);
 
 	DDPDBG("BWMT===== normal_layer_compress_ratio_tb =====\n");
-	DDPDBG("BWMT===== Item     Key     avg    peak     valid =====\n");
+	DDPDBG("BWMT===== Item     Frame    Key     avg    peak     valid    active=====\n");
 	for (i = 0; i < 60; i++) {
 		if (normal_layer_compress_ratio_tb[i].key_value)
-			DDPDBG("BWMT===== %4d     %lu     %u    %u     %u =====\n", i,
+			DDPDBG("BWMT===== %4d     %u     %lu     %u    %u     %u    %u =====\n", i,
+				normal_layer_compress_ratio_tb[i].frame_idx,
 				normal_layer_compress_ratio_tb[i].key_value,
 				normal_layer_compress_ratio_tb[i].average_ratio,
 				normal_layer_compress_ratio_tb[i].peak_ratio,
-				normal_layer_compress_ratio_tb[i].valid);
+				normal_layer_compress_ratio_tb[i].valid,
+				normal_layer_compress_ratio_tb[i].active);
 	}
 
 	DDPDBG("BWMT===== fbt_layer_compress_ratio_tb =====\n");
-	DDPDBG("BWMT===== Item     Key     avg    peak     valid =====\n");
+	DDPDBG("BWMT===== Item     Frame    Key     avg    peak     valid    active=====\n");
 	for (i = 0; i < 5; i++) {
 		if (fbt_layer_compress_ratio_tb[i].key_value)
-			DDPDBG("BWMT===== %4d     %lu     %u    %u     %u =====\n", i,
+			DDPDBG("BWMT===== %4d     %u     %lu     %u    %u     %u    %u =====\n", i,
+				fbt_layer_compress_ratio_tb[i].frame_idx,
 				fbt_layer_compress_ratio_tb[i].key_value,
 				fbt_layer_compress_ratio_tb[i].average_ratio,
 				fbt_layer_compress_ratio_tb[i].peak_ratio,
-				fbt_layer_compress_ratio_tb[i].valid);
+				fbt_layer_compress_ratio_tb[i].valid,
+				fbt_layer_compress_ratio_tb[i].active);
 	}
 
 	fn++;
