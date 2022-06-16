@@ -63,7 +63,7 @@ struct FPSGO_NOTIFIER_PUSH_TAG {
 	int dfrc_fps;
 
 	int enhance;
-
+	unsigned long long frameID;
 	struct list_head queue_list;
 };
 
@@ -112,12 +112,13 @@ static void fpsgo_notifier_wq_cb_swap_buffer(int pid)
 	fpsgo_update_swap_buffer(pid);
 }
 
-static void fpsgo_notifier_wq_cb_sbe_rescue(int pid, int start, int enhance)
+static void fpsgo_notifier_wq_cb_sbe_rescue(int pid, int start, int enhance,
+		unsigned long long frameID)
 {
 	FPSGO_LOGI("[FPSGO_CB] sbe_rescue: %d\n", pid);
 	if (!fpsgo_is_enable())
 		return;
-	fpsgo_sbe_rescue_traverse(pid, start, enhance);
+	fpsgo_sbe_rescue_traverse(pid, start, enhance, frameID);
 }
 
 static void fpsgo_notifier_wq_cb_dfrc_fps(int dfrc_fps)
@@ -287,7 +288,8 @@ static void fpsgo_notifier_wq_cb(void)
 		fpsgo_notifier_wq_cb_swap_buffer(vpPush->pid);
 		break;
 	case FPSGO_NOTIFIER_SBE_RESCUE:
-		fpsgo_notifier_wq_cb_sbe_rescue(vpPush->pid, vpPush->enable, vpPush->enhance);
+		fpsgo_notifier_wq_cb_sbe_rescue(vpPush->pid, vpPush->enable, vpPush->enhance,
+						vpPush->frameID);
 		break;
 	default:
 		FPSGO_LOGE("[FPSGO_CTRL] unhandled push type = %d\n",
@@ -499,7 +501,7 @@ void fpsgo_notify_swap_buffer(int pid)
 	fpsgo_queue_work(vpPush);
 }
 
-void fpsgo_notify_sbe_rescue(int pid, int start, int enhance)
+void fpsgo_notify_sbe_rescue(int pid, int start, int enhance, unsigned long long frameID)
 {
 	struct FPSGO_NOTIFIER_PUSH_TAG *vpPush;
 
@@ -526,6 +528,7 @@ void fpsgo_notify_sbe_rescue(int pid, int start, int enhance)
 	vpPush->pid = pid;
 	vpPush->enable = start;
 	vpPush->enhance = enhance;
+	vpPush->frameID = frameID;
 
 	fpsgo_queue_work(vpPush);
 }

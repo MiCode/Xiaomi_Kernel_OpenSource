@@ -34,7 +34,7 @@ EXPORT_SYMBOL_GPL(fpsgo_wait_fstb_active_fp);
 void (*fpsgo_notify_swap_buffer_fp)(int pid);
 EXPORT_SYMBOL_GPL(fpsgo_notify_swap_buffer_fp);
 
-void (*fpsgo_notify_sbe_rescue_fp)(int pid, int start, int enhance);
+void (*fpsgo_notify_sbe_rescue_fp)(int pid, int start, int enhance, unsigned long long frameID);
 EXPORT_SYMBOL_GPL(fpsgo_notify_sbe_rescue_fp);
 
 int (*usrtch_ioctl_fp)(unsigned long arg);
@@ -545,7 +545,8 @@ static long device_ioctl(struct file *filp,
 		break;
 	case FPSGO_SBE_RESCUE:
 		if (fpsgo_notify_sbe_rescue_fp)
-			fpsgo_notify_sbe_rescue_fp(msgKM->tid, msgKM->start, msgKM->value2);
+			fpsgo_notify_sbe_rescue_fp(msgKM->tid, msgKM->start, msgKM->value2,
+						msgKM->frame_id);
 		break;
 
 #else

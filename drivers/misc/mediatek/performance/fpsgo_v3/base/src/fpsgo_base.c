@@ -944,7 +944,7 @@ int fpsgo_update_swap_buffer(int pid)
 	return 0;
 }
 
-int fpsgo_sbe_rescue_traverse(int pid, int start, int enhance)
+int fpsgo_sbe_rescue_traverse(int pid, int start, int enhance, unsigned long long frame_id)
 {
 	struct rb_node *n;
 	struct render_info *iter;
@@ -954,7 +954,7 @@ int fpsgo_sbe_rescue_traverse(int pid, int start, int enhance)
 		iter = rb_entry(n, struct render_info, render_key_node);
 		fpsgo_thread_lock(&iter->thr_mlock);
 		if (iter->pid == pid)
-			fpsgo_sbe2fbt_rescue(iter, start, enhance);
+			fpsgo_sbe2fbt_rescue(iter, start, enhance, frame_id);
 		fpsgo_thread_unlock(&iter->thr_mlock);
 	}
 	fpsgo_render_tree_unlock(__func__);
