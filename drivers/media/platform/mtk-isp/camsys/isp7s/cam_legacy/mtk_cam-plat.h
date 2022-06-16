@@ -18,6 +18,33 @@ enum MMQOS_PORT {
 	TCYSO,
 };
 
+enum raw_qos_port_id {
+	cqi_r1 = 0,
+	rawi_r2,
+	rawi_r3,
+	rawi_r5,
+	imgo_r1,
+	bpci_r1, /* 5 */
+	lsci_r1,
+	ufeo_r1,
+	ltmso_r1,
+	drzb2no_r1,
+	aao_r1, /* 10 */
+	afo_r1,
+	yuvo_r1,
+	yuvo_r3,
+	yuvo_r2,
+	yuvo_r5, /* 15 */
+	rgbwi_r1,
+	tcyso_r1,
+	drz4no_r3,
+	raw_qos_port_num
+};
+
+struct raw_mmqos {
+	char *port[raw_qos_port_num];
+};
+
 struct plat_v4l2_data {
 	int raw_pipeline_num;
 	int camsv_pipeline_num;
@@ -44,6 +71,7 @@ struct plat_v4l2_data {
 	int (*get_port_bw)(enum MMQOS_PORT port,
 		unsigned long height, unsigned long fps);
 	int cammux_id_raw_start;
+	int (*get_mmqos_port)(struct raw_mmqos **mmqos_port);
 };
 
 struct plat_data_hw {

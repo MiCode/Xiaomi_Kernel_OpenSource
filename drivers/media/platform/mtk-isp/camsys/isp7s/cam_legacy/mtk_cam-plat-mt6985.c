@@ -164,6 +164,36 @@ static int get_port_bw(
 
 	return 0;
 }
+static struct raw_mmqos raw_qos = {
+	.port = {
+		"cqi_r1",
+		"rawi_r2",
+		"rawi_r3",
+		"rawi_r5",
+		"imgo_r1",
+		"bpci_r1",
+		"lsci_r1",
+		"ufeo_r1",
+		"ltmso_r1",
+		"drzb2no_r1",
+		"aao_r1",
+		"afo_r1",
+		"yuvo_r1",
+		"yuvo_r3",
+		"yuvo_r2",
+		"yuvo_r5",
+		"rgbwi_r1",
+		"tcyso_r1",
+		"drz4no_r3"
+	}
+};
+
+static int get_mmqos_port(struct raw_mmqos **mmqos_port)
+{
+	*mmqos_port = &raw_qos;
+
+	return 0;
+}
 
 static const struct plat_v4l2_data mt6985_v4l2_data = {
 	.raw_pipeline_num = 3,
@@ -191,6 +221,8 @@ static const struct plat_v4l2_data mt6985_v4l2_data = {
 	.get_port_bw = get_port_bw,
 
 	.cammux_id_raw_start = 34,
+
+	.get_mmqos_port = get_mmqos_port,
 };
 
 struct camsys_platform_data mt6985_data = {
