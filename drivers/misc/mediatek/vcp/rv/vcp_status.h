@@ -41,5 +41,6 @@ int vcp_deregister_feature_ex(enum feature_id id);
 unsigned int is_vcp_ready_ex(enum vcp_core_id id);
 void vcp_A_register_notify_ex(struct notifier_block *nb);
 void vcp_A_unregister_notify_ex(struct notifier_block *nb);
+unsigned int vcp_cmd_ex(enum vcp_cmd_id id);
 
 #endif

@@ -91,7 +91,7 @@ EXPORT_SYMBOL_GPL(is_vcp_ready_ex);
 
 void vcp_A_register_notify_ex(struct notifier_block *nb)
 {
-	if (!vcp_fp)
+	if (!vcp_fp || !vcp_fp->vcp_A_register_notify)
 		return;
 	vcp_fp->vcp_A_register_notify(nb);
 }
@@ -99,7 +99,7 @@ EXPORT_SYMBOL_GPL(vcp_A_register_notify_ex);
 
 void vcp_A_unregister_notify_ex(struct notifier_block *nb)
 {
-	if (!vcp_fp)
+	if (!vcp_fp || !vcp_fp->vcp_A_unregister_notify)
 		return;
 	vcp_fp->vcp_A_unregister_notify(nb);
 }

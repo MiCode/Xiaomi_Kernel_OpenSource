@@ -64,26 +64,7 @@ struct mtk_mbox_pin_recv *vcp_mbox_pin_recv;
  */
 struct mtk_mbox_pin_send *vcp_mbox_pin_send;
 
-
-struct mtk_mbox_device vcp_mboxdev = {
-	.name = "vcp_mboxdev",
-	.pin_recv_table = 0,
-	.pin_send_table = 0,
-	.info_table = 0,
-	.count = 0,
-	.recv_count = 0,
-	.send_count = 0,
-	.post_cb = (mbox_rx_cb_t)vcp_clr_spm_reg,
-};
-
-struct mtk_ipi_device vcp_ipidev = {
-	.name = "vcp_ipidev",
-	.id = IPI_DEV_VCP,
-	.mbdev = &vcp_mboxdev,
-	.pre_cb = (ipi_tx_cb_t)vcp_awake_lock,
-	.post_cb = (ipi_tx_cb_t)vcp_awake_unlock,
-	.prdata = 0,
-};
-EXPORT_SYMBOL(vcp_ipidev);
+extern struct mtk_mbox_device vcp_mboxdev;
+extern struct mtk_ipi_device vcp_ipidev;
 
 #endif

@@ -19,8 +19,4 @@ struct vcp_ipi_wrapper {
 	void *msg_1;
 };
 
-extern struct mtk_mbox_device vcp_mboxdev;
-extern struct mtk_ipi_device vcp_ipidev;
-extern struct mtk_mbox_info *vcp_mbox_info;
-
 #endif

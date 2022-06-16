@@ -523,39 +523,40 @@ static void vcp_prepare_aed_dump(char *aed_str, enum vcp_core_id id)
 		/* prepare vcp aee detail information*/
 		memset(vcp_dump.detail_buff, 0, VCP_AED_STR_LEN);
 
-		offset = snprintf(vcp_dump.detail_buff + offset,
-		VCP_AED_STR_LEN - offset, "%s\n", aed_str);
-		offset = snprintf(vcp_dump.detail_buff + offset,
+		offset += VCP_CHECK_AED_STR_LEN(snprintf(vcp_dump.detail_buff + offset,
+		VCP_AED_STR_LEN - offset, "%s\n", aed_str), offset);
+
+		offset += VCP_CHECK_AED_STR_LEN(snprintf(vcp_dump.detail_buff + offset,
 		VCP_AED_STR_LEN - offset,
 		"core0 pc=0x%08x, lr=0x%08x, sp=0x%08x\n",
-		c0_m->pc, c0_m->lr, c0_m->sp);
+		c0_m->pc, c0_m->lr, c0_m->sp), offset);
 
 		if (!vcpreg.twohart)
 			goto core1;
 
-		offset = snprintf(vcp_dump.detail_buff + offset,
+		offset += VCP_CHECK_AED_STR_LEN(snprintf(vcp_dump.detail_buff + offset,
 		VCP_AED_STR_LEN - offset,
 		"hart1 pc=0x%08x, lr=0x%08x, sp=0x%08x\n",
-		c0_t1_m->pc, c0_t1_m->lr, c0_t1_m->sp);
+		c0_t1_m->pc, c0_t1_m->lr, c0_t1_m->sp), offset);
 core1:
 		if (vcpreg.core_nums == 1)
 			goto end;
 
-		offset = snprintf(vcp_dump.detail_buff + offset,
+		offset += VCP_CHECK_AED_STR_LEN(snprintf(vcp_dump.detail_buff + offset,
 		VCP_AED_STR_LEN - offset,
 		"core1 pc=0x%08x, lr=0x%08x, sp=0x%08x\n",
-		c1_m->pc, c1_m->lr, c1_m->sp);
+		c1_m->pc, c1_m->lr, c1_m->sp), offset);
 
 		if (!vcpreg.twohart)
 			goto end;
 
-		offset = snprintf(vcp_dump.detail_buff + offset,
+		offset += VCP_CHECK_AED_STR_LEN(snprintf(vcp_dump.detail_buff + offset,
 		VCP_AED_STR_LEN - offset,
 		"hart1 pc=0x%08x, lr=0x%08x, sp=0x%08x\n",
-		c1_t1_m->pc, c1_t1_m->lr, c1_t1_m->sp);
+		c1_t1_m->pc, c1_t1_m->lr, c1_t1_m->sp), offset);
 end:
-		snprintf(vcp_dump.detail_buff + offset,
-		VCP_AED_STR_LEN - offset, "last log:\n%s", vcp_A_log);
+		offset += VCP_CHECK_AED_STR_LEN(snprintf(vcp_dump.detail_buff + offset,
+		VCP_AED_STR_LEN - offset, "last log:\n%s", vcp_A_log), offset);
 
 		vcp_dump.detail_buff[VCP_AED_STR_LEN - 1] = '\0';
 	}

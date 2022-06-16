@@ -214,6 +214,28 @@ struct vcp_status_fp vcp_helper_fp = {
 			pr_info(fmt, ##arg); \
 	} while (0)
 
+struct mtk_mbox_device vcp_mboxdev = {
+	.name = "vcp_mboxdev",
+	.pin_recv_table = 0,
+	.pin_send_table = 0,
+	.info_table = 0,
+	.count = 0,
+	.recv_count = 0,
+	.send_count = 0,
+	.post_cb = (mbox_rx_cb_t)vcp_clr_spm_reg,
+};
+EXPORT_SYMBOL(vcp_mboxdev);
+
+struct mtk_ipi_device vcp_ipidev = {
+	.name = "vcp_ipidev",
+	.id = IPI_DEV_VCP,
+	.mbdev = &vcp_mboxdev,
+	.pre_cb = (ipi_tx_cb_t)vcp_awake_lock,
+	.post_cb = (ipi_tx_cb_t)vcp_awake_unlock,
+	.prdata = 0,
+};
+EXPORT_SYMBOL(vcp_ipidev);
+
 static void vcp_enable_dapc(void)
 {
 	struct arm_smccc_res res;

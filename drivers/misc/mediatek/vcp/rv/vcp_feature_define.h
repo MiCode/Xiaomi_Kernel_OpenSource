@@ -24,7 +24,8 @@
 
 /* vcp aed definition*/
 #define VCP_AED_STR_LEN                  (512)
-
+#define VCP_CHECK_AED_STR_LEN(func, offset) ({\
+	int ret; ret = func; ((ret > 0) && ((ret + offset) < (VCP_AED_STR_LEN - 1))) ? ret : 0; })
 /* vcp sub feature register API marco*/
 #define VCP_REGISTER_SUB_SENSOR          (1)
 
