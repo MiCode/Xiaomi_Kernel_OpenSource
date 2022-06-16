@@ -893,6 +893,25 @@ out:
 	return c;
 }
 
+static int mdw_cmd_ioctl_del(struct mdw_fpriv *mpriv, union mdw_cmd_args *args)
+{
+	struct mdw_cmd_in *in = (struct mdw_cmd_in *)args;
+	struct mdw_cmd *c = NULL;
+	int ret = 0;
+
+	mutex_lock(&mpriv->mtx);
+	c = (struct mdw_cmd *)idr_find(&mpriv->cmds, in->id);
+	if (!c) {
+		ret = -EINVAL;
+		mdw_drv_warn("can't find id(%d)\n", in->id);
+	} else {
+		mdw_cmd_delete(c);
+	}
+	mutex_unlock(&mpriv->mtx);
+
+	return ret;
+}
+
 static int mdw_cmd_ioctl_run(struct mdw_fpriv *mpriv, union mdw_cmd_args *args)
 {
 	struct mdw_cmd_in *in = (struct mdw_cmd_in *)args;
@@ -975,6 +994,9 @@ int mdw_cmd_ioctl(struct mdw_fpriv *mpriv, void *data)
 	case MDW_CMD_IOCTL_RUN:
 	case MDW_CMD_IOCTL_RUN_STALE:
 		ret = mdw_cmd_ioctl_run(mpriv, args);
+		break;
+	case MDW_CMD_IOCTL_DEL:
+		ret = mdw_cmd_ioctl_del(mpriv, args);
 		break;
 
 	default:

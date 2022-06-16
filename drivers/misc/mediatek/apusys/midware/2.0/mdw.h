@@ -36,7 +36,7 @@
 #define MDW_DEFAULT_ALIGN (16)
 
 #define MDW_CMD_IDR_MIN (1)
-#define MDW_CMD_IDR_MAX (16)
+#define MDW_CMD_IDR_MAX (64)
 
 #define MDW_ALIGN(x, align) ((x+align-1) & (~(align-1)))
 
