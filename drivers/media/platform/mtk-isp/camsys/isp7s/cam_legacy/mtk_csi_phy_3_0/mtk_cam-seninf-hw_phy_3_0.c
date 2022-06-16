@@ -707,7 +707,7 @@ static int mtk_cam_seninf_set_cammux_tag(struct seninf_ctx *ctx, int cam_mux,
 	}
 	pSeninf_cam_mux_pcsr = ctx->reg_if_cam_mux_pcsr[cam_mux];
 
-	if (tag >= 0 && tag < 31) {
+	if (tag >= 0 && tag <= 31) {
 		page = tag / 4;
 		tag_sel = tag % 4;
 

@@ -1037,7 +1037,7 @@ int mtk_cam_seninf_s_stream_mux(struct seninf_ctx *ctx)
 			vc_sel = vc->vc;
 			dt_sel = vc->dt;
 			dt_en = !!dt_sel;
-			if (first_tag && (vc->tag >= 0)) {
+			if (first_tag && (vc->tag >= 0) && (vc->tag <= 31)) {
 				first_vc = 1;
 				first_tag = 0;
 			} else
@@ -1058,9 +1058,9 @@ int mtk_cam_seninf_s_stream_mux(struct seninf_ctx *ctx)
 			g_seninf_ops->_cammux(ctx, vc->cam);
 
 			dev_info(ctx->dev,
-				"vc[%d] pad %d intf %d mux %d mux_vr %d cam %d tag %d vc 0x%x dt 0x%x\n",
+				"vc[%d] pad %d intf %d mux %d mux_vr %d cam %d tag %d vc 0x%x dt 0x%x first %d\n",
 				i, vc->out_pad, intf, vc->mux, vc->mux_vr, vc->cam, vc->tag,
-				vc_sel, dt_sel);
+				vc_sel, dt_sel, first_vc);
 
 		} else
 			dev_info(ctx->dev, "not set camtg yet, vc[%d] pad %d intf %d cam %d\n",
