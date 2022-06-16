@@ -687,9 +687,9 @@ void *get_kva(struct mtk_imgsys_dev_buffer *buf)
 ERROR:
 	dma_buf_end_cpu_access(dmabuf, DMA_BIDIRECTIONAL);
 	pr_info("%s:8", __func__);
-ERROR_PUT:
 	dma_buf_put(dmabuf);
 	pr_info("%s:9", __func__);
+ERROR_PUT:
 
 	return NULL;
 }
@@ -794,6 +794,8 @@ static void mtk_imgsys_kva_cache(struct mtk_imgsys_dev_buffer *dev_buf)
 	struct list_head *ptr = NULL;
 	bool find = false;
 	struct buf_va_info_t *buf_va_info;
+	struct dma_buf *dbuf;
+
 
 	mutex_lock(&(fd_kva_info_list.mymutex));
 	list_for_each(ptr, &(fd_kva_info_list.mylist)) {
@@ -804,6 +806,14 @@ static void mtk_imgsys_kva_cache(struct mtk_imgsys_dev_buffer *dev_buf)
 		}
 	}
 	if (find) {
+		dbuf = (struct dma_buf *)buf_va_info->dma_buf_putkva;
+		if (dbuf->size <= dev_buf->dataofst) {
+			mutex_unlock(&(fd_kva_info_list.mymutex));
+			pr_info("%s : dmabuf size (0x%x) < offset(0x%x)\n",
+				__func__, dbuf->size, dev_buf->dataofst);
+			return;
+		}
+
 		dev_buf->va_daddr[0] = buf_va_info->kva + dev_buf->dataofst;
 		mutex_unlock(&(fd_kva_info_list.mymutex));
 		pr_debug(
@@ -814,6 +824,16 @@ static void mtk_imgsys_kva_cache(struct mtk_imgsys_dev_buffer *dev_buf)
 	} else {
 		mutex_unlock(&(fd_kva_info_list.mymutex));
 		dev_buf->va_daddr[0] = (u64)get_kva(dev_buf);
+		dbuf = dev_buf->dma_buf_putkva;
+		if (dbuf->size <= dev_buf->dataofst && dev_buf->va_daddr[0] != 0) {
+			dma_buf_vunmap(dbuf, (void *)dev_buf->va_daddr[0]);
+			dma_buf_end_cpu_access(dbuf, DMA_BIDIRECTIONAL);
+			dma_buf_put(dbuf);
+			dev_buf->va_daddr[0] = 0;
+			pr_info("%s : dmabuf size (0x%x) < offset(0x%x)\n",
+				__func__, dbuf->size, dev_buf->dataofst);
+			return;
+		}
 
 		buf_va_info = (struct buf_va_info_t *)
 			vzalloc(sizeof(vlist_type(struct buf_va_info_t)));
