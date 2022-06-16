@@ -28,6 +28,8 @@ bool skip_logger;
 #if CPUQOS_IPI
 static int cpuqos_ipi_cb(unsigned int, void *, void *, unsigned int);
 #endif
+#else
+#define CPUQOS_IPI	0
 #endif
 
 /* Todo implement mcupm driver pdata*/
