@@ -43,4 +43,7 @@ ccflags-y += -DTUI_ENABLE_TOUCH
 ccflags-y += -DTUI_LOCK_I2C
 ccflags-y += -DTUI_ENABLE_MPU
 
-
+TOUCH_LISTS := $(subst ",,$(CONFIG_TOUCHSCREEN_MTK_TOUCH))
+ifeq ($(findstring GT9895,$(TOUCH_LISTS)),GT9895)
+ccflags-y += -DTUI_SUPPORT_GT9895
+endif

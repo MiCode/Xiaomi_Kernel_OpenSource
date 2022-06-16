@@ -15,8 +15,14 @@ extern int secmem_api_alloc(u32 alignment, u32 size, u32 *refcount,
 	u32 *sec_handle, uint8_t *owner, uint32_t id);
 extern int secmem_api_unref(u32 sec_handle, uint8_t *owner, uint32_t id);
 
+#ifdef TUI_SUPPORT_GT9895
+extern int tpd_gt9895_enter_tui(void);
+extern int tpd_gt9895_exit_tui(void);
+#else
 extern int tpd_enter_tui(void);
 extern int tpd_exit_tui(void);
+#endif
+
 extern int tui_region_offline(phys_addr_t *pa, unsigned long *size);
 extern int tui_region_offline64(phys_addr_t *pa, unsigned long *size);
 extern int tui_region_online(void);
