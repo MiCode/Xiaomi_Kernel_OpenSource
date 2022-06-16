@@ -11070,7 +11070,7 @@
 		clock-names = "aal0";
 		comp-ids = <MML_AAL0>;
 		comp-names = "aal0";
-		sram-urve-base = /bits/ 32 <4608>;
+		sram-curve-base = /bits/ 32 <4608>;
 		sram-his-base = /bits/ 32 <1536>;
 	};
 
