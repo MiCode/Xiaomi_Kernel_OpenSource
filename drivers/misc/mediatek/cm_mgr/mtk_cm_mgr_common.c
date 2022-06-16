@@ -774,7 +774,7 @@ int cm_mgr_check_dts_setting(struct platform_device *pdev)
 
 	/* cm_mgr_cpu_opp_to_dram */
 	opp_count = of_count_phandle_with_args(node,
-			"cm_mgr_cpu_opp_to_dram", NULL);
+			"cm-mgr-cpu-opp-to-dram", NULL);
 	pr_info("#@# %s(%d) opp_count %d\n",
 			__func__, __LINE__, opp_count);
 
@@ -796,7 +796,7 @@ int cm_mgr_check_dts_setting(struct platform_device *pdev)
 	}
 
 	if (opp_count > 0) {
-		ret = of_property_read_u32_array(node, "cm_mgr_cpu_opp_to_dram",
+		ret = of_property_read_u32_array(node, "cm-mgr-cpu-opp-to-dram",
 				cm_mgr_cpu_opp_to_dram, cm_mgr_cpu_opp_size);
 	}
 
@@ -812,7 +812,7 @@ int cm_mgr_check_dts_setting(struct platform_device *pdev)
 			__func__, __LINE__, cm_mgr_enable);
 
 	ret = of_property_read_string(node,
-			"use_bcpu_weight", (const char **)&buf);
+			"use-bcpu-weight", (const char **)&buf);
 	if (!ret) {
 		if (!strcmp(buf, "enable"))
 			cm_mgr_use_bcpu_weight = 1;
@@ -823,7 +823,7 @@ int cm_mgr_check_dts_setting(struct platform_device *pdev)
 			__func__, __LINE__, cm_mgr_use_bcpu_weight);
 
 	ret = of_property_read_string(node,
-			"use_cpu_to_dram_map", (const char **)&buf);
+			"use-cpu-to-dram-map", (const char **)&buf);
 	if (!ret) {
 		if (!strcmp(buf, "enable"))
 			cm_mgr_use_cpu_to_dram_map = 1;
@@ -834,7 +834,7 @@ int cm_mgr_check_dts_setting(struct platform_device *pdev)
 			__func__, __LINE__, cm_mgr_use_cpu_to_dram_map);
 
 	ret = of_property_read_string(node,
-			"use_cpu_to_dram_map_new", (const char **)&buf);
+			"use-cpu-to-dram-map-new", (const char **)&buf);
 	if (!ret) {
 		if (!strcmp(buf, "enable"))
 			cm_mgr_use_cpu_to_dram_map_new = 1;
@@ -845,14 +845,14 @@ int cm_mgr_check_dts_setting(struct platform_device *pdev)
 			__func__, __LINE__, cm_mgr_use_cpu_to_dram_map_new);
 
 	/* get bcpu weight from dts */
-	ret = of_property_read_s32(node, "cpu_power_bcpu_weight_max",
+	ret = of_property_read_s32(node, "cpu-power-bcpu-weight-max",
 			&cpu_power_bcpu_weight_max);
 	if (ret)
 		cpu_power_bcpu_weight_max = 100;
 	pr_info("#@# %s(%d) cpu_power_bcpu_weight_max %d\n",
 			__func__, __LINE__, cpu_power_bcpu_weight_max);
 
-	ret = of_property_read_s32(node, "cpu_power_bcpu_weight_min",
+	ret = of_property_read_s32(node, "cpu-power-bcpu-weight-min",
 			&cpu_power_bcpu_weight_min);
 	if (ret)
 		cpu_power_bcpu_weight_min = 100;
@@ -860,7 +860,7 @@ int cm_mgr_check_dts_setting(struct platform_device *pdev)
 			__func__, __LINE__, cpu_power_bcpu_weight_min);
 
 	/* get bbcpu weight from dts */
-	ret = of_property_read_s32(node, "cpu_power_bbcpu_weight_max",
+	ret = of_property_read_s32(node, "cpu-power-bbcpu-weight-max",
 			&cpu_power_bbcpu_weight_max);
 	if (ret)
 		cpu_power_bbcpu_weight_max = 100;
@@ -868,7 +868,7 @@ int cm_mgr_check_dts_setting(struct platform_device *pdev)
 	pr_info("#@# %s(%d) cpu_power_bbcpu_weight_max %d\n",
 			__func__, __LINE__, cpu_power_bbcpu_weight_max);
 
-	ret = of_property_read_s32(node, "cpu_power_bbcpu_weight_min",
+	ret = of_property_read_s32(node, "cpu-power-bbcpu-weight-min",
 			&cpu_power_bbcpu_weight_min);
 	if (ret)
 		cpu_power_bbcpu_weight_min = 100;
@@ -891,17 +891,17 @@ int cm_mgr_check_dts_setting(struct platform_device *pdev)
 	vcore_power_ratio_down = debounce_times_up_adb + cm_mgr_num_array;
 	vcore_power_ratio_up = vcore_power_ratio_down + cm_mgr_num_array;
 
-	ret = of_property_read_u32_array(node, "cm_mgr,cp_down",
+	ret = of_property_read_u32_array(node, "cm-mgr,cp-down",
 			cpu_power_ratio_down, cm_mgr_num_array);
-	ret = of_property_read_u32_array(node, "cm_mgr,cp_up",
+	ret = of_property_read_u32_array(node, "cm-mgr,cp-up",
 			cpu_power_ratio_up, cm_mgr_num_array);
-	ret = of_property_read_u32_array(node, "cm_mgr,dt_down",
+	ret = of_property_read_u32_array(node, "cm-mgr,dt-down",
 			debounce_times_down_adb, cm_mgr_num_array);
-	ret = of_property_read_u32_array(node, "cm_mgr,dt_up",
+	ret = of_property_read_u32_array(node, "cm-mgr,dt-up",
 			debounce_times_up_adb, cm_mgr_num_array);
-	ret = of_property_read_u32_array(node, "cm_mgr,vp_down",
+	ret = of_property_read_u32_array(node, "cm-mgr,vp-down",
 			vcore_power_ratio_down, cm_mgr_num_array);
-	ret = of_property_read_u32_array(node, "cm_mgr,vp_up",
+	ret = of_property_read_u32_array(node, "cm-mgr,vp-up",
 			vcore_power_ratio_up, cm_mgr_num_array);
 
 
