@@ -79,30 +79,9 @@ static void query_devapc_subsys_status(int slave_type)
 {
 	struct arm_smccc_res res;
 
-	if (slave_type != DEVAPC_TYPE_ADSP &&
-		slave_type != DEVAPC_TYPE_MMINFRA &&
-		slave_type != DEVAPC_TYPE_MMUP) {
-		mtk_devapc_ctx->subsys_enabled[slave_type] = 1;
-	}
-
-	if (slave_type == DEVAPC_TYPE_ADSP) {
-		/* bypass adsp check since adsp power on after lk.
-		 * todo: add image status check from smc
-		 */
-		mtk_devapc_ctx->subsys_enabled[slave_type] = 0;
-	}
-
-	if (slave_type == DEVAPC_TYPE_MMINFRA) {
-		/* bypass mminfra check since mminfra power on after lk.
-		 */
-		mtk_devapc_ctx->subsys_enabled[slave_type] = 1;
-	}
-
-	if (slave_type == DEVAPC_TYPE_MMUP) {
-		arm_smccc_smc(MTK_SIP_KERNEL_DAPC_MMUP_GET,
-			0, 0, 0, 0, 0, 0, 0, &res);
-		mtk_devapc_ctx->subsys_enabled[slave_type] = res.a0;
-	}
+	arm_smccc_smc(MTK_SIP_KERNEL_DAPC_SUBSYS_GET,
+		slave_type, 0, 0, 0, 0, 0, 0, &res);
+	mtk_devapc_ctx->subsys_enabled[slave_type] = res.a0;
 }
 
 static bool is_devapc_subsys_enabled(int slave_type)
