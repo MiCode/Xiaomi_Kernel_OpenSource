@@ -87,6 +87,9 @@ void dpmaif_debug_add(void *data, int len)
 		} else
 			memcpy(g_debug_buf.data + g_debug_buf.wr, data, len);
 
+		/* for cpu exec. */
+		smp_wmb();
+
 		g_debug_buf.wr = get_ringbuf_next_idx(g_debug_buf_len, g_debug_buf.wr, len);
 
 		len += (g_debug_buf_len - free_cnt);
@@ -106,10 +109,11 @@ _func_exit_:
 static ssize_t dpmaif_debug_read(struct file *file, char __user *buf,
 		size_t size, loff_t *ppos)
 {
-	int read_len, ret, len;
+	unsigned int read_len;
+	int ret, len;
 
 	read_len = get_ringbuf_used_cnt(g_debug_buf_len, g_debug_buf.rd, g_debug_buf.wr);
-	if (read_len <= 0)
+	if (read_len == 0)
 		return 0;
 
 	if (read_len > size)
@@ -145,8 +149,8 @@ static ssize_t dpmaif_debug_read(struct file *file, char __user *buf,
 
 static void dpmaif_sysfs_parse(char *buf, int size)
 {
-	char *psub, *pname, *pvalue, *pdata;
-	unsigned int debug_buf_len = 0;
+	char *psub = NULL, *pname = NULL, *pvalue = NULL, *pdata = NULL;
+	unsigned int debug_buf_len = 0, wake_up_flag = 0;
 	unsigned long flags;
 
 	if (!buf || size <= 0)
@@ -178,7 +182,11 @@ static void dpmaif_sysfs_parse(char *buf, int size)
 				if (kstrtouint(pvalue, 10, &debug_buf_len))
 					return;
 		} else if (strstr(pname, "run_wq")) {
-			wake_up_all(&g_debug_buf.dbg_wq);
+			if (pvalue && *pvalue)
+				if (kstrtouint(pvalue, 10, &wake_up_flag))
+					return;
+			if (wake_up_flag)
+				wake_up_all(&g_debug_buf.dbg_wq);
 		}
 
 		if (!psub)
@@ -187,7 +195,7 @@ static void dpmaif_sysfs_parse(char *buf, int size)
 		pname = psub;
 	}
 
-	if (g_debug_buf_len != debug_buf_len) {
+	if ((debug_buf_len > 0) && (g_debug_buf_len != debug_buf_len)) {
 		spin_lock_irqsave(&g_debug_buf.dbg_lock, flags);
 
 		pdata = g_debug_buf.data;
@@ -209,8 +217,9 @@ static void dpmaif_sysfs_parse(char *buf, int size)
 		}
 	}
 
-	CCCI_NORMAL_LOG(-1, TAG, "[%s] debug_buf_len: %u; debug_flags: 0x%08X\n",
-			__func__, debug_buf_len, g_debug_flags);
+	CCCI_NORMAL_LOG(-1, TAG,
+		"[%s] debug_buf_len: %u; debug_flags: 0x%08X, wake_up_flag: %u\n",
+		__func__, debug_buf_len, g_debug_flags, wake_up_flag);
 }
 
 #define MAX_WRITE_LEN 300
@@ -262,6 +271,7 @@ static int dpmaif_debug_close(struct inode *inode, struct file *file)
 	if (atomic_dec_return(&g_debug_buf.dbg_user_cnt) < 0)
 		atomic_set(&g_debug_buf.dbg_user_cnt, 0);
 
+	g_debug_flags = 0;
 	CCCI_ERROR_LOG(-1, TAG, "[%s] name: %s\n", __func__, current->comm);
 	return 0;
 }
