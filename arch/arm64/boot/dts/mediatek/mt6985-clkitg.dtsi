@@ -54,8 +54,6 @@
 			<&topckgen_clk CLK_TOP_SENINF5_SEL>,
 			<&topckgen_clk CLK_TOP_VENC_SEL>,
 			<&topckgen_clk CLK_TOP_VDEC_SEL>,
-			<&topckgen_clk CLK_TOP_IMG1_SEL>,
-			<&topckgen_clk CLK_TOP_IPE_SEL>,
 			<&topckgen_clk CLK_TOP_CAM_SEL>,
 			<&topckgen_clk CLK_TOP_CAMTM_SEL>,
 			<&infracfg_ao_clk CLK_IFRAO_CLDMA_BCLK>,
