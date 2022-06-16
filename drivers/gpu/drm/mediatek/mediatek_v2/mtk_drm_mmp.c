@@ -453,6 +453,10 @@ int mtk_drm_mmp_ovl_layer(struct mtk_plane_state *state,
 	struct dma_buf_map map = {0};
 	void *dma_va;
 
+	if (crtc_idx >= MMP_CRTC_NUM) {
+		DDPINFO("Invalid crtc id\n", __func__);
+		return -1;
+	}
 	if (!mtk_drm_helper_get_opt(private->helper_opt,
 				MTK_DRM_OPT_USE_M4U)) {
 		DDPPR_ERR("[MMP]display iommu is disabled\n");
