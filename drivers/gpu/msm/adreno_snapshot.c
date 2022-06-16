@@ -860,7 +860,13 @@ static struct kgsl_process_private *setup_fault_process(struct kgsl_device *devi
 
 	/* if we have an input process, make sure the ptbases match */
 	if (process) {
+		int asid = kgsl_mmu_pagetable_get_asid(process->pagetable, context);
+
 		proc_ptbase = kgsl_mmu_pagetable_get_ttbr0(process->pagetable);
+
+		if (asid >= 0)
+			proc_ptbase |= FIELD_PREP(GENMASK_ULL(63, KGSL_IOMMU_ASID_START_BIT), asid);
+
 		/* agreement! No need to check further */
 		if (hw_ptbase == proc_ptbase)
 			goto done;
