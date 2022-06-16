@@ -133,6 +133,7 @@ struct seninf_ctx {
 	unsigned int is_cphy:1;
 	unsigned int is_test_model:4;
 	unsigned int is_aov_test_model;
+	unsigned int is_aov_real_sensor;
 #ifdef SENINF_DEBUG
 	unsigned int is_test_streamon:1;
 #endif

@@ -59,6 +59,7 @@ struct mtk_seninf_aov_param {
 	int dphy_settle_delay_dt;
 	int settle_delay_ck;
 	int hs_trail_parameter;
+	u32 dphy_csi2_resync_dmy_cycle;
 };
 
 extern int mtk_cam_seninf_s_aov_param(unsigned int sensor_id,

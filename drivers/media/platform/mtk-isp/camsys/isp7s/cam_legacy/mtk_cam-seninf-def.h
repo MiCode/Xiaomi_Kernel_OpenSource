@@ -16,6 +16,14 @@
 
 #define CSI_CLK_242MHZ
 
+/* data lane hs settle, base on 130 MHz csi ck */
+#ifdef CSI_CLK_130MHZ
+#define SENINF_CPHY_SETTLE_DELAY_DT 0x06
+#define SENINF_DPHY_SETTLE_DELAY_DT 0x0A
+#define SENINF_SETTLE_DELAY_CK 0x9
+#define SENINF_HS_TRAIL_PARAMETER 0x34
+#endif
+
 /* data lane hs settle, base on 242 MHz csi ck */
 #ifdef CSI_CLK_242MHZ
 #define SENINF_CPHY_SETTLE_DELAY_DT 0x11
@@ -93,7 +101,9 @@
 #endif
 
 #define AOV_GET_PARAM 1
-#undef SENSING_MODE_READY	// FIX ME
+#define SENSING_MODE_READY	// FIX ME
+#undef AOV_SCP_CLK_SET_PARENT	// FIX ME
+#define AOV_TEST_CLK_ALL_ON_ON_APMCU 1	// FIX ME
 
 enum CSI_PORT {
 	CSI_PORT_0 = 0,

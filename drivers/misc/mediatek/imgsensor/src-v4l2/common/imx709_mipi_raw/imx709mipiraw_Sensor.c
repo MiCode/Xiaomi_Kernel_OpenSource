@@ -182,9 +182,9 @@ static struct imgsensor_info_struct imgsensor_info = {
 	},
 #ifdef AOV_MODE_SENSING
 	.custom1 = {	/* VGA+ 640x480@10FPS */
-		.pclk = 166800000,
+		.pclk = 146400000,
 		.linelength = 936,
-		.framelength = 17816,
+		.framelength = 15640,
 		.startx = 0,
 		.starty = 0,
 		.grabwindow_width = 640,
@@ -194,21 +194,21 @@ static struct imgsensor_info_struct imgsensor_info = {
 		.max_framerate = 100,	/* 10fps */
 	},
 	.custom2 = {	/* VGA+ 480x320@10FPS */
-		.pclk = 223200000,
+		.pclk = 211200000,
 		.linelength = 936,
-		.framelength = 23840,
+		.framelength = 22560,
 		.startx = 0,
 		.starty = 0,
 		.grabwindow_width = 480,
 		.grabwindow_height = 320,
 		.mipi_data_lp2hs_settle_dc = 85,
-		.mipi_pixel_rate = 202500000,
+		.mipi_pixel_rate = 220500000,
 		.max_framerate = 100,	/* 10fps */
 	},
 	.custom3 = {	/* QVGA+ 320x240@10FPS */
-		.pclk = 432000000,
+		.pclk = 360000000,
 		.linelength = 1674,
-		.framelength = 25800,
+		.framelength = 21504,
 		.startx = 0,
 		.starty = 0,
 		.grabwindow_width = 320,
@@ -290,8 +290,8 @@ static struct SENSOR_WINSIZE_INFO_STRUCT imgsensor_winsize_info[9] = {
 	90, 0, 640, 480, 0, 0, 640, 480},	/* custom1  VGA+ */
 	{6560, 4928, 0, 1184, 6560, 2560, 820, 320,
 	170, 0, 480, 320, 0, 0, 480, 320},	/* custom2  VGA+ */
-	{6560, 4928, 0, 0, 6560, 4928, 820, 616,
-	250, 188, 320, 240, 0, 0, 320, 240},	/* custom3  QVGA+ */
+	{6560, 4928, 0, 544, 6560, 3840, 410, 240,
+	45, 0, 320, 240, 0, 0, 320, 240},	/* custom3  QVGA+ */
 #endif
 	{6560, 4928, 0, 0, 6560, 4928, 3280, 2464,
 	0, 0, 3280, 2464, 0, 0, 3280, 2464},	/* custom4 reg_B2 */
@@ -921,9 +921,9 @@ static void set_multi_shutter_frame_length(struct subdrv_ctx *ctx,
 	/* Middle exposure */
 	if (me) {
 		/* MID_COARSE_INTEG_TIME[15:8] */
-		set_cmos_sensor_8(ctx, 0x313A, (me >> 8) & 0xFF);
+		// set_cmos_sensor_8(ctx, 0x313A, (me >> 8) & 0xFF);
 		/* MID_COARSE_INTEG_TIME[7:0] */
-		set_cmos_sensor_8(ctx, 0x313B, me & 0xFF);
+		// set_cmos_sensor_8(ctx, 0x313B, me & 0xFF);
 	}
 	/* Short exposure */
 	if (se) {
@@ -1283,11 +1283,11 @@ static kal_uint32 streaming_control(struct subdrv_ctx *ctx, kal_bool enable)
 		pr_info(
 			"AOV mode[%d] will stream on scp side!\n",
 			ctx->sensor_mode);
-#ifndef AOV_MODE_SENSING_UT
+// #ifndef AOV_MODE_SENSING_UT
 		return ERROR_NONE;
-#else
-		pr_info("stream_refcnt_for_aov:[%d]\n", stream_refcnt_for_aov);
-#endif
+// #else
+		// pr_info("stream_refcnt_for_aov:[%d]\n", stream_refcnt_for_aov);
+// #endif
 	}
 #endif
 	if (enable) {
@@ -1498,11 +1498,12 @@ static void hdr_write_tri_shutter_w_gph(struct subdrv_ctx *ctx,
 		le = round_up((le) / exposure_cnt, 4) * exposure_cnt;
 	}
 
-	if (me) {
-		exposure_cnt++;
-		me = (kal_uint16)max(imgsensor_info.min_shutter, (kal_uint32)me);
-		me = round_up((me) / exposure_cnt, 4) * exposure_cnt;
-	}
+	/* if (me) {
+	 *	exposure_cnt++;
+	 *	me = (kal_uint16)max(imgsensor_info.min_shutter, (kal_uint32)me);
+	 *	me = round_up((me) / exposure_cnt, 4) * exposure_cnt;
+	 * }
+	 */
 
 	if (se) {
 		exposure_cnt++;
@@ -1519,10 +1520,11 @@ static void hdr_write_tri_shutter_w_gph(struct subdrv_ctx *ctx,
 		previous_exp[i] = 0;
 	previous_exp[0] = le;
 	switch (exposure_cnt) {
-	case 3:
-		previous_exp[1] = me;
-		previous_exp[2] = se;
-		break;
+	/* case 3:
+	 *	previous_exp[1] = me;
+	 *	previous_exp[2] = se;
+	 *	break;
+	 */
 	case 2:
 		previous_exp[1] = se;
 		previous_exp[2] = 0;
@@ -1537,8 +1539,9 @@ static void hdr_write_tri_shutter_w_gph(struct subdrv_ctx *ctx,
 
 	if (le)
 		le = le / exposure_cnt;
-	if (me)
-		me = me / exposure_cnt;
+	/* if (me)
+	 *	me = me / exposure_cnt;
+	 */
 	if (se)
 		se = se / exposure_cnt;
 
@@ -1552,12 +1555,13 @@ static void hdr_write_tri_shutter_w_gph(struct subdrv_ctx *ctx,
 	set_cmos_sensor_8(ctx, 0x0202, (le >> 8) & 0xFF);
 	set_cmos_sensor_8(ctx, 0x0203, le & 0xFF);
 	/* Middle exposure */
-	if (me) {
-		/*MID_COARSE_INTEG_TIME[15:8]*/
-		set_cmos_sensor_8(ctx, 0x313A, (me >> 8) & 0xFF);
-		/*MID_COARSE_INTEG_TIME[7:0]*/
-		set_cmos_sensor_8(ctx, 0x313B, me & 0xFF);
-	}
+	/*if (me) {
+	 *	// MID_COARSE_INTEG_TIME[15:8]
+	 *	set_cmos_sensor_8(ctx, 0x313A, (me >> 8) & 0xFF);
+	 *	// MID_COARSE_INTEG_TIME[7:0]
+	 *	set_cmos_sensor_8(ctx, 0x313B, me & 0xFF);
+	 * }
+	 */
 	/* Short exposure */
 	set_cmos_sensor_8(ctx, 0x0224, (se >> 8) & 0xFF);
 	set_cmos_sensor_8(ctx, 0x0225, se & 0xFF);
@@ -1594,10 +1598,11 @@ static void hdr_write_tri_gain_w_gph(struct subdrv_ctx *ctx,
 	set_cmos_sensor_8(ctx, 0x0204, (reg_lg>>8) & 0xFF);
 	set_cmos_sensor_8(ctx, 0x0205, reg_lg & 0xFF);
 	/* Middle Exp Gain */
-	if (mg != 0) {
-		set_cmos_sensor_8(ctx, 0x313C, (reg_mg>>8) & 0xFF);
-		set_cmos_sensor_8(ctx, 0x313D, reg_mg & 0xFF);
-	}
+	/* if (mg != 0) {
+	 *	set_cmos_sensor_8(ctx, 0x313C, (reg_mg>>8) & 0xFF);
+	 *	set_cmos_sensor_8(ctx, 0x313D, reg_mg & 0xFF);
+	 * }
+	 */
 	/* Short Exp Gain */
 	set_cmos_sensor_8(ctx, 0x0216, (reg_sg>>8) & 0xFF);
 	set_cmos_sensor_8(ctx, 0x0217, reg_sg & 0xFF);
@@ -3465,7 +3470,28 @@ static int get_csi_param(struct subdrv_ctx *ctx,
 	enum SENSOR_SCENARIO_ID_ENUM scenario_id,
 	struct mtk_csi_param *csi_param)
 {
+	csi_param->legacy_phy = 0;
+	csi_param->not_fixed_trail_settle = 1;
+
 	switch (scenario_id) {
+	case SENSOR_SCENARIO_ID_CUSTOM1:
+		csi_param->dphy_data_settle = 0x15;	//? FIX ME
+		csi_param->dphy_clk_settle = 0x15;	//? FIX ME
+		csi_param->dphy_trail = 0x30;	//83? FIX ME
+		csi_param->dphy_csi2_resync_dmy_cycle = 0x2C;	//? FIX ME
+		break;
+	case SENSOR_SCENARIO_ID_CUSTOM2:
+		csi_param->dphy_data_settle = 0x10;	//? FIX ME
+		csi_param->dphy_clk_settle = 0x10;	//? FIX ME
+		csi_param->dphy_trail = 0x6A;	//? FIX ME
+		csi_param->dphy_csi2_resync_dmy_cycle = 0x24;	//? FIX ME
+		break;
+	case SENSOR_SCENARIO_ID_CUSTOM3:
+		csi_param->dphy_data_settle = 0x15;	//? FIX ME
+		csi_param->dphy_clk_settle = 0x15;	//? FIX ME
+		csi_param->dphy_trail = 0x85;	//? FIX ME
+		csi_param->dphy_csi2_resync_dmy_cycle = 0x2D;	//? FIX ME
+		break;
 	default:
 		break;
 	}

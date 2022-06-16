@@ -520,7 +520,10 @@ static int ext_ctrl(struct adaptor_ctx *ctx, struct v4l2_ctrl *ctrl, struct sens
 			csi_param->dphy_data_settle = mode->csi_param.dphy_data_settle;
 			csi_param->dphy_trail = mode->csi_param.dphy_trail;
 			csi_param->legacy_phy = mode->csi_param.legacy_phy;
-			csi_param->not_fixed_trail_settle = mode->csi_param.not_fixed_trail_settle;
+			csi_param->not_fixed_trail_settle =
+				mode->csi_param.not_fixed_trail_settle;
+			csi_param->dphy_csi2_resync_dmy_cycle =
+				mode->csi_param.dphy_csi2_resync_dmy_cycle;
 		}
 	}
 		break;

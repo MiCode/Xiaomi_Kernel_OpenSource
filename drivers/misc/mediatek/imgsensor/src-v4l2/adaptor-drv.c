@@ -1113,7 +1113,7 @@ static ssize_t debug_pwr_ops_show(struct device *dev,
 		else
 			ent = &ctx->subdrv->pw_seq[i];
 		SHOW(buf, len, "\t%s power %d with delay %d\n",
-		     hw_id_names[ent->id], ent->val, ent->delay);
+		     hw_id_names[(unsigned int)ent->id], ent->val, ent->delay);
 	}
 
 	return len;

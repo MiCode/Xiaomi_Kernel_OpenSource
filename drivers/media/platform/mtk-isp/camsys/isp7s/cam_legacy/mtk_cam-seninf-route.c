@@ -439,13 +439,14 @@ int mtk_cam_seninf_get_csi_param(struct seninf_ctx *ctx)
 	ctrl->p_new.p = csi_param;
 
 	ret = get_ctrl(ctrl);
-	dev_info(ctx->dev, "%s get_ctrl ret:%d %d|%d|%d|%d|%d|%d\n", __func__,
+	dev_info(ctx->dev, "%s get_ctrl ret:%d %d|%d|%d|%d|%d|%d|%d\n", __func__,
 		ret, csi_param->cphy_settle,
 		csi_param->dphy_clk_settle,
 		csi_param->dphy_data_settle,
 		csi_param->dphy_trail,
 		csi_param->not_fixed_trail_settle,
-		csi_param->legacy_phy);
+		csi_param->legacy_phy,
+		csi_param->dphy_csi2_resync_dmy_cycle);
 
 #if AOV_GET_PARAM
 	g_aov_param.cphy_settle = csi_param->cphy_settle;
@@ -454,6 +455,7 @@ int mtk_cam_seninf_get_csi_param(struct seninf_ctx *ctx)
 	g_aov_param.dphy_trail = csi_param->dphy_trail;
 	g_aov_param.legacy_phy = csi_param->legacy_phy;
 	g_aov_param.not_fixed_trail_settle = csi_param->not_fixed_trail_settle;
+	g_aov_param.dphy_csi2_resync_dmy_cycle = csi_param->dphy_csi2_resync_dmy_cycle;
 #endif
 
 	return 0;
@@ -925,9 +927,6 @@ int _mtk_cam_seninf_set_camtg(struct v4l2_subdev *sd,
 									vc->mux, old_camtg);
 
 				if (pad_id == PAD_SRC_RAW0) {
-#if AOV_GET_PARAM
-					g_aov_param.camtg = 33;
-#endif
 					// notify vc->cam
 					notify_fsync_listen_target_with_kthread(ctx);
 				}
@@ -996,6 +995,19 @@ int mtk_cam_seninf_s_stream_mux(struct seninf_ctx *ctx)
 			dev_info(ctx->dev, "vc[%d] pad %d. skip\n",
 				 i, vc->feature, vc->out_pad);
 			continue;
+		}
+
+		if (ctx->is_aov_real_sensor) {
+			vc->cam = 33;	// TO-DO(MTK): fix cammux2camtype
+			vc->mux = 5;	// TO-DO(MTK): fix mtk_cam_seninf_mux_get_by_type
+			vc->mux_vr = 33;	// TO-DO(MTK): fix mux2mux_vr
+			vc->pixel_mode = 0;	// real sensor: imx709 support camtg only 1 pix
+			g_aov_param.camtg = 33;
+			dev_info(ctx->dev,
+				"vc[%d] pad[%d] intf[%d] mux[%d] mux_vr[%d] cam[%d] vc[0x%x] dt[0x%x]\n",
+				i, vc->out_pad, intf, vc->mux, vc->mux_vr, vc->cam,
+				vc->vc, vc->dt);
+			break;
 		}
 
 		vc->cam = ctx->pad2cam[vc->out_pad];
@@ -1384,14 +1396,9 @@ int mtk_cam_seninf_s_aov_param(unsigned int sensor_id,
 			real_sensor_id = g_aov_param.sensor_idx;
 			pr_info("input sensor id:%d success\n", real_sensor_id);
 		} else {
-			char seninf_name[256];
-			int cnt = 0;
-
 			real_sensor_id = sensor_id;
-			pr_info("input sensor id:%d fail\n", real_sensor_id);
-			cnt = snprintf(seninf_name, 256,
-				"[%s] input sensor id:%d fail", __func__, real_sensor_id);
-			seninf_aee_print("[AEE] %s", seninf_name);
+			seninf_aee_print("[AEE] [%s] input sensor id:%d fail",
+				__func__, real_sensor_id);
 			return -ENODEV;
 		}
 	}

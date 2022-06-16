@@ -1747,6 +1747,8 @@ static int csirx_seninf_csi2_setting(struct seninf_ctx *ctx)
 		do_div(cycles, data_rate);
 		cycles += CYCLE_MARGIN;
 
+		if (ctx->csi_param.dphy_csi2_resync_dmy_cycle)
+			cycles = ctx->csi_param.dphy_csi2_resync_dmy_cycle;
 
 		dev_info(ctx->dev,
 		"%s data_rate %lld bps cycles %lld\n",
@@ -1800,6 +1802,10 @@ static int csirx_seninf_csi2_setting(struct seninf_ctx *ctx)
 		do_div(data_rate, ctx->num_data_lanes*16);
 		do_div(cycles, data_rate);
 		cycles += CYCLE_MARGIN;
+
+		if (ctx->csi_param.dphy_csi2_resync_dmy_cycle)
+			cycles = ctx->csi_param.dphy_csi2_resync_dmy_cycle;
+
 		dev_info(ctx->dev,
 		"%s data_rate %lld pps cycles %lld\n",
 		__func__, data_rate, cycles);
