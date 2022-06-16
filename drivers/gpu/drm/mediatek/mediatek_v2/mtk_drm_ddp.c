@@ -12323,20 +12323,21 @@ void mtk_ddp_add_comp_to_path_with_cmdq(struct mtk_drm_crtc *mtk_crtc,
 		if (mtk_crtc->dispsys_num > 1 && reg_data->dispsys_map &&
 				reg_data->dispsys_map[cur] == 1)
 			config_regs_pa = mtk_crtc->side_config_regs_pa;
-
-		if (reg_data->dispsys_map[cur] == OVLSYS0 ||
-			reg_data->dispsys_map[next] == OVLSYS0) {
-			config_regs_pa = mtk_crtc->ovlsys0_regs_pa;
-			addr = MT6985_OVLSYS_BYPASS_MUX_SHADOW;
-			reg = 0x1;
-			reg1 = 0xFF0000;
-		} else if (mtk_crtc->ovlsys_num > 1 && reg_data->dispsys_map &&
+		if (reg_data) {
+			if (reg_data->dispsys_map[cur] == OVLSYS0 ||
+				reg_data->dispsys_map[next] == OVLSYS0) {
+				config_regs_pa = mtk_crtc->ovlsys0_regs_pa;
+				addr = MT6985_OVLSYS_BYPASS_MUX_SHADOW;
+				reg = 0x1;
+				reg1 = 0xFF0000;
+			} else if (mtk_crtc->ovlsys_num > 1 && reg_data->dispsys_map &&
 				(reg_data->dispsys_map[cur] == OVLSYS1 ||
-			reg_data->dispsys_map[next] == OVLSYS1)) {
-			config_regs_pa = mtk_crtc->ovlsys1_regs_pa;
-			addr = MT6985_OVLSYS_BYPASS_MUX_SHADOW;
-			reg = 0x1;
-			reg1 = 0xFF0000;
+				reg_data->dispsys_map[next] == OVLSYS1)) {
+				config_regs_pa = mtk_crtc->ovlsys1_regs_pa;
+				addr = MT6985_OVLSYS_BYPASS_MUX_SHADOW;
+				reg = 0x1;
+				reg1 = 0xFF0000;
+			}
 		}
 
 		cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
