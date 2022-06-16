@@ -33,6 +33,14 @@ struct cred_sbuf_content {
 	};
 };
 
+#define MAX_CACHED_NUM	4	// shall be the exponential of 2
+#define CACHED_NUM_MASK	(MAX_CACHED_NUM - 1)
+struct avc_sbuf_cache {
+	unsigned long cached[MAX_CACHED_NUM];
+	int cached_index[MAX_CACHED_NUM];
+	int pos;
+};
+
 extern struct rb_root mkp_rbtree;
 extern rwlock_t mkp_rbtree_rwlock;
 int __init mkp_demo_init(void);

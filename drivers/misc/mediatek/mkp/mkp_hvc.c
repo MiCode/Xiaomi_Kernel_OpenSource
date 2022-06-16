@@ -210,7 +210,7 @@ int mkp_update_sharebuf_1_argu_hvc_call(uint32_t policy, uint32_t handle, unsign
 	mkp_smccc_hvc(mkp_hvc_fast_call_id, handle, index, a1, 0, 0, 0, 0, &res);
 	MKP_DEBUG("%s:%d hvc_id:0x%x, policy:%d res:0x%lx 0x%lx 0x%lx 0x%lx\n", __func__, __LINE__,
 		mkp_hvc_fast_call_id, policy, res.a0, res.a1, res.a2, res.a3);
-	return res.a0 ? -1 : 0;
+	return res.a0 ? -1 : (int)res.a1;
 }
 
 int mkp_update_sharebuf_2_argu_hvc_call(uint32_t policy, uint32_t handle, unsigned long index,
@@ -223,7 +223,7 @@ int mkp_update_sharebuf_2_argu_hvc_call(uint32_t policy, uint32_t handle, unsign
 	mkp_smccc_hvc(mkp_hvc_fast_call_id, handle, index, a1, a2, 0, 0, 0, &res);
 	MKP_DEBUG("%s:%d hvc_id:0x%x, policy:%d res:0x%lx 0x%lx 0x%lx 0x%lx\n", __func__, __LINE__,
 		mkp_hvc_fast_call_id, policy, res.a0, res.a1, res.a2, res.a3);
-	return res.a0 ? -1 : 0;
+	return res.a0 ? -1 : (int)res.a1;
 }
 
 int mkp_update_sharebuf_3_argu_hvc_call(uint32_t policy, uint32_t handle, unsigned long index,
@@ -236,7 +236,7 @@ int mkp_update_sharebuf_3_argu_hvc_call(uint32_t policy, uint32_t handle, unsign
 	mkp_smccc_hvc(mkp_hvc_fast_call_id, handle, index, a1, a2, a3, 0, 0, &res);
 	MKP_DEBUG("%s:%d hvc_id:0x%x, policy:%d res:0x%lx 0x%lx 0x%lx 0x%lx\n", __func__, __LINE__,
 		mkp_hvc_fast_call_id, policy, res.a0, res.a1, res.a2, res.a3);
-	return res.a0 ? -1 : 0;
+	return res.a0 ? -1 : (int)res.a1;
 }
 
 int mkp_update_sharebuf_4_argu_hvc_call(uint32_t policy, uint32_t handle, unsigned long index,
@@ -249,7 +249,7 @@ int mkp_update_sharebuf_4_argu_hvc_call(uint32_t policy, uint32_t handle, unsign
 	mkp_smccc_hvc(mkp_hvc_fast_call_id, handle, index, a1, a2, a3, a4, 0, &res);
 	MKP_DEBUG("%s:%d hvc_id:0x%x, policy:%d res:0x%lx 0x%lx 0x%lx 0x%lx\n", __func__, __LINE__,
 		mkp_hvc_fast_call_id, policy, res.a0, res.a1, res.a2, res.a3);
-	return res.a0 ? -1 : 0;
+	return res.a0 ? -1 : (int)res.a1;
 }
 
 int mkp_update_sharebuf_5_argu_hvc_call(uint32_t policy, uint32_t handle, unsigned long index,
@@ -262,7 +262,7 @@ int mkp_update_sharebuf_5_argu_hvc_call(uint32_t policy, uint32_t handle, unsign
 	mkp_smccc_hvc(mkp_hvc_fast_call_id, handle, index, a1, a2, a3, a4, a5, &res);
 	MKP_DEBUG("%s:%d hvc_id:0x%x, policy:%d res:0x%lx 0x%lx 0x%lx 0x%lx\n", __func__, __LINE__,
 		mkp_hvc_fast_call_id, policy, res.a0, res.a1, res.a2, res.a3);
-	return res.a0 ? -1 : 0;
+	return res.a0 ? -1 : (int)res.a1;
 }
 
 int mkp_update_sharebuf_hvc_call(uint32_t policy, uint32_t handle, unsigned long index,

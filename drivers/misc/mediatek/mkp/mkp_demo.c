@@ -52,6 +52,8 @@ static struct selinux_avc *g_avc;
 static struct selinux_policy __rcu *g_policy;
 const struct selinux_state *g_selinux_state;
 
+static DEFINE_PER_CPU(struct avc_sbuf_cache, cpu_avc_sbuf);
+
 #if mkp_debug
 static void mkp_trace_event_func(struct timer_list *unused);
 static DEFINE_TIMER(mkp_trace_event_timer, mkp_trace_event_func);
@@ -336,7 +338,59 @@ static void probe_android_rvh_revert_creds(void *ignore, const struct task_struc
 	MKP_HOOK_END(__func__);
 }
 
+static void __update_cpu_avc_sbuf(unsigned long key, int index)
+{
+	struct avc_sbuf_cache *sb;
 
+	sb = this_cpu_ptr(&cpu_avc_sbuf);
+	sb->cached[sb->pos] = key;
+	sb->cached_index[sb->pos] = index;
+	sb->pos = (sb->pos + 1) % MAX_CACHED_NUM;
+}
+
+static void update_cpu_avc_sbuf(unsigned long key, int index)
+{
+	unsigned long flags;
+
+	local_irq_save(flags);
+
+	__update_cpu_avc_sbuf(key, index);
+
+	local_irq_restore(flags);
+}
+
+static int fast_avc_lookup(unsigned long key)
+{
+	unsigned long flags;
+	int pos;
+	struct avc_sbuf_cache *sb;
+	int index = -1;
+
+	local_irq_save(flags);
+
+	sb = this_cpu_ptr(&cpu_avc_sbuf);
+
+	pos = sb->pos;
+	/* Try the 1st hit */
+	pos = (pos + CACHED_NUM_MASK) & CACHED_NUM_MASK;
+	if (sb->cached[pos] == key) {
+		index = sb->cached_index[pos];
+		goto exit;
+	}
+
+	/* Try more */
+	for (pos = 0; pos < MAX_CACHED_NUM; pos++) {
+		if (sb->cached[pos] == key) {
+			index = sb->cached_index[pos];
+			goto exit;
+		}
+	}
+
+exit:
+	local_irq_restore(flags);
+
+	return index;
+}
 
 static void probe_android_rvh_selinux_avc_insert(void *ignore, const struct avc_node *node)
 {
@@ -352,6 +406,8 @@ static void probe_android_rvh_selinux_avc_insert(void *ignore, const struct avc_
 	ret = mkp_update_sharebuf_4_argu(MKP_POLICY_SELINUX_AVC, g_ro_avc_handle,
 		(unsigned long)temp_node, temp_node->ae.ssid,
 		temp_node->ae.tsid, temp_node->ae.tclass, temp_node->ae.avd.allowed);
+
+	__update_cpu_avc_sbuf((unsigned long)temp_node, ret);
 
 	MKP_HOOK_END(__func__);
 }
@@ -375,7 +431,7 @@ static void probe_android_rvh_selinux_avc_node_delete(void *ignore,
 static void probe_android_rvh_selinux_avc_node_replace(void *ignore,
 	const struct avc_node *old, const struct avc_node *new)
 {
-	struct mkp_avc_node *temp_node = NULL;
+	struct mkp_avc_node *new_node = (struct mkp_avc_node *)new;
 	int ret = -1;
 
 	if (g_ro_avc_handle == 0)
@@ -383,12 +439,13 @@ static void probe_android_rvh_selinux_avc_node_replace(void *ignore,
 
 	MKP_HOOK_BEGIN(__func__);
 
-	temp_node = (struct mkp_avc_node *)new;
 	ret = mkp_update_sharebuf_4_argu(MKP_POLICY_SELINUX_AVC, g_ro_avc_handle,
 		(unsigned long)old, 0, 0, 0, 0);
+
 	ret = mkp_update_sharebuf_4_argu(MKP_POLICY_SELINUX_AVC, g_ro_avc_handle,
-		(unsigned long)temp_node, temp_node->ae.ssid,
-		temp_node->ae.tsid, temp_node->ae.tclass, temp_node->ae.avd.allowed);
+		(unsigned long)new_node, new_node->ae.ssid,
+		new_node->ae.tsid, new_node->ae.tclass, new_node->ae.avd.allowed);
+	__update_cpu_avc_sbuf((unsigned long)new_node, ret);
 
 	MKP_HOOK_END(__func__);
 }
@@ -398,8 +455,10 @@ static void probe_android_rvh_selinux_avc_lookup(void *ignore,
 {
 	void *va;
 	struct avc_sbuf_content *ro_avc_sharebuf_ptr;
-	int i;
+	int index;
+	int i = -1;
 	struct mkp_avc_node *temp_node = NULL;
+	bool ready = false;
 	static DEFINE_RATELIMIT_STATE(rs_avc, 1*HZ, 10);
 
 	if (!node || g_ro_avc_handle == 0)
@@ -414,35 +473,49 @@ static void probe_android_rvh_selinux_avc_lookup(void *ignore,
 		va = page_address(avc_pages);
 		ro_avc_sharebuf_ptr = (struct avc_sbuf_content *)va;
 
-		for (i = 0; i < avc_array_sz; ro_avc_sharebuf_ptr++, i++) {
-			if ((unsigned long)ro_avc_sharebuf_ptr->avc_node == (unsigned long)node) {
-				if (ro_avc_sharebuf_ptr->ssid != ssid ||
-					ro_avc_sharebuf_ptr->tsid != tsid ||
-					ro_avc_sharebuf_ptr->tclass != tclass ||
-					ro_avc_sharebuf_ptr->ae_allowed !=
-						temp_node->ae.avd.allowed) {
-					MKP_ERR("avc lookup is not matched\n");
-#if IS_ENABLED(CONFIG_MTK_VM_DEBUG)
-					MKP_ERR("CURRENT-%16lx:%16lx:%16lx:%16lx\n",
-					       (unsigned long)ssid,
-					       (unsigned long)tsid,
-					       (unsigned long)tclass,
-					       (unsigned long)temp_node->ae.avd.allowed);
-					MKP_ERR("@EXPECT-%16lx:%16lx:%16lx:%16lx\n",
-					       (unsigned long)ro_avc_sharebuf_ptr->ssid,
-					       (unsigned long)ro_avc_sharebuf_ptr->tsid,
-					       (unsigned long)ro_avc_sharebuf_ptr->tclass,
-					       (unsigned long)ro_avc_sharebuf_ptr->ae_allowed);
-#endif
-					handle_mkp_err_action(MKP_POLICY_SELINUX_AVC);
-				} else {
-					MKP_HOOK_END(__func__);
-					return; // pass
+		index = fast_avc_lookup((unsigned long)temp_node);
+		if (index != -1) {
+			ro_avc_sharebuf_ptr += index;
+			if ((unsigned long)ro_avc_sharebuf_ptr->avc_node ==
+				(unsigned long)temp_node)
+				ready = true;
+		}
+
+		if (!ready) {
+			ro_avc_sharebuf_ptr = (struct avc_sbuf_content *)va;
+			for (i = 0; i < avc_array_sz; ro_avc_sharebuf_ptr++, i++) {
+				if ((unsigned long)ro_avc_sharebuf_ptr->avc_node ==
+					(unsigned long)temp_node) {
+					ready = true;
+					update_cpu_avc_sbuf((unsigned long)temp_node, i);
+					break;
 				}
 			}
 		}
-
+		if (ready) {
+			if (ro_avc_sharebuf_ptr->ssid != ssid ||
+				ro_avc_sharebuf_ptr->tsid != tsid ||
+				ro_avc_sharebuf_ptr->tclass != tclass ||
+				ro_avc_sharebuf_ptr->ae_allowed !=
+					temp_node->ae.avd.allowed) {
+				MKP_ERR("avc lookup is not matched\n");
+#if IS_ENABLED(CONFIG_MTK_VM_DEBUG)
+				MKP_ERR("CURRENT-%16lx:%16lx:%16lx:%16lx\n",
+				       (unsigned long)ssid,
+				       (unsigned long)tsid,
+				       (unsigned long)tclass,
+				       (unsigned long)temp_node->ae.avd.allowed);
+				MKP_ERR("@EXPECT-%16lx:%16lx:%16lx:%16lx\n",
+				       (unsigned long)ro_avc_sharebuf_ptr->ssid,
+				       (unsigned long)ro_avc_sharebuf_ptr->tsid,
+				       (unsigned long)ro_avc_sharebuf_ptr->tclass,
+				       (unsigned long)ro_avc_sharebuf_ptr->ae_allowed);
+#endif
+				handle_mkp_err_action(MKP_POLICY_SELINUX_AVC);
+			}
+		}
 		MKP_HOOK_END(__func__);
+		return; // pass
 	}
 }
 
