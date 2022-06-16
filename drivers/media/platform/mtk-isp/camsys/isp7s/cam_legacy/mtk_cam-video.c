@@ -1778,7 +1778,10 @@ int mtk_cam_video_set_fmt(struct mtk_cam_video_device *node, struct v4l2_format 
 	if (node->desc.id >= MTK_RAW_MAIN_STREAM_OUT &&
 		node->desc.id < MTK_RAW_RZH1N2TO_1_OUT &&
 	    mtk_cam_scen_is_subsample(scen)) {
-		try_fmt.fmt.pix_mp.num_planes = scen->scen.smvr.subsample_num;
+		if (scen->scen.smvr.subsample_num > MAX_SUBSAMPLE_PLANE_NUM)
+			try_fmt.fmt.pix_mp.num_planes = MAX_SUBSAMPLE_PLANE_NUM;
+		else
+			try_fmt.fmt.pix_mp.num_planes = scen->scen.smvr.subsample_num;
 
 		bytesperline = try_fmt.fmt.pix_mp.plane_fmt[0].bytesperline;
 		sizeimage = try_fmt.fmt.pix_mp.plane_fmt[0].sizeimage;
