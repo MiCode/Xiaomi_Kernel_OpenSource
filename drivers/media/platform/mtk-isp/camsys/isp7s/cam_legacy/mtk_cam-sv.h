@@ -178,10 +178,6 @@ struct mtk_camsv_pipeline {
 
 	/* seninf pad index */
 	u32 seninf_padidx;
-
-	/* camsv todo: may be not necessary */
-	unsigned int raw_vdevidx;
-
 };
 
 struct mtk_camsv_tag_info {
@@ -229,6 +225,8 @@ struct mtk_camsv_device {
 	unsigned int frame_wait_to_process;
 	struct notifier_block notifier_blk;
 	u64 sof_timestamp;
+
+	atomic_t is_first_frame;
 };
 
 struct mtk_camsv {
@@ -245,16 +243,6 @@ struct mtk_camsv_reconfig_info {
 	u32 imgo_xsize;
 	u32 imgo_ysize;
 	u32 imgo_stride;
-};
-
-struct mtk_camsv_frame_params {
-	u8 is_reconfig;
-	struct mtk_camsv_reconfig_info cfg_info;
-	struct mtkcam_ipi_img_output img_out;
-	struct mtkcam_ipi_img_output sensor_svmeta_out; // buf[0][i] for extmetai
-	struct mtkcam_ipi_img_output sensor_svimg_out; // buf[0][i] for svimgoi
-	u64 sensor_img_tstamp[2];
-	u64 sensor_meta_tstamp[3];
 };
 
 static inline bool mtk_camsv_is_yuv_format(unsigned int fmt)
@@ -335,16 +323,11 @@ int mtk_cam_sv_dev_pertag_write_rcnt(
 bool mtk_cam_sv_is_zero_fbc_cnt(struct mtk_cam_ctx *ctx, unsigned int pipe_id);
 void mtk_cam_sv_check_fbc_cnt(struct mtk_camsv_device *camsv_dev,
 	unsigned int tag_idx);
-int mtk_cam_sv_cal_cfg_info(struct mtk_cam_ctx *ctx,
-	const struct v4l2_format *img_fmt, struct mtk_camsv_frame_params *params);
-int mtk_cam_sv_setup_cfg_info(struct mtk_camsv_device *dev,
-	struct mtk_cam_request_stream_data *s_data, unsigned int tag);
 int mtk_cam_sv_frame_no_inner(struct mtk_camsv_device *dev);
 int mtk_cam_sv_set_group_info(struct mtk_camsv_device *camsv_dev);
 void apply_camsv_cq(struct mtk_camsv_device *dev,
 	      dma_addr_t cq_addr, unsigned int cq_size, unsigned int cq_offset,
 	      int initial);
-bool mtk_cam_sv_is_dcif_scenario(unsigned int scenario);
 #ifdef CAMSYS_TF_DUMP_7S
 int mtk_camsv_translation_fault_callback(int port, dma_addr_t mva, void *data);
 #endif

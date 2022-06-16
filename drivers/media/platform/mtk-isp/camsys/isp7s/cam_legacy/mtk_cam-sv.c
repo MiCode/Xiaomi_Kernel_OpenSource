@@ -1416,28 +1416,6 @@ void mtk_cam_sv_check_fbc_cnt(struct mtk_camsv_device *camsv_dev,
 	}
 }
 
-int mtk_cam_sv_cal_cfg_info(struct mtk_cam_ctx *ctx,
-	const struct v4l2_format *img_fmt,
-	struct mtk_camsv_frame_params *params)
-{
-	int ret = 0;
-
-	/* camsv todo */
-
-	return ret;
-}
-
-int mtk_cam_sv_setup_cfg_info(struct mtk_camsv_device *dev,
-	struct mtk_cam_request_stream_data *s_data,
-	unsigned int tag)
-{
-	int ret = 0;
-
-	/* camsv todo */
-
-	return ret;
-}
-
 int mtk_cam_sv_frame_no_inner(struct mtk_camsv_device *dev)
 {
 	return readl_relaxed(dev->base_inner + REG_CAMSVCENTRAL_FRAME_SEQ_NO);
@@ -1521,6 +1499,9 @@ void apply_camsv_cq(struct mtk_camsv_device *dev,
 	u32 cq_addr_lsb = (cq_addr + cq_offset) & CQ_VADDR_MASK;
 	u32 cq_addr_msb = ((cq_addr + cq_offset) >> 32);
 
+	dev_info(dev->dev, "apply camsv scq: addr_msb:0x%x addr_lsb:0x%x size:%d",
+		cq_addr_msb, cq_addr_lsb, cq_size);
+
 	if (cq_size == 0)
 		return;
 
@@ -1532,24 +1513,6 @@ void apply_camsv_cq(struct mtk_camsv_device *dev,
 		cq_addr_lsb);
 	CAMSV_WRITE_BITS(dev->base_scq + REG_CAMSVCQTOP_THR_START,
 		CAMSVCQTOP_THR_START, CAMSVCQTOP_CSR_CQ_THR0_START, 1);
-
-	dev_info(dev->dev, "apply camsv scq: addr_msb:0x%x addr_lsb:0x%x size:%d",
-		cq_addr_msb, cq_addr_lsb, cq_size);
-}
-
-bool mtk_cam_sv_is_dcif_scenario(unsigned int scenario)
-{
-	bool ret = false;
-
-	if (scenario == MTKCAM_IPI_HW_PATH_DC ||
-		scenario == MTKCAM_IPI_HW_PATH_DC_MSTREAM ||
-		scenario == MTKCAM_IPI_HW_PATH_STAGGER ||
-		scenario == MTKCAM_IPI_HW_PATH_DC_STAGGER ||
-		scenario == MTKCAM_IPI_HW_PATH_OTF_RGBW ||
-		scenario == MTKCAM_IPI_HW_PATH_DC_RGBW)
-		ret = true;
-
-	return ret;
 }
 
 unsigned int mtk_cam_get_sv_tag_index(struct mtk_cam_ctx *ctx,

@@ -180,7 +180,6 @@ struct mtk_mraw_pad_config {
 struct mtk_cam_mraw_resource_config {
 	void *vaddr[MAX_MRAW_VIDEO_DEV_NUM];
 	__u64 daddr[MAX_MRAW_VIDEO_DEV_NUM];
-	__u8 is_initial;
 	__u32 enque_num;
 	struct mtkcam_ipi_crop tg_crop;
 	__u32 tg_fmt;
@@ -244,7 +243,9 @@ struct mtk_mraw_device {
 	unsigned int sof_count;
 	unsigned int frame_wait_to_process;
 	struct notifier_block notifier_blk;
-	unsigned int is_enqueued;
+
+	atomic_t is_enqueued;
+	atomic_t is_first_frame;
 };
 
 struct mtk_mraw {
@@ -261,9 +262,6 @@ int mtk_mraw_call_pending_set_fmt(struct v4l2_subdev *sd,
 				 struct v4l2_subdev_format *fmt);
 int mtk_cam_mraw_select(struct mtk_mraw_pipeline *pipe);
 void mraw_reset(struct mtk_mraw_device *dev);
-struct mtk_mraw_pipeline*
-mtk_cam_dev_get_mraw_pipeline(struct mtk_cam_device *cam,
-			     unsigned int pipe_id);
 int mtk_cam_mraw_pipeline_config(struct mtk_cam_ctx *ctx, unsigned int idx);
 struct device *mtk_cam_find_mraw_dev(
 	struct mtk_cam_device *cam, unsigned int mraw_mask);
@@ -271,8 +269,7 @@ int mtk_cam_mraw_apply_all_buffers(struct mtk_cam_ctx *ctx);
 int mtk_cam_mraw_dev_config(
 	struct mtk_cam_ctx *ctx, unsigned int idx);
 int mtk_cam_mraw_dev_stream_on(
-	struct mtk_cam_ctx *ctx, unsigned int idx,
-	unsigned int streaming);
+	struct mtk_mraw_device *mraw_dev, unsigned int streaming);
 int mtk_cam_mraw_tg_config(struct mtk_mraw_device *dev, unsigned int pixel_mode);
 int mtk_cam_mraw_top_config(struct mtk_mraw_device *dev);
 int mtk_cam_mraw_dma_config(struct mtk_mraw_device *dev);
@@ -295,10 +292,10 @@ int mtk_cam_find_mraw_dev_index(struct mtk_cam_ctx *ctx, unsigned int idx);
 void apply_mraw_cq(struct mtk_mraw_device *dev,
 	      dma_addr_t cq_addr, unsigned int cq_size, unsigned int cq_offset,
 	      int initial);
-void mtk_cam_mraw_handle_enque(struct vb2_buffer *vb);
+int mtk_cam_config_mraw_stats_out(struct mtk_cam_request_stream_data *s_data,
+	struct vb2_buffer *vb);
 int mtk_cam_mraw_cal_cfg_info(struct mtk_cam_device *cam,
-	unsigned int pipe_id, struct mtk_cam_request_stream_data *s_data,
-	unsigned int is_config);
+	unsigned int pipe_id, struct mtkcam_ipi_mraw_frame_param *mraw_param);
 #ifdef CAMSYS_TF_DUMP_7S
 int mtk_mraw_translation_fault_callback(int port, dma_addr_t mva, void *data);
 #endif

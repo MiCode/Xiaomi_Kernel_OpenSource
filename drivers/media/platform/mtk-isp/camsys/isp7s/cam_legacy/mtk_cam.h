@@ -225,6 +225,8 @@ struct mtk_cam_request_stream_data {
 	unsigned long raw_dmas;
 	u64 timestamp;
 	u64 timestamp_mono;
+	u64 preisp_img_ts[2];
+	u64 preisp_meta_ts[3];
 	atomic_t buf_state; /* default: -1 */
 	struct mtk_cam_buffer *bufs[MTK_RAW_TOTAL_NODES];
 	struct v4l2_subdev *sensor;
@@ -242,7 +244,6 @@ struct mtk_cam_request_stream_data {
 	struct v4l2_format vdev_fmt[MTK_RAW_TOTAL_NODES];
 	struct v4l2_selection vdev_selection[MTK_RAW_TOTAL_NODES];
 	struct mtkcam_ipi_frame_param frame_params;
-	struct mtk_camsv_frame_params sv_frame_params;
 	struct mtk_cam_sensor_work sensor_work;
 	struct mtk_cam_req_work seninf_s_fmt_work;
 	struct mtk_cam_req_work frame_work;
@@ -968,8 +969,6 @@ int get_last_sv_tag_idx(struct mtk_cam_ctx *ctx, unsigned int exp_no);
 
 unsigned int mtk_cam_get_sv_mapped_tag_order(
 	int hw_scen, int exp_no, int tag);
-
-int mtk_cam_dc_last_camsv(int raw_id);
 
 unsigned int get_master_raw_id(unsigned int num_raw_drivers,
 									  unsigned int enabled_raw);

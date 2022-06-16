@@ -24,22 +24,10 @@
 #include "mtk_cam-pool.h"
 #include "mtk_cam-mraw-regs.h"
 #include "mtk_cam-mraw.h"
-#ifdef CAMSYS_MRAW_V1
-#include "mtk_cam-meta-mt6983.h"
-#endif
-#ifdef CAMSYS_MRAW_V2
-#include "mtk_cam-meta-mt6879.h"
-#endif
-#ifdef CAMSYS_MRAW_V3
-#include "mtk_cam-meta-mt6895.h"
-#endif
-#ifndef CAMSYS_MRAW_V1
-#ifndef CAMSYS_MRAW_V2
-#ifndef CAMSYS_MRAW_V3
-#include "mtk_cam-meta-dummy.h"  // TODO: temp for other platform build pass
-#endif
-#endif
-#endif
+#include "mtk_cam-feature.h"
+/* mraw todo: platform header */
+#include "mtk_cam-meta-dummy.h"
+
 #include "mtk_camera-v4l2-controls.h"
 #include "mtk_camera-videodev2.h"
 
@@ -56,10 +44,6 @@ static const struct of_device_id mtk_mraw_of_ids[] = {
 	{}
 };
 MODULE_DEVICE_TABLE(of, mtk_mraw_of_ids);
-
-#define MAX_NUM_MRAW_CLOCKS 5
-#define LARB25_PORT_SIZE 12
-#define LARB26_PORT_SIZE 13
 
 static const struct v4l2_mbus_framefmt mraw_mfmt_default = {
 	.code = MEDIA_BUS_FMT_SBGGR10_1X10,
@@ -401,10 +385,8 @@ static int mtk_mraw_set_fmt(struct v4l2_subdev *sd,
 		return mtk_mraw_call_set_fmt(sd, state, fmt);
 
 	/* if the pipeline is streaming, pending the change */
-	if (!sd->entity.stream_count) {
-		pipe->res_config.is_initial = 1;
+	if (!sd->entity.stream_count)
 		return mtk_mraw_call_set_fmt(sd, state, fmt);
-	}
 
 	if (v4l2_subdev_format_request_fd(fmt) <= 0)
 		return -EINVAL;
@@ -808,22 +790,21 @@ static void mtk_cam_mraw_set_mraw_dmao_info(
 static void mtk_cam_mraw_copy_user_input_param(
 	struct device *dev,
 	struct mtk_cam_uapi_meta_mraw_stats_cfg *mraw_meta_in_buf,
-	struct mtkcam_ipi_frame_param *frame_param,
-	struct mtk_mraw_pipeline *mraw_pipline)
+	struct mtk_mraw_pipeline *mraw_pipeline)
 {
 	/* set mraw res_config */
-	mraw_pipline->res_config.mqe_en = mraw_meta_in_buf->mqe_enable;
-	mraw_pipline->res_config.mqe_mode = mraw_meta_in_buf->mqe_param.mqe_mode;
+	mraw_pipeline->res_config.mqe_en = mraw_meta_in_buf->mqe_enable;
+	mraw_pipeline->res_config.mqe_mode = mraw_meta_in_buf->mqe_param.mqe_mode;
 
-	mraw_pipline->res_config.mbn_dir = mraw_meta_in_buf->mbn_param.mbn_dir;
-	mraw_pipline->res_config.mbn_pow = mraw_meta_in_buf->mbn_param.mbn_pow;
-	mraw_pipline->res_config.cpi_pow = mraw_meta_in_buf->cpi_param.cpi_pow;
-	mraw_pipline->res_config.cpi_dir = mraw_meta_in_buf->cpi_param.cpi_dir;
+	mraw_pipeline->res_config.mbn_dir = mraw_meta_in_buf->mbn_param.mbn_dir;
+	mraw_pipeline->res_config.mbn_pow = mraw_meta_in_buf->mbn_param.mbn_pow;
+	mraw_pipeline->res_config.cpi_pow = mraw_meta_in_buf->cpi_param.cpi_pow;
+	mraw_pipeline->res_config.cpi_dir = mraw_meta_in_buf->cpi_param.cpi_dir;
 
-	mraw_pipline->res_config.mbn_spar_pow = mraw_meta_in_buf->mbn_param.mbn_spar_pow;
-	mraw_pipline->res_config.mbn_spar_fac = mraw_meta_in_buf->mbn_param.mbn_spar_fac;
-	mraw_pipline->res_config.cpi_spar_pow = mraw_meta_in_buf->cpi_param.cpi_spar_pow;
-	mraw_pipline->res_config.cpi_spar_fac = mraw_meta_in_buf->cpi_param.cpi_spar_fac;
+	mraw_pipeline->res_config.mbn_spar_pow = mraw_meta_in_buf->mbn_param.mbn_spar_pow;
+	mraw_pipeline->res_config.mbn_spar_fac = mraw_meta_in_buf->mbn_param.mbn_spar_fac;
+	mraw_pipeline->res_config.cpi_spar_pow = mraw_meta_in_buf->cpi_param.cpi_spar_pow;
+	mraw_pipeline->res_config.cpi_spar_fac = mraw_meta_in_buf->cpi_param.cpi_spar_fac;
 
 	dev_dbg(dev, "%s:enable:(%d,%d,%d,%d) mqe_mode:%d mbn_dir/pow:(%d,%d) cpi_dir/pow:(%d,%d) mbn_spar(%x,%x,%x,%x,%x) cpi_spar(%x,%x,%x,%x,%x,%x)\n",
 		__func__, mraw_meta_in_buf->mqe_enable, mraw_meta_in_buf->mobc_enable,
@@ -844,18 +825,18 @@ static void mtk_cam_mraw_copy_user_input_param(
 
 static void mtk_cam_mraw_set_frame_param_dmao(
 	struct device *dev,
-	struct mtkcam_ipi_frame_param *frame_param,
+	struct mtkcam_ipi_mraw_frame_param *mraw_param,
 	struct mtk_cam_mraw_dmao_info mraw_dmao_info, int pipe_id,
 	dma_addr_t buf_daddr)
 {
 	struct mtkcam_ipi_img_output *mraw_img_outputs, *last_mraw_img_outputs;
 	int i;
 
-	frame_param->mraw_param[0].pipe_id = pipe_id;
+	mraw_param->pipe_id = pipe_id;
 
 	for (i = DMAO_ID_BEGIN; i < DMAO_ID_MAX; i++) {
 		last_mraw_img_outputs = mraw_img_outputs;
-		mraw_img_outputs = &frame_param->mraw_param[0].mraw_img_outputs[i];
+		mraw_img_outputs = &mraw_param->mraw_img_outputs[i];
 
 		mraw_img_outputs->uid.id = MTKCAM_IPI_MRAW_META_STATS_0;
 		mraw_img_outputs->uid.pipe_id = pipe_id;
@@ -926,71 +907,97 @@ static void mtk_cam_mraw_set_meta_stats_info(
 	mraw_stats0->cpi_stats.stride = mraw_dmao_info->dmao_stride[CPIO];
 }
 
-void mtk_cam_mraw_handle_enque(struct vb2_buffer *vb)
+int mtk_cam_config_mraw_stats_out(struct mtk_cam_request_stream_data *s_data,
+	struct vb2_buffer *vb)
 {
-	struct mtk_cam_device *cam = vb2_get_drv_priv(vb->vb2_queue);
+	struct mtk_cam_ctx *ctx = s_data->ctx;
+	struct mtk_cam_device *cam = ctx->cam;
 	struct mtk_cam_video_device *node = mtk_cam_vbq_to_vdev(vb->vb2_queue);
 	struct mtk_cam_buffer *buf = mtk_cam_vb2_buf_to_dev_buf(vb);
-	struct mtk_cam_request *req = to_mtk_cam_req(vb->request);
 	void *vaddr = vb2_plane_vaddr(vb, 0);
-	unsigned int pipe_id = node->uid.pipe_id;
-	unsigned int dma_port = node->desc.dma_port;
-	struct mtk_cam_request_stream_data *req_stream_data
-		= mtk_cam_req_get_s_data(req, pipe_id, 0);
-	struct device *dev = cam->dev;
+	struct mtk_cam_request_stream_data *ctx_stream_data;
+	struct mtk_cam_request_stream_data *ctx_stream_data_mstream;
 	struct mtkcam_ipi_meta_input *meta_in;
 	struct mtkcam_ipi_frame_param *frame_param;
+	struct mtkcam_ipi_frame_param *frame_param_mstream;
 	struct mtk_cam_uapi_meta_mraw_stats_cfg *mraw_meta_in_buf;
-	struct mtk_mraw_pipeline *mraw_pipline;
+	struct mtk_mraw_pipeline *mraw_pipeline;
+	struct mtkcam_ipi_mraw_frame_param *mraw_param = NULL;
+	struct mtkcam_ipi_mraw_frame_param *mraw_param_mstream = NULL;
+	int i;
 
-	frame_param = &req_stream_data->frame_params;
-	mraw_pipline = mtk_cam_dev_get_mraw_pipeline(cam, pipe_id);
+	ctx_stream_data = mtk_cam_req_get_s_data(s_data->req, ctx->stream_id, 0);
+	frame_param = &ctx_stream_data->frame_params;
 
-	/* TODO: not proper to convert perframe data by using pipeline variable */
-	switch (dma_port) {
+	for (i = 0; i < ctx->used_mraw_num; i++) {
+		if (ctx->mraw_pipe[i]->id == node->uid.pipe_id) {
+			mraw_param = &frame_param->mraw_param[i];
+			mraw_pipeline = ctx->mraw_pipe[i];
+			if (mtk_cam_scen_is_mstream_2exp_types(
+				ctx_stream_data->feature.scen)) {
+				ctx_stream_data_mstream =
+					mtk_cam_req_get_s_data(s_data->req, ctx->stream_id, 1);
+				frame_param_mstream = &ctx_stream_data_mstream->frame_params;
+				mraw_param_mstream = &frame_param_mstream->mraw_param[i];
+			}
+			break;
+		}
+	}
+	if (mraw_param == NULL) {
+		dev_info(cam->dev, "%s:mraw pipe(%d):not configured\n",
+			__func__, node->uid.pipe_id);
+		return -EINVAL;
+	}
+
+	switch (node->desc.dma_port) {
 	case MTKCAM_IPI_MRAW_META_STATS_CFG:
 		mraw_meta_in_buf = (struct mtk_cam_uapi_meta_mraw_stats_cfg *)vaddr;
-		mraw_pipline->res_config.vaddr[MTKCAM_IPI_MRAW_META_STATS_CFG
+		mraw_pipeline->res_config.vaddr[MTKCAM_IPI_MRAW_META_STATS_CFG
 			- MTKCAM_IPI_MRAW_ID_START] = vaddr;
-		mraw_pipline->res_config.daddr[MTKCAM_IPI_MRAW_META_STATS_CFG
+		mraw_pipeline->res_config.daddr[MTKCAM_IPI_MRAW_META_STATS_CFG
 			- MTKCAM_IPI_MRAW_ID_START] = buf->daddr;
-		meta_in = &frame_param->mraw_param[0].mraw_meta_inputs;
+		meta_in = &mraw_param->mraw_meta_inputs;
 		meta_in->buf.ccd_fd = vb->planes[0].m.fd;
 		meta_in->buf.size = node->active_fmt.fmt.meta.buffersize;
 		meta_in->buf.iova = buf->daddr;
-		meta_in->uid.id = dma_port;
+		meta_in->uid.id = node->desc.dma_port;
 		meta_in->uid.pipe_id = node->uid.pipe_id;
-		mtk_cam_mraw_copy_user_input_param(cam->dev, mraw_meta_in_buf,
-			frame_param, mraw_pipline);
-		mraw_pipline->res_config.enque_num++;
+		mtk_cam_mraw_copy_user_input_param(cam->dev,
+			mraw_meta_in_buf, mraw_pipeline);
+		mraw_pipeline->res_config.enque_num++;
 		break;
 	case MTKCAM_IPI_MRAW_META_STATS_0:
-		mraw_pipline->res_config.vaddr[MTKCAM_IPI_MRAW_META_STATS_0
+		mraw_pipeline->res_config.vaddr[MTKCAM_IPI_MRAW_META_STATS_0
 			- MTKCAM_IPI_MRAW_ID_START] = vaddr;
-		mraw_pipline->res_config.daddr[MTKCAM_IPI_MRAW_META_STATS_0
+		mraw_pipeline->res_config.daddr[MTKCAM_IPI_MRAW_META_STATS_0
 			- MTKCAM_IPI_MRAW_ID_START] = buf->daddr;
-		mraw_pipline->res_config.enque_num++;
+		mraw_pipeline->res_config.enque_num++;
 		break;
 	default:
-		dev_dbg(dev, "%s:pipe(%d):buffer with invalid port(%d)\n",
-			__func__, pipe_id, dma_port);
-		break;
+		dev_info(cam->dev, "%s:pipe(%d):buffer with invalid port(%d)\n",
+			__func__, node->uid.pipe_id, node->desc.dma_port);
+		return -EINVAL;
 	}
 
-	dev_dbg(dev, "%s:pipe(%d) dma_port(%d) buf_length(%d)\n",
-		__func__, pipe_id, dma_port, vb->planes[0].length);
+	dev_dbg(cam->dev, "%s:pipe(%d) dma_port(%d) buf_length(%d)\n",
+		__func__, node->uid.pipe_id, node->desc.dma_port, vb->planes[0].length);
 
-	if (mraw_pipline->res_config.enque_num == MAX_MRAW_VIDEO_DEV_NUM) {
-		mtk_cam_mraw_cal_cfg_info(cam, pipe_id,
-			req_stream_data, mraw_pipline->res_config.is_initial);
-		mraw_pipline->res_config.is_initial = 0;
-		mraw_pipline->res_config.enque_num = 0;
+	if (mraw_pipeline->res_config.enque_num == MAX_MRAW_VIDEO_DEV_NUM) {
+		mtk_cam_mraw_cal_cfg_info(cam, node->uid.pipe_id, mraw_param);
+		mraw_pipeline->res_config.enque_num = 0;
+
+		/* update mstream's frame parameter */
+		if (mtk_cam_scen_is_mstream_2exp_types(ctx_stream_data->feature.scen)) {
+			memcpy(mraw_param_mstream, mraw_param,
+				sizeof(struct mtkcam_ipi_mraw_frame_param));
+		}
 	}
+
+	return 0;
 }
 
 int mtk_cam_mraw_cal_cfg_info(struct mtk_cam_device *cam,
-	unsigned int pipe_id, struct mtk_cam_request_stream_data *s_data,
-	unsigned int is_config)
+	unsigned int pipe_id, struct mtkcam_ipi_mraw_frame_param *mraw_param)
 {
 	struct mtk_cam_mraw_dmao_info mraw_dmao_info;
 	struct mtk_mraw_pipeline *pipe =
@@ -998,7 +1005,7 @@ int mtk_cam_mraw_cal_cfg_info(struct mtk_cam_device *cam,
 
 	mtk_cam_mraw_set_mraw_dmao_info(cam,
 		pipe_id, &mraw_dmao_info);
-	mtk_cam_mraw_set_frame_param_dmao(cam->dev, &s_data->frame_params,
+	mtk_cam_mraw_set_frame_param_dmao(cam->dev, mraw_param,
 		mraw_dmao_info, pipe_id,
 		pipe->res_config.daddr[MTKCAM_IPI_MRAW_META_STATS_0
 			- MTKCAM_IPI_MRAW_ID_START]);
@@ -1134,7 +1141,8 @@ int mtk_cam_mraw_apply_all_buffers(struct mtk_cam_ctx *ctx)
 				buf_entry->mraw_cq_desc_size,
 				buf_entry->mraw_cq_desc_offset, 0);
 		} else {
-			mtk_cam_mraw_vf_on(mraw_dev, 0);
+			if (buf_entry->s_data->pad_fmt_update & (1 << MTK_MRAW_SINK))
+				mtk_cam_mraw_vf_on(mraw_dev, 0);
 		}
 	}
 
@@ -1200,17 +1208,6 @@ void mraw_reset(struct mtk_mraw_device *dev)
 RESET_FAILURE:
 	return;
 }
-
-struct mtk_mraw_pipeline*
-mtk_cam_dev_get_mraw_pipeline(struct mtk_cam_device *cam,
-			     unsigned int pipe_id)
-{
-	if (pipe_id < MTKCAM_SUBDEV_MRAW_0 || pipe_id > MTKCAM_SUBDEV_MRAW_END)
-		return NULL;
-	else
-		return &cam->mraw.pipelines[pipe_id - MTKCAM_SUBDEV_MRAW_0];
-}
-
 
 int mtk_cam_mraw_pipeline_config(
 	struct mtk_cam_ctx *ctx, unsigned int idx)
@@ -1442,10 +1439,13 @@ int mtk_cam_mraw_top_enable(struct mtk_mraw_device *dev)
 
 	/* Enable VF */
 	if (MRAW_READ_BITS(dev->base + REG_MRAW_TG_SEN_MODE,
-		MRAW_TG_SEN_MODE, TG_CMOS_EN) && dev->is_enqueued)
+		MRAW_TG_SEN_MODE, TG_CMOS_EN) && atomic_read(&dev->is_enqueued))
 		mtk_cam_mraw_vf_on(dev, 1);
 	else
-		dev_info(dev->dev, "%s, CMOS is off\n", __func__);
+		dev_info(dev->dev, "%s, cmos_en:%d is_enqueued:%d\n", __func__,
+			MRAW_READ_BITS(dev->base + REG_MRAW_TG_SEN_MODE,
+				MRAW_TG_SEN_MODE, TG_CMOS_EN),
+			atomic_read(&dev->is_enqueued));
 
 	return ret;
 }
@@ -1655,37 +1655,18 @@ int mtk_cam_mraw_dev_config(
 	unsigned int idx)
 {
 	struct mtk_cam_device *cam = ctx->cam;
-	struct device *dev = cam->dev;
-	struct v4l2_mbus_framefmt *mf;
-	struct device *dev_mraw;
 	struct mtk_mraw_device *mraw_dev;
-	struct v4l2_format *img_fmt;
-	unsigned int i;
-	int ret, pad_idx = 0;
-
-	img_fmt = &ctx->mraw_pipe[idx]
-		->vdev_nodes[MTK_MRAW_META_OUT-MTK_MRAW_SINK_NUM].active_fmt;
-	pad_idx = ctx->mraw_pipe[idx]->seninf_padidx;
-	mf = &ctx->mraw_pipe[idx]->cfg[MTK_MRAW_SINK].mbus_fmt;
+	int ret;
 
 	ret = mtk_cam_mraw_pipeline_config(ctx, idx);
 	if (ret)
 		return ret;
 
-	dev_mraw = mtk_cam_find_mraw_dev(cam, ctx->used_mraw_dev[idx]);
-	if (dev_mraw == NULL) {
-		dev_dbg(dev, "config mraw device not found\n");
-		return -EINVAL;
-	}
-	mraw_dev = dev_get_drvdata(dev_mraw);
-	for (i = 0; i < MRAW_PIPELINE_NUM; i++)
-		if (cam->mraw.pipelines[i].enabled_mraw & 1<<mraw_dev->id) {
-			mraw_dev->pipeline = &cam->mraw.pipelines[i];
-			break;
-		}
+	mraw_dev = get_mraw_dev(cam, ctx->mraw_pipe[idx]);
+	mraw_dev->pipeline = ctx->mraw_pipe[idx];
 
 	/* reset enqueued status */
-	mraw_dev->is_enqueued = 0;
+	atomic_set(&mraw_dev->is_enqueued, 0);
 	reset_msgfifo(mraw_dev);
 
 	mtk_cam_mraw_tg_config(mraw_dev, ctx->mraw_pipe[idx]->res_config.pixel_mode);
@@ -1697,41 +1678,23 @@ int mtk_cam_mraw_dev_config(
 
 	mtk_mraw_register_iommu_tf_callback(mraw_dev);
 
-	dev_info(dev, "mraw %d %s done\n", mraw_dev->id, __func__);
+	dev_info(mraw_dev->dev, "mraw %d %s done\n", mraw_dev->id, __func__);
 
 	return 0;
 }
 
 int mtk_cam_mraw_dev_stream_on(
-	struct mtk_cam_ctx *ctx,
-	unsigned int idx,
+	struct mtk_mraw_device *mraw_dev,
 	unsigned int streaming)
 {
-	struct mtk_cam_device *cam = ctx->cam;
-	struct device *dev = cam->dev;
-	struct device *dev_mraw;
-	struct mtk_mraw_device *mraw_dev;
-	unsigned int i;
 	int ret = 0;
-
-	dev_mraw = mtk_cam_find_mraw_dev(cam, ctx->used_mraw_dev[idx]);
-	if (dev_mraw == NULL) {
-		dev_dbg(dev, "stream on mraw device not found\n");
-		return -EINVAL;
-	}
-	mraw_dev = dev_get_drvdata(dev_mraw);
-	for (i = 0; i < MRAW_PIPELINE_NUM; i++)
-		if (cam->mraw.pipelines[i].enabled_mraw & 1<<mraw_dev->id) {
-			mraw_dev->pipeline = &cam->mraw.pipelines[i];
-			break;
-		}
 
 	if (streaming)
 		ret = mtk_cam_mraw_cq_enable(mraw_dev) ||
 			mtk_cam_mraw_top_enable(mraw_dev);
 	else {
 		/* reset enqueued status */
-		mraw_dev->is_enqueued = 0;
+		atomic_set(&mraw_dev->is_enqueued, 0);
 
 		ret = mtk_cam_mraw_top_disable(mraw_dev) ||
 			mtk_cam_mraw_cq_disable(mraw_dev) ||
@@ -1740,7 +1703,7 @@ int mtk_cam_mraw_dev_stream_on(
 			mtk_cam_mraw_tg_disable(mraw_dev);
 	}
 
-	dev_info(dev, "mraw %d %s en(%d)\n", mraw_dev->id, __func__, streaming);
+	dev_info(mraw_dev->dev, "%s: mraw-%d en(%d)\n", mraw_dev->id, __func__, streaming);
 
 	return ret;
 }

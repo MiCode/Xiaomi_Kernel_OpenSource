@@ -725,20 +725,16 @@ static void mtk_cam_vb2_buf_queue(struct vb2_buffer *vb)
 	struct device *dev = cam->dev;
 	unsigned int desc_id;
 	unsigned int dma_port;
-	unsigned int width, height, stride;
 	void *vaddr;
 	struct mtkcam_ipi_frame_param *frame_param;
 	struct mtkcam_ipi_meta_input *meta_in;
 	struct mtkcam_ipi_meta_output *meta_out;
-	struct mtk_camsv_frame_params *sv_frame_params;
 	struct mtk_raw_pipeline *raw_pipline;
-
 
 	dma_port = node->desc.dma_port;
 	pipe_id = node->uid.pipe_id;
 	req_stream_data = mtk_cam_req_get_s_data(req, pipe_id, 0);
 	frame_param = &req_stream_data->frame_params;
-	sv_frame_params = &req_stream_data->sv_frame_params;
 	raw_pipline = mtk_cam_dev_get_raw_pipeline(cam, pipe_id);
 	if (raw_pipline) {
 		mtk_cam_req_save_link_change(raw_pipline, req,
@@ -773,65 +769,6 @@ static void mtk_cam_vb2_buf_queue(struct vb2_buffer *vb)
 		CALL_PLAT_V4L2(set_meta_stats_info, dma_port, vaddr,
 			(pde_cfg && pde_cfg->pde_info.pd_table_offset) ?
 				pde_cfg->pde_info.pdo_max_size : 0);
-		break;
-	case MTKCAM_IPI_CAMSV_MAIN_OUT:
-		/*
-		 * TBC: James, could we move the sv_frame_params setting codes
-		 * to mtk_cam_req_update function to support pre-request updated
-		 * scen. In mtk_cam_vb2_buf_queue, we can only read the scen_active.
-		 */
-		if (node->ctx->used_raw_num &&
-			mtk_cam_scen_is_with_w_channel(&node->ctx->pipe->scen_active) &&
-			node->desc.id == MTK_RAW_MAIN_STREAM_SV_1_OUT) {
-			sv_frame_params->img_out.buf[0][0].iova = buf->daddr;
-		} else if (node->desc.id == MTK_RAW_MAIN_STREAM_SV_1_OUT ||
-			node->desc.id == MTK_RAW_MAIN_STREAM_SV_2_OUT) {
-			struct mtkcam_ipi_img_output *img_out;
-			int svimg_i = node->desc.id - MTK_RAW_MAIN_STREAM_SV_1_OUT;
-
-			img_out = &sv_frame_params->sensor_svimg_out;
-			img_out->buf[0][svimg_i].iova = buf->daddr;
-			img_out->fmt.s.w = node->active_fmt.fmt.pix_mp.width;
-			img_out->fmt.s.h = node->active_fmt.fmt.pix_mp.height;
-			img_out->fmt.stride[svimg_i] =
-				node->active_fmt.fmt.pix_mp.plane_fmt[0].bytesperline;
-			dev_dbg(dev, "%s:MTK_RAW_MAIN_STREAM_SV(%d) iova(0x%x)w/h/stride=%d/%d/%d\n",
-			__func__, svimg_i, sv_frame_params->sensor_svimg_out.buf[0][svimg_i].iova,
-			img_out->fmt.s.w, img_out->fmt.s.h, img_out->fmt.stride[svimg_i]);
-		} else if (node->desc.id == MTK_RAW_META_SV_OUT_0 ||
-			node->desc.id == MTK_RAW_META_SV_OUT_1 ||
-			node->desc.id == MTK_RAW_META_SV_OUT_2) {
-			struct mtkcam_ipi_img_output *img_out;
-			int svmeta_i = node->desc.id - MTK_RAW_META_SV_OUT_0;
-
-			img_out = &sv_frame_params->sensor_svmeta_out;
-			img_out->buf[0][svmeta_i].iova = buf->daddr;
-			img_out->fmt.s.w = node->active_fmt.fmt.pix_mp.width;
-			img_out->fmt.s.h = node->active_fmt.fmt.pix_mp.height;
-			img_out->fmt.stride[svmeta_i] =
-				node->active_fmt.fmt.pix_mp.plane_fmt[0].bytesperline;
-			dev_dbg(dev, "%s:MTK_RAW_META_SV(%d) iova(0x%x) w/h/stride=%d/%d/%d\n",
-			__func__, svmeta_i,
-			sv_frame_params->sensor_svmeta_out.buf[0][svmeta_i].iova,
-			img_out->fmt.s.w, img_out->fmt.s.h, img_out->fmt.stride[svmeta_i]);
-		} else {
-			/* calculate iova for 16-alignment */
-			sv_frame_params->img_out.buf[0][0].iova =
-				((((buf->daddr + GET_PLAT_V4L2(meta_sv_ext_size)) + 15)
-				>> 4) << 4);
-			width = node->active_fmt.fmt.pix_mp.width;
-			height = node->active_fmt.fmt.pix_mp.height;
-			stride = node->active_fmt.fmt.pix_mp.plane_fmt[0].bytesperline;
-
-			vaddr = vb2_plane_vaddr(vb, 0);
-			CALL_PLAT_V4L2(
-				set_sv_meta_stats_info, node->desc.dma_port,
-				vaddr, width, height, stride);
-		}
-		break;
-	case MTKCAM_IPI_MRAW_META_STATS_CFG:
-	case MTKCAM_IPI_MRAW_META_STATS_0:
-		mtk_cam_mraw_handle_enque(vb);
 		break;
 	default:
 		dev_dbg(dev, "%s:pipe(%d):buffer with invalid port(%d)\n",

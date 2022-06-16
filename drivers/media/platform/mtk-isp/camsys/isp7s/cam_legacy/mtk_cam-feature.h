@@ -818,6 +818,8 @@ static inline int mtk_cam_scen_is_hdr_save_mem(struct mtk_cam_scen *scen)
 
 static inline bool mtk_cam_scen_is_with_w_channel(struct mtk_cam_scen *scen)
 {
+	if (!scen)
+		return false;
 	return scen->id == MTK_CAM_SCEN_CAMSV_RGBW;
 }
 
