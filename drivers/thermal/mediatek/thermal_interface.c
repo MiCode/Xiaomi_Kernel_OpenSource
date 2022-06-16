@@ -563,12 +563,14 @@ static ssize_t frs_info_show(struct kobject *kobj,
 {
 	int len = 0;
 
-	len += snprintf(buf + len, PAGE_SIZE - len, "%d,%d,%d,%d,%d,%d,%d,%d,%d\n",
+	len += snprintf(buf + len, PAGE_SIZE - len, "%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d\n",
 		frs_data.enable,
 		frs_data.activated, frs_data.pid,
 		frs_data.target_fps, frs_data.diff,
 		frs_data.tpcb, frs_data.tpcb_slope,
-		frs_data.ap_headroom, frs_data.n_sec_to_ttpcb);
+		frs_data.ap_headroom, frs_data.n_sec_to_ttpcb,
+		frs_data.frs_target_fps, frs_data.real_fps,
+		frs_data.target_tpcb, frs_data.ptime);
 
 	return len;
 }
@@ -579,9 +581,11 @@ static ssize_t frs_info_store(struct kobject *kobj,
 	int enable, act, target_fps, tpcb, tpcb_slope;
 	int ap_headroom, n_sec_to_ttpcb;
 	int pid, diff;
+	int frs_target_fps, real_fps, target_tpcb, ptime;
 
-	if (sscanf(buf, "%d,%d,%d,%d,%d,%d,%d,%d,%d", &enable, &act, &pid, &target_fps,
-		&diff, &tpcb, &tpcb_slope, &ap_headroom, &n_sec_to_ttpcb) == 9) {
+	if (sscanf(buf, "%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d", &enable, &act, &pid,
+		&target_fps, &diff, &tpcb, &tpcb_slope, &ap_headroom, &n_sec_to_ttpcb,
+		&frs_target_fps, &real_fps, &target_tpcb, &ptime) == 13) {
 		if ((ap_headroom >= -1000) && (ap_headroom <= 1000)) {
 			therm_intf_write_csram(ap_headroom, AP_NTC_HEADROOM_OFFSET);
 			frs_data.ap_headroom = ap_headroom;
@@ -599,6 +603,10 @@ static ssize_t frs_info_store(struct kobject *kobj,
 		frs_data.diff = diff;
 		frs_data.tpcb_slope = tpcb_slope;
 		frs_data.n_sec_to_ttpcb = n_sec_to_ttpcb;
+		frs_data.frs_target_fps = frs_target_fps;
+		frs_data.real_fps = real_fps;
+		frs_data.target_tpcb = target_tpcb;
+		frs_data.ptime = ptime;
 	} else {
 		pr_info("[%s] invalid input\n", __func__);
 		return -EINVAL;

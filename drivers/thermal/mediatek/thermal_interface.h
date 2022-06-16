@@ -96,6 +96,10 @@ struct frs_info {
 	int tpcb_slope;
 	int ap_headroom;
 	int n_sec_to_ttpcb;
+	int frs_target_fps;
+	int real_fps;
+	int target_tpcb;
+	int ptime;
 };
 
 #define MAX_MD_NAME_LENGTH  (20)
