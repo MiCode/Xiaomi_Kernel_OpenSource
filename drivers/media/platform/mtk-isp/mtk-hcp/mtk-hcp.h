@@ -6,14 +6,14 @@
 #ifndef MTK_HCP_H
 #define MTK_HCP_H
 
-#include <linux/fdtable.h>
-#include <linux/platform_device.h>
-
-#include <uapi/linux/dma-heap.h>
-#include <linux/dma-heap.h>
-#include <linux/dma-direction.h>
-#include <linux/scatterlist.h>
 #include <linux/dma-buf.h>
+#include <linux/dma-direction.h>
+#include <linux/dma-heap.h>
+#include <linux/fdtable.h>
+#include <linux/mutex.h>
+#include <linux/platform_device.h>
+#include <linux/scatterlist.h>
+#include <uapi/linux/dma-heap.h>
 
 #include "mtk-hcp-aee.h"
 #include "mtk-img-ipi.h"
@@ -206,6 +206,23 @@ int mtk_hcp_put_gce_buffer(struct platform_device *pdev);
 void mtk_hcp_purge_msg(struct platform_device *pdev);
 
 /**
+ * mtk_hcp_kernel_db_write - Write a buffer into kernel DB.
+ *
+ * @pdev:   HCP platform device
+ * @buf:    the data buffer
+ * @len:    the data buffer length
+ *
+ * This function is thread-safe. When this function returns
+ * Note this function should use in user context.
+ *
+ * Return: Return actual size which has been write into kernel DB. Caller
+ * should compare return value with argument "len" to determine whether
+ * whole data has been written successfully.
+ **/
+ssize_t mtk_hcp_kernel_db_write(struct platform_device *pdev,
+		const char *buf, size_t len);
+
+/**
  * struct hcp_mem - HCP memory information
  *
  * @d_va:    the kernel virtual memory address of HCP extended data memory
@@ -320,6 +337,7 @@ struct mtk_hcp {
 	struct task_struct *current_task;
 	struct workqueue_struct *daemon_notify_wq[MODULE_MAX_ID];
 	struct hcp_aee aee_info;
+	struct mutex aee_kernel_db_lock;
 };
 
 struct mtk_hcp_data {

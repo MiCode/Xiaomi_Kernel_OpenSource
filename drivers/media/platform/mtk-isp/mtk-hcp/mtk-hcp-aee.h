@@ -6,11 +6,17 @@
 #ifndef MTK_HCP_AEE_H
 #define MTK_HCP_AEE_H
 
-#define HCP_AEE_PROC_FILE_NUM (3)
 #define HCP_AEE_MAX_BUFFER_SIZE (512*1024)  // 512KB
 
 // Forward declaration
 struct mtk_hcp;
+
+enum HCP_AEE_DB_FILE {
+	HCP_AEE_PROC_FILE_DAEMON    = 0,
+	HCP_AEE_PROC_FILE_KERNEL    = 1,
+	HCP_AEE_PROC_FILE_IMGSTREAM = 2,
+	HCP_AEE_PROC_FILE_NUM       = 3,
+};
 
 struct proc_info {
 	uint8_t buffer[HCP_AEE_MAX_BUFFER_SIZE];
