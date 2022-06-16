@@ -153,6 +153,7 @@ struct seninf_ctx {
 	/* provided by sensor */
 	struct seninf_vcinfo vcinfo;
 	u16 vc_group[VC_CH_GROUP_MAX_NUM];
+	int fsync_vsync_src_pad; // e.g., raw, 3A-meta(general-embedded)
 	int fps_n;
 	int fps_d;
 
