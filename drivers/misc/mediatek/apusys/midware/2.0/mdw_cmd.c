@@ -727,7 +727,7 @@ static struct mdw_cmd *mdw_cmd_create(struct mdw_fpriv *mpriv,
 
 	/* get stale cmd */
 	c = (struct mdw_cmd *)idr_find(&mpriv->cmds, in->id);
-	if (IS_ERR_OR_NULL(c)) {
+	if (!c) {
 		/* no stale cmd, create cmd */
 		mdw_cmd_debug("s(0x%llx) create new\n", (uint64_t)mpriv);
 	} else if (in->op == MDW_CMD_IOCTL_RUN_STALE) {
@@ -903,7 +903,7 @@ static int mdw_cmd_ioctl_run(struct mdw_fpriv *mpriv, union mdw_cmd_args *args)
 	wait_fd = in->exec.fence;
 
 	c = mdw_cmd_create(mpriv, args);
-	if (IS_ERR_OR_NULL(c)) {
+	if (!c) {
 		mdw_drv_err("create cmd fail\n");
 		ret = -EINVAL;
 		goto out;
