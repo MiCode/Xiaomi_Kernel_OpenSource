@@ -40,6 +40,7 @@
 DEBUG_SET_LEVEL(DEBUG_LEVEL_ERR);
 
 #define SUPPORT_FULL_KERNEL_CODE_2M
+#define DEFAULT_MAX_PID 32768
 
 struct work_struct *avc_work;
 
@@ -294,6 +295,12 @@ static void probe_android_rvh_commit_creds(void *ignore, const struct task_struc
 	if (g_ro_cred_handle == 0)
 		return;
 
+	if (task->pid >= DEFAULT_MAX_PID) {
+		MKP_ERR("pid is overflow\n");
+		handle_mkp_err_action(MKP_POLICY_TASK_CRED);
+		return;
+	}
+
 	MKP_HOOK_BEGIN(__func__);
 
 	c.csc.uid.val = new->uid.val;
@@ -318,6 +325,12 @@ static void probe_android_rvh_exit_creds(void *ignore, const struct task_struct 
 	if (g_ro_cred_handle == 0)
 		return;
 
+	if (task->pid >= DEFAULT_MAX_PID) {
+		MKP_ERR("pid is overflow\n");
+		handle_mkp_err_action(MKP_POLICY_TASK_CRED);
+		return;
+	}
+
 	MKP_HOOK_BEGIN(__func__);
 
 	ret = mkp_update_sharebuf_4_argu(MKP_POLICY_TASK_CRED, g_ro_cred_handle,
@@ -334,6 +347,12 @@ static void probe_android_rvh_override_creds(void *ignore, const struct task_str
 
 	if (g_ro_cred_handle == 0)
 		return;
+
+	if (task->pid >= DEFAULT_MAX_PID) {
+		MKP_ERR("pid is overflow\n");
+		handle_mkp_err_action(MKP_POLICY_TASK_CRED);
+		return;
+	}
 
 	MKP_HOOK_BEGIN(__func__);
 
@@ -359,6 +378,12 @@ static void probe_android_rvh_revert_creds(void *ignore, const struct task_struc
 
 	if (g_ro_cred_handle == 0)
 		return;
+
+	if (task->pid >= DEFAULT_MAX_PID) {
+		MKP_ERR("pid is overflow\n");
+		handle_mkp_err_action(MKP_POLICY_TASK_CRED);
+		return;
+	}
 
 	MKP_HOOK_BEGIN(__func__);
 
@@ -644,8 +669,9 @@ static bool cred_is_not_matched(const struct cred *curr, pid_t index)
 	ro_cred_sharebuf_ptr = (struct cred_sbuf_content *)page_address(cred_pages);
 
 	/* pid max */
-	if (index > 32767) {
+	if (index >= DEFAULT_MAX_PID) {
 		MKP_ERR("pid is overflow\n");
+		handle_mkp_err_action(MKP_POLICY_TASK_CRED);
 		return false;
 	}
 
@@ -699,7 +725,7 @@ static void check_cred(struct ratelimit_state *rs)
 	struct task_struct *cur = NULL, *task;
 
 	ratelimit_set_flags(rs, RATELIMIT_MSG_ON_RELEASE);
-	if (!__ratelimit(rs) && (g_ro_cred_handle == 0))
+	if (!__ratelimit(rs) || (g_ro_cred_handle == 0))
 		return;
 
 	cur = get_current();
@@ -1020,7 +1046,7 @@ int __init mkp_demo_init(void)
 		g_ro_cred_handle = mkp_create_ro_sharebuf(MKP_POLICY_TASK_CRED, size, &cred_pages);
 		if (g_ro_cred_handle != 0) {
 			ret = mkp_configure_sharebuf(MKP_POLICY_TASK_CRED, g_ro_cred_handle,
-				0, 32768/* PID_MAX_DEFAULT */, sizeof(struct cred_sbuf_content));
+				0, DEFAULT_MAX_PID, sizeof(struct cred_sbuf_content));
 			rem = do_div(size, sizeof(struct cred_sbuf_content));
 			cred_array_sz = size;
 		} else {
