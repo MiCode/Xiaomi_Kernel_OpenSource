@@ -3642,6 +3642,7 @@ static const struct mtk_mmsys_driver_data mt6985_mmsys_driver_data = {
 	.doze_ctrl_pmic = true,
 	.can_compress_rgb565 = false,
 	.bypass_infra_ddr_control = true,
+	.disable_merge_irq = mtk_ddp_disable_merge_irq,
 };
 
 static const struct mtk_mmsys_driver_data mt6895_mmsys_driver_data = {
@@ -3959,6 +3960,9 @@ void mtk_drm_top_clk_prepare_enable(struct drm_device *drm)
 			atomic_read(&top_isr_ref));
 	if (priv->data->sodi_config)
 		priv->data->sodi_config(drm, DDP_COMPONENT_ID_MAX, NULL, &en);
+
+	if (priv->data->disable_merge_irq)
+		priv->data->disable_merge_irq(drm);
 }
 
 void mtk_drm_top_clk_disable_unprepare(struct drm_device *drm)

@@ -74,6 +74,7 @@ struct mtk_mmsys_driver_data {
 	bool has_smi_limitation;
 	bool doze_ctrl_pmic;
 	bool can_compress_rgb565;
+	void (*disable_merge_irq)(struct drm_device *drm);
 };
 
 struct mtk_drm_lyeblob_ids {

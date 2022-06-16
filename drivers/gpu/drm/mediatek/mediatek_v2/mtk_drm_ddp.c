@@ -785,9 +785,8 @@
 	BIT(DISP_CHIST1_FROM_RDMA0_POS))
 #define MT6879_CHIST_PATH_CONNECT (BIT(DISP_CHIST0_FROM_RDMA0_POS))
 
-/*For MT6985*/
-#define MT6985_MMSYS_INTMERGE	0x008
-#define MT6985_OVLSYS_INTMERGE	0x008
+#define OVLSYS_INTMERGE		0x008
+#define DISPSYS_INTMERGE	0x008
 
 #define MT6985_OVLSYS_BYPASS_MUX_SHADOW	0xF00
 #define MT6985_OVLSYS_OVL_CON					0xF08
@@ -11941,7 +11940,7 @@ void mtk_ddp_add_comp_to_path(struct mtk_drm_crtc *mtk_crtc,
 {
 	int value;
 	unsigned int addr, reg;
-	unsigned int addr1, addr2, reg1;
+	unsigned int addr1, reg1;
 	const struct mtk_mmsys_reg_data *reg_data = mtk_crtc->mmsys_reg_data;
 	enum mtk_ddp_comp_id cur = comp->id;
 	void __iomem *config_regs = mtk_crtc->config_regs;
@@ -12010,7 +12009,6 @@ void mtk_ddp_add_comp_to_path(struct mtk_drm_crtc *mtk_crtc,
 		reg = 0xFF0001;
 		addr1 = MT6985_OVLSYS_CROSSBAR_CON;
 		reg1 = 0;
-		addr2 = MT6985_MMSYS_INTMERGE;
 		/* decide which dispsys need to config */
 		if (mtk_crtc->dispsys_num > 1 && reg_data->dispsys_map &&
 				reg_data->dispsys_map[cur] == 1)
@@ -12022,7 +12020,6 @@ void mtk_ddp_add_comp_to_path(struct mtk_drm_crtc *mtk_crtc,
 			addr = MT6985_OVLSYS_BYPASS_MUX_SHADOW;
 			reg = 0x1;
 			reg1 = 0xFF0000;
-			addr2 = MT6985_OVLSYS_INTMERGE;
 		} else if (mtk_crtc->ovlsys_num > 1 && reg_data->dispsys_map &&
 				(reg_data->dispsys_map[cur] == OVLSYS1 ||
 			reg_data->dispsys_map[next] == OVLSYS1)) {
@@ -12030,12 +12027,10 @@ void mtk_ddp_add_comp_to_path(struct mtk_drm_crtc *mtk_crtc,
 			addr = MT6985_OVLSYS_BYPASS_MUX_SHADOW;
 			reg = 0x1;
 			reg1 = 0xFF0000;
-			addr2 = MT6985_OVLSYS_INTMERGE;
 		}
 		reg = readl_relaxed(config_regs +
 			addr) | reg;
 		writel_relaxed(reg, config_regs + addr);
-		writel_relaxed(0, config_regs + addr2);
 
 		if (reg1) {
 			reg1 = readl_relaxed(config_regs +
@@ -12239,7 +12234,7 @@ void mtk_ddp_add_comp_to_path_with_cmdq(struct mtk_drm_crtc *mtk_crtc,
 					struct cmdq_pkt *handle)
 {
 	unsigned int addr, reg;
-	unsigned int addr1, addr2, reg1;
+	unsigned int addr1, reg1;
 	int value;
 	const struct mtk_mmsys_reg_data *reg_data = mtk_crtc->mmsys_reg_data;
 	struct mtk_drm_private *priv = mtk_crtc->base.dev->dev_private;
@@ -12322,7 +12317,6 @@ void mtk_ddp_add_comp_to_path_with_cmdq(struct mtk_drm_crtc *mtk_crtc,
 		reg = 0xFF0001;
 		addr1 = MT6985_OVLSYS_CROSSBAR_CON;
 		reg1 = 0;
-		addr2 = MT6985_MMSYS_INTMERGE;
 		/* decide which dispsys need to config */
 		if (mtk_crtc->dispsys_num > 1 && reg_data->dispsys_map &&
 				reg_data->dispsys_map[cur] == 1)
@@ -12334,7 +12328,6 @@ void mtk_ddp_add_comp_to_path_with_cmdq(struct mtk_drm_crtc *mtk_crtc,
 			addr = MT6985_OVLSYS_BYPASS_MUX_SHADOW;
 			reg = 0x1;
 			reg1 = 0xFF0000;
-			addr2 = MT6985_OVLSYS_INTMERGE;
 		} else if (mtk_crtc->ovlsys_num > 1 && reg_data->dispsys_map &&
 				(reg_data->dispsys_map[cur] == OVLSYS1 ||
 			reg_data->dispsys_map[next] == OVLSYS1)) {
@@ -12342,7 +12335,6 @@ void mtk_ddp_add_comp_to_path_with_cmdq(struct mtk_drm_crtc *mtk_crtc,
 			addr = MT6985_OVLSYS_BYPASS_MUX_SHADOW;
 			reg = 0x1;
 			reg1 = 0xFF0000;
-			addr2 = MT6985_OVLSYS_INTMERGE;
 		}
 
 		cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
@@ -12350,9 +12342,6 @@ void mtk_ddp_add_comp_to_path_with_cmdq(struct mtk_drm_crtc *mtk_crtc,
 		if (reg1)
 			cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
 				config_regs_pa + addr1, reg1, reg1);
-
-		cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
-			config_regs_pa + addr2, 0, ~0);
 
 		value = mtk_ddp_ovl_con_MT6985(cur, next, &addr);
 		if (value >= 0)
@@ -17773,6 +17762,20 @@ void mmsys_config_dump_analysis_mt6855(void __iomem *config_regs)
 			DDPDUMP("%s, Can't smi dump in IRQ\n", __func__);
 	}
 #endif
+}
+
+void mtk_ddp_disable_merge_irq(struct drm_device *drm)
+{
+	struct mtk_drm_private *priv = drm->dev_private;
+
+	if (priv->ovlsys0_regs)
+		writel_relaxed(0, priv->ovlsys0_regs + OVLSYS_INTMERGE);
+	if (priv->ovlsys1_regs)
+		writel_relaxed(0, priv->ovlsys1_regs + OVLSYS_INTMERGE);
+	if (priv->config_regs)
+		writel_relaxed(0, priv->config_regs + DISPSYS_INTMERGE);
+	if (priv->side_config_regs)
+		writel_relaxed(0, priv->side_config_regs + DISPSYS_INTMERGE);
 }
 
 static int mtk_ddp_probe(struct platform_device *pdev)
