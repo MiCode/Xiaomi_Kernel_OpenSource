@@ -1802,7 +1802,7 @@ static int cmdq_test_probe(struct platform_device *pdev)
 	for (i = 0; i < CMDQ_TEST_SUBSYS_NR; i++)
 		cmdq_msg("subsys[%d]:%u", i, test->subsys[i]);
 
-	ret = of_property_read_u16(pdev->dev.of_node, "token_user0",
+	ret = of_property_read_u16(pdev->dev.of_node, "token-user0",
 		&test->token_user0);
 	if (ret < 0) {
 		cmdq_err("no token_user0 err:%d", ret);

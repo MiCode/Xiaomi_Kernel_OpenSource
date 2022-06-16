@@ -2631,7 +2631,7 @@ phys_addr_t cmdq_mbox_get_spr_pa(void *chan, u8 spr)
 	struct cmdq_thread *thread =
 		(struct cmdq_thread *)((struct mbox_chan *)chan)->con_priv;
 
-	return thread->gce_pa + CMDQ_THR_BASE + CMDQ_THR_SIZE * thread->idx +
+	return thread->gce_pa + CMDQ_THR_BASE + CMDQ_THR_SIZE * ((u64)thread->idx) +
 		CMDQ_THR_SPR + 4 * spr;
 }
 EXPORT_SYMBOL(cmdq_mbox_get_spr_pa);

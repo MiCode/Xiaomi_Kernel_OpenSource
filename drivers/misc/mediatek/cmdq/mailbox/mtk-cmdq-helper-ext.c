@@ -394,7 +394,7 @@ static dma_addr_t cmdq_get_vcp_dummy(enum CMDQ_VCP_ENG_ENUM engine)
 		MMINFRA_MBIST_DELSEL16, MMINFRA_MBIST_DELSEL17,
 		MMINFRA_MBIST_DELSEL18, MMINFRA_MBIST_DELSEL19,};
 
-	if (engine < 0 || engine >= VCP_USER_CNT)
+	if (engine >= VCP_USER_CNT)
 		return 0;
 
 	return MMINFRA_BASE + offset[engine];
@@ -823,6 +823,11 @@ void cmdq_pkt_free_buf(struct cmdq_pkt *pkt)
 		}
 
 		buf->alloc_time = 0;
+		if (!buf->va_base) {
+			kfree(buf);
+			return;
+		}
+
 		if (buf->use_pool) {
 			if (pkt->cur_pool.pool)
 				cmdq_mbox_pool_free_impl(pkt->cur_pool.pool,
@@ -837,7 +842,7 @@ void cmdq_pkt_free_buf(struct cmdq_pkt *pkt)
 				cmdq_mbox_pool_free(cl, buf->va_base,
 					CMDQ_BUF_ADDR(buf));
 			}
-		} else
+		} else if (pkt->dev)
 			cmdq_mbox_buf_free_dev(pkt->dev, buf->va_base,
 				CMDQ_BUF_ADDR(buf));
 		kfree(buf);
@@ -1884,7 +1889,7 @@ s32 cmdq_pkt_poll_timeout_reuse(struct cmdq_pkt *pkt, u32 value, u8 subsys,
 	const u16 reg_val = CMDQ_THR_SPR_IDX1;
 	const u16 reg_poll = CMDQ_THR_SPR_IDX2;
 	const u16 reg_counter = CMDQ_THR_SPR_IDX3;
-	u32 begin_mark, end_addr_mark, cnt_end_addr_mark = 0, shift_pa;
+	u32 begin_mark, end_addr_mark, shift_pa;
 	dma_addr_t cmd_pa;
 	struct cmdq_operand lop, rop;
 	struct cmdq_instruction *inst;
@@ -1984,20 +1989,6 @@ s32 cmdq_pkt_poll_timeout_reuse(struct cmdq_pkt *pkt, u32 value, u8 subsys,
 
 	inst->arg_b = CMDQ_GET_ARG_B(shift_pa);
 	inst->arg_c = CMDQ_GET_ARG_C(shift_pa);
-
-	/* relative case the counter have different offset */
-	if (cnt_end_addr_mark) {
-		inst = (struct cmdq_instruction *)cmdq_pkt_get_va_by_offset(
-			pkt, cnt_end_addr_mark);
-		if (inst->op == CMDQ_CODE_JUMP)
-			inst = (struct cmdq_instruction *)
-				cmdq_pkt_get_va_by_offset(
-				pkt, end_addr_mark + CMDQ_INST_SIZE);
-		shift_pa = CMDQ_REG_SHIFT_ADDR(
-			pkt->cmd_buf_size - cnt_end_addr_mark - CMDQ_INST_SIZE);
-		inst->arg_b = CMDQ_GET_ARG_B(shift_pa);
-		inst->arg_c = CMDQ_GET_ARG_C(shift_pa);
-	}
 
 	return 0;
 }
@@ -2424,6 +2415,11 @@ static void cmdq_print_wait_summary(void *chan, dma_addr_t pc,
 	char text_gpr[30] = {0};
 	void *base;
 	u32 gprid, val, len;
+
+	if (!chan) {
+		cmdq_err("chan is null");
+		return;
+	}
 
 	cmdq_buf_print_wfe(text, txt_len, (u32)(pc & 0xFFFF), (void *)inst);
 
@@ -3311,16 +3307,18 @@ EXPORT_SYMBOL(cmdq_pkt_dump_buf);
 
 int cmdq_dump_pkt(struct cmdq_pkt *pkt, dma_addr_t pc, bool dump_ist)
 {
-	struct cmdq_client *client = (struct cmdq_client *)pkt->cl;
+	struct cmdq_client *client;
 
 	if (!pkt) {
-		cmdq_err("%s pkt is empty");
+		cmdq_err("pkt is empty");
 		return -EINVAL;
 	}
 	if (!pkt->task_alive) {
 		cmdq_err("task_alive:%d", pkt->task_alive);
 		return -EINVAL;
 	}
+
+	client = (struct cmdq_client *)pkt->cl;
 	if (client) {
 		cmdq_util_user_msg(client->chan,
 			"pkt:0x%p(%#x) size:%zu/%zu avail size:%zu priority:%u%s",

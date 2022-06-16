@@ -540,7 +540,7 @@ void cmdq_util_prebuilt_dump_cpr(const u16 hwid, const u16 cpr, const u16 cnt)
 {
 	struct cmdq_client *clt = util.prebuilt_clt[hwid];
 	struct cmdq_pkt *pkt;
-	dma_addr_t pa;
+	dma_addr_t pa = 0;
 	void *va;
 	u32 val[8];
 	s32 i, j;
@@ -552,6 +552,8 @@ void cmdq_util_prebuilt_dump_cpr(const u16 hwid, const u16 cpr, const u16 cnt)
 	}
 
 	va = cmdq_mbox_buf_alloc(clt, &pa);
+	if (!va)
+		return;
 	memset(va, 0, CMDQ_BUF_ALLOC_SIZE);
 
 	pkt = cmdq_pkt_create(clt);
