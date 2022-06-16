@@ -102,6 +102,7 @@ struct mddp_app_t {
 	struct mddp_sm_entry_t     *state_machines[MDDP_STATE_CNT];
 	uint32_t                    drv_reg;
 	uint32_t                    feature;
+	struct mddp_feature         mddp_feat;
 	uint32_t                    abnormal_flags;
 	uint32_t                    reset_cnt;
 	struct completion           md_resp_comp;
@@ -150,6 +151,7 @@ void mddp_sm_wait_pre(struct mddp_app_t *app);
 void mddp_sm_wait(struct mddp_app_t *app, enum mddp_event_e event);
 
 void mddp_check_feature(void);
+bool mddp_check_subfeature(int type, int feat);
 
 int32_t mddp_sm_msg_hdlr(uint32_t user_id,
 		uint32_t msg_id, void *buf, uint32_t buf_len);

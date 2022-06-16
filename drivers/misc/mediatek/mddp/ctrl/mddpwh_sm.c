@@ -748,6 +748,31 @@ static int32_t mddpw_drv_get_mddp_feature(void)
 	return app->feature;
 }
 
+static int32_t mddpw_drv_get_mddp_featset(struct mddp_feature *info)
+{
+	struct mddp_app_t       *app;
+
+	app = mddp_get_app_inst(MDDP_APP_TYPE_WH);
+
+	if (!app->is_config) {
+		MDDP_S_LOG(MDDP_LL_ERR,
+			"%s: app_type(MDDP_APP_TYPE_WH) not configured!\n",
+			__func__);
+		return -ENODEV;
+	}
+
+	if (!app->reset_cnt) {
+		MDDP_S_LOG(MDDP_LL_ERR, "%s before MD ready!\n", __func__);
+		app->abnormal_flags |= MDDP_ABNORMAL_WIFI_DRV_GET_FEATURE_BEFORE_MD_READY;
+	}
+
+	if (!(app->feature & MDDP_FEATURE_NEW_INFO))
+		return -ENOENT;
+
+	*info = app->mddp_feat;
+	return 0;
+}
+
 static int32_t mddpw_drv_reg_callback(struct mddp_drv_handle_t *handle)
 {
 	struct mddpw_drv_handle_t         *wifi_handle;
@@ -767,6 +792,7 @@ static int32_t mddpw_drv_reg_callback(struct mddp_drv_handle_t *handle)
 	wifi_handle->get_net_stat_ext = mddpw_drv_get_net_stat_ext;
 	wifi_handle->get_sys_stat = mddpw_drv_get_sys_stat;
 	wifi_handle->get_mddp_feature = mddpw_drv_get_mddp_feature;
+	wifi_handle->get_mddp_featset = mddpw_drv_get_mddp_featset;
 
 	return 0;
 }
@@ -790,6 +816,7 @@ static int32_t mddpw_drv_dereg_callback(struct mddp_drv_handle_t *handle)
 	wifi_handle->get_net_stat_ext = NULL;
 	wifi_handle->get_sys_stat = NULL;
 	wifi_handle->get_mddp_feature = NULL;
+	wifi_handle->get_mddp_featset = NULL;
 
 	return 0;
 }

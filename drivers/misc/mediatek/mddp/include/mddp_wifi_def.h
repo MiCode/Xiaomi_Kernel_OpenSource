@@ -139,6 +139,43 @@ typedef int32_t (*mddpw_cbf_get_net_stat_ext_t)(struct mddpw_net_stat_ext_t *);
 typedef int32_t (*mddpw_cbf_get_sys_stat_t)(struct mddpw_sys_stat_t **);
 typedef int32_t (*mddpw_cbf_get_mddp_feature_t)(void);
 
+enum mddp_vc_mf_id_e {
+	MF_ID_COMMON,
+	MF_ID_WFC,
+	MF_ID_MDDP_WH,
+	MF_ID_NUM,
+}; // mddp version control main feature enum.
+
+enum mddp_f_com_v1_e {
+	COM_V1_LLS,
+	COM_V1_MAWD,
+	COM_V1_SHM_SYNC,
+	COM_V1_NUM,
+};
+
+enum mddp_f_wfc_v1_e {
+	WFC_V1_NUM,
+};
+
+enum mddp_f_mddp_wh_v1_e {
+	MDDP_WH_V1_QOS,
+	MDDP_WH_V1_MWD,
+	MDDP_WH_V1_NUM,
+};
+
+#define COM_NUM COM_V1_NUM
+#define WFC_NUM WFC_V1_NUM
+#define MDDP_WH_NUM MDDP_WH_V1_NUM
+
+struct mddp_feature {
+	uint16_t        major_version;
+	uint16_t        minor_version;
+	uint32_t	common;
+	uint32_t	wfc;
+	uint32_t	wh;
+};
+
+typedef int32_t (*mddpw_cbf_get_mddp_featset_t)(struct mddp_feature *info);
 struct mddpw_drv_handle_t {
 	/* MDDPW invokes these APIs provided by driver. */
 	drv_cbf_notify_md_info_t               notify_md_info;
@@ -152,6 +189,7 @@ struct mddpw_drv_handle_t {
 	mddpw_cbf_get_net_stat_ext_t           get_net_stat_ext;
 	mddpw_cbf_get_sys_stat_t               get_sys_stat;
 	mddpw_cbf_get_mddp_feature_t           get_mddp_feature;
+	mddpw_cbf_get_mddp_featset_t           get_mddp_featset;
 };
 
 enum mddp_md_smem_user_id_e {
@@ -231,5 +269,6 @@ enum mddp_md_notify_info_type {
 
 #define MDDP_FEATURE_MCIF_WIFI (1<<1)
 #define MDDP_FEATURE_MDDP_WH   (1<<2)
+#define MDDP_FEATURE_NEW_INFO  (1<<30)
 
 #endif /* __MDDP_WIFI_DEF_H */

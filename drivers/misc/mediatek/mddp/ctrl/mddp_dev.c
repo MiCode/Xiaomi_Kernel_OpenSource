@@ -193,10 +193,20 @@ state_show(struct device *dev, struct device_attribute *attr, char *buf)
 					app->type, app->state);
 		ret_num += scnprintf(buf + ret_num, PAGE_SIZE - ret_num,
 				"drv_reg(%d), feature(%d)\n",
-				app->drv_reg, app->feature);
+				app->drv_reg, (app->feature & 0x7));
 		ret_num += scnprintf(buf + ret_num, PAGE_SIZE - ret_num,
 				"abnormal(%x), reset_cnt(%d)\n",
 				app->abnormal_flags, app->reset_cnt);
+		if (app->feature & MDDP_FEATURE_NEW_INFO) {
+			ret_num += scnprintf(buf + ret_num, PAGE_SIZE - ret_num,
+					"MD(%d.%d)\n",
+					app->mddp_feat.major_version, app->mddp_feat.minor_version);
+			ret_num += scnprintf(buf + ret_num, PAGE_SIZE - ret_num,
+					"common_feat(%x), wfc_feat(%x), wh_feat(%x)\n",
+					app->mddp_feat.common, app->mddp_feat.wfc,
+					app->mddp_feat.wh);
+		}
+
 
 		// NG. Failed to fill-in data!
 		if (ret_num <= 0)

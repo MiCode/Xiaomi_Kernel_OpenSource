@@ -20,6 +20,24 @@
 // -----------------------------------------------------------------------------
 typedef int32_t (*mddp_sm_init_func_t)(struct mddp_app_t *app);
 
+struct feature_set {
+	enum mddp_vc_mf_id_e type;
+	uint32_t bm; // bit map
+};
+
+struct check_feature_req {
+	uint16_t        major_version;
+	uint16_t        minor_version;
+	uint32_t        wifi_feature;
+};
+
+struct check_feature_rsp {
+	uint16_t        major_version;
+	uint16_t        minor_version;
+	uint32_t        num;
+	struct          feature_set fs[0]; // Unfixed size
+};
+
 //------------------------------------------------------------------------------
 // Global variables.
 //------------------------------------------------------------------------------
@@ -59,10 +77,16 @@ static void _mddp_set_state(struct mddp_app_t *app, enum mddp_state_e new_state)
 
 void mddp_check_feature(void)
 {
-	struct mddp_md_msg_t           *md_msg;
+	struct mddp_md_msg_t *md_msg;
 	struct mddp_app_t *app;
+	struct check_feature_req ap_info = {
+		.major_version = 13,
+		.minor_version = 0,
+		.wifi_feature = 0
+	};
 
-	md_msg = kzalloc(sizeof(struct mddp_md_msg_t), GFP_ATOMIC);
+	md_msg = kzalloc(sizeof(struct mddp_md_msg_t) + sizeof(struct check_feature_req),
+			GFP_ATOMIC);
 	if (unlikely(!md_msg)) {
 		MDDP_F_LOG(MDDP_LL_NOTICE,
 			"%s: failed to alloc md_msg bug!\n", __func__);
@@ -70,21 +94,69 @@ void mddp_check_feature(void)
 	}
 
 	md_msg->msg_id = IPC_MSG_ID_MDFPM_CHECK_FEATURE_REQ;
-	md_msg->data_len = 0;
-
+	md_msg->data_len = sizeof(struct check_feature_req);
 	app = mddp_get_app_inst(MDDP_APP_TYPE_WH);
 	app->abnormal_flags |= MDDP_ABNORMAL_CHECK_FEATURE_ABSENT;
-
+	memcpy(md_msg->data, &ap_info, md_msg->data_len);
 	mddp_ipc_send_md(app, md_msg, MDFPM_USER_ID_MDFPM);
 }
 
-static void mddp_handshake_done(uint32_t feature)
+static void mddp_handshake_done(void *buf, uint32_t buf_len)
 {
 	struct mddp_app_t *app;
 
 	app = mddp_get_app_inst(MDDP_APP_TYPE_WH);
-	app->feature = feature;
 	app->abnormal_flags &= ~MDDP_ABNORMAL_CHECK_FEATURE_ABSENT;
+
+	if (buf_len == 4) {
+		app->feature = *(uint32_t *)buf;
+	} else {
+		struct check_feature_rsp *rsp;
+		int i;
+
+		rsp = (struct check_feature_rsp *)buf;
+		if (buf_len == (8 + (rsp->num * 8))) {
+			app->feature |= MDDP_FEATURE_NEW_INFO;
+			app->mddp_feat.major_version = rsp->major_version;
+			app->mddp_feat.minor_version = rsp->minor_version;
+			for (i = 0; i < rsp->num; i++) {
+				switch (rsp->fs[i].type) {
+				case MF_ID_COMMON:
+					app->mddp_feat.common = rsp->fs[i].bm;
+					app->feature |= MDDP_FEATURE_MCIF_WIFI;
+				case MF_ID_WFC:
+					app->mddp_feat.wfc = rsp->fs[i].bm;
+					app->feature |= MDDP_FEATURE_MCIF_WIFI;
+					break;
+				case MF_ID_MDDP_WH:
+					app->mddp_feat.wh = rsp->fs[i].bm;
+					app->feature |= MDDP_FEATURE_MDDP_WH;
+					break;
+				default:
+					break;
+				}
+			}
+		} else
+			MDDP_S_LOG(MDDP_LL_ERR, "MD response size(%d) error, num(%d)",
+					buf_len, rsp->num);
+	}
+}
+
+bool mddp_check_subfeature(int type, int feat)
+{
+	struct mddp_app_t *app;
+
+	app = mddp_get_app_inst(MDDP_APP_TYPE_WH);
+	switch (type) {
+	case MF_ID_COMMON:
+		return app->mddp_feat.common & (1 << feat);
+	case MF_ID_WFC:
+		return app->mddp_feat.wfc & (1 << feat);
+	case MF_ID_MDDP_WH:
+		return app->mddp_feat.wh & (1 << feat);
+	default:
+		return 0;
+	}
 }
 
 char operate[4][14] = {
@@ -243,7 +315,7 @@ static int32_t mddp_sm_ctrl_msg_hdlr(
 
 	switch (msg_id) {
 	case IPC_MSG_ID_MDFPM_CHECK_FEATURE_RSP:
-		mddp_handshake_done(*(uint32_t *)buf);
+		mddp_handshake_done(buf, buf_len);
 		break;
 	case IPC_MSG_ID_MDFPM_LOG:
 		mddp_print_mdfpm_log(buf, buf_len);
