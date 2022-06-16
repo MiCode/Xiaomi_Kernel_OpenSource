@@ -11,237 +11,237 @@
 
 static struct cmdq_event_table cmdq_events[] = {
 	/* MDP start frame */
-	DECLAR_EVENT(CMDQ_EVENT_MDP_RDMA0_SOF, mdp_rdma0_sof)
-	DECLAR_EVENT(CMDQ_EVENT_MDP_RDMA1_SOF, mdp_rdma1_sof)
-	DECLAR_EVENT(CMDQ_EVENT_MDP_RDMA2_SOF, mdp_rdma2_sof)
-	DECLAR_EVENT(CMDQ_EVENT_MDP_RDMA3_SOF, mdp_rdma3_sof)
-	DECLAR_EVENT(CMDQ_EVENT_MDP_RSZ0_SOF, mdp_rsz0_sof)
-	DECLAR_EVENT(CMDQ_EVENT_MDP_RSZ1_SOF, mdp_rsz1_sof)
-	DECLAR_EVENT(CMDQ_EVENT_MDP_RSZ2_SOF, mdp_rsz2_sof)
-	DECLAR_EVENT(CMDQ_EVENT_MDP_RSZ3_SOF, mdp_rsz3_sof)
-	DECLAR_EVENT(CMDQ_EVENT_MDP_TDSHP_SOF, mdp_tdshp_sof)
-	DECLAR_EVENT(CMDQ_EVENT_MDP_TDSHP1_SOF, mdp_tdshp1_sof)
-	DECLAR_EVENT(CMDQ_EVENT_MDP_TDSHP2_SOF, mdp_tdshp2_sof)
-	DECLAR_EVENT(CMDQ_EVENT_MDP_TDSHP3_SOF, mdp_tdshp3_sof)
-	DECLAR_EVENT(CMDQ_EVENT_MDP_WDMA_SOF, mdp_wdma_sof)
-	DECLAR_EVENT(CMDQ_EVENT_MDP_WROT_SOF, mdp_wrot_sof)
-	DECLAR_EVENT(CMDQ_EVENT_MDP_WROT0_SOF, mdp_wrot0_sof)
-	DECLAR_EVENT(CMDQ_EVENT_MDP_WROT1_SOF, mdp_wrot1_sof)
-	DECLAR_EVENT(CMDQ_EVENT_MDP_WROT2_SOF, mdp_wrot2_sof)
-	DECLAR_EVENT(CMDQ_EVENT_MDP_WROT3_SOF, mdp_wrot3_sof)
+	DECLAR_EVENT(CMDQ_EVENT_MDP_RDMA0_SOF, mdp-rdma0-sof)
+	DECLAR_EVENT(CMDQ_EVENT_MDP_RDMA1_SOF, mdp-rdma1-sof)
+	DECLAR_EVENT(CMDQ_EVENT_MDP_RDMA2_SOF, mdp-rdma2-sof)
+	DECLAR_EVENT(CMDQ_EVENT_MDP_RDMA3_SOF, mdp-rdma3-sof)
+	DECLAR_EVENT(CMDQ_EVENT_MDP_RSZ0_SOF, mdp-rsz0-sof)
+	DECLAR_EVENT(CMDQ_EVENT_MDP_RSZ1_SOF, mdp-rsz1-sof)
+	DECLAR_EVENT(CMDQ_EVENT_MDP_RSZ2_SOF, mdp-rsz2-sof)
+	DECLAR_EVENT(CMDQ_EVENT_MDP_RSZ3_SOF, mdp-rsz3-sof)
+	DECLAR_EVENT(CMDQ_EVENT_MDP_TDSHP_SOF, mdp-tdshp-sof)
+	DECLAR_EVENT(CMDQ_EVENT_MDP_TDSHP1_SOF, mdp-tdshp1-sof)
+	DECLAR_EVENT(CMDQ_EVENT_MDP_TDSHP2_SOF, mdp-tdshp2-sof)
+	DECLAR_EVENT(CMDQ_EVENT_MDP_TDSHP3_SOF, mdp-tdshp3-sof)
+	DECLAR_EVENT(CMDQ_EVENT_MDP_WDMA_SOF, mdp-wdma-sof)
+	DECLAR_EVENT(CMDQ_EVENT_MDP_WROT_SOF, mdp-wrot-sof)
+	DECLAR_EVENT(CMDQ_EVENT_MDP_WROT0_SOF, mdp-wrot0-sof)
+	DECLAR_EVENT(CMDQ_EVENT_MDP_WROT1_SOF, mdp-wrot1-sof)
+	DECLAR_EVENT(CMDQ_EVENT_MDP_WROT2_SOF, mdp-wrot2-sof)
+	DECLAR_EVENT(CMDQ_EVENT_MDP_WROT3_SOF, mdp-wrot3-sof)
 
 	/* Display start frame */
-	DECLAR_EVENT(CMDQ_EVENT_DISP_RDMA0_SOF, disp_rdma0_sof)
+	DECLAR_EVENT(CMDQ_EVENT_DISP_RDMA0_SOF, disp-rdma0-sof)
 
 	/* MDP frame done */
-	DECLAR_EVENT(CMDQ_EVENT_MDP_RDMA0_EOF, mdp_rdma0_frame_done)
-	DECLAR_EVENT(CMDQ_EVENT_MDP_RDMA1_EOF, mdp_rdma1_frame_done)
-	DECLAR_EVENT(CMDQ_EVENT_MDP_RDMA2_EOF, mdp_rdma2_frame_done)
-	DECLAR_EVENT(CMDQ_EVENT_MDP_RDMA3_EOF, mdp_rdma3_frame_done)
-	DECLAR_EVENT(CMDQ_EVENT_MDP_RSZ0_EOF, mdp_rsz0_frame_done)
-	DECLAR_EVENT(CMDQ_EVENT_MDP_RSZ1_EOF, mdp_rsz1_frame_done)
-	DECLAR_EVENT(CMDQ_EVENT_MDP_RSZ2_EOF, mdp_rsz2_frame_done)
-	DECLAR_EVENT(CMDQ_EVENT_MDP_RSZ3_EOF, mdp_rsz3_frame_done)
-	DECLAR_EVENT(CMDQ_EVENT_MDP_TDSHP_EOF, mdp_tdshp_frame_done)
-	DECLAR_EVENT(CMDQ_EVENT_MDP_TDSHP1_EOF, mdp_tdshp1_frame_done)
-	DECLAR_EVENT(CMDQ_EVENT_MDP_TDSHP2_EOF, mdp_tdshp2_frame_done)
-	DECLAR_EVENT(CMDQ_EVENT_MDP_TDSHP3_EOF, mdp_tdshp3_frame_done)
-	DECLAR_EVENT(CMDQ_EVENT_MDP_WDMA_EOF, mdp_wdma_frame_done)
-	DECLAR_EVENT(CMDQ_EVENT_MDP_WROT_WRITE_EOF, mdp_wrot_write_frame_done)
+	DECLAR_EVENT(CMDQ_EVENT_MDP_RDMA0_EOF, mdp-rdma0-frame-done)
+	DECLAR_EVENT(CMDQ_EVENT_MDP_RDMA1_EOF, mdp-rdma1-frame-done)
+	DECLAR_EVENT(CMDQ_EVENT_MDP_RDMA2_EOF, mdp-rdma2-frame-done)
+	DECLAR_EVENT(CMDQ_EVENT_MDP_RDMA3_EOF, mdp-rdma3-frame-done)
+	DECLAR_EVENT(CMDQ_EVENT_MDP_RSZ0_EOF, mdp-rsz0-frame-done)
+	DECLAR_EVENT(CMDQ_EVENT_MDP_RSZ1_EOF, mdp-rsz1-frame-done)
+	DECLAR_EVENT(CMDQ_EVENT_MDP_RSZ2_EOF, mdp-rsz2-frame-done)
+	DECLAR_EVENT(CMDQ_EVENT_MDP_RSZ3_EOF, mdp-rsz3-frame-done)
+	DECLAR_EVENT(CMDQ_EVENT_MDP_TDSHP_EOF, mdp-tdshp-frame-done)
+	DECLAR_EVENT(CMDQ_EVENT_MDP_TDSHP1_EOF, mdp-tdshp1-frame-done)
+	DECLAR_EVENT(CMDQ_EVENT_MDP_TDSHP2_EOF, mdp-tdshp2-frame-done)
+	DECLAR_EVENT(CMDQ_EVENT_MDP_TDSHP3_EOF, mdp-tdshp3-frame-done)
+	DECLAR_EVENT(CMDQ_EVENT_MDP_WDMA_EOF, mdp-wdma-frame-done)
+	DECLAR_EVENT(CMDQ_EVENT_MDP_WROT_WRITE_EOF, mdp-wrot-write-frame-done)
 	DECLAR_EVENT(CMDQ_EVENT_MDP_WROT0_WRITE_EOF,
-		mdp_wrot0_write_frame_done)
+		mdp-wrot0-write-frame-done)
 	DECLAR_EVENT(CMDQ_EVENT_MDP_WROT1_WRITE_EOF,
-		mdp_wrot1_write_frame_done)
+		mdp-wrot1-write-frame-done)
 	DECLAR_EVENT(CMDQ_EVENT_MDP_WROT2_WRITE_EOF,
-		mdp_wrot2_write_frame_done)
+		mdp-wrot2-write-frame-done)
 	DECLAR_EVENT(CMDQ_EVENT_MDP_WROT3_WRITE_EOF,
-		mdp_wrot3_write_frame_done)
+		mdp-wrot3-write-frame-done)
 
 	/* Display frame done */
-	DECLAR_EVENT(CMDQ_EVENT_DISP_OVL0_EOF, disp_ovl0_frame_done)
-	DECLAR_EVENT(CMDQ_EVENT_DISP_RDMA0_EOF, disp_rdma0_frame_done)
-	DECLAR_EVENT(CMDQ_EVENT_DISP_WDMA0_EOF, disp_wdma0_frame_done)
+	DECLAR_EVENT(CMDQ_EVENT_DISP_OVL0_EOF, disp-ovl0-frame-done)
+	DECLAR_EVENT(CMDQ_EVENT_DISP_RDMA0_EOF, disp-rdma0-frame-done)
+	DECLAR_EVENT(CMDQ_EVENT_DISP_WDMA0_EOF, disp-wdma0-frame-done)
 
 	/* ISP frame done */
-	DECLAR_EVENT(CMDQ_EVENT_ISP_PASS2_2_EOF, isp_frame_done_p2_2)
-	DECLAR_EVENT(CMDQ_EVENT_ISP_PASS2_1_EOF, isp_frame_done_p2_1)
-	DECLAR_EVENT(CMDQ_EVENT_ISP_PASS2_0_EOF, isp_frame_done_p2_0)
+	DECLAR_EVENT(CMDQ_EVENT_ISP_PASS2_2_EOF, isp-frame-done-p2-2)
+	DECLAR_EVENT(CMDQ_EVENT_ISP_PASS2_1_EOF, isp-frame-done-p2-1)
+	DECLAR_EVENT(CMDQ_EVENT_ISP_PASS2_0_EOF, isp-frame-done-p2-0)
 
 	/* ISP (IMGSYS) frame done */
-	DECLAR_EVENT(CMDQ_EVENT_DIP_CQ_THREAD0_EOF, dip_cq_thread0_frame_done)
-	DECLAR_EVENT(CMDQ_EVENT_DIP_CQ_THREAD1_EOF, dip_cq_thread1_frame_done)
-	DECLAR_EVENT(CMDQ_EVENT_DIP_CQ_THREAD2_EOF, dip_cq_thread2_frame_done)
-	DECLAR_EVENT(CMDQ_EVENT_DIP_CQ_THREAD3_EOF, dip_cq_thread3_frame_done)
-	DECLAR_EVENT(CMDQ_EVENT_DIP_CQ_THREAD4_EOF, dip_cq_thread4_frame_done)
-	DECLAR_EVENT(CMDQ_EVENT_DIP_CQ_THREAD5_EOF, dip_cq_thread5_frame_done)
-	DECLAR_EVENT(CMDQ_EVENT_DIP_CQ_THREAD6_EOF, dip_cq_thread6_frame_done)
-	DECLAR_EVENT(CMDQ_EVENT_DIP_CQ_THREAD7_EOF, dip_cq_thread7_frame_done)
-	DECLAR_EVENT(CMDQ_EVENT_DIP_CQ_THREAD8_EOF, dip_cq_thread8_frame_done)
-	DECLAR_EVENT(CMDQ_EVENT_DIP_CQ_THREAD9_EOF, dip_cq_thread9_frame_done)
+	DECLAR_EVENT(CMDQ_EVENT_DIP_CQ_THREAD0_EOF, dip-cq-thread0-frame-done)
+	DECLAR_EVENT(CMDQ_EVENT_DIP_CQ_THREAD1_EOF, dip-cq-thread1-frame-done)
+	DECLAR_EVENT(CMDQ_EVENT_DIP_CQ_THREAD2_EOF, dip-cq-thread2-frame-done)
+	DECLAR_EVENT(CMDQ_EVENT_DIP_CQ_THREAD3_EOF, dip_cq-thread3-frame-done)
+	DECLAR_EVENT(CMDQ_EVENT_DIP_CQ_THREAD4_EOF, dip_cq-thread4-frame-done)
+	DECLAR_EVENT(CMDQ_EVENT_DIP_CQ_THREAD5_EOF, dip_cq-thread5-frame-done)
+	DECLAR_EVENT(CMDQ_EVENT_DIP_CQ_THREAD6_EOF, dip_cq_thread6-frame-done)
+	DECLAR_EVENT(CMDQ_EVENT_DIP_CQ_THREAD7_EOF, dip-cq-thread7-frame-done)
+	DECLAR_EVENT(CMDQ_EVENT_DIP_CQ_THREAD8_EOF, dip-cq-thread8-frame-done)
+	DECLAR_EVENT(CMDQ_EVENT_DIP_CQ_THREAD9_EOF, dip-cq-thread9-frame-done)
 	DECLAR_EVENT(CMDQ_EVENT_DIP_CQ_THREAD10_EOF,
-		dip_cq_thread10_frame_done)
+		dip-cq-thread10-frame-done)
 	DECLAR_EVENT(CMDQ_EVENT_DIP_CQ_THREAD11_EOF,
-		dip_cq_thread11_frame_done)
+		dip-cq-thread11-frame-done)
 	DECLAR_EVENT(CMDQ_EVENT_DIP_CQ_THREAD12_EOF,
-		dip_cq_thread12_frame_done)
+		dip-cq-thread12-frame-done)
 	DECLAR_EVENT(CMDQ_EVENT_DIP_CQ_THREAD13_EOF,
-		dip_cq_thread13_frame_done)
+		dip-cq-thread13-frame-done)
 	DECLAR_EVENT(CMDQ_EVENT_DIP_CQ_THREAD14_EOF,
-		dip_cq_thread14_frame_done)
+		dip-cq-thread14-frame-done)
 	DECLAR_EVENT(CMDQ_EVENT_DIP_CQ_THREAD15_EOF,
-		dip_cq_thread15_frame_done)
+		dip-cq-thread15-frame-done)
 	DECLAR_EVENT(CMDQ_EVENT_DIP_CQ_THREAD16_EOF,
-		dip_cq_thread16_frame_done)
+		dip-cq-thread16-frame-done)
 	DECLAR_EVENT(CMDQ_EVENT_DIP_CQ_THREAD17_EOF,
-		dip_cq_thread17_frame_done)
+		dip-cq-thread17-frame-done)
 	DECLAR_EVENT(CMDQ_EVENT_DIP_CQ_THREAD18_EOF,
-		dip_cq_thread18_frame_done)
+		dip-cq-thread18-frame-done)
 
 	/* JPEG frame done */
-	DECLAR_EVENT(CMDQ_EVENT_JPEG_ENC_EOF, jpgenc_done)
-	DECLAR_EVENT(CMDQ_EVENT_JPEG_DEC_EOF, jpgdec_done)
+	DECLAR_EVENT(CMDQ_EVENT_JPEG_ENC_EOF, jpgenc-done)
+	DECLAR_EVENT(CMDQ_EVENT_JPEG_DEC_EOF, jpgdec-done)
 
 	/* WPE frame done */
-	DECLAR_EVENT(CMDQ_EVENT_WPE_A_EOF, wpe_a_frame_done)
-	DECLAR_EVENT(CMDQ_EVENT_WPE_B_FRAME_DONE, wpe_b_frame_done)
+	DECLAR_EVENT(CMDQ_EVENT_WPE_A_EOF, wpe-a-frame-done)
+	DECLAR_EVENT(CMDQ_EVENT_WPE_B_FRAME_DONE, wpe-b-frame-done)
 
 	/* Direct-link start frame */
-	DECLAR_EVENT(CMDQ_EVENT_IMG_DL_RELAY_SOF, img_dl_relay_sof)
-	DECLAR_EVENT(CMDQ_EVENT_IMG_DL_RELAY1_SOF, img_dl_relay1_sof)
-	DECLAR_EVENT(CMDQ_EVENT_IMG_DL_RELAY2_SOF, img_dl_relay2_sof)
-	DECLAR_EVENT(CMDQ_EVENT_IMG_DL_RELAY3_SOF, img_dl_relay3_sof)
+	DECLAR_EVENT(CMDQ_EVENT_IMG_DL_RELAY_SOF, img-dl-relay-sof)
+	DECLAR_EVENT(CMDQ_EVENT_IMG_DL_RELAY1_SOF, img-dl-relay1-sof)
+	DECLAR_EVENT(CMDQ_EVENT_IMG_DL_RELAY2_SOF, img-dl-relay2-sof)
+	DECLAR_EVENT(CMDQ_EVENT_IMG_DL_RELAY3_SOF, img-dl-relay3-sof)
 
 	/* Dual DIP frame done */
 	DECLAR_EVENT(CMDQ_EVENT_IMG1_EVENT_TX_FRAME_DONE_0,
-		dip_cq_thread0_frame_done)
+		dip-cq-thread0-frame-done)
 	DECLAR_EVENT(CMDQ_EVENT_IMG1_EVENT_TX_FRAME_DONE_1,
-		dip_cq_thread1_frame_done)
+		dip-cq-thread1-frame-done)
 	DECLAR_EVENT(CMDQ_EVENT_IMG1_EVENT_TX_FRAME_DONE_2,
-		dip_cq_thread2_frame_done)
+		dip-cq-thread2-frame-done)
 	DECLAR_EVENT(CMDQ_EVENT_IMG1_EVENT_TX_FRAME_DONE_3,
-		dip_cq_thread3_frame_done)
+		dip-cq-thread3-frame-done)
 	DECLAR_EVENT(CMDQ_EVENT_IMG1_EVENT_TX_FRAME_DONE_4,
-		dip_cq_thread4_frame_done)
+		dip-cq-thread4-frame-done)
 	DECLAR_EVENT(CMDQ_EVENT_IMG1_EVENT_TX_FRAME_DONE_5,
-		dip_cq_thread5_frame_done)
+		dip-cq-thread5-frame-done)
 	DECLAR_EVENT(CMDQ_EVENT_IMG1_EVENT_TX_FRAME_DONE_6,
-		dip_cq_thread6_frame_done)
+		dip-cq-thread6-frame-done)
 	DECLAR_EVENT(CMDQ_EVENT_IMG1_EVENT_TX_FRAME_DONE_7,
-		dip_cq_thread7_frame_done)
+		dip-cq-thread7-frame-done)
 	DECLAR_EVENT(CMDQ_EVENT_IMG1_EVENT_TX_FRAME_DONE_8,
-		dip_cq_thread8_frame_done)
+		dip-cq-thread8-frame-done)
 	DECLAR_EVENT(CMDQ_EVENT_IMG1_EVENT_TX_FRAME_DONE_9,
-		dip_cq_thread9_frame_done)
+		dip-cq-thread9-frame-done)
 	DECLAR_EVENT(CMDQ_EVENT_IMG1_EVENT_TX_FRAME_DONE_10,
-		dip_cq_thread10_frame_done)
+		dip-cq-thread10-frame-done)
 	DECLAR_EVENT(CMDQ_EVENT_IMG1_EVENT_TX_FRAME_DONE_11,
-		dip_cq_thread11_frame_done)
+		dip-cq-thread11-frame-done)
 	DECLAR_EVENT(CMDQ_EVENT_IMG1_EVENT_TX_FRAME_DONE_12,
-		dip_cq_thread12_frame_done)
+		dip-cq-thread12-frame-done)
 	DECLAR_EVENT(CMDQ_EVENT_IMG1_EVENT_TX_FRAME_DONE_13,
-		dip_cq_thread13_frame_done)
+		dip-cq-thread13-frame-done)
 	DECLAR_EVENT(CMDQ_EVENT_IMG1_EVENT_TX_FRAME_DONE_14,
-		dip_cq_thread14_frame_done)
+		dip-cq-thread14-frame-done)
 	DECLAR_EVENT(CMDQ_EVENT_IMG1_EVENT_TX_FRAME_DONE_15,
-		dip_cq_thread15_frame_done)
+		dip-cq-thread15-frame-done)
 	DECLAR_EVENT(CMDQ_EVENT_IMG1_EVENT_TX_FRAME_DONE_16,
-		dip_cq_thread16_frame_done)
+		dip-cq-thread16-frame-done)
 	DECLAR_EVENT(CMDQ_EVENT_IMG1_EVENT_TX_FRAME_DONE_17,
-		dip_cq_thread17_frame_done)
+		dip-cq-thread17-frame-done)
 	DECLAR_EVENT(CMDQ_EVENT_IMG1_EVENT_TX_FRAME_DONE_18,
-		dip_cq_thread18_frame_done)
+		dip-cq-thread18-frame-done)
 	DECLAR_EVENT(CMDQ_EVENT_IMG1_EVENT_TX_FRAME_DONE_19,
-		dip_cq_thread19_frame_done)
+		dip-cq-thread19-frame-done)
 	DECLAR_EVENT(CMDQ_EVENT_IMG1_EVENT_TX_FRAME_DONE_20,
-		dip_cq_thread20_frame_done)
+		dip-cq-thread20-frame-done)
 	DECLAR_EVENT(CMDQ_EVENT_IMG1_EVENT_TX_FRAME_DONE_21,
-		dip_cq_thread21_frame_done)
+		dip-cq-thread21-frame-done)
 	DECLAR_EVENT(CMDQ_EVENT_IMG1_EVENT_TX_FRAME_DONE_22,
-		dip_cq_thread22_frame_done)
+		dip-cq-thread22-frame-done)
 	DECLAR_EVENT(CMDQ_EVENT_IMG1_EVENT_TX_FRAME_DONE_23,
-		dip_cq_thread23_frame_done)
+		dip-cq-thread23-frame-done)
 	DECLAR_EVENT(CMDQ_EVENT_IMG2_EVENT_TX_FRAME_DONE_0,
-		dip2_cq_thread0_frame_done)
+		dip2-cq-thread0-frame-done)
 	DECLAR_EVENT(CMDQ_EVENT_IMG2_EVENT_TX_FRAME_DONE_1,
-		dip2_cq_thread1_frame_done)
+		dip2-cq-thread1-frame-done)
 	DECLAR_EVENT(CMDQ_EVENT_IMG2_EVENT_TX_FRAME_DONE_2,
-		dip2_cq_thread2_frame_done)
+		dip2-cq-thread2-frame-done)
 	DECLAR_EVENT(CMDQ_EVENT_IMG2_EVENT_TX_FRAME_DONE_3,
-		dip2_cq_thread3_frame_done)
+		dip2-cq-thread3-frame-done)
 	DECLAR_EVENT(CMDQ_EVENT_IMG2_EVENT_TX_FRAME_DONE_4,
-		dip2_cq_thread4_frame_done)
+		dip2-cq-thread4-frame-done)
 	DECLAR_EVENT(CMDQ_EVENT_IMG2_EVENT_TX_FRAME_DONE_5,
-		dip2_cq_thread5_frame_done)
+		dip2-cq-thread5-frame-done)
 	DECLAR_EVENT(CMDQ_EVENT_IMG2_EVENT_TX_FRAME_DONE_6,
-		dip2_cq_thread6_frame_done)
+		dip2-cq-thread6-frame-done)
 	DECLAR_EVENT(CMDQ_EVENT_IMG2_EVENT_TX_FRAME_DONE_7,
-		dip2_cq_thread7_frame_done)
+		dip2-cq-thread7-frame-done)
 	DECLAR_EVENT(CMDQ_EVENT_IMG2_EVENT_TX_FRAME_DONE_8,
-		dip2_cq_thread8_frame_done)
+		dip2-cq-thread8-frame-done)
 	DECLAR_EVENT(CMDQ_EVENT_IMG2_EVENT_TX_FRAME_DONE_9,
-		dip2_cq_thread9_frame_done)
+		dip2-cq-thread9-frame-done)
 	DECLAR_EVENT(CMDQ_EVENT_IMG2_EVENT_TX_FRAME_DONE_10,
-		dip2_cq_thread10_frame_done)
+		dip2-cq-thread10-frame-done)
 	DECLAR_EVENT(CMDQ_EVENT_IMG2_EVENT_TX_FRAME_DONE_11,
-		dip2_cq_thread11_frame_done)
+		dip2-cq-thread11-frame-done)
 	DECLAR_EVENT(CMDQ_EVENT_IMG2_EVENT_TX_FRAME_DONE_12,
-		dip2_cq_thread12_frame_done)
+		dip2-cq-thread12-frame-done)
 	DECLAR_EVENT(CMDQ_EVENT_IMG2_EVENT_TX_FRAME_DONE_13,
-		dip2_cq_thread13_frame_done)
+		dip2-cq-thread13-frame-done)
 	DECLAR_EVENT(CMDQ_EVENT_IMG2_EVENT_TX_FRAME_DONE_14,
-		dip2_cq_thread14_frame_done)
+		dip2-cq-thread14-frame-done)
 	DECLAR_EVENT(CMDQ_EVENT_IMG2_EVENT_TX_FRAME_DONE_15,
-		dip2_cq_thread15_frame_done)
+		dip2-cq-thread15-frame-done)
 	DECLAR_EVENT(CMDQ_EVENT_IMG2_EVENT_TX_FRAME_DONE_16,
-		dip2_cq_thread16_frame_done)
+		dip2-cq-thread16-frame-done)
 	DECLAR_EVENT(CMDQ_EVENT_IMG2_EVENT_TX_FRAME_DONE_17,
-		dip2_cq_thread17_frame_done)
+		dip2-cq-thread17-frame-done)
 	DECLAR_EVENT(CMDQ_EVENT_IMG2_EVENT_TX_FRAME_DONE_18,
-		dip2_cq_thread18_frame_done)
+		dip2-cq-thread18-frame-done)
 	DECLAR_EVENT(CMDQ_EVENT_IMG2_EVENT_TX_FRAME_DONE_19,
-		dip2_cq_thread19_frame_done)
+		dip2-cq-thread19-frame-done)
 	DECLAR_EVENT(CMDQ_EVENT_IMG2_EVENT_TX_FRAME_DONE_20,
-		dip2_cq_thread20_frame_done)
+		dip2-cq-thread20-frame-done)
 	DECLAR_EVENT(CMDQ_EVENT_IMG2_EVENT_TX_FRAME_DONE_21,
-		dip2_cq_thread21_frame_done)
+		dip2-cq-thread21-frame-done)
 	DECLAR_EVENT(CMDQ_EVENT_IMG2_EVENT_TX_FRAME_DONE_22,
-		dip2_cq_thread22_frame_done)
+		dip2-cq-thread22-frame-done)
 	DECLAR_EVENT(CMDQ_EVENT_IMG2_EVENT_TX_FRAME_DONE_23,
-		dip2_cq_thread23_frame_done)
+		dip2-cq-thread23-frame-done)
 
 	/* Keep this at the end of HW events */
-	DECLAR_EVENT(CMDQ_MAX_HW_EVENT_COUNT, hw_event_conunt)
+	DECLAR_EVENT(CMDQ_MAX_HW_EVENT_COUNT, hw-event-conunt)
 
 	/* SW Sync Tokens (Pre-defined) */
 	/* Pass-2 notifies VENC frame is ready to be encoded */
-	DECLAR_EVENT(CMDQ_SYNC_TOKEN_VENC_INPUT_READY, sw_token)
+	DECLAR_EVENT(CMDQ_SYNC_TOKEN_VENC_INPUT_READY, sw-token)
 	/* VENC notifies Pass-2 encode done so next frame may start */
-	DECLAR_EVENT(CMDQ_SYNC_TOKEN_VENC_EOF, sw_token)
+	DECLAR_EVENT(CMDQ_SYNC_TOKEN_VENC_EOF, sw-token)
 
 	/* SW Sync Tokens (User-defined) */
-	DECLAR_EVENT(CMDQ_SYNC_TOKEN_USER_0, sw_token)
-	DECLAR_EVENT(CMDQ_SYNC_TOKEN_USER_1, sw_token)
+	DECLAR_EVENT(CMDQ_SYNC_TOKEN_USER_0, sw-token)
+	DECLAR_EVENT(CMDQ_SYNC_TOKEN_USER_1, sw-token)
 
 	/* isp */
-	DECLAR_EVENT(CMDQ_SYNC_TOKEN_MSS, sw_token)
-	DECLAR_EVENT(CMDQ_SYNC_TOKEN_MSF, sw_token)
+	DECLAR_EVENT(CMDQ_SYNC_TOKEN_MSS, sw-token)
+	DECLAR_EVENT(CMDQ_SYNC_TOKEN_MSF, sw-token)
 
 	/* GPR access tokens (for HW register backup)
 	 * There are 15 32-bit GPR, 3 GPR form a set
 	 * (64-bit for address, 32-bit for value)
 	 */
-	DECLAR_EVENT(CMDQ_SYNC_TOKEN_GPR_SET_0, sw_token)
-	DECLAR_EVENT(CMDQ_SYNC_TOKEN_GPR_SET_1, sw_token)
-	DECLAR_EVENT(CMDQ_SYNC_TOKEN_GPR_SET_2, sw_token)
-	DECLAR_EVENT(CMDQ_SYNC_TOKEN_GPR_SET_3, sw_token)
-	DECLAR_EVENT(CMDQ_SYNC_TOKEN_GPR_SET_4, sw_token)
+	DECLAR_EVENT(CMDQ_SYNC_TOKEN_GPR_SET_0, sw-token)
+	DECLAR_EVENT(CMDQ_SYNC_TOKEN_GPR_SET_1, sw-token)
+	DECLAR_EVENT(CMDQ_SYNC_TOKEN_GPR_SET_2, sw-token)
+	DECLAR_EVENT(CMDQ_SYNC_TOKEN_GPR_SET_3, sw-token)
+	DECLAR_EVENT(CMDQ_SYNC_TOKEN_GPR_SET_4, sw-token)
 
 	/* Resource lock event to control resource in GCE thread */
-	DECLAR_EVENT(CMDQ_SYNC_RESOURCE_WROT0, sw_token)
-	DECLAR_EVENT(CMDQ_SYNC_RESOURCE_WROT1, sw_token)
+	DECLAR_EVENT(CMDQ_SYNC_RESOURCE_WROT0, sw-token)
+	DECLAR_EVENT(CMDQ_SYNC_RESOURCE_WROT1, sw-token)
 
 	/* event id is 10 bit */
-	DECLAR_EVENT(CMDQ_SYNC_TOKEN_MAX, max_token)
+	DECLAR_EVENT(CMDQ_SYNC_TOKEN_MAX, max-token)
 };
 
 struct cmdq_event_table *cmdq_event_get_table(void)

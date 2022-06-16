@@ -2452,7 +2452,7 @@ static void cmdq_mdp_enable_common_clock_virtual(bool enable, u64 engine_flag)
 
 void cmdq_mdp_map_mmsys_VA(void)
 {
-	cmdq_mmsys_base = cmdq_dev_alloc_reference_VA_by_name("mmsys_config");
+	cmdq_mmsys_base = cmdq_dev_alloc_reference_VA_by_name("mmsys-config");
 }
 
 void cmdq_mdp_unmap_mmsys_VA(void)

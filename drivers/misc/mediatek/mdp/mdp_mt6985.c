@@ -338,18 +338,6 @@ static void cmdq_core_dump_mmsys_config(void)
 		{0x144,	"MDPSYS_CG_SET4"},
 		{0x148,	"MDPSYS_CG_CLR4"},
 		{0x1f4,	"MDPSYS_PROC_TRACK_EMI_BUSY_CON"},
-		{0x220, "MDP_DL_IN_RELAY0_SIZE"},
-		{0x224, "MDP_DL_IN_RELAY1_SIZE"},
-		{0x228, "MDP_DL_OUT_RELAY0_SIZE"},
-		{0x22c, "MDP_DL_OUT_RELAY1_SIZE"},
-		{0x230, "MDP_DLO_ASYNC0_STATUS0"},
-		{0x234, "MDP_DLO_ASYNC0_STATUS1"},
-		{0x238, "MDP_DLO_ASYNC1_STATUS0"},
-		{0x23C, "MDP_DLO_ASYNC1_STATUS1"},
-		{0x240, "MDP_DLI_ASYNC0_STATUS0"},
-		{0x244, "MDP_DLI_ASYNC0_STATUS1"},
-		{0x248, "MDP_DLI_ASYNC1_STATUS0"},
-		{0x24C, "MDP_DLI_ASYNC1_STATUS1"},
 		{0x290, "MDPSYS_APMCU_GALS_ctrl"},
 		{0x300, "MDPSYS_DEBUG_OUT_SEL"},
 		{0x500, "MDP_RDMA0_AIDSEL"},
@@ -431,42 +419,42 @@ static void cmdq_core_dump_mmsys_config(void)
 	for (i = 0; i < ARRAY_SIZE(configRegisters); i++) {
 		value = CMDQ_REG_GET32(MMSYS_CONFIG_BASE +
 			configRegisters[i].offset);
-		CMDQ_ERR("%s: 0x%08x\n", configRegisters[i].name, value);
+		CMDQ_ERR("%s: %#010x\n", configRegisters[i].name, value);
 	}
 
 	/*DISP_MUTEX MOD*/
 	value = CMDQ_REG_GET32(MM_MUTEX_BASE + 0x030);
-	CMDQ_ERR("%s: 0x%08x\n", "MDP_MUTEX0_MOD0", value);
+	CMDQ_ERR("%s: %#010x\n", "MDP_MUTEX0_MOD0", value);
 	value = CMDQ_REG_GET32(MM_MUTEX_BASE + 0x034);
-	CMDQ_ERR("%s: 0x%08x\n", "MDP_MUTEX0_MOD1", value);
+	CMDQ_ERR("%s: %#010x\n", "MDP_MUTEX0_MOD1", value);
 	value = CMDQ_REG_GET32(MM_MUTEX_BASE + 0x050);
-	CMDQ_ERR("%s: 0x%08x\n", "MDP_MUTEX1_MOD0", value);
+	CMDQ_ERR("%s: %#010x\n", "MDP_MUTEX1_MOD0", value);
 	value = CMDQ_REG_GET32(MM_MUTEX_BASE + 0x054);
-	CMDQ_ERR("%s: 0x%08x\n", "MDP_MUTEX1_MOD1", value);
+	CMDQ_ERR("%s: %#010x\n", "MDP_MUTEX1_MOD1", value);
 	value = CMDQ_REG_GET32(MM_MUTEX_BASE + 0x070);
-	CMDQ_ERR("%s: 0x%08x\n", "MDP_MUTEX2_MOD0", value);
+	CMDQ_ERR("%s: %#010x\n", "MDP_MUTEX2_MOD0", value);
 	value = CMDQ_REG_GET32(MM_MUTEX_BASE + 0x074);
-	CMDQ_ERR("%s: 0x%08x\n", "MDP_MUTEX2_MOD1", value);
+	CMDQ_ERR("%s: %#010x\n", "MDP_MUTEX2_MOD1", value);
 	value = CMDQ_REG_GET32(MM_MUTEX_BASE + 0x090);
-	CMDQ_ERR("%s: 0x%08x\n", "MDP_MUTEX3_MOD0", value);
+	CMDQ_ERR("%s: %#010x\n", "MDP_MUTEX3_MOD0", value);
 	value = CMDQ_REG_GET32(MM_MUTEX_BASE + 0x094);
-	CMDQ_ERR("%s: 0x%08x\n", "MDP_MUTEX3_MOD1", value);
+	CMDQ_ERR("%s: %#010x\n", "MDP_MUTEX3_MOD1", value);
 	value = CMDQ_REG_GET32(MM_MUTEX_BASE + 0x0B0);
-	CMDQ_ERR("%s: 0x%08x\n", "MDP_MUTEX4_MOD0", value);
+	CMDQ_ERR("%s: %#010x\n", "MDP_MUTEX4_MOD0", value);
 	value = CMDQ_REG_GET32(MM_MUTEX_BASE + 0x0B4);
-	CMDQ_ERR("%s: 0x%08x\n", "MDP_MUTEX4_MOD1", value);
+	CMDQ_ERR("%s: %#010x\n", "MDP_MUTEX4_MOD1", value);
 	value = CMDQ_REG_GET32(MM_MUTEX_BASE + 0x0D0);
-	CMDQ_ERR("%s: 0x%08x\n", "MDP_MUTEX5_MOD0", value);
+	CMDQ_ERR("%s: %#010x\n", "MDP_MUTEX5_MOD0", value);
 	value = CMDQ_REG_GET32(MM_MUTEX_BASE + 0x0D4);
-	CMDQ_ERR("%s: 0x%08x\n", "MDP_MUTEX5_MOD1", value);
+	CMDQ_ERR("%s: %#010x\n", "MDP_MUTEX5_MOD1", value);
 	value = CMDQ_REG_GET32(MM_MUTEX_BASE + 0x0F0);
-	CMDQ_ERR("%s: 0x%08x\n", "MDP_MUTEX6_MOD0", value);
+	CMDQ_ERR("%s: %#010x\n", "MDP_MUTEX6_MOD0", value);
 	value = CMDQ_REG_GET32(MM_MUTEX_BASE + 0x0F4);
-	CMDQ_ERR("%s: 0x%08x\n", "MDP_MUTEX6_MOD1", value);
+	CMDQ_ERR("%s: %#010x\n", "MDP_MUTEX6_MOD1", value);
 	value = CMDQ_REG_GET32(MM_MUTEX_BASE + 0x110);
-	CMDQ_ERR("%s: 0x%08x\n", "MDP_MUTEX7_MOD0", value);
+	CMDQ_ERR("%s: %#010x\n", "MDP_MUTEX7_MOD0", value);
 	value = CMDQ_REG_GET32(MM_MUTEX_BASE + 0x114);
-	CMDQ_ERR("%s: 0x%08x\n", "MDP_MUTEX7_MOD1", value);
+	CMDQ_ERR("%s: %#010x\n", "MDP_MUTEX7_MOD1", value);
 
 }
 
@@ -568,47 +556,47 @@ void cmdq_mdp_init_module_base_VA(void)
 	memset(&gCmdqMdpModuleBaseVA, 0, sizeof(struct CmdqMdpModuleBaseVA));
 
 	gCmdqMdpModuleBaseVA.MDP_RDMA0 =
-		cmdq_dev_alloc_reference_VA_by_name("mdp_rdma0");
+		cmdq_dev_alloc_reference_VA_by_name("mdp-rdma0");
 	gCmdqMdpModuleBaseVA.MDP_RDMA1 =
-		cmdq_dev_alloc_reference_VA_by_name("mdp_rdma1");
+		cmdq_dev_alloc_reference_VA_by_name("mdp-rdma1");
 	gCmdqMdpModuleBaseVA.MDP_RDMA2 =
-		cmdq_dev_alloc_reference_VA_by_name("mdp_rdma2");
+		cmdq_dev_alloc_reference_VA_by_name("mdp-rdma2");
 	gCmdqMdpModuleBaseVA.MDP_RDMA3 =
-		cmdq_dev_alloc_reference_VA_by_name("mdp_rdma3");
+		cmdq_dev_alloc_reference_VA_by_name("mdp-rdma3");
 	gCmdqMdpModuleBaseVA.MDP_RSZ0 =
-		cmdq_dev_alloc_reference_VA_by_name("mdp_rsz0");
+		cmdq_dev_alloc_reference_VA_by_name("mdp-rsz0");
 	gCmdqMdpModuleBaseVA.MDP_RSZ1 =
-		cmdq_dev_alloc_reference_VA_by_name("mdp_rsz1");
+		cmdq_dev_alloc_reference_VA_by_name("mdp-rsz1");
 	gCmdqMdpModuleBaseVA.MDP_BIRSZ0 =
-		cmdq_dev_alloc_reference_VA_by_name("mdp_birsz0");
+		cmdq_dev_alloc_reference_VA_by_name("mdp-birsz0");
 	gCmdqMdpModuleBaseVA.MDP_BIRSZ1 =
-		cmdq_dev_alloc_reference_VA_by_name("mdp_birsz1");
+		cmdq_dev_alloc_reference_VA_by_name("mdp-birsz1");
 	gCmdqMdpModuleBaseVA.MDP_WROT0 =
-		cmdq_dev_alloc_reference_VA_by_name("mdp_wrot0");
+		cmdq_dev_alloc_reference_VA_by_name("mdp-wrot0");
 	gCmdqMdpModuleBaseVA.MDP_WROT1 =
-		cmdq_dev_alloc_reference_VA_by_name("mdp_wrot1");
+		cmdq_dev_alloc_reference_VA_by_name("mdp-wrot1");
 	gCmdqMdpModuleBaseVA.MDP_TDSHP0 =
-		cmdq_dev_alloc_reference_VA_by_name("mdp_tdshp0");
+		cmdq_dev_alloc_reference_VA_by_name("mdp-tdshp0");
 	gCmdqMdpModuleBaseVA.MDP_TDSHP1 =
-		cmdq_dev_alloc_reference_VA_by_name("mdp_tdshp1");
+		cmdq_dev_alloc_reference_VA_by_name("mdp-tdshp1");
 	gCmdqMdpModuleBaseVA.MDP_AAL0 =
-		cmdq_dev_alloc_reference_by_name("mdp_aal0",
+		cmdq_dev_alloc_reference_by_name("mdp-aal0",
 			&mdp_module_pa.aal0);
 	gCmdqMdpModuleBaseVA.MDP_AAL1 =
-		cmdq_dev_alloc_reference_by_name("mdp_aal1",
+		cmdq_dev_alloc_reference_by_name("mdp-aal1",
 			&mdp_module_pa.aal1);
 	gCmdqMdpModuleBaseVA.MDP_COLOR0 =
-		cmdq_dev_alloc_reference_VA_by_name("mdp_color0");
+		cmdq_dev_alloc_reference_VA_by_name("mdp-color0");
 	gCmdqMdpModuleBaseVA.MDP_COLOR1 =
-		cmdq_dev_alloc_reference_VA_by_name("mdp_color1");
+		cmdq_dev_alloc_reference_VA_by_name("mdp-color1");
 	gCmdqMdpModuleBaseVA.MDP_HDR0 =
-		cmdq_dev_alloc_reference_by_name("mdp_hdr0",
+		cmdq_dev_alloc_reference_by_name("mdp-hdr0",
 			&mdp_module_pa.hdr0);
 	gCmdqMdpModuleBaseVA.MDP_HDR1 =
-		cmdq_dev_alloc_reference_by_name("mdp_hdr1",
+		cmdq_dev_alloc_reference_by_name("mdp-hdr1",
 			&mdp_module_pa.hdr1);
 	gCmdqMdpModuleBaseVA.MM_MUTEX =
-		cmdq_dev_alloc_reference_VA_by_name("mm_mutex");
+		cmdq_dev_alloc_reference_VA_by_name("mm-mutex");
 }
 
 void cmdq_mdp_deinit_module_base_VA(void)
@@ -746,53 +734,53 @@ void cmdq_mdp_enable_clock(bool enable, u32 engine)
 /* Common Clock Framework */
 void cmdq_mdp_init_module_clk(void)
 {
-	cmdq_dev_get_module_clock_by_name("mmsys_config", "MDP_APB_BUS",
+	cmdq_dev_get_module_clock_by_name("mmsys-config", "MDP_APB_BUS",
 		&gCmdqMdpModuleClock.clk_APB);
-	cmdq_dev_get_module_clock_by_name("mm_mutex", "MDP_MUTEX0",
+	cmdq_dev_get_module_clock_by_name("mm-mutex", "MDP_MUTEX0",
 		&gCmdqMdpModuleClock.clk_MDP_MUTEX0);
-	cmdq_dev_get_module_clock_by_name("mdp_rdma0", "MDP_RDMA0",
+	cmdq_dev_get_module_clock_by_name("mdp-rdma0", "MDP_RDMA0",
 		&gCmdqMdpModuleClock.clk_MDP_RDMA0);
-	cmdq_dev_get_module_clock_by_name("mdp_rdma1", "MDP_RDMA1",
+	cmdq_dev_get_module_clock_by_name("mdp-rdma1", "MDP_RDMA1",
 		&gCmdqMdpModuleClock.clk_MDP_RDMA1);
-	cmdq_dev_get_module_clock_by_name("mdp_rdma2", "MDP_RDMA2",
+	cmdq_dev_get_module_clock_by_name("mdp-rdma2", "MDP_RDMA2",
 		&gCmdqMdpModuleClock.clk_MDP_RDMA2);
-	cmdq_dev_get_module_clock_by_name("mdp_rdma3", "MDP_RDMA3",
+	cmdq_dev_get_module_clock_by_name("mdp-rdma3", "MDP_RDMA3",
 		&gCmdqMdpModuleClock.clk_MDP_RDMA3);
-	cmdq_dev_get_module_clock_by_name("mdp_rsz0", "MDP_RSZ0",
+	cmdq_dev_get_module_clock_by_name("mdp-rsz0", "MDP_RSZ0",
 		&gCmdqMdpModuleClock.clk_MDP_RSZ0);
-	cmdq_dev_get_module_clock_by_name("mdp_rsz1", "MDP_RSZ1",
+	cmdq_dev_get_module_clock_by_name("mdp-rsz1", "MDP_RSZ1",
 		&gCmdqMdpModuleClock.clk_MDP_RSZ1);
-	cmdq_dev_get_module_clock_by_name("mdp_birsz0", "MDP_BIRSZ0",
+	cmdq_dev_get_module_clock_by_name("mdp-birsz0", "MDP_BIRSZ0",
 		&gCmdqMdpModuleClock.clk_MDP_BIRSZ0);
-	cmdq_dev_get_module_clock_by_name("mdp_birsz1", "MDP_BIRSZ1",
+	cmdq_dev_get_module_clock_by_name("mdp-birsz1", "MDP_BIRSZ1",
 		&gCmdqMdpModuleClock.clk_MDP_BIRSZ1);
-	cmdq_dev_get_module_clock_by_name("mdp_wrot0", "MDP_WROT0",
+	cmdq_dev_get_module_clock_by_name("mdp-wrot0", "MDP_WROT0",
 		&gCmdqMdpModuleClock.clk_MDP_WROT0);
-	cmdq_dev_get_module_clock_by_name("mdp_wrot1", "MDP_WROT1",
+	cmdq_dev_get_module_clock_by_name("mdp-wrot1", "MDP_WROT1",
 		&gCmdqMdpModuleClock.clk_MDP_WROT1);
-	cmdq_dev_get_module_clock_by_name("mdp_tdshp0", "MDP_TDSHP0",
+	cmdq_dev_get_module_clock_by_name("mdp-tdshp0", "MDP_TDSHP0",
 		&gCmdqMdpModuleClock.clk_MDP_TDSHP0);
-	cmdq_dev_get_module_clock_by_name("mdp_tdshp1", "MDP_TDSHP1",
+	cmdq_dev_get_module_clock_by_name("mdp-tdshp1", "MDP_TDSHP1",
 		&gCmdqMdpModuleClock.clk_MDP_TDSHP1);
-	cmdq_dev_get_module_clock_by_name("mdp_color0", "MDP_COLOR0",
+	cmdq_dev_get_module_clock_by_name("mdp-color0", "MDP_COLOR0",
 		&gCmdqMdpModuleClock.clk_MDP_COLOR0);
-	cmdq_dev_get_module_clock_by_name("mdp_color1", "MDP_COLOR1",
+	cmdq_dev_get_module_clock_by_name("mdp-color1", "MDP_COLOR1",
 		&gCmdqMdpModuleClock.clk_MDP_COLOR1);
-	cmdq_dev_get_module_clock_by_name("mdp_aal0", "MDP_AAL0",
+	cmdq_dev_get_module_clock_by_name("mdp-aal0", "MDP_AAL0",
 		&gCmdqMdpModuleClock.clk_MDP_AAL0);
-	cmdq_dev_get_module_clock_by_name("mdp_aal1", "MDP_AAL1",
+	cmdq_dev_get_module_clock_by_name("mdp-aal1", "MDP_AAL1",
 		&gCmdqMdpModuleClock.clk_MDP_AAL1);
-	cmdq_dev_get_module_clock_by_name("mdp_hdr0", "MDP_HDR0",
+	cmdq_dev_get_module_clock_by_name("mdp-hdr0", "MDP_HDR0",
 		&gCmdqMdpModuleClock.clk_MDP_HDR0);
-	cmdq_dev_get_module_clock_by_name("mdp_hdr1", "MDP_HDR1",
+	cmdq_dev_get_module_clock_by_name("mdp-hdr1", "MDP_HDR1",
 		&gCmdqMdpModuleClock.clk_MDP_HDR1);
 }
 
 /* MDP engine dump */
 void cmdq_mdp_dump_rsz(const unsigned long base, const char *label)
 {
-	uint32_t value[43] = { 0 };
-	uint32_t request[4] = { 0 };
+	uint32_t value[43];
+	uint32_t request[4];
 	uint32_t state = 0;
 
 	value[0] = CMDQ_REG_GET32(base + 0x000);    /*  RSZ_ENABLE*/
@@ -872,45 +860,45 @@ void cmdq_mdp_dump_rsz(const unsigned long base, const char *label)
 		"=============== [CMDQ] %s Status ====================================\n",
 		label);
 	CMDQ_ERR(
-		"RSZ_ENABLE: 0x%08x, RSZ_CONTROL_1: 0x%08x, RSZ_CONTROL_2: 0x%08x, RSZ_INPUT_IMAGE: 0x%08x, RSZ_OUTPUT_IMAGE: 0x%08x\n",
+		"RSZ_ENABLE: %#010x, RSZ_CONTROL_1: %#010x, RSZ_CONTROL_2: %#010x, RSZ_INPUT_IMAGE: %#010x, RSZ_OUTPUT_IMAGE: %#010x\n",
 		value[0], value[1], value[2], value[3],  value[4]);
 	CMDQ_ERR(
-		"RSZ_HORIZONTAL_COEFF_STEP: 0x%08x, RSZ_VERTICAL_COEFF_STEP: 0x%08x\n",
+		"RSZ_HORIZONTAL_COEFF_STEP: %#010x, RSZ_VERTICAL_COEFF_STEP: %#010x\n",
 		value[5], value[6]);
 	CMDQ_ERR(
-		"RSZ_DEBUG_1: 0x%08x, RSZ_DEBUG_2: 0x%08x, RSZ_DEBUG_3: 0x%08x\n",
+		"RSZ_DEBUG_1: %#010x, RSZ_DEBUG_2: %#010x, RSZ_DEBUG_3: %#010x\n",
 		value[7], value[8], value[9]);
 	CMDQ_ERR(
-		"RSZ_DEBUG_4: 0x%08x, RSZ_DEBUG_5: 0x%08x, RSZ_DEBUG_6: 0x%08x\n",
+		"RSZ_DEBUG_4: %#010x, RSZ_DEBUG_5: %#010x, RSZ_DEBUG_6: %#010x\n",
 		value[10], value[11], value[12]);
 	CMDQ_ERR(
-		"RSZ_DEBUG_7: 0x%08x, RSZ_DEBUG_8: 0x%08x, RSZ_DEBUG_9: 0x%08x\n",
+		"RSZ_DEBUG_7: %#010x, RSZ_DEBUG_8: %#010x, RSZ_DEBUG_9: %#010x\n",
 		value[13], value[14], value[15]);
 	CMDQ_ERR(
-		"RSZ_DEBUG_10: 0x%08x, RSZ_DEBUG_11: 0x%08x, RSZ_DEBUG_13: 0x%08x, RSZ_DEBUG_14: 0x%08x\n",
+		"RSZ_DEBUG_10: %#010x, RSZ_DEBUG_11: %#010x, RSZ_DEBUG_13: %#010x, RSZ_DEBUG_14: %#010x\n",
 		value[16], value[17], value[18], value[19]);
-	CMDQ_ERR("PAT1_GEN_SET: 0x%08x, PAT2_GEN_SET: 0x%08x\n",
+	CMDQ_ERR("PAT1_GEN_SET: %#010x, PAT2_GEN_SET: %#010x\n",
 		value[20], value[21]);
 	CMDQ_ERR(
-		"RSZ_INT_FLAG: 0x%08x, RSZ_LUMA_HORIZONTAL_INTEGER_OFFSET: 0x%08x, RSZ_LUMA_HORIZONTAL_SUBPIXEL_OFFSET: 0x%08x\n",
+		"RSZ_INT_FLAG: %#010x, RSZ_LUMA_HORIZONTAL_INTEGER_OFFSET: %#010x, RSZ_LUMA_HORIZONTAL_SUBPIXEL_OFFSET: %#010x\n",
 		value[22], value[23], value[24]);
 	CMDQ_ERR(
-		"RSZ_LUMA_VERTICAL_INTEGER_OFFSET: 0x%08x, RSZ_LUMA_VERTICAL_SUBPIXEL_OFFSET: 0x%08x, RSZ_CHROMA_HORIZONTAL_INTEGER_OFFSET: 0x%08x\n",
+		"RSZ_LUMA_VERTICAL_INTEGER_OFFSET: %#010x, RSZ_LUMA_VERTICAL_SUBPIXEL_OFFSET: %#010x, RSZ_CHROMA_HORIZONTAL_INTEGER_OFFSET: %#010x\n",
 		value[25], value[26], value[27]);
 	CMDQ_ERR(
-		"RSZ_CHROMA_HORIZONTAL_SUBPIXEL_OFFSET: 0x%08x, RSZ_RSV: 0x%08x, RSZ_TAP_ADAPT: 0x%08x\n",
+		"RSZ_CHROMA_HORIZONTAL_SUBPIXEL_OFFSET: %#010x, RSZ_RSV: %#010x, RSZ_TAP_ADAPT: %#010x\n",
 		value[28], value[29], value[30]);
 	CMDQ_ERR(
-		"RSZ_IBSE_SOFTCLIP: 0x%08x, RSZ_ETC_CONTROL: 0x%08x, RSZ_ETC_SWITCH_MAX_MIN_1: 0x%08x\n",
+		"RSZ_IBSE_SOFTCLIP: %#010x, RSZ_ETC_CONTROL: %#010x, RSZ_ETC_SWITCH_MAX_MIN_1: %#010x\n",
 		value[31], value[32], value[33]);
 	CMDQ_ERR(
-		"RSZ_ETC_SWITCH_MAX_MIN_2: 0x%08x, RSZ_ETC_RING_CONTROL: 0x%08x, RSZ_ETC_RING_CONTROL_GAINCONTROL_1: 0x%08x\n",
+		"RSZ_ETC_SWITCH_MAX_MIN_2: %#010x, RSZ_ETC_RING_CONTROL: %#010x, RSZ_ETC_RING_CONTROL_GAINCONTROL_1: %#010x\n",
 		value[34], value[35], value[36]);
 	CMDQ_ERR(
-		"RSZ_ETC_RING_CONTROL_GAINCONTROL_2: 0x%08x, RSZ_ETC_RING_CONTROL_GAINCONTROL_3: 0x%08x, RSZ_ETC_SIMILARITY_PROTECTION_GAINCONTROL_1: 0x%08x\n",
+		"RSZ_ETC_RING_CONTROL_GAINCONTROL_2: %#010x, RSZ_ETC_RING_CONTROL_GAINCONTROL_3: %#010x, RSZ_ETC_SIMILARITY_PROTECTION_GAINCONTROL_1: %#010x\n",
 		value[37], value[38], value[39]);
 	CMDQ_ERR(
-		"RSZ_ETC_SIMILARITY_PROTECTION_GAINCONTROL_2: 0x%08x, RSZ_ETC_SIMILARITY_PROTECTION_GAINCONTROL_3: 0x%08x, RSZ_ETC_BLEND: 0x%08x\n",
+		"RSZ_ETC_SIMILARITY_PROTECTION_GAINCONTROL_2: %#010x, RSZ_ETC_SIMILARITY_PROTECTION_GAINCONTROL_3: %#010x, RSZ_ETC_BLEND: %#010x\n",
 		value[40], value[41], value[42]);
 	/* parse state */
 	/* .valid=1/request=1: upstream module sends data */
@@ -943,13 +931,13 @@ void cmdq_mdp_dump_tdshp(const unsigned long base, const char *label)
 	CMDQ_ERR(
 		"=============== [CMDQ] %s Status ====================================\n",
 		label);
-	CMDQ_ERR("TDSHP INPUT_CNT: 0x%08x, OUTPUT_CNT: 0x%08x\n",
+	CMDQ_ERR("TDSHP INPUT_CNT: %#010x, OUTPUT_CNT: %#010x\n",
 		value[0], value[1]);
-	CMDQ_ERR("TDSHP INTEN: 0x%08x, INTSTA: 0x%08x, STATUS: 0x%08x\n",
+	CMDQ_ERR("TDSHP INTEN: %#010x, INTSTA: %#010x, STATUS: %#010x\n",
 		value[2], value[3], value[4]);
-	CMDQ_ERR("TDSHP CFG: 0x%08x, IN_SIZE: 0x%08x, OUT_SIZE: 0x%08x\n",
+	CMDQ_ERR("TDSHP CFG: %#010x, IN_SIZE: %#010x, OUT_SIZE: %#010x\n",
 		value[5], value[6], value[8]);
-	CMDQ_ERR("TDSHP OUTPUT_OFFSET: 0x%08x, BLANK_WIDTH: 0x%08x, SIZE_PARAM: 0x%08x\n",
+	CMDQ_ERR("TDSHP OUTPUT_OFFSET: %#010x, BLANK_WIDTH: %#010x, SIZE_PARAM: %#010x\n",
 		value[7], value[9], value[10]);
 }
 
@@ -970,14 +958,14 @@ void cmdq_mdp_dump_aal(const unsigned long base, const char *label)
 	CMDQ_ERR(
 		"=============== [CMDQ] %s Status ====================================\n",
 		label);
-	CMDQ_ERR("AAL_INTSTA: 0x%08x, AAL_STATUS: 0x%08x, AAL_CFG: 0x%08x\n",
+	CMDQ_ERR("AAL_INTSTA: %#010x, AAL_STATUS: %#010x, AAL_CFG: %#010x\n",
 		value[0], value[1], value[2]);
 	CMDQ_ERR(
-		"AAL_INPUT_COUNT: 0x%08x, AAL_OUTPUT_COUNT: 0x%08x, AAL_SIZE: 0x%08x\n",
+		"AAL_INPUT_COUNT: %#010x, AAL_OUTPUT_COUNT: %#010x, AAL_SIZE: %#010x\n",
 		value[3], value[4], value[5]);
-	CMDQ_ERR("AAL_OUTPUT_SIZE: 0x%08x, AAL_OUTPUT_OFFSET: 0x%08x\n",
+	CMDQ_ERR("AAL_OUTPUT_SIZE: %#010x, AAL_OUTPUT_OFFSET: %#010x\n",
 		value[6], value[7]);
-	CMDQ_ERR("AAL_TILE_00: 0x%08x, AAL_TILE_01: 0x%08x\n",
+	CMDQ_ERR("AAL_TILE_00: %#010x, AAL_TILE_01: %#010x\n",
 		value[8], value[9]);
 }
 
@@ -1003,18 +991,18 @@ void cmdq_mdp_dump_hdr(const unsigned long base, const char *label)
 	CMDQ_ERR(
 		"=============== [CMDQ] %s Status ====================================\n",
 		label);
-	CMDQ_ERR("HDR_TOP: 0x%08x, HDR_RELAY: 0x%08x, HDR_INTSTA: 0x%08x\n",
+	CMDQ_ERR("HDR_TOP: %#010x, HDR_RELAY: %#010x, HDR_INTSTA: %#010x\n",
 		value[0], value[1], value[2]);
 	CMDQ_ERR(
-		"HDR_ENGSTA: 0x%08x, HDR_HIST_CTRL0: 0x%08x, HDR_HIST_CTRL1: 0x%08x\n",
+		"HDR_ENGSTA: %#010x, HDR_HIST_CTRL0: %#010x, HDR_HIST_CTRL1: %#010x\n",
 		value[3], value[4], value[5]);
-	CMDQ_ERR("HDR_SIZE_0: 0x%08x, HDR_SIZE_1: 0x%08x, HDR_SIZE_2: 0x%08x\n",
+	CMDQ_ERR("HDR_SIZE_0: %#010x, HDR_SIZE_1: %#010x, HDR_SIZE_2: %#010x\n",
 		value[6], value[7], value[8]);
 	CMDQ_ERR(
-		"HDR_CURSOR_CTRL: 0x%08x, HDR_CURSOR_POS: 0x%08x, HDR_CURSOR_COLOR: 0x%08x\n",
+		"HDR_CURSOR_CTRL: %#010x, HDR_CURSOR_POS: %#010x, HDR_CURSOR_COLOR: %#010x\n",
 		value[9], value[10], value[11]);
 	CMDQ_ERR(
-		"HDR_TILE_POS: 0x%08x, HDR_CURSOR_BUF0: 0x%08x, HDR_CURSOR_BUF1: 0x%08x\n",
+		"HDR_TILE_POS: %#010x, HDR_CURSOR_BUF0: %#010x, HDR_CURSOR_BUF1: %#010x\n",
 		value[12], value[13], value[14]);
 }
 

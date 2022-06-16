@@ -288,7 +288,7 @@ void cmdq_dev_init_MDP_PA(struct device_node *node)
 	u32 *pMDPBaseAddress = cmdq_core_get_dts_data()->MDPBaseAddress;
 	phys_addr_t module_pa_start = 0;
 
-	module_pa_start = cmdq_dev_get_reference_PA("mm_mutex", 0);
+	module_pa_start = cmdq_dev_get_reference_PA("mm-mutex", 0);
 
 	if (!module_pa_start)
 		CMDQ_ERR("DEV: init mm_mutex PA fail!!\n");
@@ -459,7 +459,7 @@ void cmdq_dev_init_device_tree(struct device_node *node)
 	gThreadCount = 16;
 	gMMSYSDummyRegOffset = 0;
 	cmdq_core_init_dts_data();
-	status = of_property_read_u32(node, "thread_count", &thread_count);
+	status = of_property_read_u32(node, "thread-count", &thread_count);
 	if (status >= 0)
 		gThreadCount = thread_count;
 	/* init GCE subsys */
@@ -566,7 +566,7 @@ void cmdq_dev_init(struct platform_device *pDevice)
 #endif
 	} while (0);
 
-	ret = of_property_read_u32(gCmdqDev.pDev->of_node, "dma_mask_bit",
+	ret = of_property_read_u32(gCmdqDev.pDev->of_node, "dma-mask-bit",
 		&dma_mask_bit);
 	/* if not assign from dts, give default 32bit for legacy chip */
 	if (ret != 0 || !dma_mask_bit)
