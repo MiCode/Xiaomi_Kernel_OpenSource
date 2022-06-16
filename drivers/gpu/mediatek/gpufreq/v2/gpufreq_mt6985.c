@@ -143,6 +143,7 @@ static void __gpufreq_hwdcm_config(void);
 static void __gpufreq_acp_config(void);
 static void __gpufreq_gpm1_config(void);
 static void __gpufreq_transaction_config(void);
+static void __gpufreq_axuser_priority_config(void);
 static void __gpufreq_dfd_config(void);
 static void __gpufreq_mfg_backup_restore(enum gpufreq_power_state power);
 /* bringup function */
@@ -745,23 +746,27 @@ int __gpufreq_power_control(enum gpufreq_power_state power)
 		__gpufreq_transaction_config();
 		__gpufreq_footprint_power_step(0x0B);
 
+		/* config AXUSER priority */
+		__gpufreq_axuser_priority_config();
+		__gpufreq_footprint_power_step(0x0C);
+
 		/* config DFD */
 		__gpufreq_dfd_config();
-		__gpufreq_footprint_power_step(0x0C);
+		__gpufreq_footprint_power_step(0x0D);
 
 		/* free DVFS when power on */
 		g_dvfs_state &= ~DVFS_POWEROFF;
-		__gpufreq_footprint_power_step(0x0D);
-	} else if (power == POWER_OFF && g_stack.power_count == 0) {
 		__gpufreq_footprint_power_step(0x0E);
+	} else if (power == POWER_OFF && g_stack.power_count == 0) {
+		__gpufreq_footprint_power_step(0x0F);
 
 		/* freeze DVFS when power off */
 		g_dvfs_state |= DVFS_POWEROFF;
-		__gpufreq_footprint_power_step(0x0F);
+		__gpufreq_footprint_power_step(0x10);
 
 		/* backup MFG registers */
 		__gpufreq_mfg_backup_restore(POWER_OFF);
-		__gpufreq_footprint_power_step(0x10);
+		__gpufreq_footprint_power_step(0x11);
 
 		/* disable Clock */
 		ret = __gpufreq_clock_control(POWER_OFF);
@@ -770,7 +775,7 @@ int __gpufreq_power_control(enum gpufreq_power_state power)
 			ret = GPUFREQ_EINVAL;
 			goto done_unlock;
 		}
-		__gpufreq_footprint_power_step(0x11);
+		__gpufreq_footprint_power_step(0x12);
 
 		/* disable MTCMOS */
 		ret = __gpufreq_mtcmos_control(POWER_OFF);
@@ -779,11 +784,11 @@ int __gpufreq_power_control(enum gpufreq_power_state power)
 			ret = GPUFREQ_EINVAL;
 			goto done_unlock;
 		}
-		__gpufreq_footprint_power_step(0x12);
+		__gpufreq_footprint_power_step(0x13);
 
 		/* set AOC ISO/LATCH before Buck off */
 		__gpufreq_aoc_config(POWER_OFF);
-		__gpufreq_footprint_power_step(0x13);
+		__gpufreq_footprint_power_step(0x14);
 
 		/* disable Buck */
 		ret = __gpufreq_buck_control(POWER_OFF);
@@ -792,7 +797,7 @@ int __gpufreq_power_control(enum gpufreq_power_state power)
 			ret = GPUFREQ_EINVAL;
 			goto done_unlock;
 		}
-		__gpufreq_footprint_power_step(0x14);
+		__gpufreq_footprint_power_step(0x15);
 	}
 
 	/* return power count if successfully control power */
@@ -815,9 +820,9 @@ int __gpufreq_power_control(enum gpufreq_power_state power)
 	}
 
 	if (power == POWER_ON)
-		__gpufreq_footprint_power_step(0x15);
-	else if (power == POWER_OFF)
 		__gpufreq_footprint_power_step(0x16);
+	else if (power == POWER_OFF)
+		__gpufreq_footprint_power_step(0x17);
 
 done_unlock:
 	GPUFREQ_LOGD("- PWR_STATUS: 0x%08x", MFG_0_19_PWR_STATUS);
@@ -3393,6 +3398,25 @@ static void __gpufreq_transaction_config(void)
 
 	__gpufreq_set_semaphore(SEMA_RELEASE);
 #endif /* GPUFREQ_MERGER_ENABLE */
+}
+
+/* Set priority of AxUSER (CSF, MMU) to pre-ultra level */
+static void __gpufreq_axuser_priority_config(void)
+{
+#if GPUFREQ_AXUSER_PREULTRA_ENABLE
+	/* acquire sema before access MFG_TOP_CFG */
+	__gpufreq_set_semaphore(SEMA_ACQUIRE);
+
+	/* MFG_MALI_AXUSER_M0_CFG1 0x13FBF704 [2] CSF_rd = 1'b1 */
+	/* MFG_MALI_AXUSER_M0_CFG1 0x13FBF704 [4] MMU_rd = 1'b1 */
+	writel((readl_mfg(MFG_MALI_AXUSER_M0_CFG1) | BIT(2) | BIT(4)), MFG_MALI_AXUSER_M0_CFG1);
+	/* MFG_MALI_AXUSER_M0_CFG2 0x13FBF708 [2] CSF_wr = 1'b1 */
+	writel((readl_mfg(MFG_MALI_AXUSER_M0_CFG2) | BIT(2)), MFG_MALI_AXUSER_M0_CFG2);
+	/* Set AR/AW sideband pre-ultra */
+	writel(0x00400400, MFG_MALI_AXUSER_M0_CFG3);
+
+	__gpufreq_set_semaphore(SEMA_RELEASE);
+#endif /* GPUFREQ_AXUSER_PREULTRA_ENABLE */
 }
 
 static void __gpufreq_dfd_config(void)

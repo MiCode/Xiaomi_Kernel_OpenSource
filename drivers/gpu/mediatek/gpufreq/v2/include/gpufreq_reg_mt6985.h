@@ -114,6 +114,9 @@ static inline u32 readl_mfg(const void __iomem *addr)
 #define MFG_MERGE_W_CON_02              (MFG_TOP_CFG_BASE + 0x8B8)            /* 0x13FBF8B8 */
 #define MFG_MERGE_W_CON_04              (MFG_TOP_CFG_BASE + 0x8D0)            /* 0x13FBF8D0 */
 #define MFG_MERGE_W_CON_06              (MFG_TOP_CFG_BASE + 0x8D8)            /* 0x13FBF8D8 */
+#define MFG_MALI_AXUSER_M0_CFG1         (MFG_TOP_CFG_BASE + 0x704)            /* 0x13FBF704 */
+#define MFG_MALI_AXUSER_M0_CFG2         (MFG_TOP_CFG_BASE + 0x708)            /* 0x13FBF708 */
+#define MFG_MALI_AXUSER_M0_CFG3         (MFG_TOP_CFG_BASE + 0x70C)            /* 0x13FBF70C */
 
 #define MFG_PLL_BASE                    (g_mfg_pll_base)                      /* 0x13FA0000 */
 #define MFG_PLL_CON0                    (MFG_PLL_BASE + 0x008)                /* 0x13FA0008 */
