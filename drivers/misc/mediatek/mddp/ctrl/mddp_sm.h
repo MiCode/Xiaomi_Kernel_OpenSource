@@ -101,7 +101,7 @@ struct mddp_app_t {
 
 	struct mddp_sm_entry_t     *state_machines[MDDP_STATE_CNT];
 	uint32_t                    drv_reg;
-	atomic_t                    feature;
+	uint32_t                    feature;
 	uint32_t                    abnormal_flags;
 	uint32_t                    reset_cnt;
 	struct completion           md_resp_comp;

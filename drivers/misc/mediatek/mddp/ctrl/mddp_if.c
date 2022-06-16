@@ -117,6 +117,8 @@ int32_t mddp_on_enable(enum mddp_app_type_e in_type)
 	for (idx = 0; idx < MDDP_MOD_CNT; idx++) {
 		type = mddp_sm_module_list_s[idx];
 		app = mddp_get_app_inst(type);
+		if (!(app->feature & MDDP_FEATURE_MDDP_WH))
+			continue;
 		mddp_sm_wait_pre(app);
 		mddp_sm_on_event(app, MDDP_EVT_FUNC_ENABLE);
 		mddp_sm_wait(app, MDDP_EVT_FUNC_ENABLE);
@@ -140,6 +142,8 @@ int32_t mddp_on_disable(enum mddp_app_type_e in_type)
 	for (idx = 0; idx < MDDP_MOD_CNT; idx++) {
 		type = mddp_sm_module_list_s[idx];
 		app = mddp_get_app_inst(type);
+		if (!(app->feature & MDDP_FEATURE_MDDP_WH))
+			continue;
 		mddp_sm_wait_pre(app);
 		mddp_sm_on_event(app, MDDP_EVT_FUNC_DISABLE);
 		mddp_sm_wait(app, MDDP_EVT_FUNC_DISABLE);
@@ -161,6 +165,9 @@ int32_t mddp_on_activate(enum mddp_app_type_e type,
 	app = mddp_get_app_inst(type);
 	if (!app->is_config)
 		return -EINVAL;
+
+	if (!(app->feature & MDDP_FEATURE_MDDP_WH))
+		return -ENOENT;
 
 	if (!mddp_f_dev_add_wan_dev(ul_dev_name))
 		return -EINVAL;
@@ -203,6 +210,9 @@ int32_t mddp_on_deactivate(enum mddp_app_type_e type)
 	if (!app->is_config)
 		return -EINVAL;
 
+	if (!(app->feature & MDDP_FEATURE_MDDP_WH))
+		return -ENOENT;
+
 	mddp_netdev_notifier_exit();
 	/*
 	 * MDDP DEACTIVATE command.
@@ -219,8 +229,18 @@ int32_t mddp_on_get_offload_stats(
 		uint8_t *buf,
 		uint32_t *buf_len)
 {
+	struct mddp_app_t      *app;
+
 	if (type != MDDP_APP_TYPE_ALL)
 		return -EINVAL;
+
+	// NG. app is not configured!
+	app = mddp_get_app_inst(MDDP_APP_TYPE_WH);
+	if (!app->is_config)
+		return -EINVAL;
+
+	if (!(app->feature & MDDP_FEATURE_MDDP_WH))
+		return -ENOENT;
 
 	/*
 	 * MDDP GET_OFFLOAD_STATISTICS command.
@@ -235,10 +255,19 @@ int32_t mddp_on_set_data_limit(
 		uint8_t *buf,
 		uint32_t buf_len)
 {
+	struct mddp_app_t      *app;
 	int32_t                 ret;
 
 	if (type != MDDP_APP_TYPE_ALL)
 		return -EINVAL;
+
+	// NG. app is not configured!
+	app = mddp_get_app_inst(MDDP_APP_TYPE_WH);
+	if (!app->is_config)
+		return -EINVAL;
+
+	if (!(app->feature & MDDP_FEATURE_MDDP_WH))
+		return -ENOENT;
 
 	ret = mddp_u_set_data_limit(buf, buf_len);
 
@@ -250,10 +279,19 @@ int32_t mddp_on_set_warning_and_data_limit(
 		uint8_t *buf,
 		uint32_t buf_len)
 {
+	struct mddp_app_t      *app;
 	int32_t                 ret;
 
 	if (type != MDDP_APP_TYPE_ALL)
 		return -EINVAL;
+
+	// NG. app is not configured!
+	app = mddp_get_app_inst(MDDP_APP_TYPE_WH);
+	if (!app->is_config)
+		return -EINVAL;
+
+	if (!(app->feature & MDDP_FEATURE_MDDP_WH))
+		return -ENOENT;
 
 	ret = mddp_u_set_warning_and_data_limit(buf, buf_len);
 
@@ -265,10 +303,19 @@ int32_t mddp_on_set_ct_value(
 		uint8_t *buf,
 		uint32_t buf_len)
 {
+	struct mddp_app_t      *app;
 	int32_t                 ret;
 
 	if (type != MDDP_APP_TYPE_ALL)
 		return -EINVAL;
+
+	// NG. app is not configured!
+	app = mddp_get_app_inst(MDDP_APP_TYPE_WH);
+	if (!app->is_config)
+		return -EINVAL;
+
+	if (!(app->feature & MDDP_FEATURE_MDDP_WH))
+		return -ENOENT;
 
 	/*
 	 * MDDP GET_OFFLOAD_STATISTICS command.

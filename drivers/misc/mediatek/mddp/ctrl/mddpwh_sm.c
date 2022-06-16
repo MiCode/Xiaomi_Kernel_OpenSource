@@ -92,8 +92,6 @@ static void mddpwh_sm_rsp_enable_ok(struct mddp_app_t *app)
 {
 	struct mddp_dev_rsp_enable_t            enable = {0};
 
-	atomic_or(MDDP_FEATURE_MDDP_WH, &app->feature);
-
 	// 1. Send RSP to WiFi
 	if (app->drv_hdlr.change_state != NULL)
 		app->drv_hdlr.change_state(app->state, NULL, NULL);
@@ -733,7 +731,6 @@ static int32_t mddpw_drv_notify_info(
 static int32_t mddpw_drv_get_mddp_feature(void)
 {
 	struct mddp_app_t       *app;
-	int feature;
 
 	app = mddp_get_app_inst(MDDP_APP_TYPE_WH);
 
@@ -744,12 +741,11 @@ static int32_t mddpw_drv_get_mddp_feature(void)
 		return -ENODEV;
 	}
 
-	feature = atomic_read(&app->feature);
 	if (!app->reset_cnt) {
 		MDDP_S_LOG(MDDP_LL_ERR, "%s before MD ready!\n", __func__);
 		app->abnormal_flags |= MDDP_ABNORMAL_WIFI_DRV_GET_FEATURE_BEFORE_MD_READY;
 	}
-	return feature;
+	return app->feature;
 }
 
 static int32_t mddpw_drv_reg_callback(struct mddp_drv_handle_t *handle)
@@ -860,8 +856,6 @@ static void wfpm_reset_work_func(struct work_struct *work)
 	struct mddp_app_t       *app;
 
 	app = mddp_get_app_inst(MDDP_APP_TYPE_WH);
-	atomic_set(&app->feature, 0x0);
-	atomic_or(MDDP_FEATURE_MCIF_WIFI, &app->feature);
 	app->abnormal_flags &= ~MDDP_ABNORMAL_CCCI_SEND_FAILED;
 	app->reset_cnt++;
 	mddp_check_feature();

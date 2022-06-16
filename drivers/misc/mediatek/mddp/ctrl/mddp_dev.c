@@ -193,7 +193,7 @@ state_show(struct device *dev, struct device_attribute *attr, char *buf)
 					app->type, app->state);
 		ret_num += scnprintf(buf + ret_num, PAGE_SIZE - ret_num,
 				"drv_reg(%d), feature(%d)\n",
-				app->drv_reg, atomic_read(&app->feature));
+				app->drv_reg, app->feature);
 		ret_num += scnprintf(buf + ret_num, PAGE_SIZE - ret_num,
 				"abnormal(%x), reset_cnt(%d)\n",
 				app->abnormal_flags, app->reset_cnt);

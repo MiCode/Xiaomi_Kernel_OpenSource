@@ -83,7 +83,7 @@ static void mddp_handshake_done(uint32_t feature)
 	struct mddp_app_t *app;
 
 	app = mddp_get_app_inst(MDDP_APP_TYPE_WH);
-	atomic_set(&app->feature, feature);
+	app->feature = feature;
 	app->abnormal_flags &= ~MDDP_ABNORMAL_CHECK_FEATURE_ABSENT;
 }
 
@@ -279,7 +279,6 @@ int32_t mddp_sm_init(void)
 		_mddp_set_state(app, MDDP_STATE_UNINIT);
 
 		mddp_sm_init_func_list_s[idx](app);
-		atomic_set(&app->feature, 0);
 	}
 	mutex_init(&mddp_state_handler_mtx);
 
