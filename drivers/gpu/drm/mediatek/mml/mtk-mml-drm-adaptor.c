@@ -820,6 +820,8 @@ s32 mml_drm_submit(struct mml_drm_ctx *ctx, struct mml_submit *submit,
 			}
 			task->config = cfg;
 			task->state = MML_TASK_DUPLICATE;
+			/* add more count for new task create */
+			kref_get(&cfg->ref);
 		}
 	} else {
 		cfg = frame_config_create(ctx, &submit->info);
@@ -848,14 +850,14 @@ s32 mml_drm_submit(struct mml_drm_ctx *ctx, struct mml_submit *submit,
 			cfg->disp_hrt = frame_calc_layer_hrt(ctx, &submit->info,
 				cfg->layer_w, cfg->layer_h);
 		}
+
+		/* add more count for new task create */
+		kref_get(&cfg->ref);
 	}
 
 	/* maintain racing ref count for easy query mode */
 	if (cfg->info.mode == MML_MODE_RACING)
 		atomic_inc(&ctx->racing_cnt);
-
-	/* add more count for new task create */
-	kref_get(&cfg->ref);
 
 	/* make sure id unique and cached last */
 	task->job.jobid = atomic_inc_return(&ctx->job_serial);

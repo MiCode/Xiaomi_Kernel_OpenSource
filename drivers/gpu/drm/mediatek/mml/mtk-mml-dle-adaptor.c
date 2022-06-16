@@ -559,6 +559,8 @@ s32 mml_dle_config(struct mml_dle_ctx *ctx, struct mml_submit *submit,
 			}
 			task->config = cfg;
 			task->state = MML_TASK_DUPLICATE;
+			/* add more count for new task create */
+			kref_get(&cfg->ref);
 		}
 	} else {
 		cfg = frame_config_create(ctx, &submit->info, dle_info);
@@ -577,10 +579,9 @@ s32 mml_dle_config(struct mml_dle_ctx *ctx, struct mml_submit *submit,
 			goto err_unlock_exit;
 		}
 		task->config = cfg;
+		/* add more count for new task create */
+		kref_get(&cfg->ref);
 	}
-
-	/* add more count for new task create */
-	kref_get(&cfg->ref);
 
 	/* make sure id unique and cached last */
 	task->job.jobid = atomic_inc_return(&ctx->job_serial);
