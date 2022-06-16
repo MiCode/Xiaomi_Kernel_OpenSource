@@ -3719,6 +3719,7 @@ static int mtk_cam_req_update(struct mtk_cam_device *cam,
 		case MTKCAM_IPI_RAW_RZH1N2TO_3:
 		case MTKCAM_IPI_RAW_DRZS4NO_1:
 		case MTKCAM_IPI_RAW_DRZS4NO_3:
+		case MTKCAM_IPI_RAW_DRZB2NO_1:
 			ret = mtk_cam_config_raw_img_out(req_stream_data, buf);
 			if (ret)
 				return ret;
