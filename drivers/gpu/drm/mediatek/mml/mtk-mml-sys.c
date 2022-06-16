@@ -15,6 +15,7 @@
 #include "mtk-mml-driver.h"
 #include "mtk-mml-dle-adaptor.h"
 #include "mtk-mml-mmp.h"
+#include "mtk-mml-sys.h"
 
 #include "tile_driver.h"
 #include "mtk-mml-tile.h"
@@ -145,6 +146,11 @@ struct mml_sys {
 	u16 event_racing_pipe1;
 	u16 event_racing_pipe1_next;
 	u16 event_ir_eof;
+
+#ifndef MML_FPGA
+	/* for config sspm aid */
+	void *mml_scmi;
+#endif
 };
 
 struct sys_frame_data {
@@ -649,6 +655,27 @@ static const struct mml_comp_debug_ops sys_debug_ops = {
 	.reset = &sys_reset,
 };
 
+static s32 mml_comp_clk_aid_enable(struct mml_comp *comp)
+{
+	struct mml_sys *sys = comp_to_sys(comp);
+	s32 ret = mml_comp_clk_enable(comp);
+
+	if (ret < 0)
+		return ret;
+
+	if (comp->clk_cnt == 1)
+		mml_set_uid(&sys->mml_scmi);
+
+	return 0;
+}
+
+#ifndef MML_FPGA
+static const struct mml_comp_hw_ops sys_hw_ops_aid = {
+	.clk_enable = &mml_comp_clk_aid_enable,
+	.clk_disable = &mml_comp_clk_disable,
+};
+#endif
+
 static int sys_comp_init(struct device *dev, struct mml_sys *sys,
 			 struct mml_comp *comp)
 {
@@ -745,6 +772,12 @@ static int sys_comp_init(struct device *dev, struct mml_sys *sys,
 
 	comp->config_ops = &sys_config_ops;
 	comp->debug_ops = &sys_debug_ops;
+
+#ifndef MML_FPGA
+	/* scmi(sspm) config aid/uid support */
+	if (of_property_read_bool(dev->of_node, "sspm-aid-enable"))
+		comp->hw_ops = &sys_hw_ops_aid;
+#endif
 	return 0;
 }
 

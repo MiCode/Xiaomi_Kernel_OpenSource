@@ -23,7 +23,8 @@ ccflags-y += -I$(srctree)/drivers/gpu/drm/mediatek/mediatek_v2 \
              -I$(srctree)/drivers/misc/mediatek/mtk-interconnect \
              -I$(srctree)/drivers/misc/mediatek/cmdq/mailbox \
              -I$(srctree)/drivers/misc/mediatek/slbc \
-             -I$(srctree)/drivers/misc/mediatek/mmp
+             -I$(srctree)/drivers/misc/mediatek/mmp \
+             -I$(srctree)/drivers/misc/mediatek/tinysys_scmi
 
 obj-$(CONFIG_MTK_MML_LEGACY) := mtk-mml-legacy.o
 obj-$(CONFIG_MTK_MML) := mtk-mml.o
@@ -55,6 +56,9 @@ mtk-mml-objs += mtk-mml-pq-birsz-fw.o
 mtk-mml-objs += mtk-mml-tcc.o
 mtk-mml-objs += mtk-mml-tdshp.o
 mtk-mml-objs += mtk-mml-wrot.o
+
+# mml call sspm support
+mtk-mml-objs += mtk-mml-scmi.o
 
 ifneq (,$(strip $(CONFIG_MMPROFILE)))
 mtk-mml-objs += mtk-mml-mmp.o

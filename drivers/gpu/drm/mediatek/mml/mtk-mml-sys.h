@@ -20,6 +20,16 @@ int mml_sys_bind(struct device *dev, struct device *master,
 void mml_sys_unbind(struct device *dev, struct device *master,
 	struct mml_sys *sys, void *data);
 
+/*
+ * mml_set_uid - Call sspm to config uid/aid for mml
+ *
+ * @mml_scmi: status info for scmi
+ *
+ * Note: this API implement in mtk-mml-scmi.c to avoid conflict definition
+ * with display headers.
+ */
+void mml_set_uid(void **mml_scmi);
+
 extern const struct of_device_id mtk_mml_of_ids[];
 
 #endif	/* __MTK_MML_SYS_H__ */
