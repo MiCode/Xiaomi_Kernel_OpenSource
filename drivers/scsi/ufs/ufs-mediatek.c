@@ -1657,31 +1657,6 @@ static int ufs_mtk_init_clocks(struct ufs_hba *hba)
 	return 0;
 }
 
-static void ufs_mtk_ctrl_dev_pwr(struct ufs_hba *hba, bool vcc_on, bool is_init)
-{
-	struct arm_smccc_res res;
-	u64 ufs_version;
-
-	/* prevent entering lpm when device is still active */
-	if (!vcc_on && ufshcd_is_ufs_dev_active(hba))
-		return;
-
-	/* Transfer the ufs version to tf-a */
-	ufs_version = (u64)hba->dev_info.wspecversion;
-
-	/*
-	 * If VCC kept always-on, we do not use smc call to avoid
-	 * non-essential time consumption.
-	 *
-	 * We don't need to control VS buck (the upper layer of VCCQ/VCCQ2)
-	 * to enter LPM, because UFS device may be active when VCC
-	 * is always-on. We also introduce UFS_MTK_CAP_FORCE_VSx_LPM to
-	 * allow overriding such protection to save power.
-	 */
-	if (ufs_mtk_is_force_vsx_lpm(hba) || !ufs_mtk_is_broken_vcc(hba) || is_init)
-		ufs_mtk_device_pwr_ctrl(vcc_on, ufs_version, res);
-}
-
 /**
  * ufs_mtk_init - find other essential mmio bases
  * @hba: host controller instance
@@ -2123,28 +2098,60 @@ static int ufs_mtk_link_set_lpm(struct ufs_hba *hba)
 	return 0;
 }
 
-static void ufs_mtk_vreg_set_lpm(struct ufs_hba *hba, bool lpm)
+static void ufs_mtk_vccqx_set_lpm(struct ufs_hba *hba, bool lpm)
 {
 	struct ufs_vreg *vccqx = NULL;
-
-	if (!hba->vreg_info.vccq && !hba->vreg_info.vccq2)
-		return;
-
-	/* prevent entering lpm when device is still active */
-	if (lpm && ufshcd_is_ufs_dev_active(hba))
-		return;
 
 	if (hba->vreg_info.vccq)
 		vccqx = hba->vreg_info.vccq;
 	else
 		vccqx = hba->vreg_info.vccq2;
 
-	if (lpm)
-		regulator_set_mode(vccqx->reg,
-				   REGULATOR_MODE_IDLE);
-	else
-		regulator_set_mode(vccqx->reg,
-				   REGULATOR_MODE_NORMAL);
+	regulator_set_mode(vccqx->reg,
+		lpm ? REGULATOR_MODE_IDLE : REGULATOR_MODE_NORMAL);
+}
+
+static void ufs_mtk_vsx_set_lpm(struct ufs_hba *hba, bool lpm)
+{
+	struct arm_smccc_res res;
+
+	ufs_mtk_device_pwr_ctrl(!lpm,
+	(unsigned long)hba->dev_info.wspecversion, res);
+}
+
+static void ufs_mtk_dev_vreg_set_lpm(struct ufs_hba *hba, bool lpm)
+{
+	if (!hba->vreg_info.vccq && !hba->vreg_info.vccq2)
+		return;
+
+	/* prevent entering LPM when device is still active */
+	if (lpm && ufshcd_is_ufs_dev_active(hba))
+		return;
+
+	/* bypass LPM if VCC is assumed always-on */
+	if (!hba->vreg_info.vcc)
+		return;
+
+	/*
+	 * If VCC kept always-on, we do not use smc call to avoid
+	 * non-essential time consumption.
+	 *
+	 * We don't need to control VS buck (the upper layer of VCCQ/VCCQ2)
+	 * to enter LPM, because UFS device may be active when VCC
+	 * is always-on. We also introduce UFS_MTK_CAP_FORCE_VSx_LPM to
+	 * allow overriding such protection to save power.
+	 */
+	if (lpm && hba->vreg_info.vcc->enabled &&
+		!ufs_mtk_is_force_vsx_lpm(hba))
+		return;
+
+	if (lpm) {
+		ufs_mtk_vccqx_set_lpm(hba, lpm);
+		ufs_mtk_vsx_set_lpm(hba, lpm);
+	} else {
+		ufs_mtk_vsx_set_lpm(hba, lpm);
+		ufs_mtk_vccqx_set_lpm(hba, lpm);
+	}
 }
 
 static int ufs_mtk_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op,
@@ -2172,7 +2179,6 @@ static int ufs_mtk_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op,
 		 * ufshcd_suspend() re-enabling regulators while vreg is still
 		 * in low-power mode.
 		 */
-		ufs_mtk_vreg_set_lpm(hba, true);
 		err = ufs_mtk_mphy_power_on(hba, false);
 		if (err)
 			goto fail;
@@ -2183,7 +2189,6 @@ static int ufs_mtk_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op,
 
 	/* Transfer the ufs version to tfa */
 	ufs_mtk_host_pwr_ctrl(HOST_PWR_HCI, false, res);
-	ufs_mtk_ctrl_dev_pwr(hba, false, false);
 
 	return 0;
 fail:
@@ -2201,15 +2206,15 @@ static int ufs_mtk_resume(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 	int err;
 	struct arm_smccc_res res;
 
+	if (hba->ufshcd_state != UFSHCD_STATE_OPERATIONAL)
+		ufs_mtk_dev_vreg_set_lpm(hba, false);
+
 	/* Transfer the ufs version to tfa */
 	ufs_mtk_host_pwr_ctrl(HOST_PWR_HCI, true, res);
-	ufs_mtk_ctrl_dev_pwr(hba, true, false);
 
 	err = ufs_mtk_mphy_power_on(hba, true);
 	if (err)
 		goto fail;
-
-	ufs_mtk_vreg_set_lpm(hba, false);
 
 	if (ufshcd_is_link_hibern8(hba)) {
 		err = ufs_mtk_link_set_hpm(hba);
@@ -2583,7 +2588,7 @@ skip_phy:
 	 * VCCQ/VCCQ2) is HWLP, we need to prevent VCCQ/VCCQ2 from
 	 * entering LPM.
 	 */
-	ufs_mtk_ctrl_dev_pwr(hba, true, true);
+	ufs_mtk_dev_vreg_set_lpm(hba, false);
 
 out:
 	of_node_put(phy_node);
@@ -2653,6 +2658,9 @@ int ufs_mtk_system_suspend(struct device *dev)
 	}
 
 	ret = ufshcd_system_suspend(dev);
+
+	if (!ret)
+		ufs_mtk_dev_vreg_set_lpm(hba, true);
 out:
 
 #if defined(CONFIG_UFSFEATURE)
@@ -2676,6 +2684,8 @@ int ufs_mtk_system_resume(struct device *dev)
 	bool is_link_off = ufshcd_is_link_off(hba);
 #endif
 
+	ufs_mtk_dev_vreg_set_lpm(hba, false);
+
 	ret = ufshcd_system_resume(dev);
 
 #if defined(CONFIG_UFSFEATURE)
@@ -2692,15 +2702,19 @@ int ufs_mtk_system_resume(struct device *dev)
 
 int ufs_mtk_runtime_suspend(struct device *dev)
 {
-	int ret = 0;
-#if defined(CONFIG_UFSFEATURE)
 	struct ufs_hba *hba = dev_get_drvdata(dev);
+	int ret = 0;
+
+#if defined(CONFIG_UFSFEATURE)
 	struct ufsf_feature *ufsf = ufs_mtk_get_ufsf(hba);
 
 	if (ufsf->hba)
 		ufsf_suspend(ufsf);
 #endif
 	ret = ufshcd_runtime_suspend(dev);
+
+	if (!ret)
+		ufs_mtk_dev_vreg_set_lpm(hba, true);
 
 #if defined(CONFIG_UFSFEATURE)
 	/* We assume link is off */
@@ -2713,12 +2727,15 @@ int ufs_mtk_runtime_suspend(struct device *dev)
 
 int ufs_mtk_runtime_resume(struct device *dev)
 {
-	int ret = 0;
-#if defined(CONFIG_UFSFEATURE)
 	struct ufs_hba *hba = dev_get_drvdata(dev);
+	int ret = 0;
+
+#if defined(CONFIG_UFSFEATURE)
 	struct ufsf_feature *ufsf = ufs_mtk_get_ufsf(hba);
 	bool is_link_off = ufshcd_is_link_off(hba);
 #endif
+	ufs_mtk_dev_vreg_set_lpm(hba, false);
+
 	ret = ufshcd_runtime_resume(dev);
 
 #if defined(CONFIG_UFSFEATURE)
