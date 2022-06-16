@@ -33,8 +33,8 @@ static struct JpegDeviceStruct gJpegqDev;
 static atomic_t nodeCount;
 
 static const struct of_device_id jdec_hybrid_of_ids[] = {
-	{.compatible = "mediatek,jpgdec0",},
-	{.compatible = "mediatek,jpgdec1",},
+	{.compatible = "mediatek,jpgdec",},
+	{.compatible = "mediatek,jpgdec_c1",},
 	{}
 };
 
