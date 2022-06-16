@@ -1067,6 +1067,11 @@ static int md_cd_get_modem_hw_info(struct platform_device *dev_ptr,
 		return -1;
 	}
 
+	if (!get_modem_is_enabled()) {
+		CCCI_ERROR_LOG(0, TAG, "modem is not enabled, exit\n");
+		return -1;
+	}
+
 	memset(dev_cfg, 0, sizeof(struct ccci_dev_cfg));
 
 	dev_cfg->major = 0;
