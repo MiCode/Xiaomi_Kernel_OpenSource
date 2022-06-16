@@ -138,3 +138,12 @@ config MTK_GPU_MT6985_SUPPORT
 	  Set Y or M to select this feature for specific platform-mt6985,
 	  and set N to disable.
 	  It is additional config to separate platforms.
+
+config MTK_GPU_DIAGNOSIS_DEBUG
+	bool "Enable gpu diagnosis switch for debug"
+	depends on MTK_GPU_SUPPORT
+	help
+	  Enable gpu diagnosis control switches for gpu debugging.
+	  If this config is set to Y, config nodes for gpu error hook and DB
+	  dump level are available.
+	  This is a config to decide exported debug function.
