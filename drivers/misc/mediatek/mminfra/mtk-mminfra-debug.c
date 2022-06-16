@@ -44,6 +44,8 @@ static atomic_t clk_ref_cnt = ATOMIC_INIT(0);
 static struct device *dev;
 static struct mminfra_dbg *dbg;
 static u32 mminfra_bkrs;
+static u32 bkrs_reg_pa;
+
 
 #define MMINFRA_BASE		0x1e800000
 
@@ -185,6 +187,7 @@ static int mtk_mminfra_pd_callback(struct notifier_block *nb,
 {
 	int count;
 	void __iomem *test_base;
+	static u32 bk_val;
 	u32 val;
 
 	if (flags == GENPD_NOTIFY_ON) {
@@ -199,20 +202,23 @@ static int mtk_mminfra_pd_callback(struct notifier_block *nb,
 			cmdq_util_mminfra_cmd(3); //mminfra rfifo init
 			do_mminfra_bkrs(true);
 		}
-		test_base = ioremap(0x1e800280, 4);
+		test_base = ioremap(bkrs_reg_pa, 4);
 		val = readl_relaxed(test_base);
-		if ((val & 0xf) != 0xf) {
-			pr_notice("%s: HRE restore failed 0x1e800280=%x\n",
-				__func__, val);
+		if (val != bk_val) {
+			pr_notice("%s: HRE restore failed %#x=%x\n",
+				__func__, bkrs_reg_pa, val);
 #if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 			aee_kernel_warning("mminfra",
-				"HRE restore failed 0x1e800280=%x\n", val);
+				"HRE restore failed %#x=%x, bk_val=%x\n",
+				bkrs_reg_pa, val, bk_val);
 #endif
 			BUG_ON(1);
 		}
 		iounmap(test_base);
 		pr_notice("%s: enable clk ref_cnt=%d\n", __func__, count);
 	} else if (flags == GENPD_NOTIFY_PRE_OFF) {
+		test_base = ioremap(bkrs_reg_pa, 4);
+		bk_val = readl_relaxed(test_base);
 		if (mminfra_bkrs)
 			do_mminfra_bkrs(false);
 		count = atomic_read(&clk_ref_cnt);
@@ -295,6 +301,24 @@ int mminfra_ut(const char *val, const struct kernel_param *kp)
 		else
 			pr_notice("%s: test_case(%d) fail value=%d\n",
 				__func__, test_case, value);
+		iounmap(test_base);
+		pm_runtime_put_sync(dev);
+		break;
+	case 1:
+		ret = pm_runtime_get_sync(dev);
+		test_base = ioremap(bkrs_reg_pa, 4);
+		value = readl_relaxed(test_base);
+		do_mminfra_bkrs(false); // backup
+		writel(0x123, test_base);
+		do_mminfra_bkrs(true); // restore
+		if (value == readl_relaxed(test_base))
+			pr_notice("%s: test_case(%d) pass\n",
+				__func__, test_case);
+		else
+			pr_notice("%s: test_case(%d) fail value=%d\n",
+				__func__, test_case, value);
+		pr_notice("%s: HRE restore result %#x=%x value=%x\n",
+			__func__, bkrs_reg_pa, readl_relaxed(test_base), value);
 		iounmap(test_base);
 		pm_runtime_put_sync(dev);
 		break;
@@ -440,6 +464,10 @@ static int mminfra_debug_probe(struct platform_device *pdev)
 
 	node = pdev->dev.of_node;
 	of_property_read_u32(node, "mminfra-bkrs", &mminfra_bkrs);
+
+	of_property_read_u32(node, "bkrs-reg", &bkrs_reg_pa);
+	if (!bkrs_reg_pa)
+		bkrs_reg_pa = MMINFRA_BASE + 0x280;
 
 	mminfra_check_scmi_status();
 
