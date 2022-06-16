@@ -20,16 +20,13 @@
 			<&topckgen_clk CLK_TOP_APLL_ETDM_IN1_MCK_SEL>,
 			<&topckgen_clk CLK_TOP_APLL_ETDM_OUT1_MCK_SEL>,
 			<&topckgen_clk CLK_TOP_APLL_I2S10_MCK_SEL>,
-			<&topckgen_clk CLK_TOP_CAM_SEL>,
-			<&topckgen_clk CLK_TOP_CAMTM_SEL>,
 			<&infracfg_ao_clk CLK_IFRAO_CLDMA_BCLK>,
 			<&infracfg_ao_clk CLK_IFRAO_DPMAIF_MAIN>,
 			<&infracfg_ao_clk CLK_IFRAO_RG_MMW_DPMAIF26M_CK>,
 			<&pericfg_ao_clk CLK_PERAO_DMA_B>,
 			<&pericfg_ao_clk CLK_PERAO_AUDIO_SLV>,
 			<&pericfg_ao_clk CLK_PERAO_AUDIO_MST>,
-			<&pericfg_ao_clk CLK_PERAO_AUDIO_INTBUS>,
-			<&vlp_cksys_clk CLK_VLP_CK_CAMTG_VLP_SEL>;
+			<&pericfg_ao_clk CLK_PERAO_AUDIO_INTBUS>;
 	};
 
 	bring-up-pd-ufs0_phy_shutdown {
@@ -40,15 +37,5 @@
 	bring-up-pd-audio {
 		compatible = "mediatek,scpsys-bring-up";
 		power-domains = <&scpsys MT6985_POWER_DOMAIN_AUDIO>;
-	};
-
-	bring-up-pd-cam_vcore {
-		compatible = "mediatek,scpsys-bring-up";
-		power-domains = <&scpsys MT6985_POWER_DOMAIN_CAM_VCORE>;
-	};
-
-	bring-up-pd-csi_rx {
-		compatible = "mediatek,scpsys-bring-up";
-		power-domains = <&scpsys MT6985_POWER_DOMAIN_CSI_RX>;
 	};
 };
