@@ -1070,6 +1070,12 @@ static int calc_buffered_pixel_rate(struct device *dev,
 	s64 pclk;
 	s64 k;
 
+	if (fps_d == 0 || width == 0 || hblank == 0 || ISP_CLK_LOW == 0) {
+		dev_info(dev, "Prevent divided by 0, fps_d= %d, w= %d, h= %d, ISP_CLK= %d\n",
+			fps_d, width, hblank, ISP_CLK_LOW);
+		return 0;
+	}
+
 	/* calculate pclk */
 	pclk = (width + hblank) * (height + vblank) * fps_n;
 	do_div(pclk, fps_d);
