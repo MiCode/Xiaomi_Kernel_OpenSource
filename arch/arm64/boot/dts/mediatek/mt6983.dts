@@ -14113,10 +14113,10 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 		pinctrl-17 = <&aud_gpio_i2s3_on>;
 	};
 
-	snd_scp_ultra: snd_scp_ultra {
-		compatible = "mediatek,snd_scp_ultra";
-		scp_ultra_dl_memif_id = <0x7>;
-		scp_ultra_ul_memif_id = <0xf>;
+	snd_scp_ultra: snd-scp-ultra {
+		compatible = "mediatek,snd-scp-ultra";
+		scp-ultra-dl-memif-id = <0x7>;
+		scp-ultra-ul-memif-id = <0xf>;
 	};
 
 	audio_sram@1e102000 {
