@@ -24,6 +24,7 @@
 #include <linux/of.h>
 #include <linux/libfdt.h> // fdt32_ld
 #include <linux/vmalloc.h>
+#include <linux/mm.h>
 
 #include "selinux/mkp_security.h"
 #include "selinux/mkp_policycap.h"
@@ -37,6 +38,8 @@
 
 #define mkp_debug 0
 DEBUG_SET_LEVEL(DEBUG_LEVEL_ERR);
+
+#define SUPPORT_FULL_KERNEL_CODE_2M
 
 struct work_struct *avc_work;
 
@@ -152,6 +155,10 @@ static void probe_android_vh_set_memory_nx(void *ignore, unsigned long addr,
 	}
 }
 
+#ifdef SUPPORT_FULL_KERNEL_CODE_2M
+bool full_kernel_code_2m __initdata;
+#endif
+
 #if !IS_ENABLED(CONFIG_KASAN_GENERIC) && !IS_ENABLED(CONFIG_KASAN_SW_TAGS)
 static int __init protect_kernel(void)
 {
@@ -164,10 +171,22 @@ static int __init protect_kernel(void)
 	int nr_pages;
 	int init = 0;
 
+#ifdef SUPPORT_FULL_KERNEL_CODE_2M
+	/* Map all kernel code in the EL1S2 with the granularity of 2M */
+	bool kernel_code_perf = false;
+	unsigned long addr_start_2m = 0, addr_end_2m = 0;
+#endif
+
 	if (policy_ctrl[MKP_POLICY_KERNEL_CODE] &&
 		policy_ctrl[MKP_POLICY_KERNEL_RODATA]) {
 		mkp_get_krn_info(&p_stext, &p_etext, &p__init_begin);
 		init = 1;
+
+#ifdef SUPPORT_FULL_KERNEL_CODE_2M
+		/* It may ONLY take effects when BOTH KERNEL_CODE & KERNEL_RODATA are enabled */
+		if (full_kernel_code_2m)
+			kernel_code_perf = true;
+#endif
 	}
 
 	if (policy_ctrl[MKP_POLICY_KERNEL_CODE] != 0) {
@@ -178,6 +197,19 @@ static int __init protect_kernel(void)
 		addr_end = (unsigned long)p_etext;
 		addr_start = round_up(addr_start, PAGE_SIZE);
 		addr_end = round_down(addr_end, PAGE_SIZE);
+
+#ifdef SUPPORT_FULL_KERNEL_CODE_2M
+		/* Try to round_down/up the boundary in 2M */
+		if (kernel_code_perf) {
+			addr_start_2m = round_down(addr_start, SZ_2M);
+			/* The range size of _text and _stext should SEGMENT_ALIGN */
+			if ((addr_start - addr_start_2m) == SEGMENT_ALIGN) {
+				addr_start = addr_start_2m;
+				addr_end_2m = round_up(addr_end, SZ_2M);
+				addr_end = addr_end_2m;
+			}
+		}
+#endif
 		nr_pages = (addr_end-addr_start)>>PAGE_SHIFT;
 		phys_addr = __pa_symbol((void *)addr_start);
 		policy = MKP_POLICY_KERNEL_CODE;
@@ -198,6 +230,12 @@ static int __init protect_kernel(void)
 		addr_end = (unsigned long)p__init_begin;
 		addr_start = round_up(addr_start, PAGE_SIZE);
 		addr_end = round_down(addr_end, PAGE_SIZE);
+
+#ifdef SUPPORT_FULL_KERNEL_CODE_2M
+		/* Try to round_down/up the boundary in 2M */
+		if (kernel_code_perf && (addr_end_2m != 0) && (addr_end_2m <= addr_end))
+			addr_start = addr_end_2m;
+#endif
 		nr_pages = (addr_end-addr_start)>>PAGE_SHIFT;
 		phys_addr = __pa_symbol((void *)addr_start);
 		policy = MKP_POLICY_KERNEL_RODATA;
@@ -822,6 +860,83 @@ static void __init mkp_hookup_tracepoints(void)
 	}
 }
 
+/* Map full kernel text in the granularity of 2MB */
+static const struct of_device_id mkp_of_match[] = {
+	{ .compatible = "mediatek,mkp-drv", },
+	{ }
+};
+MODULE_DEVICE_TABLE(of, mkp_of_match);
+
+#ifndef SUPPORT_FULL_KERNEL_CODE_2M
+static void __init free_reserved_memory(phys_addr_t start_phys, phys_addr_t end_phys)
+{
+	phys_addr_t pos;
+	unsigned long nr_pages = 0;
+
+	if (end_phys <= start_phys) {
+		pr_info("%s: end_phys is smaller than start_phys start_phys:0x%pa end_phys:0x%pa\n",
+				__func__, &start_phys, &end_phys);
+		return;
+	}
+	for (pos = start_phys; pos < end_phys; pos += PAGE_SIZE, nr_pages++)
+		free_reserved_page(phys_to_page(pos));
+
+	if (nr_pages) {
+		pr_info("freeing mkp %ldK reserved memory\n",
+				nr_pages << (PAGE_SHIFT - 10));
+	}
+}
+#endif
+
+static int __init get_reserved_memory(struct device *dev)
+{
+	struct device_node *np;
+	struct reserved_mem *rmem;
+
+	np = of_parse_phandle(dev->of_node, "memory-region", 0);
+	if (!np) {
+		dev_info(dev, "no memory-region\n");
+		return -EINVAL;
+	}
+
+	rmem = of_reserved_mem_lookup(np);
+	of_node_put(np);
+
+	if (!rmem) {
+		dev_info(dev, "no memory-region\n");
+		return -EINVAL;
+	}
+
+#ifdef SUPPORT_FULL_KERNEL_CODE_2M
+	/* Enable the support of full kernel code with 2M mapping */
+	full_kernel_code_2m = true;
+	pr_info("resource base=%pa, size=%pa\n", &rmem->base, &rmem->size);
+	MKP_INFO("Support FULL_KERNEL_CODE_2M\n");
+#else
+	free_reserved_memory(rmem->base, rmem->base + rmem->size);
+	MKP_INFO("Not Support FULL_KERNEL_CODE_2M\n");
+#endif /* SUPPORT_FULL_KERNEL_CODE_2M */
+
+	return 0;
+}
+
+static int __init mkp_probe(struct platform_device *pdev)
+{
+	get_reserved_memory(&pdev->dev);
+
+	return 0;
+}
+
+struct platform_driver mkp_driver = {
+	.probe = mkp_probe,
+	.remove = NULL,
+	.driver = {
+		.name = "mkp-drv",
+		.owner = THIS_MODULE,
+		.of_match_table = mkp_of_match,
+	},
+};
+
 int __init mkp_demo_init(void)
 {
 	int ret = 0, ret_erri_line;
@@ -829,6 +944,10 @@ int __init mkp_demo_init(void)
 	struct device_node *node;
 	u32 mkp_policy = 0x0001ffff;
 	const char *mkp_panic;
+
+	ret = platform_driver_register(&mkp_driver);
+	if (ret)
+		MKP_WARN("Failed to support FULL_KERNEL_CODE_2M\n");
 
 	node = of_find_node_by_path("/chosen");
 	if (node) {
@@ -864,6 +983,7 @@ int __init mkp_demo_init(void)
 	/* Protect kernel code & rodata */
 	if (policy_ctrl[MKP_POLICY_KERNEL_CODE] != 0 ||
 		policy_ctrl[MKP_POLICY_KERNEL_RODATA] != 0) {
+
 #if !IS_ENABLED(CONFIG_KASAN_GENERIC) && !IS_ENABLED(CONFIG_KASAN_SW_TAGS)
 		ret = mkp_ka_init();
 		if (ret) {
