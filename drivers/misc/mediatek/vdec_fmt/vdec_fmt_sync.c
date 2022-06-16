@@ -166,17 +166,14 @@ static void timeline_fence_release(struct dma_fence *dma_fence)
 {
 	struct sync_pt *pt = fence_to_sync_pt(dma_fence);
 	struct sync_timeline *parent = fence_parent(dma_fence);
+	unsigned long flags;
 
-	if (pt != NULL && !list_empty(&pt->link)) {
-		unsigned long flags;
-
-		spin_lock_irqsave(dma_fence->lock, flags);
-		if (!list_empty(&pt->link)) {
-			list_del(&pt->link);
-			rb_erase(&pt->node, &parent->pt_tree);
-		}
-		spin_unlock_irqrestore(dma_fence->lock, flags);
+	spin_lock_irqsave(dma_fence->lock, flags);
+	if (pt && !list_empty(&pt->link)) {
+		list_del(&pt->link);
+		rb_erase(&pt->node, &parent->pt_tree);
 	}
+	spin_unlock_irqrestore(dma_fence->lock, flags);
 
 	sync_timeline_put(parent);
 	dma_fence_free(dma_fence);
@@ -198,7 +195,7 @@ static bool timeline_fence_enable_signaling(struct dma_fence *dma_fence)
 static void timeline_fence_value_str(struct dma_fence *dma_fence,
 				    char *str, int size)
 {
-	snprintf(str, size, "%lu", dma_fence->seqno);
+	snprintf(str, size, "%llu", dma_fence->seqno);
 }
 
 static void timeline_fence_timeline_value_str(struct dma_fence *dma_fence,
@@ -301,7 +298,8 @@ static struct sync_pt *sync_pt_create(struct sync_timeline *obj,
 				p = &parent->rb_left;
 			} else {
 				if (dma_fence_get_rcu(&other->base)) {
-					dma_fence_put(&pt->base);
+					sync_timeline_put(obj);
+					kfree(pt);
 					pt = other;
 					goto unlock;
 				}
@@ -348,8 +346,18 @@ static int fmt_sync_open(struct inode *inode, struct file *file)
 static int fmt_sync_release(struct inode *inode, struct file *file)
 {
 	struct sync_timeline *obj = file->private_data;
+	struct sync_pt *pt, *next;
 
-	smp_wmb();/*memory barrier*/
+	spin_lock_irq(&obj->lock);
+
+	list_for_each_entry_safe(pt, next, &obj->pt_list, link) {
+		dma_fence_set_error(&pt->base, -ENOENT);
+		dma_fence_signal_locked(&pt->base);
+	}
+
+	spin_unlock_irq(&obj->lock);
+
+	//smp_wmb();/*memory barrier*/
 
 	sync_timeline_put(obj);
 	return 0;
