@@ -116,6 +116,7 @@ static void switch_port_to_off(struct ssusb_mtk *ssusb)
 	dev_info(ssusb->dev, "port off\n");
 
 	ssusb_ip_sleep(ssusb);
+	ssusb_phy_set_mode(ssusb, PHY_MODE_INVALID);
 	ssusb_phy_power_off(ssusb);
 	ssusb_clks_disable(ssusb);
 }
