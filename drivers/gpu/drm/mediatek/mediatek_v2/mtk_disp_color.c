@@ -1256,7 +1256,8 @@ void DpEngine_COLORonConfig(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 		pq_param_p->u4SatAdj[PURP_TONE] >= COLOR_TUNING_INDEX ||
 		pq_param_p->u4SatAdj[SKIN_TONE] >= COLOR_TUNING_INDEX ||
 		pq_param_p->u4SatAdj[GRASS_TONE] >= COLOR_TUNING_INDEX ||
-		pq_param_p->u4SatAdj[SKY_TONE] >= COLOR_TUNING_INDEX) {
+		pq_param_p->u4SatAdj[SKY_TONE] >= COLOR_TUNING_INDEX ||
+		pq_param_p->u4ColorLUT >= COLOR_3D_CNT) {
 		DRM_ERROR("[PQ][COLOR] Tuning index range error !\n");
 		return;
 	}
