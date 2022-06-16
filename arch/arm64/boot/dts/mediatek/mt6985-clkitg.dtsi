@@ -13,10 +13,7 @@
 			<&topckgen_clk CLK_TOP_PEXTP_MBIST_SEL>,
 			<&topckgen_clk CLK_TOP_IPSSOUTH_SEL>,
 			<&topckgen_clk CLK_TOP_TL_SEL>,
-			<&topckgen_clk CLK_TOP_AUDIO_LOCAL_BUS_SEL>,
-			<&infracfg_ao_clk CLK_IFRAO_CLDMA_BCLK>,
-			<&infracfg_ao_clk CLK_IFRAO_DPMAIF_MAIN>,
-			<&infracfg_ao_clk CLK_IFRAO_RG_MMW_DPMAIF26M_CK>;
+			<&topckgen_clk CLK_TOP_AUDIO_LOCAL_BUS_SEL>;
 	};
 
 	bring-up-pd-ufs0_phy_shutdown {
