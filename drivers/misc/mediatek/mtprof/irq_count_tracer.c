@@ -466,7 +466,7 @@ void irq_count_tracer_set(bool val)
 		irq_count_tracer = 1;
 		schedule_work(&tracer_work);
 	} else {
-		flush_scheduled_work();
+		flush_work(&tracer_work);
 		irq_count_tracer = 0;
 		for_each_possible_cpu(cpu) {
 			struct hrtimer *hrtimer =
