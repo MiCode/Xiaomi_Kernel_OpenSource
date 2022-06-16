@@ -449,10 +449,11 @@
 				monitor_name = "debug_ctrl_ao_INFRA_AO1";
 				base = <0x1002b000>;
 				num_ports = <60>;
+				idle_masks = <0x1c 0x800000>;
 				bus_freq_mhz = <78>;
 			};
 			monitor3 {
-				monitor_name = "debug_ctrl_ao_EMI_AO";
+				monitor_name = "debug_ctrl_ao_NEMI_AO";
 				base = <0x10042000>;
 				num_ports = <20>;
 				idle_masks = <0xc 0xffff8000>,
@@ -460,12 +461,20 @@
 				bus_freq_mhz = <625>;
 			};
 			monitor4 {
+				monitor_name = "debug_ctrl_ao_SEMI_AO";
+				base = <0x10028000>;
+				num_ports = <20>;
+				idle_masks = <0xc 0xffff8000>,
+					       <0x10 0x3fff>;
+				bus_freq_mhz = <625>;
+			};
+			monitor5 {
 				monitor_name = "debug_ctrl_ao_PERI_PAR_AO";
 				base = <0x11037000>;
 				num_ports = <22>;
 				bus_freq_mhz = <78>;
 			};
-			monitor5 {
+			monitor6 {
 				monitor_name = "debug_ctrl_ao_VLP_AO";
 				base = <0x1c01d000>;
 				num_ports = <14>;
