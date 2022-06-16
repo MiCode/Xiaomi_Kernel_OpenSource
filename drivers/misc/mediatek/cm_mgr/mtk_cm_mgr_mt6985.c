@@ -498,9 +498,6 @@ static int platform_cm_mgr_probe(struct platform_device *pdev)
 
 	dev_pm_genpd_set_performance_state(&pdev->dev, 0);
 
-	cm_mgr_to_sspm_command(IPI_CM_MGR_DSU_ENABLE, 0);
-	cm_mgr_to_sspm_command(IPI_CM_MGR_DSU_MODE, 1);
-
 	cm_mgr_init_done = 1;
 
 	pr_info("[CM_MGR] platform-cm_mgr_probe Done.\n");
