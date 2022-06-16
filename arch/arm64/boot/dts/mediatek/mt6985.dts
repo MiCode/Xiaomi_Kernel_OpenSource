@@ -11311,7 +11311,7 @@
 		interrupt-parent = <&main_pmic>;
 		interrupts = <54 IRQ_TYPE_NONE>, <55 IRQ_TYPE_NONE>;
 		interrupt-names = "LVSYS_R", "LVSYS_F";
-		status = "disabled";
+		status = "okay";
 	};
 
 	extcon_usb: extcon_usb {
