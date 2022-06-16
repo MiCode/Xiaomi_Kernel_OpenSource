@@ -9659,7 +9659,7 @@
 	};
 
 	jpgdec0@17040000 {
-		compatible = "mediatek,jpgdec0";
+		compatible = "mediatek,jpgdec";
 		reg = <0 0x17040000 0 0x10000>,
 			<0 0x17050000 0 0x10000>;
 		interrupts = <GIC_SPI 452 IRQ_TYPE_LEVEL_HIGH 0>,
