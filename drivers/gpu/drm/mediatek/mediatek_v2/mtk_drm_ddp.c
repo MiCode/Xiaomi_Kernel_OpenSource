@@ -4970,6 +4970,190 @@ static char *ddp_signal_mt6983(int idx, int bit)
 	}
 }
 
+static char *ddp_ovl_signal_0_mt6985(int bit)
+{
+	switch (bit) {
+	case 0:
+		return
+			"disp_dli_async0_to_disp_dli_relay0";
+	case 1:
+		return
+			"disp_dli_async1_to_disp_dli_relay1";
+	case 2:
+		return
+			"disp_dli_async2_to_disp_dli_relay2";
+	case 3:
+		return
+			"disp_dli_relay0_to_disp_y2r0";
+	case 4:
+		return
+			"disp_dli_relay1_to_disp_y2r1";
+	case 5:
+		return
+			"disp_dli_relay2_to_ovl_bg_crossbar_in4";
+	case 6:
+		return
+			"disp_dlo_relay0_to_disp_dlo_async0";
+	case 7:
+		return
+			"disp_dlo_relay1_to_disp_dlo_async1";
+	case 8:
+		return
+			"disp_dlo_relay2_to_disp_dlo_async2";
+	case 9:
+		return
+			"disp_dlo_relay3_to_disp_dlo_async3";
+	case 10:
+		return
+			"disp_dlo_relay4_to_disp_dlo_async4";
+	case 11:
+		return
+			"disp_dlo_relay5_to_disp_dlo_async5";
+	case 12:
+		return
+			"disp_dlo_relay6_to_disp_dlo_async6";
+	case 13:
+		return
+			"disp_mdp_rsz0_to_disp_wdma2";
+	case 14:
+		return
+			"disp_ovl0_2l_out0_to_ovl_blend_crossbar_in0";
+	case 15:
+		return
+			"disp_ovl0_2l_out1_to_ovl_bg_crossbar_in0";
+	case 16:
+		return
+			"disp_ovl0_2l_out2_to_ovl_pq_out_crossbar_in0";
+	case 17:
+		return
+			"disp_ovl1_2l_out0_to_ovl_blend_crossbar_in1";
+	case 18:
+		return
+			"disp_ovl1_2l_out1_to_ovl_bg_crossbar_in1";
+	case 19:
+		return
+			"disp_ovl1_2l_out2_to_ovl_pq_out_crossbar_in1";
+	case 20:
+		return
+			"disp_ovl2_2l_out0_to_ovl_blend_crossbar_in2";
+	case 21:
+		return
+			"disp_ovl2_2l_out1_to_ovl_bg_crossbar_in2";
+	case 22:
+		return
+			"disp_ovl2_2l_out2_to_ovl_pq_out_crossbar_in2";
+	case 23:
+		return
+			"disp_ovl3_2l_out0_to_ovl_blend_crossbar_in3";
+	case 24:
+		return
+			"disp_ovl3_2l_out1_to_ovl_bg_crossbar_in3";
+	case 25:
+		return
+			"disp_ovl3_2l_out2_to_ovl_pq_out_crossbar_in3";
+	case 26:
+		return
+			"disp_rsz1_to_ovl_pq_in_crossbar_in2";
+	case 27:
+		return
+			"disp_y2r0_to_ovl_pq_in_crossbar_in0";
+	case 28:
+		return
+			"disp_y2r1_to_ovl_pq_in_crossbar_in1";
+	case 29:
+		return
+			"ovl_bg_crossbar_out0_to_disp_ovl0_2l_in0";
+	case 30:
+		return
+			"ovl_bg_crossbar_out1_to_disp_ovl1_2l_in0";
+	case 31:
+		return
+			"ovl_bg_crossbar_out2_to_disp_ovl2_2l_in0";
+	default:
+		return NULL;
+	}
+}
+
+static char *ddp_ovl_signal_1_mt6985(int bit)
+{
+	switch (bit) {
+	case 0:
+		return
+			"ovl_bg_crossbar_out3_to_disp_ovl3_2l_in0";
+	case 1:
+		return
+			"ovl_bg_crossbar_out4_to_disp_dlo_relay1";
+	case 2:
+		return
+			"ovl_blend_crossbar_out0_to_disp_dlo_relay3";
+	case 3:
+		return
+			"ovl_blend_crossbar_out1_to_disp_dlo_relay4";
+	case 4:
+		return
+			"ovl_blend_crossbar_out2_to_disp_dlo_relay5";
+	case 5:
+		return
+			"ovl_blend_crossbar_out3_to_disp_mdp_rsz0";
+	case 6:
+		return
+			"ovl_blend_crossbar_out4_to_disp_wdma0";
+	case 7:
+		return
+			"ovl_blend_crossbar_out5_to_disp_ufbc_wdma0";
+	case 8:
+		return
+			"ovl_blend_crossbar_out6_to_disp_dlo_relay6";
+	case 9:
+		return
+			"ovl_pq_in_crossbar_out0_to_disp_ovl0_2l_in1";
+	case 10:
+		return
+			"ovl_pq_in_crossbar_out1_to_disp_ovl1_2l_in1";
+	case 11:
+		return
+			"ovl_pq_in_crossbar_out2_to_disp_ovl2_2l_in1";
+	case 12:
+		return
+			"ovl_pq_in_crossbar_out3_to_disp_ovl3_2l_in1";
+	case 13:
+		return
+			"ovl_pq_in_crossbar_out4_to_disp_ovl0_2l_in2";
+	case 14:
+		return
+			"ovl_pq_in_crossbar_out5_to_disp_ovl1_2l_in2";
+	case 15:
+		return
+			"ovl_pq_in_crossbar_out6_to_disp_ovl2_2l_in2";
+	case 16:
+		return
+			"ovl_pq_in_crossbar_out7_to_disp_ovl3_2l_in2";
+	case 17:
+		return
+			"ovl_pq_out_crossbar_out0_to_disp_dlo_relay0";
+	case 18:
+		return
+			"ovl_pq_out_crossbar_out1_to_disp_dlo_relay2";
+	case 19:
+		return
+			"ovl_pq_out_crossbar_out2_to_disp_rsz1";
+	default:
+		return NULL;
+	}
+}
+
+static char *ddp_ovl_signal_mt6985(int idx, int bit)
+{
+	switch (idx) {
+	case 0:
+		return ddp_ovl_signal_0_mt6985(bit);
+	case 1:
+		return ddp_ovl_signal_1_mt6985(bit);
+	default:
+		return NULL;
+	}
+}
+
 /* MMSYS_DL_VALID0/MMSYS_DL_READY0 */
 static char *ddp_signal_0_mt6985(int bit)
 {
@@ -16566,7 +16750,7 @@ void ovlsys_config_dump_analysis_mt6985(void __iomem *config_regs)
 	DDPDUMP("[ovlsys]greq0=0x%x greq1=0x%x\n", greq0, greq1);
 	for (idx = 0; idx < 6; idx++) {
 		for (bit = 0; bit < 32; bit++) {
-			name = ddp_signal_mt6985(idx, bit);
+			name = ddp_ovl_signal_mt6985(idx, bit);
 			if (!name)
 				continue;
 			pos = clock_on;
