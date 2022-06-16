@@ -406,11 +406,14 @@ static int mtk_uart_apdma_slave_config(struct dma_chan *chan,
 static int mtk_uart_apdma_terminate_all(struct dma_chan *chan)
 {
 	struct mtk_chan *c = to_mtk_uart_apdma_chan(chan);
+	struct mtk_uart_apdmadev *mtkd = to_mtk_uart_apdma_dev(chan->device);
 	unsigned long flags;
 	unsigned int status;
 	LIST_HEAD(head);
 	int ret;
 	bool state;
+
+	clk_prepare_enable(mtkd->clk);
 
 	if (mtk_uart_apdma_read(c, VFF_INT_BUF_SIZE)) {
 		mtk_uart_apdma_write(c, VFF_FLUSH, VFF_FLUSH_B);
@@ -461,6 +464,8 @@ static int mtk_uart_apdma_terminate_all(struct dma_chan *chan)
 	spin_unlock_irqrestore(&c->vc.lock, flags);
 
 	vchan_dma_desc_free_list(&c->vc, &head);
+
+	clk_disable_unprepare(mtkd->clk);
 
 	return 0;
 }
