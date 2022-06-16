@@ -346,9 +346,16 @@ void apu_top_3_exit(void)
 
 uint32_t apu_boot_host(void)
 {
+	struct aputop_func_param aputop;
 	int ret = 0;
 
-	ret = pwr_data->plat_aputop_func(NULL, APUTOP_FUNC_BOOT_HOST, NULL);
+	if (check_pwr_data())
+		return -ENODEV;
+
+	memset(&aputop, 0, sizeof(struct aputop_func_param));
+
+	aputop.func_id = APUTOP_FUNC_BOOT_HOST;
+	ret = pwr_data->plat_aputop_func(NULL, aputop.func_id, &aputop);
 	if (ret < 0)
 		ret = 0;
 
