@@ -167,8 +167,11 @@ static int mmdvfs_debug_opp_show(struct seq_file *file, void *data)
 	/* MMDVFS_DBG_VER3 */
 	seq_puts(file, "VER3: mux controlled by vcp:\n");
 
-	if (!g_mmdvfs->base)
+	if (!g_mmdvfs->base) {
 		g_mmdvfs->base = mtk_mmdvfs_vcp_get_base();
+		if (!g_mmdvfs->base)
+			return 0;
+	}
 
 	cnt = readl(g_mmdvfs->base);
 	if (readl(g_mmdvfs->base + (((cnt + 1) * MMDVFS_RECORD_OBJ) << 2)))
@@ -211,7 +214,7 @@ static int mmdvfs_v3_debug_thread(void *data)
 	int ret = 0;
 
 	if (!g_mmdvfs->clk)
-		return ret;
+		goto err;
 
 	while (!mtk_is_mmdvfs_init_done()) {
 		MMDVFS_DBG("mmdvfs not ready");
@@ -222,11 +225,11 @@ static int mmdvfs_v3_debug_thread(void *data)
 	ret = clk_set_rate(g_mmdvfs->clk, rate);
 	if (ret) {
 		MMDVFS_DBG("failed:%d rate:%lu", ret, rate);
-		return ret;
+		goto err;
 	}
 
 	if (!g_mmdvfs->release_step0)
-		return ret;
+		goto err;
 
 	if (!IS_ERR_OR_NULL(g_mmdvfs->reg))
 		regulator_set_voltage(g_mmdvfs->reg, 0, INT_MAX);
@@ -234,9 +237,11 @@ static int mmdvfs_v3_debug_thread(void *data)
 	ret = clk_set_rate(g_mmdvfs->clk, 0);
 	if (ret) {
 		MMDVFS_DBG("failed:%d rate:%lu", ret, 0UL);
-		return ret;
+		goto err;
 	}
 
+err:
+	mtk_mmdvfs_enable_vcp(false);
 	return ret;
 }
 

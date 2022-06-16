@@ -27,8 +27,10 @@ static struct clk *mmdvfs_pwr_clk[PWR_MMDVFS_NUM];
 static u64 mmdvfs_vcp_ipi_data;
 static DEFINE_MUTEX(mmdvfs_vcp_ipi_mutex);
 
-static log_level;
+static int log_level;
 static bool mmdvfs_init_done;
+static DEFINE_MUTEX(mmdvfs_vcp_pwr_mutex);
+static int vcp_power;
 
 static phys_addr_t mmdvfs_vcp_base;
 
@@ -58,13 +60,61 @@ static int mmdvfs_vcp_is_ready(void)
 	return 1;
 }
 
+int mtk_mmdvfs_enable_vcp(bool enable)
+{
+	int ret;
+
+	if (!mmdvfs_clk_num) {
+		MMDVFS_DBG("mmdvfs_v3 not supported!");
+		return 0;
+	}
+
+	mutex_lock(&mmdvfs_vcp_pwr_mutex);
+	if (enable) {
+		if (vcp_power == 0) {
+			ret = vcp_register_feature_ex(MMDVFS_FEATURE_ID);
+			if (ret) {
+				MMDVFS_ERR("vcp_register_feature failed:%d", ret);
+				mutex_unlock(&mmdvfs_vcp_pwr_mutex);
+				return ret;
+			}
+		}
+		vcp_power++;
+	} else {
+		if (vcp_power == 0) {
+			MMDVFS_ERR("disable vcp when vcp_power==0");
+			mutex_unlock(&mmdvfs_vcp_pwr_mutex);
+			return -1;
+		}
+		if (vcp_power == 1) {
+			ret = vcp_deregister_feature_ex(MMDVFS_FEATURE_ID);
+			if (ret) {
+				MMDVFS_ERR("vcp_deregister_feature failed:%d", ret);
+				mutex_unlock(&mmdvfs_vcp_pwr_mutex);
+				return ret;
+			}
+		}
+		vcp_power--;
+	}
+
+	if (log_level & 1 << log_vcp)
+		MMDVFS_DBG("enable:%d vcp_power:%d", enable, vcp_power);
+	mutex_unlock(&mmdvfs_vcp_pwr_mutex);
+
+	return 0;
+}
+EXPORT_SYMBOL(mtk_mmdvfs_enable_vcp);
+
 static int mmdvfs_vcp_ipi_send_impl(struct mmdvfs_ipi_data *slot) // ap > vcp
 {
 	int ret;
 	int retry = 0;
 
+	mtk_mmdvfs_enable_vcp(true);
+
 	if (!mmdvfs_vcp_is_ready()) {
 		MMDVFS_ERR("vcp is not ready");
+		mtk_mmdvfs_enable_vcp(false);
 		return -ETIMEDOUT;
 	}
 
@@ -79,6 +129,7 @@ static int mmdvfs_vcp_ipi_send_impl(struct mmdvfs_ipi_data *slot) // ap > vcp
 			ret, *slot, mmdvfs_vcp_ipi_data);
 
 		mutex_unlock(&mmdvfs_vcp_ipi_mutex);
+		mtk_mmdvfs_enable_vcp(false);
 		return ret;
 	}
 
@@ -93,6 +144,9 @@ static int mmdvfs_vcp_ipi_send_impl(struct mmdvfs_ipi_data *slot) // ap > vcp
 
 	ret = mmdvfs_vcp_ipi_data;
 	mutex_unlock(&mmdvfs_vcp_ipi_mutex);
+
+	mtk_mmdvfs_enable_vcp(false);
+
 	return ret;
 }
 
@@ -144,8 +198,8 @@ static int mtk_mmdvfs_set_rate(struct clk_hw *hw, unsigned long rate,
 	level = (i == mmdvfs_clk->freq_num) ? (i-1) : i;
 	opp = (mmdvfs_clk->freq_num - level - 1);
 	if (log_level & 1 << log_ccf_cb)
-		MMDVFS_DBG("user:%u freq=%lu old_opp=%d new_opp=%d\n",
-			mmdvfs_clk->user_id, rate, mmdvfs_clk->opp, opp);
+		MMDVFS_DBG("clk=%u user=%u freq=%lu old_opp=%d new_opp=%d\n",
+			mmdvfs_clk->clk_id, mmdvfs_clk->user_id, rate, mmdvfs_clk->opp, opp);
 	if (mmdvfs_clk->opp == opp)
 		return 0;
 	mmdvfs_clk->opp = opp;
@@ -181,8 +235,11 @@ static int mtk_mmdvfs_set_rate(struct clk_hw *hw, unsigned long rate,
 static long mtk_mmdvfs_round_rate(struct clk_hw *hw, unsigned long rate,
 			       unsigned long *parent_rate)
 {
+	struct mtk_mmdvfs_clk *mmdvfs_clk = to_mtk_mmdvfs_clk(hw);
+
 	if (log_level & 1 << log_ccf_cb)
-		MMDVFS_DBG("rate=%lu parent_rate=%lu\n", rate, *parent_rate);
+		MMDVFS_DBG("clk=%u rate=%lu parent_rate=%lu\n",
+			mmdvfs_clk->clk_id, rate, *parent_rate);
 
 	return rate;
 }
@@ -194,10 +251,14 @@ static unsigned long mtk_mmdvfs_recalc_rate(struct clk_hw *hw,
 	unsigned long ret;
 	u8 level;
 
-	level = (mmdvfs_clk->opp == MAX_OPP) ? 0 : (mmdvfs_clk->freq_num - mmdvfs_clk->opp - 1);
+	if (mmdvfs_clk->opp == MAX_OPP)
+		return 0;
+
+	level = mmdvfs_clk->freq_num - mmdvfs_clk->opp - 1;
 	ret = mmdvfs_clk->freqs[level];
 	if (log_level & 1 << log_ccf_cb)
-		MMDVFS_DBG("parent_rate=%lu freq=%lu\n", parent_rate, ret);
+		MMDVFS_DBG("clk=%u parent_rate=%lu freq=%lu\n",
+			mmdvfs_clk->clk_id, parent_rate, ret);
 	return ret;
 }
 
@@ -209,6 +270,10 @@ static const struct clk_ops mtk_mmdvfs_req_ops = {
 
 void *mtk_mmdvfs_vcp_get_base(void)
 {
+	if (!mmdvfs_clk_num) {
+		MMDVFS_DBG("mmdvfs_v3 not supported!");
+		return NULL;
+	}
 	return (void *)vcp_get_reserve_mem_virt_ex(MMDVFS_MEM_ID);
 }
 EXPORT_SYMBOL_GPL(mtk_mmdvfs_vcp_get_base);
@@ -218,6 +283,10 @@ int mtk_mmdvfs_camera_notify(const bool enable)
 	struct mmdvfs_ipi_data slot;
 	int ret;
 
+	if (!mmdvfs_clk_num) {
+		MMDVFS_DBG("mmdvfs_v3 not supported!");
+		return 0;
+	}
 	ret = mmdvfs_vcp_ipi_send(FUNC_CAMERA_ON, enable, MAX_OPP, MAX_OPP);
 
 	slot = *(struct mmdvfs_ipi_data *)(u32 *)&ret;
@@ -236,6 +305,10 @@ EXPORT_SYMBOL_GPL(mtk_mmdvfs_aov_cam_ulposc);
 
 bool mtk_is_mmdvfs_init_done(void)
 {
+	if (!mmdvfs_clk_num) {
+		MMDVFS_DBG("mmdvfs_v3 not supported!");
+		return true;
+	}
 	return mmdvfs_init_done;
 }
 EXPORT_SYMBOL_GPL(mtk_is_mmdvfs_init_done);
@@ -481,10 +554,9 @@ static int mmdvfs_vcp_init_thread(void *data)
 	static struct mtk_ipi_device *vcp_ipi_dev;
 	int ret;
 
-	while (!mmup_enable_count()) {
+	while (mtk_mmdvfs_enable_vcp(true)) {
 		msleep(1000);
 		MMDVFS_DBG("vcp is not powered on yet");
-		vcp_register_feature_ex(MMDVFS_FEATURE_ID);
 	}
 
 	while (!mmdvfs_vcp_is_ready()) {
