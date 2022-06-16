@@ -10288,7 +10288,9 @@ static int mtk_ddp_mout_en_MT6985(const struct mtk_mmsys_reg_data *data,
 		*addr = MT6985_COMP_OUT_CROSSBAR1_MOUT_EN;
 		value = DISP_DSC_0_TO_MERGE_OUT_CROSSBAR0;
 	} else if ((cur == DDP_COMPONENT_COMP0_OUT_CB3 &&
-		next == DDP_COMPONENT_MERGE0_OUT_CB1)) {
+		next == DDP_COMPONENT_MERGE0_OUT_CB1) ||
+		(cur == DDP_COMPONENT_COMP1_OUT_CB3 &&
+		next == DDP_COMPONENT_MERGE1_OUT_CB1)) {
 		/* COMP_OUT_CROSSBAR */
 		*addr = MT6985_COMP_OUT_CROSSBAR3_MOUT_EN;
 		value = DISP_PANEL_COMP_OUT_CROSSBAR3_TO_MERGE_OUT_CROSSBAR1;
@@ -10382,6 +10384,13 @@ static int mtk_ddp_mout_en_MT6985(const struct mtk_mmsys_reg_data *data,
 		/* MERGE_OUT_CROSSBAR */
 		*addr = MT6985_MERGE_OUT_CROSSBAR1_MOUT_EN;
 		value = DISP_COMP_OUT_CROSSBAR1_TO_DP_INTF0;
+	} else if ((cur == DDP_COMPONENT_MERGE0_OUT_CB1 &&
+		next == DDP_COMPONENT_WDMA0) ||
+		(cur == DDP_COMPONENT_MERGE1_OUT_CB1 &&
+		next == DDP_COMPONENT_WDMA1)) {
+		/* MERGE_OUT_CROSSBAR */
+		*addr = MT6985_MERGE_OUT_CROSSBAR1_MOUT_EN;
+		value = DISP_COMP_OUT_CROSSBAR1_TO_WDMA1;
 	} else if ((cur == DDP_COMPONENT_MERGE0_OUT_CB4 &&
 		next == DDP_COMPONENT_DP_INTF0)) {
 		/* MERGE_OUT_CROSSBAR */
@@ -10486,6 +10495,18 @@ static int mtk_ddp_mout_en_MT6985(const struct mtk_mmsys_reg_data *data,
 		/* OVL_PQ_IN_CROSSBAR */
 		*addr = MT6985_OVL_PQ_IN_CROSSBAR2_MOUT_EN;
 		value = DISP_RSZ1_TO_PQ_OVL0_2L;
+	} else if ((cur == DDP_COMPONENT_OVL2_2L &&
+		next == DDP_COMPONENT_OVLSYS_WDMA0) ||
+		(cur == DDP_COMPONENT_OVL6_2L &&
+		next == DDP_COMPONENT_OVLSYS_WDMA2)) {
+		*addr = MT6985_OVL_BLEND_CROSSBAR2_MOUT_EN;
+		value = DISP_OVL2_2L_TO_WDMA0;
+	} else if ((cur == DDP_COMPONENT_MERGE0_OUT_CB0 &&
+		next == DDP_COMPONENT_WDMA0) ||
+		(cur == DDP_COMPONENT_MERGE1_OUT_CB0 &&
+		next == DDP_COMPONENT_WDMA1)) {
+		*addr = MT6985_MERGE_OUT_CROSSBAR0_MOUT_EN;
+		value = DISP_COMP_OUT_CROSSBAR0_TO_WDMA1;
 	} else {
 		value = -1;
 		DDPINFO("%s, cur=%s->next=%s not found in MOUT_EN\n", __func__,
