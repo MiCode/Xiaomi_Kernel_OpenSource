@@ -330,6 +330,23 @@ void mtk_drm_crtc_dump(struct drm_crtc *crtc)
 		}
 	}
 
+	//addon from disp_dump
+	if (!crtc->state)
+		DDPDUMP("%s dump nothing for null state\n", __func__);
+	else {
+		state = to_mtk_crtc_state(crtc->state);
+		if (state->prop_val[CRTC_PROP_OUTPUT_ENABLE]) {
+			addon_data = mtk_addon_get_scenario_data(__func__, crtc,
+							WDMA_WRITE_BACK_OVL);
+			mtk_drm_crtc_addon_dump(crtc, addon_data);
+			if (mtk_crtc->is_dual_pipe) {
+				addon_data = mtk_addon_get_scenario_data_dual
+					(__func__, crtc, WDMA_WRITE_BACK_OVL);
+				mtk_drm_crtc_addon_dump(crtc, addon_data);
+			}
+		}
+	}
+
 	//addon from layering rule
 	if (!crtc->state)
 		DDPDUMP("%s dump nothing for null state\n", __func__);
@@ -495,6 +512,23 @@ void mtk_drm_crtc_analysis(struct drm_crtc *crtc)
 			addon_data = mtk_addon_get_scenario_data_dual
 				(__func__, crtc, mtk_crtc->cwb_info->scn);
 			mtk_drm_crtc_addon_analysis(crtc, addon_data);
+		}
+	}
+
+	//addon from disp_dump
+	if (!crtc->state)
+		DDPDUMP("%s dump nothing for null state\n", __func__);
+	else {
+		state = to_mtk_crtc_state(crtc->state);
+		if (state->prop_val[CRTC_PROP_OUTPUT_ENABLE]) {
+			addon_data = mtk_addon_get_scenario_data(__func__, crtc,
+				WDMA_WRITE_BACK_OVL);
+			mtk_drm_crtc_addon_analysis(crtc, addon_data);
+			if (mtk_crtc->is_dual_pipe) {
+				addon_data = mtk_addon_get_scenario_data_dual
+					(__func__, crtc, WDMA_WRITE_BACK_OVL);
+				mtk_drm_crtc_addon_analysis(crtc, addon_data);
+			}
 		}
 	}
 
@@ -1900,8 +1934,8 @@ void _mtk_crtc_wb_addon_module_disconnect(
 		return;
 
 	if (mtk_crtc->is_dual_pipe) {
-		addon_data_dual = mtk_addon_get_scenario_data_dual
-			(__func__, crtc, WDMA_WRITE_BACK_OVL);
+		addon_data_dual = mtk_addon_get_scenario_data_dual(__func__, crtc,
+								WDMA_WRITE_BACK_OVL);
 
 		if (!addon_data_dual)
 			return;
@@ -2118,13 +2152,13 @@ _mtk_crtc_wb_addon_module_connect(
 		return;
 
 	addon_data = mtk_addon_get_scenario_data(__func__, crtc,
-					WDMA_WRITE_BACK_OVL);
+						WDMA_WRITE_BACK_OVL);
 	if (!addon_data)
 		return;
 
 	if (mtk_crtc->is_dual_pipe) {
-		addon_data_dual = mtk_addon_get_scenario_data_dual
-			(__func__, crtc, WDMA_WRITE_BACK_OVL);
+		addon_data_dual = mtk_addon_get_scenario_data_dual(__func__, crtc,
+								WDMA_WRITE_BACK_OVL);
 
 		if (!addon_data_dual)
 			return;
