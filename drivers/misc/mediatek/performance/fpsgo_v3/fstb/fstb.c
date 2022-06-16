@@ -1905,6 +1905,10 @@ static int cal_target_fps(struct FSTB_FRAME_INFO *iter)
 
 		fpsgo_systrace_c_fstb(iter->pid, iter->bufid,
 				(int)target_limit, "tmp_target_limit");
+	} else if (!JUMP_CHECK_NUM &&
+				iter->queue_fps >= iter->target_fps + iter->target_fps_margin2 &&
+				iter->queue_fps >= iter->target_fps * fps_error_threshold / 100) {
+		target_limit = calculate_fps_limit(iter, iter->queue_fps);
 	} else {
 		target_limit = iter->target_fps;
 	}
