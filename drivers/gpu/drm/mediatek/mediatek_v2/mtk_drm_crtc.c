@@ -9339,7 +9339,7 @@ static void mtk_drm_crtc_enable_fake_layer(struct drm_crtc *crtc,
 	struct mtk_ddp_comp *comp;
 	struct mtk_crtc_state *state = to_mtk_crtc_state(crtc->state);
 	struct mtk_drm_fake_layer *fake_layer = &mtk_crtc->fake_layer;
-	int i, idx, layer_num;
+	int i, idx, layer_num, layer_num2;
 
 	if (drm_crtc_index(crtc) != 0)
 		return;
@@ -9380,13 +9380,36 @@ static void mtk_drm_crtc_enable_fake_layer(struct drm_crtc *crtc,
 			DDPPR_ERR("invalid layer num:%d\n", layer_num);
 			continue;
 		}
-		if (i < layer_num) {
-			comp = priv->ddp_comp[DDP_COMPONENT_OVL0_2L];
-			idx = i;
+
+		if (priv->data->mmsys_id == MMSYS_MT6985) {
+			layer_num2 = mtk_ovl_layer_num(
+					priv->ddp_comp[DDP_COMPONENT_OVL1_2L]);
+
+			if (layer_num2 < 0) {
+				DDPPR_ERR("invalid layer num:%d\n", layer_num2);
+				continue;
+			}
+			if (i < layer_num) {
+				comp = priv->ddp_comp[DDP_COMPONENT_OVL0_2L];
+				idx = i;
+			} else if (i < layer_num + layer_num2) {
+				comp = priv->ddp_comp[DDP_COMPONENT_OVL1_2L];
+				idx = i - layer_num;
+			} else {
+				comp = priv->ddp_comp[DDP_COMPONENT_OVL2_2L];
+				idx = i - layer_num - layer_num2;
+			}
 		} else {
-			comp = priv->ddp_comp[DDP_COMPONENT_OVL0];
-			idx = i - layer_num;
+
+			if (i < layer_num) {
+				comp = priv->ddp_comp[DDP_COMPONENT_OVL0_2L];
+				idx = i;
+			} else {
+				comp = priv->ddp_comp[DDP_COMPONENT_OVL0];
+				idx = i - layer_num;
+			}
 		}
+
 		plane_state->comp_state.comp_id = comp->id;
 		plane_state->comp_state.lye_id = idx;
 		plane_state->comp_state.ext_lye_id = 0;
@@ -9398,6 +9421,9 @@ static void mtk_drm_crtc_enable_fake_layer(struct drm_crtc *crtc,
 			mtk_ddp_comp_layer_config(comp, plane_state->comp_state.lye_id,
 						plane_state, state->cmdq_handle);
 	}
+
+	if (!mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_OVL_EXT_LAYER))
+		return;
 
 	for (i = 0 ; i < PRIMARY_OVL_EXT_LAYER_NR ; i++) {
 		plane = &mtk_crtc->planes[i + PRIMARY_OVL_PHY_LAYER_NR].base;
@@ -9437,7 +9463,7 @@ static void mtk_drm_crtc_disable_fake_layer(struct drm_crtc *crtc,
 	struct mtk_plane_pending_state *pending;
 	struct mtk_ddp_comp *comp;
 	struct mtk_crtc_state *state = to_mtk_crtc_state(crtc->state);
-	int i, idx, layer_num;
+	int i, idx, layer_num, layer_num2;
 
 	if (drm_crtc_index(crtc) != 0)
 		return;
@@ -9458,12 +9484,34 @@ static void mtk_drm_crtc_disable_fake_layer(struct drm_crtc *crtc,
 			DDPPR_ERR("invalid layer num:%d\n", layer_num);
 			continue;
 		}
-		if (i < layer_num) {
-			comp = priv->ddp_comp[DDP_COMPONENT_OVL0_2L];
-			idx = i;
+
+		if (priv->data->mmsys_id == MMSYS_MT6985) {
+			layer_num2 = mtk_ovl_layer_num(
+					priv->ddp_comp[DDP_COMPONENT_OVL1_2L]);
+
+			if (layer_num2 < 0) {
+				DDPPR_ERR("invalid layer num:%d\n", layer_num2);
+				continue;
+			}
+			if (i < layer_num) {
+				comp = priv->ddp_comp[DDP_COMPONENT_OVL0_2L];
+				idx = i;
+			} else if (i < layer_num + layer_num2) {
+				comp = priv->ddp_comp[DDP_COMPONENT_OVL1_2L];
+				idx = i - layer_num;
+			} else {
+				comp = priv->ddp_comp[DDP_COMPONENT_OVL2_2L];
+				idx = i - layer_num - layer_num2;
+			}
 		} else {
-			comp = priv->ddp_comp[DDP_COMPONENT_OVL0];
-			idx = i - layer_num;
+
+			if (i < layer_num) {
+				comp = priv->ddp_comp[DDP_COMPONENT_OVL0_2L];
+				idx = i;
+			} else {
+				comp = priv->ddp_comp[DDP_COMPONENT_OVL0];
+				idx = i - layer_num;
+			}
 		}
 		plane_state->comp_state.comp_id = comp->id;
 		plane_state->comp_state.lye_id = idx;
