@@ -41,6 +41,8 @@
 #define SENSOR_DELAY_GUARD_TIME_60FPS 16
 #define SENSOR_SET_STAGGER_DEADLINE_MS  23
 #define SENSOR_SET_STAGGER_RESERVED_MS  4
+#define SENSOR_SET_EXTISP_DEADLINE_MS  29
+#define SENSOR_SET_EXTISP_RESERVED_MS  4
 
 
 #define STATE_NUM_AT_SOF 5
@@ -4983,9 +4985,6 @@ int mtk_camsv_special_hw_scenario_handler(struct mtk_cam_device *cam,
 	raw_dev = get_master_raw_dev(cam, pipeline);
 	bDcif = hw_scen & (1 << HWPATH_ID(MTKCAM_IPI_HW_PATH_DC_STAGGER));
 	ctx = cam->ctxs + camsv_dev->ctx_stream_id;
-	dev_dbg(camsv_dev->dev, "sv special hw scenario: %d/%d/%d\n",
-		camsv_dev->ctx_stream_id,
-		raw_dev->id, ctx->stream_id);
 	if (hw_scen & (1 << MTKCAM_SV_SPECIAL_SCENARIO_EXT_ISP)) {
 		int seninf_padidx = camsv_dev->tag_info[tag_idx].seninf_padidx;
 		/* raw/yuv pipeline frame start from camsv engine */
@@ -5356,6 +5355,13 @@ int mtk_camsys_ctrl_start(struct mtk_cam_ctx *ctx)
 		camsys_sensor_ctrl->timer_req_sensor =
 			SENSOR_SET_STAGGER_RESERVED_MS;
 	}
+	if (mtk_cam_scen_is_ext_isp(&ctx->pipe->scen_active) &&
+		fps_factor == 1 && sub_ratio == 0) {
+		camsys_sensor_ctrl->timer_req_event =
+			SENSOR_SET_EXTISP_DEADLINE_MS;
+		camsys_sensor_ctrl->timer_req_sensor =
+			SENSOR_SET_EXTISP_RESERVED_MS;
+	}
 	INIT_LIST_HEAD(&camsys_sensor_ctrl->camsys_state_list);
 	spin_lock_init(&camsys_sensor_ctrl->camsys_state_lock);
 	if (ctx->sensor) {
@@ -5482,7 +5488,7 @@ void mtk_cam_extisp_sv_frame_start(struct mtk_cam_ctx *ctx,
 		/* Find to-be-set element*/
 		if (state_temp->estate == E_STATE_EXTISP_SENSOR)
 			state_sensor = state_temp;
-		dev_info(ctx->cam->dev,
+		dev_dbg(ctx->cam->dev,
 		"[%s] STATE_CHECK [N-%d] Req:%d / State:0x%x\n",
 		__func__, stateidx, stream_data->frame_seq_no, state_temp->estate);
 	}
@@ -5515,7 +5521,13 @@ void mtk_cam_extisp_sv_frame_start(struct mtk_cam_ctx *ctx,
 						get_master_raw_dev(cam, ctx->pipe);
 			struct mtk_cam_working_buf_entry *buf_entry;
 			dma_addr_t base_addr;
-
+			if (list_empty(&ctx->composed_buffer_list.list) ||
+				state_out->estate >= E_STATE_EXTISP_CQ) {
+				dev_info_ratelimited(raw_dev->dev,
+					"no buffer update, state:0x%x\n",
+					state_out->estate);
+				return;
+			}
 			spin_lock(&ctx->composed_buffer_list.lock);
 			buf_entry = list_first_entry(&ctx->composed_buffer_list.list,
 						     struct mtk_cam_working_buf_entry,
@@ -5665,13 +5677,14 @@ void mtk_camsys_extisp_yuv_frame_start(struct mtk_camsv_device *camsv,
 			E_STATE_EXTISP_SV_OUTER, E_STATE_EXTISP_OUTER);
 		state_transition(current_state,
 			E_STATE_EXTISP_SV_INNER, E_STATE_EXTISP_OUTER);
-		dev_dbg(camsv->dev,
+		dev_info(camsv->dev,
 		"YUVSOF[ctx:%d-#%d], CQ-%d is update, composed:%d, time:%lld, monotime:%lld\n",
 		ctx->stream_id, dequeued_frame_seq_no, req_stream_data->frame_seq_no,
 		ctx->composed_frame_seq_no, req_stream_data->timestamp,
 		req_stream_data->timestamp_mono);
 	}
 }
+
 
 void mtk_camsys_extisp_raw_frame_start(struct mtk_raw_device *raw_dev,
 				       struct mtk_cam_ctx *ctx,
@@ -5726,6 +5739,12 @@ void mtk_camsys_extisp_raw_frame_start(struct mtk_raw_device *raw_dev,
 		list_del(&buf_entry->list_entry);
 		ctx->composed_buffer_list.cnt--;
 		spin_unlock(&ctx->composed_buffer_list.lock);
+		/* check streaming status - avoid racing between stream off */
+		if (!ctx->streaming) {
+			dev_info(ctx->cam->dev, "%s: stream off\n",
+			__func__);
+			return;
+		}
 		spin_lock(&ctx->processing_buffer_list.lock);
 		list_add_tail(&buf_entry->list_entry,
 			      &ctx->processing_buffer_list.list);
@@ -5800,6 +5819,13 @@ void mtk_cam_extisp_handle_sv_tstamp(struct mtk_cam_ctx *ctx,
 	}
 	// proc raw timestamp
 	stream_data->preisp_img_ts[1] = irq_info->ts_ns;
+	/* req_s_data->timestamp assigned in sv frame start , hw incompl. case will miss it */
+	if (stream_data->timestamp == 0 &&
+		stream_data->preisp_meta_ts[0] > stream_data->timestamp) {
+		dev_info(ctx->cam->dev, "[%s] fix ts:ctx:%d req:%d(ns) s_data:%lld < meta:%lld\n",
+		__func__, ctx->stream_id, stream_data->timestamp, stream_data->preisp_meta_ts[0]);
+		stream_data->timestamp = stream_data->preisp_meta_ts[0];
+	}
 	dev_dbg(ctx->cam->dev, "[%s] req:%d(ns)0/1:%lld/%lld,0/1/2:%lld/%lld/%lld\n",
 		__func__, ctx->stream_id,
 		stream_data->frame_seq_no,
