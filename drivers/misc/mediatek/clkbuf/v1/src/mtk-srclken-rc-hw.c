@@ -89,12 +89,12 @@ static int srclken_rc_dts_subsys_callback_init(struct device_node *node,
 
 	len = snprintf(subsys_ctl, SRCLKEN_RC_SUBSYS_CTL_LEN, "%s-ctl", subsys->name);
 	if (len <= 0) {
-		pr_debug("Fail to append XXX-ctl, errno: %d\n", len);
+		pr_notice("Fail to append XXX-ctl, errno: %d\n", len);
 		return 0;
 	}
 
 	if (of_property_read_string(node, subsys_ctl, &str)) {
-		pr_debug("no subsys_ctl node: %s found, skip\n", subsys_ctl);
+		pr_notice("no subsys_ctl node: %s found, skip\n", subsys_ctl);
 		return 0;
 	}
 

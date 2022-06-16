@@ -1111,7 +1111,7 @@ static int __clk_buf_dev_pm_dump(void)
 					", %s en: %u", clkbuf_dcxo_get_xo_name(i), en);
 		val |= (en << i);
 	}
-	pr_notice("%s\n", buf+2);
+	pr_debug("%s\n", buf+2);
 	len = 0;
 
 	len += snprintf(buf + len, CLKBUF_STATUS_INFO_SIZE - len,
@@ -1124,7 +1124,7 @@ static int __clk_buf_dev_pm_dump(void)
 
 	strreplace(buf, '\n', ' ');
 
-	pr_notice("%s\n", buf);
+	pr_debug("%s\n", buf);
 
 	vfree(buf);
 
