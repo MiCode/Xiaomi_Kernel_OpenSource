@@ -161,6 +161,7 @@ static void md_cd_get_md_bootup_status(
 		__func__, res.a0, res.a1, res.a2);
 }
 
+static atomic_t reg_dump_ongoing;
 static void md_cd_dump_debug_register(struct ccci_modem *md)
 {
 	/* MD no need dump because of bus hang happened - open for debug */
@@ -192,10 +193,16 @@ static void md_cd_dump_debug_register(struct ccci_modem *md)
 		return;
 	}
 
+	if (atomic_cmpxchg(&reg_dump_ongoing, 0, 1) == 1) {
+		CCCI_NORMAL_LOG(-1, TAG, "[%s] one dump already on-going\n", __func__);
+		return;
+	}
+
 	md_cd_lock_modem_clock_src(1);
 	md_dump_reg();
 	md_cd_lock_modem_clock_src(0);
 
+	atomic_set(&reg_dump_ongoing, 0);
 }
 
 static void md_cd_check_emi_state(struct ccci_modem *md, int polling)
