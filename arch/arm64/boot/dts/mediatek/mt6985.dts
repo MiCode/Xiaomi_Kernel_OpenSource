@@ -6034,6 +6034,11 @@
 			iommus = <&disp_iommu M4U_PORT_L0_DISP_OVL0_2L_HDR>;
 		};
 
+		mtk-sec-dmaheap-apu {
+			compatible = "mediatek,dmaheap-apu-region-base";
+			iommus = <&apu_iommu0 M4U_PORT_L40_APU_CODE>;
+		};
+
 		mtk_iommu_debug {
 			compatible = "mediatek,mt6985-iommu-debug";
 		};
