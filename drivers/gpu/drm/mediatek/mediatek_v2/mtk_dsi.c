@@ -2928,7 +2928,7 @@ static int mtk_dsi_create_conn_enc(struct drm_device *drm, struct mtk_dsi *dsi)
 	if (comp && comp->id == DDP_COMPONENT_DSI0)
 		dsi->encoder.possible_crtcs = BIT(0);
 	else
-		dsi->encoder.possible_crtcs = BIT(1);
+		dsi->encoder.possible_crtcs = BIT(3);
 
 	/* If there's a bridge, attach to it and let it create the connector */
 	ret = mtk_drm_attach_bridge(dsi->bridge, &dsi->encoder);

@@ -66,8 +66,14 @@ static void mtk_merge_start(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 	if (ret < 0)
 		DRM_ERROR("Failed to enable power domain: %d\n", ret);
 	DDPMSG("%s\n", __func__);
-	cmdq_pkt_write(handle, comp->cmdq_base,
-		       comp->regs_pa + DISP_REG_MERGE_CTRL, 0x1, ~0);
+	if (comp->mtk_crtc && comp->mtk_crtc->is_dual_pipe == false) {
+		/* bypass merge function */
+		cmdq_pkt_write(handle, comp->cmdq_base,
+				comp->regs_pa + DISP_REG_MERGE_CTRL, 0x100, ~0);
+	} else {
+		cmdq_pkt_write(handle, comp->cmdq_base,
+			       comp->regs_pa + DISP_REG_MERGE_CTRL, 0x1, ~0);
+	}
 }
 
 static void mtk_merge_stop(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)

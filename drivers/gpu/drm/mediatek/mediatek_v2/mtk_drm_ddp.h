@@ -71,10 +71,10 @@ struct mtk_ddp {
 	struct cmdq_base *cmdq_base;
 };
 
-#define MT6983_DUMMY_REG_CNT 80
+#define MT6983_DUMMY_REG_CNT 85
 extern struct dummy_mapping mt6983_dispsys_dummy_register[MT6983_DUMMY_REG_CNT];
 
-#define MT6879_DUMMY_REG_CNT 48
+#define MT6879_DUMMY_REG_CNT 53
 extern struct dummy_mapping mt6879_dispsys_dummy_register[MT6879_DUMMY_REG_CNT];
 
 

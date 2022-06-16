@@ -30,14 +30,15 @@
 #include "mtk_disp_pmqos.h"
 #include "slbc_ops.h"
 
-#define MAX_CRTC 3
+#define MAX_CRTC 4
 #define OVL_LAYER_NR 12L
 #define OVL_PHY_LAYER_NR 4L
 #define RDMA_LAYER_NR 1UL
 #define EXTERNAL_INPUT_LAYER_NR 2UL
 #define MEMORY_INPUT_LAYER_NR 2UL
+#define SP_INPUT_LAYER_NR 2UL
 #define MAX_PLANE_NR                                                           \
-	((OVL_LAYER_NR) + (EXTERNAL_INPUT_LAYER_NR) + (MEMORY_INPUT_LAYER_NR))
+	((OVL_LAYER_NR) + (EXTERNAL_INPUT_LAYER_NR) + (MEMORY_INPUT_LAYER_NR) + (SP_INPUT_LAYER_NR))
 #define MTK_PLANE_INPUT_LAYER_COUNT (OVL_LAYER_NR)
 #define MTK_LUT_SIZE 512
 #define MTK_MAX_BPC 10

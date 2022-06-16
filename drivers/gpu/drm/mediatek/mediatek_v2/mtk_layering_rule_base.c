@@ -2286,6 +2286,11 @@ static int mtk_lye_get_comp_id(int disp_idx, struct drm_device *drm_dev,
 			return DDP_COMPONENT_OVL0_2L_NWCG;
 		else
 			return DDP_COMPONENT_OVL2_2L;
+	} else if (disp_idx == 3) {
+		if (priv->data->mmsys_id == MMSYS_MT6983)
+			return DDP_COMPONENT_OVL0_2L_NWCG;
+		else
+			return DDP_COMPONENT_OVL2_2L;
 	}
 
 	DDPPR_ERR("Invalid disp_idx:%d\n", disp_idx);
@@ -3550,14 +3555,14 @@ static int get_crtc_num(
 	 * active CRTC number
 	 */
 	if (crtc_num == 0) {
-		for (i = 0 ; i < 3; i++)
+		for (i = 0 ; i < HRT_DISP_TYPE_NUM; i++)
 			crtc_num += !!disp_info_user->disp_mode[i];
 	}
 
 	/* check input config number */
 	input_config_num = 0;
 	*crtc_mask = 0;
-	for (i = 0; i < 3; i++) {
+	for (i = 0; i < HRT_DISP_TYPE_NUM; i++) {
 		if (disp_info_user->input_config[i]) {
 			*crtc_mask |= (1 << i);
 			input_config_num++;
@@ -3659,6 +3664,8 @@ static int layering_rule_start(struct drm_mtk_layering_info *disp_info_user,
 			HRT_SECONDARY);
 		mtk_rollback_all_resize_layer_to_GPU(&layering_info,
 			HRT_THIRD);
+		mtk_rollback_all_resize_layer_to_GPU(&layering_info,
+			HRT_FOURTH);
 	}
 	check_gles_change(&dbg_gles, __LINE__, false);
 

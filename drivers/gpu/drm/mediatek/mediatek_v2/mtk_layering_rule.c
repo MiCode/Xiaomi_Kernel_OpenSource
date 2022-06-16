@@ -117,9 +117,11 @@ static void layering_rule_scenario_decision(struct drm_device *dev,
 	if (scn_decision_flag & SCN_TRIPLE_DISP) {
 		l_rule_info.addon_scn[HRT_SECONDARY] = TRIPLE_DISP;
 		l_rule_info.addon_scn[HRT_THIRD] = TRIPLE_DISP;
+		l_rule_info.addon_scn[HRT_FOURTH] = TRIPLE_DISP;
 	} else {
 		l_rule_info.addon_scn[HRT_SECONDARY] = NONE;
 		l_rule_info.addon_scn[HRT_THIRD] = NONE;
+		l_rule_info.addon_scn[HRT_FOURTH] = NONE;
 	}
 /*TODO: need MMP support*/
 #ifdef IF_ZERO
