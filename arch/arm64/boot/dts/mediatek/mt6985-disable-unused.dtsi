@@ -102,18 +102,6 @@
 			power-domains = <&scpsys MT6985_POWER_DOMAIN_MM_INFRA>;
 	};
 
-	disable-unused-clk-ccu {
-		compatible = "mediatek,clk-disable-unused";
-		clocks =
-			<&ccu_main_clk CLK_CCU_LARB19>,
-			<&ccu_main_clk CLK_CCU_AHB>,
-			<&ccu_main_clk CLK_CCUSYS_CCU0>,
-			<&ccu_main_clk CLK_CCUSYS_CCU1>,
-			<&ccu_main_clk CLK_CCUSYS_DPE>,
-			<&ccu_main_clk CLK_CCUSYS_DHZE>;
-			power-domains = <&scpsys MT6985_POWER_DOMAIN_CAM_MAIN>;
-	};
-
 	disable-unused-clk-camsys_mraw {
 		compatible = "mediatek,clk-disable-unused";
 		clocks =
