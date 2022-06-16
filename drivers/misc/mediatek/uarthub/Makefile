@@ -28,7 +28,11 @@ ifneq ($(KERNELRELEASE),)
 
     $(MODULE_NAME)-objs += common/uarthub_drv_core.o
     $(MODULE_NAME)-objs += common/uarthub_drv_export.o
+
+PATH_TO_UARTHUB_DRV := $(srctree)/$(src)
+ifneq ($(wildcard $(PATH_TO_UARTHUB_DRV)/common/platform/mt6985.c),)
     $(MODULE_NAME)-objs += common/platform/mt6985.o
+endif
 
 # Otherwise we were called directly from the command line;
 # invoke the kernel build system.
