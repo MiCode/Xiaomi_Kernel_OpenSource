@@ -173,6 +173,13 @@ int mtk_drm_ioctl_set_chist_config(struct drm_device *dev, void *data,
 	struct drm_crtc *crtc = private->crtc[0];
 	int i = 0;
 
+	if (config->config_channel_count == 0 ||
+			config->config_channel_count > DISP_CHIST_CHANNEL_COUNT) {
+		DDPPR_ERR("%s, invalid config channel count:%u\n",
+				__func__, config->config_channel_count);
+		return -EINVAL;
+	}
+
 	if (comp_to_chist(comp)->data->module_count > 1
 		&& config->caller == MTK_DRM_CHIST_CALLER_PQ
 		&& (config->device_id & 0xffff))
