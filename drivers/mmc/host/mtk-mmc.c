@@ -244,7 +244,7 @@ static const struct mtk_mmc_compatible mt6886_compat = {
 	.enhance_rx = true,
 	.support_64g = true,
 	.need_gate_cg = false,
-	.new_tx_ver = 0,
+	.new_tx_ver = MSDC_NEW_TX_V1,
 	.new_rx_ver = 0,
 };
 
