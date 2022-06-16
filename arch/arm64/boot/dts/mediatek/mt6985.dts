@@ -767,6 +767,37 @@
 		};
 	};
 
+	bus_parity {
+			compatible = "mediatek,bus-parity";
+			reg = <0 0x0c000900 0 0x20>,   /* MST_EMI0_CH0 */
+			      <0 0x0c000920 0 0x20>,   /* MST_EMI0_CH1 */
+			      <0 0x0c000940 0 0x20>,   /* MST_EMI1_CH0 */
+			      <0 0x0c000960 0 0x20>,   /* MST_EMI1_CH1 */
+			      <0 0x0c000980 0 0x20>,   /* MST_INFRA */
+			      <0 0x0c0009a0 0 0x30>,   /* SLV_L3GIC */
+			      <0 0x10270600 0 0x20>,   /* MCU2EMI_M0 */
+			      <0 0x10270620 0 0x20>,   /* MCU2EMI_M1 */
+			      <0 0x1030e600 0 0x20>,   /* MCU2SUBEMI_M0 */
+			      <0 0x1030e620 0 0x20>,   /* MCU2SUBEMI_M1 */
+			      <0 0x100017a8 0 0x14>,   /* MCU2IFR_REG */
+			      <0 0x100017bc 0 0x8>,    /* INF_L3C2MCU */
+			      <0 0x0c0009dc 0 0x4>;    /* BUS_PARITY_FAIL */
+
+			interrupts = <GIC_SPI 46 IRQ_TYPE_LEVEL_HIGH 0>,	/* MCU */
+				     <GIC_SPI 271 IRQ_TYPE_LEVEL_HIGH 0>;	/* Infra */
+			interrupt-names = "mcu-bus-parity", "infra-bus-parity";
+
+			mcu-names = "MST_EMI0_CH0", "MST_EMI0_CH1", "MST_EMI1_CH0", "MST_EMI1_CH1",
+				    "MST_INFRA", "SLV_L3GIC";
+			infra-names = "MCU2EMI_M0", "MCU2EMI_M1", "MCU2SUBEMI_M0", "MCU2SUBEMI_M1",
+				      "MCU2IFR", "INF_L3C2MCU";
+			/* 0:master, 1:slave, 2:emi */
+			mcu-types = <0 0 0 0 0 1>;
+			infra-types = <2 2 2 2 1 0>;
+
+			mcu-data-len = <4 4 4 4 4 2>;
+		};
+
 	timer: timer {
 		compatible = "arm,armv8-timer";
 		interrupt-parent = <&gic>;
