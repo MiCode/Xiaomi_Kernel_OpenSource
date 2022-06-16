@@ -216,8 +216,7 @@ static int aov_rpmsg_callback(struct rpmsg_device *rpdev, void *data, int len, v
 		return 0;
 	}
 
-	/* TODO: use MDW_IPI_MSG_STATUS_ABORT */
-	if (ret_msg->ret == MDW_IPI_MSG_STATUS_ERR) {
+	if (ret_msg->ret == MDW_IPI_MSG_STATUS_ABORT) {
 		pr_info("%s get err %d, drop it\n", __func__, ret_msg->ret);
 		return 0;
 	}
