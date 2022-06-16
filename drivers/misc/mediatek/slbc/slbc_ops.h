@@ -46,7 +46,7 @@ enum slbc_uid {
 	UID_MML,
 	UID_DSC_IDLE,
 	UID_AINR,
-	UID_TEST_BUFFER,
+	UID_TEST_BUFFER, /* 0x10 */
 	UID_TEST_CACHE,
 	UID_TEST_ACP,
 	UID_DISP,
@@ -57,6 +57,8 @@ enum slbc_uid {
 	UID_SH_P1,
 	UID_SMT,
 	UID_APU,
+	UID_AOD,
+	UID_BIF,
 	UID_MAX,
 };
 
