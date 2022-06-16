@@ -3396,21 +3396,26 @@ static void __gpufreq_hwdcm_config(void)
 	val = (readl_mfg(MFG_DCM_CON_0) & ~BIT(6)) | GENMASK(5, 0) | BIT(15);
 	writel(val, MFG_DCM_CON_0);
 
+	/* MFG_ASYNC_CON 0x13FBF020 [22] MEM0_MST_CG_ENABLE = 1'b1 */
 	/* MFG_ASYNC_CON 0x13FBF020 [23] MEM0_SLV_CG_ENABLE = 1'b1 */
+	/* MFG_ASYNC_CON 0x13FBF020 [24] MEM1_MST_CG_ENABLE = 1'b1 */
 	/* MFG_ASYNC_CON 0x13FBF020 [25] MEM1_SLV_CG_ENABLE = 1'b1 */
-	val = readl_mfg(MFG_ASYNC_CON) | BIT(23) | BIT(25);
+	val = readl_mfg(MFG_ASYNC_CON) | BIT(22) | BIT(23) | BIT(24) | BIT(25);
 	writel(val, MFG_ASYNC_CON);
 
+	/* MFG_ASYNC_CON3 0x13FBF02C [12] chip_mfg_axi0_1_in_idle_enable = 1'b1 */
 	/* MFG_ASYNC_CON3 0x13FBF02C [13] chip_mfg_axi0_1_out_idle_enable = 1'b1 */
+	/* MFG_ASYNC_CON3 0x13FBF02C [14] chip_mfg_axi1_1_in_idle_enable = 1'b1 */
 	/* MFG_ASYNC_CON3 0x13FBF02C [15] chip_mfg_axi1_1_out_idle_enable = 1'b1 */
-	val = readl_mfg(MFG_ASYNC_CON3) | BIT(13) | BIT(15);
+	val = readl_mfg(MFG_ASYNC_CON3) | BIT(12) | BIT(13) | BIT(14) | BIT(15);
 	writel(val, MFG_ASYNC_CON3);
 
 	/* MFG_GLOBAL_CON 0x13FBF0B0 [8]  GPU_SOCIF_MST_FREE_RUN = 1'b0 */
 	/* MFG_GLOBAL_CON 0x13FBF0B0 [10] GPU_CLK_FREE_RUN = 1'b0 */
 	/* MFG_GLOBAL_CON 0x13FBF0B0 [21] dvfs_hint_cg_en = 1'b0 */
 	/* MFG_GLOBAL_CON 0x13FBF0B0 [24] stack_hd_bg3d_cg_free_run = 1'b0 */
-	val = readl_mfg(MFG_GLOBAL_CON) & ~BIT(8) & ~BIT(10) & ~BIT(21) & ~BIT(24);
+	/* MFG_GLOBAL_CON 0x13FBF0B0 [25] stack_hd_bg3d_gpu_cg_free_run = 1'b0 */
+	val = readl_mfg(MFG_GLOBAL_CON) & ~BIT(8) & ~BIT(10) & ~BIT(21) & ~BIT(24) & ~BIT(25);
 	writel(val, MFG_GLOBAL_CON);
 
 	/* MFG_RPC_AO_CLK_CFG 0x13F91034 [0] CG_FAXI_CK_SOC_IN_FREE_RUN = 1'b0 */
