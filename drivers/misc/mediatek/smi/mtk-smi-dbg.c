@@ -757,7 +757,7 @@ int mtk_smi_dbg_unregister_notifier(struct notifier_block *nb)
 }
 EXPORT_SYMBOL_GPL(mtk_smi_dbg_unregister_notifier);
 
-s32 mtk_smi_dbg_hang_detect(const char *user)
+s32 mtk_smi_dbg_hang_detect(char *user)
 {
 	struct mtk_smi_dbg	*smi = gsmi;
 	struct mtk_smi_dbg_node	node;
@@ -779,7 +779,7 @@ s32 mtk_smi_dbg_hang_detect(const char *user)
 	//mtk_dump_reg_for_hang_issue(0, 0);
 	//mtk_dump_reg_for_hang_issue(0, 1);
 
-	raw_notifier_call_chain(&smi_notifier_list, 0, NULL);
+	raw_notifier_call_chain(&smi_notifier_list, 0, user);
 
 	//check LARB status
 	for (i = 0; i < ARRAY_SIZE(smi->larb); i++) {
