@@ -1896,6 +1896,8 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 
 		/* do not overwrite LAYER_SRC, it might be set when addon config */
 		mask = ovl->data->support_pq_selfloop ? ~REG_FLD_MASK(L_CON_FLD_LSRC) : ~0;
+		if (fmt == DRM_FORMAT_C8)
+			mask = ~0;
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			       comp->regs_pa + DISP_REG_OVL_CON(lye_idx), con, mask);
 
