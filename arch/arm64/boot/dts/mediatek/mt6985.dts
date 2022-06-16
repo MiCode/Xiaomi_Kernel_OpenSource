@@ -13200,7 +13200,8 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 			node_61 = "SSPM_SLBC_SLOT",
 				"enable,force,done,buffer_used,f_buffer,cached_used,force_size";
 			node_62 = "SSPM_SLBC_REF",
-				"venc,hifi3,sh_p2,sh_apu,mml,ainr,disp";
+				"venc,sh_p2,sh_apu,mml,ainr,disp,aov_dc,aov_apu,aisr_apu,",
+				"aisr_mml,sh_p1,smt,apu,aod,bif";
 			node_63 = "SSPM_SLBC_BW",
 				"mm,apu,mm_est";
 			node_64 = "SSPM_SLBC_PMU",
