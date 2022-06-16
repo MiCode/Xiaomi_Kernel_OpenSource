@@ -60,6 +60,10 @@ int mtk_dump_reg(struct mtk_ddp_comp *comp)
 	case DDP_COMPONENT_WDMA1:
 	case DDP_COMPONENT_WDMA2:
 	case DDP_COMPONENT_WDMA3:
+	case DDP_COMPONENT_OVLSYS_WDMA0:
+	case DDP_COMPONENT_OVLSYS_WDMA1:
+	case DDP_COMPONENT_OVLSYS_WDMA2:
+	case DDP_COMPONENT_OVLSYS_WDMA3:
 		mtk_wdma_dump(comp);
 		break;
 	case DDP_COMPONENT_RSZ0:
@@ -185,6 +189,10 @@ int mtk_dump_analysis(struct mtk_ddp_comp *comp)
 	case DDP_COMPONENT_WDMA1:
 	case DDP_COMPONENT_WDMA2:
 	case DDP_COMPONENT_WDMA3:
+	case DDP_COMPONENT_OVLSYS_WDMA0:
+	case DDP_COMPONENT_OVLSYS_WDMA1:
+	case DDP_COMPONENT_OVLSYS_WDMA2:
+	case DDP_COMPONENT_OVLSYS_WDMA3:
 		mtk_wdma_analysis(comp);
 		break;
 	case DDP_COMPONENT_RSZ0:
