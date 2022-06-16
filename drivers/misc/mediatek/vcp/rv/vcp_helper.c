@@ -808,7 +808,7 @@ int vcp_disable_pm_clk(enum feature_id id)
 
 		/* trigger halt isr, force vcp enter wfi */
 		writel(B_GIPC4_SETCLR_1, R_GIPC_IN_SET);
-		wait_vcp_wdt_irq_done();
+		wait_vcp_ready_to_reboot();
 
 		flush_workqueue(vcp_workqueue);
 #if VCP_LOGGER_ENABLE
@@ -872,7 +872,7 @@ static int vcp_pm_event(struct notifier_block *notifier
 
 			/* trigger halt isr, force vcp enter wfi */
 			writel(B_GIPC4_SETCLR_1, R_GIPC_IN_SET);
-			wait_vcp_wdt_irq_done();
+			wait_vcp_ready_to_reboot();
 
 			flush_workqueue(vcp_workqueue);
 #if VCP_LOGGER_ENABLE
@@ -2433,6 +2433,7 @@ static int vcp_device_probe(struct platform_device *pdev)
 			pr_notice("[VCP] wdt require fail %d %d\n",
 				vcpreg.irq0, ret);
 		else {
+			vcp_A_irq0_tasklet.data = vcpreg.irq0;
 			ret = enable_irq_wake(vcpreg.irq0);
 			if (ret < 0)
 				pr_notice("[VCP] wdt wake fail:%d,%d\n",
@@ -2451,6 +2452,7 @@ static int vcp_device_probe(struct platform_device *pdev)
 			pr_notice("[VCP] reserved require irq fail %d %d\n",
 				vcpreg.irq1, ret);
 		else {
+			vcp_A_irq1_tasklet.data = vcpreg.irq1;
 			ret = enable_irq_wake(vcpreg.irq1);
 			if (ret < 0)
 				pr_notice("[VCP] reserved wake fail:%d,%d\n",

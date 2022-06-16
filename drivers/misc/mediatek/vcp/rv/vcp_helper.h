@@ -194,7 +194,7 @@ void vcp_wait_core_stop_timeout(int mmup_enable);
 /* vcp irq */
 extern irqreturn_t vcp_A_irq_handler(int irq, void *dev_id);
 extern void vcp_A_irq_init(void);
-extern void wait_vcp_wdt_irq_done(void);
+extern void wait_vcp_ready_to_reboot(void);
 
 /* vcp helper */
 extern void vcp_schedule_work(struct vcp_work_struct *vcp_ws);
@@ -215,6 +215,8 @@ extern phys_addr_t vcp_mem_base_virt;
 extern phys_addr_t vcp_mem_size;
 extern atomic_t vcp_reset_status;
 extern spinlock_t vcp_awake_spinlock;
+extern struct tasklet_struct vcp_A_irq0_tasklet;
+extern struct tasklet_struct vcp_A_irq1_tasklet;
 
 #if IS_ENABLED(CONFIG_MTK_GIC_V3_EXT)
 extern u32 mt_irq_get_pending(unsigned int irq);

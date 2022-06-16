@@ -15,24 +15,13 @@
 #include "vcp_excep.h"
 #include "vcp_status.h"
 
-/*
- * handler for wdt irq for vcp
- * dump vcp register
- */
-static void vcp_A_wdt_handler(void)
+static inline void vcp_wdt_clear(uint32_t coreid)
 {
-	pr_notice("[VCP] %s\n", __func__);
-	vcp_dump_last_regs(mmup_enable_count());
-#if VCP_RECOVERY_SUPPORT
-	if (vcp_set_reset_status() == RESET_STATUS_STOP) {
-		pr_debug("[VCP] start to reset vcp...\n");
-		vcp_send_reset_wq(RESET_TYPE_WDT);
-	} else
-		pr_notice("%s: vcp resetting\n", __func__);
-#endif
+	coreid == 0 ? writel(B_WDT_IRQ, R_CORE0_WDT_IRQ) :
+	writel(B_WDT_IRQ, R_CORE1_WDT_IRQ);
 }
 
-void wait_vcp_wdt_irq_done(void)
+void wait_vcp_ready_to_reboot(void)
 {
 	int retry = 0;
 	unsigned long c0, c1;
@@ -56,7 +45,38 @@ void wait_vcp_wdt_irq_done(void)
 
 	udelay(10);
 }
-EXPORT_SYMBOL_GPL(wait_vcp_wdt_irq_done);
+EXPORT_SYMBOL_GPL(wait_vcp_ready_to_reboot);
+
+/*
+ * handler for wdt irq for vcp
+ * dump vcp register
+ */
+static void vcp_A_wdt_handler(struct tasklet_struct *t)
+{
+	unsigned int reg0 = readl(R_CORE0_WDT_IRQ);
+	unsigned int reg1 = vcpreg.core_nums == 2 ? readl(R_CORE1_WDT_IRQ) : 0;
+
+	pr_notice("[VCP] %s\n", __func__);
+
+	wait_vcp_ready_to_reboot();
+	vcp_dump_last_regs(mmup_enable_count());
+#if VCP_RECOVERY_SUPPORT
+	if (vcp_set_reset_status() == RESET_STATUS_STOP) {
+		pr_debug("[VCP] start to reset vcp...\n");
+		vcp_send_reset_wq(RESET_TYPE_WDT);
+	} else
+		pr_notice("%s: vcp resetting\n", __func__);
+#endif
+	if (reg0)
+		vcp_wdt_clear(0);
+	if (reg1)
+		vcp_wdt_clear(1);
+
+	enable_irq(t->data);
+}
+
+DECLARE_TASKLET(vcp_A_irq0_tasklet, vcp_A_wdt_handler);
+DECLARE_TASKLET(vcp_A_irq1_tasklet, vcp_A_wdt_handler);
 
 /*
  * dispatch vcp irq
@@ -66,18 +86,12 @@ EXPORT_SYMBOL_GPL(wait_vcp_wdt_irq_done);
  */
 irqreturn_t vcp_A_irq_handler(int irq, void *dev_id)
 {
-	unsigned int reg0 = readl(R_CORE0_WDT_IRQ);
-	unsigned int reg1 = vcpreg.core_nums == 2 ? readl(R_CORE1_WDT_IRQ) : 0;
+	disable_irq_nosync(irq);
+	if (likely(irq == vcpreg.irq0))
+		tasklet_schedule(&vcp_A_irq0_tasklet);
+	else
+		tasklet_schedule(&vcp_A_irq1_tasklet);
 
-	if (reg0 | reg1) {
-		wait_vcp_wdt_irq_done();
-		vcp_A_wdt_handler();
-		/* clear IRQ */
-		if (reg0)
-			writel(B_WDT_IRQ, R_CORE0_WDT_IRQ);
-		if (reg1)
-			writel(B_WDT_IRQ, R_CORE1_WDT_IRQ);
-	}
 	return IRQ_HANDLED;
 }
 
