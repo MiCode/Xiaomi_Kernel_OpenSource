@@ -2210,10 +2210,15 @@ static void mtk_aal_stop(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 static void mtk_aal_bypass(struct mtk_ddp_comp *comp, int bypass,
 	struct cmdq_pkt *handle)
 {
-	AALFLOW_LOG("\n");
+	AALFLOW_LOG("bypass: %d\n", bypass);
 	cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DISP_AAL_CFG,
 		bypass, 0x1);
 	atomic_set(&g_aal_force_relay, bypass);
+
+	if (bypass == 0) // Enable AAL Histogram
+		cmdq_pkt_write(handle, comp->cmdq_base,
+			comp->regs_pa + DISP_AAL_CFG, 0x3 << 1, (0x3 << 1));
+
 }
 
 static int mtk_aal_user_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
