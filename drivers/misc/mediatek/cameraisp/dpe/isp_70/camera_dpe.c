@@ -2009,6 +2009,9 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 	}
 	mutex_unlock(&gFDMutex);
 
+	if (pd_frame_num > MAX_FRAMES_PER_REQUEST)
+		return ENQUE_FAIL;
+
 	for (t = 0; t < pd_frame_num; t++) {
 		_req->m_pDpeConfig[ucnt].Dpe_DVSSettings.input_offset = ((t) *
 		_req->m_pDpeConfig[ucnt].Dpe_DVSSettings.occ_width) -
@@ -4370,11 +4373,11 @@ static void DPE_EnableClock(bool En)
 static inline void DPE_Reset(void)
 {
 	LOG_DBG("- E.");
-	LOG_DBG(" DPE Reset start!\n");
+	LOG_INF(" DPE Reset start!\n");
 	mutex_lock(&(MutexDPERef));
 	if (DPEInfo.UserCount > 1) {
 		mutex_unlock(&(MutexDPERef));
-		LOG_DBG("Curr UserCount(%d) users exist", DPEInfo.UserCount);
+		LOG_INF("Curr UserCount(%d) users exist", DPEInfo.UserCount);
 	} else {
 		mutex_unlock(&(MutexDPERef));
 		/* Reset DPE flow */
@@ -4384,7 +4387,7 @@ static inline void DPE_Reset(void)
 		DPE_MASKWR(DVS_CTRL01_REG, 0x00000000, 0x70000000);
 		DPE_MASKWR(DVP_CTRL01_REG, 0x00000000, 0x70000000);
 		#endif
-		LOG_DBG(" DPE Reset end!\n");
+		LOG_INF(" DPE Reset end!\n");
 	}
 }
 
@@ -4721,9 +4724,10 @@ static long DPE_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 	switch (Cmd) {
 	case DPE_RESET:
 		{
-			spin_lock(&(DPEInfo.SpinLockDPE));
-			DPE_Reset();
-			spin_unlock(&(DPEInfo.SpinLockDPE));
+			LOG_INF("DPE ioctl DPE_RESET\n");
+			//spin_lock(&(DPEInfo.SpinLockDPE));
+			//DPE_Reset();
+			//spin_unlock(&(DPEInfo.SpinLockDPE));
 			break;
 		}
 		/*  */
@@ -6782,8 +6786,8 @@ int32_t DPE_DumpCallback(uint64_t engineFlag, int level)
 }
 int32_t DPE_ResetCallback(uint64_t engineFlag)
 {
-	LOG_DBG("DPE ResetCallback");
-	DPE_Reset();
+	LOG_INF("DPE ResetCallback");
+	//DPE_Reset();
 	return 0;
 }
 int32_t DPE_ClockOffCallback(uint64_t engineFlag)
