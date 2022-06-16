@@ -370,8 +370,7 @@ static void mtk_cam_req_return_pipe_buffers(struct mtk_cam_request *req,
 	struct mtk_cam_buffer *buf;
 	struct mtk_cam_video_device *node;
 	struct vb2_buffer *vb;
-	int i, buf_state, buf_start = 0, buf_end = 0;
-	unsigned int buf_ret_cnt;
+	int i, buf_state, buf_start, buf_end, buf_ret_cnt;
 
 	s_data_pipe = mtk_cam_req_get_s_data(req, pipe_id, index);
 	if (!s_data_pipe) {
@@ -749,9 +748,6 @@ void mtk_cam_get_timestamp(struct mtk_cam_ctx *ctx,
 		s_data->working_buf->buffer.size - 64 * (subsample + 1));
 
 	pTimestamp = mtk_cam_get_timestamp_addr(vaddr);
-	if (!pTimestamp) {
-		return;
-	}
 	for (i = 0; i < (subsample + 1); i++) {
 		/* timstamp_LSB + timestamp_MSB << 32 */
 		*(pTimestamp + i*2) = mtk_cam_timesync_to_monotonic
@@ -778,13 +774,11 @@ int mtk_cam_dequeue_req_frame(struct mtk_cam_ctx *ctx,
 	/* consider running_job_list depth and mstream(2 s_data): 3*3*2 */
 	struct mtk_camsys_sensor_ctrl *sensor_ctrl = &ctx->sensor_ctrl;
 	int feature, buf_state;
-	int dequeue_cnt, handled_cnt;
-	unsigned int s_data_cnt;
+	int dequeue_cnt, s_data_cnt, handled_cnt;
 	bool del_job, del_req;
 	bool unreliable = false;
 	void *vaddr = NULL;
 	struct mtk_ae_debug_data ae_data;
-	memset(&ae_data, 0x0, sizeof(ae_data));
 
 	dequeue_cnt = 0;
 	s_data_cnt = 0;
@@ -1051,8 +1045,8 @@ void mtk_cam_dev_req_cleanup(struct mtk_cam_ctx *ctx, int pipe_id, int buf_state
 	struct mtk_cam_request_stream_data *clean_s_data[18];
 	/* consider running_job_list depth and mstream(2 s_data): 3*3*2 */
 	struct list_head *running = &cam->running_job_list;
-	unsigned int other_pipes, done_status, s_data_cnt;
-	int i, num_s_data, handled_cnt;
+	unsigned int other_pipes, done_status;
+	int i, num_s_data, s_data_cnt, handled_cnt;
 	bool need_clean_req;
 
 	mutex_lock(&ctx->cleanup_lock);
@@ -1593,17 +1587,15 @@ static void check_stagger_buffer(struct mtk_cam_device *cam,
 
 			cfg_fmt = mtk_cam_s_data_get_vfmt(s_data, node->desc.id);
 
-			if (cfg_fmt) {
-				/* workaround for raw switch */
-				if (!cfg_fmt->fmt.pix_mp.pixelformat)
-					cfg_fmt = &node->active_fmt;
+			/* workaround for raw switch */
+			if (!cfg_fmt->fmt.pix_mp.pixelformat)
+				cfg_fmt = &node->active_fmt;
 
-				if (is_dc) {
-					fmt_for_rawi = &ctx->pipe->vdev_nodes[MTK_RAW_SINK -
-						MTK_RAW_SINK_BEGIN].sink_fmt_for_dc_rawi;
-				} else {
-					fmt_for_rawi = cfg_fmt;
-				}
+			if (is_dc) {
+				fmt_for_rawi = &ctx->pipe->vdev_nodes[
+					MTK_RAW_SINK - MTK_RAW_SINK_BEGIN].sink_fmt_for_dc_rawi;
+			} else {
+				fmt_for_rawi = cfg_fmt;
 			}
 
 			in_fmt->uid.id = input_node;
@@ -1686,11 +1678,9 @@ static void check_timeshared_buffer(struct mtk_cam_device *cam,
 			MTK_RAW_MAIN_STREAM_OUT - MTK_RAW_SINK_NUM];
 
 		cfg_fmt = mtk_cam_s_data_get_vfmt(req, node->desc.id);
-		if (cfg_fmt) {
-			/* workaround for raw switch */
-			if (!cfg_fmt->fmt.pix_mp.pixelformat)
-				cfg_fmt = &node->active_fmt;
-		}
+		/* workaround for raw switch */
+		if (!cfg_fmt->fmt.pix_mp.pixelformat)
+			cfg_fmt = &node->active_fmt;
 
 		in_fmt->uid.id = input_node;
 		in_fmt->uid.pipe_id = node->uid.pipe_id;
@@ -1884,11 +1874,9 @@ static void check_mstream_buffer(struct mtk_cam_device *cam,
 		/* config format */
 		vdev = &pipe->vdev_nodes[MTK_RAW_MAIN_STREAM_OUT - MTK_RAW_SINK_NUM];
 		cfg_fmt = mtk_cam_s_data_get_vfmt(req_stream_data, MTK_RAW_MAIN_STREAM_OUT);
-		if (cfg_fmt) {
-			/* workaround for raw switch */
-			if (!cfg_fmt->fmt.pix_mp.pixelformat)
-				cfg_fmt = &vdev->active_fmt;
-		}
+		/* workaround for raw switch */
+		if (!cfg_fmt->fmt.pix_mp.pixelformat)
+			cfg_fmt = &vdev->active_fmt;
 		config_img_fmt_mstream(ctx, req, cfg_fmt, vdev,
 				       cfg_fmt->fmt.pix_mp.width,
 				       cfg_fmt->fmt.pix_mp.height, feature);
@@ -2850,10 +2838,8 @@ static void mtk_cam_config_raw_path(struct mtk_cam_request_stream_data *s_data,
 	vb = &buf->vbb.vb2_buf;
 	node = mtk_cam_vbq_to_vdev(buf->vbb.vb2_buf.vb2_queue);
 	raw_pipline = mtk_cam_dev_get_raw_pipeline(cam, node->uid.pipe_id);
-	if (!raw_pipline) {
-		/* un-processed raw frame */
-		frame_param->raw_param.imgo_path_sel = MTKCAM_IPI_IMGO_UNPROCESSED;
-	} else if (raw_pipline->res_config.raw_path == V4L2_MTK_CAM_RAW_PATH_SELECT_BPC)
+
+	if (raw_pipline->res_config.raw_path == V4L2_MTK_CAM_RAW_PATH_SELECT_BPC)
 		frame_param->raw_param.imgo_path_sel = MTKCAM_IPI_IMGO_AFTER_BPC;
 	else if (raw_pipline->res_config.raw_path == V4L2_MTK_CAM_RAW_PATH_SELECT_FUS)
 		frame_param->raw_param.imgo_path_sel = MTKCAM_IPI_IMGO_AFTER_FUS;
@@ -2864,6 +2850,7 @@ static void mtk_cam_config_raw_path(struct mtk_cam_request_stream_data *s_data,
 	else if (raw_pipline->res_config.raw_path == V4L2_MTK_CAM_RAW_PATH_SELECT_LTM)
 		frame_param->raw_param.imgo_path_sel = MTKCAM_IPI_IMGO_AFTER_LTM;
 	else
+		/* un-processed raw frame */
 		frame_param->raw_param.imgo_path_sel = MTKCAM_IPI_IMGO_UNPROCESSED;
 
 	dev_dbg(cam->dev, "%s: node:%d fd:%d idx:%d raw_path(%d) ipi imgo_path_sel(%d))\n",
@@ -2997,13 +2984,11 @@ static int mtk_cam_config_raw_img_out(struct mtk_cam_request_stream_data *s_data
 		if (is_mtk_format(cfg_fmt->fmt.pix_mp.pixelformat)) {
 			const struct mtk_format_info *mtk_info =
 				mtk_format_info(cfg_fmt->fmt.pix_mp.pixelformat);
-			if (mtk_info)
-				comp_planes = mtk_info->comp_planes;
+			comp_planes = mtk_info->comp_planes;
 		} else {
 			const struct v4l2_format_info *v4l2_info =
 				v4l2_format_info(cfg_fmt->fmt.pix_mp.pixelformat);
-			if (v4l2_info)
-				comp_planes = v4l2_info->comp_planes;
+			comp_planes = v4l2_info->comp_planes;
 		}
 
 		for (i = 1 ; i < vb->num_planes; i++) {
@@ -3095,8 +3080,6 @@ mtk_cam_config_raw_img_fmt(struct mtk_cam_request_stream_data *s_data,
 	}
 
 	cfg_selection = mtk_cam_s_data_get_vsel(s_data, node->desc.id);
-	if (!cfg_selection)
-		return -1;
 
 	pfmt = mtk_cam_s_data_get_pfmt(s_data, MTK_RAW_SINK);
 	sd_width = pfmt->width;
@@ -3254,8 +3237,6 @@ static int mtk_cam_req_update(struct mtk_cam_device *cam,
 		node = mtk_cam_vbq_to_vdev(vb->vb2_queue);
 
 		ctx = mtk_cam_find_ctx(cam, &node->vdev.entity);
-		if (!ctx)
-			return -1;
 		req->ctx_used |= 1 << ctx->stream_id;
 
 		req_stream_data = mtk_cam_req_get_s_data(req, node->uid.pipe_id, 0);
@@ -3768,7 +3749,7 @@ void mtk_cam_dev_req_try_queue(struct mtk_cam_device *cam)
 						 "%s:req(%s): undefined s_data_1, raw_feature(%d)\n",
 						 __func__, req->req.debug_str,
 						 ctx->pipe->feature_pending);
-			} else if (stream_ctx && is_camsv_subdev(i) && i == stream_ctx->stream_id) {
+			} else if (is_camsv_subdev(i) && i == stream_ctx->stream_id) {
 				if (!(req->ctx_link_update & (1 << i)))
 					s_data->sensor = stream_ctx->sensor;
 
@@ -3800,14 +3781,14 @@ void mtk_cam_dev_req_try_queue(struct mtk_cam_device *cam)
 					mtk_cam_req_s_data_init(req, i, 1);
 					fill_sv_mstream_s_data(cam, req, i);
 				}
-			} else if (stream_ctx && is_camsv_subdev(i) && i != stream_ctx->stream_id) {
+			} else if (is_camsv_subdev(i) && i != stream_ctx->stream_id) {
 				/* copy s_data content for mstream case */
 				if (mtk_cam_is_mstream(stream_ctx)) {
 					req->p_data[i].s_data_num = 2;
 					mtk_cam_req_s_data_init(req, i, 1);
 					fill_sv_mstream_s_data(cam, req, i);
 				}
-			} else if (stream_ctx && is_mraw_subdev(i)) {
+			} else if (is_mraw_subdev(i)) {
 				/* copy s_data content for mstream case */
 				if (mtk_cam_is_mstream(stream_ctx)) {
 					req->p_data[i].s_data_num = 2;
@@ -3915,9 +3896,6 @@ static void mtk_cam_req_p_data_extend_init(struct mtk_cam_request *req,
 {
 	int i;
 
-	if (pipe_id < 0)
-		return;
-
 	req->p_data[pipe_id].s_data_num = s_data_num;
 	for (i = 1; i < s_data_num; i++)
 		mtk_cam_req_s_data_init(req, pipe_id, i);
@@ -3929,8 +3907,6 @@ static void mtk_cam_req_p_data_init(struct mtk_cam_request *req,
 {
 	int i = 0;
 
-	if (pipe_id < 0)
-		return;
 	req->p_data[pipe_id].s_data_num = s_data_num;
 	for (i = 0; i < s_data_num; i++)
 		mtk_cam_req_s_data_init(req, pipe_id, i);
@@ -4055,8 +4031,6 @@ static int mtk_cam_link_notify(struct media_link *link, u32 flags,
 		return v4l2_pipeline_link_notify(link, flags, notification);
 
 	subdev = media_entity_to_v4l2_subdev(sink);
-	if (!subdev)
-		return -1;
 	cam = container_of(subdev->v4l2_dev->mdev, struct mtk_cam_device, media_dev);
 
 	ctx = mtk_cam_find_ctx(cam, sink);
@@ -4505,7 +4479,7 @@ struct mtk_raw_device *get_master_raw_dev(struct mtk_cam_device *cam,
 struct mtk_raw_device *get_slave_raw_dev(struct mtk_cam_device *cam,
 					 struct mtk_raw_pipeline *pipe)
 {
-	struct device *dev_slave = NULL;
+	struct device *dev_slave;
 	unsigned int i;
 
 	for (i = 0; i < cam->num_raw_drivers - 1; i++) {
@@ -4521,7 +4495,7 @@ struct mtk_raw_device *get_slave_raw_dev(struct mtk_cam_device *cam,
 struct mtk_raw_device *get_slave2_raw_dev(struct mtk_cam_device *cam,
 					  struct mtk_raw_pipeline *pipe)
 {
-	struct device *dev_slave = NULL;
+	struct device *dev_slave;
 	unsigned int i;
 
 	for (i = 0; i < cam->num_raw_drivers; i++) {
@@ -4853,10 +4827,8 @@ static int isp_composer_handle_ack(struct mtk_cam_device *cam,
 	/*composed delay to over sof, to keep fps, trigger cq here by conditions*/
 	if (s_data->frame_seq_no == atomic_read(&ctx->composed_delay_seq_no)) {
 		dev = mtk_cam_find_raw_dev(cam, ctx->pipe->enabled_raw);
-		if (dev) {
-			raw_dev = dev_get_drvdata(dev);
-			mtk_camsys_composed_delay_enque(raw_dev, ctx, s_data);
-		}
+		raw_dev = dev_get_drvdata(dev);
+		mtk_camsys_composed_delay_enque(raw_dev, ctx, s_data);
 	}
 	/*EXT-ISP enqueue sv buffer first*/
 	if (mtk_cam_is_ext_isp(ctx) &&
@@ -5170,7 +5142,7 @@ bool mtk_cam_sv_req_enqueue(struct mtk_cam_ctx *ctx,
 	unsigned int i, pipe_id;
 	struct mtk_cam_request_stream_data *ctx_stream_data;
 	struct mtk_cam_request_stream_data *pipe_stream_data;
-	struct mtk_camsv_working_buf_entry *buf_entry = NULL;
+	struct mtk_camsv_working_buf_entry *buf_entry;
 	int res_feature;
 	bool ret = true;
 
@@ -5182,8 +5154,6 @@ bool mtk_cam_sv_req_enqueue(struct mtk_cam_ctx *ctx,
 	for (i = 0 ; i < ctx->used_sv_num ; i++) {
 		pipe_id = ctx->sv_pipe[i]->id;
 		buf_entry = mtk_cam_sv_working_buf_get(ctx);
-		if (buf_entry == NULL)
-			continue;
 		req->p_data[pipe_id].s_data_num = req->p_data[ctx->stream_id].s_data_num;
 		pipe_stream_data = mtk_cam_req_get_s_data(req, pipe_id, idx);
 		/* align master pipe's sequence number */
@@ -5696,7 +5666,7 @@ struct mtk_raw_pipeline*
 mtk_cam_dev_get_raw_pipeline(struct mtk_cam_device *cam,
 			     unsigned int pipe_id)
 {
-	if (pipe_id >= MTKCAM_SUBDEV_RAW_END)
+	if (pipe_id < MTKCAM_SUBDEV_RAW_START || pipe_id >= MTKCAM_SUBDEV_RAW_END)
 		return NULL;
 	else
 		return &cam->raw.pipelines[pipe_id - MTKCAM_SUBDEV_RAW_0];
@@ -5734,6 +5704,19 @@ mtk_cam_raw_pipeline_config(struct mtk_cam_ctx *ctx,
 			dev_info(raw->cam_dev, "%s: power on raw (%d)\n", __func__, i);
 			pm_runtime_get_sync(raw->devs[i]);
 		}
+	}
+
+	if (ret < 0) {
+		dev_info(raw->cam_dev,
+			 "failed at pm_runtime_get_sync: %s\n",
+			 dev_driver_string(raw->devs[i]));
+		for (i = i - 1; i >= 0; i--)
+			if (pipe->enabled_raw & 1 << i) {
+				dev_info(raw->cam_dev, "%s: power off raw (%d)\n",
+						 __func__, i);
+				pm_runtime_put_sync(raw->devs[i]);
+			}
+		return ret;
 	}
 
 	ctx->used_raw_dev = pipe->enabled_raw;
@@ -6008,8 +5991,8 @@ int mtk_cam_s_data_sv_dev_config(struct mtk_cam_request_stream_data *s_data)
 	struct mtk_cam_req_raw_pipe_data *s_raw_pipe_data;
 	struct mtk_cam_ctx *ctx;
 	struct mtk_cam_device *cam;
-	int i, j, ret = 0, used_pipes, src_pad_idx = 0, exp_no, feature;
-	unsigned int hw_scen = 0;
+	int i, j, ret = 0, used_pipes, src_pad_idx, exp_no, feature;
+	unsigned int hw_scen;
 	bool is_dc;
 	bool is_stagger;
 	int tgo_pxl_mode;
@@ -6377,7 +6360,6 @@ static int isp_composer_init(struct mtk_cam_ctx *ctx, unsigned int pipe_id)
 	struct rproc_subdev *rpmsg_subdev;
 	struct rpmsg_channel_info *msg = &ctx->rpmsg_channel;
 	int ipi_id;
-	unsigned int n = 0;
 
 	/* Create message client */
 	ccd = (struct mtk_ccd *)cam->rproc_handle->priv;
@@ -6387,9 +6369,7 @@ static int isp_composer_init(struct mtk_cam_ctx *ctx, unsigned int pipe_id)
 	if (ipi_id < 0)
 		return -EINVAL;
 
-	n = snprintf(msg->name, RPMSG_NAME_SIZE, "mtk-camsys\%d", pipe_id);
-	if (n < 0 || n >= sizeof(msg->name))
-		dev_info(dev, "%s msg->name snprintf error!!!\n", __func__);
+	snprintf(msg->name, RPMSG_NAME_SIZE, "mtk-camsys\%d", pipe_id);
 	msg->src = ipi_id;
 	ctx->rpmsg_dev = mtk_create_client_msgdevice(rpmsg_subdev, msg);
 	if (!ctx->rpmsg_dev)
@@ -6437,9 +6417,8 @@ static int mtk_cam_power_ctrl_ccu(struct device *dev, int on_off)
 		if (ret)
 			dev_info(dev, "boot ccu rproc fail\n");
 
-		if (dvfs_info->reg_vmm && regulator_enable(dvfs_info->reg_vmm)) {
-			ret = -EINVAL;
-		}
+		if (dvfs_info->reg_vmm)
+			regulator_enable(dvfs_info->reg_vmm);
 	} else {
 		if (dvfs_info->reg_vmm && regulator_is_enabled(dvfs_info->reg_vmm))
 			regulator_disable(dvfs_info->reg_vmm);
@@ -6517,9 +6496,7 @@ struct mtk_cam_ctx *mtk_cam_start_ctx(struct mtk_cam_device *cam,
 
 	is_first_ctx = !cam->composer_cnt;
 	if (is_first_ctx) {
-		spin_lock(&ctx->cam->running_job_lock);
 		cam->running_job_count = 0;
-		spin_unlock(&ctx->cam->running_job_lock);
 
 		dev_info(cam->dev, "%s: power on camsys\n", __func__);
 		mtk_cam_power_ctrl_ccu(cam->dev, 1);
@@ -6550,7 +6527,8 @@ struct mtk_cam_ctx *mtk_cam_start_ctx(struct mtk_cam_device *cam,
 	}
 
 #if CCD_READY
-	if (node->uid.pipe_id < MTKCAM_SUBDEV_RAW_END) {
+	if (node->uid.pipe_id >= MTKCAM_SUBDEV_RAW_START &&
+		node->uid.pipe_id < MTKCAM_SUBDEV_RAW_END) {
 		ret = isp_composer_init(ctx, node->uid.pipe_id);
 		if (ret)
 			goto fail_shutdown;
@@ -6903,8 +6881,6 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 		exp_no = 3;
 
 	if (ctx->used_raw_num) {
-		if (!ctx->pipe)
-			return -1;
 		tgo_pxl_mode = ctx->pipe->res_config.tgo_pxl_mode_before_raw;
 		buf_size = ctx->pipe->vdev_nodes
 			[MTK_RAW_MAIN_STREAM_OUT - MTK_RAW_SINK_NUM].
@@ -7420,8 +7396,6 @@ int mtk_cam_ctx_stream_off(struct mtk_cam_ctx *ctx)
 
 	if (ctx->pipe)
 		feature = ctx->pipe->feature_active;
-	else
-		feature = 0;
 
 	if (watchdog_scenario(ctx))
 		mtk_ctx_watchdog_stop(ctx, get_master_raw_id(
@@ -7606,7 +7580,8 @@ static int config_bridge_pad_links(struct mtk_cam_device *cam,
 	int ret;
 
 	for (i = 0; i < cam->max_stream_num; i++) {
-		if (i < (MTKCAM_SUBDEV_RAW_START + cam->num_raw_drivers)) {
+		if (i >= MTKCAM_SUBDEV_RAW_START &&
+			i < (MTKCAM_SUBDEV_RAW_START + cam->num_raw_drivers)) {
 			pipe_entity = &cam->raw.pipelines[i].subdev.entity;
 
 			dev_info(cam->dev, "create pad link %s %s\n",
@@ -7694,7 +7669,7 @@ static int mtk_cam_create_links(struct mtk_cam_device *cam)
 {
 	struct v4l2_subdev *sd;
 	unsigned int i;
-	int ret = 0;
+	int ret;
 
 	i = 0;
 	v4l2_device_for_each_subdev(sd, &cam->v4l2_dev) {
@@ -7713,17 +7688,14 @@ static int mtk_cam_master_bind(struct device *dev)
 	struct mtk_cam_device *cam_dev = dev_get_drvdata(dev);
 	struct media_device *media_dev = &cam_dev->media_dev;
 	int ret;
-	unsigned int n = 0;
 
 	dev_info(dev, "%s\n", __func__);
 
 	media_dev->dev = cam_dev->dev;
 	strscpy(media_dev->model, dev_driver_string(dev),
 		sizeof(media_dev->model));
-	n = snprintf(media_dev->bus_info, sizeof(media_dev->bus_info),
+	snprintf(media_dev->bus_info, sizeof(media_dev->bus_info),
 		 "platform:%s", dev_name(dev));
-	if (n < 0 || n >= sizeof(media_dev->bus_info))
-		dev_info(dev, "%s media_dev->bus_info snprintf error!!!\n", __func__);
 	media_dev->hw_revision = 0;
 	media_dev->ops = &mtk_cam_dev_ops;
 	media_device_init(media_dev);
@@ -7925,8 +7897,8 @@ static void mtk_cam_ctx_watchdog_worker(struct work_struct *work)
 	int timeout;
 	static u64 last_vsync_count;
 	bool is_abnormal_vsync = false;
-	unsigned int int_en = 0, dequeued_frame_seq_no = 0;
-	int vf_en = -1, sof_count = 0;
+	unsigned int int_en, dequeued_frame_seq_no;
+	int vf_en, sof_count;
 	int pipe_id;
 	int idx;
 	struct device *dev;
@@ -7937,6 +7909,8 @@ static void mtk_cam_ctx_watchdog_worker(struct work_struct *work)
 
 	watchdog_data = container_of(work,
 					struct mtk_cam_watchdog_data, watchdog_work);
+	if (!watchdog_data)
+		return;
 	ctx = watchdog_data->ctx;
 	if (!ctx) {
 		dev_dbg(ctx->cam->dev,
@@ -7978,7 +7952,6 @@ static void mtk_cam_ctx_watchdog_worker(struct work_struct *work)
 		sof_count = raw->sof_count;
 	} else if (is_camsv_subdev(pipe_id)) {
 		idx = pipe_id - MTKCAM_SUBDEV_CAMSV_START;
-
 		dev = ctx->cam->sv.devs[idx];
 		if (dev == NULL) {
 			dev_info(ctx->cam->dev, "%s:ctx/pipe_id(%d/%d):config camsv device not found\n",
@@ -7992,9 +7965,6 @@ static void mtk_cam_ctx_watchdog_worker(struct work_struct *work)
 		sof_count = camsv_dev->sof_count;
 	} else if (is_mraw_subdev(pipe_id)) {
 		idx = pipe_id - MTKCAM_SUBDEV_MRAW_START;
-				idx = pipe_id - MTKCAM_SUBDEV_CAMSV_START;
-		if (idx < 0)
-			return;
 		dev = ctx->cam->mraw.devs[idx];
 		if (dev == NULL) {
 			dev_info(ctx->cam->dev, "%s:ctx/pipe_id(%d/%d):config mraw device not found\n",
@@ -8007,7 +7977,6 @@ static void mtk_cam_ctx_watchdog_worker(struct work_struct *work)
 		vf_en = mtk_cam_mraw_is_vf_on(mraw_dev);
 		sof_count = mraw_dev->sof_count;
 	}
-
 
 	/**
 	 * Current we just call seninf dump, but it is better to check
@@ -8144,9 +8113,9 @@ static void mtk_ctx_watchdog(struct timer_list *t)
 	int watchdog_dump_cnt;
 	u64 current_time_ns = ktime_get_boottime_ns();
 	u64 cost_time_ms, timer_expires_ms;
-	int sof_count = 0, is_vf_on = 0;
+	int sof_count, is_vf_on;
 	int enabled_watchdog_pipe;
-	unsigned int idx;
+	int idx;
 	int i;
 	unsigned long flags;
 
