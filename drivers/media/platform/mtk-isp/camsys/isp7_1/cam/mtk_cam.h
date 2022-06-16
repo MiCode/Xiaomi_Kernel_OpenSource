@@ -285,12 +285,16 @@ enum mtk_cam_request_state {
 /**
  * mtk_cam_frame_sync: the frame sync state of one request
  *
+ * @update_ctx: a mask of the ctx which frame sync state needs to be updated
+ * @update_value: a mask of the value for pipe updating frame sync state
  * @target: the num of ctx(sensor) which should be synced
  * @on_cnt: the count of frame sync on called by ctx
  * @off_cnt: the count of frame sync off called by ctx
  * @op_lock: protect frame sync state variables
  */
 struct mtk_cam_frame_sync {
+	unsigned int update_ctx;
+	unsigned int update_value;
 	unsigned int target;
 	unsigned int on_cnt;
 	unsigned int off_cnt;
@@ -830,6 +834,8 @@ static inline void mtk_cam_fs_reset(struct mtk_cam_frame_sync *fs)
 	fs->target = 0;
 	fs->on_cnt = 0;
 	fs->off_cnt = 0;
+	fs->update_ctx = 0;
+	fs->update_value = 0;
 }
 
 static inline struct device *mtk_cam_find_raw_dev(struct mtk_cam_device *cam,

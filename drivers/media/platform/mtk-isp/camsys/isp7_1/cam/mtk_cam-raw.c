@@ -322,6 +322,8 @@ static int mtk_raw_get_ctrl(struct v4l2_ctrl *ctrl)
 		mutex_lock(&pipeline->res_config.resource_lock);
 		*ctrl->p_new.p_s64 = pipeline->sync_id;
 		mutex_unlock(&pipeline->res_config.resource_lock);
+	} else if (ctrl->id == V4L2_CID_MTK_CAM_FRAME_SYNC) {
+		ctrl->val = pipeline->fs_config;
 	} else {
 		/**
 		 * Read the determined resource for the "set" format
@@ -888,6 +890,7 @@ static int mtk_raw_try_ctrl(struct v4l2_ctrl *ctrl)
 	case V4L2_CID_MTK_CAM_RAW_PATH_SELECT:
 	case V4L2_CID_MTK_CAM_SYNC_ID:
 	case V4L2_CID_MTK_CAM_HSF_EN:
+	case V4L2_CID_MTK_CAM_FRAME_SYNC:
 		ret = 0;
 		break;
 	default:
@@ -950,6 +953,11 @@ static int mtk_raw_set_ctrl(struct v4l2_ctrl *ctrl)
 		break;
 	case V4L2_CID_MTK_CAM_PDE_INFO:
 		ret = mtk_raw_pde_try_set_ctrl(ctrl, CAM_SET_CTRL);
+		break;
+	case V4L2_CID_MTK_CAM_FRAME_SYNC:
+		/* the mask means the updating from user, clean by driver */
+		pipeline->fs_config = ctrl->val | MTK_RAW_CTRL_UPDATE;
+		ret = 0;
 		break;
 	default:
 		ret = mtk_raw_set_res_ctrl(pipeline->raw->devs[pipeline->id],
@@ -1177,6 +1185,18 @@ static const struct v4l2_ctrl_config mtk_camsys_hw_mode = {
 	.max = 0x7FFFFFFF,
 	.step = 1,
 	.def = HW_MODE_DEFAULT,
+};
+
+static struct v4l2_ctrl_config cfg_frame_sync = {
+	.ops = &cam_ctrl_ops,
+	.id = V4L2_CID_MTK_CAM_FRAME_SYNC,
+	.name = "frame sync",
+	.type = V4L2_CTRL_TYPE_INTEGER,
+	.flags = V4L2_CTRL_FLAG_VOLATILE|V4L2_CTRL_FLAG_EXECUTE_ON_WRITE,
+	.min = 0,
+	.max = 0x1,
+	.step = 1,
+	.def = 0,
 };
 
 void trigger_rawi(struct mtk_raw_device *dev, struct mtk_cam_ctx *ctx,
@@ -5962,6 +5982,9 @@ static void mtk_raw_pipeline_ctrl_setup(struct mtk_raw_pipeline *pipe)
 	if (ctrl)
 		ctrl->flags |= V4L2_CTRL_FLAG_EXECUTE_ON_WRITE;
 
+	/* Frame sync */
+	v4l2_ctrl_new_custom(ctrl_hdlr, &cfg_frame_sync, NULL);
+
 	v4l2_ctrl_new_custom(ctrl_hdlr, &mstream_exposure, NULL);
 	pipe->res_config.hwn_limit_max = hwn_limit.def;
 	pipe->res_config.frz_limit = frz_limit.def;
@@ -5971,6 +5994,7 @@ static void mtk_raw_pipeline_ctrl_setup(struct mtk_raw_pipeline *pipe)
 	pipe->sync_id = frame_sync_id.def;
 	pipe->sensor_mode_update = cfg_res_update.def;
 	memset(&pipe->pde_config, cfg_pde_info.def, sizeof(pipe->pde_config));
+	pipe->fs_config = cfg_frame_sync.def;
 	pipe->subdev.ctrl_handler = ctrl_hdlr;
 	pipe->hw_mode = mtk_camsys_hw_mode.def;
 	pipe->hw_mode_pending = mtk_camsys_hw_mode.def;

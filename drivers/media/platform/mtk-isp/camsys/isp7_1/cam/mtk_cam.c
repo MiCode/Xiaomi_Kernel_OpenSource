@@ -3370,10 +3370,24 @@ static int mtk_cam_req_update(struct mtk_cam_device *cam,
 		if (!(1 << i & req->ctx_used))
 			continue;
 
-		/* TODO: user fs */
 		ctx_cnt++;
 
 		ctx = &cam->ctxs[i];
+
+		/* check fs state update (the raw_pipe is updated) */
+		if (ctx->pipe->fs_config & MTK_RAW_CTRL_UPDATE) {
+			ctx->pipe->fs_config &= MTK_RAW_CTRL_VALUE;
+			req->fs.update_ctx |= 1 << ctx->stream_id;
+			req->fs.update_value |=
+				(ctx->pipe->fs_config & 0x1) << ctx->stream_id;
+			/* both 0->1/1->0 are possible */
+			dev_info(cam->dev,
+				 "%s: req(%s) ctx-%d fs update(%d), update_ctx/value(0x%x/0x%x)\n",
+				 __func__, req->req.debug_str, ctx->stream_id,
+				 ctx->pipe->fs_config, req->fs.update_ctx,
+				 req->fs.update_value);
+		}
+
 		req_stream_data = mtk_cam_req_get_s_data(req, ctx->stream_id, 0);
 		if (!req_stream_data)
 			continue;
