@@ -56,6 +56,8 @@ struct devfreq_msm_adreno_tz_data {
 	bool ctxt_aware_enable;
 	/* Multiplier to change gpu busy status */
 	u32 mod_percent;
+	/* Increase IB vote on high ddr stall */
+	bool avoid_ddr_stall;
 };
 
 struct msm_adreno_extended_profile {

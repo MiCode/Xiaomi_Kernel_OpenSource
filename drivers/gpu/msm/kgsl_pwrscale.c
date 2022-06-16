@@ -330,7 +330,13 @@ int kgsl_devfreq_get_dev_status(struct device *dev,
 		last_b->ram_time = device->pwrscale.accum_stats.ram_time;
 		last_b->ram_wait = device->pwrscale.accum_stats.ram_wait;
 		last_b->buslevel = device->pwrctrl.cur_buslevel;
-		last_b->gpu_minfreq = pwrctrl->pwrlevels[pwrctrl->min_pwrlevel].gpu_freq;
+
+		if (pwrscale->avoid_ddr_stall) {
+			struct kgsl_pwrlevel *pwrlevel;
+
+			pwrlevel = &pwrctrl->pwrlevels[pwrctrl->min_pwrlevel];
+			last_b->gpu_minfreq = pwrlevel->gpu_freq;
+		}
 	}
 
 	kgsl_pwrctrl_busy_time(device, stat->total_time, stat->busy_time);
@@ -672,6 +678,8 @@ int kgsl_pwrscale_init(struct kgsl_device *device, struct platform_device *pdev,
 	struct devfreq *devfreq;
 	struct msm_adreno_extended_profile *gpu_profile;
 	int i, ret;
+
+	adreno_tz_data.avoid_ddr_stall = pwrscale->avoid_ddr_stall;
 
 	gpu_profile = &pwrscale->gpu_profile;
 	gpu_profile->private_data = &adreno_tz_data;

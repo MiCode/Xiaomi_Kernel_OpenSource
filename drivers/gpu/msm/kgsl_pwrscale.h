@@ -67,6 +67,11 @@ struct kgsl_pwrscale {
 	struct devfreq *bus_devfreq;
 	/** @devfreq_enabled: Whether or not devfreq is enabled */
 	bool devfreq_enabled;
+	/**
+	 * @avoid_ddr_stall: Whether or not to increase IB vote on high
+	 * ddr stall
+	 */
+	bool avoid_ddr_stall;
 };
 
 /**
