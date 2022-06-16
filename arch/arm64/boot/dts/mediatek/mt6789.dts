@@ -1477,7 +1477,7 @@
 		cam_mem {
 			compatible = "mediatek,cam_mem";
 			dma-ranges = <0x2 0x0 0x2 0x0 0x1 0x0>;
-
+			mediatek,platform = "mt6789";
 			iommus = /* imgsys_config, msf_b and wpe */
 				<&disp_iommu M4U_PORT_L9_IMG_IMGI_D1>,
 				<&disp_iommu M4U_PORT_L9_IMG_IMGBI_D1>,
