@@ -342,9 +342,9 @@ static int mtk_gamma_set_lut(struct mtk_ddp_comp *comp,
 			if (old_lut != NULL)
 				kfree(old_lut);
 
-			if (comp->mtk_crtc != NULL)
-				mtk_crtc_check_trigger(comp->mtk_crtc, false,
-					false);
+			//if (comp->mtk_crtc != NULL)
+			//	mtk_crtc_check_trigger(comp->mtk_crtc, false,
+			//		false);
 		} else {
 			DDPPR_ERR("%s: invalid ID = %d\n", __func__, comp->id);
 			ret = -EFAULT;
@@ -393,9 +393,9 @@ static int mtk_gamma_12bit_set_lut(struct mtk_ddp_comp *comp,
 			if (old_lut != NULL)
 				kfree(old_lut);
 
-			if (comp->mtk_crtc != NULL)
-				mtk_crtc_check_trigger(comp->mtk_crtc, false,
-					false);
+			//if (comp->mtk_crtc != NULL)
+			//	mtk_crtc_check_trigger(comp->mtk_crtc, false,
+			//		false);
 		} else {
 			DDPPR_ERR("%s: invalid ID = %d\n", __func__, comp->id);
 			ret = -EFAULT;
@@ -431,7 +431,7 @@ int mtk_drm_ioctl_set_12bit_gammalut(struct drm_device *dev, void *data,
 	atomic_set(&g_gamma_sof_filp, 1);
 	if (g_gamma_flip_comp[0]->mtk_crtc != NULL) {
 		mtk_drm_idlemgr_kick(__func__, &g_gamma_flip_comp[0]->mtk_crtc->base, 1);
-		mtk_crtc_check_trigger(g_gamma_flip_comp[0]->mtk_crtc, false, false);
+		mtk_crtc_check_trigger(g_gamma_flip_comp[0]->mtk_crtc, true, false);
 	}
 	DDPINFO("%s:update IOCTL g_gamma_sof_filp to 1\n", __func__);
 	CRTC_MMP_EVENT_END(0, gamma_ioctl, 0, 1);
@@ -667,6 +667,9 @@ static int mtk_gamma_user_cmd(struct mtk_ddp_comp *comp,
 				return -EFAULT;
 			}
 		}
+
+		if (comp->mtk_crtc != NULL)
+			mtk_crtc_check_trigger(comp->mtk_crtc, true, false);
 	}
 	break;
 	case SET_12BIT_GAMMALUT:
@@ -688,6 +691,9 @@ static int mtk_gamma_user_cmd(struct mtk_ddp_comp *comp,
 				return -EFAULT;
 			}
 		}
+
+		if (comp->mtk_crtc != NULL)
+			mtk_crtc_check_trigger(comp->mtk_crtc, true, false);
 	}
 	break;
 	case BYPASS_GAMMA:

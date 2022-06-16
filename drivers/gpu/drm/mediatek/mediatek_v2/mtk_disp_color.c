@@ -2619,7 +2619,7 @@ int mtk_drm_ioctl_set_pqparam(struct drm_device *dev, void *data,
 	if (ncs_tuning_mode == 0) {
 		/* normal mode */
 		ret = mtk_crtc_user_cmd(crtc, comp, SET_PQPARAM, data);
-		mtk_crtc_check_trigger(mtk_crtc, false, true);
+		mtk_crtc_check_trigger(mtk_crtc, true, true);
 
 		DDPINFO("SET_PQ_PARAM\n");
 	} else {
@@ -2676,7 +2676,7 @@ int mtk_drm_ioctl_mutex_control(struct drm_device *dev, void *data,
 		ncs_tuning_mode = 0;
 		DDPINFO("ncs_tuning_mode = 0\n");
 
-		mtk_crtc_check_trigger(mtk_crtc, false, true);
+		mtk_crtc_check_trigger(mtk_crtc, true, true);
 	} else {
 		DDPPR_ERR("DISP_IOCTL_MUTEX_CONTROL invalid control\n");
 		return -EFAULT;
@@ -3058,7 +3058,7 @@ int mtk_drm_ioctl_bypass_color(struct drm_device *dev, void *data,
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 
 	ret = mtk_crtc_user_cmd(crtc, comp, BYPASS_COLOR, data);
-	mtk_crtc_check_trigger(mtk_crtc, false, true);
+	mtk_crtc_check_trigger(mtk_crtc, true, true);
 
 	return ret;
 }
@@ -3119,7 +3119,7 @@ int mtk_drm_ioctl_pq_set_window(struct drm_device *dev, void *data,
 			((g_split_window_x_end << 16) | g_split_window_x_start),
 			((g_split_window_y_end << 16) | g_split_window_y_start));
 	}
-	mtk_crtc_check_trigger(mtk_crtc, false, true);
+	mtk_crtc_check_trigger(mtk_crtc, true, true);
 
 	return ret;
 }

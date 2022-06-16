@@ -474,11 +474,8 @@ static void disp_ccorr_set_interrupt(struct mtk_ddp_comp *comp,
 	if (default_comp == NULL)
 		default_comp = comp;
 
-	if (!enabled && (g_old_pq_backlight != g_pq_backlight))
-		g_old_pq_backlight = g_pq_backlight;
-	else
-		mtk_crtc_user_cmd(&(comp->mtk_crtc->base), comp,
-			SET_INTERRUPT, &enabled);
+	mtk_crtc_user_cmd(&(comp->mtk_crtc->base), comp,
+		SET_INTERRUPT, &enabled);
 }
 
 static void disp_ccorr_clear_irq_only(struct mtk_ddp_comp *comp)
@@ -571,13 +568,14 @@ static int disp_ccorr_wait_irq(struct drm_device *dev, unsigned long timeout)
 		DDPDBG("%s: wait_event_interruptible -- ", __func__);
 		DDPINFO("%s: get_irq = 1, waken up", __func__);
 		DDPINFO("%s: get_irq = 1, ret = %d", __func__, ret);
-		if (atomic_read(&g_irq_backlight_change))
-			atomic_set(&g_irq_backlight_change, 0);
 	} else {
 		/* If g_ccorr_get_irq is already set, */
 		/* means PQService was delayed */
 		DDPINFO("%s: get_irq = 0", __func__);
 	}
+
+	if (atomic_read(&g_irq_backlight_change))
+		atomic_set(&g_irq_backlight_change, 0);
 
 	atomic_set(&g_ccorr_get_irq, 0);
 
@@ -592,6 +590,10 @@ static int disp_pq_copy_backlight_to_user(int *backlight)
 	/* We assume only one thread will call this function */
 	spin_lock_irqsave(&g_pq_bl_change_lock, flags);
 	g_pq_backlight_db = g_pq_backlight;
+
+	if (g_old_pq_backlight != g_pq_backlight)
+		g_old_pq_backlight = g_pq_backlight;
+
 	spin_unlock_irqrestore(&g_pq_bl_change_lock, flags);
 
 	memcpy(backlight, &g_pq_backlight_db, sizeof(int));
@@ -618,26 +620,26 @@ void disp_pq_notify_backlight_changed(int bl_1024)
 	if (m_new_pq_persist_property[DISP_PQ_CCORR_SILKY_BRIGHTNESS]) {
 		if (default_comp != NULL &&
 			g_ccorr_relay_value[index_of_ccorr(default_comp->id)] != 1) {
+			atomic_set(&g_irq_backlight_change, 1);
 			disp_ccorr_set_interrupt(default_comp, 1);
 
 			if (default_comp != NULL &&
 					default_comp->mtk_crtc != NULL)
-				mtk_crtc_check_trigger(default_comp->mtk_crtc, false,
+				mtk_crtc_check_trigger(default_comp->mtk_crtc, true,
 					true);
 
-			atomic_set(&g_irq_backlight_change, 1);
 			DDPINFO("%s: trigger refresh when backlight changed", __func__);
 		}
 	} else {
 		if (default_comp != NULL && (g_old_pq_backlight == 0 || bl_1024 == 0)) {
+			atomic_set(&g_irq_backlight_change, 1);
 			disp_ccorr_set_interrupt(default_comp, 1);
 
 			if (default_comp != NULL &&
 					default_comp->mtk_crtc != NULL)
-				mtk_crtc_check_trigger(default_comp->mtk_crtc, false,
+				mtk_crtc_check_trigger(default_comp->mtk_crtc, true,
 					true);
 
-			atomic_set(&g_irq_backlight_change, 1);
 			DDPINFO("%s: trigger refresh when backlight ON/Off", __func__);
 		}
 	}
@@ -695,7 +697,7 @@ static int disp_ccorr_set_coef(
 			if (old_ccorr != NULL)
 				kfree(old_ccorr);
 
-			mtk_crtc_check_trigger(comp->mtk_crtc, false, false);
+			//mtk_crtc_check_trigger(comp->mtk_crtc, false, false);
 		} else {
 			DDPPR_ERR("%s: invalid ID = %d\n", __func__, id);
 			ret = -EFAULT;
@@ -916,7 +918,7 @@ int disp_ccorr_set_color_matrix(struct mtk_ddp_comp *comp,
 	mutex_unlock(&g_ccorr_global_lock);
 
 	if (need_refresh == true && comp->mtk_crtc != NULL)
-		mtk_crtc_check_trigger(comp->mtk_crtc, false, false);
+		mtk_crtc_check_trigger(comp->mtk_crtc, true, false);
 
 	return ret;
 }
@@ -976,7 +978,11 @@ int mtk_drm_ioctl_set_ccorr(struct drm_device *dev, void *data,
 
 		return ret;
 	} else {
-		return mtk_crtc_user_cmd(crtc, comp, SET_CCORR, data);
+		ret = mtk_crtc_user_cmd(crtc, comp, SET_CCORR, data);
+
+		mtk_crtc_check_trigger(comp->mtk_crtc, true, true);
+
+		return ret;
 	}
 }
 
@@ -1022,7 +1028,7 @@ int mtk_drm_ioctl_ccorr_eventctl(struct drm_device *dev, void *data,
 	int *enabled = data;
 
 	if (enabled || g_old_pq_backlight != g_pq_backlight)
-		mtk_crtc_check_trigger(comp->mtk_crtc, false, true);
+		mtk_crtc_check_trigger(comp->mtk_crtc, true, true);
 
 	//mtk_crtc_user_cmd(crtc, comp, EVENTCTL, data);
 	DDPINFO("ccorr_eventctl, enabled = %d\n", *enabled);

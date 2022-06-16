@@ -19,6 +19,9 @@
 #define DISP_C3D_SRAM_SIZE_17BIN (17 * 17 * 17)
 #define DISP_C3D_SRAM_SIZE_9BIN (9 * 9 * 9)
 
+static bool gPktReused[HW_ENGINE_NUM];
+static struct cmdq_reuse reuse_c3d0[4913 * 2], reuse_c3d1[4913 * 2];
+
 struct DISP_C3D_REG_17BIN {
 	unsigned int lut3d_reg[C3D_3DLUT_SIZE_17BIN];
 };
@@ -52,6 +55,7 @@ static struct DISP_C3D_LUT c3dIocData;
 // define spinlock here
 static DEFINE_SPINLOCK(g_c3d_clock_lock);
 static DEFINE_MUTEX(g_c3d_global_lock);
+static DEFINE_MUTEX(g_c3d_power_lock);
 
 // define Mutex
 static DEFINE_MUTEX(c3d_lut_lock);
@@ -88,8 +92,17 @@ enum C3D_IOCTL_CMD {
 	BYPASS_C3D,
 };
 
+enum C3D_CMDQ_TYPE {
+	C3D_USERSPACE = 0,
+	C3D_FIRST_ENABLE,
+	C3D_PREPARE,
+};
+
 static bool isDualPQ;
 static bool gHasSet1DLut[HW_ENGINE_NUM];
+static bool gSetLutFlag;
+static bool gUpdateSramIgnore;
+static bool gSkipUpdateSram;
 
 struct mtk_disp_c3d_data {
 	bool support_shadow;
@@ -175,9 +188,12 @@ static int mtk_disp_c3d_create_gce_pkt(struct drm_crtc *crtc,
 	}
 
 	if (*pkt != NULL)
-		cmdq_pkt_destroy(*pkt);
+		return 0;
 
-	*pkt = cmdq_pkt_create(mtk_crtc->gce_obj.client[CLIENT_CFG]);
+	if (mtk_crtc->gce_obj.client[CLIENT_PQ])
+		*pkt = cmdq_pkt_create(mtk_crtc->gce_obj.client[CLIENT_PQ]);
+	else
+		*pkt = cmdq_pkt_create(mtk_crtc->gce_obj.client[CLIENT_CFG]);
 
 	return 0;
 }
@@ -242,29 +258,44 @@ static inline bool disp_c3d_sram_read(struct mtk_ddp_comp *comp,
 	return return_value;
 }
 
-static bool disp_c3d_write_sram(struct mtk_ddp_comp *comp, bool reuse)
+static bool disp_c3d_write_sram(struct mtk_ddp_comp *comp, int cmd_type)
 {
 	struct mtk_drm_crtc *mtk_crtc = comp->mtk_crtc;
 	struct cmdq_pkt *cmdq_handle = NULL;
+	struct cmdq_client *client = NULL;
 
 	if (comp->id == DDP_COMPONENT_C3D0)
 		cmdq_handle = c3d_sram_pkt;
 	else
 		cmdq_handle = c3d1_sram_pkt;
 
-	disp_c3d_lock_wake_lock(true);
-	cmdq_mbox_enable(mtk_crtc->gce_obj.client[CLIENT_CFG]->chan);
-	if (!reuse) {
-		if (cmdq_handle != NULL)
-			cmdq_pkt_flush(cmdq_handle);
-	} else {
-		if (cmdq_handle != NULL) {
-			cmdq_pkt_refinalize(cmdq_handle);
-			cmdq_pkt_flush(cmdq_handle);
-		}
+	if (!cmdq_handle) {
+		DDPMSG("%s: cmdq handle is null.\n");
+		return false;
 	}
 
-	cmdq_mbox_disable(mtk_crtc->gce_obj.client[CLIENT_CFG]->chan);
+	if (mtk_crtc->gce_obj.client[CLIENT_PQ])
+		client = mtk_crtc->gce_obj.client[CLIENT_PQ];
+	else
+		client = mtk_crtc->gce_obj.client[CLIENT_CFG];
+
+	disp_c3d_lock_wake_lock(true);
+	cmdq_mbox_enable(client->chan);
+
+	switch (cmd_type) {
+	case C3D_USERSPACE:
+	case C3D_FIRST_ENABLE:
+		cmdq_pkt_flush(cmdq_handle);
+		cmdq_mbox_disable(client->chan);
+		break;
+
+	case C3D_PREPARE:
+		cmdq_pkt_refinalize(cmdq_handle);
+		cmdq_pkt_flush(cmdq_handle);
+		cmdq_mbox_disable(client->chan);
+		break;
+	}
+
 	disp_c3d_lock_wake_lock(false);
 
 	return true;
@@ -276,9 +307,9 @@ static void ddp_c3d_sram_write_table(struct mtk_ddp_comp *comp)
 		(0 << 6)|(0 << 5)|(1 << 4), (0x7 << 4));
 
 	if (atomic_read(&g_c3d_sram_hw_init[index_of_c3d(comp->id)]) == 0)
-		disp_c3d_write_sram(comp, false);
+		disp_c3d_write_sram(comp, C3D_FIRST_ENABLE);
 	else
-		disp_c3d_write_sram(comp, true);
+		disp_c3d_write_sram(comp, C3D_PREPARE);
 
 	atomic_set(&g_c3d_force_sram_apb[index_of_c3d(comp->id)], 0);
 }
@@ -288,16 +319,25 @@ static void disp_c3d_config_sram(struct mtk_ddp_comp *comp,
 {
 	struct mtk_disp_c3d *c3d_data;
 	unsigned int *cfg;
+	struct cmdq_reuse *reuse;
+	unsigned int reuse_buf_size;
 
 	unsigned int sram_offset = 0;
 	unsigned int write_value = 0;
 
 	c3d_data = comp_to_c3d(comp);
 	cfg = g_c3d_sram_cfg;
-	if (c3d_data->data->bin_num == 9)
+	reuse_buf_size = DISP_C3D_SRAM_SIZE_17BIN * 2;
+	if (c3d_data->data->bin_num == 9) {
 		cfg = g_c3d_sram_cfg_9bin;
-	else if (c3d_data->data->bin_num != 17)
-		DDPINFO("%d bin Not support!", c3d_data->data->bin_num);
+		reuse_buf_size = DISP_C3D_SRAM_SIZE_9BIN * 2;
+	} else if (c3d_data->data->bin_num != 17)
+		DDPMSG("%s: %d bin Not support!", __func__, c3d_data->data->bin_num);
+
+	if (comp->id == DDP_COMPONENT_C3D0)
+		reuse = &reuse_c3d0[0];
+	else
+		reuse = &reuse_c3d1[0];
 
 	// destroy used pkt and create new one
 	mtk_disp_c3d_create_gce_pkt(g_c3d_data->crtc, handle);
@@ -307,15 +347,29 @@ static void disp_c3d_config_sram(struct mtk_ddp_comp *comp,
 		return;
 
 	// Write 3D LUT to SRAM
-	for (sram_offset = c3d_data->data->c3d_sram_start_addr;
-		sram_offset <= c3d_data->data->c3d_sram_end_addr;
-			sram_offset += 4) {
-		write_value = cfg[sram_offset/4];
+	if (!gPktReused[index_of_c3d(comp->id)]) {
+		for (sram_offset = c3d_data->data->c3d_sram_start_addr;
+			sram_offset <= c3d_data->data->c3d_sram_end_addr;
+				sram_offset += 4) {
+			write_value = cfg[sram_offset/4];
 
-		cmdq_pkt_write(*handle, comp->cmdq_base,
-			comp->regs_pa + C3D_SRAM_RW_IF_0, sram_offset, ~0);
-		cmdq_pkt_write(*handle, comp->cmdq_base,
-			comp->regs_pa + C3D_SRAM_RW_IF_1, write_value, ~0);
+			// use cmdq reuse to save time
+			cmdq_pkt_write_value_addr_reuse(*handle, comp->regs_pa + C3D_SRAM_RW_IF_0,
+				sram_offset, ~0, &reuse[sram_offset/4 * 2]);
+			cmdq_pkt_write_value_addr_reuse(*handle, comp->regs_pa + C3D_SRAM_RW_IF_1,
+				write_value, ~0, &reuse[sram_offset/4 * 2 + 1]);
+
+			gPktReused[index_of_c3d(comp->id)] = true;
+		}
+	} else {
+		for (sram_offset = c3d_data->data->c3d_sram_start_addr;
+			sram_offset <= c3d_data->data->c3d_sram_end_addr;
+				sram_offset += 4) {
+			reuse[sram_offset/4 * 2].val = sram_offset;
+			reuse[sram_offset/4 * 2 + 1].val = cfg[sram_offset/4];
+		}
+
+		cmdq_pkt_reuse_buf_va(*handle, reuse, reuse_buf_size);
 	}
 }
 
@@ -431,76 +485,11 @@ static int disp_c3d_wait_irq(void)
 	return ret;
 }
 
-int mtk_drm_ioctl_c3d_get_irq(struct drm_device *dev, void *data,
-			struct drm_file *file_priv)
-{
-	int ret = 0;
-
-	ret = disp_c3d_wait_irq();
-
-	return ret;
-}
-
-int mtk_drm_ioctl_c3d_eventctl(struct drm_device *dev, void *data,
-	struct drm_file *file_priv)
-{
-	int ret = 0;
-	int *enabled = (int *)data;
-
-	struct mtk_drm_private *private = dev->dev_private;
-	struct mtk_ddp_comp *comp = private->ddp_comp[DDP_COMPONENT_C3D0];
-
-	C3DFLOW_LOG("%d\n", *enabled);
-
-	atomic_set(&g_c3d_eventctl, *enabled);
-	C3DFLOW_LOG("%d\n", atomic_read(&g_c3d_eventctl));
-
-	if (atomic_read(&g_c3d_eventctl) == 1)
-		wake_up_interruptible(&g_c3d_get_irq_wq);
-
-	if (*enabled)
-		mtk_crtc_check_trigger(comp->mtk_crtc, false, true);
-
-	return ret;
-}
-
-int mtk_drm_ioctl_c3d_set_lut(struct drm_device *dev, void *data,
-			struct drm_file *file_priv)
-{
-	int ret = 0;
-	struct mtk_drm_private *private = dev->dev_private;
-	struct mtk_ddp_comp *comp = private->ddp_comp[DDP_COMPONENT_C3D0];
-	struct drm_crtc *crtc = private->crtc[0];
-
-	C3DAPI_LOG("line: %d\n", __LINE__);
-
-	ret = mtk_crtc_user_cmd(crtc, comp, SET_C3DLUT, data);
-
-	mtk_crtc_check_trigger(comp->mtk_crtc, false, true);
-	return ret;
-}
-
-int mtk_drm_ioctl_bypass_c3d(struct drm_device *dev, void *data,
-			struct drm_file *file_priv)
-{
-	int ret = 0;
-	struct mtk_drm_private *private = dev->dev_private;
-	struct mtk_ddp_comp *comp = private->ddp_comp[DDP_COMPONENT_C3D0];
-	struct drm_crtc *crtc = private->crtc[0];
-
-	C3DAPI_LOG("line: %d\n", __LINE__);
-
-	ret = mtk_crtc_user_cmd(crtc, comp, BYPASS_C3D, data);
-
-	mtk_crtc_check_trigger(comp->mtk_crtc, false, true);
-	return ret;
-}
-
 static void disp_c3d_update_sram(struct mtk_ddp_comp *comp,
 	 bool check_sram)
 {
 	//unsigned long flags;
-	unsigned int read_value;
+	unsigned int read_value = 0;
 	int sram_apb = 0, sram_int = 0;
 
 	if (check_sram) {
@@ -517,9 +506,28 @@ static void disp_c3d_update_sram(struct mtk_ddp_comp *comp,
 			C3DFLOW_LOG("%s: C3D_SRAM_CFG(0x%08x)\n", __func__,
 				readl(comp->regs + C3D_SRAM_CFG));
 		}
-		if (sram_int != atomic_read(&g_c3d_force_sram_apb[index_of_c3d(comp->id)]))
-			pr_notice("dre3: SRAM config %d != %d config", sram_int,
+		if (sram_int != atomic_read(&g_c3d_force_sram_apb[index_of_c3d(comp->id)])) {
+			pr_notice("c3d: SRAM config %d != %d config", sram_int,
 				atomic_read(&g_c3d_force_sram_apb[index_of_c3d(comp->id)]));
+
+			if ((comp->mtk_crtc->is_dual_pipe) && (comp->id == DDP_COMPONENT_C3D0)) {
+				pr_notice("%s: set gUpdateSramIgnore=true", __func__);
+				gUpdateSramIgnore = true;
+
+				return;
+			}
+		}
+
+
+		if ((comp->mtk_crtc->is_dual_pipe) && (comp->id == DDP_COMPONENT_C3D1)
+				&& gSetLutFlag && gUpdateSramIgnore) {
+			gUpdateSramIgnore = false;
+			gSkipUpdateSram = true;
+
+			pr_notice("%s: set gUpdateSramIgnore=false", __func__);
+
+			return;
+		}
 	}
 
 	if (comp->id == DDP_COMPONENT_C3D0)
@@ -527,28 +535,11 @@ static void disp_c3d_update_sram(struct mtk_ddp_comp *comp,
 	else
 		disp_c3d_config_sram(comp, &c3d1_sram_pkt);
 
-	disp_c3d_write_sram(comp, false);
-}
-
-void disp_c3d_on_start_of_frame(void)
-{
-	if (!default_comp)
-		return;
-	atomic_set(&g_c3d_get_irq, 1);
-
-	if (atomic_read(&g_c3d_eventctl) == 1)
-		wake_up_interruptible(&g_c3d_get_irq_wq);
-}
-
-void disp_c3d_on_end_of_frame_mutex(void)
-{
-	if (!default_comp)
-		return;
-	atomic_set(&g_c3d_get_irq, 0);
+	disp_c3d_write_sram(comp, C3D_USERSPACE);
 }
 
 static int disp_c3d_write_3dlut_to_reg(struct mtk_ddp_comp *comp,
-	struct cmdq_pkt *handle, const struct DISP_C3D_LUT *c3d_lut)
+	const struct DISP_C3D_LUT *c3d_lut)
 {
 	int c3dBinNum;
 	int i;
@@ -594,6 +585,152 @@ static int disp_c3d_write_3dlut_to_reg(struct mtk_ddp_comp *comp,
 	}
 
 	return 0;
+}
+
+int mtk_drm_ioctl_c3d_get_irq(struct drm_device *dev, void *data,
+			struct drm_file *file_priv)
+{
+	int ret = 0;
+
+	C3DAPI_LOG("line: %d\n", __LINE__);
+	ret = disp_c3d_wait_irq();
+
+	return ret;
+}
+
+int mtk_drm_ioctl_c3d_eventctl(struct drm_device *dev, void *data,
+	struct drm_file *file_priv)
+{
+	int ret = 0;
+	int *enabled = (int *)data;
+
+	C3DFLOW_LOG("%d\n", *enabled);
+
+	atomic_set(&g_c3d_eventctl, *enabled);
+	C3DFLOW_LOG("%d\n", atomic_read(&g_c3d_eventctl));
+
+	if (atomic_read(&g_c3d_eventctl) == 1)
+		wake_up_interruptible(&g_c3d_get_irq_wq);
+
+	return ret;
+}
+
+int mtk_drm_ioctl_c3d_set_lut(struct drm_device *dev, void *data,
+			struct drm_file *file_priv)
+{
+	int ret = 0;
+
+	struct mtk_drm_private *private = dev->dev_private;
+	struct mtk_ddp_comp *comp = private->ddp_comp[DDP_COMPONENT_C3D0];
+	struct drm_crtc *crtc = private->crtc[0];
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+
+	gSkipUpdateSram = false;
+
+	C3DAPI_LOG("line: %d\n", __LINE__);
+
+	memcpy(&c3dIocData, (struct DISP_C3D_LUT *)data,
+				sizeof(struct DISP_C3D_LUT));
+	// 1. kick idle
+	if (!mtk_crtc) {
+		DDPMSG("%s:%d, invalid crtc:0x%p\n",
+				__func__, __LINE__, crtc);
+		return -1;
+	}
+
+	DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
+
+	if (!(mtk_crtc->enabled)) {
+		DDPMSG("%s:%d, slepted\n", __func__, __LINE__);
+		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+		return 0;
+	}
+
+	mtk_drm_idlemgr_kick(__func__, crtc, 0);
+
+	DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+
+	// 2. lock for protect crtc & power
+	mutex_lock(&g_c3d_power_lock);
+	if ((atomic_read(&g_c3d_is_clock_on[index_of_c3d(comp->id)]) == 1)
+			&& (mtk_crtc->enabled)) {
+		gSetLutFlag = true;
+
+		disp_c3d_write_3dlut_to_reg(comp, &c3dIocData);
+		if ((comp->mtk_crtc) && (comp->mtk_crtc->is_dual_pipe)) {
+			struct mtk_drm_crtc *mtk_crtc = comp->mtk_crtc;
+			struct drm_crtc *crtc = &mtk_crtc->base;
+			struct mtk_drm_private *priv = crtc->dev->dev_private;
+			struct mtk_ddp_comp *comp_c3d1 = priv->ddp_comp[DDP_COMPONENT_C3D1];
+
+			if ((atomic_read(&g_c3d_is_clock_on[index_of_c3d(comp_c3d1->id)]) == 1)
+					&& (mtk_crtc->enabled))
+				disp_c3d_write_3dlut_to_reg(comp_c3d1, &c3dIocData);
+			else {
+				DDPINFO("%s(line: %d): skip write_3dlut(mtk_crtc:%d)\n",
+						__func__, __LINE__, mtk_crtc->enabled ? 1 : 0);
+
+				gSetLutFlag = false;
+
+				mutex_unlock(&g_c3d_power_lock);
+
+				return -1;
+			}
+		}
+		gSetLutFlag = false;
+	} else {
+		DDPINFO("%s(line: %d): skip write_3dlut(mtk_crtc:%d)\n",
+				__func__, __LINE__, mtk_crtc->enabled ? 1 : 0);
+
+		mutex_unlock(&g_c3d_power_lock);
+
+		return -1;
+	}
+
+	mutex_unlock(&g_c3d_power_lock);
+
+
+	ret = mtk_crtc_user_cmd(crtc, comp, SET_C3DLUT, data);
+
+	mtk_crtc_check_trigger(comp->mtk_crtc, true, false);
+
+	if (gSkipUpdateSram)
+		ret = -EFAULT;
+
+	return ret;
+}
+
+int mtk_drm_ioctl_bypass_c3d(struct drm_device *dev, void *data,
+			struct drm_file *file_priv)
+{
+	int ret = 0;
+	struct mtk_drm_private *private = dev->dev_private;
+	struct mtk_ddp_comp *comp = private->ddp_comp[DDP_COMPONENT_C3D0];
+	struct drm_crtc *crtc = private->crtc[0];
+
+	C3DAPI_LOG("line: %d\n", __LINE__);
+
+	ret = mtk_crtc_user_cmd(crtc, comp, BYPASS_C3D, data);
+
+	mtk_crtc_check_trigger(comp->mtk_crtc, true, false);
+	return ret;
+}
+
+void disp_c3d_on_start_of_frame(void)
+{
+	if (!default_comp)
+		return;
+	atomic_set(&g_c3d_get_irq, 1);
+
+	if (atomic_read(&g_c3d_eventctl) == 1)
+		wake_up_interruptible(&g_c3d_get_irq_wq);
+}
+
+void disp_c3d_on_end_of_frame_mutex(void)
+{
+	if (!default_comp)
+		return;
+	atomic_set(&g_c3d_get_irq, 0);
 }
 
 static int disp_c3d_set_1dlut(struct mtk_ddp_comp *comp,
@@ -718,7 +855,7 @@ static int disp_c3d_write_lut_to_reg(struct mtk_ddp_comp *comp,
 	}
 
 	disp_c3d_write_1dlut_to_reg(comp, handle, c3d_lut);
-	disp_c3d_write_3dlut_to_reg(comp, handle, c3d_lut);
+	//disp_c3d_write_3dlut_to_reg(comp, handle, c3d_lut);
 
 	return 0;
 }
@@ -728,11 +865,10 @@ static int disp_c3d_set_lut(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 {
 	int ret = -EFAULT;
 
-	memcpy(&c3dIocData, (struct DISP_C3D_LUT *)data,
-				sizeof(struct DISP_C3D_LUT));
+//	memcpy(&c3dIocData, (struct DISP_C3D_LUT *)data,
+//				sizeof(struct DISP_C3D_LUT));
 
 	ret = disp_c3d_write_lut_to_reg(comp, handle, &c3dIocData);
-	disp_c3d_flip_sram(comp, handle, __func__);
 	if (comp->mtk_crtc->is_dual_pipe) {
 		struct mtk_drm_crtc *mtk_crtc = comp->mtk_crtc;
 		struct drm_crtc *crtc = &mtk_crtc->base;
@@ -740,8 +876,10 @@ static int disp_c3d_set_lut(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		struct mtk_ddp_comp *comp_c3d1 = priv->ddp_comp[DDP_COMPONENT_C3D1];
 
 		ret = disp_c3d_write_lut_to_reg(comp_c3d1, handle, &c3dIocData);
+		disp_c3d_flip_sram(comp, handle, __func__);
 		disp_c3d_flip_sram(comp_c3d1, handle, __func__);
-	}
+	} else
+		disp_c3d_flip_sram(comp, handle, __func__);
 
 //	atomic_set(&g_c3d_lut_set, 1);
 
@@ -883,10 +1021,12 @@ static void mtk_disp_c3d_unprepare(struct mtk_ddp_comp *comp)
 
 	C3DFLOW_LOG("line: %d\n", __LINE__);
 
+	mutex_lock(&g_c3d_power_lock);
 	spin_lock_irqsave(&g_c3d_clock_lock, flags);
 	atomic_set(&g_c3d_is_clock_on[index_of_c3d(comp->id)], 0);
 	spin_unlock_irqrestore(&g_c3d_clock_lock, flags);
 	mtk_ddp_comp_clk_unprepare(comp);
+	mutex_unlock(&g_c3d_power_lock);
 }
 
 void mtk_disp_c3d_first_cfg(struct mtk_ddp_comp *comp,
@@ -1058,7 +1198,6 @@ static const struct mtk_disp_c3d_data mt6886_c3d_driver_data = {
 	.c3d_sram_start_addr = 0,
 	.c3d_sram_end_addr = 19648,
 };
-
 
 static const struct of_device_id mtk_disp_c3d_driver_dt_match[] = {
 	{ .compatible = "mediatek,mt6983-disp-c3d",
