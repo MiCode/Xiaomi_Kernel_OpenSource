@@ -267,7 +267,11 @@ static int s_ae_ctrl(struct v4l2_ctrl *ctrl)
 	memcpy(&ctx->ae_memento, ae_ctrl,
 		   sizeof(ctx->ae_memento));
 	if (!ctx->is_streaming) {
-		// dev_info(ctx->dev, "%s streaming off, retore ae_ctrl later\n", __func__);
+		/* update timeout value upon streaming off */
+		ctx->shutter_for_timeout = ctx->ae_memento.exposure.le_exposure;
+		if (ctx->cur_mode->fine_intg_line)
+			ctx->shutter_for_timeout /= 1000;
+		dev_info(ctx->dev, "%s streaming off, set restore ae_ctrl later\n", __func__);
 		return 0;
 	}
 
