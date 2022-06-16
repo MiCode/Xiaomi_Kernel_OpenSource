@@ -15,7 +15,8 @@ static struct mtk_gateic_funcs *mtk_gateic_dsi_ops;
 bool mtk_gateic_match_lcm_list(const char *lcm_name,
 	const char **list, unsigned int count, const char *gateic_name)
 {
-	unsigned int i = 0, ret = 0;
+	int ret = 0;
+	unsigned int i = 0;
 	char owner[MTK_LCM_NAME_LENGTH] = "unknown";
 
 	if (count == 0 || IS_ERR_OR_NULL(list)) {

@@ -838,7 +838,8 @@ static void parse_lcm_dsi_fps_setting(struct device_node *np,
 int parse_lcm_params_dsi(struct device_node *np,
 		struct mtk_lcm_params_dsi *params)
 {
-	unsigned int i = 0, len = 0;
+	int len = 0;
+	unsigned int i = 0;
 	unsigned int default_mode = 0;
 	unsigned int flag[64] = { 0 };
 	u32 *mode = NULL;
