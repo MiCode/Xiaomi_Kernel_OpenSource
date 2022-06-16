@@ -13,6 +13,29 @@
 
 static uint32_t g_sched_plcy_show;
 
+static ssize_t reserv_time_remain_show(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	struct mdw_device *mdev = mdw_dev;
+	int ret = 0;
+	uint32_t num = 0;
+
+	if (!mdev) {
+		mdw_drv_err("no mdw device\n");
+		ret = -ENODEV;
+		goto out;
+	}
+
+	/* get dma normal task num */
+	num = mdev->dev_funcs->get_info(mdev, MDW_INFO_RESERV_TIME_REMAIN);
+	ret = sprintf(buf, "%u\n", num);
+	if (ret < 0)
+		mdw_drv_warn("show reserv_time_remain fail(%d)\n", ret);
+
+out:
+	return ret;
+}
+static DEVICE_ATTR_RO(reserv_time_remain);
 
 static ssize_t dsp_task_num_show(struct device *dev,
 	struct device_attribute *attr, char *buf)
@@ -115,6 +138,7 @@ static DEVICE_ATTR_RW(policy);
 
 static struct attribute *mdw_sched_attrs[] = {
 	&dev_attr_policy.attr,
+	&dev_attr_reserv_time_remain.attr,
 	NULL,
 };
 

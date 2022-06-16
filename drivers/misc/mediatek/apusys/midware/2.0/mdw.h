@@ -160,6 +160,8 @@ enum mdw_info_type {
 	MDW_INFO_MIN_DTIME,
 	MDW_INFO_MIN_ETIME,
 
+	MDW_INFO_RESERV_TIME_REMAIN,
+
 	MDW_INFO_MAX,
 };
 
