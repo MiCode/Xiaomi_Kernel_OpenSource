@@ -976,6 +976,11 @@ static int mtk_panel_ext_param_get(struct drm_panel *panel,
 	}
 
 	mode_id = get_mode_enum(get_mode_by_id(connector, mode));
+
+	if (mode_id < 0) {
+		pr_info("%s, invalid mode_id\n", __func__);
+		return -1;
+	}
 	*ext_param = &ext_params[mode_id];
 
 	if (*ext_param)
