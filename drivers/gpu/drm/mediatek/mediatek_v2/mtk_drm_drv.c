@@ -3989,6 +3989,9 @@ void mtk_drm_top_clk_prepare_enable(struct drm_device *drm)
 	if (priv->top_clk_num <= 0)
 		return;
 
+	if (priv->data->mmsys_id == MMSYS_MT6985)
+		writel(0x5000000, priv->clk_regs + 0x24);
+
 	//set_swpm_disp_active(true);
 	pm_runtime_get_sync(priv->mmsys_dev);
 	if (priv->side_mmsys_dev)
@@ -4055,6 +4058,9 @@ void mtk_drm_top_clk_disable_unprepare(struct drm_device *drm)
 		}
 		clk_disable_unprepare(priv->top_clk[i]);
 	}
+
+	if (priv->data->mmsys_id == MMSYS_MT6985)
+		writel(0x5000000, priv->clk_regs + 0x24);
 
 	if (priv->ovlsys_dev)
 		pm_runtime_put_sync(priv->ovlsys_dev);
@@ -6393,6 +6399,9 @@ SKIP_OVLSYS_CONFIG:
 	}
 
 	platform_set_drvdata(pdev, private);
+
+	if (private->data->mmsys_id == MMSYS_MT6985)
+		private->clk_regs = ioremap(0x10000000, 0x1000);
 
 	ret = component_master_add_with_match(dev, &mtk_drm_ops, match);
 	DDPINFO("%s- ret:%d\n", __func__, ret);
