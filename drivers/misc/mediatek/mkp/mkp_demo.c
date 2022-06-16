@@ -90,9 +90,11 @@ struct rb_root mkp_rbtree = RB_ROOT;
 DEFINE_RWLOCK(mkp_rbtree_rwlock);
 
 #if !IS_ENABLED(CONFIG_KASAN_GENERIC) && !IS_ENABLED(CONFIG_KASAN_SW_TAGS)
-static void *p_stext;
-static void *p_etext;
-static void *p__init_begin;
+#if !IS_ENABLED(CONFIG_GCOV_KERNEL)
+static void __initdata *p_stext;
+static void __initdata *p_etext;
+static void __initdata *p__init_begin;
+#endif
 #endif
 
 int mkp_hook_trace_on;
@@ -161,6 +163,7 @@ bool full_kernel_code_2m __initdata;
 #endif
 
 #if !IS_ENABLED(CONFIG_KASAN_GENERIC) && !IS_ENABLED(CONFIG_KASAN_SW_TAGS)
+#if !IS_ENABLED(CONFIG_GCOV_KERNEL)
 static int __init protect_kernel(void)
 {
 	int ret = 0;
@@ -252,6 +255,7 @@ static int __init protect_kernel(void)
 	p__init_begin = NULL;
 	return 0;
 }
+#endif
 #endif
 
 static void probe_android_vh_set_module_permit_before_init(void *ignore,
@@ -1003,12 +1007,14 @@ int __init mkp_demo_init(void)
 		policy_ctrl[MKP_POLICY_KERNEL_RODATA] != 0) {
 
 #if !IS_ENABLED(CONFIG_KASAN_GENERIC) && !IS_ENABLED(CONFIG_KASAN_SW_TAGS)
+#if !IS_ENABLED(CONFIG_GCOV_KERNEL)
 		ret = mkp_ka_init();
 		if (ret) {
 			MKP_ERR("mkp_ka_init failed: %d", ret);
 			return ret;
 		}
 		ret = protect_kernel();
+#endif
 #endif
 	}
 
