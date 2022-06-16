@@ -391,6 +391,11 @@ static const struct mtk_disp_cm_data mt6895_cm_driver_data = {
 	.need_bypass_shadow = true,
 };
 
+static const struct mtk_disp_cm_data mt6886_cm_driver_data = {
+	.support_shadow = false,
+	.need_bypass_shadow = true,
+};
+
 static const struct mtk_disp_cm_data mt6879_cm_driver_data = {
 	.support_shadow = false,
 	.need_bypass_shadow = true,
@@ -403,6 +408,8 @@ static const struct of_device_id mtk_disp_cm_driver_dt_match[] = {
 	  .data = &mt6983_cm_driver_data},
 	{ .compatible = "mediatek,mt6895-disp-cm",
 	  .data = &mt6895_cm_driver_data},
+	{ .compatible = "mediatek,mt6886-disp-cm",
+	  .data = &mt6886_cm_driver_data},
 	{ .compatible = "mediatek,mt6879-disp-cm",
 	  .data = &mt6879_cm_driver_data},
 	{},

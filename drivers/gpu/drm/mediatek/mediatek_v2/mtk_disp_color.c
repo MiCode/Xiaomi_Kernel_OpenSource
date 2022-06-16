@@ -3658,6 +3658,18 @@ static const struct mtk_disp_color_data mt6985_color_driver_data = {
 	.need_bypass_shadow = true,
 };
 
+static const struct mtk_disp_color_data mt6886_color_driver_data = {
+	.color_offset = DISP_COLOR_START_MT6873,
+	.support_color21 = true,
+	.support_color30 = true,
+	.reg_table = {0x14009000, 0x1400A000, 0x1400D000, 0x1400E000,
+			0x14010000, 0x1400B000, -1UL, 0x14008000},
+	.color_window = 0x40185E57,
+	.support_shadow = false,
+	.need_bypass_shadow = true,
+};
+
+
 static const struct of_device_id mtk_disp_color_driver_dt_match[] = {
 	{.compatible = "mediatek,mt2701-disp-color",
 	 .data = &mt2701_color_driver_data},
@@ -3683,6 +3695,8 @@ static const struct of_device_id mtk_disp_color_driver_dt_match[] = {
 	 .data = &mt6855_color_driver_data},
 	{.compatible = "mediatek,mt6985-disp-color",
 	 .data = &mt6985_color_driver_data},
+	{.compatible = "mediatek,mt6886-disp-color",
+	 .data = &mt6886_color_driver_data},
 	{},
 };
 MODULE_DEVICE_TABLE(of, mtk_disp_color_driver_dt_match);

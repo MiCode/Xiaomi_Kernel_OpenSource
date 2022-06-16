@@ -1093,6 +1093,15 @@ static const struct mtk_disp_chist_data mt6985_chist_driver_data = {
 	.max_bin = DISP_CHIST_MAX_BIN_LOW,
 };
 
+static const struct mtk_disp_chist_data mt6886_chist_driver_data = {
+	.support_shadow = true,
+	.module_count = 1,
+	.color_format = DISP_CHIST_COLOR_FORMAT,
+	.max_channel = 3,
+	.max_bin = DISP_CHIST_MAX_BIN_LOW,
+};
+
+
 static const struct of_device_id mtk_disp_chist_driver_dt_match[] = {
 	{ .compatible = "mediatek,mt6983-disp-chist",
 	  .data = &mt6983_chist_driver_data},
@@ -1102,6 +1111,8 @@ static const struct of_device_id mtk_disp_chist_driver_dt_match[] = {
 	  .data = &mt6879_chist_driver_data},
 	{ .compatible = "mediatek,mt6985-disp-chist",
 	  .data = &mt6985_chist_driver_data},
+	{ .compatible = "mediatek,mt6886-disp-chist",
+	  .data = &mt6886_chist_driver_data},
 	{},
 };
 
