@@ -1549,7 +1549,7 @@ void ged_kpi_gpu_3d_fence_sync_cb(struct dma_fence *sFence,
 		psMonitor->i32FrameID);
 
 	// Hint frame boundary
-	if (g_ged_gpueb_support &&
+	if (ged_is_fdvfs_support() &&
 		(!ged_kpi_check_if_fallback_mode() && !g_force_gpu_dvfs_fallback)
 			&& psMonitor->pid != pid_sf && psMonitor->pid != pid_sysui)
 		g_eb_workload = mtk_gpueb_dvfs_set_frame_done();
