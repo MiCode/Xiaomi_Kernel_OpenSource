@@ -169,6 +169,7 @@ struct render_info {
 	int frame_type;
 	int hwui;
 	int sbe_control_flag;
+	int control_pid_flag;
 
 	/*render queue/dequeue/frame time info*/
 	unsigned long long t_enqueue_start;
@@ -221,6 +222,11 @@ struct sbe_info {
 	struct rb_node entry;
 };
 
+struct fps_control_pid_info {
+	int pid;
+	struct rb_node entry;
+};
+
 struct video_info {
 	int pid;
 	unsigned int count_instance;
@@ -268,6 +274,8 @@ struct hwui_info *fpsgo_search_and_add_hwui_info(int pid, int force);
 void fpsgo_delete_hwui_info(int pid);
 struct sbe_info *fpsgo_search_and_add_sbe_info(int pid, int force);
 void fpsgo_delete_sbe_info(int pid);
+struct fps_control_pid_info *fpsgo_search_and_add_fps_control_pid(int pid, int force);
+void fpsgo_delete_fpsgo_control_pid(int pid);
 void fpsgo_check_thread_status(void);
 void fpsgo_clear(void);
 struct BQ_id *fpsgo_find_BQ_id(int pid, int tgid, long long identifier,

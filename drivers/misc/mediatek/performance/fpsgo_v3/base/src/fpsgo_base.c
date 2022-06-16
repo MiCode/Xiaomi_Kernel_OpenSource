@@ -60,6 +60,7 @@ static struct rb_root BQ_id_list;
 static struct rb_root linger_tree;
 static struct rb_root hwui_info_tree;
 static struct rb_root sbe_info_tree;
+static struct rb_root fps_control_pid_info_tree;
 
 static DEFINE_MUTEX(fpsgo_render_lock);
 
@@ -701,6 +702,56 @@ void fpsgo_delete_sbe_info(int pid)
 		return;
 
 	rb_erase(&data->entry, &sbe_info_tree);
+	kfree(data);
+}
+
+struct fps_control_pid_info *fpsgo_search_and_add_fps_control_pid(int pid, int force)
+{
+	struct rb_node **p = &fps_control_pid_info_tree.rb_node;
+	struct rb_node *parent = NULL;
+	struct fps_control_pid_info *tmp = NULL;
+
+	fpsgo_lockprove(__func__);
+
+	while (*p) {
+		parent = *p;
+		tmp = rb_entry(parent, struct fps_control_pid_info, entry);
+
+		if (pid < tmp->pid)
+			p = &(*p)->rb_left;
+		else if (pid > tmp->pid)
+			p = &(*p)->rb_right;
+		else
+			return tmp;
+	}
+
+	if (!force)
+		return NULL;
+
+	tmp = kzalloc(sizeof(*tmp), GFP_KERNEL);
+	if (!tmp)
+		return NULL;
+
+	tmp->pid = pid;
+
+	rb_link_node(&tmp->entry, parent, p);
+	rb_insert_color(&tmp->entry, &fps_control_pid_info_tree);
+
+	return tmp;
+}
+
+void fpsgo_delete_fpsgo_control_pid(int pid)
+{
+	struct fps_control_pid_info *data;
+
+	fpsgo_lockprove(__func__);
+
+	data = fpsgo_search_and_add_fps_control_pid(pid, 0);
+
+	if (!data)
+		return;
+
+	rb_erase(&data->entry, &fps_control_pid_info_tree);
 	kfree(data);
 }
 
