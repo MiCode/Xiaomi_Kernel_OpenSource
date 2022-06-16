@@ -496,6 +496,21 @@ static void mtk_cam_req_return_pipe_buffers(struct mtk_cam_request *req,
 
 	buf_ret_cnt = 0;
 	for (i = buf_start; i < buf_end; i++) {
+#if PURE_RAW_WITH_SV
+		/*
+		 * when the clean-up thread is running, the sv HW is disabled.
+		 * therefore, MTK_RAW_MAIN_STREAM_OUT needs to be handled if
+		 * it exist
+		 */
+		if (mtk_cam_req_is_pure_raw_with_sv(req) &&
+		    (i == MTK_RAW_MAIN_STREAM_OUT)) {
+			// debug only
+			dev_dbg(cam->dev,
+				"%s:%s:pipe_id(%d) skip IMGO\n",
+				__func__, req->req.debug_str, pipe_id);
+			continue;
+		}
+#endif
 		/* make sure do not touch req/s_data after vb2_buffe_done */
 		buf = mtk_cam_s_data_get_vbuf(s_data_pipe, i);
 		if (!buf)
@@ -1166,6 +1181,9 @@ void mtk_cam_dev_req_cleanup(struct mtk_cam_ctx *ctx, int pipe_id, int buf_state
 	struct mtk_cam_request_stream_data *s_data;
 	struct mtk_cam_request_stream_data *clean_s_data[18];
 	/* consider running_job_list depth and mstream(2 s_data): 3*3*2 */
+#if PURE_RAW_WITH_SV
+	struct mtk_cam_buffer *buf;
+#endif
 	struct list_head *running = &cam->running_job_list;
 	int i, num_s_data, s_data_cnt, handled_cnt;
 
@@ -1247,6 +1265,32 @@ STOP_SCAN:
 				 s_data->frame_seq_no);
 		}
 		atomic_set(&s_data->meta1_done_work.is_queued, 1);
+
+#if PURE_RAW_WITH_SV
+		if (mtk_cam_req_is_pure_raw_with_sv(req)) {
+			if (atomic_read(&s_data->pure_raw_done_work.is_queued)) {
+				cancel_work_sync(&s_data->pure_raw_done_work.work);
+				dev_info(cam->dev,
+					 "%s:%s:pipe(%d):seq(%d): cancel pure_raw_done_work\n",
+					 __func__, req->req.debug_str, pipe_id,
+					 s_data->frame_seq_no);
+			}
+			atomic_set(&s_data->pure_raw_done_work.is_queued, 1);
+			/* force return IMGO buf if it still exists */
+			buf = mtk_cam_s_data_get_vbuf(s_data,
+						      MTK_RAW_MAIN_STREAM_OUT);
+			if (buf) {
+				mtk_cam_s_data_reset_vbuf(s_data,
+							  MTK_RAW_MAIN_STREAM_OUT);
+				buf->final_state = VB2_BUF_STATE_ERROR;
+				mtk_cam_mark_vbuf_done(req, buf);
+				dev_info(cam->dev,
+					 "%s:%s:pipe(%d):seq(%d): force IMGO done\n",
+					 __func__, req->req.debug_str, pipe_id,
+					 s_data->frame_seq_no);
+			}
+		}
+#endif
 
 		if (atomic_read(&s_data->frame_done_work.is_queued)) {
 			cancel_work_sync(&s_data->frame_done_work.work);
@@ -3083,7 +3127,7 @@ int mtk_cam_hdr_buf_update(struct vb2_buffer *vb,
 }
 
 /* Update raw_param.imgo_path_sel */
-static void mtk_cam_config_raw_path(struct mtk_cam_request_stream_data *s_data,
+static int mtk_cam_config_raw_path(struct mtk_cam_request_stream_data *s_data,
 				   struct mtk_cam_buffer *buf)
 {
 	struct mtk_cam_ctx *ctx;
@@ -3117,6 +3161,17 @@ static void mtk_cam_config_raw_path(struct mtk_cam_request_stream_data *s_data,
 	dev_dbg(cam->dev, "%s: node:%d fd:%d idx:%d raw_path(%d) ipi imgo_path_sel(%d))\n",
 		__func__, node->desc.id, buf->vbb.request_fd, buf->vbb.vb2_buf.index,
 		raw_pipline->res_config.raw_path, frame_param->raw_param.imgo_path_sel);
+#if PURE_RAW_WITH_SV
+	if (mtk_cam_ctx_support_pure_raw_with_sv(ctx) &&
+	    frame_param->raw_param.imgo_path_sel == MTKCAM_IPI_IMGO_UNPROCESSED) {
+		dev_dbg(cam->dev,
+			"%s: seq(%d) is pure raw with camsv(%d)\n",
+			__func__, s_data->frame_seq_no,
+			ctx->pure_raw_sv_tag_idx);
+		return ctx->pure_raw_sv_tag_idx;
+	}
+#endif
+	return -1;
 }
 
 /*
@@ -3576,6 +3631,9 @@ static int mtk_cam_req_update(struct mtk_cam_device *cam,
 		atomic_set(&req_stream_data->dbg_exception_work.state, MTK_CAM_REQ_DBGWORK_S_INIT);
 		req_stream_data->dbg_exception_work.dump_flags = 0;
 		atomic_set(&req_stream_data->frame_done_work.is_queued, 0);
+#if PURE_RAW_WITH_SV
+		atomic_set(&req_stream_data->pure_raw_done_work.is_queued, 0);
+#endif
 		req->sync_id = (ctx->used_raw_num) ? ctx->pipe->sync_id : 0;
 
 		mtk_cam_s_data_get_scen(&scen, req_stream_data);
@@ -3621,6 +3679,26 @@ static int mtk_cam_req_update(struct mtk_cam_device *cam,
 				return ret;
 			break;
 		case MTKCAM_IPI_RAW_IMGO:
+#if PURE_RAW_WITH_SV
+			req->pure_raw_sv_tag_idx =
+				mtk_cam_config_raw_path(req_stream_data, buf);
+			if (mtk_cam_req_is_pure_raw_with_sv(req) &&
+			    !mtk_cam_is_mstream(ctx) &&
+			    !mtk_cam_is_mstream_m2m(ctx)) {
+				/* do not config pure raw path, for this frame */
+				/* sv will use raw->imgo as its imgo */
+				/* camsv could find them by itself */
+				/* find sv with is_pure_raw_with_sv(tag_idx)*/
+			} else {
+				ret = mtk_cam_config_raw_img_out_imgo(req_stream_data, buf);
+				if (ret)
+					return ret;
+
+				ret = mtk_cam_config_raw_img_fmt(req_stream_data, buf);
+				if (ret)
+					return ret;
+			}
+#else
 			mtk_cam_config_raw_path(req_stream_data, buf);
 			ret = mtk_cam_config_raw_img_out_imgo(req_stream_data, buf);
 			if (ret)
@@ -3629,6 +3707,7 @@ static int mtk_cam_req_update(struct mtk_cam_device *cam,
 			ret = mtk_cam_config_raw_img_fmt(req_stream_data, buf);
 			if (ret)
 				return ret;
+#endif
 			break;
 		case MTKCAM_IPI_RAW_YUVO_1:
 		case MTKCAM_IPI_RAW_YUVO_2:
@@ -3780,6 +3859,9 @@ static void fill_mstream_s_data(struct mtk_cam_ctx *ctx,
 			MTK_CAM_REQ_DBGWORK_S_INIT);
 	req_stream_data_mstream->dbg_exception_work.dump_flags = 0;
 	atomic_set(&req_stream_data_mstream->frame_done_work.is_queued, 0);
+#if PURE_RAW_WITH_SV
+	atomic_set(&req_stream_data->pure_raw_done_work.is_queued, 0);
+#endif
 
 	frame_work = &req_stream_data_mstream->frame_work;
 	mtk_cam_req_work_init(frame_work, req_stream_data_mstream);
@@ -3814,6 +3896,9 @@ static void fill_sv_mstream_s_data(struct mtk_cam_device *cam,
 
 	/* frame done work */
 	atomic_set(&req_stream_data_mstream->frame_done_work.is_queued, 0);
+#if PURE_RAW_WITH_SV
+	atomic_set(&req_stream_data->pure_raw_done_work.is_queued, 0);
+#endif
 	frame_done_work = &req_stream_data_mstream->frame_done_work;
 	mtk_cam_req_work_init(frame_done_work, req_stream_data_mstream);
 	INIT_WORK(&frame_done_work->work, mtk_cam_frame_done_work);
@@ -3842,6 +3927,9 @@ static void fill_mraw_mstream_s_data(struct mtk_cam_device *cam,
 
 	/* frame done work */
 	atomic_set(&req_stream_data_mstream->frame_done_work.is_queued, 0);
+#if PURE_RAW_WITH_SV
+	atomic_set(&req_stream_data->pure_raw_done_work.is_queued, 0);
+#endif
 	frame_done_work = &req_stream_data_mstream->frame_done_work;
 	mtk_cam_req_work_init(frame_done_work, req_stream_data_mstream);
 	INIT_WORK(&frame_done_work->work, mtk_cam_frame_done_work);
@@ -6505,6 +6593,15 @@ int mtk_cam_s_data_dev_config(struct mtk_cam_request_stream_data *s_data,
 			cfg_in_param->subsample, mf, img_fmt);
 	}
 
+#if PURE_RAW_WITH_SV
+	/**
+	 * raw-switch case
+	 * prepare the camsv for pure raw here, it should exist with feature
+	 * camsv at same time, and always prepare it.
+	 */
+	ctx->pure_raw_sv_tag_idx = -1;  // get failed
+#endif
+
 	/* camsv's meta config */
 	for (i = 0; i < ctx->used_sv_num; i++) {
 		unsigned int idle_tags, tag_idx = SVTAG_META_START;
@@ -6913,6 +7010,14 @@ int mtk_cam_dev_config(struct mtk_cam_ctx *ctx, bool streaming, bool config_pipe
 		mtk_cam_sv_extisp_tag_update(ctx, hw_scen, exp_no,
 			cfg_in_param->subsample, mf);
 	}
+
+#if PURE_RAW_WITH_SV
+	/**
+	 * prepare the camsv for pure raw here, it should exist with feature
+	 * camsv at same time, and always prepare it.
+	 */
+	ctx->pure_raw_sv_tag_idx = -1;  // get failed
+#endif
 
 	/* camsv's meta config */
 	for (i = 0; i < ctx->used_sv_num; i++) {

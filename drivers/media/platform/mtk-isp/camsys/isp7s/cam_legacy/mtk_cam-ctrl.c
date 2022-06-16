@@ -4913,6 +4913,11 @@ static int mtk_camsys_event_handle_camsv(struct mtk_cam_device *cam,
 					if (hw_scen & MTK_CAMSV_SUPPORTED_SPECIAL_HW_SCENARIO)
 						mtk_camsv_special_hw_scenario_handler(cam,
 						camsv_dev, irq_info, hw_scen, tag_idx);
+#if PURE_RAW_WITH_SV
+					else if (mtk_cam_sv_is_pure_raw(camsv_dev, tag_idx))
+						mtk_camsv_pure_raw_scenario_handler(cam, camsv_dev,
+							irq_info, tag_idx);
+#endif
 					else
 						mtk_camsv_normal_scenario_handler(cam, camsv_dev,
 							irq_info, tag_idx);
@@ -4933,6 +4938,7 @@ static int mtk_camsys_event_handle_camsv(struct mtk_cam_device *cam,
 				mtk_camsv_normal_scenario_handler(cam, camsv_dev, irq_info,
 					tag_idx);
 		}
+		/* nothing to do for pure raw dump */
 	}
 	if (irq_info->irq_type & (1 << CAMSYS_IRQ_SETTING_DONE)) {
 		if (mtk_camsys_is_all_cq_done(ctx, camsv_dev->id +
@@ -4960,6 +4966,7 @@ static int mtk_camsys_event_handle_camsv(struct mtk_cam_device *cam,
 				mtk_cam_sv_dev_stream_on(ctx, 1);
 			}
 		}
+		/* nothing to do for pure raw dump */
 	}
 
 	return 0;
@@ -5085,6 +5092,153 @@ int mtk_camsv_normal_scenario_handler(struct mtk_cam_device *cam,
 
 	return 0;
 }
+
+#if PURE_RAW_WITH_SV
+static void mtk_camsv_pure_raw_done_work(struct work_struct *work)
+{
+	struct mtk_cam_req_work *frame_done_work = (struct mtk_cam_req_work *)work;
+	struct mtk_cam_request_stream_data *s_data_raw;
+	struct mtk_cam_request_stream_data *s_data_ctx;
+	struct mtk_cam_ctx *ctx;
+	struct mtk_cam_request *req;
+	struct mtk_cam_buffer *buf;
+
+	/**
+	 * 1. find s_data_raw.
+	 * 2. find the imgo buf
+	 * 3. mark done
+	 */
+
+	s_data_raw = mtk_cam_req_work_get_s_data(frame_done_work);
+
+	ctx = mtk_cam_s_data_get_ctx(s_data_raw);
+	if (!ctx) {
+		pr_info("%s: get ctx failed, seq(%d)",
+			__func__, s_data_raw->frame_seq_no);
+		return;
+	}
+
+	req = mtk_cam_get_req(ctx, s_data_raw->frame_seq_no);
+	if (!req) {
+		dev_info(ctx->cam->dev, "%s: get req failed, seq(%d)",
+			__func__, s_data_raw->frame_seq_no);
+		return;
+	}
+
+	s_data_ctx = mtk_cam_req_get_s_data(req, ctx->stream_id, 0);
+	if (!s_data_ctx) {
+		dev_info(ctx->cam->dev,
+			 "%s:%s:ctx-%d:s_data(%d) not found!\n",
+			 __func__, req->req.debug_str,
+			 ctx->stream_id, s_data_raw->frame_seq_no);
+		return;
+	}
+
+	/* mark imgo done and release buf */
+	buf = mtk_cam_s_data_get_vbuf(s_data_raw, MTK_RAW_MAIN_STREAM_OUT);
+	if (!buf) {
+		dev_info(ctx->cam->dev,
+			 "%s:%s:ctx-%d: can't get MTK_RAW_MAIN_STREAM_OUT, seq(%d)\n",
+			 __func__, req->req.debug_str, ctx->stream_id,
+			 s_data_raw->frame_seq_no);
+		return;
+	}
+
+	/* clean the stream data for req reinit case */
+	mtk_cam_s_data_reset_vbuf(s_data_raw, MTK_RAW_MAIN_STREAM_OUT);
+
+	/* Update the timestamp for the buffer*/
+	mtk_cam_s_data_update_timestamp(buf, s_data_ctx);
+
+	/* access request before done */
+	dev_info(ctx->cam->dev,
+		"%s:%s:ctx-%d: seq(%d) done\n",
+		__func__, req->req.debug_str, ctx->stream_id,
+		s_data_raw->frame_seq_no);
+
+	/* Let user get the buffer */
+	/* TODO: mstream, unreliable */
+	buf->final_state = VB2_BUF_STATE_DONE;
+	mtk_cam_mark_vbuf_done(req, buf);
+}
+
+int mtk_camsv_pure_raw_scenario_handler(struct mtk_cam_device *cam,
+					struct mtk_camsv_device *camsv_dev,
+					struct mtk_camsys_irq_info *irq_info,
+					unsigned int tag_idx)
+{
+	struct mtk_cam_ctx *ctx;
+	struct mtk_cam_request *req;
+	struct mtk_cam_request_stream_data *s_data_raw;
+	struct mtk_cam_req_work *frame_done_work;
+	int i;
+
+	/**
+	 * 1. find the master raw s_data (the request is valid until all
+	 *    buffers being done, so the s_data_raw exist while camsv still
+	 *    occupy imgo buffer)
+	 * 2. queue the pure_raw_done_work (to track by cleanup flow)
+	 */
+
+	if (!cam) {
+		pr_info("%s: get cam failed", __func__);
+		return -1;
+	}
+
+	if (!camsv_dev) {
+		dev_info(cam->dev, "%s: get camsv_dev failed", __func__);
+		return -1;
+	}
+
+	if (!irq_info) {
+		dev_info(cam->dev, "%s: get irq_info failed", __func__);
+		return -1;
+	}
+
+	ctx = &cam->ctxs[camsv_dev->ctx_stream_id];
+
+	req = mtk_cam_get_req(ctx, irq_info->frame_idx);
+	if (!req) {
+		dev_info(cam->dev, "%s: get req failed, seq(%d)",
+			__func__, irq_info->frame_idx);
+		return -1;
+	}
+
+	s_data_raw = NULL;
+	for (i = MTKCAM_SUBDEV_RAW_0; i < MTKCAM_SUBDEV_RAW_END; i++) {
+		/* there one raw subdev used in one streaming */
+		if (req->pipe_used & 1 << i) {
+			s_data_raw = mtk_cam_req_get_s_data(req, i, 0);
+			break;
+		}
+	}
+
+	if (!s_data_raw) {
+		dev_info(cam->dev, "%s:%s: get s_data_raw failed, seq(%d)",
+			__func__, req->req.debug_str, irq_info->frame_idx);
+		return -1;
+	}
+
+	if (irq_info->frame_idx != s_data_raw->frame_seq_no)
+		dev_info(cam->dev, "%s:%s: sequence mismatch(raw/sv:%d/%d)",
+			__func__, req->req.debug_str, s_data_raw->frame_seq_no,
+			irq_info->frame_idx);
+
+	if (atomic_read(&s_data_raw->pure_raw_done_work.is_queued)) {
+		dev_info(cam->dev,
+			"%s:%s: already queue pure raw done work, seq(%d)\n",
+			__func__, req->req.debug_str, irq_info->frame_idx);
+		return -1;
+	}
+
+	atomic_set(&s_data_raw->pure_raw_done_work.is_queued, 1);
+	INIT_WORK(&s_data_raw->pure_raw_done_work.work, mtk_camsv_pure_raw_done_work);
+	frame_done_work = &s_data_raw->pure_raw_done_work;
+	queue_work(ctx->frame_done_wq, &frame_done_work->work);
+
+	return 0;
+}
+#endif
 int mtk_camsys_isr_event(struct mtk_cam_device *cam,
 			 enum MTK_CAMSYS_ENGINE_TYPE engine_type,
 			 unsigned int engine_id,

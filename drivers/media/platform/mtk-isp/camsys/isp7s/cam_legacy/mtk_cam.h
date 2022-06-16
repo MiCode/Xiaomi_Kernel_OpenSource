@@ -41,6 +41,8 @@
 
 #define CCD_READY 1
 
+#define PURE_RAW_WITH_SV 0
+
 #define MAX_STAGGER_EXP_AMOUNT 3
 
 #define MAX_PIPES_PER_STREAM 5
@@ -250,6 +252,9 @@ struct mtk_cam_request_stream_data {
 	struct mtk_cam_req_work frame_work;
 	struct mtk_cam_req_work meta1_done_work;
 	struct mtk_cam_req_work frame_done_work;
+#if PURE_RAW_WITH_SV
+	struct mtk_cam_req_work pure_raw_done_work;
+#endif
 	struct mtk_camsys_ctrl_state state;
 	struct mtk_cam_working_buf_entry *working_buf;
 	struct mtk_camsv_working_buf_entry *sv_working_buf;
@@ -344,6 +349,10 @@ struct mtk_cam_request {
 
 	int enqeued_buf_cnt;  // no racing issue
 	atomic_t done_buf_cnt;
+
+#if PURE_RAW_WITH_SV
+	int pure_raw_sv_tag_idx;
+#endif
 };
 
 struct mtk_cam_working_buf_pool {
@@ -484,6 +493,9 @@ struct mtk_cam_ctx {
 	bool ext_isp_meta_off;
 	bool ext_isp_pureraw_off;
 	bool ext_isp_procraw_off;
+#if PURE_RAW_WITH_SV
+	int pure_raw_sv_tag_idx;
+#endif
 };
 
 struct mtk_cam_device {
@@ -901,6 +913,17 @@ static inline struct device *mtk_cam_find_raw_dev(struct mtk_cam_device *cam,
 
 	return NULL;
 }
+#if PURE_RAW_WITH_SV
+static inline bool mtk_cam_req_is_pure_raw_with_sv(struct mtk_cam_request *req)
+{
+	return req && req->pure_raw_sv_tag_idx >= 0;
+}
+
+static inline bool mtk_cam_ctx_support_pure_raw_with_sv(struct mtk_cam_ctx *ctx)
+{
+	return ctx && ctx->pure_raw_sv_tag_idx >= 0;
+}
+#endif
 
 static inline bool mtk_cam_ctx_has_raw(struct mtk_cam_ctx *ctx)
 {
