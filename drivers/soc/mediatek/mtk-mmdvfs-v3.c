@@ -6,7 +6,9 @@
 #include <linux/clk.h>
 #include <linux/kthread.h>
 #include <linux/module.h>
+#include <linux/of_platform.h>
 #include <linux/platform_device.h>
+#include <linux/remoteproc/mtk_ccu.h>
 #include <linux/sched/clock.h>
 #include <linux/slab.h>
 
@@ -34,6 +36,9 @@ static int vcp_power;
 
 static phys_addr_t mmdvfs_vcp_base;
 static bool mmdvfs_free_run;
+
+static struct platform_device *ccu_pdev;
+static struct rproc *ccu_rproc;
 
 enum mmdvfs_log_level {
 	log_ipi,
@@ -197,6 +202,7 @@ static int mtk_mmdvfs_set_rate(struct clk_hw *hw, unsigned long rate,
 	u8 i, opp, level, pwr_opp = MAX_OPP, user_opp = MAX_OPP;
 	struct mmdvfs_ipi_data slot;
 	int ret = 0;
+	unsigned int img_clk = rate / 1000000UL;
 
 	for (i = 0; i < mmdvfs_clk->freq_num; i++)
 		if (rate <= mmdvfs_clk->freqs[i])
@@ -205,7 +211,7 @@ static int mtk_mmdvfs_set_rate(struct clk_hw *hw, unsigned long rate,
 	level = (i == mmdvfs_clk->freq_num) ? (i-1) : i;
 	opp = (mmdvfs_clk->freq_num - level - 1);
 	if (log_level & 1 << log_ccf_cb)
-		MMDVFS_DBG("clk=%u user=%u freq=%lu old_opp=%d new_opp=%d\n",
+		MMDVFS_DBG("clk=%u user=%u freq=%lu old_opp=%d new_opp=%d",
 			mmdvfs_clk->clk_id, mmdvfs_clk->user_id, rate, mmdvfs_clk->opp, opp);
 	if (mmdvfs_clk->opp == opp)
 		return 0;
@@ -230,9 +236,22 @@ static int mtk_mmdvfs_set_rate(struct clk_hw *hw, unsigned long rate,
 	} else {
 		if (pwr_opp == mmdvfs_pwr_opp[mmdvfs_clk->pwr_id])
 			return 0;
-		if (mmdvfs_free_run)
-			ret = mmdvfs_vcp_ipi_send(FUNC_SET_OPP,
+		if (mmdvfs_free_run) {
+			if (mmdvfs_clk->ipi_type == IPI_MMDVFS_CCU) {
+				if (ccu_pdev) {
+					ret = mtk_ccu_rproc_ipc_send(
+						ccu_pdev,
+						MTK_CCU_FEATURE_ISPDVFS,
+						4, /*DVFS_IMG_CLK*/
+						(void *)&img_clk, sizeof(unsigned int));
+					if (ret)
+						MMDVFS_ERR("mtk_ccu_rproc_ipc_send fail(%d)", ret);
+				}
+			} else {
+				ret = mmdvfs_vcp_ipi_send(FUNC_SET_OPP,
 					mmdvfs_clk->user_id, pwr_opp, MAX_OPP);
+			}
+		}
 	}
 
 	mmdvfs_pwr_opp[mmdvfs_clk->pwr_id] = pwr_opp;
@@ -288,6 +307,32 @@ void *mtk_mmdvfs_vcp_get_base(void)
 	return (void *)vcp_get_reserve_mem_virt_ex(MMDVFS_MEM_ID);
 }
 EXPORT_SYMBOL_GPL(mtk_mmdvfs_vcp_get_base);
+
+int mtk_mmdvfs_enable_ccu(bool enable)
+{
+
+	int ret = 0;
+
+	if (!ccu_rproc) {
+		MMDVFS_ERR("there is no ccu_rproc\n");
+		return -1;
+	}
+
+	if (enable) {
+		ret = rproc_boot(ccu_rproc);
+		if (ret) {
+			MMDVFS_ERR("boot ccu rproc fail\n");
+			return ret;
+		}
+	} else {
+		rproc_shutdown(ccu_rproc);
+	}
+
+	MMDVFS_DBG("enable=%d successfully", enable);
+
+	return ret;
+}
+EXPORT_SYMBOL_GPL(mtk_mmdvfs_enable_ccu);
 
 int mtk_mmdvfs_camera_notify(const bool enable)
 {
@@ -556,31 +601,97 @@ static const struct of_device_id of_match_mmdvfs_v3[] = {
 static int mmdvfs_vcp_init_thread(void *data)
 {
 	static struct mtk_ipi_device *vcp_ipi_dev;
-	int ret;
+	int ret = 0, retry = 0;
 
 	while (mtk_mmdvfs_enable_vcp(true)) {
 		msleep(1000);
-		MMDVFS_DBG("vcp is not powered on yet");
+		retry++;
+		if (retry == 50) {
+			ret = -ETIMEDOUT;
+			MMDVFS_ERR("vcp is not powered on yet");
+			goto error_handle;
+		}
 	}
 
+	retry = 0;
 	while (!mmdvfs_vcp_is_ready()) {
-		MMDVFS_DBG("vcp is not ready yet");
 		msleep(2000);
+		retry++;
+		if (retry == 50) {
+			ret = -ETIMEDOUT;
+			MMDVFS_ERR("vcp is not ready yet");
+			goto error_handle;
+		}
 	}
 
+	retry = 0;
 	while (!(vcp_ipi_dev = vcp_get_ipidev())) {
-		MMDVFS_DBG("cannot get vcp ipidev");
 		msleep(1000);
+		retry++;
+		if (retry == 50) {
+			ret = -ETIMEDOUT;
+			MMDVFS_ERR("cannot get vcp ipidev");
+			goto error_handle;
+		}
 	}
 
 	ret = mtk_ipi_register(vcp_ipi_dev, IPI_IN_MMDVFS,
 		mmdvfs_vcp_ipi_cb, NULL, &mmdvfs_vcp_ipi_data);
-	if (ret)
-		MMDVFS_DBG("mtk_ipi_register failed:%d ipi_id:%d", ret, IPI_IN_MMDVFS);
+	if (ret) {
+		MMDVFS_ERR("mtk_ipi_register failed:%d ipi_id:%d", ret, IPI_IN_MMDVFS);
+		goto error_handle;
+	}
+
+	mmdvfs_vcp_base = vcp_get_reserve_mem_phys_ex(MMDVFS_MEM_ID);
+	mmdvfs_vcp_ipi_send_base(mmdvfs_vcp_base);
 
 	mmdvfs_init_done = true;
 
 	return 0;
+error_handle:
+	return ret;
+}
+
+static int mmdvfs_ccu_init_thread(void *data)
+{
+	phandle handle;
+	struct device_node *node = (struct device_node *) data;
+	struct device_node *rproc_np = NULL;
+	int ret = 0, retry = 0;
+
+	ret = of_property_read_u32(node, "mediatek,ccu_rproc", &handle);
+	if (ret < 0) {
+		MMDVFS_DBG("get CCU phandle fail");
+		return ret;
+	}
+
+	rproc_np = of_find_node_by_phandle(handle);
+	if (rproc_np) {
+		ccu_pdev = of_find_device_by_node(rproc_np);
+		if (!ccu_pdev) {
+			MMDVFS_ERR("find ccu rproc pdev fail");
+			ret = -EINVAL;
+			goto error_handle;
+		}
+
+		while (!(ccu_rproc = rproc_get_by_phandle(handle))) {
+			msleep(1000);
+			retry++;
+			if (retry == 100) {
+				MMDVFS_ERR("rproc_get_by_phandle fail");
+				ret = -EINVAL;
+				goto error_handle;
+			}
+		}
+
+		of_node_put(rproc_np);
+		MMDVFS_DBG("get ccu proc pdev successfully\n");
+	}
+	return ret;
+error_handle:
+	of_node_put(rproc_np);
+
+	return ret;
 }
 
 static int mmdvfs_v3_probe(struct platform_device *pdev)
@@ -589,7 +700,7 @@ static int mmdvfs_v3_probe(struct platform_device *pdev)
 	const char *MMDVFS_CLKS = "mediatek,mmdvfs-clocks";
 	struct device_node *node = pdev->dev.of_node;
 	struct clk_onecell_data *clk_data;
-	struct task_struct *kthr;
+	struct task_struct *kthr_vcp, *kthr_ccu;
 	struct clk *clk;
 	int i, ret;
 
@@ -633,8 +744,8 @@ static int mmdvfs_v3_probe(struct platform_device *pdev)
 		mtk_mmdvfs_clks[i].clk_id = spec.args[0];
 		mtk_mmdvfs_clks[i].pwr_id = spec.args[1];
 		mtk_mmdvfs_clks[i].user_id = spec.args[2];
-		mtk_mmdvfs_clks[i].spec_type = spec.args[3];
-		mtk_mmdvfs_clks[i].ipi_type = spec.args[4];
+		mtk_mmdvfs_clks[i].ipi_type = spec.args[3];
+		mtk_mmdvfs_clks[i].spec_type = spec.args[4];
 		table = of_find_node_by_phandle(spec.args[5]);
 		of_node_put(spec.np);
 
@@ -693,7 +804,8 @@ static int mmdvfs_v3_probe(struct platform_device *pdev)
 			mmdvfs_pwr_clk[i] = clk;
 	}
 
-	kthr = kthread_run(mmdvfs_vcp_init_thread, NULL, "mmdvfs-vcp");
+	kthr_vcp = kthread_run(mmdvfs_vcp_init_thread, NULL, "mmdvfs-vcp");
+	kthr_ccu = kthread_run(mmdvfs_ccu_init_thread, node, "mmdvfs-ccu");
 
 	if (of_property_read_bool(node, "mmdvfs-free-run"))
 		mmdvfs_free_run = true;
