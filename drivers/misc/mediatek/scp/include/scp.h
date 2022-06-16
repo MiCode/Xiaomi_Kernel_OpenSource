@@ -10,7 +10,7 @@
 
 #define SCP_MBOX_TOTAL 5
 
-#define PIN_OUT_SIZE_AUDIO_VOW_1         9
+#define PIN_OUT_SIZE_AUDIO_VOW_1        11
 #define PIN_IN_SIZE_AUDIO_VOW_ACK_1      2
 #define PIN_IN_SIZE_AUDIO_VOW_1         26
 #define PIN_IN_SIZE_AUDIO_ACCDET_1       1
