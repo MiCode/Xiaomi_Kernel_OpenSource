@@ -769,11 +769,12 @@ static int jdi_unprepare(struct drm_panel *panel)
 	jdi_dcs_write_seq_static(ctx, MIPI_DCS_ENTER_SLEEP_MODE);
 	msleep(150);
 
-	/*
-	 * ctx->reset_gpio = devm_gpiod_get(ctx->dev, "reset", GPIOD_OUT_HIGH);
-	 * gpiod_set_value(ctx->reset_gpio, 0);
-	 * devm_gpiod_put(ctx->dev, ctx->reset_gpio);
-	 */
+	ctx->reset_gpio = devm_gpiod_get(ctx->dev, "reset", GPIOD_OUT_HIGH);
+	if (!IS_ERR_OR_NULL(ctx->reset_gpio)) {
+		gpiod_set_value(ctx->reset_gpio, 0);
+		devm_gpiod_put(ctx->dev, ctx->reset_gpio);
+	}
+
 	if (ctx->gate_ic == 0) {
 		ctx->bias_neg =
 			devm_gpiod_get_index(ctx->dev, "bias", 1, GPIOD_OUT_HIGH);
