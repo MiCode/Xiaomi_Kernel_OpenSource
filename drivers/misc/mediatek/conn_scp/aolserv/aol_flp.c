@@ -87,7 +87,7 @@ static struct work_struct g_report_loc_done_work;
 static struct aol_flp_report_ctx g_flp_report_ctx;
 
 static bool g_flp_dev_opened;
-static bool g_flp_testing = true;
+static bool g_flp_testing;
 
 /*******************************************************************************/
 /*                  F U N C T I O N   D E C L A R A T I O N S                  */
@@ -274,8 +274,9 @@ static void aol_flp_report_location_handler(struct work_struct *work)
 			return;
 		}
 
-		pr_info("[%s] batching addr/size [%llu][%u]", __func__,
-						batching_phy_addr, batching_size);
+		loc_size = g_flp_report_ctx.loc_size/sizeof(struct conn_flp_location);
+		pr_info("[%s] batching addr/size [%llu][%u] count=[%d]", __func__,
+						batching_phy_addr, batching_size, loc_size);
 
 		addr = ioremap(batching_phy_addr, batching_size);
 		if (!addr) {
@@ -298,8 +299,10 @@ static void aol_flp_report_location_done_handler(struct work_struct *work)
 {
 	if (g_flp_report_ctx.addr) {
 		pr_info("[%s] REPORT_LOC done unmap", __func__);
-		//iounmap(g_flp_report_ctx.addr);
-		vfree(g_flp_report_ctx.addr);
+		if (g_flp_testing)
+			vfree(g_flp_report_ctx.addr);
+		else
+			iounmap(g_flp_report_ctx.addr);
 		g_flp_report_ctx.addr = 0;
 	}
 

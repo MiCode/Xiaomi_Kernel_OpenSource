@@ -81,8 +81,7 @@ phys_addr_t connsys_scp_shm_get_batching_addr(void)
 {
 	if (g_adp_shm_ptr == NULL)
 		return 0;
-	return (g_emi_phy_base + g_adp_shm_ptr->conap_scp_shm_offset +
-				g_adp_batching_ptr->buff_offset) & 0xFFFFFFFF;
+	return (g_emi_phy_base + g_adp_batching_ptr->buff_offset) & 0xFFFFFFFF;
 }
 
 uint32_t connsys_scp_shm_get_batching_size(void)
