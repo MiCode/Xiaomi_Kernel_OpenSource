@@ -971,9 +971,16 @@ static int mtk_chist_read_kthread(void *data)
 static irqreturn_t mtk_disp_chist_irq_handler(int irq, void *dev_id)
 {
 	irqreturn_t ret = IRQ_NONE;
-	unsigned int intsta;
+	unsigned int intsta = 0;
 	struct mtk_disp_chist *priv = dev_id;
-	struct mtk_ddp_comp *comp = &priv->ddp_comp;
+	struct mtk_ddp_comp *comp = NULL;
+
+	if (IS_ERR_OR_NULL(priv))
+		return ret;
+
+	comp = &priv->ddp_comp;
+	if (IS_ERR_OR_NULL(comp))
+		return ret;
 
 	intsta = readl(comp->regs + DISP_CHIST_INSTA);
 	if (intsta & 0x2) {
