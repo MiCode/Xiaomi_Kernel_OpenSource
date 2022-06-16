@@ -304,6 +304,10 @@ static void sys_config_aid_sel_engine(struct mml_comp *comp, struct mml_task *ta
 	cmdq_pkt_write(pkt, NULL, comp->base_pa + sys->aid_sel_regs[ca_idx],
 		cfg->info.src.secure, U32_MAX);
 
+	ca_idx = sys->aid_sel[path->pq_rdma_id];
+	cmdq_pkt_write(pkt, NULL, comp->base_pa + sys->aid_sel_regs[ca_idx],
+		cfg->info.seg_map.secure, U32_MAX);
+
 	for (i = 0; i < cfg->info.dest_cnt; i++) {
 		/* comp to aid sel idx */
 		ca_idx = sys->aid_sel[path->out_engine_ids[i]];

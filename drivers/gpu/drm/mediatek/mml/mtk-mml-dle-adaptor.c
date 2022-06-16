@@ -532,6 +532,7 @@ s32 mml_dle_config(struct mml_dle_ctx *ctx, struct mml_submit *submit,
 
 	/* always fixup plane offset */
 	frame_calc_plane_offset(&submit->info.src, &submit->buffer.src);
+	frame_calc_plane_offset(&submit->info.seg_map, &submit->buffer.seg_map);
 	for (i = 0; i < submit->info.dest_cnt; i++)
 		frame_calc_plane_offset(&submit->info.dest[i].data,
 			&submit->buffer.dest[i]);

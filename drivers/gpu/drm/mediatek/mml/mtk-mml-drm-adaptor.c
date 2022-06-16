@@ -764,6 +764,7 @@ s32 mml_drm_submit(struct mml_drm_ctx *ctx, struct mml_submit *submit,
 	/* always fixup plane offset */
 	if (likely(submit->info.mode != MML_MODE_SRAM_READ)) {
 		frame_calc_plane_offset(&submit->info.src, &submit->buffer.src);
+		frame_calc_plane_offset(&submit->info.seg_map, &submit->buffer.seg_map);
 		for (i = 0; i < submit->info.dest_cnt; i++)
 			frame_calc_plane_offset(&submit->info.dest[i].data,
 				&submit->buffer.dest[i]);
