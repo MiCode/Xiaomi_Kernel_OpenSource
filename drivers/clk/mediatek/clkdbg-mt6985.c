@@ -155,12 +155,6 @@ const char * const *get_mt6985_all_clk_names(void)
 		"emipll",
 		"imgpll",
 
-		/* ssr_top */
-		"ssr_rw_ssr_rng",
-		"ssr_rq_rw_ssr_dma",
-		"ssr_rq_rw_ssr_kdf",
-		"ssr_rq_rw_ssr_pka",
-
 		/* pericfg_ao */
 		"perao_uart0",
 		"perao_uart1",
@@ -182,7 +176,6 @@ const char * const *get_mt6985_all_clk_names(void)
 		"perao_spi5_b",
 		"perao_spi6_b",
 		"perao_spi7_b",
-		"perao_i2c",
 		"perao_dma_b",
 		"perao_ssusb0_frmcnt",
 		"perao_ssusb1_frmcnt",

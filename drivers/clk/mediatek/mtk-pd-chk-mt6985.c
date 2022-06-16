@@ -65,118 +65,51 @@ struct pd_check_swcg afe_swcgs[] = {
 	SWCG("afe_etdm_out1_bclk"),
 	SWCG(NULL),
 };
-/* camsys_main */
-struct pd_check_swcg camsys_main_swcgs[] = {
-	SWCG("cam_m_larb13_con_0"),
-	SWCG("cam_m_larb14_con_0"),
-	SWCG("cam_m_larb27_con_0"),
-	SWCG("cam_m_larb29_con_0"),
-	SWCG("cam_m_cam_con_0"),
-	SWCG("cam_m_cam_suba_con_0"),
-	SWCG("cam_m_cam_subb_con_0"),
-	SWCG("cam_m_cam_subc_con_0"),
-	SWCG("cam_m_cam_mraw_con_0"),
-	SWCG("cam_m_camtg_con_0"),
-	SWCG("cam_m_seninf_con_0"),
-	SWCG("cam_m_camsv_con_0"),
-	SWCG("cam_m_adlrd_con_0"),
-	SWCG("cam_m_adlwr_con_0"),
-	SWCG("cam_m_uisp_con_0"),
-	SWCG("cam_m_fake_eng_con_0"),
-	SWCG("cam_m_cam2mm0_gcon_0"),
-	SWCG("cam_m_cam2mm1_gcon_0"),
-	SWCG("cam_m_cam2sys_gcon_0"),
-	SWCG("cam_m_cam2mm2_gcon_0"),
-	SWCG("cam_m_ccusys_con_0"),
-	SWCG("cam_m_ips_con_0"),
-	SWCG("cam_m_camsv_a_con_1"),
-	SWCG("cam_m_camsv_b_con_1"),
-	SWCG("cam_m_camsv_c_con_1"),
-	SWCG("cam_m_camsv_d_con_1"),
-	SWCG("cam_m_camsv_e_con_1"),
-	SWCG("cam_m_camsv_con_1"),
-	SWCG(NULL),
-};
-/* camsys_mraw */
-struct pd_check_swcg camsys_mraw_swcgs[] = {
-	SWCG("cam_mr_larbx"),
-	SWCG("cam_mr_camtg"),
-	SWCG("cam_mr_mraw0"),
-	SWCG("cam_mr_mraw1"),
-	SWCG("cam_mr_mraw2"),
-	SWCG("cam_mr_mraw3"),
-	SWCG("cam_mr_pda0"),
-	SWCG("cam_mr_pda1"),
-	SWCG(NULL),
-};
-/* camsys_rawa */
-struct pd_check_swcg camsys_rawa_swcgs[] = {
-	SWCG("cam_ra_larbx"),
-	SWCG("cam_ra_cam"),
-	SWCG("cam_ra_camtg"),
-	SWCG(NULL),
-};
-/* camsys_rawb */
-struct pd_check_swcg camsys_rawb_swcgs[] = {
-	SWCG("cam_rb_larbx"),
-	SWCG("cam_rb_cam"),
-	SWCG("cam_rb_camtg"),
-	SWCG(NULL),
-};
-/* camsys_rawc */
-struct pd_check_swcg camsys_rawc_swcgs[] = {
-	SWCG("cam_rc_larbx"),
-	SWCG("cam_rc_cam"),
-	SWCG("cam_rc_camtg"),
-	SWCG(NULL),
-};
-/* camsys_yuva */
-struct pd_check_swcg camsys_yuva_swcgs[] = {
-	SWCG("cam_ya_larbx"),
-	SWCG("cam_ya_cam"),
-	SWCG("cam_ya_camtg"),
-	SWCG(NULL),
-};
-/* camsys_yuvb */
-struct pd_check_swcg camsys_yuvb_swcgs[] = {
-	SWCG("cam_yb_larbx"),
-	SWCG("cam_yb_cam"),
-	SWCG("cam_yb_camtg"),
-	SWCG(NULL),
-};
-/* camsys_yuvc */
-struct pd_check_swcg camsys_yuvc_swcgs[] = {
-	SWCG("cam_yc_larbx"),
-	SWCG("cam_yc_cam"),
-	SWCG("cam_yc_camtg"),
-	SWCG(NULL),
-};
-/* ccu_main */
-struct pd_check_swcg ccu_main_swcgs[] = {
-	SWCG("ccu_larb19"),
-	SWCG("ccu_ahb"),
-	SWCG("ccusys_ccu0"),
-	SWCG("ccusys_ccu1"),
-	SWCG("ccusys_dpe"),
-	SWCG("ccusys_dhze"),
-	SWCG(NULL),
-};
-/* dip_nr1_dip1 */
-struct pd_check_swcg dip_nr1_dip1_swcgs[] = {
-	SWCG("dip_nr1_dip1_larb"),
-	SWCG("dip_nr1_dip1_dip_nr1"),
-	SWCG(NULL),
-};
-/* dip_nr2_dip1 */
-struct pd_check_swcg dip_nr2_dip1_swcgs[] = {
-	SWCG("dip_nr2_dip1_larb15"),
-	SWCG("dip_nr2_dip1_dip_nr"),
-	SWCG(NULL),
-};
-/* dip_top_dip1 */
-struct pd_check_swcg dip_top_dip1_swcgs[] = {
-	SWCG("dip_dip1_larb10"),
-	SWCG("dip_dip1_dip_top"),
+/* dispsys_config */
+struct pd_check_swcg dispsys_config_swcgs[] = {
+	SWCG("mm_config"),
+	SWCG("mm_disp_mutex0"),
+	SWCG("mm_disp_aal0"),
+	SWCG("mm_disp_c3d0"),
+	SWCG("mm_disp_ccorr0"),
+	SWCG("mm_disp_ccorr1"),
+	SWCG("mm_disp_chist0"),
+	SWCG("mm_disp_chist1"),
+	SWCG("mm_disp_color0"),
+	SWCG("mm_disp_dither0"),
+	SWCG("mm_disp_dither1"),
+	SWCG("mm_disp_dli_async0"),
+	SWCG("mm_disp_dli_async1"),
+	SWCG("mm_disp_dli_async2"),
+	SWCG("mm_disp_dli_async3"),
+	SWCG("mm_disp_dli_async4"),
+	SWCG("mm_disp_dli_async5"),
+	SWCG("mm_disp_dlo_async0"),
+	SWCG("mm_disp_dlo_async1"),
+	SWCG("mm_disp_dp_intf0"),
+	SWCG("mm_disp_dsc_wrap0"),
+	SWCG("mm_clk0"),
+	SWCG("mm_disp_gamma0"),
+	SWCG("mm_mdp_aal0"),
+	SWCG("mm_mdp_rdma0"),
+	SWCG("mm_disp_merge0"),
+	SWCG("mm_disp_merge1"),
+	SWCG("mm_disp_oddmr0"),
+	SWCG("mm_disp_postalign0"),
+	SWCG("mm_disp_postmask0"),
+	SWCG("mm_disp_relay0"),
+	SWCG("mm_disp_rsz0"),
+	SWCG("mm_disp_spr0"),
+	SWCG("mm_disp_tdshp0"),
+	SWCG("mm_disp_tdshp1"),
+	SWCG("mm_disp_ufbc_wdma1"),
+	SWCG("mm_disp_vdcm0"),
+	SWCG("mm_disp_wdma1"),
+	SWCG("mm_smi_sub_comm0"),
+	SWCG("mm_disp_y2r0"),
+	SWCG("mm_dsi_clk"),
+	SWCG("mm_dp_clk"),
+	SWCG("mm_26m_clk"),
 	SWCG(NULL),
 };
 /* dispsys1_config */
@@ -226,51 +159,66 @@ struct pd_check_swcg dispsys1_config_swcgs[] = {
 	SWCG("mm1_26m_clk"),
 	SWCG(NULL),
 };
-/* dispsys_config */
-struct pd_check_swcg dispsys_config_swcgs[] = {
-	SWCG("mm_config"),
-	SWCG("mm_disp_mutex0"),
-	SWCG("mm_disp_aal0"),
-	SWCG("mm_disp_c3d0"),
-	SWCG("mm_disp_ccorr0"),
-	SWCG("mm_disp_ccorr1"),
-	SWCG("mm_disp_chist0"),
-	SWCG("mm_disp_chist1"),
-	SWCG("mm_disp_color0"),
-	SWCG("mm_disp_dither0"),
-	SWCG("mm_disp_dither1"),
-	SWCG("mm_disp_dli_async0"),
-	SWCG("mm_disp_dli_async1"),
-	SWCG("mm_disp_dli_async2"),
-	SWCG("mm_disp_dli_async3"),
-	SWCG("mm_disp_dli_async4"),
-	SWCG("mm_disp_dli_async5"),
-	SWCG("mm_disp_dlo_async0"),
-	SWCG("mm_disp_dlo_async1"),
-	SWCG("mm_disp_dp_intf0"),
-	SWCG("mm_disp_dsc_wrap0"),
-	SWCG("mm_clk0"),
-	SWCG("mm_disp_gamma0"),
-	SWCG("mm_mdp_aal0"),
-	SWCG("mm_mdp_rdma0"),
-	SWCG("mm_disp_merge0"),
-	SWCG("mm_disp_merge1"),
-	SWCG("mm_disp_oddmr0"),
-	SWCG("mm_disp_postalign0"),
-	SWCG("mm_disp_postmask0"),
-	SWCG("mm_disp_relay0"),
-	SWCG("mm_disp_rsz0"),
-	SWCG("mm_disp_spr0"),
-	SWCG("mm_disp_tdshp0"),
-	SWCG("mm_disp_tdshp1"),
-	SWCG("mm_disp_ufbc_wdma1"),
-	SWCG("mm_disp_vdcm0"),
-	SWCG("mm_disp_wdma1"),
-	SWCG("mm_smi_sub_comm0"),
-	SWCG("mm_disp_y2r0"),
-	SWCG("mm_dsi_clk"),
-	SWCG("mm_dp_clk"),
-	SWCG("mm_26m_clk"),
+/* ovlsys_config */
+struct pd_check_swcg ovlsys_config_swcgs[] = {
+	SWCG("ovl_config"),
+	SWCG("ovl_disp_fake_eng0"),
+	SWCG("ovl_disp_fake_eng1"),
+	SWCG("ovl_disp_mutex0"),
+	SWCG("ovl_ovl0_2l"),
+	SWCG("ovl_ovl1_2l"),
+	SWCG("ovl_ovl2_2l"),
+	SWCG("ovl_ovl3_2l"),
+	SWCG("ovl_disp_rsz1"),
+	SWCG("ovl_mdp_rsz0"),
+	SWCG("ovl_disp_wdma0"),
+	SWCG("ovl_disp_ufbc_wdma0"),
+	SWCG("ovl_disp_wdma2"),
+	SWCG("ovl_disp_dli_async0"),
+	SWCG("ovl_disp_dli_async1"),
+	SWCG("ovl_disp_dli_async2"),
+	SWCG("ovl_disp_dlo_async0"),
+	SWCG("ovl_disp_dlo_async1"),
+	SWCG("ovl_disp_dlo_async2"),
+	SWCG("ovl_disp_dlo_async3"),
+	SWCG("ovl_disp_dlo_async4"),
+	SWCG("ovl_disp_dlo_async5"),
+	SWCG("ovl_disp_dlo_async6"),
+	SWCG("ovl_inlinerot"),
+	SWCG("ovl_smi_sub_common0"),
+	SWCG("ovl_disp_y2r0"),
+	SWCG("ovl_disp_y2r1"),
+	SWCG(NULL),
+};
+/* ovlsys1_config */
+struct pd_check_swcg ovlsys1_config_swcgs[] = {
+	SWCG("ovl1_config"),
+	SWCG("ovl1_disp_fake_eng0"),
+	SWCG("ovl1_disp_fake_eng1"),
+	SWCG("ovl1_disp_mutex0"),
+	SWCG("ovl1_ovl0_2l"),
+	SWCG("ovl1_ovl1_2l"),
+	SWCG("ovl1_ovl2_2l"),
+	SWCG("ovl1_ovl3_2l"),
+	SWCG("ovl1_disp_rsz1"),
+	SWCG("ovl1_mdp_rsz0"),
+	SWCG("ovl1_disp_wdma0"),
+	SWCG("ovl1_disp_ufbc_wdma0"),
+	SWCG("ovl1_disp_wdma2"),
+	SWCG("ovl1_disp_dli_async0"),
+	SWCG("ovl1_disp_dli_async1"),
+	SWCG("ovl1_disp_dli_async2"),
+	SWCG("ovl1_disp_dlo_async0"),
+	SWCG("ovl1_disp_dlo_async1"),
+	SWCG("ovl1_disp_dlo_async2"),
+	SWCG("ovl1_disp_dlo_async3"),
+	SWCG("ovl1_disp_dlo_async4"),
+	SWCG("ovl1_disp_dlo_async5"),
+	SWCG("ovl1_disp_dlo_async6"),
+	SWCG("ovl1_inlinerot"),
+	SWCG("ovl1_smi_sub_common0"),
+	SWCG("ovl1_disp_y2r0"),
+	SWCG("ovl1_disp_y2r1"),
 	SWCG(NULL),
 };
 /* imgsys_main */
@@ -294,45 +242,207 @@ struct pd_check_swcg imgsys_main_swcgs[] = {
 	SWCG("img_gals"),
 	SWCG(NULL),
 };
-/* mdpsys1_config */
-struct pd_check_swcg mdpsys1_config_swcgs[] = {
-	SWCG("mdp1_mdp_mutex0"),
-	SWCG("mdp1_apb_bus"),
-	SWCG("mdp1_smi0"),
-	SWCG("mdp1_mdp_rdma0"),
-	SWCG("mdp1_mdp_rdma2"),
-	SWCG("mdp1_mdp_hdr0"),
-	SWCG("mdp1_mdp_aal0"),
-	SWCG("mdp1_mdp_rsz0"),
-	SWCG("mdp1_mdp_tdshp0"),
-	SWCG("mdp1_mdp_color0"),
-	SWCG("mdp1_mdp_wrot0"),
-	SWCG("mdp1_mdp_fake_eng0"),
-	SWCG("mdp1_mdp_dli_async0"),
-	SWCG("mdp1_mdp_dli_async1"),
-	SWCG("mdp1_mdp_rdma1"),
-	SWCG("mdp1_mdp_rdma3"),
-	SWCG("mdp1_mdp_hdr1"),
-	SWCG("mdp1_mdp_aal1"),
-	SWCG("mdp1_mdp_rsz1"),
-	SWCG("mdp1_mdp_tdshp1"),
-	SWCG("mdp1_mdp_color1"),
-	SWCG("mdp1_mdp_wrot1"),
-	SWCG("mdp1_mdp_rsz2"),
-	SWCG("mdp1_mdp_wrot2"),
-	SWCG("mdp1_mdp_dlo_async0"),
-	SWCG("mdp1_mdp_rsz3"),
-	SWCG("mdp1_mdp_wrot3"),
-	SWCG("mdp1_mdp_dlo_async1"),
-	SWCG("mdp1_mdp_dli_async2"),
-	SWCG("mdp1_mdp_dli_async3"),
-	SWCG("mdp1_mdp_dlo_async2"),
-	SWCG("mdp1_mdp_dlo_async3"),
-	SWCG("mdp1_mdp_birsz0"),
-	SWCG("mdp1_mdp_birsz1"),
-	SWCG("mdp1_img_dl_async0"),
-	SWCG("mdp1_img_dl_async1"),
-	SWCG("mdp1_hre_mdpsys"),
+/* dip_top_dip1 */
+struct pd_check_swcg dip_top_dip1_swcgs[] = {
+	SWCG("dip_dip1_larb10"),
+	SWCG("dip_dip1_dip_top"),
+	SWCG(NULL),
+};
+/* dip_nr1_dip1 */
+struct pd_check_swcg dip_nr1_dip1_swcgs[] = {
+	SWCG("dip_nr1_dip1_larb"),
+	SWCG("dip_nr1_dip1_dip_nr1"),
+	SWCG(NULL),
+};
+/* dip_nr2_dip1 */
+struct pd_check_swcg dip_nr2_dip1_swcgs[] = {
+	SWCG("dip_nr2_dip1_larb15"),
+	SWCG("dip_nr2_dip1_dip_nr"),
+	SWCG(NULL),
+};
+/* wpe1_dip1 */
+struct pd_check_swcg wpe1_dip1_swcgs[] = {
+	SWCG("wpe1_dip1_larb11"),
+	SWCG("wpe1_dip1_wpe"),
+	SWCG(NULL),
+};
+/* wpe2_dip1 */
+struct pd_check_swcg wpe2_dip1_swcgs[] = {
+	SWCG("wpe2_dip1_larb11"),
+	SWCG("wpe2_dip1_wpe"),
+	SWCG(NULL),
+};
+/* wpe3_dip1 */
+struct pd_check_swcg wpe3_dip1_swcgs[] = {
+	SWCG("wpe3_dip1_larb11"),
+	SWCG("wpe3_dip1_wpe"),
+	SWCG(NULL),
+};
+/* traw_dip1 */
+struct pd_check_swcg traw_dip1_swcgs[] = {
+	SWCG("traw_dip1_larb28"),
+	SWCG("traw_dip1_traw"),
+	SWCG(NULL),
+};
+/* vdec_soc_gcon_base */
+struct pd_check_swcg vdec_soc_gcon_base_swcgs[] = {
+	SWCG("vde1_larb1_cken"),
+	SWCG("vde1_lat_cken"),
+	SWCG("vde1_lat_active"),
+	SWCG("vde1_lat_cken_eng"),
+	SWCG("vde1_mini_mdp_en"),
+	SWCG("vde1_vdec_cken"),
+	SWCG("vde1_vdec_active"),
+	SWCG("vde1_vdec_cken_eng"),
+	SWCG("vde1_vdec_soc_ips_en"),
+	SWCG(NULL),
+};
+/* vdec_gcon_base */
+struct pd_check_swcg vdec_gcon_base_swcgs[] = {
+	SWCG("vde2_larb1_cken"),
+	SWCG("vde2_lat_cken"),
+	SWCG("vde2_lat_active"),
+	SWCG("vde2_lat_cken_eng"),
+	SWCG("vde2_vdec_cken"),
+	SWCG("vde2_vdec_active"),
+	SWCG("vde2_vdec_cken_eng"),
+	SWCG(NULL),
+};
+/* venc_gcon */
+struct pd_check_swcg venc_gcon_swcgs[] = {
+	SWCG("ven_larb"),
+	SWCG("ven_venc"),
+	SWCG("ven_jpgenc"),
+	SWCG("ven_jpgdec"),
+	SWCG("ven_jpgdec_c1"),
+	SWCG("ven_gals"),
+	SWCG("ven_gals_sram"),
+	SWCG(NULL),
+};
+/* venc_gcon_core1 */
+struct pd_check_swcg venc_gcon_core1_swcgs[] = {
+	SWCG("ven_c1_larb"),
+	SWCG("ven_c1_venc"),
+	SWCG("ven_c1_jpgenc"),
+	SWCG("ven_c1_jpgdec"),
+	SWCG("ven_c1_jpgdec_c1"),
+	SWCG("ven_c1_gals"),
+	SWCG("ven_c1_gals_sram"),
+	SWCG(NULL),
+};
+/* venc_gcon_core2 */
+struct pd_check_swcg venc_gcon_core2_swcgs[] = {
+	SWCG("ven_c2_larb"),
+	SWCG("ven_c2_venc"),
+	SWCG("ven_c2_jpgenc"),
+	SWCG("ven_c2_jpgdec"),
+	SWCG("ven_c2_jpgdec_c1"),
+	SWCG("ven_c2_gals"),
+	SWCG("ven_c2_gals_sram"),
+	SWCG(NULL),
+};
+/* camsys_main */
+struct pd_check_swcg camsys_main_swcgs[] = {
+	SWCG("cam_m_larb13_con_0"),
+	SWCG("cam_m_larb14_con_0"),
+	SWCG("cam_m_larb27_con_0"),
+	SWCG("cam_m_larb29_con_0"),
+	SWCG("cam_m_cam_con_0"),
+	SWCG("cam_m_cam_suba_con_0"),
+	SWCG("cam_m_cam_subb_con_0"),
+	SWCG("cam_m_cam_subc_con_0"),
+	SWCG("cam_m_cam_mraw_con_0"),
+	SWCG("cam_m_camtg_con_0"),
+	SWCG("cam_m_seninf_con_0"),
+	SWCG("cam_m_camsv_con_0"),
+	SWCG("cam_m_adlrd_con_0"),
+	SWCG("cam_m_adlwr_con_0"),
+	SWCG("cam_m_uisp_con_0"),
+	SWCG("cam_m_fake_eng_con_0"),
+	SWCG("cam_m_cam2mm0_gcon_0"),
+	SWCG("cam_m_cam2mm1_gcon_0"),
+	SWCG("cam_m_cam2sys_gcon_0"),
+	SWCG("cam_m_cam2mm2_gcon_0"),
+	SWCG("cam_m_ccusys_con_0"),
+	SWCG("cam_m_ips_con_0"),
+	SWCG("cam_m_camsv_a_con_1"),
+	SWCG("cam_m_camsv_b_con_1"),
+	SWCG("cam_m_camsv_c_con_1"),
+	SWCG("cam_m_camsv_d_con_1"),
+	SWCG("cam_m_camsv_e_con_1"),
+	SWCG("cam_m_camsv_con_1"),
+	SWCG(NULL),
+};
+/* camsys_rawa */
+struct pd_check_swcg camsys_rawa_swcgs[] = {
+	SWCG("cam_ra_larbx"),
+	SWCG("cam_ra_cam"),
+	SWCG("cam_ra_camtg"),
+	SWCG(NULL),
+};
+/* camsys_yuva */
+struct pd_check_swcg camsys_yuva_swcgs[] = {
+	SWCG("cam_ya_larbx"),
+	SWCG("cam_ya_cam"),
+	SWCG("cam_ya_camtg"),
+	SWCG(NULL),
+};
+/* camsys_rawb */
+struct pd_check_swcg camsys_rawb_swcgs[] = {
+	SWCG("cam_rb_larbx"),
+	SWCG("cam_rb_cam"),
+	SWCG("cam_rb_camtg"),
+	SWCG(NULL),
+};
+/* camsys_yuvb */
+struct pd_check_swcg camsys_yuvb_swcgs[] = {
+	SWCG("cam_yb_larbx"),
+	SWCG("cam_yb_cam"),
+	SWCG("cam_yb_camtg"),
+	SWCG(NULL),
+};
+/* camsys_rawc */
+struct pd_check_swcg camsys_rawc_swcgs[] = {
+	SWCG("cam_rc_larbx"),
+	SWCG("cam_rc_cam"),
+	SWCG("cam_rc_camtg"),
+	SWCG(NULL),
+};
+/* camsys_yuvc */
+struct pd_check_swcg camsys_yuvc_swcgs[] = {
+	SWCG("cam_yc_larbx"),
+	SWCG("cam_yc_cam"),
+	SWCG("cam_yc_camtg"),
+	SWCG(NULL),
+};
+/* camsys_mraw */
+struct pd_check_swcg camsys_mraw_swcgs[] = {
+	SWCG("cam_mr_larbx"),
+	SWCG("cam_mr_camtg"),
+	SWCG("cam_mr_mraw0"),
+	SWCG("cam_mr_mraw1"),
+	SWCG("cam_mr_mraw2"),
+	SWCG("cam_mr_mraw3"),
+	SWCG("cam_mr_pda0"),
+	SWCG("cam_mr_pda1"),
+	SWCG(NULL),
+};
+/* ccu_main */
+struct pd_check_swcg ccu_main_swcgs[] = {
+	SWCG("ccu_larb19"),
+	SWCG("ccu_ahb"),
+	SWCG("ccusys_ccu0"),
+	SWCG("ccusys_ccu1"),
+	SWCG("ccusys_dpe"),
+	SWCG("ccusys_dhze"),
+	SWCG(NULL),
+};
+/* mminfra_config */
+struct pd_check_swcg mminfra_config_swcgs[] = {
+	SWCG("mminfra_gce_d"),
+	SWCG("mminfra_gce_m"),
+	SWCG("mminfra_smi"),
+	SWCG("mminfra_gce_26m"),
 	SWCG(NULL),
 };
 /* mdpsys_config */
@@ -376,163 +486,45 @@ struct pd_check_swcg mdpsys_config_swcgs[] = {
 	SWCG("mdp_hre_mdpsys"),
 	SWCG(NULL),
 };
-/* mminfra_config */
-struct pd_check_swcg mminfra_config_swcgs[] = {
-	SWCG("mminfra_gce_d"),
-	SWCG("mminfra_gce_m"),
-	SWCG("mminfra_smi"),
-	SWCG("mminfra_gce_26m"),
-	SWCG(NULL),
-};
-/* ovlsys1_config */
-struct pd_check_swcg ovlsys1_config_swcgs[] = {
-	SWCG("ovl1_config"),
-	SWCG("ovl1_disp_fake_eng0"),
-	SWCG("ovl1_disp_fake_eng1"),
-	SWCG("ovl1_disp_mutex0"),
-	SWCG("ovl1_ovl0_2l"),
-	SWCG("ovl1_ovl1_2l"),
-	SWCG("ovl1_ovl2_2l"),
-	SWCG("ovl1_ovl3_2l"),
-	SWCG("ovl1_disp_rsz1"),
-	SWCG("ovl1_mdp_rsz0"),
-	SWCG("ovl1_disp_wdma0"),
-	SWCG("ovl1_disp_ufbc_wdma0"),
-	SWCG("ovl1_disp_wdma2"),
-	SWCG("ovl1_disp_dli_async0"),
-	SWCG("ovl1_disp_dli_async1"),
-	SWCG("ovl1_disp_dli_async2"),
-	SWCG("ovl1_disp_dlo_async0"),
-	SWCG("ovl1_disp_dlo_async1"),
-	SWCG("ovl1_disp_dlo_async2"),
-	SWCG("ovl1_disp_dlo_async3"),
-	SWCG("ovl1_disp_dlo_async4"),
-	SWCG("ovl1_disp_dlo_async5"),
-	SWCG("ovl1_disp_dlo_async6"),
-	SWCG("ovl1_inlinerot"),
-	SWCG("ovl1_smi_sub_common0"),
-	SWCG("ovl1_disp_y2r0"),
-	SWCG("ovl1_disp_y2r1"),
-	SWCG(NULL),
-};
-/* ovlsys_config */
-struct pd_check_swcg ovlsys_config_swcgs[] = {
-	SWCG("ovl_config"),
-	SWCG("ovl_disp_fake_eng0"),
-	SWCG("ovl_disp_fake_eng1"),
-	SWCG("ovl_disp_mutex0"),
-	SWCG("ovl_ovl0_2l"),
-	SWCG("ovl_ovl1_2l"),
-	SWCG("ovl_ovl2_2l"),
-	SWCG("ovl_ovl3_2l"),
-	SWCG("ovl_disp_rsz1"),
-	SWCG("ovl_mdp_rsz0"),
-	SWCG("ovl_disp_wdma0"),
-	SWCG("ovl_disp_ufbc_wdma0"),
-	SWCG("ovl_disp_wdma2"),
-	SWCG("ovl_disp_dli_async0"),
-	SWCG("ovl_disp_dli_async1"),
-	SWCG("ovl_disp_dli_async2"),
-	SWCG("ovl_disp_dlo_async0"),
-	SWCG("ovl_disp_dlo_async1"),
-	SWCG("ovl_disp_dlo_async2"),
-	SWCG("ovl_disp_dlo_async3"),
-	SWCG("ovl_disp_dlo_async4"),
-	SWCG("ovl_disp_dlo_async5"),
-	SWCG("ovl_disp_dlo_async6"),
-	SWCG("ovl_inlinerot"),
-	SWCG("ovl_smi_sub_common0"),
-	SWCG("ovl_disp_y2r0"),
-	SWCG("ovl_disp_y2r1"),
-	SWCG(NULL),
-};
-/* ssr_top */
-struct pd_check_swcg ssr_top_swcgs[] = {
-	SWCG("ssr_rw_ssr_rng"),
-	SWCG("ssr_rq_rw_ssr_dma"),
-	SWCG("ssr_rq_rw_ssr_kdf"),
-	SWCG("ssr_rq_rw_ssr_pka"),
-	SWCG(NULL),
-};
-/* traw_dip1 */
-struct pd_check_swcg traw_dip1_swcgs[] = {
-	SWCG("traw_dip1_larb28"),
-	SWCG("traw_dip1_traw"),
-	SWCG(NULL),
-};
-/* vdec_gcon_base */
-struct pd_check_swcg vdec_gcon_base_swcgs[] = {
-	SWCG("vde2_larb1_cken"),
-	SWCG("vde2_lat_cken"),
-	SWCG("vde2_lat_active"),
-	SWCG("vde2_lat_cken_eng"),
-	SWCG("vde2_vdec_cken"),
-	SWCG("vde2_vdec_active"),
-	SWCG("vde2_vdec_cken_eng"),
-	SWCG(NULL),
-};
-/* vdec_soc_gcon_base */
-struct pd_check_swcg vdec_soc_gcon_base_swcgs[] = {
-	SWCG("vde1_larb1_cken"),
-	SWCG("vde1_lat_cken"),
-	SWCG("vde1_lat_active"),
-	SWCG("vde1_lat_cken_eng"),
-	SWCG("vde1_mini_mdp_en"),
-	SWCG("vde1_vdec_cken"),
-	SWCG("vde1_vdec_active"),
-	SWCG("vde1_vdec_cken_eng"),
-	SWCG("vde1_vdec_soc_ips_en"),
-	SWCG(NULL),
-};
-/* venc_gcon */
-struct pd_check_swcg venc_gcon_swcgs[] = {
-	SWCG("ven_larb"),
-	SWCG("ven_venc"),
-	SWCG("ven_jpgenc"),
-	SWCG("ven_jpgdec"),
-	SWCG("ven_jpgdec_c1"),
-	SWCG("ven_gals"),
-	SWCG("ven_gals_sram"),
-	SWCG(NULL),
-};
-/* venc_gcon_core1 */
-struct pd_check_swcg venc_gcon_core1_swcgs[] = {
-	SWCG("ven_c1_larb"),
-	SWCG("ven_c1_venc"),
-	SWCG("ven_c1_jpgenc"),
-	SWCG("ven_c1_jpgdec"),
-	SWCG("ven_c1_jpgdec_c1"),
-	SWCG("ven_c1_gals"),
-	SWCG("ven_c1_gals_sram"),
-	SWCG(NULL),
-};
-/* venc_gcon_core2 */
-struct pd_check_swcg venc_gcon_core2_swcgs[] = {
-	SWCG("ven_c2_larb"),
-	SWCG("ven_c2_venc"),
-	SWCG("ven_c2_jpgenc"),
-	SWCG("ven_c2_jpgdec"),
-	SWCG("ven_c2_jpgdec_c1"),
-	SWCG("ven_c2_gals"),
-	SWCG("ven_c2_gals_sram"),
-	SWCG(NULL),
-};
-/* wpe1_dip1 */
-struct pd_check_swcg wpe1_dip1_swcgs[] = {
-	SWCG("wpe1_dip1_larb11"),
-	SWCG("wpe1_dip1_wpe"),
-	SWCG(NULL),
-};
-/* wpe2_dip1 */
-struct pd_check_swcg wpe2_dip1_swcgs[] = {
-	SWCG("wpe2_dip1_larb11"),
-	SWCG("wpe2_dip1_wpe"),
-	SWCG(NULL),
-};
-/* wpe3_dip1 */
-struct pd_check_swcg wpe3_dip1_swcgs[] = {
-	SWCG("wpe3_dip1_larb11"),
-	SWCG("wpe3_dip1_wpe"),
+/* mdpsys1_config */
+struct pd_check_swcg mdpsys1_config_swcgs[] = {
+	SWCG("mdp1_mdp_mutex0"),
+	SWCG("mdp1_apb_bus"),
+	SWCG("mdp1_smi0"),
+	SWCG("mdp1_mdp_rdma0"),
+	SWCG("mdp1_mdp_rdma2"),
+	SWCG("mdp1_mdp_hdr0"),
+	SWCG("mdp1_mdp_aal0"),
+	SWCG("mdp1_mdp_rsz0"),
+	SWCG("mdp1_mdp_tdshp0"),
+	SWCG("mdp1_mdp_color0"),
+	SWCG("mdp1_mdp_wrot0"),
+	SWCG("mdp1_mdp_fake_eng0"),
+	SWCG("mdp1_mdp_dli_async0"),
+	SWCG("mdp1_mdp_dli_async1"),
+	SWCG("mdp1_mdp_rdma1"),
+	SWCG("mdp1_mdp_rdma3"),
+	SWCG("mdp1_mdp_hdr1"),
+	SWCG("mdp1_mdp_aal1"),
+	SWCG("mdp1_mdp_rsz1"),
+	SWCG("mdp1_mdp_tdshp1"),
+	SWCG("mdp1_mdp_color1"),
+	SWCG("mdp1_mdp_wrot1"),
+	SWCG("mdp1_mdp_rsz2"),
+	SWCG("mdp1_mdp_wrot2"),
+	SWCG("mdp1_mdp_dlo_async0"),
+	SWCG("mdp1_mdp_rsz3"),
+	SWCG("mdp1_mdp_wrot3"),
+	SWCG("mdp1_mdp_dlo_async1"),
+	SWCG("mdp1_mdp_dli_async2"),
+	SWCG("mdp1_mdp_dli_async3"),
+	SWCG("mdp1_mdp_dlo_async2"),
+	SWCG("mdp1_mdp_dlo_async3"),
+	SWCG("mdp1_mdp_birsz0"),
+	SWCG("mdp1_mdp_birsz1"),
+	SWCG("mdp1_img_dl_async0"),
+	SWCG("mdp1_img_dl_async1"),
+	SWCG("mdp1_hre_mdpsys"),
 	SWCG(NULL),
 };
 
@@ -549,36 +541,35 @@ struct subsys_cgs_check {
 
 struct subsys_cgs_check mtk_subsys_check[] = {
 	{MT6985_CHK_PD_AUDIO, PD_NULL, afe_swcgs, afe},
-	{MT6985_CHK_PD_CAM_MAIN, MT6985_CHK_PD_CAM_VCORE, camsys_main_swcgs, cam_m},
-	{MT6985_CHK_PD_CAM_MRAW, MT6985_CHK_PD_CAM_MAIN, camsys_mraw_swcgs, cam_mr},
-	{MT6985_CHK_PD_CAM_SUBA, MT6985_CHK_PD_CAM_MAIN, camsys_rawa_swcgs, cam_ra},
-	{MT6985_CHK_PD_CAM_SUBB, MT6985_CHK_PD_CAM_MAIN, camsys_rawb_swcgs, cam_rb},
-	{MT6985_CHK_PD_CAM_SUBC, MT6985_CHK_PD_CAM_MAIN, camsys_rawc_swcgs, cam_rc},
-	{MT6985_CHK_PD_CAM_SUBA, MT6985_CHK_PD_CAM_MAIN, camsys_yuva_swcgs, cam_ya},
-	{MT6985_CHK_PD_CAM_SUBB, MT6985_CHK_PD_CAM_MAIN, camsys_yuvb_swcgs, cam_yb},
-	{MT6985_CHK_PD_CAM_SUBC, MT6985_CHK_PD_CAM_MAIN, camsys_yuvc_swcgs, cam_yc},
-	{MT6985_CHK_PD_CAM_MAIN, MT6985_CHK_PD_CAM_VCORE, ccu_main_swcgs, ccu},
+	{MT6985_CHK_PD_DIS0, MT6985_CHK_PD_MM_INFRA, dispsys_config_swcgs, mm},
+	{MT6985_CHK_PD_DIS1, MT6985_CHK_PD_MM_INFRA, dispsys1_config_swcgs, mm1},
+	{MT6985_CHK_PD_OVLSYS, MT6985_CHK_PD_MM_INFRA, ovlsys_config_swcgs, ovl},
+	{MT6985_CHK_PD_OVLSYS1, MT6985_CHK_PD_MM_INFRA, ovlsys1_config_swcgs, ovl1},
+	{MT6985_CHK_PD_ISP_MAIN, MT6985_CHK_PD_ISP_VCORE, imgsys_main_swcgs, img},
+	{MT6985_CHK_PD_ISP_DIP1, MT6985_CHK_PD_ISP_MAIN, dip_top_dip1_swcgs, dip_top_dip1},
 	{MT6985_CHK_PD_ISP_DIP1, MT6985_CHK_PD_ISP_MAIN, dip_nr1_dip1_swcgs, dip_nr1_dip1},
 	{MT6985_CHK_PD_ISP_DIP1, MT6985_CHK_PD_ISP_MAIN, dip_nr2_dip1_swcgs, dip_nr2_dip1},
-	{MT6985_CHK_PD_ISP_DIP1, MT6985_CHK_PD_ISP_MAIN, dip_top_dip1_swcgs, dip_top_dip1},
-	{MT6985_CHK_PD_DIS1, MT6985_CHK_PD_MM_INFRA, dispsys1_config_swcgs, mm1},
-	{MT6985_CHK_PD_DIS0, MT6985_CHK_PD_MM_INFRA, dispsys_config_swcgs, mm},
-	{MT6985_CHK_PD_ISP_MAIN, MT6985_CHK_PD_ISP_VCORE, imgsys_main_swcgs, img},
-	{MT6985_CHK_PD_MDP1, MT6985_CHK_PD_MM_INFRA, mdpsys1_config_swcgs, mdp1},
-	{MT6985_CHK_PD_MDP0, MT6985_CHK_PD_MM_INFRA, mdpsys_config_swcgs, mdp},
-	{MT6985_CHK_PD_MM_INFRA, PD_NULL, mminfra_config_swcgs, mminfra_config},
-	{MT6985_CHK_PD_OVLSYS1, MT6985_CHK_PD_MM_INFRA, ovlsys1_config_swcgs, ovl1},
-	{MT6985_CHK_PD_OVLSYS, MT6985_CHK_PD_MM_INFRA, ovlsys_config_swcgs, ovl},
-	{MT6985_CHK_PD_SSRSYS, PD_NULL, ssr_top_swcgs, ssr_top},
-	{MT6985_CHK_PD_ISP_DIP1, MT6985_CHK_PD_ISP_MAIN, traw_dip1_swcgs, traw_dip1},
-	{MT6985_CHK_PD_VDE1, MT6985_CHK_PD_VDE_VCORE1, vdec_gcon_base_swcgs, vde2},
-	{MT6985_CHK_PD_VDE0, MT6985_CHK_PD_VDE_VCORE0, vdec_soc_gcon_base_swcgs, vde1},
-	{MT6985_CHK_PD_VEN0, MT6985_CHK_PD_MM_INFRA, venc_gcon_swcgs, ven},
-	{MT6985_CHK_PD_VEN1, MT6985_CHK_PD_MM_INFRA, venc_gcon_core1_swcgs, ven_c1},
-	{MT6985_CHK_PD_VEN2, MT6985_CHK_PD_VEN1, venc_gcon_core2_swcgs, ven_c2},
 	{MT6985_CHK_PD_ISP_DIP1, MT6985_CHK_PD_ISP_MAIN, wpe1_dip1_swcgs, wpe1_dip1},
 	{MT6985_CHK_PD_ISP_DIP1, MT6985_CHK_PD_ISP_MAIN, wpe2_dip1_swcgs, wpe2_dip1},
 	{MT6985_CHK_PD_ISP_DIP1, MT6985_CHK_PD_ISP_MAIN, wpe3_dip1_swcgs, wpe3_dip1},
+	{MT6985_CHK_PD_ISP_DIP1, MT6985_CHK_PD_ISP_MAIN, traw_dip1_swcgs, traw_dip1},
+	{MT6985_CHK_PD_VDE0, MT6985_CHK_PD_VDE_VCORE0, vdec_soc_gcon_base_swcgs, vde1},
+	{MT6985_CHK_PD_VDE1, MT6985_CHK_PD_VDE_VCORE1, vdec_gcon_base_swcgs, vde2},
+	{MT6985_CHK_PD_VEN0, MT6985_CHK_PD_MM_INFRA, venc_gcon_swcgs, ven},
+	{MT6985_CHK_PD_VEN1, MT6985_CHK_PD_MM_INFRA, venc_gcon_core1_swcgs, ven_c1},
+	{MT6985_CHK_PD_VEN2, MT6985_CHK_PD_VEN1, venc_gcon_core2_swcgs, ven_c2},
+	{MT6985_CHK_PD_CAM_MAIN, MT6985_CHK_PD_CAM_VCORE, camsys_main_swcgs, cam_m},
+	{MT6985_CHK_PD_CAM_SUBA, MT6985_CHK_PD_CAM_MAIN, camsys_rawa_swcgs, cam_ra},
+	{MT6985_CHK_PD_CAM_SUBA, MT6985_CHK_PD_CAM_MAIN, camsys_yuva_swcgs, cam_ya},
+	{MT6985_CHK_PD_CAM_SUBB, MT6985_CHK_PD_CAM_MAIN, camsys_rawb_swcgs, cam_rb},
+	{MT6985_CHK_PD_CAM_SUBB, MT6985_CHK_PD_CAM_MAIN, camsys_yuvb_swcgs, cam_yb},
+	{MT6985_CHK_PD_CAM_SUBC, MT6985_CHK_PD_CAM_MAIN, camsys_rawc_swcgs, cam_rc},
+	{MT6985_CHK_PD_CAM_SUBC, MT6985_CHK_PD_CAM_MAIN, camsys_yuvc_swcgs, cam_yc},
+	{MT6985_CHK_PD_CAM_MRAW, MT6985_CHK_PD_CAM_MAIN, camsys_mraw_swcgs, cam_mr},
+	{MT6985_CHK_PD_CAM_MAIN, MT6985_CHK_PD_CAM_VCORE, ccu_main_swcgs, ccu},
+	{MT6985_CHK_PD_MM_INFRA, PD_NULL, mminfra_config_swcgs, mminfra_config},
+	{MT6985_CHK_PD_MDP0, MT6985_CHK_PD_MM_INFRA, mdpsys_config_swcgs, mdp},
+	{MT6985_CHK_PD_MDP1, MT6985_CHK_PD_MM_INFRA, mdpsys1_config_swcgs, mdp1},
 };
 
 static struct pd_check_swcg *get_subsys_cg(unsigned int id)
@@ -663,8 +654,6 @@ unsigned int pd_list[] = {
 	MT6985_CHK_PD_MM_PROC,
 	MT6985_CHK_PD_DP_TX,
 	MT6985_CHK_PD_CSI_RX,
-	MT6985_CHK_PD_SSRSYS,
-	MT6985_CHK_PD_DXCC,
 	MT6985_CHK_PD_VDE_VCORE0,
 	MT6985_CHK_PD_VDE_VCORE1,
 };
@@ -804,8 +793,6 @@ static struct pd_sta pd_pwr_sta[] = {
 	{MT6985_CHK_PD_MM_PROC, spm, 0x0E94, GENMASK(31, 30)},
 	{MT6985_CHK_PD_DP_TX, spm, 0x0E98, GENMASK(31, 30)},
 	{MT6985_CHK_PD_CSI_RX, spm, 0x0ED8, GENMASK(31, 30)},
-	{MT6985_CHK_PD_SSRSYS, spm, 0x0EDC, GENMASK(31, 30)},
-	{MT6985_CHK_PD_DXCC, spm, 0x0EE0, GENMASK(31, 30)},
 	{MT6985_CHK_PD_VDE_VCORE0, spm, 0x0FA0, GENMASK(31, 30)},
 	{MT6985_CHK_PD_VDE_VCORE1, spm, 0x0FA4, GENMASK(31, 30)},
 };
@@ -881,8 +868,6 @@ static int off_mtcmos_id[] = {
 	MT6985_CHK_PD_MM_PROC,
 	MT6985_CHK_PD_DP_TX,
 	MT6985_CHK_PD_CSI_RX,
-	MT6985_CHK_PD_SSRSYS,
-	MT6985_CHK_PD_DXCC,
 	MT6985_CHK_PD_VDE_VCORE0,
 	MT6985_CHK_PD_VDE_VCORE1,
 	PD_NULL,

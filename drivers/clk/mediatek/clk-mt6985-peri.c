@@ -205,8 +205,6 @@ static const struct mtk_gate perao_clks[] = {
 	GATE_PERAO0(CLK_PERAO_SPI7_B, "perao_spi7_b",
 			"spi_ck"/* parent */, 19),
 	/* PERAO1 */
-	GATE_PERAO1(CLK_PERAO_I2C, "perao_i2c",
-			"peri_faxi_ck"/* parent */, 0),
 	GATE_PERAO1(CLK_PERAO_DMA_B, "perao_dma_b",
 			"peri_faxi_ck"/* parent */, 1),
 	GATE_PERAO1(CLK_PERAO_SSUSB0_FRMCNT, "perao_ssusb0_frmcnt",

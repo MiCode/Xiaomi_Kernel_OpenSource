@@ -53,44 +53,12 @@ static const struct mtk_clk_desc ifrao_mcd = {
 
 
 
-static const struct mtk_gate_regs ssr_top_cg_regs = {
-	.set_ofs = 0x0,
-	.clr_ofs = 0x0,
-	.sta_ofs = 0x0,
-};
 
-#define GATE_SSR_TOP(_id, _name, _parent, _shift) {	\
-		.id = _id,				\
-		.name = _name,				\
-		.parent_name = _parent,			\
-		.regs = &ssr_top_cg_regs,			\
-		.shift = _shift,			\
-		.ops = &mtk_clk_gate_ops_no_setclr_inv,	\
-	}
-
-static const struct mtk_gate ssr_top_clks[] = {
-	GATE_SSR_TOP(CLK_SSR_TOP_RG_RW_SSR_RNG, "ssr_rw_ssr_rng",
-			"f26m_ck"/* parent */, 0),
-	GATE_SSR_TOP(CLK_SSR_TOP_RQ_RW_SSR_DMA, "ssr_rq_rw_ssr_dma",
-			"ssr_312_ck"/* parent */, 8),
-	GATE_SSR_TOP(CLK_SSR_TOP_RQ_RW_SSR_KDF, "ssr_rq_rw_ssr_kdf",
-			"ssr_312_ck"/* parent */, 16),
-	GATE_SSR_TOP(CLK_SSR_TOP_RQ_RW_SSR_PKA, "ssr_rq_rw_ssr_pka",
-			"ssr_416_ck"/* parent */, 24),
-};
-
-static const struct mtk_clk_desc ssr_top_mcd = {
-	.clks = ssr_top_clks,
-	.num_clks = CLK_SSR_TOP_NR_CLK,
-};
 
 static const struct of_device_id of_match_clk_mt6985_bus[] = {
 	{
 		.compatible = "mediatek,mt6985-infracfg_ao",
 		.data = &ifrao_mcd,
-	}, {
-		.compatible = "mediatek,mt6985-ssr_top",
-		.data = &ssr_top_mcd,
 	}, {
 		/* sentinel */
 	}
