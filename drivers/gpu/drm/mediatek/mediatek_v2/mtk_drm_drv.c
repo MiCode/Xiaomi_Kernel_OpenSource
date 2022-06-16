@@ -4056,13 +4056,13 @@ void mtk_drm_top_clk_disable_unprepare(struct drm_device *drm)
 		clk_disable_unprepare(priv->top_clk[i]);
 	}
 
-	pm_runtime_put_sync(priv->mmsys_dev);
-	if (priv->side_mmsys_dev)
-		pm_runtime_put_sync(priv->side_mmsys_dev);
 	if (priv->ovlsys_dev)
 		pm_runtime_put_sync(priv->ovlsys_dev);
 	if (priv->side_ovlsys_dev)
 		pm_runtime_put_sync(priv->side_ovlsys_dev);
+	pm_runtime_put_sync(priv->mmsys_dev);
+	if (priv->side_mmsys_dev)
+		pm_runtime_put_sync(priv->side_mmsys_dev);
 	DRM_MMP_MARK(top_clk, atomic_read(&top_clk_ref),
 			atomic_read(&top_isr_ref));
 }
@@ -6409,13 +6409,13 @@ SKIP_OVLSYS_CONFIG:
 	return 0;
 
 err_pm:
-	pm_runtime_disable(dev);
-	if (private->side_mmsys_dev)
-		pm_runtime_disable(private->side_mmsys_dev);
 	if (private->ovlsys_dev)
 		pm_runtime_disable(private->ovlsys_dev);
 	if (private->side_ovlsys_dev)
 		pm_runtime_disable(private->side_ovlsys_dev);
+	pm_runtime_disable(dev);
+	if (private->side_mmsys_dev)
+		pm_runtime_disable(private->side_mmsys_dev);
 err_node:
 	of_node_put(private->mutex_node);
 	for (i = 0; i < DDP_COMPONENT_ID_MAX; i++)
@@ -6445,13 +6445,13 @@ static int mtk_drm_remove(struct platform_device *pdev)
 	drm_dev_put(drm);
 
 	component_master_del(&pdev->dev, &mtk_drm_ops);
-	pm_runtime_disable(&pdev->dev);
-	if (private->side_mmsys_dev)
-		pm_runtime_disable(private->side_mmsys_dev);
 	if (private->ovlsys_dev)
 		pm_runtime_disable(private->ovlsys_dev);
 	if (private->side_ovlsys_dev)
 		pm_runtime_disable(private->side_ovlsys_dev);
+	pm_runtime_disable(&pdev->dev);
+	if (private->side_mmsys_dev)
+		pm_runtime_disable(private->side_mmsys_dev);
 	of_node_put(private->mutex_node);
 	for (i = 0; i < DDP_COMPONENT_ID_MAX; i++)
 		of_node_put(private->comp_node[i]);
