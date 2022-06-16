@@ -488,9 +488,6 @@ static bool check_type2_vio_status(int slave_type, int *vio_idx, int *index)
 		}
 	}
 
-	if (!mtk_devapc_ctx->serror)
-		pr_info(PFX "%s: no violation for %s:0x%x\n", __func__,
-				"slave_type", slave_type);
 	return false;
 }
 
@@ -970,8 +967,7 @@ static void devapc_extra_handler(int slave_type, const char *vio_master,
  * devapc_dump_info - the devapc will dump violation information
  *			  including which master violates access slave.
  */
-#ifdef CONFIG_MTK_SERROR_HOOK
-static void devapc_dump_info(void)
+static void devapc_dump_info(bool booting)
 {
 	uint32_t slave_type_num = mtk_devapc_ctx->soc->slave_type_num;
 	const struct mtk_device_info **device_info;
@@ -986,8 +982,13 @@ static void devapc_dump_info(void)
 
 	/* There are multiple DEVAPC_PD */
 	for (slave_type = 0; slave_type < slave_type_num; slave_type++) {
-		if (!is_devapc_subsys_power_on(slave_type))
-			continue;
+		if (booting) {
+			if (!is_devapc_subsys_enabled(slave_type))
+				continue;
+		} else {
+			if (!is_devapc_subsys_power_on(slave_type))
+				continue;
+		}
 
 		if (!check_type2_vio_status(slave_type, &vio_idx, &index))
 			if (!mtk_devapc_dump_vio_dbg(slave_type, &vio_idx,
@@ -1043,7 +1044,6 @@ static void devapc_dump_info(void)
 		mask_module_irq(slave_type, vio_idx, false);
 	}
 }
-#endif
 
 /*
  * devapc_violation_irq - the devapc Interrupt Service Routine (ISR) will dump
@@ -1567,7 +1567,7 @@ static void devapc_arm64_serror_panic_hook(void *data,
 {
 	mtk_devapc_ctx->serror = true;
 	mtk_devapc_ctx->soc->dbg_stat->enable_KE = false;
-	devapc_dump_info();
+	devapc_dump_info(false);
 }
 #endif
 
@@ -1824,6 +1824,7 @@ int mtk_devapc_probe(struct platform_device *pdev,
 		return ret;
 	}
 
+	devapc_dump_info(true);
 	start_devapc();
 
 	return 0;
