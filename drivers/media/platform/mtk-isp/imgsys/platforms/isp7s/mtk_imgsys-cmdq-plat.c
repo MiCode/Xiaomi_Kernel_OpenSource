@@ -7,6 +7,7 @@
  */
 
 #include <linux/platform_device.h>
+#include <dt-bindings/interconnect/mtk,mmqos.h>
 //#include <linux/soc/mediatek/mtk-cmdq-ext.h>
 #include <linux/pm_opp.h>
 #include <linux/pm_runtime.h>
@@ -31,6 +32,9 @@
 #define WPE_BWLOG_HW_COMB (IMGSYS_ENG_WPE_TNR | IMGSYS_ENG_DIP)
 #define WPE_BWLOG_HW_COMB_ninA (IMGSYS_ENG_WPE_EIS | IMGSYS_ENG_PQDIP_A)
 #define WPE_BWLOG_HW_COMB_ninB (IMGSYS_ENG_WPE_EIS | IMGSYS_ENG_PQDIP_B)
+
+#define IMGSYS_QOS_SYNC_OWNER	(0x412d454d5f53)
+#define IMGSYS_QOS_MAX_PERF	(MTK_MMQOS_MAX_SMI_FREQ_BW >> 1)
 
 static struct workqueue_struct *imgsys_cmdq_wq;
 static u32 is_stream_off;
@@ -1331,11 +1335,40 @@ void mtk_imgsys_mmqos_init_plat7s(struct mtk_imgsys_dev *imgsys_dev)
 	struct mtk_imgsys_qos *qos_info = &imgsys_dev->qos_info;
 	//struct icc_path *path;
 	int idx = 0;
+	u32 ret = 0;
 
 	memset((void *)qos_info, 0x0, sizeof(struct mtk_imgsys_qos));
 	qos_info->dev = imgsys_dev->dev;
 	qos_info->qos_path = imgsys_qos_path;
+
 #ifndef CONFIG_FPGA_EARLY_PORTING
+	if (of_property_read_u32(qos_info->dev->of_node,
+		"mediatek,imgsys-qos-sc-motr", &ret) != 0) {
+		dev_info(qos_info->dev, "mmqos monitor is not exist\n");
+	} else {
+		qos_info->sc_monitor = ret;
+
+		if (of_property_read_u32(qos_info->dev->of_node,
+			"mediatek,imgsys-qos-sc-nums", &ret) != 0) {
+			dev_info(qos_info->dev, "mmqos sc num is not exist\n");
+		} else {
+			qos_info->sc_nums = ret;
+			dev_info(qos_info->dev, "mmqos monitor: %d, sc_nums: %d\n",
+				 qos_info->sc_monitor, qos_info->sc_nums);
+
+			if (qos_info->sc_nums > 0 &&
+				qos_info->sc_nums < MTK_IMGSYS_QOS_SC_MAX_ID) {
+				for (idx = 0; idx < qos_info->sc_nums; idx++) {
+					if (of_property_read_u32_index(qos_info->dev->of_node,
+					"mediatek,imgsys-qos-sc-id", idx, &ret) == 0)
+						qos_info->sc_id[idx] = ret;
+					dev_info(qos_info->dev, "mmqos sc_id[%d]: %d\n",
+						idx, qos_info->sc_id[idx]);
+				}
+			}
+		}
+	}
+
 	for (idx = 0; idx < IMGSYS_M4U_PORT_MAX; idx++) {
 		qos_info->qos_path[idx].path =
 			of_mtk_icc_get(qos_info->dev, qos_info->qos_path[idx].dts_name);
@@ -1378,11 +1411,16 @@ void mtk_imgsys_mmqos_monitor_plat7s(struct mtk_imgsys_dev *imgsys_dev, u32 stat
 
 	u32 common_port[MAX_MON_REQ] = { 0 };
 	u32 flag[MAX_MON_REQ] = { 0 };
-	u32 bw0[MAX_MON_REQ];
-	u32 bw1[MAX_MON_REQ];
+	u32 bw0[MAX_MON_REQ] = { 0 };
+	u32 bw1[MAX_MON_REQ] = { 0 };
 
-	common_port[0] = 7;
-	common_port[1] = 7;
+	if (unlikely(!qos_info->sc_monitor))
+		return;
+
+	common_port[0] = qos_info->sc_id[0];
+	common_port[1] = qos_info->sc_id[1];
+	common_port[2] = qos_info->sc_id[2];
+	common_port[3] = qos_info->sc_id[3];
 
 	flag[0] = 1;
 	flag[1] = 2;
@@ -1391,7 +1429,8 @@ void mtk_imgsys_mmqos_monitor_plat7s(struct mtk_imgsys_dev *imgsys_dev, u32 stat
 	    state == SMI_MONITOR_ACQUIRE_STATE) {
 #ifndef CONFIG_FPGA_EARLY_PORTING
 		smi_monitor_stop(NULL, 0, bw0, SMI_BW_IMGSYS);
-		smi_monitor_stop(NULL, 1, bw1, SMI_BW_IMGSYS);
+		if (qos_info->sc_monitor > 1)
+			smi_monitor_stop(NULL, 1, bw1, SMI_BW_IMGSYS);
 #endif
 	}
 
@@ -1402,15 +1441,21 @@ void mtk_imgsys_mmqos_monitor_plat7s(struct mtk_imgsys_dev *imgsys_dev, u32 stat
 		qos_info->bw_total[SMI_COMMON_ID_32][SMI_WRITE] = 0;
 	} else if (state == SMI_MONITOR_ACQUIRE_STATE) {
 		if (qos_info->req_cnt == 0) { //Initial setting
-			qos_info->bw_total[SMI_COMMON_ID_31][SMI_READ] = 0;
-			qos_info->bw_total[SMI_COMMON_ID_31][SMI_WRITE] = 0;
-			qos_info->bw_total[SMI_COMMON_ID_32][SMI_READ] = 0;
-			qos_info->bw_total[SMI_COMMON_ID_32][SMI_WRITE] = 0;
+			qos_info->bw_total[SMI_COMMON_ID_31][SMI_READ] = IMGSYS_QOS_MAX_PERF;
+			qos_info->bw_total[SMI_COMMON_ID_31][SMI_WRITE] = IMGSYS_QOS_MAX_PERF;
+			qos_info->bw_total[SMI_COMMON_ID_32][SMI_READ] = IMGSYS_QOS_MAX_PERF;
+			qos_info->bw_total[SMI_COMMON_ID_32][SMI_WRITE] = IMGSYS_QOS_MAX_PERF;
 		} else {
 			qos_info->bw_total[SMI_COMMON_ID_31][SMI_READ] = bw0[0];
 			qos_info->bw_total[SMI_COMMON_ID_31][SMI_WRITE] = bw0[1];
-			qos_info->bw_total[SMI_COMMON_ID_32][SMI_READ] = bw1[0];
-			qos_info->bw_total[SMI_COMMON_ID_32][SMI_WRITE] = bw1[1];
+
+			if (qos_info->sc_monitor > 1) {
+				qos_info->bw_total[SMI_COMMON_ID_32][SMI_READ] = bw1[0];
+				qos_info->bw_total[SMI_COMMON_ID_32][SMI_WRITE] = bw1[1];
+			} else {
+				qos_info->bw_total[SMI_COMMON_ID_32][SMI_READ] = bw0[2];
+				qos_info->bw_total[SMI_COMMON_ID_32][SMI_WRITE] = bw0[3];
+			}
 		}
 	}
 
@@ -1418,7 +1463,8 @@ void mtk_imgsys_mmqos_monitor_plat7s(struct mtk_imgsys_dev *imgsys_dev, u32 stat
 	    state == SMI_MONITOR_ACQUIRE_STATE) {
 #ifndef CONFIG_FPGA_EARLY_PORTING
 		smi_monitor_start(qos_info->dev, 0, common_port, flag, SMI_BW_IMGSYS);
-		smi_monitor_start(qos_info->dev, 1, common_port, flag, SMI_BW_IMGSYS);
+		if (qos_info->sc_monitor > 1)
+			smi_monitor_start(qos_info->dev, 1, common_port, flag, SMI_BW_IMGSYS);
 #endif
 	}
 
@@ -1429,6 +1475,7 @@ void mtk_imgsys_mmqos_set_by_scen_plat7s(struct mtk_imgsys_dev *imgsys_dev,
 				bool isSet)
 {
 	struct mtk_imgsys_qos *qos_info = &imgsys_dev->qos_info;
+	struct mtk_imgsys_dvfs *dvfs_info = &imgsys_dev->dvfs_info;
 	u32 hw_comb = 0;
 	u64 pixel_sz = 0;
 	u64 cur_interval = 0;
@@ -1436,18 +1483,69 @@ void mtk_imgsys_mmqos_set_by_scen_plat7s(struct mtk_imgsys_dev *imgsys_dev,
 	u64 frame_duration = 0;
 	u32 frm_num = 0;
 	u64 bw_final[4] = {0};
+	u32 sidx = 0;
 
 	frm_num = frm_info->total_frmnum;
 	hw_comb = frm_info->user_info[frm_num-1].hw_comb;
 	pixel_sz = frm_info->user_info[frm_num-1].pixel_bw;
 	fps = frm_info->fps;
+	sidx = frm_info->user_info[0].subfrm_idx;
 
 	if (is_stream_off == 0 && isSet == 1) {
-		dev_dbg(qos_info->dev,	"imgsys_qos: frame_no:%d req_cnt:%d fps:%d\n",
-			frm_info->frame_no, qos_info->req_cnt, fps);
+		if (imgsys_qos_dbg_enable_plat7s())
+			dev_info(qos_info->dev,
+				 "imgsys_qos: frame_no:%d req_cnt:%d fps:%d vss:%d\n",
+				 frm_info->frame_no, qos_info->req_cnt,
+				 fps, dvfs_info->vss_task_cnt);
+
+		if (dvfs_info->vss_task_cnt > 0 &&
+		    qos_info->qos_path[IMGSYS_COMMON_0_R].bw < IMGSYS_QOS_MAX_PERF) {
+			qos_info->qos_path[IMGSYS_COMMON_0_R].bw = IMGSYS_QOS_MAX_PERF;
+			qos_info->qos_path[IMGSYS_COMMON_0_W].bw = IMGSYS_QOS_MAX_PERF;
+			qos_info->qos_path[IMGSYS_COMMON_1_R].bw = IMGSYS_QOS_MAX_PERF;
+			qos_info->qos_path[IMGSYS_COMMON_1_W].bw = IMGSYS_QOS_MAX_PERF;
+
+			bw_final[0] = qos_info->qos_path[IMGSYS_COMMON_0_R].bw;
+			bw_final[1] = qos_info->qos_path[IMGSYS_COMMON_0_W].bw;
+			bw_final[2] = qos_info->qos_path[IMGSYS_COMMON_1_R].bw;
+			bw_final[3] = qos_info->qos_path[IMGSYS_COMMON_1_W].bw;
+
+			bw_final[0] = (bw_final[0] * imgsys_qos_factor)/10;
+			bw_final[1] = (bw_final[1] * imgsys_qos_factor)/10;
+			bw_final[2] = (bw_final[2] * imgsys_qos_factor)/10;
+			bw_final[3] = (bw_final[3] * imgsys_qos_factor)/10;
+			if (imgsys_qos_dbg_enable_plat7s())
+				dev_info(qos_info->dev,
+					"imgsys_qos: frame_no:%d-sc0_r-%d sc0_w-%d, sc1_r-%d sc0_w-%d\n",
+					frm_info->frame_no,
+					bw_final[0], bw_final[1], bw_final[2], bw_final[3]);
+
+			IMGSYS_CMDQ_SYSTRACE_BEGIN("SetQos");
+#ifndef CONFIG_FPGA_EARLY_PORTING
+			mtk_icc_set_bw(qos_info->qos_path[IMGSYS_COMMON_0_R].path,
+					MBps_to_icc(bw_final[0]),
+					0);
+			mtk_icc_set_bw(qos_info->qos_path[IMGSYS_COMMON_0_W].path,
+					MBps_to_icc(bw_final[1]),
+					0);
+			mtk_icc_set_bw(qos_info->qos_path[IMGSYS_COMMON_1_R].path,
+					MBps_to_icc(bw_final[2]),
+					0);
+			mtk_icc_set_bw(qos_info->qos_path[IMGSYS_COMMON_1_W].path,
+					MBps_to_icc(bw_final[3]),
+					0);
+#endif
+			IMGSYS_CMDQ_SYSTRACE_END();
+		}
+
 		if (fps) {
 			frame_duration = 1000 / (fps << 1);
 			cur_interval = (ktime_get_boottime_ns()/1000000) - qos_info->time_prev_req;
+
+			if (frm_info->frm_owner == IMGSYS_QOS_SYNC_OWNER && sidx == 0 &&
+			    frm_info->frame_no == 0)
+				qos_info->req_cnt = 0;
+
 			if (cur_interval >= frame_duration &&
 			    frm_info->frame_no >= qos_info->req_cnt) {
 
@@ -1456,42 +1554,47 @@ void mtk_imgsys_mmqos_set_by_scen_plat7s(struct mtk_imgsys_dev *imgsys_dev,
 				qos_info->req_cnt = frm_info->frame_no + 1;
 				qos_info->time_prev_req = ktime_get_boottime_ns()/1000000;
 
-				bw_final[0] = qos_info->bw_total[0][0] * fps;
-				bw_final[1] = qos_info->bw_total[0][1] * fps;
-				bw_final[2] = qos_info->bw_total[1][0] * fps;
-				bw_final[3] = qos_info->bw_total[1][1] * fps;
+				if (dvfs_info->vss_task_cnt == 0) {
+					/* unit is MB/s */
+					bw_final[0] = (qos_info->bw_total[0][0] * fps) >> 20;
+					bw_final[1] = (qos_info->bw_total[0][1] * fps) >> 20;
+					bw_final[2] = (qos_info->bw_total[1][0] * fps) >> 20;
+					bw_final[3] = (qos_info->bw_total[1][1] * fps) >> 20;
 
-				bw_final[0] = (bw_final[0] * imgsys_qos_factor)/10;
-				bw_final[1] = (bw_final[1] * imgsys_qos_factor)/10;
-				bw_final[2] = (bw_final[2] * imgsys_qos_factor)/10;
-				bw_final[3] = (bw_final[3] * imgsys_qos_factor)/10;
+					qos_info->qos_path[IMGSYS_COMMON_0_R].bw = bw_final[0];
+					qos_info->qos_path[IMGSYS_COMMON_0_W].bw = bw_final[1];
+					qos_info->qos_path[IMGSYS_COMMON_1_R].bw = bw_final[2];
+					qos_info->qos_path[IMGSYS_COMMON_1_W].bw = bw_final[3];
 
-				dev_dbg(qos_info->dev,
-					"imgsys_qos: frame_no(%d)-sc0_r-%d sc0_w-%d, sc1_r-%d sc0_w-%d\n",
-					frm_info->frame_no,
-					bw_final[0], bw_final[1], bw_final[2], bw_final[3]);
+					bw_final[0] = (bw_final[0] * imgsys_qos_factor)/10;
+					bw_final[1] = (bw_final[1] * imgsys_qos_factor)/10;
+					bw_final[2] = (bw_final[2] * imgsys_qos_factor)/10;
+					bw_final[3] = (bw_final[3] * imgsys_qos_factor)/10;
 
-				qos_info->qos_path[IMGSYS_L9_COMMON_R_0].bw = bw_final[0];
-				qos_info->qos_path[IMGSYS_L10_COMMON_W_0].bw = bw_final[1];
-				qos_info->qos_path[IMGSYS_L12_COMMON_R_1].bw = bw_final[2];
-				qos_info->qos_path[IMGSYS_L15_COMMON_W_1].bw = bw_final[3];
+					if (imgsys_qos_dbg_enable_plat7s())
+						dev_info(qos_info->dev,
+							 "imgsys_qos: frame_no:%d-sc0_r-%d sc0_w-%d, sc1_r-%d sc0_w-%d\n",
+							 frm_info->frame_no,
+							 bw_final[0], bw_final[1],
+							 bw_final[2], bw_final[3]);
 
-				IMGSYS_CMDQ_SYSTRACE_BEGIN("SetQos");
+					IMGSYS_CMDQ_SYSTRACE_BEGIN("SetQos");
 #ifndef CONFIG_FPGA_EARLY_PORTING
-				mtk_icc_set_bw(qos_info->qos_path[IMGSYS_L9_COMMON_R_0].path,
-						Bps_to_icc(bw_final[0]),
-						0);
-				mtk_icc_set_bw(qos_info->qos_path[IMGSYS_L10_COMMON_W_0].path,
-						Bps_to_icc(bw_final[1]),
-						0);
-				mtk_icc_set_bw(qos_info->qos_path[IMGSYS_L12_COMMON_R_1].path,
-						Bps_to_icc(bw_final[2]),
-						0);
-				mtk_icc_set_bw(qos_info->qos_path[IMGSYS_L15_COMMON_W_1].path,
-						Bps_to_icc(bw_final[3]),
-						0);
+					mtk_icc_set_bw(qos_info->qos_path[IMGSYS_COMMON_0_R].path,
+							MBps_to_icc(bw_final[0]),
+							0);
+					mtk_icc_set_bw(qos_info->qos_path[IMGSYS_COMMON_0_W].path,
+							MBps_to_icc(bw_final[1]),
+							0);
+					mtk_icc_set_bw(qos_info->qos_path[IMGSYS_COMMON_1_R].path,
+							MBps_to_icc(bw_final[2]),
+							0);
+					mtk_icc_set_bw(qos_info->qos_path[IMGSYS_COMMON_1_W].path,
+							MBps_to_icc(bw_final[3]),
+							0);
 #endif
-				IMGSYS_CMDQ_SYSTRACE_END();
+					IMGSYS_CMDQ_SYSTRACE_END();
+				}
 			}
 		}
 	}
@@ -1504,17 +1607,17 @@ void mtk_imgsys_mmqos_reset_plat7s(struct mtk_imgsys_dev *imgsys_dev)
 
 	qos_info = &imgsys_dev->qos_info;
 
-	qos_info->qos_path[IMGSYS_L9_COMMON_R_0].bw = 0;
-	qos_info->qos_path[IMGSYS_L10_COMMON_W_0].bw = 0;
+	qos_info->qos_path[IMGSYS_COMMON_0_R].bw = 0;
+	qos_info->qos_path[IMGSYS_COMMON_0_W].bw = 0;
 
-	qos_info->qos_path[IMGSYS_L12_COMMON_R_1].bw = 0;
-	qos_info->qos_path[IMGSYS_L15_COMMON_W_1].bw = 0;
+	qos_info->qos_path[IMGSYS_COMMON_1_R].bw = 0;
+	qos_info->qos_path[IMGSYS_COMMON_1_W].bw = 0;
 
 #ifndef CONFIG_FPGA_EARLY_PORTING
-	mtk_icc_set_bw(qos_info->qos_path[IMGSYS_L9_COMMON_R_0].path, 0, 0);
-	mtk_icc_set_bw(qos_info->qos_path[IMGSYS_L10_COMMON_W_0].path, 0, 0);
-	mtk_icc_set_bw(qos_info->qos_path[IMGSYS_L12_COMMON_R_1].path, 0, 0);
-	mtk_icc_set_bw(qos_info->qos_path[IMGSYS_L15_COMMON_W_1].path, 0, 0);
+	mtk_icc_set_bw(qos_info->qos_path[IMGSYS_COMMON_0_R].path, 0, 0);
+	mtk_icc_set_bw(qos_info->qos_path[IMGSYS_COMMON_0_W].path, 0, 0);
+	mtk_icc_set_bw(qos_info->qos_path[IMGSYS_COMMON_1_R].path, 0, 0);
+	mtk_icc_set_bw(qos_info->qos_path[IMGSYS_COMMON_1_W].path, 0, 0);
 #endif
 
 	for (dvfs_idx = 0; dvfs_idx < MTK_IMGSYS_DVFS_GROUP; dvfs_idx++) {
@@ -1770,6 +1873,11 @@ bool imgsys_cmdq_ts_dbg_enable_plat7s(void)
 bool imgsys_dvfs_dbg_enable_plat7s(void)
 {
 	return imgsys_dvfs_dbg_en;
+}
+
+bool imgsys_qos_dbg_enable_plat7s(void)
+{
+	return imgsys_qos_dbg_en;
 }
 
 struct imgsys_cmdq_cust_data imgsys_cmdq_data_7s = {

@@ -36,6 +36,9 @@ module_param(imgsys_cmdq_ts_dbg_en, int, 0644);
 int imgsys_dvfs_dbg_en;
 module_param(imgsys_dvfs_dbg_en, int, 0644);
 
+int imgsys_qos_dbg_en;
+module_param(imgsys_qos_dbg_en, int, 0644);
+
 int imgsys_qos_update_freq;
 module_param(imgsys_qos_update_freq, int, 0644);
 
@@ -64,6 +67,11 @@ bool imgsys_cmdq_ts_dbg_enable(void)
 bool imgsys_dvfs_dbg_enable(void)
 {
 	return imgsys_dvfs_dbg_en;
+}
+
+bool imgsys_qos_dbg_enable(void)
+{
+	return imgsys_qos_dbg_en;
 }
 
 bool imgsys_cmdq_ftrace_enabled(void)

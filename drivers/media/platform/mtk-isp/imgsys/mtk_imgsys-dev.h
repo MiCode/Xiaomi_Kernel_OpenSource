@@ -57,6 +57,7 @@
 #define MTK_IMGSYS_CLK_LEVEL_CNT		5
 #define MTK_IMGSYS_DVFS_GROUP			3
 #define MTK_IMGSYS_QOS_GROUP			2
+#define MTK_IMGSYS_QOS_SC_MAX_ID		5
 
 #define MTK_IMGSYS_LOG_LENGTH			256
 
@@ -254,6 +255,9 @@ struct mtk_imgsys_qos {
 	unsigned long ts_total[MTK_IMGSYS_DVFS_GROUP];
 	unsigned long req_cnt;
 	u64 time_prev_req; /* unit is ms */
+	u32 sc_monitor;
+	u32 sc_nums;
+	u32 sc_id[MTK_IMGSYS_QOS_SC_MAX_ID];
 	bool isIdle;
 };
 

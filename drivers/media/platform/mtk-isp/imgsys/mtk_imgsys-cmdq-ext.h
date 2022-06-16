@@ -10,6 +10,7 @@ extern int imgsys_cmdq_ts_en;
 extern int imgsys_wpe_bwlog_en;
 extern int imgsys_cmdq_ts_dbg_en;
 extern int imgsys_dvfs_dbg_en;
+extern int imgsys_qos_dbg_en;
 extern int imgsys_qos_update_freq;
 extern int imgsys_qos_blank_int;
 extern int imgsys_qos_factor;
