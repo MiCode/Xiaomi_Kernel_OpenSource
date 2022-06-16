@@ -2873,10 +2873,30 @@
 			polling-delay-passive = <0>; /* milliseconds */
 			thermal-sensors = <&tboard_thermistor5>;
 		};
-		wifi {
+		wifi_adie_0 {
 			polling-delay = <0>; /* milliseconds */
 			polling-delay-passive = <0>; /* milliseconds */
-			thermal-sensors = <&wifi>;
+			thermal-sensors = <&wifi 0>;
+		};
+		wifi_ddie_0 {
+			polling-delay = <0>; /* milliseconds */
+			polling-delay-passive = <0>; /* milliseconds */
+			thermal-sensors = <&wifi 1>;
+		};
+		wifi_ddie_1 {
+			polling-delay = <0>; /* milliseconds */
+			polling-delay-passive = <0>; /* milliseconds */
+			thermal-sensors = <&wifi 2>;
+		};
+		wifi_ddie_2 {
+			polling-delay = <0>; /* milliseconds */
+			polling-delay-passive = <0>; /* milliseconds */
+			thermal-sensors = <&wifi 3>;
+		};
+		wifi_ddie_3 {
+			polling-delay = <0>; /* milliseconds */
+			polling-delay-passive = <0>; /* milliseconds */
+			thermal-sensors = <&wifi 4>;
 		};
 		pmic6363_vio18 {
 			polling-delay = <0>; /* milliseconds */
@@ -6088,7 +6108,7 @@
 			pinctrl-1 = <&wf_rst_on>;
 			conninfra-emi-addr = <0>;
 			conninfra-emi-size = <0xc00000>;
-			#thermal-sensor-cells = <0>;
+			#thermal-sensor-cells = <1>;
 		};
 
 		wifi_page_pool: wifi_page_pool {
