@@ -11280,6 +11280,11 @@
 		mtk-dsp-mem-afe = <0x1 0x40000>;
 	};
 
+	speech_usip_mem: speech_usip_mem {
+		compatible = "mediatek,speech_usip_mem";
+		adsp_phone_call_enh_enable = <0x3>;
+	};
+
 	rt-pd-manager {
 		compatible = "mediatek,rt-pd-manager";
 		/* wd0_enable : use it for enable wd0 function */
