@@ -20,6 +20,7 @@
 #define QUOTA_MAX_SIZE 300
 #define GCC_MAX_SIZE 300
 #define LOADING_CNT 64
+#define FBT_FILTER_MAX_WINDOW 100
 
 enum {
 	FPSGO_SET_UNKNOWN = -1,
@@ -55,6 +56,13 @@ struct fbt_frame_info {
 	long mips;
 	unsigned long long running_time;
 	int count;
+};
+
+struct fbt_loading_info {
+	int target_fps;
+	long loading;
+	int blc_wt;
+	int index;
 };
 
 struct fbt_thread_loading {
@@ -118,6 +126,12 @@ struct fbt_boost_info {
 	int floor_count;
 	int reset_floor_bound;
 	int f_iter;
+
+	/* filter heavy frames */
+	struct fbt_loading_info filter_loading[FBT_FILTER_MAX_WINDOW];
+	int filter_index;
+	unsigned int filter_frames_count;
+	int filter_blc;
 
 	/* quota */
 	long long quota_raw[QUOTA_MAX_SIZE];

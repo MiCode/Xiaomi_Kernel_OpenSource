@@ -182,6 +182,14 @@ enum FPSGO_SCN_TYPE {
 	FPSGO_SCN_VIDEO,
 };
 
+enum FPSGO_FILTER_STATE {
+	FPSGO_FILTER_ACTIVE = 0,
+	FPSGO_FILTER_WINDOWS_NOT_ENOUGH,
+	FPSGO_FILTER_INACTIVE,
+	FPSGO_FILTER_FRAME_ERR,
+};
+
+
 static struct kobject *fbt_kobj;
 
 static int uclamp_boost_enable;
@@ -257,6 +265,9 @@ static int aa_retarget;
 static int sbe_rescue_enable;
 static int loading_ignore_enable;
 static int loading_enable;
+static int filter_frame_enable;
+static int filter_frame_window_size;
+static int filter_frame_kmin;
 
 module_param(bhr, int, 0644);
 module_param(bhr_opp, int, 0644);
@@ -1753,6 +1764,14 @@ static int cmpint(const void *a, const void *b)
 	return *(int *)a - *(int *)b;
 }
 
+static int cmp_loading(const void *a, const void *b)
+{
+	long l = ((struct fbt_loading_info *)a)->loading;
+	long r = ((struct fbt_loading_info *)b)->loading;
+
+	return (l - r);
+}
+
 static void fbt_pidlist_add(int pid, struct list_head *dest_list)
 {
 	struct fbt_pid_list *obj = NULL;
@@ -2377,7 +2396,7 @@ static void fbt_check_cm_limit(struct render_info *thread_info,
 		fbt_notify_CM_limit(0);
 }
 
-static const int fbt_varfps_level[] = {30, 45, 60, 75, 90, 105, 120};
+static const int fbt_varfps_level[] = {30, 45, 60, 75, 90, 105, 120, 144};
 static int fbt_get_var_fps(int target_fps)
 {
 	int ret = fbt_varfps_level[0];
@@ -2391,6 +2410,118 @@ static int fbt_get_var_fps(int target_fps)
 		ret = fbt_varfps_level[i];
 		break;
 	}
+
+	return ret;
+}
+
+
+static int fbt_filter_frame(long loading, unsigned int target_fps, int blc_wt,
+	unsigned int *filter_frames_count, int *filter_index,
+	struct fbt_loading_info *filter_loading, int *filtered_blc,
+	int render_pid, unsigned long long buffer_id)
+{
+	int pre_iter = 0, next_iter = 0, cur_iter = 0;
+	int i = 0, tmp_index = 0;
+	int window_size = filter_frame_window_size, filter_kmin = filter_frame_kmin;
+	int ret = FPSGO_FILTER_ACTIVE;
+	struct fbt_loading_info *sorted_loading;
+
+	if (!filter_index || !filter_loading || !filtered_blc || !filter_frames_count) {
+		FPSGO_LOGE("ERROR %d\n", __LINE__);
+		return FPSGO_FILTER_FRAME_ERR;
+	}
+	if (*filter_index >= FBT_FILTER_MAX_WINDOW) {
+		FPSGO_LOGE("ERROR %d\n", __LINE__);
+		*filter_index = 0;
+		return FPSGO_FILTER_FRAME_ERR;
+	}
+
+	sorted_loading = kcalloc(window_size, sizeof(struct fbt_loading_info),
+		GFP_KERNEL);
+
+	if (!sorted_loading) {
+		FPSGO_LOGE("ERROR OOM %d\n", __LINE__);
+		return FPSGO_FILTER_FRAME_ERR;
+	}
+
+	cur_iter = *filter_index;
+	pre_iter = (*filter_index - 1 + FBT_FILTER_MAX_WINDOW) % FBT_FILTER_MAX_WINDOW;
+	next_iter = (*filter_index + 1 + FBT_FILTER_MAX_WINDOW) % FBT_FILTER_MAX_WINDOW;
+
+	filter_loading[*filter_index].target_fps = fbt_get_var_fps(target_fps);
+
+	if (!(filter_loading[pre_iter].target_fps)) {
+		filter_loading[*filter_index].loading = loading;
+		filter_loading[*filter_index].blc_wt = blc_wt;
+		(*filter_frames_count) = 0;
+		(*filter_index)++;
+		(*filter_index) = (*filter_index) % FBT_FILTER_MAX_WINDOW;
+		(*filtered_blc) = blc_wt;
+
+		ret = FPSGO_FILTER_WINDOWS_NOT_ENOUGH;
+		goto out;
+	}
+
+	if (filter_loading[*filter_index].target_fps == filter_loading[pre_iter].target_fps) {
+		filter_loading[*filter_index].loading = loading;
+		filter_loading[*filter_index].blc_wt = blc_wt;
+
+		if ((*filter_frames_count) < window_size) {
+			(*filter_frames_count)++;
+			(*filter_index)++;
+			(*filter_index) = (*filter_index) % FBT_FILTER_MAX_WINDOW;
+			(*filtered_blc) = blc_wt;
+
+			ret = FPSGO_FILTER_WINDOWS_NOT_ENOUGH;
+			goto out;
+		}
+
+		for (i = 0; i < window_size; i++) {
+			tmp_index = ((*filter_index) - i + FBT_FILTER_MAX_WINDOW) %
+				FBT_FILTER_MAX_WINDOW;
+			sorted_loading[window_size - i - 1].loading =
+				filter_loading[tmp_index].loading;
+			sorted_loading[window_size - i - 1].blc_wt =
+				filter_loading[tmp_index].blc_wt;
+			sorted_loading[window_size - i - 1].index = window_size - i - 1;
+			xgf_trace("[%s] tmp_index=%d, sorted_loading[%d]=%llu",
+				__func__, tmp_index, window_size - i - 1,
+				sorted_loading[window_size - i - 1].loading);
+		}
+
+		sort(sorted_loading, window_size, sizeof(struct fbt_loading_info),
+			cmp_loading, NULL);
+		for (i = 0; i < window_size; i++) {
+			xgf_trace("[%s] after_sorted[%d].index=%d, loading=%llu",
+				__func__, i, sorted_loading[i].index,
+				sorted_loading[i].loading);
+		}
+		filter_kmin = clamp(filter_kmin, 1, window_size);
+		(*filtered_blc) = sorted_loading[filter_kmin - 1].blc_wt;
+		fpsgo_systrace_c_fbt_debug(render_pid, buffer_id,
+			sorted_loading[filter_kmin - 1].loading, "filter_loading");
+
+		(*filter_index)++;
+		(*filter_index) = (*filter_index) % FBT_FILTER_MAX_WINDOW;
+	}	else {
+		/*reset frame time info*/
+		(*filter_frames_count) = 0;
+		(*filter_index)++;
+		(*filter_index) = (*filter_index) % FBT_FILTER_MAX_WINDOW;
+		(*filtered_blc) = blc_wt;
+
+		ret = FPSGO_FILTER_WINDOWS_NOT_ENOUGH;
+		goto out;
+	}
+
+out:
+	kfree(sorted_loading);
+	xgf_trace("[%s] enable=%d, window_size=%d, kmin=%d", __func__, filter_frame_enable,
+		window_size, filter_kmin);
+	xgf_trace("[%s] ret=%d, target_fps=%d, total_count=%d, filter_index=%d",
+		__func__, ret, filter_loading[cur_iter].target_fps, *filter_frames_count, cur_iter);
+	xgf_trace("[%s] loading=%lld, blc_wt=%d, filtered_blc=%d", __func__,
+		filter_loading[cur_iter].loading, filter_loading[cur_iter].blc_wt, (*filtered_blc));
 
 	return ret;
 }
@@ -3279,7 +3410,9 @@ static int fbt_boost_policy(
 	u64 t2wnt = 0ULL;
 	int active_jerk_id = 0;
 	long long rescue_target_t, qr_quota_adj;
+	long cpy_loading;
 	int isolation_cap = 100;
+	int filter_ret = 0;
 
 	if (!thread_info) {
 		FPSGO_LOGE("ERROR %d\n", __LINE__);
@@ -3300,6 +3433,7 @@ static int fbt_boost_policy(
 	t2 = nsec_to_100usec(t2);
 	t_Q2Q = thread_info->Q2Q_time;
 	t_Q2Q = nsec_to_100usec(t_Q2Q);
+	cpy_loading = aa;
 	if (aa < 0) {
 		mutex_lock(&blc_mlock);
 		if (thread_info->p_blc)
@@ -3344,6 +3478,17 @@ static int fbt_boost_policy(
 		blc_wt = (blc_wt * (boost_info->floor + 100)) / 100U;
 		blc_wt = clamp(blc_wt, 1U, 100U);
 		blc_wt = fbt_must_enhance_floor(blc_wt, orig_blc, floor_opp);
+	}
+
+	if (filter_frame_enable) {
+		fpsgo_systrace_c_fbt(pid, buffer_id, blc_wt, "before filter");
+		filter_ret = fbt_filter_frame(cpy_loading, target_fps, blc_wt,
+			&(boost_info->filter_frames_count), &(boost_info->filter_index),
+			(boost_info->filter_loading), &(boost_info->filter_blc), pid, buffer_id);
+		fpsgo_main_trace("[FILTER] ret=%d, blc_wt=%d", filter_ret, boost_info->filter_blc);
+
+		blc_wt = boost_info->filter_blc;
+		fpsgo_systrace_c_fbt(pid, buffer_id, blc_wt, "after filter");
 	}
 
 	blc_wt = fbt_limit_capacity(blc_wt, 0);
@@ -4879,6 +5024,40 @@ int fbt_switch_idleprefer(int enable)
 	return 0;
 }
 
+int fbt_set_filter_frame_enable(int enable)
+{
+	if (enable == filter_frame_enable)
+		return 0;
+	mutex_lock(&fbt_mlock);
+	filter_frame_enable = enable;
+	mutex_unlock(&fbt_mlock);
+	return 0;
+}
+
+int fbt_set_filter_frame_window_size(int window_size)
+{
+	if (window_size == filter_frame_window_size)
+		return 0;
+	if (window_size <= 0 || window_size > FBT_FILTER_MAX_WINDOW)
+		return 1;
+	mutex_lock(&fbt_mlock);
+	filter_frame_window_size = window_size;
+	mutex_unlock(&fbt_mlock);
+	return 0;
+}
+
+int fbt_set_filter_frame_kmin(int filter_kmin)
+{
+	if (filter_frame_kmin == filter_kmin)
+		return 0;
+	if (filter_kmin <= 0 || filter_kmin > filter_frame_window_size)
+		return 1;
+	mutex_lock(&fbt_mlock);
+	filter_frame_kmin = filter_kmin;
+	mutex_unlock(&fbt_mlock);
+	return 0;
+}
+
 int fbt_switch_ceiling(int enable)
 {
 	int last_enable;
@@ -6140,6 +6319,117 @@ EXIT:
 
 static KOBJ_ATTR_RW(limit_rfreq_m);
 
+static ssize_t switch_filter_frame_show(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		char *buf)
+{
+	int val = -1;
+
+	mutex_lock(&fbt_mlock);
+	val = filter_frame_enable;
+	mutex_unlock(&fbt_mlock);
+
+	return scnprintf(buf, PAGE_SIZE, "filter frame enable: %d\n", val);
+}
+
+static ssize_t switch_filter_frame_store(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		const char *buf, size_t count)
+{
+	int val = -1;
+	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
+	int arg;
+
+	if ((count > 0) && (count < FPSGO_SYSFS_MAX_BUFF_SIZE)) {
+		if (scnprintf(acBuffer, FPSGO_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
+			if (kstrtoint(acBuffer, 0, &arg) == 0)
+				val = !!arg;
+			else
+				return count;
+		}
+	}
+
+	fbt_set_filter_frame_enable(val);
+
+	return count;
+}
+
+static KOBJ_ATTR_RW(switch_filter_frame);
+
+static ssize_t filter_f_window_size_show(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		char *buf)
+{
+	int val = -1;
+
+	mutex_lock(&fbt_mlock);
+	val = filter_frame_window_size;
+	mutex_unlock(&fbt_mlock);
+
+	return scnprintf(buf, PAGE_SIZE, "filter frame window size: %d\n", val);
+}
+
+static ssize_t filter_f_window_size_store(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		const char *buf, size_t count)
+{
+	int val = -1;
+	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
+	int arg;
+
+	if ((count > 0) && (count < FPSGO_SYSFS_MAX_BUFF_SIZE)) {
+		if (scnprintf(acBuffer, FPSGO_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
+			if (kstrtoint(acBuffer, 0, &arg) == 0)
+				val = arg;
+			else
+				return count;
+		}
+	}
+
+	fbt_set_filter_frame_window_size(val);
+
+	return count;
+}
+
+static KOBJ_ATTR_RW(filter_f_window_size);
+
+static ssize_t filter_f_kmin_show(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		char *buf)
+{
+	int val = -1;
+
+	mutex_lock(&fbt_mlock);
+	val = filter_frame_kmin;
+	mutex_unlock(&fbt_mlock);
+
+	return scnprintf(buf, PAGE_SIZE, "filter frame kmin: %d\n", val);
+}
+
+static ssize_t filter_f_kmin_store(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		const char *buf, size_t count)
+{
+	int val = -1;
+	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
+	int arg;
+
+	if ((count > 0) && (count < FPSGO_SYSFS_MAX_BUFF_SIZE)) {
+		if (scnprintf(acBuffer, FPSGO_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
+			if (kstrtoint(acBuffer, 0, &arg) == 0)
+				val = arg;
+			else
+				return count;
+		}
+	}
+
+	fbt_set_filter_frame_kmin(val);
+
+	return count;
+}
+
+static KOBJ_ATTR_RW(filter_f_kmin);
+
 void __exit fbt_cpu_exit(void)
 {
 	int i = 0;
@@ -6182,6 +6472,12 @@ void __exit fbt_cpu_exit(void)
 			&kobj_attr_enable_ceiling);
 	fpsgo_sysfs_remove_file(fbt_kobj,
 			&kobj_attr_enable_uclamp_boost);
+	fpsgo_sysfs_remove_file(fbt_kobj,
+				&kobj_attr_switch_filter_frame);
+	fpsgo_sysfs_remove_file(fbt_kobj,
+			&kobj_attr_filter_f_window_size);
+	fpsgo_sysfs_remove_file(fbt_kobj,
+			&kobj_attr_filter_f_kmin);
 
 	fpsgo_sysfs_remove_dir(&fbt_kobj);
 
@@ -6294,6 +6590,10 @@ int __init fbt_cpu_init(void)
 	gcc_deq_bound_thrs = DEFAULT_GCC_DEQ_BOUND_THRS;
 	gcc_deq_bound_quota = DEFAULT_GCC_DEQ_BOUND_QUOTA;
 
+	filter_frame_enable = 0;
+	filter_frame_window_size = 6;
+	filter_frame_kmin = 3;
+
 	sbe_rescue_enable = fbt_get_default_sbe_rescue_enable();
 
 	if (cluster_num <= 0)
@@ -6365,6 +6665,13 @@ int __init fbt_cpu_init(void)
 				&kobj_attr_enable_ceiling);
 		fpsgo_sysfs_create_file(fbt_kobj,
 				&kobj_attr_enable_uclamp_boost);
+		fpsgo_sysfs_create_file(fbt_kobj,
+				&kobj_attr_switch_filter_frame);
+		fpsgo_sysfs_create_file(fbt_kobj,
+				&kobj_attr_filter_f_window_size);
+		fpsgo_sysfs_create_file(fbt_kobj,
+				&kobj_attr_filter_f_kmin);
+
 	}
 
 
