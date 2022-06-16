@@ -39,7 +39,8 @@ struct clk_bulk_data imgsys_isp7_me_clks[] = {
 	{ .id = "ME_CG_LARB12" },
 };
 
-static struct ipesys_me_device *me_dev;
+//static struct ipesys_me_device *me_dev;
+static void __iomem *g_meRegBA;
 
 
 #if defined(TF_DUMP_71_1) || defined(TF_DUMP_71_2)
@@ -49,7 +50,7 @@ int ME_TranslationFault_callback(int port, dma_addr_t mva, void *data)
 	void __iomem *meRegBA = 0L;
 	unsigned int i;
 	/* iomap registers */
-	meRegBA = me_dev->regs;
+	meRegBA = g_meRegBA;
 	if (!meRegBA) {
 		pr_info("%s Unable to ioremap dip registers\n",
 		__func__);
@@ -75,14 +76,8 @@ void imgsys_me_set_initial_value(struct mtk_imgsys_dev *imgsys_dev)
 
 	pr_info("%s: +\n", __func__);
 
-	#ifdef ME_CLK_CTRL
-	pm_runtime_get_sync(me_dev->dev);
-	ret = clk_bulk_prepare_enable(me_dev->me_clk.clk_num, me_dev->me_clk.clks);
-	if (ret) {
-		pr_info("failed to enable clock:%d\n", ret);
-		return;
-	}
-	#endif
+	g_meRegBA = of_iomap(imgsys_dev->dev->of_node, REG_MAP_E_ME);
+
 #ifndef CONFIG_FPGA_EARLY_PORTING
 #if defined(TF_DUMP_71_1)
 	mtk_iommu_register_fault_callback(M4U_PORT_L12_IPE_ME_RDMA,
@@ -107,10 +102,10 @@ void imgsys_me_set_initial_value(struct mtk_imgsys_dev *imgsys_dev)
 void imgsys_me_uninit(struct mtk_imgsys_dev *imgsys_dev)
 {
 	pr_debug("%s: +\n", __func__);
-	#ifdef ME_CLK_CTRL
-	pm_runtime_put_sync(me_dev->dev);
-	clk_bulk_disable_unprepare(me_dev->me_clk.clk_num, me_dev->me_clk.clks);
-	#endif
+	if (g_meRegBA) {
+		iounmap(g_meRegBA);
+		g_meRegBA = 0L;
+	}
 	pr_debug("%s: -\n", __func__);
 }
 //EXPORT_SYMBOL(ipesys_me_uninit);
@@ -122,7 +117,7 @@ void imgsys_me_debug_dump(struct mtk_imgsys_dev *imgsys_dev,
 	unsigned int i;
 
 	/* iomap registers */
-	meRegBA = me_dev->regs;
+	meRegBA = g_meRegBA;
 	if (!meRegBA) {
 		dev_info(imgsys_dev->dev, "%s Unable to ioremap dip registers\n",
 			__func__);
@@ -147,7 +142,7 @@ void ipesys_me_debug_dump_local(void)
 	unsigned int i;
 
 	/* iomap registers */
-	meRegBA = me_dev->regs;
+	meRegBA = g_meRegBA;
 	if (!meRegBA) {
 		pr_info("ipesys %s Unable to ioremap dip registers\n",
 			__func__);
