@@ -216,6 +216,8 @@ struct mml_comp_aal {
 
 	u32 sram_curve_start;
 	u32 sram_hist_start;
+
+	u16 event_vcp_readback_done;
 };
 
 enum aal_label_index {
@@ -844,10 +846,12 @@ static void aal_readback_vcp(struct mml_comp *comp, struct mml_task *task,
 
 	cmdq_vcp_enable(true);
 
+	cmdq_pkt_acquire_event(pkt, aal->event_vcp_readback_done);
 	cmdq_pkt_readback(pkt, engine, task->pq_task->aal_hist[pipe]->va_offset,
 		 AAL_HIST_NUM+AAL_DUAL_INFO_NUM, gpr,
 		&reuse->labels[reuse->label_idx],
 		&aal_frm->polling_reuse);
+	cmdq_pkt_clear_event(pkt, aal->event_vcp_readback_done);
 
 	add_reuse_label(reuse, &aal_frm->labels[AAL_POLLGPR_0],
 		task->pq_task->aal_hist[pipe]->va_offset);
@@ -1294,6 +1298,14 @@ static int probe(struct platform_device *pdev)
 
 	if (of_property_read_u32(dev->of_node, "sram_his_base", &priv->sram_hist_start))
 		dev_err(dev, "read his base fail\n");
+
+	if (priv->data->vcp_readback) {
+		if (of_property_read_u16(dev->of_node, "event_vcp_readback_done",
+				&priv->event_vcp_readback_done)) {
+			dev_err(dev, "read event_vcp_readback_done fail\n");
+			return -ENOENT;
+		}
+	}
 
 	/* assign ops */
 	priv->comp.tile_ops = &aal_tile_ops;
