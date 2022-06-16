@@ -1676,8 +1676,6 @@ static void xgf_reset_render(struct xgf_render *iter)
 
 static void xgff_reset_render(struct xgff_frame *iter)
 {
-	fbt_xgff_list_loading_del(iter->ploading);
-
 	xgf_clean_deps_list(&iter->xgfrender, INNER_DEPS);
 	xgf_clean_deps_list(&iter->xgfrender, OUTER_DEPS);
 	xgf_clean_deps_list(&iter->xgfrender, PREVI_DEPS);
@@ -2393,11 +2391,6 @@ static int _xgff_frame_start(
 	}
 
 	r->ploading = fbt_xgff_list_loading_add(tid, queueid, ts);
-	if (r->ploading == NULL) {
-		ret = XGF_PARAM_ERR;
-		xgf_free(r, XGFF_FRAME);
-		goto qudeq_notify_err;
-	}
 
 	// ToDo, check tid is related to the caller
 
@@ -2453,7 +2446,7 @@ static int _xgff_frame_end(
 
 	if (!iscancel) {
 
-		*area = fbt_xgff_get_loading_by_cluster(r->ploading, ts, 0);
+		*area = fbt_xgff_get_loading_by_cluster(&(r->ploading), ts, 0);
 
 		// post handle est time
 		r->xgfrender.render = tid;
@@ -2472,8 +2465,6 @@ static int _xgff_frame_end(
 			ret = XGF_NOTIFY_OK;
 		}
 	}
-
-	fbt_xgff_list_loading_del(r->ploading);
 
 	xgf_clean_deps_list(&r->xgfrender, INNER_DEPS);
 	xgf_clean_deps_list(&r->xgfrender, OUTER_DEPS);

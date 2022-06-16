@@ -14,7 +14,7 @@ extern int fpsgo_fbt2xgf_get_dep_list(int pid, int count,
 
 #if defined(CONFIG_MTK_FPSGO) || defined(CONFIG_MTK_FPSGO_V3)
 void fpsgo_ctrl2fbt_dfrc_fps(int fps_limit);
-void fpsgo_ctrl2fbt_cpufreq_cb(int cid, unsigned long freq);
+void fpsgo_ctrl2fbt_cpufreq_cb_exp(int cid, unsigned long freq);
 void fpsgo_ctrl2fbt_vsync(unsigned long long ts);
 int fpsgo_ctrl2fbt_switch_uclamp(int enable);
 void fpsgo_comp2fbt_frame_start(struct render_info *thr,
@@ -23,8 +23,7 @@ void fpsgo_comp2fbt_deq_end(struct render_info *thr,
 		unsigned long long ts);
 
 void fpsgo_base2fbt_node_init(struct render_info *obj);
-void fpsgo_base2fbt_item_del(struct fbt_thread_loading *obj,
-		struct fbt_thread_blc *pblc,
+void fpsgo_base2fbt_item_del(struct fbt_thread_blc *pblc,
 		struct fpsgo_loading *pdep,
 		struct render_info *thr);
 int fpsgo_base2fbt_get_max_blc_pid(int *pid, unsigned long long *buffer_id);
@@ -47,7 +46,7 @@ int fbt_switch_ceiling(int value);
 
 #else
 static inline void fpsgo_ctrl2fbt_dfrc_fps(int fps_limit) { }
-static inline void fpsgo_ctrl2fbt_cpufreq_cb(int cid,
+static inline void fpsgo_ctrl2fbt_cpufreq_cb_exp(int cid,
 		unsigned long freq) { }
 static inline void fpsgo_ctrl2fbt_vsync(unsigned long long ts) { }
 int fpsgo_ctrl2fbt_switch_uclamp(int enable) { return 0; }
@@ -62,8 +61,7 @@ static inline void fbt_cpu_exit(void) { }
 static inline int fpsgo_ctrl2fbt_switch_fbt(int enable) { return 0; }
 
 static inline void fpsgo_base2fbt_node_init(struct render_info *obj) { }
-static inline void fpsgo_base2fbt_item_del(
-		struct fbt_thread_loading *obj, struct fbt_thread_blc *pblc,
+static inline void fpsgo_base2fbt_item_del(struct fbt_thread_blc *pblc,
 		struct fpsgo_loading *pdep,
 		struct render_info *thr) { }
 static inline int fpsgo_base2fbt_get_max_blc_pid(int *pid,

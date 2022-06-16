@@ -179,6 +179,13 @@ struct xgf_render {
 	struct xgf_ema2_predictor *ema2_pt;
 };
 
+struct xgf_thread_loading {
+	int pid;
+	unsigned long long buffer_id;
+	unsigned long long loading;
+	int last_cb_ts;
+};
+
 struct xgff_frame {
 	struct hlist_node hlist;
 	pid_t parent;
@@ -186,7 +193,7 @@ struct xgff_frame {
 	unsigned long long bufid;
 	unsigned long frameid;
 	unsigned long long ts;
-	struct fbt_thread_loading *ploading;
+	struct xgf_thread_loading ploading;
 	struct xgf_render xgfrender;
 };
 
@@ -324,13 +331,10 @@ extern int fstb_no_r_timer_enable;
 int __init init_xgf(void);
 int __exit exit_xgf(void);
 
-struct fbt_thread_loading *fbt_xgff_list_loading_add(int pid,
+struct xgf_thread_loading fbt_xgff_list_loading_add(int pid,
 	unsigned long long buffer_id, unsigned long long ts);
-void fbt_xgff_list_loading_del(struct fbt_thread_loading *ploading);
-long fbt_xgff_get_loading_by_cluster(struct fbt_thread_loading *ploading,
+long fbt_xgff_get_loading_by_cluster(struct xgf_thread_loading *ploading,
 					unsigned long long ts,
 					unsigned int prefer_cluster);
-void fbt_xgff_loading_reset(struct fbt_thread_loading *ploading,
-				unsigned long long ts);
 
 #endif

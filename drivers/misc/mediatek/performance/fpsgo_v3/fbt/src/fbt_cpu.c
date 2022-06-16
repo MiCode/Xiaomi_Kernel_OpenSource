@@ -345,7 +345,6 @@ static DEFINE_MUTEX(fbt_mlock);
 static DEFINE_SPINLOCK(loading_slock);
 static DEFINE_MUTEX(blc_mlock);
 
-static struct list_head loading_list;
 static struct list_head blc_list;
 
 static int fbt_enable;
@@ -406,6 +405,15 @@ static int _gdfrc_fps_limit;
 static struct fbt_sjerk sjerk;
 
 static struct workqueue_struct *wq_jerk;
+
+/* for recording CPU capacity when CPU freq. changed cb is called. */
+static int lastest_ts[LOADING_CNT];
+static int prev_cb_ts[LOADING_CNT];
+static unsigned int lastest_obv[LOADING_CNT];
+static unsigned int *lastest_obv_cl[LOADING_CNT];
+static unsigned int *lastest_is_cl_isolated[LOADING_CNT];
+static unsigned int lastest_idx;
+static int last_cb_ts;
 
 static int nsec_to_100usec(unsigned long long nsec)
 {
@@ -587,62 +595,6 @@ static int fbt_is_enable(void)
 	mutex_unlock(&fbt_mlock);
 
 	return enable;
-}
-
-static struct fbt_thread_loading *fbt_list_loading_add(int pid,
-	unsigned long long buffer_id)
-{
-	struct fbt_thread_loading *obj;
-	unsigned long flags;
-	atomic_t *loading_cl;
-	int i, err_exit = 0;
-
-	if (cluster_num <= 0)
-		return NULL;
-
-	obj = kzalloc(sizeof(struct fbt_thread_loading), GFP_KERNEL);
-	if (!obj) {
-		FPSGO_LOGE("ERROR OOM\n");
-		return NULL;
-	}
-
-	loading_cl = kcalloc(cluster_num, sizeof(atomic_t), GFP_KERNEL);
-	if (!loading_cl) {
-		kfree(obj);
-		FPSGO_LOGE("ERROR OOM\n");
-		return NULL;
-	}
-
-	for (i = 0; i < LOADING_CNT; i++) {
-		obj->lastest_loading_cl[i] = kcalloc(cluster_num, sizeof(atomic_t), GFP_KERNEL);
-		obj->lastest_obv_cl[i] = kcalloc(cluster_num, sizeof(atomic_t), GFP_KERNEL);
-		if (!(obj->lastest_loading_cl[i]) || !(obj->lastest_obv_cl[i])) {
-			err_exit = 1;
-			break;
-		}
-	}
-
-	if (err_exit) {
-		for (i = 0; i < LOADING_CNT; i++) {
-			kfree(obj->lastest_loading_cl[i]);
-			kfree(obj->lastest_obv_cl[i]);
-		}
-		kfree(loading_cl);
-		kfree(obj);
-		return NULL;
-	}
-
-	INIT_LIST_HEAD(&obj->entry);
-	obj->pid = pid;
-	obj->buffer_id = buffer_id;
-	obj->loading_cl = loading_cl;
-	obj->ext_id = 0;
-
-	spin_lock_irqsave(&loading_slock, flags);
-	list_add_tail(&obj->entry, &loading_list);
-	spin_unlock_irqrestore(&loading_slock, flags);
-
-	return obj;
 }
 
 static struct fbt_thread_blc *fbt_list_blc_add(int pid,
@@ -3654,19 +3606,20 @@ EXIT:
 }
 
 static unsigned long long fbt_est_loading(int cur_ts,
-		atomic_t last_ts, unsigned int obv)
+		int last_ts, unsigned int obv)
 {
-	if (obv == 0)
+	int duration;
+
+	if (obv <= 0)
 		return 0;
 
-	if (atomic_read(&last_ts) == 0)
+	if (last_ts <= 0 || cur_ts <= 0)
 		return 0;
 
-	if (cur_ts > atomic_read(&last_ts)) {
-		unsigned long long dur = (unsigned long long)cur_ts -
-						atomic_read(&last_ts);
+	if (cur_ts > last_ts) {
+		duration = cur_ts - last_ts;
 
-		return dur * obv;
+		return (unsigned long long)duration * (unsigned long long)obv;
 	}
 
 	return 0;
@@ -3754,205 +3707,301 @@ static int fbt_overest_loading(int blc_wt, unsigned long long running_time,
 	return FPSGO_ADJ_NONE;
 }
 
-static unsigned long long fbt_correct_loading(struct fbt_thread_loading *ploading, int ts,
-	int *cross_idx, int *cross_ts, int *last_ts, int *tmp_ts)
+static void fpsgo_update_cpufreq_to_now(int new_ts_100us)
 {
-	unsigned int min_obv;
-	int i, min_idx = -1, min_ts = 0, max_ts = 0;
-	unsigned long long loading_result = 0U;
-	unsigned long long acc_loading = 0U; /* loading belongs to next frame */
+	unsigned long spinlock_flag_freq, spinlock_flag_loading;
+	unsigned int curr_obv = 0U;
+	int i, idx;
+	unsigned int *cpu_cl_obv, *cpu_isolated;
 
-	/* subtract the cb which is after ts */
-	for (i = 0; i < LOADING_CNT; i++) {
-		tmp_ts[i] = atomic_read(&(ploading->lastest_ts[i]));
-		if (tmp_ts[i] > ts) {
-			loading_result = atomic_read(&(ploading->lastest_loading[i]));
-			acc_loading += loading_result;
-			atomic_sub_return(loading_result, &(ploading->loading));
-			if (min_idx == -1 || tmp_ts[i] < min_ts) {
-				min_idx = i;
-				min_ts = tmp_ts[i];
-				min_obv = atomic_read(&(ploading->lastest_obv[i]));
-			}
-			/* the lastest timestamp which is after queue end */
-			if (tmp_ts[i] > max_ts)
-				max_ts = tmp_ts[i];
+	if (!fbt_enable)
+		return;
 
-			fpsgo_main_trace(
-				"%s sub idx[%d], queue_end ts:%d, ts:%d, prev_ts:%d, loading:%d",
-				__func__, i, ts, tmp_ts[i],
-				atomic_read(&(ploading->prev_cb_ts[i])),
-				atomic_read(&(ploading->lastest_loading[i])));
-		}
-		atomic_set(&ploading->lastest_loading[i], 0);
-		atomic_set(&ploading->lastest_ts[i], 0);
-		atomic_set(&ploading->lastest_obv[i], 0);
+	cpu_cl_obv = kcalloc(cluster_num, sizeof(unsigned int), GFP_KERNEL);
+	cpu_isolated = kcalloc(cluster_num, sizeof(unsigned int), GFP_KERNEL);
+	if (!cpu_cl_obv || !cpu_isolated) {
+		fpsgo_main_trace("[%s] new temp array OOM\n", __func__);
+		goto out;
 	}
 
-	/* the index which its interval cross the queue_end */
-	if (min_idx != -1) {
-		loading_result = fbt_est_loading(ts, ploading->prev_cb_ts[min_idx], min_obv);
-		acc_loading -= loading_result;
-		atomic_add_return(loading_result, &ploading->loading);
-		fpsgo_main_trace(
-			"%s add idx[%d], min_obv:%d, loading:%lld, after adjust:%d, acc:%lld",
-			__func__, min_idx, min_obv, loading_result,
-			atomic_read(&ploading->loading), acc_loading);
-	}
-
-	*cross_idx = min_idx;
-	*cross_ts = min_ts;
-	*last_ts = max_ts;
-
-	return acc_loading;
-}
-
-static unsigned long long fbt_correct_cl_loading(struct fbt_thread_loading *ploading,
-	int cl, int ts, int cross_idx, int cross_ts, int *tmp_ts)
-{
-	unsigned int min_obv;
-	int j;
-	unsigned long long loading_result = 0U;
-	unsigned long long acc_loading = 0U; /* loading belongs to next frame */
-
-	/* subtract the cb which is after ts */
-	for (j = 0; j < LOADING_CNT; j++) {
-
-		if (tmp_ts[j] > ts) {
-			loading_result = atomic_read(&(ploading->lastest_loading_cl[j][cl]));
-			acc_loading += loading_result;
-			atomic_sub_return(loading_result, &(ploading->loading_cl[cl]));
-
-			fpsgo_main_trace(
-				"%s sub cl idx[%d], queue_end ts:%d, ts:%d, prev_ts:%d, loading:%d",
-				__func__, j, ts, tmp_ts[j],
-				atomic_read(&(ploading->prev_cb_ts[cl])),
-				atomic_read(&(ploading->lastest_loading_cl[j][cl])));
-		}
-
-		if (j == cross_idx)
-			min_obv = atomic_read(&ploading->lastest_obv_cl[j][cl]);
-
-		atomic_set(&ploading->lastest_loading_cl[j][cl], 0);
-		atomic_set(&ploading->lastest_obv_cl[j][cl], 0);
-	}
-
-	if (cross_idx != -1) {
-		loading_result = fbt_est_loading(ts, ploading->prev_cb_ts[cross_idx], min_obv);
-		acc_loading -= loading_result;
-		atomic_add_return(loading_result, &ploading->loading_cl[cl]);
-		fpsgo_main_trace(
-			"%s add cl idx[%d], min_obv:%d, loading:%lld, after adjust:%d, acc:%lld",
-			__func__, cross_idx, min_obv, loading_result,
-			atomic_read(&ploading->loading_cl[cl]),
-			acc_loading);
-	}
-
-	return acc_loading;
-}
-
-static int fbt_adjust_loading(struct render_info *thr, unsigned long long ts,
-					int adjust)
-{
-	int new_ts;
-	long loading = 0L;
-	long *loading_cl;
-	unsigned int temp_obv, *temp_obv_cl, *temp_stat_cl;
-	unsigned long long loading_result = 0U;
-	unsigned long flags;
-	int i, cross_idx = -1, cross_ts = 0, last_ts = 0, tmp_ts[LOADING_CNT];
-	unsigned long long tmp_loading = 0U;
-
-	new_ts = nsec_to_100usec(ts);
-
-	loading_cl = kcalloc(cluster_num, sizeof(long), GFP_KERNEL);
-	temp_obv_cl = kcalloc(cluster_num, sizeof(unsigned int), GFP_KERNEL);
-	temp_stat_cl = kcalloc(cluster_num, sizeof(unsigned int), GFP_KERNEL);
-	if (!loading_cl || !temp_obv_cl || !temp_stat_cl) {
-		kfree(loading_cl);
-		kfree(temp_obv_cl);
-		kfree(temp_stat_cl);
-		return 0;
-	}
-
-	spin_lock_irqsave(&freq_slock, flags);
-	temp_obv = last_obv;
+	spin_lock_irqsave(&freq_slock, spinlock_flag_freq);
+	curr_obv = last_obv;
 	for (i = 0; i < cluster_num; i++) {
-		temp_obv_cl[i] = clus_obv[i];
-		temp_stat_cl[i] = clus_status[i];
+		cpu_cl_obv[i] = clus_obv[i];
+		cpu_isolated[i] = clus_status[i];
 	}
-	spin_unlock_irqrestore(&freq_slock, flags);
+	spin_unlock_irqrestore(&freq_slock, spinlock_flag_freq);
 
-	spin_lock_irqsave(&loading_slock, flags);
+	spin_lock_irqsave(&loading_slock, spinlock_flag_loading);
+	if (last_cb_ts != 0) {
+		idx = lastest_idx;
+		idx = (idx + 1) >= LOADING_CNT ? 0 : (idx + 1);
+		// unit: 100us
+		lastest_ts[idx] = new_ts_100us;
+		prev_cb_ts[idx] = last_cb_ts;
+		lastest_obv[idx] = curr_obv;
+		lastest_idx = idx;
 
-	if (thr->pLoading) {
-		loading_result = fbt_est_loading(new_ts,
-			thr->pLoading->last_cb_ts, temp_obv);
-		atomic_add_return(loading_result, &thr->pLoading->loading);
-		fpsgo_main_trace("%s before adjust:%d",
-			__func__, atomic_read(&thr->pLoading->loading));
+		xgf_trace("[%s] idx=%d, prev_cb_ts=%d, lastest_ts=%d, last_obv=%u",
+			__func__, idx, prev_cb_ts[idx], lastest_ts[idx], lastest_obv[idx]);
 
-		tmp_loading = fbt_correct_loading(thr->pLoading, new_ts, &cross_idx,
-			&cross_ts, &last_ts, tmp_ts);
-
-		loading = atomic_read(&thr->pLoading->loading);
-		fpsgo_systrace_c_fbt_debug(thr->pid, thr->buffer_id,
-			loading, "loading");
-
-		/* reset loading */
-		atomic_set(&thr->pLoading->loading, tmp_loading);
-		atomic_set(&thr->pLoading->lastest_idx, 0);
-
-		fpsgo_systrace_c_fbt_debug(thr->pid, thr->buffer_id,
-			atomic_read(&thr->pLoading->loading), "loading");
-
-		if (!(adjust_loading ||
-			(adjust_loading_hwui_hint && thr->hwui == RENDER_INFO_HWUI_TYPE))
-			|| cluster_num == 1
-			|| !thr->pLoading->loading_cl) {
-			adjust = FPSGO_ADJ_NONE;
+		if (lastest_obv_cl[idx] == NULL || lastest_is_cl_isolated[idx] == NULL)
 			goto SKIP;
-		}
 
 		for (i = 0; i < cluster_num; i++) {
-			if (!temp_stat_cl[i]) {
-				loading_result = fbt_est_loading(new_ts,
-				thr->pLoading->last_cb_ts, temp_obv_cl[i]);
-				atomic_add_return(loading_result,
-					&thr->pLoading->loading_cl[i]);
-				fpsgo_systrace_c_fbt_debug(thr->pid, thr->buffer_id,
-				atomic_read(&thr->pLoading->loading_cl[i]),
-				"loading_cl[%d]", i);
-				fpsgo_main_trace("%s cl[%d] before adjust:%d",
-					__func__, i, atomic_read(&thr->pLoading->loading_cl[i]));
-			}
-
-			if (cross_idx != -1)
-				tmp_loading = fbt_correct_cl_loading(thr->pLoading, i, new_ts,
-					cross_idx, cross_ts, tmp_ts);
-			else
-				tmp_loading = 0;
-
-			loading_cl[i] =
-				atomic_read(&thr->pLoading->loading_cl[i]);
-			atomic_set(&thr->pLoading->loading_cl[i], tmp_loading);
-			fpsgo_systrace_c_fbt_debug(thr->pid, thr->buffer_id,
-				atomic_read(&thr->pLoading->loading_cl[i]),
-				"loading_cl[%d]", i);
+			lastest_obv_cl[idx][i] = cpu_cl_obv[i];
+			lastest_is_cl_isolated[idx][i] = cpu_isolated[i];
 		}
+	}
 
 SKIP:
-		if (last_ts != 0)
-			atomic_set(&thr->pLoading->last_cb_ts, last_ts);
-		else
-			atomic_set(&thr->pLoading->last_cb_ts, new_ts);
-		fpsgo_systrace_c_fbt_debug(thr->pid, thr->buffer_id,
-			atomic_read(&thr->pLoading->last_cb_ts), "last_cb_ts");
+	last_cb_ts = new_ts_100us;
+	spin_unlock_irqrestore(&loading_slock, spinlock_flag_loading);
+out:
+	kfree(cpu_isolated);
+	kfree(cpu_cl_obv);
+}
+
+static int fbt_get_loading_exp(int pid, unsigned long long buffer_id, int thr_last_cb_ts,
+	unsigned long long *loading, int ts_100us)
+{
+	int i, ret = 0;
+	unsigned long spinlock_flag_freq, spinlock_flag_loading;
+	unsigned long long loading_result = 0U;
+	int prev_ts, next_ts, new_ts_100us;
+	int render_last_cb_ts, freq_last_cb_ts;
+	int *cpu_freq_ts_prev, *cpu_freq_ts_next;
+	unsigned int cpy_current_obv;
+	unsigned int *cpu_obv;
+
+	new_ts_100us = ts_100us;
+
+	fpsgo_update_cpufreq_to_now(new_ts_100us);
+
+	cpu_freq_ts_prev = kcalloc(LOADING_CNT, sizeof(int), GFP_KERNEL);
+	cpu_freq_ts_next = kcalloc(LOADING_CNT, sizeof(int), GFP_KERNEL);
+	cpu_obv = kcalloc(LOADING_CNT, sizeof(unsigned int), GFP_KERNEL);
+	if (!cpu_freq_ts_prev || !cpu_freq_ts_next || !cpu_obv) {
+		fpsgo_main_trace("[%s] ERROR OOM\n", __func__);
+		ret = 1;
+		goto out;
 	}
-	spin_unlock_irqrestore(&loading_slock, flags);
+
+	spin_lock_irqsave(&freq_slock, spinlock_flag_freq);
+	cpy_current_obv = last_obv;
+	spin_unlock_irqrestore(&freq_slock, spinlock_flag_freq);
+
+	spin_lock_irqsave(&loading_slock, spinlock_flag_loading);
+	freq_last_cb_ts = last_cb_ts;
+	memcpy(cpu_freq_ts_prev, prev_cb_ts, LOADING_CNT * sizeof(int));
+	memcpy(cpu_freq_ts_next, lastest_ts, LOADING_CNT * sizeof(int));
+	memcpy(cpu_obv, lastest_obv, LOADING_CNT * sizeof(unsigned int));
+	spin_unlock_irqrestore(&loading_slock, spinlock_flag_loading);
+
+	render_last_cb_ts = thr_last_cb_ts;
+	(*loading) = 0;
+
+	xgf_trace("[FBT][%s]pid=%d, bufferid=%llu, render_cb_ts=%d, ts=%d",
+		__func__, pid, buffer_id, render_last_cb_ts, new_ts_100us);
+
+	if (render_last_cb_ts <= 0) {
+		xgf_trace("[FBT][%s]pid=%d, bufferid=%llu new frame!",
+		__func__, pid, buffer_id);
+		goto out;
+	}
+
+	/* Calculate the loading between render_last_cb and the current time. */
+	if (freq_last_cb_ts < new_ts_100us && freq_last_cb_ts >= render_last_cb_ts) {
+		loading_result = fbt_est_loading(new_ts_100us, freq_last_cb_ts, cpy_current_obv);
+		(*loading) += loading_result;
+		xgf_trace("[FBT][%s]pid=%d, freq_last_cb_ts=%d, current_obv=%u, loading=%llu",
+		__func__, pid, freq_last_cb_ts, cpy_current_obv, loading_result);
+	}
+
+
+	for (i = 0; i < LOADING_CNT; i++) {
+		prev_ts = next_ts = 0;
+		// unit: 100us
+		if (cpu_freq_ts_next[i] <= new_ts_100us &&
+			cpu_freq_ts_next[i] > render_last_cb_ts) {
+			next_ts = cpu_freq_ts_next[i];
+			if (cpu_freq_ts_prev[i] >= render_last_cb_ts) {
+				prev_ts = cpu_freq_ts_prev[i];
+			} else { /* cpu_freq_ts_prev < render_last_cb_ts */
+				prev_ts = render_last_cb_ts;
+			}
+		} else if (cpu_freq_ts_next[i] > new_ts_100us) {
+			next_ts = new_ts_100us;
+			if (cpu_freq_ts_prev[i] >= render_last_cb_ts) {
+				prev_ts = cpu_freq_ts_prev[i];
+			} else { /* cpu_freq_ts_prev < render_last_cb_ts */
+				prev_ts = render_last_cb_ts;
+			}
+		}
+
+		if (prev_ts && next_ts) {
+			loading_result = fbt_est_loading(next_ts, prev_ts, cpu_obv[i]);
+			(*loading) += loading_result;
+			xgf_trace("[%s]i=%d, prevts=%d, nextts=%d, obv=%u, loading=%llu, acc=%llu",
+			__func__, i, prev_ts, next_ts, cpu_obv[i], loading_result, (*loading));
+		}
+	}
+out:
+	kfree(cpu_freq_ts_prev);
+	kfree(cpu_freq_ts_next);
+	kfree(cpu_obv);
+	return ret;
+}
+
+
+static int fbt_get_cl_loading_exp(int pid, unsigned long long buffer_id, int thr_last_cb_ts,
+	unsigned long long *loading_cl, int ts_100us, int cid)
+{
+	int i, ret = 0;
+	unsigned long spinlock_flag_freq, spinlock_flag_loading;
+	unsigned long long loading_result = 0U;
+	int prev_ts, next_ts, new_ts_100us;
+	int render_last_cb_ts, freq_last_cb_ts;
+	int *cpu_freq_ts_prev, *cpu_freq_ts_next;
+	unsigned int *cpu_obv, *cpu_isolated, cpy_current_cl_obv;
+
+	new_ts_100us = ts_100us;
+
+	fpsgo_update_cpufreq_to_now(new_ts_100us);
+
+	if (cid >= cluster_num || cid < 0) {
+		ret = 1;
+		fpsgo_main_trace("[%s] OOM!", __func__);
+		goto out;
+	}
+
+	cpu_freq_ts_prev = kcalloc(LOADING_CNT, sizeof(int), GFP_KERNEL);
+	cpu_freq_ts_next = kcalloc(LOADING_CNT, sizeof(int), GFP_KERNEL);
+	cpu_obv = kcalloc(LOADING_CNT, sizeof(unsigned int), GFP_KERNEL);
+	cpu_isolated = kcalloc(LOADING_CNT, sizeof(unsigned int), GFP_KERNEL);
+	if (!cpu_freq_ts_prev || !cpu_freq_ts_next || !cpu_obv || !cpu_isolated) {
+		fpsgo_main_trace("[%s] new temp array OOM\n", __func__);
+		ret = 1;
+		goto out;
+	}
+
+	spin_lock_irqsave(&freq_slock, spinlock_flag_freq);
+	cpy_current_cl_obv = clus_obv[cid];
+	spin_unlock_irqrestore(&freq_slock, spinlock_flag_freq);
+
+	spin_lock_irqsave(&loading_slock, spinlock_flag_loading);
+	freq_last_cb_ts = last_cb_ts;
+	memcpy(cpu_freq_ts_prev, prev_cb_ts, LOADING_CNT * sizeof(int));
+	memcpy(cpu_freq_ts_next, lastest_ts, LOADING_CNT * sizeof(int));
+	for (i = 0; i < LOADING_CNT; i++) {
+		if (lastest_obv_cl[i] == NULL || lastest_is_cl_isolated[i] == NULL) {
+			ret = 1;
+			spin_unlock_irqrestore(&loading_slock, spinlock_flag_loading);
+			goto out;
+		}
+		cpu_obv[i] = lastest_obv_cl[i][cid];
+		cpu_isolated[i] = lastest_is_cl_isolated[i][cid];
+	}
+	spin_unlock_irqrestore(&loading_slock, spinlock_flag_loading);
+
+	render_last_cb_ts = thr_last_cb_ts;
+	(*loading_cl) = 0;
+
+	xgf_trace("[FBT][%s]pid=%d, bufferid=%llu, render_cb_ts=%d, ts=%d",
+		__func__, pid, buffer_id, render_last_cb_ts, new_ts_100us);
+
+	if (!render_last_cb_ts) {
+		xgf_trace("[FBT][%s]pid=%d, bufferid=%d new frame!", __func__, pid, buffer_id);
+		goto out;
+	}
+
+	/* Calculate the loading between render_last_cb and the current time. */
+	if (freq_last_cb_ts < new_ts_100us && freq_last_cb_ts >= render_last_cb_ts) {
+		loading_result = fbt_est_loading(new_ts_100us, freq_last_cb_ts, cpy_current_cl_obv);
+		(*loading_cl) += loading_result;
+		xgf_trace("[FBT][%s]pid=%d, freq_last_cb_ts=%d, current_cl_obv=%u, loading=%llu",
+			__func__, pid, freq_last_cb_ts, cpy_current_cl_obv, loading_result);
+	}
+
+	for (i = 0; i < LOADING_CNT; i++) {
+		if (cpu_isolated[i])
+			continue;
+		prev_ts = next_ts = 0;
+		if (cpu_freq_ts_next[i] <= new_ts_100us &&
+			cpu_freq_ts_next[i] > render_last_cb_ts) {
+			next_ts = cpu_freq_ts_next[i];
+			if (cpu_freq_ts_prev[i] >= render_last_cb_ts) {
+				prev_ts = cpu_freq_ts_prev[i];
+			} else { /* cpu_freq_ts_prev < render_last_cb_ts */
+				prev_ts = render_last_cb_ts;
+			}
+		} else if (cpu_freq_ts_next[i] > new_ts_100us) {
+			next_ts = new_ts_100us;
+			if (cpu_freq_ts_prev[i] >= render_last_cb_ts) {
+				prev_ts = cpu_freq_ts_prev[i];
+			} else { /* cpu_freq_ts_prev < render_last_cb_ts */
+				prev_ts = render_last_cb_ts;
+			}
+		}
+		if (prev_ts && next_ts) {
+			loading_result = fbt_est_loading(next_ts, prev_ts, cpu_obv[i]);
+			(*loading_cl) += loading_result;
+			xgf_trace("[FBT][%s]prev=%d, next%d, obv=%u, loading=%llu, acc=%llu",
+				__func__, prev_ts, next_ts, loading_result, (*loading_cl));
+		}
+	}
+out:
+	kfree(cpu_freq_ts_prev);
+	kfree(cpu_freq_ts_next);
+	kfree(cpu_obv);
+	kfree(cpu_isolated);
+	return ret;
+}
+
+static unsigned long long fbt_adjust_loading_exp(struct render_info *thr,
+	unsigned long long ts, int adjust)
+{
+	int new_ts_100us, ret = 0, i;
+	unsigned long long loading = 0L;
+	unsigned long long *loading_cl;
+	unsigned long long loading_result = 0U;
+	int first_cluster, sec_cluster;
+
+	loading_cl = kcalloc(cluster_num, sizeof(unsigned long long), GFP_KERNEL);
+	if (!loading_cl) {
+		ret = 1;
+		fpsgo_main_trace("[%s] OOM!", __func__);
+		goto out;
+	}
+
+	new_ts_100us = nsec_to_100usec(ts);
+	ret = fbt_get_loading_exp(thr->pid, thr->buffer_id, thr->render_last_cb_ts,
+		&loading, new_ts_100us);
+	fpsgo_systrace_c_fbt_debug(thr->pid, thr->buffer_id, loading, "q2q_loading");
+
+	if (!(adjust_loading ||
+		(adjust_loading_hwui_hint && thr->hwui == RENDER_INFO_HWUI_TYPE))
+		|| cluster_num == 1) {
+		adjust = FPSGO_ADJ_NONE;
+		goto SKIP;
+	}
+
+	for (i = 0; i < cluster_num; i++) {
+		ret |= fbt_get_cl_loading_exp(thr->pid, thr->buffer_id, thr->render_last_cb_ts,
+			&loading_result, new_ts_100us, i);
+		fpsgo_systrace_c_fbt_debug(thr->pid, thr->buffer_id, loading_result,
+			"q2q_loading_cl[%d]", i);
+		if (ret)
+			break;
+		loading_cl[i] = loading_result;
+	}
+
+SKIP:
+	thr->render_last_cb_ts = new_ts_100us;
+	xgf_trace("[FBT][%s] render_last_cb_ts=%d", __func__, thr->render_last_cb_ts);
 
 	if (adjust != FPSGO_ADJ_NONE) {
-		int first_cluster, sec_cluster;
+		loading_result = 0;
 
 		if (adjust == FPSGO_ADJ_LITTLE)
 			first_cluster = min_cap_cluster;
@@ -3983,9 +4032,8 @@ SKIP:
 			loading = loading_cl[sec_cluster];
 	}
 
+out:
 	kfree(loading_cl);
-	kfree(temp_obv_cl);
-	kfree(temp_stat_cl);
 	return loading;
 }
 
@@ -4081,7 +4129,7 @@ static long fbt_get_loading(struct render_info *thr, unsigned long long ts)
 		boost->hit_cluster, "hit_cluster");
 
 SKIP:
-	loading = fbt_adjust_loading(thr, ts, adjust);
+	loading = fbt_adjust_loading_exp(thr, ts, adjust);
 
 	return loading;
 }
@@ -4208,16 +4256,14 @@ static void fbt_setting_reset(int reset_idleprefer)
 		jatm_notify_fp(0);
 }
 
-void fpsgo_ctrl2fbt_cpufreq_cb(int cid, unsigned long freq)
+void fpsgo_ctrl2fbt_cpufreq_cb_exp(int cid, unsigned long freq)
 {
-	unsigned long flags, flags2;
+	unsigned long spinlock_flag_freq, spinlock_flag_loading;
 	unsigned int curr_obv = 0U;
 	unsigned long long curr_cb_ts;
 	int new_ts;
 	int i, idx;
 	int opp;
-	unsigned long long loading_result = 0U;
-	struct fbt_thread_loading *pos, *next;
 
 	if (!fbt_enable)
 		return;
@@ -4234,81 +4280,42 @@ void fpsgo_ctrl2fbt_cpufreq_cb(int cid, unsigned long freq)
 	}
 	curr_obv = cpu_dvfs[cid].capacity_ratio[opp];
 
-	spin_lock_irqsave(&freq_slock, flags);
+	spin_lock_irqsave(&freq_slock, spinlock_flag_freq);
 
 	if (clus_obv[cid] == curr_obv) {
-		spin_unlock_irqrestore(&freq_slock, flags);
+		spin_unlock_irqrestore(&freq_slock, spinlock_flag_freq);
 		return;
 	}
 
 	fpsgo_systrace_c_fbt_debug(-100, 0, freq, "curr_freq[%d]", cid);
 
-	spin_lock_irqsave(&loading_slock, flags2);
-	list_for_each_entry_safe(pos, next, &loading_list, entry) {
-		if (pos == NULL || pos->loading_cl == NULL)
-			continue;
+	spin_lock_irqsave(&loading_slock, spinlock_flag_loading);
+	if (last_cb_ts != 0) {
+		idx = lastest_idx;
+		idx = (idx + 1) >= LOADING_CNT ? 0 : (idx + 1);
+		// unit: 100us
+		lastest_ts[idx] = new_ts;
+		prev_cb_ts[idx] = last_cb_ts;
+		lastest_obv[idx] = last_obv;
+		lastest_idx = idx;
 
-		if (atomic_read(&pos->last_cb_ts) != 0) {
-			loading_result =
-				fbt_est_loading(new_ts,
-					pos->last_cb_ts, last_obv);
-			atomic_add_return(loading_result, &(pos->loading));
+		xgf_trace("[%s] idx=%d, prev_cb_ts=%d, lastest_ts=%d, last_obv=%u",
+			__func__, idx, prev_cb_ts[idx], lastest_ts[idx], lastest_obv[idx]);
 
-			idx = atomic_read(&(pos->lastest_idx));
-			idx = (idx + 1) >= LOADING_CNT ? 0 : (idx + 1);
-			atomic_set(&(pos->lastest_loading[idx]), loading_result);
-			atomic_set(&(pos->lastest_ts[idx]), new_ts);
-			atomic_set(&(pos->prev_cb_ts[idx]), atomic_read(&pos->last_cb_ts));
-			atomic_set(&(pos->lastest_obv[idx]), last_obv);
-			atomic_set(&(pos->lastest_idx), idx);
+		if (lastest_obv_cl[idx] == NULL || lastest_is_cl_isolated[idx] == NULL)
+			goto SKIP;
 
-			fpsgo_systrace_c_fbt_debug(pos->pid, pos->buffer_id,
-				atomic_read(&pos->loading), "loading");
-			fpsgo_systrace_c_fbt_debug(pos->pid, pos->buffer_id,
-				pos->ext_id, "ext_id");
-
-			if (!pos->ext_id &&
-				(!(adjust_loading ||
-				(adjust_loading_hwui_hint && pos->hwui == RENDER_INFO_HWUI_TYPE))
-				|| cluster_num == 1
-				|| !pos->loading_cl))
-				goto SKIP;
-
-			for (i = 0; i < cluster_num; i++) {
-				if (clus_status[i] || pos->lastest_loading_cl[idx] == NULL ||
-					pos->lastest_obv_cl[idx] == NULL)
-					continue;
-
-				loading_result =
-					fbt_est_loading(new_ts,
-					pos->last_cb_ts, clus_obv[i]);
-				atomic_add_return(loading_result,
-					&(pos->loading_cl[i]));
-				fpsgo_systrace_c_fbt_debug(pos->pid,
-					pos->buffer_id,
-					atomic_read(&pos->loading_cl[i]),
-					"loading_cl[%d]", i);
-
-				atomic_set(&(pos->lastest_loading_cl[idx][i]), loading_result);
-				atomic_set(&(pos->lastest_obv_cl[idx][i]), clus_obv[i]);
-
-				//fpsgo_main_trace(
-				//	"%s, idx:%d, cl[%d], loading:%d, ts:%d,
-				//	prev_cb:%d, obv:%d, sum:%d",
-				//	__func__, idx, i, loading_result, new_ts,
-				//	atomic_read(&pos->last_cb_ts), clus_obv[i]);
-				//	atomic_read(&pos->loading_cl[i]));
-			}
+		for (i = 0; i < cluster_num; i++) {
+			lastest_obv_cl[idx][i] = clus_obv[i];
+			lastest_is_cl_isolated[idx][i] = clus_status[i];
 		}
-SKIP:
-		atomic_set(&pos->last_cb_ts, new_ts);
-		fpsgo_systrace_c_fbt_debug(pos->pid, pos->buffer_id,
-			atomic_read(&pos->last_cb_ts), "last_cb_ts");
 	}
-	spin_unlock_irqrestore(&loading_slock, flags2);
+
+SKIP:
+	last_cb_ts = new_ts;
+	spin_unlock_irqrestore(&loading_slock, spinlock_flag_loading);
 
 	clus_obv[cid] = curr_obv;
-
 	for (i = 0; i < cluster_num; i++) {
 		clus_status[i] = fbt_is_cl_isolated(i);
 
@@ -4317,13 +4324,14 @@ SKIP:
 			continue;
 		}
 
+		// Get the maximum capacity within diff. clusters.
 		if (curr_obv < clus_obv[i])
 			curr_obv = clus_obv[i];
 	}
 	last_obv = curr_obv;
-	fpsgo_systrace_c_fbt_debug(-100, 0, last_obv, "last_obv");
+	spin_unlock_irqrestore(&freq_slock, spinlock_flag_freq);
 
-	spin_unlock_irqrestore(&freq_slock, flags);
+	fpsgo_systrace_c_fbt_debug(-100, 0, curr_obv, "last_obv");
 }
 
 void fpsgo_ctrl2fbt_vsync(unsigned long long ts)
@@ -4409,7 +4417,6 @@ void fpsgo_ctrl2fbt_dfrc_fps(int fps_limit)
 
 void fpsgo_base2fbt_node_init(struct render_info *obj)
 {
-	struct fbt_thread_loading *link;
 	struct fbt_thread_blc *blc_link;
 	struct fbt_boost_info *boost;
 	int i;
@@ -4423,44 +4430,23 @@ void fpsgo_base2fbt_node_init(struct render_info *obj)
 
 	boost->loading_weight = LOADING_WEIGHT;
 
-	link = fbt_list_loading_add(obj->pid, obj->buffer_id);
-	obj->pLoading = link;
-
 	blc_link = fbt_list_blc_add(obj->pid, obj->buffer_id);
 	obj->p_blc = blc_link;
 }
 
-void fpsgo_base2fbt_item_del(struct fbt_thread_loading *obj,
-		struct fbt_thread_blc *pblc,
+void fpsgo_base2fbt_item_del(struct fbt_thread_blc *pblc,
 		struct fpsgo_loading *pdep,
 		struct render_info *thr)
 {
-	unsigned long flags;
-	int i;
-
-	if (!obj || !pblc)
-		return;
-
-	spin_lock_irqsave(&loading_slock, flags);
-	list_del(&obj->entry);
-	spin_unlock_irqrestore(&loading_slock, flags);
-
-	for (i = 0; i < LOADING_CNT; i++) {
-		kfree(obj->lastest_loading_cl[i]);
-		obj->lastest_loading_cl[i] = NULL;
-		kfree(obj->lastest_obv_cl[i]);
-		obj->lastest_obv_cl[i] = NULL;
-	}
-
-	kfree(obj->loading_cl);
-	obj->loading_cl = NULL;
-	kfree(obj);
+	if (!pblc)
+		goto skip_del_pblc;
 
 	mutex_lock(&blc_mlock);
 	list_del(&pblc->entry);
 	kfree(pblc);
 	mutex_unlock(&blc_mlock);
 
+skip_del_pblc:
 	mutex_lock(&fbt_mlock);
 	if (!boost_ta)
 		fbt_set_min_cap_locked(thr, 0, FPSGO_JERK_INACTIVE);
@@ -5120,220 +5106,45 @@ int fbt_switch_to_ta(int input)
 	return 0;
 }
 
-static void fbt_xgff_loading_reset_impl(struct fbt_thread_loading *ploading,
-				unsigned long long ts)
-{
-	int new_ts;
-	int i;
-
-	if (!ploading)
-		return;
-
-	new_ts = nsec_to_100usec(ts);
-
-	atomic_set(&ploading->loading, 0);
-	fpsgo_systrace_c_fbt_debug(ploading->pid, ploading->buffer_id,
-			atomic_read(&ploading->loading), "loading");
-
-	atomic_set(&ploading->last_cb_ts, new_ts);
-
-	for (i = 0; i < cluster_num; i++) {
-		atomic_set(&ploading->loading_cl[i], 0);
-
-		fpsgo_systrace_c_fbt_debug(ploading->pid, ploading->buffer_id,
-				atomic_read(&ploading->loading_cl[i]),
-				"loading_cl[%d]", i);
-	}
-}
-
-void fbt_xgff_loading_reset(struct fbt_thread_loading *ploading,
-				unsigned long long ts)
-{
-	unsigned long flags;
-
-	spin_lock_irqsave(&loading_slock, flags);
-	fbt_xgff_loading_reset_impl(ploading, ts);
-	spin_unlock_irqrestore(&loading_slock, flags);
-}
-
-struct fbt_thread_loading *fbt_xgff_list_loading_add(int pid,
+struct xgf_thread_loading fbt_xgff_list_loading_add(int pid,
 	unsigned long long buffer_id, unsigned long long ts)
 {
-	struct fbt_thread_loading *obj;
-	unsigned long flags;
-	atomic_t *loading_cl;
-	int i, err_exit = 0;
+	struct xgf_thread_loading obj;
+	int new_ts;
 
-	if (cluster_num <= 0)
-		return NULL;
+	new_ts = nsec_to_100usec(ts);
+	obj.pid = pid;
+	obj.buffer_id = buffer_id;
+	obj.loading = 0;
+	obj.last_cb_ts = new_ts;
 
-	obj = kzalloc(sizeof(struct fbt_thread_loading), GFP_KERNEL);
-	if (!obj) {
-		FPSGO_LOGE("ERROR OOM\n");
-		return NULL;
-	}
-
-	loading_cl = kcalloc(cluster_num, sizeof(atomic_t), GFP_KERNEL);
-	if (!loading_cl) {
-		kfree(obj);
-		FPSGO_LOGE("ERROR OOM\n");
-		return NULL;
-	}
-
-	for (i = 0; i < LOADING_CNT; i++) {
-		obj->lastest_loading_cl[i] = kcalloc(cluster_num, sizeof(atomic_t), GFP_KERNEL);
-		obj->lastest_obv_cl[i] = kcalloc(cluster_num, sizeof(atomic_t), GFP_KERNEL);
-		if (!(obj->lastest_loading_cl[i]) || !(obj->lastest_obv_cl[i])) {
-			err_exit = 1;
-			break;
-		}
-	}
-
-	if (err_exit) {
-		for (i = 0; i < LOADING_CNT; i++) {
-			kfree(obj->lastest_loading_cl[i]);
-			kfree(obj->lastest_obv_cl[i]);
-		}
-		kfree(loading_cl);
-		kfree(obj);
-		return NULL;
-	}
-
-	INIT_LIST_HEAD(&obj->entry);
-	obj->pid = pid;
-	obj->buffer_id = buffer_id;
-	obj->loading_cl = loading_cl;
-	obj->ext_id = pid;
-
-	fbt_xgff_loading_reset_impl(obj, ts);
-
-	spin_lock_irqsave(&loading_slock, flags);
-	list_add_tail(&obj->entry, &loading_list);
-	spin_unlock_irqrestore(&loading_slock, flags);
-
+	xgf_trace("[XGFF][%s] loading reset", __func__);
 	return obj;
 }
 
-long fbt_xgff_get_loading_by_cluster(struct fbt_thread_loading *ploading, unsigned long long ts,
+long fbt_xgff_get_loading_by_cluster(struct xgf_thread_loading *ploading, unsigned long long ts,
 	unsigned int prefer_cluster)
 {
-	int new_ts;
-	long loading = 0L;
-	long *loading_cl;
-	unsigned int temp_obv, *temp_obv_cl, *temp_stat_cl;
-	unsigned long long loading_result = 0U;
-	unsigned long flags;
-	int i, cross_idx = -1, cross_ts = 0, last_ts = 0, tmp_ts[LOADING_CNT];
-	unsigned long long tmp_loading = 0U;
+	int new_ts_100us, ret = 0;
+	unsigned long long loading = 0L;
 
-	new_ts = nsec_to_100usec(ts);
-
-	loading_cl = kcalloc(cluster_num, sizeof(long), GFP_KERNEL);
-	temp_obv_cl = kcalloc(cluster_num, sizeof(unsigned int), GFP_KERNEL);
-	temp_stat_cl = kcalloc(cluster_num, sizeof(unsigned int), GFP_KERNEL);
-	if (!loading_cl || !temp_obv_cl || !temp_stat_cl) {
-		kfree(loading_cl);
-		kfree(temp_obv_cl);
-		kfree(temp_stat_cl);
-		return 0;
-	}
-
-	spin_lock_irqsave(&freq_slock, flags);
-	temp_obv = last_obv;
-	for (i = 0; i < cluster_num; i++) {
-		temp_obv_cl[i] = clus_obv[i];
-		temp_stat_cl[i] = clus_status[i];
-	}
-	spin_unlock_irqrestore(&freq_slock, flags);
-
-	spin_lock_irqsave(&loading_slock, flags);
-
+	new_ts_100us = nsec_to_100usec(ts);
 	if (ploading) {
-		loading_result = fbt_est_loading(new_ts,
-			ploading->last_cb_ts, temp_obv);
-		atomic_add_return(loading_result, &ploading->loading);
-		fpsgo_main_trace("%s before adjust:%d", __func__, atomic_read(&ploading->loading));
-
-		tmp_loading = fbt_correct_loading(
-			ploading, new_ts, &cross_idx, &cross_ts, &last_ts, tmp_ts);
-
-		fpsgo_systrace_c_fbt_debug(ploading->pid, ploading->buffer_id,
-			atomic_read(&ploading->loading), "loading");
-		loading = atomic_read(&ploading->loading);
-
-		atomic_set(&ploading->loading, tmp_loading);
-		atomic_set(&ploading->lastest_idx, 0);
-
-		if (cluster_num == 1
-			|| !ploading->loading_cl) {
-			goto SKIP;
-		}
-
-		for (i = 0; i < cluster_num; i++) {
-			if (!temp_stat_cl[i]) {
-				loading_result = fbt_est_loading(new_ts,
-				ploading->last_cb_ts, temp_obv_cl[i]);
-				atomic_add_return(loading_result,
-						&ploading->loading_cl[i]);
-				fpsgo_systrace_c_fbt_debug(ploading->pid, ploading->buffer_id,
-				atomic_read(&ploading->loading_cl[i]),
-					"loading_cl[%d]", i);
-			}
-
-			if (cross_idx != -1)
-				tmp_loading = fbt_correct_cl_loading(
-					ploading, i, new_ts, cross_idx, cross_ts, tmp_ts);
-			else
-				tmp_loading = 0;
-
-			loading_cl[i] =
-				atomic_read(&ploading->loading_cl[i]);
-			atomic_set(&ploading->loading_cl[i], tmp_loading);
-		}
-
-SKIP:
-		if (last_ts != 0)
-			atomic_set(&ploading->last_cb_ts, last_ts);
-		else
-			atomic_set(&ploading->last_cb_ts, new_ts);
-		fpsgo_systrace_c_fbt_debug(ploading->pid, ploading->buffer_id,
-			atomic_read(&ploading->last_cb_ts), "last_cb_ts");
-
-		fpsgo_systrace_c_fbt_debug(ploading->pid, ploading->buffer_id,
-			loading_cl[prefer_cluster], "compute_loading");
-	}
-	spin_unlock_irqrestore(&loading_slock, flags);
-
-	loading = loading_cl[prefer_cluster];
-
-	kfree(loading_cl);
-	kfree(temp_obv_cl);
-	kfree(temp_stat_cl);
-	return loading;
-}
-
-void fbt_xgff_list_loading_del(struct fbt_thread_loading *ploading)
-{
-	unsigned long flags;
-	int i;
-
-	if (!ploading)
-		return;
-
-	spin_lock_irqsave(&loading_slock, flags);
-	list_del(&ploading->entry);
-	spin_unlock_irqrestore(&loading_slock, flags);
-
-	for (i = 0; i < LOADING_CNT; i++) {
-		kfree(ploading->lastest_loading_cl[i]);
-		ploading->lastest_loading_cl[i] = NULL;
-		kfree(ploading->lastest_obv_cl[i]);
-		ploading->lastest_obv_cl[i] = NULL;
+		ret = fbt_get_cl_loading_exp(ploading->pid, ploading->buffer_id,
+				ploading->last_cb_ts, &loading, new_ts_100us, prefer_cluster);
+	} else {
+		xgf_trace("[XGFF][%s] !ploading", __func__);
+		ret = 1;
 	}
 
-	kfree(ploading->loading_cl);
-	ploading->loading_cl = NULL;
-	kfree(ploading);
+	ploading->last_cb_ts = new_ts_100us;
+	fpsgo_systrace_c_fbt_debug(ploading->pid, ploading->buffer_id,
+		new_ts_100us, "xgff_last_cb_ts");
+
+	fpsgo_systrace_c_fbt_debug(ploading->pid, ploading->buffer_id,
+		loading, "xgff_loading");
+
+	return (long)loading;
 }
 
 static void fbt_xgff_set_min_cap(unsigned int min_cap)
@@ -6430,6 +6241,46 @@ static ssize_t filter_f_kmin_store(struct kobject *kobj,
 
 static KOBJ_ATTR_RW(filter_f_kmin);
 
+void fbt_init_cpu_loading_info(void)
+{
+	int i = 0, err_exit = 0;
+	unsigned long lock_flag;
+
+	spin_lock_irqsave(&loading_slock, lock_flag);
+	lastest_idx = 0;
+	last_cb_ts = 0;
+	for (i = 0; i < LOADING_CNT; i++) {
+		lastest_obv_cl[i] = kcalloc(cluster_num, sizeof(unsigned int), GFP_KERNEL);
+		lastest_is_cl_isolated[i] = kcalloc(cluster_num, sizeof(unsigned int), GFP_KERNEL);
+		if (!lastest_obv_cl[i] || !lastest_is_cl_isolated[i]) {
+			err_exit = 1;
+			FPSGO_LOGE("ERROR OOM\n");
+			break;
+		}
+	}
+	if (err_exit) {
+		for (i = 0; i < LOADING_CNT; i++) {
+			kfree(lastest_obv_cl[i]);
+			kfree(lastest_is_cl_isolated[i]);
+		}
+	}
+	spin_unlock_irqrestore(&loading_slock, lock_flag);
+}
+
+void fbt_delete_cpu_loading_info(void)
+{
+	int i = 0;
+	unsigned long lock_flag;
+
+	spin_lock_irqsave(&loading_slock, lock_flag);
+
+	for (i = 0; i < LOADING_CNT; i++) {
+		kfree(lastest_obv_cl[i]);
+		kfree(lastest_is_cl_isolated[i]);
+	}
+	spin_unlock_irqrestore(&loading_slock, lock_flag);
+}
+
 void __exit fbt_cpu_exit(void)
 {
 	int i = 0;
@@ -6480,6 +6331,8 @@ void __exit fbt_cpu_exit(void)
 			&kobj_attr_filter_f_kmin);
 
 	fpsgo_sysfs_remove_dir(&fbt_kobj);
+
+	fbt_delete_cpu_loading_info();
 
 	kfree(base_opp);
 	kfree(clus_obv);
@@ -6626,6 +6479,8 @@ int __init fbt_cpu_init(void)
 
 	xgff_frame_min_cap_fp = fbt_xgff_set_min_cap;
 
+	fbt_init_cpu_loading_info();
+
 	fbt_init_sjerk();
 
 	fbt_update_pwr_tbl();
@@ -6674,8 +6529,6 @@ int __init fbt_cpu_init(void)
 
 	}
 
-
-	INIT_LIST_HEAD(&loading_list);
 	INIT_LIST_HEAD(&blc_list);
 
 	wq_jerk = alloc_workqueue("fbt_cpu", WQ_HIGHPRI | WQ_MEM_RECLAIM | WQ_UNBOUND, 0);

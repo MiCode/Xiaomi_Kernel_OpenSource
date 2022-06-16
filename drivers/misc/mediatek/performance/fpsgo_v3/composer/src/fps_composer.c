@@ -192,7 +192,7 @@ static int fpsgo_com_refetch_buffer(struct render_info *f_render, int pid,
 
 	f_render->buffer_id = buffer_id;
 	f_render->queue_SF = queue_SF;
-	if (!f_render->pLoading || !f_render->p_blc)
+	if (!f_render->p_blc)
 		fpsgo_base2fbt_node_init(f_render);
 
 	FPSGO_COM_TRACE("%s: refetch %d: %llu, %llu, %d\n", __func__,
@@ -335,15 +335,10 @@ void fpsgo_ctrl2comp_enqueue_end(int pid,
 
 	/* hwui */
 	h_info = fpsgo_search_and_add_hwui_info(f_render->pid, 0);
-	if (h_info) {
+	if (h_info)
 		f_render->hwui = RENDER_INFO_HWUI_TYPE;
-		if (f_render->pLoading)
-			f_render->pLoading->hwui = RENDER_INFO_HWUI_TYPE;
-	} else {
+	else
 		f_render->hwui = RENDER_INFO_HWUI_NONE;
-		if (f_render->pLoading)
-			f_render->pLoading->hwui = RENDER_INFO_HWUI_NONE;
-	}
 
 	/* sbe */
 	s_info = fpsgo_search_and_add_sbe_info(f_render->pid, 0);

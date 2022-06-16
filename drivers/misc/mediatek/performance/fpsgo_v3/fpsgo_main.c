@@ -577,7 +577,7 @@ void fpsgo_notify_cpufreq(int cid, unsigned long freq)
 	if (!fpsgo_enable)
 		return;
 
-	fpsgo_ctrl2fbt_cpufreq_cb(cid, freq);
+	fpsgo_ctrl2fbt_cpufreq_cb_exp(cid, freq);
 }
 
 void dfrc_fps_limit_cb(unsigned int fps_limit)

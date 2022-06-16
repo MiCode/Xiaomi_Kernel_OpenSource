@@ -19,7 +19,7 @@
 #define RESCUE_TIMER_NUM 5
 #define QUOTA_MAX_SIZE 300
 #define GCC_MAX_SIZE 300
-#define LOADING_CNT 64
+#define LOADING_CNT 256
 #define FBT_FILTER_MAX_WINDOW 100
 
 enum {
@@ -64,25 +64,6 @@ struct fbt_loading_info {
 	int blc_wt;
 	int index;
 };
-
-struct fbt_thread_loading {
-	int pid;
-	unsigned long long buffer_id;
-	int hwui;
-	atomic_t loading;
-	atomic_t *loading_cl;
-	atomic_t last_cb_ts;
-	atomic_t lastest_loading[LOADING_CNT];
-	atomic_t lastest_ts[LOADING_CNT];
-	atomic_t prev_cb_ts[LOADING_CNT];
-	atomic_t lastest_obv[LOADING_CNT];
-	atomic_t *lastest_loading_cl[LOADING_CNT];
-	atomic_t *lastest_obv_cl[LOADING_CNT];
-	atomic_t lastest_idx;
-	struct list_head entry;
-	int ext_id;
-};
-
 
 struct fpsgo_loading {
 	int pid;
@@ -184,6 +165,7 @@ struct render_info {
 	int hwui;
 	int sbe_control_flag;
 	int control_pid_flag;
+	int render_last_cb_ts;
 
 	/*render queue/dequeue/frame time info*/
 	unsigned long long t_enqueue_start;
@@ -199,7 +181,6 @@ struct render_info {
 	/*fbt*/
 	int linger;
 	struct fbt_boost_info boost_info;
-	struct fbt_thread_loading *pLoading;
 	struct fbt_thread_blc *p_blc;
 	struct fpsgo_loading *dep_arr;
 	int dep_valid_size;

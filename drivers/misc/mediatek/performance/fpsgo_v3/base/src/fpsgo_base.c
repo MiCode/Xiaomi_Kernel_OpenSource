@@ -581,9 +581,7 @@ void fpsgo_delete_render_info(int pid,
 
 	rb_erase(&data->render_key_node, &render_pid_tree);
 	list_del(&(data->bufferid_list));
-	fpsgo_base2fbt_item_del(data->pLoading, data->p_blc,
-		data->dep_arr, data);
-	data->pLoading = NULL;
+	fpsgo_base2fbt_item_del(data->p_blc, data->dep_arr, data);
 	data->p_blc = NULL;
 	data->dep_arr = NULL;
 
@@ -856,9 +854,7 @@ void fpsgo_check_thread_status(void)
 
 			rb_erase(&iter->render_key_node, &render_pid_tree);
 			list_del(&(iter->bufferid_list));
-			fpsgo_base2fbt_item_del(iter->pLoading, iter->p_blc,
-				iter->dep_arr, iter);
-			iter->pLoading = NULL;
+			fpsgo_base2fbt_item_del(iter->p_blc, iter->dep_arr, iter);
 			iter->p_blc = NULL;
 			iter->dep_arr = NULL;
 			n = rb_first(&render_pid_tree);
@@ -920,9 +916,7 @@ void fpsgo_clear(void)
 
 		rb_erase(&iter->render_key_node, &render_pid_tree);
 		list_del(&(iter->bufferid_list));
-		fpsgo_base2fbt_item_del(iter->pLoading, iter->p_blc,
-			iter->dep_arr, iter);
-		iter->pLoading = NULL;
+		fpsgo_base2fbt_item_del(iter->p_blc, iter->dep_arr, iter);
 		iter->p_blc = NULL;
 		iter->dep_arr = NULL;
 		n = rb_first(&render_pid_tree);
