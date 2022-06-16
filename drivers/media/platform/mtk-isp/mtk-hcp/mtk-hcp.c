@@ -102,7 +102,7 @@ struct packet {
 
 struct ctrl_data {
 	uint32_t id;
-	uintptr_t value;
+	uint64_t value;
 } __packed;
 
 #define HCP_INIT                _IOWR('H', 0, struct share_buf)

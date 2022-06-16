@@ -276,7 +276,7 @@ static void imgsys_cmdq_cb_work_plat7s(struct work_struct *work)
 	u32 hw_comb = 0;
 	u32 cb_frm_cnt = 0;
 	u64 tsDvfsQosStart = 0, tsDvfsQosEnd = 0;
-	int req_fd = 0, req_no = 0, frm_no = 0;
+	int req_fd = 0, req_no = 0, frm_no = 0, ret_sn = 0;
 	u32 tsSwEvent = 0, tsHwEvent = 0, tsHw = 0, tsTaskPending = 0;
 	u32 tsHwStr = 0, tsHwEnd = 0;
 	bool isLastTaskInReq = 0;
@@ -344,12 +344,16 @@ static void imgsys_cmdq_cb_work_plat7s(struct work_struct *work)
 				hw_comb = cb_param->frm_info->user_info[real_frm_idx].hw_comb;
 				memset((char *)logBuf_temp, 0x0, MTK_IMGSYS_LOG_LENGTH);
 				logBuf_temp[strlen(logBuf_temp)] = '\0';
-				snprintf(logBuf_temp, MTK_IMGSYS_LOG_LENGTH,
+				ret_sn = snprintf(logBuf_temp, MTK_IMGSYS_LOG_LENGTH,
 					"/[%d/%d/%d/%d]hw_comb(0x%x)ts(%d-%d-%d-%d)hw(%d-%d)",
 					real_frm_idx, cb_param->frm_num,
 					cb_param->blk_idx, cb_param->blk_num,
 					hw_comb, tsTaskPending, tsSwEvent, tsHwEvent,
 					tsHw, tsHwStr, tsHwEnd);
+				if (ret_sn < 0) {
+					pr_info("%s: [ERROR] snprintf fail: %d\n",
+						__func__, ret_sn);
+				}
 				strncat(cb_param->frm_info->hw_ts_log, logBuf_temp,
 						strlen(logBuf_temp));
 			}
@@ -694,7 +698,7 @@ int imgsys_cmdq_sendtask_plat7s(struct mtk_imgsys_dev *imgsys_dev,
 	struct GCERecoder *cmd_buf = NULL;
 	struct Command *cmd = NULL;
 	struct mtk_imgsys_cb_param *cb_param = NULL;
-	dma_addr_t pkt_ts_pa;
+	dma_addr_t pkt_ts_pa = 0;
 	u32 *pkt_ts_va = NULL;
 	u32 pkt_ts_num = 0;
 	u32 pkt_ts_ofst = 0;
@@ -704,7 +708,7 @@ int imgsys_cmdq_sendtask_plat7s(struct mtk_imgsys_dev *imgsys_dev,
 	u32 blk_num = 0;
 	u32 thd_idx = 0;
 	u32 hw_comb = 0;
-	int ret = 0, ret_flush = 0;
+	int ret = 0, ret_flush = 0, ret_sn = 0;
 	u64 tsReqStart = 0;
 	u64 tsDvfsQosStart = 0, tsDvfsQosEnd = 0;
 	u32 frm_num = 0, frm_idx = 0;
@@ -757,11 +761,13 @@ int imgsys_cmdq_sendtask_plat7s(struct mtk_imgsys_dev *imgsys_dev,
 			frm_info->hw_ts_log[strlen(frm_info->hw_ts_log)] = '\0';
 			memset((char *)logBuf_temp, 0x0, MTK_IMGSYS_LOG_LENGTH);
 			logBuf_temp[strlen(logBuf_temp)] = '\0';
-			snprintf(logBuf_temp, MTK_IMGSYS_LOG_LENGTH,
+			ret_sn = snprintf(logBuf_temp, MTK_IMGSYS_LOG_LENGTH,
 				"own(%llx/%s)req fd/no(%d/%d) frame no(%d) gid(%d)",
 				frm_info->frm_owner, (char *)(&(frm_info->frm_owner)),
 				frm_info->request_fd, frm_info->request_no, frm_info->frame_no,
 				frm_info->group_id);
+			if (ret_sn < 0)
+				pr_info("%s: [ERROR] snprintf fail: %d\n", __func__, ret_sn);
 			strncat(frm_info->hw_ts_log, logBuf_temp, strlen(logBuf_temp));
 		}
 	}
