@@ -7602,6 +7602,7 @@
 		mali: mali@13000000 {
 			compatible = "mediatek,mali", "arm,mali-valhall";
 			reg = <0 0x13000000 0 0x480000>;
+			l2-hash-values = <0xb 0xe 0x0>;
 			physical-memory-group-manager = <&mgm>;
 			interrupts =
 				<GIC_SPI 584 IRQ_TYPE_LEVEL_HIGH 0>,
