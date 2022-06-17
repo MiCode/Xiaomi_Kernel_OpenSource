@@ -1503,7 +1503,7 @@ static void msm_pcie_sel_debug_testcase(struct msm_pcie_dev_t *dev,
 		PCIE_DBG_FS(dev,
 			"\n\nPCIe: RC%d: disable link\n\n", dev->rc_idx);
 		ret = msm_pcie_pm_control(MSM_PCIE_SUSPEND, 0, dev->dev, NULL,
-					  0);
+					   MSM_PCIE_CONFIG_FORCE_SUSP);
 		if (ret)
 			PCIE_DBG_FS(dev, "PCIe:%s:failed to disable link\n",
 				__func__);
@@ -7982,6 +7982,7 @@ int msm_pcie_pm_control(enum msm_pcie_pm_opt pm_opt, u32 busnr, void *user,
 	struct msm_pcie_dev_t *pcie_dev;
 	struct msm_pcie_device_info *dev_info_itr, *temp, *dev_info = NULL;
 	struct pci_dev *pcidev;
+	bool force_rc_suspend = !!(options & MSM_PCIE_CONFIG_FORCE_SUSP);
 
 	if (!user) {
 		pr_err("PCIe: endpoint device is NULL\n");
@@ -8067,7 +8068,7 @@ int msm_pcie_pm_control(enum msm_pcie_pm_opt pm_opt, u32 busnr, void *user,
 							pcidev->bus->number,
 							pcidev->devfn));
 
-		if (!list_empty(&pcie_dev->enum_ep_list)) {
+		if (!force_rc_suspend && !list_empty(&pcie_dev->enum_ep_list)) {
 			PCIE_DBG(pcie_dev,
 				 "PCIe: RC%d: request to suspend the link is rejected\n",
 				 pcie_dev->rc_idx);

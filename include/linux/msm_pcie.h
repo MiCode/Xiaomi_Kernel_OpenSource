@@ -13,6 +13,7 @@ enum msm_pcie_config {
 	MSM_PCIE_CONFIG_NO_RECOVERY = BIT(1),
 	MSM_PCIE_CONFIG_NO_L1SS_TO = BIT(2),
 	MSM_PCIE_CONFIG_NO_DRV_PC = BIT(3),
+	MSM_PCIE_CONFIG_FORCE_SUSP = BIT(4),
 };
 
 enum msm_pcie_pm_opt {
