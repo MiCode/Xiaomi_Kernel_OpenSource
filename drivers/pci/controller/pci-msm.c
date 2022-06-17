@@ -2024,7 +2024,9 @@ static ssize_t sbr_link_recovery_store(struct device *dev,
 	if (kstrtou32(buf, 0, &linkdown_recovery_enable))
 		return -EINVAL;
 
-	pcie_dev->linkdown_recovery_enable = linkdown_recovery_enable;
+	if (pcie_dev->linkdown_reset[0].hdl && pcie_dev->linkdown_reset[1].hdl)
+		pcie_dev->linkdown_recovery_enable = linkdown_recovery_enable;
+
 	PCIE_DBG(pcie_dev, "PCIe: RC%d: sbr_link_recovery is set to: %d\n",
 		 pcie_dev->rc_idx, linkdown_recovery_enable);
 
