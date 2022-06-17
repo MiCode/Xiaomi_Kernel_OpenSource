@@ -3007,3 +3007,7 @@
   usb_role_switch_get
   usb_role_switch_put
   usb_role_switch_set_role
+
+# required by unisoc_dump_io.ko
+  blk_stat_enable_accounting
+
