@@ -21,6 +21,7 @@ qnoc-cinder-objs			:= cinder.o
 qnoc-waipio-objs			:= waipio.o
 icc-smd-rpm-objs			:= smd-rpm.o
 qnoc-qos-obj				:= qnoc-qos.o
+qnoc-qos-rpm-obj			:= qnoc-qos-rpm.o
 qnoc-kalama-objs			:= kalama.o
 qnoc-bengal-objs			:= bengal.o
 
@@ -47,4 +48,5 @@ obj-$(CONFIG_INTERCONNECT_QCOM_BENGAL) += qnoc-bengal.o
 obj-$(CONFIG_INTERCONNECT_QCOM_RPM) += icc-rpm.o
 obj-$(CONFIG_INTERCONNECT_QCOM_SMD_RPM) += icc-smd-rpm.o
 obj-$(CONFIG_INTERCONNECT_QCOM_QOS) += qnoc-qos.o
+obj-$(CONFIG_INTERCONNECT_QCOM_QOS_RPM) += qnoc-qos-rpm.o
 obj-$(CONFIG_INTERCONNECT_QCOM_DEBUG) += icc-debug.o
