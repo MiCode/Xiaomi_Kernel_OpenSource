@@ -111,6 +111,8 @@
 #define PCIE20_COMMAND_STATUS (0x04)
 #define PCIE20_HEADER_TYPE (0x0c)
 #define PCIE20_BRIDGE_CTRL (0x3c)
+#define PCIE20_BRIDGE_CTRL_SBR (BIT(22))
+
 #define PCIE20_DEVICE_CONTROL_STATUS (0x78)
 #define PCIE20_DEVICE_CONTROL2_STATUS2 (0x98)
 #define PCIE20_PCI_MSI_CAP_ID_NEXT_CTRL_REG (0x50)
@@ -466,6 +468,7 @@ enum msm_pcie_debugfs_option {
 	MSM_PCIE_FORCE_GEN1,
 	MSM_PCIE_FORCE_GEN2,
 	MSM_PCIE_FORCE_GEN3,
+	MSM_PCIE_TRIGGER_SBR,
 	MSM_PCIE_MAX_DEBUGFS_OPTION
 };
 
@@ -494,6 +497,7 @@ static const char * const
 	"SET MAXIMUM LINK SPEED TO GEN 1",
 	"SET MAXIMUM LINK SPEED TO GEN 2",
 	"SET MAXIMUM LINK SPEED TO GEN 3",
+	"Trigger SBR",
 };
 
 /* gpio info structure */
@@ -1765,6 +1769,17 @@ static void msm_pcie_sel_debug_testcase(struct msm_pcie_dev_t *dev,
 			"\n\nPCIe: RC%d: set target speed to Gen 3\n\n",
 			dev->rc_idx);
 		dev->target_link_speed = GEN3_SPEED;
+		break;
+	case MSM_PCIE_TRIGGER_SBR:
+		PCIE_DBG_FS(dev, "\n\nPCIe: RC%d: Trigger SBR\n\n",
+			dev->rc_idx);
+		if (dev->link_status == MSM_PCIE_LINK_ENABLED) {
+			msm_pcie_write_mask(dev->dm_core + PCIE20_BRIDGE_CTRL,
+					    0, PCIE20_BRIDGE_CTRL_SBR);
+			usleep_range(2000, 2001);
+			msm_pcie_write_mask(dev->dm_core + PCIE20_BRIDGE_CTRL,
+					    PCIE20_BRIDGE_CTRL_SBR, 0);
+		}
 		break;
 	default:
 		PCIE_DBG_FS(dev, "Invalid testcase: %d.\n", testcase);
