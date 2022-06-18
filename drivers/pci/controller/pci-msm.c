@@ -1486,12 +1486,60 @@ static void msm_pcie_show_status(struct msm_pcie_dev_t *dev)
 		dev->l23_rdy_poll_timeout);
 }
 
+static void msm_pcie_access_reg(struct msm_pcie_dev_t *dev, bool wr)
+{
+	u32 base_sel_size = 0;
+	phys_addr_t wr_register;
+
+	PCIE_DBG_FS(dev, "\n\nPCIe: RC%d: %s a PCIe register\n\n", dev->rc_idx,
+		    wr ? "writing" : "reading");
+
+	if (!base_sel) {
+		PCIE_DBG_FS(dev, "Invalid base_sel: 0x%x\n", base_sel);
+		return;
+	}
+
+	if (((base_sel - 1) >= MSM_PCIE_MAX_RES) ||
+				(!dev->res[base_sel - 1].resource)) {
+		PCIE_DBG_FS(dev, "PCIe: RC%d Resource does not exist\n",
+							dev->rc_idx);
+		return;
+	}
+
+	PCIE_DBG_FS(dev, "base: %s: 0x%pK\nwr_offset: 0x%x\n",
+		    dev->res[base_sel - 1].name, dev->res[base_sel - 1].base,
+		    wr_offset);
+
+	base_sel_size = resource_size(dev->res[base_sel - 1].resource);
+
+	if (wr_offset >  base_sel_size - 4 ||
+		msm_pcie_check_align(dev, wr_offset)) {
+		PCIE_DBG_FS(dev,
+			"PCIe: RC%d: Invalid wr_offset: 0x%x. wr_offset should be no more than 0x%x\n",
+			dev->rc_idx, wr_offset, base_sel_size - 4);
+	} else {
+		if (!wr) {
+			wr_register =
+				dev->res[MSM_PCIE_RES_DM_CORE].resource->start;
+			wr_register += wr_offset;
+			PCIE_DBG_FS(dev,
+				"PCIe: RC%d: register: 0x%pa value: 0x%x\n",
+				dev->rc_idx, &wr_register,
+				readl_relaxed(dev->res[base_sel - 1].base +
+				wr_offset));
+			return;
+		}
+
+		msm_pcie_write_reg_field(dev->res[base_sel - 1].base,
+			wr_offset, wr_mask, wr_value);
+	}
+}
+
 static void msm_pcie_sel_debug_testcase(struct msm_pcie_dev_t *dev,
 					u32 testcase)
 {
 	int ret, i;
 	u32 base_sel_size = 0;
-	u32 wr_ofst = 0;
 
 	switch (testcase) {
 	case MSM_PCIE_OUTPUT_PCIE_INFO:
@@ -1613,75 +1661,10 @@ static void msm_pcie_sel_debug_testcase(struct msm_pcie_dev_t *dev,
 		}
 		break;
 	case MSM_PCIE_READ_PCIE_REGISTER:
-		PCIE_DBG_FS(dev,
-			"\n\nPCIe: RC%d: read a PCIe register\n\n",
-			dev->rc_idx);
-		if (!base_sel) {
-			PCIE_DBG_FS(dev, "Invalid base_sel: 0x%x\n", base_sel);
-			break;
-		}
-
-		PCIE_DBG_FS(dev, "base: %s: 0x%pK\nwr_offset: 0x%x\n",
-			dev->res[base_sel - 1].name,
-			dev->res[base_sel - 1].base,
-			wr_offset);
-
-		base_sel_size = resource_size(dev->res[base_sel - 1].resource);
-
-		if (wr_offset >  base_sel_size - 4 ||
-			msm_pcie_check_align(dev, wr_offset)) {
-			PCIE_DBG_FS(dev,
-				"PCIe: RC%d: Invalid wr_offset: 0x%x. wr_offset should be no more than 0x%x\n",
-				dev->rc_idx, wr_offset, base_sel_size - 4);
-		} else {
-			phys_addr_t wr_register =
-				dev->res[MSM_PCIE_RES_DM_CORE].resource->start;
-
-			wr_register += wr_offset;
-			PCIE_DBG_FS(dev,
-				"PCIe: RC%d: register: 0x%pa value: 0x%x\n",
-				dev->rc_idx, &wr_register,
-				readl_relaxed(dev->res[base_sel - 1].base +
-					wr_offset));
-		}
-
+		msm_pcie_access_reg(dev, false);
 		break;
 	case MSM_PCIE_WRITE_PCIE_REGISTER:
-		PCIE_DBG_FS(dev,
-			"\n\nPCIe: RC%d: writing a value to a register\n\n",
-			dev->rc_idx);
-
-		if (!base_sel) {
-			PCIE_DBG_FS(dev, "Invalid base_sel: 0x%x\n", base_sel);
-			break;
-		}
-
-		if (((base_sel - 1) >= MSM_PCIE_MAX_RES) ||
-					(!dev->res[base_sel - 1].resource)) {
-			PCIE_DBG_FS(dev, "PCIe: RC%d Resource does not exist\n",
-								dev->rc_idx);
-			break;
-		}
-
-		wr_ofst = wr_offset;
-
-		PCIE_DBG_FS(dev,
-			"base: %s: 0x%pK\nwr_offset: 0x%x\nwr_mask: 0x%x\nwr_value: 0x%x\n",
-			dev->res[base_sel - 1].name,
-			dev->res[base_sel - 1].base,
-			wr_ofst, wr_mask, wr_value);
-
-		base_sel_size = resource_size(dev->res[base_sel - 1].resource);
-
-		if (wr_ofst >  base_sel_size - 4 ||
-			msm_pcie_check_align(dev, wr_ofst))
-			PCIE_DBG_FS(dev,
-				"PCIe: RC%d: Invalid wr_offset: 0x%x. wr_offset should be no more than 0x%x\n",
-				dev->rc_idx, wr_ofst, base_sel_size - 4);
-		else
-			msm_pcie_write_reg_field(dev->res[base_sel - 1].base,
-				wr_ofst, wr_mask, wr_value);
-
+		msm_pcie_access_reg(dev, true);
 		break;
 	case MSM_PCIE_DUMP_PCIE_REGISTER_SPACE:
 		if (((base_sel - 1) >= MSM_PCIE_MAX_RES) ||
