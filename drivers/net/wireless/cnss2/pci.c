@@ -5071,6 +5071,7 @@ static int cnss_pci_update_fw_name(struct cnss_pci_data *pci_priv)
 					 MAX_FIRMWARE_NAME_LEN,
 					 FW_V2_FILE_NAME);
 			}
+			break;
 		default:
 			cnss_pci_add_fw_prefix_name(pci_priv,
 						    plat_priv->firmware_name,
