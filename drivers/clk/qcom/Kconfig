@@ -854,6 +854,24 @@ config SM_GCC_KHAJE
 	  Say Y if you want to use peripheral devices such as UART, SPI,
 	  I2C, USB, UFS, SDCC, PCIe, Camera, Video etc.
 
+config SM_DISPCC_KHAJE
+	tristate "KHAJE Display Clock Controller"
+	select SM_GCC_KHAJE
+	help
+	 Support for the display clock controller on Qualcomm Technologies, Inc.
+	 KHAJE devices.
+	 Say Y if you want to support display devices and functionality such as
+	 splash screen.
+
+config SM_GPUCC_KHAJE
+	tristate "KHAJE Graphics Clock Controller"
+	select SM_GCC_KHAJE
+	help
+	  Support for the graphics clock controller on Qualcomm Technologies, Inc
+	  KHAJE devices.
+	  Say Y if you want to support graphics controller devices and
+	  functionality such as 3D graphics.
+
 config SC_CAMCC_8180X
 	tristate "SC8180X Camera Clock Controller"
 	select SC_GCC_8180X
