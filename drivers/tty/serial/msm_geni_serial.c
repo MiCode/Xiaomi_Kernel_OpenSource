@@ -2487,8 +2487,8 @@ static int msm_geni_wakeup_isr_time(struct uart_port *uport, ktime_t cur_time)
 		time_diff = ktime_sub(edge_cnt1_time, edge_cnt0_time);
 		if (ktime_to_ms(time_diff) > EDGE_COUNT_IRQ_TIMEOUT_MSECS) {
 			UART_LOG_DBG(port->ipc_log_rx, uport->dev,
-				     "%s: ERR: edge_cnt 1->0 time_diff=%d > %dmsecs\n",
-				     ktime_to_ms(time_diff),
+				     "%s: ERR: edge_cnt 1->0 time_diff=%lld > %dmsecs\n",
+				     __func__, ktime_to_ms(time_diff),
 				     EDGE_COUNT_IRQ_TIMEOUT_MSECS);
 			return -EINVAL;
 		}
@@ -2496,8 +2496,8 @@ static int msm_geni_wakeup_isr_time(struct uart_port *uport, ktime_t cur_time)
 		time_diff = ktime_sub(cur_time, edge_cnt1_time);
 		if (ktime_to_ms(time_diff) > EDGE_COUNT_IRQ_TIMEOUT_MSECS) {
 			UART_LOG_DBG(port->ipc_log_rx, uport->dev,
-				     "%s: ERR: edge_cnt 2->1 time_diff=%d > %dmsecs\n",
-				     ktime_to_ms(time_diff),
+				     "%s: ERR: edge_cnt 2->1 time_diff=%lld > %dmsecs\n",
+				     __func__, ktime_to_ms(time_diff),
 				     EDGE_COUNT_IRQ_TIMEOUT_MSECS);
 			return -EINVAL;
 		}
@@ -2513,7 +2513,7 @@ static irqreturn_t msm_geni_wakeup_isr(int isr, void *dev)
 	unsigned long flags;
 	ktime_t cur_time = ktime_get_boottime();
 
-	UART_LOG_DBG(port->ipc_log_rx, uport->dev, "%s: Edge-Count %d time=%dmsec\n",
+	UART_LOG_DBG(port->ipc_log_rx, uport->dev, "%s: Edge-Count %d time=%lldmsec\n",
 		     __func__, port->edge_count, ktime_to_ms(cur_time));
 	spin_lock_irqsave(&uport->lock, flags);
 
