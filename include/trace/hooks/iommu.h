@@ -11,11 +11,12 @@
 
 #include <trace/hooks/vendor_hooks.h>
 
+/* struct iova_domain */
+#include <linux/iova.h>
 DECLARE_RESTRICTED_HOOK(android_rvh_iommu_setup_dma_ops,
 	TP_PROTO(struct device *dev, u64 dma_base, u64 dma_limit),
 	TP_ARGS(dev, dma_base, dma_limit), 1);
 
-struct iova_domain;
 
 DECLARE_HOOK(android_vh_iommu_iovad_alloc_iova,
 	TP_PROTO(struct device *dev, struct iova_domain *iovad, dma_addr_t iova, size_t size),

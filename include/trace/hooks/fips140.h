@@ -7,7 +7,8 @@
 #define _TRACE_HOOK_FIPS140_H
 #include <trace/hooks/vendor_hooks.h>
 
-struct crypto_aes_ctx;
+/* struct crypto_aes_ctx */
+#include <crypto/aes.h>
 
 /*
  * These hooks exist only for the benefit of the FIPS140 crypto module, which

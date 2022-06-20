@@ -32,6 +32,7 @@
 #include <linux/sched.h>
 #include <linux/pgtable.h>
 #include <linux/kasan.h>
+#include <linux/android_kabi.h>
 
 struct mempolicy;
 struct anon_vma;
@@ -670,6 +671,11 @@ struct vm_operations_struct {
 	 * run within an rcu read locked section and with mmap lock not held.
 	 */
 	bool speculative;
+
+	ANDROID_KABI_RESERVE(1);
+	ANDROID_KABI_RESERVE(2);
+	ANDROID_KABI_RESERVE(3);
+	ANDROID_KABI_RESERVE(4);
 };
 
 static inline void vma_init(struct vm_area_struct *vma, struct mm_struct *mm)
@@ -679,6 +685,9 @@ static inline void vma_init(struct vm_area_struct *vma, struct mm_struct *mm)
 	memset(vma, 0, sizeof(*vma));
 	vma->vm_mm = mm;
 	vma->vm_ops = &dummy_vm_ops;
+#ifdef CONFIG_SPECULATIVE_PAGE_FAULT
+        atomic_set(&vma->file_ref_count, 1);
+#endif
 	INIT_LIST_HEAD(&vma->anon_vma_chain);
 }
 
@@ -3366,6 +3375,18 @@ static inline bool pte_spinlock(struct vm_fault *vmf)
 {
 	VM_BUG_ON(!vmf->pte);
 	return __pte_map_lock(vmf);
+}
+
+static inline bool vma_get_file_ref(struct vm_area_struct *vma)
+{
+        return atomic_inc_not_zero(&vma->file_ref_count);
+}
+
+extern void fput(struct file *);
+static inline void vma_put_file_ref(struct vm_area_struct *vma)
+{
+        if (vma && atomic_dec_and_test(&vma->file_ref_count))
+                fput(vma->vm_file);
 }
 
 #else	/* !CONFIG_SPECULATIVE_PAGE_FAULT */
