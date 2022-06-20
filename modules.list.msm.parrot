@@ -7,6 +7,7 @@ clk-qcom.ko
 deferred-free-helper.ko
 dispcc-parrot.ko
 gcc-parrot.ko
+gcc-ravelin.ko
 gdsc-regulator.ko
 pinctrl-parrot.ko
 pinctrl-ravelin.ko
