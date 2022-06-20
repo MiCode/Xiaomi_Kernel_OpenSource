@@ -295,6 +295,7 @@ enum filter_type {
 	MEMTAGOPS,
 	MULTISCID,
 	DIRTYINFO,
+	ADDR_MASK,
 	UNKNOWN,
 };
 
