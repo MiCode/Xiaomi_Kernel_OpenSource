@@ -669,6 +669,15 @@ struct adreno_device {
 	 * for pf debugging
 	 */
 	u32 uche_client_pf;
+	/**
+	 * @bcl_data: bit 0 contains response type for bcl alarms and bits 1:21 controls
+	 * throttle level for bcl alarm levels 0-2. If not set, gmu fw sets default throttle levels.
+	 */
+	u32 bcl_data;
+	/*
+	 * @bcl_debugfs_dir: Debugfs directory node for bcl related nodes
+	 */
+	struct dentry *bcl_debugfs_dir;
 };
 
 /**

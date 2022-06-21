@@ -1960,6 +1960,60 @@ static int gen7_gmu_acd_set(struct kgsl_device *device, bool val)
 	return adreno_power_cycle(adreno_dev, set_acd, &val);
 }
 
+#define BCL_RESP_TYPE_MASK   BIT(0)
+#define BCL_SID0_MASK        GENMASK(7, 1)
+#define BCL_SID1_MASK        GENMASK(14, 8)
+#define BCL_SID2_MASK        GENMASK(21, 15)
+
+static int gen7_bcl_sid_set(struct kgsl_device *device, u32 sid_id, u64 sid_val)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	u32 bcl_data, val = (u32) sid_val;
+
+	if (!ADRENO_FEATURE(adreno_dev, ADRENO_BCL) ||
+		!FIELD_GET(BCL_RESP_TYPE_MASK, adreno_dev->bcl_data))
+		return -EINVAL;
+
+	switch (sid_id) {
+	case 0:
+		adreno_dev->bcl_data &= ~BCL_SID0_MASK;
+		bcl_data = adreno_dev->bcl_data | FIELD_PREP(BCL_SID0_MASK, val);
+		break;
+	case 1:
+		adreno_dev->bcl_data &= ~BCL_SID1_MASK;
+		bcl_data = adreno_dev->bcl_data | FIELD_PREP(BCL_SID1_MASK, val);
+		break;
+	case 2:
+		adreno_dev->bcl_data &= ~BCL_SID2_MASK;
+		bcl_data = adreno_dev->bcl_data | FIELD_PREP(BCL_SID2_MASK, val);
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return adreno_power_cycle_u32(adreno_dev, &adreno_dev->bcl_data, bcl_data);
+}
+
+static u64 gen7_bcl_sid_get(struct kgsl_device *device, u32 sid_id)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+
+	if (!ADRENO_FEATURE(adreno_dev, ADRENO_BCL) ||
+		!FIELD_GET(BCL_RESP_TYPE_MASK, adreno_dev->bcl_data))
+		return 0;
+
+	switch (sid_id) {
+	case 0:
+		return ((u64) FIELD_GET(BCL_SID0_MASK, adreno_dev->bcl_data));
+	case 1:
+		return ((u64) FIELD_GET(BCL_SID1_MASK, adreno_dev->bcl_data));
+	case 2:
+		return ((u64) FIELD_GET(BCL_SID2_MASK, adreno_dev->bcl_data));
+	default:
+		return 0;
+	}
+}
+
 static const struct gmu_dev_ops gen7_gmudev = {
 	.oob_set = gen7_gmu_oob_set,
 	.oob_clear = gen7_gmu_oob_clear,
@@ -1969,6 +2023,8 @@ static const struct gmu_dev_ops gen7_gmudev = {
 	.wait_for_active_transition = gen7_gmu_wait_for_active_transition,
 	.scales_bandwidth = gen7_gmu_scales_bandwidth,
 	.acd_set = gen7_gmu_acd_set,
+	.bcl_sid_set = gen7_bcl_sid_set,
+	.bcl_sid_get = gen7_bcl_sid_get,
 };
 
 static int gen7_gmu_bus_set(struct adreno_device *adreno_dev, int buslevel,

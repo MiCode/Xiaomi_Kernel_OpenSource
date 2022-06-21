@@ -200,6 +200,7 @@ int gen7_init(struct adreno_device *adreno_dev)
 
 	adreno_dev->highest_bank_bit = gen7_core->highest_bank_bit;
 	adreno_dev->gmu_hub_clk_freq = freq ? freq : 150000000;
+	adreno_dev->bcl_data = gen7_core->bcl_data;
 
 	adreno_dev->cooperative_reset = ADRENO_FEATURE(adreno_dev,
 			ADRENO_COOP_RESET);
