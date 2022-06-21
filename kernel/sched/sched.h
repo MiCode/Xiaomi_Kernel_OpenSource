@@ -68,6 +68,7 @@
 #include <linux/task_work.h>
 #include <linux/tsacct_kern.h>
 #include <linux/android_vendor.h>
+#include <linux/android_kabi.h>
 
 #include <asm/tlb.h>
 
@@ -443,6 +444,10 @@ struct task_group {
 	ANDROID_VENDOR_DATA_ARRAY(1, 4);
 #endif
 
+	ANDROID_KABI_RESERVE(1);
+	ANDROID_KABI_RESERVE(2);
+	ANDROID_KABI_RESERVE(3);
+	ANDROID_KABI_RESERVE(4);
 };
 
 #ifdef CONFIG_FAIR_GROUP_SCHED
@@ -863,6 +868,11 @@ struct root_domain {
 	struct perf_domain __rcu *pd;
 
 	ANDROID_VENDOR_DATA_ARRAY(1, 4);
+
+	ANDROID_KABI_RESERVE(1);
+	ANDROID_KABI_RESERVE(2);
+	ANDROID_KABI_RESERVE(3);
+	ANDROID_KABI_RESERVE(4);
 };
 
 extern void init_defrootdomain(void);
@@ -1122,6 +1132,12 @@ struct rq {
 #endif
 
 	ANDROID_VENDOR_DATA_ARRAY(1, 96);
+	ANDROID_OEM_DATA_ARRAY(1, 16);
+
+	ANDROID_KABI_RESERVE(1);
+	ANDROID_KABI_RESERVE(2);
+	ANDROID_KABI_RESERVE(3);
+	ANDROID_KABI_RESERVE(4);
 };
 
 #ifdef CONFIG_FAIR_GROUP_SCHED

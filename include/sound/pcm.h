@@ -486,6 +486,7 @@ struct snd_pcm_substream {
 	/* misc flags */
 	unsigned int hw_opened: 1;
 	unsigned int managed_buffer_alloc:1;
+	ANDROID_VENDOR_DATA(1);
 	ANDROID_KABI_RESERVE(1);
 };
 
