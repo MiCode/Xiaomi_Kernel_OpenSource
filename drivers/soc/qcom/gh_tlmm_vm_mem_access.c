@@ -340,7 +340,8 @@ static int gh_tlmm_vm_mem_access_probe(struct platform_device *pdev)
 		gh_tlmm_vm_info_data.mem_cookie = mem_cookie;
 		gh_tlmm_vm_info_data.guest_memshare_nb.notifier_call = gh_guest_memshare_nb_handler;
 
-		gh_tlmm_vm_info_data.guest_memshare_nb.priority = INT_MAX;
+		/* Higher priority than guestVM loader */
+		gh_tlmm_vm_info_data.guest_memshare_nb.priority = 2;
 		ret = gh_rm_register_notifier(&gh_tlmm_vm_info_data.guest_memshare_nb);
 		if (ret)
 			return ret;
