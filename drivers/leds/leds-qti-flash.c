@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 #define pr_fmt(fmt)	"qti-flash: %s: " fmt, __func__
 
@@ -799,7 +799,6 @@ static void qti_flash_led_switch_brightness_set(
 			hrtimer_start(&snode->on_timer,
 					ms_to_ktime(snode->on_time_ms),
 					HRTIMER_MODE_REL);
-			snode->enabled = state;
 			return;
 		}
 
@@ -841,6 +840,8 @@ static enum hrtimer_restart off_timer_function(struct hrtimer *timer)
 	if (rc < 0)
 		pr_err("Failed to disable flash LED switch %s, rc=%d\n",
 			snode->cdev.name, rc);
+	else
+		snode->enabled = false;
 
 	return HRTIMER_NORESTART;
 }
@@ -856,6 +857,8 @@ static enum hrtimer_restart on_timer_function(struct hrtimer *timer)
 		snode->enabled = false;
 		pr_err("Failed to enable flash LED switch %s, rc=%d\n",
 			snode->cdev.name, rc);
+	} else {
+		snode->enabled = true;
 	}
 
 	return HRTIMER_NORESTART;
