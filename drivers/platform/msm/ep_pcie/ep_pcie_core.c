@@ -859,9 +859,10 @@ static void ep_pcie_core_init(struct ep_pcie_dev_t *dev, bool configured)
 	ep_pcie_write_mask(dev->parf + PCIE20_PARF_CFG_BITS, 0, BIT(1));
 
 	EP_PCIE_DBG(dev,
-		"Initial: CLASS_CODE_REVISION_ID:0x%x; HDR_TYPE:0x%x\n",
+		"Initial: CLASS_CODE_REVISION_ID:0x%x; HDR_TYPE:0x%x; LINK_CAPABILITIES:0x%x\n",
 		readl_relaxed(dev->dm_core + PCIE20_CLASS_CODE_REVISION_ID),
-		readl_relaxed(dev->dm_core + PCIE20_BIST_HDR_TYPE));
+		readl_relaxed(dev->dm_core + PCIE20_BIST_HDR_TYPE),
+		readl_relaxed(dev->dm_core + PCIE20_LINK_CAPABILITIES));
 
 	if (!configured) {
 		int pos;
@@ -944,10 +945,11 @@ static void ep_pcie_core_init(struct ep_pcie_dev_t *dev, bool configured)
 			PCIE20_MASK_ACK_N_FTS, 0x80);
 
 		EP_PCIE_DBG(dev,
-			"After program: CLASS_CODE_REVISION_ID:0x%x; HDR_TYPE:0x%x; PARF_SYS_CTRL:0x%x\n",
+			"After program: CLASS_CODE_REVISION_ID:0x%x; HDR_TYPE:0x%x; LINK_CAPABILITIES:0x%x; PARF_SYS_CTRL:0x%x\n",
 			readl_relaxed(dev->dm_core +
 				PCIE20_CLASS_CODE_REVISION_ID),
 			readl_relaxed(dev->dm_core + PCIE20_BIST_HDR_TYPE),
+			readl_relaxed(dev->dm_core + PCIE20_LINK_CAPABILITIES),
 			readl_relaxed(dev->parf + PCIE20_PARF_SYS_CTRL));
 
 		/* Configure BARs */
