@@ -395,6 +395,7 @@ static int ___do_page_fault(struct pt_regs *regs, unsigned long address,
 	vm_fault_t fault, major = 0;
 	bool kprobe_fault = kprobe_page_fault(regs, 11);
 #ifdef CONFIG_SPECULATIVE_PAGE_FAULT
+	struct vm_area_struct *orig_vma = NULL;
 	struct vm_area_struct pvma;
 	unsigned long seq;
 #endif
@@ -480,24 +481,37 @@ static int ___do_page_fault(struct pt_regs *regs, unsigned long address,
 		count_vm_spf_event(SPF_ABORT_NO_SPECULATE);
 		goto spf_abort;
 	}
+	if (vma->vm_file) {
+		if (!vma_get_file_ref(vma)) {
+			rcu_read_unlock();
+			count_vm_spf_event(SPF_ABORT_UNMAPPED);
+			goto spf_abort;
+		}
+		orig_vma = vma;
+	}
 	pvma = *vma;
 	rcu_read_unlock();
-	if (!mmap_seq_read_check(mm, seq, SPF_ABORT_VMA_COPY))
+	if (!mmap_seq_read_check(mm, seq, SPF_ABORT_VMA_COPY)) {
+		vma_put_file_ref(orig_vma);
 		goto spf_abort;
+	}
 	vma = &pvma;
 #ifdef CONFIG_PPC_MEM_KEYS
 	if (unlikely(access_pkey_error(is_write, is_exec,
 				       (error_code & DSISR_KEYFAULT), vma))) {
 		count_vm_spf_event(SPF_ABORT_ACCESS_ERROR);
+		vma_put_file_ref(orig_vma);
 		goto spf_abort;
 	}
 #endif /* CONFIG_PPC_MEM_KEYS */
 	if (unlikely(access_error(is_write, is_exec, vma))) {
 		count_vm_spf_event(SPF_ABORT_ACCESS_ERROR);
+		vma_put_file_ref(orig_vma);
 		goto spf_abort;
 	}
 	fault = do_handle_mm_fault(vma, address,
 				   flags | FAULT_FLAG_SPECULATIVE, seq, regs);
+	vma_put_file_ref(orig_vma);
 	major |= fault & VM_FAULT_MAJOR;
 
 	if (fault_signal_pending(fault, regs))

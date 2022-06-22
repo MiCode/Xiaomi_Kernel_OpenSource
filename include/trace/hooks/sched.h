@@ -9,7 +9,16 @@
  * Following tracepoints are not exported in tracefs and provide a
  * mechanism for vendor modules to hook and extend functionality
  */
-struct task_struct;
+/* struct cgroup_taskset */
+#include <../kernel/cgroup/cgroup-internal.h>
+/* struct cgroup_subsys_state */
+#include <linux/cgroup-defs.h>
+/* struct em_perf_domain */
+#include <linux/energy_model.h>
+/* enum uclamp_id, struct sched_entity, struct task_struct, struct uclamp_se */
+#include <linux/sched.h>
+/* struct sched_attr */
+#include <uapi/linux/sched/types.h>
 DECLARE_RESTRICTED_HOOK(android_rvh_select_task_rq_fair,
 	TP_PROTO(struct task_struct *p, int prev_cpu, int sd_flag, int wake_flags, int *new_cpu),
 	TP_ARGS(p, prev_cpu, sd_flag, wake_flags, new_cpu), 1);
@@ -124,7 +133,6 @@ DECLARE_RESTRICTED_HOOK(android_rvh_find_energy_efficient_cpu,
 	TP_PROTO(struct task_struct *p, int prev_cpu, int sync, int *new_cpu),
 	TP_ARGS(p, prev_cpu, sync, new_cpu), 1);
 
-struct sched_attr;
 DECLARE_HOOK(android_vh_set_sugov_sched_attr,
 	TP_PROTO(struct sched_attr *attr),
 	TP_ARGS(attr));
@@ -211,7 +219,6 @@ DECLARE_RESTRICTED_HOOK(android_rvh_account_irq_end,
 	TP_PROTO(struct task_struct *curr, int cpu, s64 delta),
 	TP_ARGS(curr, cpu, delta), 1);
 
-struct sched_entity;
 DECLARE_RESTRICTED_HOOK(android_rvh_place_entity,
 	TP_PROTO(struct cfs_rq *cfs_rq, struct sched_entity *se, int initial, u64 *vruntime),
 	TP_ARGS(cfs_rq, se, initial, vruntime), 1);
@@ -228,7 +235,6 @@ DECLARE_RESTRICTED_HOOK(android_rvh_update_misfit_status,
 	TP_PROTO(struct task_struct *p, struct rq *rq, bool *need_update),
 	TP_ARGS(p, rq, need_update), 1);
 
-struct cgroup_taskset;
 DECLARE_RESTRICTED_HOOK(android_rvh_cpu_cgroup_attach,
 	TP_PROTO(struct cgroup_taskset *tset),
 	TP_ARGS(tset), 1);
@@ -237,7 +243,6 @@ DECLARE_RESTRICTED_HOOK(android_rvh_cpu_cgroup_can_attach,
 	TP_PROTO(struct cgroup_taskset *tset, int *retval),
 	TP_ARGS(tset, retval), 1);
 
-struct cgroup_subsys_state;
 DECLARE_RESTRICTED_HOOK(android_rvh_cpu_cgroup_online,
 	TP_PROTO(struct cgroup_subsys_state *css),
 	TP_ARGS(css), 1);
@@ -263,7 +268,6 @@ DECLARE_HOOK(android_vh_map_util_freq,
 		unsigned long cap, unsigned long *next_freq),
 	TP_ARGS(util, freq, cap, next_freq));
 
-struct em_perf_domain;
 DECLARE_HOOK(android_vh_em_cpu_energy,
 	TP_PROTO(struct em_perf_domain *pd,
 		unsigned long max_util, unsigned long sum_util,
@@ -323,8 +327,6 @@ DECLARE_HOOK(android_vh_irqtime_account_process_tick,
 	TP_PROTO(struct task_struct *p, struct rq *rq, int user_tick, int ticks),
 	TP_ARGS(p, rq, user_tick, ticks));
 
-enum uclamp_id;
-struct uclamp_se;
 DECLARE_RESTRICTED_HOOK(android_rvh_uclamp_eff_get,
 	TP_PROTO(struct task_struct *p, enum uclamp_id clamp_id,
 		 struct uclamp_se *uclamp_max, struct uclamp_se *uclamp_eff, int *ret),
@@ -339,7 +341,6 @@ DECLARE_RESTRICTED_HOOK(android_rvh_after_dequeue_task,
 	TP_ARGS(rq, p, flags), 1);
 
 struct cfs_rq;
-struct sched_entity;
 struct rq_flags;
 DECLARE_RESTRICTED_HOOK(android_rvh_enqueue_entity,
 	TP_PROTO(struct cfs_rq *cfs, struct sched_entity *se),

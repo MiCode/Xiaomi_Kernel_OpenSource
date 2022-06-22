@@ -7,7 +7,8 @@
 #define _TRACE_HOOK_POWER_H
 #include <trace/hooks/vendor_hooks.h>
 
-struct task_struct;
+/* struct task_struct */
+#include <linux/sched.h>
 DECLARE_HOOK(android_vh_try_to_freeze_todo,
 	TP_PROTO(unsigned int todo, unsigned int elapsed_msecs, bool wq_busy),
 	TP_ARGS(todo, elapsed_msecs, wq_busy));
