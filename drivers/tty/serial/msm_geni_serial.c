@@ -371,6 +371,7 @@ struct msm_geni_serial_port {
 	unsigned int count;
 	atomic_t stop_rx_inprogress;
 	bool pm_auto_suspend_disable;
+	bool gsi_rx_done;
 };
 
 static const struct uart_ops msm_geni_serial_pops;
@@ -1841,8 +1842,14 @@ static void msm_geni_uart_gsi_cancel_rx(struct work_struct *work)
 
 	UART_LOG_DBG(msm_port->ipc_log_misc, msm_port->uport.dev,
 		     "%s: Start\n", __func__);
+	if (!msm_port->gsi_rx_done) {
+		UART_LOG_DBG(msm_port->ipc_log_misc, msm_port->uport.dev,
+			     "%s: gsi_rx not yet done\n", __func__);
+		return;
+	}
 	dmaengine_terminate_all(msm_port->gsi->rx_c);
 	complete(&msm_port->xfer);
+	msm_port->gsi_rx_done = false;
 	UART_LOG_DBG(msm_port->ipc_log_misc, msm_port->uport.dev,
 		     "%s: End\n", __func__);
 }
@@ -1909,6 +1916,7 @@ static int msm_geni_uart_gsi_xfer_rx(struct uart_port *uport)
 	msm_port->gsi->rx_desc->callback_param = &msm_port->gsi->rx_cb;
 	rx_cookie = dmaengine_submit(msm_port->gsi->rx_desc);
 	dma_async_issue_pending(msm_port->gsi->rx_c);
+	msm_port->gsi_rx_done = true;
 
 	return 0;
 exit_gsi_xfer_rx:
@@ -1917,6 +1925,7 @@ exit_gsi_xfer_rx:
 					      msm_port->rx_gsi_buf[i], DMA_RX_BUF_SIZE);
 	}
 	msm_geni_deallocate_chan(uport);
+	msm_port->gsi_rx_done = false;
 	return -EIO;
 }
 
@@ -2357,6 +2366,12 @@ static int stop_rx_sequencer(struct uart_port *uport)
 	}
 
 	if (port->gsi_mode) {
+		if (!port->port_setup && !port->gsi_rx_done) {
+			UART_LOG_DBG(port->ipc_log_misc, uport->dev,
+				     "%s: Port setup not yet done\n", __func__);
+			atomic_set(&port->stop_rx_inprogress, 0);
+			return 0;
+		}
 		UART_LOG_DBG(port->ipc_log_misc, uport->dev,
 			     "%s: Queue Rx Work\n", __func__);
 		atomic_set(&port->stop_rx_inprogress, 0);
@@ -3223,13 +3238,15 @@ static void msm_geni_serial_shutdown(struct uart_port *uport)
 					     uport->dev, "%s:GSI DMA-Tx ch\n",
 					     __func__);
 				msm_geni_serial_stop_tx(uport);
-				geni_se_common_iommu_unmap_buf(tx_dev,
-							       &msm_port->tx_dma,
-							       msm_port->xmit_size,
-							       DMA_TO_DEVICE);
-				UART_LOG_DBG(msm_port->ipc_log_misc,
-					     uport->dev, "%s:Unmap buf done\n",
-					     __func__);
+				if (msm_port->tx_dma) {
+					geni_se_common_iommu_unmap_buf(tx_dev,
+								       &msm_port->tx_dma,
+								       msm_port->xmit_size,
+								       DMA_TO_DEVICE);
+					UART_LOG_DBG(msm_port->ipc_log_misc,
+						     uport->dev, "%s:Unmap buf done\n",
+						     __func__);
+				}
 			}
 		} else {
 			msm_geni_serial_stop_tx(uport);
