@@ -188,6 +188,23 @@ static const struct clk_parent_data disp_cc_parent_data_4[] = {
 	{ .fw_name = "edp_phy_pll_vco_div_clk", .name = "edp_phy_pll_vco_div_clk" },
 };
 
+static const struct parent_map disp_cc_parent_map_4_sc8180x[] = {
+	{ P_BI_TCXO, 0 },
+	{ P_EDP_PHY_PLL_LINK_CLK, 1 },
+	{ P_EDP_PHY_PLL_VCO_DIV_CLK, 2 },
+	{ P_DP_PHY_PLL_VCO_DIV_CLK, 3 },
+	{ P_DPTX1_PHY_PLL_VCO_DIV_CLK, 4 },
+	{ P_DPTX2_PHY_PLL_VCO_DIV_CLK, 6 },
+};
+
+static const struct clk_parent_data disp_cc_parent_data_4_sc8180x[] = {
+	{ .fw_name = "bi_tcxo" },
+	{ .fw_name = "edp_phy_pll_link_clk", .name = "edp_phy_pll_link_clk" },
+	{ .fw_name = "edp_phy_pll_vco_div_clk", .name = "edp_phy_pll_vco_div_clk" },
+	{ .fw_name = "dp_phy_pll_vco_div_clk", .name = "dp_phy_pll_vco_div_clk" },
+	{ .fw_name = "dptx1_phy_pll_vco_div_clk", .name = "dptx1_phy_pll_vco_div_clk" },
+	{ .fw_name = "dptx2_phy_pll_vco_div_clk", .name = "dptx2_phy_pll_vco_div_clk" },
+};
 static const struct parent_map disp_cc_parent_map_5[] = {
 	{ P_BI_TCXO, 0 },
 	{ P_DISP_CC_PLL0_OUT_MAIN, 1 },
@@ -356,6 +373,15 @@ static const struct freq_tbl ftbl_disp_cc_mdss_dp_crypto1_clk_src[] = {
 	{ }
 };
 
+static const struct freq_tbl
+ftbl_disp_cc_mdss_dp_crypto1_clk_src_sc8180x[] = {
+	F(108000, P_DPTX1_PHY_PLL_LINK_CLK,   3,   0,   0),
+	F(180000, P_DPTX1_PHY_PLL_LINK_CLK,   3,   0,   0),
+	F(360000, P_DPTX1_PHY_PLL_LINK_CLK,   3,   0,   0),
+	F(540000, P_DPTX1_PHY_PLL_LINK_CLK,   3,   0,   0),
+	{ }
+};
+
 static struct clk_rcg2 disp_cc_mdss_dp_crypto1_clk_src = {
 	.cmd_rcgr = 0x2228,
 	.mnd_width = 0,
@@ -378,6 +404,15 @@ static struct clk_rcg2 disp_cc_mdss_dp_crypto1_clk_src = {
 			[VDD_LOW_L1] = 360000,
 			[VDD_NOMINAL] = 540000},
 	},
+};
+
+static const struct freq_tbl
+ftbl_disp_cc_mdss_dp_crypto_clk_src_sc8180x[] = {
+	F(108000, P_DP_PHY_PLL_LINK_CLK,   3,   0,   0),
+	F(180000, P_DP_PHY_PLL_LINK_CLK,   3,   0,   0),
+	F(360000, P_DP_PHY_PLL_LINK_CLK,   3,   0,   0),
+	F(540000, P_DP_PHY_PLL_LINK_CLK,   3,   0,   0),
+	{ }
 };
 
 static struct clk_rcg2 disp_cc_mdss_dp_crypto_clk_src = {
@@ -595,6 +630,13 @@ static struct clk_rcg2 disp_cc_mdss_edp_pixel_clk_src = {
 			[VDD_LOWER] = 337500000,
 			[VDD_NOMINAL] = 675000000},
 	},
+};
+
+static struct clk_init_data disp_cc_mdss_edp_pixel_clk_src_sc8180x = {
+	.name = "disp_cc_mdss_edp_pixel_clk_src",
+	.parent_data = disp_cc_parent_data_4_sc8180x,
+	.num_parents = ARRAY_SIZE(disp_cc_parent_data_4_sc8180x),
+	.ops = &clk_dp_ops,
 };
 
 static struct clk_branch disp_cc_mdss_dp_crypto1_clk = {
@@ -1548,6 +1590,34 @@ static int disp_cc_sm8250_fixup(struct platform_device *pdev,
 			&disp_cc_mdss_dp_crypto_clk.clkr;
 		disp_cc_sm8250_clocks[DISP_CC_MDSS_DP_CRYPTO_CLK_SRC] =
 			&disp_cc_mdss_dp_crypto_clk_src.clkr;
+	}
+
+	if (of_device_is_compatible(pdev->dev.of_node, "qcom,sc8180x-dispcc")) {
+		disp_cc_mdss_dp_pixel1_clk_src.clkr.vdd_data.rate_max[VDD_LOW_L1] = 337500;
+		disp_cc_mdss_dp_pixel1_clk_src.clkr.vdd_data.rate_max[VDD_NOMINAL] = 675000;
+		disp_cc_mdss_dp_pixel2_clk_src.clkr.vdd_data.rate_max[VDD_LOW_L1] = 337500;
+		disp_cc_mdss_dp_pixel2_clk_src.clkr.vdd_data.rate_max[VDD_NOMINAL] = 675000;
+		disp_cc_mdss_dp_pixel_clk_src.clkr.vdd_data.rate_max[VDD_LOW_L1] = 337500;
+		disp_cc_mdss_dp_pixel_clk_src.clkr.vdd_data.rate_max[VDD_NOMINAL] = 675000;
+
+		disp_cc_mdss_dp_crypto_clk_src.freq_tbl =
+			ftbl_disp_cc_mdss_dp_crypto_clk_src_sc8180x;
+		disp_cc_mdss_dp_crypto1_clk_src.freq_tbl =
+			ftbl_disp_cc_mdss_dp_crypto1_clk_src_sc8180x;
+
+		disp_cc_mdss_edp_link_clk_src.clkr.vdd_data.rate_max[VDD_MIN] = 19200;
+		disp_cc_mdss_edp_link_clk_src.clkr.vdd_data.rate_max[VDD_LOWER] = 270000;
+		disp_cc_mdss_edp_link_clk_src.clkr.vdd_data.rate_max[VDD_LOW_L1] = 594000;
+		disp_cc_mdss_edp_link_clk_src.clkr.vdd_data.rate_max[VDD_NOMINAL] = 810000;
+
+		disp_cc_mdss_edp_pixel_clk_src.parent_map = disp_cc_parent_map_4_sc8180x;
+		disp_cc_mdss_edp_pixel_clk_src.clkr.hw.init =
+			&disp_cc_mdss_edp_pixel_clk_src_sc8180x;
+
+		disp_cc_mdss_edp_pixel_clk_src.clkr.vdd_data.rate_max[VDD_MIN] = 19200;
+		disp_cc_mdss_edp_pixel_clk_src.clkr.vdd_data.rate_max[VDD_LOWER] = 337500;
+		disp_cc_mdss_edp_pixel_clk_src.clkr.vdd_data.rate_max[VDD_LOW_L1] = 371500;
+		disp_cc_mdss_edp_pixel_clk_src.clkr.vdd_data.rate_max[VDD_NOMINAL] = 675000;
 	}
 
 	return 0;
