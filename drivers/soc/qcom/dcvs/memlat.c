@@ -529,6 +529,8 @@ static ssize_t store_spm_thres(struct kobject *kobj,
 	mon->spm_thres = spm_thres;
 	if (mon->spm_thres < MAX_SPM_THRES)
 		mon->enable_spm_voting = 1;
+	else
+		mon->enable_spm_voting = 0;
 	mon->disable_spm_value = mon->spm_thres -
 				mult_frac(mon->spm_thres, mon->spm_drop_pct, 100);
 	return count;

@@ -2832,7 +2832,7 @@ int adreno_dispatcher_init(struct adreno_device *adreno_dev)
 		return PTR_ERR(dispatcher->worker);
 	}
 
-	sysfs_create_files(&device->dev->kobj, _dispatch_attr_list);
+	WARN_ON(sysfs_create_files(&device->dev->kobj, _dispatch_attr_list));
 
 	mutex_init(&dispatcher->mutex);
 

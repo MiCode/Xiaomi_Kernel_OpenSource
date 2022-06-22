@@ -16,6 +16,7 @@ extern void *icnss_ipc_log_context;
 extern void *icnss_ipc_log_long_context;
 extern void *icnss_ipc_log_smp2p_context;
 extern void *icnss_ipc_soc_wake_context;
+extern void *icnss_ipc_pon_seq_context;
 
 #if IS_ENABLED(CONFIG_IPC_LOGGING)
 #define icnss_ipc_log_string(_x...)                                     \
@@ -29,6 +30,9 @@ extern void *icnss_ipc_soc_wake_context;
 
 #define icnss_ipc_soc_wake_string(_x...)                                \
 	ipc_log_string(icnss_ipc_soc_wake_context, _x)
+
+#define icnss_ipc_pon_seq_string(_x...)                                \
+	ipc_log_string(icnss_ipc_pon_seq_context, _x)
 #else
 #define icnss_ipc_log_string(_x...)
 
@@ -37,6 +41,8 @@ extern void *icnss_ipc_soc_wake_context;
 #define icnss_ipc_log_smp2p_string(_x...)
 
 #define icnss_ipc_soc_wake_string(_x...)
+
+#define icnss_ipc_pon_seq_string(_x...)
 #endif
 
 #define icnss_pr_err(_fmt, ...) do {                                    \
@@ -75,6 +81,11 @@ extern void *icnss_ipc_soc_wake_context;
 #define icnss_pr_soc_wake(_fmt, ...) do {                               \
 	pr_debug(_fmt, ##__VA_ARGS__);                                  \
 	icnss_ipc_soc_wake_string(pr_fmt(_fmt), ##__VA_ARGS__);         \
+	} while (0)
+
+#define icnss_pr_pon_seq(f, ...) do {					\
+	pr_err(f, ##__VA_ARGS__);					\
+	icnss_ipc_pon_seq_string("%s" pr_fmt(f), "", ##__VA_ARGS__);	\
 	} while (0)
 
 #ifdef CONFIG_ICNSS2_DEBUG

@@ -67,4 +67,12 @@ config QRTR_GUNYAH
 	  Router communication between two virtual machines. The transport
 	  uses dynamically shared memory and gunyah doorbells.
 
+config QRTR_DEBUG
+	bool "QRTR debug enhancements"
+	help
+	  Say Y here to enable QRTR debug enhancements support and currently
+	  supporting logging of resume tx failure cases when skb alloc failed
+	  and confirm rx flag is set. Also logging the skb alloc failure
+	  while allocating skb in rx path.
+
 endif # QRTR

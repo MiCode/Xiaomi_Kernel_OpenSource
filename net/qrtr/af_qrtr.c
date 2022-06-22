@@ -2,6 +2,7 @@
 /*
  * Copyright (c) 2015, Sony Mobile Communications Inc.
  * Copyright (c) 2013, 2018-2021 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 #include <linux/kthread.h>
 #include <linux/module.h>
@@ -20,6 +21,7 @@
 #include <uapi/linux/sched/types.h>
 
 #include "qrtr.h"
+#include "debug.h"
 
 #define QRTR_LOG_PAGE_CNT 4
 #define QRTR_INFO(ctx, x, ...)				\
@@ -872,6 +874,7 @@ int qrtr_endpoint_post(struct qrtr_endpoint *ep, const void *data, size_t len)
 	if (!skb) {
 		skb = qrtr_get_backup(len);
 		if (!skb) {
+			qrtr_log_skb_failure(data, len);
 			pr_err("qrtr: Unable to get skb with len:%lu\n", len);
 			return -ENOMEM;
 		}
@@ -944,6 +947,8 @@ int qrtr_endpoint_post(struct qrtr_endpoint *ep, const void *data, size_t len)
 		qrtr_node_assign(node, le32_to_cpu(pkt->server.node));
 	}
 
+	if (cb->confirm_rx)
+		qrtr_log_resume_tx(cb->src_node, cb->src_port, RTX_SKB_ALLOC_SUCC);
 	qrtr_log_rx_msg(node, skb);
 	/* All control packets and non-local destined data packets should be
 	 * queued to the worker for forwarding handling.
@@ -1329,7 +1334,7 @@ void qrtr_endpoint_unregister(struct qrtr_endpoint *ep)
 
 	/* Wake up any transmitters waiting for resume-tx from the node */
 	wake_up_interruptible_all(&node->resume_tx);
-
+	qrtr_log_resume_tx_node_erase(node->nid);
 	qrtr_node_release(node);
 	ep->node = NULL;
 }
@@ -1382,6 +1387,9 @@ static void qrtr_send_del_client(struct qrtr_sock *ipc)
 	pkt->cmd = cpu_to_le32(QRTR_TYPE_DEL_CLIENT);
 	pkt->client.node = cpu_to_le32(ipc->us.sq_node);
 	pkt->client.port = cpu_to_le32(ipc->us.sq_port);
+
+	qrtr_log_resume_tx(pkt->client.node, pkt->client.port,
+			   RTX_REMOVE_RECORD);
 
 	skb_set_owner_w(skb, &ipc->sk);
 
@@ -1788,6 +1796,8 @@ static int qrtr_send_resume_tx(struct qrtr_cb *cb)
 
 	skb = qrtr_alloc_ctrl_packet(&pkt);
 	if (!skb) {
+		qrtr_log_resume_tx(cb->src_node, cb->src_port,
+				   RTX_CTRL_SKB_ALLOC_FAIL);
 		qrtr_node_release(node);
 		return -ENOMEM;
 	}
@@ -1798,7 +1808,7 @@ static int qrtr_send_resume_tx(struct qrtr_cb *cb)
 
 	ret = qrtr_node_enqueue(node, skb, QRTR_TYPE_RESUME_TX,
 				&local, &remote, 0);
-
+	qrtr_log_resume_tx(cb->src_node, cb->src_port, RTX_SENT_ACK);
 	qrtr_node_release(node);
 
 	return ret;
@@ -2081,6 +2091,7 @@ static int __init qrtr_proto_init(void)
 	qrtr_ns_init();
 
 	qrtr_backup_init();
+	qrtr_debug_init();
 
 	return rc;
 }
@@ -2093,6 +2104,7 @@ static void __exit qrtr_proto_fini(void)
 	proto_unregister(&qrtr_proto);
 
 	qrtr_backup_deinit();
+	qrtr_debug_remove();
 }
 module_exit(qrtr_proto_fini);
 

@@ -1,0 +1,30 @@
+#
+# RAONTECH Micro Display I2C driver configuration
+#
+
+menu "RAONTECH Micro Display I2C support"
+
+config RTIMD_I2C
+	tristate "RTIMD-I2C"
+	default n
+	help
+	  This module is created to add support for
+	  RAONTECH Micro Display I2C support.
+	  If you want RAONTECH Micro Display I2C support, you should say Y.
+	  Here it says m to create a ko file which can then be executed from
+	  adb shell.
+
+if RTIMD_I2C
+config RTIMD_I2C_DEBUG
+	bool "RTIMD debugging messages"
+	default n
+	help
+	  Say Y here if you want the RTIMD_I2C to produce a bunch of debug
+	  messages to the system log.
+	  Select this if you are having a problem with RTIMD_I2C support
+	  and want to see more of what is going on.
+	  This will display the debug messages to the system logs.
+
+endif # RTIMD_I2C
+
+endmenu

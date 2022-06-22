@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: GPL-2.0-only
+#
+# ISL97900 LED driver configuration
+#
+
+config ISL97900_LED
+	tristate "ISL97900_I2C_Driver"
+	select REGMAP_I2C
+	depends on I2C
+	help
+	  Support for ISL97900 LED driver IC, using this driver,
+	  user can set different values to control the LED current
+	  using I2C.
+
+	  Say Y if you want to enable ISL97900 driver.

@@ -335,6 +335,7 @@ static bool check_status(struct qcom_spss *spss, int *ret_error)
 	if ((status_val & BIT(spss->bits_arr[ERR_READY])) && err_value == SPSS_WDOG_ERR) {
 		dev_err(spss->dev, "wdog bite is pending\n");
 		SPSS_CLEAR_IRQ(BIT(spss->bits_arr[ERR_READY]), spss);
+		*ret_error = -ETIMEDOUT;
 		return true;
 	}
 	return false;

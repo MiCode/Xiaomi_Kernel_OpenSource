@@ -659,6 +659,7 @@ static void qcom_glink_rx_done(struct qcom_glink *glink,
 			       struct glink_core_rx_intent *intent)
 {
 	int ret = -EAGAIN;
+	unsigned long flags;
 
 	/* We don't send RX_DONE to intentless systems */
 	if (glink->intentless) {
@@ -669,13 +670,13 @@ static void qcom_glink_rx_done(struct qcom_glink *glink,
 
 	/* Take it off the tree of receive intents */
 	if (!intent->reuse) {
-		spin_lock(&channel->intent_lock);
+		spin_lock_irqsave(&channel->intent_lock, flags);
 		idr_remove(&channel->liids, intent->id);
-		spin_unlock(&channel->intent_lock);
+		spin_unlock_irqrestore(&channel->intent_lock, flags);
 	}
 
 	/* Schedule the sending of a rx_done indication */
-	spin_lock(&channel->intent_lock);
+	spin_lock_irqsave(&channel->intent_lock, flags);
 	if (list_empty(&channel->done_intents))
 		ret = __qcom_glink_rx_done(glink, channel, intent, false);
 
@@ -683,7 +684,7 @@ static void qcom_glink_rx_done(struct qcom_glink *glink,
 		list_add_tail(&intent->node, &channel->done_intents);
 		kthread_queue_work(&glink->kworker, &channel->intent_work);
 	}
-	spin_unlock(&channel->intent_lock);
+	spin_unlock_irqrestore(&channel->intent_lock, flags);
 }
 
 /**

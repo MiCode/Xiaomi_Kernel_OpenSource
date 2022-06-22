@@ -138,6 +138,16 @@ struct icnss_soc_info {
 	char fw_build_timestamp[ICNSS_MAX_TIMESTAMP_LEN + 1];
 };
 
+enum icnss_pinctrl_seq {
+	ICNSS_PINCTRL_SEQ_OFF,
+	ICNSS_PINCTRL_SEQ_ON,
+};
+
+enum icnss_pinctrl_owner {
+	ICNSS_PINCTRL_OWNER_WLAN,
+	ICNSS_PINCTRL_OWNER_BT,
+};
+
 #define icnss_register_driver(ops)		\
 	__icnss_register_driver(ops, THIS_MODULE, KBUILD_MODNAME)
 extern int __icnss_register_driver(struct icnss_driver_ops *ops,
@@ -209,4 +219,7 @@ extern void icnss_allow_l1(struct device *dev);
 extern int icnss_get_mhi_state(struct device *dev);
 extern int icnss_is_pci_ep_awake(struct device *dev);
 extern unsigned long icnss_get_device_config(void);
+extern int icnss_power_trigger_pinctrl(struct device *dev,
+				       enum icnss_pinctrl_owner owner,
+				       enum icnss_pinctrl_seq seq);
 #endif /* _ICNSS_WLAN_H_ */

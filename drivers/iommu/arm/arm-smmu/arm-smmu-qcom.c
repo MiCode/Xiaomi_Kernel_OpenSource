@@ -384,7 +384,7 @@ static const struct arm_smmu_impl qcom_smmu_impl = {
 #define TBU_TESTBUS_SEL_ALL		0xff
 
 /* QTB constants */
-#define QTB_DBG_TIMEOUT_US		100
+#define QTB_DBG_TIMEOUT_US		500
 
 #define QTB_SWID_LOW			0x0
 
