@@ -536,6 +536,8 @@ int stmmac_mdio_register(struct net_device *ndev)
 
 		phy_attached_info(phydev);
 		found = 1;
+		dev_info(dev, "Successfully registered MDIO to PHY address %d\n", addr);
+		break;
 	}
 
 	if (!found && !mdio_node) {
