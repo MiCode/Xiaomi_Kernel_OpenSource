@@ -719,6 +719,10 @@ subsys_initcall(oom_init)
 static inline void queue_oom_reaper(struct task_struct *tsk)
 {
 }
+
+static void __wake_oom_reaper(struct task_struct *tsk)
+{
+}
 #endif /* CONFIG_MMU */
 
 /**

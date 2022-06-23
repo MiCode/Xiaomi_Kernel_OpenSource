@@ -804,6 +804,8 @@
   icc_link_create
   icc_node_add
   icc_node_create
+  icc_node_del
+  icc_node_destroy
   icc_nodes_remove
   icc_provider_add
   icc_provider_del
