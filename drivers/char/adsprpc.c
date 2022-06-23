@@ -7608,7 +7608,9 @@ long fastrpc_driver_invoke(struct fastrpc_device *dev, unsigned int invoke_num,
 				mutex_unlock(&fl->internal_map_mutex);
 				break;
 			}
+			mutex_lock(&fl->map_mutex);
 			fastrpc_mmap_free(map, 0);
+			mutex_unlock(&fl->map_mutex);
 		}
 		mutex_unlock(&fl->internal_map_mutex);
 		break;
