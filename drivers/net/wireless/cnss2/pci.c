@@ -1922,12 +1922,16 @@ static void cnss_pci_clear_time_sync_counter(struct cnss_pci_data *pci_priv)
 static void cnss_pci_time_sync_reg_update(struct cnss_pci_data *pci_priv,
 					  u32 low, u32 high)
 {
-	u32 time_reg_low = PCIE_SHADOW_REG_VALUE_0;
-	u32 time_reg_high = PCIE_SHADOW_REG_VALUE_1;
+	u32 time_reg_low;
+	u32 time_reg_high;
 
 	switch (pci_priv->device_id) {
 	case KIWI_DEVICE_ID:
-		/* Forward compatibility */
+		/* Use the next two shadow registers after host's usage */
+		time_reg_low = PCIE_SHADOW_REG_VALUE_0 +
+				(pci_priv->plat_priv->num_shadow_regs_v3 *
+				 SHADOW_REG_LEN_BYTES);
+		time_reg_high = time_reg_low + SHADOW_REG_LEN_BYTES;
 		break;
 	default:
 		time_reg_low = PCIE_SHADOW_REG_VALUE_34;
