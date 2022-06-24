@@ -271,6 +271,11 @@ static int glink_pkt_release(struct inode *inode, struct file *file)
 		wake_up_interruptible(&gpdev->readq);
 		gpdev->sig_change = false;
 		spin_unlock_irqrestore(&gpdev->queue_lock, flags);
+
+		if (gpdev->drv_registered && gpdev->enable_ch_close) {
+			unregister_rpmsg_driver(&gpdev->drv);
+			gpdev->drv_registered = 0;
+		}
 	}
 
 	put_device(dev);
