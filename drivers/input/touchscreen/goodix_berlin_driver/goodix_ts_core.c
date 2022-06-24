@@ -2045,8 +2045,10 @@ int goodix_ts_stage2_init(struct goodix_ts_core *cd)
 	/* create procfs files */
 	goodix_ts_procfs_init(cd);
 
+#ifdef GOODIX_SUSPEND_GESTURE_ENABLE
 	/* gesture init */
 	gesture_module_init();
+#endif
 
 	/* inspect init */
 	inspect_module_init();
