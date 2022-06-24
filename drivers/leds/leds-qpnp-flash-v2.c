@@ -26,6 +26,7 @@
 #include <linux/leds-qpnp-flash-v2.h>
 #include <linux/iio/consumer.h>
 #include <linux/log2.h>
+#include <linux/soc/qcom/battery_charger.h>
 #include "leds.h"
 
 #define	FLASH_LED_REG_LED_STATUS1(base)		(base + 0x08)
@@ -303,6 +304,7 @@ struct flash_led_platform_data {
 	bool			hdrm_auto_mode_en;
 	bool			thermal_derate_en;
 	bool			otst_ramp_bkup_en;
+	bool			use_qti;
 };
 
 enum flash_iio_props {
@@ -332,6 +334,7 @@ struct qpnp_flash_led {
 	struct flash_switch_data	*snode;
 	struct power_supply		*usb_psy;
 	struct iio_channel		**iio_channels;
+	struct power_supply		*batt_psy;
 	struct notifier_block		nb;
 	spinlock_t			lock;
 	int				num_fnodes;
@@ -935,34 +938,77 @@ static int qpnp_flash_led_calc_max_current(struct qpnp_flash_led *led,
 	int rbatt_uohm = 0;
 	int64_t ibat_flash_ua, avail_flash_ua, avail_flash_power_fw;
 	int64_t ibat_safe_ua, vin_flash_uv, vph_flash_uv, vph_flash_vdip;
+	union power_supply_propval prop = {};
 
-	/* RESISTANCE = esr_uohm + rslow_uohm */
-	rc = qpnp_flash_iio_getprop(led, RBATT, &rbatt_uohm);
-	/* Do not return error if the QG driver is not probed */
-	if (rc == -EPROBE_DEFER) {
-		*max_current = FLASH_LED_MAX_TOTAL_CURRENT_MA;
-		return 0;
-	} else if (rc < 0) {
-		pr_err("Unable to read battery resistance, rc=%d\n", rc);
-		return rc;
-	}
+	if (!(led->pdata->use_qti)) {
+		/* RESISTANCE = esr_uohm + rslow_uohm */
+		rc = qpnp_flash_iio_getprop(led, RBATT, &rbatt_uohm);
+		/* Do not return error if the QG driver is not probed */
+		if (rc == -EPROBE_DEFER) {
+			*max_current = FLASH_LED_MAX_TOTAL_CURRENT_MA;
+			return 0;
+		} else if (rc < 0) {
+			pr_err("Unable to read battery resistance, rc=%d\n", rc);
+			return rc;
+		}
 
-	/* If no battery is connected, return max possible flash current */
-	if (!rbatt_uohm) {
-		*max_current = FLASH_LED_MAX_TOTAL_CURRENT_MA;
-		return 0;
-	}
+		/* If no battery is connected, return max possible flash current */
+		if (!rbatt_uohm) {
+			*max_current = FLASH_LED_MAX_TOTAL_CURRENT_MA;
+			return 0;
+		}
 
-	rc = qpnp_flash_iio_getprop(led, OCV, &ocv_uv);
-	if (rc < 0) {
-		pr_err("Unable to read OCV, rc=%d\n", rc);
-		return rc;
-	}
+		rc = qpnp_flash_iio_getprop(led, OCV, &ocv_uv);
+		if (rc < 0) {
+			pr_err("Unable to read OCV, rc=%d\n", rc);
+			return rc;
+		}
 
-	rc = qpnp_flash_iio_getprop(led, IBAT, &ibat_now);
-	if (rc < 0) {
-		pr_err("unable to read current_now, rc=%d\n", rc);
-		return rc;
+		rc = qpnp_flash_iio_getprop(led, IBAT, &ibat_now);
+		if (rc < 0) {
+			pr_err("unable to read current_now, rc=%d\n", rc);
+			return rc;
+		}
+	} else {
+		rc = qti_battery_charger_get_prop("battery", BATTERY_RESISTANCE,
+						&rbatt_uohm);
+		if (rc < 0) {
+			pr_err("Failed to get battery resistance, rc=%d\n",
+				rc);
+			return rc;
+		}
+
+		if (!rbatt_uohm) {
+			*max_current = FLASH_LED_MAX_TOTAL_CURRENT_MA;
+			return 0;
+		}
+
+		if (!led->batt_psy) {
+			led->batt_psy = power_supply_get_by_name("battery");
+			/* check if batt_psy is really obtained after get_by_name */
+			if (!led->batt_psy) {
+				pr_err("Failed to get battery power supply, rc=%d\n", rc);
+				return -EINVAL;
+			}
+		}
+
+		rc = power_supply_get_property(led->batt_psy,
+			POWER_SUPPLY_PROP_VOLTAGE_OCV, &prop);
+		if (rc < 0) {
+			pr_err("Failed to get battery OCV, rc=%d\n", rc);
+			return rc;
+		}
+		ocv_uv = prop.intval;
+
+		rc = power_supply_get_property(led->batt_psy,
+			POWER_SUPPLY_PROP_CURRENT_NOW, &prop);
+		if (rc < 0) {
+			pr_err("Failed to get battery current, rc=%d\n", rc);
+			return rc;
+		}
+
+		/* Battery power supply returns -ve value for discharging */
+		ibat_now = -(prop.intval);
 	}
 
 	rbatt_uohm += led->pdata->rpara_uohm;
@@ -2818,6 +2864,9 @@ static int qpnp_flash_led_parse_common_dt(struct qpnp_flash_led *led,
 		pr_err("Unable to parse hw strobe option, rc=%d\n", rc);
 		return rc;
 	}
+
+	led->pdata->use_qti =
+		of_property_read_bool(node, "qcom,use-qti");
 
 	led->pdata->vled_max_uv = FLASH_LED_VLED_MAX_DEFAULT_UV;
 	rc = of_property_read_u32(node, "qcom,vled-max-uv", &val);
