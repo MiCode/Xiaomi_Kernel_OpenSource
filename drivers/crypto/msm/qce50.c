@@ -1119,8 +1119,7 @@ static int _ce_setup_cipher(struct qce_device *pce_dev, struct qce_req *creq,
 	if (is_offload_op(creq->offload_op)) {
 		/* pattern info */
 		pce = cmdlistinfo->pattern_info;
-		if (creq->is_pattern_valid)
-			pce->data = creq->pattern_info;
+		pce->data = creq->pattern_info;
 
 		/* block offset */
 		pce = cmdlistinfo->block_offset;
@@ -1287,11 +1286,11 @@ static void _qce_dump_descr_fifos(struct qce_device *pce_dev, int req_info)
 
 	pce_sps_data = &pce_dev->ce_request_info[req_info].ce_sps;
 	iovec = pce_sps_data->in_transfer.iovec;
-	pr_err("==============================================\n");
-	pr_err("CONSUMER (TX/IN/DEST) PIPE DESCRIPTOR\n");
-	pr_err("==============================================\n");
+	pr_info("==============================================\n");
+	pr_info("CONSUMER (TX/IN/DEST) PIPE DESCRIPTOR\n");
+	pr_info("==============================================\n");
 	for (i = 0; i <  pce_sps_data->in_transfer.iovec_count; i++) {
-		pr_err(" [%d] addr=0x%x  size=0x%x  flags=0x%x\n", i,
+		pr_info(" [%d] addr=0x%x  size=0x%x  flags=0x%x\n", i,
 					iovec->addr, iovec->size, iovec->flags);
 		if (iovec->flags & cmd_flags) {
 			struct sps_command_element *pced;
@@ -1300,7 +1299,7 @@ static void _qce_dump_descr_fifos(struct qce_device *pce_dev, int req_info)
 					(GET_VIRT_ADDR(iovec->addr));
 			ents = iovec->size/(sizeof(struct sps_command_element));
 			for (j = 0; j < ents; j++) {
-				pr_err("      [%d] [0x%x] 0x%x\n", j,
+				pr_info("      [%d] [0x%x] 0x%x\n", j,
 					pced->addr, pced->data);
 				pced++;
 			}
@@ -1308,9 +1307,9 @@ static void _qce_dump_descr_fifos(struct qce_device *pce_dev, int req_info)
 		iovec++;
 	}
 
-	pr_err("==============================================\n");
-	pr_err("PRODUCER (RX/OUT/SRC) PIPE DESCRIPTOR\n");
-	pr_err("==============================================\n");
+	pr_info("==============================================\n");
+	pr_info("PRODUCER (RX/OUT/SRC) PIPE DESCRIPTOR\n");
+	pr_info("==============================================\n");
 	iovec =  pce_sps_data->out_transfer.iovec;
 	for (i = 0; i <   pce_sps_data->out_transfer.iovec_count; i++) {
 		pr_info(" [%d] addr=0x%x  size=0x%x  flags=0x%x\n", i,
