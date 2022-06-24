@@ -1375,7 +1375,7 @@ void gen7_crashdump_init(struct adreno_device *adreno_dev)
 
 	if (IS_ERR_OR_NULL(gen7_capturescript))
 		gen7_capturescript = kgsl_allocate_global(device,
-			6 * PAGE_SIZE, 0, KGSL_MEMFLAGS_GPUREADONLY,
+			3 * PAGE_SIZE, 0, KGSL_MEMFLAGS_GPUREADONLY,
 			KGSL_MEMDESC_PRIVILEGED, "capturescript");
 
 	if (IS_ERR(gen7_capturescript))
@@ -1383,7 +1383,7 @@ void gen7_crashdump_init(struct adreno_device *adreno_dev)
 
 	if (IS_ERR_OR_NULL(gen7_crashdump_registers))
 		gen7_crashdump_registers = kgsl_allocate_global(device,
-			300 * PAGE_SIZE, 0, 0, KGSL_MEMDESC_PRIVILEGED,
+			25 * PAGE_SIZE, 0, 0, KGSL_MEMDESC_PRIVILEGED,
 			"capturescript_regs");
 
 	if (IS_ERR(gen7_crashdump_registers))
