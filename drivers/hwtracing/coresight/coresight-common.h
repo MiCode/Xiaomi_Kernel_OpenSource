@@ -19,6 +19,8 @@ extern void msm_qdss_csr_enable_bam_to_usb(struct coresight_csr *csr);
 extern void msm_qdss_csr_enable_flush(struct coresight_csr *csr);
 extern void msm_qdss_csr_disable_bam_to_usb(struct coresight_csr *csr);
 extern void msm_qdss_csr_disable_flush(struct coresight_csr *csr);
+extern void msm_qdss_csr_enable_eth(struct coresight_csr *csr);
+extern void msm_qdss_csr_disable_eth(struct coresight_csr *csr);
 extern int coresight_csr_hwctrl_set(struct coresight_csr *csr, uint64_t addr,
 				 uint32_t val);
 extern void coresight_csr_set_byte_cntr(struct coresight_csr *csr, int irqctrl_offset,
@@ -38,6 +40,8 @@ static inline int of_get_coresight_csr_name(struct device_node *node,
 static inline void msm_qdss_csr_enable_bam_to_usb(struct coresight_csr *csr) {}
 static inline void msm_qdss_csr_disable_bam_to_usb(struct coresight_csr *csr) {}
 static inline void msm_qdss_csr_disable_flush(struct coresight_csr *csr) {}
+static inline void msm_qdss_csr_enable_eth(struct coresight_csr *csr) {}
+static inline void msm_qdss_csr_disable_eth(struct coresight_csr *csr) {}
 static inline int coresight_csr_hwctrl_set(struct coresight_csr *csr,
 	uint64_t addr, uint32_t val) { return -EINVAL; }
 static inline void coresight_csr_set_byte_cntr(struct coresight_csr *csr, int irqctrl_offset,

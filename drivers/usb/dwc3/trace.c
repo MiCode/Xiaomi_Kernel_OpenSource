@@ -11,3 +11,5 @@
 #include "trace.h"
 
 EXPORT_TRACEPOINT_SYMBOL_GPL(dwc3_event);
+EXPORT_TRACEPOINT_SYMBOL_GPL(dwc3_ctrl_req);
+EXPORT_TRACEPOINT_SYMBOL_GPL(dwc3_complete_trb);

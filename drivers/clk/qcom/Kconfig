@@ -78,7 +78,7 @@ config QCOM_CLK_RPM
 
 config QCOM_CLK_SMD_RPM
 	tristate "RPM over SMD based Clock Controller"
-	depends on QCOM_SMD_RPM
+	depends on MSM_RPM_SMD
 	select QCOM_RPMCC
 	help
 	  The RPM (Resource Power Manager) is a dedicated hardware engine for
@@ -842,6 +842,61 @@ config QDRU_DEBUGCC_CINDER
 	help
 	  Support for the debug clock controller on Qualcomm Technologies, Inc
 	  Cinder devices.
+	  Say Y if you want to support the debug clocks such as
+	  clock measurement functionality.
+
+config SM_GCC_KHAJE
+	tristate "KHAJE Global Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the global clock controller on Qualcomm Technologies, Inc
+	  on KHAJE devices.
+	  Say Y if you want to use peripheral devices such as UART, SPI,
+	  I2C, USB, UFS, SDCC, PCIe, Camera, Video etc.
+
+config SM_DISPCC_KHAJE
+	tristate "KHAJE Display Clock Controller"
+	select SM_GCC_KHAJE
+	help
+	 Support for the display clock controller on Qualcomm Technologies, Inc.
+	 KHAJE devices.
+	 Say Y if you want to support display devices and functionality such as
+	 splash screen.
+
+config SM_GPUCC_KHAJE
+	tristate "KHAJE Graphics Clock Controller"
+	select SM_GCC_KHAJE
+	help
+	  Support for the graphics clock controller on Qualcomm Technologies, Inc
+	  KHAJE devices.
+	  Say Y if you want to support graphics controller devices and
+	  functionality such as 3D graphics.
+
+config SM_DEBUGCC_KHAJE
+	tristate "KHAJE Debug Clock Controller"
+	select SM_GCC_KHAJE
+	help
+	 Support for the debug clock controller on Qualcomm Technologies, Inc
+	 KHAJE devices.
+	 Say Y if you want to support the debug clocks such as
+	 clock measurement functionality.
+
+config SC_CAMCC_8180X
+	tristate "SC8180X Camera Clock Controller"
+	select SC_GCC_8180X
+	help
+	  Support for the camera clock controller on Qualcomm Technologies, Inc
+	  SC8180X devices.
+	  Say Y if you want to support camera devices and functionality such as
+	  capturing pictures.
+
+config SC_DEBUGCC_SC8180X
+	tristate "SC8180X Debug Clock Controller"
+	depends on COMMON_CLK_QCOM
+	depends on SC_GCC_8180X
+	help
+	  Support for the debug clock controller on Qualcomm Technologies, Inc
+	  SC8180X devices.
 	  Say Y if you want to support the debug clocks such as
 	  clock measurement functionality.
 

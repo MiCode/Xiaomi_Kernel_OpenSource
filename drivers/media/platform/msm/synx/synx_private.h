@@ -86,11 +86,13 @@ struct error_node {
  *
  * @key  : Unique key used to hash to table
  * @data : Data to be saved
+ * @refcount : Refcount for node entry
  * @node : Hash list member used to append this node to table
  */
 struct hash_key_data {
 	u32 key;
 	void *data;
+	struct kref refcount;
 	struct hlist_node node;
 };
 

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2022, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #define pr_fmt(fmt) "%s:%s " fmt, KBUILD_MODNAME, __func__
@@ -98,7 +98,7 @@ static void devfreq_cdev_work(struct work_struct *work)
 	df = devfreq_get_devfreq_by_node(cdev_data->np);
 	if (IS_ERR(df)) {
 		ret = PTR_ERR(df);
-		pr_err("Devfreq not available:%d\n", ret);
+		pr_debug("Devfreq not available:%d\n", ret);
 		if (--cdev_data->retry_cnt)
 			queue_delayed_work(system_highpri_wq,
 					&cdev_data->register_work,

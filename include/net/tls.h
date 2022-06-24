@@ -113,6 +113,9 @@ struct tls_rec {
 	char aad_space[TLS_AAD_SPACE_SIZE];
 	u8 iv_data[MAX_IV_SIZE];
 	struct aead_request aead_req;
+
+	ANDROID_KABI_RESERVE(1);
+
 	u8 aead_req_ctx[];
 };
 
@@ -141,6 +144,8 @@ struct tls_sw_context_tx {
 #define BIT_TX_SCHEDULED	0
 #define BIT_TX_CLOSING		1
 	unsigned long tx_bitmask;
+
+	ANDROID_KABI_RESERVE(1);
 };
 
 struct tls_sw_context_rx {
@@ -158,6 +163,8 @@ struct tls_sw_context_rx {
 	/* protect crypto_wait with decrypt_pending*/
 	spinlock_t decrypt_compl_lock;
 	bool async_notify;
+
+	ANDROID_KABI_RESERVE(1);
 };
 
 struct tls_record_info {

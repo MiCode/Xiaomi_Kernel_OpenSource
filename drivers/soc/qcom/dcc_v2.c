@@ -204,6 +204,25 @@ static int dcc_sram_writel(struct dcc_drvdata *drvdata,
 	return 0;
 }
 
+static int dcc_sram_memcpy(void *to, const void __iomem *from,
+							size_t count)
+{
+	if (!count || (!IS_ALIGNED((unsigned long)from, 4) ||
+			!IS_ALIGNED((unsigned long)to, 4) ||
+			!IS_ALIGNED((unsigned long)count, 4))) {
+		return -EINVAL;
+	}
+
+	while (count >= 4) {
+		*(unsigned int *)to = __raw_readl(from);
+		to += 4;
+		from += 4;
+		count -= 4;
+	}
+
+	return 0;
+}
+
 static bool dcc_ready(struct dcc_drvdata *drvdata)
 {
 	uint32_t val;
@@ -723,6 +742,8 @@ static int dcc_enable(struct dcc_drvdata *drvdata)
 		if (drvdata->mem_map_ver == DCC_MEM_MAP_VER3) {
 			dcc_writel(drvdata, drvdata->qad_output[list],
 					DCC_QAD_OUTPUT(list));
+			dcc_writel(drvdata, drvdata->cti_trig[list],
+					DCC_CTI_TRIG(list));
 			dcc_writel(drvdata, BIT(8) | ((drvdata->data_sink[list] << 4) |
 				   (drvdata->func_type[list])), DCC_LL_CFG(list));
 		} else {
@@ -1536,11 +1557,6 @@ static ssize_t cti_trig_show(struct device *dev,
 {
 	struct dcc_drvdata *drvdata = dev_get_drvdata(dev);
 
-	if (drvdata->mem_map_ver == DCC_MEM_MAP_VER3) {
-		dev_err(dev, "cti trig is not supported\n");
-		return -EINVAL;
-	}
-
 	return scnprintf(buf, PAGE_SIZE, "%d\n", drvdata->cti_trig[drvdata->curr_list]);
 }
 
@@ -1551,11 +1567,6 @@ static ssize_t cti_trig_store(struct device *dev,
 	unsigned long val;
 	int ret = 0;
 	struct dcc_drvdata *drvdata = dev_get_drvdata(dev);
-
-	if (drvdata->mem_map_ver == DCC_MEM_MAP_VER3) {
-		dev_err(dev, "cti trig is not supported\n");
-		return -EINVAL;
-	}
 
 	if (kstrtoul(buf, 16, &val))
 		return -EINVAL;
@@ -1648,7 +1659,7 @@ static ssize_t dcc_sram_read(struct file *file, char __user *data,
 	if (!buf)
 		return -ENOMEM;
 
-	memcpy_fromio(buf, (drvdata->ram_base + *ppos), len);
+	dcc_sram_memcpy(buf, (drvdata->ram_base + *ppos), len);
 
 	if (copy_to_user(data, buf, len)) {
 		dev_err(drvdata->dev,

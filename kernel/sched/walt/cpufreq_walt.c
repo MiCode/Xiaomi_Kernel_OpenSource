@@ -188,6 +188,25 @@ static void waltgov_calc_avg_cap(struct waltgov_policy *wg_policy, u64 curr_ws,
 	wg_policy->last_ws = curr_ws;
 }
 
+/*
+ * if waltgov is initialized, return the avg_cap seen
+ * over the last window. return 0 otherwise.
+ */
+unsigned int waltgov_get_avg_cap(unsigned int cpu)
+{
+	struct waltgov_cpu *wg_cpu = &per_cpu(waltgov_cpu, cpu);
+	struct waltgov_policy *wg_policy = wg_cpu->wg_policy;
+
+	/* if the policy is not initialized, or the callback
+	 * is not initialized. callback is initialized on
+	 * start of waltgov, erased on stop of waltgov.
+	 */
+	if (!wg_policy || !wg_cpu->cb.func)
+		return 0;
+
+	return wg_policy->avg_cap;
+}
+
 static void waltgov_fast_switch(struct waltgov_policy *wg_policy, u64 time,
 			      unsigned int next_freq)
 {
@@ -281,7 +300,7 @@ static unsigned long waltgov_get_util(struct waltgov_cpu *wg_cpu)
 static inline void max_and_reason(unsigned long *cur_util, unsigned long boost_util,
 		struct waltgov_cpu *wg_cpu, unsigned int reason)
 {
-	if (boost_util >= *cur_util) {
+	if (boost_util && boost_util >= *cur_util) {
 		*cur_util = boost_util;
 		wg_cpu->reasons = reason;
 		wg_cpu->wg_policy->driving_cpu = wg_cpu->cpu;

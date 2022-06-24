@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -19,6 +20,8 @@ static const struct msm_pinctrl_soc_data cinder_pinctrl = {
 	.groups = cinder_groups,
 	.ngroups = ARRAY_SIZE(cinder_groups),
 	.ngpios = 151,
+	.qup_regs = cinder_qup_regs,
+	.nqup_regs = ARRAY_SIZE(cinder_qup_regs),
 };
 
 static int cinder_pinctrl_probe(struct platform_device *pdev)

@@ -46,9 +46,13 @@ obj-$(CONFIG_PS3_FLASH)		+= ps3flash.o
 obj-$(CONFIG_XILLYBUS_CLASS)	+= xillybus/
 obj-$(CONFIG_POWERNV_OP_PANEL)	+= powernv-op-panel.o
 frpc-adsprpc-objs		+= adsprpc.o
+frpc-adsprpc-objs		+= adsprpc_rpmsg.o
 ifdef CONFIG_COMPAT
   frpc-adsprpc-objs		+= adsprpc_compat.o
 endif
 obj-$(CONFIG_MSM_ADSPRPC)	+= frpc-adsprpc.o
+frpc_trusted-adsprpc-objs	+= adsprpc.o
+frpc_trusted-adsprpc-objs	+= adsprpc_socket.o
+obj-$(CONFIG_MSM_ADSPRPC_TRUSTED)	+= frpc_trusted-adsprpc.o
 obj-$(CONFIG_MSM_RDBG)		+= rdbg.o
 obj-$(CONFIG_ADI)		+= adi.o

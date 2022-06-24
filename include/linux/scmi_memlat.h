@@ -47,6 +47,12 @@ struct scmi_memlat_vendor_ops {
 		       u32 hw_type, u32 mon_type, u32 index, const char *mon_name);
 	int (*set_grp_ev_map)(const struct scmi_protocol_handle *ph, u32 hw_type,
 			  void *buf, u32 num_evs);
+	int (*adaptive_low_freq)(const struct scmi_protocol_handle *ph,
+					 u32 hw_type, u32 index, u32 val);
+	int (*adaptive_high_freq)(const struct scmi_protocol_handle *ph,
+					  u32 hw_type, u32 index, u32 val);
+	int (*get_adaptive_cur_freq)(const struct scmi_protocol_handle *ph, u32 hw_type,
+				     u32 mon_idx, void *buf);
 	int (*set_common_ev_map)(const struct scmi_protocol_handle *ph, void *buf,
 				 u32 num_evs);
 	int (*ipm_ceil)(const struct scmi_protocol_handle *ph,
@@ -70,6 +76,8 @@ struct scmi_memlat_vendor_ops {
 			u32 hw_type, u32 index, u32 val);
 	int (*max_freq)(const struct scmi_protocol_handle *ph,
 			u32 hw_type, u32 index, u32 val);
+	int (*get_cur_freq)(const struct scmi_protocol_handle *ph, u32 hw_type,
+			    u32 mon_idx, void *buf);
 	int (*start_timer)(const struct scmi_protocol_handle *ph);
 	int (*stop_timer)(const struct scmi_protocol_handle *ph);
 	int (*set_log_level)(const struct scmi_protocol_handle *ph, u32 val);

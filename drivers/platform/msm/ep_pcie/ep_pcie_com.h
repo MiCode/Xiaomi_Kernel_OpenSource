@@ -1,5 +1,8 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
-/* Copyright (c) 2015-2022, Qualcomm Innovation Center, Inc. All rights reserved.*/
+/*
+ * Copyright (c) 2015-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
+ */
 
 #ifndef __EP_PCIE_COM_H
 #define __EP_PCIE_COM_H
@@ -331,6 +334,7 @@ struct ep_pcie_phy_info_t {
 struct ep_pcie_dev_t {
 	struct platform_device       *pdev;
 	struct regulator             *gdsc;
+	struct regulator             *gdsc_phy;
 	struct ep_pcie_vreg_info_t   vreg[EP_PCIE_MAX_VREG];
 	struct ep_pcie_gpio_info_t   gpio[EP_PCIE_MAX_GPIO];
 	struct ep_pcie_clk_info_t    clk[EP_PCIE_MAX_CLK];

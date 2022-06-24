@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -46,6 +47,8 @@
 		.mux_bit = 2,			\
 		.pull_bit = 0,			\
 		.drv_bit = 6,			\
+		.egpio_enable = 12,		\
+		.egpio_present = 11,		\
 		.oe_bit = 9,			\
 		.in_bit = 0,			\
 		.out_bit = 1,			\
@@ -114,7 +117,7 @@
 #define QUP_I3C(qup_mode, qup_offset)			\
 	{						\
 		.mode = qup_mode,			\
-		.offset = qup_offset,			\
+		.offset = REG_BASE + qup_offset,	\
 	}
 
 #define QUP_I3C_8_MODE_OFFSET	0xEA000
@@ -763,6 +766,14 @@ enum kalama_functions {
 	msm_mux_qup1_se7_l2,
 	msm_mux_qup1_se7_l3,
 	msm_mux_qup2_se0,
+	msm_mux_qup2_se0_l0_mira,
+	msm_mux_qup2_se0_l0_mirb,
+	msm_mux_qup2_se0_l1_mira,
+	msm_mux_qup2_se0_l1_mirb,
+	msm_mux_qup2_se0_l2_mira,
+	msm_mux_qup2_se0_l2_mirb,
+	msm_mux_qup2_se0_l3_mira,
+	msm_mux_qup2_se0_l3_mirb,
 	msm_mux_qup2_se1_l0,
 	msm_mux_qup2_se1_l1,
 	msm_mux_qup2_se1_l2,
@@ -1474,9 +1485,32 @@ static const char * const qup1_se7_l2_groups[] = {
 static const char * const qup1_se7_l3_groups[] = {
 	"gpio27",
 };
+static const char * const qup2_se0_l0_mira_groups[] = {
+	"gpio56",
+};
+static const char * const qup2_se0_l0_mirb_groups[] = {
+	"gpio0",
+};
+static const char * const qup2_se0_l1_mira_groups[] = {
+	"gpio57",
+};
+static const char * const qup2_se0_l1_mirb_groups[] = {
+	"gpio1",
+};
+static const char * const qup2_se0_l2_mira_groups[] = {
+	"gpio58",
+};
+static const char * const qup2_se0_l2_mirb_groups[] = {
+	"gpio109",
+};
+static const char * const qup2_se0_l3_mira_groups[] = {
+	"gpio59",
+};
+static const char * const qup2_se0_l3_mirb_groups[] = {
+	"gpio107",
+};
 static const char * const qup2_se0_groups[] = {
-	"gpio0", "gpio1", "gpio56", "gpio57", "gpio58", "gpio59", "gpio63",
-	"gpio66", "gpio67", "gpio107", "gpio109",
+	"gpio63", "gpio66", "gpio67",
 };
 static const char * const qup2_se1_l0_groups[] = {
 	"gpio60",
@@ -1868,6 +1902,14 @@ static const struct msm_function kalama_functions[] = {
 	FUNCTION(qup1_se7_l2),
 	FUNCTION(qup1_se7_l3),
 	FUNCTION(qup2_se0),
+	FUNCTION(qup2_se0_l0_mira),
+	FUNCTION(qup2_se0_l0_mirb),
+	FUNCTION(qup2_se0_l1_mira),
+	FUNCTION(qup2_se0_l1_mirb),
+	FUNCTION(qup2_se0_l2_mira),
+	FUNCTION(qup2_se0_l2_mirb),
+	FUNCTION(qup2_se0_l3_mira),
+	FUNCTION(qup2_se0_l3_mirb),
 	FUNCTION(qup2_se1_l0),
 	FUNCTION(qup2_se1_l1),
 	FUNCTION(qup2_se1_l2),
@@ -1937,9 +1979,9 @@ static const struct msm_function kalama_functions[] = {
  * Clients would not be able to request these dummy pin groups.
  */
 static const struct msm_pingroup kalama_groups[] = {
-	[0] = PINGROUP(0, cci_i2c_sda5, qup2_se0, ibi_i3c, phase_flag31, NA,
+	[0] = PINGROUP(0, cci_i2c_sda5, qup2_se0_l0_mirb, ibi_i3c, phase_flag31, NA,
 		       NA, NA, NA, NA, 0xD200C, 3),
-	[1] = PINGROUP(1, cci_i2c_scl5, qup2_se0, ibi_i3c, NA, NA, NA, NA, NA,
+	[1] = PINGROUP(1, cci_i2c_scl5, qup2_se0_l1_mirb, ibi_i3c, NA, NA, NA, NA, NA,
 		       NA, 0, -1),
 	[2] = PINGROUP(2, qup2_se4_l0, phase_flag29, NA, NA, NA, NA, NA, NA,
 		       NA, 0xD200C, 4),
@@ -2016,10 +2058,10 @@ static const struct msm_pingroup kalama_groups[] = {
 	[54] = PINGROUP(54, NA, qup1_se5_l2, NA, NA, NA, NA, NA, NA, NA, 0, -1),
 	[55] = PINGROUP(55, qup1_se5_l3, atest_usb03, NA, NA, NA, NA, NA, NA,
 			NA, 0xD2018, 1),
-	[56] = PINGROUP(56, qup2_se0, ibi_i3c, NA, NA, NA, NA, NA, NA, NA, 0xD200C, 7),
-	[57] = PINGROUP(57, qup2_se0, ibi_i3c, NA, NA, NA, NA, NA, NA, NA, 0, -1),
-	[58] = PINGROUP(58, qup2_se0, NA, NA, NA, NA, NA, NA, NA, NA, 0, -1),
-	[59] = PINGROUP(59, qup2_se0, phase_flag25, NA, qdss_gpio6, NA, NA, NA,
+	[56] = PINGROUP(56, qup2_se0_l0_mira, ibi_i3c, NA, NA, NA, NA, NA, NA, NA, 0xD200C, 7),
+	[57] = PINGROUP(57, qup2_se0_l1_mira, ibi_i3c, NA, NA, NA, NA, NA, NA, NA, 0, -1),
+	[58] = PINGROUP(58, qup2_se0_l2_mira, NA, NA, NA, NA, NA, NA, NA, NA, 0, -1),
+	[59] = PINGROUP(59, qup2_se0_l3_mira, phase_flag25, NA, qdss_gpio6, NA, NA, NA,
 			NA, NA, 0xD200C, 8),
 	[60] = PINGROUP(60, qup2_se1_l0, ibi_i3c, NA, NA, NA, NA, NA, NA, NA, 0xD200C, 9),
 	[61] = PINGROUP(61, qup2_se1_l1, ibi_i3c, NA, NA, NA, NA, NA, NA, NA, 0, -1),
@@ -2095,10 +2137,10 @@ static const struct msm_pingroup kalama_groups[] = {
 	[105] = PINGROUP(105, cam_mclk, qdss_gpio3, NA, NA, NA, NA, NA, NA, NA, 0, -1),
 	[106] = PINGROUP(106, cam_mclk, qup2_se7_l1, NA, NA, NA, NA, NA, NA,
 			 NA, 0, -1),
-	[107] = PINGROUP(107, cam_mclk, qup2_se0, pll_clk_aux, NA, NA, NA, NA,
+	[107] = PINGROUP(107, cam_mclk, qup2_se0_l3_mirb, pll_clk_aux, NA, NA, NA, NA,
 			 NA, NA, 0xD2010, 7),
 	[108] = PINGROUP(108, NA, NA, NA, NA, NA, NA, NA, NA, NA, 0, -1),
-	[109] = PINGROUP(109, cci_async_in2, qup2_se0, NA, NA, NA, NA, NA, NA,
+	[109] = PINGROUP(109, cci_async_in2, qup2_se0_l2_mirb, NA, NA, NA, NA, NA, NA,
 			 NA, 0, -1),
 	[110] = PINGROUP(110, cci_i2c_sda0, qdss_gpio7, NA, NA, NA, NA, NA, NA,
 			 NA, 0, -1),
@@ -2245,6 +2287,24 @@ static struct pinctrl_qup kalama_qup_regs[] = {
 static const struct msm_gpio_wakeirq_map kalama_pdc_map[] = {
 	{0, 118}, {2, 90}, {3, 101}, {8, 60}, {9, 67}, {11, 103}, {14, 136},
 	{15, 78}, {16, 138}, {17, 80}, {18, 71}, {19, 59}, {25, 57}, {26, 74},
+	{27, 76}, {28, 62}, {31, 88}, {32, 63}, {35, 124}, {39, 92}, {40, 77},
+	{41, 83}, {43, 86}, {44, 75}, {45, 93}, {46, 96}, {47, 64}, {48, 110},
+	{51, 89}, {55, 95}, {56, 68}, {59, 87}, {60, 65}, {62, 100}, {63, 81},
+	{67, 79}, {71, 102}, {73, 82}, {75, 72}, {79, 140}, {82, 105},
+	{83, 104}, {84, 126}, {85, 142}, {86, 106}, {87, 107}, {88, 61},
+	{89, 111}, {95, 108}, {96, 109}, {98, 97}, {99, 58}, {107, 139},
+	{119, 94}, {120, 135}, {133, 52}, {137, 84}, {148, 66}, {150, 73},
+	{153, 70}, {154, 53}, {155, 69}, {156, 54}, {159, 55}, {162, 56},
+	{166, 116}, {169, 119}, {171, 120}, {172, 85}, {174, 98}, {176, 112},
+	{177, 51}, {181, 114}, {182, 115}, {185, 117}, {187, 91}, {188, 123},
+	{190, 127}, {191, 113}, {192, 128}, {193, 129}, {196, 133}, {197, 134},
+	{198, 50}, {199, 99}, {200, 49}, {201, 48}, {203, 125}, {205, 141},
+	{206, 137}, {207, 47}, {208, 121}, {209, 122},
+};
+
+static const struct msm_gpio_wakeirq_map kalama_pdc_map_v2[] = {
+	{0, 118}, {2, 90}, {3, 101}, {8, 60}, {9, 67}, {11, 103}, {14, 136},
+	{15, 78}, {16, 138}, {17, 80}, {18, 71}, {19, 59}, {25, 57}, {26, 74},
 	{27, 76}, {28, 62}, {31, 111}, {32, 63}, {35, 124}, {39, 92}, {40, 77},
 	{41, 83}, {43, 86}, {44, 75}, {45, 93}, {46, 96}, {47, 64}, {48, 110},
 	{51, 89}, {55, 95}, {56, 68}, {59, 87}, {60, 65}, {62, 100}, {63, 81},
@@ -2274,6 +2334,20 @@ static const struct msm_pinctrl_soc_data kalama_pinctrl = {
 	.nwakeirq_map = ARRAY_SIZE(kalama_pdc_map),
 };
 
+static const struct msm_pinctrl_soc_data kalama_pinctrl_v2 = {
+	.pins = kalama_pins,
+	.npins = ARRAY_SIZE(kalama_pins),
+	.functions = kalama_functions,
+	.nfunctions = ARRAY_SIZE(kalama_functions),
+	.groups = kalama_groups,
+	.ngroups = ARRAY_SIZE(kalama_groups),
+	.ngpios = 211,
+	.qup_regs = kalama_qup_regs,
+	.nqup_regs = ARRAY_SIZE(kalama_qup_regs),
+	.wakeirq_map = kalama_pdc_map_v2,
+	.nwakeirq_map = ARRAY_SIZE(kalama_pdc_map_v2),
+};
+
 static const struct msm_pinctrl_soc_data kalama_vm_pinctrl = {
 	.pins = kalama_pins,
 	.npins = ARRAY_SIZE(kalama_pins),
@@ -2298,6 +2372,7 @@ static int kalama_pinctrl_probe(struct platform_device *pdev)
 
 static const struct of_device_id kalama_pinctrl_of_match[] = {
 	{ .compatible = "qcom,kalama-pinctrl", .data = &kalama_pinctrl},
+	{ .compatible = "qcom,kalama-pinctrl-v2", .data = &kalama_pinctrl_v2},
 	{ .compatible = "qcom,kalama-vm-pinctrl", .data = &kalama_vm_pinctrl},
 	{ },
 };

@@ -146,6 +146,16 @@ config QCOM_TLMM_VM_IRQCHIP
          Say Y here to compile the driver as a part of kernel or M to compile
          as a module.
 
+config GIC_INTERRUPT_ROUTING
+	tristate "GIC Interrupt Routing driver"
+	depends on ARM_GIC_V3
+	help
+	  GIC interrupt routing driver.
+	  The driver manages interrupt routing for shared peripheral interrupts.
+	  Say Y here to compile the driver as a part of kernel or M to compile
+	  as a module.
+
+
 config QCOM_LLCC
 	tristate "Qualcomm Technologies, Inc. LLCC driver"
 	depends on ARCH_QCOM || COMPILE_TEST
@@ -1005,6 +1015,15 @@ config MINIDUMP_MAX_ENTRIES
 	  This defines maximum number of entries to be allocated for application
 	  subsytem in Minidump table.
 
+config MINIDUMP_ALL_TASK_INFO
+	bool "Minidump All task info"
+	depends on QCOM_MINIDUMP
+	help
+	 Minidump runqueue dump only collect running task
+	 info by default, this enables all task info
+	 collection during panic. This can provide more
+	 debug info.
+
 config QCOM_LOGBUF_VENDOR_HOOKS
 	tristate "QTI Logbuf Vendor Hooks Support"
 	depends on ARCH_QCOM && ANDROID_VENDOR_HOOKS
@@ -1053,5 +1072,13 @@ config DUMP_XBL_LOG
 	  requests. User can perform below command to print xbl log stored in
 	  reserved memory region:
 		cat /sys/kernel/xbl_log/xbl_log
+
+config QCOM_AOP_SET_DDR
+	tristate "Sysfs to communicate with AOP using QMP protocol"
+	help
+	  This options enables a driver which allows clients to send messages
+	  to Alway On processor using QMP transport. Users can echo a frequency
+	  into an exposed sysfs node to send to AOP. The driver expects the Cap
+	  frequency of DDR based on SKU.
 
 endmenu

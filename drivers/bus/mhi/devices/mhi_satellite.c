@@ -971,9 +971,6 @@ static void mhi_sat_dev_status_cb(struct mhi_device *mhi_dev,
 	if (MHI_SAT_ACTIVE(sat_cntrl)) {
 		schedule_work(&sat_cntrl->error_work);
 		sat_cntrl->state = SAT_FATAL_DETECT;
-	} else {
-		/* rpmsg link down or HELLO not sent or an error occurred */
-		sat_cntrl->state = SAT_DISABLED;
 	}
 
 	spin_unlock_irqrestore(&sat_cntrl->state_lock, flags);

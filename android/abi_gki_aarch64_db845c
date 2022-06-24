@@ -25,14 +25,6 @@
   cdev_device_add
   cdev_device_del
   cdev_init
-  __cfg80211_alloc_event_skb
-  __cfg80211_alloc_reply_skb
-  cfg80211_find_elem_match
-  cfg80211_find_vendor_elem
-  cfg80211_get_bss
-  cfg80211_put_bss
-  __cfg80211_send_event_skb
-  cfg80211_vendor_cmd_reply
   __cfi_slowpath_diag
   __check_object_size
   clk_bulk_disable
@@ -66,7 +58,6 @@
   cpumask_next
   cpu_number
   __cpu_online_mask
-  crc32_le
   debugfs_create_dir
   debugfs_create_file
   debugfs_create_u32
@@ -282,35 +273,6 @@
   idr_for_each
   idr_get_next
   idr_remove
-  ieee80211_alloc_hw_nm
-  ieee80211_beacon_get_template
-  ieee80211_beacon_loss
-  ieee80211_bss_get_elem
-  ieee80211_channel_to_freq_khz
-  ieee80211_connection_loss
-  ieee80211_csa_finish
-  ieee80211_find_sta
-  ieee80211_find_sta_by_ifaddr
-  ieee80211_free_hw
-  ieee80211_free_txskb
-  ieee80211_get_channel_khz
-  ieee80211_hdrlen
-  ieee80211_iterate_active_interfaces_atomic
-  ieee80211_iterate_stations_atomic
-  ieee80211_queue_delayed_work
-  ieee80211_queue_work
-  ieee80211_radar_detected
-  ieee80211_register_hw
-  ieee80211_remain_on_channel_expired
-  ieee80211_report_low_ack
-  ieee80211_restart_hw
-  ieee80211_rx_napi
-  ieee80211_scan_completed
-  ieee80211_stop_queues
-  ieee80211_tx_status
-  ieee80211_tx_status_irqsafe
-  ieee80211_unregister_hw
-  ieee80211_wake_queues
   iio_read_channel_processed
   init_dummy_netdev
   init_net
@@ -358,6 +320,7 @@
   jiffies
   jiffies_to_msecs
   jiffies_to_usecs
+  kasan_flag_enabled
   kasprintf
   kernel_connect
   kernel_getsockname
@@ -417,9 +380,6 @@
   __napi_schedule
   napi_schedule_prep
   __netdev_alloc_skb
-  netdev_err
-  netdev_info
-  netdev_warn
   netif_napi_add
   __netif_napi_del
   __nla_parse
@@ -522,6 +482,7 @@
   __pm_runtime_set_status
   __pm_runtime_suspend
   __pm_runtime_use_autosuspend
+  preempt_schedule
   preempt_schedule_notrace
   prepare_to_wait_event
   _printk
@@ -616,7 +577,6 @@
   simple_read_from_buffer
   single_open
   single_release
-  skb_clone
   skb_dequeue
   skb_pull
   skb_push
@@ -670,6 +630,7 @@
   strlen
   strncmp
   strncpy
+  strnlen
   strpbrk
   strscpy
   strsep
@@ -720,7 +681,6 @@
   wake_up_process
   __warn_printk
   watchdog_init_timeout
-  wiphy_to_ieee80211_hw
   xa_erase
   xa_find
   xa_find_after
@@ -753,48 +713,23 @@
   report_iommu_fault
 
 # required by ath.ko
-  freq_reg_info
-  reg_initiator_name
-  wiphy_apply_custom_regulatory
 
 # required by ath10k_core.ko
-  cfg80211_calculate_bitrate
   cpu_latency_qos_add_request
   cpu_latency_qos_remove_request
+  crc32_le
   device_get_mac_address
   device_set_wakeup_enable
   guid_gen
-  ieee80211_beacon_cntdwn_is_complete
-  ieee80211_beacon_get_tim
-  ieee80211_beacon_update_cntdwn
-  ieee80211_iter_chan_contexts_atomic
-  ieee80211_manage_rx_ba_offl
-  ieee80211_next_txq
-  ieee80211_proberesp_get
-  ieee80211_ready_on_channel
-  ieee80211_return_txq
-  ieee80211_sta_register_airtime
-  ieee80211_stop_queue
-  ieee80211_tdls_oper_request
-  ieee80211_tx_dequeue
-  ieee80211_txq_get_depth
-  ieee80211_txq_may_transmit
-  ieee80211_txq_schedule_start
-  ieee80211_tx_rate_update
-  ieee80211_wake_queue
   init_uts_ns
   __kfifo_alloc
   __kfifo_free
   param_ops_ulong
-  regulatory_hint
-  rfc1042_header
   skb_copy
   skb_dequeue_tail
   skb_queue_head
   skb_realloc_headroom
   strlcat
-  wiphy_read_of_freq_limits
-  wiphy_rfkill_set_hw_state_reason
 
 # required by ath10k_pci.ko
   pci_disable_msi
@@ -812,12 +747,7 @@
   crypto_shash_final
   crypto_shash_setkey
   crypto_shash_update
-  ieee80211_freq_khz_to_channel
-  ieee80211_get_fils_discovery_tmpl
-  ieee80211_get_hdrlen_from_skb
-  ieee80211_get_unsol_bcast_probe_resp_tmpl
   memcpy_and_pad
-  regulatory_set_wiphy_regd_sync
   rtnl_lock
   rtnl_unlock
 
@@ -832,41 +762,6 @@
   pci_free_irq_vectors
   pci_irq_vector
   pci_read_config_word
-
-# required by ax88179_178a.ko
-  dev_get_tstats64
-  eth_platform_get_mac_address
-  ethtool_op_get_link
-  ethtool_op_get_ts_info
-  eth_validate_addr
-  generic_mii_ioctl
-  mii_ethtool_get_link_ksettings
-  mii_ethtool_gset
-  mii_ethtool_set_link_ksettings
-  mii_nway_restart
-  netif_carrier_on
-  usb_deregister
-  usbnet_disconnect
-  usbnet_get_endpoints
-  usbnet_get_msglevel
-  usbnet_link_change
-  usbnet_nway_reset
-  usbnet_open
-  usbnet_probe
-  usbnet_read_cmd
-  usbnet_read_cmd_nopm
-  usbnet_resume
-  usbnet_set_msglevel
-  usbnet_skb_return
-  usbnet_start_xmit
-  usbnet_stop
-  usbnet_suspend
-  usbnet_tx_timeout
-  usbnet_update_max_qlen
-  usbnet_write_cmd
-  usbnet_write_cmd_async
-  usbnet_write_cmd_nopm
-  usb_register_driver
 
 # required by bam_dma.ko
   dma_async_device_register
@@ -934,7 +829,6 @@
   dma_get_sgtable_attrs
   down_read
   __find_vma
-  kasan_flag_enabled
   __mmap_lock_do_trace_acquire_returned
   __mmap_lock_do_trace_released
   __mmap_lock_do_trace_start_locking
@@ -967,7 +861,6 @@
   kthread_should_stop
   kthread_stop
   kthread_unpark
-  preempt_schedule
   rcu_barrier
   wait_for_completion
 
@@ -1078,7 +971,10 @@
   dql_completed
   dql_reset
   free_candev
+  netdev_err
+  netdev_info
   netdev_notice
+  netdev_warn
   netif_schedule_queue
   netif_tx_wake_queue
   open_candev
@@ -1152,7 +1048,6 @@
   dma_resv_add_shared_fence
   dma_resv_reserve_shared
   dma_resv_wait_timeout
-  drm_add_modes_noedid
   drm_atomic_get_private_obj_state
   drm_atomic_helper_check
   drm_atomic_helper_check_plane_state
@@ -1325,7 +1220,6 @@
   drm_rect_intersect
   drm_release
   drm_rotation_simplify
-  drm_set_preferred_mode
   drm_state_dump
   drm_syncobj_add_point
   drm_syncobj_find
@@ -1489,9 +1383,6 @@
   usb_hcd_platform_shutdown
   usb_put_hcd
   usb_remove_hcd
-
-# required by pdr_interface.ko
-  strnlen
 
 # required by phy-qcom-qmp.ko
   of_clk_get_by_name
@@ -1691,6 +1582,7 @@
   refcount_dec_and_mutex_lock
   release_sock
   sk_alloc
+  skb_clone
   skb_copy_bits
   skb_copy_datagram_iter
   skb_free_datagram
@@ -1748,6 +1640,8 @@
   mmc_regulator_set_vqmmc
   mmc_send_tuning
   regulator_is_supported_voltage
+  __reset_control_get
+  reset_control_put
   __sdhci_add_host
   sdhci_add_host
   sdhci_cleanup_host
@@ -1867,7 +1761,10 @@
   spmi_controller_remove
 
 # required by system_heap.ko
-  __alloc_pages
+  dmabuf_page_pool_alloc
+  dmabuf_page_pool_create
+  dmabuf_page_pool_destroy
+  dmabuf_page_pool_free
   dma_heap_add
   dma_heap_get_dev
   dma_heap_get_name

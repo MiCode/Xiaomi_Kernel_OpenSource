@@ -36,7 +36,7 @@
 static void __iomem *pmu_base;
 
 struct cpucp_pmu_ctrs {
-	u64 evctrs[MAX_CPUCP_EVT];
+	u32 evctrs[MAX_CPUCP_EVT];
 	u32 valid;
 };
 
@@ -76,6 +76,7 @@ static struct cpucp_hlos_map cpucp_map[MAX_CPUCP_EVT];
 static struct kobject pmu_kobj;
 static bool pmu_counters_enabled = true;
 static unsigned int pmu_enable_trace;
+static bool llcc_ignore_setup;
 
 /*
  * is_amu_valid: Check if AMUs are supported and if the id corresponds to the
@@ -174,6 +175,12 @@ static int set_event(struct event_data *ev, int cpu,
 		attr->config1 = 1;
 
 	if (ev->event_id == QCOM_LLCC_PMU_RD_EV) {
+		/* Ignore setting up the event if property set. This will avoid
+		 * reading of event as well since ev->pevent will be NULL.
+		 */
+		if (llcc_ignore_setup)
+			goto set_cpu;
+
 		ret = qcom_llcc_pmu_hw_type(&type);
 		if (ret < 0)
 			return ret;
@@ -544,7 +551,7 @@ static int memlat_pm_notif(struct notifier_block *nb, unsigned long action,
 	struct cpu_data *cpu_data = per_cpu(cpu_ev_data, cpu);
 	struct event_data *ev;
 	int i, cid, aid;
-	u64 count;
+	u32 count;
 	bool pmu_valid = false;
 	bool read_ev  = true;
 	struct cpucp_pmu_ctrs *base = pmu_base + (sizeof(struct cpucp_pmu_ctrs) * cpu);
@@ -586,7 +593,7 @@ static int memlat_pm_notif(struct notifier_block *nb, unsigned long action,
 		/* Store pmu values in allocated cpucp pmu region */
 		pmu_valid = true;
 		count = cached_count_value(ev, ev->cached_count, is_amu_valid(aid));
-		writeq_relaxed(count, &base->evctrs[cid]);
+		writel_relaxed(count, &base->evctrs[cid]);
 	}
 	/* Set valid cache flag to allow cpucp to read from this memory location */
 	if (pmu_valid)
@@ -651,7 +658,7 @@ static int qcom_pmu_hotplug_going_down(unsigned int cpu)
 	int i, cid, aid;
 	unsigned long flags;
 	bool pmu_valid = false;
-	u64 count;
+	u32 count;
 	struct cpucp_pmu_ctrs *base = pmu_base + (sizeof(struct cpucp_pmu_ctrs) * cpu);
 
 	if (!qcom_pmu_inited)
@@ -673,7 +680,7 @@ static int qcom_pmu_hotplug_going_down(unsigned int cpu)
 		if (pmu_base && is_event_shared(ev)) {
 			pmu_valid = true;
 			count = cached_count_value(ev, ev->cached_count, is_amu_valid(aid));
-			writeq_relaxed(count, &base->evctrs[cid]);
+			writel_relaxed(count, &base->evctrs[cid]);
 		}
 		delete_event(ev);
 	}
@@ -704,11 +711,12 @@ static int qcom_pmu_cpu_hp_init(void) { return 0; }
 static void cache_counters(void)
 {
 	struct cpu_data *cpu_data;
-	int i, cid;
+	int i, cid, aid;
 	unsigned int cpu;
 	struct event_data *event;
 	struct cpucp_pmu_ctrs *base;
 	bool pmu_valid;
+	u32 count;
 
 	for_each_possible_cpu(cpu) {
 		cpu_data = per_cpu(cpu_ev_data, cpu);
@@ -717,14 +725,16 @@ static void cache_counters(void)
 		for (i = 0; i < cpu_data->num_evs; i++) {
 			event = &cpu_data->events[i];
 			cid = event->cid;
+			aid = event->amu_id;
 			if (!is_event_valid(event))
 				continue;
 			read_event(event, false);
 			/* Store pmu values in allocated cpucp pmu region */
 			if (pmu_base && is_event_shared(event)) {
 				pmu_valid = true;
-				writel_relaxed(event->cached_count,
-						&base->evctrs[cid]);
+				count = cached_count_value(event, event->cached_count,
+							   is_amu_valid(aid));
+				writel_relaxed(count, &base->evctrs[cid]);
 			}
 		}
 		if (pmu_valid)
@@ -1080,7 +1090,7 @@ static struct kobj_type pmu_settings_ktype = {
 static int qcom_pmu_driver_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
-	int ret = 0, idx;
+	int ret = 0, idx, len;
 	unsigned int cpu;
 	struct cpu_data *cpu_data;
 	struct resource res;
@@ -1103,6 +1113,11 @@ static int qcom_pmu_driver_probe(struct platform_device *pdev)
 		memset_io(pmu_base, 0, resource_size(&res));
 	}
 skip_pmu:
+	if (of_find_property(dev->of_node, "qcom,ignore-llcc-setup", &len)) {
+		dev_dbg(dev, "Ignoring llcc setup\n");
+		llcc_ignore_setup = true;
+	}
+
 	for_each_possible_cpu(cpu) {
 		cpu_data = devm_kzalloc(dev, sizeof(*cpu_data), GFP_KERNEL);
 		if (!cpu_data)

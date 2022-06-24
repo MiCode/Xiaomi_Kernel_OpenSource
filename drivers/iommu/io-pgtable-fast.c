@@ -325,8 +325,7 @@ static size_t av8l_fast_unmap_pages(struct io_pgtable_ops *ops, unsigned long io
 	return __av8l_fast_unmap(ops, iova, pgsize * pgcount, false);
 }
 
-/* TODO: Add this back in android-mainline */
-static int __maybe_unused av8l_fast_map_sg(struct io_pgtable_ops *ops,
+static int av8l_fast_map_sg(struct io_pgtable_ops *ops,
 			unsigned long iova, struct scatterlist *sgl,
 			unsigned int nents, int prot, gfp_t gfp, size_t *mapped)
 {
@@ -426,6 +425,7 @@ av8l_fast_alloc_pgtable_data(struct io_pgtable_cfg *cfg)
 	data->iop.ops = (struct io_pgtable_ops) {
 		.map		= av8l_fast_map,
 		.map_pages	= av8l_fast_map_pages,
+		.map_sg		= av8l_fast_map_sg,
 		.unmap		= av8l_fast_unmap,
 		.unmap_pages	= av8l_fast_unmap_pages,
 		.iova_to_phys	= av8l_fast_iova_to_phys,

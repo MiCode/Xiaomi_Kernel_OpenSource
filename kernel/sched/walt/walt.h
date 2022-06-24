@@ -120,6 +120,7 @@ struct walt_rq {
 	bool			high_irqload;
 	u64			last_cc_update;
 	u64			cycles;
+	u64			util;
 	struct list_head	mvp_tasks;
 	int                     num_mvp_tasks;
 	u64			latest_clock;
@@ -163,6 +164,7 @@ extern void walt_boost_init(void);
 extern int sched_pause_cpus(struct cpumask *pause_cpus);
 extern int sched_unpause_cpus(struct cpumask *unpause_cpus);
 extern void walt_kick_cpu(int cpu);
+extern void walt_smp_call_newidle_balance(int cpu);
 
 extern unsigned int sched_get_cpu_util_pct(int cpu);
 extern void sched_update_hyst_times(void);
@@ -184,6 +186,9 @@ extern int min_possible_cluster_id;
 extern int max_possible_cluster_id;
 extern unsigned int __read_mostly sched_init_task_load_windows;
 extern unsigned int __read_mostly sched_load_granule;
+
+extern unsigned int sysctl_sched_idle_enough;
+extern unsigned int sysctl_sched_cluster_util_thres_pct;
 
 /* 1ms default for 20ms window size scaled to 1024 */
 extern unsigned int sysctl_sched_min_task_util_for_boost;
@@ -291,24 +296,25 @@ extern char sched_lib_name[LIB_PATH_LENGTH];
 extern unsigned int sched_lib_mask_force;
 
 /* WALT cpufreq interface */
-#define WALT_CPUFREQ_ROLLOVER		(1U << 0)
-#define WALT_CPUFREQ_CONTINUE		(1U << 1)
-#define WALT_CPUFREQ_IC_MIGRATION	(1U << 2)
-#define WALT_CPUFREQ_PL			(1U << 3)
-#define WALT_CPUFREQ_EARLY_DET		(1U << 4)
-#define WALT_CPUFREQ_BOOST_UPDATE	(1U << 5)
+#define WALT_CPUFREQ_ROLLOVER		0x1
+#define WALT_CPUFREQ_CONTINUE		0x2
+#define WALT_CPUFREQ_IC_MIGRATION	0x4
+#define WALT_CPUFREQ_PL			0x8
+#define WALT_CPUFREQ_EARLY_DET		0x10
+#define WALT_CPUFREQ_BOOST_UPDATE	0x20
 
-#define CPUFREQ_REASON_PL		(1U << 1)
-#define CPUFREQ_REASON_EARLY_DET	(1U << 2)
-#define CPUFREQ_REASON_RTG_BOOST	(1U << 3)
-#define CPUFREQ_REASON_HISPEED		(1U << 4)
-#define CPUFREQ_REASON_NWD		(1U << 5)
-#define CPUFREQ_REASON_FREQ_AGR		(1U << 6)
-#define CPUFREQ_REASON_KSOFTIRQD	(1U << 7)
-#define CPUFREQ_REASON_TT_LOAD		(1U << 8)
-#define CPUFREQ_REASON_SUH		(1U << 9)
-#define CPUFREQ_REASON_ADAPTIVE_LOW	(1U << 10)
-#define CPUFREQ_REASON_ADAPTIVE_HIGH	(1U << 11)
+#define CPUFREQ_REASON_LOAD		0
+#define CPUFREQ_REASON_PL		0x2
+#define CPUFREQ_REASON_EARLY_DET	0x4
+#define CPUFREQ_REASON_RTG_BOOST	0x8
+#define CPUFREQ_REASON_HISPEED		0x10
+#define CPUFREQ_REASON_NWD		0x20
+#define CPUFREQ_REASON_FREQ_AGR		0x40
+#define CPUFREQ_REASON_KSOFTIRQD	0x80
+#define CPUFREQ_REASON_TT_LOAD		0x100
+#define CPUFREQ_REASON_SUH		0x200
+#define CPUFREQ_REASON_ADAPTIVE_LOW	0x400
+#define CPUFREQ_REASON_ADAPTIVE_HIGH	0x800
 
 #define NO_BOOST 0
 #define FULL_THROTTLE_BOOST 1
@@ -343,6 +349,7 @@ struct sched_avg_stats {
 	int nr_misfit;
 	int nr_max;
 	int nr_scaled;
+	u32 avg_cap;
 };
 
 struct waltgov_callback {
@@ -750,6 +757,13 @@ static inline bool task_fits_capacity(struct task_struct *p,
 	return capacity * 1024 > uclamp_task_util(p) * margin;
 }
 
+static inline bool task_in_related_thread_group(struct task_struct *p)
+{
+	struct walt_task_struct *wts = (struct walt_task_struct *) p->android_vendor_data1;
+
+	return (rcu_access_pointer(wts->grp) != NULL);
+}
+
 static inline bool task_fits_max(struct task_struct *p, int cpu)
 {
 	unsigned long capacity = capacity_orig_of(cpu);
@@ -767,12 +781,18 @@ static inline bool task_fits_max(struct task_struct *p, int cpu)
 	} else { /* mid cap cpu */
 		if (task_boost > TASK_BOOST_ON_MID)
 			return false;
+		if (!task_in_related_thread_group(p) && p->prio >= 124)
+			/* a non topapp low prio task fits on gold */
+			return true;
 	}
 
 	return task_fits_capacity(p, capacity, cpu);
 }
 
-extern void sched_get_nr_running_avg(struct sched_avg_stats *stats);
+extern struct sched_avg_stats *sched_get_nr_running_avg(void);
+extern unsigned int sched_get_cluster_util_pct(struct walt_sched_cluster *cluster);
+extern unsigned int sched_get_cpu_avg_cap(int cpu);
+extern unsigned int waltgov_get_avg_cap(unsigned int cpu);
 extern void sched_update_hyst_times(void);
 
 extern void walt_rt_init(void);
@@ -781,6 +801,8 @@ extern void walt_halt_init(void);
 extern void walt_fixup_init(void);
 extern int walt_find_energy_efficient_cpu(struct task_struct *p, int prev_cpu,
 					int sync, int sibling_count_hint);
+extern int walt_find_cluster_packing_cpu(int start_cpu);
+extern bool walt_choose_packing_cpu(int packing_cpu, struct task_struct *p);
 
 static inline unsigned int cpu_max_possible_freq(int cpu)
 {
@@ -800,13 +822,6 @@ static inline unsigned int task_load(struct task_struct *p)
 	struct walt_task_struct *wts = (struct walt_task_struct *) p->android_vendor_data1;
 
 	return wts->demand;
-}
-
-static inline bool task_in_related_thread_group(struct task_struct *p)
-{
-	struct walt_task_struct *wts = (struct walt_task_struct *) p->android_vendor_data1;
-
-	return (rcu_access_pointer(wts->grp) != NULL);
 }
 
 static inline bool task_rtg_high_prio(struct task_struct *p)

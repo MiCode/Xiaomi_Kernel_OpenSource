@@ -24,6 +24,7 @@
 #define SPI_NUM_CHIPSELECT	(4)
 #define SPI_XFER_TIMEOUT_MS	(250)
 #define SPI_AUTO_SUSPEND_DELAY	(250)
+#define SPI_XFER_TIMEOUT_OFFSET	(250)
 /* SPI SE specific registers */
 #define SE_SPI_CPHA		(0x224)
 #define SE_SPI_LOOPBACK		(0x22C)
@@ -1538,7 +1539,7 @@ static int setup_fifo_xfer(struct spi_transfer *xfer,
 	if ((m_cmd & SPI_RX_ONLY) && (mas->cur_xfer_mode == GENI_SE_DMA)) {
 		ret =  geni_se_rx_dma_prep(&mas->spi_rsc,
 				xfer->rx_buf, xfer->len, &xfer->rx_dma);
-		if (ret) {
+		if (ret || !xfer->rx_buf) {
 			SPI_LOG_ERR(mas->ipc, true, mas->dev,
 				"Failed to setup Rx dma %d\n", ret);
 			xfer->rx_dma = 0;
@@ -1553,7 +1554,7 @@ static int setup_fifo_xfer(struct spi_transfer *xfer,
 			ret =  geni_se_tx_dma_prep(&mas->spi_rsc,
 					(void *)xfer->tx_buf, xfer->len,
 							&xfer->tx_dma);
-			if (ret) {
+			if (ret || !xfer->tx_buf) {
 				SPI_LOG_ERR(mas->ipc, true, mas->dev,
 					"Failed to setup tx dma %d\n", ret);
 				xfer->tx_dma = 0;
@@ -1639,6 +1640,7 @@ static int spi_geni_transfer_one(struct spi_master *spi,
 	int ret = 0;
 	struct spi_geni_master *mas = spi_master_get_devdata(spi);
 	unsigned long timeout;
+	unsigned long tx_timeout;
 
 	if ((xfer->tx_buf == NULL) && (xfer->rx_buf == NULL)) {
 		dev_err(mas->dev, "Invalid xfer both tx rx are NULL\n");
@@ -1662,6 +1664,10 @@ static int spi_geni_transfer_one(struct spi_master *spi,
 		return -EACCES;
 	}
 
+	tx_timeout = (1000 * xfer->len * BITS_PER_BYTE) / xfer->speed_hz;
+	if (!spi->slave)
+		tx_timeout += SPI_XFER_TIMEOUT_OFFSET;
+
 	if (mas->cur_xfer_mode != GENI_GPI_DMA) {
 		reinit_completion(&mas->xfer_done);
 		ret = setup_fifo_xfer(xfer, mas, slv->mode, spi);
@@ -1673,7 +1679,7 @@ static int spi_geni_transfer_one(struct spi_master *spi,
 		}
 
 		timeout = wait_for_completion_timeout(&mas->xfer_done,
-					msecs_to_jiffies(SPI_XFER_TIMEOUT_MS));
+					msecs_to_jiffies(tx_timeout));
 		if (!timeout) {
 			SPI_LOG_ERR(mas->ipc, true, mas->dev,
 				"Xfer[len %d tx %pK rx %pK n %d] timed out.\n",
@@ -1717,7 +1723,7 @@ static int spi_geni_transfer_one(struct spi_master *spi,
 				timeout =
 				wait_for_completion_timeout(
 					&mas->tx_cb,
-					msecs_to_jiffies(SPI_XFER_TIMEOUT_MS));
+					msecs_to_jiffies(tx_timeout));
 				if (timeout <= 0) {
 					SPI_LOG_ERR(mas->ipc, true, mas->dev,
 					"Tx[%d] timeout%lu\n", i, timeout);
@@ -1729,7 +1735,7 @@ static int spi_geni_transfer_one(struct spi_master *spi,
 				timeout =
 				wait_for_completion_timeout(
 					&mas->rx_cb,
-					msecs_to_jiffies(SPI_XFER_TIMEOUT_MS));
+					msecs_to_jiffies(tx_timeout));
 				if (timeout <= 0) {
 					SPI_LOG_ERR(mas->ipc, true, mas->dev,
 					 "Rx[%d] timeout%lu\n", i, timeout);

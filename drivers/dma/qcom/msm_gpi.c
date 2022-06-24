@@ -95,7 +95,6 @@ enum EV_PRIORITY {
 #define DEFAULT_KLOG_LVL (LOG_LVL_CRITICAL)
 #if IS_ENABLED(CONFIG_MSM_GPI_DMA_DEBUG)
 #define DEFAULT_IPC_LOG_LVL (LOG_LVL_VERBOSE)
-#define IPC_LOG_PAGES (40)
 #define GPI_DBG_LOG_SIZE (SZ_1K) /* size must be power of 2 */
 #define CMD_TIMEOUT_MS (1000)
 #define GPII_REG(gpii, ch, fmt, ...) do { \
@@ -118,7 +117,6 @@ enum EV_PRIORITY {
 	} while (0)
 
 #else
-#define IPC_LOG_PAGES (2)
 #define GPI_DBG_LOG_SIZE (0) /* size must be power of 2 */
 #define DEFAULT_IPC_LOG_LVL (LOG_LVL_ERROR)
 #define CMD_TIMEOUT_MS (250)
@@ -127,6 +125,7 @@ enum EV_PRIORITY {
 #define GPII_VERB(gpii, ch, fmt, ...)
 #endif
 
+#define IPC_LOG_PAGES (2)
 #define GPI_LABEL_SIZE (256)
 #define GPI_DBG_COMMON (99)
 #define MAX_CHANNELS_PER_GPII (2)

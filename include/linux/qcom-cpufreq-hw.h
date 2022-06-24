@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (C) 2020-2021 The Linux Foundation. All rights reserved.
- * Copyright (c) 2020-2021 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 #ifndef _LINUX_QCOM_CPUFREQ_HW_H
 #define _LINUX_QCOM_CPUFREQ_HW_H

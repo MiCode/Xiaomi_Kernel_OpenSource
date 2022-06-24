@@ -39,17 +39,19 @@ if (print) { \
 } while (0)
 
 #define SE_DMA_DEBUG_REG0		(0xE40)
-#define SE_DMA_RX_LEN			(0xD3C)
-#define SE_DMA_RX_LEN_IN		(0xD54)
-#define SE_DMA_TX_LEN			(0xC3C)
-#define SE_DMA_TX_LEN_IN		(0xC54)
-#define SE_DMA_TX_IRQ_EN		(0xC48)
-#define SE_DMA_RX_IRQ_EN		(0xD48)
+
+#define SE_DMA_TX_PTR_L			(0xC30)
+#define SE_DMA_TX_PTR_H			(0xC34)
+#define SE_DMA_TX_LEN                   (0xC3C)
+#define SE_DMA_TX_IRQ_EN                (0xC48)
+#define SE_DMA_TX_LEN_IN                (0xC54)
 
 #define SE_DMA_RX_PTR_L			(0xD30)
 #define SE_DMA_RX_PTR_H			(0xD34)
 #define SE_DMA_RX_ATTR			(0xD38)
 #define SE_DMA_RX_LEN			(0xD3C)
+#define SE_DMA_RX_IRQ_EN                (0xD48)
+#define SE_DMA_RX_LEN_IN                (0xD54)
 
 #define SE_DMA_TX_IRQ_EN_SET	(0xC4C)
 #define SE_DMA_TX_IRQ_EN_CLR	(0xC50)

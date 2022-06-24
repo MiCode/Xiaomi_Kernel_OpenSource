@@ -255,6 +255,15 @@ config ARCH_CINDER
 	  CINDER chipset. If you do not wish to build a kernel that
 	  runs on this chipset or if you are unsure, say 'N' here.
 
+config ARCH_SDXPINN
+	bool "Enable Support for Qualcomm Technologies, Inc. SDXPINN"
+	depends on ARCH_QCOM
+	help
+	  This enables support for the Qualcomm Technologies, Inc.
+	  SDXPINN chipset. Say 'Y' for SDXPINN chipset. If you do not
+	  wish to build a kernel that runs on this chipset or if you
+	  are unsure, say 'N' here.
+
 config ARCH_SA8155
         bool "Enable Support for Qualcomm Technologies, Inc. SA8155"
 	depends on ARCH_QCOM
@@ -278,6 +287,15 @@ config ARCH_SA6155
 	  This enables support for the Qualcomm Technologies, Inc.'s
 	  SA6155 chipset. If you do not wish to build a kernel that
 	  runs on this chipset or if you are unsure, say 'N' here.
+
+config ARCH_SA410M
+	bool "Enable Support for Qualcomm Technologies, Inc. SA410M"
+	depends on ARCH_QCOM
+	help
+	  This enables support for the Qualcomm Technologies, Inc.
+	  SA410M chipset. Say 'Y' for SA410M chipset. If you do not
+	  wish to build a kernel that runs on this chipset or if you
+	  are unsure, say 'N' here.
 
 config ARCH_REALTEK
 	bool "Realtek Platforms"

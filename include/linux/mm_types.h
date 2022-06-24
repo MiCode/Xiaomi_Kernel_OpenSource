@@ -580,10 +580,10 @@ struct mm_struct {
 		struct file __rcu *exe_file;
 #ifdef CONFIG_MMU_NOTIFIER
 		struct mmu_notifier_subscriptions *notifier_subscriptions;
+#endif	/* CONFIG_MMU_NOTIFIER */
 #ifdef CONFIG_SPECULATIVE_PAGE_FAULT
 		struct percpu_rw_semaphore *mmu_notifier_lock;
 #endif	/* CONFIG_SPECULATIVE_PAGE_FAULT */
-#endif	/* CONFIG_MMU_NOTIFIER */
 #if defined(CONFIG_TRANSPARENT_HUGEPAGE) && !USE_SPLIT_PMD_PTLOCKS
 		pgtable_t pmd_huge_pte; /* protected by page_table_lock */
 #endif
@@ -636,6 +636,8 @@ struct mm_struct {
 			nodemask_t nodes;
 		} lru_gen;
 #endif /* CONFIG_LRU_GEN */
+
+		ANDROID_KABI_RESERVE(1);
 	} __randomize_layout;
 
 	/*

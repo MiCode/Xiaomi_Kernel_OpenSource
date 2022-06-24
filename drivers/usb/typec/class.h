@@ -5,6 +5,7 @@
 
 #include <linux/device.h>
 #include <linux/usb/typec.h>
+#include <linux/android_kabi.h>
 
 struct typec_mux;
 struct typec_switch;
@@ -14,6 +15,7 @@ struct typec_plug {
 	enum typec_plug_index		index;
 	struct ida			mode_ids;
 	int				num_altmodes;
+	ANDROID_KABI_RESERVE(1);
 };
 
 struct typec_cable {
@@ -22,6 +24,7 @@ struct typec_cable {
 	struct usb_pd_identity		*identity;
 	unsigned int			active:1;
 	u16				pd_revision; /* 0300H = "3.0" */
+	ANDROID_KABI_RESERVE(1);
 };
 
 struct typec_partner {
@@ -33,6 +36,7 @@ struct typec_partner {
 	int				num_altmodes;
 	u16				pd_revision; /* 0300H = "3.0" */
 	enum usb_pd_svdm_ver		svdm_version;
+	ANDROID_KABI_RESERVE(1);
 };
 
 struct typec_port {
@@ -59,6 +63,7 @@ struct typec_port {
 	struct mutex			port_list_lock; /* Port list lock */
 
 	void				*pld;
+	ANDROID_KABI_RESERVE(1);
 };
 
 #define to_typec_port(_dev_) container_of(_dev_, struct typec_port, dev)

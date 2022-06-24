@@ -4,6 +4,7 @@
  */
 
 #include "phy-qcom-ufs-i.h"
+#include <soc/qcom/minidump.h>
 
 #define MAX_PROP_NAME              32
 #define VDDA_PHY_MIN_UV            880000
@@ -128,7 +129,8 @@ struct phy *ufs_qcom_phy_generic_probe(struct platform_device *pdev,
 				const struct phy_ops *ufs_qcom_phy_gen_ops,
 				struct ufs_qcom_phy_specific_ops *phy_spec_ops)
 {
-	int err;
+	int err, ret;
+	struct md_region md_entry;
 	struct device *dev = &pdev->dev;
 	struct phy *generic_phy = NULL;
 	struct phy_provider *phy_provider;
@@ -169,6 +171,18 @@ struct phy *ufs_qcom_phy_generic_probe(struct platform_device *pdev,
 
 	common_cfg->phy_spec_ops = phy_spec_ops;
 	common_cfg->dev = dev;
+
+	/* Register minidump for ufs qcom phy */
+	if (msm_minidump_enabled()) {
+		scnprintf(md_entry.name, sizeof(md_entry.name), "UFS_QC_PHY");
+		md_entry.virt_addr = (uintptr_t)common_cfg;
+		md_entry.phys_addr = virt_to_phys((void *)common_cfg);
+		md_entry.size = sizeof(struct ufs_qcom_phy);
+
+		ret = msm_minidump_add_region(&md_entry);
+		if (ret < 0)
+			pr_err("Failed to register buffer UFS_QC_PHY in Minidump ret %d\n", ret);
+	}
 
 out:
 	return generic_phy;

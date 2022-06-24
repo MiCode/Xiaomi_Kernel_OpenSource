@@ -18,6 +18,7 @@
 #include "heap_mem_ext_v01.h"
 
 #include <soc/qcom/secure_buffer.h>
+#include <trace/events/rproc_qcom.h>
 
 /* Macros */
 #define MEMSHARE_DEV_NAME "memshare"
@@ -142,6 +143,7 @@ static int modem_notifier_cb(struct notifier_block *this, unsigned long code,
 	switch (code) {
 
 	case QCOM_SSR_BEFORE_SHUTDOWN:
+		trace_rproc_qcom_event("modem", "QCOM_SSR_BEFORE_SHUTDOWN", "modem_notifier-enter");
 		bootup_request++;
 		dev_info(memsh_drv->dev,
 		"memshare: QCOM_SSR_BEFORE_SHUTDOWN: bootup_request:%d\n",
@@ -151,12 +153,15 @@ static int modem_notifier_cb(struct notifier_block *this, unsigned long code,
 		break;
 
 	case QCOM_SSR_AFTER_SHUTDOWN:
+		trace_rproc_qcom_event("modem", "QCOM_SSR_AFTER_SHUTDOWN", "modem_notifier-enter");
 		break;
 
 	case QCOM_SSR_BEFORE_POWERUP:
+		trace_rproc_qcom_event("modem", "QCOM_SSR_BEFORE_POWERUP", "modem_notifier-enter");
 		break;
 
 	case QCOM_SSR_AFTER_POWERUP:
+		trace_rproc_qcom_event("modem", "QCOM_SSR_AFTER_POWERUP", "modem_notifier-enter");
 		dev_info(memsh_drv->dev, "memshare: QCOM_SSR_AFTER_POWERUP: Modem has booted up\n");
 		for (i = 0; i < MAX_CLIENTS; i++) {
 			client_node = memsh_child[i];
@@ -225,6 +230,8 @@ static int modem_notifier_cb(struct notifier_block *this, unsigned long code,
 	mutex_unlock(&memsh_drv->mem_share);
 	dev_info(memsh_drv->dev,
 	"memshare: notifier_cb processed for code: %d\n", code);
+
+	trace_rproc_qcom_event("modem", "modem_notifier", "exit");
 	return NOTIFY_DONE;
 }
 

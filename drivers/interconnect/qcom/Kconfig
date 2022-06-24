@@ -8,6 +8,9 @@ config INTERCONNECT_QCOM
 config INTERCONNECT_QCOM_BCM_VOTER
 	tristate
 
+config INTERCONNECT_QCOM_QOS_RPM
+	tristate
+
 config INTERCONNECT_QCOM_MSM8916
 	tristate "Qualcomm MSM8916 interconnect driver"
 	depends on INTERCONNECT_QCOM
@@ -77,6 +80,15 @@ config INTERCONNECT_QCOM_CINDER
 	  on Cinder-based platforms. Interconnect driver provides interfaces
 	  for setting bandwidth between two endpoints (path). It also used to
 	  configure NOC QoS settings (Quality of Service).
+
+config INTERCONNECT_QCOM_EPSS_L3
+	tristate "EPSS L3 interconnect driver"
+	depends on INTERCONNECT_QCOM
+	help
+	  This is a driver for the Qualcomm Technologies, Inc. EPSS L3 control.
+	  The EPSS L3 provider collects and aggregates consumer requests to
+	  satisfy constraints placed on L3 performance states of the
+	  CPU subsystem.
 
 config INTERCONNECT_QCOM_SC7180
 	tristate "Qualcomm SC7180 interconnect driver"
@@ -176,6 +188,9 @@ config INTERCONNECT_QCOM_WAIPIO
 	  for setting bandwidth between two endpoints (path). It also used to
 	  configure NOC QoS settings (Quality of Service).
 
+config INTERCONNECT_QCOM_RPM
+	tristate
+
 config INTERCONNECT_QCOM_SMD_RPM
 	tristate
 
@@ -194,6 +209,18 @@ config INTERCONNECT_QCOM_KALAMA
 	  on Kalama-based platforms. Interconnect driver provides interfaces
 	  for setting bandwidth between two endpoints (path). It also used to
 	  configure NOC QoS settings (Quality of Service).
+
+config INTERCONNECT_QCOM_BENGAL
+	tristate "BENGAL interconnect driver"
+	depends on INTERCONNECT_QCOM
+	depends on MSM_RPM_SMD
+	select INTERCONNECT_QCOM_RPM
+	select INTERCONNECT_QCOM_QOS_RPM
+	help
+	  This is a driver for the Qualcomm Technologies, Inc. Network-on-Chip
+	  on bengal-based platforms. The interconnect provider collects and
+	  aggreagates the cosumer bandwidth requests to satisfy constraints
+	  placed on Network-on-Chip performance states.
 
 config INTERCONNECT_QCOM_DEBUG
 	tristate "QCOM-specific interconnect debug features"

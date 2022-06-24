@@ -203,6 +203,14 @@ DECLARE_RESTRICTED_HOOK(android_rvh_account_irq,
 	TP_PROTO(struct task_struct *curr, int cpu, s64 delta),
 	TP_ARGS(curr, cpu, delta), 1);
 
+DECLARE_RESTRICTED_HOOK(android_rvh_account_irq_start,
+	TP_PROTO(struct task_struct *curr, int cpu, s64 delta),
+	TP_ARGS(curr, cpu, delta), 1);
+
+DECLARE_RESTRICTED_HOOK(android_rvh_account_irq_end,
+	TP_PROTO(struct task_struct *curr, int cpu, s64 delta),
+	TP_ARGS(curr, cpu, delta), 1);
+
 struct sched_entity;
 DECLARE_RESTRICTED_HOOK(android_rvh_place_entity,
 	TP_PROTO(struct cfs_rq *cfs_rq, struct sched_entity *se, int initial, u64 *vruntime),
@@ -239,8 +247,8 @@ DECLARE_RESTRICTED_HOOK(android_rvh_sched_fork_init,
 	TP_ARGS(p), 1);
 
 DECLARE_RESTRICTED_HOOK(android_rvh_ttwu_cond,
-	TP_PROTO(bool *cond),
-	TP_ARGS(cond), 1);
+	TP_PROTO(int cpu, bool *cond),
+	TP_ARGS(cpu, cond), 1);
 
 DECLARE_RESTRICTED_HOOK(android_rvh_schedule_bug,
 	TP_PROTO(void *unused),
@@ -311,6 +319,10 @@ DECLARE_HOOK(android_vh_free_task,
 	TP_PROTO(struct task_struct *p),
 	TP_ARGS(p));
 
+DECLARE_HOOK(android_vh_irqtime_account_process_tick,
+	TP_PROTO(struct task_struct *p, struct rq *rq, int user_tick, int ticks),
+	TP_ARGS(p, rq, user_tick, ticks));
+
 enum uclamp_id;
 struct uclamp_se;
 DECLARE_RESTRICTED_HOOK(android_rvh_uclamp_eff_get,
@@ -319,12 +331,12 @@ DECLARE_RESTRICTED_HOOK(android_rvh_uclamp_eff_get,
 	TP_ARGS(p, clamp_id, uclamp_max, uclamp_eff, ret), 1);
 
 DECLARE_RESTRICTED_HOOK(android_rvh_after_enqueue_task,
-	TP_PROTO(struct rq *rq, struct task_struct *p),
-	TP_ARGS(rq, p), 1);
+	TP_PROTO(struct rq *rq, struct task_struct *p, int flags),
+	TP_ARGS(rq, p, flags), 1);
 
 DECLARE_RESTRICTED_HOOK(android_rvh_after_dequeue_task,
-	TP_PROTO(struct rq *rq, struct task_struct *p),
-	TP_ARGS(rq, p), 1);
+	TP_PROTO(struct rq *rq, struct task_struct *p, int flags),
+	TP_ARGS(rq, p, flags), 1);
 
 struct cfs_rq;
 struct sched_entity;
@@ -390,6 +402,13 @@ DECLARE_HOOK(android_vh_force_compatible_post,
 	TP_PROTO(void *unused),
 	TP_ARGS(unused));
 
+DECLARE_HOOK(android_vh_dup_task_struct,
+	TP_PROTO(struct task_struct *tsk, struct task_struct *orig),
+	TP_ARGS(tsk, orig));
+
+DECLARE_HOOK(android_vh_account_task_time,
+	TP_PROTO(struct task_struct *p, struct rq *rq, int user_tick),
+	TP_ARGS(p, rq, user_tick));
 /* macro versions of hooks are no longer required */
 
 #endif /* _TRACE_HOOK_SCHED_H */

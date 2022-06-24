@@ -430,7 +430,12 @@ static const struct arm_smmu_impl qcom_smmu_impl = {
 #define DEBUG_AXUSER_CDMID		GENMASK_ULL(43, 36)
 #define DEBUG_AXUSER_CDMID_VAL          255
 
+#ifdef CONFIG_ARCH_CINDER
+#define TBU_DBG_TIMEOUT_US		2000000
+#else
 #define TBU_DBG_TIMEOUT_US		100
+#endif
+
 #define TBU_MICRO_IDLE_DELAY_US		5
 
 #define TNX_TCR_CNTL			0x130

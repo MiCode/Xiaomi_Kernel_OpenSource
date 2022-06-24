@@ -5,6 +5,7 @@
  * Copyright (C) 2016 Linaro Ltd
  * Copyright (C) 2014 Sony Mobile Communications AB
  * Copyright (c) 2012-2013, 2020-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/clk.h>
@@ -14,6 +15,8 @@
 #include <linux/module.h>
 #include <linux/of_address.h>
 #include <linux/of_device.h>
+#include <linux/of_reserved_mem.h>
+#include <linux/dma-mapping.h>
 #include <linux/platform_device.h>
 #include <linux/pm_domain.h>
 #include <linux/pm_runtime.h>
@@ -398,9 +401,11 @@ static int adsp_start(struct rproc *rproc)
 	if (ret < 0)
 		goto disable_active_pds;
 
-	ret = adsp_toggle_load_state(adsp->qmp, adsp->qmp_name, true);
-	if (ret)
-		goto disable_proxy_pds;
+	if (adsp->qmp) {
+		ret = adsp_toggle_load_state(adsp->qmp, adsp->qmp_name, true);
+		if (ret)
+			goto disable_proxy_pds;
+	}
 
 	ret = clk_prepare_enable(adsp->xo);
 	if (ret)
@@ -415,6 +420,7 @@ static int adsp_start(struct rproc *rproc)
 		goto disable_aggre2_clk;
 
 	scm_pas_enable_bw();
+	trace_rproc_qcom_event(dev_name(adsp->dev), "dtb_auth_reset", "enter");
 	if (adsp->dtb_pas_id || adsp->dtb_fw_name) {
 		ret = qcom_scm_pas_auth_and_reset(adsp->dtb_pas_id);
 		if (ret)
@@ -422,6 +428,7 @@ static int adsp_start(struct rproc *rproc)
 				 rproc->name);
 	}
 
+	trace_rproc_qcom_event(dev_name(adsp->dev), "Q6_firmware_loading", "enter");
 	ret = request_firmware(&fw, rproc->firmware, adsp->dev);
 	if (ret)
 		goto free_metadata_dtb;
@@ -435,32 +442,46 @@ static int adsp_start(struct rproc *rproc)
 	qcom_pil_info_store(adsp->info_name, adsp->mem_phys, adsp->mem_size);
 
 	adsp_add_coredump_segments(adsp, fw);
+	trace_rproc_qcom_event(dev_name(adsp->dev), "Q6_auth_reset", "enter");
 
 	ret = qcom_scm_pas_auth_and_reset(adsp->pas_id);
 	if (ret)
 		panic("Panicking, auth and reset failed for remoteproc %s\n", rproc->name);
-	scm_pas_disable_bw();
+	trace_rproc_qcom_event(dev_name(adsp->dev), "Q6_auth_reset", "exit");
 
 	if (!timeout_disabled) {
 		ret = qcom_q6v5_wait_for_start(&adsp->q6v5, msecs_to_jiffies(5000));
-		if (rproc->recovery_disabled && ret) {
+		if (rproc->recovery_disabled && ret)
 			panic("Panicking, remoteproc %s failed to bootup.\n", adsp->rproc->name);
-		} else if (ret == -ETIMEDOUT) {
+		else if (ret == -ETIMEDOUT)
 			dev_err(adsp->dev, "start timed out\n");
-			goto disable_regs;
-		}
 	}
 
-	goto free_metadata;
+	qcom_mdt_free_metadata(adsp->dev, adsp->pas_id, adsp->mdata,
+					adsp->dma_phys_below_32b, ret);
+free_firmware:
+	if (!fw)
+		release_firmware(fw);
 
-disable_regs:
+free_metadata_dtb:
+	if (adsp->dtb_pas_id || adsp->dtb_fw_name) {
+		qcom_mdt_free_metadata(adsp->dev, adsp->dtb_pas_id,
+					&adsp->dtb_mdata, adsp->dma_phys_below_32b, ret);
+		release_firmware(adsp->dtb_firmware);
+	}
+
+	scm_pas_disable_bw();
+	if (!ret)
+		goto exit;
+
 	disable_regulators(adsp);
 disable_aggre2_clk:
 	clk_disable_unprepare(adsp->aggre2_clk);
 disable_xo_clk:
 	clk_disable_unprepare(adsp->xo);
 disable_load_state:
-	adsp_toggle_load_state(adsp->qmp, adsp->qmp_name, false);
+	if (adsp->qmp)
+		adsp_toggle_load_state(adsp->qmp, adsp->qmp_name, false);
 disable_proxy_pds:
 	adsp_pds_disable(adsp, adsp->proxy_pds, adsp->proxy_pd_count);
 disable_active_pds:
@@ -469,19 +490,7 @@ unscale_bus:
 	do_bus_scaling(adsp, false);
 disable_irqs:
 	qcom_q6v5_unprepare(&adsp->q6v5);
-free_metadata:
-	qcom_mdt_free_metadata(adsp->dev, adsp->pas_id, adsp->mdata,
-				adsp->dma_phys_below_32b, ret);
-free_firmware:
-	release_firmware(fw);
-free_metadata_dtb:
-	if (adsp->dtb_pas_id || adsp->dtb_fw_name) {
-		qcom_mdt_free_metadata(adsp->dev, adsp->dtb_pas_id,
-					&adsp->dtb_mdata,
-					adsp->dma_phys_below_32b, ret);
-		release_firmware(adsp->dtb_firmware);
-	}
-
+exit:
 	trace_rproc_qcom_event(dev_name(adsp->dev), "adsp_start", "exit");
 	return ret;
 }
@@ -525,7 +534,8 @@ static int adsp_stop(struct rproc *rproc)
 
 	scm_pas_disable_bw();
 	adsp_pds_disable(adsp, adsp->active_pds, adsp->active_pd_count);
-	adsp_toggle_load_state(adsp->qmp, adsp->qmp_name, false);
+	if (adsp->qmp)
+		adsp_toggle_load_state(adsp->qmp, adsp->qmp_name, false);
 	handover = qcom_q6v5_unprepare(&adsp->q6v5);
 	if (handover)
 		qcom_pas_handover(&adsp->q6v5);
@@ -773,6 +783,28 @@ static int adsp_alloc_memory_region(struct qcom_adsp *adsp)
 	return 0;
 }
 
+static int adsp_setup_32b_dma_allocs(struct qcom_adsp *adsp)
+{
+	int ret;
+
+	if (!adsp->dma_phys_below_32b)
+		return 0;
+
+	ret = of_reserved_mem_device_init_by_idx(adsp->dev, adsp->dev->of_node, 2);
+	if (ret) {
+		dev_err(adsp->dev,
+			"Unable to get the CMA area for performing dma_alloc_* calls\n");
+		goto out;
+	}
+
+	ret = dma_set_mask_and_coherent(adsp->dev, DMA_BIT_MASK(32));
+	if (ret)
+		dev_err(adsp->dev, "Unable to set the coherent mask to 32-bits!\n");
+
+out:
+	return ret;
+}
+
 static int adsp_probe(struct platform_device *pdev)
 {
 	const struct adsp_data *desc;
@@ -781,6 +813,7 @@ static int adsp_probe(struct platform_device *pdev)
 	const char *fw_name;
 	const struct rproc_ops *ops = &adsp_ops;
 	int ret;
+	bool signal_aop;
 
 	desc = of_device_get_match_data(&pdev->dev);
 	if (!desc)
@@ -838,6 +871,10 @@ static int adsp_probe(struct platform_device *pdev)
 	if (ret)
 		goto deinit_wakeup_source;
 
+	ret = adsp_setup_32b_dma_allocs(adsp);
+	if (ret)
+		goto deinit_wakeup_source;
+
 	ret = adsp_init_clock(adsp);
 	if (ret)
 		goto deinit_wakeup_source;
@@ -860,9 +897,14 @@ static int adsp_probe(struct platform_device *pdev)
 		goto detach_active_pds;
 	adsp->proxy_pd_count = ret;
 
-	adsp->qmp = qmp_get(adsp->dev);
-	if (IS_ERR_OR_NULL(adsp->qmp))
-		goto detach_proxy_pds;
+	signal_aop = of_property_read_bool(pdev->dev.of_node,
+			"qcom,signal-aop");
+
+	if (signal_aop) {
+		adsp->qmp = qmp_get(adsp->dev);
+		if (IS_ERR_OR_NULL(adsp->qmp))
+			goto detach_proxy_pds;
+	}
 
 	ret = qcom_q6v5_init(&adsp->q6v5, pdev, rproc, desc->crash_reason_smem,
 			     qcom_pas_handover);
@@ -1018,6 +1060,17 @@ static const struct adsp_data kalama_adsp_resource = {
 	.ssctl_id = 0x14,
 };
 
+static const struct adsp_data khaje_adsp_resource = {
+	.crash_reason_smem = 423,
+	.firmware_name = "adsp.mdt",
+	.pas_id = 1,
+	.minidump_id = 5,
+	.uses_elf64 = false,
+	.ssr_name = "lpass",
+	.sysmon_name = "adsp",
+	.ssctl_id = 0x14,
+};
+
 static const struct adsp_data msm8998_adsp_resource = {
 		.crash_reason_smem = 423,
 		.firmware_name = "adsp.mdt",
@@ -1050,16 +1103,9 @@ static const struct adsp_data sm8150_cdsp_resource = {
 	.pas_id = 18,
 	.has_aggre2_clk = false,
 	.auto_boot = true,
-	.active_pd_names = (char*[]){
-		"load_state",
-		NULL
-	},
-	.proxy_pd_names = (char*[]){
-		"cx",
-		NULL
-	},
 	.ssr_name = "cdsp",
 	.sysmon_name = "cdsp",
+	.qmp_name = "cdsp",
 	.ssctl_id = 0x17,
 };
 
@@ -1129,6 +1175,17 @@ static const struct adsp_data kalama_cdsp_resource = {
 	.ssr_name = "cdsp",
 	.sysmon_name = "cdsp",
 	.qmp_name = "cdsp",
+	.ssctl_id = 0x17,
+};
+
+static const struct adsp_data khaje_cdsp_resource = {
+	.crash_reason_smem = 601,
+	.firmware_name = "cdsp.mdt",
+	.pas_id = 18,
+	.minidump_id = 7,
+	.uses_elf64 = false,
+	.ssr_name = "cdsp",
+	.sysmon_name = "cdsp",
 	.ssctl_id = 0x17,
 };
 
@@ -1379,6 +1436,8 @@ static const struct of_device_id adsp_of_match[] = {
 	{ .compatible = "qcom,kalama-cdsp-pas", .data = &kalama_cdsp_resource},
 	{ .compatible = "qcom,kalama-modem-pas", .data = &kalama_mpss_resource},
 	{ .compatible = "qcom,cinder-modem-pas", .data = &cinder_mpss_resource},
+	{ .compatible = "qcom,khaje-adsp-pas", .data = &khaje_adsp_resource},
+	{ .compatible = "qcom,khaje-cdsp-pas", .data = &khaje_cdsp_resource},
 	{ },
 };
 MODULE_DEVICE_TABLE(of, adsp_of_match);

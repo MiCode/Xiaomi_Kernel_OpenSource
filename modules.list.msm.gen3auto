@@ -49,6 +49,7 @@ icc-bcm-voter.ko
 icc-rpmh.ko
 qnoc-qos.ko
 qnoc-sm8150.ko
+qnoc-sc8180x.ko
 icc-debug.ko
 qcom-cpufreq-hw.ko
 socinfo.ko

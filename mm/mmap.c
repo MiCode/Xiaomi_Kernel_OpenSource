@@ -56,6 +56,8 @@
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/mmap.h>
+#undef CREATE_TRACE_POINTS
+#include <trace/hooks/mm.h>
 
 #include "internal.h"
 
@@ -1877,6 +1879,8 @@ out:
 
 	vma_set_page_prot(vma);
 
+	trace_android_vh_mmap_region(vma, addr);
+
 	return addr;
 
 unmap_and_free_vma:
@@ -2120,14 +2124,6 @@ unsigned long vm_unmapped_area(struct vm_unmapped_area_info *info)
 	trace_vm_unmapped_area(addr, info);
 	return addr;
 }
-
-#ifndef arch_get_mmap_end
-#define arch_get_mmap_end(addr)	(TASK_SIZE)
-#endif
-
-#ifndef arch_get_mmap_base
-#define arch_get_mmap_base(addr, base) (base)
-#endif
 
 /* Get an address range which is currently unmapped.
  * For shmat() with addr=0.

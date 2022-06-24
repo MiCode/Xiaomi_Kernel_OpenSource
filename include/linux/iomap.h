@@ -89,6 +89,8 @@ struct iomap {
 	void			*inline_data;
 	void			*private; /* filesystem private */
 	const struct iomap_page_ops *page_ops;
+
+	ANDROID_KABI_RESERVE(1);
 };
 
 static inline sector_t iomap_sector(const struct iomap *iomap, loff_t pos)
@@ -329,6 +331,13 @@ struct iomap_dio_ops {
  * are not aligned to the file system block size.
   */
 #define IOMAP_DIO_OVERWRITE_ONLY	(1 << 1)
+
+/*
+ * When a page fault occurs, return a partial synchronous result and allow
+ * the caller to retry the rest of the operation after dealing with the page
+ * fault.
+ */
+#define IOMAP_DIO_PARTIAL		(1 << 2)
 
 ssize_t iomap_dio_rw(struct kiocb *iocb, struct iov_iter *iter,
 		const struct iomap_ops *ops, const struct iomap_dio_ops *dops,

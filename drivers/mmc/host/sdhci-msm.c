@@ -25,7 +25,7 @@
 #include <linux/interrupt.h>
 #include <linux/of.h>
 #include <linux/reset.h>
-
+#include <linux/clk/qcom.h>
 
 #include "sdhci-pltfm.h"
 #include "cqhci.h"
@@ -3866,6 +3866,37 @@ static const struct of_device_id sdhci_msm_dt_match[] = {
 
 MODULE_DEVICE_TABLE(of, sdhci_msm_dt_match);
 
+static int sdhci_msm_gcc_reset(struct device *dev, struct sdhci_host *host)
+{
+
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = sdhci_pltfm_priv(pltfm_host);
+	struct reset_control *reset = msm_host->core_reset;
+	int ret = -EOPNOTSUPP;
+
+	if (!reset)
+		return dev_err_probe(dev, ret, "unable to acquire core_reset\n");
+
+	ret = reset_control_assert(reset);
+	if (ret)
+		return dev_err_probe(dev, ret, "core_reset assert failed\n");
+
+	/*
+	 * The hardware requirement for delay between assert/deassert
+	 * is at least 3-4 sleep clock (32.7KHz) cycles, which comes to
+	 * ~125us (4/32768). To be on the safe side add 200us delay.
+	 */
+	usleep_range(200, 210);
+
+	ret = reset_control_deassert(reset);
+	if (ret)
+		return dev_err_probe(dev, ret, "core_reset deassert failed\n");
+
+	usleep_range(200, 210);
+
+	return ret;
+}
+
 static void sdhci_msm_hw_reset(struct sdhci_host *host)
 {
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
@@ -3886,26 +3917,8 @@ static void sdhci_msm_hw_reset(struct sdhci_host *host)
 		host->mmc->cqe_enabled = false;
 	}
 
-	ret = reset_control_assert(msm_host->core_reset);
-	if (ret) {
-		dev_err(&pdev->dev, "%s: core_reset assert failed, err = %d\n",
-				__func__, ret);
-		goto out;
-	}
 
-	/*
-	 * The hardware requirement for delay between assert/deassert
-	 * is at least 3-4 sleep clock (32.7KHz) cycles, which comes to
-	 * ~125us (4/32768). To be on the safe side add 200us delay.
-	 */
-	usleep_range(200, 210);
-
-	ret = reset_control_deassert(msm_host->core_reset);
-	if (ret)
-		dev_err(&pdev->dev, "%s: core_reset deassert failed, err = %d\n",
-				__func__, ret);
-	usleep_range(200, 210);
-
+	sdhci_msm_gcc_reset(&pdev->dev, host);
 	sdhci_msm_registers_restore(host);
 	msm_host->reg_store = false;
 
@@ -3913,7 +3926,6 @@ static void sdhci_msm_hw_reset(struct sdhci_host *host)
 	if (host->mmc->card)
 		mmc_power_cycle(host->mmc, host->mmc->card->ocr);
 #endif
-out:
 	return;
 }
 
@@ -4008,7 +4020,6 @@ static inline void sdhci_msm_get_of_property(struct platform_device *pdev,
 
 	of_property_read_u32(node, "qcom,dll-config", &msm_host->dll_config);
 }
-
 
 static void sdhci_msm_clkgate_bus_delayed_work(struct work_struct *work)
 {
@@ -4580,6 +4591,7 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 		goto pltfm_free;
 	}
 
+	sdhci_msm_gcc_reset(&pdev->dev, host);
 	msm_host->regs_restore.is_supported =
 		of_property_read_bool(dev->of_node,
 			"qcom,restore-after-cx-collapse");
@@ -4657,7 +4669,16 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 				      msm_host->bulk_clks);
 	if (ret)
 		goto opp_cleanup;
-
+	ret = qcom_clk_set_flags(msm_host->bulk_clks[0].clk,
+			CLKFLAG_NORETAIN_MEM);
+	if (ret)
+		dev_err(&pdev->dev, "Failed to set core clk NORETAIN_MEM: %d\n",
+				ret);
+	ret = qcom_clk_set_flags(msm_host->bulk_clks[2].clk,
+			CLKFLAG_RETAIN_MEM);
+	if (ret)
+		dev_err(&pdev->dev, "Failed to set ice clk RETAIN_MEM: %d\n",
+				ret);
 	/*
 	 * xo clock is needed for FLL feature of cm_dll.
 	 * In case if xo clock is not mentioned in DT, warn and proceed.

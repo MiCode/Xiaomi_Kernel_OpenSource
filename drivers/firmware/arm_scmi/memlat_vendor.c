@@ -21,6 +21,9 @@ enum scmi_memlat_protocol_cmd {
 	MEMLAT_SET_MONITOR,
 	MEMLAT_SET_COMMON_EV_MAP,
 	MEMLAT_SET_GRP_EV_MAP,
+	MEMLAT_ADAPTIVE_LOW_FREQ,
+	MEMLAT_ADAPTIVE_HIGH_FREQ,
+	MEMLAT_GET_ADAPTIVE_CUR_FREQ,
 	MEMLAT_IPM_CEIL,
 	MEMLAT_FE_STALL_FLOOR,
 	MEMLAT_BE_STALL_FLOOR,
@@ -32,6 +35,7 @@ enum scmi_memlat_protocol_cmd {
 	MEMLAT_MON_FREQ_MAP,
 	MEMLAT_SET_MIN_FREQ,
 	MEMLAT_SET_MAX_FREQ,
+	MEMLAT_GET_CUR_FREQ,
 	MEMLAT_START_TIMER,
 	MEMLAT_STOP_TIMER,
 	MEMLAT_GET_TIMESTAMP,
@@ -216,6 +220,8 @@ scmi_send_cmd(freq_scale_pct, MEMLAT_FREQ_SCALE_PCT);
 scmi_send_cmd(freq_scale_limit_mhz, MEMLAT_FREQ_SCALE_LIMIT_MHZ);
 scmi_send_cmd(min_freq, MEMLAT_SET_MIN_FREQ);
 scmi_send_cmd(max_freq, MEMLAT_SET_MAX_FREQ);
+scmi_send_cmd(adaptive_low_freq, MEMLAT_ADAPTIVE_LOW_FREQ);
+scmi_send_cmd(adaptive_high_freq, MEMLAT_ADAPTIVE_HIGH_FREQ);
 
 static int scmi_send_start_stop(const struct scmi_protocol_handle *ph, u32 msg_id)
 {
@@ -285,9 +291,48 @@ static int scmi_get_timestamp(const struct scmi_protocol_handle *ph, void *buf)
 		return ret;
 
 	ret = ph->xops->do_xfer(ph, t);
-	memcpy(buf, t->rx.buf, sizeof(u64));
+	if (t->rx.len != sizeof(u64))
+		return -EMSGSIZE;
+
+	memcpy(buf, t->rx.buf, t->rx.len);
 	ph->xops->xfer_put(ph, t);
 	return ret;
+}
+
+static int scmi_get_freq(const struct scmi_protocol_handle *ph, uint32_t hw_type,
+			 uint32_t mon_idx, void *buf, uint32_t msg_id)
+{
+	int ret = 0;
+	struct scmi_xfer *t;
+	struct scalar_param_msg *msg;
+
+	ret = ph->xops->xfer_get_init(ph, msg_id, sizeof(*msg),
+				      SCMI_MAX_RX_SIZE, &t);
+	if (ret)
+		return ret;
+
+	msg = t->tx.buf;
+	msg->hw_type = cpu_to_le32(hw_type);
+	msg->mon_idx = cpu_to_le32(mon_idx);
+	ret = ph->xops->do_xfer(ph, t);
+	if (t->rx.len != sizeof(u32))
+		return -EMSGSIZE;
+
+	memcpy(buf, t->rx.buf, t->rx.len);
+	ph->xops->xfer_put(ph, t);
+	return ret;
+}
+
+static int scmi_get_cur_freq(const struct scmi_protocol_handle *ph, uint32_t hw_type,
+			     uint32_t mon_idx, void *buf)
+{
+	return scmi_get_freq(ph, hw_type, mon_idx, buf, MEMLAT_GET_CUR_FREQ);
+}
+
+static int scmi_get_adaptive_cur_freq(const struct scmi_protocol_handle *ph, uint32_t hw_type,
+				  uint32_t mon_idx, void *buf)
+{
+	return scmi_get_freq(ph, hw_type, mon_idx, buf, MEMLAT_GET_ADAPTIVE_CUR_FREQ);
 }
 
 static struct scmi_memlat_vendor_ops memlat_proto_ops = {
@@ -296,6 +341,9 @@ static struct scmi_memlat_vendor_ops memlat_proto_ops = {
 	.set_mon = scmi_set_mon,
 	.set_common_ev_map = scmi_set_common_map,
 	.set_grp_ev_map = scmi_set_grp_map,
+	.adaptive_low_freq = scmi_adaptive_low_freq,
+	.adaptive_high_freq = scmi_adaptive_high_freq,
+	.get_adaptive_cur_freq = scmi_get_adaptive_cur_freq,
 	.ipm_ceil = scmi_ipm_ceil,
 	.fe_stall_floor = scmi_fe_stall_floor,
 	.be_stall_floor = scmi_be_stall_floor,
@@ -306,6 +354,7 @@ static struct scmi_memlat_vendor_ops memlat_proto_ops = {
 	.freq_scale_limit_mhz = scmi_freq_scale_limit_mhz,
 	.min_freq = scmi_min_freq,
 	.max_freq = scmi_max_freq,
+	.get_cur_freq = scmi_get_cur_freq,
 	.start_timer = scmi_start_timer,
 	.stop_timer = scmi_stop_timer,
 	.set_log_level = scmi_set_log_level,

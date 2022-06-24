@@ -106,19 +106,17 @@ TRACE_EVENT(sched_update_history,
 		__entry->cpu		= rq->cpu;
 	),
 
-	TP_printk("%d (%s): runtime %u samples %d event %s demand %u (hist: %u %u %u %u %u %u %u %u) (hist_util: %u %u %u %u %u %u %u %u) coloc_demand %u pred_demand_scaled %u cpu %d nr_big %u",
+	TP_printk("%d (%s): runtime %u samples %d event %s demand %u (hist: %u %u %u %u %u) (hist_util: %u %u %u %u %u) coloc_demand %u pred_demand_scaled %u cpu %d nr_big %u",
 		__entry->pid, __entry->comm,
 		__entry->runtime, __entry->samples,
 		task_event_names[__entry->evt],
 		__entry->demand,
 		__entry->hist[0], __entry->hist[1],
 		__entry->hist[2], __entry->hist[3],
-		__entry->hist[4], __entry->hist[5],
-		__entry->hist[6], __entry->hist[7],
+		__entry->hist[4],
 		__entry->hist_util[0], __entry->hist_util[1],
 		__entry->hist_util[2], __entry->hist_util[3],
-		__entry->hist_util[4], __entry->hist_util[5],
-		__entry->hist_util[6], __entry->hist_util[7],
+		__entry->hist_util[4],
 		__entry->coloc_demand, __entry->pred_demand_scaled,
 		__entry->cpu, __entry->nr_big_tasks)
 );
@@ -950,6 +948,7 @@ TRACE_EVENT(sched_cpu_util,
 		__field(unsigned int,	nr_rtg_high_prio_tasks)
 		__field(u64,	prs_gprs)
 		__field(unsigned int,	lowest_mask)
+		__field(unsigned long,	thermal_pressure)
 	),
 
 	TP_fast_assign(
@@ -974,16 +973,17 @@ TRACE_EVENT(sched_cpu_util,
 			__entry->lowest_mask	= 0;
 		else
 			__entry->lowest_mask	= cpumask_bits(lowest_mask)[0];
+		__entry->thermal_pressure	= arch_scale_thermal_pressure(cpu);
 	),
 
-	TP_printk("cpu=%d nr_running=%d cpu_util=%ld cpu_util_cum=%ld capacity_curr=%lu capacity=%lu capacity_orig=%lu idle_exit_latency=%u irqload=%llu online=%u, inactive=%u, halted=%u, reserved=%u, high_irq_load=%u nr_rtg_hp=%u prs_gprs=%llu lowest_mask=0x%x",
+	TP_printk("cpu=%d nr_running=%d cpu_util=%ld cpu_util_cum=%ld capacity_curr=%lu capacity=%lu capacity_orig=%lu idle_exit_latency=%u irqload=%llu online=%u, inactive=%u, halted=%u, reserved=%u, high_irq_load=%u nr_rtg_hp=%u prs_gprs=%llu lowest_mask=0x%x thermal_pressure=%llu",
 		__entry->cpu, __entry->nr_running, __entry->cpu_util,
 		__entry->cpu_util_cum, __entry->capacity_curr,
 		__entry->capacity, __entry->capacity_orig,
 		__entry->idle_exit_latency, __entry->irqload, __entry->online,
 		__entry->inactive, __entry->halted, __entry->reserved, __entry->high_irq_load,
 		__entry->nr_rtg_high_prio_tasks, __entry->prs_gprs,
-		__entry->lowest_mask)
+		__entry->lowest_mask, __entry->thermal_pressure)
 );
 
 TRACE_EVENT(sched_compute_energy,

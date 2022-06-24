@@ -29,6 +29,14 @@
 #define UFS_HW_VER_STEP_SHFT	(0)
 #define UFS_HW_VER_STEP_MASK	(0xFFFF << UFS_HW_VER_STEP_SHFT)
 
+/*
+ * UFS_MEM_DEBUG_SPARE_CFG[0:3] = UFS device's minor version
+ * UFS_MEM_DEBUG_SPARE_CFG[4:7] = UFS device's major version
+ */
+#define UFS_DEVICE_VER_MAJOR_SHFT (4)
+#define UFS_DEVICE_VER_MAJOR_MASK  (0x000F << UFS_DEVICE_VER_MAJOR_SHFT)
+#define UFS_DEVICE_VER_MINOR_MASK 0x000F
+
 #define UFS_VENDOR_MICRON	0x12C
 
 #define SLOW 1
@@ -85,6 +93,7 @@ enum {
 	 */
 	UFS_AH8_CFG				= 0xFC,
 	UFS_MEM_ICE				= 0x2600,
+	REG_UFS_DEBUG_SPARE_CFG			= 0x284C,
 };
 
 /* QCOM UFS host controller vendor specific debug registers */

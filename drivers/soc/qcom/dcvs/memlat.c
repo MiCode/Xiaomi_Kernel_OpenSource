@@ -247,12 +247,21 @@ static ssize_t store_##name(struct kobject *kobj,			\
 	int ret;							\
 	unsigned int val;						\
 	struct memlat_group *grp = to_memlat_grp(kobj);			\
+	const struct scmi_memlat_vendor_ops *ops = memlat_data->memlat_ops;	\
 	ret = kstrtouint(buf, 10, &val);				\
 	if (ret < 0)							\
 		return ret;						\
 	val = max(val, _min);						\
 	val = min(val, _max);						\
 	grp->name = val;						\
+	if (grp->cpucp_enabled && ops) {					\
+		ret = ops->name(memlat_data->ph, grp->hw_type,		\
+				0, grp->name);				\
+		if (ret < 0) {						\
+			pr_err("failed to set grp tunable :%d\n", ret);	\
+			return ret;					\
+		}							\
+	}								\
 	return count;							\
 }									\
 
@@ -485,11 +494,55 @@ static ssize_t show_hlos_cpucp_offset(struct kobject *kobj,
 
 	hlos_ts = ktime_get()/1000;
 
-	return scnprintf(buf, PAGE_SIZE, "%ld\n", cpucp_ts - hlos_ts);
+	return scnprintf(buf, PAGE_SIZE, "%ld\n", le64_to_cpu(cpucp_ts) - hlos_ts);
+}
+
+static ssize_t show_cur_freq(struct kobject *kobj,
+			     struct attribute *attr, char *buf)
+{
+	const struct scmi_memlat_vendor_ops *ops = memlat_data->memlat_ops;
+	struct memlat_mon *mon = to_memlat_mon(kobj);
+	struct memlat_group *grp = mon->memlat_grp;
+	uint32_t cur_freq;
+	int ret;
+
+	if (mon->type != CPUCP_MON)
+		return scnprintf(buf, PAGE_SIZE, "%lu\n", mon->cur_freq);
+
+	if (!ops)
+		return -ENODEV;
+
+	ret = ops->get_cur_freq(memlat_data->ph, grp->hw_type, mon->index, &cur_freq);
+	if (ret < 0) {
+		pr_err("failed to get mon current frequency\n");
+		return ret;
+	}
+	return scnprintf(buf, PAGE_SIZE, "%lu\n", le32_to_cpu(cur_freq));
+}
+
+static ssize_t show_adaptive_cur_freq(struct kobject *kobj,
+				      struct attribute *attr, char *buf)
+{
+	const struct scmi_memlat_vendor_ops *ops = memlat_data->memlat_ops;
+	uint32_t adaptive_cur_freq;
+	struct memlat_group *grp = to_memlat_grp(kobj);
+	int ret;
+
+	if (!grp->cpucp_enabled)
+		return scnprintf(buf, PAGE_SIZE, "%lu\n", grp->adaptive_cur_freq);
+
+	if (!ops)
+		return -ENODEV;
+
+	ret = ops->get_adaptive_cur_freq(memlat_data->ph, grp->hw_type, 0, &adaptive_cur_freq);
+	if (ret < 0) {
+		pr_err("failed to get grp adaptive current frequency\n");
+		return ret;
+	}
+	return scnprintf(buf, PAGE_SIZE, "%lu\n", le32_to_cpu(adaptive_cur_freq));
 }
 
 show_grp_attr(sampling_cur_freq);
-show_grp_attr(adaptive_cur_freq);
 show_grp_attr(adaptive_high_freq);
 store_grp_attr(adaptive_high_freq, 0U, 8000000U);
 show_grp_attr(adaptive_low_freq);
@@ -497,7 +550,6 @@ store_grp_attr(adaptive_low_freq, 0U, 8000000U);
 
 show_attr(min_freq);
 show_attr(max_freq);
-show_attr(cur_freq);
 show_attr(ipm_ceil);
 store_attr(ipm_ceil, 1U, 50000U);
 show_attr(fe_stall_floor);
@@ -785,7 +837,7 @@ static inline void apply_adaptive_freq(struct memlat_group *memlat_grp,
 static void calculate_mon_sampling_freq(struct memlat_mon *mon)
 {
 	struct cpu_stats *stats;
-	int cpu, max_cpu = 0;
+	int cpu, max_cpu = cpumask_first(&mon->cpus);
 	u32 max_memfreq, max_cpufreq = 0;
 	u32 max_cpufreq_scaled = 0, ipm_diff;
 	u32 hw = mon->memlat_grp->hw_type;
@@ -1249,9 +1301,23 @@ static int configure_cpucp_grp(struct memlat_group *grp)
 	}
 
 	ret = ops->set_grp_ev_map(memlat_data->ph, grp->hw_type, ev_map, NUM_GRP_EVS);
-	if (ret < 0)
+	if (ret < 0) {
 		pr_err("Failed to configure event map for mem grp %s\n",
 							of_node->name);
+		return ret;
+	}
+
+	ret = ops->adaptive_low_freq(memlat_data->ph, grp->hw_type, 0, grp->adaptive_low_freq);
+	if (ret < 0) {
+		pr_err("Failed to configure grp adaptive low freq for mem grp %s\n",
+								of_node->name);
+		return ret;
+	}
+
+	ret = ops->adaptive_high_freq(memlat_data->ph, grp->hw_type, 0, grp->adaptive_high_freq);
+	if (ret < 0)
+		pr_err("Failed to configure grp adaptive high freq for mem grp %s\n",
+									of_node->name);
 	return ret;
 }
 
@@ -1401,7 +1467,7 @@ int cpucp_memlat_init(struct scmi_device *sdev)
 	ret = ops->sample_ms(memlat_data->ph, memlat_data->cpucp_sample_ms);
 	if (ret < 0) {
 		pr_err("failed to set cpucp sample_ms\n");
-		return ret;
+		goto memlat_unlock;
 	}
 
 	/* Start sampling and voting timer */

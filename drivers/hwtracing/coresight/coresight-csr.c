@@ -61,6 +61,8 @@ do {									\
 #define CSR_QDSSSPARE		(0x064)
 #define CSR_IPCAT		(0x068)
 #define CSR_BYTECNTVAL		(0x06C)
+#define CSR_ARADDR_EXT		(0x130)
+#define CSR_AWADDR_EXT		(0x134)
 #define MSR_NUM			((drvdata->msr_end - drvdata->msr_start + 1) \
 				/ sizeof(uint32_t))
 #define MSR_MAX_NUM		128
@@ -80,6 +82,9 @@ do {									\
 #define CSR_ATID_REG_BIT(atid)	(atid % 32)
 #define CSR_MAX_ATID	128
 #define CSR_ATID_REG_SIZE	0xc
+
+#define CSR_ARADDR_EXT_VAL	0x104
+#define CSR_AWADDR_EXT_VAL	0x104
 
 struct csr_drvdata {
 	void __iomem		*base;
@@ -236,6 +241,48 @@ void msm_qdss_csr_disable_flush(struct coresight_csr *csr)
 	spin_unlock_irqrestore(&drvdata->spin_lock, flags);
 }
 EXPORT_SYMBOL(msm_qdss_csr_disable_flush);
+
+void msm_qdss_csr_enable_eth(struct coresight_csr *csr)
+{
+	struct csr_drvdata *drvdata;
+	unsigned long flags;
+
+	if (csr == NULL)
+		return;
+
+	drvdata = to_csr_drvdata(csr);
+	if (IS_ERR_OR_NULL(drvdata))
+		return;
+
+	spin_lock_irqsave(&drvdata->spin_lock, flags);
+	CSR_UNLOCK(drvdata);
+	csr_writel(drvdata, CSR_ARADDR_EXT_VAL, CSR_ARADDR_EXT);
+	csr_writel(drvdata, CSR_AWADDR_EXT_VAL, CSR_AWADDR_EXT);
+	CSR_LOCK(drvdata);
+	spin_unlock_irqrestore(&drvdata->spin_lock, flags);
+}
+EXPORT_SYMBOL(msm_qdss_csr_enable_eth);
+
+void msm_qdss_csr_disable_eth(struct coresight_csr *csr)
+{
+	struct csr_drvdata *drvdata;
+	unsigned long flags;
+
+	if (csr == NULL)
+		return;
+
+	drvdata = to_csr_drvdata(csr);
+	if (IS_ERR_OR_NULL(drvdata))
+		return;
+
+	spin_lock_irqsave(&drvdata->spin_lock, flags);
+	CSR_UNLOCK(drvdata);
+	csr_writel(drvdata, 0, CSR_ARADDR_EXT);
+	csr_writel(drvdata, 0, CSR_AWADDR_EXT);
+	CSR_LOCK(drvdata);
+	spin_unlock_irqrestore(&drvdata->spin_lock, flags);
+}
+EXPORT_SYMBOL(msm_qdss_csr_disable_eth);
 
 int coresight_csr_hwctrl_set(struct coresight_csr *csr, uint64_t addr,
 			 uint32_t val)

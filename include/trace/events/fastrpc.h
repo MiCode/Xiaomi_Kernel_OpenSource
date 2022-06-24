@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #undef TRACE_SYSTEM
@@ -10,7 +11,7 @@
 #define _TRACE_FASTRPC_H
 #include <linux/tracepoint.h>
 
-TRACE_EVENT(fastrpc_rpmsg_send,
+TRACE_EVENT(fastrpc_transport_send,
 
 	TP_PROTO(int cid, uint64_t smq_ctx,
 		uint64_t ctx, uint32_t handle,
@@ -43,7 +44,7 @@ TRACE_EVENT(fastrpc_rpmsg_send,
 		__entry->sc, __entry->addr, __entry->size)
 );
 
-TRACE_EVENT(fastrpc_rpmsg_response,
+TRACE_EVENT(fastrpc_transport_response,
 
 	TP_PROTO(int cid, uint64_t ctx, int retval,
 		uint32_t rsp_flags, uint32_t early_wake_time),

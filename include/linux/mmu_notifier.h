@@ -772,7 +772,7 @@ static inline void mmu_notifier_synchronize(void)
 
 #endif /* CONFIG_MMU_NOTIFIER */
 
-#if defined(CONFIG_MMU_NOTIFIER) && defined(CONFIG_SPECULATIVE_PAGE_FAULT)
+#if defined(CONFIG_SPECULATIVE_PAGE_FAULT)
 
 static inline bool mmu_notifier_trylock(struct mm_struct *mm)
 {

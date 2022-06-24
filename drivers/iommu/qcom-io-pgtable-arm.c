@@ -6,7 +6,7 @@
  *
  * Author: Will Deacon <will.deacon@arm.com>
  *
- * Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2022, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #define pr_fmt(fmt)	"arm-lpae io-pgtable: " fmt
@@ -723,7 +723,7 @@ static int arm_lpae_map_by_pgsize(struct io_pgtable_ops *ops,
 		return -ERANGE;
 
 	/* If no access, then nothing to do */
-	if (!(prot & (IOMMU_READ | IOMMU_WRITE))) {
+	if (!(iommu_prot & (IOMMU_READ | IOMMU_WRITE))) {
 		/* Increment 'mapped' so that the IOVA can be incremented accordingly. */
 		*mapped += size;
 		return 0;
@@ -754,7 +754,7 @@ static int arm_lpae_map_by_pgsize(struct io_pgtable_ops *ops,
 	return 0;
 }
 
-static int __maybe_unused arm_lpae_map_sg(struct io_pgtable_ops *ops, unsigned long iova,
+static int arm_lpae_map_sg(struct io_pgtable_ops *ops, unsigned long iova,
 			   struct scatterlist *sg, unsigned int nents, int prot,
 			   gfp_t gfp, size_t *mapped)
 {
@@ -1177,6 +1177,7 @@ arm_lpae_alloc_pgtable(struct io_pgtable_cfg *cfg)
 	data->iop.ops = (struct io_pgtable_ops) {
 		.map		= arm_lpae_map,
 		.map_pages	= arm_lpae_map_pages,
+		.map_sg		= arm_lpae_map_sg,
 		.unmap		= arm_lpae_unmap,
 		.unmap_pages	= arm_lpae_unmap_pages,
 		.iova_to_phys	= arm_lpae_iova_to_phys,

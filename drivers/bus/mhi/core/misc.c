@@ -1882,7 +1882,36 @@ int mhi_force_reset(struct mhi_controller *mhi_cntrl)
 		 TO_MHI_STATE_STR(mhi_cntrl->dev_state),
 		 TO_MHI_EXEC_STR(mhi_cntrl->ee));
 
+	/* notify critical clients in absence of RDDM */
+	mhi_report_error(mhi_cntrl);
+
 	mhi_soc_reset(mhi_cntrl);
 	return mhi_rddm_download_status(mhi_cntrl);
 }
 EXPORT_SYMBOL(mhi_force_reset);
+
+/* Get SoC info before registering mhi controller */
+int mhi_get_soc_info(struct mhi_controller *mhi_cntrl)
+{
+	u32 soc_info;
+	int ret;
+
+	/* Read the MHI device info */
+	ret = mhi_read_reg(mhi_cntrl, mhi_cntrl->regs,
+			   SOC_HW_VERSION_OFFS, &soc_info);
+	if (ret)
+		goto done;
+
+	mhi_cntrl->family_number = (soc_info & SOC_HW_VERSION_FAM_NUM_BMSK) >>
+					SOC_HW_VERSION_FAM_NUM_SHFT;
+	mhi_cntrl->device_number = (soc_info & SOC_HW_VERSION_DEV_NUM_BMSK) >>
+					SOC_HW_VERSION_DEV_NUM_SHFT;
+	mhi_cntrl->major_version = (soc_info & SOC_HW_VERSION_MAJOR_VER_BMSK) >>
+					SOC_HW_VERSION_MAJOR_VER_SHFT;
+	mhi_cntrl->minor_version = (soc_info & SOC_HW_VERSION_MINOR_VER_BMSK) >>
+					SOC_HW_VERSION_MINOR_VER_SHFT;
+
+done:
+	return ret;
+}
+EXPORT_SYMBOL(mhi_get_soc_info);

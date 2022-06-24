@@ -403,17 +403,29 @@ static void ghvst_process_msg(struct gh_transport_device *gdev,
 		    hdr.type != GHVST_TYPE_DATA) {
 			pr_err("%s: Incorrect info ver:%d; type:%d\n",
 			       __func__, hdr.version, hdr.type);
-			reset_buf(gbuf);
-			mutex_unlock(&gbuf->lock);
-			return;
+			goto out;
+		}
+		/* Checked the data size in pkg header */
+		if (hdr.size > MAX_PKT_SZ - sizeof(hdr)) {
+			pr_err("%s: Incorrect received header size:%d\n",
+			       __func__, hdr.size);
+			goto out;
 		}
 		gbuf->len = sizeof(hdr) + hdr.size;
 		gbuf->hdr_received = true;
+		/* Check gbuf->len size, can not be smaller than gbuf->copied*/
+		if (gbuf->len < gbuf->copied) {
+			pr_err("%s: Incorrect guf size: len=%d, copied=%d\n",
+			       __func__, gbuf->len, gbuf->copied);
+			goto out;
+		}
 		gbuf->remaining = gbuf->len - gbuf->copied;
 		check_rx_complete(gdev);
 		mutex_unlock(&gbuf->lock);
 		return;
 	}
+out:
+	reset_buf(gbuf);
 	mutex_unlock(&gbuf->lock);
 }
 
@@ -741,6 +753,12 @@ static int ghvst_rm_cb(struct notifier_block *nb, unsigned long cmd, void *data)
 				PTR_ERR(gdev->msgq_hdl));
 			return NOTIFY_DONE;
 		}
+		gdev->rx_thread = kthread_run(ghvst_msgq_recv, gdev, "ghvst_rx");
+		if (IS_ERR(gdev->rx_thread)) {
+			dev_err(gdev->dev, "Failed to create receiver thread rc:%d\n",
+				PTR_ERR(gdev->rx_thread));
+			return NOTIFY_DONE;
+		}
 		break;
 	case GH_RM_VM_STATUS_RUNNING:
 		break;
@@ -799,13 +817,13 @@ static int gunyah_transport_probe(struct platform_device *pdev)
 			dev_err(dev, "msgq register failed rc:%d\n", rc);
 			return rc;
 		}
-	}
 
-	gdev->rx_thread = kthread_create(ghvst_msgq_recv, gdev, "ghvst_rx");
-	if (IS_ERR(gdev->rx_thread)) {
-		rc = PTR_ERR(gdev->rx_thread);
-		dev_err(dev, "Failed to create receiver thread rc:%d\n", rc);
-		return rc;
+		gdev->rx_thread = kthread_run(ghvst_msgq_recv, gdev, "ghvst_rx");
+		if (IS_ERR(gdev->rx_thread)) {
+			rc = PTR_ERR(gdev->rx_thread);
+			dev_err(dev, "Failed to create receiver thread rc:%d\n", rc);
+			return rc;
+		}
 	}
 
 	sock_ws = wakeup_source_register(NULL, "ghvst_sock_ws");
@@ -813,8 +831,6 @@ static int gunyah_transport_probe(struct platform_device *pdev)
 	down_write(&ghvst_devs_lock);
 	list_add(&gdev->item, &ghvst_devs);
 	up_write(&ghvst_devs_lock);
-
-	wake_up_process(gdev->rx_thread);
 
 	return rc;
 }
