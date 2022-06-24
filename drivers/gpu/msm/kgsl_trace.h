@@ -1517,6 +1517,71 @@ TRACE_EVENT(kgsl_pool_free_page,
 	)
 );
 
+TRACE_EVENT(kgsl_reclaim_memdesc,
+	TP_PROTO(
+		struct kgsl_mem_entry *mem_entry,
+		bool swapout
+	),
+
+	TP_ARGS(mem_entry, swapout
+	),
+
+	TP_STRUCT__entry(
+		__field(uint64_t, gpuaddr)
+		__field(uint64_t, size)
+		__field(unsigned int, page_count)
+		__field(unsigned int, tgid)
+		__field(unsigned int, id)
+		__field(uint64_t, flags)
+		__field(bool, swapout)
+	),
+
+	TP_fast_assign(
+		__entry->gpuaddr = mem_entry->memdesc.gpuaddr;
+		__entry->size = mem_entry->memdesc.size;
+		__entry->page_count = mem_entry->memdesc.page_count;
+		__entry->tgid = pid_nr(mem_entry->priv->pid);
+		__entry->id = mem_entry->id;
+		__entry->flags = mem_entry->memdesc.flags;
+		__entry->swapout = swapout;
+	),
+
+	TP_printk(
+		"gpuaddr=0x%llx size=%llu page_count=%u tgid=%u id=%u flags=0x%llx swap=%s",
+		__entry->gpuaddr, __entry->size, __entry->page_count, __entry->tgid,
+		__entry->id, __entry->flags, __entry->swapout ? "out" : "in"
+	)
+);
+
+TRACE_EVENT(kgsl_reclaim_process,
+	TP_PROTO(
+		struct kgsl_process_private *process,
+		u32 swap_count,
+		bool swapout
+	),
+
+	TP_ARGS(process, swap_count, swapout
+	),
+
+	TP_STRUCT__entry(
+		__field(unsigned int, pid)
+		__field(u32, swap_count)
+		__field(u32, unpinned_page_count)
+		__field(bool, swapout)
+	),
+	TP_fast_assign(
+		__entry->pid = pid_nr(process->pid);
+		__entry->swap_count = swap_count;
+		__entry->unpinned_page_count = atomic_read(&process->unpinned_page_count);
+		__entry->swapout = swapout;
+	),
+	TP_printk(
+		"tgid=%u swapped=%u swapped_out_total=%u swap=%s",
+		__entry->pid, __entry->swap_count, __entry->unpinned_page_count,
+		__entry->swapout ? "out" : "in"
+	)
+);
+
 #endif /* _KGSL_TRACE_H */
 
 /* This part must be outside protection */
