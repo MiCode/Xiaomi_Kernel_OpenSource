@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
  *
  */
 
@@ -149,5 +149,7 @@ int qcom_icc_aggregate(struct icc_node *node, u32 tag, u32 avg_bw,
 int qcom_icc_set(struct icc_node *src, struct icc_node *dst);
 int qcom_icc_bcm_init(struct qcom_icc_bcm *bcm, struct device *dev);
 void qcom_icc_pre_aggregate(struct icc_node *node);
+int qcom_icc_enable_qos_deps(struct qcom_icc_provider *qp);
+void qcom_icc_disable_qos_deps(struct qcom_icc_provider *qp);
 
 #endif
