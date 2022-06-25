@@ -1439,7 +1439,7 @@ int cpucp_memlat_init(struct scmi_device *sdev)
 	/* Configure group/mon parameters */
 	for (i = 0; i < MAX_MEMLAT_GRPS; i++) {
 		grp = memlat_data->groups[i];
-		if (!grp->cpucp_enabled)
+		if (!grp || !grp->cpucp_enabled)
 			continue;
 		ret = configure_cpucp_grp(grp);
 		if (ret < 0) {
