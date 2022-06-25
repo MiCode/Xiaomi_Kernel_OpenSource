@@ -81,6 +81,7 @@ struct gh_proxy_vm {
 	bool is_vcpu_info_populated;
 	bool is_active;
 
+	gh_capid_t wdog_cap_id;
 	gh_capid_t vpmg_cap_id;
 	int susp_res_irq;
 	bool is_vpm_group_info_populated;
@@ -220,6 +221,38 @@ static inline void gh_get_vcpu_prop_name(int vmid, int vcpu_num, char *name)
 
 	scnprintf(extrastr, 12, "_%d_%d", vmid, vcpu_num);
 	strlcat(name, extrastr, 32);
+}
+
+static int gh_wdog_manage(gh_vmid_t vmid, gh_capid_t cap_id, bool populate)
+{
+	struct gh_proxy_vm *vm;
+	int ret = 0;
+
+	if (!init_done) {
+		pr_err("Driver probe failed\n");
+		return -ENXIO;
+	}
+
+	if (!is_vm_supports_proxy(vmid)) {
+		pr_info("Skip populating VCPU affinity info for VM=%d\n", vmid);
+		return -EINVAL;
+	}
+
+	mutex_lock(&gh_vm_mutex);
+	vm = gh_get_vm(vmid);
+	if (!vm) {
+		ret = -ENODEV;
+		goto unlock;
+	}
+
+	if (populate)
+		vm->wdog_cap_id = cap_id;
+	else
+		vm->wdog_cap_id = GH_CAPID_INVAL;
+
+unlock:
+	mutex_unlock(&gh_vm_mutex);
+	return ret;
 }
 
 /*
@@ -558,12 +591,20 @@ int gh_vcpu_run(gh_vmid_t vmid, unsigned int vcpu_id, uint64_t resume_data_0,
 		 * We're about to run the vcpu, so we can reset the abort-sleep flag.
 		 */
 		vcpu->abort_sleep = false;
+		gh_hcall_wdog_manage(vm->wdog_cap_id, WATCHDOG_MANAGE_OP_UNFREEZE);
 		__pm_stay_awake(vcpu->ws);
 
 		start_ts = ktime_get();
 		/* Call into Gunyah to run vcpu. */
+		preempt_disable();
 		ret = gh_hcall_vcpu_run(vcpu->cap_id, resume_data_0,
 					resume_data_1, resume_data_2, resp);
+		if (ret == GH_ERROR_OK && resp->vcpu_state == GH_VCPU_STATE_READY) {
+			if (need_resched())
+				gh_hcall_wdog_manage(vm->wdog_cap_id,
+						WATCHDOG_MANAGE_OP_FREEZE);
+		}
+		preempt_enable();
 		yield_ts = ktime_get() - start_ts;
 		trace_gh_hcall_vcpu_run(ret, vcpu->vm->id, vcpu_id, yield_ts,
 					resp->vcpu_state, resp->vcpu_suspend_state);
@@ -572,8 +613,11 @@ int gh_vcpu_run(gh_vmid_t vmid, unsigned int vcpu_id, uint64_t resume_data_0,
 			switch (resp->vcpu_state) {
 			/* VCPU is preempted by PVM interrupt. */
 			case GH_VCPU_STATE_READY:
-				if (need_resched())
+				if (need_resched()) {
 					schedule();
+					gh_hcall_wdog_manage(vm->wdog_cap_id,
+						WATCHDOG_MANAGE_OP_UNFREEZE);
+				}
 				break;
 
 			/* VCPU in WFI or suspended/powered down. */
@@ -601,6 +645,8 @@ int gh_vcpu_run(gh_vmid_t vmid, unsigned int vcpu_id, uint64_t resume_data_0,
 		}
 
 		if (signal_pending(current)) {
+			gh_hcall_wdog_manage(vm->wdog_cap_id,
+						WATCHDOG_MANAGE_OP_FREEZE);
 			ret = -ERESTARTSYS;
 			break;
 		}
@@ -615,6 +661,12 @@ int gh_vcpu_run(gh_vmid_t vmid, unsigned int vcpu_id, uint64_t resume_data_0,
 static int gh_proxy_sched_reg_rm_cbs(void)
 {
 	int ret = -EINVAL;
+
+	ret = gh_rm_set_wdog_manage_cb(&gh_wdog_manage);
+	if (ret) {
+		pr_err("fail to set the WDOG resource callback\n");
+		return ret;
+	}
 
 	ret = gh_rm_set_vcpu_affinity_cb(&gh_populate_vm_vcpu_info);
 	if (ret) {
