@@ -9,8 +9,12 @@
  * Following tracepoints are not exported in tracefs and provide a
  * mechanism for vendor modules to hook and extend functionality
  */
+#ifndef __GENKSYMS__
+struct cgroup_taskset;
+#else
 /* struct cgroup_taskset */
 #include <../kernel/cgroup/cgroup-internal.h>
+#endif
 /* struct cgroup_subsys_state */
 #include <linux/cgroup-defs.h>
 /* struct em_perf_domain */
@@ -327,6 +331,8 @@ DECLARE_HOOK(android_vh_irqtime_account_process_tick,
 	TP_PROTO(struct task_struct *p, struct rq *rq, int user_tick, int ticks),
 	TP_ARGS(p, rq, user_tick, ticks));
 
+/* Conditionally defined upon CONFIG_UCLAMP_TASK */
+struct uclamp_se;
 DECLARE_RESTRICTED_HOOK(android_rvh_uclamp_eff_get,
 	TP_PROTO(struct task_struct *p, enum uclamp_id clamp_id,
 		 struct uclamp_se *uclamp_max, struct uclamp_se *uclamp_eff, int *ret),
