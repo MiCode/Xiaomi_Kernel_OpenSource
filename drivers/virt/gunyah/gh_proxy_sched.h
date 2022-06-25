@@ -12,6 +12,10 @@
 #include <linux/gunyah/gh_common.h>
 #include <asm/gunyah/hcall.h>
 
+#define WATCHDOG_MANAGE_OP_FREEZE		0
+#define WATCHDOG_MANAGE_OP_FREEZE_AND_RESET	1
+#define WATCHDOG_MANAGE_OP_UNFREEZE		2
+
 struct gh_hcall_vcpu_run_resp {
 	int ret;
 	uint64_t vcpu_state;
@@ -20,6 +24,16 @@ struct gh_hcall_vcpu_run_resp {
 	uint64_t state_data_1;
 	uint64_t state_data_2;
 };
+
+static inline int gh_hcall_wdog_manage(gh_capid_t wdog_capid, u16 operation)
+{
+	int ret;
+	struct gh_hcall_resp _resp = {0};
+
+	ret = _gh_hcall(0x6063, (struct gh_hcall_args){ wdog_capid, operation }, &_resp);
+
+	return ret;
+}
 
 static inline int gh_hcall_vcpu_run(gh_capid_t vcpu_capid, uint64_t resume_data_0,
 					uint64_t resume_data_1, uint64_t resume_data_2,

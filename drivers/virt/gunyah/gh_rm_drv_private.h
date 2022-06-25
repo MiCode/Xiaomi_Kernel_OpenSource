@@ -267,6 +267,7 @@ struct gh_vm_lookup_resp_payload {
 #define GH_RM_RES_TYPE_VCPU		4
 #define GH_RM_RES_TYPE_VPMGRP		5
 #define GH_RM_RES_TYPE_VIRTIO_MMIO	6
+#define GH_RM_RES_TYPE_WATCHDOG		8
 
 struct gh_vm_get_hyp_res_req_payload {
 	gh_vmid_t vmid;
