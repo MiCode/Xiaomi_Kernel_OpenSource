@@ -4809,6 +4809,9 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 
 	sdhci_msm_set_caps(msm_host);
 
+	/* Enable force hw reset during cqe recovery */
+	msm_host->mmc->cqe_recovery_reset_always = true;
+
 	sdhci_msm_setup_pm(pdev, msm_host);
 
 	host->mmc_host_ops.start_signal_voltage_switch =

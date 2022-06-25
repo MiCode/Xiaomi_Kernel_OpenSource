@@ -1158,6 +1158,8 @@
   xt_unregister_target
   xt_unregister_targets
   __traceiter_android_rvh_account_irq
+  __traceiter_android_rvh_account_irq_end
+  __traceiter_android_rvh_account_irq_start
   __traceiter_android_rvh_after_dequeue_task
   __traceiter_android_rvh_after_enqueue_task
   __traceiter_android_rvh_build_perf_domains
@@ -1231,6 +1233,8 @@
   __traceiter_pelt_se_tp
   __traceiter_sched_overutilized_tp
   __tracepoint_android_rvh_account_irq
+  __tracepoint_android_rvh_account_irq_end
+  __tracepoint_android_rvh_account_irq_start
   __tracepoint_android_rvh_after_dequeue_task
   __tracepoint_android_rvh_after_enqueue_task
   __tracepoint_android_rvh_build_perf_domains
@@ -3007,3 +3011,7 @@
   usb_role_switch_get
   usb_role_switch_put
   usb_role_switch_set_role
+
+# required by unisoc_dump_io.ko
+  blk_stat_enable_accounting
+

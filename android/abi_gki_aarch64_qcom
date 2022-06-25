@@ -365,6 +365,7 @@
   devm_nvmem_device_get
   devm_nvmem_register
   devm_of_clk_add_hw_provider
+  devm_of_clk_del_provider
   devm_of_icc_get
   __devm_of_phy_provider_register
   devm_of_platform_populate
@@ -1629,6 +1630,9 @@
   reset_control_put
   root_task_group
   round_jiffies_relative
+  rpmsg_chrdev_eptdev_create
+  rpmsg_chrdev_eptdev_destroy
+  rpmsg_class
   rpmsg_get_signals
   rpmsg_poll
   rpmsg_register_device
@@ -1646,10 +1650,13 @@
   rproc_coredump_cleanup
   rproc_coredump_set_elf_info
   rproc_coredump_using_sections
+  rproc_da_to_va
   rproc_del
+  rproc_del_carveout
   rproc_free
   rproc_get_by_child
   rproc_get_by_phandle
+  rproc_mem_entry_free
   rproc_put
   rproc_remove_subdev
   rproc_report_crash
@@ -1980,7 +1987,9 @@
   __tracepoint_android_rvh_iommu_setup_dma_ops
   __tracepoint_android_rvh_is_cpu_allowed
   __tracepoint_android_rvh_migrate_queued_task
+  __tracepoint_android_rvh_mmc_cache_card_properties
   __tracepoint_android_rvh_new_task_stats
+  __tracepoint_android_rvh_partial_init
   __tracepoint_android_rvh_replace_next_task_fair
   __tracepoint_android_rvh_rto_next_cpu
   __tracepoint_android_rvh_sched_cpu_dying
@@ -2026,11 +2035,13 @@
   __tracepoint_android_vh_ftrace_oops_exit
   __tracepoint_android_vh_ftrace_size_check
   __tracepoint_android_vh_gic_resume
+  __tracepoint_android_vh_handle_tlb_conf
   __tracepoint_android_vh_ipi_stop
   __tracepoint_android_vh_jiffies_update
   __tracepoint_android_vh_kswapd_per_node
   __tracepoint_android_vh_logbuf
   __tracepoint_android_vh_logbuf_pr_cont
+  __tracepoint_android_vh_mmc_sdio_pm_flag_set
   __tracepoint_android_vh_printk_hotplug
   __tracepoint_android_vh_rproc_recovery
   __tracepoint_android_vh_rproc_recovery_set
@@ -2044,8 +2055,8 @@
   __tracepoint_android_vh_ufs_send_command
   __tracepoint_android_vh_ufs_send_tm_command
   __tracepoint_android_vh_ufs_send_uic_command
+  __tracepoint_android_vh_ufs_update_sdev
   __tracepoint_android_vh_update_topology_flags_workfn
-  __tracepoint_android_vh_mmc_sdio_pm_flag_set
   __tracepoint_binder_transaction_received
   __tracepoint_cpu_frequency_limits
   __tracepoint_cpu_idle

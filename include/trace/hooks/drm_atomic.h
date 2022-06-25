@@ -11,8 +11,10 @@
 
 #include <trace/hooks/vendor_hooks.h>
 
-struct drm_atomic_state;
-struct drm_crtc;
+/* struct drm_atomic_state */
+#include <drm/drm_atomic.h>
+/* struct drm_crtc */
+#include <drm/drm_crtc.h>
 DECLARE_HOOK(android_vh_drm_atomic_check_modeset,
 	TP_PROTO(struct drm_atomic_state *state, struct drm_crtc *crtc, bool *allow),
 	TP_ARGS(state, crtc, allow))
