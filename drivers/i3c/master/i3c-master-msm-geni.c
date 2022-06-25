@@ -1136,10 +1136,12 @@ static void geni_i3c_perform_daa(struct geni_i3c_dev *gi3c)
 			goto daa_err;
 		}
 
-		if (i3cboardinfo && i3cboardinfo->init_dyn_addr)
+		if (i3cboardinfo->init_dyn_addr &&
+			(i3cboardinfo->init_dyn_addr < I3C_MAX_ADDR)) {
+			/* If DA is specified in DTSI, use it */
 			addr = init_dyn_addr = i3cboardinfo->init_dyn_addr;
-		else
-			addr = ret = i3c_master_get_free_addr(m, addr);
+		}
+		addr = ret = i3c_master_get_free_addr(m, addr);
 
 		if (ret < 0) {
 			I3C_LOG_DBG(gi3c->ipcl, false, gi3c->se.dev,
