@@ -1004,7 +1004,7 @@ static ssize_t enable_store(struct device *dev,
 	unsigned long val;
 	struct dcc_drvdata *drvdata = dev_get_drvdata(dev);
 
-	if (kstrtoul(buf, 16, &val))
+	if (kstrtoul(buf, 16, &val) || val > 1)
 		return -EINVAL;
 
 	if (val)
@@ -1046,7 +1046,7 @@ static ssize_t ap_ns_qad_override_en_store(struct device *dev,
 		return -EINVAL;
 	}
 
-	if (kstrtoul(buf, 16, &val))
+	if (kstrtoul(buf, 16, &val) || val > 1)
 		return -EINVAL;
 
 	mutex_lock(&drvdata->mutex);
@@ -1240,16 +1240,16 @@ static ssize_t config_store(struct device *dev,
 	int nval;
 
 	nval = sscanf(buf, "%x %i %d", &base, &len, &apb_bus);
-	if (nval <= 0 || nval > 3)
+	if ((nval <= 0 || nval > 3) || (apb_bus < 0 || apb_bus > 1))
 		return -EINVAL;
 
 	if (nval == 1) {
 		len = 1;
 		apb_bus = 0;
-	} else if (nval == 2) {
-		apb_bus = 0;
-	} else {
+	} else if (nval == 3 && apb_bus == 1) {
 		apb_bus = 1;
+	} else {
+		apb_bus = 0;
 	}
 
 	ret = dcc_config_add(drvdata, base, len, apb_bus);
@@ -1289,7 +1289,7 @@ static ssize_t config_reset_store(struct device *dev,
 	unsigned long val;
 	struct dcc_drvdata *drvdata = dev_get_drvdata(dev);
 
-	if (kstrtoul(buf, 16, &val))
+	if (kstrtoul(buf, 16, &val) || val > 1)
 		return -EINVAL;
 
 	if (val)
@@ -1370,7 +1370,7 @@ static ssize_t interrupt_disable_store(struct device *dev,
 	unsigned long val;
 	struct dcc_drvdata *drvdata = dev_get_drvdata(dev);
 
-	if (kstrtoul(buf, 16, &val))
+	if (kstrtoul(buf, 16, &val) || val > 1)
 		return -EINVAL;
 
 	mutex_lock(&drvdata->mutex);
@@ -1526,7 +1526,7 @@ static ssize_t config_write_store(struct device *dev,
 
 	nval = sscanf(buf, "%x %x %d", &addr, &write_val, &apb_bus);
 
-	if (nval <= 1 || nval > 3) {
+	if ((nval <= 1 || nval > 3) || (apb_bus < 0 || apb_bus > 1)) {
 		ret = -EINVAL;
 		goto err;
 	}
@@ -1537,7 +1537,7 @@ static ssize_t config_write_store(struct device *dev,
 		goto err;
 	}
 
-	if (nval == 3 && apb_bus != 0)
+	if (nval == 3 && apb_bus == 1)
 		apb_bus = 1;
 
 	ret = dcc_add_write(drvdata, addr, write_val, apb_bus);
@@ -1568,7 +1568,7 @@ static ssize_t cti_trig_store(struct device *dev,
 	int ret = 0;
 	struct dcc_drvdata *drvdata = dev_get_drvdata(dev);
 
-	if (kstrtoul(buf, 16, &val))
+	if (kstrtoul(buf, 16, &val) || val > 1)
 		return -EINVAL;
 
 	mutex_lock(&drvdata->mutex);
