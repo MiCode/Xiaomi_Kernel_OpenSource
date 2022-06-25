@@ -232,6 +232,14 @@ config ARCH_KALAMA
 	  KALAMA chipset. If you do not wish to build a kernel that
 	  runs on this chipset or if you are unsure, say 'N' here.
 
+config ARCH_KAKA
+	bool "Enable Support for Qualcomm Technologies, Inc. KAKA"
+	depends on ARCH_QCOM
+	help
+	  This enables support for the Qualcomm Technologies, Inc.'s
+	  KAKA chipset. If you do not wish to build a kernel that
+	  runs on this chipset or if you are unsure, say 'N' here.
+
 config ARCH_WAIPIO
 	bool "Enable Support for Qualcomm Technologies, Inc. WAIPIO"
 	depends on ARCH_QCOM
