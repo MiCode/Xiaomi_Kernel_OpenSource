@@ -17,6 +17,7 @@
 #include <linux/of_gpio.h>
 #include <linux/of_device.h>
 #include <linux/gpio.h>
+#include <linux/hrtimer.h>
 #include <linux/regmap.h>
 #include <linux/power_supply.h>
 #include <linux/platform_device.h>
@@ -186,6 +187,7 @@
 #define	MAX_IRES_LEVELS					4
 #define	FLASH_BST_PWM_OVRHD_MIN_UV			300000
 #define	FLASH_BST_PWM_OVRHD_MAX_UV			600000
+#define	SAFETY_TIMER_MAX_TIMEOUT_MS			1280
 
 /* notifier call chain for flash-led irqs */
 static ATOMIC_NOTIFIER_HEAD(irq_notifier_list);
@@ -259,6 +261,10 @@ struct flash_switch_data {
 	struct pinctrl_state		*gpio_state_active;
 	struct pinctrl_state		*gpio_state_suspend;
 	struct led_classdev		cdev;
+	struct hrtimer			on_timer;
+	struct hrtimer			off_timer;
+	u64				on_time_ms;
+	u64				off_time_ms;
 	int				led_mask;
 	bool				regulator_on;
 	bool				enabled;
@@ -1508,6 +1514,9 @@ static int qpnp_flash_led_switch_disable(struct flash_switch_data *snode)
 		}
 	}
 
+	snode->on_time_ms = 0;
+	snode->off_time_ms = 0;
+
 	snode->enabled = false;
 	return 0;
 }
@@ -1713,6 +1722,14 @@ static int qpnp_flash_led_switch_set(struct flash_switch_data *snode, bool on)
 		}
 	}
 
+	if (snode->off_time_ms) {
+		pr_debug("Off timer started with delay %d ms\n",
+			snode->off_time_ms);
+		hrtimer_start(&snode->off_timer,
+				ms_to_ktime(snode->off_time_ms),
+				HRTIMER_MODE_REL);
+	}
+
 	rc = qpnp_flash_led_masked_write(led,
 					FLASH_LED_EN_LED_CTRL(led->base),
 					snode->led_mask, val);
@@ -1809,6 +1826,64 @@ static struct led_classdev *trigger_to_lcdev(struct led_trigger *trig)
 	return NULL;
 }
 
+static enum hrtimer_restart off_timer_function(struct hrtimer *timer)
+{
+	struct flash_switch_data *snode = container_of(timer,
+			struct flash_switch_data, off_timer);
+	struct qpnp_flash_led *led = dev_get_drvdata(&snode->pdev->dev);
+	int rc = 0;
+
+	spin_lock(&led->lock);
+	rc = qpnp_flash_led_switch_disable(snode);
+	spin_unlock(&led->lock);
+
+	if (rc < 0)
+		pr_err("Failed to disable flash LED switch %s, rc=%d\n", rc);
+
+	return HRTIMER_NORESTART;
+}
+
+static enum hrtimer_restart on_timer_function(struct hrtimer *timer)
+{
+	struct flash_switch_data *snode = container_of(timer,
+			struct flash_switch_data, on_timer);
+	struct qpnp_flash_led *led = dev_get_drvdata(&snode->pdev->dev);
+	int rc = 0;
+
+	spin_lock(&led->lock);
+	rc = qpnp_flash_led_switch_set(snode, true);
+	spin_unlock(&led->lock);
+
+	if (rc < 0)
+		pr_err("Failed to enable flash LED switch %s, rc=%d\n", rc);
+
+	return HRTIMER_NORESTART;
+}
+
+int qpnp_flash_led_set_param(struct led_trigger *trig,
+					struct flash_led_param param)
+{
+	struct led_classdev *led_cdev = trigger_to_lcdev(trig);
+	struct flash_switch_data *snode = container_of(led_cdev,
+			struct flash_switch_data, cdev);
+
+	if (!led_cdev) {
+		pr_err("Invalid led_cdev in trigger %s\n", trig->name);
+		return -EINVAL;
+	}
+
+	if (!param.on_time_ms && !param.off_time_ms) {
+		pr_err("Invalid param, on_time/off_time cannot be 0\n");
+		return -EINVAL;
+	}
+
+	snode->on_time_ms = param.on_time_ms;
+	snode->off_time_ms = param.off_time_ms;
+
+	return 0;
+}
+EXPORT_SYMBOL(qpnp_flash_led_set_param);
+
 int qpnp_flash_led_prepare(struct led_trigger *trig, int options,
 					int *max_current)
 {
@@ -1861,6 +1936,16 @@ static void qpnp_flash_led_brightness_set(struct led_classdev *led_cdev,
 
 	spin_lock(&led->lock);
 	if (snode) {
+		if (value > 0 && snode->on_time_ms) {
+			pr_debug("On timer started with delay %d ms\n",
+				snode->on_time_ms);
+			hrtimer_start(&snode->on_timer,
+					ms_to_ktime(snode->on_time_ms),
+					HRTIMER_MODE_REL);
+			spin_unlock(&led->lock);
+			return;
+		}
+
 		rc = qpnp_flash_led_switch_set(snode, value > 0);
 		if (rc < 0)
 			pr_err("Failed to set flash LED switch rc=%d\n", rc);
@@ -1913,10 +1998,75 @@ static ssize_t qpnp_flash_led_max_current_show(struct device *dev,
 	return snprintf(buf, PAGE_SIZE, "%d\n", max_current);
 }
 
+static ssize_t qpnp_flash_on_time_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct led_classdev *led_cdev = dev_get_drvdata(dev);
+	struct flash_switch_data *snode = container_of(led_cdev,
+			struct flash_switch_data, cdev);
+	int rc;
+	u64 val;
+
+	rc = kstrtou64(buf, 0, &val);
+	if (rc < 0)
+		return rc;
+
+	if (!val)
+		return -EINVAL;
+
+	snode->on_time_ms = val;
+
+	return count;
+}
+
+static ssize_t qpnp_flash_on_time_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct led_classdev *led_cdev = dev_get_drvdata(dev);
+	struct flash_switch_data *snode = container_of(led_cdev,
+			struct flash_switch_data, cdev);
+
+	return scnprintf(buf, PAGE_SIZE, "%lu\n", snode->on_time_ms * 1000);
+}
+
+static ssize_t qpnp_flash_off_time_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct led_classdev *led_cdev = dev_get_drvdata(dev);
+	struct flash_switch_data *snode = container_of(led_cdev,
+			struct flash_switch_data, cdev);
+	int rc;
+	u64 val;
+
+	rc = kstrtou64(buf, 0, &val);
+	if (rc < 0)
+		return rc;
+
+	val = min_t(u64, val, SAFETY_TIMER_MAX_TIMEOUT_MS);
+
+	snode->off_time_ms = val;
+
+	return count;
+}
+
+static ssize_t qpnp_flash_off_time_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct led_classdev *led_cdev = dev_get_drvdata(dev);
+	struct flash_switch_data *snode = container_of(led_cdev,
+			struct flash_switch_data, cdev);
+
+	return scnprintf(buf, PAGE_SIZE, "%lu\n", snode->off_time_ms * 1000);
+}
+
 /* sysfs attributes exported by flash_led */
 static struct device_attribute qpnp_flash_led_attrs[] = {
 	__ATTR(max_current, 0664, qpnp_flash_led_max_current_show, NULL),
 	__ATTR(enable, 0664, NULL, qpnp_flash_led_prepare_store),
+	__ATTR(on_time, 0600, qpnp_flash_on_time_show,
+		qpnp_flash_on_time_store),
+	__ATTR(off_time, 0600, qpnp_flash_off_time_show,
+		qpnp_flash_off_time_store),
 };
 
 /* irq handler */
@@ -2317,6 +2467,13 @@ static int qpnp_flash_led_parse_and_register_switch(struct qpnp_flash_led *led,
 			return rc;
 		}
 	}
+
+	snode->on_time_ms = 0;
+	snode->off_time_ms = 0;
+	hrtimer_init(&snode->on_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+	hrtimer_init(&snode->off_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+	snode->on_timer.function = on_timer_function;
+	snode->off_timer.function = off_timer_function;
 
 	snode->pdev = led->pdev;
 	snode->cdev.brightness_set = qpnp_flash_led_brightness_set;
