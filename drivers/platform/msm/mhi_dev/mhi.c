@@ -2541,7 +2541,7 @@ static void mhi_dev_transfer_completion_cb(void *mreq)
 	ch = &mhi_ctx->ch[req->chan];
 
 	dma_unmap_single(&mhi_ctx->pdev->dev, req->dma,
-		req->len, DMA_FROM_DEVICE);
+		req->transfer_len, DMA_FROM_DEVICE);
 
 	if (mhi_ctx->ch_ctx_cache[ch->ch_id].ch_type ==
 		MHI_DEV_CH_TYPE_INBOUND_CHANNEL) {
