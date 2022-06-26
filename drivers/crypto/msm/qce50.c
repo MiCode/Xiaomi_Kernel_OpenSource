@@ -36,7 +36,7 @@
 #define CRYPTO_SMMU_IOVA_START 0x10000000
 #define CRYPTO_SMMU_IOVA_SIZE 0x40000000
 
-#define CRYPTO_CONFIG_RESET 0xE001F
+#define CRYPTO_CONFIG_RESET 0xE01EF
 #define MAX_SPS_DESC_FIFO_SIZE 0xfff0
 #define QCE_MAX_NUM_DSCR    0x200
 #define QCE_SECTOR_SIZE	    0x200
@@ -2231,9 +2231,66 @@ static int _qce_unlock_other_pipes(struct qce_device *pce_dev, int req_info)
 static inline void qce_free_req_info(struct qce_device *pce_dev, int req_info,
 		bool is_complete);
 
+static int qce_sps_pipe_reset(struct qce_device *pce_dev, int op)
+{
+	int rc = -1;
+	struct sps_pipe *sps_pipe_info = NULL;
+	struct sps_connect *sps_connect_info = NULL;
+
+	/* Reset both the pipe sets in the pipe group */
+	sps_pipe_reset(pce_dev->ce_bam_info.bam_handle,
+			pce_dev->ce_bam_info.dest_pipe_index[op]);
+	sps_pipe_reset(pce_dev->ce_bam_info.bam_handle,
+			pce_dev->ce_bam_info.src_pipe_index[op]);
+
+	/* Reconnect to consumer pipe */
+	sps_pipe_info = pce_dev->ce_bam_info.consumer[op].pipe;
+	sps_connect_info = &pce_dev->ce_bam_info.consumer[op].connect;
+	rc = sps_disconnect(sps_pipe_info);
+	if (rc) {
+		pr_err("sps_disconnect() fail pipe=0x%lx, rc = %d\n",
+		(uintptr_t)sps_pipe_info, rc);
+		goto exit;
+	}
+	memset(sps_connect_info->desc.base, 0x00,
+				sps_connect_info->desc.size);
+	rc = sps_connect(sps_pipe_info, sps_connect_info);
+	if (rc) {
+		pr_err("sps_connect() fail pipe=0x%lx, rc = %d\n",
+		(uintptr_t)sps_pipe_info, rc);
+		goto exit;
+	}
+
+	/* Reconnect to producer pipe */
+	sps_pipe_info = pce_dev->ce_bam_info.producer[op].pipe;
+	sps_connect_info = &pce_dev->ce_bam_info.producer[op].connect;
+	rc = sps_disconnect(sps_pipe_info);
+	if (rc) {
+		pr_err("sps_connect() fail pipe=0x%lx, rc = %d\n",
+		(uintptr_t)sps_pipe_info, rc);
+		goto exit;
+	}
+	memset(sps_connect_info->desc.base, 0x00,
+				sps_connect_info->desc.size);
+	rc = sps_connect(sps_pipe_info, sps_connect_info);
+	if (rc) {
+		pr_err("sps_connect() fail pipe=0x%lx, rc = %d\n",
+		(uintptr_t)sps_pipe_info, rc);
+		goto exit;
+	}
+
+	/* Register producer callback */
+	rc = sps_register_event(sps_pipe_info,
+			&pce_dev->ce_bam_info.producer[op].event);
+	if (rc)
+		pr_err("Producer cb registration failed rc = %d\n",
+							rc);
+exit:
+	return rc;
+}
+
 int qce_manage_timeout(void *handle, int req_info)
 {
-	int rc = 0;
 	struct qce_device *pce_dev = (struct qce_device *) handle;
 	struct skcipher_request *areq;
 	struct ce_request_info *preq_info;
@@ -2245,17 +2302,16 @@ int qce_manage_timeout(void *handle, int req_info)
 	areq = (struct skcipher_request *) preq_info->areq;
 
 	pr_info("%s: req info = %d, offload op = %d\n", __func__, req_info,  op);
-	rc = _qce_unlock_other_pipes(pce_dev, req_info);
-	if (rc)
-		pr_err("%s: fail unlock other pipes, rc = %d\n", __func__, rc);
+
+	if (qce_sps_pipe_reset(pce_dev, op))
+		pr_err("%s: pipe reset failed\n", __func__);
+
+	if (_qce_unlock_other_pipes(pce_dev, req_info))
+		pr_err("%s: fail unlock other pipes\n", __func__);
+
 	qce_free_req_info(pce_dev, req_info, true);
 	qce_callback(areq, NULL, NULL, 0);
-	sps_pipe_reset(pce_dev->ce_bam_info.bam_handle,
-			pce_dev->ce_bam_info.dest_pipe_index[op]);
-	sps_pipe_reset(pce_dev->ce_bam_info.bam_handle,
-			pce_dev->ce_bam_info.src_pipe_index[op]);
-
-	return rc;
+	return 0;
 }
 EXPORT_SYMBOL(qce_manage_timeout);
 
