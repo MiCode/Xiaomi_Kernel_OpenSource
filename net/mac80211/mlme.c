@@ -2876,9 +2876,13 @@ static void ieee80211_destroy_assoc_data(struct ieee80211_sub_if_data *sdata,
 		mutex_lock(&sdata->local->mtx);
 		ieee80211_vif_release_channel(sdata);
 		mutex_unlock(&sdata->local->mtx);
+		if (abandon) {
+			struct cfg80211_assoc_failure data = {
+				.bss[0] = assoc_data->bss,
+			};
 
-		if (abandon)
-			cfg80211_abandon_assoc(sdata->dev, assoc_data->bss);
+			cfg80211_assoc_failure(sdata->dev, &data);
+		}
 	}
 
 	kfree(assoc_data);
@@ -3759,8 +3763,12 @@ static void ieee80211_rx_mgmt_assoc_resp(struct ieee80211_sub_if_data *sdata,
 	} else {
 		if (!ieee80211_assoc_success(sdata, cbss, mgmt, len, &elems)) {
 			/* oops -- internal error -- send timeout for now */
+			struct cfg80211_assoc_failure data = {
+				.timeout = true,
+				.bss[0] = cbss,
+			};
 			ieee80211_destroy_assoc_data(sdata, false, false);
-			cfg80211_assoc_timeout(sdata->dev, cbss);
+			cfg80211_assoc_failure(sdata->dev, &data);
 			goto notify_driver;
 		}
 		event.u.mlme.status = MLME_SUCCESS;
@@ -4607,9 +4615,13 @@ void ieee80211_sta_work(struct ieee80211_sub_if_data *sdata)
 				.u.mlme.data = ASSOC_EVENT,
 				.u.mlme.status = MLME_TIMEOUT,
 			};
+			struct cfg80211_assoc_failure data = {
+				.bss[0] = bss,
+				.timeout = true,
+			};
 
 			ieee80211_destroy_assoc_data(sdata, false, false);
-			cfg80211_assoc_timeout(sdata->dev, bss);
+			cfg80211_assoc_failure(sdata->dev, &data);
 			drv_event_callback(sdata->local, sdata, &event);
 		}
 	} else if (ifmgd->assoc_data && ifmgd->assoc_data->timeout_started)
@@ -5964,8 +5976,12 @@ void ieee80211_mgd_stop(struct ieee80211_sub_if_data *sdata)
 	sdata_lock(sdata);
 	if (ifmgd->assoc_data) {
 		struct cfg80211_bss *bss = ifmgd->assoc_data->bss;
+		struct cfg80211_assoc_failure data = {
+			.bss[0] = bss,
+			.timeout = true,
+		};
 		ieee80211_destroy_assoc_data(sdata, false, false);
-		cfg80211_assoc_timeout(sdata->dev, bss);
+		cfg80211_assoc_failure(sdata->dev, &data);
 	}
 	if (ifmgd->auth_data)
 		ieee80211_destroy_auth_data(sdata, false);
