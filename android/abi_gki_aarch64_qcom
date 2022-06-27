@@ -780,6 +780,12 @@
   i2c_put_dma_safe_msg_buf
   i2c_register_driver
   i2c_smbus_read_i2c_block_data
+  i3c_device_disable_ibi
+  i3c_device_enable_ibi
+  i3c_device_free_ibi
+  i3c_device_get_info
+  i3c_device_request_ibi
+  i3cdev_to_dev
   i3c_generic_ibi_alloc_pool
   i3c_generic_ibi_free_pool
   i3c_generic_ibi_get_free_slot
@@ -798,6 +804,8 @@
   icc_link_create
   icc_node_add
   icc_node_create
+  icc_node_del
+  icc_node_destroy
   icc_nodes_remove
   icc_provider_add
   icc_provider_del

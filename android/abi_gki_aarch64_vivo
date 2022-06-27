@@ -129,6 +129,7 @@
   class_find_device
   class_for_each_device
   class_interface_unregister
+  class_remove_file_ns
   __class_register
   class_unregister
   cleanup_srcu_struct
@@ -1835,6 +1836,7 @@
   regulator_enable
   regulator_force_disable
   regulator_get
+  regulator_get_drvdata
   regulator_get_mode
   regulator_get_voltage
   regulator_get_voltage_rdev
@@ -2311,7 +2313,13 @@
   __traceiter_android_vh_logbuf
   __traceiter_android_vh_logbuf_pr_cont
   __traceiter_android_vh_mmap_region
+  __traceiter_android_vh_mmc_attach_sd
+  __traceiter_android_vh_mmc_blk_mq_rw_recovery
+  __traceiter_android_vh_mmc_blk_reset
+  __traceiter_android_vh_mmc_gpio_cd_irqt
   __traceiter_android_vh_scheduler_tick
+  __traceiter_android_vh_sdhci_get_cd
+  __traceiter_android_vh_sd_update_bus_speed_mode
   __traceiter_android_vh_show_resume_epoch_val
   __traceiter_android_vh_show_suspend_epoch_val
   __traceiter_android_vh_shrink_slab_bypass
@@ -2328,6 +2336,8 @@
   __traceiter_dwc3_complete_trb
   __traceiter_dwc3_ctrl_req
   __traceiter_dwc3_event
+  __traceiter_dwc3_readl
+  __traceiter_dwc3_writel
   __traceiter_gpu_mem_total
   __traceiter_ipi_entry
   __traceiter_ipi_raise
@@ -2403,9 +2413,15 @@
   __tracepoint_android_vh_logbuf
   __tracepoint_android_vh_logbuf_pr_cont
   __tracepoint_android_vh_mmap_region
+  __tracepoint_android_vh_mmc_attach_sd
+  __tracepoint_android_vh_mmc_blk_mq_rw_recovery
+  __tracepoint_android_vh_mmc_blk_reset
+  __tracepoint_android_vh_mmc_gpio_cd_irqt
   __tracepoint_android_vh_printk_hotplug
   __tracepoint_android_vh_rproc_recovery
   __tracepoint_android_vh_scheduler_tick
+  __tracepoint_android_vh_sdhci_get_cd
+  __tracepoint_android_vh_sd_update_bus_speed_mode
   __tracepoint_android_vh_show_resume_epoch_val
   __tracepoint_android_vh_show_suspend_epoch_val
   __tracepoint_android_vh_shrink_slab_bypass
@@ -2424,12 +2440,17 @@
   __tracepoint_dwc3_complete_trb
   __tracepoint_dwc3_ctrl_req
   __tracepoint_dwc3_event
+  __tracepoint_dwc3_readl
+  __tracepoint_dwc3_writel
   __tracepoint_gpu_mem_total
   __tracepoint_ipi_entry
   __tracepoint_ipi_raise
+  __tracepoint_irq_handler_entry
   __tracepoint_mmap_lock_acquire_returned
   __tracepoint_mmap_lock_released
   __tracepoint_mmap_lock_start_locking
+  __tracepoint_rwmmio_read
+  __tracepoint_rwmmio_write
   __tracepoint_usb_gadget_connect
   __tracepoint_usb_gadget_disconnect
   tracepoint_probe_register
@@ -2469,6 +2490,7 @@
   ucsi_destroy
   ucsi_get_drvdata
   ucsi_register
+  ucsi_send_command
   ucsi_set_drvdata
   ucsi_unregister
   __udelay
