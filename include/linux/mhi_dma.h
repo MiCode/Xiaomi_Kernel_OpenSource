@@ -15,6 +15,7 @@
 #define _MHI_DMA_H_
 
 #include <linux/types.h>
+#include <linux/dma-mapping.h>
 
 /* Defines & Enums */
 
@@ -158,7 +159,6 @@ struct mhi_dma_start_params {
  *		cycles base interrupt moderation (32KHz clock)
  * @int_modc: GSI event ring interrupt moderation packet counter
  * @buff_size: Actual buff size of rx_pkt
- * @disable_overflow_event: indicates channel should not generate overflow event
  */
 struct mhi_dma_connect_params {
 	u8 channel_id;
@@ -168,7 +168,6 @@ struct mhi_dma_connect_params {
 	u32 int_modt;
 	u32 int_modc;
 	u32 buff_size;
-	bool disable_overflow_event;
 };
 
 /*
@@ -208,11 +207,39 @@ struct mhi_dma_ops {
 				    struct mhi_dma_function_params function,
 				    void (*user_cb)(void *user1),
 				    void *user_param);
+	dma_addr_t (*mhi_dma_map_buffer)(void *virt, size_t size,
+					 enum dma_data_direction dir);
+	void (*mhi_dma_unmap_buffer)(dma_addr_t phys, size_t size,
+		enum dma_data_direction dir);
+	void* (*mhi_dma_alloc_buffer)(size_t size, dma_addr_t *phys, gfp_t gfp);
+	void (*mhi_dma_free_buffer)(size_t size, void *virt, dma_addr_t phys);
+	int (*mhi_dma_update_mstate)(struct mhi_dma_function_params function,
+				  enum mhi_dma_mstate mstate_info);
+	int (*mhi_dma_resume)(struct mhi_dma_function_params function);
+	int (*mhi_dma_suspend)(struct mhi_dma_function_params function, bool force);
 };
 
-/* Architecture API functions */
-#if IS_ENABLED(CONFIG_ECPRI_DMA) || IS_ENABLED(CONFIG_IPA3)
+#if IS_ENABLED(CONFIG_MSM_MHI_DEV)
+/*
+ * mhi_dma_provide_ops() - DMA interface to provide OPs to MHI device driver
+ *
+ * @ops: Pointer to OPS struct with function pointers to DMA OPs
+ * Expected to be copied to MHI driver memory
+ *
+ * The function will return: 0 - on success,
+ *                             - Negative on error
+ */
+int mhi_dma_provide_ops(const struct mhi_dma_ops *ops);
 
+#else
+
+static inline int mhi_dma_provide_ops(const struct mhi_dma_ops *ops)
+{
+	return -EPERM;
+}
+#endif
+
+/* Architecture API functions */
 /*
  * mhi_dma_register_ready_cb() - register a callback to be invoked
  * when DMA driver initialization is complete.
@@ -457,116 +484,49 @@ int mhi_dma_async_memcpy(u64 dest, u64 src, int len,
 			 struct mhi_dma_function_params function,
 			 void (*user_cb)(void *user1), void *user_param);
 
-#else
+/*
+ * mhi_dma_map_buffer()- Mapping of provided buffer using DMA device
+ *
+ * @virt: virtual address of buffer to map
+ * @size: size of buffer to map
+ * @dir: direction of buffer to map
+ *
+ * Return: physical address mapped
+ */
+dma_addr_t mhi_dma_map_buffer(void *virt, size_t size,
+			      enum dma_data_direction dir);
 
-static inline int mhi_dma_register_ready_cb(
-	void (*mhi_ready_cb)(void *user_data),
-			  void *user_data)
-{
-	return -EPERM;
-}
+/*
+ * mhi_dma_unmap_buffer()- Unmap buffer
+ *
+ * @phys: physical address of buffer to unmap
+ * @size: size of buffer to map
+ * @dir: direction of buffer to unmap
+ *
+ * In case an unexpected buffer address would be received an error is returned.
+ */
+void mhi_dma_unmap_buffer(dma_addr_t phys, size_t size,
+				enum dma_data_direction dir);
 
-static inline int mhi_dma_init(
-	struct mhi_dma_function_params function,
-			       struct mhi_dma_init_params *params,
-			       struct mhi_dma_init_out *out)
-{
-	return -EPERM;
-}
+/*
+ * mhi_dma_alloc_buffer()- Allocating using DMA device
+ *
+ * @size: size of buffer to allocate
+ * @phys: out param returning the physical address of buffer allocated
+ * @gfp: GFP flag
+ *
+ * Return:    Virtual address of buffer
+ */
+void *mhi_dma_alloc_buffer(size_t size, dma_addr_t *phys, gfp_t gfp);
 
-static inline int mhi_dma_start(
-	struct mhi_dma_function_params function,
-		struct mhi_dma_start_params *params)
-{
-	return -EPERM;
-}
-
-static inline int mhi_dma_connect_endp(
-	struct mhi_dma_function_params function,
-		struct mhi_dma_connect_params *in, u32 *clnt_hdl)
-{
-	return -EPERM;
-}
-
-static inline int mhi_dma_disconnect_endp(
-	struct mhi_dma_function_params function,
-			struct mhi_dma_disconnect_params *in)
-{
-	return -EPERM;
-}
-
-
-static inline int mhi_dma_suspend(
-	struct mhi_dma_function_params function,
-				  bool force)
-{
-	return -EPERM;
-}
-
-static inline int mhi_dma_resume(
-	struct mhi_dma_function_params function)
-{
-	return -EPERM;
-}
-
-
-static inline int mhi_dma_update_mstate(
-	struct mhi_dma_function_params function,
-		enum mhi_dma_mstate mstate_info)
-{
-	return -EPERM;
-}
-
-
-static inline void mhi_dma_destroy(
-	struct mhi_dma_function_params function)
-{
-
-}
-
-
-static inline int mhi_dma_memcpy_init(
-	struct mhi_dma_function_params function)
-{
-	return -EPERM;
-}
-
-static inline void mhi_dma_memcpy_destroy(
-	struct mhi_dma_function_params function)
-{
-}
-
-static inline int mhi_dma_memcpy_enable(
-	struct mhi_dma_function_params function)
-{
-	return -EPERM;
-}
-
-
-static inline int
-mhi_dma_memcpy_disable(
-	struct mhi_dma_function_params function)
-{
-	return -EPERM;
-}
-
-
-static inline int mhi_dma_sync_memcpy(
-	u64 dest, u64 src, int len,
-		struct mhi_dma_function_params function)
-{
-	return -EPERM;
-}
-
-
-static inline int mhi_dma_async_memcpy(u64 dest, u64 src, int len,
-	struct mhi_dma_function_params function,
-		void (*user_cb)(void *user1),
-			void *user_param)
-{
-	return -EPERM;
-}
-
-#endif /* IS_ENABLED(CONFIG_ECPRI_DMA) || IS_ENABLED(CONFIG_IPA3) */
+/*
+ * mhi_dma_free_buffer()- Free buffer
+ *
+ * @function: function parameters
+ * @size: size of buffer to free
+ * @virt: virtual address of buffer to free
+ * @phys: physical address of buffer to free
+ */
+void mhi_dma_free_buffer(size_t size, void *virt, dma_addr_t phys);
 
 #endif //_MHI_DMA_H_
