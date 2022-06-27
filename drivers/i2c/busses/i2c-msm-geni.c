@@ -1564,7 +1564,7 @@ static int geni_i2c_runtime_suspend(struct device *dev)
 		if (ret)
 			I2C_LOG_DBG(gi2c->ipcl, false, gi2c->dev,
 			"%s failing at geni_icc_disable ret=%d\n", __func__, ret);
-	} else {
+	} else if (!gi2c->is_le_vm) {
 		geni_se_resources_off(&gi2c->i2c_rsc);
 		ret = geni_icc_disable(&gi2c->i2c_rsc);
 		if (ret)
