@@ -46,6 +46,11 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(sched_util_est_cfs_tp);
 EXPORT_TRACEPOINT_SYMBOL_GPL(sched_util_est_se_tp);
 EXPORT_TRACEPOINT_SYMBOL_GPL(sched_update_nr_running_tp);
 EXPORT_TRACEPOINT_SYMBOL_GPL(sched_switch);
+#ifdef CONFIG_SCHEDSTATS
+EXPORT_TRACEPOINT_SYMBOL_GPL(sched_stat_wait);
+EXPORT_TRACEPOINT_SYMBOL_GPL(sched_stat_iowait);
+EXPORT_TRACEPOINT_SYMBOL_GPL(sched_stat_blocked);
+#endif
 
 DEFINE_PER_CPU_SHARED_ALIGNED(struct rq, runqueues);
 EXPORT_SYMBOL_GPL(runqueues);
@@ -2868,6 +2873,7 @@ static int __set_cpus_allowed_ptr_locked(struct task_struct *p,
 	 */
 	dest_cpu = cpumask_any_and_distribute(cpu_valid_mask, new_mask);
 	trace_android_rvh_set_cpus_allowed_ptr_locked(cpu_valid_mask, new_mask, &dest_cpu);
+	trace_android_rvh_set_cpus_allowed_by_task(cpu_valid_mask, new_mask, p, &dest_cpu);
 
 	if (dest_cpu >= nr_cpu_ids) {
 		ret = -EINVAL;

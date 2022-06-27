@@ -490,7 +490,7 @@ static int firmware_param_path_set(const char *val, const struct kernel_param *k
 	int i;
 	char *path, *end;
 
-	strcpy(strpath, val);
+	strscpy(strpath, val, sizeof(strpath));
 	/* Remove leading and trailing spaces from path */
 	path = strim(strpath);
 	for (i = 0; path && i < CUSTOM_FW_PATH_COUNT; i++) {
@@ -507,11 +507,11 @@ static int firmware_param_path_set(const char *val, const struct kernel_param *k
 			*end = '\0';
 		else {
 			/* end of the string reached and no other tockens ','  */
-			strncpy(fw_path_para[i], path, PATH_SIZE);
+			strscpy(fw_path_para[i], path, PATH_SIZE);
 			break;
 		}
 
-		strncpy(fw_path_para[i], path, PATH_SIZE);
+		strscpy(fw_path_para[i], path, PATH_SIZE);
 		path = ++end;
 	}
 

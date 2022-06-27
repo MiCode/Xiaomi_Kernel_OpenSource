@@ -4,6 +4,7 @@
 # required by touch module
   proc_mkdir_data
   proc_create_seq_private
+  power_supply_is_system_supplied
 
 # required by aw8697-haptic.ko
   devm_gpio_free
@@ -62,6 +63,8 @@
   mempool_resize
   mempool_alloc_pages
   mempool_free_pages
+  blk_pm_runtime_init
+  scsi_remove_device
 
 #required by cs35l41 module
   regmap_raw_write_async
@@ -156,6 +159,8 @@
 #required by binderinfo.ko module
   __traceiter_android_vh_binder_transaction_init
   __tracepoint_android_vh_binder_transaction_init
+  __traceiter_android_vh_binder_print_transaction_info
+  __tracepoint_android_vh_binder_print_transaction_info
 
 #required by reclaim module
 
@@ -167,8 +172,11 @@
 
 #extend_reclaim.ko
 
-##required by xm_power_debug.ko module
+#required by xm_power_debug.ko module
   wakeup_sources_read_lock
   wakeup_sources_read_unlock
   wakeup_sources_walk_start
   wakeup_sources_walk_next
+
+#required by swinfo.ko module
+  proc_set_size
