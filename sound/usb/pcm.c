@@ -1590,6 +1590,7 @@ static int snd_usb_substream_playback_trigger(struct snd_pcm_substream *substrea
 		trace_android_vh_audio_usb_offload_suspend(substream, cmd, &suspend);
 		if (!suspend)
 			return 0;
+		fallthrough;
 	case SNDRV_PCM_TRIGGER_STOP:
 		stop_endpoints(subs, substream->runtime->status->state == SNDRV_PCM_STATE_DRAINING);
 		snd_usb_endpoint_set_callback(subs->data_endpoint,
