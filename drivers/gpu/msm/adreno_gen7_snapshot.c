@@ -53,13 +53,13 @@ const struct gen7_snapshot_block_list gen7_3_0_snapshot_block_list = {
 	.gmu_regs = gen7_3_0_gmu_registers,
 	.gmu_gx_regs = gen7_3_0_gmu_gx_registers,
 	.rscc_regs = gen7_0_0_rscc_registers,
-	.reg_list = gen7_0_0_reg_list,
+	.reg_list = gen7_3_0_reg_list,
 	.shader_blocks = gen7_3_0_shader_blocks,
 	.num_shader_blocks = ARRAY_SIZE(gen7_3_0_shader_blocks),
-	.clusters = gen7_0_0_clusters,
-	.num_clusters = ARRAY_SIZE(gen7_0_0_clusters),
-	.sptp_clusters = gen7_0_0_sptp_clusters,
-	.num_sptp_clusters = ARRAY_SIZE(gen7_0_0_sptp_clusters),
+	.clusters = gen7_3_0_clusters,
+	.num_clusters = ARRAY_SIZE(gen7_3_0_clusters),
+	.sptp_clusters = gen7_3_0_sptp_clusters,
+	.num_sptp_clusters = ARRAY_SIZE(gen7_3_0_sptp_clusters),
 	.post_crashdumper_regs = gen7_0_0_post_crashdumper_registers,
 };
 
