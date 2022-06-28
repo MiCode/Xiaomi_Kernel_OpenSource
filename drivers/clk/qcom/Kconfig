@@ -909,6 +909,15 @@ config SDX_GCC_PINN
 	  Say Y if you want to use peripheral devices such as UART, SPI, I2C,
 	  USB, SD/eMMC, PCIe, etc.
 
+config SDX_DEBUGCC_PINN
+	tristate "SDXPINN Debug Clock Controller"
+	select SDX_GCC_PINN
+	help
+	  Support for the debug clock controller on Qualcomm Technologies, Inc
+	  SDXPINN devices.
+	  Say Y if you want to support the debug clocks such as
+	  clock measurement functionality.
+
 config SM_GCC_SCUBA
 	tristate "SCUBA Global Clock Controller"
 	depends on COMMON_CLK_QCOM
