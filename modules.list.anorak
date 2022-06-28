@@ -50,3 +50,5 @@ ns.ko
 phy-qcom-ufs.ko
 phy-qcom-ufs-qrbtc-sdm845.ko
 ufs_qcom.ko
+cqhci.ko
+sdhci-msm.ko
