@@ -398,6 +398,16 @@ inline void fastrpc_transport_session_deinit(int cid)
 {
 }
 
+int fastrpc_wait_for_transport_interrupt(int cid, unsigned int flags)
+{
+	return 0;
+}
+
+void fastrpc_rproc_trace_events(const char *name, const char *event,
+				const char *subevent)
+{
+}
+
 /**
  * fastrpc_transport_init() - Initialize sockets for fastrpc driver.
  *
