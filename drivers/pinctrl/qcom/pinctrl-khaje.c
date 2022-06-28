@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -1537,7 +1538,7 @@ static const struct msm_pingroup khaje_groups[] = {
 };
 
 static const int khaje_reserved_gpios[] = {
-	0, 1, 2, 3, 82, 86, 14, 15, 16, 17, -1
+	0, 1, 2, 3, 86, 14, 15, 16, 17, -1
 };
 
 static const struct msm_pinctrl_soc_data khaje_pinctrl = {
