@@ -42,8 +42,6 @@ enum synx_core_id {
 #define SYNX_HWSPIN_TIMEOUT            500
 #define SYNX_HWSPIN_ID                 10
 
-#define SYNX_HWSPIN_BITMAP             0
-
 /* internal signal states */
 #define SYNX_STATE_INVALID             0
 #define SYNX_STATE_ACTIVE              1
