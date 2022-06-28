@@ -85,8 +85,8 @@ module_param(con_enabled, bool, 0644);
 #define PAR_MODE_SHFT		(1)
 #define PAR_EVEN		(0x00)
 #define PAR_ODD			(0x01)
-#define PAR_SPACE		(0x10)
-#define PAR_MARK		(0x11)
+#define PAR_SPACE		(0x02)
+#define PAR_MARK		(0x03)
 
 /* SE_UART_MANUAL_RFR register fields */
 #define UART_MANUAL_RFR_EN	(BIT(31))
@@ -2890,14 +2890,14 @@ static void msm_geni_serial_termios_cfg(struct uart_port *uport,
 		tx_parity_cfg |= PAR_CALC_EN;
 		rx_parity_cfg |= PAR_CALC_EN;
 		if (termios->c_cflag & PARODD) {
-			tx_parity_cfg |= PAR_ODD;
-			rx_parity_cfg |= PAR_ODD;
+			tx_parity_cfg |= PAR_ODD << PAR_MODE_SHFT;
+			rx_parity_cfg |= PAR_ODD << PAR_MODE_SHFT;
 		} else if (termios->c_cflag & CMSPAR) {
-			tx_parity_cfg |= PAR_SPACE;
-			rx_parity_cfg |= PAR_SPACE;
+			tx_parity_cfg |= PAR_SPACE << PAR_MODE_SHFT;
+			rx_parity_cfg |= PAR_SPACE << PAR_MODE_SHFT;
 		} else {
-			tx_parity_cfg |= PAR_EVEN;
-			rx_parity_cfg |= PAR_EVEN;
+			tx_parity_cfg |= PAR_EVEN << PAR_MODE_SHFT;
+			rx_parity_cfg |= PAR_EVEN << PAR_MODE_SHFT;
 		}
 	} else {
 		tx_trans_cfg &= ~UART_TX_PAR_EN;
