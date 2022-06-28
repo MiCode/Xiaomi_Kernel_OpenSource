@@ -665,6 +665,11 @@ static void geni_i3c_handle_received_ibi(struct geni_i3c_dev *gi3c)
 
 	val = readl_relaxed(gi3c->ibi.ibi_base + IBI_RCVD_IBI_STATUS(0));
 
+	if (!dev || !dev->ibi) {
+		I3C_LOG_ERR(gi3c->ipcl, true, gi3c->se.dev, "Invalid IBI device\n");
+		goto no_free_slot;
+	}
+
 	data = i3c_dev_get_master_data(dev);
 	slot = i3c_generic_ibi_get_free_slot(data->ibi_pool);
 	if (!slot) {
