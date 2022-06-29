@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: GPL-2.0
+#
+# For MTK USB3.0 IP
+
+config MTK_USB_OFFLOAD
+	tristate "MediaTek USB Offload"
+	help
+	  Say Y or M here if your system runs on MediaTek SoCs with
+	  'USB Offload' feature. The feature will use ADSP to transfer
+	  Audio ISOC data.
+
+	  If you don't know what this is, please say N.
+
+	  Choose M here to compile this driver as a module, and it
+	  will be called usb_offload.ko

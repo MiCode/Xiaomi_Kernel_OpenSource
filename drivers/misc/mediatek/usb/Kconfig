@@ -3,4 +3,4 @@
 source "drivers/misc/mediatek/usb/usb_meta/Kconfig"
 source "drivers/misc/mediatek/usb/usb_rndis/Kconfig"
 source "drivers/misc/mediatek/usb/usb_boost/Kconfig"
-
+source "drivers/misc/mediatek/usb/usb_offload/Kconfig"

@@ -20,9 +20,17 @@
 #include <linux/regulator/consumer.h>
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
+#if IS_ENABLED(CONFIG_MTK_USB_OFFLOAD)
+#include <linux/of_device.h>
+#include <linux/usb.h>
+#endif
 
 #include "xhci.h"
 #include "xhci-mtk.h"
+
+#if IS_ENABLED(CONFIG_MTK_USB_OFFLOAD)
+#include "usb_offload.h"
+#endif
 
 /* ip_pw_ctrl0 register */
 #define CTRL0_IP_SW_RST	BIT(0)
@@ -643,6 +651,11 @@ static int xhci_mtk_probe(struct platform_device *pdev)
 	struct xhci_hcd *xhci;
 	struct resource *res;
 	struct usb_hcd *hcd;
+#if IS_ENABLED(CONFIG_MTK_USB_OFFLOAD)
+	struct platform_device *offload_pdev;
+	struct device_node *offload_node;
+	struct xhci_vendor_ops *ops;
+#endif
 	int ret = -ENODEV;
 	int wakeup_irq;
 	int irq;
@@ -742,7 +755,7 @@ static int xhci_mtk_probe(struct platform_device *pdev)
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "ippc");
 	if (res) {	/* ippc register is optional */
-		mtk->ippc_regs = devm_ioremap_resource(dev, res);
+		mtk->ippc_regs = devm_ioremap(dev, res->start, resource_size(res));
 		if (IS_ERR(mtk->ippc_regs)) {
 			ret = PTR_ERR(mtk->ippc_regs);
 			goto put_usb2_hcd;
@@ -754,6 +767,24 @@ static int xhci_mtk_probe(struct platform_device *pdev)
 
 	xhci = hcd_to_xhci(hcd);
 	xhci->main_hcd = hcd;
+
+#if IS_ENABLED(CONFIG_MTK_USB_OFFLOAD)
+	/* get vendor_ops data */
+	offload_node = of_parse_phandle(node, "mediatek,usb-offload", 0);
+	if (offload_node) {
+		offload_pdev = of_find_device_by_node(offload_node);
+		of_node_put(offload_node);
+		if (offload_pdev) {
+			ops = dev_get_drvdata(&offload_pdev->dev);
+			if (ops) {
+				dev_info(dev, "set offload vendor_ops data\n");
+				xhci->vendor_ops = ops;
+			} else
+				dev_info(dev, "failed to get offload data\n");
+		} else
+			dev_info(dev, "failed to get offload platform device\n");
+	}
+#endif
 
 	/*
 	 * imod_interval is the interrupt moderation value in nanoseconds.
