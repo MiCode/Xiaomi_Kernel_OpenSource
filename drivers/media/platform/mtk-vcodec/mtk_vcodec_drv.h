@@ -479,6 +479,11 @@ struct metadata_info {
 	struct meta_describe metadata_dsc[MTK_MAX_METADATA_NUM];
 };
 
+struct vdec_set_frame_work_struct {
+	struct work_struct work;
+	struct mtk_vcodec_ctx *ctx;
+};
+
 /**
  * struct mtk_vcodec_ctx - Context (instance) private data.
  *
@@ -571,6 +576,9 @@ struct mtk_vcodec_ctx {
 	wait_queue_head_t bs_wq;
 	unsigned int *ipi_blocked;
 	enum vdec_input_driven_mode input_driven;
+
+	struct workqueue_struct *vdec_set_frame_wq;
+	struct vdec_set_frame_work_struct vdec_set_frame_work;
 
 	/* for user lock HW case release check */
 	struct mutex hw_status;

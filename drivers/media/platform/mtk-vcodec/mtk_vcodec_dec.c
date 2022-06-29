@@ -382,6 +382,68 @@ static u64 mtk_vdec_ts_update_mode_and_timestamp(struct mtk_vcodec_ctx *ctx, u64
 	return timestamp;
 }
 
+static int mtk_vdec_set_frame(struct mtk_vcodec_ctx *ctx,
+	struct mtk_video_dec_buf *buf)
+{
+	int ret = 0;
+
+	if (ctx->input_driven == INPUT_DRIVEN_PUT_FRM) {
+		ret = vdec_if_set_param(ctx, SET_PARAM_FRAME_BUFFER, buf);
+		if (ret == -EIO) {
+			ctx->state = MTK_STATE_ABORT;
+			vdec_check_release_lock(ctx);
+			mtk_vdec_queue_error_event(ctx);
+		}
+	}
+
+	return ret;
+}
+
+static void mtk_vdec_set_frame_handler(struct work_struct *ws)
+{
+	struct vdec_set_frame_work_struct *sws;
+	struct mtk_vcodec_ctx *ctx;
+	struct mtk_video_dec_buf *buf;
+	struct vb2_v4l2_buffer *dst_vb2_v4l2;
+
+	sws = container_of(ws, struct vdec_set_frame_work_struct, work);
+	ctx = sws->ctx;
+
+	if (ctx->input_driven != INPUT_DRIVEN_PUT_FRM || ctx->is_flushing == true ||
+	    ctx->state < MTK_STATE_HEADER || ctx->state >= MTK_STATE_ABORT)
+		return;
+
+	dst_vb2_v4l2 = v4l2_m2m_next_dst_buf(ctx->m2m_ctx);
+	if (dst_vb2_v4l2 != NULL) {
+		buf = container_of(dst_vb2_v4l2, struct mtk_video_dec_buf, vb);
+		mtk_vdec_set_frame(ctx, buf);
+	}
+}
+
+static void mtk_vdec_init_set_frame_wq(struct mtk_vcodec_ctx *ctx)
+{
+	ctx->vdec_set_frame_wq = create_singlethread_workqueue("vdec_set_frame");
+	INIT_WORK(&ctx->vdec_set_frame_work.work, mtk_vdec_set_frame_handler);
+	ctx->vdec_set_frame_work.ctx = ctx;
+}
+
+static void mtk_vdec_flush_set_frame_wq(struct mtk_vcodec_ctx *ctx)
+{
+	flush_workqueue(ctx->vdec_set_frame_wq);
+}
+
+static void mtk_vdec_deinit_set_frame_wq(struct mtk_vcodec_ctx *ctx)
+{
+	if (ctx->vdec_set_frame_wq != NULL)
+		destroy_workqueue(ctx->vdec_set_frame_wq);
+}
+
+static void mtk_vdec_trigger_set_frame(struct mtk_vcodec_ctx *ctx)
+{
+	if (ctx->input_driven == INPUT_DRIVEN_PUT_FRM && ctx->is_flushing == false)
+		queue_work(ctx->vdec_set_frame_wq, &ctx->vdec_set_frame_work.work);
+}
+
 /*
  * This function tries to clean all display buffers, the buffers will return
  * in display order.
@@ -497,7 +559,10 @@ static struct vb2_v4l2_buffer *get_free_buffer(struct mtk_vcodec_ctx *ctx)
 {
 	struct mtk_video_dec_buf *dstbuf;
 	struct vdec_fb *free_frame_buffer = NULL;
+	struct vb2_buffer *vb;
 	int i;
+	dma_addr_t new_dma_addr;
+	bool new_dma = false;
 
 	mutex_lock(&ctx->buf_lock);
 	if (vdec_if_get_param(ctx,
@@ -530,7 +595,21 @@ static struct vb2_v4l2_buffer *get_free_buffer(struct mtk_vcodec_ctx *ctx)
 
 	dstbuf->flags |= REF_FREED;
 
-	if (ctx->input_driven == INPUT_DRIVEN_PUT_FRM && ctx->is_flushing == false &&
+	vb = &dstbuf->vb.vb2_buf;
+	for (i = 0; i < vb->num_planes; i++) {
+		new_dma_addr = vb2_dma_contig_plane_dma_addr(vb, i);
+		// real buffer changed in this slot
+		if (free_frame_buffer->fb_base[i].dmabuf != vb->planes[i].dbuf) {
+			new_dma = true;
+			mtk_v4l2_debug(2, "[%d] id=%d is new buffer: old dma_addr[%d] = %llx %p, new dma_addr[%d] = %llx %p",
+				ctx->id, vb->index, i,
+				(unsigned long)free_frame_buffer->fb_base[i].dma_addr,
+				free_frame_buffer->fb_base[i].dmabuf,
+				i, (unsigned long)new_dma_addr, vb->planes[i].dbuf);
+		}
+	}
+
+	if (ctx->input_driven == INPUT_DRIVEN_PUT_FRM && ctx->is_flushing == false && !new_dma &&
 	    dstbuf->ready_to_display == false && !(free_frame_buffer->status & FB_ST_EOS)) {
 		free_frame_buffer->status &= ~FB_ST_FREE;
 		dstbuf->flags &= ~REF_FREED;
@@ -580,6 +659,7 @@ static struct vb2_v4l2_buffer *get_free_buffer(struct mtk_vcodec_ctx *ctx)
 					dstbuf->queued_in_vb2);
 				if (v4l2_m2m_buf_queue_check(ctx->m2m_ctx, &dstbuf->vb) < 0)
 					goto err_in_rdyq;
+				mtk_vdec_trigger_set_frame(ctx);
 			} else {
 				mtk_v4l2_debug(4, "[%d]status=%x reference free queue id=%d %d %d",
 					ctx->id, free_frame_buffer->status,
@@ -606,6 +686,7 @@ static struct vb2_v4l2_buffer *get_free_buffer(struct mtk_vcodec_ctx *ctx)
 			dstbuf->queued_in_vb2 = true;
 			if (v4l2_m2m_buf_queue_check(ctx->m2m_ctx, &dstbuf->vb) < 0)
 				goto err_in_rdyq;
+			mtk_vdec_trigger_set_frame(ctx);
 		} else {
 			/*
 			 * Codec driver do not need to reference this capture
@@ -633,6 +714,8 @@ err_in_rdyq:
 			free_frame_buffer->index, free_frame_buffer->fb_base[i].dmabuf);
 	}
 	mutex_unlock(&ctx->buf_lock);
+
+	mtk_vdec_trigger_set_frame(ctx);
 
 	return &dstbuf->vb;
 }
@@ -1136,14 +1219,7 @@ static void mtk_vdec_reset_decoder(struct mtk_vcodec_ctx *ctx, bool is_drain,
 			V4L2_TYPE_IS_OUTPUT(type) ? FLUSH_BITSTREAM : FLUSH_FRAME);
 	} else {
 		ctx->is_flushing = true;
-		if (ctx->input_driven == INPUT_DRIVEN_PUT_FRM) {
-			ret = vdec_if_set_param(ctx, SET_PARAM_FRAME_BUFFER, NULL);
-			if (ret == -EIO) {
-				ctx->state = MTK_STATE_ABORT;
-				vdec_check_release_lock(ctx);
-				mtk_vdec_queue_error_event(ctx);
-			}
-		}
+		mtk_vdec_set_frame(ctx, NULL);
 		ret = vdec_if_flush(ctx, NULL, NULL,
 			V4L2_TYPE_IS_OUTPUT(type) ? FLUSH_BITSTREAM : FLUSH_FRAME);
 	}
@@ -1793,6 +1869,7 @@ void mtk_vcodec_dec_empty_queues(struct file *file, struct mtk_vcodec_ctx *ctx)
 
 void mtk_vcodec_dec_release(struct mtk_vcodec_ctx *ctx)
 {
+	mtk_vdec_deinit_set_frame_wq(ctx);
 	vdec_if_deinit(ctx);
 	vdec_check_release_lock(ctx);
 }
@@ -2941,6 +3018,7 @@ static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
 		q_data = mtk_vdec_get_q_data(ctx, vb->vb2_queue->type);
 
 		ret = vdec_if_init(ctx, q_data->fmt->fourcc);
+		mtk_vdec_init_set_frame_wq(ctx);
 		v4l2_m2m_set_dst_buffered(ctx->m2m_ctx,
 			ctx->input_driven != NON_INPUT_DRIVEN);
 		if (ctx->input_driven == INPUT_DRIVEN_CB_FRM)
@@ -3001,14 +3079,7 @@ static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
 		if (ctx->input_driven == INPUT_DRIVEN_CB_FRM)
 			wake_up(&ctx->fm_wq);
 
-		if (ctx->input_driven == INPUT_DRIVEN_PUT_FRM) {
-			ret = vdec_if_set_param(ctx, SET_PARAM_FRAME_BUFFER, buf);
-			if (ret == -EIO) {
-				ctx->state = MTK_STATE_ABORT;
-				vdec_check_release_lock(ctx);
-				mtk_vdec_queue_error_event(ctx);
-			}
-		}
+		mtk_vdec_set_frame(ctx, buf);
 
 		return;
 	}
@@ -3418,6 +3489,8 @@ static void vb2ops_vdec_stop_streaming(struct vb2_queue *q)
 		ctx->dec_flush_buf->lastframe = NON_EOS;
 		return;
 	}
+
+	mtk_vdec_flush_set_frame_wq(ctx);
 
 	if (ctx->state >= MTK_STATE_HEADER) {
 

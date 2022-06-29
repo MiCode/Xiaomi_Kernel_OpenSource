@@ -341,22 +341,34 @@ struct vdec_vcu_ipi_query_cap_ack {
 };
 
 /*
- * struct vdec_ipi_fb - decoder frame buffer information
+ * struct vdec_ipi_fb - decoder frame buffer information for set frame ipi
  * @vdec_fb_va  : virtual address of struct vdec_fb
  * @y_fb_dma    : dma address of Y frame buffer
  * @c_fb_dma    : dma address of C frame buffer
  * @dma_general_addr: dma address of meta
  * @general_size: meta size
- * @poc         : picture order count of frame buffer
- * @timestamp : timestamp of frame buffer
- * @field       : enum v4l2_field, field type of frame buffer
- * @frame_type  : enum mtk_frame_type, I/P/B frame type
  * @reserved    : for 8 bytes alignment
  */
 struct vdec_ipi_fb {
 	__u64 vdec_fb_va;
 	__u64 y_fb_dma;
 	__u64 c_fb_dma;
+	__u64 dma_general_addr;
+	__s32 general_size;
+	__u32 reserved;
+};
+
+/*
+ * struct vdec_fb_entry - decoder frame buffer information for free/disp list
+ * @vdec_fb_va  : virtual address of struct vdec_fb
+ * @poc         : picture order count of frame buffer
+ * @timestamp : timestamp of frame buffer
+ * @field       : enum v4l2_field, field type of frame buffer
+ * @frame_type  : enum mtk_frame_type, I/P/B frame type
+ * @reserved    : for 8 bytes alignment
+ */
+struct vdec_fb_entry {
+	__u64 vdec_fb_va;
 	__u64 timestamp;
 	__u16 field;
 	__u16 frame_type;
@@ -386,7 +398,7 @@ struct ring_bs_list {
  * @count     : buffer count in list
  */
 struct ring_fb_list {
-	struct vdec_ipi_fb fb_list[DEC_MAX_FB_NUM];
+	struct vdec_fb_entry fb_list[DEC_MAX_FB_NUM];
 	__u32 read_idx;
 	__u32 write_idx;
 	__u32 count;
