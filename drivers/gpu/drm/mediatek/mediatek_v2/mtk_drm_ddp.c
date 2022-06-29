@@ -10396,6 +10396,11 @@ static int mtk_ddp_mout_en_MT6985(const struct mtk_mmsys_reg_data *data,
 		/* COMP_OUT_CROSSBAR */
 		*addr = MT6985_COMP_OUT_CROSSBAR3_MOUT_EN;
 		value = DISP_PANEL_COMP_OUT_CROSSBAR3_TO_MERGE0_0;
+	} else if ((cur == DDP_COMPONENT_COMP0_OUT_CB3 &&
+		next == DDP_COMPONENT_MERGE1)) {
+		/* COMP_OUT_CROSSBAR */
+		*addr = MT6985_COMP_OUT_CROSSBAR3_MOUT_EN;
+		value = DISP_PANEL_COMP_OUT_CROSSBAR3_TO_MERGE1_0;
 	} else if ((cur == DDP_COMPONENT_COMP0_OUT_CB4 &&
 		next == DDP_COMPONENT_MERGE0_OUT_CB1)) {
 		/* COMP_OUT_CROSSBAR */
@@ -10509,7 +10514,9 @@ static int mtk_ddp_mout_en_MT6985(const struct mtk_mmsys_reg_data *data,
 		*addr = MT6985_MERGE_OUT_CROSSBAR6_MOUT_EN;
 		value = DISP_MERGE1_0_TO_DLO_RELAY1;
 	} else if ((cur == DDP_COMPONENT_MERGE0_OUT_CB6 &&
-		next == DDP_COMPONENT_WDMA1)) {
+		next == DDP_COMPONENT_WDMA1) ||
+		(cur == DDP_COMPONENT_MERGE0_OUT_CB6 &&
+		next == DDP_COMPONENT_WDMA0)) {
 		/* MERGE_OUT_CROSSBAR - CON2*/
 		*addr = MT6985_MERGE_OUT_CROSSBAR6_MOUT_EN;
 		value = DISP_MERGE1_0_TO_WDMA1;

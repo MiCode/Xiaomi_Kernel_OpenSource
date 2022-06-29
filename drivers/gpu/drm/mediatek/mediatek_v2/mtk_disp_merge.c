@@ -41,6 +41,14 @@
 #define DISP_REG_MERGE_DGB1 (0x014)
 	#define FLD_LINE_CNT REG_FLD_MSB_LSB(15, 0)
 
+#define VPP_MERGE_ENABLE (0x000)
+
+#define VPP_MERGE_CFG_0 (0x010)
+#define VPP_MERGE_CFG_1 (0x014)
+#define VPP_MERGE_CFG_4 (0x020)
+#define VPP_MERGE_CFG_5 (0x024)
+#define VPP_MERGE_CFG_12 (0x040)
+
 struct mtk_merge_config_struct {
 	unsigned short width_right;
 	unsigned short width_left;
@@ -126,6 +134,41 @@ static void mtk_merge_config(struct mtk_ddp_comp *comp,
 		       merge_config.height, ~0);
 }
 
+static void mtk_merge_addon_config(struct mtk_ddp_comp *comp,
+				 enum mtk_ddp_comp_id prev,
+				 enum mtk_ddp_comp_id next,
+				 union mtk_addon_config *cfg,
+				 struct cmdq_pkt *handle)
+{
+	unsigned int width, height;
+	struct drm_crtc *crtc = &(comp->mtk_crtc->base);
+
+	cmdq_pkt_write(handle, comp->cmdq_base,
+			comp->regs_pa + VPP_MERGE_ENABLE, 0x01, ~0);
+	cmdq_pkt_write(handle, comp->cmdq_base,
+			comp->regs_pa + VPP_MERGE_CFG_12, 0x01, ~0);
+
+	width = crtc->mode.hdisplay;
+	height = crtc->mode.vdisplay;
+
+	cmdq_pkt_write(handle, comp->cmdq_base,
+		comp->regs_pa + VPP_MERGE_CFG_0,
+		width | (height << 16),
+		~0);
+	cmdq_pkt_write(handle, comp->cmdq_base,
+		comp->regs_pa + VPP_MERGE_CFG_1,
+		width | (height << 16),
+		~0);
+	cmdq_pkt_write(handle, comp->cmdq_base,
+		comp->regs_pa + VPP_MERGE_CFG_4,
+		width | (height << 16),
+		~0);
+	cmdq_pkt_write(handle, comp->cmdq_base,
+		comp->regs_pa + VPP_MERGE_CFG_5,
+		width | (height << 16),
+		~0);
+}
+
 void mtk_merge_dump(struct mtk_ddp_comp *comp)
 {
 	void __iomem *baddr = comp->regs;
@@ -201,6 +244,7 @@ static void mtk_merge_unprepare(struct mtk_ddp_comp *comp)
 }
 
 static const struct mtk_ddp_comp_funcs mtk_disp_merge_funcs = {
+	.addon_config = mtk_merge_addon_config,
 	.start = mtk_merge_start,
 	.stop = mtk_merge_stop,
 	.config = mtk_merge_config,
@@ -296,6 +340,7 @@ static const struct of_device_id mtk_disp_merge_driver_dt_match[] = {
 	{.compatible = "mediatek,mt6885-disp-merge", },
 	{.compatible = "mediatek,mt6983-disp-merge", },
 	{.compatible = "mediatek,mt6895-disp-merge", },
+	{.compatible = "mediatek,mt6985-disp-merge", },
 	{},
 };
 MODULE_DEVICE_TABLE(of, mtk_disp_merge_driver_dt_match);
