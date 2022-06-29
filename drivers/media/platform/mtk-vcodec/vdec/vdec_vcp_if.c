@@ -177,6 +177,7 @@ static int vdec_vcp_ipi_send(struct vdec_inst *inst, void *msg, int len, bool is
 		if (!is_res)
 			inst->vcu.failure = 0;
 	}
+	inst->ctx->err_msg = 0;
 
 	mtk_v4l2_debug(2, "id %d len %d msg 0x%x is_ack %d %d", obj.id, obj.len, *(u32 *)msg,
 		is_ack, *msg_signaled);
@@ -192,6 +193,7 @@ static int vdec_vcp_ipi_send(struct vdec_inst *inst, void *msg, int len, bool is
 		inst->vcu.failure = VDEC_IPI_MSG_STATUS_FAIL;
 		inst->vcu.abort = 1;
 		trigger_vcp_halt(VCP_A_ID);
+		inst->ctx->err_msg = *(__u32 *)msg;
 		return -EIO;
 	}
 
@@ -220,6 +222,7 @@ wait_ack:
 			inst->vcu.failure = VDEC_IPI_MSG_STATUS_FAIL;
 			inst->vcu.abort = 1;
 			trigger_vcp_halt(VCP_A_ID);
+			inst->ctx->err_msg = *(__u32 *)msg;
 			return -EIO;
 		} else if (-ERESTARTSYS == ret) {
 			mtk_vcodec_err(inst, "wait vcp ipi %X ack ret %d RESTARTSYS retry! (%d)",

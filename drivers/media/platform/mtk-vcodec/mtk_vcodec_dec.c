@@ -1176,7 +1176,10 @@ void mtk_vdec_queue_error_event(struct mtk_vcodec_ctx *ctx)
 		.type = V4L2_EVENT_MTK_VDEC_ERROR,
 	};
 
-	mtk_v4l2_debug(0, "[%d]", ctx->id);
+	if  (ctx->err_msg)
+		memcpy((void *)ev_error.u.data, &ctx->err_msg, sizeof(ctx->err_msg));
+
+	mtk_v4l2_debug(0, "[%d] msg %x", ctx->id, ctx->err_msg);
 	v4l2_event_queue_fh(&ctx->fh, &ev_error);
 }
 
