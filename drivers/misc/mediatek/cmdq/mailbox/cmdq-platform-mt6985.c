@@ -56,6 +56,9 @@ const char *cmdq_event_module_dispatch(phys_addr_t gce_pa, const u16 event,
 			... CMDQ_EVENT_OVLSYS1_BUF_UNDERRUN_ENG_EVENT_7:
 			return "DISP";
 		case CMDQ_EVENT_MMLSYS1_MDP_RDMA0_SOF
+			... CMDQ_EVENT_MMLSYS1_BUF_UNDERRUN_ENG_EVENT_2:
+			return "MML";
+		case CMDQ_EVENT_MMLSYS_MDP_RDMA0_SOF
 			... CMDQ_EVENT_MMLSYS_BUF_UNDERRUN_ENG_EVENT_2:
 			return "MDP";
 		case CMDQ_EVENT_DISPSYS_DISP_AAL0_SOF
