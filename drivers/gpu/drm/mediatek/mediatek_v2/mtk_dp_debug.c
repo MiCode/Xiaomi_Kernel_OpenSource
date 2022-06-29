@@ -171,18 +171,30 @@ void mtk_dp_debug(const char *opt)
 		DPTXMSG("set max link rate:enable = %d, maxlinkrate =%d\n",
 			enable, maxlinkrate);
 		mdrv_DPTx_set_maxlinkrate(enable, maxlinkrate);
-		} else if (strncmp(opt, "video_clock:", 12) == 0) {
-			int ret = 0;
-			unsigned int clksrc;
-			unsigned int con1;
+	} else if (strncmp(opt, "max2lane:", 9) == 0) {
+		int ret = 0;
+		uint8_t enable;
 
-			ret = sscanf(opt, "video_clock:%d,%d\n", &clksrc, &con1);
-			if (ret != 2) {
-				DPTXERR("ret = %s\n", ret);
-				return;
-			}
-			mtk_dp_clock_debug(clksrc, con1);
+		ret = sscanf(opt, "max2lane:%d\n", &enable);
+		if (ret != 1) {
+			DPTXMSG("ret = %s\n", ret);
+			return;
 		}
+
+		DPTXMSG("set max 2lane enable = %d\n", enable);
+		mtk_dp_set_force_2lane(enable ? true : false);
+	} else if (strncmp(opt, "video_clock:", 12) == 0) {
+		int ret = 0;
+		unsigned int clksrc;
+		unsigned int con1;
+
+		ret = sscanf(opt, "video_clock:%d,%d\n", &clksrc, &con1);
+		if (ret != 2) {
+			DPTXERR("ret = %s\n", ret);
+			return;
+		}
+		mtk_dp_clock_debug(clksrc, con1);
+	}
 
 }
 

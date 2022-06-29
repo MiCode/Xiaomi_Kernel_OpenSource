@@ -50,8 +50,10 @@ static bool fakecablein;
 static int fakeres = FAKE_DEFAULT_RES;
 static int fakebpc = DP_COLOR_DEPTH_8BIT;
 struct mutex dp_lock;
+static bool g_force_2lane;
 static bool g_hdcp_on = 1;
 static bool aux_swap;
+static BYTE MAX_LANECOUNT = DP_LANECOUNT_4;
 
 static const struct drm_display_mode dptx_est_modes[] = {
 	/* 2160x3840@60Hz */
@@ -392,7 +394,13 @@ void mdrv_DPTx_InitVariable(struct mtk_dp *mtk_dp)
 	DPTXFUNC();
 	mtk_dp->training_info.ubDPSysVersion = DP_VERSION_14;
 	mtk_dp->training_info.ubLinkRate = DP_LINKRATE_HBR3;
-	mtk_dp->training_info.ubLinkLaneCount = DP_LANECOUNT_2;
+
+	if (mtk_dp_2lane_only()) {
+		DPTXMSG("%s: force 2lane only\n", __func__);
+		MAX_LANECOUNT = DP_LANECOUNT_2;
+	}
+
+	mtk_dp->training_info.ubLinkLaneCount = MAX_LANECOUNT;
 	mtk_dp->training_info.bSinkEXTCAP_En = false;
 	mtk_dp->training_info.bSinkSSC_En = false;
 	mtk_dp->training_info.bTPS3 = true;
@@ -637,7 +645,7 @@ bool mdrv_DPTx_CheckSinkLock(struct mtk_dp *mtk_dp, u8 *pDPCD20x, u8 *pDPCD200C)
 		case DP_LANECOUNT_1:
 			if ((pDPCD200C[0] & 0x07) != 0x07) {
 				bLocked = false;
-				DPTXMSG("2L Lose LCOK\n");
+				DPTXMSG("1L Lose LCOK\n");
 			}
 			break;
 		case DP_LANECOUNT_2:
@@ -654,7 +662,7 @@ bool mdrv_DPTx_CheckSinkLock(struct mtk_dp *mtk_dp, u8 *pDPCD20x, u8 *pDPCD200C)
 			break;
 		}
 
-		if ((pDPCD200C[2]&BIT0) == 0) {
+		if ((pDPCD200C[2] & BIT(0)) == 0) {
 			bLocked = false;
 			DPTXMSG("Interskew Lose LCOK\n");
 		}
@@ -680,7 +688,7 @@ bool mdrv_DPTx_CheckSinkLock(struct mtk_dp *mtk_dp, u8 *pDPCD20x, u8 *pDPCD200C)
 			break;
 		}
 
-		if ((pDPCD20x[4]&BIT0) == 0) {
+		if ((pDPCD20x[4] & BIT(0)) == 0) {
 			bLocked = false;
 			DPTXMSG("Interskew Lose LCOK\n");
 		}
@@ -701,7 +709,7 @@ void mdrv_DPTx_CheckSinkESI(struct mtk_dp *mtk_dp, u8 *pDPCD20x, u8 *pDPCD2002)
 {
 	u8 ubTempValue;
 
-	if ((pDPCD20x[0x1]&BIT1) || (pDPCD2002[0x1]&BIT1)) {
+	if ((pDPCD20x[0x1]&BIT(1)) || (pDPCD2002[0x1]&BIT(1))) {
 #if (DPTX_AutoTest_ENABLE == 0x1)
 		if (!mdrv_DPTx_PHY_AutoTest(mtk_dp,
 			pDPCD20x[0x1] | pDPCD2002[0x1])) {
@@ -712,13 +720,13 @@ void mdrv_DPTx_CheckSinkESI(struct mtk_dp *mtk_dp, u8 *pDPCD20x, u8 *pDPCD2002)
 #endif
 	}
 
-	if (pDPCD20x[0x1]&BIT0) { // not support, clrear it.
-		ubTempValue = BIT0;
+	if (pDPCD20x[0x1]&BIT(0)) { // not support, clrear it.
+		ubTempValue = BIT(0);
 		drm_dp_dpcd_write(&mtk_dp->aux, DPCD_00201, &ubTempValue, 0x1);
 	}
 
 #ifdef DPTX_HDCP_ENABLE
-	if (!(pDPCD20x[0x1]&BIT2) && !(pDPCD2002[0x1]&BIT2))
+	if (!(pDPCD20x[0x1]&BIT(2)) && !(pDPCD2002[0x1]&BIT(2)))
 		return;
 
 	if (mtk_dp->info.hdcp2_info.bEnable)
@@ -1055,7 +1063,7 @@ DPTX_TEST_PHY80B_EN)
 		DPTXMSG("DPCD 218 = 0x%x\n", ubDPCD_218);
 
 		switch (ubDPCD_218 & 0xFF)	{
-		case BIT0://TEST_LINK_TRAINING:
+		case BIT(0)://TEST_LINK_TRAINING:
 #if DPTX_TEST_LINK_TRAINING_EN
 			DPTXMSG("TEST_LINK_TRAINING\n");
 			ubTempBuffer[0x0] = 0x01;
@@ -1085,7 +1093,7 @@ DPTX_TEST_PHY80B_EN)
 #endif
 			break;
 
-		case BIT1: //TEST_VIDEO_PATTERN
+		case BIT(1): //TEST_VIDEO_PATTERN
 #if DPTX_TEST_PATTERN_EN
 			DPTXMSG("TEST_PATTERN\n");
 			mtk_dp->training_info.bDPTxAutoTest_EN = true;
@@ -1103,7 +1111,7 @@ DPTX_TEST_PHY80B_EN)
 #endif
 			break;
 
-		case (BIT1 | BIT5)://(TEST_VIDEO_PATTERN | TEST_AUDIO_PATTERN)
+		case (BIT(1) | BIT(5))://(TEST_VIDEO_PATTERN | TEST_AUDIO_PATTERN)
 			DPTXMSG("TEST VIDEO/AUDIO PATTERN\n");
 			mtk_dp->training_info.bDPTxAutoTest_EN = true;
 			mdrv_DPTx_Video_PG_AutoTest(mtk_dp);
@@ -1113,7 +1121,7 @@ DPTX_TEST_PHY80B_EN)
 				ubTempBuffer, 0x1);
 			return true;
 
-		case BIT2: //TEST_EDID_READ
+		case BIT(2): //TEST_EDID_READ
 #if DPTX_TEST_EDID_READ_EN
 			DPTXMSG("TEST_EDID_R\n");
 			if (mtk_dp->edid)
@@ -1133,7 +1141,7 @@ DPTX_TEST_PHY80B_EN)
 #endif
 			break;
 
-		case BIT3://TEST_PHY_PATTERN
+		case BIT(3)://TEST_PHY_PATTERN
 #if DPTX_PHY_TEST_PATTERN_EN
 			DPTXMSG("PHY_TEST_PATTERN");
 			drm_dp_dpcd_read(&mtk_dp->aux, 0x00248,
@@ -1309,7 +1317,7 @@ void mdrv_DPTx_CheckSinkHPDEvent(struct mtk_dp *mtk_dp)
 
 	sink_cnt = mdrv_DPTx_getSinkCount(mtk_dp);
 	if ((sink_cnt != mtk_dp->training_info.ubSinkCountNum) ||
-		(ubDPCD200C[0x2] & BIT6 || ubDPCD20x[0x4] & BIT6)) {
+		(ubDPCD200C[0x2] & BIT(6) || ubDPCD20x[0x4] & BIT(6))) {
 		DPTXMSG("New Branch Device Detection!!\n");
 
 		if (!mtk_dp->bUeventToHwc) {
@@ -1548,11 +1556,11 @@ bool mdrv_DPTx_TrainingCheckSwingPre(struct mtk_dp *mtk_dp,
 		//Adjust the swing and pre-emphasis done, notify Sink Side
 		ubDPCP_Buffer1[0x0] = ubSwingValue | (ubPreemphasis << 3);
 		if (ubSwingValue == DPTx_SWING3) { //MAX_SWING_REACHED
-			ubDPCP_Buffer1[0x0] |= BIT2;
+			ubDPCP_Buffer1[0x0] |= BIT(2);
 		}
 		//MAX_PRE-EMPHASIS_REACHED
 		if (ubPreemphasis == DPTx_PREEMPHASIS3)
-			ubDPCP_Buffer1[0x0] |= BIT5;
+			ubDPCP_Buffer1[0x0] |= BIT(5);
 
 	}
 
@@ -1565,11 +1573,11 @@ bool mdrv_DPTx_TrainingCheckSwingPre(struct mtk_dp *mtk_dp,
 		//Adjust the swing and pre-emphasis done, notify Sink Side
 		ubDPCP_Buffer1[0x1] = ubSwingValue | (ubPreemphasis << 3);
 		if (ubSwingValue == DPTx_SWING3) { //MAX_SWING_REACHED
-			ubDPCP_Buffer1[0x1] |= BIT2;
+			ubDPCP_Buffer1[0x1] |= BIT(2);
 		}
 		//MAX_PRE-EMPHASIS_REACHED
 		if (ubPreemphasis == DPTx_PREEMPHASIS3)
-			ubDPCP_Buffer1[0x1] |= BIT5;
+			ubDPCP_Buffer1[0x1] |= BIT(5);
 
 	}
 
@@ -1583,11 +1591,11 @@ bool mdrv_DPTx_TrainingCheckSwingPre(struct mtk_dp *mtk_dp,
 		//Adjust the swing and pre-emphasis done, notify Sink Side
 		ubDPCP_Buffer1[0x2] = ubSwingValue | (ubPreemphasis << 3);
 		if (ubSwingValue == DPTx_SWING3) { //MAX_SWING_REACHED
-			ubDPCP_Buffer1[0x2] |= BIT2;
+			ubDPCP_Buffer1[0x2] |= BIT(2);
 		}
 		//MAX_PRE-EMPHASIS_REACHED
 		if (ubPreemphasis == DPTx_PREEMPHASIS3)
-			ubDPCP_Buffer1[0x2] |= BIT5;
+			ubDPCP_Buffer1[0x2] |= BIT(5);
 
 
 		ubSwingValue = (ubDPCP202_x[0x5]&0x30) >> 4;
@@ -1600,11 +1608,11 @@ bool mdrv_DPTx_TrainingCheckSwingPre(struct mtk_dp *mtk_dp,
 		//Adjust the swing and pre-emphasis done, notify Sink Side
 		ubDPCP_Buffer1[0x3] = ubSwingValue | (ubPreemphasis << 3);
 		if (ubSwingValue == DPTx_SWING3) { //MAX_SWING_REACHED
-			ubDPCP_Buffer1[0x3] |= BIT2;
+			ubDPCP_Buffer1[0x3] |= BIT(2);
 		}
 		//MAX_PRE-EMPHASIS_REACHED
 		if (ubPreemphasis == DPTx_PREEMPHASIS3)
-			ubDPCP_Buffer1[0x3] |= BIT5;
+			ubDPCP_Buffer1[0x3] |= BIT(5);
 	}
 
 	//Wait signal stable enough
@@ -1706,7 +1714,7 @@ int mdrv_DPTx_TrainingFlow(struct mtk_dp *mtk_dp, u8 ubLaneRate, u8 ubLaneCount)
 			mhal_DPTx_SetScramble(mtk_dp, false);
 
 			if (ubStatusControl == 0x0)	{
-				mhal_DPTx_SetTxTrainingPattern(mtk_dp, BIT4);
+				mhal_DPTx_SetTxTrainingPattern(mtk_dp, BIT(4));
 				ubStatusControl = 0x1;
 				ubTempValue[0] = 0x21;
 				drm_dp_dpcd_write(&mtk_dp->aux, DPCD_00102,
@@ -1759,15 +1767,15 @@ int mdrv_DPTx_TrainingFlow(struct mtk_dp *mtk_dp, u8 ubLaneRate, u8 ubLaneCount)
 			if (ubStatusControl == 0x1) {
 				if (mtk_dp->training_info.bTPS4) {
 					mhal_DPTx_SetTxTrainingPattern(mtk_dp,
-						BIT7);
+						BIT(7));
 					DPTXMSG("LT TPS4\n");
 				} else if (mtk_dp->training_info.bTPS3) {
 					mhal_DPTx_SetTxTrainingPattern(mtk_dp,
-						BIT6);
+						BIT(6));
 					DPTXMSG("LT TP3\n");
 				} else {
 					mhal_DPTx_SetTxTrainingPattern(mtk_dp,
-						BIT5);
+						BIT(5));
 					DPTXMSG("LT TPS2\n");
 				}
 
@@ -1877,7 +1885,7 @@ bool mdrv_DPTx_CheckSinkCap(struct mtk_dp *mtk_dp)
 
 	drm_dp_dpcd_read(&mtk_dp->aux, DPCD_00000, bTempBuffer, 0x10);
 
-	mtk_dp->training_info.bSinkEXTCAP_En = (bTempBuffer[0x0E]&BIT7) ?
+	mtk_dp->training_info.bSinkEXTCAP_En = (bTempBuffer[0x0E]&BIT(7)) ?
 		true : false;
 	if (mtk_dp->training_info.bSinkEXTCAP_En)
 		drm_dp_dpcd_read(&mtk_dp->aux, DPCD_02200, bTempBuffer, 0x10);
@@ -1911,14 +1919,14 @@ bool mdrv_DPTx_CheckSinkCap(struct mtk_dp *mtk_dp)
 	mtk_dp->training_info.bTPS3 = 0;
 	mtk_dp->training_info.bTPS4 = 0;
 #else
-	mtk_dp->training_info.bTPS3 = (bTempBuffer[0x2]&BIT6)>>0x6;
-	mtk_dp->training_info.bTPS4 = (bTempBuffer[0x3]&BIT7)>>0x7;
+	mtk_dp->training_info.bTPS3 = (bTempBuffer[0x2]&BIT(6))>>0x6;
+	mtk_dp->training_info.bTPS4 = (bTempBuffer[0x3]&BIT(7))>>0x7;
 #endif
 	mtk_dp->training_info.bDWN_STRM_PORT_PRESENT
-			= (bTempBuffer[0x5] & BIT0);
+			= (bTempBuffer[0x5] & BIT(0));
 
 #if (ENABLE_DPTX_SSC_OUTPUT == 0x1)
-	if ((bTempBuffer[0x3] & BIT0) == 0x1) {
+	if ((bTempBuffer[0x3] & BIT(0)) == 0x1) {
 		mtk_dp->training_info.bSinkSSC_En = true;
 		DPTXMSG("SINK SUPPORT SSC!\n");
 	} else {
@@ -1933,10 +1941,10 @@ bool mdrv_DPTx_CheckSinkCap(struct mtk_dp *mtk_dp)
 #endif
 
 	drm_dp_dpcd_read(&mtk_dp->aux, DPCD_00021, bTempBuffer, 0x1);
-	mtk_dp->training_info.bDPMstCAP = (bTempBuffer[0x0] & BIT0);
+	mtk_dp->training_info.bDPMstCAP = (bTempBuffer[0x0] & BIT(0));
 	mtk_dp->training_info.bDPMstBranch = false;
 
-	if (mtk_dp->training_info.bDPMstCAP == BIT0) {
+	if (mtk_dp->training_info.bDPMstCAP == BIT(0)) {
 		if (mtk_dp->training_info.bDWN_STRM_PORT_PRESENT == 0x1)
 			mtk_dp->training_info.bDPMstBranch = true;
 
@@ -1961,7 +1969,7 @@ bool mdrv_DPTx_CheckSinkCap(struct mtk_dp *mtk_dp)
 		u8 ubDPCD_201;
 
 		drm_dp_dpcd_read(&mtk_dp->aux, DPCD_00201, &ubDPCD_201, 1);
-		if (ubDPCD_201 & BIT1) {
+		if (ubDPCD_201 & BIT(1)) {
 #if (DPTX_AutoTest_ENABLE == 0x1)
 			mdrv_DPTx_PHY_AutoTest(mtk_dp, ubDPCD_201);
 #endif
@@ -2683,15 +2691,15 @@ void mdrv_DPTx_DSC_SetParam(struct mtk_dp *mtk_dp, u8 slice_num, u16 chunk_num)
 			r16 = ((chunk_num + 2) * slice_num / 3) % 16;
 		DPTXMSG("r16 = %d\n", r16);
 		//r16 = 1; //test for 1080p
-		hde_last_num = (q16[r16] & (BIT1|BIT2)) >> 1;
-		hde_num_even = q16[r16] & BIT0;
+		hde_last_num = (q16[r16] & (BIT(1)|BIT(2))) >> 1;
+		hde_num_even = q16[r16] & BIT(0);
 	} else {
 		//r8 = (int) ceil((chunk_num + 1) * slice_num / 3) % 8;
 		r8 = ((chunk_num + 1) * slice_num / 3) % 8;
 		DPTXMSG("r8 = %d\n", r8);
 		//r8 = 1; //test for 1080p
-		hde_last_num = (q8[r8] & (BIT1|BIT2)) >> 1;
-		hde_num_even = q8[r8] & BIT0;
+		hde_last_num = (q8[r8] & (BIT(1)|BIT(2))) >> 1;
+		hde_num_even = q8[r8] & BIT(0);
 	}
 
 	mhal_DPTx_SetChunkSize(mtk_dp, slice_num-1, chunk_num, chunk_num%12,
@@ -2716,7 +2724,7 @@ void mdrv_DPTx_DSC_Support(struct mtk_dp *mtk_dp)
 	u8 Data[3];
 
 	drm_dp_dpcd_read(&mtk_dp->aux, 0x60, Data, 1);
-	if (Data[0] & BIT0)
+	if (Data[0] & BIT(0))
 		mtk_dp->has_dsc   = true;
 	else
 		mtk_dp->has_dsc   = false;
@@ -2739,7 +2747,7 @@ void mdrv_DPTx_FEC_Ready(struct mtk_dp *mtk_dp, u8 err_cnt_sel)
 	 * 100b: PARITY_BLOCK_ERROR_COUNT           *
 	 * 101b: PARITY_BIT_ERROR_COUNT             *
 	 */
-	if (Data[0] & BIT0) {
+	if (Data[0] & BIT(0)) {
 		mtk_dp->has_fec   = true;
 		Data[0] = (err_cnt_sel << 1) | 0x1;     //FEC Ready
 		drm_dp_dpcd_write(&mtk_dp->aux, 0x120, Data, 0x1);
@@ -3473,6 +3481,25 @@ static struct drm_display_limit_mode dp_plat_limit[] = {
 	{ 640,  480, 60,  25200, 1},
 };
 
+void mtk_dp_set_force_2lane(bool en)
+{
+	g_force_2lane = en;
+}
+
+bool mtk_dp_2lane_only(void)
+{
+	bool ret = false;
+
+	if (g_mtk_dp && g_mtk_dp->priv && g_mtk_dp->priv->data)
+		if (g_mtk_dp->priv->data->mmsys_id == MMSYS_MT6983)
+			ret = true;
+
+	if (g_force_2lane)
+		ret = true;
+
+	return ret;
+}
+
 void mtk_dp_enable_4k60(int enable)
 {
 #if DPTX_SUPPORT_DSC
@@ -3496,11 +3523,12 @@ static enum drm_mode_status mtk_dp_conn_mode_valid(struct drm_connector *conn,
 	int plat_limit_array = ARRAY_SIZE(dp_plat_limit);
 	int i;
 	struct mtk_dp *mtk_dp = mtk_dp_ctx_from_conn(conn);
-	int bandwidth = mtk_dp->training_info.ubLinkLaneCount *
+	unsigned int bandwidth = mtk_dp->training_info.ubLinkLaneCount *
 		mtk_dp->training_info.ubLinkRate * 27000 * 8 / 24;
 
 	if (mode->hdisplay == 3840 && mode->vdisplay == 2160 &&
-		drm_mode_vrefresh(mode) == 60 && mtk_dp->has_dsc)
+		drm_mode_vrefresh(mode) == 60 && mtk_dp->has_dsc &&
+		mtk_dp->training_info.ubLinkLaneCount <= DP_LANECOUNT_2)
 		bandwidth = bandwidth * 594 * 10 / 2025;
 
 	if (fakecablein == true)
@@ -3870,6 +3898,24 @@ void mtk_dp_aux_swap_enable(bool enable)
 	aux_swap = enable;
 }
 EXPORT_SYMBOL_GPL(mtk_dp_aux_swap_enable);
+
+void mtk_dp_set_pin_assign(u8 type)
+{
+	DPTXMSG("%s, pin assign = %d\n", __func__, type);
+
+	switch (type) {
+	case DP_USB_PIN_ASSIGNMENT_C:
+	case DP_USB_PIN_ASSIGNMENT_E:
+		MAX_LANECOUNT = DP_LANECOUNT_4;
+		break;
+	case DP_USB_PIN_ASSIGNMENT_D:
+	case DP_USB_PIN_ASSIGNMENT_F:
+	default:
+		MAX_LANECOUNT = DP_LANECOUNT_2;
+		break;
+	}
+}
+EXPORT_SYMBOL_GPL(mtk_dp_set_pin_assign);
 
 void mtk_dp_SWInterruptSet(int bstatus)
 {
