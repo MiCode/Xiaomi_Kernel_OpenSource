@@ -76,8 +76,11 @@ GED_ERROR ged_gpufreq_init(void)
 	g_max_core_num = dcs_get_max_core_num();
 	g_avail_mask_num = dcs_get_avail_mask_num();
 
-	g_ud_mask_bit = ((1 << (g_max_core_num - 1)) - 1) & (1 << (DCS_DEFAULT_MIN_CORE - 1));
-	GED_LOGI("default g_ud_mask_bit: %x", g_ud_mask_bit);
+	if (g_max_core_num && DCS_DEFAULT_MIN_CORE) {
+		g_ud_mask_bit = ((1 << (g_max_core_num - 1)) - 1) &
+		(1 << (DCS_DEFAULT_MIN_CORE - 1));
+		GED_LOGI("default g_ud_mask_bit: %x", g_ud_mask_bit);
+	}
 
 	g_mask_table = kcalloc(g_avail_mask_num,
 					sizeof(struct gpufreq_core_mask_info), GFP_KERNEL);
