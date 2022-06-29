@@ -778,7 +778,7 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 
 	case V4L2_CID_FRAME_SYNC:
 		dev_info(dev,
-			"V4L2_CID_FRAME_SYNC (set_sync), idx:%u, value:%d(%#x)\n",
+			"V4L2_CID_FRAME_SYNC (set_sync), idx:%d, value:%d(%#x)\n",
 			ctx->idx, ctrl->val, ctrl->val);
 
 		notify_fsync_mgr_set_sync(ctx, (u64)ctrl->val);
@@ -786,8 +786,8 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 
 	case V4L2_CID_FSYNC_ASYNC_MASTER:
 		dev_info(dev,
-			"V4L2_CID_FSYNC_ASYNC_MASTER val:%d\n",
-			ctrl->val);
+			"V4L2_CID_FSYNC_ASYNC_MASTER, idx:%d, value:%d\n",
+			ctx->idx, ctrl->val);
 		notify_fsync_mgr_set_async_master(ctx, ctrl->val);
 		break;
 
@@ -798,8 +798,8 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 	case V4L2_CID_FSYNC_LISTEN_TARGET:
 		notify_fsync_mgr_update_target_tg(ctx, (u64)ctrl->val);
 		dev_info(dev,
-			"V4L2_CID_FSYNC_LISTEN_TARGET (update_tg), value:%d\n",
-			ctrl->val);
+			"V4L2_CID_FSYNC_LISTEN_TARGET (update_tg), idx:%d, value:%d\n",
+			ctx->idx, ctrl->val);
 		break;
 
 	case V4L2_CID_MTK_AWB_GAIN:
@@ -1032,15 +1032,18 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 			adaptor_hw_power_off(ctx);
 		break;
 	case V4L2_CID_MTK_MSTREAM_MODE:
-		dev_info(dev, "V4L2_CID_MTK_MSTREAM_MODE val = %d\n", ctrl->val);
+		dev_info(dev,
+			"V4L2_CID_MTK_MSTREAM_MODE, idx:%d, value:%d\n",
+			ctx->idx, ctrl->val);
 		notify_fsync_mgr_mstream_en(ctx, ctrl->val);
 		break;
 	case V4L2_CID_MTK_N_1_MODE:
 		{
 			struct mtk_n_1_mode *info = ctrl->p_new.p;
 
-			dev_info(dev, "V4L2_CID_MTK_N_1_MODE n = %u, en = %u\n",
-				 info->n, info->en);
+			dev_info(dev,
+				"V4L2_CID_MTK_N_1_MODE, idx:%d, n:%u, en:%u\n",
+				ctx->idx, info->n, info->en);
 			notify_fsync_mgr_n_1_en(ctx, info->n, info->en);
 		}
 		break;
