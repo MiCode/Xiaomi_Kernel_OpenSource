@@ -65,7 +65,11 @@ static struct xhci_segment *xhci_segment_alloc(struct xhci_hcd *xhci,
 	return seg;
 }
 
+#if IS_ENABLED(CONFIG_MTK_USB_OFFLOAD)
+void xhci_segment_free(struct xhci_hcd *xhci, struct xhci_segment *seg)
+#else
 static void xhci_segment_free(struct xhci_hcd *xhci, struct xhci_segment *seg)
+#endif
 {
 	if (seg->trbs) {
 		dma_pool_free(xhci->segment_pool, seg->trbs, seg->dma);
@@ -74,6 +78,9 @@ static void xhci_segment_free(struct xhci_hcd *xhci, struct xhci_segment *seg)
 	kfree(seg->bounce_buf);
 	kfree(seg);
 }
+#if IS_ENABLED(CONFIG_MTK_USB_OFFLOAD)
+EXPORT_SYMBOL_GPL(xhci_segment_free);
+#endif
 
 static void xhci_free_segments_for_ring(struct xhci_hcd *xhci,
 				struct xhci_segment *first)
@@ -96,9 +103,15 @@ static void xhci_free_segments_for_ring(struct xhci_hcd *xhci,
  * DMA address of the next segment.  The caller needs to set any Link TRB
  * related flags, such as End TRB, Toggle Cycle, and no snoop.
  */
+#if IS_ENABLED(CONFIG_MTK_USB_OFFLOAD)
+void xhci_link_segments(struct xhci_segment *prev,
+			struct xhci_segment *next,
+			enum xhci_ring_type type, bool chain_links)
+#else
 static void xhci_link_segments(struct xhci_segment *prev,
 			       struct xhci_segment *next,
 			       enum xhci_ring_type type, bool chain_links)
+#endif
 {
 	u32 val;
 
@@ -118,6 +131,9 @@ static void xhci_link_segments(struct xhci_segment *prev,
 		prev->trbs[TRBS_PER_SEGMENT-1].link.control = cpu_to_le32(val);
 	}
 }
+#if IS_ENABLED(CONFIG_MTK_USB_OFFLOAD)
+EXPORT_SYMBOL_GPL(xhci_link_segments);
+#endif
 
 /*
  * Link the ring to the new segments.
@@ -256,7 +272,11 @@ remove_streams:
 	return ret;
 }
 
+#if IS_ENABLED(CONFIG_MTK_USB_OFFLOAD)
+void xhci_remove_stream_mapping(struct xhci_ring *ring)
+#else
 static void xhci_remove_stream_mapping(struct xhci_ring *ring)
+#endif
 {
 	struct xhci_segment *seg;
 
@@ -269,6 +289,9 @@ static void xhci_remove_stream_mapping(struct xhci_ring *ring)
 		seg = seg->next;
 	} while (seg != ring->first_seg);
 }
+#if IS_ENABLED(CONFIG_MTK_USB_OFFLOAD)
+EXPORT_SYMBOL_GPL(xhci_remove_stream_mapping);
+#endif
 
 static int xhci_update_stream_mapping(struct xhci_ring *ring, gfp_t mem_flags)
 {
@@ -317,6 +340,9 @@ void xhci_initialize_ring_info(struct xhci_ring *ring,
 	 */
 	ring->num_trbs_free = ring->num_segs * (TRBS_PER_SEGMENT - 1) - 1;
 }
+#if IS_ENABLED(CONFIG_MTK_USB_OFFLOAD)
+EXPORT_SYMBOL_GPL(xhci_initialize_ring_info);
+#endif
 
 /* Allocate segments and link them for a ring */
 static int xhci_alloc_segments_for_ring(struct xhci_hcd *xhci,
@@ -603,6 +629,9 @@ struct xhci_slot_ctx *xhci_get_slot_ctx(struct xhci_hcd *xhci,
 	return (struct xhci_slot_ctx *)
 		(ctx->bytes + CTX_SIZE(xhci->hcc_params));
 }
+#if IS_ENABLED(CONFIG_MTK_USB_OFFLOAD)
+EXPORT_SYMBOL_GPL(xhci_get_slot_ctx);
+#endif
 
 struct xhci_ep_ctx *xhci_get_ep_ctx(struct xhci_hcd *xhci,
 				    struct xhci_container_ctx *ctx,
@@ -2104,7 +2133,11 @@ static int xhci_test_trb_in_td(struct xhci_hcd *xhci,
 }
 
 /* TRB math checks for xhci_trb_in_td(), using the command and event rings. */
+#if IS_ENABLED(CONFIG_MTK_USB_OFFLOAD)
+int xhci_check_trb_in_td_math(struct xhci_hcd *xhci)
+#else
 static int xhci_check_trb_in_td_math(struct xhci_hcd *xhci)
+#endif
 {
 	struct {
 		dma_addr_t		input_dma;
@@ -2224,6 +2257,9 @@ static int xhci_check_trb_in_td_math(struct xhci_hcd *xhci)
 	xhci_dbg(xhci, "TRB math tests passed.\n");
 	return 0;
 }
+#if IS_ENABLED(CONFIG_MTK_USB_OFFLOAD)
+EXPORT_SYMBOL_GPL(xhci_check_trb_in_td_math);
+#endif
 
 static void xhci_set_hc_event_deq(struct xhci_hcd *xhci)
 {
