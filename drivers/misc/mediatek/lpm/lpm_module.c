@@ -106,7 +106,12 @@ static int lpm_state_enter(int type, struct cpuidle_device *dev,
 static int lpm_s2idle_state_enter(struct cpuidle_device *dev,
 			   struct cpuidle_driver *drv, int idx)
 {
-	return lpm_state_enter(lpm_state_s2idle, dev, drv, idx);
+	int ret;
+
+	lpm_smc_cpu_pm_lp(SUSPEND_SRC, MT_LPM_SMC_ACT_SET, smp_processor_id(), 0);
+	ret = lpm_state_enter(lpm_state_s2idle, dev, drv, idx);
+	lpm_smc_cpu_pm_lp(SUSPEND_SRC, MT_LPM_SMC_ACT_CLR, smp_processor_id(), 0);
+	return ret;
 }
 
 static int lpm_cpuidle_state_enter(struct cpuidle_device *dev,
