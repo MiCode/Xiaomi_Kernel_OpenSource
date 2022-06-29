@@ -721,6 +721,39 @@ static void mtk_atomic_force_doze_switch(struct drm_device *dev,
 	}
 }
 
+static void mtk_atomic_aod_scp_ipi(struct drm_crtc *crtc, bool prepare)
+{
+	struct mtk_crtc_state *mtk_state;
+	bool need_modeset;
+
+	if (!aod_scp_flag || !aod_scp_ipi.send_ipi)
+		return;
+
+	mtk_state = to_mtk_crtc_state(crtc->state);
+	if (!mtk_state->doze_changed || !mtk_state->prop_val[CRTC_PROP_DOZE_ACTIVE])
+		return;
+
+	//TODO: After the power control implementation in SCP is completed,
+	//it only needs to judge prepare==1 to send IPI to SCP
+	need_modeset = drm_atomic_crtc_needs_modeset(crtc->state);
+	if (!need_modeset || (need_modeset && !crtc->state->active)) {
+		//needs_modeset:0
+		//needs_modeset:1 on->off
+		if (prepare) {
+			aod_scp_ipi.send_ipi(0);
+			DDPMSG("mtk_aod_scp_ipi_send sent IPI to SCP in prepare done\n");
+			mdelay(10000);
+		}
+	} else if (need_modeset && crtc->state->active) {
+		//needs_modeset:1 off->on
+		if (!prepare) {
+			aod_scp_ipi.send_ipi(0);
+			DDPMSG("mtk_aod_scp_ipi_send sent IPI to SCP in !prepare done\n");
+			mdelay(10000);
+		}
+	}
+}
+
 static void mtk_atomic_doze_update_dsi_state(struct drm_device *dev,
 					 struct drm_crtc *crtc, bool prepare)
 {
@@ -733,14 +766,11 @@ static void mtk_atomic_doze_update_dsi_state(struct drm_device *dev,
 		drm_atomic_crtc_needs_modeset(crtc->state),
 		mtk_state->prop_val[CRTC_PROP_DOZE_ACTIVE]);
 
+	mtk_atomic_aod_scp_ipi(crtc, prepare);
+
 	if (mtk_state->doze_changed && priv->data->doze_ctrl_pmic) {
 		if (mtk_state->prop_val[CRTC_PROP_DOZE_ACTIVE] && prepare) {
 			DDPMSG("enter AOD, disable PMIC LPMODE\n");
-			if ((aod_scp_flag) && (aod_scp_ipi.send_ipi)) {
-				aod_scp_ipi.send_ipi(0);
-				DDPMSG("mtk_aod_scp_ipi_send sent IPI to SCP done\n");
-				mdelay(10000);
-				}
 			//pmic_ldo_vio18_lp(SRCLKEN0, 0, 1, HW_LP);
 			//pmic_ldo_vio18_lp(SRCLKEN2, 0, 1, HW_LP);
 			/* DWFS, drivers/misc/mediatek/clkbuf/v1/src/mtk_clkbuf_ctl.c */
