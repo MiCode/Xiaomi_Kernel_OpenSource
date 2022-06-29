@@ -16821,7 +16821,8 @@ void mmsys_config_dump_analysis_mt6983(void __iomem *config_regs)
 
 void mmsys_config_dump_analysis_mt6985(void __iomem *config_regs)
 {
-	unsigned int idx = 0, bit = 0, len = 0;
+	unsigned int idx = 0, bit = 0;
+	int len = 0;
 	unsigned int reg = 0;
 	char clock_on[512] = {'\0'};
 	char *pos = NULL;
