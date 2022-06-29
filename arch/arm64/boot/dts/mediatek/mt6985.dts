@@ -168,7 +168,7 @@
 			swiotlb=noforce \
 			8250.nr_uarts=4 \
 			initcall_debug=1 cma=64M transparent_hugepage=never \
-			allow_mismatched_32bit_el0 \
+			allow_mismatched_32bit_el0 cgroup.memory=nosocket,nokmem \
 			firmware_class.path=/vendor/firmware";
 			kaslr-seed = <0 0>;
 			mkp_panic="on";
