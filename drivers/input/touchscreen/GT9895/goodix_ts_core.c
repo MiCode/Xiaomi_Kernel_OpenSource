@@ -47,6 +47,7 @@ static bool disp_notify_reg_flag;
 static struct task_struct *gt9895_polling_thread;
 static int gt9895_ts_event_polling(void *arg);
 static int gt9895_polling_flag;
+struct mutex irq_info_mutex;
 
 #if IS_ENABLED(CONFIG_TRUSTONIC_TRUSTED_UI)
 struct goodix_ts_core *ts_core_gt9895_tui;
@@ -745,15 +746,18 @@ static ssize_t goodix_ts_irq_info_store(struct device *dev,
 		gt9895_polling_flag = 1;
 		ts_info("disable irq, polling mode, flag = %d", gt9895_polling_flag);
 		if (gt9895_polling_thread == NULL) {
+			mutex_lock(&irq_info_mutex);
 			gt9895_polling_thread =
 				kthread_run(gt9895_ts_event_polling,
 				0, GOODIX_CORE_DRIVER_NAME);
 			ts_info("gt9895_polling_thread, kthread_run");
 			if (IS_ERR(gt9895_polling_thread)) {
 				ret = PTR_ERR(gt9895_polling_thread);
+				gt9895_polling_thread = NULL;
 				ts_err(" failed to create kernel thread: %d\n",
 					ret);
 			}
+			mutex_unlock(&irq_info_mutex);
 		}
 		break;
 	/* change to touch irq mode */
@@ -761,10 +765,12 @@ static ssize_t goodix_ts_irq_info_store(struct device *dev,
 		hw_ops->irq_enable(core_data, true);
 		gt9895_polling_flag = 0;
 		ts_info("enable irq, irq mode, flag = %d", gt9895_polling_flag);
+		mutex_lock(&irq_info_mutex);
 		if (gt9895_polling_thread) {
 			kthread_stop(gt9895_polling_thread);
 			gt9895_polling_thread = NULL;
 		}
+		mutex_unlock(&irq_info_mutex);
 		break;
 	/* use cmd to make touch power off */
 	case '2':
