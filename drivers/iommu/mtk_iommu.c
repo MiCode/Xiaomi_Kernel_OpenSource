@@ -2116,6 +2116,9 @@ static int mtk_iommu_pd_callback(struct notifier_block *nb,
 {
 	unsigned long lock_flags;
 
+	if (nb->priority < 0)
+		return NOTIFY_DONE;
+
 	spin_lock_irqsave(tlb_locks[nb->priority], lock_flags);
 
 	if (flags == GENPD_NOTIFY_ON)
