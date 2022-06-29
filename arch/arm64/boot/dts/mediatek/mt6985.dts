@@ -370,7 +370,7 @@
 			};
 			mcusysoff_l: mcusysoff_l {
 				compatible = "arm,idle-state";
-				arm,psci-suspend-param = <0x01010007>;
+				arm,psci-suspend-param = <0x02010007>;
 				local-timer-stop;
 				entry-latency-us = <640>;
 				exit-latency-us = <1400>;
@@ -378,7 +378,7 @@
 			};
 			mcusysoff_m: mcusysoff_m {
 				compatible = "arm,idle-state";
-				arm,psci-suspend-param = <0x01010007>;
+				arm,psci-suspend-param = <0x02010007>;
 				local-timer-stop;
 				entry-latency-us = <640>;
 				exit-latency-us = <1400>;
@@ -386,7 +386,7 @@
 			};
 			mcusysoff_b: mcusysoff_b {
 				compatible = "arm,idle-state";
-				arm,psci-suspend-param = <0x01010007>;
+				arm,psci-suspend-param = <0x02010007>;
 				local-timer-stop;
 				entry-latency-us = <640>;
 				exit-latency-us = <1400>;
@@ -394,7 +394,7 @@
 			};
 			system_mem: system_mem {
 				compatible = "arm,idle-state";
-				arm,psci-suspend-param = <0x0101000f>;
+				arm,psci-suspend-param = <0x0201000f>;
 				local-timer-stop;
 				entry-latency-us = <640>;
 				exit-latency-us = <1800>;
@@ -402,7 +402,7 @@
 			};
 			system_pll: system_pll {
 				compatible = "arm,idle-state";
-				arm,psci-suspend-param = <0x0101001f>;
+				arm,psci-suspend-param = <0x0201001f>;
 				local-timer-stop;
 				entry-latency-us = <640>;
 				exit-latency-us = <1850>;
@@ -410,7 +410,7 @@
 			};
 			system_bus: system_bus {
 				compatible = "arm,idle-state";
-				arm,psci-suspend-param = <0x0101007f>;
+				arm,psci-suspend-param = <0x0201007f>;
 				local-timer-stop;
 				entry-latency-us = <640>;
 				exit-latency-us = <2800>;
@@ -418,7 +418,7 @@
 			};
 			s2idle: s2idle {
 				compatible = "arm,idle-state";
-				arm,psci-suspend-param = <0x010180ff>;
+				arm,psci-suspend-param = <0x020180ff>;
 				local-timer-stop;
 				entry-latency-us = <10000>;
 				exit-latency-us = <10000>;
