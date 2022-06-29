@@ -133,6 +133,7 @@ struct subdrv_mode_struct {
 	u32 framelength_step;
 	struct SENSOR_WINSIZE_INFO_STRUCT imgsensor_winsize_info;
 
+	enum IMGSENSOR_RGBW_OUTPUT_MODE rgbw_output_mode;
 	u8 aov_mode;
 	u8 pdaf_cap;
 	struct SET_PD_BLOCK_INFO_T *imgsensor_pd_info;
@@ -194,6 +195,7 @@ struct subdrv_static_ctx {
 
 	enum IMGSENSOR_PDAF_SUPPORT_TYPE_ENUM pdaf_type;
 	enum IMGSENSOR_HDR_SUPPORT_TYPE_ENUM hdr_type;
+	enum IMGSENSOR_RGBW_SUPPORT_TYPE_ENUM rgbw_support;
 	u8 seamless_switch_support;
 	u8 temperature_support;
 

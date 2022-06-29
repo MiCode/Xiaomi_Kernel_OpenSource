@@ -100,6 +100,8 @@ void get_ae_effective_frame_for_le(struct subdrv_ctx *ctx, u32 *ae_effective_fra
 void preload_eeprom_data(struct subdrv_ctx *ctx, u32 *is_read);
 void get_mipi_pixel_rate(struct subdrv_ctx *ctx,
 		enum SENSOR_SCENARIO_ID_ENUM scenario_id, u32 *mipi_pixel_rate);
+void get_sensor_rgbw_output_mode(struct subdrv_ctx *ctx,
+		enum SENSOR_SCENARIO_ID_ENUM scenario_id, u32 *rgbw_output_mode);
 
 int common_get_imgsensor_id(struct subdrv_ctx *ctx, u32 *sensor_id);
 void subdrv_ctx_init(struct subdrv_ctx *ctx);

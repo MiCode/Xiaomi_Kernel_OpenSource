@@ -1199,6 +1199,19 @@ void get_mipi_pixel_rate(struct subdrv_ctx *ctx,
 	*mipi_pixel_rate = ctx->s_ctx.mode[scenario_id].mipi_pixel_rate;
 }
 
+void get_sensor_rgbw_output_mode(struct subdrv_ctx *ctx,
+		enum SENSOR_SCENARIO_ID_ENUM scenario_id, u32 *rgbw_output_mode)
+{
+	if (scenario_id >= ctx->s_ctx.sensor_mode_num) {
+		*rgbw_output_mode = 0;
+		LOG_INF("invalid sid:%u, mode_num:%u\n",
+			scenario_id, ctx->s_ctx.sensor_mode_num);
+		return;
+	}
+	*rgbw_output_mode = ctx->s_ctx.mode[scenario_id].rgbw_output_mode;
+	LOG_INF("rgbw_output_mode:%u(sid:%u)\n", *rgbw_output_mode, scenario_id);
+}
+
 int common_get_imgsensor_id(struct subdrv_ctx *ctx, u32 *sensor_id)
 {
 	u8 i = 0;
@@ -1367,6 +1380,7 @@ int common_get_info(struct subdrv_ctx *ctx,
 	sensor_info->SensorModeNum = ctx->s_ctx.sensor_mode_num;
 	sensor_info->PDAF_Support = ctx->s_ctx.pdaf_type;
 	sensor_info->HDR_Support = ctx->s_ctx.hdr_type;
+	sensor_info->RGBW_Support = ctx->s_ctx.rgbw_support;
 	sensor_info->SensorMIPILaneNumber = ctx->s_ctx.mipi_lane_num;
 	sensor_info->SensorClockFreq = ctx->s_ctx.mclk;
 	sensor_info->SensorClockRisingCount = 0;
@@ -1730,6 +1744,10 @@ int common_feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 		set_multi_shutter_frame_length(ctx, (u32 *)(*feature_data),
 					(u16) (*(feature_data + 1)),
 					(u16) (*(feature_data + 2)));
+		break;
+	case SENSOR_FEATURE_GET_SENSOR_RGBW_OUTPUT_MODE:
+		get_sensor_rgbw_output_mode(ctx, *feature_data_32,
+			(u32 *)(uintptr_t)(*(feature_data + 1)));
 		break;
 	default:
 		break;

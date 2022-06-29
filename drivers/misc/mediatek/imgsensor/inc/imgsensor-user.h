@@ -19,6 +19,8 @@ enum {
 	PAD_SRC_RAW1,
 	PAD_SRC_RAW2,
 	PAD_SRC_RAW_W0,
+	PAD_SRC_RAW_W1,
+	PAD_SRC_RAW_W2,
 	PAD_SRC_RAW_EXT0,
 	PAD_SRC_PDAF0,
 	PAD_SRC_PDAF1,
@@ -206,6 +208,8 @@ struct mtk_hdr_gain {
 struct mtk_hdr_ae {
 	struct mtk_hdr_exposure exposure;
 	struct mtk_hdr_gain gain;
+	struct mtk_hdr_exposure w_exposure;
+	struct mtk_hdr_gain w_gain;
 	__u32 actions;
 	__u32 subsample_tags;
 	int req_id;
@@ -513,6 +517,9 @@ struct mtk_fine_integ_line {
 
 #define VIDIOC_MTK_G_MAX_EXPOSURE_LINE \
 	_IOWR('M', BASE_VIDIOC_PRIVATE + 39, struct mtk_max_exp_line)
+
+#define VIDIOC_MTK_G_RGBW_OUTPUT_MODE \
+	_IOWR('M', BASE_VIDIOC_PRIVATE + 40, struct mtk_cap)
 
 /* SET */
 

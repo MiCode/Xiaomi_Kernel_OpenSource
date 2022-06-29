@@ -141,8 +141,14 @@ static enum VC_FEATURE fd_desc_to_vc_feature(
 	case VC_YUV_UV:
 		ret = VC_YUV_UV;
 		break;
-	case VC_RAW_W_DATA:
-		ret = VC_RAW_W_DATA;
+	case VC_RAW_NE_W_DATA: /* eq to VC_RAW_W_DATA */
+		ret = VC_RAW_NE_W_DATA;
+		break;
+	case VC_RAW_ME_W_DATA:
+		ret = VC_RAW_ME_W_DATA;
+		break;
+	case VC_RAW_SE_W_DATA:
+		ret = VC_RAW_SE_W_DATA;
 		break;
 	case VC_RAW_PROCESSED_DATA:
 		ret = VC_RAW_PROCESSED_DATA;
@@ -319,8 +325,14 @@ static void vcinfo2_fill_pad(
 		case VC_YUV_UV:
 			vcinfo2->vc_info[i].pad = PAD_SRC_RAW1;
 			break;
-		case VC_RAW_W_DATA:
+		case VC_RAW_NE_W_DATA: /* eq to VC_RAW_W_DATA */
 			vcinfo2->vc_info[i].pad = PAD_SRC_RAW_W0;
+			break;
+		case VC_RAW_ME_W_DATA:
+			vcinfo2->vc_info[i].pad = PAD_SRC_RAW_W1;
+			break;
+		case VC_RAW_SE_W_DATA:
+			vcinfo2->vc_info[i].pad = PAD_SRC_RAW_W2;
 			break;
 		case VC_RAW_PROCESSED_DATA:
 			vcinfo2->vc_info[i].pad = PAD_SRC_RAW_EXT0;
@@ -1318,6 +1330,24 @@ static int s_lsc_tbl(struct adaptor_ctx *ctx, void *arg)
 	return 0;
 }
 
+static int g_rgbw_output_mode(struct adaptor_ctx *ctx, void *arg)
+{
+	struct mtk_cap *info = arg;
+	union feature_para para;
+	u32 len, tmp = 0;
+
+	para.u64[0] = info->scenario_id;
+	para.u64[1] = (u64)&tmp;
+
+	subdrv_call(ctx, feature_control,
+		SENSOR_FEATURE_GET_SENSOR_RGBW_OUTPUT_MODE,
+		para.u8, &len);
+
+	info->cap = tmp;
+
+	return 0;
+}
+
 static int s_control(struct adaptor_ctx *ctx, void *arg)
 {
 	struct mtk_sensor_control *info = arg;
@@ -1399,6 +1429,7 @@ static const struct ioctl_entry ioctl_list[] = {
 	{VIDIOC_MTK_G_OUTPUT_FORMAT_BY_SCENARIO, g_output_format_by_scenario},
 	{VIDIOC_MTK_G_FINE_INTEG_LINE_BY_SCENARIO, g_fine_integ_line_by_scenario},
 	{VIDIOC_MTK_G_MAX_EXPOSURE_LINE, g_max_exposure_line_ioctl},
+	{VIDIOC_MTK_G_RGBW_OUTPUT_MODE, g_rgbw_output_mode},
 	/* SET */
 	{VIDIOC_MTK_S_VIDEO_FRAMERATE, s_video_framerate},
 	{VIDIOC_MTK_S_MAX_FPS_BY_SCENARIO, s_max_fps_by_scenario},
