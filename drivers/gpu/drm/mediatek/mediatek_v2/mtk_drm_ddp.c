@@ -792,6 +792,10 @@
 	BIT(DISP_CHIST1_FROM_RDMA0_POS))
 #define MT6879_CHIST_PATH_CONNECT (BIT(DISP_CHIST0_FROM_RDMA0_POS))
 
+#define DISP_CHIST_AFTER_PQ       BIT(0)
+#define DISP_CHIST_BEFORE_PQ      BIT(1)
+#define MT6985_CHIST_PATH_CONNECT (DISP_CHIST_AFTER_PQ | DISP_CHIST_BEFORE_PQ)
+
 #define OVLSYS_INTMERGE		0x008
 #define DISPSYS_INTMERGE	0x008
 
@@ -1130,6 +1134,7 @@
 	#define DISP_DLI_RELAY4_TO_COMP_OUT_CROSSBAR5	BIT(5)
 
 #define MT6985_PANEL_COMP_OUT_CROSSBAR1_SEL_IN 0xf60
+	#define  DISP_PANEL_COMP_OUT_CROSSBAR0_SEL_IN 0x00000000
 	#define  DISP_PANEL_COMP_OUT_CROSSBAR1_SEL_IN 0x00000001
 
 #define MT6985_PANEL_COMP_OUT_CROSSBAR2_SEL_IN 0xf64
@@ -10220,6 +10225,8 @@ static int mtk_ddp_mout_en_MT6985(const struct mtk_mmsys_reg_data *data,
 		/* PQ_OUT_CROSSBAR */
 		*addr = MT6985_PQ_OUT_CROSSBAR0_MOUT_EN;
 		value = DISP_DITHER0_TO_SPR00;
+		if (MT6985_CHIST_PATH_CONNECT & DISP_CHIST_AFTER_PQ)
+			value |= DISP_DITHER0_TO_PQ_OUT_CHIST0;
 	} else if ((cur == DDP_COMPONENT_PQ0_OUT_CB0 &&
 		next == DDP_COMPONENT_PANEL0_COMP_OUT_CB1) ||
 		(cur == DDP_COMPONENT_PQ1_OUT_CB0 &&
@@ -10227,6 +10234,8 @@ static int mtk_ddp_mout_en_MT6985(const struct mtk_mmsys_reg_data *data,
 		/* PQ_OUT_CROSSBAR */
 		*addr = MT6985_PQ_OUT_CROSSBAR0_MOUT_EN;
 		value = DISP_DITHER0_TO_PANEL_COMP_OUT_CROSSBAR1;
+		if (MT6985_CHIST_PATH_CONNECT & DISP_CHIST_AFTER_PQ)
+			value |= DISP_DITHER0_TO_PQ_OUT_CHIST0;
 	} else if ((cur == DDP_COMPONENT_PQ0_OUT_CB2 &&
 		next == DDP_COMPONENT_PANEL0_COMP_OUT_CB2)) {
 		/* PQ_OUT_CROSSBAR */
@@ -10479,6 +10488,8 @@ static int mtk_ddp_mout_en_MT6985(const struct mtk_mmsys_reg_data *data,
 		/* PQ_IN_CROSSBAR */
 		*addr = MT6985_PQ_IN_CROSSBAR0_MOUT_EN;
 		value = DISP_DLI_RELAY0_TO_RSZ0;
+		if (MT6985_CHIST_PATH_CONNECT & DISP_CHIST_BEFORE_PQ)
+			value |= DISP_DLI_RELAY0_TO_PQ_OUT_CROSSBAR3;
 	} else if ((cur == DDP_COMPONENT_PQ0_OUT_CB3 &&
 		next == DDP_COMPONENT_PANEL0_COMP_OUT_CB1)) {
 		/* PQ_OUT_CROSSBAR */
@@ -10536,6 +10547,12 @@ static int mtk_ddp_mout_en_MT6985(const struct mtk_mmsys_reg_data *data,
 		next == DDP_COMPONENT_WDMA1)) {
 		*addr = MT6985_MERGE_OUT_CROSSBAR0_MOUT_EN;
 		value = DISP_COMP_OUT_CROSSBAR0_TO_WDMA1;
+	} else if ((MT6985_CHIST_PATH_CONNECT & DISP_CHIST_BEFORE_PQ) &&
+		((cur == DDP_COMPONENT_CHIST0 && next == DDP_COMPONENT_CHIST1) ||
+		 (cur == DDP_COMPONENT_CHIST2 && next == DDP_COMPONENT_CHIST3))) {
+		/* PQ_IN_CROSSBAR */
+		*addr = MT6985_PQ_OUT_CROSSBAR3_MOUT_EN;
+		value = DISP_PQ_IN_CROSSBAR2_TO_PQ_OUT_CHIST1;
 	} else if ((cur == DDP_COMPONENT_GAMMA0 &&
 		next == DDP_COMPONENT_POSTMASK0) ||
 		(cur == DDP_COMPONENT_GAMMA1 &&
@@ -14042,7 +14059,7 @@ void mtk_ddp_insert_dsc_prim_MT6985(struct mtk_drm_crtc *mtk_crtc,
 	unsigned int addr, value;
 
 	/* PANEL_COMP_OUT_CROSSBAR1_MOUT to  DISP_DSC_WRAP0 */
-//#ifdef DRM_BYPASS_PQ
+//#ifndef DRM_BYPASS_PQ
 //	addr = MT6985_PANEL_COMP_OUT_CROSSBAR0_MOUT_EN;
 //#else
 	addr = MT6985_PANEL_COMP_OUT_CROSSBAR1_MOUT_EN;
@@ -14051,7 +14068,11 @@ void mtk_ddp_insert_dsc_prim_MT6985(struct mtk_drm_crtc *mtk_crtc,
 	cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
 		       mtk_crtc->config_regs_pa + addr, value, ~0);
 	addr =  MT6985_PANEL_COMP_OUT_CROSSBAR1_SEL_IN;
+//#ifndef DRM_BYPASS_PQ
+//	value = DISP_PANEL_COMP_OUT_CROSSBAR0_SEL_IN;
+//#else
 	value = DISP_PANEL_COMP_OUT_CROSSBAR1_SEL_IN;
+//#endif
 	cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
 		       mtk_crtc->config_regs_pa + addr, value, ~0);
 	addr =  MT6985_PANEL_COMP_OUT_CROSSBAR3_SEL_IN;
@@ -14087,7 +14108,7 @@ void mtk_ddp_remove_dsc_prim_MT6985(struct mtk_drm_crtc *mtk_crtc,
 {
 	unsigned int addr, value;
 
-//#ifdef DRM_BYPASS_PQ
+//#ifndef DRM_BYPASS_PQ
 //	addr = MT6985_PANEL_COMP_OUT_CROSSBAR0_MOUT_EN;
 //#else
 	addr = MT6985_PANEL_COMP_OUT_CROSSBAR1_MOUT_EN;
@@ -14096,7 +14117,11 @@ void mtk_ddp_remove_dsc_prim_MT6985(struct mtk_drm_crtc *mtk_crtc,
 	cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
 		       mtk_crtc->config_regs_pa + addr, value, ~0);
 	addr =  MT6985_PANEL_COMP_OUT_CROSSBAR3_SEL_IN;
+//#ifndef DRM_BYPASS_PQ
+//	value = DISP_PANEL_COMP_OUT_CROSSBAR0_SEL_IN;
+//#else
 	value = DISP_PANEL_COMP_OUT_CROSSBAR3_SEL_IN;
+//#endif
 	cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
 		       mtk_crtc->config_regs_pa + addr, value, ~0);
 	addr =  MT6985_PANEL_COMP_OUT_CROSSBAR1_SEL_IN;

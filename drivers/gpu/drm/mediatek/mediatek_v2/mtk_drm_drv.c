@@ -1779,6 +1779,10 @@ static const enum mtk_ddp_comp_id mt6985_mtk_ddp_main_bringup[] = {
 	DDP_COMPONENT_MERGE0_OUT_CB0,
 	DDP_COMPONENT_DSI0,
 	DDP_COMPONENT_PWM0,
+#ifndef DRM_BYPASS_PQ
+	/* the chist connect by customer config*/
+	DDP_COMPONENT_CHIST0,    DDP_COMPONENT_CHIST1,
+#endif
 };
 
 /* CRTC0 */
@@ -1882,6 +1886,10 @@ static const enum mtk_ddp_comp_id mt6985_mtk_ddp_dual_main_bringup[] = {
 	DDP_COMPONENT_MERGE1_OUT_CB0,
 	DDP_COMPONENT_DLO_ASYNC2,
 	DDP_COMPONENT_DLI_ASYNC4,
+#ifndef DRM_BYPASS_PQ
+	/* the chist connect by customer config*/
+	DDP_COMPONENT_CHIST2,    DDP_COMPONENT_CHIST3,
+#endif
 };
 
 static const enum mtk_ddp_comp_id mt6985_mtk_ddp_dual_main[] = {
@@ -5796,8 +5804,8 @@ static const struct of_device_id mtk_ddp_comp_dt_ids[] = {
 	 .data = (void *)MTK_DISP_CCORR},
 	{.compatible = "mediatek,mt6983-disp-chist",
 	 .data = (void *)MTK_DISP_CHIST},
-//	{.compatible = "mediatek,mt6985-disp-chist",
-//	 .data = (void *)MTK_DISP_CHIST},
+	{.compatible = "mediatek,mt6985-disp-chist",
+	 .data = (void *)MTK_DISP_CHIST},
 	{.compatible = "mediatek,mt6895-disp-chist",
 	 .data = (void *)MTK_DISP_CHIST},
 	{.compatible = "mediatek,mt6886-disp-chist",
