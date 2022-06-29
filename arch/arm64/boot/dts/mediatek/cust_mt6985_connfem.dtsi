@@ -4,16 +4,33 @@
  */
 /* Connsys FEM Start */
 &connfem {
+	/* FEM ID */
+	nofem: nofem {
+		vid = <0>;
+		pid = <0>;
+	};
+
+	wlan7207h: wlan7207h {
+		vid = <2>;
+		pid = <4>;
+	};
+
 	qm42639: qm42639 {
 		vid = <3>;
 		pid = <3>;
 	};
+
 	qm45639: qm45639 {
 		vid = <3>;
 		pid = <4>;
 	};
 
 	/* pin mapping for combo chip */
+	wlan7207h_nofem: wlan7207h_nofem {
+		mapping = <0x17 0x22 0>,  /* ANTSEL 0x17 <-> PIN #0x22: 2G BT0 LNAEN */
+			<0x18 0x24 0>;	/* ANTSEL 0x18 <-> PIN #0x24: 2G BT0 BTEN */
+	};
+
 	qm42639_qm45639: qm42639_qm45639 {
 		mapping = <0x0 0x3 0>,	/* ANTSEL 0x00 <-> PIN #0x3: 2G WF0 PAEN */
 			<0x01 0x02 0>,	/* ANTSEL 0x01 <-> PIN #0x2: 2G WF0 LNAEN */
