@@ -1024,6 +1024,8 @@
 #define CMDQ_SYNC_TOKEN_GPR_SET_3			703
 #define CMDQ_SYNC_TOKEN_GPR_SET_4			704
 
+#define CMDQ_SYNC_TOKEN_TE_0				705
+#define CMDQ_SYNC_TOKEN_PRETE_0				706
 /* Resource lock event to control resource in GCE thread */
 #define CMDQ_SYNC_RESOURCE_WROT0			710
 #define CMDQ_SYNC_RESOURCE_WROT1			711
