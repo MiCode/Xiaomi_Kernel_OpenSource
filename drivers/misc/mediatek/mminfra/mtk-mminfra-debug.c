@@ -340,7 +340,7 @@ MODULE_PARM_DESC(mminfra_ut, "mminfra ut");
 
 int mtk_mminfra_dbg_hang_detect(const char *user)
 {
-	s32 offset, len, ret;
+	s32 offset, len = 0, ret;
 	u32 val;
 	char buf[LINK_MAX + 1] = {0};
 
