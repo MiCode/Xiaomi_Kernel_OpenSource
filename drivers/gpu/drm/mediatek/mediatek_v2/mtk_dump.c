@@ -105,6 +105,8 @@ int mtk_dump_reg(struct mtk_ddp_comp *comp)
 		break;
 	case DDP_COMPONENT_DITHER0:
 	case DDP_COMPONENT_DITHER1:
+	case DDP_COMPONENT_DITHER2:
+	case DDP_COMPONENT_DITHER3:
 		mtk_dither_dump(comp);
 		break;
 	case DDP_COMPONENT_GAMMA0:
@@ -119,6 +121,7 @@ int mtk_dump_reg(struct mtk_ddp_comp *comp)
 		mtk_cm_dump(comp);
 		break;
 	case DDP_COMPONENT_SPR0:
+	case DDP_COMPONENT_SPR1:
 		mtk_spr_dump(comp);
 		break;
 	case DDP_COMPONENT_DSC0:

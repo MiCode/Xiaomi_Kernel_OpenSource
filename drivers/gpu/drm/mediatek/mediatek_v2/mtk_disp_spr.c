@@ -1036,26 +1036,26 @@ static void mtk_spr_config_V2(struct mtk_ddp_comp *comp,
 		width = (cfg->w / 2 + tile_overhead + 3) / 4 * 4;
 		height = cfg->h;
 
-		mtk_ddp_write_mask(comp, cfg->w / 2,
-			DISP_REG_SPR_RDY_SEL, CROP_OUT_HSIZE, handle);
-		mtk_ddp_write_mask(comp, height,
-			DISP_REG_SPR_RDY_SEL_EN, CROP_OUT_VSIZE, handle);
+		mtk_ddp_write_mask(comp, (cfg->w / 2) << 16,
+			DISP_REG_SPR_RDY_SEL, REG_FLD_MASK(CROP_OUT_HSIZE), handle);
+		mtk_ddp_write_mask(comp, height << 16,
+			DISP_REG_SPR_RDY_SEL_EN, REG_FLD_MASK(CROP_OUT_VSIZE), handle);
 
 		if (comp->id == DDP_COMPONENT_SPR0)
-			mtk_ddp_write_mask(comp, 0,
-				DISP_REG_SPR_CK_ON,	CROP_HOFFSET, handle);
+			mtk_ddp_write_mask(comp, 0 << 16,
+				DISP_REG_SPR_CK_ON, REG_FLD_MASK(CROP_HOFFSET), handle);
 		else
-			mtk_ddp_write_mask(comp, width - cfg->w / 2,
-				DISP_REG_SPR_CK_ON, CROP_HOFFSET, handle);
+			mtk_ddp_write_mask(comp, (width - cfg->w / 2) << 16,
+				DISP_REG_SPR_CK_ON, REG_FLD_MASK(CROP_HOFFSET), handle);
 	} else {
 		width = cfg->w;
 		height = cfg->h;
-		mtk_ddp_write_mask(comp, width,
-			DISP_REG_SPR_RDY_SEL, CROP_OUT_HSIZE, handle);
-		mtk_ddp_write_mask(comp, height,
-			DISP_REG_SPR_RDY_SEL_EN, CROP_OUT_VSIZE, handle);
-		mtk_ddp_write_mask(comp, 0,
-			DISP_REG_SPR_CK_ON,	CROP_HOFFSET, handle);
+		mtk_ddp_write_mask(comp, width << 16,
+			DISP_REG_SPR_RDY_SEL, REG_FLD_MASK(CROP_OUT_HSIZE), handle);
+		mtk_ddp_write_mask(comp, height << 16,
+			DISP_REG_SPR_RDY_SEL_EN, REG_FLD_MASK(CROP_OUT_VSIZE), handle);
+		mtk_ddp_write_mask(comp, 0 << 16,
+			DISP_REG_SPR_CK_ON, REG_FLD_MASK(CROP_HOFFSET), handle);
 	}
 
 	//roi size config
@@ -1070,6 +1070,11 @@ static void mtk_spr_config_V2(struct mtk_ddp_comp *comp,
 			SPR_LUT_EN, handle);
 		mtk_ddp_write_mask(comp, SPR_RELAY_MODE, DISP_REG_SPR_EN,
 			SPR_RELAY_MODE, handle);
+
+		if (comp->mtk_crtc->is_dual_pipe == true &&
+			comp->id == DDP_COMPONENT_SPR1)
+			mtk_ddp_write_mask(comp, 0 << 16,
+				DISP_REG_SPR_CK_ON, REG_FLD_MASK(CROP_HOFFSET), handle);
 
 		//disable postalign
 		if (handle)
@@ -1165,6 +1170,11 @@ static void mtk_spr_config_V2(struct mtk_ddp_comp *comp,
 			SPR_LUT_EN, handle);
 		mtk_ddp_write_mask(comp, SPR_RELAY_MODE, DISP_REG_SPR_EN,
 			SPR_RELAY_MODE, handle);
+
+		if (comp->mtk_crtc->is_dual_pipe == true &&
+			comp->id == DDP_COMPONENT_SPR1)
+			mtk_ddp_write_mask(comp, 0 << 16,
+				DISP_REG_SPR_CK_ON, REG_FLD_MASK(CROP_HOFFSET), handle);
 
 		//disable postalign
 		if (handle)

@@ -14205,20 +14205,20 @@ void mtk_ddp_insert_dsc_prim_MT6985(struct mtk_drm_crtc *mtk_crtc,
 	unsigned int addr, value;
 
 	/* PANEL_COMP_OUT_CROSSBAR1_MOUT to  DISP_DSC_WRAP0 */
-//#ifndef DRM_BYPASS_PQ
-//	addr = MT6985_PANEL_COMP_OUT_CROSSBAR0_MOUT_EN;
-//#else
+#ifndef DRM_BYPASS_PQ
+	addr = MT6985_PANEL_COMP_OUT_CROSSBAR0_MOUT_EN;
+#else
 	addr = MT6985_PANEL_COMP_OUT_CROSSBAR1_MOUT_EN;
-//#endif
+#endif
 	value = DISP_PQ_OUT_CROSSBAR1_TO_DSC_0;
 	cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
 		       mtk_crtc->config_regs_pa + addr, value, ~0);
 	addr =  MT6985_PANEL_COMP_OUT_CROSSBAR1_SEL_IN;
-//#ifndef DRM_BYPASS_PQ
-//	value = DISP_PANEL_COMP_OUT_CROSSBAR0_SEL_IN;
-//#else
+#ifndef DRM_BYPASS_PQ
+	value = DISP_PANEL_COMP_OUT_CROSSBAR0_SEL_IN;
+#else
 	value = DISP_PANEL_COMP_OUT_CROSSBAR1_SEL_IN;
-//#endif
+#endif
 	cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
 		       mtk_crtc->config_regs_pa + addr, value, ~0);
 	addr =  MT6985_PANEL_COMP_OUT_CROSSBAR3_SEL_IN;
@@ -14254,20 +14254,21 @@ void mtk_ddp_remove_dsc_prim_MT6985(struct mtk_drm_crtc *mtk_crtc,
 {
 	unsigned int addr, value;
 
-//#ifndef DRM_BYPASS_PQ
-//	addr = MT6985_PANEL_COMP_OUT_CROSSBAR0_MOUT_EN;
-//#else
+#ifndef DRM_BYPASS_PQ
+	addr = MT6985_PANEL_COMP_OUT_CROSSBAR0_MOUT_EN;
+#else
 	addr = MT6985_PANEL_COMP_OUT_CROSSBAR1_MOUT_EN;
-//#endif
+#endif
 	value = DISP_PQ_OUT_CROSSBAR1_TO_COMP_OUT_CROSSBAR3;
 	cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
 		       mtk_crtc->config_regs_pa + addr, value, ~0);
 	addr =  MT6985_PANEL_COMP_OUT_CROSSBAR3_SEL_IN;
-//#ifndef DRM_BYPASS_PQ
-//	value = DISP_PANEL_COMP_OUT_CROSSBAR0_SEL_IN;
-//#else
+#ifndef DRM_BYPASS_PQ
+	value = DISP_PANEL_COMP_OUT_CROSSBAR0_SEL_IN;
+#else
 	value = DISP_PANEL_COMP_OUT_CROSSBAR3_SEL_IN;
-//#endif
+#endif
+
 	cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
 		       mtk_crtc->config_regs_pa + addr, value, ~0);
 	addr =  MT6985_PANEL_COMP_OUT_CROSSBAR1_SEL_IN;
