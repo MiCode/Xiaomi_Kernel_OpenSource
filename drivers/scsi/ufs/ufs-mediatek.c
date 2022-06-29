@@ -1719,6 +1719,7 @@ static void ufs_mtk_vreg_fix_vccqx(struct ufs_hba *hba)
 		regulator_disable((*vreg_off)->reg);
 		devm_kfree(hba->dev, (*vreg_off)->name);
 		devm_kfree(hba->dev, *vreg_off);
+		*vreg_off  = NULL;
 	}
 }
 
@@ -2137,6 +2138,9 @@ static int ufs_mtk_link_set_lpm(struct ufs_hba *hba)
 static void ufs_mtk_vccqx_set_lpm(struct ufs_hba *hba, bool lpm)
 {
 	struct ufs_vreg *vccqx = NULL;
+
+	if (!hba->vreg_info.vccq && !hba->vreg_info.vccq2)
+		return;
 
 	if (hba->vreg_info.vccq)
 		vccqx = hba->vreg_info.vccq;
