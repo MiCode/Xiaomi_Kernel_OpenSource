@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: GPL-2.0
+
+config MTK_VMM_NOTIFIER
+	tristate "MediaTek VMM Notifier driver"
+	help
+	  This driver is for the Multimedia Infrastructure in MediaTek SoCs.
+	  The VMM notifier driver mainly help to nofify MM MCU that camera
+	  related mtcmos status. If one of camera mtcmos is on, VMM DVFS has
+	  limitation of adjusting voltage, therefore notify camera mtcmos
+	  status is necessary for sake of hardware stability.

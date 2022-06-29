@@ -90,6 +90,7 @@ obj-$(CONFIG_MTK_TASK_TURBO) += task_turbo/
 obj-$(CONFIG_INTERCONNECT_MTK_EXTENSION) += mtk-interconnect/
 obj-$(CONFIG_MTK_MMDVFS) += mmdvfs/
 obj-$(CONFIG_MTK_VMM_SPM) += vmm_spm/
+obj-$(CONFIG_MTK_VMM_NOTIFIER) += vmm/
 obj-$(CONFIG_MTK_MMINFRA) += mminfra/
 obj-$(CONFIG_MTK_SMI) += smi/
 obj-$(CONFIG_INTERCONNECT_MTK_MMQOS_COMMON) += mmqos/
