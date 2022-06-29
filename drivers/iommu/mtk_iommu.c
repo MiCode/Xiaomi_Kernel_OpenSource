@@ -259,7 +259,7 @@ struct mtk_iommu_domain {
 static const struct iommu_ops mtk_iommu_ops;
 
 static bool pd_sta[MM_IOMMU_NUM];
-static spinlock_t tlb_locks[MM_IOMMU_NUM];
+static spinlock_t *tlb_locks[MM_IOMMU_NUM];
 static struct notifier_block mtk_pd_notifiers[MM_IOMMU_NUM];
 static bool hypmmu_type2_en;
 static struct mutex init_mutexs[PGTBALE_NUM];
@@ -2116,14 +2116,14 @@ static int mtk_iommu_pd_callback(struct notifier_block *nb,
 {
 	unsigned long lock_flags;
 
-	spin_lock_irqsave(&tlb_locks[nb->priority], lock_flags);
+	spin_lock_irqsave(tlb_locks[nb->priority], lock_flags);
 
 	if (flags == GENPD_NOTIFY_ON)
 		pd_sta[nb->priority] = POWER_ON_STA;
 	else if (flags == GENPD_NOTIFY_PRE_OFF)
 		pd_sta[nb->priority] = POWER_OFF_STA;
 
-	spin_unlock_irqrestore(&tlb_locks[nb->priority], lock_flags);
+	spin_unlock_irqrestore(tlb_locks[nb->priority], lock_flags);
 
 	return NOTIFY_OK;
 }
@@ -2855,7 +2855,7 @@ skip_smi:
 		}
 
 		r = dev_pm_genpd_add_notifier(dev, &mtk_pd_notifiers[iommu_id]);
-		tlb_locks[iommu_id] = data->tlb_lock;
+		tlb_locks[iommu_id] = &data->tlb_lock;
 		pr_info("%s add_notifier dev:%s, disp_power_on:%d, iommu:%d\n",
 			__func__, dev_name(dev), disp_power_on, iommu_id);
 		if (r)
