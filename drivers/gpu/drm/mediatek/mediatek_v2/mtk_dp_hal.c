@@ -1476,13 +1476,14 @@ void mhal_DPTx_SPKG_VSC_EXT_CEA(struct mtk_dp *mtk_dp, bool bEnable,
 	msWriteByteMask(mtk_dp, REG_32A0_DP_ENCODER1_P0, BIT7, BIT7);
 }
 
-bool mhal_DPTx_AuxRead_Bytes(struct mtk_dp *mtk_dp, BYTE ubCmd,
+UINT8 mhal_DPTx_AuxRead_Bytes(struct mtk_dp *mtk_dp, BYTE ubCmd,
 	DWORD  usDPCDADDR, size_t ubLength, BYTE *pRxBuf)
 {
 	bool bVaildCmd = false;
 	BYTE ubReplyCmd = 0xFF;
 	BYTE ubRdCount = 0x0;
 	BYTE uAuxIrqStatus = 0;
+	UINT8 ret = AUX_HW_FAILED;
 	unsigned int WaitReplyCount = AuxWaitReplyLpCntNum;
 
 	msWriteByte(mtk_dp, REG_3640_AUX_TX_P0, 0x7F);
@@ -1490,7 +1491,7 @@ bool mhal_DPTx_AuxRead_Bytes(struct mtk_dp *mtk_dp, BYTE ubCmd,
 
 	if ((ubLength > 16) ||
 		((ubCmd == AUX_CMD_NATIVE_R) && (ubLength == 0x0)))
-		return bVaildCmd;
+		return AUX_INVALID_CMD;
 
 	msWriteByte(mtk_dp, REG_3650_AUX_TX_P0 + 1, 0x01);
 	msWriteByte(mtk_dp, REG_3644_AUX_TX_P0, ubCmd);
@@ -1548,7 +1549,7 @@ bool mhal_DPTx_AuxRead_Bytes(struct mtk_dp *mtk_dp, BYTE ubCmd,
 
 		//udelay(AUX_WRITE_READ_WAIT_TIME);
 		DPTXMSG("WaitReplyCount =%x TimeOut", WaitReplyCount);
-		return false;
+		return AUX_HW_FAILED;
 	}
 
 	ubReplyCmd = msReadByte(mtk_dp, REG_3624_AUX_TX_P0) & 0x0F;
@@ -1581,10 +1582,18 @@ bool mhal_DPTx_AuxRead_Bytes(struct mtk_dp *mtk_dp, BYTE ubCmd,
 		MCU_ACK_TRANSACTION_COMPLETE_AUX_TX_P0_FLDMASK);
 	msWriteByte(mtk_dp, REG_3640_AUX_TX_P0, 0x7F);
 
-	return bVaildCmd;
+	if (bVaildCmd) {
+		//DPTXMSG("[AUX] Read reply_cmd = %d\n", ubReplyCmd);
+		ret = ubReplyCmd;
+	} else {
+		DPTXMSG("[AUX] Timeout Read reply_cmd = %d\n", ubReplyCmd);
+		ret = AUX_HW_FAILED;
+	}
+
+	return ret;
 }
 
-bool mhal_DPTx_AuxWrite_Bytes(struct mtk_dp *mtk_dp,
+UINT8 mhal_DPTx_AuxWrite_Bytes(struct mtk_dp *mtk_dp,
 	BYTE ubCmd, DWORD  usDPCDADDR, size_t ubLength, BYTE *pData)
 {
 	bool bVaildCmd = false;
@@ -1592,9 +1601,10 @@ bool mhal_DPTx_AuxWrite_Bytes(struct mtk_dp *mtk_dp,
 	BYTE i;
 	WORD WaitReplyCount = AuxWaitReplyLpCntNum;
 	BYTE bRegIndex;
+	UINT8 ret = AUX_HW_FAILED;
 
 	if ((ubLength > 16) || ((ubCmd == AUX_CMD_NATIVE_W) && (ubLength == 0x0)))
-		return false;
+		return AUX_INVALID_CMD;
 
 	msWriteByteMask(mtk_dp, REG_3704_AUX_TX_P0,
 		1 << AUX_TX_FIFO_NEW_MODE_EN_AUX_TX_P0_FLDMASK_POS,
@@ -1658,7 +1668,7 @@ bool mhal_DPTx_AuxWrite_Bytes(struct mtk_dp *mtk_dp,
 
 		DPTXMSG("ubReplyCmd = 0x%x WaitReplyCount = %d\n",
 			ubReplyCmd, WaitReplyCount);
-		return false;
+		return AUX_HW_FAILED;
 	}
 
 	ubReplyCmd = msReadByte(mtk_dp, REG_3624_AUX_TX_P0) & 0x0F;
@@ -1672,7 +1682,15 @@ bool mhal_DPTx_AuxWrite_Bytes(struct mtk_dp *mtk_dp,
 
 	msWriteByte(mtk_dp, REG_3640_AUX_TX_P0, 0x7F);
 
-	return bVaildCmd;
+	if (bVaildCmd) {
+		//DPTXMSG("[AUX] Write reply_cmd = %d\n", ubReplyCmd);
+		ret = ubReplyCmd;
+	} else {
+		DPTXMSG("[AUX] Timeout Write reply_cmd = %d\n", ubReplyCmd);
+		ret = AUX_HW_FAILED;
+	}
+
+	return ret;
 }
 
 bool mhal_DPTx_SetSwingtPreEmphasis(struct mtk_dp *mtk_dp, int lane_num,

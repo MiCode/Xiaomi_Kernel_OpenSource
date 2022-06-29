@@ -219,7 +219,7 @@ int notify_uevent_user(struct notify_dev *sdev, int state)
 bool mdrv_DPTx_AuxWrite_Bytes(struct mtk_dp *mtk_dp, u8 ubCmd,
 	u32  usDPCDADDR, size_t ubLength, BYTE *pData)
 {
-	bool bReplyStatus = false;
+	UINT8 bReplyStatus = false;
 	u8 ubRetryLimit = 0x7;
 
 	if (!mtk_dp->training_info.bCablePlugIn ||
@@ -234,7 +234,7 @@ bool mdrv_DPTx_AuxWrite_Bytes(struct mtk_dp *mtk_dp, u8 ubCmd,
 		bReplyStatus = mhal_DPTx_AuxWrite_Bytes(mtk_dp, ubCmd,
 			usDPCDADDR, ubLength, pData);
 		ubRetryLimit--;
-		if (!bReplyStatus) {
+		if (bReplyStatus) {
 			udelay(50);
 			DPTXFUNC("Retry Num = %d\n", ubRetryLimit);
 		} else
@@ -292,7 +292,7 @@ bool mdrv_DPTx_AuxWrite_DPCD(struct mtk_dp *mtk_dp, u8 ubCmd,
 bool mdrv_DPTx_AuxRead_Bytes(struct mtk_dp *mtk_dp, u8 ubCmd,
 	u32 usDPCDADDR, size_t ubLength, BYTE *pData)
 {
-	bool bReplyStatus = false;
+	UINT8 bReplyStatus = false;
 	u8 ubRetryLimit = 7;
 
 	if (!mtk_dp->training_info.bCablePlugIn ||
@@ -306,7 +306,7 @@ bool mdrv_DPTx_AuxRead_Bytes(struct mtk_dp *mtk_dp, u8 ubCmd,
 	do {
 		bReplyStatus = mhal_DPTx_AuxRead_Bytes(mtk_dp, ubCmd,
 					usDPCDADDR, ubLength, pData);
-		if (!bReplyStatus) {
+		if (bReplyStatus) {
 			udelay(50);
 			DPTXFUNC("Retry Num = %d\n", ubRetryLimit);
 		} else
