@@ -146,7 +146,7 @@ static int vdec_vcp_ipi_send(struct vdec_inst *inst, void *msg, int len, bool is
 		}
 	}
 
-	if (len > sizeof(struct share_obj)) {
+	if (len > (sizeof(struct share_obj) - sizeof(int32_t) - sizeof(uint32_t))) {
 		mtk_vcodec_err(inst, "ipi data size wrong %d > %d", len, sizeof(struct share_obj));
 		inst->vcu.abort = 1;
 		return -EIO;
@@ -942,7 +942,8 @@ static int vdec_vcp_init(struct mtk_vcodec_ctx *ctx, unsigned long *h_vdec)
 	return 0;
 
 error_free_inst:
-	mtk_vcodec_del_ctx_list(ctx);
+	if (ctx)
+		mtk_vcodec_del_ctx_list(ctx);
 	kfree(inst->vcu.ctx_ipi_lock);
 	kfree(inst);
 	*h_vdec = (unsigned long)NULL;

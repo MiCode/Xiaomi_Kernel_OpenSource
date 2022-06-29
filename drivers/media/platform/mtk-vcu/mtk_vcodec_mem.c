@@ -481,7 +481,7 @@ static int vcu_dmabuf_get_dma_addr(struct device *dev,
 	struct dma_buf *buf = dma_buf_get(share_fd);		/* f_cnt +1 */
 	struct dma_buf_attachment *attach;
 	struct sg_table *table;
-	int ret = 0, sec;
+	int ret = 0, sec = 0;
 	const char *reason;
 
 	if (IS_ERR(buf)) {

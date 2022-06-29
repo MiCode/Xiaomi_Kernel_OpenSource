@@ -454,6 +454,11 @@ static void add_new_iova_node(
 {
 	struct node_iova_t *curr_node = kmalloc(sizeof(struct node_iova_t), GFP_KERNEL);
 
+	if (curr_node == NULL) {
+		vcu_dbg_log("%s kmalloc fail", __func__);
+		return;
+	}
+
 	mutex_lock(&iova_node_list.node_iova_lock);
 
 	vcu_dbg_log("%s wdma_dam_buf_addr:0x%lx", __func__, in_wdma_dam_buf_addr);
@@ -524,7 +529,7 @@ int vcu_ipi_register(struct platform_device *pdev,
 		return -EPROBE_DEFER;
 	}
 
-	if (id < IPI_VCU_INIT || id >= IPI_MAX) {
+	if (id >= IPI_MAX) {
 		dev_info(&pdev->dev, "[VCU] failed to register ipi message (Invalid arg.)\n");
 		return -EINVAL;
 	}
@@ -532,7 +537,7 @@ int vcu_ipi_register(struct platform_device *pdev,
 	i = ipi_id_to_inst_id(id);
 	mutex_lock(&vcu->vcu_mutex[i]);
 
-	if (id >= IPI_VCU_INIT && id < IPI_MAX && handler != NULL) {
+	if (id < IPI_MAX && handler != NULL) {
 		ipi_desc = vcu->ipi_desc;
 		ipi_desc[id].name = name;
 		ipi_desc[id].handler = handler;

@@ -262,7 +262,7 @@ int vcu_enc_ipi_handler(void *data, unsigned int len, void *priv)
 	 */
 	if (msg->msg_id != VCU_IPIMSG_ENC_DEINIT_DONE) {
 		vcu->signaled = 1;
-		vcu->failure = (msg->status != VENC_IPI_MSG_STATUS_OK);
+		vcu->failure = (msg->status != VENC_IPI_MSG_STATUS_OK) ? 1 : 0;
 	}
 
 	mtk_vcodec_debug_leave(vcu);

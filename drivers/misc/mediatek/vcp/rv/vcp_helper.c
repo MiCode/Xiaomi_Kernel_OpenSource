@@ -2123,7 +2123,7 @@ static bool vcp_ipi_table_init(struct mtk_mbox_device *vcp_mboxdev, struct platf
 		send_item_num = 3,
 		recv_item_num = 4
 	};
-	u32 i, ret, mbox_id, recv_opt;
+	u32 i = 0, ret = 0, mbox_id = 0, recv_opt = 0;
 
 	of_property_read_u32(pdev->dev.of_node, "mbox-count", &vcp_mboxdev->count);
 	if (!vcp_mboxdev->count) {
@@ -2354,6 +2354,10 @@ static int vcp_device_probe(struct platform_device *pdev)
 		return 0;
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "vcp_sram_base");
+	if (res == NULL) {
+		pr_notice("[VCP] platform resource was queryed fail by name.\n");
+		return -1;
+	}
 	vcpreg.sram = devm_ioremap_resource(dev, res);
 	if (IS_ERR((void const *) vcpreg.sram)) {
 		pr_notice("[VCP] vcpreg.sram error\n");

@@ -140,7 +140,7 @@ static int venc_vcp_ipi_send(struct venc_inst *inst, void *msg, int len, bool is
 		}
 	}
 
-	if (len > sizeof(struct share_obj)) {
+	if (len > (sizeof(struct share_obj) - sizeof(int32_t) - sizeof(uint32_t))) {
 		mtk_vcodec_err(inst, "ipi data size wrong %d > %d", len, sizeof(struct share_obj));
 		inst->vcu_inst.abort = 1;
 		return -EIO;
