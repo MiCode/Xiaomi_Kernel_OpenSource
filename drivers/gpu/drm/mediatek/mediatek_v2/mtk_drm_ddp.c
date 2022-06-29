@@ -28,6 +28,9 @@
 #ifdef CONFIG_MTK_SMI_EXT
 #include "smi_public.h"
 #endif
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
+#include "vcp_status.h"
+#endif
 
 #define DISPSYS0	0
 #define DISPSYS1	1
@@ -15347,7 +15350,12 @@ static irqreturn_t mtk_disp_mutex_irq_handler(int irq, void *dev_id)
 		if (val & (0x1 << m_id)) {
 			DDPIRQ("[IRQ] mutex%d sof!\n", m_id);
 			DRM_MMP_MARK(mutex[m_id], val, 0);
-
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
+			if (m_id == 0) {
+				//hint vcp display SOF
+				vcp_cmd_ex(VCP_SET_DISP_SYNC);
+			}
+#endif
 			if (m_id == 0 && ddp->data->wakeup_pf_wq)
 				mtk_wakeup_pf_wq();
 			if (disp_helper_get_stage() == DISP_HELPER_STAGE_NORMAL) {
