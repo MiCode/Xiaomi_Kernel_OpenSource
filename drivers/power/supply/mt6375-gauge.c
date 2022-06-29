@@ -2181,6 +2181,19 @@ static int reset_fg_rtc_set(struct mtk_gauge *gauge, struct mtk_gauge_sysfs_fiel
 	bm_err("[fgauge_read_RTC_boot_status] spare0 0x%x 0x%x, spare3 0x%x 0x%x\n",
 		spare0_reg, after_rst_spare0_reg, spare3_reg, after_rst_spare3_reg);
 
+	if ((after_rst_spare3_reg != (spare3_reg | 0x80)) || (after_rst_spare0_reg != temp_value)) {
+		after_rst_spare0_reg = get_rtc_spare0_fg_value(gauge);
+		after_rst_spare3_reg = get_rtc_spare_fg_value(gauge);
+
+		bm_err("[%s][retry] spare0 0x%x 0x%x, spare3 0x%x 0x%x\n",
+			__func__, spare0_reg, after_rst_spare0_reg,
+			spare3_reg, after_rst_spare3_reg);
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
+		if ((after_rst_spare3_reg != (spare3_reg | 0x80)) ||
+			(after_rst_spare0_reg != temp_value))
+			aee_kernel_warning("BATTERY", "BATTERY: RG_SPARE R/W fail");
+#endif
+	}
 	return 0;
 }
 
@@ -2644,14 +2657,28 @@ static int rtc_ui_soc_set(struct mtk_gauge *gauge, struct mtk_gauge_sysfs_field_
 	u8 spare3_reg = get_rtc_spare_fg_value(gauge);
 	int spare3_reg_valid = 0;
 	int new_spare3_reg = 0;
+	int latest_spare3_reg = 0;
 
 	spare3_reg_valid = (spare3_reg & 0x80);
 	new_spare3_reg = spare3_reg_valid + val;
 
 	set_rtc_spare_fg_value(gauge, new_spare3_reg);
 
-	bm_debug("[%s] ui_soc=%d, spare3_reg=0x%x, valid:%d, new_spare3_reg:0x%x\n",
-		__func__, val, spare3_reg, spare3_reg_valid, new_spare3_reg);
+	latest_spare3_reg = get_rtc_spare_fg_value(gauge);
+
+	bm_debug("[%s] ui_soc=%d, spare3_reg=0x%x, %x, %x, valid:%d\n",
+		__func__, val, spare3_reg, new_spare3_reg, latest_spare3_reg, spare3_reg_valid);
+
+	if (latest_spare3_reg != new_spare3_reg) {
+		latest_spare3_reg = get_rtc_spare_fg_value(gauge);
+		bm_err("[%s][retry] ui_soc=%d, spare3_reg=0x%x, %x, %x, valid:%d\n",
+			__func__, val, spare3_reg, new_spare3_reg,
+			latest_spare3_reg, spare3_reg_valid);
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
+		if (latest_spare3_reg != new_spare3_reg)
+			aee_kernel_warning("BATTERY", "BATTERY: RG_SPARE R/W fail");
+#endif
+	}
 
 	return 1;
 }
