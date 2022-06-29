@@ -20,7 +20,7 @@ enum ssmr_feature_type {
 	SSMR_FEAT_SDSP_FIRMWARE = TRUSTED_MEM_SDSP,
 	SSMR_FEAT_SDSP_TEE_SHAREDMEM = TRUSTED_MEM_SDSP_SHARED,
 	SSMR_FEAT_2D_FR = TRUSTED_MEM_2D_FR,
-	SSMR_FEAT_TUI = TRUSTED_MEM_TUI,
+	SSMR_FEAT_TUI = TRUSTED_MEM_TUI_REGION,
 	SSMR_FEAT_SVP_PAGE = TRUSTED_MEM_SVP_PAGE,
 	SSMR_FEAT_PROT_PAGE = TRUSTED_MEM_PROT_PAGE,
 	SSMR_FEAT_WFD_PAGE = TRUSTED_MEM_WFD_PAGE,
@@ -44,5 +44,7 @@ int apscp_ssmr_init(struct platform_device *pdev);
 bool is_page_based_memory(enum TRUSTED_MEM_TYPE mem_type);
 bool is_svp_on_mtee(void);
 bool is_svp_enabled(void);
+
+bool is_ffa_enabled(void);
 
 #endif

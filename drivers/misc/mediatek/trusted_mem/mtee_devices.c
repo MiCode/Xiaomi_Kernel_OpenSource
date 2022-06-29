@@ -102,6 +102,18 @@ static struct tmem_device_description mtee_mchunks[] = {
 	},
 #endif
 
+	{
+		.kern_tmem_type = TRUSTED_MEM_TUI_REGION,
+		.tee_smem_type = TEE_SMEM_INVALID,
+		.mtee_chunks_id = MTEE_MCHUNKS_TUI,
+		.ssmr_feature_id = SSMR_FEAT_TUI,
+		.u_ops_data.mtee = {.mem_type = TRUSTED_MEM_TUI_REGION},
+		.notify_remote = false,
+		.notify_remote_fn = NULL,
+		.mem_cfg = &mchunk_general_configs,
+		.dev_name = "MTEE_TUI",
+	},
+
 #if IS_ENABLED(CONFIG_MTK_HAPP_MEM_SUPPORT)
 	{
 		.kern_tmem_type = TRUSTED_MEM_HAPP,

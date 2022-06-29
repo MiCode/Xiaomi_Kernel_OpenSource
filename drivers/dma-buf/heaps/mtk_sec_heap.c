@@ -34,6 +34,7 @@ enum sec_heap_region_type {
 	PROT_REGION,
 	PROT_2D_FR_REGION,
 	WFD_REGION,
+	TUI_REGION,
 	MM_HEAP_END,
 
 	/* APU heap */
@@ -117,7 +118,7 @@ struct mtk_sec_heap_buffer {
 	unsigned long long       ts; /* us */
 
 	/* private part for secure heap */
-	u32                      sec_handle;/* keep same type with tmem */
+	u64                      sec_handle;/* keep same type with tmem */
 	struct ssheap_buf_info   *ssheap; /* for page base */
 };
 
@@ -174,6 +175,12 @@ static struct secure_heap_region mtk_sec_heap_region[REGION_HEAPS_NUM] = {
 		.heap_name = {"mtk_sapu_engine_shm_region",
 			      "mtk_sapu_engine_shm_region-aligned"},
 		.tmem_type = TRUSTED_MEM_REQ_SAPU_ENGINE_SHM,
+		.heap_type = REGION_BASE,
+	},
+	[TUI_REGION] = {
+		.heap_name = {"mtk_tui_region",
+				  "mtk_tui_region-aligned"},
+		.tmem_type = TRUSTED_MEM_REQ_TUI_REGION,
 		.heap_type = REGION_BASE,
 	},
 };
@@ -262,7 +269,7 @@ static struct sg_table *dup_sg_table_sec(struct sg_table *table)
 static int region_base_free(struct secure_heap_region *sec_heap, struct mtk_sec_heap_buffer *buffer)
 {
 	int i, j, ret;
-	u32 sec_handle = 0;
+	u64 sec_handle = 0;
 
 	pr_info("%s start, [%s] size:0x%lx\n",
 		__func__, dma_heap_get_name(buffer->heap), buffer->len);
@@ -915,7 +922,7 @@ static int region_base_alloc(struct secure_heap_region *sec_heap,
 					unsigned long req_sz, bool aligned)
 {
 	int ret;
-	u32 sec_handle = 0;
+	u64 sec_handle = 0;
 	u32 refcount = 0;/* tmem refcount */
 	u32 alignment = aligned ? SZ_1M : 0;
 	uint64_t phy_addr = 0;
@@ -952,9 +959,13 @@ static int region_base_alloc(struct secure_heap_region *sec_heap,
 			__func__, __LINE__);
 		goto free_buffer;
 	}
+#if IS_ENABLED(CONFIG_ARM_FFA_TRANSPORT)
+	ret = trusted_mem_ffa_query_pa(&sec_handle, &phy_addr);
+#else
 	ret = trusted_mem_api_query_pa(sec_heap->tmem_type, 0, buffer->len, &refcount,
-				       &sec_handle, (u8 *)dma_heap_get_name(buffer->heap),
+				       (u32 *)&sec_handle, (u8 *)dma_heap_get_name(buffer->heap),
 				       0, 0, &phy_addr);
+#endif
 	if (ret) {
 		/* free buffer */
 		pr_err("%s#%d Error. query pa failed.\n",
@@ -994,7 +1005,7 @@ static int page_base_alloc(struct secure_heap_page *sec_heap, struct mtk_sec_hea
 				unsigned long req_sz)
 {
 	int ret;
-	u32 sec_handle = 0;
+	u64 sec_handle = 0;
 	u32 refcount = 0;/* tmem refcount */
 	struct ssheap_buf_info *ssheap = NULL;
 	struct sg_table *table = &buffer->sg_table;
@@ -1204,7 +1215,7 @@ static int sec_buf_priv_dump(const struct dma_buf *dmabuf,
 	dma_addr_t iova = 0;
 	int region_buf = 0;
 	struct mtk_sec_heap_buffer *buf = dmabuf->priv;
-	u32 sec_handle = 0;
+	u64 sec_handle = 0;
 
 	dmabuf_dump(s, "\t\tbuf_priv: uncached:%d alloc_pid:%d(%s)tid:%d(%s) alloc_time:%luus\n",
 		    !!buf->uncached,

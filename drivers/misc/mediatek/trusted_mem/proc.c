@@ -56,7 +56,7 @@ static int tmem_release(struct inode *ino, struct file *file)
 	return TMEM_OK;
 }
 
-static u32 g_common_mem_handle[TRUSTED_MEM_MAX];
+static u64 g_common_mem_handle[TRUSTED_MEM_MAX];
 static void trusted_mem_device_chunk_alloc(enum TRUSTED_MEM_TYPE mem_type)
 {
 	int ret = TMEM_OK;
@@ -272,6 +272,8 @@ MODULE_PARM_DESC(ut_saturation_stress_pmem_min_chunk_size,
 
 static int trusted_mem_init(struct platform_device *pdev)
 {
+	int ret;
+
 	pr_info("%s:%d\n", __func__, __LINE__);
 
 #if WITH_SSHEAP_PROC
@@ -302,10 +304,17 @@ static int trusted_mem_init(struct platform_device *pdev)
 	mtee_mchunks_init();
 #endif
 
-	if (IS_ENABLED(CONFIG_TMEM_MEMORY_POOL_ALLOCATOR))
-		tmem_carveout_init();
-
 	trusted_mem_create_proc_entry();
+
+	if (is_ffa_enabled()) {
+		ret = tmem_register_ffa_module();
+		if (ret) {
+			pr_info("%s: ffa_register_module fail\n", __func__);
+			return ret;
+		}
+
+		tmem_carveout_init();
+	}
 
 	pr_info("%s:%d (end)\n", __func__, __LINE__);
 	return TMEM_OK;

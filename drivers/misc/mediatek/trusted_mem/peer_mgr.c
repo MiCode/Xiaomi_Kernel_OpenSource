@@ -45,7 +45,7 @@ static bool is_session_ready(struct trusted_peer_session *sess_data)
 }
 
 static int peer_mgr_chunk_alloc_locked(
-	u32 alignment, u32 size, u32 *refcount, u32 *sec_handle, u8 *owner,
+	u32 alignment, u32 size, u32 *refcount, u64 *sec_handle, u8 *owner,
 	u32 id, u32 clean, struct trusted_driver_operations *drv_ops,
 	struct trusted_peer_session *sess_data, void *dev_desc)
 {
@@ -77,7 +77,7 @@ static int peer_mgr_chunk_alloc_locked(
 	return TMEM_OK;
 }
 
-static int peer_mgr_chunk_free_locked(u32 sec_handle, uint8_t *owner, u32 id,
+static int peer_mgr_chunk_free_locked(u64 sec_handle, uint8_t *owner, u32 id,
 				      struct trusted_driver_operations *drv_ops,
 				      struct trusted_peer_session *sess_data,
 				      void *dev_desc)

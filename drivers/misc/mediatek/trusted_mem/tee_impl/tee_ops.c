@@ -248,7 +248,7 @@ static int secmem_execute(u32 cmd, struct secmem_param *param)
 }
 
 #define SECMEM_ERROR_OUT_OF_MEMORY (0x8)
-int tee_alloc(u32 alignment, u32 size, u32 *refcount, u32 *sec_handle,
+int tee_alloc(u32 alignment, u32 size, u32 *refcount, u64 *sec_handle,
 	      u8 *owner, u32 id, u32 clean, void *tee_data, void *dev_desc)
 {
 	int ret;
@@ -287,7 +287,7 @@ int tee_alloc(u32 alignment, u32 size, u32 *refcount, u32 *sec_handle,
 	return TMEM_OK;
 }
 
-int tee_free(u32 sec_handle, u8 *owner, u32 id, void *tee_data, void *dev_desc)
+int tee_free(u64 sec_handle, u8 *owner, u32 id, void *tee_data, void *dev_desc)
 {
 	struct secmem_param param = {0};
 	struct tmem_device_description *tee_dev_desc =
@@ -300,7 +300,7 @@ int tee_free(u32 sec_handle, u8 *owner, u32 id, void *tee_data, void *dev_desc)
 	UNUSED(id);
 	UNUSED(dev_desc);
 
-	param.sec_handle = sec_handle;
+	param.sec_handle = (u32)sec_handle;
 
 	if (secmem_execute(tee_ta_cmd, &param))
 		return TMEM_TEE_FREE_CHUNK_FAILED;

@@ -234,7 +234,7 @@ parameter_checks_with_alignment_adjust(enum TRUSTED_MEM_TYPE mem_type,
 
 static int tmem_core_alloc_chunk_internal(enum TRUSTED_MEM_TYPE mem_type,
 					  u32 alignment, u32 size,
-					  u32 *refcount, u32 *sec_handle,
+					  u32 *refcount, u64 *sec_handle,
 					  u8 *owner, u32 id, u32 clean,
 					  bool do_alignment_check)
 {
@@ -287,7 +287,7 @@ static int tmem_core_alloc_chunk_internal(enum TRUSTED_MEM_TYPE mem_type,
 
 	regmgr_region_ref_inc(mem_device->reg_mgr, mem_device->mem_type);
 
-	pr_info("[%d] alloc handle = 0x%x, size = 0x%x, inuse_count=%d\n",
+	pr_info("[%d] alloc handle = 0x%llx, size = 0x%x, inuse_count=%d\n",
 			mem_type, *sec_handle, size, mgr_desc->valid_ref_count);
 
 	return TMEM_OK;
@@ -368,7 +368,7 @@ int tmem_core_unref_page(enum TRUSTED_MEM_TYPE mem_type,
 }
 
 int tmem_core_alloc_chunk(enum TRUSTED_MEM_TYPE mem_type, u32 alignment,
-			  u32 size, u32 *refcount, u32 *sec_handle, u8 *owner,
+			  u32 size, u32 *refcount, u64 *sec_handle, u8 *owner,
 			  u32 id, u32 clean)
 {
 	return tmem_core_alloc_chunk_internal(mem_type, alignment, size,
@@ -376,14 +376,14 @@ int tmem_core_alloc_chunk(enum TRUSTED_MEM_TYPE mem_type, u32 alignment,
 }
 
 int tmem_core_alloc_chunk_priv(enum TRUSTED_MEM_TYPE mem_type, u32 alignment,
-			       u32 size, u32 *refcount, u32 *sec_handle,
+			       u32 size, u32 *refcount, u64 *sec_handle,
 			       u8 *owner, u32 id, u32 clean)
 {
 	return tmem_core_alloc_chunk_internal(mem_type, alignment, size,
 				refcount, sec_handle, owner, id, clean, false);
 }
 
-int tmem_core_unref_chunk(enum TRUSTED_MEM_TYPE mem_type, u32 sec_handle,
+int tmem_core_unref_chunk(enum TRUSTED_MEM_TYPE mem_type, u64 sec_handle,
 			  u8 *owner, u32 id)
 {
 	int ret = TMEM_OK;
@@ -413,7 +413,7 @@ int tmem_core_unref_chunk(enum TRUSTED_MEM_TYPE mem_type, u32 sec_handle,
 	regmgr_region_ref_dec(mem_device->reg_mgr);
 	regmgr_offline(mem_device->reg_mgr);
 
-	pr_info("[%d] free handle = 0x%x, inuse_count=%d\n",
+	pr_info("[%d] free handle = 0x%llx, inuse_count=%d\n",
 			mem_type, sec_handle, mgr_desc->valid_ref_count);
 
 	return TMEM_OK;
@@ -633,20 +633,20 @@ int tmem_query_gz_handle_to_pa(enum TRUSTED_MEM_TYPE mem_type, u32 alignment,
 
 #define SECMEM_PATTERN (0x3C2D37A4)
 #define SECMEM_64BIT_PHYS_SHIFT (6)
-#define SECMEM_HANDLE_TO_PA(handle) \
+#define SECMEM_HANDLE_TO_PA(handle)                                            \
 	((((u64)handle) ^ SECMEM_PATTERN) << SECMEM_64BIT_PHYS_SHIFT)
 
-#define SECMEM_HANDLE_TO_PA_NO_XOR(handle) \
+#define SECMEM_HANDLE_TO_PA_NO_XOR(handle)                                     \
 	((((u64)handle)) << SECMEM_64BIT_PHYS_SHIFT)
 
 #define PMEM_PATTERN (0xD1C05A97)
 #define PMEM_64BIT_PHYS_SHIFT (10)
-#define PMEM_HANDLE_TO_PA(handle) \
-	(((((u64)handle) ^ PMEM_PATTERN) << PMEM_64BIT_PHYS_SHIFT) \
+#define PMEM_HANDLE_TO_PA(handle)                                              \
+	(((((u64)handle) ^ PMEM_PATTERN) << PMEM_64BIT_PHYS_SHIFT)             \
 	& ~((1 << PMEM_64BIT_PHYS_SHIFT) - 1))
 
-#define PMEM_HANDLE_TO_PA_NO_XOR(handle) \
-	(((((u64)handle)) << PMEM_64BIT_PHYS_SHIFT) \
+#define PMEM_HANDLE_TO_PA_NO_XOR(handle)                                       \
+	(((((u64)handle)) << PMEM_64BIT_PHYS_SHIFT)             \
 	& ~((1 << PMEM_64BIT_PHYS_SHIFT) - 1))
 
 static u64 get_phy_addr_by_handle(enum TRUSTED_MEM_TYPE mem_type,

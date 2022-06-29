@@ -10,8 +10,10 @@ int tmem_carveout_init(void);
 int tmem_carveout_create(int idx, phys_addr_t heap_base, size_t heap_size);
 int tmem_carveout_destroy(int idx);
 int tmem_carveout_heap_alloc(enum MTEE_MCHUNKS_ID mchunk_id,
-		unsigned long size, u32 *handle);
+		unsigned long size, u64 *ffa_handle);
 int tmem_carveout_heap_free(enum MTEE_MCHUNKS_ID mchunk_id,
-		u32 tfa_handle);
+		u64 ffa_handle);
+int tmem_register_ffa_module(void);
+int tmem_run_ffa_test(int test_id);
 
 #endif /* TMEM_CARVEOUT_HEAP_H_ */

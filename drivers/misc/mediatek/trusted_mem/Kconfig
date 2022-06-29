@@ -146,12 +146,3 @@ config TEST_MTK_TRUSTED_MEMORY
 	  This is a test module doing various nasty things like
 	  open/close/alloc/free operation, It is useful for testing
 	  trusted memory features.
-
-config TMEM_MEMORY_POOL_ALLOCATOR
-	tristate "TMEM General Memory Pool Allocator"
-	depends on MTK_TRUSTED_MEMORY_SUBSYSTEM
-	help
-	  Enable the support of kernel memory pool allocator in order
-	  to replace mtee allocator of Geniezone with kernel memory
-	  pool allocator. The goal is to support secure memory and
-	  ARM Firmware Framework.

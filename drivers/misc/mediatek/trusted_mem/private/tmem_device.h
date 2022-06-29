@@ -48,7 +48,7 @@ enum TRUSTED_MEM_TYPE {
 	TRUSTED_MEM_SDSP = 5,
 	TRUSTED_MEM_SDSP_SHARED = 6,
 	TRUSTED_MEM_2D_FR = 7,
-	TRUSTED_MEM_TUI = 8,
+	TRUSTED_MEM_TUI_REGION = 8,
 	TRUSTED_MEM_SVP_PAGE = 9,
 	TRUSTED_MEM_PROT_PAGE = 10,
 	TRUSTED_MEM_WFD_PAGE = 11,
@@ -88,9 +88,9 @@ struct trusted_driver_operations {
 	int (*session_open)(void **peer_data, void *dev_desc);
 	int (*session_close)(void *peer_data, void *dev_desc);
 	int (*memory_alloc)(u32 alignment, u32 size, u32 *refcount,
-			    u32 *sec_handle, u8 *owner, u32 id, u32 clean,
+			    u64 *sec_handle, u8 *owner, u32 id, u32 clean,
 			    void *peer_data, void *dev_desc);
-	int (*memory_free)(u32 sec_handle, u8 *owner, u32 id, void *peer_data,
+	int (*memory_free)(u64 sec_handle, u8 *owner, u32 id, void *peer_data,
 			   void *priv);
 	int (*memory_grant)(u64 pa, u32 size, void *peer_data, void *dev_desc);
 	int (*memory_reclaim)(void *peer_data, void *dev_desc);
@@ -112,11 +112,11 @@ struct peer_mgr_desc {
 			      struct trusted_peer_session *sess_data,
 			      void *dev_desc);
 	int (*mgr_sess_mem_alloc)(u32 alignment, u32 size, u32 *refcount,
-				  u32 *sec_handle, u8 *owner, u32 id, u32 clean,
+				  u64 *sec_handle, u8 *owner, u32 id, u32 clean,
 				  struct trusted_driver_operations *drv_ops,
 				  struct trusted_peer_session *sess_data,
 				  void *dev_desc);
-	int (*mgr_sess_mem_free)(u32 sec_handle, u8 *owner, u32 id,
+	int (*mgr_sess_mem_free)(u64 sec_handle, u8 *owner, u32 id,
 				 struct trusted_driver_operations *drv_ops,
 				 struct trusted_peer_session *sess_data,
 				 void *dev_desc);

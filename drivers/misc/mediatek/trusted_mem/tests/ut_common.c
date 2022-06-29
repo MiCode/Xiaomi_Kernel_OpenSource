@@ -97,10 +97,11 @@ static enum UT_RET_STATE mem_alloc_variant(enum TRUSTED_MEM_TYPE mem_type,
 					   bool clean, bool un_order_sz_enable)
 {
 	int ret;
-	u32 alignment, chunk_size, handle, ref_count;
+	u32 alignment, chunk_size, ref_count;
 	u32 try_size;
 	u32 max_try_size = SZ_16M;
 	u32 min_alloc_sz = tmem_core_get_min_chunk_size(mem_type);
+	u64 handle;
 
 	for (chunk_size = min_alloc_sz; chunk_size <= max_try_size;
 	     chunk_size *= 2) {
@@ -149,7 +150,8 @@ enum UT_RET_STATE mem_alloc_simple_test(enum TRUSTED_MEM_TYPE mem_type,
 					int un_order_sz_cfg)
 {
 	int ret;
-	u32 handle, ref_count;
+	u32 ref_count;
+	u64 handle;
 	bool un_order_sz_enable =
 		(un_order_sz_cfg == MEM_UNORDER_SIZE_TEST_CFG_ENABLE);
 
@@ -183,7 +185,8 @@ enum UT_RET_STATE mem_alloc_page_test(enum TRUSTED_MEM_TYPE mem_type,
 					int un_order_sz_cfg)
 {
 	int ret;
-	u32 handle, ref_count;
+	u32 ref_count;
+	u64 handle;
 
 	ret = tmem_core_alloc_chunk(mem_type, 0, SZ_1G + SZ_512M + SZ_16M, &ref_count,
 				    &handle, mem_owner, 0, 0);
@@ -197,8 +200,9 @@ enum UT_RET_STATE mem_alloc_alignment_test(enum TRUSTED_MEM_TYPE mem_type,
 					   int region_final_state)
 {
 	int ret;
-	u32 alignment, chunk_size, handle, ref_count;
+	u32 alignment, chunk_size, ref_count;
 	u32 min_chunk_sz = tmem_core_get_min_chunk_size(mem_type);
+	u64 handle;
 
 	/* alignment is less than size, we expect result by defines:
 	 * expect fail if TMEM_SMALL_ALIGNMENT_AUTO_ADJUST is not defined
@@ -243,7 +247,7 @@ enum UT_RET_STATE mem_alloc_alignment_test(enum TRUSTED_MEM_TYPE mem_type,
 	return UT_STATE_PASS;
 }
 
-static u32 *g_mem_handle_list;
+static u64 *g_mem_handle_list;
 enum UT_RET_STATE mem_handle_list_init(enum TRUSTED_MEM_TYPE mem_type)
 {
 	int max_pool_size = tmem_core_get_max_pool_size(mem_type);
@@ -253,7 +257,7 @@ enum UT_RET_STATE mem_handle_list_init(enum TRUSTED_MEM_TYPE mem_type)
 
 	if (INVALID(g_mem_handle_list)) {
 		g_mem_handle_list =
-			mld_kmalloc(sizeof(u32) * max_handle_cnt, GFP_KERNEL);
+			mld_kmalloc(sizeof(u64) * max_handle_cnt, GFP_KERNEL);
 	}
 	ASSERT_NOTNULL(g_mem_handle_list, "alloc memory for mem handles");
 
@@ -269,7 +273,7 @@ static enum UT_RET_STATE mem_handle_list_re_init(enum TRUSTED_MEM_TYPE mem_type,
 	mem_handle_list_deinit();
 	if (INVALID(g_mem_handle_list)) {
 		g_mem_handle_list =
-			mld_kmalloc(sizeof(u32) * max_handle_cnt, GFP_KERNEL);
+			mld_kmalloc(sizeof(u64) * max_handle_cnt, GFP_KERNEL);
 	}
 	ASSERT_NOTNULL(g_mem_handle_list, "alloc memory for mem handles");
 
@@ -301,7 +305,7 @@ mem_alloc_saturation_variant(enum TRUSTED_MEM_TYPE mem_type, u8 *mem_owner,
 	int ret;
 	int chunk_num;
 	u32 alignment = 0, chunk_size, ref_count;
-	u32 one_more_handle;
+	u64 one_more_handle;
 	int max_pool_size = tmem_core_get_max_pool_size(mem_type);
 	int max_items;
 	u32 min_chunk_sz = get_saturation_test_min_chunk_size(mem_type);
@@ -325,17 +329,22 @@ mem_alloc_saturation_variant(enum TRUSTED_MEM_TYPE mem_type, u8 *mem_owner,
 
 			if (mem_type == TRUSTED_MEM_SVP_REGION) {
 				/* test trusted_mem_api_query_pa() iff svp enable */
-				if (is_svp_on_mtee()) {
+				if (is_svp_on_mtee() && is_ffa_enabled()) {
+					tmem_query_ffa_handle_to_pa(g_mem_handle_list[chunk_num],
+						&phy_addr);
+					pr_info("ffa_handle_to_pa: ffa_handle=0x%llx, pa=0x%lx\n",
+						g_mem_handle_list[chunk_num], phy_addr);
+				} else if (is_svp_on_mtee()) {
 					tmem_query_gz_handle_to_pa(mem_type, alignment, chunk_size,
-						&ref_count, &g_mem_handle_list[chunk_num],
+						&ref_count, (u32 *)&g_mem_handle_list[chunk_num],
 						mem_owner, 0, 0, &phy_addr);
-					pr_info("trusted_mem_api_query_pa: gz_handle=0x%x, pa=0x%lx\n",
+					pr_info("gz_handle_query_pa: gz_handle=0x%llx, pa=0x%lx\n",
 						g_mem_handle_list[chunk_num], phy_addr);
 				} else {
 					tmem_query_sec_handle_to_pa(mem_type, alignment, chunk_size,
-						&ref_count, &g_mem_handle_list[chunk_num],
+						&ref_count, (u32 *)&g_mem_handle_list[chunk_num],
 						mem_owner, 0, 0, &phy_addr);
-					pr_info("trusted_mem_api_query_pa: sec_handle=0x%x, pa=0x%lx\n",
+					pr_info("sec_handle_query_pa: sec_handle=0x%llx, pa=0x%lx\n",
 						g_mem_handle_list[chunk_num], phy_addr);
 				}
 			}
@@ -391,10 +400,11 @@ mem_regmgr_region_defer_off_test(enum TRUSTED_MEM_TYPE mem_type, u8 *mem_owner,
 				 int region_final_state)
 {
 	int ret;
-	u32 handle, ref_count;
+	u32 ref_count;
 	int defer_ms = (REGMGR_REGION_DEFER_OFF_DELAY_MS - 100);
 	int defer_end_ms = (REGMGR_REGION_DEFER_OFF_OPERATION_LATENCY_MS + 100);
 	u32 min_chunk_sz = tmem_core_get_min_chunk_size(mem_type);
+	u64 handle;
 
 	/* alloc op will turn on regmgr region */
 	ret = tmem_core_alloc_chunk(mem_type, min_chunk_sz, min_chunk_sz,
@@ -443,8 +453,9 @@ static enum UT_RET_STATE mem_delay_after_free(enum TRUSTED_MEM_TYPE mem_type,
 {
 	int ret;
 	int chunk_num;
-	u32 handle, ref_count;
+	u32 ref_count;
 	u32 min_chunk_sz = tmem_core_get_min_chunk_size(mem_type);
+	u64 handle;
 
 	for (chunk_num = 0; chunk_num < alloc_cnt; chunk_num++) {
 		ret = tmem_core_alloc_chunk(mem_type, 0, min_chunk_sz,
@@ -542,7 +553,7 @@ struct mem_thread_param {
 	char name[MEM_THREAD_NAME_LEN];
 	int alloc_chunk_size;
 	int alloc_total_size;
-	u32 *handle_list;
+	u64 *handle_list;
 	int thread_id;
 	bool running;
 	enum TRUSTED_MEM_TYPE mem_type;
@@ -611,7 +622,7 @@ static enum UT_RET_STATE mem_create_run_thread(enum TRUSTED_MEM_TYPE mem_type)
 		thread_param[mem_type][idx].running = false;
 		thread_param[mem_type][idx].thread_id = idx;
 		thread_param[mem_type][idx].handle_list =
-			mld_kmalloc(sizeof(u32) * chunk_cnt, GFP_KERNEL);
+			mld_kmalloc(sizeof(u64) * chunk_cnt, GFP_KERNEL);
 		ASSERT_NOTNULL(thread_param[mem_type][idx].handle_list,
 			       "create handle list");
 		init_completion(&thread_param[mem_type][idx].comp);
@@ -682,11 +693,12 @@ mem_alloc_mixed_size_test_with_alignment(enum TRUSTED_MEM_TYPE mem_type,
 	int chunk_idx;
 	u32 try_size;
 	u32 max_try_size = SZ_16M;
-	u32 handle, ref_count;
+	u32 ref_count;
 	u32 max_pool_size = tmem_core_get_max_pool_size(mem_type);
 	u32 next_free_pos = 0x0;
 	int remained_free_size;
 	u32 used_size;
+	u64 handle;
 
 	if (!is_mtee_mchunks(mem_type))
 		return UT_STATE_FAIL;

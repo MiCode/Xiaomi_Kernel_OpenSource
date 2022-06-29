@@ -26,6 +26,7 @@ static inline void trusted_mem_type_enum_validate(void)
 	COMPILE_ASSERT((int)TRUSTED_MEM_REQ_PROT_PAGE == (int)TRUSTED_MEM_PROT_PAGE);
 	COMPILE_ASSERT((int)TRUSTED_MEM_REQ_WFD_REGION == (int)TRUSTED_MEM_WFD_REGION);
 	COMPILE_ASSERT((int)TRUSTED_MEM_REQ_WFD_PAGE == (int)TRUSTED_MEM_WFD_PAGE);
+	COMPILE_ASSERT((int)TRUSTED_MEM_REQ_TUI_REGION == (int)TRUSTED_MEM_TUI_REGION);
 	COMPILE_ASSERT((int)TRUSTED_MEM_REQ_HAPP == (int)TRUSTED_MEM_HAPP);
 	COMPILE_ASSERT((int)TRUSTED_MEM_REQ_HAPP_EXTRA
 		       == (int)TRUSTED_MEM_HAPP_EXTRA);
@@ -36,6 +37,7 @@ static inline void trusted_mem_type_enum_validate(void)
 	COMPILE_ASSERT((int)(TRUSTED_MEM_REQ_SAPU_ENGINE_SHM) == (int)TRUSTED_MEM_SAPU_ENGINE_SHM);
 	COMPILE_ASSERT((int)(TRUSTED_MEM_REQ_AP_MD_SHM) == (int)TRUSTED_MEM_AP_MD_SHM);
 	COMPILE_ASSERT((int)(TRUSTED_MEM_REQ_AP_SCP_SHM) == (int)TRUSTED_MEM_AP_SCP_SHM);
+	COMPILE_ASSERT((int)(TRUSTED_MEM_MAX - 1) == (int)TRUSTED_MEM_AP_SCP_SHM);
 }
 
 static inline enum TRUSTED_MEM_TYPE
@@ -95,7 +97,7 @@ get_region_mem_type(enum TRUSTED_MEM_TYPE req_type)
 }
 
 int trusted_mem_api_alloc(enum TRUSTED_MEM_REQ_TYPE req_mem_type, u32 alignment,
-			  u32 *size, u32 *refcount, u32 *sec_handle,
+			  u32 *size, u32 *refcount, u64 *sec_handle,
 			  uint8_t *owner, uint32_t id, struct ssheap_buf_info **buf_info)
 {
 	enum TRUSTED_MEM_TYPE mem_type = get_mem_type(req_mem_type);
@@ -134,14 +136,14 @@ EXPORT_SYMBOL(trusted_mem_api_alloc);
 
 int trusted_mem_api_alloc_zero(enum TRUSTED_MEM_REQ_TYPE mem_type,
 			       u32 alignment, u32 size, u32 *refcount,
-			       u32 *sec_handle, uint8_t *owner, uint32_t id)
+			       u64 *sec_handle, uint8_t *owner, uint32_t id)
 {
 	return tmem_core_alloc_chunk(get_mem_type(mem_type), alignment, size,
 				     refcount, sec_handle, owner, id, 1);
 }
 EXPORT_SYMBOL(trusted_mem_api_alloc_zero);
 
-int trusted_mem_api_unref(enum TRUSTED_MEM_REQ_TYPE req_mem_type, u32 sec_handle,
+int trusted_mem_api_unref(enum TRUSTED_MEM_REQ_TYPE req_mem_type, u64 sec_handle,
 			  uint8_t *owner, uint32_t id, struct ssheap_buf_info *buf_info)
 {
 	enum TRUSTED_MEM_TYPE mem_type = get_mem_type(req_mem_type);
@@ -162,19 +164,36 @@ bool trusted_mem_api_get_region_info(enum TRUSTED_MEM_REQ_TYPE mem_type,
 EXPORT_SYMBOL(trusted_mem_api_get_region_info);
 
 int trusted_mem_api_query_pa(enum TRUSTED_MEM_REQ_TYPE mem_type, u32 alignment,
-			      u32 size, u32 *refcount, u32 *gz_handle,
+			      u32 size, u32 *refcount, u32 *handle,
 			      u8 *owner, u32 id, u32 clean, uint64_t *phy_addr)
 {
 #if IS_ENABLED(CONFIG_MTK_GZ_KREE)
-	return tmem_query_gz_handle_to_pa(get_mem_type(mem_type), alignment, size,
-				refcount, gz_handle, owner, id, 0, phy_addr);
+	if (is_svp_on_mtee())
+		return tmem_query_gz_handle_to_pa(get_mem_type(mem_type), alignment,
+				size, refcount, handle, owner, id, 0, phy_addr);
+	else
+		return TMEM_OPERATION_NOT_REGISTERED;
 #else
 	return TMEM_OPERATION_NOT_REGISTERED;
 #endif
 }
 EXPORT_SYMBOL(trusted_mem_api_query_pa);
 
-enum TRUSTED_MEM_REQ_TYPE trusted_mem_api_get_page_replace(enum TRUSTED_MEM_REQ_TYPE req_type)
+int trusted_mem_ffa_query_pa(u64 *handle, uint64_t *phy_addr)
+{
+#if IS_ENABLED(CONFIG_ARM_FFA_TRANSPORT)
+	if (is_ffa_enabled())
+		return tmem_query_ffa_handle_to_pa(*handle, phy_addr);
+	else
+		return TMEM_OPERATION_NOT_REGISTERED;
+#else
+	return TMEM_OPERATION_NOT_REGISTERED;
+#endif
+}
+EXPORT_SYMBOL(trusted_mem_ffa_query_pa);
+
+enum TRUSTED_MEM_REQ_TYPE trusted_mem_api_get_page_replace(
+				enum TRUSTED_MEM_REQ_TYPE req_type)
 {
 	switch (req_type) {
 	case TRUSTED_MEM_REQ_SVP_PAGE:
