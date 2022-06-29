@@ -6998,6 +6998,7 @@ void __exit fbt_cpu_exit(void)
 			&kobj_attr_separate_pct_m);
 
 	fpsgo_sysfs_remove_dir(&fbt_kobj);
+	fbt_delete_cpu_loading_info();
 
 	#if FPSGO_MW
 	fpsgo_sysfs_remove_file(fbt_kobj,
