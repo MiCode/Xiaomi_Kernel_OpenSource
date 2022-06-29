@@ -15,6 +15,7 @@ void mtk_typec_mux_unregister(struct typec_mux *mux);
 #if IS_ENABLED(CONFIG_DRM_MEDIATEK)
 extern void mtk_dp_SWInterruptSet(int bstatus);
 extern void mtk_dp_aux_swap_enable(bool enable);
+extern void mtk_dp_set_pin_assign(u8 type);
 #endif
 
 #endif	/* MTK_TYPEC_MUX_SWITCH_H */

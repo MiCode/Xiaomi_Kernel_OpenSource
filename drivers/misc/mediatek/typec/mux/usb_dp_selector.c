@@ -141,6 +141,9 @@ static int usb_dp_selector_mux_set(struct typec_mux *mux,
 				break;
 			case uds_V2:
 				uds_setbits(uds->selector_reg_address, (1 << 19));
+#if IS_ENABLED(CONFIG_DRM_MEDIATEK)
+				mtk_dp_set_pin_assign(data->ama_dp_state.pin_assignment);
+#endif
 				break;
 			default:
 				break;
@@ -154,6 +157,9 @@ static int usb_dp_selector_mux_set(struct typec_mux *mux,
 				break;
 			case uds_V2:
 				uds_clrbits(uds->selector_reg_address, (1 << 19));
+#if IS_ENABLED(CONFIG_DRM_MEDIATEK)
+				mtk_dp_set_pin_assign(data->ama_dp_state.pin_assignment);
+#endif
 				break;
 			default:
 				break;
