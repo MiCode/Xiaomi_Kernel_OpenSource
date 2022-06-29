@@ -232,10 +232,16 @@ static void get_gpu_info(void)
 			readl(thermal_csram_base + GPU_TTJ_OFFSET), 31);
 	gpu_info.limit_powerbudget = sign_extend32(
 			readl(thermal_csram_base + GPU_POWERBUDGET_OFFSET), 31);
-	gpu_info.temp = sign_extend32(
-			readl(thermal_csram_base + GPU_TEMP_OFFSET), 31);
 	gpu_info.limit_freq = readl(thermal_csram_base + GPU_LIMIT_FREQ_OFFSET);
 	gpu_info.cur_freq = readl(thermal_csram_base + GPU_CUR_FREQ_OFFSET);
+
+	gpu_info.temp = sign_extend32(
+			readl(thermal_csram_base + GPU_TEMP_OFFSET), 31);
+	if (gpu_info.temp == THERMAL_TEMP_INVALID)
+		gpu_info.temp_noinvalid = gpu_info.pre_temp;
+	else
+		gpu_info.temp_noinvalid = gpu_info.temp;
+	gpu_info.pre_temp = gpu_info.temp_noinvalid;
 }
 static void get_apu_info(void)
 {

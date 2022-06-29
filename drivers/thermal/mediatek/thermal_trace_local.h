@@ -64,6 +64,8 @@ struct thermal_gpu_info {
 	int ttj;
 	int limit_powerbudget;
 	int temp;
+	int pre_temp;
+	int temp_noinvalid;
 	unsigned int limit_freq;
 	unsigned int cur_freq;
 };

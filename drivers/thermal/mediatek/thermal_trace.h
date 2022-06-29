@@ -188,6 +188,7 @@ TRACE_EVENT(thermal_gpu,
 		__field(int, ttj)
 		__field(int, limit_powerbudget)
 		__field(int, temp)
+		__field(int, temp_noinvalid)
 		__field(unsigned int, limit_freq)
 		__field(unsigned int, cur_freq)
 	),
@@ -196,12 +197,13 @@ TRACE_EVENT(thermal_gpu,
 		__entry->ttj = gpu->ttj;
 		__entry->limit_powerbudget = gpu->limit_powerbudget;
 		__entry->temp = gpu->temp;
+		__entry->temp_noinvalid = gpu->temp_noinvalid;
 		__entry->limit_freq = gpu->limit_freq;
 		__entry->cur_freq = gpu->cur_freq;
 	),
 
-	TP_printk("ttj=%d limit_pb=%d t=%d limit_freq=%d cur_freq=%d",
-		__entry->ttj, __entry->limit_powerbudget, __entry->temp,
+	TP_printk("ttj=%d limit_pb=%d t=%d t2=%d limit_freq=%d cur_freq=%d",
+		__entry->ttj, __entry->limit_powerbudget, __entry->temp, __entry->temp_noinvalid,
 		__entry->limit_freq, __entry->cur_freq)
 );
 
