@@ -7,6 +7,7 @@
 #include <asm/kexec.h>
 #include <asm/memory.h>
 #include <asm/stacktrace.h>
+#include <linux/arm-smccc.h>
 #include <linux/cpu.h>
 #include <linux/delay.h>
 #if IS_ENABLED(CONFIG_MTK_TICK_BROADCAST_DEBUG)
@@ -20,6 +21,7 @@
 #include <linux/rtc.h>
 #include <linux/sched/clock.h>
 #include <linux/sched/signal.h>
+#include <linux/soc/mediatek/mtk_sip_svc.h> /* for SMC ID table */
 #include <linux/spinlock.h>
 #include <linux/suspend.h>
 #include <linux/sysrq.h>
@@ -75,6 +77,8 @@ extern void mt_irq_dump_status(unsigned int irq);
 #define CHG_TMO_DLY_SEC		8L
 #define CHG_TMO_EN		0
 
+#define RGU_GET_S2IDLE	0x12
+
 static int start_kicker(void);
 static int g_kicker_init;
 static DEFINE_SPINLOCK(lock);
@@ -114,10 +118,31 @@ static unsigned long long aee_dump_timer_t;
 static unsigned long long all_k_timer_t;
 static unsigned int aee_dump_timer_c;
 static unsigned int cpus_skip_bit;
+static uint32_t apwdt_en;
 
 __weak void mt_irq_dump_status(unsigned int irq)
 {
 	pr_info("empty gic dump\n");
+};
+
+static uint32_t get_s2idle_state(void)
+{
+	struct arm_smccc_res res;
+#if IS_ENABLED(CONFIG_ARM64)
+	arm_smccc_smc(MTK_SIP_KERNEL_RGU_CONTROL,
+			RGU_GET_S2IDLE,
+			0, 0, 0,
+			0, 0, 0,
+			&res);
+#endif
+#if IS_ENABLED(CONFIG_ARM_PSCI)
+	arm_smccc_smc(MTK_SIP_KERNEL_RGU_CONTROL,
+			RGU_GET_S2IDLE,
+			0, 0, 0,
+			0, 0, 0,
+			&res);
+#endif
+	return (uint32_t) res.a1;
 };
 
 static unsigned int get_check_bit(void)
@@ -364,7 +389,8 @@ static void kwdt_dump_func(void)
 		iowrite32(WDT_RST_RELOAD, toprgu_base + WDT_RST);
 	/* trigger HWT */
 	crash_setup_regs(&saved_regs, NULL);
-	mrdump_common_die(AEE_REBOOT_MODE_WDT, "HWT", &saved_regs);
+	if (apwdt_en)
+		mrdump_common_die(AEE_REBOOT_MODE_WDT, "HWT", &saved_regs);
 }
 
 static void aee_dump_timer_func(struct timer_list *t)
@@ -420,6 +446,7 @@ static void kwdt_process_kick(int local_bit, int cpu,
 	unsigned int dump_timeout = 0, r_counter = DEFAULT_INTERVAL;
 	int i = 0;
 	bool rgu_fiq = false;
+	unsigned long s_s2idle = get_s2idle_state();
 
 	if (toprgu_base && (ioread32(toprgu_base + WDT_MODE) & WDT_MODE_EN))
 		r_counter = ioread32(toprgu_base + WDT_COUNTER) / (32 * 1024);
@@ -457,7 +484,8 @@ static void kwdt_process_kick(int local_bit, int cpu,
 		local_bit |= (1 << cpu);
 		/* aee_rr_rec_wdk_kick_jiffies(jiffies); */
 	} else if ((g_hang_detected == 0) &&
-		    ((local_bit & get_check_bit()) != get_check_bit()) &&
+		    ((local_bit & (get_check_bit() & s_s2idle)) !=
+		     (get_check_bit() & s_s2idle)) &&
 		    (sched_clock() - wk_lasthpg_t[cpu] >
 		     curInterval * 1000)) {
 		g_hang_detected = 1;
@@ -472,23 +500,27 @@ static void kwdt_process_kick(int local_bit, int cpu,
 
 	wk_tsk_kick_time[cpu] = sched_clock();
 	snprintf(msg_buf, WK_MAX_MSG_SIZE,
-	 "[wdk-c] cpu=%d o_k=%d lbit=0x%x cbit=0x%x,%x,%d,%d,%lld,%x,%ld,%ld,%ld,%ld,[%lld,%ld] %d\n",
+	 "[wdk-c] cpu=%d o_k=%d lbit=0x%x cbit=0x%x,%x,%d,%d,%lld,%x,%ld,%ld,%ld,%ld,[%lld,%ld] %d %x\n",
 	 cpu, original_kicker, local_bit, get_check_bit(),
 	 (local_bit ^ get_check_bit()) & get_check_bit(), lasthpg_cpu,
 	 lasthpg_act, lasthpg_t, atomic_read(&plug_mask), lastsuspend_t / 1000000,
 	 lastsuspend_syst / 1000000, lastresume_t / 1000000, lastresume_syst / 1000000,
-	 wk_tsk_kick_time[cpu], curInterval, r_counter);
+	 wk_tsk_kick_time[cpu], curInterval, r_counter, s_s2idle);
 
-	if ((local_bit & get_check_bit()) == get_check_bit()) {
+	if ((local_bit & (get_check_bit() & s_s2idle)) == (get_check_bit() & s_s2idle)) {
 		all_k_timer_t = sched_clock();
 		del_timer(&aee_dump_timer);
 		aee_dump_timer_t = 0;
 		cpus_skip_bit = 0;
 		msg_buf[5] = 'k';
+		if (g_hang_detected == 2)
+			pm_system_wakeup();
 		g_hang_detected = 0;
 		dump_timeout = 0;
 		local_bit = 0;
 		kwdt_time_sync();
+		if (toprgu_base)
+			iowrite32(WDT_RST_RELOAD, toprgu_base + WDT_RST);
 	}
 
 	kick_bit = local_bit;
@@ -853,8 +885,16 @@ static int __init hangdet_init(void)
 	toprgu_base = of_iomap(np_toprgu, 0);
 	if (!toprgu_base)
 		pr_debug("toprgu iomap failed\n");
-	else
+	else {
+		int err;
+
+		err = of_property_read_u32(np_toprgu, "apwdt_en", &apwdt_en);
+		if (err < 0)
+			apwdt_en = 1;
+
+		pr_info("apwdt %s\n", apwdt_en ? "enabled" : "disabled");
 		wdt_mark_stage(WDT_STAGE_KERNEL);
+	}
 
 	for_each_matching_node(np_systimer, systimer_of_match) {
 		pr_info("%s: compatible node found: %s\n",
