@@ -381,21 +381,6 @@ struct mtk_cam_uapi_mobc_param {
 	__u32 mobc_gain3;
 };
 
-/*
- * struct mtk_cam_uapi_lsc_param
- *
- *
- */
-struct mtk_cam_uapi_lsc_param {
-	__u32 lsc_ctl1;
-	__u32 lsc_ctl2;
-	__u32 lsc_ctl3;
-	__u32 lsc_lblock;
-	__u32 lsc_fblock;
-	__u32 lsc_ratio;
-	__u32 lsc_tpipe_ofst;
-	__u32 lsc_tpipe_size;
-};
 
 /*
  * struct mtk_cam_uapi_sgg_param
@@ -414,6 +399,7 @@ struct mtk_cam_uapi_sgg_param {
  *
  */
 struct mtk_cam_uapi_mbn_param {
+	__u32 mbn_hei;
 	__u32 mbn_pow;
 	__u32 mbn_dir;
 	__u32 mbn_spar_hei;
@@ -439,15 +425,22 @@ struct mtk_cam_uapi_cpi_param {
 	__u32 cpi_spar_con0;
 };
 
+struct mtk_cam_uapi_crop_param {
+	__u32 crop_x_start;
+	__u32 crop_x_end;
+	__u32 crop_y_start;
+	__u32 crop_y_end;
+};
+
 /*
- * struct mtk_cam_uapi_lsci_param
+ * struct mtk_cam_uapi_plsc_param
  *
  *
  */
-struct mtk_cam_uapi_lsci_param {
-	__u32 lsci_xsize;
-	__u32 lsci_ysize;
+struct mtk_cam_uapi_plsc_param {
+	__u32 plsc_cfg[47];
 };
+
 
 /*
  *  struct mtk_cam_uapi_meta_mraw_stats_cfg
@@ -456,18 +449,15 @@ struct mtk_cam_uapi_lsci_param {
 struct mtk_cam_uapi_meta_mraw_stats_cfg {
 	__s8 mqe_enable;
 	__s8 mobc_enable;
-	__s8 lsc_enable;
-	__s8 lsci_enable;
+	__s8 plsc_enable;
 
+	struct mtk_cam_uapi_crop_param crop_param;
 	struct mtk_cam_uapi_mqe_param mqe_param;
 	struct mtk_cam_uapi_mobc_param mobc_param;
-	struct mtk_cam_uapi_lsc_param lsc_param;
 	struct mtk_cam_uapi_sgg_param sgg_param;
 	struct mtk_cam_uapi_mbn_param mbn_param;
 	struct mtk_cam_uapi_cpi_param cpi_param;
-	struct mtk_cam_uapi_lsci_param lsci_param;
-
-	// __u8 bytes[1024 * 94]; //lsci table(todo: size)
+	struct mtk_cam_uapi_plsc_param plsc_param;
 };
 
 /**

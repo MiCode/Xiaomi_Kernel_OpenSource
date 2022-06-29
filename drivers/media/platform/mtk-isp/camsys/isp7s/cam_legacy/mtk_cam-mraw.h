@@ -185,6 +185,9 @@ struct mtk_cam_mraw_resource_config {
 	__u32 tg_fmt;
 	__u32 pixel_mode;
 
+	__u32 crop_x;
+	__u32 crop_y;
+
 	__s8 mqe_en;
 	__u32 mqe_mode;
 	__u32 mbn_dir;

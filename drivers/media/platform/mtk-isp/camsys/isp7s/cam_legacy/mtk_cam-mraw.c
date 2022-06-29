@@ -796,6 +796,9 @@ static void mtk_cam_mraw_copy_user_input_param(
 	mraw_pipeline->res_config.mqe_en = mraw_meta_in_buf->mqe_enable;
 	mraw_pipeline->res_config.mqe_mode = mraw_meta_in_buf->mqe_param.mqe_mode;
 
+	mraw_pipeline->res_config.crop_x = mraw_meta_in_buf->crop_param.crop_x_end;
+	mraw_pipeline->res_config.crop_y = mraw_meta_in_buf->crop_param.crop_y_end;
+
 	mraw_pipeline->res_config.mbn_dir = mraw_meta_in_buf->mbn_param.mbn_dir;
 	mraw_pipeline->res_config.mbn_pow = mraw_meta_in_buf->mbn_param.mbn_pow;
 	mraw_pipeline->res_config.cpi_pow = mraw_meta_in_buf->cpi_param.cpi_pow;
@@ -806,9 +809,11 @@ static void mtk_cam_mraw_copy_user_input_param(
 	mraw_pipeline->res_config.cpi_spar_pow = mraw_meta_in_buf->cpi_param.cpi_spar_pow;
 	mraw_pipeline->res_config.cpi_spar_fac = mraw_meta_in_buf->cpi_param.cpi_spar_fac;
 
-	dev_dbg(dev, "%s:enable:(%d,%d,%d,%d) mqe_mode:%d mbn_dir/pow:(%d,%d) cpi_dir/pow:(%d,%d) mbn_spar(%x,%x,%x,%x,%x) cpi_spar(%x,%x,%x,%x,%x,%x)\n",
+	dev_dbg(dev, "%s:enable:(%d,%d,%d) crop:(%d,%d) mqe_mode:%d mbn_dir/pow:(%d,%d) cpi_dir/pow:(%d,%d) mbn_spar(%x,%x,%x,%x,%x) cpi_spar(%x,%x,%x,%x,%x,%x)\n",
 		__func__, mraw_meta_in_buf->mqe_enable, mraw_meta_in_buf->mobc_enable,
-		mraw_meta_in_buf->lsc_enable, mraw_meta_in_buf->lsci_enable,
+		mraw_meta_in_buf->plsc_enable,
+		mraw_meta_in_buf->crop_param.crop_x_end,
+		mraw_meta_in_buf->crop_param.crop_y_end,
 		mraw_meta_in_buf->mqe_param.mqe_mode,
 		mraw_meta_in_buf->mbn_param.mbn_dir, mraw_meta_in_buf->mbn_param.mbn_pow,
 		mraw_meta_in_buf->cpi_param.cpi_dir, mraw_meta_in_buf->cpi_param.cpi_pow,
@@ -1023,8 +1028,8 @@ void mtk_cam_mraw_get_mqe_size(struct mtk_cam_device *cam, unsigned int pipe_id,
 		&cam->mraw.pipelines[pipe_id - MTKCAM_SUBDEV_MRAW_START];
 	struct mtk_cam_mraw_resource_config *res_config = &pipe->res_config;
 
-	*width = res_config->tg_crop.s.w;
-	*height = res_config->tg_crop.s.h;
+	*width = res_config->crop_x;
+	*height = res_config->crop_y;
 
 	if (res_config->mqe_en) {
 		switch (res_config->mqe_mode) {
