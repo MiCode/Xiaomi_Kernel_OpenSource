@@ -14616,32 +14616,32 @@ l3_hit,l3_mis,pmu_cyc_cnt";
 	};
 
 	connsys_pin_pmic_en_default: connsys-pin-pmic-en-default {
-		pins_cmd_dat {
+		pins-cmd-dat {
 			pinmux = <PINMUX_GPIO241__FUNC_GPIO241>;
 			output-low;
 		};
 	};
 	connsys_pin_pmic_en_set: connsys-pin-pmic-en-set {
-		pins_cmd_dat {
+		pins-cmd-dat {
 			pinmux = <PINMUX_GPIO241__FUNC_GPIO241>;
 			output-high;
 		};
 	};
 	connsys_pin_pmic_en_clr: connsys-pin-pmic-en-clr {
-		pins_cmd_dat {
+		pins-cmd-dat {
 			pinmux = <PINMUX_GPIO241__FUNC_GPIO241>;
 			output-low;
 		};
 	};
 	connsys_pin_pmic_faultb_default: connsys-pin-pmic-faultb-default {
-		pins_cmd_dat {
+		pins-cmd-dat {
 			pinmux = <PINMUX_GPIO231__FUNC_GPIO231>;
 			input-enable;
 			bias-pull-down;
 		};
 	};
 	connsys_pin_pmic_faultb_enable: connsys-pin-pmic-faultb-enable {
-		pins_cmd_dat {
+		pins-cmd-dat {
 			pinmux = <PINMUX_GPIO231__FUNC_GPIO231>;
 			input-enable;
 			bias-pull-up;
