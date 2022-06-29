@@ -2000,8 +2000,9 @@ static inline int dpmaif_txq_set_skb_data_to_drb(struct dpmaif_tx_queue *txq,
 			hdr.type = TYPE_TX_SEND_SKB_ID;
 			hdr.qidx = txq->index;
 			hdr.time = (unsigned int)(local_clock() >> 16);
-			hdr.wr   = cur_idx;
+			hdr.wr   = is_frag ? (cur_idx | 0x8000) : cur_idx;
 			hdr.ipid = ((struct iphdr *)skb->data)->id;
+			hdr.len  = data_len;
 			ccci_dpmaif_debug_add(&hdr, sizeof(hdr));
 		}
 

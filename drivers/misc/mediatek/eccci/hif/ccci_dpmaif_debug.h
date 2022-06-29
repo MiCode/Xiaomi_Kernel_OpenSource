@@ -71,6 +71,7 @@ struct debug_tx_send_skb_hdr {
 	u32 time;
 	u16 wr;
 	u16 ipid;
+	u16 len;
 
 } __packed;
 
