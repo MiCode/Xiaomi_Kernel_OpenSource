@@ -1065,8 +1065,6 @@
 		proc2-supply = <&mt6319_7_vbuck1>; //M
 		proc3-supply = <&mt6319_6_vbuck1>; //B
 		proc4-supply = <&mt6373_vbuck9>; //DSU
-		/* regulator step value */
-		proc3 = <6250>; //B
 
 		/* leakage info */
 		nvmem-cells = <&lkginfo>;
