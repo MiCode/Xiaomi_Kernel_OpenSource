@@ -11579,6 +11579,8 @@
 		force-step0 = <1>; /* 0:opp0,  1:opp1, ... */
 		release-step0 = <1>; /* 0:disable,  1:enable */
 		use-v3-pwr = <2>; /* OR operation of (1 << PWR_MMDVFS_XXX) */
+		clocks = <&mmdvfs_clk CLK_MMDVFS_AOV>;
+		clock-names = "aov_clk";
 	};
 
 	mmdvfs {
