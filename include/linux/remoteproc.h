@@ -536,8 +536,11 @@ struct rproc_dump_segment {
 #define RPROC_UID_CAM 2
 #define RPROC_UID_SENIF 3
 #define RPROC_UID_IMG 4
-#define RPROC_UID_MAX 5
+#define RPROC_UID_IMG_CMDQ 5
+#define RPROC_UID_MMDVFS 6
+#define RPROC_UID_MAX 7
 #endif
+
 struct rproc {
 	struct list_head node;
 	struct iommu_domain *domain;

@@ -199,13 +199,20 @@ static int mtk_ccu_mb_rx(struct mtk_ccu *ccu,
 			ccu->rproc->bootcnt[2][0].counter, ccu->rproc->bootcnt[2][1].counter,
 			ccu->rproc->bootcnt[2][2].counter, ccu->rproc->bootcnt[2][3].counter,
 			ccu->rproc->bootcnt[2][4].counter);
-		LOG_DBG_IPI("senif[%d,%d,%d,%d,%d],img[%d,%d,%d,%d,%d]\n",
+		LOG_DBG_IPI("senif[%d,%d,%d,%d,%d],img[%d,%d,%d,%d,%d],icmdq[%d,%d,%d,%d,%d]\n",
 			ccu->rproc->bootcnt[3][0].counter, ccu->rproc->bootcnt[3][1].counter,
 			ccu->rproc->bootcnt[3][2].counter, ccu->rproc->bootcnt[3][3].counter,
 			ccu->rproc->bootcnt[3][4].counter,
 			ccu->rproc->bootcnt[4][0].counter, ccu->rproc->bootcnt[4][1].counter,
 			ccu->rproc->bootcnt[4][2].counter, ccu->rproc->bootcnt[4][3].counter,
-			ccu->rproc->bootcnt[4][4].counter);
+			ccu->rproc->bootcnt[4][4].counter,
+			ccu->rproc->bootcnt[5][0].counter, ccu->rproc->bootcnt[5][1].counter,
+			ccu->rproc->bootcnt[5][2].counter, ccu->rproc->bootcnt[5][3].counter,
+			ccu->rproc->bootcnt[5][4].counter);
+		LOG_DBG_IPI("dvfs[%d,%d,%d,%d,%d]\n",
+			ccu->rproc->bootcnt[6][0].counter, ccu->rproc->bootcnt[6][1].counter,
+			ccu->rproc->bootcnt[6][2].counter, ccu->rproc->bootcnt[6][3].counter,
+			ccu->rproc->bootcnt[6][4].counter);
 #endif
 	} else
 		ret = 0;
