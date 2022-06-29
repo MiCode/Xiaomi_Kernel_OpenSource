@@ -43,18 +43,6 @@ static struct attribute_group attr_group = {
 
 #endif
 
-#if IS_ENABLED(CONFIG_ARM64)
-static inline u64 read_tcr_el1_t1sz(void)
-{
-	return (read_sysreg(tcr_el1) & TCR_T1SZ_MASK) >> TCR_T1SZ_OFFSET;
-}
-
-static inline u64 read_kernel_pac_mask(void)
-{
-	return system_supports_address_auth() ? ptrauth_kernel_pac_mask() : 0;
-}
-#endif
-
 #if IS_ENABLED(CONFIG_KALLSYMS)
 #if !IS_ENABLED(CONFIG_KALLSYMS_BASE_RELATIVE)
 static void mrdump_cblock_kallsyms_init(struct mrdump_ksyms_param *kparam)
@@ -189,17 +177,9 @@ __init void mrdump_cblock_init(const struct mrdump_params *mparams)
 	machdesc_p = &mrdump_cblock->machdesc;
 	machdesc_p->nr_cpus = nr_cpu_ids;
 	machdesc_p->page_offset = (uint64_t)PAGE_OFFSET;
-#if IS_ENABLED(CONFIG_ARM64)
-	machdesc_p->tcr_el1_t1sz = (uint64_t)read_tcr_el1_t1sz();
-	machdesc_p->kernel_pac_mask = (uint64_t)read_kernel_pac_mask();
-#endif
 #if defined(KIMAGE_VADDR)
 	machdesc_p->kimage_vaddr = KIMAGE_VADDR;
 #endif
-#if defined(CONFIG_ARM64)
-	machdesc_p->kimage_voffset = (unsigned long)kimage_voffset;
-#endif
-
 	machdesc_p->vmalloc_start = (uint64_t)VMALLOC_START;
 	machdesc_p->vmalloc_end = (uint64_t)VMALLOC_END;
 
@@ -207,7 +187,6 @@ __init void mrdump_cblock_init(const struct mrdump_params *mparams)
 	machdesc_p->modules_end = (uint64_t)MODULES_END;
 
 	machdesc_p->phys_offset = (uint64_t)(phys_addr_t)PHYS_OFFSET;
-	machdesc_p->master_page_table = mrdump_get_mpt();
 
 #if defined(CONFIG_SPARSEMEM_VMEMMAP)
 	machdesc_p->memmap = (uintptr_t)vmemmap;
@@ -218,6 +197,7 @@ __init void mrdump_cblock_init(const struct mrdump_params *mparams)
 
 	machdesc_p->struct_page_size = (uint32_t)sizeof(struct page);
 
+	mrdump_arch_fill_machdesc(machdesc_p);
 #ifdef MODULE
 	mrdump_cblock->machdesc_crc = crc32(0, machdesc_p,
 			sizeof(struct mrdump_machdesc));

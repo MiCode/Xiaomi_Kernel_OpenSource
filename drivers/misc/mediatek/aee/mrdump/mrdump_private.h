@@ -13,7 +13,7 @@
 #if IS_ENABLED(CONFIG_MTK_AEE_IPANIC)
 #include <mt-plat/mboot_params.h>
 #endif
-
+#include <mt-plat/mrdump.h>
 #include "mrdump_helper.h"
 
 #define DEBUG_COMPATIBLE "mediatek,aee_debug_kinfo"
@@ -55,8 +55,9 @@ void mrdump_cblock_late_init(void);
 int mrdump_full_init(const char *version);
 int mrdump_mini_init(const struct mrdump_params *mparams);
 
-uint64_t mrdump_get_mpt(void);
 void mrdump_save_control_register(void *creg);
+void mrdump_arch_fill_machdesc(struct mrdump_machdesc *machdesc_p);
+void mrdump_arch_show_regs(const struct pt_regs *regs);
 
 #if defined(__arm__)
 static inline void crash_setup_regs(struct pt_regs *newregs,

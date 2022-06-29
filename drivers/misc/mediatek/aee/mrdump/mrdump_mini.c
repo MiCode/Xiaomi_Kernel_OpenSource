@@ -216,7 +216,8 @@ void init_ko_addr_list_late(void)
 #ifdef __aarch64__
 static unsigned long virt_2_pfn(unsigned long addr)
 {
-	u64 mpt = mrdump_get_mpt() + kimage_voffset;
+	u64 mpt = (read_sysreg(ttbr1_el1) & ~(TTBR_ASID_MASK | TTBR_CNP_BIT)) +
+		kimage_voffset;
 	pgd_t *pgd = pgd_offset_pgd((pgd_t *)mpt, addr);
 	pgd_t _pgd_val = {0};
 	p4d_t *p4d, _p4d_val = {0};

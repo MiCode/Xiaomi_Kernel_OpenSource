@@ -240,7 +240,7 @@ int mrdump_common_die(int reboot_reason, const char *msg,
 		aee_rr_rec_fiq_step(AEE_FIQ_STEP_COMMON_DIE_TRACE);
 		switch (reboot_reason) {
 		case AEE_REBOOT_MODE_KERNEL_OOPS:
-			aee_show_regs(regs);
+			mrdump_arch_show_regs(regs);
 			dump_stack();
 			break;
 		case AEE_REBOOT_MODE_KERNEL_PANIC:
