@@ -357,17 +357,17 @@ EXPORT_SYMBOL_GPL(mtk_mmdvfs_vcp_get_base);
 
 int mtk_mmdvfs_camera_notify(const bool enable)
 {
-	struct mmdvfs_ipi_data slot;
-	int ret;
+	//struct mmdvfs_ipi_data slot;
+	//int ret;
 
 	if (!mmdvfs_clk_num) {
 		MMDVFS_DBG("mmdvfs_v3 not supported!");
 		return 0;
 	}
-	ret = mmdvfs_vcp_ipi_send(FUNC_CAMERA_ON, enable, MAX_OPP, MAX_OPP);
+	//ret = mmdvfs_vcp_ipi_send(FUNC_CAMERA_ON, enable, MAX_OPP, MAX_OPP);
 
-	slot = *(struct mmdvfs_ipi_data *)(u32 *)&ret;
-	MMDVFS_DBG("ipi:%#x slot:%#x ena:%hhu", ret, slot, slot.ack);
+	//slot = *(struct mmdvfs_ipi_data *)(u32 *)&ret;
+	//MMDVFS_DBG("ipi:%#x slot:%#x ena:%hhu", ret, slot, slot.ack);
 
 	return 0;
 }
