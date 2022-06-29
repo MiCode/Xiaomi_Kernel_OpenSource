@@ -97,7 +97,12 @@ void sched_max_util_task(int *util)
 }
 EXPORT_SYMBOL(sched_max_util_task);
 
-unsigned int sched_get_cpu_util_pct(unsigned int cpu)
+unsigned long capacity_of(int cpu)
+{
+	return cpu_rq(cpu)->cpu_capacity;
+}
+
+unsigned int get_cpu_util_pct(unsigned int cpu, bool orig)
 {
 	struct cfs_rq *cfs_rq;
 	unsigned long capacity;
@@ -111,12 +116,12 @@ unsigned int sched_get_cpu_util_pct(unsigned int cpu)
 		util = max_t(unsigned long, util,
 			READ_ONCE(cfs_rq->avg.util_est.enqueued));
 
-	capacity = capacity_orig_of(cpu);
+	capacity = (orig == true) ? capacity_orig_of(cpu) : capacity_of(cpu);
 	util = min_t(unsigned long, util, capacity);
 	util_pct = (unsigned int)div64_ul((util * 100), capacity);
 	return util_pct;
 }
-EXPORT_SYMBOL(sched_get_cpu_util_pct);
+EXPORT_SYMBOL(get_cpu_util_pct);
 
 /**
  * sched_update_nr_prod
@@ -247,7 +252,6 @@ void set_over_threshold(unsigned int index, unsigned int val)
 }
 EXPORT_SYMBOL(set_over_threshold);
 
-#define	mismatch_cpu	0
 enum over_thres_type is_task_over_thres(struct task_struct *p)
 {
 	struct over_thres_stats *cpu_over_thres;
@@ -262,11 +266,8 @@ enum over_thres_type is_task_over_thres(struct task_struct *p)
 	cpu_over_thres = &per_cpu(cpu_over_thres_state, cpu);
 
 	/* track task with max utilization */
-	/* check 64-bit or not if mismatch 32bit platform */
-	if (cpumask_test_cpu(mismatch_cpu, p->cpus_ptr) &&
-	   (util > atomic_long_read(&cpu_over_thres->max_task_util))) {
+	if (util > atomic_long_read(&cpu_over_thres->max_task_util))
 		atomic_long_set(&cpu_over_thres->max_task_util, util);
-	}
 
 	/* check if task is over threshold */
 	if (util >= cpu_over_thres->up_thres)
@@ -307,7 +308,7 @@ static void reset_over_thre_deferred(u64 curr_time)
 }
 
 #define MAX_NR_DOWN_THRESHOLD	4
-#define NEED_SPREAD_THRE_PCT	60
+#define NEED_SPREAD_THRE_PCT	90
 int sched_get_nr_over_thres_avg(int cluster_id,
 				int *dn_avg,
 				int *up_avg,
@@ -370,13 +371,11 @@ int sched_get_nr_over_thres_avg(int cluster_id,
 		}
 
 		/* get need spread cpus */
-		/* Only consider cpu_util in conservative policy */
 		spin_lock(&per_cpu(nr_lock, cpu));
 		tmp_need_spread_cpus = per_cpu(nr_max, cpu);
-		if (tmp_need_spread_cpus > MAX_NR_DOWN_THRESHOLD)
-			if (policy != CONSERVATIVE_POLICY ||
-				sched_get_cpu_util_pct(cpu) > NEED_SPREAD_THRE_PCT)
-				*need_spread_cpus += 1;
+		if (tmp_need_spread_cpus > MAX_NR_DOWN_THRESHOLD &&
+			get_cpu_util_pct(cpu, false) > NEED_SPREAD_THRE_PCT)
+			*need_spread_cpus += 1;
 
 		/* reset max_nr value */
 		per_cpu(nr_max, cpu) = per_cpu(nr, cpu);
@@ -495,6 +494,7 @@ static void over_thresh_chg_notify(void)
 		 */
 		list_for_each_entry(p, &cpu_rq(cpu)->cfs_tasks, se.group_node) {
 			over_type = is_task_over_thres(p);
+			p->android_vendor_data1[6] = (u64)over_type;
 			if (over_type) {
 				if (over_type == OVER_UP_THRES) {
 					nr_over_dn_thres++;
@@ -523,7 +523,17 @@ static void over_thresh_chg_notify(void)
 	}
 }
 
-void sched_update_nr_over_thres_prod(struct task_struct *p, int cpu, int over_thres_nr_inc)
+static void update_nr_over_thres_locked(struct over_thres_stats *stats,
+					enum over_thres_type over_type,
+					struct task_struct *p,
+					unsigned long util,
+					int inc);
+
+
+static enum over_thres_type get_over_type(struct over_thres_stats *stats,
+					  unsigned long util);
+
+void sched_update_nr_over_thres_prod(struct task_struct *p, int cpu, int inc)
 {
 	unsigned long flags;
 	enum over_thres_type over_type = NO_OVER_THRES;
@@ -543,58 +553,9 @@ void sched_update_nr_over_thres_prod(struct task_struct *p, int cpu, int over_th
 	cpu_over_thres = &per_cpu(cpu_over_thres_state, cpu);
 
 	/* check if task is over threshold */
-	if (util >= cpu_over_thres->dn_thres) {
-		over_type = OVER_DN_THRES;
-		if (util >= cpu_over_thres->up_thres)
-			over_type = OVER_UP_THRES;
-	}
-
-	if (over_type) {
-		s64 diff;
-		u64 curr_time;
-
-		/* track task with max utilization */
-		/* check 64-bit or not if mismatch 32bit platform */
-		if (cpumask_test_cpu(mismatch_cpu, p->cpus_ptr) &&
-		    (util > atomic_long_read(&cpu_over_thres->max_task_util)))
-			atomic_long_set(&cpu_over_thres->max_task_util, util);
-
-		curr_time = sched_clock();
-		if (over_type == OVER_UP_THRES) {
-			/* OVER_UP_THRES */
-			diff = (s64) (curr_time -
-					cpu_over_thres->dn_last_update_time);
-			/* update over_thres for degrading threshold */
-			if (diff >= 0) {
-				cpu_over_thres->dn_last_update_time = curr_time;
-				cpu_over_thres->nr_over_dn_thres_prod_sum +=
-					cpu_over_thres->nr_over_dn_thres*diff;
-				cpu_over_thres->nr_over_dn_thres +=
-					over_thres_nr_inc;
-			}
-
-			diff = (s64) (curr_time -
-				cpu_over_thres->up_last_update_time);
-			/* update over_thres for upgrading threshold */
-			if (diff >= 0) {
-				cpu_over_thres->up_last_update_time = curr_time;
-				cpu_over_thres->nr_over_up_thres_prod_sum +=
-					cpu_over_thres->nr_over_up_thres*diff;
-				cpu_over_thres->nr_over_up_thres +=
-					over_thres_nr_inc;
-			}
-		} else {/* OVER_DN_THRES */
-			diff = (s64) (curr_time -
-				cpu_over_thres->dn_last_update_time);
-			if (diff >= 0) {
-				cpu_over_thres->dn_last_update_time = curr_time;
-				cpu_over_thres->nr_over_dn_thres_prod_sum +=
-					cpu_over_thres->nr_over_dn_thres*diff;
-				cpu_over_thres->nr_over_dn_thres +=
-					over_thres_nr_inc;
-			}
-		}
-	}
+	over_type = get_over_type(cpu_over_thres, util);
+	update_nr_over_thres_locked(cpu_over_thres, over_type, p, util, inc);
+	p->android_vendor_data1[6] = (u64)over_type;
 	spin_unlock_irqrestore(&per_cpu(nr_over_thres_lock, cpu), flags);
 }
 
@@ -609,29 +570,112 @@ void sched_update_nr_over_thres_prod(struct task_struct *p, int cpu, int over_th
 #define SKIP_AGE_LOAD	0x0
 #endif
 
-void inc_nr_over_thres_running_by_se(void *data, struct sched_entity *se, int flags)
+static void update_nr_over_thres_locked(struct over_thres_stats *stats,
+					enum over_thres_type over_type,
+					struct task_struct *p,
+					unsigned long util,
+					int inc)
 {
-	struct task_struct *p;
+	s64 diff;
+	u64 curr_time;
 
-	if (se->avg.last_update_time && !(flags & SKIP_AGE_LOAD)) {
-		if (entity_is_task(se) && se->on_rq) {
-			p = task_of(se);
-			sched_update_nr_over_thres_prod(p, cpu_of(task_rq(p)), 1);
+	if (over_type == NO_OVER_THRES)
+		return;
+
+	/* track task with max utilization */
+	if (util > atomic_long_read(&stats->max_task_util))
+		atomic_long_set(&stats->max_task_util, util);
+
+	curr_time = sched_clock();
+	if (over_type == OVER_UP_THRES) {
+		/* OVER_UP_THRES */
+		diff = (s64) (curr_time - stats->dn_last_update_time);
+		/* update over_thres for degrading threshold */
+		if (diff >= 0) {
+			stats->dn_last_update_time = curr_time;
+			stats->nr_over_dn_thres_prod_sum +=
+				stats->nr_over_dn_thres*diff;
+			stats->nr_over_dn_thres += inc;
+		}
+
+		diff = (s64) (curr_time - stats->up_last_update_time);
+		/* update over_thres for upgrading threshold */
+		if (diff >= 0) {
+			stats->up_last_update_time = curr_time;
+			stats->nr_over_up_thres_prod_sum +=
+				stats->nr_over_up_thres*diff;
+			stats->nr_over_up_thres += inc;
+		}
+	} else {/* OVER_DN_THRES */
+		diff = (s64) (curr_time - stats->dn_last_update_time);
+		if (diff >= 0) {
+			stats->dn_last_update_time = curr_time;
+			stats->nr_over_dn_thres_prod_sum +=
+				stats->nr_over_dn_thres*diff;
+			stats->nr_over_dn_thres += inc;
 		}
 	}
 }
 
-void dec_nr_over_thres_running_by_se(void *data, struct sched_entity *se, int flags)
+static enum over_thres_type get_over_type(struct over_thres_stats *stats,
+					  unsigned long util)
+{
+	/* check if task is over threshold */
+	if (util >= stats->up_thres)
+		return OVER_UP_THRES;
+	else if (util >= stats->dn_thres)
+		return OVER_DN_THRES;
+	else
+		return NO_OVER_THRES;
+}
+
+void pelt_se_tp(void *data, struct sched_entity *se)
 {
 	struct task_struct *p;
+	struct over_thres_stats *stats = NULL;
+	enum over_thres_type old_type = NO_OVER_THRES;
+	enum over_thres_type new_type = NO_OVER_THRES;
+	unsigned long flags;
+	unsigned long util;
+	int cpu;
 
-	if (se->avg.last_update_time && !(flags & SKIP_AGE_LOAD)) {
-		if (entity_is_task(se) && se->on_rq) {
-			p = task_of(se);
-			sched_update_nr_over_thres_prod(p, cpu_of(task_rq(p)), -1);
+	if (!init_thres) {
+		printk_deferred_once("assertion failed at %s:%d\n",
+				__FILE__,
+				__LINE__);
+		return;
+	}
+
+	if (entity_is_task(se) && se->on_rq) {
+		p = task_of(se);
+		cpu = cpu_of(task_rq(p));
+
+		spin_lock_irqsave(&per_cpu(nr_over_thres_lock, cpu), flags);
+		old_type = p->android_vendor_data1[6];
+
+		util = task_util(p);
+		stats = &per_cpu(cpu_over_thres_state, cpu);
+		new_type = get_over_type(stats, util);
+
+		if (old_type == NO_OVER_THRES && new_type != NO_OVER_THRES)
+			update_nr_over_thres_locked(stats, new_type, p, util, 1);
+		else if (old_type != NO_OVER_THRES && new_type == NO_OVER_THRES)
+			update_nr_over_thres_locked(stats, old_type, p, util, -1);
+		else {
+			update_nr_over_thres_locked(stats, new_type, p, util, 0);
+			/* Fixup up_thres */
+			if (old_type == OVER_UP_THRES &&
+					new_type == OVER_DN_THRES)
+				--stats->nr_over_up_thres;
+			if (old_type == OVER_DN_THRES &&
+					new_type == OVER_UP_THRES)
+				++stats->nr_over_up_thres;
 		}
+		p->android_vendor_data1[6] = (u64)new_type;
+		spin_unlock_irqrestore(&per_cpu(nr_over_thres_lock, cpu), flags);
 	}
 }
+
 
 #if IS_ENABLED(CONFIG_FAIR_GROUP_SCHED)
 /* Walk up scheduling entities hierarchy */
@@ -900,27 +944,19 @@ int init_sched_avg(void)
 		ret_error_line = __LINE__;
 		goto failed_deprobe_enqueue_task_fair;
 	}
-/*
-	ret = register_trace_android_vh_finish_update_load_avg_se(
-			inc_nr_over_thres_running_by_se, NULL);
+
+
+	ret = register_trace_pelt_se_tp(pelt_se_tp, NULL);
 	if (ret) {
 		ret_error_line = __LINE__;
 		goto failed_deprobe_dequeue_task_fair;
 	}
 
-	ret = register_trace_android_vh_prepare_update_load_avg_se(
-			dec_nr_over_thres_running_by_se, NULL);
-	if (ret) {
-		ret_error_line = __LINE__;
-		goto failed_deprobe_finish_update_load_avg_se;
-	}
-*/
 	ret = register_trace_sched_update_nr_running_tp(
 			sched_update_nr_running_cb, NULL);
 	if (ret) {
 		ret_error_line = __LINE__;
-		//goto failed_deprobe_prepare_update_load_avg_se;
-		goto failed_deprobe_dequeue_task_fair;
+		goto failed_deprobe_pelt_se_tp;
 	}
 
 	/*
@@ -931,12 +967,8 @@ int init_sched_avg(void)
 	pr_info("%s: init finish! ", TAG);
 	return 0;
 
-failed_deprobe_prepare_update_load_avg_se:
-	unregister_trace_android_vh_prepare_update_load_avg_se(
-			dec_nr_over_thres_running_by_se, NULL);
-failed_deprobe_finish_update_load_avg_se:
-	unregister_trace_android_vh_finish_update_load_avg_se(
-			inc_nr_over_thres_running_by_se, NULL);
+failed_deprobe_pelt_se_tp:
+	unregister_trace_pelt_se_tp(pelt_se_tp, NULL);
 failed_deprobe_dequeue_task_fair:
 failed_deprobe_enqueue_task_fair:
 	/* restrict vendor hook can't unregister */
@@ -949,9 +981,6 @@ failed:
 
 void exit_sched_avg(void)
 {
-	unregister_trace_android_vh_finish_update_load_avg_se(
-				inc_nr_over_thres_running_by_se, NULL);
-	unregister_trace_android_vh_prepare_update_load_avg_se(
-				dec_nr_over_thres_running_by_se, NULL);
+	unregister_trace_pelt_se_tp(pelt_se_tp, NULL);
 	unregister_trace_sched_update_nr_running_tp(sched_update_nr_running_cb, NULL);
 }

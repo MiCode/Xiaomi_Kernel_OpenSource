@@ -25,6 +25,7 @@
 #include "sched_avg.h"
 #include <sched_sys_common.h>
 #include <thermal_interface.h>
+#include <eas/eas_plus.h>
 
 #define TAG "core_ctl"
 
@@ -119,7 +120,7 @@ static struct cluster_data cluster_state[MAX_CLUSTERS];
 static unsigned int num_clusters;
 static DEFINE_SPINLOCK(state_lock);
 static DEFINE_SPINLOCK(check_lock);
-static DEFINE_MUTEX(core_ctl_force_lock);
+static DEFINE_SPINLOCK(core_ctl_force_lock);
 static bool initialized;
 static unsigned int default_min_cpus[MAX_CLUSTERS] = {4, 2, 0};
 static bool debug_enable;
@@ -181,27 +182,29 @@ static unsigned int apply_limits(const struct cluster_data *cluster,
 	return min(max(cluster->min_cpus, need_cpus), cluster->max_cpus);
 }
 
-int sched_active_count(const cpumask_t *mask, bool intersect_online)
+int sched_isolate_count(const cpumask_t *mask, bool include_offline)
 {
 	cpumask_t count_mask = CPU_MASK_NONE;
 
-	if (intersect_online) {
-		cpumask_and(&count_mask, cpu_online_mask, cpu_active_mask);
+	if (include_offline) {
+		cpumask_complement(&count_mask, cpu_online_mask);
+		cpumask_or(&count_mask, &count_mask, cpu_pause_mask);
 		cpumask_and(&count_mask, &count_mask, mask);
 	} else
-		cpumask_and(&count_mask, mask, cpu_active_mask);
+		cpumask_and(&count_mask, mask, cpu_pause_mask);
 
 	return cpumask_weight(&count_mask);
 }
 
 static unsigned int get_active_cpu_count(const struct cluster_data *cluster)
 {
-	return sched_active_count(&cluster->cpu_mask, true);
+	return cluster->num_cpus -
+		sched_isolate_count(&cluster->cpu_mask, true);
 }
 
 static bool is_active(const struct cpu_data *state)
 {
-	return cpu_online(state->cpu) && cpu_active(state->cpu);
+	return cpu_online(state->cpu) && !cpu_paused(state->cpu);
 }
 
 static bool adjustment_possible(const struct cluster_data *cluster,
@@ -599,7 +602,7 @@ int core_ctl_force_pause_cpu(unsigned int cpu, bool is_pause)
 	c = &per_cpu(cpu_state, cpu);
 	cluster = c->cluster;
 
-	mutex_lock(&core_ctl_force_lock);
+	spin_lock_irqsave(&core_ctl_force_lock, flags);
 
 	if (is_pause)
 		ret = sched_pause_cpu(cpu);
@@ -611,7 +614,7 @@ int core_ctl_force_pause_cpu(unsigned int cpu, bool is_pause)
 		goto unlock;
 
 	/* Update cpu state */
-	spin_lock_irqsave(&state_lock, flags);
+	spin_lock(&state_lock);
 	c->force_paused = is_pause;
 	/* Handle conflict with original policy */
 	if (c->paused_by_cc) {
@@ -619,10 +622,10 @@ int core_ctl_force_pause_cpu(unsigned int cpu, bool is_pause)
 		cluster->nr_paused_cpus--;
 	}
 	cluster->active_cpus = get_active_cpu_count(cluster);
-	spin_unlock_irqrestore(&state_lock, flags);
+	spin_unlock(&state_lock);
 
 unlock:
-	mutex_unlock(&core_ctl_force_lock);
+	spin_unlock_irqrestore(&core_ctl_force_lock, flags);
 	return ret;
 }
 EXPORT_SYMBOL(core_ctl_force_pause_cpu);
@@ -864,8 +867,7 @@ static ssize_t show_global_state(const struct cluster_data *state, char *buf)
 		count += snprintf(buf + count, PAGE_SIZE - count,
 				"\tOnline: %u\n", cpu_online(c->cpu));
 		count += snprintf(buf + count, PAGE_SIZE - count,
-				"\tPaused: %u\n",
-				(cpu_online(c->cpu) & !cpu_active(c->cpu)));
+				"\tPaused: %u\n", cpu_paused(c->cpu));
 		count += snprintf(buf + count, PAGE_SIZE - count,
 				"\tPaused by core_ctl: %u\n", c->paused_by_cc);
 		count += snprintf(buf + count, PAGE_SIZE - count,
@@ -956,8 +958,9 @@ static struct kobj_type ktype_core_ctl = {
 	.default_attrs  = default_attrs,
 };
 
-static unsigned int thermal_heaviest_thres = 512;
-static unsigned int heaviest_thres = 230;
+static unsigned long heaviest_thres = 520;
+static unsigned int max_task_util;
+static unsigned int big_cpu_ts;
 
 /* ==================== algorithm of core control ======================== */
 
@@ -1067,14 +1070,59 @@ static inline bool window_check(void)
 	return do_check;
 }
 
+static void check_heaviest_util(void)
+{
+	struct cluster_data *big_cluster;
+	struct cluster_data *mid_cluster;
+	unsigned int max_capacity;
+
+	if (num_clusters <= 2)
+		return;
+
+	sched_max_util_task(&max_task_util);
+	big_cluster = &cluster_state[num_clusters - 1];
+	mid_cluster = &cluster_state[big_cluster->cluster_id - 1];
+#if IS_ENABLED(CONFIG_MTK_THERMAL_INTERFACE)
+	big_cpu_ts = get_cpu_temp(big_cluster->first_cpu);
+#endif
+
+	heaviest_thres = mid_cluster->up_thres;
+	if (big_cpu_ts > big_cluster->thermal_degree_thres)
+		heaviest_thres = mid_cluster->thermal_up_thres;
+
+	/*
+	 * Check for biggest task in system,
+	 * if it's over threshold, force to enable
+	 * prime core.
+	 */
+	max_capacity = get_max_capacity(mid_cluster->cluster_id);
+	heaviest_thres = div64_u64(heaviest_thres * max_capacity, 100);
+
+	if (big_cluster->new_need_cpus)
+		return;
+
+	/* If max util is over threshold */
+	if (max_task_util > heaviest_thres) {
+		big_cluster->new_need_cpus++;
+
+		/*
+		 * For example:
+		 *   Consider TLP=1 and heaviest is over threshold,
+		 *   prefer to decrease a need CPU of mid cluster
+		 *   to save power consumption
+		 */
+		if (mid_cluster->new_need_cpus > 0)
+			mid_cluster->new_need_cpus--;
+	}
+}
+
 static inline void core_ctl_main_algo(void)
 {
-	unsigned int max_util = 0;
 	unsigned int index = 0;
 	unsigned int big_cpu_ts = 0;
 	struct cluster_data *cluster;
 	unsigned int orig_need_cpu[MAX_CLUSTERS] = {0};
-	unsigned int total_need_spread_cpu = 0;
+	struct cpumask active_cpus;
 
 	/* get TLP of over threshold tasks */
 	get_nr_running_big_task(cluster_state);
@@ -1083,20 +1131,16 @@ static inline void core_ctl_main_algo(void)
 	for_each_cluster(cluster, index) {
 		int temp_need_cpus = 0;
 
-		/* for high TLP with tiny tasks */
-		if (cluster->need_spread_cpus)
-			total_need_spread_cpu +=
-				(enable_policy == CONSERVATIVE_POLICY) ?
-				cluster->need_spread_cpus : 1;
-
 		if (index == 0) {
 			cluster->nr_assist = cluster->nr_up;
+			cluster->nr_assist += cluster->need_spread_cpus;
 			cluster->new_need_cpus = cluster->num_cpus;
 			continue;
 		}
 
 		temp_need_cpus += cluster->nr_up;
 		temp_need_cpus += cluster->nr_down;
+		temp_need_cpus += cluster->need_spread_cpus;
 		temp_need_cpus += get_prev_cluster_nr_assist(index);
 
 		cluster->new_need_cpus = temp_need_cpus;
@@ -1105,77 +1149,22 @@ static inline void core_ctl_main_algo(void)
 		cluster->nr_assist =
 			(temp_need_cpus > cluster->max_cpus ?
 			 (temp_need_cpus - cluster->max_cpus) : 0);
-
-		/* spread high TLP to BL/B CPU */
-		if (total_need_spread_cpu) {
-			int extra_cpus =
-				cluster->max_cpus - cluster->new_need_cpus;
-
-			if (extra_cpus > 0) {
-				cluster->new_need_cpus +=
-					(total_need_spread_cpu > extra_cpus) ?
-					extra_cpus : total_need_spread_cpu;
-				total_need_spread_cpu =
-					(total_need_spread_cpu > extra_cpus) ?
-					(total_need_spread_cpu - extra_cpus) : 0;
-			}
-		}
 	}
 
 	/*
-	 * Ensure prime cpu make core-on if heaviest task is over threshold.
+	 * Ensure prime cpu make core-on
+	 * if heaviest task is over threshold.
 	 */
-	if (num_clusters > 2) {
-		struct cluster_data *big_cluster;
-		struct cluster_data *prev_cluster;
-		unsigned int max_capacity;
+	check_heaviest_util();
 
-		sched_max_util_task(&max_util);
-		big_cluster = &cluster_state[num_clusters - 1];
-		prev_cluster = &cluster_state[big_cluster->cluster_id - 1];
-#if IS_ENABLED(CONFIG_MTK_THERMAL_INTERFACE)
-		big_cpu_ts = get_cpu_temp(big_cluster->first_cpu);
-#endif
-
-		/*
-		 * Check for biggest task in system,
-		 * if it's over threshold, force to enable
-		 * prime core.
-		 */
-		max_capacity = get_max_capacity(prev_cluster->cluster_id);
-		heaviest_thres = (unsigned int)
-			div64_u64((u64)prev_cluster->up_thres * max_capacity, 100);
-		thermal_heaviest_thres = (unsigned int)
-			div64_u64((u64)prev_cluster->thermal_up_thres * max_capacity, 100);
-
-		/* If CPU is thermal, use thermal threshold as heaviest threshold */
-		if (big_cpu_ts > big_cluster->thermal_degree_thres)
-			heaviest_thres = thermal_heaviest_thres;
-
-		/* If max util is over threshold */
-		if (!big_cluster->new_need_cpus &&
-				max_util > heaviest_thres) {
-			big_cluster->new_need_cpus++;
-
-			/*
-			 * For example:
-			 *   Consider TLP=1 and heaviest is over threshold,
-			 *   prefer to decrease a need CPU of prev cluster
-			 *   to save power consumption
-			 */
-			if (prev_cluster->new_need_cpus > 0)
-				prev_cluster->new_need_cpus--;
-		}
-	}
-
-	/* reset index value */
 	index = 0;
 	for_each_cluster(cluster, index) {
 		orig_need_cpu[index] = cluster->new_need_cpus;
 	}
 
-	trace_core_ctl_algo_info(big_cpu_ts, heaviest_thres, max_util,
-			cpumask_bits(cpu_active_mask)[0], orig_need_cpu);
+	cpumask_andnot(&active_cpus, cpu_online_mask, cpu_pause_mask);
+	trace_core_ctl_algo_info(big_cpu_ts, heaviest_thres, max_task_util,
+			cpumask_bits(&active_cpus)[0], orig_need_cpu);
 }
 
 void core_ctl_tick(void *data, struct rq *rq)
@@ -1203,7 +1192,7 @@ void core_ctl_tick(void *data, struct rq *rq)
 		if (!cluster || !cluster->inited)
 			continue;
 
-		c->cpu_util_pct = sched_get_cpu_util_pct(cpu);
+		c->cpu_util_pct = get_cpu_util_pct(cpu, true);
 		if (c->cpu_util_pct >= cluster->cpu_busy_up_thres)
 			c->is_busy = true;
 		else if (c->cpu_util_pct < cluster->cpu_busy_down_thres)
@@ -1349,7 +1338,7 @@ again:
 		if (!cpu_online(c->cpu))
 			continue;
 
-		if (cpu_active(c->cpu))
+		if (!cpu_paused(c->cpu))
 			continue;
 
 		if (cluster->active_cpus == need)
@@ -1391,6 +1380,7 @@ again:
 static void __ref do_core_ctl(struct cluster_data *cluster)
 {
 	unsigned int need;
+	unsigned long flags;
 
 	need = apply_limits(cluster, cluster->need_cpus);
 
@@ -1398,12 +1388,12 @@ static void __ref do_core_ctl(struct cluster_data *cluster)
 		core_ctl_debug("%s: Trying to adjust cluster %u from %u to %u\n",
 				TAG, cluster->cluster_id, cluster->active_cpus, need);
 
-		mutex_lock(&core_ctl_force_lock);
+		spin_lock_irqsave(&core_ctl_force_lock, flags);
 		if (cluster->active_cpus > need)
 			try_to_pause(cluster, need);
 		else if (cluster->active_cpus < need)
 			try_to_resume(cluster, need);
-		mutex_unlock(&core_ctl_force_lock);
+		spin_unlock_irqrestore(&core_ctl_force_lock, flags);
 	} else
 		core_ctl_debug("%s: failed to adjust cluster %u from %u to %u. (min = %u, max = %u)\n",
 				TAG, cluster->cluster_id, cluster->active_cpus, need,
@@ -1440,57 +1430,43 @@ static int cpu_pause_cpuhp_state(unsigned int cpu,  bool online)
 	struct cpu_data *state = &per_cpu(cpu_state, cpu);
 	struct cluster_data *cluster = state->cluster;
 	unsigned int need;
-	bool do_wakeup = false;
+	bool do_wakeup = false, resume = false;
 	unsigned long flags;
+	struct cpumask cpu_resume_req;
 
 	if (unlikely(!cluster || !cluster->inited))
 		return 0;
 
 	spin_lock_irqsave(&state_lock, flags);
 
-	if (online) {
+	if (online)
+		cluster->active_cpus = get_active_cpu_count(cluster);
+	else {
 		/*
-		 * Consider the seldom race condition, that will cause
-		 * a fault paused count. Once the cpu is active, it leads
-		 * confusion control. (active_cpu and paused_by_cc = 1)
-		 * Thus, adjust it when cpu is onlining.
-		 *
-		 *   module A               core_ctl
-		 *      |                      |
-		 *      |                      |
-		 *      V                      V
-		 *   down_cpu()          try_to_pause()
-		 *  ------------         --------------
-		 *     lock()                 ...
-		 *  inactive_cpu()         pause_cpu()
-		 *       ...                waiting
-		 *   cpu_offline()            ...
-		 *    unlock()                ...
-		 *                           lock()
-		 *                     no change return 0
-		 *                          unlock()
-		 *                      nr_paused_cpus++
+		 * When CPU is offline, CPU should be un-isolated.
+		 * Thus, un-isolate this CPU that is going down if
+		 * it was isolated by core_ctl.
 		 */
-		if (unlikely(state->paused_by_cc)) {
-			state->paused_by_cc = false;
-			cluster->nr_paused_cpus--;
-		}
-		state->force_paused = false;
-	} else { /* offline */
 		if (state->paused_by_cc) {
 			state->paused_by_cc = false;
 			cluster->nr_paused_cpus--;
+			resume = true;
 		}
 		state->cpu_util_pct = 0;
 		state->force_paused = false;
-		cluster->active_cpus =
-			get_active_cpu_count(cluster);
+		cluster->active_cpus = get_active_cpu_count(cluster);
 	}
 
 	need = apply_limits(cluster, cluster->need_cpus);
 	do_wakeup = adjustment_possible(cluster, need);
 	spin_unlock_irqrestore(&state_lock, flags);
 
+	/* cpu is inactive */
+	if (resume) {
+		cpumask_clear(&cpu_resume_req);
+		cpumask_set_cpu(cpu, &cpu_resume_req);
+		resume_cpus(&cpu_resume_req);
+	}
 	if (do_wakeup)
 		wake_up_core_ctl_thread(cluster);
 	return 0;
@@ -1806,7 +1782,7 @@ static int __init core_ctl_init(void)
 			"core_ctl/cpu_pause:dead",
 			NULL, core_ctl_prepare_dead_cpu);
 
-	cpuhp_setup_state(CPUHP_BP_PREPARE_DYN,
+	cpuhp_setup_state(CPUHP_AP_ONLINE_DYN,
 			"core_ctl/cpu_pause:online",
 			core_ctl_prepare_online_cpu, NULL);
 

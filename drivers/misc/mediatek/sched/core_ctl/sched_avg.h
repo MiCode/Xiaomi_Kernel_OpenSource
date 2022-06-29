@@ -26,7 +26,7 @@ extern int arch_get_nr_clusters(void);
 extern int arch_get_cluster_id(unsigned int cpu);
 extern int init_sched_avg(void);
 extern void exit_sched_avg(void);
-extern unsigned int sched_get_cpu_util_pct(unsigned int cpu);
+extern unsigned int get_cpu_util_pct(unsigned int cpu, bool orig);
 extern void set_over_threshold(unsigned int index, unsigned int val);
 unsigned int get_over_threshold(int index);
 unsigned int get_max_capacity(unsigned int cid);
