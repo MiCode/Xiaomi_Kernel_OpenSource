@@ -55,8 +55,6 @@
 #include <linux/mem-buf.h>
 #include <asm/arch_timer.h>
 
-#include <trace/events/rproc_qcom.h>
-
 #define CREATE_TRACE_POINTS
 #include <trace/events/fastrpc.h>
 
@@ -6988,7 +6986,7 @@ static int fastrpc_restart_notifier_cb(struct notifier_block *nb,
 	cid = ctx - &me->channel[0];
 	switch (code) {
 	case QCOM_SSR_BEFORE_SHUTDOWN:
-		trace_rproc_qcom_event(gcinfo[cid].subsys,
+		fastrpc_rproc_trace_events(gcinfo[cid].subsys,
 			"QCOM_SSR_BEFORE_SHUTDOWN", "fastrpc_restart_notifier-enter");
 		pr_info("adsprpc: %s: %s subsystem is restarting\n",
 			__func__, gcinfo[cid].subsys);
@@ -7000,13 +6998,13 @@ static int fastrpc_restart_notifier_cb(struct notifier_block *nb,
 			me->staticpd_flags = 0;
 		break;
 	case QCOM_SSR_AFTER_SHUTDOWN:
-		trace_rproc_qcom_event(gcinfo[cid].subsys,
+		fastrpc_rproc_trace_events(gcinfo[cid].subsys,
 			"QCOM_SSR_AFTER_SHUTDOWN", "fastrpc_restart_notifier-enter");
 		pr_info("adsprpc: %s: received RAMDUMP notification for %s\n",
 			__func__, gcinfo[cid].subsys);
 		break;
 	case QCOM_SSR_BEFORE_POWERUP:
-		trace_rproc_qcom_event(gcinfo[cid].subsys,
+		fastrpc_rproc_trace_events(gcinfo[cid].subsys,
 			"QCOM_SSR_BEFORE_POWERUP", "fastrpc_restart_notifier-enter");
 		/* Skip ram dump collection in first boot */
 		if (cid == CDSP_DOMAIN_ID && dump_enabled() &&
@@ -7019,7 +7017,7 @@ static int fastrpc_restart_notifier_cb(struct notifier_block *nb,
 		fastrpc_notify_drivers(me, cid);
 		break;
 	case QCOM_SSR_AFTER_POWERUP:
-		trace_rproc_qcom_event(gcinfo[cid].subsys,
+		fastrpc_rproc_trace_events(gcinfo[cid].subsys,
 			"QCOM_SSR_AFTER_POWERUP", "fastrpc_restart_notifier-enter");
 		pr_info("adsprpc: %s: %s subsystem is up\n",
 			__func__, gcinfo[cid].subsys);
@@ -7029,7 +7027,7 @@ static int fastrpc_restart_notifier_cb(struct notifier_block *nb,
 		break;
 	}
 
-	trace_rproc_qcom_event(dev_name(me->dev), "fastrpc_restart_notifier", "exit");
+	fastrpc_rproc_trace_events(dev_name(me->dev), "fastrpc_restart_notifier", "exit");
 	return NOTIFY_DONE;
 }
 
