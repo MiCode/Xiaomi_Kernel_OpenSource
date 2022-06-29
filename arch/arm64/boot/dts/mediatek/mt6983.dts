@@ -10388,6 +10388,7 @@
 		twohart = <1>;		/* two hart arch */
 		femter-ck = <10>;	/* clk table fmeter f_fmmup_ck */
 		mbox-count = <5>;
+		vcp-ee-enable = <1>;
 		/* id, mbox, send_size*/
 		send-table =
 		< 0 0 18>,/* IPI_OUT_VDEC_1 */
