@@ -9220,7 +9220,7 @@ void Panel_Master_primary_display_config_dsi(struct mtk_dsi *dsi,
 	const char *name, uint32_t config_value)
 {
 	unsigned long mipi_tx_rate;
-
+	int ret;
 	if (!strcmp(name, "PM_CLK")) {
 		pr_debug("Pmaster_config_dsi: PM_CLK:%d\n", config_value);
 		dsi->ext->params->pll_clk = config_value;
@@ -9236,7 +9236,9 @@ void Panel_Master_primary_display_config_dsi(struct mtk_dsi *dsi,
 	mtk_dsi_set_interrupt_enable(dsi);
 	/* config dsi clk */
 
-	clk_set_rate(dsi->hs_clk, mipi_tx_rate);
+	ret = clk_set_rate(dsi->hs_clk, mipi_tx_rate);
+	if  (ret < 0)
+		pr_debug("clk_set_rate failed\n");
 	mtk_mipi_tx_pll_rate_set_adpt(dsi->phy, dsi->data_rate);
 
 	mtk_dsi_phy_timconfig(dsi, NULL);
