@@ -2150,13 +2150,13 @@ bool mtk_raw_resource_calc(struct mtk_cam_device *cam,
 	if (ret)
 		dev_info(cam->dev, "failed to find valid resource\n");
 
-	/* TODO: Will, Roy, return raw pixel mode in 7s*/
-	res->raw_pixel_mode = 0;
+	/* return raw pixel mode in 7s*/
 	res->frz_enable = 0;
 	res->frz_ratio = 100;
 	res->res_plan = res_plan;
 	res->pixel_rate = pixel_rate;
 	res->tgo_pxl_mode = mtk_pixelmode_val(calc.raw_pixel_mode);
+	res->raw_pixel_mode = mtk_pixelmode_val(calc.raw_pixel_mode);
 	res->tgo_pxl_mode_before_raw = 3; //fixed to 8p
 	res->raw_num_used = calc.raw_num;
 	res->clk_target = calc.clk;
