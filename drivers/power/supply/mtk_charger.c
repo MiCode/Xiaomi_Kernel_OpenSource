@@ -1400,9 +1400,7 @@ char *sc_solToStr(int s)
 	default:
 		return "none";
 	}
-	return "none";
 }
-
 
 int smart_charging(struct mtk_charger *info)
 {
@@ -1426,10 +1424,15 @@ int smart_charging(struct mtk_charger *info)
 			if (time_to_target > 0)
 				ret_value = SC_DISABLE;
 		} else {
-			time_to_full_default_current =
-				info->sc.battery_size * 3600 / 10000 *
-				(10000 - sc_battery_percentage)
-					/ sc_charger_current;
+			if (sc_charger_current != 0)
+				time_to_full_default_current =
+					info->sc.battery_size * 3600 / 10000 *
+					(10000 - sc_battery_percentage)
+						/ sc_charger_current;
+			else
+				time_to_full_default_current =
+					info->sc.battery_size * 3600 / 10000 *
+					(10000 - sc_battery_percentage);
 			chr_err("sc1: %d %d %d %d %d\n",
 				time_to_full_default_current,
 				info->sc.battery_size,
