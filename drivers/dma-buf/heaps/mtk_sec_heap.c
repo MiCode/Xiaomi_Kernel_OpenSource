@@ -1324,7 +1324,7 @@ static int mtk_region_heap_create(struct device *dev,
 		enum sec_heap_region_type s, enum sec_heap_region_type e)
 {
 	struct dma_heap_export_info exp_info;
-	int i, j;
+	int i, j, ret;
 
 	/* region base & page base use same heap show */
 	exp_info.priv = (void *)&mtk_sec_heap_priv;
@@ -1340,8 +1340,12 @@ static int mtk_region_heap_create(struct device *dev,
 				return PTR_ERR(mtk_sec_heap_region[i].heap[j]);
 
 			mtk_sec_heap_region[i].heap_dev = dev;
-			dma_set_mask_and_coherent(mtk_sec_heap_region[i].heap_dev,
-						  DMA_BIT_MASK(34));
+			ret = dma_set_mask_and_coherent(mtk_sec_heap_region[i].heap_dev,
+							DMA_BIT_MASK(34));
+			if (ret) {
+				dev_info(dev, "dma_set_mask_and_coherent failed: %d\n", ret);
+				return ret;
+			}
 			mutex_init(&mtk_sec_heap_region[i].heap_lock);
 
 			pr_info("%s add heap[%s][%d] dev:%s, success\n", __func__,
