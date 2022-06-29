@@ -13670,7 +13670,7 @@
 			dram-num = <2>;
 			dramc-ver = <2>;
 			/*0: dram ebg, 1:emi_freq, 2: DRAMC_DCM_CTRL 3:chn_emi_low_effi */
-			met-emi-support-list = <0x17>;
+			met-emi-support-list = <0x13>;
 			cen-emi-reg-base = <0x10219000 0x1021d000>;
 			cen-emi-reg-size = <0x1000>;
 			chn-emi-reg-base = <0x10235000 0x10245000 0x10255000 0x10265000>;
