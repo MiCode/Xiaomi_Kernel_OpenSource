@@ -62,6 +62,12 @@ struct snd_usb_audio {
 	struct media_device *media_dev;
 	struct media_intf_devnode *ctl_intf_media_devnode;
 
+#if IS_ENABLED(CONFIG_MTK_USB_OFFLOAD)
+	struct mutex dev_lock;  /* to protect any race with disconnect */
+	int card_num;	/* cache pcm card number to use upon disconnect */
+	void (*disconnect_cb)(struct snd_usb_audio *chip);
+
+#endif
 	ANDROID_KABI_RESERVE(1);
 	ANDROID_KABI_RESERVE(2);
 	ANDROID_KABI_RESERVE(3);

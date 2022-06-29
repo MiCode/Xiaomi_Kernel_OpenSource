@@ -207,4 +207,10 @@ struct snd_usb_stream {
 	struct list_head list;
 };
 
+#if IS_ENABLED(CONFIG_MTK_USB_OFFLOAD)
+struct snd_usb_substream *find_snd_usb_substream(unsigned int card_num,
+	unsigned int pcm_idx, unsigned int direction, struct snd_usb_audio
+	**uchip, void (*disconnect_cb)(struct snd_usb_audio *chip));
+
+#endif
 #endif /* __USBAUDIO_CARD_H */

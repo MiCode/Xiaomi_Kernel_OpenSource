@@ -66,9 +66,19 @@ static void snd_usb_audio_stream_free(struct snd_usb_stream *stream)
 static void snd_usb_audio_pcm_free(struct snd_pcm *pcm)
 {
 	struct snd_usb_stream *stream = pcm->private_data;
+#if IS_ENABLED(CONFIG_MTK_USB_OFFLOAD)
+	struct snd_usb_audio *chip;
+#endif
 	if (stream) {
+#if IS_ENABLED(CONFIG_MTK_USB_OFFLOAD)
+		mutex_lock(&stream->chip->dev_lock);
+		chip = stream->chip;
+#endif
 		stream->pcm = NULL;
 		snd_usb_audio_stream_free(stream);
+#if IS_ENABLED(CONFIG_MTK_USB_OFFLOAD)
+		mutex_unlock(&chip->dev_lock);
+#endif
 	}
 }
 
@@ -1250,4 +1260,3 @@ int snd_usb_parse_audio_interface(struct snd_usb_audio *chip, int iface_no)
 
 	return 0;
 }
-
