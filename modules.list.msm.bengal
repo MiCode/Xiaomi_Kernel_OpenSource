@@ -61,6 +61,7 @@ qnoc-qos.ko
 qrtr.ko
 qti-regmap-debugfs.ko
 regmap-spmi.ko
+sched-walt.ko
 secure_buffer.ko
 smem.ko
 socinfo.ko
