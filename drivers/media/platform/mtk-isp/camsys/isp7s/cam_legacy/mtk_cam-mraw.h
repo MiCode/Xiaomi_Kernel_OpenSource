@@ -181,8 +181,10 @@ struct mtk_mraw_pipeline {
 
 	/* seninf pad index */
 	u32 seninf_padidx;
-
 	unsigned int cammux_id;
+
+	unsigned int req_pfmt_update;
+	struct v4l2_subdev_format req_pad_fmt[MTK_MRAW_PIPELINE_PADS_NUM];
 };
 
 struct mtk_mraw_device {

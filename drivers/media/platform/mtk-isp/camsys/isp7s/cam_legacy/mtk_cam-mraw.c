@@ -367,17 +367,29 @@ int mtk_mraw_call_pending_set_fmt(struct v4l2_subdev *sd,
 	return mtk_mraw_call_set_fmt(sd, NULL, fmt);
 }
 
+static int mtk_mraw_collect_pfmt(struct mtk_mraw_pipeline *pipe,
+				struct v4l2_subdev_format *fmt)
+{
+	int pad = fmt->pad;
+
+	pipe->req_pfmt_update |= 1 << pad;
+	pipe->req_pad_fmt[pad] = *fmt;
+
+	dev_dbg(pipe->subdev.v4l2_dev->dev,
+		"%s:%s:pad(%d), pending s_fmt, w/h/code=%d/%d/0x%x\n",
+		__func__, pipe->subdev.name,
+		pad, fmt->format.width, fmt->format.height,
+		fmt->format.code);
+
+	return 0;
+}
+
 static int mtk_mraw_set_fmt(struct v4l2_subdev *sd,
 			  struct v4l2_subdev_state *state,
 			  struct v4l2_subdev_format *fmt)
 {
-	struct media_request *req;
-	struct mtk_cam_request *cam_req;
-	struct mtk_cam_request_stream_data *stream_data;
-
 	struct mtk_mraw_pipeline *pipe =
 		container_of(sd, struct mtk_mraw_pipeline, subdev);
-	struct mtk_cam_device *cam = dev_get_drvdata(pipe->mraw->cam_dev);
 
 	if (fmt->which == V4L2_SUBDEV_FORMAT_TRY)
 		return mtk_mraw_call_set_fmt(sd, state, fmt);
@@ -386,26 +398,7 @@ static int mtk_mraw_set_fmt(struct v4l2_subdev *sd,
 	if (!sd->entity.stream_count)
 		return mtk_mraw_call_set_fmt(sd, state, fmt);
 
-	if (v4l2_subdev_format_request_fd(fmt) <= 0)
-		return -EINVAL;
-
-	req = media_request_get_by_fd(&cam->media_dev,
-				v4l2_subdev_format_request_fd(fmt));
-	if (req) {
-		cam_req = to_mtk_cam_req(req);
-		dev_info(cam->dev, "sd:%s pad:%d pending success, req fd(%d)\n",
-			sd->name, fmt->pad, v4l2_subdev_format_request_fd(fmt));
-	} else {
-		dev_info(cam->dev, "sd:%s pad:%d pending failed, req fd(%d) invalid\n",
-			sd->name, fmt->pad, v4l2_subdev_format_request_fd(fmt));
-		return -EINVAL;
-	}
-
-	stream_data = mtk_cam_req_get_s_data_no_chk(cam_req, pipe->id, 0);
-	stream_data->pad_fmt_update |= (1 << fmt->pad);
-	stream_data->pad_fmt[fmt->pad] = *fmt;
-
-	media_request_put(req);
+	mtk_mraw_collect_pfmt(pipe, fmt);
 
 	return 0;
 }

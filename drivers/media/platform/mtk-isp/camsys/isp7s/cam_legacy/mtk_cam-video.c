@@ -2105,6 +2105,16 @@ int mtk_cam_collect_vfmt(struct mtk_raw_pipeline *pipe,
 	return 0;
 }
 
+int mtk_cam_collect_sv_vfmt(struct mtk_camsv_pipeline *pipe,
+			 struct mtk_cam_video_device *node,
+			 struct v4l2_format *f)
+{
+	pipe->req_vfmt_update |= (1 << node->desc.id);
+	node->pending_fmt = *f;
+
+	return 0;
+}
+
 /* check the setting from user with scen and log the error for integration test */
 int mtk_cam_video_s_fmt_chk_feature(struct mtk_cam_video_device *node,
 				    struct v4l2_format *f,
@@ -2356,14 +2366,16 @@ int mtk_cam_vidioc_s_fmt(struct file *file, void *fh, struct v4l2_format *f)
 	struct mtk_cam_device *cam = video_drvdata(file);
 	struct mtk_cam_video_device *node = file_to_mtk_cam_node(file);
 	struct mtk_raw_pipeline *raw_pipeline;
+	struct mtk_camsv_pipeline *sv_pipeline;
 	struct mtk_cam_scen scen;
+
 	raw_pipeline = mtk_cam_dev_get_raw_pipeline(cam, node->uid.pipe_id);
+	sv_pipeline = mtk_cam_dev_get_sv_pipeline(cam, node->uid.pipe_id);
 
 	if (!vb2_is_busy(node->vdev.queue)) {
 		mtk_cam_scen_init(&scen);
 
 		/* Get the valid format */
-		raw_pipeline = mtk_cam_dev_get_raw_pipeline(cam, node->uid.pipe_id);
 		if (raw_pipeline)
 			scen = raw_pipeline->user_res.raw_res.scen;
 
@@ -2377,7 +2389,8 @@ int mtk_cam_vidioc_s_fmt(struct file *file, void *fh, struct v4l2_format *f)
 
 	if (raw_pipeline)
 		mtk_cam_collect_vfmt(raw_pipeline, node, f);
-	/* TODO: collect mraw and camsv's request-based s_fzmt */
+	if (sv_pipeline)
+		mtk_cam_collect_sv_vfmt(sv_pipeline, node, f);
 
 	dev_dbg(cam->dev,
 		"%s:pipe(%d):%s:pending s_fmt: pixelfmt(0x%x), w(%d), h(%d)\n",

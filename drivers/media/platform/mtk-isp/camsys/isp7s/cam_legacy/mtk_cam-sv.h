@@ -178,6 +178,10 @@ struct mtk_camsv_pipeline {
 
 	/* seninf pad index */
 	u32 seninf_padidx;
+
+	unsigned int req_vfmt_update;
+	unsigned int req_pfmt_update;
+	struct v4l2_subdev_format req_pad_fmt[MTK_CAMSV_PIPELINE_PADS_NUM];
 };
 
 struct mtk_camsv_tag_info {

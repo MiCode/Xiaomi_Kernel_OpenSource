@@ -2501,7 +2501,7 @@ static int mtk_cam_req_set_fmt(struct mtk_cam_device *cam,
 				ctx_stream_data = mtk_cam_req_get_s_data(req, ctx->stream_id, 0);
 
 				mtk_cam_req_set_sv_vfmt(cam, sv_pipeline, stream_data);
-				for (pad = MTK_CAMSV_SOURCE_BEGIN;
+				for (pad = MTK_CAMSV_SINK_BEGIN;
 					 pad < MTK_CAMSV_PIPELINE_PADS_NUM; pad++)
 					if (stream_data->pad_fmt_update & (1 << pad)) {
 						ctx_stream_data->flags |=
@@ -4516,6 +4516,65 @@ int mtk_cam_req_save_raw_psel(struct mtk_raw_pipeline *pipe,
 	return 0;
 }
 
+int mtk_cam_req_save_sv_vfmts(struct mtk_camsv_pipeline *pipe,
+			       struct mtk_cam_request *cam_req,
+			       struct mtk_cam_request_stream_data *s_data)
+{
+	int i;
+	struct mtk_cam_video_device *node;
+	struct v4l2_format *vfmt;
+
+	for (i = MTK_CAMSV_SOURCE_BEGIN; i < MTK_CAMSV_PIPELINE_PADS_NUM; i++) {
+		if (!(pipe->req_vfmt_update & 1 << i))
+			continue;
+
+		node = &pipe->vdev_nodes[i - MTK_CAMSV_SOURCE_BEGIN];
+		s_data->vdev_fmt_update |= (1 << node->desc.id);
+		vfmt = mtk_cam_s_data_get_vfmt(s_data, node->desc.id);
+		*vfmt = node->pending_fmt;
+	}
+
+	pipe->req_vfmt_update = 0;
+
+	return 0;
+}
+
+int mtk_cam_req_save_sv_pfmt(struct mtk_camsv_pipeline *pipe,
+			      struct mtk_cam_request *cam_req,
+			      struct mtk_cam_request_stream_data *s_data)
+{
+	int pad;
+
+	s_data->pad_fmt_update = pipe->req_pfmt_update;
+	/* save MEDIA_PAD_FL_SINK pad's fmt to request */
+	for (pad = MTK_CAMSV_SINK_BEGIN; pad < MTK_CAMSV_PIPELINE_PADS_NUM; pad++) {
+		if (s_data->pad_fmt_update & 1 << pad)
+			s_data->pad_fmt[pad] = pipe->req_pad_fmt[pad];
+	}
+
+	pipe->req_pfmt_update = 0;
+
+	return 0;
+}
+
+int mtk_cam_req_save_mraw_pfmt(struct mtk_mraw_pipeline *pipe,
+			      struct mtk_cam_request *cam_req,
+			      struct mtk_cam_request_stream_data *s_data)
+{
+	int pad;
+
+	s_data->pad_fmt_update = pipe->req_pfmt_update;
+	/* save MEDIA_PAD_FL_SINK pad's fmt to request */
+	for (pad = MTK_MRAW_SINK_BEGIN; pad < MTK_MRAW_PIPELINE_PADS_NUM; pad++) {
+		if (s_data->pad_fmt_update & 1 << pad)
+			s_data->pad_fmt[pad] = pipe->req_pad_fmt[pad];
+	}
+
+	pipe->req_pfmt_update = 0;
+
+	return 0;
+}
+
 static void mtk_cam_req_init(struct mtk_cam_request *cam_req)
 {
 	/* reset done status */
@@ -4535,6 +4594,8 @@ static void mtk_cam_req_queue(struct media_request *req)
 	struct mtk_cam_device *cam =
 		container_of(req->mdev, struct mtk_cam_device, media_dev);
 	struct mtk_raw_pipeline *raw_pipeline;
+	struct mtk_camsv_pipeline *sv_pipeline;
+	struct mtk_mraw_pipeline *mraw_pipeline;
 	struct mtk_cam_request_stream_data *s_data;
 
 	mtk_cam_req_init(cam_req);
@@ -4554,6 +4615,21 @@ static void mtk_cam_req_queue(struct media_request *req)
 			mtk_cam_req_save_raw_vsels(raw_pipeline, cam_req, s_data);
 			mtk_cam_req_save_raw_pfmt(raw_pipeline, cam_req, s_data);
 			mtk_cam_req_save_raw_psel(raw_pipeline, cam_req, s_data);
+		}
+	}
+	for (i = MTKCAM_SUBDEV_CAMSV_START; i < MTKCAM_SUBDEV_CAMSV_END; i++) {
+		if (cam_req->pipe_used & 1 << i) {
+			sv_pipeline = &cam->sv.pipelines[i - MTKCAM_SUBDEV_CAMSV_START];
+			s_data = mtk_cam_req_get_s_data_no_chk(cam_req, i, 0);
+			mtk_cam_req_save_sv_pfmt(sv_pipeline, cam_req, s_data);
+			mtk_cam_req_save_sv_vfmts(sv_pipeline, cam_req, s_data);
+		}
+	}
+	for (i = MTKCAM_SUBDEV_MRAW_START; i < MTKCAM_SUBDEV_MRAW_END; i++) {
+		if (cam_req->pipe_used & 1 << i) {
+			mraw_pipeline = &cam->mraw.pipelines[i - MTKCAM_SUBDEV_MRAW_START];
+			s_data = mtk_cam_req_get_s_data_no_chk(cam_req, i, 0);
+			mtk_cam_req_save_mraw_pfmt(mraw_pipeline, cam_req, s_data);
 		}
 	}
 
@@ -6375,6 +6451,16 @@ mtk_cam_dev_get_raw_pipeline(struct mtk_cam_device *cam,
 		return NULL;
 	else
 		return &cam->raw.pipelines[pipe_id - MTKCAM_SUBDEV_RAW_0];
+}
+
+struct mtk_camsv_pipeline*
+mtk_cam_dev_get_sv_pipeline(struct mtk_cam_device *cam,
+			     unsigned int pipe_id)
+{
+	if (pipe_id < MTKCAM_SUBDEV_CAMSV_START || pipe_id >= MTKCAM_SUBDEV_CAMSV_END)
+		return NULL;
+	else
+		return &cam->sv.pipelines[pipe_id - MTKCAM_SUBDEV_CAMSV_START];
 }
 
 static int

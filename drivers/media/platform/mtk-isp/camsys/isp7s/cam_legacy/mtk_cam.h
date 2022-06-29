@@ -1051,6 +1051,8 @@ mtk_cam_get_req_s_data(struct mtk_cam_ctx *ctx,
 		       unsigned int pipe_id, unsigned int frame_seq_no);
 struct mtk_raw_pipeline *mtk_cam_dev_get_raw_pipeline(struct mtk_cam_device *cam,
 						      unsigned int id);
+struct mtk_camsv_pipeline *mtk_cam_dev_get_sv_pipeline(struct mtk_cam_device *cam,
+						      unsigned int id);
 bool finish_img_buf(struct mtk_cam_request_stream_data *req_stream_data);
 
 int get_first_sv_tag_idx(struct mtk_cam_ctx *ctx, unsigned int exp_no);
