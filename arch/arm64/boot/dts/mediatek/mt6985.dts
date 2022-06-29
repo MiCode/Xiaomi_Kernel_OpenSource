@@ -6427,11 +6427,13 @@
 			power-domains = <&scpsys MT6985_POWER_DOMAIN_CONN>;
 			emi-addr = <0>;
 			emi-size = <0>;
-			ro-emi-size = <0x470000>;
+			ro-emi-size = <0x510000>;
 			rw-emi-size = <0xe0000>;
-			shared-emi-size = <0x140000>;
-			mnl-mpe-emi-size = <0x280000>;
-			scp-shm-size = <0x96000>;
+			shared-emi-size = <0x180000>;
+			mnl-mpe-emi-size = <0x3ee000>;
+			scp-shm-size = <0xa2000>;
+			gps-emi-offset = <0x630000>;
+			gps-emi-size = <0x140000>;
 			emi-alignment = <0x100000>;
 			emi-min-addr = <0x40000000>;
 			emi-max-addr = <0xA0000000>;
