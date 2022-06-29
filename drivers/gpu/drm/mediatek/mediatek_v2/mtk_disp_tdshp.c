@@ -326,7 +326,7 @@ static int mtk_disp_tdshp_set_reg(struct mtk_ddp_comp *comp,
 			sizeof(struct DISP_TDSHP_REG));
 		id = index_of_tdshp(comp->id);
 
-		if (id >= 0 && id < 2) {
+		if (id >= 0 && id < DISP_TDSHP_HW_ENGINE_NUM) {
 			mutex_lock(&g_tdshp_global_lock);
 
 			old_tdshp_regs = g_disp_tdshp_regs[id];

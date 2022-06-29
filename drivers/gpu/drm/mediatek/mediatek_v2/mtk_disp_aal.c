@@ -2829,6 +2829,7 @@ static int mtk_disp_aal_probe(struct platform_device *pdev)
 	struct platform_device *dre3_pdev;
 	struct resource dre3_res;
 	struct sched_param param = {.sched_priority = 85 };
+	struct cpumask mask;
 
 	DDPINFO("%s+\n", __func__);
 
@@ -2971,6 +2972,9 @@ static int mtk_disp_aal_probe(struct platform_device *pdev)
 		aal_sof_irq_event_task =
 			kthread_create(mtk_aal_sof_irq_trigger,
 				NULL, "aal_sof");
+		cpumask_setall(&mask);
+		cpumask_clear_cpu(0, &mask);
+		set_cpus_allowed_ptr(aal_sof_irq_event_task, &mask);
 		if (sched_setscheduler(aal_sof_irq_event_task, SCHED_RR, &param))
 			pr_notice("aal_sof_irq_event_task setschedule fail");
 		wake_up_process(aal_sof_irq_event_task);
