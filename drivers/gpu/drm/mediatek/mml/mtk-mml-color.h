@@ -144,7 +144,7 @@ enum mml_color {
 	/* HyFBC format YUV420 with compress, align size 32x16 */
 	MML_FMT_NV12_HYFBC	= MML_FMT(2, 0, 0, 0, 1, 1, 1, 12, 1, 0, 12),
 	/* HyFBC format YUV420 10bit with compress, align size 32x16 */
-	MML_FMT_P010_HYFBC	= MML_FMT(2, 1, 0, 0, 1, 1, 1, 16, 1, 0, 12),
+	MML_FMT_P010_HYFBC	= MML_FMT(2, 1, 0, 0, 1, 1, 1, 18, 1, 0, 12),
 };
 
 /* Combine colorspace, xfer_func, ycbcr_encoding, and quantization */
