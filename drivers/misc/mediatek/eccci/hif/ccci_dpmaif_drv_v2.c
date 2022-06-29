@@ -1116,7 +1116,7 @@ static void drv2_dump_register(int buf_type)
 {
 	CCCI_BUF_LOG_TAG(0, buf_type, TAG,
 		"dump AP DPMAIF pd_ul_base; register -> (start addr: 0x%llX, len: %d):\n",
-		dpmaif_ctl->pd_ul_base + DPMAIF_PD_UL_ADD_DESC,
+		(unsigned long long)dpmaif_ctl->pd_ul_base + DPMAIF_PD_UL_ADD_DESC,
 		DPMAIF_PD_UL_ADD_DESC_CH4 - DPMAIF_PD_UL_ADD_DESC + 4);
 	ccci_util_mem_dump(buf_type,
 		dpmaif_ctl->pd_ul_base + DPMAIF_PD_UL_ADD_DESC,
@@ -1124,7 +1124,7 @@ static void drv2_dump_register(int buf_type)
 
 	CCCI_BUF_LOG_TAG(0, buf_type, TAG,
 		"dump AP DPMAIF ao_ul_base; register -> (start addr: 0x%llX, len: %d):\n",
-		dpmaif_ctl->ao_ul_base + DPMAIF_AO_UL_CHNL0_STA,
+		(unsigned long long)dpmaif_ctl->ao_ul_base + DPMAIF_AO_UL_CHNL0_STA,
 		DPMAIF_AO_UL_CH_WEIGHT1 - DPMAIF_AO_UL_CHNL0_STA + 4);
 	ccci_util_mem_dump(buf_type,
 		dpmaif_ctl->ao_ul_base + DPMAIF_AO_UL_CHNL0_STA,
@@ -1132,7 +1132,7 @@ static void drv2_dump_register(int buf_type)
 
 	CCCI_BUF_LOG_TAG(0, buf_type, TAG,
 		"dump AP DPMAIF pd_dl_base; register -> (start addr: 0x%llX, len: %d):\n",
-		dpmaif_ctl->pd_dl_base + DPMAIF_PD_DL_BAT_INIT,
+		(unsigned long long)dpmaif_ctl->pd_dl_base + DPMAIF_PD_DL_BAT_INIT,
 		DPMAIF_PD_DL_DBG_STA14 - DPMAIF_PD_DL_BAT_INIT + 4);
 	ccci_util_mem_dump(buf_type,
 		dpmaif_ctl->pd_dl_base + DPMAIF_PD_DL_BAT_INIT,
@@ -1140,7 +1140,7 @@ static void drv2_dump_register(int buf_type)
 
 	CCCI_BUF_LOG_TAG(0, buf_type, TAG,
 		"dump AP DPMAIF ao_dl_base; register -> (start addr: 0x%llX, len: %d):\n",
-		dpmaif_ctl->ao_dl_base + DPMAIF_AO_DL_PKTINFO_CONO,
+		(unsigned long long)dpmaif_ctl->ao_dl_base + DPMAIF_AO_DL_PKTINFO_CONO,
 		DPMAIF_AO_DL_REORDER_THRES - DPMAIF_AO_DL_PKTINFO_CONO + 4);
 	ccci_util_mem_dump(buf_type,
 		dpmaif_ctl->ao_dl_base + DPMAIF_AO_DL_PKTINFO_CONO,
@@ -1148,19 +1148,19 @@ static void drv2_dump_register(int buf_type)
 
 	CCCI_BUF_LOG_TAG(0, buf_type, TAG,
 		"dump AP DPMAIF pd_dl_base; register -> (start addr: 0x%llX, len: %d):\n",
-		dpmaif_ctl->pd_dl_base + 0x100, 0xC4);
+		(unsigned long long)dpmaif_ctl->pd_dl_base + 0x100, 0xC4);
 	ccci_util_mem_dump(buf_type,
 			dpmaif_ctl->pd_dl_base + 0x100, 0xC4);
 
 	CCCI_BUF_LOG_TAG(0, buf_type, TAG,
 		"dump AP DPMAIF pd_dl_base; register -> (start addr: 0x%llX, len: %d):\n",
-		dpmaif_ctl->pd_dl_base + 0x200, 0x58 + 4);
+		(unsigned long long)dpmaif_ctl->pd_dl_base + 0x200, 0x58 + 4);
 	ccci_util_mem_dump(buf_type,
 			dpmaif_ctl->pd_dl_base + 0x200, 0x58 + 4);
 
 	CCCI_BUF_LOG_TAG(0, buf_type, TAG,
 		"dump AP DPMAIF pd_misc_base; register -> (start addr: 0x%llX, len: %d):\n",
-		dpmaif_ctl->pd_misc_base + DPMAIF_PD_AP_UL_L2TISAR0,
+		(unsigned long long)dpmaif_ctl->pd_misc_base + DPMAIF_PD_AP_UL_L2TISAR0,
 		DPMAIF_AP_MISC_APB_DBG_SRAM - DPMAIF_PD_AP_UL_L2TISAR0 + 4);
 	ccci_util_mem_dump(buf_type,
 		dpmaif_ctl->pd_misc_base + DPMAIF_PD_AP_UL_L2TISAR0,
@@ -1168,7 +1168,7 @@ static void drv2_dump_register(int buf_type)
 
 	CCCI_BUF_LOG_TAG(0, buf_type, TAG,
 		"dump AP DPMAIF ao_md_dl_base; register -> (start addr: 0x%llX, len: %d):\n",
-		dpmaif_ctl->ao_md_dl_base + DPMAIF_MISC_AO_CFG0,
+		(unsigned long long)dpmaif_ctl->ao_md_dl_base + DPMAIF_MISC_AO_CFG0,
 		DPMAIF_AXI_MAS_SECURE - DPMAIF_MISC_AO_CFG0 + 4);
 	ccci_util_mem_dump(buf_type,
 		dpmaif_ctl->ao_md_dl_base + DPMAIF_MISC_AO_CFG0,
@@ -1176,7 +1176,7 @@ static void drv2_dump_register(int buf_type)
 
 	CCCI_BUF_LOG_TAG(0, buf_type, TAG,
 		"dump MD DPMAIF pd_md_misc_base; register -> (start addr: 0x%llX, len: %d):\n",
-		dpmaif_ctl->pd_md_misc_base + DPMAIF_PD_MD_IP_BUSY,
+		(unsigned long long)dpmaif_ctl->pd_md_misc_base + DPMAIF_PD_MD_IP_BUSY,
 		DPMAIF_PD_MD_IP_BUSY_MASK - DPMAIF_PD_MD_IP_BUSY + 4);
 	ccci_util_mem_dump(buf_type,
 		dpmaif_ctl->pd_md_misc_base + DPMAIF_PD_MD_IP_BUSY,
@@ -1184,31 +1184,31 @@ static void drv2_dump_register(int buf_type)
 
 	CCCI_BUF_LOG_TAG(0, buf_type, TAG,
 		"dump AP DPMAIF pd_ul_base; register -> (start addr: 0x%llX, len: %d):\n",
-		dpmaif_ctl->pd_ul_base + 0x540, 0xBC);
+		(unsigned long long)dpmaif_ctl->pd_ul_base + 0x540, 0xBC);
 	ccci_util_mem_dump(buf_type,
 		dpmaif_ctl->pd_ul_base + 0x540, 0xBC);
 
 	CCCI_BUF_LOG_TAG(0, buf_type, TAG,
 		"dump MD DPMAIF pd_md_misc_base; register -> (start addr: 0x%llX, len: %d):\n",
-		dpmaif_ctl->pd_md_misc_base + 0x100, 0xCC);
+		(unsigned long long)dpmaif_ctl->pd_md_misc_base + 0x100, 0xCC);
 	ccci_util_mem_dump(buf_type,
 		dpmaif_ctl->pd_md_misc_base + 0x100, 0xCC);
 
 	CCCI_BUF_LOG_TAG(0, buf_type, TAG,
 		"dump AP DPMAIF pd_sram_base; register -> (start addr: 0x%llX, len: %d):\n",
-		dpmaif_ctl->pd_sram_base + 0x00, 0x1FF + 4);
+		(unsigned long long)dpmaif_ctl->pd_sram_base + 0x00, 0x1FF + 4);
 	ccci_util_mem_dump(buf_type,
 		dpmaif_ctl->pd_sram_base + 0x00, 0x1FF + 4);
 
 	CCCI_BUF_LOG_TAG(0, buf_type, TAG,
 		"dump SW CG infra_ao_base register -> (start addr: 0x%llX, len: %d):\n",
-		(void *)dpmaif_ctl->infra_ao_base + SW_CG_2_STA, 0x0F);
+		(unsigned long long)dpmaif_ctl->infra_ao_base + SW_CG_2_STA, 0x0F);
 	ccci_util_mem_dump(buf_type,
 		(void *)dpmaif_ctl->infra_ao_base + SW_CG_2_STA, 0x0F);
 
 	CCCI_BUF_LOG_TAG(0, buf_type, TAG,
 		"dump SW CG infra_ao_base register -> (start addr: 0x%llX, len: %d):\n",
-		(void *)dpmaif_ctl->infra_ao_base + SW_CG_3_STA, 0x0F);
+		(unsigned long long)dpmaif_ctl->infra_ao_base + SW_CG_3_STA, 0x0F);
 	ccci_util_mem_dump(buf_type,
 		(void *)dpmaif_ctl->infra_ao_base + SW_CG_3_STA, 0x0F);
 
