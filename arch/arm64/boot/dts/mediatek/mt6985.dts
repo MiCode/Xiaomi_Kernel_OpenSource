@@ -4271,16 +4271,6 @@
 			reg = <0 0x10341000 0 0x1000>;
 		};
 
-		emislb: emislb@10342000 {
-			compatible = "mediatek,common-emislb";
-			reg = <0 0x10342000 0 0x1000>,
-			      <0 0x10343000 0 0x1000>;
-			mediatek,emimpu-reg = <&emimpu>;
-			interrupts = <GIC_SPI 286 IRQ_TYPE_LEVEL_HIGH 0>;
-			dump = <0xd14 0xd18 0xd1c 0xd20 0xd24>;
-			clear = <0x680 0x80000000 1>;
-		};
-
 		nemi_hre_emi_apb@10344000 {
 			compatible = "mediatek,nemi_hre_emi_apb";
 			reg = <0 0x10344000 0 0x1000>;
