@@ -155,7 +155,6 @@ void read_sensor_Cali(struct subdrv_ctx *ctx)
 	u16 idx = 0;
 	u8 support = FALSE;
 	u8 *buf = NULL;
-	u8 *pbuf = NULL;
 	u16 size = 0;
 	u16 addr = 0;
 	int i = 0;
@@ -172,15 +171,15 @@ void read_sensor_Cali(struct subdrv_ctx *ctx)
 	size = info[idx].qsc_size;
 	addr = info[idx].addr_qsc;
 	buf = info[idx].qsc_table;
-	pbuf = info[idx].preload_qsc_table;
 	if (support && size > 0) {
-		if (pbuf == NULL) {
-			pbuf = kmalloc(size, GFP_KERNEL);
+		if (info[idx].preload_qsc_table == NULL) {
+			info[idx].preload_qsc_table = kmalloc(size, GFP_KERNEL);
 			if (buf == NULL) {
 				for (i = 0; i < size; i++)
-					*(pbuf + i) = i2c_read_eeprom(ctx, addr + i);
+					*(info[idx].preload_qsc_table + i) =
+					i2c_read_eeprom(ctx, addr + i);
 			} else {
-				memcpy(pbuf, buf, size);
+				memcpy(info[idx].preload_qsc_table, buf, size);
 			}
 			LOG_DBG("preload QSC data %u bytes", size);
 		} else {
@@ -193,15 +192,15 @@ void read_sensor_Cali(struct subdrv_ctx *ctx)
 	size = info[idx].pdc_size;
 	addr = info[idx].addr_pdc;
 	buf = info[idx].pdc_table;
-	pbuf = info[idx].preload_pdc_table;
 	if (support && size > 0) {
-		if (pbuf == NULL) {
-			pbuf = kmalloc(size, GFP_KERNEL);
+		if (info[idx].preload_pdc_table == NULL) {
+			info[idx].preload_pdc_table = kmalloc(size, GFP_KERNEL);
 			if (buf == NULL) {
 				for (i = 0; i < size; i++)
-					*(pbuf + i) = i2c_read_eeprom(ctx, addr + i);
+					*(info[idx].preload_pdc_table + i) =
+					i2c_read_eeprom(ctx, addr + i);
 			} else {
-				memcpy(pbuf, buf, size);
+				memcpy(info[idx].preload_pdc_table, buf, size);
 			}
 			LOG_DBG("preload PDC data %u bytes", size);
 		} else {
@@ -214,15 +213,15 @@ void read_sensor_Cali(struct subdrv_ctx *ctx)
 	size = info[idx].lrc_size;
 	addr = info[idx].addr_lrc;
 	buf = info[idx].lrc_table;
-	pbuf = info[idx].preload_lrc_table;
 	if (support && size > 0) {
-		if (pbuf == NULL) {
-			pbuf = kmalloc(size, GFP_KERNEL);
+		if (info[idx].preload_lrc_table == NULL) {
+			info[idx].preload_lrc_table = kmalloc(size, GFP_KERNEL);
 			if (buf == NULL) {
 				for (i = 0; i < size; i++)
-					*(pbuf + i) = i2c_read_eeprom(ctx, addr + i);
+					*(info[idx].preload_lrc_table + i) =
+					i2c_read_eeprom(ctx, addr + i);
 			} else {
-				memcpy(pbuf, buf, size);
+				memcpy(info[idx].preload_lrc_table, buf, size);
 			}
 			LOG_DBG("preload LRC data %u bytes", size);
 		} else {
@@ -235,15 +234,15 @@ void read_sensor_Cali(struct subdrv_ctx *ctx)
 	size = info[idx].xtalk_size;
 	addr = info[idx].addr_xtalk;
 	buf = info[idx].xtalk_table;
-	pbuf = info[idx].preload_xtalk_table;
 	if (support && size > 0) {
-		if (pbuf == NULL) {
-			pbuf = kmalloc(size, GFP_KERNEL);
+		if (info[idx].preload_xtalk_table == NULL) {
+			info[idx].preload_xtalk_table = kmalloc(size, GFP_KERNEL);
 			if (buf == NULL) {
 				for (i = 0; i < size; i++)
-					*(pbuf + i) = i2c_read_eeprom(ctx, addr + i);
+					*(info[idx].preload_xtalk_table + i) =
+					i2c_read_eeprom(ctx, addr + i);
 			} else {
-				memcpy(pbuf, buf, size);
+				memcpy(info[idx].preload_xtalk_table, buf, size);
 			}
 			LOG_DBG("preload XTALK data %u bytes", size);
 		} else {
@@ -1782,20 +1781,6 @@ int common_feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 
 int common_close(struct subdrv_ctx *ctx)
 {
-	u32 eeprom_num = 0;
-	u16 idx = 0;
-	struct eeprom_info_struct *info = ctx->s_ctx.eeprom_info;
-
-	if (info != NULL) {
-		eeprom_num = ctx->s_ctx.eeprom_num;
-		for (idx = 0; idx < eeprom_num; idx++) {
-			kfree(info[idx].preload_qsc_table);
-			kfree(info[idx].preload_pdc_table);
-			kfree(info[idx].preload_lrc_table);
-			kfree(info[idx].preload_xtalk_table);
-		}
-	}
-
 	streaming_control(ctx, FALSE);
 	LOG_DBG("subdrv closed\n");
 	return ERROR_NONE;
