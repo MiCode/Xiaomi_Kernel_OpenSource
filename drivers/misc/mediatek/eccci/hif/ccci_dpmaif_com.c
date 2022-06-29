@@ -455,6 +455,18 @@ lro_end:
 		dpmaif_handle_wakeup_skb(skb0);
 	}
 
+	if (g_debug_flags & DEBUG_RX_DONE_SKB) {
+		struct debug_rx_done_skb_hdr hdr;
+
+		hdr.type = TYPE_RX_DONE_SKB_ID;
+		hdr.qidx = rxq->index;
+		hdr.time = (unsigned int)(local_clock() >> 16);
+		hdr.bid  = rxq->skb_idx;
+		hdr.len  = skb0->len;
+		hdr.cidx = rxq->cur_chn_idx;
+		ccci_dpmaif_debug_add(&hdr, sizeof(hdr));
+	}
+
 	lhif_h = (struct lhif_header *)(skb_push(skb0,
 			sizeof(struct lhif_header)));
 	lhif_h->netif = rxq->cur_chn_idx;
