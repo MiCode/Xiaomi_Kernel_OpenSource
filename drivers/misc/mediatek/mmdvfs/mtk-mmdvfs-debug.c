@@ -17,6 +17,9 @@
 #include <linux/soc/mediatek/mtk_mmdvfs.h>
 #include <soc/mediatek/mmdvfs_v3.h>
 
+#define CREATE_TRACE_POINTS
+#include "mmdvfs_events.h"
+
 #define MMDVFS_DBG_VER1	BIT(0)
 #define MMDVFS_DBG_VER3	BIT(1)
 
@@ -53,6 +56,7 @@ struct mmdvfs_debug {
 };
 
 static struct mmdvfs_debug *g_mmdvfs;
+static bool ftrace_v1_ena, ftrace_v3_ena;
 
 void mtk_mmdvfs_debug_release_step0(void)
 {
@@ -160,7 +164,7 @@ static int mmdvfs_debug_opp_show(struct seq_file *file, void *data)
 
 	for (i = 0; i < g_mmdvfs->rec_cnt; i++)
 		seq_printf(file, "[%5llu.%06llu] opp:%u\n",
-			g_mmdvfs->rec[i].sec, g_mmdvfs->rec[i].nsec, i,
+			g_mmdvfs->rec[i].sec, g_mmdvfs->rec[i].nsec,
 			g_mmdvfs->rec[i].opp);
 
 	spin_unlock_irqrestore(&g_mmdvfs->lock, flags);
@@ -243,6 +247,171 @@ err:
 	mtk_mmdvfs_enable_vcp(false);
 	return ret;
 }
+
+static int mmdvfs_v1_dbg_ftrace_thread(void *data)
+{
+	static u8 old_cnt;
+	unsigned long flags;
+	int ret = 0;
+	s32 i;
+
+	while (!kthread_should_stop()) {
+
+		spin_lock_irqsave(&g_mmdvfs->lock, flags);
+
+		if (g_mmdvfs->rec_cnt != old_cnt) {
+			if (g_mmdvfs->rec_cnt > old_cnt) {
+				for (i = old_cnt; i < g_mmdvfs->rec_cnt; i++)
+					trace_mmdvfs__record_opp_v1(1, g_mmdvfs->rec[i].opp);
+			} else {
+				for (i = old_cnt; i < ARRAY_SIZE(g_mmdvfs->rec); i++)
+					trace_mmdvfs__record_opp_v1(1, g_mmdvfs->rec[i].opp);
+
+				for (i = 0; i < g_mmdvfs->rec_cnt; i++)
+					trace_mmdvfs__record_opp_v1(1, g_mmdvfs->rec[i].opp);
+			}
+
+			old_cnt = g_mmdvfs->rec_cnt;
+		}
+
+		spin_unlock_irqrestore(&g_mmdvfs->lock, flags);
+
+		msleep(20);
+	}
+
+	ftrace_v1_ena = false;
+	MMDVFS_DBG("kthread mmdvfs-dbg-ftrace-v1 end");
+	return ret;
+}
+
+static int mmdvfs_v3_dbg_ftrace_thread(void *data)
+{
+	static unsigned long old_cnt;
+	unsigned long cnt, mem[MMDVFS_RECORD_OBJ];
+	int ret = 0, retry = 0;
+	s32 i, j;
+
+	while (!mtk_is_mmdvfs_init_done() && !kthread_should_stop()) {
+		if (++retry > 50) {
+			MMDVFS_DBG("mmdvfs not ready");
+			goto err;
+		}
+		msleep(2000);
+	}
+
+	if (!g_mmdvfs->base) {
+		g_mmdvfs->base = mtk_mmdvfs_vcp_get_base();
+		if (!g_mmdvfs->base) {
+			ftrace_v3_ena = false;
+			MMDVFS_DBG("kthread mmdvfs-dbg-ftrace-v3 end");
+			return 0;
+		}
+	}
+
+	while (!kthread_should_stop()) {
+		cnt = readl(g_mmdvfs->base);
+		if (cnt != old_cnt) {
+			if (cnt > old_cnt) {
+				for (i = old_cnt; i < cnt; i++) {
+					for (j = 0; j < ARRAY_SIZE(mem); j++)
+						mem[j] = readl(g_mmdvfs->base + (((i + 1) *
+							MMDVFS_RECORD_OBJ + j) << 2));
+					trace_mmdvfs__record_opp_v3(mem[2], mem[3]);
+				}
+			} else {
+				for (i = old_cnt; i < MMDVFS_RECORD_NUM; i++) {
+					for (j = 0; j < ARRAY_SIZE(mem); j++)
+						mem[j] = readl(g_mmdvfs->base + (((i + 1) *
+							MMDVFS_RECORD_OBJ + j) << 2));
+					trace_mmdvfs__record_opp_v3(mem[2], mem[3]);
+				}
+				for (i = 0; i < cnt; i++) {
+					for (j = 0; j < ARRAY_SIZE(mem); j++)
+						mem[j] = readl(g_mmdvfs->base + (((i + 1) *
+							MMDVFS_RECORD_OBJ + j) << 2));
+					trace_mmdvfs__record_opp_v3(mem[2], mem[3]);
+				}
+			}
+			old_cnt = cnt;
+		}
+		msleep(20);
+	}
+
+err:
+	mtk_mmdvfs_enable_vcp(false);
+	ftrace_v3_ena = false;
+	MMDVFS_DBG("kthread mmdvfs-dbg-ftrace-v3 end");
+	return ret;
+}
+
+static int mmdvfs_debug_set_ftrace(const char *val,
+	const struct kernel_param *kp)
+{
+	static struct task_struct *kthr_v1, *kthr_v3;
+	u32 ver = 0, ena = 0;
+	int ret;
+
+	ret = sscanf(val, "%hhu %hhu", &ver, &ena);
+	if (ret != 2) {
+		MMDVFS_DBG("failed:%d ver:%hhu ena:%hhu", ret, ver, ena);
+		return -EINVAL;
+	}
+
+	if (ver & MMDVFS_DBG_VER1) {
+		if (ena) {
+			if (ftrace_v1_ena)
+				MMDVFS_DBG("kthread mmdvfs-dbg-ftrace-v1 already created");
+			else {
+				kthr_v1 = kthread_run(
+					mmdvfs_v1_dbg_ftrace_thread, NULL, "mmdvfs-dbg-ftrace-v1");
+				if (IS_ERR(kthr_v1))
+					MMDVFS_DBG("create kthread mmdvfs-dbg-ftrace-v1 failed");
+				else
+					ftrace_v1_ena = true;
+			}
+		} else {
+			if (ftrace_v1_ena) {
+				ret = kthread_stop(kthr_v1);
+				if (!ret) {
+					MMDVFS_DBG("stop kthread mmdvfs-dbg-ftrace-v1");
+					ftrace_v1_ena = false;
+				}
+			}
+		}
+	}
+
+	if (ver & MMDVFS_DBG_VER3) {
+		if (ena) {
+			if (ftrace_v3_ena)
+				MMDVFS_DBG("kthread mmdvfs-dbg-ftrace-v3 already created");
+			else {
+				kthr_v3 = kthread_run(
+					mmdvfs_v3_dbg_ftrace_thread, NULL, "mmdvfs-dbg-ftrace-v3");
+				if (IS_ERR(kthr_v3))
+					MMDVFS_DBG("create kthread mmdvfs-dbg-ftrace-v3 failed");
+				else
+					ftrace_v3_ena = true;
+			}
+		} else {
+			if (ftrace_v3_ena) {
+				ret = kthread_stop(kthr_v3);
+				if (!ret) {
+					MMDVFS_DBG("stop kthread mmdvfs-dbg-ftrace-v3");
+					ftrace_v3_ena = false;
+				}
+			}
+		}
+	}
+
+	return 0;
+}
+
+static struct kernel_param_ops mmdvfs_debug_set_ftrace_ops = {
+	.set = mmdvfs_debug_set_ftrace,
+};
+module_param_cb(ftrace, &mmdvfs_debug_set_ftrace_ops, NULL, 0644);
+MODULE_PARM_DESC(ftrace, "mmdvfs ftrace log");
+
 
 static int mmdvfs_debug_probe(struct platform_device *pdev)
 {
