@@ -2905,6 +2905,8 @@ static void mtk_crtc_atmoic_ddp_config(struct drm_crtc *crtc,
 
 	if (lyeblob_ids->ddp_blob_id) {
 		blob = drm_property_lookup_blob(dev, lyeblob_ids->ddp_blob_id);
+		if (!blob)
+			return;
 		lye_state = (struct mtk_lye_ddp_state *)blob->data;
 		drm_property_blob_put(blob);
 		old_lye_state = &state->lye_state;
