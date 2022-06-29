@@ -180,8 +180,27 @@
 
 #define SSPXTP_DAIG_LN_RX0_40	((SSPXTP_SIFSLV_DIG_LN_RX0) + 0x040)
 
+#define SSPXTP_DAIG_LN_DAIF_00	((SSPXTP_SIFSLV_DIG_LN_DAIF) + 0x00)
+#define RG_XTP0_DAIF_FRC_LN_TX_LCTXCM1		BIT(7)
+#define RG_XTP0_DAIF_FRC_LN_TX_LCTXC0		BIT(8)
+#define RG_XTP0_DAIF_FRC_LN_TX_LCTXCP1		BIT(9)
+
 #define SSPXTP_DAIG_LN_DAIF_04	((SSPXTP_SIFSLV_DIG_LN_DAIF) + 0x04)
 #define RG_XTP0_DAIF_FRC_LN_RX_AEQ_ATT		BIT(17)
+
+#define SSPXTP_DAIG_LN_DAIF_08	((SSPXTP_SIFSLV_DIG_LN_DAIF) + 0x008)
+#define RG_XTP0_DAIF_LN_TX_LCTXCM1		GENMASK(12, 7)
+#define RG_XTP0_DAIF_LN_TX_LCTXCM1_VAL(x)	((0x3f & (x)) << 7)
+#define RG_XTP0_DAIF_LN_TX_LCTXCM1_MASK		(0x3f)
+#define RG_XTP0_DAIF_LN_TX_LCTXCM1_OFST		(7)
+#define RG_XTP0_DAIF_LN_TX_LCTXC0		GENMASK(18, 13)
+#define RG_XTP0_DAIF_LN_TX_LCTXC0_VAL(x)	((0x3f & (x)) << 13)
+#define RG_XTP0_DAIF_LN_TX_LCTXC0_MASK		(0x3f)
+#define RG_XTP0_DAIF_LN_TX_LCTXC0_OFST		(13)
+#define RG_XTP0_DAIF_LN_TX_LCTXCP1		GENMASK(24, 19)
+#define RG_XTP0_DAIF_LN_TX_LCTXCP1_VAL(x)	((0x3f & (x)) << 19)
+#define RG_XTP0_DAIF_LN_TX_LCTXCP1_MASK		(0x3f)
+#define RG_XTP0_DAIF_LN_TX_LCTXCP1_OFST		(19)
 
 #define SSPXTP_DAIG_LN_DAIF_14	((SSPXTP_SIFSLV_DIG_LN_DAIF) + 0x014)
 #define RG_XTP0_DAIF_LN_RX_AEQ_ATT		GENMASK(20, 18)
@@ -225,6 +244,9 @@
 #define RX_SQTH_STR "rx_sqth"
 #define SIB_STR	"sib"
 #define LOOPBACK_STR "loopback_test"
+#define TX_LCTXCM1_STR "tx_lctxcm1"
+#define TX_LCTXC0_STR "tx_lctxc0"
+#define TX_LCTXCP1_STR "tx_lctxcp1"
 
 #define XSP_MODE_UART_STR "usb2uart_mode=1"
 #define XSP_MODE_JTAG_STR "usb2jtag_mode=1"
@@ -291,6 +313,10 @@ struct xsphy_instance {
 	int rev6_host;
 	int pll_fbksel;
 	int pll_posdiv;
+	/* u3 driving */
+	int tx_lctxcm1;
+	int tx_lctxc0;
+	int tx_lctxcp1;
 	struct proc_dir_entry *phy_root;
 };
 
@@ -439,6 +465,193 @@ static const struct  proc_ops proc_loopback_test_fops = {
 	.proc_release = single_release,
 };
 
+static int proc_tx_lctxcm1_show(struct seq_file *s, void *unused)
+{
+	struct xsphy_instance *inst = s->private;
+	void __iomem *pbase = inst->port_base;
+	u32 tmp;
+
+	tmp = readl(pbase + SSPXTP_DAIG_LN_DAIF_00);
+	tmp &= RG_XTP0_DAIF_FRC_LN_TX_LCTXCM1;
+	if (!tmp) {
+		seq_puts(s, "invalid\n");
+		return 0;
+	}
+
+	tmp = readl(pbase + SSPXTP_DAIG_LN_DAIF_08);
+	tmp >>= RG_XTP0_DAIF_LN_TX_LCTXCM1_OFST;
+	tmp &= RG_XTP0_DAIF_LN_TX_LCTXCM1_MASK;
+
+	seq_printf(s, "%d\n", tmp);
+	return 0;
+}
+
+static int proc_tx_lctxcm1_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, proc_tx_lctxcm1_show, PDE_DATA(inode));
+}
+
+static ssize_t proc_tx_lctxcm1_write(struct file *file,
+	const char __user *ubuf, size_t count, loff_t *ppos)
+{
+	struct seq_file *s = file->private_data;
+	struct xsphy_instance *inst = s->private;
+	void __iomem *pbase = inst->port_base;
+	char buf[20];
+	u32 tmp, val;
+
+	memset(buf, 0x00, sizeof(buf));
+	if (copy_from_user(&buf, ubuf, min_t(size_t, sizeof(buf) - 1, count)))
+		return -EFAULT;
+
+	if (kstrtouint(buf, 10, &val))
+		return -EINVAL;
+
+	tmp = readl(pbase + SSPXTP_DAIG_LN_DAIF_00);
+	tmp |= RG_XTP0_DAIF_FRC_LN_TX_LCTXCM1;
+	writel(tmp, pbase + SSPXTP_DAIG_LN_DAIF_00);
+
+	tmp = readl(pbase + SSPXTP_DAIG_LN_DAIF_08);
+	tmp &= ~RG_XTP0_DAIF_LN_TX_LCTXCM1;
+	tmp |= RG_XTP0_DAIF_LN_TX_LCTXCM1_VAL(val);
+	writel(tmp, pbase + SSPXTP_DAIG_LN_DAIF_08);
+
+	return count;
+}
+
+static const struct proc_ops proc_tx_lctxcm1_fops = {
+	.proc_open = proc_tx_lctxcm1_open,
+	.proc_write = proc_tx_lctxcm1_write,
+	.proc_read = seq_read,
+	.proc_lseek = seq_lseek,
+	.proc_release = single_release,
+};
+
+static int proc_tx_lctxc0_show(struct seq_file *s, void *unused)
+{
+	struct xsphy_instance *inst = s->private;
+	void __iomem *pbase = inst->port_base;
+	u32 tmp;
+
+	tmp = readl(pbase + SSPXTP_DAIG_LN_DAIF_00);
+	tmp &= RG_XTP0_DAIF_FRC_LN_TX_LCTXC0;
+	if (!tmp) {
+		seq_puts(s, "invalid\n");
+		return 0;
+	}
+
+	tmp = readl(pbase + SSPXTP_DAIG_LN_DAIF_08);
+	tmp >>= RG_XTP0_DAIF_LN_TX_LCTXC0_OFST;
+	tmp &= RG_XTP0_DAIF_LN_TX_LCTXC0_MASK;
+
+	seq_printf(s, "%d\n", tmp);
+	return 0;
+}
+
+static int proc_tx_lctxc0_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, proc_tx_lctxc0_show, PDE_DATA(inode));
+}
+
+static ssize_t proc_tx_lctxc0_write(struct file *file,
+	const char __user *ubuf, size_t count, loff_t *ppos)
+{
+	struct seq_file *s = file->private_data;
+	struct xsphy_instance *inst = s->private;
+	void __iomem *pbase = inst->port_base;
+	char buf[20];
+	u32 tmp, val;
+
+	memset(buf, 0x00, sizeof(buf));
+	if (copy_from_user(&buf, ubuf, min_t(size_t, sizeof(buf) - 1, count)))
+		return -EFAULT;
+
+	if (kstrtouint(buf, 10, &val))
+		return -EINVAL;
+
+	tmp = readl(pbase + SSPXTP_DAIG_LN_DAIF_00);
+	tmp |= RG_XTP0_DAIF_FRC_LN_TX_LCTXC0;
+	writel(tmp, pbase + SSPXTP_DAIG_LN_DAIF_00);
+
+	tmp = readl(pbase + SSPXTP_DAIG_LN_DAIF_08);
+	tmp &= ~RG_XTP0_DAIF_LN_TX_LCTXC0;
+	tmp |= RG_XTP0_DAIF_LN_TX_LCTXC0_VAL(val);
+	writel(tmp, pbase + SSPXTP_DAIG_LN_DAIF_08);
+
+	return count;
+}
+
+static const struct proc_ops proc_tx_lctxc0_fops = {
+	.proc_open = proc_tx_lctxc0_open,
+	.proc_write = proc_tx_lctxc0_write,
+	.proc_read = seq_read,
+	.proc_lseek = seq_lseek,
+	.proc_release = single_release,
+};
+
+static int proc_tx_lctxcp1_show(struct seq_file *s, void *unused)
+{
+	struct xsphy_instance *inst = s->private;
+	void __iomem *pbase = inst->port_base;
+	u32 tmp;
+
+	tmp = readl(pbase + SSPXTP_DAIG_LN_DAIF_00);
+	tmp &= RG_XTP0_DAIF_FRC_LN_TX_LCTXCP1;
+	if (!tmp) {
+		seq_puts(s, "invalid\n");
+		return 0;
+	}
+
+	tmp = readl(pbase + SSPXTP_DAIG_LN_DAIF_08);
+	tmp >>= RG_XTP0_DAIF_LN_TX_LCTXCP1_OFST;
+	tmp &= RG_XTP0_DAIF_LN_TX_LCTXCP1_MASK;
+
+	seq_printf(s, "%d\n", tmp);
+	return 0;
+}
+
+static int proc_tx_lctxcp1_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, proc_tx_lctxcp1_show, PDE_DATA(inode));
+}
+
+static ssize_t proc_tx_lctxcp1_write(struct file *file,
+	const char __user *ubuf, size_t count, loff_t *ppos)
+{
+	struct seq_file *s = file->private_data;
+	struct xsphy_instance *inst = s->private;
+	void __iomem *pbase = inst->port_base;
+	char buf[20];
+	u32 tmp, val;
+
+	memset(buf, 0x00, sizeof(buf));
+	if (copy_from_user(&buf, ubuf, min_t(size_t, sizeof(buf) - 1, count)))
+		return -EFAULT;
+
+	if (kstrtouint(buf, 10, &val))
+		return -EINVAL;
+
+	tmp = readl(pbase + SSPXTP_DAIG_LN_DAIF_00);
+	tmp |= RG_XTP0_DAIF_FRC_LN_TX_LCTXCP1;
+	writel(tmp, pbase + SSPXTP_DAIG_LN_DAIF_00);
+
+	tmp = readl(pbase + SSPXTP_DAIG_LN_DAIF_08);
+	tmp &= ~RG_XTP0_DAIF_LN_TX_LCTXCP1;
+	tmp |= RG_XTP0_DAIF_LN_TX_LCTXCP1_VAL(val);
+	writel(tmp, pbase + SSPXTP_DAIG_LN_DAIF_08);
+
+	return count;
+}
+
+static const struct proc_ops proc_tx_lctxcp1_fops = {
+	.proc_open = proc_tx_lctxcp1_open,
+	.proc_write = proc_tx_lctxcp1_write,
+	.proc_read = seq_read,
+	.proc_lseek = seq_lseek,
+	.proc_release = single_release,
+};
+
+
 static int u3_phy_procfs_init(struct mtk_xsphy *xsphy,
 			struct xsphy_instance *inst)
 {
@@ -473,6 +686,30 @@ static int u3_phy_procfs_init(struct mtk_xsphy *xsphy,
 			phy_root, &proc_loopback_test_fops, inst);
 	if (!file) {
 		dev_info(dev, "failed to creat proc file: %s\n", LOOPBACK_STR);
+		ret = -ENOMEM;
+		goto err1;
+	}
+
+	file = proc_create_data(TX_LCTXCM1_STR, 0644,
+			phy_root, &proc_tx_lctxcm1_fops, inst);
+	if (!file) {
+		dev_info(dev, "failed to creat proc file: %s\n", TX_LCTXCM1_STR);
+		ret = -ENOMEM;
+		goto err1;
+	}
+
+	file = proc_create_data(TX_LCTXC0_STR, 0644,
+			phy_root, &proc_tx_lctxc0_fops, inst);
+	if (!file) {
+		dev_info(dev, "failed to creat proc file: %s\n", TX_LCTXC0_STR);
+		ret = -ENOMEM;
+		goto err1;
+	}
+
+	file = proc_create_data(TX_LCTXCP1_STR, 0644,
+			phy_root, &proc_tx_lctxcp1_fops, inst);
+	if (!file) {
+		dev_info(dev, "failed to creat proc file: %s\n", TX_LCTXCP1_STR);
 		ret = -ENOMEM;
 		goto err1;
 	}
@@ -1398,6 +1635,15 @@ static void phy_parse_property(struct mtk_xsphy *xsphy,
 					 &inst->efuse_tx_imp);
 		device_property_read_u32(dev, "mediatek,efuse-rx-imp",
 					 &inst->efuse_rx_imp);
+		if (device_property_read_u32(dev, "mediatek,tx-lctxcm1",
+					 &inst->tx_lctxcm1))
+			inst->tx_lctxcm1 = -1;
+		if (device_property_read_u32(dev, "mediatek,tx-lctxc0",
+					 &inst->tx_lctxc0))
+			inst->tx_lctxc0 = -1;
+		if (device_property_read_u32(dev, "mediatek,tx-lctxcp1",
+					 &inst->tx_lctxcp1))
+			inst->tx_lctxcp1 = -1;
 		dev_dbg(dev, "intr:%d, tx-imp:%d, rx-imp:%d\n",
 			inst->efuse_intr, inst->efuse_tx_imp,
 			inst->efuse_rx_imp);
@@ -1548,6 +1794,39 @@ static void u3_phy_props_set(struct mtk_xsphy *xsphy,
 		tmp |= RG_XTP_LN0_RX_IMPSEL_VAL(inst->efuse_rx_imp);
 		writel(tmp, pbase + SSPXTP_PHYA_LN_14);
 	}
+
+	if (inst->tx_lctxcm1 >= 0) {
+		tmp = readl(pbase + SSPXTP_DAIG_LN_DAIF_00);
+		tmp |= RG_XTP0_DAIF_FRC_LN_TX_LCTXCM1;
+		writel(tmp, pbase + SSPXTP_DAIG_LN_DAIF_00);
+
+		tmp = readl(pbase + SSPXTP_DAIG_LN_DAIF_08);
+		tmp &= ~RG_XTP0_DAIF_LN_TX_LCTXCM1;
+		tmp |= RG_XTP0_DAIF_LN_TX_LCTXCM1_VAL(inst->tx_lctxcm1);
+		writel(tmp, pbase + SSPXTP_DAIG_LN_DAIF_08);
+	}
+
+	if (inst->tx_lctxc0 >= 0) {
+		tmp = readl(pbase + SSPXTP_DAIG_LN_DAIF_00);
+		tmp |= RG_XTP0_DAIF_FRC_LN_TX_LCTXC0;
+		writel(tmp, pbase + SSPXTP_DAIG_LN_DAIF_00);
+
+		tmp = readl(pbase + SSPXTP_DAIG_LN_DAIF_08);
+		tmp &= ~RG_XTP0_DAIF_LN_TX_LCTXC0;
+		tmp |= RG_XTP0_DAIF_LN_TX_LCTXC0_VAL(inst->tx_lctxc0);
+		writel(tmp, pbase + SSPXTP_DAIG_LN_DAIF_08);
+	}
+
+	if (inst->tx_lctxcp1 >= 0) {
+		tmp = readl(pbase + SSPXTP_DAIG_LN_DAIF_00);
+		tmp |= RG_XTP0_DAIF_FRC_LN_TX_LCTXCP1;
+		writel(tmp, pbase + SSPXTP_DAIG_LN_DAIF_00);
+
+		tmp = readl(pbase + SSPXTP_DAIG_LN_DAIF_08);
+		tmp &= ~RG_XTP0_DAIF_LN_TX_LCTXCP1;
+		tmp |= RG_XTP0_DAIF_LN_TX_LCTXCP1_VAL(inst->tx_lctxcp1);
+		writel(tmp, pbase + SSPXTP_DAIG_LN_DAIF_08);
+	}
 }
 
 static int mtk_phy_init(struct phy *phy)
@@ -1587,6 +1866,9 @@ static int mtk_phy_init(struct phy *phy)
 		dev_info(xsphy->dev, "u3_intr:%d, tx-imp:%d, rx-imp:%d\n",
 			inst->efuse_intr, inst->efuse_tx_imp,
 			inst->efuse_rx_imp);
+		dev_info(xsphy->dev,
+			"tx-lctxcm1:%d, tx-lctxc0:%d, tx-lctxcp1:%d\n",
+			inst->tx_lctxcm1, inst->tx_lctxc0, inst->tx_lctxcp1);
 		break;
 	default:
 		dev_err(xsphy->dev, "incompatible phy type\n");
