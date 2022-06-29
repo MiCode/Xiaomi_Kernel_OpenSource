@@ -1143,6 +1143,7 @@ static void sys_unprepare(struct mtk_ddp_comp *ddp_comp)
 		sys_ddp_disable(sys, task, 1);
 }
 
+#if IS_ENABLED(CONFIG_MTK_MML_DEBUG)
 #define call_dbg_op(_comp, op, ...) \
 	((_comp->debug_ops && _comp->debug_ops->op) ? \
 		_comp->debug_ops->op(_comp, ##__VA_ARGS__) : 0)
@@ -1159,13 +1160,16 @@ static void ddp_comp_dump(const struct mml_topology_path *path)
 		call_dbg_op(comp, dump);
 	}
 }
+#endif
 
 static void sys_ddp_dump(struct mtk_ddp_comp *ddp_comp)
 {
+#if IS_ENABLED(CONFIG_MTK_MML_DEBUG)
 	struct mml_sys *sys = ddp_comp_to_sys(ddp_comp);
 
 	ddp_comp_dump(sys->ddp_path[0]);
 	ddp_comp_dump(sys->ddp_path[1]);
+#endif
 }
 
 static const struct mtk_ddp_comp_funcs sys_ddp_funcs = {

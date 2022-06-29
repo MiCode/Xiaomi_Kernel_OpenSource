@@ -1004,11 +1004,14 @@ static void core_dump_alloc(struct mml_file_buf *buf, struct mml_frm_dump_data *
 static void core_dump_buf(struct mml_task *task, struct mml_frame_data *data,
 	struct mml_file_buf *buf, struct mml_frm_dump_data *frm)
 {
+	u64 stamp = div_u64(sched_clock(), 1000000);
+	char fmt[24];
 	int ret;
 
 	/* support only out0 for now, maybe support multi out later */
-	ret = snprintf(frm->name, sizeof(frm->name), "%u_%s_%#x_%u_%u_%u",
-		task->job.jobid, frm->prefix, data->format,
+	get_color_fmt(fmt, sizeof(fmt), data);
+	ret = snprintf(frm->name, sizeof(frm->name), "mml_%u_%u_%s_f%s_%u_%u_%u.bin",
+		stamp, task->job.jobid, frm->prefix, fmt,
 		data->width, data->height, data->y_stride);
 	if (ret >= sizeof(frm->name))
 		frm->name[sizeof(frm->name)-1] = 0;

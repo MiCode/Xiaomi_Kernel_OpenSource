@@ -636,7 +636,7 @@ struct mml_tile_output {
 
 struct mml_frm_dump_data {
 	const char *prefix;
-	char name[50];
+	char name[128];
 	void *frame;
 	u32 bufsize;
 	u32 size;

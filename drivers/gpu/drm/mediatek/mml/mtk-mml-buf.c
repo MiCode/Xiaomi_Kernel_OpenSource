@@ -136,6 +136,9 @@ int mml_buf_va_get(struct mml_file_buf *buf)
 
 inline static void dmabuf_iova_free(struct mml_dma_buf *dma)
 {
+#ifndef MML_FPGA
+	mtk_dma_buf_set_name(dma->dmabuf, NULL);
+#endif
 	dma_buf_unmap_attachment(dma->attach, dma->sgt, DMA_FROM_DEVICE);
 	dma_buf_detach(dma->dmabuf, dma->attach);
 
