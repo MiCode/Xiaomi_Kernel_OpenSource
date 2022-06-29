@@ -79,7 +79,7 @@ static bool mminfra_check_scmi_status(void)
 		return false;
 	}
 
-	of_property_read_u32(tinfo->sdev->dev.of_node, "scmi_mminfra", &feature_id);
+	of_property_read_u32(tinfo->sdev->dev.of_node, "scmi-mminfra", &feature_id);
 	pr_notice("%s: get scmi_smi succeed id=%d!!\n", __func__, feature_id);
 	return true;
 }

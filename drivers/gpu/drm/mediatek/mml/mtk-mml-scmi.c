@@ -34,7 +34,7 @@ static bool mml_check_scmi_status(struct mml_scmi_support *scmi)
 		return false;
 	}
 
-	of_property_read_u32(scmi->tinfo->sdev->dev.of_node, "scmi_mminfra",
+	of_property_read_u32(scmi->tinfo->sdev->dev.of_node, "scmi-mminfra",
 		&scmi->feature_id);
 	mml_log("%s scmi_smi succeed id %u",
 		__func__, scmi->feature_id);
