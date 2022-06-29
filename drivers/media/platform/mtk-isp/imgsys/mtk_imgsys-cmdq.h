@@ -11,6 +11,7 @@
 #include <linux/platform_device.h>
 #include <linux/soc/mediatek/mtk-cmdq-ext.h>
 #include <linux/dma-fence.h>
+#include "mmdvfs_v3.h"
 #include "mtk_imgsys-dev.h"
 #include "mtk_imgsys-sys.h"
 

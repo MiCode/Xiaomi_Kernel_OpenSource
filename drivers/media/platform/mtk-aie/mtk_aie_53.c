@@ -32,7 +32,6 @@
 #include <linux/soc/mediatek/mtk-cmdq-ext.h>
 #include "cmdq-sec.h"
 #include "mtk_aie.h"
-#include "mtk_imgsys-cmdq.h"
 #include "mtk_dma_contig.h"
 #include "mem/aie_videobuf2-dma-contig.h"
 

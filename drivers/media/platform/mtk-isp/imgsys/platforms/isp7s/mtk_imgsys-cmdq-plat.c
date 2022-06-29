@@ -1868,7 +1868,13 @@ void mtk_imgsys_mmdvfs_set_plat7s(struct mtk_imgsys_dev *imgsys_dev,
 		if (idx == dvfs_info->clklv_num[opp_idx])
 			idx--;
 		volt = dvfs_info->voltlv[opp_idx][idx];
-		freq = dvfs_info->clklv[opp_idx][idx]; // signed-off
+
+		if (freq > 0) {
+			freq = dvfs_info->clklv[opp_idx][idx]; // signed-off
+		} else {
+			volt = 0;
+			freq = 0;
+		}
 
 		if (dvfs_info->cur_volt != volt) {
 			if (imgsys_dvfs_dbg_enable_plat7s())

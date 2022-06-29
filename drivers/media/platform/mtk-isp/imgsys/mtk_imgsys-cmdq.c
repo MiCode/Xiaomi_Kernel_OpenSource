@@ -143,6 +143,14 @@ static void module_uninit(struct kref *kref)
 		regulator_disable(dvfs_info->reg);
 
 	mtk_imgsys_power_ctrl_ccu(imgsys_dev, 0);
+
+	if (IS_ERR_OR_NULL(dvfs_info->mmdvfs_clk))
+		dev_dbg(dvfs_info->dev,
+			"%s: [ERROR] mmdvfs_clk is null\n", __func__);
+	else {
+		mtk_mmdvfs_enable_vcp(false);
+		mtk_mmdvfs_enable_ccu(false);
+	}
 }
 
 void mtk_imgsys_mod_put(struct mtk_imgsys_dev *imgsys_dev)
