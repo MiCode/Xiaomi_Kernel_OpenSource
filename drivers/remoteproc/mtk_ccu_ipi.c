@@ -209,10 +209,13 @@ static int mtk_ccu_mb_rx(struct mtk_ccu *ccu,
 			ccu->rproc->bootcnt[5][0].counter, ccu->rproc->bootcnt[5][1].counter,
 			ccu->rproc->bootcnt[5][2].counter, ccu->rproc->bootcnt[5][3].counter,
 			ccu->rproc->bootcnt[5][4].counter);
-		LOG_DBG_IPI("dvfs[%d,%d,%d,%d,%d]\n",
+		LOG_DBG_IPI("dvfs[%d,%d,%d,%d,%d],gce[%d,%d,%d,%d,%d]\n",
 			ccu->rproc->bootcnt[6][0].counter, ccu->rproc->bootcnt[6][1].counter,
 			ccu->rproc->bootcnt[6][2].counter, ccu->rproc->bootcnt[6][3].counter,
-			ccu->rproc->bootcnt[6][4].counter);
+			ccu->rproc->bootcnt[6][4].counter,
+			ccu->rproc->bootcnt[7][0].counter, ccu->rproc->bootcnt[7][1].counter,
+			ccu->rproc->bootcnt[7][2].counter, ccu->rproc->bootcnt[7][3].counter,
+			ccu->rproc->bootcnt[7][4].counter);
 #endif
 	} else
 		ret = 0;

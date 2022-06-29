@@ -538,7 +538,8 @@ struct rproc_dump_segment {
 #define RPROC_UID_IMG 4
 #define RPROC_UID_IMG_CMDQ 5
 #define RPROC_UID_MMDVFS 6
-#define RPROC_UID_MAX 7
+#define RPROC_UID_GCE 7
+#define RPROC_UID_MAX 8
 #endif
 
 struct rproc {
