@@ -28,7 +28,7 @@ static struct pd_capacity_info *pd_capacity_tbl;
 #if IS_ENABLED(CONFIG_MTK_GEARLESS_SUPPORT)
 static void __iomem *sram_base_addr_freq_scaling;
 static struct mtk_em_perf_domain *mtk_em_pd_ptr;
-static bool freq_scaling_disabled;
+static bool freq_scaling_disabled = true;
 #endif
 static int pd_count;
 static int entry_count;
