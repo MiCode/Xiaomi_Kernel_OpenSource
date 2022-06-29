@@ -401,7 +401,7 @@ static int __init ssc_init(void)
 	if (ret < 0)
 		pr_info("[SSC] SCMI notify register fail\n");
 
-	ret = of_property_read_u32(tinfo->sdev->dev.of_node, "scmi_plt", &plt_scmi_feature_id);
+	ret = of_property_read_u32(tinfo->sdev->dev.of_node, "scmi-plt", &plt_scmi_feature_id);
 	ret = scmi_tinysys_common_set(tinfo->ph, plt_scmi_feature_id, PLT_SSC_INIT,
 					0, 0, 0, 0);
 

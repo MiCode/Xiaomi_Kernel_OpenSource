@@ -144,7 +144,7 @@ int __init sspm_plt_init(void)
 	msg_data.u.ctrl.size = mem_sz;
 
 	of_property_read_u32(tinfo->sdev->dev.of_node,
-		"scmi_plt", &scmi_plt_id);
+		"scmi-plt", &scmi_plt_id);
 
 	ret = scmi_tinysys_common_set(tinfo->ph, scmi_plt_id,
 		msg_data.cmd, msg_data.u.ctrl.phys, msg_data.u.ctrl.size, 0, 0);
