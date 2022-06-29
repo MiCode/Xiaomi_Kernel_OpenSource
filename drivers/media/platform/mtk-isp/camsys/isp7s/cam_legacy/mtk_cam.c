@@ -5142,6 +5142,8 @@ static int isp_composer_handle_ack(struct mtk_cam_device *cam,
 		mtk_cam_req_dump(s_data,
 			MTK_CAM_REQ_DUMP_DEQUEUE_FAILED,
 			"Camsys compose error", false);
+		spin_unlock(&ctx->using_buffer_list.lock);
+		return -EINVAL;
 	}
 
 	/* assign mraw using buf */
