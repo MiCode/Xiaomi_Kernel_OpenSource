@@ -83,6 +83,10 @@
 #define DP_CHKSUM5                        0x0118
 #define DP_CHKSUM6                        0x011C
 #define DP_CHKSUM7                        0x0120
+#define DP_BUF_CON0                       0x0210
+    #define BUF_BUF_EN                    BIT(0)
+#define DP_BUF_CON1                       0x0214
+#define DP_BUF_RW_TIMES                   0x0220
 #define DP_PATTERN_CTRL0                  0x0F00
     #define DP_PATTERN_EN                 BIT(0)
     #define DP_PATTERN_COLOR_BAR          BIT(6)
@@ -242,6 +246,65 @@ static const struct mtk_dp_intf_resolution_cfg mt6983_resolution_cfg[SINK_MAX] =
 				},
 };
 
+static const struct mtk_dp_intf_resolution_cfg mt6985_resolution_cfg[SINK_MAX] = {
+	[SINK_640_480] = {
+					.clksrc = TVDPLL_D16,
+					.con1 = 0x840F81F8
+				},
+	[SINK_800_600] = {
+					.clksrc = 0,
+					.con1 = 0
+				},
+	[SINK_1280_720] = {
+					.clksrc = TVDPLL_D8,
+					.con1 = 0x8416DFB4
+				},
+	[SINK_1280_960] = {
+					.clksrc = 0,
+					.con1 = 0
+				},
+	[SINK_1280_1024] = {
+					.clksrc = 0,
+					.con1 = 0
+				},
+	[SINK_1920_1080] = {
+					.clksrc = TVDPLL_D16,
+					.con1 = 0x8216D89D
+				},
+	[SINK_1080_2460] = {
+					.clksrc = TVDPLL_D16,
+					.con1 = 0x821AC941
+				},
+	[SINK_1920_1200] = {
+					.clksrc = TVDPLL_D16,
+					.con1 = 0x8217B645
+				},
+	[SINK_1920_1440] = {
+					.clksrc = 0,
+					.con1 = 0
+				},
+	[SINK_2560_1440] = {
+					.clksrc = TVDPLL_D8,
+					.con1 = 0x821293B1
+				},
+	[SINK_2560_1600] = {
+					.clksrc = TVDPLL_D8,
+					.con1 = 0x8214A762
+				},
+	[SINK_3840_2160_30] = {
+					.clksrc = TVDPLL_D8,
+					.con1 = 0x8216D89D
+				},
+	[SINK_3840_2160] = {
+					.clksrc = TVDPLL_D4,
+					.con1 = 0x830F93B1
+				}, //htotal = 1500  //con1 = 0x83109D89; //htotal = 1600
+	[SINK_7680_4320] = {
+					.clksrc = 0,
+					.con1 = 0
+				},
+};
+
 struct mtk_dp_intf_video_clock {
 	char	compatible[128];
 	const struct mtk_dp_intf_resolution_cfg *resolution_cfg;
@@ -259,6 +322,13 @@ static const struct mtk_dp_intf_video_clock mt6895_dp_intf_video_clock = {
 static const struct mtk_dp_intf_video_clock mt6983_dp_intf_video_clock = {
 	.compatible = "mediatek,mt6983-apmixedsys",
 	.resolution_cfg = mt6983_resolution_cfg,
+	.con0_reg = 0x248,
+	.con1_reg = 0x24C
+};
+
+static const struct mtk_dp_intf_video_clock mt6985_dp_intf_video_clock = {
+	.compatible = "mediatek,mt6985-apmixedsys",
+	.resolution_cfg = mt6985_resolution_cfg,
 	.con0_reg = 0x248,
 	.con1_reg = 0x24C
 };
@@ -477,7 +547,7 @@ void mtk_dp_inf_video_clock(struct mtk_dp_intf *dp_intf)
 	con0_reg = dp_intf->driver_data->video_clock_cfg->con0_reg;
 	con1_reg = dp_intf->driver_data->video_clock_cfg->con1_reg;
 
-	DDPMSG("%s:clksrc %x\ncon1 %x\ncon0_reg %x\ncon1_reg %x\ncompatible %s",
+	DDPMSG("%s:clksrc %x,con1 %x,con0_reg %x,con1_reg %x,compatible %s",
 		__func__, clksrc, con1, con0_reg, con1_reg,
 		dp_intf->driver_data->video_clock_cfg->compatible);
 	if (clk_apmixed_base == NULL) {
@@ -531,6 +601,7 @@ static void mtk_dp_intf_config(struct mtk_ddp_comp *comp,
 	unsigned int vfp = 0, vbp = 0;
 	unsigned int bg_left = 0, bg_right = 0;
 	unsigned int bg_top = 0, bg_bot = 0;
+	unsigned int rw_times = 0;
 
 	DDPMSG("%s w %d, h, %d, fps %d!\n",
 			__func__, cfg->w, cfg->h, cfg->vrefresh);
@@ -658,6 +729,17 @@ static void mtk_dp_intf_config(struct mtk_ddp_comp *comp,
 			DISP_REG_DSC_SLICE_W, handle);
 	mtk_ddp_write(comp, 0x20000c03, DISP_REG_DSC_PPS6, handle);
 #endif
+
+	if (hsize & 0x3)
+		rw_times = ((hsize >> 2) + 1) * vsize;
+	else
+		rw_times = (hsize >> 2) * vsize;
+
+	mtk_ddp_write_relaxed(comp, rw_times,
+			DP_BUF_RW_TIMES, handle);
+	mtk_ddp_write_mask(comp, BUF_BUF_EN,
+			DP_BUF_CON0, BUF_BUF_EN, handle);
+
 	DDPMSG("%s config done\n",
 			mtk_dump_comp_str(comp));
 
@@ -748,6 +830,12 @@ int mtk_dp_intf_dump(struct mtk_ddp_comp *comp)
 			readl(baddr + DP_CHKSUM6));
 	DDPDUMP("(0x0120) DP_CHKSUM7            =0x%x\n",
 			readl(baddr + DP_CHKSUM7));
+	DDPDUMP("(0x0210) DP_BUF_CON0      =0x%x\n",
+			readl(baddr + DP_BUF_CON0));
+	DDPDUMP("(0x0214) DP_BUF_CON1      =0x%x\n",
+			readl(baddr + DP_BUF_CON1));
+	DDPDUMP("(0x0220) DP_BUF_RW_TIMES      =0x%x\n",
+			readl(baddr + DP_BUF_RW_TIMES));
 	DDPDUMP("(0x0F00) DP_PATTERN_CTRL0      =0x%x\n",
 			readl(baddr + DP_PATTERN_CTRL0));
 	DDPDUMP("(0x0F04) DP_PATTERN_CTRL1      =0x%x\n",
@@ -1049,6 +1137,7 @@ static const struct mtk_dp_intf_driver_data mt6885_dp_intf_driver_data = {
 	.irq_handler = mtk_dp_intf_irq_status,
 	.video_clock_cfg = &mt6983_dp_intf_video_clock,
 };
+
 static const struct mtk_dp_intf_driver_data mt6895_dp_intf_driver_data = {
 	.reg_cmdq_ofs = 0x200,
 	.poll_for_idle = mtk_dp_intf_poll_for_idle,
@@ -1056,11 +1145,20 @@ static const struct mtk_dp_intf_driver_data mt6895_dp_intf_driver_data = {
 	.video_clock_cfg = &mt6895_dp_intf_video_clock,
 };
 
+static const struct mtk_dp_intf_driver_data mt6985_dp_intf_driver_data = {
+	.reg_cmdq_ofs = 0x200,
+	.poll_for_idle = mtk_dp_intf_poll_for_idle,
+	.irq_handler = mtk_dp_intf_irq_status,
+	.video_clock_cfg = &mt6985_dp_intf_video_clock,
+};
+
 static const struct of_device_id mtk_dp_intf_driver_dt_match[] = {
 	{ .compatible = "mediatek,mt6885-dp-intf",
 	.data = &mt6885_dp_intf_driver_data},
 	{ .compatible = "mediatek,mt6895-dp-intf",
 	.data = &mt6895_dp_intf_driver_data},
+	{ .compatible = "mediatek,mt6985-dp-intf",
+	.data = &mt6985_dp_intf_driver_data},
 	{},
 };
 MODULE_DEVICE_TABLE(of, mtk_dp_intf_driver_dt_match);

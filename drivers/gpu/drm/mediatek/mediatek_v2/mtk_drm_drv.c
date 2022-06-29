@@ -1687,8 +1687,6 @@ static const enum mtk_ddp_comp_id mt6885_mtk_ddp_third[] = {
 	DDP_COMPONENT_OVL2_2L, DDP_COMPONENT_WDMA0,
 };
 
-
-
 static const enum mtk_ddp_comp_id mt6983_mtk_ddp_main[] = {
 	DDP_COMPONENT_OVL0_2L, /*DDP_COMPONENT_OVL1_2L,*/
 	DDP_COMPONENT_OVL0, DDP_COMPONENT_OVL0_VIRTUAL0,
@@ -1927,12 +1925,11 @@ static const enum mtk_ddp_comp_id mt6985_mtk_ddp_dual_main[] = {
 /* CRTC1 */
 static const enum mtk_ddp_comp_id mt6985_mtk_ddp_ext_dp[] = {
 	DDP_COMPONENT_OVL3_2L,
-	DDP_COMPONENT_OVLSYS_DLO_ASYNC4,
-	DDP_COMPONENT_DLI_ASYNC1,
-//	DDP_COMPONENT_PQ0_IN_CB1,
-	DDP_COMPONENT_PQ0_OUT_CB3,
-	DDP_COMPONENT_PANEL0_COMP_OUT_CB1,
-	DDP_COMPONENT_COMP0_OUT_CB3,
+	DDP_COMPONENT_OVLSYS_DLO_ASYNC5,
+	DDP_COMPONENT_DLI_ASYNC2,
+	DDP_COMPONENT_PQ0_OUT_CB4,
+	DDP_COMPONENT_PANEL0_COMP_OUT_CB2,
+	DDP_COMPONENT_COMP0_OUT_CB4,
 	DDP_COMPONENT_MERGE0_OUT_CB1,
 	DDP_COMPONENT_DP_INTF0,
 };
@@ -3220,12 +3217,12 @@ static const struct mtk_crtc_path_data mt6985_mtk_main_path_data = {
 };
 
 static const struct mtk_crtc_path_data mt6985_mtk_ext_path_data = {
-//	.path[DDP_MAJOR][0] = mt6985_mtk_ddp_ext_dp,
-//	.path_len[DDP_MAJOR][0] = ARRAY_SIZE(mt6985_mtk_ddp_ext_dp),
-//	.path_req_hrt[DDP_MAJOR][0] = true,
+	.path[DDP_MAJOR][0] = mt6985_mtk_ddp_ext_dp,
+	.path_len[DDP_MAJOR][0] = ARRAY_SIZE(mt6985_mtk_ddp_ext_dp),
+	.path_req_hrt[DDP_MAJOR][0] = true,
 //	.dual_path[0] = mt6985_mtk_ddp_dual_ext_dp,
 //	.dual_path_len[0] = ARRAY_SIZE(mt6985_mtk_ddp_dual_ext_dp),
-//	.addon_data = mt6985_addon_ext,
+	.addon_data = mt6985_addon_ext,
 //	.dual_path[0] = mt6985_dual_data_ext,
 //	.dual_path_len[0] = ARRAY_SIZE(mt6983_dual_data_ext),
 };
@@ -5950,8 +5947,8 @@ static const struct of_device_id mtk_ddp_comp_dt_ids[] = {
 	 .data = (void *)MTK_DSI},
 	{.compatible = "mediatek,mt6983-dp-intf",
 	 .data = (void *)MTK_DP_INTF},
-//	{.compatible = "mediatek,mt6985-dp-intf",
-//	 .data = (void *)MTK_DP_INTF},
+	{.compatible = "mediatek,mt6985-dp-intf",
+	 .data = (void *)MTK_DP_INTF},
 	{.compatible = "mediatek,mt6895-dp-intf",
 	 .data = (void *)MTK_DP_INTF},
 	{.compatible = "mediatek,mt6873-dsi",

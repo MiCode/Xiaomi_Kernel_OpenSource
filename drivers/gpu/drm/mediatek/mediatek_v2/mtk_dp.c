@@ -4096,7 +4096,7 @@ static int mtk_drm_dp_probe(struct platform_device *pdev)
 		goto error;
 	}
 	mtk_dp_aux_init(mtk_dp);
-	DPTXMSG("comp_id %d, type %d, irq %d\n", comp_id,
+	DPTXMSG("%s, comp_id %d, type %d, irq %d\n", __func__, comp_id,
 		MTK_DISP_DPTX, irq_num);
 	irq_set_status_flags(irq_num, IRQ_TYPE_LEVEL_HIGH);
 	ret = devm_request_irq(&pdev->dev, irq_num, mtk_dp_hpd_event,

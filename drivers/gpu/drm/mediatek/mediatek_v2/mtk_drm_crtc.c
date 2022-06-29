@@ -9112,8 +9112,9 @@ void mtk_drm_crtc_plane_update(struct drm_crtc *crtc, struct drm_plane *plane,
 	struct cmdq_pkt *cmdq_handle = state->cmdq_handle;
 
 	if (comp)
-		DDPINFO("%s+ plane_id:%d, comp_id:%d, comp_id:%d\n", __func__,
-			plane->index, comp->id, plane_state->comp_state.comp_id);
+		DDPINFO("%s+ plane_id:%d, comp_id:%s, comp_id:%s\n", __func__,
+			plane->index, mtk_dump_comp_str_id(comp->id),
+			mtk_dump_comp_str_id(plane_state->comp_state.comp_id));
 
 	if (plane_state->pending.enable) {
 		mtk_dprec_mmp_dump_ovl_layer(plane_state);
