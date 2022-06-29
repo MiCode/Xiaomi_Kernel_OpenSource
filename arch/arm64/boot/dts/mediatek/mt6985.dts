@@ -1040,6 +1040,7 @@
 	topckgen_clk: syscon@10000000 {
 		compatible = "mediatek,mt6985-topckgen", "syscon";
 		reg = <0 0x10000000 0 0x1000>;
+		hw-voter-regmap = <&hwv>;
 		#clock-cells = <1>;
 	};
 
@@ -1184,30 +1185,35 @@
 	dispsys_config_clk: syscon@14000000 {
 		compatible = "mediatek,mt6985-mmsys0", "syscon";
 		reg = <0 0x14000000 0 0x1000>;
+		hw-voter-regmap = <&hwv>;
 		#clock-cells = <1>;
 	};
 
 	dispsys1_config_clk: syscon@14200000 {
 		compatible = "mediatek,mt6985-mmsys1", "syscon";
 		reg = <0 0x14200000 0 0x1000>;
+		hw-voter-regmap = <&hwv>;
 		#clock-cells = <1>;
 	};
 
 	ovlsys_config_clk: syscon@14400000 {
 		compatible = "mediatek,mt6985-ovlsys_config", "syscon";
 		reg = <0 0x14400000 0 0x1000>;
+		hw-voter-regmap = <&hwv>;
 		#clock-cells = <1>;
 	};
 
 	ovlsys1_config_clk: syscon@14600000 {
 		compatible = "mediatek,mt6985-ovlsys1_config", "syscon";
 		reg = <0 0x14600000 0 0x1000>;
+		hw-voter-regmap = <&hwv>;
 		#clock-cells = <1>;
 	};
 
 	imgsys_main_clk: syscon@15000000 {
 		compatible = "mediatek,mt6985-imgsys_main", "syscon";
 		reg = <0 0x15000000 0 0x1000>;
+		hw-voter-regmap = <&hwv>;
 		#clock-cells = <1>;
 	};
 
@@ -1224,54 +1230,63 @@
 	dip_top_dip1_clk: syscon@15110000 {
 		compatible = "mediatek,mt6985-dip_top_dip1", "syscon";
 		reg = <0 0x15110000 0 0x1000>;
+		hw-voter-regmap = <&hwv>;
 		#clock-cells = <1>;
 	};
 
 	dip_nr1_dip1_clk: syscon@15130000 {
 		compatible = "mediatek,mt6985-dip_nr1_dip1", "syscon";
 		reg = <0 0x15130000 0 0x1000>;
+		hw-voter-regmap = <&hwv>;
 		#clock-cells = <1>;
 	};
 
 	dip_nr2_dip1_clk: syscon@15170000 {
 		compatible = "mediatek,mt6985-dip_nr2_dip1", "syscon";
 		reg = <0 0x15170000 0 0x1000>;
+		hw-voter-regmap = <&hwv>;
 		#clock-cells = <1>;
 	};
 
 	wpe1_dip1_clk: syscon@15220000 {
 		compatible = "mediatek,mt6985-wpe1_dip1", "syscon";
 		reg = <0 0x15220000 0 0x1000>;
+		hw-voter-regmap = <&hwv>;
 		#clock-cells = <1>;
 	};
 
 	wpe2_dip1_clk: syscon@15520000 {
 		compatible = "mediatek,mt6985-wpe2_dip1", "syscon";
 		reg = <0 0x15520000 0 0x1000>;
+		hw-voter-regmap = <&hwv>;
 		#clock-cells = <1>;
 	};
 
 	wpe3_dip1_clk: syscon@15620000 {
 		compatible = "mediatek,mt6985-wpe3_dip1", "syscon";
 		reg = <0 0x15620000 0 0x1000>;
+		hw-voter-regmap = <&hwv>;
 		#clock-cells = <1>;
 	};
 
 	traw_dip1_clk: syscon@15710000 {
 		compatible = "mediatek,mt6985-traw_dip1", "syscon";
 		reg = <0 0x15710000 0 0x1000>;
+		hw-voter-regmap = <&hwv>;
 		#clock-cells = <1>;
 	};
 
 	vdec_soc_gcon_base_clk: syscon@1600f000 {
 		compatible = "mediatek,mt6985-vdecsys_soc", "syscon";
 		reg = <0 0x1600f000 0 0x1000>;
+		hw-voter-regmap = <&hwv>;
 		#clock-cells = <1>;
 	};
 
 	vdec_gcon_base_clk: syscon@1602f000 {
 		compatible = "mediatek,mt6985-vdecsys", "syscon";
 		reg = <0 0x1602f000 0 0x1000>;
+		hw-voter-regmap = <&hwv>;
 		#clock-cells = <1>;
 	};
 
@@ -1401,10 +1416,9 @@
 		vlpcfg = <&vlpcfg_bus>;
 		semi_bus = <&semi_bus>;
 
-		isp_main-supply = <&mt6319_6_vbuck3>;
-		cam_main-supply = <&mt6319_6_vbuck3>;
-		vde0-supply = <&mt6319_6_vbuck3>;
-		vde1-supply = <&mt6319_6_vbuck3>;
+		hw-voter-regmap = <&hwv>;
+		interrupts = <GIC_SPI 303 IRQ_TYPE_LEVEL_LOW 0>;
+		interrupt-names = "hwv_irq";
 	};
 
 	watchdog: watchdog@1C007000 {
@@ -1456,6 +1470,7 @@
 	vlp_cksys_clk: syscon@1c013000 {
 		compatible = "mediatek,mt6985-vlp_cksys", "syscon";
 		reg = <0 0x1c013000 0 0x1000>;
+		hw-voter-regmap = <&hwv>;
 		#clock-cells = <1>;
 	};
 
@@ -1474,6 +1489,7 @@
 	camsys_main_clk: syscon@1a000000 {
 		compatible = "mediatek,mt6985-camsys_main", "syscon";
 		reg = <0 0x1a000000 0 0x1000>;
+		hw-voter-regmap = <&hwv>;
 		#clock-cells = <1>;
 	};
 
@@ -1798,6 +1814,7 @@
 	mminfra_config_clk: syscon@1e800000 {
 		compatible = "mediatek,mt6985-mminfra_config", "syscon";
 		reg = <0 0x1e800000 0 0x1000>;
+		hw-voter-regmap = <&hwv>;
 		#clock-cells = <1>;
 	};
 
@@ -13863,6 +13880,7 @@ l3_hit,l3_mis,pmu_cyc_cnt";
 				regulator-max-microvolt = <1193750>;
 				regulator-enable-ramp-delay = <256>;
 				regulator-allowed-modes = <0 1 2>;
+				regulator-always-on;
 			};
 		};
 	};
