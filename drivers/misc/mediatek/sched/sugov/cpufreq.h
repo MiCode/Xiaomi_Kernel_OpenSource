@@ -13,6 +13,8 @@
 #define CAPACITY_TBL_OFFSET 0xFA0
 #define CAPACITY_TBL_SIZE 0x100
 #define CAPACITY_ENTRY_SIZE 0x2
+#define REG_FREQ_SCALING 0x4cc
+#define LUT_ROW_SIZE 0x4
 
 #if !IS_ENABLED(CONFIG_MTK_GEARLESS_SUPPORT)
 struct mtk_em_perf_state {
@@ -24,6 +26,8 @@ struct mtk_em_perf_state {
 
 struct pd_capacity_info {
 	int nr_caps;
+	unsigned int freq_max;
+	unsigned int freq_min;
 	/* table[0].freq => the max freq.
 	 * table[0].capacity => the max capacity.
 	 */
@@ -39,6 +43,7 @@ struct pd_capacity_info {
 	u32 inv_DFreq;
 	int nr_freq_opp_map;
 	int *freq_opp_map;
+	int *freq_opp_map_legacy;
 };
 
 struct sugov_tunables {
@@ -87,9 +92,10 @@ extern unsigned int pd_get_cpu_opp(int cpu);
 extern unsigned int pd_get_opp_leakage(unsigned int cpu, unsigned int opp,
 	unsigned int temperature);
 #if IS_ENABLED(CONFIG_NONLINEAR_FREQ_CTL)
+void mtk_cpufreq_fast_switch(void *data, struct cpufreq_policy *policy,
+				unsigned int *target_freq, unsigned int old_target_freq);
 void mtk_arch_set_freq_scale(void *data, const struct cpumask *cpus,
 				unsigned long freq, unsigned long max, unsigned long *scale);
-void mtk_cpufreq_transition(void *data, struct cpufreq_policy *policy);
 extern int set_sched_capacity_margin_dvfs(unsigned int capacity_margin);
 extern unsigned int get_sched_capacity_margin_dvfs(void);
 #endif

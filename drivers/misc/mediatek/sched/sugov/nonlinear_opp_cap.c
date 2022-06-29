@@ -25,6 +25,11 @@ EXPORT_SYMBOL(gear_id);
 #if IS_ENABLED(CONFIG_MTK_OPP_CAP_INFO)
 static void __iomem *sram_base_addr;
 static struct pd_capacity_info *pd_capacity_tbl;
+#if IS_ENABLED(CONFIG_MTK_GEARLESS_SUPPORT)
+static void __iomem *sram_base_addr_freq_scaling;
+static struct mtk_em_perf_domain *mtk_em_pd_ptr;
+static bool freq_scaling_disabled;
+#endif
 static int pd_count;
 static int entry_count;
 static int busy_tick_boost_all;
@@ -55,7 +60,7 @@ static inline int map_freq_idx_by_tbl(struct pd_capacity_info *pd_info, unsigned
 	int idx;
 
 	freq = min_t(unsigned int, freq, pd_info->table[0].freq);
-	if (freq <= pd_info->table[pd_info->nr_caps - 1].freq)
+	if (freq <= pd_info->freq_min)
 		return pd_info->nr_freq_opp_map - 1;
 
 	idx = mul_u64_u32_shr((u32) pd_info->table[0].freq - freq, pd_info->inv_DFreq, 32);
@@ -121,6 +126,18 @@ unsigned long pd_get_freq_opp(int cpu, unsigned long freq)
 	return pd_info->freq_opp_map[idx];
 }
 EXPORT_SYMBOL_GPL(pd_get_freq_opp);
+
+unsigned long pd_get_freq_opp_legacy(int cpu, unsigned long freq)
+{
+	int i, idx;
+	struct pd_capacity_info *pd_info;
+
+	i = per_cpu(gear_id, cpu);
+	pd_info = &pd_capacity_tbl[i];
+	idx = map_freq_idx_by_tbl(pd_info, freq);
+	return pd_info->freq_opp_map_legacy[idx];
+}
+EXPORT_SYMBOL_GPL(pd_get_freq_opp_legacy);
 
 unsigned long pd_get_freq_util(int cpu, unsigned long freq)
 {
@@ -208,6 +225,8 @@ static void free_capacity_table(void)
 		pd_capacity_tbl[i].util_opp_map = NULL;
 		kfree(pd_capacity_tbl[i].freq_opp_map);
 		pd_capacity_tbl[i].freq_opp_map = NULL;
+		kfree(pd_capacity_tbl[i].freq_opp_map_legacy);
+		pd_capacity_tbl[i].freq_opp_map_legacy = NULL;
 	}
 	kfree(pd_capacity_tbl);
 	pd_capacity_tbl = NULL;
@@ -220,6 +239,7 @@ static int init_util_freq_opp_mapping_table(void)
 	unsigned long min_cap, max_cap;
 	unsigned long min_freq, max_freq, curr_freq;
 	struct pd_capacity_info *pd_info;
+	struct cpufreq_policy *policy;
 
 	for (i = 0; i < pd_count; i++) {
 		pd_info = &pd_capacity_tbl[i];
@@ -243,7 +263,7 @@ static int init_util_freq_opp_mapping_table(void)
 		/* init freq_opp_map */
 		min_gap = UINT_MAX;
 		/* skip opp=0, nr_opp-1 because potential irregular freq delta*/
-		for (j = 1; j < nr_opp - 2; j++)
+		for (j = 0; j < nr_opp - 2; j++)
 			min_gap = min(min_gap, pd_info->table[j].freq - pd_info->table[j + 1].freq);
 		pd_info->DFreq = min_gap;
 		pd_info->inv_DFreq = (u32) DIV_ROUND_UP((u64) UINT_MAX, pd_info->DFreq);
@@ -251,22 +271,41 @@ static int init_util_freq_opp_mapping_table(void)
 		min_freq = rounddown(pd_info->table[nr_opp - 1].freq, pd_info->DFreq);
 
 		pd_info->nr_freq_opp_map = ((max_freq - min_freq) / pd_info->DFreq) + 1;
-		pd_info->freq_opp_map = kcalloc(pd_info->nr_freq_opp_map, sizeof(int), GFP_KERNEL);
 
+		pd_info->freq_opp_map = kcalloc(pd_info->nr_freq_opp_map, sizeof(int), GFP_KERNEL);
 		if (!pd_info->freq_opp_map)
 			goto nomem;
+
+		pd_info->freq_opp_map_legacy = kcalloc(pd_info->nr_freq_opp_map, sizeof(int),
+			GFP_KERNEL);
+		if (!pd_info->freq_opp_map_legacy)
+			goto nomem;
+
 		opp = 0;
 		curr_freq = pd_info->table[opp].freq;
+
+		policy = cpufreq_cpu_get(cpumask_first(&pd_info->cpus));
+		if (!policy)
+			pr_info("%s: %d: policy NULL in pd=%d\n", __func__, __LINE__, i);
 
 		for (j = 0; j < pd_info->nr_freq_opp_map - 1; j++) {
 			if (curr_freq <= pd_info->table[opp + 1].freq)
 				opp++;
-
 			pd_info->freq_opp_map[j] = opp;
+
+			if (policy)
+				pd_info->freq_opp_map_legacy[j] =
+				cpufreq_table_find_index_dl(policy, pd_info->table[opp].freq);
+
 			curr_freq -= pd_info->DFreq;
 		}
 		/* fill last element with min_freq opp */
 		pd_info->freq_opp_map[pd_info->nr_freq_opp_map - 1] = opp + 1;
+		if (policy) {
+			pd_info->freq_opp_map_legacy[pd_info->nr_freq_opp_map - 1] =
+				cpufreq_table_find_index_dl(policy, pd_info->table[opp + 1].freq);
+			cpufreq_cpu_put(policy);
+		}
 	}
 	return 0;
 nomem:
@@ -283,12 +322,12 @@ static int init_capacity_table(void)
 
 	for (i = 0; i < pd_count; i++) {
 		pd_info = &pd_capacity_tbl[i];
-		if (!cpumask_equal(&pd_info->cpus, mtk_em_pd_ptr_private[i].cpumask)) {
+		if (!cpumask_equal(&pd_info->cpus, mtk_em_pd_ptr[i].cpumask)) {
 			pr_info("cpumask mismatch, pd=%x, em=%x\n", pd_info->cpus,
-				*mtk_em_pd_ptr_private[i].cpumask);
+				*mtk_em_pd_ptr[i].cpumask);
 				return -1;
 		}
-		pd_info->table = mtk_em_pd_ptr_private[i].table;
+		pd_info->table = mtk_em_pd_ptr[i].table;
 		for_each_cpu(j, &pd_info->cpus) {
 			per_cpu(gear_id, j) = i;
 			if (per_cpu(cpu_scale, j) != pd_info->table[0].capacity) {
@@ -401,6 +440,21 @@ static int alloc_capacity_table(void)
 	int nr_caps;
 	struct em_perf_domain *pd;
 
+#if IS_ENABLED(CONFIG_MTK_GEARLESS_SUPPORT)
+	sram_base_addr_freq_scaling =
+		ioremap(DVFS_TBL_BASE_PHYS + REG_FREQ_SCALING, LUT_ROW_SIZE);
+	if (!sram_base_addr_freq_scaling) {
+		pr_info("Remap sram_base_addr_freq_scaling failed!\n");
+		return -EIO;
+	}
+	if (readl_relaxed(sram_base_addr_freq_scaling))
+		freq_scaling_disabled = false;
+
+	if (!freq_scaling_disabled)
+		mtk_em_pd_ptr = mtk_em_pd_ptr_private;
+	else
+		mtk_em_pd_ptr = mtk_em_pd_ptr_public;
+#endif
 	for_each_possible_cpu(cpu) {
 		pd = em_cpu_get(cpu);
 		if (!pd) {
@@ -430,7 +484,7 @@ static int alloc_capacity_table(void)
 		WARN_ON(cur_tbl >= pd_count);
 
 #if IS_ENABLED(CONFIG_MTK_GEARLESS_SUPPORT)
-		nr_caps = mtk_get_nr_cap(cur_tbl);
+		nr_caps = mtk_em_pd_ptr[cur_tbl].nr_perf_states;
 #else
 		nr_caps = pd->nr_perf_states;
 		pd_capacity_tbl[cur_tbl].table = kcalloc(nr_caps, sizeof(struct mtk_em_perf_state),
@@ -443,10 +497,13 @@ static int alloc_capacity_table(void)
 		pd_capacity_tbl[cur_tbl].nr_caps = nr_caps;
 		cpumask_copy(&pd_capacity_tbl[cur_tbl].cpus, to_cpumask(pd->cpus));
 
-
-
+		pd_capacity_tbl[cur_tbl].freq_max =
+			max(pd->table[pd->nr_perf_states - 1].frequency, pd->table[0].frequency);
+		pd_capacity_tbl[cur_tbl].freq_min =
+			min(pd->table[pd->nr_perf_states - 1].frequency, pd->table[0].frequency);
 		pd_capacity_tbl[cur_tbl].util_opp_map = NULL;
 		pd_capacity_tbl[cur_tbl].freq_opp_map = NULL;
+		pd_capacity_tbl[cur_tbl].freq_opp_map_legacy = NULL;
 
 		entry_count += nr_caps;
 
@@ -480,7 +537,7 @@ static int pd_capacity_tbl_show(struct seq_file *m, void *v)
 		if (!pd_info->nr_caps)
 			break;
 
-		seq_printf(m, "Pd table: %d\n", i);
+		seq_printf(m, "pd table: %d\n", i);
 		seq_printf(m, "cpus: %*pbl\n", cpumask_pr_args(&pd_info->cpus));
 		pd = em_cpu_get(cpumask_first(&pd_info->cpus));
 		if (!pd) {
@@ -488,11 +545,13 @@ static int pd_capacity_tbl_show(struct seq_file *m, void *v)
 			continue;
 		}
 #if IS_ENABLED(CONFIG_MTK_GEARLESS_SUPPORT)
-		seq_printf(m, "nr_caps.: %d\n", pd->nr_perf_states);
+		seq_printf(m, "nr_caps: %d\n", pd->nr_perf_states);
 		for (j = 0; j < pd->nr_perf_states; j++)
-			seq_printf(m, "%d: %lu, %lu\n", j,
+			seq_printf(m, "%3d: %4lu, %7lu\n", j,
 				mtk_em_pd_ptr_public[i].table[j].capacity,
 				mtk_em_pd_ptr_public[i].table[j].freq);
+		if (!freq_scaling_disabled)
+			seq_puts(m, "\n");
 #else
 		if (pd_info->nr_caps != pd->nr_perf_states) {
 			pr_info("sugov_ext err: pd_info->nr_c. != pd->nr_perf_sta. in clus.=%d\n",
@@ -553,6 +612,13 @@ void clear_opp_cap_info(void)
 }
 
 #if IS_ENABLED(CONFIG_NONLINEAR_FREQ_CTL)
+void mtk_cpufreq_fast_switch(void *data, struct cpufreq_policy *policy,
+		unsigned int *target_freq, unsigned int old_target_freq)
+{
+	trace_sugov_ext_gear_state(per_cpu(gear_id, policy->cpu),
+		pd_get_freq_opp(policy->cpu, *target_freq));
+}
+
 void mtk_arch_set_freq_scale(void *data, const struct cpumask *cpus,
 		unsigned long freq, unsigned long max, unsigned long *scale)
 {
@@ -568,11 +634,6 @@ void mtk_arch_set_freq_scale(void *data, const struct cpumask *cpus,
 	cap = pd_get_freq_util(cpu, freq);
 	max_cap = pd_get_freq_util(cpu, max);
 	*scale = SCHED_CAPACITY_SCALE * cap / max_cap;
-}
-
-void mtk_cpufreq_transition(void *data, struct cpufreq_policy *policy)
-{
-	trace_sugov_ext_gear_state(per_cpu(gear_id, policy->cpu), policy->cached_resolved_idx);
 }
 
 unsigned int util_scale = 1280;
@@ -602,11 +663,10 @@ EXPORT_SYMBOL_GPL(get_sched_capacity_margin_dvfs);
 void mtk_map_util_freq(void *data, unsigned long util, unsigned long freq,
 				struct cpumask *cpumask, unsigned long *next_freq)
 {
-	int opp, cpu;
+	int cpu;
 
 	util = (util * util_scale) >> SCHED_CAPACITY_SHIFT;
 	cpu = cpumask_first(cpumask);
-	opp = pd_get_util_opp(cpu, util);
 	*next_freq = pd_get_util_freq(cpu, util);
 
 	if (data != NULL) {
@@ -624,10 +684,10 @@ void mtk_map_util_freq(void *data, unsigned long util, unsigned long freq,
 			min_freq = policy->freq_table[idx_min].frequency;
 			max_freq = policy->freq_table[idx_max].frequency;
 			*next_freq = clamp_val(*next_freq, min_freq, max_freq);
-			opp = clamp_val(opp, idx_max, idx_min);
+			sg_policy->need_freq_update = false;
 		}
 		policy->cached_target_freq = *next_freq;
-		policy->cached_resolved_idx = opp;
+		policy->cached_resolved_idx = pd_get_freq_opp_legacy(cpu, *next_freq);
 		sg_policy->cached_raw_freq = *next_freq;
 	}
 }
