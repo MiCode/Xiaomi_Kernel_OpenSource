@@ -14,6 +14,7 @@
 #include "kd_imgsensor_define_v4l2.h"
 #include "adaptor.h"
 #include "adaptor-hw.h"
+#include <linux/clk-provider.h>
 
 #define INST_OPS(__ctx, __field, __idx, __hw_id, __set, __unset) do {\
 	if (__ctx->__field[__idx]) { \
@@ -95,7 +96,8 @@ static int set_mclk(struct adaptor_ctx *ctx, void *data, int val)
 
 	ret = clk_set_parent(mclk, mclk_src);
 	if (ret) {
-		dev_err(ctx->dev, "failed to set mclk's parent\n");
+		dev_err(ctx->dev, "mclk(%s) failed to set mclk's parent(%s)\n",
+		__clk_get_name(mclk), __clk_get_name(mclk_src));
 		return ret;
 	}
 

@@ -107,7 +107,7 @@
 #define AOV_PM_CLK_ALL_USE_ON_APMCU 1	// FIX ME
 #if AOV_PM_CLK_ALL_USE_ON_APMCU
 // FIX ME: #define it to enable pm/clk use on suspend/resume until fix issue done
-#undef AOV_SUSPEND_RESUME_USE_PM_CLK
+#define AOV_SUSPEND_RESUME_USE_PM_CLK
 // FIX ME: #define it when default clk test ready
 #undef AOV_SET_CLK_PARENT
 #else
