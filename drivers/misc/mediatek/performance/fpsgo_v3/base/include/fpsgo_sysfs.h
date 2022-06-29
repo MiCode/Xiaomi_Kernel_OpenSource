@@ -20,6 +20,12 @@
 	struct kobj_attribute kobj_attr_##_name =	\
 		__ATTR(_name, 0440,	\
 		_name##_show, NULL)
+
+#define KOBJ_ATTR_WO(_name)	\
+	struct kobj_attribute kobj_attr_##_name =	\
+	__ATTR(_name, 0660, \
+	NULL, _name##_store)
+
 #define KOBJ_ATTR_RWO(_name)     \
 	struct kobj_attribute kobj_attr_##_name =       \
 		__ATTR(_name, 0664,     \

@@ -21,6 +21,7 @@
 #define GCC_MAX_SIZE 300
 #define LOADING_CNT 256
 #define FBT_FILTER_MAX_WINDOW 100
+#define FPSGO_MW 1
 
 enum {
 	FPSGO_SET_UNKNOWN = -1,
@@ -200,7 +201,34 @@ struct render_info {
 	unsigned long long mid;
 
 	struct mutex thr_mlock;
+	#if FPSGO_MW
+	/*    LLF    */
+	int loading_th_by_pid;
+	int llf_task_policy_by_pid;
+	int light_loading_policy_by_pid;
+
+	/*    rescue    */
+	int rescue_second_enable_by_pid;
+	int rescue_second_time_by_pid;
+	int rescue_second_group_by_pid;
+	#endif
 };
+
+#if FPSGO_MW
+struct fpsgo_attr_by_pid {
+	struct rb_node entry;
+	int tgid;
+	/*    LLF    */
+	int loading_th_by_pid;
+	int llf_task_policy_by_pid;
+	int light_loading_policy_by_pid;
+
+	/*    rescue    */
+	int rescue_second_enable_by_pid;
+	int rescue_second_time_by_pid;
+	int rescue_second_group_by_pid;
+};
+#endif
 
 struct BQ_id {
 	unsigned long long key;
@@ -266,6 +294,13 @@ void fpsgo_thread_lock(struct mutex *mlock);
 void fpsgo_thread_unlock(struct mutex *mlock);
 void fpsgo_lockprove(const char *tag);
 void fpsgo_thread_lockprove(const char *tag, struct mutex *mlock);
+#if FPSGO_MW
+void fpsgo_clear_llf_cpu_policy_by_pid(int tgid, int policy_orig);
+struct fpsgo_attr_by_pid *fpsgo_find_attr_by_pid(int pid, int add_new);
+int update_attr_to_render_info(struct render_info *f_render,
+	struct fpsgo_attr_by_pid *attr_render, int pid);
+void delete_attr_by_pid(int tgid);
+#endif
 void fpsgo_delete_render_info(int pid,
 	unsigned long long buffer_id, unsigned long long identifier);
 struct render_info *fpsgo_search_and_add_render_info(int pid,
