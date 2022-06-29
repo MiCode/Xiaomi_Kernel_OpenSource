@@ -480,11 +480,6 @@ void update_freq(struct mtk_vcodec_dev *dev, int codec_type)
 				freq_sum = MAX_VCODEC_FREQ;
 		}
 
-		if (op_rate_sum >= dev->vdec_dvfs_params.per_frame_adjust_op_rate)
-			dev->vdec_dvfs_params.per_frame_adjust = 1;
-		else
-			dev->vdec_dvfs_params.per_frame_adjust = 0;
-
 		freq_sum = match_avail_freq(dev, codec_type, freq_sum);
 
 		dev->vdec_dvfs_params.target_freq = (u32)freq_sum;
@@ -522,11 +517,6 @@ void update_freq(struct mtk_vcodec_dev *dev, int codec_type)
 			if (no_op_rate_max_freq == 1)
 				freq_sum = MAX_VCODEC_FREQ;
 		}
-
-		if (op_rate_sum >= dev->venc_dvfs_params.per_frame_adjust_op_rate)
-			dev->venc_dvfs_params.per_frame_adjust = 1;
-		else
-			dev->venc_dvfs_params.per_frame_adjust = 0;
 
 		freq_sum = match_avail_freq(dev, codec_type, freq_sum);
 

@@ -15,6 +15,7 @@
 #include <linux/interconnect-provider.h>
 #include <linux/types.h>
 #include <linux/list.h>
+#include <linux/clk.h>
 #include <media/v4l2-ctrls.h>
 #include <media/v4l2-device.h>
 #include <media/v4l2-ioctl.h>
@@ -777,6 +778,8 @@ struct mtk_vcodec_dev {
 	struct vcodec_config *venc_cfg;
 	struct vcodec_op_rate *vdec_dflt_op_rate;
 	//struct vcodec_op_rate *venc_dflt_op_rate;
+	struct clk *vdec_mmdvfs_clk;
+	struct clk *venc_mmdvfs_clk;
 	struct list_head vdec_dvfs_inst;
 	struct list_head venc_dvfs_inst;
 	struct dvfs_params vdec_dvfs_params;

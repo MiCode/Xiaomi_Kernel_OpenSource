@@ -281,11 +281,20 @@ void mtk_prepare_venc_dvfs(struct mtk_vcodec_dev *dev)
 		return;
 	}
 
-	dev->venc_reg = devm_regulator_get(&dev->plat_dev->dev,
-						"dvfsrc-vcore");
-	if (dev->venc_reg == 0) {
+	dev->venc_reg = devm_regulator_get_optional(&dev->plat_dev->dev,
+						"mmdvfs-dvfsrc-vcore");
+	if (!dev->venc_reg) {
 		mtk_v4l2_debug(0, "[VENC] Failed to get regulator");
-		return;
+		dev->venc_reg = 0;
+		dev->venc_mmdvfs_clk = devm_clk_get(&dev->plat_dev->dev, "mmdvfs_clk");
+		if (!dev->venc_mmdvfs_clk) {
+			mtk_v4l2_debug(0, "[VENC] Failed to mmdvfs_clk");
+			dev->venc_mmdvfs_clk = 0;
+			return;
+		}
+		mtk_v4l2_debug(0, "[VENC] get venc_mmdvfs_clk successfully");
+	} else {
+		mtk_v4l2_debug(0, "[VENC] get regulator successfully");
 	}
 
 	dev->venc_freq_cnt = dev_pm_opp_get_opp_count(&dev->plat_dev->dev);
@@ -363,16 +372,26 @@ void set_venc_opp(struct mtk_vcodec_dev *dev, u32 freq)
 	int ret = 0;
 	unsigned long freq_64 = (unsigned long)freq;
 
-	if (dev->venc_reg != 0) {
+	if (dev->venc_reg || dev->venc_mmdvfs_clk) {
 		opp = dev_pm_opp_find_freq_ceil(&dev->plat_dev->dev, &freq_64);
 		volt = dev_pm_opp_get_voltage(opp);
 		dev_pm_opp_put(opp);
 
-		mtk_v4l2_debug(8, "[VENC] freq %lu, voltage %d", freq, volt);
-
-		ret = regulator_set_voltage(dev->venc_reg, volt, INT_MAX);
-		if (ret)
-			mtk_v4l2_debug(0, "[VENC] Failed to set regulator voltage %d", volt);
+		if (dev->venc_mmdvfs_clk) {
+			ret = clk_set_rate(dev->venc_mmdvfs_clk, freq_64);
+			if (ret) {
+				mtk_v4l2_debug(0, "[VENC] Failed to set mmdvfs rate %lu\n",
+						freq_64);
+			}
+			mtk_v4l2_debug(0, "[VENC] freq %lu, find_freq %lu", freq, freq_64);
+		} else if (dev->venc_reg) {
+			ret = regulator_set_voltage(dev->venc_reg, volt, INT_MAX);
+			if (ret) {
+				mtk_v4l2_debug(0, "[VENC] Failed to set regulator voltage %d\n",
+						volt);
+			}
+			mtk_v4l2_debug(0, "[VENC] freq %lu, voltage %lu", freq, volt);
+		}
 	}
 }
 
@@ -405,8 +424,6 @@ void mtk_venc_pmqos_begin_inst(struct mtk_vcodec_ctx *ctx)
 	u64 target_bw = 0;
 
 	dev = ctx->dev;
-	if (dev->venc_reg == 0)
-		return;
 
 	for (i = 0; i < dev->venc_port_cnt; i++) {
 		target_bw = (u64)dev->venc_port_bw[i].port_base_bw *
@@ -435,8 +452,6 @@ void mtk_venc_pmqos_end_inst(struct mtk_vcodec_ctx *ctx)
 	u64 target_bw = 0;
 
 	dev = ctx->dev;
-	if (dev->venc_reg == 0)
-		return;
 
 	for (i = 0; i < dev->venc_port_cnt; i++) {
 		target_bw = (u64)dev->venc_port_bw[i].port_base_bw *
