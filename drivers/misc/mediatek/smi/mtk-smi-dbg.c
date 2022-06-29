@@ -10,6 +10,7 @@
 #include <linux/module.h>
 #include <linux/timer.h>
 #include <linux/delay.h>
+#include <linux/spinlock.h>
 #include <linux/kthread.h>
 #include <linux/of_platform.h>
 #include <linux/platform_device.h>
@@ -382,6 +383,7 @@ struct mtk_smi_dbg {
 	u64			exec;
 	u8			frame;
 	struct notifier_block suspend_nb;
+	spinlock_t lock;
 };
 static struct mtk_smi_dbg	*gsmi;
 static u32 smi_force_on;
@@ -1269,7 +1271,8 @@ static void smi_hang_detect_bw_monitor(bool is_start)
 s32 mtk_smi_dbg_hang_detect(char *user)
 {
 	struct mtk_smi_dbg	*smi = gsmi;
-	s32			i, j, ret, PRINT_NR = 1, is_busy = 0;
+	s32			i, j, ret, PRINT_NR = 1, is_busy = 0, is_hang = 0;
+	unsigned long flags;
 
 	pr_info("%s: check caller:%s\n", __func__, user);
 
@@ -1287,10 +1290,16 @@ s32 mtk_smi_dbg_hang_detect(char *user)
 	raw_notifier_call_chain(&smi_notifier_list, 0, user);
 
 	/*start to monitor bw and check ostd*/
+	spin_lock_irqsave(&smi->lock, flags);
+
 	smi_hang_detect_bw_monitor(true);
 	is_busy |= smi_bus_ostd_check(smi->comm);
 	is_busy |= smi_bus_ostd_check(smi->larb);
 	smi_hang_detect_bw_monitor(false);
+
+	is_hang = smi_bus_hang_check(smi->comm);
+
+	spin_unlock_irqrestore(&smi->lock, flags);
 
 	if (is_busy) {
 		pr_info("%s: ===== SMI MM bus busy =====:%s\n", __func__, user);
@@ -1311,7 +1320,7 @@ s32 mtk_smi_dbg_hang_detect(char *user)
 
 	mtk_smi_dump_last_pd(user);
 
-	if (smi_bus_hang_check(smi->comm)) {
+	if (is_hang) {
 		pr_notice("[smi] smi may hang\n");
 		BUG_ON(1);
 	}
