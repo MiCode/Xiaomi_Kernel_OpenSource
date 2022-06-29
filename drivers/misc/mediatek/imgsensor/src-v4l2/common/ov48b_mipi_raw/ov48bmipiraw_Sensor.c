@@ -1300,7 +1300,7 @@ static void ov48b_seamless_switch(struct subdrv_ctx *ctx, u8 *para, u32 *len)
 {
 	enum SENSOR_SCENARIO_ID_ENUM scenario_id;
 	u32 *ae_ctrl = NULL;
-	u32 *feature_data = (u32 *)para;
+	u64 *feature_data = (u64 *)para;
 
 	if (feature_data == NULL) {
 		LOG_ERR("input scenario is null!");

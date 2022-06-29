@@ -1084,8 +1084,6 @@ void get_stagger_target_scenario(struct subdrv_ctx *ctx,
 		return;
 	}
 	group = ctx->s_ctx.mode[scenario_id].hdr_group;
-	if (scenario_id == SENSOR_SCENARIO_ID_NORMAL_PREVIEW)
-		group = 1;
 	for (i = 0; i < ctx->s_ctx.sensor_mode_num; i++) {
 		if (group != 0 && i != scenario_id &&
 		(ctx->s_ctx.mode[i].hdr_group == group) &&
@@ -1146,10 +1144,7 @@ void get_stagger_max_exp_time(struct subdrv_ctx *ctx,
 			scenario_id, ctx->s_ctx.sensor_mode_num);
 		return;
 	}
-	if (ctx->s_ctx.mode[scenario_id].hdr_mode > 1)
-		*exposure_max = ctx->s_ctx.exposure_max;
-	else
-		*exposure_max = 0;
+	*exposure_max = ctx->s_ctx.exposure_max;
 }
 
 void get_temperature_value(struct subdrv_ctx *ctx, u32 *value)
@@ -1702,6 +1697,7 @@ int common_feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 		get_feature_get_4cell_data(ctx, (u16)(*feature_data),
 			(char *)(uintptr_t)(*(feature_data + 1)));
 		break;
+	case SENSOR_FEATURE_GET_MAX_EXP_LINE:
 	case SENSOR_FEATURE_GET_STAGGER_MAX_EXP_TIME:
 		get_stagger_max_exp_time(ctx, *feature_data,
 			*(feature_data + 1), (feature_data + 2));
