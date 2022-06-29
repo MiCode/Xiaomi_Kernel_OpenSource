@@ -607,6 +607,7 @@ struct fuel_gauge_custom_data {
 	int shutdown_car_ratio;
 
 	/* battery health */
+	int bat_bh_en;
 	int aging_diff_max_threshold;
 	int aging_diff_max_level;
 	int aging_factor_t_min;
@@ -621,6 +622,7 @@ struct fuel_gauge_custom_data {
 	int max_aging_data;
 	int max_fast_data;
 	int fast_data_threshold_score;
+	int show_aging_period;
 	int min_uisoc_at_kpoc;
 
 	/* log_level */

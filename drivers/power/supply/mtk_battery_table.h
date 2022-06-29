@@ -307,6 +307,24 @@
 
 /*#define MTK_GET_BATTERY_ID_BY_GPIO*/
 
+/* battery health realtead define */
+#define BAT_BH_EN 1
+#define AGING_DIFF_MAX_THRESHOLD 1000
+#define AGING_DIFF_MAX_LEVEL 1000
+#define AGING_FACTOR_T_MIN 7500
+#define CYCLE_DIFF 15
+#define AGING_COUNT_MIN 20
+#define DEFAULT_SCORE 60
+#define DEFAULT_SCORE_QUANTITY 10
+#define FAST_CYCLE_SET 3
+#define LEVEL_MAX_CHANGE_BAT 9700
+#define DIFF_MAX_CHANGE_BAT 1000
+#define AGING_TRACKING_START 200
+#define MAX_AGING_DATA 50
+#define MAX_FAST_DATA 3
+#define FAST_DATA_THRESHOLD_SCORE 100
+#define SHOW_AGING_PERIOD 1
+
 /* Qmax for battery  */
 int g_Q_MAX[MAX_TABLE][TOTAL_BATTERY_NUMBER] = {
 	/*bat1,   bat2,   bat3,    bat4*/

@@ -2317,6 +2317,99 @@ static ssize_t BAT_EC_store(
 	return size;
 }
 
+
+static ssize_t BAT_HEALTH_show(
+	struct device *dev, struct device_attribute *attr, char *buf)
+{
+	return 0;
+}
+
+
+static ssize_t BAT_HEALTH_store(
+	struct device *dev, struct device_attribute *attr,
+	const char *buf, size_t size)
+{
+	char copy_str[7], buf_str[350];
+	char *s = buf_str, *pch;
+	/* char *ori = buf_str; */
+	int chr_size = 0;
+	int i = 0, j = 0, count = 0, value[50], result = 0;
+	struct mtk_battery *gm;
+
+	gm = get_mtk_battery();
+
+	bm_err("%s, size =%d, str=%s\n", __func__, size, buf);
+
+	if (size < 90 || size > 350) {
+		bm_err("%s error, size mismatch\n", __func__);
+		return -1;
+	}
+
+	if (size >= 90 && size <= 350) {
+		for (i = 0; i < strlen(buf); i++) {
+			if (buf[i] == ',')
+				j++;
+		}
+		if (j != 46) {
+			bm_err("%s error, invalid input\n", __func__);
+			return -1;
+		}
+	}
+
+	strncpy(buf_str, buf, size);
+	bm_err("%s, copy str=%s\n", __func__, buf_str);
+
+	if (buf != NULL && size != 0) {
+		pch = strchr(s, ',');
+		while (pch != NULL) {
+			memset(copy_str, 0, 7);
+			copy_str[6] = '\0';
+
+			chr_size = pch - s;
+			if (count == 0)
+				strncpy(copy_str, s, chr_size);
+			else
+				strncpy(copy_str, s+1, chr_size-1);
+
+			result = kstrtoint(copy_str, 10, &value[count]);
+			if (result < 0)
+				bm_err("[%s]str:%s\n", __func__, copy_str);
+			else {
+				/* bm_err("::%s::count:%d,%d\n", copy_str, count, value[count]); */
+				s = pch;
+				pch = strchr(pch + 1, ',');
+				count++;
+			}
+		}
+	}
+
+	if (count == 46) {
+		for (i = 0; i < 43; i++)
+			gm->bh_data.data[i] = value[i];
+
+		for (i = 0; i < 3; i++)
+			gm->bh_data.times[i].tv_sec = value[i+43];
+
+	bm_err("%s count=%d,serial=%d,source=%d,42:%d, value43:[%d, %ld],value45[%d %ld]\n",
+		__func__,
+		count, gm->bh_data.data[0], gm->bh_data.data[1],
+		gm->bh_data.data[42],
+		value[43], gm->bh_data.times[0].tv_sec,
+		value[45], gm->bh_data.times[2].tv_sec);
+
+		wakeup_fg_algo_cmd(gm, FG_INTR_KERNEL_CMD,
+			FG_KERNEL_CMD_SEND_BH_DATA, 0);
+
+		mdelay(4);
+		bm_err("%s wakeup DONE~~~\n", __func__);
+	} else
+		bm_err("%s count=%d, number not match\n", __func__, count);
+
+
+	return size;
+}
+
+
 static DEVICE_ATTR_RW(Battery_Temperature);
 static DEVICE_ATTR_RW(UI_SOC);
 static DEVICE_ATTR_RW(uisoc_update_type);
@@ -2332,6 +2425,7 @@ static DEVICE_ATTR_RW(shutdown_condition_enable);
 static DEVICE_ATTR_RW(reset_battery_cycle);
 static DEVICE_ATTR_RW(reset_aging_factor);
 static DEVICE_ATTR_RW(BAT_EC);
+static DEVICE_ATTR_RW(BAT_HEALTH);
 
 
 static int mtk_battery_setup_files(struct platform_device *pdev)
@@ -2395,6 +2489,11 @@ static int mtk_battery_setup_files(struct platform_device *pdev)
 	ret = device_create_file(&(pdev->dev), &dev_attr_reset_battery_cycle);
 	if (ret)
 		goto _out;
+
+	ret = device_create_file(&(pdev->dev), &dev_attr_BAT_HEALTH);
+	if (ret)
+		goto _out;
+
 
 	ret = device_create_file(&(pdev->dev), &dev_attr_reset_aging_factor);
 	if (ret)
@@ -2533,6 +2632,7 @@ static void mtk_battery_daemon_handler(struct mtk_battery *gm, void *nl_data,
 
 			ptim_bat_vol = gauge_get_int_property(
 				GAUGE_PROP_PTIM_BATTERY_VOLTAGE);
+
 			power_supply_get_property(psy_bat,
 				POWER_SUPPLY_PROP_CURRENT_NOW, &val);
 			power_supply_get_property(psy_gauge,
@@ -2560,6 +2660,10 @@ static void mtk_battery_daemon_handler(struct mtk_battery *gm, void *nl_data,
 				gm->ptim_lk_v, ptim_bat_vol,
 				gm->ptim_lk_i, ptim_R_curr, val.intval);
 		}
+		/* bat_vol between 1.8V to 5V change unit to 0.1V */
+		if (ptim_bat_vol > 1800 && ptim_bat_vol < 5000)
+			ptim_bat_vol = ptim_bat_vol * 10;
+
 		ptim_vbat = ptim_bat_vol;
 		ptim_i = ptim_R_curr;
 		ret_msg->fgd_data_len += sizeof(ptim_vbat);

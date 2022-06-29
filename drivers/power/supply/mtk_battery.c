@@ -1226,6 +1226,24 @@ void fg_custom_init_from_header(struct mtk_battery *gm)
 	fg_cust_data->moving_battemp_en = MOVING_BATTEMP_EN;
 	fg_cust_data->moving_battemp_thr = MOVING_BATTEMP_THR;
 
+	/* battery healthd */
+	fg_cust_data->bat_bh_en = BAT_BH_EN;
+	fg_cust_data->aging_diff_max_threshold = AGING_DIFF_MAX_THRESHOLD;
+	fg_cust_data->aging_diff_max_level = AGING_DIFF_MAX_LEVEL;
+	fg_cust_data->aging_factor_t_min = AGING_FACTOR_T_MIN;
+	fg_cust_data->cycle_diff = CYCLE_DIFF;
+	fg_cust_data->aging_count_min = AGING_COUNT_MIN;
+	fg_cust_data->default_score = DEFAULT_SCORE;
+	fg_cust_data->default_score_quantity = DEFAULT_SCORE_QUANTITY;
+	fg_cust_data->fast_cycle_set = FAST_CYCLE_SET;
+	fg_cust_data->level_max_change_bat = LEVEL_MAX_CHANGE_BAT;
+	fg_cust_data->diff_max_change_bat = DIFF_MAX_CHANGE_BAT;
+	fg_cust_data->aging_tracking_start = AGING_TRACKING_START;
+	fg_cust_data->max_aging_data = MAX_AGING_DATA;
+	fg_cust_data->max_fast_data = MAX_FAST_DATA;
+	fg_cust_data->fast_data_threshold_score = FAST_DATA_THRESHOLD_SCORE;
+	fg_cust_data->show_aging_period = SHOW_AGING_PERIOD;
+
 	if (version == GAUGE_HW_V2001) {
 		bm_debug("GAUGE_HW_V2001 disable nafg\n");
 		fg_cust_data->disable_nafg = 1;
@@ -1849,6 +1867,40 @@ void fg_custom_init_from_dts(struct platform_device *dev,
 		&(fg_cust_data->ui_low_limit_vth4), 1);
 	fg_read_dts_val(np, "UI_LOW_LIMIT_TIME",
 		&(fg_cust_data->ui_low_limit_time), 1);
+
+	/* battery healthd */
+	fg_read_dts_val(np, "BAT_BH_EN",
+		&(fg_cust_data->bat_bh_en), 1);
+	fg_read_dts_val(np, "AGING_DIFF_MAX_THRESHOLD",
+		&(fg_cust_data->aging_diff_max_threshold), 1);
+	fg_read_dts_val(np, "AGING_DIFF_MAX_LEVEL",
+		&(fg_cust_data->aging_diff_max_level), 1);
+	fg_read_dts_val(np, "AGING_FACTOR_T_MIN",
+		&(fg_cust_data->aging_factor_t_min), 1);
+	fg_read_dts_val(np, "CYCLE_DIFF",
+		&(fg_cust_data->cycle_diff), 1);
+	fg_read_dts_val(np, "AGING_COUNT_MIN",
+		&(fg_cust_data->aging_count_min), 1);
+	fg_read_dts_val(np, "DEFAULT_SCORE",
+		&(fg_cust_data->default_score), 1);
+	fg_read_dts_val(np, "DEFAULT_SCORE_QUANTITY",
+		&(fg_cust_data->default_score_quantity), 1);
+	fg_read_dts_val(np, "FAST_CYCLE_SET",
+		&(fg_cust_data->fast_cycle_set), 1);
+	fg_read_dts_val(np, "LEVEL_MAX_CHANGE_BAT",
+		&(fg_cust_data->level_max_change_bat), 1);
+	fg_read_dts_val(np, "DIFF_MAX_CHANGE_BAT",
+		&(fg_cust_data->diff_max_change_bat), 1);
+	fg_read_dts_val(np, "AGING_TRACKING_START",
+		&(fg_cust_data->aging_tracking_start), 1);
+	fg_read_dts_val(np, "MAX_AGING_DATA",
+		&(fg_cust_data->max_aging_data), 1);
+	fg_read_dts_val(np, "MAX_FAST_DATA",
+		&(fg_cust_data->max_fast_data), 1);
+	fg_read_dts_val(np, "FAST_DATA_THRESHOLD_SCORE",
+		&(fg_cust_data->fast_data_threshold_score), 1);
+	fg_read_dts_val(np, "SHOW_AGING_PERIOD",
+		&(fg_cust_data->show_aging_period), 1);
 
 	/* average battemp */
 	fg_read_dts_val(np, "MOVING_BATTEMP_EN",
