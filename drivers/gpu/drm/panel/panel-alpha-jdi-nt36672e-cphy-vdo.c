@@ -1192,6 +1192,11 @@ static int mode_switch(struct drm_panel *panel,
 	int ret = 0;
 	struct drm_display_mode *m = get_mode_by_id_hfp(connector, dst_mode);
 
+	if (!m) {
+		pr_err("%s:%d invalid display mode\n", __func__, __LINE__);
+		return ret;
+	}
+
 	pr_info("%s cur_mode = %d dst_mode %d\n", __func__, cur_mode, dst_mode);
 
 	if (drm_mode_vrefresh(m) == 60) {	/* 60 switch to 120 */
