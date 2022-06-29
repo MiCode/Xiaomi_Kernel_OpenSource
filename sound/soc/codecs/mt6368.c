@@ -1638,7 +1638,10 @@ static int mt_adc_clk_gen_event(struct snd_soc_dapm_widget *w,
 	switch (event) {
 	case SND_SOC_DAPM_POST_PMU:
 		if (priv->vow_enable) {
-			/* ADC CLK from CLKGEN (3.25MHz) */
+			/* Enable Audio ADC clock */
+			/* ADC CLK src from CLKGEN (3.25MHz) */
+			/* ADC CLK SEL: For 6.5MHz clock in, 3.25MHz data out */
+			/* ADC clock gen. mode:  Divided by 2 (normal) */
 			regmap_update_bits(priv->regmap, MT6368_AUDENC_ANA_CON10,
 					   RG_AUDADCCLKRSTB_MASK_SFT, 0x0);
 			regmap_update_bits(priv->regmap, MT6368_AUDENC_ANA_CON10,
@@ -1650,7 +1653,10 @@ static int mt_adc_clk_gen_event(struct snd_soc_dapm_widget *w,
 			regmap_update_bits(priv->regmap, MT6368_AUDENC_ANA_CON10,
 					   RG_AUDADCCLKGENMODE_MASK_SFT, 0x0);
 		} else {
-			/* ADC CLK from CLKGEN (6.5MHz) */
+			/* Enable Audio ADC clock */
+			/* ADC CLK src from CLKGEN (6.5MHz) */
+			/* ADC CLK SEL: For 13MHz clock in, 6.5MHz  */
+			/* ADC clock gen. mode: Divided by 4 */
 			regmap_update_bits(priv->regmap, MT6368_AUDENC_ANA_CON10,
 					   RG_AUDADCCLKRSTB_MASK_SFT,
 					   0x1 << RG_AUDADCCLKRSTB_SFT);
@@ -2060,6 +2066,8 @@ static int mt_vow_pll_event(struct snd_soc_dapm_widget *w,
 
 static void vow_periodic_on_off_set(struct mt6368_priv *priv)
 {
+	/* VOW32K_CK power on */
+	/* VOW13M_CK power on */
 	regmap_update_bits(priv->regmap,
 			   MT6368_AUD_TOP_CKPDN_CON1,
 			   RG_VOW32K_CK_PDN_MASK_SFT,
@@ -2131,6 +2139,7 @@ static void vow_periodic_on_off_set(struct mt6368_priv *priv)
 
 static void vow_periodic_on_off_reset(struct mt6368_priv *priv)
 {
+	/* VOW32K_CK power down */
 	regmap_update_bits(priv->regmap,
 			   MT6368_AUD_TOP_CKPDN_CON1,
 			   RG_VOW32K_CK_PDN_MASK_SFT,

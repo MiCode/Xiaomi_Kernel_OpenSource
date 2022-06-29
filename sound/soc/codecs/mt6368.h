@@ -16,7 +16,7 @@
 #define RG_XO_BBCK5_EN_M_SFT 2
 
 /* MT6368 */
-#define MT6368_HWCID0                      0x8
+#define MT6368_HWCID0                        0x8
 #define MT6368_SMT_CON1                      0x22
 #define MT6368_SMT_CON2                      0x23
 #define MT6368_SMT_CON3                      0x24
