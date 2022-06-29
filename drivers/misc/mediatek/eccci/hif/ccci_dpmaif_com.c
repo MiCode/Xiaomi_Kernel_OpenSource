@@ -36,6 +36,7 @@
 #include "ccci_dpmaif_com.h"
 #include "ccci_dpmaif_bat.h"
 #include "ccci_dpmaif_drv_com.h"
+#include "ccci_dpmaif_resv_mem.h"
 
 #include "net_speed.h"
 #include "net_pool.h"
@@ -1197,8 +1198,11 @@ static int dpmaif_rxq_init_buf(struct dpmaif_rx_queue *rxq)
 	rxq->pit_cnt = dpmaif_ctl->dl_pit_entry_size;
 	/* alloc buffer for HW && AP SW */
 
-	rxq->pit_base = kzalloc((rxq->pit_cnt * dpmaif_ctl->dl_pit_byte_size), GFP_KERNEL);
+	if (!ccci_dpmaif_get_resv_cache_mem(&rxq->pit_base, &rxq->pit_phy_addr,
+			(rxq->pit_cnt * dpmaif_ctl->dl_pit_byte_size)))
+		return 0;
 
+	rxq->pit_base = kzalloc((rxq->pit_cnt * dpmaif_ctl->dl_pit_byte_size), GFP_KERNEL);
 	if (!rxq->pit_base) {
 		CCCI_ERROR_LOG(0, TAG,
 			"[%s] kmalloc PIT memory fail.\n", __func__);
@@ -1296,16 +1300,22 @@ static enum hrtimer_restart txq_done_timer_action(struct hrtimer *timer)
 
 static int dpmaif_txq_init_buf(struct dpmaif_tx_queue *txq)
 {
-	int ret = 0, len;
+	int ret = 0, len = 0;
+	int cache_mem_from_dts = 0, nocache_mem_from_dts = 0;
 
 	/* DRB buffer init */
 	txq->drb_cnt = DPMAIF_UL_DRB_ENTRY_SIZE;
 	/* alloc buffer for HW && AP SW */
 
-	txq->drb_base = dma_alloc_coherent(
-		dpmaif_ctl->dev,
-		(txq->drb_cnt * sizeof(struct dpmaif_drb_pd)),
-		&txq->drb_phy_addr, GFP_KERNEL);
+	if (!ccci_dpmaif_get_resv_nocache_mem(&txq->drb_base, &txq->drb_phy_addr,
+		(txq->drb_cnt * sizeof(struct dpmaif_drb_pd))))
+		nocache_mem_from_dts = 1;
+
+	if (!nocache_mem_from_dts)
+		txq->drb_base = dma_alloc_coherent(
+			dpmaif_ctl->dev,
+			(txq->drb_cnt * sizeof(struct dpmaif_drb_pd)),
+			&txq->drb_phy_addr, GFP_KERNEL);
 
 	if (!txq->drb_base) {
 		CCCI_ERROR_LOG(0, TAG,
@@ -1314,12 +1324,17 @@ static int dpmaif_txq_init_buf(struct dpmaif_tx_queue *txq)
 		return LOW_MEMORY_DRB;
 	}
 
-	memset(txq->drb_base, 0,
-			txq->drb_cnt * sizeof(struct dpmaif_drb_pd));
+	if (!nocache_mem_from_dts)
+		memset(txq->drb_base, 0, txq->drb_cnt * sizeof(struct dpmaif_drb_pd));
 
 	/* alloc buffer for AP SW */
 	len = txq->drb_cnt * sizeof(struct dpmaif_drb_skb);
-	txq->drb_skb_base = kzalloc(len, GFP_KERNEL);
+	if (!ccci_dpmaif_get_resv_cache_mem(&txq->drb_skb_base, NULL, len))
+		cache_mem_from_dts = 1;
+
+	if (!cache_mem_from_dts)
+		txq->drb_skb_base = kzalloc(len, GFP_KERNEL);
+
 	if (!txq->drb_skb_base) {
 		CCCI_ERROR_LOG(-1, TAG,
 			"[%s] error: kzalloc drb skb base fail.\n",
@@ -2836,6 +2851,8 @@ static int dpmaif_init_com(struct device *dev)
 		ret = ccci_dpmaif_drv1_init();
 	if (ret)
 		goto DPMAIF_INIT_FAIL;
+
+	ccci_dpmaif_resv_mem_init();
 
 	if (dpmaif_init_clk(dev, dpmaif_ctl->clk_tbs))
 		goto DPMAIF_INIT_FAIL;

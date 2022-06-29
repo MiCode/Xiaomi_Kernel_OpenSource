@@ -28,7 +28,7 @@
 #include <linux/syscore_ops.h>
 
 #include "ccci_dpmaif_bat.h"
-
+#include "ccci_dpmaif_resv_mem.h"
 
 #define BAT_ALLOC_NO_PAUSED  0
 #define BAT_ALLOC_IS_PAUSED  1
@@ -292,6 +292,7 @@ static struct dpmaif_bat_request *ccci_dpmaif_bat_create(void)
 static int dpmaif_bat_init(struct dpmaif_bat_request *bat_req, int is_frag)
 {
 	int sw_buf_size;
+	int cache_mem_from_dts = 0, nocache_mem_from_dts = 0;
 
 	bat_req->bat_cnt = dpmaif_ctl->dl_bat_entry_size;
 	bat_req->bat_pkt_cnt = bat_req->bat_cnt;
@@ -306,14 +307,23 @@ static int dpmaif_bat_init(struct dpmaif_bat_request *bat_req, int is_frag)
 	}
 
 	/* alloc buffer for HW && AP SW */
-	 bat_req->bat_base = dma_alloc_coherent(
-		dpmaif_ctl->dev,
-		bat_req->bat_cnt * sizeof(struct dpmaif_bat_base),
-		&bat_req->bat_phy_addr, GFP_KERNEL);
+	if (!ccci_dpmaif_get_resv_nocache_mem(&bat_req->bat_base, &bat_req->bat_phy_addr,
+			(bat_req->bat_cnt * sizeof(struct dpmaif_bat_base))))
+		nocache_mem_from_dts = 1;
+
+	if (!nocache_mem_from_dts)
+		bat_req->bat_base = dma_alloc_coherent(
+			dpmaif_ctl->dev,
+			bat_req->bat_cnt * sizeof(struct dpmaif_bat_base),
+			&bat_req->bat_phy_addr, GFP_KERNEL);
 
 	/* alloc buffer for AP SW to record skb information */
-	bat_req->bat_pkt_addr = kzalloc((bat_req->bat_pkt_cnt * sw_buf_size),
-			GFP_KERNEL);
+	if (!ccci_dpmaif_get_resv_cache_mem(&bat_req->bat_pkt_addr, NULL,
+			(bat_req->bat_pkt_cnt * sw_buf_size)))
+		cache_mem_from_dts = 1;
+
+	if (!cache_mem_from_dts)
+		bat_req->bat_pkt_addr = kzalloc((bat_req->bat_pkt_cnt * sw_buf_size), GFP_KERNEL);
 
 	if (bat_req->bat_base == NULL || bat_req->bat_pkt_addr == NULL) {
 		CCCI_ERROR_LOG(0, TAG,
@@ -322,8 +332,8 @@ static int dpmaif_bat_init(struct dpmaif_bat_request *bat_req, int is_frag)
 		return LOW_MEMORY_BAT;
 	}
 
-	memset(bat_req->bat_base, 0,
-		(bat_req->bat_cnt * sizeof(struct dpmaif_bat_base)));
+	if (!nocache_mem_from_dts)
+		memset(bat_req->bat_base, 0, (bat_req->bat_cnt * sizeof(struct dpmaif_bat_base)));
 
 	return 0;
 }
