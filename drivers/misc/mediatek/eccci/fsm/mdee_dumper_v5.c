@@ -744,6 +744,7 @@ static void md_HS1_Fail_dump(char *ex_info, unsigned int len)
 	unsigned int ccif_sram[CCCI_EE_SIZE_CCIF_SRAM/sizeof(unsigned int)]
 	= { 0 };
 	int ret = 0;
+	u64 boot_status_val = get_expected_boot_status_val();
 
 	ccci_md_dump_info(DUMP_MD_BOOTUP_STATUS, reg_value, 2);
 	ccci_md_dump_info(DUMP_FLAG_CCIF, ccif_sram, 0);
@@ -757,17 +758,10 @@ static void md_HS1_Fail_dump(char *ex_info, unsigned int len)
 			"boot_status0: 0x%x\nboot_status1: 0x%x\n"
 			"MD Offender:DVFS\n",
 			0, reg_value[0], reg_value[1]);
-#if MD_GENERATION >= (6295)
-	} else if ((reg_value[0] == 0x5443000C) ||
+	} else if ((reg_value[0] == boot_status_val) ||
 				(reg_value[0] == 0) ||
 				(reg_value[0] >= 0x53310000 &&
 				reg_value[0] <= 0x533100FF)) {
-#else
-	} else if ((reg_value[0] == 0x54430007) ||
-				(reg_value[0] == 0) ||
-				(reg_value[0] >= 0x53310000 &&
-				reg_value[0] <= 0x533100FF)) {
-#endif
 		ret = snprintf(ex_info, len,
 			"\n[Others] MD_BOOT_UP_FAIL(HS%d)\n",
 			1);
@@ -775,12 +769,6 @@ static void md_HS1_Fail_dump(char *ex_info, unsigned int len)
 		msleep(10000);
 		ccci_md_dump_info(DUMP_FLAG_REG, NULL, 0);
 	}  else {
-	/* ((reg_value[0] >= 0x54430001 &&
-	 * reg_value[0] <= 0x54430006) ||
-	 * (reg_value[0] >= 0x53310100 &&
-	 * reg_value[0] <= 0x5331FFFF))
-	 * or else
-	 */
 		ret = snprintf(ex_info, len,
 			"\n[Others] MD_BOOT_UP_FAIL(HS%d - MD bootrom failed)\n"
 			"boot_status0: 0x%x\nboot_status1: 0x%x\n"

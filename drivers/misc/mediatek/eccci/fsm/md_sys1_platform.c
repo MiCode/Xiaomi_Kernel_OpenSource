@@ -161,6 +161,38 @@ static void md_cd_get_md_bootup_status(
 		__func__, res.a0, res.a1, res.a2);
 }
 
+/*
+ * get MD boot up status default value
+ * GEN95 and before == 0x54430007U;
+ * New GEN95 (6789,6781) == 0x5443000CU;
+ * GEN97 and GEN98 == 0x5443000CU;
+ * GEN98+ == 0x5443000FU;
+ * GEN99 == 0x54430012U;
+ */
+u64 get_expected_boot_status_val(void)
+{
+	u64 boot_status_val = 0;
+
+	if ((md_cd_plat_val_ptr.md_gen <= 6295) && !md_cd_plat_val_ptr.md_sub_ver)
+		boot_status_val = 0x54430007U;
+	else if (((md_cd_plat_val_ptr.md_gen == 6295) && md_cd_plat_val_ptr.md_sub_ver) ||
+		(md_cd_plat_val_ptr.md_gen == 6297) ||
+		((md_cd_plat_val_ptr.md_gen == 6298) && !md_cd_plat_val_ptr.md_sub_ver))
+		boot_status_val = 0x5443000CU;
+	else if ((md_cd_plat_val_ptr.md_gen == 6298) && md_cd_plat_val_ptr.md_sub_ver)
+		boot_status_val = 0x5443000FU;
+	else if (md_cd_plat_val_ptr.md_gen >= 6299)
+		boot_status_val = 0x54430012U;
+	else {
+		CCCI_ERROR_LOG(-1, TAG,
+			       "%s, unexpected MD Gen:%d (sub_ver:%d)\n",
+			       __func__, md_cd_plat_val_ptr.md_gen, md_cd_plat_val_ptr.md_sub_ver);
+		return 0;
+	}
+
+	return boot_status_val;
+}
+
 static atomic_t reg_dump_ongoing;
 static void md_cd_dump_debug_register(struct ccci_modem *md)
 {
@@ -168,12 +200,14 @@ static void md_cd_dump_debug_register(struct ccci_modem *md)
 	unsigned int reg_value[2] = { 0 };
 	unsigned int ccif_sram[
 		CCCI_EE_SIZE_CCIF_SRAM/sizeof(unsigned int)] = { 0 };
+	u64 boot_status_val = 0;
 
 	/* EMI debug feature */
 #if IS_ENABLED(CONFIG_MTK_EMI)
 	mtk_emidbg_dump();
 #endif
 
+	boot_status_val = get_expected_boot_status_val();
 	md_cd_get_md_bootup_status(reg_value, 2);
 	md->ops->dump_info(md, DUMP_FLAG_CCIF, ccif_sram, 0);
 	/* copy from HS1 timeout */
@@ -181,10 +215,10 @@ static void md_cd_dump_debug_register(struct ccci_modem *md)
 		CCCI_MEM_LOG_TAG(0, TAG,
 			"((reg_value[0] == 0) && (ccif_sram[1] == 0))\n");
 		return;
-	} else if (!((reg_value[0] == 0x5443000CU) || (reg_value[0] == 0) ||
+	} else if (!((reg_value[0] == boot_status_val) || (reg_value[0] == 0) ||
 		(reg_value[0] >= 0x53310000 && reg_value[0] <= 0x533100FF))) {
 		CCCI_MEM_LOG_TAG(0, TAG,
-			"0x%X, no dump\n", reg_value[0]);
+			"get 0x%X, expect 0x%X, no dump\n", reg_value[0], boot_status_val);
 		return;
 	}
 	if (unlikely(in_interrupt())) {
