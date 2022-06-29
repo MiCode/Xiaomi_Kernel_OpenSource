@@ -494,12 +494,15 @@ enum mtk_cam_bin {
 /**
  * struct mtk_cam_resource_raw_v2
  *
- * @max_img_buf_sz: will be phased out after using dma buf fd for DC buffers
+ * @raws_max_num: Max number of raws can be used. This is only
+ *		  used when user let driver select raws.
+ *		  (raws = 0, and raws_must = 0)
  */
 struct mtk_cam_resource_raw_v2 {
 	struct mtk_cam_scen scen;
 	__u8	raws;
 	__u8	raws_must;
+	__u8	raws_max_num;
 	__u8	bin;
 	__u8	raw_pixel_mode;
 	__u8	hw_mode;

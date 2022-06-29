@@ -446,6 +446,12 @@ static bool mtk_cam_res_raw_mask_chk(struct device *dev,
 		dev_info(dev,
 			 "%s: user doesn't select raw, raws_must(0x%x), raws(0x%x)\n",
 			 __func__, raw_must_selected, raw_available);
+		if (res_user->raw_res.raws_max_num > 2 || res_user->raw_res.raws_max_num < 1) {
+			dev_info(dev,
+				 "%s: raws_max_num(%s) is not allowed, reset it to 2\n",
+				 __func__, res_user->raw_res.raws_max_num);
+			res_user->raw_res.raws_max_num = 2;
+		}
 		return true;
 	}
 
@@ -501,7 +507,7 @@ mtk_cam_raw_try_res_ctrl(struct mtk_raw_pipeline *pipeline,
 		res_cfg->hwn_limit_max = mtk_cam_res_get_raw_num(res_user->raw_res.raws);
 		res_cfg->hwn_limit_min = res_cfg->hwn_limit_max;
 	} else {
-		res_cfg->hwn_limit_max = 2;
+		res_cfg->hwn_limit_max = res_user->raw_res.raws_max_num;
 		res_cfg->hwn_limit_min = 1;
 	}
 
