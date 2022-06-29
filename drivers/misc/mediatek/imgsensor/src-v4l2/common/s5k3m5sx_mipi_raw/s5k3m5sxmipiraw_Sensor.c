@@ -645,7 +645,7 @@ static struct subdrv_static_ctx static_ctx = {
 	.eeprom_info = PARAM_UNDEFINED,
 	.eeprom_num = PARAM_UNDEFINED,
 	.resolution = {4208, 3120},
-	.mirror = IMAGE_NORMAL,
+	.mirror = IMAGE_HV_MIRROR,
 
 	.mclk = 24,
 	.isp_driving_current = ISP_DRIVING_4MA,
@@ -654,7 +654,7 @@ static struct subdrv_static_ctx static_ctx = {
 	.mipi_lane_num = SENSOR_MIPI_4_LANE,
 	.ob_pedestal = 0x40,
 
-	.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_Gr,
+	.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_Gb,
 	.ana_gain_def = BASEGAIN * 4,
 	.ana_gain_min = BASEGAIN * 1,
 	.ana_gain_max = BASEGAIN * 16,
@@ -701,7 +701,7 @@ static struct subdrv_static_ctx static_ctx = {
 	.list = feature_control_list,
 	.list_len = ARRAY_SIZE(feature_control_list),
 
-	.checksum_value = 0x24CB34D5,
+	.checksum_value = 0xE4087030,
 };
 
 static struct subdrv_ops ops = {
@@ -788,22 +788,6 @@ static void s5k3m5sx_set_test_pattern_data(struct subdrv_ctx *ctx, u8 *para, u32
 
 static int init_ctx(struct subdrv_ctx *ctx,	struct i2c_client *i2c_client, u8 i2c_write_id)
 {
-	/* module dependent */
-	switch (i2c_write_id) {
-	case 0x20:
-		static_ctx.mirror = IMAGE_NORMAL;
-		static_ctx.sensor_output_dataformat = IMAGE_NORMAL;
-		static_ctx.checksum_value = 0x24CB34D5;
-		break;
-	case 0x5A:
-		static_ctx.mirror = IMAGE_HV_MIRROR;
-		static_ctx.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_Gb;
-		static_ctx.checksum_value = 0xE4087030;
-		break;
-	default:
-		break;
-	}
-
 	memcpy(&(ctx->s_ctx), &static_ctx, sizeof(struct subdrv_static_ctx));
 	subdrv_ctx_init(ctx);
 	ctx->i2c_client = i2c_client;

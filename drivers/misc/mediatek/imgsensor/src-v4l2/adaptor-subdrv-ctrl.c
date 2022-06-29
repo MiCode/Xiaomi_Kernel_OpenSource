@@ -776,7 +776,7 @@ void get_output_format_by_scenario(struct subdrv_ctx *ctx,
 	}
 	*sensor_output_dataformat =
 		(enum ACDK_SENSOR_OUTPUT_DATA_FORMAT_ENUM)
-		ctx->s_ctx.sensor_output_dataformat;
+		ctx->s_ctx.mode[scenario_id].sensor_output_dataformat;
 }
 
 void get_ana_gain_table(struct subdrv_ctx *ctx, u64 *size, void *data)
