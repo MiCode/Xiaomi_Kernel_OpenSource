@@ -72,10 +72,11 @@ static int ipi_receive(unsigned int id, void *unused,
 
 	aov_ready = atomic_read(&(core_info->aov_ready));
 
-	pr_debug("%s: receive id(%d), len(%d), ready(%d)\n", __func__, id, len, aov_ready);
+	dev_dbg(aov_dev->dev, "%s: receive id(%d), len(%d), ready(%d)\n",
+		__func__, id, len, aov_ready);
 
 	if (aov_ready == 0) {
-		pr_info("%s: aov is not started", __func__);
+		dev_info(aov_dev->dev, "%s: aov is not started", __func__);
 		return 0;
 	}
 
@@ -94,14 +95,14 @@ static int ipi_receive(unsigned int id, void *unused,
 		aov_session = atomic_read(&(core_info->aov_session));
 
 		if (event->session != aov_session) {
-			pr_info("%s: invalid aov session mismatch(%d/%d)\n", __func__,
-				event->session, aov_session);
+			dev_info(aov_dev->dev, "%s: invalid aov session mismatch(%d/%d)\n",
+				__func__, event->session, aov_session);
 			return 0;
 		}
 
 		buffer = buffer_acquire(core_info);
 		if (buffer == NULL) {
-			pr_info("%s: failed to acquire message\n", __func__);
+			dev_info(aov_dev->dev, "%s: failed to acquire message\n", __func__);
 			return 0;
 		}
 
@@ -117,12 +118,13 @@ static int ipi_receive(unsigned int id, void *unused,
 static int send_cmd_internal(struct aov_core *core_info,
 	struct packet *pkt, bool wait)
 {
+	struct mtk_aov *aov_dev = aov_core_get_device();
 	int retry;
 	int ret;
 	unsigned long timeout;
 	int scp_ready;
 
-	pr_info("%s: send cmd(%d), session(%d)\n",
+	dev_info(aov_dev->dev, "%s: send cmd(%d), session(%d)\n",
 		__func__, pkt->command, pkt->session);
 
 	retry = 0;
@@ -132,29 +134,29 @@ static int send_cmd_internal(struct aov_core *core_info,
 			ret = wait_event_interruptible_timeout(core_info->scp_queue,
 				((scp_ready = atomic_read(&(core_info->scp_ready))) != 0), timeout);
 			if (ret == 0) {
-				pr_info("%s: send cmd(%d/%d) time out !\n",
+				dev_info(aov_dev->dev, "%s: send cmd(%d/%d) timeout!\n",
 					__func__, pkt->command, scp_ready);
 				return -EIO;
 			} else if (-ERESTARTSYS == ret) {
-				pr_info("%s: send cmd(%d/%d) interrupted !\n",
+				dev_info(aov_dev->dev, "%s: send cmd(%d/%d) interrupted !\n",
 					__func__, pkt->command, scp_ready);
 				return -ERESTARTSYS;
 			}
-			pr_debug("%s: send cmd(%d/%d) done\n",
+			dev_dbg(aov_dev->dev, "%s: send cmd(%d/%d) done\n",
 					__func__, pkt->command, scp_ready);
 		} else {
 			scp_ready = atomic_read(&(core_info->scp_ready));
 		}
 
 		if (scp_ready != 2) {
-			pr_info("%s: scp not ready(%d)\n", __func__, scp_ready);
+			dev_info(aov_dev->dev, "%s: scp not ready(%d)\n", __func__, scp_ready);
 			return -EIO;
 		}
 
 		ret = mtk_ipi_send(&scp_ipidev, IPI_OUT_AOV_SCP,
 			IPI_SEND_WAIT, pkt, 4, AOV_TIMEOUT_MS);
 		if (ret < 0 && ret != IPI_PIN_BUSY) {
-			pr_info("%s: failed to send packet: %d", __func__, ret);
+			dev_info(aov_dev->dev, "%s: failed to send packet: %d", __func__, ret);
 			break;
 		}
 		if (ret == IPI_PIN_BUSY) {
@@ -178,17 +180,17 @@ int aov_core_send_cmd(struct mtk_aov *aov_dev, uint32_t cmd,
 	struct packet pkt;
 	unsigned long timeout;
 
+	dev_dbg(aov_dev->dev, "%s+", __func__);
+
 	if (aov_dev->op_mode == 0) {
-		pr_info("%s: bypass send command(%d)", __func__, cmd);
+		dev_info(aov_dev->dev, "%s: bypass send command(%d)", __func__, cmd);
 		return 0;
 	}
-
-	pr_info("%s+", __func__);
 
 	if (data && len) {
 		if (cmd == AOV_SCP_CMD_INIT) {
 			if (atomic_read(&(core_info->aov_ready))) {
-				pr_info("%s: invalid aov ready state\n");
+				dev_info(aov_dev->dev, "%s: invalid aov ready state\n");
 				return -EIO;
 			}
 
@@ -205,17 +207,18 @@ int aov_core_send_cmd(struct mtk_aov *aov_dev, uint32_t cmd,
 				struct aov_user user;
 				struct aov_init *init = (struct aov_init *)buf;
 
-				pr_info("%s: init buffer %x, size (%d/%d)\n", __func__,
-					buf, sizeof(struct aov_init), sizeof(struct aov_event));
+				dev_dbg(aov_dev->dev, "%s: init buffer %x, size (%d/%d)\n",
+					__func__, buf, sizeof(struct aov_init),
+						sizeof(struct aov_event));
 
-				pr_debug("%s: copy aov user data %x, %d+\n",
+				dev_dbg(aov_dev->dev, "%s: copy aov user data %x, %d+\n",
 					__func__, data, sizeof(struct aov_user));
 				ret = copy_from_user((void *)&user,
 					(void *)data, sizeof(struct aov_user));
-				pr_debug("%s: copy aov user data %x, %d-\n",
+				dev_dbg(aov_dev->dev, "%s: copy aov user data %x, %d-\n",
 					__func__, data, sizeof(struct aov_user));
 				if (ret) {
-					pr_info("%s: failed to copy aov user data: %d\n",
+					dev_info(aov_dev->dev, "%s: failed to copy aov user data: %d\n",
 						__func__, ret);
 					return -EFAULT;
 				}
@@ -224,72 +227,79 @@ int aov_core_send_cmd(struct mtk_aov *aov_dev, uint32_t cmd,
 
 				if ((user.aaa_size > 0) &&
 					(user.aaa_size <= AOV_MAX_AAA_SIZE)) {
-					pr_debug("%s: copy aaa info %x, %d+\n",
+					dev_dbg(aov_dev->dev, "%s: copy aaa info %x, %d+\n",
 						__func__, user.aaa_info, user.aaa_size);
 					(void)copy_from_user(&(init->aaa_info),
 						user.aaa_info, user.aaa_size);
-					pr_debug("%s: copy aaa info %x, %d-\n",
+					dev_dbg(aov_dev->dev, "%s: copy aaa info %x, %d-\n",
 						__func__, user.aaa_info, user.aaa_size);
 				} else if (user.aaa_size > AOV_MAX_AAA_SIZE) {
-					pr_info("%s: aaa info size(%d) overflow\n",
+					dev_info(aov_dev->dev, "%s: aaa info size(%d) overflow\n",
 						__func__, user.aaa_size);
 					return -ENOMEM;
 				}
 
 				if ((user.tuning_size > 0) &&
 					(user.tuning_size <= AOV_MAX_TUNING_SIZE)) {
-					pr_debug("%s: copy tuning info %x, %d+\n",
+					dev_dbg(aov_dev->dev, "%s: copy tuning info %x, %d+\n",
 						__func__, user.tuning_info, user.tuning_size);
 					(void)copy_from_user(&(init->tuning_info),
 						user.tuning_info, user.tuning_size);
-					pr_debug("%s: copy tuning info %x, %d-\n",
+					dev_dbg(aov_dev->dev, "%s: copy tuning info %x, %d-\n",
 						__func__, user.tuning_info, user.tuning_size);
 				} else if (user.tuning_size > AOV_MAX_TUNING_SIZE) {
-					pr_info("%s: tuning info size(%d) overflow\n",
+					dev_info(aov_dev->dev, "%s: tuning info size(%d) overflow\n",
 						__func__, user.tuning_size);
 					return -ENOMEM;
 				}
 				/* set seninf aov parameters for scp use and
 				 * switch i2c bus aux function here on scp side.
 				 */
-				pr_info("mtk_cam_seninf_s_aov_param(%d)+\n", user.sensor_id);
+				dev_dbg(aov_dev->dev, "mtk_cam_seninf_s_aov_param(%d)+\n",
+					user.sensor_id);
 				ret = mtk_cam_seninf_s_aov_param(user.sensor_id,
 					(void *)&(init->senif_info));
 				if (ret < 0)
-					pr_info(
+					dev_info(aov_dev->dev,
 						"mtk_cam_seninf_s_aov_param(%d) fail, ret: %d\n",
 						user.sensor_id, ret);
-				pr_info("mtk_cam_seninf_s_aov_param(%d)-\n", user.sensor_id);
+				dev_dbg(aov_dev->dev, "mtk_cam_seninf_s_aov_param(%d)-\n",
+					user.sensor_id);
 
 				core_info->sensor_id = user.sensor_id;
 
 				/* suspend and set clk parent here to prevent enque
 				 * racing issue when power on/off on scp side.
 				 */
-				pr_info(
+				dev_dbg(aov_dev->dev,
 					"mtk_cam_seninf_aov_runtime_suspend(%d)+\n",
 					core_info->sensor_id);
 				ret = mtk_cam_seninf_aov_runtime_suspend(core_info->sensor_id);
 				if (ret < 0)
-					pr_info(
+					dev_info(aov_dev->dev,
 					"mtk_cam_seninf_aov_runtime_suspend(%d) fail, ret: %d\n",
 					core_info->sensor_id, ret);
-				pr_info(
+				dev_dbg(aov_dev->dev,
 					"mtk_cam_seninf_aov_runtime_suspend(%d)-\n",
 					core_info->sensor_id);
 
-				pr_info("mtk_aie_aov_memcpy+\n");
+				dev_dbg(aov_dev->dev, "mtk_aie_aov_memcpy+\n");
 				mtk_aie_aov_memcpy((void *)&(init->aie_info));
-				pr_info("mtk_aie_aov_memcpy-\n");
+				dev_dbg(aov_dev->dev, "mtk_aie_aov_memcpy-\n");
 
 				/* debug use
-				 * pr_info("out_pad %d\n", init->aov_seninf_param.vc.out_pad);
-				 * pr_info("init->aov_seninf_param.sensor_idx%d\n",
-				 *    init->aov_seninf_param.sensor_idx);
-				 * pr_info("width %d\n", init->aov_seninf_param.width);
-				 * pr_info("height %d\n", init->aov_seninf_param.height);
-				 * pr_info("isp_freq %d\n", init->aov_seninf_param.isp_freq);
-				 * pr_info("camtg %d\n", init->aov_seninf_param.camtg);
+				 * dev_info(aov_dev->dev, "out_pad %d\n",
+				 *  init->aov_seninf_param.vc.out_pad);
+				 * dev_info(aov_dev->dev, "init->aov_seninf_param.sensor_idx%d\n",
+				 *  init->aov_seninf_param.sensor_idx);
+				 * dev_info(aov_dev->dev, "width %d\n",
+				 *  init->aov_seninf_param.width);
+				 * dev_info(aov_dev->dev, "height %d\n",
+				 *  init->aov_seninf_param.height);
+				 * dev_info(aov_dev->dev, "isp_freq %d\n",
+				 *  init->aov_seninf_param.isp_freq);
+				 * dev_info(aov_dev->dev, "camtg %d\n",
+				 *  init->aov_seninf_param.camtg);
 				 */
 				init->session = user.session;
 
@@ -299,11 +309,13 @@ int aov_core_send_cmd(struct mtk_aov *aov_dev, uint32_t cmd,
 			} else if (cmd == AOV_SCP_CMD_NOTIFY) {
 				memcpy(buf, (void *)data, sizeof(struct aov_notify));
 			} else {
-				pr_info("%s: data buffer 0x%08x, size %d", __func__, buf, len);
+				dev_dbg(aov_dev->dev, "%s: data buffer 0x%08x, size %d",
+					__func__, buf, len);
 				(void)copy_from_user(buf, (void *)data, len);
 			}
 		} else {
-			pr_info("%s: failed to alloc buffer size(%d)", __func__, len);
+			dev_info(aov_dev->dev, "%s: failed to alloc buffer size(%d)",
+				__func__, len);
 			return -ENOMEM;
 		}
 #if AOV_SLB_ALLOC_FREE
@@ -314,11 +326,11 @@ int aov_core_send_cmd(struct mtk_aov *aov_dev, uint32_t cmd,
 		slb.type = TP_BUFFER;
 		ret = slbc_request(&slb);
 		if (ret < 0) {
-			pr_info("%s: failed to allocate slb buffer", __func__);
+			dev_info(aov_dev->dev, "%s: failed to allocate slb buffer", __func__);
 			return ret;
 		}
 
-		pr_info("%s: slb buffer base(0x%x), size(%ld): %x",
+		dev_dbg(aov_dev->dev, "%s: slb buffer base(0x%x), size(%ld): %x",
 			__func__, (uintptr_t)slb.paddr, slb.size);
 
 		buf = slb.paddr;
@@ -346,7 +358,7 @@ int aov_core_send_cmd(struct mtk_aov *aov_dev, uint32_t cmd,
 		struct aov_init *init = (struct aov_init *)buf;
 
 		if (init == NULL) {
-			pr_info("%s: invalid null aov init info", __func__);
+			dev_info(aov_dev->dev, "%s: invalid null aov init info", __func__);
 			return -ENOMEM;
 		}
 
@@ -372,6 +384,11 @@ int aov_core_send_cmd(struct mtk_aov *aov_dev, uint32_t cmd,
 		atomic_set(&(core_info->disp_mode), AOV_DiSP_MODE_ON);
 	} else if (cmd == AOV_SCP_CMD_NOTIFY) {
 		struct aov_notify *notify = (struct aov_notify *)buf;
+
+		if (notify == NULL) {
+			dev_info(aov_dev->dev, "%s: invalid null aov notify info", __func__);
+			return -ENOMEM;
+		}
 
 		atomic_set(&(core_info->aie_avail), notify->status);
 	}
@@ -422,7 +439,7 @@ int aov_core_send_cmd(struct mtk_aov *aov_dev, uint32_t cmd,
 		slb.type = TP_BUFFER;
 		ret = slbc_release(&slb);
 		if (ret < 0) {
-			pr_info("failed to release slb buffer");
+			dev_info(aov_dev->dev, "failed to release slb buffer");
 			return ret;
 		}
 #else
@@ -438,7 +455,8 @@ int aov_core_send_cmd(struct mtk_aov *aov_dev, uint32_t cmd,
 			slb.type = TP_BUFFER;
 			ret = slbc_release(&slb);
 			if (ret < 0)
-				pr_info("%s: failed to release slb buffer\n", __func__);
+				dev_info(aov_dev->dev, "%s: failed to release slb buffer\n",
+					__func__);
 		}
 #endif  // AOV_SLB_ALLOC_FREE
 	} else if (cmd == AOV_SCP_CMD_NOTIFY) {
@@ -458,14 +476,14 @@ int aov_core_send_cmd(struct mtk_aov *aov_dev, uint32_t cmd,
 
 		queue_deinit(&(core_info->queue));
 
-		pr_info("mtk_cam_seninf_aov_runtime_resume(%d)+\n", core_info->sensor_id);
+		dev_dbg(aov_dev->dev, "mtk_cam_seninf_aov_runtime_resume(%d)+\n",
+			core_info->sensor_id);
 		mtk_cam_seninf_aov_runtime_resume(core_info->sensor_id);
-		pr_info("mtk_cam_seninf_aov_runtime_resume(%d)-\n", core_info->sensor_id);
+		dev_dbg(aov_dev->dev, "mtk_cam_seninf_aov_runtime_resume(%d)-\n",
+			core_info->sensor_id);
 	}
 
-	dev_info(aov_dev->dev, "%s: mtk_ipi_send: %d-\n", __func__, len);
-
-	pr_info("%s-\n", __func__);
+	dev_dbg(aov_dev->dev, "%s-\n", __func__);
 
 	return 0;
 }
@@ -477,7 +495,7 @@ int aov_core_notify(struct mtk_aov *aov_dev,
 	struct sensor_notify notify;
 	int index;
 
-	pr_info("%s+\n", __func__);
+	dev_info(aov_dev->dev, "%s+\n", __func__);
 
 	ret = copy_from_user((void *)&notify,
 		(void *)data, sizeof(struct sensor_notify));
@@ -499,7 +517,7 @@ int aov_core_notify(struct mtk_aov *aov_dev,
 			__func__, notify.sensor[index], enable);
 	}
 
-	pr_info("%s-\n", __func__);
+	dev_info(aov_dev->dev, "%s-\n", __func__);
 
 	return 0;
 }
@@ -513,14 +531,14 @@ static int scp_state_notify(struct notifier_block *this,
 	uint32_t session;
 
 	if (event == SCP_EVENT_STOP) {
-		pr_info("%s: receive scp stop(%d)\n", __func__, event);
+		dev_info(aov_dev->dev, "%s: receive scp stop(%d)\n", __func__, event);
 		atomic_set(&(core_info->scp_ready), 1);
 	} else if (event == SCP_EVENT_READY) {
 		atomic_set(&(core_info->scp_ready), 2);
 
 		session = atomic_fetch_add(1, &(core_info->scp_session)) + 1;
 
-		pr_info("%s: scp start event(%d), session(%d)\n",
+		dev_info(aov_dev->dev, "%s: scp start event(%d), session(%d)\n",
 			__func__, event, session);
 
 		pkt.session = session;
@@ -556,7 +574,8 @@ int aov_core_init(struct mtk_aov *aov_dev)
 		ret = mtk_ipi_register(&scp_ipidev, IPI_IN_SCP_AOV,
 			ipi_receive, NULL, &(core_info->packet));
 		if (ret < 0) {
-			pr_info("%s: failed to register ipi callback: %d\n", __func__, ret);
+			dev_info(aov_dev->dev, "%s: failed to register ipi callback: %d\n",
+				__func__, ret);
 			return ret;
 		}
 
@@ -567,12 +586,12 @@ int aov_core_init(struct mtk_aov *aov_dev)
 		core_info->buf_va = (void *)scp_get_reserve_mem_virt(SCP_AOV_MEM_ID);
 		core_info->buf_size = scp_get_reserve_mem_size(SCP_AOV_MEM_ID);
 
-		pr_info("%s: scp buffer pa(0x%x), va(0x%08x), size(0x%x)\n", __func__,
+		dev_dbg(aov_dev->dev, "%s: scp buffer pa(0x%x), va(0x%08x), size(0x%x)\n", __func__,
 			core_info->buf_pa, core_info->buf_va, core_info->buf_size);
 
 		tlsf_init(&(core_info->alloc), core_info->buf_va, core_info->buf_size);
 	} else {
-		pr_info("%s: init aov core in bypass mode\n", __func__);
+		dev_info(aov_dev->dev, "%s: init aov core in bypass mode\n", __func__);
 	}
 
 	spin_lock_init(&core_info->buf_lock);
@@ -588,7 +607,7 @@ int aov_core_init(struct mtk_aov *aov_dev)
 
 	dma_heap = dma_heap_find("mtk_mm");
 	if (!dma_heap) {
-		pr_info("%s: failed to find dma heap\n", __func__);
+		dev_info(aov_dev->dev, "%s: failed to find dma heap\n", __func__);
 		return -ENOMEM;
 	}
 
@@ -597,7 +616,7 @@ int aov_core_init(struct mtk_aov *aov_dev)
 		DMA_HEAP_VALID_HEAP_FLAGS);
 	if (IS_ERR(core_info->dma_buf)) {
 		core_info->dma_buf = NULL;
-		pr_info("%s: failed to alloc dma buffer\n", __func__);
+		dev_info(aov_dev->dev, "%s: failed to alloc dma buffer\n", __func__);
 		return -ENOMEM;
 	}
 
@@ -605,7 +624,7 @@ int aov_core_init(struct mtk_aov *aov_dev)
 
 	ret = dma_buf_vmap(core_info->dma_buf, &(core_info->dma_map));
 	if (ret) {
-		pr_info("%s: failed to map dmap buffer(%d)\n", __func__, ret);
+		dev_info(aov_dev->dev, "%s: failed to map dmap buffer(%d)\n", __func__, ret);
 		return -ENOMEM;
 	}
 
@@ -927,14 +946,14 @@ int aov_core_poll(struct mtk_aov *aov_dev, struct file *file,
 	dev_dbg(aov_dev->dev, "%s: poll start+\n", __func__);
 
 	if (!queue_empty(&(core_info->queue))) {
-		dev_info(aov_dev->dev, "%s: poll start-: %d\n", __func__, POLLPRI);
+		dev_dbg(aov_dev->dev, "%s: poll start-: %d\n", __func__, POLLPRI);
 		return POLLPRI;
 	}
 
 	poll_wait(file, &core_info->poll_wq, wait);
 
 	if (!queue_empty(&(core_info->queue))) {
-		dev_info(aov_dev->dev, "%s: poll start-: %d\n", __func__, POLLPRI);
+		dev_dbg(aov_dev->dev, "%s: poll start-: %d\n", __func__, POLLPRI);
 		return POLLPRI;
 	}
 
@@ -968,7 +987,8 @@ int aov_core_reset(struct mtk_aov *aov_dev)
 			slb.type = TP_BUFFER;
 			ret = slbc_release(&slb);
 			if (ret < 0)
-				pr_info("%s: failed to release slb buffer\n", __func__);
+				dev_info(aov_dev->dev, "%s: failed to release slb buffer\n",
+					__func__);
 		}
 #endif  // AOV_SLB_ALLOC_FREE
 
