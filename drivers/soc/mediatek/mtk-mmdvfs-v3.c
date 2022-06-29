@@ -169,7 +169,8 @@ static int mmdvfs_vcp_ipi_send_impl(struct mmdvfs_ipi_data *slot) // ap > vcp
 {
 	int retry = 0, ret;
 
-	mtk_mmdvfs_enable_vcp(true);
+	if (mtk_mmdvfs_enable_vcp(true))
+		return -ENODEV;
 
 	if (!mmdvfs_vcp_is_ready()) {
 		MMDVFS_ERR("vcp is not ready");
