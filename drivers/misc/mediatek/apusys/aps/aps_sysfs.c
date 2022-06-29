@@ -29,7 +29,8 @@ static ssize_t loglevel_show(struct kobject *kobj, struct kobj_attribute *attr,
 {
 	uint64_t level = 0;
 
-	sprintf(buf, "%d", level);
+	if (sprintf(buf, "%d", (uint32_t)level) < 0)
+		return -EINVAL;
 	APS_INFO("%s, level= %d\n", __func__, (uint32_t)level);
 
 	aps_ipi_recv(APS_LOG_LEVEL, &level);
