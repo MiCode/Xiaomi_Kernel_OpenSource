@@ -83,6 +83,13 @@ struct img_init_info {
 	uint32_t	smvr_mode;
 } __packed;
 
+#define KFENCE_MAX 4
+struct fence_event {
+	int fence_fd;
+	uint64_t *dma_fence;
+	int gce_event;
+} __packed;
+
 struct img_swfrm_info {
 	uint32_t hw_comb;
 	int sw_ridx;
@@ -96,6 +103,10 @@ struct img_swfrm_info {
 	void *g_swbuf;
 	void *bw_swbuf;
 	uint64_t pixel_bw;
+	int wait_fence_num;
+	struct fence_event wait_fence_list[KFENCE_MAX];
+	int notify_fence_num;
+	struct fence_event notify_fence_list[KFENCE_MAX];
 } __packed;
 
 struct img_addr {
