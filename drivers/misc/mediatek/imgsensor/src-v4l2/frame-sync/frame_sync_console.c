@@ -190,7 +190,7 @@ static void fs_console_setup_usr_cfg(const unsigned int cmd,
 				FS_CON_USR_CFG_EN_BASE,
 				FS_CON_USR_CFG_EN_MOD);
 
-			p_usr_cfg[i].value = (p_usr_cfg[sidx].en)
+			p_usr_cfg[i].value = (p_usr_cfg[i].en)
 				? decode_cmd_value(cmd,
 					FS_CON_USR_CFG_VAL_BASE,
 					FS_CON_USR_CFG_VAL_MOD)
@@ -419,6 +419,7 @@ static ssize_t fsync_console_store(
 	case FS_CON_USR_ASYNC_MASTER_SIDX:
 		fs_console_setup_cmd_value(cmd,
 			&fs_con_mgr.usr_async_m_sidx);
+		break;
 
 	case FS_CON_AUTO_LISTEN_EXT_VSYNC:
 		fs_console_setup_cmd_value(cmd,

@@ -1188,7 +1188,7 @@ static const struct v4l2_ctrl_config cfg_fsync_async_master = {
 	.type = V4L2_CTRL_TYPE_INTEGER,
 	.flags = V4L2_CTRL_FLAG_EXECUTE_ON_WRITE,
 	.def = 255, // FrameSync::MASTER_IDX_NONE
-	.max = 0xffff,
+	.max = 0x7fffffff,
 	.step = 1,
 };
 

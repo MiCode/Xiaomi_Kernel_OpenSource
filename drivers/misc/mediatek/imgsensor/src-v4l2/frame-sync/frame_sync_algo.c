@@ -1691,7 +1691,7 @@ static long long fs_alg_sa_calc_adjust_diff_async(
 	if ((fs_inst[s_idx].fl_active_delay != fs_inst[m_idx].fl_active_delay)
 		&& (adjust_diff_s > 0)) {
 		/* if there are the pair, N+2 pred_fl will bigger than N+1 sensor */
-		adjust_diff_s -= p_para_s->pure_min_fl_us * f_cell_s;
+		adjust_diff_s -= (long long)(p_para_s->pure_min_fl_us) * f_cell_s;
 	}
 
 
@@ -1719,7 +1719,7 @@ static long long fs_alg_sa_calc_adjust_diff_async(
 			return 0;
 		}
 
-		adjust_diff_s += (p_para_m->stable_fl_us * f_cell_m);
+		adjust_diff_s += (long long)(p_para_m->stable_fl_us) * f_cell_m;
 	}
 
 
