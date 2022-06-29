@@ -6800,6 +6800,7 @@
 			adsp-rsv-dbg-dump-b = <0x80000>;
 			adsp-rsv-core-dump-a = <0x400>;
 			adsp-rsv-core-dump-b = <0x400>;
+			adsp-rsv-xhci = <0x80000>;
 			adsp-rsv-audio = <0x5c0000>;
 		};
 
@@ -7756,6 +7757,10 @@
 			interrupts = <GIC_SPI 236 IRQ_TYPE_LEVEL_HIGH 0>; /*uarthub irq*/
 			clocks = <&apmixedsys_clk CLK_APMIXED_UNIVPLL>;
 			clock-names = "univpll";
+		};
+
+		usb_offload: usb_offload {
+			compatible = "mediatek,usb-offload";
 		};
 
 		ssusb: usb0@11201000 {
