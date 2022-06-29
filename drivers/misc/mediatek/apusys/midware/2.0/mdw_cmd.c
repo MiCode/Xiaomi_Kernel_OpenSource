@@ -187,8 +187,11 @@ static int mdw_cmd_get_cmdbufs(struct mdw_fpriv *mpriv, struct mdw_cmd *c)
 			c, acbs, ksubcmd->info->num_cmdbufs);
 		kfree(acbs);
 		acbs = NULL;
-		if (ret)
+		if (ret) {
+			mdw_drv_err("sc(0x%llx-%u) dev(%u) validate cb(%u) fail(%d)\n",
+				c->kid, i, ksubcmd->info->type, ksubcmd->info->num_cmdbufs, ret);
 			goto free_cmdbufs;
+		}
 	}
 	/* flush cmdbufs */
 	if (mdw_mem_flush(mpriv, c->cmdbufs))
