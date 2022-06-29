@@ -1280,7 +1280,7 @@ static int create_files(void)
 #define SCP_MEM_RESERVED_KEY "mediatek,reserve-memory-scp_share"
 int scp_reserve_mem_of_init(struct reserved_mem *rmem)
 {
-	pr_notice("[SCP]%s %pa %pa\n", __func__, &rmem->base, &rmem->size);
+	pr_usrdebug("[SCP]%s %pa %pa\n", __func__, &rmem->base, &rmem->size);
 	scp_mem_base_phys = (phys_addr_t) rmem->base;
 	scp_mem_size = (phys_addr_t) rmem->size;
 
@@ -1366,7 +1366,7 @@ static int scp_reserve_memory_ioremap(struct platform_device *pdev)
 	scp_mem_base_phys = (phys_addr_t) rmem->base;
 	scp_mem_size = (phys_addr_t) rmem->size;
 
-	pr_notice("[SCP] %s is called, 0x%x, 0x%x",
+	pr_usrdebug("[SCP] %s is called, 0x%x, 0x%x",
 		__func__,
 		(unsigned int)scp_mem_base_phys,
 		(unsigned int)scp_mem_size);
@@ -2264,7 +2264,7 @@ static int scp_device_probe(struct platform_device *pdev)
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
 	scp_reg_base_phy = res->start & 0xfff00000;
-	pr_notice("[SCP] scp_reg_base_phy = 0x%x\n", scp_reg_base_phy);
+	pr_usrdebug("[SCP] scp_reg_base_phy = 0x%x\n", scp_reg_base_phy);
 	scpreg.cfg = devm_ioremap_resource(dev, res);
 	if (IS_ERR((void const *) scpreg.cfg)) {
 		pr_notice("[SCP] scpreg.cfg error\n");

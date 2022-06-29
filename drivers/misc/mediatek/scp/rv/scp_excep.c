@@ -228,7 +228,7 @@ void scp_show_bus_tracker_status(void)
 		offset = i << 3;
 		if (!bus_tracker->dbg_r[offset + 7] && !bus_tracker->dbg_w[offset + 7])
 			continue;
-		pr_notice("R[%u-%u] %08x %08x %08x %08x %08x %08x %08x %08x\n",
+		pr_usrdebug("R[%u-%u] %08x %08x %08x %08x %08x %08x %08x %08x\n",
 				offset, offset + 7,
 				bus_tracker->dbg_r[offset],
 				bus_tracker->dbg_r[offset + 1],
@@ -238,7 +238,7 @@ void scp_show_bus_tracker_status(void)
 				bus_tracker->dbg_r[offset + 5],
 				bus_tracker->dbg_r[offset + 6],
 				bus_tracker->dbg_r[offset + 7]);
-		pr_notice("W[%u-%u] %08x %08x %08x %08x %08x %08x %08x %08x\n",
+		pr_usrdebug("W[%u-%u] %08x %08x %08x %08x %08x %08x %08x %08x\n",
 				offset, offset + 7,
 				bus_tracker->dbg_w[offset],
 				bus_tracker->dbg_w[offset + 1],
@@ -654,7 +654,7 @@ end:
 	scp_dump.ramdump_length = 0;
 	scp_dump.ramdump_length = scp_crash_dump(SCP_A_ID);
 
-	pr_notice("[SCP] %s ends, @%p, size = %x\n", __func__,
+	pr_usrdebug("[SCP] %s ends, @%p, size = %x\n", __func__,
 		scp_dump.ramdump, scp_dump.ramdump_length);
 }
 

@@ -160,7 +160,7 @@ static size_t scp_A_get_last_log(size_t b_len)
 	}
 	/*cofirm last log information is less than tcm size*/
 	if (last_log_info.scp_log_end_addr > scpreg.total_tcmsize) {
-		pr_notice("[SCP] %s: last_log_info.scp_log_end_addr %x is over tcm_size %x\n",
+		pr_usrdebug("[SCP] %s: last_log_info.scp_log_end_addr %x is over tcm_size %x\n",
 			__func__, last_log_info.scp_log_end_addr, scpreg.total_tcmsize);
 		goto exit;
 	}
@@ -250,7 +250,7 @@ ssize_t scp_A_log_read(char __user *data, size_t len)
 	r_pos_debug = r_pos;
 	log_ctl_debug = SCP_A_log_ctl->buff_ofs;
 	if (r_pos >= DRAM_BUF_LEN) {
-		pr_notice("[SCP] %s(): r_pos >= DRAM_BUF_LEN,%x,%x\n",
+		pr_usrdebug("[SCP] %s(): r_pos >= DRAM_BUF_LEN,%x,%x\n",
 			__func__, r_pos_debug, log_ctl_debug);
 		datalen = 0;
 		goto error;
@@ -615,20 +615,20 @@ static int scp_logger_init_handler(struct SCP_LOG_INFO *log_info)
 	last_log_info.scp_log_buf_maxlen = log_info->scp_log_buf_maxlen;
 	/*cofirm last log information is less than tcm size*/
 	if (last_log_info.scp_log_dram_addr > scpreg.total_tcmsize)
-		pr_notice("[SCP]last_log_info.scp_log_dram_addr %x is over tcm_size %x\n",
+		pr_usrdebug("[SCP]last_log_info.scp_log_dram_addr %x is over tcm_size %x\n",
 			last_log_info.scp_log_dram_addr, scpreg.total_tcmsize);
 	if (last_log_info.scp_log_buf_addr > scpreg.total_tcmsize)
-		pr_notice("[SCP]last_log_info.scp_log_buf_addr %x is over tcm_size %x\n",
+		pr_usrdebug("[SCP]last_log_info.scp_log_buf_addr %x is over tcm_size %x\n",
 			last_log_info.scp_log_buf_addr, scpreg.total_tcmsize);
 	if (last_log_info.scp_log_start_addr > scpreg.total_tcmsize)
-		pr_notice("[SCP]last_log_info.scp_log_start_addr %x is over tcm_size %x\n",
+		pr_usrdebug("[SCP]last_log_info.scp_log_start_addr %x is over tcm_size %x\n",
 			last_log_info.scp_log_start_addr, scpreg.total_tcmsize);
 	if (last_log_info.scp_log_end_addr > scpreg.total_tcmsize)
-		pr_notice("[SCP]last_log_info.scp_log_end_addr %x is over tcm_size %x\n",
+		pr_usrdebug("[SCP]last_log_info.scp_log_end_addr %x is over tcm_size %x\n",
 			last_log_info.scp_log_end_addr, scpreg.total_tcmsize);
 	if (last_log_info.scp_log_buf_addr + last_log_info.scp_log_buf_maxlen >
 		scpreg.total_tcmsize)
-		pr_notice("[SCP] end of last_log_info.scp_last_log_buf %x is over tcm_size %x\n",
+		pr_usrdebug("[SCP] end of last_log_info.scp_last_log_buf %x is over tcm_size %x\n",
 			last_log_info.scp_log_buf_addr + last_log_info.scp_log_buf_maxlen,
 				scpreg.total_tcmsize);
 
@@ -872,17 +872,17 @@ void scp_crash_log_move_to_buf(enum scp_core_id scp_id)
 
 	/*cofirm last log information is less than tcm size*/
 	if (last_log_info.scp_log_buf_addr > scpreg.total_tcmsize) {
-		pr_notice("[SCP] %s: last_log_info.scp_log_buf_addr %x is over tcm_size %x\n",
+		pr_usrdebug("[SCP] %s: last_log_info.scp_log_buf_addr %x is over tcm_size %x\n",
 			__func__, last_log_info.scp_log_buf_addr, scpreg.total_tcmsize);
 		goto exit;
 	}
 	if (last_log_info.scp_log_start_addr > scpreg.total_tcmsize) {
-		pr_notice("[SCP] %s: last_log_info.scp_log_start_addr %x is over tcm_size %x\n",
+		pr_usrdebug("[SCP] %s: last_log_info.scp_log_start_addr %x is over tcm_size %x\n",
 			__func__, last_log_info.scp_log_start_addr, scpreg.total_tcmsize);
 		goto exit;
 	}
 	if (last_log_info.scp_log_end_addr > scpreg.total_tcmsize) {
-		pr_notice("[SCP] %s: last_log_info.scp_log_end_addr %x is over tcm_size %x\n",
+		pr_usrdebug("[SCP] %s: last_log_info.scp_log_end_addr %x is over tcm_size %x\n",
 			__func__, last_log_info.scp_log_end_addr, scpreg.total_tcmsize);
 		goto exit;
 	}

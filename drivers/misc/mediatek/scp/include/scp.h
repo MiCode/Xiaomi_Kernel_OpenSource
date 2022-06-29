@@ -8,6 +8,15 @@
 
 #include <linux/soc/mediatek/mtk_tinysys_ipi.h>
 
+/* Be available to print in userdebug and eng load */
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_SCP_DEBUG_SUPPORT)
+#define pr_usrdebug(fmt, ...) pr_notice(fmt, ...)
+
+#else
+#define pr_usrdebug(fmt, ...) no_printk(KERN_DEBUG pr_fmt(fmt), ##__VA_ARGS__)
+
+#endif
+
 #define SCP_MBOX_TOTAL 5
 
 #define PIN_OUT_SIZE_AUDIO_VOW_1        11
