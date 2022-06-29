@@ -10917,7 +10917,7 @@
 		clocks = <&dispsys_config_clk CLK_MM_DISP_AAL0>;
 		aal_dre3 = <&disp_mdp_aal0>;
 		mtk_aal_support = <1>;
-		mtk_dre30_support = <0>;
+		mtk_dre30_support = <1>;
 	};
 
 	disp_aal1: disp_aal@14202000 {
