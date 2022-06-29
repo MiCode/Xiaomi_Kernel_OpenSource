@@ -21,7 +21,7 @@
 
 #define VAPU_DEF_VOLT		(750000)	// 0.75v
 #define USER_MAX_OPP_VAL	(0) // fastest speed user can specify
-#define USER_MIN_OPP_VAL	(12) // slowest speed user can specify
+#define USER_MIN_OPP_VAL	(11) // slowest speed user can specify
 #define TURBO_BOOST_OPP		USER_MAX_OPP_VAL
 #define TURBO_BOOST_VAL		(110)
 #define MTK_POLL_DELAY_US	(10)
