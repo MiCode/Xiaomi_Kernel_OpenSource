@@ -5296,6 +5296,8 @@
 
 		i2c6: i2c@11f01000 {
 			compatible = "mediatek,mt6983-i2c";
+			#address-cells = <1>;
+			#size-cells = <0>;
 			reg = <0 0x11f01000 0 0x1000>,
 				<0 0x11300700 0 0x80>;
 			interrupts = <GIC_SPI 192 IRQ_TYPE_LEVEL_HIGH 0>;

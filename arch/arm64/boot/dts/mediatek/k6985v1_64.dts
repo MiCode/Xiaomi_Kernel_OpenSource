@@ -311,7 +311,7 @@ mtk_printk_ctrl.disable_uart=0";
 
 &mt6375_typec {
 	port {
-		tcpc_typec_usb: endpoint@0 {
+		tcpc_typec_usb: endpoint {
 			remote-endpoint = <&ssusb_mux>;
 		};
 	};
@@ -322,7 +322,7 @@ mtk_printk_ctrl.disable_uart=0";
 	mode-switch;
 	accessory;
 	port {
-		ssusb_mux: endpoint@0 {
+		ssusb_mux: endpoint {
 			remote-endpoint = <&tcpc_typec_usb>;
 		};
 	};
