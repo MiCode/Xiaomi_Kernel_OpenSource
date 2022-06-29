@@ -139,10 +139,9 @@ static int send_cmd_internal(struct aov_core *core_info,
 				pr_info("%s: send cmd(%d/%d) interrupted !\n",
 					__func__, pkt->command, scp_ready);
 				return -ERESTARTSYS;
-			} else {
-				pr_debug("%s: send cmd(%d/%d) done\n",
-					__func__, pkt->command, scp_ready);
 			}
+			pr_debug("%s: send cmd(%d/%d) done\n",
+					__func__, pkt->command, scp_ready);
 		} else {
 			scp_ready = atomic_read(&(core_info->scp_ready));
 		}

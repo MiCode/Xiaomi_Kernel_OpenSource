@@ -579,7 +579,7 @@ int mtk_cam_seninf_get_vcinfo(struct seninf_ctx *ctx)
 			__func__, sensor_sd->name);
 		return -EINVAL;
 	}
-
+	memset(&fd, 0, sizeof(struct mtk_mbus_frame_desc));
 	ctrl->p_new.p = &fd;
 
 	ret = get_ctrl(ctrl);
@@ -1548,7 +1548,7 @@ int mtk_cam_seninf_s_aov_param(unsigned int sensor_id,
 	 *	pr_info("g_aov_param.sensor_idx %d\n", g_aov_param.sensor_idx);
 	 */
 
-	if (aov_ctx[real_sensor_id] != NULL) {
+	if (aov_ctx[(unsigned int)real_sensor_id] != NULL) {
 		pr_info("sensor idx %d\n", real_sensor_id);
 		ctx = aov_ctx[(unsigned int)real_sensor_id];
 #ifdef SENSING_MODE_READY
