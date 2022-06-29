@@ -1629,6 +1629,13 @@ int mtk_cam_mraw_top_enable(struct mtk_mraw_device *dev)
 	//  toggle tg db
 	mtk_cam_mraw_toggle_tg_db(dev);
 
+	MRAW_WRITE_BITS(dev->base + REG_MRAW_FBC_IMGO_CTL1,
+		MRAW_FBC_IMGO_CTL1, FBC_IMGO_FBC_DB_EN, 1);
+	MRAW_WRITE_BITS(dev->base + REG_MRAW_FBC_IMGBO_CTL1,
+		MRAW_FBC_IMGBO_CTL1, FBC_IMGBO_FBC_DB_EN, 1);
+	MRAW_WRITE_BITS(dev->base + REG_MRAW_FBC_CPIO_CTL1,
+		MRAW_FBC_CPIO_CTL1, FBC_CPIO_FBC_DB_EN, 1);
+
 	/* Enable CMOS */
 	dev_info(dev->dev, "%s: enable CMOS and VF\n", __func__);
 	MRAW_WRITE_BITS(dev->base + REG_MRAW_TG_SEN_MODE,
