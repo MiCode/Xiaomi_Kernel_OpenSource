@@ -1005,7 +1005,7 @@ STOP_SCAN:
 
 			if (s_data_mstream) {
 				finish_cq_buf(s_data_mstream);
-				finish_sv_cq_buf(s_data);
+				finish_sv_cq_buf(s_data_mstream);
 				mtk_cam_mraw_finish_buf(s_data_mstream);
 			}
 
