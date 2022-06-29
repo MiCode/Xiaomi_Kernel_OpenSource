@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (C) 2020 MediaTek Inc.
+ * Copyright (C) 2022 MediaTek Inc.
  */
 
 #include <linux/arm-smccc.h>
@@ -8,6 +8,7 @@
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
+#include <linux/proc_fs.h>
 
 #define SMC_RET_NUM	4
 #define SEC_RND_SIZE	(sizeof(u32) * SMC_RET_NUM)
@@ -19,11 +20,16 @@
 
 #define to_sec_rng(p)	container_of(p, struct sec_rng_priv, rng)
 
+#define sec_rng_log(p, s, fmt, args...) \
+	(p += scnprintf(p, sizeof(s) - strlen(s), fmt, ##args))
+
 struct sec_rng_priv {
 	const char *method;
 	uint16_t func_num;
 	struct hwrng rng;
 };
+
+static struct sec_rng_priv *priv;
 
 static bool __sec_get_rnd(struct sec_rng_priv *priv, uint32_t *val)
 {
@@ -51,13 +57,13 @@ static bool __sec_get_rnd(struct sec_rng_priv *priv, uint32_t *val)
 
 static int sec_rng_read(struct hwrng *rng, void *buf, size_t max, bool wait)
 {
-	struct sec_rng_priv *priv = to_sec_rng(rng);
+	struct sec_rng_priv *rng_priv = to_sec_rng(rng);
 	u32 val[4] = {0};
 	int retval = 0;
 	int i;
 
 	while (max >= SEC_RND_SIZE) {
-		if (!__sec_get_rnd(priv, val))
+		if (!__sec_get_rnd(rng_priv, val))
 			return retval;
 
 		for (i = 0; i < SMC_RET_NUM; i++) {
@@ -72,9 +78,35 @@ static int sec_rng_read(struct hwrng *rng, void *buf, size_t max, bool wait)
 	return retval;
 }
 
+ssize_t sec_rng_dbg_read(struct file *file, char __user *buffer,
+	size_t count, loff_t *ppos)
+{
+	struct sec_rng_priv *rng_priv = priv;
+	u32 val[4] = {0};
+	int i;
+	int len;
+	char buf[1024] = {0};
+	char *p = buf;
+
+	if (!__sec_get_rnd(rng_priv, val)) {
+		pr_info("failed to get rnd\n");
+		return -EFAULT;
+	}
+
+	for (i = 0; i < 4; i++)
+		sec_rng_log(p, buf, "rnd[%d]: 0x%x\n", i, val[i]);
+
+	len = p - buf;
+
+	return simple_read_from_buffer(buffer, count, ppos, buf, len);
+}
+
+static const struct proc_ops sec_rng_dbg_fops = {
+	.proc_read = sec_rng_dbg_read,
+};
+
 static int sec_rng_probe(struct platform_device *pdev)
 {
-	struct sec_rng_priv *priv;
 	int ret;
 
 	priv = devm_kzalloc(&pdev->dev, sizeof(*priv), GFP_KERNEL);
@@ -103,6 +135,8 @@ static int sec_rng_probe(struct platform_device *pdev)
 		return ret;
 	}
 
+	proc_create("sec_rng_dbg", 0664, NULL, &sec_rng_dbg_fops);
+
 	return 0;
 }
 
@@ -124,5 +158,5 @@ static struct platform_driver sec_rng_driver = {
 module_platform_driver(sec_rng_driver);
 
 MODULE_DESCRIPTION("Security Random Number Generator Driver");
-MODULE_AUTHOR("Neal Liu <neal.liu@mediatek.com>");
+MODULE_AUTHOR("Jackson Chang <jackson-kt.chang@mediatek.com>");
 MODULE_LICENSE("GPL");
