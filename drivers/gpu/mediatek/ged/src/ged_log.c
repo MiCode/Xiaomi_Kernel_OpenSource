@@ -1413,7 +1413,7 @@ noinline void Policy__DCS__Detail(unsigned int v1)
 	int cx;
 
 	if (ged_log_perf_trace_enable) {
-		cx = snprintf(buf, sizeof(buf), "core_mask=0x%llX\n", v1);
+		cx = snprintf(buf, sizeof(buf), "core_mask=%u\n", v1);
 		if (cx >= 0 && cx < sizeof(buf))
 			trace_printk(buf);
 	}
