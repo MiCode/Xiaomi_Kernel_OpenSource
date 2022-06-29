@@ -11395,7 +11395,7 @@
 		compatible = "mediatek-vcu";
 		mediatek,vcuid = <0>;
 		mediatek,vcuname = "vcu";
-		mediatek,vcp-support = <0>;
+		mediatek,vcp-support = <3>;
 		reg = <0 0x16000000 0 0x40000>,	    /* VDEC_BASE */
 			<0 0x17020000 0 0x10000>,  /* VENC_BASE */
 			<0 0x17820000 0 0x10000>,  /* VENC_C1_BASE */
