@@ -42,7 +42,7 @@ static struct adsp_reserve_mblock adsp_reserve_mblocks[] = {
 		= ADSP_RESERVE_MEMORY_BLOCK("adsp-rsv-core-dump-a"),
 	[ADSP_B_CORE_DUMP_MEM_ID]
 		= ADSP_RESERVE_MEMORY_BLOCK("adsp-rsv-core-dump-b"),
-#if IS_ENABLED(CONFIG_SND_USB_AUDIO)
+#if IS_ENABLED(CONFIG_MTK_USB_OFFLOAD)
 	[ADSP_XHCI_MEM_ID]
 		= ADSP_RESERVE_MEMORY_BLOCK("adsp-rsv-xhci"),
 #endif
@@ -154,14 +154,14 @@ int adsp_mem_device_probe(struct platform_device *pdev)
 	enum adsp_reserve_mem_id_t id;
 	struct adsp_reserve_mblock *mem = &adsp_reserve_mem;
 	size_t acc_size = 0;
-	u32 size;
+	u32 size = 0;
 
 	ret = adsp_init_reserve_memory(pdev, mem);
 	if (ret)
 		return ret;
 
 	for (id = 0; id < ADSP_NUMS_MEM_ID; id++) {
-		of_property_read_u32(pdev->dev.of_node,
+		ret = of_property_read_u32(pdev->dev.of_node,
 		      adsp_reserve_mblocks[id].name,
 		      &size);
 		if (!ret)
@@ -170,6 +170,8 @@ int adsp_mem_device_probe(struct platform_device *pdev)
 
 	/* assign to each memory block */
 	for (id = 0; id < ADSP_NUMS_MEM_ID; id++) {
+		if (adsp_reserve_mblocks[id].size == 0)
+			continue;
 		adsp_reserve_mblocks[id].phys_addr = mem->phys_addr + acc_size;
 		adsp_reserve_mblocks[id].virt_addr = mem->virt_addr + acc_size;
 		acc_size += ALIGN(adsp_reserve_mblocks[id].size, RSV_BLOCK_ALIGN);
