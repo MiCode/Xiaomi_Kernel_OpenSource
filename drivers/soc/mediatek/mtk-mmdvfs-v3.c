@@ -511,6 +511,7 @@ int mmdvfs_set_ccu_ipi(const char *val, const struct kernel_param *kp)
 	}
 
 	if (ccu_pdev) {
+		mtk_mmdvfs_enable_vcp(true);
 		mtk_mmdvfs_enable_ccu(true);
 		ret = mtk_ccu_rproc_ipc_send(
 			ccu_pdev,
@@ -520,6 +521,7 @@ int mmdvfs_set_ccu_ipi(const char *val, const struct kernel_param *kp)
 		if (ret)
 			MMDVFS_ERR("mtk_ccu_rproc_ipc_send fail(%d)", ret);
 		mtk_mmdvfs_enable_ccu(false);
+		mtk_mmdvfs_enable_vcp(false);
 		MMDVFS_DBG("mtk_ccu_rproc_ipc_send freq:%u done", freq);
 	} else {
 		MMDVFS_DBG("ccu_pdev is not ready");
