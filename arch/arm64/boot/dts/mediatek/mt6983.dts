@@ -880,13 +880,13 @@
 				reg = <0x80>;
 				scmi-qos = <1>;
 				scmi-met = <3>;
+				scmi-apmcupm = <4>;
 				scmi_gpupm = <6>;
 				scmi-plt = <7>;
 				scmi_smi = <8>;
 				scmi-cm = <9>;
 				scmi-slbc = <10>;
 				scmi_ssc = <11>;
-				scmi_apmcupm = <12>;
 				scmi_mminfra = <13>;
 			};
 		};
