@@ -5,6 +5,8 @@
 
 /* TOUCH start */
 &i2c0 {
+	#address-cells = <1>;
+	#size-cells = <0>;
 	clock-frequency = <400000>;
 	pinctrl-names = "default", "ts_int_active",
 		"ts_reset_active", "ts_int_suspend",
