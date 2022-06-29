@@ -7704,7 +7704,9 @@
 				 <&pextpcfg_ao_clk CLK_PEXT_MAC0_FMEM>,
 				 <&pextpcfg_ao_clk CLK_PEXT_MAC0_HCLK>,
 				 <&pextpcfg_ao_clk CLK_PEXT_PHY0_REF>;
-			power-domains = <&scpsys MT6985_POWER_DOMAIN_PEXTP_PHY0>;
+			power-domains = <&scpsys MT6985_POWER_DOMAIN_PEXTP_MAC0_SHUTDOWN>,
+					<&scpsys MT6985_POWER_DOMAIN_PEXTP_PHY0>;
+			power-domain-names = "pd_mac", "pd_phy";
 
 			#interrupt-cells = <1>;
 			interrupt-map-mask = <0 0 0 7>;
@@ -7743,7 +7745,9 @@
 				 <&pextpcfg_ao_clk CLK_PEXT_MAC1_FMEM>,
 				 <&pextpcfg_ao_clk CLK_PEXT_MAC1_HCLK>,
 				 <&pextpcfg_ao_clk CLK_PEXT_PHY1_REF>;
-			power-domains = <&scpsys MT6985_POWER_DOMAIN_PEXTP_PHY1>;
+			power-domains = <&scpsys MT6985_POWER_DOMAIN_PEXTP_MAC1_SHUTDOWN>,
+					<&scpsys MT6985_POWER_DOMAIN_PEXTP_PHY1>;
+			power-domain-names = "pd_mac", "pd_phy";
 
 			#interrupt-cells = <1>;
 			interrupt-map-mask = <0 0 0 7>;
