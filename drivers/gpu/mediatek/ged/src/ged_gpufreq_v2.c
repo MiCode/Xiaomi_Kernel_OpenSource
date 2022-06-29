@@ -361,7 +361,7 @@ int ged_gpufreq_commit(int oppidx, int commit_type, int *bCommited)
 		else
 			g_min_count = 0;
 
-		if (g_min_count > 0 && g_min_count < 4)
+		if (g_min_count > 0 && g_min_count < DCS_MIN_OPP_CNT)
 			oppidx -= 1;
 
 		/* check FB fallback timer commit */
