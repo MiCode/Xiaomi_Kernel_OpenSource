@@ -49,6 +49,16 @@ int is_busy_tick_boost_all(void)
 }
 EXPORT_SYMBOL_GPL(is_busy_tick_boost_all);
 
+bool is_gearless_support(void)
+{
+#if IS_ENABLED(CONFIG_MTK_GEARLESS_SUPPORT)
+	return !freq_scaling_disabled;
+#else
+	return false;
+#endif
+}
+EXPORT_SYMBOL_GPL(is_gearless_support);
+
 unsigned int get_nr_gears(void)
 {
 	return pd_count;
@@ -462,7 +472,7 @@ static int alloc_capacity_table(void)
 	if (readl_relaxed(sram_base_addr_freq_scaling))
 		freq_scaling_disabled = false;
 
-	if (!freq_scaling_disabled)
+	if (is_gearless_support())
 		mtk_em_pd_ptr = mtk_em_pd_ptr_private;
 	else
 		mtk_em_pd_ptr = mtk_em_pd_ptr_public;

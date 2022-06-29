@@ -105,5 +105,6 @@ extern unsigned int get_sched_capacity_margin_dvfs(void);
 extern void set_busy_tick_boost(struct task_struct *p, bool set);
 extern int is_busy_tick_boost_all(void);
 extern unsigned int get_nr_gears(void);
+extern bool is_gearless_support(void);
 DECLARE_PER_CPU(unsigned int, gear_id);
 #endif /* __CPUFREQ_H__ */
