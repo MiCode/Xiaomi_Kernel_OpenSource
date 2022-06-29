@@ -135,19 +135,6 @@ static int gpufreq_status_proc_show(struct seq_file *m, void *v)
 		g_shared_status->shader_present);
 
 	seq_printf(m,
-		"%-16s GPU: %5d, STACK: %5d, SRAM: %5d\n",
-		"[Leakage RT]",
-		g_shared_status->lkg_rt_info_gpu,
-		g_shared_status->lkg_rt_info_stack,
-		g_shared_status->lkg_rt_info_sram);
-	seq_printf(m,
-		"%-16s GPU: %5d, STACK: %5d, SRAM: %5d\n",
-		"[Leakage HT]",
-		g_shared_status->lkg_ht_info_gpu,
-		g_shared_status->lkg_ht_info_stack,
-		g_shared_status->lkg_ht_info_sram);
-
-	seq_printf(m,
 		"%-16s DualBuck: %s, GPUEBSupport: %s, RandomOPP: %s\n",
 		"[MFGSYS Config]",
 		g_dual_buck ? "True" : "False",
