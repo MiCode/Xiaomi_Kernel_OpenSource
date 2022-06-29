@@ -296,8 +296,6 @@ static int mtk_raw_pde_get_ctrl(struct v4l2_ctrl *ctrl)
 static int mtk_raw_get_ctrl(struct v4l2_ctrl *ctrl)
 {
 	struct mtk_cam_resource_v2 *user_res;
-	struct mtk_cam_resource *user_res_legacy;
-	struct v4l2_mbus_framefmt sink_fmt;
 	struct mtk_raw_pipeline *pipeline;
 	struct device *dev;
 	int ret = 0;
@@ -305,14 +303,7 @@ static int mtk_raw_get_ctrl(struct v4l2_ctrl *ctrl)
 	pipeline = mtk_cam_ctrl_handler_to_raw_pipeline(ctrl->handler);
 	dev = pipeline->raw->devs[pipeline->id];
 
-	if (ctrl->id == V4L2_CID_MTK_CAM_RAW_RESOURCE_CALC_TEST) {
-		user_res_legacy = (struct mtk_cam_resource *)ctrl->p_new.p;
-		mtk_cam_resource_to_v1(user_res_legacy, &sink_fmt, &pipeline->user_res);
-		if (user_res_legacy->sink_fmt)
-			ret = mtk_cam_res_copy_fmt_to_user(pipeline,
-							   user_res_legacy,
-							   &sink_fmt);
-	} else if (ctrl->id == V4L2_CID_MTK_CAM_RAW_RESOURCE_CALC) {
+	if (ctrl->id == V4L2_CID_MTK_CAM_RAW_RESOURCE_CALC) {
 		user_res = (struct mtk_cam_resource_v2 *)ctrl->p_new.p;
 		*user_res = pipeline->user_res;
 	} else if (ctrl->id == V4L2_CID_MTK_CAM_INTERNAL_MEM_CTRL) {
@@ -410,109 +401,6 @@ mtk_cam_res_copy_fmt_to_user(struct mtk_raw_pipeline *pipeline,
 
 		return -EINVAL;
 	}
-
-	return 0;
-}
-
-int mtk_cam_raw_res_store(struct mtk_raw_pipeline *pipeline,
-			  struct mtk_cam_resource *res_user, char *dbg_str, bool log)
-{
-	struct device *dev = pipeline->raw->devs[pipeline->id];
-
-	if (log)
-		dev_info(dev,
-			 "%s:%s:pipe(%d): from user: sensor:%d/%d/%lld/%lld/%d/%d, raw:%d/%d/%d/%d/%d/%d/%d/%d/%lld/%d\n",
-			 __func__, dbg_str, pipeline->id,
-			 res_user->sensor_res.hblank, res_user->sensor_res.vblank,
-			 res_user->sensor_res.pixel_rate,
-			 res_user->sensor_res.cust_pixel_rate,
-			 res_user->sensor_res.interval.denominator,
-			 res_user->sensor_res.interval.numerator,
-			 res_user->raw_res.feature, res_user->raw_res.bin,
-			 res_user->raw_res.path_sel, res_user->raw_res.raw_max,
-			 res_user->raw_res.raw_min, res_user->raw_res.raw_used,
-			 res_user->raw_res.strategy, res_user->raw_res.pixel_mode,
-			 res_user->raw_res.throughput, res_user->raw_res.hw_mode);
-	else
-		dev_dbg(dev,
-			"%s:%s:pipe(%d): from user: sensor:%d/%d/%lld/%lld/%d/%d, raw:%d/%d/%d/%d/%d/%d/%d/%d/%lld/%d\n",
-			__func__, dbg_str, pipeline->id,
-			res_user->sensor_res.hblank, res_user->sensor_res.vblank,
-			res_user->sensor_res.pixel_rate,
-			res_user->sensor_res.cust_pixel_rate,
-			res_user->sensor_res.interval.denominator,
-			res_user->sensor_res.interval.numerator,
-			res_user->raw_res.feature, res_user->raw_res.bin,
-			res_user->raw_res.path_sel, res_user->raw_res.raw_max,
-			res_user->raw_res.raw_min, res_user->raw_res.raw_used,
-			res_user->raw_res.strategy, res_user->raw_res.pixel_mode,
-			res_user->raw_res.throughput, res_user->raw_res.hw_mode);
-
-	/* check user value of sensor input parameters */
-	if (!mtk_cam_feature_is_pure_m2m(res_user->raw_res.feature) &&
-		 (!res_user->sensor_res.pixel_rate || !res_user->sensor_res.hblank ||
-	    !res_user->sensor_res.vblank ||
-	    !res_user->sensor_res.interval.denominator ||
-	    !res_user->sensor_res.interval.numerator)) {
-		dev_info(dev,
-			 "%s:%s:pipe(%d): sensor info MUST be provided (TEST_PATTERN case)\n",
-			 __func__, dbg_str, pipeline->id);
-		/*test pattern case resource default copy*/
-		pipeline->res_config.raw_num_used = 1;
-		pipeline->res_config.bin_enable = 0;
-		pipeline->res_config.tgo_pxl_mode = 1;
-		pipeline->res_config.tgo_pxl_mode_before_raw = 1;
-		pipeline->res_config.raw_path = 0;
-		pipeline->res_config.hwn_limit_min = 1;
-		pipeline->feature_pending = res_user->raw_res.feature;
-		pipeline->hw_mode = res_user->raw_res.hw_mode;
-		pipeline->hw_mode_pending = res_user->raw_res.hw_mode;
-		return 0;
-	}
-
-	/* check user value of raw input parameters */
-	if (res_user->raw_res.feature == 0xFFFFFFFF)
-		res_user->raw_res.feature = 0;
-
-	if (res_user->raw_res.bin == 0xFF)
-		res_user->raw_res.bin = 0;
-
-	if (res_user->raw_res.strategy == 0xFFFF)
-		res_user->raw_res.strategy = RESOURCE_STRATEGY_QRP;
-
-	if (res_user->raw_res.raw_max == 0xFF)
-		res_user->raw_res.raw_max = 2;
-
-	if (res_user->raw_res.raw_min == 0xFF)
-		res_user->raw_res.raw_min = 1;
-
-	if (res_user->raw_res.raw_min > 1)
-		res_user->raw_res.strategy = RESOURCE_STRATEGY_QPR;
-
-	if (res_user->raw_res.path_sel == 0xFF)
-		res_user->raw_res.path_sel = 0;
-
-	if (res_user->raw_res.hw_mode == 0xFF)
-		res_user->raw_res.hw_mode = HW_MODE_DEFAULT;
-
-	if (log)
-		dev_info(dev,
-			 "%s:%s:pipe(%d): driver adjusted: raw:%d/%d/%d/%d/%d/%d/%d/%d/%lld/%d\n",
-			 __func__, dbg_str, pipeline->id,
-			 res_user->raw_res.feature, res_user->raw_res.bin,
-			 res_user->raw_res.path_sel, res_user->raw_res.raw_max,
-			 res_user->raw_res.raw_min, res_user->raw_res.raw_used,
-			 res_user->raw_res.strategy, res_user->raw_res.pixel_mode,
-			 res_user->raw_res.throughput, res_user->raw_res.hw_mode);
-	else
-		dev_dbg(dev,
-			"%s:%s:pipe(%d): driver adjusted: raw:%d/%d/%d/%d/%d/%d/%d/%d/%lld/%d\n",
-			__func__, dbg_str, pipeline->id,
-			res_user->raw_res.feature, res_user->raw_res.bin,
-			res_user->raw_res.path_sel, res_user->raw_res.raw_max,
-			res_user->raw_res.raw_min, res_user->raw_res.raw_used,
-			res_user->raw_res.strategy, res_user->raw_res.pixel_mode,
-			res_user->raw_res.throughput, res_user->raw_res.hw_mode);
 
 	return 0;
 }
@@ -837,58 +725,6 @@ static int mtk_cam_raw_set_res_ctrl(struct v4l2_ctrl *ctrl)
 	return ret;
 }
 
-/* To be phased-out aftre the user space use mtk_cam_resource_v2 */
-static int mtk_cam_raw_set_legacy_res_ctrl(struct v4l2_ctrl *ctrl)
-{
-	struct mtk_raw_pipeline *pipeline;
-	struct mtk_cam_resource *res_user_legacy;
-	struct v4l2_mbus_framefmt sink_fmt;
-	struct device *dev;
-	int ret = 0;
-
-	pipeline = mtk_cam_ctrl_handler_to_raw_pipeline(ctrl->handler);
-	dev = pipeline->raw->devs[pipeline->id];
-	res_user_legacy = (struct mtk_cam_resource *)ctrl->p_new.p;
-
-	ret = mtk_cam_raw_res_store(pipeline, res_user_legacy, "s_ctrl", true);
-	memset(&pipeline->user_res, 0, sizeof(pipeline->user_res));
-	memset(&sink_fmt, 0, sizeof(sink_fmt));
-
-	if (pipeline->subdev.entity.stream_count) {
-		/* If the pipeline is streaming, pending the change */
-		dev_dbg(dev, "%s:pipe(%d): pending res calc\n",
-			__func__, pipeline->id);
-		mtk_cam_resource_to_v2(&pipeline->user_res, res_user_legacy, &sink_fmt);
-		return ret;
-	}
-
-	ret = mtk_cam_res_copy_fmt_from_user(pipeline, res_user_legacy, &sink_fmt);
-	if (ret)
-		return ret;
-
-	mtk_cam_resource_to_v2(&pipeline->user_res, res_user_legacy, &sink_fmt);
-	pipeline->res_config.sink_fmt = sink_fmt; /* debug only */
-	ret = mtk_cam_raw_try_res_ctrl(pipeline, &pipeline->user_res,
-				       &pipeline->res_config,
-				       "s_ctrl", true);
-	/**
-	 * We will phase out feature_pending after using mtk_cam_resource_v2
-	 * in V4L2_CID_MTK_CAM_RAW_RESOURCE_CALC.
-	 * In legacy driver, it is error-prone
-	 * once we don't get a reasonable V4L2_CID_MTK_CAM_FEATURE with
-	 * V4L2_CID_MTK_CAM_RAW_RESOURCE_CALC
-	 */
-	res_user_legacy->raw_res.pixel_mode = pipeline->res_config.tgo_pxl_mode;
-	res_user_legacy->raw_res.raw_used = pipeline->res_config.raw_num_used;
-	res_user_legacy->raw_res.bin = pipeline->user_res.raw_res.bin;
-	res_user_legacy->sensor_res.driver_buffered_pixel_rate = pipeline->res_config.pixel_rate;
-
-	if (ret)
-		return -EINVAL;
-
-	return ret;
-}
-
 static int mtk_raw_set_res_ctrl(struct device *dev, struct v4l2_ctrl *ctrl,
 				struct mtk_cam_resource_config *res_cfg,
 				int pipe_id)
@@ -1021,10 +857,7 @@ static int mtk_raw_try_ctrl(struct v4l2_ctrl *ctrl)
 {
 	struct device *dev;
 	struct mtk_raw_pipeline *pipeline;
-	struct mtk_cam_resource *res_user_legacy;
-	struct mtk_cam_resource_v2 res_user;
 	struct mtk_cam_resource_v2 *res_user_ptr;
-	struct v4l2_mbus_framefmt sink_fmt;
 	struct mtk_cam_resource_config res_cfg;
 	int ret = 0;
 
@@ -1044,30 +877,6 @@ static int mtk_raw_try_ctrl(struct v4l2_ctrl *ctrl)
 		if (ret)
 			dev_info(dev, "%s:pipe(%d): res calc failed, please check the param\n",
 				 __func__, pipeline->id);
-		break;
-	case V4L2_CID_MTK_CAM_RAW_RESOURCE_CALC_TEST:
-		res_user_legacy = (struct mtk_cam_resource *)ctrl->p_new.p;
-		ret = mtk_cam_raw_res_store(pipeline, res_user_legacy, "try_ctrl", false);
-		if (ret)
-			break;
-
-		memset(&sink_fmt, 0, sizeof(sink_fmt));
-		memset(&res_user, 0, sizeof(res_user));
-		ret = mtk_cam_res_copy_fmt_from_user(pipeline, res_user_legacy,
-						     &sink_fmt);
-		if (ret) {
-			ret = 0;
-			/* only corret the user's input, it may be request-based try and set fmt */
-			dev_dbg(dev, "%s:pipe(%d): no sink_fmt from user, not calc res\n",
-				__func__, pipeline->id);
-			break;
-		}
-		mtk_cam_resource_to_v2(&res_user, res_user_legacy, &sink_fmt);
-		ret = mtk_cam_raw_try_res_ctrl(pipeline, &res_user, &res_cfg, "try_ctrl", false);
-		res_user_legacy->raw_res.pixel_mode = res_cfg.tgo_pxl_mode;
-		res_user_legacy->raw_res.raw_used = res_cfg.raw_num_used;
-		res_user_legacy->raw_res.bin = res_user.raw_res.bin;
-		res_user_legacy->sensor_res.driver_buffered_pixel_rate = res_cfg.pixel_rate;
 		break;
 	case V4L2_CID_MTK_CAM_INTERNAL_MEM_CTRL:
 		ret = 0;
@@ -1118,13 +927,6 @@ static int mtk_raw_set_ctrl(struct v4l2_ctrl *ctrl)
 	case V4L2_CID_MTK_CAM_RAW_RESOURCE_CALC:
 		ret = mtk_cam_raw_set_res_ctrl(ctrl);
 		break;
-	case V4L2_CID_MTK_CAM_RAW_RESOURCE_CALC_TEST:
-		/**
-		 * It also updates V4L2_CID_MTK_CAM_FEATURE and
-		 * V4L2_CID_MTK_CAM_RAW_PATH_SELECT to device
-		 */
-		ret = mtk_cam_raw_set_legacy_res_ctrl(ctrl);
-		break;
 	case V4L2_CID_MTK_CAM_INTERNAL_MEM_CTRL:
 		if (pipeline->subdev.entity.stream_count) {
 			dev_info(dev,
@@ -1154,15 +956,6 @@ static int mtk_raw_set_ctrl(struct v4l2_ctrl *ctrl)
 		break;
 	case V4L2_CID_MTK_CAM_TG_FLASH_CFG:
 		ret = mtk_cam_tg_flash_s_ctrl(ctrl);
-		break;
-	case V4L2_CID_MTK_CAM_FEATURE:
-		pipeline->feature_pending = *ctrl->p_new.p_s64;
-
-		dev_dbg(dev,
-			"%s:pipe(%d):streaming(%d), feature_legacy(0x%x), scen(%s)\n",
-			__func__, pipeline->id, pipeline->subdev.entity.stream_count,
-			pipeline->feature_pending, pipeline->user_res.raw_res.scen.dbg_str);
-		ret = 0;
 		break;
 	case V4L2_CID_MTK_CAM_FRAME_SYNC:
 		/* the mask means the updating from user, clean by driver */
@@ -1332,39 +1125,6 @@ static const struct v4l2_ctrl_config raw_path = {
 	.def = 1,
 };
 
-static const struct v4l2_ctrl_config hwn_try = {
-	.ops = &cam_ctrl_ops,
-	.id = V4L2_CID_MTK_CAM_USED_ENGINE_TRY,
-	.name = "Engine resource",
-	.type = V4L2_CTRL_TYPE_INTEGER,
-	.min = 1,
-	.max = 2,
-	.step = 1,
-	.def = 2,
-};
-
-static const struct v4l2_ctrl_config bin_try = {
-	.ops = &cam_ctrl_ops,
-	.id = V4L2_CID_MTK_CAM_BIN_TRY,
-	.name = "Binning",
-	.type = V4L2_CTRL_TYPE_BOOLEAN,
-	.min = 0,
-	.max = 1,
-	.step = 1,
-	.def = 1,
-};
-
-static const struct v4l2_ctrl_config frz_try = {
-	.ops = &cam_ctrl_ops,
-	.id = V4L2_CID_MTK_CAM_FRZ_TRY,
-	.name = "Resizer",
-	.type = V4L2_CTRL_TYPE_INTEGER,
-	.min = 70,
-	.max = 100,
-	.step = 1,
-	.def = 100,
-};
-
 static const struct v4l2_ctrl_config frame_sync_id = {
 	.ops = &cam_ctrl_ops,
 	.id = V4L2_CID_MTK_CAM_SYNC_ID,
@@ -1374,28 +1134,6 @@ static const struct v4l2_ctrl_config frame_sync_id = {
 	.max = 0x7FFFFFFF,
 	.step = 1,
 	.def = -1,
-};
-
-static const struct v4l2_ctrl_config mtk_feature = {
-	.ops = &cam_ctrl_ops,
-	.id = V4L2_CID_MTK_CAM_FEATURE,
-	.name = "Mediatek camsys feature",
-	.type = V4L2_CTRL_TYPE_INTEGER64,
-	.min = 0,
-	.max = RAW_FUNCTION_END,
-	.step = 1,
-	.def = 0,
-};
-
-static struct v4l2_ctrl_config cfg_res_ctrl = {
-	.ops = &cam_ctrl_ops,
-	.id = V4L2_CID_MTK_CAM_RAW_RESOURCE_CALC_TEST,
-	.name = "resource ctrl",
-	.type = V4L2_CTRL_COMPOUND_TYPES, /* V4L2_CTRL_TYPE_U32,*/
-	.flags = V4L2_CTRL_FLAG_EXECUTE_ON_WRITE,
-	.max = 0xffffffff,
-	.step = 1,
-	.dims = {sizeof(struct mtk_cam_resource)},
 };
 
 static struct v4l2_ctrl_config cfg_res_v2_ctrl = {
@@ -6353,15 +6091,7 @@ static void mtk_raw_pipeline_ctrl_setup(struct mtk_raw_pipeline *pipe)
 	ctrl = v4l2_ctrl_new_custom(ctrl_hdlr, &hsf, NULL);
 	if (ctrl)
 		ctrl->flags |= V4L2_CTRL_FLAG_VOLATILE | V4L2_CTRL_FLAG_EXECUTE_ON_WRITE;
-	ctrl = v4l2_ctrl_new_custom(ctrl_hdlr, &hwn_try, NULL);
-	if (ctrl)
-		ctrl->flags |= V4L2_CTRL_FLAG_VOLATILE;
-	ctrl = v4l2_ctrl_new_custom(ctrl_hdlr, &frz_try, NULL);
-	if (ctrl)
-		ctrl->flags |= V4L2_CTRL_FLAG_VOLATILE;
-	ctrl = v4l2_ctrl_new_custom(ctrl_hdlr, &bin_try, NULL);
-	if (ctrl)
-		ctrl->flags |= V4L2_CTRL_FLAG_VOLATILE;
+
 	ctrl = v4l2_ctrl_new_custom(ctrl_hdlr, &frame_sync_id, NULL);
 	if (ctrl)
 		ctrl->flags |= V4L2_CTRL_FLAG_VOLATILE |
@@ -6375,17 +6105,11 @@ static void mtk_raw_pipeline_ctrl_setup(struct mtk_raw_pipeline *pipe)
 	ctrl = v4l2_ctrl_new_custom(ctrl_hdlr, &cfg_pde_info, NULL);
 
 	ctrl = v4l2_ctrl_new_custom(ctrl_hdlr, &cfg_hdr_timestamp_info, NULL);
-	ctrl = v4l2_ctrl_new_custom(ctrl_hdlr, &mtk_feature, NULL);
 	if (ctrl)
 		ctrl->flags |= V4L2_CTRL_FLAG_VOLATILE |
 			V4L2_CTRL_FLAG_EXECUTE_ON_WRITE;
 
 	ctrl = v4l2_ctrl_new_custom(ctrl_hdlr, &cfg_res_update, NULL);
-	if (ctrl)
-		ctrl->flags |= V4L2_CTRL_FLAG_VOLATILE |
-			V4L2_CTRL_FLAG_EXECUTE_ON_WRITE;
-
-	ctrl = v4l2_ctrl_new_custom(ctrl_hdlr, &cfg_res_ctrl, NULL);
 	if (ctrl)
 		ctrl->flags |= V4L2_CTRL_FLAG_VOLATILE |
 			V4L2_CTRL_FLAG_EXECUTE_ON_WRITE;
@@ -6418,7 +6142,6 @@ static void mtk_raw_pipeline_ctrl_setup(struct mtk_raw_pipeline *pipe)
 	pipe->res_config.frz_limit = frz_limit.def;
 	pipe->res_config.bin_limit = bin_limit.def;
 	pipe->res_config.res_plan = 1;
-	pipe->feature_pending = mtk_feature.def;
 	pipe->sync_id = frame_sync_id.def;
 	pipe->sensor_mode_update = cfg_res_update.def;
 	memset(&pipe->pde_config, cfg_pde_info.def, sizeof(pipe->pde_config));

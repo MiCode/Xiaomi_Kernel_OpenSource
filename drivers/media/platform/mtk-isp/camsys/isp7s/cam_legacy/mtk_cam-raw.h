@@ -252,7 +252,6 @@ struct mtk_raw_pad_config {
 /*
  * struct mtk_raw_pipeline - sub dev to use raws.
  *
- * @feature_pending: Don't use feature_pending any more, it will be phased-out soon
  * @scen_active: The active feature during streaming. It can't be changed
  *		    during streaming and can only be used after streaming on.
  * @req_seninf_old: It is used to keep the request-based link setup parameters.
@@ -278,7 +277,6 @@ struct mtk_raw_pipeline {
 	unsigned long enabled_dmas;
 	/* resource controls */
 	struct v4l2_ctrl_handler ctrl_handler;
-	s64 feature_pending;
 	struct mtk_cam_scen scen_active;
 	int dynamic_exposure_num_max;
 	bool enqueued_tg_flash_req; /* need a better way to collect the request */
