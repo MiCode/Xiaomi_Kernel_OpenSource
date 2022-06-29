@@ -286,4 +286,6 @@ void mtk_dp_clock_debug(unsigned int clksrc, unsigned int con1);
 unsigned int mtk_de_get_clk_debug(void);
 unsigned int mtk_de_get_clksrc(void);
 unsigned int mtk_de_get_con1(void);
+void mtk_dp_vsvoter_set(struct mtk_dp *mtk_dp);
+void mtk_dp_vsvoter_clr(struct mtk_dp *mtk_dp);
 #endif //__MTK_DP__H__

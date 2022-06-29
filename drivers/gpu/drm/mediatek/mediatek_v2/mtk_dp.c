@@ -1466,6 +1466,7 @@ int mdrv_DPTx_HPD_HandleInThread(struct mtk_dp *mtk_dp)
 
 		if (mtk_dp->training_info.bCablePlugIn && ubCurrentHPD) {
 			DPTXMSG("HPD_CON\n");
+			mtk_dp_vsvoter_set(mtk_dp);
 		} else {
 			DPTXMSG("HPD_DISCON\n");
 			mdrv_DPTx_VideoMute(mtk_dp, true);
@@ -1515,6 +1516,8 @@ int mdrv_DPTx_HPD_HandleInThread(struct mtk_dp *mtk_dp)
 				mtk_dp->conn.status
 					= mtk_dp->conn.funcs->detect(&mtk_dp->conn, false);
 			}
+
+			mtk_dp_vsvoter_clr(mtk_dp);
 		}
 	}
 
@@ -3343,6 +3346,70 @@ void mtk_dp_phy_param_init(struct mtk_dp *mtk_dp, uint32_t *buffer, int size)
 	}
 }
 
+void mtk_dp_vsvoter_set(struct mtk_dp *mtk_dp)
+{
+	u32 reg, msk, val;
+
+	if (IS_ERR_OR_NULL(mtk_dp->vsv))
+		return;
+
+	/* write 1 to set and clr, update reg address */
+	reg = mtk_dp->vsv_reg + VS_VOTER_EN_LO_SET;
+	msk = mtk_dp->vsv_mask;
+	val = mtk_dp->vsv_mask;
+
+	regmap_update_bits(mtk_dp->vsv, reg, msk, val);
+	dev_info(mtk_dp->dev, "%s set voter for vs\n", __func__);
+}
+
+void mtk_dp_vsvoter_clr(struct mtk_dp *mtk_dp)
+{
+	u32 reg, msk, val;
+
+	if (IS_ERR_OR_NULL(mtk_dp->vsv))
+		return;
+
+	/* write 1 to set and clr, update reg address */
+	reg = mtk_dp->vsv_reg + VS_VOTER_EN_LO_CLR;
+	msk = mtk_dp->vsv_mask;
+	val = mtk_dp->vsv_mask;
+
+	regmap_update_bits(mtk_dp->vsv, reg, msk, val);
+	dev_info(mtk_dp->dev, "%s clr voter for vs\n", __func__);
+}
+
+static int mtk_dp_vsvoter_parse(struct mtk_dp *mtk_dp, struct device_node *node)
+{
+	struct of_phandle_args args;
+	struct platform_device *pdev;
+	int ret;
+
+	/* vs vote function is optional */
+	if (!of_property_read_bool(node, "mediatek,vs-voter"))
+		return 0;
+
+	ret = of_parse_phandle_with_fixed_args(node,
+		"mediatek,vs-voter", 3, 0, &args);
+	if (ret)
+		return ret;
+
+	pdev = of_find_device_by_node(args.np->child);
+	if (!pdev)
+		return -ENODEV;
+
+	mtk_dp->vsv = dev_get_regmap(pdev->dev.parent, NULL);
+	if (!mtk_dp->vsv)
+		return -ENODEV;
+
+	mtk_dp->vsv_reg = args.args[0];
+	mtk_dp->vsv_mask = args.args[1];
+	mtk_dp->vsv_vers = args.args[2];
+	dev_info(mtk_dp->dev, "vsv - reg:0x%x, mask:0x%x, version:%d\n",
+			mtk_dp->vsv_reg, mtk_dp->vsv_mask, mtk_dp->vsv_vers);
+
+	return PTR_ERR_OR_ZERO(mtk_dp->vsv);
+}
+
 static int mtk_dp_dt_parse_pdata(struct mtk_dp *mtk_dp,
 		struct platform_device *pdev)
 {
@@ -3371,6 +3438,10 @@ static int mtk_dp_dt_parse_pdata(struct mtk_dp *mtk_dp,
 	} else
 		mtk_dp_phy_param_init(mtk_dp,
 			phy_params_dts, ARRAY_SIZE(phy_params_dts));
+
+	ret = mtk_dp_vsvoter_parse(mtk_dp, dev->of_node);
+	if (ret)
+		dev_info(dev, "failed to parse vsv property\n");
 
 	return 0;
 }
@@ -4128,6 +4199,9 @@ static int mtk_drm_dp_probe(struct platform_device *pdev)
 	mtk_dp->control_task = kthread_run(mtk_dp_control_kthread,
 		(void *)mtk_dp, "mtk_dp_video_trigger");
 	mtk_dp_create_workqueue(mtk_dp);
+
+	mtk_dp_vsvoter_clr(mtk_dp);
+
 	return component_add(&pdev->dev, &mtk_dp_component_ops);
 
 error:

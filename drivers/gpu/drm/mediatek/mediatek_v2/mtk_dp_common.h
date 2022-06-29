@@ -93,6 +93,14 @@
 #define AUX_MCCS_SLAVE_ADDR	0x37
 
 
+/****************************************/
+/* PMIC Voter offset */
+/****************************************/
+#define VS_VOTER_EN_LO 0x0
+#define VS_VOTER_EN_LO_SET 0x1
+#define VS_VOTER_EN_LO_CLR 0x2
+
+
 enum dp_cmd {
 	DP_DUMP = 0x20,
 	DP_VIDEO_UNMUTE,
@@ -312,6 +320,12 @@ struct mtk_dp {
 	struct mtk_drm_private *priv;
 	//phy_params[10] = {L0P0,L0P1,L0P2,L0P3,L1P0,L1P1,L1P2,L2P0,L2P1,L3P0};
 	struct DPTX_PHY_PARAMETER phy_params[DPTX_PHY_LEVEL_COUNT];
+
+	/* pmic vs voter */
+	struct regmap *vsv;
+	u32 vsv_reg;
+	u32 vsv_mask;
+	u32 vsv_vers;
 };
 
 #endif /*__DRTX_TYPE_H__*/
