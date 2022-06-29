@@ -175,6 +175,7 @@ struct seninf_ctx {
 	/* resources */
 	struct list_head list_mux;
 	struct list_head list_cam_mux;
+	struct seninf_mux *mux_by_group_src[4];
 
 	/* flags */
 	unsigned int csi_streaming:1;

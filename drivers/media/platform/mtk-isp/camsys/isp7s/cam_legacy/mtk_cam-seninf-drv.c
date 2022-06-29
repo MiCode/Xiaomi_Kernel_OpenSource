@@ -1684,7 +1684,7 @@ static int seninf_test_streamon(struct seninf_ctx *ctx, u32 en)
 #endif
 	if (en) {
 		ctx->is_test_streamon = 1;
-		mtk_cam_seninf_alloc_cammux_by_type(ctx, TYPE_RAW);
+		mtk_cam_seninf_alloc_cammux(ctx);
 		seninf_s_stream(&ctx->subdev, 1);
 	} else {
 		seninf_s_stream(&ctx->subdev, 0);
@@ -2017,6 +2017,7 @@ static int seninf_probe(struct platform_device *pdev)
 	list_add(&ctx->list, &core->list);
 	INIT_LIST_HEAD(&ctx->list_mux);
 	INIT_LIST_HEAD(&ctx->list_cam_mux);
+	memset(ctx->mux_by_group_src, 0, sizeof(ctx->mux_by_group_src));
 
 	ctx->open_refcnt = 0;
 	mutex_init(&ctx->mutex);

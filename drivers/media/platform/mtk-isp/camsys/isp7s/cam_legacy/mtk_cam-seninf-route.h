@@ -8,8 +8,7 @@ void mtk_cam_seninf_init_res(struct seninf_core *core);
 
 struct seninf_mux *mtk_cam_seninf_mux_get_by_type(struct seninf_ctx *ctx,
 						enum CAM_TYPE_ENUM cam_type);
-void mtk_cam_seninf_alloc_cammux_by_type(struct seninf_ctx *ctx,
-						enum CAM_TYPE_ENUM cam_type);
+void mtk_cam_seninf_alloc_cammux(struct seninf_ctx *ctx);
 void mtk_cam_seninf_mux_put(struct seninf_ctx *ctx, struct seninf_mux *mux);
 void mtk_cam_seninf_release_mux(struct seninf_ctx *ctx);
 
