@@ -2043,7 +2043,10 @@ void mtk_drm_del_cb_data(struct cmdq_cb_data data, int crtc_id)
 		DDPMSG("%s, data==NULL\n", __func__);
 		return;
 	}
-
+	if (crtc_id < 0 || crtc_id >= MAX_CRTC) {
+		DDPMSG("%s, crtc_id is invalid\n", __func__);
+		return;
+	}
 	spin_lock_irqsave(&cb_data_clock_lock, flags);
 	list_for_each_entry(tmp_cb_data, &cb_data_list[crtc_id], link) {
 		if (!memcmp(&tmp_cb_data->data, &data,
