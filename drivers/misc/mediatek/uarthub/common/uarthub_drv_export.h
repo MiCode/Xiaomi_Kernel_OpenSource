@@ -42,7 +42,7 @@ enum UARTHUB_irq_err_type {
 	irq_err_type_max,
 };
 
-typedef void (*UARTHUB_IRQ_CB) (enum UARTHUB_irq_err_type err_type);
+typedef void (*UARTHUB_IRQ_CB) (unsigned int err_type);
 
 #define KERNEL_UARTHUB_open                       UARTHUB_open
 #define KERNEL_UARTHUB_close                      UARTHUB_close

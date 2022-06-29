@@ -46,7 +46,7 @@ struct uarthub_uart_ip_debug_info {
 	unsigned long ap;
 };
 
-typedef void (*UARTHUB_CORE_IRQ_CB) (int err_type);
+typedef void (*UARTHUB_CORE_IRQ_CB) (unsigned int err_type);
 
 typedef int(*UARTHUB_PLAT_INIT_REMAP_REG) (void);
 typedef int(*UARTHUB_PLAT_DEINIT_UNMAP_REG) (void);

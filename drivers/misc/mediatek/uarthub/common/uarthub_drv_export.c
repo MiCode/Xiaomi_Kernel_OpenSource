@@ -20,10 +20,10 @@
 
 UARTHUB_IRQ_CB g_irq_callback;
 
-static void UARTHUB_irq_error_register_cb(int err_type)
+static void UARTHUB_irq_error_register_cb(unsigned int err_type)
 {
 	if (g_irq_callback)
-		(*g_irq_callback)((enum UARTHUB_irq_err_type)err_type);
+		(*g_irq_callback)(err_type);
 }
 
 int UARTHUB_open(void)
