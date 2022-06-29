@@ -3021,6 +3021,42 @@
 			polling-delay-passive = <0>; /* milliseconds */
 			thermal-sensors = <&tboard_thermistor5>;
 		};
+		vtskin-max {
+			polling-delay = <0>; /* milliseconds */
+			polling-delay-passive = <0>; /* milliseconds */
+			thermal-sensors = <&vtskin 0>;
+		};
+		vtskin1 {
+			polling-delay = <0>; /* milliseconds */
+			polling-delay-passive = <0>; /* milliseconds */
+			thermal-sensors = <&vtskin 1>;
+		};
+		vtskin2 {
+			polling-delay = <0>; /* milliseconds */
+			polling-delay-passive = <0>; /* milliseconds */
+			thermal-sensors = <&vtskin 2>;
+		};
+		vtskin3 {
+			polling-delay = <0>; /* milliseconds */
+			polling-delay-passive = <0>; /* milliseconds */
+			thermal-sensors = <&vtskin 3>;
+		};
+		vtskin4 {
+			polling-delay = <0>; /* milliseconds */
+			polling-delay-passive = <0>; /* milliseconds */
+			thermal-sensors = <&vtskin 4>;
+		};
+		vtskin5 {
+			polling-delay = <0>; /* milliseconds */
+			polling-delay-passive = <0>; /* milliseconds */
+			thermal-sensors = <&vtskin 5>;
+		};
+		vtskin6 {
+			polling-delay = <0>; /* milliseconds */
+			polling-delay-passive = <0>; /* milliseconds */
+			thermal-sensors = <&vtskin 6>;
+		};
+
 		wifi_adie_0 {
 			polling-delay = <0>; /* milliseconds */
 			polling-delay-passive = <0>; /* milliseconds */
@@ -4155,6 +4191,11 @@
 
 			nvmem-cells = <&lvts_e_data1 &lvts_e_data2>;
 			nvmem-cell-names = "e_data1","e_data2";
+		};
+
+		vtskin: vtskin {
+			compatible = "mediatek,mt6985-virtual-tskin";
+			#thermal-sensor-cells = <1>;
 		};
 
 		ptp_therm_ctrl_apb@10315000 {
