@@ -9140,7 +9140,8 @@
 			<&gce 5 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_2>,
 			<&gce 7 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_2>,
 			<&gce 4 0 CMDQ_THR_PRIO_4>,
-			<&gce 6 0 CMDQ_THR_PRIO_3>;
+			<&gce 6 0 CMDQ_THR_PRIO_3>,
+			<&gce 22 0 CMDQ_THR_PRIO_1>;
 			// <&gce_sec 8 0 CMDQ_THR_PRIO_3>,
 			// <&gce_sec 9 0 CMDQ_THR_PRIO_3>,
 			// <&gce_sec 9 0 CMDQ_THR_PRIO_3>;
@@ -9152,7 +9153,8 @@
 			"CLIENT_TRIG_LOOP1",
 			"CLIENT_EVENT_LOOP0",
 			"CLIENT_SUB_CFG0",
-			"CLIENT_DSI_CFG0";
+			"CLIENT_DSI_CFG0",
+			"CLIENT_PQ0";
 			// "CLIENT_SEC_CFG0",
 			// "CLIENT_SEC_CFG1",
 			// "CLIENT_SEC_CFG2";
@@ -10881,6 +10883,7 @@
 		reg = <0 0x14202000 0 0x1000>;
 		interrupts = <GIC_SPI 400 IRQ_TYPE_LEVEL_HIGH 0>;
 		clocks = <&dispsys1_config_clk CLK_MM1_DISP_AAL0>;
+		aal_dre3 = <&disp_mdp_aal1>;
 	};
 
 	disp_gamma0: disp_gamma@1400e000 {
