@@ -46,6 +46,7 @@
 
 static u64 g_fallback_time_out = GED_DVFS_FB_TIMER_TIMEOUT;
 
+#define GED_KPI_MSEC_DIVIDER ((u64)1000000)
 static struct hrtimer g_HT_hwvsync_emu;
 
 #include "ged_dvfs.h"
@@ -67,6 +68,8 @@ struct GED_NOTIFY_SW_SYNC {
 #define MAX_NOTIFY_CNT 125
 struct GED_NOTIFY_SW_SYNC loading_base_notify[MAX_NOTIFY_CNT];
 int notify_index;
+static int policy_state = -1;
+static int policy_state_pre = -1;
 
 int (*ged_sw_vsync_event_fp)(bool bMode) = NULL;
 EXPORT_SYMBOL(ged_sw_vsync_event_fp);
@@ -97,6 +100,31 @@ static int ged_sw_vsync_event(bool bMode)
 }
 
 
+u64 ged_get_fallback_time(void)
+{
+	u64 temp = 0;
+
+	if (g_fallback_mode == 0)
+		temp = g_fallback_time * GED_KPI_MSEC_DIVIDER;
+	else if (g_fallback_mode == 1)
+		temp = fb_timeout * g_fallback_time / 10;
+	else if (g_fallback_mode == 2)
+		temp = lb_timeout * g_fallback_time / 10;
+	return temp;
+}
+int ged_get_policy_state(void)
+{
+	return policy_state;
+}
+int ged_get_policy_state_pre(void)
+{
+	return policy_state_pre;
+}
+void ged_set_policy_state(int state)
+{
+	policy_state_pre = policy_state;
+	policy_state = state;
+}
 static unsigned long long sw_vsync_ts;
 static void ged_notify_sw_sync_work_handle(struct work_struct *psWork)
 {
@@ -104,19 +132,16 @@ static void ged_notify_sw_sync_work_handle(struct work_struct *psWork)
 		GED_CONTAINER_OF(psWork, struct GED_NOTIFY_SW_SYNC, sWork);
 	unsigned long long temp;
 	GED_DVFS_COMMIT_TYPE eCommitType;
-
-	if (g_loading_slide_enable && policy_state == 1) {
+	if (ged_get_policy_state() == 1 || ged_get_policy_state() == 2) {
 		eCommitType = GED_DVFS_FB_FALLBACK_COMMIT;
-		policy_state = 2;
-		ged_set_backup_timer_timeout(g_loading_stride_size * 1000000);
-		ged_cancel_backup_timer();
+		ged_set_policy_state(2);
+		if (ged_get_policy_state_pre() == 1) {
+			ged_set_backup_timer_timeout(ged_get_fallback_time());
+			ged_cancel_backup_timer();
+		}
 	} else {
 		eCommitType = GED_DVFS_LOADING_BASE_COMMIT;
-		policy_state = 0;
 	}
-
-	if (!g_loading_slide_enable && (GED_DVFS_TIMER_TIMEOUT == GED_DVFS_FB_TIMER_TIMEOUT))
-		eCommitType = GED_DVFS_FB_FALLBACK_COMMIT;
 
 	temp = 0;
 	if (psNotify) {

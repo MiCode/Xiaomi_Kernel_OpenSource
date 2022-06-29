@@ -733,6 +733,97 @@ static KOBJ_ATTR_RW(loading_stride_size);
 
 //-----------------------------------------------------------------------------
 
+unsigned int g_frame_target_mode = GED_DEFAULT_FRAME_TARGET_MODE;
+unsigned int g_frame_target_time = GED_DEFAULT_FRAME_TARGET_TIME;
+
+static ssize_t fallback_timing_show(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		char *buf)
+{
+	return scnprintf(buf, PAGE_SIZE, "%u\n", g_frame_target_mode * 100 + g_frame_target_time);
+}
+
+static ssize_t fallback_timing_store(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		const char *buf, size_t count)
+{
+	char acBuffer[GED_SYSFS_MAX_BUFF_SIZE];
+	int i32Value;
+
+	if ((count > 0) && (count < GED_SYSFS_MAX_BUFF_SIZE)) {
+		if (scnprintf(acBuffer, GED_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
+			if (kstrtoint(acBuffer, 0, &i32Value) == 0) {
+				if (i32Value < 200 && i32Value >= 0) {
+					if (i32Value < 100) {
+						g_frame_target_mode = 0;
+						g_frame_target_time = i32Value;
+					} else if (i32Value < 200 && i32Value > 100) {
+						g_frame_target_mode = 1;
+						g_frame_target_time =  i32Value % 100;
+					}
+				} else {
+					g_frame_target_mode = GED_DEFAULT_FRAME_TARGET_MODE;
+					g_frame_target_time = GED_DEFAULT_FRAME_TARGET_TIME;
+				}
+			}
+		}
+	}
+
+	return count;
+}
+
+static KOBJ_ATTR_RW(fallback_timing);
+
+//-----------------------------------------------------------------------------
+
+unsigned int g_fallback_mode = GED_DEFAULT_FALLBACK_MODE;
+unsigned int g_fallback_time = GED_DEFAULT_FALLBACK_TIME;
+
+static ssize_t fallback_interval_show(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		char *buf)
+{
+	return scnprintf(buf, PAGE_SIZE, "%u\n", g_fallback_mode * 100 + g_fallback_time);
+}
+
+static ssize_t fallback_interval_store(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		const char *buf, size_t count)
+{
+	char acBuffer[GED_SYSFS_MAX_BUFF_SIZE];
+	int i32Value;
+
+	if ((count > 0) && (count < GED_SYSFS_MAX_BUFF_SIZE)) {
+		if (scnprintf(acBuffer, GED_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
+			if (kstrtoint(acBuffer, 0, &i32Value) == 0) {
+				if (i32Value >= 0 && i32Value < 400) {
+					if (i32Value < 100) {
+						g_fallback_mode = 0;
+						g_fallback_time = i32Value;
+					}
+					if (i32Value > 100 && i32Value < 200) {
+						g_fallback_mode = 1;
+						g_fallback_time = i32Value%100;
+					}
+					if (i32Value > 200 && i32Value < 300) {
+						g_fallback_mode = 2;
+						g_fallback_time = i32Value%100;
+					}
+				} else {
+					g_fallback_mode = GED_DEFAULT_FALLBACK_MODE;
+					g_fallback_time = GED_DEFAULT_FALLBACK_TIME;
+				}
+			}
+		}
+	}
+
+	return count;
+}
+
+static KOBJ_ATTR_RW(fallback_interval);
+
+//-----------------------------------------------------------------------------
+
 unsigned int g_loading_slide_window_size = GED_DEFAULT_SLIDE_WINDOW_SIZE;
 unsigned int g_loading_slide_enable;
 
@@ -897,6 +988,21 @@ GED_ERROR ged_hal_init(void)
 			"Failed to create loading_stride_size entry!\n");
 		goto ERROR;
 	}
+
+
+	err = ged_sysfs_create_file(hal_kobj, &kobj_attr_fallback_timing);
+	if (unlikely(err != GED_OK)) {
+		GED_LOGE(
+			"Failed to create fallback_timing entry!\n");
+		goto ERROR;
+	}
+
+	err = ged_sysfs_create_file(hal_kobj, &kobj_attr_fallback_interval);
+	if (unlikely(err != GED_OK)) {
+		GED_LOGE(
+			"Failed to create fallback_interval entry!\n");
+		goto ERROR;
+	}
 	return err;
 
 ERROR:
@@ -926,6 +1032,8 @@ void ged_hal_exit(void)
 	ged_sysfs_remove_file(hal_kobj, &kobj_attr_custom_upbound_gpu_freq);
 	ged_sysfs_remove_file(hal_kobj, &kobj_attr_custom_boost_gpu_freq);
 	ged_sysfs_remove_file(hal_kobj, &kobj_attr_total_gpu_freq_level_count);
+	ged_sysfs_remove_file(hal_kobj, &kobj_attr_fallback_timing);
+	ged_sysfs_remove_file(hal_kobj, &kobj_attr_fallback_interval);
 #ifdef GED_DCS_POLICY
 	ged_sysfs_remove_file(hal_kobj, &kobj_attr_dcs_mode);
 #endif

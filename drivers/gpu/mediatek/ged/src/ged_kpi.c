@@ -269,6 +269,8 @@ static unsigned int g_force_gpu_dvfs_fallback;
 static int g_fb_dvfs_threshold = 80;
 static int idle_fw_set_flag;
 static int g_is_idle_fw_enable;
+u64 fb_timeout = 100000000;/*100 ms*/
+u64 lb_timeout = 100000000;
 
 module_param(g_fb_dvfs_threshold, int, 0644);
 
@@ -309,8 +311,6 @@ unsigned int g_eb_coef;
 
 int pid_sysui;
 int pid_sf;
-int policy_state = -1;/*0:init 1:frame base 2:fallback 3:loading*/
-
 /* ------------------------------------------------------------------- */
 void (*ged_kpi_output_gfx_info2_fp)(long long t_gpu, unsigned int cur_freq
 	, unsigned int cur_max_freq, u64 ulID);
@@ -1209,45 +1209,62 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 					mtk_gpueb_dvfs_set_frame_base_dvfs(0);
 			}
 		}
-			if (main_head == psHead) {
-				if (!g_force_gpu_dvfs_fallback) {
-					policy_state = 1;
-					if (g_loading_slide_enable)
-						ged_set_backup_timer_timeout(
-							psKPI->t_gpu_target * 2);
-					else
-						ged_set_backup_timer_timeout(0);
-				} else {
-					policy_state = 0;
-					if (g_loading_slide_enable)
-						ged_set_backup_timer_timeout(
-							g_loading_stride_size * 1000000);
-					else
-						ged_set_backup_timer_timeout(
-							psKPI->t_gpu_target << 1);
-				}
-				gpu_freq_pre = ged_kpi_gpu_dvfs(
-					time_spent, psKPI->t_gpu_target
-					, psKPI->target_fps_margin
-					, g_force_gpu_dvfs_fallback);
-			} else if (g_force_gpu_dvfs_fallback) {
-				policy_state = 0;
-				if (g_loading_slide_enable)
+		if (main_head == psHead) {
+			if (!g_force_gpu_dvfs_fallback) {
+				/* Frame based & main head*/
+				ged_set_policy_state(1);
+				if (g_frame_target_mode) {
 					ged_set_backup_timer_timeout(
-						g_loading_stride_size * 1000000);
-				else
+						psKPI->t_gpu_target *
+						g_frame_target_time  / 10);
+					fb_timeout = psKPI->t_gpu_target *
+						g_frame_target_time  / 10;
+				} else {
+					ged_set_backup_timer_timeout(g_frame_target_time
+					* GED_KPI_MSEC_DIVIDER);
+					fb_timeout = g_frame_target_time;
+				}
+			} else {
+				/* Loading based & main head*/
+				ged_set_policy_state(0);
+				if (g_loading_slide_enable) {
+					ged_set_backup_timer_timeout(
+						g_loading_stride_size * GED_KPI_MSEC_DIVIDER
+						);
+					lb_timeout = g_loading_stride_size
+					* GED_KPI_MSEC_DIVIDER;
+				} else {
 					ged_set_backup_timer_timeout(
 						psKPI->t_gpu_target << 1);
-				gpu_freq_pre = ged_kpi_gpu_dvfs(
-					time_spent, psKPI->t_gpu_target
-					, psKPI->target_fps_margin
-					, 1); /* fallback mode */
+					lb_timeout = psKPI->t_gpu_target << 1;
+				}
+			}
+			gpu_freq_pre = ged_kpi_gpu_dvfs(
+				time_spent, psKPI->t_gpu_target
+				, psKPI->target_fps_margin
+				, g_force_gpu_dvfs_fallback);
+		} else if (g_force_gpu_dvfs_fallback) {
+			/* Loading based & not main head*/
+			ged_set_policy_state(0);
+			if (g_loading_slide_enable) {
+				ged_set_backup_timer_timeout(
+					g_loading_stride_size * GED_KPI_MSEC_DIVIDER);
+				lb_timeout = g_loading_stride_size * GED_KPI_MSEC_DIVIDER;
 			} else {
-				/* t_gpu is not accurate, so hint -1 */
-				gpu_freq_pre = ged_kpi_gpu_dvfs(
-					-1, psKPI->t_gpu_target
-					, psKPI->target_fps_margin
-					, 0); /* do nothing */
+				ged_set_backup_timer_timeout(
+					psKPI->t_gpu_target << 1);
+				lb_timeout = psKPI->t_gpu_target << 1;
+			}
+			gpu_freq_pre = ged_kpi_gpu_dvfs(
+				time_spent, psKPI->t_gpu_target
+				, psKPI->target_fps_margin
+				, 1);
+		} else {
+			/* t_gpu is not accurate, so hint -1 */
+			gpu_freq_pre = ged_kpi_gpu_dvfs(
+				-1, psKPI->t_gpu_target
+				, psKPI->target_fps_margin
+				, 0); /* do nothing */
 		}
 
 		psKPI->cpu_gpu_info.gpu.gpu_freq_target = gpu_freq_pre;
