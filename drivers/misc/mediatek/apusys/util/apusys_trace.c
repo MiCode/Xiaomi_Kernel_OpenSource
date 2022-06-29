@@ -47,7 +47,8 @@ void trace_tag_end(void)
 {
 	char buf[TRACE_LEN];
 
-	int len = snprintf(buf, sizeof(buf), "E\n");
+	int len = snprintf(buf, sizeof(buf),
+		"E|%d", task_pid_nr(current));
 
 	if (len >= TRACE_LEN)
 		len = TRACE_LEN - 1;

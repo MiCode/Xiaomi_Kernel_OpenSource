@@ -27,7 +27,12 @@ extern u8 cfg_apusys_trace;
 #ifdef mdw_trace_end
 #undef mdw_trace_end
 #endif
-#define mdw_trace_end() trace_tag_end()
+#define mdw_trace_end() \
+	{ \
+		if (cfg_apusys_trace) { \
+			trace_tag_end(); \
+		} \
+	}
 #else
 #define mdw_trace_begin(...)
 #define mdw_trace_end(...)
