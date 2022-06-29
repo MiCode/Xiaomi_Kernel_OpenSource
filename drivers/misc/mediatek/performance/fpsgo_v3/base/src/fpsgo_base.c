@@ -69,9 +69,7 @@ static DEFINE_MUTEX(fpsgo_render_lock);
 long long fpsgo_task_sched_runtime(struct task_struct *p)
 {
 	long long sched_runtime = 0;
-
-	if (!p->on_cpu || !task_on_rq_queued(p))
-		sched_runtime = p->se.sum_exec_runtime;
+	sched_runtime = p->se.sum_exec_runtime;
 	return sched_runtime;
 }
 
