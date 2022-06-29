@@ -372,6 +372,8 @@ struct mtk_dsi_driver_data {
 	bool support_shadow;
 	bool need_bypass_shadow;
 	bool need_wait_fifo;
+	const u32 buffer_unit;
+	const u32 sram_unit;
 	bool dsi_buffer;
 	u32 max_vfp;
 	void (*mmclk_by_datarate)(struct mtk_dsi *dsi,
@@ -1471,7 +1473,9 @@ static void mtk_dsi_tx_buf_rw(struct mtk_dsi *dsi)
 	u32 mmsys_clk = 208, ps_wc = 0;
 	u32 width, height, tmp, rw_times;
 	u32 preultra_hi, preultra_lo, ultra_hi, ultra_lo, urgent_hi, urgent_lo;
-	u32 fill_rate, sodi_hi, sodi_lo;
+	u32 fill_rate;
+	u32 sodi_hi, sodi_lo;
+	u32 sram_unit, buffer_unit;
 	struct mtk_panel_ext *ext = mtk_dsi_get_panel_ext(&dsi->ddp_comp);
 	struct mtk_panel_dsc_params *dsc_params = &ext->params->dsc_params;
 	struct mtk_drm_crtc *mtk_crtc = dsi->ddp_comp.mtk_crtc;
@@ -1493,7 +1497,8 @@ static void mtk_dsi_tx_buf_rw(struct mtk_dsi *dsi)
 			ps_wc *= 2;
 		width = ps_wc / dsi_buf_bpp;
 	}
-
+	buffer_unit = dsi->driver_data->buffer_unit;
+	sram_unit = dsi->driver_data->sram_unit;
 	if (!ext->params->lp_perline_en &&
 		mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base)) {
 		if ((width * dsi_buf_bpp % 9) == 0)
@@ -1526,28 +1531,30 @@ static void mtk_dsi_tx_buf_rw(struct mtk_dsi *dsi)
 
 	/* enable ultra signal between SOF to VACT */
 	mtk_dsi_mask(dsi, DSI_RESERVED, DSI_VDE_BLOCK_ULTRA, 0);
-
-	fill_rate = mmsys_clk * 3 / 18;
-	tmp = readl(dsi->regs + DSI_BUF_CON1) >> 16;
+	fill_rate = mmsys_clk * dsi_buf_bpp / buffer_unit;
+	tmp = (readl(dsi->regs + DSI_BUF_CON1) >> 16) * sram_unit / buffer_unit;
 
 	if (dsi->ext->params->is_cphy) {
-		sodi_hi = tmp - (12 * (fill_rate - dsi->data_rate * 2 * dsi->lanes / 7 / 18) / 10);
-		sodi_lo = (23 + 5) * dsi->data_rate * 2 * dsi->lanes / 7 / 18;
-		preultra_hi = 26 * dsi->data_rate * 2 * dsi->lanes / 7 / 18;
-		preultra_lo = 25 * dsi->data_rate * 2 * dsi->lanes / 7 / 18;
-		ultra_hi = 25 * dsi->data_rate * 2 * dsi->lanes / 7 / 18;
-		ultra_lo = 23 * dsi->data_rate * 2 * dsi->lanes / 7 / 18;
-		urgent_hi = 12 * dsi->data_rate * 2 * dsi->lanes / 7 / 18;
-		urgent_lo = 11 * dsi->data_rate * 2 * dsi->lanes / 7 / 18;
+		sodi_hi = tmp - (12 * (fill_rate - dsi->data_rate * 2 * dsi->lanes / 7
+				/ buffer_unit) / 10);
+		sodi_lo = (23 + 5) * dsi->data_rate * 2 * dsi->lanes / 7 / buffer_unit;
+		preultra_hi = 26 * dsi->data_rate * 2 * dsi->lanes / 7 / buffer_unit;
+		preultra_lo = 25 * dsi->data_rate * 2 * dsi->lanes / 7 / buffer_unit;
+		ultra_hi = 25 * dsi->data_rate * 2 * dsi->lanes / 7 / buffer_unit;
+		ultra_lo = 23 * dsi->data_rate * 2 * dsi->lanes / 7 / buffer_unit;
+		urgent_hi = 12 * dsi->data_rate * 2 * dsi->lanes / 7 / buffer_unit;
+		urgent_lo = 11 * dsi->data_rate * 2 * dsi->lanes / 7 / buffer_unit;
 	} else {
-		sodi_hi = tmp - (12 * (fill_rate - dsi->data_rate * dsi->lanes / 8 / 18) / 10);
-		sodi_lo = (23 + 5) * dsi->data_rate * dsi->lanes / 8 / 18;
-		preultra_hi = 26 * dsi->data_rate * dsi->lanes / 8 / 18;
-		preultra_lo = 25 * dsi->data_rate * dsi->lanes / 8 / 18;
-		ultra_hi = 25 * dsi->data_rate * dsi->lanes / 8 / 18;
-		ultra_lo = 23 * dsi->data_rate * dsi->lanes / 8 / 18;
-		urgent_hi = 12 * dsi->data_rate * dsi->lanes / 8 / 18;
-		urgent_lo = 11 * dsi->data_rate * dsi->lanes / 8 / 18;
+		sodi_hi = tmp - (12 * (fill_rate - dsi->data_rate * dsi->lanes / 8
+				/ buffer_unit) / 10);
+		/*dsi->driver_data*/
+		sodi_lo = (23 + 5) * dsi->data_rate * dsi->lanes / 8 / buffer_unit;
+		preultra_hi = 26 * dsi->data_rate * dsi->lanes / 8 / buffer_unit;
+		preultra_lo = 25 * dsi->data_rate * dsi->lanes / 8 / buffer_unit;
+		ultra_hi = 25 * dsi->data_rate * dsi->lanes / 8 / buffer_unit;
+		ultra_lo = 23 * dsi->data_rate * dsi->lanes / 8 / buffer_unit;
+		urgent_hi = 12 * dsi->data_rate * dsi->lanes / 8 / buffer_unit;
+		urgent_lo = 11 * dsi->data_rate * dsi->lanes / 8 / buffer_unit;
 	}
 
 	writel((sodi_hi & 0xfffff), dsi->regs + DSI_BUF_SODI_HIGH);
@@ -8134,6 +8141,8 @@ static const struct mtk_dsi_driver_data mt8173_dsi_driver_data = {
 	.need_bypass_shadow = false,
 	.need_wait_fifo = true,
 	.dsi_buffer = false,
+	.buffer_unit = 18,
+	.sram_unit = 18,
 	.max_vfp = 0,
 	.mmclk_by_datarate = mtk_dsi_set_mmclk_by_datarate_V1,
 };
@@ -8153,6 +8162,8 @@ static const struct mtk_dsi_driver_data mt6779_dsi_driver_data = {
 	.need_bypass_shadow = false,
 	.need_wait_fifo = true,
 	.dsi_buffer = false,
+	.buffer_unit = 18,
+	.sram_unit = 18,
 	.max_vfp = 0,
 	.mmclk_by_datarate = mtk_dsi_set_mmclk_by_datarate_V1,
 };
@@ -8172,6 +8183,8 @@ static const struct mtk_dsi_driver_data mt6885_dsi_driver_data = {
 	.need_bypass_shadow = false,
 	.need_wait_fifo = false,
 	.dsi_buffer = false,
+	.buffer_unit = 18,
+	.sram_unit = 18,
 	.max_vfp = 0xffe,
 	.mmclk_by_datarate = mtk_dsi_set_mmclk_by_datarate_V1,
 };
@@ -8191,6 +8204,8 @@ static const struct mtk_dsi_driver_data mt6983_dsi_driver_data = {
 	.need_bypass_shadow = false,
 	.need_wait_fifo = false,
 	.dsi_buffer = true,
+	.buffer_unit = 18,
+	.sram_unit = 18,
 	.max_vfp = 0xffe,
 	.mmclk_by_datarate = mtk_dsi_set_mmclk_by_datarate_V1,
 };
@@ -8210,6 +8225,8 @@ static const struct mtk_dsi_driver_data mt6985_dsi_driver_data = {
 	.need_bypass_shadow = false,
 	.need_wait_fifo = false,
 	.dsi_buffer = true,
+	.buffer_unit = 32,
+	.sram_unit = 18,
 	.max_vfp = 0xffe,
 	.mmclk_by_datarate = mtk_dsi_set_mmclk_by_datarate_V1,
 };
@@ -8229,6 +8246,8 @@ static const struct mtk_dsi_driver_data mt6895_dsi_driver_data = {
 	.need_bypass_shadow = false,
 	.need_wait_fifo = false,
 	.dsi_buffer = true,
+	.buffer_unit = 18,
+	.sram_unit = 18,
 	.max_vfp = 0xffe,
 	.mmclk_by_datarate = mtk_dsi_set_mmclk_by_datarate_V2,
 };
@@ -8248,6 +8267,8 @@ static const struct mtk_dsi_driver_data mt6886_dsi_driver_data = {
 	.need_bypass_shadow = false,
 	.need_wait_fifo = false,
 	.dsi_buffer = true,
+	.buffer_unit = 18,
+	.sram_unit = 18,
 	.max_vfp = 0xffe,
 	.mmclk_by_datarate = mtk_dsi_set_mmclk_by_datarate_V1,
 };
@@ -8267,6 +8288,8 @@ static const struct mtk_dsi_driver_data mt6873_dsi_driver_data = {
 	.need_bypass_shadow = true,
 	.need_wait_fifo = true,
 	.dsi_buffer = false,
+	.buffer_unit = 18,
+	.sram_unit = 18,
 	.max_vfp = 0,
 	.mmclk_by_datarate = mtk_dsi_set_mmclk_by_datarate_V1,
 };
@@ -8286,6 +8309,8 @@ static const struct mtk_dsi_driver_data mt6853_dsi_driver_data = {
 	.need_bypass_shadow = true,
 	.need_wait_fifo = true,
 	.dsi_buffer = false,
+	.buffer_unit = 18,
+	.sram_unit = 18,
 	.max_vfp = 0,
 	.mmclk_by_datarate = mtk_dsi_set_mmclk_by_datarate_V1,
 };
@@ -8305,6 +8330,8 @@ static const struct mtk_dsi_driver_data mt6833_dsi_driver_data = {
 	.need_bypass_shadow = true,
 	.need_wait_fifo = true,
 	.dsi_buffer = false,
+	.buffer_unit = 18,
+	.sram_unit = 18,
 	.max_vfp = 0,
 	.mmclk_by_datarate = mtk_dsi_set_mmclk_by_datarate_V1,
 };
@@ -8324,6 +8351,8 @@ static const struct mtk_dsi_driver_data mt6879_dsi_driver_data = {
 	.need_bypass_shadow = false,
 	.need_wait_fifo = false,
 	.dsi_buffer = true,
+	.buffer_unit = 18,
+	.sram_unit = 18,
 	.max_vfp = 0xffe,
 	.mmclk_by_datarate = mtk_dsi_set_mmclk_by_datarate_V2,
 };
@@ -8343,6 +8372,8 @@ static const struct mtk_dsi_driver_data mt6855_dsi_driver_data = {
 	.need_bypass_shadow = false,
 	.need_wait_fifo = true,
 	.dsi_buffer = false,
+	.buffer_unit = 18,
+	.sram_unit = 18,
 	.max_vfp = 0xffe,
 	.mmclk_by_datarate = mtk_dsi_set_mmclk_by_datarate_V2,
 };
@@ -8358,6 +8389,8 @@ static const struct mtk_dsi_driver_data mt2701_dsi_driver_data = {
 	.need_bypass_shadow = false,
 	.need_wait_fifo = true,
 	.dsi_buffer = false,
+	.buffer_unit = 18,
+	.sram_unit = 18,
 	.max_vfp = 0,
 	.mmclk_by_datarate = mtk_dsi_set_mmclk_by_datarate_V1,
 };

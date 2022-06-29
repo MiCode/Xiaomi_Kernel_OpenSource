@@ -990,6 +990,7 @@ static void mtk_ovl_start(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 	value = 0;
 	mask = 0;
 	SET_VAL_MASK(value, mask, 1, DATAPATH_CON_FLD_LAYER_SMI_ID_EN);
+	SET_VAL_MASK(value, mask, 1, DATAPATH_CON_FLD_HDR_GCLAST_EN);
 	SET_VAL_MASK(value, mask, 1, DATAPATH_CON_FLD_GCLAST_EN);
 	SET_VAL_MASK(value, mask, 1, DATAPATH_CON_FLD_OUTPUT_CLAMP);
 	cmdq_pkt_write(handle, comp->cmdq_base,
@@ -4356,13 +4357,13 @@ static const struct mtk_disp_ovl_data mt6985_ovl_driver_data = {
 	.compr_info = &compr_info_mt6985,
 	.support_shadow = false,
 	.need_bypass_shadow = false,
-	.preultra_th_dc = 0x15e,
-	.fifo_size = 384,
-	.issue_req_th_dl = 255,
-	.issue_req_th_dc = 15,
-	.issue_req_th_urg_dl = 127,
-	.issue_req_th_urg_dc = 15,
-	.greq_num_dl = 0x7777,
+	.preultra_th_dc = 0x3c0,
+	.fifo_size = 1024,
+	.issue_req_th_dl = 511,
+	.issue_req_th_dc = 31,
+	.issue_req_th_urg_dl = 255,
+	.issue_req_th_urg_dc = 31,
+	.greq_num_dl = 0xFFFF,
 	.is_support_34bits = true,
 	.aid_sel_mapping = &mtk_ovl_aid_sel_MT6985,
 	.aid_per_layer_setting = true,
