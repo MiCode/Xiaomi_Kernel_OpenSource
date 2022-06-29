@@ -345,6 +345,7 @@ static inline void dpmaif_rxq_lro_join_skb(
 			__func__);
 
 		dpmaif_rxq_push_all_skb(rxq);
+		lro_info->count = 0;
 	}
 
 	lro_info->data[lro_info->count].bid = bid;
@@ -2544,8 +2545,6 @@ static void dpmaif_dump_rx_data(void)
 
 		ccci_util_mem_dump(CCCI_DUMP_DPMAIF, rxq->pit_base,
 			rxq->pit_cnt * drv.normal_pit_size);
-
-		break;
 	}
 
 	CCCI_BUF_LOG_TAG(0, CCCI_DUMP_DPMAIF, TAG,
