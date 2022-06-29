@@ -325,14 +325,14 @@ static void ged_kpi_output_gfx_info2(long long t_gpu, unsigned int cur_freq
 }
 
 /* ------------------------------------------------------------------- */
-int (*ged_kpi_gpu_dvfs_fp)(int t_gpu, int t_gpu_target, int target_fps_margin,
-	unsigned int force_fallback);
+int (*ged_kpi_gpu_dvfs_fp)(int t_gpu_done_interval, int t_gpu_target,
+	int target_fps_margin, unsigned int force_fallback);
 
-static int ged_kpi_gpu_dvfs(int t_gpu, int t_gpu_target,
+static int ged_kpi_gpu_dvfs(int t_gpu_done_interval, int t_gpu_target,
 	int target_fps_margin, unsigned int force_fallback)
 {
 	if (ged_kpi_gpu_dvfs_fp)
-		return ged_kpi_gpu_dvfs_fp(t_gpu, t_gpu_target,
+		return ged_kpi_gpu_dvfs_fp(t_gpu_done_interval, t_gpu_target,
 			target_fps_margin, force_fallback);
 
 	return 0;
@@ -891,6 +891,10 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 	unsigned long ulIRQFlags;
 	int eara_fps_margin;
 
+	int t_gpu_done_interval, t_gpu_target, target_fps_margin;
+	unsigned int force_fallback;
+	char use_gpu_completion_time;
+
 	GED_LOGD("ts type = %d, pid = %d, wnd = %llu, frame = %lu",
 		psTimeStamp->eTimeStampType,
 		psTimeStamp->pid,
@@ -1079,7 +1083,6 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 				"[Exception] no hashtable head for ulID: %lu", ulID);
 			break;
 		}
-		static unsigned long long last_3D_done, cur_3D_done;
 		int time_spent;
 		static int gpu_freq_pre;
 
@@ -1132,6 +1135,8 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 		if (psKPI->gpu_loading == 0)
 			mtk_get_gpu_loading(&psKPI->gpu_loading);
 
+		psKPI->gpu_done_interval = psHead->last_TimeStamp2 -
+			psHead->pre_TimeStamp2;
 		psKPI->cpu_gpu_info.gpu.t_gpu_real =
 				((unsigned long long)
 				(psHead->last_TimeStamp2 - psHead->pre_TimeStamp2))
@@ -1140,9 +1145,8 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 		psKPI->cpu_gpu_info.gpu.limit_upper = ged_get_cur_limiter_ceil();
 		psKPI->cpu_gpu_info.gpu.limit_lower = ged_get_cur_limiter_floor();
 
-		cur_3D_done = psKPI->ullTimeStamp2;
 		if (psTimeStamp->i32GPUloading) {
-			/* not fallback mode */
+			/* previous commit type is frame-based */
 
 			/* choose which loading to calc. t_gpu */
 			struct GpuUtilization_Ex util_ex;
@@ -1166,7 +1170,6 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 
 			time_spent = psKPI->cpu_gpu_info.gpu.t_gpu_real;
 
-			psKPI->gpu_done_interval = cur_3D_done - last_3D_done;
 			psKPI->t_gpu =	psHead->t_gpu_latest = time_spent;
 
 			if (ged_is_fdvfs_support() &&
@@ -1177,8 +1180,11 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 				ged_log_perf_trace_counter("eb_coef",
 					(long long)g_eb_coef, 5566, 0, 0);
 			}
+			use_gpu_completion_time = 0;
 		} else {
+			/* previous commit type is loading-based or fallback */
 			psKPI->t_gpu = time_spent = psHead->t_gpu_latest;
+			use_gpu_completion_time = 1;
 		}
 		/* Detect if there are multi renderers by */
 		/* checking if there is struct GED_KPI info
@@ -1209,6 +1215,12 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 					mtk_gpueb_dvfs_set_frame_base_dvfs(0);
 			}
 		}
+
+		/* set backup timer and execute FB DVFS */
+		t_gpu_done_interval = psKPI->gpu_done_interval;
+		t_gpu_target = psKPI->t_gpu_target;
+		target_fps_margin = psKPI->target_fps_margin;
+		force_fallback = g_force_gpu_dvfs_fallback;
 		if (main_head == psHead) {
 			if (!g_force_gpu_dvfs_fallback) {
 				/* Frame based & main head*/
@@ -1223,6 +1235,10 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 					ged_set_backup_timer_timeout(g_frame_target_time
 					* GED_KPI_MSEC_DIVIDER);
 					fb_timeout = g_frame_target_time;
+				}
+				if (use_gpu_completion_time) {
+					t_gpu_done_interval = psKPI->t_gpu;   // use GPU completion
+					force_fallback = 2;   // do not use loading
 				}
 			} else {
 				/* Loading based & main head*/
@@ -1239,10 +1255,6 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 					lb_timeout = psKPI->t_gpu_target << 1;
 				}
 			}
-			gpu_freq_pre = ged_kpi_gpu_dvfs(
-				time_spent, psKPI->t_gpu_target
-				, psKPI->target_fps_margin
-				, g_force_gpu_dvfs_fallback);
 		} else if (g_force_gpu_dvfs_fallback) {
 			/* Loading based & not main head*/
 			ged_set_policy_state(0);
@@ -1255,20 +1267,14 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 					psKPI->t_gpu_target << 1);
 				lb_timeout = psKPI->t_gpu_target << 1;
 			}
-			gpu_freq_pre = ged_kpi_gpu_dvfs(
-				time_spent, psKPI->t_gpu_target
-				, psKPI->target_fps_margin
-				, 1);
 		} else {
-			/* t_gpu is not accurate, so hint -1 */
-			gpu_freq_pre = ged_kpi_gpu_dvfs(
-				-1, psKPI->t_gpu_target
-				, psKPI->target_fps_margin
-				, 0); /* do nothing */
+			/* Frame based & not main head*/
+			t_gpu_done_interval = -1;   // t_gpu is not accurate, so hint -1
 		}
+		gpu_freq_pre = ged_kpi_gpu_dvfs(t_gpu_done_interval, t_gpu_target,
+			target_fps_margin, force_fallback);
 
 		psKPI->cpu_gpu_info.gpu.gpu_freq_target = gpu_freq_pre;
-		last_3D_done = cur_3D_done;
 
 		g_psGIFT->gpu_freq_cur = psKPI->gpu_freq * 1000;
 		g_psGIFT->gpu_freq_max = psKPI->gpu_freq_max * 1000;

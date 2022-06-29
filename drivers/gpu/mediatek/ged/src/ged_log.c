@@ -1220,13 +1220,14 @@ noinline void Policy__Frame_based__Workload(int v1, int v2)
 	}
 }
 
-noinline void Policy__Frame_based__Workload__Source(int v1, int v2)
+noinline void Policy__Frame_based__Workload__Source(int v1, int v2, int v3)
 {
 	char buf[256];
 	int cx;
 
 	if (ged_log_perf_trace_enable) {
-		cx = snprintf(buf, sizeof(buf), "gpueb=%d, ap=%d\n", v1, v2);
+		cx = snprintf(buf, sizeof(buf), "gpueb=%d, ap_active=%d, ap_3d=%d\n",
+			v1, v2, v3);
 		if (cx >= 0 && cx < sizeof(buf))
 			trace_printk(buf);
 	}
@@ -1241,6 +1242,20 @@ noinline void Policy__Frame_based__GPU_Time(int v1, int v2, int v3)
 		cx = snprintf(buf, sizeof(buf),
 			"t_gpu=%d, t_gpu_target=%d, t_gpu_target_hd=%d\n",
 			v1, v2, v3);
+		if (cx >= 0 && cx < sizeof(buf))
+			trace_printk(buf);
+	}
+}
+
+noinline void Policy__Frame_based__GPU_Time__Detail(int v1, int v2, int v3)
+{
+	char buf[256];
+	int cx;
+
+	if (ged_log_perf_trace_enable) {
+		cx = snprintf(buf, sizeof(buf),
+			"t_gpu_done_interval=%d, t_gpu_active=%d, t_gpu_3d=%d\n",
+				v1, v2, v3);
 		if (cx >= 0 && cx < sizeof(buf))
 			trace_printk(buf);
 	}

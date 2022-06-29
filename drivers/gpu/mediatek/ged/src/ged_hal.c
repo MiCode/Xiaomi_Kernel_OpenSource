@@ -412,6 +412,46 @@ static ssize_t dvfs_loading_mode_store(struct kobject *kobj,
 
 static KOBJ_ATTR_RW(dvfs_loading_mode);
 
+static ssize_t dvfs_workload_mode_show(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		char *buf)
+{
+	unsigned int ui32DvfsWorkloadMode;
+	int pos = 0;
+	int length;
+
+	if (false == mtk_get_dvfs_workload_mode(&ui32DvfsWorkloadMode)) {
+		ui32DvfsWorkloadMode = 0;
+		length = scnprintf(buf + pos, PAGE_SIZE - pos,
+				"call mtk_get_dvfs_workload_mode false\n");
+		pos += length;
+	}
+	length = scnprintf(buf + pos, PAGE_SIZE - pos,
+			"%d\n", ui32DvfsWorkloadMode);
+	pos += length;
+
+	return pos;
+}
+
+static ssize_t dvfs_workload_mode_store(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		const char *buf, size_t count)
+{
+	char acBuffer[GED_SYSFS_MAX_BUFF_SIZE];
+	int i32Value;
+
+	if ((count > 0) && (count < GED_SYSFS_MAX_BUFF_SIZE)) {
+		if (scnprintf(acBuffer, GED_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
+			if (kstrtoint(acBuffer, 0, &i32Value) == 0)
+				mtk_dvfs_workload_mode(i32Value);
+		}
+	}
+
+	return count;
+}
+
+static KOBJ_ATTR_RW(dvfs_workload_mode);
+
 static ssize_t fastdvfs_mode_show(struct kobject *kobj,
 		struct kobj_attribute *attr,
 		char *buf)
@@ -953,6 +993,12 @@ GED_ERROR ged_hal_init(void)
 		goto ERROR;
 	}
 
+	err = ged_sysfs_create_file(hal_kobj, &kobj_attr_dvfs_workload_mode);
+	if (unlikely(err != GED_OK)) {
+		GED_LOGE("Failed to create dvfs_workload_mode entry!\n");
+		goto ERROR;
+	}
+
 	ged_fb_notifier.notifier_call = ged_fb_notifier_callback;
 	if (fb_register_client(&ged_fb_notifier))
 		GED_LOGE("Register fb_notifier fail!\n");
@@ -1016,6 +1062,7 @@ void ged_hal_exit(void)
 {
 	ged_sysfs_remove_file(hal_kobj, &kobj_attr_fastdvfs_mode);
 	ged_sysfs_remove_file(hal_kobj, &kobj_attr_dvfs_loading_mode);
+	ged_sysfs_remove_file(hal_kobj, &kobj_attr_dvfs_workload_mode);
 	ged_sysfs_remove_file(hal_kobj, &kobj_attr_timer_base_dvfs_margin);
 	ged_sysfs_remove_file(hal_kobj, &kobj_attr_loading_base_dvfs_step);
 	ged_sysfs_remove_file(hal_kobj, &kobj_attr_dvfs_margin_value);

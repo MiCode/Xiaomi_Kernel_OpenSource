@@ -142,7 +142,7 @@ unsigned long ged_dvfs_get_last_commit_idx(void);
 extern void (*ged_kpi_set_gpu_dvfs_hint_fp)(int t_gpu_target,
 	int boost_accum_gpu);
 
-extern int (*ged_kpi_gpu_dvfs_fp)(int t_gpu, int t_gpu_target,
+extern int (*ged_kpi_gpu_dvfs_fp)(int t_gpu_done_interval, int t_gpu_target,
 	int target_fps_margin, unsigned int force_fallback);
 extern void (*ged_kpi_trigger_fb_dvfs_fp)(void);
 extern int (*ged_kpi_check_if_fallback_mode_fp)(void);
@@ -171,8 +171,13 @@ unsigned int ged_dvfs_get_tb_dvfs_margin_mode(void);
 #define LOADING_MAX_3DTA_COM 1
 #define LOADING_MAX_3DTA 2
 
+#define WORKLOAD_ACTIVE 0
+#define WORKLOAD_3D 1
+
 extern void (*mtk_dvfs_loading_mode_fp)(int i32LoadingMode);
 extern int (*mtk_get_dvfs_loading_mode_fp)(void);
+extern void (*mtk_dvfs_workload_mode_fp)(int i32WorkloadMode);
+extern int (*mtk_get_dvfs_workload_mode_fp)(void);
 extern void ged_get_gpu_utli_ex(struct GpuUtilization_Ex *util_ex);
 #ifndef MAX
 #define MAX(x, y)	((x) < (y) ? (y) : (x))
