@@ -1909,6 +1909,7 @@ void mml_dump_buf(struct mml_task *task, struct mml_frame_data *data,
 {
 	u32 i;
 	u64 stamp;
+	int ret;
 
 	if (buf_type >= ARRAY_SIZE(dump_ctx)) {
 		mml_err("[dumpsrv]%s wrong type %d", __func__, buf_type);
@@ -1931,10 +1932,12 @@ void mml_dump_buf(struct mml_task *task, struct mml_frame_data *data,
 	for (i = 0; i < MML_MAX_PLANES; i++)
 		dump_ctx[buf_type].size += buf->size[i];
 
-	snprintf(dump_ctx[buf_type].name, sizeof(dump_ctx[buf_type].name),
+	ret = snprintf(dump_ctx[buf_type].name, sizeof(dump_ctx[buf_type].name),
 		"mml_%u_%u_%s_f%s_%u_%u_%u.bin",
 		stamp, task->job.jobid, prefix, fmt,
 		width, height, data->y_stride);
+	if (ret < 0)
+		dump_ctx[buf_type].name[0] = 0;
 	dump_ctx[buf_type].frame_dma_buf = buf->dma[0].dmabuf;
 	dump_ctx[buf_type].ready = false;
 

@@ -431,7 +431,7 @@ static s32 command_reuse(struct mml_task *task, u32 pipe)
 
 static void get_color_fmt(char *frame, size_t sz, const struct mml_frame_data *data)
 {
-	snprintf(frame, sz, "%u%s%s%s%s%s%s%s%s",
+	int ret = snprintf(frame, sz, "%u%s%s%s%s%s%s%s%s",
 		MML_FMT_HW_FORMAT(data->format),
 		MML_FMT_SWAP(data->format) ? "s" : "",
 		MML_FMT_BLOCK(data->format) ? "b" : "",
@@ -443,20 +443,27 @@ static void get_color_fmt(char *frame, size_t sz, const struct mml_frame_data *d
 		MML_FMT_10BIT_JUMP(data->format) ? "j" : "",
 		MML_FMT_AFBC(data->format) ? "c" : "",
 		MML_FMT_HYFBC(data->format) ? "h" : "");
+
+	if (ret < 0)
+		frame[0] = 0;
 }
 
 static void get_frame_str(char *frame, size_t sz, const struct mml_frame_data *data)
 {
 	char color_fmt[24];
+	int ret;
 
 	get_color_fmt(color_fmt, sizeof(color_fmt), data);
-	snprintf(frame, sz, "(%u, %u)[%u %u] %#010x C%s P%hu%s",
+	ret = snprintf(frame, sz, "(%u, %u)[%u %u] %#010x C%s P%hu%s",
 		data->width, data->height, data->y_stride,
 		MML_FMT_AFBC(data->format) ? data->vert_stride : data->uv_stride,
 		data->format,
 		color_fmt,
 		data->profile,
 		data->secure ? " sec" : "");
+
+	if (ret < 0)
+		frame[0] = 0;
 }
 
 static void dump_inout(struct mml_task *task)
