@@ -1729,7 +1729,7 @@ int uarthub_core_is_uarthub_clk_enable(void)
 			g_uarthub_plat_ic_ops->uarthub_plat_get_uarthub_clk_gating_info) {
 		state = g_uarthub_plat_ic_ops->uarthub_plat_get_uarthub_clk_gating_info();
 		if (state != 0x0) {
-			pr_notice("[%s] UARTHUB CLK is GATING\n", __func__);
+			pr_notice("[%s] UARTHUB CLK is GATING(0x%x)\n", __func__, state);
 			return 0;
 		}
 	}
@@ -1738,7 +1738,27 @@ int uarthub_core_is_uarthub_clk_enable(void)
 			g_uarthub_plat_ic_ops->uarthub_plat_get_hwccf_univpll_done_info) {
 		state = g_uarthub_plat_ic_ops->uarthub_plat_get_hwccf_univpll_done_info();
 		if (state != 1) {
-			pr_notice("[%s] UNIVPLL CLK is OFF\n", __func__);
+			pr_notice("[%s] UNIVPLL CLK is OFF(0x%x)\n", __func__, state);
+			return 0;
+		}
+	}
+
+	if (g_uarthub_plat_ic_ops &&
+			g_uarthub_plat_ic_ops->uarthub_plat_get_spm_res_1_info) {
+		state = g_uarthub_plat_ic_ops->uarthub_plat_get_spm_res_1_info();
+		if (state != 0x1D) {
+			/* the expect value is 0x1D */
+			pr_notice("[%s] UARTHUB SPM RES 1 is not all on(0x%x)\n", __func__, state);
+			return 0;
+		}
+	}
+
+	if (g_uarthub_plat_ic_ops &&
+			g_uarthub_plat_ic_ops->uarthub_plat_get_spm_res_2_info) {
+		state = g_uarthub_plat_ic_ops->uarthub_plat_get_spm_res_2_info();
+		if (state != 0x17) {
+			/* the expect value is 0x17 */
+			pr_notice("[%s] UARTHUB SPM RES 2 is not all on(0x%x)\n", __func__, state);
 			return 0;
 		}
 	}
@@ -1747,7 +1767,7 @@ int uarthub_core_is_uarthub_clk_enable(void)
 			g_uarthub_plat_ic_ops->uarthub_plat_get_uart_mux_info) {
 		state = g_uarthub_plat_ic_ops->uarthub_plat_get_uart_mux_info();
 		if (state != 0x2) {
-			pr_notice("[%s] UART MUX is not 104M\n", __func__);
+			pr_notice("[%s] UART MUX is not 104M(0x%x)\n", __func__, state);
 			return 0;
 		}
 	}
@@ -2262,7 +2282,7 @@ int uarthub_core_debug_info_with_tag(const char *tag)
 
 int uarthub_core_debug_info_with_tag_no_spinlock(const char *tag)
 {
-	int val = 0;
+	int val = 0, val_2 = 0, val_3 = 0;
 	int apb_bus_clk_enable = 0;
 	const char *def_tag = "UARTHUB_DBG";
 
@@ -2281,6 +2301,26 @@ int uarthub_core_debug_info_with_tag_no_spinlock(const char *tag)
 		if (val >= 0) {
 			/* the expect value is 0x0 */
 			pr_info("[%s][%s] UARTHUB CLK GATING=[0x%x]\n",
+				def_tag, ((tag == NULL) ? "null" : tag), val);
+		}
+	}
+
+	if (g_uarthub_plat_ic_ops &&
+			g_uarthub_plat_ic_ops->uarthub_plat_get_spm_res_1_info) {
+		val = g_uarthub_plat_ic_ops->uarthub_plat_get_spm_res_1_info();
+		if (val >= 0) {
+			/* the expect value is 0x1D */
+			pr_info("[%s][%s] UARTHUB SPM RES 1=[0x%x]\n",
+				def_tag, ((tag == NULL) ? "null" : tag), val);
+		}
+	}
+
+	if (g_uarthub_plat_ic_ops &&
+			g_uarthub_plat_ic_ops->uarthub_plat_get_spm_res_2_info) {
+		val = g_uarthub_plat_ic_ops->uarthub_plat_get_spm_res_2_info();
+		if (val >= 0) {
+			/* the expect value is 0x17 */
+			pr_info("[%s][%s] UARTHUB SPM RES 2=[0x%x]\n",
 				def_tag, ((tag == NULL) ? "null" : tag), val);
 		}
 	}
@@ -2396,10 +2436,23 @@ int uarthub_core_debug_info_with_tag_no_spinlock(const char *tag)
 		def_tag, ((tag == NULL) ? "null" : tag), val, ((val & 0xF000000) >> 24));
 
 	val = (UARTHUB_REG_READ_BIT(UARTHUB_INTFHUB_DEV0_STA(intfhub_base_remap_addr),
-		(0x1 << 8)) >> 8);
+		(0x3 << 8)) >> 8);
 
-	if (val != 1) {
-		pr_notice("[%s] All host release trx req, cannot read UART_IP CR\n", __func__);
+	if (val != 0x3) {
+		pr_notice("[%s] UARTHUB is not ready, cannot read UART_IP CR\n",
+			__func__);
+		pr_info("[%s][%s] ----------------------------------------\n",
+			def_tag, ((tag == NULL) ? "null" : tag));
+		return -1;
+	}
+
+	val = UARTHUB_REG_READ_BIT(UARTHUB_INTFHUB_DEV0_STA(intfhub_base_remap_addr), 0x3);
+	val_2 = UARTHUB_REG_READ_BIT(UARTHUB_INTFHUB_DEV1_STA(intfhub_base_remap_addr), 0x3);
+	val_3 = UARTHUB_REG_READ_BIT(UARTHUB_INTFHUB_DEV2_STA(intfhub_base_remap_addr), 0x3);
+
+	if (val == 0 && val_2 == 0 && val_3 == 0) {
+		pr_notice("[%s] All host is not set trx request, cannot read UART_IP CR\n",
+			__func__);
 		pr_info("[%s][%s] ----------------------------------------\n",
 			def_tag, ((tag == NULL) ? "null" : tag));
 		return -1;

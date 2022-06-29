@@ -60,6 +60,8 @@ typedef int(*UARTHUB_PLAT_GET_UART_MUX_INFO) (void);
 typedef int(*UARTHUB_PLAT_GET_UARTHUB_ADDR_INFO) (struct uarthub_reg_base_addr *info);
 typedef void __iomem *(*UARTHUB_PLAT_GET_AP_UART_BASE_ADDR) (void);
 typedef void __iomem *(*UARTHUB_PLAT_GET_AP_DMA_TX_INT_ADDR) (void);
+typedef int(*UARTHUB_PLAT_GET_SPM_RES_1_INFO) (void);
+typedef int(*UARTHUB_PLAT_GET_SPM_RES_2_INFO) (void);
 
 struct uarthub_ops_struct {
 	/* load from dts */
@@ -75,6 +77,8 @@ struct uarthub_ops_struct {
 	UARTHUB_PLAT_GET_UARTHUB_ADDR_INFO uarthub_plat_get_uarthub_addr_info;
 	UARTHUB_PLAT_GET_AP_UART_BASE_ADDR uarthub_plat_get_ap_uart_base_addr;
 	UARTHUB_PLAT_GET_AP_DMA_TX_INT_ADDR uarthub_plat_get_ap_dma_tx_int_addr;
+	UARTHUB_PLAT_GET_SPM_RES_1_INFO uarthub_plat_get_spm_res_1_info;
+	UARTHUB_PLAT_GET_SPM_RES_2_INFO uarthub_plat_get_spm_res_2_info;
 };
 
 static char * const UARTHUB_irq_err_type_str[] = {

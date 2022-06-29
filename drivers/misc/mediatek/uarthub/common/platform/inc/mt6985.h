@@ -37,6 +37,14 @@
 #define TOPCKGEN_CLK_CFG_6_MASK       0x3
 #define TOPCKGEN_CLK_CFG_6_SHIFT      0x0
 
+#define SPM_BASE_ADDR                 0x1C001000
+#define SPM_MD32PCM_SCU_CTRL1         0x104
+#define SPM_REQ_STA_9                 0x86C
+#define SPM_MD32PCM_SCU_CTRL1_MASK    (0x17 << 17)
+#define SPM_MD32PCM_SCU_CTRL1_SHIFT   17
+#define SPM_REQ_STA_9_MASK            (0x1F << 17)
+#define SPM_REQ_STA_9_SHIFT           17
+
 #define UART3_BASE_ADDR                0x11004000
 #define AP_DMA_UART_3_TX_INT_FLAG_ADDR 0x11301300
 

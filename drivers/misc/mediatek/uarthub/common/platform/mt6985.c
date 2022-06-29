@@ -25,6 +25,7 @@ void __iomem *topckgen_base_remap_addr;
 void __iomem *uarthub_base_remap_addr;
 void __iomem *uart3_base_remap_addr;
 void __iomem *ap_dma_uart_3_tx_int_remap_addr;
+void __iomem *spm_remap_addr;
 
 static int uarthub_init_remap_reg_mt6985(void);
 static int uarthub_deinit_unmap_reg_mt6985(void);
@@ -40,6 +41,8 @@ static int uarthub_get_uart_mux_info_mt6985(void);
 static int uarthub_get_uarthub_addr_info_mt6985(struct uarthub_reg_base_addr *info);
 static void __iomem *uarthub_get_ap_uart_base_addr_mt6985(void);
 static void __iomem *uarthub_get_ap_dma_tx_int_addr_mt6985(void);
+static int uarthub_get_spm_res_1_info_mt6985(void);
+static int uarthub_get_spm_res_2_info_mt6985(void);
 
 struct uarthub_ops_struct mt6985_plat_data = {
 	.uarthub_plat_init_remap_reg = uarthub_init_remap_reg_mt6985,
@@ -56,6 +59,8 @@ struct uarthub_ops_struct mt6985_plat_data = {
 	.uarthub_plat_get_uarthub_addr_info = uarthub_get_uarthub_addr_info_mt6985,
 	.uarthub_plat_get_ap_uart_base_addr = uarthub_get_ap_uart_base_addr_mt6985,
 	.uarthub_plat_get_ap_dma_tx_int_addr = uarthub_get_ap_dma_tx_int_addr_mt6985,
+	.uarthub_plat_get_spm_res_1_info = uarthub_get_spm_res_1_info_mt6985,
+	.uarthub_plat_get_spm_res_2_info = uarthub_get_spm_res_2_info_mt6985,
 };
 
 int uarthub_init_remap_reg_mt6985(void)
@@ -67,6 +72,8 @@ int uarthub_init_remap_reg_mt6985(void)
 	uarthub_base_remap_addr = ioremap(UARTHUB_BASE_ADDR, 0x500);
 	uart3_base_remap_addr = ioremap(UART3_BASE_ADDR, 0x100);
 	ap_dma_uart_3_tx_int_remap_addr = ioremap(AP_DMA_UART_3_TX_INT_FLAG_ADDR, 0x100);
+	spm_remap_addr = ioremap(SPM_BASE_ADDR, 0x1000);
+
 	return 0;
 }
 
@@ -92,6 +99,9 @@ int uarthub_deinit_unmap_reg_mt6985(void)
 
 	if (ap_dma_uart_3_tx_int_remap_addr)
 		iounmap(ap_dma_uart_3_tx_int_remap_addr);
+
+	if (spm_remap_addr)
+		iounmap(spm_remap_addr);
 
 	return 0;
 }
@@ -216,4 +226,26 @@ void __iomem *uarthub_get_ap_uart_base_addr_mt6985(void)
 void __iomem *uarthub_get_ap_dma_tx_int_addr_mt6985(void)
 {
 	return ap_dma_uart_3_tx_int_remap_addr;
+}
+
+int uarthub_get_spm_res_1_info_mt6985(void)
+{
+	if (!spm_remap_addr) {
+		pr_notice("[%s] spm_remap_addr is NULL\n", __func__);
+		return -1;
+	}
+
+	return (UARTHUB_REG_READ_BIT(spm_remap_addr + SPM_REQ_STA_9,
+		SPM_REQ_STA_9_MASK) >> SPM_REQ_STA_9_SHIFT);
+}
+
+int uarthub_get_spm_res_2_info_mt6985(void)
+{
+	if (!spm_remap_addr) {
+		pr_notice("[%s] spm_remap_addr is NULL\n", __func__);
+		return -1;
+	}
+
+	return (UARTHUB_REG_READ_BIT(spm_remap_addr + SPM_MD32PCM_SCU_CTRL1,
+		SPM_MD32PCM_SCU_CTRL1_MASK) >> SPM_MD32PCM_SCU_CTRL1_SHIFT);
 }
