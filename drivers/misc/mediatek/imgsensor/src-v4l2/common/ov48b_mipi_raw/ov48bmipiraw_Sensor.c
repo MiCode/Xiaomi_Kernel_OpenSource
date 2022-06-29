@@ -1371,6 +1371,7 @@ static void ov48b_set_test_pattern(struct subdrv_ctx *ctx, u8 *para, u32 *len)
 		subdrv_i2c_wr_u8(ctx, 0x5000, 0x81);
 		subdrv_i2c_wr_u8(ctx, 0x5001, 0x00);
 		subdrv_i2c_wr_u8(ctx, 0x5002, 0x92);
+		subdrv_i2c_wr_u8(ctx, 0x5081, 0x01);
 		break;
 	case 5:
 		subdrv_i2c_wr_u8(ctx, 0x3019, 0xF0);
