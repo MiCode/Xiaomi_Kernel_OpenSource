@@ -168,7 +168,7 @@
 			cpu-idle-states = <&cpuoff_l &clusteroff_l &mcusysoff_l
 						&system_mem &system_pll &system_bus
 						&s2idle>;
-			capacity-dmips-mhz = <297>;
+			capacity-dmips-mhz = <307>;
 		};
 
 		cpu1: cpu@1 {
@@ -180,7 +180,7 @@
 			cpu-idle-states = <&cpuoff_l &clusteroff_l &mcusysoff_l
 						&system_mem &system_pll &system_bus
 						&s2idle>;
-			capacity-dmips-mhz = <297>;
+			capacity-dmips-mhz = <307>;
 		};
 
 		cpu2: cpu@2 {
@@ -192,7 +192,7 @@
 			cpu-idle-states = <&cpuoff_l &clusteroff_l &mcusysoff_l
 						&system_mem &system_pll &system_bus
 						&s2idle>;
-			capacity-dmips-mhz = <297>;
+			capacity-dmips-mhz = <307>;
 		};
 
 		cpu3: cpu@3 {
@@ -204,7 +204,7 @@
 			cpu-idle-states = <&cpuoff_l &clusteroff_l &mcusysoff_l
 						&system_mem &system_pll &system_bus
 						&s2idle>;
-			capacity-dmips-mhz = <297>;
+			capacity-dmips-mhz = <307>;
 		};
 
 		cpu4: cpu@100 {
@@ -216,7 +216,7 @@
 			cpu-idle-states = <&cpuoff_m &clusteroff_m &mcusysoff_m
 						&system_mem &system_pll &system_bus
 						&s2idle>;
-			capacity-dmips-mhz = <828>;
+			capacity-dmips-mhz = <785>;
 		};
 
 		cpu5: cpu@101 {
@@ -228,7 +228,7 @@
 			cpu-idle-states = <&cpuoff_m &clusteroff_m &mcusysoff_m
 						&system_mem &system_pll &system_bus
 						&s2idle>;
-			capacity-dmips-mhz = <828>;
+			capacity-dmips-mhz = <785>;
 		};
 
 		cpu6: cpu@102 {
@@ -240,7 +240,7 @@
 			cpu-idle-states = <&cpuoff_m &clusteroff_m &mcusysoff_m
 						&system_mem &system_pll &system_bus
 						&s2idle>;
-			capacity-dmips-mhz = <828>;
+			capacity-dmips-mhz = <785>;
 		};
 
 		cpu7: cpu@200 {
