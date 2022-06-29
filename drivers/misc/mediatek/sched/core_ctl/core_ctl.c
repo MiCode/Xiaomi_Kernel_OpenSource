@@ -14,6 +14,8 @@
 #include <linux/module.h>
 #include <uapi/linux/sched/types.h>
 #include <trace/hooks/sched.h>
+#include <sched/sched.h>
+#include <linux/sched/clock.h>
 
 #ifndef __CHECKER__
 #define CREATE_TRACE_POINTS
@@ -1125,7 +1127,7 @@ static inline void core_ctl_main_algo(void)
 		struct cluster_data *prev_cluster;
 		unsigned int max_capacity;
 
-		sched_max_util_task(NULL, NULL, &max_util, NULL);
+		sched_max_util_task(&max_util);
 		big_cluster = &cluster_state[num_clusters - 1];
 		prev_cluster = &cluster_state[big_cluster->cluster_id - 1];
 #if IS_ENABLED(CONFIG_MTK_THERMAL_INTERFACE)
@@ -1180,6 +1182,10 @@ void core_ctl_tick(void *data, struct rq *rq)
 	struct cluster_data *cluster;
 	int cpu = 0;
 	struct cpu_data *c;
+
+	/* prevent irq disable on cpu 0 */
+	if (rq->cpu == 0)
+		return;
 
 	if (!window_check())
 		return;
