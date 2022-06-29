@@ -60,7 +60,7 @@ struct scpsys {
 static bool scpsys_domain_is_on(struct scpsys_domain *pd)
 {
 	struct scpsys *scpsys = pd->scpsys;
-	u32 status, status2;
+	u32 status = 0, status2 = 0;
 
 	regmap_read(scpsys->base, pd->data->pwr_sta_offs, &status);
 	status &= pd->data->sta_mask;
@@ -76,7 +76,7 @@ static int scpsys_sram_enable(struct scpsys_domain *pd)
 {
 	u32 pdn_ack = pd->data->sram_pdn_ack_bits;
 	struct scpsys *scpsys = pd->scpsys;
-	unsigned int tmp;
+	unsigned int tmp = 0;
 	int ret;
 
 	regmap_clear_bits(scpsys->base, pd->data->ctl_offs, pd->data->sram_pdn_bits);
@@ -100,7 +100,7 @@ static int scpsys_sram_disable(struct scpsys_domain *pd)
 {
 	u32 pdn_ack = pd->data->sram_pdn_ack_bits;
 	struct scpsys *scpsys = pd->scpsys;
-	unsigned int tmp;
+	unsigned int tmp = 0;
 
 	if (MTK_SCPD_CAPS(pd, MTK_SCPD_SRAM_ISO)) {
 		regmap_set_bits(scpsys->base, pd->data->ctl_offs, PWR_SRAM_CLKISO_BIT);
