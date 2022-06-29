@@ -30,6 +30,9 @@
 #define SV_STATS_0_SIZE \
 	sizeof(struct mtk_cam_uapi_meta_camsv_stats_0)
 
+#define MRAW_STATS_0_SIZE \
+	sizeof(struct mtk_cam_uapi_meta_mraw_stats_0)
+
 static void set_payload(struct mtk_cam_uapi_meta_hw_buf *buf,
 			unsigned int size, size_t *offset)
 {
@@ -107,8 +110,7 @@ static int set_meta_stats_info(int ipi_id, void *addr, unsigned int pdo_max_size
 }
 
 static int set_sv_meta_stats_info(
-	int ipi_id, void *addr, unsigned int width,
-	unsigned int height, unsigned int stride)
+	int ipi_id, void *addr, struct dma_info *info)
 {
 	struct mtk_cam_uapi_meta_camsv_stats_0 *sv_stats0;
 	unsigned long offset;
@@ -116,23 +118,112 @@ static int set_sv_meta_stats_info(
 
 	switch (ipi_id) {
 	case MTKCAM_IPI_CAMSV_MAIN_OUT:
-		size = stride * height;
 		sv_stats0 = (struct mtk_cam_uapi_meta_camsv_stats_0 *)addr;
+		size = info->stride * info->height;
 		/* calculate offset for 16-alignment limitation */
 		offset = ((((dma_addr_t)sv_stats0 + SV_STATS_0_SIZE + 15) >> 4) << 4)
 			- (dma_addr_t)sv_stats0;
 		set_payload(&sv_stats0->pd_stats.pdo_buf, size, &offset);
 		sv_stats0->pd_stats_enabled = 1;
-		sv_stats0->pd_stats.stats_src.width = width;
-		sv_stats0->pd_stats.stats_src.height = height;
-		sv_stats0->pd_stats.stride = stride;
+		sv_stats0->pd_stats.stats_src.width = info->width;
+		sv_stats0->pd_stats.stats_src.height = info->height;
+		sv_stats0->pd_stats.stride = info->stride;
 		break;
 	default:
 		pr_info("%s: %s: not supported: %d\n",
 			__FILE__, __func__, ipi_id);
 		break;
 	}
-	return -1;
+
+	return 0;
+}
+
+static int set_mraw_meta_stats_info(
+	int ipi_id, void *addr, struct dma_info *info)
+{
+	struct mtk_cam_uapi_meta_mraw_stats_0 *mraw_stats0;
+	unsigned long offset;
+	unsigned int size;
+
+	switch (ipi_id) {
+	case MTKCAM_IPI_MRAW_META_STATS_0:
+		mraw_stats0 = (struct mtk_cam_uapi_meta_mraw_stats_0 *)addr;
+		/* imgo */
+		size = info[imgo_m1].stride * info[imgo_m1].height;
+		/* calculate offset for 16-alignment limitation */
+		offset = ((((dma_addr_t)mraw_stats0 + MRAW_STATS_0_SIZE + 15) >> 4) << 4)
+			- (dma_addr_t)mraw_stats0;
+		set_payload(&mraw_stats0->pdp_0_stats.pdo_buf, size, &offset);
+		mraw_stats0->pdp_0_stats_enabled = 1;
+		mraw_stats0->pdp_0_stats.stats_src.width = info[imgo_m1].width;
+		mraw_stats0->pdp_0_stats.stats_src.height = info[imgo_m1].height;
+		mraw_stats0->pdp_0_stats.stride = info[imgo_m1].stride;
+		/* imgbo */
+		size = info[imgbo_m1].stride * info[imgbo_m1].height;
+		/* calculate offset for 16-alignment limitation */
+		offset = ((((dma_addr_t)mraw_stats0 + offset + 15) >> 4) << 4)
+			- (dma_addr_t)mraw_stats0;
+		set_payload(&mraw_stats0->pdp_1_stats.pdo_buf, size, &offset);
+		mraw_stats0->pdp_1_stats_enabled = 1;
+		mraw_stats0->pdp_1_stats.stats_src.width = info[imgbo_m1].width;
+		mraw_stats0->pdp_1_stats.stats_src.height = info[imgbo_m1].height;
+		mraw_stats0->pdp_1_stats.stride = info[imgbo_m1].stride;
+		/* cpio */
+		size = info[cpio_m1].stride * info[cpio_m1].height;
+		/* calculate offset for 16-alignment limitation */
+		offset = ((((dma_addr_t)mraw_stats0 + offset + 15) >> 4) << 4)
+			- (dma_addr_t)mraw_stats0;
+		set_payload(&mraw_stats0->cpi_stats.cpio_buf, size, &offset);
+		mraw_stats0->cpi_stats_enabled = 1;
+		mraw_stats0->cpi_stats.stats_src.width = info[cpio_m1].width;
+		mraw_stats0->cpi_stats.stats_src.height = info[cpio_m1].height;
+		mraw_stats0->cpi_stats.stride = info[cpio_m1].stride;
+		break;
+	default:
+		pr_info("%s: %s: not supported: %d\n",
+			__FILE__, __func__, ipi_id);
+		break;
+	}
+
+	return 0;
+}
+
+static int get_mraw_stats_cfg_param(
+	void *addr, struct mraw_stats_cfg_param *param)
+{
+	struct mtk_cam_uapi_meta_mraw_stats_cfg *stats_cfg =
+		(struct mtk_cam_uapi_meta_mraw_stats_cfg *)addr;
+
+	param->mqe_en = stats_cfg->mqe_enable;
+	param->mobc_en = stats_cfg->mobc_enable;
+	param->plsc_en = stats_cfg->plsc_enable;
+
+	param->crop_width = stats_cfg->crop_param.crop_x_end -
+		stats_cfg->crop_param.crop_x_start;
+	param->crop_height = stats_cfg->crop_param.crop_y_end -
+		stats_cfg->crop_param.crop_y_start;
+
+	param->mqe_mode = stats_cfg->mqe_param.mqe_mode;
+
+	param->mbn_hei = stats_cfg->mbn_param.mbn_hei;
+	param->mbn_pow = stats_cfg->mbn_param.mbn_pow;
+	param->mbn_dir = stats_cfg->mbn_param.mbn_dir;
+	param->mbn_spar_hei = stats_cfg->mbn_param.mbn_spar_hei;
+	param->mbn_spar_pow = stats_cfg->mbn_param.mbn_spar_pow;
+	param->mbn_spar_fac = stats_cfg->mbn_param.mbn_spar_fac;
+	param->mbn_spar_con1 = stats_cfg->mbn_param.mbn_spar_con1;
+	param->mbn_spar_con0 = stats_cfg->mbn_param.mbn_spar_con0;
+
+	param->cpi_th = stats_cfg->cpi_param.cpi_th;
+	param->cpi_pow = stats_cfg->cpi_param.cpi_pow;
+	param->cpi_dir = stats_cfg->cpi_param.cpi_dir;
+	param->cpi_spar_hei = stats_cfg->cpi_param.cpi_spar_hei;
+	param->cpi_spar_pow = stats_cfg->cpi_param.cpi_spar_pow;
+	param->cpi_spar_fac = stats_cfg->cpi_param.cpi_spar_fac;
+	param->cpi_spar_con1 = stats_cfg->cpi_param.cpi_spar_con1;
+	param->cpi_spar_con0 = stats_cfg->cpi_param.cpi_spar_con0;
+
+	return 0;
 }
 
 static u32 get_dev_link_flags(int ipi_id)
@@ -207,6 +298,7 @@ static const struct plat_v4l2_data mt6985_v4l2_data = {
 	.meta_stats0_size = RAW_STATS_0_SIZE,
 	.meta_stats1_size = RAW_STATS_1_SIZE,
 	.meta_sv_ext_size = SV_STATS_0_SIZE,
+	.meta_mraw_ext_size = MRAW_STATS_0_SIZE,
 
 	.timestamp_buffer_ofst = offsetof(struct mtk_cam_uapi_meta_raw_stats_0,
 					  timestamp),
@@ -216,6 +308,8 @@ static const struct plat_v4l2_data mt6985_v4l2_data = {
 
 	.set_sv_meta_stats_info = set_sv_meta_stats_info,
 
+	.set_mraw_meta_stats_info = set_mraw_meta_stats_info,
+
 	.get_dev_link_flags = get_dev_link_flags,
 
 	.get_port_bw = get_port_bw,
@@ -223,6 +317,8 @@ static const struct plat_v4l2_data mt6985_v4l2_data = {
 	.cammux_id_raw_start = 34,
 
 	.get_mmqos_port = get_mmqos_port,
+
+	.get_mraw_stats_cfg_param = get_mraw_stats_cfg_param,
 };
 
 struct camsys_platform_data mt6985_data = {

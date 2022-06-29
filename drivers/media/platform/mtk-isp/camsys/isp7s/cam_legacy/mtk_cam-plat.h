@@ -41,8 +41,51 @@ enum raw_qos_port_id {
 	raw_qos_port_num
 };
 
+enum mraw_dmao_id {
+	imgo_m1 = 0,
+	imgbo_m1,
+	cpio_m1,
+	mraw_dmao_num
+};
+
+struct mraw_stats_cfg_param {
+	s8  mqe_en;
+	s8  mobc_en;
+	s8  plsc_en;
+
+	u32 crop_width;
+	u32 crop_height;
+
+	u32 mqe_mode;
+
+	u32 mbn_hei;
+	u32 mbn_pow;
+	u32 mbn_dir;
+	u32 mbn_spar_hei;
+	u32 mbn_spar_pow;
+	u32 mbn_spar_fac;
+	u32 mbn_spar_con1;
+	u32 mbn_spar_con0;
+
+	u32 cpi_th;
+	u32 cpi_pow;
+	u32 cpi_dir;
+	u32 cpi_spar_hei;
+	u32 cpi_spar_pow;
+	u32 cpi_spar_fac;
+	u32 cpi_spar_con1;
+	u32 cpi_spar_con0;
+};
+
 struct raw_mmqos {
 	char *port[raw_qos_port_num];
+};
+
+struct dma_info {
+	u32 width;
+	u32 height;
+	u32 xsize;
+	u32 stride;
 };
 
 struct plat_v4l2_data {
@@ -57,14 +100,16 @@ struct plat_v4l2_data {
 	int meta_stats0_size;
 	int meta_stats1_size;
 	int meta_sv_ext_size;
+	int meta_mraw_ext_size;
 
 	int timestamp_buffer_ofst;
 	bool support_afo_independent;
 
 	int (*set_meta_stats_info)(int ipi_id, void *addr, unsigned int pdo_max_size);
 
-	int (*set_sv_meta_stats_info)(int ipi_id, void *addr,
-		unsigned int width, unsigned int height, unsigned int stride);
+	int (*set_sv_meta_stats_info)(int ipi_id, void *addr, struct dma_info *info);
+
+	int (*set_mraw_meta_stats_info)(int ipi_id, void *addr, struct dma_info *info);
 
 	u32 (*get_dev_link_flags)(int ipi_id);
 
@@ -72,6 +117,8 @@ struct plat_v4l2_data {
 		unsigned long height, unsigned long fps);
 	int cammux_id_raw_start;
 	int (*get_mmqos_port)(struct raw_mmqos **mmqos_port);
+
+	int (*get_mraw_stats_cfg_param)(void *addr, struct mraw_stats_cfg_param *param);
 };
 
 struct plat_data_hw {

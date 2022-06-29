@@ -3543,6 +3543,7 @@ static int mtk_cam_config_sv_img_out_imgo(struct mtk_cam_request_stream_data *s_
 	unsigned int tag_idx;
 	__u64 iova;
 	void *vaddr;
+	struct dma_info info;
 
 	buf = mtk_cam_vb2_buf_to_dev_buf(vb);
 	ctx_stream_data = mtk_cam_req_get_s_data(s_data->req, ctx->stream_id, 0);
@@ -3595,9 +3596,11 @@ static int mtk_cam_config_sv_img_out_imgo(struct mtk_cam_request_stream_data *s_
 
 		/* update meta header */
 		vaddr = vb2_plane_vaddr(vb, 0);
+		info.width = fmt.s.w;
+		info.height = fmt.s.h;
+		info.stride = fmt.stride[0];
 		CALL_PLAT_V4L2(
-			set_sv_meta_stats_info, node->desc.dma_port,
-			vaddr, fmt.s.w, fmt.s.h, fmt.stride[0]);
+			set_sv_meta_stats_info, node->desc.dma_port, vaddr, &info);
 
 		/* update camsv's frame parameter */
 		mtk_cam_fill_sv_frame_param(ctx, frame_param, tag_idx, fmt, iova);

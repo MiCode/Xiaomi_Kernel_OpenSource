@@ -7,10 +7,10 @@
 #define __MTK_CAM_MRAW_H
 
 #include <linux/kfifo.h>
-
 #include <linux/suspend.h>
 
 #include "mtk_cam-video.h"
+#include "mtk_cam-plat.h"
 
 #define MRAW_PIPELINE_NUM 4
 #define MAX_MRAW_VIDEO_DEV_NUM 2
@@ -41,20 +41,6 @@
 	var = readl_relaxed(RegAddr);\
 	var;\
 })
-
-#define MTK_CAM_UAPI_IMGO_MAX_BUF_SIZE 100 //todo
-#define MTK_CAM_UAPI_IMGBO_MAX_BUF_SIZE 100 //todo
-#define MTK_CAM_UAPI_CPIO_MAX_BUF_SIZE 100 //todo
-
-#define MRAW_STATS_CFG_SIZE \
-	ALIGN(sizeof(struct mtk_cam_uapi_meta_mraw_stats_cfg), SZ_1K)
-
-/* meta out max size include 1k meta info and dma buffer size */
-#define MRAW_STATS_0_SIZE \
-	ALIGN(ALIGN(sizeof(struct mtk_cam_uapi_meta_mraw_stats_0), SZ_1K) + \
-	      MTK_CAM_UAPI_IMGO_MAX_BUF_SIZE + \
-	      MTK_CAM_UAPI_IMGBO_MAX_BUF_SIZE + \
-	      MTK_CAM_UAPI_CPIO_MAX_BUF_SIZE, (4 * SZ_1K))
 
 struct mtk_cam_ctx;
 struct mtk_cam_request;
@@ -163,14 +149,6 @@ enum cpi_dir {
 	CPI_POW_SPARSE_INTERLEVING,
 };
 
-enum dmao_id {
-	DMAO_ID_BEGIN = 0,
-	IMGO = DMAO_ID_BEGIN,
-	IMGBO,
-	CPIO,
-	DMAO_ID_MAX,
-};
-
 #define MTK_MRAW_TOTAL_NODES (MTK_MRAW_PIPELINE_PADS_NUM - MTK_MRAW_SINK_NUM)
 
 struct mtk_mraw_pad_config {
@@ -185,26 +163,7 @@ struct mtk_cam_mraw_resource_config {
 	__u32 tg_fmt;
 	__u32 pixel_mode;
 
-	__u32 crop_x;
-	__u32 crop_y;
-
-	__s8 mqe_en;
-	__u32 mqe_mode;
-	__u32 mbn_dir;
-	__u32 mbn_pow;
-	__u32 cpi_pow;
-	__u32 cpi_dir;
-	__u32 mbn_spar_fac;
-	__u32 mbn_spar_pow;
-	__u32 cpi_spar_fac;
-	__u32 cpi_spar_pow;
-};
-
-struct mtk_cam_mraw_dmao_info {
-	unsigned int dmao_width[DMAO_ID_MAX];
-	unsigned int dmao_height[DMAO_ID_MAX];
-	unsigned int dmao_xsize[DMAO_ID_MAX];
-	unsigned int dmao_stride[DMAO_ID_MAX];
+	struct mraw_stats_cfg_param stats_cfg_param;
 };
 
 struct mtk_mraw_pipeline {

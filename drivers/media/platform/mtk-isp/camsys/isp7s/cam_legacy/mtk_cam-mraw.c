@@ -25,8 +25,6 @@
 #include "mtk_cam-mraw-regs.h"
 #include "mtk_cam-mraw.h"
 #include "mtk_cam-feature.h"
-/* mraw todo: platform header */
-#include "mtk_cam-meta-dummy.h"
 
 #include "mtk_camera-v4l2-controls.h"
 #include "mtk_camera-videodev2.h"
@@ -523,17 +521,17 @@ static const struct v4l2_ioctl_ops mtk_mraw_v4l2_meta_out_ioctl_ops = {
 	.vidioc_expbuf = vb2_ioctl_expbuf,
 };
 
-static const struct mtk_cam_format_desc meta_fmts[] = { /* FIXME for ISP6 meta format */
+static const struct mtk_cam_format_desc meta_fmts[] = {
 	{
 		.vfmt.fmt.meta = {
 			.dataformat = V4L2_META_FMT_MTISP_PARAMS,
-			.buffersize = MRAW_STATS_CFG_SIZE,
+			.buffersize = SZ_1K,
 		},
 	},
 	{
 		.vfmt.fmt.meta = {
 			.dataformat = V4L2_META_FMT_MTISP_PARAMS,
-			.buffersize = MRAW_STATS_0_SIZE,
+			.buffersize = SZ_1K * 4,
 		},
 	},
 };
@@ -660,43 +658,43 @@ static unsigned int mtk_cam_mraw_xsize_cal_cpio(unsigned int length)
 static void mtk_cam_mraw_set_dense_fmt(
 	struct device *dev, unsigned int *tg_width_temp,
 	unsigned int *tg_height_temp,
-	struct mtk_cam_mraw_resource_config *res_config, unsigned int dmao)
+	struct mraw_stats_cfg_param *param, unsigned int dmao_id)
 {
-	if (dmao == IMGO) {
-		if (res_config->mbn_pow < 2 || res_config->mbn_pow > 6) {
+	if (dmao_id == imgo_m1) {
+		if (param->mbn_pow < 2 || param->mbn_pow > 6) {
 			dev_info(dev, "%s:Invalid mbn_pow: %d",
-				__func__, res_config->mbn_pow);
+				__func__, param->mbn_pow);
 			return;
 		}
-		switch (res_config->mbn_dir) {
+		switch (param->mbn_dir) {
 		case MBN_POW_VERTICAL:
-			*tg_height_temp /= mtk_cam_mraw_powi(2, res_config->mbn_pow);
+			*tg_height_temp /= mtk_cam_mraw_powi(2, param->mbn_pow);
 			break;
 		case MBN_POW_HORIZONTAL:
-			*tg_width_temp /= mtk_cam_mraw_powi(2, res_config->mbn_pow);
+			*tg_width_temp /= mtk_cam_mraw_powi(2, param->mbn_pow);
 			break;
 		default:
 			dev_info(dev, "%s:MBN's dir %d %s fail",
-				__func__, res_config->mbn_dir, "unknown idx");
+				__func__, param->mbn_dir, "unknown idx");
 			return;
 		}
-		 // divided for 2 path from MBN
+		// divided for 2 path from MBN
 		*tg_width_temp /= 2;
-	} else if (dmao == CPIO) {
-		if (res_config->cpi_pow < 2 || res_config->cpi_pow > 6) {
-			dev_info(dev, "Invalid cpi_pow: %d", res_config->cpi_pow);
+	} else if (dmao_id == cpio_m1) {
+		if (param->cpi_pow < 2 || param->cpi_pow > 6) {
+			dev_info(dev, "Invalid cpi_pow: %d", param->cpi_pow);
 			return;
 		}
-		switch (res_config->cpi_dir) {
+		switch (param->cpi_dir) {
 		case CPI_POW_VERTICAL:
-			*tg_height_temp /= mtk_cam_mraw_powi(2, res_config->cpi_pow);
+			*tg_height_temp /= mtk_cam_mraw_powi(2, param->cpi_pow);
 			break;
 		case CPI_POW_HORIZONTAL:
-			*tg_width_temp /= mtk_cam_mraw_powi(2, res_config->cpi_pow);
+			*tg_width_temp /= mtk_cam_mraw_powi(2, param->cpi_pow);
 			break;
 		default:
 			dev_info(dev, "%s:CPI's dir %d %s fail",
-				__func__, res_config->cpi_dir, "unknown idx");
+				__func__, param->cpi_dir, "unknown idx");
 			return;
 		}
 	}
@@ -705,45 +703,46 @@ static void mtk_cam_mraw_set_dense_fmt(
 static void mtk_cam_mraw_set_concatenation_fmt(
 	struct device *dev, unsigned int *tg_width_temp,
 	unsigned int *tg_height_temp,
-	struct mtk_cam_mraw_resource_config *res_config, unsigned int dmao)
+	struct mraw_stats_cfg_param *param, unsigned int dmao_id)
 {
-	if (dmao == IMGO) {
-		if (res_config->mbn_spar_pow < 1 || res_config->mbn_spar_pow > 6) {
+	if (dmao_id == imgo_m1) {
+		if (param->mbn_spar_pow < 1 || param->mbn_spar_pow > 6) {
 			dev_info(dev, "%s:Invalid mbn_spar_pow: %d",
-				__func__, res_config->mbn_spar_pow);
+				__func__, param->mbn_spar_pow);
 			return;
 		}
 		// concatenated
-		*tg_width_temp *= res_config->mbn_spar_fac;
-		*tg_height_temp /= res_config->mbn_spar_fac;
+		*tg_width_temp *= param->mbn_spar_fac;
+		*tg_height_temp /= param->mbn_spar_fac;
 
 		// vertical binning
-		*tg_height_temp /= mtk_cam_mraw_powi(2, res_config->mbn_spar_pow);
+		*tg_height_temp /= mtk_cam_mraw_powi(2, param->mbn_spar_pow);
 
 		// divided for 2 path from MBN
 		*tg_width_temp /= 2;
-	} else if (dmao == CPIO) {
-		if (res_config->cpi_spar_pow < 1 || res_config->cpi_spar_pow > 6) {
+	} else if (dmao_id == cpio_m1) {
+		if (param->cpi_spar_pow < 1 || param->cpi_spar_pow > 6) {
 			dev_info(dev, "%s:Invalid cpi_spar_pow: %d",
-				__func__, res_config->cpi_spar_pow);
+				__func__, param->cpi_spar_pow);
 			return;
 		}
 		// concatenated
-		*tg_width_temp *= res_config->cpi_spar_fac;
-		*tg_height_temp /= res_config->cpi_spar_fac;
+		*tg_width_temp *= param->cpi_spar_fac;
+		*tg_height_temp /= param->cpi_spar_fac;
 
 		// vertical binning
-		*tg_height_temp /= mtk_cam_mraw_powi(2, res_config->cpi_spar_pow);
+		*tg_height_temp /= mtk_cam_mraw_powi(2, param->cpi_spar_pow);
 	}
 }
 
 static void mtk_cam_mraw_set_interleving_fmt(
 	unsigned int *tg_width_temp,
-	unsigned int *tg_height_temp, unsigned int dmao)
+	unsigned int *tg_height_temp, unsigned int dmao_id)
 {
-	if (dmao == IMGO)
-		*tg_height_temp /= 2; // divided for 2 path from MBN
-	else if (dmao == CPIO) {
+	if (dmao_id == imgo_m1) {
+		// divided for 2 path from MBN
+		*tg_height_temp /= 2;
+	} else if (dmao_id == cpio_m1) {
 		// concatenated
 		*tg_width_temp *= 2;
 		*tg_height_temp /= 2;
@@ -752,7 +751,7 @@ static void mtk_cam_mraw_set_interleving_fmt(
 
 static void mtk_cam_mraw_set_mraw_dmao_info(
 	struct mtk_cam_device *cam, unsigned int pipe_id,
-	struct mtk_cam_mraw_dmao_info *mraw_dmao_info)
+	struct dma_info *info)
 {
 	unsigned int width_mbn = 0, height_mbn = 0;
 	unsigned int width_cpi = 0, height_cpi = 0;
@@ -762,109 +761,101 @@ static void mtk_cam_mraw_set_mraw_dmao_info(
 	mtk_cam_mraw_get_cpi_size(cam, pipe_id, &width_cpi, &height_cpi);
 
 	/* IMGO */
-	mraw_dmao_info->dmao_width[IMGO] =
-		mtk_cam_mraw_xsize_cal(width_mbn);
-	mraw_dmao_info->dmao_height[IMGO] = height_mbn;
-	mraw_dmao_info->dmao_stride[IMGO] = mraw_dmao_info->dmao_width[IMGO];
+	info[imgo_m1].width = mtk_cam_mraw_xsize_cal(width_mbn);
+	info[imgo_m1].height = height_mbn;
+	info[imgo_m1].xsize = mtk_cam_mraw_xsize_cal(width_mbn);
+	info[imgo_m1].stride = info[imgo_m1].xsize;
 
 	/* IMGBO */
-	mraw_dmao_info->dmao_width[IMGBO] =
-		mtk_cam_mraw_xsize_cal(width_mbn);
-	mraw_dmao_info->dmao_height[IMGBO] = height_mbn;
-	mraw_dmao_info->dmao_stride[IMGBO] = mraw_dmao_info->dmao_width[IMGBO];
+	info[imgbo_m1].width = mtk_cam_mraw_xsize_cal(width_mbn);
+	info[imgbo_m1].height = height_mbn;
+	info[imgbo_m1].xsize = mtk_cam_mraw_xsize_cal(width_mbn);
+	info[imgbo_m1].stride = info[imgbo_m1].xsize;
 
 	/* CPIO */
-	mraw_dmao_info->dmao_width[CPIO] =
-		mtk_cam_mraw_xsize_cal_cpio(width_cpi);
-	mraw_dmao_info->dmao_height[CPIO] = height_cpi;
-	mraw_dmao_info->dmao_stride[CPIO] = mraw_dmao_info->dmao_width[CPIO];
+	info[cpio_m1].width = mtk_cam_mraw_xsize_cal_cpio(width_cpi);
+	info[cpio_m1].height = height_cpi;
+	info[cpio_m1].xsize = mtk_cam_mraw_xsize_cal_cpio(width_cpi);
+	info[cpio_m1].stride = info[cpio_m1].xsize;
 
-	for (i = DMAO_ID_BEGIN; i < DMAO_ID_MAX; i++) {
-		dev_dbg(cam->dev, "dma_id:%d, w:%d s:%d stride:%d\n",
-			i, mraw_dmao_info->dmao_width[i],
-			mraw_dmao_info->dmao_height[i],
-			mraw_dmao_info->dmao_stride[i]);
+	for (i = 0; i < mraw_dmao_num; i++) {
+		dev_dbg(cam->dev, "dma_id:%d, w:%d s:%d xsize:%d stride:%d\n",
+			i, info[i].width, info[i].height, info[i].xsize, info[i].stride);
 	}
 }
 
 static void mtk_cam_mraw_copy_user_input_param(
 	struct device *dev,
-	struct mtk_cam_uapi_meta_mraw_stats_cfg *mraw_meta_in_buf,
+	void *vaddr,
 	struct mtk_mraw_pipeline *mraw_pipeline)
 {
-	/* set mraw res_config */
-	mraw_pipeline->res_config.mqe_en = mraw_meta_in_buf->mqe_enable;
-	mraw_pipeline->res_config.mqe_mode = mraw_meta_in_buf->mqe_param.mqe_mode;
+	struct mraw_stats_cfg_param *param =
+		&mraw_pipeline->res_config.stats_cfg_param;
 
-	mraw_pipeline->res_config.crop_x = mraw_meta_in_buf->crop_param.crop_x_end;
-	mraw_pipeline->res_config.crop_y = mraw_meta_in_buf->crop_param.crop_y_end;
+	CALL_PLAT_V4L2(
+		get_mraw_stats_cfg_param, vaddr, param);
 
-	mraw_pipeline->res_config.mbn_dir = mraw_meta_in_buf->mbn_param.mbn_dir;
-	mraw_pipeline->res_config.mbn_pow = mraw_meta_in_buf->mbn_param.mbn_pow;
-	mraw_pipeline->res_config.cpi_pow = mraw_meta_in_buf->cpi_param.cpi_pow;
-	mraw_pipeline->res_config.cpi_dir = mraw_meta_in_buf->cpi_param.cpi_dir;
-
-	mraw_pipeline->res_config.mbn_spar_pow = mraw_meta_in_buf->mbn_param.mbn_spar_pow;
-	mraw_pipeline->res_config.mbn_spar_fac = mraw_meta_in_buf->mbn_param.mbn_spar_fac;
-	mraw_pipeline->res_config.cpi_spar_pow = mraw_meta_in_buf->cpi_param.cpi_spar_pow;
-	mraw_pipeline->res_config.cpi_spar_fac = mraw_meta_in_buf->cpi_param.cpi_spar_fac;
-
-	dev_dbg(dev, "%s:enable:(%d,%d,%d) crop:(%d,%d) mqe_mode:%d mbn_dir/pow:(%d,%d) cpi_dir/pow:(%d,%d) mbn_spar(%x,%x,%x,%x,%x) cpi_spar(%x,%x,%x,%x,%x,%x)\n",
-		__func__, mraw_meta_in_buf->mqe_enable, mraw_meta_in_buf->mobc_enable,
-		mraw_meta_in_buf->plsc_enable,
-		mraw_meta_in_buf->crop_param.crop_x_end,
-		mraw_meta_in_buf->crop_param.crop_y_end,
-		mraw_meta_in_buf->mqe_param.mqe_mode,
-		mraw_meta_in_buf->mbn_param.mbn_dir, mraw_meta_in_buf->mbn_param.mbn_pow,
-		mraw_meta_in_buf->cpi_param.cpi_dir, mraw_meta_in_buf->cpi_param.cpi_pow,
-		mraw_meta_in_buf->mbn_param.mbn_spar_hei,
-		mraw_meta_in_buf->mbn_param.mbn_spar_pow,
-		mraw_meta_in_buf->mbn_param.mbn_spar_fac,
-		mraw_meta_in_buf->mbn_param.mbn_spar_con1,
-		mraw_meta_in_buf->mbn_param.mbn_spar_con0,
-		mraw_meta_in_buf->cpi_param.cpi_th,
-		mraw_meta_in_buf->cpi_param.cpi_spar_hei, mraw_meta_in_buf->cpi_param.cpi_spar_pow,
-		mraw_meta_in_buf->cpi_param.cpi_spar_fac, mraw_meta_in_buf->cpi_param.cpi_spar_con1,
-		mraw_meta_in_buf->cpi_param.cpi_spar_con0);
+	dev_dbg(dev, "%s:enable:(%d,%d,%d) crop:(%d,%d) mqe:%d mbn:0x%x_%x_%x_%x_%x_%x_%x_%x cpi:0x%x_%x_%x_%x_%x_%x_%x_%x\n",
+		__func__,
+		param->mqe_en,
+		param->mobc_en,
+		param->plsc_en,
+		param->crop_width,
+		param->crop_height,
+		param->mqe_mode,
+		param->mbn_hei,
+		param->mbn_pow,
+		param->mbn_dir,
+		param->mbn_spar_hei,
+		param->mbn_spar_pow,
+		param->mbn_spar_fac,
+		param->mbn_spar_con1,
+		param->mbn_spar_con0,
+		param->cpi_th,
+		param->cpi_pow,
+		param->cpi_dir,
+		param->cpi_spar_hei,
+		param->cpi_spar_pow,
+		param->cpi_spar_fac,
+		param->cpi_spar_con1,
+		param->cpi_spar_con0);
 }
 
 static void mtk_cam_mraw_set_frame_param_dmao(
 	struct device *dev,
 	struct mtkcam_ipi_mraw_frame_param *mraw_param,
-	struct mtk_cam_mraw_dmao_info mraw_dmao_info, int pipe_id,
+	struct dma_info *info, int pipe_id,
 	dma_addr_t buf_daddr)
 {
-	struct mtkcam_ipi_img_output *mraw_img_outputs, *last_mraw_img_outputs;
+	struct mtkcam_ipi_img_output *mraw_img_outputs;
 	int i;
+	unsigned long offset;
 
 	mraw_param->pipe_id = pipe_id;
+	offset =
+		(((buf_daddr + GET_PLAT_V4L2(meta_mraw_ext_size) + 15) >> 4) << 4) -
+		buf_daddr;
 
-	for (i = DMAO_ID_BEGIN; i < DMAO_ID_MAX; i++) {
-		last_mraw_img_outputs = mraw_img_outputs;
+	for (i = 0; i < mraw_dmao_num; i++) {
 		mraw_img_outputs = &mraw_param->mraw_img_outputs[i];
 
 		mraw_img_outputs->uid.id = MTKCAM_IPI_MRAW_META_STATS_0;
 		mraw_img_outputs->uid.pipe_id = pipe_id;
 
-		mraw_img_outputs->fmt.stride[0] = mraw_dmao_info.dmao_stride[i];
-		mraw_img_outputs->fmt.s.w = mraw_dmao_info.dmao_width[i];
-		mraw_img_outputs->fmt.s.h = mraw_dmao_info.dmao_height[i];
+		mraw_img_outputs->fmt.stride[0] = info[i].stride;
+		mraw_img_outputs->fmt.s.w = info[i].width;
+		mraw_img_outputs->fmt.s.h = info[i].height;
 
 		mraw_img_outputs->crop.p.x = 0;
 		mraw_img_outputs->crop.p.y = 0;
-		mraw_img_outputs->crop.s.w = mraw_dmao_info.dmao_width[i];
-		mraw_img_outputs->crop.s.h = mraw_dmao_info.dmao_height[i];
+		mraw_img_outputs->crop.s.w = info[i].width;
+		mraw_img_outputs->crop.s.h = info[i].height;
 
-		if (i == 0)
-			mraw_img_outputs->buf[0][0].iova
-				= buf_daddr + sizeof(struct mtk_cam_uapi_meta_mraw_stats_0);
-		else
-			mraw_img_outputs->buf[0][0].iova = last_mraw_img_outputs->buf[0][0].iova
-				+ last_mraw_img_outputs->fmt.stride[0] *
-					last_mraw_img_outputs->fmt.s.h;
-
+		mraw_img_outputs->buf[0][0].iova = buf_daddr + offset;
 		mraw_img_outputs->buf[0][0].size =
 			mraw_img_outputs->fmt.stride[0] * mraw_img_outputs->fmt.s.h;
+
+		offset = offset + (((mraw_img_outputs->buf[0][0].size + 15) >> 4) << 4);
 
 		dev_dbg(dev, "%s:dmao_id:%d iova:0x%llx size:%d\n",
 			__func__, i, mraw_img_outputs->buf[0][0].iova,
@@ -872,44 +863,11 @@ static void mtk_cam_mraw_set_frame_param_dmao(
 	}
 }
 
-static void set_payload(struct mtk_cam_uapi_meta_hw_buf *buf,
-			unsigned int size, unsigned long *offset)
-{
-	buf->offset = *offset;
-	buf->size = size;
-	*offset += size;
-}
-
 static void mtk_cam_mraw_set_meta_stats_info(
-	void *vaddr, struct mtk_cam_mraw_dmao_info *mraw_dmao_info)
+	void *vaddr, struct dma_info *info)
 {
-	struct mtk_cam_uapi_meta_mraw_stats_0 *mraw_stats0;
-	unsigned long offset;
-	unsigned int size;
-
-	mraw_stats0 = (struct mtk_cam_uapi_meta_mraw_stats_0 *)vaddr;
-	offset = sizeof(*mraw_stats0);
-	/* imgo */
-	size = mraw_dmao_info->dmao_stride[IMGO] * mraw_dmao_info->dmao_height[IMGO];
-	set_payload(&mraw_stats0->pdp_0_stats.pdo_buf, size, &offset);
-	mraw_stats0->pdp_0_stats_enabled = 1;
-	mraw_stats0->pdp_0_stats.stats_src.width = mraw_dmao_info->dmao_width[IMGO];
-	mraw_stats0->pdp_0_stats.stats_src.height = mraw_dmao_info->dmao_height[IMGO];
-	mraw_stats0->pdp_0_stats.stride = mraw_dmao_info->dmao_stride[IMGO];
-	/* imgbo */
-	size = mraw_dmao_info->dmao_stride[IMGBO] * mraw_dmao_info->dmao_height[IMGBO];
-	set_payload(&mraw_stats0->pdp_1_stats.pdo_buf, size, &offset);
-	mraw_stats0->pdp_1_stats_enabled = 1;
-	mraw_stats0->pdp_1_stats.stats_src.width = mraw_dmao_info->dmao_width[IMGBO];
-	mraw_stats0->pdp_1_stats.stats_src.height = mraw_dmao_info->dmao_height[IMGBO];
-	mraw_stats0->pdp_1_stats.stride = mraw_dmao_info->dmao_stride[IMGBO];
-	/* cpio */
-	size = mraw_dmao_info->dmao_stride[CPIO] * mraw_dmao_info->dmao_height[CPIO];
-	set_payload(&mraw_stats0->cpi_stats.cpio_buf, size, &offset);
-	mraw_stats0->cpi_stats_enabled = 1;
-	mraw_stats0->cpi_stats.stats_src.width = mraw_dmao_info->dmao_width[CPIO];
-	mraw_stats0->cpi_stats.stats_src.height = mraw_dmao_info->dmao_height[CPIO];
-	mraw_stats0->cpi_stats.stride = mraw_dmao_info->dmao_stride[CPIO];
+	CALL_PLAT_V4L2(
+		set_mraw_meta_stats_info, MTKCAM_IPI_MRAW_META_STATS_0, vaddr, info);
 }
 
 int mtk_cam_config_mraw_stats_out(struct mtk_cam_request_stream_data *s_data,
@@ -925,7 +883,6 @@ int mtk_cam_config_mraw_stats_out(struct mtk_cam_request_stream_data *s_data,
 	struct mtkcam_ipi_meta_input *meta_in;
 	struct mtkcam_ipi_frame_param *frame_param;
 	struct mtkcam_ipi_frame_param *frame_param_mstream;
-	struct mtk_cam_uapi_meta_mraw_stats_cfg *mraw_meta_in_buf;
 	struct mtk_mraw_pipeline *mraw_pipeline;
 	struct mtkcam_ipi_mraw_frame_param *mraw_param = NULL;
 	struct mtkcam_ipi_mraw_frame_param *mraw_param_mstream = NULL;
@@ -956,7 +913,6 @@ int mtk_cam_config_mraw_stats_out(struct mtk_cam_request_stream_data *s_data,
 
 	switch (node->desc.dma_port) {
 	case MTKCAM_IPI_MRAW_META_STATS_CFG:
-		mraw_meta_in_buf = (struct mtk_cam_uapi_meta_mraw_stats_cfg *)vaddr;
 		mraw_pipeline->res_config.vaddr[MTKCAM_IPI_MRAW_META_STATS_CFG
 			- MTKCAM_IPI_MRAW_ID_START] = vaddr;
 		mraw_pipeline->res_config.daddr[MTKCAM_IPI_MRAW_META_STATS_CFG
@@ -968,7 +924,7 @@ int mtk_cam_config_mraw_stats_out(struct mtk_cam_request_stream_data *s_data,
 		meta_in->uid.id = node->desc.dma_port;
 		meta_in->uid.pipe_id = node->uid.pipe_id;
 		mtk_cam_mraw_copy_user_input_param(cam->dev,
-			mraw_meta_in_buf, mraw_pipeline);
+			vaddr, mraw_pipeline);
 		mraw_pipeline->res_config.enque_num++;
 		break;
 	case MTKCAM_IPI_MRAW_META_STATS_0:
@@ -1004,19 +960,18 @@ int mtk_cam_config_mraw_stats_out(struct mtk_cam_request_stream_data *s_data,
 int mtk_cam_mraw_cal_cfg_info(struct mtk_cam_device *cam,
 	unsigned int pipe_id, struct mtkcam_ipi_mraw_frame_param *mraw_param)
 {
-	struct mtk_cam_mraw_dmao_info mraw_dmao_info;
+	struct dma_info info[mraw_dmao_num];
 	struct mtk_mraw_pipeline *pipe =
 		&cam->mraw.pipelines[pipe_id - MTKCAM_SUBDEV_MRAW_START];
 
-	mtk_cam_mraw_set_mraw_dmao_info(cam,
-		pipe_id, &mraw_dmao_info);
+	mtk_cam_mraw_set_mraw_dmao_info(cam, pipe_id, info);
 	mtk_cam_mraw_set_frame_param_dmao(cam->dev, mraw_param,
-		mraw_dmao_info, pipe_id,
+		info, pipe_id,
 		pipe->res_config.daddr[MTKCAM_IPI_MRAW_META_STATS_0
 			- MTKCAM_IPI_MRAW_ID_START]);
 	mtk_cam_mraw_set_meta_stats_info(
 		pipe->res_config.vaddr[MTKCAM_IPI_MRAW_META_STATS_0
-			- MTKCAM_IPI_MRAW_ID_START], &mraw_dmao_info);
+			- MTKCAM_IPI_MRAW_ID_START], info);
 
 	return 0;
 }
@@ -1026,13 +981,13 @@ void mtk_cam_mraw_get_mqe_size(struct mtk_cam_device *cam, unsigned int pipe_id,
 {
 	struct mtk_mraw_pipeline *pipe =
 		&cam->mraw.pipelines[pipe_id - MTKCAM_SUBDEV_MRAW_START];
-	struct mtk_cam_mraw_resource_config *res_config = &pipe->res_config;
+	struct mraw_stats_cfg_param *param = &pipe->res_config.stats_cfg_param;
 
-	*width = res_config->crop_x;
-	*height = res_config->crop_y;
+	*width = param->crop_width;
+	*height = param->crop_height;
 
-	if (res_config->mqe_en) {
-		switch (res_config->mqe_mode) {
+	if (param->mqe_en) {
+		switch (param->mqe_mode) {
 		case UL_MODE:
 		case UR_MODE:
 		case DL_MODE:
@@ -1049,7 +1004,7 @@ void mtk_cam_mraw_get_mqe_size(struct mtk_cam_device *cam, unsigned int pipe_id,
 			break;
 		default:
 			dev_info(cam->dev, "%s:MQE-Mode %d %s fail\n",
-				__func__, res_config->mqe_mode, "unknown idx");
+				__func__, param->mqe_mode, "unknown idx");
 			return;
 		}
 	}
@@ -1060,26 +1015,26 @@ void mtk_cam_mraw_get_mbn_size(struct mtk_cam_device *cam, unsigned int pipe_id,
 {
 	struct mtk_mraw_pipeline *pipe =
 		&cam->mraw.pipelines[pipe_id - MTKCAM_SUBDEV_MRAW_START];
-	struct mtk_cam_mraw_resource_config *res_config = &pipe->res_config;
+	struct mraw_stats_cfg_param *param = &pipe->res_config.stats_cfg_param;
 
 	mtk_cam_mraw_get_mqe_size(cam, pipe_id, width, height);
 
-	switch (res_config->mbn_dir) {
+	switch (param->mbn_dir) {
 	case MBN_POW_VERTICAL:
 	case MBN_POW_HORIZONTAL:
 		mtk_cam_mraw_set_dense_fmt(cam->dev, width,
-			height, res_config, IMGO);
+			height, param, imgo_m1);
 		break;
 	case MBN_POW_SPARSE_CONCATENATION:
 		mtk_cam_mraw_set_concatenation_fmt(cam->dev, width,
-			height, res_config, IMGO);
+			height, param, imgo_m1);
 		break;
 	case MBN_POW_SPARSE_INTERLEVING:
-		mtk_cam_mraw_set_interleving_fmt(width, height, IMGO);
+		mtk_cam_mraw_set_interleving_fmt(width, height, imgo_m1);
 		break;
 	default:
 		dev_info(cam->dev, "%s:MBN's dir %d %s fail",
-			__func__, res_config->mbn_dir, "unknown idx");
+			__func__, param->mbn_dir, "unknown idx");
 		return;
 	}
 }
@@ -1089,26 +1044,26 @@ void mtk_cam_mraw_get_cpi_size(struct mtk_cam_device *cam, unsigned int pipe_id,
 {
 	struct mtk_mraw_pipeline *pipe =
 		&cam->mraw.pipelines[pipe_id - MTKCAM_SUBDEV_MRAW_START];
-	struct mtk_cam_mraw_resource_config *res_config = &pipe->res_config;
+	struct mraw_stats_cfg_param *param = &pipe->res_config.stats_cfg_param;
 
 	mtk_cam_mraw_get_mqe_size(cam, pipe_id, width, height);
 
-	switch (res_config->cpi_dir) {
+	switch (param->cpi_dir) {
 	case CPI_POW_VERTICAL:
 	case CPI_POW_HORIZONTAL:
 		mtk_cam_mraw_set_dense_fmt(cam->dev, width,
-			height, res_config, CPIO);
+			height, param, cpio_m1);
 		break;
 	case CPI_POW_SPARSE_CONCATENATION:
 		mtk_cam_mraw_set_concatenation_fmt(cam->dev, width,
-			height, res_config, CPIO);
+			height, param, cpio_m1);
 		break;
 	case CPI_POW_SPARSE_INTERLEVING:
-		mtk_cam_mraw_set_interleving_fmt(width, height, CPIO);
+		mtk_cam_mraw_set_interleving_fmt(width, height, cpio_m1);
 		break;
 	default:
 		dev_info(cam->dev, "%s:CPI's dir %d %s fail",
-			__func__, res_config->cpi_dir, "unknown idx");
+			__func__, param->cpi_dir, "unknown idx");
 		return;
 	}
 }
@@ -1708,7 +1663,7 @@ int mtk_cam_mraw_dev_stream_on(
 			mtk_cam_mraw_tg_disable(mraw_dev);
 	}
 
-	dev_info(mraw_dev->dev, "%s: mraw-%d en(%d)\n", mraw_dev->id, __func__, streaming);
+	dev_info(mraw_dev->dev, "%s: mraw-%d en(%d)\n", __func__, mraw_dev->id, streaming);
 
 	return ret;
 }
