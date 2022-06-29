@@ -125,7 +125,8 @@ int mtk_disp_set_hrt_bw(struct mtk_drm_crtc *mtk_crtc, unsigned int bw)
 	struct drm_crtc *crtc = &mtk_crtc->base;
 	struct mtk_drm_private *priv = crtc->dev->dev_private;
 	struct mtk_ddp_comp *comp;
-	unsigned int tmp;
+	unsigned int tmp, total = 0;
+	unsigned int crtc_idx = drm_crtc_index(crtc);
 	int i, j, ret = 0;
 
 	tmp = bw;
@@ -147,9 +148,18 @@ int mtk_disp_set_hrt_bw(struct mtk_drm_crtc *mtk_crtc, unsigned int bw)
 	if (ret == RDMA_REQ_HRT)
 		tmp = mtk_drm_primary_frame_bw(crtc);
 
-	mtk_icc_set_bw(priv->hrt_bw_request, 0, MBps_to_icc(tmp));
+	/* skip same HRT BW */
+	if (priv->req_hrt[crtc_idx] == tmp)
+		return 0;
+
+	priv->req_hrt[crtc_idx] = tmp;
+
+	for (i = 0; i < MAX_CRTC; ++i)
+		total += priv->req_hrt[i];
+
+	mtk_icc_set_bw(priv->hrt_bw_request, 0, MBps_to_icc(total));
 	DRM_MMP_MARK(hrt_bw, 0, tmp);
-	DDPINFO("set HRT bw %u\n", tmp);
+	DDPINFO("set CRTC %d HRT bw %u %u\n", crtc_idx, tmp, total);
 
 	return ret;
 }
@@ -252,7 +262,10 @@ int mtk_disp_hrt_cond_init(struct drm_crtc *crtc)
 		DDPPR_ERR("%s:allocate qos_ctx failed\n", __func__);
 		return -ENOMEM;
 	}
-	if (mtk_drm_helper_get_opt(priv->helper_opt,
+	atomic_set(&mtk_crtc->qos_ctx->last_hrt_idx, 0);
+	mtk_crtc->qos_ctx->last_hrt_req = 0;
+
+	if (drm_crtc_index(crtc) == 0 && mtk_drm_helper_get_opt(priv->helper_opt,
 			MTK_DRM_OPT_MMQOS_SUPPORT))
 		mtk_mmqos_register_bw_throttle_notifier(&pmqos_hrt_notifier);
 

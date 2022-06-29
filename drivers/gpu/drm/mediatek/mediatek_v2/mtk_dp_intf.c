@@ -777,12 +777,53 @@ int mtk_dp_intf_analysis(struct mtk_ddp_comp *comp)
 	return 0;
 }
 
+unsigned long long mtk_dpintf_get_frame_hrt_bw_base(
+		struct mtk_drm_crtc *mtk_crtc, struct mtk_dp_intf *dp_intf)
+{
+	unsigned long long bw_base;
+	int hact = mtk_crtc->base.state->adjusted_mode.hdisplay;
+	int vtotal = mtk_crtc->base.state->adjusted_mode.vtotal;
+	int vact = mtk_crtc->base.state->adjusted_mode.vdisplay;
+	int vrefresh = drm_mode_vrefresh(&mtk_crtc->base.state->adjusted_mode);
+	u32 bpp = 3;
+
+	bw_base = vact * hact * vrefresh * 4 / 1000;
+	bw_base = bw_base * vtotal / vact;
+	bw_base = bw_base / 1000;
+
+	DDPDBG("%s Frame Bw:%llu, bpp:%d\n", __func__, bw_base, bpp);
+	return bw_base;
+}
+
+static int mtk_dpintf_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
+			  enum mtk_ddp_io_cmd cmd, void *params)
+{
+	struct mtk_dp_intf *dp_intf = comp_to_dp_intf(comp);
+
+	switch (cmd) {
+	case GET_FRAME_HRT_BW_BY_DATARATE:
+	{
+		struct mtk_drm_crtc *mtk_crtc = comp->mtk_crtc;
+		unsigned long long *base_bw =
+			(unsigned long long *)params;
+
+		*base_bw = mtk_dpintf_get_frame_hrt_bw_base(mtk_crtc, dp_intf);
+	}
+		break;
+	default:
+		break;
+	}
+
+	return 0;
+}
+
 static const struct mtk_ddp_comp_funcs mtk_dp_intf_funcs = {
 	.config = mtk_dp_intf_config,
 	.start = mtk_dp_intf_start,
 	.stop = mtk_dp_intf_stop,
 	.prepare = mtk_dp_intf_prepare,
 	.unprepare = mtk_dp_intf_unprepare,
+	.io_cmd = mtk_dpintf_io_cmd,
 };
 
 static int mtk_dp_intf_bind(struct device *dev, struct device *master,

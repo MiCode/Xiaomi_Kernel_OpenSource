@@ -332,7 +332,7 @@ static bool filter_by_hw_limitation(struct drm_device *dev,
 static uint16_t get_mapping_table(struct drm_device *dev, int disp_idx,
 				  enum DISP_HW_MAPPING_TB_TYPE tb_type,
 				  int param);
-static int layering_get_valid_hrt(struct drm_crtc *crtc, int mode_idx);
+static int layering_get_valid_hrt(struct drm_crtc *crtc, struct drm_mtk_layering_info *disp_info);
 
 static void copy_hrt_bound_table(struct drm_mtk_layering_info *disp_info,
 			int is_larb, int *hrt_table, struct drm_device *dev)
@@ -354,7 +354,7 @@ static void copy_hrt_bound_table(struct drm_mtk_layering_info *disp_info,
 
 	/* update table if hrt bw is enabled */
 	spin_lock_irqsave(&hrt_table_lock, flags);
-	valid_num = layering_get_valid_hrt(crtc, disp_info->disp_mode_idx[0]);
+	valid_num = layering_get_valid_hrt(crtc, disp_info);
 	ovl_bound = mtk_get_phy_layer_limit(
 		get_mapping_table(dev, 0, DISP_HW_LAYER_TB, MAX_PHY_OVL_CNT));
 	valid_num = min(valid_num, ovl_bound * 100);
@@ -538,7 +538,8 @@ unsigned long long _layering_get_frame_bw(struct drm_crtc *crtc,
 	return bw_base;
 }
 
-static int layering_get_valid_hrt(struct drm_crtc *crtc, int mode_idx)
+static int layering_get_valid_hrt(struct drm_crtc *crtc,
+		struct drm_mtk_layering_info *disp_info)
 {
 	unsigned long long dvfs_bw = 0, avail_bw;
 	unsigned long long tmp = 0;
@@ -547,22 +548,40 @@ static int layering_get_valid_hrt(struct drm_crtc *crtc, int mode_idx)
 	struct mtk_drm_private *priv =
 			mtk_crtc->base.dev->dev_private;
 	unsigned int disp_idx = drm_crtc_index(crtc);
+	int mode_idx = disp_info->disp_mode_idx[0];
 
 	if (!mtk_drm_helper_get_opt(priv->helper_opt,
 			MTK_DRM_OPT_MMQOS_SUPPORT))
 		return 600;
 
-	if (get_layering_opt(LYE_OPT_SPHRT) &&
-			priv->pre_defined_bw[disp_idx] != 0xffffffff)
-		avail_bw = priv->pre_defined_bw[disp_idx];
-	else
+	if (get_layering_opt(LYE_OPT_SPHRT)) {
+		if (priv->pre_defined_bw[disp_idx] != 0xffffffff) {
+			avail_bw = priv->pre_defined_bw[disp_idx];
+		} else {
+			unsigned int i, disp_status;
+
+			disp_status = disp_info->disp_list;
+			for (i = 0 ; i < MAX_CRTC ; ++i) {
+				if (((disp_status >> i) & 0x1) == 0)
+					continue;
+				if (priv->pre_defined_bw[i] == 0xffffffff)
+					continue;
+
+				tmp += priv->pre_defined_bw[i];
+			}
+			avail_bw = mtk_mmqos_get_avail_hrt_bw(HRT_DISP);
+		}
+	} else {
 		avail_bw = mtk_mmqos_get_avail_hrt_bw(HRT_DISP);
+	}
 	if (avail_bw == 0xffffffffffffffff) {
 		DDPPR_ERR("mm_hrt_get_available_hrt_bw=-1\n");
 		return 600;
 	}
+	avail_bw -= tmp;
 	dvfs_bw = avail_bw;
 	dvfs_bw *= 10000;
+	tmp = 0;
 
 	output_comp = mtk_ddp_comp_request_output(mtk_crtc);
 	if (mode_idx == mtk_crtc->mode_idx) {

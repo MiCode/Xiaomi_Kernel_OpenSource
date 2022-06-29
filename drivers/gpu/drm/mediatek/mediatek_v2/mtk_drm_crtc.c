@@ -3129,22 +3129,31 @@ static void mtk_crtc_get_plane_comp_state(struct drm_crtc *crtc,
 			plane_state->mml_mode = MML_MODE_MDP_DECOUPLE;
 	}
 }
-unsigned int mtk_drm_primary_frame_bw(struct drm_crtc *i_crtc)
+unsigned int mtk_drm_primary_frame_bw(struct drm_crtc *crtc)
 {
 	unsigned long long bw = 0;
-	struct drm_crtc *crtc = i_crtc;
-	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct mtk_drm_crtc *mtk_crtc;
+	struct mtk_drm_private *priv;
 	struct mtk_ddp_comp *output_comp;
 
-	if (drm_crtc_index(i_crtc) != 0) {
-		DDPPR_ERR("%s no support CRTC%u", __func__,
-			drm_crtc_index(i_crtc));
-
-		drm_for_each_crtc(crtc, i_crtc->dev) {
-			if (drm_crtc_index(crtc) == 0)
-				break;
-		}
+	if (unlikely(crtc == NULL || crtc->dev == NULL)) {
+		DDPPR_ERR("%s %d NULL crtc\n", __func__, __LINE__);
+		return 0;
 	}
+	priv = crtc->dev->dev_private;
+
+	if (!mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_SPHRT) &&
+			drm_crtc_index(crtc) != 0) {
+		DDPPR_ERR("%s no support CRTC%u", __func__,
+			drm_crtc_index(crtc));
+		crtc = priv->crtc[0];
+	}
+
+	if (unlikely(crtc == NULL)) {
+		DDPPR_ERR("%s %d NULL crtc\n", __func__, __LINE__);
+		return 0;
+	}
+	mtk_crtc = to_mtk_crtc(crtc);
 
 	output_comp = mtk_ddp_comp_request_output(mtk_crtc);
 	if (output_comp)
@@ -3189,6 +3198,11 @@ static void mtk_crtc_update_hrt_state(struct drm_crtc *crtc,
 	struct drm_display_mode *mode = NULL;
 	unsigned int max_fps = 0;
 	struct mtk_drm_private *priv = crtc->dev->dev_private;
+
+	if (unlikely(!mtk_crtc || !mtk_crtc->qos_ctx)) {
+		DDPPR_ERR("%s invalid qos_ctx\n", __func__);
+		return;
+	}
 
 	DDPINFO("%s bw=%d, last_hrt_req=%d, overlap=%d\n",
 			__func__, bw, mtk_crtc->qos_ctx->last_hrt_req, frame_weight);
@@ -3672,7 +3686,7 @@ static void mtk_crtc_update_ddp_state(struct drm_crtc *crtc,
 			DDPMSG("lyeblob lost ID:%d\n", prop_lye_idx);
 			break;
 		} else if (lyeblob_ids->lye_idx == prop_lye_idx) {
-			if (index == 0) {
+			if (index == 0 || sphrt_enable) {
 				mtk_crtc_disp_mode_switch_begin(crtc,
 					old_crtc_state, crtc_state,
 					cmdq_handle);
@@ -3684,6 +3698,19 @@ static void mtk_crtc_update_ddp_state(struct drm_crtc *crtc,
 						lyeblob_ids, cmdq_handle);
 					DRM_MMP_MARK(layering_blob, lyeblob_ids->lye_idx,
 						lyeblob_ids->frame_weight | 0xffff0000);
+				}
+			}
+
+			if (mtk_drm_helper_get_opt(mtk_drm->helper_opt, MTK_DRM_OPT_SPHRT) &&
+					mtk_drm->pre_defined_bw[index] == 0xffffffff) {
+				int i;
+				unsigned int usage_list = lyeblob_ids->disp_status;
+
+				// set DISP_ENABLE if this display is checked in hrt
+				for (i = 0 ; i < MAX_CRTC ; ++i) {
+					if (mtk_drm->usage[i] == DISP_OPENING &&
+							((usage_list >> i) & 0x1))
+						mtk_drm->usage[i] = DISP_ENABLE;
 				}
 			}
 			mtk_crtc_get_plane_comp_state(crtc, cmdq_handle);
@@ -6745,10 +6772,8 @@ skip:
 
 	/* 5. Set HRT BW to 0 */
 	if (mtk_drm_helper_get_opt(priv->helper_opt,
-			MTK_DRM_OPT_MMQOS_SUPPORT)) {
-		if (drm_crtc_index(crtc) == 0)
+			MTK_DRM_OPT_MMQOS_SUPPORT))
 			mtk_disp_set_hrt_bw(mtk_crtc, 0);
-	}
 
 	/* 6. stop trig loop  */
 	if (mtk_crtc_with_trigger_loop(crtc)) {
@@ -11187,12 +11212,11 @@ int mtk_drm_crtc_create(struct drm_device *drm_dev,
 	}
 
 	init_waitqueue_head(&mtk_crtc->crtc_status_wq);
-	if (drm_crtc_index(&mtk_crtc->base) == 0) {
-		mtk_disp_hrt_cond_init(&mtk_crtc->base);
-		atomic_set(&mtk_crtc->qos_ctx->last_hrt_idx, 0);
-		mtk_crtc->qos_ctx->last_hrt_req = 0;
+
+	mtk_disp_hrt_cond_init(&mtk_crtc->base);
+
+	if (drm_crtc_index(&mtk_crtc->base) == 0)
 		init_waitqueue_head(&mtk_crtc->qos_ctx->hrt_cond_wq);
-	}
 
 	if (drm_crtc_index(&mtk_crtc->base) == 0)
 		mtk_drm_cwb_init(&mtk_crtc->base);
