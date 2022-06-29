@@ -125,14 +125,14 @@ static unsigned int get_ccu_device(struct mtk_cam_hsf_ctrl *handle_inst)
     /* clear data */
 	handle_inst->ccu_pdev = NULL;
 	handle_inst->ccu_handle = 0;
-	node = of_find_compatible_node(NULL, NULL, "mediatek,camera_camsys_ccu");
+	node = of_find_compatible_node(NULL, NULL, "mediatek,camera-camsys-ccu");
 	if (!node) {
-		pr_info("error: find mediatek,camera_camsys_ccu failed!!!\n");
+		pr_info("error: find mediatek,camera-camsys-ccu failed!!!\n");
 		return 1;
 	}
-	ret = of_property_read_u32(node, "mediatek,ccu_rproc", &handle);
+	ret = of_property_read_u32(node, "mediatek,ccu-rproc", &handle);
 	if (ret < 0) {
-		pr_info("error: ccu_rproc of_property_read_u32:%d\n", ret);
+		pr_info("error: ccu-rproc of_property_read_u32:%d\n", ret);
 		return ret;
 	}
 	rproc_np = of_find_node_by_phandle(handle);

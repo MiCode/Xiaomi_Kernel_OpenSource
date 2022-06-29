@@ -58,6 +58,7 @@ $(CAM_MODULE)-objs := \
     mtk_cam-seninf-ca.o \
     mtk_cam-timesync.o \
     mtk_cam-plat.o \
+    mtk_cam-hsf.o \
 
 ifeq ($(CAMSYS_TRACE_ENABLE), y)
 $(CAM_MODULE)-$(CONFIG_TRACING) += mtk_cam-trace.o
