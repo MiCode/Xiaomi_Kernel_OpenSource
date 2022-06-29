@@ -4373,17 +4373,6 @@ static int mhi_dev_resume_mmio_mhi_init(struct mhi_dev *mhi_ctx)
 		return rc;
 	}
 
-	if (mhi_ctx->use_mhi_dma) {
-		rc =  mhi_dma_register_ready_cb(mhi_ring_init_cb, mhi_ctx);
-		if (rc < 0) {
-			if (rc == -EEXIST) {
-				mhi_ring_init_cb(mhi_ctx);
-			} else {
-				pr_err("Error calling MHI DMA cb with %d\n", rc);
-				return rc;
-			}
-		}
-	}
 
 	/* Invoke MHI SM when device is in RESET state */
 	rc = mhi_dev_sm_init(mhi_ctx);
@@ -4413,10 +4402,22 @@ static int mhi_dev_resume_mmio_mhi_init(struct mhi_dev *mhi_ctx)
 		disable_irq(mhi_ctx->mhi_irq);
 	}
 
+	mhi_ctx->init_done = true;
+
+	if (mhi_ctx->use_mhi_dma) {
+		rc =  mhi_dma_register_ready_cb(mhi_ring_init_cb, mhi_ctx);
+		if (rc < 0) {
+			if (rc == -EEXIST) {
+				mhi_ring_init_cb(mhi_ctx);
+			} else {
+				pr_err("Error calling MHI DMA cb with %d\n", rc);
+				return rc;
+			}
+		}
+	}
+
 	if (mhi_ctx->use_edma)
 		mhi_ring_init_cb(mhi_ctx);
-
-	mhi_ctx->init_done = true;
 
 	return 0;
 }
