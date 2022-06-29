@@ -85,39 +85,47 @@
 struct rsz_data {
 	u32 tile_width;
 	bool add_ddp;
+	bool aal_crop;
 };
 
 static const struct rsz_data mt6893_rsz_data = {
-	.tile_width = 544
+	.tile_width = 544,
+	.aal_crop = true,
 };
 
 static const struct rsz_data mt6983_rsz_data = {
 	.tile_width = 1636,
 	.add_ddp = true,
+	.aal_crop = true,
 };
 
 static const struct rsz_data mt6879_rsz_data = {
 	.tile_width = 1360,
+	.aal_crop = true,
 };
 
 static const struct rsz_data mt6895_rsz0_data = {
 	.tile_width = 1300,
 	.add_ddp = true,
+	.aal_crop = true,
 };
 
 static const struct rsz_data mt6895_rsz1_data = {
 	.tile_width = 836,
 	.add_ddp = true,
+	.aal_crop = true,
 };
 
 static const struct rsz_data mt6895_rsz_data = {
 	.tile_width = 520,
 	.add_ddp = true,
+	.aal_crop = true,
 };
 
 static const struct rsz_data mt6985_rsz_data = {
 	.tile_width = 1674,
 	.add_ddp = true,
+	.aal_crop = false,
 };
 
 struct mml_comp_rsz {
@@ -175,13 +183,17 @@ static s32 rsz_prepare(struct mml_comp *comp, struct mml_task *task,
 	const struct mml_frame_data *src = &cfg->info.src;
 	const struct mml_frame_dest *dest = &cfg->info.dest[ccfg->node->out_idx];
 	struct rsz_frame_data *rsz_frm;
+	struct mml_comp_rsz *rsz = comp_to_rsz(comp);
 	s32 ret = 0;
 
 	mml_trace_ex_begin("%s", __func__);
 
 	rsz_frm = kzalloc(sizeof(*rsz_frm), GFP_KERNEL);
 	ccfg->data = rsz_frm;
-	rsz_frm->relay_mode = rsz_can_relay(cfg, src, dest);
+	if (rsz->data->aal_crop)
+		rsz_frm->relay_mode = rsz_can_relay(cfg, src, dest);
+	else
+		rsz_frm->relay_mode = false;
 	/* C42 conversion: drop if source is YUV422 or YUV420 */
 	rsz_frm->use121filter = !MML_FMT_H_SUBSAMPLE(src->format);
 
@@ -261,6 +273,8 @@ static s32 rsz_tile_prepare(struct mml_comp *comp, struct mml_task *task,
 		prepare_tile_data(&data->rsz, task, ccfg);
 	}
 	data->rsz.max_width = rsz->data->tile_width;
+	data->rsz.crop_aal_tile_loss =
+		!rsz->data->aal_crop && dest->pq_config.en_dre;
 	/* RSZ support crop capability */
 	func->type = TILE_TYPE_CROP_EN;
 	func->init_func = tile_prz_init;

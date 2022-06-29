@@ -134,6 +134,7 @@ struct aal_data {
 	u16 gpr[MML_PIPE_CNT];
 	u16 cpr[MML_PIPE_CNT];
 	const u16 *reg_table;
+	bool crop;
 };
 
 static const struct aal_data mt6893_aal_data = {
@@ -144,6 +145,7 @@ static const struct aal_data mt6893_aal_data = {
 	.gpr = {CMDQ_GPR_R08, CMDQ_GPR_R10},
 	.cpr = {CMDQ_CPR_MML_PQ0_ADDR, CMDQ_CPR_MML_PQ1_ADDR},
 	.reg_table = aal_reg_table_mt6983,
+	.crop = true,
 };
 
 static const struct aal_data mt6983_aal_data = {
@@ -154,6 +156,7 @@ static const struct aal_data mt6983_aal_data = {
 	.gpr = {CMDQ_GPR_R08, CMDQ_GPR_R10},
 	.cpr = {CMDQ_CPR_MML_PQ0_ADDR, CMDQ_CPR_MML_PQ1_ADDR},
 	.reg_table = aal_reg_table_mt6983,
+	.crop = true,
 };
 
 static const struct aal_data mt6879_aal_data = {
@@ -164,6 +167,7 @@ static const struct aal_data mt6879_aal_data = {
 	.gpr = {CMDQ_GPR_R08, CMDQ_GPR_R10},
 	.cpr = {CMDQ_CPR_MML_PQ0_ADDR, CMDQ_CPR_MML_PQ1_ADDR},
 	.reg_table = aal_reg_table_mt6983,
+	.crop = true,
 };
 
 static const struct aal_data mt6895_aal0_data = {
@@ -174,6 +178,7 @@ static const struct aal_data mt6895_aal0_data = {
 	.gpr = {CMDQ_GPR_R08, CMDQ_GPR_R10},
 	.cpr = {CMDQ_CPR_MML_PQ0_ADDR, CMDQ_CPR_MML_PQ1_ADDR},
 	.reg_table = aal_reg_table_mt6983,
+	.crop = true,
 };
 
 static const struct aal_data mt6895_aal1_data = {
@@ -184,6 +189,7 @@ static const struct aal_data mt6895_aal1_data = {
 	.gpr = {CMDQ_GPR_R08, CMDQ_GPR_R10},
 	.cpr = {CMDQ_CPR_MML_PQ0_ADDR, CMDQ_CPR_MML_PQ1_ADDR},
 	.reg_table = aal_reg_table_mt6983,
+	.crop = true,
 };
 
 static const struct aal_data mt6985_aal_data = {
@@ -194,9 +200,10 @@ static const struct aal_data mt6985_aal_data = {
 	.gpr = {CMDQ_GPR_R08, CMDQ_GPR_R10},
 	.cpr = {CMDQ_CPR_MML_PQ0_ADDR, CMDQ_CPR_MML_PQ1_ADDR},
 	.reg_table = aal_reg_table_mt6983,
+	.crop = false,
 };
 
-static const struct aal_data mt6886_aal0_data = {
+static const struct aal_data mt6886_aal_data = {
 	.min_tile_width = 50,
 	.tile_width = 1300,
 	.min_hist_width = 128,
@@ -204,6 +211,7 @@ static const struct aal_data mt6886_aal0_data = {
 	.gpr = {CMDQ_GPR_R08, CMDQ_GPR_R10},
 	.cpr = {CMDQ_CPR_MML_PQ0_ADDR, CMDQ_CPR_MML_PQ1_ADDR},
 	.reg_table = aal_reg_table_mt6983,
+	.crop = true,
 };
 
 struct mml_comp_aal {
@@ -290,12 +298,18 @@ static s32 aal_tile_prepare(struct mml_comp *comp, struct mml_task *task,
 	struct mml_comp_aal *aal = comp_to_aal(comp);
 
 	mml_pq_trace_ex_begin("%s", __func__);
-	data->aal.max_width = aal->data->tile_width;
-	data->aal.min_hist_width = aal->data->min_hist_width;
-	data->aal.min_width = aal->data->min_tile_width;
-	func->init_func = tile_aal_init;
+	func->in_tile_width = aal->data->tile_width;
+	func->out_tile_width = aal->data->tile_width;
 	func->for_func = tile_aal_for;
-	func->data = data;
+	func->in_tile_height  = 65535;
+	func->out_tile_height = 65535;
+	if (aal->data->crop) {
+		func->l_tile_loss     = 8;
+		func->r_tile_loss     = 8;
+	} else {
+		func->l_tile_loss     = 0;
+		func->r_tile_loss     = 0;
+	}
 
 	func->enable_flag = dest->pq_config.en_dre;
 
@@ -321,6 +335,10 @@ static s32 aal_tile_prepare(struct mml_comp *comp, struct mml_task *task,
 	}
 	func->full_size_x_out = func->full_size_x_in;
 	func->full_size_y_out = func->full_size_y_in;
+
+	func->in_min_width = max(min(aal->data->min_hist_width,
+				     (u32)func->full_size_x_in),
+				 aal->data->min_tile_width);
 
 	mml_pq_msg("%s engine_id[%d]", __func__, comp->id);
 	mml_pq_trace_ex_end();
@@ -1505,7 +1523,7 @@ const struct of_device_id mml_aal_driver_dt_match[] = {
 	},
 	{
 		.compatible = "mediatek,mt6886-mml_aal",
-		.data = &mt6886_aal0_data
+		.data = &mt6886_aal_data
 	},
 	{},
 };

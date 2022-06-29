@@ -84,30 +84,6 @@ enum isp_tile_message tile_rdma_init(struct tile_func_block *ptr_func,
 	return ISP_MESSAGE_TILE_OK;
 }
 
-enum isp_tile_message tile_aal_init(struct tile_func_block *ptr_func,
-				    struct tile_reg_map *ptr_tile_reg_map)
-{
-	struct aal_tile_data *data = &ptr_func->data->aal;
-
-	if (unlikely(!data))
-		return MDP_MESSAGE_NULL_DATA;
-
-	ptr_func->in_tile_width   = data->max_width;
-	ptr_func->out_tile_width  = data->max_width;
-	/* AAL_TILE_WIDTH > tile > AAL_HIST_MIN_WIDTH for histogram update,
-	 * unless AAL_HIST_MIN_WIDTH > frame > AAL_MIN_WIDTH.
-	 */
-	ptr_func->in_min_width    = MAX(MIN(data->min_hist_width,
-					    ptr_func->full_size_x_in),
-					data->min_width);
-	ptr_func->in_tile_height  = 65535;
-	ptr_func->out_tile_height = 65535;
-	ptr_func->l_tile_loss     = 8;
-	ptr_func->r_tile_loss     = 8;
-
-	return ISP_MESSAGE_TILE_OK;
-}
-
 enum isp_tile_message tile_prz_init(struct tile_func_block *ptr_func,
 				    struct tile_reg_map *ptr_tile_reg_map)
 {
@@ -391,22 +367,22 @@ enum isp_tile_message tile_prz_for(struct tile_func_block *ptr_func,
 		switch (data->hor_algo) {
 		case SCALER_6_TAPS:
 			forward_6_taps(C42OutXLeft,	/* C42 out = Scaler input */
-					C42OutXRight,	/* C42 out = Scaler input */
-					data->c42_out_frame_w - 1,
-					data->coeff_step_x,
-					data->precision_x,
-					data->crop.r.left,
-					data->crop.x_sub_px,
-					data->c24_in_frame_w - 1,
-					2,
-					data->prz_back_xs,
-					ptr_func->out_cal_order,
-					&C24InXLeft,	/* C24 in = Scaler output */
-					&C24InXRight,	/* C24 in = Scaler output */
-					&ptr_func->bias_x,
-					&ptr_func->offset_x,
-					&ptr_func->bias_x_c,
-					&ptr_func->offset_x_c);
+				       C42OutXRight,	/* C42 out = Scaler input */
+				       data->c42_out_frame_w - 1,
+				       data->coeff_step_x,
+				       data->precision_x,
+				       data->crop.r.left,
+				       data->crop.x_sub_px,
+				       data->c24_in_frame_w - 1,
+				       2,
+				       data->prz_back_xs,
+				       ptr_func->out_cal_order,
+				       &C24InXLeft,	/* C24 in = Scaler output */
+				       &C24InXRight,	/* C24 in = Scaler output */
+				       &ptr_func->bias_x,
+				       &ptr_func->offset_x,
+				       &ptr_func->bias_x_c,
+				       &ptr_func->offset_x_c);
 			break;
 		case SCALER_SRC_ACC:
 			forward_src_acc(C42OutXLeft,	/* C42 out = Scaler input */
@@ -867,33 +843,42 @@ enum isp_tile_message tile_prz_back(struct tile_func_block *ptr_func,
 			break;
 		case SCALER_SRC_ACC:
 			backward_src_acc(C24InXLeft,	/* C24 in = Scaler output */
-					C24InXRight,	/* C24 in = Scaler output */
-					data->c24_in_frame_w - 1,
-					data->coeff_step_x,
-					data->precision_x,
-					data->crop.r.left,
-					data->crop.x_sub_px,
-					data->c42_out_frame_w - 1,
-					2,
-					&C42OutXLeft,	/* C42 out = Scaler input */
-					&C42OutXRight);	/* C42 out = Scaler input */
+					 C24InXRight,	/* C24 in = Scaler output */
+					 data->c24_in_frame_w - 1,
+					 data->coeff_step_x,
+					 data->precision_x,
+					 data->crop.r.left,
+					 data->crop.x_sub_px,
+					 data->c42_out_frame_w - 1,
+					 2,
+					 &C42OutXLeft,	/* C42 out = Scaler input */
+					 &C42OutXRight);	/* C42 out = Scaler input */
 			break;
 		case SCALER_CUB_ACC:
 			backward_cub_acc(C24InXLeft,	/* C24 in = Scaler output */
-					C24InXRight,	/* C24 in = Scaler output */
-					data->c24_in_frame_w - 1,
-					data->coeff_step_x,
-					data->precision_x,
-					data->crop.r.left,
-					data->crop.x_sub_px,
-					data->c42_out_frame_w - 1,
-					2,
-					&C42OutXLeft,	/* C42 out = Scaler input */
-					&C42OutXRight);	/* C42 out = Scaler input */
+					 C24InXRight,	/* C24 in = Scaler output */
+					 data->c24_in_frame_w - 1,
+					 data->coeff_step_x,
+					 data->precision_x,
+					 data->crop.r.left,
+					 data->crop.x_sub_px,
+					 data->c42_out_frame_w - 1,
+					 2,
+					 &C42OutXLeft,	/* C42 out = Scaler input */
+					 &C42OutXRight);	/* C42 out = Scaler input */
 			break;
 		default:
 			ASSERT(0);
 			return MDP_MESSAGE_RESIZER_SCALING_ERROR;
+		}
+
+		if (data->crop_aal_tile_loss) {
+			C42OutXLeft -= 8;
+			if (C42OutXLeft < 0)
+				C42OutXLeft = 0;
+			C42OutXRight += 8;
+			if (C42OutXRight + 1 > data->c42_out_frame_w)
+				C42OutXRight = data->c42_out_frame_w - 1;
 		}
 
 		if (ptr_func->in_tile_width)

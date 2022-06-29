@@ -21,12 +21,6 @@ struct rdma_tile_data {
 	u32 max_width;
 };
 
-struct aal_tile_data {
-	u32 min_width;
-	u32 max_width;
-	u32 min_hist_width;
-};
-
 struct rsz_tile_data {
 	bool use_121filter;
 	u32 coeff_step_x;
@@ -46,6 +40,7 @@ struct rsz_tile_data {
 	bool ver_first;
 	bool ver_cubic_trunc;
 	u32 max_width;
+	bool crop_aal_tile_loss;
 };
 
 struct tdshp_tile_data {
@@ -73,7 +68,6 @@ struct dlo_tile_data {
 
 union mml_tile_data {
 	struct rdma_tile_data rdma;
-	struct aal_tile_data aal;
 	struct rsz_tile_data rsz;
 	struct tdshp_tile_data tdshp;
 	struct wrot_tile_data wrot;

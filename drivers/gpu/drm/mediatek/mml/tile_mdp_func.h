@@ -8,8 +8,6 @@
 /* prototype init */
 enum isp_tile_message tile_rdma_init(struct tile_func_block *ptr_func,
 				     struct tile_reg_map *ptr_tile_reg_map);
-enum isp_tile_message tile_aal_init(struct tile_func_block *ptr_func,
-				    struct tile_reg_map *ptr_tile_reg_map);
 enum isp_tile_message tile_prz_init(struct tile_func_block *ptr_func,
 				    struct tile_reg_map *ptr_tile_reg_map);
 enum isp_tile_message tile_tdshp_init(struct tile_func_block *ptr_func,
