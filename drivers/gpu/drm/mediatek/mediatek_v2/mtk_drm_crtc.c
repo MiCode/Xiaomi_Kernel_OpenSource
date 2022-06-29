@@ -3605,7 +3605,7 @@ static void mtk_crtc_disp_mode_switch_begin(struct drm_crtc *crtc,
 		return;
 	}
 
-	CRTC_MMP_EVENT_START(drm_crtc_index(crtc), mode_switch, 0, 0);
+	CRTC_MMP_EVENT_START((int) drm_crtc_index(crtc), mode_switch, 0, 0);
 
 	DDPMSG("%s++ from %u to %u\n", __func__,
 		old_mtk_state->prop_val[CRTC_PROP_DISP_MODE_IDX],
