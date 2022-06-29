@@ -911,6 +911,21 @@
 			alignment = <0 0x200000>;
 			alloc-ranges = <0 0x80000000 0 0xc0000000>;
 		};
+
+		dpmaif_resv_cache_mem: ccci_dpmaif_cache-memory {
+			compatible = "mediatek,dpmaif-resv-cache-mem";
+			size = <0 0x00190000>; /* 1638400 Bytes for 1rxq */
+			alignment = <0 0x1000>;
+			alloc-ranges = <0 0x40000000 0 0xF0000000>;
+		};
+
+		dpmaif_resv_nocache_mem: ccci_dpmaif_nocache-memory {
+			compatible = "mediatek,dpmaif-resv-nocache-mem";
+			no-map;
+			size = <0 0x0050000>; /* 327680 Bytes */
+			alignment = <0 0x1000>;
+			alloc-ranges = <0 0x40000000 0 0xF0000000>;
+		};
 	};
 
 	memory_ssmr_features: memory-ssmr-features {
