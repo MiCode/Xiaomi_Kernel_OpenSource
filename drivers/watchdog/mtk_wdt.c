@@ -371,7 +371,9 @@ static int mtk_wdt_probe(struct platform_device *pdev)
 
 	mtk_wdt_init(&mtk_wdt->wdt_dev);
 
+#if defined(CONFIG_MEDIATEK_WATCHDOG_STOP_ON_REBOOT)
 	watchdog_stop_on_reboot(&mtk_wdt->wdt_dev);
+#endif
 	err = devm_watchdog_register_device(dev, &mtk_wdt->wdt_dev);
 	if (unlikely(err))
 		return err;
@@ -389,7 +391,7 @@ static int mtk_wdt_probe(struct platform_device *pdev)
 	return 0;
 }
 
-#ifdef CONFIG_PM_SLEEP
+#if defined(CONFIG_PM_SLEEP) && defined(CONFIG_MEDIATEK_WATCHDOG_PM)
 static int mtk_wdt_suspend(struct device *dev)
 {
 	struct mtk_wdt_dev *mtk_wdt = dev_get_drvdata(dev);
@@ -411,6 +413,11 @@ static int mtk_wdt_resume(struct device *dev)
 
 	return 0;
 }
+
+static const struct dev_pm_ops mtk_wdt_pm_ops = {
+	SET_SYSTEM_SLEEP_PM_OPS(mtk_wdt_suspend,
+				mtk_wdt_resume)
+};
 #endif
 
 static const struct of_device_id mtk_wdt_dt_ids[] = {
@@ -423,16 +430,13 @@ static const struct of_device_id mtk_wdt_dt_ids[] = {
 };
 MODULE_DEVICE_TABLE(of, mtk_wdt_dt_ids);
 
-static const struct dev_pm_ops mtk_wdt_pm_ops = {
-	SET_SYSTEM_SLEEP_PM_OPS(mtk_wdt_suspend,
-				mtk_wdt_resume)
-};
-
 static struct platform_driver mtk_wdt_driver = {
 	.probe		= mtk_wdt_probe,
 	.driver		= {
 		.name		= DRV_NAME,
+#if defined(CONFIG_PM_SLEEP) && defined(CONFIG_MEDIATEK_WATCHDOG_PM)
 		.pm		= &mtk_wdt_pm_ops,
+#endif
 		.of_match_table	= mtk_wdt_dt_ids,
 	},
 };
