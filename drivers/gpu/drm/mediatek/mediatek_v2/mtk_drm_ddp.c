@@ -16990,12 +16990,9 @@ void ovlsys_config_dump_analysis_mt6985(void __iomem *config_regs)
 	char *name = NULL;
 	unsigned int valid[6] = {0};
 	unsigned int ready[6] = {0};
-	unsigned int greq0 =
-		readl_relaxed(config_regs +
-				MT6985_DISP_REG_OVLSYS_SMI_LARB0_GREQ);
-	unsigned int greq1 =
-		readl_relaxed(config_regs +
-				MT6985_DISP_REG_OVLSYS_SMI_LARB1_GREQ);
+	unsigned int greq0 = 0;
+	unsigned int greq1 = 0;
+
 	valid[0] =
 		readl_relaxed(config_regs + MT6985_DISP_REG_OVLSYS_DL_VALID_0);
 	valid[1] =
@@ -17021,6 +17018,11 @@ void ovlsys_config_dump_analysis_mt6985(void __iomem *config_regs)
 		readl_relaxed(config_regs + MT6985_DISP_REG_OVLSYS_DL_READY_4);
 	ready[5] =
 		readl_relaxed(config_regs + MT6985_DISP_REG_OVLSYS_DL_READY_5);
+
+	greq0 = readl_relaxed(config_regs +
+				MT6985_DISP_REG_OVLSYS_SMI_LARB0_GREQ);
+	greq1 = readl_relaxed(config_regs +
+				MT6985_DISP_REG_OVLSYS_SMI_LARB1_GREQ);
 
 	DDPDUMP("== DISP MMSYS_OVLSYS ANALYSIS ==\n");
 	reg = readl_relaxed(config_regs + DISP_REG_CONFIG_OVLSYS_CG_CON0_MT6985);
