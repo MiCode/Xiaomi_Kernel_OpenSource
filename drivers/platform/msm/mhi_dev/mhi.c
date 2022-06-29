@@ -1995,6 +1995,18 @@ static int mhi_dev_process_cmd_ring(struct mhi_dev *mhi,
 		/* fetch the channel context from host */
 		mhi_dev_fetch_ch_ctx(mhi, ch_id);
 
+		/* In flashless  boot scenario, certain channels like sahara may be
+		 * started and reset during SBL state, and we may receive the
+		 * command processing as the reset may not have been handled or
+		 * RP may not have been updated. Check channel context to see
+		 * if channel is in disabled state and ignore it
+		 */
+		if (mhi->ch_ctx_cache[ch_id].ch_state == MHI_DEV_CH_STATE_DISABLED) {
+			mhi_log(MHI_MSG_ERROR,
+				"Ignoring start cmd, ch:%d is disabled\n", ch_id);
+			return 0;
+		}
+
 		/* Initialize and configure the corresponding channel ring */
 		rc = mhi_ring_start(&mhi->ring[mhi->ch_ring_start + ch_id],
 			(union mhi_dev_ring_ctx *)&mhi->ch_ctx_cache[ch_id],
@@ -2162,6 +2174,17 @@ send_undef_completion_event:
 			mhi_log(MHI_MSG_VERBOSE,
 					"received reset cmd for channel %d\n",
 					ch_id);
+			/* In flashless  boot scenario, certain channels like sahara may be
+			 * started and reset during SBL state, and we may receive the
+			 * command processing as the reset may not have been handled or
+			 * RP may not have been updated. Check channel context to see
+			 * if channel is in disabled state and ignore it
+			 */
+			if (mhi->ch_ctx_cache[ch_id].ch_state == MHI_DEV_CH_STATE_DISABLED) {
+				mhi_log(MHI_MSG_ERROR,
+					"Ignoring reset cmd, ch:%d is disabled\n", ch_id);
+				return 0;
+			}
 
 			ring = &mhi->ring[ch_id + mhi->ch_ring_start];
 			if (ring->state == RING_STATE_UINT) {
