@@ -1096,7 +1096,7 @@ int copy_mml_submit(struct mml_submit *src, struct mml_submit *dst)
 	memcpy(dst, src, sizeof(struct mml_submit));
 
 	if (temp_job) {
-		memcpy(temp_job, dst->job, sizeof(struct mml_job));
+		memmove(temp_job, dst->job, sizeof(struct mml_job));
 		dst->job = temp_job;
 	}
 
