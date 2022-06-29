@@ -879,10 +879,9 @@
 			scmi_tinysys: protocol@80 {
 				reg = <0x80>;
 				scmi_qos = <1>;
-				scmi_pmic = <2>;
 				scmi_met = <3>;
 				scmi_gpupm = <6>;
-				scmi_plt = <7>;
+				scmi-plt = <7>;
 				scmi_smi = <8>;
 				scmi_cm = <9>;
 				scmi_slbc = <10>;
