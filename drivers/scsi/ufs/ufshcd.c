@@ -7812,6 +7812,49 @@ out:
 	return ret;
 }
 
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
+static int dump_unipro_params(struct ufs_hba *hba)
+{
+	int ret = 0;
+	u32 granularity, peer_granularity;
+	u32 pa_tactivate, peer_pa_tactivate;
+	u32 pa_h8time, peer_pa_h8time = 0;
+
+	ret += ufshcd_dme_get(hba, UIC_ARG_MIB(PA_GRANULARITY),
+				  &granularity);
+
+	ret += ufshcd_dme_peer_get(hba, UIC_ARG_MIB(PA_GRANULARITY),
+				  &peer_granularity);
+
+
+	ret += ufshcd_dme_get(hba, UIC_ARG_MIB(PA_TACTIVATE), &pa_tactivate);
+
+
+	ret += ufshcd_dme_peer_get(hba, UIC_ARG_MIB(PA_TACTIVATE),
+				  &peer_pa_tactivate);
+
+
+	ret += ufshcd_dme_get(hba,
+		     UIC_ARG_MIB(PA_HIBERN8TIME),
+			 &pa_h8time);
+
+	ret += ufshcd_dme_peer_get(hba,
+			 UIC_ARG_MIB(PA_HIBERN8TIME),
+			 &peer_pa_h8time);
+
+	dev_info(hba->dev, "ufs: granularity=0x%x", granularity);
+	dev_info(hba->dev, "ufs: peer_granularity=0x%x", peer_granularity);
+	dev_info(hba->dev, "ufs: pa_tactivate=0x%x", pa_tactivate);
+	dev_info(hba->dev, "ufs: peer_pa_tactivate=0x%x", peer_pa_tactivate);
+	dev_info(hba->dev, "ufs: pa_h8time=0x%x", pa_h8time);
+	dev_info(hba->dev, "ufs: peer_pa_h8time=0x%x", peer_pa_h8time);
+
+	if (ret)
+		dev_info(hba->dev, "ufs: dump unipro error (%d)", ret);
+	return ret;
+}
+#endif
+
 static void ufshcd_tune_unipro_params(struct ufs_hba *hba)
 {
 	if (ufshcd_is_unipro_pa_params_tuning_req(hba)) {
@@ -7827,6 +7870,10 @@ static void ufshcd_tune_unipro_params(struct ufs_hba *hba)
 
 	if (hba->dev_quirks & UFS_DEVICE_QUIRK_HOST_PA_TACTIVATE)
 		ufshcd_quirk_tune_host_pa_tactivate(hba);
+
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
+	dump_unipro_params(hba);
+#endif
 }
 
 static void ufshcd_clear_dbg_ufs_stats(struct ufs_hba *hba)
