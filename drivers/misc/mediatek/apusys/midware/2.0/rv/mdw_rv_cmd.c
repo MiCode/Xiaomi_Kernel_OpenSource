@@ -122,6 +122,24 @@ static void mdw_rv_sc_print(struct mdw_rv_msg_sc *rsc,
 	mdw_cmd_debug("-------------------------\n");
 }
 
+static int mdw_rv_cmd_delete(struct mdw_cmd *c)
+{
+	struct mdw_rv_cmd *rc = (struct mdw_rv_cmd *)c->internal_cmd;
+
+	if (!rc)
+		return -EINVAL;
+
+	mdw_trace_begin("apumdw:rv_cmd_delete");
+	mdw_rv_cmd_set_affinity(c, false);
+	mdw_mem_pool_free(rc->cb);
+	kfree(rc);
+	c->internal_cmd = NULL;
+	c->del_internal = NULL;
+	mdw_trace_end();
+
+	return 0;
+}
+
 static struct mdw_rv_cmd *mdw_rv_cmd_create(struct mdw_fpriv *mpriv,
 	struct mdw_cmd *c)
 {
@@ -135,6 +153,14 @@ static struct mdw_rv_cmd *mdw_rv_cmd_create(struct mdw_fpriv *mpriv,
 
 	mdw_trace_begin("apumdw:rv_cmd_create");
 	mutex_lock(&mpriv->mtx);
+
+	/* reuse internal cmd if exist */
+	if (c->internal_cmd) {
+		mdw_cmd_debug("reuse internal cmd\n");
+		rc = (struct mdw_rv_cmd *)c->internal_cmd;
+		rmc = (struct mdw_rv_msg_cmd *)rc->cb->vaddr;
+		goto reuse;
+	}
 
 	/* check mem address for rv */
 	if (MDW_IS_HIGHADDR(c->exec_infos->device_va) ||
@@ -150,8 +176,6 @@ static struct mdw_rv_cmd *mdw_rv_cmd_create(struct mdw_fpriv *mpriv,
 
 	c->rvid = (uint64_t)&rc->s_msg;
 	init_completion(&rc->s_msg.cmplt);
-	/* set start timestamp */
-	rc->start_ts_ns = c->start_ts;
 
 	/* calc size and offset */
 	rc->c = c;
@@ -198,10 +222,6 @@ static struct mdw_rv_cmd *mdw_rv_cmd_create(struct mdw_fpriv *mpriv,
 	rmc->exec_infos_offset = exec_infos_ofs;
 	mdw_rv_cmd_print(rmc);
 
-	/* copy adj matrix */
-	memcpy((void *)rmc + rmc->adj_matrix_offset, c->adj_matrix,
-		c->num_subcmds * c->num_subcmds * sizeof(uint8_t));
-
 	/* assign subcmds info */
 	rmsc = (void *)rmc + rmc->subcmds_offset;
 	rmcb = (void *)rmc + rmc->cmdbuf_infos_offset;
@@ -237,6 +257,18 @@ static struct mdw_rv_cmd *mdw_rv_cmd_create(struct mdw_fpriv *mpriv,
 		acc_cb += c->subcmds[i].num_cmdbufs;
 	}
 
+	/* setup internal cmd */
+	c->del_internal = mdw_rv_cmd_delete;
+	c->internal_cmd = rc;
+
+reuse:
+	/* set start timestamp */
+	rc->start_ts_ns = c->start_ts;
+
+	/* copy adj matrix */
+	memcpy((void *)rmc + rmc->adj_matrix_offset, c->adj_matrix,
+		c->num_subcmds * c->num_subcmds * sizeof(uint8_t));
+
 	/* clear exec ret */
 	c->einfos->c.ret = 0;
 	c->einfos->c.sc_rets = 0;
@@ -258,21 +290,11 @@ out:
 	return rc;
 }
 
-static int mdw_rv_cmd_delete(struct mdw_rv_cmd *rc)
+static void mdw_rv_cmd_done(struct mdw_rv_cmd *rc, int ret)
 {
-	struct mdw_cmd *c = NULL;
+	struct mdw_cmd *c = rc->c;
 	struct mdw_rv_msg_cmd *rmc = NULL;
-	struct mdw_fpriv *mpriv = NULL;
 
-	if (!rc)
-		return -EINVAL;
-
-	c = rc->c;
-	mpriv = c->mpriv;
-	mdw_rv_cmd_set_affinity(c, false);
-
-	mdw_trace_begin("apumdw:rv_cmd_delete");
-	mutex_lock(&mpriv->mtx);
 	/* invalidate */
 	if (mdw_mem_invalidate(c->mpriv, rc->cb))
 		mdw_drv_warn("s(0x%llx) c(0x%llx/0x%llx/0x%llx) invalidate rcbs(%u) fail\n",
@@ -292,20 +314,7 @@ static int mdw_rv_cmd_delete(struct mdw_rv_cmd *rc)
 			c->exec_infos->size);
 	}
 
-	mdw_mem_pool_free(rc->cb);
-	kfree(rc);
-	mutex_unlock(&mpriv->mtx);
-	mdw_trace_end();
-
-	return 0;
-}
-
-static void mdw_rv_cmd_done(struct mdw_rv_cmd *rc, int ret)
-{
-	struct mdw_cmd *c = rc->c;
-
-	/* delete rv cmd and complete */
-	mdw_rv_cmd_delete(rc);
+	/* complete cmd */
 	c->complete(c, ret);
 }
 

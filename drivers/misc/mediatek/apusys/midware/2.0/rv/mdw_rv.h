@@ -22,7 +22,7 @@ struct mdw_rv_cmd {
 struct mdw_rv_cmd_func {
 	struct mdw_rv_cmd *(*create)(struct mdw_fpriv *mpriv,
 		struct mdw_cmd *c);
-	int (*delete)(struct mdw_rv_cmd *rc);
+	int (*delete)(struct mdw_cmd *c);
 	void (*done)(struct mdw_rv_cmd *rc, int ret);
 };
 

@@ -246,8 +246,6 @@ int mdw_rv_dev_run_cmd(struct mdw_fpriv *mpriv, struct mdw_cmd *c)
 	mdw_drv_debug("run rc(0%llx)\n", (uint64_t)rc);
 	mutex_lock(&mrdev->mtx);
 	ret = mdw_rv_dev_send_cmd(mrdev, rc);
-	if (ret)
-		mrdev->cmd_funcs->delete(rc);
 	mutex_unlock(&mrdev->mtx);
 
 out:

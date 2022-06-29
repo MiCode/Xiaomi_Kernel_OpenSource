@@ -458,6 +458,8 @@ static void mdw_cmd_release(struct kref *ref)
 
 	mdw_cmd_show(c, mdw_drv_debug);
 	mdw_trace_begin("apumdw:cmd_release|c:0x%llx", c->kid);
+	if (c->del_internal)
+		c->del_internal(c);
 	mdw_cmd_unvoke_map(c);
 	mdw_cmd_delete_infos(c->mpriv, c);
 	mdw_mem_put(c->mpriv, c->exec_infos);

@@ -304,7 +304,9 @@ struct mdw_cmd {
 	uint64_t end_ts;
 
 	struct mdw_fpriv *mpriv;
+	void *internal_cmd;
 	int (*complete)(struct mdw_cmd *c, int ret);
+	int (*del_internal)(struct mdw_cmd *c);
 
 	struct mdw_fence *fence;
 	struct work_struct t_wk;
