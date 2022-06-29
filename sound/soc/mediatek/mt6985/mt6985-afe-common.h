@@ -182,6 +182,7 @@ struct mt6985_afe_private {
 	struct regmap *topckgen;
 	struct regmap *apmixed;
 	struct regmap *infracfg;
+	struct regmap *pmic_regmap;
 	int irq_cnt[MT6985_MEMIF_NUM];
 	int stf_positive_gain_db;
 	int dram_resource_counter;
@@ -219,7 +220,16 @@ struct mt6985_afe_private {
 	int mtkaif_dmic;
 	int mtkaif_dmic_ch34;
 	int mtkaif_adda6_only;
-
+	/* add for vs1 voter */
+	/* adda dl/ul is on */
+	bool is_adda_dl_on;
+	bool is_adda_ul_on;
+	/* vow is on */
+	bool is_vow_enable;
+	/* adda dl vol idx is at maximum */
+	bool is_adda_dl_max_vol;
+	/* current vote status of vs1 */
+	bool is_mt6363_vote;
 	/* mck */
 	int mck_rate[MT6985_MCK_NUM];
 

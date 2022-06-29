@@ -13,6 +13,8 @@
 #include <linux/of_address.h>
 #include <linux/pm_runtime.h>
 #include <sound/soc.h>
+#include <linux/regmap.h>
+#include <linux/of_device.h>
 #include <linux/arm-smccc.h> /* for Kernel Native SMC API */
 #include <linux/soc/mediatek/mtk_sip_svc.h> /* for SMC ID table */
 
@@ -7344,6 +7346,9 @@ static int mt6985_afe_pcm_dev_probe(struct platform_device *pdev)
 	struct resource *res;
 	struct device *dev;
 	struct arm_smccc_res smccc_res;
+	struct device_node *np;
+	struct platform_device *pmic_pdev = NULL;
+	struct regmap *map;
 
 	pr_info("+%s()\n", __func__);
 
@@ -7526,6 +7531,22 @@ static int mt6985_afe_pcm_dev_probe(struct platform_device *pdev)
 		dev_warn(dev, "afe component err: %d\n", ret);
 		goto err_pm_disable;
 	}
+
+	/* get pmic6363 regmap */
+	np = of_find_node_by_name(NULL, "pmic");
+	if (!np) {
+		dev_info(&pdev->dev, "pmic node not found\n");
+		return -ENODEV;
+	}
+
+	pmic_pdev = of_find_device_by_node(np->child);
+	if (!pmic_pdev) {
+		dev_info(&pdev->dev, "pmic child device not found\n");
+		return -ENODEV;
+	}
+
+	map = dev_get_regmap(pmic_pdev->dev.parent, NULL);
+	afe_priv->pmic_regmap = map;
 
 #if IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP)
 	audio_set_dsp_afe(afe);
