@@ -423,9 +423,13 @@ static u32 frame_calc_layer_hrt(struct mml_drm_ctx *ctx, struct mml_frame_info *
 	 *
 	 * And for resize case total source pixel must read during layer
 	 * region (which is compose width and height). So ratio should be:
-	 *	ratio = panel * src / layer
+	 *	ratio = src / layer
 	 *
-	 * This API returns bandwidth in KBps: bw * ratio
+	 * HRT pixel and bandwidth:
+	 *	hrt = panel * ratio
+	 *	hrt_bw = panel * src / layer * Bpp * fps * v-blanking
+	 *
+	 * This API returns bandwidth in KBps: panel * bw / layer
 	 *
 	 * Following api reorder factors to avoid overflow of uint32_t.
 	 */

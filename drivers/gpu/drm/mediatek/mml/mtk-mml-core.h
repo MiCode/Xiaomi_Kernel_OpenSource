@@ -34,6 +34,7 @@
 
 extern int mtk_mml_msg;
 extern int mml_cmdq_err;
+extern int mml_qos;
 extern int mml_qos_log;
 
 #define mml_msg(fmt, args...) \

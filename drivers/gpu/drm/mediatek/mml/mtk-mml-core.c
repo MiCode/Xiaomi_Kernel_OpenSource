@@ -44,7 +44,9 @@ module_param(mml_trace, int, 0644);
 /* MML DVFS/QoS debug option, set following value:
  * 0: disable mml dvfs/qos feature
  * 1: default value, enable and calculate by frame data and end time
- * > MML_DVFS_FORCE_MIN: force overwrite throughput by mask
+ * > MML_DVFS_FORCE_MIN: force overwrite throughput/bandwidth by mask
+ *	bit[15:0]  throughput for dvfs
+ *	bit[31:16] bandwidth for qos
  */
 int mml_qos = 1;
 module_param(mml_qos, int, 0644);

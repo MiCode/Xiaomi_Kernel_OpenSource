@@ -105,6 +105,9 @@ struct mml_dev {
 	u16 record_idx;
 };
 
+int mml_racing_bw;
+module_param(mml_racing_bw, int, 0644);
+
 struct platform_device *mml_get_plat_device(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -723,12 +726,20 @@ void mml_comp_qos_set(struct mml_comp *comp, struct mml_task *task,
 	} else if (cfg->info.mode == MML_MODE_RACING) {
 		hrt = true;
 		bandwidth = mml_calc_bw_racing(datasize);
-		if (unlikely(mml_racing_urgent))
-			bandwidth = U32_MAX;
 		hrt_bw = cfg->disp_hrt;
+		if (unlikely(mml_racing_bw)) {
+			bandwidth = mml_racing_bw;
+			hrt_bw = mml_racing_bw * 1000;
+		}
 	} else {
 		hrt = false;
 		bandwidth = mml_calc_bw(datasize, cache->max_pixel, throughput);
+		if (unlikely(mml_qos)) {
+			u32 qos = mml_qos >> 16;
+
+			if (qos)
+				bandwidth = qos;
+		}
 		hrt_bw = 0;
 	}
 
