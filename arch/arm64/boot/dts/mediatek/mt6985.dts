@@ -11516,7 +11516,7 @@
 
 	vcp: vcp@1ec00000 {
 		compatible = "mediatek,vcp";
-		vcp-support = <0>;
+		vcp-support = <1>;
 		status = "okay";
 		reg = <0 0x1ea00000 0 0x40000>, /* tcm */
 		      <0 0x1ec24000 0 0x1000>, /* cfg */
@@ -11666,21 +11666,21 @@
 
 	vcp_io2: vcp-iommu-vdec {
 		compatible =  "mediatek,vcp-io-vdec";
-		vcp-support = <0>;
+		vcp-support = <2>;
 		dma-ranges = <0x1 0x0 0x1 0x0 0x1 0x0>;
 		iommus = <&mdp_iommu M4U_PORT_L39_VIDEO_UP>;
 	};
 
 	vcp_io3: vcp-iommu-venc {
 		compatible =  "mediatek,vcp-io-venc";
-		vcp-support = <0>;
+		vcp-support = <3>;
 		dma-ranges = <0x1 0x0 0x1 0x0 0x1 0x0>;
 		iommus = <&mdp_iommu M4U_PORT_L39_VIDEO_UP>;
 	};
 
 	vcp_io4: vcp-iommu-work {
 		compatible = "mediatek,vcp-io-work";
-		vcp-support = <0>;
+		vcp-support = <4>;
 		dma-ranges = <0x1 0x0 0x1 0x0 0x1 0x0>;
 		iommus = <&mdp_iommu M4U_PORT_L39_VIDEO_UP>;
 	};
