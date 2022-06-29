@@ -439,6 +439,16 @@ struct mtk_cam_scen {
 #define MTK_CAM_RAW_B	0x0002
 #define MTK_CAM_RAW_C	0x0004
 
+/* to be refined, not to use bit mask */
+enum mtk_cam_bin {
+	MTK_CAM_BIN_OFF	=	0,
+	MTK_CAM_BIN_ON =	(1 << 0),
+	MTK_CAM_CBN_2X2_ON =	(1 << 4),
+	MTK_CAM_CBN_3X3_ON =	(1 << 5),
+	MTK_CAM_CBN_4X4_ON =	(1 << 6),
+	MTK_CAM_QBND_ON	=	(1 << 8)
+};
+
 /**
  * struct mtk_cam_resource_raw_v2
  *

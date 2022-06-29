@@ -5489,6 +5489,37 @@ static int isp_composer_handler(struct rpmsg_device *rpdev, void *data,
 
 #endif
 
+static int isp_tx_frame_get_bin_flag(int bin)
+{
+	int bin_flag;
+
+	switch (bin) {
+	case MTK_CAM_BIN_OFF:
+		bin_flag = BIN_OFF;
+		break;
+	case MTK_CAM_BIN_ON:
+		bin_flag = BIN_ON;
+		break;
+	case MTK_CAM_CBN_2X2_ON:
+		bin_flag = CBN_2X2_ON;
+		break;
+	case MTK_CAM_CBN_3X3_ON:
+		bin_flag = CBN_3X3_ON;
+		break;
+	case MTK_CAM_CBN_4X4_ON:
+		bin_flag = CBN_4X4_ON;
+		break;
+	case MTK_CAM_QBND_ON:
+		bin_flag = QBND_ON;
+		break;
+	default:
+		bin_flag = -EINVAL;
+		break;
+	}
+
+	return bin_flag;
+}
+
 static void isp_tx_frame_worker(struct work_struct *work)
 {
 	struct mtk_cam_req_work *req_work = (struct mtk_cam_req_work *)work;
@@ -5510,6 +5541,7 @@ static void isp_tx_frame_worker(struct work_struct *work)
 	struct mtkcam_ipi_config_param *config_param;
 	int i;
 	struct mtk_cam_scen *scen;
+	int bin_flag;
 
 	req_stream_data = mtk_cam_req_work_get_s_data(req_work);
 	if (!req_stream_data) {
@@ -5687,13 +5719,17 @@ static void isp_tx_frame_worker(struct work_struct *work)
 	frame_data->cur_workbuf_size = buf_entry->buffer.size;
 
 	res_user = mtk_cam_s_data_get_res(req_stream_data);
-	if (res_user && res_user->raw_res.bin) {
-		frame_data->raw_param.bin_flag = res_user->raw_res.bin;
-	} else {
-		if (ctx->pipe->res_config.bin_limit == BIN_AUTO)
-			frame_data->raw_param.bin_flag = ctx->pipe->res_config.bin_enable;
+	frame_data->raw_param.bin_flag = BIN_OFF;
+	if (res_user) {
+		bin_flag = isp_tx_frame_get_bin_flag(res_user->raw_res.bin);
+		if (bin_flag == -EINVAL)
+			dev_info(cam->dev,
+				 "%s: rpmsg_send id: %d, ctx:%d, seq:%d, invalid bin setting:(0x%x) from user\n",
+				 req->req.debug_str, event.cmd_id, session->session_id,
+				 req_stream_data->frame_seq_no,
+				 res_user->raw_res.bin);
 		else
-			frame_data->raw_param.bin_flag = ctx->pipe->res_config.bin_limit;
+			frame_data->raw_param.bin_flag = bin_flag;
 	}
 
 	if (ctx->rpmsg_dev) {
