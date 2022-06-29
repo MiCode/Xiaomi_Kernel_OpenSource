@@ -123,8 +123,6 @@
 		merge3 = &disp1_merge1;
 		dsi0 = &dsi0;
 //		dsi1 = &dsi1;
-		intf0 = &disp_dp_intf0;
-		intf1 = &disp1_dp_intf0;
 		mutex0 = &disp_mutex0;
 		mml-wrot0 = &mml_wrot0;
 		mml-wrot1 = &mml_wrot1;
@@ -10158,7 +10156,7 @@
 				"mediatek,mt6985-disp-ovl";
 		reg = <0 0x14405000 0 0x1000>;
 		interrupts = <GIC_SPI 390 IRQ_TYPE_LEVEL_HIGH 0>;
-		clocks = <&dispsys_config_clk CLK_OVL_OVL3_2L>;
+		clocks = <&ovlsys_config_clk CLK_OVL_OVL3_2L>;
 		mediatek,larb = <&smi_larb1 M4U_PORT_L1_DISP_OVL3_2L_RDMA0>,
 				<&smi_larb0 M4U_PORT_L0_DISP_OVL3_2L_RDMA1>;
 		iommus = <&disp_iommu M4U_PORT_L1_DISP_OVL3_2L_RDMA0>,
@@ -10926,8 +10924,8 @@
 //		phy-names = "dphy";
 //	};
 
-	disp_dp_intf0: disp-dp-intf0@1400b000 {
-		compatible = "mediatek,disp_dp_intf0",
+	dp_intf: disp-dp-intf0@1400b000 {
+		compatible = "mediatek,dp_intf",
 				"mediatek,mt6985-dp-intf";
 		reg = <0 0x1400b000 0 0x1000>;
 		interrupts = <GIC_SPI 365 IRQ_TYPE_LEVEL_HIGH 0>;
@@ -10948,31 +10946,6 @@
 				"TVDPLL_D16",
 				"DPI_CK";
 		phys = <&dp_tx>;
-		phy-names = "dp_tx";
-	};
-
-	disp1_dp_intf0: disp1-dp-intf0@1420b000 {
-		compatible = "mediatek,disp1_dp_intf0",
-				"mediatek,mt6985-dp-intf";
-		reg = <0 0x1420b000 0 0x1000>;
-		interrupts = <GIC_SPI 409 IRQ_TYPE_LEVEL_HIGH 0>;
-//		clocks = <&dispsys1_config_clk  CLK_DISPSYS1_CONFIG_DISP_DP_INTF0>,
-//			<&dispsys1_config_clk CLK_DISPSYS1_CONFIG_DP_CLK>,
-//			<&topckgen_clk CLK_TOPCKGEN_DP_SEL>,
-//			<&topckgen_clk CLK_TOPCKGEN_TVDPLL_D2>,
-//			<&topckgen_clk CLK_TOPCKGEN_TVDPLL_D4>,
-//			<&topckgen_clk CLK_TOPCKGEN_TVDPLL_D8>,
-//			<&topckgen_clk CLK_TOPCKGEN_TVDPLL_D16>,
-//			<&topckgen_clk CLK_TOPCKGEN_TVDPLL_CK>;
-		clock-names = "hf_fmm_ck",
-				"hf_fdp_ck",
-				"MUX_DP",
-				"TVDPLL_D2",
-				"TVDPLL_D4",
-				"TVDPLL_D8",
-				"TVDPLL_D16",
-				"DPI_CK";
-//		phys = <&dp_tx>;
 		phy-names = "dp_tx";
 	};
 
