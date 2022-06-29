@@ -765,8 +765,8 @@
 				  "mbox7";
 	};
 
-	cpuqos_v3: cpuqos_v3 {
-		compatible = "mediatek,cpuqos_v3";
+	cpuqos_v3: cpuqos-v3@113400 {
+		compatible = "mediatek,cpuqos-v3";
 		reg = <0 0x00113400 0 0x400>;
 		enable = <1>;
 	};
