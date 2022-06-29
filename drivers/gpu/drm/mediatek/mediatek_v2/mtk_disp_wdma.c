@@ -145,7 +145,13 @@
 #define MT6983_OVL_DUMMY_REG	(0x200UL)
 
 #define MT6985_OVL1_2L	0x14403000
-#define MT6985_OVL_DUMMY_REG	(0x200UL)
+#define MT6985_OVLSYS_LARB20	0x1460C000
+#define OVLSYS_WDMA0_PORT		6
+#define MT6985_MMSYS_LARB32		0x1401D000
+#define MMSYS_WDMA1_PORT		5
+#define MT6985_SEC_LARB_OFFSET	0xF80
+#define MT6985_OVL_DUMMY_REG	0x200
+#define MT6985_OVLSYS_DUMMY_OFFSET	0x400
 
 /* AID offset in mmsys config */
 #define MT6895_WDMA0_AID_SEL	(0xB1CUL)
@@ -347,9 +353,13 @@ resource_size_t mtk_wdma_check_sec_reg_MT6983(struct mtk_ddp_comp *comp)
 resource_size_t mtk_wdma_check_sec_reg_MT6985(struct mtk_ddp_comp *comp)
 {
 	switch (comp->id) {
-	case DDP_COMPONENT_WDMA0:
-		return 0;
 	case DDP_COMPONENT_WDMA1:
+	case DDP_COMPONENT_OVLSYS_WDMA0:
+	case DDP_COMPONENT_OVLSYS_WDMA1:
+	case DDP_COMPONENT_OVLSYS_WDMA3:
+		return 0;
+	case DDP_COMPONENT_WDMA0: // w/ TDSHP
+	case DDP_COMPONENT_OVLSYS_WDMA2: // w/o TDSHP
 		return MT6985_OVL1_2L + MT6985_OVL_DUMMY_REG;
 	default:
 		return 0;
@@ -403,14 +413,37 @@ static void mtk_wdma_start(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 	struct mtk_drm_private *priv = comp->mtk_crtc->base.dev->dev_private;
 	resource_size_t mmsys_reg = priv->config_regs_pa;
 	int crtc_idx = drm_crtc_index(&comp->mtk_crtc->base);
+	struct mtk_ddp_comp *output_comp;
 
 	inten = REG_FLD_VAL(INTEN_FLD_FME_CPL_INTEN, 1) |
 		REG_FLD_VAL(INTEN_FLD_FME_UND_INTEN, 1);
 	mtk_ddp_write(comp, WDMA_EN, DISP_REG_WDMA_EN, handle);
 	mtk_ddp_write(comp, inten, DISP_REG_WDMA_INTEN, handle);
 
+	output_comp = mtk_ddp_comp_request_output(comp->mtk_crtc);
+	if (unlikely(!output_comp)) {
+		DDPPR_ERR("%s:invalid output comp\n", __func__);
+		return;
+	}
+
 	if (data->use_larb_control_sec && crtc_idx == 2) {
 		if (disp_sec_cb.cb != NULL) {
+			void __iomem *ovl0_2l_reg_addr;
+
+			switch (priv->data->mmsys_id) {
+			case MMSYS_MT6985:
+				ovl0_2l_reg_addr =
+					comp->mtk_crtc->ovlsys0_regs + MT6985_OVLSYS_DUMMY_OFFSET;
+				if (output_comp->id == DDP_COMPONENT_WDMA0)
+					writel(MT6985_MMSYS_LARB32 + MT6985_SEC_LARB_OFFSET
+						+ (MMSYS_WDMA1_PORT * 0x4), ovl0_2l_reg_addr);
+				else if (output_comp->id == DDP_COMPONENT_OVLSYS_WDMA2)
+					writel(MT6985_OVLSYS_LARB20 + MT6985_SEC_LARB_OFFSET
+						+ (OVLSYS_WDMA0_PORT * 0x4), ovl0_2l_reg_addr);
+				break;
+			default:
+				DDPMSG("Not multi condition platform\n");
+			}
 			if (disp_sec_cb.cb(DISP_SEC_START, NULL, 0, NULL))
 				wdma->wdma_sec_first_time_install = 1;
 		}
