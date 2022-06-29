@@ -51,6 +51,8 @@ enum swpm_type {
 enum pmsr_cmd_action {
 	PMSR_SET_EN,
 	PMSR_SET_SIG_SEL,
+	PMSR_SET_DBG_EN,
+	PMSR_SET_LOG_INTERVAL,
 };
 
 enum power_rail {

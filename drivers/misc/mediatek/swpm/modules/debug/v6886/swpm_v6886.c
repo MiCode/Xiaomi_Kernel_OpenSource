@@ -269,10 +269,8 @@ int swpm_v6886_init(void)
 			  &rec_size);
 	/* CONFIG_PHYS_ADDR_T_64BIT */
 	swpm_info_ref = (struct swpm_rec_data *)rec_virt_addr;
-#if SWPM_TEST
-	pr_notice("rec_virt_addr = 0x%llx, swpm_info_ref = 0x%llx\n",
+	pr_info("rec_virt_addr = 0x%llx, swpm_info_ref = 0x%llx\n",
 		  rec_virt_addr, swpm_info_ref);
-#endif
 #endif
 
 	if (!swpm_info_ref) {

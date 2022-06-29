@@ -273,6 +273,30 @@ void swpm_v6886_ext_init(void)
 {
 	int i, j;
 
+	/* init extension index address */
+	/* swpm_sp_init(sspm_sbuf_get(wrap_d->share_index_ext_addr), */
+	/*     sspm_sbuf_get(wrap_d->share_ctrl_ext_addr)); */
+
+	if (wrap_d) {
+		share_idx_ref_ext =
+		(struct share_index_ext *)
+		sspm_sbuf_get(wrap_d->share_index_ext_addr);
+		share_idx_ctrl_ext =
+		(struct share_ctrl_ext *)
+		sspm_sbuf_get(wrap_d->share_ctrl_ext_addr);
+		mem_swpm_data_ptr =
+		(struct mem_swpm_data *)
+		sspm_sbuf_get(wrap_d->mem_swpm_data_addr);
+		core_swpm_data_ptr =
+		(struct core_swpm_data *)
+		sspm_sbuf_get(wrap_d->core_swpm_data_addr);
+	} else {
+		share_idx_ref_ext = NULL;
+		share_idx_ctrl_ext = NULL;
+		mem_swpm_data_ptr = NULL;
+		core_swpm_data_ptr = NULL;
+	}
+
 	/* core_ip_stats initialize */
 	for (i = 0; i < NR_CORE_IP; i++) {
 		strncpy(core_ip_stats[i].ip_name,
@@ -323,30 +347,6 @@ void swpm_v6886_ext_init(void)
 		}
 	}
 	total_suspend_us = 0;
-
-	/* init extension index address */
-	/* swpm_sp_init(sspm_sbuf_get(wrap_d->share_index_ext_addr), */
-	/*     sspm_sbuf_get(wrap_d->share_ctrl_ext_addr)); */
-
-	if (wrap_d) {
-		share_idx_ref_ext =
-		(struct share_index_ext *)
-		sspm_sbuf_get(wrap_d->share_index_ext_addr);
-		share_idx_ctrl_ext =
-		(struct share_ctrl_ext *)
-		sspm_sbuf_get(wrap_d->share_ctrl_ext_addr);
-		mem_swpm_data_ptr =
-		(struct mem_swpm_data *)
-		sspm_sbuf_get(wrap_d->mem_swpm_data_addr);
-		core_swpm_data_ptr =
-		(struct core_swpm_data *)
-		sspm_sbuf_get(wrap_d->core_swpm_data_addr);
-	} else {
-		share_idx_ref_ext = NULL;
-		share_idx_ctrl_ext = NULL;
-		mem_swpm_data_ptr = NULL;
-		core_swpm_data_ptr = NULL;
-	}
 
 #if SWPM_TEST
 	pr_notice("share_index_ext size = %zu bytes\n",

@@ -34,7 +34,7 @@
 	} while (0)
 
 
-#define SWPM_EXT_DBG (0)
+#define SWPM_EXT_DBG (1)
 
 static ssize_t enable_read(char *ToUser, size_t sz, void *priv)
 {
@@ -141,6 +141,59 @@ static ssize_t swpm_pmsr_en_write(char *FromUser, size_t sz, void *priv)
 static const struct mtk_swpm_sysfs_op swpm_pmsr_en_fops = {
 	.fs_read = swpm_pmsr_en_read,
 	.fs_write = swpm_pmsr_en_write,
+};
+
+static ssize_t swpm_pmsr_dbg_en_write(char *FromUser, size_t sz, void *priv)
+{
+	unsigned int type = 0, val = 0;
+
+	if (!FromUser)
+		return -EINVAL;
+
+	if (sscanf(FromUser, "%x %x", &type, &val) == 2)
+		swpm_set_only_cmd(type, val, PMSR_SET_DBG_EN, PMSR_CMD_TYPE);
+
+	return sz;
+}
+
+static const struct mtk_swpm_sysfs_op swpm_pmsr_dbg_en_fops = {
+	.fs_write = swpm_pmsr_dbg_en_write,
+};
+
+static ssize_t swpm_pmsr_log_interval_write(char *FromUser, size_t sz, void *priv)
+{
+	unsigned int val = 0;
+
+	if (!FromUser)
+		return -EINVAL;
+
+	if (!kstrtouint(FromUser, 0, &val))
+		swpm_set_only_cmd(0, val, PMSR_SET_LOG_INTERVAL, PMSR_CMD_TYPE);
+
+	return sz;
+}
+
+static const struct mtk_swpm_sysfs_op swpm_pmsr_log_interval_fops = {
+	.fs_write = swpm_pmsr_log_interval_write,
+};
+
+static ssize_t swpm_pmsr_sig_sel_write(char *FromUser, size_t sz, void *priv)
+{
+	unsigned int type = 0, val = 0;
+
+	if (!FromUser)
+		return -EINVAL;
+
+	if (sscanf(FromUser, "%d %d", &type, &val) == 2) {
+		swpm_set_only_cmd(type, val,
+				PMSR_SET_SIG_SEL, PMSR_CMD_TYPE);
+	}
+
+	return sz;
+}
+
+static const struct mtk_swpm_sysfs_op swpm_pmsr_sig_sel_fops = {
+	.fs_write = swpm_pmsr_sig_sel_write,
 };
 
 #if SWPM_EXT_DBG
@@ -306,6 +359,13 @@ static void swpm_v6886_dbg_fs_init(void)
 			, 0444, &dump_power_fops, NULL, NULL);
 	mtk_swpm_sysfs_entry_func_node_add("swpm_pmsr_en"
 			, 0644, &swpm_pmsr_en_fops, NULL, NULL);
+	mtk_swpm_sysfs_entry_func_node_add("swpm_pmsr_dbg_en"
+			, 0644, &swpm_pmsr_dbg_en_fops, NULL, NULL);
+	mtk_swpm_sysfs_entry_func_node_add("swpm_pmsr_log_interval"
+			, 0644, &swpm_pmsr_log_interval_fops, NULL, NULL);
+	mtk_swpm_sysfs_entry_func_node_add("swpm_pmsr_sig_sel"
+			, 0644, &swpm_pmsr_sig_sel_fops, NULL, NULL);
+
 #if SWPM_EXT_DBG
 	mtk_swpm_sysfs_entry_func_node_add("swpm_sp_ddr_idx"
 			, 0444, &swpm_sp_ddr_idx_fops, NULL, NULL);
