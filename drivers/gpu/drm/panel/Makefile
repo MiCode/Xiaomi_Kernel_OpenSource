@@ -69,6 +69,7 @@ obj-$(CONFIG_DRM_PANEL_VISIONOX_RM69299) += panel-visionox-rm69299.o
 obj-$(CONFIG_DRM_PANEL_WIDECHIPS_WS2401) += panel-widechips-ws2401.o
 obj-$(CONFIG_DRM_PANEL_XINPENG_XPP055C272) += panel-xinpeng-xpp055c272.o
 obj-$(CONFIG_DRM_PANEL_SAMSUNG_ANA6705_CMD) += panel-samsung-ana6705-cmd.o
+obj-$(CONFIG_DRM_PANEL_SAMSUNG_ANA6705_CMD_FHDP) += panel-samsung-ana6705-cmd-fhdp.o
 obj-$(CONFIG_DRM_PANEL_HX_NT37701_DPHY_CMD) += panel-hx-nt37701-dphy-cmd.o
 obj-$(CONFIG_DRM_PANEL_HX_NT37701_DPHY_CMD_120HZ) += panel-hx-nt37701-dphy-cmd-120hz.o
 obj-$(CONFIG_DRM_PANEL_TRULY_TD4330_VDO) += panel-truly-td4330-vdo.o
