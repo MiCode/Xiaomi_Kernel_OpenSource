@@ -11749,13 +11749,13 @@ int mtk_drm_set_msync_cmd_table(struct drm_device *dev,
 	if (config_dst->level_tb != NULL) {
 		if (copy_from_user(config_src->level_tb,
 					config_dst->level_tb,
-					sizeof(struct msync_parameter_table) *
+					sizeof(struct msync_level_table) *
 					config_src->msync_level_num)) {
 			DDPPR_ERR("%s:%d copy failed:(0x%p,0x%p), size:%ld\n",
 					__func__, __LINE__,
 					config_src->level_tb,
 					config_dst->level_tb,
-					sizeof(struct msync_parameter_table) *
+					sizeof(struct msync_level_table) *
 					config_src->msync_level_num);
 			return -EFAULT;
 		}
