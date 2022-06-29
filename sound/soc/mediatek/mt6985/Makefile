@@ -21,11 +21,13 @@ snd-soc-mt6985-afe-objs += \
 	mt6985-afe-gpio.o \
 	mt6985-dai-adda.o \
 	mt6985-afe-control.o \
+	mt6985-afe-cm.o \
 	mt6985-dai-i2s.o \
 	mt6985-dai-hw-gain.o \
 	mt6985-dai-src.o \
 	mt6985-dai-pcm.o \
 	mt6985-dai-tdm.o \
+	mt6985-dai-etdm.o \
 	mt6985-dai-hostless.o \
 	mt6985-misc-control.o
 

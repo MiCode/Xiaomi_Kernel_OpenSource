@@ -36,6 +36,7 @@ enum {
 	MT6985_MEMIF_DL7,
 	MT6985_MEMIF_DL8,
 	MT6985_MEMIF_DL9,
+	MT6985_MEMIF_DL11,
 	MT6985_MEMIF_DL13,
 	MT6985_MEMIF_DAI,
 	MT6985_MEMIF_DAI2,
@@ -47,6 +48,8 @@ enum {
 	MT6985_MEMIF_VUL5,
 	MT6985_MEMIF_VUL6,
 	MT6985_MEMIF_VUL7,
+	MT6985_MEMIF_VUL8,
+	MT6985_MEMIF_VUL9,
 	MT6985_MEMIF_VUL10,
 	MT6985_MEMIF_VUL11,
 	MT6985_MEMIF_AWB,
@@ -100,6 +103,8 @@ enum {
 	MT6985_DAI_HOSTLESS_UL3,
 	MT6985_DAI_HOSTLESS_UL6,
 	MT6985_DAI_HOSTLESS_DSP_DL,
+	MT6985_DAI_ETDMIN,
+	MT6985_DAI_ETDMOUT,
 	MT6985_DAI_NUM,
 };
 
@@ -259,6 +264,7 @@ int mt6985_dai_hw_gain_register(struct mtk_base_afe *afe);
 int mt6985_dai_src_register(struct mtk_base_afe *afe);
 int mt6985_dai_pcm_register(struct mtk_base_afe *afe);
 int mt6985_dai_tdm_register(struct mtk_base_afe *afe);
+int mt6985_dai_etdm_register(struct mtk_base_afe *afe);
 
 int mt6985_dai_hostless_register(struct mtk_base_afe *afe);
 
