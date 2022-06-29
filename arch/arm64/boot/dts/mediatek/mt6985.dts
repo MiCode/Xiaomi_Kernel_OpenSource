@@ -3703,7 +3703,7 @@
 			/* ccci-spmsleep = <&sleep>; */
 		};
 
-		md_auxadc:md_auxadc {
+		md_auxadc:md-auxadc {
 			compatible = "mediatek,md_auxadc";
 			/* io-channels = <&auxadc 2>; */
 			io-channel-names = "md-channel",
@@ -3722,10 +3722,10 @@
 			compatible = "mediatek,gpio_usage_mapping";
 		};
 
-		md1_sim1_hot_plug_eint:MD1_SIM1_HOT_PLUG_EINT {
+		md1_sim1_hot_plug_eint:MD1-SIM1-HOT-PLUG-EINT {
 		};
 
-		md1_sim2_hot_plug_eint:MD1_SIM2_HOT_PLUG_EINT {
+		md1_sim2_hot_plug_eint:MD1-SIM2-HOT-PLUG-EINT {
 		};
 
 		mrdump_ext_rst:mrdump_ext_rst {
