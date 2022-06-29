@@ -1634,11 +1634,31 @@ static int get_layer_weight(struct drm_device *dev, int disp_idx,
 		print_bwm_table();
 #endif
 		for (i = 0; i < MAX_FRAME_RATIO_NUMBER * MAX_LAYER_RATIO_NUMBER; i++) {
+			if ((unchanged_compress_ratio_table[i].key_value
+				== layer_info->buffer_alloc_id) &&
+				(unchanged_compress_ratio_table[i].valid == 1) &&
+				(unchanged_compress_ratio_table[i].peak_ratio != 0)) {
+				if (unchanged_compress_ratio_table[i].peak_ratio > 1000)
+					weight *= 1000;
+				else
+					weight *= unchanged_compress_ratio_table[i].peak_ratio;
+				do_div(weight, 1000);
+				DDPDBG("BWM: unchanged f_idx:%u alloc_id:%lu ratio:%u weight:%d\n",
+					frame_idx, layer_info->buffer_alloc_id,
+					unchanged_compress_ratio_table[i].peak_ratio, weight);
+				layer_info->layer_caps |= MTK_DISP_UNCHANGED_RATIO_VALID;
+				return weight * bpp;
+			}
+		}
+
+		for (i = 0; i < MAX_FRAME_RATIO_NUMBER * MAX_LAYER_RATIO_NUMBER; i++) {
 			if ((normal_layer_compress_ratio_tb[i].key_value == key_value) &&
 				(normal_layer_compress_ratio_tb[i].valid == 1) &&
-				(normal_layer_compress_ratio_tb[i].peak_ratio != 0) &&
-				(normal_layer_compress_ratio_tb[i].peak_ratio <= 1000)) {
-				weight *= normal_layer_compress_ratio_tb[i].peak_ratio;
+				(normal_layer_compress_ratio_tb[i].peak_ratio != 0)) {
+				if (normal_layer_compress_ratio_tb[i].peak_ratio > 1000)
+					weight *= 1000;
+				else
+					weight *= normal_layer_compress_ratio_tb[i].peak_ratio;
 				do_div(weight, 1000);
 				DDPDBG("BWM:f_idx:%u alloc_id:%lu key:%lu ratio:%u weight:%d\n",
 					frame_idx, layer_info->buffer_alloc_id, key_value,

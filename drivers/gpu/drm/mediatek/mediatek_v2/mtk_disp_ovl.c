@@ -2054,6 +2054,9 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 		temp_bw = temp_bw * vrefresh;
 		do_div(temp_bw, 1000);
 
+		DDPDBG("comp %d bw %llu vtotal:%d vact:%d\n",
+			comp->id, temp_bw, vtotal, vact);
+
 		if (mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_OVL_BW_MONITOR) &&
 			(crtc_idx == 0)) {
 			uint64_t key = 0;
@@ -2077,9 +2080,30 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 					}
 				}
 			} else {
+				int have_get_ratio = 0;
+
 				key = frame_idx + alloc_id - MAX_FRAME_RATIO_NUMBER;
 				for (i = 0; i < MAX_FRAME_RATIO_NUMBER*MAX_LAYER_RATIO_NUMBER;
 					i++) {
+					if ((alloc_id ==
+						unchanged_compress_ratio_table[i].key_value) &&
+						(unchanged_compress_ratio_table[i].average_ratio
+						!= 0) &&
+						(unchanged_compress_ratio_table[i].average_ratio
+						<= 1000)) {
+						avg_ratio =
+						unchanged_compress_ratio_table[i].average_ratio;
+						temp_bw = temp_bw * avg_ratio;
+						do_div(temp_bw, 1000);
+						have_get_ratio = 1;
+						break;
+					}
+				}
+				for (i = 0; i < MAX_FRAME_RATIO_NUMBER*MAX_LAYER_RATIO_NUMBER;
+					i++) {
+					if (have_get_ratio)
+						break;
+
 					if ((key == normal_layer_compress_ratio_tb[i].key_value) &&
 						(normal_layer_compress_ratio_tb[i].average_ratio
 						!= 0) &&
@@ -2097,9 +2121,6 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 			DDPDBG("BWM: ovl frame idx:%u alloc id:%lu key:%lu layer idx:%u bw:%llu\n",
 					frame_idx, alloc_id, key, idx, temp_bw);
 		}
-
-		DDPDBG("comp %d bw %llu vtotal:%d vact:%d\n",
-			comp->id, temp_bw, vtotal, vact);
 
 		if (pending->mml_mode != MML_MODE_RACING) {
 #ifdef IF_ZERO

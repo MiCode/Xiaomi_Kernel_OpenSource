@@ -76,6 +76,8 @@ bool g_msync_debug;
 EXPORT_SYMBOL(g_msync_debug);
 bool g_gpuc_direct_push;
 EXPORT_SYMBOL(g_gpuc_direct_push);
+bool g_ovl_bwm_debug;
+EXPORT_SYMBOL(g_ovl_bwm_debug);
 bool g_profile_log;
 
 bool g_irq_log;
@@ -2151,6 +2153,11 @@ static void process_dbg_opt(const char *opt)
 			g_gpuc_direct_push = 1;
 		else if (strncmp(opt + 8, "off", 3) == 0)
 			g_gpuc_direct_push = 0;
+	} else if (strncmp(opt, "ovl_bwm_debug:", 14) == 0) {
+		if (strncmp(opt + 14, "on", 2) == 0)
+			g_ovl_bwm_debug = 1;
+		else if (strncmp(opt + 14, "off", 3) == 0)
+			g_ovl_bwm_debug = 0;
 	} else if (strncmp(opt, "profile:", 8) == 0) {
 		if (strncmp(opt + 8, "on", 2) == 0)
 			g_profile_log = 1;
@@ -2513,7 +2520,20 @@ static void process_dbg_opt(const char *opt)
 					fbt_layer_compress_ratio_tb[i].valid,
 					fbt_layer_compress_ratio_tb[i].active);
 		}
-
+		DDPINFO("BWMT===== unchanged_compress_ratio_table =====\n");
+		DDPINFO("BWMT===== Item   Frame   Key   avg   peak   valid   active =====\n");
+		for (i = 0; i < MAX_FRAME_RATIO_NUMBER*MAX_LAYER_RATIO_NUMBER; i++) {
+			if ((unchanged_compress_ratio_table[i].key_value) &&
+					(unchanged_compress_ratio_table[i].average_ratio != 0) &&
+					(unchanged_compress_ratio_table[i].peak_ratio != 0))
+				DDPINFO("BWMT===== %4d   %u   %lu   %u   %u   %u   %u =====\n", i,
+					unchanged_compress_ratio_table[i].frame_idx,
+					unchanged_compress_ratio_table[i].key_value,
+					unchanged_compress_ratio_table[i].average_ratio,
+					unchanged_compress_ratio_table[i].peak_ratio,
+					unchanged_compress_ratio_table[i].valid,
+					unchanged_compress_ratio_table[i].active);
+		}
 	} else if (strncmp(opt, "checkt", 6) == 0) { /* check trigger */
 		struct drm_crtc *crtc;
 		struct mtk_drm_crtc *mtk_crtc;

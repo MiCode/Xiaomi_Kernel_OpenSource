@@ -163,5 +163,6 @@ extern bool g_fence_log;
 extern bool g_irq_log;
 extern bool g_detail_log;
 extern bool g_gpuc_direct_push;
+extern bool g_ovl_bwm_debug;
 extern bool g_profile_log;
 #endif
