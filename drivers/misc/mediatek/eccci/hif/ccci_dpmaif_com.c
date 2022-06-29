@@ -2352,16 +2352,18 @@ static int dpmaif_pre_stop(unsigned char hif_id)
 		return -1;
 
 	if (dpmaif_txqs_hw_stop())
-		return -1;
+		CCCI_ERROR_LOG(0, TAG, "[%s] error: dpmaif_txqs_hw_stop() fail.\n", __func__);
 
 	if (dpmaif_rxqs_hw_stop())
-		return -1;
+		CCCI_ERROR_LOG(0, TAG, "[%s] error: dpmaif_rxqs_hw_stop() fail.\n", __func__);
 
 	return 0;
 }
 
 static int dpmaif_stop(unsigned char hif_id)
 {
+	int txq_err = 0, rxq_err = 0;
+
 	if (dpmaif_ctl->dpmaif_state == DPMAIF_STATE_PWROFF ||
 		dpmaif_ctl->dpmaif_state == DPMAIF_STATE_MIN)
 		return 0;
@@ -2375,11 +2377,9 @@ static int dpmaif_stop(unsigned char hif_id)
 
 	dpmaif_disable_all_irq();
 
-	if (dpmaif_txqs_hw_stop())
-		goto occur_err;
+	txq_err = dpmaif_txqs_hw_stop();
 
-	if (dpmaif_rxqs_hw_stop())
-		goto occur_err;
+	rxq_err = dpmaif_rxqs_hw_stop();
 
 	dpmaif_txqs_sw_stop();
 
@@ -2396,9 +2396,9 @@ static int dpmaif_stop(unsigned char hif_id)
 		dpmaif_set_clk(0, dpmaif_ctl->clk_tbs);
 	}
 
-	return 0;
+	if (!txq_err && !rxq_err)
+		return 0;
 
-occur_err:
 	ccci_md_force_assert(MD_FORCE_ASSERT_BY_AP_Q0_BLOCKED, NULL, 0);
 
 	return -1;
