@@ -551,6 +551,10 @@ static void mtk_drm_idlemgr_enable_crtc(struct drm_crtc *crtc)
 			(!mtk_crtc_is_frame_trigger_mode(crtc)))
 			mtk_crtc_start_sodi_loop(crtc);
 
+		if (mtk_crtc_with_event_loop(crtc) &&
+			(mtk_crtc_is_frame_trigger_mode(crtc)))
+			mtk_crtc_start_event_loop(crtc);
+
 		mtk_crtc_start_trig_loop(crtc);
 		mtk_crtc_hw_block_ready(crtc);
 	}
