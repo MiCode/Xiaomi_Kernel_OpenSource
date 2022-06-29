@@ -883,7 +883,7 @@
 				scmi_gpupm = <6>;
 				scmi-plt = <7>;
 				scmi_smi = <8>;
-				scmi_cm = <9>;
+				scmi-cm = <9>;
 				scmi-slbc = <10>;
 				scmi_ssc = <11>;
 				scmi_apmcupm = <12>;
