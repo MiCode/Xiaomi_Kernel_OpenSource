@@ -146,6 +146,14 @@ static void mtk_uart_apdma_start_tx(struct mtk_chan *c)
 
 	vff_sz = c->cfg.dst_port_window_size;
 
+	wpt = mtk_uart_apdma_read(c, VFF_ADDR);
+	if (wpt == ((unsigned int)d->addr)) {
+		mtk_uart_apdma_write(c, VFF_ADDR, 0);
+		mtk_uart_apdma_write(c, VFF_THRE, 0);
+		mtk_uart_apdma_write(c, VFF_LEN, 0);
+		mtk_uart_apdma_write(c, VFF_RST, VFF_WARM_RST_B);
+	}
+
 	if (!mtk_uart_apdma_read(c, VFF_LEN)) {
 		mtk_uart_apdma_write(c, VFF_ADDR, d->addr);
 		mtk_uart_apdma_write(c, VFF_LEN, vff_sz);
