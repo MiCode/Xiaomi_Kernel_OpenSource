@@ -4,6 +4,7 @@
  */
 #include <linux/clk.h>
 #include <linux/init.h>
+#include <linux/interrupt.h>
 #include <linux/io.h>
 #include <linux/iopoll.h>
 #include <linux/module.h>
@@ -31,6 +32,8 @@
 
 #define MTK_POLL_DELAY_US		10
 #define MTK_POLL_TIMEOUT		USEC_PER_SEC
+#define MTK_POLL_DELAY_US		10
+#define MTK_POLL_100MS_TIMEOUT		(100 * USEC_PER_MSEC)
 #define MTK_POLL_IRQ_DELAY_US		3
 #define MTK_POLL_IRQ_TIMEOUT		USEC_PER_SEC
 #define MTK_POLL_HWV_PREPARE_CNT	100
@@ -110,6 +113,8 @@ static const char *bus_list[BUS_TYPE_NUM] = {
 };
 
 static bool scpsys_init_flag;
+static int hwv_irq;
+static bool hwv_timeout;
 static BLOCKING_NOTIFIER_HEAD(scpsys_notifier_list);
 
 int register_scpsys_notifier(struct notifier_block *nb)
@@ -468,7 +473,7 @@ static int scpsys_bus_protect_disable(struct scp_domain *scpd, unsigned int inde
 			/* reserve bus register status */
 			regmap_read(map, bp.en_ofs, &val);
 			regmap_read(map, bp.sta_ofs, &val2);
-			pr_notice("[%d] bus en: 0x08%x, sta: 0x08%x before restore\n",
+			pr_notice("[%d] bus en: 0x%08x, sta: 0x%08x before restore\n",
 					i, val, val2);
 			/* restore bus protect setting */
 			clear_bus_protection(map, &bp);
@@ -1016,8 +1021,11 @@ static int scpsys_hwv_power_on(struct generic_pm_domain *genpd)
 
 	/* wait until VOTER_ACK = 1 */
 	ret = readx_poll_timeout_atomic(mtk_hwv_is_enable_done, scpd, tmp, tmp > 0,
-			MTK_POLL_DELAY_US, MTK_POLL_TIMEOUT);
+			MTK_POLL_DELAY_US, MTK_POLL_100MS_TIMEOUT);
 	if (ret < 0)
+		goto err_hwv_done;
+
+	if (hwv_timeout)
 		goto err_hwv_done;
 
 	scpsys_clk_disable(scpd->lp_clk, MAX_CLKS);
@@ -1031,13 +1039,10 @@ err_hwv_vote:
 err_hwv_prepare:
 	regmap_read(scp->hwv_regmap, scpd->data->hwv_done_ofs, &val);
 	dev_err(scp->dev, "Failed to hwv prepare timeout %s(%d %x)\n", genpd->name, ret, val);
-	scpsys_clk_disable(scpd->lp_clk, MAX_CLKS);
 err_lp_clk:
 	dev_err(scp->dev, "Failed to enable lp clk %s(%d)\n", genpd->name, ret);
-	scpsys_clk_disable(scpd->clk, MAX_CLKS);
 err_clk:
 	dev_err(scp->dev, "Failed to enable clk %s(%d)\n", genpd->name, ret);
-	scpsys_regulator_disable(scpd);
 err_regulator:
 	dev_err(scp->dev, "Failed to power on domain %s(%d)\n", genpd->name, ret);
 
@@ -1081,8 +1086,11 @@ static int scpsys_hwv_power_off(struct generic_pm_domain *genpd)
 
 	/* wait until VOTER_ACK = 0 */
 	ret = readx_poll_timeout_atomic(mtk_hwv_is_disable_done, scpd, tmp, tmp > 0,
-			MTK_POLL_DELAY_US, MTK_POLL_TIMEOUT);
+			MTK_POLL_DELAY_US, MTK_POLL_100MS_TIMEOUT);
 	if (ret < 0)
+		goto err_hwv_done;
+
+	if (hwv_timeout)
 		goto err_hwv_done;
 
 	scpsys_clk_disable(scpd->clk, MAX_CLKS);
@@ -1205,6 +1213,37 @@ static unsigned int mtk_pd_get_performance(struct generic_pm_domain *genpd,
 					   struct dev_pm_opp *opp)
 {
 	return dev_pm_opp_get_level(opp);
+}
+
+static irqreturn_t hwv_irq_handler(int irq, void *dev_id)
+{
+	disable_irq_nosync(irq);
+
+	if (likely(irq == hwv_irq))
+		hwv_timeout = true;
+
+	return IRQ_HANDLED;
+}
+
+static void mtk_scpsys_hwv_irq_init(struct platform_device *pdev)
+{
+	int ret;
+
+	hwv_irq = platform_get_irq_byname(pdev, "hwv_irq");
+	if (hwv_irq < 0) {
+		pr_notice("[scpsys] get hwv irq is not support\n");
+	} else {
+		ret = request_irq(hwv_irq, hwv_irq_handler, IRQF_TRIGGER_NONE, "HWV IRQ", NULL);
+		if (ret < 0) {
+			pr_notice("[scpsys]hwv require irq fail %d %d\n",
+				hwv_irq, ret);
+		} else {
+			ret = enable_irq_wake(hwv_irq);
+			if (ret < 0)
+				pr_notice("[scpsys]hwv wake fail:%d,%d\n",
+					hwv_irq, ret);
+		}
+	}
 }
 
 static int mtk_pd_get_regmap(struct platform_device *pdev, struct regmap **regmap,
@@ -1365,6 +1404,8 @@ struct scp *init_scp(struct platform_device *pdev,
 				mtk_pd_get_performance;
 		}
 	}
+
+	mtk_scpsys_hwv_irq_init(pdev);
 
 	return scp;
 }
