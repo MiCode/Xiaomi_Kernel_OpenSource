@@ -307,6 +307,9 @@ void mtk_ccci_dump_args_info(void);
 
 int mtk_ccci_get_lk_load_md_info(char buf[], int size);
 
+const char *ccci_get_md_product_str(unsigned int val);
+const char *ccci_get_md_cap_str(unsigned int val);
+
 
 #define MAX_MD_NUM_AT_LK	(4)
 

@@ -80,8 +80,10 @@ int mtk_ccci_find_args_val(const char key[], unsigned char o_val[], unsigned int
 
 
 	idx = is_key_exist(key, key_size);
-	if (idx < 0)
-		return 0;
+	if (idx < 0) {
+		pr_info("ccci: %s(line:%d): Key[%s] not exist\n", __func__, __LINE__, key);
+		return -1;
+	}
 
 	if (!o_val)
 		return (int)s_args_tbl[idx].val_size;

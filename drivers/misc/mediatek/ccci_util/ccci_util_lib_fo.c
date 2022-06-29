@@ -504,8 +504,9 @@ static void md_mem_info_parsing(void)
 		return;
 	}
 
-	mtk_ccci_find_args_val("hdr_tbl_inf", (unsigned char *)&md_inf,
-				sizeof(struct _modem_info));
+	if (mtk_ccci_find_args_val("hdr_tbl_inf", (unsigned char *)&md_inf,
+				sizeof(struct _modem_info)) < 0)
+		CCCI_UTIL_INF_MSG("[hdr_tbl_inf] get fail, will pasing invalid data\n");
 
 	/* MD ROM and RW part */
 #ifdef LK_LOAD_MD_INFO_DEBUG_EN
@@ -611,7 +612,9 @@ static void md_chk_hdr_info_parse(void)
 		md1_check_hdr_info_size = ret;
 
 		/* Get MD1 raw image size */
-		mtk_ccci_find_args_val("md1img", (unsigned char *)&md1_raw_img_size, sizeof(int));
+		if (mtk_ccci_find_args_val("md1img", (unsigned char *)&md1_raw_img_size,
+				sizeof(int)) < 0)
+			CCCI_UTIL_ERR_MSG("key [md1img] get fail, parsing is not safe\n");
 	}
 }
 
@@ -736,7 +739,7 @@ int __weak free_reserved_memory(phys_addr_t start_phys, phys_addr_t end_phys)
 
 static void dump_retrieve_info(void)
 {
-	int retrieve_num, i;
+	int retrieve_num = 0, i;
 	u64 array[2], md1_mem_addr;
 	char buf[32];
 	int ret = 0;
@@ -746,7 +749,7 @@ static void dump_retrieve_info(void)
 
 	if (mtk_ccci_find_args_val("retrieve_num",
 			(unsigned char *)&retrieve_num, (int)sizeof(int)) < 0) {
-		CCCI_UTIL_ERR_MSG("get retrieve_num failed.\n");
+		CCCI_UTIL_ERR_MSG("Retrieve_num NA.\n");
 		return;
 	}
 
@@ -1183,7 +1186,9 @@ static void cal_md_settings_v2(struct device_node *node)
 	/* CFG version */
 	scnprintf(tmp_buf, 30, "mediatek,version");
 	tmp = 0;
-	of_property_read_u32(node, tmp_buf, &tmp);
+	if (of_property_read_u32(node, tmp_buf, &tmp) < 0)
+		CCCI_UTIL_INF_MSG("DT[mediatek,version]:NA\n");
+
 	CCCI_UTIL_INF_MSG("DT[%s]:%08X\n", tmp_buf, tmp);
 	if (tmp != 1) {
 		CCCI_UTIL_INF_MSG("Un-support version:%d\n", tmp);

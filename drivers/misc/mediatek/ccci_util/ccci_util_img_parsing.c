@@ -223,17 +223,17 @@ static const char * const md_img_type_str[] = {
 };
 
 
-static const char * const product_str[] = {
+static const char * const md_product_str[] = {
 	"INVALID",
 	"Debug",
 	"Release"
 };
 
-static const char *get_product_str(unsigned int val)
+static const char *get_md_product_str(unsigned int val)
 {
-	if (val >= ARRAY_SIZE(product_str))
-		return product_str[0];
-	return product_str[val];
+	if (val >= ARRAY_SIZE(md_product_str))
+		return md_product_str[0];
+	return md_product_str[val];
 }
 
 static const char *get_md_cap_str(unsigned int val)
@@ -242,6 +242,18 @@ static const char *get_md_cap_str(unsigned int val)
 		return md_img_type_str[0];
 	return md_img_type_str[val];
 }
+
+/* Fix me, phase out this two function later */
+const char *ccci_get_md_product_str(unsigned int val)
+{
+	return get_md_product_str(val);
+}
+
+const char *ccci_get_md_cap_str(unsigned int val)
+{
+	return get_md_cap_str(val);
+}
+
 
 static unsigned int append_str(unsigned char buf[], unsigned int size, const char *new_sub)
 {
@@ -254,9 +266,10 @@ static unsigned int append_str(unsigned char buf[], unsigned int size, const cha
 	return 0;
 }
 
+#define MD_EE_STR_BUFF_SIZE	(512)
 int mtk_ccci_compatible_md_chk_hdr_parsing(void)
 {
-	int ret = -1;
+	int ret;
 	struct md_chk_hdr_common *head = NULL;
 	unsigned char *tmp_buf = NULL;
 	unsigned char *hdr_buf = NULL;
@@ -276,7 +289,7 @@ int mtk_ccci_compatible_md_chk_hdr_parsing(void)
 		CCCI_UTIL_INF_MSG("%s(%d) alloc buff fail\n", __func__, __LINE__);
 		goto _free_buf;
 	}
-	md_ee_str = kmalloc(512, GFP_KERNEL);
+	md_ee_str = kmalloc(MD_EE_STR_BUFF_SIZE, GFP_KERNEL);
 	if (!md_ee_str) {
 		CCCI_UTIL_INF_MSG("%s(%d) alloc buff fail\n", __func__, __LINE__);
 		goto _free_buf;
@@ -321,70 +334,73 @@ int mtk_ccci_compatible_md_chk_hdr_parsing(void)
 	}
 
 	// MD:
-	new_used = append_str(md_ee_str, 512 - used, "MD:");
+	new_used = append_str(md_ee_str, MD_EE_STR_BUFF_SIZE - used, "MD:");
 	used += new_used;
 
 	// MD:ulwtg
-	new_used = append_str(&md_ee_str[used], 512 - used, get_md_cap_str(head->image_type));
+	new_used = append_str(&md_ee_str[used], MD_EE_STR_BUFF_SIZE - used,
+				get_md_cap_str(head->image_type));
 	used += new_used;
 
 	// MD:ulwtg*MTxxxx_S00
 	memcpy(tmp_buf, head->platform, 16);
 	tmp_buf[16] = 0;
 	mtk_ccci_add_new_args("md_platform", tmp_buf, 17, FROM_KERNEL);
-	new_used = append_str(&md_ee_str[used], 512 - used, "*");
+	new_used = append_str(&md_ee_str[used], MD_EE_STR_BUFF_SIZE - used, "*");
 	used += new_used;
-	new_used = append_str(&md_ee_str[used], 512 - used, tmp_buf);
+	new_used = append_str(&md_ee_str[used], MD_EE_STR_BUFF_SIZE - used, tmp_buf);
 	used += new_used;
 
 	// MD:ulwtg*MTxxxx_S00*NR16.R1.xxxxx
 	memcpy(tmp_buf, head->build_ver, 64);
 	tmp_buf[64] = 0;
 	mtk_ccci_add_new_args("md_build_version", tmp_buf, 65, FROM_KERNEL);
-	new_used = append_str(&md_ee_str[used], 512 - used, "*");
+	new_used = append_str(&md_ee_str[used], MD_EE_STR_BUFF_SIZE - used, "*");
 	used += new_used;
-	new_used = append_str(&md_ee_str[used], 512 - used, tmp_buf);
+	new_used = append_str(&md_ee_str[used], MD_EE_STR_BUFF_SIZE - used, tmp_buf);
 	used += new_used;
 
 	// MD:ulwtg*MTxxxx_S00*NR16.R1.xxxxx*20xx/xx/xx 00:00*YYYY*ZZZ
 	memcpy(tmp_buf, head->build_time, 64);
 	tmp_buf[64] = 0;
 	mtk_ccci_add_new_args("md_build_time", tmp_buf, 65, FROM_KERNEL);
-	new_used = append_str(&md_ee_str[used], 512 - used, "*");
+	new_used = append_str(&md_ee_str[used], MD_EE_STR_BUFF_SIZE - used, "*");
 	used += new_used;
-	new_used = append_str(&md_ee_str[used], 512 - used, tmp_buf);
+	new_used = append_str(&md_ee_str[used], MD_EE_STR_BUFF_SIZE - used, tmp_buf);
 	used += new_used;
 
 	// MD:ulwtg*MTxxxx_S00*NR16.R1.xxxxx*20xx/xx/xx 00:00*YYYY*ZZZ*Release
 	mtk_ccci_add_new_args("md_product_version", (unsigned char *)&head->product_ver, 4
 				, FROM_KERNEL);
-	new_used = append_str(&md_ee_str[used], 512 - used, "*");
+	new_used = append_str(&md_ee_str[used], MD_EE_STR_BUFF_SIZE - used, "*");
 	used += new_used;
-	new_used = append_str(&md_ee_str[used], 512 - used, get_product_str(head->product_ver));
+	new_used = append_str(&md_ee_str[used], MD_EE_STR_BUFF_SIZE - used,
+				get_md_product_str(head->product_ver));
 	used += new_used;
 
 	// \nAP:
-	new_used = append_str(&md_ee_str[used], 512 - used, "\nAP:");
+	new_used = append_str(&md_ee_str[used], MD_EE_STR_BUFF_SIZE - used, "\nAP:");
 	used += new_used;
 
 	//\nAP:ulwtg
-	new_used = append_str(&md_ee_str[used], 512 - used, get_md_cap_str(head->image_type));
+	new_used = append_str(&md_ee_str[used], MD_EE_STR_BUFF_SIZE - used,
+				get_md_cap_str(head->image_type));
 	used += new_used;
 
 	//\nAP:ulwtg*MTyyyy
 	ret = mtk_ccci_find_args_val("ap_platform", (unsigned char *)&platform, sizeof(platform));
 	if (ret)
-		scnprintf(tmp_buf, 512, "*MT%u", platform);
+		scnprintf(tmp_buf, MD_EE_STR_BUFF_SIZE, "*MT%u", platform);
 	else
-		scnprintf(tmp_buf, 512, "*MT0000");
-	new_used = append_str(&md_ee_str[used], 512 - used, tmp_buf);
+		scnprintf(tmp_buf, MD_EE_STR_BUFF_SIZE, "*MT0000");
+	new_used = append_str(&md_ee_str[used], MD_EE_STR_BUFF_SIZE - used, tmp_buf);
 	used += new_used;
 
 	//\nAP:ulwtg*MTyyyy*AAAAAAAAA (MD)BBBBBBBB\n
 	mtk_ccci_add_new_args("md_mem_size", (unsigned char *)&head->mem_size, sizeof(int)
 				, FROM_KERNEL);
 	scnprintf(tmp_buf, 128, "*%08x (MD)%08x\n", head->mem_size, head->mem_size);
-	new_used = append_str(&md_ee_str[used], 512 - used, tmp_buf);
+	new_used = append_str(&md_ee_str[used], MD_EE_STR_BUFF_SIZE - used, tmp_buf);
 	used += new_used;
 
 	mtk_ccci_add_new_args("md_ee_img_inf", md_ee_str, used, FROM_KERNEL);

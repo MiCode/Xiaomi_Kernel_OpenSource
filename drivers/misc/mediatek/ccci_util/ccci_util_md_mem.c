@@ -579,22 +579,13 @@ static int get_md_smem_layout_tbl_from_lk_legacy_tag(void)
 }
 
 
-/* Fix me */
-static void __iomem *map_phy_addr(unsigned long long base, unsigned int size)
-{
-	/* Note： this is just a test function, the virtual address is dummy */
-	return (void __iomem *)(base + 0xF000000000000000LL);
-}
-
-
 static int map_and_update_tbl(struct rt_smem_region_lk_fmt *tbl, u32 start, u32 end,
 				u64 base, u32 size)
 {
 	void __iomem *vir_addr;
 	u32 i;
 
-	//vir_addr = ccci_map_phy_addr(base, size); /* Fix me for later */
-	vir_addr = map_phy_addr(base, size);
+	vir_addr = ccci_map_phy_addr(base, size);
 	if (!vir_addr) {
 		pr_info("ccci: %s for 0x%016llx[0x%08x] smem fail\n", __func__, base, size);
 		return -1;
@@ -655,7 +646,7 @@ static void smem_layout_dump(const char name[], struct rt_smem_region_lk_fmt *rt
 {
 	unsigned int i;
 
-	CCCI_UTIL_INF_MSG("------- Dump %s datails -------------\n", name);
+	CCCI_UTIL_INF_MSG("------- Dump %s details -------------\n", name);
 	for (i = 0; i < num; i++)
 		CCCI_UTIL_INF_MSG("%03u-%03d-%016llX-%016llX-%08X-%08X-%08X-%08X-%u\n",
 			i, rt_tbl[i].inf.id, rt_tbl[i].ap_phy, rt_tbl[i].ap_vir,
@@ -724,8 +715,6 @@ u32 mtk_ccci_get_smem_by_id(enum SMEM_USER_ID user_id,
 {
 	if (user_id >= SMEM_USER_MAX)
 		return 0;
-	if (user_id < 0)
-		return 0;
 
 	if (!s_smem_hash_tbl[user_id]) {
 		pr_info("ccci: %s hash table[%d] is NULL\n", __func__, user_id);
@@ -792,7 +781,7 @@ EXPORT_SYMBOL(mtk_ccci_get_smem_phy_start_addr);
 unsigned int mtk_ccci_get_md_nc_smem_inf(void __iomem **o_ap_vir, phys_addr_t *o_ap_phy,
 						u32 *o_md_phy)
 {
-	if (s_md_nc_smem_tbl || s_md_nc_smem_item_num) {
+	if (s_md_nc_smem_tbl && s_md_nc_smem_item_num) {
 		if (o_ap_vir)
 			*o_ap_vir = (void __iomem *)s_md_nc_smem_tbl[0].ap_vir;
 		if (o_ap_phy)
@@ -805,6 +794,7 @@ unsigned int mtk_ccci_get_md_nc_smem_inf(void __iomem **o_ap_vir, phys_addr_t *o
 
 	return 0;
 }
+EXPORT_SYMBOL(mtk_ccci_get_md_nc_smem_inf);
 
 unsigned int mtk_ccci_get_md_nc_smem_mpu_size(void)
 {
@@ -814,7 +804,7 @@ unsigned int mtk_ccci_get_md_nc_smem_mpu_size(void)
 unsigned int mtk_ccci_get_md_c_smem_inf(void __iomem **o_ap_vir, phys_addr_t *o_ap_phy,
 					u32 *o_md_phy)
 {
-	if (s_md_c_smem_tbl || s_md_c_smem_item_num) {
+	if (s_md_c_smem_tbl && s_md_c_smem_item_num) {
 		if (o_ap_vir)
 			*o_ap_vir = (void __iomem *)s_md_c_smem_tbl[0].ap_vir;
 		if (o_ap_phy)
@@ -827,6 +817,7 @@ unsigned int mtk_ccci_get_md_c_smem_inf(void __iomem **o_ap_vir, phys_addr_t *o_
 
 	return 0;
 }
+EXPORT_SYMBOL(mtk_ccci_get_md_c_smem_inf);
 
 unsigned int mtk_ccci_get_md_c_smem_mpu_size(void)
 {
