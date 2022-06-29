@@ -218,9 +218,8 @@ uint32_t print_unexpected_id(struct mdfpm_log *mdfpm_log_buf, uint32_t buf_len, 
 	uint32_t i, size, idx = 0;
 	char buffer[MDFPM_SEND_LOG_BUF_SZ];
 
-	for (i = 0; i < buf_len; i++) {
-		idx += snprintf(&buffer[idx], buf_len-idx, "%u", mdfpm_log_buf->buf+i);
-	}
+	for (i = 0; i < buf_len; i++)
+		idx += snprintf(&buffer[idx], buf_len-idx, "%u", mdfpm_log_buf->buf[i]);
 	size = snprintf(str_dstate, MDFPM_SEND_LOG_BUF_SZ,
 			"[MDDP_WH] Unexpected id, buffer:%s", buffer);
 	MDDP_S_LOG(MDDP_LL_DEBUG, "%s\n", str_dstate);
