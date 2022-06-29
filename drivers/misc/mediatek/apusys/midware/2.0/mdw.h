@@ -220,6 +220,11 @@ struct mdw_device {
 	struct mutex m_mtx;
 	struct mutex mctl_mtx;
 
+	/* cmd clear wq */
+	struct mutex c_mtx;
+	struct list_head d_cmds;
+	struct work_struct c_wk;
+
 	/* device functions */
 	const struct mdw_dev_func *dev_funcs;
 	void *dev_specific;
@@ -295,7 +300,8 @@ struct mdw_cmd {
 	struct mdw_subcmd_link_v1 *links;
 
 	struct mutex mtx;
-	struct list_head map_invokes; // mdw_cmd_map_invoke
+	struct list_head map_invokes; //mdw_cmd_map_invoke
+	struct list_head d_node; //mdev->d_cmds
 
 	int id;
 	struct kref ref;
@@ -356,6 +362,7 @@ int mdw_mem_ioctl(struct mdw_fpriv *mpriv, void *data);
 int mdw_cmd_ioctl(struct mdw_fpriv *mpriv, void *data);
 int mdw_util_ioctl(struct mdw_fpriv *mpriv, void *data);
 
+void mdw_cmd_put(struct mdw_cmd *c);
 int mdw_cmd_invoke_map(struct mdw_cmd *c, struct mdw_mem_map *map);
 void mdw_cmd_mpriv_release(struct mdw_fpriv *mpriv);
 void mdw_mem_mpriv_release(struct mdw_fpriv *mpriv);

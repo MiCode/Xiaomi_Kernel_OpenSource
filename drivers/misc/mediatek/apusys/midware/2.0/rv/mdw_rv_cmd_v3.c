@@ -164,7 +164,6 @@ static struct mdw_rv_cmd *mdw_rv_cmd_create(struct mdw_fpriv *mpriv,
 	struct mdw_rv_sc_link *rl = NULL;
 
 	mdw_trace_begin("apumdw:rv_cmd_create");
-	mutex_lock(&mpriv->mtx);
 
 	/* reuse internal cmd if exist */
 	if (c->internal_cmd) {
@@ -315,7 +314,6 @@ free_rc:
 	kfree(rc);
 	rc = NULL;
 out:
-	mutex_unlock(&mpriv->mtx);
 	mdw_trace_end();
 	return rc;
 }

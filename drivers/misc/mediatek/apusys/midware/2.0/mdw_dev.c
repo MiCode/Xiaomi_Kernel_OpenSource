@@ -7,12 +7,33 @@
 
 #include "mdw_cmn.h"
 
+
+static void mdw_dev_clear_cmd_func(struct work_struct *wk)
+{
+	struct mdw_device *mdev =
+		container_of(wk, struct mdw_device, c_wk);
+	struct mdw_cmd *c = NULL, *tmp = NULL;
+	struct mdw_fpriv *mpriv = NULL;
+
+	mutex_lock(&mdev->c_mtx);
+	list_for_each_entry_safe(c, tmp, &mdev->d_cmds, d_node) {
+		list_del(&c->d_node);
+		mpriv = c->mpriv;
+		mdw_cmd_put(c);
+	}
+	mutex_unlock(&mdev->c_mtx);
+}
+
 int mdw_dev_init(struct mdw_device *mdev)
 {
 	int ret = -ENODEV;
 
 	mdw_drv_info("mdw dev init type(%d-%u)\n",
 		mdev->driver_type, mdev->mdw_ver);
+
+	INIT_LIST_HEAD(&mdev->d_cmds);
+	mutex_init(&mdev->c_mtx);
+	INIT_WORK(&mdev->c_wk, &mdw_dev_clear_cmd_func);
 
 	switch (mdev->driver_type) {
 	case MDW_DRIVER_TYPE_PLATFORM:

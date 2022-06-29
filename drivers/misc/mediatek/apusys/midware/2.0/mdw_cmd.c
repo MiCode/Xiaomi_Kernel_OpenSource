@@ -349,6 +349,7 @@ void mdw_cmd_mpriv_release(struct mdw_fpriv *mpriv)
 	if (!atomic_read(&mpriv->active) && !atomic_read(&mpriv->active_cmds)) {
 		mdw_flw_debug("s(0x%llx) release cmd\n", (uint64_t)mpriv);
 		idr_for_each_entry(&mpriv->cmds, c, id) {
+			idr_remove(&mpriv->cmds, id);
 			mdw_cmd_delete(c);
 		}
 		mdw_flw_debug("s(0x%llx) release mem\n", (uint64_t)mpriv);
@@ -475,7 +476,7 @@ static void mdw_cmd_release(struct kref *ref)
 	mdw_trace_end();
 }
 
-static void mdw_cmd_put(struct mdw_cmd *c)
+void mdw_cmd_put(struct mdw_cmd *c)
 {
 	kref_put(&c->ref, mdw_cmd_release);
 }
@@ -487,11 +488,20 @@ static void mdw_cmd_get(struct mdw_cmd *c)
 
 static void mdw_cmd_delete(struct mdw_cmd *c)
 {
-	struct mdw_fpriv *mpriv = c->mpriv;
-
 	mdw_cmd_show(c, mdw_drv_debug);
-	idr_remove(&mpriv->cmds, c->id);
 	mdw_cmd_put(c);
+}
+
+static void mdw_cmd_delete_async(struct mdw_cmd *c)
+{
+	struct mdw_device *mdev = c->mpriv->mdev;
+
+	/* add cmd list to delete */
+	mutex_lock(&mdev->c_mtx);
+	list_add_tail(&c->d_node, &mdev->d_cmds);
+	mutex_unlock(&mdev->c_mtx);
+
+	schedule_work(&mdev->c_wk);
 }
 
 static int mdw_cmd_sanity_check(struct mdw_cmd *c)
@@ -724,31 +734,6 @@ static struct mdw_cmd *mdw_cmd_create(struct mdw_fpriv *mpriv,
 	struct mdw_cmd *c = NULL;
 
 	mdw_trace_begin("apumdw:cmd_create|s:0x%llx", (uint64_t)mpriv);
-	mutex_lock(&mpriv->mtx);
-
-	/* get stale cmd */
-	c = (struct mdw_cmd *)idr_find(&mpriv->cmds, in->id);
-	if (!c) {
-		/* no stale cmd, create cmd */
-		mdw_cmd_debug("s(0x%llx) create new\n", (uint64_t)mpriv);
-	} else if (in->op == MDW_CMD_IOCTL_RUN_STALE) {
-		/* run stale cmd */
-		mdw_cmd_debug("s(0x%llx) run stale(0x%llx)\n",
-			(uint64_t)mpriv, (uint64_t)c);
-		mutex_lock(&c->mtx);
-		if (mdw_fence_init(c)) {
-			mdw_drv_err("cmd init fence fail\n");
-			c = NULL;
-		}
-		mutex_unlock(&c->mtx);
-		goto out;
-	} else {
-		/* release stale cmd and create new */
-		mdw_cmd_debug("s(0x%llx) delete stale(0x%llx) and create new\n",
-			(uint64_t)mpriv, (uint64_t)c);
-		mdw_cmd_delete(c);
-		c = NULL;
-	}
 
 	/* check num subcmds maximum */
 	if (in->exec.num_subcmds > MDW_SUBCMD_MAX) {
@@ -849,19 +834,6 @@ static struct mdw_cmd *mdw_cmd_create(struct mdw_fpriv *mpriv,
 		goto free_link;
 	}
 
-	/* alloc idr */
-	c->id = idr_alloc(&mpriv->cmds, c, MDW_CMD_IDR_MIN, MDW_CMD_IDR_MAX, GFP_KERNEL);
-	if (c->id < MDW_CMD_IDR_MIN) {
-		mdw_drv_err("alloc idr fail(%d)\n", c->id);
-		goto delete_infos;
-	}
-
-	/* init fence */
-	if (mdw_fence_init(c)) {
-		mdw_drv_err("cmd init fence fail\n");
-		goto delete_idr;
-	}
-
 	c->mpriv->get(c->mpriv);
 	c->complete = mdw_cmd_complete;
 	INIT_WORK(&c->t_wk, &mdw_cmd_trigger_func);
@@ -870,10 +842,6 @@ static struct mdw_cmd *mdw_cmd_create(struct mdw_fpriv *mpriv,
 
 	goto out;
 
-delete_idr:
-	idr_remove(&mpriv->cmds, c->id);
-delete_infos:
-	mdw_cmd_delete_infos(mpriv, c);
 free_link:
 	kfree(c->links);
 free_adj:
@@ -888,7 +856,6 @@ free_cmd:
 	kfree(c);
 	c = NULL;
 out:
-	mutex_unlock(&mpriv->mtx);
 	mdw_trace_end();
 	return c;
 }
@@ -899,15 +866,21 @@ static int mdw_cmd_ioctl_del(struct mdw_fpriv *mpriv, union mdw_cmd_args *args)
 	struct mdw_cmd *c = NULL;
 	int ret = 0;
 
+	mdw_trace_begin("apumdw:user_delete");
+
 	mutex_lock(&mpriv->mtx);
 	c = (struct mdw_cmd *)idr_find(&mpriv->cmds, in->id);
 	if (!c) {
 		ret = -EINVAL;
 		mdw_drv_warn("can't find id(%d)\n", in->id);
 	} else {
+		if (c != idr_remove(&mpriv->cmds, c->id))
+			mdw_drv_warn("remove cmd idr conflict(0x%llx/%d)\n", c->kid, c->id);
 		mdw_cmd_delete(c);
 	}
 	mutex_unlock(&mpriv->mtx);
+
+	mdw_trace_end();
 
 	return ret;
 }
@@ -915,13 +888,39 @@ static int mdw_cmd_ioctl_del(struct mdw_fpriv *mpriv, union mdw_cmd_args *args)
 static int mdw_cmd_ioctl_run(struct mdw_fpriv *mpriv, union mdw_cmd_args *args)
 {
 	struct mdw_cmd_in *in = (struct mdw_cmd_in *)args;
-	struct mdw_cmd *c = NULL;
+	struct mdw_cmd *c = NULL, *priv_c = NULL;
 	struct sync_file *sync_file = NULL;
 	int ret = 0, fd = 0, wait_fd = 0;
+
+	mdw_trace_begin("apumdw:user_run");
 
 	/* get wait fd */
 	wait_fd = in->exec.fence;
 
+	mutex_lock(&mpriv->mtx);
+	/* get stale cmd */
+	c = (struct mdw_cmd *)idr_find(&mpriv->cmds, in->id);
+	if (!c) {
+		/* no stale cmd, create cmd */
+		mdw_cmd_debug("s(0x%llx) create new\n", (uint64_t)mpriv);
+	} else if (in->op == MDW_CMD_IOCTL_RUN_STALE) {
+		/* run stale cmd */
+		mdw_cmd_debug("s(0x%llx) run stale(0x%llx)\n",
+			(uint64_t)mpriv, (uint64_t)c);
+		goto exec;
+	} else {
+		/* release stale cmd and create new */
+		mdw_cmd_debug("s(0x%llx) delete stale(0x%llx) and create new\n",
+			(uint64_t)mpriv, (uint64_t)c);
+		priv_c = c;
+		c = NULL;
+		if (priv_c != idr_remove(&mpriv->cmds, priv_c->id)) {
+			mdw_drv_warn("remove cmd idr conflict(0x%llx/%d)\n",
+				priv_c->kid, priv_c->id);
+		}
+	}
+
+	/* create cmd */
 	c = mdw_cmd_create(mpriv, args);
 	if (!c) {
 		mdw_drv_err("create cmd fail\n");
@@ -930,12 +929,25 @@ static int mdw_cmd_ioctl_run(struct mdw_fpriv *mpriv, union mdw_cmd_args *args)
 	}
 	memset(args, 0, sizeof(*args));
 
+	/* alloc idr */
+	c->id = idr_alloc(&mpriv->cmds, c, MDW_CMD_IDR_MIN, MDW_CMD_IDR_MAX, GFP_KERNEL);
+	if (c->id < MDW_CMD_IDR_MIN) {
+		mdw_drv_err("alloc idr fail(%d)\n", c->id);
+		goto delete_cmd;
+	}
+
+exec:
+	if (mdw_fence_init(c)) {
+		mdw_drv_err("cmd init fence fail\n");
+		goto delete_idr;
+	}
+
 	/* get sync_file fd */
 	fd = get_unused_fd_flags(O_CLOEXEC);
 	if (fd < 0) {
 		mdw_drv_err("get unused fd fail\n");
 		ret = -EINVAL;
-		goto delete_cmd;
+		goto delete_idr;
 	}
 	sync_file = sync_file_create(&c->fence->base_fence);
 	if (!sync_file) {
@@ -946,11 +958,12 @@ static int mdw_cmd_ioctl_run(struct mdw_fpriv *mpriv, union mdw_cmd_args *args)
 	/* assign fd */
 	fd_install(fd, sync_file->file);
 
-	/* check wait fence from other module */
-	mdw_flw_debug("s(0x%llx)c(0x%llx) wait fence(%d)\n",
-			(uint64_t)c->mpriv, c->kid, wait_fd);
 	/* get cmd execution ref */
 	mdw_cmd_get(c);
+
+	/* check wait fence from other module */
+	mdw_flw_debug("s(0x%llx)c(0x%llx) wait fence(%d)...\n",
+			(uint64_t)c->mpriv, c->kid, wait_fd);
 	c->wait_fence = sync_file_get_fence(wait_fd);
 	if (!c->wait_fence) {
 		mdw_flw_debug("s(0x%llx)c(0x%llx) no wait fence, trigger directly\n",
@@ -975,11 +988,18 @@ static int mdw_cmd_ioctl_run(struct mdw_fpriv *mpriv, union mdw_cmd_args *args)
 
 put_file:
 	put_unused_fd(fd);
+delete_idr:
+	if (c != idr_remove(&mpriv->cmds, c->id))
+		mdw_drv_warn("remove cmd idr conflict(0x%llx/%d)\n", c->kid, c->id);
 delete_cmd:
-	mutex_lock(&mpriv->mtx);
 	mdw_cmd_delete(c);
-	mutex_unlock(&mpriv->mtx);
 out:
+	mutex_unlock(&mpriv->mtx);
+	if (priv_c)
+		mdw_cmd_delete_async(priv_c);
+
+	mdw_trace_end();
+
 	return ret;
 }
 
