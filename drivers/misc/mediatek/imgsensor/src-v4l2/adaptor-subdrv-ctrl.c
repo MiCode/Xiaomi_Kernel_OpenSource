@@ -269,11 +269,24 @@ void write_frame_length(struct subdrv_ctx *ctx, u32 fll)
 	u32 addr_l = ctx->s_ctx.reg_addr_frame_length.addr[1];
 	u32 addr_ll = ctx->s_ctx.reg_addr_frame_length.addr[2];
 	u32 fll_step = 0;
+	u32 dol_cnt = 1;
 
 	check_current_scenario_id_bound(ctx);
 	fll_step = ctx->s_ctx.mode[ctx->current_scenario_id].framelength_step;
 	if (fll_step)
 		fll = round_up(fll, fll_step);
+
+	switch (ctx->s_ctx.mode[ctx->current_scenario_id].hdr_mode) {
+	case HDR_RAW_STAGGER_2EXP:
+		dol_cnt = 2;
+		break;
+	case HDR_RAW_STAGGER_3EXP:
+		dol_cnt = 3;
+		break;
+	default:
+		break;
+	}
+	fll = fll / dol_cnt;
 
 	if (ctx->extend_frame_length_en == FALSE) {
 		if (addr_ll) {
@@ -284,7 +297,7 @@ void write_frame_length(struct subdrv_ctx *ctx, u32 fll)
 			set_i2c_buffer(ctx,	addr_h, (fll >> 8) & 0xFF);
 			set_i2c_buffer(ctx,	addr_l, fll & 0xFF);
 		}
-		LOG_INF("fll[0x%x]:%u\n", fll);
+		LOG_INF("fll[0x%x] multiply %u, fll_step:%u\n", fll, dol_cnt, fll_step);
 	}
 }
 
