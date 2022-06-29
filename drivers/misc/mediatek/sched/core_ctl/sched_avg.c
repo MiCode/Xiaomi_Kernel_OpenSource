@@ -83,6 +83,8 @@ void sched_max_util_task(int *util)
 	/* update last update time for tracker */
 	max_util_tracker_last_update = now;
 
+	global_task_util = 0;
+
 	for_each_possible_cpu(cpu) {
 		cpu_over_thres = &per_cpu(cpu_over_thres_state, cpu);
 		max_util = atomic_long_read(&cpu_over_thres->max_task_util);
