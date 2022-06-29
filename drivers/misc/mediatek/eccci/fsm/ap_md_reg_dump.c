@@ -791,12 +791,12 @@ static int md_dump_mem_once(const void *buff_src, unsigned long dump_len)
 
 		if (ret < 0) {
 			CCCI_ERROR_LOG(0, TAG,
-				"%s: ccci_dump_write fail %d, 0x%lx, %u, 0x%lx\n",
+				"%s: ccci_dump_write fail %d, 0x%lx, %zu, 0x%lx\n",
 				__func__, ret, dump_limit, strlen(temp_buf + tmp_idx), i);
 			return -2;
 		} else if (!ret) {
 			CCCI_ERROR_LOG(0, TAG,
-				"%s: ccci_dump_write return 0: %d, 0x%lx, %u, 0x%lx\n",
+				"%s: ccci_dump_write return 0: %d, 0x%lx, %zu, 0x%lx\n",
 				__func__, ret, dump_limit, strlen(temp_buf + tmp_idx), i);
 			i++;
 		}
