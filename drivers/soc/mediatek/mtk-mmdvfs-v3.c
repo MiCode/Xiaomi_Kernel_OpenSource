@@ -71,7 +71,11 @@ int mtk_mmdvfs_enable_ccu(bool enable)
 	mutex_lock(&mmdvfs_ccu_pwr_mutex);
 	if (enable) {
 		if (ccu_power == 0) {
+#if IS_ENABLED(CONFIG_MTK_CCU_DEBUG)
+			ret = rproc_bootx(ccu_rproc, RPROC_UID_MMDVFS);
+#else
 			ret = rproc_boot(ccu_rproc);
+#endif
 			if (ret) {
 				MMDVFS_ERR("boot ccu rproc fail\n");
 				mutex_unlock(&mmdvfs_ccu_pwr_mutex);
@@ -85,8 +89,13 @@ int mtk_mmdvfs_enable_ccu(bool enable)
 			mutex_unlock(&mmdvfs_ccu_pwr_mutex);
 			return -1;
 		}
-		if (ccu_power == 1)
+		if (ccu_power == 1) {
+#if IS_ENABLED(CONFIG_MTK_CCU_DEBUG)
+			rproc_shutdownx(ccu_rproc, RPROC_UID_MMDVFS);
+#else
 			rproc_shutdown(ccu_rproc);
+#endif
+		}
 		ccu_power--;
 	}
 
@@ -372,6 +381,24 @@ int mtk_mmdvfs_camera_notify(const bool enable)
 	return 0;
 }
 EXPORT_SYMBOL_GPL(mtk_mmdvfs_camera_notify);
+
+int mtk_mmdvfs_camera_notify_from_mmqos(const bool enable)
+{
+	struct mmdvfs_ipi_data slot;
+	int ret;
+
+	if (!mmdvfs_clk_num) {
+		MMDVFS_DBG("mmdvfs_v3 not supported!");
+		return 0;
+	}
+	ret = mmdvfs_vcp_ipi_send(FUNC_CAMERA_ON, enable, MAX_OPP, MAX_OPP);
+
+	slot = *(struct mmdvfs_ipi_data *)(u32 *)&ret;
+	MMDVFS_DBG("ipi:%#x slot:%#x ena:%hhu", ret, slot, slot.ack);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(mtk_mmdvfs_camera_notify_from_mmqos);
 
 bool mtk_is_mmdvfs_init_done(void)
 {

@@ -209,7 +209,8 @@ static int enable_vcp_blocking(void *data)
 	pr_notice("%s: increase lock_count=%d\n", __func__,
 		atomic_read(&mmqos_hrt->lock_count));
 
-	mtk_mmdvfs_enable_vcp(true);
+	if (!mtk_mmdvfs_enable_vcp(true))
+		mtk_mmdvfs_camera_notify_from_mmqos(true);
 
 	atomic_dec(&mmqos_hrt->lock_count);
 	wake_up(&mmqos_hrt->hrt_wait);
@@ -245,6 +246,7 @@ static void set_camera_max_bw(u32 bw)
 		thread_vcp = kthread_run(enable_vcp_blocking, NULL, "enable vcp");
 		thread_ccu = kthread_run(enable_ccu_blocking, NULL, "enable ccu");
 	} else if (mmqos_hrt->cam_max_bw > 0 && bw == 0) {
+		mtk_mmdvfs_camera_notify_from_mmqos(false);
 		mtk_mmdvfs_enable_vcp(false);
 		mtk_mmdvfs_enable_ccu(false);
 	}
