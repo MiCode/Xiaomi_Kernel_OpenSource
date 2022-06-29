@@ -82,9 +82,11 @@ struct sugov_policy {
 int init_opp_cap_info(struct proc_dir_entry *dir);
 void clear_opp_cap_info(void);
 extern unsigned long pd_get_opp_capacity(int cpu, int opp);
+extern unsigned long pd_get_opp_freq(int cpu, int opp);
 extern unsigned long pd_get_freq_util(int cpu, unsigned long freq);
 extern unsigned long pd_get_freq_opp(int cpu, unsigned long freq);
 extern unsigned long pd_get_freq_pwr_eff(int cpu, unsigned long freq);
+extern unsigned long pd_get_util_freq(int cpu, unsigned long util);
 extern unsigned long pd_get_util_pwr_eff(int cpu, unsigned long util);
 extern unsigned long pd_get_util_opp(int cpu, unsigned long util);
 extern unsigned long pd_get_opp_pwr_eff(int cpu, int opp);

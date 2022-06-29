@@ -165,6 +165,18 @@ unsigned long pd_get_freq_pwr_eff(int cpu, unsigned long freq)
 }
 EXPORT_SYMBOL_GPL(pd_get_freq_pwr_eff);
 
+unsigned long pd_get_opp_freq(int cpu, int opp)
+{
+	int i;
+	struct pd_capacity_info *pd_info;
+
+	i = per_cpu(gear_id, cpu);
+	pd_info = &pd_capacity_tbl[i];
+	opp = clamp_val(opp, 0, pd_info->nr_caps - 1);
+	return pd_info->table[opp].freq;
+}
+EXPORT_SYMBOL_GPL(pd_get_opp_freq);
+
 unsigned long pd_get_opp_capacity(int cpu, int opp)
 {
 	int i;
