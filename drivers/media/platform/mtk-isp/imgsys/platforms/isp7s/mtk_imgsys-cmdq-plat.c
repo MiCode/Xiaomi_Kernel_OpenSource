@@ -540,7 +540,7 @@ static void imgsys_cmdq_cb_work_plat7s(struct work_struct *work)
 				cb_param->taskTs.dma_va[cb_param->taskTs.ofst+4*idx+2],
 				cb_param->taskTs.dma_va[cb_param->taskTs.ofst+4*idx+3]
 			);
-			if (imgsys_cmdq_ts_dbg_enable_plat7s()) {
+			/* if (imgsys_cmdq_ts_dbg_enable_plat7s()) { */
 				real_frm_idx = cb_param->frm_idx - (cb_param->task_cnt - 1) + idx;
 				hw_comb = cb_param->frm_info->user_info[real_frm_idx].hw_comb;
 				memset((char *)logBuf_temp, 0x0, MTK_IMGSYS_LOG_LENGTH);
@@ -557,7 +557,7 @@ static void imgsys_cmdq_cb_work_plat7s(struct work_struct *work)
 				}
 				strncat(cb_param->frm_info->hw_ts_log, logBuf_temp,
 						strlen(logBuf_temp));
-			}
+			/* } */
 		}
 	}
 
@@ -658,13 +658,16 @@ static void imgsys_cmdq_cb_work_plat7s(struct work_struct *work)
 			#endif
 			mutex_unlock(&(imgsys_dev->dvfs_qos_lock));
 			if (imgsys_cmdq_ts_enable_plat7s() || imgsys_wpe_bwlog_enable_plat7s()) {
+				IMGSYS_CMDQ_SYSTRACE_BEGIN(
+					"%s_%s|%s\n",
+					__func__, "hw_ts_trace", cb_param->frm_info->hw_ts_log);
 				cmdq_mbox_buf_free(cb_param->clt,
 					cb_param->taskTs.dma_va, cb_param->taskTs.dma_pa);
-				if (imgsys_cmdq_ts_dbg_enable_plat7s()) {
+				if (imgsys_cmdq_ts_dbg_enable_plat7s())
 					dev_info(imgsys_dev->dev, "%s: %s",
 						__func__, cb_param->frm_info->hw_ts_log);
-					vfree(cb_param->frm_info->hw_ts_log);
-				}
+				vfree(cb_param->frm_info->hw_ts_log);
+				IMGSYS_CMDQ_SYSTRACE_END();
 			}
 			isLastTaskInReq = 1;
 		} else
@@ -1270,7 +1273,7 @@ int imgsys_cmdq_sendtask_plat7s(struct mtk_imgsys_dev *imgsys_dev,
 	/* Allocate cmdq buffer for task timestamp */
 	if (imgsys_cmdq_ts_enable_plat7s() || imgsys_wpe_bwlog_enable_plat7s()) {
 		pkt_ts_va = cmdq_mbox_buf_alloc(imgsys_clt[0], &pkt_ts_pa);
-		if (imgsys_cmdq_ts_dbg_enable_plat7s()) {
+		/* if (imgsys_cmdq_ts_dbg_enable_plat7s()) { */
 			frm_info->hw_ts_log = vzalloc(sizeof(char)*MTK_IMGSYS_LOG_LENGTH*4);
 			memset((char *)frm_info->hw_ts_log, 0x0, MTK_IMGSYS_LOG_LENGTH*4);
 			frm_info->hw_ts_log[strlen(frm_info->hw_ts_log)] = '\0';
@@ -1287,7 +1290,7 @@ int imgsys_cmdq_sendtask_plat7s(struct mtk_imgsys_dev *imgsys_dev,
 			if (ret_sn < 0)
 				pr_info("%s: [ERROR] snprintf fail: %d\n", __func__, ret_sn);
 			strncat(frm_info->hw_ts_log, logBuf_temp, strlen(logBuf_temp));
-		}
+		/* } */
 	}
 
 	for (frm_idx = 0; frm_idx < frm_num; frm_idx++) {
