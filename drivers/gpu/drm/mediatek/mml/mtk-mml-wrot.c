@@ -1118,6 +1118,11 @@ static s32 wrot_config_frame(struct mml_comp *comp, struct mml_task *task,
 
 		mml_msg("%s sram pa %#x", __func__, (u32)wrot->sram_pa);
 	} else {
+		if (wrot->smi_larb_con) {
+			/* always reset larb con to va mode to avoid last frame fail */
+			cmdq_pkt_write(pkt, NULL, wrot->smi_larb_con, 0, GENMASK(19, 16));
+		}
+
 		/* normal dram case config wrot iova with reuse */
 		wrot_config_addr(dest, dest_fmt, base_pa,
 				 wrot_frm, pkt, reuse, cache);
