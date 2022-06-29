@@ -6,8 +6,6 @@
 #include <linux/of_platform.h>
 #include <linux/module.h>
 #include <linux/suspend.h>
-#include <linux/pm_runtime.h>
-#include <linux/clk.h>
 #include "mtk-aov-config.h"
 #include "mtk-aov-drv.h"
 #include "mtk-aov-core.h"
@@ -89,39 +87,6 @@ static int mtk_aov_open(struct inode *inode, struct file *file)
 	return 0;
 }
 
-static int mtk_aov_uisp_power_on(struct mtk_aov *aov_dev, unsigned int enable)
-{
-	struct device *dev;
-	int ret = 0, i;
-
-	dev = aov_dev->dev;
-	if (enable) {
-		pm_runtime_get_sync(dev);
-
-		for (i = 0; i < aov_dev->num_clks; i++) {
-			ret = clk_prepare_enable(aov_dev->clks[i]);
-			if (ret) {
-				dev_info(aov_dev->dev, "enable failed at clk #%d, ret = %d\n",
-					 i, ret);
-				i--;
-				while (i >= 0)
-					clk_disable_unprepare(aov_dev->clks[i--]);
-				return ret;
-			}
-		}
-	} else {
-
-		for (i = 0; i < aov_dev->num_clks; i++)
-			clk_disable_unprepare(aov_dev->clks[i]);
-
-		pm_runtime_put_sync(dev);
-	}
-
-	return 0;
-
-}
-
-
 static long mtk_aov_ioctl(struct file *file, unsigned int cmd,
 		unsigned long arg)
 {
@@ -133,11 +98,10 @@ static long mtk_aov_ioctl(struct file *file, unsigned int cmd,
 	switch (cmd) {
 	case AOV_DEV_INIT: {
 		dev_info(aov_dev->dev, "AOV init+\n");
-		mtk_aov_uisp_power_on(aov_dev, 1);
+
 		ret = aov_core_send_cmd(aov_dev, AOV_SCP_CMD_INIT,
 			(void *)arg, sizeof(struct aov_user), true);
-		if (ret < 0)
-			mtk_aov_uisp_power_on(aov_dev, 0);
+
 		dev_info(aov_dev->dev, "AOV init-(%d)\n", ret);
 		break;
 	}
@@ -159,7 +123,6 @@ static long mtk_aov_ioctl(struct file *file, unsigned int cmd,
 	case AOV_DEV_DEINIT: {
 		dev_info(aov_dev->dev, "AOV deinit+\n");
 		ret = aov_core_send_cmd(aov_dev, AOV_SCP_CMD_DEINIT, NULL, 0, true);
-		mtk_aov_uisp_power_on(aov_dev, 0);
 		dev_info(aov_dev->dev, "AOV deinit-(%d)\n", ret);
 		break;
 	}
@@ -235,11 +198,7 @@ static const struct file_operations aov_fops = {
 static int mtk_aov_probe(struct platform_device *pdev)
 {
 	struct mtk_aov *aov_dev;
-	int clks, larbs, i;
 	int ret = 0;
-	struct platform_device *larb_pdev;
-	struct device_node *larb_node;
-	struct device_link *link_p1;
 
 	dev_info(&pdev->dev, "%s probe aov driver+\n", __func__);
 
@@ -298,57 +257,7 @@ static int mtk_aov_probe(struct platform_device *pdev)
 		dev_info(&pdev->dev, "device create fail  err= %d", ret);
 		goto err_device;
 	}
-
-	clks = of_count_phandle_with_args(pdev->dev.of_node, "clocks",
-			"#clock-cells");
-	aov_dev->num_clks = (clks == -ENOENT) ? 0:clks;
-	dev_info(&pdev->dev, "clk_num:%d\n", aov_dev->num_clks);
-	if (aov_dev->num_clks) {
-		aov_dev->clks = devm_kcalloc(&pdev->dev, aov_dev->num_clks, sizeof(*aov_dev->clks),
-					 GFP_KERNEL);
-		if (!aov_dev->clks)
-			return -ENOMEM;
-	}
-
-	for (i = 0; i < aov_dev->num_clks; i++) {
-		aov_dev->clks[i] = of_clk_get(pdev->dev.of_node, i);
-		if (IS_ERR(aov_dev->clks[i])) {
-			dev_info(&pdev->dev, "failed to get clk %d\n", i);
-			return -ENODEV;
-		}
-	}
-
-
-
-	larbs = of_count_phandle_with_args(
-					pdev->dev.of_node, "mediatek,larbs", NULL);
-	dev_info(&pdev->dev, "larb_num:%d\n", larbs);
-
-
-	for (i = 0; i < larbs; i++) {
-		larb_node = of_parse_phandle(
-					pdev->dev.of_node, "mediatek,larbs", i);
-		if (!larb_node) {
-			dev_info(&pdev->dev, "failed to get larb id\n");
-			continue;
-		}
-
-		larb_pdev = of_find_device_by_node(larb_node);
-		if (WARN_ON(!larb_pdev)) {
-			of_node_put(larb_node);
-			dev_info(&pdev->dev, "failed to get larb pdev\n");
-			continue;
-		}
-		of_node_put(larb_node);
-
-		link_p1 = device_link_add(&pdev->dev, &larb_pdev->dev,
-						DL_FLAG_PM_RUNTIME | DL_FLAG_STATELESS);
-		if (!link_p1)
-			dev_info(&pdev->dev, "unable to link_p1 smi larb%d\n", i);
-	}
-	pm_runtime_enable(aov_dev->dev);
 	dev_info(&pdev->dev, "%s probe aov driver-\n", __func__);
-
 	return 0;
 
 err_device:
@@ -372,7 +281,7 @@ static int mtk_aov_remove(struct platform_device *pdev)
 	struct mtk_aov *aov_dev = platform_get_drvdata(pdev);
 
 	pr_info("%s remove aov driver+\n", __func__);
-	pm_runtime_disable(aov_dev->dev);
+
 	if (mtk_aov_is_open(aov_dev) == true) {
 		aov_dev->is_open = false;
 		dev_dbg(&pdev->dev, "%s: opened device found\n", __func__);
