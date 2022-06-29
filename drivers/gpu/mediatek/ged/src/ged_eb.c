@@ -75,6 +75,8 @@ static void ged_eb_work_cb(struct work_struct *psWork)
 	struct GED_EB_EVENT *psEBEvent =
 		GED_CONTAINER_OF(psWork, struct GED_EB_EVENT, sWork);
 
+	GPUFDVFS_LOGD("%s@%d top clock: %d (KHz)\n",
+		__func__, __LINE__, psEBEvent->freq_new);
 	mtk_notify_gpu_freq_change(0, psEBEvent->freq_new);
 	psEBEvent->bUsed = false;
 }
@@ -99,9 +101,6 @@ static int fast_dvfs_eb_event_handler(unsigned int id, void *prdata, void *data,
 		psEBEvent->freq_new = ((struct fastdvfs_event_data *)data)->u.set_para.arg[0];
 
 		/*get rate from EB*/
-		GPUFDVFS_LOGD("%s@%d top clock: %d (KHz)\n",
-			__func__, __LINE__, psEBEvent->freq_new);
-
 		psEBEvent->bUsed = true;
 
 		INIT_WORK(&psEBEvent->sWork, ged_eb_work_cb);
