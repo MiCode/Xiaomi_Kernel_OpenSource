@@ -274,7 +274,7 @@ void mtk_cust_dump_reg(void __iomem *base, int off1, int off2, int off3,
 	for (i = 0; i < 4; i++) {
 		if (off[i] < 0)
 			break;
-		s = snprintf(buf + l, CUST_REG_MAX, "0x%03x:0x%08x ", off[i],
+		s = snprintf(buf + l, CUST_REG_MAX - l, "0x%03x:0x%08x ", off[i],
 			     readl(base + off[i]));
 		if (s < 0) {
 			/* Handle snprintf() error */
