@@ -5635,6 +5635,8 @@ static struct lvts_data mt6886_lvts_data = {
 	},
 	.init_done = false,
 	.enable_dump_log = 0,
+	.clock_gate_no_need = true,
+	.reset_no_need = true,
 };
 
 /*==================================================
