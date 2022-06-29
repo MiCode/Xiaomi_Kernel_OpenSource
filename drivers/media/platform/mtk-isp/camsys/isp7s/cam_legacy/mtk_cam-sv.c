@@ -170,7 +170,7 @@ static int mtk_camsv_sd_s_stream(struct v4l2_subdev *sd, int enable)
 	}
 
 	dev_info(sv->cam_dev, "%s:camsv-%d: en %d\n",
-		 __func__, pipe->id - MTKCAM_SUBDEV_CAMSV_START);
+		 __func__, pipe->id - MTKCAM_SUBDEV_CAMSV_START, enable);
 	return 0;
 }
 
@@ -1227,6 +1227,21 @@ int mtk_cam_sv_fbc_pertag_config(
 	return ret;
 }
 
+int mtk_cam_sv_toggle_tg_db(struct mtk_camsv_device *dev)
+{
+	int val, val2;
+
+	val = CAMSV_READ_REG(dev->base_inner + REG_CAMSVCENTRAL_PATH_CFG);
+	CAMSV_WRITE_BITS(dev->base + REG_CAMSVCENTRAL_PATH_CFG,
+		CAMSVCENTRAL_PATH_CFG, SYNC_VF_EN_DB_LOAD_DIS, 1);
+
+	CAMSV_WRITE_BITS(dev->base + REG_CAMSVCENTRAL_PATH_CFG,
+		CAMSVCENTRAL_PATH_CFG, SYNC_VF_EN_DB_LOAD_DIS, 0);
+	val2 = CAMSV_READ_REG(dev->base_inner + REG_CAMSVCENTRAL_PATH_CFG);
+	dev_info(dev->dev, "%s 0x%x->0x%x\n", __func__, val, val2);
+	return 0;
+}
+
 int mtk_cam_sv_toggle_db(struct mtk_camsv_device *dev)
 {
 	int val, val2;
@@ -1248,6 +1263,7 @@ int mtk_cam_sv_central_common_enable(struct mtk_camsv_device *dev)
 	int ret = 0;
 
 	mtk_cam_sv_toggle_db(dev);
+	mtk_cam_sv_toggle_tg_db(dev);
 
 	CAMSV_WRITE_BITS(dev->base + REG_CAMSVCENTRAL_SEN_MODE,
 		CAMSVCENTRAL_SEN_MODE, CMOS_EN, 1);
@@ -1312,6 +1328,7 @@ int mtk_cam_sv_central_common_disable(struct mtk_camsv_device *dev)
 		CAMSV_WRITE_BITS(dev->base + REG_CAMSVCENTRAL_SEN_MODE,
 			CAMSVCENTRAL_SEN_MODE, CMOS_EN, 0);
 
+	mtk_cam_sv_toggle_tg_db(dev);
 	mtk_cam_sv_toggle_db(dev);
 	sv_reset(dev);
 

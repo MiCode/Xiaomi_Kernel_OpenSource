@@ -1048,6 +1048,7 @@ static int mtk_cam_hdr_switch_toggle(struct mtk_cam_ctx *ctx, struct mtk_cam_sce
 	node = &ctx->pipe->vdev_nodes[MTK_RAW_MAIN_STREAM_OUT - MTK_RAW_SINK_NUM];
 	raw_dev = get_master_raw_dev(ctx->cam, ctx->pipe);
 	enable_tg_db(raw_dev, 0);
+	mtk_cam_sv_toggle_tg_db(ctx->sv_dev);
 	mtk_cam_sv_toggle_db(ctx->sv_dev);
 	enable_tg_db(raw_dev, 1);
 	toggle_db(raw_dev);
@@ -3433,9 +3434,10 @@ static void mtk_cam_handle_mux_switch(struct mtk_raw_device *raw_src,
 			enable_tg_db(raw_dev, 1);
 			toggle_db(raw_dev);
 
-			if (ctx->sv_dev)
+			if (ctx->sv_dev) {
+				mtk_cam_sv_toggle_tg_db(ctx->sv_dev);
 				mtk_cam_sv_toggle_db(ctx->sv_dev);
-
+			}
 			for (j = 0; j < ctx->used_mraw_num; j++) {
 				mraw_dev = get_mraw_dev(cam, ctx->mraw_pipe[j]);
 				mtk_cam_mraw_toggle_tg_db(mraw_dev);
