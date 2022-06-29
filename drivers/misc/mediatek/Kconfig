@@ -89,11 +89,14 @@ config MTK_MET
 	  This is needed if support for MET devices is required.
 	  If unsure, say N.
 
-config MTK_MET_PLF
-	string "MET PLATFORM"
+config MTK_MET_DEBUG
+	bool "MET DEBUG"
+	depends on MTK_MET
 	help
-	  This config is set as platform name which met driver
-	  used for.
+	  To prevent abi violation, we introduce MET DEBUG config
+	  for those MET features enabled only in eng/userdebug build.
+	  Say Y in eng/userdebug build.
+	  If unsure, say N.
 
 config MTK_RTNL_LOCK_DEBUG
 	bool "rtnl_lock debugging, deadlock detection"
