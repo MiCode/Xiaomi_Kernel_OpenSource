@@ -3738,7 +3738,8 @@ static void mtk_crtc_disp_mode_switch_begin(struct drm_crtc *crtc,
 	drm_calc_timestamping_constants(crtc, &crtc->state->mode);
 
 	/* update idle timeout*/
-	_idle_timeout = mtk_crtc_get_idle_interval(crtc, fps_dst);
+	if (fps_dst > 0)
+		_idle_timeout = mtk_crtc_get_idle_interval(crtc, fps_dst);
 	if (_idle_timeout > 0)
 		mtk_drm_set_idle_check_interval(crtc, _idle_timeout);
 
