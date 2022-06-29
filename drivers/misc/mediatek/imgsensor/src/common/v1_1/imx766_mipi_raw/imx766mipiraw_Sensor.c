@@ -3204,6 +3204,8 @@ static void hdr_write_tri_shutter_w_gph(kal_uint16 le, kal_uint16 me, kal_uint16
 	if (se)
 		exposure_cnt++;
 
+	exposure_cnt = (exposure_cnt == 0) ? 1 : exposure_cnt;
+
 	le = (kal_uint16)max(imgsensor_info.min_shutter, (kal_uint32)le);
 
 	spin_lock(&imgsensor_drv_lock);
@@ -3214,19 +3216,16 @@ static void hdr_write_tri_shutter_w_gph(kal_uint16 le, kal_uint16 me, kal_uint16
 	//3exp 12 + 6, 2exp 8 + 6, 6 is fine integ time
 	if (le) {
 		le -= 6;   // subtract fine integ time 6
-		exposure_cnt = (exposure_cnt == 0) ? 1 : exposure_cnt;
 		le = round_up(le/exposure_cnt, 4);
 	}
 
 	if (me) {
 		me -= 6;
-		exposure_cnt = (exposure_cnt == 0) ? 1 : exposure_cnt;
 		me = round_up(me/exposure_cnt, 4);
 	}
 
 	if (se) {
 		se -= 6;
-		exposure_cnt = (exposure_cnt == 0) ? 1 : exposure_cnt;
 		se = round_up(se/exposure_cnt, 4);
 	}
 
