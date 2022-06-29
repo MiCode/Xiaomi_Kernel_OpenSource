@@ -292,9 +292,12 @@ static int init_capacity_table(void)
 		for_each_cpu(j, &pd_info->cpus) {
 			per_cpu(gear_id, j) = i;
 			if (per_cpu(cpu_scale, j) != pd_info->table[0].capacity) {
-				pr_info("per_cpu(cpu_scale, %d)=%d, pd_info->table[0].cap=%d\n",
+				pr_info("capacity err: cpu=%d, cpu_scale=%d, pd_info_cap=%d\n",
 					j, per_cpu(cpu_scale, j), pd_info->table[0].capacity);
 				per_cpu(cpu_scale, j) = pd_info->table[0].capacity;
+			} else {
+				pr_info("capacity match: cpu=%d, cpu_scale=%d, pd_info_cap=%d\n",
+					j, per_cpu(cpu_scale, j), pd_info->table[0].capacity);
 			}
 		}
 	}
@@ -368,9 +371,12 @@ static int init_capacity_table(void)
 		for_each_cpu(j, &pd_info->cpus) {
 			per_cpu(gear_id, j) = i;
 			if (per_cpu(cpu_scale, j) != pd_info->table[0].capacity) {
-				pr_info("per_cpu(cpu_scale, %d)=%d, pd_info->table[0].cap=%d\n",
+				pr_info("capacity err: cpu=%d, cpu_scale=%d, pd_info_cap=%d\n",
 					j, per_cpu(cpu_scale, j), pd_info->table[0].capacity);
 				per_cpu(cpu_scale, j) = pd_info->table[0].capacity;
+			} else {
+				pr_info("capacity match: cpu=%d, cpu_scale=%d, pd_info_cap=%d\n",
+					j, per_cpu(cpu_scale, j), pd_info->table[0].capacity);
 			}
 		}
 	}
