@@ -894,6 +894,7 @@ static int mtk_compr_offload_pause(struct snd_compr_stream *stream)
 	int ret = 0;
 	pr_debug("%s\n", __func__);
 
+	offloadservice_releasewriteblocked();
 #ifdef use_wake_lock
 	mtk_compr_offload_int_wakelock(false);
 #endif
