@@ -1203,12 +1203,13 @@ void get_ae_effective_frame_for_le(struct subdrv_ctx *ctx, u32 *ae_effective_fra
 void preload_eeprom_data(struct subdrv_ctx *ctx, u32 *is_read)
 {
 	*is_read = ctx->is_read_preload_eeprom;
-	if (!ctx->is_read_preload_eeprom)
+	if (!ctx->is_read_preload_eeprom) {
 		LOG_INF("start to preload\n");
 		if (ctx->s_ctx.g_cali != NULL)
 			ctx->s_ctx.g_cali((void *) ctx);
 		else
 			read_sensor_Cali(ctx);
+	}
 	LOG_INF("already preloaded\n");
 }
 
