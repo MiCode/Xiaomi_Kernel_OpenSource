@@ -10115,7 +10115,7 @@
 		reg = <0 0x1e827000 0 0x90>;
 		power-domains = <&scpsys MT6985_POWER_DOMAIN_MM_INFRA>;
 		interrupts = <GIC_SPI 457 IRQ_TYPE_LEVEL_HIGH 0>;
-		mminfra-bkrs = <1>;
+		mminfra-bkrs = <0>;
 		bkrs-reg = <0x1e800250>;
 		init-clk-on;
 		clocks = <&mminfra_config_clk CLK_MMINFRA_GCE_D>,
