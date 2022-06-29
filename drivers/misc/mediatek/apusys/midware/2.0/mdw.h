@@ -348,7 +348,6 @@ struct mdw_dev_func {
 #define dma_exception(format, args...)
 #endif
 
-void mdw_ap_set_func(struct mdw_device *mdev);
 void mdw_rv_set_func(struct mdw_device *mdev);
 
 long mdw_ioctl(struct file *filep, unsigned int cmd, unsigned long arg);

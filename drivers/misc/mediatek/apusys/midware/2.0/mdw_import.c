@@ -4,7 +4,6 @@
  */
 
 #include "mdw_cmn.h"
-#include "mdw_ap.h"
 #include "mdw_import.h"
 #include "mdw_trace.h"
 #include "reviser_export.h"

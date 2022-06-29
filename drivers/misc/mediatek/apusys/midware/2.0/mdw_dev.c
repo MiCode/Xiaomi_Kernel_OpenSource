@@ -16,7 +16,7 @@ int mdw_dev_init(struct mdw_device *mdev)
 
 	switch (mdev->driver_type) {
 	case MDW_DRIVER_TYPE_PLATFORM:
-		mdw_ap_set_func(mdev);
+		mdw_drv_err("not support platform probe\n");
 		break;
 	case MDW_DRIVER_TYPE_RPMSG:
 		mdw_rv_set_func(mdev);
