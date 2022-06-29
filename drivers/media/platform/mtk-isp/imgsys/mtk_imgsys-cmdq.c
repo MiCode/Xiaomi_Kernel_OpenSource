@@ -91,6 +91,38 @@ bool imgsys_quick_onoff_enable(void)
 EXPORT_SYMBOL(imgsys_quick_onoff_enable);
 
 /*#####*/
+static int mtk_imgsys_power_ctrl_ccu(struct mtk_imgsys_dev *imgsys_dev, int on_off)
+{
+	int ret = 0;
+
+	if (on_off) {
+		if (imgsys_dev->rproc_ccu_handle == NULL) {
+			dev_info(imgsys_dev->dev, "CCU handle is NULL\n");
+			ret = -EINVAL;
+			goto out;
+		}
+
+#if IS_ENABLED(CONFIG_MTK_CCU_DEBUG)
+		ret = rproc_bootx(imgsys_dev->rproc_ccu_handle, RPROC_UID_IMG);
+#else
+		ret = rproc_boot(imgsys_dev->rproc_ccu_handle);
+#endif
+		if (ret)
+			dev_info(imgsys_dev->dev, "boot ccu rproc fail\n");
+	} else {
+		if (imgsys_dev->rproc_ccu_handle)
+#if IS_ENABLED(CONFIG_MTK_CCU_DEBUG)
+			rproc_shutdownx(imgsys_dev->rproc_ccu_handle, RPROC_UID_IMG);
+#else
+			rproc_shutdown(imgsys_dev->rproc_ccu_handle);
+#endif
+		else
+			ret = -EINVAL;
+	}
+
+out:
+	return ret;
+}
 static void module_uninit(struct kref *kref)
 {
 	struct mtk_imgsys_dev *imgsys_dev;
@@ -110,6 +142,7 @@ static void module_uninit(struct kref *kref)
 	else
 		regulator_disable(dvfs_info->reg);
 
+	mtk_imgsys_power_ctrl_ccu(imgsys_dev, 0);
 }
 
 void mtk_imgsys_mod_put(struct mtk_imgsys_dev *imgsys_dev)
