@@ -176,7 +176,7 @@ static int fsm_md_data_ioctl(unsigned int cmd, unsigned long arg)
 	node = of_find_compatible_node(NULL, NULL,
 		"mediatek,mddriver");
 	of_property_read_u32(node,
-		"mediatek,md_generation", &md_gen);
+		"mediatek,md-generation", &md_gen);
 
 	switch (cmd) {
 	case CCCI_IOC_GET_MD_PROTOCOL_TYPE:

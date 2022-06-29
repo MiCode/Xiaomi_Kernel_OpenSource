@@ -1517,7 +1517,7 @@ int ccci_modem_init_common(struct platform_device *plat_dev,
 	atomic_set(&md->wdt_enabled, 1);
 
 	ret = of_property_read_u32(plat_dev->dev.of_node,
-		"mediatek,mdhif_type", &md->hif_flag);
+		"mediatek,mdhif-type", &md->hif_flag);
 	if (ret != 0)
 		md->hif_flag = (1 << MD1_NET_HIF | 1 << MD1_NORMAL_HIF);
 

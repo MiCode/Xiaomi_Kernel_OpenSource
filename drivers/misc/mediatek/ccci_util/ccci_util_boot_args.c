@@ -206,18 +206,18 @@ int mtk_ccci_args_key_val_init(void)
 	}
 
 	// From dts: AP Platform
-	ret = of_property_read_u32(node, "mediatek,ap_plat_info", &dt_value);
+	ret = of_property_read_u32(node, "mediatek,ap-plat-info", &dt_value);
 	if (ret < 0)
-		CCCI_UTIL_INF_MSG("Attr: [mediatek,ap_plat_info] not support\n");
+		CCCI_UTIL_INF_MSG("Attr: [mediatek,ap-plat-info] not support\n");
 	else
 		mtk_ccci_add_new_args("ap_platform", (unsigned char *)&dt_value,
 					(unsigned int)sizeof(unsigned int), FROM_KERNEL);
 
 	// From dts: MD Generation
 	dt_value = 0;
-	ret = of_property_read_u32(node, "mediatek,md_generation", &dt_value);
+	ret = of_property_read_u32(node, "mediatek,md-generation", &dt_value);
 	if (ret < 0)
-		CCCI_UTIL_INF_MSG("Attr: [mediatek,md_generation] not support\n");
+		CCCI_UTIL_INF_MSG("Attr: [mediatek,md-generation] not support\n");
 	else
 		mtk_ccci_add_new_args("md_generation", (unsigned char *)&dt_value,
 					(unsigned int)sizeof(unsigned int), FROM_KERNEL);

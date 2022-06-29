@@ -45,11 +45,11 @@ struct ccci_md_regulator {
 	unsigned long reg_vol1;
 };
 static struct ccci_md_regulator md_reg_table[] = {
-	{ NULL, "md_vmodem", 825000, 825000},
-	{ NULL, "md_vnr", 825000, 825000},
-	{ NULL, "md_vmdfe", 0, 0},
-	{ NULL, "md_vsram", 825000, 825000},
-	{ NULL, "md_vdigrf", 700000, 700000},
+	{ NULL, "md-vmodem", 825000, 825000},
+	{ NULL, "md-vnr", 825000, 825000},
+	{ NULL, "md-vmdfe", 0, 0},
+	{ NULL, "md-vsram", 825000, 825000},
+	{ NULL, "md-vdigrf", 700000, 700000},
 };
 
 static struct ccci_plat_val md_cd_plat_val_ptr;
@@ -1077,21 +1077,21 @@ static int md_cd_get_modem_hw_info(struct platform_device *dev_ptr,
 	dev_cfg->major = 0;
 	dev_cfg->minor_base = 0;
 	ret = of_property_read_u32(dev_ptr->dev.of_node,
-		"mediatek,cldma_capability", &dev_cfg->capability);
+		"mediatek,cldma-capability", &dev_cfg->capability);
 	if (ret < 0) {
-		CCCI_ERROR_LOG(0, TAG, "%s:get DTS:cldma_capability fail\n",
+		CCCI_ERROR_LOG(0, TAG, "%s:get DTS:cldma-capability fail\n",
 			__func__);
 		return -1;
 	}
 	ret = of_property_read_u32(dev_ptr->dev.of_node,
-		"mediatek,offset_epon_md1", &hw_info->md_epon_offset);
+		"mediatek,offset-epon-md1", &hw_info->md_epon_offset);
 	if (ret < 0) {
-		CCCI_ERROR_LOG(0, TAG, "%s:get DTS:mediatek,offset_epon_md1 fail\n",
+		CCCI_ERROR_LOG(0, TAG, "%s:get DTS:mediatek,offset-epon-md1 fail\n",
 			__func__);
 		hw_info->md_epon_offset = 0;
 	}
 	ret = of_property_read_u32_index(dev_ptr->dev.of_node,
-			"mediatek,offset_epon_md1", 1, &retval);
+			"mediatek,offset-epon-md1", 1, &retval);
 	if (ret < 0)
 		hw_info->md_l2sram_base = NULL;
 	else
@@ -1112,22 +1112,22 @@ static int md_cd_get_modem_hw_info(struct platform_device *dev_ptr,
 
 	hw_info->sram_size = CCIF_SRAM_SIZE;
 	ret = of_property_read_u32(dev_ptr->dev.of_node,
-		"mediatek,md_generation", &md_cd_plat_val_ptr.md_gen);
+		"mediatek,md-generation", &md_cd_plat_val_ptr.md_gen);
 	if (ret < 0) {
 		CCCI_ERROR_LOG(0, TAG, "%s:get DTS:md_gen fail\n",
 			__func__);
 		return -1;
 	}
 
-	/* "mediatek,md_sub_version" = 0 or can't find this properity
+	/* "mediatek,md-sub-version" = 0 or can't find this properity
 	 * defaults to the MD major generation, such as Gen98;
 	 * when this value is set to 1 in dts, it refers to an advanced
 	 * subversion of the same MD major generation, such as Gen98+
 	 */
 	ret = of_property_read_u32(dev_ptr->dev.of_node,
-		"mediatek,md_sub_version", &md_cd_plat_val_ptr.md_sub_ver);
+		"mediatek,md-sub-version", &md_cd_plat_val_ptr.md_sub_ver);
 	if (ret < 0) {
-		CCCI_NORMAL_LOG(0, TAG, "%s: No md_sun_ver found\n",
+		CCCI_NORMAL_LOG(0, TAG, "%s: No md-sun-ver found\n",
 			       __func__);
 		md_cd_plat_val_ptr.md_sub_ver = 0;
 	}
@@ -1172,11 +1172,11 @@ static int md_cd_get_modem_hw_info(struct platform_device *dev_ptr,
  * bit2: means to config md1_revert_sequencer_setting
  */
 	ret = of_property_read_u32(dev_ptr->dev.of_node,
-		"mediatek,power_flow_config",
+		"mediatek,power-flow-config",
 		&md_cd_plat_val_ptr.power_flow_config);
 	if (ret < 0) {
 		md_cd_plat_val_ptr.power_flow_config = 0;
-		CCCI_ERROR_LOG(0, TAG, "%s:get DTS:power_flow_config fail\n",
+		CCCI_ERROR_LOG(0, TAG, "%s:get DTS:power-flow-config fail\n",
 			__func__);
 	} else
 		CCCI_NORMAL_LOG(0, TAG,
@@ -1184,10 +1184,10 @@ static int md_cd_get_modem_hw_info(struct platform_device *dev_ptr,
 			__func__, md_cd_plat_val_ptr.power_flow_config);
 
 	ret = of_property_read_u32(dev_ptr->dev.of_node,
-		"mediatek,srclken_o1", &md_cd_plat_val_ptr.srclken_o1_bit);
+		"mediatek,srclken-o1", &md_cd_plat_val_ptr.srclken_o1_bit);
 	if (ret < 0) {
 		CCCI_ERROR_LOG(0, TAG,
-			"%s:get DTS: srclken_o1 fail, no need set\n",
+			"%s:get DTS: srclken-o1 fail, no need set\n",
 			__func__);
 		md_cd_plat_val_ptr.srclken_o1_bit = -1;
 	} else
@@ -1206,7 +1206,7 @@ static int md_cd_get_modem_hw_info(struct platform_device *dev_ptr,
 	/* Get spm sleep base */
 	md_cd_plat_val_ptr.spm_sleep_base =
 			syscon_regmap_lookup_by_phandle(dev_ptr->dev.of_node,
-			"ccci_spmsleep");
+			"ccci-spmsleep");
 	if (IS_ERR(md_cd_plat_val_ptr.spm_sleep_base))
 		CCCI_ERROR_LOG(0, TAG,
 			"%s: get spm_sleep_base reg failed\n",

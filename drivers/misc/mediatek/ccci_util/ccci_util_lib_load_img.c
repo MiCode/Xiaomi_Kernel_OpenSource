@@ -106,7 +106,7 @@ char *ccci_get_ap_platform(void)
 			return NULL;
 
 		ret = of_property_read_u32(node,
-				"mediatek,ap_plat_info", &ap_plat_numb);
+				"mediatek,ap-plat-info", &ap_plat_numb);
 		if (ret < 0)
 			return NULL;
 

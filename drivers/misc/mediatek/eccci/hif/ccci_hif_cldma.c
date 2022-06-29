@@ -177,7 +177,7 @@ static inline void cldma_write32_ao_misc(struct md_cd_ctrl *md_ctrl,
 	node = of_find_compatible_node(NULL, NULL,
 		"mediatek,mddriver");
 	of_property_read_u32(node,
-		"mediatek,md_generation", &md_gen);
+		"mediatek,md-generation", &md_gen);
 
 	if (md_gen == 6293) {
 		u32 reg2, reg2_val;
@@ -3019,7 +3019,7 @@ static int ccci_cldma_hif_init(struct platform_device *pdev,
 	md_ctrl->hif_id = hif_id;
 
 	of_property_read_u32(pdev->dev.of_node,
-		"mediatek,md_generation", &md_ctrl->plat_val.md_gen);
+		"mediatek,md-generation", &md_ctrl->plat_val.md_gen);
 
 	of_property_read_u32(pdev->dev.of_node,
 		"mediatek,platform", &md_ctrl->cldma_platform);

@@ -1874,7 +1874,7 @@ static int ccif_hif_hw_init(struct device *dev, struct md_ccif_ctrl *md_ctrl)
 	md_ctrl->ap_ccif_irq0_flags = IRQF_TRIGGER_NONE;
 	md_ctrl->ap_ccif_irq1_flags = IRQF_TRIGGER_NONE;
 	ret = of_property_read_u32(dev->of_node,
-		"mediatek,sram_size", &md_ctrl->sram_size);
+		"mediatek,sram-size", &md_ctrl->sram_size);
 	if (ret < 0)
 		md_ctrl->sram_size = CCIF_SRAM_SIZE;
 	md_ctrl->ccif_sram_layout =
@@ -1882,7 +1882,7 @@ static int ccif_hif_hw_init(struct device *dev, struct md_ccif_ctrl *md_ctrl)
 		+ APCCIF_CHDATA);
 
 	ret = of_property_read_u32(dev->of_node,
-		"mediatek,ccif_clk_free_run", &md_ctrl->ccif_clk_free_run);
+		"mediatek,ccif-clk-free-run", &md_ctrl->ccif_clk_free_run);
 	if (ret < 0)
 		md_ctrl->ccif_clk_free_run = 0;
 
@@ -1957,7 +1957,7 @@ static int ccif_hif_hw_init(struct device *dev, struct md_ccif_ctrl *md_ctrl)
 			"irq_set_irq_wake ccif ap_ccif_irq0_id(%d) error %d\n",
 			md_ctrl->ap_ccif_irq0_id, ret);
 
-	ret = of_property_read_u32(dev->of_node, "mediatek,ccif_hw_reset_ver",
+	ret = of_property_read_u32(dev->of_node, "mediatek,ccif-hw-reset-ver",
 			&md_ctrl->ccif_hw_reset_ver);
 	if (ret < 0)
 		md_ctrl->ccif_hw_reset_ver = 0;
@@ -1980,11 +1980,11 @@ static int ccif_hif_hw_init(struct device *dev, struct md_ccif_ctrl *md_ctrl)
 			return -8;
 		}
 
-		ret = of_property_read_u32(dev->of_node, "mediatek,ccif_hw_reset_bit",
+		ret = of_property_read_u32(dev->of_node, "mediatek,ccif-hw-reset-bit",
 				&md_ctrl->ccif_hw_reset_bit);
 		if (ret < 0) {
 			CCCI_ERROR_LOG(-1, TAG,
-				       "[%s] error: ccif_hw_reset_bit not exist\n",
+				       "[%s] error: ccif-hw-reset-bit not exist\n",
 				       __func__);
 			return -8;
 		}
@@ -2021,7 +2021,7 @@ int ccci_ccif_hif_init(struct platform_device *pdev, unsigned char hif_id)
 	node_md = of_find_compatible_node(NULL, NULL,
 		"mediatek,mddriver");
 	of_property_read_u32(node_md,
-		"mediatek,md_generation", &md_ctrl->plat_val.md_gen);
+		"mediatek,md-generation", &md_ctrl->plat_val.md_gen);
 	md_ctrl->plat_val.infra_ao_base =
 		syscon_regmap_lookup_by_phandle(node_md,
 		"ccci-infracfg");
