@@ -990,6 +990,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		},
 		.frame_desc = frame_desc_cus10,
 		.num_entries = ARRAY_SIZE(frame_desc_cus10),
+		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_B,
 	},
 	{
 		.mode_setting_table = addr_data_pair_custom11,
@@ -1034,6 +1035,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		},
 		.frame_desc = frame_desc_cus11,
 		.num_entries = ARRAY_SIZE(frame_desc_cus11),
+		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_B,
 	},
 	{
 		.mode_setting_table = addr_data_pair_custom12,
