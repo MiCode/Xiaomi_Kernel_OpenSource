@@ -773,12 +773,11 @@ static struct vb2_buffer *get_free_bs_buffer(struct mtk_vcodec_ctx *ctx,
 		ctx->id, free_bs_buffer->length, free_bs_buffer->size,
 		srcbuf->vb.vb2_buf.index,
 		srcbuf->queued_in_vb2);
-	if (srcbuf->vb.flags & V4L2_BUF_FLAG_OUTPUT_NOT_GENERATED) {
+
+	if (srcbuf->vb.flags & V4L2_BUF_FLAG_OUTPUT_NOT_GENERATED)
 		mtk_vdec_ts_remove_last(ctx);
-		v4l2_m2m_buf_done(&srcbuf->vb, VB2_BUF_STATE_DONE);
-	} else {
-		v4l2_m2m_buf_done(&srcbuf->vb, VB2_BUF_STATE_DONE);
-	}
+	v4l2_m2m_buf_done(&srcbuf->vb, VB2_BUF_STATE_DONE);
+
 	return &srcbuf->vb.vb2_buf;
 }
 
@@ -1363,6 +1362,11 @@ int mtk_vdec_put_fb(struct mtk_vcodec_ctx *ctx, enum mtk_put_buffer_type type, b
 	bool has_eos;
 
 	mtk_v4l2_debug(1, "type = %d", type);
+
+	if (ctx->state < MTK_STATE_HEADER) {
+		mtk_v4l2_err("type = %d state %d no valid", type);
+		return -1;
+	}
 
 	if (no_need_put)
 		goto not_put_fb;
@@ -3611,6 +3615,7 @@ static void vb2ops_vdec_stop_streaming(struct vb2_queue *q)
 				src_vb2_v4l2->vb2_buf.state == VB2_BUF_STATE_ACTIVE)
 				v4l2_m2m_buf_done(src_vb2_v4l2, VB2_BUF_STATE_ERROR);
 		ctx->dec_flush_buf->lastframe = NON_EOS;
+		update_src_cnt(ctx);
 		return;
 	}
 
@@ -3649,6 +3654,7 @@ static void vb2ops_vdec_stop_streaming(struct vb2_queue *q)
 		if (dst_vb2_v4l2->vb2_buf.state == VB2_BUF_STATE_ACTIVE)
 			v4l2_m2m_buf_done(dst_vb2_v4l2, VB2_BUF_STATE_ERROR);
 	}
+	update_dst_cnt(ctx);
 
 	/* check buffer status */
 	mutex_lock(&ctx->buf_lock);
