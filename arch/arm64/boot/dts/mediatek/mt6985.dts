@@ -12975,9 +12975,12 @@
 					"topckgen_top_camtg_sel",
 					"topckgen_top_camtm_sel";
 		interconnects =
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L14_CQI_0)
+				&mmqos SLAVE_COMMON(0)>,
 			<&mmqos MASTER_LARB_PORT(M4U_PORT_L14_CAMSV_0_WDMA)
 				&mmqos SLAVE_COMMON(1)>;
 		interconnect-names =
+			"l14_cqi_a",
 			"l14_imgo_a";
 	};
 	camsv2@1a101000 {
@@ -13019,9 +13022,12 @@
 					"topckgen_top_camtg_sel",
 					"topckgen_top_camtm_sel";
 		interconnects =
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L13_CQI_1)
+				&mmqos SLAVE_COMMON(0)>,
 			<&mmqos MASTER_LARB_PORT(M4U_PORT_L13_CAMSV_1_WDMA)
 				&mmqos SLAVE_COMMON(1)>;
 		interconnect-names =
+			"l13_cqi_b",
 			"l13_imgo_b";
 	};
 	camsv3@1a102000 {
@@ -13068,9 +13074,12 @@
 					"topckgen_top_camtg_sel",
 					"topckgen_top_camtm_sel";
 		interconnects =
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L29_CQI_2)
+				&mmqos SLAVE_COMMON(0)>,
 			<&mmqos MASTER_LARB_PORT(M4U_PORT_L29_CAMSV_2_WDMA)
 				&mmqos SLAVE_COMMON(0)>;
 		interconnect-names =
+			"l29_cqi_c",
 			"l29_imgo_c";
 	};
 	camsv4@1a103000 {
@@ -13117,9 +13126,12 @@
 					"topckgen_top_camtg_sel",
 					"topckgen_top_camtm_sel";
 		interconnects =
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L29_CQI_3)
+				&mmqos SLAVE_COMMON(0)>,
 			<&mmqos MASTER_LARB_PORT(M4U_PORT_L29_CAMSV_3_WDMA)
 				&mmqos SLAVE_COMMON(0)>;
 		interconnect-names =
+			"l29_cqi_d",
 			"l29_imgo_d";
 	};
 	camsv5@1a104000 {
@@ -13166,9 +13178,12 @@
 					"topckgen_top_camtg_sel",
 					"topckgen_top_camtm_sel";
 		interconnects =
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L29_CQI_4)
+				&mmqos SLAVE_COMMON(0)>,
 			<&mmqos MASTER_LARB_PORT(M4U_PORT_L29_CAMSV_4_WDMA)
 				&mmqos SLAVE_COMMON(0)>;
 		interconnect-names =
+			"l29_cqi_e",
 			"l29_imgo_e";
 	};
 	camsv6@1a105000 {
@@ -13215,9 +13230,12 @@
 					"topckgen_top_camtg_sel",
 					"topckgen_top_camtm_sel";
 		interconnects =
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L29_CQI_5)
+				&mmqos SLAVE_COMMON(0)>,
 			<&mmqos MASTER_LARB_PORT(M4U_PORT_L29_CAMSV_5_WDMA)
 				&mmqos SLAVE_COMMON(0)>;
 		interconnect-names =
+			"l29_cqi_f",
 			"l29_imgo_f";
 	};
 
