@@ -47,6 +47,7 @@ MODULE_AUTHOR("Jing-Ting Wu");
 static int cpuqos_subsys_id = cpu_cgrp_id;
 static struct device_node *node;
 static int plat_enable;
+static int q_pid = -1;
 static int boot_complete;
 /* For ftrace */
 static void cpu_qos_handler(struct work_struct *work);
@@ -830,6 +831,66 @@ static const struct platform_device_id platform_cpuqos_v3_id_table[] = {
 	{ "cpuqos_v3", 0},
 	{ },
 };
+
+static ssize_t show_l3m_status(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		char *buf)
+{
+	unsigned int len = 0;
+	unsigned int max_len = 4096;
+	int css_id = -1;
+	struct task_struct *p;
+	int i;
+
+	len += snprintf(buf+len, max_len-len,
+			"L3 manage perf mode = %d, CT task group = ", cpuqos_perf_mode);
+
+	for (i = 0; i < ARRAY_SIZE(mpam_path_partid_map); i++) {
+		css_id = mpam_group_css_map[i];
+		if (css_id < 0)
+			continue;
+		if (mpam_css_partid_map[css_id] == CT_PARTID)
+			len += snprintf(buf+len, max_len-len, "%s ", mpam_path_partid_map[i]);
+	}
+
+	if (q_pid > -1) {
+		rcu_read_lock();
+		p = find_task_by_vpid(q_pid);
+		if (!p) {
+			rcu_read_unlock();
+			goto out;
+		}
+
+		get_task_struct(p);
+		rcu_read_unlock();
+		len += snprintf(buf+len, max_len-len, ", pid %d is %s",
+				q_pid, (mpam_map_task_partid(p) ==
+					CT_PARTID?"CT":"NCT"));
+		put_task_struct(p);
+	}
+
+out:
+
+	len += snprintf(buf+len, max_len-len, "\n");
+	return len;
+}
+
+static ssize_t set_l3m_query_pid(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		const char *ubuf,
+		size_t cnt)
+{
+
+	int query_pid = 0;
+
+	if (!kstrtoint(ubuf, 10, &query_pid))
+		q_pid = query_pid;
+
+	return cnt;
+}
+
+struct kobj_attribute show_L3m_status_attr =
+__ATTR(l3m_status_info, 0600, show_l3m_status, set_l3m_query_pid);
 
 static struct platform_driver mtk_platform_cpuqos_v3_driver = {
 	.probe = platform_cpuqos_v3_probe,
