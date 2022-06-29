@@ -1938,7 +1938,9 @@
   __traceiter_android_rvh_commit_creds
   __traceiter_android_rvh_cpu_overutilized
   __traceiter_android_rvh_dequeue_task
+  __traceiter_android_rvh_dequeue_task_fair
   __traceiter_android_rvh_enqueue_task
+  __traceiter_android_rvh_enqueue_task_fair
   __traceiter_android_rvh_exit_creds
   __traceiter_android_rvh_find_busiest_group
   __traceiter_android_rvh_find_busiest_queue
@@ -2002,6 +2004,7 @@
   __traceiter_mmap_lock_released
   __traceiter_mmap_lock_start_locking
   __traceiter_pelt_se_tp
+  __traceiter_sched_update_nr_running_tp
   __traceiter_task_newtask
   __traceiter_xhci_urb_giveback
   trace_output_call
@@ -2010,7 +2013,9 @@
   __tracepoint_android_rvh_commit_creds
   __tracepoint_android_rvh_cpu_overutilized
   __tracepoint_android_rvh_dequeue_task
+  __tracepoint_android_rvh_dequeue_task_fair
   __tracepoint_android_rvh_enqueue_task
+  __tracepoint_android_rvh_enqueue_task_fair
   __tracepoint_android_rvh_exit_creds
   __tracepoint_android_rvh_find_busiest_group
   __tracepoint_android_rvh_find_busiest_queue
@@ -2076,6 +2081,8 @@
   __tracepoint_pelt_se_tp
   tracepoint_probe_register
   tracepoint_probe_unregister
+  __tracepoint_sched_update_nr_running_tp
+  tracepoint_srcu
   __tracepoint_task_newtask
   __tracepoint_xhci_urb_giveback
   trace_print_array_seq

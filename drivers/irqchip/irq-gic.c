@@ -416,7 +416,7 @@ static void gic_v2_syscore_init(void)
 }
 
 #else
-static inline void gic_syscore_init(void) { }
+static inline void gic_v2_syscore_init(void) { }
 void gic_v2_resume(void) { }
 #endif
 

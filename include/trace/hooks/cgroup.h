@@ -35,6 +35,9 @@ DECLARE_HOOK(android_rvh_memcgv2_init,
 DECLARE_HOOK(android_rvh_memcgv2_calc_decayed_watermark,
 	TP_PROTO(struct mem_cgroup *memcg),
 	TP_ARGS(memcg));
+DECLARE_RESTRICTED_HOOK(android_rvh_cpuset_fork,
+	TP_PROTO(struct task_struct *p, int *inherit_cpus),
+	TP_ARGS(p, inherit_cpus), 1);
 
 struct page_counter;
 DECLARE_HOOK(android_rvh_update_watermark,
