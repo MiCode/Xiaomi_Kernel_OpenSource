@@ -11575,10 +11575,10 @@
 		mediatek,mux-mminfra = "TOP_MAINPLL_D5_D2",
 			"TOP_MMPLL_D4_D2", "TOP_MMPLL_D6",
 			"TOP_UNIVPLL_D4", "TOP_MAINPLL_D3";
-		mediatek,mux-mdp0 = "TOP_UNIVPLL_D5_D2",
+		mediatek,mux-mdp0 = "TOP_MMPLL_D6_D2",
 			"TOP_MAINPLL_D6", "TOP_MMPLL_D6",
 			"TOP_UNIVPLL_D4", "TOP_MAINPLL_D3";
-		mediatek,mux-mdp1 = "TOP_UNIVPLL_D5_D2",
+		mediatek,mux-mdp1 = "TOP_MMPLL_D6_D2",
 			"TOP_MAINPLL_D6", "TOP_MMPLL_D6",
 			"TOP_UNIVPLL_D4", "TOP_MAINPLL_D3";
 		mediatek,mux-venc = "TOP_UNIVPLL2_D5_D2",
