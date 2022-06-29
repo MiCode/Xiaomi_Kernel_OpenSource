@@ -6,6 +6,7 @@
 
 #include "uarthub_drv_core.h"
 #include "uarthub_drv_export.h"
+#include "mtk_disp_notify.h"
 
 #include <linux/string.h>
 #include <linux/printk.h>
@@ -36,6 +37,7 @@ unsigned int g_max_dev;
 int g_uarthub_open;
 struct clk *clk_apmixedsys_univpll;
 int g_uarthub_disable;
+static struct notifier_block uarthub_fb_notifier;
 spinlock_t g_clear_trx_req_lock;
 struct workqueue_struct *uarthub_workqueue;
 
@@ -71,6 +73,7 @@ static void uarthub_core_exit(void);
 static irqreturn_t uarthub_irq_isr(int irq, void *arg);
 static void trigger_assert_worker_handler(struct work_struct *work);
 static void debug_info_worker_handler(struct work_struct *work);
+static int uarthub_fb_notifier_callback(struct notifier_block *nb, unsigned long value, void *v);
 
 #if IS_ENABLED(CONFIG_OF)
 struct uarthub_ops_struct __weak mt6886_plat_data = {};
@@ -233,6 +236,13 @@ static int uarthub_core_init(void)
 	intfhub_base_remap_addr =
 		(void __iomem *) UARTHUB_INTFHUB_BASE_ADDR(reg_base_addr.vir_addr);
 
+	uarthub_fb_notifier.notifier_call = uarthub_fb_notifier_callback;
+	ret = mtk_disp_notifier_register("uarthub_driver", &uarthub_fb_notifier);
+	if (ret)
+		pr_notice("uarthub register fb_notifier failed! ret(%d)\n", ret);
+	else
+		pr_info("uarthub register fb_notifier OK!\n");
+
 	spin_lock_init(&g_clear_trx_req_lock);
 
 	return 0;
@@ -247,7 +257,39 @@ static void uarthub_core_exit(void)
 	if (g_uarthub_disable == 1)
 		return;
 
+	mtk_disp_notifier_unregister(&uarthub_fb_notifier);
 	platform_driver_unregister(&mtk_uarthub_dev_drv);
+}
+
+static int uarthub_fb_notifier_callback(struct notifier_block *nb, unsigned long value, void *v)
+{
+	int data = 0;
+	const char *prefix = "@@@@@@@@@@";
+	const char *postfix = "@@@@@@@@@@@@@@";
+
+	if (!v)
+		return 0;
+
+	data = *(int *)v;
+
+	if (value == MTK_DISP_EVENT_BLANK) {
+		pr_info("%s+\n", __func__);
+		if (data == MTK_DISP_BLANK_UNBLANK) {
+			pr_info("[%s] %s uarthub enter UNBLANK %s\n",
+				__func__, prefix, postfix);
+			uarthub_core_debug_info_with_tag_worker("UNBLANK_CB");
+		} else if (data == MTK_DISP_BLANK_POWERDOWN) {
+			uarthub_core_debug_info_with_tag_worker("POWERDOWN_CB");
+			pr_info("[%s] %s uarthub enter early POWERDOWN %s\n",
+				__func__, prefix, postfix);
+		} else {
+			pr_info("[%s] %s data(%d) is not UNBLANK or POWERDOWN %s\n",
+				__func__, prefix, data, postfix);
+		}
+		pr_info("%s-\n", __func__);
+	}
+
+	return 0;
 }
 
 static irqreturn_t uarthub_irq_isr(int irq, void *arg)
@@ -266,7 +308,7 @@ static irqreturn_t uarthub_irq_isr(int irq, void *arg)
 		return IRQ_HANDLED;
 
 	if (spin_trylock_irqsave(&g_clear_trx_req_lock, flags) == 0) {
-		pr_notice("[%s] fail to get g_clear_trx_req_lock lock\n");
+		pr_notice("[%s] fail to get g_clear_trx_req_lock lock\n", __func__);
 		/* clear irq */
 		UARTHUB_REG_WRITE_MASK(UARTHUB_INTFHUB_DEV0_IRQ_CLR(intfhub_base_remap_addr),
 			0x3FFFF, 0x3FFFF);
@@ -335,6 +377,7 @@ static irqreturn_t uarthub_irq_isr(int irq, void *arg)
 		/* unmask irq */
 		UARTHUB_REG_WRITE_MASK(UARTHUB_INTFHUB_DEV0_IRQ_MASK(intfhub_base_remap_addr),
 			0x0, 0x3FFFF);
+		spin_unlock_irqrestore(&g_clear_trx_req_lock, flags);
 #else
 		spin_unlock_irqrestore(&g_clear_trx_req_lock, flags);
 		uarthub_core_set_trigger_assert_worker(err_type);
