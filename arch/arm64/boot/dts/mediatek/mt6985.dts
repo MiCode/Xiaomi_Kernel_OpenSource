@@ -532,6 +532,7 @@
 			scmi_tinysys: protocol@80 {
 				reg = <0x80>;
 				scmi-qos = <1>;
+				scmi_dispplatdbg = <2>;
 				scmi-met = <3>;
 				scmi_gpupm = <6>;
 				scmi-plt = <7>;
@@ -541,7 +542,6 @@
 				scmi_ssc = <11>;
 				scmi_apmcupm = <12>;
 				scmi_mminfra = <13>;
-				scmi_dispplatdbg = <14>;
 			};
 		};
 	};
@@ -602,6 +602,10 @@
 
 	mtee_svp: mtee_svp {
 		compatible = "medaitek,svp";
+	};
+
+	aod_scp: aod_scp {
+		compatible = "medaitek,aod_scp";
 	};
 
 	qos:qos@11bb00 {
