@@ -2120,17 +2120,21 @@ int mtk_cam_video_s_fmt_chk_feature(struct mtk_cam_video_device *node,
 	if ((node->desc.id == MTK_RAW_MAIN_STREAM_OUT && is_hdr) ||
 	    (node->desc.id == MTK_RAW_RAWI_2_IN && is_hdr_m2m)) {
 		num_planes = mtk_cam_scen_get_max_exp_num(scen);
+		/**
+		 * TODO: remove the workaorund, we can only use fmt[0] in single
+		 * fd case
+		 */
 		if (try_fmt.fmt.pix_mp.num_planes < num_planes) {
-			dev_info(cam->dev,
-				 "%s:%s:pipe(%d):%s:scen(%s):invalid num_planes(%d), should be %d\n",
-				 __func__, dbg_str, node->uid.pipe_id,
-				 node->desc.name, scen->dbg_str,
-				 try_fmt.fmt.pix_mp.num_planes, num_planes);
+			bytesperline = try_fmt.fmt.pix_mp.plane_fmt[0].bytesperline;
+			sizeimage = try_fmt.fmt.pix_mp.plane_fmt[0].sizeimage;
 			try_fmt.fmt.pix_mp.num_planes = num_planes;
 			/* correct the plane_fmt settings */
-			for (i = 0 ; i < try_fmt.fmt.pix_mp.num_planes ; i++)
+			for (i = 0 ; i < try_fmt.fmt.pix_mp.num_planes ; i++) {
 				try_fmt.fmt.pix_mp.plane_fmt[i].bytesperline =
-					f->fmt.pix_mp.plane_fmt[i].bytesperline;
+					bytesperline;
+				try_fmt.fmt.pix_mp.plane_fmt[i].sizeimage =
+					sizeimage;
+			}
 		}
 	}
 
@@ -2146,14 +2150,11 @@ int mtk_cam_video_s_fmt_chk_feature(struct mtk_cam_video_device *node,
 			num_planes = MAX_SUBSAMPLE_PLANE_NUM;
 		else
 			num_planes = scen->scen.smvr.subsample_num;
-
+		/**
+		 * TODO: remove the workaorund, we can only use fmt[0] in single
+		 * fd case
+		 */
 		if (try_fmt.fmt.pix_mp.num_planes < num_planes) {
-			dev_info(cam->dev,
-				 "%s:%s:pipe(%d):%s:scen(%s):invalid num_planes(%d), should be %d\n",
-				 __func__, dbg_str, node->uid.pipe_id,
-				 node->desc.name, scen->dbg_str,
-				 try_fmt.fmt.pix_mp.num_planes, num_planes);
-			/* correct the plane_fmt settings */
 			bytesperline = try_fmt.fmt.pix_mp.plane_fmt[0].bytesperline;
 			sizeimage = try_fmt.fmt.pix_mp.plane_fmt[0].sizeimage;
 			for (i = 0 ; i < try_fmt.fmt.pix_mp.num_planes ; i++) {
@@ -2245,12 +2246,8 @@ int mtk_cam_video_s_fmt_common(struct mtk_cam_video_device *node,
 	 * Note: vhdr m2m main stream is implicitly multiple plane
 	 * but not negotiatied through try format
 	 */
-	if (try_fmt.fmt.pix_mp.num_planes <= 0) {
-		dev_info_ratelimited(cam->dev, "%s:%s:pipe(%d):%s:invalid num_planes(%d)\n",
-			 __func__, dbg_str, node->uid.pipe_id, node->desc.name,
-			 try_fmt.fmt.pix_mp.num_planes);
+	if (try_fmt.fmt.pix_mp.num_planes <= 0)
 		try_fmt.fmt.pix_mp.num_planes = 1;
-	}
 
 	if (try_fmt.fmt.pix_mp.num_planes > MAX_SUBSAMPLE_PLANE_NUM) {
 		dev_info_ratelimited(cam->dev, "%s:%s:pipe(%d):%s:invalid num_planes(%d)\n",
