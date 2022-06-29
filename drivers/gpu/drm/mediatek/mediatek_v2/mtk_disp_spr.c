@@ -1060,7 +1060,7 @@ static void mtk_spr_config_V2(struct mtk_ddp_comp *comp,
 
 	//roi size config
 	mtk_ddp_write_relaxed(comp, height << 16 | width,
-		DISP_REG_SPR_ROI_SIZE, handle);
+		MT6985_DISP_REG_SPR_ROI_SIZE, handle);
 
 	//relay mode: roi size, crop_out_size, spr_en, spr_lut_en
 	if (disp_spr_bypass) {
