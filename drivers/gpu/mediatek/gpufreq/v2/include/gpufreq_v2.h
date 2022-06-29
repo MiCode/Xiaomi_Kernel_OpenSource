@@ -436,7 +436,7 @@ int gpufreq_set_limit(enum gpufreq_target target,
 	enum gpuppm_limiter limiter, int ceiling_info, int floor_info);
 int gpufreq_get_cur_limit_idx(enum gpufreq_target target,enum gpuppm_limit_type limit);
 unsigned int gpufreq_get_cur_limiter(enum gpufreq_target target, enum gpuppm_limit_type limit);
-int gpufreq_power_control(enum gpufreq_power_state power);
+int gpufreq_power_control(enum gpufreq_power_state power, int oppidx);
 int gpufreq_active_idle_control(enum gpufreq_power_state power);
 int gpufreq_commit(enum gpufreq_target target, int oppidx);
 struct gpufreq_core_mask_info *gpufreq_get_core_mask_table(void);

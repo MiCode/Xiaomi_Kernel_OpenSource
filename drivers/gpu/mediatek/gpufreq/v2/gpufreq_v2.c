@@ -674,10 +674,11 @@ EXPORT_SYMBOL(gpufreq_get_dynamic_power);
  *                      GPUFREQ_ENOENT - Null implementation
  * Description        : Control power state of whole MFG system
  ***********************************************************************************/
-int gpufreq_power_control(enum gpufreq_power_state power)
+int gpufreq_power_control(enum gpufreq_power_state power, int oppidx)
 {
 	struct gpufreq_ipi_data send_msg = {};
 	int ret = GPUFREQ_SUCCESS;
+	int target_oppidx = 0;
 
 	GPUFREQ_TRACE_START("power=%d", power);
 
@@ -690,7 +691,8 @@ int gpufreq_power_control(enum gpufreq_power_state power)
 	/* implement on EB */
 	if (g_gpueb_support) {
 		send_msg.cmd_id = CMD_POWER_CONTROL;
-		send_msg.u.power_state = power;
+		send_msg.u.power_ctrl.power_state = power;
+		send_msg.u.power_ctrl.oppidx = oppidx;
 
 		if (!gpufreq_ipi_to_gpueb(send_msg))
 			ret = g_recv_msg.u.return_value;
@@ -703,8 +705,14 @@ int gpufreq_power_control(enum gpufreq_power_state power)
 	if (gpufreq_fp && gpufreq_fp->power_control) {
 		ret = gpufreq_fp->power_control(power);
 		/* resume DVFS state after first power on */
-		if (power == POWER_ON && ret == 1)
-			gpufreq_commit(TARGET_DEFAULT, gpufreq_get_cur_oppidx(TARGET_DEFAULT));
+		if (power == POWER_ON && ret == 1) {
+			/* use input oppidx if specified or cur oppidx */
+			if (oppidx < 0)
+				target_oppidx = gpufreq_get_cur_oppidx(TARGET_DEFAULT);
+			else
+				target_oppidx = oppidx;
+			gpufreq_commit(TARGET_DEFAULT, target_oppidx);
+		}
 	} else {
 		ret = GPUFREQ_ENOENT;
 		GPUFREQ_LOGE("null gpufreq platform function pointer (ENOENT)");
