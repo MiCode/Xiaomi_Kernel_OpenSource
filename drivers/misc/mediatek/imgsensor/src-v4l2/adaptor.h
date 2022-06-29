@@ -80,7 +80,6 @@ struct adaptor_ctx {
 
 	/* custom v4l2 ctrls */
 	struct v4l2_ctrl *anti_flicker;
-	struct v4l2_ctrl *frame_sync;
 	struct v4l2_ctrl *analogue_gain;
 	struct v4l2_ctrl *awb_gain;
 	struct v4l2_ctrl *shutter_gain_sync;
@@ -92,9 +91,13 @@ struct adaptor_ctx {
 	struct v4l2_ctrl *hdr_atr;
 	struct v4l2_ctrl *hdr_tri_shutter;
 	struct v4l2_ctrl *hdr_tri_gain;
+	struct v4l2_ctrl *hdr_ae_ctrl;
+
+	/* custom v4l2 ctrls - frame sync - */
+	struct v4l2_ctrl *frame_sync;
+	struct v4l2_ctrl *fsync_async_master;
 	struct v4l2_ctrl *fsync_map_id;
 	struct v4l2_ctrl *fsync_listen_target;
-	struct v4l2_ctrl *hdr_ae_ctrl;
 
 	/* hw handles */
 	struct clk *clk[CLK_MAXCNT];

@@ -576,6 +576,9 @@ struct mtk_cam_resource_v2 {
 #define V4L2_CID_MTK_AOV_SWITCH_I2C_BUS_SDA_AUX \
 	(V4L2_CID_USER_MTK_SENSOR_BASE + 38)
 
+#define V4L2_CID_FSYNC_ASYNC_MASTER \
+	(V4L2_CID_USER_MTK_SENSOR_BASE + 39)
+
 /**
  * enum scl for imgsensor gpio aux function.
  */

@@ -778,10 +778,17 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 
 	case V4L2_CID_FRAME_SYNC:
 		dev_info(dev,
-			"V4L2_CID_FRAME_SYNC (set_sync), idx:%u, value:%d\n",
-			ctx->idx, ctrl->val);
+			"V4L2_CID_FRAME_SYNC (set_sync), idx:%u, value:%d(%#x)\n",
+			ctx->idx, ctrl->val, ctrl->val);
 
 		notify_fsync_mgr_set_sync(ctx, (u64)ctrl->val);
+		break;
+
+	case V4L2_CID_FSYNC_ASYNC_MASTER:
+		dev_info(dev,
+			"V4L2_CID_FSYNC_ASYNC_MASTER val:%d\n",
+			ctrl->val);
+		notify_fsync_mgr_set_async_master(ctx, ctrl->val);
 		break;
 
 	case V4L2_CID_FSYNC_MAP_ID:
@@ -1168,8 +1175,20 @@ static const struct v4l2_ctrl_config cfg_frame_sync = {
 	.ops = &ctrl_ops,
 	.id = V4L2_CID_FRAME_SYNC,
 	.name = "frame_sync",
-	.type = V4L2_CTRL_TYPE_BOOLEAN,
-	.max = 1,
+	.type = V4L2_CTRL_TYPE_INTEGER,
+	.flags = V4L2_CTRL_FLAG_EXECUTE_ON_WRITE,
+	.max = 0x7fffffff,
+	.step = 1,
+};
+
+static const struct v4l2_ctrl_config cfg_fsync_async_master = {
+	.ops = &ctrl_ops,
+	.id = V4L2_CID_FSYNC_ASYNC_MASTER,
+	.name = "fsync_async_master",
+	.type = V4L2_CTRL_TYPE_INTEGER,
+	.flags = V4L2_CTRL_FLAG_EXECUTE_ON_WRITE,
+	.def = 255, // FrameSync::MASTER_IDX_NONE
+	.max = 0xffff,
 	.step = 1,
 };
 
@@ -1178,6 +1197,7 @@ static const struct v4l2_ctrl_config cfg_fsync_map_id = {
 	.id = V4L2_CID_FSYNC_MAP_ID,
 	.name = "fsync_map_id",
 	.type = V4L2_CTRL_TYPE_INTEGER,
+	.flags = V4L2_CTRL_FLAG_EXECUTE_ON_WRITE,
 	.max = 0xffff,
 	.step = 1,
 };
@@ -1187,6 +1207,7 @@ static const struct v4l2_ctrl_config cfg_fsync_listen_target = {
 	.id = V4L2_CID_FSYNC_LISTEN_TARGET,
 	.name = "fsync_listen_target",
 	.type = V4L2_CTRL_TYPE_INTEGER,
+	.flags = V4L2_CTRL_FLAG_EXECUTE_ON_WRITE,
 	.max = 0xffff,
 	.step = 1,
 };
@@ -1746,6 +1767,10 @@ int adaptor_init_ctrls(struct adaptor_ctx *ctx)
 	/* custom frame-sync */
 	ctx->frame_sync = v4l2_ctrl_new_custom(&ctx->ctrls,
 		&cfg_frame_sync, NULL);
+
+	/* custom frame-sync - async master */
+	ctx->fsync_async_master = v4l2_ctrl_new_custom(&ctx->ctrls,
+		&cfg_fsync_async_master, NULL);
 
 	/* custom awb gain */
 	ctx->awb_gain = v4l2_ctrl_new_custom(&ctx->ctrls,
