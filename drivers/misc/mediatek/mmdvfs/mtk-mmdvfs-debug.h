@@ -6,6 +6,7 @@
 #define MTK_MMDVFS_DEBUG_H
 
 void mtk_mmdvfs_debug_release_step0(void);
+void mtk_mmdvfs_debug_ulposc_enable(const bool enable);
 
 #endif
 
