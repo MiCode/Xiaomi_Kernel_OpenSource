@@ -108,6 +108,14 @@
 #define P2ARA_RG_TERM_CAL		GENMASK(11, 8)
 #define P2ARA_RG_TERM_CAL_VAL(x)	((0xf & (x)) << 8)
 
+#define XSP_U2PHYA_RESERVE0	((SSUSB_SIFSLV_U2PHY_COM) + 0x040)
+#define P2A2R0_RG_PLL_FBKSEL         BIT(31)
+#define P2A2R0_RG_PLL_FBKSEL_VAL(x)	((0x1 & (x)) << 31)
+
+#define XSP_U2PHYA_RESERVE1	((SSUSB_SIFSLV_U2PHY_COM) + 0x044)
+#define P2A2R1_RG_PLL_POSDIV    GENMASK(2, 0)
+#define P2A2R1_RG_PLL_POSDIV_VAL(x)	(0x7 & (x))
+
 #define XSP_U2PHYDTM0		((SSUSB_SIFSLV_U2PHY_COM) + 0x068)
 #define P2D_FORCE_UART_EN		BIT(26)
 #define P2D_FORCE_DATAIN		BIT(23)
@@ -281,6 +289,8 @@ struct xsphy_instance {
 	int eye_vrt_host;
 	int eye_term_host;
 	int rev6_host;
+	int pll_fbksel;
+	int pll_posdiv;
 	struct proc_dir_entry *phy_root;
 };
 
@@ -1357,6 +1367,12 @@ static void phy_parse_property(struct mtk_xsphy *xsphy,
 					 &inst->rx_sqth);
 		device_property_read_u32(dev, "mediatek,rev6",
 				 &inst->rev6);
+		if (device_property_read_u32(dev, "mediatek,pll-fbksel",
+				 &inst->pll_fbksel))
+			inst->pll_fbksel = -1;
+		if (device_property_read_u32(dev, "mediatek,pll-posdiv",
+				 &inst->pll_posdiv))
+			inst->pll_posdiv = -1;
 		device_property_read_u32(dev, "mediatek,eye-src-host",
 					 &inst->eye_src_host);
 		device_property_read_u32(dev, "mediatek,eye-vrt-host",
@@ -1454,6 +1470,21 @@ static void u2_phy_props_set(struct mtk_xsphy *xsphy,
 		tmp |= P2A6_RG_U2_PHY_REV6_VAL(inst->rev6);
 		writel(tmp, pbase + XSP_USBPHYACR6);
 	}
+
+	if (inst->pll_fbksel >= 0) {
+		tmp = readl(pbase + XSP_U2PHYA_RESERVE0);
+		tmp &= ~P2A2R0_RG_PLL_FBKSEL;
+		tmp |= P2A2R0_RG_PLL_FBKSEL_VAL(inst->pll_fbksel);
+		writel(tmp, pbase + XSP_U2PHYA_RESERVE0);
+	}
+
+	if (inst->pll_posdiv >= 0) {
+		tmp = readl(pbase + XSP_U2PHYA_RESERVE1);
+		tmp &= ~P2A2R1_RG_PLL_POSDIV;
+		tmp |= P2A2R1_RG_PLL_POSDIV_VAL(inst->pll_posdiv);
+		writel(tmp, pbase + XSP_U2PHYA_RESERVE1);
+	}
+
 }
 
 static void u2_phy_host_props_set(struct mtk_xsphy *xsphy,
@@ -1546,6 +1577,8 @@ static int mtk_phy_init(struct phy *phy)
 		dev_info(xsphy->dev, "u2_intr:%d term_cal:%d discth:%d\n",
 			inst->efuse_intr, inst->efuse_term_cal, inst->discth);
 		dev_info(xsphy->dev, "rx_sqth:%d\n", inst->rx_sqth);
+		dev_info(xsphy->dev, "pll_fbksel:%d, pll_posdiv\n",
+			inst->pll_fbksel, inst->pll_posdiv);
 		break;
 	case PHY_TYPE_USB3:
 		u3_phy_props_set(xsphy, inst);
