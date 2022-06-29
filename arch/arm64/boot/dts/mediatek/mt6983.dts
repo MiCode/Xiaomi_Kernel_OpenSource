@@ -884,7 +884,7 @@
 				scmi-plt = <7>;
 				scmi_smi = <8>;
 				scmi_cm = <9>;
-				scmi_slbc = <10>;
+				scmi-slbc = <10>;
 				scmi_ssc = <11>;
 				scmi_apmcupm = <12>;
 				scmi_mminfra = <13>;
@@ -3533,7 +3533,7 @@
 		compatible = "mediatek,mtkfb";
 	};
 
-	slbc: slbc {
+	slbc: slbc@113c00 {
 		compatible = "mediatek,mtk-slbc";
 		reg = <0 0x00113C00 0 0x100>;
 		status = "enable";

@@ -538,7 +538,7 @@
 				scmi-plt = <7>;
 				scmi_smi = <8>;
 				scmi_cm = <9>;
-				scmi_slbc = <10>;
+				scmi-slbc = <10>;
 				scmi_ssc = <11>;
 				scmi_apmcupm = <12>;
 				scmi_mminfra = <13>;
@@ -11957,10 +11957,10 @@
 		iommus = <&mdp_iommu M4U_PORT_L39_VIDEO_UP>;
 	};
 
-	slbc: slbc {
+	slbc: slbc@113e00 {
 		compatible = "mediatek,mtk-slbc";
 		reg = <0 0x00113e00 0 0x200>;
-		slbc_enable = <1>;
+		slbc-enable = <1>;
 		apu = <2097152>;
 	};
 
