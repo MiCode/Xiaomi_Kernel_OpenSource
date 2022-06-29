@@ -1614,6 +1614,7 @@ int mtk_cam_call_sv_pipeline_config(
 	tag_info->hw_scen = hw_scen;
 	tag_info->tag_order = tag_order;
 	tag_info->cfg_in_param.pixel_mode = pixelmode;
+	tag_info->img_fmt = img_fmt;
 	atomic_set(&tag_info->is_config_done, 0);
 	atomic_set(&tag_info->is_stream_on, 0);
 

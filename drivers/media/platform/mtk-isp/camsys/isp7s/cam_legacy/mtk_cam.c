@@ -5420,6 +5420,9 @@ static int isp_composer_handle_sv_ack(struct mtk_cam_device *cam,
 		spin_unlock(&ctx->sv_using_buffer_list.lock);
 
 		atomic_set(&ctx->sv_dev->is_first_frame, 1);
+		/* mmqos update for single sv case */
+		mtk_cam_qos_sv_bw_calc(ctx, false);
+
 		apply_camsv_cq(ctx->sv_dev,
 			buf_entry->buffer.iova,
 			buf_entry->sv_cq_desc_size,
@@ -8114,6 +8117,8 @@ int mtk_cam_ctx_stream_off(struct mtk_cam_ctx *ctx)
 	if (ctx->used_raw_num) {
 		mtk_cam_dvfs_update_clk(ctx->cam);
 		mtk_cam_qos_bw_reset(ctx);
+	} else {
+		mtk_cam_qos_sv_bw_reset(ctx);
 	}
 
 	for (i = 0; i < MAX_PIPES_PER_STREAM && ctx->pipe_subdevs[i]; i++) {

@@ -188,6 +188,7 @@ struct mtk_camsv_tag_info {
 	/* camsv todo: move stride to frame param */
 	unsigned int stride;
 	struct mtkcam_ipi_input_param cfg_in_param;
+	struct v4l2_format *img_fmt;
 	atomic_t is_config_done;
 	atomic_t is_stream_on;
 };
