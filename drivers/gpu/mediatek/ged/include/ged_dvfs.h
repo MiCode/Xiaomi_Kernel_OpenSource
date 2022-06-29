@@ -171,9 +171,12 @@ unsigned int ged_dvfs_get_tb_dvfs_margin_mode(void);
 #define LOADING_ACTIVE 0
 #define LOADING_MAX_3DTA_COM 1
 #define LOADING_MAX_3DTA 2
+#define LOADING_3D 3
+#define LOADING_ITER_ACTIVE 4
 
 #define WORKLOAD_ACTIVE 0
-#define WORKLOAD_3D 1
+#define WORKLOAD_3D 3
+#define WORKLOAD_ITER_ACTIVE 4
 
 extern void (*mtk_dvfs_loading_mode_fp)(int i32LoadingMode);
 extern int (*mtk_get_dvfs_loading_mode_fp)(void);

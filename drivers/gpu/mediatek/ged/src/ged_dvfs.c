@@ -175,8 +175,8 @@ struct ld_ud_table {
 };
 static struct ld_ud_table *loading_ud_table;
 
-static int gx_dvfs_loading_mode = LOADING_ACTIVE;
-static int gx_dvfs_workload_mode = WORKLOAD_ACTIVE;
+static int gx_dvfs_loading_mode = LOADING_ITER_ACTIVE;
+static int gx_dvfs_workload_mode = WORKLOAD_ITER_ACTIVE;
 struct GpuUtilization_Ex g_Util_Ex;
 static int ged_get_dvfs_loading_mode(void);
 
@@ -739,10 +739,11 @@ static void ged_dvfs_trigger_fb_dvfs(void)
 static int ged_dvfs_fb_gpu_dvfs(int t_gpu_done_interval, int t_gpu_target,
 	int target_fps_margin, unsigned int force_fallback)
 {
-	int t_gpu, t_gpu_active, t_gpu_3d;
+	unsigned int loading_mode = 0, workload_mode = 0;
+	int t_gpu, t_gpu_active, t_gpu_3d, t_gpu_iter;
 	struct GpuUtilization_Ex util_ex;
 	int i, gpu_freq_tar, gpu_freq_floor, ui32NewFreqID = 0;
-	unsigned int ap_workload, ap_workload_active, ap_workload_3d, workload_mode = 0;
+	unsigned int ap_workload, ap_workload_active, ap_workload_3d, ap_workload_iter;
 	int ret_freq = -1;
 	int minfreq_idx;
 	static int gpu_freq_pre = -1;
@@ -802,16 +803,25 @@ static int ged_dvfs_fb_gpu_dvfs(int t_gpu_done_interval, int t_gpu_target,
 	if (force_fallback == 2) {
 		// do not use loading as this is the first FB after LB
 		t_gpu_active = t_gpu_done_interval / 100000;
-		t_gpu_3d = t_gpu_done_interval / 100000;
+		t_gpu_3d = t_gpu_active;
+		t_gpu_iter = t_gpu_active;
 	} else {
 		ged_get_gpu_utli_ex(&util_ex);
 		t_gpu_active = t_gpu_done_interval * util_ex.util_active / (100 * 100000);
 		t_gpu_3d = t_gpu_done_interval * util_ex.util_3d / (100 * 100000);
+		t_gpu_iter = t_gpu_done_interval * util_ex.util_iter / (100 * 100000);
 	}
 	t_gpu_done_interval /= 100000;
 	t_gpu_target /= 100000;
 
-	t_gpu = t_gpu_active;
+	mtk_get_dvfs_loading_mode(&loading_mode);
+	if (loading_mode == LOADING_3D) {
+		t_gpu = t_gpu_3d;
+	} else if (loading_mode == LOADING_ITER_ACTIVE) {
+		t_gpu = t_gpu_iter;
+	} else {   // LOADING_ACTIVE or others or unknown mode
+		t_gpu = t_gpu_active;
+	}
 
 	spin_lock_irqsave(&gsGpuUtilLock, ui32IRQFlags);
 	if (is_fallback_mode_triggered)
@@ -952,7 +962,7 @@ static int ged_dvfs_fb_gpu_dvfs(int t_gpu_done_interval, int t_gpu_target,
 								  (t_gpu_target * 100),
 								  (t_gpu_target_hd * 100));
 	Policy__Frame_based__GPU_Time__Detail((t_gpu_done_interval * 100),
-		(t_gpu_active * 100), (t_gpu_3d * 100));
+		(t_gpu_active * 100), (t_gpu_3d * 100), (t_gpu_iter * 100));
 
 	// Hint target frame time w/z headroom
 	if (ged_is_fdvfs_support())
@@ -963,9 +973,12 @@ static int ged_dvfs_fb_gpu_dvfs(int t_gpu_done_interval, int t_gpu_target,
 	// gpu_freq_pre = ged_get_cur_freq() / 1000;
 	ap_workload_active = t_gpu_active * gpu_freq_pre;
 	ap_workload_3d = t_gpu_3d * gpu_freq_pre;
+	ap_workload_iter = t_gpu_iter * gpu_freq_pre;
 	mtk_get_dvfs_workload_mode(&workload_mode);
 	if (workload_mode == WORKLOAD_3D) {
 		ap_workload = ap_workload_3d;
+	} else if (workload_mode == WORKLOAD_ITER_ACTIVE) {
+		ap_workload = ap_workload_iter;
 	} else {   // WORKLOAD_ACTIVE or unknown mode
 		ap_workload = ap_workload_active;
 	}
@@ -992,7 +1005,7 @@ static int ged_dvfs_fb_gpu_dvfs(int t_gpu_done_interval, int t_gpu_target,
 	}
 
 	Policy__Frame_based__Workload__Source(g_eb_workload, ap_workload_active,
-		ap_workload_3d);
+		ap_workload_3d, ap_workload_iter, workload_mode);
 	Policy__Frame_based__Workload(busy_cycle_cur, gpu_busy_cycle);
 
 	if (t_gpu_target != 0)
@@ -1185,6 +1198,8 @@ static bool ged_dvfs_policy(
 	} else if (loading_mode == LOADING_MAX_3DTA) {
 		ui32GPULoading =
 		 MAX(g_Util_Ex.util_3d, g_Util_Ex.util_ta);
+	} else if (loading_mode == LOADING_ITER_ACTIVE) {
+		ui32GPULoading = g_Util_Ex.util_iter;
 	}
 
 	Policy__Loading_based__Loading__Detail(
@@ -1192,6 +1207,7 @@ static bool ged_dvfs_policy(
 					g_Util_Ex.util_3d,
 					g_Util_Ex.util_ta,
 					g_Util_Ex.util_compute,
+					g_Util_Ex.util_iter,
 					loading_mode);
 
 	if (g_loading_slide_enable)
