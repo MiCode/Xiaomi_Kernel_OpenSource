@@ -8659,6 +8659,7 @@
 		//<24 0  6>,/* IPI_OUT_SCP_MPOOL_1 */
 		<17 1  6>,/* IPI_OUT_LOGGER_CTRL */
 		<18 1  2>,/* IPI_OUT_SCPCTL_1 */
+		<46 1  1>,/* IPI_OUT_SCP_PM_NOTIFY_1 */
 		< 4 2  1>,/* IPI_OUT_DVFS_SET_FREQ_0 */
 		< 5 2  2>,/* IPI_OUT_C_SLEEP_0 */
 		< 6 2  1>,/* IPI_OUT_TEST_0 */
@@ -8670,7 +8671,7 @@
 		<35 3  2>,/* IPI_OUT_C_SCP_HWVOTER_DEBUG */
 		<39 3  4>,/* IPI_OUT_AOV_SCP */
 		<43 3  4>,/* IPI_OUT_NPU_SCP */
-		<45 3  1>,/* IPI_OUT_SCP_PM_NOTIFY */
+		<45 3  1>,/* IPI_OUT_SCP_PM_NOTIFY_0 */
 		<29 4 16>,/* IPI_OUT_SENSOR_CTRL */
 		<31 4  7>;/* IPI_OUT_SENSOR_NOTIFY */
 
