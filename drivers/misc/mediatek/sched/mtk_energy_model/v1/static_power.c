@@ -24,7 +24,7 @@
 #include <linux/cpufreq.h>
 #include "energy_model.h"
 
-#define __LKG_PROCFS__ 1
+#define __LKG_PROCFS__ 0
 #define __LKG_DEBUG__ 0
 
 struct leakage_para {
