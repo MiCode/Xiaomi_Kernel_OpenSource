@@ -430,7 +430,7 @@ void mtk_cam_sw_reset_check(struct device *dev,
 				items[i].debug_sel, vals[i], items[i].msg);
 
 #if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
-		aee_kernel_warning_api(
+		aee_kernel_exception_api(
 				__FILE__, __LINE__, DB_OPT_DEFAULT,
 				"Camsys: SW reset fail", "SW reset fail");
 #endif

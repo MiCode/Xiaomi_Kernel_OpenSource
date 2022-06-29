@@ -719,7 +719,7 @@ static int mtk_cam_raw_set_res_ctrl(struct v4l2_ctrl *ctrl)
 				       "s_ctrl", true);
 	if (ret) {
 #if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
-		aee_kernel_warning_api(__FILE__, __LINE__, DB_OPT_DEFAULT,
+		aee_kernel_exception_api(__FILE__, __LINE__, DB_OPT_DEFAULT,
 				       "Camsys: set resource failed",
 				       "mtk_cam_raw_try_res_ctrl failed");
 #endif
