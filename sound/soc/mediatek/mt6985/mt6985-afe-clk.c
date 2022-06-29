@@ -89,6 +89,10 @@ int mt6985_set_audio_int_bus_parent(struct mtk_base_afe *afe,
 	struct mt6985_afe_private *afe_priv = afe->platform_priv;
 	int ret;
 
+	if (clk_id < 0 || clk_id > CLK_CLK26M) {
+		dev_err(afe->dev, "%s(), invalid clk_id %d\n", __func__, clk_id);
+		return -EINVAL;
+	}
 	ret = clk_set_parent(afe_priv->clk[CLK_MUX_AUDIOINTBUS],
 			     afe_priv->clk[clk_id]);
 	if (ret) {
@@ -743,9 +747,16 @@ int mt6985_mck_enable(struct mtk_base_afe *afe, int mck_id, int rate)
 	int apll = mt6985_get_apll_by_rate(afe, rate);
 	int apll_clk_id = apll == MT6985_APLL1 ?
 			  CLK_TOP_MUX_AUD_1 : CLK_TOP_MUX_AUD_2;
-	int m_sel_id = mck_div[mck_id].m_sel_id;
-	int div_clk_id = mck_div[mck_id].div_clk_id;
+	int m_sel_id;
+	int div_clk_id;
 	int ret;
+
+	if (mck_id < 0) {
+		dev_err(afe->dev, "%s(), invalid mck_id %d\n", __func__, mck_id);
+		return -EINVAL;
+	}
+	m_sel_id = mck_div[mck_id].m_sel_id;
+	div_clk_id = mck_div[mck_id].div_clk_id;
 
 	/* select apll */
 	if (m_sel_id >= 0) {
@@ -766,6 +777,10 @@ int mt6985_mck_enable(struct mtk_base_afe *afe, int mck_id, int rate)
 	}
 
 	/* enable div, set rate */
+	if (div_clk_id < 0) {
+		dev_err(afe->dev, "%s(), invalid div_clk_id %d\n", __func__, div_clk_id);
+		return -EINVAL;
+	}
 	ret = clk_prepare_enable(afe_priv->clk[div_clk_id]);
 	if (ret) {
 		dev_err(afe->dev, "%s(), clk_prepare_enable %s fail %d\n",
@@ -785,6 +800,10 @@ int mt6985_mck_enable(struct mtk_base_afe *afe, int mck_id, int rate)
 
 	/* enable div, set rate */
 	div_clk_id = mck_div[mck_id].div_msb_clk_id;
+	if (div_clk_id < 0) {
+		dev_err(afe->dev, "%s(), invalid div_clk_id %d\n", __func__, div_clk_id);
+		return -EINVAL;
+	}
 	ret = clk_prepare_enable(afe_priv->clk[div_clk_id]);
 	if (ret) {
 		dev_err(afe->dev, "%s(), clk_prepare_enable %s fail %d\n",

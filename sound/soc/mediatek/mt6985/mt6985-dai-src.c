@@ -361,16 +361,27 @@ static int mtk_set_src_2_param(struct mtk_base_afe *afe, int id)
 
 static int mtk_set_src_3_param(struct mtk_base_afe *afe, int id)
 {
-	struct mt6985_afe_private *afe_priv = afe->platform_priv;
-	struct mtk_afe_src_priv *src_priv = afe_priv->dai_priv[id];
+	struct mt6985_afe_private *afe_priv = NULL;
+	struct mtk_afe_src_priv *src_priv = NULL;
 	unsigned int iir_coeff_num;
 	unsigned int iir_stage;
-	int rate_in = src_priv->dl_rate;
-	int rate_out = src_priv->ul_rate;
-	unsigned int out_freq_mode = mtk_get_src_freq_mode(afe,
-							   rate_out);
-	unsigned int in_freq_mode = mtk_get_src_freq_mode(afe,
-							  rate_in);
+	int rate_in;
+	int rate_out;
+	unsigned int out_freq_mode;
+	unsigned int in_freq_mode;
+
+	if (id < 0 || id > MT6985_DAI_NUM) {
+		dev_err(afe->dev, "%s(), invalid DAI id %d\n", __func__, id);
+		return -EINVAL;
+	}
+	afe_priv = afe->platform_priv;
+	src_priv = afe_priv->dai_priv[id];
+	rate_in = src_priv->dl_rate;
+	rate_out = src_priv->ul_rate;
+	out_freq_mode = mtk_get_src_freq_mode(afe,
+					      rate_out);
+	in_freq_mode = mtk_get_src_freq_mode(afe,
+					     rate_in);
 
 	/* set out freq mode */
 	regmap_update_bits(afe->regmap, AFE_GENERAL3_ASRC_2CH_CON3,

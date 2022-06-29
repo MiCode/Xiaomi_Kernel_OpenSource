@@ -4381,15 +4381,19 @@ struct attribute_group afe_bin_attr_group = {
 
 static int mt6985_afe_component_probe(struct snd_soc_component *component)
 {
-	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(component);
-	struct snd_soc_card *sndcard = component->card;
-	struct snd_card *card = sndcard->snd_card;
+	struct mtk_base_afe *afe = NULL;
+	struct snd_soc_card *sndcard = NULL;
+	struct snd_card *card = NULL;
 	int ret = 0;
 
-	mtk_afe_add_sub_dai_control(component);
-	mt6985_add_misc_control(component);
-
 	if (component) {
+		afe = snd_soc_component_get_drvdata(component);
+		sndcard = component->card;
+		card = sndcard->snd_card;
+
+		mtk_afe_add_sub_dai_control(component);
+		mt6985_add_misc_control(component);
+
 		bin_attr_afe_dump.private = (void *)afe;
 		ret = snd_card_add_dev_attr(card, &afe_bin_attr_group);
 		if (ret)

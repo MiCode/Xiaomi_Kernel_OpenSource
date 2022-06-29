@@ -134,6 +134,10 @@ int mt6985_dai_set_priv(struct mtk_base_afe *afe, int id,
 	if (priv_data)
 		memcpy(temp_data, priv_data, priv_size);
 
+	if (id < 0 || id >= MT6985_DAI_NUM) {
+		dev_err(afe->dev, "%s(), invalid DAI id %d\n", __func__, id);
+		return -EINVAL;
+	}
 	afe_priv->dai_priv[id] = temp_data;
 
 	return 0;
