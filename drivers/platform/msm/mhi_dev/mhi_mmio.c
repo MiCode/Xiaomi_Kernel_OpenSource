@@ -732,10 +732,10 @@ int mhi_dev_mmio_init(struct mhi_dev *dev)
 
 	mhi_dev_mmio_read(dev, ERDBOFF, &dev->cfg.erdb_offset);
 
-	dev->cfg.channels = NUM_CHANNELS;
-
-	if (!dev->mmio_initialized)
+	if (!dev->is_flashless)
 		mhi_dev_mmio_reset(dev);
+
+	dev->cfg.channels = NUM_CHANNELS;
 
 	return 0;
 }

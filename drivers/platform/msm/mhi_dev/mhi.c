@@ -4094,6 +4094,9 @@ static int get_device_tree_data(struct platform_device *pdev)
 		}
 	}
 
+	mhi_ctx->is_flashless = of_property_read_bool((&pdev->dev)->of_node,
+				"qcom,mhi-is-flashless");
+
 	device_init_wakeup(mhi->dev, true);
 	/* MHI device will be woken up from PCIe event */
 	device_set_wakeup_capable(mhi->dev, false);
@@ -4120,12 +4123,10 @@ static int mhi_deinit(struct mhi_dev *mhi)
 
 	mhi_dev_sm_exit(mhi);
 
-	mhi->mmio_initialized = false;
-
 	return 0;
 }
 
-static int mhi_init(struct mhi_dev *mhi)
+static int mhi_init(struct mhi_dev *mhi, bool init_state)
 {
 	int rc = 0, i = 0;
 	struct platform_device *pdev = mhi->pdev;
@@ -4135,6 +4136,9 @@ static int mhi_init(struct mhi_dev *mhi)
 		pr_err("Failed to update the MMIO init\n");
 		return rc;
 	}
+
+	if (init_state == MHI_REINIT)
+		mhi_dev_mmio_reset(mhi);
 
 	/*
 	 * mhi_init is also called during device reset, in
@@ -4178,7 +4182,7 @@ static int mhi_dev_resume_mmio_mhi_reinit(struct mhi_dev *mhi_ctx)
 		return 0;
 	}
 
-	rc = mhi_init(mhi_ctx);
+	rc = mhi_init(mhi_ctx, MHI_REINIT);
 	if (rc) {
 		pr_err("Error initializing MHI MMIO with %d\n", rc);
 		goto fail;
@@ -4321,7 +4325,7 @@ static int mhi_dev_resume_mmio_mhi_init(struct mhi_dev *mhi_ctx)
 		return rc;
 	}
 
-	rc = mhi_init(mhi_ctx);
+	rc = mhi_init(mhi_ctx, MHI_INIT);
 	if (rc)
 		return rc;
 
