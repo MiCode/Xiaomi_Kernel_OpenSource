@@ -96,8 +96,6 @@ static int mtk_aov_uisp_power_on(struct mtk_aov *aov_dev, unsigned int enable)
 
 	dev = aov_dev->dev;
 	if (enable) {
-		pm_runtime_enable(dev);
-
 		pm_runtime_get_sync(dev);
 
 		for (i = 0; i < aov_dev->num_clks; i++) {
@@ -116,8 +114,7 @@ static int mtk_aov_uisp_power_on(struct mtk_aov *aov_dev, unsigned int enable)
 		for (i = 0; i < aov_dev->num_clks; i++)
 			clk_disable_unprepare(aov_dev->clks[i]);
 
-		pm_runtime_disable(dev);
-		pm_runtime_get_sync(dev);
+		pm_runtime_put_sync(dev);
 	}
 
 	return 0;
@@ -212,7 +209,6 @@ static int mtk_aov_release(struct inode *inode, struct file *file)
 	struct mtk_aov *aov_dev = (struct mtk_aov *)file->private_data;
 
 	pr_info("%s release aov driver+\n", __func__);
-
 	aov_dev->is_open = false;
 
 	aov_core_reset(aov_dev);
@@ -350,7 +346,7 @@ static int mtk_aov_probe(struct platform_device *pdev)
 		if (!link_p1)
 			dev_info(&pdev->dev, "unable to link_p1 smi larb%d\n", i);
 	}
-
+	pm_runtime_enable(aov_dev->dev);
 	dev_info(&pdev->dev, "%s probe aov driver-\n", __func__);
 
 	return 0;
@@ -376,7 +372,7 @@ static int mtk_aov_remove(struct platform_device *pdev)
 	struct mtk_aov *aov_dev = platform_get_drvdata(pdev);
 
 	pr_info("%s remove aov driver+\n", __func__);
-
+	pm_runtime_disable(aov_dev->dev);
 	if (mtk_aov_is_open(aov_dev) == true) {
 		aov_dev->is_open = false;
 		dev_dbg(&pdev->dev, "%s: opened device found\n", __func__);

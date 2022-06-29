@@ -506,12 +506,12 @@ static int mtk_aie_hw_connect(struct mtk_aie_dev *fd)
 {
 	int ret = 0;
 
+	mtk_aov_notify(fd->aov_pdev, AOV_NOTIFY_AIE_AVAIL, 0); //unavailable: 0 available: 1
 	pm_runtime_get_sync((fd->dev));
 
 	fd->fd_stream_count++;
 	if (fd->fd_stream_count == 1) {
 		cmdq_mbox_enable(fd->fdvt_clt->chan);
-		mtk_aov_notify(fd->aov_pdev, AOV_NOTIFY_AIE_AVAIL, 0); //unavailable: 0 available: 1
 		ret = mtk_aie_hw_enable(fd);
 		if (ret)
 			return -EINVAL;
@@ -532,14 +532,13 @@ static void mtk_aie_hw_disconnect(struct mtk_aie_dev *fd)
 	}
 
 	pm_runtime_put_sync(fd->dev);
-
+	mtk_aov_notify(fd->aov_pdev, AOV_NOTIFY_AIE_AVAIL, 1); //unavailable: 0 available: 1
 	dev_info(fd->dev, "[%s] stream_count:%d map_count%d\n", __func__,
 			fd->fd_stream_count, fd->map_count);
 	fd->fd_stream_count--;
 	if (fd->fd_stream_count == 0) { //have hw_connect
 		//mtk_aie_mmqos_set(fd, 0);
 		cmdq_mbox_disable(fd->fdvt_clt->chan);
-		mtk_aov_notify(fd->aov_pdev, AOV_NOTIFY_AIE_AVAIL, 1); //unavailable: 0 available: 1
 		//mtk_aie_mmdvfs_set(fd, 0, 0);
 		if (fd->map_count == 1) { //have qbuf + map memory
 			dma_buf_vunmap(fd->dmabuf, &fd->map);

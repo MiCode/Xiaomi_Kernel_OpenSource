@@ -624,7 +624,7 @@ int aov_core_init(struct mtk_aov *aov_dev)
 
 	atomic_set(&(core_info->debug_mode), 0);
 	atomic_set(&(core_info->disp_mode), AOV_DiSP_MODE_ON);
-	atomic_set(&(core_info->aie_avail), 0);
+	atomic_set(&(core_info->aie_avail), 1);
 
 	return 0;
 }
