@@ -1378,7 +1378,6 @@ bool mtk_crtc_is_dual_pipe(struct drm_crtc *crtc)
 		return true;
 	}
 
-
 	if ((drm_crtc_index(crtc) == 0) &&
 		mtk_drm_helper_get_opt(priv->helper_opt,
 			    MTK_DRM_OPT_PRIM_DUAL_PIPE) &&
@@ -1439,7 +1438,8 @@ void mtk_crtc_prepare_dual_pipe(struct mtk_drm_crtc *mtk_crtc)
 	}
 
 	for_each_comp_id_in_dual_pipe(comp_id, mtk_crtc->path_data, i, j) {
-		DDPDBG("prepare comp id in dual pipe %d\n", comp_id);
+		DDPDBG("prepare comp id in dual pipe %s, type=%d\n",
+				mtk_dump_comp_str_id(comp_id), mtk_ddp_comp_get_type(comp_id));
 		if (comp_id < 0) {
 			DDPPR_ERR("%s: Invalid comp_id:%d\n", __func__, comp_id);
 			return;
@@ -1462,8 +1462,6 @@ void mtk_crtc_prepare_dual_pipe(struct mtk_drm_crtc *mtk_crtc)
 				comp->mtk_crtc = mtk_crtc;
 				}
 			continue;
-
-
 		}
 		comp = priv->ddp_comp[comp_id];
 		mtk_crtc->dual_pipe_ddp_ctx.ddp_comp[i][j] = comp;
@@ -7127,6 +7125,8 @@ void mtk_crtc_disconnect_default_path(struct mtk_drm_crtc *mtk_crtc)
 	}
 
 	if (mtk_crtc->is_dual_pipe) {
+		mtk_ddp_disconnect_dual_pipe_path(mtk_crtc, mtk_crtc->mutex[0]);
+
 		for_each_comp_in_dual_pipe(comp, mtk_crtc, i, j)
 			mtk_disp_mutex_remove_comp(mtk_crtc->mutex[0],
 				comp->id);
@@ -13666,7 +13666,6 @@ skip:
 	if (mtk_crtc_with_event_loop(crtc) &&
 			(mtk_crtc_is_frame_trigger_mode(crtc)))
 		mtk_crtc_stop_event_loop(crtc);
-
 
 	DDPINFO("%s:%d -\n", __func__, __LINE__);
 }
