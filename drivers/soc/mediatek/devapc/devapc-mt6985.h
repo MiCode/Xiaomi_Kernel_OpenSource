@@ -958,7 +958,7 @@ static const struct mtk_device_info mt6985_devices_infra1[] = {
 	{-1, -1, 228, "Decode_error", true},
 	{-1, -1, 229, "Decode_error", true},
 	{-1, -1, 230, "Decode_error", true},
-	{-1, -1, 231, "Decode_error", true},
+	{-1, -1, 231, "Decode_error", false},
 
 	{-1, -1, 232, "SRAMROM", true},
 	{-1, -1, 233, "CQDMA", false},
