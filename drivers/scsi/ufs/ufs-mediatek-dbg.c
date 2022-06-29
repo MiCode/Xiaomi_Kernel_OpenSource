@@ -468,7 +468,7 @@ static void probe_ufshcd_system_resume(void *data, const char *dev_name,
 			    int pwr_mode, int link_state)
 {
 	probe_ufshcd_pm(data, dev_name, err, time_us, pwr_mode, link_state,
-			UFSDBG_SYSTEM_SUSPEND);
+			UFSDBG_SYSTEM_RESUME);
 }
 
 /**
