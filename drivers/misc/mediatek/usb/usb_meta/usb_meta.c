@@ -1418,7 +1418,7 @@ static int usb_meta_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id usb_meta_of_match[] = {
-	{.compatible = "mediatek,usb_meta",},
+	{.compatible = "mediatek,usb-meta",},
 	{},
 };
 
