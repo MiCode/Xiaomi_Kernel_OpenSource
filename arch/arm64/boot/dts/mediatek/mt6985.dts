@@ -3300,6 +3300,7 @@
 			dma-names = "tx", "rx";
 			peri-clock-con = <0x11036020 0xF00 0x800>;  /*UART ClOCK SEL*/
 			uart_line = <3>;
+			hub-baud = <12000000>;
 		};
 
 		mtk_leds: mtk_leds {
