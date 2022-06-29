@@ -973,7 +973,7 @@ static int slbc_probe(struct platform_device *pdev)
 #ifdef ENABLE_SLBC
 	if (node) {
 		ret = of_property_read_u32(node,
-				"slbc_enable", &slbc_enable);
+				"slbc-enable", &slbc_enable);
 		if (ret)
 			pr_info("failed to get slbc_enable from dts\n");
 		else

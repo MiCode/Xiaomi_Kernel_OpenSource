@@ -479,7 +479,7 @@ int slbc_scmi_init(void)
 		return -EPROBE_DEFER;
 	}
 
-	ret = of_property_read_u32(_tinfo->sdev->dev.of_node, "scmi_slbc",
+	ret = of_property_read_u32(_tinfo->sdev->dev.of_node, "scmi-slbc",
 			&scmi_slbc_id);
 	if (ret) {
 		pr_info("get slbc scmi_slbc fail, ret %d\n", ret);
