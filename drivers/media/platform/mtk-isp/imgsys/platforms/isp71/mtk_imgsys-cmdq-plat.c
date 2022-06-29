@@ -663,6 +663,12 @@ void imgsys_cmdq_task_cb_plat71(struct cmdq_cb_data data)
 				__func__,
 				cb_param->pkt->err_data.wfe_timeout,
 				cb_param->pkt->err_data.event, isHWhang);
+		} else if ((is_stream_off == 1) && (event == 0)) {
+			pr_info(
+				"%s: [ERROR] pipe had been turned off(%d)! wfe(%d) event(%d) isHW(%d)",
+				__func__, is_stream_off,
+				cb_param->pkt->err_data.wfe_timeout,
+				cb_param->pkt->err_data.event, isHWhang);
 		} else
 			pr_info(
 				"%s: [ERROR] Other event timeout! wfe(%d) event(%d) isHW(%d)",
@@ -813,6 +819,13 @@ int imgsys_cmdq_task_aee_cb_plat71(struct cmdq_cb_data data)
 		pr_info(
 			"%s: [ERROR] GPR event timeout! wfe(%d) event(%d) isHW(%d)",
 			__func__,
+			cb_param->pkt->err_data.wfe_timeout,
+			cb_param->pkt->err_data.event, isHWhang);
+	} else if ((is_stream_off == 1) && (event == 0)) {
+		ret = CMDQ_NO_AEE;
+		pr_info(
+			"%s: [ERROR] pipe had been turned off(%d)! wfe(%d) event(%d) isHW(%d)",
+			__func__, is_stream_off,
 			cb_param->pkt->err_data.wfe_timeout,
 			cb_param->pkt->err_data.event, isHWhang);
 	} else {
