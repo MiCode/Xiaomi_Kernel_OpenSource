@@ -9180,7 +9180,7 @@
 			"disp_wait_dp_intf0_te",
 			"disp_dp_intf0_eof",
 			"disp_mutex2_eof",
-			"disp_wdma1_eof2",
+			"disp_ovlsys_wdma2_eof2",
 			"disp_dsi0_sof0",
 			"disp_token_vfp_period0",
 			"disp_token_disp_va_start0",
@@ -9210,11 +9210,11 @@
 			<&gce CMDQ_SYNC_TOKEN_STREAM_BLOCK_1>,
 			<&gce CMDQ_SYNC_TOKEN_CABC_EOF>,
 			<&gce CMDQ_SYNC_TOKEN_CABC_EOF_1>,
-			<&gce CMDQ_EVENT_OVLSYS_DISP_WDMA0_FRAME_DONE>,
+			<&gce CMDQ_EVENT_DISPSYS_DISP_WDMA1_FRAME_DONE>,
 			<&gce CMDQ_EVENT_DISPSYS_DISP_DP_INTF0_SOF>,
 			<&gce CMDQ_EVENT_DISPSYS1_DISP_DP_INTF0_FRAME_DONE>,
 			<&gce CMDQ_EVENT_DISPSYS1_DISP_DP_INTF0_FRAME_DONE>,
-			<&gce CMDQ_EVENT_DISPSYS_DISP_WDMA1_FRAME_DONE>,
+			<&gce CMDQ_EVENT_OVLSYS1_DISP_WDMA0_FRAME_DONE>,
 			<&gce CMDQ_EVENT_DISPSYS_DISP_DSI0_SOF>,
 			<&gce CMDQ_SYNC_TOKEN_VFP_PERIOD>,
 			<&gce CMDQ_SYNC_TOKEN_DISP_VA_START>,
@@ -9332,7 +9332,7 @@
 			<1>, /*MTK_DRM_OPT_MML_IR*/
 			<0>, /*MTK_DRM_OPT_DUAL_TE*/
 			<1>, /*MTK_DRM_OPT_RES_SWITCH*/
-			<0>, /*MTK_DRM_OPT_VIRTUAL_DISP*/
+			<1>, /*MTK_DRM_OPT_VIRTUAL_DISP*/
 			<0>, /*MTK_DRM_OPT_PRE_TE*/
 			<1>, /*MTK_DRM_OPT_OVL_BW_MONITOR*/
 			<0>; /*MTK_DRM_OPT_GPU_CACHE*/
@@ -10395,7 +10395,6 @@
 		clocks = <&ovlsys1_config_clk CLK_OVL1_OVL0_2L>;
 		mediatek,larb = <&smi_larb20 M4U_PORT_L20_DISP_OVL0_2L_RDMA0>,
 				<&smi_larb21 M4U_PORT_L21_DISP_OVL0_2L_RDMA1>;
-
 		iommus = <&disp_iommu M4U_PORT_L20_DISP_OVL0_2L_RDMA0>,
 			 <&disp_iommu M4U_PORT_L20_DISP_OVL0_2L_HDR>;
 		interconnects =
@@ -10960,7 +10959,7 @@
 		reg = <0 0x14015000 0 0x1000>;
 		interrupts = <GIC_SPI 375 IRQ_TYPE_LEVEL_HIGH 0>;
 		clocks = <&dispsys_config_clk CLK_MM_DISP_POSTMASK0>;
-//		mediatek,larb = <&smi_larb32>;
+		mediatek,larb = <&smi_larb32>;
 		mediatek,smi-id = <32>;
 		iommus = <&disp_iommu M4U_PORT_L32_DISP_POSTMASK0>;
 	};
@@ -10971,7 +10970,7 @@
 		reg = <0 0x14215000 0 0x1000>;
 		interrupts = <GIC_SPI 419 IRQ_TYPE_LEVEL_HIGH 0>;
 		clocks = <&dispsys1_config_clk CLK_MM1_DISP_POSTMASK0>;
-//		mediatek,larb = <&smi_larb33>;
+		mediatek,larb = <&smi_larb33>;
 		mediatek,smi-id = <33>;
 		iommus = <&disp_iommu M4U_PORT_L33_DISP_POSTMASK0>;
 	};
