@@ -1399,10 +1399,10 @@
 };
 
 &mddriver {
-	md_vmodem-supply = <&mt6315_3_vbuck1>;
-	md_vsram-supply = <&mt6315_3_vbuck4>;
-	md_vnr-supply = <&mt6315_3_vbuck3>;
-	md_vdigrf-supply = <&mt6359p_vpu_reg>;
+	md-vmodem-supply = <&mt6315_3_vbuck1>;
+	md-vsram-supply = <&mt6315_3_vbuck4>;
+	md-vnr-supply = <&mt6315_3_vbuck3>;
+	md-vdigrf-supply = <&mt6359p_vpu_reg>;
 };
 
 &ssusb {

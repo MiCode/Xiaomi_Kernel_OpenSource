@@ -1900,7 +1900,7 @@ fw_devlink.strict=on";
 				<0 0x1022c000 0 0x1000>, /*PD_MD_MISC*/
 				<0 0x1022e000 0 0x1000>; /*SRAM*/
 			interrupts = <GIC_SPI 209 IRQ_TYPE_LEVEL_HIGH 0>;
-			mediatek,dpmaif_capability = <6>;
+			mediatek,dpmaif-capability = <6>;
 			clocks = <&infracfg CLK_INFRA_DPMAIF_MAIN>,
 				<&infracfg CLK_INFRA_CLDMA_B>;
 			clock-names = "infra-dpmaif-clk",
@@ -1909,7 +1909,7 @@ fw_devlink.strict=on";
 			interconnect-names = "icc-dpmaif-bw";
 			required-opps = <&dvfsrc_freq_opp0>,
 						<&dvfsrc_freq_opp1>;
-			mediatek,ap_plat_info = <6873>;
+			mediatek,ap-plat-info = <6873>;
 		};
 
 		systimer: systimer@10017000 {
@@ -1952,7 +1952,7 @@ fw_devlink.strict=on";
 			compatible = "mediatek,ccci_ccif";
 			reg = <0 0x10209000 0 0x1000>, /*AP_CCIF_BASE*/
 				<0 0x1020a000 0 0x1000>; /*MD_CCIF_BASE*/
-			mediatek,sram_size = <512>;
+			mediatek,sram-size = <512>;
 			/*CCIF0 174/206, CCIF0 175/207*/
 			interrupts = <GIC_SPI 194 IRQ_TYPE_LEVEL_HIGH 0>,
 				     <GIC_SPI 195 IRQ_TYPE_LEVEL_HIGH 0>;
@@ -1977,22 +1977,18 @@ fw_devlink.strict=on";
 		mddriver:mddriver {
 			compatible = "mediatek,mddriver";
 			/* bit0~3: CLDMA|CCIF|DPMAIF */
-			mediatek,mdhif_type = <6>;
-			mediatek,md_id = <0>;
-			mediatek,ap_plat_info = <6873>;
-			mediatek,md_generation = <6297>;
-			mediatek,offset_apon_md1 = <0x2844>;
-			mediatek,cldma_capability = <6>;
+			mediatek,mdhif-type = <6>;
+			mediatek,md-id = <0>;
+			mediatek,ap-plat-info = <6873>;
+			mediatek,md-generation = <6297>;
+			mediatek,offset-epon-md1 = <0x2844>;
+			mediatek,cldma-capability = <6>;
 			reg = <0 0x10209000 0 0x1000>, /*AP_CCIF_BASE*/
 				<0 0x1020a000 0 0x1000>; /*MD_CCIF_BASE*/
 			/* MDWDT; CCIF0 194/226; CCIF0 195/227 */
 			interrupts = <GIC_SPI 78 IRQ_TYPE_EDGE_RISING 0>,
 				     <GIC_SPI 194 IRQ_TYPE_LEVEL_HIGH 0>,
 				     <GIC_SPI 195 IRQ_TYPE_LEVEL_HIGH 0>;
-			/* md_vmodem-supply = <&mt6315_3_vbuck1>; move mt6873.dts */
-			/* md_vsram-supply = <&mt6315_3_vbuck4>; move mt6873.dts */
-			/* md_vnr-supply = <&mt6315_3_vbuck3>; move mt6873.dts */
-			/* md_vdigrf-supply = <&mt6359p_vpu_reg>; move mt6873.dts */
 			power-domains = <&scpsys MT6873_POWER_DOMAIN_MD>;
 			ccci-infracfg = <&infracfg>;
 		};
@@ -2004,7 +2000,7 @@ fw_devlink.strict=on";
 				"md-battery";
 		};
 
-		md_ccci_rtc:md_ccci_rtc {
+		md_ccci_rtc:md-ccci-rtc {
 			compatible = "mediatek,md_ccci_rtc";
 			nvmem-cells = <&ext_32k>;
 			nvmem-cell-names = "external-32k";
@@ -2192,7 +2188,7 @@ fw_devlink.strict=on";
 			      <0 0x10245000 0 0x1000>;
 		};
 
-		md_ccif4@1024d000 {
+		md-ccif4@1024d000 {
 			compatible = "mediatek,md_ccif4";
 			reg = <0 0x1024d000 0 0x1000>;
 		};

@@ -1446,10 +1446,10 @@
 };
 
 &mddriver {
-	md_vmodem-supply = <&mt6362_buck1>;
-	md_vsram-supply = <&mt6362_buck4>;
-	md_vnr-supply = <&mt6362_buck2>;
-	md_vdigrf-supply = <&mt6359p_vpu_reg>;
+	md-vmodem-supply = <&mt6362_buck1>;
+	md-vsram-supply = <&mt6362_buck4>;
+	md-vnr-supply = <&mt6362_buck2>;
+	md-vdigrf-supply = <&mt6359p_vpu_reg>;
 };
 &ssusb {
 	port {

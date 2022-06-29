@@ -1775,7 +1775,7 @@ loop.max_part=7 fw_devlink.strict=on";
 				<0 0x1022c000 0 0x1000>, /*PD_MD_MISC*/
 				<0 0x1022e000 0 0x1000>; /*SRAM*/
 			interrupts = <GIC_SPI 209 IRQ_TYPE_LEVEL_HIGH 0>;
-			mediatek,dpmaif_capability = <6>;
+			mediatek,dpmaif-capability = <6>;
 			clocks = <&infracfg_ao_clk CLK_IFRAO_DPMAIF_MAIN>,
 				<&infracfg_ao_clk CLK_IFRAO_CLDMA_BCLK>;
 			clock-names = "infra-dpmaif-clk",
@@ -1822,7 +1822,7 @@ loop.max_part=7 fw_devlink.strict=on";
 			compatible = "mediatek,ccci_ccif";
 			reg = <0 0x10209000 0 0x1000>, /*AP_CCIF_BASE*/
 				<0 0x1020a000 0 0x1000>; /*MD_CCIF_BASE*/
-			mediatek,sram_size = <512>;
+			mediatek,sram-size = <512>;
 			/*CCIF0 174/206, CCIF0 175/207*/
 			interrupts = <GIC_SPI 194 IRQ_TYPE_LEVEL_HIGH 0>,
 				     <GIC_SPI 195 IRQ_TYPE_LEVEL_HIGH 0>;
@@ -1847,12 +1847,12 @@ loop.max_part=7 fw_devlink.strict=on";
 		mddriver:mddriver {
 			compatible = "mediatek,mddriver";
 			/* bit0~3: CLDMA|CCIF|DPMAIF */
-			mediatek,mdhif_type = <6>;
-			mediatek,md_id = <0>;
-			mediatek,ap_plat_info = <6853>;
-			mediatek,md_generation = <6297>;
-			mediatek,offset_apon_md1 = <0x2844>;
-			mediatek,cldma_capability = <6>;
+			mediatek,mdhif-type = <6>;
+			mediatek,md-id = <0>;
+			mediatek,ap-plat-info = <6853>;
+			mediatek,md-generation = <6297>;
+			mediatek,offset-epon-md1 = <0x2844>;
+			mediatek,cldma-capability = <6>;
 			reg = <0 0x10209000 0 0x1000>, /*AP_CCIF_BASE*/
 				<0 0x1020a000 0 0x1000>; /*MD_CCIF_BASE*/
 			/* MDWDT; CCIF0 194/226; CCIF0 195/227 */
@@ -1872,7 +1872,7 @@ loop.max_part=7 fw_devlink.strict=on";
 				"md-battery";
 		};
 
-		md_ccci_rtc:md_ccci_rtc {
+		md_ccci_rtc:md-ccci-rtc {
 			compatible = "mediatek,md_ccci_rtc";
 			nvmem-cells = <&ext_32k>;
 			nvmem-cell-names = "external-32k";
@@ -2061,7 +2061,7 @@ loop.max_part=7 fw_devlink.strict=on";
 			      <0 0x10245000 0 0x1000>;
 		};
 
-		md_ccif4@1024d000 {
+		md-ccif4@1024d000 {
 			compatible = "mediatek,md_ccif4";
 			reg = <0 0x1024d000 0 0x1000>;
 		};
