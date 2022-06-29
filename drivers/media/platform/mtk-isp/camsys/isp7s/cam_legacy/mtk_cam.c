@@ -3499,6 +3499,11 @@ mtk_cam_config_raw_img_in_rawi2(struct mtk_cam_request_stream_data *s_data,
 			mtk_cam_hdr_buf_update(vb, MSTREAM_M2M,
 					       req, node->uid.pipe_id,
 					       scen, cfg_fmt);
+		} else {
+			/* ODT HDR 1exp */
+			in_fmt->buf[0].iova = buf->daddr;
+			frame_param->raw_param.hardware_scenario =
+				MTKCAM_IPI_HW_PATH_OFFLINE;
 		}
 	} else {
 		in_fmt->buf[0].iova = buf->daddr;
@@ -4734,7 +4739,7 @@ void mstream_seamless_buf_update(struct mtk_cam_ctx *ctx,
 	ccd_fd = frame_param->img_outs[desc_id].buf[0][0].ccd_fd;
 	imgo_path_sel = frame_param->raw_param.imgo_path_sel;
 
-	if (mtk_cam_scen_is_mstream_is_2_exp(scen)) {
+	if (mtk_cam_scen_is_mstream_2exp_types(scen)) {
 		/* for 1->2, 2->2 */
 		/* init stream data for mstream */
 		mtk_cam_req_p_data_extend_init(req, pipe_id, 2);
@@ -5691,7 +5696,8 @@ static void isp_tx_frame_worker(struct work_struct *work)
 
 	if (mtk_cam_scen_is_stagger(scen) ||
 	    mtk_cam_scen_is_mstream(scen) ||
-	    mtk_cam_scen_is_mstream_m2m(scen))
+	    mtk_cam_scen_is_mstream_m2m(scen) ||
+		mtk_cam_scen_is_odt(scen))
 		dev_dbg(cam->dev, "[%s:vhdr-req:%d] ctx:%d type:%d (ipi)hwscene:%d/expN:%d/prev_expN:%d, imgo:0x%x\n",
 			__func__, req_stream_data->frame_seq_no, ctx->stream_id,
 			req_stream_data->feature.switch_feature_type,
