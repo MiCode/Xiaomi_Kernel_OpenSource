@@ -16,6 +16,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/soc/mediatek/mtk_mmdvfs.h>
 #include <soc/mediatek/mmdvfs_v3.h>
+#include <mt-plat/mrdump.h>
 
 #define CREATE_TRACE_POINTS
 #include "mmdvfs_events.h"
@@ -171,13 +172,10 @@ static int mmdvfs_debug_opp_show(struct seq_file *file, void *data)
 	spin_unlock_irqrestore(&g_mmdvfs->lock, flags);
 
 	/* MMDVFS_DBG_VER3 */
-	seq_puts(file, "VER3: mux controlled by vcp:\n");
+	if (!g_mmdvfs->base)
+		return 0;
 
-	if (!g_mmdvfs->base) {
-		g_mmdvfs->base = mtk_mmdvfs_vcp_get_base();
-		if (!g_mmdvfs->base)
-			return 0;
-	}
+	seq_puts(file, "VER3: mux controlled by vcp:\n");
 
 	cnt = readl(g_mmdvfs->base);
 	if (readl(g_mmdvfs->base + (((cnt + 1) * MMDVFS_RECORD_OBJ) << 2)))
@@ -216,6 +214,7 @@ static const struct proc_ops mmdvfs_debug_opp_fops = {
 
 static int mmdvfs_v3_debug_thread(void *data)
 {
+	phys_addr_t pa;
 	int ret = 0, retry = 0;
 
 	while (!mtk_is_mmdvfs_init_done()) {
@@ -245,6 +244,15 @@ static int mmdvfs_v3_debug_thread(void *data)
 		mtk_mmdvfs_v3_set_vote_step(PWR_MMDVFS_VMM, -1);
 	if (g_mmdvfs->aov_clk)
 		clk_set_rate(g_mmdvfs->aov_clk, 1);
+
+	g_mmdvfs->base = mtk_mmdvfs_vcp_get_base(&pa);
+
+	if (g_mmdvfs->base && pa)
+		ret = mrdump_mini_add_extra_file(
+			(unsigned long)(unsigned long *)g_mmdvfs->base,
+			pa, PAGE_SIZE, "MMDVFS_OPP");
+
+	MMDVFS_DBG("ret:%d pa:%pa va:%p", ret, &pa, g_mmdvfs->base);
 
 err:
 	mtk_mmdvfs_enable_vcp(false);
@@ -289,6 +297,7 @@ static int mmdvfs_v1_dbg_ftrace_thread(void *data)
 
 static int mmdvfs_v3_dbg_ftrace_thread(void *data)
 {
+	phys_addr_t pa;
 	static unsigned long old_cnt;
 	unsigned long cnt, mem[MMDVFS_RECORD_OBJ];
 	int ret = 0, retry = 0;
@@ -303,7 +312,7 @@ static int mmdvfs_v3_dbg_ftrace_thread(void *data)
 	}
 
 	if (!g_mmdvfs->base) {
-		g_mmdvfs->base = mtk_mmdvfs_vcp_get_base();
+		g_mmdvfs->base = mtk_mmdvfs_vcp_get_base(&pa);
 		if (!g_mmdvfs->base) {
 			ftrace_v3_ena = false;
 			MMDVFS_DBG("kthread mmdvfs-dbg-ftrace-v3 end");

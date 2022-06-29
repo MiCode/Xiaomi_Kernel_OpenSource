@@ -66,7 +66,6 @@ enum {
 	FUNC_FORCE_OPP, /* power, opp */
 	FUNC_CAMERA_ON, /* enable */
 	FUNC_STRESS, /* enable */
-	FUNC_SET_MEM, /* base */
 	FUNC_SET_LOG,
 	FUNC_NUM
 };

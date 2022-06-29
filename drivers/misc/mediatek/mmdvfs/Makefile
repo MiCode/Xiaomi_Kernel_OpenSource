@@ -11,5 +11,6 @@
 # GNU General Public License for more details.
 #
 
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/
 obj-$(CONFIG_MTK_MMDVFS) += mtk-mmdvfs-debug.o
 
