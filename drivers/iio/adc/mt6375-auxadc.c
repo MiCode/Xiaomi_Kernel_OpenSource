@@ -22,6 +22,7 @@
 #include <linux/regulator/consumer.h>
 
 #include <linux/iio/iio.h>
+#include <linux/iio/iio-opaque.h>
 
 #define FGADC_R_CON0		0x2E5
 #define SYSTEM_INFO_CON2_H	0x2FE
@@ -82,6 +83,7 @@ struct mt6375_priv {
 	struct work_struct vbat0_work;
 	atomic_t vbat0_flag;
 	struct wakeup_source *vbat0_ws;
+	struct lock_class_key info_exist_key;
 };
 
 #define VBAT0_POLL_TIME_SEC	5
@@ -859,6 +861,7 @@ static int mt6375_auxadc_probe(struct platform_device *pdev)
 {
 	struct mt6375_priv *priv;
 	struct iio_dev *indio_dev;
+	struct iio_dev_opaque *iio_dev_opaque;
 	int ret;
 
 	indio_dev = devm_iio_device_alloc(&pdev->dev, sizeof(*priv));
@@ -874,6 +877,9 @@ static int mt6375_auxadc_probe(struct platform_device *pdev)
 	device_init_wakeup(&pdev->dev, true);
 	platform_set_drvdata(pdev, priv);
 	priv->vbat0_ws = wakeup_source_register(&pdev->dev, "vbat0_ws");
+	lockdep_register_key(&priv->info_exist_key);
+	iio_dev_opaque = to_iio_dev_opaque(indio_dev);
+	lockdep_set_class(&iio_dev_opaque->info_exist_lock, &priv->info_exist_key);
 
 	ret = mt6375_auxadc_parse_dt(priv);
 	if (ret) {
@@ -930,6 +936,7 @@ static int mt6375_auxadc_remove(struct platform_device *pdev)
 	struct mt6375_priv *priv = platform_get_drvdata(pdev);
 
 	auxadc_del_irq_chip(priv);
+	lockdep_unregister_key(&priv->info_exist_key);
 	return 0;
 }
 
