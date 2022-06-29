@@ -40,13 +40,13 @@ struct conap_scp_shm_config g_adp_shm_mt6886 = {
 
 #if IS_ENABLED(CONFIG_MTK_COMBO_CHIP_CONSYS_6985)
 struct conap_scp_shm_config g_adp_shm_mt6985 = {
-	.conap_scp_shm_offset = 0x4EEC00,
-	.conap_scp_shm_size = 0x47C400,
+	.conap_scp_shm_offset = 0x58EC00,
+	.conap_scp_shm_size = 0x62A400,
 	.conap_scp_ipi_mbox_size = 64,
 };
 
 struct conap_scp_batching_config g_adp_batching_mt6985 = {
-	.buff_offset = 0x4EEC00,
+	.buff_offset = 0x58EC00,
 	.buff_size = 0x4B000,
 };
 #endif
