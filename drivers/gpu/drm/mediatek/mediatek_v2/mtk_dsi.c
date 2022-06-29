@@ -1575,9 +1575,10 @@ static void mtk_dsi_calc_vdo_timing(struct mtk_dsi *dsi)
 	struct dynamic_mipi_params *dyn = NULL;
 	struct mtk_panel_spr_params *spr_params = NULL;
 
-	if (ext && ext->params)
+	if (ext && ext->params) {
 		dyn = &ext->params->dyn;
-
+		spr_params = &ext->params->spr_params;
+	}
 	t_vfp = (dsi->mipi_hopping_sta) ?
 			((dyn && !!dyn->vfp) ?
 			 dyn->vfp : vm->vfront_porch) :
@@ -1616,7 +1617,6 @@ static void mtk_dsi_calc_vdo_timing(struct mtk_dsi *dsi)
 	dsi->ext = find_panel_ext(dsi->panel);
 	if (!dsi->ext)
 		return;
-	spr_params = &ext->params->spr_params;
 	if (spr_params && spr_params->enable == 1 && spr_params->relay == 0
 		&& disp_spr_bypass == 0) {
 		switch (ext->params->spr_output_mode) {
