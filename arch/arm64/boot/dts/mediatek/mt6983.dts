@@ -1284,7 +1284,7 @@
 			usb-role-switch;
 			cdp-block;
 			port {
-				mtu3_drd_switch: endpoint@0 {
+				mtu3_drd_switch: endpoint {
 					remote-endpoint = <&usb_role>;
 				};
 			};
@@ -1323,7 +1323,7 @@
 			mediatek,hwrscs-vers = <1>;
 			usb-role-switch;
 			port {
-				mtu3_drd_switch1: endpoint@0 {
+				mtu3_drd_switch1: endpoint {
 					remote-endpoint = <&usb_role1>;
 				};
 			};
@@ -1485,6 +1485,7 @@
 
 		u3phy1: usb-phy1@11e30000 {
 			compatible = "mediatek,xsphy";
+			reg = <0 0x11e30000 0 0x200>;
 			#address-cells = <2>;
 			#size-cells = <2>;
 			ranges;
@@ -1504,7 +1505,7 @@
 			};
 		};
 
-		u3fpgaphy: usb-phy {
+		u3fpgaphy: u3fpgaphy {
 			compatible = "mediatek,fpga-u3phy";
 			mediatek,ippc = <0x11203e00>;
 			#address-cells = <2>;
@@ -1512,7 +1513,7 @@
 			fpga_i2c_physical_base = <0x11d01000>;
 			status = "disabled";
 
-			u3fpgaport0: usb-phy@0 {
+			u3fpgaport0: u3fpgaport0 {
 				chip-id= <0xa60931a>;
 				port = <0>;
 				pclk_phase = <23>;
@@ -4400,7 +4401,7 @@
 				reg = <0x78 0x4>;
 			};
 
-			u2_phy_data: u2_phy_data {
+			u2_phy_data: u2-phy-data {
 				reg = <0x1b0 0x4>;
 			};
 
