@@ -36,7 +36,7 @@ struct mt_leds_pwm {
 };
 
 static int led_pwm_set(struct mt_led_data *mdev,
-		       int brightness)
+		int brightness, unsigned int params, unsigned int params_flag)
 {
 	struct led_pwm_data *led_dat =
 		container_of(mdev, struct led_pwm_data, m_led);
@@ -167,7 +167,7 @@ static void __maybe_unused led_pwm_shutdown(struct platform_device *pdev)
 		if (!&(m_leds->leds[i]))
 			continue;
 
-		led_pwm_set(&(m_leds->leds[i].m_led), 0);
+		led_pwm_set(&(m_leds->leds[i].m_led), 0, 0, 0);
 		mt_leds_call_notifier(LED_STATUS_SHUTDOWN, &(m_leds->leds[i].m_led.conf));
 	}
 }

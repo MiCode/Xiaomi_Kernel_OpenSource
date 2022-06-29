@@ -28,7 +28,7 @@ struct mt_led_data {
 	int last_hw_brightness;
 	struct led_debug_info debug;
 	int (*mtk_hw_brightness_set)(struct mt_led_data *m_data,
-		int brightness);
+		int brightness, unsigned int params, unsigned int params_flag);
 	struct mutex	led_access;
 };
 
@@ -39,4 +39,5 @@ void mt_leds_classdev_unregister(struct device *parent,
 				     struct mt_led_data *led_dat);
 int mt_leds_call_notifier(unsigned long action, void *data);
 
-extern int mtkfb_set_backlight_level(unsigned int level);
+extern int mtkfb_set_backlight_level(unsigned int level,
+		unsigned int params, unsigned int params_flag);

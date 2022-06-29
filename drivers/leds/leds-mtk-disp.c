@@ -103,20 +103,20 @@ static void __maybe_unused led_disp_shutdown(struct platform_device *pdev)
 		if (!&(m_leds->leds[i]))
 			continue;
 
-		m_leds->leds[i].mtk_hw_brightness_set(&m_leds->leds[i], 0);
+		m_leds->leds[i].mtk_hw_brightness_set(&m_leds->leds[i], 0, 0, 0);
 		mt_leds_call_notifier(LED_STATUS_SHUTDOWN, &(m_leds->leds[i].conf));
 	}
 }
 
 static int __maybe_unused led_disp_set(struct mt_led_data *mdev,
-		       int brightness)
+		int brightness, unsigned int params, unsigned int params_flag)
 {
 	pr_debug("set brightness %d", brightness);
-	return mtkfb_set_backlight_level(brightness);
+	return mtkfb_set_backlight_level(brightness, params, params_flag);
 }
 
 static int __maybe_unused led_i2c_set(struct mt_led_data *mdev,
-		       int brightness)
+		int brightness, unsigned int params, unsigned int params_flag)
 {
 	int version = mtk_drm_get_lcm_version();
 
@@ -130,7 +130,7 @@ static int __maybe_unused led_i2c_set(struct mt_led_data *mdev,
 }
 
 static int __maybe_unused led_set_virtual(struct mt_led_data *mdev,
-		       int brightness)
+		int brightness, unsigned int params, unsigned int params_flag)
 {
 	pr_debug("set brightness %d return, no need", brightness);
 	return 0;
