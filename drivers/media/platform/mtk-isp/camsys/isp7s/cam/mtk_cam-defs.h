@@ -22,30 +22,67 @@
  *	Values are used in software control flow only and cannot be applied to
  *	hw registers directly.
  */
-#define MTKCAM_SUBDEV_TYPE_RAW		1
-#define MTKCAM_SUBDEV_TYPE_CAMSV	2
-#define MTKCAM_SUBDEV_TYPE_MRAW		3
 
-#define MTKCAM_SUBDEV_RAW(id)		((id & 0xF) | (MTKCAM_SUBDEV_TYPE_RAW << 4))
-#define MTKCAM_SUBDEV_CAMSV(id)		((id & 0xF) | (MTKCAM_SUBDEV_TYPE_CAMSV << 4))
-#define MTKCAM_SUBDEV_MRAW(id)		((id & 0xF) | (MTKCAM_SUBDEV_TYPE_MRAW << 4))
+/* camsys hw pipelines */
+enum mtkcam_pipe_subdev {
+	MTKCAM_SUBDEV_RAW_START = 0,
+	MTKCAM_SUBDEV_RAW_0	= MTKCAM_SUBDEV_RAW_START,
+	MTKCAM_SUBDEV_RAW_1,
+	MTKCAM_SUBDEV_RAW_2,
+	MTKCAM_SUBDEV_RAW_END,
+	MTKCAM_SUBDEV_CAMSV_START = MTKCAM_SUBDEV_RAW_END,
+	MTKCAM_SUBDEV_CAMSV_0 = MTKCAM_SUBDEV_CAMSV_START,
+	MTKCAM_SUBDEV_CAMSV_1,
+	MTKCAM_SUBDEV_CAMSV_2,
+	MTKCAM_SUBDEV_CAMSV_3,
+	MTKCAM_SUBDEV_CAMSV_4,
+	MTKCAM_SUBDEV_CAMSV_5,
+	MTKCAM_SUBDEV_CAMSV_6,
+	MTKCAM_SUBDEV_CAMSV_7,
+	MTKCAM_SUBDEV_CAMSV_8,
+	MTKCAM_SUBDEV_CAMSV_9,
+	MTKCAM_SUBDEV_CAMSV_10,
+	MTKCAM_SUBDEV_CAMSV_11,
+	MTKCAM_SUBDEV_CAMSV_12,
+	MTKCAM_SUBDEV_CAMSV_13,
+	MTKCAM_SUBDEV_CAMSV_14,
+	MTKCAM_SUBDEV_CAMSV_15,
+	MTKCAM_SUBDEV_CAMSV_END,
+	MTKCAM_SUBDEV_MRAW_START = MTKCAM_SUBDEV_CAMSV_END,
+	MTKCAM_SUBDEV_MRAW_0 = MTKCAM_SUBDEV_MRAW_START,
+	MTKCAM_SUBDEV_MRAW_1,
+	MTKCAM_SUBDEV_MRAW_2,
+	MTKCAM_SUBDEV_MRAW_3,
+	MTKCAM_SUBDEV_MRAW_END,
+	MTKCAM_SUBDEV_MAX = MTKCAM_SUBDEV_MRAW_END,
+};
+
+#define MTKCAM_MSTREAM_MAX 2
+
+#define MTKCAM_SUBDEV_RAW_MASK (1 << MTKCAM_SUBDEV_RAW_0| \
+				1 << MTKCAM_SUBDEV_RAW_1| \
+				1 << MTKCAM_SUBDEV_RAW_2)
+
 
 static inline int is_raw_subdev(unsigned char subdev_id)
 {
-	return subdev_id >> 4 == MTKCAM_SUBDEV_TYPE_RAW;
+	return (subdev_id == MTKCAM_SUBDEV_RAW_0 ||
+		subdev_id == MTKCAM_SUBDEV_RAW_1 ||
+		subdev_id == MTKCAM_SUBDEV_RAW_2);
 }
 
 static inline int is_camsv_subdev(unsigned char subdev_id)
 {
-	return subdev_id >> 4 == MTKCAM_SUBDEV_TYPE_CAMSV;
+	return (subdev_id >= MTKCAM_SUBDEV_CAMSV_START &&
+		subdev_id < MTKCAM_SUBDEV_CAMSV_END);
 }
 
 static inline int is_mraw_subdev(unsigned char subdev_id)
 {
-	return subdev_id >> 4 == MTKCAM_SUBDEV_TYPE_MRAW;
+	return (subdev_id >= MTKCAM_SUBDEV_MRAW_START &&
+		subdev_id < MTKCAM_SUBDEV_MRAW_END);
 }
 
-// TODO: should be updated
 enum mtkcam_pipe_dev {
 	MTKCAM_PIPE_RAW_A	= 0,
 	MTKCAM_PIPE_RAW_B,
@@ -78,6 +115,7 @@ enum mtkcam_ipi_raw_video_id {
 	MTKCAM_IPI_RAW_RAWI_2,		/* RAWI_R2 */
 	MTKCAM_IPI_RAW_RAWI_3,		/* RAWI_R3 */
 	MTKCAM_IPI_RAW_RAWI_5,		/* RAWI_R5 */
+	MTKCAM_IPI_RAW_IPUI,		/* ADLRD */
 	MTKCAM_IPI_RAW_IMGO,		/* IMGO_R1 */
 	MTKCAM_IPI_RAW_YUVO_1,		/* YUVO_R1 */
 	MTKCAM_IPI_RAW_YUVO_2,		/* YUVO_R2 */
@@ -100,6 +138,12 @@ enum mtkcam_ipi_raw_video_id {
 	 */
 	MTKCAM_IPI_RAW_META_STATS_1,
 
+	/* following is for RGBW's w path */
+	MTKCAM_IPI_RAW_IMGO_W,		/* IMGO_R1 */
+	MTKCAM_IPI_RAW_RAWI_2_W,	/* RAWI_R2 */
+	MTKCAM_IPI_RAW_RAWI_3_W,	/* RAWI_R3 */
+	MTKCAM_IPI_RAW_RAWI_5_W,	/* RAWI_R5 */
+
 	MTKCAM_IPI_RAW_ID_MAX,
 };
 
@@ -112,7 +156,8 @@ enum mtkcam_ipi_camsv_video_id {
 
 enum mtkcam_ipi_mraw_video_id {
 	MTKCAM_IPI_MRAW_ID_UNKNOWN	= 0,
-	MTKCAM_IPI_MRAW_META_STATS_CFG = MTKCAM_IPI_CAMSV_ID_MAX,
+	MTKCAM_IPI_MRAW_ID_START = MTKCAM_IPI_CAMSV_ID_MAX,
+	MTKCAM_IPI_MRAW_META_STATS_CFG = MTKCAM_IPI_MRAW_ID_START,
 	MTKCAM_IPI_MRAW_META_STATS_0,
 	MTKCAM_IPI_MRAW_ID_MAX,
 };
@@ -170,6 +215,7 @@ enum mtkcam_ipi_frame_order {
 enum mtkcam_ipi_exp_order {
 	MTKCAM_IPI_ORDER_SE_NE		= 0,
 	MTKCAM_IPI_ORDER_NE_SE		= 1,
+	MTKCAM_IPI_ORDER_NE_ME_SE	= 2,
 };
 
 enum mtkcam_ipi_flow {
@@ -177,12 +223,19 @@ enum mtkcam_ipi_flow {
 	MTKCAM_IPI_FLOW_STAGGER		= 1,
 	MTKCAM_IPI_FLOW_MSTREAM		= 2,
 	MTKCAM_IPI_FLOW_RGBW		= 3,
+	MTKCAM_IPI_FLOW_ADL		= 4,
 };
 
 enum mtkcam_ipi_flow_variant {
 	MTKCAM_IPI_FLOW_OTF,		/* 1. all direct-link. 2. DCIF + 1-exp direct-link */
 	MTKCAM_IPI_FLOW_DC,			/* w.o. direct-link, DCIF */
 	MTKCAM_IPI_FLOW_OFFLINE,	/* aka, m2m */
+};
+
+enum mtkcam_ipi_tag_order {
+	MTKCAM_IPI_ORDER_FIRST_TAG		= 0,
+	MTKCAM_IPI_ORDER_NORMAL_TAG		= 1,
+	MTKCAM_IPI_ORDER_LAST_TAG		= 2,
 };
 
 /*
@@ -192,6 +245,10 @@ enum mtkcam_ipi_flow_variant {
  */
 #define _HWPATH(id, flow, variant)		\
 	(MTKCAM_IPI_FLOW_ ## flow << 12 | MTKCAM_IPI_FLOW_ ## variant << 8 | id)
+
+#define HWPATH_ID(hw_path)		(hw_path & 0xFF)
+#define HWPATH_VARIANT(hw_path)		((hw_path >> 8) & 0xF)
+#define HWPATH_FLOW(hw_path)		((hw_path >> 12) & 0xF)
 
 #define MTKCAM_IPI_HW_PATH_ON_THE_FLY		_HWPATH(0, NORMAL, OTF)
 #define MTKCAM_IPI_HW_PATH_DC			_HWPATH(1, NORMAL, DC)
@@ -204,6 +261,9 @@ enum mtkcam_ipi_flow_variant {
 #define MTKCAM_IPI_HW_PATH_OTF_RGBW		_HWPATH(8, RGBW, OTF)
 #define MTKCAM_IPI_HW_PATH_DC_RGBW		_HWPATH(9, RGBW, DC)
 #define MTKCAM_IPI_HW_PATH_OFFLINE_RGBW		_HWPATH(10, RGBW, OFFLINE)
+#define MTKCAM_IPI_HW_PATH_OFFLINE_ADL		_HWPATH(11, ADL, OFFLINE)
+#define MTKCAM_IPI_HW_PATH_DC_ADL		_HWPATH(12, ADL, DC)
+#define MTKCAM_IPI_HW_PATH_OTF_RGBW_DOL		_HWPATH(13, RGBW, OTF)
 
 enum {
 	BIN_AUTO	= 0,

@@ -138,7 +138,11 @@ enum mtkcam_ipi_raw_video_id {
 	 */
 	MTKCAM_IPI_RAW_META_STATS_1,
 
-	MTKCAM_IPI_RAW_IMGO_W,		/* RGBW w path, IMGO_R1 */
+	/* following is for RGBW's w path */
+	MTKCAM_IPI_RAW_IMGO_W,		/* IMGO_R1 */
+	MTKCAM_IPI_RAW_RAWI_2_W,	/* RAWI_R2 */
+	MTKCAM_IPI_RAW_RAWI_3_W,	/* RAWI_R3 */
+	MTKCAM_IPI_RAW_RAWI_5_W,	/* RAWI_R5 */
 
 	MTKCAM_IPI_RAW_ID_MAX,
 };
@@ -211,6 +215,7 @@ enum mtkcam_ipi_frame_order {
 enum mtkcam_ipi_exp_order {
 	MTKCAM_IPI_ORDER_SE_NE		= 0,
 	MTKCAM_IPI_ORDER_NE_SE		= 1,
+	MTKCAM_IPI_ORDER_NE_ME_SE	= 2,
 };
 
 enum mtkcam_ipi_flow {

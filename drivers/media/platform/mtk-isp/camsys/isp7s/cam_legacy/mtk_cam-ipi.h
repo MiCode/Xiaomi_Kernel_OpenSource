@@ -212,6 +212,7 @@ struct mtkcam_ipi_config_param {
 	__u8	sw_feature;
 	__u32	exp_order : 4;
 	__u32	frame_order : 4;
+	struct mtkcam_ipi_buffer w_cac_table; /* for rgbw's empty cac table */
 } __packed;
 
 struct mtkcam_ipi_frame_param {

@@ -12,7 +12,7 @@
 #include <linux/types.h>
 #include "mtk_cam-defs.h"
 
-
+#define MTK_CAM_MAX_RUNNING_JOBS (3)
 #define CAM_MAX_PLANENUM (4)
 #define CAM_MAX_SUBSAMPLE (32)
 
@@ -107,14 +107,33 @@ struct mtkcam_ipi_input_param {
 	struct mtkcam_ipi_crop in_crop;
 } __packed;
 
+struct mtkcam_ipi_sv_input_param {
+	__u32	pipe_id;
+	__u8	tag_id;
+	__u8	tag_order;
+	struct mtkcam_ipi_input_param input;
+} __packed;
+
+struct mtkcam_ipi_mraw_input_param {
+	__u32	pipe_id;
+	struct mtkcam_ipi_input_param input;
+} __packed;
+
 struct mtkcam_ipi_raw_frame_param {
 	__u8	imgo_path_sel; /* mtkcam_ipi_raw_path_control */
-	__u8	hardware_scenario;
+	__u32	hardware_scenario;
 	__u32	bin_flag;
 	__u8    exposure_num;
 	__u8    previous_exposure_num;
 
 	/* blahblah */
+} __packed;
+
+struct mtkcam_ipi_adl_frame_param {
+	__u8 vpu_i_point;
+	__u8 vpu_o_point;
+	__u8 sysram_en;
+	__u32 block_y_size;
 } __packed;
 
 /* TODO: support CAMSV */
@@ -123,21 +142,18 @@ struct cam_camsv_params {
 } __packed;
 
 #define MRAW_MAX_IMAGE_OUTPUT (3)
+#define CAMSV_MAX_IMAGE_OUTPUT (1)
+
+struct mtkcam_ipi_camsv_frame_param {
+	__u32	pipe_id;
+	__u8	tag_id;
+	__u32	hardware_scenario;
+
+	struct mtkcam_ipi_img_output camsv_img_outputs[CAMSV_MAX_IMAGE_OUTPUT];
+} __packed;
 
 struct mtkcam_ipi_mraw_frame_param {
-	__u8 is_config;
-	__u8 pixel_mode;
-
-	__u32 tg_pos_x;
-	__u32 tg_pos_y;
-	__u32 tg_size_w;
-	__u32 tg_size_h;
-	__u32 tg_fmt;
-
-	__u32 crop_pos_x;
-	__u32 crop_pos_y;
-	__u32 crop_size_w;
-	__u32 crop_size_h;
+	__u32 pipe_id;
 
 	struct mtkcam_ipi_meta_input mraw_meta_inputs;
 	struct mtkcam_ipi_img_output mraw_img_outputs[MRAW_MAX_IMAGE_OUTPUT];
@@ -156,7 +172,6 @@ struct mtkcam_ipi_session_param {
 struct mtkcam_ipi_hw_mapping {
 	__u8 pipe_id; /* ref. to mtkcam_pipe_subdev */
 	__u16 dev_mask; /* ref. to mtkcam_pipe_dev */
-	__u8 exp_order; /* TBD: still need this? */
 } __packed;
 
 struct mtkcam_ipi_bw_info {
@@ -178,22 +193,27 @@ struct mtkcam_ipi_timeshared_msg {
 #define MTK_CAM_IPI_CONFIG_TYPE_EXEC_TWICE		0x0004
 #define MTK_CAM_IPI_CONFIG_TYPE_SMVR_PREVIEW		0x0008
 
+/* TODO: update number */
+#define CAM_MAX_IMAGE_INPUT  (5)
+#define CAM_MAX_IMAGE_OUTPUT (15)
+#define CAM_MAX_META_OUTPUT	 (4)
+#define CAM_MAX_PIPE_USED	 (4)
+#define MRAW_MAX_PIPE_USED   (4)
+#define CAMSV_MAX_PIPE_USED  (2)
+#define CAMSV_MAX_TAGS       (8)
+
 struct mtkcam_ipi_config_param {
 	__u8 flags;
 	struct mtkcam_ipi_input_param	input;
+	struct mtkcam_ipi_sv_input_param sv_input[CAMSV_MAX_PIPE_USED][CAMSV_MAX_TAGS];
+	struct mtkcam_ipi_mraw_input_param mraw_input[MRAW_MAX_PIPE_USED];
 	__u8 n_maps; /* maximum # of subdevs per stream */
 	struct mtkcam_ipi_hw_mapping maps[6];
 	__u8	sw_feature;
 	__u32	exp_order : 4;
 	__u32	frame_order : 4;
+	struct mtkcam_ipi_buffer w_cac_table; /* for rgbw's empty cac table */
 } __packed;
-
-/* TODO: update number */
-#define CAM_MAX_IMAGE_INPUT	(5)
-#define CAM_MAX_IMAGE_OUTPUT	(15)
-#define CAM_MAX_META_OUTPUT	(4)
-#define CAM_MAX_PIPE_USED	(4)
-#define MRAW_MAX_PIPE_USED  (4)
 
 struct mtkcam_ipi_frame_param {
 	__u32 cur_workbuf_offset;
@@ -201,6 +221,8 @@ struct mtkcam_ipi_frame_param {
 
 	struct mtkcam_ipi_raw_frame_param raw_param;
 	struct mtkcam_ipi_mraw_frame_param mraw_param[MRAW_MAX_PIPE_USED];
+	struct mtkcam_ipi_camsv_frame_param camsv_param[CAMSV_MAX_PIPE_USED][CAMSV_MAX_TAGS];
+	struct mtkcam_ipi_adl_frame_param adl_param;
 
 	struct mtkcam_ipi_timeshared_msg	timeshared_param;
 
@@ -227,6 +249,7 @@ struct mtkcam_ipi_frame_ack_result {
 	struct mtkcam_ipi_cq_desc_entry		main;
 	struct mtkcam_ipi_cq_desc_entry		sub;
 	struct mtkcam_ipi_cq_desc_entry		mraw[MRAW_MAX_PIPE_USED];
+	struct mtkcam_ipi_cq_desc_entry		camsv[CAMSV_MAX_PIPE_USED];
 } __packed;
 
 struct mtkcam_ipi_ack_info {

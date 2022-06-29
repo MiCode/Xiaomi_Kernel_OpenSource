@@ -198,11 +198,6 @@ static int streamon_on_cqdone_once(struct mtk_cam_ut *ut)
 {
 	int i;
 
-	if (ut->hardware_scenario == MTKCAM_IPI_HW_PATH_OTF_RGBW ||
-	    ut->hardware_scenario == MTKCAM_IPI_HW_PATH_OTF_RGBW_DOL) {
-		raw_disable_tg_vseol_sub_ctl(ut->raw[0]);
-	}
-
 	if (ut->hardware_scenario != MTKCAM_IPI_HW_PATH_DC_STAGGER)
 		CALL_RAW_OPS(ut->raw[0], s_stream, 1)
 
