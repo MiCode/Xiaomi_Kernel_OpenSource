@@ -394,6 +394,27 @@ static void imgsys_dip_dump_snr(struct mtk_imgsys_dev *a_pDev,
 
 }
 
+static void imgsys_dip_dump_smtd8(struct mtk_imgsys_dev *a_pDev,
+				void __iomem *a_pRegBA,
+				unsigned int a_DdbSel,
+				unsigned int a_DbgOut)
+{
+	unsigned int DbgCmd = 0;
+	unsigned int DbgData = 0;
+	unsigned int Idx = 0;
+	unsigned int CmdOft = 0x10000;
+
+	pr_info("dump smt_d8 debug\n");
+
+	/* smt_d8 debug */
+	DbgCmd = 0x11301;
+	for (Idx = 0; Idx < 0x3; Idx++) {
+		DbgData = ExeDbgCmd(a_pDev, a_pRegBA, a_DdbSel, a_DbgOut, DbgCmd);
+		DbgCmd += CmdOft;
+	}
+
+}
+
 void imgsys_dip_debug_dump(struct mtk_imgsys_dev *imgsys_dev,
 							unsigned int engine)
 {
@@ -578,9 +599,12 @@ void imgsys_dip_debug_dump(struct mtk_imgsys_dev *imgsys_dev,
 
 	dipRegBA = gdipRegBA[0];
 	g_RegBaseAddr = DIP_TOP_ADDR;
+	/* NR3D debug data */
 	imgsys_dip_dump_nr3d(imgsys_dev, dipRegBA);
 	/* SNR debug data */
 	imgsys_dip_dump_snr(imgsys_dev, dipRegBA, CtlDdbSel, CtlDbgOut);
+	/* SMT_D8 debug data */
+	imgsys_dip_dump_smtd8(imgsys_dev, dipRegBA, CtlDdbSel, CtlDbgOut);
 
 	pr_info("%s: -\n", __func__);
 
