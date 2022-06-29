@@ -428,7 +428,7 @@ int ged_gpufreq_commit(int oppidx, int commit_type, int *bCommited)
 			mtk_gpueb_dvfs_dcs_commit(oppidx_tar, commit_type,
 				 g_virtual_table[oppidx].freq);
 		else
-			ged_dvfs_gpu_freq_commit_fp(TARGET_DEFAULT, oppidx_tar, bCommited);
+			ged_dvfs_gpu_freq_commit_fp(oppidx_tar, commit_type, bCommited);
 
 		dcs_set_core_mask(core_mask_tar, core_num_tar);
 	}
