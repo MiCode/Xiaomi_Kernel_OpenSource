@@ -2430,11 +2430,6 @@ mtk_cam_raw_prepare_mstream_frame_done(struct mtk_cam_ctx *ctx,
 		if (frame_undone)
 			return false;
 	} else {
-		/* update qos bw for 2exp -> 1 exp */
-		if (s_data->feature.switch_feature_type ==
-			(EXPOSURE_CHANGE_2_to_1 | MSTREAM_EXPOSURE_CHANGE)) {
-			mtk_cam_qos_bw_calc(ctx, s_data->raw_dmas, true);
-		}
 		dev_dbg(cam->dev, "[mstream][SWD] req:%d/state:%d/time:%lld/sync_id:%lld\n",
 			req_stream_data->frame_seq_no, state_entry->estate,
 			req_stream_data->timestamp,
@@ -3908,7 +3903,9 @@ mtk_camsys_raw_prepare_frame_done(struct mtk_raw_device *raw_dev,
 	struct mtk_camsys_sensor_ctrl *camsys_sensor_ctrl = &ctx->sensor_ctrl;
 	struct mtk_camsys_ctrl_state *state_entry;
 	struct mtk_cam_request *state_req;
+	struct mtk_cam_request *state_req_done;
 	struct mtk_cam_request_stream_data *s_data;
+	struct mtk_cam_request_stream_data *s_data_done;
 
 	if (!ctx->sensor) {
 		dev_info(cam->dev, "%s: no sensor found in ctx:%d, req:%d",
@@ -3928,6 +3925,8 @@ mtk_camsys_raw_prepare_frame_done(struct mtk_raw_device *raw_dev,
 		state_req = mtk_cam_ctrl_state_get_req(state_entry);
 		s_data = mtk_cam_ctrl_state_to_req_s_data(state_entry);
 		if (s_data->frame_seq_no == dequeued_frame_seq_no) {
+			state_req_done = state_req;
+			s_data_done = s_data;
 			if (mtk_cam_ctx_has_raw(ctx) &&
 			    mtk_cam_scen_is_subsample(s_data->feature.scen)) {
 				state_transition(state_entry,
@@ -3994,6 +3993,23 @@ mtk_camsys_raw_prepare_frame_done(struct mtk_raw_device *raw_dev,
 		}
 	}
 	spin_unlock(&camsys_sensor_ctrl->camsys_state_lock);
+
+	/**
+	 * update qos bw for mstream 2exp -> 1 exp
+	 * because qos bandwidth update tries to get frame interval from
+	 * sensor and there is a mutex lock in it, update it after spin
+	 * unlock.
+	 */
+	if (s_data_done && mtk_cam_scen_is_mstream_types(s_data_done->feature.scen)) {
+		struct mtk_cam_request_stream_data *req_s_data;
+
+		req_s_data = mtk_cam_req_get_s_data(state_req_done, ctx->stream_id, 0);
+		if (!mtk_cam_scen_is_mstream_2exp_types(req_s_data->feature.scen) &&
+				req_s_data->feature.switch_feature_type ==
+				(EXPOSURE_CHANGE_2_to_1 | MSTREAM_EXPOSURE_CHANGE)) {
+			mtk_cam_qos_bw_calc(ctx, req_s_data->raw_dmas, true);
+		}
+	}
 
 	return true;
 }

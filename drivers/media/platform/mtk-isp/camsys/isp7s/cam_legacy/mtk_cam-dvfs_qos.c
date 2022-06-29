@@ -245,6 +245,7 @@ opp_default_table:
 #define BW_B2KB(value) ((value) / 1024)
 #define BW_B2KB_WITH_RATIO(value) ((value) * 4 / 3 / 1024)
 
+/* Watch out there is a mutex lock lying in sensor g_frame_interval */
 void mtk_cam_qos_bw_calc(struct mtk_cam_ctx *ctx, unsigned long raw_dmas, bool force)
 {
 	struct mtk_cam_device *cam = ctx->cam;
