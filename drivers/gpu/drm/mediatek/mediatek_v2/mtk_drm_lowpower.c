@@ -475,34 +475,36 @@ static void mtk_drm_idlemgr_disable_crtc(struct drm_crtc *crtc)
 		return;
 	}
 
-	/* 1. stop CRTC */
+	/* 1. stop connector */
+	mtk_drm_idlemgr_disable_connector(crtc);
+
+	/* 2. stop CRTC */
 	mtk_crtc_stop(mtk_crtc, true);
 
-	/* 2. disconnect addon module and recover config */
+	/* 3. disconnect addon module and recover config */
 	mtk_crtc_disconnect_addon_module(crtc);
 
-	/* 3. set HRT BW to 0 */
+	/* 4. set HRT BW to 0 */
 	if (mtk_drm_helper_get_opt(priv->helper_opt,
 			MTK_DRM_OPT_MMQOS_SUPPORT))
 		mtk_disp_set_hrt_bw(mtk_crtc, 0);
 
-	/* 4. disconnect path */
+	/* 5. disconnect path */
 	mtk_crtc_disconnect_default_path(mtk_crtc);
 
-	/* 5. power off all modules in this CRTC */
+	/* 6. power off all modules in this CRTC */
 	mtk_crtc_ddp_unprepare(mtk_crtc);
-	mtk_drm_idlemgr_disable_connector(crtc);
 
 	drm_crtc_vblank_off(crtc);
 
 	mtk_crtc_vblank_irq(&mtk_crtc->base);
-	/* 6. power off MTCMOS */
+	/* 7. power off MTCMOS */
 	mtk_drm_top_clk_disable_unprepare(crtc->dev);
 
-	/* 7. disable fake vsync if need */
+	/* 8. disable fake vsync if need */
 	mtk_drm_fake_vsync_switch(crtc, false);
 
-	/* 8. CMDQ power off */
+	/* 9. CMDQ power off */
 	cmdq_mbox_disable(mtk_crtc->gce_obj.client[CLIENT_CFG]->chan);
 
 	DDPINFO("crtc%d do %s-\n", crtc_id, __func__);

@@ -3811,6 +3811,8 @@ int mtk_dsi_porch_setting(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 /* TODO: refactor to remove duplicate code */
 static void mtk_dsi_enter_idle(struct mtk_dsi *dsi)
 {
+	mtk_dsi_poll_for_idle(dsi, NULL);
+
 	mtk_dsi_mask(dsi, DSI_INTEN, ~0, 0);
 
 	mtk_dsi_reset_engine(dsi);
