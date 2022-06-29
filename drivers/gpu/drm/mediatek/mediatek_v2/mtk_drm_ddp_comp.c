@@ -2008,9 +2008,10 @@ void mt6985_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
 		if (priv->ovlsys0_regs) {
 			v = (readl(priv->ovlsys0_regs + MMSYS_MISC)
 				& (~0x3FFFC));
+			v |= 0x28000;
 			writel_relaxed(v, priv->ovlsys0_regs + MMSYS_MISC);
 		}
-		if (priv->ovlsys1_regs_pa) {
+		if (priv->ovlsys1_regs) {
 			v = (readl(priv->ovlsys1_regs + MMSYS_MISC)
 				& (~0x3FFFC));
 			writel_relaxed(v, priv->ovlsys1_regs + MMSYS_MISC);
@@ -2030,7 +2031,7 @@ void mt6985_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
 		/* 0xF0: only config on OVLSYS(HARD CODE) */
 		if (priv->ovlsys0_regs_pa) {
 			cmdq_pkt_write(handle, NULL, priv->ovlsys0_regs_pa +
-				MMSYS_MISC, 0x0, 0x3FFFC);
+				MMSYS_MISC, 0x28000, 0x3FFFC);
 		}
 		if (priv->ovlsys1_regs_pa) {
 			cmdq_pkt_write(handle, NULL, priv->ovlsys1_regs_pa +
