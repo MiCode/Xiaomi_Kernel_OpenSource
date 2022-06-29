@@ -2557,11 +2557,10 @@ static int fbt_get_var_fps(int target_fps)
 static int fbt_filter_frame(long loading, unsigned int target_fps, int blc_wt,
 	unsigned int *filter_frames_count, int *filter_index,
 	struct fbt_loading_info *filter_loading, int *filtered_blc,
-	int render_pid, unsigned long long buffer_id)
+	int render_pid, unsigned long long buffer_id, int window_size, int filter_kmin)
 {
 	int pre_iter = 0, next_iter = 0, cur_iter = 0;
 	int i = 0, tmp_index = 0;
-	int window_size = filter_frame_window_size, filter_kmin = filter_frame_kmin;
 	int ret = FPSGO_FILTER_ACTIVE;
 	struct fbt_loading_info *sorted_loading;
 
@@ -3578,6 +3577,9 @@ static int fbt_boost_policy(
 	int isolation_cap = 100;
 	int filter_ret = 0;
 	long aa_n, aa_b, aa_m;
+	int is_filter_frame_active = filter_frame_enable;
+	int ff_window_Size = filter_frame_window_size;
+	int ff_kmin = filter_frame_kmin;
 
 	if (!thread_info) {
 		FPSGO_LOGE("ERROR %d\n", __LINE__);
@@ -3667,11 +3669,21 @@ static int fbt_boost_policy(
 		blc_wt = fbt_must_enhance_floor(blc_wt, orig_blc, floor_opp);
 	}
 
-	if (filter_frame_enable) {
+	#if FPSGO_MW
+	if (thread_info->filter_frame_enable_by_pid == 0 ||
+		thread_info->filter_frame_enable_by_pid == 1) {
+		is_filter_frame_active = thread_info->filter_frame_enable_by_pid;
+		ff_window_Size = thread_info->filter_frame_window_size_by_pid;
+		ff_kmin = thread_info->filter_frame_kmin_by_pid;
+	}
+	#endif
+
+	if (is_filter_frame_active) {
 		fpsgo_systrace_c_fbt(pid, buffer_id, blc_wt, "before filter");
 		filter_ret = fbt_filter_frame(cpy_loading, target_fps, blc_wt,
 			&(boost_info->filter_frames_count), &(boost_info->filter_index),
-			(boost_info->filter_loading), &(boost_info->filter_blc), pid, buffer_id);
+			(boost_info->filter_loading), &(boost_info->filter_blc), pid, buffer_id,
+			ff_window_Size, ff_kmin);
 		fpsgo_main_trace("[FILTER] ret=%d, blc_wt=%d", filter_ret, boost_info->filter_blc);
 
 		blc_wt = boost_info->filter_blc;
@@ -3680,14 +3692,16 @@ static int fbt_boost_policy(
 			fpsgo_systrace_c_fbt_debug(pid, buffer_id, blc_wt_b, "before_filter_b");
 			filter_ret = fbt_filter_frame(aa_b, target_fps, blc_wt_b,
 			&(boost_info->filter_frames_count_b), &(boost_info->filter_index_b),
-			(boost_info->filter_loading_b), &(boost_info->filter_blc), pid, buffer_id);
+			(boost_info->filter_loading_b), &(boost_info->filter_blc), pid, buffer_id,
+			ff_window_Size, ff_kmin);
 			blc_wt_b = boost_info->filter_blc;
 			fpsgo_systrace_c_fbt_debug(pid, buffer_id, blc_wt_b, "after_filter_b");
 
 			fpsgo_systrace_c_fbt_debug(pid, buffer_id, blc_wt_m, "before_filter_m");
 			filter_ret = fbt_filter_frame(aa_m, target_fps, blc_wt_m,
 			&(boost_info->filter_frames_count_m), &(boost_info->filter_index_m),
-			(boost_info->filter_loading_m), &(boost_info->filter_blc), pid, buffer_id);
+			(boost_info->filter_loading_m), &(boost_info->filter_blc), pid, buffer_id,
+			ff_window_Size, ff_kmin);
 			blc_wt_m = boost_info->filter_blc;
 			fpsgo_systrace_c_fbt_debug(pid, buffer_id, blc_wt_m, "after_filter_m");
 		}
@@ -6040,6 +6054,42 @@ static ssize_t fbt_attr_by_pid_store(struct kobject *kobj,
 			attr_render->loading_th_by_pid = 0;
 		} else
 			attr_render->llf_task_policy_by_pid = val;
+	} else if (!strcmp(cmd, "filter_frame_enable")) {
+		if (val == filter_frame_enable &&
+			attr_render->filter_frame_window_size_by_pid ==
+			filter_frame_window_size &&
+			attr_render->filter_frame_kmin_by_pid ==
+			filter_frame_kmin)
+			attr_render->filter_frame_enable_by_pid = -1;
+		else if (val == 1 || val == 0)
+			attr_render->filter_frame_enable_by_pid = val;
+		else if (val < 0)
+			attr_render->filter_frame_enable_by_pid = -1;
+		else
+			ret = -1;
+	} else if (!strcmp(cmd, "filter_frame_window_size")) {
+		if (val == filter_frame_window_size &&
+			attr_render->filter_frame_enable_by_pid ==
+			filter_frame_enable &&
+			attr_render->filter_frame_kmin_by_pid ==
+			filter_frame_kmin)
+			attr_render->filter_frame_enable_by_pid = -1;
+		else if (val > 0 || val <= FBT_FILTER_MAX_WINDOW)
+			attr_render->filter_frame_window_size_by_pid = val;
+		else
+			ret = -1;
+	} else if (!strcmp(cmd, "filter_frame_kmin")) {
+		if (val == filter_frame_kmin &&
+			attr_render->filter_frame_enable_by_pid ==
+			filter_frame_enable &&
+			attr_render->filter_frame_window_size_by_pid ==
+			filter_frame_window_size)
+			attr_render->filter_frame_enable_by_pid = -1;
+		else if (val > 0 || val <=
+				attr_render->filter_frame_window_size_by_pid)
+			attr_render->filter_frame_kmin_by_pid = val;
+		else
+			ret = -1;
 	}
 
 	if (change_llf && attr_render->llf_task_policy_by_pid == -1)

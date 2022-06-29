@@ -211,6 +211,11 @@ struct render_info {
 	int rescue_second_enable_by_pid;
 	int rescue_second_time_by_pid;
 	int rescue_second_group_by_pid;
+
+	/* filter frame */
+	int filter_frame_enable_by_pid;
+	int filter_frame_window_size_by_pid;
+	int filter_frame_kmin_by_pid;
 	#endif
 };
 
@@ -227,6 +232,11 @@ struct fpsgo_attr_by_pid {
 	int rescue_second_enable_by_pid;
 	int rescue_second_time_by_pid;
 	int rescue_second_group_by_pid;
+
+	/* filter frame */
+	int filter_frame_enable_by_pid;
+	int filter_frame_window_size_by_pid;
+	int filter_frame_kmin_by_pid;
 };
 #endif
 

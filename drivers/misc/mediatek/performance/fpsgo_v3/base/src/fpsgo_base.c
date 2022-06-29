@@ -558,6 +558,10 @@ struct render_info *fpsgo_search_and_add_render_info(int pid,
 		tmp->rescue_second_enable_by_pid = 0;
 		tmp->rescue_second_time_by_pid = 0;
 		tmp->rescue_second_group_by_pid = 0;
+
+		tmp->filter_frame_enable_by_pid = -1;
+		tmp->filter_frame_window_size_by_pid = 6;
+		tmp->filter_frame_kmin_by_pid = 3;
 	} else {
 		ret = update_attr_to_render_info(tmp, attr_render, tgid);
 		if (ret < 0)
@@ -701,6 +705,9 @@ struct fpsgo_attr_by_pid *fpsgo_find_attr_by_pid(int pid, int add_new)
 	tmp->rescue_second_enable_by_pid = -1;
 	tmp->rescue_second_time_by_pid = 0;
 	tmp->rescue_second_group_by_pid = 0;
+	tmp->filter_frame_enable_by_pid = -1;
+	tmp->filter_frame_window_size_by_pid = 6;
+	tmp->filter_frame_kmin_by_pid = 3;
 
 	rb_link_node(&tmp->entry, parent, p);
 	rb_insert_color(&tmp->entry, &fpsgo_attr_by_pid_tree);
@@ -747,6 +754,10 @@ int update_attr_to_render_info(struct render_info *f_render,
 						attr->rescue_second_enable_by_pid;
 				iter->rescue_second_time_by_pid = attr->rescue_second_time_by_pid;
 				iter->rescue_second_group_by_pid = attr->rescue_second_group_by_pid;
+				iter->filter_frame_enable_by_pid = attr->filter_frame_enable_by_pid;
+				iter->filter_frame_window_size_by_pid =
+					attr->filter_frame_window_size_by_pid;
+				iter->filter_frame_kmin_by_pid = attr->filter_frame_kmin_by_pid;
 				fpsgo_thread_unlock(&(iter->thr_mlock));
 				ret = 0;
 			}
@@ -761,10 +772,14 @@ int update_attr_to_render_info(struct render_info *f_render,
 		f_render->rescue_second_enable_by_pid = attr->rescue_second_enable_by_pid;
 		f_render->rescue_second_time_by_pid = attr->rescue_second_time_by_pid;
 		f_render->rescue_second_group_by_pid = attr->rescue_second_group_by_pid;
+		f_render->filter_frame_enable_by_pid = attr->filter_frame_enable_by_pid;
+		f_render->filter_frame_window_size_by_pid = attr->filter_frame_window_size_by_pid;
+		f_render->filter_frame_kmin_by_pid = attr->filter_frame_kmin_by_pid;
 		fpsgo_thread_unlock(&(f_render->thr_mlock));
 		ret = 0;
 	}
-	if (attr->rescue_second_enable_by_pid == -1 && attr->llf_task_policy_by_pid == -1)
+	if (attr->rescue_second_enable_by_pid == -1 && attr->llf_task_policy_by_pid == -1
+		&& attr->filter_frame_enable_by_pid == -1)
 		delete_attr_by_pid(tgid);
 
 	return ret;
@@ -1467,6 +1482,17 @@ static ssize_t render_info_params_show(struct kobject *kobj,
 				iter->rescue_second_group_by_pid);
 			pos += length;
 
+			length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
+				"\n filter_frame_enable  filter_frame_window_size  filter_frame_k_min\n");
+			pos += length;
+
+			length = scnprintf(temp + pos,
+				FPSGO_SYSFS_MAX_BUFF_SIZE - pos, "%4d, %4d %4d\n",
+				iter->filter_frame_enable_by_pid,
+				iter->filter_frame_window_size_by_pid,
+				iter->filter_frame_kmin_by_pid);
+			pos += length;
+
 
 			put_task_struct(tsk);
 		}
@@ -1513,6 +1539,16 @@ static ssize_t render_attr_params_show(struct kobject *kobj,
 				iter->rescue_second_group_by_pid);
 			pos += length;
 
+			length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
+				"\n filter_frame_enable  filter_frame_window_size  filter_frame_k_min\n");
+			pos += length;
+
+			length = scnprintf(temp + pos,
+				FPSGO_SYSFS_MAX_BUFF_SIZE - pos, "%4d, %4d %4d\n",
+				iter->filter_frame_enable_by_pid,
+				iter->filter_frame_window_size_by_pid,
+				iter->filter_frame_kmin_by_pid);
+			pos += length;
 	}
 
 	fpsgo_render_tree_unlock(__func__);
