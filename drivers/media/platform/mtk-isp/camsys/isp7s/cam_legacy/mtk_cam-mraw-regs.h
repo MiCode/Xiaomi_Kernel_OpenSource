@@ -181,6 +181,7 @@ union MRAW_TG_PATH_CFG // only for db_load test
 #define MRAW_TG_CS_MASK						0x3F00
 #define MRAW_TG_IDLE_ST						BIT(8)
 
+#define REG_MRAW_MRAWCTL_SEL				0x0020
 #define REG_MRAW_MRAWCTL_FMT_SEL			0x0024
 union MRAW_FMT_SEL {
 	struct {
@@ -196,6 +197,21 @@ union MRAW_FMT_SEL {
 	} Bits;
 	unsigned int Raw;
 };
+#define REG_MRAW_MRAWCTL_DONE_SEL			0x0028
+
+#define REG_MRAW_SEP_CTL					0x0600
+#define REG_MRAW_SEP_CROP					0x0604
+#define REG_MRAW_SEP_VSIZE					0x0608
+
+#define REG_MRAW_CROP_X_POS					0x0640
+#define REG_MRAW_CROP_Y_POS					0x0644
+
+#define REG_MRAW_MBN_CFG_0					0x1080
+#define REG_MRAW_MBN_CFG_1					0x1084
+#define REG_MRAW_MBN_CFG_2					0x1088
+
+#define REG_MRAW_CPI_CFG_0					0x1040
+#define REG_MRAW_CPI_CFG_1					0x1044
 
 #define REG_MRAW_TG_FRMSIZE_ST				0x0538
 #define REG_MRAW_TG_FRMSIZE_ST_R			0x056C
