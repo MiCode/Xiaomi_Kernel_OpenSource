@@ -1405,6 +1405,7 @@
 				<0 0>;
 
 			power-domains = <&scpsys MT6983_POWER_DOMAIN_UFS0>;
+			mediatek,ufs-vcc-by-num;
 			vcc-opt1-supply = <&mt6373_vbuck4_ufs>;
 			vcc-opt2-supply = <&mt6363_vemc>;
 
