@@ -2464,7 +2464,11 @@ static int vcp_device_probe(struct platform_device *pdev)
 
 	of_property_read_u32(pdev->dev.of_node, "vcp-secure-dump"
 						, &vcpreg.secure_dump);
-	pr_notice("[VCP] vcpreg.secure_dump = %d\n", vcpreg.secure_dump);
+	of_property_read_u32(pdev->dev.of_node, "vcp-ee-enable"
+						, &vcp_ee_enable);
+
+	pr_notice("[VCP] vcpreg.secure_dump = %d, vcp_ee_enable = %d\n",
+			vcpreg.secure_dump, vcp_ee_enable);
 
 
 	vcpreg.irq0 = platform_get_irq_byname(pdev, "wdt");
