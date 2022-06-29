@@ -17,13 +17,15 @@ static DEFINE_SPINLOCK(g_tdshp_clock_lock);
 static struct mtk_ddp_comp *default_comp;
 static struct mtk_ddp_comp *tdshp1_default_comp;
 
-#define index_of_tdshp(module) ((module == DDP_COMPONENT_TDSHP0) ? 0 : 1)
-#define DISP_TDSHP_HW_ENGINE_NUM (2)
-static unsigned int g_tdshp_relay_value[DISP_TDSHP_HW_ENGINE_NUM] = { 0, 0 };
+#define index_of_tdshp(module) ((module == DDP_COMPONENT_TDSHP0) ? 0 : \
+			((module == DDP_COMPONENT_TDSHP1) ? 1 : \
+			((module == DDP_COMPONENT_TDSHP2) ? 2 : 3)))
+#define DISP_TDSHP_HW_ENGINE_NUM (4)
+static unsigned int g_tdshp_relay_value[DISP_TDSHP_HW_ENGINE_NUM] = { 0, 0, 0, 0};
 static struct DISP_TDSHP_REG *g_disp_tdshp_regs[DISP_TDSHP_HW_ENGINE_NUM] = { NULL };
 
 static atomic_t g_tdshp_is_clock_on[DISP_TDSHP_HW_ENGINE_NUM] = { ATOMIC_INIT(0),
-	ATOMIC_INIT(0)};
+	ATOMIC_INIT(0), ATOMIC_INIT(0), ATOMIC_INIT(0)};
 
 enum TDSHP_IOCTL_CMD {
 	SET_TDSHP_REG,
@@ -33,6 +35,7 @@ enum TDSHP_IOCTL_CMD {
 struct mtk_disp_tdshp_data {
 	bool support_shadow;
 	bool need_bypass_shadow;
+	int single_pipe_tdshp_num;
 };
 
 struct mtk_disp_tdshp {
@@ -473,6 +476,7 @@ static int mtk_disp_tdshp_user_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *h
 	case SET_TDSHP_REG:
 	{
 		struct DISP_TDSHP_REG *config = data;
+		struct mtk_disp_tdshp *tdshp = comp_to_disp_tdshp(comp);
 
 		if (mtk_disp_tdshp_set_reg(comp, handle, config) < 0) {
 			DDPPR_ERR("%s: failed\n", __func__);
@@ -483,6 +487,8 @@ static int mtk_disp_tdshp_user_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *h
 			struct drm_crtc *crtc = &mtk_crtc->base;
 			struct mtk_drm_private *priv = crtc->dev->dev_private;
 			struct mtk_ddp_comp *comp_tdshp1 = priv->ddp_comp[DDP_COMPONENT_TDSHP1];
+			if (tdshp->data->single_pipe_tdshp_num == 2)
+				comp_tdshp1 = priv->ddp_comp[DDP_COMPONENT_TDSHP2];
 
 			if (mtk_disp_tdshp_set_reg(comp_tdshp1, handle, config) < 0) {
 				DDPPR_ERR("%s: comp_tdshp1 failed\n", __func__);
@@ -496,6 +502,7 @@ static int mtk_disp_tdshp_user_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *h
 	case BYPASS_TDSHP:
 	{
 		unsigned int *value = data;
+		struct mtk_disp_tdshp *tdshp = comp_to_disp_tdshp(comp);
 
 		mtk_disp_tdshp_bypass(comp, *value, handle);
 		if (comp->mtk_crtc->is_dual_pipe) {
@@ -503,6 +510,8 @@ static int mtk_disp_tdshp_user_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *h
 			struct drm_crtc *crtc = &mtk_crtc->base;
 			struct mtk_drm_private *priv = crtc->dev->dev_private;
 			struct mtk_ddp_comp *comp_tdshp1 = priv->ddp_comp[DDP_COMPONENT_TDSHP1];
+			if (tdshp->data->single_pipe_tdshp_num == 2)
+				comp_tdshp1 = priv->ddp_comp[DDP_COMPONENT_TDSHP2];
 
 			mtk_disp_tdshp_bypass(comp_tdshp1, *value, handle);
 		}
@@ -700,26 +709,31 @@ static int mtk_disp_tdshp_remove(struct platform_device *pdev)
 static const struct mtk_disp_tdshp_data mt6983_tdshp_driver_data = {
 	.support_shadow = false,
 	.need_bypass_shadow = true,
+	.single_pipe_tdshp_num = 1,
 };
 
 static const struct mtk_disp_tdshp_data mt6895_tdshp_driver_data = {
 	.support_shadow = false,
 	.need_bypass_shadow = true,
+	.single_pipe_tdshp_num = 1,
 };
 
 static const struct mtk_disp_tdshp_data mt6879_tdshp_driver_data = {
 	.support_shadow = false,
 	.need_bypass_shadow = true,
+	.single_pipe_tdshp_num = 1,
 };
 
 static const struct mtk_disp_tdshp_data mt6855_tdshp_driver_data = {
 	.support_shadow = false,
 	.need_bypass_shadow = true,
+	.single_pipe_tdshp_num = 1,
 };
 
 static const struct mtk_disp_tdshp_data mt6985_tdshp_driver_data = {
 	.support_shadow = false,
 	.need_bypass_shadow = true,
+	.single_pipe_tdshp_num = 2,
 };
 
 static const struct of_device_id mtk_disp_tdshp_driver_dt_match[] = {

@@ -163,6 +163,12 @@ int mtk_drm_ioctl_get_chist_caps(struct drm_device *dev, void *data,
 
 	DDPINFO("%s chist id:%d, w:%d,h:%d\n", __func__, caps_info->device_id,
 		caps_info->lcm_width, caps_info->lcm_height);
+
+	if (comp == NULL) {
+		DDPFUNC("%s null pointer!\n", __func__);
+		return -1;
+	}
+
 	// just call from pqservice, device_id:low 16bit=module_id, high 16bit=panel_id
 	if (comp_to_chist(comp)->data->module_count > 1 && (caps_info->device_id & 0xffff))
 		index = 1;

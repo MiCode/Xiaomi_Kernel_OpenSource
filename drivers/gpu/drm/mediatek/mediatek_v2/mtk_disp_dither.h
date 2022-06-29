@@ -9,6 +9,7 @@
 struct mtk_disp_dither_data {
 	bool support_shadow;
 	bool need_bypass_shadow;
+	int single_pipe_dither_num;
 };
 
 #endif

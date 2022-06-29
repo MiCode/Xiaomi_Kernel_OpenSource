@@ -55,13 +55,15 @@
 #define DITHER_ADD_LSHIFT_G(x) (((x)&0x7) << 4)
 #define DITHER_ADD_RSHIFT_G(x) (((x)&0x7) << 0)
 
-#define DITHER_TOTAL_MODULE_NUM (2)
+#define DITHER_TOTAL_MODULE_NUM (4)
 #define PURE_CLR_RGB (3)
 #define PURE_CLR_NUM_MAX (7)
 static unsigned int g_dither_relay_value[DITHER_TOTAL_MODULE_NUM];
-#define index_of_dither(module) ((module == DDP_COMPONENT_DITHER0) ? 0 : 1)
-static atomic_t g_dither_is_clock_on[2] = {
-	ATOMIC_INIT(0), ATOMIC_INIT(0) };
+#define index_of_dither(module) ((module == DDP_COMPONENT_DITHER0) ? 0 : \
+			((module == DDP_COMPONENT_DITHER1) ? 1 : \
+			((module == DDP_COMPONENT_DITHER2) ? 2 : 3)))
+static atomic_t g_dither_is_clock_on[4] = {
+	ATOMIC_INIT(0), ATOMIC_INIT(0), ATOMIC_INIT(0), ATOMIC_INIT(0) };
 static DEFINE_SPINLOCK(g_dither_clock_lock);
 // It's a work around for no comp assigned in functions.
 static struct mtk_ddp_comp *default_comp;
@@ -90,6 +92,11 @@ struct mtk_disp_dither {
 	unsigned int cfg_reg;
 	const struct mtk_disp_dither_data *data;
 };
+
+static inline struct mtk_disp_dither *comp_to_dither(struct mtk_ddp_comp *comp)
+{
+	return container_of(comp, struct mtk_disp_dither, ddp_comp);
+}
 
 struct mtk_disp_pure_clr_data {
 	unsigned int pure_clr_det;
@@ -595,6 +602,7 @@ static int mtk_dither_user_cmd(struct mtk_ddp_comp *comp,
 		struct DISP_DITHER_PARAM *ditherParam = (struct DISP_DITHER_PARAM *)data;
 		bool relay = ditherParam->relay;
 		uint32_t mode = ditherParam->mode;
+		struct mtk_disp_dither *dither = comp_to_dither(comp);
 
 		g_dither_mode = (unsigned int)(ditherParam->mode);
 		pr_notice("%s: relay: %d, mode: %d", __func__, relay, mode);
@@ -605,6 +613,8 @@ static int mtk_dither_user_cmd(struct mtk_ddp_comp *comp,
 			struct drm_crtc *crtc = &mtk_crtc->base;
 			struct mtk_drm_private *priv = crtc->dev->dev_private;
 			struct mtk_ddp_comp *comp_dither1 = priv->ddp_comp[DDP_COMPONENT_DITHER1];
+			if (dither->data->single_pipe_dither_num == 2)
+				comp_dither1 = priv->ddp_comp[DDP_COMPONENT_DITHER2];
 
 			mtk_dither_set_param(comp_dither1, handle, relay, mode);
 		}
@@ -612,6 +622,7 @@ static int mtk_dither_user_cmd(struct mtk_ddp_comp *comp,
 	case BYPASS_DITHER:
 	{
 		int *value = data;
+		struct mtk_disp_dither *dither = comp_to_dither(comp);
 
 		mtk_dither_bypass(comp, *value, handle);
 		if (comp->mtk_crtc->is_dual_pipe) {
@@ -619,6 +630,8 @@ static int mtk_dither_user_cmd(struct mtk_ddp_comp *comp,
 			struct drm_crtc *crtc = &mtk_crtc->base;
 			struct mtk_drm_private *priv = crtc->dev->dev_private;
 			struct mtk_ddp_comp *comp_dither1 = priv->ddp_comp[DDP_COMPONENT_DITHER1];
+			if (dither->data->single_pipe_dither_num == 2)
+				comp_dither1 = priv->ddp_comp[DDP_COMPONENT_DITHER2];
 
 			mtk_dither_bypass(comp_dither1, *value, handle);
 		}
@@ -627,6 +640,7 @@ static int mtk_dither_user_cmd(struct mtk_ddp_comp *comp,
 	case SET_INTERRUPT:
 	{
 		int *value = data;
+		struct mtk_disp_dither *dither = comp_to_dither(comp);
 
 		mtk_disp_dither_set_interrupt(comp, *value);
 		if (comp->mtk_crtc->is_dual_pipe) {
@@ -634,6 +648,8 @@ static int mtk_dither_user_cmd(struct mtk_ddp_comp *comp,
 			struct drm_crtc *crtc = &mtk_crtc->base;
 			struct mtk_drm_private *priv = crtc->dev->dev_private;
 			struct mtk_ddp_comp *comp_dither1 = priv->ddp_comp[DDP_COMPONENT_DITHER1];
+			if (dither->data->single_pipe_dither_num == 2)
+				comp_dither1 = priv->ddp_comp[DDP_COMPONENT_DITHER2];
 
 			mtk_disp_dither_set_interrupt(comp_dither1, *value);
 		}
@@ -643,6 +659,7 @@ static int mtk_dither_user_cmd(struct mtk_ddp_comp *comp,
 	{
 		int *value = data;
 		int index = index_of_dither(comp->id);
+		struct mtk_disp_dither *dither = comp_to_dither(comp);
 
 		g_pure_clr_param->pure_clr_det = *value;
 		if (atomic_read(&g_dither_is_clock_on[index]) != 1) {
@@ -658,6 +675,8 @@ static int mtk_dither_user_cmd(struct mtk_ddp_comp *comp,
 			struct drm_crtc *crtc = &mtk_crtc->base;
 			struct mtk_drm_private *priv = crtc->dev->dev_private;
 			struct mtk_ddp_comp *comp_dither1 = priv->ddp_comp[DDP_COMPONENT_DITHER1];
+			if (dither->data->single_pipe_dither_num == 2)
+				comp_dither1 = priv->ddp_comp[DDP_COMPONENT_DITHER2];
 
 			index = index_of_dither(comp_dither1->id);
 
@@ -858,56 +877,67 @@ static int mtk_disp_dither_remove(struct platform_device *pdev)
 static const struct mtk_disp_dither_data mt6779_dither_driver_data = {
 	.support_shadow     = false,
 	.need_bypass_shadow = false,
+	.single_pipe_dither_num = 1,
 };
 
 static const struct mtk_disp_dither_data mt6885_dither_driver_data = {
 	.support_shadow     = false,
 	.need_bypass_shadow = false,
+	.single_pipe_dither_num = 1,
 };
 
 static const struct mtk_disp_dither_data mt6873_dither_driver_data = {
 	.support_shadow     = false,
 	.need_bypass_shadow = true,
+	.single_pipe_dither_num = 1,
 };
 
 static const struct mtk_disp_dither_data mt6853_dither_driver_data = {
 	.support_shadow     = false,
 	.need_bypass_shadow = true,
+	.single_pipe_dither_num = 1,
 };
 
 static const struct mtk_disp_dither_data mt6833_dither_driver_data = {
 	.support_shadow     = false,
 	.need_bypass_shadow = true,
+	.single_pipe_dither_num = 1,
 };
 
 static const struct mtk_disp_dither_data mt6983_dither_driver_data = {
 	.support_shadow     = false,
 	.need_bypass_shadow = true,
+	.single_pipe_dither_num = 1,
 };
 
 static const struct mtk_disp_dither_data mt6895_dither_driver_data = {
 	.support_shadow     = false,
 	.need_bypass_shadow = true,
+	.single_pipe_dither_num = 1,
 };
 
 static const struct mtk_disp_dither_data mt6879_dither_driver_data = {
 	.support_shadow     = false,
 	.need_bypass_shadow = true,
+	.single_pipe_dither_num = 1,
 };
 
 static const struct mtk_disp_dither_data mt6855_dither_driver_data = {
 	.support_shadow     = false,
 	.need_bypass_shadow = true,
+	.single_pipe_dither_num = 1,
 };
 
 static const struct mtk_disp_dither_data mt6985_dither_driver_data = {
 	.support_shadow     = false,
 	.need_bypass_shadow = true,
+	.single_pipe_dither_num = 2,
 };
 
 static const struct mtk_disp_dither_data mt6886_dither_driver_data = {
 	.support_shadow     = false,
 	.need_bypass_shadow = true,
+	.single_pipe_dither_num = 1,
 };
 
 
