@@ -1965,6 +1965,72 @@ static void mml_addon_module_disconnect(struct drm_crtc *crtc,
 	CRTC_MMP_MARK(0, mml_dbg, (unsigned long)cmdq_handle, MMP_ADDON_DISCONNECT);
 }
 
+int get_addon_path_wait_event(struct drm_crtc *crtc,
+			const struct mtk_addon_path_data *path_data)
+{
+	struct mtk_drm_private *priv = crtc->dev->dev_private;
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct mtk_ddp_comp *comp = NULL;
+	int i;
+
+	for (i = 0; i < path_data->path_len; i++) {
+		if (mtk_ddp_comp_get_type(path_data->path[i]) ==
+		    MTK_DISP_VIRTUAL)
+			continue;
+		comp = priv->ddp_comp[path_data->path[i]];
+		if (mtk_ddp_comp_is_output(comp))
+			break;
+	}
+
+	if (!comp) {
+		DDPPR_ERR("%s, Cannot find output component\n", __func__);
+		return -EINVAL;
+	}
+
+	if (comp->id == DDP_COMPONENT_WDMA0)
+		return mtk_crtc->gce_obj.event[EVENT_WDMA0_EOF];
+	else if (comp->id == DDP_COMPONENT_OVLSYS_WDMA0)
+		return mtk_crtc->gce_obj.event[EVENT_OVLSYS_WDMA0_EOF];
+
+	DDPPR_ERR("The output component has not frame done event\n");
+	return -EINVAL;
+}
+
+void mtk_crtc_wb_addon_wait_event(
+	struct drm_crtc *crtc, struct cmdq_pkt *cmdq_handle)
+{
+	int i;
+	const struct mtk_addon_scenario_data *addon_data;
+	const struct mtk_addon_module_data *addon_module;
+	const struct mtk_addon_path_data *path_data;
+	int index = drm_crtc_index(crtc);
+	struct mtk_crtc_state *state = to_mtk_crtc_state(crtc->state);
+	enum addon_scenario scn;
+	int gce_event;
+
+	if (index != 0 || mtk_crtc_is_dc_mode(crtc))
+		return;
+
+	if (state->prop_val[CRTC_PROP_OUTPUT_SCENARIO] == 0)
+		scn = WDMA_WRITE_BACK_OVL;
+	else
+		scn = WDMA_WRITE_BACK;
+
+	addon_data = mtk_addon_get_scenario_data(__func__, crtc, scn);
+	if (!addon_data)
+		return;
+
+	for (i = 0; i < addon_data->module_num; i++) {
+		addon_module = &addon_data->module_data[i];
+		path_data = mtk_addon_module_get_path(addon_module->module);
+
+		gce_event = get_addon_path_wait_event(crtc, path_data);
+		if (gce_event < 0)
+			continue;
+		cmdq_pkt_wfe(cmdq_handle, gce_event);
+	}
+}
+
 void _mtk_crtc_wb_addon_module_disconnect(
 	struct drm_crtc *crtc, unsigned int ddp_mode,
 	struct cmdq_pkt *cmdq_handle)
@@ -2003,9 +2069,14 @@ void _mtk_crtc_wb_addon_module_disconnect(
 		addon_config.config_type.module = addon_module->module;
 		addon_config.config_type.type = addon_module->type;
 
-		if (addon_module->type == ADDON_AFTER &&
-			(addon_module->module == DISP_WDMA0 ||
-			addon_module->module == DISP_WDMA0_v2)) {
+		if ((addon_module->type == ADDON_AFTER &&
+			addon_module->module == DISP_WDMA0) ||
+			(addon_module->type == ADDON_AFTER &&
+			addon_module->module == DISP_WDMA0_v2) ||
+			(addon_module->type == ADDON_AFTER &&
+			addon_module->module == DISP_WDMA0_v3) ||
+			(addon_module->type == ADDON_AFTER &&
+			addon_module->module == DISP_OVLSYS_WDMA0)) {
 			if (mtk_crtc->is_dual_pipe) {
 				/* disconnect left pipe */
 				mtk_addon_disconnect_after(crtc, ddp_mode, addon_module,
@@ -2267,9 +2338,14 @@ _mtk_crtc_wb_addon_module_connect(
 		addon_config.config_type.module = addon_module->module;
 		addon_config.config_type.type = addon_module->type;
 
-		if (addon_module->type == ADDON_AFTER &&
-			(addon_module->module == DISP_WDMA0 ||
-			addon_module->module == DISP_WDMA0_v2)) {
+		if ((addon_module->type == ADDON_AFTER &&
+			addon_module->module == DISP_WDMA0) ||
+			(addon_module->type == ADDON_AFTER &&
+			addon_module->module == DISP_WDMA0_v2) ||
+			(addon_module->type == ADDON_AFTER &&
+			addon_module->module == DISP_WDMA0_v3) ||
+			(addon_module->type == ADDON_AFTER &&
+			addon_module->module == DISP_OVLSYS_WDMA0)) {
 			struct mtk_rect src_roi = {0};
 			struct mtk_rect dst_roi = {0};
 			struct drm_framebuffer *fb;
@@ -9508,7 +9584,7 @@ int mtk_crtc_gce_flush(struct drm_crtc *crtc, void *gce_cb,
 		wb_cb_data = kmalloc(sizeof(*wb_cb_data), GFP_KERNEL);
 
 		mtk_crtc_pkt_create(&handle, crtc, client);
-		cmdq_pkt_wfe(handle, mtk_crtc->gce_obj.event[EVENT_WDMA0_EOF]);
+		mtk_crtc_wb_addon_wait_event(crtc, handle);
 		_mtk_crtc_wb_addon_module_disconnect(crtc, mtk_crtc->ddp_mode, handle);
 
 		wb_cb_data->cmdq_handle = handle;
