@@ -11528,6 +11528,7 @@
 	mmdvfs_clk: mmdvfs-clk {
 		compatible = "mediatek,mtk-mmdvfs-v3";
 		#mmdvfs,clock-cells = <6>;
+		mmdvfs-free-run;
 		mediatek,mmdvfs-clocks =
 			<&mmdvfs_clk CLK_MMDVFS_DISP PWR_MMDVFS_VCORE 1
 				IPI_MMDVFS_VCP SPEC_MMDVFS_ALONE &opp_table_disp>,
