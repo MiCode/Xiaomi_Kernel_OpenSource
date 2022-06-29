@@ -11894,13 +11894,13 @@ int mtk_drm_get_msync_params_ioctl(struct drm_device *dev, void *data,
 		if (config_dst->level_tb != NULL) {
 			if (copy_to_user(config->level_tb,
 					config_dst->level_tb,
-					sizeof(struct msync_parameter_table) *
+					sizeof(struct msync_level_table) *
 					config->msync_level_num)) {
 				DDPPR_ERR("%s:%d copy failed:(0x%p,0x%p), size:%ld\n",
 					__func__, __LINE__,
 					config->level_tb,
 					config_dst->level_tb,
-					sizeof(struct msync_parameter_table) *
+					sizeof(struct msync_level_table) *
 					config->msync_level_num);
 				return -EFAULT;
 			}
@@ -11936,13 +11936,13 @@ int mtk_drm_get_msync_params_ioctl(struct drm_device *dev, void *data,
 		if (level_tb != NULL) {
 			if (copy_to_user(config->level_tb,
 					level_tb,
-					sizeof(struct msync_parameter_table) *
+					sizeof(struct msync_level_table) *
 					config->msync_level_num)) {
 				DDPPR_ERR("%s:%d copy failed:(0x%p,0x%p), size:%ld\n",
 					__func__, __LINE__,
 					config->level_tb,
 					level_tb,
-					sizeof(struct msync_parameter_table) *
+					sizeof(struct msync_level_table) *
 					config->msync_level_num);
 				return -EFAULT;
 			}
