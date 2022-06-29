@@ -24,6 +24,7 @@
 #include "mtk_imgsys-cmdq.h"
 #include "mtk_imgsys-module.h"
 #include "mtk_imgsys-trace.h"
+#include "mtk-hcp_kernelfence.h"
 
 #if MTK_CM4_SUPPORT
 #include <linux/remoteproc/mtk_scp.h>
@@ -2204,6 +2205,7 @@ static int mtk_imgsys_hw_connect(struct mtk_imgsys_dev *imgsys_dev)
 
 	imgsys_queue_init(&imgsys_dev->runnerque, imgsys_dev->dev, "imgsys-cmdq");
 	imgsys_queue_enable(&imgsys_dev->runnerque);
+	mtk_hcp_init_KernelFence(imgsys_dev->dev);
 
 	mtk_hcp_register(imgsys_dev->scp_pdev, HCP_IMGSYS_INIT_ID,
 		imgsys_init_handler, "imgsys_init_handler", imgsys_dev);
@@ -2242,6 +2244,7 @@ static void mtk_imgsys_hw_disconnect(struct mtk_imgsys_dev *imgsys_dev)
 
 	mtk_hcp_unregister(imgsys_dev->scp_pdev, HCP_DIP_INIT_ID);
 	mtk_hcp_unregister(imgsys_dev->scp_pdev, HCP_DIP_FRAME_ID);
+	mtk_hcp_uninit_KernelFence(imgsys_dev->dev);
 
 	imgsys_queue_disable(&imgsys_dev->runnerque);
 

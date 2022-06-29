@@ -39,6 +39,8 @@ struct fd_tbl {
 } __packed;
 #define MTKDIP_IOC_ADD_IOVA _IOW('V', BASE_VIDIOC_PRIVATE + 10, struct fd_tbl)
 #define MTKDIP_IOC_DEL_IOVA _IOW('V', BASE_VIDIOC_PRIVATE + 11, struct fd_tbl)
+#define MTKDIP_IOC_ADD_FENCE _IOW('V', BASE_VIDIOC_PRIVATE + 15, struct fd_tbl)
+#define MTKDIP_IOC_DEL_FENCE _IOW('V', BASE_VIDIOC_PRIVATE + 16, struct fd_tbl)
 
 struct sensor_info {
 	uint16_t full_wd;

@@ -33,7 +33,8 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/
 mtk_hcp-objs := \
 mtk-hcp.o \
 mtk-hcp_isp71.o \
-mtk-hcp_isp7s.o
+mtk-hcp_isp7s.o \
+mtk-hcp_kernelfence.o
 #mem/hcp_videobuf2-memops.o \
 #mem/hcp_videobuf2-vmalloc.o \
 #mem/hcp_videobuf2-dma-contig.o

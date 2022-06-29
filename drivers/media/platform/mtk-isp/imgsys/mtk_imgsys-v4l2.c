@@ -25,6 +25,7 @@
 #include "mtk_imgsys-dev.h"
 #include "mtk_imgsys-hw.h"
 #include "mtk-hcp.h"
+#include "mtk-hcp_kernelfence.h"
 #include "mtkdip.h"
 #include "mtk_imgsys-cmdq.h"
 
@@ -1760,6 +1761,92 @@ static int mtkdip_ioc_del_iova(struct v4l2_subdev *subdev, void *arg)
 	return 0;
 }
 
+static int mtkdip_ioc_add_fence(struct v4l2_subdev *subdev, void *arg)
+{
+	struct mtk_imgsys_pipe *pipe = mtk_imgsys_subdev_to_pipe(subdev);
+	struct fd_tbl *fd_tbl = (struct fd_tbl *)arg;
+	unsigned int *kfd;
+	size_t size;
+	int ret, get, i;
+
+	if ((!fd_tbl->fds) || (!fd_tbl->fd_num)) {
+		return -EINVAL;
+		dev_info(pipe->imgsys_dev->dev, "%s:NULL usrptr\n", __func__);
+	}
+
+	size = sizeof(*kfd) * fd_tbl->fd_num;
+	kfd = vzalloc(size);
+	ret = copy_from_user(kfd, (void *)fd_tbl->fds, size);
+	get = 1;
+	if (ret != 0) {
+		dev_info(pipe->imgsys_dev->dev,
+			"[%s]%s:copy_from_user fail !!!\n",
+			__func__,
+			pipe->desc->name);
+
+		return -EINVAL;
+	}
+
+	ret = mtk_hcp_set_KernelFence(pipe->imgsys_dev->dev,
+				HCP_IMGSYS_FENCE_FDS_ADD_ID, kfd, fd_tbl->fd_num, get);
+
+	if (ret < 0)
+		return ret;
+
+	for (i = 0; i < fd_tbl->fd_num; i++)
+		pr_info("add imgsys_kernel kernel_fence(%d)\n", kfd[i]);
+
+	ret = copy_to_user((void *)fd_tbl->fds, kfd, size);
+
+	if (ret != 0) {
+		dev_info(pipe->imgsys_dev->dev,
+			"[%s]%s:copy_to_user fail !!!\n",
+			__func__,
+			pipe->desc->name);
+
+		return -EINVAL;
+	}
+	vfree(kfd);
+	return 0;
+}
+
+static int mtkdip_ioc_del_fence(struct v4l2_subdev *subdev, void *arg)
+{
+	struct mtk_imgsys_pipe *pipe = mtk_imgsys_subdev_to_pipe(subdev);
+	struct fd_tbl *fd_tbl = (struct fd_tbl *)arg;
+	unsigned int *kfd;
+	size_t size;
+	int ret, release, i;
+
+	if ((!fd_tbl->fds) || (!fd_tbl->fd_num)) {
+		dev_info(pipe->imgsys_dev->dev, "%s:NULL usrptr\n", __func__);
+		return -EINVAL;
+	}
+
+	size = sizeof(*kfd) * fd_tbl->fd_num;
+	kfd = vzalloc(size);
+	ret = copy_from_user(kfd, (void *)fd_tbl->fds, size);
+	release = 0;
+	if (ret != 0) {
+		dev_info(pipe->imgsys_dev->dev,
+			"[%s]%s:copy_from_user fail !!!\n",
+			__func__,
+			pipe->desc->name);
+
+		return -EINVAL;
+	}
+	for (i = 0; i < fd_tbl->fd_num; i++)
+		pr_info("del imgsys_kernel kernel_fence(%d)\n", kfd[i]);
+
+	ret = mtk_hcp_set_KernelFence(pipe->imgsys_dev->dev,
+				HCP_IMGSYS_FENCE_FDS_DEL_ID, kfd, fd_tbl->fd_num, release);
+	if (ret < 0)
+		return ret;
+
+	vfree(kfd);
+	return 0;
+}
+
 static int mtkdip_ioc_s_init_info(struct v4l2_subdev *subdev, void *arg)
 {
 	/* struct mtk_imgsys_pipe *pipe = mtk_imgsys_subdev_to_pipe(subdev); */
@@ -1816,6 +1903,10 @@ long mtk_imgsys_subdev_ioctl(struct v4l2_subdev *subdev, unsigned int cmd,
 		return mtkdip_ioc_add_iova(subdev, arg);
 	case MTKDIP_IOC_DEL_IOVA:
 		return mtkdip_ioc_del_iova(subdev, arg);
+	case MTKDIP_IOC_ADD_FENCE:
+		return mtkdip_ioc_add_fence(subdev, arg);
+	case MTKDIP_IOC_DEL_FENCE:
+		return mtkdip_ioc_del_fence(subdev, arg);
 	case MTKDIP_IOC_S_INIT_INFO:
 		return mtkdip_ioc_s_init_info(subdev, arg);
 	case MTKDIP_IOC_SET_CONTROL:
