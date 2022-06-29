@@ -1554,61 +1554,6 @@ ufs_mtk_ioctl(struct scsi_device *dev, unsigned int cmd, void __user *buffer)
 	return err;
 }
 
-/* Same with ufshcd_populate_vreg, should EXPORT for upstream */
-#define MAX_PROP_SIZE 32
-static int ufs_mtk_populate_vreg(struct device *dev, const char *name,
-		struct ufs_vreg **out_vreg)
-{
-	int ret = 0;
-	char prop_name[MAX_PROP_SIZE];
-	struct ufs_vreg *vreg = NULL;
-	struct device_node *np = dev->of_node;
-
-	if (!np)
-		goto out;
-
-	snprintf(prop_name, MAX_PROP_SIZE, "%s-supply", name);
-	if (!of_parse_phandle(np, prop_name, 0)) {
-		dev_info(dev, "%s: Unable to find %s regulator, assuming enabled\n",
-				__func__, prop_name);
-		goto out;
-	}
-
-	vreg = devm_kzalloc(dev, sizeof(*vreg), GFP_KERNEL);
-	if (!vreg)
-		return -ENOMEM;
-
-	vreg->name = kstrdup(name, GFP_KERNEL);
-
-	snprintf(prop_name, MAX_PROP_SIZE, "%s-max-microamp", name);
-	if (of_property_read_u32(np, prop_name, &vreg->max_uA)) {
-		dev_info(dev, "%s: unable to find %s\n", __func__, prop_name);
-		vreg->max_uA = 0;
-	}
-out:
-	if (!ret)
-		*out_vreg = vreg;
-	return ret;
-}
-
-/* Same with ufshcd_get_vreg, should EXPORT for upstream */
-static int ufs_mtk_get_vreg(struct device *dev, struct ufs_vreg *vreg)
-{
-	int ret = 0;
-
-	if (!vreg)
-		goto out;
-
-	vreg->reg = devm_regulator_get(dev, vreg->name);
-	if (IS_ERR(vreg->reg)) {
-		ret = PTR_ERR(vreg->reg);
-		dev_err(dev, "%s: %s get failed, err=%d\n",
-				__func__, vreg->name, ret);
-	}
-out:
-	return ret;
-}
-
 /**
  * ufs_mtk_init_clocks - Init mtk driver private clocks
  *
@@ -1657,6 +1602,126 @@ static int ufs_mtk_init_clocks(struct ufs_hba *hba)
 	return 0;
 }
 
+static int _ufshcd_get_vreg(struct device *dev, struct ufs_vreg *vreg)
+{
+	int ret = 0;
+
+	if (!vreg)
+		goto out;
+
+	vreg->reg = devm_regulator_get(dev, vreg->name);
+	if (IS_ERR(vreg->reg)) {
+		ret = PTR_ERR(vreg->reg);
+		dev_info(dev, "%s: %s get failed, err=%d\n",
+				__func__, vreg->name, ret);
+	}
+out:
+	return ret;
+}
+
+#define MAX_VCC_NAME 30
+static int _ufshcd_populate_vreg(struct device *dev, const char *name,
+			  struct ufs_vreg **out_vreg)
+{
+	char prop_name[MAX_VCC_NAME];
+	struct ufs_vreg *vreg = NULL;
+	struct device_node *np = dev->of_node;
+
+	if (!np) {
+		dev_info(dev, "%s: non DT initialization\n", __func__);
+		goto out;
+	}
+
+	snprintf(prop_name, MAX_VCC_NAME, "%s-supply", name);
+	if (!of_parse_phandle(np, prop_name, 0)) {
+		dev_info(dev, "%s: Unable to find %s regulator, assuming enabled\n",
+				__func__, prop_name);
+		goto out;
+	}
+
+	vreg = devm_kzalloc(dev, sizeof(*vreg), GFP_KERNEL);
+	if (!vreg)
+		return -ENOMEM;
+
+	vreg->name = devm_kstrdup(dev, name, GFP_KERNEL);
+	if (!vreg->name)
+		return -ENOMEM;
+
+	snprintf(prop_name, MAX_VCC_NAME, "%s-max-microamp", name);
+	if (of_property_read_u32(np, prop_name, &vreg->max_uA)) {
+		dev_info(dev, "%s: unable to find %s\n", __func__, prop_name);
+		vreg->max_uA = 0;
+	}
+out:
+	*out_vreg = vreg;
+	return 0;
+}
+
+static int ufs_mtk_vreg_fix_vcc(struct ufs_hba *hba)
+{
+	struct ufs_vreg_info *info = &hba->vreg_info;
+	struct device_node *np = hba->dev->of_node;
+	struct device *dev = hba->dev;
+	char vcc_name[MAX_VCC_NAME];
+	struct arm_smccc_res res;
+	int err, ver;
+
+	if (info->vcc)
+		return 0;
+
+	if (of_property_read_bool(np, "mediatek,ufs-vcc-by-num")) {
+		ufs_mtk_get_vcc_num(res);
+		if (res.a1 > UFS_VCC_NONE && res.a1 < UFS_VCC_MAX)
+			snprintf(vcc_name, MAX_VCC_NAME, "vcc-opt%u", res.a1);
+		else
+			return -ENODEV;
+	} else if (of_property_read_bool(np, "mediatek,ufs-vcc-by-ver")) {
+		ver = (hba->dev_info.wspecversion & 0xF00) >> 8;
+		snprintf(vcc_name, MAX_VCC_NAME, "vcc-ufs%u", ver);
+	} else {
+		return 0;
+	}
+
+	err = _ufshcd_populate_vreg(dev, vcc_name, &info->vcc);
+	if (err)
+		return err;
+
+	err = _ufshcd_get_vreg(dev, info->vcc);
+	if (err)
+		return err;
+
+	err = regulator_enable(info->vcc->reg);
+	if (!err) {
+		info->vcc->enabled = true;
+		dev_info(dev, "%s: %s enabled\n", __func__, vcc_name);
+	}
+
+	return err;
+}
+
+static void ufs_mtk_vreg_fix_vccqx(struct ufs_hba *hba)
+{
+	struct ufs_vreg_info *info = &hba->vreg_info;
+	struct ufs_vreg **vreg_on, **vreg_off;
+
+	if (hba->dev_info.wspecversion >= 0x0300) {
+		vreg_on = &info->vccq;
+		vreg_off = &info->vccq2;
+	} else {
+		vreg_on = &info->vccq2;
+		vreg_off = &info->vccq;
+	}
+
+	if (*vreg_on)
+		(*vreg_on)->always_on = true;
+
+	if (*vreg_off) {
+		regulator_disable((*vreg_off)->reg);
+		devm_kfree(hba->dev, (*vreg_off)->name);
+		devm_kfree(hba->dev, *vreg_off);
+	}
+}
+
 /**
  * ufs_mtk_init - find other essential mmio bases
  * @hba: host controller instance
@@ -1672,7 +1737,6 @@ static int ufs_mtk_init(struct ufs_hba *hba)
 	const struct of_device_id *id;
 	struct device *dev = hba->dev;
 	struct ufs_mtk_host *host;
-	struct arm_smccc_res res;
 	int err = 0;
 
 	host = devm_kzalloc(dev, sizeof(*host), GFP_KERNEL);
@@ -1736,34 +1800,6 @@ static int ufs_mtk_init(struct ufs_hba *hba)
 	ufs_mtk_setup_clocks(hba, true, POST_CHANGE);
 
 	host->ip_ver = ufshcd_readl(hba, REG_UFS_MTK_IP_VER);
-
-	/* Get vcc-opt */
-	ufs_mtk_get_vcc_info(res);
-	if (res.a1 == VCC_1)
-		err = ufs_mtk_populate_vreg(dev, "vcc-opt1", &host->vcc);
-	else if (res.a1 == VCC_2)
-		err = ufs_mtk_populate_vreg(dev, "vcc-opt2", &host->vcc);
-	else
-		goto skip_vcc_opt;
-	if (err)
-		goto out_variant_clear;
-	err = ufs_mtk_get_vreg(dev, host->vcc);
-	if (err)
-		goto out_variant_clear;
-
-	/* enable vreg */
-	if (host->vcc) {
-		hba->vreg_info.vcc = host->vcc;
-		err = regulator_enable(host->vcc->reg);
-
-		if (!err)
-			host->vcc->enabled = true;
-		else
-			dev_info(dev, "%s: %s enable failed, err=%d\n",
-						__func__, host->vcc->name, err);
-	}
-
-skip_vcc_opt:
 
 	cpu_latency_qos_add_request(&host->pm_qos_req,
 	     	   PM_QOS_DEFAULT_VALUE);
@@ -2128,7 +2164,7 @@ static void ufs_mtk_dev_vreg_set_lpm(struct ufs_hba *hba, bool lpm)
 	if (lpm && ufshcd_is_ufs_dev_active(hba))
 		return;
 
-	/* bypass LPM if VCC is assumed always-on */
+	/*  Skip if VCC is assumed always-on */
 	if (!hba->vreg_info.vcc)
 		return;
 
@@ -2245,68 +2281,6 @@ static void ufs_mtk_dbg_register_dump(struct ufs_hba *hba)
 #endif
 }
 
-
-static void ufs_mtk_fix_regulators(struct ufs_hba *hba)
-{
-	struct ufs_dev_info *dev_info = &hba->dev_info;
-	struct ufs_vreg_info *vreg_info = &hba->vreg_info;
-
-	if (dev_info->wspecversion >= 0x0300) {
-		if (vreg_info->vccq2) {
-			regulator_disable(vreg_info->vccq2->reg);
-			devm_kfree(hba->dev, vreg_info->vccq2->name);
-			devm_kfree(hba->dev, vreg_info->vccq2);
-			vreg_info->vccq2 = NULL;
-		}
-		if (vreg_info->vccq)
-			vreg_info->vccq->always_on = true;
-	} else {
-		if (vreg_info->vccq) {
-			regulator_disable(vreg_info->vccq->reg);
-			devm_kfree(hba->dev, vreg_info->vccq->name);
-			devm_kfree(hba->dev, vreg_info->vccq);
-			vreg_info->vccq = NULL;
-		}
-		if (vreg_info->vccq2)
-			vreg_info->vccq2->always_on = true;
-	}
-}
-
-static int ufs_mtk_fixup_vcc_regulator(struct ufs_hba *hba)
-{
-	int err = 0;
-	u16 ufs_ver;
-	char vcc_name[MAX_PROP_SIZE];
-	struct device *dev = hba->dev;
-	struct ufs_vreg_info *vcc_info = &hba->vreg_info;
-
-	/* Get UFS version to setting VCC */
-	ufs_ver = (hba->dev_info.wspecversion & 0xF00) >> 8;
-	snprintf(vcc_name, MAX_PROP_SIZE, "vcc_ufs%u", ufs_ver);
-
-	err = ufs_mtk_populate_vreg(dev, vcc_name, &vcc_info->vcc);
-	if (err || !vcc_info->vcc) {
-		dev_info(dev, "%s: Unable to find %s\n", __func__, vcc_name);
-		goto out;
-	}
-
-	err = ufs_mtk_get_vreg(dev, vcc_info->vcc);
-	if (err)
-		goto out;
-
-	err = regulator_enable(vcc_info->vcc->reg);
-	if (!err)
-		vcc_info->vcc->enabled = true;
-	else
-		dev_info(dev, "%s: %s enable failed, err=%d\n",
-					__func__, vcc_info->vcc->name, err);
-
-out:
-	if (err)
-		dev_info(hba->dev, "%s: No combo ufs pmic setting\n", __func__);
-	return err;
-}
-
 static int ufs_mtk_apply_dev_quirks(struct ufs_hba *hba)
 {
 	struct ufs_dev_info *dev_info = &hba->dev_info;
@@ -2331,8 +2305,6 @@ static int ufs_mtk_apply_dev_quirks(struct ufs_hba *hba)
 	else
 		ufs_mtk_setup_ref_clk_wait_us(hba, 30, 30);
 
-	ufs_mtk_fix_regulators(hba);
-
 	return 0;
 }
 
@@ -2340,13 +2312,6 @@ static void ufs_mtk_fixup_dev_quirks(struct ufs_hba *hba)
 {
 	struct ufs_dev_info *dev_info = &hba->dev_info;
 	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
-
-	/*
-	 * If VCC setting is no yet enable,
-	 * setting VCC by ufs_mtk_fixup_vcc_regulator.
-	 */
-	if (!hba->vreg_info.vcc)
-		ufs_mtk_fixup_vcc_regulator(hba);
 
 	ufshcd_fixup_dev_quirks(hba, ufs_mtk_dev_fixups);
 
@@ -2363,6 +2328,9 @@ static void ufs_mtk_fixup_dev_quirks(struct ufs_hba *hba)
 		hba->dev_quirks &= ~(UFS_DEVICE_QUIRK_DELAY_BEFORE_LPM |
 			UFS_DEVICE_QUIRK_DELAY_AFTER_LPM);
 	}
+
+	ufs_mtk_vreg_fix_vcc(hba);
+	ufs_mtk_vreg_fix_vccqx(hba);
 
 	ufs_mtk_install_tracepoints(hba);
 

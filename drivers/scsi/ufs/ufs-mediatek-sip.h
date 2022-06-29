@@ -17,7 +17,7 @@
 #define UFS_MTK_SIP_CRYPTO_CTRL           BIT(2)
 #define UFS_MTK_SIP_REF_CLK_NOTIFICATION  BIT(3)
 #define UFS_MTK_SIP_HOST_PWR_CTRL         BIT(5)
-#define UFS_MTK_SIP_GET_VCC_INFO          BIT(6)
+#define UFS_MTK_SIP_GET_VCC_NUM           BIT(6)
 #define UFS_MTK_SIP_DEVICE_PWR_CTRL       BIT(7)
 
 enum SIP_HOST_PWR_OPT {
@@ -26,73 +26,60 @@ enum SIP_HOST_PWR_OPT {
 };
 
 /*
+ * Multi-VCC by Numbering
+ */
+enum ufs_mtk_vcc_num {
+	UFS_VCC_NONE = 0,
+	UFS_VCC_1,
+	UFS_VCC_2,
+	UFS_VCC_MAX
+};
+
+/*
  * SMC call wapper function
  */
-#define _ufs_mtk_smc(cmd, res, v1, v2, v3, v4, v5, v6) \
-		arm_smccc_smc(MTK_SIP_UFS_CONTROL, \
-				  cmd, v1, v2, v3, v4, v5, v6, &(res))
+struct ufs_mtk_smc_arg {
+	unsigned long cmd;
+	struct arm_smccc_res *res;
+	unsigned long v1;
+	unsigned long v2;
+	unsigned long v3;
+	unsigned long v4;
+	unsigned long v5;
+	unsigned long v6;
+	unsigned long v7;
+};
 
-#define _ufs_mtk_smc_0(cmd, res) \
-	_ufs_mtk_smc(cmd, res, 0, 0, 0, 0, 0, 0)
-
-#define _ufs_mtk_smc_1(cmd, res, v1) \
-	_ufs_mtk_smc(cmd, res, v1, 0, 0, 0, 0, 0)
-
-#define _ufs_mtk_smc_2(cmd, res, v1, v2) \
-	_ufs_mtk_smc(cmd, res, v1, v2, 0, 0, 0, 0)
-
-#define _ufs_mtk_smc_3(cmd, res, v1, v2, v3) \
-	_ufs_mtk_smc(cmd, res, v1, v2, v3, 0, 0, 0)
-
-#define _ufs_mtk_smc_4(cmd, res, v1, v2, v3, v4) \
-	_ufs_mtk_smc(cmd, res, v1, v2, v3, v4, 0, 0)
-
-#define _ufs_mtk_smc_5(cmd, res, v1, v2, v3, v4, v5) \
-	_ufs_mtk_smc(cmd, res, v1, v2, v3, v4, v5, 0)
-
-#define _ufs_mtk_smc_6(cmd, res, v1, v2, v3, v4, v5, v6) \
-	_ufs_mtk_smc(cmd, res, v1, v2, v3, v4, v5, v6)
-
-#define _ufs_mtk_smc_selector(cmd, res, v1, v2, v3, v4, v5, v6, FUNC, ...) FUNC
+static void _ufs_mtk_smc(struct ufs_mtk_smc_arg s)
+{
+	arm_smccc_smc(MTK_SIP_UFS_CONTROL,
+		s.cmd,
+		s.v1, s.v2, s.v3, s.v4, s.v5, s.v6, s.res);
+}
 
 #define ufs_mtk_smc(...) \
-	_ufs_mtk_smc_selector(__VA_ARGS__, \
-	_ufs_mtk_smc_6(__VA_ARGS__), \
-	_ufs_mtk_smc_5(__VA_ARGS__), \
-	_ufs_mtk_smc_4(__VA_ARGS__), \
-	_ufs_mtk_smc_3(__VA_ARGS__), \
-	_ufs_mtk_smc_2(__VA_ARGS__), \
-	_ufs_mtk_smc_1(__VA_ARGS__), \
-	_ufs_mtk_smc_0(__VA_ARGS__) \
-	)
-
-/* Sip UFS GET VCC INFO */
-enum {
-	VCC_NONE = 0,
-	VCC_1,
-	VCC_2
-};
+	_ufs_mtk_smc((struct ufs_mtk_smc_arg) {__VA_ARGS__})
 
 /* Sip kernel interface */
 #define ufs_mtk_va09_pwr_ctrl(res, on) \
-	ufs_mtk_smc(UFS_MTK_SIP_VA09_PWR_CTRL, res, on)
+	ufs_mtk_smc(UFS_MTK_SIP_VA09_PWR_CTRL, &(res), on)
 
 #define ufs_mtk_crypto_ctrl(res, enable) \
-	ufs_mtk_smc(UFS_MTK_SIP_CRYPTO_CTRL, res, enable)
+	ufs_mtk_smc(UFS_MTK_SIP_CRYPTO_CTRL, &(res), enable)
 
 #define ufs_mtk_ref_clk_notify(on, stage, res) \
-	ufs_mtk_smc(UFS_MTK_SIP_REF_CLK_NOTIFICATION, res, on, stage)
+	ufs_mtk_smc(UFS_MTK_SIP_REF_CLK_NOTIFICATION, &(res), on, stage)
 
 #define ufs_mtk_device_reset_ctrl(high, res) \
-	ufs_mtk_smc(UFS_MTK_SIP_DEVICE_RESET, res, high)
+	ufs_mtk_smc(UFS_MTK_SIP_DEVICE_RESET, &(res), high)
 
 #define ufs_mtk_host_pwr_ctrl(opt, on, res) \
-	ufs_mtk_smc(UFS_MTK_SIP_HOST_PWR_CTRL, res, opt, on)
+	ufs_mtk_smc(UFS_MTK_SIP_HOST_PWR_CTRL, &(res), opt, on)
 
-#define ufs_mtk_get_vcc_info(res) \
-	ufs_mtk_smc(UFS_MTK_SIP_GET_VCC_INFO, res)
+#define ufs_mtk_get_vcc_num(res) \
+	ufs_mtk_smc(UFS_MTK_SIP_GET_VCC_NUM, &(res))
 
 #define ufs_mtk_device_pwr_ctrl(on, ufs_version, res) \
-	ufs_mtk_smc(UFS_MTK_SIP_DEVICE_PWR_CTRL, res, on, ufs_version)
+	ufs_mtk_smc(UFS_MTK_SIP_DEVICE_PWR_CTRL, &(res), on, ufs_version)
 
 #endif /* !_UFS_MEDIATEK_SIP_H */

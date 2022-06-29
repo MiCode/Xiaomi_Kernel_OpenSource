@@ -154,7 +154,6 @@ struct ufs_mtk_host {
 	bool qos_allowed;
 	bool qos_enabled;
 	bool boot_device;
-	struct ufs_vreg *vcc;
 
 	struct semaphore rpmb_sem;
 #if defined(CONFIG_UFSFEATURE)
