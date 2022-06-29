@@ -6699,6 +6699,7 @@
 			<&gce 2 0 CMDQ_THR_PRIO_4>,
 			<&gce 3 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_2>,
 			<&gce 5 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_2>,
+			<&gce 7 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_2>,
 			<&gce 4 0 CMDQ_THR_PRIO_4>,
 			<&gce 6 0 CMDQ_THR_PRIO_3>;
 			// <&gce_sec 8 0 CMDQ_THR_PRIO_3>,
@@ -6710,6 +6711,7 @@
 			"CLIENT_CFG2",
 			"CLIENT_TRIG_LOOP0",
 			"CLIENT_TRIG_LOOP1",
+			"CLIENT_EVENT_LOOP0",
 			"CLIENT_SUB_CFG0",
 			"CLIENT_DSI_CFG0";
 			// "CLIENT_SEC_CFG0",
@@ -6751,6 +6753,8 @@
 			"disp_token_disp_va_end0",
 			"disp_token_disp_va_start2",
 			"disp_token_disp_va_end2",
+			"disp_token_disp_te0",
+			"disp_token_disp_prete0",
 			"disp_gpio_te1";
 
 		gce-events = <&gce CMDQ_EVENT_MMSYS_STREAM_DONE_ENG_EVENT_0>,
@@ -6782,6 +6786,8 @@
 			<&gce CMDQ_SYNC_TOKEN_DISP_VA_END>,
 			<&gce CMDQ_SYNC_TOKEN_DISP_VA_START>,
 			<&gce CMDQ_SYNC_TOKEN_DISP_VA_END>,
+			<&gce CMDQ_SYNC_TOKEN_TE_0>,
+			<&gce CMDQ_SYNC_TOKEN_PRETE_0>,
 			<&gce CMDQ_EVENT_GCE_EVENT_DSI1_TE_I>;
 
 		helper-name = "MTK_DRM_OPT_STAGE",
