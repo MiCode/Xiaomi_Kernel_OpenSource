@@ -16,6 +16,7 @@
 #include <trace/events/sched.h>
 #include <trace/events/task.h>
 #include <trace/hooks/sched.h>
+#include <trace/hooks/hung_task.h>
 #include <sched/sched.h>
 #include "common.h"
 #include "eas_plus.h"
@@ -117,6 +118,43 @@ static void sched_queue_task_hook(void *data, struct rq *rq, struct task_struct 
 	spin_unlock(&per_cpu(cpufreq_idle_cpu_lock, cpu));
 #endif
 }
+
+#if IS_ENABLED(CONFIG_DETECT_HUNG_TASK)
+static void mtk_check_d_tasks(void *data, struct task_struct *p,
+				unsigned long t, bool *need_check)
+{
+	unsigned long pending_stime = 0;
+	unsigned long switch_count = p->nvcsw + p->nivcsw;
+
+	*need_check = true;
+	/*
+	 * Reset the migration_pending start time
+	 */
+	if (!p->migration_pending || switch_count != p->last_switch_count) {
+		p->android_vendor_data1[4] = 0;
+		return;
+	}
+	/*
+	 * Record the migration_pending start time
+	 */
+	if (p->migration_pending && p->android_vendor_data1[4] == 0) {
+		p->android_vendor_data1[4] = jiffies;
+		*need_check = false;
+		return;
+	}
+	/*
+	 * Check the whether migration time is time out or not
+	 */
+	pending_stime = p->android_vendor_data1[4];
+	if (time_is_after_jiffies(pending_stime + t * HZ)) {
+		*need_check = false;
+	} else {
+		*need_check = true;
+		pr_info("task flags:0x%08lx migration_flags:0x%08lx mig_dis %d\n",
+			p->flags, p->migration_flags, is_migration_disabled(p));
+	}
+}
+#endif
 
 static void mtk_sched_trace_init(void)
 {
@@ -229,9 +267,17 @@ static int __init mtk_scheduler_init(void)
 	if (ret)
 		pr_info("register mtk_select_task_rq_rt hooks failed, returned %d\n", ret);
 
+
 	ret = register_trace_android_rvh_find_lowest_rq(mtk_find_lowest_rq, NULL);
 	if (ret)
 		pr_info("register find_lowest_rq hooks failed, returned %d\n", ret);
+
+
+#if IS_ENABLED(CONFIG_DETECT_HUNG_TASK)
+	ret = register_trace_android_vh_check_uninterruptible_tasks(mtk_check_d_tasks, NULL);
+	if (ret)
+		pr_info("register mtk_check_d_tasks hooks failed, returned %d\n", ret);
+#endif
 
 	sched_asym_cpucapacity_init();
 
