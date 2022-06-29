@@ -5207,6 +5207,7 @@
 			compatible = "mediatek, mdla-rv";
 			core-num = <4>;
 			version = <0x69850305>;
+			#size-cells = <2>;
 			dma-ranges = <0x0 0x0 0x0 0x0 0x1 0x0>;
 			iommus = <&apu_iommu0 M4U_PORT_L40_APU_CODE>;
 		};
