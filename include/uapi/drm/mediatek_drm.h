@@ -501,6 +501,9 @@ struct DISP_AAL_TRIG_STATE {
 
 #define DRM_MTK_AIBLD_CV_MODE 0x56
 
+#define DRM_MTK_ODDMR_LOAD_PARAM 0x57
+#define DRM_MTK_ODDMR_CTL 0x58
+
 /* C3D */
 #define DISP_C3D_1DLUT_SIZE 32
 
@@ -1035,6 +1038,29 @@ struct mtk_drm_pq_caps_info {
 	struct drm_mtk_ccorr_caps ccorr_caps;
 };
 
+enum MTK_DRM_ODDMR_CTL_CMD {
+	MTK_DRM_ODDMR_OD_INIT = 0,
+	MTK_DRM_ODDMR_OD_ENABLE = 1,
+	MTK_DRM_ODDMR_OD_DISABLE = 2,
+	MTK_DRM_ODDMR_DMR_INIT = 3,
+	MTK_DRM_ODDMR_DMR_ENABLE = 4,
+	MTK_DRM_ODDMR_DMR_DISABLE = 5,
+	MTK_DRM_ODDMR_LOAD_PARAM = 6,
+};
+
+struct mtk_drm_oddmr_ctl {
+	enum MTK_DRM_ODDMR_CTL_CMD cmd;
+	uint32_t size;
+	uint8_t *data;
+};
+
+struct mtk_drm_oddmr_param {
+	uint32_t head_id;
+	uint32_t size;
+	uint8_t *data;
+	uint32_t checksum;
+};
+
 #define DRM_IOCTL_MTK_GEM_CREATE	DRM_IOWR(DRM_COMMAND_BASE + \
 		DRM_MTK_GEM_CREATE, struct drm_mtk_gem_create)
 
@@ -1200,6 +1226,12 @@ struct mtk_drm_pq_caps_info {
 			DRM_MTK_GET_PQ_CAPS, struct mtk_drm_pq_caps_info)
 #define DRM_IOCTL_MTK_SET_PQ_CAPS    DRM_IOWR(DRM_COMMAND_BASE + \
 			DRM_MTK_SET_PQ_CAPS, struct mtk_drm_pq_caps_info)
+
+#define DRM_IOCTL_MTK_ODDMR_LOAD_PARAM    DRM_IOWR(DRM_COMMAND_BASE + \
+			DRM_MTK_ODDMR_LOAD_PARAM, struct mtk_drm_oddmr_param)
+#define DRM_IOCTL_MTK_ODDMR_CTL    DRM_IOWR(DRM_COMMAND_BASE + \
+				DRM_MTK_ODDMR_CTL, struct mtk_drm_oddmr_ctl)
+
 
 /* AAL IOCTL */
 #define AAL_HIST_BIN            33	/* [0..32] */
