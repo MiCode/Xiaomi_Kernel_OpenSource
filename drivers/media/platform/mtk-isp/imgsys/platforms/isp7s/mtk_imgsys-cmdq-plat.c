@@ -286,9 +286,14 @@ static void imgsys_cmdq_fence_done_plat7s(struct dma_fence *fence, struct dma_fe
 	event_val = cmdq_get_event(imgsys_clt[thd_idx]->chan, imgsys_event[event_id].event);
 
 	if (event_val == 0) {
+		if (imgsys_fence_dbg_enable_plat7s()) {
+			pr_info("%s: +SetEvent with fence:0x%x,fencefd:%d,gthrd:%d,event:%d,event_val:%d\n",
+				__func__, fence, imgsys_fence->fence_fd, thd_idx,
+				event_id, event_val);
+		}
 		cmdq_set_event(imgsys_clt[thd_idx]->chan, imgsys_event[event_id].event);
 		if (imgsys_fence_dbg_enable_plat7s()) {
-			pr_info("%s: SetEvent success with fence:0x%x,fencefd:%d,gthrd:%d,event:%d,event_val:%d\n",
+			pr_info("%s: -SetEvent success with fence:0x%x,fencefd:%d,gthrd:%d,event:%d,event_val:%d\n",
 				__func__, fence, imgsys_fence->fence_fd, thd_idx,
 				event_id, event_val);
 		}
@@ -398,7 +403,7 @@ CHECK_WAIT_FENCE:
 		} else {
 			if (imgsys_fence_dbg_enable_plat7s()) {
 				dev_info(imgsys_dev->dev,
-					"%s: Own:%s MWFrame:#%d MWReq:#%d ReqFd:%d FrmIdx:%d,[wait-#%d/%d]0x%x,fencefd:%d,gthrd:%d,event:%d,ref_ct:%d\n",
+					"%s: Own:%s MWFrame:#%d MWReq:#%d ReqFd:%d,[wait-#%d/%d]0x%x,fencefd:%d,gthrd:%d,event:%d,ref_ct:%d\n",
 					__func__, (char *)(&(frm_info->frm_owner)),
 					frm_info->frame_no, frm_info->request_no,
 					frm_info->request_fd, frm_idx, f_lop_idx,
