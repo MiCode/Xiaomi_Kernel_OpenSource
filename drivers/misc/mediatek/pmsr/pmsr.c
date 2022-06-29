@@ -83,10 +83,10 @@ static int pmsr_ipi_init(void)
 		return ret;
 	}
 
-	ret = of_property_read_u32(tinfo->sdev->dev.of_node, "scmi_apmcupm",
+	ret = of_property_read_u32(tinfo->sdev->dev.of_node, "scmi-apmcupm",
 			&scmi_apmcupm_id);
 	if (ret) {
-		pr_info("get scmi_apmcupm fail, ret %d\n", ret);
+		pr_info("get scmi-apmcupm fail, ret %d\n", ret);
 		pmsr_sspm_ready = -2;
 		ret = -1;
 		return ret;
