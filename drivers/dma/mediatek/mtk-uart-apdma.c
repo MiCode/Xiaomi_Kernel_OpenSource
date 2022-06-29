@@ -292,8 +292,8 @@ static int mtk_uart_apdma_alloc_chan_resources(struct dma_chan *chan)
 	struct mtk_chan *c = to_mtk_uart_apdma_chan(chan);
 	unsigned int status;
 	int ret;
-
-	ret = pm_runtime_resume_and_get(mtkd->ddev.dev);
+	pr_info("debug: %s\n", __func__);
+	ret = pm_runtime_get_sync(mtkd->ddev.dev);
 	if (ret < 0) {
 		pm_runtime_put_noidle(chan->device->dev);
 		return ret;
@@ -321,7 +321,6 @@ static int mtk_uart_apdma_alloc_chan_resources(struct dma_chan *chan)
 		mtk_uart_apdma_write(c, VFF_4G_SUPPORT, VFF_4G_SUPPORT_CLR_B);
 
 err_pm:
-	pm_runtime_put_noidle(mtkd->ddev.dev);
 	return ret;
 }
 
@@ -335,7 +334,7 @@ static void mtk_uart_apdma_free_chan_resources(struct dma_chan *chan)
 	tasklet_kill(&c->vc.task);
 
 	vchan_free_chan_resources(&c->vc);
-
+	pr_info("debug: %s\n", __func__);
 	pm_runtime_put_sync(mtkd->ddev.dev);
 }
 
@@ -385,17 +384,19 @@ static struct dma_async_tx_descriptor *mtk_uart_apdma_prep_slave_sg
 static void mtk_uart_apdma_issue_pending(struct dma_chan *chan)
 {
 	struct mtk_chan *c = to_mtk_uart_apdma_chan(chan);
-	struct mtk_uart_apdmadev *mtkd = to_mtk_uart_apdma_dev(chan->device);
+	//struct mtk_uart_apdmadev *mtkd = to_mtk_uart_apdma_dev(chan->device);
 	struct virt_dma_desc *vd;
 	unsigned long flags;
-	int ret = -1;
+	//int ret = -1;
 
+/*
 	pr_info("mtk_uart_apdma_issue_pending: c->dir = %d\n", c->dir);
-	ret = pm_runtime_resume_and_get(mtkd->ddev.dev);
+	ret = pm_runtime_get_sync(mtkd->ddev.dev);
 	if (ret < 0) {
 		pm_runtime_put_noidle(chan->device->dev);
 		pr_info("mtk_uart_apdma_irq_handler: pm_runtime_resume: ret = %d\n", ret);
 	}
+*/
 
 	spin_lock_irqsave(&c->vc.lock, flags);
 	if (vchan_issue_pending(&c->vc)) {
@@ -409,7 +410,7 @@ static void mtk_uart_apdma_issue_pending(struct dma_chan *chan)
 	}
 
 	spin_unlock_irqrestore(&c->vc.lock, flags);
-	pm_runtime_put_noidle(chan->device->dev);
+	//pm_runtime_put_sync(mtkd->ddev.dev);
 }
 
 static int mtk_uart_apdma_slave_config(struct dma_chan *chan,
@@ -425,14 +426,14 @@ static int mtk_uart_apdma_slave_config(struct dma_chan *chan,
 static int mtk_uart_apdma_terminate_all(struct dma_chan *chan)
 {
 	struct mtk_chan *c = to_mtk_uart_apdma_chan(chan);
-	struct mtk_uart_apdmadev *mtkd = to_mtk_uart_apdma_dev(chan->device);
+	//struct mtk_uart_apdmadev *mtkd = to_mtk_uart_apdma_dev(chan->device);
 	unsigned long flags;
 	unsigned int status;
 	LIST_HEAD(head);
 	int ret;
 	bool state;
 
-	clk_prepare_enable(mtkd->clk);
+	//clk_prepare_enable(mtkd->clk);
 
 	if (mtk_uart_apdma_read(c, VFF_INT_BUF_SIZE)) {
 		mtk_uart_apdma_write(c, VFF_FLUSH, VFF_FLUSH_B);
@@ -484,7 +485,7 @@ static int mtk_uart_apdma_terminate_all(struct dma_chan *chan)
 
 	vchan_dma_desc_free_list(&c->vc, &head);
 
-	clk_disable_unprepare(mtkd->clk);
+	//clk_disable_unprepare(mtkd->clk);
 
 	return 0;
 }
@@ -666,7 +667,7 @@ static int mtk_uart_apdma_suspend(struct device *dev)
 	struct mtk_uart_apdmadev *mtkd = dev_get_drvdata(dev);
 
 	pr_info("debug: %s: pm_runtime_suspended(dev) = %d\n", __func__, pm_runtime_suspended(dev));
-
+	dump_stack();
 	if (!pm_runtime_suspended(dev))
 		clk_disable_unprepare(mtkd->clk);
 
@@ -679,7 +680,7 @@ static int mtk_uart_apdma_resume(struct device *dev)
 	struct mtk_uart_apdmadev *mtkd = dev_get_drvdata(dev);
 
 	pr_info("debug: %s: pm_runtime_suspended(dev) = %d\n", __func__, pm_runtime_suspended(dev));
-
+	dump_stack();
 	if (!pm_runtime_suspended(dev)) {
 		ret = clk_prepare_enable(mtkd->clk);
 		if (ret)
@@ -695,6 +696,7 @@ static int mtk_uart_apdma_runtime_suspend(struct device *dev)
 {
 	struct mtk_uart_apdmadev *mtkd = dev_get_drvdata(dev);
 	pr_info("debug: %s\n", __func__);
+	dump_stack();
 	clk_disable_unprepare(mtkd->clk);
 
 	return 0;
@@ -704,6 +706,7 @@ static int mtk_uart_apdma_runtime_resume(struct device *dev)
 {
 	struct mtk_uart_apdmadev *mtkd = dev_get_drvdata(dev);
 	pr_info("debug: %s\n", __func__);
+	dump_stack();
 	return clk_prepare_enable(mtkd->clk);
 }
 #endif /* CONFIG_PM */
