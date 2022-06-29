@@ -30,6 +30,7 @@
 #define ECC_CE_AT_LEAST_ONE_ERR		(0x2 << 24)
 #define ECC_SERR_FROM_DATA_BUFF		(0x2)
 #define ECC_IRQ_TRIGGER_THRESHOLD	(1)
+#define MAX_COMPLEX_IRQ_NUM		(4)
 
 struct parity_record_t {
 	unsigned int check_offset;
@@ -63,6 +64,13 @@ union err_record {
 		u64 status_el1;
 		bool is_err;
 	} v2;
+	struct _v3 {
+		u32 irq;
+		int cpu;
+		u64 misc0_el1;
+		u64 status_el1;
+		bool is_err;
+	} v3;
 };
 
 struct cache_parity {
@@ -71,7 +79,9 @@ struct cache_parity {
 	/* setting from device tree */
 	unsigned int ver;
 	unsigned int nr_irq;
+	unsigned int nr_complex_irq;
 	int arm_dsu_ecc_hwirq;
+	int arm_complex_ecc_hwirq[MAX_COMPLEX_IRQ_NUM];
 	void __iomem *cache_parity_base;
 
 	/* recorded parity errors */
@@ -239,6 +249,83 @@ static void write_ERXSELR_EL1(u32 v)
 {
 }
 #endif
+
+static irqreturn_t cache_parity_isr_v3(int irq, void *dev_id)
+{
+	u32 hwirq;
+	int i, idx, cpu;
+	u64 misc0, status;
+	u64 sel = 0x1;
+
+	ecc_dump_debug_info();
+
+	atomic_inc(&cache_parity.nr_err);
+
+	if (!atomic_read(&cache_parity.nr_err))
+		cache_parity.timestampe = local_clock();
+
+	hwirq = irqd_to_hwirq(irq_get_irq_data(irq));
+
+	if (hwirq == cache_parity.arm_dsu_ecc_hwirq)
+		sel = 0;
+	else {
+		for (i = 0; i < cache_parity.nr_complex_irq; i++) {
+			if (hwirq == cache_parity.arm_complex_ecc_hwirq[i]) {
+				sel = 2;
+				break;
+			}
+		}
+	}
+
+	write_ERXSELR_EL1(sel);
+
+	misc0 = read_ERXMISC0_EL1();
+	status = read_ERXSTATUS_EL1();
+
+	/* Clear IRQ via clear error status */
+	write_ERXSTATUS_EL1(status);
+
+	/*
+	 * If the ERxSTATUS register returns zero, clear all errors.
+	 */
+	if (!misc0 && !status)
+		write_ERXSTATUS_EL1(0xFFF80000);
+
+	/* Ensure all transactions are finished */
+	dsb(sy);
+
+	for (idx = -1, i = 0; i < cache_parity.nr_irq; i++) {
+		if (cache_parity.record[i].v3.irq == irq) {
+			idx = i;
+			break;
+		}
+	}
+	if (idx >= 0) {
+		cache_parity.record[idx].v3.is_err = true;
+		cache_parity.record[idx].v3.misc0_el1 = misc0;
+		cache_parity.record[idx].v3.status_el1 = status;
+
+		cpu = raw_smp_processor_id();
+		if ((cache_parity.record[idx].v3.cpu != nr_cpu_ids) &&
+		    (cpu != cache_parity.record[idx].v3.cpu))
+			ECC_LOG("Cache ECC error, cpu%d serviced irq%d(%s%d)\n",
+				cpu, irq, "expected cpu",
+				cache_parity.record[idx].v3.cpu);
+
+		schedule_work(&cache_parity.work);
+	}
+
+	ECC_LOG("Cache ECC error, %s %d, %s: 0x%016llx, %s: 0x%016llx\n",
+	       "irq", irq, "misc0_el1", misc0, "status_el1", status);
+
+	if (atomic_read(&cache_parity.nr_err) > ECC_IRQ_TRIGGER_THRESHOLD) {
+		disable_irq_nosync(irq);
+		ECC_LOG("%s disable irq %d due to trigger over than %d times.",
+			__func__, irq, ECC_IRQ_TRIGGER_THRESHOLD);
+	}
+
+	return IRQ_HANDLED;
+}
 
 static irqreturn_t cache_parity_isr_v2(int irq, void *dev_id)
 {
@@ -414,6 +501,95 @@ static int __count_cache_parity_irq(struct device_node *dev)
 	return nr;
 }
 
+static int __probe_v3(struct platform_device *pdev)
+{
+	unsigned int i, j;
+	int ret;
+	int irq, hwirq;
+	int cpu = 0, complex_cpu = 0, target_cpu;
+
+	for (i = 0; i < cache_parity.nr_irq; i++) {
+		irq = irq_of_parse_and_map(pdev->dev.of_node, i);
+		if (irq == 0) {
+			dev_err(&pdev->dev,
+				"failed to irq_of_parse_and_map %d\n", i);
+			return -ENXIO;
+		}
+		cache_parity.record[i].v3.irq = irq;
+
+		/*
+		 * Per-cpu system registers will be read and recorded in the
+		 * ISR (Interrupt Service Routine). The ISR must be bound to
+		 * the corresponding CPU except the ISR for the ARM DSU ECC
+		 * interrupt (which can be served on any CPU).
+		 */
+		hwirq = irqd_to_hwirq(irq_get_irq_data(irq));
+		if (hwirq != cache_parity.arm_dsu_ecc_hwirq) {
+
+			/* Check if it is complex IRQ */
+			for (j = 0; j < cache_parity.nr_complex_irq; j++) {
+				if (hwirq == cache_parity.arm_complex_ecc_hwirq[j]) {
+					target_cpu = complex_cpu;
+					/*
+					 * For dual-core complex, two cores share
+					 * the same VPU, L2 TLB and L2 cache
+					 */
+					complex_cpu += 2;
+					break;
+				}
+			}
+
+			/* Not match any complex IRQ */
+			if (j == cache_parity.nr_complex_irq) {
+				target_cpu = cpu;
+				cpu++;
+			}
+
+			cache_parity.record[i].v3.cpu = target_cpu;
+#if defined(MODULE)
+			/*
+			 * FIXME: Here is an issue caused by GKI.
+			 *        We should use irq_force_affinity for
+			 *        guaranteeing the per-core ECC interrupt
+			 *        is routed to the corresponding CPU.
+			 *        This is because the ECC status will be read
+			 *        from the per-core system register.
+			 *        But the kernel function irq_force_affinity
+			 *        is NOT exported.
+			 *
+			 *        Workaround this problem by using the function
+			 *        irq_set_affinity_hint. Need to fix this
+			 *        after we upstream a patch (to export
+			 *        irq_force_affinity).
+			 */
+			ret = irq_set_affinity_hint(irq, cpumask_of(target_cpu));
+#else
+			ret = irq_force_affinity(irq, cpumask_of(target_cpu));
+#endif
+			if (ret) {
+				dev_err(&pdev->dev,
+					"failed to set affinity for irq %d\n",
+					irq);
+				return -ENXIO;
+			}
+			dev_info(&pdev->dev, "bound irq %d for cpu%d\n",
+					irq, target_cpu);
+		} else
+			cache_parity.record[i].v3.cpu = nr_cpu_ids;
+
+		ret = devm_request_irq(&pdev->dev, irq, cache_parity_isr_v3,
+				IRQF_TRIGGER_NONE | IRQF_ONESHOT,
+				"cache_parity", NULL);
+		if (ret) {
+			dev_err(&pdev->dev,
+				"failed to request irq for irq %d\n", irq);
+			return -ENXIO;
+		}
+	}
+
+	return 0;
+}
+
 static int __probe_v2(struct platform_device *pdev)
 {
 	unsigned int i;
@@ -548,6 +724,7 @@ static int cache_parity_probe(struct platform_device *pdev)
 {
 	int ret;
 	size_t size;
+	int i, len;
 
 	dev_info(&pdev->dev, "driver probed\n");
 
@@ -589,6 +766,43 @@ static int cache_parity_probe(struct platform_device *pdev)
 
 		break;
 
+	case 3:
+		ret = of_property_read_u32(pdev->dev.of_node,
+					"arm_dsu_ecc_hwirq",
+					&cache_parity.arm_dsu_ecc_hwirq);
+		if (ret) {
+			dev_err(&pdev->dev, "no arm_dsu_ecc_hwirq");
+			return -ENXIO;
+		}
+		len = of_property_count_elems_of_size(pdev->dev.of_node,
+							"arm_complex_ecc_hwirq", 4);
+		if (len <= 0) {
+			dev_err(&pdev->dev, "no arm_complex_ecc_hwirq");
+			cache_parity.nr_complex_irq = 0;
+		} else {
+			if (len > MAX_COMPLEX_IRQ_NUM) {
+				dev_err(&pdev->dev,
+					"count of arm_complex_ecc_hwirq (%d) exceeds expect (%d)\n",
+					len, MAX_COMPLEX_IRQ_NUM);
+				return -ENXIO;
+			}
+
+			cache_parity.nr_complex_irq = len;
+			for (i = 0; i < len; i++) {
+				ret = of_property_read_u32_index(pdev->dev.of_node,
+					"arm_complex_ecc_hwirq", i,
+					&cache_parity.arm_complex_ecc_hwirq[i]);
+				if (ret) {
+					dev_err(&pdev->dev, "no arm_complex_ecc_hwirq");
+					return -ENXIO;
+				}
+			}
+		}
+
+		ret = __probe_v3(pdev);
+
+		break;
+
 	default:
 		dev_err(&pdev->dev, "unsupported version\n");
 		ret = -ENXIO;
@@ -618,6 +832,7 @@ static int cache_parity_remove(struct platform_device *pdev)
 static const struct of_device_id cache_parity_of_ids[] = {
 	{ .compatible = "mediatek,mt6785-cache-parity", .data = (void *)1 },
 	{ .compatible = "mediatek,mt6873-cache-parity", .data = (void *)2 },
+	{ .compatible = "mediatek,mt6985-cache-parity", .data = (void *)3 },
 	{}
 };
 
