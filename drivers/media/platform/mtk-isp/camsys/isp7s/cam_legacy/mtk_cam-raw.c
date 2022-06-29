@@ -4592,6 +4592,46 @@ static const struct mtk_cam_format_desc stream_out_fmts[] = {
 			.pixelformat = V4L2_PIX_FMT_VYUY,
 		},
 	},
+	{
+		.vfmt.fmt.pix_mp = {
+			.width = IMG_MAX_WIDTH,
+			.height = IMG_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_MTISP_SBGGR22,
+		},
+		.pfmt = {
+			.code = MEDIA_BUS_FMT_MTISP_SBGGR22_1X22,
+		}
+	},
+	{
+		.vfmt.fmt.pix_mp = {
+			.width = IMG_MAX_WIDTH,
+			.height = IMG_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_MTISP_SGBRG22,
+		},
+		.pfmt = {
+			.code = MEDIA_BUS_FMT_MTISP_SGBRG22_1X22,
+		}
+	},
+	{
+		.vfmt.fmt.pix_mp = {
+			.width = IMG_MAX_WIDTH,
+			.height = IMG_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_MTISP_SGRBG22,
+		},
+		.pfmt = {
+			.code = MEDIA_BUS_FMT_MTISP_SGRBG22_1X22,
+		}
+	},
+	{
+		.vfmt.fmt.pix_mp = {
+			.width = IMG_MAX_WIDTH,
+			.height = IMG_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_MTISP_SRGGB22,
+		},
+		.pfmt = {
+			.code = MEDIA_BUS_FMT_MTISP_SRGGB22_1X22,
+		}
+	},
 };
 
 static const struct mtk_cam_format_desc yuv_out_group1_fmts[] = {

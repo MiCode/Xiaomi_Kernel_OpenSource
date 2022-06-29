@@ -932,6 +932,8 @@ unsigned int mtk_cam_get_pixel_bits(unsigned int ipi_fmt)
 	case MTKCAM_IPI_IMG_FMT_BAYER14:
 	case MTKCAM_IPI_IMG_FMT_UFBC_BAYER14:
 		return 14;
+	case MTKCAM_IPI_IMG_FMT_BAYER22:
+		return 22;
 	case MTKCAM_IPI_IMG_FMT_BAYER10_UNPACKED:
 	case MTKCAM_IPI_IMG_FMT_BAYER12_UNPACKED:
 	case MTKCAM_IPI_IMG_FMT_BAYER14_UNPACKED:
@@ -1167,6 +1169,11 @@ unsigned int mtk_cam_get_img_fmt(unsigned int fourcc)
 	case V4L2_PIX_FMT_MTISP_SGRBG14F:
 	case V4L2_PIX_FMT_MTISP_SRGGB14F:
 		return MTKCAM_IPI_IMG_FMT_FG_BAYER14;
+	case V4L2_PIX_FMT_MTISP_SBGGR22:
+	case V4L2_PIX_FMT_MTISP_SGBRG22:
+	case V4L2_PIX_FMT_MTISP_SGRBG22:
+	case V4L2_PIX_FMT_MTISP_SRGGB22:
+		return MTKCAM_IPI_IMG_FMT_BAYER22;
 	case V4L2_PIX_FMT_SBGGR16:
 	case V4L2_PIX_FMT_SGBRG16:
 	case V4L2_PIX_FMT_SGRBG16:
@@ -1494,6 +1501,7 @@ static void cal_image_pix_mp(unsigned int node_id,
 	case MTKCAM_IPI_IMG_FMT_BAYER12:
 	case MTKCAM_IPI_IMG_FMT_BAYER14:
 	case MTKCAM_IPI_IMG_FMT_BAYER16:
+	case MTKCAM_IPI_IMG_FMT_BAYER22:
 	case MTKCAM_IPI_IMG_FMT_BAYER10_MIPI:
 	case MTKCAM_IPI_IMG_FMT_BAYER10_UNPACKED:
 	case MTKCAM_IPI_IMG_FMT_BAYER12_UNPACKED:
@@ -1890,6 +1898,18 @@ static void fill_ext_fmtdesc(struct v4l2_fmtdesc *fmt)
 		break;
 	case V4L2_PIX_FMT_MTISP_SRGGB14:
 		descr = "14-bit Bayer RGGB MTISP Packed";
+		break;
+	case V4L2_PIX_FMT_MTISP_SBGGR22:
+		descr = "22-bit Bayer BGGR MTISP Packed";
+		break;
+	case V4L2_PIX_FMT_MTISP_SGBRG22:
+		descr = "22-bit Bayer GBRG MTISP Packed";
+		break;
+	case V4L2_PIX_FMT_MTISP_SGRBG22:
+		descr = "22-bit Bayer GRBG MTISP Packed";
+		break;
+	case V4L2_PIX_FMT_MTISP_SRGGB22:
+		descr = "22-bit Bayer RGGB MTISP Packed";
 		break;
 	case V4L2_PIX_FMT_MTISP_SBGGR8F:
 		descr = "8-bit Enhanced BGGR Packed";
