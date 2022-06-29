@@ -533,7 +533,7 @@
 
 			scmi_tinysys: protocol@80 {
 				reg = <0x80>;
-				scmi_qos = <1>;
+				scmi-qos = <1>;
 				scmi_met = <3>;
 				scmi_gpupm = <6>;
 				scmi-plt = <7>;
