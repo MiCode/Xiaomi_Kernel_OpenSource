@@ -1535,7 +1535,7 @@ static struct subdrv_static_ctx static_ctx = {
 	.reg_addr_temp_en = 0x0138,
 	.reg_addr_temp_read = 0x013A,
 	.reg_addr_auto_extend = 0x0350,
-	.reg_addr_frame_count = PARAM_UNDEFINED,
+	.reg_addr_frame_count = 0x0005,
 	.reg_addr_fast_mode = 0x3010,
 
 	.init_setting_table = imx766dual_init_setting,
