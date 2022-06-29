@@ -8526,6 +8526,7 @@
 				  <12 100 1>,	/* vow dual mic barge in */
 				  <13 200 0>;	/* ultrasound */
 
+		scp-protect = "enable";   /* enable scp protections */
 		secure_dump = "enable";   /* enable dump via secure world*/
 		secure_dump_size = <0x480000>;
 		scp_pm_notify = "enable";
