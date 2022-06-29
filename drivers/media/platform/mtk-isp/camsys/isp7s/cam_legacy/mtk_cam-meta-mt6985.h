@@ -307,8 +307,8 @@ struct mtk_cam_uapi_tsf_param {
 struct mtk_cam_uapi_pde_param {
 	__u32 pdi_max_size;
 	__u32 pdo_max_size;
-	__u32 pdo_x_size;
-	__u32 pdo_y_size;
+	__u32 pdo_data_size;
+	__u32 pdo_line_num;
 	__u32 pd_table_offset;
 };
 
@@ -384,22 +384,6 @@ struct mtk_cam_uapi_mobc_param {
 };
 
 /*
- * struct mtk_cam_uapi_lsc_param
- *
- *
- */
-struct mtk_cam_uapi_lsc_param {
-	__u32 lsc_ctl1;
-	__u32 lsc_ctl2;
-	__u32 lsc_ctl3;
-	__u32 lsc_lblock;
-	__u32 lsc_fblock;
-	__u32 lsc_ratio;
-	__u32 lsc_tpipe_ofst;
-	__u32 lsc_tpipe_size;
-};
-
-/*
  * struct mtk_cam_uapi_sgg_param
  *
  *
@@ -416,6 +400,7 @@ struct mtk_cam_uapi_sgg_param {
  *
  */
 struct mtk_cam_uapi_mbn_param {
+	__u32 mbn_hei;
 	__u32 mbn_pow;
 	__u32 mbn_dir;
 	__u32 mbn_spar_hei;
@@ -442,13 +427,24 @@ struct mtk_cam_uapi_cpi_param {
 };
 
 /*
- * struct mtk_cam_uapi_lsci_param
+ * struct mtk_cam_uapi_crop_param
  *
  *
  */
-struct mtk_cam_uapi_lsci_param {
-	__u32 lsci_xsize;
-	__u32 lsci_ysize;
+struct mtk_cam_uapi_crop_param {
+	__u32 crop_x_start;
+	__u32 crop_x_end;
+	__u32 crop_y_start;
+	__u32 crop_y_end;
+};
+
+/*
+ * struct mtk_cam_uapi_plsc_param
+ *
+ *
+ */
+struct mtk_cam_uapi_plsc_param {
+	__u32 plsc_cfg[47];
 };
 
 /*
@@ -458,18 +454,15 @@ struct mtk_cam_uapi_lsci_param {
 struct mtk_cam_uapi_meta_mraw_stats_cfg {
 	__s8 mqe_enable;
 	__s8 mobc_enable;
-	__s8 lsc_enable;
-	__s8 lsci_enable;
+	__s8 plsc_enable;
 
+	struct mtk_cam_uapi_crop_param crop_param;
 	struct mtk_cam_uapi_mqe_param mqe_param;
 	struct mtk_cam_uapi_mobc_param mobc_param;
-	struct mtk_cam_uapi_lsc_param lsc_param;
 	struct mtk_cam_uapi_sgg_param sgg_param;
 	struct mtk_cam_uapi_mbn_param mbn_param;
 	struct mtk_cam_uapi_cpi_param cpi_param;
-	struct mtk_cam_uapi_lsci_param lsci_param;
-
-	// __u8 bytes[1024 * 94]; //lsci table(todo: size)
+	struct mtk_cam_uapi_plsc_param plsc_param;
 };
 
 /**
@@ -740,7 +733,7 @@ struct mtk_cam_uapi_meta_raw_stats_cfg {
 	struct mtk_cam_uapi_wb_param wb_param;
 	struct mtk_cam_uapi_pde_param pde_param;
 
-	__u8 bytes[97628];
+	__u8 bytes[97632];
 };
 
 struct mtk_cam_uapi_meta_raw_stats_w_cfg {
@@ -749,8 +742,6 @@ struct mtk_cam_uapi_meta_raw_stats_w_cfg {
 	__s8 dgn_enable;
 	__s8 flk_enable;
 	__s8 tsf_enable;
-	__s8 wb_enable;
-	__s8 pde_enable;
 
 	struct mtk_cam_uapi_ae_param ae_param;
 	struct mtk_cam_uapi_awb_param awb_param;
@@ -758,10 +749,8 @@ struct mtk_cam_uapi_meta_raw_stats_w_cfg {
 	struct mtk_cam_uapi_dgn_param dgn_param;
 	struct mtk_cam_uapi_flk_param flk_param;
 	struct mtk_cam_uapi_tsf_param tsf_param;
-	struct mtk_cam_uapi_wb_param wb_param;
-	struct mtk_cam_uapi_pde_param pde_param;
 
-	__u8 bytes[45920];
+	__u8 bytes[44712];
 };
 
 struct mtk_cam_uapi_meta_raw_stats_rgbw_cfg {
@@ -844,7 +833,7 @@ struct mtk_cam_uapi_meta_camsv_stats_0 {
 };
 
 #define MTK_CAM_META_VERSION_MAJOR 1
-#define MTK_CAM_META_VERSION_MINOR 3
+#define MTK_CAM_META_VERSION_MINOR 4
 #define MTK_CAM_META_PLATFORM_NAME "isp7s"
 #define MTK_CAM_META_CHIP_NAME "mt6985"
 
