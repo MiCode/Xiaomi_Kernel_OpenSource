@@ -90,7 +90,7 @@ noinline void Policy__Loading_based__Step(unsigned int v1, unsigned int v2, int 
 noinline void Policy__Loading_based__GPU_Time(int v1, int v2, int v3, int v4, int v5);
 noinline void Policy__Loading_based__Margin(int v1, int v2, int v3);
 noinline void Policy__Loading_based__Margin__Detail(unsigned int v1, int v2, int v3,
-	unsigned int v4, int v5);
+	int v4);
 // DCS
 noinline void Policy__DCS(int v1, int v2);
 noinline void Policy__DCS__Detail(unsigned int v1);

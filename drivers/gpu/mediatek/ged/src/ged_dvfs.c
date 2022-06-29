@@ -141,9 +141,6 @@ static unsigned int g_maxfreq;
 static int g_minfreq_idx;
 static int g_maxfreq_idx;
 
-/* LB up/down scale count */
-static unsigned int g_lb_up_count = 1;
-static unsigned int g_lb_down_count = 1;
 
 /* need to sync to EB */
 #define BATCH_MAX_READ_COUNT 32
@@ -205,8 +202,6 @@ static void _init_loading_ud_table(void)
 	int i;
 	int num = ged_get_opp_num();
 
-	step_margin = (dvfs_step_mode & 0xff00) >> 8;
-
 	if (!loading_ud_table)
 		loading_ud_table = ged_alloc(sizeof(struct ld_ud_table) * num);
 
@@ -221,7 +216,7 @@ static void _init_loading_ud_table(void)
 
 		if (a != 0)
 			loading_ud_table[i].down
-				= ((100 - gx_tb_dvfs_margin_cur - step_margin) * b) / a;
+				= ((100 - gx_tb_dvfs_margin_cur) * b) / a;
 	}
 
 	if (num >= 2)
@@ -776,12 +771,7 @@ static int ged_dvfs_fb_gpu_dvfs(int t_gpu, int t_gpu_target,
 		if (force_fallback == 1) {
 			int i32NewFreqID = ged_get_cur_oppidx();
 
-			g_lb_down_count = 1;
-
-			if (dvfs_step_mode == 0)
-				i32NewFreqID = 0;
-			else
-				i32NewFreqID -= ultra_high_step_size;
+			i32NewFreqID -= ultra_high_step_size;
 
 			if (i32NewFreqID < 0)
 				i32NewFreqID = 0;
@@ -1067,6 +1057,10 @@ static int _slide_window_loading(unsigned int ui32loading)
 	unsigned int i = 0;
 	unsigned int slide_loading = 0;
 	unsigned int sum_slide = 0;
+
+	if (g_loading_slide_window_size == 0 || g_loading_stride_size == 0)
+		return 0;
+
 	unsigned int slide_count = (g_loading_slide_window_size/g_loading_stride_size);
 	int cidx = ++idx % slide_count;
 
@@ -1301,7 +1295,6 @@ static bool ged_dvfs_policy(
 							g_tb_dvfs_margin_mode,
 							MIN_MARGIN_INC_STEP * 10,
 							g_tb_dvfs_margin_value_min * 10,
-							step_margin * 10,
 							DCS_POLICY_MARGIN);
 		ged_log_buf_print(ghLogBuf_DVFS,
 			"[GED_K][LB_DVFS] mode:0x%x, u_b:%d, l_b:%d, margin:%d, gpu_real:%d, gpu_pipe:%d, t_gpu:%d, target:%d, BQ:%llu",
@@ -1324,42 +1317,23 @@ static bool ged_dvfs_policy(
 		int low = loading_ud_table[ui32GPUFreq].down;
 		int ultra_low = 20;
 		int ultra_high_step_size = (dvfs_step_mode & 0xff);
+		int ultra_low_step_size = (dvfs_step_mode & 0xff00) >> 8;
+
 		//ui32GPULoading >= 110 - gx_tb_dvfs_margin_cur || ui32GPULoading >= 95
-		if (!g_loading_slide_enable && ui32GPULoading >= ultra_high) {
-			if (dvfs_step_mode == 0)
-				i32NewFreqID = 0;
-			else {
-				idx_diff = ultra_high_step_size * g_lb_up_count;
-				i32NewFreqID -= ultra_high_step_size * g_lb_up_count;
-			}
-			if (idx_diff <= GED_LB_SCALE_LIMIT)
-				g_lb_up_count *= 2;
-
-			g_lb_down_count = 1;
-		} else if (ui32GPULoading < ultra_low) {
-			i32NewFreqID += g_lb_down_count;
-			g_lb_down_count *= 2;
-			if (g_lb_down_count >= GED_LB_SCALE_LIMIT)
-				g_lb_down_count = GED_LB_SCALE_LIMIT;
-
-			g_lb_up_count = 1;
-		} else if (ui32GPULoading >= high) {
+		if (ui32GPULoading >= ultra_high)
+			i32NewFreqID -= ultra_high_step_size;
+		else if (ui32GPULoading < ultra_low)
+			i32NewFreqID += ultra_low_step_size;
+		else if (ui32GPULoading >= high)
 			i32NewFreqID -= 1;
-			g_lb_down_count = 1;
-		} else if (ui32GPULoading_avg <= low) {
+		else if (ui32GPULoading_avg <= low)
 			i32NewFreqID += 1;
-			g_lb_up_count = 1;
-		}
+
 
 		Policy__Loading_based__Bound(ultra_high,
 									 high,
 									 low,
 									 ultra_low);
-
-		Policy__Loading_based__Step(g_lb_up_count,
-									g_lb_down_count,
-									GED_LB_SCALE_LIMIT,
-									ultra_high_step_size);
 
 		ged_log_buf_print(ghLogBuf_DVFS,
 	"[GED_K1] rdy gpu_av_loading:%u, %d(%d)-up:%d,%d, new: %d, step: 0x%x",
@@ -1670,9 +1644,6 @@ static void ged_loading_base_dvfs_step(int i32StepValue)
 	/* bit8~bit15: enlarge range  */
 
 	mutex_lock(&gsDVFSLock);
-	step_margin = (dvfs_step_mode & 0xff00) >> 8;
-	if (i32StepValue != step_margin)
-		init = 0;
 
 	dvfs_step_mode = i32StepValue;
 
