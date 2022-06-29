@@ -5,6 +5,7 @@
 
 #include <linux/init.h>
 #include <linux/cpu.h>
+#include <linux/delay.h>
 #include <linux/cpumask.h>
 #include <linux/cpufreq.h>
 #include <linux/kthread.h>
@@ -17,6 +18,7 @@
 #include <sched/sched.h>
 #include <linux/sched/clock.h>
 
+
 #ifndef __CHECKER__
 #define CREATE_TRACE_POINTS
 #include "core_ctl_trace.h"
@@ -28,6 +30,39 @@
 #include <eas/eas_plus.h>
 
 #define TAG "core_ctl"
+
+#include <linux/trace_events.h>
+static noinline void tracing_mark_write(char *fmt, ...)
+{
+	struct va_format vaf;
+	va_list va;
+
+	va_start(va, fmt);
+	vaf.fmt = fmt;
+	vaf.va = &va;
+	trace_printk("%pV", &vaf);
+	va_end(va);
+}
+
+#define CORE_CTL_TRACE_BEGIN(fmt, args...) do { \
+	preempt_disable(); \
+	tracing_mark_write( \
+		"B|%d|"fmt"\n", 7788, ##args); \
+	preempt_enable();\
+} while (0)
+
+#define CORE_CTL_TRACE_END() do { \
+	preempt_disable(); \
+	tracing_mark_write("E|7788\n"); \
+	preempt_enable(); \
+} while (0)
+
+#define CORE_CTL_TRACE_CNT(cnt, fmt, args...) do { \
+	preempt_disable(); \
+	tracing_mark_write( \
+		"C|%d|"fmt"|%d\n", 7788, ##args, cnt); \
+	preempt_enable();\
+} while (0)
 
 struct ppm_table {
 	/* normal: cpu power data */
@@ -126,8 +161,51 @@ static unsigned int default_min_cpus[MAX_CLUSTERS] = {4, 2, 0};
 static bool debug_enable;
 module_param_named(debug_enable, debug_enable, bool, 0600);
 
-static unsigned int enable_policy;
+static void periodic_debug_handler(struct work_struct *work);
+static int periodic_debug_enable;
+static int periodic_debug_delay = 50;
+module_param_named(periodic_debug_delay, periodic_debug_delay, int, 0600);
+static DECLARE_DELAYED_WORK(periodic_debug, periodic_debug_handler);
 
+enum {
+	DISABLE_DEBUG = 0,
+	DEBUG_STD,
+	DEBUG_DETAIL,
+	DEBUG_CNT
+};
+
+static int set_core_ctl_debug_level(const char *buf,
+			       const struct kernel_param *kp)
+{
+	int ret = 0;
+	unsigned int val = 0;
+
+	ret = kstrtouint(buf, 0, &val);
+	if (val >= DEBUG_CNT)
+		ret = -EINVAL;
+
+	if (!ret) {
+		if (periodic_debug_enable != val) {
+			periodic_debug_enable = val;
+			if (periodic_debug_enable > DISABLE_DEBUG)
+				mod_delayed_work(system_power_efficient_wq,
+						&periodic_debug,
+						msecs_to_jiffies(periodic_debug_delay));
+		}
+	}
+	return ret;
+}
+
+static struct kernel_param_ops set_core_ctl_debug_param_ops = {
+	.set = set_core_ctl_debug_level,
+	.get = param_get_uint,
+};
+
+param_check_uint(periodic_debug_enable, &periodic_debug_enable);
+module_param_cb(periodic_debug_enable, &set_core_ctl_debug_param_ops, &periodic_debug_enable, 0600);
+MODULE_PARM_DESC(periodic_debug_enable, "echo periodic debug trace if needed");
+
+static unsigned int enable_policy;
 /*
  *  core_ctl_enable_policy - enable policy of core control
  *  @enable: true if set, false if unset.
@@ -1211,6 +1289,7 @@ void core_ctl_tick(void *data, struct rq *rq)
 	}
 }
 
+
 inline void core_ctl_update_active_cpu(unsigned int cpu)
 {
 	unsigned long flags;
@@ -1398,6 +1477,10 @@ static void __ref do_core_ctl(struct cluster_data *cluster)
 		core_ctl_debug("%s: failed to adjust cluster %u from %u to %u. (min = %u, max = %u)\n",
 				TAG, cluster->cluster_id, cluster->active_cpus, need,
 				cluster->min_cpus, cluster->max_cpus);
+
+	if (periodic_debug_enable > DISABLE_DEBUG)
+		mod_delayed_work(system_power_efficient_wq,
+				&periodic_debug, 0);
 }
 
 static int __ref try_core_ctl(void *data)
@@ -1494,6 +1577,58 @@ static struct cluster_data *find_cluster_by_first_cpu(unsigned int first_cpu)
 	return NULL;
 }
 
+static inline void core_ctl_status(int level)
+{
+	unsigned int index = 0;
+	int cpu;
+	bool active;
+	struct cluster_data *cluster;
+	char cpu_active[255] = {0};
+	char cpu_status[255] = {0};
+	char *p1, *p2;
+
+	// policy
+	CORE_CTL_TRACE_CNT(enable_policy, "policy");
+
+	// cluster's status
+	for_each_cluster(cluster, index) {
+		CORE_CTL_TRACE_CNT(cluster->max_cpus, "_c%d_max", index);
+		if (level == DEBUG_DETAIL)
+			CORE_CTL_TRACE_CNT(cluster->min_cpus, "_c%d_min", index);
+	}
+
+	// cpu's state
+	if (nr_cpu_ids < 1)
+		return;
+	p1 = cpu_active;
+	p2 = cpu_status;
+	for (cpu = 0; cpu < nr_cpu_ids; cpu++) {
+		struct cpu_data *c;
+
+		c = &per_cpu(cpu_state, cpu);
+		active = is_active(c);
+		p1 += sprintf(p1, "%d-", active);
+		CORE_CTL_TRACE_CNT(active, "c%d", cpu);
+		p2 += sprintf(p2, "%d-", ((c->force_paused)<<1)|(c->paused_by_cc));
+	}
+	*(--p1) = '\0';
+	*(--p2) = '\0';
+
+	CORE_CTL_TRACE_BEGIN("active:%s      status:%s", cpu_active, cpu_status);
+	usleep_range(3000, 4000);
+	CORE_CTL_TRACE_END();
+}
+
+static void periodic_debug_handler(struct work_struct *work)
+{
+
+	if (periodic_debug_enable == DISABLE_DEBUG)
+		return;
+
+	core_ctl_status(periodic_debug_enable);
+	mod_delayed_work(system_power_efficient_wq,
+			&periodic_debug, msecs_to_jiffies(periodic_debug_delay));
+}
 /* ==================== init section ======================== */
 
 static int ppm_data_init(struct cluster_data *cluster);
