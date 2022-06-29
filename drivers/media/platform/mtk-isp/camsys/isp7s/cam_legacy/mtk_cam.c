@@ -4575,24 +4575,23 @@ static void mtk_cam_req_queue(struct media_request *req)
 }
 
 /* to save the link change information in request */
-static int mtk_cam_collect_link_change(struct mtk_raw_pipeline *pipe,
-				       struct v4l2_subdev *req_sensor_new,
-				       struct v4l2_subdev *req_seninf_old,
-				       struct v4l2_subdev *req_seninf_new)
+int mtk_cam_collect_link_change(struct mtk_raw_pipeline *pipe,
+				struct v4l2_subdev *req_sensor_new,
+				struct v4l2_subdev *req_seninf_old,
+				struct v4l2_subdev *req_seninf_new)
 {
 	char warn_desc[48];
 
-	snprintf(warn_desc, 48, "prev: sensor_new(%p)/seninf_old(%p)/seninf_new(%p)",
+	snprintf(warn_desc, 48, "%s(%p/%p/%p)",
 		 pipe->subdev.name, pipe->req_sensor_new,
 		 pipe->req_seninf_old, pipe->req_seninf_new);
+	if (pipe->req_sensor_new || pipe->req_seninf_old || pipe->req_seninf_new) {
+		pr_info("%s:%s:prev link change has not been queued:%s\n",
+			__func__, pipe->subdev.name, warn_desc);
 
-	if (!pipe->req_sensor_new || !pipe->req_seninf_old || !pipe->req_seninf_new) {
-		dev_info(pipe->subdev.v4l2_dev->dev,
-			 "%s:%s:the prev link change has not been queued. %s\n",
-			 __func__, pipe->subdev.name, warn_desc);
 #if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 		aee_kernel_warning_api(__FILE__, __LINE__, DB_OPT_DEFAULT,
-				       "the prev link change has not been queued",
+				       "prev link change has not been",
 				       warn_desc);
 #else
 		WARN_ON(1);
@@ -4622,7 +4621,7 @@ int mtk_cam_req_save_link_change(struct mtk_raw_pipeline *pipe,
 			dev_info(pipe->subdev.v4l2_dev->dev,
 				 "%s:%s:%s: queued link setup: senor_n:%s,seninf_n:%s), seninf_o:%s\n",
 				 __func__, pipe->subdev.name, cam_req->req.debug_str,
-				 s_data->sensor, s_data->seninf_old->name,
+				 s_data->sensor->name, s_data->seninf_old->name,
 				 s_data->seninf_new->name);
 			/* clear the setting after it is alrady saved in request */
 			pipe->req_sensor_new = NULL;
@@ -4650,6 +4649,36 @@ int mtk_cam_req_save_link_change(struct mtk_raw_pipeline *pipe,
 	return 0;
 }
 
+static struct v4l2_subdev
+*mtk_cam_find_sensor_nolock(struct mtk_cam_ctx *ctx,
+			    struct media_entity *entity)
+{
+	struct media_graph *graph;
+	struct v4l2_subdev *sensor = NULL;
+	struct mtk_cam_device *cam = ctx->cam;
+
+	graph = &ctx->pipeline.graph;
+	media_graph_walk_start(graph, entity);
+
+	while ((entity = media_graph_walk_next(graph))) {
+		dev_dbg(cam->dev, "linked entity: %s\n", entity->name);
+		sensor = NULL;
+
+		switch (entity->function) {
+		case MEDIA_ENT_F_CAM_SENSOR:
+			sensor = media_entity_to_v4l2_subdev(entity);
+			break;
+		default:
+			break;
+		}
+
+		if (sensor)
+			break;
+	}
+
+	return sensor;
+}
+
 static int mtk_cam_link_notify(struct media_link *link, u32 flags,
 			      unsigned int notification)
 {
@@ -4667,19 +4696,28 @@ static int mtk_cam_link_notify(struct media_link *link, u32 flags,
 
 	subdev = media_entity_to_v4l2_subdev(sink);
 	cam = container_of(subdev->v4l2_dev->mdev, struct mtk_cam_device, media_dev);
-
 	ctx = mtk_cam_find_ctx(cam, sink);
-	if (!ctx || !ctx->streaming || !(flags & MEDIA_LNK_FL_ENABLED))
+	if (!ctx || !ctx->streaming || !(flags & MEDIA_LNK_FL_ENABLED)) {
+		pr_info("call v4l2_pipeline_link_notify\n");
 		return v4l2_pipeline_link_notify(link, flags, notification);
+	}
 
-	pipe = container_of(subdev, struct mtk_raw_pipeline, subdev);
+	pipe = mtk_cam_dev_get_raw_pipeline(cam, ctx->stream_id);
+	if (!pipe) {
+		dev_info(cam->dev, "%s: can't find the raw pipe(%d)\n",
+			 __func__, ctx->stream_id);
+		return v4l2_pipeline_link_notify(link, flags, notification);
+	}
+
 	req_seninf_old = ctx->seninf;
 	req_seninf_new = media_entity_to_v4l2_subdev(source);
-	req_sensor_new = mtk_cam_find_sensor(ctx, &req_seninf_new->entity);
-	mtk_cam_collect_link_change(pipe, req_sensor_new, req_seninf_old, req_seninf_new);
-
-	dev_dbg(cam->dev, "link_change ctx:%d, old seninf:%s, new seninf:%s\n",
-		ctx->stream_id, req_seninf_old,	req_seninf_new);
+	req_sensor_new = mtk_cam_find_sensor_nolock(ctx, &req_seninf_new->entity);
+	if (!mtk_cam_collect_link_change(pipe, req_sensor_new,
+					 req_seninf_old, req_seninf_new))
+		dev_info(cam->dev,
+			 "link_change req ctx:%d, old seninf:%s, new seninf:%s, sensor:%s\n",
+			 ctx->stream_id, req_seninf_old->name,
+			 req_seninf_new->name, req_sensor_new->name);
 
 	return v4l2_pipeline_link_notify(link, flags, notification);
 }
@@ -7610,6 +7648,9 @@ void mtk_cam_stop_ctx(struct mtk_cam_ctx *ctx, struct media_entity *entity)
 	ctx->used_sv_num = 0;
 	ctx->used_mraw_num = 0;
 	if (ctx->pipe) {
+		ctx->pipe->req_sensor_new = NULL;
+		ctx->pipe->req_seninf_old = NULL;
+		ctx->pipe->req_seninf_new = NULL;
 		ctx->pipe->enabled_raw = 0;
 		ctx->pipe->enabled_dmas = 0;
 		memset(&ctx->pipe->pde_config, 0, sizeof(ctx->pipe->pde_config));
