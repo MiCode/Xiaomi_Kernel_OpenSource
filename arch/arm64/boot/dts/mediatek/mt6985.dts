@@ -8977,7 +8977,8 @@
 			"disp_token_disp_va_start2",
 			"disp_token_disp_va_end2",
 			"disp_gpio_te1",
-			"disp_dsi0_targetline0";
+			"disp_dsi0_targetline0",
+			"disp_ovlsys_wdma0_eof0";
 
 		gce-events =
 			<&gce CMDQ_EVENT_OVLSYS_STREAM_DONE_ENG_EVENT_0>,
@@ -8993,7 +8994,7 @@
 			<&gce CMDQ_SYNC_TOKEN_ESD_EOF>,
 			<&gce CMDQ_SYNC_TOKEN_ESD_EOF_1>,
 			<&gce CMDQ_EVENT_DISPSYS_DISP_MDP_RDMA0_FRAME_DONE>,
-			<&gce CMDQ_EVENT_OVLSYS_DISP_WDMA0_FRAME_DONE>,
+			<&gce CMDQ_EVENT_DISPSYS_DISP_WDMA1_FRAME_DONE>,
 			<&gce CMDQ_SYNC_TOKEN_STREAM_BLOCK>,
 			<&gce CMDQ_SYNC_TOKEN_STREAM_BLOCK_1>,
 			<&gce CMDQ_SYNC_TOKEN_CABC_EOF>,
@@ -9010,7 +9011,8 @@
 			<&gce CMDQ_SYNC_TOKEN_DISP_VA_START>,
 			<&gce CMDQ_SYNC_TOKEN_DISP_VA_END>,
 			<&gce CMDQ_EVENT_GCE_EVENT_DSI1_TE_I>,
-			<&gce CMDQ_EVENT_DISPSYS_DISP_DSI0_TARGET_LINE_ENG_EVENT>;
+			<&gce CMDQ_EVENT_DISPSYS_DISP_DSI0_TARGET_LINE_ENG_EVENT>,
+			<&gce CMDQ_EVENT_OVLSYS_DISP_WDMA0_FRAME_DONE>;
 
 		helper-name = "MTK_DRM_OPT_STAGE",
 			"MTK_DRM_OPT_USE_CMDQ",
