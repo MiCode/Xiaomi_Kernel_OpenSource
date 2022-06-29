@@ -237,6 +237,7 @@ struct mtk_imgsys_dvfs {
 	unsigned int clklv_idx[MTK_IMGSYS_OPP_SET];
 	unsigned int clklv_target[MTK_IMGSYS_OPP_SET];
 	unsigned int cur_volt;
+	unsigned int cur_freq;
 	unsigned long pixel_size[MTK_IMGSYS_DVFS_GROUP];
 	unsigned long freq;
 	unsigned int vss_task_cnt;

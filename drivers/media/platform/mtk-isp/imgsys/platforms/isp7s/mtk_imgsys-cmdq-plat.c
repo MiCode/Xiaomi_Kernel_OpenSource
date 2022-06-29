@@ -1206,6 +1206,7 @@ int imgsys_cmdq_sendtask_plat7s(struct mtk_imgsys_dev *imgsys_dev,
 	struct GCERecoder *cmd_buf = NULL;
 	struct Command *cmd = NULL;
 	struct mtk_imgsys_cb_param *cb_param = NULL;
+	struct mtk_imgsys_dvfs *dvfs_info = NULL;
 	dma_addr_t pkt_ts_pa = 0;
 	u32 *pkt_ts_va = NULL;
 	u32 pkt_ts_num = 0;
@@ -1249,6 +1250,7 @@ int imgsys_cmdq_sendtask_plat7s(struct mtk_imgsys_dev *imgsys_dev,
 	frm_info->cb_frmcnt = 0;
 	frm_info->total_taskcnt = 0;
 	cmd_ofst = sizeof(struct GCERecoder);
+	dvfs_info = &imgsys_dev->dvfs_info;
 
 	#if IMGSYS_SECURE_ENABLE
 	if (frm_info->is_secReq && (is_sec_task_create == 0)) {
@@ -1270,10 +1272,13 @@ int imgsys_cmdq_sendtask_plat7s(struct mtk_imgsys_dev *imgsys_dev,
 			memset((char *)logBuf_temp, 0x0, MTK_IMGSYS_LOG_LENGTH);
 			logBuf_temp[strlen(logBuf_temp)] = '\0';
 			ret_sn = snprintf(logBuf_temp, MTK_IMGSYS_LOG_LENGTH,
-				"own(%llx/%s)req fd/no(%d/%d) frame no(%d) gid(%d)",
+				"own(%llx/%s)req fd/no(%d/%d) frame no(%d) gid(%d) fps(%d) dvfs_v/f(%d/%d) freq(%d/%d/%d/%d)",
 				frm_info->frm_owner, (char *)(&(frm_info->frm_owner)),
 				frm_info->request_fd, frm_info->request_no, frm_info->frame_no,
-				frm_info->group_id);
+				frm_info->group_id, frm_info->fps,
+				dvfs_info->cur_volt, dvfs_info->cur_freq/1000000,
+				dvfs_info->freq, dvfs_info->pixel_size[0],
+				dvfs_info->pixel_size[1], dvfs_info->pixel_size[2]);
 			if (ret_sn < 0)
 				pr_info("%s: [ERROR] snprintf fail: %d\n", __func__, ret_sn);
 			strncat(frm_info->hw_ts_log, logBuf_temp, strlen(logBuf_temp));
@@ -1807,6 +1812,7 @@ void mtk_imgsys_mmdvfs_init_plat7s(struct mtk_imgsys_dev *imgsys_dev)
 		}
 	}
 	dvfs_info->cur_volt = 0;
+	dvfs_info->cur_freq = 0;
 	dvfs_info->vss_task_cnt = 0;
 	dvfs_info->smvr_task_cnt = 0;
 
@@ -1866,6 +1872,7 @@ void mtk_imgsys_mmdvfs_set_plat7s(struct mtk_imgsys_dev *imgsys_dev,
 			else if (dvfs_info->mmdvfs_clk)
 				clk_set_rate(dvfs_info->mmdvfs_clk, freq);
 			dvfs_info->cur_volt = volt;
+			dvfs_info->cur_freq = freq;
 		}
 	}
 }
