@@ -2028,6 +2028,18 @@ static int config_img_fmt(struct mtk_cam_device *cam,
 		out_fmt->crop.s.h = sd_height;
 	}
 
+	/* FIXME : 4plane format workaround */
+	if (node->desc.dma_port == MTKCAM_IPI_RAW_YUVO_1 &&
+			is_4_plane_rgb(cfg_fmt->fmt.pix_mp.pixelformat)) {
+		out_fmt->fmt.s.w >>= 1;
+		out_fmt->fmt.s.h >>= 1;
+		dev_info(cam->dev,
+			"pipe: %d dma_port:%d size=%0dx%0d, stride:%d, crop=%0dx%0d\n",
+			node->uid.pipe_id, node->desc.dma_port, out_fmt->fmt.s.w,
+			out_fmt->fmt.s.h, out_fmt->fmt.stride[0], out_fmt->crop.s.w,
+			out_fmt->crop.s.h);
+	}
+
 	dev_dbg(cam->dev,
 		"pipe: %d dma_port:%d size=%0dx%0d, stride:%d, crop=%0dx%0d\n",
 		node->uid.pipe_id, node->desc.dma_port, out_fmt->fmt.s.w,
