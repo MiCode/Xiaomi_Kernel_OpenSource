@@ -8809,7 +8809,7 @@
 			rc_syspll: rc_syspll {
 				rc-name = "syspll";
 				id = <0x00000001>;
-				value = <0>;
+				value = <1>;
 				cond-info = <1>;
 			};
 			rc_bus26m: rc_bus26m {
