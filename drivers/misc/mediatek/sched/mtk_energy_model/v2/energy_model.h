@@ -39,6 +39,7 @@ struct lkg_para {
 };
 
 struct mtk_em_perf_state {
+	/* Performance state setting */
 	unsigned int freq;
 	unsigned int volt;
 	unsigned int capacity;
@@ -54,10 +55,6 @@ struct leakage_para {
 
 struct leakage_data {
 	void __iomem *base;
-	int policy[8];
-	int instance[8];
-	struct leakage_para tbl[8];
-	int clusters;
 	int init;
 };
 

@@ -22,6 +22,7 @@
 #define SVS_HW_STATUS			BIT(1)
 #define POLL_USEC			1000
 #define TIMEOUT_USEC			300000
+#define REG_FREQ_SCALING		0x4cc
 
 enum {
 	REG_FREQ_LUT_TABLE,
@@ -51,6 +52,7 @@ static const u16 cpufreq_mtk_offsets[REG_ARRAY_SIZE] = {
 };
 
 static struct cpufreq_mtk *mtk_freq_domain_map[NR_CPUS];
+static bool freq_scaling_disabled = true;
 
 static int look_up_cpu(struct device *cpu_dev)
 {
@@ -122,18 +124,16 @@ static unsigned int mtk_cpufreq_hw_fast_switch(struct cpufreq_policy *policy,
 	struct cpufreq_mtk *c = policy->driver_data;
 	unsigned int index;
 
-#if IS_ENABLED(CONFIG_MTK_GEARLESS_SUPPORT)
-	index = cpufreq_table_find_index_dl(policy, target_freq);
-
-	writel_relaxed(target_freq, c->reg_bases[REG_FREQ_PERF_STATE]);
-#else
 	if (policy->cached_target_freq == target_freq)
 		index = policy->cached_resolved_idx;
 	else
 		index = cpufreq_table_find_index_dl(policy, target_freq);
 
-	writel_relaxed(index, c->reg_bases[REG_FREQ_PERF_STATE]);
-#endif
+	if (!freq_scaling_disabled)
+		writel_relaxed(target_freq, c->reg_bases[REG_FREQ_PERF_STATE]);
+	else
+		writel_relaxed(index, c->reg_bases[REG_FREQ_PERF_STATE]);
+
 	return policy->freq_table[index].frequency;
 }
 
@@ -335,7 +335,11 @@ static int mtk_cpu_resources_init(struct platform_device *pdev,
 static int mtk_cpufreq_hw_driver_probe(struct platform_device *pdev)
 {
 	struct device_node *cpu_np;
+	struct device_node *hvfs_node;
 	struct of_phandle_args args;
+	struct resource *csram_res;
+	struct platform_device *pdev_c;
+	static void __iomem *csram_base;
 	const u16 *offsets;
 	unsigned int cpu;
 	int ret;
@@ -343,6 +347,40 @@ static int mtk_cpufreq_hw_driver_probe(struct platform_device *pdev)
 	offsets = of_device_get_match_data(&pdev->dev);
 	if (!offsets)
 		return -EINVAL;
+
+	hvfs_node = of_find_node_by_name(NULL, "cpuhvfs");
+	if (hvfs_node == NULL) {
+		pr_notice("failed to find node @ %s\n", __func__);
+		return -ENODEV;
+	}
+
+	pdev_c = of_find_device_by_node(hvfs_node);
+	if (pdev_c == NULL) {
+		pr_notice("failed to find pdev @ %s\n", __func__);
+		return -EINVAL;
+	}
+
+	csram_res = platform_get_resource(pdev_c, IORESOURCE_MEM, 1);
+	if (!csram_res) {
+		pr_notice("failed to get mem resource @ %s\n", __func__);
+		return -ENODEV;
+	}
+
+	if (!request_mem_region(csram_res->start + REG_FREQ_SCALING, LUT_ROW_SIZE,
+			csram_res->name)) {
+		pr_notice("failed to request resource %pR\n", csram_res);
+		return -EBUSY;
+	}
+
+	csram_base = ioremap(csram_res->start + REG_FREQ_SCALING, LUT_ROW_SIZE);
+	if (!csram_base) {
+		pr_notice("failed to map csram_base @ %s\n", __func__);
+		ret = -ENOMEM;
+		goto release_region;
+	}
+
+	if (readl_relaxed(csram_base))
+		freq_scaling_disabled = false;
 
 	for_each_possible_cpu(cpu) {
 		cpu_np = of_cpu_device_node_get(cpu);
@@ -373,6 +411,10 @@ static int mtk_cpufreq_hw_driver_probe(struct platform_device *pdev)
 	}
 
 	return 0;
+
+release_region:
+	release_mem_region(csram_res->start, resource_size(csram_base));
+	return ret;
 }
 
 static int mtk_cpufreq_hw_driver_remove(struct platform_device *pdev)

@@ -193,32 +193,47 @@ static void free_public_table(int pd_count)
  */
 static int init_public_table(void)
 {
-	int i, opp, cluster = 0;
+	unsigned int cpu, opp, cluster = 0;
 	void __iomem *base = csram_base;
 	unsigned long offset = CAPACITY_TBL_OFFSET;
 	unsigned long cap, next_cap, end_cap;
 	struct mtk_em_perf_domain *pd_info_public;
+	struct cpufreq_policy *policy;
 
 	mtk_em_pd_ptr_public = kcalloc(MAX_PD_COUNT, sizeof(struct mtk_em_perf_domain),
 			GFP_KERNEL);
 	if (!mtk_em_pd_ptr_public)
 		return -ENOMEM;
 
-	for (i = 0; i < nr_cpu_ids; i++) {
+	for_each_possible_cpu(cpu) {
 		struct em_perf_domain *pd;
 
-		pd = em_cpu_get(i);
+		pd = em_cpu_get(cpu);
 
 		if (!pd) {
 			pr_info("%s: %d: em_cpu_get return NULL for cpu#%d", __func__,
-					__LINE__, i);
+					__LINE__, cpu);
 			continue;
 		}
-		if (i != cpumask_first(to_cpumask(pd->cpus)))
+		if (cpu != cpumask_first(to_cpumask(pd->cpus)))
 			continue;
 
+		policy = cpufreq_cpu_get(cpu);
+		if (!policy) {
+			/* no policy? should check topology or dvfs status first */
+			pr_info("%s: %d: cannot get policy for CPU: %d, no available static power\n",
+					__func__, __LINE__, cpu);
+			return -ENOMEM;
+		}
+
 		pd_info_public = &mtk_em_pd_ptr_public[cluster];
+		pd_info_public->cpumask = topology_core_cpumask(cpu);
+		pd_info_public->cluster_num = cluster;
 		pd_info_public->nr_perf_states = pd->nr_perf_states;
+		pd_info_public->max_freq = policy->cpuinfo.max_freq;
+		pd_info_public->min_freq = policy->cpuinfo.min_freq;
+		cpufreq_cpu_put(policy);
+
 		pd_info_public->table =
 			kcalloc(pd->nr_perf_states, sizeof(struct mtk_em_perf_state),
 					GFP_KERNEL);
@@ -284,6 +299,7 @@ static unsigned int mtk_get_nr_perf_states(unsigned int cluster)
 {
 	unsigned int min_freq = mtk_em_pd_ptr_private[cluster].min_freq;
 	unsigned int max_freq = mtk_em_pd_ptr_private[cluster].max_freq;
+	unsigned int result;
 
 	if (min_freq > max_freq) {
 		pr_info("%s: %d: min freq is larger than max freq\n", __func__,
@@ -291,7 +307,10 @@ static unsigned int mtk_get_nr_perf_states(unsigned int cluster)
 		return 0;
 	}
 
-	return (max_freq - min_freq) / FREQ_STEP + 1;
+	result = (max_freq - min_freq) / FREQ_STEP;
+	result += ((max_freq - min_freq) % FREQ_STEP) ? 2 : 1;
+
+	return result;
 }
 
 inline unsigned int mtk_get_leakage(unsigned int cpu, unsigned int idx, unsigned int degree)
@@ -314,7 +333,7 @@ inline unsigned int mtk_get_leakage(unsigned int cpu, unsigned int idx, unsigned
 	b = pd->table[idx].leakage_para.a_b_para.b;
 	c = pd->table[idx].leakage_para.c;
 
-	power = degree * (degree * a - b) + c / 10;
+	power = degree * (degree * a - b) + c;
 
 	return (power /= (cluster > 0) ? 10 : 100);
 }
@@ -445,47 +464,119 @@ static int create_spower_debug_fs(void)
 
 static int mtk_static_power_probe(struct platform_device *pdev)
 {
-	int cpu;
-	struct cpufreq_policy *tP, *pre_tP;
-	int cpu_no;
 #if __LKG_DEBUG__
 	unsigned int i, power;
 #endif
+	int ret = 0, err = 0;
+	unsigned int cpu, cluster = 0, size;
+	struct device_node *dvfs_node;
+	struct platform_device *pdev_temp;
+	struct resource *usram_res, *csram_res, *eem_res;
+	struct cpumask *cpumask;
+	struct mtk_em_perf_domain *pd_public, *pd_private;
 
+	dvfs_node = of_find_node_by_name(NULL, "cpuhvfs");
+	if (dvfs_node == NULL) {
+		pr_info("failed to find node @ %s\n", __func__);
+		return -ENODEV;
+	}
+
+	pdev_temp = of_find_device_by_node(dvfs_node);
+	if (pdev_temp == NULL) {
+		pr_info("failed to find pdev @ %s\n", __func__);
+		return -EINVAL;
+	}
+
+	usram_res = platform_get_resource(pdev_temp, IORESOURCE_MEM, 0);
+	if (usram_res)
+		usram_base = ioremap(usram_res->start, resource_size(usram_res));
+	else {
+		pr_info("%s can't get resource, ret: %d\n", __func__, err);
+		return -ENODEV;
+	}
+
+	csram_res = platform_get_resource(pdev_temp, IORESOURCE_MEM, 1);
+	if (csram_res)
+		csram_base = ioremap(csram_res->start, resource_size(csram_res));
+	else {
+		pr_info("%s can't get resource, ret: %d\n", __func__, err);
+		return -ENODEV;
+	}
+
+	eem_res = platform_get_resource(pdev_temp, IORESOURCE_MEM, 2);
+	if (eem_res)
+		eemsn_log = ioremap(eem_res->start, resource_size(eem_res));
+	else {
+		pr_info("%s can't get resource, ret: %d\n", __func__, err);
+		return -ENODEV;
+	}
+
+	pr_info("[Static Power v2.1.1]\n");
+
+	cpumask = topology_core_cpumask(0);
+	ret = init_public_table();
+	if (ret < 0) {
+		pr_info("%s: initialize public table failed, ret: %d\n",
+				__func__, ret);
+	}
+
+	mtk_em_pd_ptr_private = kcalloc(MAX_PD_COUNT, sizeof(struct mtk_em_perf_domain),
+			GFP_KERNEL);
+	if (!mtk_em_pd_ptr_private) {
+		pr_info("%s can't get private table ptr, ret: %d\n", __func__, err);
+		return -ENOMEM;
+	}
+
+	for_each_possible_cpu(cpu) {
+		if (cpumask_test_cpu(cpu, cpumask) && cpu != 0) {
+			pr_debug("%s: cpu %d in %d\n", __func__, cpu, cluster);
+			cpu_mapping[cpu] = cluster - 1;
+			continue;
+		} else {
+			pd_public = &mtk_em_pd_ptr_public[cluster];
+			if (!pd_public) {
+				pr_info("failed to get public cpu%d device\n", cpu);
+				return -ENODEV;
+			}
+			pd_private = &mtk_em_pd_ptr_private[cluster];
+			if (!pd_private) {
+				pr_info("failed to get private cpu%d device\n", cpu);
+				return -ENODEV;
+			}
+
+			cpumask = topology_core_cpumask(cpu);
+			pd_private->cpumask = topology_core_cpumask(cpu);
+			pd_private->cluster_num = cluster;
+			pd_private->max_freq = pd_public->max_freq;
+			pd_private->min_freq = pd_public->min_freq;
+
+			size = mtk_get_nr_perf_states(cluster);
+			pd_private->nr_perf_states = size;
+			pd_private->table =
+				kcalloc(size, sizeof(struct mtk_em_perf_state), GFP_KERNEL);
+			if (!pd_private->table)
+				goto nomem;
+
+			init_private_table(cluster);
+
+			cpu_mapping[cpu] = cluster;
+			cluster++;
+		}
+	}
+
+	total_cluster = cluster;
+	total_cpu = cpu + 1;
+
+	for (cpu = 0; cpu < 8; cpu++)
+		pr_debug("%s: [cpu_mapping] %d, %d\n", __func__, cpu, cpu_mapping[cpu]);
+
+	/* Create debug fs */
 	info.base = devm_platform_ioremap_resource(pdev, 0);
 	if (IS_ERR(info.base))
 		return PTR_ERR(info.base);
 
-	info.clusters = 0;
-	tP = cpufreq_cpu_get(0);
-	pre_tP = tP;
-	if (tP) {
-		info.policy[0] = 1;
-		cpufreq_cpu_put(tP);
-		cpu_no = 0;
-		for_each_online_cpu(cpu) {
-			tP = cpufreq_cpu_get(cpu);
-			if (tP != pre_tP) {
-				info.instance[info.clusters] = cpu_no;
-				memset(&info.tbl[info.clusters], 0, sizeof(struct leakage_para));
-				info.policy[++info.clusters] = 0;
-				cpu_no = 0;
-				pre_tP = tP;
-			}
-			info.policy[info.clusters] |= (1 << cpu);
-			cpu_no++;
-			if (tP)
-				cpufreq_cpu_put(tP);
-		}
-	} else {
-		/* no policy? should check dvfs status first */
-		pr_info("cannot get policy, no available static power");
-		return 0;
-	}
-	info.instance[info.clusters] = cpu_no;
-	info.clusters++;
-
 	create_spower_debug_fs();
+
 #if __LKG_DEBUG__
 	for_each_possible_cpu(cpu) {
 		for (i = 0; i < 16; i++) {
@@ -494,8 +585,16 @@ static int mtk_static_power_probe(struct platform_device *pdev)
 		}
 	}
 #endif
+
 	info.init = 0x5A5A;
-	return 0;
+	return ret;
+
+nomem:
+	pr_info("%s: allocate private table for cluster %d failed\n",
+			__func__, cluster);
+	free_private_table(cluster);
+
+	return -ENOENT;
 }
 
 static const struct of_device_id mtk_static_power_match[] = {
@@ -513,116 +612,10 @@ static struct platform_driver mtk_static_power_driver = {
 
 int __init mtk_static_power_init(void)
 {
-	int ret = 0, err = 0;
-	struct device_node *dvfs_node;
-	struct platform_device *pdev;
-	struct resource *usram_res, *csram_res, *eem_res;
-
-	unsigned int cpu, cluster = 0;
-	struct cpufreq_policy *policy;
-
-	struct cpumask *cpumask;
-	struct mtk_em_perf_domain *temp_pd;
-	unsigned int size;
+	int ret = 0;
 
 	ret = platform_driver_register(&mtk_static_power_driver);
-
-	dvfs_node = of_find_node_by_name(NULL, "cpuhvfs");
-	if (dvfs_node == NULL) {
-		pr_info("failed to find node @ %s\n", __func__);
-		return -ENODEV;
-	}
-
-	pdev = of_find_device_by_node(dvfs_node);
-	if (pdev == NULL) {
-		pr_info("failed to find pdev @ %s\n", __func__);
-		return -EINVAL;
-	}
-
-	usram_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if (usram_res)
-		usram_base = ioremap(usram_res->start, resource_size(usram_res));
-	else {
-		pr_info("%s can't get resource, ret:%d\n", __func__, err);
-		return -EIO;
-	}
-
-	csram_res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
-	if (csram_res)
-		csram_base = ioremap(csram_res->start, resource_size(csram_res));
-	else {
-		pr_info("%s can't get resource, ret:%d\n", __func__, err);
-		return -EIO;
-	}
-
-	eem_res = platform_get_resource(pdev, IORESOURCE_MEM, 2);
-	if (eem_res)
-		eemsn_log = ioremap(eem_res->start, resource_size(eem_res));
-	else {
-		pr_info("%s can't get resource, ret:%d\n", __func__, err);
-		return 0;
-	}
-
-	pr_info("[Static Power v2.1.1]\n");
-
-	cpumask = topology_core_cpumask(0);
-	init_public_table();
-	mtk_em_pd_ptr_private = kcalloc(MAX_PD_COUNT, sizeof(struct mtk_em_perf_domain),
-			GFP_KERNEL);
-	if (!mtk_em_pd_ptr_private)
-		return -ENOMEM;
-
-	for_each_possible_cpu(cpu) {
-		if (cpumask_test_cpu(cpu, cpumask) && cpu != 0) {
-			pr_debug("%s: cpu %d in %d\n", __func__, cpu, cluster);
-			cpu_mapping[cpu] = cluster - 1;
-			continue;
-		} else {
-			temp_pd = &mtk_em_pd_ptr_private[cluster];
-			if (!temp_pd) {
-				pr_info("failed to get cpu%d device\n", policy->cpu);
-				return -ENODEV;
-			}
-
-			cpumask = topology_core_cpumask(cpu);
-			policy = cpufreq_cpu_get(cpu);
-
-			temp_pd->cpumask = topology_core_cpumask(cpu);
-			temp_pd->cluster_num = cluster;
-			temp_pd->min_freq = policy->cpuinfo.min_freq;
-			temp_pd->max_freq = policy->cpuinfo.max_freq;
-
-			size = mtk_get_nr_perf_states(cluster);
-			temp_pd->nr_perf_states = size;
-
-			temp_pd->table =
-				kcalloc(size, sizeof(struct mtk_em_perf_state), GFP_KERNEL);
-
-			if (!temp_pd->table)
-				goto nomem;
-
-			init_private_table(cluster);
-
-			cpu_mapping[cpu] = cluster;
-
-			cluster++;
-		}
-	}
-
-	total_cluster = cluster;
-	total_cpu = cpu + 1;
-
-	for (cpu = 0; cpu < 8; cpu++)
-		pr_debug("%s: [cpu_mapping] %d, %d\n", __func__, cpu, cpu_mapping[cpu]);
-
 	return ret;
-
-nomem:
-	pr_info("%s: allocate private table for cluster %d failed\n",
-			__func__, cluster);
-	free_private_table(cluster);
-
-	return -ENOENT;
 }
 
 MODULE_DESCRIPTION("MTK static power Platform Driver v2.1.1");
