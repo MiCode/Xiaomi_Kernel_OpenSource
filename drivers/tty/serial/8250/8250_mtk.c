@@ -100,6 +100,7 @@ struct mtk8250_data {
 #endif
 	int			rx_wakeup_irq;
 	unsigned int   support_hub;
+	unsigned int   hub_baud;
 };
 
 struct mtk8250_comp {
@@ -491,15 +492,12 @@ mtk8250_set_termios(struct uart_port *port, struct ktermios *termios,
 	baud = tty_termios_baud_rate(termios);
 
 	if (data->support_hub) {
-		if (baud == 9600)
-			baud = 12000000;
-
 		#if defined(KERNEL_UARTHUB_is_bypass_mode)
 		pr_info("support_hub, check if bypass mode\n");
 		/*To check bypass mode or multi-host mode*/
 		if (!KERNEL_UARTHUB_is_bypass_mode()) {
-			baud = MTK_UART_HUB_BAUD;
-			pr_info("multi-host mode, update baud rate as 12M\n");
+			baud = data->hub_baud;
+			pr_info("multi-host mode, update baud rate as 12M, baud:%d\n", baud);
 		}
 		#endif
 	}
@@ -526,22 +524,20 @@ mtk8250_set_termios(struct uart_port *port, struct ktermios *termios,
 				  port->uartclk);
 
 	if (data->support_hub) {
-		if (baud == 9600)
-			baud = 12000000;
-
 		#if defined(KERNEL_UARTHUB_is_bypass_mode)
 		pr_info("support_hub, check if bypass mode\n");
 		/*To check bypass mode or multi-host mode*/
 		if (!KERNEL_UARTHUB_is_bypass_mode()) {
-			baud = MTK_UART_HUB_BAUD;
+			baud = data->hub_baud;
 		#if defined(KERNEL_UARTHUB_config_internal_baud_rate)
 			/*configure UARTHUB baud rate*/
-			KERNEL_UARTHUB_config_internal_baud_rate(0, baud_rate_12m);
+			KERNEL_UARTHUB_config_internal_baud_rate(0, baud);
 		#endif
 		#if defined(KERNEL_UARTHUB_config_external_baud_rate)
-			KERNEL_UARTHUB_config_external_baud_rate(baud_rate_12m);
+			KERNEL_UARTHUB_config_external_baud_rate(baud);
 		#endif
-			pr_info("multi-host mode, update baudrate as 12M and update hub baudrate\n");
+			pr_info("multi-host mode, update baudrate as 12M and update hub baudrate, baud:%d\n"
+							, baud);
 		}
 		#endif
 	}
@@ -755,6 +751,7 @@ static int mtk8250_probe_of(struct platform_device *pdev, struct uart_port *p,
 #endif
 
 	if (data->support_hub) {
+		/*switch clock*/
 		dev_info(&pdev->dev, "switch clock as 104M\n");
 		index = of_property_read_u32_index(pdev->dev.of_node,
 			"peri-clock-con", 0, &peri_addr);
@@ -780,15 +777,21 @@ static int mtk8250_probe_of(struct platform_device *pdev, struct uart_port *p,
 		peri_remap_addr = ioremap(peri_addr, 0x10);
 		if (!peri_remap_addr) {
 			pr_notice("[%s] peri_remap_addr(%x) ioremap fail\n", __func__, peri_addr);
-			if (peri_remap_addr)
-				iounmap(peri_remap_addr);
 			return -1;
-			}
+		}
 		dev_info(&pdev->dev, "PERSYS: 0x%x = 0x%x\n",
 			peri_addr, ((UART_REG_READ(peri_remap_addr) & (~peri_mask)) | peri_val));
 		UART_REG_WRITE(peri_remap_addr,
 			((UART_REG_READ(peri_remap_addr) & (~peri_mask)) | peri_val));
 		dev_info(&pdev->dev, "PERSYS set as 0x%x\n", (UART_REG_READ(peri_remap_addr)));
+
+		/*parse baud*/
+		index = of_property_read_u32_index(pdev->dev.of_node,
+					"hub-baud", 0, &data->hub_baud);
+		if (index) {
+			pr_notice("[%s] get hub-baud fail\n", __func__);
+			return -1;
+		}
 	}
 
 	return 0;
