@@ -8731,15 +8731,16 @@
 				<&level_apusys_rv>;
 		resource-ctrl = <&bus26m &infra &syspll>,
 				<&dram_s0 &dram_s1>;
-		constraints = <&rc_bus26m &rc_syspll &rc_dram>,
-				<&rc_cpu_buck_ldo>;
-		spm-cond = <&spm_cond_cg &spm_cond_pll>;
+		constraints = <&rc_bus26m &rc_syspll>;
+		spm-cond = <&spm_cond_pll>;
 		cg-shift = <0>; /* cg blocking index */
-		pll-shift = <16>; /* pll blocking index */
+		pll-shift = <0>; /* pll blocking index */
 
 		power-gs = <0>;
 
 		mcusys-cnt-chk = <1>;
+
+		hwreq = "hw_cg", "peri";
 
 		cpupm_sysram: cpupm-sysram@0011b000 {
 			compatible = "mediatek,cpupm-sysram";
@@ -8805,51 +8806,28 @@
 			};
 		};
 		constraint-list {
-			rc_bus26m: rc_bus26m {
-				rc-name = "bus26m";
-				id = <0x00000000>;
-				value = <0>;
-				cond-info = <1>;
-			};
 			rc_syspll: rc_syspll {
 				rc-name = "syspll";
 				id = <0x00000001>;
 				value = <0>;
 				cond-info = <1>;
 			};
-			rc_dram: rc_dram {
-				rc-name = "dram";
-				id = <0x00000002>;
+			rc_bus26m: rc_bus26m {
+				rc-name = "bus26m";
+				id = <0x00000000>;
 				value = <0>;
 				cond-info = <1>;
-			};
-			rc_cpu_buck_ldo: rc_cpu_buck_ldo{
-				rc-name = "cpu-buck-ldo";
-				id = <0x00000003>;
-				value = <1>;
-				cond-info = <0>;
 			};
 		};
 
 		spm-cond-list {
-			spm_cond_cg: spm_cond_cg {
-				cg-name = "MTCMOS_0",
-					"MTCMOS_1",
-					"PERI_0",
-					"PERI_1";
-			};
 			spm_cond_pll: spm_cond_pll {
-				pll-name = "UNIVPLL",
-					"UNIVPLL2",
+				pll-name = "UNIVPLL2",
 					"MFGPLL",
 					"MFGSCPLL",
-					"GPUEBPLL",
 					"SENSONPLL",
-					"MSDCPLL",
-					"TVPLL",
-					"MMPLL",
 					"MM2PLL",
-					"MAINPLL",
+					"MAIN2PLL",
 					"ADSPPLL",
 					"APLL1",
 					"APLL2";
