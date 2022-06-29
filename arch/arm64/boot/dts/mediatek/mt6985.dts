@@ -8995,35 +8995,35 @@
 		resource-ctrl-list {
 			bus26m: bus26m {
 				id = <0x00000000>;
-				value = <1>;
+				value = <0>;
 			};
 			infra: infra {
 				id = <0x00000001>;
-				value = <1>;
+				value = <0>;
 			};
 			syspll: syspll {
 				id = <0x00000002>;
-				value = <1>;
+				value = <0>;
 			};
 			dram_s0: dram_s0 {
 				id = <0x00000003>;
-				value = <1>;
+				value = <0>;
 			};
 			dram_s1: dram_s1 {
 				id = <0x00000004>;
-				value = <1>;
+				value = <0>;
 			};
 			spm_vcore: spm_vcore {
 				id = <0x00000005>;
-				value = <1>;
+				value = <0>;
 			};
 			spm_emi: spm_emi {
 				id = <0x00000006>;
-				value = <1>;
+				value = <0>;
 			};
 			spm_pmic: spm_pmic {
 				id = <0x00000007>;
-				value = <1>;
+				value = <0>;
 			};
 		};
 		constraint-list {
@@ -9036,7 +9036,7 @@
 			rc_bus26m: rc_bus26m {
 				rc-name = "bus26m";
 				id = <0x00000000>;
-				value = <0>;
+				value = <1>;
 				cond-info = <1>;
 			};
 		};
