@@ -276,6 +276,7 @@ struct vdec_fb *mtk_vcodec_get_fb(struct mtk_vcodec_ctx *ctx)
 				pfb->general_buf_fd);
 
 		dst_vb2_v4l2 = v4l2_m2m_dst_buf_remove(ctx->m2m_ctx);
+		(*ctx->dst_cnt) = v4l2_m2m_num_dst_bufs_ready(ctx->m2m_ctx);
 		if (dst_vb2_v4l2 != NULL)
 			dst_buf = &dst_vb2_v4l2->vb2_buf;
 			mtk_v4l2_debug(8, "[%d] index=%d, num_rdy_bufs=%d\n",

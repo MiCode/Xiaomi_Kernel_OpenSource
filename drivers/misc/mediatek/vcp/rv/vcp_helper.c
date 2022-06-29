@@ -679,7 +679,10 @@ void trigger_vcp_disp_sync(enum vcp_core_id id)
 	if (mmup_enable_count() && vcp_ready[id]) {
 		/* trigger disp sync isr */
 		writel(B_GIPC0_SETCLR_0, R_GIPC_IN_SET);
-	}
+		pr_debug("[VCP] %s trigger\n", __func__);
+	} else
+		pr_debug("[VCP] %s not trigger since mmup_enable_count=%d, vcp_ready[%d]=%d\n",
+			__func__, mmup_enable_count(), id, vcp_ready[id]);
 }
 EXPORT_SYMBOL_GPL(trigger_vcp_disp_sync);
 

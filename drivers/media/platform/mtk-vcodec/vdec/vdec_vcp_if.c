@@ -933,6 +933,12 @@ static int vdec_vcp_init(struct mtk_vcodec_ctx *ctx, unsigned long *h_vdec)
 	ctx->input_driven = inst->vsi->input_driven;
 	ctx->ipi_blocked = &inst->vsi->ipi_blocked;
 	*(ctx->ipi_blocked) = 0;
+	ctx->align_mode = inst->vsi->align_mode;
+	ctx->wait_align = &inst->vsi->wait_align;
+	*(ctx->wait_align) = 0;
+	atomic_set(&ctx->align_type, 0);
+	ctx->src_cnt = &inst->vsi->src_cnt;
+	ctx->dst_cnt = &inst->vsi->dst_cnt;
 
 	mtk_v4l2_debug(0, "[%d] %c%c%c%c(%d) Decoder Instance >> %p, ap_inst_addr %llx",
 		ctx->id, fourcc & 0xFF, (fourcc >> 8) & 0xFF,
@@ -1121,6 +1127,7 @@ static int vdec_vcp_decode(unsigned long h_vdec, struct mtk_vcodec_mem *bs,
 		goto err_free_fb_out;
 
 	inst->ctx->input_driven = inst->vsi->input_driven;
+	inst->ctx->align_mode   = inst->vsi->align_mode > 0;
 	inst->num_nalu++;
 	return ret;
 
@@ -1505,6 +1512,14 @@ static void get_input_driven(struct vdec_inst *inst,
 		*input_driven = inst->vsi->input_driven;
 }
 
+static void get_align_mode(struct vdec_inst *inst,
+			   unsigned int *align_mode)
+{
+	inst->vcu.ctx = inst->ctx;
+	if (inst->vsi != NULL)
+		*align_mode = inst->vsi->align_mode;
+}
+
 
 static int vdec_vcp_get_param(unsigned long h_vdec,
 	enum vdec_get_param_type type, void *out)
@@ -1610,6 +1625,10 @@ static int vdec_vcp_get_param(unsigned long h_vdec,
 
 	case GET_PARAM_INPUT_DRIVEN:
 		get_input_driven(inst, out);
+		break;
+
+	case GET_PARAM_ALIGN_MODE:
+		get_align_mode(inst, out);
 		break;
 
 	default:

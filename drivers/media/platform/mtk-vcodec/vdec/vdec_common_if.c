@@ -123,6 +123,12 @@ static int vdec_init(struct mtk_vcodec_ctx *ctx, unsigned long *h_vdec)
 	ctx->input_driven = inst->vsi->input_driven;
 	ctx->ipi_blocked = &inst->vsi->ipi_blocked;
 	*(ctx->ipi_blocked) = 0;
+	ctx->align_mode = inst->vsi->align_mode;
+	ctx->wait_align = &inst->vsi->wait_align;
+	*(ctx->wait_align) = 0;
+	atomic_set(&ctx->align_type, 0);
+	ctx->src_cnt = &inst->vsi->src_cnt;
+	ctx->dst_cnt = &inst->vsi->dst_cnt;
 
 	mtk_vcodec_debug(inst, "Decoder Instance >> %p", inst);
 
@@ -478,6 +484,14 @@ static void get_input_driven(struct vdec_inst *inst,
 		*input_driven = inst->vsi->input_driven;
 }
 
+static void get_align_mode(struct vdec_inst *inst,
+			   unsigned int *align_mode)
+{
+	inst->vcu.ctx = inst->ctx;
+	if (inst->vsi != NULL)
+		*align_mode = inst->vsi->align_mode;
+}
+
 #ifdef TV_INTEGRATION
 static void get_frame_interval(struct vdec_inst *inst,
 			       struct v4l2_fract *time_per_frame)
@@ -576,6 +590,10 @@ static int vdec_get_param(unsigned long h_vdec,
 
 	case GET_PARAM_INPUT_DRIVEN:
 		get_input_driven(inst, out);
+		break;
+
+	case GET_PARAM_ALIGN_MODE:
+		get_align_mode(inst, out);
 		break;
 
 	case GET_PARAM_INTERLACING_FIELD_SEQ:

@@ -174,6 +174,16 @@ static void get_supported_framesizes(struct mtk_vcodec_ctx *ctx)
 	}
 }
 
+static void update_src_cnt(struct mtk_vcodec_ctx *ctx)
+{
+	(*ctx->src_cnt) = v4l2_m2m_num_src_bufs_ready(ctx->m2m_ctx);
+}
+
+static void update_dst_cnt(struct mtk_vcodec_ctx *ctx)
+{
+	(*ctx->dst_cnt) = v4l2_m2m_num_dst_bufs_ready(ctx->m2m_ctx);
+}
+
 static struct mtk_video_fmt *mtk_vdec_find_format(struct mtk_vcodec_ctx *ctx,
 	struct v4l2_format *f, unsigned int t)
 {
@@ -659,6 +669,8 @@ static struct vb2_v4l2_buffer *get_free_buffer(struct mtk_vcodec_ctx *ctx)
 					dstbuf->queued_in_vb2);
 				if (v4l2_m2m_buf_queue_check(ctx->m2m_ctx, &dstbuf->vb) < 0)
 					goto err_in_rdyq;
+				else
+					update_dst_cnt(ctx);
 				mtk_vdec_trigger_set_frame(ctx);
 			} else {
 				mtk_v4l2_debug(4, "[%d]status=%x reference free queue id=%d %d %d",
@@ -686,6 +698,8 @@ static struct vb2_v4l2_buffer *get_free_buffer(struct mtk_vcodec_ctx *ctx)
 			dstbuf->queued_in_vb2 = true;
 			if (v4l2_m2m_buf_queue_check(ctx->m2m_ctx, &dstbuf->vb) < 0)
 				goto err_in_rdyq;
+			else
+				update_dst_cnt(ctx);
 			mtk_vdec_trigger_set_frame(ctx);
 		} else {
 			/*
@@ -1174,6 +1188,12 @@ static void mtk_vdec_reset_decoder(struct mtk_vcodec_ctx *ctx, bool is_drain,
 	struct mtk_video_dec_buf *dstbuf, *srcbuf;
 	struct vb2_queue *dstq, *srcq;
 
+	if (ctx->input_driven == NON_INPUT_DRIVEN && ctx->align_mode) {
+		mtk_v4l2_debug(2, "[%d] need to set align_type(%d) to RESET(%d)",
+			ctx->id, atomic_read(&ctx->align_type), VDEC_ALIGN_RESET);
+		atomic_set(&ctx->align_type, VDEC_ALIGN_RESET);
+	}
+
 	mutex_lock(&ctx->gen_buf_va_lock);
 	ctx->state = MTK_STATE_FLUSH;
 	if (ctx->input_driven == INPUT_DRIVEN_CB_FRM)
@@ -1344,6 +1364,9 @@ int mtk_vdec_put_fb(struct mtk_vcodec_ctx *ctx, enum mtk_put_buffer_type type, b
 
 	mtk_v4l2_debug(1, "type = %d", type);
 
+	if (no_need_put)
+		goto not_put_fb;
+
 	/* put fb in core stage? */
 	if (type != PUT_BUFFER_WORKER && !(ctx->use_fence || ctx->input_driven))
 		return mtk_vdec_defer_put_fb_job(ctx, type);
@@ -1419,7 +1442,10 @@ int mtk_vdec_put_fb(struct mtk_vcodec_ctx *ctx, enum mtk_put_buffer_type type, b
 			mtk_vdec_queue_stop_play_event(ctx);
 	}
 
-	if (ctx->input_driven)
+	update_dst_cnt(ctx);
+
+not_put_fb:
+	if (ctx->input_driven || no_need_put)
 		v4l2_m2m_try_schedule(ctx->m2m_ctx);
 
 	return 0;
@@ -1448,6 +1474,7 @@ static void mtk_vdec_worker(struct work_struct *work)
 	unsigned int dpbsize = 0;
 	struct mtk_color_desc color_desc = {.is_hdr = 0};
 	struct vdec_fb drain_fb;
+	unsigned int pair_cnt;
 
 	mutex_lock(&ctx->worker_lock);
 	if (ctx->state != MTK_STATE_HEADER) {
@@ -1543,6 +1570,7 @@ static void mtk_vdec_worker(struct work_struct *work)
 		v4l2_m2m_src_buf_remove(ctx->m2m_ctx);
 		src_buf_info->lastframe = NON_EOS;
 		clean_free_bs_buffer(ctx, NULL);
+		update_src_cnt(ctx);
 
 		v4l2_m2m_job_finish(dev->m2m_dev_dec, ctx->m2m_ctx);
 		mutex_unlock(&ctx->worker_lock);
@@ -1669,6 +1697,7 @@ static void mtk_vdec_worker(struct work_struct *work)
 			ctx->dec_flush_buf->lastframe = EOS;
 			ctx->dec_flush_buf->vb.vb2_buf.planes[0].bytesused = 1;
 			v4l2_m2m_buf_queue_check(ctx->m2m_ctx, &ctx->dec_flush_buf->vb);
+			update_src_cnt(ctx);
 		} else {
 			mtk_v4l2_debug(1, "Stopping no need to queue dec_flush_buf.");
 		}
@@ -1721,6 +1750,34 @@ static void mtk_vdec_worker(struct work_struct *work)
 		} else {
 			mtk_v4l2_err("[%d] GET_PARAM_COLOR_DESC fail=%d",
 				 ctx->id, ret);
+		}
+	}
+
+	update_src_cnt(ctx);
+
+	if (ctx->input_driven == NON_INPUT_DRIVEN && ctx->align_mode) {
+		pair_cnt = MIN((*ctx->src_cnt), (*ctx->dst_cnt));
+		mtk_v4l2_debug(8, "[%d] pair cnt %d(%d,%d) align_type(%d) wait_align(%d) align_start_cnt %d",
+			ctx->id, pair_cnt, (*ctx->src_cnt), (*ctx->dst_cnt),
+			atomic_read(&ctx->align_type), (*ctx->wait_align), ctx->align_start_cnt);
+		if (ctx->align_start_cnt > 0) {
+			ctx->align_start_cnt--;
+			if (ctx->align_start_cnt == 0) {
+				atomic_cmpxchg(&ctx->align_type, VDEC_ALIGN_FULL, VDEC_ALIGN_WAIT);
+				(*ctx->wait_align) = true;
+			}
+		}
+		if (pair_cnt == 0) {
+			if (atomic_cmpxchg(&ctx->align_type,
+				VDEC_ALIGN_FULL, VDEC_ALIGN_WAIT) == VDEC_ALIGN_FULL) // 1->0
+				mtk_v4l2_debug(2, "[%d] pair cnt %d(%d,%d) set align_type to WAIT(%d)",
+					ctx->id, pair_cnt, (*ctx->src_cnt), (*ctx->dst_cnt),
+					VDEC_ALIGN_WAIT);
+			if (!(*ctx->wait_align)) {
+				mtk_v4l2_debug(2, "[%d] pair cnt %d(%d,%d) wait align",
+					ctx->id, pair_cnt, (*ctx->src_cnt), (*ctx->dst_cnt));
+				(*ctx->wait_align) = true;
+			}
 		}
 	}
 
@@ -1786,6 +1843,12 @@ static int vidioc_decoder_cmd(struct file *file, void *priv,
 			ctx->dec_flush_buf->lastframe = EOS;
 			ctx->dec_flush_buf->vb.vb2_buf.planes[0].bytesused = 0;
 			v4l2_m2m_buf_queue_check(ctx->m2m_ctx, &ctx->dec_flush_buf->vb);
+			update_src_cnt(ctx);
+			if (ctx->input_driven == NON_INPUT_DRIVEN && ctx->align_mode) {
+				mtk_v4l2_debug(2, "[%d] stop cmd EOS when align mode, need to set align_type(%d) to RESET(%d)",
+					ctx->id, atomic_read(&ctx->align_type), VDEC_ALIGN_RESET);
+				atomic_set(&ctx->align_type, VDEC_ALIGN_RESET);
+			}
 			v4l2_m2m_try_schedule(ctx->m2m_ctx);
 		} else {
 			mtk_v4l2_debug(1, "Stopping no need to queue cmd dec_flush_buf.");
@@ -1944,7 +2007,7 @@ static int mtk_vdec_set_param(struct mtk_vcodec_ctx *ctx)
 	unsigned long in[8] = {0};
 
 	mtk_v4l2_debug(4,
-				   "[%d] param change %d decode mode %d frame width %d frame height %d max width %d max height %d",
+				   "[%d] param change 0x%x decode mode %d frame width %d frame height %d max width %d max height %d",
 				   ctx->id, ctx->dec_param_change,
 				   ctx->dec_params.decode_mode,
 				   ctx->dec_params.frame_size_width,
@@ -2044,6 +2107,17 @@ static int mtk_vdec_set_param(struct mtk_vcodec_ctx *ctx)
 					 ctx->id);
 		return -EINVAL;
 	}
+
+	if (vdec_if_get_param(ctx, GET_PARAM_ALIGN_MODE,
+		&ctx->align_mode)) {
+		mtk_v4l2_err("[%d] Error!! Cannot get param : GET_PARAM_ALIGN_MODE ERR",
+					 ctx->id);
+		return -EINVAL;
+	}
+
+	mtk_v4l2_debug(4, "[%d] input_driven %d ipi_blocked %d, align_mode %d align_type %d",
+		ctx->id, ctx->input_driven, *(ctx->ipi_blocked),
+		ctx->align_mode, atomic_read(&ctx->align_type));
 
 	return 0;
 }
@@ -3007,6 +3081,7 @@ static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
 	dma_addr_t new_dma_addr;
 	bool new_dma = false;
 	char debug_bs[50] = "";
+	int pair_cnt, limit_cnt;
 
 	mtk_v4l2_debug(4, "[%d] (%d) id=%d, vb=%p",
 				   ctx->id, vb->vb2_queue->type,
@@ -3074,6 +3149,7 @@ static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
 			buf->queued_in_vb2 = true;
 			v4l2_m2m_buf_queue_check(ctx->m2m_ctx, vb2_v4l2);
 		}
+		update_dst_cnt(ctx);
 		mutex_unlock(&ctx->buf_lock);
 
 		if (ctx->input_driven == INPUT_DRIVEN_CB_FRM)
@@ -3081,11 +3157,51 @@ static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
 
 		mtk_vdec_set_frame(ctx, buf);
 
+		if (ctx->input_driven == NON_INPUT_DRIVEN && ctx->align_mode) {
+			pair_cnt = MIN((*ctx->src_cnt), (*ctx->dst_cnt));
+			limit_cnt = MIN(ctx->dpb_size - 6, 6);
+
+			if (pair_cnt >= limit_cnt) {
+				mtk_v4l2_debug(2, "[%d] (%d) pair cnt %d(%d,%d) >= %d when align mode, need to set align_type(%d)",
+					ctx->id, vb->vb2_queue->type, pair_cnt,
+					(*ctx->src_cnt), (*ctx->dst_cnt),
+					limit_cnt, atomic_read(&ctx->align_type));
+				atomic_cmpxchg(&ctx->align_type,
+					VDEC_ALIGN_WAIT, VDEC_ALIGN_FULL); // 0->1
+			} else
+				mtk_v4l2_debug(8, "[%d] (%d) pair cnt %d(%d,%d) < %d when align mode, no need to set align_type(%d)",
+					ctx->id, vb->vb2_queue->type, pair_cnt,
+					(*ctx->src_cnt), (*ctx->dst_cnt),
+					limit_cnt, atomic_read(&ctx->align_type));
+		}
+
 		return;
 	}
 
 	buf->used = false;
 	v4l2_m2m_buf_queue_check(ctx->m2m_ctx, to_vb2_v4l2_buffer(vb));
+	update_src_cnt(ctx);
+
+	if (ctx->input_driven == NON_INPUT_DRIVEN && ctx->align_mode) {
+		pair_cnt = MIN((*ctx->src_cnt), (*ctx->dst_cnt));
+		limit_cnt = MIN(ctx->dpb_size - 6, 6);
+
+		if (pair_cnt >= limit_cnt || buf->lastframe != NON_EOS)
+			mtk_v4l2_debug(2, "[%d] (%d) pair cnt %d(%d,%d) >= %d or is EOS (%d) when align mode, need to set align_type(%d)",
+				ctx->id, vb->vb2_queue->type, pair_cnt,
+				(*ctx->src_cnt), (*ctx->dst_cnt),
+				limit_cnt, buf->lastframe, atomic_read(&ctx->align_type));
+		else
+			mtk_v4l2_debug(8, "[%d] (%d) pair cnt %d(%d,%d) < %d, no need to set align_type(%d)",
+				ctx->id, vb->vb2_queue->type, pair_cnt,
+				(*ctx->src_cnt), (*ctx->dst_cnt),
+				limit_cnt, atomic_read(&ctx->align_type));
+
+		if (buf->lastframe != NON_EOS)
+			atomic_set(&ctx->align_type, VDEC_ALIGN_RESET);
+		else if (pair_cnt >= limit_cnt)
+			atomic_cmpxchg(&ctx->align_type, VDEC_ALIGN_WAIT, VDEC_ALIGN_FULL); // 0->1
+	}
 
 	if (ctx->state != MTK_STATE_INIT) {
 		mtk_v4l2_debug(4, "[%d] already init driver %d",
@@ -3171,6 +3287,7 @@ static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
 		}
 		src_buf = &src_vb2_v4l2->vb2_buf;
 		clean_free_bs_buffer(ctx, NULL);
+		update_src_cnt(ctx);
 
 		mtk_v4l2_debug(((ret || mtk_vcodec_unsupport || need_seq_header) ? 0 : 1),
 			"[%d] vdec_if_decode() src_buf=%d, size=%zu, fail=%d, res_chg=%d, mtk_vcodec_unsupport=%d, need_seq_header=%d, BS %s",
@@ -3209,8 +3326,8 @@ static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
 		 * framebuffer with old byteused cannot use.
 		 */
 		while (v4l2_m2m_dst_buf_remove(ctx->m2m_ctx) != NULL)
-			mtk_v4l2_debug(3, "[%d] v4l2_m2m_dst_buf_remove()",
-					ctx->id);
+			mtk_v4l2_debug(3, "[%d] v4l2_m2m_dst_buf_remove()", ctx->id);
+		update_dst_cnt(ctx);
 	}
 
 	ret = vdec_if_get_param(ctx, GET_PARAM_PIC_INFO,
@@ -3421,8 +3538,10 @@ static int vb2ops_vdec_start_streaming(struct vb2_queue *q, unsigned int count)
 
 	//SET_PARAM_TOTAL_FRAME_BUFQ_COUNT for SW DEC
 	if (q->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
-		if (ctx->input_driven != NON_INPUT_DRIVEN)
-			*(ctx->ipi_blocked) = false;
+		*(ctx->ipi_blocked) = false;
+		*(ctx->dst_cnt) = 0;
+		atomic_set(&ctx->align_type, VDEC_ALIGN_FULL);
+		ctx->align_start_cnt = ctx->dpb_size;
 
 		total_frame_bufq_count = q->num_buffers;
 		if (vdec_if_set_param(ctx,
@@ -3438,6 +3557,8 @@ static int vb2ops_vdec_start_streaming(struct vb2_queue *q, unsigned int count)
 		mutex_unlock(&ctx->dev->dec_dvfs_mutex);
 
 	} else if (q->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
+		*(ctx->src_cnt) = 0;
+
 		// set SET_PARAM_TOTAL_BITSTREAM_BUFQ_COUNT for
 		// error handling when framing
 		total_frame_bufq_count = q->num_buffers;
@@ -3451,6 +3572,9 @@ static int vb2ops_vdec_start_streaming(struct vb2_queue *q, unsigned int count)
 	}
 
 	mtk_vdec_set_param(ctx);
+	if (q->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE)
+		v4l2_m2m_set_dst_buffered(ctx->m2m_ctx, ctx->input_driven != NON_INPUT_DRIVEN);
+
 	return 0;
 }
 
@@ -3577,6 +3701,10 @@ static int m2mops_vdec_job_ready(void *m2m_priv)
 		return 0;
 
 	if (ctx->input_driven != NON_INPUT_DRIVEN && (*ctx->ipi_blocked))
+		return 0;
+
+	if (ctx->input_driven == NON_INPUT_DRIVEN && ctx->align_mode &&
+		atomic_read(&ctx->align_type) == VDEC_ALIGN_WAIT && (*ctx->wait_align))
 		return 0;
 
 	return 1;

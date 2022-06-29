@@ -206,6 +206,18 @@ enum vdec_input_driven_mode {
 	INPUT_DRIVEN_PUT_FRM = 2,
 };
 
+/**
+ * enum vdec_align_status  - decoder different status when align mode
+ * @VDEC_ALIGN_WAIT  : need to wait display vsync align
+ * @VDEC_ALIGN_FULL  : input output buffer pair over limit, start decode and not wait align
+ * @VDEC_ALIGN_RESET : get EOS to reset so continuous decoding, don't need to wait align
+ */
+enum vdec_align_status {
+	VDEC_ALIGN_WAIT = 0,
+	VDEC_ALIGN_FULL = 1,
+	VDEC_ALIGN_RESET = 2,
+};
+
 enum venc_lock {
 	VENC_LOCK_NONE,
 	VENC_LOCK_NORMAL,
@@ -576,6 +588,12 @@ struct mtk_vcodec_ctx {
 	wait_queue_head_t bs_wq;
 	unsigned int *ipi_blocked;
 	enum vdec_input_driven_mode input_driven;
+	bool align_mode;
+	atomic_t align_type; // flag for enum vdec_align_status
+	unsigned char *wait_align; // flag for waiting display vsync
+	int align_start_cnt;
+	unsigned char *src_cnt;
+	unsigned char *dst_cnt;
 
 	struct workqueue_struct *vdec_set_frame_wq;
 	struct vdec_set_frame_work_struct vdec_set_frame_work;
