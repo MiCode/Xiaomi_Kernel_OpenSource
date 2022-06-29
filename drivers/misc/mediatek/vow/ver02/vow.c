@@ -2853,8 +2853,8 @@ static long VowDrv_compat_ioctl(struct file *fp,
 		break;
 	case VOW_MODEL_START:
 	case VOW_MODEL_STOP: {
-		struct vow_model_start_kernel_t data32;
-		struct vow_model_start_t data;
+		struct vow_model_start_kernel_t data32 = {};
+		struct vow_model_start_t data = {};
 		long err = -1;
 
 		err = (long)copy_from_user(&data32, compat_ptr(arg),
@@ -2863,10 +2863,11 @@ static long VowDrv_compat_ioctl(struct file *fp,
 		if (err != 0L)
 			VOWDRV_DEBUG("%s(), copy data from user fail", __func__);
 
-		data.handle				  = data32.handle;
-		data.confidence_level	  = data32.confidence_level;
-		data.dsp_inform_addr	  = data32.dsp_inform_addr;
+		data.handle               = data32.handle;
+		data.confidence_level     = data32.confidence_level;
+		data.dsp_inform_addr      = data32.dsp_inform_addr;
 		data.dsp_inform_size_addr = data32.dsp_inform_size_addr;
+
 
 		ret = fp->f_op->unlocked_ioctl(fp, cmd, (unsigned long)&data);
 	}
@@ -2875,8 +2876,8 @@ static long VowDrv_compat_ioctl(struct file *fp,
 	case VOW_SET_SPEAKER_MODEL:
 	case VOW_SET_VOW_DUMP_DATA:
 	case VOW_SET_APREG_INFO: {
-		struct vow_model_info_kernel_t data32;
-		struct vow_model_info_t data;
+		struct vow_model_info_kernel_t data32 = {};
+		struct vow_model_info_t data = {};
 		long err = -1;
 
 		err = (long)copy_from_user(&data32, compat_ptr(arg),
@@ -2885,13 +2886,13 @@ static long VowDrv_compat_ioctl(struct file *fp,
 		if (err != 0L)
 			VOWDRV_DEBUG("%s(), copy data from user fail", __func__);
 
-		data.id				  = data32.id;
-		data.keyword		  = data32.keyword;
-		data.addr			  = data32.addr;
-		data.size			  = data32.size;
+		data.id               = data32.id;
+		data.keyword          = data32.keyword;
+		data.addr             = data32.addr;
+		data.size             = data32.size;
 		data.return_size_addr = data32.return_size_addr;
-		data.uuid			  = data32.uuid;
-		data.data			  = (uint32_t *)data32.data;
+		data.uuid             = data32.uuid;
+		data.data             = (uint32_t *)data32.data;
 
 		ret = fp->f_op->unlocked_ioctl(fp, cmd, (unsigned long)&data);
 	}
@@ -2899,8 +2900,8 @@ static long VowDrv_compat_ioctl(struct file *fp,
 	case VOW_SET_DSP_AEC_PARAMETER:
 	case VOW_GET_GOOGLE_ARCH:
 	case VOW_GET_ALEXA_ENGINE_VER: {
-		struct vow_engine_info_kernel_t data32;
-		struct vow_engine_info_t data;
+		struct vow_engine_info_kernel_t data32 = {};
+		struct vow_engine_info_t data = {};
 		long err = -1;
 
 		err = (long)copy_from_user(&data32, compat_ptr(arg),
@@ -2910,14 +2911,14 @@ static long VowDrv_compat_ioctl(struct file *fp,
 			VOWDRV_DEBUG("%s(), copy data from user fail", __func__);
 
 		data.return_size_addr = data32.return_size_addr;
-		data.data_addr		  = data32.data_addr;
+		data.data_addr        = data32.data_addr;
 
 		ret = fp->f_op->unlocked_ioctl(fp, cmd, (unsigned long)&data);
 	}
 		break;
 	case VOW_SET_PAYLOADDUMP_INFO: {
-		struct vow_payloaddump_info_kernel_t data32;
-		struct vow_payloaddump_info_t data;
+		struct vow_payloaddump_info_kernel_t data32 = {};
+		struct vow_payloaddump_info_t data = {};
 		long err = -1;
 
 		err = (long)copy_from_user(&data32, compat_ptr(arg),
@@ -2926,9 +2927,9 @@ static long VowDrv_compat_ioctl(struct file *fp,
 		if (err != 0L)
 			VOWDRV_DEBUG("%s(), copy data from user fail", __func__);
 
-		data.return_payloaddump_addr	  = data32.return_payloaddump_addr;
+		data.return_payloaddump_addr      = data32.return_payloaddump_addr;
 		data.return_payloaddump_size_addr = data32.return_payloaddump_size_addr;
-		data.max_payloaddump_size		  = data32.max_payloaddump_size;
+		data.max_payloaddump_size         = data32.max_payloaddump_size;
 
 		ret = fp->f_op->unlocked_ioctl(fp, cmd, (unsigned long)&data);
 	}
