@@ -451,6 +451,42 @@ TRACE_EVENT(sched_headroom_interval_tick,
 		__entry->tick)
 );
 
+#if IS_ENABLED(CONFIG_MTK_CORE_PAUSE)
+TRACE_EVENT(sched_pause_cpus,
+	TP_PROTO(struct cpumask *req_cpus, struct cpumask *last_cpus,
+			u64 start_time, unsigned char pause,
+			int err, struct cpumask *pause_cpus),
+
+	TP_ARGS(req_cpus, last_cpus, start_time, pause, err, pause_cpus),
+
+	TP_STRUCT__entry(
+		__field(unsigned int, req_cpus)
+		__field(unsigned int, last_cpus)
+		__field(unsigned int, time)
+		__field(unsigned char, pause)
+		__field(int, err)
+		__field(unsigned int, pause_cpus)
+		__field(unsigned int, online_cpus)
+		__field(unsigned int, active_cpus)
+	),
+
+	TP_fast_assign(
+		__entry->req_cpus    = cpumask_bits(req_cpus)[0];
+		__entry->last_cpus = cpumask_bits(last_cpus)[0];
+		__entry->time        = div64_u64(sched_clock() - start_time, 1000);
+		__entry->pause	     = pause;
+		__entry->err         = err;
+		__entry->pause_cpus    = cpumask_bits(pause_cpus)[0];
+		__entry->online_cpus    = cpumask_bits(cpu_online_mask)[0];
+		__entry->active_cpus    = cpumask_bits(cpu_active_mask)[0];
+	),
+
+	TP_printk("req=0x%x cpus=0x%x time=%u us paused=%d, err=%d, pause=0x%x, online=0x%x, active=0x%x",
+		  __entry->req_cpus, __entry->last_cpus, __entry->time, __entry->pause,
+		  __entry->err, __entry->pause_cpus, __entry->online_cpus, __entry->active_cpus)
+);
+#endif
+
 #endif /* _TRACE_SCHEDULER_H */
 
 #undef TRACE_INCLUDE_PATH

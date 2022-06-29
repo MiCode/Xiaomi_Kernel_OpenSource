@@ -147,6 +147,9 @@ void task_check_for_rotation(struct rq *src_rq)
 	if (is_max_capacity_cpu(src_cpu))
 		return;
 
+	if (cpu_paused(src_cpu))
+		return;
+
 	for_each_possible_cpu(i) {
 		struct rq *rq = cpu_rq(i);
 		struct task_struct *curr_task = rq->curr;
@@ -165,6 +168,9 @@ void task_check_for_rotation(struct rq *src_rq)
 	wc = ktime_get_raw_ns();
 	for_each_possible_cpu(i) {
 		struct rq *rq = cpu_rq(i);
+
+		if (cpu_paused(i))
+			continue;
 
 		if (!is_min_capacity_cpu(i))
 			continue;
@@ -189,6 +195,9 @@ void task_check_for_rotation(struct rq *src_rq)
 
 	for_each_possible_cpu(i) {
 		struct rq *rq = cpu_rq(i);
+
+		if (cpu_paused(i))
+			continue;
 
 		if (capacity_orig_of(i) <= capacity_orig_of(src_cpu))
 			continue;
@@ -227,6 +236,9 @@ void task_check_for_rotation(struct rq *src_rq)
 			double_rq_unlock(src_rq, dst_rq);
 			return;
 		}
+
+		if (cpu_paused(src_cpu) || cpu_paused(dst_cpu))
+			return;
 
 		if (!src_rq->active_balance && !dst_rq->active_balance) {
 			src_rq->active_balance = 1;

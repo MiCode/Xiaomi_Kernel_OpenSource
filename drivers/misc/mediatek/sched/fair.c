@@ -492,6 +492,9 @@ void mtk_find_energy_efficient_cpu(void *data, struct task_struct *p, int prev_c
 			if (!cpumask_test_cpu(cpu, p->cpus_ptr))
 				continue;
 
+			if (cpu_paused(cpu))
+				continue;
+
 			util = cpu_util_next(cpu, p, cpu);
 			cpu_cap = capacity_of(cpu);
 			spare_cap = cpu_cap;
@@ -722,6 +725,10 @@ static int mtk_active_load_balance_cpu_stop(void *data)
 
 	if (!cpu_active(busiest_cpu) || !cpu_active(target_cpu))
 		goto out_unlock;
+
+	if (cpu_paused(busiest_cpu) || cpu_paused(target_cpu))
+		goto out_unlock;
+
 	/* Make sure the requested CPU hasn't gone down in the meantime: */
 	if (unlikely(!busiest_rq->active_balance))
 		goto out_unlock;
@@ -792,6 +799,11 @@ void mtk_sched_newidle_balance(void *data, struct rq *this_rq, struct rq_flags *
 	int this_cpu = this_rq->cpu;
 	unsigned long misfit_load = 0;
 	u64 now_ns;
+
+	if (cpu_paused(this_cpu)) {
+		*done = 1;
+		return;
+	}
 
 	/*
 	 * There is a task waiting to run. No need to search for one.

@@ -20,12 +20,16 @@
 
 MODULE_LICENSE("GPL");
 
+#define CORE_PAUSE_OUT		0
 #define IB_ASYM_MISFIT		(0x02)
 #define IB_SAME_CLUSTER		(0x01)
 #define IB_OVERUTILIZATION	(0x04)
 
 DEFINE_PER_CPU(struct update_util_data __rcu *, cpufreq_update_util_data);
 DEFINE_PER_CPU(__u32, active_softirqs);
+
+struct cpumask __cpu_pause_mask;
+EXPORT_SYMBOL(__cpu_pause_mask);
 
 #ifdef CONFIG_RT_SOFTINT_OPTIMIZATION
 /*
@@ -99,6 +103,13 @@ void mtk_find_busiest_group(void *data, struct sched_group *busiest,
 		struct rq *dst_rq, int *out_balance)
 {
 	int src_cpu = -1;
+	int dst_cpu = dst_rq->cpu;
+
+	if (cpu_paused(dst_cpu)) {
+		*out_balance = 1;
+		trace_sched_find_busiest_group(src_cpu, dst_cpu, *out_balance, CORE_PAUSE_OUT);
+		return;
+	}
 
 	if (busiest) {
 		struct perf_domain *pd = NULL;
@@ -727,6 +738,9 @@ void mtk_select_task_rq_rt(void *data, struct task_struct *p, int source_cpu,
 			if (!cpumask_test_cpu(cpu, p->cpus_ptr))
 				continue;
 
+			if (cpu_paused(cpu))
+				continue;
+
 			if (!mtk_rt_task_fits_capacity(p, cpu))
 				continue;
 
@@ -776,3 +790,92 @@ void mtk_pelt_rt_tp(void *data, struct rq *rq)
 	cpufreq_update_util(rq, 0);
 }
 #endif
+
+void mtk_find_lowest_rq(void *data, struct task_struct *p, struct cpumask *lowest_mask,
+			int ret, int *lowest_cpu)
+{
+	struct root_domain *rd = cpu_rq(smp_processor_id())->rd;
+	struct perf_domain *pd;
+	int cpu = -1, best_cpu;
+	int this_cpu = smp_processor_id();
+	cpumask_t avail_lowest_mask;
+
+	if (!ret)
+		return; /* No targets found */
+
+	cpumask_andnot(&avail_lowest_mask, lowest_mask, cpu_pause_mask);
+
+	cpu = task_cpu(p);
+
+	/*
+	 * At this point we have built a mask of CPUs representing the
+	 * lowest priority tasks in the system.  Now we want to elect
+	 * the best one based on our affinity and topology.
+	 *
+	 * We prioritize the last CPU that the task executed on since
+	 * it is most likely cache-hot in that location.
+	 */
+	if (cpumask_test_cpu(cpu, &avail_lowest_mask)) {
+		*lowest_cpu = cpu;
+		return;
+	}
+
+	/*
+	 * Otherwise, we consult the sched_domains span maps to figure
+	 * out which CPU is logically closest to our hot cache data.
+	 */
+	if (!cpumask_test_cpu(this_cpu, &avail_lowest_mask))
+		this_cpu = -1; /* Skip this_cpu opt if not among lowest */
+
+	rcu_read_lock();
+	pd = rcu_dereference(rd->pd);
+	if (!pd)
+		goto unlock;
+
+	/* Find best_cpu on same cluster with task_cpu(p) */
+	for (; pd; pd = pd->next) {
+		if (!cpumask_test_cpu(cpu, perf_domain_span(pd)))
+			continue;
+
+		/*
+		 * "this_cpu" is cheaper to preempt than a
+		 * remote processor.
+		 */
+		if (this_cpu != -1 && cpumask_test_cpu(this_cpu, perf_domain_span(pd))) {
+			rcu_read_unlock();
+			*lowest_cpu = this_cpu;
+			return;
+		}
+
+		best_cpu = cpumask_any_and_distribute(&avail_lowest_mask,
+						perf_domain_span(pd));
+		if (best_cpu < nr_cpu_ids) {
+			rcu_read_unlock();
+			*lowest_cpu = best_cpu;
+			return;
+		}
+	}
+
+unlock:
+	rcu_read_unlock();
+
+	/*
+	 * And finally, if there were no matches within the domains
+	 * just give the caller *something* to work with from the compatible
+	 * locations.
+	 */
+	if (this_cpu != -1) {
+		*lowest_cpu = this_cpu;
+		return;
+	}
+
+	cpu = cpumask_any_and_distribute(&avail_lowest_mask, cpu_possible_mask);
+	if (cpu < nr_cpu_ids) {
+		*lowest_cpu = cpu;
+		return;
+	}
+
+	/* Let find_lowest_rq not to choose dst_cpu */
+	*lowest_cpu = -1;
+	cpumask_clear(lowest_mask);
+}

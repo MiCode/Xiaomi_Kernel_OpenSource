@@ -14,6 +14,7 @@ extern void cleanup_sched_common_sysfs(void);
 extern struct kobj_attribute sched_core_pause_info_attr;
 extern int sched_pause_cpu(int cpu);
 extern int sched_resume_cpu(int cpu);
+extern int resume_cpus(struct cpumask *cpus);
 #if IS_ENABLED(CONFIG_MTK_THERMAL_INTERFACE)
 extern int set_cpu_active_bitmask(int mask);
 #endif

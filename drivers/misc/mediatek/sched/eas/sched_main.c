@@ -229,9 +229,17 @@ static int __init mtk_scheduler_init(void)
 	if (ret)
 		pr_info("register mtk_select_task_rq_rt hooks failed, returned %d\n", ret);
 
+	ret = register_trace_android_rvh_find_lowest_rq(mtk_find_lowest_rq, NULL);
+	if (ret)
+		pr_info("register find_lowest_rq hooks failed, returned %d\n", ret);
+
 	sched_asym_cpucapacity_init();
 
 	mtk_sched_trace_init();
+
+#if IS_ENABLED(CONFIG_MTK_CORE_PAUSE)
+	sched_pause_init();
+#endif
 
 	return ret;
 

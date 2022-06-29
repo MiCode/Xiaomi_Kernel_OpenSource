@@ -85,4 +85,19 @@ extern void mtk_hook_after_enqueue_task(void *data, struct rq *rq,
 extern void mtk_select_task_rq_rt(void *data, struct task_struct *p, int cpu, int sd_flag,
 				int flags, int *target_cpu);
 extern int mtk_sched_asym_cpucapacity;
+
+extern void mtk_find_lowest_rq(void *data, struct task_struct *p, struct cpumask *lowest_mask,
+				int ret, int *lowest_cpu);
+
+extern struct cpumask __cpu_pause_mask;
+#define cpu_pause_mask ((struct cpumask *)&__cpu_pause_mask)
+
+#if IS_ENABLED(CONFIG_MTK_CORE_PAUSE)
+#define cpu_paused(cpu) cpumask_test_cpu((cpu), cpu_pause_mask)
+
+extern void sched_pause_init(void);
+#else
+#define cpu_paused(cpu) 0
+#endif
+
 #endif
