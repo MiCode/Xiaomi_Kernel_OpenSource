@@ -2544,6 +2544,12 @@ void cmdq_pkt_err_dump_cb(struct cmdq_cb_data data)
 
 	cmdq_pkt_call_item_cb(item);
 
+	pkt->err_data.offset = cmdq_task_current_offset(pc, pkt);
+	if (inst && inst->op == CMDQ_CODE_WFE) {
+		pkt->err_data.wfe_timeout = true;
+		pkt->err_data.event = inst->arg_a;
+	}
+
 	if (!pkt->aee_cb)
 		aee = CMDQ_AEE_WARN;
 	else
@@ -2558,12 +2564,6 @@ void cmdq_pkt_err_dump_cb(struct cmdq_cb_data data)
 #else
 		cmdq_util_helper->dump_smi();
 #endif
-	}
-
-	pkt->err_data.offset = cmdq_task_current_offset(pc, pkt);
-	if (inst && inst->op == CMDQ_CODE_WFE) {
-		pkt->err_data.wfe_timeout = true;
-		pkt->err_data.event = inst->arg_a;
 	}
 
 	if (inst && inst->op == CMDQ_CODE_WFE) {
