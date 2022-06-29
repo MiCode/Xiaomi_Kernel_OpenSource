@@ -19,6 +19,8 @@
 int mt6985_init_clock(struct mtk_base_afe *afe) { return 0; }
 int mt6985_afe_enable_clock(struct mtk_base_afe *afe) { return 0; }
 void mt6985_afe_disable_clock(struct mtk_base_afe *afe) {}
+int mt6985_afe_sram_request(struct mtk_base_afe *afe) { return 0; }
+void mt6985_afe_sram_release(struct mtk_base_afe *afe) {}
 int mt6985_afe_dram_request(struct device *dev) { return 0; }
 int mt6985_afe_dram_release(struct device *dev) { return 0; }
 int mt6985_apll1_enable(struct mtk_base_afe *afe) { return 0; }
@@ -386,6 +388,32 @@ int mt6985_afe_dram_release(struct device *dev)
 	}
 	mutex_unlock(&mutex_request_dram);
 	return 0;
+}
+
+int mt6985_afe_sram_request(struct mtk_base_afe *afe)
+{
+	struct arm_smccc_res res;
+
+	dev_info(afe->dev, "%s() successfully start\n", __func__);
+
+	/* use arm_smccc_smc to notify SPM */
+	arm_smccc_smc(MTK_SIP_AUDIO_CONTROL,
+		MTK_AUDIO_SMC_OP_SRAM_REQUEST,
+		0, 0, 0, 0, 0, 0, &res);
+
+	return 0;
+}
+
+void mt6985_afe_sram_release(struct mtk_base_afe *afe)
+{
+	struct arm_smccc_res res;
+
+	dev_info(afe->dev, "%s() successfully start\n", __func__);
+
+	/* use arm_smccc_smc to notify SPM */
+	arm_smccc_smc(MTK_SIP_AUDIO_CONTROL,
+		MTK_AUDIO_SMC_OP_SRAM_RELEASE,
+		0, 0, 0, 0, 0, 0, &res);
 }
 
 int mt6985_apll1_enable(struct mtk_base_afe *afe)

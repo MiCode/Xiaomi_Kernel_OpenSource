@@ -284,6 +284,9 @@ int mt6985_afe_enable_clock(struct mtk_base_afe *afe);
 void mt6985_afe_disable_clock(struct mtk_base_afe *afe);
 int mt6985_afe_enable_ao_clock(struct mtk_base_afe *afe);
 
+int mt6985_afe_sram_request(struct mtk_base_afe *afe);
+void mt6985_afe_sram_release(struct mtk_base_afe *afe);
+
 int mt6985_afe_dram_request(struct device *dev);
 int mt6985_afe_dram_release(struct device *dev);
 

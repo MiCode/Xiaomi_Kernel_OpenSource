@@ -4099,6 +4099,7 @@ static int mt6985_afe_runtime_suspend(struct device *dev)
 	regcache_mark_dirty(afe->regmap);
 
 skip_regmap:
+	mt6985_afe_sram_release(afe);
 	mt6985_afe_disable_clock(afe);
 	return 0;
 }
@@ -4113,6 +4114,7 @@ static int mt6985_afe_runtime_resume(struct device *dev)
 	ret = mt6985_afe_enable_clock(afe);
 	if (ret)
 		return ret;
+	mt6985_afe_sram_request(afe);
 
 	if (!afe->regmap)
 		goto skip_regmap;
