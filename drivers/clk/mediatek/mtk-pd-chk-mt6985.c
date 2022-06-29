@@ -895,7 +895,7 @@ static int *get_notice_mtcmos_id(void)
 
 static bool is_mtcmos_chk_bug_on(void)
 {
-#if BUG_ON_CHK_ENABLE
+#if (BUG_ON_CHK_ENABLE) || (IS_ENABLED(CONFIG_MTK_CLKMGR_DEBUG))
 	return true;
 #endif
 	return false;

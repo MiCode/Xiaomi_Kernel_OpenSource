@@ -755,6 +755,7 @@ static int clkdbg_set_rate(struct seq_file *s, void *v)
 	return r;
 }
 
+#if IS_ENABLED(CONFIG_MTK_CLKMGR_DEBUG)
 static void *reg_from_str(const char *str)
 {
 	static phys_addr_t phys;
@@ -903,6 +904,7 @@ static int clkdbg_reg_clr(struct seq_file *s, void *v)
 
 	return 0;
 }
+#endif
 
 static int parse_val_from_cmd(unsigned long *pval)
 {
@@ -2117,10 +2119,12 @@ static const struct cmd_fn common_cmds[] = {
 	CMDFN("disable_unprepare_provider", clkdbg_disable_unprepare_provider),
 	CMDFN("set_parent", clkdbg_set_parent),
 	CMDFN("set_rate", clkdbg_set_rate),
+#if IS_ENABLED(CONFIG_MTK_CLKMGR_DEBUG)
 	CMDFN("reg_read", clkdbg_reg_read),
 	CMDFN("reg_write", clkdbg_reg_write),
 	CMDFN("reg_set", clkdbg_reg_set),
 	CMDFN("reg_clr", clkdbg_reg_clr),
+#endif
 	CMDFN("show_flags", clkdbg_show_flags),
 	CMDFN("set_flag", clkdbg_set_flag),
 	CMDFN("clr_flag", clkdbg_clr_flag),

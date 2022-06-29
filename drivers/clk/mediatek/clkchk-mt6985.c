@@ -917,7 +917,7 @@ static const char * const *get_notice_pll_names(void)
 
 static bool is_pll_chk_bug_on(void)
 {
-#if BUG_ON_CHK_ENABLE
+#if (BUG_ON_CHK_ENABLE) || (IS_ENABLED(CONFIG_MTK_CLKMGR_DEBUG))
 	return true;
 #endif
 	return false;
