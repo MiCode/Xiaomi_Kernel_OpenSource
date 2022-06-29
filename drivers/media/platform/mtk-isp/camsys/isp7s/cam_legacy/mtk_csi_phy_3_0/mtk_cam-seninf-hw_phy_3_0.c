@@ -1061,6 +1061,10 @@ static int mtk_cam_seninf_set_mux_ctrl(struct seninf_ctx *ctx, int mux,
 
 //	set_camux_checker_pixel_mode(0, pixel_mode);
 
+	// Enable vc split
+	SENINF_BITS(pSeninf_mux, SENINF_MUX_OPT,
+		    RG_SENINF_MUX_VS_SPLIT_EN, 1);
+
 	SENINF_BITS(pSeninf_mux, SENINF_MUX_OPT,
 		    RG_SENINF_MUX_HSYNC_POL, hsPol);
 	SENINF_BITS(pSeninf_mux, SENINF_MUX_OPT,
@@ -3949,6 +3953,9 @@ static int mtk_cam_seninf_set_cam_mux_dyn_en(
 static int mtk_cam_seninf_reset_cam_mux_dyn_en(struct seninf_ctx *ctx, int index)
 {
 	void *pSeninf_cam_mux_gcsr = ctx->reg_if_cam_mux_gcsr;
+
+	SENINF_BITS(pSeninf_cam_mux_gcsr,
+		SENINF_CAM_MUX_GCSR_DYN_CTRL, RG_SENINF_CAM_MUX_DYN_SAT_SWITCH_EN, 0);
 
 	if (index == 0)
 		SENINF_BITS(pSeninf_cam_mux_gcsr,
