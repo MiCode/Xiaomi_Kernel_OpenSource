@@ -15,6 +15,8 @@
 #include <linux/pm_runtime.h>
 #include <soc/mediatek/mmdvfs_v3.h>
 
+#include <mt-plat/mtk-vmm-notifier.h>
+
 
 #define ISP_LOGI(fmt, args...) \
 	pr_notice("[VMM_NOTI] %s(): " fmt "\n", \
@@ -61,15 +63,32 @@ static int mtk_camera_pd_callback(struct notifier_block *nb,
 
 	mutex_lock(&ctrl_mutex);
 
-	if (flags == GENPD_NOTIFY_ON)
+	if (flags == GENPD_NOTIFY_PRE_ON)
 		ret = vmm_locked_isp_open();
-	else if (flags == GENPD_NOTIFY_PRE_OFF)
+	else if (flags == GENPD_NOTIFY_OFF)
 		ret = vmm_locked_isp_close();
 
 	mutex_unlock(&ctrl_mutex);
 
 	return ret;
 }
+
+int vmm_isp_ctrl_notify(int openIsp)
+{
+	int ret;
+
+	mutex_lock(&ctrl_mutex);
+
+	if (openIsp)
+		ret = vmm_locked_isp_open();
+	else
+		ret = vmm_locked_isp_close();
+
+	mutex_unlock(&ctrl_mutex);
+
+	return ret;
+}
+EXPORT_SYMBOL_GPL(vmm_isp_ctrl_notify);
 
 static struct notifier_block mtk_pd_notifier = {
 	.notifier_call = mtk_camera_pd_callback,
