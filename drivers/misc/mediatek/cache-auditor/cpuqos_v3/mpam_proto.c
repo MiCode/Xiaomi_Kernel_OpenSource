@@ -823,12 +823,12 @@ static int platform_cpuqos_v3_probe(struct platform_device *pdev)
 }
 
 static const struct of_device_id platform_cpuqos_v3_of_match[] = {
-	{ .compatible = "mediatek,cpuqos_v3", },
+	{ .compatible = "mediatek,cpuqos-v3", },
 	{},
 };
 
 static const struct platform_device_id platform_cpuqos_v3_id_table[] = {
-	{ "cpuqos_v3", 0},
+	{ "cpuqos-v3", 0},
 	{ },
 };
 
