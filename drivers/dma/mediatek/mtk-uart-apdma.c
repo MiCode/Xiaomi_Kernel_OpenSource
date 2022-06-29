@@ -22,6 +22,7 @@
 #include <linux/pm_runtime.h>
 #include <linux/slab.h>
 #include <linux/spinlock.h>
+#include <linux/sched/clock.h>
 
 #include "../virt-dma.h"
 
@@ -75,6 +76,15 @@
 #define VFF_DEBUG_STATUS	0x50
 #define VFF_4G_SUPPORT		0x54
 
+#define UART_RECORD_COUNT	5
+
+struct uart_info {
+	unsigned int wpt_reg;
+	unsigned int rpt_reg;
+	unsigned int trans_len;
+	unsigned long long trans_time;
+};
+
 struct mtk_uart_apdmacomp {
 	unsigned int addr_bits;
 };
@@ -102,6 +112,8 @@ struct mtk_chan {
 	unsigned int irq;
 
 	unsigned int rx_status;
+	unsigned long long rec_idx;
+	struct uart_info rec_info[UART_RECORD_COUNT];
 };
 
 static inline struct mtk_uart_apdmadev *
@@ -137,12 +149,52 @@ static void mtk_uart_apdma_desc_free(struct virt_dma_desc *vd)
 		kfree(container_of(vd, struct mtk_uart_apdma_desc, vd));
 }
 
+void mtk_save_uart_apdma_reg(struct dma_chan *chan, unsigned int *reg_buf)
+{
+	struct mtk_chan *c = to_mtk_uart_apdma_chan(chan);
+
+	reg_buf[0] = mtk_uart_apdma_read(c, VFF_INT_FLAG);
+	reg_buf[1] = mtk_uart_apdma_read(c, VFF_INT_EN);
+	reg_buf[2] = mtk_uart_apdma_read(c, VFF_EN);
+	reg_buf[3] = mtk_uart_apdma_read(c, VFF_FLUSH);
+	reg_buf[4] = mtk_uart_apdma_read(c, VFF_ADDR);
+	reg_buf[5] = mtk_uart_apdma_read(c, VFF_LEN);
+	reg_buf[6] = mtk_uart_apdma_read(c, VFF_THRE);
+	reg_buf[7] = mtk_uart_apdma_read(c, VFF_WPT);
+	reg_buf[8] = mtk_uart_apdma_read(c, VFF_RPT);
+	reg_buf[9] = mtk_uart_apdma_read(c, VFF_INT_BUF_SIZE);
+	reg_buf[10] = mtk_uart_apdma_read(c, VFF_VALID_SIZE);
+	reg_buf[11] = mtk_uart_apdma_read(c, VFF_LEFT_SIZE);
+	reg_buf[12] = mtk_uart_apdma_read(c, VFF_DEBUG_STATUS);
+}
+EXPORT_SYMBOL(mtk_save_uart_apdma_reg);
+
+void mtk_uart_apdma_data_dump(struct dma_chan *chan)
+{
+	struct mtk_chan *c = to_mtk_uart_apdma_chan(chan);
+	int idx = 0;
+
+	for (idx = 0; idx < UART_RECORD_COUNT; idx++) {
+		unsigned long long endtime = c->rec_info[idx].trans_time;
+		unsigned long ns = 0;
+
+		ns = do_div(endtime, 1000000000);
+		dev_info(c->vc.chan.device->dev,
+			"[%s][%5lu.%06lu] total=%llu,idx=%d,wpt=0x%x,rpt=0x%x,len=%d\n",
+			__func__, (unsigned long)endtime, ns / 1000, c->rec_idx, idx,
+			c->rec_info[idx].wpt_reg, c->rec_info[idx].rpt_reg,
+			c->rec_info[idx].trans_len);
+	}
+}
+EXPORT_SYMBOL(mtk_uart_apdma_data_dump);
+
 static void mtk_uart_apdma_start_tx(struct mtk_chan *c)
 {
 	struct mtk_uart_apdmadev *mtkd =
 				to_mtk_uart_apdma_dev(c->vc.chan.device);
 	struct mtk_uart_apdma_desc *d = c->desc;
 	unsigned int wpt, vff_sz;
+	unsigned int idx = 0;
 
 	vff_sz = c->cfg.dst_port_window_size;
 
@@ -176,6 +228,13 @@ static void mtk_uart_apdma_start_tx(struct mtk_chan *c)
 	}
 
 	wpt = mtk_uart_apdma_read(c, VFF_WPT);
+
+	idx = (unsigned int)(c->rec_idx % UART_RECORD_COUNT);
+	c->rec_idx++;
+	c->rec_info[idx].wpt_reg = wpt;
+	c->rec_info[idx].rpt_reg = wpt;
+	c->rec_info[idx].trans_len = c->desc->avail_len;
+	c->rec_info[idx].trans_time = sched_clock();
 
 	wpt += c->desc->avail_len;
 	if ((wpt & VFF_RING_SIZE) == vff_sz)
@@ -241,6 +300,7 @@ static void mtk_uart_apdma_rx_handler(struct mtk_chan *c)
 	struct mtk_uart_apdma_desc *d = c->desc;
 	unsigned int len, wg, rg;
 	int cnt;
+	unsigned int idx = 0;
 
 	mtk_uart_apdma_write(c, VFF_INT_FLAG, VFF_RX_INT_CLR_B);
 
@@ -265,8 +325,15 @@ static void mtk_uart_apdma_rx_handler(struct mtk_chan *c)
 	c->rx_status = d->avail_len - cnt;
 	mtk_uart_apdma_write(c, VFF_RPT, wg);
 
-		list_del(&d->vd.node);
-		vchan_cookie_complete(&d->vd);
+	idx = (unsigned int)(c->rec_idx % UART_RECORD_COUNT);
+	c->rec_idx++;
+	c->rec_info[idx].wpt_reg = wg;
+	c->rec_info[idx].rpt_reg = rg;
+	c->rec_info[idx].trans_len = cnt;
+	c->rec_info[idx].trans_time = sched_clock();
+
+	list_del(&d->vd.node);
+	vchan_cookie_complete(&d->vd);
 }
 
 static irqreturn_t mtk_uart_apdma_irq_handler(int irq, void *dev_id)
@@ -619,6 +686,7 @@ static int mtk_uart_apdma_probe(struct platform_device *pdev)
 			goto err_no_dma;
 		}
 		c->irq = rc;
+		c->rec_idx = 0;
 	}
 
 	pm_runtime_enable(&pdev->dev);

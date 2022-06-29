@@ -24,6 +24,9 @@
 #if IS_ENABLED(CONFIG_MTK_UARTHUB)
 #include "../../../misc/mediatek/uarthub/common/uarthub_drv_export.h"
 #endif
+#ifdef CONFIG_SERIAL_8250_DMA
+#include "../../../dma/mediatek/mtk-uart-apdma.h"
+#endif
 
 #define MTK_UART_HIGHS		0x09	/* Highspeed register */
 #define MTK_UART_SAMPLE_COUNT	0x0a	/* Sample count register */
@@ -35,7 +38,6 @@
 #define MTK_UART_RXTRI_AD	0x14	/* RX Trigger address */
 #define MTK_UART_FRACDIV_L	0x15	/* Fractional divider LSB address */
 #define MTK_UART_FRACDIV_M	0x16	/* Fractional divider MSB address */
-#define MTK_UART_DEBUG0	0x18
 #define MTK_UART_IER_XOFFI	0x20	/* Enable XOFF character interrupt */
 #define MTK_UART_IER_RTSI	0x40	/* Enable RTS Modem status interrupt */
 #define MTK_UART_IER_CTSI	0x80	/* Enable CTS Modem status interrupt */
@@ -43,6 +45,16 @@
 #define MTK_UART_XOFF1		0X2A
 #define MTK_UART_XON2		0X29
 #define MTK_UART_XOFF2		0X2B
+
+#define MTK_UART_DEBUG0		0x18
+#define MTK_UART_DEBUG1		0x19
+#define MTK_UART_DEBUG2		0x1A
+#define MTK_UART_DEBUG3		0x1B
+#define MTK_UART_DEBUG4		0x1C
+#define MTK_UART_DEBUG5		0x1D
+#define MTK_UART_DEBUG6		0x1E
+#define MTK_UART_DEBUG7		0x1F
+#define MTK_UART_DEBUG8		0x20
 
 #define MTK_UART_DLL  0x24
 #define MTK_UART_DLH  0x25
@@ -117,8 +129,8 @@ enum {
 #if IS_ENABLED(CONFIG_MTK_UARTHUB)
 int mtk8250_uart_hub_dump_with_tag(const char *tag)
 {
-	#if defined(UARTHUB_dump_debug_info_with_tag)
-		return UARTHUB_dump_debug_info_with_tag(tag);
+	#if defined(KERNEL_UARTHUB_dump_debug_info_with_tag)
+		return KERNEL_UARTHUB_dump_debug_info_with_tag(tag);
 	#else
 		return 0;
 	#endif
@@ -226,6 +238,137 @@ int mtk8250_uart_hub_is_ready(void)
 EXPORT_SYMBOL(mtk8250_uart_hub_is_ready);
 
 #endif
+
+#ifdef CONFIG_SERIAL_8250_DMA
+static void mtk8250_save_uart_apdma_reg(struct dma_chan *chan, unsigned int *reg_buf)
+{
+	#if defined(KERNEL_mtk_save_uart_apdma_reg)
+		KERNEL_mtk_save_uart_apdma_reg(chan, reg_buf);
+	#endif
+}
+
+static void mtk8250_uart_apdma_data_dump(struct dma_chan *chan)
+{
+	#if defined(KERNEL_mtk_uart_apdma_data_dump)
+		KERNEL_mtk_uart_apdma_data_dump(chan);
+	#endif
+}
+#endif
+
+static void mtk_save_uart_reg(struct uart_8250_port *up, unsigned int *reg_buf)
+{
+	reg_buf[0] = serial_in(up, UART_LCR);
+	serial_out(up, MTK_UART_FEATURE_SEL, 0x01);
+	reg_buf[1] = serial_in(up, MTK_UART_HIGHS);
+	reg_buf[2] = serial_in(up, MTK_UART_SAMPLE_COUNT);
+	reg_buf[3] = serial_in(up, MTK_UART_SAMPLE_POINT);
+	reg_buf[4] = serial_in(up, MTK_UART_DLL);
+	reg_buf[5] = serial_in(up, MTK_UART_DLH);
+	reg_buf[6] = serial_in(up, MTK_UART_FRACDIV_L);
+	reg_buf[7] = serial_in(up, MTK_UART_FRACDIV_M);
+	reg_buf[8] = serial_in(up, MTK_UART_EFR);
+	reg_buf[9] = serial_in(up, MTK_UART_XON1);
+	reg_buf[10] = serial_in(up, MTK_UART_XOFF1);
+	serial_out(up, MTK_UART_FEATURE_SEL, 0x00);
+	reg_buf[11] = serial_in(up, MTK_UART_DEBUG0);
+	reg_buf[12] = serial_in(up, MTK_UART_DEBUG1);
+	reg_buf[13] = serial_in(up, MTK_UART_DEBUG2);
+	reg_buf[14] = serial_in(up, MTK_UART_DEBUG3);
+	reg_buf[15] = serial_in(up, MTK_UART_DEBUG4);
+	reg_buf[16] = serial_in(up, MTK_UART_DEBUG5);
+	reg_buf[17] = serial_in(up, MTK_UART_DEBUG6);
+	reg_buf[18] = serial_in(up, MTK_UART_DEBUG7);
+	reg_buf[19] = serial_in(up, MTK_UART_DEBUG8);
+}
+
+int mtk8250_uart_dump(struct tty_struct *tty)
+{
+	struct uart_state *state = NULL;
+	struct uart_port *port = NULL;
+	struct uart_8250_port *up = NULL;
+	struct mtk8250_data *data = NULL;
+	unsigned int uart_reg_buf[24];
+	unsigned int apdma_rx_reg_buf[24];
+	unsigned int apdma_tx_reg_buf[24];
+
+	memset(uart_reg_buf, 0, 24);
+	memset(apdma_rx_reg_buf, 0, 24);
+	memset(apdma_tx_reg_buf, 0, 24);
+
+	if (tty == NULL) {
+		pr_info("[%s] para error. tty is NULL\n", __func__);
+		return -EINVAL;
+	}
+	state = tty->driver_data;
+	if (state == NULL) {
+		pr_info("[%s] para error. state is NULL\n", __func__);
+		return -EINVAL;
+	}
+	port = state->uart_port;
+	if (port == NULL) {
+		pr_info("[%s] para error. port is NULL\n", __func__);
+		return -EINVAL;
+	}
+	up = up_to_u8250p(port);
+	if (up == NULL) {
+		pr_info("[%s] para error. up is NULL\n", __func__);
+		return -EINVAL;
+	}
+	data = port->private_data;
+	if (data == NULL) {
+		pr_info("[%s] para error. data is NULL\n", __func__);
+		return -EINVAL;
+	}
+	mtk_save_uart_reg(up, uart_reg_buf);
+
+#ifdef CONFIG_SERIAL_8250_DMA
+	if ((up->dma == NULL) || (up->dma->rxchan == NULL) ||
+		(up->dma->txchan == NULL)) {
+		pr_info("[%s] para error. up->dma,rx,tx is NULL\n", __func__);
+		return -EINVAL;
+	}
+	mtk8250_save_uart_apdma_reg(up->dma->rxchan, apdma_rx_reg_buf);
+	mtk8250_save_uart_apdma_reg(up->dma->txchan, apdma_tx_reg_buf);
+#endif
+
+#if IS_ENABLED(CONFIG_MTK_UARTHUB)
+	mtk8250_uart_hub_dump_with_tag("8250_uarthub");
+#endif
+
+	pr_info("[%s] line=%d,lcr=0x%x,highs=0x%x,count=0x%x,point=0x%x,dll=0x%x,\n"
+		"dlh=0x%x,fre_l=0x%x,fre_m=0x%x,efr=0x%x,xon1=0x%x,xoff1=0x%x\n",
+		__func__, data->line,
+		uart_reg_buf[0], uart_reg_buf[1], uart_reg_buf[2], uart_reg_buf[3],
+		uart_reg_buf[4], uart_reg_buf[5], uart_reg_buf[6], uart_reg_buf[7],
+		uart_reg_buf[8], uart_reg_buf[9], uart_reg_buf[10]);
+	pr_info("[%s] 0x60=0x%x,0x64=0x%x,0x68=0x%x,0x6c=0x%x,\n"
+		"0x70=0x%x,0x74=0x%x,0x78=0x%x,0x7c=0x%x,0x80=0x%x\n",
+		__func__, uart_reg_buf[11], uart_reg_buf[12], uart_reg_buf[13],
+		uart_reg_buf[14], uart_reg_buf[15], uart_reg_buf[16],
+		uart_reg_buf[17], uart_reg_buf[18], uart_reg_buf[19]);
+#ifdef CONFIG_SERIAL_8250_DMA
+	pr_info("[apdma_rx] int_flag=0x%x,int_en=0x%x,en=0x%x,flush=0x%x,addr=0x%x,\n"
+		"len=0x%x,thre=0x%x,wpt=0x%x,rpt=0x%x,int_buf_size=0x%x\n"
+		"valid_size=0x%x,left_size=0x%x,debug_stat=0x%x\n",
+		apdma_rx_reg_buf[0], apdma_rx_reg_buf[1], apdma_rx_reg_buf[2],
+		apdma_rx_reg_buf[3], apdma_rx_reg_buf[4], apdma_rx_reg_buf[5],
+		apdma_rx_reg_buf[6], apdma_rx_reg_buf[7], apdma_rx_reg_buf[8],
+		apdma_rx_reg_buf[9], apdma_rx_reg_buf[10], apdma_rx_reg_buf[11],
+		apdma_rx_reg_buf[12]);
+	pr_info("[apdma_tx] int_flag=0x%x,int_en=0x%x,en=0x%x,flush=0x%x,addr=0x%x,\n"
+		"len=0x%x,thre=0x%x,wpt=0x%x,rpt=0x%x,int_buf_size=0x%x\n"
+		"valid_size=0x%x,left_size=0x%x,debug_stat=0x%x\n",
+		apdma_tx_reg_buf[0], apdma_tx_reg_buf[1], apdma_tx_reg_buf[2],
+		apdma_tx_reg_buf[3], apdma_tx_reg_buf[4], apdma_tx_reg_buf[5],
+		apdma_tx_reg_buf[6], apdma_tx_reg_buf[7], apdma_tx_reg_buf[8],
+		apdma_tx_reg_buf[9], apdma_tx_reg_buf[10], apdma_tx_reg_buf[11],
+		apdma_tx_reg_buf[12]);
+	mtk8250_uart_apdma_data_dump(up->dma->rxchan);
+	mtk8250_uart_apdma_data_dump(up->dma->txchan);
+#endif
+	return 0;
+}
+EXPORT_SYMBOL(mtk8250_uart_dump);
 
 #ifdef CONFIG_SERIAL_8250_DMA
 static void mtk8250_rx_dma(struct uart_8250_port *up);
