@@ -273,6 +273,7 @@ int mtk_camsv_call_pending_set_fmt(struct v4l2_subdev *sd,
 void sv_reset(struct mtk_camsv_device *dev);
 int mtk_cam_call_sv_pipeline_config(
 	struct mtk_cam_ctx *ctx,
+	struct mtk_camsv_tag_info *arr_tag,
 	unsigned int tag_idx,
 	unsigned int seninf_padidx,
 	unsigned int hw_scen,
@@ -324,7 +325,6 @@ bool mtk_cam_sv_is_zero_fbc_cnt(struct mtk_cam_ctx *ctx, unsigned int pipe_id);
 void mtk_cam_sv_check_fbc_cnt(struct mtk_camsv_device *camsv_dev,
 	unsigned int tag_idx);
 int mtk_cam_sv_frame_no_inner(struct mtk_camsv_device *dev);
-int mtk_cam_sv_set_group_info(struct mtk_camsv_device *camsv_dev);
 void apply_camsv_cq(struct mtk_camsv_device *dev,
 	      dma_addr_t cq_addr, unsigned int cq_size, unsigned int cq_offset,
 	      int initial);

@@ -1425,7 +1425,7 @@ int mtk_cam_sv_apply_all_buffers(struct mtk_cam_ctx *ctx)
 {
 	struct mtk_camsv_working_buf_entry *buf_entry;
 
-	if (ctx->sv_dev && ctx->sv_dev->used_tag_cnt) {
+	if (ctx->sv_dev) {
 		spin_lock(&ctx->sv_composed_buffer_list.lock);
 		if (list_empty(&ctx->sv_composed_buffer_list.list)) {
 			spin_unlock(&ctx->sv_composed_buffer_list.lock);
@@ -1455,42 +1455,6 @@ int mtk_cam_sv_apply_all_buffers(struct mtk_cam_ctx *ctx)
 	return 1;
 }
 
-int mtk_cam_sv_set_group_info(struct mtk_camsv_device *camsv_dev)
-{
-	int i;
-
-	/* reset group info */
-	camsv_dev->first_tag = 0;
-	camsv_dev->last_tag = 0;
-	for (i = 0; i < MAX_SV_HW_GROUPS; i++)
-		camsv_dev->cfg_group_info[i] = 0;
-
-	/* set groups */
-	for (i = SVTAG_START; i < SVTAG_END; i++) {
-		if (camsv_dev->enabled_tags & (1 << i)) {
-			if (camsv_dev->tag_info[i].tag_order == MTKCAM_IPI_ORDER_FIRST_TAG) {
-				camsv_dev->cfg_group_info[0] |= (1 << i);
-				if (camsv_dev->first_tag == 0)
-					camsv_dev->first_tag = (1 << i);
-				else if (camsv_dev->first_tag > (1 << i))
-					camsv_dev->first_tag = (1 << i);
-			} else if (camsv_dev->tag_info[i].tag_order == MTKCAM_IPI_ORDER_NORMAL_TAG)
-				camsv_dev->cfg_group_info[1] |= (1 << i);
-			else if (camsv_dev->tag_info[i].tag_order == MTKCAM_IPI_ORDER_LAST_TAG) {
-				camsv_dev->cfg_group_info[2] |= (1 << i);
-				if (camsv_dev->last_tag == 0)
-					camsv_dev->last_tag = (1 << i);
-				else if (camsv_dev->last_tag > (1 << i))
-					camsv_dev->last_tag = (1 << i);
-			} else
-				dev_info(camsv_dev->dev, "tag[%d]: illegal tag order(%d)",
-					__func__, i, camsv_dev->tag_info[i].tag_order);
-		}
-	}
-
-	return 0;
-}
-
 void apply_camsv_cq(struct mtk_camsv_device *dev,
 	dma_addr_t cq_addr, unsigned int cq_size,
 	unsigned int cq_offset, int initial)
@@ -1498,9 +1462,6 @@ void apply_camsv_cq(struct mtk_camsv_device *dev,
 #define CQ_VADDR_MASK 0xffffffff
 	u32 cq_addr_lsb = (cq_addr + cq_offset) & CQ_VADDR_MASK;
 	u32 cq_addr_msb = ((cq_addr + cq_offset) >> 32);
-
-	dev_info(dev->dev, "apply camsv scq: addr_msb:0x%x addr_lsb:0x%x size:%d",
-		cq_addr_msb, cq_addr_lsb, cq_size);
 
 	if (cq_size == 0)
 		return;
@@ -1513,6 +1474,9 @@ void apply_camsv_cq(struct mtk_camsv_device *dev,
 		cq_addr_lsb);
 	CAMSV_WRITE_BITS(dev->base_scq + REG_CAMSVCQTOP_THR_START,
 		CAMSVCQTOP_THR_START, CAMSVCQTOP_CSR_CQ_THR0_START, 1);
+
+	dev_info(dev->dev, "apply camsv scq: addr_msb:0x%x addr_lsb:0x%x size:%d",
+		cq_addr_msb, cq_addr_lsb, cq_size);
 }
 
 unsigned int mtk_cam_get_sv_tag_index(struct mtk_cam_ctx *ctx,
@@ -1616,6 +1580,7 @@ int mtk_cam_sv_cq_disable(struct mtk_camsv_device *camsv_dev)
 
 int mtk_cam_call_sv_pipeline_config(
 	struct mtk_cam_ctx *ctx,
+	struct mtk_camsv_tag_info *arr_tag,
 	unsigned int tag_idx,
 	unsigned int seninf_padidx,
 	unsigned int hw_scen,
@@ -1626,7 +1591,6 @@ int mtk_cam_call_sv_pipeline_config(
 	struct v4l2_mbus_framefmt *mf,
 	struct v4l2_format *img_fmt)
 {
-	struct mtk_cam_device *cam;
 	struct mtk_camsv_tag_info *tag_info;
 	struct mtk_camsv_device *camsv_dev;
 	struct mtkcam_ipi_input_param *cfg_in_param;
@@ -1637,14 +1601,9 @@ int mtk_cam_call_sv_pipeline_config(
 	if (mtk_cam_ctx_has_raw(ctx))
 		scen = ctx->pipe->scen_active;
 
-
-	cam = ctx->cam;
 	camsv_dev = ctx->sv_dev;
-	tag_info = &camsv_dev->tag_info[tag_idx];
+	tag_info = &arr_tag[tag_idx];
 	cfg_in_param = &tag_info->cfg_in_param;
-
-	camsv_dev->used_tag_cnt++;
-	camsv_dev->enabled_tags |= (1 << tag_idx);
 
 	if (tag_idx >= SVTAG_META_START && tag_idx < SVTAG_META_END)
 		tag_info->sv_pipe = pipeline;
@@ -1666,12 +1625,7 @@ int mtk_cam_call_sv_pipeline_config(
 	cfg_in_param->data_pattern = 0x0;
 	cfg_in_param->in_crop.p.x = 0x0;
 	cfg_in_param->in_crop.p.y = 0x0;
-	cfg_in_param->in_crop.s.w =
-		(mtk_cam_ctx_has_raw(ctx) &&
-		 mtk_cam_scen_is_ext_isp_yuv(&ctx->pipe->scen_active) &&
-		 seninf_padidx == PAD_SRC_RAW_EXT0) ?
-		img_fmt->fmt.pix_mp.width * 2 :
-		img_fmt->fmt.pix_mp.width; /* camsv todo: preisp */
+	cfg_in_param->in_crop.s.w =	img_fmt->fmt.pix_mp.width;
 	cfg_in_param->in_crop.s.h = img_fmt->fmt.pix_mp.height;
 	cfg_in_param->fmt = mtk_cam_get_sensor_fmt(mf->code);
 	cfg_in_param->raw_pixel_id = mtk_cam_get_sensor_pixel_id(mf->code);
@@ -1684,7 +1638,8 @@ int mtk_cam_call_sv_pipeline_config(
 		tag_info->stride = bbp;
 
 	dev_info(camsv_dev->dev,
-		"sink pad code:0x%x camsv's imgo w/h/stride:%d/%d/%d scen(%s)\n",
+		"camsv(%d)-(%d) sink pad code:0x%x imgo w/h/stride:%d/%d/%d scen(%s)\n",
+		camsv_dev->id, tag_idx,
 		mf->code, cfg_in_param->in_crop.s.w, cfg_in_param->in_crop.s.h,
 		tag_info->stride, scen.dbg_str);
 

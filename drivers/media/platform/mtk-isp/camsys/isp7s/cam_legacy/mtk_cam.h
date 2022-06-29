@@ -309,7 +309,9 @@ struct mtk_cam_req_raw_pipe_data {
 	struct mtk_cam_resource_config res_config;
 	struct mtk_raw_stagger_select stagger_select;
 	int enabled_raw;
-	int enabled_sv_tags;
+	unsigned int enabled_sv_tags;
+	unsigned int used_tag_cnt;
+	struct mtk_camsv_tag_info tag_info[MAX_SV_HW_TAGS];
 	struct mtkcam_ipi_config_param config_param;/* debug only */
 };
 
