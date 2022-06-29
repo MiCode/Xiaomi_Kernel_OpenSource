@@ -2282,7 +2282,7 @@ int uarthub_core_debug_info_with_tag(const char *tag)
 
 int uarthub_core_debug_info_with_tag_no_spinlock(const char *tag)
 {
-	int val = 0, val_2 = 0, val_3 = 0;
+	int val = 0;
 	int apb_bus_clk_enable = 0;
 	const char *def_tag = "UARTHUB_DBG";
 
@@ -2440,18 +2440,6 @@ int uarthub_core_debug_info_with_tag_no_spinlock(const char *tag)
 
 	if (val != 0x3) {
 		pr_notice("[%s] UARTHUB is not ready, cannot read UART_IP CR\n",
-			__func__);
-		pr_info("[%s][%s] ----------------------------------------\n",
-			def_tag, ((tag == NULL) ? "null" : tag));
-		return -1;
-	}
-
-	val = UARTHUB_REG_READ_BIT(UARTHUB_INTFHUB_DEV0_STA(intfhub_base_remap_addr), 0x3);
-	val_2 = UARTHUB_REG_READ_BIT(UARTHUB_INTFHUB_DEV1_STA(intfhub_base_remap_addr), 0x3);
-	val_3 = UARTHUB_REG_READ_BIT(UARTHUB_INTFHUB_DEV2_STA(intfhub_base_remap_addr), 0x3);
-
-	if (val == 0 && val_2 == 0 && val_3 == 0) {
-		pr_notice("[%s] All host is not set trx request, cannot read UART_IP CR\n",
 			__func__);
 		pr_info("[%s][%s] ----------------------------------------\n",
 			def_tag, ((tag == NULL) ? "null" : tag));
