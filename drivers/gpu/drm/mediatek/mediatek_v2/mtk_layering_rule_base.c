@@ -75,6 +75,7 @@ static struct {
 	{LYE_OPT_CLEAR_LAYER, 0, "LYE_OPT_CLEAR_LAYER"},
 	{LYE_OPT_OVL_BW_MONITOR, 0, "LYE_OPT_OVL_BW_MONITOR"},
 	{LYE_OPT_GPU_CACHE, 0, "LYE_OPT_GPU_CACHE"},
+	{LYE_OPT_SPHRT, 0, "LYE_OPT_SPHRT"},
 };
 
 struct debug_gles_range {
@@ -99,7 +100,7 @@ void mtk_set_layering_opt(enum LYE_HELPER_OPT opt, int value)
 	help_info[opt].val = !!value;
 }
 
-static int get_layering_opt(enum LYE_HELPER_OPT opt)
+int get_layering_opt(enum LYE_HELPER_OPT opt)
 {
 	if (opt >= LYE_OPT_NUM) {
 		DDPMSG("%s invalid layering opt:%d\n", __func__, opt);
@@ -452,7 +453,7 @@ static void dump_disp_info(struct drm_mtk_layering_info *disp_info,
 	struct drm_mtk_layer_config *layer_info;
 
 #define _HRT_FMT \
-	"HRT hrt_num:0x%x/mod:%d/dal:%d/addon_scn:(%d, %d, %d)/bd_tb:%d/i:%d\n"
+	"HRT hrt_num:0x%x/disp_idx:%x/disp_list:%x/mod:%d/dal:%d/addon_scn:(%d, %d, %d)/bd_tb:%d/i:%d\n"
 #define _L_FMT \
 	"L%d->%d/(%d,%d,%d,%d)/(%d,%d,%d,%d)/f0x%x/ds%d/e%d/cap0x%x" \
 	"/compr%d/secure%d/frame:%u\n"
@@ -460,6 +461,8 @@ static void dump_disp_info(struct drm_mtk_layering_info *disp_info,
 	if (debug_level < DISP_DEBUG_LEVEL_INFO) {
 		DDPMSG(_HRT_FMT,
 			disp_info->hrt_num,
+			disp_info->disp_idx,
+			disp_info->disp_list,
 			disp_info->disp_mode_idx[0],
 			l_rule_info->dal_enable,
 			l_rule_info->addon_scn[HRT_PRIMARY],
@@ -498,7 +501,7 @@ static void dump_disp_info(struct drm_mtk_layering_info *disp_info,
 			}
 		}
 	} else {
-		DDPINFO(_HRT_FMT, disp_info->hrt_num,
+		DDPINFO(_HRT_FMT, disp_info->hrt_num, disp_info->disp_idx, disp_info->disp_list,
 			disp_info->disp_mode_idx[0],
 			l_rule_info->dal_enable,
 			l_rule_info->addon_scn[HRT_PRIMARY],
@@ -3005,7 +3008,10 @@ static int copy_layer_info_to_user(struct drm_device *dev,
 	struct drm_mtk_layering_info *l_info = &layering_info;
 
 	disp_info_user->hrt_num = l_info->hrt_num;
-	disp_info_user->hrt_idx = l_info->hrt_idx;
+	if (get_layering_opt(LYE_OPT_SPHRT))
+		disp_info_user->hrt_idx = _layering_rule_get_hrt_idx(l_info->disp_idx);
+	else
+		disp_info_user->hrt_idx = _layering_rule_get_hrt_idx(0);
 	disp_info_user->hrt_weight = l_info->hrt_weight;
 
 	if (get_layering_opt(LYE_OPT_OVL_BW_MONITOR))
@@ -3064,7 +3070,10 @@ void lye_add_blob_ids(struct drm_mtk_layering_info *l_info,
 {
 	struct drm_property_blob *blob;
 	struct mtk_lye_ddp_state lye_state;
-	struct mtk_drm_private *mtk_drm = drm_dev->dev_private;
+	struct mtk_drm_private *priv = drm_dev->dev_private;
+	struct drm_crtc *crtc;
+	struct mtk_drm_crtc *mtk_crtc = NULL;
+	unsigned int disp_idx = 0;
 	unsigned int i;
 
 	memcpy(lye_state.scn, l_rule_info->addon_scn, sizeof(lye_state.scn));
@@ -3078,10 +3087,21 @@ void lye_add_blob_ids(struct drm_mtk_layering_info *l_info,
 	}
 	lye_state.lc_tgt_layer = 0;
 
+	if (get_layering_opt(LYE_OPT_SPHRT))
+		disp_idx = l_info->disp_idx;
+
+	crtc = priv->crtc[disp_idx];
+	if (crtc) {
+		mtk_crtc = to_mtk_crtc(crtc);
+	} else {
+		DDPPR_ERR("%s:%d can't get mtk_crtc\n", __func__, __LINE__);
+		return;
+	}
+
 	blob = drm_property_create_blob(
 		drm_dev, sizeof(struct mtk_lye_ddp_state), &lye_state);
 
-	lyeblob_ids->lye_idx = l_rule_info->hrt_idx;
+	lyeblob_ids->lye_idx = _layering_rule_get_hrt_idx(disp_idx);
 	lyeblob_ids->frame_weight = l_info->hrt_weight;
 	lyeblob_ids->frame_weight_of_bwm = sum_overlap_w_of_bwm;
 	lyeblob_ids->hrt_num = l_info->hrt_num;
@@ -3091,10 +3111,13 @@ void lye_add_blob_ids(struct drm_mtk_layering_info *l_info,
 	lyeblob_ids->free_cnt_mask = crtc_mask;
 	lyeblob_ids->hrt_valid = g_hrt_valid;
 	INIT_LIST_HEAD(&lyeblob_ids->list);
-	mutex_lock(&mtk_drm->lyeblob_list_mutex);
-	list_add_tail(&lyeblob_ids->list, &mtk_drm->lyeblob_head);
+	mutex_lock(&priv->lyeblob_list_mutex);
+	if (get_layering_opt(LYE_OPT_SPHRT))
+		list_add_tail(&lyeblob_ids->list, &mtk_crtc->lyeblob_head);
+	else
+		list_add_tail(&lyeblob_ids->list, &priv->lyeblob_head);
 	DRM_MMP_MARK(layering_blob, lyeblob_ids->lye_idx, lyeblob_ids->frame_weight);
-	mutex_unlock(&mtk_drm->lyeblob_list_mutex);
+	mutex_unlock(&priv->lyeblob_list_mutex);
 }
 
 static bool is_rsz_valid(struct drm_mtk_layer_config *c)
@@ -3750,7 +3773,7 @@ static int layering_rule_start(struct drm_mtk_layering_info *disp_info_user,
 	unsigned int scale_num = 0;
 	enum SCN_FACTOR scn_decision_flag = SCN_NO_FACTOR;
 	int crtc_num, crtc_mask;
-	int disp_idx = 0;
+	int disp_idx = 0, hrt_idx;
 	struct debug_gles_range dbg_gles = {-1, -1};
 
 	DRM_MMP_EVENT_START(layering, (unsigned long)disp_info_user,
@@ -3794,9 +3817,10 @@ static int layering_rule_start(struct drm_mtk_layering_info *disp_info_user,
 	    layering_info.layer_num[HRT_PRIMARY] > 0)
 		g_hrt_valid = true;
 
-	l_rule_info->hrt_idx++;
-	if (l_rule_info->hrt_idx == 0xffffffff)
-		l_rule_info->hrt_idx = 0;
+	hrt_idx = _layering_rule_get_hrt_idx(disp_idx);
+	if (++hrt_idx == 0xffffffff)
+		hrt_idx = 0;
+	_layering_rule_set_hrt_idx(disp_idx, hrt_idx);
 
 	l_rule_ops->copy_hrt_bound_table(&layering_info,
 		0, g_emi_bound_table, dev);
@@ -3831,9 +3855,9 @@ static int layering_rule_start(struct drm_mtk_layering_info *disp_info_user,
 	check_gles_change(&dbg_gles, __LINE__, false);
 
 	/* Check can do MML or not */
-	if (layering_info.layer_num[HRT_PRIMARY] > 0) {
+	if (disp_idx == 0 && layering_info.layer_num[HRT_PRIMARY] > 0) {
 		check_is_mml_layer(disp_idx, &layering_info,
-			dev, &scn_decision_flag, l_rule_info->hrt_idx);
+			dev, &scn_decision_flag, _layering_rule_get_hrt_idx(disp_idx));
 	}
 	check_gles_change(&dbg_gles, __LINE__, false);
 
@@ -3954,7 +3978,7 @@ static int layering_rule_start(struct drm_mtk_layering_info *disp_info_user,
 
 	check_layering_result(&layering_info);
 
-	layering_info.hrt_idx = l_rule_info->hrt_idx;
+	layering_info.hrt_idx = _layering_rule_get_hrt_idx(disp_idx);
 	HRT_SET_AEE_FLAG(layering_info.hrt_num, l_rule_info->dal_enable);
 	HRT_SET_WROT_SRAM_FLAG(layering_info.hrt_num, l_rule_info->wrot_sram);
 	dump_disp_info(&layering_info, DISP_DEBUG_LEVEL_INFO);

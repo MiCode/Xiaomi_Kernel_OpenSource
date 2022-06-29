@@ -3653,15 +3653,20 @@ static void mtk_crtc_update_ddp_state(struct drm_crtc *crtc,
 		to_mtk_crtc_state(old_crtc_state);
 	struct mtk_drm_lyeblob_ids *lyeblob_ids, *next;
 	struct mtk_drm_private *mtk_drm = crtc->dev->dev_private;
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct list_head *lyeblob_head;
 	int index = drm_crtc_index(crtc);
 	int crtc_mask = 0x1 << index;
 	unsigned int prop_lye_idx;
 	unsigned int pan_disp_frame_weight = 4;
 	bool hrt_valid = false;
+	int sphrt_enable;
 
 	mutex_lock(&mtk_drm->lyeblob_list_mutex);
 	prop_lye_idx = crtc_state->prop_val[CRTC_PROP_LYE_IDX];
-	list_for_each_entry_safe(lyeblob_ids, next, &mtk_drm->lyeblob_head,
+	sphrt_enable = mtk_drm_helper_get_opt(mtk_drm->helper_opt, MTK_DRM_OPT_SPHRT);
+	lyeblob_head = (sphrt_enable == 0) ? (&mtk_drm->lyeblob_head) : (&mtk_crtc->lyeblob_head);
+	list_for_each_entry_safe(lyeblob_ids, next, lyeblob_head,
 				 list) {
 		if (lyeblob_ids->lye_idx > prop_lye_idx) {
 			DDPMSG("lyeblob lost ID:%d\n", prop_lye_idx);
@@ -3741,11 +3746,16 @@ static void mtk_crtc_release_lye_idx(struct drm_crtc *crtc)
 {
 	struct mtk_drm_lyeblob_ids *lyeblob_ids, *next;
 	struct mtk_drm_private *mtk_drm = crtc->dev->dev_private;
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct list_head *lyeblob_head;
 	int index = drm_crtc_index(crtc);
 	int crtc_mask = 0x1 << index;
+	int sphrt_enable;
 
 	mutex_lock(&mtk_drm->lyeblob_list_mutex);
-	list_for_each_entry_safe(lyeblob_ids, next, &mtk_drm->lyeblob_head,
+	sphrt_enable = mtk_drm_helper_get_opt(mtk_drm->helper_opt, MTK_DRM_OPT_SPHRT);
+	lyeblob_head = (sphrt_enable == 0) ? (&mtk_drm->lyeblob_head) : (&mtk_crtc->lyeblob_head);
+	list_for_each_entry_safe(lyeblob_ids, next, lyeblob_head,
 		list) {
 		if (lyeblob_ids->ref_cnt) {
 			DDPINFO("%s:%d free:(0x%x,0x%x), cnt:%d\n",
@@ -8481,8 +8491,9 @@ static void update_frame_weight(struct drm_crtc *crtc,
 	struct drm_plane *plane;
 	struct mtk_plane_state *plane_state;
 	struct mtk_plane_pending_state *pending;
+	struct list_head *lyeblob_head;
 	unsigned int prop_lye_idx;
-	int phy_lay_num = 0;
+	int phy_lay_num = 0, sphrt_enable;
 	int i;
 
 	if (drm_crtc_index(crtc) != 0)
@@ -8501,7 +8512,9 @@ static void update_frame_weight(struct drm_crtc *crtc,
 
 	mutex_lock(&mtk_drm->lyeblob_list_mutex);
 	prop_lye_idx = crtc_state->prop_val[CRTC_PROP_LYE_IDX];
-	list_for_each_entry_safe(lyeblob_ids, next, &mtk_drm->lyeblob_head, list) {
+	sphrt_enable = mtk_drm_helper_get_opt(mtk_drm->helper_opt, MTK_DRM_OPT_SPHRT);
+	lyeblob_head = (sphrt_enable == 0) ? (&mtk_drm->lyeblob_head) : (&mtk_crtc->lyeblob_head);
+	list_for_each_entry_safe(lyeblob_ids, next, lyeblob_head, list) {
 		if (lyeblob_ids->lye_idx == prop_lye_idx)
 			lyeblob_ids->frame_weight = phy_lay_num * 2;
 	}
@@ -11157,6 +11170,8 @@ int mtk_drm_crtc_create(struct drm_device *drm_dev,
 				kthread_run(mtk_drm_sf_pf_release_thread,
 					    mtk_crtc, "sf_pf_release_thread");
 
+	INIT_LIST_HEAD(&mtk_crtc->lyeblob_head);
+
 	/* init wakelock resources */
 	{
 		unsigned int len = 21;
@@ -12791,7 +12806,10 @@ int mtk_crtc_enter_tui(struct drm_crtc *crtc)
 
 	mtk_drm_set_idlemgr(crtc, 0, 0);
 
-	hrt_idx = _layering_rule_get_hrt_idx();
+	if (mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_SPHRT))
+		hrt_idx = _layering_rule_get_hrt_idx(drm_crtc_index(crtc));
+	else
+		hrt_idx = _layering_rule_get_hrt_idx(0);
 	hrt_idx++;
 	atomic_set(&priv->rollback_all, 1);
 	drm_trigger_repaint(DRM_REPAINT_FOR_IDLE, crtc->dev);

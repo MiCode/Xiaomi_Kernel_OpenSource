@@ -355,15 +355,19 @@ void mtk_plane_get_comp_state(struct drm_plane *plane,
 	struct mtk_drm_lyeblob_ids *lyeblob_ids, *next;
 	struct mtk_drm_private *mtk_drm = crtc->dev->dev_private;
 	struct mtk_crtc_state *crtc_state = to_mtk_crtc_state(crtc->state);
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct list_head *lyeblob_head;
 	unsigned int crtc_lye_idx = crtc_state->prop_val[CRTC_PROP_LYE_IDX];
 	unsigned int plane_index = to_crtc_plane_index(plane->index);
+	int sphrt_enable;
 
 	memset(comp_state, 0x0, sizeof(struct mtk_plane_comp_state));
 
 	if (lock)
 		mutex_lock(&mtk_drm->lyeblob_list_mutex);
-	list_for_each_entry_safe(lyeblob_ids, next, &mtk_drm->lyeblob_head,
-				 list) {
+	sphrt_enable = mtk_drm_helper_get_opt(mtk_drm->helper_opt, MTK_DRM_OPT_SPHRT);
+	lyeblob_head = (sphrt_enable == 0) ? (&mtk_drm->lyeblob_head) : (&mtk_crtc->lyeblob_head);
+	list_for_each_entry_safe(lyeblob_ids, next, lyeblob_head, list) {
 		if (lyeblob_ids->lye_idx == crtc_lye_idx) {
 			_mtk_plane_get_comp_state(lyeblob_ids, comp_state, crtc,
 						  plane_index);

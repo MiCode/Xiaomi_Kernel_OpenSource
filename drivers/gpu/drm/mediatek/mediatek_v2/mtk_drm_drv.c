@@ -4428,6 +4428,10 @@ int mtk_drm_get_display_caps_ioctl(struct drm_device *dev, void *data,
 		caps_info->disp_feature_flag |=
 				DRM_DISP_FEATURE_GPU_CACHE;
 
+	if (mtk_drm_helper_get_opt(private->helper_opt, MTK_DRM_OPT_SPHRT))
+		caps_info->disp_feature_flag |=
+				DRM_DISP_FEATURE_SPHRT;
+
 	ddp_comp = private->ddp_comp[DDP_COMPONENT_CHIST0];
 	if (ddp_comp) {
 		struct mtk_disp_chist *chist_data = comp_to_chist(ddp_comp);

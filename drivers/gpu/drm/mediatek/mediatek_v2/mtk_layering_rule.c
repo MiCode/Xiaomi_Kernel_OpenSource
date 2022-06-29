@@ -27,6 +27,7 @@
 
 #include <soc/mediatek/mmqos.h>
 
+static unsigned int sp_hrt_idx[MAX_CRTC];
 static struct layering_rule_ops l_rule_ops;
 static struct layering_rule_info_t l_rule_info;
 
@@ -474,6 +475,9 @@ void mtk_layering_rule_init(struct drm_device *dev)
 	mtk_set_layering_opt(LYE_OPT_GPU_CACHE,
 			     mtk_drm_helper_get_opt(private->helper_opt,
 						    MTK_DRM_OPT_GPU_CACHE));
+	mtk_set_layering_opt(LYE_OPT_SPHRT,
+			     mtk_drm_helper_get_opt(private->helper_opt,
+						    MTK_DRM_OPT_SPHRT));
 }
 
 static bool _rollback_all_to_GPU_for_idle(struct drm_device *dev)
@@ -604,14 +608,30 @@ void mtk_update_layering_opt_by_disp_opt(enum MTK_DRM_HELPER_OPT opt, int value)
 	case MTK_DRM_OPT_GPU_CACHE:
 		mtk_set_layering_opt(LYE_OPT_GPU_CACHE, value);
 		break;
+	case MTK_DRM_OPT_SPHRT:
+		mtk_set_layering_opt(LYE_OPT_SPHRT, value);
+		break;
 	default:
 		break;
 	}
 }
 
-unsigned int _layering_rule_get_hrt_idx(void)
+unsigned int _layering_rule_get_hrt_idx(unsigned int disp_idx)
 {
-	return l_rule_info.hrt_idx;
+	if (disp_idx >= MAX_CRTC)
+		return 0;
+
+	return sp_hrt_idx[disp_idx];
+}
+
+int _layering_rule_set_hrt_idx(unsigned int disp_idx, unsigned int value)
+{
+	if (disp_idx >= MAX_CRTC)
+		return -1;
+
+	sp_hrt_idx[disp_idx] = value;
+
+	return 0;
 }
 
 #define SET_CLIP_R(clip, clip_r) (clip |= ((clip_r & 0xFF) << 0))

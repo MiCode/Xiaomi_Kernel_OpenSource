@@ -101,6 +101,7 @@ enum LYE_HELPER_OPT {
 	LYE_OPT_CLEAR_LAYER,
 	LYE_OPT_OVL_BW_MONITOR,
 	LYE_OPT_GPU_CACHE,
+	LYE_OPT_SPHRT,
 	LYE_OPT_NUM
 };
 
@@ -223,4 +224,6 @@ int mtk_layering_rule_ioctl(struct drm_device *drm, void *data,
 	struct drm_file *file_priv);
 
 bool is_triple_disp(struct drm_mtk_layering_info *disp_info);
+
+int get_layering_opt(enum LYE_HELPER_OPT opt);
 #endif

@@ -85,6 +85,7 @@ static struct mtk_drm_helper help_info[] = {
 	{MTK_DRM_OPT_VIRTUAL_DISP, 1, "MTK_DRM_OPT_VIRTUAL_DISP"},
 	{MTK_DRM_OPT_OVL_BW_MONITOR, 0, "MTK_DRM_OPT_OVL_BW_MONITOR"},
 	{MTK_DRM_OPT_GPU_CACHE, 0, "MTK_DRM_OPT_GPU_CACHE"},
+	{MTK_DRM_OPT_SPHRT, 1, "MTK_DRM_OPT_SPHRT"},
 };
 
 enum DISP_HELPER_STAGE disp_helper_get_stage(void)

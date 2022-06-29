@@ -190,7 +190,7 @@ int mtk_disp_hrt_cond_change_cb(struct notifier_block *nb, unsigned long value,
 		DDPMSG("DISP BW Throttle start\n");
 		/* TODO: concider memory session */
 		DDPINFO("CAM trigger repaint\n");
-		hrt_idx = _layering_rule_get_hrt_idx();
+		hrt_idx = _layering_rule_get_hrt_idx(drm_crtc_index(dev_crtc));
 		hrt_idx++;
 		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 		drm_trigger_repaint(DRM_REPAINT_FOR_IDLE, dev_crtc->dev);

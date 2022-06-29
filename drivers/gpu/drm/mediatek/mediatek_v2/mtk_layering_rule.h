@@ -47,7 +47,8 @@ enum HRT_BOUND_TYPE {
 void mtk_layering_rule_init(struct drm_device *dev);
 void mtk_update_layering_opt_by_disp_opt(enum MTK_DRM_HELPER_OPT opt,
 					 int value);
-unsigned int _layering_rule_get_hrt_idx(void);
+unsigned int _layering_rule_get_hrt_idx(unsigned int disp_idx);
+int _layering_rule_set_hrt_idx(unsigned int disp_idx, unsigned int value);
 unsigned long long _layering_get_frame_bw(struct drm_crtc *crtc,
 					struct drm_display_mode *mode);
 // int layering_get_valid_hrt(void);
