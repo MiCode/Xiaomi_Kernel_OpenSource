@@ -207,8 +207,6 @@ struct mtk_drm_private {
 	struct mml_drm_ctx *mml_ctx;
 	atomic_t mml_job_done;
 	wait_queue_head_t signal_mml_job_done_wq;
-
-	void __iomem *clk_regs;
 };
 
 struct mtk_drm_property {
