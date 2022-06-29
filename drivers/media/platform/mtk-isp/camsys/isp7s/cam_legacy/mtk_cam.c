@@ -3202,7 +3202,7 @@ static int mtk_cam_config_raw_img_out_imgo(struct mtk_cam_request_stream_data *s
 	const struct v4l2_format *cfg_fmt;
 	int i;
 	struct mtk_cam_scen *scen;
-	unsigned int pixelformat;
+	unsigned int pixelformat, num_planes;
 
 	ctx = mtk_cam_s_data_get_ctx(s_data);
 	cam = ctx->cam;
@@ -3244,7 +3244,11 @@ static int mtk_cam_config_raw_img_out_imgo(struct mtk_cam_request_stream_data *s
 	}
 
 	if (mtk_cam_scen_is_subsample(scen)) {
-		for (i = 0 ; i < vb->num_planes; i++) {
+		num_planes =
+			(scen->scen.smvr.subsample_num < MAX_SUBSAMPLE_PLANE_NUM) ?
+			 scen->scen.smvr.subsample_num : MAX_SUBSAMPLE_PLANE_NUM;
+
+		for (i = 1 ; i < num_planes; i++) {
 			vb->planes[i].data_offset =
 				i * cfg_fmt->fmt.pix_mp.plane_fmt[i].sizeimage;
 			img_out->buf[i][0].iova =
@@ -3281,7 +3285,7 @@ static int mtk_cam_config_raw_img_out(struct mtk_cam_request_stream_data *s_data
 	int i, p;
 	struct mtk_cam_scen *scen;
 	int comp_planes, plane;
-	unsigned int offset;
+	unsigned int offset, num_planes;
 
 	ctx = mtk_cam_s_data_get_ctx(s_data);
 	cam = ctx->cam;
@@ -3315,7 +3319,10 @@ static int mtk_cam_config_raw_img_out(struct mtk_cam_request_stream_data *s_data
 			comp_planes = v4l2_info->comp_planes;
 		}
 
-		for (i = 1 ; i < vb->num_planes; i++) {
+		num_planes =
+			(scen->scen.smvr.subsample_num < MAX_SUBSAMPLE_PLANE_NUM) ?
+			 scen->scen.smvr.subsample_num : MAX_SUBSAMPLE_PLANE_NUM;
+		for (i = 1 ; i < num_planes; i++) {
 			offset = i * cfg_fmt->fmt.pix_mp.plane_fmt[i].sizeimage;
 			vb->planes[i].data_offset = offset;
 
