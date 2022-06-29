@@ -278,7 +278,10 @@ static int trusty_vqueue_to_cpu(struct trusty_ctx *tctx, struct virtqueue *vq)
 	if (tvr->notifyid >= TIPC_TXVQ_NOTIFYID_START)
 		cpu = tvr->notifyid - TIPC_TXVQ_NOTIFYID_START;
 
-	return cpu_possible(cpu) ? cpu : -1;
+	if (cpu < 0)
+		return -1;
+	else
+		return cpu_possible(cpu) ? cpu : -1;
 }
 
 static bool trusty_virtio_notify(struct virtqueue *vq)

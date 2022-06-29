@@ -427,23 +427,21 @@ static int vds_select_cpu(struct tipc_virtio_dev *vds, int32_t cpu_affinity)
 		cpu = ffs(online_cpus & atomic_read(&vds->allowed_cpus) &
 			  vds->default_cpumask) - 1;
 
-		if (!cpu_online(cpu))
+		if (cpu < 0 || !cpu_online(cpu))
 			cpu = fls(online_cpus &
 				  atomic_read(&vds->allowed_cpus)) - 1;
-
-		if (!cpu_online(cpu))
-			cpu = fls(online_cpus) - 1;
 	} else if (cpu_affinity > 0) {
 		cpu = ffs(online_cpus & atomic_read(&vds->allowed_cpus) &
 			  cpu_affinity) - 1;
 
-		if (!cpu_online(cpu))
+		if (cpu < 0 || !cpu_online(cpu))
 			cpu = fls(online_cpus & cpu_affinity) - 1;
-
-		if (!cpu_online(cpu))
-			cpu = fls(online_cpus) - 1;
 	}
 	preempt_enable();
+
+	/* If there is not a suitable cpu number, just give a max cpu number. */
+	if (cpu < 0)
+		cpu = fls(online_cpus) - 1;
 
 	dev_dbg(&vds->vdev->dev,
 		"%s: select cpu %d, o:0x%x, u:0x%x, a:0x%x, d:0x%x\n",

@@ -653,10 +653,10 @@ void trusty_enqueue_nop(struct device *dev, struct trusty_nop *nop, int cpu)
 	s = platform_get_drvdata(to_platform_device(dev));
 
 	preempt_disable();
-	if (cpu_possible(cpu))
-		nop_ti = per_cpu_ptr(s->nop_tasks_info, cpu);
-	else
+	if (cpu < 0 || !cpu_possible(cpu))
 		nop_ti = this_cpu_ptr(s->nop_tasks_info);
+	else
+		nop_ti = per_cpu_ptr(s->nop_tasks_info, cpu);
 
 	if (nop) {
 		WARN_ON(s->api_version < TRUSTY_API_VERSION_SMP_NOP);
