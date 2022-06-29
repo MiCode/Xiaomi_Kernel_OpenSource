@@ -129,7 +129,6 @@ struct mtk_smi_common_plat {
 	bool		has_bwl;
 	u32		*bwl;
 	bool		has_p2_ostdl;
-	u32		p2_port;
 	struct mtk_smi_reg_pair *misc;
 };
 
@@ -288,7 +287,7 @@ void mtk_smi_common_ostdl_set(struct device *dev, const u32 port, bool is_write,
 		return;
 	}
 
-	if (!common->plat->has_p2_ostdl || port != common->plat->p2_port)
+	if (!common->plat->has_p2_ostdl)
 		return;
 
 	orig_val = common->plat->bwl[common->commid * SMI_COMMON_LARB_NR_MAX + port];
@@ -3011,7 +3010,6 @@ static const struct mtk_smi_common_plat mtk_smi_common_mt6983 = {
 	.has_bwl  = true,
 	.bwl      = (u32 *)mtk_smi_common_mt6983_bwl,
 	.has_p2_ostdl  = true,
-	.p2_port  = 5,
 	.misc     = (struct mtk_smi_reg_pair *)mtk_smi_common_mt6983_misc,
 };
 
@@ -3038,6 +3036,7 @@ static const struct mtk_smi_common_plat mtk_smi_common_mt6886 = {
 	.has_gals = true,
 	.has_bwl  = true,
 	.bwl      = (u32 *)mtk_smi_common_mt6886_bwl,
+	.has_p2_ostdl  = true,
 	.misc     = (struct mtk_smi_reg_pair *)mtk_smi_common_mt6886_misc,
 };
 
@@ -3055,7 +3054,6 @@ static const struct mtk_smi_common_plat mtk_smi_common_mt6985 = {
 	.has_bwl  = true,
 	.bwl      = (u32 *)mtk_smi_common_mt6985_bwl,
 	.has_p2_ostdl  = true,
-	.p2_port  = 5,
 	.misc     = (struct mtk_smi_reg_pair *)mtk_smi_common_mt6985_misc,
 };
 
