@@ -340,98 +340,104 @@
 #define PTPPLL_CON3				0x014
 
 /* HW Voter REG */
-#define HWV_CG_0_SET				0x000
-#define HWV_CG_0_CLR				0x004
+#define HWV_CG_0_SET				0x0000
+#define HWV_CG_0_CLR				0x0004
 #define HWV_CG_0_DONE				0x1C00
-#define HWV_CG_1_SET				0x008
-#define HWV_CG_1_CLR				0x00C
+#define HWV_CG_1_SET				0x0008
+#define HWV_CG_1_CLR				0x000C
 #define HWV_CG_1_DONE				0x1C04
-#define HWV_CG_2_SET				0x010
-#define HWV_CG_2_CLR				0x014
+#define HWV_CG_2_SET				0x0010
+#define HWV_CG_2_CLR				0x0014
 #define HWV_CG_2_DONE				0x1C08
-#define HWV_CG_3_SET				0x018
-#define HWV_CG_3_CLR				0x01C
+#define HWV_CG_3_SET				0x0018
+#define HWV_CG_3_CLR				0x001C
 #define HWV_CG_3_DONE				0x1C0C
-#define HWV_CG_4_SET				0x020
-#define HWV_CG_4_CLR				0x024
+#define HWV_CG_4_SET				0x0020
+#define HWV_CG_4_CLR				0x0024
 #define HWV_CG_4_DONE				0x1C10
-#define HWV_CG_5_SET				0x028
-#define HWV_CG_5_CLR				0x02C
+#define HWV_CG_5_SET				0x0028
+#define HWV_CG_5_CLR				0x002C
 #define HWV_CG_5_DONE				0x1C14
-#define HWV_CG_6_SET				0x030
-#define HWV_CG_6_CLR				0x034
+#define HWV_CG_6_SET				0x0030
+#define HWV_CG_6_CLR				0x0034
 #define HWV_CG_6_DONE				0x1C18
-#define HWV_CG_7_SET				0x038
-#define HWV_CG_7_CLR				0x03C
+#define HWV_CG_7_SET				0x0038
+#define HWV_CG_7_CLR				0x003C
 #define HWV_CG_7_DONE				0x1C1C
-#define HWV_CG_8_SET				0x040
-#define HWV_CG_8_CLR				0x044
+#define HWV_CG_8_SET				0x0040
+#define HWV_CG_8_CLR				0x0044
 #define HWV_CG_8_DONE				0x1C20
-#define HWV_CG_9_SET				0x048
-#define HWV_CG_9_CLR				0x04C
+#define HWV_CG_9_SET				0x0048
+#define HWV_CG_9_CLR				0x004C
 #define HWV_CG_9_DONE				0x1C24
-#define HWV_CG_10_SET				0x050
-#define HWV_CG_10_CLR				0x054
+#define HWV_CG_10_SET				0x0050
+#define HWV_CG_10_CLR				0x0054
 #define HWV_CG_10_DONE				0x1C28
-#define HWV_CG_11_SET				0x058
-#define HWV_CG_11_CLR				0x05C
+#define HWV_CG_11_SET				0x0058
+#define HWV_CG_11_CLR				0x005C
 #define HWV_CG_11_DONE				0x1C2C
-#define HWV_CG_12_SET				0x060
-#define HWV_CG_12_CLR				0x064
+#define HWV_CG_12_SET				0x0060
+#define HWV_CG_12_CLR				0x0064
 #define HWV_CG_12_DONE				0x1C30
-#define HWV_CG_13_SET				0x068
-#define HWV_CG_13_CLR				0x06C
+#define HWV_CG_13_SET				0x0068
+#define HWV_CG_13_CLR				0x006C
 #define HWV_CG_13_DONE				0x1C34
-#define HWV_CG_14_SET				0x070
-#define HWV_CG_14_CLR				0x074
+#define HWV_CG_14_SET				0x0070
+#define HWV_CG_14_CLR				0x0074
 #define HWV_CG_14_DONE				0x1C38
-#define HWV_CG_15_SET				0x078
-#define HWV_CG_15_CLR				0x07C
+#define HWV_CG_15_SET				0x0078
+#define HWV_CG_15_CLR				0x007C
 #define HWV_CG_15_DONE				0x1C3C
-#define HWV_CG_16_SET				0x080
-#define HWV_CG_16_CLR				0x084
+#define HWV_CG_16_SET				0x0080
+#define HWV_CG_16_CLR				0x0084
 #define HWV_CG_16_DONE				0x1C40
-#define HWV_CG_17_SET				0x088
-#define HWV_CG_17_CLR				0x08C
+#define HWV_CG_17_SET				0x0088
+#define HWV_CG_17_CLR				0x008C
 #define HWV_CG_17_DONE				0x1C44
-#define HWV_CG_18_SET				0x090
-#define HWV_CG_18_CLR				0x094
+#define HWV_CG_18_SET				0x0090
+#define HWV_CG_18_CLR				0x0094
 #define HWV_CG_18_DONE				0x1C48
-#define HWV_CG_19_SET				0x098
-#define HWV_CG_19_CLR				0x09C
+#define HWV_CG_19_SET				0x0098
+#define HWV_CG_19_CLR				0x009C
 #define HWV_CG_19_DONE				0x1C4C
-#define HWV_CG_20_SET				0x0A0
-#define HWV_CG_20_CLR				0x0A4
+#define HWV_CG_20_SET				0x00A0
+#define HWV_CG_20_CLR				0x00A4
 #define HWV_CG_20_DONE				0x1C50
-#define HWV_CG_21_SET				0x0A8
-#define HWV_CG_21_CLR				0x0AC
+#define HWV_CG_21_SET				0x00A8
+#define HWV_CG_21_CLR				0x00AC
 #define HWV_CG_21_DONE				0x1C54
-#define HWV_CG_22_SET				0x0B0
-#define HWV_CG_22_CLR				0x0B4
+#define HWV_CG_22_SET				0x00B0
+#define HWV_CG_22_CLR				0x00B4
 #define HWV_CG_22_DONE				0x1C58
-#define HWV_CG_23_SET				0x0B8
-#define HWV_CG_23_CLR				0x0BC
+#define HWV_CG_23_SET				0x00B8
+#define HWV_CG_23_CLR				0x00BC
 #define HWV_CG_23_DONE				0x1C5C
-#define HWV_CG_24_SET				0x0C0
-#define HWV_CG_24_CLR				0x0C4
+#define HWV_CG_24_SET				0x00C0
+#define HWV_CG_24_CLR				0x00C4
 #define HWV_CG_24_DONE				0x1C60
-#define HWV_CG_25_SET				0x0C8
-#define HWV_CG_25_CLR				0x0CC
+#define HWV_CG_25_SET				0x00C8
+#define HWV_CG_25_CLR				0x00CC
 #define HWV_CG_25_DONE				0x1C64
-#define HWV_CG_26_SET				0x0D0
-#define HWV_CG_26_CLR				0x0D4
+#define HWV_CG_26_SET				0x00D0
+#define HWV_CG_26_CLR				0x00D4
 #define HWV_CG_26_DONE				0x1C68
-#define HWV_CG_27_SET				0x0D8
-#define HWV_CG_27_CLR				0x0DC
+#define HWV_CG_27_SET				0x00D8
+#define HWV_CG_27_CLR				0x00DC
 #define HWV_CG_27_DONE				0x1C6C
-#define HWV_CG_28_SET				0x0E0
-#define HWV_CG_28_CLR				0x0E4
+#define HWV_CG_28_SET				0x00E0
+#define HWV_CG_28_CLR				0x00E4
 #define HWV_CG_28_DONE				0x1C70
-#define HWV_CG_29_SET				0x0E8
-#define HWV_CG_29_CLR				0x0EC
+#define HWV_CG_29_SET				0x00E8
+#define HWV_CG_29_CLR				0x00EC
 #define HWV_CG_29_DONE				0x1C74
-#define HWV_PLL_SET				0x190
-#define HWV_PLL_CLR				0x194
+#define HWV_CG_30_SET				0x00F0
+#define HWV_CG_30_CLR				0x00F4
+#define HWV_CG_30_DONE				0x1C78
+#define HWV_CG_31_SET				0x00F8
+#define HWV_CG_31_CLR				0x00FC
+#define HWV_CG_31_DONE				0x1C7C
+#define HWV_PLL_SET				0x0190
+#define HWV_PLL_CLR				0x0194
 #define HWV_PLL_SET_STA				0x1464
 #define HWV_PLL_CLR_STA				0x1468
 #define HWV_PLL_DONE				0x140C
@@ -1048,9 +1054,11 @@ static const struct mtk_mux vlp_ck_muxes[] = {
 		VLP_CLK_CFG_3_CLR/* set parent */, 24/* lsb */, 1/* width */,
 		VLP_CLK_CFG_UPDATE/* upd ofs */, TOP_MUX_SRAMRC_SHIFT/* upd shift */),
 	/* VLP_CLK_CFG_4 */
-	MUX_GATE_CLR_SET_UPD(CLK_VLP_CK_CAMTG_VLP_SEL/* dts */, "vlp_camtg_vlp_sel",
-		vlp_camtg_vlp_parents/* parent */, VLP_CLK_CFG_4, VLP_CLK_CFG_4_SET,
-		VLP_CLK_CFG_4_CLR/* set parent */, 0/* lsb */, 4/* width */,
+	MUX_HWV(CLK_VLP_CK_CAMTG_VLP_SEL/* dts */, "vlp_camtg_vlp_sel",
+		vlp_camtg_vlp_parents/* parent */,
+		VLP_CLK_CFG_4, VLP_CLK_CFG_4_SET, VLP_CLK_CFG_4_CLR/* set parent */,
+		HWV_CG_31_DONE, HWV_CG_31_SET, HWV_CG_31_CLR, /* hwv */
+		0/* lsb */, 4/* width */,
 		7/* pdn */, VLP_CLK_CFG_UPDATE/* upd ofs */,
 		TOP_MUX_CAMTG_VLP_SHIFT/* upd shift */),
 	MUX_CLR_SET_UPD(CLK_VLP_CK_IPS_SEL/* dts */, "vlp_ips_sel",
@@ -2463,40 +2471,47 @@ static const struct mtk_mux top_muxes[] = {
 		CLK_CFG_0_CLR/* set parent */, 24/* lsb */, 3/* width */,
 		CLK_CFG_UPDATE/* upd ofs */, TOP_MUX_BUS_AXIMEM_SHIFT/* upd shift */),
 	/* CLK_CFG_1 */
-	MUX_GATE_CLR_SET_UPD(CLK_TOP_DISP0_SEL/* dts */, "disp0_sel",
-		disp0_parents/* parent */, CLK_CFG_1, CLK_CFG_1_SET,
-		CLK_CFG_1_CLR/* set parent */, 0/* lsb */, 4/* width */,
+	MUX_HWV(CLK_TOP_DISP0_SEL/* dts */, "disp0_sel", disp0_parents/* parent */,
+		CLK_CFG_1, CLK_CFG_1_SET, CLK_CFG_1_CLR/* set parent */,
+		HWV_CG_18_DONE, HWV_CG_18_SET, HWV_CG_18_CLR, /* hwv */
+		0/* lsb */, 4/* width */,
 		7/* pdn */, CLK_CFG_UPDATE/* upd ofs */,
 		TOP_MUX_DISP0_SHIFT/* upd shift */),
-	MUX_GATE_CLR_SET_UPD(CLK_TOP_DISP1_SEL/* dts */, "disp1_sel",
-		disp1_parents/* parent */, CLK_CFG_1, CLK_CFG_1_SET,
-		CLK_CFG_1_CLR/* set parent */, 8/* lsb */, 4/* width */,
+	MUX_HWV(CLK_TOP_DISP1_SEL/* dts */, "disp1_sel", disp1_parents/* parent */,
+		CLK_CFG_1, CLK_CFG_1_SET, CLK_CFG_1_CLR/* set parent */,
+		HWV_CG_18_DONE, HWV_CG_18_SET, HWV_CG_18_CLR, /* hwv */
+		8/* lsb */, 4/* width */,
 		15/* pdn */, CLK_CFG_UPDATE/* upd ofs */,
 		TOP_MUX_DISP1_SHIFT/* upd shift */),
-	MUX_GATE_CLR_SET_UPD(CLK_TOP_OVL0_SEL/* dts */, "ovl0_sel",
-		ovl0_parents/* parent */, CLK_CFG_1, CLK_CFG_1_SET,
-		CLK_CFG_1_CLR/* set parent */, 16/* lsb */, 4/* width */,
+	MUX_HWV(CLK_TOP_OVL0_SEL/* dts */, "ovl0_sel", ovl0_parents/* parent */,
+		CLK_CFG_1, CLK_CFG_1_SET, CLK_CFG_1_CLR/* set parent */,
+		HWV_CG_18_DONE, HWV_CG_18_SET, HWV_CG_18_CLR, /* hwv */
+		16/* lsb */, 4/* width */,
 		23/* pdn */, CLK_CFG_UPDATE/* upd ofs */,
 		TOP_MUX_OVL0_SHIFT/* upd shift */),
-	MUX_GATE_CLR_SET_UPD(CLK_TOP_OVL1_SEL/* dts */, "ovl1_sel",
-		ovl1_parents/* parent */, CLK_CFG_1, CLK_CFG_1_SET,
-		CLK_CFG_1_CLR/* set parent */, 24/* lsb */, 4/* width */,
+	MUX_HWV(CLK_TOP_OVL1_SEL/* dts */, "ovl1_sel", ovl1_parents/* parent */,
+		CLK_CFG_1, CLK_CFG_1_SET, CLK_CFG_1_CLR/* set parent */,
+		HWV_CG_18_DONE, HWV_CG_18_SET, HWV_CG_18_CLR, /* hwv */
+		24/* lsb */, 4/* width */,
 		31/* pdn */, CLK_CFG_UPDATE/* upd ofs */,
 		TOP_MUX_OVL1_SHIFT/* upd shift */),
 	/* CLK_CFG_2 */
-	MUX_GATE_CLR_SET_UPD(CLK_TOP_MDP0_SEL/* dts */, "mdp0_sel",
-		mdp0_parents/* parent */, CLK_CFG_2, CLK_CFG_2_SET,
-		CLK_CFG_2_CLR/* set parent */, 0/* lsb */, 4/* width */,
+	MUX_HWV(CLK_TOP_MDP0_SEL/* dts */, "mdp0_sel", mdp0_parents/* parent */,
+		CLK_CFG_2, CLK_CFG_2_SET, CLK_CFG_2_CLR/* set parent */,
+		HWV_CG_19_DONE, HWV_CG_19_SET, HWV_CG_19_CLR, /* hwv */
+		0/* lsb */, 4/* width */,
 		7/* pdn */, CLK_CFG_UPDATE/* upd ofs */,
 		TOP_MUX_MDP0_SHIFT/* upd shift */),
-	MUX_GATE_CLR_SET_UPD(CLK_TOP_MDP1_SEL/* dts */, "mdp1_sel",
-		mdp1_parents/* parent */, CLK_CFG_2, CLK_CFG_2_SET,
-		CLK_CFG_2_CLR/* set parent */, 8/* lsb */, 4/* width */,
+	MUX_HWV(CLK_TOP_MDP1_SEL/* dts */, "mdp1_sel", mdp1_parents/* parent */,
+		CLK_CFG_2, CLK_CFG_2_SET, CLK_CFG_2_CLR/* set parent */,
+		HWV_CG_19_DONE, HWV_CG_19_SET, HWV_CG_19_CLR, /* hwv */
+		8/* lsb */, 4/* width */,
 		15/* pdn */, CLK_CFG_UPDATE/* upd ofs */,
 		TOP_MUX_MDP1_SHIFT/* upd shift */),
-	MUX_GATE_CLR_SET_UPD(CLK_TOP_MMINFRA_SEL/* dts */, "mminfra_sel",
-		mminfra_parents/* parent */, CLK_CFG_2, CLK_CFG_2_SET,
-		CLK_CFG_2_CLR/* set parent */, 16/* lsb */, 4/* width */,
+	MUX_HWV(CLK_TOP_MMINFRA_SEL/* dts */, "mminfra_sel", mminfra_parents/* parent */,
+		CLK_CFG_2, CLK_CFG_2_SET, CLK_CFG_2_CLR/* set parent */,
+		HWV_CG_19_DONE, HWV_CG_19_SET, HWV_CG_19_CLR, /* hwv */
+		16/* lsb */, 4/* width */,
 		23/* pdn */, CLK_CFG_UPDATE/* upd ofs */,
 		TOP_MUX_MMINFRA_SHIFT/* upd shift */),
 	MUX_GATE_CLR_SET_UPD(CLK_TOP_MMUP_SEL/* dts */, "mmup_sel",
@@ -2505,9 +2520,10 @@ static const struct mtk_mux top_muxes[] = {
 		31/* pdn */, CLK_CFG_UPDATE/* upd ofs */,
 		TOP_MUX_MMUP_SHIFT/* upd shift */),
 	/* CLK_CFG_3 */
-	MUX_GATE_CLR_SET_UPD(CLK_TOP_DSP_SEL/* dts */, "dsp_sel",
-		dsp_parents/* parent */, CLK_CFG_3, CLK_CFG_3_SET,
-		CLK_CFG_3_CLR/* set parent */, 0/* lsb */, 3/* width */,
+	MUX_HWV(CLK_TOP_DSP_SEL/* dts */, "dsp_sel", dsp_parents/* parent */,
+		CLK_CFG_3, CLK_CFG_3_SET, CLK_CFG_3_CLR/* set parent */,
+		HWV_CG_20_DONE, HWV_CG_20_SET, HWV_CG_20_CLR, /* hwv */
+		0/* lsb */, 3/* width */,
 		7/* pdn */, CLK_CFG_UPDATE/* upd ofs */,
 		TOP_MUX_DSP_SHIFT/* upd shift */),
 	MUX_GATE_CLR_SET_UPD(CLK_TOP_MFG_REF_SEL/* dts */, "mfg_ref_sel",
@@ -2651,9 +2667,11 @@ static const struct mtk_mux top_muxes[] = {
 		CLK_CFG_13_CLR/* set parent */, 24/* lsb */, 4/* width */,
 		CLK_CFG_UPDATE1/* upd ofs */, TOP_MUX_DPMAIF_MAIN_SHIFT/* upd shift */),
 	/* CLK_CFG_14 */
-	MUX_GATE_CLR_SET_UPD(CLK_TOP_VDEC_CKSYS1_SEL/* dts */, "vdec_cksys1_sel",
-		vdec_cksys1_parents/* parent */, CLK_CFG_14, CLK_CFG_14_SET,
-		CLK_CFG_14_CLR/* set parent */, 8/* lsb */, 4/* width */,
+	MUX_HWV(CLK_TOP_VDEC_CKSYS1_SEL/* dts */, "vdec_cksys1_sel",
+		vdec_cksys1_parents/* parent */,
+		CLK_CFG_14, CLK_CFG_14_SET, CLK_CFG_14_CLR/* set parent */,
+		HWV_CG_21_DONE, HWV_CG_21_SET, HWV_CG_21_CLR, /* hwv */
+		8/* lsb */, 4/* width */,
 		15/* pdn */, CLK_CFG_UPDATE1/* upd ofs */,
 		TOP_MUX_VDEC_CKSYS1_SHIFT/* upd shift */),
 	MUX_GATE_CLR_SET_UPD(CLK_TOP_PWM_SEL/* dts */, "pwm_sel",
@@ -2758,122 +2776,144 @@ static const struct mtk_mux top_muxes[] = {
 		mfg1_int1_parents/* parent */, CLK_CFG_30, CLK_CFG_30_SET,
 		CLK_CFG_30_CLR/* set parent */, 17/* lsb */, 1/* width */),
 	/* CKSYS2_CLK_CFG_4 */
-	MUX_GATE_CLR_SET_UPD(CLK_TOP_CAMTG_SEL/* dts */, "camtg_sel",
-		camtg_parents/* parent */, CKSYS2_CLK_CFG_4, CKSYS2_CLK_CFG_4_SET,
-		CKSYS2_CLK_CFG_4_CLR/* set parent */, 0/* lsb */, 4/* width */,
+	MUX_HWV(CLK_TOP_CAMTG_SEL/* dts */, "camtg_sel", camtg_parents/* parent */,
+		CKSYS2_CLK_CFG_4, CKSYS2_CLK_CFG_4_SET, CKSYS2_CLK_CFG_4_CLR/* set parent */,
+		HWV_CG_22_DONE, HWV_CG_22_SET, HWV_CG_22_CLR, /* hwv */
+		0/* lsb */, 4/* width */,
 		7/* pdn */, CKSYS2_CLK_CFG_UPDATE/* upd ofs */,
 		TOP_MUX_CAMTG_SHIFT/* upd shift */),
-	MUX_GATE_CLR_SET_UPD(CLK_TOP_CAMTG2_SEL/* dts */, "camtg2_sel",
-		camtg2_parents/* parent */, CKSYS2_CLK_CFG_4, CKSYS2_CLK_CFG_4_SET,
-		CKSYS2_CLK_CFG_4_CLR/* set parent */, 8/* lsb */, 4/* width */,
+	MUX_HWV(CLK_TOP_CAMTG2_SEL/* dts */, "camtg2_sel", camtg2_parents/* parent */,
+		CKSYS2_CLK_CFG_4, CKSYS2_CLK_CFG_4_SET, CKSYS2_CLK_CFG_4_CLR/* set parent */,
+		HWV_CG_22_DONE, HWV_CG_22_SET, HWV_CG_22_CLR, /* hwv */
+		8/* lsb */, 4/* width */,
 		15/* pdn */, CKSYS2_CLK_CFG_UPDATE/* upd ofs */,
 		TOP_MUX_CAMTG2_SHIFT/* upd shift */),
-	MUX_GATE_CLR_SET_UPD(CLK_TOP_CAMTG3_SEL/* dts */, "camtg3_sel",
-		camtg3_parents/* parent */, CKSYS2_CLK_CFG_4, CKSYS2_CLK_CFG_4_SET,
-		CKSYS2_CLK_CFG_4_CLR/* set parent */, 16/* lsb */, 4/* width */,
+	MUX_HWV(CLK_TOP_CAMTG3_SEL/* dts */, "camtg3_sel", camtg3_parents/* parent */,
+		CKSYS2_CLK_CFG_4, CKSYS2_CLK_CFG_4_SET, CKSYS2_CLK_CFG_4_CLR/* set parent */,
+		HWV_CG_22_DONE, HWV_CG_22_SET, HWV_CG_22_CLR, /* hwv */
+		16/* lsb */, 4/* width */,
 		23/* pdn */, CKSYS2_CLK_CFG_UPDATE/* upd ofs */,
 		TOP_MUX_CAMTG3_SHIFT/* upd shift */),
-	MUX_GATE_CLR_SET_UPD(CLK_TOP_CAMTG4_SEL/* dts */, "camtg4_sel",
-		camtg4_parents/* parent */, CKSYS2_CLK_CFG_4, CKSYS2_CLK_CFG_4_SET,
-		CKSYS2_CLK_CFG_4_CLR/* set parent */, 24/* lsb */, 4/* width */,
+	MUX_HWV(CLK_TOP_CAMTG4_SEL/* dts */, "camtg4_sel", camtg4_parents/* parent */,
+		CKSYS2_CLK_CFG_4, CKSYS2_CLK_CFG_4_SET, CKSYS2_CLK_CFG_4_CLR/* set parent */,
+		HWV_CG_22_DONE, HWV_CG_22_SET, HWV_CG_22_CLR, /* hwv */
+		24/* lsb */, 4/* width */,
 		31/* pdn */, CKSYS2_CLK_CFG_UPDATE/* upd ofs */,
 		TOP_MUX_CAMTG4_SHIFT/* upd shift */),
 	/* CKSYS2_CLK_CFG_5 */
-	MUX_GATE_CLR_SET_UPD(CLK_TOP_CAMTG5_SEL/* dts */, "camtg5_sel",
-		camtg5_parents/* parent */, CKSYS2_CLK_CFG_5, CKSYS2_CLK_CFG_5_SET,
-		CKSYS2_CLK_CFG_5_CLR/* set parent */, 0/* lsb */, 4/* width */,
+	MUX_HWV(CLK_TOP_CAMTG5_SEL/* dts */, "camtg5_sel", camtg5_parents/* parent */,
+		CKSYS2_CLK_CFG_5, CKSYS2_CLK_CFG_5_SET, CKSYS2_CLK_CFG_5_CLR/* set parent */,
+		HWV_CG_23_DONE, HWV_CG_23_SET, HWV_CG_23_CLR, /* hwv */
+		0/* lsb */, 4/* width */,
 		7/* pdn */, CKSYS2_CLK_CFG_UPDATE/* upd ofs */,
 		TOP_MUX_CAMTG5_SHIFT/* upd shift */),
-	MUX_GATE_CLR_SET_UPD(CLK_TOP_CAMTG6_SEL/* dts */, "camtg6_sel",
-		camtg6_parents/* parent */, CKSYS2_CLK_CFG_5, CKSYS2_CLK_CFG_5_SET,
-		CKSYS2_CLK_CFG_5_CLR/* set parent */, 8/* lsb */, 4/* width */,
+	MUX_HWV(CLK_TOP_CAMTG6_SEL/* dts */, "camtg6_sel", camtg6_parents/* parent */,
+		CKSYS2_CLK_CFG_5, CKSYS2_CLK_CFG_5_SET, CKSYS2_CLK_CFG_5_CLR/* set parent */,
+		HWV_CG_23_DONE, HWV_CG_23_SET, HWV_CG_23_CLR, /* hwv */
+		8/* lsb */, 4/* width */,
 		15/* pdn */, CKSYS2_CLK_CFG_UPDATE/* upd ofs */,
 		TOP_MUX_CAMTG6_SHIFT/* upd shift */),
-	MUX_GATE_CLR_SET_UPD(CLK_TOP_CAMTG7_SEL/* dts */, "camtg7_sel",
-		camtg7_parents/* parent */, CKSYS2_CLK_CFG_5, CKSYS2_CLK_CFG_5_SET,
-		CKSYS2_CLK_CFG_5_CLR/* set parent */, 16/* lsb */, 4/* width */,
+	MUX_HWV(CLK_TOP_CAMTG7_SEL/* dts */, "camtg7_sel", camtg7_parents/* parent */,
+		CKSYS2_CLK_CFG_5, CKSYS2_CLK_CFG_5_SET, CKSYS2_CLK_CFG_5_CLR/* set parent */,
+		HWV_CG_23_DONE, HWV_CG_23_SET, HWV_CG_23_CLR, /* hwv */
+		16/* lsb */, 4/* width */,
 		23/* pdn */, CKSYS2_CLK_CFG_UPDATE/* upd ofs */,
 		TOP_MUX_CAMTG7_SHIFT/* upd shift */),
-	MUX_GATE_CLR_SET_UPD(CLK_TOP_CAMTG8_SEL/* dts */, "camtg8_sel",
-		camtg8_parents/* parent */, CKSYS2_CLK_CFG_5, CKSYS2_CLK_CFG_5_SET,
-		CKSYS2_CLK_CFG_5_CLR/* set parent */, 24/* lsb */, 4/* width */,
+	MUX_HWV(CLK_TOP_CAMTG8_SEL/* dts */, "camtg8_sel", camtg8_parents/* parent */,
+		CKSYS2_CLK_CFG_5, CKSYS2_CLK_CFG_5_SET, CKSYS2_CLK_CFG_5_CLR/* set parent */,
+		HWV_CG_23_DONE, HWV_CG_23_SET, HWV_CG_23_CLR, /* hwv */
+		24/* lsb */, 4/* width */,
 		31/* pdn */, CKSYS2_CLK_CFG_UPDATE/* upd ofs */,
 		TOP_MUX_CAMTG8_SHIFT/* upd shift */),
 	/* CKSYS2_CLK_CFG_9 */
-	MUX_GATE_CLR_SET_UPD(CLK_TOP_SENINF_SEL/* dts */, "seninf_sel",
-		seninf_parents/* parent */, CKSYS2_CLK_CFG_9, CKSYS2_CLK_CFG_9_SET,
-		CKSYS2_CLK_CFG_9_CLR/* set parent */, 24/* lsb */, 4/* width */,
+	MUX_HWV(CLK_TOP_SENINF_SEL/* dts */, "seninf_sel", seninf_parents/* parent */,
+		CKSYS2_CLK_CFG_9, CKSYS2_CLK_CFG_9_SET, CKSYS2_CLK_CFG_9_CLR/* set parent */,
+		HWV_CG_24_DONE, HWV_CG_24_SET, HWV_CG_24_CLR, /* hwv */
+		24/* lsb */, 4/* width */,
 		31/* pdn */, CKSYS2_CLK_CFG_UPDATE1/* upd ofs */,
 		TOP_MUX_SENINF_SHIFT/* upd shift */),
 	/* CKSYS2_CLK_CFG_10 */
-	MUX_GATE_CLR_SET_UPD(CLK_TOP_SENINF1_SEL/* dts */, "seninf1_sel",
-		seninf1_parents/* parent */, CKSYS2_CLK_CFG_10, CKSYS2_CLK_CFG_10_SET,
-		CKSYS2_CLK_CFG_10_CLR/* set parent */, 0/* lsb */, 4/* width */,
+	MUX_HWV(CLK_TOP_SENINF1_SEL/* dts */, "seninf1_sel", seninf1_parents/* parent */,
+		CKSYS2_CLK_CFG_10, CKSYS2_CLK_CFG_10_SET, CKSYS2_CLK_CFG_10_CLR/* set parent */,
+		HWV_CG_25_DONE, HWV_CG_25_SET, HWV_CG_25_CLR, /* hwv */
+		0/* lsb */, 4/* width */,
 		7/* pdn */, CKSYS2_CLK_CFG_UPDATE1/* upd ofs */,
 		TOP_MUX_SENINF1_SHIFT/* upd shift */),
-	MUX_GATE_CLR_SET_UPD(CLK_TOP_SENINF2_SEL/* dts */, "seninf2_sel",
-		seninf2_parents/* parent */, CKSYS2_CLK_CFG_10, CKSYS2_CLK_CFG_10_SET,
-		CKSYS2_CLK_CFG_10_CLR/* set parent */, 8/* lsb */, 4/* width */,
+	MUX_HWV(CLK_TOP_SENINF2_SEL/* dts */, "seninf2_sel", seninf2_parents/* parent */,
+		CKSYS2_CLK_CFG_10, CKSYS2_CLK_CFG_10_SET, CKSYS2_CLK_CFG_10_CLR/* set parent */,
+		HWV_CG_25_DONE, HWV_CG_25_SET, HWV_CG_25_CLR, /* hwv */
+		8/* lsb */, 4/* width */,
 		15/* pdn */, CKSYS2_CLK_CFG_UPDATE1/* upd ofs */,
 		TOP_MUX_SENINF2_SHIFT/* upd shift */),
-	MUX_GATE_CLR_SET_UPD(CLK_TOP_SENINF3_SEL/* dts */, "seninf3_sel",
-		seninf3_parents/* parent */, CKSYS2_CLK_CFG_10, CKSYS2_CLK_CFG_10_SET,
-		CKSYS2_CLK_CFG_10_CLR/* set parent */, 16/* lsb */, 4/* width */,
+	MUX_HWV(CLK_TOP_SENINF3_SEL/* dts */, "seninf3_sel", seninf3_parents/* parent */,
+		CKSYS2_CLK_CFG_10, CKSYS2_CLK_CFG_10_SET, CKSYS2_CLK_CFG_10_CLR/* set parent */,
+		HWV_CG_25_DONE, HWV_CG_25_SET, HWV_CG_25_CLR, /* hwv */
+		16/* lsb */, 4/* width */,
 		23/* pdn */, CKSYS2_CLK_CFG_UPDATE1/* upd ofs */,
 		TOP_MUX_SENINF3_SHIFT/* upd shift */),
-	MUX_GATE_CLR_SET_UPD(CLK_TOP_SENINF4_SEL/* dts */, "seninf4_sel",
-		seninf4_parents/* parent */, CKSYS2_CLK_CFG_10, CKSYS2_CLK_CFG_10_SET,
-		CKSYS2_CLK_CFG_10_CLR/* set parent */, 24/* lsb */, 4/* width */,
+	MUX_HWV(CLK_TOP_SENINF4_SEL/* dts */, "seninf4_sel", seninf4_parents/* parent */,
+		CKSYS2_CLK_CFG_10, CKSYS2_CLK_CFG_10_SET, CKSYS2_CLK_CFG_10_CLR/* set parent */,
+		HWV_CG_25_DONE, HWV_CG_25_SET, HWV_CG_25_CLR, /* hwv */
+		24/* lsb */, 4/* width */,
 		31/* pdn */, CKSYS2_CLK_CFG_UPDATE1/* upd ofs */,
 		TOP_MUX_SENINF4_SHIFT/* upd shift */),
 	/* CKSYS2_CLK_CFG_11 */
-	MUX_GATE_CLR_SET_UPD(CLK_TOP_SENINF5_SEL/* dts */, "seninf5_sel",
-		seninf5_parents/* parent */, CKSYS2_CLK_CFG_11, CKSYS2_CLK_CFG_11_SET,
-		CKSYS2_CLK_CFG_11_CLR/* set parent */, 0/* lsb */, 4/* width */,
+	MUX_HWV(CLK_TOP_SENINF5_SEL/* dts */, "seninf5_sel", seninf5_parents/* parent */,
+		CKSYS2_CLK_CFG_11, CKSYS2_CLK_CFG_11_SET, CKSYS2_CLK_CFG_11_CLR/* set parent */,
+		HWV_CG_26_DONE, HWV_CG_26_SET, HWV_CG_26_CLR, /* hwv */
+		0/* lsb */, 4/* width */,
 		7/* pdn */, CKSYS2_CLK_CFG_UPDATE1/* upd ofs */,
 		TOP_MUX_SENINF5_SHIFT/* upd shift */),
 	/* CKSYS2_CLK_CFG_14 */
-	MUX_GATE_CLR_SET_UPD(CLK_TOP_VENC_SEL/* dts */, "venc_sel",
-		venc_parents/* parent */, CKSYS2_CLK_CFG_14, CKSYS2_CLK_CFG_14_SET,
-		CKSYS2_CLK_CFG_14_CLR/* set parent */, 0/* lsb */, 4/* width */,
+	MUX_HWV(CLK_TOP_VENC_SEL/* dts */, "venc_sel", venc_parents/* parent */,
+		CKSYS2_CLK_CFG_14, CKSYS2_CLK_CFG_14_SET, CKSYS2_CLK_CFG_14_CLR/* set parent */,
+		HWV_CG_27_DONE, HWV_CG_27_SET, HWV_CG_27_CLR, /* hwv */
+		0/* lsb */, 4/* width */,
 		7/* pdn */, CKSYS2_CLK_CFG_UPDATE1/* upd ofs */,
 		TOP_MUX_VENC_SHIFT/* upd shift */),
-	MUX_GATE_CLR_SET_UPD(CLK_TOP_VDEC_SEL/* dts */, "vdec_sel",
-		vdec_parents/* parent */, CKSYS2_CLK_CFG_14, CKSYS2_CLK_CFG_14_SET,
-		CKSYS2_CLK_CFG_14_CLR/* set parent */, 8/* lsb */, 4/* width */,
+	MUX_HWV(CLK_TOP_VDEC_SEL/* dts */, "vdec_sel", vdec_parents/* parent */,
+		CKSYS2_CLK_CFG_14, CKSYS2_CLK_CFG_14_SET, CKSYS2_CLK_CFG_14_CLR/* set parent */,
+		HWV_CG_27_DONE, HWV_CG_27_SET, HWV_CG_27_CLR, /* hwv */
+		8/* lsb */, 4/* width */,
 		15/* pdn */, CKSYS2_CLK_CFG_UPDATE1/* upd ofs */,
 		TOP_MUX_VDEC_SHIFT/* upd shift */),
 	/* CKSYS2_CLK_CFG_16 */
-	MUX_GATE_CLR_SET_UPD(CLK_TOP_CCU_AHB_SEL/* dts */, "ccu_ahb_sel",
-		ccu_ahb_parents/* parent */, CKSYS2_CLK_CFG_16, CKSYS2_CLK_CFG_16_SET,
-		CKSYS2_CLK_CFG_16_CLR/* set parent */, 16/* lsb */, 3/* width */,
+	MUX_HWV(CLK_TOP_CCU_AHB_SEL/* dts */, "ccu_ahb_sel", ccu_ahb_parents/* parent */,
+		CKSYS2_CLK_CFG_16, CKSYS2_CLK_CFG_16_SET, CKSYS2_CLK_CFG_16_CLR/* set parent */,
+		HWV_CG_28_DONE, HWV_CG_28_SET, HWV_CG_28_CLR, /* hwv */
+		16/* lsb */, 3/* width */,
 		23/* pdn */, CKSYS2_CLK_CFG_UPDATE2/* upd ofs */,
 		TOP_MUX_CCU_AHB_SHIFT/* upd shift */),
 	/* CKSYS2_CLK_CFG_17 */
-	MUX_GATE_CLR_SET_UPD(CLK_TOP_IMG1_SEL/* dts */, "img1_sel",
-		img1_parents/* parent */, CKSYS2_CLK_CFG_17, CKSYS2_CLK_CFG_17_SET,
-		CKSYS2_CLK_CFG_17_CLR/* set parent */, 0/* lsb */, 4/* width */,
+	MUX_HWV(CLK_TOP_IMG1_SEL/* dts */, "img1_sel", img1_parents/* parent */,
+		CKSYS2_CLK_CFG_17, CKSYS2_CLK_CFG_17_SET, CKSYS2_CLK_CFG_17_CLR/* set parent */,
+		HWV_CG_29_DONE, HWV_CG_29_SET, HWV_CG_29_CLR, /* hwv */
+		0/* lsb */, 4/* width */,
 		7/* pdn */, CKSYS2_CLK_CFG_UPDATE2/* upd ofs */,
 		TOP_MUX_IMG1_SHIFT/* upd shift */),
-	MUX_GATE_CLR_SET_UPD(CLK_TOP_IPE_SEL/* dts */, "ipe_sel",
-		ipe_parents/* parent */, CKSYS2_CLK_CFG_17, CKSYS2_CLK_CFG_17_SET,
-		CKSYS2_CLK_CFG_17_CLR/* set parent */, 8/* lsb */, 4/* width */,
+	MUX_HWV(CLK_TOP_IPE_SEL/* dts */, "ipe_sel", ipe_parents/* parent */,
+		CKSYS2_CLK_CFG_17, CKSYS2_CLK_CFG_17_SET, CKSYS2_CLK_CFG_17_CLR/* set parent */,
+		HWV_CG_29_DONE, HWV_CG_29_SET, HWV_CG_29_CLR, /* hwv */
+		8/* lsb */, 4/* width */,
 		15/* pdn */, CKSYS2_CLK_CFG_UPDATE2/* upd ofs */,
 		TOP_MUX_IPE_SHIFT/* upd shift */),
-	MUX_GATE_CLR_SET_UPD(CLK_TOP_CAM_SEL/* dts */, "cam_sel",
-		cam_parents/* parent */, CKSYS2_CLK_CFG_17, CKSYS2_CLK_CFG_17_SET,
-		CKSYS2_CLK_CFG_17_CLR/* set parent */, 16/* lsb */, 4/* width */,
+	MUX_HWV(CLK_TOP_CAM_SEL/* dts */, "cam_sel", cam_parents/* parent */,
+		CKSYS2_CLK_CFG_17, CKSYS2_CLK_CFG_17_SET, CKSYS2_CLK_CFG_17_CLR/* set parent */,
+		HWV_CG_29_DONE, HWV_CG_29_SET, HWV_CG_29_CLR, /* hwv */
+		16/* lsb */, 4/* width */,
 		23/* pdn */, CKSYS2_CLK_CFG_UPDATE2/* upd ofs */,
 		TOP_MUX_CAM_SHIFT/* upd shift */),
-	MUX_GATE_CLR_SET_UPD(CLK_TOP_CCUSYS_SEL/* dts */, "ccusys_sel",
-		ccusys_parents/* parent */, CKSYS2_CLK_CFG_17, CKSYS2_CLK_CFG_17_SET,
-		CKSYS2_CLK_CFG_17_CLR/* set parent */, 24/* lsb */, 4/* width */,
+	MUX_HWV(CLK_TOP_CCUSYS_SEL/* dts */, "ccusys_sel", ccusys_parents/* parent */,
+		CKSYS2_CLK_CFG_17, CKSYS2_CLK_CFG_17_SET, CKSYS2_CLK_CFG_17_CLR/* set parent */,
+		HWV_CG_29_DONE, HWV_CG_29_SET, HWV_CG_29_CLR, /* hwv */
+		24/* lsb */, 4/* width */,
 		31/* pdn */, CKSYS2_CLK_CFG_UPDATE2/* upd ofs */,
 		TOP_MUX_CCUSYS_SHIFT/* upd shift */),
 	/* CKSYS2_CLK_CFG_18 */
-	MUX_GATE_CLR_SET_UPD(CLK_TOP_CAMTM_SEL/* dts */, "camtm_sel",
-		camtm_parents/* parent */, CKSYS2_CLK_CFG_18, CKSYS2_CLK_CFG_18_SET,
-		CKSYS2_CLK_CFG_18_CLR/* set parent */, 0/* lsb */, 3/* width */,
+	MUX_HWV(CLK_TOP_CAMTM_SEL/* dts */, "camtm_sel", camtm_parents/* parent */,
+		CKSYS2_CLK_CFG_18, CKSYS2_CLK_CFG_18_SET, CKSYS2_CLK_CFG_18_CLR/* set parent */,
+		HWV_CG_30_DONE, HWV_CG_30_SET, HWV_CG_30_CLR, /* hwv */
+		0/* lsb */, 3/* width */,
 		7/* pdn */, CKSYS2_CLK_CFG_UPDATE2/* upd ofs */,
 		TOP_MUX_CAMTM_SHIFT/* upd shift */),
 #endif
@@ -3072,30 +3112,38 @@ static const struct mtk_pll_data cci_plls[] = {
 };
 
 static const struct mtk_pll_data apmixed_plls[] = {
-	PLL(CLK_APMIXED_MAINPLL2, "mainpll2", MAINPLL2_CON0/*base*/,
+	PLL_HWV(CLK_APMIXED_MAINPLL2, "mainpll2", MAINPLL2_CON0/*base*/,
 		MAINPLL2_CON0, 0xff000000, 0/*en*/,
 		MAINPLL2_CON3/*pwr*/, HAVE_RST_BAR, BIT(23)/*rstb*/,
 		MAINPLL2_CON1, 24/*pd*/,
 		0, 0, 0/*tuner*/,
-		MAINPLL2_CON1, 0, 22/*pcw*/),
-	PLL(CLK_APMIXED_UNIVPLL2, "univpll2", UNIVPLL2_CON0/*base*/,
+		MAINPLL2_CON1, 0, 22/*pcw*/,
+		HWV_PLL_SET, HWV_PLL_CLR, HWV_PLL_DONE,
+		HWV_PLL_SET_STA, HWV_PLL_CLR_STA, 0),
+	PLL_HWV(CLK_APMIXED_UNIVPLL2, "univpll2", UNIVPLL2_CON0/*base*/,
 		UNIVPLL2_CON0, 0xff000000, 0/*en*/,
 		UNIVPLL2_CON3/*pwr*/, HAVE_RST_BAR, BIT(23)/*rstb*/,
 		UNIVPLL2_CON1, 24/*pd*/,
 		0, 0, 0/*tuner*/,
-		UNIVPLL2_CON1, 0, 22/*pcw*/),
-	PLL(CLK_APMIXED_MMPLL2, "mmpll2", MMPLL2_CON0/*base*/,
+		UNIVPLL2_CON1, 0, 22/*pcw*/,
+		HWV_PLL_SET, HWV_PLL_CLR, HWV_PLL_DONE,
+		HWV_PLL_SET_STA, HWV_PLL_CLR_STA, 1),
+	PLL_HWV(CLK_APMIXED_MMPLL2, "mmpll2", MMPLL2_CON0/*base*/,
 		MMPLL2_CON0, 0xff000000, 0/*en*/,
 		MMPLL2_CON3/*pwr*/, HAVE_RST_BAR, BIT(23)/*rstb*/,
 		MMPLL2_CON1, 24/*pd*/,
 		0, 0, 0/*tuner*/,
-		MMPLL2_CON1, 0, 22/*pcw*/),
-	PLL(CLK_APMIXED_MAINPLL, "mainpll", MAINPLL_CON0/*base*/,
+		MMPLL2_CON1, 0, 22/*pcw*/,
+		HWV_PLL_SET, HWV_PLL_CLR, HWV_PLL_DONE,
+		HWV_PLL_SET_STA, HWV_PLL_CLR_STA, 2),
+	PLL_HWV(CLK_APMIXED_MAINPLL, "mainpll", MAINPLL_CON0/*base*/,
 		MAINPLL_CON0, 0xff000000, 0/*en*/,
 		MAINPLL_CON3/*pwr*/, HAVE_RST_BAR | PLL_AO, BIT(23)/*rstb*/,
 		MAINPLL_CON1, 24/*pd*/,
 		0, 0, 0/*tuner*/,
-		MAINPLL_CON1, 0, 22/*pcw*/),
+		MAINPLL_CON1, 0, 22/*pcw*/,
+		HWV_PLL_SET, HWV_PLL_CLR, HWV_PLL_DONE,
+		HWV_PLL_SET_STA, HWV_PLL_CLR_STA, 3),
 	PLL_HWV(CLK_APMIXED_UNIVPLL, "univpll", UNIVPLL_CON0/*base*/,
 		UNIVPLL_CON0, 0xff000000, 0/*en*/,
 		UNIVPLL_CON3/*pwr*/, HAVE_RST_BAR, BIT(23)/*rstb*/,
@@ -3110,24 +3158,28 @@ static const struct mtk_pll_data apmixed_plls[] = {
 		MSDCPLL_CON1, 24/*pd*/,
 		0, 0, 0/*tuner*/,
 		MSDCPLL_CON1, 0, 22/*pcw*/),
-	PLL(CLK_APMIXED_MMPLL, "mmpll", MMPLL_CON0/*base*/,
+	PLL_HWV(CLK_APMIXED_MMPLL, "mmpll", MMPLL_CON0/*base*/,
 		MMPLL_CON0, 0xff000000, 0/*en*/,
 		MMPLL_CON3/*pwr*/, HAVE_RST_BAR, BIT(23)/*rstb*/,
 		MMPLL_CON1, 24/*pd*/,
 		0, 0, 0/*tuner*/,
-		MMPLL_CON1, 0, 22/*pcw*/),
+		MMPLL_CON1, 0, 22/*pcw*/,
+		HWV_PLL_SET, HWV_PLL_CLR, HWV_PLL_DONE,
+		HWV_PLL_SET_STA, HWV_PLL_CLR_STA, 5),
 	PLL(CLK_APMIXED_ADSPPLL, "adsppll", ADSPPLL_CON0/*base*/,
 		ADSPPLL_CON0, 0, 0/*en*/,
 		ADSPPLL_CON3/*pwr*/, 0, BIT(0)/*rstb*/,
 		ADSPPLL_CON1, 24/*pd*/,
 		0, 0, 0/*tuner*/,
 		ADSPPLL_CON1, 0, 22/*pcw*/),
-	PLL(CLK_APMIXED_TVDPLL, "tvdpll", TVDPLL_CON0/*base*/,
+	PLL_HWV(CLK_APMIXED_TVDPLL, "tvdpll", TVDPLL_CON0/*base*/,
 		TVDPLL_CON0, 0, 0/*en*/,
 		TVDPLL_CON3/*pwr*/, 0, BIT(0)/*rstb*/,
 		TVDPLL_CON1, 24/*pd*/,
 		0, 0, 0/*tuner*/,
-		TVDPLL_CON1, 0, 22/*pcw*/),
+		TVDPLL_CON1, 0, 22/*pcw*/,
+		HWV_PLL_SET, HWV_PLL_CLR, HWV_PLL_DONE,
+		HWV_PLL_SET_STA, HWV_PLL_CLR_STA, 6),
 	PLL(CLK_APMIXED_APLL1, "apll1", APLL1_CON0/*base*/,
 		APLL1_CON0, 0, 0/*en*/,
 		APLL1_CON4/*pwr*/, 0, BIT(0)/*rstb*/,
@@ -3152,12 +3204,14 @@ static const struct mtk_pll_data apmixed_plls[] = {
 		EMIPLL_CON1, 24/*pd*/,
 		0, 0, 0/*tuner*/,
 		EMIPLL_CON1, 0, 22/*pcw*/),
-	PLL(CLK_APMIXED_IMGPLL, "imgpll", IMGPLL_CON0/*base*/,
+	PLL_HWV(CLK_APMIXED_IMGPLL, "imgpll", IMGPLL_CON0/*base*/,
 		IMGPLL_CON0, 0, 0/*en*/,
 		IMGPLL_CON3/*pwr*/, 0, BIT(0)/*rstb*/,
 		IMGPLL_CON1, 24/*pd*/,
 		0, 0, 0/*tuner*/,
-		IMGPLL_CON1, 0, 22/*pcw*/),
+		IMGPLL_CON1, 0, 22/*pcw*/,
+		HWV_PLL_SET, HWV_PLL_CLR, HWV_PLL_DONE,
+		HWV_PLL_SET_STA, HWV_PLL_CLR_STA, 7),
 };
 
 static const struct mtk_pll_data mfg_ao_plls[] = {

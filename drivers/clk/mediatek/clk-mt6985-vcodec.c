@@ -38,6 +38,12 @@ static const struct mtk_gate_regs vde22_cg_regs = {
 	.sta_ofs = 0x8,
 };
 
+static const struct mtk_gate_regs vde22_hwv_regs = {
+	.set_ofs = 0x0068,
+	.clr_ofs = 0x006C,
+	.sta_ofs = 0x1C34,
+};
+
 #define GATE_VDE20(_id, _name, _parent, _shift) {	\
 		.id = _id,				\
 		.name = _name,				\
@@ -65,6 +71,17 @@ static const struct mtk_gate_regs vde22_cg_regs = {
 		.ops = &mtk_clk_gate_ops_setclr_inv,	\
 	}
 
+#define GATE_HWV_VDE22(_id, _name, _parent, _shift) {	\
+		.id = _id,						\
+		.name = _name,						\
+		.parent_name = _parent,					\
+		.regs = &vde22_cg_regs,			\
+		.hwv_regs = &vde22_hwv_regs,		\
+		.shift = _shift,					\
+		.ops = &mtk_clk_gate_ops_hwv_inv,				\
+		.flags = CLK_USE_HW_VOTER,				\
+	}
+
 static const struct mtk_gate vde2_clks[] = {
 	/* VDE20 */
 	GATE_VDE20(CLK_VDE2_VDEC_CKEN, "vde2_vdec_cken",
@@ -81,7 +98,7 @@ static const struct mtk_gate vde2_clks[] = {
 	GATE_VDE21(CLK_VDE2_LAT_CKEN_ENG, "vde2_lat_cken_eng",
 			"vdec_ck"/* parent */, 8),
 	/* VDE22 */
-	GATE_VDE22(CLK_VDE2_LARB1_CKEN, "vde2_larb1_cken",
+	GATE_HWV_VDE22(CLK_VDE2_LARB1_CKEN, "vde2_larb1_cken",
 			"vdec_ck"/* parent */, 0),
 };
 
@@ -118,6 +135,12 @@ static const struct mtk_gate_regs vde14_cg_regs = {
 	.set_ofs = 0x8,
 	.clr_ofs = 0xC,
 	.sta_ofs = 0x8,
+};
+
+static const struct mtk_gate_regs vde14_hwv_regs = {
+	.set_ofs = 0x0070,
+	.clr_ofs = 0x0074,
+	.sta_ofs = 0x1C38,
 };
 
 #define GATE_VDE10(_id, _name, _parent, _shift) {	\
@@ -165,6 +188,17 @@ static const struct mtk_gate_regs vde14_cg_regs = {
 		.ops = &mtk_clk_gate_ops_setclr_inv,	\
 	}
 
+#define GATE_HWV_VDE14(_id, _name, _parent, _shift) {	\
+		.id = _id,						\
+		.name = _name,						\
+		.parent_name = _parent,					\
+		.regs = &vde14_cg_regs,			\
+		.hwv_regs = &vde14_hwv_regs,		\
+		.shift = _shift,					\
+		.ops = &mtk_clk_gate_ops_hwv_inv,				\
+		.flags = CLK_USE_HW_VOTER,				\
+	}
+
 static const struct mtk_gate vde1_clks[] = {
 	/* VDE10 */
 	GATE_VDE10(CLK_VDE1_VDEC_CKEN, "vde1_vdec_cken",
@@ -187,7 +221,7 @@ static const struct mtk_gate vde1_clks[] = {
 	GATE_VDE13(CLK_VDE1_LAT_CKEN_ENG, "vde1_lat_cken_eng",
 			"vdec_ck"/* parent */, 8),
 	/* VDE14 */
-	GATE_VDE14(CLK_VDE1_LARB1_CKEN, "vde1_larb1_cken",
+	GATE_HWV_VDE14(CLK_VDE1_LARB1_CKEN, "vde1_larb1_cken",
 			"vdec_ck"/* parent */, 0),
 };
 

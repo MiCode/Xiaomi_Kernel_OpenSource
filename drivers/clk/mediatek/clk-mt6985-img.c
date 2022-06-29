@@ -26,6 +26,12 @@ static const struct mtk_gate_regs dip_nr1_dip1_cg_regs = {
 	.sta_ofs = 0x0,
 };
 
+static const struct mtk_gate_regs dip_nr1_dip1_hwv_regs = {
+	.set_ofs = 0x0008,
+	.clr_ofs = 0x000C,
+	.sta_ofs = 0x1C04,
+};
+
 #define GATE_DIP_NR1_DIP1(_id, _name, _parent, _shift) {	\
 		.id = _id,				\
 		.name = _name,				\
@@ -35,10 +41,21 @@ static const struct mtk_gate_regs dip_nr1_dip1_cg_regs = {
 		.ops = &mtk_clk_gate_ops_setclr,	\
 	}
 
+#define GATE_HWV_DIP_NR1_DIP1(_id, _name, _parent, _shift) {	\
+		.id = _id,						\
+		.name = _name,						\
+		.parent_name = _parent,					\
+		.regs = &dip_nr1_dip1_cg_regs,			\
+		.hwv_regs = &dip_nr1_dip1_hwv_regs,		\
+		.shift = _shift,					\
+		.ops = &mtk_clk_gate_ops_hwv,				\
+		.flags = CLK_USE_HW_VOTER,				\
+	}
+
 static const struct mtk_gate dip_nr1_dip1_clks[] = {
-	GATE_DIP_NR1_DIP1(CLK_DIP_NR1_DIP1_LARB, "dip_nr1_dip1_larb",
+	GATE_HWV_DIP_NR1_DIP1(CLK_DIP_NR1_DIP1_LARB, "dip_nr1_dip1_larb",
 			"img1_ck"/* parent */, 0),
-	GATE_DIP_NR1_DIP1(CLK_DIP_NR1_DIP1_DIP_NR1, "dip_nr1_dip1_dip_nr1",
+	GATE_HWV_DIP_NR1_DIP1(CLK_DIP_NR1_DIP1_DIP_NR1, "dip_nr1_dip1_dip_nr1",
 			"img1_ck"/* parent */, 1),
 };
 
@@ -53,6 +70,12 @@ static const struct mtk_gate_regs dip_nr2_dip1_cg_regs = {
 	.sta_ofs = 0x0,
 };
 
+static const struct mtk_gate_regs dip_nr2_dip1_hwv_regs = {
+	.set_ofs = 0x0010,
+	.clr_ofs = 0x0014,
+	.sta_ofs = 0x1C08,
+};
+
 #define GATE_DIP_NR2_DIP1(_id, _name, _parent, _shift) {	\
 		.id = _id,				\
 		.name = _name,				\
@@ -62,10 +85,21 @@ static const struct mtk_gate_regs dip_nr2_dip1_cg_regs = {
 		.ops = &mtk_clk_gate_ops_setclr,	\
 	}
 
+#define GATE_HWV_DIP_NR2_DIP1(_id, _name, _parent, _shift) {	\
+		.id = _id,						\
+		.name = _name,						\
+		.parent_name = _parent,					\
+		.regs = &dip_nr2_dip1_cg_regs,			\
+		.hwv_regs = &dip_nr2_dip1_hwv_regs,		\
+		.shift = _shift,					\
+		.ops = &mtk_clk_gate_ops_hwv,				\
+		.flags = CLK_USE_HW_VOTER,				\
+	}
+
 static const struct mtk_gate dip_nr2_dip1_clks[] = {
-	GATE_DIP_NR2_DIP1(CLK_DIP_NR2_DIP1_LARB15, "dip_nr2_dip1_larb15",
+	GATE_HWV_DIP_NR2_DIP1(CLK_DIP_NR2_DIP1_LARB15, "dip_nr2_dip1_larb15",
 			"img1_ck"/* parent */, 0),
-	GATE_DIP_NR2_DIP1(CLK_DIP_NR2_DIP1_DIP_NR, "dip_nr2_dip1_dip_nr",
+	GATE_HWV_DIP_NR2_DIP1(CLK_DIP_NR2_DIP1_DIP_NR, "dip_nr2_dip1_dip_nr",
 			"img1_ck"/* parent */, 1),
 };
 
@@ -80,6 +114,12 @@ static const struct mtk_gate_regs dip_top_dip1_cg_regs = {
 	.sta_ofs = 0x0,
 };
 
+static const struct mtk_gate_regs dip_top_dip1_hwv_regs = {
+	.set_ofs = 0x0018,
+	.clr_ofs = 0x001C,
+	.sta_ofs = 0x1C0C,
+};
+
 #define GATE_DIP_TOP_DIP1(_id, _name, _parent, _shift) {	\
 		.id = _id,				\
 		.name = _name,				\
@@ -89,10 +129,21 @@ static const struct mtk_gate_regs dip_top_dip1_cg_regs = {
 		.ops = &mtk_clk_gate_ops_setclr,	\
 	}
 
+#define GATE_HWV_DIP_TOP_DIP1(_id, _name, _parent, _shift) {	\
+		.id = _id,						\
+		.name = _name,						\
+		.parent_name = _parent,					\
+		.regs = &dip_top_dip1_cg_regs,			\
+		.hwv_regs = &dip_top_dip1_hwv_regs,		\
+		.shift = _shift,					\
+		.ops = &mtk_clk_gate_ops_hwv,				\
+		.flags = CLK_USE_HW_VOTER,				\
+	}
+
 static const struct mtk_gate dip_top_dip1_clks[] = {
-	GATE_DIP_TOP_DIP1(CLK_DIP_TOP_DIP1_LARB10, "dip_dip1_larb10",
+	GATE_HWV_DIP_TOP_DIP1(CLK_DIP_TOP_DIP1_LARB10, "dip_dip1_larb10",
 			"img1_ck"/* parent */, 0),
-	GATE_DIP_TOP_DIP1(CLK_DIP_TOP_DIP1_DIP_TOP, "dip_dip1_dip_top",
+	GATE_HWV_DIP_TOP_DIP1(CLK_DIP_TOP_DIP1_DIP_TOP, "dip_dip1_dip_top",
 			"img1_ck"/* parent */, 1),
 };
 
@@ -107,10 +158,22 @@ static const struct mtk_gate_regs img0_cg_regs = {
 	.sta_ofs = 0x0,
 };
 
+static const struct mtk_gate_regs img0_hwv_regs = {
+	.set_ofs = 0x0038,
+	.clr_ofs = 0x003C,
+	.sta_ofs = 0x1C1C,
+};
+
 static const struct mtk_gate_regs img1_cg_regs = {
 	.set_ofs = 0x54,
 	.clr_ofs = 0x58,
 	.sta_ofs = 0x50,
+};
+
+static const struct mtk_gate_regs img1_hwv_regs = {
+	.set_ofs = 0x0030,
+	.clr_ofs = 0x0034,
+	.sta_ofs = 0x1C18,
 };
 
 #define GATE_IMG0(_id, _name, _parent, _shift) {	\
@@ -122,6 +185,17 @@ static const struct mtk_gate_regs img1_cg_regs = {
 		.ops = &mtk_clk_gate_ops_setclr,	\
 	}
 
+#define GATE_HWV_IMG0(_id, _name, _parent, _shift) {	\
+		.id = _id,						\
+		.name = _name,						\
+		.parent_name = _parent,					\
+		.regs = &img0_cg_regs,			\
+		.hwv_regs = &img0_hwv_regs,		\
+		.shift = _shift,					\
+		.ops = &mtk_clk_gate_ops_hwv,				\
+		.flags = CLK_USE_HW_VOTER,				\
+	}
+
 #define GATE_IMG1(_id, _name, _parent, _shift) {	\
 		.id = _id,				\
 		.name = _name,				\
@@ -131,42 +205,53 @@ static const struct mtk_gate_regs img1_cg_regs = {
 		.ops = &mtk_clk_gate_ops_setclr,	\
 	}
 
+#define GATE_HWV_IMG1(_id, _name, _parent, _shift) {	\
+		.id = _id,						\
+		.name = _name,						\
+		.parent_name = _parent,					\
+		.regs = &img1_cg_regs,			\
+		.hwv_regs = &img1_hwv_regs,		\
+		.shift = _shift,					\
+		.ops = &mtk_clk_gate_ops_hwv,				\
+		.flags = CLK_USE_HW_VOTER,				\
+	}
+
 static const struct mtk_gate img_clks[] = {
 	/* IMG0 */
-	GATE_IMG0(CLK_IMG_LARB9, "img_larb9",
+	GATE_HWV_IMG0(CLK_IMG_LARB9, "img_larb9",
 			"img1_ck"/* parent */, 0),
-	GATE_IMG0(CLK_IMG_TRAW0, "img_traw0",
+	GATE_HWV_IMG0(CLK_IMG_TRAW0, "img_traw0",
 			"img1_ck"/* parent */, 1),
-	GATE_IMG0(CLK_IMG_TRAW1, "img_traw1",
+	GATE_HWV_IMG0(CLK_IMG_TRAW1, "img_traw1",
 			"img1_ck"/* parent */, 2),
-	GATE_IMG0(CLK_IMG_VCORE_GALS, "img_vcore_gals",
+	GATE_HWV_IMG0(CLK_IMG_VCORE_GALS, "img_vcore_gals",
 			"img1_ck"/* parent */, 3),
-	GATE_IMG0(CLK_IMG_DIP0, "img_dip0",
+	GATE_HWV_IMG0(CLK_IMG_DIP0, "img_dip0",
 			"img1_ck"/* parent */, 8),
-	GATE_IMG0(CLK_IMG_WPE0, "img_wpe0",
+	GATE_HWV_IMG0(CLK_IMG_WPE0, "img_wpe0",
 			"img1_ck"/* parent */, 9),
-	GATE_IMG0(CLK_IMG_IPE, "img_ipe",
+	GATE_HWV_IMG0(CLK_IMG_IPE, "img_ipe",
 			"img1_ck"/* parent */, 10),
-	GATE_IMG0(CLK_IMG_WPE1, "img_wpe1",
+	GATE_HWV_IMG0(CLK_IMG_WPE1, "img_wpe1",
 			"img1_ck"/* parent */, 12),
-	GATE_IMG0(CLK_IMG_WPE2, "img_wpe2",
+	GATE_HWV_IMG0(CLK_IMG_WPE2, "img_wpe2",
 			"img1_ck"/* parent */, 13),
-	GATE_IMG0(CLK_IMG_SMI_ADL_LARB0, "img_smi_adl_larb0",
+	GATE_HWV_IMG0(CLK_IMG_SMI_ADL_LARB0, "img_smi_adl_larb0",
 			"img1_ck"/* parent */, 14),
-	GATE_IMG0(CLK_IMG_ADL0, "img_adl0",
+	GATE_HWV_IMG0(CLK_IMG_ADL0, "img_adl0",
 			"img1_ck"/* parent */, 15),
-	GATE_IMG0(CLK_IMG_AVS, "img_avs",
+	GATE_HWV_IMG0(CLK_IMG_AVS, "img_avs",
 			"imgavs_ck"/* parent */, 17),
-	GATE_IMG0(CLK_IMG_GALS, "img_gals",
+	GATE_HWV_IMG0(CLK_IMG_GALS, "img_gals",
 			"img1_ck"/* parent */, 31),
 	/* IMG1 */
-	GATE_IMG1(CLK_IMG_FDVT, "img_fdvt",
+	GATE_HWV_IMG1(CLK_IMG_FDVT, "img_fdvt",
 			"ipe_ck"/* parent */, 0),
-	GATE_IMG1(CLK_IMG_ME, "img_me",
+	GATE_HWV_IMG1(CLK_IMG_ME, "img_me",
 			"ipe_ck"/* parent */, 1),
-	GATE_IMG1(CLK_IMG_MMG, "img_mmg",
+	GATE_HWV_IMG1(CLK_IMG_MMG, "img_mmg",
 			"ipe_ck"/* parent */, 2),
-	GATE_IMG1(CLK_IMG_LARB12, "img_larb12",
+	GATE_HWV_IMG1(CLK_IMG_LARB12, "img_larb12",
 			"ipe_ck"/* parent */, 3),
 };
 
@@ -181,6 +266,12 @@ static const struct mtk_gate_regs traw_dip1_cg_regs = {
 	.sta_ofs = 0x0,
 };
 
+static const struct mtk_gate_regs traw_dip1_hwv_regs = {
+	.set_ofs = 0x0060,
+	.clr_ofs = 0x0064,
+	.sta_ofs = 0x1C30,
+};
+
 #define GATE_TRAW_DIP1(_id, _name, _parent, _shift) {	\
 		.id = _id,				\
 		.name = _name,				\
@@ -190,10 +281,21 @@ static const struct mtk_gate_regs traw_dip1_cg_regs = {
 		.ops = &mtk_clk_gate_ops_setclr,	\
 	}
 
+#define GATE_HWV_TRAW_DIP1(_id, _name, _parent, _shift) {	\
+		.id = _id,						\
+		.name = _name,						\
+		.parent_name = _parent,					\
+		.regs = &traw_dip1_cg_regs,			\
+		.hwv_regs = &traw_dip1_hwv_regs,		\
+		.shift = _shift,					\
+		.ops = &mtk_clk_gate_ops_hwv,				\
+		.flags = CLK_USE_HW_VOTER,				\
+	}
+
 static const struct mtk_gate traw_dip1_clks[] = {
-	GATE_TRAW_DIP1(CLK_TRAW_DIP1_LARB28, "traw_dip1_larb28",
+	GATE_HWV_TRAW_DIP1(CLK_TRAW_DIP1_LARB28, "traw_dip1_larb28",
 			"img1_ck"/* parent */, 0),
-	GATE_TRAW_DIP1(CLK_TRAW_DIP1_TRAW, "traw_dip1_traw",
+	GATE_HWV_TRAW_DIP1(CLK_TRAW_DIP1_TRAW, "traw_dip1_traw",
 			"img1_ck"/* parent */, 1),
 };
 
@@ -208,6 +310,12 @@ static const struct mtk_gate_regs wpe1_dip1_cg_regs = {
 	.sta_ofs = 0x0,
 };
 
+static const struct mtk_gate_regs wpe1_dip1_hwv_regs = {
+	.set_ofs = 0x0078,
+	.clr_ofs = 0x007C,
+	.sta_ofs = 0x1C3C,
+};
+
 #define GATE_WPE1_DIP1(_id, _name, _parent, _shift) {	\
 		.id = _id,				\
 		.name = _name,				\
@@ -217,10 +325,21 @@ static const struct mtk_gate_regs wpe1_dip1_cg_regs = {
 		.ops = &mtk_clk_gate_ops_setclr,	\
 	}
 
+#define GATE_HWV_WPE1_DIP1(_id, _name, _parent, _shift) {	\
+		.id = _id,						\
+		.name = _name,						\
+		.parent_name = _parent,					\
+		.regs = &wpe1_dip1_cg_regs,			\
+		.hwv_regs = &wpe1_dip1_hwv_regs,		\
+		.shift = _shift,					\
+		.ops = &mtk_clk_gate_ops_hwv,				\
+		.flags = CLK_USE_HW_VOTER,				\
+	}
+
 static const struct mtk_gate wpe1_dip1_clks[] = {
 	GATE_WPE1_DIP1(CLK_WPE1_DIP1_LARB11, "wpe1_dip1_larb11",
 			"img1_ck"/* parent */, 0),
-	GATE_WPE1_DIP1(CLK_WPE1_DIP1_WPE, "wpe1_dip1_wpe",
+	GATE_HWV_WPE1_DIP1(CLK_WPE1_DIP1_WPE, "wpe1_dip1_wpe",
 			"img1_ck"/* parent */, 1),
 };
 
@@ -235,6 +354,12 @@ static const struct mtk_gate_regs wpe2_dip1_cg_regs = {
 	.sta_ofs = 0x0,
 };
 
+static const struct mtk_gate_regs wpe2_dip1_hwv_regs = {
+	.set_ofs = 0x0080,
+	.clr_ofs = 0x0084,
+	.sta_ofs = 0x1C40,
+};
+
 #define GATE_WPE2_DIP1(_id, _name, _parent, _shift) {	\
 		.id = _id,				\
 		.name = _name,				\
@@ -244,10 +369,21 @@ static const struct mtk_gate_regs wpe2_dip1_cg_regs = {
 		.ops = &mtk_clk_gate_ops_setclr,	\
 	}
 
+#define GATE_HWV_WPE2_DIP1(_id, _name, _parent, _shift) {	\
+		.id = _id,						\
+		.name = _name,						\
+		.parent_name = _parent,					\
+		.regs = &wpe2_dip1_cg_regs,			\
+		.hwv_regs = &wpe2_dip1_hwv_regs,		\
+		.shift = _shift,					\
+		.ops = &mtk_clk_gate_ops_hwv,				\
+		.flags = CLK_USE_HW_VOTER,				\
+	}
+
 static const struct mtk_gate wpe2_dip1_clks[] = {
 	GATE_WPE2_DIP1(CLK_WPE2_DIP1_LARB11, "wpe2_dip1_larb11",
 			"img1_ck"/* parent */, 0),
-	GATE_WPE2_DIP1(CLK_WPE2_DIP1_WPE, "wpe2_dip1_wpe",
+	GATE_HWV_WPE2_DIP1(CLK_WPE2_DIP1_WPE, "wpe2_dip1_wpe",
 			"img1_ck"/* parent */, 1),
 };
 
@@ -262,6 +398,12 @@ static const struct mtk_gate_regs wpe3_dip1_cg_regs = {
 	.sta_ofs = 0x0,
 };
 
+static const struct mtk_gate_regs wpe3_dip1_hwv_regs = {
+	.set_ofs = 0x0088,
+	.clr_ofs = 0x008C,
+	.sta_ofs = 0x1C44,
+};
+
 #define GATE_WPE3_DIP1(_id, _name, _parent, _shift) {	\
 		.id = _id,				\
 		.name = _name,				\
@@ -271,10 +413,21 @@ static const struct mtk_gate_regs wpe3_dip1_cg_regs = {
 		.ops = &mtk_clk_gate_ops_setclr,	\
 	}
 
+#define GATE_HWV_WPE3_DIP1(_id, _name, _parent, _shift) {	\
+		.id = _id,						\
+		.name = _name,						\
+		.parent_name = _parent,					\
+		.regs = &wpe3_dip1_cg_regs,			\
+		.hwv_regs = &wpe3_dip1_hwv_regs,		\
+		.shift = _shift,					\
+		.ops = &mtk_clk_gate_ops_hwv,				\
+		.flags = CLK_USE_HW_VOTER,				\
+	}
+
 static const struct mtk_gate wpe3_dip1_clks[] = {
 	GATE_WPE3_DIP1(CLK_WPE3_DIP1_LARB11, "wpe3_dip1_larb11",
 			"img1_ck"/* parent */, 0),
-	GATE_WPE3_DIP1(CLK_WPE3_DIP1_WPE, "wpe3_dip1_wpe",
+	GATE_HWV_WPE3_DIP1(CLK_WPE3_DIP1_WPE, "wpe3_dip1_wpe",
 			"img1_ck"/* parent */, 1),
 };
 

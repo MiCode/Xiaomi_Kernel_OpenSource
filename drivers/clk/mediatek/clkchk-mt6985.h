@@ -75,7 +75,9 @@ enum chk_sys_id {
 	ptp = 64,
 	ifr_mem = 65,
 	semi = 66,
-	chk_sys_num = 67,
+	hwv_wrt = 67,
+	hwv = 68,
+	chk_sys_num = 69,
 };
 
 enum chk_pd_id {

@@ -28,10 +28,11 @@
 #define CHECK_VCORE_FREQ		1
 #define CG_CHK_PWRON_ENABLE		0
 
-#define HWV_ADDR_HISTORY_0		0x1F04
-#define HWV_DATA_HISTORY_0		0x1F44
-#define HWV_IDX_POINTER			0x1F84
-#define HWV_DOMAIN_KEY			0x155C
+#define HWV_ADDR_HISTORY_0_2		0x1F04
+#define HWV_DATA_HISTORY_0_2		0x1F44
+#define HWV_IDX_POINTER_2		0x1F84
+#define HWV_DOMAIN_KEY_2		0x155C
+#define HWV_DOMAIN_KEY			0x055C
 #define HWV_SECURE_KEY			0x10907
 #define HWV_CG_SET(id)			(0x0 + (id * 0x8))
 #define HWV_CG_STA(id)			(0x1800 + (id * 0x4))
@@ -123,6 +124,8 @@ static struct regbase rb[] = {
 	[ptp] = REGBASE_V(0xc034000, ptp, PD_NULL, CLK_NULL),
 	[ifr_mem] = REGBASE_V(0x10270000, ifr_mem, PD_NULL, CLK_NULL),
 	[semi] = REGBASE_V(0x1030e000, semi, PD_NULL, CLK_NULL),
+	[hwv_wrt] = REGBASE_V(0x10321000, hwv_wrt, PD_NULL, CLK_NULL),
+	[hwv] = REGBASE_V(0x10321000, hwv, PD_NULL, CLK_NULL),
 	{},
 };
 
@@ -502,6 +505,41 @@ static struct regname rn[] = {
 	REGNAME(ifr_mem, 0x8c, EMI_RDY0),
 	REGNAME(semi, 0x84, EMI_SET1),
 	REGNAME(semi, 0x8c, EMI_RDY1),
+	/* HWV register */
+	REGNAME(hwv_wrt, 0x055C, HWV_DOMAIN_KEY),
+	REGNAME(hwv, 0x0F04, HWV_ADDR_HISTORY_0),
+	REGNAME(hwv, 0x0F08, HWV_ADDR_HISTORY_1),
+	REGNAME(hwv, 0x0F0C, HWV_ADDR_HISTORY_2),
+	REGNAME(hwv, 0x0F10, HWV_ADDR_HISTORY_3),
+	REGNAME(hwv, 0x0F14, HWV_ADDR_HISTORY_4),
+	REGNAME(hwv, 0x0F18, HWV_ADDR_HISTORY_5),
+	REGNAME(hwv, 0x0F1C, HWV_ADDR_HISTORY_6),
+	REGNAME(hwv, 0x0F20, HWV_ADDR_HISTORY_7),
+	REGNAME(hwv, 0x0F24, HWV_ADDR_HISTORY_8),
+	REGNAME(hwv, 0x0F28, HWV_ADDR_HISTORY_9),
+	REGNAME(hwv, 0x0F2C, HWV_ADDR_HISTORY_10),
+	REGNAME(hwv, 0x0F30, HWV_ADDR_HISTORY_11),
+	REGNAME(hwv, 0x0F34, HWV_ADDR_HISTORY_12),
+	REGNAME(hwv, 0x0F38, HWV_ADDR_HISTORY_13),
+	REGNAME(hwv, 0x0F3C, HWV_ADDR_HISTORY_14),
+	REGNAME(hwv, 0x0F40, HWV_ADDR_HISTORY_15),
+	REGNAME(hwv, 0x0F44, HWV_DATA_HISTORY_0),
+	REGNAME(hwv, 0x0F48, HWV_DATA_HISTORY_1),
+	REGNAME(hwv, 0x0F4C, HWV_DATA_HISTORY_2),
+	REGNAME(hwv, 0x0F50, HWV_DATA_HISTORY_3),
+	REGNAME(hwv, 0x0F54, HWV_DATA_HISTORY_4),
+	REGNAME(hwv, 0x0F58, HWV_DATA_HISTORY_5),
+	REGNAME(hwv, 0x0F5C, HWV_DATA_HISTORY_6),
+	REGNAME(hwv, 0x0F60, HWV_DATA_HISTORY_7),
+	REGNAME(hwv, 0x0F64, HWV_DATA_HISTORY_8),
+	REGNAME(hwv, 0x0F68, HWV_DATA_HISTORY_9),
+	REGNAME(hwv, 0x0F6C, HWV_DATA_HISTORY_10),
+	REGNAME(hwv, 0x0F70, HWV_DATA_HISTORY_11),
+	REGNAME(hwv, 0x0F74, HWV_DATA_HISTORY_12),
+	REGNAME(hwv, 0x0F78, HWV_DATA_HISTORY_13),
+	REGNAME(hwv, 0x0F7C, HWV_DATA_HISTORY_14),
+	REGNAME(hwv, 0x0F70, HWV_DATA_HISTORY_15),
+	REGNAME(hwv, 0x0F84, HWV_IDX_POINTER),
 	{},
 };
 
@@ -530,6 +568,11 @@ u32 get_mt6985_reg_value(u32 id, u32 ofs)
 	return clk_readl(rb[id].virt + ofs);
 }
 EXPORT_SYMBOL_GPL(get_mt6985_reg_value);
+
+void release_hwv_secure(void)
+{
+	clk_writel(rb[hwv_wrt].virt + HWV_DOMAIN_KEY, HWV_SECURE_KEY);
+}
 
 /*
  * clkchk pwr_data
@@ -868,11 +911,13 @@ static enum chk_sys_id devapc_dump_id[] = {
 	cpu_bl,
 	cpu_b,
 	ptp,
+	hwv,
 	chk_sys_num,
 };
 
 static void devapc_dump(void)
 {
+	release_hwv_secure();
 	set_subsys_reg_dump_mt6985(devapc_dump_id);
 	get_subsys_reg_dump_mt6985();
 }
@@ -929,7 +974,7 @@ static void dump_hwv_history(struct regmap *regmap, u32 id)
 	u32 idx = 0, set = 0, sta = 0, set_sta = 0, clr_sta = 0, en = 0, done = 0;
 	int i;
 
-	regmap_write(regmap, HWV_DOMAIN_KEY, HWV_SECURE_KEY);
+	regmap_write(regmap, HWV_DOMAIN_KEY_2, HWV_SECURE_KEY);
 	regmap_read(regmap, HWV_CG_SET(id), &set);
 	regmap_read(regmap, HWV_CG_STA(id), &sta);
 	regmap_read(regmap, HWV_CG_SET_STA(id), &set_sta);
@@ -938,11 +983,11 @@ static void dump_hwv_history(struct regmap *regmap, u32 id)
 	regmap_read(regmap, HWV_CG_DONE(id), &done);
 
 	for (i = 0; i < 16; i++) {
-		regmap_read(regmap, HWV_ADDR_HISTORY_0 + (0x4 * i), addr + i);
-		regmap_read(regmap, HWV_DATA_HISTORY_0 + (0x4 * i), val + i);
+		regmap_read(regmap, HWV_ADDR_HISTORY_0_2 + (0x4 * i), addr + i);
+		regmap_read(regmap, HWV_DATA_HISTORY_0_2 + (0x4 * i), val + i);
 	}
-	regmap_read(regmap, HWV_IDX_POINTER, &idx);
-	pr_notice("idx: 0x%x\n", val);
+	regmap_read(regmap, HWV_IDX_POINTER_2, &idx);
+	pr_notice("idx: 0x%x\n", idx);
 	pr_notice("[%d](%x)%x, (%x)%x, (%x)%x, (%x)%x, (%x)%x, (%x)%x\n",
 			id, HWV_CG_SET(id), set, HWV_CG_STA(id), sta,
 			HWV_CG_SET_STA(id), set_sta, HWV_CG_CLR_STA(id), clr_sta,
@@ -974,6 +1019,7 @@ static void dump_bus_reg(struct regmap *regmap, u32 ofs)
 
 static enum chk_sys_id hwv_pll_dump_id[] = {
 	apmixed,
+	top,
 	chk_sys_num,
 };
 

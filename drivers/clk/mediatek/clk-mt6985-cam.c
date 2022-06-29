@@ -26,6 +26,12 @@ static const struct mtk_gate_regs cam_m0_cg_regs = {
 	.sta_ofs = 0x0,
 };
 
+static const struct mtk_gate_regs cam_m0_hwv_regs = {
+	.set_ofs = 0x0000,
+	.clr_ofs = 0x0004,
+	.sta_ofs = 0x1C00,
+};
+
 static const struct mtk_gate_regs cam_m1_cg_regs = {
 	.set_ofs = 0x50,
 	.clr_ofs = 0x54,
@@ -41,6 +47,17 @@ static const struct mtk_gate_regs cam_m1_cg_regs = {
 		.ops = &mtk_clk_gate_ops_setclr,	\
 	}
 
+#define GATE_HWV_CAM_M0(_id, _name, _parent, _shift) {	\
+		.id = _id,						\
+		.name = _name,						\
+		.parent_name = _parent,					\
+		.regs = &cam_m0_cg_regs,			\
+		.hwv_regs = &cam_m0_hwv_regs,		\
+		.shift = _shift,					\
+		.ops = &mtk_clk_gate_ops_hwv,				\
+		.flags = CLK_USE_HW_VOTER,				\
+	}
+
 #define GATE_CAM_M1(_id, _name, _parent, _shift) {	\
 		.id = _id,				\
 		.name = _name,				\
@@ -52,15 +69,15 @@ static const struct mtk_gate_regs cam_m1_cg_regs = {
 
 static const struct mtk_gate cam_m_clks[] = {
 	/* CAM_M0 */
-	GATE_CAM_M0(CLK_CAM_MAIN_LARB13_CON_0, "cam_m_larb13_con_0",
+	GATE_HWV_CAM_M0(CLK_CAM_MAIN_LARB13_CON_0, "cam_m_larb13_con_0",
 			"cam_ck"/* parent */, 0),
-	GATE_CAM_M0(CLK_CAM_MAIN_LARB14_CON_0, "cam_m_larb14_con_0",
+	GATE_HWV_CAM_M0(CLK_CAM_MAIN_LARB14_CON_0, "cam_m_larb14_con_0",
 			"cam_ck"/* parent */, 1),
-	GATE_CAM_M0(CLK_CAM_MAIN_LARB27_CON_0, "cam_m_larb27_con_0",
+	GATE_HWV_CAM_M0(CLK_CAM_MAIN_LARB27_CON_0, "cam_m_larb27_con_0",
 			"cam_ck"/* parent */, 2),
-	GATE_CAM_M0(CLK_CAM_MAIN_LARB29_CON_0, "cam_m_larb29_con_0",
+	GATE_HWV_CAM_M0(CLK_CAM_MAIN_LARB29_CON_0, "cam_m_larb29_con_0",
 			"cam_ck"/* parent */, 3),
-	GATE_CAM_M0(CLK_CAM_MAIN_CAM_CON_0, "cam_m_cam_con_0",
+	GATE_HWV_CAM_M0(CLK_CAM_MAIN_CAM_CON_0, "cam_m_cam_con_0",
 			"cam_ck"/* parent */, 4),
 	GATE_CAM_M0(CLK_CAM_MAIN_CAM_SUBA_CON_0, "cam_m_cam_suba_con_0",
 			"cam_ck"/* parent */, 5),
@@ -70,9 +87,9 @@ static const struct mtk_gate cam_m_clks[] = {
 			"cam_ck"/* parent */, 7),
 	GATE_CAM_M0(CLK_CAM_MAIN_CAM_MRAW_CON_0, "cam_m_cam_mraw_con_0",
 			"cam_ck"/* parent */, 8),
-	GATE_CAM_M0(CLK_CAM_MAIN_CAMTG_CON_0, "cam_m_camtg_con_0",
+	GATE_HWV_CAM_M0(CLK_CAM_MAIN_CAMTG_CON_0, "cam_m_camtg_con_0",
 			"camtm_ck"/* parent */, 9),
-	GATE_CAM_M0(CLK_CAM_MAIN_SENINF_CON_0, "cam_m_seninf_con_0",
+	GATE_HWV_CAM_M0(CLK_CAM_MAIN_SENINF_CON_0, "cam_m_seninf_con_0",
 			"cam_ck"/* parent */, 10),
 	GATE_CAM_M0(CLK_CAM_MAIN_CAMSV_TOP_CON_0, "cam_m_camsv_con_0",
 			"cam_ck"/* parent */, 11),
@@ -80,19 +97,19 @@ static const struct mtk_gate cam_m_clks[] = {
 			"cam_ck"/* parent */, 12),
 	GATE_CAM_M0(CLK_CAM_MAIN_ADLWR_CON_0, "cam_m_adlwr_con_0",
 			"cam_ck"/* parent */, 13),
-	GATE_CAM_M0(CLK_CAM_MAIN_UISP_CON_0, "cam_m_uisp_con_0",
+	GATE_HWV_CAM_M0(CLK_CAM_MAIN_UISP_CON_0, "cam_m_uisp_con_0",
 			"cam_ck"/* parent */, 14),
 	GATE_CAM_M0(CLK_CAM_MAIN_FAKE_ENG_CON_0, "cam_m_fake_eng_con_0",
 			"cam_ck"/* parent */, 15),
-	GATE_CAM_M0(CLK_CAM_MAIN_CAM2MM0_GALS_CON_0, "cam_m_cam2mm0_gcon_0",
+	GATE_HWV_CAM_M0(CLK_CAM_MAIN_CAM2MM0_GALS_CON_0, "cam_m_cam2mm0_gcon_0",
 			"cam_ck"/* parent */, 16),
-	GATE_CAM_M0(CLK_CAM_MAIN_CAM2MM1_GALS_CON_0, "cam_m_cam2mm1_gcon_0",
+	GATE_HWV_CAM_M0(CLK_CAM_MAIN_CAM2MM1_GALS_CON_0, "cam_m_cam2mm1_gcon_0",
 			"cam_ck"/* parent */, 17),
-	GATE_CAM_M0(CLK_CAM_MAIN_CAM2SYS_GALS_CON_0, "cam_m_cam2sys_gcon_0",
+	GATE_HWV_CAM_M0(CLK_CAM_MAIN_CAM2SYS_GALS_CON_0, "cam_m_cam2sys_gcon_0",
 			"cam_ck"/* parent */, 18),
-	GATE_CAM_M0(CLK_CAM_MAIN_CAM2MM2_GALS_CON_0, "cam_m_cam2mm2_gcon_0",
+	GATE_HWV_CAM_M0(CLK_CAM_MAIN_CAM2MM2_GALS_CON_0, "cam_m_cam2mm2_gcon_0",
 			"cam_ck"/* parent */, 19),
-	GATE_CAM_M0(CLK_CAM_MAIN_CCUSYS_CON_0, "cam_m_ccusys_con_0",
+	GATE_HWV_CAM_M0(CLK_CAM_MAIN_CCUSYS_CON_0, "cam_m_ccusys_con_0",
 			"ccusys_ck"/* parent */, 20),
 	GATE_CAM_M0(CLK_CAM_MAIN_IPS_CON_0, "cam_m_ips_con_0",
 			"cam_ck"/* parent */, 21),
