@@ -15,7 +15,10 @@
 #include <linux/seq_file.h>
 #include <linux/fb.h>
 #include <mt-plat/mtk_gpu_utility.h>
-
+#if defined(CONFIG_MTK_GPUFREQ_V2)
+#include <ged_gpufreq_v2.h>
+#include <gpufreq_v2.h>
+#endif
 #include "ged_base.h"
 #include "ged_hal.h"
 #include "ged_sysfs.h"
@@ -578,10 +581,17 @@ static ssize_t dcs_mode_show(struct kobject *kobj,
 		struct kobj_attribute *attr,
 		char *buf)
 {
+	struct gpufreq_core_mask_info *avail_mask_table;
+	int avail_mask_num = 0;
 	int dcs_enable = 0;
+	int mode = 0;
 	int pos = 0;
+	int i = 0;
 
 	dcs_enable = is_dcs_enable();
+
+	avail_mask_table = dcs_get_avail_mask_table();
+	avail_mask_num = dcs_get_avail_mask_num();
 
 	if (dcs_enable) {
 		pos += scnprintf(buf + pos, PAGE_SIZE - pos,
@@ -594,6 +604,24 @@ static ssize_t dcs_mode_show(struct kobject *kobj,
 		pos += scnprintf(buf + pos, PAGE_SIZE - pos,
 					"DCS Policy is disabled\n");
 	}
+	/* User Defined DCS Core num */
+	pos += scnprintf(buf + pos, PAGE_SIZE - pos,
+		"====================================\n");
+	pos += scnprintf(buf + pos, PAGE_SIZE - pos,
+		"Enable DCS with user-defined mode with min Available Freq Code:\n");
+	for (i = 1; i < avail_mask_num; i++) {
+		mode += (1 << (avail_mask_table[i].num));
+		pos += scnprintf(buf + pos, PAGE_SIZE - pos,
+				"[%d] Achieve %d/%d Freq --> %d\n", i, avail_mask_table[i].num,
+				avail_mask_table[0].num, mode);
+	}
+	pos += scnprintf(buf + pos, PAGE_SIZE - pos,
+		"====================================\n");
+	pos += scnprintf(buf + pos, PAGE_SIZE - pos,
+		"Please echo [the min Code you want] for enable\n");
+	pos += scnprintf(buf + pos, PAGE_SIZE - pos,
+		"(Echo 0 for disable)\n");
+
 	return pos;
 }
 
@@ -603,13 +631,30 @@ static ssize_t dcs_mode_store(struct kobject *kobj,
 {
 	char acBuffer[GED_SYSFS_MAX_BUFF_SIZE];
 	int i32Value;
+	int mode = 0, i = 0;
+	unsigned int ud_mask_bit = 0;
+	struct gpufreq_core_mask_info *avail_mask_table;
+	int avail_mask_num = 0;
+
+	avail_mask_table = dcs_get_avail_mask_table();
+	avail_mask_num = dcs_get_avail_mask_num();
 
 	if ((count > 0) && (count < GED_SYSFS_MAX_BUFF_SIZE)) {
 		if (scnprintf(acBuffer, GED_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
 			if (kstrtoint(acBuffer, 0, &i32Value) == 0) {
-				if (i32Value < 0)
-					i32Value = 0;
-				dcs_enable(i32Value);
+				if (i32Value <= 0) {
+					dcs_enable(0);
+					return count;
+				}
+				ud_mask_bit = (i32Value >> 1);
+				for (i = 1; i < avail_mask_num; i++) {
+					mode += (1 << (avail_mask_table[i].num));
+					if (i32Value == mode) {
+						ged_set_ud_mask_bit(ud_mask_bit);
+						break;
+					}
+				}
+				dcs_enable(1);
 			}
 		}
 	}

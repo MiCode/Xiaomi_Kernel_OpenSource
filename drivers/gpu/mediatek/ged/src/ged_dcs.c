@@ -146,6 +146,11 @@ struct gpufreq_core_mask_info *dcs_get_avail_mask_table(void)
 	return g_avail_mask_table;
 }
 
+int dcs_get_dcs_opp_setting(void)
+{
+	return g_dcs_opp_setting;
+}
+
 int dcs_get_cur_core_num(void)
 {
 	return g_cur_core_num;

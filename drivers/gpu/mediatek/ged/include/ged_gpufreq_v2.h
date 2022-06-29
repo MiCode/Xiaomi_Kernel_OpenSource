@@ -30,6 +30,8 @@ unsigned int ged_get_cur_limiter_ceil(void);
 unsigned int ged_get_cur_limiter_floor(void);
 int ged_set_limit_ceil(int limiter, int ceil);
 int ged_set_limit_floor(int limiter, int floor);
+void ged_set_ud_mask_bit(unsigned int ud_mask_bit);
+unsigned int ged_get_ud_mask_bit(void);
 
 int ged_gpufreq_commit(int oppidx, int commit_type, int *bCommited);
 

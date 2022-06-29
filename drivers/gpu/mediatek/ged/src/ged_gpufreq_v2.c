@@ -26,6 +26,9 @@ static int g_min_virtual_oppidx;       /* opp_num - 1 + mask_num -1 */
 
 static int g_max_freq_in_mhz;         /* max freq in opp table */
 
+static unsigned int g_ud_mask_bit;     /* user-defined available core mask*/
+static struct mutex g_ud_DCS_lock;
+
 struct gpufreq_core_mask_info *g_mask_table;
 struct gpufreq_opp_info *g_working_table;
 struct gpufreq_opp_info *g_virtual_table;
@@ -68,9 +71,13 @@ GED_ERROR ged_gpufreq_init(void)
 	}
 
 	/* init core mask table if support DCS policy*/
+	mutex_init(&g_ud_DCS_lock);
 	core_mask_table = dcs_get_avail_mask_table();
 	g_max_core_num = dcs_get_max_core_num();
 	g_avail_mask_num = dcs_get_avail_mask_num();
+
+	g_ud_mask_bit = ((1 << (g_max_core_num - 1)) - 1) & (1 << (DCS_DEFAULT_MIN_CORE - 1));
+	GED_LOGI("default g_ud_mask_bit: %x", g_ud_mask_bit);
 
 	g_mask_table = kcalloc(g_avail_mask_num,
 					sizeof(struct gpufreq_core_mask_info), GFP_KERNEL);
@@ -127,6 +134,7 @@ GED_ERROR ged_gpufreq_init(void)
 
 void ged_gpufreq_exit(void)
 {
+	mutex_destroy(&g_ud_DCS_lock);
 	kfree(g_working_table);
 	kfree(g_virtual_table);
 	kfree(g_mask_table);
@@ -342,12 +350,25 @@ int ged_set_limit_floor(int limiter, int floor)
 			LIMIT_FPSGO, GPUPPM_KEEP_IDX, floor);
 }
 
+void ged_set_ud_mask_bit(unsigned int ud_mask_bit)
+{
+	mutex_lock(&g_ud_DCS_lock);
+	g_ud_mask_bit = ud_mask_bit;
+	mutex_unlock(&g_ud_DCS_lock);
+}
+
+unsigned int ged_get_ud_mask_bit(void)
+{
+	return g_ud_mask_bit;
+}
+
 int ged_gpufreq_commit(int oppidx, int commit_type, int *bCommited)
 {
 	int ret = GED_OK;
 	int oppidx_tar = 0;
 	int mask_idx = 0;
 	unsigned int freq = 0, core_mask_tar = 0, core_num_tar = 0;
+	unsigned int ud_mask_bit = 0;
 
 	int dvfs_state = 0;
 
@@ -388,6 +409,16 @@ int ged_gpufreq_commit(int oppidx, int commit_type, int *bCommited)
 
 		core_mask_tar = g_mask_table[mask_idx].mask;
 		core_num_tar = g_mask_table[mask_idx].num;
+		ud_mask_bit = (ged_get_ud_mask_bit() |
+			(1 << (g_max_core_num-1))) & ((1 << (g_max_core_num)) - 1);
+
+		if (ud_mask_bit && mask_idx) {
+			while (!((1 << (core_num_tar-1)) & ud_mask_bit) && mask_idx) {
+				mask_idx -= 1;
+				core_mask_tar = g_mask_table[mask_idx].mask;
+				core_num_tar = g_mask_table[mask_idx].num;
+			}
+		}
 
 		/* scaling freq first than scaling shader cores*/
 		if (ged_is_fdvfs_support())
