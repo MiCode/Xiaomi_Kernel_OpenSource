@@ -532,10 +532,10 @@ static struct snd_soc_dai_driver mt6985_memif_dai_driver[] = {
 		.ops = &mt6985_memif_dai_ops,
 	},
 	{
-		.name = "UL10",
+		.name = "UL12",
 		.id = MT6985_MEMIF_VUL10,
 		.capture = {
-			.stream_name = "UL10",
+			.stream_name = "UL12",
 			.channels_min = 1,
 			.channels_max = 2,
 			.rates = MTK_PCM_RATES,
@@ -544,10 +544,10 @@ static struct snd_soc_dai_driver mt6985_memif_dai_driver[] = {
 		.ops = &mt6985_memif_dai_ops,
 	},
 	{
-		.name = "UL11",
+		.name = "UL13",
 		.id = MT6985_MEMIF_VUL11,
 		.capture = {
-			.stream_name = "UL11",
+			.stream_name = "UL13",
 			.channels_min = 1,
 			.channels_max = 2,
 			.rates = MTK_PCM_RATES,
@@ -1682,12 +1682,12 @@ static const struct snd_kcontrol_new memif_ul9_ch2_mix[] = {
 				    I_ADDA_UL_CH2, 1, 0),
 };
 
-static const struct snd_kcontrol_new memif_ul11_ch1_mix[] = {
+static const struct snd_kcontrol_new memif_ul13_ch1_mix[] = {
 	SOC_DAPM_SINGLE_AUTODISABLE("I2S8_CH1", AFE_CONN86_1,
 				    I_I2S8_CH1, 1, 0),
 };
 
-static const struct snd_kcontrol_new memif_ul11_ch2_mix[] = {
+static const struct snd_kcontrol_new memif_ul13_ch2_mix[] = {
 	SOC_DAPM_SINGLE_AUTODISABLE("I2S8_CH2", AFE_CONN87_1,
 				    I_I2S8_CH2, 1, 0),
 };
@@ -1826,10 +1826,10 @@ static const struct snd_soc_dapm_widget mt6985_memif_widgets[] = {
 	SND_SOC_DAPM_MIXER("UL9_CH2", SND_SOC_NOPM, 0, 0,
 			   memif_ul9_ch2_mix, ARRAY_SIZE(memif_ul9_ch2_mix)),
 
-	SND_SOC_DAPM_MIXER("UL11_CH1", SND_SOC_NOPM, 0, 0,
-			   memif_ul11_ch1_mix, ARRAY_SIZE(memif_ul11_ch1_mix)),
-	SND_SOC_DAPM_MIXER("UL11_CH2", SND_SOC_NOPM, 0, 0,
-			   memif_ul11_ch2_mix, ARRAY_SIZE(memif_ul11_ch2_mix)),
+	SND_SOC_DAPM_MIXER("UL13_CH1", SND_SOC_NOPM, 0, 0,
+			   memif_ul13_ch1_mix, ARRAY_SIZE(memif_ul13_ch1_mix)),
+	SND_SOC_DAPM_MIXER("UL13_CH2", SND_SOC_NOPM, 0, 0,
+			   memif_ul13_ch2_mix, ARRAY_SIZE(memif_ul13_ch2_mix)),
 
 	SND_SOC_DAPM_MIXER("UL_MONO_1_CH1", SND_SOC_NOPM, 0, 0,
 			   memif_ul_mono_1_mix,
@@ -2002,11 +2002,11 @@ static const struct snd_soc_dapm_route mt6985_memif_routes[] = {
 	{"UL9_CH1", "ADDA_UL_CH1", "ADDA_UL_Mux"},
 	{"UL9_CH2", "ADDA_UL_CH2", "ADDA_UL_Mux"},
 
-	{"UL11", NULL, "UL11_CH1"},
-	{"UL11", NULL, "UL11_CH2"},
+	{"UL13", NULL, "UL13_CH1"},
+	{"UL13", NULL, "UL13_CH2"},
 
-	{"UL11_CH1", "I2S8_CH1", "I2S8"},
-	{"UL11_CH2", "I2S8_CH2", "I2S8"},
+	{"UL13_CH1", "I2S8_CH1", "I2S8"},
+	{"UL13_CH2", "I2S8_CH2", "I2S8"},
 
 	{"DL_TO_DSP", NULL, "Hostless_DSP_DL DL"},
 	{"Hostless_DSP_DL DL", NULL, "DSP_DL"},
@@ -3204,9 +3204,9 @@ static const int memif_irq_usage[MT6985_MEMIF_NUM] = {
 	[MT6985_MEMIF_VUL5] = MT6985_IRQ_19,
 	[MT6985_MEMIF_VUL6] = MT6985_IRQ_20,
 	[MT6985_MEMIF_VUL7] = MT6985_IRQ_21,
-	[MT6985_MEMIF_VUL10] = MT6985_IRQ_22,
-	[MT6985_MEMIF_VUL11] = MT6985_IRQ_23,
-	[MT6985_MEMIF_DL13] = MT6985_IRQ_24,
+	[MT6985_MEMIF_VUL10] = MT6985_IRQ_24,
+	[MT6985_MEMIF_VUL11] = MT6985_IRQ_25,
+	[MT6985_MEMIF_DL13] = MT6985_IRQ_26,
 	[MT6985_MEMIF_HDMI] = MT6985_IRQ_31,
 };
 
