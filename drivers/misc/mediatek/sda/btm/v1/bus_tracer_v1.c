@@ -361,6 +361,9 @@ static ssize_t tracer_dbgfs_etb_read(struct file *file, char __user *buf, size_t
 	unsigned int i;
 	unsigned char *etb_data;
 
+	if (buf == NULL)
+		return -ENOMEM;
+
 	if (!plt)
 		return -ENOMEM;
 
@@ -386,7 +389,7 @@ static ssize_t tracer_dbgfs_etb_read(struct file *file, char __user *buf, size_t
 	pr_notice("%s:%d:[ETB] etb read siez=%ld\n", __func__, __LINE__, (unsigned long)size);
 	pr_notice("%s:%d:[ETB] depth = 0x%lx bytes\n", __func__, __LINE__, depth);
 	if (depth == 0) {
-		/* enable ETB before dump */
+		/* enable ETB after dump */
 		writel(0x1, plt->etb_base + ETB_CTRL);
 		CS_LOCK(plt->etb_base);
 		return 0;
@@ -399,6 +402,12 @@ static ssize_t tracer_dbgfs_etb_read(struct file *file, char __user *buf, size_t
 	writel(0x0, plt->etb_base + ETB_CTRL);
 
 	etb_data = kmalloc(depth, GFP_KERNEL);
+	if (etb_data == NULL) {
+		/* enable ETB after dump */
+		writel(0x1, plt->etb_base + ETB_CTRL);
+		CS_LOCK(plt->etb_base);
+		return -ENOMEM;
+	}
 
 	nr_words = depth / 4;
 	for (i = 0; i < nr_words; ++i) {
@@ -411,7 +420,7 @@ static ssize_t tracer_dbgfs_etb_read(struct file *file, char __user *buf, size_t
 		pr_notice("%s:%d:[ETB] copy_to_user fail=%lx.\n", __func__, __LINE__, ret);
 	kfree(etb_data);
 
-	/* enable ETB before dump */
+	/* enable ETB after dump */
 	writel(0x1, plt->etb_base + ETB_CTRL);
 	CS_LOCK(plt->etb_base);
 
