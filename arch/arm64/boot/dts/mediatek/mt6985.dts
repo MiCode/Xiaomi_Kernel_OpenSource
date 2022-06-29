@@ -8941,7 +8941,7 @@
 		#address-cells = <2>;
 		#size-cells = <2>;
 		ranges;
-		lpm-kernel-suspend = <1>;
+		lpm-kernel-suspend = <0>;
 		suspend-method = "enable";
 
 		logger-enable-states = "mcusysoff_l", "mcusysoff_m", "mcusysoff_b", "system_mem",
