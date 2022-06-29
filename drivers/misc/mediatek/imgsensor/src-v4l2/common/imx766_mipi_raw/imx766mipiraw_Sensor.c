@@ -1068,7 +1068,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 			.h1_size = 1080,
 			.x2_tg_offset = 0,
 			.y2_tg_offset = 0,
-			.w2_tg_size = 1280,
+			.w2_tg_size = 1920,
 			.h2_tg_size = 1080,
 		},
 		.pdaf_cap = FALSE,
