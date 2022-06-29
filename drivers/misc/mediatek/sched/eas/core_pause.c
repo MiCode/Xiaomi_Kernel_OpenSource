@@ -355,6 +355,7 @@ int sched_pause_cpu(int cpu)
 {
 	int err = 0;
 	struct cpumask cpu_pause_req;
+	struct device *cpu_dev;
 	cpumask_t avail_cpus;
 
 	if ((cpu >= nr_cpu_ids) || (cpu < 0)) {
@@ -367,8 +368,14 @@ int sched_pause_cpu(int cpu)
 		return err;
 	}
 
+	cpu_dev = get_cpu_device(cpu);
+	if (!cpu_dev) {
+		err = -ENODEV;
+		return err;
+	}
+
 	/* Prevent to pause the last 32 bit CPU */
-	if (get_cpu_device(cpu)->offline_disabled == true) {
+	if (cpu_dev->offline_disabled == true) {
 		err = -EBUSY;
 		return err;
 	}
