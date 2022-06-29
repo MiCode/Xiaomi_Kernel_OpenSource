@@ -3071,6 +3071,7 @@ static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
 	bool res_chg = false;
 	bool mtk_vcodec_unsupport = false;
 	bool need_seq_header = false;
+	bool need_log = false;
 	int ret = 0;
 	unsigned long frame_size[2];
 	unsigned int i = 0;
@@ -3295,18 +3296,19 @@ static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
 		clean_free_bs_buffer(ctx, NULL);
 		update_src_cnt(ctx);
 
-		mtk_v4l2_debug(((ret || mtk_vcodec_unsupport || need_seq_header) ? 0 : 1),
-			"[%d] vdec_if_decode() src_buf=%d, size=%zu, fail=%d, res_chg=%d, mtk_vcodec_unsupport=%d, need_seq_header=%d, BS %s",
+		need_log = ret || mtk_vcodec_unsupport || (need_seq_header && ctx->init_cnt < 5);
+		mtk_v4l2_debug((need_log ? 0 : 1),
+			"[%d] vdec_if_decode() src_buf=%d, size=%zu, fail=%d, res_chg=%d, mtk_vcodec_unsupport=%d, need_seq_header=%d, init_cnt=%d, BS %s",
 			ctx->id, src_buf->index,
 			src_mem->size, ret, res_chg,
-			mtk_vcodec_unsupport, need_seq_header, debug_bs);
+			mtk_vcodec_unsupport, need_seq_header, ctx->init_cnt, debug_bs);
 
 		/* If not support the source, eg: w/h,
 		 * bitdepth, level, we need to stop to play it
 		 */
 		if (need_seq_header) {
-			mtk_v4l2_debug(3, "[%d]Error!! Need seq header!",
-						 ctx->id);
+			mtk_v4l2_debug(3, "[%d]Error!! Need seq header! (cnt %d)",
+						 ctx->id, ctx->init_cnt);
 			mtk_vdec_queue_noseqheader_event(ctx);
 		} else if (mtk_vcodec_unsupport || last_frame_type != NON_EOS) {
 			mtk_v4l2_err("[%d]Error!! Codec driver not support the file!",
@@ -3319,6 +3321,7 @@ static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
 			vdec_check_release_lock(ctx);
 			mtk_vdec_queue_error_event(ctx);
 		}
+		ctx->init_cnt++;
 		return;
 	}
 

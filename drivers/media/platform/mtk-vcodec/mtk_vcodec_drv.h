@@ -610,6 +610,7 @@ struct mtk_vcodec_ctx {
 	enum v4l2_quantization quantization;
 	enum v4l2_xfer_func xfer_func;
 
+	int init_cnt;
 	int decoded_frame_cnt;
 	struct mutex buf_lock;
 	struct mutex worker_lock;
