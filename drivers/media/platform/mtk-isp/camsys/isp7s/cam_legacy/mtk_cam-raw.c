@@ -3025,6 +3025,8 @@ static int mtk_raw_sd_subscribe_event(struct v4l2_subdev *subdev,
 		return v4l2_event_subscribe(fh, sub, 0, NULL);
 	case V4L2_EVENT_ESD_RECOVERY:
 		return v4l2_event_subscribe(fh, sub, 0, NULL);
+	case V4L2_EVENT_REQUEST_SENSOR_TRIGGER:
+		return v4l2_event_subscribe(fh, sub, 0, NULL);
 
 	default:
 		return -EINVAL;

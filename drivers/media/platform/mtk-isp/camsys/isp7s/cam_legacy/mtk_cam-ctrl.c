@@ -81,6 +81,16 @@ void mtk_cam_event_esd_recovery(struct mtk_raw_pipeline *pipeline,
 	};
 	v4l2_event_queue(pipeline->subdev.devnode, &event);
 }
+void mtk_cam_event_sensor_trigger(struct mtk_raw_pipeline *pipeline,
+				     unsigned int frame_seq_no)
+{
+	struct v4l2_event event = {
+		.type = V4L2_EVENT_REQUEST_SENSOR_TRIGGER,
+		.u.frame_sync.frame_sequence = frame_seq_no,
+	};
+	v4l2_event_queue(pipeline->subdev.devnode, &event);
+}
+
 static void mtk_cam_sv_event_eos(struct mtk_camsv_pipeline *pipeline)
 {
 	struct v4l2_event event = {
@@ -1345,6 +1355,10 @@ mtk_cam_set_sensor_full(struct mtk_cam_request_stream_data *s_data,
 	if (!(mtk_cam_ctx_has_raw(ctx) && mtk_cam_scen_is_m2m(&scen)) &&
 	    !is_mstream_last_exposure) {
 		if (s_data->flags & MTK_CAM_REQ_S_DATA_FLAG_SENSOR_HDL_EN) {
+			/* event only at preisp enable */
+			if (mtk_cam_scen_is_ext_isp(&scen))
+				mtk_cam_event_sensor_trigger(ctx->pipe,
+						s_data->frame_seq_no);
 			v4l2_ctrl_request_setup(&req->req,
 						s_data->sensor->ctrl_handler);
 			if (raw_dev)
