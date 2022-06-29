@@ -7771,7 +7771,7 @@
 			compatible = "mediatek,mt6985-spmi_pmif_mpu";
 			reg = <0 0x1c804900 0 0x000500>;
 			reg-names = "pmif_mpu";
-			mediatek,pmic_all_rgn_en = <0x6175>;
+			mediatek,pmic_all_rgn_en = <0x6174>;
 		};
 
 		mmc1: mmc@11240000 {
