@@ -169,18 +169,19 @@ char operate[4][14] = {
 
 uint32_t printV4Msg(struct mdfpm_log *mdfpm_log_buf, int action_id_t, char *str_dstate)
 {
-	uint32_t idx, size;
+	uint32_t size;
 	uint16_t port[2];
-	uint8_t d8Addr[8];
 	char SrcAddr[16];
 	char DstAddr[16];
 
-	for (idx = 0; idx < 8; idx++)
-		d8Addr[idx] = mdfpm_log_buf->buf[idx];
-	snprintf(SrcAddr, 16, "%3u.%3u.%3u.%3u", d8Addr[0], d8Addr[1], d8Addr[2], d8Addr[3]);
-	snprintf(DstAddr, 16, "%3u.%3u.%3u.%3u", d8Addr[4], d8Addr[5], d8Addr[6], d8Addr[7]);
-	memcpy(&port[0], mdfpm_log_buf->buf+8, sizeof(port[0]));
-	memcpy(&port[1], mdfpm_log_buf->buf+10, sizeof(port[1]));
+	snprintf(SrcAddr, 16, "%3u.%3u.%3u.%3u",
+			mdfpm_log_buf->buf[0], mdfpm_log_buf->buf[1],
+			mdfpm_log_buf->buf[2], mdfpm_log_buf->buf[3]);
+	snprintf(DstAddr, 16, "%3u.%3u.%3u.%3u",
+			mdfpm_log_buf->buf[4], mdfpm_log_buf->buf[5],
+			mdfpm_log_buf->buf[6], mdfpm_log_buf->buf[7]);
+	port[0] = mdfpm_log_buf->buf[9] << 8 | mdfpm_log_buf->buf[8];
+	port[1] = mdfpm_log_buf->buf[11] << 8 | mdfpm_log_buf->buf[10];
 	size = snprintf(str_dstate, MDFPM_SEND_LOG_BUF_SZ,
 			"[MDDP_WH] %s, src_addr(%s), dst_addr(%s), src_port(%5u), dst_port(%5u)",
 			operate[action_id_t%4], SrcAddr, DstAddr, port[0], port[1]);
@@ -196,17 +197,15 @@ uint32_t printV6Msg(struct mdfpm_log *mdfpm_log_buf, int action_id_t, char *str_
 	char v6DstAddr[40];
 
 	for (idx = 0; idx < 16; idx++)
-		memcpy(&d16Addr[idx], mdfpm_log_buf->buf+(2*idx), sizeof(d16Addr[idx]));
-	snprintf(v6SrcAddr, 40,
-			"%4x:%4x:%4x:%4x:%4x:%4x:%4x:%4x",
+		d16Addr[idx] = mdfpm_log_buf->buf[2*idx+1] << 8 | mdfpm_log_buf->buf[2*idx];
+	snprintf(v6SrcAddr, 40,	"%4x:%4x:%4x:%4x:%4x:%4x:%4x:%4x",
 			d16Addr[0], d16Addr[1], d16Addr[2], d16Addr[3],
 			d16Addr[4], d16Addr[5], d16Addr[6], d16Addr[7]);
-	snprintf(v6DstAddr, 40,
-			"%4x:%4x:%4x:%4x:%4x:%4x:%4x:%4x",
+	snprintf(v6DstAddr, 40, "%4x:%4x:%4x:%4x:%4x:%4x:%4x:%4x",
 			d16Addr[8], d16Addr[9], d16Addr[10], d16Addr[11],
 			d16Addr[12], d16Addr[13], d16Addr[14], d16Addr[15]);
-	memcpy(&v6Port[0], mdfpm_log_buf->buf+32, sizeof(v6Port[0]));
-	memcpy(&v6Port[1], mdfpm_log_buf->buf+34, sizeof(v6Port[1]));
+	v6Port[0] = mdfpm_log_buf->buf[33] << 8 | mdfpm_log_buf->buf[32];
+	v6Port[1] = mdfpm_log_buf->buf[35] << 8 | mdfpm_log_buf->buf[34];
 	size = snprintf(str_dstate, MDFPM_SEND_LOG_BUF_SZ,
 			"[MDDP_WH] %s, src_addr(%s), dst_addr(%s), src_port(%5u), dst_port(%5u)",
 			operate[action_id_t%4], v6SrcAddr, v6DstAddr, v6Port[0], v6Port[1]);
@@ -217,12 +216,10 @@ uint32_t printV6Msg(struct mdfpm_log *mdfpm_log_buf, int action_id_t, char *str_
 uint32_t print_unexpected_id(struct mdfpm_log *mdfpm_log_buf, uint32_t buf_len, char *str_dstate)
 {
 	uint32_t i, size, idx = 0;
-	uint8_t temp[MDFPM_SEND_LOG_BUF_SZ];
 	char buffer[MDFPM_SEND_LOG_BUF_SZ];
 
 	for (i = 0; i < buf_len; i++) {
-		memcpy(&temp[i], mdfpm_log_buf->buf+i, sizeof(uint8_t));
-		idx += snprintf(&buffer[idx], buf_len-idx, "%u", temp[i]);
+		idx += snprintf(&buffer[idx], buf_len-idx, "%u", mdfpm_log_buf->buf+i);
 	}
 	size = snprintf(str_dstate, MDFPM_SEND_LOG_BUF_SZ,
 			"[MDDP_WH] Unexpected id, buffer:%s", buffer);
