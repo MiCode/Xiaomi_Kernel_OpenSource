@@ -6435,6 +6435,17 @@ SKIP_OVLSYS_CONFIG:
 	if (private->side_ovlsys_dev)
 		pm_runtime_enable(private->side_ovlsys_dev);
 
+	for (i = 0 ; i < MAX_CRTC ; ++i) {
+		unsigned int value;
+
+		ret = of_property_read_u32_index(dev->of_node, "pre_define_bw", i, &value);
+		if (ret < 0)
+			value = 0;
+
+		private->pre_defined_bw[i] = value;
+		DDPINFO("CRTC %d available BW:%x\n", i, value);
+	}
+
 	/* Get and enable top clk align to HW */
 	mtk_drm_get_top_clk(private);
 

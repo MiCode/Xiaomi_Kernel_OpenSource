@@ -244,28 +244,29 @@ static bool is_ovl_standard(struct drm_device *dev, enum mtk_drm_dataspace ds)
 static void filter_by_wcg(struct drm_device *dev,
 			  struct drm_mtk_layering_info *disp_info)
 {
-	unsigned int i, j;
+	unsigned int j;
 	struct drm_mtk_layer_config *c;
+	unsigned int disp_idx = 0;
+	unsigned int condition;
 
-	for (i = 0; i < disp_info->layer_num[HRT_PRIMARY]; i++) {
-		c = &disp_info->input_config[HRT_PRIMARY][i];
-		if (is_ovl_standard(dev, c->dataspace) ||
-		    mtk_has_layer_cap(c, MTK_MDP_HDR_LAYER))
-			continue;
+	if (get_layering_opt(LYE_OPT_SPHRT))
+		disp_idx = disp_info->disp_idx;
 
-		mtk_rollback_layer_to_GPU(disp_info, HRT_PRIMARY, i);
-	}
-
-	for (i = HRT_SECONDARY; i < HRT_DISP_TYPE_NUM; i++)
-		for (j = 0; j < disp_info->layer_num[i]; j++) {
-			c = &disp_info->input_config[i][j];
-			if (!is_ovl_wcg(c->dataspace) &&
+	for (; disp_idx < HRT_DISP_TYPE_NUM ; disp_idx++) {
+		for (j = 0; j < disp_info->layer_num[disp_idx]; j++) {
+			c = &disp_info->input_config[disp_idx][j];
+			/* TODO: check disp WCG cap */
+			condition = (disp_idx == 0) || !is_ovl_wcg(c->dataspace);
+			if (condition &&
 			    (is_ovl_standard(dev, c->dataspace) ||
 			     mtk_has_layer_cap(c, MTK_MDP_HDR_LAYER)))
 				continue;
 
-			mtk_rollback_layer_to_GPU(disp_info, i, j);
+			mtk_rollback_layer_to_GPU(disp_info, disp_idx, j);
 		}
+		if (get_layering_opt(LYE_OPT_SPHRT))
+			break;
+	}
 }
 
 static bool can_be_compress(struct drm_device *dev, uint32_t format)
@@ -338,16 +339,18 @@ static void copy_hrt_bound_table(struct drm_mtk_layering_info *disp_info,
 {
 	unsigned long flags = 0;
 	int valid_num, ovl_bound, i;
+	struct mtk_drm_private *priv = dev->dev_private;
 	struct drm_crtc *crtc;
+	unsigned int disp_idx = 0;
 
 	/* Not used in 6779 */
 	if (is_larb)
 		return;
 
-	drm_for_each_crtc(crtc, dev) {
-		if (drm_crtc_index(crtc) == 0)
-			break;
-	}
+	if (get_layering_opt(LYE_OPT_SPHRT))
+		disp_idx = disp_info->disp_idx;
+
+	crtc = priv->crtc[disp_idx];
 
 	/* update table if hrt bw is enabled */
 	spin_lock_irqsave(&hrt_table_lock, flags);
@@ -537,23 +540,28 @@ unsigned long long _layering_get_frame_bw(struct drm_crtc *crtc,
 
 static int layering_get_valid_hrt(struct drm_crtc *crtc, int mode_idx)
 {
-	unsigned long long dvfs_bw = 0;
+	unsigned long long dvfs_bw = 0, avail_bw;
 	unsigned long long tmp = 0;
 	struct mtk_ddp_comp *output_comp;
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_drm_private *priv =
 			mtk_crtc->base.dev->dev_private;
+	unsigned int disp_idx = drm_crtc_index(crtc);
 
 	if (!mtk_drm_helper_get_opt(priv->helper_opt,
 			MTK_DRM_OPT_MMQOS_SUPPORT))
 		return 600;
 
-	dvfs_bw = mtk_mmqos_get_avail_hrt_bw(HRT_DISP);
-	if (dvfs_bw == 0xffffffffffffffff) {
+	if (get_layering_opt(LYE_OPT_SPHRT) &&
+			priv->pre_defined_bw[disp_idx] != 0xffffffff)
+		avail_bw = priv->pre_defined_bw[disp_idx];
+	else
+		avail_bw = mtk_mmqos_get_avail_hrt_bw(HRT_DISP);
+	if (avail_bw == 0xffffffffffffffff) {
 		DDPPR_ERR("mm_hrt_get_available_hrt_bw=-1\n");
 		return 600;
 	}
-
+	dvfs_bw = avail_bw;
 	dvfs_bw *= 10000;
 
 	output_comp = mtk_ddp_comp_request_output(mtk_crtc);
@@ -570,6 +578,11 @@ static int layering_get_valid_hrt(struct drm_crtc *crtc, int mode_idx)
 				GET_FRAME_HRT_BW_BY_MODE, &tmp);
 	}
 	if (!tmp) {
+		/* for avail_bw == 0 case, which imply this display is not HRT,
+		 *  return this function to 16 overlap
+		 */
+		if (avail_bw == 0)
+			return 1600;
 		DDPPR_ERR("Get frame hrt bw by datarate is zero\n");
 		return 600;
 	}
@@ -583,9 +596,8 @@ static int layering_get_valid_hrt(struct drm_crtc *crtc, int mode_idx)
 		dvfs_bw = 200;
 	}
 
-	DDPINFO("get avail HRT BW:%u : %llu %llu\n",
-		mtk_mmqos_get_avail_hrt_bw(HRT_DISP),
-		dvfs_bw, tmp);
+	DDPINFO("disp %u get avail HRT BW:%u : %llu %llu\n",
+		disp_idx, avail_bw, dvfs_bw, tmp);
 
 	return dvfs_bw;
 }

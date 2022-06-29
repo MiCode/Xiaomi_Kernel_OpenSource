@@ -105,6 +105,7 @@ struct mtk_drm_private {
 	struct device *side_ovlsys_dev;
 
 	struct drm_crtc *crtc[MAX_CRTC];
+	unsigned int pre_defined_bw[MAX_CRTC];
 	unsigned int num_pipes;
 
 	unsigned int session_id[MAX_SESSION_COUNT];
