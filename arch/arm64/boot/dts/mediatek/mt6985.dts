@@ -554,7 +554,7 @@
 				scmi-qos = <1>;
 				scmi_dispplatdbg = <2>;
 				scmi-met = <3>;
-				scmi_gpupm = <6>;
+				scmi-gpupm = <6>;
 				scmi-plt = <7>;
 				scmi_smi = <8>;
 				scmi-cm = <9>;
