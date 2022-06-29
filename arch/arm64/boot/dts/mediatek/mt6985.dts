@@ -3290,8 +3290,8 @@
 			nr_header_row = <4>;
 			chip_id_offset = <0x38>;
 			check_pattern_offset = <0x20>;
-			/* dfd_disable_efuse = <25 12>; */
-			dfd_disable_efuse = <(-1) (-1)>;
+			dfd_disable_efuse = <25 12>;
+			/* dfd_disable_efuse = <(-1) (-1)>; */
 			dfd_cache: dfd_cache {
 				enabled = <1>;
 				/* dfd_timeout = <0x1d4c0>; */ /* 60 sec */
