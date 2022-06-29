@@ -3542,8 +3542,10 @@ static int vb2ops_vdec_start_streaming(struct vb2_queue *q, unsigned int count)
 
 	//SET_PARAM_TOTAL_FRAME_BUFQ_COUNT for SW DEC
 	if (q->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
-		*(ctx->ipi_blocked) = false;
-		*(ctx->dst_cnt) = 0;
+		if (ctx->ipi_blocked != NULL)
+			*(ctx->ipi_blocked) = false;
+		if (ctx->dst_cnt != NULL)
+			*(ctx->dst_cnt) = 0;
 		atomic_set(&ctx->align_type, VDEC_ALIGN_FULL);
 		ctx->align_start_cnt = ctx->dpb_size;
 
@@ -3561,7 +3563,8 @@ static int vb2ops_vdec_start_streaming(struct vb2_queue *q, unsigned int count)
 		mutex_unlock(&ctx->dev->dec_dvfs_mutex);
 
 	} else if (q->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
-		*(ctx->src_cnt) = 0;
+		if (ctx->src_cnt != NULL)
+			*(ctx->src_cnt) = 0;
 
 		// set SET_PARAM_TOTAL_BITSTREAM_BUFQ_COUNT for
 		// error handling when framing
