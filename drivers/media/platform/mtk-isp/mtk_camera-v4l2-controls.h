@@ -77,6 +77,8 @@
 	(V4L2_CID_USER_MTK_CAM_BASE + 21)
 #define V4L2_CID_MTK_CAM_FRAME_SYNC \
 	(V4L2_CID_USER_MTK_CAM_BASE + 22)
+#define V4L2_CID_MTK_CAM_INTERNAL_MEM_CTRL \
+	(V4L2_CID_USER_MTK_CAM_BASE + 24)
 #define V4L2_CID_MTK_CAM_CAMSYS_HDR_TIMESTAMP \
 	(V4L2_CID_USER_MTK_CAM_BASE + 25)
 
@@ -449,13 +451,25 @@ struct mtk_cam_resource_raw_v2 {
 	__u8	bin;
 	__u8	raw_pixel_mode;
 	__u8	hw_mode;
-	__u32	img_buf_sz;
-	__u32	max_img_buf_sz;
+	__u32	img_wbuf_size;
+	__u32	img_wbuf_num;
 };
 
 struct mtk_cam_resource_v2 {
 	struct mtk_cam_resource_sensor_v2 sensor_res;
 	struct mtk_cam_resource_raw_v2 raw_res;
+};
+
+#define MTK_CAM_INTERNAL_MEM_MAX 8
+
+struct mtk_cam_internal_buf {
+	__s32 fd;
+	__u32 length;
+};
+
+struct mtk_cam_internal_mem {
+	__u32 num;
+	struct mtk_cam_internal_buf bufs[MTK_CAM_INTERNAL_MEM_MAX];
 };
 
 /* I M G S Y S */

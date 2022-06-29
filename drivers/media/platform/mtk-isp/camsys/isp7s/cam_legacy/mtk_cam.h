@@ -111,6 +111,16 @@ struct mtk_cam_dmao_buf {
 	int fd;
 };
 
+struct mtk_cam_device_buf {
+	struct dma_buf *dbuf;
+	size_t size;
+	struct dma_buf_attachment *db_attach;
+	struct sg_table *dma_sgt;
+
+	dma_addr_t daddr;
+	void *vaddr;
+};
+
 /* TODO: remove this entry wrapper */
 struct mtk_cam_working_buf_entry {
 	struct mtk_cam_ctx *ctx;
@@ -388,6 +398,7 @@ struct mtk_cam_img_working_buf_pool {
 	int working_img_buf_size;
 	struct mtk_cam_img_working_buf_entry img_working_buf[CAM_IMG_BUF_NUM];
 	struct mtk_cam_working_buf_list cam_freeimglist;
+	struct mtk_cam_device_buf pre_alloc_img_buf;
 };
 
 struct mtk_cam_device;

@@ -307,6 +307,7 @@ struct mtk_raw_pipeline {
 	unsigned int req_psel_update;
 	struct v4l2_subdev_format req_pad_fmt[MTK_RAW_PIPELINE_PADS_NUM];
 	struct v4l2_subdev_selection req_psel[MTK_RAW_PIPELINE_PADS_NUM];
+	struct mtk_cam_internal_mem pre_alloc_mem;
 };
 
 struct mtk_raw_device {
@@ -495,6 +496,8 @@ bool mtk_raw_resource_calc(struct mtk_cam_device *cam,
 			   struct mtk_cam_resource_config *res,
 			   s64 pixel_rate, int res_plan,
 			   int in_w, int in_h, int *out_w, int *out_h);
+void mtk_raw_set_dcif_rawi_fmt(struct device *dev, struct v4l2_format *img_fmt,
+			       int width, int height, unsigned int code);
 
 #ifdef CAMSYS_TF_DUMP_7S
 int

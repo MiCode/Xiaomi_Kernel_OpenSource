@@ -14,6 +14,7 @@
 #include <linux/spinlock.h>
 
 #include "mtk_cam.h"
+#include "mtk_cam-feature.h"
 #include "mtk_cam-smem.h"
 #include "mtk_cam-pool.h"
 #include "mtk_heap.h"
@@ -187,14 +188,13 @@ mtk_cam_working_buf_get(struct mtk_cam_ctx *ctx)
 	return buf_entry;
 }
 
-int mtk_cam_img_working_buf_pool_init(struct mtk_cam_ctx *ctx, int buf_num,
-									  int working_buf_size)
+static int
+mtk_cam_img_working_buf_pool_init(struct mtk_cam_ctx *ctx, int buf_num,
+				  int working_buf_size,
+				  dma_addr_t mem_iova, int mem_size,
+				  void *mem_va)
 {
 	int i;
-	struct mem_obj smem;
-	struct mtk_ccd *ccd;
-	void *mem_priv;
-	struct dma_buf *dbuf;
 
 	if (buf_num > CAM_IMG_BUF_NUM) {
 		dev_info(ctx->cam->dev,
@@ -208,19 +208,8 @@ int mtk_cam_img_working_buf_pool_init(struct mtk_cam_ctx *ctx, int buf_num,
 	spin_lock_init(&ctx->img_buf_pool.cam_freeimglist.lock);
 	ctx->img_buf_pool.cam_freeimglist.cnt = 0;
 	ctx->img_buf_pool.working_img_buf_size = buf_num * working_buf_size;
-	smem.len = ctx->img_buf_pool.working_img_buf_size;
-	dev_info(ctx->cam->dev, "%s:ctx(%d) smem.len(%d)\n",
-			__func__, ctx->stream_id, smem.len);
-	ccd = (struct mtk_ccd *)ctx->cam->rproc_handle->priv;
-	mem_priv = mtk_ccd_get_buffer(ccd, &smem);
-	if (IS_ERR(mem_priv))
-		return PTR_ERR(mem_priv);
-
-	dbuf = mtk_ccd_get_buffer_dmabuf(ccd, mem_priv);
-	if (dbuf)
-		mtk_dma_buf_set_name(dbuf, "CAM_MEM_IMG_ID");
-	ctx->img_buf_pool.working_img_buf_va = smem.va;
-	ctx->img_buf_pool.working_img_buf_iova = smem.iova;
+	ctx->img_buf_pool.working_img_buf_va = mem_va;
+	ctx->img_buf_pool.working_img_buf_iova = mem_iova;
 
 	for (i = 0; i < buf_num; i++) {
 		struct mtk_cam_img_working_buf_entry *buf = &ctx->img_buf_pool.img_working_buf[i];
@@ -246,7 +235,191 @@ int mtk_cam_img_working_buf_pool_init(struct mtk_cam_ctx *ctx, int buf_num,
 	return 0;
 }
 
+static unsigned long _get_contiguous_size(struct sg_table *sgt)
+{
+	struct scatterlist *s;
+	dma_addr_t expected = sg_dma_address(sgt->sgl);
+	unsigned int i;
+	unsigned long size = 0;
+
+	for_each_sgtable_dma_sg(sgt, s, i) {
+		if (sg_dma_address(s) != expected)
+			break;
+		expected += sg_dma_len(s);
+		size += sg_dma_len(s);
+	}
+	return size;
+}
+
+static int mtk_cam_device_buf_init(struct mtk_cam_device_buf *buf,
+				   struct dma_buf *dbuf,
+				   struct device *dev, size_t expected_size)
+{
+	unsigned long size;
+
+	memset(buf, 0, sizeof(*buf));
+
+	buf->dbuf = dbuf;
+	buf->db_attach = dma_buf_attach(dbuf, dev);
+	if (IS_ERR(buf->db_attach)) {
+		dev_info(dev, "failed to attach dbuf: %s\n", dev_name(dev));
+		return -1;
+	}
+
+	buf->dma_sgt = dma_buf_map_attachment(buf->db_attach,
+					      DMA_BIDIRECTIONAL);
+	if (IS_ERR(buf->dma_sgt)) {
+		dev_info(dev, "failed to map attachment\n");
+		goto fail_detach;
+	}
+
+	/* check size */
+	size = _get_contiguous_size(buf->dma_sgt);
+	if (expected_size > size) {
+		dev_info(dev,
+			 "%s: dma_sgt size(%zu) smaller than expected(%zu)\n",
+			 __func__, size, expected_size);
+		goto fail_attach_unmap;
+	}
+
+	buf->size = expected_size;
+	buf->daddr = sg_dma_address(buf->dma_sgt->sgl);
+
+	return 0;
+
+fail_attach_unmap:
+	dma_buf_unmap_attachment(buf->db_attach, buf->dma_sgt,
+				 DMA_BIDIRECTIONAL);
+	buf->dma_sgt = NULL;
+fail_detach:
+	dma_buf_detach(buf->dbuf, buf->db_attach);
+	buf->db_attach = NULL;
+	buf->dbuf = NULL;
+	return -1;
+}
+
+static void mtk_cam_device_buf_uninit(struct mtk_cam_device_buf *buf)
+{
+	struct dma_buf_map map = DMA_BUF_MAP_INIT_VADDR(buf->vaddr);
+
+	WARN_ON(!buf->dbuf || !buf->size);
+
+	if (buf->dma_sgt) {
+		dma_buf_unmap_attachment(buf->db_attach, buf->dma_sgt,
+					 DMA_BIDIRECTIONAL);
+		buf->dma_sgt = NULL;
+		buf->daddr = 0;
+	}
+
+	if (buf->vaddr) {
+		dma_buf_vunmap(buf->dbuf, &map);
+		buf->vaddr = NULL;
+	}
+
+	if (buf->db_attach) {
+		dma_buf_detach(buf->dbuf, buf->db_attach);
+		buf->db_attach = NULL;
+	}
+}
+
+static int mtk_cam_user_buf_attach_map(struct device *dev,
+				       struct mtk_cam_internal_buf *user_buf,
+				       struct mtk_cam_device_buf *buf)
+{
+	struct dma_buf *dbuf;
+
+	dbuf = dma_buf_get(user_buf->fd);
+	if (IS_ERR(dbuf)) {
+		dev_info(dev, "%s:invalid fd %d",
+			 __func__, user_buf->fd);
+		return -EINVAL;
+	}
+
+	buf->dbuf = dbuf;
+
+	return mtk_cam_device_buf_init(buf, dbuf, dev, user_buf->length);
+}
+
+int mtk_cam_user_buf_deattach_unmap(struct mtk_cam_device_buf *buf)
+{
+	struct dma_buf *dbuf;
+
+	dbuf = buf->dbuf;
+	if (buf)
+		mtk_cam_device_buf_uninit(buf);
+
+	if (dbuf)
+		dma_buf_put(dbuf);
+
+	return 0;
+}
+
+int mtk_cam_user_img_working_buf_pool_init(struct mtk_cam_ctx *ctx,
+					   int buf_num,
+					   int working_buf_size)
+{
+	struct mtk_ccd *ccd;
+	int ret = -EINVAL;
+
+	ccd = (struct mtk_ccd *)ctx->cam->rproc_handle->priv;
+	if (mtk_cam_user_buf_attach_map(ccd->dev,
+					&ctx->pipe->pre_alloc_mem.bufs[0],
+					&ctx->img_buf_pool.pre_alloc_img_buf))
+		ret = mtk_cam_img_working_buf_pool_init(ctx, buf_num,
+							working_buf_size,
+							ctx->img_buf_pool.pre_alloc_img_buf.daddr,
+							ctx->img_buf_pool.pre_alloc_img_buf.size,
+							ctx->img_buf_pool.pre_alloc_img_buf.vaddr);
+	else
+		dev_info(ctx->cam->dev,
+			 "%s:ctx(%d): failed to attach/map user memory(%d,%d)\n",
+			 __func__, ctx->stream_id,
+			 ctx->pipe->pre_alloc_mem.bufs[0].fd,
+			 ctx->pipe->pre_alloc_mem.bufs[0].length);
+
+	return ret;
+}
+
+int
+mtk_cam_internal_img_working_buf_pool_init(struct mtk_cam_ctx *ctx,
+					   int buf_num,
+					   int working_buf_size)
+{
+	struct mem_obj smem;
+	struct mtk_ccd *ccd;
+	void *mem_priv;
+	struct dma_buf *dbuf;
+
+	smem.len =  buf_num * working_buf_size;
+	dev_info(ctx->cam->dev, "%s:ctx(%d) smem.len(%d)\n",
+		 __func__, ctx->stream_id, smem.len);
+	ccd = (struct mtk_ccd *)ctx->cam->rproc_handle->priv;
+	mem_priv = mtk_ccd_get_buffer(ccd, &smem);
+	if (IS_ERR(mem_priv))
+		return PTR_ERR(mem_priv);
+
+	dbuf = mtk_ccd_get_buffer_dmabuf(ccd, mem_priv);
+	if (dbuf)
+		mtk_dma_buf_set_name(dbuf, "CAM_MEM_IMG_ID");
+
+	return mtk_cam_img_working_buf_pool_init(ctx, buf_num, working_buf_size,
+						 smem.iova, smem.len, smem.va);
+}
+
 void mtk_cam_img_working_buf_pool_release(struct mtk_cam_ctx *ctx)
+{
+	ctx->img_buf_pool.working_img_buf_size = 0;
+}
+
+void mtk_cam_user_img_working_buf_pool_release(struct mtk_cam_ctx *ctx)
+{
+	mtk_cam_user_buf_deattach_unmap(&ctx->img_buf_pool.pre_alloc_img_buf);
+	ctx->img_buf_pool.pre_alloc_img_buf.daddr = 0;
+	ctx->img_buf_pool.pre_alloc_img_buf.size = 0;
+	mtk_cam_img_working_buf_pool_release(ctx);
+}
+
+void mtk_cam_internal_img_working_buf_pool_release(struct mtk_cam_ctx *ctx)
 {
 	struct mtk_ccd *ccd = ctx->cam->rproc_handle->priv;
 	struct mem_obj smem;
@@ -255,11 +428,11 @@ void mtk_cam_img_working_buf_pool_release(struct mtk_cam_ctx *ctx)
 	smem.iova = ctx->img_buf_pool.working_img_buf_iova;
 	smem.len = ctx->img_buf_pool.working_img_buf_size;
 	mtk_ccd_put_buffer(ccd, &smem);
-	ctx->img_buf_pool.working_img_buf_size = 0;
-
 	dev_info(ctx->cam->dev,
 		"%s:ctx(%d):img buffers release, mem iova(0x%x), sz(%d)\n",
 		__func__, ctx->stream_id, smem.iova, smem.len);
+	mtk_cam_img_working_buf_pool_release(ctx);
+
 }
 
 void mtk_cam_img_working_buf_put(struct mtk_cam_img_working_buf_entry *buf_entry)
@@ -459,4 +632,29 @@ mtk_cam_mraw_working_buf_get(struct mtk_cam_ctx *ctx)
 
 	dev_dbg(ctx->cam->dev, "%s:ctx(%d):e\n", __func__, ctx->stream_id);
 	return buf_entry;
+}
+
+int mtk_cam_get_internl_buf_num(int user_reserved_exp_num,
+				struct mtk_cam_scen *scen, int hw_mode)
+{
+	int exp_no;
+	int buf_require = 0;
+
+	/* check exposure number */
+	exp_no = mtk_cam_scen_get_max_exp_num(scen);
+	if (user_reserved_exp_num > 1 || mtk_cam_scen_is_switchable_hdr(scen))
+		// dcif may have to double for during skip frame
+		buf_require = max(buf_require, exp_no);
+
+	if (mtk_cam_scen_is_ext_isp(scen))
+		buf_require = max(buf_require, 2);
+
+	if (mtk_cam_scen_is_time_shared(scen))
+		buf_require = max(buf_require, CAM_IMG_BUF_NUM);
+
+	/* worst case, 2exp: 2camsv+2rawi */
+	if (mtk_cam_hw_mode_is_dc(hw_mode))
+		buf_require = max(buf_require, 4);
+
+	return buf_require;
 }

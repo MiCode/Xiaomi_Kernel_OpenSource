@@ -28,6 +28,7 @@
 #include "mtk_cam-raw.h"
 #include "mtk_cam-regs.h"
 #include "mtk_cam-video.h"
+#include "mtk_cam-pool.h"
 #include "mtk_cam-seninf-if.h"
 #include "mtk_cam-resource_calc.h"
 #include "mtk_cam-tg-flash.h"
@@ -310,6 +311,8 @@ static int mtk_raw_get_ctrl(struct v4l2_ctrl *ctrl)
 	} else if (ctrl->id == V4L2_CID_MTK_CAM_RAW_RESOURCE_CALC) {
 		user_res = (struct mtk_cam_resource_v2 *)ctrl->p_new.p;
 		*user_res = pipeline->user_res;
+	} else if (ctrl->id == V4L2_CID_MTK_CAM_INTERNAL_MEM_CTRL) {
+		*((struct mtk_cam_internal_mem *)ctrl->p_new.p) = pipeline->pre_alloc_mem;
 	} else if (ctrl->id == V4L2_CID_MTK_CAM_RAW_RESOURCE_UPDATE) {
 		ctrl->val = pipeline->sensor_mode_update;
 		dev_info(dev,
@@ -594,6 +597,7 @@ mtk_cam_raw_try_res_ctrl(struct mtk_raw_pipeline *pipeline,
 	s64 prate = 0;
 	int width, height;
 	struct device *dev = pipeline->raw->devs[pipeline->id];
+	struct v4l2_format img_fmt;
 
 	res_cfg->bin_limit = res_user->raw_res.bin; /* 1: force bin on */
 	res_cfg->frz_limit = 0;
@@ -697,17 +701,39 @@ mtk_cam_raw_try_res_ctrl(struct mtk_raw_pipeline *pipeline,
 	res_user->sensor_res.driver_buffered_pixel_rate = prate;
 	res_user->raw_res.raw_pixel_mode = res_cfg->raw_pixel_mode;
 
+	if (mtk_cam_hw_mode_is_dc(res_cfg->hw_mode)) {
+		/* calculate the rawi's image buffer size for direct couple mode */
+		mtk_raw_set_dcif_rawi_fmt(dev, &img_fmt,
+					  res_user->sensor_res.width,
+					  res_user->sensor_res.height,
+					  res_user->sensor_res.code);
+		res_user->raw_res.img_wbuf_size = img_fmt.fmt.pix_mp.plane_fmt[0].sizeimage;
+	} else {
+		img_fmt.fmt.pix_mp.width = 0;
+		img_fmt.fmt.pix_mp.height = 0;
+		res_user->raw_res.img_wbuf_size = 0;
+	}
+
+	res_user->raw_res.img_wbuf_num =
+		mtk_cam_get_internl_buf_num(1, &res_user->raw_res.scen,
+					    res_user->raw_res.hw_mode);
+
 	if (log)
 		dev_info(dev,
-			 "%s:%s:pipe(%d): res calc result: bin(%d)/hw_mode(%d)\n",
+			 "%s:%s:pipe(%d): res calc result: bin(%d)/hw_mode(%d)/buf_num(%d)/dc mode rawi fmt:(%d,%d,%d)\n",
 			 __func__, dbg_str, pipeline->id,
-			 res_user->raw_res.bin, res_user->raw_res.hw_mode);
+			 res_user->raw_res.bin, res_user->raw_res.hw_mode,
+			 res_user->raw_res.img_wbuf_num,
+			 img_fmt.fmt.pix_mp.width, img_fmt.fmt.pix_mp.height,
+			 res_user->raw_res.img_wbuf_size);
 	else
 		dev_dbg(dev,
-			"%s:%s:pipe(%d): res calc result: bin(%d)/hw_mode(%d)\n",
+			"%s:%s:pipe(%d): res calc result: bin(%d)//hw_mode(%d)/buf_num(%d)/dc mode rawi fmt:(%d,%d,%d)\n",
 			__func__, dbg_str, pipeline->id,
-			res_user->raw_res.bin, res_user->raw_res.hw_mode);
-
+			res_user->raw_res.bin, res_user->raw_res.hw_mode,
+			res_user->raw_res.img_wbuf_num,
+			img_fmt.fmt.pix_mp.width, img_fmt.fmt.pix_mp.height,
+			res_user->raw_res.img_wbuf_size);
 	/**
 	 * Other output not reveal to user now:
 	 * res_cfg->res_strategy[MTK_CAMSYS_RES_STEP_NUM];
@@ -749,7 +775,7 @@ mtk_cam_raw_log_res_ctrl(struct mtk_raw_pipeline *pipeline,
 				 res_user->raw_res.raws, res_user->raw_res.raws_must,
 				 res_user->raw_res.bin,
 				 res_user->raw_res.hw_mode,
-				 res_user->raw_res.img_buf_sz, res_user->raw_res.max_img_buf_sz);
+				 res_user->raw_res.img_wbuf_size, res_user->raw_res.img_wbuf_num);
 	else
 		dev_dbg(dev,
 				"%s:%s:pipe(%d): from user: sensor:%d/%d/%lld/%d/%d/%d, raw:%s/0x%x/0x%x/%d/%d/%d/%d\n",
@@ -763,7 +789,7 @@ mtk_cam_raw_log_res_ctrl(struct mtk_raw_pipeline *pipeline,
 				res_user->raw_res.raws, res_user->raw_res.raws_must,
 				res_user->raw_res.bin,
 				res_user->raw_res.hw_mode,
-				res_user->raw_res.img_buf_sz, res_user->raw_res.max_img_buf_sz);
+				res_user->raw_res.img_wbuf_size, res_user->raw_res.img_wbuf_num);
 }
 
 static int mtk_cam_raw_set_res_ctrl(struct v4l2_ctrl *ctrl)
@@ -1033,6 +1059,9 @@ static int mtk_raw_try_ctrl(struct v4l2_ctrl *ctrl)
 		res_user_legacy->raw_res.bin = res_user.raw_res.bin;
 		res_user_legacy->sensor_res.driver_buffered_pixel_rate = res_cfg.pixel_rate;
 		break;
+	case V4L2_CID_MTK_CAM_INTERNAL_MEM_CTRL:
+		ret = 0;
+		break;
 	case V4L2_CID_MTK_CAM_RAW_RESOURCE_UPDATE:
 		dev_info(dev,
 			 "%s:pipe(%d): skip V4L2_CID_MTK_CAM_RAW_RESOURCE_UPDATE: %d\n",
@@ -1085,6 +1114,23 @@ static int mtk_raw_set_ctrl(struct v4l2_ctrl *ctrl)
 		 * V4L2_CID_MTK_CAM_RAW_PATH_SELECT to device
 		 */
 		ret = mtk_cam_raw_set_legacy_res_ctrl(ctrl);
+		break;
+	case V4L2_CID_MTK_CAM_INTERNAL_MEM_CTRL:
+		if (pipeline->subdev.entity.stream_count) {
+			dev_info(dev,
+				 "%s:pipe(%d): doesn't allow V4L2_CID_MTK_CAM_INTERNAL_MEM_CTRL during streaming\n",
+				 __func__, pipeline->id);
+
+			ret = -EINVAL;
+		} else {
+			pipeline->pre_alloc_mem = *((struct mtk_cam_internal_mem *)ctrl->p_new.p);
+			dev_info(dev,
+				 "%s:pipe(%d): pre_alloc_mem(%d,%d,%d)\n",
+				 __func__, pipeline->id, pipeline->pre_alloc_mem.num,
+				 pipeline->pre_alloc_mem.bufs[0].fd,
+				 pipeline->pre_alloc_mem.bufs[0].length);
+			ret = 0;
+			}
 		break;
 	case V4L2_CID_MTK_CAM_RAW_RESOURCE_UPDATE:
 		/**
@@ -1351,6 +1397,17 @@ static struct v4l2_ctrl_config cfg_res_v2_ctrl = {
 	.max = 0xffffffff,
 	.step = 1,
 	.dims = {sizeof(struct mtk_cam_resource_v2)},
+};
+
+static struct v4l2_ctrl_config cfg_pre_alloc_mem_ctrl = {
+	.ops = &cam_ctrl_ops,
+	.id = V4L2_CID_MTK_CAM_INTERNAL_MEM_CTRL,
+	.name = "pre alloc memory",
+	.type = V4L2_CTRL_COMPOUND_TYPES, /* V4L2_CTRL_TYPE_U32,*/
+	.flags = V4L2_CTRL_FLAG_EXECUTE_ON_WRITE,
+	.max = 0xffffffff,
+	.step = 1,
+	.dims = {sizeof(struct mtk_cam_internal_buf)},
 };
 
 static struct v4l2_ctrl_config cfg_res_update = {
@@ -3886,6 +3943,30 @@ unsigned int mtk_cam_get_rawi_sensor_pixel_fmt(unsigned int fmt)
 	return V4L2_PIX_FMT_MTISP_SBGGR14;
 }
 
+void mtk_raw_set_dcif_rawi_fmt(struct device *dev, struct v4l2_format *img_fmt,
+			       int width, int height, unsigned int code)
+{
+	unsigned int sink_ipi_fmt;
+
+	img_fmt->fmt.pix_mp.width = width;
+	img_fmt->fmt.pix_mp.height = height;
+	sink_ipi_fmt = mtk_cam_get_sensor_fmt(code);
+	if (sink_ipi_fmt == MTKCAM_IPI_IMG_FMT_UNKNOWN) {
+		dev_info(dev, "%s: sink_ipi_fmt not found\n");
+
+		sink_ipi_fmt = MTKCAM_IPI_IMG_FMT_BAYER14;
+	}
+
+	img_fmt->fmt.pix_mp.pixelformat =
+		mtk_cam_get_rawi_sensor_pixel_fmt(code);
+
+	img_fmt->fmt.pix_mp.plane_fmt[0].bytesperline =
+		mtk_cam_dmao_xsize(width, sink_ipi_fmt, 3);
+	img_fmt->fmt.pix_mp.plane_fmt[0].sizeimage =
+		img_fmt->fmt.pix_mp.plane_fmt[0].bytesperline *
+		img_fmt->fmt.pix_mp.height;
+}
+
 static int mtk_raw_call_set_fmt(struct v4l2_subdev *sd,
 				struct v4l2_subdev_state *state,
 				struct v4l2_subdev_format *fmt,
@@ -3895,7 +3976,6 @@ static int mtk_raw_call_set_fmt(struct v4l2_subdev *sd,
 		container_of(sd, struct mtk_raw_pipeline, subdev);
 	struct mtk_raw *raw = pipe->raw;
 	struct v4l2_mbus_framefmt *mf;
-	unsigned int sink_ipi_fmt = MTKCAM_IPI_IMG_FMT_UNKNOWN;
 
 	if (!sd || !fmt) {
 		dev_dbg(raw->cam_dev, "%s: Required sd(%p), fmt(%p)\n",
@@ -3932,27 +4012,9 @@ static int mtk_raw_call_set_fmt(struct v4l2_subdev *sd,
 
 		if (fmt->which == V4L2_SUBDEV_FORMAT_ACTIVE) {
 			img_fmt = &pipe->img_fmt_sink_pad;
-			img_fmt->fmt.pix_mp.width = mf->width;
-			img_fmt->fmt.pix_mp.height = mf->height;
-
-			sink_ipi_fmt = mtk_cam_get_sensor_fmt(mf->code);
-
-			if (sink_ipi_fmt == MTKCAM_IPI_IMG_FMT_UNKNOWN) {
-				dev_info(raw->cam_dev,
-					"%s: sink_ipi_fmt not found\n");
-
-				sink_ipi_fmt = MTKCAM_IPI_IMG_FMT_BAYER14;
-			}
-
-			img_fmt->fmt.pix_mp.pixelformat =
-				mtk_cam_get_rawi_sensor_pixel_fmt(mf->code);
-
-			img_fmt->fmt.pix_mp.plane_fmt[0].bytesperline =
-				mtk_cam_dmao_xsize(mf->width, sink_ipi_fmt, 3);
-			img_fmt->fmt.pix_mp.plane_fmt[0].sizeimage =
-				img_fmt->fmt.pix_mp.plane_fmt[0].bytesperline *
-				img_fmt->fmt.pix_mp.height;
-
+			mtk_raw_set_dcif_rawi_fmt(raw->cam_dev,
+						  img_fmt, mf->width,
+						  mf->height, mf->code);
 			dev_dbg(raw->cam_dev,
 				"%s: sd:%s update sink pad format %dx%d code 0x%x\n",
 				__func__, sd->name,
@@ -6313,6 +6375,11 @@ static void mtk_raw_pipeline_ctrl_setup(struct mtk_raw_pipeline *pipe)
 			V4L2_CTRL_FLAG_EXECUTE_ON_WRITE;
 
 	ctrl = v4l2_ctrl_new_custom(ctrl_hdlr, &cfg_res_v2_ctrl, NULL);
+	if (ctrl)
+		ctrl->flags |= V4L2_CTRL_FLAG_VOLATILE |
+			V4L2_CTRL_FLAG_EXECUTE_ON_WRITE;
+
+	ctrl = v4l2_ctrl_new_custom(ctrl_hdlr, &cfg_pre_alloc_mem_ctrl, NULL);
 	if (ctrl)
 		ctrl->flags |= V4L2_CTRL_FLAG_VOLATILE |
 			V4L2_CTRL_FLAG_EXECUTE_ON_WRITE;

@@ -7634,6 +7634,16 @@ int PipeIDtoTGIDX(int pipe_id)
 	return -1;
 }
 
+static void mtk_cam_ctx_img_working_buf_pool_release(struct mtk_cam_ctx *ctx)
+{
+	if (ctx->img_buf_pool.working_img_buf_size > 0) {
+		if (ctx->img_buf_pool.pre_alloc_img_buf.size > 0)
+			mtk_cam_user_img_working_buf_pool_release(ctx);
+		else
+			mtk_cam_internal_img_working_buf_pool_release(ctx);
+	}
+}
+
 int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 {
 	struct mtk_cam_device *cam = ctx->cam;
@@ -7646,6 +7656,7 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 	int exp_no = 1;
 	int buf_require = 0;
 	int buf_size = 0;
+	bool img_mem_pool_created = false;
 
 	dev_info(cam->dev, "%s: ctx %d stream on, streaming_pipe:0x%x\n",
 		 __func__, ctx->stream_id, ctx->streaming_pipe);
@@ -7676,32 +7687,38 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 		buf_size = ctx->pipe->vdev_nodes
 			[MTK_RAW_MAIN_STREAM_OUT - MTK_RAW_SINK_NUM].
 			active_fmt.fmt.pix_mp.plane_fmt[0].sizeimage;
-
+		if (mtk_cam_hw_is_dc(ctx)) {
+			buf_size = ctx->pipe->img_fmt_sink_pad.fmt.pix_mp.plane_fmt[0].sizeimage;
+			/**
+			 * FIXME
+			 * use max buf_size for all sensors
+			 */
+			buf_size *= 2;
+		}
 		/**
 		 * TODO: validate pad's setting of each pipes
 		 * return -EPIPE if failed
 		 */
-		if (ctx->pipe->dynamic_exposure_num_max > 1 ||
-		    mtk_cam_scen_is_switchable_hdr(scen_active)) {
-			// dcif may have to double for during skip frame
-			buf_require = max(buf_require,
-				mtk_cam_scen_get_max_exp_num(scen_active));
-		}
-		if (mtk_cam_scen_is_ext_isp(scen_active))
-			buf_require = max(buf_require, 2);
-		if (mtk_cam_scen_is_time_shared(scen_active))
-			buf_require = max(buf_require, CAM_IMG_BUF_NUM);
-		if (mtk_cam_hw_is_dc(ctx)) {
-			buf_require = max(buf_require, 4);//worst case, 2exp: 2camsv+2rawi
-			buf_size = ctx->pipe->img_fmt_sink_pad.fmt.pix_mp.plane_fmt[0].sizeimage;
+		buf_require =
+			mtk_cam_get_internl_buf_num(ctx->pipe->dynamic_exposure_num_max,
+						    scen_active,
+						    ctx->pipe->hw_mode_pending);
+		if (buf_require) {
+			/* User may pre-alloccate the mem for the pool */
+			if (ctx->pipe &&
+			    ctx->pipe->pre_alloc_mem.num > 0 &&
+			    ctx->pipe->pre_alloc_mem.bufs[0].fd >= 0) {
+				if (0 ==
+				    mtk_cam_user_img_working_buf_pool_init(ctx, buf_require,
+									   buf_size))
+					img_mem_pool_created = true;
+			}
 
-			// FIXME
-			// use max buf_size for all sensors
-			buf_size *= 2;
+			if (!img_mem_pool_created)
+				ret = mtk_cam_internal_img_working_buf_pool_init(ctx,
+										 buf_require,
+										 buf_size);
 		}
-
-		if (buf_require)
-			ret = mtk_cam_img_working_buf_pool_init(ctx, buf_require, buf_size);
 
 		if (ret) {
 			dev_info(cam->dev, "failed to reserve DMA memory:%d\n", ret);
@@ -7920,8 +7937,7 @@ fail_streaming_off:
 	if (!mtk_cam_scen_is_m2m(&ctx->pipe->scen_active))
 		v4l2_subdev_call(ctx->seninf, video, s_stream, 0);
 fail_img_buf_release:
-	if (ctx->img_buf_pool.working_img_buf_size > 0)
-		mtk_cam_img_working_buf_pool_release(ctx);
+	mtk_cam_ctx_img_working_buf_pool_release(ctx);
 fail_pipe_off:
 	for (i = 0; i < MAX_PIPES_PER_STREAM && ctx->pipe_subdevs[i]; i++)
 		v4l2_subdev_call(ctx->pipe_subdevs[i], video, s_stream, 0);
@@ -8080,9 +8096,7 @@ int mtk_cam_ctx_stream_off(struct mtk_cam_ctx *ctx)
 	if (ctx->sv_dev)
 		pm_runtime_put_sync(ctx->sv_dev->dev);
 
-	if (ctx->img_buf_pool.working_img_buf_size > 0)
-		mtk_cam_img_working_buf_pool_release(ctx);
-
+	mtk_cam_ctx_img_working_buf_pool_release(ctx);
 	mtk_camsys_ctrl_stop(ctx);
 
 fail_stream_off:
