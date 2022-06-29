@@ -11,6 +11,8 @@
 #include "mtk-aov-core.h"
 #include "mtk-aov-aee.h"
 #include "mtk-aov-data.h"
+#include "mtk-vmm-notifier.h"
+#include "mtk_mmdvfs.h"
 
 static struct mtk_aov *query_aov_dev(struct platform_device *pdev)
 {
@@ -80,7 +82,12 @@ static int mtk_aov_open(struct inode *inode, struct file *file)
 
 	file->private_data = aov_dev;
 
-	aov_dev->is_open = true;
+	if (aov_dev->user_cnt == 0) {
+		vmm_isp_ctrl_notify(1);
+		mtk_mmdvfs_aov_enable(1);
+		aov_dev->is_open = true;
+	}
+	aov_dev->user_cnt++;
 
 	pr_info("%s open aov driver-\n", __func__);
 
@@ -172,7 +179,13 @@ static int mtk_aov_release(struct inode *inode, struct file *file)
 	struct mtk_aov *aov_dev = (struct mtk_aov *)file->private_data;
 
 	pr_info("%s release aov driver+\n", __func__);
-	aov_dev->is_open = false;
+
+	aov_dev->user_cnt--;
+	if (aov_dev->user_cnt == 0) {
+		vmm_isp_ctrl_notify(0);
+		mtk_mmdvfs_aov_enable(0);
+		aov_dev->is_open = false;
+	}
 
 	aov_core_reset(aov_dev);
 
@@ -207,6 +220,7 @@ static int mtk_aov_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	aov_dev->is_open = false;
+	aov_dev->user_cnt = 0;
 
 	aov_dev->dev = &pdev->dev;
 

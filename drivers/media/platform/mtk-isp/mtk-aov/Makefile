@@ -20,6 +20,7 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/include
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/scp/include
 ccflags-y += -I$(srctree)/drivers/dma-buf/heaps
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/slbc
+ccflags-y += -I$(srctree)/include/linux/soc/mediatek
 
 mtk_aov-objs := \
 	mtk-aov-drv.o	\
