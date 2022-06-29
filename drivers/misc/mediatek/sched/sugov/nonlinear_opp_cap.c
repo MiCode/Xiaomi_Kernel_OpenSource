@@ -27,6 +27,22 @@ static void __iomem *sram_base_addr;
 static struct pd_capacity_info *pd_capacity_tbl;
 static int pd_count;
 static int entry_count;
+static int busy_tick_boost_all;
+
+void set_busy_tick_boost(struct task_struct *p, bool set)
+{
+	if (p)
+		p->android_vendor_data1[5] = set;
+	else
+		busy_tick_boost_all = set;
+}
+EXPORT_SYMBOL_GPL(set_busy_tick_boost);
+
+int is_busy_tick_boost_all(void)
+{
+	return busy_tick_boost_all;
+}
+EXPORT_SYMBOL_GPL(is_busy_tick_boost_all);
 
 unsigned int get_nr_gears(void)
 {

@@ -404,6 +404,19 @@ void mtk_tick_entry(void *data, struct rq *rq)
 	unsigned long max_capacity, capacity;
 	u32 opp_ceiling;
 
+#if IS_ENABLED(CONFIG_SCHEDSTATS)
+	if (rq->curr->android_vendor_data1[5] || is_busy_tick_boost_all()) {
+		if ((rq->rq_cpu_time - rq->android_vendor_data1[0]) == 0
+				&& per_cpu(cpufreq_idle_cpu, rq->cpu) == 0) {
+			rq->android_vendor_data1[1] = 1;
+		} else {
+			rq->android_vendor_data1[1] = 0;
+			rq->android_vendor_data1[2] = 1;
+		}
+		rq->android_vendor_data1[0] = rq->rq_cpu_time;
+	}
+#endif
+
 	this_cpu = cpu_of(rq);
 #if IS_ENABLED(CONFIG_MTK_THERMAL_AWARE_SCHEDULING)
 	update_thermal_headroom(this_cpu);

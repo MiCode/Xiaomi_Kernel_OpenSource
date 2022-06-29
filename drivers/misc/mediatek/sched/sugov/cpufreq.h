@@ -94,6 +94,8 @@ extern int set_sched_capacity_margin_dvfs(unsigned int capacity_margin);
 extern unsigned int get_sched_capacity_margin_dvfs(void);
 #endif
 #endif
+extern void set_busy_tick_boost(struct task_struct *p, bool set);
+extern int is_busy_tick_boost_all(void);
 extern unsigned int get_nr_gears(void);
 DECLARE_PER_CPU(unsigned int, gear_id);
 #endif /* __CPUFREQ_H__ */
