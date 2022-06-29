@@ -54,7 +54,7 @@ obj-$(CONFIG_MTK_SWPM_MODULE) += ${BUILD_SWPM_CORE_DBG_MODUDLE_NAME}.o
 ${BUILD_SWPM_CORE_DBG_MODUDLE_NAME}-objs += subsys/swpm_core_v6985.o
 ${BUILD_SWPM_CORE_DBG_MODUDLE_NAME}-objs += subsys/swpm_core_v6985_dbg_init.o
 
-#BUILD_SMAP_DBG_MODUDLE_NAME=mtk-smap-dbg-v6985
-#obj-$(CONFIG_MTK_SWPM_MODULE) += ${BUILD_SMAP_DBG_MODUDLE_NAME}.o
-#${BUILD_SMAP_DBG_MODUDLE_NAME}-objs += subsys/smap_v6985.o
-#${BUILD_SMAP_DBG_MODUDLE_NAME}-objs += subsys/smap_v6985_dbg_init.o
+BUILD_SMAP_DBG_MODUDLE_NAME=mtk-smap-dbg-v6985
+obj-$(CONFIG_MTK_SWPM_MODULE) += ${BUILD_SMAP_DBG_MODUDLE_NAME}.o
+${BUILD_SMAP_DBG_MODUDLE_NAME}-objs += subsys/smap_v6985.o
+${BUILD_SMAP_DBG_MODUDLE_NAME}-objs += subsys/smap_v6985_dbg_init.o
