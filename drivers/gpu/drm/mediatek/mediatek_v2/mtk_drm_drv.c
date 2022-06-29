@@ -454,7 +454,7 @@ static void mtk_atomic_disp_rsz_roi(struct drm_device *dev,
 		else
 			idx = i - (OVL_LAYER_NR + EXTERNAL_INPUT_LAYER_NR + SP_INPUT_LAYER_NR);
 
-		if (comp_state[drm_crtc_index(crtc)][idx].layer_caps
+		if (crtc && comp_state[drm_crtc_index(crtc)][idx].layer_caps
 			& MTK_DISP_RSZ_LAYER) {
 			if (dst_w != 0)
 				tmp_w = ((dst_x * src_w * 10) / dst_w + 5) / 10;
