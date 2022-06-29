@@ -93,23 +93,26 @@ ssize_t conn_pwr_dev_write(struct file *filp, const char __user *buffer, size_t 
 	pBuf = buf;
 	pToken = strsep(&pBuf, pDelimiter);
 	if (pToken != NULL) {
-		kstrtol(pToken, 16, &res);
-		x = (int)res;
-	} else {
-		x = 0;
+		if (kstrtol(pToken, 16, &res) == 0)
+			x = (int)res;
+		else
+			pr_info("%s x kstrtol failed %s", __func__, pToken);
 	}
 
 	pToken = strsep(&pBuf, "\t\n ");
 	if (pToken != NULL) {
-		kstrtol(pToken, 16, &res);
-		y = (int)res;
-		pr_info("y = 0x%08x\n\r", y);
+		if (kstrtol(pToken, 16, &res) == 0)
+			y = (int)res;
+		else
+			pr_info("%s y kstrtol failed %s", __func__, pToken);
 	}
 
 	pToken = strsep(&pBuf, "\t\n ");
 	if (pToken != NULL) {
-		kstrtol(pToken, 16, &res);
-		z = (int)res;
+		if (kstrtol(pToken, 16, &res) == 0)
+			z = (int)res;
+		else
+			pr_info("%s z kstrtol failed %s", __func__, pToken);
 	}
 
 	pr_info("x(0x%08x), y(0x%08x), z(0x%08x)\n\r", x, y, z);
