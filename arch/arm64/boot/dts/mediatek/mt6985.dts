@@ -12181,6 +12181,7 @@
 			      <5 0x400>, /* VDEC_VCP_LOG_INFO_ID 1KB */
 			      <6 0x400>, /* VENC_VCP_LOG_INFO_ID 1KB */
 			      <7 0x100000>, /* GCE_MEM_ID 256*4KB */
+			      <8 0x1000>, /* MMDVFS_MEM_ID 4KB */
 			      <9 0x0>; /* secure dump, its size is in secure_dump_size */
 
 		power-domains = <&scpsys MT6985_POWER_DOMAIN_MM_PROC_DORMANT>;
