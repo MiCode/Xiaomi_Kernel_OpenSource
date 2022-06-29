@@ -897,8 +897,6 @@ static int vdec_vcp_init(struct mtk_vcodec_ctx *ctx, unsigned long *h_vdec)
 		goto error_free_inst;
 	}
 
-	mtk_vcodec_add_ctx_list(ctx);
-
 	inst->ctx = ctx;
 	fourcc = ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc;
 
@@ -923,11 +921,14 @@ static int vdec_vcp_init(struct mtk_vcodec_ctx *ctx, unsigned long *h_vdec)
 		&inst->vcu, ctx->dec_params.svp_mode);
 	*h_vdec = (unsigned long)inst;
 	inst->vcu.daemon_pid = get_vcp_generation();
+
+	mtk_vcodec_add_ctx_list(ctx);
+
 	err = vdec_vcp_ipi_send(inst, &msg, sizeof(msg), 0);
 
 	if (err != 0) {
 		mtk_vcodec_err(inst, "%s err=%d", __func__, err);
-		goto error_free_inst;
+		goto error_free_inst_and_list;
 	}
 
 	inst->vsi = (struct vdec_vsi *)inst->vcu.vsi;
@@ -950,9 +951,9 @@ static int vdec_vcp_init(struct mtk_vcodec_ctx *ctx, unsigned long *h_vdec)
 
 	return 0;
 
+error_free_inst_and_list:
+	mtk_vcodec_del_ctx_list(ctx);
 error_free_inst:
-	if (ctx)
-		mtk_vcodec_del_ctx_list(ctx);
 	kfree(inst->vcu.ctx_ipi_lock);
 	kfree(inst);
 	*h_vdec = (unsigned long)NULL;
