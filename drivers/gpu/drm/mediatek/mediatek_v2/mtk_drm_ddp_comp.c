@@ -1993,47 +1993,48 @@ void mt6985_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
 		v = (readl(priv->config_regs + MMSYS_SODI_REQ_MASK)
 			& (~sodi_req_mask));
 		v += (sodi_req_val & sodi_req_mask);
-		/* TODO: HARD CODE for RDMA0 scenario */
-		v = 0xF500;
+
+		/* 0xF4/0xF8: only config on DISPSYS(HARD CODE) */
+		v = 0x13F6C0;
 		writel_relaxed(v, priv->config_regs + MMSYS_SODI_REQ_MASK);
-		writel_relaxed(0x7, priv->config_regs + MMSYS_DUMMY0);
-		if (priv->side_config_regs) {
+		if (priv->side_config_regs)
 			writel_relaxed(v, priv->side_config_regs + MMSYS_SODI_REQ_MASK);
-			writel_relaxed(0x7, priv->side_config_regs + MMSYS_DUMMY0);
-		}
-		v = 0xDF;
+		v = 0x0;
 		writel_relaxed(v, priv->config_regs +  MMSYS_EMI_REQ_CTL);
 		if (priv->side_config_regs)
 			writel_relaxed(v, priv->side_config_regs +  MMSYS_EMI_REQ_CTL);
-		v = (readl(priv->config_regs + MMSYS_MISC)
-			& (~0x3FFFFC));
-		writel_relaxed(v, priv->config_regs + MMSYS_MISC);
-		if (priv->side_config_regs) {
-			v = (readl(priv->side_config_regs + MMSYS_MISC)
-				& (~0x3FFFFC));
-			writel_relaxed(v, priv->side_config_regs + MMSYS_MISC);
+
+		/* 0xF0: only config on OVLSYS(HARD CODE) */
+		if (priv->ovlsys0_regs) {
+			v = (readl(priv->ovlsys0_regs + MMSYS_MISC)
+				& (~0x3FFFC));
+			writel_relaxed(v, priv->ovlsys0_regs + MMSYS_MISC);
+		}
+		if (priv->ovlsys1_regs_pa) {
+			v = (readl(priv->ovlsys1_regs + MMSYS_MISC)
+				& (~0x3FFFC));
+			writel_relaxed(v, priv->ovlsys1_regs + MMSYS_MISC);
 		}
 	} else {
-		/* TODO: HARD CODE for RDMA0 scenario */
-		// cmdq_pkt_write(handle, NULL, priv->config_regs_pa +
-		//	MMSYS_SODI_REQ_MASK, sodi_req_val, sodi_req_mask);
+		/* 0xF4/0xF8: only config on DISPSYS(HARD CODE) */
 		cmdq_pkt_write(handle, NULL, priv->config_regs_pa +
-			MMSYS_SODI_REQ_MASK, 0xf500, ~0);
+			MMSYS_SODI_REQ_MASK, 0x13F6C0, ~0);
 		cmdq_pkt_write(handle, NULL, priv->config_regs_pa +
-			MMSYS_DUMMY0, 0x7, ~0);
-		cmdq_pkt_write(handle, NULL, priv->config_regs_pa +
-			MMSYS_EMI_REQ_CTL, 0xdf, ~0);
-		cmdq_pkt_write(handle, NULL, priv->config_regs_pa +
-			MMSYS_MISC, 0x0, 0x3FFFFC);
+			MMSYS_EMI_REQ_CTL, 0, ~0);
 		if (priv->side_config_regs_pa) {
 			cmdq_pkt_write(handle, NULL, priv->side_config_regs_pa +
-				MMSYS_SODI_REQ_MASK, 0xf500, ~0);
+				MMSYS_SODI_REQ_MASK, 0x13F6C0, ~0);
 			cmdq_pkt_write(handle, NULL, priv->side_config_regs_pa +
-				MMSYS_DUMMY0, 0x7, ~0);
-			cmdq_pkt_write(handle, NULL, priv->side_config_regs_pa +
-				MMSYS_EMI_REQ_CTL, 0xdf, ~0);
-			cmdq_pkt_write(handle, NULL, priv->side_config_regs_pa +
-				MMSYS_MISC, 0x0, 0x3FFFFC);
+				MMSYS_EMI_REQ_CTL, 0, ~0);
+		}
+		/* 0xF0: only config on OVLSYS(HARD CODE) */
+		if (priv->ovlsys0_regs_pa) {
+			cmdq_pkt_write(handle, NULL, priv->ovlsys0_regs_pa +
+				MMSYS_MISC, 0x0, 0x3FFFC);
+		}
+		if (priv->ovlsys1_regs_pa) {
+			cmdq_pkt_write(handle, NULL, priv->ovlsys1_regs_pa +
+				MMSYS_MISC, 0x0, 0x3FFFC);
 		}
 	}
 }
