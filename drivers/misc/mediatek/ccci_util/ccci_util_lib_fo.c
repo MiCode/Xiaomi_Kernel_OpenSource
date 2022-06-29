@@ -567,7 +567,7 @@ void __iomem *ccci_map_phy_addr(phys_addr_t phy_addr, unsigned int size)
 	pgprot_t prot;
 
 	phy_addr &= PAGE_MASK;
-	if (!pfn_valid(__phys_to_pfn(phy_addr))) {
+	if (!pfn_is_map_memory(__phys_to_pfn(phy_addr))) {
 		map_addr = ioremap_wc(phy_addr, size);
 		CCCI_UTIL_INF_MSG(
 			"ioremap_wc: (%lx %llx %d)\n",

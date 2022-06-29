@@ -459,7 +459,8 @@ static void get_sib_info_from_tag(void)
 		return;
 	}
 
-	pr_info("ccci:%s: sib addr: 0x%llx size: %d\n", s_md_sib_inf.addr, s_md_sib_inf.size);
+	pr_info("ccci:%s: sib addr: 0x%llx size: %d\n",
+		__func__, s_md_sib_inf.addr, s_md_sib_inf.size);
 }
 
 
