@@ -100,7 +100,7 @@ static long mtk_aov_ioctl(struct file *file, unsigned int cmd,
 	struct mtk_aov *aov_dev = (struct mtk_aov *)file->private_data;
 	int ret;
 
-	dev_info(aov_dev->dev, "%s ioctl aov driver(%d)+\n", __func__, cmd);
+	dev_dbg(aov_dev->dev, "%s ioctl aov driver(%d)+\n", __func__, cmd);
 
 	switch (cmd) {
 	case AOV_DEV_INIT: {
@@ -123,9 +123,9 @@ static long mtk_aov_ioctl(struct file *file, unsigned int cmd,
 		dev_info(aov_dev->dev, "AOV sensor off(%d)\n+", ret);
 		break;
 	case AOV_DEV_DQEVENT:
-		dev_info(aov_dev->dev, "AOV dqevent+\n");
+		dev_dbg(aov_dev->dev, "AOV dqevent+\n");
 		ret = aov_core_copy(aov_dev, (struct aov_dqevent *)arg);
-		dev_info(aov_dev->dev, "AOV dqevent-(%d)\n", ret);
+		dev_dbg(aov_dev->dev, "AOV dqevent-(%d)\n", ret);
 		break;
 	case AOV_DEV_DEINIT: {
 		dev_info(aov_dev->dev, "AOV deinit+\n");
@@ -138,7 +138,7 @@ static long mtk_aov_ioctl(struct file *file, unsigned int cmd,
 		return -EINVAL;
 	}
 
-	dev_info(aov_dev->dev, "%s ioctl aov driver(cmd)-(%d)\n", __func__, cmd, ret);
+	dev_dbg(aov_dev->dev, "%s ioctl aov driver(cmd)-(%d)\n", __func__, cmd, ret);
 
 	return ret;
 }

@@ -511,7 +511,6 @@ int aov_core_notify(struct mtk_aov *aov_dev,
 		return -EINVAL;
 	}
 
-
 	for (index = 0; index < notify.count; index++) {
 		dev_info(aov_dev->dev, "%s: notify sensor(%d), status(%d)\n",
 			__func__, notify.sensor[index], enable);
@@ -656,7 +655,7 @@ int aov_core_copy(struct mtk_aov *aov_dev, struct aov_dqevent *dequeue)
 	uint32_t debug_mode;
 	int ret = 0;
 
-	dev_info(aov_dev->dev, "%s: copy aov event+\n", __func__);
+	dev_dbg(aov_dev->dev, "%s: copy aov event+\n", __func__);
 
 	if (atomic_read(&(core_info->aov_ready)) == 0) {
 		dev_info(aov_dev->dev, "%s: aov is not started\n", __func__);
@@ -693,7 +692,7 @@ int aov_core_copy(struct mtk_aov *aov_dev, struct aov_dqevent *dequeue)
 		get_user(buffer, (void **)((uintptr_t)dequeue +
 			offsetof(struct aov_dqevent, yuvo1_output)));
 
-		dev_info(aov_dev->dev, "%s: copy yuvo1 output from(%x) to(%x) size(%d)\n",
+		dev_dbg(aov_dev->dev, "%s: copy yuvo1 output from(%x) to(%x) size(%d)\n",
 				__func__, ALIGN16(&(event->yuvo1_output[0])),
 				buffer, AOV_MAX_YUVO1_OUTPUT);
 
@@ -714,7 +713,7 @@ int aov_core_copy(struct mtk_aov *aov_dev, struct aov_dqevent *dequeue)
 		get_user(buffer, (void **)((uintptr_t)dequeue +
 			offsetof(struct aov_dqevent, yuvo2_output)));
 
-		dev_info(aov_dev->dev, "%s: copy yuvo1 output from(%x) to(%x) size(%d)\n",
+		dev_dbg(aov_dev->dev, "%s: copy yuvo1 output from(%x) to(%x) size(%d)\n",
 				__func__, ALIGN16(&(event->yuvo2_output[0])),
 				buffer, AOV_MAX_YUVO2_OUTPUT);
 
@@ -743,7 +742,7 @@ int aov_core_copy(struct mtk_aov *aov_dev, struct aov_dqevent *dequeue)
 			get_user(buffer, (void **)((uintptr_t)dequeue +
 				offsetof(struct aov_dqevent, aie_output)));
 
-			dev_info(aov_dev->dev, "%s: copy aie output from(%x) to(%x) size(%d)\n",
+			dev_dbg(aov_dev->dev, "%s: copy aie output from(%x) to(%x) size(%d)\n",
 				__func__, ALIGN16(&(event->aie_output[0])),
 				buffer, event->aie_size);
 
@@ -773,7 +772,7 @@ int aov_core_copy(struct mtk_aov *aov_dev, struct aov_dqevent *dequeue)
 			get_user(buffer, (void **)((uintptr_t)dequeue +
 				offsetof(struct aov_dqevent, apu_output)));
 
-			dev_info(aov_dev->dev, "%s: copy apu output from(%x) to(%x) size(%d)\n",
+			dev_dbg(aov_dev->dev, "%s: copy apu output from(%x) to(%x) size(%d)\n",
 				__func__, ALIGN16(&(event->apu_output[0])),
 				buffer, event->apu_size);
 
@@ -797,7 +796,7 @@ int aov_core_copy(struct mtk_aov *aov_dev, struct aov_dqevent *dequeue)
 		get_user(buffer, (void **)((uintptr_t)dequeue +
 			offsetof(struct aov_dqevent, imgo_output)));
 
-		dev_info(aov_dev->dev, "%s: copy imgo output from(%x) to(%x) size(%d)\n",
+		dev_dbg(aov_dev->dev, "%s: copy imgo output from(%x) to(%x) size(%d)\n",
 				__func__, ALIGN16(&(event->imgo_output[0])),
 				buffer, AOV_MAX_IMGO_OUTPUT);
 
@@ -826,7 +825,7 @@ int aov_core_copy(struct mtk_aov *aov_dev, struct aov_dqevent *dequeue)
 			get_user(buffer, (void **)((uintptr_t)dequeue +
 				offsetof(struct aov_dqevent, aao_output)));
 
-			dev_info(aov_dev->dev, "%s: copy aao output from(%x) to(%x) size(%d)\n",
+			dev_dbg(aov_dev->dev, "%s: copy aao output from(%x) to(%x) size(%d)\n",
 				__func__, ALIGN16(&(event->aao_output[0])),
 				buffer, event->aao_size);
 
@@ -856,7 +855,7 @@ int aov_core_copy(struct mtk_aov *aov_dev, struct aov_dqevent *dequeue)
 			get_user(buffer, (void **)((uintptr_t)dequeue +
 				offsetof(struct aov_dqevent, aaho_output)));
 
-			dev_info(aov_dev->dev, "%s: copy aaho output from(%x) to(%x) size(%d)\n",
+			dev_dbg(aov_dev->dev, "%s: copy aaho output from(%x) to(%x) size(%d)\n",
 				__func__, ALIGN16(&(event->aaho_output[0])),
 				buffer, event->aaho_size);
 
@@ -886,7 +885,7 @@ int aov_core_copy(struct mtk_aov *aov_dev, struct aov_dqevent *dequeue)
 			get_user(buffer, (void **)((uintptr_t)dequeue +
 				offsetof(struct aov_dqevent, meta_output)));
 
-			dev_info(aov_dev->dev, "%s: copy meta output from(%x) to(%x) size(%d)\n",
+			dev_dbg(aov_dev->dev, "%s: copy meta output from(%x) to(%x) size(%d)\n",
 				__func__, ALIGN16(&(event->meta_output[0])),
 				buffer, event->meta_size);
 
@@ -916,7 +915,7 @@ int aov_core_copy(struct mtk_aov *aov_dev, struct aov_dqevent *dequeue)
 			get_user(buffer, (void **)((uintptr_t)dequeue +
 				offsetof(struct aov_dqevent, awb_output)));
 
-			dev_info(aov_dev->dev, "%s: copy tuning output from(%x) to(%x) size(%d)\n",
+			dev_dbg(aov_dev->dev, "%s: copy tuning output from(%x) to(%x) size(%d)\n",
 				__func__, ALIGN16(&(event->awb_output[0])),
 				buffer, event->awb_size);
 
@@ -933,7 +932,7 @@ int aov_core_copy(struct mtk_aov *aov_dev, struct aov_dqevent *dequeue)
 
 	buffer_release(core_info, event);
 
-	dev_info(aov_dev->dev, "%s: copy aov event-\n", __func__);
+	dev_dbg(aov_dev->dev, "%s: copy aov event-\n", __func__);
 
 	return ret;
 }
