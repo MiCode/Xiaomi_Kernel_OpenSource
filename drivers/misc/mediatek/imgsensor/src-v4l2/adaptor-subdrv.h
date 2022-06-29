@@ -148,6 +148,9 @@ struct subdrv_mode_struct {
 	u8 sensor_output_dataformat;
 	u32 ana_gain_min;
 	u32 ana_gain_max;
+	u32 dig_gain_min;
+	u32 dig_gain_max;
+	u32 dig_gain_step;
 };
 
 #define REG_ADDR_MAXCNT 3
@@ -187,6 +190,9 @@ struct subdrv_static_ctx {
 	u32 exposure_max;
 	u32 exposure_step;
 	u8 exposure_margin;
+	u32 dig_gain_min;
+	u32 dig_gain_max;
+	u32 dig_gain_step;
 
 	u32 frame_length_max;
 	u8 ae_effective_frame;

@@ -521,6 +521,12 @@ struct mtk_fine_integ_line {
 #define VIDIOC_MTK_G_RGBW_OUTPUT_MODE \
 	_IOWR('M', BASE_VIDIOC_PRIVATE + 40, struct mtk_cap)
 
+#define VIDIOC_MTK_G_DIG_GAIN_RANGE_BY_SCENARIO \
+	_IOWR('M', BASE_VIDIOC_PRIVATE + 41, struct mtk_gain_range_by_scenario)
+
+#define VIDIOC_MTK_G_DIG_GAIN_STEP \
+	_IOWR('M', BASE_VIDIOC_PRIVATE + 42, __u32)
+
 /* SET */
 
 #define VIDIOC_MTK_S_VIDEO_FRAMERATE \

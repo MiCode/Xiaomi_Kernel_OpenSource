@@ -1523,6 +1523,9 @@ static struct subdrv_static_ctx static_ctx = {
 	.exposure_max = 128 * (0xFFFC - 48),
 	.exposure_step = 4,
 	.exposure_margin = 48,
+	.dig_gain_min = BASE_DGAIN * 1,
+	.dig_gain_max = BASE_DGAIN * 16,
+	.dig_gain_step = 4,
 
 	.frame_length_max = 0xFFFC,
 	.ae_effective_frame = 2,

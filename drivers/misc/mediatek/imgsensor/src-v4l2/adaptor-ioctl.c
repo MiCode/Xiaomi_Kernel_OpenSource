@@ -460,6 +460,26 @@ static int g_gain_range_by_scenario(struct adaptor_ctx *ctx, void *arg)
 	return 0;
 }
 
+static int g_dig_gain_range_by_scenario(struct adaptor_ctx *ctx, void *arg)
+{
+	struct mtk_gain_range_by_scenario *info = arg;
+	union feature_para para;
+	u32 len;
+
+	para.u64[0] = info->scenario_id;
+	para.u64[1] = 0;
+	para.u64[2] = 0;
+
+	subdrv_call(ctx, feature_control,
+		SENSOR_FEATURE_GET_DIG_GAIN_RANGE_BY_SCENARIO,
+		para.u8, &len);
+
+	info->min_gain = para.u64[1];
+	info->max_gain = para.u64[2];
+
+	return 0;
+}
+
 static int g_min_shutter_by_scenario(struct adaptor_ctx *ctx, void *arg)
 {
 	struct mtk_min_shutter_by_scenario *info = arg;
@@ -666,6 +686,23 @@ static int g_base_gain_iso_n_step(struct adaptor_ctx *ctx, void *arg)
 	info->min_gain_iso = para.u64[0];
 	info->gain_step = para.u64[1];
 	info->gain_type = para.u64[2];
+
+	return 0;
+}
+
+static int g_dig_gain_step(struct adaptor_ctx *ctx, void *arg)
+{
+	u32 *info = arg;
+	union feature_para para;
+	u32 len;
+
+	para.u32[0] = 0;
+
+	subdrv_call(ctx, feature_control,
+		SENSOR_FEATURE_GET_DIG_GAIN_STEP,
+		para.u8, &len);
+
+	*info = para.u32[0];
 
 	return 0;
 }
@@ -1430,6 +1467,8 @@ static const struct ioctl_entry ioctl_list[] = {
 	{VIDIOC_MTK_G_FINE_INTEG_LINE_BY_SCENARIO, g_fine_integ_line_by_scenario},
 	{VIDIOC_MTK_G_MAX_EXPOSURE_LINE, g_max_exposure_line_ioctl},
 	{VIDIOC_MTK_G_RGBW_OUTPUT_MODE, g_rgbw_output_mode},
+	{VIDIOC_MTK_G_DIG_GAIN_RANGE_BY_SCENARIO, g_dig_gain_range_by_scenario},
+	{VIDIOC_MTK_G_DIG_GAIN_STEP, g_dig_gain_step},
 	/* SET */
 	{VIDIOC_MTK_S_VIDEO_FRAMERATE, s_video_framerate},
 	{VIDIOC_MTK_S_MAX_FPS_BY_SCENARIO, s_max_fps_by_scenario},

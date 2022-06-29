@@ -809,6 +809,23 @@ void get_base_gain_iso_and_step(struct subdrv_ctx *ctx,
 	*gain_type = ctx->s_ctx.ana_gain_type;
 }
 
+void get_dig_gain_range_by_scenario(struct subdrv_ctx *ctx,
+		enum SENSOR_SCENARIO_ID_ENUM scenario_id, u64 *min_dgain, u64 *max_dgain)
+{
+	if (scenario_id >= ctx->s_ctx.sensor_mode_num) {
+		LOG_INF("invalid sid:%u, mode_num:%u\n",
+			scenario_id, ctx->s_ctx.sensor_mode_num);
+		scenario_id = SENSOR_SCENARIO_ID_NORMAL_PREVIEW;
+	}
+	*min_dgain = ctx->s_ctx.mode[scenario_id].dig_gain_min;
+	*max_dgain = ctx->s_ctx.mode[scenario_id].dig_gain_max;
+}
+
+void get_dig_gain_step(struct subdrv_ctx *ctx, u64 *dgain_step)
+{
+	*dgain_step = ctx->s_ctx.dig_gain_step;
+}
+
 void get_min_shutter_by_scenario(struct subdrv_ctx *ctx,
 		enum SENSOR_SCENARIO_ID_ENUM scenario_id,
 		u64 *min_shutter, u64 *exposure_step)
@@ -1283,6 +1300,10 @@ void subdrv_ctx_init(struct subdrv_ctx *ctx)
 			ctx->s_ctx.mode[i].ana_gain_min = ctx->s_ctx.ana_gain_min;
 		if (!ctx->s_ctx.mode[i].ana_gain_max)
 			ctx->s_ctx.mode[i].ana_gain_max = ctx->s_ctx.ana_gain_max;
+		if (!ctx->s_ctx.mode[i].dig_gain_min)
+			ctx->s_ctx.mode[i].dig_gain_min = ctx->s_ctx.dig_gain_min;
+		if (!ctx->s_ctx.mode[i].dig_gain_max)
+			ctx->s_ctx.mode[i].dig_gain_max = ctx->s_ctx.dig_gain_max;
 	}
 }
 
@@ -1519,6 +1540,14 @@ int common_feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 	case SENSOR_FEATURE_GET_BASE_GAIN_ISO_AND_STEP:
 		get_base_gain_iso_and_step(ctx,
 			feature_data, feature_data + 1,	feature_data + 2);
+		break;
+	case SENSOR_FEATURE_GET_DIG_GAIN_RANGE_BY_SCENARIO:
+		get_dig_gain_range_by_scenario(ctx,
+			(enum SENSOR_SCENARIO_ID_ENUM)*(feature_data),
+			feature_data + 1, feature_data + 2);
+		break;
+	case SENSOR_FEATURE_GET_DIG_GAIN_STEP:
+		get_dig_gain_step(ctx, feature_data);
 		break;
 	case SENSOR_FEATURE_GET_MIN_SHUTTER_BY_SCENARIO:
 		get_min_shutter_by_scenario(ctx,

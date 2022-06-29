@@ -49,6 +49,9 @@ void get_gain_range_by_scenario(struct subdrv_ctx *ctx,
 		enum SENSOR_SCENARIO_ID_ENUM scenario_id, u64 *min_gain, u64 *max_gain);
 void get_base_gain_iso_and_step(struct subdrv_ctx *ctx,
 		u64 *min_gain_iso, u64 *gain_step, u64 *gain_type);
+void get_dig_gain_range_by_scenario(struct subdrv_ctx *ctx,
+		enum SENSOR_SCENARIO_ID_ENUM scenario_id, u64 *min_dgain, u64 *max_dgain);
+void get_dig_gain_step(struct subdrv_ctx *ctx, u64 *gain_step);
 void get_min_shutter_by_scenario(struct subdrv_ctx *ctx,
 		enum SENSOR_SCENARIO_ID_ENUM scenario_id,
 		u64 *min_shutter, u64 *exposure_step);
