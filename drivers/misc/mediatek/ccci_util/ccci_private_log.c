@@ -364,7 +364,7 @@ static ssize_t ccci_dump_fops_write(struct file *file,
 	return size;
 }
 
-int ccci_dump_write(int buf_type, unsigned int flag, const char *fmt, ...)
+int ccci_dump_write(unsigned int buf_type, unsigned int flag, const char *fmt, ...)
 {
 	va_list args;
 	unsigned int write_len = 0;

@@ -29,7 +29,7 @@ enum {
 
 extern unsigned int ccci_debug_enable; /* Exported by CCCI core */
 extern int ccci_log_write(const char *fmt, ...); /* Exported by CCCI Util */
-extern int ccci_dump_write(int buf_type, unsigned int flag, const char *fmt, ...);
+extern int ccci_dump_write(unsigned int buf_type, unsigned int flag, const char *fmt, ...);
 
 /*****************************************************************************
  ** CCCI dump log define start ****************

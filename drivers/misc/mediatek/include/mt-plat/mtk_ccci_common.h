@@ -689,7 +689,7 @@ enum {
 void ccci_util_mem_dump(int buf_type, void *start_addr, int len);
 void ccci_util_cmpt_mem_dump(int buf_type, void *start_addr,
 	int len);
-int ccci_dump_write(int buf_type, unsigned int flag,
+int ccci_dump_write(unsigned int buf_type, unsigned int flag,
 	const char *fmt, ...);
 int ccci_log_write(const char *fmt, ...);
 int ccci_log_write_raw(unsigned int flags, const char *fmt, ...);
