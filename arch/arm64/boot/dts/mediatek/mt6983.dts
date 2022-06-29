@@ -13257,9 +13257,9 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 		mediatek,ccu-rproc = <&ccu_rproc>;
 	};
 
-	camera_camsys_ccu {
-		compatible = "mediatek,camera_camsys_ccu";
-		mediatek,ccu_rproc = <&ccu_rproc>;
+	camera-camsys-ccu {
+		compatible = "mediatek,camera-camsys-ccu";
+		mediatek,ccu-rproc = <&ccu_rproc>;
 	};
 
 	camera_imgsys_ccu {
