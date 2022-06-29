@@ -2169,10 +2169,9 @@ static void fbt_set_sjerk(int pid, unsigned long long identifier,
 	struct render_info *thr;
 
 	thr = fpsgo_search_and_add_render_info(pid, identifier, 0);
-	if (!thr) {
-		fpsgo_render_tree_unlock(__func__);
+	if (!thr)
 		return;
-	}
+
 
 	if (thr->rescue_second_time_by_pid)
 		rescue_second_time_tmp = thr->rescue_second_time_by_pid;

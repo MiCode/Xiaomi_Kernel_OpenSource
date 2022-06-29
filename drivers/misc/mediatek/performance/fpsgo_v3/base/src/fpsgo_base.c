@@ -696,8 +696,8 @@ struct fpsgo_attr_by_pid *fpsgo_find_attr_by_pid(int pid, int add_new)
 
 	tmp->tgid = pid;
 	tmp->loading_th_by_pid = 0;
-	tmp->llf_task_policy_by_pid = 0;
-	tmp->light_loading_policy_by_pid = -1;
+	tmp->llf_task_policy_by_pid = -1;
+	tmp->light_loading_policy_by_pid = 0;
 	tmp->rescue_second_enable_by_pid = -1;
 	tmp->rescue_second_time_by_pid = 0;
 	tmp->rescue_second_group_by_pid = 0;
@@ -1446,15 +1446,15 @@ static ssize_t render_info_params_show(struct kobject *kobj,
 		if (tsk) {
 			get_task_struct(tsk);
 			length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
-				"\n by_pid params:\n  PID  NAME  TGID  loading_th llf_task_policy light_loading_policy\n");
+				"\n by_pid params:\n  PID  NAME  TGID  llf_task_policy loading_th light_loading_policy\n");
 			pos += length;
 
 			length = scnprintf(temp + pos,
 					FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
 					"%5d %4s %4d %4d %4d %4d",
 				iter->pid, tsk->comm,
-				iter->tgid, iter->loading_th_by_pid,
-				iter->llf_task_policy_by_pid, iter->light_loading_policy_by_pid);
+				iter->tgid, iter->llf_task_policy_by_pid,
+				iter->loading_th_by_pid, iter->light_loading_policy_by_pid);
 			pos += length;
 
 			length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
@@ -1493,14 +1493,14 @@ static ssize_t render_attr_params_show(struct kobject *kobj,
 	for (n = rb_first(&fpsgo_attr_by_pid_tree); n != NULL; n = rb_next(n)) {
 		iter = rb_entry(n,  struct fpsgo_attr_by_pid, entry);
 			length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
-				"\n by_pid attr params:\n  TGID  loading_th llf_task_policy light_loading_policy\n");
+				"\n by_pid attr params:\n  TGID  llf_task_policy loading_th light_loading_policy\n");
 		pos += length;
 
 		length = scnprintf(temp + pos,
 					FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
 					"%4d %4d %4d %4d",
-				iter->tgid, iter->loading_th_by_pid,
-				iter->llf_task_policy_by_pid, iter->light_loading_policy_by_pid);
+				iter->tgid, iter->llf_task_policy_by_pid,
+				iter->loading_th_by_pid, iter->light_loading_policy_by_pid);
 			pos += length;
 
 			length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
