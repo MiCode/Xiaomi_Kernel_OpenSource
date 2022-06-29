@@ -8067,6 +8067,7 @@
 			power-domains = <&scpsys MT6985_POWER_DOMAIN_UFS0_SHUTDOWN>;
 
 			vcc-supply = <&mt6363_vemc>;
+			vccq-supply = <&mt6373_vbuck7>;
 
 			resets = <&ufscfgao_rst 0>, <&ufscfgpdn_rst 0>,
 				<&ufscfgpdn_rst 1>;
