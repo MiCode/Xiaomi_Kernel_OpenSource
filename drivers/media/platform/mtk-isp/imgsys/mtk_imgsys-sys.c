@@ -15,6 +15,7 @@
 #include <linux/slab.h>
 #include <linux/spinlock.h>
 #include <linux/wait.h>
+#include <linux/sync_file.h>
 #include <media/v4l2-event.h>
 #include "mtk_imgsys-dev.h"
 #include "mtk_imgsys-hw.h"
@@ -1430,6 +1431,8 @@ static void imgsys_scp_handler(void *data, unsigned int len, void *priv)
 	struct list_head *head = NULL;
 	struct list_head *temp = NULL;
 	bool reqfd_find = false;
+	int f_lop_idx = 0, fence_num = 0;
+	struct fence_event *fence_evt = NULL;
 
 	if (!data) {
 		WARN_ONCE(!data, "%s: failed due to NULL data\n", __func__);
@@ -1577,6 +1580,77 @@ static void imgsys_scp_handler(void *data, unsigned int len, void *priv)
 	for (i = 0 ; i < swfrm_info->total_frmnum ; i++) {
 		swfrm_info->user_info[i].g_swbuf = gce_virt + (swfrm_info->user_info[i].sw_goft);
 		swfrm_info->user_info[i].bw_swbuf = gce_virt + (swfrm_info->user_info[i].sw_bwoft);
+
+		//K Fence - notify
+		fence_num = swfrm_info->user_info[i].notify_fence_num;
+		if (fence_num > KFENCE_MAX) {
+			dev_info(imgsys_dev->dev,
+				"%s: [ERROR][Frm%d-notify]fence number(%d) > %d\n",
+				__func__, fence_num, KFENCE_MAX);
+			fence_num = KFENCE_MAX;
+		}
+		for (f_lop_idx = 0; f_lop_idx < fence_num; f_lop_idx++) {
+			fence_evt = &(swfrm_info->user_info[i].notify_fence_list[f_lop_idx]);
+			if (fence_evt->fence_fd == 0) {
+				dev_info(imgsys_dev->dev,
+					"%s: [ERROR] Own:%s MWFrame:#%d MWReq:#%d ReqFd:%d:[Frm%d-n#%d] fd=0\n",
+					__func__, (char *)(&(swfrm_info->frm_owner)),
+					swfrm_info->frame_no, swfrm_info->request_no,
+					swfrm_info->request_fd, i, f_lop_idx);
+				continue;
+			}
+			fence_evt->dma_fence = (uint64_t *) sync_file_get_fence(
+									fence_evt->fence_fd);
+			if (fence_evt->dma_fence == NULL) {
+				dev_info(imgsys_dev->dev,
+					"%s: [ERROR] Own:%s MWFrame:#%d MWReq:#%d ReqFd:%d:[Frm%d-n#%d]invalid fd(%d)\n",
+					__func__, (char *)(&(swfrm_info->frm_owner)),
+					swfrm_info->frame_no, swfrm_info->request_no,
+					swfrm_info->request_fd, i, f_lop_idx, fence_evt->fence_fd);
+				continue;
+			}
+			dev_dbg(imgsys_dev->dev,
+				"%s: Own:%s MWFrame:#%d MWReq:#%d ReqFd:%d:[Frm%d-n#%d]0x%x,fencefd:%d\n",
+				__func__, (char *)(&(swfrm_info->frm_owner)),
+				swfrm_info->frame_no, swfrm_info->request_no,
+				swfrm_info->request_fd, i, f_lop_idx, fence_evt->dma_fence,
+				fence_evt->fence_fd);//dbg
+		}
+		//K Fence - wait
+		fence_num = swfrm_info->user_info[i].wait_fence_num;
+		if (fence_num > KFENCE_MAX) {
+			dev_info(imgsys_dev->dev,
+				"%s: [ERROR][Frm%d-wait]fence number(%d) > %d\n",
+				__func__, fence_num, KFENCE_MAX);
+			fence_num = KFENCE_MAX;
+		}
+		for (f_lop_idx = 0; f_lop_idx < fence_num; f_lop_idx++) {
+			fence_evt = &(swfrm_info->user_info[i].wait_fence_list[f_lop_idx]);
+			if (fence_evt->fence_fd == 0) {
+				dev_info(imgsys_dev->dev,
+					"%s: [ERROR] Own:%s MWFrame:#%d MWReq:#%d ReqFd:%d:[Frm%d-w#%d] fd=0\n",
+					__func__, (char *)(&(swfrm_info->frm_owner)),
+					swfrm_info->frame_no, swfrm_info->request_no,
+					swfrm_info->request_fd, i, f_lop_idx);
+				continue;
+			}
+			fence_evt->dma_fence = (uint64_t *) sync_file_get_fence(
+									fence_evt->fence_fd);
+			if (fence_evt->dma_fence == NULL) {
+				dev_info(imgsys_dev->dev,
+					"%s: [ERROR] Own:%s MWFrame:#%d MWReq:#%d ReqFd:%d:[Frm%d-w#%d]invalid fd(%d)\n",
+					__func__, (char *)(&(swfrm_info->frm_owner)),
+					swfrm_info->frame_no, swfrm_info->request_no,
+					swfrm_info->request_fd, i, f_lop_idx, fence_evt->fence_fd);
+				continue;
+			}
+			dev_dbg(imgsys_dev->dev,
+				"%s: Own:%s MWFrame:#%d MWReq:#%d ReqFd:%d:[Frm%d-w#%d]0x%x,fencefd:%d,event:%d\n",
+				__func__, (char *)(&(swfrm_info->frm_owner)),
+				swfrm_info->frame_no, swfrm_info->request_no,
+				swfrm_info->request_fd, i, f_lop_idx, fence_evt->dma_fence,
+				fence_evt->fence_fd, fence_evt->gce_event);//dbg
+		}
 	}
 
 	/*first group in request*/

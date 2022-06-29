@@ -51,6 +51,8 @@ module_param(imgsys_qos_factor, int, 0644);
 int imgsys_quick_onoff_en;
 module_param(imgsys_quick_onoff_en, int, 0644);
 
+int imgsys_fence_dbg_en;
+module_param(imgsys_fence_dbg_en, int, 0644);
 /*#####*/
 bool imgsys_cmdq_ts_enable(void)
 {

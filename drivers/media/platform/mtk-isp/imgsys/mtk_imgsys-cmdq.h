@@ -10,6 +10,7 @@
 
 #include <linux/platform_device.h>
 #include <linux/soc/mediatek/mtk-cmdq-ext.h>
+#include <linux/dma-fence.h>
 #include "mtk_imgsys-dev.h"
 #include "mtk_imgsys-sys.h"
 
@@ -65,6 +66,14 @@ struct mtk_imgsys_cmdq_timestamp {
 	u64 tsDvfsQosEnd;
 };
 
+struct mtk_imgsys_fence {
+	u32 event_id;
+	u32 thd_idx;
+	u32 fence_fd;
+	struct dma_fence *kfence;
+	struct dma_fence_cb cb;
+};
+
 struct mtk_imgsys_cb_param {
 	struct work_struct cmdq_cb_work;
 	struct cmdq_pkt *pkt;
@@ -95,6 +104,8 @@ struct mtk_imgsys_cb_param {
 	bool isBlkLast;
 	bool isFrmLast;
 	bool isTaskLast;
+	struct mtk_imgsys_fence waitfence[KFENCE_MAX];
+	struct mtk_imgsys_fence notifence[KFENCE_MAX];
 };
 
 enum mtk_imgsys_cmd {
