@@ -135,7 +135,8 @@ static int vdec_init(struct mtk_vcodec_ctx *ctx, unsigned long *h_vdec)
 	return 0;
 
 error_free_inst:
-	mtk_vcodec_del_ctx_list(ctx);
+	if (ctx)
+		mtk_vcodec_del_ctx_list(ctx);
 	kfree(inst);
 	*h_vdec = (unsigned long)NULL;
 

@@ -64,7 +64,7 @@ int mtk_vcodec_init_enc_pm(struct mtk_vcodec_dev *mtkdev)
 	struct device *dev;
 	struct mtk_vcodec_pm *pm;
 	int larb_index;
-	int clk_id = 0;
+	unsigned int clk_id = 0;
 	const char *clk_name;
 	struct mtk_venc_clks_data *clks_data;
 
@@ -143,10 +143,11 @@ void mtk_vcodec_enc_clock_on(struct mtk_vcodec_ctx *ctx, int core_id)
 	struct M4U_PORT_STRUCT port;
 #endif
 	int larb_index;
-	int j, clk_id;
+	int j;
 	struct mtk_venc_clks_data *clks_data;
 	struct mtk_vcodec_dev *dev = NULL;
 	unsigned long flags;
+	unsigned int clk_id = 0;
 
 	dev = ctx->dev;
 
@@ -245,11 +246,12 @@ void mtk_vcodec_enc_clock_on(struct mtk_vcodec_ctx *ctx, int core_id)
 void mtk_vcodec_enc_clock_off(struct mtk_vcodec_ctx *ctx, int core_id)
 {
 	struct mtk_vcodec_pm *pm = &ctx->dev->pm;
-	int i, clk_id;
+	int i;
 	int larb_index;
 	struct mtk_venc_clks_data *clks_data;
 	struct mtk_vcodec_dev *dev = NULL;
 	unsigned long flags;
+	unsigned int clk_id = 0;
 
 	dev = ctx->dev;
 

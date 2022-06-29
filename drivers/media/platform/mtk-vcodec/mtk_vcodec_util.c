@@ -640,6 +640,7 @@ static void mtk_vcodec_sync_log(struct mtk_vcodec_dev *dev,
 
 	// remove disabled log param from list if value is empty
 	list_for_each_entry_safe(pram, tmp, plist, list) {
+		pram->param_val[LOG_PARAM_INFO_SIZE - 1] = 0;
 		if (strlen(pram->param_val) == 0) {
 			mtk_v4l2_debug(8, "remove deprecated key: %s, value: %s\n",
 				pram->param_key, pram->param_val);
@@ -658,6 +659,7 @@ static void mtk_vcodec_build_log_string(struct mtk_vcodec_dev *dev,
 	struct mutex *plist_mutex;
 	char *vdec_temp_str;
 	char *venc_temp_str;
+	int sl = 0;
 
 	if (log_index == MTK_VCODEC_LOG_INDEX_LOG) {
 		plist = &dev->log_param_list;
@@ -677,13 +679,16 @@ static void mtk_vcodec_build_log_string(struct mtk_vcodec_dev *dev,
 	mutex_lock(plist_mutex);
 
 	if (dev->vfd_dec) {
-		memset(vdec_temp_str, 0x00, 1024);
+		memset(vdec_temp_str, 0x00, LOG_PROPERTY_SIZE);
+		sl = 0;
 		list_for_each_entry(pram, plist, list) {
 			mtk_v4l2_debug(8, "existed log param %s: %s\n",
 					pram->param_key, pram->param_val);
-
-			snprintf(vdec_temp_str, LOG_PROPERTY_SIZE, "%s %s %s",
-				vdec_temp_str, pram->param_key, pram->param_val);
+			if (sl >= 0 && sl < LOG_PROPERTY_SIZE && LOG_PROPERTY_SIZE - sl > 0)
+				sl = snprintf(vdec_temp_str + sl, LOG_PROPERTY_SIZE - sl, "%s %s",
+						pram->param_key, pram->param_val);
+			else
+				mtk_v4l2_err("venc_temp_str err usage: %d", sl);
 		}
 		if (log_index == MTK_VCODEC_LOG_INDEX_LOG) {
 			mtk_vdec_vcp_log = vdec_temp_str;
@@ -693,13 +698,16 @@ static void mtk_vcodec_build_log_string(struct mtk_vcodec_dev *dev,
 			mtk_v4l2_debug(8, "build mtk_vdec_property: %s\n", mtk_vdec_property);
 		}
 	} else {
-		memset(venc_temp_str, 0x00, 1024);
+		memset(venc_temp_str, 0x00, LOG_PROPERTY_SIZE);
+		sl = 0;
 		list_for_each_entry(pram, plist, list) {
 			mtk_v4l2_debug(8, "existed log param %s: %s\n",
 					pram->param_key, pram->param_val);
-
-			snprintf(venc_temp_str, LOG_PROPERTY_SIZE, "%s %s %s",
-				venc_temp_str, pram->param_key, pram->param_val);
+			if (sl >= 0 && sl < LOG_PROPERTY_SIZE && LOG_PROPERTY_SIZE - sl > 0)
+				sl = snprintf(venc_temp_str + sl, LOG_PROPERTY_SIZE - sl, "%s %s",
+						pram->param_key, pram->param_val);
+			else
+				mtk_v4l2_err("venc_temp_str err usage: %d", sl);
 		}
 		if (log_index == MTK_VCODEC_LOG_INDEX_LOG) {
 			mtk_venc_vcp_log = venc_temp_str;

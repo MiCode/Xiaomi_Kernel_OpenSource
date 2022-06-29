@@ -885,7 +885,8 @@ static int mtk_vdec_uP_translation_fault_callback(
 		} else {
 			dec_ctx_id[hw_id] = 0;
 			dec_fourcc[hw_id] = 0;
-			sprintf(dec_codec_name[hw_id], "NULL");
+			if (sprintf(dec_codec_name[hw_id], "NULL") < 0)
+				mtk_v4l2_err("dec_codec_name access failure");
 		}
 		dec_codec_name[hw_id][4] = '\0';
 	}

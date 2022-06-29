@@ -524,7 +524,7 @@ void mtk_vdec_dvfs_end_frame(struct mtk_vcodec_ctx *ctx, int hw_id)
 	u8 orig = 0;
 
 	dev = ctx->dev;
-	if (dev->vdec_reg == 0)
+	if (dev->vdec_reg == 0 || hw_id < 0)
 		return;
 
 	orig = dev->vdec_dvfs_params.lock_cnt[0] | dev->vdec_dvfs_params.lock_cnt[1];
