@@ -2233,8 +2233,8 @@ static const struct msm_pingroup sdmshrike_groups[] = {
 	[190] = SDC_QDSD_PINGROUP(sdc2_clk, 0x9b2000, 14, 6),
 	[191] = SDC_QDSD_PINGROUP(sdc2_cmd, 0x9b2000, 11, 3),
 	[192] = SDC_QDSD_PINGROUP(sdc2_data, 0x9b2000, 9, 0),
-	[193] = UFS_RESET(ufs_reset, 0xdb6004),
-	[194] = UFS_RESET(ufs0_reset, 0xdc7004),
+	[193] = UFS_RESET(ufs_reset, 0xdb6000),
+	[194] = UFS_RESET(ufs0_reset, 0xdc7000),
 };
 
 static const struct msm_gpio_wakeirq_map sdmshrike_pdc_map[] = {
