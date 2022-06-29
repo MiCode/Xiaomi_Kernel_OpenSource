@@ -8614,7 +8614,7 @@
 
 	swpm: swpm {
 		compatible = "mediatek,mtk-swpm";
-		pmu_boundary_num = <4>;
+		pmu_boundary_num = <0>;
 		pmu_dsu_support = <1>;
 		pmu_dsu_type = <11>;
 	};
@@ -13610,6 +13610,19 @@ l3_hit,l3_mis,pmu_cyc_cnt";
 				"i2max,imax";
 			node_69 = "SSPM_SWPM_CPU__PMU_TIMES",
 				"idx_cnt,lock,idx_rechk,lock_rechk,valid,off_hint,diff_us";
+			node_70 = "SSPM_SWPM_CORE__STATE_IDX",
+				"diff_us,wact_0,wact_1,data_rate,ddr_ratio,emi_freq,",
+				"bcnt_0,bcnt_1,dcm_ctrl_0,dcm_ctrl_1";
+			node_71 = "SSPM_SPM_RES__DDREN_REQ",
+				"mcu,mcupm,disp0,disp1,adsp,ufs,gce,infra,peri,md,scp,sspm,emi";
+			node_72 = "SSPM_SPM_RES__APSRC_REQ",
+				"mcu,mcupm,md,scp,sspm";
+			node_73 = "SSPM_SPM_DBG__PWR_OFF",
+				"dsu,mcu,gpu,venc,vdec,mdp,disp,cam,img,mmup,mminfra";
+			node_74 = "SSPM_SPM_DBG__PWR_ACT",
+				"scp,adsp";
+			node_75 = "SSPM_SPM_DBG__SYS_STA",
+				"s0,s1";
 		};
 
 		gpueb_rts_header:gpueb-rts-header {
