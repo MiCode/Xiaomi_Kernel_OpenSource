@@ -229,7 +229,6 @@ enum {
 };
 
 #define K(x) ((x) << (PAGE_SHIFT - 10))
-#define PRINT_BUFFER_SIZE 1024
 #define max_cpus 8
 #define bw_hist_nums 8
 #define bw_record_nums 32
@@ -237,6 +236,7 @@ enum {
 #define mcupm_record_nums 9
 /* inst-spec, l3dc, cpu-cycles */
 #define CPU_PMU_NUMS  (3 * max_cpus)
+#define PRINT_BUFFER_SIZE ((bw_record_nums+dsu_record_nums+mcupm_record_nums+CPU_PMU_NUMS) * 16 + 8)
 
 #define for_each_cpu_get_pmu(cpu, _pmu)						\
 	do {									\
