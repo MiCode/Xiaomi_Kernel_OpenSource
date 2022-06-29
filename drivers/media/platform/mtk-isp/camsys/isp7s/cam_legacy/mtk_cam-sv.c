@@ -1707,19 +1707,20 @@ int mtk_cam_sv_dev_pertag_stream_on(
 		camsv_dev->streaming_cnt++;
 		if (camsv_dev->streaming_cnt == camsv_dev->used_tag_cnt)
 			ret |= mtk_cam_sv_central_common_enable(camsv_dev);
-	}
-	else {
+	} else {
+		if (camsv_dev->streaming_cnt == 0)
+			goto EXIT;
 		if (camsv_dev->streaming_cnt == camsv_dev->used_tag_cnt) {
 			ret |= mtk_cam_sv_cq_disable(camsv_dev);
 			ret |= mtk_cam_sv_central_common_disable(camsv_dev);
 		}
-
 		ret |= mtk_cam_sv_fbc_disable(camsv_dev, tag_idx);
 		camsv_dev->streaming_cnt--;
 	}
 
-	dev_info(ctx->cam->dev, "camsv %d %s en(%d)\n", camsv_dev->id, __func__, streaming);
-
+EXIT:
+	dev_info(ctx->cam->dev, "camsv %d %s en(%d) streaming_cnt:%d\n",
+		camsv_dev->id, __func__, streaming, camsv_dev->streaming_cnt);
 	return ret;
 }
 
