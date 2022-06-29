@@ -695,8 +695,8 @@ int mtk_drm_mmp_cwb_buffer(struct drm_crtc *crtc,
 
 		bitmap.p_data = (void *)tmp->data.image;
 	}
-
-	event_base = g_CRTC_MMP_Events[crtc_idx].cwb_dump;
+	if (crtc_idx >= 0 && crtc_idx < MMP_CRTC_NUM)
+		event_base = g_CRTC_MMP_Events[crtc_idx].cwb_dump;
 	if (event_base) {
 		mmprofile_log_meta_bitmap(
 			event_base,
