@@ -168,6 +168,8 @@ int mtk_drm_ioctl_aal_set_param(struct drm_device *dev, void *data,
 	struct drm_file *file_priv);
 int mtk_drm_ioctl_aal_set_trigger_state(struct drm_device *dev, void *data,
 	struct drm_file *file_priv);
+int mtk_drm_ioctl_aal_set_ess20_spect_param(struct drm_device *dev, void *data,
+	struct drm_file *file_priv);
 
 #endif
 

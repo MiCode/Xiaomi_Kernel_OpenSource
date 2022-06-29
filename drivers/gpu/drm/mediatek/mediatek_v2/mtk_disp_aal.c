@@ -473,7 +473,7 @@ void disp_aal_notify_backlight_changed(int trans_backlight, int max_backlight)
 		service_flags = AAL_SERVICE_FORCE_UPDATE;
 
 	if (trans_backlight == 0) {
-		mtk_leds_brightness_set("lcd-backlight", 0);
+		mtk_leds_brightness_set("lcd-backlight", 0, 0, (0X1<<SET_BACKLIGHT_LEVEL));
 		/* set backlight = 0 may be not from AAL, */
 		/* we have to let AALService can turn on backlight */
 		/* on phone resumption */
@@ -484,7 +484,8 @@ void disp_aal_notify_backlight_changed(int trans_backlight, int max_backlight)
 		!m_new_pq_persist_property[DISP_PQ_GAMMA_SILKY_BRIGHTNESS])) {
 		/* AAL Service is not running */
 
-		mtk_leds_brightness_set("lcd-backlight", trans_backlight);
+		mtk_leds_brightness_set("lcd-backlight", trans_backlight,
+					0, (0X1<<SET_BACKLIGHT_LEVEL));
 	}
 
 	spin_lock_irqsave(&g_aal_hist_lock, flags);
@@ -621,7 +622,7 @@ static void mtk_disp_aal_refresh_trigger(struct work_struct *work_item)
 {
 	AALFLOW_LOG("start");
 
-	mtk_crtc_check_trigger(default_comp->mtk_crtc, true, true);
+	mtk_crtc_check_trigger(default_comp->mtk_crtc, false, true);
 }
 
 void disp_aal_flip_sram(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
@@ -1243,6 +1244,7 @@ int mtk_drm_ioctl_aal_init_reg(struct drm_device *dev, void *data,
 }
 
 static struct DISP_AAL_PARAM g_aal_param;
+struct DISP_AAL_ESS20_SPECT_PARAM g_aal_ess20_spect_param = {0, 0, (0x01<<SET_BACKLIGHT_LEVEL)};
 
 #define DRE_REG_2(v0, off0, v1, off1) (((v1) << (off1)) | \
 	((v0) << (off0)))
@@ -1277,6 +1279,9 @@ static int disp_aal_write_dre_to_reg(struct mtk_ddp_comp *comp,
 	const int *gain;
 
 	gain = param->DREGainFltStatus;
+	if (g_aal_ess20_spect_param.flag&0x3) {
+		CRTC_MMP_MARK(0, aal_ess20_curve, comp->id, 0);
+	}
 
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		comp->regs_pa + DISP_AAL_DRE_FLT_FORCE(0),
@@ -1503,6 +1508,19 @@ bool dump_reg(struct mtk_ddp_comp *comp, bool locked)
 	return dump_success;
 }
 
+int mtk_drm_ioctl_aal_set_ess20_spect_param(struct drm_device *dev, void *data,
+	struct drm_file *file_priv)
+{
+	int ret = 0;
+	struct DISP_AAL_ESS20_SPECT_PARAM *param = (struct DISP_AAL_ESS20_SPECT_PARAM *) data;
+
+	memcpy(&g_aal_ess20_spect_param, param, sizeof(*param));
+	AALAPI_LOG("[aal_kernel]ELVSSPN = %d, flag = %d",
+		g_aal_ess20_spect_param.ELVSSPN, g_aal_ess20_spect_param.flag);
+
+	return ret;
+}
+
 static bool debug_skip_set_param;
 int mtk_drm_ioctl_aal_set_param(struct drm_device *dev, void *data,
 	struct drm_file *file_priv)
@@ -1541,7 +1559,9 @@ int mtk_drm_ioctl_aal_set_param(struct drm_device *dev, void *data,
 		if (g_aal_param.silky_bright_flag == 0) {
 			AALAPI_LOG("backlight_value = %d, silky_bright_flag = %d",
 				backlight_value, g_aal_param.silky_bright_flag);
-			mtk_leds_brightness_set("lcd-backlight", backlight_value);
+			mtk_leds_brightness_set("lcd-backlight", backlight_value,
+					g_aal_ess20_spect_param.ELVSSPN,
+					g_aal_ess20_spect_param.flag);
 		}
 	} else if (m_new_pq_persist_property[DISP_PQ_GAMMA_SILKY_BRIGHTNESS]) {
 		//if (pre_bl != cur_bl)
@@ -1551,8 +1571,12 @@ int mtk_drm_ioctl_aal_set_param(struct drm_device *dev, void *data,
 			backlight_value);
 	} else {
 		AALAPI_LOG("%d", backlight_value);
-		mtk_leds_brightness_set("lcd-backlight", backlight_value);
+		mtk_leds_brightness_set("lcd-backlight", backlight_value,
+					g_aal_ess20_spect_param.ELVSSPN,
+					g_aal_ess20_spect_param.flag);
 	}
+	g_aal_ess20_spect_param.ELVSSPN = 0;
+	g_aal_ess20_spect_param.flag = (0x01<<SET_BACKLIGHT_LEVEL);
 	AALFLOW_LOG("delay refresh: %d", g_aal_param.refreshLatency);
 	if (g_aal_param.refreshLatency == 33)
 		delay_refresh = true;

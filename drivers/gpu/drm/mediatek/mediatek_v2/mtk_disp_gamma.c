@@ -630,14 +630,15 @@ void mtk_trans_gain_to_gamma(struct drm_crtc *crtc,
 				SET_12BIT_GAMMALUT, (void *)&lut_12bit_data);
 		}
 
-		mtk_leds_brightness_set("lcd-backlight", bl);
+		mtk_leds_brightness_set("lcd-backlight", bl, 0, (0X01<<SET_BACKLIGHT_LEVEL));
 		mtk_crtc_check_trigger(default_comp->mtk_crtc, false, true);
 		DDPINFO("%s : gain = %d, backlight = %d",
 			__func__, g_sb_param.gain[gain_r], bl);
 	} else {
 		if (g_sb_param.bl != bl) {
 			g_sb_param.bl = bl;
-			mtk_leds_brightness_set("lcd-backlight", bl);
+			mtk_leds_brightness_set("lcd-backlight", bl,
+						0, (0X01<<SET_BACKLIGHT_LEVEL));
 			DDPINFO("%s : backlight = %d", __func__, bl);
 		}
 	}
@@ -676,6 +677,7 @@ static int mtk_gamma_user_cmd(struct mtk_ddp_comp *comp,
 	{
 		struct DISP_GAMMA_12BIT_LUT_T *config = data;
 
+		CRTC_MMP_MARK(0, aal_ess20_gamma, comp->id, 0);
 		if (mtk_gamma_12bit_set_lut(comp, handle, config) < 0) {
 			DDPPR_ERR("%s: failed\n", __func__);
 			return -EFAULT;

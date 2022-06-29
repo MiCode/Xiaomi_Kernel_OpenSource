@@ -408,7 +408,8 @@ int mtk_dprec_logger_get_buf(enum DPREC_LOGGER_PR_TYPE type, char *stringbuf,
 	return n;
 }
 
-int __mtkfb_set_backlight_level(unsigned int level, bool group)
+int __mtkfb_set_backlight_level(unsigned int level, unsigned int panel_ext_param,
+			       unsigned int cfg_flag, bool group)
 {
 	struct drm_crtc *crtc;
 	int ret = 0;
@@ -426,16 +427,17 @@ int __mtkfb_set_backlight_level(unsigned int level, bool group)
 		return -EINVAL;
 	}
 	if (group == true)
-		ret = mtk_drm_setbacklight_grp(crtc, level);
+		ret = mtk_drm_setbacklight_grp(crtc, level, panel_ext_param, cfg_flag);
 	else
-		ret = mtk_drm_setbacklight(crtc, level);
+		ret = mtk_drm_setbacklight(crtc, level, panel_ext_param, cfg_flag);
 
 	return ret;
 }
 
-int mtkfb_set_backlight_level(unsigned int level)
+int mtkfb_set_backlight_level(unsigned int level, unsigned int panel_ext_param,
+				 unsigned int cfg_flag)
 {
-	return __mtkfb_set_backlight_level(level, false);
+	return __mtkfb_set_backlight_level(level, panel_ext_param, cfg_flag, false);
 }
 EXPORT_SYMBOL(mtkfb_set_backlight_level);
 
@@ -1420,6 +1422,41 @@ void ddic_dsi_read_cmd_test(unsigned int case_num)
 
 		break;
 	}
+	case 5:
+	{
+		/* Read 0xe8 = 0x00,0x01,0x23,0x00 */
+		cmd_msg->channel = 0;
+		cmd_msg->tx_cmd_num = 1;
+		cmd_msg->type[0] = 0x06;
+		tx[0] = 0x83;
+		cmd_msg->tx_buf[0] = tx;
+		cmd_msg->tx_len[0] = 1;
+
+		cmd_msg->rx_cmd_num = 1;
+		cmd_msg->rx_buf[0] = vmalloc(8 * sizeof(unsigned char));
+		memset(cmd_msg->rx_buf[0], 0, 4);
+		cmd_msg->rx_len[0] = 4;
+
+		break;
+	}
+	case 6:
+	{
+		/* Read 0xe8 = 0x00,0x01,0x23,0x00 */
+		cmd_msg->channel = 0;
+		cmd_msg->tx_cmd_num = 1;
+		cmd_msg->type[0] = 0x06;
+		tx[0] = 0x51;
+		cmd_msg->tx_buf[0] = tx;
+		cmd_msg->tx_len[0] = 1;
+
+		cmd_msg->rx_cmd_num = 1;
+		cmd_msg->rx_buf[0] = vmalloc(8 * sizeof(unsigned char));
+		memset(cmd_msg->rx_buf[0], 0, 4);
+		cmd_msg->rx_len[0] = 4;
+
+		break;
+	}
+
 	default:
 		DDPMSG("%s no this test case:%d\n", __func__, case_num);
 		break;
@@ -2353,7 +2390,7 @@ static void process_dbg_opt(const char *opt)
 			return;
 		}
 
-		__mtkfb_set_backlight_level(level, false);
+		__mtkfb_set_backlight_level(level, 0, 0x1<<SET_BACKLIGHT_LEVEL, false);
 	} else if (strncmp(opt, "backlight_grp:", 14) == 0) {
 		unsigned int level;
 		int ret;
@@ -2365,7 +2402,7 @@ static void process_dbg_opt(const char *opt)
 			return;
 		}
 
-		__mtkfb_set_backlight_level(level, true);
+		__mtkfb_set_backlight_level(level, 0, 0x1<<SET_BACKLIGHT_LEVEL, true);
 	} else if (!strncmp(opt, "aod_bl:", 7)) {
 		unsigned int level;
 		int ret;

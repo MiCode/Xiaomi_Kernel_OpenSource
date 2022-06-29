@@ -971,7 +971,7 @@ int mtk_drm_ioctl_set_ccorr(struct drm_device *dev, void *data,
 				ccorr_config->FinalBacklight,
 				ccorr_config->silky_bright_flag);
 			mtk_leds_brightness_set("lcd-backlight",
-				ccorr_config->FinalBacklight);
+				ccorr_config->FinalBacklight, 0, (0X01<<SET_BACKLIGHT_LEVEL));
 		}
 
 		mtk_crtc_check_trigger(comp->mtk_crtc, false, true);

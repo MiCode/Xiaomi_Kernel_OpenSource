@@ -214,6 +214,12 @@ enum SPR_COLOR_PARAMS_TYPE {
 	SPR_COLOR_PARAMS_TYPE_NUM,
 };
 
+enum SET_BL_EXT_TYPE {
+	SET_BACKLIGHT_LEVEL,
+	SET_ELVSS_PN,
+};
+
+
 struct spr_color_params {
 	enum SPR_COLOR_PARAMS_TYPE spr_color_params_type;
 	unsigned int count;
@@ -341,6 +347,13 @@ struct dynamic_fps_params {
 	unsigned int data_rate;
 	struct dfps_switch_cmd dfps_cmd_table[MAX_DYN_CMD_NUM];
 };
+
+struct mtk_bl_ext_config {
+	unsigned int cfg_flag;
+	unsigned int backlight_level;
+	unsigned int elvss_pn;
+};
+
 
 /* M-SYNC2.0 */
 #define MSYNC_MAX_CMD_NUM 20
@@ -499,6 +512,9 @@ struct mtk_oddmr_panelid {
 };
 
 struct mtk_panel_funcs {
+	int (*set_bl_elvss_cmdq)(void *dsi_drv, dcs_grp_write_gce cb,
+		void *handle, struct mtk_bl_ext_config *bl_ext_config);
+
 	int (*set_backlight_cmdq)(void *dsi_drv, dcs_write_gce cb,
 		void *handle, unsigned int level);
 	int (*set_aod_light_mode)(void *dsi_drv, dcs_write_gce cb,

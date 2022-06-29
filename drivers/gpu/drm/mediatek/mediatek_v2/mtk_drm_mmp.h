@@ -132,6 +132,9 @@ struct CRTC_MMP_Events {
 	mmp_event gamma_ioctl;
 	mmp_event gamma_sof;
 	mmp_event mml_dbg;
+	mmp_event aal_ess20_elvss;
+	mmp_event aal_ess20_gamma;
+	mmp_event aal_ess20_curve;
 };
 
 struct DRM_MMP_Events *get_drm_mmp_events(void);

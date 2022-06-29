@@ -7619,6 +7619,19 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 					handle, *(int *)params);
 	}
 		break;
+	case DSI_SET_BL_ELVSS:
+	{
+		struct mtk_dsi *dsi =
+			container_of(comp, struct mtk_dsi, ddp_comp);
+		panel_ext = mtk_dsi_get_panel_ext(comp);
+		CRTC_MMP_MARK(0, aal_ess20_elvss, comp->id, 0);
+		if (panel_ext && panel_ext->funcs
+			&& panel_ext->funcs->set_backlight_cmdq)
+			panel_ext->funcs->set_bl_elvss_cmdq(dsi,
+					mipi_dsi_dcs_grp_write_gce,
+					handle, (struct mtk_bl_ext_config *)params);
+	}
+		break;
 	case DSI_HBM_SET:
 	{
 		panel_ext = mtk_dsi_get_panel_ext(comp);

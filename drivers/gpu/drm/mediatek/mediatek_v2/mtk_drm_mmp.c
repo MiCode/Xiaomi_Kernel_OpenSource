@@ -305,6 +305,12 @@ void init_crtc_mmp_event(void)
 			crtc_mmp_root, "gamma_sof");
 		g_CRTC_MMP_Events[i].mml_dbg = mmprofile_register_event(
 			crtc_mmp_root, "mml_dbg");
+		g_CRTC_MMP_Events[i].aal_ess20_elvss = mmprofile_register_event(
+			crtc_mmp_root, "aal_ess20_elvss");
+		g_CRTC_MMP_Events[i].aal_ess20_gamma = mmprofile_register_event(
+			crtc_mmp_root, "aal_ess20_gamma");
+		g_CRTC_MMP_Events[i].aal_ess20_curve = mmprofile_register_event(
+			crtc_mmp_root, "aal_ess20_curve");
 	}
 }
 void drm_mmp_init(void)
