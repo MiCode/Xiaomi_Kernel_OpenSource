@@ -54,8 +54,27 @@ const struct mtk_imgsys_init_array
 	{0x00E8, 0xFFFFFFFF}, /* WPE_TOP_CQ_IRQ_STX2, w-clr */
 	{0x00EC, 0x80000000}, /* WPE_TOP_CQ_IRQ_EN3, en w-clr */
 	{0x00F4, 0xFFFFFFFF}, /* WPE_TOP_CQ_IRQ_STX3, w-clr */
+	{0x011C, 0x10000080}, /* VECI_CON, fifo size 0x80 */
+	{0x0120, 0x00800080}, /* VECI_CON2, disable ultra  */
+	{0x0124, 0x002A001A}, /* VECI_CON3, set pre-ultra */
+	{0x015C, 0x10000080}, /* VEC2I_CON, fifo size 0x80 */
+	{0x0160, 0x00800080}, /* VEC2I_CON2, disable ultra */
+	{0x0164, 0x002A001A}, /* VEC2I_CON3, set pre-ultra */
+	{0x019C, 0x10000040}, /* VEC3I_CON, fifo size 0x40 */
+	{0x01A0, 0x00400040}, /* VEC3I_CON2, disable ultra */
+	{0x01A4, 0x00400040}, /* VEC3I_CON3, disable pre-ultra */
 	{0x0204, 0x00000002}, /* WPE_CACHE_RWCTL_CTL */
 	{0x025C, 0x02000200}, /* WPE_CACHE_CACHI_CON2_0 */
+	{0x0260, 0x00AA006A}, /* WPE_CACHE_CACHI_CON3_0 */
+	{0x0328, 0x10000080}, /* WPEO_CON, fifo size 0x80 */
+	{0x0320, 0x00800080}, /* WPEO_CON2, disable ultra */
+	{0x0324, 0x002A001A}, /* WPEO_CON3, set pre-ultra */
+	{0x035C, 0x10000040}, /* WPEO2_CON, fifo size 0x40 */
+	{0x0360, 0x00400040}, /* WPEO2_CON2, disable ultra */
+	{0x0364, 0x0015000D}, /* WPEO2_CON3, set pre-ultra */
+	{0x039C, 0x10000040}, /* MSKO_CON, fifo size 0x40*/
+	{0x03A0, 0x00400040}, /* MSKO_CON2, disable ultra */
+	{0x03A4, 0x0015000D}, /* MSKO_CON3, set pre-ultra */
 	{0x03D4, 0x80000000}, /* WPE_DMA_DMA_ERR_CTRL */
 	{0x0830, 0x00700070}, /* WPE_MERGE_MERGE_FIFO_SIZE */
 	{0x0B08, CQ_THRX_CTL}, /*DIPCQ_W1A_DIPCQ_CQ_THR0_CTL */
@@ -75,6 +94,58 @@ const struct mtk_imgsys_init_array
 	{0x0BE8, CQ_THRX_CTL}, /*DIPCQ_W1A_DIPCQ_CQ_THR14_CTL */
 };
 #define WPE_INIT_ARRAY_COUNT  ARRAY_SIZE(mtk_imgsys_wpe_init_ary)
+
+
+const struct mtk_imgsys_init_array
+			mtk_imgsys_wpe_init_ary_2p[] = {
+	{0x0018, 0x80000000}, /* WPE_TOP_CTL_INT_EN, en w-clr */
+	{0x0024, 0xFFFFFFFF}, /* WPE_TOP_CTL_INT_STATUSX, w-clr */
+	{0x00D4, 0x80000000}, /* WPE_TOP_CQ_IRQ_EN, en w-clr */
+	{0x00DC, 0xFFFFFFFF}, /* WPE_TOP_CQ_IRQ_STX, w-clr */
+	{0x00E0, 0x80000000}, /* WPE_TOP_CQ_IRQ_EN2, en w-clr */
+	{0x00E8, 0xFFFFFFFF}, /* WPE_TOP_CQ_IRQ_STX2, w-clr */
+	{0x00EC, 0x80000000}, /* WPE_TOP_CQ_IRQ_EN3, en w-clr */
+	{0x00F4, 0xFFFFFFFF}, /* WPE_TOP_CQ_IRQ_STX3, w-clr */
+	{0x011C, 0x10000080}, /* VECI_CON, fifo size 0x80 */
+	{0x0120, 0x00800080}, /* VECI_CON2, disable ultra  */
+	{0x0124, 0x00550045}, /* VECI_CON3, set pre-ultra */
+	{0x015C, 0x10000080}, /* VEC2I_CON, fifo size 0x80 */
+	{0x0160, 0x00800080}, /* VEC2I_CON2, disable ultra */
+	{0x0164, 0x00550045}, /* VEC2I_CON3, set pre-ultra */
+	{0x019C, 0x10000040}, /* VEC3I_CON, fifo size 0x40 */
+	{0x01A0, 0x00400040}, /* VEC3I_CON2, disable ultra */
+	{0x01A4, 0x00400040}, /* VEC3I_CON3, disable pre-ultra */
+	{0x0204, 0x00000002}, /* WPE_CACHE_RWCTL_CTL */
+	{0x025C, 0x02000200}, /* WPE_CACHE_CACHI_CON2_0 */
+	{0x0260, 0x01550115}, /* WPE_CACHE_CACHI_CON3_0 */
+	{0x0328, 0x10000080}, /* WPEO_CON, fifo size 0x80 */
+	{0x0320, 0x00800080}, /* WPEO_CON2, disable ultra */
+	{0x0324, 0x00550045}, /* WPEO_CON3, set pre-ultra */
+	{0x035C, 0x10000040}, /* WPEO2_CON, fifo size 0x40 */
+	{0x0360, 0x00400040}, /* WPEO2_CON2, disable ultra */
+	{0x0364, 0x002A0022}, /* WPEO2_CON3, set pre-ultra */
+	{0x039C, 0x10000040}, /* MSKO_CON, fifo size 0x40*/
+	{0x03A0, 0x00400040}, /* MSKO_CON2, disable ultra */
+	{0x03A4, 0x002A0022}, /* MSKO_CON3, set pre-ultra */
+	{0x03D4, 0x80000000}, /* WPE_DMA_DMA_ERR_CTRL */
+	{0x0830, 0x00700070}, /* WPE_MERGE_MERGE_FIFO_SIZE */
+	{0x0B08, CQ_THRX_CTL}, /*DIPCQ_W1A_DIPCQ_CQ_THR0_CTL */
+	{0x0B18, CQ_THRX_CTL}, /*DIPCQ_W1A_DIPCQ_CQ_THR1_CTL */
+	{0x0B28, CQ_THRX_CTL}, /*DIPCQ_W1A_DIPCQ_CQ_THR2_CTL */
+	{0x0B38, CQ_THRX_CTL}, /*DIPCQ_W1A_DIPCQ_CQ_THR3_CTL */
+	{0x0B48, CQ_THRX_CTL}, /*DIPCQ_W1A_DIPCQ_CQ_THR4_CTL */
+	{0x0B58, CQ_THRX_CTL}, /*DIPCQ_W1A_DIPCQ_CQ_THR5_CTL */
+	{0x0B68, CQ_THRX_CTL}, /*DIPCQ_W1A_DIPCQ_CQ_THR6_CTL */
+	{0x0B78, CQ_THRX_CTL}, /*DIPCQ_W1A_DIPCQ_CQ_THR7_CTL */
+	{0x0B88, CQ_THRX_CTL}, /*DIPCQ_W1A_DIPCQ_CQ_THR8_CTL */
+	{0x0B98, CQ_THRX_CTL}, /*DIPCQ_W1A_DIPCQ_CQ_THR9_CTL */
+	{0x0BA8, CQ_THRX_CTL}, /*DIPCQ_W1A_DIPCQ_CQ_THR10_CTL */
+	{0x0BB8, CQ_THRX_CTL}, /*DIPCQ_W1A_DIPCQ_CQ_THR11_CTL */
+	{0x0BC8, CQ_THRX_CTL}, /*DIPCQ_W1A_DIPCQ_CQ_THR12_CTL */
+	{0x0BD8, CQ_THRX_CTL}, /*DIPCQ_W1A_DIPCQ_CQ_THR13_CTL */
+	{0x0BE8, CQ_THRX_CTL}, /*DIPCQ_W1A_DIPCQ_CQ_THR14_CTL */
+};
+#define WPE_INIT_ARRAY_COUNT_2P  ARRAY_SIZE(mtk_imgsys_wpe_init_ary_2p)
 
 struct imgsys_reg_range {
 	uint32_t str;
@@ -284,10 +355,18 @@ void imgsys_wpe_set_hw_initial_value(struct mtk_imgsys_dev *imgsys_dev)
 	for (hw_idx = REG_MAP_E_WPE_EIS; hw_idx <= REG_MAP_E_WPE_LITE; hw_idx++) {
 		/* iomap registers */
 		ary_idx = hw_idx - REG_MAP_E_WPE_EIS;
-		for (i = 0 ; i < WPE_INIT_ARRAY_COUNT ; i++) {
-			ofset = gWpeRegBA[ary_idx] + mtk_imgsys_wpe_init_ary[i].ofset;
-			writel(mtk_imgsys_wpe_init_ary[i].val, ofset);
+		if (hw_idx < REG_MAP_E_WPE_LITE) {
+			for (i = 0 ; i < WPE_INIT_ARRAY_COUNT ; i++) {
+				ofset = gWpeRegBA[ary_idx] + mtk_imgsys_wpe_init_ary[i].ofset;
+				writel(mtk_imgsys_wpe_init_ary[i].val, ofset);
+			}
+		} else {
+			for (i = 0 ; i < WPE_INIT_ARRAY_COUNT_2P ; i++) {
+				ofset = gWpeRegBA[ary_idx] + mtk_imgsys_wpe_init_ary_2p[i].ofset;
+				writel(mtk_imgsys_wpe_init_ary_2p[i].val, ofset);
+			}
 		}
+
 	}
 
 	dev_dbg(imgsys_dev->dev, "%s: -\n", __func__);
