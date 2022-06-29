@@ -43,6 +43,8 @@ mediatek-drm-y := mtk_drm_drv.o \
 		  mtk_disp_cm.o \
 		  mtk_disp_spr.o \
 		  mtk_disp_postalign.o \
+		  mtk_disp_oddmr/mtk_disp_oddmr_parse_data.o \
+		  mtk_disp_oddmr/mtk_disp_oddmr.o \
 		  mtk_drm_arr.o \
 		  mtk_disp_merge.o \
 		  mtk_dmdp_aal.o \

@@ -44,6 +44,8 @@ struct mtk_drm_gem_obj {
 void mtk_drm_gem_free_object(struct drm_gem_object *gem);
 struct mtk_drm_gem_obj *mtk_drm_gem_create(struct drm_device *dev, size_t size,
 					   bool alloc_kmap);
+struct mtk_drm_gem_obj *mtk_drm_gem_create_from_heap(struct drm_device *dev,
+				       const char *heap, size_t size);
 int mtk_drm_gem_dumb_create(struct drm_file *file_priv, struct drm_device *dev,
 			    struct drm_mode_create_dumb *args);
 int mtk_drm_gem_dumb_map_offset(struct drm_file *file_priv,

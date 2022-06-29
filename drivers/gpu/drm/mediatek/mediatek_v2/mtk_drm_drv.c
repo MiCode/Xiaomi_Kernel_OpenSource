@@ -54,6 +54,7 @@
 #include "mtk_disp_c3d.h"
 #include "mtk_disp_chist.h"
 #include "mtk_lease.h"
+#include "mtk_disp_oddmr/mtk_disp_oddmr.h"
 
 #include "mtk_drm_mmp.h"
 /* *******Panel Master******** */
@@ -5611,6 +5612,10 @@ static const struct drm_ioctl_desc mtk_ioctls[] = {
 			  DRM_UNLOCKED),
 	DRM_IOCTL_DEF_DRV(MTK_DRM_GET_LEASE_INFO, mtk_drm_get_lease_info_ioctl,
 			  DRM_UNLOCKED),
+	DRM_IOCTL_DEF_DRV(MTK_ODDMR_LOAD_PARAM, mtk_drm_ioctl_oddmr_load_param,
+			  DRM_UNLOCKED),
+	DRM_IOCTL_DEF_DRV(MTK_ODDMR_CTL, mtk_drm_ioctl_oddmr_ctl,
+				  DRM_UNLOCKED),
 };
 
 static const struct file_operations mtk_drm_fops = {
@@ -6096,6 +6101,8 @@ static const struct of_device_id mtk_ddp_comp_dt_ids[] = {
 	 .data = (void *)MTK_DISP_SPR},
 	{.compatible = "mediatek,mt6879-disp-spr",
 	 .data = (void *)MTK_DISP_SPR},
+	{.compatible = "mediatek,mt6985-disp-oddmr",
+	 .data = (void *)MTK_DISP_ODDMR},
 	{.compatible = "mediatek,mt6885-disp-dsc",
 	 .data = (void *)MTK_DISP_DSC},
 	{.compatible = "mediatek,mt6983-disp-dsc",
@@ -6536,6 +6543,7 @@ SKIP_OVLSYS_CONFIG:
 		    comp_type == MTK_DISP_DITHER ||
 		    comp_type == MTK_DISP_CM || comp_type == MTK_DISP_SPR ||
 		    comp_type == MTK_DISP_POSTALIGN || comp_type == MTK_DMDP_AAL
+		    || comp_type == MTK_DISP_ODDMR
 #endif
 		    || comp_type == MTK_DP_INTF || comp_type == MTK_DISP_DPTX
 		    || comp_type == MTK_DISP_Y2R || comp_type == MTK_DISP_INLINE_ROTATE
@@ -6802,6 +6810,7 @@ static struct platform_driver *const mtk_drm_drivers[] = {
 	&mtk_disp_cm_driver,
 	&mtk_disp_spr_driver,
 	&mtk_disp_postalign_driver,
+	&mtk_disp_oddmr_driver,
 	&mtk_disp_dsc_driver,
 	&mtk_dp_tx_driver,
 	&mtk_disp_y2r_driver,

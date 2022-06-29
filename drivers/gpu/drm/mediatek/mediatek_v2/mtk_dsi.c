@@ -8029,6 +8029,17 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		mtk_dsi_set_targetline(comp, handle, (unsigned int)cfg->h);
 	}
 	break;
+	case DSI_READ_PANELID:
+	{
+		struct mtk_oddmr_panelid *panelid = params;
+
+		DDPINFO("DSI_READ_PANELID\n");
+		panel_ext = mtk_dsi_get_panel_ext(comp);
+		if (panel_ext && panel_ext->funcs
+			&& panel_ext->funcs->read_panelid)
+			panel_ext->funcs->read_panelid(dsi->panel, panelid);
+	}
+		break;
 	default:
 		break;
 	}

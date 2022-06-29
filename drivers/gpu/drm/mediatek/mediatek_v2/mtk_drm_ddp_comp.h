@@ -75,6 +75,7 @@ enum mtk_ddp_comp_type {
 	MTK_MML_MML,
 	MTK_MML_MUTEX,
 	MTK_MML_WROT,
+	MTK_DISP_ODDMR,
 	MTK_DDP_COMP_TYPE_MAX,
 };
 
@@ -527,6 +528,7 @@ enum mtk_ddp_io_cmd {
 	DSI_GET_VIRTUAL_HEIGH,
 	DSI_GET_VIRTUAL_WIDTH,
 	FRAME_DIRTY,
+	PQ_DIRTY,
 	DSI_LFR_SET,
 	DSI_LFR_UPDATE,
 	DSI_LFR_STATUS_CHECK,
@@ -549,6 +551,10 @@ enum mtk_ddp_io_cmd {
 	DSI_GET_CMD_MODE_LINE_TIME,
 	DSI_DUMP_LCM_INFO,
 	DSI_SET_TARGET_LINE,
+	DSI_READ_PANELID,
+	ODDMR_BL_CHG,
+	ODDMR_TIMING_CHG,
+	COMP_ADD_HRT,
 };
 
 struct golden_setting_context {
@@ -570,6 +576,14 @@ struct mtk_ddp_config {
 	unsigned int bpc;
 	struct golden_setting_context *p_golden_setting_context;
 	unsigned int source_bpc;
+};
+
+struct mtk_oddmr_timing {
+	unsigned int bl_level;
+	unsigned int mode_chg_index;
+	unsigned int vrefresh;
+	u16 hdisplay;
+	u16 vdisplay;
 };
 
 struct mtk_ddp_fb_info {

@@ -57,6 +57,7 @@
 #include "cmdq-util.h"
 #include "mtk_disp_ccorr.h"
 #include "mtk_debug.h"
+#include "mtk_disp_oddmr/mtk_disp_oddmr.h"
 
 /* *****Panel_Master*********** */
 #include "mtk_fbconfig_kdebug.h"
@@ -925,11 +926,13 @@ int mtk_drm_setbacklight(struct drm_crtc *crtc, unsigned int level)
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct cmdq_pkt *cmdq_handle;
 	struct mtk_ddp_comp *comp = mtk_ddp_comp_request_output(mtk_crtc);
+	struct mtk_ddp_comp *oddmr_comp;
 	struct mtk_cmdq_cb_data *cb_data;
 	static unsigned int bl_cnt;
 	bool is_frame_mode;
 	int index = drm_crtc_index(crtc);
 	int ret = 0;
+	struct mtk_drm_private *priv = crtc->dev->dev_private;
 
 	CRTC_MMP_EVENT_START(index, backlight, (unsigned long)crtc,
 			level);
@@ -993,6 +996,8 @@ int mtk_drm_setbacklight(struct drm_crtc *crtc, unsigned int level)
 	/* set backlight */
 	if (comp->funcs && comp->funcs->io_cmd)
 		comp->funcs->io_cmd(comp, cmdq_handle, DSI_SET_BL, &level);
+	oddmr_comp = priv->ddp_comp[DDP_COMPONENT_ODDMR0];
+	mtk_ddp_comp_io_cmd(oddmr_comp, cmdq_handle, ODDMR_BL_CHG, &level);
 
 	if (is_frame_mode) {
 		cmdq_pkt_set_event(cmdq_handle,
@@ -1498,7 +1503,7 @@ int mtk_crtc_user_cmd(struct drm_crtc *crtc, struct mtk_ddp_comp *comp,
 		DDPINFO("%s:%d, slepted\n", __func__, __LINE__);
 		CRTC_MMP_EVENT_END(index, user_cmd, 0, 2);
 		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
-		return 0;
+		return 1;
 	}
 
 	mtk_drm_idlemgr_kick(__func__, crtc, 0);
@@ -1512,7 +1517,7 @@ int mtk_crtc_user_cmd(struct drm_crtc *crtc, struct mtk_ddp_comp *comp,
 
 	CRTC_MMP_MARK(index, user_cmd, comp->id, cmd);
 	cmdq_handle = cmdq_pkt_create(mtk_crtc->gce_obj.client[CLIENT_CFG]);
-	CRTC_MMP_MARK(index, user_cmd, user_cmd_cnt, 1);
+	CRTC_MMP_MARK(index, user_cmd, user_cmd_cnt, (unsigned long)cmdq_handle);
 
 	if (mtk_crtc_with_sub_path(crtc, mtk_crtc->ddp_mode))
 		mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle,
@@ -3606,6 +3611,7 @@ static void mtk_crtc_disp_mode_switch_begin(struct drm_crtc *crtc,
 {
 	struct mtk_crtc_state *old_mtk_state = to_mtk_crtc_state(old_state);
 	struct mtk_ddp_config cfg;
+	struct mtk_oddmr_timing oddmr_timing;
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_ddp_comp *comp;
 	unsigned int fps_src, fps_dst;
@@ -3613,6 +3619,8 @@ static void mtk_crtc_disp_mode_switch_begin(struct drm_crtc *crtc,
 	unsigned int _idle_timeout = 50;/*ms*/
 	int en = 1;
 	struct mtk_ddp_comp *output_comp;
+	struct mtk_ddp_comp *oddmr_comp;
+	struct mtk_drm_private *priv = crtc->dev->dev_private;
 
 	/* Check if disp_mode_idx change */
 	if (old_mtk_state->prop_val[CRTC_PROP_DISP_MODE_IDX] ==
@@ -3686,6 +3694,12 @@ static void mtk_crtc_disp_mode_switch_begin(struct drm_crtc *crtc,
 			mtk_crtc_start_trig_loop(crtc);
 		}
 	}
+	oddmr_timing.hdisplay = crtc->state->mode.hdisplay;
+	oddmr_timing.vdisplay = crtc->state->mode.vdisplay;
+	oddmr_timing.mode_chg_index = mode_chg_index;
+	oddmr_timing.vrefresh = fps_dst;
+	oddmr_comp = priv->ddp_comp[DDP_COMPONENT_ODDMR0];
+	mtk_ddp_comp_io_cmd(oddmr_comp, cmdq_handle, ODDMR_TIMING_CHG, &oddmr_timing);
 
 	drm_invoke_fps_chg_callbacks(fps_dst);
 

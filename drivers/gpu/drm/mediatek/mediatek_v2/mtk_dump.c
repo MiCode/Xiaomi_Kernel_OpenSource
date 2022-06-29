@@ -151,6 +151,10 @@ int mtk_dump_reg(struct mtk_ddp_comp *comp)
 	case DDP_COMPONENT_MMLSYS_BYPASS:
 		mtk_mmlsys_bypass_dump(comp);
 		break;
+	case DDP_COMPONENT_ODDMR0:
+	case DDP_COMPONENT_ODDMR1:
+		mtk_oddmr_dump(comp);
+		break;
 	default:
 		return 0;
 	}
@@ -228,6 +232,9 @@ int mtk_dump_analysis(struct mtk_ddp_comp *comp)
 	case DDP_COMPONENT_CHIST1:
 		mtk_chist_analysis(comp);
 		break;
+	case DDP_COMPONENT_ODDMR0:
+	case DDP_COMPONENT_ODDMR1:
+		mtk_oddmr_analysis(comp);
 	default:
 		return 0;
 	}

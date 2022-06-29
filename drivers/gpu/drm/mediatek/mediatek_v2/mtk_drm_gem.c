@@ -11,6 +11,10 @@
 #include <drm/drm_gem_cma_helper.h>
 #include <drm/drm_prime.h>
 #include <linux/kmemleak.h>
+#include <linux/dma-heap.h>
+#include <uapi/linux/dma-heap.h>
+#include <linux/dma-direction.h>
+#include <linux/scatterlist.h>
 
 #include "mtk_drm_drv.h"
 #include "mtk_drm_gem.h"
@@ -238,6 +242,72 @@ err_gem_free:
 	drm_gem_object_release(obj);
 	kfree(mtk_gem);
 	return ERR_PTR(ret);
+}
+
+struct mtk_drm_gem_obj *mtk_drm_gem_create_from_heap(struct drm_device *dev,
+				       const char *heap, size_t size)
+{
+	struct mtk_drm_private *priv = dev->dev_private;
+	struct mtk_drm_gem_obj *mtk_gem;
+	struct drm_gem_object *obj;
+	struct dma_heap *dma_heap;
+	struct dma_buf *dma_buf;
+	struct dma_buf_attachment *attach;
+	struct sg_table *sgt;
+	struct dma_buf_map map;
+	int ret;
+
+	mtk_gem = mtk_drm_gem_init(dev, size);
+	if (IS_ERR(mtk_gem))
+		return ERR_CAST(mtk_gem);
+
+	obj = &mtk_gem->base;
+
+	dma_heap = dma_heap_find(heap);
+	if (!dma_heap) {
+		DDPINFO("heap find fail\n");
+		goto err_gem_free;
+	}
+	dma_buf = dma_heap_buffer_alloc(dma_heap, size,
+			O_RDWR | O_CLOEXEC, DMA_HEAP_VALID_HEAP_FLAGS);
+	if (IS_ERR(dma_buf)) {
+		DDPINFO("buffer alloc fail\n");
+		goto err_gem_free;
+	}
+	dma_heap_put(dma_heap);
+
+	attach = dma_buf_attach(dma_buf, priv->dma_dev);
+	if (IS_ERR(attach)) {
+		DDPINFO("attach fail, return\n");
+		dma_heap_buffer_free(dma_buf);
+		goto err_gem_free;
+	}
+	sgt = dma_buf_map_attachment(attach, DMA_BIDIRECTIONAL);
+	if (IS_ERR(sgt)) {
+		DDPINFO("map failed, detach and return\n");
+		dma_buf_detach(dma_buf, attach);
+		dma_heap_buffer_free(dma_buf);
+		goto err_gem_free;
+	}
+	mtk_gem->dma_addr = sg_dma_address(sgt->sgl);
+	ret = dma_buf_vmap(dma_buf, &map);
+	if (ret) {
+		DDPINFO("map failed\n");
+		dma_buf_unmap_attachment(attach, sgt, DMA_BIDIRECTIONAL);
+		dma_buf_detach(dma_buf, attach);
+		dma_heap_buffer_free(dma_buf);
+		goto err_gem_free;
+	}
+
+	mtk_gem->kvaddr = map.vaddr;
+	mtk_gem->sg = sgt;
+	mtk_gem->size = dma_buf->size;
+	return mtk_gem;
+
+err_gem_free:
+	drm_gem_object_release(obj);
+	kfree(mtk_gem);
+	return NULL;
 }
 
 void mtk_drm_gem_free_object(struct drm_gem_object *obj)

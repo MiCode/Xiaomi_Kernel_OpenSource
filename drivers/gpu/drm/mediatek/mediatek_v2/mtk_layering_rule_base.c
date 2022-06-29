@@ -37,6 +37,7 @@
 
 #include "../mml/mtk-mml.h"
 #include "../mml/mtk-mml-drm-adaptor.h"
+#include "mtk_disp_oddmr/mtk_disp_oddmr.h"
 
 extern unsigned int g_mml_mode;
 
@@ -2226,6 +2227,7 @@ static int calc_hrt_num(struct drm_device *dev,
 	int emi_hrt_level;
 	int sum_overlap_w = 0;
 	int sum_overlap_w_of_second_disp = 0;
+	int comp_hrt_added = 0;
 #ifdef HAS_LARB_HRT
 	int larb_hrt_level;
 #endif
@@ -2269,6 +2271,9 @@ static int calc_hrt_num(struct drm_device *dev,
 				false);
 	}
 	*/
+	mtk_oddmr_hrt_cal_notify(&comp_hrt_added);
+
+	sum_overlap_w += comp_hrt_added;
 
 	emi_hrt_level = get_hrt_level(sum_overlap_w, false);
 

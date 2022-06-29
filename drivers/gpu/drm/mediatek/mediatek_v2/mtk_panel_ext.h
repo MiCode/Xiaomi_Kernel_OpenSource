@@ -468,6 +468,8 @@ struct mtk_panel_params {
 
 	struct mtk_panel_cm_params cm_params;
 	struct mtk_panel_spr_params spr_params;
+	bool is_support_od;
+	bool is_support_dmr;
 
 	/*Msync 3.0*/
 	unsigned int skip_vblank;
@@ -489,6 +491,11 @@ enum mtk_lcm_version {
 	MTK_NULL_LCM_DRV,
 	MTK_LEGACY_LCM_DRV,
 	MTK_COMMON_LCM_DRV,
+};
+
+struct mtk_oddmr_panelid {
+	uint32_t len;
+	uint8_t data[16];
 };
 
 struct mtk_panel_funcs {
@@ -589,6 +596,7 @@ struct mtk_panel_funcs {
 	int (*set_value)(int value);
 	int (*cust_funcs)(struct drm_panel *panel,
 		int cmd, void *params, void *handle, void **output);
+	int (*read_panelid)(struct drm_panel *panel, struct mtk_oddmr_panelid *panelid);
 };
 
 void mtk_panel_init(struct mtk_panel_ctx *ctx);
