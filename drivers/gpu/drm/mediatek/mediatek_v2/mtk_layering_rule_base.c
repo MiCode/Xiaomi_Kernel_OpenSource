@@ -346,17 +346,20 @@ static int get_phy_ovl_layer_cnt_after_gc(struct drm_mtk_layering_info *info,
 			}
 		}
 
-		if (info->gles_head[disp_idx] >= 0)
+		if ((*layerset_tail) > (*layerset_head))
 			total_cnt -= *layerset_tail - *layerset_head;
 
 		if (get_layering_opt(LYE_OPT_EXT_LAYER)) {
 			for (i = 0; i < info->layer_num[disp_idx]; i++) {
 				layer_info = &info->input_config[disp_idx][i];
 				if (is_extended_layer(layer_info) &&
-				    !mtk_is_gles_layer(info, disp_idx, i))
+				    !mtk_is_gles_layer(info, disp_idx, i) &&
+					((i < *layerset_head) || (i > *layerset_tail)))
 					total_cnt--;
 			}
 		}
+		DDPDBG("%s:%d GPUC: total_cnt layer:%d layer set head:%d tail:%d\n",
+				__func__, __LINE__, total_cnt, *layerset_head, *layerset_tail);
 	}
 	return total_cnt;
 }
