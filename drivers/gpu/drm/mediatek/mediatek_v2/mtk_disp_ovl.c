@@ -1808,7 +1808,9 @@ static void _ovl_common_config(struct mtk_ddp_comp *comp, unsigned int idx,
 		if (ovl->data->support_pq_selfloop) {
 			if (state->comp_state.layer_caps & MTK_DISP_RSZ_LAYER)
 				_ovl_PQ_loop_set_size(comp, handle, lye_idx, src_size);
-			else if (state->comp_state.layer_caps & MTK_MML_DISP_DIRECT_DECOUPLE_LAYER)
+			else if ((state->comp_state.layer_caps &
+				  MTK_MML_DISP_DIRECT_DECOUPLE_LAYER) &&
+				 comp->mtk_crtc->is_force_mml_scen)
 				_ovl_PQ_loop_set_size(comp, handle, lye_idx, 0);
 			else
 				cmdq_pkt_write(handle, comp->cmdq_base,
@@ -1972,17 +1974,18 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 			       mask);
 
 		/* do not overwrite LAYER_SRC, it might be set when addon config */
-		if ((pending->mml_mode == MML_MODE_RACING) && comp->mtk_crtc->is_force_mml_scen &&
-			ovl->data->support_pq_selfloop)
+		if (ovl->data->support_pq_selfloop &&
+			((state->comp_state.layer_caps & MTK_DISP_RSZ_LAYER) ||
+			((pending->mml_mode == MML_MODE_RACING) &&
+			comp->mtk_crtc->is_force_mml_scen)))
 			mask = ~REG_FLD_MASK(L_CON_FLD_LSRC);
 		else
 			mask = ~0;
-
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			       comp->regs_pa + DISP_REG_OVL_CON(lye_idx), con, mask);
 
-		if ((state->comp_state.layer_caps & MTK_MML_DISP_DIRECT_DECOUPLE_LAYER) &&
-		    ovl->data->support_pq_selfloop)
+		if (ovl->data->support_pq_selfloop &&
+			(pending->mml_mode == MML_MODE_RACING) && comp->mtk_crtc->is_force_mml_scen)
 			offset =
 			    mtk_crtc_state->mml_dst_roi.y << 16 | mtk_crtc_state->mml_dst_roi.x;
 		cmdq_pkt_write(handle, comp->cmdq_base,
@@ -2754,7 +2757,18 @@ static void _ovl_PQ_loop_set_size(struct mtk_ddp_comp *comp, struct cmdq_pkt *ha
 	} else {
 		src = mtk_crtc_state->mml_src_roi[0].height << 16 |
 		      mtk_crtc_state->mml_src_roi[0].width;
-		dst = mtk_crtc_state->mml_dst_roi.height << 16 | mtk_crtc_state->mml_dst_roi.width;
+		dst = mtk_crtc_state->mml_dst_roi.height << 16
+			| mtk_crtc_state->mml_dst_roi.width;
+
+		if (comp->mtk_crtc->is_force_mml_scen) {
+			if (comp->id == DDP_COMPONENT_OVL0_2L) {
+				dst = mtk_crtc_state->mml_dst_roi_dual[0].height << 16
+					| mtk_crtc_state->mml_dst_roi_dual[0].width;
+			} else if (comp->id == DDP_COMPONENT_OVL4_2L) {
+				dst = mtk_crtc_state->mml_dst_roi_dual[1].height << 16
+					| mtk_crtc_state->mml_dst_roi_dual[1].width;
+			}
+		}
 	}
 
 	cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DISP_REG_OVL_PQ_OUT_SIZE, src, ~0);
@@ -2882,7 +2896,9 @@ static void mtk_ovl_addon_config(struct mtk_ddp_comp *comp,
 
 	if ((addon_config->config_type.module == DISP_MML_IR_PQ_v2 ||
 		addon_config->config_type.module == DISP_MML_IR_PQ_v2_1) &&
-		addon_config->config_type.type == ADDON_EMBED) {
+		(addon_config->config_type.type == ADDON_CONNECT ||
+		addon_config->config_type.type == ADDON_DISCONNECT)) {
+		//addon_config->config_type.type == ADDON_EMBED) {
 		struct mtk_addon_mml_config *config = &addon_config->addon_mml_config;
 		struct mtk_rect src, dst;
 

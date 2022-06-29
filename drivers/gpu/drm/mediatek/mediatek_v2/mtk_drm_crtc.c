@@ -1836,6 +1836,7 @@ static void calc_mml_config(struct drm_crtc *crtc,
 		addon_config->addon_mml_config.mml_dst_roi[1].x -= mid_line;
 
 	crtc_state->mml_src_roi[0] = addon_config->addon_mml_config.mml_src_roi[0];
+	crtc_state->mml_dst_roi_dual[0] = addon_config->addon_mml_config.mml_dst_roi[0];
 	DDPINFO("%s dual:src[0](%d,%d,%d,%d), dst[0](%d,%d,%d,%d)\n", __func__,
 		addon_config->addon_mml_config.mml_src_roi[0].x,
 		addon_config->addon_mml_config.mml_src_roi[0].y,
@@ -1848,6 +1849,7 @@ static void calc_mml_config(struct drm_crtc *crtc,
 
 	if (mtk_crtc->is_dual_pipe) {
 		crtc_state->mml_src_roi[1] = addon_config->addon_mml_config.mml_src_roi[1];
+		crtc_state->mml_dst_roi_dual[1] = addon_config->addon_mml_config.mml_dst_roi[1];
 		DDPINFO("%s dual:src[1](%d,%d,%d,%d), dst[1](%d,%d,%d,%d)\n", __func__,
 			addon_config->addon_mml_config.mml_src_roi[1].x,
 			addon_config->addon_mml_config.mml_src_roi[1].y,
