@@ -84,6 +84,7 @@ struct mtk_drm_lyeblob_ids {
 	uint32_t frame_weight;
 	uint32_t frame_weight_of_bwm;
 	uint32_t hrt_num;
+	uint32_t disp_status;
 	int32_t ddp_blob_id;
 	int32_t ref_cnt;
 	int32_t ref_cnt_mask;
@@ -96,6 +97,12 @@ struct mtk_drm_lyeblob_ids {
 	struct list_head list;
 };
 
+enum disp_hrt_usage {
+	DISP_DISABLE,
+	DISP_ENABLE,
+	DISP_OPENING,
+};
+
 struct mtk_drm_private {
 	struct drm_device *drm;
 	struct device *dma_dev;
@@ -106,6 +113,7 @@ struct mtk_drm_private {
 
 	struct drm_crtc *crtc[MAX_CRTC];
 	unsigned int pre_defined_bw[MAX_CRTC];
+	enum disp_hrt_usage usage[MAX_CRTC];
 	unsigned int num_pipes;
 
 	unsigned int session_id[MAX_SESSION_COUNT];

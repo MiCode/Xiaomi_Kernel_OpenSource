@@ -385,6 +385,7 @@ static void mtk_plane_atomic_update(struct drm_plane *plane,
 {
 	struct mtk_plane_state *mtk_plane_state = to_mtk_plane_state(plane->state);
 	struct drm_crtc *crtc = plane->state->crtc;
+	struct mtk_drm_private *priv;
 	struct mtk_crtc_state *crtc_state;
 	struct drm_framebuffer *fb = plane->state->fb;
 	int src_w, src_h, dst_x, dst_y, dst_w, dst_h, i;
@@ -399,9 +400,15 @@ static void mtk_plane_atomic_update(struct drm_plane *plane,
 	crtc_state = to_mtk_crtc_state(crtc->state);
 	mtk_crtc = to_mtk_crtc(crtc);
 	crtc_index = drm_crtc_index(crtc);
+	priv = crtc->dev->dev_private;
 
 	if ((!fb) || (mtk_crtc->ddp_mode == DDP_NO_USE))
 		return;
+
+	if (priv->usage[crtc_index] == DISP_OPENING) {
+		DDPINFO("%s: skip in opening\n", __func__);
+		return;
+	}
 
 	src_w = drm_rect_width(&plane->state->src) >> 16;
 	src_h = drm_rect_height(&plane->state->src) >> 16;
@@ -519,12 +526,23 @@ static void mtk_plane_atomic_disable(struct drm_plane *plane,
 	struct mtk_plane_state *mtk_plane_state = to_mtk_plane_state(plane->state);
 	struct drm_plane_state *old_state = drm_atomic_get_old_plane_state(state,
 									   plane);
+	struct mtk_drm_private *priv = plane->dev->dev_private;
+	struct drm_crtc *crtc = old_state->crtc;
+	unsigned int crtc_index;
 
 	mtk_plane_state->pending.enable = false;
 	wmb(); /* Make sure the above parameter is set before update */
 	mtk_plane_state->pending.dirty = true;
 
 #ifdef MTK_DRM_ADVANCE
+	if (crtc) {
+		crtc_index = drm_crtc_index(crtc);
+
+		if (priv->usage[crtc_index] == DISP_OPENING) {
+			DDPINFO("%s: skip in opening\n", __func__);
+			return;
+		}
+	}
 	if (!mtk_plane_state->crtc) {
 		DDPPR_ERR("%s, empty crtc state\n", __func__);
 		if (old_state && old_state->crtc)

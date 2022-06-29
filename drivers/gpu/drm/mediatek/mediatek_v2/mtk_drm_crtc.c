@@ -6839,6 +6839,44 @@ void mtk_crtc_prepare_instr(struct drm_crtc *crtc)
 }
 #endif
 
+int mtk_drm_crtc_usage_enable(struct mtk_drm_private *priv,
+			unsigned int crtc_id)
+{
+	unsigned int i, main_disp_idx = -1;
+
+	if (unlikely(crtc_id >= MAX_CRTC)) {
+		DDPPR_ERR("%s invalid crtc_id %u\n", __func__, crtc_id);
+		return DISP_ENABLE;
+	}
+
+	/*  find main display index */
+	for (i = 0; i < MAX_CRTC ; ++i) {
+		if (priv->pre_defined_bw[i] == 0xFFFFFFFF) {
+			main_disp_idx = i;
+			break;
+		}
+	}
+
+	/* can't find main display, free run sage state control */
+	if (unlikely(main_disp_idx == -1))
+		return DISP_ENABLE;
+
+	/* main display could enable imediately */
+	if (crtc_id == main_disp_idx)
+		return DISP_ENABLE;
+
+	/* other display could also enable imediately when main display disable */
+	if (priv->usage[main_disp_idx] == DISP_DISABLE)
+		return DISP_ENABLE;
+
+	/* TODO: consider dynamic OVL manage */
+	/* enable non HRT display imediateky */
+	if (priv->pre_defined_bw[crtc_id] == 0)
+		return DISP_ENABLE;
+
+	return DISP_OPENING;
+}
+
 void mtk_drm_crtc_enable(struct drm_crtc *crtc)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
@@ -7020,7 +7058,7 @@ void mtk_drm_crtc_atomic_resume(struct drm_crtc *crtc,
 				struct drm_atomic_state *atomic_state)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
-	int index = drm_crtc_index(crtc);
+	unsigned int index = drm_crtc_index(crtc);
 	struct mtk_drm_private *priv = crtc->dev->dev_private;
 	struct mtk_drm_crtc *mtk_crtc0 = to_mtk_crtc(priv->crtc[0]);
 
@@ -7046,6 +7084,21 @@ void mtk_drm_crtc_atomic_resume(struct drm_crtc *crtc,
 
 	/* hold wakelock */
 	mtk_drm_crtc_wk_lock(crtc, 1, __func__, __LINE__);
+
+	if (mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_SPHRT) && index < MAX_CRTC) {
+		if (priv->usage[index] == DISP_ENABLE || priv->usage[index] == DISP_OPENING) {
+			DDPPR_ERR("%s usage control exception crtc%d cur usage %u\n",
+				__func__, index, priv->usage[index]);
+			return;
+		}
+
+		priv->usage[index] = mtk_drm_crtc_usage_enable(priv, index);
+
+		if (priv->usage[index] == DISP_OPENING) {
+			DDPINFO("%s %d wait for opening\n", __func__, index);
+			return;
+		}
+	}
 
 	mtk_drm_crtc_enable(crtc);
 
@@ -7626,6 +7679,7 @@ void mtk_drm_crtc_suspend(struct drm_crtc *crtc)
 	mtk_crtc_release_lye_idx(crtc);
 #endif
 	atomic_set(&mtk_crtc->already_config, 0);
+	priv->usage[index] = DISP_DISABLE;
 
 	/* release wakelock */
 	mtk_drm_crtc_wk_lock(crtc, 0, __func__, __LINE__);
@@ -8564,6 +8618,21 @@ static void mtk_drm_crtc_atomic_begin(struct drm_crtc *crtc,
 			(unsigned long)mtk_crtc_state->base.event);
 	if (mtk_crtc->event && mtk_crtc_state->base.event)
 		DRM_ERROR("new event while there is still a pending event\n");
+
+	if (mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_SPHRT)) {
+		if (priv->usage[crtc_idx] == DISP_OPENING) {
+			DDPINFO("%s %d skip due to still opening\n", __func__, crtc_idx);
+			CRTC_MMP_MARK(index, atomic_begin, 0, 0xF);
+			goto end;
+		} else if (mtk_crtc->enabled == 0 && priv->usage[crtc_idx] == DISP_ENABLE) {
+			comp = mtk_ddp_comp_request_output(mtk_crtc);
+			mtk_drm_crtc_enable(crtc);
+			if (comp)
+				mtk_ddp_comp_io_cmd(comp, NULL, CONNECTOR_PANEL_ENABLE, NULL);
+			else
+				DDPPR_ERR("%s %d invalid output_comp\n", __func__, __LINE__);
+		}
+	}
 
 	if (mtk_crtc->ddp_mode == DDP_NO_USE) {
 		CRTC_MMP_MARK(index, atomic_begin, 0, 0);
@@ -9703,6 +9772,15 @@ static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 			(unsigned long)old_crtc_state);
 	if (mtk_crtc->ddp_mode == DDP_NO_USE) {
 		CRTC_MMP_MARK(index, atomic_flush, 0, 0);
+		goto end;
+	}
+
+	if (mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_SPHRT) &&
+			priv->usage[index] == DISP_OPENING) {
+		DDPINFO("%s: %d skip in opening\n", __func__, index);
+		CRTC_MMP_MARK(index, atomic_flush, 0, __LINE__);
+		/* release all fence when opening CRTC */
+		mtk_drm_crtc_release_fence(crtc);
 		goto end;
 	}
 

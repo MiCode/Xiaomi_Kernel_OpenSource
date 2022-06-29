@@ -2450,9 +2450,18 @@ static void mtk_output_dsi_enable(struct mtk_dsi *dsi,
 	struct mtk_crtc_state *mtk_state = to_mtk_crtc_state(crtc->state);
 	unsigned int mode_id = mtk_state->prop_val[CRTC_PROP_DISP_MODE_IDX];
 	unsigned int mode_chg_index = 0;
-	struct mtk_drm_private *priv = (mtk_crtc->base).dev->dev_private;
+	struct mtk_drm_private *priv = crtc->dev->dev_private;
+	unsigned int crtc_idx;
 
 	DDPINFO("%s +\n", __func__);
+
+	if (crtc && mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_SPHRT)) {
+		crtc_idx = drm_crtc_index(crtc);
+		if (priv->usage[crtc_idx] == DISP_OPENING) {
+			DDPINFO("%s %d skip due to still opening\n", __func__, crtc_idx);
+			return;
+		}
+	}
 
 	if (dsi->output_en) {
 		if (mtk_dsi_doze_status_change(dsi)) {
@@ -2628,7 +2637,9 @@ static void mtk_output_dsi_disable(struct mtk_dsi *dsi, struct cmdq_pkt *cmdq_ha
 				   int force_lcm_update)
 {
 	bool new_doze_state = mtk_dsi_doze_state(dsi);
-	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(dsi->encoder.crtc);
+	struct drm_crtc *crtc = dsi->encoder.crtc;
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct mtk_drm_private *priv = crtc->dev->dev_private;
 
 	DDPINFO("%s+ doze_enabled:%d\n", __func__, new_doze_state);
 	if (!dsi->output_en)
@@ -2644,6 +2655,14 @@ static void mtk_output_dsi_disable(struct mtk_dsi *dsi, struct cmdq_pkt *cmdq_ha
 		}
 	}
 
+	if (priv && mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_SPHRT) &&
+			priv->usage[drm_crtc_index(crtc)] == DISP_OPENING) {
+		DDPINFO("%s %d wait for opening\n", __func__, drm_crtc_index(crtc));
+		if (cmdq_handle)
+			cmdq_pkt_destroy(cmdq_handle);
+		goto SKIP_WAIT_FRAME_DONE;
+	}
+
 	/* 2. If VDO mode, stop it and set to CMD mode */
 	if (!mtk_dsi_is_cmd_mode(&dsi->ddp_comp)) {
 		mtk_dsi_stop_vdo_mode(dsi, cmdq_handle);
@@ -2655,6 +2674,7 @@ static void mtk_output_dsi_disable(struct mtk_dsi *dsi, struct cmdq_pkt *cmdq_ha
 		mtk_dsi_wait_cmd_frame_done(dsi, force_lcm_update);
 	}
 
+SKIP_WAIT_FRAME_DONE:
 	if (dsi->slave_dsi)
 		mtk_dsi_dual_enable(dsi, false);
 
@@ -3047,6 +3067,17 @@ static int mtk_dsi_start_vdo_mode(struct mtk_ddp_comp *comp, void *handle)
 
 static int mtk_dsi_trigger(struct mtk_ddp_comp *comp, void *handle)
 {
+	if (!handle) {
+		struct mtk_dsi *dsi = container_of(comp, struct mtk_dsi, ddp_comp);
+
+		writel(0, dsi->regs + DSI_START);
+		writel(1, dsi->regs + DSI_START);
+		return 0;
+	}
+
+	cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DSI_START, 0,
+		       ~0);
+
 	cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DSI_START, 1,
 		       ~0);
 

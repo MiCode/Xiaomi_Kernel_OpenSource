@@ -3269,6 +3269,22 @@ static void process_dbg_opt(const char *opt)
 			mtk_crtc->pf_ts_type = pf_ts_type;
 			mtk_crtc->pf_time = 0;
 		}
+	} else if (strncmp(opt, "hrt_usage:", 10) == 0) {
+		struct mtk_drm_private *priv = drm_dev->dev_private;
+		int crtc_idx = 0;
+
+		if (strncmp(opt + 10, "0", 1) == 0)
+			crtc_idx = 0;
+		else if (strncmp(opt + 10, "1", 1) == 0)
+			crtc_idx = 1;
+		else if (strncmp(opt + 10, "2", 1) == 0)
+			crtc_idx = 2;
+
+		if (strncmp(opt + 11, "1", 1) == 0)
+			priv->usage[crtc_idx] = DISP_OPENING;
+		else if (strncmp(opt + 11, "0", 1) == 0)
+			priv->usage[crtc_idx] = DISP_ENABLE;
+		DDPMSG("set crtc %d usage to %d", crtc_idx, priv->usage[crtc_idx]);
 	}
 
 }

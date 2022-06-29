@@ -3156,6 +3156,7 @@ void lye_add_blob_ids(struct drm_mtk_layering_info *l_info,
 	lyeblob_ids->ref_cnt_mask = crtc_mask;
 	lyeblob_ids->free_cnt_mask = crtc_mask;
 	lyeblob_ids->hrt_valid = g_hrt_valid;
+	lyeblob_ids->disp_status = l_info->disp_list;
 	INIT_LIST_HEAD(&lyeblob_ids->list);
 	mutex_lock(&priv->lyeblob_list_mutex);
 	if (get_layering_opt(LYE_OPT_SPHRT))
