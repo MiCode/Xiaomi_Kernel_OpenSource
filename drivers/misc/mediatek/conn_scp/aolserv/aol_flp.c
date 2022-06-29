@@ -233,7 +233,7 @@ static void aol_flp_report_location_handler(struct work_struct *work)
 {
 	phys_addr_t batching_phy_addr;
 	u32 batching_size;
-	u32 loc_size;
+	u32 loc_size, count = 0;
 	void __iomem *addr;
 	void *batching_buffer = NULL;
 	struct conn_flp_location *loc;
@@ -247,7 +247,7 @@ static void aol_flp_report_location_handler(struct work_struct *work)
 			aol_flp_report_location_ack();
 			return;
 		}
-		loc_size = g_flp_report_ctx.loc_size/sizeof(struct conn_flp_location);
+		loc_size = g_flp_report_ctx.loc_size / sizeof(struct conn_flp_location);
 
 		pr_info("[%s] location size=[%d]", __func__, loc_size);
 		loc = (struct conn_flp_location *)batching_buffer;
@@ -274,19 +274,41 @@ static void aol_flp_report_location_handler(struct work_struct *work)
 			return;
 		}
 
-		loc_size = g_flp_report_ctx.loc_size/sizeof(struct conn_flp_location);
-		pr_info("[%s] batching addr/size [%llu][%u] count=[%d]", __func__,
-						batching_phy_addr, batching_size, loc_size);
-
-		addr = ioremap(batching_phy_addr, batching_size);
-		if (!addr) {
-			pr_notice("[%s] can't allocate buffer", __func__);
-			/* send location ack */
+		if (g_flp_report_ctx.loc_size == 0 ||
+			g_flp_report_ctx.loc_size > batching_size ||
+			(g_flp_report_ctx.loc_size % sizeof(struct conn_flp_location)) != 0) {
+			pr_notice("[%s] report loc invalid, size=[%u][%u]", __func__,
+						g_flp_report_ctx.loc_size, batching_size);
 			aol_flp_report_location_ack();
 			return;
 		}
 
-		g_flp_report_ctx.addr = addr;
+		if (g_flp_report_ctx.loc_size > 0) {
+			count = (g_flp_report_ctx.loc_size / sizeof(struct conn_flp_location));
+			pr_info("[%s] batching addr/size [%llx][%u] locsz=[%d] count=[%d]",
+						__func__, batching_phy_addr, batching_size,
+						g_flp_report_ctx.loc_size, count);
+
+			batching_buffer = vmalloc(g_flp_report_ctx.loc_size);
+			if (batching_buffer == NULL) {
+				aol_flp_report_location_ack();
+				return;
+			}
+
+			addr = ioremap(batching_phy_addr, batching_size);
+
+			if (!addr) {
+				pr_notice("[%s] remap buffer fail", __func__);
+				vfree(batching_buffer);
+				/* send location ack */
+				aol_flp_report_location_ack();
+				return;
+			}
+			memcpy_fromio(batching_buffer, addr, g_flp_report_ctx.loc_size);
+
+			iounmap(addr);
+		}
+		g_flp_report_ctx.addr = batching_buffer;
 		g_flp_report_ctx.state = FLP_REPORT_SCHED;
 	}
 
@@ -298,11 +320,8 @@ static void aol_flp_report_location_handler(struct work_struct *work)
 static void aol_flp_report_location_done_handler(struct work_struct *work)
 {
 	if (g_flp_report_ctx.addr) {
-		pr_info("[%s] REPORT_LOC done unmap", __func__);
-		if (g_flp_testing)
-			vfree(g_flp_report_ctx.addr);
-		else
-			iounmap(g_flp_report_ctx.addr);
+		pr_info("[%s] REPORT_LOC done free buffer", __func__);
+		vfree(g_flp_report_ctx.addr);
 		g_flp_report_ctx.addr = 0;
 	}
 
