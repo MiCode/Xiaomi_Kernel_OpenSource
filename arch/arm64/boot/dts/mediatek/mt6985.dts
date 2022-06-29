@@ -11742,6 +11742,7 @@
 			"venc", "jpegenc", "vdec", "vfmt", "jpegdec", "img", "ipe", "cam", "ccu",
 			"aov", "vcore", "vmm";
 		mediatek,ccu_rproc = <&ccu_rproc>;
+		mediatek,larbs = <&smi_larb19>;
 		#clock-cells = <1>;
 		clocks = <&mmdvfs_clk CLK_MMDVFS_VCORE>, <&mmdvfs_clk CLK_MMDVFS_VMM>;
 		clock-names = "vcore", "vmm";
