@@ -4710,7 +4710,6 @@ static int mtk_camsys_event_handle_raw(struct mtk_cam_device *cam,
 		mtk_camsys_raw_frame_start(raw_dev, ctx, irq_info);
 		irq_info->frame_idx_inner = frame_no_inner;
 
-		/* camsv todo: consider stagger seamless */
 		tag_idx = get_first_sv_tag_idx(ctx,
 			mtk_cam_scen_get_stagger_exp_num(&raw_dev->pipeline->scen_active));
 		if (tag_idx != -1) {
@@ -4737,16 +4736,21 @@ static int mtk_camsys_event_handle_raw(struct mtk_cam_device *cam,
 		else
 			mtk_camsys_raw_frame_start(raw_dev, ctx, irq_info);
 
-		/* camsv todo: consider stagger seamless */
 		if (mtk_cam_hw_mode_is_dc(raw_dev->pipeline->hw_mode)) {
 			if (mtk_cam_scen_is_stagger(&raw_dev->pipeline->scen_active)) {
-				tag_idx = get_last_sv_tag_idx(ctx,
-					mtk_cam_scen_get_stagger_exp_num(
-					&raw_dev->pipeline->scen_active));
+				if (mtk_cam_scen_get_stagger_exp_num(
+					&raw_dev->pipeline->scen_active) == 1)
+					tag_idx = get_first_sv_tag_idx(ctx,
+						mtk_cam_scen_get_stagger_exp_num(
+						&raw_dev->pipeline->scen_active));
+				else
+					tag_idx = get_last_sv_tag_idx(ctx,
+						mtk_cam_scen_get_stagger_exp_num(
+						&raw_dev->pipeline->scen_active));
 				if (tag_idx != -1) {
 					mtk_cam_sv_check_fbc_cnt(ctx->sv_dev, tag_idx);
 				} else {
-					dev_info(raw_dev->dev, "illegal last tag_idx: exp_num:%d\n",
+					dev_info(raw_dev->dev, "illegal tag_idx: exp_num:%d\n",
 						mtk_cam_scen_get_stagger_exp_num(
 						&raw_dev->pipeline->scen_active));
 				}
