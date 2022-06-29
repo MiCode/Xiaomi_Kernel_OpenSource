@@ -69,7 +69,7 @@ int mtk_mmdvfs_enable_ccu(bool enable)
 
 	int ret = 0;
 
-	if (!mmdvfs_clk_num) {
+	if (!mmdvfs_free_run) {
 		MMDVFS_DBG("mmdvfs_v3 not supported!");
 		return 0;
 	}
@@ -191,7 +191,7 @@ int mtk_mmdvfs_enable_vcp(bool enable)
 {
 	int ret;
 
-	if (!mmdvfs_clk_num) {
+	if (!mmdvfs_free_run) {
 		MMDVFS_DBG("mmdvfs_v3 not supported!");
 		return 0;
 	}
@@ -332,7 +332,7 @@ static int mtk_mmdvfs_set_rate(struct clk_hw *hw, unsigned long rate,
 		}
 		if (mmdvfs_free_run)
 			ret = mmdvfs_vcp_ipi_send(FUNC_SET_OPP,
-					mmdvfs_clk->user_id, user_opp, MAX_OPP);
+				mmdvfs_clk->user_id, user_opp, MAX_OPP);
 	} else {
 		if (pwr_opp == mmdvfs_pwr_opp[mmdvfs_clk->pwr_id])
 			return 0;
@@ -405,7 +405,7 @@ void *mtk_mmdvfs_vcp_get_base(phys_addr_t *pa)
 	struct mtk_ipi_device *vcp_ipi_dev = vcp_get_ipidev();
 	phys_addr_t va = vcp_get_reserve_mem_virt_ex(MMDVFS_MEM_ID);
 
-	if (!mmdvfs_clk_num || !va) {
+	if (!mmdvfs_free_run || !va) {
 		MMDVFS_DBG("mmdvfs_v3 not supported!");
 		return NULL;
 	}
@@ -420,18 +420,7 @@ EXPORT_SYMBOL_GPL(mtk_mmdvfs_vcp_get_base);
 
 int mtk_mmdvfs_camera_notify(const bool enable)
 {
-	//struct mmdvfs_ipi_data slot;
-	//int ret;
-
-	if (!mmdvfs_clk_num) {
-		MMDVFS_DBG("mmdvfs_v3 not supported!");
-		return 0;
-	}
-	//ret = mmdvfs_vcp_ipi_send(FUNC_CAMERA_ON, enable, MAX_OPP, MAX_OPP);
-
-	//slot = *(struct mmdvfs_ipi_data *)(u32 *)&mmdvfs_vcp_ipi_data;
-	//MMDVFS_DBG("ret:%d slot:%#x ena:%hhu", ret, slot, slot.ack);
-
+	// TODO : replace from_mmqos
 	return 0;
 }
 EXPORT_SYMBOL_GPL(mtk_mmdvfs_camera_notify);
@@ -441,11 +430,14 @@ int mtk_mmdvfs_camera_notify_from_mmqos(const bool enable)
 	struct mmdvfs_ipi_data slot;
 	int ret;
 
-	if (!mmdvfs_clk_num) {
+	if (!mmdvfs_free_run) {
 		MMDVFS_DBG("mmdvfs_v3 not supported!");
 		return 0;
 	}
+
+	mtk_mmdvfs_enable_vcp(true);
 	ret = mmdvfs_vcp_ipi_send(FUNC_CAMERA_ON, enable, MAX_OPP, MAX_OPP);
+	mtk_mmdvfs_enable_vcp(false);
 
 	slot = *(struct mmdvfs_ipi_data *)(u32 *)&mmdvfs_vcp_ipi_data;
 	MMDVFS_DBG("ret:%d slot:%#x ena:%hhu", ret, slot, slot.ack);
@@ -456,7 +448,7 @@ EXPORT_SYMBOL_GPL(mtk_mmdvfs_camera_notify_from_mmqos);
 
 bool mtk_is_mmdvfs_init_done(void)
 {
-	if (!mmdvfs_clk_num) {
+	if (!mmdvfs_free_run) {
 		MMDVFS_DBG("mmdvfs_v3 not supported!");
 		return true;
 	}
@@ -469,8 +461,10 @@ int mtk_mmdvfs_v3_set_force_step(u16 pwr_idx, s16 opp)
 	struct mmdvfs_ipi_data slot;
 	int ret;
 
-	if (!mmdvfs_clk_num)
-		return -ENODEV;
+	if (!mmdvfs_free_run) {
+		MMDVFS_DBG("mmdvfs_v3 not supported!");
+		return 0;
+	}
 
 	if (pwr_idx >= PWR_MMDVFS_NUM || opp >= MAX_OPP) {
 		MMDVFS_ERR("wrong pwr_idx:%hu opp:%hd", pwr_idx, opp);
@@ -539,8 +533,10 @@ int mtk_mmdvfs_v3_set_vote_step(u16 pwr_idx, s16 opp)
 	u32 freq = 0;
 	int ret = 0, i;
 
-	if (!mmdvfs_clk_num)
-		return -ENODEV;
+	if (!mmdvfs_free_run) {
+		MMDVFS_DBG("mmdvfs_v3 not supported!");
+		return 0;
+	}
 
 	if (pwr_idx >= PWR_MMDVFS_NUM || opp >= MAX_OPP) {
 		MMDVFS_ERR("failed:%d pwr_idx:%hu opp:%hd", ret, pwr_idx, opp);
@@ -689,7 +685,14 @@ int mmdvfs_dump_setting(char *buf, const struct kernel_param *kp)
 	struct mmdvfs_ipi_data slot;
 	int i, len = 0, ret;
 
+	if (!mmdvfs_free_run) {
+		MMDVFS_DBG("mmdvfs_v3 not supported!");
+		return 0;
+	}
+
 	len += snprintf(buf + len, PAGE_SIZE - len, "user request opp");
+	mtk_mmdvfs_enable_vcp(true);
+
 	for (i = 0; i < USER_NUM; i += 3) {
 		ret = mmdvfs_vcp_ipi_send(FUNC_GET_OPP, i, i + 1, i + 2);
 
@@ -712,6 +715,8 @@ int mmdvfs_dump_setting(char *buf, const struct kernel_param *kp)
 		len += snprintf(buf + len, PAGE_SIZE - len,
 			", %hhu, %hhu, %hhu", slot.idx, slot.opp, slot.ack);
 	}
+
+	mtk_mmdvfs_enable_vcp(false);
 	len += snprintf(buf + len, PAGE_SIZE - len, "\n");
 
 	if (len >= PAGE_SIZE) {
@@ -734,13 +739,22 @@ int mmdvfs_set_vcp_stress(const char *val, const struct kernel_param *kp)
 	u16 ena = 0;
 	int ret;
 
+	if (!mmdvfs_free_run) {
+		MMDVFS_DBG("mmdvfs_v3 not supported!");
+		return 0;
+	}
+
 	ret = kstrtou16(val, 0, &ena);
 	if (ret) {
 		MMDVFS_ERR("failed:%d ena:%hu", ret, ena);
 		return ret;
 	}
 
+	if (ena)
+		mtk_mmdvfs_enable_vcp(true);
 	ret = mmdvfs_vcp_ipi_send(FUNC_STRESS, ena, MAX_OPP, MAX_OPP);
+	if (!ena)
+		mtk_mmdvfs_enable_vcp(false);
 
 	slot = *(struct mmdvfs_ipi_data *)(u32 *)&mmdvfs_vcp_ipi_data;
 	MMDVFS_DBG("ret:%d slot:%#x ena:%d ena:%#x", ret, slot, ena, slot.ack);
@@ -759,7 +773,14 @@ int mmdvfs_get_vcp_log(char *buf, const struct kernel_param *kp)
 	struct mmdvfs_ipi_data slot;
 	int len = 0, ret;
 
+	if (!mmdvfs_free_run) {
+		MMDVFS_DBG("mmdvfs_v3 not supported!");
+		return 0;
+	}
+
+	mtk_mmdvfs_enable_vcp(true);
 	ret = mmdvfs_vcp_ipi_send(FUNC_SET_LOG, LOG_NUM, MAX_OPP, MAX_OPP);
+	mtk_mmdvfs_enable_vcp(false);
 
 	slot = *(struct mmdvfs_ipi_data *)(u32 *)&mmdvfs_vcp_ipi_data;
 	len += snprintf(
@@ -774,13 +795,20 @@ int mmdvfs_set_vcp_log(const char *val, const struct kernel_param *kp)
 	u16 log = 0;
 	int ret;
 
+	if (!mmdvfs_free_run) {
+		MMDVFS_DBG("mmdvfs_v3 not supported!");
+		return 0;
+	}
+
 	ret = kstrtou16(val, 0, &log);
 	if (ret || log >= LOG_NUM) {
 		MMDVFS_ERR("failed:%d log:%hu", ret, log);
 		return ret;
 	}
 
+	mtk_mmdvfs_enable_vcp(true);
 	ret = mmdvfs_vcp_ipi_send(FUNC_SET_LOG, log, MAX_OPP, MAX_OPP);
+	mtk_mmdvfs_enable_vcp(false);
 
 	slot = *(struct mmdvfs_ipi_data *)(u32 *)&mmdvfs_vcp_ipi_data;
 	MMDVFS_DBG("ret:%d slot:%#x log:%hu log:%#x", ret, slot, log, slot.ack);
