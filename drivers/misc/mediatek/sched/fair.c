@@ -421,19 +421,33 @@ int mtk_find_idle_cpu(struct task_struct *p, bool latency_sensitive)
 	int target_cpu = -1, cpu, opp;
 	unsigned long task_util = uclamp_task_util(p);
 	unsigned long pwr = ULONG_MAX, best_pwr = ULONG_MAX;
-	unsigned int cap = 0, max_sparse_cap = 0;
+	unsigned long cpu_cap = 0, max_sparse_cap = 0;
 	unsigned int fit_idle_cpus = 0;
+	long sys_max_spare_cap = LONG_MIN, spare_cap;
+	int sys_max_spare_cap_cpu = -1;
+	unsigned long util;
 
 	for_each_cpu_and(cpu, p->cpus_ptr,
 			cpu_active_mask) {
 
 		if (cpu_rq(cpu)->rt.rt_nr_running >= 1 && !rt_rq_throttled(&(cpu_rq(cpu)->rt)))
 			continue;
+
+		cpu_cap = capacity_of(cpu);
+		util = cpu_util_next(cpu, p, cpu);
+		spare_cap = cpu_cap;
+		lsub_positive(&spare_cap, util);
+
+		if ((spare_cap > sys_max_spare_cap) &&
+			!(latency_sensitive && !cpumask_test_cpu(cpu, &system_cpumask))) {
+			sys_max_spare_cap = spare_cap;
+			sys_max_spare_cap_cpu = cpu;
+		}
+
 		if (latency_sensitive && !cpumask_test_cpu(cpu, &system_cpumask))
 			continue;
 
-		cap = capacity_of(cpu);
-		if (idle_cpu(cpu) && fits_capacity(task_util, cap)) {
+		if (idle_cpu(cpu) && fits_capacity(task_util, cpu_cap)) {
 			fit_idle_cpus = (fit_idle_cpus | (1 << cpu));
 			opp = pd_get_util_opp(cpu, map_util_perf(task_util));
 			pwr = pd_get_opp_pwr_eff(cpu, opp) * task_util
@@ -442,17 +456,22 @@ int mtk_find_idle_cpu(struct task_struct *p, bool latency_sensitive)
 			if (best_pwr > pwr) {
 				best_pwr = pwr;
 				target_cpu = cpu;
-				max_sparse_cap = cap;
+				max_sparse_cap = cpu_cap;
 			}
 			/* if power of two cpus are identical, select larger capacity */
-			else if ((best_pwr == pwr) && (max_sparse_cap < cap)) {
+			else if ((best_pwr == pwr) && (max_sparse_cap < cpu_cap)) {
 				target_cpu = cpu;
-				max_sparse_cap = cap;
+				max_sparse_cap = cpu_cap;
 			}
 		}
 	}
+
 	trace_sched_find_idle_cpu(p, task_util, target_cpu, best_pwr,
 					max_sparse_cap, fit_idle_cpus);
+
+	if (target_cpu == -1)
+		return sys_max_spare_cap_cpu;
+
 	return target_cpu;
 }
 
@@ -530,7 +549,6 @@ void mtk_find_energy_efficient_cpu(void *data, struct task_struct *p, int prev_c
 #else
 		for_each_cpu_and(cpu, perf_domain_span(pd), cpu_active_mask) {
 #endif
-
 			if (latency_sensitive && !cpumask_test_cpu(cpu, &system_cpumask))
 				continue;
 
@@ -549,10 +567,14 @@ void mtk_find_energy_efficient_cpu(void *data, struct task_struct *p, int prev_c
 			spare_cap = cpu_cap;
 			lsub_positive(&spare_cap, util);
 
-			if (spare_cap > sys_max_spare_cap) {
+			if ((spare_cap > sys_max_spare_cap) &&
+			    !(latency_sensitive && !cpumask_test_cpu(cpu, &system_cpumask))) {
 				sys_max_spare_cap = spare_cap;
 				sys_max_spare_cap_cpu = cpu;
 			}
+
+			if (latency_sensitive && !cpumask_test_cpu(cpu, &system_cpumask))
+				continue;
 
 			/*
 			 * if there is no best idle cpu, then select max spare cap
@@ -716,6 +738,9 @@ static struct task_struct *detach_a_hint_task(struct rq *src_rq, int dst_cpu)
 		if (!(latency_sensitive && !cpumask_test_cpu(dst_cpu, &system_cpumask)))
 			break;
 
+		if (latency_sensitive && !cpumask_test_cpu(dst_cpu, &system_cpumask))
+			continue;
+
 		if (latency_sensitive &&
 			task_util <= dst_capacity) {
 			best_task = p;
@@ -753,7 +778,6 @@ inline bool is_task_latency_sensitive(struct task_struct *p)
 
 static int mtk_active_load_balance_cpu_stop(void *data)
 {
-
 	struct task_struct *target_task = data;
 	int busiest_cpu = smp_processor_id();
 	struct rq *busiest_rq = cpu_rq(busiest_cpu);
@@ -822,7 +846,8 @@ int migrate_running_task(int this_cpu, struct task_struct *p, struct rq *target,
 
 	raw_spin_rq_lock_irqsave(target, flags);
 	if (!target->active_balance &&
-		(task_rq(p) == target) && p->__state != TASK_DEAD) {
+		(task_rq(p) == target) && p->__state != TASK_DEAD &&
+		 !(is_task_latency_sensitive(p) && !cpumask_test_cpu(this_cpu, &system_cpumask))) {
 		target->active_balance = 1;
 		target->push_cpu = this_cpu;
 		active_balance = true;
@@ -911,7 +936,10 @@ void mtk_sched_newidle_balance(void *data, struct rq *this_rq, struct rq_flags *
 			capacity_orig_of(this_cpu) > capacity_orig_of(cpu)) {
 			p = src_rq->curr;
 			if (p && p->policy == SCHED_NORMAL &&
-				cpumask_test_cpu(this_cpu, p->cpus_ptr)) {
+				cpumask_test_cpu(this_cpu, p->cpus_ptr) &&
+				!(is_task_latency_sensitive(p) &&
+				!cpumask_test_cpu(this_cpu, &system_cpumask))) {
+
 				misfit_task_rq = src_rq;
 				misfit_load = src_rq->misfit_task_load;
 				if (best_running_task)
