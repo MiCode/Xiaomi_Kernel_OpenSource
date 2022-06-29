@@ -13915,6 +13915,18 @@ l3_hit,l3_mis,pmu_cyc_cnt";
 
 		gpueb_rts_header:gpueb-rts-header {
 			node-0 = "GPUEB_MET_UNIT_TEST", "test";
+			node-1 = "GPUEB_PTP3_CC_FC", "sw_cc,sw_fc,hw_cc,hw_fc";
+			node-2 = "GPUEB_PTP3_FSM", "FLL0,FLL1,FLL2,FLL4,FLL5,FLL6";
+			node-3 = "GPUEB_PTP3_FLL_ENABLE", "FLL0,FLL1,FLL2,FLL4,FLL5,FLL6";
+			node-4 = "GPUEB_PTP3_MODE", "inner_loop,outer_loop,slow_req,",
+				"force_disable,slow_code";
+			node-5 = "GPUEB_PTP3_FLL_BYPASS", "FLL0,FLL1,FLL2,FLL4,FLL5,FLL6";
+			node-6 = "GPUEB_PTP3_FREQ", "sign_freq,work_freq,cur_freq";
+			node-7 = "GPUEB_PTP3_VOLT", "sign_volt,work_volt,cur_volt";
+			node-8 = "GPUEB_PTP3_FREQ_MONITOR", "FLL0_in,FLL1_in,FLL2_in,",
+				"FLL4_in,FLL5_in,FLL6_in,FLL0_out,FLL1_out,FLL2_out,",
+				"FLL4_out,FLL5_out,FLL6_out";
+			node-9 = "GPUEB_PTP3_VOLT_MONITOR", "inVolt,outVolt";
 		};
 	};
 
