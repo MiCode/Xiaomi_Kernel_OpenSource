@@ -37,4 +37,7 @@
 #define TOPCKGEN_CLK_CFG_6_MASK       0x3
 #define TOPCKGEN_CLK_CFG_6_SHIFT      0x0
 
+#define UART3_BASE_ADDR                0x11004000
+#define AP_DMA_UART_3_TX_INT_FLAG_ADDR 0x11301300
+
 #endif /* MT6985_H */

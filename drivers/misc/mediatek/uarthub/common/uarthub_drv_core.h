@@ -18,8 +18,12 @@ struct uarthub_reg_base_addr {
 
 struct assert_ctrl {
 	int err_type;
-	struct workqueue_struct *uarthub_workqueue;
 	struct work_struct trigger_assert_work;
+};
+
+struct debug_info_ctrl {
+	char tag[256];
+	struct work_struct debug_info_work;
 };
 
 struct uarthub_gpio_base_addr {
@@ -34,6 +38,14 @@ struct uarthub_gpio_trx_info {
 	struct uarthub_gpio_base_addr gpio_rx;
 };
 
+struct uarthub_uart_ip_debug_info {
+	unsigned long dev0;
+	unsigned long dev1;
+	unsigned long dev2;
+	unsigned long cmm;
+	unsigned long ap;
+};
+
 typedef void (*UARTHUB_CORE_IRQ_CB) (int err_type);
 
 typedef int(*UARTHUB_PLAT_INIT_REMAP_REG) (void);
@@ -46,6 +58,8 @@ typedef int(*UARTHUB_PLAT_GET_UARTHUB_CLK_GATING_INFO) (void);
 typedef int(*UARTHUB_PLAT_GET_HWCCF_UNIVPLL_DONE_INFO) (void);
 typedef int(*UARTHUB_PLAT_GET_UART_MUX_INFO) (void);
 typedef int(*UARTHUB_PLAT_GET_UARTHUB_ADDR_INFO) (struct uarthub_reg_base_addr *info);
+typedef void __iomem *(*UARTHUB_PLAT_GET_AP_UART_BASE_ADDR) (void);
+typedef void __iomem *(*UARTHUB_PLAT_GET_AP_DMA_TX_INT_ADDR) (void);
 
 struct uarthub_ops_struct {
 	/* load from dts */
@@ -59,6 +73,8 @@ struct uarthub_ops_struct {
 	UARTHUB_PLAT_GET_HWCCF_UNIVPLL_DONE_INFO uarthub_plat_get_hwccf_univpll_done_info;
 	UARTHUB_PLAT_GET_UART_MUX_INFO uarthub_plat_get_uart_mux_info;
 	UARTHUB_PLAT_GET_UARTHUB_ADDR_INFO uarthub_plat_get_uarthub_addr_info;
+	UARTHUB_PLAT_GET_AP_UART_BASE_ADDR uarthub_plat_get_ap_uart_base_addr;
+	UARTHUB_PLAT_GET_AP_DMA_TX_INT_ADDR uarthub_plat_get_ap_dma_tx_int_addr;
 };
 
 static char * const UARTHUB_irq_err_type_str[] = {
@@ -106,6 +122,9 @@ void uarthub_core_set_trigger_assert_worker(int err_type);
 int uarthub_core_is_apb_bus_clk_enable(void);
 int uarthub_core_is_uarthub_clk_enable(void);
 int uarthub_core_debug_uart_ip_info_with_tag_ex(const char *tag, int boundary);
+int uarthub_core_debug_apdma_uart_info_with_tag_ex(const char *tag, int boundary);
+int uarthub_core_debug_info_with_tag_no_spinlock(const char *tag);
+int uarthub_core_debug_info_with_tag_worker(const char *tag);
 
 /*******************************************************************************
  *                              public function
@@ -129,7 +148,7 @@ int uarthub_core_assert_state_ctrl(int assert_ctrl);
 int uarthub_core_reset(void);
 int uarthub_core_loopback_test(int dev_index, int tx_to_rx, int enable);
 int uarthub_core_debug_info(void);
-int uarthub_core_debug_uart_ip_info_with_tag(const char *tag);
 int uarthub_core_debug_info_with_tag(const char *tag);
+int uarthub_core_debug_bt_tx_timeout(const char *tag);
 
 #endif /* UARTHUB_DRV_CORE_H */

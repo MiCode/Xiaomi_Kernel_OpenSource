@@ -16,11 +16,15 @@
 #include <linux/cdev.h>
 #include <linux/regmap.h>
 
+#define CHEKCING_UNIVPLL_CLK_DONE 1
+
 void __iomem *gpio_base_remap_addr;
 void __iomem *pericfg_ao_remap_addr;
 void __iomem *hw_ccf_base_remap_addr;
 void __iomem *topckgen_base_remap_addr;
 void __iomem *uarthub_base_remap_addr;
+void __iomem *uart3_base_remap_addr;
+void __iomem *ap_dma_uart_3_tx_int_remap_addr;
 
 static int uarthub_init_remap_reg_mt6985(void);
 static int uarthub_deinit_unmap_reg_mt6985(void);
@@ -29,9 +33,13 @@ static int uarthub_get_default_baud_rate_mt6985(int dev_index);
 static int uarthub_config_gpio_trx_mt6985(void);
 static int uarthub_get_gpio_trx_info_mt6985(struct uarthub_gpio_trx_info *info);
 static int uarthub_get_uarthub_clk_gating_info_mt6985(void);
+#if CHEKCING_UNIVPLL_CLK_DONE
 static int uarthub_get_hwccf_univpll_done_info_mt6985(void);
+#endif
 static int uarthub_get_uart_mux_info_mt6985(void);
 static int uarthub_get_uarthub_addr_info_mt6985(struct uarthub_reg_base_addr *info);
+static void __iomem *uarthub_get_ap_uart_base_addr_mt6985(void);
+static void __iomem *uarthub_get_ap_dma_tx_int_addr_mt6985(void);
 
 struct uarthub_ops_struct mt6985_plat_data = {
 	.uarthub_plat_init_remap_reg = uarthub_init_remap_reg_mt6985,
@@ -41,9 +49,13 @@ struct uarthub_ops_struct mt6985_plat_data = {
 	.uarthub_plat_config_gpio_trx = uarthub_config_gpio_trx_mt6985,
 	.uarthub_plat_get_gpio_trx_info = uarthub_get_gpio_trx_info_mt6985,
 	.uarthub_plat_get_uarthub_clk_gating_info = uarthub_get_uarthub_clk_gating_info_mt6985,
+#if CHEKCING_UNIVPLL_CLK_DONE
 	.uarthub_plat_get_hwccf_univpll_done_info = uarthub_get_hwccf_univpll_done_info_mt6985,
+#endif
 	.uarthub_plat_get_uart_mux_info = uarthub_get_uart_mux_info_mt6985,
 	.uarthub_plat_get_uarthub_addr_info = uarthub_get_uarthub_addr_info_mt6985,
+	.uarthub_plat_get_ap_uart_base_addr = uarthub_get_ap_uart_base_addr_mt6985,
+	.uarthub_plat_get_ap_dma_tx_int_addr = uarthub_get_ap_dma_tx_int_addr_mt6985,
 };
 
 int uarthub_init_remap_reg_mt6985(void)
@@ -53,6 +65,8 @@ int uarthub_init_remap_reg_mt6985(void)
 	hw_ccf_base_remap_addr = ioremap(HW_CCF_BASE_ADDR, 0x140C);
 	topckgen_base_remap_addr = ioremap(TOPCKGEN_BASE_ADDR, 0x100);
 	uarthub_base_remap_addr = ioremap(UARTHUB_BASE_ADDR, 0x500);
+	uart3_base_remap_addr = ioremap(UART3_BASE_ADDR, 0x100);
+	ap_dma_uart_3_tx_int_remap_addr = ioremap(AP_DMA_UART_3_TX_INT_FLAG_ADDR, 0x100);
 	return 0;
 }
 
@@ -72,6 +86,12 @@ int uarthub_deinit_unmap_reg_mt6985(void)
 
 	if (uarthub_base_remap_addr)
 		iounmap(uarthub_base_remap_addr);
+
+	if (uart3_base_remap_addr)
+		iounmap(uart3_base_remap_addr);
+
+	if (ap_dma_uart_3_tx_int_remap_addr)
+		iounmap(ap_dma_uart_3_tx_int_remap_addr);
 
 	return 0;
 }
@@ -146,6 +166,7 @@ int uarthub_get_uarthub_clk_gating_info_mt6985(void)
 		PERICFG_AO_PERI_CG_1_MASK) >> PERICFG_AO_PERI_CG_1_SHIFT);
 }
 
+#if CHEKCING_UNIVPLL_CLK_DONE
 int uarthub_get_hwccf_univpll_done_info_mt6985(void)
 {
 	if (!hw_ccf_base_remap_addr) {
@@ -156,6 +177,7 @@ int uarthub_get_hwccf_univpll_done_info_mt6985(void)
 	return (UARTHUB_REG_READ_BIT(hw_ccf_base_remap_addr + HW_CCF_PLL_DONE_OFFSET,
 		(0x1 << HW_CCF_PLL_DONE_SHIFT)) >> HW_CCF_PLL_DONE_SHIFT);
 }
+#endif
 
 int uarthub_get_uart_mux_info_mt6985(void)
 {
@@ -184,4 +206,14 @@ int uarthub_get_uarthub_addr_info_mt6985(struct uarthub_reg_base_addr *info)
 	info->phy_addr = UARTHUB_BASE_ADDR;
 
 	return 0;
+}
+
+void __iomem *uarthub_get_ap_uart_base_addr_mt6985(void)
+{
+	return uart3_base_remap_addr;
+}
+
+void __iomem *uarthub_get_ap_dma_tx_int_addr_mt6985(void)
+{
+	return ap_dma_uart_3_tx_int_remap_addr;
 }
