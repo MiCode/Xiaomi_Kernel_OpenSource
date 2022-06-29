@@ -145,7 +145,7 @@ static unsigned int do_2a_gain_imx766(struct EEPROM_DRV_FD_DATA *pdata,
 	debug_log("S2aBitEn=0x%02x", pCamCalData->Single2A.S2aBitEn);
 	/* AWB Calibration Data*/
 	if (0x1 & AWBAFConfig) {
-		pCamCalData->Single2A.S2aAwb.rGainSetNum = 0x03;
+		pCamCalData->Single2A.S2aAwb.rGainSetNum = 0;
 		/* AWB Unit Gain (5100K) */
 		debug_log("5100K AWB\n");
 		awb_offset = 0x20;
@@ -184,7 +184,7 @@ static unsigned int do_2a_gain_imx766(struct EEPROM_DRV_FD_DATA *pdata,
 			CalR    != 0x00000000 &&
 			CalG    != 0x00000000 &&
 			CalB    != 0x00000000) {
-			pCamCalData->Single2A.S2aAwb.rGainSetNum = 1;
+			pCamCalData->Single2A.S2aAwb.rGainSetNum++;
 			pCamCalData->Single2A.S2aAwb.rUnitGainu4R =
 					(unsigned int)((tempMax * 512 + (CalR >> 1)) / CalR);
 			pCamCalData->Single2A.S2aAwb.rUnitGainu4G =
@@ -299,6 +299,7 @@ static unsigned int do_2a_gain_imx766(struct EEPROM_DRV_FD_DATA *pdata,
 			CalR    != 0x00000000 &&
 			CalG    != 0x00000000 &&
 			CalB    != 0x00000000) {
+			pCamCalData->Single2A.S2aAwb.rGainSetNum++;
 			pCamCalData->Single2A.S2aAwb.rUnitGainu4R_mid =
 				(unsigned int)((tempMax * 512 + (CalR >> 1)) / CalR);
 			pCamCalData->Single2A.S2aAwb.rUnitGainu4G_mid =
@@ -405,7 +406,7 @@ static unsigned int do_2a_gain_imx766(struct EEPROM_DRV_FD_DATA *pdata,
 			CalR    != 0x00000000 &&
 			CalG    != 0x00000000 &&
 			CalB    != 0x00000000) {
-			pCamCalData->Single2A.S2aAwb.rGainSetNum = 3;
+			pCamCalData->Single2A.S2aAwb.rGainSetNum++;
 			pCamCalData->Single2A.S2aAwb.rUnitGainu4R_low =
 				(unsigned int)((tempMax * 512 + (CalR >> 1)) / CalR);
 			pCamCalData->Single2A.S2aAwb.rUnitGainu4G_low =
