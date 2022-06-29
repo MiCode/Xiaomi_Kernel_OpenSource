@@ -427,6 +427,8 @@ int mtk_find_idle_cpu(struct task_struct *p, bool latency_sensitive)
 	for_each_cpu_and(cpu, p->cpus_ptr,
 			cpu_active_mask) {
 
+		if (cpu_rq(cpu)->rt.rt_nr_running >= 1 && !rt_rq_throttled(&(cpu_rq(cpu)->rt)))
+			continue;
 		if (latency_sensitive && !cpumask_test_cpu(cpu, &system_cpumask))
 			continue;
 
@@ -536,6 +538,10 @@ void mtk_find_energy_efficient_cpu(void *data, struct task_struct *p, int prev_c
 				continue;
 
 			if (cpu_paused(cpu))
+				continue;
+
+			if (cpu_rq(cpu)->rt.rt_nr_running >= 1 &&
+						!rt_rq_throttled(&(cpu_rq(cpu)->rt)))
 				continue;
 
 			util = cpu_util_next(cpu, p, cpu);

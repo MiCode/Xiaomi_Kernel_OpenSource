@@ -24,4 +24,16 @@ __always_inline
 unsigned long mtk_uclamp_rq_util_with(struct rq *rq, unsigned long util,
 				  struct task_struct *p);
 
+#if IS_ENABLED(CONFIG_RT_GROUP_SCHED)
+static inline int rt_rq_throttled(struct rt_rq *rt_rq)
+{
+	return rt_rq->rt_throttled && !rt_rq->rt_nr_boosted;
+}
+#else /* !CONFIG_RT_GROUP_SCHED */
+static inline int rt_rq_throttled(struct rt_rq *rt_rq)
+{
+	return rt_rq->rt_throttled;
+}
+#endif
+
 #endif /* _SCHED_COMMON_H */
