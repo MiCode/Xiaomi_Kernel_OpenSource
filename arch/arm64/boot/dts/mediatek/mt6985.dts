@@ -11004,6 +11004,7 @@
 		compatible = "mediatek,mt6985-dp_tx",
 				"mediatek,dp_tx";
 		reg = <0 0x14800000 0 0x800000>;
+		mediatek,vs-voter = <&pmic 0x149a 0x20 1>;
 		power-domains = <&scpsys MT6985_POWER_DOMAIN_DP_TX>;
 		interrupts = <GIC_SPI 792 IRQ_TYPE_LEVEL_HIGH 0>;
 		dptx,phy_params = <0x221c1814 0x24241e18 0x0000302a
