@@ -98,3 +98,4 @@ obj-$(CONFIG_QCOM_HUNG_TASK_ENH) += hung_task_enh.o
 obj-$(CONFIG_QCOM_CX_IPEAK) += cx_ipeak.o
 obj-$(CONFIG_DUMP_XBL_LOG) += dump_boot_log.o
 obj-$(CONFIG_QCOM_AOP_SET_DDR) += aop-set-ddr.o
+obj-$(CONFIG_GNSS_SIRF)	+= gnsssirf/
