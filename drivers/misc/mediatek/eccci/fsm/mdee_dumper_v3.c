@@ -248,6 +248,7 @@ static void mdee_info_dump_v3(struct ccci_fsm_ee *mdee)
 		CCCI_ERROR_LOG(0, FSM, "Fail alloc Mem for ex_info!\n");
 		goto err_exit;
 	}
+	memset(ex_info, 0, AED_STR_LEN);
 	ex_info_temp = kzalloc(AED_STR_LEN, GFP_ATOMIC);
 	if (ex_info_temp == NULL) {
 		CCCI_ERROR_LOG(0, FSM,
