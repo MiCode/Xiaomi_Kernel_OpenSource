@@ -535,8 +535,16 @@ static int xhci_stop_device(struct xhci_hcd *xhci, int slot_id, int suspend)
 	    cmd->status == COMP_COMMAND_RING_STOPPED) {
 		xhci_warn(xhci, "Timeout while waiting for stop endpoint command\n");
 		ret = -ETIME;
+#if IS_ENABLED(CONFIG_MTK_USB_OFFLOAD)
+		goto cmd_cleanup;
+#endif
 	}
 
+#if IS_ENABLED(CONFIG_MTK_USB_OFFLOAD)
+	ret = xhci_vendor_sync_dev_ctx(xhci, slot_id);
+	if (ret)
+		xhci_warn(xhci, "Sync device context failed, ret=%d\n", ret);
+#endif
 cmd_cleanup:
 	xhci_free_command(xhci, cmd);
 	return ret;
