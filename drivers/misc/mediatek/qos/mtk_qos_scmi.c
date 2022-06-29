@@ -130,10 +130,10 @@ void qos_ipi_init(struct mtk_qos *qos)
 
 	_tinfo = get_scmi_tinysys_info();
 
-	ret = of_property_read_u32(_tinfo->sdev->dev.of_node, "scmi_qos",
+	ret = of_property_read_u32(_tinfo->sdev->dev.of_node, "scmi-qos",
 			&scmi_qos_id);
 	if (ret) {
-		pr_info("get scmi_qos fail, ret %d\n", ret);
+		pr_info("get scmi-qos fail, ret %d\n", ret);
 		qos_sspm_ready = -2;
 		return;
 	}
