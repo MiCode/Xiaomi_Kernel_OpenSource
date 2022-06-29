@@ -302,25 +302,55 @@ struct mtk_cam_resource_sensor_v2 {
  *			  to indicate stagger 1 exp frame, please
  *			  use MTK_CAM_SCEN_STAGGER with MTK_CAM_STAGGER_1_EXPOSURE
  *			  type to describe the scenario
- * MTK_CAM_SCEN_M2M_NORMAL: the m2m scenario used in Video Stream Engine
- *			    (VSE) and P1B
- * MTK_CAM_SCEN_M2M_STAGGER: the m2m stagger scenario used in Video Stream Engine
- *			     (VSE) and P1B
+ * MTK_CAM_SCEN_M2M_NORMAL: the m2m scenario
+ * MTK_CAM_SCEN_M2M_STAGGER: the m2m stagger scenario
  */
 enum mtk_cam_scen_id {
 	MTK_CAM_SCEN_NORMAL,
-	MTK_CAM_SCEN_STAGGER,
+	MTK_CAM_SCEN_STAGGER, // to be merged with MTK_CAM_SCEN_NORMAL
 	MTK_CAM_SCEN_MSTREAM,
 	MTK_CAM_SCEN_SMVR,
 	MTK_CAM_SCEN_ODT_NORMAL,
-	MTK_CAM_SCEN_ODT_STAGGER,
+	MTK_CAM_SCEN_ODT_STAGGER, // to be merged with MTK_CAM_SCEN_ODT_NORMAL
 	MTK_CAM_SCEN_ODT_MSTREAM,
 	MTK_CAM_SCEN_M2M_NORMAL,
-	MTK_CAM_SCEN_M2M_STAGGER,
+	MTK_CAM_SCEN_M2M_STAGGER, // to be merged with MTK_CAM_SCEN_M2M_NORMAL
 	MTK_CAM_SCEN_TIMESHARE,
-	MTK_CAM_SCEN_CAMSV_RGBW,
-	MTK_CAM_SCEN_STAGGER_RGBW,
+	MTK_CAM_SCEN_CAMSV_RGBW, // for ISP7.1, output W chn via CAMSV
+	MTK_CAM_SCEN_STAGGER_RGBW, // to be removed
 	MTK_CAM_SCEN_EXT_ISP,
+};
+
+enum mtk_cam_exp_order {
+	MTK_CAM_EXP_SE_LE,
+	MTK_CAM_EXP_LE_SE,
+};
+
+enum mtk_cam_frame_order {
+	MTK_CAM_FRAME_BAYER_W,
+	MTK_CAM_FRAME_W_BAYER,
+};
+
+/**
+ * struct mtk_cam_scen_prop - common properties
+ *         in different scenario
+ * @max_exp_num: max number of exposure
+ * @exp_num: current number of exposure
+ * @exp_order: order of exposure readout,
+ *         see mtk_cam_exp_order
+ * @w_chn_supported: support W channel
+ * @w_chn_enabled: w/ or w/o W channel
+ * @frame_order: order of bayer-w, see mtk_cam_frame_order
+ * @mem_saving: memory saving
+ */
+struct mtk_cam_scen_normal {
+	__u8 max_exp_num:4;
+	__u8 exp_num:4;
+	__u8 exp_order:4;
+	__u8 w_chn_supported:4;
+	__u8 w_chn_enabled:4;
+	__u8 frame_order:4;
+	__u8 mem_saving:4;
 };
 
 enum mtk_cam_stagger_type {
@@ -418,15 +448,21 @@ struct mtk_cam_scen_timeshare {
 /**
  * struct mtk_cam_scen - hardware scenario user hints
  *
- * @id: the id of the hardware scenario. Please note that if it is
- *	stagger 1 exp frame, the user must use MTK_CAM_SCEN_STAGGER
- *	as the id, and assign the MTK_CAM_STAGGER_1_EXPOSURE in
- *	scen.stagger.type.
+ * @id: the id of the hardware scenario.
+ * @scen: union of struct of diff scenario:
+ * MTK_CAM_SCEN_NORMAL, MTK_CAM_SCEN_ODT_NORMAL,
+ * MTK_CAM_SCEN_M2M_NORMAL=> normal
+ * MTK_CAM_SCEN_MSTREAM => mstream
+ * MTK_CAM_SCEN_SMVR => smvr
+ * MTK_CAM_SCEN_EXT_ISP => extisp
+ * MTK_CAM_SCEN_TIMESHARE => timeshare
  */
+
 struct mtk_cam_scen {
 	enum mtk_cam_scen_id id;
 	union {
-		struct mtk_cam_scen_stagger	stagger;
+		struct mtk_cam_scen_normal normal;
+		struct mtk_cam_scen_stagger	stagger; // to be removed
 		struct mtk_cam_scen_mstream	mstream;
 		struct mtk_cam_scen_smvr	smvr;
 		struct mtk_cam_scen_extisp	extisp;
