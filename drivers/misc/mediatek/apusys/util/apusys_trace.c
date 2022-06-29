@@ -35,7 +35,7 @@ void trace_tag_begin(const char *format, ...)
 	char buf[TRACE_LEN];
 
 	int len = snprintf(buf, sizeof(buf),
-		"B|%d|%s", task_pid_nr(current), format);
+		"B|%d|%s", task_tgid_nr(current), format);
 
 	if (len >= TRACE_LEN)
 		len = TRACE_LEN - 1;
@@ -48,7 +48,7 @@ void trace_tag_end(void)
 	char buf[TRACE_LEN];
 
 	int len = snprintf(buf, sizeof(buf),
-		"E|%d", task_pid_nr(current));
+		"E|%d", task_tgid_nr(current));
 
 	if (len >= TRACE_LEN)
 		len = TRACE_LEN - 1;
@@ -63,10 +63,10 @@ void trace_async_tag(bool isBegin, const char *format, ...)
 
 	if (isBegin)
 		len = snprintf(buf, sizeof(buf),
-			       "S|%d|%s", task_pid_nr(current), format);
+			       "S|%d|%s", task_tgid_nr(current), format);
 	else
 		len = snprintf(buf, sizeof(buf),
-			       "F|%d|%s", task_pid_nr(current), format);
+			       "F|%d|%s", task_tgid_nr(current), format);
 
 	if (len >= TRACE_LEN)
 		len = TRACE_LEN - 1;
