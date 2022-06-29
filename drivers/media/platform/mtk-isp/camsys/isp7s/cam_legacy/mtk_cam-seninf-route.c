@@ -1191,6 +1191,16 @@ int mtk_cam_seninf_s_stream_mux(struct seninf_ctx *ctx)
 				i, vc->out_pad, intf, vc->mux, vc->mux_vr, vc->cam, vc->tag,
 				vc_sel, dt_sel, en_tag);
 
+#ifdef SENSOR_SECURE_MTEE_SUPPORT
+			if (ctx->is_secure == 1) {
+				dev_info(ctx->dev, "Sensor kernel init seninf_ca");
+				if (!seninf_ca_open_session())
+					dev_info(ctx->dev, "seninf_ca_open_session fail");
+
+				dev_info(ctx->dev, "Sensor kernel ca_checkpipe");
+				seninf_ca_checkpipe(ctx->SecInfo_addr);
+			}
+#endif
 		} else
 			dev_info(ctx->dev, "not set camtg yet, vc[%d] pad %d intf %d cam %d tag %d\n",
 					 i, vc->out_pad, intf, vc->cam, vc->tag);
