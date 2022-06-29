@@ -116,7 +116,7 @@
 		postalign0 = &disp_postalign0;
 		postalign1 = &disp1_postalign0;
 		oddmr0 = &disp_oddmr0;
-		oddmr1 = &disp_oddmr1;
+		oddmr1 = &disp1_oddmr0;
 		dsc0 = &disp_dsc_wrap0;
 		dsc1 = &disp1_dsc_wrap0;
 		vdcm0 = &disp_vdcm0;
@@ -11091,7 +11091,7 @@
 		clocks = <&dispsys1_config_clk CLK_MM1_DISP_DSC_WRAP0>;
 	};
 
-	disp_oddmr0: disp_oddmr0@14013000 {
+	disp_oddmr0: disp-oddmr0@14013000 {
 		compatible = "mediatek,disp_oddmr0",
 			"mediatek,mt6985-disp-oddmr";
 		reg = <0 0x14013000 0 0x2000>;
@@ -11103,11 +11103,11 @@
 			<&disp_iommu M4U_PORT_L32_DISP_ODDMR0_ODW>;
 	};
 
-	disp_oddmr1: disp_oddmr1@14213000 {
-		compatible = "mediatek,disp_oddmr1",
+	disp1_oddmr0: disp1-oddmr0@14213000 {
+		compatible = "mediatek,disp1_oddmr0",
 			"mediatek,mt6985-disp-oddmr";
 		reg = <0 0x14213000 0 0x2000>;
-		clocks = <&dispsys_config_clk CLK_MM1_DISP_ODDMR0>;
+		clocks = <&dispsys1_config_clk CLK_MM1_DISP_ODDMR0>;
 		mediatek,larb = <&smi_larb33>;
 		mediatek,smi-id = <33>;
 		iommus = <&disp_iommu M4U_PORT_L33_DISP_ODDMR0_DMRR>,
