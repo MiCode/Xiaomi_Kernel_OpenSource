@@ -576,6 +576,13 @@ static struct snd_soc_dai_driver mtk_dai_hostless_driver[] = {
 			.rates = MTK_HOSTLESS_RATES,
 			.formats = MTK_HOSTLESS_FORMATS,
 		},
+		.playback = {
+			.stream_name = "Hostless_UL2 DL",
+			.channels_min = 1,
+			.channels_max = 2,
+			.rates = MTK_HOSTLESS_RATES,
+			.formats = MTK_HOSTLESS_FORMATS,
+		},
 		.ops = &mtk_dai_hostless_ops,
 	},
 	{

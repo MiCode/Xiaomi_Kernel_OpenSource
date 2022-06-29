@@ -53,6 +53,7 @@ static char *dsp_task_name[AUDIO_TASK_DAI_NUM] = {
 	[AUDIO_TASK_FM_ADSP_ID]      = "fm",
 	[AUDIO_TASK_UL_PROCESS_ID]   = "ulproc",
 	[AUDIO_TASK_ECHO_REF_ID]     = "echoref",
+	[AUDIO_TASK_ECHO_REF_DL_ID]  = "echodl",
 };
 
 static int dsp_task_scence[AUDIO_TASK_DAI_NUM] = {
@@ -76,6 +77,7 @@ static int dsp_task_scence[AUDIO_TASK_DAI_NUM] = {
 	[AUDIO_TASK_FM_ADSP_ID]     = TASK_SCENE_FM_ADSP,
 	[AUDIO_TASK_UL_PROCESS_ID]  = TASK_SCENE_UL_PROCESS,
 	[AUDIO_TASK_ECHO_REF_ID]    = TASK_SCENE_ECHO_REF_UL,
+	[AUDIO_TASK_ECHO_REF_DL_ID] = TASK_SCENE_ECHO_REF_DL,
 };
 
 int audio_set_dsp_afe(struct mtk_base_afe *afe)

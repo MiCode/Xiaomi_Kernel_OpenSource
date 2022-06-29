@@ -1055,6 +1055,7 @@ static int mt6985_adsp_mem_get(struct snd_kcontrol *kcontrol,
 	case AUDIO_TASK_KTV_ID:
 	case AUDIO_TASK_VOIP_ID:
 	case AUDIO_TASK_BTDL_ID:
+	case AUDIO_TASK_ECHO_REF_DL_ID:
 		memif_num = get_dsp_task_attr(task_id,
 					      ADSP_TASK_ATTR_MEMDL);
 		break;
@@ -1098,6 +1099,7 @@ static int mt6985_adsp_mem_set(struct snd_kcontrol *kcontrol,
 	case AUDIO_TASK_OFFLOAD_ID:
 	case AUDIO_TASK_VOIP_ID:
 	case AUDIO_TASK_BTDL_ID:
+	case AUDIO_TASK_ECHO_REF_DL_ID:
 		dl_memif_num = get_dsp_task_attr(task_id,
 						 ADSP_TASK_ATTR_MEMDL);
 		break;
@@ -1367,6 +1369,10 @@ static const struct snd_kcontrol_new mt6985_pcm_kcontrols[] = {
 		       mt6985_adsp_mem_get,
 		       mt6985_adsp_mem_set),
 	SOC_SINGLE_EXT("adsp_echoref_sharemem_scenario",
+		       SND_SOC_NOPM, 0, 0x1, 0,
+		       mt6985_adsp_mem_get,
+		       mt6985_adsp_mem_set),
+	SOC_SINGLE_EXT("adsp_echodl_sharemem_scenario",
 		       SND_SOC_NOPM, 0, 0x1, 0,
 		       mt6985_adsp_mem_get,
 		       mt6985_adsp_mem_set),
@@ -2020,6 +2026,9 @@ static const struct snd_soc_dapm_route mt6985_memif_routes[] = {
 
 	{"HW_GAIN2_IN_CH1", "ADDA_UL_CH1", "ADDA_UL_Mux"},
 	{"HW_GAIN2_IN_CH2", "ADDA_UL_CH2", "ADDA_UL_Mux"},
+
+	{"DL6_VIRTUAL_OUTPUT", NULL, "Hostless_UL2 DL"},
+	{"Hostless_UL2 DL", NULL, "DL6"},
 };
 
 static const struct mtk_base_memif_data memif_data[MT6985_MEMIF_NUM] = {
