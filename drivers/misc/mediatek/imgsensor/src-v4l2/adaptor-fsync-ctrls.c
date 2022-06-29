@@ -299,7 +299,8 @@ void notify_fsync_mgr_streaming(struct adaptor_ctx *ctx, unsigned int flag)
 	/* fsync_map_id is cam_mux no */
 	s_info.cammux_id = (ctx->fsync_map_id->val > 0)
 		? (ctx->fsync_map_id->val + 1) : 0;
-	// s_info.target_tg = ;
+	/* 7s use fsync_listen_target to update ccu tg id, so init from this */
+	s_info.target_tg = ctx->fsync_listen_target->val;
 
 	s_info.fl_active_delay = ctx->subctx.frame_time_delay_frame;
 
