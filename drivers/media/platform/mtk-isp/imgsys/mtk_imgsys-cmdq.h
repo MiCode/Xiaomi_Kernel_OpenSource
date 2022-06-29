@@ -74,7 +74,8 @@ struct mtk_imgsys_cb_param {
 	struct cmdq_client *clt;
 	struct task_timestamp taskTs;
 	void (*user_cmdq_cb)(struct cmdq_cb_data data, uint32_t subfidx, bool isLastTaskInReq);
-	void (*user_cmdq_err_cb)(struct cmdq_cb_data data, uint32_t fail_subfidx, bool isHWhang);
+	void (*user_cmdq_err_cb)(struct cmdq_cb_data data, uint32_t fail_subfidx, bool isHWhang,
+		uint32_t hangEvent);
 	int req_fd;
 	int req_no;
 	int frm_no;
@@ -176,7 +177,8 @@ int imgsys_cmdq_sendtask(struct mtk_imgsys_dev *imgsys_dev,
 				void (*cmdq_cb)(struct cmdq_cb_data data,
 					uint32_t uinfo_idx, bool isLastTaskInReq),
 				void (*cmdq_err_cb)(struct cmdq_cb_data data,
-					uint32_t fail_uinfo_idx, bool isHWhang));
+					uint32_t fail_uinfo_idx, bool isHWhang,
+					uint32_t hangEvent));
 /*int imgsys_cmdq_parser(struct swfrm_info_t *frm_info, struct cmdq_pkt *pkt,
 				struct Command *cmd, u32 hw_comb,
 				dma_addr_t dma_pa, uint32_t *num, u32 thd_idx);
@@ -240,7 +242,7 @@ struct imgsys_cmdq_cust_data {
 			void (*cmdq_cb)(struct cmdq_cb_data data,
 			uint32_t uinfo_idx, bool isLastTaskInReq),
 			void (*cmdq_err_cb)(struct cmdq_cb_data data,
-			uint32_t fail_uinfo_idx, bool isHWhang));
+			uint32_t fail_uinfo_idx, bool isHWhang, uint32_t hangEvent));
 	int (*cmdq_parser)(struct swfrm_info_t *frm_info, struct cmdq_pkt *pkt,
 			struct Command *cmd, u32 hw_comb,
 			dma_addr_t dma_pa, uint32_t *num, u32 thd_idx);

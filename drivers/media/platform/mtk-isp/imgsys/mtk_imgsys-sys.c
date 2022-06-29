@@ -597,15 +597,16 @@ static void cmdq_cb_timeout_worker(struct work_struct *work)
 	if (frm_info) {
 		frm_info->fail_uinfo_idx = swork->fail_uinfo_idx;
 		frm_info->fail_isHWhang = swork->fail_isHWhang;
+		frm_info->timeout_event = swork->hang_event;
 		dev_info(req->imgsys_pipe->imgsys_dev->dev,
-			"%s:%s:req fd/no(%d/%d)frame_no(%d) tfnum(%d) fail idx/sidx(%d/%d) timeout_w(%d)\n",
+			"%s:%s:req fd/no(%d/%d)frame_no(%d) tfnum(%d) fail idx/sidx(%d/%d) timeout_w(%d)hang_event(%d)\n",
 			__func__, (char *)(&(frm_info->frm_owner)), frm_info->request_fd,
 			frm_info->request_no,
 			frm_info->frame_no,
 			frm_info->total_frmnum,
 			frm_info->fail_uinfo_idx,
 			frm_info->user_info[frm_info->fail_uinfo_idx].subfrm_idx,
-			frm_info->fail_isHWhang);
+			frm_info->fail_isHWhang, swork->hang_event);
 		/* DAEMON debug dump */
 		ipi_param.usage = IMG_IPI_DEBUG;
 		swbuf_data.offset  = frm_info->req_sbuf_goft;
@@ -637,7 +638,8 @@ release_work:
 }
 
 static void imgsys_cmdq_timeout_cb_func(struct cmdq_cb_data data,
-						unsigned int fail_subfidx, bool isHWhang)
+						unsigned int fail_subfidx, bool isHWhang,
+						unsigned int hang_event)
 {
 	struct mtk_imgsys_pipe *pipe;
 	struct mtk_imgsys_request *req;
@@ -669,7 +671,7 @@ static void imgsys_cmdq_timeout_cb_func(struct cmdq_cb_data data,
 	mtk_hcp_get_gce_buffer(imgsys_dev->scp_pdev);
 	/*frm_info_cb->fail_uinfo_idx = fail_subfidx;*/
 	dev_info(imgsys_dev->dev,
-		"%s:%s:req fd/no(%d/%d) frmNo(%d) tfnum(%d)sidx/fidx/hw(%d/%d_%d/0x%x)timeout(%d/%d) dump cb +",
+		"%s:%s:req fd/no(%d/%d) frmNo(%d) tfnum(%d)sidx/fidx/hw(%d/%d_%d/0x%x)timeout(%d/%d)hang_event(%d) dump cb +",
 		__func__, (char *)(&(frm_info_cb->frm_owner)), frm_info_cb->request_fd,
 		frm_info_cb->request_no,
 		frm_info_cb->frame_no,
@@ -678,7 +680,7 @@ static void imgsys_cmdq_timeout_cb_func(struct cmdq_cb_data data,
 		fail_subfidx,
 		frm_info_cb->user_info[fail_subfidx].subfrm_idx,
 		frm_info_cb->user_info[fail_subfidx].hw_comb, isHWhang,
-		imgsys_timeout_idx);
+		imgsys_timeout_idx, hang_event);
 
 	/* DUMP DL CHECKSUM & HW REGISTERS*/
 	if (imgsys_dev->dump && isHWhang) {
@@ -697,13 +699,14 @@ static void imgsys_cmdq_timeout_cb_func(struct cmdq_cb_data data,
 	swork->pipe = frm_info_cb->pipe;
 	swork->fail_uinfo_idx = fail_subfidx;
 	swork->fail_isHWhang = isHWhang;
+	swork->hang_event = hang_event;
 	INIT_WORK(&swork->work, cmdq_cb_timeout_worker);
 	queue_work(req->imgsys_pipe->imgsys_dev->mdpcb_wq,
 		&swork->work);
 	imgsys_timeout_idx = (imgsys_timeout_idx + 1) % VIDEO_MAX_FRAME;
 
 	dev_info(imgsys_dev->dev,
-		"%s:%s:req fd/no(%d/%d) frmNo(%d) tfnum(%d)sidx/fidx/hw(%d/%d_%d/0x%x)timeout(%d/%d) dump cb -",
+		"%s:%s:req fd/no(%d/%d) frmNo(%d) tfnum(%d)sidx/fidx/hw(%d/%d_%d/0x%x)timeout(%d/%d)hang_event(%d) dump cb -",
 		__func__, (char *)(&(frm_info_cb->frm_owner)), frm_info_cb->request_fd,
 		frm_info_cb->request_no,
 		frm_info_cb->frame_no,
@@ -712,7 +715,7 @@ static void imgsys_cmdq_timeout_cb_func(struct cmdq_cb_data data,
 		fail_subfidx,
 		frm_info_cb->user_info[fail_subfidx].subfrm_idx,
 		frm_info_cb->user_info[fail_subfidx].hw_comb, isHWhang,
-		imgsys_timeout_idx);
+		imgsys_timeout_idx, hang_event);
 }
 
 static void cmdq_cb_done_worker(struct work_struct *work)

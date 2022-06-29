@@ -166,7 +166,7 @@ int imgsys_cmdq_sendtask(struct mtk_imgsys_dev *imgsys_dev,
 				void (*cmdq_cb)(struct cmdq_cb_data data,
 					uint32_t subfidx, bool isLastTaskInReq),
 				void (*cmdq_err_cb)(struct cmdq_cb_data data,
-					uint32_t fail_subfidx, bool isHWhang))
+					uint32_t fail_subfidx, bool isHWhang, uint32_t hangEvent))
 {
 	int ret = 0;
 	struct mtk_imgcmdq_dev *cmdq_dev = platform_get_drvdata(imgsys_dev->imgcmdq_pdev);

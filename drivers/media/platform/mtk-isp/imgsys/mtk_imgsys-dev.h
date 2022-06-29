@@ -406,6 +406,7 @@ struct gce_timeout_work {
 	void *pipe;
 	uint32_t fail_uinfo_idx;
 	int8_t fail_isHWhang;
+	int hang_event;
 };
 
 struct gce_cb_work {
@@ -753,6 +754,7 @@ struct swfrm_info_t {
 	void *pipe;
 	uint32_t fail_uinfo_idx;
 	int8_t fail_isHWhang;
+	int timeout_event;
 	struct timeval eqtime;
 	int chan_id;
 	char *hw_ts_log;
