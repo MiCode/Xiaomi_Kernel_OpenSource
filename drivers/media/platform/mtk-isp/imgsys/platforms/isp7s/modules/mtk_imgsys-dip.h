@@ -44,6 +44,9 @@
 #define DIP_DMA_DBG_SEL		0x10C0
 #define DIP_DMA_DBG_PORT	0x10C4
 #define DIP_NR3D_DBG_SEL	0x501C
+#define DIP_NR3D_DBG_CNT	0x5020
+#define DIP_NR3D_DBG_ST		0x5024
+#define DIP_NR3D_DBG_POINTS	72
 
 /* DIP NR1 */
 #define DIP_NR1_ADDR		0x15150000
@@ -104,6 +107,7 @@ enum DIPDmaDebugType {
 struct DIPDmaDebugInfo {
 	char DMAName[DIP_DMA_NAME_MAX_SIZE];
 	enum DIPDmaDebugType DMADebugType;
+	unsigned int DMAIdx;
 };
 
 
