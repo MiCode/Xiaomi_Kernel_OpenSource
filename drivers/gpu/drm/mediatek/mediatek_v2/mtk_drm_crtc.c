@@ -7944,7 +7944,7 @@ static void msync_add_frame_time(struct mtk_drm_crtc *mtk_crtc,
 	unsigned int fps;
 	u64 time_diff;
 
-	if (msync_dy->dy_en == 0)
+	if (msync_dy->dy_en == 0 || msync_dy->record_index < 0)
 		return;
 
 	switch (type) {
