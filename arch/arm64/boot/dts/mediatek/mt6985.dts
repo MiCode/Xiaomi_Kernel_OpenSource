@@ -7871,6 +7871,8 @@
 				mediatek,eye-vrt-host = <0x2>;
 				mediatek,rx-sqth = <0x5>;
 				mediatek,discth = <0xb>;
+				mediatek,pll-fbksel = <0x0>;
+				mediatek,pll-posdiv = <0x0>;
 			};
 
 			u3port0: usb3-phy0@11e43000 {
@@ -7902,6 +7904,8 @@
 				mediatek,eye-vrt-host = <0x2>;
 				mediatek,rx-sqth = <0x5>;
 				mediatek,discth = <0xb>;
+				mediatek,pll-fbksel = <0x0>;
+				mediatek,pll-posdiv = <0x0>;
 			};
 		};
 
