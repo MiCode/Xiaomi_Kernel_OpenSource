@@ -90,6 +90,8 @@ int __mtk_disp_pmqos_slot_look_up(int comp_id, int mode)
 		return DISP_PMQOS_WDMA0_BW;
 	case DDP_COMPONENT_WDMA1:
 		return DISP_PMQOS_WDMA1_BW;
+	case DDP_COMPONENT_OVLSYS_WDMA2:
+		return DISP_PMQOS_OVLSYS_WDMA2_BW;
 	default:
 		DDPPR_ERR("%s, unknown comp %d\n", __func__, comp_id);
 		break;

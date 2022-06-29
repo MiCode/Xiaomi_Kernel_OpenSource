@@ -3992,7 +3992,8 @@ bool mtk_crtc_is_mem_mode(struct drm_crtc *crtc)
 		return false;
 
 	if (comp->id == DDP_COMPONENT_WDMA0 ||
-		comp->id == DDP_COMPONENT_WDMA1)
+		comp->id == DDP_COMPONENT_WDMA1 ||
+		comp->id == DDP_COMPONENT_OVLSYS_WDMA2)
 		return true;
 
 	return false;
@@ -4032,6 +4033,8 @@ int get_path_wait_event(struct mtk_drm_crtc *mtk_crtc,
 		return mtk_crtc->gce_obj.event[EVENT_WDMA0_EOF];
 	} else if (comp->id == DDP_COMPONENT_WDMA1) {
 		return mtk_crtc->gce_obj.event[EVENT_WDMA1_EOF];
+	} else if (comp->id == DDP_COMPONENT_OVLSYS_WDMA2) {
+		return mtk_crtc->gce_obj.event[EVENT_OVLSYS1_WDMA0_EOF];
 	}
 
 	DDPPR_ERR("The output component has not frame done event\n");
@@ -4069,6 +4072,9 @@ void mtk_crtc_wait_frame_done(struct mtk_drm_crtc *mtk_crtc,
 		if (mtk_crtc_is_dc_mode(&mtk_crtc->base))
 			cmdq_pkt_wfe(cmdq_handle, gce_event);
 	} else if (gce_event == mtk_crtc->gce_obj.event[EVENT_WDMA1_EOF]) {
+		if (mtk_crtc_is_dc_mode(&mtk_crtc->base))
+			cmdq_pkt_wfe(cmdq_handle, gce_event);
+	} else  if (gce_event == mtk_crtc->gce_obj.event[EVENT_OVLSYS1_WDMA0_EOF]) {
 		if (mtk_crtc_is_dc_mode(&mtk_crtc->base))
 			cmdq_pkt_wfe(cmdq_handle, gce_event);
 	} else
@@ -7694,6 +7700,9 @@ void mtk_drm_crtc_disable(struct drm_crtc *crtc, bool need_wait)
 		if (!comp)
 			comp = mtk_ddp_comp_find_by_id(crtc,
 					DDP_COMPONENT_WDMA1);
+		if (!comp)
+			comp = mtk_ddp_comp_find_by_id(crtc,
+					DDP_COMPONENT_OVLSYS_WDMA2);
 		if (comp)
 			comp->fb = NULL;
 	}
@@ -9205,6 +9214,8 @@ static void mtk_crtc_wb_comp_config(struct drm_crtc *crtc,
 	comp = mtk_ddp_comp_find_by_id(crtc, DDP_COMPONENT_WDMA0);
 	if (!comp)
 		comp = mtk_ddp_comp_find_by_id(crtc, DDP_COMPONENT_WDMA1);
+	if (!comp)
+		comp = mtk_ddp_comp_find_by_id(crtc, DDP_COMPONENT_OVLSYS_WDMA2);
 	if (!comp) {
 		DDPPR_ERR("The wb component is not exsit\n");
 		return;
@@ -9321,10 +9332,12 @@ int mtk_crtc_gec_flush_check(struct drm_crtc *crtc)
 	struct mtk_ddp_comp *output_comp = NULL;
 
 	output_comp = mtk_ddp_comp_request_output(mtk_crtc);
+
 	if (output_comp) {
 		switch (output_comp->id) {
 		case DDP_COMPONENT_WDMA0:
 		case DDP_COMPONENT_WDMA1:
+		case DDP_COMPONENT_OVLSYS_WDMA2:
 			if (!state->prop_val[CRTC_PROP_OUTPUT_ENABLE])
 				return -EINVAL;
 			break;
@@ -10405,6 +10418,9 @@ static void mtk_crtc_get_event_name(struct mtk_drm_crtc *mtk_crtc, char *buf,
 		break;
 	case EVENT_OVLSYS_WDMA0_EOF:
 		len = snprintf(buf, buf_len, "disp_ovlsys_wdma0_eof%d",
+				drm_crtc_index(&mtk_crtc->base));
+	case EVENT_OVLSYS1_WDMA0_EOF:
+		len = snprintf(buf, buf_len, "disp_ovlsys_wdma2_eof%d",
 			       drm_crtc_index(&mtk_crtc->base));
 		break;
 	default:
@@ -11181,7 +11197,8 @@ int mtk_drm_crtc_create(struct drm_device *drm_dev,
 		}
 
 		if ((p_mode == DDP_MAJOR) && (comp_id == DDP_COMPONENT_WDMA0 ||
-					      comp_id == DDP_COMPONENT_WDMA1)) {
+					      comp_id == DDP_COMPONENT_WDMA1 ||
+					      comp_id == DDP_COMPONENT_OVLSYS_WDMA2)) {
 			ret = mtk_wb_connector_init(drm_dev, mtk_crtc);
 			if (ret != 0)
 				return ret;
@@ -11993,7 +12010,8 @@ static void mtk_crtc_create_wb_path_cmdq(struct drm_crtc *crtc,
 	for (i = 0; i < ddp_ctx->wb_comp_nr; i++) {
 		comp = ddp_ctx->wb_comp[i];
 		if (comp->id == DDP_COMPONENT_WDMA0 ||
-		    comp->id == DDP_COMPONENT_WDMA1) {
+		    comp->id == DDP_COMPONENT_WDMA1 ||
+		    comp->id == DDP_COMPONENT_OVLSYS_WDMA2) {
 			comp->fb = ddp_ctx->wb_fb;
 			break;
 		}
@@ -12059,7 +12077,8 @@ static void mtk_crtc_config_wb_path_cmdq(struct drm_crtc *crtc,
 	for (i = 0; i < ddp_ctx->wb_comp_nr; i++) {
 		comp = ddp_ctx->wb_comp[i];
 		if (comp->id == DDP_COMPONENT_WDMA0 ||
-		    comp->id == DDP_COMPONENT_WDMA1) {
+		    comp->id == DDP_COMPONENT_WDMA1 ||
+		    comp->id == DDP_COMPONENT_OVLSYS_WDMA2) {
 			fb = comp->fb;
 			break;
 		}
@@ -12239,6 +12258,9 @@ static void __mtk_crtc_old_sub_path_destroy(struct drm_crtc *crtc,
 		if (!comp)
 			comp = mtk_ddp_comp_find_by_id(crtc,
 					DDP_COMPONENT_WDMA1);
+		if (!comp)
+			comp = mtk_ddp_comp_find_by_id(crtc,
+					DDP_COMPONENT_OVLSYS_WDMA2);
 		if (comp)
 			comp->fb = NULL;
 	}

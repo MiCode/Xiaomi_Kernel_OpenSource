@@ -10196,12 +10196,12 @@ static int mtk_ddp_mout_en_MT6985(const struct mtk_mmsys_reg_data *data,
 		*addr = MT6985_OVL_BLEND_CROSSBAR2_MOUT_EN;
 		value = DISP_OVL2_2L_TO_WDMA2;
 	} else if ((cur == DDP_COMPONENT_OVL7_2L &&
-		next == DDP_COMPONENT_OVLSYS_DLO_ASYNC12)) {
+		next == DDP_COMPONENT_OVLSYS_DLO_ASYNC13)) {
 		/* CRTC2 - CON1*/
 		*addr = MT6985_OVL_BLEND_CROSSBAR3_MOUT_EN;
 		value = DISP_OVL2_2L_TO_DLO_RELAY6;
 	} else if ((cur == DDP_COMPONENT_OVL7_2L &&
-		next == DDP_COMPONENT_WDMA3)) {
+		next == DDP_COMPONENT_OVLSYS_WDMA2)) {
 		/* CRTC2 - CON2*/
 		*addr = MT6985_OVL_BLEND_CROSSBAR3_MOUT_EN;
 		value = DISP_OVL3_2L_TO_WDMA0;
@@ -10247,11 +10247,26 @@ static int mtk_ddp_mout_en_MT6985(const struct mtk_mmsys_reg_data *data,
 		/* PQ_IN_CROSSBAR */
 		*addr = MT6985_PQ_IN_CROSSBAR2_MOUT_EN;
 		value = DISP_DLI_RELAY2_TO_PQ_OUT_CROSSBAR4;
+	} else if ((cur == DDP_COMPONENT_DLI_ASYNC3 &&
+		next == DDP_COMPONENT_PQ0_IN_CB3)) {
+		/* PQ_IN_CROSSBAR */
+		*addr = MT6985_PQ_IN_CROSSBAR3_MOUT_EN;
+		value = DISP_DLI_RELAY3_TO_PQ_OUT_CROSSBAR4;
+	} else if ((cur == DDP_COMPONENT_PQ0_IN_CB3 &&
+		next == DDP_COMPONENT_PQ0_OUT_CB4)) {
+		/* PQ_IN_CROSSBAR */
+		*addr = MT6985_PQ_IN_CROSSBAR3_MOUT_EN;
+		value = DISP_DLI_RELAY3_TO_PQ_OUT_CROSSBAR4;
 	} else if ((cur == DDP_COMPONENT_PQ0_IN_CB3 &&
 		next == DDP_COMPONENT_TDSHP1)) {
 		/* PQ_IN_CROSSBAR */
 		*addr = MT6985_PQ_IN_CROSSBAR3_MOUT_EN;
 		value = DISP_DLI_RELAY3_TO_TDSHP1;
+	} else if (cur == DDP_COMPONENT_PQ0_OUT_CB4 &&
+		next == DDP_COMPONENT_PANEL0_COMP_OUT_CB2) {
+		/* PQ_OUT_CROSSBAR */
+		*addr = MT6985_PQ_OUT_CROSSBAR4_MOUT_EN;
+		value = DISP_PQ_IN_CROSSBAR3_TO_PANEL_COMP_OUT_CROSSBAR2;
 	} else if ((cur == DDP_COMPONENT_PQ0_IN_CB4 &&
 		next == DDP_COMPONENT_PQ0_OUT_CB3) ||
 		(cur == DDP_COMPONENT_PQ1_IN_CB4 &&
@@ -10453,6 +10468,11 @@ static int mtk_ddp_mout_en_MT6985(const struct mtk_mmsys_reg_data *data,
 		/* MERGE_OUT_CROSSBAR */
 		*addr = MT6985_MERGE_OUT_CROSSBAR0_MOUT_EN;
 		value = DISP_COMP_OUT_CROSSBAR0_TO_DSI0;
+	} else if ((cur == DDP_COMPONENT_MERGE0_OUT_CB2 &&
+		next == DDP_COMPONENT_WDMA0)) {
+		/* MERGE_OUT_CROSSBAR */
+		*addr = MT6985_MERGE_OUT_CROSSBAR2_MOUT_EN;
+		value = DISP_COMP_OUT_CROSSBAR2_TO_WDMA1;
 	} else if ((cur == DDP_COMPONENT_MERGE0_OUT_CB2 &&
 		next == DDP_COMPONENT_WDMA1)) {
 		/* MERGE_OUT_CROSSBAR */

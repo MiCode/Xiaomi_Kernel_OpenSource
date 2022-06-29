@@ -65,6 +65,8 @@ void init_drm_mmp_event(void)
 		mmprofile_register_event(g_DRM_MMP_Events.wdma, "WDMA0");
 	g_DRM_MMP_Events.wdma1 =
 		mmprofile_register_event(g_DRM_MMP_Events.wdma, "WDMA1");
+	g_DRM_MMP_Events.wdma12 =
+		mmprofile_register_event(g_DRM_MMP_Events.wdma, "WDMA12");
 	g_DRM_MMP_Events.dsi =
 		mmprofile_register_event(g_DRM_MMP_Events.IRQ, "DSI");
 	g_DRM_MMP_Events.dsi0 =
