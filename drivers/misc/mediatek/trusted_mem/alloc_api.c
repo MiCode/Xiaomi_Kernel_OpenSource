@@ -168,11 +168,8 @@ int trusted_mem_api_query_pa(enum TRUSTED_MEM_REQ_TYPE mem_type, u32 alignment,
 			      u8 *owner, u32 id, u32 clean, uint64_t *phy_addr)
 {
 #if IS_ENABLED(CONFIG_MTK_GZ_KREE)
-	if (is_svp_on_mtee())
-		return tmem_query_gz_handle_to_pa(get_mem_type(mem_type), alignment,
-				size, refcount, handle, owner, id, 0, phy_addr);
-	else
-		return TMEM_OPERATION_NOT_REGISTERED;
+	return tmem_query_gz_handle_to_pa(get_mem_type(mem_type), alignment,
+			size, refcount, handle, owner, id, 0, phy_addr);
 #else
 	return TMEM_OPERATION_NOT_REGISTERED;
 #endif
