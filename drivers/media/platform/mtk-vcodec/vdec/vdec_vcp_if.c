@@ -621,6 +621,7 @@ int vcp_dec_ipi_handler(void *arg)
 				break;
 			case VCU_IPIMSG_DEC_INIT_DONE:
 				handle_init_ack_msg((void *)obj->share_buf);
+				vcu->ctx->state = MTK_STATE_INIT;
 			case VCU_IPIMSG_DEC_START_DONE:
 			case VCU_IPIMSG_DEC_DEINIT_DONE:
 			case VCU_IPIMSG_DEC_RESET_DONE:
@@ -842,7 +843,8 @@ static int vcp_vdec_notify_callback(struct notifier_block *this,
 		// send backup ipi to vcp by one of any instances
 		list_for_each_safe(p, q, &dev->ctx_list) {
 			ctx = list_entry(p, struct mtk_vcodec_ctx, list);
-			if (ctx != NULL && ctx->state != MTK_STATE_ABORT) {
+			if (ctx != NULL && ctx->state < MTK_STATE_ABORT
+					&& ctx->state > MTK_STATE_FREE) {
 				mutex_unlock(&dev->ctx_mutex);
 				backup = true;
 				vdec_vcp_backup((struct vdec_inst *)ctx->drv_handle);

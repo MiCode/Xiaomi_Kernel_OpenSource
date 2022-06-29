@@ -506,6 +506,8 @@ int vcp_enc_ipi_handler(void *arg)
 			handle_enc_init_msg(vcu, (void *)obj->share_buf);
 			if (msg->status != VENC_IPI_MSG_STATUS_OK)
 				vcu->failure = VENC_IPI_MSG_STATUS_FAIL;
+			else
+				vcu->ctx->state = MTK_STATE_INIT;
 		case VCU_IPIMSG_ENC_SET_PARAM_DONE:
 		case VCU_IPIMSG_ENC_ENCODE_DONE:
 		case VCU_IPIMSG_ENC_DEINIT_DONE:
@@ -715,7 +717,8 @@ static int vcp_venc_notify_callback(struct notifier_block *this,
 		mutex_lock(&dev->ctx_mutex);
 		list_for_each_safe(p, q, &dev->ctx_list) {
 			ctx = list_entry(p, struct mtk_vcodec_ctx, list);
-			if (ctx != NULL && ctx->state != MTK_STATE_ABORT) {
+			if (ctx != NULL && ctx->state < MTK_STATE_ABORT
+					&& ctx->state > MTK_STATE_FREE) {
 				mutex_unlock(&dev->ctx_mutex);
 				backup = true;
 				venc_vcp_backup((struct venc_inst *)ctx->drv_handle);
