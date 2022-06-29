@@ -6107,6 +6107,7 @@ void mtk_cam_dev_req_enqueue(struct mtk_cam_device *cam,
 			unsigned int drained_seq_no = 0;
 			unsigned int initial_frame = 0;
 			bool immediate_switch_sensor = false;
+			bool switch_sensor = false;
 
 			/**
 			 * For sub dev shares ctx's cases, e.g.
@@ -6161,7 +6162,7 @@ void mtk_cam_dev_req_enqueue(struct mtk_cam_device *cam,
 				}
 			}
 			immediate_switch_sensor = mtk_cam_is_immediate_switch_req(req, stream_id);
-
+			switch_sensor = mtk_cam_is_raw_switch_req(req, stream_id);
 			/**
 			 * initial frame condition:
 			 * 1. must not immediate sensor link switch
@@ -6187,7 +6188,7 @@ void mtk_cam_dev_req_enqueue(struct mtk_cam_device *cam,
 					INIT_WORK(&done_work->work, mtk_cam_meta1_done_work);
 				}
 			}
-			if (!immediate_switch_sensor &&
+			if (!switch_sensor &&
 			    ctx->sensor && (initial_frame || mtk_cam_scen_is_m2m(scen))) {
 				if (mtk_cam_ctx_has_raw(ctx) &&
 				    mtk_cam_scen_is_mstream_2exp_types(scen)) {
@@ -6201,7 +6202,7 @@ void mtk_cam_dev_req_enqueue(struct mtk_cam_device *cam,
 				mtk_cam_initial_sensor_setup(req, ctx);
 			}
 			if (ctx->used_raw_num != 0) {
-				if (!immediate_switch_sensor &&
+				if (!switch_sensor &&
 				    ctx->sensor && MTK_CAM_INITIAL_REQ_SYNC == 0 &&
 					(scen->id == MTK_CAM_SCEN_NORMAL ||
 					req_stream_data->frame_params.raw_param.hardware_scenario
@@ -6210,7 +6211,7 @@ void mtk_cam_dev_req_enqueue(struct mtk_cam_device *cam,
 					mtk_cam_initial_sensor_setup(req, ctx);
 				}
 			} else { // for single sv pipe stream
-				if (!immediate_switch_sensor &&
+				if (!switch_sensor &&
 				    ctx->sensor && MTK_CAM_INITIAL_REQ_SYNC == 0 &&
 					req_stream_data->frame_seq_no == 2) {
 					mtk_cam_initial_sensor_setup(req, ctx);
