@@ -53,6 +53,7 @@
 #include "mtk_disp_aal.h"
 #include "mtk_disp_c3d.h"
 #include "mtk_disp_chist.h"
+#include "mtk_lease.h"
 
 #include "mtk_drm_mmp.h"
 /* *******Panel Master******** */
@@ -5601,6 +5602,10 @@ static const struct drm_ioctl_desc mtk_ioctls[] = {
 	DRM_IOCTL_DEF_DRV(MTK_SET_PQ_CAPS, mtk_drm_ioctl_set_pq_caps,
 			  DRM_UNLOCKED),
 	DRM_IOCTL_DEF_DRV(MTK_AAL_SET_TRIGGER_STATE, mtk_drm_ioctl_aal_set_trigger_state,
+			  DRM_UNLOCKED),
+	DRM_IOCTL_DEF_DRV(MTK_DRM_SET_LEASE_INFO, mtk_drm_set_lease_info_ioctl,
+			  DRM_UNLOCKED),
+	DRM_IOCTL_DEF_DRV(MTK_DRM_GET_LEASE_INFO, mtk_drm_get_lease_info_ioctl,
 			  DRM_UNLOCKED),
 };
 
