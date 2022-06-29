@@ -1161,8 +1161,8 @@
 			reg = <0 0x1025d000 0 0x1000>;
 		};
 
-		usb_meta: usb_meta {
-			compatible = "mediatek,usb_meta";
+		usb_meta: usb-meta {
+			compatible = "mediatek,usb-meta";
 			udc = <&ssusb>;
 		};
 
@@ -11258,7 +11258,7 @@
 		uarthub_disable = <1>;
 	};
 
-	extcon_usb: extcon_usb {
+	extcon_usb: extcon-usb {
 		compatible = "mediatek,extcon-usb";
 		vbus-supply = <&mt6375_otg_vbus>;
 		vbus-voltage = <5000000>;
@@ -11267,16 +11267,16 @@
 		tcpc = "type_c_port0";
 		mediatek,bypss-typec-sink = <1>;
 		port {
-			usb_role: endpoint@0 {
+			usb_role: endpoint {
 				remote-endpoint = <&mtu3_drd_switch>;
 			};
 		};
 	};
 
-	extcon_usb1: extcon_usb1 {
+	extcon_usb1: extcon-usb1 {
 		compatible = "mediatek,extcon-usb";
 		port {
-			usb_role1: endpoint@0 {
+			usb_role1: endpoint {
 				remote-endpoint = <&mtu3_drd_switch1>;
 			};
 		};
