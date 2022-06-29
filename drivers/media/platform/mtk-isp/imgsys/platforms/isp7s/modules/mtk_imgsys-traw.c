@@ -621,15 +621,17 @@ static int imgsys_traw_iommu_cb(int port, dma_addr_t mva, void *cb_data)
 		pr_info("%s: base already unmapped, return directly", __func__);
 		return 0;
 	}
-	for (i = 0x0; i <= TRAW_CTL_ADDR_END; i += 16) {
+
+	for (i = TRAW_DMA_ADDR_OFST; i <= TRAW_DMA_ADDR_END; i += 16) {
 		if (sprintf(DbgStr, "[0x%08X] 0x%08X 0x%08X 0x%08X 0x%08X",
-			(unsigned int)(TRAW_B_BASE_ADDR + i),
-			(unsigned int)ioread32((void *)(g_ltrawRegBA + i)),
-			(unsigned int)ioread32((void *)(g_ltrawRegBA + i + 4)),
-			(unsigned int)ioread32((void *)(g_ltrawRegBA + i + 8)),
-			(unsigned int)ioread32((void *)(g_ltrawRegBA + i + 12))) > 0)
+			(unsigned int)(TRAW_A_BASE_ADDR + i),
+			(unsigned int)ioread32((void *)(g_trawRegBA + i)),
+			(unsigned int)ioread32((void *)(g_trawRegBA + i + 4)),
+			(unsigned int)ioread32((void *)(g_trawRegBA + i + 8)),
+			(unsigned int)ioread32((void *)(g_trawRegBA + i + 12))) > 0)
 			pr_info("%s\n", DbgStr);
 	}
+
 	/* Dma registers */
 	for (i = TRAW_DMA_ADDR_OFST; i <= TRAW_DMA_ADDR_END; i += 16) {
 		if (sprintf(DbgStr, "[0x%08X] 0x%08X 0x%08X 0x%08X 0x%08X",
@@ -651,14 +653,13 @@ static int imgsys_traw_iommu_cb(int port, dma_addr_t mva, void *cb_data)
 			pr_info("%s\n", DbgStr);
 	}
 
-
-	for (i = TRAW_DMA_ADDR_OFST; i <= TRAW_DMA_ADDR_END; i += 16) {
+	for (i = 0x0; i <= TRAW_CTL_ADDR_END; i += 16) {
 		if (sprintf(DbgStr, "[0x%08X] 0x%08X 0x%08X 0x%08X 0x%08X",
-			(unsigned int)(TRAW_A_BASE_ADDR + i),
-			(unsigned int)ioread32((void *)(g_trawRegBA + i)),
-			(unsigned int)ioread32((void *)(g_trawRegBA + i + 4)),
-			(unsigned int)ioread32((void *)(g_trawRegBA + i + 8)),
-			(unsigned int)ioread32((void *)(g_trawRegBA + i + 12))) > 0)
+			(unsigned int)(TRAW_B_BASE_ADDR + i),
+			(unsigned int)ioread32((void *)(g_ltrawRegBA + i)),
+			(unsigned int)ioread32((void *)(g_ltrawRegBA + i + 4)),
+			(unsigned int)ioread32((void *)(g_ltrawRegBA + i + 8)),
+			(unsigned int)ioread32((void *)(g_ltrawRegBA + i + 12))) > 0)
 			pr_info("%s\n", DbgStr);
 	}
 
