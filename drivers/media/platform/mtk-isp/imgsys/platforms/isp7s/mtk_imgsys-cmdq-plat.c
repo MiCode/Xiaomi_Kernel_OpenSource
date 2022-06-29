@@ -2429,7 +2429,7 @@ bool imgsys_quick_onoff_enable_plat7s(void)
 
 bool imgsys_fence_dbg_enable_plat7s(void)
 {
-	return true;//imgsys_fence_dbg_en;
+	return imgsys_fence_dbg_en;
 }
 
 struct imgsys_cmdq_cust_data imgsys_cmdq_data_7s = {
