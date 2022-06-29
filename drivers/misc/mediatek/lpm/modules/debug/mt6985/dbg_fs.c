@@ -17,6 +17,7 @@ void __exit dbg_fs_exit(void)
 	lpm_spm_fs_deinit();
 	lpm_rc_fs_deinit();
 	lpm_dbg_deinit();
+	lpm_hwreq_fs_deinit();
 }
 
 int __init dbg_fs_init(void)
@@ -25,6 +26,7 @@ int __init dbg_fs_init(void)
 	lpm_rc_fs_init();
 	lpm_spm_fs_init();
 	lpm_cpuidle_fs_init();
+	lpm_hwreq_fs_init();
 	pr_info("%s %d: finish", __func__, __LINE__);
 	return 0;
 }

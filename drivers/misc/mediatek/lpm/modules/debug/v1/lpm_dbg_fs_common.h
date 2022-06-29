@@ -19,4 +19,7 @@ void lpm_cpuidle_state_init(void);
 void lpm_cpuidle_profile_init(void);
 void lpm_cpuidle_control_init(void);
 
+int lpm_hwreq_fs_init(void);
+int lpm_hwreq_fs_deinit(void);
+
 #endif /* __LPM_DBG_FS_COMMON_H__ */
