@@ -1118,10 +1118,6 @@ static ssize_t scp_reset_store(struct device *dev
 		return -EINVAL;
 
 	scp_reset_counts = counts;
-	if (trigger == 1) {
-		scp_reset_by_cmd = 1;
-		scp_send_reset_wq(RESET_TYPE_CMD);
-	}
 	return n;
 }
 
