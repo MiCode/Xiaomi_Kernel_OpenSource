@@ -424,34 +424,6 @@ static void mt6338_reset_capture_gpio(struct mt6338_priv *priv)
 
 }
 
-static void  mt6338_set_vow_gpio(struct mt6338_priv *priv)
-{
-	regmap_write(priv->regmap, MT6338_GPIO_PULLEN1_SET, 0x1);
-
-	/* vow gpio set (data) */
-	/* [3:0] 4: VOW_DAT_MISO (O) */
-	regmap_write(priv->regmap, MT6338_GPIO_MODE3_CLR, 0xff);
-	regmap_write(priv->regmap, MT6338_GPIO_MODE3_SET, 0x14);
-
-	/* vow gpio set (clock) */
-	/* [3:0] 4: VOW_CLK_MISO (O)) */
-	regmap_write(priv->regmap, MT6338_GPIO_MODE4_CLR, 0xf);
-	regmap_write(priv->regmap, MT6338_GPIO_MODE4_SET, 0x4);
-}
-
-static void mt6338_reset_vow_gpio(struct mt6338_priv *priv)
-{
-	/* vow gpio clear (data) */
-	regmap_write(priv->regmap, MT6338_GPIO_PULLEN1_CLR, 0x1);
-
-	/* [3:0] 4: VOW_DAT_MISO (O) */
-	regmap_write(priv->regmap, MT6338_GPIO_MODE3_CLR, 0xf);
-
-	/* vow gpio clear (clock) */
-	/* [3:0] 4: VOW_CLK_MISO (O)) */
-	regmap_write(priv->regmap, MT6338_GPIO_MODE4_CLR, 0xf);
-}
-
 /* use only when not govern by DAPM */
 static void mt6338_set_dcxo(struct mt6338_priv *priv, bool enable)
 {
@@ -3353,21 +3325,21 @@ static int mt_lo_event(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
-static int mt_adc_clk_gen_event(struct snd_soc_dapm_widget *w,
+/* clk_gen for ADC L/R */
+static int mt_adc_lr_clkgen_event(struct snd_soc_dapm_widget *w,
 				struct snd_kcontrol *kcontrol,
 				int event)
 {
 	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
 	struct mt6338_priv *priv = snd_soc_component_get_drvdata(cmpnt);
 
-	dev_dbg(priv->dev, "%s(), event 0x%x, vow_enable %d\n",
-		 __func__, event, priv->vow_enable);
+	dev_dbg(priv->dev, "%s(), event 0x%x, vow_setup %d\n",
+		 __func__, event, priv->vow_setup);
 
 	switch (event) {
 	case SND_SOC_DAPM_POST_PMU:
-		if (priv->vow_enable) {
+		if (priv->vow_setup) {
 			/* ADC CLK from CLKGEN (3.25MHz) */
-			dev_info(priv->dev, "%s(), vow mode\n", __func__);
 			/* L */
 			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON12,
 					   RG_AUDPREAMPLMODE_MASK_SFT,
@@ -3400,6 +3372,89 @@ static int mt_adc_clk_gen_event(struct snd_soc_dapm_widget *w,
 			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON19,
 					   RG_AUDADCRCLKSOURCE_MASK_SFT,
 					   0x2 << RG_AUDADCRCLKSOURCE_SFT);
+			/* CLKMODE */
+			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON81,
+					   RG_ADCL_CLKMODE_MASK_SFT |
+					   RG_ADCR_CLKMODE_MASK_SFT,
+					   0x0 << RG_ADCL_CLKMODE_SFT);
+		} else {
+			/* L */
+			if (priv->mic_hifi_mode) {
+				/* ADC CLK from CLKGEN (6.5MHz) */
+				regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON12,
+						RG_AUDPREAMPLMODE_MASK_SFT,
+						0x0 << RG_AUDPREAMPLMODE_SFT);
+			} else {
+				regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON12,
+						RG_AUDPREAMPLMODE_MASK_SFT,
+						0x2 << RG_AUDPREAMPLMODE_SFT);
+			}
+			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON18,
+						RG_AUDADCLCLKGENMODE_MASK_SFT |
+						RG_AUDADCLCLKSOURCE_MASK_SFT,
+						0x5 << RG_AUDADCLCLKSOURCE_SFT);
+			/* R */
+			if (priv->mic_hifi_mode) {
+				regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON12,
+						RG_AUDPREAMPRMODE_MASK_SFT,
+						0x0 << RG_AUDPREAMPRMODE_SFT);
+			} else {
+				regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON12,
+						RG_AUDPREAMPRMODE_MASK_SFT,
+						0x2 << RG_AUDPREAMPRMODE_SFT);
+			}
+			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON19,
+						RG_AUDADCRCLKGENMODE_MASK_SFT |
+						RG_AUDADCRCLKSOURCE_MASK_SFT,
+						0x5 << RG_AUDADCRCLKSOURCE_SFT);
+
+			/* CLKMODE */
+			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON81,
+						RG_ADCL_CLKMODE_MASK_SFT |
+						RG_ADCR_CLKMODE_MASK_SFT,
+						0x3 << RG_ADCL_CLKMODE_SFT);
+		}
+		break;
+	case SND_SOC_DAPM_PRE_PMD:
+		/* CLKMODE */
+		regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON81,
+					RG_ADCL_CLKMODE_MASK_SFT |
+					RG_ADCR_CLKMODE_MASK_SFT,
+					0x0 << RG_ADCL_CLKMODE_SFT);
+		/* L */
+		regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON18,
+					RG_AUDADCLCLKGENMODE_MASK_SFT |
+					RG_AUDADCLCLKSOURCE_MASK_SFT,
+					0x0 << RG_AUDADCLCLKSOURCE_SFT);
+		/* R */
+		regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON19,
+					RG_AUDADCRCLKGENMODE_MASK_SFT |
+					RG_AUDADCRCLKSOURCE_MASK_SFT,
+					0x0 << RG_AUDADCRCLKSOURCE_SFT);
+		regmap_write(priv->regmap, MT6338_AUDENC_PMU_CON12, 0x0);
+		break;
+	default:
+		break;
+	}
+
+	return 0;
+}
+
+/* clk_gen for ADC 3/4 */
+static int mt_adc_34_clkgen_event(struct snd_soc_dapm_widget *w,
+				struct snd_kcontrol *kcontrol,
+				int event)
+{
+	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
+	struct mt6338_priv *priv = snd_soc_component_get_drvdata(cmpnt);
+
+	dev_dbg(priv->dev, "%s(), event 0x%x, vow_setup %d\n",
+		 __func__, event, priv->vow_setup);
+
+	switch (event) {
+	case SND_SOC_DAPM_POST_PMU:
+		if (priv->vow_setup) {
+			/* ADC CLK from CLKGEN (3.25MHz) */
 			/* 3 */
 			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON13,
 					   RG_AUDPREAMP3MODE_MASK_SFT,
@@ -3432,36 +3487,12 @@ static int mt_adc_clk_gen_event(struct snd_soc_dapm_widget *w,
 			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON21,
 					   RG_AUDADC4CLKSOURCE_MASK_SFT,
 					   0x2 << RG_AUDADC4CLKSOURCE_SFT);
+			/* CLKMODE */
+			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON81,
+					   RG_ADC3_CLKMODE_MASK_SFT |
+					   RG_ADC4_CLKMODE_MASK_SFT,
+					   0x0 << RG_ADC3_CLKMODE_SFT);
 		} else {
-			if (priv->mic_hifi_mode) {
-				/* ADC CLK from CLKGEN (6.5MHz) */
-				regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON12,
-						RG_AUDPREAMPLMODE_MASK_SFT,
-						0x0 << RG_AUDPREAMPLMODE_SFT);
-			} else {
-				regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON12,
-						RG_AUDPREAMPLMODE_MASK_SFT,
-						0x2 << RG_AUDPREAMPLMODE_SFT);
-			}
-			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON18,
-						RG_AUDADCLCLKGENMODE_MASK_SFT |
-						RG_AUDADCLCLKSOURCE_MASK_SFT,
-						0x5 << RG_AUDADCLCLKSOURCE_SFT);
-			/* R */
-			if (priv->mic_hifi_mode) {
-				regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON12,
-						RG_AUDPREAMPRMODE_MASK_SFT,
-						0x0 << RG_AUDPREAMPRMODE_SFT);
-			} else {
-				regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON12,
-						RG_AUDPREAMPRMODE_MASK_SFT,
-						0x2 << RG_AUDPREAMPRMODE_SFT);
-			}
-			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON19,
-						RG_AUDADCRCLKGENMODE_MASK_SFT |
-						RG_AUDADCRCLKSOURCE_MASK_SFT,
-						0x5 << RG_AUDADCRCLKSOURCE_SFT);
-
 			/* ADC3 */
 			if (priv->mic_hifi_mode) {
 				regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON13,
@@ -3491,24 +3522,18 @@ static int mt_adc_clk_gen_event(struct snd_soc_dapm_widget *w,
 						RG_AUDADC4CLKSOURCE_MASK_SFT,
 						0x5 << RG_AUDADC4CLKSOURCE_SFT);
 			/* CLKMODE */
-			regmap_write(priv->regmap, MT6338_AUDENC_PMU_CON81, 0xf);
+			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON81,
+						RG_ADC3_CLKMODE_MASK_SFT |
+						RG_ADC4_CLKMODE_MASK_SFT,
+						0x3 << RG_ADC3_CLKMODE_SFT);
 		}
 		break;
 	case SND_SOC_DAPM_PRE_PMD:
 		/* CLKMODE */
-		regmap_write(priv->regmap, MT6338_AUDENC_PMU_CON81, 0x0);
-		/* L */
-		regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON18,
-					RG_AUDADCLCLKGENMODE_MASK_SFT |
-					RG_AUDADCLCLKSOURCE_MASK_SFT,
-					0x0 << RG_AUDADCLCLKSOURCE_SFT);
-		/* R */
-		regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON19,
-					RG_AUDADCRCLKGENMODE_MASK_SFT |
-					RG_AUDADCRCLKSOURCE_MASK_SFT,
-					0x0 << RG_AUDADCRCLKSOURCE_SFT);
-		regmap_write(priv->regmap, MT6338_AUDENC_PMU_CON12, 0x0);
-		regmap_write(priv->regmap, MT6338_AUDENC_PMU_CON14, 0x0);
+		regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON81,
+					RG_ADC3_CLKMODE_MASK_SFT |
+					RG_ADC4_CLKMODE_MASK_SFT,
+					0x0 << RG_ADC3_CLKMODE_SFT);
 		/* ADC3 */
 		regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON20,
 					RG_AUDADC3CLKGENMODE_MASK_SFT |
@@ -3535,8 +3560,8 @@ static int mt_dcc_clk_event(struct snd_soc_dapm_widget *w,
 	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
 	struct mt6338_priv *priv = snd_soc_component_get_drvdata(cmpnt);
 
-	dev_dbg(priv->dev, "%s(), event 0x%x, vow_enable %d\n",
-		 __func__, event, priv->vow_enable);
+	dev_dbg(priv->dev, "%s(), event 0x%x, vow_setup %d\n",
+		 __func__, event, priv->vow_setup);
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
@@ -3552,7 +3577,7 @@ static int mt_dcc_clk_event(struct snd_soc_dapm_widget *w,
 		regmap_update_bits(priv->regmap, MT6338_AFE_DCCLK1_CFG0,
 			DCCLK1_GEN_ON_MASK_SFT,
 			0x1 << DCCLK1_GEN_ON_SFT);
-		if (priv->vow_enable) {
+		if (priv->vow_setup) {
 			regmap_update_bits(priv->regmap, MT6338_AFE_DCCLK1_CFG0,
 				DCCLK1_REF_CK_SEL_MASK_SFT,
 				0x1 << DCCLK1_REF_CK_SEL_SFT);
@@ -3587,8 +3612,8 @@ static int mt_r_dcc_clk_event(struct snd_soc_dapm_widget *w,
 	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
 	struct mt6338_priv *priv = snd_soc_component_get_drvdata(cmpnt);
 
-	dev_dbg(priv->dev, "%s(), event 0x%x, vow_enable %d\n",
-		 __func__, event, priv->vow_enable);
+	dev_dbg(priv->dev, "%s(), event 0x%x, vow_setup %d\n",
+		 __func__, event, priv->vow_setup);
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
@@ -3604,7 +3629,7 @@ static int mt_r_dcc_clk_event(struct snd_soc_dapm_widget *w,
 		regmap_update_bits(priv->regmap, MT6338_AFE_DCCLK2_CFG0,
 			DCCLK2_GEN_ON_MASK_SFT,
 			0x1 << DCCLK2_GEN_ON_SFT);
-		if (priv->vow_enable) {
+		if (priv->vow_setup) {
 			regmap_update_bits(priv->regmap, MT6338_AFE_DCCLK2_CFG0,
 				DCCLK2_REF_CK_SEL_MASK_SFT,
 				0x1 << DCCLK2_REF_CK_SEL_SFT);
@@ -3639,8 +3664,8 @@ static int mt_3_dcc_clk_event(struct snd_soc_dapm_widget *w,
 	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
 	struct mt6338_priv *priv = snd_soc_component_get_drvdata(cmpnt);
 
-	dev_dbg(priv->dev, "%s(), event 0x%x, vow_enable %d\n",
-		 __func__, event, priv->vow_enable);
+	dev_dbg(priv->dev, "%s(), event 0x%x, vow_setup %d\n",
+		 __func__, event, priv->vow_setup);
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
@@ -3656,7 +3681,7 @@ static int mt_3_dcc_clk_event(struct snd_soc_dapm_widget *w,
 		regmap_update_bits(priv->regmap, MT6338_AFE_DCCLK3_CFG0,
 			DCCLK3_GEN_ON_MASK_SFT,
 			0x1 << DCCLK3_GEN_ON_SFT);
-		if (priv->vow_enable) {
+		if (priv->vow_setup) {
 			regmap_update_bits(priv->regmap, MT6338_AFE_DCCLK3_CFG0,
 				DCCLK3_REF_CK_SEL_MASK_SFT,
 				0x1 << DCCLK3_REF_CK_SEL_SFT);
@@ -3691,8 +3716,8 @@ static int mt_4_dcc_clk_event(struct snd_soc_dapm_widget *w,
 	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
 	struct mt6338_priv *priv = snd_soc_component_get_drvdata(cmpnt);
 
-	dev_dbg(priv->dev, "%s(), event 0x%x, vow_enable %d\n",
-		 __func__, event, priv->vow_enable);
+	dev_dbg(priv->dev, "%s(), event 0x%x, vow_setup %d\n",
+		 __func__, event, priv->vow_setup);
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
@@ -3708,7 +3733,7 @@ static int mt_4_dcc_clk_event(struct snd_soc_dapm_widget *w,
 		regmap_update_bits(priv->regmap, MT6338_AFE_DCCLK4_CFG0,
 			DCCLK4_GEN_ON_MASK_SFT,
 			0x1 << DCCLK4_GEN_ON_SFT);
-		if (priv->vow_enable) {
+		if (priv->vow_setup) {
 			regmap_update_bits(priv->regmap, MT6338_AFE_DCCLK4_CFG0,
 				DCCLK4_REF_CK_SEL_MASK_SFT,
 				0x1 << DCCLK4_REF_CK_SEL_SFT);
@@ -3743,8 +3768,8 @@ static int mt_mic_bias_0_event(struct snd_soc_dapm_widget *w,
 	struct mt6338_priv *priv = snd_soc_component_get_drvdata(cmpnt);
 	unsigned int mic_type = priv->mux_select[MUX_MIC_TYPE_0];
 
-	dev_info(priv->dev, "%s(), event 0x%x, mic_type %d, vow_enable: %d\n",
-		 __func__, event, mic_type, priv->vow_enable);
+	dev_info(priv->dev, "%s(), event 0x%x, mic_type %d, vow_setup: %d\n",
+		 __func__, event, mic_type, priv->vow_setup);
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
@@ -3768,7 +3793,7 @@ static int mt_mic_bias_0_event(struct snd_soc_dapm_widget *w,
 		regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON59,
 			RG_AUDMICBIAS0VREF_MASK_SFT,
 			MIC_BIAS_1P9 << RG_AUDMICBIAS0VREF_SFT);
-		if (priv->vow_enable) {
+		if (priv->vow_setup) {
 			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON59,
 				RG_AUDMICBIAS0LOWPEN_MASK_SFT,
 				0x1 << RG_AUDMICBIAS0LOWPEN_SFT);
@@ -3813,8 +3838,8 @@ static int mt_mic_bias_1_event(struct snd_soc_dapm_widget *w,
 	struct mt6338_priv *priv = snd_soc_component_get_drvdata(cmpnt);
 	unsigned int mic_type = priv->mux_select[MUX_MIC_TYPE_1];
 
-	dev_info(priv->dev, "%s(), event 0x%x, mic_type %d, vow_enable: %d\n",
-		 __func__, event, mic_type, priv->vow_enable);
+	dev_info(priv->dev, "%s(), event 0x%x, mic_type %d, vow_setup: %d\n",
+		 __func__, event, mic_type, priv->vow_setup);
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
@@ -3822,7 +3847,7 @@ static int mt_mic_bias_1_event(struct snd_soc_dapm_widget *w,
 		regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON62,
 			RG_AUDMICBIAS1DCSW1PEN_MASK_SFT,
 			0x0 << RG_AUDMICBIAS1DCSW1PEN_SFT);
-		if (priv->vow_enable) {
+		if (priv->vow_setup) {
 			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON61,
 				RG_AUDMICBIAS1LOWPEN_MASK_SFT,
 				0x1 << RG_AUDMICBIAS1LOWPEN_SFT);
@@ -3863,8 +3888,8 @@ static int mt_mic_bias_2_event(struct snd_soc_dapm_widget *w,
 	struct mt6338_priv *priv = snd_soc_component_get_drvdata(cmpnt);
 	unsigned int mic_type = priv->mux_select[MUX_MIC_TYPE_2];
 
-	dev_info(priv->dev, "%s(), event 0x%x, mic_type %d, vow_enable: %d\n",
-		 __func__, event, mic_type, priv->vow_enable);
+	dev_info(priv->dev, "%s(), event 0x%x, mic_type %d, vow_setup: %d\n",
+		 __func__, event, mic_type, priv->vow_setup);
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
@@ -3885,7 +3910,7 @@ static int mt_mic_bias_2_event(struct snd_soc_dapm_widget *w,
 		regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON63,
 			RG_AUDMICBIAS2VREF_MASK_SFT,
 			MIC_BIAS_1P9 << RG_AUDMICBIAS2VREF_SFT);
-		if (priv->vow_enable) {
+		if (priv->vow_setup) {
 			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON63,
 				RG_AUDMICBIAS2LOWPEN_MASK_SFT,
 				0x1 << RG_AUDMICBIAS2LOWPEN_SFT);
@@ -3930,8 +3955,8 @@ static int mt_mic_bias_3_event(struct snd_soc_dapm_widget *w,
 	struct mt6338_priv *priv = snd_soc_component_get_drvdata(cmpnt);
 	unsigned int mic_type = priv->mux_select[MUX_MIC_TYPE_3];
 
-	dev_info(priv->dev, "%s(), event 0x%x, mic_type %d, vow_enable: %d\n",
-		 __func__, event, mic_type, priv->vow_enable);
+	dev_info(priv->dev, "%s(), event 0x%x, mic_type %d, vow_setup: %d\n",
+		 __func__, event, mic_type, priv->vow_setup);
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
@@ -3952,7 +3977,7 @@ static int mt_mic_bias_3_event(struct snd_soc_dapm_widget *w,
 		regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON65,
 			RG_AUDMICBIAS3VREF_MASK_SFT,
 			MIC_BIAS_1P9 << RG_AUDMICBIAS3VREF_SFT);
-		if (priv->vow_enable) {
+		if (priv->vow_setup) {
 			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON65,
 				RG_AUDMICBIAS3LOWPEN_MASK_SFT,
 				0x1 << RG_AUDMICBIAS3LOWPEN_SFT);
@@ -4340,8 +4365,12 @@ static int mt_vow_digital_cfg_event(struct snd_soc_dapm_widget *w,
 			regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG56, 0x00);
 			regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG57, 0x00);
 		}
+		/* end of power up vow */
+		priv->vow_setup = 0;
 		break;
 	case SND_SOC_DAPM_PRE_PMD:
+		/* start to power down vow */
+		priv->vow_setup = 1;
 		regmap_write(priv->regmap, MT6338_AUD_TOP_CKPDN_CON0_H_SET,
 			0x1 << RG_VOW13M_CK_PDN_SFT);
 		regmap_write(priv->regmap, MT6338_TOP_CKPDN_CON1_SET,
@@ -4850,12 +4879,12 @@ static int mt_adc_l_event(struct snd_soc_dapm_widget *w,
 	unsigned int rc_tune = 0;
 	unsigned int value = 0;
 
-	dev_info(priv->dev, "%s(), event = 0x%x, vow_enable %d\n",
-		 __func__, event, priv->vow_enable);
+	dev_info(priv->dev, "%s(), event = 0x%x, vow_setup %d\n",
+		 __func__, event, priv->vow_setup);
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
-		if (priv->vow_enable) {
+		if (priv->vow_setup) {
 			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON14,
 				RG_AUDADCLMODE_MASK_SFT,
 				0x2 << RG_AUDADCLMODE_SFT);
@@ -4920,7 +4949,7 @@ static int mt_adc_l_event(struct snd_soc_dapm_widget *w,
 		}
 		break;
 	case SND_SOC_DAPM_POST_PMU:
-		if (priv->vow_enable) {
+		if (priv->vow_setup) {
 			usleep_range(500, 520);
 			/* Read 5-bit audio L RC tune data */
 			regmap_read(priv->regmap, MT6338_AUDENC_PMU_CON32, &rc_tune);
@@ -5108,12 +5137,12 @@ static int mt_adc_r_event(struct snd_soc_dapm_widget *w,
 	unsigned int rc_tune = 0;
 	unsigned int value = 0;
 
-	dev_info(priv->dev, "%s(), event = 0x%x, vow_enable %d\n",
-		 __func__, event, priv->vow_enable);
+	dev_info(priv->dev, "%s(), event = 0x%x, vow_setup %d\n",
+		 __func__, event, priv->vow_setup);
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
-		if (priv->vow_enable) {
+		if (priv->vow_setup) {
 			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON14,
 				RG_AUDADCRMODE_MASK_SFT,
 				0x2 << RG_AUDADCRMODE_SFT);
@@ -5178,7 +5207,7 @@ static int mt_adc_r_event(struct snd_soc_dapm_widget *w,
 		}
 		break;
 	case SND_SOC_DAPM_POST_PMU:
-		if (priv->vow_enable) {
+		if (priv->vow_setup) {
 			usleep_range(500, 520);
 			/* Read 5-bit audio R RC tune data */
 			regmap_read(priv->regmap, MT6338_AUDENC_PMU_CON33, &rc_tune);
@@ -5365,12 +5394,12 @@ static int mt_adc_3_event(struct snd_soc_dapm_widget *w,
 	unsigned int rc_tune = 0;
 	unsigned int value = 0;
 
-	dev_info(priv->dev, "%s(), event = 0x%x, vow_enable %d\n",
-		 __func__, event, priv->vow_enable);
+	dev_info(priv->dev, "%s(), event = 0x%x, vow_setup %d\n",
+		 __func__, event, priv->vow_setup);
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
-		if (priv->vow_enable) {
+		if (priv->vow_setup) {
 			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON15,
 				RG_AUDADC3MODE_MASK_SFT,
 				0x2 << RG_AUDADC3MODE_SFT);
@@ -5432,7 +5461,7 @@ static int mt_adc_3_event(struct snd_soc_dapm_widget *w,
 		}
 		break;
 	case SND_SOC_DAPM_POST_PMU:
-		if (priv->vow_enable) {
+		if (priv->vow_setup) {
 			usleep_range(500, 520);
 			/* Read 5-bit audio 3 RC tune data */
 			regmap_read(priv->regmap, MT6338_AUDENC_PMU_CON34, &rc_tune);
@@ -5609,12 +5638,12 @@ static int mt_adc_4_event(struct snd_soc_dapm_widget *w,
 	unsigned int rc_tune = 0;
 	unsigned int value = 0;
 
-	dev_info(priv->dev, "%s(), event = 0x%x, vow_enable %d\n",
-		 __func__, event, priv->vow_enable);
+	dev_info(priv->dev, "%s(), event = 0x%x, vow_setup %d\n",
+		 __func__, event, priv->vow_setup);
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
-		if (priv->vow_enable) {
+		if (priv->vow_setup) {
 			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON15,
 				RG_AUDADC4MODE_MASK_SFT,
 				0x2 << RG_AUDADC4MODE_SFT);
@@ -5676,7 +5705,7 @@ static int mt_adc_4_event(struct snd_soc_dapm_widget *w,
 		}
 		break;
 	case SND_SOC_DAPM_POST_PMU:
-		if (priv->vow_enable) {
+		if (priv->vow_setup) {
 			usleep_range(500, 520);
 			/* Read 5-bit audio 4 RC tune data */
 			regmap_read(priv->regmap, MT6338_AUDENC_PMU_CON35, &rc_tune);
@@ -5922,10 +5951,10 @@ static int mt_pga_l_event(struct snd_soc_dapm_widget *w,
 	}
 
 	/* if vow is enabled, always set volume as 6 (18dB) */
-	mic_gain_l = priv->vow_enable ? 6 :
+	mic_gain_l = priv->vow_setup ? 6 :
 		     priv->ana_gain[AUDIO_ANALOG_VOLUME_MICAMP1];
-	dev_info(priv->dev, "%s(), event = 0x%x, mic_type %d, mic_gain_l %d, mux_pga %d, vow_enable %d\n",
-		__func__, event, mic_type, mic_gain_l, mux_pga, priv->vow_enable);
+	dev_info(priv->dev, "%s(), event = 0x%x, mic_type %d, mic_gain_l %d, mux_pga %d, vow_setup %d\n",
+		__func__, event, mic_type, mic_gain_l, mux_pga, priv->vow_setup);
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
@@ -5934,6 +5963,21 @@ static int mt_pga_l_event(struct snd_soc_dapm_widget *w,
 			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON0,
 				RG_AUDPREAMPLDCPRECHARGE_MASK_SFT,
 				0x1 << RG_AUDPREAMPLDCPRECHARGE_SFT);
+		}
+		/* if is vow rec concurrent, MIC BIAS0 need to change to normal mode */
+		if ((priv->vow_enable == 1) && (priv->vow_setup == 0)) {
+			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON59,
+					   RG_AUDMICBIAS0LOWPEN_MASK_SFT,
+					   0x0 << RG_AUDMICBIAS0LOWPEN_SFT);
+			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON61,
+					   RG_AUDMICBIAS1LOWPEN_MASK_SFT,
+					   0x0 << RG_AUDMICBIAS1LOWPEN_SFT);
+			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON63,
+					   RG_AUDMICBIAS2LOWPEN_MASK_SFT,
+					   0x0 << RG_AUDMICBIAS2LOWPEN_SFT);
+			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON65,
+					   RG_AUDMICBIAS3LOWPEN_MASK_SFT,
+					   0x0 << RG_AUDMICBIAS3LOWPEN_SFT);
 		}
 		break;
 	case SND_SOC_DAPM_POST_PMU:
@@ -5966,6 +6010,21 @@ static int mt_pga_l_event(struct snd_soc_dapm_widget *w,
 		regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON0,
 			RG_AUDPREAMPLDCCEN_MASK_SFT,
 			0x0 << RG_AUDPREAMPLDCCEN_SFT);
+		/* if is vow rec concurrent, MIC BIAS0 need to change to lowpower mode */
+		if ((priv->vow_enable == 1) && (priv->vow_setup == 0)) {
+			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON59,
+					   RG_AUDMICBIAS0LOWPEN_MASK_SFT,
+					   0x1 << RG_AUDMICBIAS0LOWPEN_SFT);
+			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON61,
+					   RG_AUDMICBIAS1LOWPEN_MASK_SFT,
+					   0x1 << RG_AUDMICBIAS1LOWPEN_SFT);
+			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON63,
+					   RG_AUDMICBIAS2LOWPEN_MASK_SFT,
+					   0x1 << RG_AUDMICBIAS2LOWPEN_SFT);
+			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON65,
+					   RG_AUDMICBIAS3LOWPEN_MASK_SFT,
+					   0x1 << RG_AUDMICBIAS3LOWPEN_SFT);
+		}
 		break;
 	default:
 		break;
@@ -6001,10 +6060,10 @@ static int mt_pga_r_event(struct snd_soc_dapm_widget *w,
 	}
 
 	/* if vow is enabled, always set volume as 6 (18dB) */
-	mic_gain_r = priv->vow_enable ? 6 :
+	mic_gain_r = priv->vow_setup ? 6 :
 		     priv->ana_gain[AUDIO_ANALOG_VOLUME_MICAMP2];
-	dev_info(priv->dev, "%s(), event = 0x%x, mic_type %d, mic_gain_r %d, mux_pga %d, vow_enable %d\n",
-		__func__, event, mic_type, mic_gain_r, mux_pga, priv->vow_enable);
+	dev_info(priv->dev, "%s(), event = 0x%x, mic_type %d, mic_gain_r %d, mux_pga %d, vow_setup %d\n",
+		__func__, event, mic_type, mic_gain_r, mux_pga, priv->vow_setup);
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
@@ -6013,6 +6072,21 @@ static int mt_pga_r_event(struct snd_soc_dapm_widget *w,
 			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON2,
 				RG_AUDPREAMPRDCPRECHARGE_MASK_SFT,
 				0x1 << RG_AUDPREAMPRDCPRECHARGE_SFT);
+		}
+		/* if is vow rec concurrent, MIC BIAS0 need to change to normal mode */
+		if ((priv->vow_enable == 1) && (priv->vow_setup == 0)) {
+			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON59,
+					   RG_AUDMICBIAS0LOWPEN_MASK_SFT,
+					   0x0 << RG_AUDMICBIAS0LOWPEN_SFT);
+			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON61,
+					   RG_AUDMICBIAS1LOWPEN_MASK_SFT,
+					   0x0 << RG_AUDMICBIAS1LOWPEN_SFT);
+			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON63,
+					   RG_AUDMICBIAS2LOWPEN_MASK_SFT,
+					   0x0 << RG_AUDMICBIAS2LOWPEN_SFT);
+			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON65,
+					   RG_AUDMICBIAS3LOWPEN_MASK_SFT,
+					   0x0 << RG_AUDMICBIAS3LOWPEN_SFT);
 		}
 		break;
 	case SND_SOC_DAPM_POST_PMU:
@@ -6045,6 +6119,21 @@ static int mt_pga_r_event(struct snd_soc_dapm_widget *w,
 		regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON2,
 			RG_AUDPREAMPRDCCEN_MASK_SFT,
 			0x0 << RG_AUDPREAMPRDCCEN_SFT);
+		/* if is vow rec concurrent, MIC BIAS0 need to change to lowpower mode */
+		if ((priv->vow_enable == 1) && (priv->vow_setup == 0)) {
+			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON59,
+					   RG_AUDMICBIAS0LOWPEN_MASK_SFT,
+					   0x1 << RG_AUDMICBIAS0LOWPEN_SFT);
+			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON61,
+					   RG_AUDMICBIAS1LOWPEN_MASK_SFT,
+					   0x1 << RG_AUDMICBIAS1LOWPEN_SFT);
+			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON63,
+					   RG_AUDMICBIAS2LOWPEN_MASK_SFT,
+					   0x1 << RG_AUDMICBIAS2LOWPEN_SFT);
+			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON65,
+					   RG_AUDMICBIAS3LOWPEN_MASK_SFT,
+					   0x1 << RG_AUDMICBIAS3LOWPEN_SFT);
+		}
 		break;
 	default:
 		break;
@@ -6081,10 +6170,10 @@ static int mt_pga_3_event(struct snd_soc_dapm_widget *w,
 	}
 
 	/* if vow is enabled, always set volume as 6 (18dB) */
-	mic_gain_3 = priv->vow_enable ? 6 :
+	mic_gain_3 = priv->vow_setup ? 6 :
 		     priv->ana_gain[AUDIO_ANALOG_VOLUME_MICAMP3];
-	dev_info(priv->dev, "%s(), event = 0x%x, mic_type %d, mic_gain_3 %d, mux_pga %d, vow_enable %d\n",
-		__func__, event, mic_type, mic_gain_3, mux_pga, priv->vow_enable);
+	dev_info(priv->dev, "%s(), event = 0x%x, mic_type %d, mic_gain_3 %d, mux_pga %d, vow_setup %d\n",
+		__func__, event, mic_type, mic_gain_3, mux_pga, priv->vow_setup);
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
@@ -6093,6 +6182,21 @@ static int mt_pga_3_event(struct snd_soc_dapm_widget *w,
 			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON4,
 				RG_AUDPREAMP3DCPRECHARGE_MASK_SFT,
 				0x1 << RG_AUDPREAMP3DCPRECHARGE_SFT);
+		}
+		/* if is vow rec concurrent, MIC BIAS0 need to change to normal mode */
+		if ((priv->vow_enable == 1) && (priv->vow_setup == 0)) {
+			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON59,
+					   RG_AUDMICBIAS0LOWPEN_MASK_SFT,
+					   0x0 << RG_AUDMICBIAS0LOWPEN_SFT);
+			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON61,
+					   RG_AUDMICBIAS1LOWPEN_MASK_SFT,
+					   0x0 << RG_AUDMICBIAS1LOWPEN_SFT);
+			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON63,
+					   RG_AUDMICBIAS2LOWPEN_MASK_SFT,
+					   0x0 << RG_AUDMICBIAS2LOWPEN_SFT);
+			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON65,
+					   RG_AUDMICBIAS3LOWPEN_MASK_SFT,
+					   0x0 << RG_AUDMICBIAS3LOWPEN_SFT);
 		}
 		break;
 	case SND_SOC_DAPM_POST_PMU:
@@ -6125,6 +6229,21 @@ static int mt_pga_3_event(struct snd_soc_dapm_widget *w,
 		regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON4,
 			RG_AUDPREAMP3DCCEN_MASK_SFT,
 			0x0 << RG_AUDPREAMP3DCCEN_SFT);
+		/* if is vow rec concurrent, MIC BIAS0 need to change to lowpower mode */
+		if ((priv->vow_enable == 1) && (priv->vow_setup == 0)) {
+			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON59,
+					   RG_AUDMICBIAS0LOWPEN_MASK_SFT,
+					   0x1 << RG_AUDMICBIAS0LOWPEN_SFT);
+			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON61,
+					   RG_AUDMICBIAS1LOWPEN_MASK_SFT,
+					   0x1 << RG_AUDMICBIAS1LOWPEN_SFT);
+			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON63,
+					   RG_AUDMICBIAS2LOWPEN_MASK_SFT,
+					   0x1 << RG_AUDMICBIAS2LOWPEN_SFT);
+			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON65,
+					   RG_AUDMICBIAS3LOWPEN_MASK_SFT,
+					   0x1 << RG_AUDMICBIAS3LOWPEN_SFT);
+		}
 		break;
 	default:
 		break;
@@ -6159,10 +6278,10 @@ static int mt_pga_4_event(struct snd_soc_dapm_widget *w,
 	}
 
 	/* if vow is enabled, always set volume as 6 (18dB) */
-	mic_gain_4 = priv->vow_enable ? 6 :
+	mic_gain_4 = priv->vow_setup ? 6 :
 		     priv->ana_gain[AUDIO_ANALOG_VOLUME_MICAMP4];
-	dev_info(priv->dev, "%s(), event = 0x%x, mic_type %d, mic_gain_4 %d, mux_pga %d, vow_enable %d\n",
-		__func__, event, mic_type, mic_gain_4, mux_pga, priv->vow_enable);
+	dev_info(priv->dev, "%s(), event = 0x%x, mic_type %d, mic_gain_4 %d, mux_pga %d, vow_setup %d\n",
+		__func__, event, mic_type, mic_gain_4, mux_pga, priv->vow_setup);
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
@@ -6171,6 +6290,21 @@ static int mt_pga_4_event(struct snd_soc_dapm_widget *w,
 			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON6,
 				RG_AUDPREAMP4DCPRECHARGE_MASK_SFT,
 				0x1 << RG_AUDPREAMP4DCPRECHARGE_SFT);
+		}
+		/* if is vow rec concurrent, MIC BIAS0 need to change to normal mode */
+		if ((priv->vow_enable == 1) && (priv->vow_setup == 0)) {
+			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON59,
+					   RG_AUDMICBIAS0LOWPEN_MASK_SFT,
+					   0x0 << RG_AUDMICBIAS0LOWPEN_SFT);
+			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON61,
+					   RG_AUDMICBIAS1LOWPEN_MASK_SFT,
+					   0x0 << RG_AUDMICBIAS1LOWPEN_SFT);
+			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON63,
+					   RG_AUDMICBIAS2LOWPEN_MASK_SFT,
+					   0x0 << RG_AUDMICBIAS2LOWPEN_SFT);
+			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON65,
+					   RG_AUDMICBIAS3LOWPEN_MASK_SFT,
+					   0x0 << RG_AUDMICBIAS3LOWPEN_SFT);
 		}
 		break;
 	case SND_SOC_DAPM_POST_PMU:
@@ -6203,6 +6337,21 @@ static int mt_pga_4_event(struct snd_soc_dapm_widget *w,
 		regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON6,
 			RG_AUDPREAMP4DCCEN_MASK_SFT,
 			0x0 << RG_AUDPREAMP4DCCEN_SFT);
+		/* if is vow rec concurrent, MIC BIAS0 need to change to lowpower mode */
+		if ((priv->vow_enable == 1) && (priv->vow_setup == 0)) {
+			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON59,
+					   RG_AUDMICBIAS0LOWPEN_MASK_SFT,
+					   0x1 << RG_AUDMICBIAS0LOWPEN_SFT);
+			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON61,
+					   RG_AUDMICBIAS1LOWPEN_MASK_SFT,
+					   0x1 << RG_AUDMICBIAS1LOWPEN_SFT);
+			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON63,
+					   RG_AUDMICBIAS2LOWPEN_MASK_SFT,
+					   0x1 << RG_AUDMICBIAS2LOWPEN_SFT);
+			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON65,
+					   RG_AUDMICBIAS3LOWPEN_MASK_SFT,
+					   0x1 << RG_AUDMICBIAS3LOWPEN_SFT);
+		}
 		break;
 	default:
 		break;
@@ -7023,9 +7172,13 @@ static const struct snd_soc_dapm_widget mt6338_dapm_widgets[] = {
 	SND_SOC_DAPM_AIF_OUT("AIF2TX", "AIF2 Capture", 0,
 			      SND_SOC_NOPM, 0, 0),
 
-	SND_SOC_DAPM_SUPPLY_S("ADC_CLKGEN", SUPPLY_SEQ_ADC_CLKGEN,
+	SND_SOC_DAPM_SUPPLY_S("ADC_LR_CLKGEN", SUPPLY_SEQ_ADC_CLKGEN,
 			      SND_SOC_NOPM, 0, 0,
-			      mt_adc_clk_gen_event,
+			      mt_adc_lr_clkgen_event,
+			      SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_PRE_PMD),
+	SND_SOC_DAPM_SUPPLY_S("ADC_34_CLKGEN", SUPPLY_SEQ_ADC_CLKGEN,
+			      SND_SOC_NOPM, 0, 0,
+			      mt_adc_34_clkgen_event,
 			      SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_PRE_PMD),
 
 	SND_SOC_DAPM_SUPPLY_S("DCC_CLK", SUPPLY_SEQ_DCC_CLK,
@@ -7415,10 +7568,10 @@ static const struct snd_soc_dapm_route mt6338_dapm_routes[] = {
 	{"AIN4_DMIC", NULL, "MIC_BIAS_2"},
 	/* adc */
 	{"ADC_L", NULL, "ADC_L_Mux"},
-	{"ADC_L", NULL, "ADC_CLKGEN"},
+	{"ADC_L", NULL, "ADC_LR_CLKGEN"},
 	{"ADC_L", NULL, "ADC_L_EN"},
 	{"ADC_R", NULL, "ADC_R_Mux"},
-	{"ADC_R", NULL, "ADC_CLKGEN"},
+	{"ADC_R", NULL, "ADC_LR_CLKGEN"},
 	{"ADC_R", NULL, "ADC_R_EN"},
 	/*
 	 * amic fifo ch1/2 clk from ADC_L,
@@ -7426,11 +7579,11 @@ static const struct snd_soc_dapm_route mt6338_dapm_routes[] = {
 	 */
 	{"ADC_R", NULL, "ADC_L_EN"},
 	{"ADC_3", NULL, "ADC_3_Mux"},
-	{"ADC_3", NULL, "ADC_CLKGEN"},
+	{"ADC_3", NULL, "ADC_34_CLKGEN"},
 	{"ADC_3", NULL, "ADC_3_EN"},
 
 	{"ADC_4", NULL, "ADC_4_Mux"},
-	{"ADC_4", NULL, "ADC_CLKGEN"},
+	{"ADC_4", NULL, "ADC_34_CLKGEN"},
 	{"ADC_4", NULL, "ADC_4_EN"},
 
 	{"ADC_L_Mux", "Left Preamplifier", "PGA_L"},
@@ -7576,7 +7729,7 @@ static const struct snd_soc_dapm_route mt6338_dapm_routes[] = {
 	{"Receiver", NULL, "RCV Mux"},
 #if IS_ENABLED(CONFIG_MTK_VOW_SUPPORT)
 	{"VOW TX", NULL, "VOW_UL_SRC_MUX"},
-	{"VOW TX", NULL, "KEY"},
+	/* {"VOW TX", NULL, "KEY"}, */
 	{"VOW TX", NULL, "AUDGLB"},
 	{"VOW TX", NULL, "PLL18 EN"},
 	{"VOW TX", NULL, "PLL18_VOW"},
@@ -7676,12 +7829,6 @@ static int mt6338_codec_dai_startup(struct snd_pcm_substream *substream,
 		mt6338_set_playback_gpio(priv);
 	else if (substream->stream == SNDRV_PCM_STREAM_CAPTURE)
 		mt6338_set_capture_gpio(priv);
-
-	if (dai->id == MT6338_AIF_VOW) {
-		priv->vow_enable = 1;
-		mt6338_set_vow_gpio(priv);
-	}
-
 	return 0;
 }
 
@@ -7715,8 +7862,11 @@ static int mt6338_codec_dai_vow_startup(struct snd_pcm_substream *substream,
 	struct snd_soc_component *cmpnt = dai->component;
 	struct mt6338_priv *priv = snd_soc_component_get_drvdata(cmpnt);
 
+	dev_info(priv->dev, "%s, set vow_enable=1\n",
+		 __func__);
 	priv->vow_enable = 1;
-
+	/* start to power up vow */
+	priv->vow_setup = 1;
 	return 0;
 }
 
@@ -7727,14 +7877,13 @@ static void mt6338_codec_dai_vow_shutdown(struct snd_pcm_substream *substream,
 	struct mt6338_priv *priv = snd_soc_component_get_drvdata(cmpnt);
 
 	dev_info(priv->dev, "%s stream %d\n", __func__, substream->stream);
-	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
-		mt6338_reset_playback_gpio(priv);
-	else if (substream->stream == SNDRV_PCM_STREAM_CAPTURE)
-		mt6338_reset_capture_gpio(priv);
 
 	if (dai->id == MT6338_AIF_VOW) {
+		dev_info(priv->dev, "%s, MT6338_AIF_VOW\n",
+		 __func__);
+		/* end of power down vow */
+		priv->vow_setup = 0;
 		priv->vow_enable = 0;
-		mt6338_reset_vow_gpio(priv);
 	}
 }
 
@@ -10230,6 +10379,9 @@ static int mt6338_codec_init_reg(struct mt6338_priv *priv)
 	/* mic hifi mode, default hifi mode */
 	priv->mic_hifi_mode = 0;
 
+	/* vow */
+	priv->vow_enable = 0;
+	priv->vow_setup = 0;
 
 	regmap_read(priv->regmap, MT6338_STRUP_ELR_1, &value);
 

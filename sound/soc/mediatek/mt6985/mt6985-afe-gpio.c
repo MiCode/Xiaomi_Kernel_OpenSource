@@ -208,19 +208,6 @@ int mt6985_afe_gpio_request(struct mtk_base_afe *afe, bool enable,
 		else
 			mt6985_afe_gpio_select(afe, MT6985_AFE_GPIO_I2S9_OFF);
 		break;
-	case MT6985_DAI_VOW:
-		if (enable) {
-			mt6985_afe_gpio_select(afe,
-					       MT6985_AFE_GPIO_VOW_CLK_ON);
-			mt6985_afe_gpio_select(afe,
-					       MT6985_AFE_GPIO_VOW_DAT_ON);
-		} else {
-			mt6985_afe_gpio_select(afe,
-					       MT6985_AFE_GPIO_VOW_CLK_OFF);
-			mt6985_afe_gpio_select(afe,
-					       MT6985_AFE_GPIO_VOW_DAT_OFF);
-		}
-		break;
 	default:
 		mutex_unlock(&gpio_request_mutex);
 		dev_warn(afe->dev, "%s(), invalid dai %d\n", __func__, dai);

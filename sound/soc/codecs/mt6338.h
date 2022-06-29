@@ -22784,6 +22784,7 @@ struct mt6338_priv {
 
 	/* vow control */
 	int vow_enable;
+	int vow_setup;
 	int reg_afe_vow_vad_cfg0;
 	int reg_afe_vow_vad_cfg1;
 	int reg_afe_vow_vad_cfg2;

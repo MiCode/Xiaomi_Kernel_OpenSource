@@ -457,8 +457,6 @@ static int mt6985_mt6338_vow_startup(struct snd_pcm_substream *substream)
 	dev_info(afe->dev, "%s(), start\n", __func__);
 	snd_soc_set_runtime_hwparams(substream, &mt6985_mt6338_vow_hardware);
 
-	mt6985_afe_gpio_request(afe, true, MT6985_DAI_VOW, 0);
-
 	/* ASoC will call pm_runtime_get, but vow don't need */
 	for_each_rtd_components(rtd, i, component) {
 		pm_runtime_put_autosuspend(component->dev);
@@ -476,7 +474,6 @@ static void mt6985_mt6338_vow_shutdown(struct snd_pcm_substream *substream)
 	int i;
 
 	dev_info(afe->dev, "%s(), end\n", __func__);
-	mt6985_afe_gpio_request(afe, false, MT6985_DAI_VOW, 0);
 
 	/* restore to fool ASoC */
 	for_each_rtd_components(rtd, i, component) {
