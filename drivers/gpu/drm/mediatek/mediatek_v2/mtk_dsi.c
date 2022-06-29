@@ -2603,6 +2603,19 @@ static int mtk_dsi_wait_cmd_frame_done(struct mtk_dsi *dsi,
 	struct cmdq_pkt *handle;
 	bool new_doze_state = mtk_dsi_doze_state(dsi);
 
+	/* Waiting CLIENT_DSI_CFG thread done */
+	if (drm_crtc_index(dsi->encoder.crtc) == 0) {
+		mtk_crtc_pkt_create(&handle, &mtk_crtc->base,
+				mtk_crtc->gce_obj.client[CLIENT_DSI_CFG]);
+		cmdq_pkt_flush(handle);
+		cmdq_pkt_destroy(handle);
+	}
+
+	mtk_crtc_pkt_create(&handle, &mtk_crtc->base,
+			mtk_crtc->gce_obj.client[CLIENT_CFG]);
+	cmdq_pkt_flush(handle);
+	cmdq_pkt_destroy(handle);
+
 	mtk_crtc_pkt_create(&handle,
 		&mtk_crtc->base,
 		mtk_crtc->gce_obj.client[CLIENT_CFG]);
@@ -2610,6 +2623,13 @@ static int mtk_dsi_wait_cmd_frame_done(struct mtk_dsi *dsi,
 	/* wait frame done */
 	cmdq_pkt_wait_no_clear(handle,
 		mtk_crtc->gce_obj.event[EVENT_STREAM_EOF]);
+
+	if (!new_doze_state || force_lcm_update) {
+		cmdq_pkt_wfe(handle,
+			mtk_crtc->gce_obj.event[EVENT_CABC_EOF]);
+		cmdq_pkt_clear_event(handle,
+			mtk_crtc->gce_obj.event[EVENT_STREAM_BLOCK]);
+	}
 
 	/* When system ready to go to Doze suspend stage, it has to
 	 * update the latest image before entering it to make sure display
@@ -2622,11 +2642,9 @@ static int mtk_dsi_wait_cmd_frame_done(struct mtk_dsi *dsi,
 			mtk_crtc->gce_obj.event[EVENT_STREAM_DIRTY]);
 		cmdq_pkt_wait_no_clear(handle,
 			mtk_crtc->gce_obj.event[EVENT_CMD_EOF]);
+		cmdq_pkt_clear_event(handle,
+			mtk_crtc->gce_obj.event[EVENT_STREAM_BLOCK]);
 	}
-
-	cmdq_pkt_clear_event(
-		handle,
-		mtk_crtc->gce_obj.event[EVENT_STREAM_BLOCK]);
 
 	cmdq_pkt_flush(handle);
 	cmdq_pkt_destroy(handle);
@@ -2677,6 +2695,9 @@ static void mtk_output_dsi_disable(struct mtk_dsi *dsi, struct cmdq_pkt *cmdq_ha
 SKIP_WAIT_FRAME_DONE:
 	if (dsi->slave_dsi)
 		mtk_dsi_dual_enable(dsi, false);
+
+	if (mtk_crtc_with_trigger_loop(dsi->encoder.crtc))
+		mtk_crtc_stop_trig_loop(dsi->encoder.crtc);
 
 	/* 3. turn off panel or set to doze mode */
 	if (dsi->panel) {
