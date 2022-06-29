@@ -1658,31 +1658,40 @@ static void init_dma_halt(struct mtk_raw_device *dev)
 	struct mtk_yuv_device *yuv_dev = get_yuv_dev(dev);
 #endif
 	bool is_srt = mtk_cam_is_srt(dev->pipeline->hw_mode);
+	unsigned int reg_raw_urgent, reg_yuv_urgent;
 	unsigned int raw_urgent, yuv_urgent;
 
 	dev_info(dev->dev, "%s: SRT:%d\n", __func__, is_srt);
 
+	//Set CQI sram size
 	set_fifo_threshold(dev->base + REG_CQI_R1_BASE, 64);
 	set_fifo_threshold(dev->base + REG_CQI_R2_BASE, 64);
 	set_fifo_threshold(dev->base + REG_CQI_R3_BASE, 64);
 	set_fifo_threshold(dev->base + REG_CQI_R4_BASE, 64);
 
-	// TODO: move HALT1,2 to camsv
-	writel_relaxed(CAMSV_1_WDMA_PORT, cam_dev->base + REG_HALT1_EN);
-	writel_relaxed(CAMSV_2_WDMA_PORT, cam_dev->base + REG_HALT2_EN);
+	// TODO: move HALT1,2,13 to camsv
+	writel_relaxed(HALT1_EN, cam_dev->base + REG_HALT1_EN);
+	writel_relaxed(HALT2_EN, cam_dev->base + REG_HALT2_EN);
+	writel_relaxed(HALT13_EN, cam_dev->base + REG_HALT13_EN);
 
 	switch (dev->id) {
 	case MTKCAM_SUBDEV_RAW_0:
-		raw_urgent = REG_HALT5_EN;
-		yuv_urgent = REG_HALT6_EN;
+		reg_raw_urgent = REG_HALT5_EN;
+		reg_yuv_urgent = REG_HALT6_EN;
+		raw_urgent = HALT5_EN;
+		yuv_urgent = HALT6_EN;
 		break;
 	case MTKCAM_SUBDEV_RAW_1:
-		raw_urgent = REG_HALT7_EN;
-		yuv_urgent = REG_HALT8_EN;
+		reg_raw_urgent = REG_HALT7_EN;
+		reg_yuv_urgent = REG_HALT8_EN;
+		raw_urgent = HALT7_EN;
+		yuv_urgent = HALT8_EN;
 		break;
 	case MTKCAM_SUBDEV_RAW_2:
-		raw_urgent = REG_HALT9_EN;
-		yuv_urgent = REG_HALT10_EN;
+		reg_raw_urgent = REG_HALT9_EN;
+		reg_yuv_urgent = REG_HALT10_EN;
+		raw_urgent = HALT9_EN;
+		yuv_urgent = HALT10_EN;
 		break;
 	default:
 		dev_info(dev->dev, "%s: unknown raw id %d\n", __func__, dev->id);
@@ -1690,15 +1699,15 @@ static void init_dma_halt(struct mtk_raw_device *dev)
 	}
 
 	if (is_srt) {
-		writel_relaxed(0x0, cam_dev->base + raw_urgent);
-		writel_relaxed(0x0, cam_dev->base + yuv_urgent);
+		writel_relaxed(0x0, cam_dev->base + reg_raw_urgent);
+		writel_relaxed(0x0, cam_dev->base + reg_yuv_urgent);
 #ifdef SMI_LARB_ULTRA_CTL
 		mtk_smi_larb_ultra_dis(&dev->larb_pdev->dev, true);
 		mtk_smi_larb_ultra_dis(&yuv_dev->larb_pdev->dev, true);
 #endif
 	} else {
-		writel_relaxed(RAW_WDMA_PORT, cam_dev->base + raw_urgent);
-		writel_relaxed(YUV_WDMA_PORT, cam_dev->base + yuv_urgent);
+		writel_relaxed(raw_urgent, cam_dev->base + reg_raw_urgent);
+		writel_relaxed(yuv_urgent, cam_dev->base + reg_yuv_urgent);
 #ifdef SMI_LARB_ULTRA_CTL
 		mtk_smi_larb_ultra_dis(&dev->larb_pdev->dev, false);
 		mtk_smi_larb_ultra_dis(&yuv_dev->larb_pdev->dev, false);
