@@ -244,6 +244,8 @@ static int __init mtk_scheduler_init(void)
 	if (ret)
 		pr_info("register android_rvh_sched_newidle_balance failed\n");
 #endif
+
+	init_system_cpumask();
 #endif
 
 	ret = register_trace_android_vh_scheduler_tick(hook_scheduler_tick, NULL);

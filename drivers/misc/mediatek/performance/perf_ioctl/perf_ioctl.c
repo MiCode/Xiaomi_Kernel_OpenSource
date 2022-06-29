@@ -76,11 +76,14 @@ static long eas_ioctl_impl(struct file *filp,
 		unsigned int cmd, unsigned long arg, void *pKM)
 {
 	ssize_t ret = 0;
-	unsigned int sync;
-	unsigned int val;
 	void __user *ubuf = (struct _CORE_CTL_PACKAGE *)arg;
 	struct _CORE_CTL_PACKAGE msgKM = {0};
 	bool bval;
+#if IS_ENABLED(CONFIG_MTK_SCHEDULER)
+	unsigned int sync;
+	unsigned int val;
+	struct cpumask *cpumask_ptr;
+#endif
 #if IS_ENABLED(CONFIG_MTK_CPUQOS_V3)
 	void __user *ubuf_cpuqos = (struct _CPUQOS_V3_PACKAGE *)arg;
 	struct _CPUQOS_V3_PACKAGE msgKM_cpuqos = {0};
@@ -133,6 +136,17 @@ static long eas_ioctl_impl(struct file *filp,
 		if (perfctl_copy_to_user((void *)arg, &val, sizeof(unsigned int)))
 			return -1;
 		break;
+	case EAS_SET_SYSTEM_MASK:
+		if (perfctl_copy_from_user(&val, (void *)arg, sizeof(unsigned int)))
+			return -1;
+		set_system_cpumask_int(val);
+		break;
+	case EAS_GET_SYSTEM_MASK:
+		cpumask_ptr = get_system_cpumask();
+		val = cpumask_ptr->bits[0];
+		if (perfctl_copy_to_user((void *)arg, &val, sizeof(unsigned int)))
+			return -1;
+		break;
 #else
 	case EAS_SYNC_SET:
 	case EAS_SYNC_GET:
@@ -143,6 +157,8 @@ static long eas_ioctl_impl(struct file *filp,
 	case EAS_NEWLY_IDLE_BALANCE_INTERVAL_GET:
 	case EAS_GET_THERMAL_HEADROOM_INTERVAL_SET:
 	case EAS_GET_THERMAL_HEADROOM_INTERVAL_GET:
+	case EAS_SET_SYSTEM_MASK:
+	case EAS_GET_SYSTEM_MASK:
 		break;
 #endif
 	case CORE_CTL_FORCE_PAUSE_CPU:

@@ -381,7 +381,42 @@ static void attach_one_task(struct rq *rq, struct task_struct *p)
 }
 
 #if IS_ENABLED(CONFIG_MTK_EAS)
-int mtk_find_idle_cpu(struct task_struct *p)
+struct cpumask system_cpumask;
+
+void init_system_cpumask(void)
+{
+	cpumask_copy(&system_cpumask, cpu_possible_mask);
+}
+
+void set_system_cpumask(const struct cpumask *srcp)
+{
+	cpumask_copy(&system_cpumask, srcp);
+}
+EXPORT_SYMBOL_GPL(set_system_cpumask);
+
+void set_system_cpumask_int(unsigned int cpumask_val)
+{
+	struct cpumask cpumask_setting;
+	unsigned long cpumask_ulval = cpumask_val;
+	int cpu;
+
+	cpumask_clear(&cpumask_setting);
+	for_each_possible_cpu(cpu) {
+		if (test_bit(cpu, &cpumask_ulval))
+			cpumask_set_cpu(cpu, &cpumask_setting);
+	}
+
+	cpumask_copy(&system_cpumask, &cpumask_setting);
+}
+EXPORT_SYMBOL_GPL(set_system_cpumask_int);
+
+struct cpumask *get_system_cpumask(void)
+{
+	return &system_cpumask;
+}
+EXPORT_SYMBOL_GPL(get_system_cpumask);
+
+int mtk_find_idle_cpu(struct task_struct *p, bool latency_sensitive)
 {
 	int target_cpu = -1, cpu, opp;
 	unsigned long task_util = uclamp_task_util(p);
@@ -391,6 +426,10 @@ int mtk_find_idle_cpu(struct task_struct *p)
 
 	for_each_cpu_and(cpu, p->cpus_ptr,
 			cpu_active_mask) {
+
+		if (latency_sensitive && !cpumask_test_cpu(cpu, &system_cpumask))
+			continue;
+
 		cap = capacity_of(cpu);
 		if (idle_cpu(cpu) && fits_capacity(task_util, cap)) {
 			fit_idle_cpus = (fit_idle_cpus | (1 << cpu));
@@ -451,7 +490,8 @@ void mtk_find_energy_efficient_cpu(void *data, struct task_struct *p, int prev_c
 	cpu = smp_processor_id();
 	if (sync && cpu_rq(cpu)->nr_running == 1 &&
 	    cpumask_test_cpu(cpu, p->cpus_ptr) &&
-	    task_fits_capacity(p, capacity_of(cpu))) {
+	    task_fits_capacity(p, capacity_of(cpu)) &&
+	    !(latency_sensitive && !cpumask_test_cpu(cpu, &system_cpumask))) {
 		rcu_read_unlock();
 		*new_cpu = cpu;
 		select_reason = LB_SYNC;
@@ -459,7 +499,7 @@ void mtk_find_energy_efficient_cpu(void *data, struct task_struct *p, int prev_c
 	}
 
 	if (in_interrupt()) {
-		*new_cpu = mtk_find_idle_cpu(p);
+		*new_cpu = mtk_find_idle_cpu(p, latency_sensitive);
 		rcu_read_unlock();
 		select_reason = LB_IN_INTERRUPT;
 		goto done;
@@ -488,6 +528,9 @@ void mtk_find_energy_efficient_cpu(void *data, struct task_struct *p, int prev_c
 #else
 		for_each_cpu_and(cpu, perf_domain_span(pd), cpu_active_mask) {
 #endif
+
+			if (latency_sensitive && !cpumask_test_cpu(cpu, &system_cpumask))
+				continue;
 
 			if (!cpumask_test_cpu(cpu, p->cpus_ptr))
 				continue;
@@ -663,6 +706,9 @@ static struct task_struct *detach_a_hint_task(struct rq *src_rq, int dst_cpu)
 			latency_sensitive = (p->uclamp_req[UCLAMP_MIN].value > 0 ? 1 : 0) ||
 					uclamp_latency_sensitive(p);
 		}
+
+		if (!(latency_sensitive && !cpumask_test_cpu(dst_cpu, &system_cpumask)))
+			break;
 
 		if (latency_sensitive &&
 			task_util <= dst_capacity) {

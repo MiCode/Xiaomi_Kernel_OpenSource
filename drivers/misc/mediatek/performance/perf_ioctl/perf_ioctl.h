@@ -35,6 +35,8 @@ extern unsigned int set_newly_idle_balance_interval_us(unsigned int interval_us)
 extern unsigned int get_newly_idle_balance_interval_us(void);
 extern void set_get_thermal_headroom_interval_tick(unsigned int tick);
 extern unsigned int get_thermal_headroom_interval_tick(void);
+extern void set_system_cpumask_int(unsigned int val);
+extern struct cpumask *get_system_cpumask(void);
 #endif
 
 #if IS_ENABLED(CONFIG_MTK_CORE_CTL)
@@ -205,6 +207,8 @@ struct _CPUQOS_V3_PACKAGE {
 #define EAS_NEWLY_IDLE_BALANCE_INTERVAL_GET	_IOR('g', 18,  unsigned int)
 #define EAS_GET_THERMAL_HEADROOM_INTERVAL_SET	_IOW('g', 19,  unsigned int)
 #define EAS_GET_THERMAL_HEADROOM_INTERVAL_GET	_IOR('g', 20,  unsigned int)
+#define EAS_SET_SYSTEM_MASK			_IOW('g', 21,  unsigned int)
+#define EAS_GET_SYSTEM_MASK			_IOW('g', 22,  unsigned int)
 
 
 #define XGFFRAME_START              _IOW('g', 1, struct _XGFFRAME_PACKAGE)

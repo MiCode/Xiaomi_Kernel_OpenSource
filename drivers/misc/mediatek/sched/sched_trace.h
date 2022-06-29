@@ -70,6 +70,7 @@ TRACE_EVENT(sched_find_idle_cpu,
 		__entry->fit_idle_cpus)
 );
 
+extern struct cpumask system_cpumask;
 TRACE_EVENT(sched_select_task_rq,
 
 	TP_PROTO(struct task_struct *tsk,
@@ -88,6 +89,7 @@ TRACE_EVENT(sched_select_task_rq,
 		__field(int, task_util_est)
 		__field(int, boost)
 		__field(long, task_mask)
+		__field(long, system_cpumask)
 		__field(bool, prefer)
 		__field(int, sync_flag)
 		__field(int, cpuctl_grp_id)
@@ -103,13 +105,15 @@ TRACE_EVENT(sched_select_task_rq,
 		__entry->task_util_est  = task_util_est;
 		__entry->boost          = boost;
 		__entry->task_mask      = tsk->cpus_ptr->bits[0];
+		__entry->system_cpumask    = system_cpumask.bits[0];
 		__entry->prefer         = prefer;
 		__entry->sync_flag     = sync_flag;
 		__entry->cpuctl_grp_id = sched_cgroup_state(tsk, cpu_cgrp_id);
 		__entry->cpuset_grp_id = sched_cgroup_state(tsk, cpuset_cgrp_id);
 		),
 
-	TP_printk("pid=%4d policy=0x%08x pre-cpu=%d target=%d util=%d util_est=%d uclamp=%d mask=0x%lx latency_sensitive=%d sync=%d cpuctl=%d cpuset=%d",
+	TP_printk(
+		"pid=%4d policy=0x%08x pre-cpu=%d target=%d util=%d util_est=%d uclamp=%d mask=0x%lx sys_mask=0x%lx latency_sensitive=%d sync=%d cpuctl=%d cpuset=%d",
 		__entry->pid,
 		__entry->policy,
 		__entry->prev_cpu,
@@ -118,6 +122,7 @@ TRACE_EVENT(sched_select_task_rq,
 		__entry->task_util_est,
 		__entry->boost,
 		__entry->task_mask,
+		__entry->system_cpumask,
 		__entry->prefer,
 		__entry->sync_flag,
 		__entry->cpuctl_grp_id,

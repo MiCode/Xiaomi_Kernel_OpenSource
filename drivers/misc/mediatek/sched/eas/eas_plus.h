@@ -63,6 +63,8 @@ extern void mtk_set_wake_flags(void *data, int *wake_flags, unsigned int *mode);
 extern void mtk_update_cpu_capacity(void *data, int cpu, unsigned long *capacity);
 extern void mtk_pelt_rt_tp(void *data, struct rq *rq);
 
+extern void init_system_cpumask(void);
+
 #if IS_ENABLED(CONFIG_MTK_NEWIDLE_BALANCE)
 extern void mtk_sched_newidle_balance(void *data, struct rq *this_rq,
 		struct rq_flags *rf, int *pulled_task, int *done);
