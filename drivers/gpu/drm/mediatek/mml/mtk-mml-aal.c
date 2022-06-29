@@ -1135,15 +1135,42 @@ static bool get_dre_block(u32 *phist, const int block_x, const int block_y,
 }
 
 
-static bool aal_hist_check(u32 *phist, u32 dre_blk_x_num, u32 dre_blk_y_num)
+static bool aal_hist_check(struct mml_comp *comp, struct mml_task *task,
+			   struct mml_comp_config *ccfg, u32 *phist)
 {
 	u32 blk_x = 0, blk_y = 0;
+	u8 pipe = (ccfg) ? ccfg->pipe : 0;
+	bool dual = (task) ? task->config->dual : false;
+	struct aal_frame_data *aal_frm = aal_frm_data(ccfg);
+	u32 crop_width = task->config->info.dest[ccfg->node->out_idx].crop.r.width;
+	u32 crop_height = task->config->info.dest[ccfg->node->out_idx].crop.r.height;
+	u32 cut_pos_x = aal_frm->cut_pos_x;
+	u32 dre_blk_width = aal_frm->dre_blk_width;
+	u32 dre_blk_height = aal_frm->dre_blk_height;
+	u32 blk_x_start = 0;
+	u32 dre_blk_y_num = 0, dre_blk_x_num = 0;
 
-	mml_pq_msg("%s dre_blk_x_num[%d] dre_blk_y_num[%d]",
-		__func__, dre_blk_x_num, dre_blk_y_num);
+	if (dual) {
+		if (pipe == 1)
+			dre_blk_x_num = (crop_width - cut_pos_x) / dre_blk_width;
+		if (!pipe)
+			dre_blk_x_num = cut_pos_x / dre_blk_width;
+
+		blk_x_start = cut_pos_x / dre_blk_width + 1;
+	} else {
+		dre_blk_x_num =	crop_width / dre_blk_width;
+		blk_x_start = 0;
+	}
+
+	dre_blk_y_num =	crop_height / dre_blk_height;
+
+	mml_pq_msg("%s pipe[%d] crop_width[%u] crop_height[%u] cut_pos_x[%u]",
+		__func__, pipe, crop_width, crop_height, cut_pos_x);
+	mml_pq_msg("%s dre_blk_x_num[%u] dre_blk_y_num[%u] blk_x_start[%u]",
+		__func__, dre_blk_x_num, dre_blk_y_num, blk_x_start);
 
 	for (blk_y = 0; blk_y < dre_blk_y_num; blk_y++)
-		for (blk_x = 0; blk_x < dre_blk_x_num; blk_x++)
+		for (blk_x = blk_x_start; blk_x < dre_blk_x_num; blk_x++)
 			if (!get_dre_block(phist, blk_x, blk_y, dre_blk_x_num))
 				return false;
 	return true;
@@ -1161,7 +1188,6 @@ static void aal_task_done_readback(struct mml_comp *comp, struct mml_task *task,
 	bool vcp = aal->data->vcp_readback;
 	u32 engine = MML_PQ_AAL0 + pipe;
 	u32 offset = 0;
-	u32 dre_blk_y_num = 0, dre_blk_x_num = 0;
 
 	mml_pq_trace_ex_begin("%s", __func__);
 	mml_pq_msg("%s is_aal_need_readback[%d] id[%d] en_dre[%d]", __func__,
@@ -1287,22 +1313,9 @@ static void aal_task_done_readback(struct mml_comp *comp, struct mml_task *task,
 		mml_pq_aal_readback(task, ccfg->pipe,
 			&(task->pq_task->aal_hist[pipe]->va[offset/4]));
 
-
-
 		if (mml_pq_debug_mode & MML_PQ_HIST_CHECK) {
-			if (pipe == 1)
-				dre_blk_x_num =
-					(task->config->info.dest[ccfg->node->out_idx].crop.r.width -
-					aal_frm->cut_pos_x) / aal_frm->dre_blk_width;
-			if (!pipe)
-				dre_blk_x_num = aal_frm->cut_pos_x / aal_frm->dre_blk_width;
-
-			dre_blk_y_num =
-				task->config->info.dest[ccfg->node->out_idx].crop.r.height /
-				aal_frm->dre_blk_height;
-
-			if (!aal_hist_check(&(task->pq_task->aal_hist[pipe]->va[offset / 4]),
-				dre_blk_x_num, dre_blk_y_num)) {
+			if (!aal_hist_check(comp, task, ccfg,
+				&(task->pq_task->aal_hist[pipe]->va[offset / 4]))) {
 				mml_pq_err("%s hist error", __func__);
 				mml_pq_util_aee("MML_PQ_AAL_Histogram Error",
 					"AAL Histogram error need to check jobid:%d",
