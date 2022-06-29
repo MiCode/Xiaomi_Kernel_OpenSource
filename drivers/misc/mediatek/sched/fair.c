@@ -549,8 +549,6 @@ void mtk_find_energy_efficient_cpu(void *data, struct task_struct *p, int prev_c
 #else
 		for_each_cpu_and(cpu, perf_domain_span(pd), cpu_active_mask) {
 #endif
-			if (latency_sensitive && !cpumask_test_cpu(cpu, &system_cpumask))
-				continue;
 
 			if (!cpumask_test_cpu(cpu, p->cpus_ptr))
 				continue;
@@ -734,9 +732,6 @@ static struct task_struct *detach_a_hint_task(struct rq *src_rq, int dst_cpu)
 			latency_sensitive = (p->uclamp_req[UCLAMP_MIN].value > 0 ? 1 : 0) ||
 					uclamp_latency_sensitive(p);
 		}
-
-		if (!(latency_sensitive && !cpumask_test_cpu(dst_cpu, &system_cpumask)))
-			break;
 
 		if (latency_sensitive && !cpumask_test_cpu(dst_cpu, &system_cpumask))
 			continue;
