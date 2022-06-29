@@ -95,6 +95,7 @@
 
 #define PCIE_MISC_CTRL_REG		0x348
 #define PCIE_DVFS_REQ_FORCE_ON		BIT(1)
+#define PCIE_MAC_SLP_DIS		BIT(7)
 #define PCIE_DVFS_REQ_FORCE_OFF		BIT(12)
 
 #define PCIE_TRANS_TABLE_BASE_REG	0x800
@@ -334,7 +335,7 @@ static int mtk_pcie_startup_port(struct mtk_pcie_port *port)
 
 	/* DVFSRC voltage request state */
 	val = readl_relaxed(port->base + PCIE_MISC_CTRL_REG);
-	val |= PCIE_DVFS_REQ_FORCE_ON;
+	val |= PCIE_DVFS_REQ_FORCE_ON | PCIE_MAC_SLP_DIS;
 	if (!port->dvfs_req_en) {
 		val &= ~PCIE_DVFS_REQ_FORCE_ON;
 		val |= PCIE_DVFS_REQ_FORCE_OFF;
