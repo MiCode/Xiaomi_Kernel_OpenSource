@@ -440,6 +440,9 @@ static irqreturn_t coulomb_irq(int irq, void *data)
 {
 	struct mtk_battery *gm = data;
 
+	if (fg_interrupt_check(gm) == false)
+		return IRQ_HANDLED;
+
 	bm_debug("%s\n", __func__);
 	wake_up_gauge_coulomb(gm);
 	return IRQ_HANDLED;
