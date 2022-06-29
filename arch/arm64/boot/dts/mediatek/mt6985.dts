@@ -5530,9 +5530,10 @@
 					<&gce_m 5 3000 CMDQ_THR_PRIO_2>,
 					<&gce_m 16 3000 CMDQ_THR_PRIO_2>,
 					<&gce_m 17 3000 CMDQ_THR_PRIO_2>,
-					<&gce_m 18 3000 CMDQ_THR_PRIO_1>,
+					<&gce_m 18 3000 CMDQ_THR_PRIO_2>,
 					<&gce_m 19 3000 CMDQ_THR_PRIO_1>,
 					<&gce_m 22 3000 CMDQ_THR_PRIO_1>,
+					<&gce_m 23 3000 CMDQ_THR_PRIO_1>,
 					<&gce_m_sec 10 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_2>,
 					<&gce_m_sec 12 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_2>;
 				traw_cq_thread0_frame_done =
@@ -6005,6 +6006,66 @@
 					/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_139>;
 				sw_sync_token_pool_140 =
 					/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_140>;
+				sw_sync_token_pool_141 =
+					/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_141>;
+				sw_sync_token_pool_142 =
+					/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_142>;
+				sw_sync_token_pool_143 =
+					/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_143>;
+				sw_sync_token_pool_144 =
+					/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_144>;
+				sw_sync_token_pool_145 =
+					/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_145>;
+				sw_sync_token_pool_146 =
+					/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_146>;
+				sw_sync_token_pool_147 =
+					/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_147>;
+				sw_sync_token_pool_148 =
+					/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_148>;
+				sw_sync_token_pool_149 =
+					/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_149>;
+				sw_sync_token_pool_150 =
+					/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_150>;
+				sw_sync_token_pool_151 =
+					/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_151>;
+				sw_sync_token_pool_152 =
+					/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_152>;
+				sw_sync_token_pool_153 =
+					/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_153>;
+				sw_sync_token_pool_154 =
+					/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_154>;
+				sw_sync_token_pool_155 =
+					/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_155>;
+				sw_sync_token_pool_156 =
+					/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_156>;
+				sw_sync_token_pool_157 =
+					/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_157>;
+				sw_sync_token_pool_158 =
+					/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_158>;
+				sw_sync_token_pool_159 =
+					/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_159>;
+				sw_sync_token_pool_160 =
+					/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_160>;
+				sw_sync_token_pool_161 =
+					/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_161>;
+				sw_sync_token_pool_162 =
+					/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_162>;
+				sw_sync_token_pool_163 =
+					/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_163>;
+				sw_sync_token_pool_164 =
+					/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_164>;
+				sw_sync_token_pool_165 =
+					/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_165>;
+				sw_sync_token_pool_166 =
+					/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_166>;
+				sw_sync_token_pool_167 =
+					/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_167>;
+				sw_sync_token_pool_168 =
+					/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_168>;
+				sw_sync_token_pool_169 =
+					/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_169>;
+				sw_sync_token_pool_170 =
+					/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_170>;
 				sw_sync_token_tzmp_isp_wait =
 					/bits/ 16 <CMDQ_SYNC_TOKEN_TZMP_ISP_WAIT>;
 				sw_sync_token_tzmp_isp_set =
