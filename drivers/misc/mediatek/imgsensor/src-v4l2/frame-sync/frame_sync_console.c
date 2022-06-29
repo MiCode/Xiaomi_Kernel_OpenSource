@@ -20,26 +20,42 @@
 /******************************************************************************/
 
 
-// static struct device **pdev;
-
-
 
 
 
 /******************************************************************************/
-// frame sync console define
+// frame sync console define & commands
 /******************************************************************************/
 #define SHOW(buf, len, fmt, ...) { \
 	len += snprintf(buf + len, PAGE_SIZE - len, fmt, ##__VA_ARGS__); \
 }
 
 
-#define FS_CON_CMD_SHIFT 100000000
+/* for decode frame sync console variable from user */
+/* --> (_ _|_ _ _ _ _ _ _ _) */
+#define FS_CON_CMD_ID_BASE    100000000
+#define FS_CON_CMD_ID_MOD           100
+#define FS_CON_CMD_VAL_BASE           1
+#define FS_CON_CMD_VAL_MOD    100000000
 
+/* --> for struct fs_con_usr_cfg */
+/* --> (_ _|_|_ _|_ _ _ _ _) */
+#define FS_CON_USR_CFG_EN_BASE 10000000
+#define FS_CON_USR_CFG_EN_MOD        10
+#define FS_CON_USR_CFG_SIDX_BASE 100000
+#define FS_CON_USR_CFG_SIDX_MOD     100
+#define FS_CON_USR_CFG_VAL_BASE       1
+#define FS_CON_USR_CFG_VAL_MOD   100000
+
+/* supported commands */
 enum fs_console_cmd_id {
 	FS_CON_FORCE_TO_IGNORE_SET_SYNC = 1,
 	FS_CON_DEFAULT_EN_SET_SYNC,
-	FS_CON_SET_SYNC_TYPE, /* TBD */
+
+	FS_CON_EN_OVERWRITE_SET_SYNC, /* TBD */
+	FS_CON_EN_OVERWRITE_MAX_FPS, /* TBD */
+
+	FS_CON_USR_ASYNC_MASTER_SIDX = 20,
 
 	FS_CON_AUTO_LISTEN_EXT_VSYNC = 30,
 	FS_CON_FORCE_LISTEN_EXT_VSYNC = 31,
@@ -56,29 +72,52 @@ enum fs_console_cmd_id {
 
 
 /******************************************************************************/
-// frame sync user/internal console control variables
+// frame sync console variables
 /******************************************************************************/
-/* --- frame sync user control variables --- */
-/* control enable/disable some log */
+// static struct device **pdev;
+
+
+/* log control */
 unsigned int log_tracer;
 unsigned int pf_log_tracer;
 
-/* force disable frame-sync / set sync */
-static unsigned int force_to_ignore_set_sync;
 
-/* default enable frame-sync set sync (at streaming on) */
-static unsigned int default_en_set_sync;
-
-/* disable algo auto listen ext vsync */
-static unsigned int auto_listen_ext_vsync;
-
-/* listen ext vsync (control by user) */
-static unsigned int listen_ext_vsync;
+struct fs_con_usr_cfg {
+	unsigned int en;
+	unsigned int value;
+};
 
 
-/* --- frame sync internal control variables --- */
-/* listen ext vsync (control by algorithm) */
-static unsigned int listen_vsync_alg;
+struct fs_console_mgr {
+	/* --- global configs --- */
+	/* force ignore frame-sync / set sync */
+	unsigned int force_to_ignore_set_sync;
+
+	/* default enable frame-sync set sync (at streaming on) */
+	unsigned int default_en_set_sync;
+
+	/* disable algo auto listen ext vsync */
+	unsigned int auto_listen_ext_vsync;
+
+	/* listen ext vsync (control by user) */
+	unsigned int listen_ext_vsync;
+
+
+	/* for overwrite set sync value */
+	struct fs_con_usr_cfg set_sync[SENSOR_MAX_NUM];
+
+	/* for overwrite set max fps value */
+	struct fs_con_usr_cfg max_fps[SENSOR_MAX_NUM];
+
+	/* for overwrite user async master sidx */
+	int usr_async_m_sidx;
+
+
+	/* --- frame sync internal control variables --- */
+	/* listen ext vsync (control by algorithm) */
+	unsigned int listen_vsync_alg;
+};
+static struct fs_console_mgr fs_con_mgr;
 /******************************************************************************/
 
 
@@ -93,26 +132,92 @@ static inline void fs_console_init_def_value(void)
 	// *pdev = NULL;
 	log_tracer = LOG_TRACER_DEF;
 	pf_log_tracer = PF_LOG_TRACER_DEF;
-	force_to_ignore_set_sync = 0;
-	default_en_set_sync = 0;
-	auto_listen_ext_vsync = ALGO_AUTO_LISTEN_VSYNC;
+
+	fs_con_mgr.force_to_ignore_set_sync = 0;
+	fs_con_mgr.default_en_set_sync = 0;
+	fs_con_mgr.auto_listen_ext_vsync = ALGO_AUTO_LISTEN_VSYNC;
+
+	fs_con_mgr.usr_async_m_sidx = MASTER_IDX_NONE;
 
 	// two stage frame-sync:
 	// => use seninf-worker to trigger frame length calculation
-	listen_ext_vsync = TWO_STAGE_FS;
-	listen_vsync_alg = 0;
+	fs_con_mgr.listen_ext_vsync = TWO_STAGE_FS;
+	fs_con_mgr.listen_vsync_alg = 0;
 }
 
 
-static inline enum fs_console_cmd_id fs_console_get_cmd_id(unsigned int cmd)
+static inline unsigned int decode_cmd_value(const unsigned int cmd,
+	const unsigned int base, const unsigned int mod)
 {
-	return (enum fs_console_cmd_id)(cmd/FS_CON_CMD_SHIFT);
+	unsigned int ret = 0;
+
+	ret = (base != 0) ? (cmd / base) : 0;
+	ret %= mod;
+
+	return ret;
 }
 
 
-static inline unsigned int fs_console_get_cmd_value(unsigned int cmd)
+static inline enum fs_console_cmd_id fs_console_get_cmd_id(
+	const unsigned int cmd)
 {
-	return (cmd%FS_CON_CMD_SHIFT);
+	return (enum fs_console_cmd_id)decode_cmd_value(cmd,
+		FS_CON_CMD_ID_BASE, FS_CON_CMD_ID_MOD);
+}
+
+
+static inline void fs_console_setup_cmd_value(
+	const unsigned int cmd, unsigned int *p_val)
+{
+	*p_val = decode_cmd_value(cmd,
+		FS_CON_CMD_VAL_BASE, FS_CON_CMD_VAL_MOD);
+}
+
+
+static void fs_console_setup_usr_cfg(const unsigned int cmd,
+	struct fs_con_usr_cfg p_usr_cfg[])
+{
+	unsigned int sidx = 0;
+	unsigned int i = 0;
+
+	sidx = decode_cmd_value(cmd,
+		FS_CON_USR_CFG_SIDX_BASE, FS_CON_USR_CFG_SIDX_MOD);
+
+	/* check sidx value get from user */
+	if (sidx == 99) {
+		for (i = 0; i < SENSOR_MAX_NUM; ++i) {
+			p_usr_cfg[i].en = decode_cmd_value(cmd,
+				FS_CON_USR_CFG_EN_BASE,
+				FS_CON_USR_CFG_EN_MOD);
+
+			p_usr_cfg[i].value = (p_usr_cfg[sidx].en)
+				? decode_cmd_value(cmd,
+					FS_CON_USR_CFG_VAL_BASE,
+					FS_CON_USR_CFG_VAL_MOD)
+				: 0;
+		}
+	} else if (sidx < SENSOR_MAX_NUM) {
+		p_usr_cfg[sidx].en = decode_cmd_value(cmd,
+			FS_CON_USR_CFG_EN_BASE, FS_CON_USR_CFG_EN_MOD);
+
+		p_usr_cfg[sidx].value = (p_usr_cfg[sidx].en)
+			? decode_cmd_value(cmd,
+				FS_CON_USR_CFG_VAL_BASE,
+				FS_CON_USR_CFG_VAL_MOD)
+			: 0;
+	}
+}
+
+
+static unsigned int fs_console_get_usr_cfg(const unsigned int sidx,
+	unsigned int *p_val, struct fs_con_usr_cfg p_usr_cfg[])
+{
+	unsigned int ret = p_usr_cfg[sidx].en;
+
+	if (ret != 0 && p_val)
+		*p_val = p_usr_cfg[sidx].value;
+
+	return ret;
 }
 /******************************************************************************/
 
@@ -125,80 +230,58 @@ static inline unsigned int fs_console_get_cmd_value(unsigned int cmd)
 /******************************************************************************/
 unsigned int fs_con_chk_force_to_ignore_set_sync(void)
 {
-	return force_to_ignore_set_sync;
+	return fs_con_mgr.force_to_ignore_set_sync;
 }
 
 
 unsigned int fs_con_chk_default_en_set_sync(void)
 {
-	return default_en_set_sync;
+	return fs_con_mgr.default_en_set_sync;
+}
+
+
+unsigned int fs_con_chk_en_overwrite_set_sync(const unsigned int sidx,
+	unsigned int *p_val)
+{
+	return fs_console_get_usr_cfg(sidx, p_val, fs_con_mgr.set_sync);
+}
+
+
+unsigned int fs_con_chk_en_overwrite_max_fps(const unsigned int sidx,
+	unsigned int *p_val)
+{
+	return fs_console_get_usr_cfg(sidx, p_val, fs_con_mgr.max_fps);
+}
+
+
+int fs_con_chk_usr_async_m_sidx(void)
+{
+	return fs_con_mgr.usr_async_m_sidx;
 }
 
 
 unsigned int fs_con_get_usr_listen_ext_vsync(void)
 {
-	return listen_ext_vsync;
+	return fs_con_mgr.listen_ext_vsync;
 }
 
 
 unsigned int fs_con_get_usr_auto_listen_ext_vsync(void)
 {
-	return auto_listen_ext_vsync;
+	return fs_con_mgr.auto_listen_ext_vsync;
 }
 
 
 unsigned int fs_con_get_listen_vsync_alg_cfg(void)
 {
-	return (auto_listen_ext_vsync) ? listen_vsync_alg : 0;
+	return (fs_con_mgr.auto_listen_ext_vsync)
+		? fs_con_mgr.listen_vsync_alg : 0;
 }
 
 
 void fs_con_set_listen_vsync_alg_cfg(unsigned int flag)
 {
-	listen_vsync_alg = flag;
-}
-/******************************************************************************/
-
-
-
-
-
-/******************************************************************************/
-// console command function
-/******************************************************************************/
-static void fs_console_set_log_tracer(unsigned int cmd)
-{
-	log_tracer = fs_console_get_cmd_value(cmd);
-}
-
-
-static void fs_console_set_pf_log_tracer(unsigned int cmd)
-{
-	pf_log_tracer = fs_console_get_cmd_value(cmd);
-}
-
-
-static void fs_console_set_force_disable_frame_sync(unsigned int cmd)
-{
-	force_to_ignore_set_sync = fs_console_get_cmd_value(cmd);
-}
-
-
-static void fs_console_set_default_en_set_sync(unsigned int cmd)
-{
-	default_en_set_sync = fs_console_get_cmd_value(cmd);
-}
-
-
-static void fs_console_set_algo_auto_listen_ext_vsync(unsigned int cmd)
-{
-	auto_listen_ext_vsync = fs_console_get_cmd_value(cmd);
-}
-
-
-static void fs_console_set_force_listen_ext_vsync(unsigned int cmd)
-{
-	listen_ext_vsync = fs_console_get_cmd_value(cmd);
+	fs_con_mgr.listen_vsync_alg = flag;
 }
 /******************************************************************************/
 
@@ -221,42 +304,65 @@ static ssize_t fsync_console_show(
 
 
 	SHOW(buf, len,
-		"\t\t[ %u : FORCE_TO_IGNORE_SET_SYNC ] force_to_ignore_set_sync : %u\n",
+		"\t\t[ %2u : FORCE_TO_IGNORE_SET_SYNC ] force_to_ignore_set_sync : %u\n",
 		(unsigned int)FS_CON_FORCE_TO_IGNORE_SET_SYNC,
-		force_to_ignore_set_sync);
+		fs_con_mgr.force_to_ignore_set_sync);
 
 
 	SHOW(buf, len,
-		"\t\t[ %u : DEFAULT_EN_SET_SYNC ] default_en_set_sync : %u\n",
+		"\t\t[ %2u : DEFAULT_EN_SET_SYNC ] default_en_set_sync : %u\n",
 		(unsigned int)FS_CON_DEFAULT_EN_SET_SYNC,
-		default_en_set_sync);
+		fs_con_mgr.default_en_set_sync);
 
 
 	SHOW(buf, len,
-		"\t\t[ %u : SET_SYNC_TYPE ] TBD\n",
-		(unsigned int)FS_CON_SET_SYNC_TYPE);
+		"\t\t[ %2u : EN_OVERWRITE_SET_SYNC ] (sidx:(en/val)) : 0:(%u/%u)/1:(%u/%u)/2:(%u/%u)/3:(%u/%u)/4:(%u/%u)/5:(%u/%u)\n",
+		(unsigned int)FS_CON_EN_OVERWRITE_SET_SYNC,
+		fs_con_mgr.set_sync[0].en, fs_con_mgr.set_sync[0].value,
+		fs_con_mgr.set_sync[1].en, fs_con_mgr.set_sync[1].value,
+		fs_con_mgr.set_sync[2].en, fs_con_mgr.set_sync[2].value,
+		fs_con_mgr.set_sync[3].en, fs_con_mgr.set_sync[3].value,
+		fs_con_mgr.set_sync[4].en, fs_con_mgr.set_sync[4].value,
+		fs_con_mgr.set_sync[5].en, fs_con_mgr.set_sync[5].value);
 
 
 	SHOW(buf, len,
-		"\t\t[ %u : AUTO_LISTEN_EXT_VSYNC ] auto_listen_ext_vsync : %u\n",
+		"\t\t[ %2u : EN_OVERWRITE_MAX_FPS ] (sidx:(en/val)) : 0:(%u/%u)/1:(%u/%u)/2:(%u/%u)/3:(%u/%u)/4:(%u/%u)/5:(%u/%u)\n",
+		(unsigned int)FS_CON_EN_OVERWRITE_MAX_FPS,
+		fs_con_mgr.max_fps[0].en, fs_con_mgr.max_fps[0].value,
+		fs_con_mgr.max_fps[1].en, fs_con_mgr.max_fps[1].value,
+		fs_con_mgr.max_fps[2].en, fs_con_mgr.max_fps[2].value,
+		fs_con_mgr.max_fps[3].en, fs_con_mgr.max_fps[3].value,
+		fs_con_mgr.max_fps[4].en, fs_con_mgr.max_fps[4].value,
+		fs_con_mgr.max_fps[5].en, fs_con_mgr.max_fps[5].value);
+
+
+	SHOW(buf, len,
+		"\t\t[ %2u : USR_ASYNC_MASTER_SIDX ] usr_async_m_sidx : %d\n",
+		(unsigned int)FS_CON_USR_ASYNC_MASTER_SIDX,
+		fs_con_mgr.usr_async_m_sidx);
+
+
+	SHOW(buf, len,
+		"\t\t[ %2u : AUTO_LISTEN_EXT_VSYNC ] auto_listen_ext_vsync : %u\n",
 		(unsigned int)FS_CON_AUTO_LISTEN_EXT_VSYNC,
-		auto_listen_ext_vsync);
+		fs_con_mgr.auto_listen_ext_vsync);
 
 
 	SHOW(buf, len,
-		"\t\t[ %u : FORCE_LISTEN_EXT_VSYNC ] listen_ext_vsync : %u\n",
+		"\t\t[ %2u : FORCE_LISTEN_EXT_VSYNC ] listen_ext_vsync : %u\n",
 		(unsigned int)FS_CON_FORCE_LISTEN_EXT_VSYNC,
-		listen_ext_vsync);
+		fs_con_mgr.listen_ext_vsync);
 
 
 	SHOW(buf, len,
-		"\t\t[ %u : PF_LOG_TRACER ] pf_log_tracer : %u\n",
+		"\t\t[ %2u : PF_LOG_TRACER ] pf_log_tracer : %u\n",
 		(unsigned int)FS_CON_PF_LOG_TRACER,
 		pf_log_tracer);
 
 
 	SHOW(buf, len,
-		"\t\t[ %u : LOG_TRACER ] log_tracer : %u\n",
+		"\t\t[ %2u : LOG_TRACER ] log_tracer : %u\n",
 		(unsigned int)FS_CON_LOG_TRACER,
 		log_tracer);
 
@@ -293,27 +399,43 @@ static ssize_t fsync_console_store(
 
 	switch (cmd_id) {
 	case FS_CON_FORCE_TO_IGNORE_SET_SYNC:
-		fs_console_set_force_disable_frame_sync(cmd);
+		fs_console_setup_cmd_value(cmd,
+			&fs_con_mgr.force_to_ignore_set_sync);
 		break;
 
 	case FS_CON_DEFAULT_EN_SET_SYNC:
-		fs_console_set_default_en_set_sync(cmd);
+		fs_console_setup_cmd_value(cmd,
+			&fs_con_mgr.default_en_set_sync);
 		break;
 
-	case FS_CON_LOG_TRACER:
-		fs_console_set_log_tracer(cmd);
+	case FS_CON_EN_OVERWRITE_SET_SYNC:
+		fs_console_setup_usr_cfg(cmd, fs_con_mgr.set_sync);
 		break;
 
-	case FS_CON_PF_LOG_TRACER:
-		fs_console_set_pf_log_tracer(cmd);
+	case FS_CON_EN_OVERWRITE_MAX_FPS:
+		fs_console_setup_usr_cfg(cmd, fs_con_mgr.max_fps);
 		break;
+
+	case FS_CON_USR_ASYNC_MASTER_SIDX:
+		fs_console_setup_cmd_value(cmd,
+			&fs_con_mgr.usr_async_m_sidx);
 
 	case FS_CON_AUTO_LISTEN_EXT_VSYNC:
-		fs_console_set_algo_auto_listen_ext_vsync(cmd);
+		fs_console_setup_cmd_value(cmd,
+			&fs_con_mgr.auto_listen_ext_vsync);
 		break;
 
 	case FS_CON_FORCE_LISTEN_EXT_VSYNC:
-		fs_console_set_force_listen_ext_vsync(cmd);
+		fs_console_setup_cmd_value(cmd,
+			&fs_con_mgr.listen_ext_vsync);
+		break;
+
+	case FS_CON_PF_LOG_TRACER:
+		fs_console_setup_cmd_value(cmd, &pf_log_tracer);
+		break;
+
+	case FS_CON_LOG_TRACER:
+		fs_console_setup_cmd_value(cmd, &log_tracer);
 		break;
 
 	default:

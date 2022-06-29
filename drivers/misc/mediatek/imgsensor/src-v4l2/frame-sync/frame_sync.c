@@ -126,7 +126,7 @@ struct FrameSyncMgr {
 	/* e.g. fps: (60 vs 30) */
 	/* => frame_cell_size: 2 */
 	/* => frame_tag: 0, 1, 0, 1, 0, ... */
-	enum FS_FEATURE_MODE ft_mode[SENSOR_MAX_NUM];
+	enum FS_HDR_FT_MODE hdr_ft_mode[SENSOR_MAX_NUM];
 	unsigned int frame_cell_size[SENSOR_MAX_NUM];
 	unsigned int frame_tag[SENSOR_MAX_NUM];
 
@@ -149,10 +149,14 @@ struct FrameSyncMgr {
 
 #ifdef SUPPORT_FS_NEW_METHOD
 	unsigned int user_set_sa:1;             // user config using SA
+	FS_Atomic_T user_async_master_sidx;     // user config async master sidx
+
 	FS_Atomic_T using_sa_ver;               // flag - using standalone ver
 	FS_Atomic_T sa_bits;                    // for needing standalone ver
 	FS_Atomic_T sa_method;                  // 0:adaptive switch
 	FS_Atomic_T master_idx;                 // SA master idx
+	FS_Atomic_T async_mode_bits;            // SA async mode bits
+	FS_Atomic_T async_master_idx;           // SA async mode m_idx
 #endif // SUPPORT_FS_NEW_METHOD
 };
 static struct FrameSyncMgr fs_mgr;
@@ -286,11 +290,12 @@ static inline unsigned int fs_user_sa_config(void)
 /******************************************************************************/
 // Dump & Debug function
 /******************************************************************************/
-static void fs_dump_status(const int idx, const unsigned int flag,
-	const char *caller, const char *msg)
+static void fs_dump_status(const int idx, const int flag, const char *caller,
+	const char *msg)
 {
-	unsigned int cnt = FS_POPCOUNT(FS_ATOMIC_READ(&fs_mgr.validSync_bits));
-	enum FS_STATUS status = get_fs_status();
+	const enum FS_STATUS status = get_fs_status();
+	const unsigned int cnt =
+		FS_POPCOUNT(FS_ATOMIC_READ(&fs_mgr.validSync_bits));
 	char *log_buf = NULL;
 	int ret = 0;
 
@@ -305,7 +310,7 @@ static void fs_dump_status(const int idx, const unsigned int flag,
 	log_buf[0] = '\0';
 	ret = snprintf(log_buf + strlen(log_buf),
 		LOG_BUF_STR_LEN - strlen(log_buf),
-		"[%s:%d/%u %s]: stat:%u, ready:%u, stream:%d, enSync:%d(%d/%d/%d/%d/%d/%d), valid:%d, hw_sync:%d(%d)(%d/%d/%d/%d/%d/%d), trigger:%u, pf_ctrl:%d(%u), complete:%d(%u)(hw:%d/%d/%d/%d/%d/%d), act(%u/%u/%u/%u/%u/%u), ft_mode(%u/%u/%u/%u/%u/%u), SA(%d/%d/%d, %d)",
+		"[%s:%d/%d %s]: stat:%u, ready:%u, stream:%d, enSync:%d(%d/%d/%d/%d/%d/%d), valid:%d, hw_sync:%d(%d)(%d/%d/%d/%d/%d/%d), trigger:%u, pf_ctrl:%d(%u), complete:%d(%u)(hw:%d/%d/%d/%d/%d/%d), act(%u/%u/%u/%u/%u/%u), hdr_ft_mode(%u/%u/%u/%u/%u/%u), SA(%d/%d/%d, %d, async(%d, m_sidx:%d(%d)))",
 		caller, idx, flag, msg,
 		status,
 		cnt,
@@ -361,16 +366,19 @@ static void fs_dump_status(const int idx, const unsigned int flag,
 		fs_mgr.act_cnt[FS_HW_SYNC_GROUP_ID_3],
 		fs_mgr.act_cnt[FS_HW_SYNC_GROUP_ID_4],
 		fs_mgr.act_cnt[FS_HW_SYNC_GROUP_ID_5],
-		fs_mgr.ft_mode[0],
-		fs_mgr.ft_mode[1],
-		fs_mgr.ft_mode[2],
-		fs_mgr.ft_mode[3],
-		fs_mgr.ft_mode[4],
-		fs_mgr.ft_mode[5],
+		fs_mgr.hdr_ft_mode[0],
+		fs_mgr.hdr_ft_mode[1],
+		fs_mgr.hdr_ft_mode[2],
+		fs_mgr.hdr_ft_mode[3],
+		fs_mgr.hdr_ft_mode[4],
+		fs_mgr.hdr_ft_mode[5],
 		FS_ATOMIC_READ(&fs_mgr.using_sa_ver),
 		fs_user_sa_config(),
 		FS_ATOMIC_READ(&fs_mgr.sa_bits),
-		FS_ATOMIC_READ(&fs_mgr.master_idx));
+		FS_ATOMIC_READ(&fs_mgr.master_idx),
+		FS_ATOMIC_READ(&fs_mgr.async_mode_bits),
+		FS_ATOMIC_READ(&fs_mgr.user_async_master_sidx),
+		FS_ATOMIC_READ(&fs_mgr.async_master_idx));
 
 	if (unlikely(ret < 0))
 		LOG_MUST("ERROR: LOG encoding error, ret:%d\n", ret);
@@ -1068,6 +1076,9 @@ static void fs_init_members(void)
 	FS_ATOMIC_INIT(0, &fs_mgr.sa_bits);
 	FS_ATOMIC_INIT(0, &fs_mgr.sa_method);
 	FS_ATOMIC_INIT(MASTER_IDX_NONE, &fs_mgr.master_idx);
+	FS_ATOMIC_INIT(0, &fs_mgr.async_mode_bits);
+	FS_ATOMIC_INIT(MASTER_IDX_NONE, &fs_mgr.user_async_master_sidx);
+	FS_ATOMIC_INIT(MASTER_IDX_NONE, &fs_mgr.async_master_idx);
 }
 #endif // SUPPORT_FS_NEW_METHOD
 
@@ -1308,7 +1319,7 @@ static inline void fs_reset_ft_mode_data(unsigned int idx, unsigned int flag)
 	if (flag > 0)
 		return;
 
-	fs_mgr.ft_mode[idx] = 0;
+	fs_mgr.hdr_ft_mode[idx] = 0;
 	fs_mgr.frame_cell_size[idx] = 0;
 	fs_mgr.frame_tag[idx] = 0;
 }
@@ -1330,15 +1341,15 @@ static void fs_reset_perframe_stage_data(
 
 #ifdef SUPPORT_FS_NEW_METHOD
 static inline void fs_check_sync_need_sa_mode(
-	unsigned int idx, enum FS_FEATURE_MODE flag)
+	unsigned int idx, enum FS_HDR_FT_MODE flag)
 {
-	/* NOT FS_FT_MODE_NORMAL => using SA mode */
-	if (flag != FS_FT_MODE_NORMAL) {
+	/* NOT FS_HDR_FT_MODE_NORMAL => using SA mode */
+	if (flag != FS_HDR_FT_MODE_NORMAL) {
 		write_bit_atomic(idx, 1, &fs_mgr.sa_bits);
 
 #if !defined(REDUCE_FS_DRV_LOG)
 		LOG_INF(
-			"[%u] ID:%#x(sidx:%u), ft_mode:%u(need SA mode, except 0 for normal)   [sa_bits:%d]\n",
+			"[%u] ID:%#x(sidx:%u), hdr_ft_mode:%u(need SA mode, except 0 for normal)   [sa_bits:%d]\n",
 			idx,
 			fs_get_reg_sensor_id(idx),
 			fs_get_reg_sensor_idx(idx),
@@ -1349,7 +1360,7 @@ static inline void fs_check_sync_need_sa_mode(
 }
 
 
-static inline void fs_decision_maker(unsigned int idx)
+static void fs_decision_maker(unsigned int idx)
 {
 	int sa_bits_now = 0;
 	int need_sa_ver = 0;
@@ -1357,7 +1368,7 @@ static inline void fs_decision_maker(unsigned int idx)
 
 
 	/* 1. check sync tag of the sensor need use SA mode or not */
-	fs_check_sync_need_sa_mode(idx, fs_mgr.ft_mode[idx]);
+	fs_check_sync_need_sa_mode(idx, fs_mgr.hdr_ft_mode[idx]);
 
 
 	/* 2. check all sensor for using SA mode or not */
@@ -1388,20 +1399,32 @@ static inline void fs_decision_maker(unsigned int idx)
 
 #if !defined(FORCE_USING_SA_MODE) || !defined(REDUCE_FS_DRV_LOG)
 	LOG_MUST(
-		"using_sa:%d (user_sa_en:%u), ft_mode:%u, sa_bits:%d [idx:%u]\n",
+		"using_sa:%d (user_sa_en:%u), hdr_ft_mode:%u, sa_bits:%d [idx:%u]\n",
 		FS_ATOMIC_READ(&fs_mgr.using_sa_ver),
 		user_sa_en,
-		fs_mgr.ft_mode[idx],
+		fs_mgr.hdr_ft_mode[idx],
 		FS_ATOMIC_READ(&fs_mgr.sa_bits),
 		idx);
 #endif
 }
 
 
-static inline void fs_sa_try_reset_master_idx(unsigned int idx)
+/*
+ * if the input, idx, un-set FrameSync set sync, and is SA master idx,
+ * => true: reset SA master idx to MASTER_IDX_NONE
+ * => false: do nothing.
+ */
+static void fs_sa_try_reset_master_idx(const unsigned int idx,
+	const unsigned int flag)
 {
-	int master_idx = 0;
+	int master_idx = MASTER_IDX_NONE;
 
+
+	/* The sensor status is already set sync => do nothing */
+	if (flag > 0)
+		return;
+
+	/* check situation for needing reset SA master idx */
 	do {
 		master_idx = FS_ATOMIC_READ(&fs_mgr.master_idx);
 
@@ -1409,19 +1432,129 @@ static inline void fs_sa_try_reset_master_idx(unsigned int idx)
 	} while (!atomic_compare_exchange_weak(&fs_mgr.master_idx,
 			&master_idx,
 			((idx == master_idx)
-			? MASTER_IDX_NONE : master_idx)));
+				? MASTER_IDX_NONE : master_idx)));
 #else
 	} while (atomic_cmpxchg(&fs_mgr.master_idx,
 			master_idx,
 			((idx == master_idx)
-			? MASTER_IDX_NONE : master_idx))
+				? MASTER_IDX_NONE : master_idx))
 		!= master_idx);
 #endif // FS_UT
+}
+
+
+/*
+ * This function will change async_master_idx value immediately!
+ * Only call this function when you confirmed that
+ *     this instance idx of sensor is valid for doing frame-sync!
+ */
+static void fs_sa_update_async_master_idx(const unsigned int idx,
+	const unsigned int flag)
+{
+	const unsigned int sidx = fs_get_reg_sensor_idx(idx);
+	const int async_m_idx = FS_ATOMIC_READ(&fs_mgr.async_master_idx);
+	int user_async_m_sidx = FS_ATOMIC_READ(&fs_mgr.user_async_master_sidx);
+
+#if !defined(FS_UT)
+	int ret = fs_con_chk_usr_async_m_sidx();
+
+	/* user cmd overwrite set sync flag */
+	if (unlikely(ret != MASTER_IDX_NONE)) {
+		user_async_m_sidx = ret;
+		LOG_MUST(
+			"NOTICE: [%u] ID:%#x(sidx:%u), USER set async master sidx:%u => user_async_m_sidx:%d\n",
+			idx,
+			fs_get_reg_sensor_id(idx),
+			fs_get_reg_sensor_idx(idx),
+			ret,
+			user_async_m_sidx);
+	}
+#endif // FS_UT
+
+	/* case handling */
+	/* --- check user input value is valid or not */
+	if (unlikely((user_async_m_sidx != MASTER_IDX_NONE)
+		&& (user_async_m_sidx < 0
+			|| user_async_m_sidx >= SENSOR_MAX_NUM))) {
+		LOG_MUST(
+			"[%u] ERROR: ID:%#x(sidx:%u), invalid user_async_master_sidx:%d value, return\n",
+			idx,
+			fs_get_reg_sensor_id(idx),
+			fs_get_reg_sensor_idx(idx),
+			user_async_m_sidx);
+		return;
+	}
+
+	if (flag > 0) {
+		if (sidx != user_async_m_sidx)
+			return;
+
+		/* set to this instance idx for using */
+		FS_ATOMIC_SET(idx, &fs_mgr.async_master_idx);
+	} else {
+		if (idx != async_m_idx)
+			return;
+
+		FS_ATOMIC_SET(MASTER_IDX_NONE, &fs_mgr.async_master_idx);
+	}
+
+	LOG_MUST(
+		"[%u] ID:%#x(sidx:%u), flag:%u, async_master(user_sidx:%d/curr_idx:%d->%d) [streaming:%d/enSync:%d/validSync:%d]\n",
+		idx,
+		fs_get_reg_sensor_id(idx),
+		fs_get_reg_sensor_idx(idx),
+		flag,
+		user_async_m_sidx,
+		async_m_idx,
+		FS_ATOMIC_READ(&fs_mgr.async_master_idx),
+		FS_ATOMIC_READ(&fs_mgr.streaming_bits),
+		FS_ATOMIC_READ(&fs_mgr.enSync_bits),
+		FS_ATOMIC_READ(&fs_mgr.validSync_bits));
+}
+
+
+void fs_sa_set_user_async_master(const unsigned int sidx,
+	const unsigned int flag)
+{
+	unsigned int idx = fs_get_reg_sensor_pos(sidx);
+
+	if (flag > 0)
+		FS_ATOMIC_SET(sidx, &fs_mgr.user_async_master_sidx);
+	else
+		FS_ATOMIC_SET(MASTER_IDX_NONE, &fs_mgr.user_async_master_sidx);
+
+	/* if sensor is registered and valid for doing frame-sync, */
+	/* (streaming ON + set sync) update async master idx simultaneously */
+	if (check_idx_valid(idx)
+		&& FS_CHECK_BIT(idx, &fs_mgr.validSync_bits)) {
+		fs_sa_update_async_master_idx(idx, flag);
+
+		/* log info can be see by above function */
+		return;
+	}
+
+	LOG_MUST(
+		"[%d] sidx:%u, flag:%u, user_async_master_sidx:%d, streaming:%d, enSync:%d, validSync:%d, async_master_idx:%u\n",
+		(int)idx, sidx, flag,
+		FS_ATOMIC_READ(&fs_mgr.user_async_master_sidx),
+		FS_ATOMIC_READ(&fs_mgr.streaming_bits),
+		FS_ATOMIC_READ(&fs_mgr.enSync_bits),
+		FS_ATOMIC_READ(&fs_mgr.validSync_bits),
+		FS_ATOMIC_READ(&fs_mgr.async_master_idx));
+}
+
+
+static inline void fs_sa_set_async_info(const unsigned int idx,
+	const unsigned int flag)
+{
+	const unsigned int async_en = (flag & FS_SYNC_TYPE_ASYNC_MODE);
+
+	FS_WRITE_BIT(idx, async_en, &fs_mgr.async_mode_bits);
 }
 #endif // SUPPORT_FS_NEW_METHOD
 
 
-static inline void fs_set_sync_status(unsigned int idx, unsigned int flag)
+static void fs_set_sync_status(unsigned int idx, unsigned int flag)
 {
 	/* unset sync => reset pf_ctrl_bits data of this idx */
 	/* TODO: add a API for doing this */
@@ -1540,11 +1673,15 @@ static void fs_set_sync_idx(unsigned int idx, unsigned int flag)
 
 	fs_alg_set_sync_type(idx, flag);
 
+	fs_sa_set_async_info(idx, flag);
+
 #if defined(FS_UT)
 	fs_reset_ft_mode_data(idx, flag);
 #endif // FS_UT
 
-	fs_sa_try_reset_master_idx(idx);
+	fs_sa_try_reset_master_idx(idx, flag);
+
+	fs_sa_update_async_master_idx(idx, flag);
 
 	fs_decision_maker(idx);
 
@@ -1557,12 +1694,23 @@ void fs_set_sync(unsigned int ident, unsigned int flag)
 	unsigned int idx = fs_get_reg_sensor_pos(ident);
 
 #if !defined(FS_UT)
+	unsigned int owr_flag = flag;
+
 	/* user cmd force disable frame-sync set_sync */
 	if (unlikely(fs_con_chk_force_to_ignore_set_sync())) {
 		LOG_MUST(
 			"WARNING: [%u] ident:%u(%s), USER set frame-sync force to ignore set sync, return\n",
 			idx, ident, REG_INFO);
 		return;
+	}
+
+	/* user cmd overwrite set sync flag */
+	if (unlikely(fs_con_chk_en_overwrite_set_sync(ident, &owr_flag))) {
+		LOG_MUST(
+			"NOTICE: [%u] ident:%u(%s), USER set overwrite set sync value:(%u -> %u)\n",
+			idx, ident, REG_INFO,
+			flag, owr_flag);
+		flag = owr_flag;
 	}
 #endif // FS_UT
 
@@ -1669,7 +1817,7 @@ static inline void fs_set_framelength_lc(unsigned int idx, unsigned int fl_lc)
 static inline unsigned int fs_check_n_1_status_ctrl(
 	unsigned int idx, unsigned int en)
 {
-	enum FS_FEATURE_MODE mode_status = fs_mgr.ft_mode[idx];
+	enum FS_HDR_FT_MODE mode_status = fs_mgr.hdr_ft_mode[idx];
 
 	if (en) {
 		/* only normal mode can turn ON N:1 mode */
@@ -1678,20 +1826,20 @@ static inline unsigned int fs_check_n_1_status_ctrl(
 
 	/* only FRAME_TAG and N_1_KEEP can turn OFF N:1 mode */
 	return (mode_status
-		& (FS_FT_MODE_FRAME_TAG | FS_FT_MODE_N_1_KEEP))
+		& (FS_HDR_FT_MODE_FRAME_TAG | FS_HDR_FT_MODE_N_1_KEEP))
 		? 1 : 0;
 }
 
 
 static inline void fs_check_n_1_status_extra_ctrl(unsigned int idx)
 {
-	enum FS_FEATURE_MODE old_ft_status;
+	enum FS_HDR_FT_MODE old_ft_status;
 
-	old_ft_status = fs_mgr.ft_mode[idx];
+	old_ft_status = fs_mgr.hdr_ft_mode[idx];
 
-	if (fs_mgr.ft_mode[idx] & FS_FT_MODE_N_1_ON) {
-		fs_mgr.ft_mode[idx] &= ~(FS_FT_MODE_N_1_ON);
-		fs_mgr.ft_mode[idx] |= FS_FT_MODE_N_1_KEEP;
+	if (fs_mgr.hdr_ft_mode[idx] & FS_HDR_FT_MODE_N_1_ON) {
+		fs_mgr.hdr_ft_mode[idx] &= ~(FS_HDR_FT_MODE_N_1_ON);
+		fs_mgr.hdr_ft_mode[idx] |= FS_HDR_FT_MODE_N_1_KEEP;
 
 		LOG_MUST(
 			"[%u] ID:%#x(sidx:%u), feature mode status change (%u->%u), ON:%u/KEEP:%u\n",
@@ -1699,19 +1847,19 @@ static inline void fs_check_n_1_status_extra_ctrl(unsigned int idx)
 			fs_get_reg_sensor_id(idx),
 			fs_get_reg_sensor_idx(idx),
 			old_ft_status,
-			fs_mgr.ft_mode[idx],
-			fs_mgr.ft_mode[idx] & FS_FT_MODE_N_1_ON,
-			fs_mgr.ft_mode[idx] & FS_FT_MODE_N_1_KEEP
+			fs_mgr.hdr_ft_mode[idx],
+			fs_mgr.hdr_ft_mode[idx] & FS_HDR_FT_MODE_N_1_ON,
+			fs_mgr.hdr_ft_mode[idx] & FS_HDR_FT_MODE_N_1_KEEP
 		);
 
 		/* turn off FS algo n_1_on_off flag */
 		/* for calculating FL normally */
 		fs_alg_set_n_1_on_off_flag(idx, 0);
 
-	} else if (fs_mgr.ft_mode[idx] & FS_FT_MODE_N_1_OFF) {
-		fs_mgr.ft_mode[idx] &= ~(FS_FT_MODE_N_1_OFF);
-		fs_mgr.ft_mode[idx] &= ~(FS_FT_MODE_FRAME_TAG);
-		fs_mgr.ft_mode[idx] |= FS_FT_MODE_NORMAL;
+	} else if (fs_mgr.hdr_ft_mode[idx] & FS_HDR_FT_MODE_N_1_OFF) {
+		fs_mgr.hdr_ft_mode[idx] &= ~(FS_HDR_FT_MODE_N_1_OFF);
+		fs_mgr.hdr_ft_mode[idx] &= ~(FS_HDR_FT_MODE_FRAME_TAG);
+		fs_mgr.hdr_ft_mode[idx] |= FS_HDR_FT_MODE_NORMAL;
 
 		LOG_MUST(
 			"[%u] ID:%#x(sidx:%u), feature mode status change (%u->%u), OFF:%u/FRAME_TAG:%u/NORMAL:%u\n",
@@ -1719,10 +1867,10 @@ static inline void fs_check_n_1_status_extra_ctrl(unsigned int idx)
 			fs_get_reg_sensor_id(idx),
 			fs_get_reg_sensor_idx(idx),
 			old_ft_status,
-			fs_mgr.ft_mode[idx],
-			fs_mgr.ft_mode[idx] & FS_FT_MODE_N_1_OFF,
-			fs_mgr.ft_mode[idx] & FS_FT_MODE_FRAME_TAG,
-			fs_mgr.ft_mode[idx] & FS_FT_MODE_NORMAL
+			fs_mgr.hdr_ft_mode[idx],
+			fs_mgr.hdr_ft_mode[idx] & FS_HDR_FT_MODE_N_1_OFF,
+			fs_mgr.hdr_ft_mode[idx] & FS_HDR_FT_MODE_FRAME_TAG,
+			fs_mgr.hdr_ft_mode[idx] & FS_HDR_FT_MODE_NORMAL
 		);
 
 		/* turn off FS algo n_1_on_off flag */
@@ -1767,30 +1915,46 @@ void fs_sa_request_switch_master(unsigned int idx)
 }
 
 
-static inline int fs_get_valid_master_instance_idx(void)
+static int fs_get_valid_master_instance_idx(const unsigned int idx)
 {
-	int m_idx = MASTER_IDX_NONE, valid = 0, i = 0;
+	const int async_mode_bits = FS_ATOMIC_READ(&fs_mgr.async_mode_bits);
+	const int valid_bits = FS_ATOMIC_READ(&fs_mgr.validSync_bits);
+	const int m_idx = FS_ATOMIC_READ(&fs_mgr.master_idx);
+	int i = 0;
 
-	m_idx = FS_ATOMIC_READ(&fs_mgr.master_idx);
-
-	/* check case -> user not config master sensor */
-	/* or config a non valid sensor as master */
+	/* check case */
+	/* --- user not config master sensor */
+	/*     or config a invalid sensor as master */
+	/*     invalid: (not set sync || uses async mode) */
 	if (m_idx == MASTER_IDX_NONE
-		|| FS_CHECK_BIT(m_idx, &fs_mgr.validSync_bits) == 0) {
+		|| (((valid_bits >> m_idx) & 0x01) == 0)
+		|| (((async_mode_bits >> m_idx) & 0x01) == 1)) {
 		/* auto select a master sensor */
-		/* using the sensor first valid for sync */
-		valid = FS_READ_BITS(&fs_mgr.validSync_bits);
-
-		while ((i < SENSOR_MAX_NUM) && (((valid >> i) & 0x01) != 1))
+		i = 0;
+		while ((i < SENSOR_MAX_NUM)
+			&& ((((valid_bits >> i) & 0x01) != 1)
+				|| ((async_mode_bits >> i) & 0x01) == 1))
 			i++;
+
+		/* no match => set to itself & preventing OOB */
+		if (i >= SENSOR_MAX_NUM) {
+			i = idx;
+
+			/* unexpected case */
+			if (async_mode_bits == 0) {
+				LOG_MUST(
+					"[%u] NOTICE: can't auto select SA master idx, force set to itself, m_idx:%d [validSync:%u/Async_Mode_bits:%d]\n",
+					idx, i, valid_bits, async_mode_bits);
+			}
+		}
 
 		FS_ATOMIC_SET(i, &fs_mgr.master_idx);
 
 #if !defined(REDUCE_FS_DRV_LOG)
-		LOG_INF(
-			"NOTICE: current master_idx:%d is not valid for doing frame-sync, validSync_bits:%d, auto set to idx:%d\n",
-			m_idx, valid, i);
-#endif // REDUCE_FS_DRV_LOG
+		LOG_MUST(
+			"NOTICE: current master_idx:%d is not valid for doing frame-sync, validSync_bits:%d, Async_Mode_bits:%d, auto set to idx:%d\n",
+			m_idx, valid_bits, async_mode_bits, i);
+#endif
 
 		return i;
 	}
@@ -1799,79 +1963,93 @@ static inline int fs_get_valid_master_instance_idx(void)
 }
 
 
-/*
- * return: (0/1): trigger (failed/successfully)
- */
-static int fs_try_trigger_frame_sync_sa(unsigned int idx)
+static int fs_get_valid_async_master_instance_idx(const unsigned int idx)
 {
-	unsigned int ret = 0;
+	const int async_mode_bits = FS_READ_BITS(&fs_mgr.async_mode_bits);
+	const int valid_bits = FS_ATOMIC_READ(&fs_mgr.validSync_bits);
+	const int async_m_idx = FS_ATOMIC_READ(&fs_mgr.async_master_idx);
+
+	/* check async master idx */
+	/* --- no sensor uses async mode => it's fine */
+	if (async_mode_bits == 0)
+		return MASTER_IDX_NONE;
+
+	/* --- has async_mode sensor => check async_m_idx is valid */
+	if ((async_mode_bits != 0) && ((async_m_idx != MASTER_IDX_NONE)
+		&& ((valid_bits >> async_m_idx) & 0x01)))
+		return async_m_idx;
+
+	/* un-wish case handling */
+	/* --- async master idx is not valid */
+	if ((async_mode_bits != 0) && ((async_m_idx == MASTER_IDX_NONE)
+		|| (((valid_bits >> async_m_idx) & 0x01) == 0))) {
+		fs_dump_status(idx, -1, __func__,
+			"WARNING: async_m_sidx is invalid for using, auto assign to itself");
+		return idx;
+	}
+
+	LOG_MUST(
+		"[%u] WARNING: undefined case, return async_m_idx:%u (itself) for using\n",
+		idx, idx);
+
+	return idx;
+}
+
+
+static inline void fs_sa_setup_perframe_cfg_info(const unsigned int idx,
+	struct fs_sa_cfg *p_sa_cfg)
+{
+	p_sa_cfg->idx = idx;
+	p_sa_cfg->sa_method = FS_ATOMIC_READ(&fs_mgr.sa_method);
+	p_sa_cfg->m_idx = fs_get_valid_master_instance_idx(idx);
+	p_sa_cfg->valid_sync_bits = FS_READ_BITS(&fs_mgr.validSync_bits);
+	p_sa_cfg->async_m_idx = fs_get_valid_async_master_instance_idx(idx);
+	p_sa_cfg->async_s_bits = FS_READ_BITS(&fs_mgr.async_mode_bits);
+}
+
+
+static void fs_try_trigger_frame_sync_sa(const unsigned int idx)
+{
+	struct fs_sa_cfg sa_cfg = {0};
 	unsigned int fl_lc = 0;
-	int valid_sync_bits = 0;
-	int m_idx = MASTER_IDX_NONE;
-	int sa_method = 0;
+	unsigned int ret = 0;
 
-	if (FS_CHECK_BIT(idx, &fs_mgr.validSync_bits) == 0) {
-#if !defined(REDUCE_FS_DRV_LOG)
+	/* unexpected case check (but it should be detect in previous caller) */
+	if (unlikely(
+		(FS_CHECK_BIT(idx, &fs_mgr.validSync_bits) == 0)
+		|| (FS_CHECK_BIT(idx, &fs_mgr.pf_ctrl_bits) == 0)
+		|| (FS_CHECK_BIT(idx, &fs_mgr.setup_complete_bits) == 0))) {
+		/* call dump all info for seeing what's happened */
+		fs_dump_status(idx, -1, __func__,
+			"ERROR: invalid for doing frame-sync, check validSync/pf_ctrl/setup_complete");
+		return;
+	}
+
+	/* clear status bit */
+	/* --- because it's valid for trigger FL calculation */
+	FS_WRITE_BIT(idx, 0, &fs_mgr.pf_ctrl_bits);
+	FS_WRITE_BIT(idx, 0, &fs_mgr.setup_complete_bits);
+
+	/* trigger FS-SA for calculating frame length, */
+	/*    but only set FL to sensor driver if return with no error */
+	fs_sa_setup_perframe_cfg_info(idx, &sa_cfg);
+	ret = fs_alg_solve_frame_length_sa(&sa_cfg, &fl_lc);
+
+	if (ret != 0) { // !0 => had error
 		LOG_INF(
-			"WARNING: [%u] ID:%#x(sidx:%u), not valid for sync:%d(streaming:%d/enSync:%d), return\n",
+			"ERROR: [%u] ID:%#x(sidx:%u), fs_alg_solve_frame_length_sa return error:%u, auto set fl_lc:%u to min_fl_lc for sensor driver",
 			idx,
 			fs_get_reg_sensor_id(idx),
 			fs_get_reg_sensor_idx(idx),
-			FS_READ_BITS(&fs_mgr.validSync_bits),
-			FS_READ_BITS(&fs_mgr.streaming_bits),
-			FS_READ_BITS(&fs_mgr.enSync_bits));
-#endif // REDUCE_FS_DRV_LOG
-
-		return 0;
+			ret,
+			fl_lc);
 	}
 
-	if (FS_CHECK_BIT(idx, &fs_mgr.pf_ctrl_bits) == 0) {
-		LOG_MUST(
-			"WARNING: [%u] ID:%#x(sidx:%u), wait for getting pf_ctrl:%d, return\n",
-			idx,
-			fs_get_reg_sensor_id(idx),
-			fs_get_reg_sensor_idx(idx),
-			FS_READ_BITS(&fs_mgr.pf_ctrl_bits));
+	/* set framelength (all FL operation must use this API) */
+	fs_set_framelength_lc(idx, fl_lc);
 
-		return 0;
-	}
-
-	if (FS_CHECK_BIT(idx, &fs_mgr.setup_complete_bits) == 0) {
-		LOG_MUST(
-			"WARNING: [%u] ID:%#x(sidx:%u), wait for setup_coplete:%d, return\n",
-			idx,
-			fs_get_reg_sensor_id(idx),
-			fs_get_reg_sensor_idx(idx),
-			FS_READ_BITS(&fs_mgr.setup_complete_bits));
-
-		return 0;
-	}
-
-
-	/* FS standalone trigger for calculating frame length */
-	m_idx = fs_get_valid_master_instance_idx();
-	valid_sync_bits = FS_READ_BITS(&fs_mgr.validSync_bits);
-	sa_method = FS_ATOMIC_READ(&fs_mgr.sa_method);
-
-	ret = fs_alg_solve_frame_length_sa(
-		idx, m_idx, valid_sync_bits, sa_method, &fl_lc);
-
-	if (ret == 0) { // 0 => no error
-		/* set framelength */
-		/* all framelength operation must use this API */
-		fs_set_framelength_lc(idx, fl_lc);
-
-
-		/* clear status bit */
-		FS_WRITE_BIT(idx, 0, &fs_mgr.pf_ctrl_bits);
-		FS_WRITE_BIT(idx, 0, &fs_mgr.setup_complete_bits);
-
-
-		/* check/change feature mode status */
-		fs_feature_status_extra_ctrl(idx);
-	}
-
-	return 1;
+	/* check/change feature mode status */
+	fs_feature_status_extra_ctrl(idx);
 }
 
 
@@ -1887,14 +2065,14 @@ static inline void fs_try_set_auto_frame_tag(unsigned int idx)
 {
 	unsigned int f_tag = 0, f_cell = 0;
 
-	if (((fs_mgr.ft_mode[idx] & FS_FT_MODE_ASSIGN_FRAME_TAG) == 0)
-		&& (fs_mgr.ft_mode[idx] & FS_FT_MODE_FRAME_TAG)) {
+	if (((fs_mgr.hdr_ft_mode[idx] & FS_HDR_FT_MODE_ASSIGN_FRAME_TAG) == 0)
+		&& (fs_mgr.hdr_ft_mode[idx] & FS_HDR_FT_MODE_FRAME_TAG)) {
 		/* N:1 case */
 		if (fs_mgr.frame_cell_size[idx] == 0) {
 			LOG_MUST(
 				"NOTICE: [%u] call set auto frame_tag, feature_mode:%u, but frame_cell_size:%u not valid, return\n",
 				idx,
-				fs_mgr.ft_mode[idx],
+				fs_mgr.hdr_ft_mode[idx],
 				fs_mgr.frame_cell_size[idx]
 			);
 
@@ -1927,8 +2105,8 @@ void fs_set_frame_tag(unsigned int ident, unsigned int f_tag)
 	}
 
 
-	if ((fs_mgr.ft_mode[idx] & FS_FT_MODE_ASSIGN_FRAME_TAG)
-		&& (fs_mgr.ft_mode[idx] & FS_FT_MODE_FRAME_TAG)) {
+	if ((fs_mgr.hdr_ft_mode[idx] & FS_HDR_FT_MODE_ASSIGN_FRAME_TAG)
+		&& (fs_mgr.hdr_ft_mode[idx] & FS_HDR_FT_MODE_FRAME_TAG)) {
 		/* M-Stream case */
 #if !defined(TWO_STAGE_FS) || defined(QUERY_CCU_TS_AT_SOF)
 		fs_mgr.frame_tag[idx] = f_tag;
@@ -1953,7 +2131,7 @@ void fs_set_frame_tag(unsigned int ident, unsigned int f_tag)
 			"WARNING: [%u] call set frame_tag:%u, but feature_mode:%u not allow\n",
 			idx,
 			f_tag,
-			fs_mgr.ft_mode[idx]
+			fs_mgr.hdr_ft_mode[idx]
 		);
 	}
 }
@@ -1979,23 +2157,23 @@ void fs_n_1_en(unsigned int ident, unsigned int n, unsigned int en)
 			fs_get_reg_sensor_id(idx),
 			fs_get_reg_sensor_idx(idx),
 			n,
-			fs_mgr.ft_mode[idx],
-			fs_mgr.ft_mode[idx] & FS_FT_MODE_FRAME_TAG,
-			fs_mgr.ft_mode[idx] & FS_FT_MODE_N_1_ON,
-			fs_mgr.ft_mode[idx] & FS_FT_MODE_N_1_KEEP,
-			fs_mgr.ft_mode[idx] & FS_FT_MODE_N_1_OFF,
+			fs_mgr.hdr_ft_mode[idx],
+			fs_mgr.hdr_ft_mode[idx] & FS_HDR_FT_MODE_FRAME_TAG,
+			fs_mgr.hdr_ft_mode[idx] & FS_HDR_FT_MODE_N_1_ON,
+			fs_mgr.hdr_ft_mode[idx] & FS_HDR_FT_MODE_N_1_KEEP,
+			fs_mgr.hdr_ft_mode[idx] & FS_HDR_FT_MODE_N_1_OFF,
 			en);
 		return;
 	}
 
 	if (en) {
 		fs_mgr.frame_cell_size[idx] = n;
-		fs_mgr.ft_mode[idx] =
-			(FS_FT_MODE_FRAME_TAG | FS_FT_MODE_N_1_ON);
+		fs_mgr.hdr_ft_mode[idx] =
+			(FS_HDR_FT_MODE_FRAME_TAG | FS_HDR_FT_MODE_N_1_ON);
 	} else {
 		fs_mgr.frame_cell_size[idx] = 0;
-		fs_mgr.ft_mode[idx] =
-			(FS_FT_MODE_FRAME_TAG | FS_FT_MODE_N_1_OFF);
+		fs_mgr.hdr_ft_mode[idx] =
+			(FS_HDR_FT_MODE_FRAME_TAG | FS_HDR_FT_MODE_N_1_OFF);
 	}
 
 	fs_alg_set_frame_cell_size(idx, fs_mgr.frame_cell_size[idx]);
@@ -2017,10 +2195,10 @@ void fs_n_1_en(unsigned int ident, unsigned int n, unsigned int en)
 		fs_get_reg_sensor_id(idx),
 		fs_get_reg_sensor_idx(idx),
 		n,
-		fs_mgr.ft_mode[idx],
-		fs_mgr.ft_mode[idx] & FS_FT_MODE_FRAME_TAG,
-		fs_mgr.ft_mode[idx] & FS_FT_MODE_N_1_ON,
-		fs_mgr.ft_mode[idx] & FS_FT_MODE_N_1_OFF,
+		fs_mgr.hdr_ft_mode[idx],
+		fs_mgr.hdr_ft_mode[idx] & FS_HDR_FT_MODE_FRAME_TAG,
+		fs_mgr.hdr_ft_mode[idx] & FS_HDR_FT_MODE_N_1_ON,
+		fs_mgr.hdr_ft_mode[idx] & FS_HDR_FT_MODE_N_1_OFF,
 		en);
 }
 
@@ -2041,10 +2219,10 @@ void fs_mstream_en(unsigned int ident, unsigned int en)
 
 	if (en) {
 		/* set M-Stream mode */
-		fs_mgr.ft_mode[idx] |= FS_FT_MODE_ASSIGN_FRAME_TAG;
+		fs_mgr.hdr_ft_mode[idx] |= FS_HDR_FT_MODE_ASSIGN_FRAME_TAG;
 	} else {
 		/* unset M-Stream mode */
-		fs_mgr.ft_mode[idx] &= ~(FS_FT_MODE_ASSIGN_FRAME_TAG);
+		fs_mgr.hdr_ft_mode[idx] &= ~(FS_HDR_FT_MODE_ASSIGN_FRAME_TAG);
 	}
 
 	LOG_MUST(
@@ -2052,10 +2230,9 @@ void fs_mstream_en(unsigned int ident, unsigned int en)
 		idx,
 		fs_get_reg_sensor_id(idx),
 		fs_get_reg_sensor_idx(idx),
-		fs_mgr.ft_mode[idx],
-		fs_mgr.ft_mode[idx] & FS_FT_MODE_ASSIGN_FRAME_TAG,
-		en
-	);
+		fs_mgr.hdr_ft_mode[idx],
+		fs_mgr.hdr_ft_mode[idx] & FS_HDR_FT_MODE_ASSIGN_FRAME_TAG,
+		en);
 }
 #endif // SUPPORT_FS_NEW_METHOD
 
@@ -2263,18 +2440,30 @@ static inline void fs_reset_idx_ctx(unsigned int idx)
 unsigned int fs_streaming(const unsigned int flag,
 	struct fs_streaming_st (*sensor_info))
 {
-	int ret = 0;
-	unsigned int idx = 0;
+	struct fs_perframe_st preset_pf_ctrl = {0};
 	struct SensorInfo info = {
 		.sensor_id = sensor_info->sensor_id,
 		.sensor_idx = sensor_info->sensor_idx,
 	};
-	struct fs_perframe_st preset_pf_ctrl = {0};
+	unsigned int idx = 0;
+	int ret = 0;
 
 #if !defined(FS_UT)
+	unsigned int owr_flag = 1;
+
 	/* streaming with enable set sync if user set it */
 	if (unlikely(fs_con_chk_default_en_set_sync())) {
-		fs_update_set_sync_sidx_table(sensor_info->sensor_idx, 1);
+		/* user cmd overwrite set sync flag */
+		if (fs_con_chk_en_overwrite_set_sync(sensor_info->sensor_idx,
+			&owr_flag)) {
+			LOG_MUST(
+				"NOTICE: ID:%#x(sidx:%u), USER set overwrite set sync value:(1 -> %u)\n",
+				sensor_info->sensor_id,
+				sensor_info->sensor_idx,
+				owr_flag);
+		}
+
+		fs_update_set_sync_sidx_table(sensor_info->sensor_idx, owr_flag);
 		LOG_MUST(
 			"NOTICE: ID:%#x(sidx:%u), USER set frame-sync force enable set sync, set_sync_sidx_table[%u]:%d\n",
 			sensor_info->sensor_id,
@@ -2874,9 +3063,9 @@ void fs_set_shutter(struct fs_perframe_st (*pf_ctrl))
 #if defined(SUPPORT_AUTO_EN_SA_MODE) && !defined(FS_UT)
 	/* check needed SA */
 	if (pf_ctrl->hdr_exp.mode_exp_cnt > 0)
-		fs_mgr.ft_mode[idx] |= FS_FT_MODE_STG_HDR;
+		fs_mgr.hdr_ft_mode[idx] |= FS_HDR_FT_MODE_STG_HDR;
 	else
-		fs_mgr.ft_mode[idx] &= ~FS_FT_MODE_STG_HDR;
+		fs_mgr.hdr_ft_mode[idx] &= ~FS_HDR_FT_MODE_STG_HDR;
 
 
 	fs_decision_maker(idx);
@@ -3166,6 +3355,7 @@ static void fs_single_cam_IT(unsigned int idx, unsigned int line_time_ns)
 static struct FrameSync frameSync = {
 	fs_streaming,
 	fs_set_sync,
+	fs_sa_set_user_async_master,
 	fs_sync_frame,
 	fs_set_shutter,
 	fs_update_shutter,

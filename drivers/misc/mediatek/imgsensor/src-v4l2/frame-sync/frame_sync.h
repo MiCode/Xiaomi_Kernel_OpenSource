@@ -51,14 +51,21 @@ enum FS_HW_SYNC_GROUP_ID {
 
 
 /*******************************************************************************
- * The Method for FrameSync sync type.
+ * The Method for FrameSync sync type/methods.
  ******************************************************************************/
 enum FS_SYNC_TYPE {
 	FS_SYNC_TYPE_NONE = 0,
+
+	/* below tags, chose one (default use VSYNC, mutually exclusive) */
 	FS_SYNC_TYPE_VSYNC = 1 << 1,
 	FS_SYNC_TYPE_READOUT_CENTER = 1 << 2,
+
+	/* below tags, chose one (default use LE, mutually exclusive) */
 	FS_SYNC_TYPE_LE = 1 << 3,
 	FS_SYNC_TYPE_SE = 1 << 4,
+
+	/* SA - Async mode */
+	FS_SYNC_TYPE_ASYNC_MODE = 1 << 8,
 };
 /******************************************************************************/
 
@@ -66,17 +73,17 @@ enum FS_SYNC_TYPE {
 /*******************************************************************************
  * The Feature mode for FrameSync.
  ******************************************************************************/
-enum FS_FEATURE_MODE {
-	FS_FT_MODE_NORMAL = 0,
-	FS_FT_MODE_STG_HDR = 1,
+enum FS_HDR_FT_MODE {
+	FS_HDR_FT_MODE_NORMAL = 0,
+	FS_HDR_FT_MODE_STG_HDR = 1,
 
 	/* N:1 / M-Stream */
-	FS_FT_MODE_FRAME_TAG = 1 << 1, /* (N:1) Not one-to-one sync */
-	FS_FT_MODE_ASSIGN_FRAME_TAG = 1 << 2, /* (M-Stream) Not one-to-one sync */
+	FS_HDR_FT_MODE_FRAME_TAG = 1 << 1, /* (N:1) Not 1:1 sync */
+	FS_HDR_FT_MODE_ASSIGN_FRAME_TAG = 1 << 2, /* (M-Stream) Not 1:1 sync */
 
-	FS_FT_MODE_N_1_ON = 1 << 3,
-	FS_FT_MODE_N_1_KEEP = 1 << 4,
-	FS_FT_MODE_N_1_OFF = 1 << 5,
+	FS_HDR_FT_MODE_N_1_ON = 1 << 3,
+	FS_HDR_FT_MODE_N_1_KEEP = 1 << 4,
+	FS_HDR_FT_MODE_N_1_OFF = 1 << 5,
 };
 /******************************************************************************/
 
@@ -86,6 +93,17 @@ enum FS_FEATURE_MODE {
  ******************************************************************************/
 enum FS_SA_METHOD {
 	FS_SA_ADAPTIVE_MASTER = 0,
+	FS_SA_ASYNC = 2,
+};
+
+
+struct fs_sa_cfg {
+	unsigned int idx;
+	int sa_method;
+	int m_idx;
+	int valid_sync_bits;
+	int async_m_idx;
+	int async_s_bits;
 };
 /******************************************************************************/
 
@@ -212,6 +230,10 @@ struct FrameSync {
 
 	/* enable / disable frame sync processing for this sensor ident */
 	void (*fs_set_sync)(unsigned int sensor_ident, unsigned int flag);
+
+	/* for MW assign async mode master sensor idx */
+	void (*fs_sa_set_user_async_master)(const unsigned int sidx,
+		const unsigned int flag);
 
 
 	/**********************************************************************/

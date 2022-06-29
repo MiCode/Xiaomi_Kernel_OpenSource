@@ -74,6 +74,17 @@ struct fs_streaming_st imx766 = {
 };
 
 
+struct fs_streaming_st imx516 = {
+	.sensor_idx = 0,
+	.sensor_id = 0x0516,
+	.tg = 3,
+	.fl_active_delay = 2,
+	.def_fl_lc = 2400,
+	.max_fl_lc = 0xfffe,
+	.def_shutter_lc = 0x029,
+};
+
+
 /******************************************************************************/
 struct ut_fs_streaming_sensor_list ut_fs_s_list[] = {
 	/* Head */

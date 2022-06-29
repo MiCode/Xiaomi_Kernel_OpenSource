@@ -107,18 +107,17 @@ unsigned int fs_alg_solve_frame_length(
  * return: (0/1) for (no error/some error happened)
  *
  * input:
- *     idx: standalone instance idx
- *     m_idx: master instance idx
- *     valid_sync_bits: all valid for doing frame-sync instance idxs
- *     sa_method: by default and only is adaptive standalone
+ *     struct fs_sa_cfg
+ *         idx: standalone instance idx
+ *         m_idx: master instance idx
+ *         valid_sync_bits: all valid for doing frame-sync instance idxs
+ *         sa_method: 0 => adaptive switch master; 1 => fix master
  *
  * output:
  *     *fl_lc: pointer for output frame length
  */
 unsigned int fs_alg_solve_frame_length_sa(
-	unsigned int idx, int m_idx,
-	int valid_sync_bits, int sa_method,
-	unsigned int *fl_lc);
+	const struct fs_sa_cfg *p_sa_cfg, unsigned int *fl_lc);
 #endif // SUPPORT_FS_NEW_METHOD
 
 

@@ -457,6 +457,24 @@ void notify_fsync_mgr_set_sync(struct adaptor_ctx *ctx, u64 en)
 		ctx->fsync_out_fl = 0;
 }
 
+void notify_fsync_mgr_set_async_master(struct adaptor_ctx *ctx, const u64 en)
+{
+	/* not expected case */
+	if (unlikely(ctx->fsync_mgr == NULL)) {
+
+#if !defined(FORCE_DISABLE_FSYNC_MGR)
+		dev_info(ctx->dev,
+			"%s: sidx:%d, NOTICE: set async master:%llu, but ctx->fsync_mgr is NULL, return\n",
+			__func__, ctx->idx,
+			en);
+#endif
+
+		return;
+	}
+
+	ctx->fsync_mgr->fs_sa_set_user_async_master(ctx->idx, en);
+}
+
 void notify_fsync_mgr_update_auto_flicker_mode(struct adaptor_ctx *ctx, u64 en)
 {
 	/* not expected case */

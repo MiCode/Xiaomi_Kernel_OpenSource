@@ -42,6 +42,8 @@ void notify_fsync_mgr_update_target_tg(struct adaptor_ctx *ctx, u64 val);
 
 void notify_fsync_mgr_set_sync(struct adaptor_ctx *ctx, u64 en);
 
+void notify_fsync_mgr_set_async_master(struct adaptor_ctx *ctx, const u64 en);
+
 void notify_fsync_mgr_update_auto_flicker_mode(struct adaptor_ctx *ctx, u64 en);
 
 void notify_fsync_mgr_update_min_fl(struct adaptor_ctx *ctx);

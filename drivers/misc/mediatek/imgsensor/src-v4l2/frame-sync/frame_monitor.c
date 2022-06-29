@@ -93,7 +93,7 @@ struct FrameInfo {
 	unsigned int predicted_next_fl_us; /* next predicted framelength (us) */
 	unsigned int sensor_curr_fl_us;    /* current framelength set to sensor */
 	unsigned int next_vts_bias;        /* next vsync timestamp bias / shift */
-#endif
+#endif // FS_UT
 };
 
 
@@ -122,7 +122,7 @@ struct FrameMonitorInst {
 #ifdef FS_UT
 	/* flag for using fake information (only for ut test and check) */
 	unsigned int debug_flag:1;
-#endif
+#endif // FS_UT
 
 //----------------------------------------------------------------------------//
 };
@@ -1156,6 +1156,17 @@ int frm_get_instance_idx_by_tg(unsigned int tg)
 	unsigned int i = 0;
 
 	for (i = 0; i < SENSOR_MAX_NUM; ++i) {
+
+#if !defined(REDUCE_FRM_LOG)
+		LOG_INF(
+			"f_info[%u](sensor_id:%#x / sensor_idx:%u / tg:%u), input tg:%u\n",
+			i,
+			frm_inst.f_info[i].sensor_id,
+			frm_inst.f_info[i].sensor_idx,
+			frm_inst.f_info[i].tg,
+			tg);
+#endif
+
 		if (frm_inst.f_info[i].tg == tg) {
 			ret = i;
 			break;
@@ -1171,14 +1182,13 @@ void frm_update_predicted_curr_fl_us(unsigned int idx, unsigned int fl_us)
 	frm_inst.f_info[idx].predicted_curr_fl_us = fl_us;
 
 
-#ifndef REDUCE_FRM_LOG
-	/* log */
+#if !defined(REDUCE_FRM_LOG)
 	LOG_INF(
 		"[%u] ID:%#x (sidx:%u), predicted_curr_fl:%u (us)\n",
 		idx,
 		frm_inst.f_info[idx].sensor_id,
 		frm_inst.f_info[idx].sensor_idx,
-		frm_inst.f_info[idx].predicted_fl_us);
+		frm_inst.f_info[idx].predicted_curr_fl_us);
 #endif
 }
 
@@ -1188,8 +1198,7 @@ void frm_update_next_vts_bias_us(unsigned int idx, unsigned int vts_bias)
 	frm_inst.f_info[idx].next_vts_bias = vts_bias;
 
 
-#ifndef REDUCE_FRM_LOG
-	/* log */
+#if !defined(REDUCE_FRM_LOG)
 	LOG_INF(
 		"[%u] ID:%#x (sidx:%u), next_vts_bias:%u (us)\n",
 		idx,
@@ -1205,8 +1214,7 @@ void frm_set_sensor_curr_fl_us(unsigned int idx, unsigned int fl_us)
 	frm_inst.f_info[idx].sensor_curr_fl_us = fl_us;
 
 
-#ifndef REDUCE_FRM_LOG
-	/* log */
+#if !defined(REDUCE_FRM_LOG)
 	LOG_INF(
 		"[%u] ID:%#x (sidx:%u), sensor_curr_fl:%u (us)\n",
 		idx,
@@ -1225,8 +1233,7 @@ void frm_update_predicted_fl_us(
 	frm_inst.f_info[idx].predicted_next_fl_us = next_fl_us;
 
 
-#ifndef REDUCE_FRM_LOG
-	/* log */
+#if !defined(REDUCE_FRM_LOG)
 	LOG_INF(
 		"[%u] ID:%#x (sidx:%u), predicted_fl( curr:%u, next:%u ) (us)\n",
 		idx,
@@ -1250,6 +1257,18 @@ void frm_get_predicted_fl_us(
 	fl_us[0] = frm_inst.f_info[idx].predicted_curr_fl_us;
 	fl_us[1] = frm_inst.f_info[idx].predicted_next_fl_us;
 	*sensor_curr_fl_us = frm_inst.f_info[idx].sensor_curr_fl_us;
+
+#if !defined(REDUCE_FRM_LOG)
+	LOG_INF(
+		"f_info[%u](sensor_id:%#x / sensor_idx:%u / tg:%u / predicted_fl(c:%u, n:%u) / sensor_curr_fl:%u)\n",
+		idx,
+		frm_inst.f_info[idx].sensor_id,
+		frm_inst.f_info[idx].sensor_idx,
+		frm_inst.f_info[idx].tg,
+		frm_inst.f_info[idx].predicted_curr_fl_us,
+		frm_inst.f_info[idx].predicted_next_fl_us,
+		frm_inst.f_info[idx].sensor_curr_fl_us);
+#endif
 }
 
 

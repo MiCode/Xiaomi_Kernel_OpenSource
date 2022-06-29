@@ -18,7 +18,6 @@
 /******************************************************************************/
 #define LOG_BUF_STR_LEN 512
 
-
 #ifdef FS_UT
 #include <stdio.h>
 #define LOG_INF(format, args...) printf(PFX "[%s] " format, __func__, ##args)
@@ -32,7 +31,8 @@
 
 #define LOG_TRACER_DEF 0
 #define PF_LOG_TRACER_DEF 0
-/* declare in frame_sync_sysfs_console.c */
+
+/* declare in frame_sync_console.c */
 extern unsigned int log_tracer;
 extern unsigned int pf_log_tracer;
 

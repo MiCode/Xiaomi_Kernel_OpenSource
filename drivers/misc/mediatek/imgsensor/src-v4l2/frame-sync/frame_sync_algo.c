@@ -72,7 +72,8 @@ struct FrameSyncDynamicPara {
 	unsigned int adj_or_not;
 
 	/* for current pf ctrl, min suitable frame length for stable sync */
-	unsigned int min_fl_us;         // max((exp+margin), user-cofig-min_fl)
+	unsigned int pure_min_fl_us;    // max((exp+margin), user-cofig-min_fl)
+	unsigned int min_fl_us;         // max((exp+margin), user-cofig-min_fl)+flk
 	unsigned int target_min_fl_us;  // FPS sync result
 	unsigned int stable_fl_us;      // same as out_fl_us
 
@@ -1375,7 +1376,7 @@ static unsigned int fs_alg_sa_get_timestamp_info(const unsigned int idx,
 	if (fs_inst[idx].is_nonvalid_ts) {
 #endif // QUERY_CCU_TS_AT_SOF
 		LOG_INF(
-			"WARNING: [%u] ID:%#x(sidx:%u), get Vsync data ERROR, SA ctrl mag_num:%u\n",
+			"ERROR: [%u] ID:%#x(sidx:%u), get Vsync data ERROR, SA ctrl mag_num:%u\n",
 			idx,
 			fs_inst[idx].sensor_id,
 			fs_inst[idx].sensor_idx,
@@ -1640,7 +1641,7 @@ static long long fs_alg_sa_calc_adjust_diff_slave(
 
 #if !defined(REDUCE_FS_ALGO_LOG)
 	LOG_INF(
-		"[%u] ID:%#x(sidx:%u), #%u/#%u(m_idx:%u), adjust_diff_s:%lld(ts:%lld/%lld(%u/%u), delta:%u/%u), stable_fl(%u/%u), f_cell(%u/%u), fdely(%u/%u)\n",
+		"[%u] ID:%#x(sidx:%u), #%u/#%u(m_idx:%u), adjust_diff_s:%lld(ts:%lld/%lld(%u/%u), delta:%u/%u), pure_min_fl(%u/%u), stable_fl(%u/%u), f_cell(%u/%u), fdely(%u/%u)\n",
 		s_idx,
 		fs_inst[s_idx].sensor_id,
 		fs_inst[s_idx].sensor_idx,
@@ -1654,6 +1655,92 @@ static long long fs_alg_sa_calc_adjust_diff_slave(
 		fs_sa_inst.dynamic_paras[m_idx].last_ts,
 		p_para_s->delta,
 		p_para_m->delta,
+		p_para_s->pure_min_fl_us,
+		p_para_m->pure_min_fl_us,
+		p_para_s->stable_fl_us,
+		p_para_m->stable_fl_us,
+		f_cell_s,
+		f_cell_m,
+		fs_inst[s_idx].fl_active_delay,
+		fs_inst[m_idx].fl_active_delay
+	);
+#endif // REDUCE_FS_ALGO_LOG
+
+
+	return adjust_diff_s;
+}
+
+
+static long long fs_alg_sa_calc_adjust_diff_async(
+	unsigned int m_idx, unsigned int s_idx,
+	long long ts_diff_m, long long ts_diff_s,
+	struct FrameSyncDynamicPara *p_para_m,
+	struct FrameSyncDynamicPara *p_para_s)
+{
+	unsigned int f_cell_m = get_valid_frame_cell_size(m_idx);
+	unsigned int f_cell_s = get_valid_frame_cell_size(s_idx);
+	long long adjust_diff_s = 0;
+
+
+	adjust_diff_s =
+		(ts_diff_m + p_para_m->delta) -
+		(ts_diff_s + p_para_s->delta);
+
+
+	/* check adjust_diff_s situation (N+2/N+1 mixed) */
+	if ((fs_inst[s_idx].fl_active_delay != fs_inst[m_idx].fl_active_delay)
+		&& (adjust_diff_s > 0)) {
+		/* if there are the pair, N+2 pred_fl will bigger than N+1 sensor */
+		adjust_diff_s -= p_para_s->pure_min_fl_us * f_cell_s;
+	}
+
+
+	/* TODO: for low/high FS, add a method for auto calculate complement diff */
+	// adjust_diff_s += 433*3;
+	// if (fs_inst[m_idx].flicker_en)
+	//	adjust_diff_s -= 433*3;
+
+
+	/* calculate suitable adjust_diff_s */
+	while (adjust_diff_s < 0) {
+		/* prevent infinite loop */
+		if (p_para_m->stable_fl_us == 0) {
+			LOG_INF(
+				"NOTICE: [%u] ID:%#x(sidx:%u), #%u/#%u(m_idx:%u), detect master stable_fl_us:%u, for preventing calculation error, abort processing\n",
+				s_idx,
+				fs_inst[s_idx].sensor_id,
+				fs_inst[s_idx].sensor_idx,
+				p_para_s->magic_num,
+				p_para_m->magic_num,
+				m_idx,
+				p_para_m->stable_fl_us
+			);
+
+			return 0;
+		}
+
+		adjust_diff_s += (p_para_m->stable_fl_us * f_cell_m);
+	}
+
+
+#if !defined(REDUCE_FS_ALGO_LOG)
+	LOG_INF(
+		"[%u] ID:%#x(sidx:%u), #%u/#%u(m_idx:%u), adjust_diff_s:%lld(ts:%lld/%lld(%u/%u), delta:%u/%u), pure_min_fl(%u/%u), stable_fl(%u/%u), f_cell(%u/%u), fdely(%u/%u)\n",
+		s_idx,
+		fs_inst[s_idx].sensor_id,
+		fs_inst[s_idx].sensor_idx,
+		p_para_s->magic_num,
+		p_para_m->magic_num,
+		m_idx,
+		adjust_diff_s,
+		ts_diff_s,
+		ts_diff_m,
+		fs_sa_inst.dynamic_paras[s_idx].last_ts,
+		fs_sa_inst.dynamic_paras[m_idx].last_ts,
+		p_para_s->delta,
+		p_para_m->delta,
+		p_para_s->pure_min_fl_us,
+		p_para_m->pure_min_fl_us,
 		p_para_s->stable_fl_us,
 		p_para_m->stable_fl_us,
 		f_cell_s,
@@ -1803,7 +1890,8 @@ static unsigned int fs_alg_sa_adjust_slave_diff_resolver(
 		f_cell_m,
 		fs_inst[s_idx].fl_active_delay,
 		fs_inst[m_idx].fl_active_delay,
-		fs_sa_inst.dynamic_paras[s_idx].last_ts,
+		p_para_s->last_ts,
+		// fs_sa_inst.dynamic_paras[s_idx].last_ts,
 		fs_sa_inst.dynamic_paras[m_idx].last_ts
 	);
 
@@ -1917,7 +2005,7 @@ void fs_alg_set_sync_type(unsigned int idx, unsigned int type)
 
 #if !defined(REDUCE_FS_ALGO_LOG)
 	LOG_INF(
-		"[%u] ID:%#x(sidx:%u), set sync type:%u (V:%u, C:%u, L:%u, S:%u)\n",
+		"[%u] ID:%#x(sidx:%u), set sync type:%u (V:%u/C:%u/L:%u/S:%u)\n",
 		idx,
 		fs_inst[idx].sensor_id,
 		fs_inst[idx].sensor_idx,
@@ -3214,7 +3302,7 @@ unsigned int fs_alg_solve_frame_length(
 #ifdef SUPPORT_FS_NEW_METHOD
 static void do_fps_sync_sa(
 	unsigned int idx, unsigned int m_idx,
-	unsigned int valid_sync_bits,
+	unsigned int valid_sync_bits, unsigned int async_slave_bits,
 	struct FrameSyncDynamicPara *p_para)
 {
 	unsigned int i = 0, fl_us = 0, fl_lc = 0, flk_diff = 0;
@@ -3233,8 +3321,9 @@ static void do_fps_sync_sa(
 	/*    and check anti-flicker frame length */
 	fl_lc = calc_min_fl_lc(idx, fs_inst[idx].min_fl_lc);
 	fl_us = convert2TotalTime(fs_inst[idx].lineTimeInNs, fl_lc);
-	flk_diff = fs_alg_sa_get_flk_diff_and_fl(idx, &fl_us, sync_flk_en);
+	p_para->pure_min_fl_us = (fl_us * f_cell);
 
+	flk_diff = fs_alg_sa_get_flk_diff_and_fl(idx, &fl_us, sync_flk_en);
 	p_para->min_fl_us = target_min_fl_us = min_fl_us = (fl_us * f_cell);
 
 
@@ -3242,9 +3331,14 @@ static void do_fps_sync_sa(
 	fs_alg_sa_query_all_min_fl_us(
 		min_fl_us_buf, target_min_fl_us_buf, magic_num_buf);
 
+	/* select sensor that valid (streaming + set sync) for sync */
 	for (i = 0; i < SENSOR_MAX_NUM; ++i) {
+		/* TODO: [NEED FIX] bypass idx that set to async_slave */
+		/*       ONLY when min_FL of async_slave is not same as async_master */
+
 		/* select sensor that valid (streaming + set sync) for sync */
-		if (((valid_sync_bits >> i) & 1UL) == 1) {
+		if (((valid_sync_bits >> i) & 1UL) == 1
+			&& ((async_slave_bits >> i) & 1UL) == 0) {
 
 #if !defined(FORCE_ADJUST_SMALLER_DIFF)
 			if (fs_inst[idx].fl_active_delay
@@ -3461,55 +3555,204 @@ static void adjust_vsync_diff_sa(
 }
 
 
+static void adjust_async_vsync_diff_sa(
+	unsigned int idx, unsigned int m_idx,
+	struct FrameSyncDynamicPara *p_para)
+{
+	unsigned int fl_lc = 0, fl_us = 0, flk_diff = 0, f_cell = 0, out_fl_us = 0;
+	unsigned int f_cell_m = get_valid_frame_cell_size(m_idx);
+	long long adjust_diff = 0;
+	long long ts_diff_m = 0, ts_diff_s = 0;
+	struct FrameSyncDynamicPara m_para = {0};
+	struct FrameSyncDynamicPara *p_para_m = &m_para;
+
+
+	f_cell = get_valid_frame_cell_size(idx);
+
+	/* 1. find min_fl that this sensor support */
+	/*    and check anti-flicker frame length */
+	fl_lc = calc_min_fl_lc(idx, fs_inst[idx].min_fl_lc);
+	fl_us = convert2TotalTime(fs_inst[idx].lineTimeInNs, fl_lc);
+	p_para->pure_min_fl_us = (fl_us * f_cell);
+
+	flk_diff = fs_alg_sa_get_flk_diff_and_fl(idx, &fl_us, 0);
+
+	p_para->min_fl_us = (fl_us * f_cell);
+	p_para->target_min_fl_us = (fl_us * f_cell);
+	out_fl_us = p_para->min_fl_us;
+
+	fs_alg_sa_update_fl_us(idx, out_fl_us, p_para);
+
+
+	if (idx == m_idx)
+		return;
+
+
+	/* get master dynamic para */
+	fs_alg_sa_get_dynamic_para(m_idx, p_para_m);
+
+
+	/* check all needed info is valid or not for preventing error */
+	if (fs_alg_sa_dynamic_paras_checker(idx, m_idx, p_para, p_para_m)) {
+		LOG_INF(
+			"ERROR: [%u] ID:%#x(sidx:%u), #%u/#%u(m_idx:%u), do not adjust vsync diff, out_fl:%u(%u)\n",
+			idx,
+			fs_inst[idx].sensor_id,
+			fs_inst[idx].sensor_idx,
+			p_para->magic_num,
+			p_para_m->magic_num,
+			m_idx,
+			fs_inst[idx].output_fl_us,
+			convert2LineCount(
+				fs_inst[idx].lineTimeInNs,
+				fs_inst[idx].output_fl_us)
+		);
+
+		return;
+	}
+
+
+	/* calculate/get current receive timestamp diff */
+	fs_alg_sa_calc_m_s_ts_diff(p_para_m, p_para,
+		&ts_diff_m, &ts_diff_s);
+
+	/* calculate master/slave adjust_diff */
+	adjust_diff =
+		fs_alg_sa_calc_adjust_diff_async(
+			m_idx, idx, ts_diff_m, ts_diff_s,
+			p_para_m, p_para);
+
+	if (check_timing_critical_section(
+		adjust_diff, (p_para_m->stable_fl_us * f_cell_m))) {
+
+		adjust_diff = 0;
+	}
+
+
+	/* update slave all per-frame status variables to dynamic_para struct */
+	p_para->ref_m_idx_magic_num = p_para_m->magic_num;
+	p_para->adj_diff_m = 0;
+	p_para->adj_diff_s = adjust_diff;
+	p_para->adj_or_not = 1;
+	p_para->chg_master = 0;
+	p_para->ask_for_chg = 0;
+
+
+	LOG_MUST(
+		"[%u] ID:%#x(sidx:%u), #%u/#%u(async_m_idx:%u), adjust_diff:%lld, flk_en:%u(+%u), ts(%lld/%lld), delta(%u/%u), [(c:%u/n:%u/s:%u/e:%u/t:%u) / (c:%u/n:%u/s:%u/e:%u/t:%u)], f_cell(%u/%u), fdelay(%u/%u), ts_abs(%u/%u)\n",
+		idx,
+		fs_inst[idx].sensor_id,
+		fs_inst[idx].sensor_idx,
+		p_para->magic_num,
+		p_para_m->magic_num,
+		m_idx,
+		adjust_diff,
+		fs_inst[idx].flicker_en,
+		flk_diff,
+		ts_diff_s,
+		ts_diff_m,
+		p_para->delta,
+		p_para_m->delta,
+		p_para->pred_fl_us[0],
+		p_para->pred_fl_us[1],
+		p_para->stable_fl_us,
+		p_para->ts_bias_us,
+		p_para->tag_bias_us,
+		p_para_m->pred_fl_us[0],
+		p_para_m->pred_fl_us[1],
+		p_para_m->stable_fl_us,
+		p_para_m->ts_bias_us,
+		p_para_m->tag_bias_us,
+		f_cell,
+		f_cell_m,
+		fs_inst[idx].fl_active_delay,
+		fs_inst[m_idx].fl_active_delay,
+		p_para->last_ts,
+		// fs_sa_inst.dynamic_paras[s_idx].last_ts,
+		fs_sa_inst.dynamic_paras[m_idx].last_ts
+	);
+
+
+	out_fl_us = fs_inst[idx].output_fl_us + adjust_diff;
+
+#if !defined(REDUCE_FS_ALGO_LOG)
+	flk_diff = fs_alg_sa_get_flk_diff_and_fl(idx, &out_fl_us, 0);
+#else
+	fs_alg_sa_get_flk_diff_and_fl(idx, &out_fl_us, 0);
+#endif // REDUCE_FS_ALGO_LOG
+
+
+	fs_alg_sa_update_fl_us(idx, out_fl_us, p_para);
+}
+
+
 /*
  * Every sensor will call into this function
  *
  * return: (0/1) for (no error/some error happened)
  *
  * input:
- *     idx: standalone instance idx
- *     m_idx: master instance idx
- *     valid_sync_bits: all valid for doing frame-sync instance idxs
- *     sa_method: 0 => adaptive switch master; 1 => fix master
+ *     struct fs_sa_cfg
+ *         idx: standalone instance idx
+ *         m_idx: master instance idx
+ *         valid_sync_bits: all valid for doing frame-sync instance idxs
+ *         sa_method: 0 => adaptive switch master; 1 => fix master
  *
  * output:
  *     *fl_lc: pointer for output frame length
  */
 unsigned int fs_alg_solve_frame_length_sa(
-	unsigned int idx, int m_idx,
-	int valid_sync_bits, int sa_method,
-	unsigned int *fl_lc)
+	const struct fs_sa_cfg *p_sa_cfg, unsigned int *fl_lc)
 {
-	unsigned int ret = 0;
 	struct FrameSyncDynamicPara para = {0};
+	unsigned int ret = 0;
 
 
-	FS_ATOMIC_SET(m_idx, &fs_sa_inst.master_idx);
+	FS_ATOMIC_SET(p_sa_cfg->m_idx, &fs_sa_inst.master_idx);
 
 	/* prepare new dynamic para */
-	fs_alg_sa_init_new_ctrl(idx, m_idx, &para);
+	fs_alg_sa_init_new_ctrl(p_sa_cfg->idx, p_sa_cfg->m_idx, &para);
 
 
 	/* 0. get Vsync data by Frame Monitor */
-	ret = fs_alg_sa_get_timestamp_info(idx, &para);
-	if (ret != 0)
+	ret = fs_alg_sa_get_timestamp_info(p_sa_cfg->idx, &para);
+	if (ret != 0) {
+		/* for set shutter with frame length API, */
+		/*     give a min FL for sensor driver auto judgment */
+		*fl_lc = fs_inst[p_sa_cfg->idx].min_fl_lc;
 		return ret;
+	}
 
 
-	/* 1. FPS sync */
-	do_fps_sync_sa(idx, m_idx, valid_sync_bits, &para);
+	/* check this idx is normal sync or async slave idx */
+	if (!((p_sa_cfg->async_s_bits >> p_sa_cfg->idx) & 0x01)) {
+		/* 1. FPS sync */
+		do_fps_sync_sa(
+			p_sa_cfg->idx, p_sa_cfg->m_idx,
+			p_sa_cfg->valid_sync_bits, p_sa_cfg->async_s_bits,
+			&para);
 
 
-	/* 2. adjust vsync diff */
-	adjust_vsync_diff_sa(idx, m_idx, sa_method, &para);
+		/* 2. adjust vsync diff */
+		adjust_vsync_diff_sa(
+			p_sa_cfg->idx, p_sa_cfg->m_idx,
+			p_sa_cfg->sa_method,
+			&para);
+
+	} else {
+		/* 1. adjust async slave vsync diff */
+		adjust_async_vsync_diff_sa(
+			p_sa_cfg->idx, p_sa_cfg->async_m_idx,
+			&para);
+	}
 
 
 	/* 3. copy fl result out */
-	*fl_lc = fs_inst[idx].output_fl_lc;
+	*fl_lc = fs_inst[p_sa_cfg->idx].output_fl_lc;
 
 
 	/* X. update dynamic para for sharing to other sensor */
-	fs_alg_sa_update_dynamic_para(idx, &para);
+	fs_alg_sa_update_dynamic_para(p_sa_cfg->idx, &para);
 
 
 	return 0;
