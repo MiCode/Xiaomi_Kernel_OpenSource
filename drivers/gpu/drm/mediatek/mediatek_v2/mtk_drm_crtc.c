@@ -11703,6 +11703,27 @@ int mtk_drm_crtc_getfence_ioctl(struct drm_device *dev, void *data,
 	return ret;
 }
 
+int mtk_drm_crtc_fence_release_ioctl(struct drm_device *dev, void *data,
+				struct drm_file *file_priv)
+{
+	int ret = 0;
+	struct drm_crtc *crtc;
+	struct drm_mtk_fence *args = data;
+
+	crtc = drm_crtc_find(dev, file_priv, args->crtc_id);
+	if (!crtc) {
+		DDPPR_ERR("Unknown CRTC ID %d\n", args->crtc_id);
+		ret = -ENOENT;
+		return ret;
+	}
+
+	DDPINFO("%s: %d", __func__, args->crtc_id);
+
+	mtk_drm_crtc_release_fence(crtc);
+
+	return ret;
+}
+
 int mtk_drm_crtc_get_sf_fence_ioctl(struct drm_device *dev, void *data,
 				    struct drm_file *file_priv)
 {

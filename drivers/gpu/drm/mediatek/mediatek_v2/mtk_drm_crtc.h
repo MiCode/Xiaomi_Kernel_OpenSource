@@ -933,6 +933,8 @@ int mtk_drm_crtc_getfence_ioctl(struct drm_device *dev, void *data,
 				struct drm_file *file_priv);
 int mtk_drm_crtc_get_sf_fence_ioctl(struct drm_device *dev, void *data,
 				    struct drm_file *file_priv);
+int mtk_drm_crtc_fence_release_ioctl(struct drm_device *dev, void *data,
+				struct drm_file *file_priv);
 
 long mtk_crtc_wait_status(struct drm_crtc *crtc, bool status, long timeout);
 void mtk_crtc_cwb_path_disconnect(struct drm_crtc *crtc);
