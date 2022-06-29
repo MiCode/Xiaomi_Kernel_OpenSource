@@ -4540,7 +4540,7 @@ int lcm_fps_ctx_update(unsigned long long cur_ns,
 	unsigned long long delta;
 	unsigned long flags = 0;
 
-	if (index > MAX_CRTC)
+	if (index >= MAX_CRTC)
 		return -EINVAL;
 
 	if (!atomic_read(&lcm_fps_ctx[index].is_inited))
