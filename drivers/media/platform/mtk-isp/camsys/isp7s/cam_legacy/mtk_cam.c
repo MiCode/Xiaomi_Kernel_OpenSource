@@ -3250,9 +3250,9 @@ static int mtk_cam_config_raw_img_out_imgo(struct mtk_cam_request_stream_data *s
 			(scen->scen.smvr.subsample_num < MAX_SUBSAMPLE_PLANE_NUM) ?
 			 scen->scen.smvr.subsample_num : MAX_SUBSAMPLE_PLANE_NUM;
 
-		for (i = 1 ; i < num_planes; i++) {
+		for (i = 0 ; i < num_planes; i++) {
 			vb->planes[i].data_offset =
-				i * cfg_fmt->fmt.pix_mp.plane_fmt[i].sizeimage;
+				i * cfg_fmt->fmt.pix_mp.plane_fmt[0].sizeimage;
 			img_out->buf[i][0].iova =
 				buf->daddr + vb->planes[i].data_offset;
 		}
@@ -3324,8 +3324,8 @@ static int mtk_cam_config_raw_img_out(struct mtk_cam_request_stream_data *s_data
 		num_planes =
 			(scen->scen.smvr.subsample_num < MAX_SUBSAMPLE_PLANE_NUM) ?
 			 scen->scen.smvr.subsample_num : MAX_SUBSAMPLE_PLANE_NUM;
-		for (i = 1 ; i < num_planes; i++) {
-			offset = i * cfg_fmt->fmt.pix_mp.plane_fmt[i].sizeimage;
+		for (i = 0 ; i < num_planes; i++) {
+			offset = i * cfg_fmt->fmt.pix_mp.plane_fmt[0].sizeimage;
 			vb->planes[i].data_offset = offset;
 
 			img_out->buf[i][0].iova = buf->daddr + offset;
