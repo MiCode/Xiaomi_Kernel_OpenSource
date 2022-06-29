@@ -3285,6 +3285,67 @@ static void process_dbg_opt(const char *opt)
 		else if (strncmp(opt + 11, "0", 1) == 0)
 			priv->usage[crtc_idx] = DISP_ENABLE;
 		DDPMSG("set crtc %d usage to %d", crtc_idx, priv->usage[crtc_idx]);
+	} else if (strncmp(opt, "spr_ip_cfg:", 11) == 0) {
+		struct drm_crtc *crtc;
+		struct mtk_drm_crtc *mtk_crtc;
+		char *tmp;
+		char cmd[25] = "";
+		unsigned int addr, value, len, idx;
+		int ret;
+		unsigned int i, j;
+		unsigned int *spr_ip_params;
+
+		DDPINFO("set spr ip start\n");
+
+		/* this debug cmd only for crtc0 */
+		crtc = list_first_entry(&(drm_dev)->mode_config.crtc_list,
+					typeof(*crtc), head);
+		if (!crtc) {
+			DDPMSG("find crtc fail\n");
+			return;
+		}
+
+		mtk_crtc = to_mtk_crtc(crtc);
+
+		if (!mtk_crtc->panel_ext->params->spr_params.spr_ip_params) {
+			DDPINFO("spr_ip_params is null\n");
+			return;
+		}
+		spr_ip_params = mtk_crtc->panel_ext->params->spr_params.spr_ip_params;
+
+		tmp = (char *)(opt + 11);
+		len = strlen(tmp);
+		DDPINFO("len %d, tmp %s", len, tmp);
+
+		for (i = 0, j = 0; i <= len; i++) {
+			if (tmp[i] != ',' && i < len) {
+				cmd[j] = tmp[i];
+				j++;
+			} else {
+				if (i == len)
+					j++;
+				cmd[j] = '\n';
+
+				ret = sscanf(cmd, "0x%x:0x%x", &addr, &value);
+				if (ret != 2) {
+					DDPMSG("ret %d, error to parse cmd %s", ret, cmd);
+					return;
+				}
+				DDPINFO("addr 0x%08x, value 0x%08x\n", addr, value);
+
+				addr = addr & 0xfff;
+				if (addr >= 0x80 && addr <= 0xd7c) {
+					idx = (addr - 0x80) / 4;
+					spr_ip_params[idx] = value;
+					DDPINFO("set spr ip cfg %d to 0x%08x\n",
+						idx, spr_ip_params[idx]);
+				} else {
+					DDPINFO("spr_ip_params addr is wrong\n");
+				}
+				j = 0;
+			}
+		}
+		DDPINFO("set spr ip done\n");
 	}
 
 }

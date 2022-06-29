@@ -7612,69 +7612,69 @@ static char *ddp_get_mutex_module0_name_mt6985(unsigned int bit)
 {
 	switch (bit) {
 	case 0:
-		return "ovl0";
-	case 1:
-		return "ovl0_2l";
-	case 2:
-		return "disp_ovl1_2l";
-	case 3:
-		return "disp_rsz0";
-	case 4:
-		return "disp_rdma0";
-	case 5:
-		return "disp_tdshp0";
-	case 6:
-		return "disp_c3d0";
-	case 7:
-		return "disp_color0";
-	case 8:
-		return "disp_ccorr0";
-	case 9:
-		return "disp_ccorr1";
-	case 10:
-		return "disp_mdp_aal0";
-	case 11:
 		return "disp_aal0";
-	case 12:
-		return "disp_gamma0";
-	case 13:
-		return "disp_postmask0";
-	case 14:
-		return "disp_dither0";
-	case 15:
+	case 1:
+		return "disp_c3d0";
+	case 2:
+		return "disp_ccorr0";
+	case 3:
+		return "disp_ccorr1";
+	case 4:
 		return "disp_chist0";
-	case 16:
+	case 5:
 		return "disp_chist1";
+	case 6:
+		return "disp_color0";
+	case 7:
+		return "disp_dither0";
+	case 8:
+		return "disp_dither1";
+	case 9:
+		return "disp_dli_async0";
+	case 10:
+		return "disp_dli_async1";
+	case 11:
+		return "disp_dli_async2";
+	case 12:
+		return "disp_dli_async3";
+	case 13:
+		return "disp_dli_async4";
+	case 14:
+		return "disp_dli_async5";
+	case 15:
+		return "disp_dlo_async0";
+	case 16:
+		return "disp_dlo_async1";
 	case 17:
-		return "disp_cm0";
+		return "disp_dp_info0";
 	case 18:
-		return "disp_spr0";
+		return "disp_dsc0";
 	case 19:
-		return "disp_dsc_wrap0_core0";
+		return "disp_dsc1";
 	case 20:
-		return "disp_dsc_wrap0_core1";
-	case 21:
-		return "disp_merge0";
-	case 22:
 		return "disp_dsi0";
+	case 21:
+		return "disp_gamma0";
+	case 22:
+		return "disp_mdp_aal0";
 	case 23:
-		return "disp_wdma0";
+		return "disp_mdp_rdma0";
 	case 24:
-		return "disp_ufbc_wdma0";
+		return "disp_merge0";
 	case 25:
-		return "disp_ovl0_2l_nwcg";
+		return "disp_merge1";
 	case 26:
-		return "disp_ovl1_2l_nwcg";
+		return "disp_oddmr0";
 	case 27:
-		return "disp_rdma1";
+		return "disp_postalign0";
 	case 28:
-		return "disp_dp_intf0";
+		return "disp_postmask0";
 	case 29:
-		return "disp_dpi0";
+		return "disp_pwm0";
 	case 30:
-		return "disp_wdma1";
+		return "disp_relay0";
 	case 31:
-		return "disp_y2r0";
+		return "disp_rsz0";
 	default:
 		break;
 	}
@@ -7685,25 +7685,19 @@ static char *ddp_get_mutex_module1_name_mt6985(unsigned int bit)
 {
 	switch (bit) {
 	case 0:
-		return "inlinerot0";
+		return "disp_spr0";
 	case 1:
-		return "disp_dli_async0";
+		return "disp_tdshp0";
 	case 2:
-		return "disp_dli_async1";
+		return "disp_tdshp1";
 	case 3:
-		return "disp_dli_async2";
+		return "disp_ufbc_wdma1";
 	case 4:
-		return "disp_dli_async3";
+		return "disp_vdcm0";
 	case 5:
-		return "disp_dlo_async0";
+		return "disp_wdma1";
 	case 6:
-		return "disp_dlo_async1";
-	case 7:
-		return "disp_dlo_async2";
-	case 8:
-		return "disp_dlo_async3";
-	case 9:
-		return "disp_pwm0";
+		return "disp_y2r0";
 	default:
 		break;
 	}
@@ -14199,6 +14193,7 @@ void mtk_ddp_remove_dsc_prim_MT6985(struct mtk_drm_crtc *mtk_crtc,
 //#else
 	value = DISP_PANEL_COMP_OUT_CROSSBAR3_SEL_IN;
 //#endif
+
 	cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
 		       mtk_crtc->config_regs_pa + addr, value, ~0);
 	addr =  MT6985_PANEL_COMP_OUT_CROSSBAR1_SEL_IN;

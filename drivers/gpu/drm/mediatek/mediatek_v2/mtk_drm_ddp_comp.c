@@ -331,6 +331,7 @@ static const char *const mtk_ddp_comp_stem[MTK_DDP_COMP_TYPE_MAX] = {
 	[MTK_DMDP_TDSHP] = "mtdshp",
 	[MTK_DISP_CM] = "cm",
 	[MTK_DISP_SPR] = "spr",
+	[MTK_DISP_POSTALIGN] = "postalign",
 	[MTK_DISP_DSC] = "dsc",
 	[MTK_DISP_VDCM] = "vdcm",
 	[MTK_DISP_MERGE] = "merge",
@@ -660,8 +661,8 @@ static const struct mtk_ddp_comp_match mtk_ddp_matches[DDP_COMPONENT_ID_MAX] = {
 	{DDP_COMPONENT_OVLSYS_DLI_ASYNC5, MTK_DISP_VIRTUAL, -1, NULL, 0},
 	{DDP_COMPONENT_ODDMR0, MTK_DISP_VIRTUAL, -1, NULL, 0},
 	{DDP_COMPONENT_ODDMR1, MTK_DISP_VIRTUAL, -1, NULL, 0},
-	{DDP_COMPONENT_POSTALIGN0, MTK_DISP_VIRTUAL, -1, NULL, 0},
-	{DDP_COMPONENT_POSTALIGN1, MTK_DISP_VIRTUAL, -1, NULL, 0},
+	{DDP_COMPONENT_POSTALIGN0, MTK_DISP_POSTALIGN, 0, NULL, 0},
+	{DDP_COMPONENT_POSTALIGN1, MTK_DISP_POSTALIGN, 1, NULL, 0},
 	{DDP_COMPONENT_RELAY0, MTK_DISP_VIRTUAL, -1, NULL, 0},
 	{DDP_COMPONENT_RELAY1, MTK_DISP_VIRTUAL, -1, NULL, 0},
 /* 300 */	{DDP_COMPONENT_DITHER2, MTK_DISP_DITHER, 2, NULL, 0},
@@ -1024,7 +1025,10 @@ int mtk_ddp_comp_init(struct device *dev, struct device_node *node,
 				mtk_dump_comp_str_id(comp_id));
 	}
 
-	if (comp_id == DDP_COMPONENT_BLS || comp_id == DDP_COMPONENT_PWM0) {
+	if (comp_id == DDP_COMPONENT_BLS ||
+		comp_id == DDP_COMPONENT_PWM0 ||
+		comp_id == DDP_COMPONENT_POSTALIGN0 ||
+		comp_id == DDP_COMPONENT_POSTALIGN1) {
 		comp->regs_pa = 0;
 		comp->regs = NULL;
 		comp->irq = 0;

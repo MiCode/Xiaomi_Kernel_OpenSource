@@ -6181,6 +6181,8 @@ static const struct of_device_id mtk_ddp_comp_dt_ids[] = {
 	 .data = (void *)MTK_DISP_INLINE_ROTATE},
 	{.compatible = "mediatek,mt6983-mmlsys-bypass",
 	 .data = (void *)MTK_MMLSYS_BYPASS},
+	{.compatible = "mediatek,mt6985-disp-postalign",
+	 .data = (void *)MTK_DISP_POSTALIGN},
 	{} };
 
 static struct disp_iommu_device disp_iommu;
@@ -6533,7 +6535,7 @@ SKIP_OVLSYS_CONFIG:
 		    comp_type == MTK_DISP_GAMMA || comp_type == MTK_DISP_AAL ||
 		    comp_type == MTK_DISP_DITHER ||
 		    comp_type == MTK_DISP_CM || comp_type == MTK_DISP_SPR ||
-		    comp_type == MTK_DMDP_AAL
+		    comp_type == MTK_DISP_POSTALIGN || comp_type == MTK_DMDP_AAL
 #endif
 		    || comp_type == MTK_DP_INTF || comp_type == MTK_DISP_DPTX
 		    || comp_type == MTK_DISP_Y2R || comp_type == MTK_DISP_INLINE_ROTATE
@@ -6799,6 +6801,7 @@ static struct platform_driver *const mtk_drm_drivers[] = {
 #endif
 	&mtk_disp_cm_driver,
 	&mtk_disp_spr_driver,
+	&mtk_disp_postalign_driver,
 	&mtk_disp_dsc_driver,
 	&mtk_dp_tx_driver,
 	&mtk_disp_y2r_driver,

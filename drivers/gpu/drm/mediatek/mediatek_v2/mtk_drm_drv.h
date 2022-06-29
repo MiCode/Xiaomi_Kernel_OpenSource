@@ -315,6 +315,7 @@ extern struct platform_driver mtk_disp_dlo_async_driver;
 extern struct platform_driver mtk_disp_dli_async_driver;
 extern struct platform_driver mtk_disp_inlinerotate_driver;
 extern struct platform_driver mtk_mmlsys_bypass_driver;
+extern struct platform_driver mtk_disp_postalign_driver;
 extern struct mtk_drm_disp_sec_cb disp_sec_cb;
 
 /* For overlay bandwidth monitor */

@@ -87,6 +87,8 @@
 
 #define DISP_REG_SPR_CK_ON		0x0044
 	#define DISP_SPR_CK_ON BIT(0)
+	#define CROP_HOFFSET            REG_FLD_MSB_LSB(23, 16)
+	#define CROP_VOFFSET            REG_FLD_MSB_LSB(31, 24)
 #define DISP_REG_SPR_DBG0			0x0050
 	#define INP_PIX_CNT REG_FLD_MSB_LSB(12, 0)
 	#define INP_LINE_CNT REG_FLD_MSB_LSB(28, 16)
@@ -461,10 +463,153 @@
 	#define CRC_RDY BIT(16)
 #define DISP_REG_SPR_DITHER_18		0x0348
 	#define SPR_FUNC_DCM_DIS BIT(0)
+//MT6985
+#define MT6985_DISP_REG_SPR_V_BLANK        0x0028
+	#define VBP                            REG_FLD_MSB_LSB(4, 0)
+	#define VFP                            REG_FLD_MSB_LSB(20, 16)
+
+#define MT6985_DISP_REG_SPR_EN_BF_HS       0x002C
+	#define EN_BF_HS                       REG_FLD_MSB_LSB(7, 0)
+
+#define MT6985_DISP_REG_SPR_ROI_SIZE       0x0030
+
+#define MT6985_DISP_REG_SPR_FRAME_DONE_DEL 0x0034
+
+#define MT6985_DISP_REG_SPR_SW_SCRATCH     0x0038
+
+#define MT6985_DISP_REG_SPR_RDY_SEL        0x003C
+	#define CROP_OUT_HSIZE                 REG_FLD_MSB_LSB(28, 16)
+
+#define MT6985_DISP_REG_SPR_RDY_SEL_EN     0x0040
+	#define CROP_OUT_VSIZE                 REG_FLD_MSB_LSB(28, 16)
+
+#define MT6985_DISP_REG_SPR_CK_ON          0x0044
+	#define CROP_HOFFSET                   REG_FLD_MSB_LSB(23, 16)
+	#define CROP_VOFFSET                   REG_FLD_MSB_LSB(31, 24)
+
+#define MT6985_DISP_REG_SPR_H_BLANK        0x0048
+	#define HBP                            REG_FLD_MSB_LSB(7, 0)
+	#define HFP                            REG_FLD_MSB_LSB(15, 8)
+
+#define MT6985_DISP_REG_SPR_OPTION         0x004C
+	#define PADDING_ZERO                   REG_FLD_MSB_LSB(0, 0)
+	#define AUTO_CROP                      REG_FLD_MSB_LSB(4, 4)
+	#define ABNORMAL_RECOVER_EN            REG_FLD_MSB_LSB(8, 8)
+	#define H_PROCH_MANUAL                 REG_FLD_MSB_LSB(12, 12)
+	#define PIPE_LATENCY                   REG_FLD_MSB_LSB(20, 16)
+	#define CUP_DATA_DOUBLE_BUF            REG_FLD_MSB_LSB(28, 28)
+
+#define MT6985_DISP_REG_SPR_DUMMY          0x0074
+
+#define MT6985_DISP_REG_SPR_ARRANGE1       0x007C
+
+#define MT6985_SPR_IP_PARAMS_NUM           832
+
+#define MT6985_DISP_REG_SPR_IP_CFG_0       0x0080
+
+#define MT6985_DISP_REG_SPR_IP_CFG_831     0x0D7C
+
+#define MT6985_DISP_REG_SPR_DITHER_0       0x0D80
+
+#define MT6985_DISP_REG_SPR_DITHER_1       0x0D84
+
+#define MT6985_DISP_REG_SPR_DITHER_2       0x0D88
+
+#define MT6985_DISP_REG_SPR_DITHER_5       0x0D8C
+
+#define MT6985_DISP_REG_SPR_DITHER_6       0x0D90
+
+#define MT6985_DISP_REG_SPR_DITHER_7       0x0D94
+
+#define MT6985_DISP_REG_SPR_DITHER_8       0x0D98
+
+#define MT6985_DISP_REG_SPR_DITHER_9       0x0D9C
+
+#define MT6985_DISP_REG_SPR_DITHER_10      0x0DA0
+
+#define MT6985_DISP_REG_SPR_DITHER_11      0x0DA4
+
+#define MT6985_DISP_REG_SPR_DITHER_12      0x0DA8
+
+#define MT6985_DISP_REG_SPR_DITHER_13      0x0DAC
+
+#define MT6985_DISP_REG_SPR_DITHER_14      0x0DB0
+
+#define MT6985_DISP_REG_SPR_DITHER_15      0x0DB4
+
+#define MT6985_DISP_REG_SPR_DITHER_16      0x0DB8
+
+#define MT6985_DISP_REG_SPR_DITHER_17      0x0DBC
+
+#define MT6985_DISP_REG_SPR_DITHER_18      0x0DC0
+	#define PARA_DUMMY                     REG_FLD_MSB_LSB(31, 16)
+
+#define MT6985_DISP_REG_SPR_IP_DBG0        0x0DC4
+	#define FX_RND_X_DATA_OUT              REG_FLD_MSB_LSB(23, 0)
+
+#define MT6985_DISP_REG_SPR_IP_DBG1        0x0DC8
+	#define FX_SMO_OUT                     REG_FLD_MSB_LSB(23, 0)
+
+#define MT6985_DISP_REG_SPR_IP_DBG2        0x0DCC
+	#define SPR_VERSION                    REG_FLD_MSB_LSB(7, 0)
+
+#define MT6985_DISP_REG_SPR_CUP_0          0x0DD0
+	#define SPR_CUP_ADDR                   REG_FLD_MSB_LSB(0, 0)
+	#define SPR_CUP_SEL                    REG_FLD_MSB_LSB(9, 8)
+	#define SPR_CUP_INC                    REG_FLD_MSB_LSB(24, 16)
+
+#define MT6985_DISP_REG_SPR_CUP_1          0x0DD4
+	#define SPR_CUP_DATA_LSB               REG_FLD_MSB_LSB(31, 0)
+
+#define MT6985_DISP_REG_SPR_CUP_2          0x0DD8
+	#define SPR_CUP_DATA_MSB               REG_FLD_MSB_LSB(15, 0)
+
+#define MT6985_DISP_REG_SPR_CUP_SRAM_R_IF  0x0DE0
+	#define SPR_CUP_SRAM_RDATA             REG_FLD_MSB_LSB(31, 0)
+
+#define MT6985_DISP_REG_SPR_CUP_SRAM_R_IF_MSB   0x0DE4
+	#define SPR_CUP_SRAM_RDATA_MSB              REG_FLD_MSB_LSB(15, 0)
+
+//dispsys
+#define DISP_REG_POSTALIGN0_CON0                0x050
+	#define DISP_POSTALIGN0_ENG_EN              REG_FLD_MSB_LSB(0, 0)
+	#define DISP_POSTALIGN0_ENG_RESET           REG_FLD_MSB_LSB(1, 1)
+	#define DISP_POSTALIGN0_EN                  REG_FLD_MSB_LSB(16, 16)
+	#define DISP_POSTALIGN0_SEL                 REG_FLD_MSB_LSB(25, 20)
+	#define DISP_POSTALIGN0_PADDING_REPEAT_EN   REG_FLD_MSB_LSB(28, 28)
+	#define DISP_POSTALIGN0_6TYPE_MODE          REG_FLD_MSB_LSB(25, 20)
+
+#define DISP_REG_POSTALIGN0_CON1                0x054
+	#define DISP_POSTALIGN0_HSIZE               REG_FLD_MSB_LSB(12, 0)
+	#define DISP_POSTALIGN0_VSIZE               REG_FLD_MSB_LSB(28, 16)
+
+#define DISP_REG_POSTALIGN0_CON2                0x058
+	#define DISP_POSTALIGN0_SPR_PIXELGROUP      REG_FLD_MSB_LSB(1, 0)
+	#define DISP_POSTALIGN0_SPR_ARRANGE_UL_P0   REG_FLD_MSB_LSB(6, 4)
+	#define DISP_POSTALIGN0_SPR_ARRANGE_UL_P1   REG_FLD_MSB_LSB(10, 8)
+	#define DISP_POSTALIGN0_SPR_ARRANGE_UL_P2   REG_FLD_MSB_LSB(14, 12)
+	#define DISP_POSTALIGN0_SPR_ARRANGE_DL_P0   REG_FLD_MSB_LSB(18, 16)
+	#define DISP_POSTALIGN0_SPR_ARRANGE_DL_P1   REG_FLD_MSB_LSB(22, 20)
+	#define DISP_POSTALIGN0_SPR_ARRANGE_DL_P2   REG_FLD_MSB_LSB(26, 24)
+
+#define DISP_REG_POSTALIGN0_MON0                0x05C
+	#define DISP_POSTALIGN0_PIX_CNT_OUT         REG_FLD_MSB_LSB(12, 0)
+	#define DISP_POSTALIGN0_LINT_CNT_OUT        REG_FLD_MSB_LSB(28, 16)
+
+#define DISP_REG_POSTALIGN0_MON1                0x060
+	#define DISP_POSTALIGN0_ROUT                REG_FLD_MSB_LSB(9, 0)
+	#define DISP_POSTALIGN0_GOUT                REG_FLD_MSB_LSB(19, 10)
+	#define DISP_POSTALIGN0_BOUT                REG_FLD_MSB_LSB(29, 20)
+
+enum mtk_spr_version {
+	MTK_SPR_V1,
+	MTK_SPR_V2,
+};
 
 struct mtk_disp_spr_data {
 	bool support_shadow;
 	bool need_bypass_shadow;
+	enum mtk_spr_version version;
 };
 
 /**
@@ -485,17 +630,14 @@ static inline struct mtk_disp_spr *comp_to_spr(struct mtk_ddp_comp *comp)
 static void mtk_spr_start(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 {
 	void __iomem *baddr = comp->regs;
-	//struct mtk_disp_spr *spr = comp_to_spr(comp);
 
 	mtk_ddp_write_mask(comp, SPR_FORCE_COMMIT,
 		DISP_REG_SPR_EN, SPR_FORCE_COMMIT, handle);
 
-	//if (spr->enable) {
-		mtk_ddp_write_mask(comp, SPR_EN, DISP_REG_SPR_EN,
-				SPR_EN, handle);
-		mtk_ddp_write_mask(comp, SPR_LUT_EN, DISP_REG_SPR_EN,
-				SPR_LUT_EN, handle);
-	//}
+	mtk_ddp_write_mask(comp, SPR_EN, DISP_REG_SPR_EN,
+		SPR_EN, handle);
+	mtk_ddp_write_mask(comp, SPR_LUT_EN, DISP_REG_SPR_EN,
+		SPR_LUT_EN, handle);
 
 	DDPINFO("%s, spr_start:0x%x\n",
 		mtk_dump_comp_str(comp), readl(baddr + DISP_REG_SPR_EN));
@@ -507,20 +649,38 @@ static void mtk_spr_stop(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 
 	mtk_ddp_write_mask(comp, 0x0, DISP_REG_SPR_EN, SPR_EN, handle);
 	mtk_ddp_write_mask(comp, 0x0, DISP_REG_SPR_EN, SPR_LUT_EN, handle);
+
 	DDPINFO("%s, spr_stop:0x%x\n",
 		mtk_dump_comp_str(comp), readl(baddr + DISP_REG_SPR_EN));
 }
 
 static void mtk_spr_prepare(struct mtk_ddp_comp *comp)
 {
-	//struct mtk_disp_spr *spr = comp_to_spr(comp);
+	struct mtk_disp_spr *spr = comp_to_spr(comp);
+
+	DDPINFO("%s+\n", __func__);
 
 	mtk_ddp_comp_clk_prepare(comp);
 
-	/* Bypass shadow register and read shadow register */
-	//if (spr->data->need_bypass_shadow)
 	mtk_ddp_write_mask_cpu(comp, SPR_BYPASS_SHADOW,
 		DISP_REG_SPR_EN, SPR_BYPASS_SHADOW);
+
+	if (spr->data && spr->data->version == MTK_SPR_V2) {
+		if (comp->mtk_crtc && comp->mtk_crtc->panel_ext &&
+			comp->mtk_crtc->panel_ext->params) {
+			struct mtk_panel_spr_params *spr_params;
+			unsigned int i;
+
+			spr_params = &comp->mtk_crtc->panel_ext->params->spr_params;
+			if (spr_params->enable == 1 && spr_params->relay == 0) {
+				DDPINFO("%s: spr ip config\n", __func__);
+				for (i = 0; i < MT6985_SPR_IP_PARAMS_NUM; i++)
+					mtk_ddp_write_relaxed(comp,
+						*(spr_params->spr_ip_params + i),
+						(MT6985_DISP_REG_SPR_IP_CFG_0 + 0x4 * i), NULL);
+			}
+		}
+	}
 }
 
 static void mtk_spr_unprepare(struct mtk_ddp_comp *comp)
@@ -528,7 +688,6 @@ static void mtk_spr_unprepare(struct mtk_ddp_comp *comp)
 	mtk_ddp_comp_clk_unprepare(comp);
 }
 
-//#define RGBG_SPR_PANEL
 extern unsigned int disp_spr_bypass;
 
 static void mtk_spr_color_tune_config(struct mtk_ddp_comp *comp,
@@ -720,7 +879,7 @@ static void mtk_spr_color_config(struct mtk_ddp_comp *comp,
 		}
 }
 
-static void mtk_spr_config(struct mtk_ddp_comp *comp,
+static void mtk_spr_config_V1(struct mtk_ddp_comp *comp,
 				 struct mtk_ddp_config *cfg,
 				 struct cmdq_pkt *handle)
 {
@@ -729,14 +888,13 @@ static void mtk_spr_config(struct mtk_ddp_comp *comp,
 	u32 reg_val;
 	unsigned int width;
 
-	if (!comp->mtk_crtc || !comp->mtk_crtc->panel_ext)
-		return;
-	DDPFUNC();
-
 	if (comp->mtk_crtc->is_dual_pipe)
 		width = cfg->w / 2;
 	else
 		width = cfg->w;
+
+	if (!comp->mtk_crtc || !comp->mtk_crtc->panel_ext)
+		return;
 
 	spr_params = &comp->mtk_crtc->panel_ext->params->spr_params;
 	spr_params_tune = comp->mtk_crtc->panel_spr_params;
@@ -823,27 +981,235 @@ static void mtk_spr_config(struct mtk_ddp_comp *comp,
 	}
 }
 
+static unsigned int disp_spr_get_tile_overhead(unsigned int type)
+{
+	switch (type) {
+	case MTK_PANEL_RGBG_BGRG_TYPE:
+		return 4;
+	case MTK_PANEL_BGRG_RGBG_TYPE:
+		return 4;
+	case MTK_PANEL_RGBRGB_BGRBGR_TYPE:
+		return 6;
+	case MTK_PANEL_BGRBGR_RGBRGB_TYPE:
+		return 6;
+	case MTK_PANEL_RGBRGB_BRGBRG_TYPE:
+		return 6;
+	case MTK_PANEL_BRGBRG_RGBRGB_TYPE:
+		return 6;
+	default:
+		return 0;
+	}
+}
+
+static void mtk_spr_config_V2(struct mtk_ddp_comp *comp,
+				 struct mtk_ddp_config *cfg,
+				 struct cmdq_pkt *handle)
+{
+	struct mtk_panel_spr_params *spr_params;
+	unsigned int width, height;
+	unsigned int tile_overhead;
+	u32 reg_val;
+	void __iomem *config_regs;
+	resource_size_t config_regs_pa;
+
+	if (!comp->mtk_crtc || !comp->mtk_crtc->panel_ext)
+		return;
+
+	if (comp->id == DDP_COMPONENT_SPR0) {
+		config_regs = comp->mtk_crtc->config_regs;
+		config_regs_pa = comp->mtk_crtc->config_regs_pa;
+	} else {
+		config_regs = comp->mtk_crtc->side_config_regs;
+		config_regs_pa = comp->mtk_crtc->side_config_regs_pa;
+	}
+
+	spr_params = &comp->mtk_crtc->panel_ext->params->spr_params;
+
+	if (comp->mtk_crtc->is_dual_pipe == true) {
+		tile_overhead = disp_spr_get_tile_overhead(spr_params->spr_format_type);
+		if (tile_overhead == 0) {
+			DDPMSG("spr format is not support\n");
+			return;
+		}
+
+		//todo
+		width = (cfg->w / 2 + tile_overhead + 3) / 4 * 4;
+		height = cfg->h;
+
+		mtk_ddp_write_mask(comp, cfg->w / 2,
+			DISP_REG_SPR_RDY_SEL, CROP_OUT_HSIZE, handle);
+		mtk_ddp_write_mask(comp, height,
+			DISP_REG_SPR_RDY_SEL_EN, CROP_OUT_VSIZE, handle);
+
+		if (comp->id == DDP_COMPONENT_SPR0)
+			mtk_ddp_write_mask(comp, 0,
+				DISP_REG_SPR_CK_ON,	CROP_HOFFSET, handle);
+		else
+			mtk_ddp_write_mask(comp, width - cfg->w / 2,
+				DISP_REG_SPR_CK_ON, CROP_HOFFSET, handle);
+	} else {
+		width = cfg->w;
+		height = cfg->h;
+		mtk_ddp_write_mask(comp, width,
+			DISP_REG_SPR_RDY_SEL, CROP_OUT_HSIZE, handle);
+		mtk_ddp_write_mask(comp, height,
+			DISP_REG_SPR_RDY_SEL_EN, CROP_OUT_VSIZE, handle);
+		mtk_ddp_write_mask(comp, 0,
+			DISP_REG_SPR_CK_ON,	CROP_HOFFSET, handle);
+	}
+
+	//roi size config
+	mtk_ddp_write_relaxed(comp, height << 16 | width,
+		DISP_REG_SPR_ROI_SIZE, handle);
+
+	//relay mode: roi size, crop_out_size, spr_en, spr_lut_en
+	if (disp_spr_bypass) {
+		mtk_ddp_write_mask(comp, SPR_EN, DISP_REG_SPR_EN,
+			SPR_EN, handle);
+		mtk_ddp_write_mask(comp, SPR_LUT_EN, DISP_REG_SPR_EN,
+			SPR_LUT_EN, handle);
+		mtk_ddp_write_mask(comp, SPR_RELAY_MODE, DISP_REG_SPR_EN,
+			SPR_RELAY_MODE, handle);
+
+		//disable postalign
+		if (handle)
+			cmdq_pkt_write(handle, comp->cmdq_base,
+				config_regs_pa + DISP_REG_POSTALIGN0_CON0, 0, ~0);
+		else
+			writel_relaxed(0, config_regs + DISP_REG_POSTALIGN0_CON0);
+
+		return;
+	}
+
+	if (spr_params->enable == 1 && spr_params->relay == 0) {
+		//postalign config
+		reg_val = (!!spr_params->postalign_6type_mode_en << 31) |
+			(!!spr_params->padding_repeat_en << 28) |
+			(!!spr_params->postalign_en << (20 + spr_params->spr_format_type)) |
+			(!!spr_params->postalign_en << 16) | 1;
+
+		if (handle) {
+			cmdq_pkt_write(handle, comp->cmdq_base,
+				config_regs_pa + DISP_REG_POSTALIGN0_CON0,
+				reg_val, ~0);
+			cmdq_pkt_write(handle, comp->cmdq_base,
+				config_regs_pa + DISP_REG_POSTALIGN0_CON1,
+				(cfg->h << 16 | cfg->w), ~0);
+		} else {
+			writel_relaxed(reg_val,
+				config_regs + DISP_REG_POSTALIGN0_CON0);
+			writel_relaxed((cfg->h << 16 | cfg->w),
+				config_regs + DISP_REG_POSTALIGN0_CON1);
+		}
+
+		switch (spr_params->spr_format_type) {
+		case MTK_PANEL_RGBG_BGRG_TYPE:
+			reg_val = 0x00050502;
+			break;
+		case MTK_PANEL_BGRG_RGBG_TYPE:
+			reg_val = 0x00500052;
+			break;
+		case MTK_PANEL_RGBRGB_BGRBGR_TYPE:
+			reg_val = 0x03154203;
+			break;
+		case MTK_PANEL_BGRBGR_RGBRGB_TYPE:
+			reg_val = 0x04203153;
+			break;
+		case MTK_PANEL_RGBRGB_BRGBRG_TYPE:
+			reg_val = 0x04200423;
+			break;
+		case MTK_PANEL_BRGBRG_RGBRGB_TYPE:
+			reg_val = 0x00424203;
+			break;
+		default:
+			reg_val = 0x03154203;
+			break;
+		}
+
+		if (handle)
+			cmdq_pkt_write(handle, comp->cmdq_base,
+				config_regs_pa + DISP_REG_POSTALIGN0_CON2,
+				reg_val, ~0);
+		else
+			writel_relaxed(reg_val,
+				config_regs + DISP_REG_POSTALIGN0_CON2);
+
+		reg_val = (!!spr_params->bypass_dither << 5) |
+			(!!spr_params->rgb_swap << 4) |
+			(!!spr_params->outdata_res_sel << 2) |
+			(!!spr_params->indata_res_sel << 1) | 1;
+		mtk_ddp_write_relaxed(comp, reg_val,
+			DISP_REG_SPR_CFG, handle);
+
+		if (spr_params->bypass_dither == 0) {
+			mtk_ddp_write_mask(comp, LFSR_EN, DISP_REG_SPR_DITHER_6,
+				LFSR_EN, handle);
+			mtk_ddp_write_mask(comp, RDITHER_EN, DISP_REG_SPR_DITHER_6,
+				RDITHER_EN, handle);
+		}
+
+		mtk_ddp_write_mask(comp, SPR_EN, DISP_REG_SPR_EN,
+			SPR_EN, handle);
+		mtk_ddp_write_mask(comp, SPR_LUT_EN, DISP_REG_SPR_EN,
+			SPR_LUT_EN, handle);
+		mtk_ddp_write_mask(comp, 0, DISP_REG_SPR_EN,
+			SPR_RELAY_MODE, handle);
+		mtk_ddp_write_mask(comp, SPR_FORCE_COMMIT, DISP_REG_SPR_EN,
+			SPR_FORCE_COMMIT, handle);
+		mtk_ddp_write_mask(comp, SPR_BYPASS_SHADOW, DISP_REG_SPR_EN,
+			SPR_BYPASS_SHADOW, handle);
+	} else {
+		mtk_ddp_write_mask(comp, SPR_EN, DISP_REG_SPR_EN,
+			SPR_EN, handle);
+		mtk_ddp_write_mask(comp, SPR_LUT_EN, DISP_REG_SPR_EN,
+			SPR_LUT_EN, handle);
+		mtk_ddp_write_mask(comp, SPR_RELAY_MODE, DISP_REG_SPR_EN,
+			SPR_RELAY_MODE, handle);
+
+		//disable postalign
+		if (handle)
+			cmdq_pkt_write(handle, comp->cmdq_base,
+				config_regs_pa + DISP_REG_POSTALIGN0_CON0,
+				0, ~0);
+		else
+			writel_relaxed(0,
+				config_regs + DISP_REG_POSTALIGN0_CON0);
+	}
+}
+
+static void mtk_spr_config(struct mtk_ddp_comp *comp,
+				 struct mtk_ddp_config *cfg,
+				 struct cmdq_pkt *handle)
+{
+	struct mtk_disp_spr *spr = comp_to_spr(comp);
+
+	if (spr->data && spr->data->version == MTK_SPR_V2)
+		mtk_spr_config_V2(comp, cfg, handle);
+	else
+		mtk_spr_config_V1(comp, cfg, handle);
+}
+
 void mtk_spr_dump(struct mtk_ddp_comp *comp)
 {
 	void __iomem *baddr = comp->regs;
-	int i;
+	unsigned int i, num;
+	struct mtk_disp_spr *spr = comp_to_spr(comp);
 
 	if (!baddr) {
 		DDPDUMP("%s, %s is NULL!\n", __func__, mtk_dump_comp_str(comp));
 		return;
 	}
 
+	if (spr->data && spr->data->version == MTK_SPR_V2)
+		num = 0xde8;
+	else
+		num = 0x350;
+
 	DDPDUMP("== %s REGS:0x%x ==\n", mtk_dump_comp_str(comp), comp->regs_pa);
-	DDPDUMP("-- Start dump spr registers --\n");
-	DDPDUMP("en=%d, spr_bypass=%d\n",
-		 DISP_REG_GET_FIELD(CON_FLD_SPR_EN,
-				baddr + DISP_REG_SPR_EN),
-		 DISP_REG_GET_FIELD(CON_FLD_DISP_SPR_RELAY_MODE,
-				baddr + DISP_REG_SPR_EN));
-	for (i = 0; i < 0x350; i += 16) {
-		DDPDUMP("SPR+%x: 0x%x 0x%x 0x%x 0x%x\n", i, readl(baddr + i),
-			 readl(baddr + i + 0x4), readl(baddr + i + 0x8),
-			 readl(baddr + i + 0xc));
+	for (i = 0; i < num; i += 16) {
+		DDPDUMP("0x%x: 0x%08x 0x%08x 0x%08x 0x%08x\n", i,
+			readl(baddr + i), readl(baddr + i + 0x4),
+			readl(baddr + i + 0x8), readl(baddr + i + 0xc));
 	}
 }
 
@@ -858,10 +1224,10 @@ int mtk_spr_analysis(struct mtk_ddp_comp *comp)
 
 	DDPDUMP("== %s ANALYSIS:0x%x ==\n", mtk_dump_comp_str(comp), comp->regs_pa);
 	DDPDUMP("en=%d, spr_bypass=%d\n",
-	DISP_REG_GET_FIELD(CON_FLD_SPR_EN,
-		baddr + DISP_REG_SPR_EN),
-	DISP_REG_GET_FIELD(CON_FLD_DISP_SPR_RELAY_MODE,
-		baddr + DISP_REG_SPR_EN));
+		DISP_REG_GET_FIELD(CON_FLD_SPR_EN,
+			baddr + DISP_REG_SPR_EN),
+		DISP_REG_GET_FIELD(CON_FLD_DISP_SPR_RELAY_MODE,
+			baddr + DISP_REG_SPR_EN));
 
 	return 0;
 }
@@ -914,7 +1280,7 @@ static int mtk_disp_spr_probe(struct platform_device *pdev)
 	int irq;
 	int ret;
 
-	DDPMSG("%s+\n", __func__);
+	DDPINFO("%s+\n", __func__);
 	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
 	if (!priv)
 		return -ENOMEM;
@@ -923,7 +1289,8 @@ static int mtk_disp_spr_probe(struct platform_device *pdev)
 	if (irq < 0) {
 		DDPMSG("%s+ irq error\n", __func__);
 		return irq;
-		}
+	}
+
 	comp_id = mtk_ddp_comp_get_id(dev->of_node, MTK_DISP_SPR);
 	if ((int)comp_id < 0) {
 		dev_err(dev, "Failed to identify by alias: %d\n", comp_id);
@@ -937,6 +1304,7 @@ static int mtk_disp_spr_probe(struct platform_device *pdev)
 		return ret;
 	}
 
+	priv->data = of_device_get_match_data(dev);
 	platform_set_drvdata(pdev, priv);
 
 	mtk_ddp_comp_pm_enable(&priv->ddp_comp);
@@ -947,7 +1315,7 @@ static int mtk_disp_spr_probe(struct platform_device *pdev)
 		mtk_ddp_comp_pm_disable(&priv->ddp_comp);
 	}
 
-	DDPMSG("%s-\n", __func__);
+	DDPINFO("%s-\n", __func__);
 	return ret;
 }
 
@@ -964,31 +1332,37 @@ static int mtk_disp_spr_remove(struct platform_device *pdev)
 static const struct mtk_disp_spr_data mt6853_spr_driver_data = {
 	.support_shadow = false,
 	.need_bypass_shadow = true,
+	.version = MTK_SPR_V1,
 };
 
 static const struct mtk_disp_spr_data mt6983_spr_driver_data = {
 	.support_shadow = false,
 	.need_bypass_shadow = true,
+	.version = MTK_SPR_V1,
 };
 
 static const struct mtk_disp_spr_data mt6985_spr_driver_data = {
 	.support_shadow = false,
 	.need_bypass_shadow = true,
+	.version = MTK_SPR_V2,
 };
 
 static const struct mtk_disp_spr_data mt6895_spr_driver_data = {
 	.support_shadow = false,
 	.need_bypass_shadow = true,
+	.version = MTK_SPR_V1,
 };
 
 static const struct mtk_disp_spr_data mt6886_spr_driver_data = {
 	.support_shadow = false,
 	.need_bypass_shadow = true,
+	.version = MTK_SPR_V1,
 };
 
 static const struct mtk_disp_spr_data mt6879_spr_driver_data = {
 	.support_shadow = false,
 	.need_bypass_shadow = true,
+	.version = MTK_SPR_V1,
 };
 
 static const struct of_device_id mtk_disp_spr_driver_dt_match[] = {
