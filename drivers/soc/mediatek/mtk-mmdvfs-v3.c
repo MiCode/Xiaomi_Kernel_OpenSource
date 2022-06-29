@@ -11,6 +11,8 @@
 #include <linux/remoteproc/mtk_ccu.h>
 #include <linux/sched/clock.h>
 #include <linux/slab.h>
+#include <linux/suspend.h>
+#include <soc/mediatek/smi.h>
 
 #include "clk-mtk.h"
 //#include "clk-mux.h"
@@ -36,6 +38,12 @@ static int vcp_power;
 
 static phys_addr_t mmdvfs_vcp_base;
 static bool mmdvfs_free_run;
+
+static struct device *cam_larb_dev;
+static DEFINE_MUTEX(mmdvfs_vmm_pwr_mutex);
+static int vmm_power;
+static int last_vmm_vote_step = -1;
+static int last_vmm_force_step = MAX_OPP;
 
 static struct platform_device *ccu_pdev;
 static struct rproc *ccu_rproc;
@@ -64,7 +72,7 @@ int mtk_mmdvfs_enable_ccu(bool enable)
 	}
 
 	if (!ccu_rproc) {
-		MMDVFS_ERR("there is no ccu_rproc\n");
+		MMDVFS_ERR("there is no ccu_rproc");
 		return -1;
 	}
 
@@ -77,7 +85,7 @@ int mtk_mmdvfs_enable_ccu(bool enable)
 			ret = rproc_boot(ccu_rproc);
 #endif
 			if (ret) {
-				MMDVFS_ERR("boot ccu rproc fail\n");
+				MMDVFS_ERR("boot ccu rproc fail");
 				mutex_unlock(&mmdvfs_ccu_pwr_mutex);
 				return ret;
 			}
@@ -104,6 +112,62 @@ int mtk_mmdvfs_enable_ccu(bool enable)
 	return ret;
 }
 EXPORT_SYMBOL_GPL(mtk_mmdvfs_enable_ccu);
+
+
+static int mtk_mmdvfs_enable_vmm(int enable)
+{
+	int result = 0;
+
+	if (!cam_larb_dev) {
+		MMDVFS_ERR("cam_larb_dev is null");
+		return -EINVAL;
+	}
+
+	mutex_lock(&mmdvfs_vmm_pwr_mutex);
+	if (enable) {
+		if (vmm_power == 0) {
+			mtk_smi_larb_get(cam_larb_dev);
+			MMDVFS_DBG("power on vmm successfully");
+		}
+		vmm_power++;
+	} else {
+		if (vmm_power == 0) {
+			MMDVFS_ERR("power off vmm when vmm_power==0");
+			mutex_unlock(&mmdvfs_vmm_pwr_mutex);
+			return -1;
+		}
+		if (vmm_power == 1) {
+			mtk_smi_larb_put(cam_larb_dev);
+			MMDVFS_DBG("power off vmm successfully");
+		}
+		vmm_power--;
+	}
+	mutex_unlock(&mmdvfs_vmm_pwr_mutex);
+
+	return result;
+}
+
+static int set_vmm_enable(const char *val, const struct kernel_param *kp)
+{
+	int result, enable;
+
+	result = kstrtoint(val, 0, &enable);
+	if (result) {
+		MMDVFS_ERR("failed: %d", result);
+		return result;
+	}
+
+	result = mtk_mmdvfs_enable_vmm(enable);
+
+
+	return result;
+}
+
+static struct kernel_param_ops enable_vmm_ops = {
+	.set = set_vmm_enable,
+};
+module_param_cb(enable_vmm, &enable_vmm_ops, NULL, 0644);
+MODULE_PARM_DESC(enable_vmm, "enable vmm");
 
 static int mmdvfs_vcp_is_ready(void)
 {
@@ -344,7 +408,7 @@ static unsigned long mtk_mmdvfs_recalc_rate(struct clk_hw *hw,
 	level = mmdvfs_clk->freq_num - mmdvfs_clk->opp - 1;
 	ret = mmdvfs_clk->freqs[level];
 	if (log_level & 1 << log_ccf_cb)
-		MMDVFS_DBG("clk=%u parent_rate=%lu freq=%lu\n",
+		MMDVFS_DBG("clk=%u parent_rate=%lu freq=%lu",
 			mmdvfs_clk->clk_id, parent_rate, ret);
 	return ret;
 }
@@ -427,11 +491,30 @@ int mtk_mmdvfs_v3_set_force_step(u16 pwr_idx, s16 opp)
 	if (opp < 0)
 		opp = MAX_OPP;
 
+	if (pwr_idx == PWR_MMDVFS_VMM) {
+		if (opp == last_vmm_force_step)
+			return 0;
+		if (last_vmm_force_step == MAX_OPP) {
+			mtk_mmdvfs_enable_vcp(true);
+			if (cam_larb_dev)
+				mtk_mmdvfs_enable_vmm(true);
+		}
+	}
+
 	ret = mmdvfs_vcp_ipi_send(FUNC_FORCE_OPP, pwr_idx, opp, MAX_OPP);
 
 	slot = *(struct mmdvfs_ipi_data *)(u32 *)&ret;
 	MMDVFS_DBG("ipi:%#x slot:%#x idx:%hhu opp:%hhu",
 		ret, slot, slot.idx, slot.ack);
+
+	if (pwr_idx == PWR_MMDVFS_VMM) {
+		if (opp == MAX_OPP) {
+			if (cam_larb_dev)
+				mtk_mmdvfs_enable_vmm(false);
+			mtk_mmdvfs_enable_vcp(false);
+		}
+		last_vmm_force_step = opp;
+	}
 
 	return ret;
 }
@@ -476,12 +559,23 @@ int mtk_mmdvfs_v3_set_vote_step(u16 pwr_idx, s16 opp)
 		return -EINVAL;
 	}
 
+	if (pwr_idx == PWR_MMDVFS_VMM) {
+		if (opp == last_vmm_vote_step)
+			return 0;
+
+		if (last_vmm_vote_step == -1) {
+			mtk_mmdvfs_enable_vcp(true);
+			if (cam_larb_dev)
+				mtk_mmdvfs_enable_vmm(true);
+		}
+	}
+
 	for (i = mmdvfs_clk_num - 1; i >= 0; i--)
 		if (pwr_idx == mtk_mmdvfs_clks[i].pwr_id) {
 			if (opp >= mtk_mmdvfs_clks[i].freq_num) {
-				MMDVFS_ERR("invalid opp:%hd freq_num:%hhu",
-					opp, mtk_mmdvfs_clks[i].freq_num);
-				return opp;
+				MMDVFS_ERR("i:%d invalid opp:%hd freq_num:%hhu",
+					i, opp, mtk_mmdvfs_clks[i].freq_num);
+				break;
 			}
 
 			freq = (opp < 0) ? 0 : mtk_mmdvfs_clks[i].freqs[
@@ -496,6 +590,15 @@ int mtk_mmdvfs_v3_set_vote_step(u16 pwr_idx, s16 opp)
 
 	MMDVFS_DBG("pwr_idx:%hu clk:%p opp:%hd i:%d freq_num:%hhu freq:%u", pwr_idx,
 		mmdvfs_pwr_clk[pwr_idx], opp, i, mtk_mmdvfs_clks[i].freq_num, freq);
+
+	if (pwr_idx == PWR_MMDVFS_VMM) {
+		if (opp == -1) {
+			if (cam_larb_dev)
+				mtk_mmdvfs_enable_vmm(false);
+			mtk_mmdvfs_enable_vcp(false);
+		}
+		last_vmm_vote_step = opp;
+	}
 
 	return ret;
 }
@@ -526,6 +629,35 @@ static struct kernel_param_ops mmdvfs_vote_step_ops = {
 };
 module_param_cb(vote_step, &mmdvfs_vote_step_ops, NULL, 0644);
 MODULE_PARM_DESC(vote_step, "vote mmdvfs to specified step");
+
+static int lpm_spm_suspend_pm_event(struct notifier_block *notifier,
+			unsigned long pm_event, void *unused)
+{
+	switch (pm_event) {
+	case PM_HIBERNATION_PREPARE:
+		return NOTIFY_DONE;
+	case PM_RESTORE_PREPARE:
+		return NOTIFY_DONE;
+	case PM_POST_HIBERNATION:
+		return NOTIFY_DONE;
+	case PM_SUSPEND_PREPARE:
+		MMDVFS_DBG("start suspend");
+		if (last_vmm_vote_step != -1 && cam_larb_dev)
+			mtk_mmdvfs_v3_set_vote_step(PWR_MMDVFS_VMM, -1);
+		if (last_vmm_force_step != MAX_OPP && cam_larb_dev)
+			mtk_mmdvfs_v3_set_force_step(PWR_MMDVFS_VMM, -1);
+		//enable_aoc_iso(true);
+		return NOTIFY_DONE;
+	case PM_POST_SUSPEND:
+		return NOTIFY_DONE;
+	}
+	return NOTIFY_OK;
+}
+
+static struct notifier_block lpm_spm_suspend_pm_notifier_func = {
+	.notifier_call = lpm_spm_suspend_pm_event,
+	.priority = 0,
+};
 
 int mmdvfs_set_ccu_ipi(const char *val, const struct kernel_param *kp)
 {
@@ -777,6 +909,8 @@ static int mmdvfs_v3_probe(struct platform_device *pdev)
 	struct device_node *node = pdev->dev.of_node;
 	struct clk_onecell_data *clk_data;
 	struct task_struct *kthr_vcp, *kthr_ccu;
+	struct device_node *larbnode;
+	struct platform_device *larbdev;
 	struct clk *clk;
 	int i, ret;
 
@@ -878,6 +1012,16 @@ static int mmdvfs_v3_probe(struct platform_device *pdev)
 			MMDVFS_DBG("i:%d clk get failed:%d", i, PTR_ERR(clk));
 		else
 			mmdvfs_pwr_clk[i] = clk;
+	}
+
+	larbnode = of_parse_phandle(pdev->dev.of_node, "mediatek,larbs", 0);
+	if (larbnode) {
+		larbdev = of_find_device_by_node(larbnode);
+		if (larbdev) {
+			cam_larb_dev = &larbdev->dev;
+			register_pm_notifier(&lpm_spm_suspend_pm_notifier_func);
+		}
+		of_node_put(larbnode);
 	}
 
 	kthr_vcp = kthread_run(mmdvfs_vcp_init_thread, NULL, "mmdvfs-vcp");
