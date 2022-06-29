@@ -349,7 +349,7 @@ const struct clk_ops mtk_clk_gate_ops_setclr_dummys = {
 EXPORT_SYMBOL(mtk_clk_gate_ops_setclr_dummys);
 
 const struct clk_ops mtk_clk_gate_ops_hwv_dummy = {
-	.is_enabled	= mtk_cg_is_set_hwv,
+	.is_enabled	= mtk_cg_bit_is_cleared,
 	.enable		= mtk_cg_enable_hwv,
 	.disable_unused = mtk_cg_disable_unused_hwv,
 };
@@ -379,7 +379,7 @@ const struct clk_ops mtk_clk_gate_ops_setclr_inv = {
 EXPORT_SYMBOL_GPL(mtk_clk_gate_ops_setclr_inv);
 
 const struct clk_ops mtk_clk_gate_ops_hwv = {
-	.is_enabled	= mtk_cg_is_set_hwv,
+	.is_enabled	= mtk_cg_bit_is_cleared,
 	.enable		= mtk_cg_enable_hwv,
 	.disable	= mtk_cg_disable_hwv,
 	.disable_unused = mtk_cg_disable_unused_hwv,
@@ -387,7 +387,7 @@ const struct clk_ops mtk_clk_gate_ops_hwv = {
 EXPORT_SYMBOL_GPL(mtk_clk_gate_ops_hwv);
 
 const struct clk_ops mtk_clk_gate_ops_hwv_inv = {
-	.is_enabled	= mtk_cg_is_set_hwv,
+	.is_enabled	= mtk_cg_bit_is_set,
 	.enable		= mtk_cg_enable_hwv_inv,
 	.disable	= mtk_cg_disable_hwv,
 	.disable_unused = mtk_cg_disable_unused_hwv,

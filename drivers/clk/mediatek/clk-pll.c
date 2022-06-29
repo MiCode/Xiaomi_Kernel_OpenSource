@@ -37,7 +37,6 @@
 #define MTK_WAIT_HWV_PLL_DONE_CNT		10000
 #define MTK_WAIT_HWV_PLL_DONE_US		10
 
-static bool hwv_pll_prepared = true;
 static bool is_registered;
 
 /*
@@ -328,14 +327,10 @@ static int mtk_hwv_pll_is_prepared_done(struct mtk_clk_pll *pll)
 			regmap_read(pll->hwv_regmap, pll->data->hwv_set_sta_ofs, &val);
 			pll_sta = readl(pll->en_addr) & BIT(pll->data->pll_en_bit);
 			if (((val & BIT(pll->data->hwv_shift)) == 0x0)
-					&& ((pll_sta & BIT(pll->data->pll_en_bit)))) {
-				hwv_pll_prepared = true;
+					&& ((pll_sta & BIT(pll->data->pll_en_bit))))
 				return 1;
-			}
-		} else {
-			hwv_pll_prepared = true;
+		} else
 			return 1;
-		}
 	}
 
 	return 0;
@@ -350,22 +345,13 @@ static int mtk_hwv_pll_is_unprepared_done(struct mtk_clk_pll *pll)
 	if ((val & BIT(pll->data->hwv_shift))) {
 		if (pll->data->flags & HWV_CHK_FULL_STA) {
 			regmap_read(pll->hwv_regmap, pll->data->hwv_clr_sta_ofs, &val);
-			if ((val & BIT(pll->data->hwv_shift)) == 0x0) {
-				hwv_pll_prepared = false;
+			if ((val & BIT(pll->data->hwv_shift)) == 0x0)
 				return 1;
-			}
-		} else {
-			hwv_pll_prepared = false;
+		} else
 			return 1;
-		}
 	}
 
 	return 0;
-}
-
-static int mtk_hwv_pll_is_prepared(struct clk_hw *hw)
-{
-	return hwv_pll_prepared;
 }
 
 static int mtk_hwv_pll_prepare(struct clk_hw *hw)
@@ -518,7 +504,7 @@ static const struct clk_ops mtk_pll_ops = {
 };
 
 static const struct clk_ops mtk_hwv_pll_ops = {
-	.is_prepared	= mtk_hwv_pll_is_prepared,
+	.is_prepared	= mtk_pll_is_prepared,
 	.prepare	= mtk_hwv_pll_prepare,
 	.unprepare	= mtk_hwv_pll_unprepare,
 	.recalc_rate	= mtk_pll_recalc_rate,

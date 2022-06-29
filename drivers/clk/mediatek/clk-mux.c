@@ -341,7 +341,7 @@ EXPORT_SYMBOL_GPL(mtk_mux_gate_clr_set_upd_ops);
 const struct clk_ops mtk_hwv_mux_ops = {
 	.enable = mtk_clk_hwv_mux_enable,
 	.disable = mtk_clk_hwv_mux_disable,
-	.is_enabled = mtk_clk_hwv_mux_is_enabled,
+	.is_enabled = mtk_clk_mux_is_enabled,
 	.get_parent = mtk_clk_mux_get_parent,
 	.set_parent = mtk_clk_mux_set_parent_setclr_upd_lock,
 };
