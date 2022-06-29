@@ -54,6 +54,7 @@
 #define LOG_ENDEND 0xDDDDDDDD
 #define LOG_DEFAULT_LEVEL 4
 #define LOG_DEFAULT_TAG   0x021182A6
+#define LOG_BUF_IDX_MAX   2
 
 struct mtk_ccu_ipc_desc {
 	mtk_ccu_ipc_handle_t handler;

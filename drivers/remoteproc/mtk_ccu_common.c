@@ -244,6 +244,11 @@ void mtk_ccu_ipc_log_handle(uint32_t data, uint32_t len, void *priv)
 {
 	struct mtk_ccu *ccu = priv;
 
+	if (data > LOG_BUF_IDX_MAX) {
+		dev_info(ccu->dev, "BUG: log buf idx %d\n", data);
+		return;
+	}
+
 	dev_info(ccu->dev, "got APMCU_FLUSH_LOG:%d\n", data);
 	ccu->bWaitCond = true;
 	ccu->g_LogBufIdx = (uint32_t)data;
