@@ -1676,6 +1676,18 @@
 		vmm-pmic-supply = <&mt6319_6_vbuck3>;
 	};
 
+	camsys_power: camsys_power {
+		compatible = "mediatek,vmm_notifier";
+
+		power-domains = <&scpsys MT6985_POWER_DOMAIN_CAM_MAIN>;
+	};
+
+	imgsys_power: imgsys_power {
+		compatible = "mediatek,vmm_notifier";
+
+		power-domains = <&scpsys MT6985_POWER_DOMAIN_ISP_MAIN>;
+	};
+
 	ccu_rproc1: ccu_rproc1 {
 		compatible = "mediatek,ccu_rproc1";
 		dma-ranges = <0x1 0x0 0x1 0x0 0x1 0x0>;
