@@ -2779,7 +2779,7 @@ static const struct mtk_base_memif_data memif_data[MT6985_MEMIF_NUM] = {
 		.fs_maskbit = DL13_MODE_MASK,
 		.mono_reg = AFE_DL13_CON0,
 		.mono_shift = DL13_MONO_SFT,
-		.enable_reg = AFE_AGENT_ON,
+		.enable_reg = AFE_AGENT_ON2,
 		.enable_shift = DL13_ON_SFT,
 		.hd_reg = AFE_DL13_CON0,
 		.hd_shift = DL13_HD_MODE_SFT,
@@ -3138,7 +3138,7 @@ static const struct mtk_base_memif_data memif_data[MT6985_MEMIF_NUM] = {
 		.fs_maskbit = VUL10_MODE_MASK,
 		.mono_reg = AFE_VUL10_CON0,
 		.mono_shift = VUL10_MONO_SFT,
-		.enable_reg = AFE_AGENT_ON,// TODO: does this need to be modified?
+		.enable_reg = AFE_AGENT_ON2,
 		.enable_shift = VUL10_ON_SFT,
 		.hd_reg = AFE_VUL10_CON0,
 		.hd_shift = VUL10_HD_MODE_SFT,
@@ -3161,7 +3161,7 @@ static const struct mtk_base_memif_data memif_data[MT6985_MEMIF_NUM] = {
 		.fs_maskbit = VUL11_MODE_MASK,
 		.mono_reg = AFE_VUL11_CON0,
 		.mono_shift = VUL11_MONO_SFT,
-		.enable_reg = AFE_AGENT_ON,// TODO: does this need to be modified?
+		.enable_reg = AFE_AGENT_ON2,
 		.enable_shift = VUL11_ON_SFT,
 		.hd_reg = AFE_VUL11_CON0,
 		.hd_shift = VUL11_HD_MODE_SFT,
@@ -3957,15 +3957,28 @@ static bool mt6985_is_volatile_reg(struct device *dev, unsigned int reg)
 	case AFE_VUL8_LCH_MON:
 	case AFE_VUL9_RCH_MON:
 	case AFE_VUL9_LCH_MON:
+	case AFE_VUL10_RCH_MON:
+	case AFE_VUL10_LCH_MON:
+	case AFE_VUL11_RCH_MON:
+	case AFE_VUL11_LCH_MON:
 	case AFE_VUL8_CUR_MSB:
 	case AFE_VUL8_CUR:
 	case AFE_VUL8_END:
 	case AFE_VUL9_CUR_MSB:
 	case AFE_VUL9_CUR:
 	case AFE_VUL9_END:
+	case AFE_VUL10_CUR_MSB:
+	case AFE_VUL10_CUR:
+	case AFE_VUL10_END:
+	case AFE_VUL11_CUR_MSB:
+	case AFE_VUL11_CUR:
+	case AFE_VUL11_END:
 	case AFE_DL11_CUR_MSB:
 	case AFE_DL11_CUR:
 	case AFE_DL11_END:
+	case AFE_DL13_CUR_MSB:
+	case AFE_DL13_CUR:
+	case AFE_DL13_END:
 	/* these reg would change in scp/adsp */
 	case AFE_DAC_CON0:
 	case AFE_IRQ_MCU_CON0:
@@ -3975,6 +3988,9 @@ static bool mt6985_is_volatile_reg(struct device *dev, unsigned int reg)
 	case AFE_AGENT_ON:
 	case AFE_AGENT_ON_SET:
 	case AFE_AGENT_ON_CLR:
+	case AFE_AGENT_ON2:
+	case AFE_AGENT_ON2_SET:
+	case AFE_AGENT_ON2_CLR:
 		return true;
 	default:
 		return false;
@@ -4197,6 +4213,9 @@ static int mt6985_set_memif_sram_mode(struct device *dev,
 	regmap_update_bits(afe->regmap, AFE_DL12_CON0,
 			   DL12_NORMAL_MODE_MASK_SFT,
 			   reg_bit << DL12_NORMAL_MODE_SFT);
+	regmap_update_bits(afe->regmap, AFE_DL13_CON0,
+			   DL13_NORMAL_MODE_MASK_SFT,
+			   reg_bit << DL13_NORMAL_MODE_SFT);
 	regmap_update_bits(afe->regmap, AFE_AWB_CON0,
 			   AWB_NORMAL_MODE_MASK_SFT,
 			   reg_bit << AWB_NORMAL_MODE_SFT);
@@ -4230,6 +4249,12 @@ static int mt6985_set_memif_sram_mode(struct device *dev,
 	regmap_update_bits(afe->regmap, AFE_VUL9_CON0,
 			   VUL9_NORMAL_MODE_MASK_SFT,
 			   reg_bit << VUL9_NORMAL_MODE_SFT);
+	regmap_update_bits(afe->regmap, AFE_VUL10_CON0,
+			   VUL10_NORMAL_MODE_MASK_SFT,
+			   reg_bit << VUL10_NORMAL_MODE_SFT);
+	regmap_update_bits(afe->regmap, AFE_VUL11_CON0,
+			   VUL11_NORMAL_MODE_MASK_SFT,
+			   reg_bit << VUL11_NORMAL_MODE_SFT);
 	regmap_update_bits(afe->regmap, AFE_DAI_CON0,
 			   DAI_NORMAL_MODE_MASK_SFT,
 			   reg_bit << DAI_NORMAL_MODE_SFT);
@@ -7762,6 +7787,60 @@ static ssize_t mt6985_debug_read_reg(char *buffer, int size, struct mtk_base_afe
 	regmap_read(afe->regmap, AFE_VUL9_LCH_MON, &value);
 	n += scnprintf(buffer + n, size - n,
 			   "AFE_VUL9_LCH_MON = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_VUL10_CON0, &value);
+	n += scnprintf(buffer + n, size - n,
+			   "AFE_VUL10_CON0 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_VUL10_BASE_MSB, &value);
+	n += scnprintf(buffer + n, size - n,
+			   "AFE_VUL10_BASE_MSB = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_VUL10_BASE, &value);
+	n += scnprintf(buffer + n, size - n,
+			   "AFE_VUL10_BASE = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_VUL10_CUR_MSB, &value);
+	n += scnprintf(buffer + n, size - n,
+			   "AFE_VUL10_CUR_MSB = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_VUL10_CUR, &value);
+	n += scnprintf(buffer + n, size - n,
+			   "AFE_VUL10_CUR = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_VUL10_END_MSB, &value);
+	n += scnprintf(buffer + n, size - n,
+			   "AFE_VUL10_END_MSB = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_VUL10_END, &value);
+	n += scnprintf(buffer + n, size - n,
+			   "AFE_VUL10_END = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_VUL10_RCH_MON, &value);
+	n += scnprintf(buffer + n, size - n,
+			   "AFE_VUL10_RCH_MON = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_VUL10_LCH_MON, &value);
+	n += scnprintf(buffer + n, size - n,
+			   "AFE_VUL10_LCH_MON = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_VUL11_CON0, &value);
+	n += scnprintf(buffer + n, size - n,
+			   "AFE_VUL11_CON0 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_VUL11_BASE_MSB, &value);
+	n += scnprintf(buffer + n, size - n,
+			   "AFE_VUL11_BASE_MSB = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_VUL11_BASE, &value);
+	n += scnprintf(buffer + n, size - n,
+			   "AFE_VUL11_BASE = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_VUL11_CUR_MSB, &value);
+	n += scnprintf(buffer + n, size - n,
+			   "AFE_VUL11_CUR_MSB = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_VUL11_CUR, &value);
+	n += scnprintf(buffer + n, size - n,
+			   "AFE_VUL11_CUR = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_VUL11_END_MSB, &value);
+	n += scnprintf(buffer + n, size - n,
+			   "AFE_VUL11_END_MSB = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_VUL11_END, &value);
+	n += scnprintf(buffer + n, size - n,
+			   "AFE_VUL11_END = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_VUL11_RCH_MON, &value);
+	n += scnprintf(buffer + n, size - n,
+			   "AFE_VUL11_RCH_MON = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_VUL11_LCH_MON, &value);
+	n += scnprintf(buffer + n, size - n,
+			   "AFE_VUL11_LCH_MON = 0x%x\n", value);
 	regmap_read(afe->regmap, AFE_DL11_CON0, &value);
 	n += scnprintf(buffer + n, size - n,
 			   "AFE_DL11_CON0 = 0x%x\n", value);
@@ -7783,6 +7862,27 @@ static ssize_t mt6985_debug_read_reg(char *buffer, int size, struct mtk_base_afe
 	regmap_read(afe->regmap, AFE_DL11_END, &value);
 	n += scnprintf(buffer + n, size - n,
 			   "AFE_DL11_END = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL13_CON0, &value);
+	n += scnprintf(buffer + n, size - n,
+			   "AFE_DL13_CON0 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL13_BASE_MSB, &value);
+	n += scnprintf(buffer + n, size - n,
+			   "AFE_DL13_BASE_MSB = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL13_BASE, &value);
+	n += scnprintf(buffer + n, size - n,
+			   "AFE_DL13_BASE = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL13_CUR_MSB, &value);
+	n += scnprintf(buffer + n, size - n,
+			   "AFE_DL13_CUR_MSB = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL13_CUR, &value);
+	n += scnprintf(buffer + n, size - n,
+			   "AFE_DL13_CUR = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL13_END_MSB, &value);
+	n += scnprintf(buffer + n, size - n,
+			   "AFE_DL13_END_MSB = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL13_END, &value);
+	n += scnprintf(buffer + n, size - n,
+			   "AFE_DL13_END = 0x%x\n", value);
 	regmap_read(afe->regmap, AFE_DAC_CON0_USER1, &value);
 	n += scnprintf(buffer + n, size - n,
 			   "AFE_DAC_CON0_USER1 = 0x%x\n", value);
@@ -7798,6 +7898,15 @@ static ssize_t mt6985_debug_read_reg(char *buffer, int size, struct mtk_base_afe
 	regmap_read(afe->regmap, AFE_AGENT_ON_CLR, &value);
 	n += scnprintf(buffer + n, size - n,
 			   "AFE_AGENT_ON_CLR = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_AGENT_ON2, &value);
+	n += scnprintf(buffer + n, size - n,
+			   "AFE_AGENT_ON2 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_AGENT_ON2_SET, &value);
+	n += scnprintf(buffer + n, size - n,
+			   "AFE_AGENT_ON2_SET = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_AGENT_ON2_CLR, &value);
+	n += scnprintf(buffer + n, size - n,
+			   "AFE_AGENT_ON2_CLR = 0x%x\n", value);
 	return n;
 }
 
