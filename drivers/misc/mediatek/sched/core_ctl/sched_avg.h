@@ -15,13 +15,13 @@ enum {
 
 extern void sched_max_util_task(int *util);
 extern void arch_get_cluster_cpus(struct cpumask *cpus, int package_id);
-extern int sched_get_nr_over_thres_avg(unsigned int cluster_id,
-				unsigned int *dn_avg,
-				unsigned int *up_avg,
-				unsigned int *sum_nr_over_dn_thres,
-				unsigned int *sum_nr_over_up_thres,
-				unsigned int *max_nr,
-				unsigned int policy);
+extern int sched_get_nr_over_thres_avg(int cluster_id,
+				       int *dn_avg,
+				       int *up_avg,
+				       int *sum_nr_over_dn_thres,
+				       int *sum_nr_over_up_thres,
+				       int *max_nr,
+				       int policy);
 extern int arch_get_nr_clusters(void);
 extern int arch_get_cluster_id(unsigned int cpu);
 extern int init_sched_avg(void);

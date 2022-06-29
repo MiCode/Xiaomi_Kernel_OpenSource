@@ -964,12 +964,12 @@ static unsigned int heaviest_thres = 230;
  */
 void get_nr_running_big_task(struct cluster_data *cluster)
 {
-	unsigned int avg_down[MAX_CLUSTERS] = {0};
-	unsigned int avg_up[MAX_CLUSTERS] = {0};
-	unsigned int nr_up[MAX_CLUSTERS] = {0};
-	unsigned int nr_down[MAX_CLUSTERS] = {0};
-	unsigned int need_spread_cpus[MAX_CLUSTERS] = {0};
-	unsigned int i, delta;
+	int avg_down[MAX_CLUSTERS] = {0};
+	int avg_up[MAX_CLUSTERS] = {0};
+	int nr_up[MAX_CLUSTERS] = {0};
+	int nr_down[MAX_CLUSTERS] = {0};
+	int need_spread_cpus[MAX_CLUSTERS] = {0};
+	int i, delta;
 
 	for (i = 0; i < num_clusters; i++) {
 		sched_get_nr_over_thres_avg(i,
@@ -1610,7 +1610,7 @@ static int cluster_init(const struct cpumask *mask)
 	cluster->active_cpus = get_active_cpu_count(cluster);
 
 	cluster->core_ctl_thread = kthread_run(try_core_ctl, (void *) cluster,
-			"core_ctl_v2.1/%d", first_cpu);
+			"core_ctl_v2.3/%d", first_cpu);
 	if (IS_ERR(cluster->core_ctl_thread))
 		return PTR_ERR(cluster->core_ctl_thread);
 
@@ -1787,8 +1787,8 @@ static int ppm_data_init(struct cluster_data *cluster)
 				prev_cluster->ppm_data.ppm_tbl[0].capacity);
 			if (val <= 100)
 				prev_cluster->thermal_up_thres = val;
-			pr_info("thermal_turn_pint is %u, thermal_down_thre is change to %u",
-				 turn_point, val);
+			pr_info("%s: thermal_turn_pint is %u, thermal_down_thre is change to %u",
+				 TAG, turn_point, val);
 		}
 	}
 	return 0;
