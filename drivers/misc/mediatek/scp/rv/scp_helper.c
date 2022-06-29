@@ -190,8 +190,14 @@ static int scp_resume_cb(struct device *dev)
 	}
 	if (scp_pm_notify_support) {
 		msg = PM_AP_RESUME;
-		ret = mtk_ipi_send(&scp_ipidev, IPI_OUT_SCP_PM_NOTIFY,
-				0, &msg, IPI_OUT_SIZE_SCP_PM_NOTIFY, 0);
+		ret = mtk_ipi_send(&scp_ipidev, IPI_OUT_SCP_PM_NOTIFY_0,
+				0, &msg, IPI_OUT_SIZE_SCP_PM_NOTIFY_0, 0);
+		if (ret)
+			pr_notice("[SCP] %s IPI_OUT_SCP_PM_NOTIFY_0 failed\n", __func__);
+		ret = mtk_ipi_send(&scp_ipidev, IPI_OUT_SCP_PM_NOTIFY_1,
+				0, &msg, IPI_OUT_SIZE_SCP_PM_NOTIFY_1, 0);
+		if (ret)
+			pr_notice("[SCP] %s IPI_OUT_SCP_PM_NOTIFY_1 failed\n", __func__);
 	}
 	return 0;
 }
@@ -204,8 +210,14 @@ static int scp_suspend_cb(struct device *dev)
 	pr_notice("[SCP] %s\n", __func__);
 	if (scp_pm_notify_support) {
 		msg = PM_AP_SUSPEND;
-		ret = mtk_ipi_send(&scp_ipidev, IPI_OUT_SCP_PM_NOTIFY,
-				0, &msg, IPI_OUT_SIZE_SCP_PM_NOTIFY, 0);
+		ret = mtk_ipi_send(&scp_ipidev, IPI_OUT_SCP_PM_NOTIFY_0,
+				0, &msg, IPI_OUT_SIZE_SCP_PM_NOTIFY_0, 0);
+		if (ret)
+			pr_notice("[SCP] %s IPI_OUT_SCP_PM_NOTIFY_0 failed\n", __func__);
+		ret = mtk_ipi_send(&scp_ipidev, IPI_OUT_SCP_PM_NOTIFY_1,
+				0, &msg, IPI_OUT_SIZE_SCP_PM_NOTIFY_1, 0);
+		if (ret)
+			pr_notice("[SCP] %s IPI_OUT_SCP_PM_NOTIFY_1 failed\n", __func__);
 	}
 	return 0;
 }
