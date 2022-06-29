@@ -52,11 +52,9 @@ static struct mdw_ipi_msg_sync *mdw_rv_dev_msg_find(struct mdw_rv_dev *mrdev,
 
 	list_for_each_entry_safe(s_msg, tmp, &mrdev->s_list, ud_item) {
 		if (s_msg->msg.sync_id == sync_id)
-			break;
-		s_msg = NULL;
+			return s_msg;
 	}
-
-	return s_msg;
+	return NULL;
 }
 
 static int mdw_rv_dev_send_msg(struct mdw_rv_dev *mrdev, struct mdw_ipi_msg_sync *s_msg)

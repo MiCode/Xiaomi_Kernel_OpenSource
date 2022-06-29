@@ -830,13 +830,13 @@ struct mdw_mem *mdw_mem_query_mem(uint64_t kva)
 
 			mdw_mem_debug("query iova (0x%llx->0x%llx)\n",
 				kva, (uint64_t)m);
-			break;
+			mutex_unlock(&mdw_dev->m_mtx);
+			return m;
 		}
-		m = NULL;
 	}
 	mutex_unlock(&mdw_dev->m_mtx);
 
-	return m;
+	return NULL;
 }
 
 int apusys_mem_validate_by_cmd(void *session, void *cmd, uint64_t iova, uint32_t size)
