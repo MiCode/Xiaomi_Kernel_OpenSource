@@ -411,6 +411,7 @@ enum rdma_golden_fmt {
 	GOLDEN_FMT_ARGB,
 	GOLDEN_FMT_RGB,
 	GOLDEN_FMT_YUV420,
+	GOLDEN_FMT_YV12,
 	GOLDEN_FMT_TOTAL
 };
 
@@ -446,6 +447,10 @@ static const struct rdma_data mt6983_rdma_data = {
 			.cnt = ARRAY_SIZE(th_yuv420_mt6983),
 			.settings = th_yuv420_mt6983,
 		},
+		[GOLDEN_FMT_YV12] = {
+			.cnt = ARRAY_SIZE(th_yv12_mt6985),
+			.settings = th_yv12_mt6985,
+		},
 	},
 };
 
@@ -472,6 +477,10 @@ static const struct rdma_data mt6895_rdma0_data = {
 			.cnt = ARRAY_SIZE(th_yuv420_mt6983),
 			.settings = th_yuv420_mt6983,
 		},
+		[GOLDEN_FMT_YV12] = {
+			.cnt = ARRAY_SIZE(th_yv12_mt6985),
+			.settings = th_yv12_mt6985,
+		},
 	},
 };
 
@@ -491,6 +500,10 @@ static const struct rdma_data mt6895_rdma1_data = {
 		[GOLDEN_FMT_YUV420] = {
 			.cnt = ARRAY_SIZE(th_yuv420_mt6983),
 			.settings = th_yuv420_mt6983,
+		},
+		[GOLDEN_FMT_YV12] = {
+			.cnt = ARRAY_SIZE(th_yv12_mt6985),
+			.settings = th_yv12_mt6985,
 		},
 	},
 };
@@ -512,6 +525,10 @@ static const struct rdma_data mt6985_rdma_data = {
 			.cnt = ARRAY_SIZE(th_yuv420_mt6985),
 			.settings = th_yuv420_mt6985,
 		},
+		[GOLDEN_FMT_YV12] = {
+			.cnt = ARRAY_SIZE(th_yv12_mt6985),
+			.settings = th_yv12_mt6985,
+		},
 	},
 };
 
@@ -530,6 +547,10 @@ static const struct rdma_data mt6886_rdma_data = {
 		[GOLDEN_FMT_YUV420] = {
 			.cnt = ARRAY_SIZE(th_yuv420_mt6983),
 			.settings = th_yuv420_mt6983,
+		},
+		[GOLDEN_FMT_YV12] = {
+			.cnt = ARRAY_SIZE(th_yv12_mt6985),
+			.settings = th_yv12_mt6985,
 		},
 	},
 };
@@ -1118,13 +1139,16 @@ static void rdma_select_threshold_hrt(struct mml_comp_rdma *rdma,
 	const struct rdma_golden *golden;
 	const struct golden_setting *golden_set;
 	u32 pixel = width * height;
-	u32 idx, i;
+	u32 idx, i, dmabuf_con;
+	u32 plane = MML_FMT_PLANE(format);
 
-	if (MML_FMT_PLANE(format) == 1) {
+	if (plane == 1) {
 		if (MML_FMT_BITS_PER_PIXEL(format) >= 32)
 			golden = &rdma->data->golden[GOLDEN_FMT_ARGB];
 		else
 			golden = &rdma->data->golden[GOLDEN_FMT_RGB];
+	} else if (plane == 3) {
+		golden = &rdma->data->golden[GOLDEN_FMT_YV12];
 	} else {
 		golden = &rdma->data->golden[GOLDEN_FMT_YUV420];
 	}
@@ -1136,8 +1160,16 @@ static void rdma_select_threshold_hrt(struct mml_comp_rdma *rdma,
 
 	/* config threshold for all plane */
 	for (i = 0; i < ARRAY_SIZE(rdma_dmabuf); i++) {
+		dmabuf_con = 3 << 24;
+		if (i < plane && !MML_FMT_COMPRESS(format)) {
+			if (i == 0)
+				dmabuf_con |= 32;
+			else
+				dmabuf_con |= 16;
+		}
+
 		rdma_write(pkt, base_pa, hw_pipe, rdma_dmabuf[i],
-			   3 << 24 | 32, write_sec);
+			   dmabuf_con, write_sec);
 		rdma_write(pkt, base_pa, hw_pipe, rdma_urgent_th[i],
 			   golden_set->plane[i].urgent, write_sec);
 		rdma_write(pkt, base_pa, hw_pipe, rdma_ultra_th[i],
