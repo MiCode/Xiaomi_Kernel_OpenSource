@@ -194,7 +194,8 @@ enum mddp_f_wfc_v1_e {
 };
 
 enum mddp_f_mddp_wh_v1_e {
-	MDDP_WH_V1_QOS,
+	MDDP_WH_V1_QOS_DL,
+	MDDP_WH_V1_QOS_UL,
 	MDDP_WH_V1_MWD,
 	MDDP_WH_V1_NUM,
 };
