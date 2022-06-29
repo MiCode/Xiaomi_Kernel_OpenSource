@@ -16330,15 +16330,16 @@ void mutex_dump_analysis_mt6879(struct mtk_disp_mutex *mutex)
 			      mtk_ddp_get_mutex_sof_name(
 				      REG_FLD_VAL_GET(SOF_FLD_MUTEX0_EOF, val)),
 			      REG_FLD_VAL_GET(SOF_FLD_MUTEX0_SOF_WAIT, val));
-
-		p += len;
+		if (len >= 0)
+			p += len;
 		mod0 = readl_relaxed(ddp->regs +
 			DISP_REG_MUTEX_MOD(ddp->data, i));
 		for (j = 0; j < 32; j++) {
 			if ((mod0 & (1 << j))) {
 				len = sprintf(p, "%s,",
 					ddp_get_mutex_module0_name_mt6879(j));
-				p += len;
+				if (len >= 0)
+					p += len;
 			}
 		}
 
@@ -16348,7 +16349,8 @@ void mutex_dump_analysis_mt6879(struct mtk_disp_mutex *mutex)
 			if ((mod1 & (1 << j))) {
 				len = sprintf(p, "%s,",
 					ddp_get_mutex_module1_name_mt6879(j));
-				p += len;
+				if (len >= 0)
+					p += len;
 			}
 		}
 		DDPDUMP("%s)\n", mutex_module);
