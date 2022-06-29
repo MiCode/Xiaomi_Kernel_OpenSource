@@ -176,12 +176,14 @@ static void get_supported_framesizes(struct mtk_vcodec_ctx *ctx)
 
 static void update_src_cnt(struct mtk_vcodec_ctx *ctx)
 {
-	(*ctx->src_cnt) = v4l2_m2m_num_src_bufs_ready(ctx->m2m_ctx);
+	if (ctx->src_cnt != NULL)
+		(*ctx->src_cnt) = v4l2_m2m_num_src_bufs_ready(ctx->m2m_ctx);
 }
 
 static void update_dst_cnt(struct mtk_vcodec_ctx *ctx)
 {
-	(*ctx->dst_cnt) = v4l2_m2m_num_dst_bufs_ready(ctx->m2m_ctx);
+	if (ctx->dst_cnt != NULL)
+		(*ctx->dst_cnt) = v4l2_m2m_num_dst_bufs_ready(ctx->m2m_ctx);
 }
 
 static struct mtk_video_fmt *mtk_vdec_find_format(struct mtk_vcodec_ctx *ctx,
