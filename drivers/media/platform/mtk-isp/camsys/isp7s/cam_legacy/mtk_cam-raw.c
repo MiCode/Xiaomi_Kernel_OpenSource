@@ -44,6 +44,10 @@
 #include <dt-bindings/memory/mt6985-larb-port.h>
 #endif
 
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
+#include <aee.h>
+#endif
+
 static unsigned int debug_raw;
 module_param(debug_raw, uint, 0644);
 MODULE_PARM_DESC(debug_raw, "activates debug info");
@@ -605,8 +609,8 @@ mtk_cam_raw_try_res_ctrl(struct mtk_raw_pipeline *pipeline,
 	if (!mtk_cam_res_raw_mask_chk(dev, res_user))
 		return -EINVAL;
 
-	if (res_user->raw_res.raws_must) {
-		res_cfg->hwn_limit_max = mtk_cam_res_get_raw_num(res_user->raw_res.raws_must);
+	if (res_user->raw_res.raws) {
+		res_cfg->hwn_limit_max = mtk_cam_res_get_raw_num(res_user->raw_res.raws);
 		res_cfg->hwn_limit_min = res_cfg->hwn_limit_max;
 	} else {
 		res_cfg->hwn_limit_max = 2;
@@ -819,8 +823,14 @@ static int mtk_cam_raw_set_res_ctrl(struct v4l2_ctrl *ctrl)
 	ret = mtk_cam_raw_try_res_ctrl(pipeline, res_user,
 				       &pipeline->res_config,
 				       "s_ctrl", true);
-	if (ret)
+	if (ret) {
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
+		aee_kernel_warning_api(__FILE__, __LINE__, DB_OPT_DEFAULT,
+				       "Camsys: set resource failed",
+				       "mtk_cam_raw_try_res_ctrl failed");
+#endif
 		return -EINVAL;
+	}
 
 	pipeline->user_res = *res_user;
 
@@ -3280,6 +3290,12 @@ int mtk_cam_raw_select(struct mtk_cam_ctx *ctx,
 	int m;
 
 	raw_status = mtk_raw_available_resource(pipe->raw);
+	if (pipe->user_res.raw_res.raws != 0) {
+		dev_info(cam->dev,
+			 "%s:pipe(%d)user selected raws(0x%x), currently available raws(0x%x)\n",
+			 __func__, pipe->id, pipe->user_res.raw_res.raws, raw_status);
+		raw_status = ~(pipe->user_res.raw_res.raws);
+	}
 
 	if (mtk_cam_ctx_has_raw(ctx) && mtk_cam_scen_is_stagger(&ctx->pipe->scen_active)) {
 		selected = mtk_cam_raw_stagger_select(ctx, pipe, raw_status);
