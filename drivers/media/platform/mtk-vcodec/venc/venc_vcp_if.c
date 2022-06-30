@@ -90,7 +90,10 @@ static void handle_query_cap_ack_msg(struct venc_vcu_ipi_query_cap_ack *msg)
 static struct device *get_dev_by_mem_type(struct venc_inst *inst, struct vcodec_mem_obj *mem)
 {
 	if (mem->type == MEM_TYPE_FOR_SW || mem->type == MEM_TYPE_FOR_SEC_SW)
-		return vcp_get_io_device(VCP_IOMMU_256MB1);
+		if (inst->ctx->id & 1)
+			return vcp_get_io_device(VCP_IOMMU_WORK_256MB2);
+		else
+			return vcp_get_io_device(VCP_IOMMU_256MB1);
 	else if (mem->type == MEM_TYPE_FOR_HW || mem->type == MEM_TYPE_FOR_SEC_HW)
 		return &inst->vcu_inst.ctx->dev->plat_dev->dev;
 	else
