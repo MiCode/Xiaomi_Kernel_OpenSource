@@ -4369,6 +4369,7 @@
 				<0 26>,
 				<5 26>,
 				<6 4>;
+		mediatek,uniq_dom = <1>;
 		};
 		vdec_fmt: vdec_fmt@16080000 {
 			compatible = "mediatek-vdec-fmt";
@@ -4525,6 +4526,7 @@
 			<1 0>,
 			<2 642>, /* use FHD60 worst case * 0.7: 256*458/766 * 1.5 * 4 * 0.7*/
 			<6 7>;
+		mediatek,uniq_dom = <1>;
 		};
 
 		jpgenc@17030000 {
