@@ -421,6 +421,8 @@ static u32 is_blocked_cnt;
 			LOG_BUF_SIZE - log_size, "spm ");
 	}
 	WARN_ON(strlen(log_buf) >= LOG_BUF_SIZE);
+
+	pr_info("[name:spm&][SPM] %s\n", log_buf);
 }
 
 static int lpm_show_message(int type, const char *prefix, void *data)
