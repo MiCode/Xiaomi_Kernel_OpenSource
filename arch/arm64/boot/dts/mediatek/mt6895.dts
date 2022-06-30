@@ -451,6 +451,12 @@
 				num_ports = <14>;
 				bus_freq_mhz = <156>;
 			};
+			monitor7 {
+				monitor_name = "debug_ctrl_ao_MM_AO";
+				base = <0x1e825000>;
+				num_ports = <28>;
+				bus_freq_mhz = <688>;
+			};
 		};
 	};
 
