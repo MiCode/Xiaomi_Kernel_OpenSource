@@ -19,7 +19,9 @@ enum CCCI_SECURE_REQ_ID {
 	MD_POWER_CONFIG,
 	MD_FLIGHT_MODE_SET,
 	MD_HW_REMAP_LOCKED, /* 8 */
-	MD_DEBUG_DUMP,
+	MD_DEBUG_DUMP, /* 9 */
+	SCP_INFO_TO_SAVE, /* save scp smem addr in tfa*/
+	SCP_CLK_SET_DONE,
 };
 
 
