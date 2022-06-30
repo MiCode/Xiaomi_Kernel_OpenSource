@@ -38,11 +38,9 @@ struct clkbuf_misc {
 
 extern int clk_buf_ctrl(const char *xo_name, bool onoff);
 extern int clk_buf_hw_ctrl(const char *xo_name, bool onoff);
-extern int clk_buf_set_by_flightmode(bool on);
 extern int clk_buf_control_bblpm(bool on);
 extern int clk_buf_dump_log(void);
 extern int clk_buf_get_xo_en_sta(const char *xo_name);
-extern int clk_buf_bblpm_enter_cond(void);
 
 extern int srclken_dump_sta_log(void);
 extern int srclken_dump_cfg_log(void);
