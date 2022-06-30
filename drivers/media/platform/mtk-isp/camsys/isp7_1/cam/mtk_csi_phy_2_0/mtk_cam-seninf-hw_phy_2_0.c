@@ -2403,7 +2403,7 @@ static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 	int irq_status = 0;
 	int enabled = 0;
 	int ret = 0;
-	int i, j;
+	int i, j, k;
 
 	unsigned long debug_ft = FT_30_FPS * SCAN_TIME;//FIXME
 	unsigned long debug_vb = 3 * SCAN_TIME;//FIXME
@@ -2580,17 +2580,17 @@ static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 		ret = -2; //multi lanes sync error, crc error, ecc error
 
 	/* SENINF_MUX */
-	for (j = SENINF_MUX1; j < _seninf_ops->mux_num; j++) {
-		base_mux = ctx->reg_if_mux[j];
+	for (k = SENINF_MUX1; k < _seninf_ops->mux_num; k++) {
+		base_mux = ctx->reg_if_mux[k];
 		if (SENINF_READ_REG(base_mux, SENINF_MUX_CTRL_0) & 0x1) {
 			dev_info(ctx->dev,
 				"SENINF%d_MUX_CTRL0(0x%x) SENINF%d_MUX_CTRL1(0x%x) SENINF_MUX_IRQ_STATUS(0x%x) SENINF%d_MUX_SIZE(0x%x) SENINF_MUX_ERR_SIZE(0x%x) SENINF_MUX_EXP_SIZE(0x%x)\n",
-				j,
+				k,
 				SENINF_READ_REG(base_mux, SENINF_MUX_CTRL_0),
-				j,
+				k,
 				SENINF_READ_REG(base_mux, SENINF_MUX_CTRL_1),
 				SENINF_READ_REG(base_mux, SENINF_MUX_IRQ_STATUS),
-				j,
+				k,
 				SENINF_READ_REG(base_mux, SENINF_MUX_SIZE),
 				SENINF_READ_REG(base_mux, SENINF_MUX_ERR_SIZE),
 				SENINF_READ_REG(base_mux, SENINF_MUX_IMG_SIZE));
@@ -2606,7 +2606,7 @@ static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 					"after reset overrun, SENINF_MUX_IRQ_STATUS(0x%x) SENINF%d_MUX_SIZE(0x%x)\n",
 					SENINF_READ_REG(base_mux,
 							SENINF_MUX_IRQ_STATUS),
-					j,
+					k,
 					SENINF_READ_REG(base_mux, SENINF_MUX_SIZE));
 			}
 		}
