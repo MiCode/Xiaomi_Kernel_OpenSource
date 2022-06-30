@@ -40,7 +40,7 @@ bool mtk_cam_is_hsf(struct mtk_cam_ctx *ctx)
 	if (!ctx->used_raw_num)
 		return false;
 
-	if (ctx->pipe->res_config.enable_hsf_raw)
+	if (ctx->pipe && ctx->pipe->res_config.enable_hsf_raw)
 		return true;
 	else
 		return false;
@@ -61,6 +61,11 @@ bool mtk_cam_is_m2m(struct mtk_cam_ctx *ctx)
 {
 	if (!ctx->used_raw_num)
 		return false;
+	if (!ctx->pipe) {
+		dev_dbg(ctx->cam->dev, "[%s] ctx->pipe is null\n",
+			__func__);
+		return false;
+	}
 
 	return mtk_cam_feature_is_m2m(ctx->pipe->feature_pending);
 }

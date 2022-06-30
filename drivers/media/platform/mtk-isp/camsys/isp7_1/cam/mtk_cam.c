@@ -1607,10 +1607,17 @@ static void check_stagger_buffer(struct mtk_cam_device *cam,
 				} else {
 					fmt_for_rawi = cfg_fmt;
 				}
-			}
-
+			} else
+				fmt_for_rawi = NULL;
 			in_fmt->uid.id = input_node;
 			in_fmt->uid.pipe_id = node->uid.pipe_id;
+			if (!fmt_for_rawi) {
+				dev_info(cam->dev,
+					"%s: fmt_for_rawi is null\n",
+					__func__);
+				WARN_ON(1);
+				return;
+			}
 			in_fmt->fmt.format = mtk_cam_get_img_fmt(
 					fmt_for_rawi->fmt.pix_mp.pixelformat);
 			in_fmt->fmt.s.w = fmt_for_rawi->fmt.pix_mp.width;
@@ -1689,8 +1696,13 @@ static void check_timeshared_buffer(struct mtk_cam_device *cam,
 			MTK_RAW_MAIN_STREAM_OUT - MTK_RAW_SINK_NUM];
 
 		cfg_fmt = mtk_cam_s_data_get_vfmt(req, node->desc.id);
+		if (!cfg_fmt) {
+			dev_info(cam->dev, "%s: cfg_fmt is null\n",
+				 __func__);
+			return;
+		}
 		/* workaround for raw switch */
-		if (cfg_fmt && !cfg_fmt->fmt.pix_mp.pixelformat)
+		if (!cfg_fmt->fmt.pix_mp.pixelformat)
 			cfg_fmt = &node->active_fmt;
 
 		in_fmt->uid.id = input_node;
@@ -1827,6 +1839,11 @@ static int config_img_fmt_mstream(struct mtk_cam_ctx *ctx,
 		.img_outs[node->desc.id - MTK_RAW_SOURCE_BEGIN];
 	mstream_first_out_fmt->uid.pipe_id = node->uid.pipe_id;
 	mstream_first_out_fmt->uid.id =  node->desc.dma_port;
+	if (!cfg_fmt) {
+		dev_info(cam->dev, "%s: cfg_fmt is null\n",
+			__func__);
+		return -1;
+	}
 	ret = config_img_fmt(cam, node, cfg_fmt,
 			     mstream_first_out_fmt, sd_width, sd_height);
 	if (ret)
@@ -3596,6 +3613,11 @@ static void mtk_cam_req_s_data_init(struct mtk_cam_request *req,
 
 	if (pipe_id >= 0)
 		req_stream_data = &req->p_data[pipe_id].s_data[s_data_index];
+	if (!req_stream_data) {
+		pr_info("%s:req_stream_data is null\n",
+				 __func__);
+		return;
+	}
 	req_stream_data->req = req;
 	req_stream_data->pipe_id = pipe_id;
 	req_stream_data->state.estate = E_STATE_READY;
@@ -3636,7 +3658,7 @@ static void mtk_cam_req_s_data_init(struct mtk_cam_request *req,
 
 void mtk_cam_dev_req_try_queue(struct mtk_cam_device *cam)
 {
-	struct mtk_cam_ctx *ctx, *stream_ctx;
+	struct mtk_cam_ctx *ctx, *stream_ctx = NULL;
 	struct mtk_cam_request *req, *req_prev;
 	struct mtk_cam_request_stream_data *s_data;
 	int i, s_data_flags;
@@ -4512,6 +4534,11 @@ struct mtk_raw_device *get_master_raw_dev(struct mtk_cam_device *cam,
 	unsigned int i = get_master_raw_id(cam->num_raw_drivers, pipe->enabled_raw);
 	struct device *dev_master = cam->raw.devs[i];
 
+	if (!dev_master) {
+		dev_info(cam->dev, "%s: dev_master is null\n", __func__);
+		return NULL;
+	}
+
 	return dev_get_drvdata(dev_master);
 }
 
@@ -4526,6 +4553,11 @@ struct mtk_raw_device *get_slave_raw_dev(struct mtk_cam_device *cam,
 			dev_slave = cam->raw.devs[i + 1];
 			break;
 		}
+	}
+
+	if (!dev_slave) {
+		dev_info(cam->dev, "%s: dev_slave is null\n", __func__);
+		return NULL;
 	}
 
 	return dev_get_drvdata(dev_slave);
@@ -4544,6 +4576,11 @@ struct mtk_raw_device *get_slave2_raw_dev(struct mtk_cam_device *cam,
 		}
 	}
 
+	if (!dev_slave) {
+		dev_info(cam->dev, "%s: dev_slave is null\n", __func__);
+		return NULL;
+	}
+
 	return dev_get_drvdata(dev_slave);
 }
 
@@ -4554,6 +4591,11 @@ struct mtk_yuv_device *get_yuv_dev(struct mtk_raw_device *raw_dev)
 
 	dev = cam->raw.yuvs[raw_dev->id - MTKCAM_SUBDEV_RAW_START];
 
+	if (!dev) {
+		dev_info(cam->dev, "%s: dev is null\n", __func__);
+		return NULL;
+	}
+
 	return dev_get_drvdata(dev);
 }
 
@@ -4563,6 +4605,12 @@ struct mtk_camsv_device *get_camsv_dev(struct mtk_cam_device *cam,
 	struct device *dev;
 
 	dev = cam->sv.devs[pipe->id - MTKCAM_SUBDEV_CAMSV_START];
+
+
+	if (!dev) {
+		dev_info(cam->dev, "%s: dev is null\n", __func__);
+		return NULL;
+	}
 
 	return dev_get_drvdata(dev);
 }
@@ -7250,18 +7298,21 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 	if (!mtk_cam_feature_is_m2m(feature_active)) {
 		for (i = 0 ; i < ctx->used_sv_num ; i++) {
 			/* use 8-pixel mode as default */
-			mtk_cam_call_seninf_set_pixelmode(ctx,
-							  ctx->seninf,
-							  ctx->sv_pipe[i]->seninf_padidx,
-							  mtk_cam_get_sv_pixel_mode(ctx, i));
+			if (ctx->seninf)
+				mtk_cam_call_seninf_set_pixelmode(ctx,
+					ctx->seninf,
+					ctx->sv_pipe[i]->seninf_padidx,
+					mtk_cam_get_sv_pixel_mode(ctx, i));
+			else
+				dev_info(cam->dev, "ctx->seninf is null\n");
 			mtk_cam_seninf_set_camtg(ctx->seninf,
 						 ctx->sv_pipe[i]->seninf_padidx,
 						 ctx->sv_pipe[i]->cammux_id);
-			if (ctx->pipe)
+			if (ctx)
 				ret = mtk_cam_sv_dev_config(ctx, i, 1, 0, 3);
 			else
 				dev_info(cam->dev,
-					"mtk_cam_sv_dev_config failed, ctx->pipe is null\n");
+					"mtk_cam_sv_dev_config failed, ctx is null\n");
 			if (ret)
 				goto fail_img_buf_release;
 		}
@@ -7269,8 +7320,11 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 		for (i = 0 ; i < ctx->used_mraw_num ; i++) {
 			/* use 1-pixel mode as default */
 			ctx->mraw_pipe[i]->res_config.pixel_mode = 1;
-			mtk_cam_call_seninf_set_pixelmode(ctx, ctx->seninf,
-				ctx->mraw_pipe[i]->seninf_padidx, 0);
+			if (ctx->seninf)
+				mtk_cam_call_seninf_set_pixelmode(ctx, ctx->seninf,
+					ctx->mraw_pipe[i]->seninf_padidx, 0);
+			else
+				dev_info(cam->dev, "ctx->seninf is null\n");
 			mtk_cam_seninf_set_camtg(ctx->seninf, ctx->mraw_pipe[i]->seninf_padidx,
 				ctx->mraw_pipe[i]->cammux_id);
 
@@ -7402,7 +7456,7 @@ static int mtk_cam_ts_are_all_ctx_off(struct mtk_cam_device *cam,
 		ctx_chk = cam->ctxs + i;
 		if (ctx_chk == ctx)
 			continue;
-		if (ctx_chk->pipe) {
+		if (ctx_chk->pipe && ctx->pipe) {
 			pipe = ctx->pipe;
 			ts_id = pipe->feature_active &
 					MTK_CAM_FEATURE_TIMESHARE_MASK;

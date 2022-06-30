@@ -1824,6 +1824,11 @@ void initialize(struct mtk_raw_device *dev, int is_slave)
 	writel_relaxed(0xffffffff, dev->base + REG_SCQ_START_PERIOD);
 #endif
 
+	if (!dev) {
+		dev_info(dev->dev, "%s: dev is null\n",
+			 __func__);
+		return;
+	}
 	writel_relaxed(CQ_THR0_MODE_IMMEDIATE | CQ_THR0_EN,
 		       dev->base + REG_CQ_THR0_CTL);
 	writel_relaxed(CQ_THR0_MODE_IMMEDIATE | CQ_THR0_EN,
@@ -3158,6 +3163,7 @@ int mtk_cam_raw_stagger_select(struct mtk_cam_ctx *ctx,
 	bool selected;
 	struct mtk_raw_stagger_select result;
 
+	memset(&result, 0, sizeof(result));
 	selected = raw_stagger_select(ctx,
 				raw_status,
 				ctx->pipe->hw_mode,
@@ -4121,6 +4127,7 @@ static int mtk_raw_set_fmt(struct v4l2_subdev *sd,
 	if (!stream_data) {
 		dev_info(cam->dev, "%s: stream_data is null\n",
 		__func__);
+		return -EINVAL;
 	}
 	stream_data->pad_fmt_update |= (1 << fmt->pad);
 	stream_data->pad_fmt[fmt->pad] = *fmt;
