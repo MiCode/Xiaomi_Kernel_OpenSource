@@ -436,6 +436,18 @@ struct hfi_queue_table {
 #define H2F_MSG_ISSUE_RECURRING_CMD	141
 #define F2H_MSG_CONTEXT_BAD		150
 
+enum gmu_ret_type {
+	GMU_SUCCESS = 0,
+	GMU_ERROR_FATAL,
+	GMU_ERROR_MEM_FAIL,
+	GMU_ERROR_INVAL_PARAM,
+	GMU_ERROR_NULL_PTR,
+	GMU_ERROR_OUT_OF_BOUNDS,
+	GMU_ERROR_TIMEOUT,
+	GMU_ERROR_NOT_SUPPORTED,
+	GMU_ERROR_NO_ENTRY,
+};
+
 /* H2F */
 struct hfi_gmu_init_cmd {
 	u32 hdr;

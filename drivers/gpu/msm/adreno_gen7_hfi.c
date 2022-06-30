@@ -379,6 +379,40 @@ static const char *feature_to_string(u32 feature)
 	return "unknown";
 }
 
+/* For sending hfi message inline to handle GMU return type error */
+static int gen7_hfi_send_generic_req_v5(struct adreno_device *adreno_dev, void *cmd)
+{
+	struct gen7_gmu_device *gmu = to_gen7_gmu(adreno_dev);
+	struct pending_cmd ret_cmd = {0};
+	int rc;
+
+	if (GMU_VER_MINOR(gmu->ver.hfi) <= 4)
+		return gen7_hfi_send_generic_req(adreno_dev, cmd);
+
+	rc = gen7_hfi_send_cmd_wait_inline(adreno_dev, cmd, &ret_cmd);
+	if (rc)
+		return rc;
+
+	switch (ret_cmd.results[3]) {
+	case GMU_SUCCESS:
+		rc = ret_cmd.results[2];
+		break;
+	case GMU_ERROR_NO_ENTRY:
+		/* Unique error to handle undefined HFI msgs by caller */
+		rc = -ENOENT;
+		break;
+	default:
+		gmu_core_fault_snapshot(KGSL_DEVICE(adreno_dev));
+		dev_err(&gmu->pdev->dev,
+			"HFI ACK: Req=0x%8.8X, Result=0x%8.8X Error:0x%8.8X\n",
+			ret_cmd.results[1], ret_cmd.results[2], ret_cmd.results[3]);
+		rc = -EINVAL;
+		break;
+	}
+
+	return rc;
+}
+
 int gen7_hfi_send_feature_ctrl(struct adreno_device *adreno_dev,
 	u32 feature, u32 enable, u32 data)
 {
@@ -394,8 +428,8 @@ int gen7_hfi_send_feature_ctrl(struct adreno_device *adreno_dev,
 	if (ret)
 		return ret;
 
-	ret = gen7_hfi_send_generic_req(adreno_dev, &cmd);
-	if (ret)
+	ret = gen7_hfi_send_generic_req_v5(adreno_dev, &cmd);
+	if (ret < 0)
 		dev_err(&gmu->pdev->dev,
 				"Unable to %s feature %s (%d)\n",
 				enable ? "enable" : "disable",
@@ -419,8 +453,8 @@ int gen7_hfi_send_set_value(struct adreno_device *adreno_dev,
 	if (ret)
 		return ret;
 
-	ret = gen7_hfi_send_generic_req(adreno_dev, &cmd);
-	if (ret)
+	ret = gen7_hfi_send_generic_req_v5(adreno_dev, &cmd);
+	if (ret < 0)
 		dev_err(&gmu->pdev->dev,
 			"Unable to set HFI Value %d, %d to %d, error = %d\n",
 			type, subtype, data, ret);
