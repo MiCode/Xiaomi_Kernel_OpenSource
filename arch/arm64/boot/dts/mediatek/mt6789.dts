@@ -4322,7 +4322,7 @@
 		smi_pd_cam_main: smi_pd_cam_main {
 			compatible = "mediatek,smi-pd";
 			mediatek,smi = <&cam_smi_3x1_sub_common1 &cam_smi_4x1_sub_common0>;
-			mediatek,comm-port-range = <0x2 0x2>;
+			mediatek,comm-port-range = <0x4 0x8>;
 			main-power;
 			power-domains = <&scpsys MT6789_POWER_DOMAIN_CAM>;
 		};
@@ -4330,7 +4330,7 @@
 		smi_pd_cam_rawa: smi_pd_cam_rawa {
 			compatible = "mediatek,smi-pd";
 			mediatek,smi = <&cam_smi_3x1_sub_common1>;
-			mediatek,comm-port-range = <0x2>;
+			mediatek,comm-port-range = <0x4>;
 			power-domains = <&scpsys MT6789_POWER_DOMAIN_CAM_RAWA>;
 			power-reset = <0x1a04f00c 0>;
 		};
@@ -4338,7 +4338,7 @@
 		smi_pd_cam_rawb: smi_pd_cam_rawb {
 			compatible = "mediatek,smi-pd";
 			mediatek,smi = <&cam_smi_4x1_sub_common0>;
-			mediatek,comm-port-range = <0x2>;
+			mediatek,comm-port-range = <0x8>;
 			power-domains = <&scpsys MT6789_POWER_DOMAIN_CAM_RAWB>;
 			power-reset = <0x1a06f00c 0>;
 		};
