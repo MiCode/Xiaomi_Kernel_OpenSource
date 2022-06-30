@@ -1067,6 +1067,7 @@ static void disp_aal_dre3_config(struct mtk_ddp_comp *comp,
 		if (comp->id == DDP_COMPONENT_AAL0) {
 			cmdq_pkt_write(handle, comp->cmdq_base,
 				dre3_pa + MDP_AAL_TILE_00,
+				(0x0 << 23) | (0x1 << 22) |
 				(0x1 << 21) | (0x1 << 20) |
 				(init_regs->dre0_blk_num_x_end << 15) |
 				(init_regs->dre0_blk_num_x_start << 10) |
@@ -1075,6 +1076,7 @@ static void disp_aal_dre3_config(struct mtk_ddp_comp *comp,
 		} else if (comp->id == DDP_COMPONENT_AAL1) {
 			cmdq_pkt_write(handle, comp->cmdq_base,
 				dre3_pa + MDP_AAL_TILE_00,
+				(0x1 << 23) | (0x0 << 22) |
 				(0x1 << 21) | (0x1 << 20) |
 				(init_regs->dre1_blk_num_x_end << 15) |
 				(init_regs->dre1_blk_num_x_start << 10) |
@@ -1681,21 +1683,21 @@ static bool disp_aal_read_dre3(struct mtk_ddp_comp *comp,
 
 		if (comp->id == DDP_COMPONENT_AAL0) {
 			for (i = 0; i < 8; i++) {
-				g_aal_hist.MaxHis_denominator_pipe0[i] = readl(comp->regs +
+				g_aal_hist.MaxHis_denominator_pipe0[i] = readl(dre3_va +
 					MDP_AAL_DUAL_PIPE00 + (i << 2));
 			}
 			for (j = 0; j < 8; j++) {
-				g_aal_hist.MaxHis_denominator_pipe0[j+i] = readl(comp->regs +
+				g_aal_hist.MaxHis_denominator_pipe0[j+i] = readl(dre3_va +
 					MDP_AAL_DUAL_PIPE08 + (j << 2));
 			}
 
 		} else if (comp->id == DDP_COMPONENT_AAL1) {
 			for (i = 0; i < 8; i++) {
-				g_aal_hist.MaxHis_denominator_pipe1[i] = readl(comp->regs +
+				g_aal_hist.MaxHis_denominator_pipe1[i] = readl(dre3_va +
 					MDP_AAL_DUAL_PIPE00 + (i << 2));
 			}
 			for (j = 0; j < 8; j++) {
-				g_aal_hist.MaxHis_denominator_pipe1[j+i] = readl(comp->regs +
+				g_aal_hist.MaxHis_denominator_pipe1[j+i] = readl(dre3_va +
 					MDP_AAL_DUAL_PIPE08 + (j << 2));
 			}
 		}
