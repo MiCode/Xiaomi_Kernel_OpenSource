@@ -2772,7 +2772,7 @@ static int mtk_vcu_probe(struct platform_device *pdev)
 	struct device *dev;
 	struct resource *res;
 	int i, j, ret = 0;
-	unsigned int vcuid, off = 0;
+	unsigned int vcuid = 0, off = 0;
 	const char *gce_event_name;
 	int gce_event_id;
 	struct device_node *gcem_node = NULL;
@@ -3151,7 +3151,7 @@ static int mtk_vcu_io_probe(struct platform_device *pdev)
 	struct mtk_vcu *vcu;
 	struct device *dev;
 	int ret = 0;
-	unsigned int vcuid;
+	unsigned int vcuid = 0;
 
 	dev_dbg(&pdev->dev, "[VCU][IO] initialization\n");
 
