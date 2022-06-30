@@ -1901,6 +1901,8 @@ static void qcom_geni_i3c_ibi_unconf(struct geni_i3c_dev *gi3c)
 			return;
 	}
 
+	geni_i3c_enable_ibi_ctrl(gi3c, false);
+	geni_i3c_enable_ibi_irq(gi3c, false);
 	gi3c->ibi.is_init = false;
 }
 
@@ -2386,10 +2388,6 @@ static int geni_i3c_remove(struct platform_device *pdev)
 
 	if (gi3c->ibi.is_init)
 		qcom_geni_i3c_ibi_unconf(gi3c);
-	geni_i3c_enable_ibi_ctrl(gi3c, false);
-
-	/* Potentially to be done before pinctrl change */
-	geni_i3c_enable_ibi_irq(gi3c, false);
 
 	/*force suspend to avoid the auto suspend caused by driver removal*/
 	pm_runtime_force_suspend(gi3c->se.dev);
