@@ -3672,6 +3672,16 @@
 			#clock-cells = <1>;
 		};
 
+		nemi_bus: syscon@10270000 {
+			compatible = "mediatek,mt6985-nemi_bus", "syscon";
+			reg = <0 0x10270000 0 0x1000>;
+		};
+
+		semi_bus: syscon@1030e000 {
+			compatible = "mediatek,mt6985-semi_bus", "syscon";
+			reg = <0 0x1030e000 0 0x1000>;
+		};
+
 		scpsys: power-controller@1c001000 {
 			compatible = "mediatek,mt6895-scpsys", "syscon";
 			reg = <0 0x1c001000 0 0x1000>;
@@ -3736,6 +3746,8 @@
 			infracfg = <&infracfg_ao_clk>;
 			vlpcfg = <&vlpcfg_bus_clk>;
 			mfgrpc = <&gpu_eb_rpc_bus_clk>;
+			nemi_bus = <&nemi_bus>;
+			semi_bus = <&semi_bus>;
 			isp_main-supply = <&mt6319_6_vbuck3>;
 			cam_main-supply = <&mt6319_6_vbuck3>;
 			hw-voter-regmap = <&hwv>;
