@@ -1791,9 +1791,6 @@ static void mml_addon_module_connect(struct drm_crtc *crtc,
 	// need to calc RSZ.
 	calc_mml_config(crtc, addon_config, crtc_state, cmdq_handle);
 
-	addon_config->addon_mml_config.is_entering =
-	    mtk_crtc->mml_ir_state == MML_IR_ENTERING ? true : false;
-
 	crtc_state->mml_src_roi[0] = addon_config->addon_mml_config.mml_src_roi[0];
 	DDPINFO("%s:%d dual:src[0](%d,%d,%d,%d), dst[0](%d,%d,%d,%d)\n",
 			__func__, __LINE__,
@@ -4623,7 +4620,7 @@ static void ddp_cmdq_cb(struct cmdq_cb_data data)
 	DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 
 	if (cb_data->is_mml) {
-		atomic_set(&(mtk_crtc->wait_mml_last_job_is_flushed), 1);
+		atomic_set(&(mtk_crtc->mml_last_job_is_flushed), 1);
 		wake_up_interruptible(&(mtk_crtc->signal_mml_last_job_is_flushed_wq));
 	}
 
@@ -7249,8 +7246,7 @@ void mml_cmdq_pkt_init(struct drm_crtc *crtc, struct cmdq_pkt *cmdq_handle)
 	mml_ctx = mtk_drm_get_mml_drm_ctx(crtc->dev, crtc);
 	priv = crtc->dev->dev_private;
 
-	switch (mtk_crtc->mml_ir_state) {
-	case MML_IR_ENTERING:
+	if (mtk_crtc->is_mml) {
 		for (; i <= mtk_crtc->is_dual_pipe; ++i) {
 			comp = priv->ddp_comp[id[i]];
 			mtk_ddp_comp_addon_config(comp, 0, 0, NULL, cmdq_handle);
@@ -7258,14 +7254,9 @@ void mml_cmdq_pkt_init(struct drm_crtc *crtc, struct cmdq_pkt *cmdq_handle)
 			    mtk_crtc, id[i], false, cmdq_handle,
 			    mtk_crtc_get_mutex_id(crtc, mtk_crtc->ddp_mode, DDP_COMPONENT_OVL0));
 		}
-	case MML_IR_RACING:
 		mml_drm_racing_config_sync(mml_ctx, cmdq_handle);
-		break;
-	case MML_IR_LEAVING:
+	} else if (mtk_crtc->need_stop_last_mml_job) {
 		mtk_crtc_mml_racing_stop_sync(crtc, cmdq_handle);
-		break;
-	default:
-		break;
 	}
 }
 
@@ -10821,7 +10812,7 @@ int mtk_drm_crtc_create(struct drm_device *drm_dev,
 #endif
 	atomic_set(&(mtk_crtc->mml_cb.mml_job_submit_done), 0);
 	init_waitqueue_head(&(mtk_crtc->mml_cb.mml_job_submit_wq));
-	atomic_set(&(mtk_crtc->wait_mml_last_job_is_flushed), 0);
+	atomic_set(&(mtk_crtc->mml_last_job_is_flushed), 1);
 	init_waitqueue_head(&(mtk_crtc->signal_mml_last_job_is_flushed_wq));
 
 	atomic_set(&mtk_crtc->signal_irq_for_pre_fence, 0);

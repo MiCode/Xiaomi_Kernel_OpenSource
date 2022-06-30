@@ -494,13 +494,6 @@ enum CWB_BUFFER_TYPE {
 	BUFFER_TYPE_NR,
 };
 
-enum MML_IR_STATE {
-	NOT_MML_IR,
-	MML_IR_ENTERING,
-	MML_IR_RACING,
-	MML_IR_LEAVING
-};
-
 struct mtk_crtc_path_data {
 	const enum mtk_ddp_comp_id *path[DDP_MODE_NR][DDP_PATH_NR];
 	unsigned int path_len[DDP_MODE_NR][DDP_PATH_NR];
@@ -824,14 +817,14 @@ struct mtk_drm_crtc {
 	struct mml_submit *mml_cfg_pq;
 	struct mtk_mml_cb_para mml_cb;
 
-	atomic_t wait_mml_last_job_is_flushed;
+	atomic_t mml_last_job_is_flushed;
 	wait_queue_head_t signal_mml_last_job_is_flushed_wq;
 	bool is_mml;
 	bool last_is_mml;
 	bool is_mml_debug;
 	bool is_force_mml_scen;
+	bool need_stop_last_mml_job;
 	bool mml_cmd_ir;
-	enum MML_IR_STATE mml_ir_state;
 
 	atomic_t signal_irq_for_pre_fence;
 	wait_queue_head_t signal_irq_for_pre_fence_wq;

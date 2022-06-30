@@ -1343,20 +1343,19 @@ static void mtk_atomic_mml(struct drm_device *dev,
 	struct drm_atomic_state *state)
 {
 	struct drm_crtc *crtc;
-	struct drm_crtc_state *old_crtc_state, *new_crtc_state;
+	struct drm_crtc_state *old_crtc_state;
 	struct drm_plane *plane;
 	struct drm_plane_state *plane_state, *old_plane_state;
 	struct mtk_plane_state *mtk_plane_state;
 	struct mtk_drm_crtc *mtk_crtc;
 	int i = 0;
-	bool last_is_mml = false;
 
 	for_each_old_crtc_in_state(state, crtc, old_crtc_state, i) {
 		if (crtc && drm_crtc_index(crtc) == 0) {
 			mtk_crtc = to_mtk_crtc(crtc);
-			last_is_mml = mtk_crtc->is_mml;
+			mtk_crtc->last_is_mml = mtk_crtc->is_mml;
 			mtk_crtc->is_mml = false;
-			mtk_crtc->mml_ir_state = NOT_MML_IR;
+			mtk_crtc->need_stop_last_mml_job = false;
 			break;
 		}
 	}
@@ -1376,26 +1375,18 @@ static void mtk_atomic_mml(struct drm_device *dev,
 		}
 	}
 
-	if (!last_is_mml && mtk_crtc->is_mml)
-		mtk_crtc->mml_ir_state = MML_IR_ENTERING;
-	else if (last_is_mml && mtk_crtc->is_mml)
-		mtk_crtc->mml_ir_state = MML_IR_RACING;
-	else if (last_is_mml && !mtk_crtc->is_mml)
-		mtk_crtc->mml_ir_state = MML_IR_LEAVING;
+	for_each_old_crtc_in_state(state, crtc, old_crtc_state, i) {
+		if (!crtc || drm_crtc_index(crtc) != 0)
+			continue;
 
-	if (last_is_mml)
-		atomic_set(&(mtk_crtc->wait_mml_last_job_is_flushed), 1);
+		mtk_crtc = to_mtk_crtc(crtc);
+		if (mtk_crtc->is_mml)
+			continue;
 
-	for_each_oldnew_crtc_in_state(state, crtc, old_crtc_state, new_crtc_state, i) {
-		struct mtk_crtc_state *s = to_mtk_crtc_state(new_crtc_state);
+		atomic_set(&(mtk_crtc->mml_last_job_is_flushed), 1);
 
-		if (drm_atomic_crtc_effectively_active(old_crtc_state) &&
-		    drm_atomic_crtc_needs_modeset(new_crtc_state)) {
-			if (s->lye_state.scn[i] == MML || s->lye_state.scn[i] == MML_SRAM_ONLY) {
-				s->lye_state.scn[i] = NONE;
-				DDPMSG("%s:%d clear MML scn after suspend\n", __func__, __LINE__);
-			}
-		}
+		if (mtk_crtc->last_is_mml)
+			mtk_crtc->need_stop_last_mml_job = true;
 	}
 }
 
@@ -1556,10 +1547,9 @@ static int mtk_atomic_commit(struct drm_device *drm,
 		if (mtk_crtc->is_mml) {
 			ret = wait_event_interruptible(
 				mtk_crtc->signal_mml_last_job_is_flushed_wq
-				, atomic_read(&mtk_crtc->wait_mml_last_job_is_flushed));
+				, atomic_read(&mtk_crtc->mml_last_job_is_flushed));
+			atomic_set(&(mtk_crtc->mml_last_job_is_flushed), 0);
 		}
-		atomic_set(&(mtk_crtc->wait_mml_last_job_is_flushed), 0);
-
 		DRM_MMP_MARK(mutex_lock, (unsigned long)&mtk_crtc->lock, i);
 
 		DDP_MUTEX_LOCK_NESTED(&mtk_crtc->lock, i, __func__, __LINE__);
