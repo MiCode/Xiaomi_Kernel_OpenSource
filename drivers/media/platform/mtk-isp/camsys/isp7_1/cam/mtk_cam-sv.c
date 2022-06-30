@@ -2043,6 +2043,11 @@ int mtk_cam_sv_dev_config(
 	int stride;
 
 	if (hw_scen & MTK_CAMSV_SUPPORTED_SPECIAL_HW_SCENARIO) {
+		if (!ctx->pipe) {
+			dev_info(dev, "%s failed, ctx->pipe is null", __func__);
+			return -EINVAL;
+		}
+
 		if (hw_scen & (1 << MTKCAM_SV_SPECIAL_SCENARIO_ADDITIONAL_RAW)) {
 			img_fmt = &ctx->pipe->vdev_nodes[
 				MTK_RAW_MAIN_STREAM_SV_1_OUT - MTK_RAW_SINK_NUM].active_fmt;
@@ -2103,11 +2108,11 @@ int mtk_cam_sv_dev_config(
 	stride = img_fmt->fmt.pix_mp.plane_fmt[0].bytesperline;
 	if (mtk_cam_is_ext_isp_yuv(ctx)) {
 		dev_info(dev, "yuv pipeline str:%d feature:%d\n",
-		stride, ctx->pipe->feature_active);
+		stride, (ctx->pipe) ? ctx->pipe->feature_active : 0);
 	}
 	dev_info(dev, "sink pad code:0x%x camsv's imgo w/h/stride:%d/%d/%d feature:%d\n", mf->code,
 		cfg_in_param.in_crop.s.w, cfg_in_param.in_crop.s.h,
-		stride, (ctx->used_raw_num) ? ctx->pipe->feature_active : 0);
+		stride, (ctx->used_raw_num && ctx->pipe) ? ctx->pipe->feature_active : 0);
 	cfg_in_param.raw_pixel_id = mtk_cam_get_sensor_pixel_id(mf->code);
 	cfg_in_param.subsample = 0;
 	cfg_in_param.fmt = img_fmt->fmt.pix_mp.pixelformat;
@@ -2125,6 +2130,11 @@ int mtk_cam_sv_dev_config(
 	}
 
 	if (hw_scen & MTK_CAMSV_SUPPORTED_SPECIAL_HW_SCENARIO) {
+		if (!ctx->pipe) {
+			dev_info(dev, "%s failed, ctx->pipe is null", __func__);
+			return -EINVAL;
+		}
+
 		dev_sv = cam->sv.devs[idx];
 		if (dev_sv == NULL) {
 			dev_dbg(dev, "config camsv device not found\n");
