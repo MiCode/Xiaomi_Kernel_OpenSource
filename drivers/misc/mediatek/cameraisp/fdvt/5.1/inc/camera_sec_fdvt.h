@@ -39,6 +39,7 @@ struct FDVT_ONETIME_MEM_RECORD {
 	unsigned int FD_POSE_Config_Handler;
 	unsigned int handler_first_time;
 	unsigned int iova_first_time;
+	unsigned int tzmp1_first_time;
 };
 
 struct FDVT_MEM_RECORD {
