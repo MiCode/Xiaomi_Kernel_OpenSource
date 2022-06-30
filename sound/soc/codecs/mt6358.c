@@ -3057,14 +3057,15 @@ static int mt6358_vow_amic_enable(struct mt6358_priv *priv)
 				   0x1 << 12, 0x0);
 	}
 
+	usleep_range(500, 520);
 	/* adc reset mechanism */
 	regmap_read(priv->regmap, MT6358_AUDENC_ANA_CON12, &rc_value);
 	/* AUDENC_CON12[4:0] => RGS_AUDRCTUNELREAD */
 	rc_l = rc_value & 0x1f;
-	dev_dbg(priv->dev, "%s(), MT6358_AUDENC_CON12(rc_l) = 0x%x(0x%x)\n",
+	dev_dbg(priv->dev, "%s(), MT6358_AUDENC_ANA_CON12(rc_l) = 0x%x(0x%x)\n",
 			__func__, rc_value, rc_l);
-	if (rc_l == 0) {
-		dev_info(priv->dev, "%s(), calibration fail, resetting... %d\n",
+	if (rc_l == 0x0 || rc_l == 0x1f) {
+		dev_info(priv->dev, "%s(), calibration fail, resetting...\n",
 			 __func__);
 		/* Disable audio L ADC */
 		regmap_update_bits(priv->regmap, MT6358_AUDENC_ANA_CON0,
@@ -3075,8 +3076,9 @@ static int mt6358_vow_amic_enable(struct mt6358_priv *priv)
 				   RG_AUDADCLPWRUP_MASK_SFT,
 				   0x1 << RG_AUDADCLPWRUP_SFT);
 	}
+	usleep_range(500, 520);
 	regmap_read(priv->regmap, MT6358_AUDENC_ANA_CON12, &rc_value);
-	dev_dbg(priv->dev, "%s(), after reset: MT6358_AUDENC_CON12(rc_l) = 0x%x(0x%x)\n",
+	dev_dbg(priv->dev, "%s(), after reset: MT6358_AUDENC_ANA_CON12(rc_l) = 0x%x(0x%x)\n",
 			__func__, rc_value, rc_l);
 
 	if (IS_DCC_BASE(mic_type)) {
