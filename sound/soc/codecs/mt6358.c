@@ -974,7 +974,7 @@ static int mt_aif_in_event(struct snd_soc_dapm_widget *w,
 
 		/* sdm audio fifo clock power on */
 		regmap_write(priv->regmap, MT6358_AFUNC_AUD_CON2, 0x0006);
-		/* scrambler clock on enable, invert left channel */
+		/* scrambler clock on enable */
 		regmap_write(priv->regmap, MT6358_AFUNC_AUD_CON0, 0xcba1);
 		/* sdm power on */
 		regmap_write(priv->regmap, MT6358_AFUNC_AUD_CON2, 0x0003);
@@ -2255,14 +2255,18 @@ static int mt_rcv_event(struct snd_soc_dapm_widget *w,
 {
 	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
 	struct mt6358_priv *priv = snd_soc_component_get_drvdata(cmpnt);
+	unsigned int mux = dapm_kcontrol_get_value(w->kcontrols[0]);
 
 	dev_info(priv->dev, "%s(), event 0x%x, mux %u\n",
 		 __func__,
 		 event,
-		 dapm_kcontrol_get_value(w->kcontrols[0]));
+		 mux);
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
+		/* scrambler clock on enable, invert left channel */
+		regmap_write(priv->regmap, MT6358_AFUNC_AUD_CON0, 0xcfa1);
+
 		/* Reduce ESD resistance of AU_REFN */
 		regmap_write(priv->regmap, MT6358_AUDDEC_ANA_CON2, 0x4000);
 
