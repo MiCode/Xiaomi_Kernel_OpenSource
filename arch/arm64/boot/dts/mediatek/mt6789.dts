@@ -5352,6 +5352,11 @@
 			mediatek,larb = <&smi_larb20>;
 		};
 
+		mtk_iommu_fake_aie@0 {
+			compatible = "mediatek,mtk_iommu_fake_aie";
+			iommus = <&disp_iommu M4U_PORT_L1_DISP_FAKE1>;
+		};
+
 		fe@1b002000 {
 			compatible = "mediatek,fe";
 			reg = <0 0x1b002000 0 0x1000>;
