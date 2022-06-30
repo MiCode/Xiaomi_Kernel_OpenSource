@@ -1163,6 +1163,7 @@
   mmc_detect_change
   mmc_free_host
   mmc_get_card
+  mmc_get_ext_csd
   mmc_gpio_get_cd
   mmc_gpio_get_ro
   mmc_hw_reset
@@ -2150,6 +2151,7 @@
   ufshcd_suspend_prepare
   ufshcd_system_resume
   ufshcd_system_suspend
+  ufshcd_uic_change_pwr_mode
   ufshcd_uic_hibern8_exit
   ufshcd_update_evt_hist
   unlock_page
