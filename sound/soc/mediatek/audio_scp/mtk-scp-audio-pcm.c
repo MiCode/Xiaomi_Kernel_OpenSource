@@ -1468,10 +1468,11 @@ static int scp_audio_mbox_recv_handler(unsigned int id,
 				void *data,
 				unsigned int len)
 {
-	struct mtk_scp_audio_base *scp_audio = get_scp_audio_base();
+	int daiid;
 
 	memcpy((void *)mbox_msg_temp, data, sizeof(struct mbox_msg));
-	tasklet_schedule(&scp_audio->tasklet);
+	daiid = get_daiid_by_scene(mbox_msg_temp->scene_id);
+	mtk_scp_aud_dl_consume_handler(get_scp_audio_base(), NULL, daiid);
 
 	return 0;
 }
