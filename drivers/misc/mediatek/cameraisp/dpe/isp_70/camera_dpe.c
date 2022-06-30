@@ -3267,19 +3267,7 @@ void cmdq_cb_destroy(struct cmdq_cb_data data)
 {
 	cmdq_pkt_destroy((struct cmdq_pkt *)data.data);
 }
-struct sg_table *dpe_dma_buf_map_attachment(struct dma_buf_attachment *attach,
-					enum dma_data_direction direction)
-{
-	struct sg_table *sg_table;
 
-	might_sleep();
-	if (WARN_ON(!attach || !attach->dmabuf))
-		return ERR_PTR(-EINVAL);
-	sg_table = attach->dmabuf->ops->map_dma_buf(attach, direction);
-	if (!sg_table)
-		sg_table = ERR_PTR(-ENOMEM);
-	return sg_table;
-}
 
 signed int CmdqDPEHW(struct frame *frame)
 {
