@@ -31,6 +31,7 @@ f kernel/trace/trace_events.c
 f lib/dynamic_debug.c
 f mm/swap.c
 f net/core/rtnetlink.c
+f net/netfilter/nf_conntrack_core.c
 f security/selinux/avc.c
 f security/selinux/include/avc.h
 f drivers/iommu/iova.c

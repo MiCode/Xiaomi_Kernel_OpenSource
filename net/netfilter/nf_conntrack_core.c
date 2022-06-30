@@ -2575,6 +2575,7 @@ int nf_conntrack_init_start(void)
 	for (i = 0; i < CONNTRACK_LOCKS; i++)
 		spin_lock_init(&nf_conntrack_locks[i]);
 
+#if !IS_ENABLED(CONFIG_MTK_NETFILTER)
 	if (!nf_conntrack_htable_size) {
 		/* Idea from tcp.c: use 1/16384 of memory.
 		 * On i386: 32MB machine has 512 buckets.
@@ -2597,6 +2598,28 @@ int nf_conntrack_init_start(void)
 		 * entries. */
 		max_factor = 4;
 	}
+#else
+	if (!nf_conntrack_htable_size) {
+		nf_conntrack_htable_size
+			= (((nr_pages << PAGE_SHIFT) / 16384)
+			   / sizeof(struct hlist_head));
+		if (BITS_PER_LONG >= 64 &&
+		    nr_pages > (4 * (1024 * 1024 * 1024 / PAGE_SIZE)))
+			nf_conntrack_htable_size = 262144;
+		else if (nr_pages > (1024 * 1024 * 1024 / PAGE_SIZE))
+			nf_conntrack_htable_size = 65536;
+
+		if (nf_conntrack_htable_size < 1024)
+			nf_conntrack_htable_size = 1024;
+		/* Use a max. factor of one by default to keep the average
+		 * hash chain length at 2 entries.  Each entry has to be added
+		 * twice (once for original direction, once for reply).
+		 * When a table size is given we use the old value of 8 to
+		 * avoid implicit reduction of the max entries setting.
+		 */
+		max_factor = 1;
+	}
+#endif
 
 	nf_conntrack_hash = nf_ct_alloc_hashtable(&nf_conntrack_htable_size, 1);
 	if (!nf_conntrack_hash)

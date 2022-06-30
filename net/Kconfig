@@ -58,6 +58,9 @@ config NET_REDIRECT
 config SKB_EXTENSIONS
 	bool
 
+config MTK_NETFILTER
+	bool
+
 menu "Networking options"
 
 source "net/packet/Kconfig"
