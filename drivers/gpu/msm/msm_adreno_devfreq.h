@@ -10,9 +10,8 @@
 #include <linux/devfreq.h>
 #include <linux/notifier.h>
 
-#define DEVFREQ_FLAG_WAKEUP_MAXFREQ	0x2
-#define DEVFREQ_FLAG_FAST_HINT		0x4
-#define DEVFREQ_FLAG_SLOW_HINT		0x8
+#define DEVFREQ_FLAG_FAST_HINT		0x1
+#define DEVFREQ_FLAG_SLOW_HINT		0x2
 
 struct device;
 
