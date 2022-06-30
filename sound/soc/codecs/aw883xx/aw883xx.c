@@ -2477,6 +2477,8 @@ static int aw883xx_i2c_probe(struct i2c_client *i2c,
 	g_aw883xx_dev_cnt++;
 	mutex_unlock(&g_aw883xx_lock);
 
+	mtk_spk_set_type(MTK_SPK_AWINIC_AW883XX);
+
 	aw_dev_info(&i2c->dev, "dev_cnt %d probe completed successfully",
 		g_aw883xx_dev_cnt);
 
