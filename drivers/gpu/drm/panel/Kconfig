@@ -821,6 +821,15 @@ config DRM_PANEL_NT37801_MSYNC2_RTE
 	  and uses 24-bits RGB per pixel. It provides a MIPI DSI
 	  interface to host.
 
+config BACKLIGHT_KTZ8866
+       tristate "Backlight driver for KTZ8866"
+       depends on I2C && PWM
+       help
+         This supports KTZ8866 backlight driver.
+		 Say Y here if you want to enable support for platform,
+		 Say N here if you want to disable support for platform,
+		 KTZ8866 can control backlight.
+
 config DRM_MEDIATEK_PANEL
 	tristate "drm panel common driver"
 	depends on OF
