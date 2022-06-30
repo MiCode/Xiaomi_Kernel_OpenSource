@@ -1493,7 +1493,7 @@ EXPORT_SYMBOL_GPL(vcp_get_reserve_mem_virt);
 
 phys_addr_t vcp_get_reserve_mem_size(enum vcp_reserve_mem_id_t id)
 {
-	if (id >= 0 && id < NUMS_MEM_ID)
+	if (id < NUMS_MEM_ID)
 		return vcp_reserve_mblock[id].size;
 
 	pr_notice("[VCP] no reserve memory for %d", id);
