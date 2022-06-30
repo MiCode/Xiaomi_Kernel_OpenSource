@@ -42,10 +42,11 @@ static void mtk_inlinerotate_addon_config(struct mtk_ddp_comp *comp,
 				 union mtk_addon_config *addon_config,
 				 struct cmdq_pkt *handle)
 {
-	if (addon_config && addon_config->config_type.type == ADDON_DISCONNECT)
+	/* config inlinerot only when the first IR frame, bypass addon_connect */
+	if (addon_config)
 		return;
 
-	DDPINFO("%s+ handle:0x%x, comp->regs_pa:0x%llx\n",
+	DDPINFO("%s+ handle:0x%x, comp->regs_pa:0x%x\n",
 		__func__, handle, comp->regs_pa);
 
 	cmdq_pkt_write(handle, comp->cmdq_base,
@@ -85,6 +86,9 @@ void mtk_inlinerotate_dump(struct mtk_ddp_comp *comp)
 	DDPDUMP("DISP_REG_INLINEROT_HEIGHT1  0x%08x: 0x%08x\n",
 		DISP_REG_INLINEROT_HEIGHT1,
 		readl(baddr + DISP_REG_INLINEROT_HEIGHT1));
+	DDPDUMP("DISP_REG_INLINEROT_WDONE  0x%08x: 0x%08x\n",
+		DISP_REG_INLINEROT_WDONE,
+		readl(baddr + DISP_REG_INLINEROT_WDONE));
 }
 
 int mtk_inlinerotate_analysis(struct mtk_ddp_comp *comp)

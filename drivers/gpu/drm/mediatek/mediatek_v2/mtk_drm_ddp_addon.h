@@ -131,6 +131,7 @@ struct mtk_addon_mml_config {
 	struct mml_task *task;		/* [OUT] task and config for mml */
 	struct mtk_rect mml_src_roi[DISP_PIPE_NUM];	/* [OUT] src roi for OVL */
 	struct mtk_rect mml_dst_roi[DISP_PIPE_NUM];	/* [OUT] dst roi for OVL */
+	bool is_entering;				/* [OUT] state of entering or leaving */
 };
 
 union mtk_addon_config {
