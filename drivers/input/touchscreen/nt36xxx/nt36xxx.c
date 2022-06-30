@@ -1030,6 +1030,13 @@ static int nvt_ts_trusted_touch_pvm_vm_mode_enable(struct nvt_ts_data *ts)
 
 	if (atomic_read(&ts->pvm_interrupt_underway))
 		wait_for_completion_interruptible(&ts->trusted_touch_interrupt);
+
+	if (!bTouchIsAwake) {
+		pr_err("Invalid power state for operation\n");
+		rc = -EPERM;
+		return rc;
+	}
+
 	atomic_set(&ts->trusted_touch_underway, 1);
 
 #if BOOT_UPDATE_FIRMWARE
