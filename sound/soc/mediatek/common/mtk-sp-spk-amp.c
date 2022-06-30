@@ -165,7 +165,7 @@ int mtk_spk_update_info(struct snd_soc_card *card,
 	int i2s_out_dai_link_idx = -1;
 	int i2s_in_dai_link_idx = -1;
 	const int i2s_num = 2;
-	unsigned int i2s_set[2];
+	unsigned int i2s_set[2] = {0};
 
 	if (mtk_spk_type == MTK_SPK_NOT_SMARTPA)
 		goto BYPASS_UPDATE;
