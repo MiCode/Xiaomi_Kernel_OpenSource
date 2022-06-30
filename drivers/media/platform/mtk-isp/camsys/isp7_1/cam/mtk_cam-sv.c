@@ -394,6 +394,10 @@ static int mtk_camsv_set_fmt(struct v4l2_subdev *sd,
 	}
 
 	stream_data = mtk_cam_req_get_s_data_no_chk(cam_req, pipe->id, 0);
+	if (!stream_data) {
+		dev_info(cam->dev, "stream data is null\n");
+		return 0;
+	}
 	stream_data->pad_fmt_update |= (1 << fmt->pad);
 	stream_data->pad_fmt[fmt->pad] = *fmt;
 
@@ -2197,8 +2201,8 @@ int mtk_cam_sv_dev_stream_on(
 		camsv_dev = dev_get_drvdata(dev_sv);
 		camsv_dev->is_enqueued = 1;
 	} else {
-		if (idx >= CAMSV_PIPELINE_NUM) {
-			dev_info(dev, "index is too big\n");
+		if (idx >= MAX_SV_PIPES_PER_STREAM) {
+			dev_info(dev, "user control index is too big\n");
 			return -1;
 		}
 		dev_sv = mtk_cam_find_sv_dev(cam, ctx->used_sv_dev[idx]);
@@ -2553,6 +2557,7 @@ static irqreturn_t mtk_irq_camsv(int irq, void *data)
 	unsigned int drop_status, imgo_err_status, imgo_overr_status;
 	unsigned int fbc_imgo_status, imgo_addr, imgo_addr_msb;
 	unsigned int tg_sen_mode, dcif_set, tg_vf_con, tg_path_cfg;
+	unsigned int irq_flag = 0;
 	bool wake_thread = 0;
 
 	irq_status	= readl_relaxed(camsv_dev->base + REG_CAMSV_INT_STATUS);
@@ -2620,8 +2625,8 @@ static irqreturn_t mtk_irq_camsv(int irq, void *data)
 		fbc_imgo_status, imgo_addr, dequeued_imgo_seq_no_inner,
 		dequeued_imgo_seq_no, tg_sen_mode, dcif_set, tg_vf_con, tg_path_cfg);
 	}
-
-	if ((unsigned int)irq_info.irq_type && push_msgfifo(camsv_dev, &irq_info) == 0)
+	irq_flag = irq_info.irq_type;
+	if (irq_flag && push_msgfifo(camsv_dev, &irq_info) == 0)
 		wake_thread = 1;
 
 	/* Check ISP error status */
