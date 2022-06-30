@@ -374,26 +374,26 @@ static int rt5512_codec_classd_event(struct snd_soc_dapm_widget *w,
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
-		mdelay(11);
 		/*  charge pump disable & disable UVP */
 		ret |= snd_soc_component_update_bits(component, 0xb5, 0xf9fc,
 						     0xf9fc);
-		mdelay(2);
+		mdelay(11);
+
 		dev_info(component->dev, "%s rt5512 update bst mode %d\n",
 			 __func__, chip->bst_mode);
 		/* boost config to adaptive mode */
 		ret = snd_soc_component_update_bits(component, 0x40, 0x0003,
 						    chip->bst_mode);
+		mdelay(2);
 
 		ret |= snd_soc_component_update_bits(component, 0x98, 0x0700,
 						     0x0100);
-		mdelay(2);
 		/* charge pump enable */
 		ret |= snd_soc_component_update_bits(component, 0xb5, 0x0001,
 						     0x0001);
 		break;
 	case SND_SOC_DAPM_POST_PMU:
-		mdelay(15);
+		mdelay(2);
 		ret |= snd_soc_component_update_bits(component, 0x98, 0x0200,
 						     0x0200);
 		/* UV enable */
