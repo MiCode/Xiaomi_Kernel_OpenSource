@@ -366,8 +366,10 @@ int mtk_drm_ioctl_get_chist(struct drm_device *dev, void *data,
 	DDPINFO("%s chist id:%d, get count:%d\n", __func__,
 		hist->device_id, hist->get_channel_count);
 
-	if (hist->get_channel_count == 0) {
-		DDPPR_ERR("%s get channel count is 0\n", __func__);
+	if (hist->get_channel_count == 0 ||
+			hist->get_channel_count > DISP_CHIST_CHANNEL_COUNT) {
+		DDPPR_ERR("%s invalid get channel count is %u\n",
+				__func__, hist->get_channel_count);
 		return -EFAULT;
 	}
 
