@@ -128,8 +128,10 @@ static int adsp_init_reserve_memory(struct platform_device *pdev, struct adsp_re
 	if (!ret) {
 		mem->phys_addr = (phys_addr_t)mem_info[0];
 		mem->size = (size_t)mem_info[1];
+#ifdef MEM_DEBUG
 		pr_info("%s(), get \"shared_memory\" property from dts, (%llx, %zx)\n",
 				__func__, mem->phys_addr, mem->size);
+#endif
 		goto RSV_IOREMAP;
 	}
 	/* Otherwise, get reserved memory from reserved node */

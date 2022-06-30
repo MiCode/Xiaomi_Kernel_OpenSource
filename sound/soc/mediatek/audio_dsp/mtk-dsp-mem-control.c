@@ -743,8 +743,8 @@ int init_mtk_adsp_dram_segment(void)
 		ret = gen_pool_add_virt(dsp_dram_pool[i],
 					dram->va_addr, dram->phy_addr, dram->size, -1);
 
-		pr_info("%s ret(%d) add chunk va/sz=(0x%lx, %zu), pool total(%zu)\n",
-			__func__, ret, dram->va_addr, dram->size,
+		pr_info("%s ret(%d) add chunk va/sz=(%p, %zu), pool total(%zu)\n",
+			__func__, ret, dram->vir_addr, dram->size,
 			gen_pool_size(dsp_dram_pool[i]));
 
 		if (ret)
@@ -767,8 +767,8 @@ int set_mtk_adsp_mpu_sharedram(unsigned int dram_segment)
 
 	adsp_register_feature(AUDIO_CONTROLLER_FEATURE_ID);
 
-	pr_info("%s phy_addr[0x%llx] size[0x%llx]\n", __func__,
-		dsp_dram_buffer[dram_segment].phy_addr,
+	pr_info("%s vir_addr[%p] size[0x%llx]\n", __func__,
+		dsp_dram_buffer[dram_segment].vir_addr,
 		dsp_dram_buffer[dram_segment].size);
 	payload_buf[0] = dsp_dram_buffer[dram_segment].phy_addr;
 	payload_buf[1] = dsp_dram_buffer[dram_segment].size;
@@ -881,8 +881,7 @@ static int adsp_core_mem_initall(struct mtk_base_dsp *dsp, unsigned int core_id)
 		pshare_dram->vir_addr = (unsigned char *)vaddr;
 		pshare_dram->size = size;
 
-		pr_debug("%s phy_addr = 0x%llx vir_addr = %p  size = %llu\n", __func__,
-			 pshare_dram->phy_addr,
+		pr_debug("%s vir_addr = %p  size = %llu\n", __func__,
 			 pshare_dram->vir_addr,
 			 pshare_dram->size);
 	} else {
