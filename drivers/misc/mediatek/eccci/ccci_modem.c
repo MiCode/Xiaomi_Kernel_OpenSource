@@ -744,7 +744,7 @@ void ccci_md_config(struct ccci_modem *md)
 		md->mem_layout.md_bank4_noncacheable_total.base_ap_view_phy,
 		0x02000000);
 
-	if (md->hw_info->plat_val->md_gen >= 6297)
+	if ((md->hw_info->plat_val->md_gen >= 6297) || ap_plat_info == 6789)
 		ccci_6297_md_smem_layout_config(md);
 	else if (md->hw_info->plat_val->md_gen >= 6295)
 		ccci_md_smem_layout_config(md);
@@ -1606,7 +1606,7 @@ static void config_ap_side_feature(struct ccci_modem *md,
 		CCCI_FEATURE_NOT_SUPPORT;
 #endif
 
-	if (md->hw_info->plat_val->md_gen >= 6297)
+	if ((md->hw_info->plat_val->md_gen >= 6297) || (ap_plat_info == 6789))
 		md_feature->feature_set[AMMS_DRDI_COPY].support_mask =
 			CCCI_FEATURE_MUST_SUPPORT;
 	else

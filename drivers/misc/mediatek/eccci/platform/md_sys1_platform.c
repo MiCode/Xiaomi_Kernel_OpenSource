@@ -47,6 +47,8 @@
 #include "mtk_pbm.h"
 #endif
 
+unsigned int ap_plat_info;
+
 struct ccci_md_regulator {
 	struct regulator *reg_ref;
 	unsigned char *reg_name;
@@ -1137,6 +1139,12 @@ static int md_cd_get_modem_hw_info(struct platform_device *dev_ptr,
 			__func__);
 		return -1;
 	}
+
+	ret = of_property_read_u32(dev_ptr->dev.of_node,
+		"mediatek,ap_plat_info", &ap_plat_info);
+	CCCI_NORMAL_LOG(-1, TAG, "ap_plat_info : %u\n", ap_plat_info);
+
+
 	CCCI_DEBUG_LOG(dev_cfg->index, TAG,
 		"modem hw info get idx:%d\n", dev_cfg->index);
 	if ((dev_cfg->index != MD_SYS1) ||

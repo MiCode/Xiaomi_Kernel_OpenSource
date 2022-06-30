@@ -88,6 +88,7 @@ enum {
 	SKIP_TOPCLK_BIT,
 };
 
+extern unsigned int ap_plat_info;
 
 /* ADD_SYS_CORE */
 int ccci_modem_syssuspend(void);
