@@ -484,6 +484,20 @@
 				regulator-enable-ramp-delay = <264>;
 				/*by platform setting: regulator-boot-on;*/
 			};
+
+			mt6358_vmch_eint_high: VMCH_EINT_HIGH {
+				regulator-name = "mt6358_vmch_eint_high";
+				regulator-min-microvolt = <2900000>;
+				regulator-max-microvolt = <3300000>;
+				regulator-enable-ramp-delay = <60>;
+			};
+
+			mt6358_vmch_eint_low: VMCH_EINT_LOW {
+				regulator-name = "mt6358_vmch_eint_low";
+				regulator-min-microvolt = <2900000>;
+				regulator-max-microvolt = <3300000>;
+				regulator-enable-ramp-delay = <60>;
+			};
 		};
 
 		mt6366_clock_buffer: mt6366_clock_buffer {
