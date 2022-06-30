@@ -120,7 +120,7 @@ static int adsp_init_reserve_memory(struct platform_device *pdev, struct adsp_re
 	struct device_node *node;
 	struct reserved_mem *rmem;
 	struct device *dev = &pdev->dev;
-	u64 mem_info[2];
+	u64 mem_info[2] = {0};
 	int ret;
 
 	/* Reserved memory allocated from lk */
@@ -173,7 +173,7 @@ int adsp_mem_device_probe(struct platform_device *pdev)
 	enum adsp_reserve_mem_id_t id;
 	struct adsp_reserve_mblock *mem = &adsp_reserve_mem;
 	size_t acc_size = 0;
-	u32 size;
+	u32 size = 0;
 
 	ret = adsp_init_reserve_memory(pdev, mem);
 	if (ret)
