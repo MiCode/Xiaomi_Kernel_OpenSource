@@ -208,6 +208,27 @@ struct mt6358_regulator_info {
 	.qi = BIT(9),					\
 }
 
+#define MT6358_VMCH_EINT(_eint_pol, _volt_table)		\
+[MT6358_ID_VMCH_##_eint_pol] = {				\
+	.desc = {						\
+		.name = "VMCH_"#_eint_pol,			\
+		.of_match = of_match_ptr("VMCH_"#_eint_pol),	\
+		.of_parse_cb = mt6358_of_parse_cb,		\
+		.ops = &mt6358_vmch_eint_ops,			\
+		.type = REGULATOR_VOLTAGE,			\
+		.id = MT6358_ID_VMCH_##_eint_pol,		\
+		.owner = THIS_MODULE,				\
+		.n_voltages = ARRAY_SIZE(_volt_table),		\
+		.volt_table = _volt_table,			\
+		.enable_reg = MT6358_LDO_VMCH_EINT,		\
+		.enable_mask = MT6358_PMIC_RG_LDO_VMCH_EINT_EN_MASK,	\
+		.vsel_reg = MT6358_VMCH_ANA_CON0,		\
+		.vsel_mask = 0x700,				\
+	},							\
+	.status_reg = MT6358_LDO_VMCH_CON1,	\
+	.qi = BIT(15),	\
+}
+
 static const struct linear_range buck_volt_range1[] = {
 	REGULATOR_LINEAR_RANGE(500000, 0, 0x7f, 6250),
 };
@@ -577,6 +598,43 @@ static int mt6358_regulator_ext2_disable(struct regulator_dev *rdev)
 	return ret;
 }
 
+static int mt6358_vmch_eint_enable(struct regulator_dev *rdev)
+{
+	unsigned int val;
+	int ret;
+
+	if (rdev->desc->id == MT6358_ID_VMCH_EINT_HIGH)
+		val = MT6358_PMIC_RG_LDO_VMCH_EINT_POL_MASK;
+	else
+		val = 0;
+	ret = regmap_update_bits(rdev->regmap, MT6358_LDO_VMCH_EINT,
+				 MT6358_PMIC_RG_LDO_VMCH_EINT_POL_MASK, val);
+	if (ret)
+		return ret;
+
+	ret = regmap_update_bits(rdev->regmap, MT6358_LDO_VMCH_CON0, BIT(0), BIT(0));
+	if (ret)
+		return ret;
+
+	ret = regmap_update_bits(rdev->regmap, rdev->desc->enable_reg,
+				 rdev->desc->enable_mask, rdev->desc->enable_mask);
+	return ret;
+}
+
+static int mt6358_vmch_eint_disable(struct regulator_dev *rdev)
+{
+	int ret;
+
+	ret = regmap_update_bits(rdev->regmap, MT6358_LDO_VMCH_CON0, BIT(0), 0);
+	if (ret)
+		return ret;
+
+	udelay(1500); /* Must delay for VMCH discharging */
+	ret = regmap_update_bits(rdev->regmap, rdev->desc->enable_reg,
+				 rdev->desc->enable_mask, 0);
+	return ret;
+}
+
 static const struct regulator_ops mt6358_volt_range_ops = {
 	.list_voltage = regulator_list_voltage_linear_range,
 	.map_voltage = regulator_map_voltage_linear_range,
@@ -640,6 +698,18 @@ static const struct regulator_ops mt6358_vmc_ops = {
 	.set_voltage_sel = regulator_set_voltage_sel_regmap,
 	.get_voltage_sel = regulator_get_voltage_sel_regmap,
 	.set_voltage_time_sel = regulator_set_voltage_time_sel,
+};
+
+static const struct regulator_ops mt6358_vmch_eint_ops = {
+	.list_voltage = regulator_list_voltage_table,
+	.map_voltage = regulator_map_voltage_iterate,
+	.set_voltage_sel = regulator_set_voltage_sel_regmap,
+	.get_voltage_sel = regulator_get_voltage_sel_regmap,
+	.set_voltage_time_sel = regulator_set_voltage_time_sel,
+	.enable = mt6358_vmch_eint_enable,
+	.disable = mt6358_vmch_eint_disable,
+	.is_enabled = regulator_is_enabled_regmap,
+	.get_status = mt6358_get_status,
 };
 
 static int mt6358_of_parse_cb(struct device_node *np,
@@ -741,6 +811,8 @@ static struct mt6358_regulator_info mt6358_regulators[] = {
 	MT6358_LDO_VMC_DESC("ldo_vmc", VMC, buck_volt_range5, MT6358_LDO_VMC_CON0,
 			    MT6358_LDO_VMC_CON1, MT6358_VMC_ANA_CON0, 0xFFF),
 	MT6358_LDO_VA09_DESC("ldo_va09", VA09),
+	MT6358_VMCH_EINT(EINT_HIGH, vmch_vemc_voltages),
+	MT6358_VMCH_EINT(EINT_LOW, vmch_vemc_voltages),
 };
 
 static void mt6358_oc_irq_enable_work(struct work_struct *work)

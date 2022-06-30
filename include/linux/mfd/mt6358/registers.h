@@ -299,6 +299,10 @@
 #define MT6358_LDO_VSIM2_CON1                 0x1d6a
 #define MT6358_LDO_VSIM2_CON2                 0x1d6c
 #define MT6358_LDO_VSIM2_CON3                 0x1d6e
+#define MT6358_LDO_VMCH_EINT                  0x1d70
+#define MT6358_PMIC_RG_LDO_VMCH_EINT_EN_MASK  0x1
+#define MT6358_PMIC_RG_LDO_VMCH_EINT_POL_MASK 0x4
+#define MT6358_PMIC_RG_LDO_VMCH_EINT_DB_MASK  0x10
 #define MT6358_LDO_VCN28_CON0                 0x1d88
 #define MT6358_LDO_VCN28_CON1                 0x1d96
 #define MT6358_LDO_VCN28_CON2                 0x1d98
