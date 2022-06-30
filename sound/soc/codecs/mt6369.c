@@ -453,6 +453,58 @@ static int dmic_used_get(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+static int mt6369_snd_soc_put_volsw(struct snd_kcontrol *kcontrol,
+				    struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *component = snd_kcontrol_chip(kcontrol);
+	struct soc_mixer_control *mc =
+		(struct soc_mixer_control *)kcontrol->private_value;
+	unsigned int reg = mc->reg;
+	unsigned int reg2 = mc->rreg;
+	unsigned int shift = mc->shift;
+	unsigned int rshift = mc->rshift;
+	int max = mc->max;
+	int min = mc->min;
+	unsigned int sign_bit = mc->sign_bit;
+	unsigned int mask = (1 << fls(max)) - 1;
+	unsigned int invert = mc->invert;
+	int err;
+	bool type_2r = false;
+	unsigned int val2 = 0;
+	unsigned int val, val_mask;
+
+	if (sign_bit)
+		mask = BIT(sign_bit + 1) - 1;
+
+	val = ucontrol->value.integer.value[0];
+	val = (val + min) & mask;
+	if (invert)
+		val = max - val;
+	val_mask = mask << shift;
+	val = val << shift;
+	if (snd_soc_volsw_is_stereo(mc)) {
+		val2 = ucontrol->value.integer.value[1];
+		val2 = (val2 + min) & mask;
+		if (invert)
+			val2 = max - val2;
+		if (reg == reg2) {
+			val_mask |= mask << rshift;
+			val |= val2 << rshift;
+		} else {
+			val2 = val2 << shift;
+			type_2r = true;
+		}
+	}
+	err = snd_soc_component_update_bits(component, reg, val_mask, val);
+	if (err < 0)
+		return err;
+
+	if (type_2r)
+		err = snd_soc_component_update_bits(component, reg2, val_mask, val2);
+
+	return err;
+}
+
 static int mt6369_put_volsw(struct snd_kcontrol *kcontrol,
 			    struct snd_ctl_elem_value *ucontrol)
 {
@@ -465,7 +517,7 @@ static int mt6369_put_volsw(struct snd_kcontrol *kcontrol,
 	int index = ucontrol->value.integer.value[0];
 	int ret;
 
-	ret = snd_soc_put_volsw(kcontrol, ucontrol);
+	ret = mt6369_snd_soc_put_volsw(kcontrol, ucontrol);
 	if (ret < 0)
 		return ret;
 
