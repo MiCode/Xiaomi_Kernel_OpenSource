@@ -716,6 +716,7 @@ void mt_pwm_clk_sel_hal(u32 pwm_no, u32 clk_src)
 		pr_info("PWM: invalid clk_src\n");
 	}
 }
+EXPORT_SYMBOL(mt_pwm_clk_sel_hal);
 
 void mt_pwm_platform_init(struct platform_device *pdev)
 {
