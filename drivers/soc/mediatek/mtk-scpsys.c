@@ -436,6 +436,8 @@ static int scpsys_bus_protect_disable(struct scp_domain *scpd, unsigned int inde
 	struct regmap *smi_common = scp->smi_common;
 	struct regmap *vlpcfg = scp->vlpcfg;
 	struct regmap *mfgrpc = scp->mfgrpc;
+	struct regmap *nemi = scp->nemi;
+	struct regmap *semi = scp->semi;
 	int i;
 
 	for (i = index; i >= 0; i--) {
@@ -451,6 +453,10 @@ static int scpsys_bus_protect_disable(struct scp_domain *scpd, unsigned int inde
 			map = vlpcfg;
 		else if (bp.type == MFGRPC_TYPE)
 			map = mfgrpc;
+		else if (bp.type == NEMI_TYPE)
+			map = nemi;
+		else if (bp.type == SEMI_TYPE)
+			map = semi;
 		else
 			continue;
 
@@ -483,6 +489,8 @@ static int scpsys_bus_protect_enable(struct scp_domain *scpd)
 	struct regmap *smi_common = scp->smi_common;
 	struct regmap *vlpcfg = scp->vlpcfg;
 	struct regmap *mfgrpc = scp->mfgrpc;
+	struct regmap *nemi = scp->nemi;
+	struct regmap *semi = scp->semi;
 	int i;
 
 	for (i = 0; i < MAX_STEPS; i++) {
@@ -498,6 +506,10 @@ static int scpsys_bus_protect_enable(struct scp_domain *scpd)
 			map = vlpcfg;
 		else if (bp.type == MFGRPC_TYPE)
 			map = mfgrpc;
+		else if (bp.type == NEMI_TYPE)
+			map = nemi;
+		else if (bp.type == SEMI_TYPE)
+			map = semi;
 		else
 			break;
 
@@ -1207,6 +1219,26 @@ struct scp *init_scp(struct platform_device *pdev,
 		dev_notice(&pdev->dev, "Cannot find mfgrpc controller: %ld\n",
 				PTR_ERR(scp->mfgrpc));
 		return ERR_CAST(scp->mfgrpc);
+	}
+
+	scp->nemi = syscon_regmap_lookup_by_phandle(pdev->dev.of_node,
+			"nemi_bus");
+	if (scp->nemi == ERR_PTR(-ENODEV)) {
+		scp->nemi = NULL;
+	} else if (IS_ERR(scp->nemi)) {
+		dev_notice(&pdev->dev, "Cannot find nemi controller: %ld\n",
+				PTR_ERR(scp->nemi));
+		return ERR_CAST(scp->nemi);
+	}
+
+	scp->semi = syscon_regmap_lookup_by_phandle(pdev->dev.of_node,
+			"semi_bus");
+	if (scp->semi == ERR_PTR(-ENODEV)) {
+		scp->semi = NULL;
+	} else if (IS_ERR(scp->semi)) {
+		dev_notice(&pdev->dev, "Cannot find semi controller: %ld\n",
+				PTR_ERR(scp->semi));
+		return ERR_CAST(scp->semi);
 	}
 
 	scp->hwv_regmap = syscon_regmap_lookup_by_phandle(pdev->dev.of_node,
