@@ -269,6 +269,12 @@ void gbe_notify_fstb_poll(struct hlist_head *list)
 		return;
 	}
 
+	mutex_lock(&gbe_list_lock);
+	if (!hlist_empty(&gbe_fstb_tid_list)) {
+		kfree(vpPush);
+		mutex_unlock(&gbe_list_lock);
+		return;
+	}
 
 	hlist_for_each_entry(fstb_iter, list, hlist) {
 
@@ -282,6 +288,7 @@ void gbe_notify_fstb_poll(struct hlist_head *list)
 
 	vpPush->ePushType = GBE_NOTIFIER_RTID;
 	vpPush->list = &gbe_fstb_tid_list;
+	mutex_unlock(&gbe_list_lock);
 
 	INIT_WORK(&vpPush->sWork, gbe_notifier_wq_cb);
 	queue_work(g_psNotifyWorkQueue, &vpPush->sWork);
