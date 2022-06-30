@@ -150,14 +150,6 @@
 				regulator-enable-ramp-delay = <180>;
 				regulator-allowed-modes = <0 1 2>;
 			};
-			mt6368_vpa: VPA {
-				regulator-compatible = "VPA";
-				regulator-name = "mt6368_vpa";
-				regulator-min-microvolt = <600000>;
-				regulator-max-microvolt = <3600000>;
-				regulator-enable-ramp-delay = <200>;
-				regulator-allowed-modes = <0 1 2>;
-			};
 			mt6368_vusb: VUSB {
 				regulator-compatible = "VUSB";
 				regulator-name = "mt6368_vusb";

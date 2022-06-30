@@ -110,14 +110,6 @@
 				regulator-enable-ramp-delay = <180>;
 				regulator-allowed-modes = <0 1 2>;
 			};
-			mt6369_vpa: VPA {
-				regulator-compatible = "VPA";
-				regulator-name = "mt6369_vpa";
-				regulator-min-microvolt = <500000>;
-				regulator-max-microvolt = <3600000>;
-				regulator-enable-ramp-delay = <200>;
-				regulator-allowed-modes = <0 1 2>;
-			};
 			mt6369_vsram_core: VSRAM_CORE {
 				regulator-compatible = "VSRAM_CORE";
 				regulator-name = "mt6369_vsram_core";
