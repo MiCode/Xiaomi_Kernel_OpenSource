@@ -149,8 +149,8 @@ static int fops_vcodec_open(struct file *file)
 	dev->dec_cnt++;
 
 	mutex_unlock(&dev->dev_mutex);
-	mtk_v4l2_debug(0, "%s decoder [%d]", dev_name(&dev->plat_dev->dev),
-				   ctx->id);
+	mtk_v4l2_debug(0, "%s decoder [%d][%d]", dev_name(&dev->plat_dev->dev),
+				   ctx->id, dev->dec_cnt);
 	return ret;
 
 	/* Deinit when failure occurred */
@@ -177,7 +177,7 @@ static int fops_vcodec_release(struct file *file)
 	struct mtk_vcodec_dev *dev = video_drvdata(file);
 	struct mtk_vcodec_ctx *ctx = fh_to_ctx(file->private_data);
 
-	mtk_v4l2_debug(0, "[%d] decoder", ctx->id);
+	mtk_v4l2_debug(0, "[%d][%d] decoder", ctx->id, dev->dec_cnt);
 	mutex_lock(&dev->dev_mutex);
 
 	/*
@@ -393,6 +393,9 @@ static int mtk_vcodec_dec_probe(struct platform_device *pdev)
 	if (ret)
 		mtk_v4l2_debug(0, "[VDEC] Cannot get svp-mtee, skip");
 
+	ret = of_property_read_u32(pdev->dev.of_node, "mediatek,uniq_dom", &dev->unique_domain);
+	if (ret)
+		mtk_v4l2_debug(0, "[VDEC] Cannot get uniq dom, skip");
 
 	ret = mtk_vcodec_dec_irq_setup(pdev, dev);
 	if (ret)

@@ -147,8 +147,8 @@ static int fops_vcodec_open(struct file *file)
 	dev->enc_cnt++;
 
 	mutex_unlock(&dev->dev_mutex);
-	mtk_v4l2_debug(0, "%s encoder [%d]", dev_name(&dev->plat_dev->dev),
-				   ctx->id);
+	mtk_v4l2_debug(0, "%s encoder [%d][%d]", dev_name(&dev->plat_dev->dev),
+				   ctx->id, dev->enc_cnt);
 	return ret;
 
 	/* Deinit when failure occurred */
@@ -174,7 +174,7 @@ static int fops_vcodec_release(struct file *file)
 	struct mtk_vcodec_dev *dev = video_drvdata(file);
 	struct mtk_vcodec_ctx *ctx = fh_to_ctx(file->private_data);
 
-	mtk_v4l2_debug(0, "[%d] encoder", ctx->id);
+	mtk_v4l2_debug(0, "[%d][%d] encoder", ctx->id, dev->enc_cnt);
 	mutex_lock(&dev->dev_mutex);
 
 	mtk_vcodec_enc_empty_queues(file, ctx);
@@ -419,6 +419,10 @@ static int mtk_vcodec_enc_probe(struct platform_device *pdev)
 	dev->venc_ports[0].total_port_num = j;
 	dev->venc_ports[1].total_port_num = k;
 	pr_info("after get port-def  port num %d %d\n", j, k);
+
+	ret = of_property_read_u32(pdev->dev.of_node, "mediatek,uniq_dom", &dev->unique_domain);
+	if (ret)
+		mtk_v4l2_debug(0, "[VENC] Cannot get uniq dom, skip");
 
 	for (i = 0; i < MTK_VENC_HW_NUM; i++) {
 		sema_init(&dev->enc_sem[i], 1);
