@@ -1428,6 +1428,7 @@ int group_send_sig_info(int sig, struct kernel_siginfo *info,
 			bool reap = false;
 
 			trace_android_vh_process_killed(current, &reap);
+			trace_android_vh_killed_process(current, p, &reap);
 			if (reap)
 				add_to_oom_reaper(p);
 		}
