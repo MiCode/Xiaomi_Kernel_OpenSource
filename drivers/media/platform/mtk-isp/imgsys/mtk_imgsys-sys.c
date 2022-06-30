@@ -697,7 +697,8 @@ static void imgsys_cmdq_timeout_cb_func(struct cmdq_cb_data data,
 	media_request_get(&req->req);
 	swork = &(imgsys_timeout_winfo[imgsys_timeout_idx]);
 	swork->req = req;
-	swork->req_sbuf_kva = frm_info_cb->req_sbuf_kva;
+	swork->req_sbuf_kva = frm_info_cb->req_sbuf_goft
+		+ mtk_hcp_get_gce_mem_virt(imgsys_dev->scp_pdev);
 	swork->pipe = frm_info_cb->pipe;
 	swork->fail_uinfo_idx = fail_subfidx;
 	swork->fail_isHWhang = isHWhang;
@@ -1076,7 +1077,8 @@ static void imgsys_mdp_cb_func(struct cmdq_cb_data data,
 			gwork.reqfd = swfrminfo_cb->request_fd;
 			//memcpy((void *)(&(gwork->user_info)), (void *)(&(frm_info_cb->user_info)),
 			//	sizeof(struct img_swfrm_info));
-			gwork.req_sbuf_kva = swfrminfo_cb->req_sbuf_kva;
+			gwork.req_sbuf_kva = swfrminfo_cb->req_sbuf_goft
+				+ mtk_hcp_get_gce_mem_virt(imgsys_dev->scp_pdev);
 			gwork.pipe = swfrminfo_cb->pipe;
 			cmdq_cb_done_worker(&gwork.work);
 			/*grouping, paired with scp_handler*/
@@ -1448,7 +1450,6 @@ static void imgsys_scp_handler(void *data, unsigned int len, void *priv)
 	}
 
 	swfrm_info->req_sbuf_goft = swbuf_data->offset;
-	swfrm_info->req_sbuf_kva = gce_virt + (swbuf_data->offset);
 
 #if MTK_CM4_SUPPORT == 0
 

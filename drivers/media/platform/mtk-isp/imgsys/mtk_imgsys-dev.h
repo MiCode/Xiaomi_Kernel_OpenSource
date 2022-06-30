@@ -722,7 +722,6 @@ struct timeval {
 
 struct swfrm_info_t {
 	uint32_t req_sbuf_goft;
-	void *req_sbuf_kva;
 	int swfrminfo_ridx;
 	int request_fd;
 	int request_no;
