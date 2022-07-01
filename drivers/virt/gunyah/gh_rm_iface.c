@@ -2148,7 +2148,14 @@ int gh_rm_mem_donate(u8 mem_type, u8 flags, gh_label_t label,
 		return -EINVAL;
 	}
 
-	if (acl_desc->acl_entries[0].perms != (GH_RM_ACL_X | GH_RM_ACL_W | GH_RM_ACL_R)) {
+	if (mem_type == GH_RM_MEM_TYPE_NORMAL &&
+	    acl_desc->acl_entries[0].perms != (GH_RM_ACL_X | GH_RM_ACL_W | GH_RM_ACL_R)) {
+		pr_err("%s: Invalid permission argument\n", __func__);
+		return -EINVAL;
+	}
+
+	if (mem_type == GH_RM_MEM_TYPE_IO &&
+	    acl_desc->acl_entries[0].perms != (GH_RM_ACL_W | GH_RM_ACL_R)) {
 		pr_err("%s: Invalid permission argument\n", __func__);
 		return -EINVAL;
 	}
