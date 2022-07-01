@@ -1413,6 +1413,18 @@ static const struct adsp_data sdmshrike_adsp_resource = {
 	.ssctl_id = 0x14,
 };
 
+static const struct adsp_data sdmshrike_cdsp_resource = {
+	.crash_reason_smem = 601,
+	.firmware_name = "cdsp.mdt",
+	.pas_id = 18,
+	.has_aggre2_clk = false,
+	.auto_boot = true,
+	.ssr_name = "lpass",
+	.sysmon_name = "cdsp",
+	.qmp_name = "cdsp",
+	.ssctl_id = 0x17,
+};
+
 static const struct of_device_id adsp_of_match[] = {
 	{ .compatible = "qcom,msm8974-adsp-pil", .data = &adsp_resource_init},
 	{ .compatible = "qcom,msm8996-adsp-pil", .data = &adsp_resource_init},
@@ -1452,6 +1464,7 @@ static const struct of_device_id adsp_of_match[] = {
 	{ .compatible = "qcom,khaje-adsp-pas", .data = &khaje_adsp_resource},
 	{ .compatible = "qcom,khaje-cdsp-pas", .data = &khaje_cdsp_resource},
 	{ .compatible = "qcom,sdmshrike-adsp-pas", .data = &sdmshrike_adsp_resource},
+	{ .compatible = "qcom,sdmshrike-cdsp-pas", .data = &sdmshrike_cdsp_resource},
 	{ },
 };
 MODULE_DEVICE_TABLE(of, adsp_of_match);
