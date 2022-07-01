@@ -2761,6 +2761,8 @@ static struct attribute *dispatcher_attrs[] = {
 	NULL,
 };
 
+ATTRIBUTE_GROUPS(dispatcher);
+
 static ssize_t dispatcher_sysfs_show(struct kobject *kobj,
 				   struct attribute *attr, char *buf)
 {
@@ -2795,7 +2797,7 @@ static const struct sysfs_ops dispatcher_sysfs_ops = {
 
 static struct kobj_type ktype_dispatcher = {
 	.sysfs_ops = &dispatcher_sysfs_ops,
-	.default_attrs = dispatcher_attrs,
+	.default_groups = dispatcher_groups,
 };
 
 static const struct adreno_dispatch_ops swsched_ops = {
