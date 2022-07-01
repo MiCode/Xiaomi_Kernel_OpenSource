@@ -272,6 +272,13 @@ DECLARE_HOOK(android_vh_map_util_freq,
 		unsigned long cap, unsigned long *next_freq),
 	TP_ARGS(util, freq, cap, next_freq));
 
+struct cpufreq_policy;
+DECLARE_HOOK(android_vh_map_util_freq_new,
+	TP_PROTO(unsigned long util, unsigned long freq,
+		unsigned long cap, unsigned long *next_freq, struct cpufreq_policy *policy,
+		bool *need_freq_update),
+	TP_ARGS(util, freq, cap, next_freq, policy, need_freq_update));
+
 DECLARE_HOOK(android_vh_em_cpu_energy,
 	TP_PROTO(struct em_perf_domain *pd,
 		unsigned long max_util, unsigned long sum_util,
@@ -318,6 +325,11 @@ DECLARE_RESTRICTED_HOOK(android_rvh_set_cpus_allowed_ptr_locked,
 	TP_PROTO(const struct cpumask *cpu_valid_mask, const struct cpumask *new_mask,
 		 unsigned int *dest_cpu),
 	TP_ARGS(cpu_valid_mask, new_mask, dest_cpu), 1);
+
+DECLARE_RESTRICTED_HOOK(android_rvh_set_cpus_allowed_by_task,
+	TP_PROTO(const struct cpumask *cpu_valid_mask, const struct cpumask *new_mask,
+		 struct task_struct *p, unsigned int *dest_cpu),
+	TP_ARGS(cpu_valid_mask, new_mask, p, dest_cpu), 1);
 
 DECLARE_RESTRICTED_HOOK(android_rvh_do_sched_yield,
 	TP_PROTO(struct rq *rq),
@@ -416,6 +428,14 @@ DECLARE_HOOK(android_vh_dup_task_struct,
 DECLARE_HOOK(android_vh_account_task_time,
 	TP_PROTO(struct task_struct *p, struct rq *rq, int user_tick),
 	TP_ARGS(p, rq, user_tick));
+
+DECLARE_RESTRICTED_HOOK(android_rvh_set_cpus_allowed_comm,
+	TP_PROTO(struct task_struct *p, const struct cpumask *new_mask),
+	TP_ARGS(p, new_mask), 1);
+
+DECLARE_HOOK(android_vh_sched_setaffinity_early,
+	TP_PROTO(struct task_struct *p, const struct cpumask *new_mask, int *retval),
+	TP_ARGS(p, new_mask, retval));
 /* macro versions of hooks are no longer required */
 
 #endif /* _TRACE_HOOK_SCHED_H */

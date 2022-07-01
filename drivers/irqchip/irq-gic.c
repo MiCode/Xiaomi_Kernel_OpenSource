@@ -35,6 +35,7 @@
 #include <linux/interrupt.h>
 #include <linux/percpu.h>
 #include <linux/slab.h>
+#include <linux/syscore_ops.h>
 #include <linux/irqchip.h>
 #include <linux/irqchip/chained_irq.h>
 #include <linux/irqchip/arm-gic.h>
@@ -397,6 +398,27 @@ static void gic_handle_cascade_irq(struct irq_desc *desc)
  out:
 	chained_irq_exit(chip, desc);
 }
+
+#ifdef CONFIG_PM
+void gic_v2_resume(void)
+{
+	trace_android_vh_gic_v2_resume(gic_data_dist_base(&gic_data[0]), &gic_data[0].domain);
+}
+EXPORT_SYMBOL_GPL(gic_v2_resume);
+
+static struct syscore_ops gic_v2_syscore_ops = {
+	.resume = gic_v2_resume,
+};
+
+static void gic_v2_syscore_init(void)
+{
+	register_syscore_ops(&gic_v2_syscore_ops);
+}
+
+#else
+static inline void gic_v2_syscore_init(void) { }
+void gic_v2_resume(void) { }
+#endif
 
 static const struct irq_chip gic_chip = {
 	.irq_mask		= gic_mask_irq,
@@ -1240,6 +1262,8 @@ static int gic_init_bases(struct gic_chip_data *gic,
 	ret = gic_pm_init(gic);
 	if (ret)
 		goto error;
+
+	gic_v2_syscore_init();
 
 	return 0;
 
