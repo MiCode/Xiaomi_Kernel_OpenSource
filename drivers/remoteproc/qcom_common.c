@@ -675,6 +675,14 @@ static void qcom_check_ssr_status(void *data, struct rproc *rproc)
 	panic("Panicking, remoteproc %s failed to recover!\n", rproc->name);
 }
 
+static void rproc_recovery_notifier(void *data, struct rproc *rproc)
+{
+	const char *recovery = rproc->recovery_disabled ? "disabled" : "enabled";
+
+	trace_rproc_qcom_event(rproc->name, "recovery", recovery);
+	pr_info("qcom rproc: %s: recovery %s\n", rproc->name, recovery);
+}
+
 static int __init qcom_common_init(void)
 {
 	int ret = 0;
@@ -699,8 +707,16 @@ static int __init qcom_common_init(void)
 		goto remove_sysfs;
 	}
 
+	ret = register_trace_android_vh_rproc_recovery_set(rproc_recovery_notifier, NULL);
+	if (ret) {
+		pr_err("qcom rproc: failed to register recovery_set vendor hook\n");
+		goto unregister_rproc_recovery_vh;
+	}
+
 	return 0;
 
+unregister_rproc_recovery_vh:
+	unregister_trace_android_vh_rproc_recovery(qcom_check_ssr_status, NULL);
 remove_sysfs:
 	sysfs_remove_file(sysfs_kobject, &shutdown_requested_attr.attr);
 remove_kobject:
@@ -712,6 +728,7 @@ module_init(qcom_common_init);
 
 static void __exit qcom_common_exit(void)
 {
+	unregister_trace_android_vh_rproc_recovery_set(rproc_recovery_notifier, NULL);
 	sysfs_remove_file(sysfs_kobject, &shutdown_requested_attr.attr);
 	kobject_put(sysfs_kobject);
 	unregister_trace_android_vh_rproc_recovery(qcom_check_ssr_status, NULL);
