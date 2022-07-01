@@ -98,6 +98,18 @@ struct adreno_gen7_core {
 	u64 gmu_hub_clk_freq;
 	/** @gen7_snapshot_block_list: Device-specific blocks dumped in the snapshot */
 	const struct gen7_snapshot_block_list *gen7_snapshot_block_list;
+	/**
+	 * @bcl_data: BCL data is expected by gmu in below format.
+	 * Bit 0 contains response type for bcl alarms and bits 1:21 controls sid val
+	 * to configure throttle levels for bcl alarm levels 0-2. If sid vals are not set,
+	 * gmu fw sets default throttle levels.
+	 *
+	 * BIT[0]     - Response type
+	 * BIT[1:7]   - Throttle level 1 (optional)
+	 * BIT[8:14]  - Throttle level 2 (optional)
+	 * BIT[15:21] - Throttle level 3 (optional)
+	 */
+	u32 bcl_data;
 };
 
 /**

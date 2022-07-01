@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/delay.h>
@@ -480,14 +481,12 @@ int gen7_hfi_process_queue(struct gen7_gmu_device *gmu,
 
 int gen7_hfi_send_bcl_feature_ctrl(struct adreno_device *adreno_dev)
 {
-	int ret;
+	const struct adreno_gen7_core *gen7_core = to_gen7_core(adreno_dev);
 
 	if (!adreno_dev->bcl_enabled)
 		return 0;
 
-	ret = gen7_hfi_send_feature_ctrl(adreno_dev, HFI_FEATURE_BCL, 1, 0);
-
-	return ret;
+	return gen7_hfi_send_feature_ctrl(adreno_dev, HFI_FEATURE_BCL, 1, gen7_core->bcl_data);
 }
 
 int gen7_hfi_send_acd_feature_ctrl(struct adreno_device *adreno_dev)
