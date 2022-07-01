@@ -6303,5 +6303,6 @@ device_initcall(binder_init);
 #define CREATE_TRACE_POINTS
 #include "binder_trace.h"
 EXPORT_TRACEPOINT_SYMBOL_GPL(binder_transaction_received);
+EXPORT_TRACEPOINT_SYMBOL_GPL(binder_txn_latency_free);
 
 MODULE_LICENSE("GPL v2");
