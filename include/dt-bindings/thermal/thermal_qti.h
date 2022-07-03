@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /* Copyright (c) 2020-2021, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved. */
 
 #include <dt-bindings/thermal/thermal.h>
 
@@ -72,6 +73,17 @@
 #define QMI_MMW2		58
 #define QMI_MMW3		59
 #define QMI_MMW_IFIC0		60
+#define QMI_RF_CAL          61
+#define QMI_QFE_WTR_PA_4	62
+#define QMI_QFE_WTR_PA_5	63
+#define QMI_QFE_WTR_PA_6	64
+#define QMI_QFE_WTR_PA4_FR1	65
+#define QMI_QFE_WTR_PA5_FR1	66
+#define QMI_QFE_WTR_PA6_FR1	67
+#define QMI_QFE_RET_PA_1	68
+#define QMI_QFE_RET_PA1_FR1	69
+#define QMI_SDR0_PA		70
+#define QMI_SDR1_PA		71
 
 #define QMI_MODEM_INST_ID	0x0
 #define QMI_ADSP_INST_ID	0x1
