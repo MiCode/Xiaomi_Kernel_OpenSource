@@ -168,7 +168,7 @@ void mhi_dev_read_from_host_mhi_dma(struct mhi_dev *mhi, struct mhi_addr *transf
 	}
 
 	mhi_log(MHI_MSG_VERBOSE,
-		"device 0x%llx <<-- host 0x%llx, size %d\n",
+		"Async: device 0x%llx <<-- host 0x%llx, size %d\n",
 		transfer->phy_addr, host_addr_pa,
 		(int) transfer->size);
 
@@ -211,10 +211,6 @@ void mhi_dev_write_to_host_mhi_dma(struct mhi_dev *mhi, struct mhi_addr *transfe
 		host_addr_pa = transfer->host_pa | bit_40;
 	}
 
-	mhi_log(MHI_MSG_VERBOSE,
-		"device 0x%llx --> host 0x%llx, size %d\n",
-		(uint64_t) mhi->cache_dma_handle, host_addr_pa,
-		(int) transfer->size);
 	if (tr_type == MHI_DEV_DMA_ASYNC) {
 		/*
 		 * Event read pointer memory and MSI buf are dma_alloc_coherent
@@ -245,7 +241,10 @@ void mhi_dev_write_to_host_mhi_dma(struct mhi_dev *mhi, struct mhi_addr *transfe
 		} else {
 			cb_func = ereq->msi_cb;
 		}
-
+		mhi_log(MHI_MSG_VERBOSE,
+				"Async: device 0x%llx --> host 0x%llx, size %d\n",
+				(uint64_t) dma, host_addr_pa,
+				(int) transfer->size);
 		rc = mhi_dma_async_memcpy(host_addr_pa,
 				(uint64_t)dma,
 				(int) transfer->size,
@@ -261,6 +260,10 @@ void mhi_dev_write_to_host_mhi_dma(struct mhi_dev *mhi, struct mhi_addr *transfe
 		memcpy(mhi->dma_cache, transfer->virt_addr,
 				transfer->size);
 
+		mhi_log(MHI_MSG_VERBOSE,
+				"Sync: device 0x%llx --> host 0x%llx, size %d\n",
+				(uint64_t) mhi->cache_dma_handle, host_addr_pa,
+				(int) transfer->size);
 		rc = mhi_dma_sync_memcpy(host_addr_pa,
 				(u64) mhi->cache_dma_handle,
 				(int) transfer->size,
@@ -867,10 +870,9 @@ int mhi_transfer_host_to_device_mhi_dma(void *dev, uint64_t host_pa, uint32_t le
 		host_addr_pa = host_pa | bit_40;
 	}
 
-	mhi_log(MHI_MSG_VERBOSE, "device 0x%llx <-- host 0x%llx, size %d\n",
-		(uint64_t) mhi->read_dma_handle, host_addr_pa, (int) len);
-
 	if (mreq->mode == DMA_SYNC) {
+		mhi_log(MHI_MSG_VERBOSE, "Sync: device 0x%llx <-- host 0x%llx, size %d\n",
+				(uint64_t) mhi->read_dma_handle, host_addr_pa, (int) len);
 		rc = mhi_dma_sync_memcpy((u64) mhi->read_dma_handle,
 				host_addr_pa,
 				len,
@@ -901,7 +903,8 @@ int mhi_transfer_host_to_device_mhi_dma(void *dev, uint64_t host_pa, uint32_t le
 				ch->ch_id, rc);
 			return rc;
 		}
-
+		mhi_log(MHI_MSG_VERBOSE, "Async: device 0x%llx <-- host 0x%llx, size %d\n",
+				mreq->dma, host_addr_pa, (int) len);
 		rc = mhi_dma_async_memcpy(mreq->dma, host_addr_pa,
 				(int) len,
 				mhi->mhi_dma_fun_params,
@@ -950,12 +953,13 @@ int mhi_transfer_device_to_host_mhi_dma(uint64_t host_addr, void *dev, uint32_t 
 	} else {
 		host_addr_pa = host_addr | bit_40;
 	}
-	mhi_log(MHI_MSG_VERBOSE, "device 0x%llx ---> host 0x%llx, size %d\n",
-				(uint64_t) mhi->write_dma_handle,
-				host_addr_pa, (int) len);
 
 	if (req->mode == DMA_SYNC) {
 		memcpy(mhi->write_handle, dev, len);
+		mhi_log(MHI_MSG_VERBOSE,
+				"Sync: device 0x%llx ---> host 0x%llx, size %d\n",
+				(uint64_t) mhi->write_dma_handle,
+				host_addr_pa, (int) len);
 		return mhi_dma_sync_memcpy(host_addr_pa,
 				(u64) mhi->write_dma_handle,
 				(int) len,
@@ -978,7 +982,10 @@ int mhi_transfer_device_to_host_mhi_dma(uint64_t host_addr, void *dev, uint32_t 
 			pr_err("Failed to queue completion: %d\n", rc);
 			return rc;
 		}
-
+		mhi_log(MHI_MSG_VERBOSE,
+				"Async: device 0x%llx ---> host 0x%llx, size %d\n",
+				(uint64_t) req->dma,
+				host_addr_pa, (int) len);
 		rc = mhi_dma_async_memcpy(host_addr_pa,
 				(uint64_t) req->dma,
 				(int) len,
