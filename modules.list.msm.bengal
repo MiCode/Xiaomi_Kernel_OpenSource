@@ -9,6 +9,7 @@ smd-rpm.ko
 qcom_smd.ko
 qcom_glink.ko
 qcom_wdt_core.ko
+qcom_soc_wdt.ko
 qcom_cpu_vendor_hooks.ko
 gcc-khaje.ko
 camcc-khaje.ko
