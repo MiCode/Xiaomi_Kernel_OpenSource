@@ -75,6 +75,22 @@
 #define LLCC_TRP_ALGO_CFG8            0x21F30 // ALLOC_VICTIM_PL_ON_UC
 
 /**
+ * NORMAL: Sub-cache operates as a cache.
+ *    TCM: Sub-cache operates as a TCM. All accesses hit in the sub-cache.
+ *         There is no backing store in main memory and as a result there are
+ *         no fills/evicts issued to main memory.
+ *    NSE: Sub-cache operates as a cache with the additional requirement that
+ *         there are no self-evicts. In this mode, hardware guarantees that any
+ *         line of the sub-cache is not evicted by another line of the same
+ *         sub-cache.
+ */
+enum llcc_cache_mode {
+	LLCC_CACHE_MODE_NORMAL,
+	LLCC_CACHE_MODE_TCM,
+	LLCC_CACHE_MODE_NSE,
+};
+
+/**
  * llcc_slice_config - Data associated with the llcc slice
  * @usecase_id: Unique id for the client's use case
  * @slice_id: llcc slice id for each client
@@ -88,7 +104,7 @@
  * @res_ways: Reserved ways for the cache slice, the reserved ways cannot
  *		be used by any other client than the one its assigned to.
  * @cache_mode: Each slice operates as a cache, this controls the mode of the
- *             slice: normal or TCM(Tightly Coupled Memory)
+ *             slice: normal, TCM (Tightly Coupled Memory), or NSE (No Self Evicts).
  * @probe_target_ways: Determines what ways to probe for access hit. When
  *                    configured to 1 only bonus and reserved ways are probed.
  *                    When configured to 0 all ways in llcc are probed.
@@ -120,7 +136,7 @@ struct llcc_slice_config {
 	bool fixed_size;
 	u32 bonus_ways;
 	u32 res_ways;
-	u32 cache_mode;
+	enum llcc_cache_mode cache_mode;
 	u32 probe_target_ways;
 	bool dis_cap_alloc;
 	bool retain_on_pc;
