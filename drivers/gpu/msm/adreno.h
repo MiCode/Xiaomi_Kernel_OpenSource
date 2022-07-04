@@ -61,6 +61,15 @@
 	 FIELD_PREP(GENMASK(15, 12), ADRENO_CHIPID_MINOR(_id)) | \
 	 FIELD_PREP(GENMASK(11, 8), ADRENO_CHIPID_PATCH(_id)))
 
+#define ADRENO_REV_MAJOR(_rev) FIELD_GET(GENMASK(23, 16), _rev)
+#define ADRENO_REV_MINOR(_rev) FIELD_GET(GENMASK(15, 8), _rev)
+#define ADRENO_REV_PATCH(_rev) FIELD_GET(GENMASK(7, 0), _rev)
+
+#define ADRENO_GMU_REV(_rev) \
+	(FIELD_PREP(GENMASK(31, 24), ADRENO_REV_MAJOR(_rev)) | \
+	 FIELD_PREP(GENMASK(23, 16), ADRENO_REV_MINOR(_rev)) | \
+	 FIELD_PREP(GENMASK(15, 8), ADRENO_REV_PATCH(_rev)))
+
 /* ADRENO_GPUREV - Return the GPU ID for the given adreno_device */
 #define ADRENO_GPUREV(_a) ((_a)->gpucore->gpurev)
 
@@ -208,6 +217,7 @@ enum adreno_gpurev {
 	ADRENO_REV_GEN7_0_1 = 0x070001,
 	ADRENO_REV_GEN7_4_0 = 0x070400,
 	ADRENO_REV_GEN7_3_0 = 0x070300,
+	ADRENO_REV_GEN7_6_0 = 0x070600,
 };
 
 #define ADRENO_SOFT_FAULT BIT(0)
@@ -1152,6 +1162,7 @@ ADRENO_TARGET(gen7_0_0, ADRENO_REV_GEN7_0_0)
 ADRENO_TARGET(gen7_0_1, ADRENO_REV_GEN7_0_1)
 ADRENO_TARGET(gen7_4_0, ADRENO_REV_GEN7_4_0)
 ADRENO_TARGET(gen7_3_0, ADRENO_REV_GEN7_3_0)
+ADRENO_TARGET(gen7_6_0, ADRENO_REV_GEN7_6_0)
 
 /*
  * adreno_checkreg_off() - Checks the validity of a register enum
