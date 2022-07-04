@@ -311,7 +311,7 @@ static inline cfi_check_fn find_check_fn(unsigned long ptr)
 	return fn;
 }
 
-void __cfi_slowpath_diag(uint64_t id, void *ptr, void *diag)
+static inline void __nocfi ___cfi_slowpath_diag(uint64_t id, void *ptr, void *diag)
 {
 	cfi_check_fn fn = find_check_fn((unsigned long)ptr);
 
@@ -319,6 +319,11 @@ void __cfi_slowpath_diag(uint64_t id, void *ptr, void *diag)
 		fn(id, ptr, diag);
 	else /* Don't allow unchecked modules */
 		handle_cfi_failure(ptr);
+}
+
+void __cfi_slowpath_diag(uint64_t id, void *ptr, void *diag)
+{
+	___cfi_slowpath_diag(id, ptr, diag);
 }
 EXPORT_SYMBOL(__cfi_slowpath_diag);
 
