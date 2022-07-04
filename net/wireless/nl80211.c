@@ -2861,8 +2861,14 @@ static int nl80211_send_wiphy(struct cfg80211_registered_device *rdev,
 			for (i = state->capa_start;
 			     i < rdev->wiphy.num_iftype_ext_capab; i++) {
 				const struct wiphy_iftype_ext_capab *capab;
+				const struct wiphy_backport *backport;
+				const struct wiphy_iftype_ext_capab2 *capab2;
+
 
 				capab = &rdev->wiphy.iftype_ext_capab[i];
+				backport = rdev->wiphy.backport;
+				capab2 = backport ?
+					 &backport->iftype_ext_capab2[i] : NULL;
 
 				nested_ext_capab = nla_nest_start_noflag(msg,
 									 i);
@@ -2875,6 +2881,16 @@ static int nl80211_send_wiphy(struct cfg80211_registered_device *rdev,
 				    nla_put(msg, NL80211_ATTR_EXT_CAPA_MASK,
 					    capab->extended_capabilities_len,
 					    capab->extended_capabilities_mask))
+					goto nla_put_failure;
+
+				if ((rdev->wiphy.flags &
+				     WIPHY_FLAG_SUPPORTS_MLO) && capab2 &&
+				    (nla_put_u16(msg,
+						 NL80211_ATTR_EML_CAPABILITY,
+						 capab2->eml_capabilities) ||
+				     nla_put_u16(msg,
+						 NL80211_ATTR_MLD_CAPA_AND_OPS,
+						 capab2->mld_capa_and_ops)))
 					goto nla_put_failure;
 
 				nla_nest_end(msg, nested_ext_capab);
