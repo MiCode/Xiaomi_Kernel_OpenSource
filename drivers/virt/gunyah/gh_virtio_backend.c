@@ -811,12 +811,12 @@ static void close_vb_dev(struct virtio_backend_device *vb_dev)
 	vb_dev->vdev_event = 0;
 	vb_dev->vdev_event_data = 0;
 	vb_dev->ack_driver_ok = 0;
-	spin_unlock_irqrestore(&vb_dev->lock, flags);
 
 	if (vb_dev->config_data) {
 		free_pages((unsigned long)vb_dev->config_data, 0);
 		vb_dev->config_data = NULL;
 	}
+	spin_unlock_irqrestore(&vb_dev->lock, flags);
 }
 
 static int virtio_backend_release(struct inode *inode, struct file *filp)
@@ -1451,15 +1451,6 @@ VIRTIO_PRINT_MARKER, label);
 		}
 	}
 
-	if (!vb_dev->config_data || size < vb_dev->config_size) {
-		pr_err("%s: Incorrect config_data for dev %u\n",
-				VIRTIO_PRINT_MARKER, label);
-		unshare_vm_buffers(vm, vmid);
-		mutex_unlock(&vb_dev->mutex);
-		vb_dev_put(vb_dev);
-		return -EINVAL;
-	}
-
 	ret = request_irq(linux_irq, vdev_interrupt, 0,
 			vb_dev->int_name, vb_dev);
 	if (ret) {
@@ -1481,6 +1472,19 @@ VIRTIO_PRINT_MARKER, label);
 		return -ENOMEM;
 	}
 
+	spin_lock(&vb_dev->lock);
+	if (!vb_dev->config_data || size < vb_dev->config_size) {
+		pr_err("%s: Incorrect config_data for dev %u\n",
+				VIRTIO_PRINT_MARKER, label);
+		spin_unlock(&vb_dev->lock);
+		iounmap(vb_dev->config_shared_buf);
+		free_irq(linux_irq, vb_dev);
+		unshare_vm_buffers(vm, vmid);
+		mutex_unlock(&vb_dev->mutex);
+		vb_dev_put(vb_dev);
+		return -EINVAL;
+	}
+
 	p = (u32 *)vb_dev->config_shared_buf;
 	q = (u32 *)vb_dev->config_data;
 	nr_words = vb_dev->config_size / 4;
@@ -1488,6 +1492,7 @@ VIRTIO_PRINT_MARKER, label);
 	for (i = 0; i < nr_words; ++i)
 		writel_relaxed(*q++, p++);
 
+	spin_unlock(&vb_dev->lock);
 	p = (u32 *)vb_dev->config_shared_buf;
 	for (i = 0; i < nr_words; ++i)
 		pr_debug("%s: config_word %d %x\n", VIRTIO_PRINT_MARKER, i, readl_relaxed(p++));
