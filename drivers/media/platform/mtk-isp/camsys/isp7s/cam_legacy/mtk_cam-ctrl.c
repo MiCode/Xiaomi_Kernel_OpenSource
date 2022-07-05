@@ -5399,7 +5399,9 @@ static int timer_reqdrained_chk(int fps_ratio, int sub_sample)
 
 	if (sub_sample > 0) {
 		if (fps_ratio > 1)
-			timer_ms = SENSOR_SET_DEADLINE_MS;
+			timer_ms = (fps_ratio / (sub_sample + 1) == 2) ?
+						SENSOR_SET_DEADLINE_MS_60FPS :
+						SENSOR_SET_DEADLINE_MS;
 		else
 			timer_ms = SENSOR_SET_DEADLINE_MS * fps_ratio;
 	} else {
@@ -5420,7 +5422,9 @@ static int timer_setsensor(int fps_ratio, int sub_sample)
 
 	if (sub_sample > 0) {
 		if (fps_ratio > 1)
-			timer_ms = SENSOR_SET_RESERVED_MS;
+			timer_ms = (fps_ratio / (sub_sample + 1) == 2) ?
+						SENSOR_SET_RESERVED_MS_60FPS :
+						SENSOR_SET_RESERVED_MS;
 		else
 			timer_ms = SENSOR_SET_RESERVED_MS * fps_ratio;
 	} else {
@@ -5505,8 +5509,8 @@ int mtk_camsys_ctrl_start(struct mtk_cam_ctx *ctx)
 	}
 	kthread_init_work(&camsys_sensor_ctrl->work, mtk_cam_sensor_worker_in_sensorctrl);
 
-	dev_info(ctx->cam->dev, "[%s] ctx:%d/raw_dev:0x%x drained/sensor (%d)%d/%d\n",
-		__func__, ctx->stream_id, ctx->used_raw_dev, fps_factor,
+	dev_info(ctx->cam->dev, "[%s] ctx:%d/raw_dev:0x%x fps_ratio/sub_ratio:%d/%d drained/sensor:%d/%d\n",
+		__func__, ctx->stream_id, ctx->used_raw_dev, fps_factor, sub_ratio,
 		camsys_sensor_ctrl->timer_req_event, camsys_sensor_ctrl->timer_req_sensor);
 
 	return 0;
