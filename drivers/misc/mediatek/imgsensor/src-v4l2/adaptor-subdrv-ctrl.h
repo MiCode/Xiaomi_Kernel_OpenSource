@@ -5,9 +5,33 @@
 #define __ADAPTOR_SUBDRV_CTRL_H__
 
 #include "adaptor-subdrv.h"
-#define LOG_INF(format, args...) do { if (0) pr_debug("[%s] " format, __func__, ##args); } while (0)
-#define LOG_DBG(format, args...) pr_debug("[%s] " format, __func__, ##args)
-#define LOG_ERR(format, args...) pr_debug("[%s] error: " format, __func__, ##args)
+
+#define DRV_LOG(ctx, format, args...) do { \
+	struct v4l2_subdev *_sd = NULL; \
+	struct adaptor_ctx *_adaptor_ctx = NULL; \
+	if (ctx->i2c_client) \
+		_sd = i2c_get_clientdata(ctx->i2c_client); \
+	if (_sd) \
+		_adaptor_ctx = to_ctx(_sd); \
+	if (_adaptor_ctx && (_adaptor_ctx)->subdrv \
+		&& unlikely(*((_adaptor_ctx)->sensor_debug_flag))) { \
+		dev_info(_adaptor_ctx->dev, "[%s][%s] " format, \
+			(_adaptor_ctx)->subdrv->name, __func__, ##args); \
+	} \
+} while (0)
+
+#define DRV_LOGE(ctx, format, args...) do { \
+	struct v4l2_subdev *_sd = NULL; \
+	struct adaptor_ctx *_adaptor_ctx = NULL; \
+	if (ctx->i2c_client) \
+		_sd = i2c_get_clientdata(ctx->i2c_client); \
+	if (_sd) \
+		_adaptor_ctx = to_ctx(_sd); \
+	if (_adaptor_ctx && (_adaptor_ctx)->subdrv) { \
+		dev_info(_adaptor_ctx->dev, "[%s][%s] error: " format, \
+			(_adaptor_ctx)->subdrv->name, __func__, ##args); \
+	} \
+} while (0)
 
 void check_current_scenario_id_bound(struct subdrv_ctx *ctx);
 void i2c_table_write(struct subdrv_ctx *ctx, u16 *list, u32 len);

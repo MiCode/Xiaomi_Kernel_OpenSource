@@ -1614,7 +1614,7 @@ static void set_sensor_cali(void *arg)
 			subdrv_i2c_wr_u8(ctx, 0x86A9, 0x4E);
 			subdrv_i2c_wr_seq_p8(ctx, addr, pbuf, size);
 			subdrv_i2c_wr_u8(ctx, 0x32D2, 0x01);
-			LOG_DBG("set QSC calibration data done.");
+			DRV_LOG(ctx, "set QSC calibration data done.");
 		} else {
 			subdrv_i2c_wr_u8(ctx, 0x32D2, 0x00);
 		}
@@ -1638,7 +1638,7 @@ static int get_sensor_temperature(void *arg)
 	else
 		temperature_convert = (char)temperature | 0xFFFFFF0;
 
-	LOG_INF("temperature: %d degrees\n", temperature_convert);
+	DRV_LOG(ctx, "temperature: %d degrees\n", temperature_convert);
 	return temperature_convert;
 }
 
@@ -1664,34 +1664,34 @@ static void imx766dual_seamless_switch(struct subdrv_ctx *ctx, u8 *para, u32 *le
 	u64 *feature_data = (u64 *)para;
 
 	if (feature_data == NULL) {
-		LOG_ERR("input scenario is null!");
+		DRV_LOGE(ctx, "input scenario is null!");
 		return;
 	}
 	scenario_id = *feature_data;
 	if ((feature_data + 1) != NULL)
 		ae_ctrl = (u32 *)((uintptr_t)(*(feature_data + 1)));
 	else
-		LOG_ERR("no ae_ctrl input");
+		DRV_LOGE(ctx, "no ae_ctrl input");
 
 	check_current_scenario_id_bound(ctx);
-	LOG_DBG("E: set seamless switch %u %u\n", ctx->current_scenario_id, scenario_id);
+	DRV_LOG(ctx, "E: set seamless switch %u %u\n", ctx->current_scenario_id, scenario_id);
 	if (!ctx->extend_frame_length_en)
-		LOG_ERR("please extend_frame_length before seamless_switch!\n");
+		DRV_LOGE(ctx, "please extend_frame_length before seamless_switch!\n");
 	ctx->extend_frame_length_en = FALSE;
 
 	if (scenario_id >= ctx->s_ctx.sensor_mode_num) {
-		LOG_ERR("invalid sid:%u, mode_num:%u\n",
+		DRV_LOGE(ctx, "invalid sid:%u, mode_num:%u\n",
 			scenario_id, ctx->s_ctx.sensor_mode_num);
 		return;
 	}
 	if (ctx->s_ctx.mode[scenario_id].seamless_switch_group == 0 ||
 		ctx->s_ctx.mode[scenario_id].seamless_switch_group !=
 			ctx->s_ctx.mode[ctx->current_scenario_id].seamless_switch_group) {
-		LOG_ERR("seamless_switch not supported\n");
+		DRV_LOGE(ctx, "seamless_switch not supported\n");
 		return;
 	}
 	if (ctx->s_ctx.mode[scenario_id].seamless_switch_mode_setting_table == NULL) {
-		LOG_ERR("Please implement seamless_switch setting\n");
+		DRV_LOGE(ctx, "Please implement seamless_switch setting\n");
 		return;
 	}
 
@@ -1725,7 +1725,7 @@ static void imx766dual_seamless_switch(struct subdrv_ctx *ctx, u8 *para, u32 *le
 	ctx->fast_mode_on = TRUE;
 	ctx->ref_sof_cnt = ctx->sof_cnt;
 	ctx->is_seamless = FALSE;
-	LOG_DBG("X: set seamless switch done\n");
+	DRV_LOG(ctx, "X: set seamless switch done\n");
 }
 
 static void imx766dual_set_test_pattern(struct subdrv_ctx *ctx, u8 *para, u32 *len)
@@ -1733,7 +1733,7 @@ static void imx766dual_set_test_pattern(struct subdrv_ctx *ctx, u8 *para, u32 *l
 	u32 mode = *((u32 *)para);
 
 	if (mode != ctx->test_pattern)
-		LOG_INF("mode(%u->%u)\n", ctx->test_pattern, mode);
+		DRV_LOG(ctx, "mode(%u->%u)\n", ctx->test_pattern, mode);
 	/* 1:Solid Color 2:Color Bar 5:Black */
 	switch (mode) {
 	case 5:
@@ -1774,7 +1774,7 @@ static int get_imgsensor_id(struct subdrv_ctx *ctx, u32 *sensor_id)
 				subdrv_i2c_rd_u8(ctx, addr_l);
 			if (addr_ll)
 				*sensor_id = ((*sensor_id) << 8) | subdrv_i2c_rd_u8(ctx, addr_ll);
-			LOG_DBG("i2c_write_id(0x%x) sensor_id(0x%x/0x%x)\n",
+			DRV_LOG(ctx, "i2c_write_id(0x%x) sensor_id(0x%x/0x%x)\n",
 				ctx->i2c_write_id, *sensor_id, ctx->s_ctx.sensor_id);
 			if (*sensor_id == IMX766_SENSOR_ID) {
 				*sensor_id = ctx->s_ctx.sensor_id;
@@ -1805,7 +1805,7 @@ static void imx766dual_get_stagger_target_scenario(struct subdrv_ctx *ctx, u8 *p
 		return;
 
 	if (scenario_id >= ctx->s_ctx.sensor_mode_num) {
-		LOG_INF("invalid sid:%u, mode_num:%u\n",
+		DRV_LOG(ctx, "invalid sid:%u, mode_num:%u\n",
 			scenario_id, ctx->s_ctx.sensor_mode_num);
 		return;
 	}
@@ -1817,7 +1817,7 @@ static void imx766dual_get_stagger_target_scenario(struct subdrv_ctx *ctx, u8 *p
 		(ctx->s_ctx.mode[i].hdr_group == group) &&
 		(ctx->s_ctx.mode[i].hdr_mode == hdr_mode)) {
 			*pScenarios = i;
-			LOG_INF("sid(input/output):%u/%u, hdr_mode:%u\n",
+			DRV_LOG(ctx, "sid(input/output):%u/%u, hdr_mode:%u\n",
 				scenario_id, *pScenarios, hdr_mode);
 			break;
 		}
@@ -1835,12 +1835,12 @@ static int init_ctx(struct subdrv_ctx *ctx,	struct i2c_client *i2c_client, u8 i2
 
 static int vsync_notify(struct subdrv_ctx *ctx,	unsigned int sof_cnt)
 {
-	LOG_INF("sof_cnt(%u) ctx->ref_sof_cnt(%u) ctx->fast_mode_on(%d)",
+	DRV_LOG(ctx, "sof_cnt(%u) ctx->ref_sof_cnt(%u) ctx->fast_mode_on(%d)",
 		sof_cnt, ctx->ref_sof_cnt, ctx->fast_mode_on);
 	if (ctx->fast_mode_on && (sof_cnt > ctx->ref_sof_cnt)) {
 		ctx->fast_mode_on = FALSE;
 		ctx->ref_sof_cnt = 0;
-		LOG_INF("seamless_switch disabled.");
+		DRV_LOG(ctx, "seamless_switch disabled.");
 		set_i2c_buffer(ctx, 0x3010, 0x00);
 		commit_i2c_buffer(ctx);
 	}

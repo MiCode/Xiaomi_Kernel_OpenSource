@@ -428,7 +428,7 @@ static void s5k3p9sp_set_test_pattern(struct subdrv_ctx *ctx, u8 *para, u32 *len
 	u32 mode = *((u32 *)para);
 
 	if (mode != ctx->test_pattern)
-		LOG_INF("mode(%u->%u)\n", ctx->test_pattern, mode);
+		DRV_LOG(ctx, "mode(%u->%u)\n", ctx->test_pattern, mode);
 	/* 1:Solid Color 2:Color Bar 5:Black */
 	if (mode)
 		subdrv_i2c_wr_u16(ctx, 0x0600, mode); /*100% Color bar*/
@@ -451,7 +451,7 @@ static void s5k3p9sp_set_test_pattern_data(struct subdrv_ctx *ctx, u8 *para, u32
 	subdrv_i2c_wr_u16(ctx, 0x0606, Gb);
 	subdrv_i2c_wr_u16(ctx, 0x0608, B);
 
-	LOG_INF("mode(%u) R/Gr/Gb/B = 0x%04x/0x%04x/0x%04x/0x%04x\n",
+	DRV_LOG(ctx, "mode(%u) R/Gr/Gb/B = 0x%04x/0x%04x/0x%04x/0x%04x\n",
 		ctx->test_pattern, R, Gr, Gb, B);
 }
 
@@ -467,7 +467,7 @@ static int init_ctx(struct subdrv_ctx *ctx,	struct i2c_client *i2c_client, u8 i2
 
 static void s5k3p9sp_sensor_init(struct subdrv_ctx *ctx)
 {
-	LOG_DBG("E\n");
+	DRV_LOG(ctx, "E\n");
 	subdrv_i2c_wr_u16(ctx, 0x6028, 0x4000);
 	subdrv_i2c_wr_u16(ctx, 0x6010, 0x0001);
 	mdelay(3);
@@ -600,7 +600,7 @@ static void s5k3p9sp_sensor_init(struct subdrv_ctx *ctx)
 	subdrv_i2c_wr_u16(ctx, 0xB134, 0x0000);
 	subdrv_i2c_wr_u16(ctx, 0xB136, 0x0000);
 	subdrv_i2c_wr_u16(ctx, 0xB138, 0x0000);
-	LOG_DBG("X\n");
+	DRV_LOG(ctx, "X\n");
 }
 
 static int open(struct subdrv_ctx *ctx)

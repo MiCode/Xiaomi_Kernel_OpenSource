@@ -1260,7 +1260,7 @@ static void set_sensor_cali(void *arg)
 			size = 720;
 			addr = 0x5900;
 			subdrv_i2c_wr_seq_p8(ctx, addr, pbuf, size);
-			LOG_DBG("set PDC calibration data done.");
+			DRV_LOG(ctx, "set PDC calibration data done.");
 		}
 	}
 }
@@ -1275,7 +1275,7 @@ static int get_sensor_temperature(void *arg)
 	temperature = subdrv_i2c_rd_u8(ctx, ctx->s_ctx.reg_addr_temp_read);
 	temperature = (temperature > 0xC0) ? (temperature - 0x100) : temperature;
 
-	LOG_INF("temperature: %d degrees\n", temperature);
+	DRV_LOG(ctx, "temperature: %d degrees\n", temperature);
 	return temperature;
 }
 
@@ -1303,34 +1303,34 @@ static void ov48b_seamless_switch(struct subdrv_ctx *ctx, u8 *para, u32 *len)
 	u64 *feature_data = (u64 *)para;
 
 	if (feature_data == NULL) {
-		LOG_ERR("input scenario is null!");
+		DRV_LOGE(ctx, "input scenario is null!");
 		return;
 	}
 	scenario_id = *feature_data;
 	if ((feature_data + 1) != NULL)
 		ae_ctrl = (u32 *)((uintptr_t)(*(feature_data + 1)));
 	else
-		LOG_ERR("no ae_ctrl input");
+		DRV_LOGE(ctx, "no ae_ctrl input");
 
 	check_current_scenario_id_bound(ctx);
-	LOG_DBG("E: set seamless switch %u %u\n", ctx->current_scenario_id, scenario_id);
+	DRV_LOG(ctx, "E: set seamless switch %u %u\n", ctx->current_scenario_id, scenario_id);
 	if (!ctx->extend_frame_length_en)
-		LOG_ERR("please extend_frame_length before seamless_switch!\n");
+		DRV_LOGE(ctx, "please extend_frame_length before seamless_switch!\n");
 	ctx->extend_frame_length_en = FALSE;
 
 	if (scenario_id >= ctx->s_ctx.sensor_mode_num) {
-		LOG_ERR("invalid sid:%u, mode_num:%u\n",
+		DRV_LOGE(ctx, "invalid sid:%u, mode_num:%u\n",
 			scenario_id, ctx->s_ctx.sensor_mode_num);
 		return;
 	}
 	if (ctx->s_ctx.mode[scenario_id].seamless_switch_group == 0 ||
 		ctx->s_ctx.mode[scenario_id].seamless_switch_group !=
 			ctx->s_ctx.mode[ctx->current_scenario_id].seamless_switch_group) {
-		LOG_ERR("seamless_switch not supported\n");
+		DRV_LOGE(ctx, "seamless_switch not supported\n");
 		return;
 	}
 	if (ctx->s_ctx.mode[scenario_id].seamless_switch_mode_setting_table == NULL) {
-		LOG_ERR("Please implement seamless_switch setting\n");
+		DRV_LOGE(ctx, "Please implement seamless_switch setting\n");
 		return;
 	}
 
@@ -1356,7 +1356,7 @@ static void ov48b_seamless_switch(struct subdrv_ctx *ctx, u8 *para, u32 *len)
 		ARRAY_SIZE(addr_data_pair_seamless_switch_step3_ov48b2q));
 
 	ctx->is_seamless = FALSE;
-	LOG_DBG("X: set seamless switch done\n");
+	DRV_LOG(ctx, "X: set seamless switch done\n");
 }
 
 static void ov48b_set_test_pattern(struct subdrv_ctx *ctx, u8 *para, u32 *len)
@@ -1364,7 +1364,7 @@ static void ov48b_set_test_pattern(struct subdrv_ctx *ctx, u8 *para, u32 *len)
 	u32 mode = *((u32 *)para);
 
 	if (mode != ctx->test_pattern)
-		LOG_INF("mode(%u->%u)\n", ctx->test_pattern, mode);
+		DRV_LOG(ctx, "mode(%u->%u)\n", ctx->test_pattern, mode);
 	/* 1:Solid Color 2:Color Bar 5:Black */
 	switch (mode) {
 	case 2:
