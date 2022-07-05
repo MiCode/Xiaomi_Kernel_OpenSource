@@ -612,6 +612,12 @@ mtk8250_set_termios(struct uart_port *port, struct ktermios *termios,
 	int mode;
 	struct mtk8250_data *data = port->private_data;
 
+	if (data->clk_count == 0) {
+		pr_info("debug: %s: clk_count = %d, please open ttys[%d]\n", __func__,
+			data->clk_count, data->line);
+		return;
+	}
+
 #ifdef CONFIG_SERIAL_8250_DMA
 	if (up->dma) {
 		if (uart_console(port)) {
