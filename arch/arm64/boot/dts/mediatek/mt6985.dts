@@ -7038,7 +7038,7 @@
 			mdp-opp = <&opp_table_mdp>;
 			operating-points-v2 = <&opp_table_mdp>;
 			mdp-dvfsrc-vcore-supply = <&dvfsrc_vcore>;
-			dre30-hist-sram-start = <1536>;
+			dre30-hist-sram-start = /bits/ 16 <1536>;
 		};
 
 		mdp_mutex0: mdp-mutex0@1f001000 {
