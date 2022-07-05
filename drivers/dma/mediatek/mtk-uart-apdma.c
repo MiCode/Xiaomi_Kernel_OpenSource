@@ -85,6 +85,9 @@ struct uart_info {
 	unsigned long long trans_time;
 };
 
+void __iomem *debug_reg;
+#define DEBUG_CLK 0x11036014
+
 struct mtk_uart_apdmacomp {
 	unsigned int addr_bits;
 };
@@ -302,6 +305,7 @@ static void mtk_uart_apdma_rx_handler(struct mtk_chan *c)
 	int cnt;
 	unsigned int idx = 0;
 
+	pr_info("debug: %s: 0x%x = 0x%x\n", __func__, DEBUG_CLK, readl(debug_reg));
 	mtk_uart_apdma_write(c, VFF_INT_FLAG, VFF_RX_INT_CLR_B);
 
 	if (!mtk_uart_apdma_read(c, VFF_VALID_SIZE))
@@ -657,6 +661,8 @@ static int mtk_uart_apdma_probe(struct platform_device *pdev)
 	mtkd->ddev.residue_granularity = DMA_RESIDUE_GRANULARITY_SEGMENT;
 	mtkd->ddev.dev = &pdev->dev;
 	INIT_LIST_HEAD(&mtkd->ddev.channels);
+
+	debug_reg = ioremap(DEBUG_CLK, 0x10);
 
 	mtkd->dma_requests = MTK_UART_APDMA_NR_VCHANS;
 	if (of_property_read_u32(np, "dma-requests", &mtkd->dma_requests)) {
