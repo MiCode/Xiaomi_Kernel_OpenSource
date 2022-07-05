@@ -150,3 +150,8 @@ config F2FS_UNFAIR_RWSEM
 	help
 	  Use unfair rw_semaphore, if system configured IO priority by block
 	  cgroup.
+
+config MTK_F2FS_DEBUG
+	bool "mtk F2FS debug patch for userdebug and eng load"
+	help
+	  mtk F2FS debug patch for userdebug and eng load

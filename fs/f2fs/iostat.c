@@ -91,8 +91,15 @@ static inline void __record_iostat_latency(struct f2fs_sb_info *sbi)
 	unsigned int cnt;
 	struct f2fs_iostat_latency iostat_lat[MAX_IO_TYPE][NR_PAGE_TYPE];
 	struct iostat_lat_info *io_lat = sbi->iostat_io_lat;
+#if IS_ENABLED(CONFIG_MTK_F2FS_DEBUG)
+	unsigned long flags;
+#endif
 
+#if IS_ENABLED(CONFIG_MTK_F2FS_DEBUG)
+	spin_lock_irqsave(&sbi->iostat_lat_lock, flags);
+#else
 	spin_lock_bh(&sbi->iostat_lat_lock);
+#endif
 	for (idx = 0; idx < MAX_IO_TYPE; idx++) {
 		for (io = 0; io < NR_PAGE_TYPE; io++) {
 			cnt = io_lat->bio_cnt[idx][io];
@@ -106,7 +113,11 @@ static inline void __record_iostat_latency(struct f2fs_sb_info *sbi)
 			io_lat->bio_cnt[idx][io] = 0;
 		}
 	}
+#if IS_ENABLED(CONFIG_MTK_F2FS_DEBUG)
+	spin_unlock_irqrestore(&sbi->iostat_lat_lock, flags);
+#else
 	spin_unlock_bh(&sbi->iostat_lat_lock);
+#endif
 
 	trace_f2fs_iostat_latency(sbi, iostat_lat);
 }
@@ -115,16 +126,27 @@ static inline void f2fs_record_iostat(struct f2fs_sb_info *sbi)
 {
 	unsigned long long iostat_diff[NR_IO_TYPE];
 	int i;
+#if IS_ENABLED(CONFIG_MTK_F2FS_DEBUG)
+	unsigned long flags;
+#endif
 
 	if (time_is_after_jiffies(sbi->iostat_next_period))
 		return;
 
 	/* Need double check under the lock */
+#if IS_ENABLED(CONFIG_MTK_F2FS_DEBUG)
+	spin_lock_irqsave(&sbi->iostat_lock, flags);
+	if (time_is_after_jiffies(sbi->iostat_next_period)) {
+		spin_unlock_irqrestore(&sbi->iostat_lock, flags);
+		return;
+	}
+#else
 	spin_lock_bh(&sbi->iostat_lock);
 	if (time_is_after_jiffies(sbi->iostat_next_period)) {
 		spin_unlock_bh(&sbi->iostat_lock);
 		return;
 	}
+#endif
 	sbi->iostat_next_period = jiffies +
 				msecs_to_jiffies(sbi->iostat_period_ms);
 
@@ -133,7 +155,11 @@ static inline void f2fs_record_iostat(struct f2fs_sb_info *sbi)
 				sbi->prev_rw_iostat[i];
 		sbi->prev_rw_iostat[i] = sbi->rw_iostat[i];
 	}
+#if IS_ENABLED(CONFIG_MTK_F2FS_DEBUG)
+	spin_unlock_irqrestore(&sbi->iostat_lock, flags);
+#else
 	spin_unlock_bh(&sbi->iostat_lock);
+#endif
 
 	trace_f2fs_iostat(sbi, iostat_diff);
 
@@ -145,25 +171,45 @@ void f2fs_reset_iostat(struct f2fs_sb_info *sbi)
 	struct iostat_lat_info *io_lat = sbi->iostat_io_lat;
 	int i;
 
+#if IS_ENABLED(CONFIG_MTK_F2FS_DEBUG)
+	spin_lock_irq(&sbi->iostat_lock);
+#else
 	spin_lock_bh(&sbi->iostat_lock);
+#endif
 	for (i = 0; i < NR_IO_TYPE; i++) {
 		sbi->rw_iostat[i] = 0;
 		sbi->prev_rw_iostat[i] = 0;
 	}
+#if IS_ENABLED(CONFIG_MTK_F2FS_DEBUG)
+	spin_unlock_irq(&sbi->iostat_lock);
+
+	spin_lock_irq(&sbi->iostat_lat_lock);
+	memset(io_lat, 0, sizeof(struct iostat_lat_info));
+	spin_unlock_irq(&sbi->iostat_lat_lock);
+#else
 	spin_unlock_bh(&sbi->iostat_lock);
 
 	spin_lock_bh(&sbi->iostat_lat_lock);
 	memset(io_lat, 0, sizeof(struct iostat_lat_info));
 	spin_unlock_bh(&sbi->iostat_lat_lock);
+#endif
 }
 
 void f2fs_update_iostat(struct f2fs_sb_info *sbi,
 			enum iostat_type type, unsigned long long io_bytes)
 {
+#if IS_ENABLED(CONFIG_MTK_F2FS_DEBUG)
+	unsigned long flags;
+#endif
+
 	if (!sbi->iostat_enable)
 		return;
 
+#if IS_ENABLED(CONFIG_MTK_F2FS_DEBUG)
+	spin_lock_irqsave(&sbi->iostat_lock, flags);
+#else
 	spin_lock_bh(&sbi->iostat_lock);
+#endif
 	sbi->rw_iostat[type] += io_bytes;
 
 	if (type == APP_BUFFERED_IO || type == APP_DIRECT_IO)
@@ -172,7 +218,11 @@ void f2fs_update_iostat(struct f2fs_sb_info *sbi,
 	if (type == APP_BUFFERED_READ_IO || type == APP_DIRECT_READ_IO)
 		sbi->rw_iostat[APP_READ_IO] += io_bytes;
 
+#if IS_ENABLED(CONFIG_MTK_F2FS_DEBUG)
+	spin_unlock_irqrestore(&sbi->iostat_lock, flags);
+#else
 	spin_unlock_bh(&sbi->iostat_lock);
+#endif
 
 	f2fs_record_iostat(sbi);
 }
@@ -185,6 +235,9 @@ static inline void __update_iostat_latency(struct bio_iostat_ctx *iostat_ctx,
 	struct f2fs_sb_info *sbi = iostat_ctx->sbi;
 	struct iostat_lat_info *io_lat = sbi->iostat_io_lat;
 	int idx;
+#if IS_ENABLED(CONFIG_MTK_F2FS_DEBUG)
+	unsigned long flags;
+#endif
 
 	if (!sbi->iostat_enable)
 		return;
@@ -202,12 +255,20 @@ static inline void __update_iostat_latency(struct bio_iostat_ctx *iostat_ctx,
 			idx = WRITE_ASYNC_IO;
 	}
 
+#if IS_ENABLED(CONFIG_MTK_F2FS_DEBUG)
+	spin_lock_irqsave(&sbi->iostat_lat_lock, flags);
+#else
 	spin_lock_bh(&sbi->iostat_lat_lock);
+#endif
 	io_lat->sum_lat[idx][iotype] += ts_diff;
 	io_lat->bio_cnt[idx][iotype]++;
 	if (ts_diff > io_lat->peak_lat[idx][iotype])
 		io_lat->peak_lat[idx][iotype] = ts_diff;
+#if IS_ENABLED(CONFIG_MTK_F2FS_DEBUG)
+	spin_unlock_irqrestore(&sbi->iostat_lat_lock, flags);
+#else
 	spin_unlock_bh(&sbi->iostat_lat_lock);
+#endif
 }
 
 void iostat_update_and_unbind_ctx(struct bio *bio, int rw)
