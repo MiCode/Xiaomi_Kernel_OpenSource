@@ -539,6 +539,9 @@ int mtk_cam_seninf_get_csi_param(struct seninf_ctx *ctx)
 	struct mtk_csi_param *csi_param = &ctx->csi_param;
 	struct v4l2_subdev *sensor_sd = ctx->sensor_sd;
 	struct v4l2_ctrl *ctrl;
+#if AOV_GET_PARAM
+	struct seninf_core *core = ctx->core;
+#endif
 
 	if (!ctx->sensor_sd)
 		return -EINVAL;
@@ -564,13 +567,15 @@ int mtk_cam_seninf_get_csi_param(struct seninf_ctx *ctx)
 		csi_param->dphy_csi2_resync_dmy_cycle);
 
 #if AOV_GET_PARAM
-	g_aov_param.cphy_settle = csi_param->cphy_settle;
-	g_aov_param.dphy_clk_settle = csi_param->dphy_clk_settle;
-	g_aov_param.dphy_data_settle = csi_param->dphy_data_settle;
-	g_aov_param.dphy_trail = csi_param->dphy_trail;
-	g_aov_param.legacy_phy = csi_param->legacy_phy;
-	g_aov_param.not_fixed_trail_settle = csi_param->not_fixed_trail_settle;
-	g_aov_param.dphy_csi2_resync_dmy_cycle = csi_param->dphy_csi2_resync_dmy_cycle;
+	if (core->current_sensor_id == core->aov_sensor_id) {
+		g_aov_param.cphy_settle = csi_param->cphy_settle;
+		g_aov_param.dphy_clk_settle = csi_param->dphy_clk_settle;
+		g_aov_param.dphy_data_settle = csi_param->dphy_data_settle;
+		g_aov_param.dphy_trail = csi_param->dphy_trail;
+		g_aov_param.legacy_phy = csi_param->legacy_phy;
+		g_aov_param.not_fixed_trail_settle = csi_param->not_fixed_trail_settle;
+		g_aov_param.dphy_csi2_resync_dmy_cycle = csi_param->dphy_csi2_resync_dmy_cycle;
+	}
 #endif
 
 	return 0;
@@ -1185,6 +1190,9 @@ int mtk_cam_seninf_s_stream_mux(struct seninf_ctx *ctx)
 	struct seninf_vc *vc;
 	int intf = ctx->seninfIdx;
 	int i;
+#if AOV_GET_PARAM
+	struct seninf_core *core = ctx->core;
+#endif
 
 	for (i = 0; i < vcinfo->cnt; i++) {
 		vc = &vcinfo->vc[i];
@@ -1197,16 +1205,12 @@ int mtk_cam_seninf_s_stream_mux(struct seninf_ctx *ctx)
 		}
 
 		if (ctx->is_aov_real_sensor) {
-			vc->cam = 33;	// TO-DO(MTK): fix cammux2camtype
-			vc->mux = 5;	// TO-DO(MTK): fix mtk_cam_seninf_mux_get_by_type
-			vc->mux_vr = 33;	// TO-DO(MTK): fix mux2mux_vr
-			vc->pixel_mode = 0;	// real sensor: imx709 support camtg only 1 pix
-			g_aov_param.camtg = 33;
-			dev_info(ctx->dev,
-				"vc[%d] pad[%d] intf[%d] mux[%d] mux_vr[%d] cam[%d] vc[0x%x] dt[0x%x]\n",
-				i, vc->out_pad, intf, vc->mux, vc->mux_vr, vc->cam,
-				vc->vc, vc->dt);
-			break;
+			if (core->current_sensor_id == core->aov_sensor_id) {
+				dev_info(ctx->dev,
+					"[%s] aov streaming mux & cammux workaround on scp\n",
+					__func__);
+				break;
+			}
 		}
 
 		if (vc->cam != 0xff) {
@@ -1612,6 +1616,14 @@ int mtk_cam_seninf_s_aov_param(unsigned int sensor_id,
 	}
 
 	g_aov_param.vc = *vc;
+	/* workaround */
+	if (!g_aov_param.is_test_model) {
+		g_aov_param.vc.mux = 5;
+		g_aov_param.vc.mux_vr = 33;
+		g_aov_param.vc.cam = 33;
+		g_aov_param.vc.pixel_mode = 0;
+		g_aov_param.camtg = 33;
+	}
 	/* debug use
 	 * pr_info("out_pad %d\n", g_aov_param.vc.out_pad);
 	 */

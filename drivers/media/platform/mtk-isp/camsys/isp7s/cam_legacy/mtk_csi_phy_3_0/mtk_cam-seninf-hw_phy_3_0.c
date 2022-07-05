@@ -37,10 +37,6 @@
 
 static struct mtk_cam_seninf_ops *_seninf_ops = &mtk_csi_phy_3_0;
 
-
-
-
-
 #define SET_DI_CTRL(ptr, s, vc) do { \
 	SENINF_BITS(ptr, SENINF_CSI2_S##s##_DI_CTRL, \
 			RG_CSI2_S##s##_DT_SEL, vc->dt); \

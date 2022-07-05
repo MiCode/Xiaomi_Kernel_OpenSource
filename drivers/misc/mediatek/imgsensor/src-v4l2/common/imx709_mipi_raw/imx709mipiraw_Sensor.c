@@ -1287,7 +1287,7 @@ static kal_uint32 streaming_control(struct subdrv_ctx *ctx, kal_bool enable)
 							ret);
 					else
 						LOG_INF("pwr_seq_reset_sens_to_viewing correct\n");
-					sensor_init(ctx);
+					// sensor_init(ctx);
 				}
 			}
 			stream_refcnt_for_aov = 0;
@@ -2608,17 +2608,23 @@ static int feature_control(struct subdrv_ctx *ctx,
 	MSDK_SENSOR_REG_INFO_STRUCT *sensor_reg_data
 		= (MSDK_SENSOR_REG_INFO_STRUCT *) feature_para;
 
+	// DEBUG_LOG(ctx, "E! feature_id[%u]\n", feature_id);
+
 	switch (feature_id) {
 	case SENSOR_FEATURE_GET_OUTPUT_FORMAT_BY_SCENARIO:
 		switch (*feature_data) {
+		case SENSOR_SCENARIO_ID_CUSTOM1:
+		case SENSOR_SCENARIO_ID_CUSTOM2:
+		case SENSOR_SCENARIO_ID_CUSTOM3:
+			*(feature_data + 1)
+			= (enum ACDK_SENSOR_OUTPUT_DATA_FORMAT_ENUM)
+				SENSOR_OUTPUT_FORMAT_SENSING_MODE_RAW_MONO;
+			break;
 		case SENSOR_SCENARIO_ID_NORMAL_CAPTURE:
 		case SENSOR_SCENARIO_ID_NORMAL_VIDEO:
 		case SENSOR_SCENARIO_ID_HIGHSPEED_VIDEO:
 		case SENSOR_SCENARIO_ID_SLIM_VIDEO:
 		case SENSOR_SCENARIO_ID_NORMAL_PREVIEW:
-		case SENSOR_SCENARIO_ID_CUSTOM1:
-		case SENSOR_SCENARIO_ID_CUSTOM2:
-		case SENSOR_SCENARIO_ID_CUSTOM3:
 		case SENSOR_SCENARIO_ID_CUSTOM4:
 		case SENSOR_SCENARIO_ID_CUSTOM5:
 		case SENSOR_SCENARIO_ID_CUSTOM6:
@@ -2637,6 +2643,9 @@ static int feature_control(struct subdrv_ctx *ctx,
 				imgsensor_info.sensor_output_dataformat;
 			break;
 		}
+		// DEBUG_LOG(ctx,
+			// "X! GET_OUTPUT_FORMAT_BY_SCENARIO[%u],output_format[%u]\n",
+			// (*feature_data), (*(feature_data + 1)));
 		break;
 	case SENSOR_FEATURE_GET_ANA_GAIN_TABLE:
 		if ((void *)(uintptr_t) (*(feature_data + 1)) == NULL) {
@@ -2651,11 +2660,17 @@ static int feature_control(struct subdrv_ctx *ctx,
 	case SENSOR_FEATURE_GET_GAIN_RANGE_BY_SCENARIO:
 		*(feature_data + 1) = imgsensor_info.min_gain;
 		*(feature_data + 2) = imgsensor_info.max_gain;
+		// DEBUG_LOG(ctx,
+			// "X! GET_GAIN_RANGE_BY_SCENARIO[%u],min_gain[%llu],max_gain[%llu]\n",
+			// (*feature_data), (*(feature_data + 1)), (*(feature_data + 2)));
 		break;
 	case SENSOR_FEATURE_GET_BASE_GAIN_ISO_AND_STEP:
 		*(feature_data + 0) = imgsensor_info.min_gain_iso;
 		*(feature_data + 1) = imgsensor_info.gain_step;
 		*(feature_data + 2) = imgsensor_info.gain_type;
+		// DEBUG_LOG(ctx,
+			// "X! min_gain_iso[%llu],gain_step[%u],gain_type[%u]\n",
+			// (*feature_data + 0), (*(feature_data + 1)), (*(feature_data + 2)));
 		break;
 	case SENSOR_FEATURE_GET_MIN_SHUTTER_BY_SCENARIO:
 		*(feature_data + 1) = imgsensor_info.min_shutter;
@@ -2687,9 +2702,15 @@ static int feature_control(struct subdrv_ctx *ctx,
 			*(feature_data + 2) = 4;
 			break;
 		}
+		// DEBUG_LOG(ctx,
+	// "X! GET_GAIN_RANGE_BY_SCENARIO[%u],min_shutter[%llu],exposure_step_table[%llu]\n",
+	// (*feature_data), (*(feature_data + 1)), (*(feature_data + 2)));
 		break;
 	case SENSOR_FEATURE_GET_OFFSET_TO_START_OF_EXPOSURE:
 		*(MUINT32 *)(uintptr_t)(*(feature_data + 1)) = -27000000;
+		// DEBUG_LOG(ctx,
+			// "X! GET_OFFSET_TO_START_OF_EXPOSURE[%ld]\n",
+			// (*(feature_data + 1)));
 		break;
 	case SENSOR_FEATURE_GET_PIXEL_CLOCK_FREQ_BY_SCENARIO:
 		switch (*feature_data) {
@@ -2733,6 +2754,9 @@ static int feature_control(struct subdrv_ctx *ctx,
 				imgsensor_info.pre.pclk;
 			break;
 		}
+		// DEBUG_LOG(ctx,
+			// "X! GET_PIXEL_CLOCK_FREQ_BY_SCENARIO[%u],pclk[%llu]\n",
+			// (*feature_data), (*(feature_data + 1)));
 		break;
 	case SENSOR_FEATURE_GET_PERIOD_BY_SCENARIO:
 		if (*(feature_data + 2) & SENSOR_GET_LINELENGTH_FOR_READOUT)
@@ -2787,15 +2811,24 @@ static int feature_control(struct subdrv_ctx *ctx,
 				+ imgsensor_info.pre.linelength;
 			break;
 		}
+		// DEBUG_LOG(ctx,
+		// "X! GET_PERIOD_BY_SCENARIO[%u],framelength[%llu],linelength[%llu]\n",
+		// (*feature_data), (*(feature_data + 1) >> 16), (*(feature_data + 1) & 0xffff));
 		break;
 	case SENSOR_FEATURE_GET_PERIOD:
 		*feature_return_para_16++ = ctx->line_length;
 		*feature_return_para_16 = ctx->frame_length;
 		*feature_para_len = 4;
+		// DEBUG_LOG(ctx,
+			// "X! GET_PERIOD,frame_length[%d],line_length[%d]\n",
+			// (*feature_return_para_16), (*(feature_return_para_16 + 1)));
 		break;
 	case SENSOR_FEATURE_GET_PIXEL_CLOCK_FREQ:
 		*feature_return_para_32 = ctx->pclk;
 		*feature_para_len = 4;
+		// DEBUG_LOG(ctx,
+			// "X! GET_PIXEL_CLOCK_FREQ,pclk[%u]\n",
+			// (*feature_return_para_32));
 		break;
 	case SENSOR_FEATURE_SET_ESHUTTER:
 #ifdef AOV_MODE_SENSING
@@ -2805,6 +2838,9 @@ static int feature_control(struct subdrv_ctx *ctx,
 		else
 #endif
 			set_shutter(ctx, *feature_data);
+		// DEBUG_LOG(ctx,
+			// "X! SET_ESHUTTER,shutter[%llu]\n",
+			// (*feature_data));
 		break;
 	case SENSOR_FEATURE_SET_NIGHTMODE:
 		break;
@@ -3094,8 +3130,8 @@ static int feature_control(struct subdrv_ctx *ctx,
 		*feature_para_len = 4;
 		break;
 	case SENSOR_FEATURE_GET_PDAF_REG_SETTING:
-		LOG_DEBUG("SENSOR_FEATURE_GET_PDAF_REG_SETTING %d",
-			(*feature_para_len));
+		// DEBUG_LOG(ctx, "SENSOR_FEATURE_GET_PDAF_REG_SETTING %d",
+			// (*feature_para_len));
 		imx709_get_pdaf_reg_setting(ctx,
 				(*feature_para_len) / sizeof(UINT32),
 				feature_data_16);

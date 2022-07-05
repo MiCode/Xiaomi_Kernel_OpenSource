@@ -23,8 +23,8 @@
 
 struct seninf_ctx;
 
+/* aov sensor use */
 extern struct mtk_seninf_aov_param g_aov_param;
-
 extern struct seninf_ctx *aov_ctx[6];
 
 struct seninf_struct_pair {
@@ -108,6 +108,11 @@ struct seninf_core {
 	unsigned int csi_irq_en_flag;
 	/* enable vsync irq flag */
 	unsigned int vsync_irq_en_flag;
+
+	/* aov sensor use */
+	int pwr_refcnt_for_aov;
+	unsigned int aov_sensor_id;
+	unsigned int current_sensor_id;
 };
 
 struct seninf_ctx {

@@ -100,20 +100,24 @@
 #define SENINF_DEBUG_FL_ALLOC_CAM_MUX 2
 #endif
 
+//	FIX ME: #define it to get aov parameters
 #define AOV_GET_PARAM 1
-// FIX ME: #define it to switch i2c bus aux function on/off when gpio pin ready
+//	FIX ME: #define it to switch i2c bus aux function on/off when gpio pin ready
 #define SENSING_MODE_READY
+//	FIX ME: #define it to enable/disable all clk when run test model
+#define AOV_TEST_MODEL_PM_CLK_ALL_USE_ON_APMCU
+//	FIX ME: #define it to enable/disable all clk when run real sensor
+#define AOV_REAL_SENSOR_PM_CLK_ALL_USE_ON_APMCU
 
-#define AOV_PM_CLK_ALL_USE_ON_APMCU 1	// FIX ME
-#if AOV_PM_CLK_ALL_USE_ON_APMCU
-// FIX ME: #define it to enable pm/clk use on suspend/resume until fix issue done
+/* FIX ME: #define it to enable pm/clk use on aov suspend/resume
+ * #undef it to all on clk
+ */
 #define AOV_SUSPEND_RESUME_USE_PM_CLK
-// FIX ME: #define it when default clk test ready
+
+/* FIX ME: #define it when default clk test ready
+ * #undef it not to set parent
+ */
 #undef AOV_SET_CLK_PARENT
-#else
-#undef AOV_SUSPEND_RESUME_USE_PM_CLK
-#undef AOV_SET_CLK_PARENT
-#endif
 
 enum CSI_PORT {
 	CSI_PORT_0 = 0,
