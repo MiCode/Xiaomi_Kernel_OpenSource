@@ -122,9 +122,9 @@ void ccci_dpmaif_resv_mem_init(void)
 	CCCI_NORMAL_LOG(0, TAG,
 		"[%s] cache_mem: 0x%llX/0x%llX/%u; nocache_mem: 0x%llX/0x%llX/%u\n",
 		__func__, (unsigned long long)g_resv_cache_phy_addr,
-		g_resv_cache_vir_addr, g_resv_cache_mem_size,
+		(unsigned long long)g_resv_cache_vir_addr, g_resv_cache_mem_size,
 		(unsigned long long)g_resv_nocache_phy_addr,
-		g_resv_nocache_vir_addr, g_resv_nocache_mem_size);
+		(unsigned long long)g_resv_nocache_vir_addr, g_resv_nocache_mem_size);
 }
 
 int ccci_dpmaif_get_resv_cache_mem(void **vir_base,
@@ -150,8 +150,8 @@ int ccci_dpmaif_get_resv_cache_mem(void **vir_base,
 	CCCI_NORMAL_LOG(-1, TAG,
 			"[%s] size: %u; offs: %u; phy: 0x%llX; vir: 0x%llX\n",
 			__func__, size, g_resv_cache_mem_offs,
-			phy_base ? (*phy_base) : 0,
-			vir_base ? (*vir_base) : 0);
+			phy_base ? (unsigned long long)(*phy_base) : 0,
+			vir_base ? (unsigned long long)(*vir_base) : 0);
 
 	return 0;
 }
@@ -179,8 +179,8 @@ int ccci_dpmaif_get_resv_nocache_mem(void **vir_base,
 	CCCI_NORMAL_LOG(-1, TAG,
 			"[%s] size: %u; offs: %u; phy: 0x%llX; vir: 0x%llX\n",
 			__func__, size, g_resv_nocache_mem_offs,
-			phy_base ? (*phy_base) : 0,
-			vir_base ? (*vir_base) : 0);
+			phy_base ? (unsigned long long)(*phy_base) : 0,
+			vir_base ? (unsigned long long)(*vir_base) : 0);
 
 	return 0;
 }
