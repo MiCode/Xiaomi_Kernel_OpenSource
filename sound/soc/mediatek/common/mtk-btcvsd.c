@@ -1546,19 +1546,27 @@ static int mtk_btcvsd_snd_probe(struct platform_device *pdev)
 		return ret;
 	}
 	/* get disable_write_silence */
-	ret = of_property_read_u32(dev->of_node, "disable_write_silence",
+	ret = of_property_read_u32(dev->of_node, "disable-write-silence",
 				     &disable_write_silence);
 	if (ret) {
-		dev_dbg(dev, "%s(), get disable_write_silence fail %d, set 0\n"
+		ret = of_property_read_u32(dev->of_node, "disable_write_silence",
+						 &disable_write_silence);
+	}
+	if (ret) {
+		dev_dbg(dev, "%s(), get disable-write-silence fail %d, set 0\n"
 			, __func__, ret);
 	}
 
 	/* get tfa_enable */
-	ret = of_property_read_u32(dev->of_node, "enable_secure_write",
+	ret = of_property_read_u32(dev->of_node, "enable-secure-write",
 				     &enable_secure_write);
 	if (ret) {
+		ret = of_property_read_u32(dev->of_node, "enable_secure_write",
+						 &enable_secure_write);
+	}
+	if (ret) {
 		dev_dbg(dev,
-			"%s(), get enable_secure_write fail %d, set 0\n"
+			"%s(), get enable-secure-write fail %d, set 0\n"
 			, __func__, ret);
 	} else if (enable_secure_write) {
 		/* init mblock for tx data secure write */
