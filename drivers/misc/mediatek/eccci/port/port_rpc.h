@@ -241,6 +241,7 @@ struct eint_node_name {
 struct eint_node_struct {
 	unsigned int ExistFlag;	/* if node exist */
 	struct eint_node_name *name;
+	struct eint_node_name *map_name_for_md;
 	struct eint_struct *eint_value;
 };
 

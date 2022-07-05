@@ -65,24 +65,15 @@ static struct gpio_item gpio_mapping_table[] = {
 		"GPIO-FDD-BAND-SUPPORT-DETECT-9TH-PIN",},
 	{"GPIO_FDD_Band_Support_Detection_A",
 		"GPIO-FDD-BAND-SUPPORT-DETECT-ATH-PIN",},
-	{"GPIO_RF_PWREN_RST_PIN",
-		"GPIO-RF-PWREN-RST-PIN",},
-	{"GPIO_SIM1_HOT_PLUG",
-		"GPIO-SIM1-HOT-PLUG",},
-	{"GPIO_SIM2_HOT_PLUG",
-		"GPIO-SIM2-HOT-PLUG",},
-	{"GPIO_SIM2_SCLK",
-		"GPIO-SIM2-SCLK",},
-	{"GPIO_SIM2_SRST",
-		"GPIO-SIM2-SRST",},
-	{"GPIO_SIM2_SIO",
-		"GPIO-SIM2-SIO",},
-	{"GPIO_SIM1_SIO",
-		"GPIO-SIM1-SIO",},
-	{"GPIO_SIM1_SRST",
-		"GPIO-SIM1-SRST",},
-	{"GPIO_SIM1_SCLK",
-		"GPIO-SIM1-SCLK",},
+	{"GPIO_RF_PWREN_RST_PIN", "GPIO-RF-PWREN-RST-PIN",},
+	{"GPIO_SIM1_HOT_PLUG", "GPIO-SIM1-HOT-PLUG",},
+	{"GPIO_SIM2_HOT_PLUG", "GPIO-SIM2-HOT-PLUG",},
+	{"GPIO_SIM2_SCLK", "GPIO-SIM2-SCLK",},
+	{"GPIO_SIM2_SRST", "GPIO-SIM2-SRST",},
+	{"GPIO_SIM2_SIO", "GPIO-SIM2-SIO",},
+	{"GPIO_SIM1_SIO", "GPIO-SIM1-SIO",},
+	{"GPIO_SIM1_SRST", "GPIO-SIM1-SRST",},
+	{"GPIO_SIM1_SCLK", "GPIO-SIM1-SCLK",},
 };
 
 static int get_md_gpio_val(unsigned int num)
@@ -223,9 +214,18 @@ static struct eint_node_name md_eint_node[] = {
 	{NULL,},
 };
 
+static struct eint_node_name md_map_node[] = {
+	{"MD1_SIM1_HOT_PLUG_EINT", 1,},
+	{"MD1_SIM2_HOT_PLUG_EINT", 2,},
+	{"MD1_SIM3_HOT_PLUG_EINT", 3,},
+	{"MD1_SIM4_HOT_PLUG_EINT", 4,},
+	{NULL,},
+};
+
 struct eint_node_struct eint_node_prop = {
 	0,
 	md_eint_node,
+	md_map_node,
 	md_eint_struct,
 };
 
@@ -334,6 +334,8 @@ int get_eint_attr_DTSVal(const char *name, unsigned int name_len,
 		if ((eint_node_prop.ExistFlag & (1U << i)) == 0)
 			continue;
 		if (!(strncmp(name,
+			eint_node_prop.map_name_for_md[i].node_name, name_len))
+			|| !(strncmp(name,
 			eint_node_prop.name[i].node_name, name_len))) {
 			sim_value =
 			eint_node_prop.eint_value[type].value_sim[i];

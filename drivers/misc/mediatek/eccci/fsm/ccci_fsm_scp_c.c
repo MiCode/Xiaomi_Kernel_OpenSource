@@ -340,7 +340,10 @@ int fsm_ccism_init_ack_handler(int data)
 #ifdef FEATURE_SCP_CCCI_SUPPORT
 	struct ccci_smem_region *ccism_scp =
 		ccci_md_get_smem_by_user_id(SMEM_USER_CCISM_SCP);
-
+	if (!ccism_scp) {
+		CCCI_ERROR_LOG(-1, FSM, "ccism_scp is NULL!\n");
+		return -1;
+	}
 	memset_io(ccism_scp->base_ap_view_vir, 0, ccism_scp->size);
 	ccci_scp_ipi_send(CCCI_OP_SHM_INIT,
 		&ccism_scp->base_ap_view_phy);
@@ -352,7 +355,10 @@ int fsm_ccism_init_ack_handler(int data)
 static int fsm_sim_type_handler(int data)
 {
 	struct ccci_per_md *per_md_data = ccci_get_per_md_data();
-
+	if (!per_md_data) {
+		CCCI_ERROR_LOG(-1, FSM, "per_md_data is NULL!\n");
+		return -1;
+	}
 	per_md_data->sim_type = data;
 	return 0;
 }
@@ -454,7 +460,7 @@ int fsm_scp_init(struct ccci_fsm_scp *scp_ctl, struct device *dev)
 	}
 
 	ret = of_property_read_u32(dev->of_node,
-		"mediatek,scp_clk_free_run", &scp_ctl->scp_clk_free_run);
+		"mediatek,scp-clk-free-run", &scp_ctl->scp_clk_free_run);
 	if (ret < 0)
 		scp_ctl->scp_clk_free_run = 0;
 
