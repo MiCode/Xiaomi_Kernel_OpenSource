@@ -338,12 +338,17 @@ static int apu_probe(struct platform_device *pdev)
 			apu->apu_sec_mem_base = memremap(apu->apusys_sec_mem_start,
 				apu->apusys_sec_mem_size, MEMREMAP_WC);
 
-			ret = of_property_read_u32(np, "up_code_buf_sz",
+			ret = of_property_read_u32(np, "up-code-buf-sz",
 						   &up_code_buf_sz);
 			if (ret) {
-				dev_info(dev, "parsing up_code_buf_sz error: %d\n", ret);
-				ret = -EINVAL;
-				goto out_free_rproc;
+				/* fall back */
+				ret = of_property_read_u32(np, "up_code_buf_sz",
+							   &up_code_buf_sz);
+				if (ret) {
+					dev_info(dev, "parsing up_code_buf_sz error: %d\n", ret);
+					ret = -EINVAL;
+					goto out_free_rproc;
+				}
 			}
 
 			apu->apusys_sec_info = (struct apusys_secure_info_t *)

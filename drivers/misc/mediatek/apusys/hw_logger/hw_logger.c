@@ -168,7 +168,7 @@ static int hw_logger_buf_alloc(struct device *dev)
 		goto out;
 	}
 
-	ret = of_property_read_u32(np, "aov_log_buf_sz",
+	ret = of_property_read_u32(np, "aov-log-buf-sz",
 				   &aov_log_buf_sz);
 	if (ret || (aov_log_buf_sz == 0)) {
 		dev_info(dev, "not support aov_log_buf_sz(%d)(ret = %d)\n",
