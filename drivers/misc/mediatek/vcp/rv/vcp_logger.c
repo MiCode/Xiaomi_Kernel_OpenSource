@@ -242,6 +242,28 @@ ssize_t vcp_A_log_read(char __user *data, size_t len)
 	r_pos = VCP_A_buf_info->r_pos;
 	w_pos = VCP_A_buf_info->w_pos;
 
+	if (strcmp(current->comm, "mobile_log_d.rd") != 0) {
+		buf = ((char *) VCP_A_log_ctl) + VCP_A_log_ctl->buff_ofs;
+
+		pr_notice("[VCP] r %x w %x read last log buff size:%d get size: %d\n",
+			r_pos, w_pos, VCP_A_log_ctl->buff_size, len);
+
+		if (w_pos >= len) {
+			if (copy_to_user(data, (char *)buf + w_pos - len, len))
+				pr_debug("[VCP] copy to user buf failed.. %d\n", __LINE__);
+		} else {
+			buf += VCP_A_log_ctl->buff_size;
+			if (copy_to_user(data, (char *)buf - (len - w_pos), (len - w_pos)))
+				pr_debug("[VCP] copy to user buf failed..%d\n", __LINE__);
+
+			buf = ((char *) VCP_A_log_ctl) + VCP_A_log_ctl->buff_ofs;
+			if (copy_to_user(data + (len - w_pos), (char *)buf, w_pos))
+				pr_debug("[VCP] copy to user buf failed..%d\n", __LINE__);
+		}
+
+		goto error;
+	}
+
 	if (r_pos == w_pos)
 		goto error;
 
@@ -268,7 +290,7 @@ ssize_t vcp_A_log_read(char __user *data, size_t len)
 	len = datalen;
 	/*memory copy from log buf*/
 	if (copy_to_user(data, buf, len))
-		pr_debug("[VCP]copy to user buf failed..\n");
+		pr_debug("[VCP] copy to user buf failed..\n");
 
 	r_pos += datalen;
 	if (r_pos >= DRAM_BUF_LEN)
@@ -344,6 +366,11 @@ static unsigned int vcp_A_log_enable_set(unsigned int enable)
 	struct vcp_logger_ctrl_msg msg;
 
 	if (vcp_A_logger_inited) {
+		if (!vcp_A_last_log) {
+			/* Allocate one more byte for the NULL character. */
+			vcp_A_last_log = vmalloc(last_log_info.vcp_log_buf_maxlen + 1);
+		}
+
 		/*
 		 *send ipi to invoke vcp logger
 		 */
@@ -797,10 +824,6 @@ int vcp_logger_init(phys_addr_t start, phys_addr_t limit)
 
 	/* init last log buffer*/
 	last_log_info.vcp_log_buf_maxlen = LAST_LOG_BUF_SIZE;
-	if (!vcp_A_last_log) {
-		/* Allocate one more byte for the NULL character. */
-		vcp_A_last_log = vmalloc(last_log_info.vcp_log_buf_maxlen + 1);
-	}
 
 	/* register logger ctrl IPI */
 	mtk_ipi_register(&vcp_ipidev, IPI_IN_LOGGER_CTRL,

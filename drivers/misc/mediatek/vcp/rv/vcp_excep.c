@@ -613,7 +613,7 @@ void vcp_aed(enum VCP_RESET_TYPE type, enum vcp_core_id id)
 			vcp_aed_title = "VCP_B timeout reset";
 		break;
 	}
-	// vcp_get_log(id);
+	vcp_get_log(id);
 	/*print vcp message*/
 	pr_debug("vcp_aed_title=%s\n", vcp_aed_title);
 
