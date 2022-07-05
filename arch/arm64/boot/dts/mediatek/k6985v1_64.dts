@@ -202,36 +202,36 @@ mtk_printk_ctrl.disable_uart=0";
 &pio {
 	gps_pins_default: gps_default {
 	};
-	gps_l1_lna_pins_ol: gps_l1_lna@0 {
-		pins_cmd_dat {
+	gps_l1_lna_pins_ol: gps-l1-lna0 {
+		pins-cmd-dat {
 			pinmux = <PINMUX_GPIO16__FUNC_GPIO16>;
 			output-low;
 		};
 	};
-	gps_l1_lna_pins_dsp_ctrl: gps_l1_lna@1 {
-		pins_cmd_dat {
+	gps_l1_lna_pins_dsp_ctrl: gps-l1-lna1 {
+		pins-cmd-dat {
 			pinmux = <PINMUX_GPIO16__FUNC_GPS_L1_ELNA_EN>;
 		};
 	};
-	gps_l1_lna_pins_oh: gps_l1_lna@2 {
-		pins_cmd_dat {
+	gps_l1_lna_pins_oh: gps-l1-lna2 {
+		pins-cmd-dat {
 			pinmux = <PINMUX_GPIO16__FUNC_GPIO16>;
 			output-high;
 		};
 	};
-	gps_l5_lna_pins_ol: gps_l5_lna@0 {
-		pins_cmd_dat {
+	gps_l5_lna_pins_ol: gps-l5-lna0 {
+		pins-cmd-dat {
 			pinmux = <PINMUX_GPIO17__FUNC_GPIO17>;
 			output-low;
 		};
 	};
-	gps_l5_lna_pins_dsp_ctrl: gps_l5_lna@1 {
-		pins_cmd_dat {
+	gps_l5_lna_pins_dsp_ctrl: gps-l5-lna1 {
+		pins-cmd-dat {
 			pinmux = <PINMUX_GPIO17__FUNC_GPS_L5_ELNA_EN>;
 		};
 	};
-	gps_l5_lna_pins_oh: gps_l5_lna@2 {
-		pins_cmd_dat {
+	gps_l5_lna_pins_oh: gps-l5-lna2 {
+		pins-cmd-dat {
 			pinmux = <PINMUX_GPIO17__FUNC_GPIO17>;
 			output-high;
 		};
