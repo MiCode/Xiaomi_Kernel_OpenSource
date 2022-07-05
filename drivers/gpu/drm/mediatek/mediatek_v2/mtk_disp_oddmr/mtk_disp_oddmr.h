@@ -80,10 +80,10 @@ enum MTK_ODDMR_DMR_MODE_TYPE {
 struct mtk_disp_oddmr_data {
 	/* dujac not support update od table */
 	bool is_od_support_table_update;
-	bool is_dmr_support_cup;
 	bool is_support_rtff;
 	bool is_od_support_hw_skip_first_frame;
 	bool is_od_need_crop_garbage;
+	bool is_od_need_force_clk;
 	int tile_overhead;
 	uint32_t dmr_buffer_size;
 	uint32_t odr_buffer_size;
@@ -93,8 +93,8 @@ struct mtk_disp_oddmr_data {
 struct mtk_disp_oddmr_od_data {
 	int od_sram_read_sel;
 	int od_sram_table_idx[2];
-	/* sram0 store lowest table for backup, only update stam1*/
-	struct cmdq_pkt *od_sram1_pkgs[OD_TABLE_MAX];
+	/* TODO: sram 0,1 fixed pkg, need support sram1 update */
+	struct cmdq_pkt *od_sram_pkgs[2];
 	struct mtk_drm_gem_obj *r_channel;
 	struct mtk_drm_gem_obj *g_channel;
 	struct mtk_drm_gem_obj *b_channel;
