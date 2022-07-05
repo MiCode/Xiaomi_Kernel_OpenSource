@@ -20,9 +20,17 @@
 	pinctrl-5 = <&ctp_gt9896s_spi_mode>;
 
 	goodix@0 {
-		compatible = "goodix,gt9896s", "goodix,nottingham";
+		compatible = "novatek,NVT-ts-spi", "goodix,gt9896s", "goodix,nottingham";
 		reg = <0>; //Same as CS ID
 		spi-max-frequency = <1000000>;
+
+		novatek,reset-gpio = <&pio 3 0x00>;
+		novatek,irq-gpio = <&pio 8 0x00>;
+		// 525
+		//novatek,swrst-n8-addr = <0x01f01a>;
+		// 672a, 525b, 675, 526
+		novatek,swrst-n8-addr = <0x03f0fe>;
+		novatek,spi-rd-fast-addr = <0x03f310>;
 
 		goodix,avdd-name = "vtouch";
 		vtouch-supply = <&mt6373_vtp>;
