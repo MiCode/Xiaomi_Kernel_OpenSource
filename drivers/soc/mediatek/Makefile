@@ -3,6 +3,7 @@ ccflags-y += -I$(srctree)/drivers/clk/mediatek/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/mailbox
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/vcp/include/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/vcp/rv/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/mmdvfs
 obj-$(CONFIG_MTK_CMDQ) += mtk-cmdq-helper.o
 obj-$(CONFIG_MTK_DVFSRC) += mtk-dvfsrc.o mtk-dvfsrc-start.o
 obj-$(CONFIG_MTK_IPI) += mtk_tinysys_ipi.o

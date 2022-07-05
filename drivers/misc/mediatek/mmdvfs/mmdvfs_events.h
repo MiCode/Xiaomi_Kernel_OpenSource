@@ -43,6 +43,22 @@ TRACE_EVENT(mmdvfs__record_opp_v3,
 		(unsigned long)__entry->opp)
 );
 
+TRACE_EVENT(mmdvfs__request_opp_v3,
+	TP_PROTO(unsigned long user, unsigned long opp),
+	TP_ARGS(user, opp),
+	TP_STRUCT__entry(
+		__field(unsigned long, user)
+		__field(unsigned long, opp)
+	),
+	TP_fast_assign(
+		__entry->user = user;
+		__entry->opp = opp;
+	),
+	TP_printk("user_%lu=%lu",
+		(unsigned long)__entry->user,
+		(unsigned long)__entry->opp)
+);
+
 #endif /* _TRACE_MMDVFS_EVENTS_H */
 
 #undef TRACE_INCLUDE_FILE

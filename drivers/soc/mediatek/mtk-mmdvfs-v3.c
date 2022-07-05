@@ -25,6 +25,9 @@
 #include "vcp_reg.h"
 #include "vcp_status.h"
 
+#define CREATE_TRACE_POINTS
+#include "mmdvfs_events.h"
+
 static u8 mmdvfs_clk_num;
 static struct mtk_mmdvfs_clk *mtk_mmdvfs_clks;
 
@@ -315,6 +318,7 @@ static int mtk_mmdvfs_set_rate(struct clk_hw *hw, unsigned long rate,
 
 	level = (i == mmdvfs_clk->freq_num) ? (i-1) : i;
 	opp = (mmdvfs_clk->freq_num - level - 1);
+	trace_mmdvfs__request_opp_v3(mmdvfs_clk->user_id, opp);
 	if (log_level & 1 << log_ccf_cb)
 		MMDVFS_DBG("clk=%u user=%u freq=%lu old_opp=%d new_opp=%d",
 			mmdvfs_clk->clk_id, mmdvfs_clk->user_id, rate, mmdvfs_clk->opp, opp);
