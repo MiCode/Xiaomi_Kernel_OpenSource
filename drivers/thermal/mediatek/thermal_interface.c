@@ -1123,6 +1123,76 @@ static const struct file_operations emul_temp_fops = {
 	.release = single_release,
 };
 
+
+static int cpu_cooler_show(struct seq_file *m, void *unused)
+{
+	seq_printf(m, "%d, %d, %d, %d, %d ,%d, %d, %d, %d, %d, %d, %d\n",
+		therm_intf_read_csram(CPU_COOLER_BASE),
+		therm_intf_read_csram(CPU_COOLER_BASE + 4),
+		therm_intf_read_csram(CPU_COOLER_BASE + 8),
+		therm_intf_read_csram(CPU_COOLER_BASE + 12),
+		therm_intf_read_csram(CPU_COOLER_BASE + 16),
+		therm_intf_read_csram(CPU_COOLER_BASE + 20),
+		therm_intf_read_csram(CPU_COOLER_BASE + 24),
+		therm_intf_read_csram(CPU_COOLER_BASE + 28),
+		therm_intf_read_csram(CPU_COOLER_BASE + 32),
+		therm_intf_read_csram(CPU_COOLER_BASE + 36),
+		therm_intf_read_csram(CPU_COOLER_BASE + 40),
+		therm_intf_read_csram(CPU_COOLER_BASE + 44));
+
+	return 0;
+}
+
+#define CPU_COOLER_THERMAL_SRAM_LEN (12)
+
+static ssize_t cpu_cooler_write(struct file *flip,
+			const char *ubuf, size_t cnt, loff_t *data)
+{
+	int ret, len, i;
+	char *buf;
+	int values[CPU_COOLER_THERMAL_SRAM_LEN] = { 0 };
+
+	buf = kzalloc(cnt + 1, GFP_KERNEL);
+	if (buf == NULL)
+		return -ENOMEM;
+
+	if (copy_from_user(buf, ubuf, cnt)) {
+		ret = -EFAULT;
+		goto err;
+	}
+	buf[cnt] = '\0';
+
+	len = sscanf(buf, "%d %d %d %d %d %d %d %d %d %d %d %d",
+		&values[0], &values[1], &values[2], &values[3],
+		&values[4], &values[5], &values[6], &values[7],
+		&values[8], &values[9], &values[10], &values[11]);
+
+	for (i = 0; i < len; i++)
+		therm_intf_write_csram(values[i], CPU_COOLER_BASE + (i * 4));
+
+	ret = cnt;
+
+err:
+	kfree(buf);
+
+	return ret;
+}
+
+static int cpu_cooler_open(struct inode *i, struct file *file)
+{
+	return single_open(file, cpu_cooler_show, i->i_private);
+}
+
+static const struct file_operations cpu_cooler_fops = {
+	.owner = THIS_MODULE,
+	.open = cpu_cooler_open,
+	.read = seq_read,
+	.write = cpu_cooler_write,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
+
+
 static int gpu_cooler_show(struct seq_file *m, void *unused)
 {
 	/* output: tt, tp, polling_delay, statistics ttj, leakage info */
@@ -1273,6 +1343,7 @@ static void therm_intf_debugfs_init(void)
 	debugfs_create_file("emul_temp", 0640, tm_data.debug_dir, NULL, &emul_temp_fops);
 	debugfs_create_file("gpu_cooler_debug", 0640, tm_data.debug_dir, NULL, &gpu_cooler_fops);
 	debugfs_create_file("gpu_temp_check", 0640, tm_data.debug_dir, NULL, &gpu_temp_debug_fops);
+	debugfs_create_file("cpu_cooler_debug", 0640, tm_data.debug_dir, NULL, &cpu_cooler_fops);
 
 	therm_intf_write_csram(THERMAL_TEMP_INVALID, EMUL_TEMP_OFFSET);
 	therm_intf_write_csram(THERMAL_TEMP_INVALID, EMUL_TEMP_OFFSET + 4);
