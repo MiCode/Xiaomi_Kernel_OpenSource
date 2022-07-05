@@ -3750,8 +3750,8 @@
 			compatible = "mediatek,ccci_md_scp";
 			reg = <0 0x1023c000 0 0x1000>, /* AP_CCIF2_BASE */
 			      <0 0x1023d000 0 0x1000>; /* MD_CCIF2_BASE */
-			/* no need control ccif2 clk when scp_clk_free_run = 1 */
-			mediatek,scp_clk_free_run = <1>;
+			/* no need control ccif2 clk when scp-clk-free-run = 1 */
+			mediatek,scp-clk-free-run = <1>;
 		};
 
 		gpio_usage_mapping:gpio {
