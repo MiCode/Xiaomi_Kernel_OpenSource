@@ -56,6 +56,8 @@ static struct rproc *ccu_rproc;
 static DEFINE_MUTEX(mmdvfs_ccu_pwr_mutex);
 static int ccu_power;
 
+static int last_ccu_freq = -1;
+
 enum mmdvfs_log_level {
 	log_ipi,
 	log_ccf_cb,
@@ -661,7 +663,7 @@ static struct notifier_block lpm_spm_suspend_pm_notifier_func = {
 int mmdvfs_set_ccu_ipi(const char *val, const struct kernel_param *kp)
 {
 	unsigned int freq = 0;
-	int ret;
+	int ret, retry = 0;
 
 	ret = kstrtou32(val, 0, &freq);
 	if (ret) {
@@ -670,8 +672,25 @@ int mmdvfs_set_ccu_ipi(const char *val, const struct kernel_param *kp)
 	}
 
 	if (ccu_pdev) {
-		mtk_mmdvfs_enable_vcp(true);
-		mtk_mmdvfs_enable_ccu(true);
+		if (last_ccu_freq < 0 && freq >= 0) {
+			mtk_mmdvfs_enable_vcp(true);
+			mtk_mmdvfs_enable_ccu(true);
+			while (!is_vcp_ready_ex(VCP_A_ID)) {
+				if (++retry > 100) {
+					MMDVFS_ERR("VCP_A_ID:%d not ready", VCP_A_ID);
+					return -ETIMEDOUT;
+				}
+				usleep_range(1000, 2000);
+			}
+		}
+
+		last_ccu_freq = freq;
+
+		if (freq < 0) {
+			mtk_mmdvfs_enable_ccu(false);
+			mtk_mmdvfs_enable_vcp(false);
+			return 0;
+		}
 		ret = mtk_ccu_rproc_ipc_send(
 			ccu_pdev,
 			MTK_CCU_FEATURE_ISPDVFS,
@@ -679,9 +698,8 @@ int mmdvfs_set_ccu_ipi(const char *val, const struct kernel_param *kp)
 			(void *)&freq, sizeof(unsigned int));
 		if (ret)
 			MMDVFS_ERR("mtk_ccu_rproc_ipc_send fail(%d)", ret);
-		mtk_mmdvfs_enable_ccu(false);
-		mtk_mmdvfs_enable_vcp(false);
-		MMDVFS_DBG("mtk_ccu_rproc_ipc_send freq:%u done", freq);
+		else
+			MMDVFS_DBG("mtk_ccu_rproc_ipc_send freq:%u done", freq);
 	} else {
 		MMDVFS_DBG("ccu_pdev is not ready");
 	}
