@@ -422,3 +422,11 @@ config CONN_PWR_DEBUG
 	  Will support test if set to 'y',
 	  otherwise will not support test.
 
+config MTK_ADVANCED_80211_MLO
+        bool "Allow google advanced MLO patch"
+        help
+          This config is used to choose whether to support
+          test for Power Throttling feature or not.
+          Will support test if set to 'y',
+          otherwise will not support test.
+
