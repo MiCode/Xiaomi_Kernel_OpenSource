@@ -54,6 +54,8 @@ char *slbc_uid_str[UID_MAX + 1] = {
 	"UID_SH_P1",
 	"UID_SMT",
 	"UID_APU",
+	"UID_AOD",
+	"UID_BIF",
 	"UID_MAX",
 };
 EXPORT_SYMBOL_GPL(slbc_uid_str);
