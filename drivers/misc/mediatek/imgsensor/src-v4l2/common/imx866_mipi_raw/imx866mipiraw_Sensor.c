@@ -3099,6 +3099,17 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus1[] = {
 			.user_data_desc = VC_STAGGER_NE,
 		},
 	},
+
+	{
+		.bus.csi2 = {
+			.channel = 1,
+			.data_type = 0x2b,
+			.hsize = 0x1000,
+			.vsize = 0x0c00,
+			.user_data_desc = VC_RAW_NE_W_DATA,
+		},
+	},
+
 	{
 		.bus.csi2 = {
 			.channel = 3,
@@ -3118,6 +3129,16 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus2[] = {
 			.hsize = 0x1000,
 			.vsize = 0x0900,
 			.user_data_desc = VC_STAGGER_NE,
+		},
+	},
+
+	{
+		.bus.csi2 = {
+			.channel = 1,
+			.data_type = 0x2b,
+			.hsize = 0x1000,
+			.vsize = 0x0900,
+			.user_data_desc = VC_RAW_NE_W_DATA,
 		},
 	},
 	{
@@ -3143,6 +3164,15 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus3[] = {
 	},
 	{
 		.bus.csi2 = {
+			.channel = 5,
+			.data_type = 0x2b,
+			.hsize = 0x1000,
+			.vsize = 0x0900,
+			.user_data_desc = VC_RAW_NE_W_DATA,
+		},
+	},
+	{
+		.bus.csi2 = {
 			.channel = 1,
 			.data_type = 0x2b,
 			.hsize = 0x1000,
@@ -3152,10 +3182,19 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus3[] = {
 	},
 	{
 		.bus.csi2 = {
+			.channel = 6,
+			.data_type = 0x2b,
+			.hsize = 0x1000,
+			.vsize = 0x0900,
+			.user_data_desc = VC_RAW_ME_W_DATA,
+		},
+	},
+	{
+		.bus.csi2 = {
 			.channel = 3,
 			.data_type = 0x2b,
 			.hsize = 0x400,
-			.vsize = 0x5f0,
+			.vsize = 0x480,
 			.user_data_desc = VC_PDAF_STATS_NE_PIX_1,
 		},
 	},
@@ -3164,7 +3203,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus3[] = {
 			.channel = 4,
 			.data_type = 0x2b,
 			.hsize = 0x400,
-			.vsize = 0x5f0,
+			.vsize = 0x480,
 			.user_data_desc = VC_PDAF_STATS_ME_PIX_1,
 		},
 	},
