@@ -793,7 +793,7 @@ void cmdq_util_devapc_dump(void)
 	cmdq_util_msg("%s mbox cnt:%u", __func__, util.mbox_cnt);
 	for (i = 0; i < util.mbox_cnt; i++) {
 		cmdq_mbox_dump_dbg(util.cmdq_mbox[i], NULL, true);
-		cmdq_thread_dump_all(util.cmdq_mbox[i], true, true, true);
+		cmdq_thread_dump_all(util.cmdq_mbox[i], true, true, false);
 	}
 }
 EXPORT_SYMBOL(cmdq_util_devapc_dump);
