@@ -96,6 +96,7 @@ static char * const UARTHUB_irq_err_type_str[] = {
 	"dev2_rx_timeout_err",
 	"rx_pkt_type_err",
 	"intfhub_restore_err",
+	"intfhub_dev_rx_err"
 	"intfhub_dev0_tx_err",
 	"intfhub_dev1_tx_err",
 	"intfhub_dev2_tx_err"
@@ -126,6 +127,7 @@ void uarthub_core_set_trigger_assert_worker(int err_type);
 int uarthub_core_is_apb_bus_clk_enable(void);
 int uarthub_core_is_uarthub_clk_enable(void);
 int uarthub_core_debug_uart_ip_info_with_tag_ex(const char *tag, int boundary);
+int uarthub_core_debug_uart_ip_info_loop(void);
 int uarthub_core_debug_apdma_uart_info_with_tag_ex(const char *tag, int boundary);
 int uarthub_core_debug_info_with_tag_no_spinlock(const char *tag);
 int uarthub_core_debug_info_with_tag_worker(const char *tag);
