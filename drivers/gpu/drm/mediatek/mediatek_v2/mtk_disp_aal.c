@@ -569,7 +569,7 @@ int mtk_drm_ioctl_aal_eventctl(struct drm_device *dev, void *data,
 	if (*enabled) {
 		mtk_drm_idlemgr_kick(__func__,
 				&default_comp->mtk_crtc->base, 1);
-		mtk_crtc_check_trigger(comp->mtk_crtc, true, true);
+		mtk_crtc_check_trigger(comp->mtk_crtc, false, true);
 
 		while ((atomic_read(&aal_data->is_clock_on) != 1) && (retry != 0)) {
 			usleep_range(500, 1000);
