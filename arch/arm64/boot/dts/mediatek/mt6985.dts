@@ -13933,6 +13933,7 @@
 cpuqos_mode,dnth0,dnth1,upth0,upth1,\
 hit0,hit1,hit2,hit3,mis0,mis1,mis2,mis3,\
 l3_hit,l3_mis,pmu_cyc_cnt";
+			node-2 = "__MCUPM_MET_TEST__", "taskId,isrId,dvfs";
 		};
 
 		sspm_rts_header:sspm-rts-header {
