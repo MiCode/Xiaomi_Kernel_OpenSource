@@ -26,6 +26,8 @@
 
 #define MAX_FRAME_IN_TASK		64
 
+#define CMDQ_CB_KTHREAD        (1)
+
 #ifdef GCE_SUPPORT_REPLACE_MODE
 #undef GCE_SUPPORT_REPLACE_MODE
 #endif
@@ -76,7 +78,11 @@ struct mtk_imgsys_fence {
 };
 
 struct mtk_imgsys_cb_param {
+#if CMDQ_CB_KTHREAD
+	struct kthread_work cmdq_cb_work;
+#else
 	struct work_struct cmdq_cb_work;
+#endif
 	struct cmdq_pkt *pkt;
 	struct swfrm_info_t *frm_info;
 	struct mtk_imgsys_cmdq_timestamp cmdqTs;

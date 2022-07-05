@@ -36,7 +36,12 @@
 #define IMGSYS_QOS_SYNC_OWNER	(0x412d454d5f53)
 #define IMGSYS_QOS_MAX_PERF	(MTK_MMQOS_MAX_SMI_FREQ_BW >> 1)
 
+#if CMDQ_CB_KTHREAD
+static struct kthread_worker imgsys_cmdq_worker;
+static struct task_struct *imgsys_cmdq_kworker_task;
+#else
 static struct workqueue_struct *imgsys_cmdq_wq;
+#endif
 static u32 is_stream_off;
 #if IMGSYS_SECURE_ENABLE
 static u32 is_sec_task_create;
@@ -70,13 +75,25 @@ void imgsys_cmdq_init_plat7s(struct mtk_imgsys_dev *imgsys_dev, const int nr_img
 
 	/* Only first user has to do init work queue */
 	if (nr_imgsys_dev == 1) {
+#if CMDQ_CB_KTHREAD
+		kthread_init_worker(&imgsys_cmdq_worker);
+		imgsys_cmdq_kworker_task = kthread_run(kthread_worker_fn,
+			&imgsys_cmdq_worker, "imgsys-cmdqcb");
+		if (IS_ERR(imgsys_cmdq_kworker_task)) {
+			dev_info(dev, "%s: failed to start imgsys_cmdqcb kthread worker\n",
+				__func__);
+			imgsys_cmdq_kworker_task = NULL;
+		} else
+			sched_set_normal(imgsys_cmdq_kworker_task, -20);
+#else
 		imgsys_cmdq_wq = alloc_ordered_workqueue("%s",
 				__WQ_LEGACY | WQ_MEM_RECLAIM |
-				WQ_FREEZABLE,
-				"imgsys_cmdq_cb_wq");
+				WQ_FREEZABLE | WQ_HIGHPRI,
+			"imgsys_cmdq_cb_wq");
 		if (!imgsys_cmdq_wq)
 			pr_info("%s: Create workquque IMGSYS-CMDQ fail!\n",
-								__func__);
+				__func__);
+#endif
 	}
 
 	switch (nr_imgsys_dev) {
@@ -132,9 +149,14 @@ void imgsys_cmdq_release_plat7s(struct mtk_imgsys_dev *imgsys_dev)
 	#endif
 
 	/* Release work_quque */
+#if CMDQ_CB_KTHREAD
+	if (imgsys_cmdq_kworker_task)
+		kthread_stop(imgsys_cmdq_kworker_task);
+#else
 	flush_workqueue(imgsys_cmdq_wq);
 	destroy_workqueue(imgsys_cmdq_wq);
 	imgsys_cmdq_wq = NULL;
+#endif
 	mutex_destroy(&imgsys_dev->dvfs_qos_lock);
 	mutex_destroy(&imgsys_dev->power_ctrl_lock);
 }
@@ -468,7 +490,11 @@ static void imgsys_cmdq_fence_notify_plat7s(struct mtk_imgsys_dev *imgsys_dev,
 	}
 }
 
+#if CMDQ_CB_KTHREAD
+static void imgsys_cmdq_cb_work_plat7s(struct kthread_work *work)
+#else
 static void imgsys_cmdq_cb_work_plat7s(struct work_struct *work)
+#endif
 {
 	struct mtk_imgsys_cb_param *cb_param = NULL;
 	struct mtk_imgsys_dev *imgsys_dev = NULL;
@@ -971,8 +997,13 @@ void imgsys_cmdq_task_cb_plat7s(struct cmdq_cb_data data)
 
 	cb_param->cmdqTs.tsCmdqCbEnd = ktime_get_boottime_ns()/1000;
 
+#if CMDQ_CB_KTHREAD
+	kthread_init_work(&cb_param->cmdq_cb_work, imgsys_cmdq_cb_work_plat7s);
+	kthread_queue_work(&imgsys_cmdq_worker, &cb_param->cmdq_cb_work);
+#else
 	INIT_WORK(&cb_param->cmdq_cb_work, imgsys_cmdq_cb_work_plat7s);
 	queue_work(imgsys_cmdq_wq, &cb_param->cmdq_cb_work);
+#endif
 }
 
 int imgsys_cmdq_task_aee_cb_plat7s(struct cmdq_cb_data data)
