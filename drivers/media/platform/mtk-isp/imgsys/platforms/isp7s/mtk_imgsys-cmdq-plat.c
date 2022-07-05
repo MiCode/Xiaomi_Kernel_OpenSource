@@ -646,7 +646,7 @@ static void imgsys_cmdq_cb_work_plat7s(struct work_struct *work)
 		/* PMQOS API */
 		tsDvfsQosStart = ktime_get_boottime_ns()/1000;
 		IMGSYS_CMDQ_SYSTRACE_BEGIN(
-			"%s_%s|Imgsys MWFrame:#%d MWReq:#%d ReqFd:%d Own:%llx\n",
+			"%s_%s|Imgsys MWFrame:#%d MWReq:#%d ReqFd:%d Own:%llx",
 			__func__, "dvfs_qos", cb_param->frm_info->frame_no,
 			cb_param->frm_info->request_no, cb_param->frm_info->request_fd,
 			cb_param->frm_info->frm_owner);
@@ -660,7 +660,7 @@ static void imgsys_cmdq_cb_work_plat7s(struct work_struct *work)
 			mutex_unlock(&(imgsys_dev->dvfs_qos_lock));
 			if (imgsys_cmdq_ts_enable_plat7s() || imgsys_wpe_bwlog_enable_plat7s()) {
 				IMGSYS_CMDQ_SYSTRACE_BEGIN(
-					"%s_%s|%s\n",
+					"%s_%s|%s",
 					__func__, "hw_ts_trace", cb_param->frm_info->hw_ts_log);
 				cmdq_mbox_buf_free(cb_param->clt,
 					cb_param->taskTs.dma_va, cb_param->taskTs.dma_pa);
@@ -680,7 +680,7 @@ static void imgsys_cmdq_cb_work_plat7s(struct work_struct *work)
 		user_cb_data.data = (void *)cb_param->frm_info;
 		cb_param->cmdqTs.tsUserCbStart = ktime_get_boottime_ns()/1000;
 		IMGSYS_CMDQ_SYSTRACE_BEGIN(
-			"%s_%s|Imgsys MWFrame:#%d MWReq:#%d ReqFd:%d Own:%llx\n",
+			"%s_%s|Imgsys MWFrame:#%d MWReq:#%d ReqFd:%d Own:%llx",
 			__func__, "user_cb", cb_param->frm_info->frame_no,
 			cb_param->frm_info->request_no, cb_param->frm_info->request_fd,
 			cb_param->frm_info->frm_owner);
@@ -690,7 +690,7 @@ static void imgsys_cmdq_cb_work_plat7s(struct work_struct *work)
 	}
 
 	IMGSYS_CMDQ_SYSTRACE_BEGIN(
-		"%s_%s|Imgsys MWFrame:#%d MWReq:#%d ReqFd:%d fidx:%d hw_comb:0x%x Own:%llx cb:%p thd:%d frm(%d/%d/%d) DvfsSt(%lld) SetCmd(%lld) HW(%lld/%d-%d-%d-%d) Cmdqcb(%lld) WK(%lld) UserCb(%lld) DvfsEnd(%lld)\n",
+		"%s_%s|Imgsys MWFrame:#%d MWReq:#%d ReqFd:%d fidx:%d hw_comb:0x%x Own:%llx cb:%p thd:%d frm(%d/%d/%d) DvfsSt(%lld) SetCmd(%lld) HW(%lld/%d-%d-%d-%d) Cmdqcb(%lld) WK(%lld) UserCb(%lld) DvfsEnd(%lld)",
 		__func__, "wait_pkt", cb_param->frm_info->frame_no,
 		cb_param->frm_info->request_no, cb_param->frm_info->request_fd,
 		cb_param->frm_info->user_info[cb_param->frm_idx].subfrm_idx, hw_comb,
@@ -1241,7 +1241,7 @@ int imgsys_cmdq_sendtask_plat7s(struct mtk_imgsys_dev *imgsys_dev,
 
 	/* PMQOS API */
 	tsDvfsQosStart = ktime_get_boottime_ns()/1000;
-	IMGSYS_CMDQ_SYSTRACE_BEGIN("%s_%s|Imgsys MWFrame:#%d MWReq:#%d ReqFd:%d Own:%llx\n",
+	IMGSYS_CMDQ_SYSTRACE_BEGIN("%s_%s|Imgsys MWFrame:#%d MWReq:#%d ReqFd:%d Own:%llx",
 		__func__, "dvfs_qos", frm_info->frame_no, frm_info->request_no,
 		frm_info->request_fd, frm_info->frm_owner);
 	mutex_lock(&(imgsys_dev->dvfs_qos_lock));
@@ -1281,9 +1281,9 @@ int imgsys_cmdq_sendtask_plat7s(struct mtk_imgsys_dev *imgsys_dev,
 			memset((char *)logBuf_temp, 0x0, MTK_IMGSYS_LOG_LENGTH);
 			logBuf_temp[strlen(logBuf_temp)] = '\0';
 			ret_sn = snprintf(logBuf_temp, MTK_IMGSYS_LOG_LENGTH,
-				"own(%llx/%s)req fd/no(%d/%d) frame no(%d) gid(%d) fps(%d) dvfs_v/f(%d/%d) freq(%d/%d/%d/%d)",
-				frm_info->frm_owner, (char *)(&(frm_info->frm_owner)),
-				frm_info->request_fd, frm_info->request_no, frm_info->frame_no,
+				"Imgsys MWFrame:#%d MWReq:#%d ReqFd:%d Own:%llx gid(%d) fps(%d) dvfs_v/f(%d/%d) freq(%d/%d/%d/%d)",
+				frm_info->frame_no, frm_info->request_no,
+				frm_info->request_fd, frm_info->frm_owner,
 				frm_info->group_id, frm_info->fps,
 				dvfs_info->cur_volt, dvfs_info->cur_freq/1000000,
 				dvfs_info->freq, dvfs_info->pixel_size[0],
@@ -1394,7 +1394,7 @@ int imgsys_cmdq_sendtask_plat7s(struct mtk_imgsys_dev *imgsys_dev,
 			}
 
 			IMGSYS_CMDQ_SYSTRACE_BEGIN(
-				"%s_%s|Imgsys MWFrame:#%d MWReq:#%d ReqFd:%d fidx:%d hw_comb:0x%x Own:%llx frm(%d/%d) blk(%d)\n",
+				"%s_%s|Imgsys MWFrame:#%d MWReq:#%d ReqFd:%d fidx:%d hw_comb:0x%x Own:%llx frm(%d/%d) blk(%d)",
 				__func__, "cmd_parser", frm_info->frame_no, frm_info->request_no,
 				frm_info->request_fd, frm_info->user_info[frm_idx].subfrm_idx,
 				frm_info->user_info[frm_idx].hw_comb, frm_info->frm_owner,
@@ -1523,7 +1523,7 @@ int imgsys_cmdq_sendtask_plat7s(struct mtk_imgsys_dev *imgsys_dev,
 				pkt->user_priv = (void *)cb_param;
 
 				IMGSYS_CMDQ_SYSTRACE_BEGIN(
-					"%s_%s|Imgsys MWFrame:#%d MWReq:#%d ReqFd:%d fidx:%d hw_comb:0x%x Own:%llx cb(%p) frm(%d/%d) blk(%d/%d)\n",
+					"%s_%s|Imgsys MWFrame:#%d MWReq:#%d ReqFd:%d fidx:%d hw_comb:0x%x Own:%llx cb(%p) frm(%d/%d) blk(%d/%d)",
 					__func__, "pkt_flush", frm_info->frame_no,
 					frm_info->request_no, frm_info->request_fd,
 					frm_info->user_info[frm_idx].subfrm_idx,
