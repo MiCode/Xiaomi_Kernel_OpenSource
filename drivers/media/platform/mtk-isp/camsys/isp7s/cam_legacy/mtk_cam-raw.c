@@ -22,6 +22,7 @@
 #include <media/v4l2-subdev.h>
 
 #include <soc/mediatek/smi.h>
+#include <soc/mediatek/mmdvfs_v3.h>
 
 #include "mtk_cam.h"
 #include "mtk_cam-feature.h"
@@ -6469,6 +6470,8 @@ static int mtk_raw_runtime_suspend(struct device *dev)
 #endif
 	reset(drvdata);
 
+	/* disable vcp */
+	mtk_mmdvfs_enable_vcp(false);
 	for (i = 0; i < drvdata->num_clks; i++)
 		clk_disable_unprepare(drvdata->clks[i]);
 
@@ -6495,8 +6498,10 @@ static int mtk_raw_runtime_resume(struct device *dev)
 	if (pr_detect_count < KERNEL_LOG_MAX)
 		set_detect_count(KERNEL_LOG_MAX);
 #endif
-	dev_dbg(dev, "%s:enable clock\n", __func__);
 
+	/* enable vcp */
+	dev_dbg(dev, "%s:enable clock\n", __func__);
+	mtk_mmdvfs_enable_vcp(true);
 	for (i = 0; i < drvdata->num_clks; i++) {
 		ret = clk_prepare_enable(drvdata->clks[i]);
 		if (ret) {
