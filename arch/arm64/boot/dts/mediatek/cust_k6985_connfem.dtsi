@@ -15,14 +15,14 @@
 
 		common {
 			flags-0 {
-				rx-mode = [81];
+				rx-mode = [35];
 				fe-ant-cnt = [81];
 				fe-main-bt-share-lp2g = [80];
 				fe-conn-spdt = [83];
 				fe-reserved = [80];
 			};
 			flags-1 {
-				rx-mode = [81];
+				rx-mode = [35];
 				fe-ant-cnt = [82];
 				fe-main-bt-share-lp2g = [80];
 				fe-conn-spdt = [83];
@@ -30,7 +30,7 @@
 			};
 			flags-2 {
 				/* SKU5 is not include final SPDT data */
-				rx-mode = [81];
+				rx-mode = [35];
 				fe-ant-cnt = [82];
 				fe-main-bt-share-lp2g = [80];
 				fe-conn-spdt = [83];
@@ -40,12 +40,15 @@
 
 		wifi {
 			flags-0 {
+				epa-option = [99];
 				/* open-loop; */
 			};
 			flags-1 {
+				epa-option = [99];
 				/* open-loop; */
 			};
 			flags-2 {
+				epa-option = [99];
 				/* open-loop; */
 			};
 		};
