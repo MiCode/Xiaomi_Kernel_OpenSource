@@ -20,6 +20,7 @@
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/of_platform.h>
+#include <linux/pinctrl/consumer.h>
 #include <linux/pci.h>
 #include <linux/phy/phy.h>
 #include <linux/platform_device.h>
@@ -1035,6 +1036,7 @@ static int mtk_pcie_remove(struct platform_device *pdev)
 {
 	struct mtk_pcie_port *port = platform_get_drvdata(pdev);
 	struct pci_host_bridge *host = pci_host_bridge_from_priv(port);
+	int err = 0;
 
 	pci_lock_rescan_remove();
 	pci_stop_root_bus(host->bus);
@@ -1043,6 +1045,12 @@ static int mtk_pcie_remove(struct platform_device *pdev)
 
 	mtk_pcie_irq_teardown(port);
 	mtk_pcie_power_down(port);
+
+	err = pinctrl_pm_select_sleep_state(&pdev->dev);
+	if (err) {
+		dev_info(&pdev->dev, "Failed to set PCIe pins sleep state\n");
+		return err;
+	}
 
 	return 0;
 }
