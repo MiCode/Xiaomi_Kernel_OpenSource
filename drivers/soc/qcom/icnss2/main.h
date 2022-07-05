@@ -487,6 +487,7 @@ struct icnss_priv {
 	struct mbox_client mbox_client_data;
 	struct mbox_chan *mbox_chan;
 	u32 wlan_en_delay_ms;
+	u32 wlan_en_delay_ms_user;
 	struct class *icnss_ramdump_class;
 	dev_t icnss_ramdump_dev;
 	struct completion smp2p_soc_wake_wait;
