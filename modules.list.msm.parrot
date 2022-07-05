@@ -9,6 +9,7 @@ dispcc-parrot.ko
 gcc-parrot.ko
 gdsc-regulator.ko
 pinctrl-parrot.ko
+pinctrl-ravelin.ko
 qcom-cpufreq-hw.ko
 sched-walt.ko
 sched-walt-debug.ko
