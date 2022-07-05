@@ -577,7 +577,7 @@ static int mtk_panel_ext_param_get(struct drm_panel *panel,
 		struct mtk_panel_params **ext_param,
 		unsigned int id)
 {
-	struct mtk_lcm_mode_dsi *mode_node;
+	struct mtk_lcm_mode_dsi *mode_node = NULL;
 	struct mtk_lcm_params_dsi *params = NULL;
 	bool found = false;
 	struct drm_display_mode *mode = NULL;
@@ -602,7 +602,6 @@ static int mtk_panel_ext_param_get(struct drm_panel *panel,
 	}
 
 	if (IS_ERR_OR_NULL(ctx_dsi) ||
-		params->mode_count == 0 ||
 		IS_ERR_OR_NULL(ext_param) ||
 		IS_ERR_OR_NULL(ctx_dsi->panel_resource)) {
 		DDPPR_ERR("%s, invalid ctx, resource\n", __func__);
@@ -610,6 +609,11 @@ static int mtk_panel_ext_param_get(struct drm_panel *panel,
 	}
 
 	params = &ctx_dsi->panel_resource->params.dsi_params;
+	if (params->mode_count == 0) {
+		DDPPR_ERR("%s, invalid mode:%u\n",
+			__func__, params->mode_count);
+		return -EINVAL;
+	}
 	list_for_each_entry(mode_node, &params->mode_list, list) {
 		if (drm_mode_equal(&mode_node->mode, mode) == true) {
 			found = true;
