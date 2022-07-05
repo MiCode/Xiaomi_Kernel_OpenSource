@@ -1291,10 +1291,14 @@ static int mt6338_put_volsw(struct snd_kcontrol *kcontrol,
 	case MT6338_AUDENC_PMU_CON5:
 		if (priv->mic_hifi_mode)
 			ucontrol->value.integer.value[0] = index + 2;
+		if (priv->vow_enable)
+			ucontrol->value.integer.value[0] = 0x6;
 		break;
 	case MT6338_AUDENC_PMU_CON7:
 		if (priv->mic_hifi_mode)
 			ucontrol->value.integer.value[0] = index + 2;
+		if (priv->vow_enable)
+			ucontrol->value.integer.value[0] = 0x6;
 		break;
 	}
 

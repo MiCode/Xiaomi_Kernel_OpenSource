@@ -13,13 +13,15 @@
 
 /* if IPI expand, need to modify maximum data length(unit: int) */
 
-#define VOW_IPI_HEADER_LENGTH         2  /* 2 * 4byte = 8 */
-#define VOW_IPI_SEND_BUFFER_LENGTH    9  /* 9 * 4byte = 36 */
-#define VOW_IPI_RECEIVE_LENGTH        24 /* 24 * 4byte = 96 */
-#define VOW_IPI_ACK_LENGTH            2  /* 2 * 4byte = 8 */
+#define VOW_IPI_HEADER_LENGTH         (2)  /* 2 * 4byte = 8 */
+#define VOW_IPI_SEND_BUFFER_LENGTH    (9)  /* 9 * 4byte = 36 */
+#define VOW_IPI_RECEIVE_LENGTH        (24) /* 24 * 4byte = 96 */
+#define VOW_IPI_ACK_LENGTH            (2)  /* 2 * 4byte = 8 */
 
-#define VOW_IPI_WAIT_ACK_TIMEOUT      10
-#define VOW_IPI_RESEND_TIMES          2
+#define VOW_IPI_WAIT_ACK_TIMEOUT      (10)
+#define VOW_IPI_RESEND_TIMES          (2)
+
+#define VOW_IPI_MAGIC_NUM             (0x98)
 
 enum {
 	VOW_IPI_BYPASS_ACK = 0,

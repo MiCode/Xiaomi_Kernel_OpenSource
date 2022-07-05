@@ -73,6 +73,10 @@ static int vow_ipi_recv_handler(unsigned int id,
 	struct vow_ipi_receive_info *ipi_info =
 		(struct vow_ipi_receive_info *)data;
 
+	/* check magic num */
+	if (ipi_info->param2 != VOW_IPI_MAGIC_NUM)
+		return 0;
+
 	ipi_rx_handle(ipi_info->msg_id, (void *)ipi_info->msg_data);
 	return 0;
 }
@@ -84,6 +88,10 @@ static int vow_ipi_ack_handler(unsigned int id,
 {
 	struct vow_ipi_ack_info *ipi_info =
 		(struct vow_ipi_ack_info *)data;
+
+	/* check magic num */
+	if (ipi_info->param2 != VOW_IPI_MAGIC_NUM)
+		return 0;
 
 	ipi_tx_ack_handle(ipi_info->msg_id, ipi_info->msg_data);
 	ipi_ack_return = ipi_info->msg_need_ack;
@@ -127,9 +135,8 @@ bool vow_ipi_send(unsigned int msg_id,
 	ipi_data.msg_id = msg_id;
 	ipi_data.msg_need_ack = msg_need_ack;
 	ipi_data.param1 = 0;
-	ipi_data.param2 = 0;
+	ipi_data.param2 = VOW_IPI_MAGIC_NUM;
 	ipi_data.msg_length = payload_len;
-
 	if (payload > 0) {
 		/* have payload */
 		memcpy(&ipi_data.payload[0], payload,

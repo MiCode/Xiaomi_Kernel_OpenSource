@@ -39,35 +39,35 @@
 
 #define VOW_DEVNAME                    "vow"
 #define VOW_IOC_MAGIC                  'V'
-#define VOW_PRE_LEARN_MODE             1
+#define VOW_PRE_LEARN_MODE             (1)
 
-#define MAX_VOW_SPEAKER_MODEL          2
+#define MAX_VOW_SPEAKER_MODEL          (2)
 
-#define VOW_WAITCHECK_INTERVAL_MS      2
-#define MAX_VOW_INFO_LEN               7
-#define VOW_VOICE_RECORD_THRESHOLD     2560 /* 80ms */
-#define VOW_VOICE_RECORD_BIG_THRESHOLD 8320 /* 260ms */
-#define VOW_IPI_SEND_CNT_TIMEOUT       50 /* 50 loop */
+#define VOW_WAITCHECK_INTERVAL_MS      (2)
+#define MAX_VOW_INFO_LEN               (7)
+#define VOW_VOICE_RECORD_THRESHOLD     (2560) /* 80ms */
+#define VOW_VOICE_RECORD_BIG_THRESHOLD (8320) /* 260ms */
+#define VOW_IPI_SEND_CNT_TIMEOUT       (50) /* 50 loop */
 /* UBM_V1:0xA000, UBM_V2:0xDC00, UBM_V3: 2*0x11000, UBM_V4: 2*0x16800  */
-#define VOW_MODEL_SIZE_THRES           0x2800
-#define VOW_MODEL_SIZE                 0x16800
+#define VOW_MODEL_SIZE_THRES           (0x2800)
+#define VOW_MODEL_SIZE                 (0x16800)
 #define VOW_VOICEDATA_OFFSET           (VOW_MODEL_SIZE * MAX_VOW_SPEAKER_MODEL)
-#define VOW_VOICEDATA_SIZE             0x12500 /* 74880, need over 2.3sec */
-#define VOW_NORMAL_REC_SIZE            0x12480 /* 2.3sec(74880B) can be divided by 320byte */
+#define VOW_VOICEDATA_SIZE             (0x12500) /* 74880, need over 2.3sec */
+#define VOW_NORMAL_REC_SIZE            (0x12480) /* 2.3sec(74880B) can be divided by 320byte */
 /* IPI return value definition */
-#define WORD_H                         16
-#define WORD_L                         0
-#define WORD_H_MASK                    0xFFFF0000
-#define WORD_L_MASK                    0x0000FFFF
+#define WORD_H                         (16)
+#define WORD_L                         (0)
+#define WORD_H_MASK                    (0xFFFF0000)
+#define WORD_L_MASK                    (0x0000FFFF)
 /* multiplier of cycle to ns in 13m clock */
-#define CYCLE_TO_NS                    77
-#define VOW_STOP_DUMP_WAIT             50
-#define FRAME_BUF_SIZE                 8192
-#define RESERVED_DATA                  4
-#define VOW_RECOVERY_WAIT              100
+#define CYCLE_TO_NS                    (77)
+#define VOW_STOP_DUMP_WAIT             (50)
+#define FRAME_BUF_SIZE                 (8192)
+#define RESERVED_DATA                  (4)
+#define VOW_RECOVERY_WAIT              (100)
 
-#define VOW_MAX_MIC_NUM	(2)
-#define VOW_DEFAULT_SPEAKER_NUM	(1)
+#define VOW_MAX_MIC_NUM                (2)
+#define VOW_DEFAULT_SPEAKER_NUM        (1)
 
 /* length limitation sync by audio hal */
 #if IS_ENABLED(CONFIG_DUAL_CH_TRANSFER)
@@ -101,11 +101,11 @@
 
 #define VOW_ENGINE_INFO_LENGTH_BYTE    64
 
-#if IS_ENABLED(CONFIG_DUAL_CH_TRANSFER)
+//#if IS_ENABLED(CONFIG_DUAL_CH_TRANSFER)
 #define VOW_AECOUTDATA_OFFSET          (VOW_VOICEDATA_OFFSET + VOW_MAX_MIC_NUM * VOW_VOICEDATA_SIZE)
-#else
-#define VOW_AECOUTDATA_OFFSET          (VOW_VOICEDATA_OFFSET + VOW_VOICEDATA_SIZE)
-#endif
+//#else
+//#define VOW_AECOUTDATA_OFFSET          (VOW_VOICEDATA_OFFSET + VOW_VOICEDATA_SIZE)
+//#endif
 #define VOW_VFFPOUTDATA_OFFSET         (VOW_AECOUTDATA_OFFSET + AECOUT_DUMP_TOTAL_BYTE_CNT)
 #define VOW_VFFPINDATA_OFFSET          (VOW_VFFPOUTDATA_OFFSET + VFFPOUT_DUMP_TOTAL_BYTE_CNT)
 #define VOW_EXTRA_DATA_OFFSET          (VOW_VFFPINDATA_OFFSET + VFFPIN_DUMP_TOTAL_BYTE_CNT)
@@ -132,14 +132,16 @@
 #define VOW_SET_VOW_DUMP_DATA         _IOW(VOW_IOC_MAGIC, 0x18, unsigned int)
 
 #ifdef VOW_ECHO_SW_SRC
-#define VOW_BARGEIN_AFE_MEMIF_SIZE    0x1E00
+#define VOW_BARGEIN_AFE_MEMIF_SIZE        (0x1E00)
 #else
-#define VOW_BARGEIN_AFE_MEMIF_SIZE    0xA00
+#define VOW_BARGEIN_AFE_MEMIF_SIZE        (0xA00)
 #endif
-#define VOW_BARGEIN_IRQ_MAX_NUM       32
+#define VOW_BARGEIN_AFE_MEMIF_MAX_SIZE    (0x2000)
 
-#define KERNEL_VOW_DRV_VER "2.1.4"
-#define DEFAULT_GOOGLE_ENGINE_VER       2147483647
+#define VOW_BARGEIN_IRQ_MAX_NUM           (32)
+
+#define KERNEL_VOW_DRV_VER                "3.0.0"
+#define DEFAULT_GOOGLE_ENGINE_VER         (2147483647)
 
 
 enum { /* dump_data_t */
@@ -174,10 +176,10 @@ enum vow_ipi_msgid_t {
 	IPIMSG_VOW_ENABLE = 0,
 	IPIMSG_VOW_DISABLE = 1,
 	IPIMSG_VOW_SETMODE = 2,
-	IPIMSG_VOW_APREGDATA_ADDR = 3,
+	IPIMSG_VOW_APINIT = 3,
 	IPIMSG_VOW_SET_MODEL = 4,
 	IPIMSG_VOW_SET_FLAG = 5,
-	IPIMSG_VOW_SET_SMART_DEVICE = 6,
+	//IPIMSG_VOW_SET_SMART_DEVICE = 6,
 	IPIMSG_VOW_SET_BARGEIN_ON = 10,
 	IPIMSG_VOW_SET_BARGEIN_OFF = 11,
 	IPIMSG_VOW_PCM_DUMP_ON = 12,
