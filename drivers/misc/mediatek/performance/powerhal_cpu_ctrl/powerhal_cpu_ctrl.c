@@ -153,6 +153,8 @@ void cpu_policy_init(void)
 
 	opp_count = kcalloc(policy_num, sizeof(int), GFP_KERNEL);
 	opp_table = kcalloc(policy_num, sizeof(unsigned int *), GFP_KERNEL);
+	if (opp_count == NULL || opp_table == NULL)
+		return;
 
 	num = 0;
 	for_each_possible_cpu(cpu) {
@@ -372,8 +374,11 @@ static int __init powerhal_cpu_ctrl_init(void)
 
 	cpu_policy_init();
 
-	if (get_cpu_topology() < 0)
+	if (get_cpu_topology() < 0) {
+		kvfree(opp_count);
+		kvfree(opp_table);
 		return -EFAULT;
+	}
 
 	for (i = 0; i < policy_num; i++) {
 		freq_to_set[i].min = 0;
@@ -382,6 +387,8 @@ static int __init powerhal_cpu_ctrl_init(void)
 
 	freq_min_request = kcalloc(policy_num, sizeof(struct freq_qos_request), GFP_KERNEL);
 	freq_max_request = kcalloc(policy_num, sizeof(struct freq_qos_request), GFP_KERNEL);
+	if (freq_min_request == NULL || freq_max_request == NULL)
+		return 0;
 
 	num = 0;
 	for_each_possible_cpu(cpu) {
@@ -410,7 +417,13 @@ static int __init powerhal_cpu_ctrl_init(void)
 	return 0;
 }
 
-static void __exit powerhal_cpu_ctrl_exit(void){}
+static void __exit powerhal_cpu_ctrl_exit(void)
+{
+	kvfree(opp_count);
+	kvfree(opp_table);
+	kvfree(freq_min_request);
+	kvfree(freq_max_request);
+}
 
 module_init(powerhal_cpu_ctrl_init);
 module_exit(powerhal_cpu_ctrl_exit);
