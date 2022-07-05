@@ -3573,7 +3573,6 @@ static int fbt_boost_policy(
 	u64 t2wnt = 0ULL;
 	int active_jerk_id = 0;
 	long long rescue_target_t, qr_quota_adj;
-	long cpy_loading;
 	int isolation_cap = 100;
 	int filter_ret = 0;
 	long aa_n, aa_b, aa_m;
@@ -3600,7 +3599,6 @@ static int fbt_boost_policy(
 	t2 = nsec_to_100usec(t2);
 	t_Q2Q = thread_info->Q2Q_time;
 	t_Q2Q = nsec_to_100usec(t_Q2Q);
-	cpy_loading = aa;
 	aa_n = aa;
 	/* aa is original loading, while aa_n is loading multiply (tcpu/q2qtime) */
 
@@ -3680,7 +3678,7 @@ static int fbt_boost_policy(
 
 	if (is_filter_frame_active) {
 		fpsgo_systrace_c_fbt(pid, buffer_id, blc_wt, "before filter");
-		filter_ret = fbt_filter_frame(cpy_loading, target_fps, blc_wt,
+		filter_ret = fbt_filter_frame(aa_n, target_fps, blc_wt,
 			&(boost_info->filter_frames_count), &(boost_info->filter_index),
 			(boost_info->filter_loading), &(boost_info->filter_blc), pid, buffer_id,
 			ff_window_Size, ff_kmin);
