@@ -913,7 +913,7 @@ static int mmdvfs_ccu_init_thread(void *data)
 	struct device_node *rproc_np = NULL;
 	int ret = 0, retry = 0;
 
-	ret = of_property_read_u32(node, "mediatek,ccu_rproc", &handle);
+	ret = of_property_read_u32(node, "mediatek,ccu-rproc", &handle);
 	if (ret < 0) {
 		MMDVFS_DBG("get CCU phandle fail");
 		return ret;
