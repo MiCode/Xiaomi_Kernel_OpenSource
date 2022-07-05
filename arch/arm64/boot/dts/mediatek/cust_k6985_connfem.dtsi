@@ -6,11 +6,17 @@
 	epa_elna_mtk {
 		parts = <&qm42639 &qm45639>,	/* [0] Qorvo eFEM SKU1 RxL */
 			<&qm42639 &qm45639>,	/* [1] Qorvo eFEM SKU2-1, EVB RxL */
-			<&qm42639 &qm45639>;	/* [2] Qorvo eFEM SKU5 RxL */
+			<&qm42639 &qm45639>,	/* [2] Qorvo eFEM SKU5 RxL */
+			<&qm42639 &qm45639>,	/* [3] Undefined, use SKU1 configuration */
+			<&qm42639 &qm45639>,	/* [4] Disable A band, Qorvo eFEM SKU1 RxL */
+			<&qm42639 &qm45639>,	/* [5] Disable A band, Qorvo eFEM SKU2-1, EVB RxL */
+			<&qm42639 &qm45639>,	/* [6] Disable A band, Qorvo eFEM SKU5 RxL */
+			<&qm42639 &qm45639>;	/* [7] Disable A band, Undefined, use SKU1 RxL */
 
 		hwid {
 			gpio = <&pio 43 0x0>,
-				<&pio 38 0x0>;
+				<&pio 38 0x0>,
+				<&mt6373_pio 6 0x0>;
 		};
 
 		common {
@@ -36,6 +42,44 @@
 				fe-conn-spdt = [83];
 				fe-reserved = [80];
 			};
+			flags-3 {
+				/* Undefined, use SKU1 configuration */
+				rx-mode = [35];
+				fe-ant-cnt = [81];
+				fe-main-bt-share-lp2g = [80];
+				fe-conn-spdt = [83];
+				fe-reserved = [80];
+			};
+			flags-4 {
+				rx-mode = [35];
+				fe-ant-cnt = [81];
+				fe-main-bt-share-lp2g = [80];
+				fe-conn-spdt = [83];
+				fe-reserved = [80];
+			};
+			flags-5 {
+				rx-mode = [35];
+				fe-ant-cnt = [82];
+				fe-main-bt-share-lp2g = [80];
+				fe-conn-spdt = [83];
+				fe-reserved = [86];
+			};
+			flags-6 {
+				/* SKU5 is not include final SPDT data */
+				rx-mode = [35];
+				fe-ant-cnt = [82];
+				fe-main-bt-share-lp2g = [80];
+				fe-conn-spdt = [83];
+				fe-reserved = [80];
+			};
+			flags-7 {
+				/* Undefined, use flags-4 configuration */
+				rx-mode = [35];
+				fe-ant-cnt = [81];
+				fe-main-bt-share-lp2g = [80];
+				fe-conn-spdt = [83];
+				fe-reserved = [80];
+			};
 		};
 
 		wifi {
@@ -51,6 +95,30 @@
 				epa-option = [99];
 				/* open-loop; */
 			};
+			flags-3 {
+				epa-option = [99];
+				/* Undefined, open-loop; */
+			};
+			flags-4 {
+				epa-option = [99];
+				/* open-loop; */
+				only-2g;
+			};
+			flags-5 {
+				epa-option = [99];
+				/* open-loop; */
+				only-2g;
+			};
+			flags-6 {
+				epa-option = [99];
+				/* open-loop; */
+				only-2g;
+			};
+			flags-7 {
+				epa-option = [99];
+				/* Undefiend, open-loop; */
+				only-2g;
+			};
 		};
 
 		bt {
@@ -64,6 +132,26 @@
 			};
 			flags-2 {
 				/* choose one of: epa_elna / epa / elna / bypass */
+				epa_elna;
+			};
+			flags-3 {
+				/* Undefined, use SKU1 configuration */
+				epa_elna;
+			};
+			flags-4 {
+				/* choose one of: epa_elna / epa / elna / bypass */
+				epa_elna;
+			};
+			flags-5 {
+				/* choose one of: epa_elna / epa / elna / bypass */
+				epa_elna;
+			};
+			flags-6 {
+				/* choose one of: epa_elna / epa / elna / bypass */
+				epa_elna;
+			};
+			flags-7 {
+				/* Undefined, use flags-4 configuration */
 				epa_elna;
 			};
 		};
