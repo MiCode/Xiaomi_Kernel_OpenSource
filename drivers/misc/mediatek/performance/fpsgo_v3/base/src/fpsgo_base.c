@@ -158,6 +158,53 @@ int fpsgo_arch_nr_clusters(void)
 
 }
 
+int fpsgo_arch_nr_get_opp_cpu(int cpu)
+{
+	struct cpufreq_policy curr_policy;
+	struct cpufreq_frequency_table *pos, *table;
+	int idx;
+	int nr_opp = 0;
+
+	cpufreq_get_policy(&curr_policy, cpu);
+	table = curr_policy.freq_table;
+
+	cpufreq_for_each_valid_entry_idx(pos, table, idx) {
+		nr_opp++;
+	}
+
+	return nr_opp;
+}
+
+int fpsgo_arch_nr_get_cap_cpu(int cpu, int opp)
+{
+	unsigned long cap;
+
+	if (opp < fpsgo_arch_nr_get_opp_cpu(cpu))
+		cap = pd_get_opp_capacity_legacy(cpu, opp);
+	else
+		cap = pd_get_opp_capacity_legacy(cpu, 0);
+
+	return (unsigned int) cap;
+}
+
+int fpsgo_arch_nr_max_opp_cpu(void)
+{
+	struct cpufreq_policy curr_policy;
+	int num_opp = 0, max_opp = 0;
+	int cpu;
+
+	for_each_possible_cpu(cpu) {
+		cpufreq_get_policy(&curr_policy, cpu);
+		num_opp = fpsgo_arch_nr_get_opp_cpu(cpu);
+		cpu = cpumask_last(curr_policy.related_cpus);
+
+		if (max_opp < num_opp)
+			max_opp = num_opp;
+	}
+
+	return max_opp;
+}
+
 int fpsgo_arch_nr_freq_cpu(void)
 {
 	int  cpu, max_opp = 0;

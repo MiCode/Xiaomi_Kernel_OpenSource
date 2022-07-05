@@ -4232,8 +4232,9 @@ static int fbt_get_cl_loading_exp(int pid, unsigned long long buffer_id, int thr
 		if (prev_ts && next_ts) {
 			loading_result = fbt_est_loading(next_ts, prev_ts, cpu_obv[i]);
 			(*loading_cl) += loading_result;
-			xgf_trace("[FBT][%s]prev=%d, next%d, obv=%u, loading=%llu, acc=%llu",
-				__func__, prev_ts, next_ts, loading_result, (*loading_cl));
+			xgf_trace("[%s]i=%d, prevts=%d, nextts=%d, obv=%u, loading=%llu, acc=%llu",
+				__func__, i, prev_ts, next_ts, cpu_obv[i], loading_result,
+				(*loading_cl));
 		}
 	}
 out:
@@ -5173,7 +5174,7 @@ static void fbt_update_pwr_tbl(void)
 
 		for (opp = 0; opp < nr_freq_cpu; opp++) {
 			cpu_dvfs[cluster].capacity_ratio[opp] =
-				pd_get_opp_capacity(cpu, opp) * 100 >> 10;
+				fpsgo_arch_nr_get_cap_cpu(cpu, opp) * 100 >> 10;
 			cpu_dvfs[cluster].power[opp] =
 				fpsgo_cpufreq_get_freq_by_idx(cpu, opp);
 		}
@@ -5409,7 +5410,8 @@ struct xgf_thread_loading fbt_xgff_list_loading_add(int pid,
 	obj.loading = 0;
 	obj.last_cb_ts = new_ts;
 
-	xgf_trace("[XGFF][%s] loading reset", __func__);
+	xgf_trace("[XGFF][%s] reset pid=%d,buffer_id=%llu,ts=%d", __func__,
+		pid, buffer_id, new_ts);
 	return obj;
 }
 
@@ -7079,7 +7081,7 @@ int __init fbt_cpu_init(void)
 	init_fbt_platform();
 
 	cluster_num = fpsgo_arch_nr_clusters();
-	nr_freq_cpu = fpsgo_arch_nr_freq_cpu();
+	nr_freq_cpu = fpsgo_arch_nr_max_opp_cpu();
 	bhr = 0;
 	bhr_opp = 0;
 	bhr_opp_l = fbt_get_l_min_bhropp();
