@@ -2096,7 +2096,7 @@ static int cmdq_mdp_init_pq_readback(struct platform_device *pdev)
 	u16 rb_thread_id = 0, rb_event_lock = 0, rb_event_unlock = 0;
 
 	ret = of_property_read_u16(pdev->dev.of_node,
-		"dre30_hist_sram_start", &hist_sram_start);
+		"dre30-hist-sram-start", &hist_sram_start);
 	if (ret != 0 || !hist_sram_start)
 		hist_sram_start = LEGACY_DRE30_HIST_SRAM_START;
 
