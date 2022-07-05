@@ -13910,10 +13910,10 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 		compatible = "mediatek,mt_soc_offload_common";
 	};
 
-	/* feature: $enable */
-	speech_usip_mem: speech_usip_mem {
-		compatible = "mediatek,speech_usip_mem";
-		adsp_phone_call_enh_enable = <0x3>;
+	speech_usip_mem: speech-usip-mem {
+		compatible = "mediatek,speech-usip-mem";
+		adsp-phone-call-enh-enable = <0x3>;
+		adsp-ble-phone-call-enable = <0x0>;
 	};
 
 	pmic-oc-debug {
