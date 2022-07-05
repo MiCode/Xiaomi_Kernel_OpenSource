@@ -32,6 +32,8 @@
 #define WPE_BWLOG_HW_COMB (IMGSYS_ENG_WPE_TNR | IMGSYS_ENG_DIP)
 #define WPE_BWLOG_HW_COMB_ninA (IMGSYS_ENG_WPE_EIS | IMGSYS_ENG_PQDIP_A)
 #define WPE_BWLOG_HW_COMB_ninB (IMGSYS_ENG_WPE_EIS | IMGSYS_ENG_PQDIP_B)
+#define WPE_BWLOG_HW_COMB_ninC (IMGSYS_ENG_WPE_LITE | IMGSYS_ENG_TRAW)
+#define WPE_BWLOG_HW_COMB_ninD (IMGSYS_ENG_WPE_LITE | IMGSYS_ENG_LTR)
 
 #define IMGSYS_QOS_SYNC_OWNER	(0x412d454d5f53)
 #define IMGSYS_QOS_MAX_PERF	(MTK_MMQOS_MAX_SMI_FREQ_BW >> 1)
@@ -616,7 +618,6 @@ static void imgsys_cmdq_cb_work_plat7s(struct work_struct *work)
 		cb_param->frm_info->user_info[cb_param->frm_idx].is_earlycb,
 		cb_param->frm_idx, cb_param->frm_num);
 
-	hw_comb = cb_param->frm_info->user_info[cb_param->frm_idx].hw_comb;
 	req_fd = cb_param->frm_info->request_fd;
 	req_no = cb_param->frm_info->request_no;
 	frm_no = cb_param->frm_info->frame_no;
@@ -625,38 +626,46 @@ static void imgsys_cmdq_cb_work_plat7s(struct work_struct *work)
 	cb_frm_cnt = cb_param->frm_info->cb_frmcnt;
 
 	if (wpebw_en > 0) {
-		switch (wpebw_en) {
-		case 1:
-			if ((hw_comb & WPE_BWLOG_HW_COMB) == WPE_BWLOG_HW_COMB)
-				wpestr = "tnr";
-			break;
-		case 2:
-			if (((hw_comb & WPE_BWLOG_HW_COMB_ninA) == WPE_BWLOG_HW_COMB_ninA)
-			 || ((hw_comb & WPE_BWLOG_HW_COMB_ninB) == WPE_BWLOG_HW_COMB_ninB))
-				wpestr = "eis";
-			break;
-		case 3:
-			if (hw_comb == IMGSYS_ENG_WPE_LITE)
-				wpestr = "lite";
-			break;
-		}
-		if (wpestr) {
-			dev_info(imgsys_dev->dev,
-				"%s: wpe_bwlog req fd/no(%d/%d)frameNo(%d)cb(%p)err(%d)frm(%d/%d/%d)hw_comb(0x%x)read_num(%d)-%s(%d/%d/%d/%d)\n",
-				__func__, cb_param->frm_info->request_fd,
-				cb_param->frm_info->request_no,
-				cb_param->frm_info->frame_no,
-				cb_param, cb_param->err, cb_param->frm_idx,
-				cb_param->frm_num, cb_frm_cnt, hw_comb,
-				cb_param->taskTs.num,
-				wpestr,
-				cb_param->taskTs.dma_va[cb_param->taskTs.ofst+0],
-				cb_param->taskTs.dma_va[cb_param->taskTs.ofst+1],
-				cb_param->taskTs.dma_va[cb_param->taskTs.ofst+2],
-				cb_param->taskTs.dma_va[cb_param->taskTs.ofst+3]
-				);
+		for (idx = 0; idx < cb_param->task_cnt; idx++) {
+			wpestr = NULL;
+			real_frm_idx = cb_param->frm_idx - (cb_param->task_cnt - 1) + idx;
+			hw_comb = cb_param->frm_info->user_info[real_frm_idx].hw_comb;
+			switch (wpebw_en) {
+			case 1:
+				if ((hw_comb & WPE_BWLOG_HW_COMB) == WPE_BWLOG_HW_COMB)
+					wpestr = "tnr";
+				break;
+			case 2:
+				if (((hw_comb & WPE_BWLOG_HW_COMB_ninA) == WPE_BWLOG_HW_COMB_ninA)
+				 || ((hw_comb & WPE_BWLOG_HW_COMB_ninB) == WPE_BWLOG_HW_COMB_ninB))
+					wpestr = "eis";
+				break;
+			case 3:
+				if (((hw_comb & WPE_BWLOG_HW_COMB_ninC) == WPE_BWLOG_HW_COMB_ninC)
+				 || ((hw_comb & WPE_BWLOG_HW_COMB_ninD) == WPE_BWLOG_HW_COMB_ninD))
+					wpestr = "lite";
+				break;
+			}
+			if (wpestr) {
+				dev_info(imgsys_dev->dev,
+					"%s: wpe_bwlog req fd/no(%d/%d)frameNo(%d)cb(%p)err(%d)frm(%d/%d/%d)hw_comb(0x%x)read_num(%d)-%s(%d/%d/%d/%d)\n",
+					__func__, cb_param->frm_info->request_fd,
+					cb_param->frm_info->request_no,
+					cb_param->frm_info->frame_no,
+					cb_param, cb_param->err, real_frm_idx,
+					cb_param->frm_num, cb_frm_cnt, hw_comb,
+					cb_param->taskTs.num,
+					wpestr,
+					cb_param->taskTs.dma_va[cb_param->taskTs.ofst+0],
+					cb_param->taskTs.dma_va[cb_param->taskTs.ofst+1],
+					cb_param->taskTs.dma_va[cb_param->taskTs.ofst+2],
+					cb_param->taskTs.dma_va[cb_param->taskTs.ofst+3]
+					);
+			}
 		}
 	}
+
+	hw_comb = cb_param->frm_info->user_info[cb_param->frm_idx].hw_comb;
 
 	dev_dbg(imgsys_dev->dev,
 		"%s: req fd/no(%d/%d) frame no(%d) cb(%p)frm_info(%p) isBlkLast(%d) cb_param->frm_num(%d) cb_frm_cnt(%d)\n",
