@@ -214,7 +214,7 @@ static const struct proc_ops mmdvfs_debug_opp_fops = {
 
 static int mmdvfs_v3_debug_thread(void *data)
 {
-	phys_addr_t pa;
+	phys_addr_t pa = 0ULL;
 	int ret = 0, retry = 0;
 
 	while (!mtk_is_mmdvfs_init_done()) {
@@ -242,8 +242,11 @@ static int mmdvfs_v3_debug_thread(void *data)
 
 	if (g_mmdvfs->use_v3_pwr & (1 << PWR_MMDVFS_VMM))
 		mtk_mmdvfs_v3_set_vote_step(PWR_MMDVFS_VMM, -1);
-	if (g_mmdvfs->aov_clk)
-		clk_set_rate(g_mmdvfs->aov_clk, 1);
+	if (g_mmdvfs->aov_clk) {
+		ret = clk_set_rate(g_mmdvfs->aov_clk, 1);
+		if (ret)
+			MMDVFS_DBG("clk_set_rate failed:%d", ret);
+	}
 
 	g_mmdvfs->base = mtk_mmdvfs_vcp_get_base(&pa);
 
@@ -427,10 +430,14 @@ MODULE_PARM_DESC(ftrace, "mmdvfs ftrace log");
 
 void mtk_mmdvfs_debug_ulposc_enable(const bool enable)
 {
+	int ret = 0;
+
 	if (!g_mmdvfs)
 		return;
 	if (g_mmdvfs->aov_clk) {
-		clk_set_rate(g_mmdvfs->aov_clk, enable ? 0 : 1);
+		ret = clk_set_rate(g_mmdvfs->aov_clk, enable ? 0 : 1);
+		if (ret)
+			MMDVFS_DBG("clk_set_rate failed:%d", ret);
 		MMDVFS_DBG("enable=%d", enable);
 	}
 }
