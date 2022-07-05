@@ -11779,7 +11779,7 @@
 		mediatek,mmdvfs-clock-names = "disp", "mdp", "mml", "smi_common0", "smi_common1",
 			"venc", "jpegenc", "vdec", "vfmt", "jpegdec", "img", "ipe", "cam", "ccu",
 			"aov", "vcore", "vmm";
-		mediatek,ccu_rproc = <&ccu_rproc>;
+		mediatek,ccu-rproc = <&ccu_rproc>;
 		mediatek,larbs = <&smi_larb16>;
 		#clock-cells = <1>;
 		clocks = <&mmdvfs_clk CLK_MMDVFS_VCORE>, <&mmdvfs_clk CLK_MMDVFS_VMM>;
