@@ -429,12 +429,20 @@ void vdec_dump_mem_buf(unsigned long h_vdec)
 	struct vdec_inst *inst = (struct vdec_inst *)h_vdec;
 	struct list_head *list_ptr, *tmp;
 	struct vcp_dec_mem_list *mem_list = NULL;
+	unsigned int bs_fourcc;
+	char codec_fourcc[5] = {0};
+
+	bs_fourcc = inst->ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc;
+	codec_fourcc[0] = bs_fourcc & 0xFF;
+	codec_fourcc[1] = (bs_fourcc >> 8) & 0xFF;
+	codec_fourcc[2] = (bs_fourcc >> 16) & 0xFF;
+	codec_fourcc[3] = (bs_fourcc >> 24) & 0xFF;
 
 	mutex_lock(inst->vcu.ctx_ipi_lock);
 	list_for_each_safe(list_ptr, tmp, &inst->vcu.bufs) {
 		mem_list = list_entry(list_ptr, struct vcp_dec_mem_list, list);
-		mtk_v4l2_err("[%d] working buffer va 0x%llx pa 0x%llx iova 0x%llx len %d type %d",
-			inst->ctx->id, mem_list->mem.va, mem_list->mem.pa,
+		mtk_v4l2_err("[%d] %s working buffer va 0x%llx pa 0x%llx iova 0x%llx len %d type %d",
+			inst->ctx->id, codec_fourcc, mem_list->mem.va, mem_list->mem.pa,
 			mem_list->mem.iova, mem_list->mem.len,  mem_list->mem.type);
 	}
 	mutex_unlock(inst->vcu.ctx_ipi_lock);

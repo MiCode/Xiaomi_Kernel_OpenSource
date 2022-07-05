@@ -11,6 +11,7 @@
 #include <linux/pm_runtime.h>
 #include <soc/mediatek/smi.h>
 #include <linux/slab.h>
+#include <linux/interrupt.h>
 //#include "smi_public.h"
 #include "mtk_vcodec_dec_pm.h"
 #include "mtk_vcodec_dec_pm_plat.h"
@@ -761,6 +762,24 @@ static void mtk_vdec_dump_addr_reg(
 	spin_unlock_irqrestore(&dev->dec_power_lock[hw_id], flags);
 }
 
+void mtk_vdec_uP_TF_dump_handler(unsigned long arg)
+{
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
+	struct mtk_vcodec_dev *dev = (struct mtk_vcodec_dev *)arg;
+	struct mtk_vcodec_ctx *ctx;
+	struct list_head *list_ptr, *tmp;
+
+	mtk_v4l2_err("dec working buffer:");
+	mutex_lock(&dev->ctx_mutex);
+	list_for_each_safe(list_ptr, tmp, &dev->ctx_list) {
+		ctx = list_entry(list_ptr, struct mtk_vcodec_ctx, list);
+		if (ctx != NULL && ctx->state >= MTK_STATE_INIT && ctx->state < MTK_STATE_ABORT)
+			vdec_dump_mem_buf(ctx->drv_handle);
+	}
+	mutex_unlock(&dev->ctx_mutex);
+#endif
+}
+
 #if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_DBG)
 static int mtk_vdec_translation_fault_callback(
 	int port, dma_addr_t mva, void *data)
@@ -864,10 +883,7 @@ static int mtk_vdec_uP_translation_fault_callback(
 	int dec_ctx_id[MTK_VDEC_HW_NUM];
 	enum mtk_vcodec_ipm vdec_hw_ipm;
 	int hw_id, i;
-#if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
-	struct mtk_vcodec_ctx *ctx;
-	struct list_head *list_ptr, *tmp;
-#endif
+
 	if (dev->pm.mtkdev == NULL) {
 		mtk_v4l2_err("fail to get vdec_hw_ipm");
 		vdec_hw_ipm = VCODEC_IPM_V2;
@@ -898,14 +914,8 @@ static int mtk_vdec_uP_translation_fault_callback(
 		dec_ctx_id[MTK_VDEC_CORE], dec_codec_name[MTK_VDEC_CORE],
 		dec_fourcc[MTK_VDEC_CORE], vdec_hw_ipm);
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
-	mtk_v4l2_err("dec working buffer:");
-	mutex_lock(&dev->ctx_mutex);
-	list_for_each_safe(list_ptr, tmp, &dev->ctx_list) {
-		ctx = list_entry(list_ptr, struct mtk_vcodec_ctx, list);
-		if (ctx != NULL && ctx->state != MTK_STATE_ABORT)
-			vdec_dump_mem_buf(ctx->drv_handle);
-	}
-	mutex_unlock(&dev->ctx_mutex);
+	/* trigger all ctx working buffer info dump (need mutex lock so can't dump at isr) */
+	tasklet_schedule(&dev->vdec_buf_tasklet);
 #endif
 
 	return 0;

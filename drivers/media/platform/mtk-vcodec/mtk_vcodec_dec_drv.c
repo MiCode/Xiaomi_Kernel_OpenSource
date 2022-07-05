@@ -562,6 +562,7 @@ static int mtk_vcodec_dec_probe(struct platform_device *pdev)
 			reg_index, dev->dec_m4u_ports[reg_index]);
 	}
 
+	tasklet_init(&dev->vdec_buf_tasklet, mtk_vdec_uP_TF_dump_handler, (unsigned long)dev);
 #if IS_ENABLED(CONFIG_MTK_IOMMU)
 	dev->io_domain = iommu_get_domain_for_dev(&pdev->dev);
 	if (dev->io_domain == NULL) {
@@ -646,6 +647,8 @@ MODULE_DEVICE_TABLE(of, mtk_vcodec_match);
 static int mtk_vcodec_dec_remove(struct platform_device *pdev)
 {
 	struct mtk_vcodec_dev *dev = platform_get_drvdata(pdev);
+
+	tasklet_kill(&dev->vdec_buf_tasklet);
 
 	mtk_unprepare_vdec_emi_bw(dev);
 	mtk_unprepare_vdec_dvfs(dev);
