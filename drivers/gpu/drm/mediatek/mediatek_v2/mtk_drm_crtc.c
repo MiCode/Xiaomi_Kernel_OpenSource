@@ -5698,7 +5698,7 @@ static void cmdq_pkt_request_te(struct cmdq_pkt *cmdq_handle,
 	lop.reg = true;
 	lop.idx = request_en;
 	rop.reg = false;
-	rop.value = 0x1;
+	rop.value = ENABLE_REQUSET_TE;
 
 	inst_condi_jump = cmdq_handle->cmd_buf_size;
 	cmdq_pkt_assign_command(cmdq_handle, reg_jump, 0);
@@ -5751,6 +5751,11 @@ static void cmdq_pkt_wait_te(struct cmdq_pkt *cmdq_handle,
 	u32 inst_condi_jump, inst_jump_end;
 	u64 *inst, jump_pa;
 
+	struct drm_crtc *crtc = &mtk_crtc->base;
+	struct mtk_drm_private *priv = crtc->dev->dev_private;
+	struct mtk_panel_params *params_lcm =
+		mtk_drm_get_lcm_ext_params(crtc);
+
 	cmdq_pkt_read(cmdq_handle, NULL,
 		mtk_get_gce_backup_slot_pa(mtk_crtc, DISP_SLOT_TE1_EN), te1_en);
 	lop.reg = true;
@@ -5767,7 +5772,11 @@ static void cmdq_pkt_wait_te(struct cmdq_pkt *cmdq_handle,
 	/* condition not match, here is nop jump */
 	cmdq_pkt_clear_event(cmdq_handle,
 			     mtk_crtc->gce_obj.event[EVENT_TE]);
-	cmdq_pkt_request_te(cmdq_handle, mtk_crtc);
+
+	if (mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_MSYNC2_0)
+			&& params_lcm && params_lcm->msync2_enable)
+		cmdq_pkt_request_te(cmdq_handle, mtk_crtc);
+
 	if (mtk_drm_lcm_is_connect())
 		cmdq_pkt_wfe(cmdq_handle,
 				 mtk_crtc->gce_obj.event[EVENT_TE]);
@@ -5790,7 +5799,11 @@ static void cmdq_pkt_wait_te(struct cmdq_pkt *cmdq_handle,
 	/* condition match, here is nop jump */
 	cmdq_pkt_clear_event(cmdq_handle,
 			     mtk_crtc->gce_obj.event[EVENT_GPIO_TE1]);
+
+	if (mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_MSYNC2_0)
+				&& params_lcm && params_lcm->msync2_enable)
 		cmdq_pkt_request_te(cmdq_handle, mtk_crtc);
+
 	if (mtk_drm_lcm_is_connect())
 		cmdq_pkt_wfe(cmdq_handle,
 				 mtk_crtc->gce_obj.event[EVENT_GPIO_TE1]);
@@ -5823,6 +5836,11 @@ void mtk_crtc_start_trig_loop(struct drm_crtc *crtc)
 	struct cmdq_operand lop, rop;
 	struct mtk_panel_params *params = NULL;
 	unsigned int cur_fps = 0;
+
+	struct mtk_panel_params *params_lcm =
+		mtk_drm_get_lcm_ext_params(crtc);
+	dma_addr_t slot_src_addr;
+	dma_addr_t slot_dts_addr;
 
 	const u16 reg_jump = CMDQ_THR_SPR_IDX1;
 	const u16 var1 = CMDQ_CPR_DDR_USR_CNT;
@@ -5895,6 +5913,12 @@ void mtk_crtc_start_trig_loop(struct drm_crtc *crtc)
 				} else {
 					cmdq_pkt_clear_event(cmdq_handle,
 						mtk_crtc->gce_obj.event[EVENT_TE]);
+
+					if (mtk_drm_helper_get_opt(priv->helper_opt,
+							MTK_DRM_OPT_MSYNC2_0)
+							&& params_lcm && params_lcm->msync2_enable)
+						cmdq_pkt_request_te(cmdq_handle, mtk_crtc);
+
 					if (mtk_drm_lcm_is_connect())
 						cmdq_pkt_wfe(cmdq_handle,
 							mtk_crtc->gce_obj.event[EVENT_TE]);
@@ -5932,6 +5956,18 @@ void mtk_crtc_start_trig_loop(struct drm_crtc *crtc)
 			mtk_crtc->layer_rec_en = false;
 		}
 #endif
+		if (mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_MSYNC2_0)
+				&& params_lcm && params_lcm->msync2_enable) {
+
+			slot_src_addr = mtk_get_gce_backup_slot_pa(mtk_crtc,
+				DISP_SLOT_REQUEST_TE_PREPARE);
+			slot_dts_addr = mtk_get_gce_backup_slot_pa(mtk_crtc,
+				DISP_SLOT_REQUEST_TE_EN);
+
+			cmdq_pkt_mem_move(cmdq_handle, mtk_crtc->gce_obj.base, slot_src_addr,
+				slot_dts_addr, CMDQ_THR_SPR_IDX3);
+		}
+
 		cmdq_pkt_set_event(cmdq_handle,
 				   mtk_crtc->gce_obj.event[EVENT_CABC_EOF]);
 
@@ -8564,8 +8600,7 @@ static void mtk_crtc_msync2_send_cmds_bef_cfg(struct drm_crtc *crtc, unsigned in
 		return;
 	}
 
-
-	addr = mtk_get_gce_backup_slot_pa(mtk_crtc, DISP_SLOT_REQUEST_TE_EN);
+	addr = mtk_get_gce_backup_slot_pa(mtk_crtc, DISP_SLOT_REQUEST_TE_PREPARE);
 
 	/* Get SOF - atomic_flush time*/
 	sec = rdma_sof_tval.tv_sec - atomic_flush_tval.tv_sec;
@@ -8620,7 +8655,7 @@ static void mtk_crtc_msync2_send_cmds_bef_cfg(struct drm_crtc *crtc, unsigned in
 			if (msync_is_close == 0) {
 				mtk_crtc_msync2_send_cmds_bef_cfg(crtc, 0xFFFF);
 				cmdq_pkt_write(state->cmdq_handle, mtk_crtc->gce_obj.base,
-					addr, 0, ~0);
+					addr, DISABLE_REQUEST_TE, ~0);
 			}
 			msync_is_close = 1;
 			DDPMSG("[Msync2.0] low min fps close msync\n");
@@ -8641,7 +8676,8 @@ static void mtk_crtc_msync2_send_cmds_bef_cfg(struct drm_crtc *crtc, unsigned in
 		}
 
 		count1 = 0;
-		cmdq_pkt_write(state->cmdq_handle, mtk_crtc->gce_obj.base, addr, 1, ~0);
+		cmdq_pkt_write(state->cmdq_handle, mtk_crtc->gce_obj.base, addr,
+			ENABLE_REQUSET_TE, ~0);
 		msync_is_close = 0;
 		DDPMSG("[Msync2.0] come back enable msync\n");
 
@@ -8683,6 +8719,12 @@ rte_target:
 			fps_level_old = fps_level;
 		}
 
+		/*
+		 * Dynamically modify minfps of level
+		 * nt37801 do not support dynamically modify minfps so disable
+		 * this part code. if other lcm support, need enable this part
+		 * code.
+		 */
 		if (1 == 0) {
 			/* Set min fps */
 			if ((msync_cmd_level_tb_dirty && (min_fps != min_fps_old))
@@ -8903,6 +8945,7 @@ static void mtk_drm_crtc_atomic_begin(struct drm_crtc *crtc,
 	static unsigned int msync_may_close;
 	unsigned int msync_fps_record[60];
 	static unsigned int position;
+	dma_addr_t msync_slot_addr;
 
 	/* When open VDS path switch feature, we will resume VDS crtc
 	 * in it's second atomic commit, and the crtc will be resumed
@@ -9023,6 +9066,10 @@ static void mtk_drm_crtc_atomic_begin(struct drm_crtc *crtc,
 		if ((msync_may_close == 1) && (g_msync_debug == 0)) {
 			mtk_crtc_msync2_send_cmds_bef_cfg(crtc, 0xFFFF);
 			msync_may_close = 0;
+			msync_slot_addr = mtk_get_gce_backup_slot_pa(mtk_crtc,
+				DISP_SLOT_REQUEST_TE_PREPARE);
+			cmdq_pkt_write(mtk_crtc_state->cmdq_handle, mtk_crtc->gce_obj.base,
+				msync_slot_addr, DISABLE_REQUEST_TE, ~0);
 		}
 	}
 

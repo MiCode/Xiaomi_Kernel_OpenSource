@@ -342,6 +342,9 @@ static struct LCM_setting_table fhdplus60_init_setting[] = {
 	/* 3.7 DBV */
 	{0x51, 02, {0x07, 0xFF}},
 
+	/* set tear_scanline = 2400 */
+	{0x44, 02, {0x09, 0x60}},
+
 	/* 4. User Command Set */
 	/* Sleep Out */
 	{0x11, 00, {}},
@@ -410,6 +413,9 @@ static struct LCM_setting_table fhdplus80_init_setting[] = {
 	{0x5F, 01, {0x01}},
 	/* 3.7 DBV */
 	{0x51, 02, {0x07, 0xFF}},
+
+	/* set tear_scanline = 2400 */
+	{0x44, 02, {0x09, 0x60}},
 
 	/* 4. User Command Set */
 	/* Sleep Out */
@@ -480,6 +486,9 @@ static struct LCM_setting_table fhdplus96_init_setting[] = {
 	/* 3.7 DBV */
 	{0x51, 02, {0x07, 0xFF}},
 
+	/* set tear_scanline = 2400 */
+	{0x44, 02, {0x09, 0x60}},
+
 	/* 4. User Command Set */
 	/* Sleep Out */
 	{0x11, 00, {}},
@@ -546,6 +555,9 @@ static struct LCM_setting_table fhdplus120_init_setting[] = {
 	{0x5F, 01, {0x01}},
 	/* 3.7 DBV */
 	{0x51, 02, {0x07, 0xFF}},
+
+	/* set tear_scanline = 2400 */
+	{0x44, 02, {0x09, 0x60}},
 
 	/* 4. User Command Set */
 	/* Sleep Out */
