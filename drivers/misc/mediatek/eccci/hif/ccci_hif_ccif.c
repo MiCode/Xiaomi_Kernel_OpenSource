@@ -1558,7 +1558,7 @@ static int ccif_debug(unsigned char hif_id,
 		ccif_ctrl->wakeup_ch =
 			ccif_read32(ccif_ctrl->ccif_ap_base, APCCIF_RCHNUM);
 		CCCI_NORMAL_LOG(-1, TAG,
-			"CCIF0 Wake up old path: channel_id == 0x%x\n",
+			"CCIF0 Wake up old path: channel_id == 0x%lx\n",
 			ccif_ctrl->wakeup_ch);
 		ret = 0;
 		break;
