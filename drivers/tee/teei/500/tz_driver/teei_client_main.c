@@ -1079,7 +1079,7 @@ static int teei_client_init(void)
 
 		ret = of_property_read_u32(np, "microtrust,real-drv", &ret_code);
 		if (ret || !ret_code) {
-			IMSG_INFO("MICROTRUST device is NOT enable.\n");
+			IMSG_PRINTK("MICROTRUST device is NOT enable,dummy driver\n");
 			ret_code = 0;
 			goto class_device_destroy;
 		}
