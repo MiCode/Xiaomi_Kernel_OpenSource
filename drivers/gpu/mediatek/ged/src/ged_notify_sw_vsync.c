@@ -444,14 +444,10 @@ enum hrtimer_restart ged_sw_vsync_check_cb(struct hrtimer *timer)
 }
 
 
-bool ged_gpu_power_on_notified;
-bool ged_gpu_power_off_notified;
-void ged_dvfs_gpu_clock_switch_notify(bool bSwitch)
+void ged_dvfs_gpu_clock_switch_notify(enum ged_gpu_power_state power_state)
 {
 
-	if (bSwitch) {
-		ged_gpu_power_on_notified = true;
-
+	if (power_state == GED_POWER_ON) {
 		g_ns_gpu_on_ts = ged_get_time();
 
 #ifdef GED_DCS_POLICY
@@ -470,18 +466,14 @@ void ged_dvfs_gpu_clock_switch_notify(bool bSwitch)
 				"[GED_K] HW Start Timer");
 			timer_switch(true);
 		}
-		ged_log_perf_trace_counter("gpu_state",
-			1, 5566, 0, 0);
-	} else {
+	} else if (power_state == GED_POWER_OFF ||
+			power_state == GED_SLEEP) {
 		g_ns_gpu_off_ts = ged_get_time();
-		ged_gpu_power_off_notified = true;
 		g_bGPUClock = false;
 		ged_log_buf_print(ghLogBuf_DVFS, "[GED_K] Buck-off");
-
-		// Update power on/off state
-		ged_log_perf_trace_counter("gpu_state",
-			0, 5566, 0, 0);
 	}
+	// Update power on/off state
+	ged_log_perf_trace_counter("gpu_state", power_state, 5566, 0, 0);
 }
 EXPORT_SYMBOL(ged_dvfs_gpu_clock_switch_notify);
 

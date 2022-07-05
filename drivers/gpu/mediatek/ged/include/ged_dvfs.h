@@ -134,7 +134,12 @@ GED_ERROR ged_dvfs_um_commit(unsigned long gpu_tar_freq, bool bFallback);
 
 GED_ERROR  ged_dvfs_probe_signal(int signo);
 
-void ged_dvfs_gpu_clock_switch_notify(bool bSwitch);
+enum ged_gpu_power_state {
+	GED_POWER_OFF,
+	GED_SLEEP,
+	GED_POWER_ON,
+};
+void ged_dvfs_gpu_clock_switch_notify(enum ged_gpu_power_state power_state);
 
 GED_ERROR ged_dvfs_system_init(void);
 void ged_dvfs_system_exit(void);

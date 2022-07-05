@@ -40,8 +40,6 @@ extern void (*ged_dvfs_cal_gpu_utilization_ex_fp)(
 
 extern void (*ged_dvfs_gpu_freq_commit_fp)(unsigned long ui32NewFreqID,
 	GED_DVFS_COMMIT_TYPE eCommitType, int *pbCommited);
-extern bool ged_gpu_power_on_notified;
-extern bool ged_gpu_power_off_notified;
 
 extern bool mtk_get_bottom_gpu_freq(unsigned int *pui32FreqLevel);
 extern GED_LOG_BUF_HANDLE ghLogBuf_GED;
