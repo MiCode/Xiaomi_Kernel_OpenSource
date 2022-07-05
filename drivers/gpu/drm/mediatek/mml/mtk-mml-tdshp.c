@@ -475,6 +475,7 @@ static const struct mml_comp_config_ops tdshp_cfg_ops = {
 	.tile = tdshp_config_tile,
 	.post = tdshp_config_post,
 	.reframe = tdshp_reconfig_frame,
+	.repost = tdshp_config_post,
 };
 
 static void tdshp_debug_dump(struct mml_comp *comp)

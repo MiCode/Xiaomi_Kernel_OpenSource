@@ -720,6 +720,7 @@ static s32 hdr_config_post(struct mml_comp *comp, struct mml_task *task,
 	else
 		hdr_readback_cmdq(comp, task, ccfg);
 
+	mml_pq_put_comp_config_result(task);
 exit:
 	return 0;
 
