@@ -148,15 +148,19 @@ static int gpufreq_status_proc_show(struct seq_file *m, void *v)
 		g_shared_status->gpm1_mode ? "On" : "Off",
 		g_shared_status->gpm3_mode ? "On" : "Off");
 	seq_printf(m,
-		"%-16s Temperature: %d'C, TemperCompensation: %d\n",
+		"%-16s Temperature: %d'C, GPUTemperComp: %d/%d, STACKTemperComp: %d/%d\n",
 		"[MFGSYS Config]",
 		g_shared_status->temperature,
-		g_shared_status->temper_compensate);
+		g_shared_status->temper_comp_norm_gpu,
+		g_shared_status->temper_comp_high_gpu,
+		g_shared_status->temper_comp_norm_stack,
+		g_shared_status->temper_comp_high_stack);
 	seq_printf(m,
-		"%-16s GPU_SB_Ver: 0x%04x, GPU_PTP_Ver: 0x%04x\n",
+		"%-16s DBGVer: 0x%08x, PTPVer: 0x%04x, SBVer: 0x%04x\n",
 		"[MFGSYS Config]",
-		g_shared_status->sb_version,
-		g_shared_status->ptp_version);
+		g_shared_status->dbg_version,
+		g_shared_status->ptp_version,
+		g_shared_status->sb_version);
 
 	mutex_unlock(&gpufreq_debug_lock);
 
@@ -611,31 +615,35 @@ static int mfgsys_config_proc_show(struct seq_file *m, void *v)
 	avs_table_stack = g_shared_status->avs_table_stack;
 	gpm3_table = g_shared_status->gpm3_table;
 
-	seq_printf(m, "%-7s AgingSensor: %s, AgingLoad: %s, AgingMargin: %s\n",
+	seq_printf(m, "%-8s AgingSensor: %s, AgingLoad: %s, AgingMargin: %s\n",
 		"[AGING]",
 		g_shared_status->asensor_enable ? "On" : "Off",
 		g_shared_status->aging_load ? "On" : "Off",
 		g_shared_status->aging_margin ? "On" : "Off");
-	seq_printf(m, "%-7s AVS: %s, AVSMargin: %s\n",
+	seq_printf(m, "%-8s AVS: %s, AVSMargin: %s\n",
 		"[AVS]",
 		g_shared_status->avs_enable ? "On" : "Off",
 		g_shared_status->avs_margin ? "On" : "Off");
-	seq_printf(m, "%-7s GPM1.0: %s, GPM3.0: %s\n",
+	seq_printf(m, "%-8s GPM1.0: %s, GPM3.0: %s\n",
 		"[GPM]",
 		g_shared_status->gpm1_mode ? "On" : "Off",
 		g_shared_status->gpm3_mode ? "On" : "Off");
-	seq_printf(m, "%-7s IPS: %s, Vmin: %d (0x%x)\n",
+	seq_printf(m, "%-8s TemperComp: %s, HTTemperComp: %s\n",
+		"[TEMPER]",
+		g_shared_status->temper_comp_mode ? "On" : "Off",
+		g_shared_status->ht_temper_comp_mode ? "On" : "Off");
+	seq_printf(m, "%-8s IPS: %s, Vmin: %d (0x%x)\n",
 		"[IPS]",
 		g_shared_status->ips_mode ? "On" : "Off",
 		g_shared_status->ips_info.vmin_val,
 		g_shared_status->ips_info.vmin_reg_val);
-	seq_printf(m, "%-7s AutoKResult: %s (Trim: 0x%x, 0x%x, 0x%x)\n",
+	seq_printf(m, "%-8s AutoKResult: %s (Trim: 0x%x, 0x%x, 0x%x)\n",
 		"[IPS]",
 		g_shared_status->ips_info.autok_result ? "Pass" : "Fail",
 		g_shared_status->ips_info.autok_trim0,
 		g_shared_status->ips_info.autok_trim1,
 		g_shared_status->ips_info.autok_trim2);
-	seq_printf(m, "%-7s RandomOPP: %s, TestMode: %s\n",
+	seq_printf(m, "%-8s RandomOPP: %s, TestMode: %s\n",
 		"[Misc]",
 		g_shared_status->stress_test ? "On" : "Off",
 		g_shared_status->test_mode ? "On" : "Off");

@@ -250,7 +250,10 @@ struct gpufreq_shared_status {
 	int cg_count;
 	int active_count;
 	int temperature;
-	int temper_compensate;
+	int temper_comp_norm_gpu;
+	int temper_comp_high_gpu;
+	int temper_comp_norm_stack;
+	int temper_comp_high_stack;
 	unsigned int cur_fgpu;
 	unsigned int cur_fstack;
 	unsigned int cur_con1_fgpu;
@@ -294,6 +297,7 @@ struct gpufreq_shared_status {
 	unsigned int avs_margin;
 	unsigned int sb_version;
 	unsigned int ptp_version;
+	unsigned int dbg_version;
 	unsigned int gpm1_mode;
 	unsigned int gpm3_mode;
 	unsigned int dual_buck;
@@ -304,6 +308,8 @@ struct gpufreq_shared_status {
 	unsigned int stress_test;
 	unsigned int test_mode;
 	unsigned int ips_mode;
+	unsigned int temper_comp_mode;
+	unsigned int ht_temper_comp_mode;
 	struct gpufreq_reg_info reg_mfgsys[GPUFREQ_MAX_REG_NUM];
 	struct gpufreq_reg_info reg_stack_sel;
 	struct gpufreq_reg_info reg_del_sel;
