@@ -93,9 +93,7 @@ static int init_private_table(unsigned int cluster)
 	unsigned int index = 0, base_freq_idx = 0;
 	unsigned int max_freq, min_freq, cur_freq;
 	struct mtk_em_perf_domain *pd_public, *pd_private;
-	struct mtk_em_perf_state *ps_base, *ps_next, *ps_new, *ps_temp;
-
-	ps_temp = kzalloc(sizeof(struct mtk_em_perf_state), GFP_KERNEL);
+	struct mtk_em_perf_state *ps_base, *ps_next, *ps_new, ps_temp;
 
 	pd_public = &mtk_em_pd_ptr_public[cluster];
 	pd_private = &mtk_em_pd_ptr_private[cluster];
@@ -119,43 +117,43 @@ static int init_private_table(unsigned int cluster)
 		} else if (cur_freq == ps_next->freq || cur_freq < min_freq) {
 			ps_new = ps_next;
 		} else { // cur_freq < base_freq && cur_freq > next_freq
-			ps_temp->volt =
+			ps_temp.volt =
 				interpolate(ps_next->freq,
 							ps_next->volt,
 							ps_base->freq,
 							ps_base->volt,
 							cur_freq);
-			ps_temp->capacity =
+			ps_temp.capacity =
 				interpolate(ps_next->freq,
 							ps_next->capacity,
 							ps_base->freq,
 							ps_base->capacity,
 							cur_freq);
-			ps_temp->leakage_para.a_b_para.a =
+			ps_temp.leakage_para.a_b_para.a =
 				interpolate(ps_next->volt,
 							ps_next->leakage_para.a_b_para.a,
 							ps_base->volt,
 							ps_base->leakage_para.a_b_para.a,
-							ps_temp->volt);
-			ps_temp->leakage_para.a_b_para.b =
+							ps_temp.volt);
+			ps_temp.leakage_para.a_b_para.b =
 				interpolate(ps_next->volt,
 							ps_next->leakage_para.a_b_para.b,
 							ps_base->volt,
 							ps_base->leakage_para.a_b_para.b,
-							ps_temp->volt);
-			ps_temp->leakage_para.c =
+							ps_temp.volt);
+			ps_temp.leakage_para.c =
 				interpolate(ps_next->volt,
 							ps_next->leakage_para.c,
 							ps_base->volt,
 							ps_base->leakage_para.c,
-							ps_temp->volt);
-			ps_temp->dyn_pwr =
+							ps_temp.volt);
+			ps_temp.dyn_pwr =
 				mtk_convert_dyn_pwr(ps_base->freq,
 									cur_freq,
 									ps_base->volt,
-									ps_temp->volt,
+									ps_temp.volt,
 									ps_base->dyn_pwr);
-			ps_new = ps_temp;
+			ps_new = &ps_temp;
 		}
 
 		pd_private->table[index].freq = cur_freq;
@@ -223,6 +221,8 @@ static int init_public_table(void)
 			/* no policy? should check topology or dvfs status first */
 			pr_info("%s: %d: cannot get policy for CPU: %d, no available static power\n",
 					__func__, __LINE__, cpu);
+			free_public_table(cluster);
+
 			return -ENOMEM;
 		}
 
@@ -317,6 +317,11 @@ inline unsigned int mtk_get_leakage(unsigned int cpu, unsigned int idx, unsigned
 {
 	int a, b, c, power, cluster;
 	struct mtk_em_perf_domain *pd;
+
+	if (info.init != 0x5A5A) {
+		pr_info("[leakage] not yet init!\n");
+		return 0;
+	}
 
 	if (cpu > total_cpu)
 		return 0;
@@ -562,6 +567,7 @@ static int mtk_static_power_probe(struct platform_device *pdev)
 			cpu_mapping[cpu] = cluster;
 			cluster++;
 		}
+		pr_info("MTK_EM: created perf domain\n");
 	}
 
 	total_cluster = cluster;
