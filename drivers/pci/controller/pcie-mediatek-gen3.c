@@ -177,7 +177,7 @@ struct mtk_pcie_port {
 	struct clk_bulk_data *clks;
 	int num_clks;
 
-	u32 port_num;
+	int port_num;
 	u32 suspend_mode;
 	bool dvfs_req_en;
 	bool peri_reset_en;
