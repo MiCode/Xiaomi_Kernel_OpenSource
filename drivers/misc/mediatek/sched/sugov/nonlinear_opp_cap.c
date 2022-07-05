@@ -218,6 +218,26 @@ unsigned long pd_get_opp_capacity(int cpu, int opp)
 }
 EXPORT_SYMBOL_GPL(pd_get_opp_capacity);
 
+unsigned long pd_get_opp_capacity_legacy(int cpu, int opp)
+{
+	int i;
+#if IS_ENABLED(CONFIG_MTK_GEARLESS_SUPPORT)
+
+	i = per_cpu(gear_id, cpu);
+	opp = clamp_val(opp, 0,
+		mtk_em_pd_ptr_public[i].nr_perf_states - 1);
+	return mtk_em_pd_ptr_public[i].table[opp].capacity;
+#else
+	struct pd_capacity_info *pd_info;
+
+	i = per_cpu(gear_id, cpu);
+	pd_info = &pd_capacity_tbl[i];
+	opp = clamp_val(opp, 0, pd_info->nr_caps - 1);
+	return pd_info->table[opp].capacity;
+#endif
+}
+EXPORT_SYMBOL_GPL(pd_get_opp_capacity_legacy);
+
 unsigned long pd_get_opp_pwr_eff(int cpu, int opp)
 {
 	int i;
