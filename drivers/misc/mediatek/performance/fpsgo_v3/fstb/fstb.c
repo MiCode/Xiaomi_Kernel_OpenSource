@@ -1876,7 +1876,6 @@ static int calculate_fps_limit(struct FSTB_FRAME_INFO *iter, int target_fps)
 	mutex_lock(&fstb_policy_cmd_lock);
 	policy = fstb_get_policy_cmd(iter->proc_id, cur_ts, 0);
 	if (!policy) {
-		mutex_unlock(&fstb_policy_cmd_lock);
 		fstb_update_policy_cmd(iter, NULL);
 	} else {
 		fstb_update_policy_cmd(iter, policy);
