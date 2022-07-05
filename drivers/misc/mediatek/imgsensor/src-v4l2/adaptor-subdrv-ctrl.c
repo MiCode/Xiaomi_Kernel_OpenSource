@@ -510,6 +510,7 @@ void set_multi_shutter_frame_length(struct subdrv_ctx *ctx,
 	int readout_diff = 0;
 	bool gph = !ctx->is_seamless && (ctx->s_ctx.s_gph != NULL);
 	u32 rg_shutters[3] = {0};
+	u32 cit_step = 0;
 
 	ctx->frame_length = frame_length ? frame_length : ctx->frame_length;
 	if (exp_cnt > ARRAY_SIZE(ctx->exposure)) {
@@ -522,10 +523,13 @@ void set_multi_shutter_frame_length(struct subdrv_ctx *ctx,
 	for (i = 1; i < ARRAY_SIZE(ctx->exposure); i++)
 		last_exp_cnt += ctx->exposure[i] ? 1 : 0;
 	fine_integ_line = ctx->s_ctx.mode[ctx->current_scenario_id].fine_integ_line;
+	cit_step = ctx->s_ctx.mode[ctx->current_scenario_id].coarse_integ_step;
 	for (i = 0; i < exp_cnt; i++) {
 		shutters[i] = FINE_INTEG_CONVERT(shutters[i], fine_integ_line);
 		shutters[i] = max(shutters[i], ctx->s_ctx.exposure_min);
 		shutters[i] = min(shutters[i], ctx->s_ctx.exposure_max);
+		if (cit_step)
+			shutters[i] = round_up(shutters[i], cit_step);
 	}
 
 	/* check boundary of framelength */

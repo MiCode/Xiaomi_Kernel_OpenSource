@@ -131,6 +131,7 @@ struct subdrv_mode_struct {
 	u32 readout_length;
 	u8 read_margin;
 	u32 framelength_step;
+	u32 coarse_integ_step;
 	struct SENSOR_WINSIZE_INFO_STRUCT imgsensor_winsize_info;
 
 	enum IMGSENSOR_RGBW_OUTPUT_MODE rgbw_output_mode;
