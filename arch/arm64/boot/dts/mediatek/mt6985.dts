@@ -14554,7 +14554,7 @@ l3_hit,l3_mis,pmu_cyc_cnt";
 			node-63 = "SSPM_SLBC_BW",
 				"mm,apu,mm_est";
 			node-64 = "SSPM_SLBC_PMU",
-				"hit,miss";
+				"hit,miss,apu_r,apu_w,mm_r,mm_w";
 			node-65 = "SSPM_SLBC_WAY",
 				"venc,hifi3,sh_p2,sh_apu,mml,ainr,disp,slb,cpu,gpu,slc,left";
 			node-66 = "SSPM_SWPM_CPU__DSU_PMU",
