@@ -10,4 +10,6 @@
 void perf_update_gpu_counter(unsigned int gpu_pmu[], unsigned int len);
 #endif
 
+extern bool is_gearless_support(void);
+
 #endif /* _PERF_TRACKER_H */
