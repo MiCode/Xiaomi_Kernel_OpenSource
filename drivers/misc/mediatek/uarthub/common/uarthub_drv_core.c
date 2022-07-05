@@ -1511,12 +1511,12 @@ static void trigger_assert_worker_handler(struct work_struct *work)
 
 	uarthub_core_debug_info_with_tag_no_spinlock(__func__);
 
-	if (g_core_irq_callback)
-		(*g_core_irq_callback)(err_type);
-
 	uarthub_core_irq_clear_ctrl();
 	uarthub_core_irq_mask_ctrl(0);
 	spin_unlock_irqrestore(&g_clear_trx_req_lock, flags);
+
+	if (g_core_irq_callback)
+		(*g_core_irq_callback)(err_type);
 }
 
 int uarthub_core_assert_state_ctrl(int assert_ctrl)
@@ -1797,15 +1797,6 @@ int uarthub_core_is_uarthub_clk_enable(void)
 		if (state != 0x17) {
 			/* the expect value is 0x17 */
 			pr_notice("[%s] UARTHUB SPM RES 2 is not all on(0x%x)\n", __func__, state);
-			return 0;
-		}
-	}
-
-	if (g_uarthub_plat_ic_ops &&
-			g_uarthub_plat_ic_ops->uarthub_plat_get_uart_mux_info) {
-		state = g_uarthub_plat_ic_ops->uarthub_plat_get_uart_mux_info();
-		if (state != 0x2) {
-			pr_notice("[%s] UART MUX is not 104M(0x%x)\n", __func__, state);
 			return 0;
 		}
 	}
