@@ -665,5 +665,7 @@ do { \
 #define DP_DL_INT_LRO0_QDONE_SET       (0x01 << 13)
 #define DP_DL_INT_LRO1_QDONE_SET       (0x01 << 14)
 
+#define DPMAIF_DL_MAX_BAT_SKB_CNT_STS  (1 << 15)
+#define DPMAIF_DL_MAX_BAT_SKB_CNT_MSK  (0xFFFF0000)
 
 #endif /* __CCCI_DPMAIF_REG_COM_H__ */

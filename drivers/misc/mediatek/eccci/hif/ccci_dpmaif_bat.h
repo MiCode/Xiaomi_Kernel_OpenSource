@@ -20,14 +20,11 @@
 
 #define MAX_ALLOC_BAT_CNT (100000)
 
-//#define ENABLE_BAT_ALLOC_THRESHOLD
-
-#ifdef ENABLE_BAT_ALLOC_THRESHOLD
 #define MIN_ALLOC_SKB_CNT (2000)
 #define MIN_ALLOC_FRG_CNT (2000)
 #define MIN_ALLOC_SKB_TBL_CNT (100)
 #define MIN_ALLOC_FRG_TBL_CNT (100)
-#endif
+
 
 int ccci_dpmaif_bat_init(struct device *dev);
 
@@ -37,12 +34,13 @@ int ccci_dpmaif_bat_start(void);
 
 void ccci_dpmaif_bat_stop(void);
 
-void ccci_dpmaif_bat_wakeup_thread(void);
+void ccci_dpmaif_bat_wakeup_thread(int wakeup_cnt);
 
 extern unsigned int g_alloc_skb_threshold;
 extern unsigned int g_alloc_frg_threshold;
 extern unsigned int g_alloc_skb_tbl_threshold;
 extern unsigned int g_alloc_frg_tbl_threshold;
+extern unsigned int g_max_bat_skb_cnt_for_md;
 
 #endif /* __CCCI_DPMA_BAT_H__ */
 

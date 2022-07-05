@@ -31,6 +31,8 @@
 #define TYPE_SKB_ALC_FLG_ID  8
 #define TYPE_FRG_ALC_FLG_ID  9
 #define TYPE_RX_START_ID     10
+#define TYPE_UL_DL_TPUT_ID   11
+#define TYPE_MAX_SKB_CNT_ID  12
 
 
 #define DEBUG_RX_DONE_SKB    (1 << TYPE_RX_DONE_SKB_ID)
@@ -44,6 +46,8 @@
 #define DEBUG_SKB_ALC_FLG    (1 << TYPE_SKB_ALC_FLG_ID)
 #define DEBUG_FRG_ALC_FLG    (1 << TYPE_FRG_ALC_FLG_ID)
 #define DEBUG_RX_START       (1 << TYPE_RX_START_ID)
+#define DEBUG_UL_DL_TPUT     (1 << TYPE_UL_DL_TPUT_ID)
+#define DEBUG_MAX_SKB_CNT    (1 << TYPE_MAX_SKB_CNT_ID)
 
 
 struct debug_rx_done_skb_hdr {
@@ -102,6 +106,7 @@ struct debug_bat_alc_skb_hdr {
 	u16 cnt;
 	u16 crd;
 	u16 cwr;
+	u16 thrd;
 
 } __packed;
 
@@ -127,10 +132,26 @@ struct debug_rx_start_hdr {
 	u8  qidx:3;
 	u32 time;
 	u16 pcnt;
+	u16 ridx;
 
 } __packed;
 
+struct debug_ul_dl_tput_hdr {
+	u8  type:5;
+	u8  resv:3;
+	u32 time;
+	u64 uput;
+	u64 dput;
 
+} __packed;
+
+struct debug_max_skb_cnt_hdr {
+	u8  type:5;
+	u8  qidx:3;
+	u32 time;
+	u16 value;
+
+} __packed;
 
 extern unsigned int g_debug_flags;
 

@@ -243,8 +243,6 @@ static void dpmaif_sysfs_parse(char *buf, int size)
 	if (!buf || size <= 0)
 		return;
 
-	CCCI_NORMAL_LOG(-1, TAG, "[%s] size: %d; buf: %s\n", __func__, size, buf);
-
 	pname = buf;
 	while (1) {
 		psub = strchr(pname, '|');
@@ -303,10 +301,6 @@ static void dpmaif_sysfs_parse(char *buf, int size)
 				__func__, g_debug_buf_len, g_debug_buf.data);
 		}
 	}
-
-	CCCI_NORMAL_LOG(-1, TAG,
-		"[%s] debug_buf_len: %u; debug_flags: 0x%08X, wake_up_flag: %u\n",
-		__func__, debug_buf_len, g_debug_flags, wake_up_flag);
 }
 
 #define MAX_WRITE_LEN 300

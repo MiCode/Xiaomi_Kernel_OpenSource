@@ -915,8 +915,6 @@ static inline int dpmaifq_rxq_notify_hw_pit_cnt(struct dpmaif_rx_queue *rxq,
 	if (rxq->started == false)
 		return 0;
 
-	ccci_dpmaif_bat_wakeup_thread();
-
 	ret = rxq->rxq_drv_dl_add_pit_remain_cnt(pit_remain_cnt);
 	if (ret < 0) {
 		CCCI_ERROR_LOG(0, TAG,
@@ -951,6 +949,8 @@ static int dpmaif_rxq_start_read_from_pit(struct dpmaif_rx_queue *rxq,
 	atomic_set(&rxq->rxq_need_flush, 0);
 #endif
 
+	pit_rd_idx = atomic_read(&rxq->pit_rd_idx);
+
 	if (g_debug_flags & DEBUG_RX_START) {
 		struct debug_rx_start_hdr hdr;
 
@@ -958,10 +958,10 @@ static int dpmaif_rxq_start_read_from_pit(struct dpmaif_rx_queue *rxq,
 		hdr.qidx = rxq->index;
 		hdr.time = (unsigned int)(local_clock() >> 16);
 		hdr.pcnt = read_cnt;
+		hdr.ridx = (u16)pit_rd_idx;
 		ccci_dpmaif_debug_add(&hdr, sizeof(hdr));
 	}
 
-	pit_rd_idx = atomic_read(&rxq->pit_rd_idx);
 	for (rx_cnt = 0; rx_cnt < read_cnt; rx_cnt++) {
 		if (time_after_eq(jiffies, time_limit))
 			break;
@@ -992,7 +992,12 @@ static int dpmaif_rxq_start_read_from_pit(struct dpmaif_rx_queue *rxq,
 		pit_rd_idx = get_ringbuf_next_idx(rxq->pit_cnt, pit_rd_idx, 1);
 
 		pit_hw_update_cnt++;
-		if ((pit_hw_update_cnt & 0x7F) == 0) {
+
+		if (pit_hw_update_cnt == 0x40)
+			ccci_dpmaif_bat_wakeup_thread(0x40);
+
+		if (pit_hw_update_cnt == 0x80) {
+			ccci_dpmaif_bat_wakeup_thread(0x40);
 			ret = dpmaifq_rxq_notify_hw_pit_cnt(rxq, pit_hw_update_cnt);
 			if (ret)
 				goto occur_err;
@@ -1010,6 +1015,7 @@ static int dpmaif_rxq_start_read_from_pit(struct dpmaif_rx_queue *rxq,
 
 	/* update to HW */
 	if (pit_hw_update_cnt) {
+		ccci_dpmaif_bat_wakeup_thread(0);
 		ret = dpmaifq_rxq_notify_hw_pit_cnt(rxq, pit_hw_update_cnt);
 		if (ret)
 			goto occur_err;
@@ -1029,13 +1035,42 @@ occur_err:
 	return ret;
 }
 
+static inline void dpmaif_updata_max_bat_skb_cnt(struct dpmaif_rx_queue *rxq)
+{
+	unsigned int max_bat_skb_cnt = 0;
+
+	max_bat_skb_cnt = DPMA_READ_PD_DL(NRL2_DPMAIF_DL_RESERVE_RW);
+	if (max_bat_skb_cnt & DPMAIF_DL_MAX_BAT_SKB_CNT_STS) {
+		DPMA_WRITE_PD_DL(NRL2_DPMAIF_DL_RESERVE_RW,
+				(max_bat_skb_cnt & (~DPMAIF_DL_MAX_BAT_SKB_CNT_STS)));
+
+		max_bat_skb_cnt = ((max_bat_skb_cnt & DPMAIF_DL_MAX_BAT_SKB_CNT_MSK) >> 16);
+		if ((max_bat_skb_cnt >= MIN_ALLOC_SKB_CNT) &&
+				(g_max_bat_skb_cnt_for_md != max_bat_skb_cnt)) {
+			g_max_bat_skb_cnt_for_md = max_bat_skb_cnt;
+
+			if (g_debug_flags & DEBUG_MAX_SKB_CNT) {
+				struct debug_max_skb_cnt_hdr hdr = {0};
+
+				hdr.type = TYPE_MAX_SKB_CNT_ID;
+				hdr.qidx = rxq->index;
+				hdr.time = (unsigned int)(local_clock() >> 16);
+				hdr.value = (u16)max_bat_skb_cnt;
+				ccci_dpmaif_debug_add(&hdr, sizeof(hdr));
+			}
+		}
+	}
+}
+
 static int dpmaif_rxq_data_collect(struct dpmaif_rx_queue *rxq)
 {
 	int ret = ALL_CLEAR, real_cnt = 0;
 	unsigned int L2RISAR0, rd_cnt;
 
-	rd_cnt = dpmaif_get_rxq_pit_read_cnt(rxq);
+	if (rxq->index == 0)
+		dpmaif_updata_max_bat_skb_cnt(rxq);
 
+	rd_cnt = dpmaif_get_rxq_pit_read_cnt(rxq);
 	if (rd_cnt) {
 		real_cnt = dpmaif_rxq_start_read_from_pit(rxq, rd_cnt);
 		if (real_cnt >= 0) {
@@ -1244,7 +1279,7 @@ static int dpmaif_rxq_irq_init(struct dpmaif_rx_queue *rxq)
 
 static int dpmaif_rxq_sw_init(struct dpmaif_rx_queue *rxq)
 {
-	int ret = -1;
+	int ret;
 
 	ret = dpmaif_rxq_irq_init(rxq);
 	if (ret)
@@ -2407,64 +2442,63 @@ static int dpmaif_stop(unsigned char hif_id)
 
 static void dpmaif_total_spd_cb(u64 total_ul_speed, u64 total_dl_speed)
 {
-#if defined(ENABLE_BAT_ALLOC_THRESHOLD) || defined(DPMAIF_REDUCE_RX_FLUSH)
+	if ((g_debug_flags & DEBUG_UL_DL_TPUT) &&
+			(total_ul_speed || total_dl_speed)) {
+		struct debug_ul_dl_tput_hdr hdr = {0};
+
+		hdr.type = TYPE_UL_DL_TPUT_ID;
+		hdr.time = (unsigned int)(local_clock() >> 16);
+		hdr.uput = total_ul_speed;
+		hdr.dput = total_dl_speed;
+		ccci_dpmaif_debug_add(&hdr, sizeof(hdr));
+	}
+
 	if (total_dl_speed > 4000000000LL) {  // dl tput > 4G
-#ifdef ENABLE_BAT_ALLOC_THRESHOLD
 		g_alloc_skb_threshold = MAX_ALLOC_BAT_CNT;
 		g_alloc_frg_threshold = MAX_ALLOC_BAT_CNT;
 		g_alloc_skb_tbl_threshold = MAX_ALLOC_BAT_CNT;
 		g_alloc_frg_tbl_threshold = MAX_ALLOC_BAT_CNT;
-#endif
 
 #ifdef DPMAIF_REDUCE_RX_FLUSH
 		g_rx_flush_pkt_cnt = 60;
 #endif
 	} else if (total_dl_speed > 2000000000LL) {  // dl tput > 2G
-#ifdef ENABLE_BAT_ALLOC_THRESHOLD
-		g_alloc_skb_threshold = 8000;
-		g_alloc_frg_threshold = 8000;
+		g_alloc_skb_threshold = 8192;
+		g_alloc_frg_threshold = 8192;
 		g_alloc_skb_tbl_threshold = 4000;
 		g_alloc_frg_tbl_threshold = 4000;
-#endif
 
 #ifdef DPMAIF_REDUCE_RX_FLUSH
 		g_rx_flush_pkt_cnt = 30;
 #endif
 	} else if (total_dl_speed > 1000000000LL) {  // dl tput > 1G
-#ifdef ENABLE_BAT_ALLOC_THRESHOLD
-		g_alloc_skb_threshold = 8000;
-		g_alloc_frg_threshold = 8000;
-		g_alloc_skb_tbl_threshold = 4000;
-		g_alloc_frg_tbl_threshold = 4000;
-#endif
+		g_alloc_skb_threshold = 4096;
+		g_alloc_frg_threshold = 4096;
+		g_alloc_skb_tbl_threshold = 2000;
+		g_alloc_frg_tbl_threshold = 2000;
 
 #ifdef DPMAIF_REDUCE_RX_FLUSH
 		g_rx_flush_pkt_cnt = 10;
 #endif
-	} else if (total_dl_speed > 100000000LL) {  // dl tput > 100M
-#ifdef ENABLE_BAT_ALLOC_THRESHOLD
-		g_alloc_skb_threshold = 4000;
-		g_alloc_frg_threshold = 4000;
+	} else if (total_dl_speed > 300000000LL) {  // dl tput > 300M
+		g_alloc_skb_threshold = 3000;
+		g_alloc_frg_threshold = 3000;
 		g_alloc_skb_tbl_threshold = 1000;
 		g_alloc_frg_tbl_threshold = 1000;
-#endif
 
 #ifdef DPMAIF_REDUCE_RX_FLUSH
 		g_rx_flush_pkt_cnt = 5;
 #endif
-	} else {  // dl tput < 100M
-#ifdef ENABLE_BAT_ALLOC_THRESHOLD
+	} else {  // dl tput < 300M
 		g_alloc_skb_threshold = MIN_ALLOC_SKB_CNT;
 		g_alloc_frg_threshold = MIN_ALLOC_FRG_CNT;
 		g_alloc_skb_tbl_threshold = MIN_ALLOC_SKB_TBL_CNT;
 		g_alloc_frg_tbl_threshold = MIN_ALLOC_FRG_TBL_CNT;
-#endif
 
 #ifdef DPMAIF_REDUCE_RX_FLUSH
 		g_rx_flush_pkt_cnt = 0;
 #endif
 	}
-#endif
 }
 
 static int dpmaif_init_cap(struct device *dev)
@@ -2884,8 +2918,7 @@ static int dpmaif_probe(struct platform_device *pdev)
 	if (of_property_read_u32(pdev->dev.of_node,
 			"mediatek,dpmaif-ver", &g_dpmf_ver)) {
 		CCCI_ERROR_LOG(0, TAG,
-			"[%s] error: not find mediatek,dpmaif-ver.\n",
-			__func__, g_dpmf_ver);
+			"[%s] error: not find mediatek,dpmaif-ver.\n", __func__);
 		g_dpmf_ver = MAX_DPMAIF_VER;
 	}
 
