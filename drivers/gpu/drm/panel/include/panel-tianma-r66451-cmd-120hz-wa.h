@@ -30,7 +30,7 @@
 #define MODE_0_FPS                  60
 #define MODE_0_VFP                  20
 #define MODE_0_HFP                  40
-#define MODE_0_DATA_RATE            540
+#define MODE_0_DATA_RATE            570
 /*Parameter setting for mode 0 End*/
 
 /*Parameter setting for mode 1 Start*/
