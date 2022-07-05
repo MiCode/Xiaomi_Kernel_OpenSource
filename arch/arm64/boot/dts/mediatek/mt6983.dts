@@ -1112,7 +1112,7 @@
 			/* 0x06: once a value[1] exist, means in l2sram */
 			/* value[1] not exist means in mddbgsys. the value(6) has no meaningful */
 			mediatek,offset-epon-md1 = <0x44 0x06>;
-			mediatek,cldma-capability = <14>;
+			mediatek,cldma-capability = <10>;
 			/* bit0:srcclkena|bit1:srclken_o1_on|bit2:revert_sequencer */
 			mediatek,power-flow-config = <0x4>;
 			/* srclken-o1 set value |= 1<<21 */
