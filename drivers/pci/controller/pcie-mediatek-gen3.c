@@ -84,9 +84,14 @@
 #define PCIE_MSI_SET_OFFSET		0x10
 #define PCIE_MSI_SET_STATUS_OFFSET	0x04
 #define PCIE_MSI_SET_ENABLE_OFFSET	0x08
+#define PCIE_MSI_SET_ENABLE_GRP1_OFFSET	0x0c
 
 #define PCIE_MSI_SET_ADDR_HI_BASE	0xc80
 #define PCIE_MSI_SET_ADDR_HI_OFFSET	0x04
+
+#define PCIE_MSI_GRP2_SET_OFFSET	0xDC0
+#define PCIE_MSI_GRPX_PER_SET_OFFSET	4
+#define PCIE_MSI_GRP3_SET_OFFSET	0xDE0
 
 #define PCIE_ICMD_PM_REG		0x198
 #define PCIE_TURN_OFF_LINK		BIT(4)
@@ -1115,6 +1120,57 @@ int mtk_pcie_remove_port(int port)
 	return 0;
 }
 EXPORT_SYMBOL(mtk_pcie_remove_port);
+
+/**
+ * mtk_msi_unmask_to_other_mcu() - Unmask msi dispatch to other mcu
+ * @data: The irq_data of virq
+ * @group: MSI will dispatch to which group number
+ */
+int mtk_msi_unmask_to_other_mcu(struct irq_data *data, u32 group)
+{
+	struct mtk_msi_set *msi_set;
+	struct mtk_pcie_port *port;
+	void __iomem *dest_addr;
+	unsigned long hwirq;
+	u32 val, set_num;
+
+	if (!data)
+		return -EINVAL;
+
+	msi_set = irq_data_get_irq_chip_data(data);
+	port = data->domain->host_data;
+
+	hwirq = data->hwirq % PCIE_MSI_IRQS_PER_SET;
+	set_num = data->hwirq / PCIE_MSI_IRQS_PER_SET;
+
+	switch (group) {
+	case 1:
+		dest_addr = msi_set->base + PCIE_MSI_SET_ENABLE_GRP1_OFFSET;
+		break;
+	case 2:
+		dest_addr = port->base + PCIE_MSI_GRP2_SET_OFFSET +
+			    PCIE_MSI_GRPX_PER_SET_OFFSET * set_num;
+		break;
+	case 3:
+		dest_addr = port->base + PCIE_MSI_GRP3_SET_OFFSET +
+			    PCIE_MSI_GRPX_PER_SET_OFFSET * set_num;
+		break;
+	default:
+		pr_info("Group %d out of max range\n", group);
+
+		return -EINVAL;
+	}
+
+	val = readl_relaxed(dest_addr);
+	val |= BIT(hwirq);
+	writel_relaxed(val, dest_addr);
+
+	pr_info("group=%d, hwirq=%ld, SET num=%d, Enable status=%#x\n",
+		group, hwirq, set_num, readl_relaxed(dest_addr));
+
+	return 0;
+}
+EXPORT_SYMBOL(mtk_msi_unmask_to_other_mcu);
 
 /**
  * mtk_pcie_mask_msi_to_ap() - Disable msi dispatch to ap
