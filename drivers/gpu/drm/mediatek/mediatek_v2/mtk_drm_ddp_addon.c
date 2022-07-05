@@ -623,7 +623,7 @@ void mtk_addon_disconnect_between(
 		return;
 	}
 
-	if (attach_comp_id == -1) {
+	if (attach_comp_id == -1 || attach_comp_id >= DDP_COMPONENT_ID_MAX) {
 		comp = priv->ddp_comp[module_data->attach_comp];
 		DDPPR_ERR("Attach module:%s is not in path mode %d\n",
 			  mtk_dump_comp_str(comp), ddp_mode);
