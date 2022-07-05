@@ -109,7 +109,7 @@
 					lcm-params-dsi-vscan;
 
 					/* mtk_panel_params */
-					lcm-params-dsi-lk-pll_clock = <270>;
+					lcm-params-dsi-lk-pll_clock = <285>;
 					lcm-params-dsi-lk-data_rate = <0>;
 					lcm-params-dsi-pll_clock = <420>;
 					lcm-params-dsi-data_rate = <840>;
@@ -332,7 +332,7 @@
 							"mediatek,lcm-params-dsi-dyn-fps";
 						lcm-params-dsi-dyn_fps_switch_en;
 						lcm-params-dsi-dyn_fps_vact_timing_fps;
-						lcm-params-dsi-dyn_fps_data_rate = <540>;
+						lcm-params-dsi-dyn_fps_data_rate = <570>;
 						lcm-params-dsi-dyn_fps_dfps_cmd_table0;
 						lcm-params-dsi-dyn_fps_dfps_cmd_table1;
 						lcm-params-dsi-dyn_fps_dfps_cmd_table2;
