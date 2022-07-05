@@ -617,9 +617,14 @@ error_get_rv_dev:
 static int mt6985_ipi_send_post(struct mtk_apu *apu)
 {
 	cancel_delayed_work_sync(&timeout_work);
-	queue_delayed_work(apu_workq,
-			   &timeout_work,
-			   msecs_to_jiffies(IPI_PWROFF_TIMEOUT_MS));
+
+	/* bypass SAPU & SCP case */
+	if (apu->ipi_id != APU_IPI_SAPU_LOCK &&
+		apu->ipi_id != APU_IPI_SCP_MIDDLEWARE &&
+		apu->ipi_id != APU_IPI_SCP_NP_RECOVER)
+		queue_delayed_work(apu_workq,
+			&timeout_work,
+			msecs_to_jiffies(IPI_PWROFF_TIMEOUT_MS));
 
 	return 0;
 }

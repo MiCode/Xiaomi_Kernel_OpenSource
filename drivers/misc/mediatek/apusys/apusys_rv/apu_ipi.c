@@ -177,6 +177,7 @@ int apu_ipi_send(struct mtk_apu *apu, u32 id, void *data, u32 len,
 
 	apu_mbox_write_inbox(apu, &hdr);
 
+	apu->ipi_id = id;
 	apu->ipi_id_ack[id] = false;
 
 	/* poll ack from remote processor if wait_ms specified */

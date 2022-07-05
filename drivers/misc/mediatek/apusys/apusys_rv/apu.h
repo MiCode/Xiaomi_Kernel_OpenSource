@@ -149,6 +149,7 @@ struct mtk_apu {
 	struct mutex send_lock;
 	spinlock_t usage_cnt_lock;
 	struct apu_ipi_desc ipi_desc[APU_IPI_MAX];
+	u32 ipi_id;
 	bool ipi_id_ack[APU_IPI_MAX]; /* per-ipi ack */
 	bool ipi_inbound_locked;
 	wait_queue_head_t ack_wq; /* for waiting for ipi ack */
