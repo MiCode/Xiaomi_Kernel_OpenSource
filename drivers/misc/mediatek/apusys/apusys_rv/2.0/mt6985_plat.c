@@ -55,7 +55,7 @@ static void apu_timeout_work(struct work_struct *work)
 	struct mtk_apu *apu = g_apu;
 	struct device *dev = apu->dev;
 
-	apusys_rv_aee_warn("APUSYS_RV", "APUSYS_RV_BOOT_TIMEOUT");
+	apusys_rv_aee_warn("APUSYS_RV", "APUSYS_RV_POWER_OFF_TIMEOUT");
 }
 
 static uint32_t apusys_rv_smc_call(struct device *dev, uint32_t smc_id,
@@ -620,6 +620,7 @@ static int mt6985_ipi_send_post(struct mtk_apu *apu)
 
 	/* bypass SAPU & SCP case */
 	if (apu->ipi_id != APU_IPI_SAPU_LOCK &&
+		apu->ipi_id != APU_IPI_TIMESYNC &&
 		apu->ipi_id != APU_IPI_SCP_MIDDLEWARE &&
 		apu->ipi_id != APU_IPI_SCP_NP_RECOVER)
 		queue_delayed_work(apu_workq,
