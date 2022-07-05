@@ -673,7 +673,11 @@ static void tp_select_path(struct mml_topology_cache *cache,
 
 	if (cfg->info.mode == MML_MODE_DDP_ADDON) {
 		/* direct-link in/out for addon case */
-		if (cfg->info.dest_cnt == 2) {
+		if (!en_pq) {
+			/* dli0_sel/rdma_mout to wrot_sel/dlo0_sout */
+			scene[0] = PATH_MML_NOPQ_DD0;
+			scene[1] = PATH_MML_NOPQ_DD1;
+		} else if (cfg->info.dest_cnt == 2) {
 			/* TODO: ddp addon 2out */
 			scene[0] = PATH_MML_PQ_DD0; /* PATH_MML_2OUT_DD0 */
 			scene[1] = PATH_MML_PQ_DD1; /* PATH_MML_2OUT_DD1 */
