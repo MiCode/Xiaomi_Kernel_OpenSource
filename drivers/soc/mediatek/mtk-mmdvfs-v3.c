@@ -409,15 +409,21 @@ void *mtk_mmdvfs_vcp_get_base(phys_addr_t *pa)
 {
 	struct mtk_ipi_device *vcp_ipi_dev = vcp_get_ipidev();
 	phys_addr_t va = vcp_get_reserve_mem_virt_ex(MMDVFS_MEM_ID);
+	struct iommu_domain *domain;
 
 	if (!mmdvfs_free_run || !va) {
 		MMDVFS_DBG("mmdvfs_v3 not supported!");
 		return NULL;
 	}
 
-	*pa = iommu_iova_to_phys(
-		iommu_get_domain_for_dev(&vcp_ipi_dev->mrpdev->pdev->dev),
-		vcp_get_reserve_mem_phys_ex(MMDVFS_MEM_ID));
+	domain = iommu_get_domain_for_dev(&vcp_ipi_dev->mrpdev->pdev->dev);
+	if (domain) {
+		*pa = iommu_iova_to_phys(
+			domain, vcp_get_reserve_mem_phys_ex(MMDVFS_MEM_ID));
+	} else {
+		MMDVFS_ERR("domain is null");
+		return NULL;
+	}
 
 	return (void *)va;
 }
