@@ -165,11 +165,11 @@ static const struct mtk_gate_regs perao2_cg_regs = {
 static const struct mtk_gate perao_clks[] = {
 	/* PERAO0 */
 	GATE_PERAO0(CLK_PERAO_UART0, "perao_uart0",
-			"uart_ck"/* parent */, 0),
+			"f26m_ck"/* parent */, 0),
 	GATE_PERAO0(CLK_PERAO_UART1, "perao_uart1",
-			"uart_ck"/* parent */, 1),
+			"f26m_ck"/* parent */, 1),
 	GATE_PERAO0(CLK_PERAO_UART2, "perao_uart2",
-			"uart_ck"/* parent */, 2),
+			"f26m_ck"/* parent */, 2),
 	GATE_PERAO0(CLK_PERAO_UART3, "perao_uart3",
 			"uart_ck"/* parent */, 3),
 	GATE_PERAO0(CLK_PERAO_PWM_H, "perao_pwm_h",
