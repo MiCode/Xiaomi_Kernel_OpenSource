@@ -114,7 +114,7 @@ static int set_hdr_exposure_tri(struct adaptor_ctx *ctx, struct mtk_hdr_exposure
 	para.u64[1] = info->me_exposure;
 	para.u64[2] = info->se_exposure;
 
-	ret = chk_s_exp_with_fl_by_fsync_mgr(ctx);
+	ret = chk_s_exp_with_fl_by_fsync_mgr(ctx, info->arr, 3);
 	if (!ret) {
 		/* NOT enable frame-sync || using HW sync solution */
 		subdrv_call(ctx, feature_control,
@@ -150,7 +150,7 @@ static int set_hdr_exposure_dual(struct adaptor_ctx *ctx, struct mtk_hdr_exposur
 	para.u64[0] = info->le_exposure;
 	para.u64[1] = info->me_exposure; // temporailly workaround, 2 exp should be NE/SE
 
-	ret = chk_s_exp_with_fl_by_fsync_mgr(ctx);
+	ret = chk_s_exp_with_fl_by_fsync_mgr(ctx, info->arr, 2);
 	if (!ret) {
 		/* NOT enable frame-sync || using HW sync solution */
 		subdrv_call(ctx, feature_control,
@@ -226,7 +226,8 @@ static int do_set_ae_ctrl(struct adaptor_ctx *ctx,
 		}
 
 		ADAPTOR_SYSTRACE_BEGIN("imgsensor::set_exposure");
-		ret = chk_s_exp_with_fl_by_fsync_mgr(ctx);
+		fsync_exp[0] = ae_ctrl->exposure.le_exposure;
+		ret = chk_s_exp_with_fl_by_fsync_mgr(ctx, fsync_exp, 1);
 		if (!ret) {
 			/* NOT enable frame-sync || using HW sync solution */
 			para.u64[0] = ae_ctrl->exposure.le_exposure;
@@ -234,7 +235,6 @@ static int do_set_ae_ctrl(struct adaptor_ctx *ctx,
 						SENSOR_FEATURE_SET_ESHUTTER,
 						para.u8, &len);
 		}
-		fsync_exp[0] = ae_ctrl->exposure.le_exposure;
 		notify_fsync_mgr_set_shutter(ctx, fsync_exp, 1, ret);
 		ADAPTOR_SYSTRACE_END();
 
@@ -711,14 +711,14 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 
 			para.u64[0] = ctrl->val;
 
-			ret = chk_s_exp_with_fl_by_fsync_mgr(ctx);
+			fsync_exp[0] = (u32)para.u64[0];
+			ret = chk_s_exp_with_fl_by_fsync_mgr(ctx, fsync_exp, 1);
 			if (!ret) {
 				/* NOT enable frame-sync || using HW sync solution */
 				subdrv_call(ctx, feature_control,
 					SENSOR_FEATURE_SET_ESHUTTER,
 					para.u8, &len);
 			}
-			fsync_exp[0] = (u32)para.u64[0];
 			notify_fsync_mgr_set_shutter(ctx, fsync_exp, 1, ret);
 		}
 		break;
@@ -741,14 +741,14 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 			if (fine_integ_time > 0)
 				para.u64[0] = para.u64[0] * 1000;
 
-			ret = chk_s_exp_with_fl_by_fsync_mgr(ctx);
+			fsync_exp[0] = (u32)para.u64[0];
+			ret = chk_s_exp_with_fl_by_fsync_mgr(ctx, fsync_exp, 1);
 			if (!ret) {
 				/* NOT enable frame-sync || using HW sync solution */
 				subdrv_call(ctx, feature_control,
 					SENSOR_FEATURE_SET_ESHUTTER,
 					para.u8, &len);
 			}
-			fsync_exp[0] = (u32)para.u64[0];
 			notify_fsync_mgr_set_shutter(ctx, fsync_exp, 1, ret);
 		}
 		break;
@@ -824,14 +824,14 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 
 			para.u64[0] = info->shutter;
 
-			ret = chk_s_exp_with_fl_by_fsync_mgr(ctx);
+			fsync_exp[0] = (u32)para.u64[0];
+			ret = chk_s_exp_with_fl_by_fsync_mgr(ctx, fsync_exp, 1);
 			if (!ret) {
 				/* NOT enable frame-sync || using HW sync solution */
 				subdrv_call(ctx, feature_control,
 					SENSOR_FEATURE_SET_ESHUTTER,
 					para.u8, &len);
 			}
-			fsync_exp[0] = (u32)para.u64[0];
 			notify_fsync_mgr_set_shutter(ctx, fsync_exp, 1, ret);
 
 			para.u64[0] = info->gain;

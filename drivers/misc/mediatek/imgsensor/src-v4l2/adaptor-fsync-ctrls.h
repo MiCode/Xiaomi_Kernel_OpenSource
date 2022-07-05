@@ -34,8 +34,10 @@ void notify_fsync_mgr_streaming(struct adaptor_ctx *ctx, unsigned int flag);
  *          to set exposure and frame length simultaneously.
  *     0 => sensor adaptor directly set this ctrls to driver.
  *          #ifndef (TWO_STAGE_FS) => must return 0
+ *          long exposure => must return 0
  */
-int chk_s_exp_with_fl_by_fsync_mgr(struct adaptor_ctx *ctx);
+int chk_s_exp_with_fl_by_fsync_mgr(struct adaptor_ctx *ctx,
+	u32 *ae_exp_arr, u32 ae_exp_cnt);
 
 void notify_fsync_mgr_update_tg(struct adaptor_ctx *ctx, u64 val);
 void notify_fsync_mgr_update_target_tg(struct adaptor_ctx *ctx, u64 val);

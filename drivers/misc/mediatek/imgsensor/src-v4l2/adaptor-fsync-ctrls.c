@@ -3,6 +3,8 @@
  * Copyright (c) 2020 MediaTek Inc.
  */
 
+#include <linux/atomic.h>
+
 #include "kd_imgsensor_define_v4l2.h"
 #include "imgsensor-user.h"
 
@@ -12,6 +14,19 @@
 
 
 #define REDUCE_FSYNC_CTRLS_LOG
+
+
+
+
+
+/*******************************************************************************
+ * fsync mgr variables
+ ******************************************************************************/
+/* for checking if any sensor enter long exposure mode */
+static atomic_t long_exp_mode_bits = ATOMIC_INIT(0);
+
+
+
 
 
 /*******************************************************************************
@@ -88,6 +103,42 @@ static void fsync_mgr_s_multi_shutter_frame_length(
 /*******************************************************************************
  * fsync mgr static functions
  ******************************************************************************/
+static void fsync_mgr_chk_long_exposure(struct adaptor_ctx *ctx,
+	const u32 *ae_exp_arr, const u32 ae_exp_cnt)
+{
+	unsigned int i = 0;
+	int has_long_exp = 0;
+	u32 fine_integ_line = 0;
+
+	fine_integ_line = g_sensor_fine_integ_line(ctx);
+
+	for (i = 0; i < ae_exp_cnt; ++i) {
+		u32 exp_lc =
+			FINE_INTEG_CONVERT(ae_exp_arr[i], fine_integ_line);
+
+		/* check if any exp will enter long exposure mode */
+		if ((exp_lc + ctx->subctx.margin) >=
+				ctx->subctx.max_frame_length) {
+			has_long_exp = 1;
+			break;
+		}
+	}
+
+	/* has_long_exp > 0 => set bits ; has_long_exp == 0 => clear bits */
+	if (has_long_exp != 0)
+		atomic_fetch_or((1UL << ctx->idx), &long_exp_mode_bits);
+	else
+		atomic_fetch_and((~(1UL << ctx->idx)), &long_exp_mode_bits);
+
+#if !defined(REDUCE_FSYNC_CTRLS_LOG)
+	dev_info(ctx->dev,
+		"%s: sidx:%d, NOTICE: detected long exp:%d, long_exp_mode_bits:%#x\n",
+		__func__, ctx->idx,
+		has_long_exp, atomic_read(&long_exp_mode_bits));
+#endif
+}
+
+
 static void fsync_mgr_set_hdr_exp_data(struct adaptor_ctx *ctx,
 	struct fs_hdr_exp_st *p_hdr_exp,
 	u32 *ae_exp_arr, u32 ae_exp_cnt,
@@ -361,7 +412,8 @@ void notify_fsync_mgr_streaming(struct adaptor_ctx *ctx, unsigned int flag)
 /*******************************************************************************
  * per-frame ctrls
  ******************************************************************************/
-int chk_s_exp_with_fl_by_fsync_mgr(struct adaptor_ctx *ctx)
+int chk_s_exp_with_fl_by_fsync_mgr(struct adaptor_ctx *ctx,
+	u32 *ae_exp_arr, u32 ae_exp_cnt)
 {
 	int ret = 0;
 	int en_fsync = 0;
@@ -383,6 +435,21 @@ int chk_s_exp_with_fl_by_fsync_mgr(struct adaptor_ctx *ctx)
 
 	/* check situation */
 	en_fsync = (ctx->fsync_mgr->fs_is_set_sync(ctx->idx));
+
+	if (en_fsync) {
+		fsync_mgr_chk_long_exposure(ctx, ae_exp_arr, ae_exp_cnt);
+		if (atomic_read(&long_exp_mode_bits) != 0) {
+
+#if !defined(REDUCE_FSYNC_CTRLS_LOG)
+			dev_info(ctx->dev,
+				"%s: sidx:%d, NOTICE: detected any en_sync sensor in long exp mode, long_exp_mode_bits:%#x => CTRL by sensor drv, return:0\n",
+				__func__, ctx->idx,
+				atomic_read(&long_exp_mode_bits));
+#endif
+
+			return 0;
+		}
+	}
 
 #endif
 
@@ -453,8 +520,10 @@ void notify_fsync_mgr_set_sync(struct adaptor_ctx *ctx, u64 en)
 
 	ctx->fsync_mgr->fs_set_sync(ctx->idx, en);
 
-	if (en == 0)
+	if (en == 0) {
 		ctx->fsync_out_fl = 0;
+		atomic_fetch_and((~(1UL << ctx->idx)), &long_exp_mode_bits);
+	}
 }
 
 void notify_fsync_mgr_set_async_master(struct adaptor_ctx *ctx, const u64 en)
@@ -643,6 +712,15 @@ void notify_fsync_mgr_set_shutter(struct adaptor_ctx *ctx,
 
 		return;
 	}
+
+	if (atomic_read(&long_exp_mode_bits) != 0) {
+		dev_info(ctx->dev,
+			"%s: sidx:%d, NOTICE: detected any sensor in long exp mode, long_exp_mode_bits:%#x => return [do_set_exp_with_fl:%d]\n",
+			__func__, ctx->idx,
+			atomic_read(&long_exp_mode_bits), do_set_exp_with_fl);
+		return;
+	}
+
 
 	pf_ctrl.req_id = ctx->req_id;
 
