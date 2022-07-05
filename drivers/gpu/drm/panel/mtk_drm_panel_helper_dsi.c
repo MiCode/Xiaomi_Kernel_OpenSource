@@ -9,6 +9,186 @@
 #include <linux/of.h>
 #include "mtk_drm_panel_helper.h"
 
+/* parsing of struct mtk_panel_cm_params */
+static void parse_lcm_dsi_cm_params(struct device_node *np,
+			struct mtk_panel_cm_params *cm_params)
+{
+	if (IS_ERR_OR_NULL(cm_params))
+		return;
+
+	mtk_lcm_dts_read_u32(np,
+			"lcm-params-dsi-cm_enable",
+			&cm_params->enable);
+
+	if (cm_params->enable == 0)
+		return;
+
+	mtk_lcm_dts_read_u32(np,
+			"lcm-params-dsi-cm_relay",
+			&cm_params->relay);
+	mtk_lcm_dts_read_u32(np,
+			"lcm-params-dsi-cm_c00",
+			&cm_params->cm_c00);
+	mtk_lcm_dts_read_u32(np,
+			"lcm-params-dsi-cm_c01",
+			&cm_params->cm_c01);
+	mtk_lcm_dts_read_u32(np,
+			"lcm-params-dsi-cm_c02",
+			&cm_params->cm_c02);
+	mtk_lcm_dts_read_u32(np,
+			"lcm-params-dsi-cm_c10",
+			&cm_params->cm_c10);
+	mtk_lcm_dts_read_u32(np,
+			"lcm-params-dsi-cm_c11",
+			&cm_params->cm_c11);
+	mtk_lcm_dts_read_u32(np,
+			"lcm-params-dsi-cm_c12",
+			&cm_params->cm_c12);
+	mtk_lcm_dts_read_u32(np,
+			"lcm-params-dsi-cm_c20",
+			&cm_params->cm_c20);
+	mtk_lcm_dts_read_u32(np,
+			"lcm-params-dsi-cm_c21",
+			&cm_params->cm_c21);
+	mtk_lcm_dts_read_u32(np,
+			"lcm-params-dsi-cm_c22",
+			&cm_params->cm_c22);
+
+	mtk_lcm_dts_read_u32(np,
+			"lcm-params-dsi-cm_coeff_round_en",
+			&cm_params->cm_coeff_round_en);
+	mtk_lcm_dts_read_u32(np,
+			"lcm-params-dsi-cm_precision_mask",
+			&cm_params->cm_precision_mask);
+	mtk_lcm_dts_read_u32(np,
+			"lcm-params-dsi-cm_bits_switch",
+			&cm_params->bits_switch);
+	mtk_lcm_dts_read_u32(np,
+			"lcm-params-dsi-cm_gray_en",
+			&cm_params->cm_gray_en);
+}
+
+/* parsing of struct mtk_panel_spr_params */
+static void parse_lcm_dsi_spr_params(struct device_node *np,
+			struct mtk_panel_spr_params *spr_params)
+{
+	struct property *pp = NULL;
+	struct device_node *spr_np = NULL;
+	int ret = 0, len = 0;
+
+	if (IS_ERR_OR_NULL(spr_params))
+		return;
+
+	mtk_lcm_dts_read_u32(np,
+			"lcm-params-dsi-spr_enable",
+			&spr_params->enable);
+
+	if (spr_params->enable == 0)
+		return;
+
+	mtk_lcm_dts_read_u32(np,
+			"lcm-params-dsi-spr_relay",
+			&spr_params->relay);
+	mtk_lcm_dts_read_u32(np,
+			"lcm-params-dsi-spr_rgb_swap",
+			&spr_params->rgb_swap);
+	mtk_lcm_dts_read_u32(np,
+			"lcm-params-dsi-spr_bypass_dither",
+			&spr_params->bypass_dither);
+	mtk_lcm_dts_read_u32(np,
+			"lcm-params-dsi-spr_postalign_en",
+			&spr_params->postalign_en);
+	mtk_lcm_dts_read_u32(np,
+			"lcm-params-dsi-spr_wrap_mode",
+			&spr_params->wrap_mode);
+	mtk_lcm_dts_read_u32(np,
+			"lcm-params-dsi-spr_specialcaseen",
+			&spr_params->specialcaseen);
+	mtk_lcm_dts_read_u32(np,
+			"lcm-params-dsi-spr_indata_res_sel",
+			&spr_params->indata_res_sel);
+	mtk_lcm_dts_read_u32(np,
+			"lcm-params-dsi-spr_outdata_res_sel",
+			&spr_params->outdata_res_sel);
+	mtk_lcm_dts_read_u32(np,
+			"lcm-params-dsi-spr_padding_repeat_en",
+			&spr_params->padding_repeat_en);
+	mtk_lcm_dts_read_u32(np,
+			"lcm-params-dsi-spr_postalign_6type_mode_en",
+			&spr_params->postalign_6type_mode_en);
+	mtk_lcm_dts_read_u32(np,
+			"lcm-params-dsi-spr_custom_header_en",
+			&spr_params->custom_header_en);
+	mtk_lcm_dts_read_u32(np,
+			"lcm-params-dsi-spr_custom_header",
+			&spr_params->custom_header);
+	mtk_lcm_dts_read_u32(np,
+			"lcm-params-dsi-spr_format_type",
+			&spr_params->spr_format_type);
+	mtk_lcm_dts_read_u32(np,
+			"lcm-params-dsi-spr_rg_xy_swap",
+			&spr_params->rg_xy_swap);
+
+	spr_np = of_parse_phandle(np,
+			"lcm-params-dsi-spr_ip_params", 0);
+	if (!IS_ERR_OR_NULL(spr_np)) {
+		pp = of_find_property(spr_np, "spr_ip_cfg", &len);
+		if (pp != NULL && len > 0) {
+			LCM_KZALLOC(spr_params->spr_ip_params, len, GFP_KERNEL);
+			if (IS_ERR_OR_NULL(spr_params->spr_ip_params)) {
+				DDPPR_ERR("%s, %d, failed to allocate spr_ip_params, %d\n",
+					__func__, __LINE__, len);
+				return;
+			}
+			ret = mtk_lcm_dts_read_u32_array(spr_np,
+				"spr_ip_cfg",
+				spr_params->spr_ip_params, 0, len);
+			if (ret < 0) {
+				DDPPR_ERR("%s, %d,failed to get spr_ip_cfg, ret:%d\n",
+					__func__, __LINE__, ret);
+				return;
+			}
+			spr_params->spr_ip_params_len = len;
+		}
+	}
+
+	mtk_lcm_dts_read_u32(np,
+			"lcm-params-dsi-spr_color_param0_type",
+			&spr_params->spr_color_params[0].spr_color_params_type);
+	ret = mtk_lcm_dts_read_u8_array(np,
+			"lcm-params-dsi-spr_color_param0_param_list",
+			spr_params->spr_color_params[0].para_list, 0, 80);
+	if (ret > 0)
+		spr_params->spr_color_params[0].count = ret;
+	ret = mtk_lcm_dts_read_u8_array(np,
+			"lcm-params-dsi-spr_color_param0_tune_list",
+			spr_params->spr_color_params[0].tune_list, 0, 80);
+
+	mtk_lcm_dts_read_u32(np,
+			"lcm-params-dsi-spr_color_param1_type",
+			&spr_params->spr_color_params[1].spr_color_params_type);
+	ret = mtk_lcm_dts_read_u8_array(np,
+			"lcm-params-dsi-spr_color_param1_param_list",
+			spr_params->spr_color_params[1].para_list, 0, 80);
+	if (ret > 0)
+		spr_params->spr_color_params[1].count = ret;
+	ret = mtk_lcm_dts_read_u8_array(np,
+			"lcm-params-dsi-spr_color_param1_tune_list",
+			spr_params->spr_color_params[1].tune_list, 0, 80);
+
+	mtk_lcm_dts_read_u32(np,
+			"lcm-params-dsi-spr_color_param2_type",
+			&spr_params->spr_color_params[2].spr_color_params_type);
+	ret = mtk_lcm_dts_read_u8_array(np,
+			"lcm-params-dsi-spr_color_param2_param_list",
+			spr_params->spr_color_params[2].para_list, 0, 80);
+	if (ret > 0)
+		spr_params->spr_color_params[2].count = ret;
+	ret = mtk_lcm_dts_read_u8_array(np,
+			"lcm-params-dsi-spr_color_param2_tune_list",
+			spr_params->spr_color_params[2].tune_list, 0, 80);
+}
+
 /* parsing of struct mtk_panel_dsc_params */
 static void parse_lcm_dsi_dsc_mode(struct device_node *np,
 			struct mtk_panel_dsc_params *dsc_params)
@@ -876,6 +1056,32 @@ static void parse_lcm_dsi_fps_setting(struct device_node *np,
 		ext_param->is_cphy = 0;
 
 	for_each_available_child_of_node(np, child_np) {
+		/* cm params */
+		ret = snprintf(child, sizeof(child) - 1,
+			"mediatek,lcm-params-dsi-cm-params");
+		if (ret < 0 || (size_t)ret >= sizeof(child))
+			DDPMSG("%s, %d, snprintf failed\n", __func__, __LINE__);
+
+		if (of_device_is_compatible(child_np, child)) {
+			DDPINFO("%s, parsing child:%s\n",
+				__func__, child);
+			parse_lcm_dsi_cm_params(child_np,
+					&ext_param->cm_params);
+		}
+
+		/* spr params */
+		ret = snprintf(child, sizeof(child) - 1,
+			"mediatek,lcm-params-dsi-spr-params");
+		if (ret < 0 || (size_t)ret >= sizeof(child))
+			DDPMSG("%s, %d, snprintf failed\n", __func__, __LINE__);
+
+		if (of_device_is_compatible(child_np, child)) {
+			DDPINFO("%s, parsing child:%s\n",
+				__func__, child);
+			parse_lcm_dsi_spr_params(child_np,
+					&ext_param->spr_params);
+		}
+
 		/* dsc params */
 		ret = snprintf(child, sizeof(child) - 1,
 			"mediatek,lcm-params-dsi-dsc-params");
@@ -888,6 +1094,7 @@ static void parse_lcm_dsi_fps_setting(struct device_node *np,
 			parse_lcm_dsi_dsc_mode(child_np,
 					&ext_param->dsc_params);
 		}
+
 		/* phy timcon */
 		ret = snprintf(child, sizeof(child) - 1,
 			"mediatek,lcm-params-dsi-phy-timcon");
@@ -1457,6 +1664,93 @@ int parse_lcm_ops_dsi(struct device_node *np,
 }
 EXPORT_SYMBOL(parse_lcm_ops_dsi);
 
+/* dump dsi cm params */
+static void dump_lcm_dsi_cm_params(struct mtk_panel_cm_params *cm_params, unsigned int fps)
+{
+	DDPDUMP("-------------  fps%u cm_params -------------\n", fps);
+	if (cm_params->enable == 0) {
+		DDPDUMP("%s: cm off\n", __func__);
+		return;
+	}
+
+	DDPDUMP("enable:%u, relay:%u, coeff_round:%u, precision:%u, bits_switch:%u, gray:%u\n",
+		cm_params->enable,
+		cm_params->relay,
+		cm_params->cm_coeff_round_en,
+		cm_params->cm_precision_mask,
+		cm_params->bits_switch,
+		cm_params->cm_gray_en);
+	DDPDUMP("c0:%u %u %u\n",
+		cm_params->cm_c00, cm_params->cm_c01, cm_params->cm_c02);
+	DDPDUMP("c1:%u %u %u\n",
+		cm_params->cm_c10, cm_params->cm_c11, cm_params->cm_c12);
+	DDPDUMP("c2:%u %u %u\n",
+		cm_params->cm_c20, cm_params->cm_c21, cm_params->cm_c22);
+}
+
+/* dump dsi spr params */
+static void dump_lcm_dsi_spr_params(struct mtk_panel_spr_params *spr_params, unsigned int fps)
+{
+	int i = 0, j = 0;
+
+	DDPDUMP("-------------  fps%u spr_params -------------\n", fps);
+	if (spr_params->enable == 0) {
+		DDPDUMP("%s: spr off\n", __func__);
+		return;
+	}
+
+	DDPDUMP("enable:%u, relay:%u, rgbswap:%u, bypass_dither:%u, postalign_en:%u\n",
+		spr_params->enable,
+		spr_params->relay,
+		spr_params->rgb_swap,
+		spr_params->bypass_dither,
+		spr_params->postalign_en);
+	DDPDUMP("wrap_mode:%u, special:%u, indata:%u, outdata:%u, padding_repeat:%u\n",
+		spr_params->wrap_mode,
+		spr_params->specialcaseen,
+		spr_params->indata_res_sel,
+		spr_params->outdata_res_sel,
+		spr_params->padding_repeat_en);
+	DDPDUMP("postalign_6type:%u, custom_en:%u, custom:%u, format_type:%u, rg_xy_swap:%u\n",
+		spr_params->postalign_6type_mode_en,
+		spr_params->custom_header_en,
+		spr_params->custom_header,
+		spr_params->spr_format_type,
+		spr_params->rg_xy_swap);
+
+	for (i = 0; i < SPR_COLOR_PARAMS_TYPE_NUM; i++) {
+		DDPDUMP("color_params%d: type:%d, count:%u\n", i,
+			spr_params->spr_color_params[i].spr_color_params_type,
+			spr_params->spr_color_params[i].count);
+		for (j = 0; j < 80; j += 10) {
+			DDPDUMP("para%d: 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x\n", j,
+				 spr_params->spr_color_params[0].para_list[j],
+				 spr_params->spr_color_params[0].para_list[j + 1],
+				 spr_params->spr_color_params[0].para_list[j + 2],
+				 spr_params->spr_color_params[0].para_list[j + 3],
+				 spr_params->spr_color_params[0].para_list[j + 4],
+				 spr_params->spr_color_params[0].para_list[j + 5],
+				 spr_params->spr_color_params[0].para_list[j + 6],
+				 spr_params->spr_color_params[0].para_list[j + 7],
+				 spr_params->spr_color_params[0].para_list[j + 8],
+				 spr_params->spr_color_params[0].para_list[j + 9]);
+		}
+		for (j = 0; j < 80; j += 10) {
+			DDPDUMP("tune%d: 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x\n", j,
+				 spr_params->spr_color_params[0].tune_list[j],
+				 spr_params->spr_color_params[0].tune_list[j + 1],
+				 spr_params->spr_color_params[0].tune_list[j + 2],
+				 spr_params->spr_color_params[0].tune_list[j + 3],
+				 spr_params->spr_color_params[0].tune_list[j + 4],
+				 spr_params->spr_color_params[0].tune_list[j + 5],
+				 spr_params->spr_color_params[0].tune_list[j + 6],
+				 spr_params->spr_color_params[0].tune_list[j + 7],
+				 spr_params->spr_color_params[0].tune_list[j + 8],
+				 spr_params->spr_color_params[0].tune_list[j + 9]);
+		}
+	}
+}
+
 /* dump dsi dsc mode settings */
 static void dump_lcm_dsi_dsc_mode(struct mtk_panel_dsc_params *dsc_params, unsigned int fps)
 {
@@ -1689,6 +1983,8 @@ void dump_lcm_dsi_fps_settings(struct mtk_lcm_mode_dsi *mode)
 		mode->id, mode->width, mode->height, mode->fps);
 	dump_lcm_dsi_fps_mode(&mode->mode, mode->fps);
 	dump_lcm_dsi_fps_ext_param(&mode->ext_param, mode->fps);
+	dump_lcm_dsi_cm_params(&mode->ext_param.cm_params, mode->fps);
+	dump_lcm_dsi_spr_params(&mode->ext_param.spr_params, mode->fps);
 	dump_lcm_dsi_dsc_mode(&mode->ext_param.dsc_params, mode->fps);
 	dump_lcm_dsi_phy_timcon(&mode->ext_param.phy_timcon, mode->fps);
 	dump_lcm_dsi_dyn(&mode->ext_param.dyn, mode->fps);
@@ -1894,6 +2190,7 @@ void free_lcm_params_dsi(struct mtk_lcm_params_dsi *params,
 	const struct mtk_panel_cust *cust)
 {
 	struct mtk_lcm_mode_dsi *mode_node = NULL, *tmp = NULL;
+	struct mtk_panel_spr_params *spr_params = NULL;
 
 	if (IS_ERR_OR_NULL(params) || params->mode_count == 0) {
 		DDPPR_ERR("%s:%d, ERROR: invalid params/ops\n",
@@ -1919,6 +2216,13 @@ void free_lcm_params_dsi(struct mtk_lcm_params_dsi *params,
 			mode_node->msync_min_fps_count = 0;
 		}
 
+		spr_params = &mode_node->ext_param.spr_params;
+		if (spr_params->spr_ip_params_len > 0 &&
+			spr_params->spr_ip_params != NULL) {
+			LCM_KFREE(spr_params->spr_ip_params, spr_params->spr_ip_params_len);
+			spr_params->spr_ip_params = NULL;
+			spr_params->spr_ip_params_len = 0;
+		}
 		free_lcm_params_dsi_round_corner(&mode_node->ext_param);
 		list_del(&mode_node->list);
 		LCM_KFREE(mode_node, sizeof(struct mtk_lcm_mode_dsi));

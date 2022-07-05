@@ -268,6 +268,7 @@ struct mtk_panel_spr_params {
 	unsigned int rg_xy_swap;
 	struct spr_color_params spr_color_params[SPR_COLOR_PARAMS_TYPE_NUM];
 	unsigned int *spr_ip_params;
+	unsigned int spr_ip_params_len;
 };
 
 struct mtk_panel_dsc_params {

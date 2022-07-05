@@ -1884,7 +1884,9 @@ static int mtk_lcm_init_ddic_packet(struct mtk_lcm_dsi_cmd_packet *packet,
 				cmd->msg.tx_buf = op->param.buf_con_data.data;
 				ret = mtk_lcm_init_ddic_msg(&cmd->msg, op->type,
 						op->param.buf_con_data.flag, packet->channel);
-			}
+			} else
+				*op_end = op;
+
 			break;
 		}
 		case MTK_LCM_CMD_TYPE_WRITE_BUFFER_RUNTIME_INPUT:
@@ -1915,7 +1917,7 @@ static int mtk_lcm_init_ddic_packet(struct mtk_lcm_dsi_cmd_packet *packet,
 			break;
 		}
 		default:
-			DDPDUMP("%s, %d: not a valid ddic cmd:%u\n",
+			DDPDBG("%s, %d: not a valid ddic cmd:%u\n",
 				__func__, __LINE__, op->type);
 			break;
 		}
@@ -1931,7 +1933,7 @@ static int mtk_lcm_init_ddic_packet(struct mtk_lcm_dsi_cmd_packet *packet,
 		if ((cmd->msg.tx_len == 0 &&
 		    cmd->msg.rx_len == 0) || ret < 0 ||
 		    cmdq_size_cur > (128 - cmdq_size)) {
-			DDPDUMP("%s, %d, stop packet tx:%u,rx:%u,ret:%d,sz:%u,cmdqsz:%u\n",
+			DDPINFO("%s, %d, stop packet tx:%u,rx:%u,ret:%d,sz:%u,cmdqsz:%u\n",
 				__func__, __LINE__, cmd->msg.tx_len,
 				cmd->msg.rx_len, ret, cmd_size, cmdq_size);
 			LCM_KFREE(cmd, sizeof(struct mtk_lcm_dsi_cmd));
@@ -1940,7 +1942,7 @@ static int mtk_lcm_init_ddic_packet(struct mtk_lcm_dsi_cmd_packet *packet,
 		}
 
 #if MTK_LCM_DEBUG_DUMP
-		DDPDUMP("%s, %d, op:0x%x cmd:0x%x t:0x%x f:0x%x added, id:%u cmdqs:%u\n",
+		DDPMSG("%s, %d, op:0x%x cmd:0x%x t:0x%x f:0x%x added, id:%u cmdqs:%u\n",
 			__func__, __LINE__, (unsigned long)op, op->type, cmd->msg.type,
 			cmd->msg.flags, cmd_size, cmdq_size_cur);
 #endif
@@ -2020,12 +2022,11 @@ int mtk_execute_func_ddic_package(struct mipi_dsi_device *dsi,
 	}
 
 	if (size == 0 || list_empty(&packet->cmd_list)) {
-		DDPPR_ERR("%s, %d, cmd list is null, size:%u, list:0x%lx\n",
+		DDPMSG("%s, %d, cmd list is null, size:%u, list:0x%lx\n",
 			__func__, __LINE__, size, (unsigned long)&packet->cmd_list);
-		ret = -ENODATA;
+		ret = 0; //it is ok when write may miss condition
 		goto out;
 	}
-
 
 	ret = mtk_lcm_dsi_ddic_handler(dsi, handle,
 				handler_cb, packet);
@@ -2412,9 +2413,10 @@ int mtk_panel_execute_operation(struct mipi_dsi_device *dev,
 #ifdef USE_LEGACY_FLOW
 			ret = mtk_execute_func_ddic_cmd(dev, op, input);
 #else
+			op_end = NULL;
 			ret = mtk_execute_func_ddic_package(dev, handle, table,
 					input, handler_cb, prop, &op, &op_end);
-			if (ret > 0 && op_end != NULL) {
+			if (ret >= 0 && op_end != NULL) {
 				DDPINFO("%s, %d, finished %s-op[%d:0x%lx-%d:0x%lx] end:0x%x\n",
 					__func__, __LINE__, owner, i,
 					(unsigned long)op, i + ret - 1,
@@ -2422,9 +2424,9 @@ int mtk_panel_execute_operation(struct mipi_dsi_device *dev,
 				i = i + ret - 1;
 				ret = 0;
 				op = op_end;
-			} else if (ret == 0) {
+			} else if (op_end == NULL) {
 				DDPPR_ERR("%s, %d, failed to execute %s-op[%d] cmd:%s-0x%x\n",
-					__func__, __LINE__, owner, i, type_name, op->type);
+				__func__, __LINE__, owner, i, type_name, op->type);
 				ret = -EFAULT;
 			}
 #endif
