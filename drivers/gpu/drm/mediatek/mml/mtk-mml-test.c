@@ -1933,7 +1933,7 @@ void mml_dump_buf(struct mml_task *task, struct mml_frame_data *data,
 		dump_ctx[buf_type].size += buf->size[i];
 
 	ret = snprintf(dump_ctx[buf_type].name, sizeof(dump_ctx[buf_type].name),
-		"mml_%u_%u_%s_f%s_%u_%u_%u.bin",
+		"mml_%llu_%u_%s_f%s_%u_%u_%u.bin",
 		stamp, task->job.jobid, prefix, fmt,
 		width, height, data->y_stride);
 	if (ret < 0)
@@ -1982,7 +1982,7 @@ static ssize_t dumpsrv_read(struct file *filp, char __user *buf, size_t size,
 
 	ret = wait_event_timeout(dctx->dump_queue, dctx->frame_dma_buf != NULL,
 		msecs_to_jiffies(1000));
-	if (!ret) {
+	if (!ret || !dctx->frame_dma_buf) {
 		if (mml_dump_srv == DUMPCTRL_DISABLE)
 			job.action = DUMPSRV_STOP;
 		else

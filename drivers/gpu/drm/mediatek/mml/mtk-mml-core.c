@@ -1017,7 +1017,7 @@ static void core_dump_buf(struct mml_task *task, struct mml_frame_data *data,
 
 	/* support only out0 for now, maybe support multi out later */
 	get_color_fmt(fmt, sizeof(fmt), data);
-	ret = snprintf(frm->name, sizeof(frm->name), "mml_%u_%u_%s_f%s_%u_%u_%u.bin",
+	ret = snprintf(frm->name, sizeof(frm->name), "mml_%llu_%u_%s_f%s_%u_%u_%u.bin",
 		stamp, task->job.jobid, frm->prefix, fmt,
 		data->width, data->height, data->y_stride);
 	if (ret >= sizeof(frm->name))
