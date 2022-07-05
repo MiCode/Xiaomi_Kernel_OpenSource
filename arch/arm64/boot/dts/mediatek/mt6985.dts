@@ -14525,7 +14525,7 @@ l3_hit,l3_mis,pmu_cyc_cnt";
 				"venc,vdec";
 
 			node-50 = "SSPM_SWPM_CORE__DVFS",
-				"vcore,ddr_freq";
+				"vcore,ddr_freq,vcore_opp,ddr_opp";
 
 			node-51 = "SSPM_SWPM_CORE__POWER",
 				"dramc,infra_top,aphy_vcore";
@@ -14536,8 +14536,8 @@ l3_hit,l3_mis,pmu_cyc_cnt";
 			node-53 = "SSPM_SWPM_DRAM__MEM_IDX",
 				"read_bw_0,read_bw_1,write_bw_0,write_bw_1,",
 				"srr_pct,ssr_pct,pdir_pct_0,pdir_pct_1,",
-				"phr_pct_0,phr_pct_1,acc_util_0,acc_util_1,",
-				"trans_0,trans_1,mr4,ddr_freq";
+				"phr_pct_0,phr_pct_1,util_0,util_1,",
+				"trans_0,trans_1,mr4,ddr_freq,ddr_opp";
 
 			node-54 = "SSPM_SWPM_DRAM__DVFS",
 				"ddr_freq";
@@ -14583,19 +14583,34 @@ l3_hit,l3_mis,pmu_cyc_cnt";
 				"i2max,imax";
 			node-69 = "SSPM_SWPM_CPU__PMU_TIMES",
 				"idx_cnt,lock,idx_rechk,lock_rechk,valid,off_hint,diff_us";
-			node-70 = "SSPM_SWPM_CORE__STATE_IDX",
-				"diff_us,wact_0,wact_1,data_rate,ddr_ratio,emi_freq,",
-				"bcnt_0,bcnt_1,dcm_ctrl_0,dcm_ctrl_1";
+			node-70 = "SSPM_SWPM_CORE__MEM_RAW_IDX",
+				"diff_us,data_rate,ddr_ratio,emi_freq,",
+				"wact_0,wact_1,bcnt_0,bcnt_1,",
+				"dcm_ctrl_0,dcm_ctrl_1,",
+				"stb_0_0,stb_0_1,stb_1_0,stb_1_1,",
+				"stb_2_0,stb_2_1,stb_3_0,stb_3_1,",
+				"pd_0_0,pd_0_1,pd_1_0,pd_1_1,",
+				"pd_2_0,pd_2_1,pd_3_0,pd_3_1";
 			node-71 = "SSPM_SPM_RES__DDREN_REQ",
 				"mcu,mcupm,disp0,disp1,adsp,ufs,gce,infra,peri,md,scp,sspm,emi";
 			node-72 = "SSPM_SPM_RES__APSRC_REQ",
 				"mcu,mcupm,md,scp,sspm";
 			node-73 = "SSPM_SPM_DBG__PWR_OFF",
-				"dsu,mcu,gpu,venc,vdec,mdp,disp,cam,img,mmup,mminfra";
+				"dsu,mcu,gpu,venc,vdec,mdp,disp,cam,img,mminfra";
 			node-74 = "SSPM_SPM_DBG__PWR_ACT",
-				"scp,adsp";
+				"scp,adsp,mmup";
 			node-75 = "SSPM_SPM_DBG__SYS_STA",
 				"s0,s1";
+			node-76 = "SSPM_SWPM_DRAM__MEM_RAW_IDX",
+				"diff_us,data_rate,ddr_ratio,emi_freq,",
+				"wact_0,wact_1,bact_0,bact_1,bcnt_0,bcnt_1,tact_0,tact_1,",
+				"pgh_0,pgh_1,pgh_2,pgh_3,",
+				"pgm_0,pgm_1,pgm_2,pgm_3,",
+				"intb_0,intb_1,intb_2,intb_3,",
+				"stb_0_0,stb_0_1,stb_1_0,stb_1_1,",
+				"stb_2_0,stb_2_1,stb_3_0,stb_3_1,",
+				"mr4_idx_0_0,mr4_idx_0_1,mr4_idx_1_0,mr4_idx_1_1,",
+				"mr4_idx_2_0,mr4_idx_2_1,mr4_idx_3_0,mr4_idx_3_1";
 		};
 
 		gpueb_rts_header:gpueb-rts-header {
