@@ -8134,9 +8134,9 @@
 
 		gpu_protected_memory_allocator: protected-memory-allocator {
 			compatible = "arm,protected-memory-allocator";
-			reg = <0 0x13c40000 0 0x22000>;
+			reg = <0 0x13c00000 0 0x30000>;
 			reg-names = "gpueb_base";
-			gpr_offset = <0x1FD1C>;
+			gpr_offset = <0x2fd1c>;
 			gpr_id = <6>;
 			gmpu_table_size = <0x00400000>;
 			protected_reserve_size = <0x1000000>;
