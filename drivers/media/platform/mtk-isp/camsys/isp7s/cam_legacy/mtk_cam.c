@@ -2505,7 +2505,8 @@ static int mtk_cam_req_set_fmt(struct mtk_cam_device *cam,
 					 pad < MTK_CAMSV_PIPELINE_PADS_NUM; pad++)
 					if (stream_data->pad_fmt_update & (1 << pad)) {
 						ctx_stream_data->flags |=
-							MTK_CAM_REQ_S_DATA_FLAG_SINK_FMT_UPDATE;
+							(ctx_stream_data->frame_seq_no > 1) ?
+							MTK_CAM_REQ_S_DATA_FLAG_SINK_FMT_UPDATE : 0;
 						mtk_camsv_call_pending_set_fmt
 							(sd,
 							 &stream_data->pad_fmt[pad]);
@@ -2519,7 +2520,8 @@ static int mtk_cam_req_set_fmt(struct mtk_cam_device *cam,
 
 				if (stream_data->pad_fmt_update & (1 << MTK_MRAW_SINK)) {
 					ctx_stream_data->flags |=
-						MTK_CAM_REQ_S_DATA_FLAG_SINK_FMT_UPDATE;
+						(ctx_stream_data->frame_seq_no > 1) ?
+						MTK_CAM_REQ_S_DATA_FLAG_SINK_FMT_UPDATE : 0;
 					mtk_mraw_call_pending_set_fmt
 						(sd,
 						 &stream_data->pad_fmt[MTK_MRAW_SINK]);
