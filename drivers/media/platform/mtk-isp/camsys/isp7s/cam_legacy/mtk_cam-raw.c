@@ -2155,7 +2155,7 @@ bool mtk_raw_resource_calc(struct mtk_cam_device *cam,
 	res->frz_ratio = 100;
 	res->res_plan = res_plan;
 	res->pixel_rate = pixel_rate;
-	res->tgo_pxl_mode = mtk_pixelmode_val(calc.raw_pixel_mode);
+	res->tgo_pxl_mode = mtk_pixelmode_val(calc.raw_pixel_mode * calc.raw_num);
 	res->raw_pixel_mode = mtk_pixelmode_val(calc.raw_pixel_mode);
 	res->tgo_pxl_mode_before_raw = 3; //fixed to 8p
 	res->raw_num_used = calc.raw_num;
@@ -2167,7 +2167,7 @@ bool mtk_raw_resource_calc(struct mtk_cam_device *cam,
 	mtk_raw_update_debug_param(cam, res);
 
 	dev_info(cam->dev,
-		"Res-end bin/raw_num/tg_pxlmode(%d/%d/%d/%d), clk(%d)\n, out(%dx%d)",
+		"Res-end bin/raw_num/tg_pxlmode/before_raw(%d/%d/%d/%d), clk(%d), out(%dx%d)\n",
 		res->bin_enable, res->raw_num_used, res->tgo_pxl_mode,
 		res->tgo_pxl_mode_before_raw, res->clk_target, *out_w, *out_h);
 
