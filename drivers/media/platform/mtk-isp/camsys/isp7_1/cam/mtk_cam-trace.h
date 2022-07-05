@@ -8,7 +8,6 @@
 
 #if IS_ENABLED(CONFIG_TRACING) && defined(MTK_CAM_TRACE_SUPPORT)
 
-#include <stdarg.h>
 #include <linux/sched.h>
 #include <linux/kernel.h>
 
@@ -62,5 +61,13 @@ enum trace_category {
 
 #define MTK_CAM_TRACE_FUNC_BEGIN(category)				\
 	MTK_CAM_TRACE_BEGIN(category, "%s", __func__)
+
+#define MTK_CAM_TRACE_ASYNC_BEGIN(category, cookie)			\
+	_MTK_CAM_TRACE(_TRACE_CAT(category), "S|%d|camsys:frame_time|%d",	\
+		      task_tgid_nr(current), cookie)			\
+
+#define MTK_CAM_TRACE_ASYNC_END(category, cookie)			\
+	_MTK_CAM_TRACE(_TRACE_CAT(category), "F|%d|camsys:frame_time|%d",	\
+		      task_tgid_nr(current), cookie)			\
 
 #endif /* __MTK_CAM_TRACE_H */

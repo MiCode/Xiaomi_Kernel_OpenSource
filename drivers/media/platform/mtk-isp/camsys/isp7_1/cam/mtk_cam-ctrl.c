@@ -4731,6 +4731,7 @@ static int mtk_camsys_event_handle_raw(struct mtk_cam_device *cam,
 		dev_dbg(raw_dev->dev, "cannot find ctx\n");
 		return -EINVAL;
 	}
+
 	if (mtk_cam_is_ext_isp(ctx)) {
 		dev_info(raw_dev->dev, "ts=%lu irq_type %d, req:%d/%d\n",
 		irq_info->ts_ns / 1000,
@@ -4738,6 +4739,14 @@ static int mtk_camsys_event_handle_raw(struct mtk_cam_device *cam,
 		irq_info->frame_idx_inner,
 		irq_info->frame_idx);
 	}
+
+	/* trace for FPS tool */
+	if (irq_info->irq_type & (1 << CAMSYS_IRQ_FRAME_START)) {
+		MTK_CAM_TRACE_ASYNC_BEGIN(BASIC, irq_info->frame_idx_inner);
+	} else if (irq_info->irq_type & (1 << CAMSYS_IRQ_FRAME_DONE)) {
+		MTK_CAM_TRACE_ASYNC_END(BASIC, irq_info->frame_idx_inner);
+	}
+
 	/* raw's CQ done */
 	if (irq_info->irq_type & (1 << CAMSYS_IRQ_SETTING_DONE)) {
 

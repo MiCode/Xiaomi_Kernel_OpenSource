@@ -6,6 +6,7 @@
 #include "mtk_cam-trace.h"
 
 #include <linux/module.h>
+#include <linux/trace_events.h>
 
 static int ftrace_tags;
 module_param(ftrace_tags, int, 0644);
@@ -17,17 +18,21 @@ int mtk_cam_trace_enabled_tags(void)
 }
 
 static noinline
-int tracing_mark_write(const char *fmt, va_list ap)
+int tracing_mark_write(const char *buf)
 {
-	ftrace_vprintk(fmt, ap);
+	trace_puts(buf);
 	return 0;
 }
 
 void mtk_cam_trace(const char *fmt, ...)
 {
+	char buf[256];
 	va_list args;
 
 	va_start(args, fmt);
-	tracing_mark_write(fmt, args);
+	vsnprintf(buf, sizeof(buf), fmt, args);
 	va_end(args);
+
+	tracing_mark_write(buf);
 }
+
