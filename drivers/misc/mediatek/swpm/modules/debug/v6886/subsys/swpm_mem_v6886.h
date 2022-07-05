@@ -16,7 +16,6 @@ enum ddr_freq {
 	DDR_800,
 	DDR_933,
 	DDR_1066,
-	DDR_1333,
 	DDR_1547,
 	DDR_2133,
 	DDR_2750,
@@ -28,7 +27,9 @@ enum ddr_freq {
 /* dram voltage/freq index */
 struct mem_swpm_vf_index {
 	unsigned int ddr_freq_mhz;
+	unsigned int ddr_cur_opp;
 };
+
 /* dram power index structure */
 struct mem_swpm_index {
 	unsigned int read_bw[MAX_EMI_NUM];

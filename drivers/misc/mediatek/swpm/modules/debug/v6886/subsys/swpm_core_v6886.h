@@ -45,12 +45,17 @@ enum core_static_rec_type {
 struct core_swpm_vf_index {
 	unsigned int vcore_mv;
 	unsigned int ddr_freq_mhz;
+	unsigned int vcore_cur_opp;
+	unsigned int ddr_cur_opp;
 };
+
 /* core power index structure */
 struct core_swpm_index {
 	unsigned int infra_state_ratio[NR_INFRA_POWER_STATE];
 	unsigned int read_bw[MAX_EMI_NUM];
 	unsigned int write_bw[MAX_EMI_NUM];
+	unsigned int srr_pct;
+	unsigned int ssr_pct;
 	struct core_swpm_vf_index vf;
 };
 

@@ -38,7 +38,7 @@ static ssize_t dram_bw_read(char *ToUser, size_t sz, void *priv)
 
 	spin_lock_irqsave(&mem_swpm_spinlock, flags);
 	for (i = 0; i < MAX_EMI_NUM; i++) {
-		swpm_dbg_log("DRAM BW(%d) R/W=%d/%d/n",
+		swpm_dbg_log("DRAM BW(%d) R/W=%d/%d\n",
 			mem_idx_snap.read_bw[i],
 			mem_idx_snap.write_bw[i]);
 	}

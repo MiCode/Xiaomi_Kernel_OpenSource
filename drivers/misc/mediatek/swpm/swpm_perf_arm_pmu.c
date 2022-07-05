@@ -296,21 +296,21 @@ int __init swpm_arm_pmu_init(void)
 		goto END;
 	}
 	/* device node, device name, offset, variable */
-	ret = of_property_read_u32_index(node, "pmu_boundary_num",
+	ret = of_property_read_u32_index(node, "pmu-boundary-num",
 					 0, &boundary);
 	if (ret) {
 		pr_notice("failed to get pmu_boundary_num index from dts\n");
 		goto END;
 	}
 	/* device node, device name, offset, variable */
-	ret = of_property_read_u32_index(node, "pmu_dsu_support",
+	ret = of_property_read_u32_index(node, "pmu-dsu-support",
 					 0, &pmu_dsu_support);
 	if (ret) {
 		pr_notice("failed to get pmu_dsu_support index from dts\n");
 		goto END;
 	}
 	/* device node, device name, offset, variable */
-	ret = of_property_read_u32_index(node, "pmu_dsu_type",
+	ret = of_property_read_u32_index(node, "pmu-dsu-type",
 					 0, &pmu_dsu_type);
 	if (ret) {
 		pr_notice("failed to get pmu_dsu_type index from dts\n");
