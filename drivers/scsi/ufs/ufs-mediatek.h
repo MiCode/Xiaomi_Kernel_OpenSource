@@ -109,7 +109,7 @@ enum ufs_mtk_host_caps {
 	 * allow vccqx upstream to enter LPM
 	 */
 	UFS_MTK_CAP_FORCE_VSx_LPM              = 1 << 5,
-	UFS_MTK_CAP_PMC_VIA_FASTAUTO           = 1 << 6,
+	UFS_MTK_CAP_PMC_VIA_FASTAUTO	       = 1 << 6,
 };
 
 struct ufs_mtk_crypt_cfg {

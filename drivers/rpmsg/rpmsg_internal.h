@@ -77,6 +77,7 @@ struct rpmsg_endpoint_ops {
 			     void *data, int len);
 	__poll_t (*poll)(struct rpmsg_endpoint *ept, struct file *filp,
 			     poll_table *wait);
+	int (*rx_done)(struct rpmsg_endpoint *ept, void *data);
 	int (*get_signals)(struct rpmsg_endpoint *ept);
 	int (*set_signals)(struct rpmsg_endpoint *ept, u32 set, u32 clear);
 };

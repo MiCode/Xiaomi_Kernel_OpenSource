@@ -1103,7 +1103,7 @@ static int ieee80211_start_ap(struct wiphy *wiphy, struct net_device *dev,
 			      IEEE80211_HE_OPERATION_RTS_THRESHOLD_MASK);
 		changed |= BSS_CHANGED_HE_OBSS_PD;
 
-		if (params->he_bss_color.enabled)
+		if (params->beacon.he_bss_color.enabled)
 			changed |= BSS_CHANGED_HE_BSS_COLOR;
 	}
 
@@ -1152,7 +1152,7 @@ static int ieee80211_start_ap(struct wiphy *wiphy, struct net_device *dev,
 	sdata->vif.bss_conf.allow_p2p_go_ps = sdata->vif.p2p;
 	sdata->vif.bss_conf.twt_responder = params->twt_responder;
 	sdata->vif.bss_conf.he_obss_pd = params->he_obss_pd;
-	sdata->vif.bss_conf.he_bss_color = params->he_bss_color;
+	sdata->vif.bss_conf.he_bss_color = params->beacon.he_bss_color;
 	sdata->vif.bss_conf.s1g = params->chandef.chan->band ==
 				  NL80211_BAND_S1GHZ;
 
@@ -1260,7 +1260,8 @@ static int ieee80211_change_beacon(struct wiphy *wiphy, struct net_device *dev,
 	return 0;
 }
 
-static int ieee80211_stop_ap(struct wiphy *wiphy, struct net_device *dev)
+static int ieee80211_stop_ap(struct wiphy *wiphy, struct net_device *dev,
+			     unsigned int link_id)
 {
 	struct ieee80211_sub_if_data *sdata = IEEE80211_DEV_TO_SUB_IF(dev);
 	struct ieee80211_sub_if_data *vlan;
@@ -2960,6 +2961,7 @@ static int ieee80211_set_cqm_rssi_range_config(struct wiphy *wiphy,
 
 static int ieee80211_set_bitrate_mask(struct wiphy *wiphy,
 				      struct net_device *dev,
+				      unsigned int link_id,
 				      const u8 *addr,
 				      const struct cfg80211_bitrate_mask *mask)
 {
@@ -3249,7 +3251,7 @@ static int __ieee80211_csa_finalize(struct ieee80211_sub_if_data *sdata)
 	if (err)
 		return err;
 
-	cfg80211_ch_switch_notify(sdata->dev, &sdata->csa_chandef);
+	cfg80211_ch_switch_notify(sdata->dev, &sdata->csa_chandef, 0);
 
 	return 0;
 }
@@ -3755,6 +3757,7 @@ unlock:
 
 static int ieee80211_cfg_get_channel(struct wiphy *wiphy,
 				     struct wireless_dev *wdev,
+				     unsigned int link_id,
 				     struct cfg80211_chan_def *chandef)
 {
 	struct ieee80211_sub_if_data *sdata = IEEE80211_WDEV_TO_SUB_IF(wdev);
@@ -3815,6 +3818,7 @@ static int ieee80211_set_qos_map(struct wiphy *wiphy,
 
 static int ieee80211_set_ap_chanwidth(struct wiphy *wiphy,
 				      struct net_device *dev,
+				      unsigned int link_id,
 				      struct cfg80211_chan_def *chandef)
 {
 	struct ieee80211_sub_if_data *sdata = IEEE80211_DEV_TO_SUB_IF(dev);

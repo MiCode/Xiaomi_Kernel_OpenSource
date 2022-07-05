@@ -7,7 +7,7 @@
 
 #include <linux/mm.h>
 #include <linux/cma.h>
-
+#include <trace/hooks/mm.h>
 void show_mem(unsigned int filter, nodemask_t *nodemask)
 {
 	pg_data_t *pgdat;
@@ -41,4 +41,6 @@ void show_mem(unsigned int filter, nodemask_t *nodemask)
 #ifdef CONFIG_MEMORY_FAILURE
 	printk("%lu pages hwpoisoned\n", atomic_long_read(&num_poisoned_pages));
 #endif
+	trace_android_vh_show_mem(filter, nodemask);
 }
+EXPORT_SYMBOL_GPL(show_mem);

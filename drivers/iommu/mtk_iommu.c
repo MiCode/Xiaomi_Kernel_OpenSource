@@ -226,6 +226,7 @@
 #define IOMMU_MAU_EN			BIT(21)
 #define PM_OPS_SKIP			BIT(22)
 #define SHARE_PGTABLE			BIT(23)
+#define PGTABLE_PA_35_EN		BIT(24)
 
 #define POWER_ON_STA		1
 #define POWER_OFF_STA		0
@@ -251,6 +252,7 @@ struct mtk_iommu_domain {
 	int				tab_id;
 	struct io_pgtable_cfg		cfg;
 	struct io_pgtable_ops		*iop;
+	u32				ttbr;
 
 	struct mtk_iommu_data		*data;
 	struct iommu_domain		domain;
@@ -1495,6 +1497,7 @@ static int mtk_iommu_domain_finalise(struct mtk_iommu_domain *dom,
 		if (data_temp->m4u_dom) {
 			dom->iop = data_temp->m4u_dom->iop;
 			dom->cfg = data_temp->m4u_dom->cfg;
+			dom->ttbr = data_temp->m4u_dom->ttbr;
 			dom->domain.pgsize_bitmap = data_temp->m4u_dom->cfg.pgsize_bitmap;
 			goto update_iova_region;
 		}
@@ -1508,6 +1511,9 @@ static int mtk_iommu_domain_finalise(struct mtk_iommu_domain *dom,
 		.ias = MTK_IOMMU_HAS_FLAG(data->plat_data, IOVA_34_EN) ? 34 : 32,
 		.iommu_dev = data->dev,
 	};
+
+	if (MTK_IOMMU_HAS_FLAG(data->plat_data, PGTABLE_PA_35_EN))
+		dom->cfg.quirks |= IO_PGTABLE_QUIRK_ARM_MTK_TTBR_EXT;
 
 	if (MTK_IOMMU_HAS_FLAG(data->plat_data, HAS_4GB_MODE))
 		dom->cfg.oas = data->enable_4GB ? 33 : 32;
@@ -1528,6 +1534,9 @@ static int mtk_iommu_domain_finalise(struct mtk_iommu_domain *dom,
 		dev_err(data->dev, "Failed to alloc io pgtable\n");
 		return -EINVAL;
 	}
+	dom->ttbr = dom->cfg.quirks & IO_PGTABLE_QUIRK_ARM_MTK_TTBR_EXT ?
+		    dom->cfg.arm_v7s_cfg.ttbr :
+		    dom->cfg.arm_v7s_cfg.ttbr & MMU_PT_ADDR_MASK;
 
 	/* Update our support page sizes bitmap */
 	dom->domain.pgsize_bitmap = dom->cfg.pgsize_bitmap;
@@ -1646,8 +1655,7 @@ static int mtk_iommu_attach_device(struct iommu_domain *domain,
 			pm_runtime_put(m4udev);
 			goto out_unlock;
 		}
-		writel(dom->cfg.arm_v7s_cfg.ttbr & MMU_PT_ADDR_MASK,
-		       data->base + REG_MMU_PT_BASE_ADDR);
+		writel(data->m4u_dom->ttbr, data->base + REG_MMU_PT_BASE_ADDR);
 
 		pr_info("%s, iommu_dev:%s(%d,%d), user_dev:%s, pgtable:0x%lx -- 0x%x -- 0x%x, tab_id:%d\n",
 			__func__, dev_name(data->dev), data->plat_data->iommu_type,
@@ -2992,7 +3000,7 @@ static int __maybe_unused mtk_iommu_runtime_resume(struct device *dev)
 	writel_relaxed(reg->int_main_control, base + REG_MMU_INT_MAIN_CONTROL);
 	writel_relaxed(reg->ivrp_paddr, base + REG_MMU_IVRP_PADDR);
 	writel_relaxed(reg->vld_pa_rng, base + REG_MMU_VLD_PA_RNG);
-	writel(m4u_dom->cfg.arm_v7s_cfg.ttbr & MMU_PT_ADDR_MASK, base + REG_MMU_PT_BASE_ADDR);
+	writel(m4u_dom->ttbr, base + REG_MMU_PT_BASE_ADDR);
 
 #if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_SECURE)
 	if (MTK_IOMMU_HAS_FLAG(data->plat_data, IOMMU_SEC_EN)) {

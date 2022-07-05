@@ -324,6 +324,17 @@
  */
 
 /**
+ * DOC: Multi-Link Operation
+ *
+ * In Multi-Link Operation, a connection between to MLDs utilizes multiple
+ * links. To use this in nl80211, various commands and responses now need
+ * to or will include the new %NL80211_ATTR_MLO_LINKS attribute.
+ * Additionally, various commands that need to operate on a specific link
+ * now need to be given the %NL80211_ATTR_MLO_LINK_ID attribute, e.g. to
+ * use %NL80211_CMD_START_AP or similar functions.
+ */
+
+/**
  * enum nl80211_commands - supported nl80211 commands
  *
  * @NL80211_CMD_UNSPEC: unspecified command to catch errors
@@ -1237,6 +1248,12 @@
  *      to describe the BSSID address of the AP and %NL80211_ATTR_TIMEOUT to
  *      specify the timeout value.
  *
+ * @NL80211_CMD_ADD_LINK: Add a new link to an interface. The
+ *	%NL80211_ATTR_MLO_LINK_ID attribute is used for the new link.
+ * @NL80211_CMD_REMOVE_LINK: Remove a link from an interface. This may come
+ *	without %NL80211_ATTR_MLO_LINK_ID as an easy way to remove all links
+ *	in preparation for e.g. roaming to a regular (non-MLO) AP.
+ *
  * @NL80211_CMD_MAX: highest used command number
  * @__NL80211_CMD_AFTER_LAST: internal use
  */
@@ -1481,12 +1498,34 @@ enum nl80211_commands {
 
 	NL80211_CMD_ASSOC_COMEBACK,
 
+	NL80211_CMD_RESERVED_DO_NOT_USE_1 = 148,
+	NL80211_CMD_RESERVED_DO_NOT_USE_2 = 149,
+	NL80211_CMD_RESERVED_DO_NOT_USE_3 = 150,
+	NL80211_CMD_RESERVED_DO_NOT_USE_4 = 151,
+	NL80211_CMD_RESERVED_DO_NOT_USE_5 = 152,
+	NL80211_CMD_RESERVED_DO_NOT_USE_6 = 153,
+	NL80211_CMD_RESERVED_DO_NOT_USE_7 = 154,
+	NL80211_CMD_RESERVED_DO_NOT_USE_8 = 155,
+	NL80211_CMD_RESERVED_DO_NOT_USE_9 = 156,
+	NL80211_CMD_RESERVED_DO_NOT_USE_10 = 157,
+
 	/* add new commands above here */
 
 	/* used to define NL80211_CMD_MAX below */
 	__NL80211_CMD_AFTER_LAST,
 	NL80211_CMD_MAX = __NL80211_CMD_AFTER_LAST - 1
 };
+
+/*
+ * These are temporary definitions that will become permanent when the UAPI
+ * change is accepted upstream. This will not be used in production until the
+ * UAPI change lands upstream
+ */
+
+/* Link: https://git.kernel.org/pub/scm/linux/kernel/git/wireless/wireless-next.git/commit/?h=mld&id=a353a99fb75e5c1c3b15050e9efaab1997350862 */
+#define NL80211_CMD_ADD_LINK NL80211_CMD_RESERVED_DO_NOT_USE_1
+#define NL80211_CMD_REMOVE_LINK NL80211_CMD_RESERVED_DO_NOT_USE_2
+
 
 /*
  * Allow user space programs to use #ifdef on new commands by defining them
@@ -2663,6 +2702,24 @@ enum nl80211_commands {
  *	association request when used with NL80211_CMD_NEW_STATION). Can be set
  *	only if %NL80211_STA_FLAG_WME is set.
  *
+ * @NL80211_ATTR_MAX_NUM_AKM_SUITES: U16 attribute. Indicates maximum number of
+ *	AKM suites allowed for %NL80211_CMD_CONNECT, %NL80211_CMD_ASSOCIATE and
+ *	%NL80211_CMD_START_AP in %NL80211_CMD_GET_WIPHY response. If this
+ *	attribute is not present userspace shall consider maximum number of AKM
+ *	suites allowed as %NL80211_MAX_NR_AKM_SUITES which is the legacy maximum
+ *	number prior to the introduction of this attribute.
+ *
+ * @NL80211_ATTR_MLO_LINK_ID: A (u8) link ID for use with MLO, to be used with
+ *	various commands that need a link ID to operate.
+ * @NL80211_ATTR_MLO_LINKS: A nested array of links, each containing some
+ *	per-link information and a link ID.
+ * @NL80211_ATTR_MLD_ADDR: An MLD address, used with various commands such as
+ *	authenticate/associate.
+ *
+ * @NL80211_ATTR_MLO_SUPPORT: Flag attribute to indicate user space supports MLO
+ *	connection. Used with %NL80211_CMD_CONNECT. If this attribute is not
+ *	included in NL80211_CMD_CONNECT drivers must not perform MLO connection.
+ *
  * @NUM_NL80211_ATTR: total number of nl80211_attrs available
  * @NL80211_ATTR_MAX: highest attribute number currently defined
  * @__NL80211_ATTR_AFTER_LAST: internal use
@@ -3175,12 +3232,59 @@ enum nl80211_attrs {
 
 	NL80211_ATTR_EHT_CAPABILITY,
 
+	NL80211_ATTR_DISABLE_EHT,
+
+	NL80211_ATTR_RESERVED_DO_NOT_USE_1 = 312,
+	NL80211_ATTR_RESERVED_DO_NOT_USE_2 = 313,
+	NL80211_ATTR_RESERVED_DO_NOT_USE_3 = 314,
+	NL80211_ATTR_RESERVED_DO_NOT_USE_4 = 315,
+	NL80211_ATTR_RESERVED_DO_NOT_USE_5 = 316,
+	NL80211_ATTR_RESERVED_DO_NOT_USE_6 = 317,
+	NL80211_ATTR_RESERVED_DO_NOT_USE_7 = 318,
+	NL80211_ATTR_RESERVED_DO_NOT_USE_8 = 319,
+	NL80211_ATTR_RESERVED_DO_NOT_USE_9 = 320,
+	NL80211_ATTR_RESERVED_DO_NOT_USE_10 = 321,
+	NL80211_ATTR_RESERVED_DO_NOT_USE_11 = 322,
+	NL80211_ATTR_RESERVED_DO_NOT_USE_12 = 323,
+	NL80211_ATTR_RESERVED_DO_NOT_USE_13 = 324,
+	NL80211_ATTR_RESERVED_DO_NOT_USE_14 = 325,
+	NL80211_ATTR_RESERVED_DO_NOT_USE_15 = 326,
+	NL80211_ATTR_RESERVED_DO_NOT_USE_16 = 327,
+	NL80211_ATTR_RESERVED_DO_NOT_USE_17 = 328,
+	NL80211_ATTR_RESERVED_DO_NOT_USE_18 = 329,
+	NL80211_ATTR_RESERVED_DO_NOT_USE_19 = 330,
+	NL80211_ATTR_RESERVED_DO_NOT_USE_20 = 331,
+	NL80211_ATTR_RESERVED_DO_NOT_USE_21 = 332,
+	NL80211_ATTR_RESERVED_DO_NOT_USE_22 = 333,
+	NL80211_ATTR_RESERVED_DO_NOT_USE_23 = 334,
+	NL80211_ATTR_RESERVED_DO_NOT_USE_24 = 335,
+	NL80211_ATTR_RESERVED_DO_NOT_USE_25 = 336,
+
 	/* add attributes here, update the policy in nl80211.c */
 
 	__NL80211_ATTR_AFTER_LAST,
 	NUM_NL80211_ATTR = __NL80211_ATTR_AFTER_LAST,
 	NL80211_ATTR_MAX = __NL80211_ATTR_AFTER_LAST - 1
 };
+
+/*
+ * These are temporary definitions that will become permanent when the UAPI
+ * change is accepted upstream. This will not be used in production until the
+ * UAPI change lands upstream
+ */
+
+/* Link: https://lore.kernel.org/linux-wireless/1653312358-12321-1-git-send-email-quic_vjakkam@quicinc.com/ */
+#define NL80211_ATTR_MAX_NUM_AKM_SUITES NL80211_ATTR_RESERVED_DO_NOT_USE_1
+
+/* Link: https://git.kernel.org/pub/scm/linux/kernel/git/wireless/wireless-next.git/commit/?h=mld&id=a353a99fb75e5c1c3b15050e9efaab1997350862 */
+#define NL80211_ATTR_MLO_LINKS NL80211_ATTR_RESERVED_DO_NOT_USE_2
+#define NL80211_ATTR_MLO_LINK_ID NL80211_ATTR_RESERVED_DO_NOT_USE_3
+
+/* Link: https://git.kernel.org/pub/scm/linux/kernel/git/wireless/wireless-next.git/commit/?h=mld&id=e35626979423cadc21bd4a68d4aa14eaeccbbd59 */
+#define NL80211_ATTR_MLD_ADDR NL80211_ATTR_RESERVED_DO_NOT_USE_4
+
+/* Link: https://lore.kernel.org/linux-wireless/1654679797-7740-1-git-send-email-quic_vjakkam@quicinc.com/ */
+#define NL80211_ATTR_MLO_SUPPORT NL80211_ATTR_RESERVED_DO_NOT_USE_5
 
 /* source-level API compatibility */
 #define NL80211_ATTR_SCAN_GENERATION NL80211_ATTR_GENERATION
@@ -3229,6 +3333,11 @@ enum nl80211_attrs {
 #define NL80211_HE_MIN_CAPABILITY_LEN           16
 #define NL80211_HE_MAX_CAPABILITY_LEN           54
 #define NL80211_MAX_NR_CIPHER_SUITES		5
+
+/*
+ * NL80211_MAX_NR_AKM_SUITES is obsolete when %NL80211_ATTR_MAX_NUM_AKM_SUITES
+ * present in %NL80211_CMD_GET_WIPHY response.
+ */
 #define NL80211_MAX_NR_AKM_SUITES		2
 #define NL80211_EHT_MIN_CAPABILITY_LEN          13
 #define NL80211_EHT_MAX_CAPABILITY_LEN          51
@@ -3522,6 +3631,11 @@ enum nl80211_rate_info {
 	NL80211_RATE_INFO_EHT_NSS,
 	NL80211_RATE_INFO_EHT_GI,
 	NL80211_RATE_INFO_EHT_RU_ALLOC,
+	NL80211_RATE_INFO_RESERVED_DO_NOT_USE_1 = 23,
+	NL80211_RATE_INFO_RESERVED_DO_NOT_USE_2 = 24,
+	NL80211_RATE_INFO_RESERVED_DO_NOT_USE_3 = 25,
+	NL80211_RATE_INFO_RESERVED_DO_NOT_USE_4 = 26,
+	NL80211_RATE_INFO_RESERVED_DO_NOT_USE_5 = 27,
 
 	/* keep last */
 	__NL80211_RATE_INFO_AFTER_LAST,
@@ -3552,6 +3666,9 @@ enum nl80211_sta_bss_param {
 	NL80211_STA_BSS_PARAM_SHORT_SLOT_TIME,
 	NL80211_STA_BSS_PARAM_DTIM_PERIOD,
 	NL80211_STA_BSS_PARAM_BEACON_INTERVAL,
+	NL80211_STA_BSS_PARAM_RESERVED_DO_NOT_USE_1 = 6,
+	NL80211_STA_BSS_PARAM_RESERVED_DO_NOT_USE_2 = 7,
+	NL80211_STA_BSS_PARAM_RESERVED_DO_NOT_USE_3 = 8,
 
 	/* keep last */
 	__NL80211_STA_BSS_PARAM_AFTER_LAST,
@@ -3686,6 +3803,11 @@ enum nl80211_sta_info {
 	NL80211_STA_INFO_AIRTIME_LINK_METRIC,
 	NL80211_STA_INFO_ASSOC_AT_BOOTTIME,
 	NL80211_STA_INFO_CONNECTED_TO_AS,
+	NL80211_STA_INFO_RESERVED_DO_NOT_USE_1 = 44,
+	NL80211_STA_INFO_RESERVED_DO_NOT_USE_2 = 45,
+	NL80211_STA_INFO_RESERVED_DO_NOT_USE_3 = 46,
+	NL80211_STA_INFO_RESERVED_DO_NOT_USE_4 = 47,
+	NL80211_STA_INFO_RESERVED_DO_NOT_USE_5 = 48,
 
 	/* keep last */
 	__NL80211_STA_INFO_AFTER_LAST,
@@ -3861,6 +3983,11 @@ enum nl80211_band_iftype_attr {
 	NL80211_BAND_IFTYPE_ATTR_EHT_CAP_PHY,
 	NL80211_BAND_IFTYPE_ATTR_EHT_CAP_MCS_SET,
 	NL80211_BAND_IFTYPE_ATTR_EHT_CAP_PPE,
+	NL80211_BAND_IFTYPE_ATTR_RESERVED_DO_NOT_USE_1 = 12,
+	NL80211_BAND_IFTYPE_ATTR_RESERVED_DO_NOT_USE_2 = 13,
+	NL80211_BAND_IFTYPE_ATTR_RESERVED_DO_NOT_USE_3 = 14,
+	NL80211_BAND_IFTYPE_ATTR_RESERVED_DO_NOT_USE_4 = 15,
+	NL80211_BAND_IFTYPE_ATTR_RESERVED_DO_NOT_USE_5 = 16,
 
 	/* keep last */
 	__NL80211_BAND_IFTYPE_ATTR_AFTER_LAST,
@@ -3909,6 +4036,10 @@ enum nl80211_band_attr {
 
 	NL80211_BAND_ATTR_EDMG_CHANNELS,
 	NL80211_BAND_ATTR_EDMG_BW_CONFIG,
+
+	NL80211_BAND_ATTR_RESERVED_DO_NOT_USE_1 = 12,
+	NL80211_BAND_ATTR_RESERVED_DO_NOT_USE_2 = 13,
+	NL80211_BAND_ATTR_RESERVED_DO_NOT_USE_3 = 14,
 
 	/* keep last */
 	__NL80211_BAND_ATTR_AFTER_LAST,
@@ -4876,6 +5007,11 @@ enum nl80211_bss {
 	NL80211_BSS_PARENT_BSSID,
 	NL80211_BSS_CHAIN_SIGNAL,
 	NL80211_BSS_FREQUENCY_OFFSET,
+	NL80211_BSS_RESERVED_DO_NOT_USE_1 = 21,
+	NL80211_BSS_RESERVED_DO_NOT_USE_2 = 22,
+	NL80211_BSS_RESERVED_DO_NOT_USE_3 = 23,
+	NL80211_BSS_RESERVED_DO_NOT_USE_4 = 24,
+	NL80211_BSS_RESERVED_DO_NOT_USE_5 = 25,
 
 	/* keep last */
 	__NL80211_BSS_AFTER_LAST,
@@ -5021,6 +5157,11 @@ enum nl80211_key_attributes {
 	NL80211_KEY_DEFAULT_TYPES,
 	NL80211_KEY_MODE,
 	NL80211_KEY_DEFAULT_BEACON,
+	NL80211_KEY_RESERVED_DO_NOT_USE_1 = 11,
+	NL80211_KEY_RESERVED_DO_NOT_USE_2 = 12,
+	NL80211_KEY_RESERVED_DO_NOT_USE_3 = 13,
+	NL80211_KEY_RESERVED_DO_NOT_USE_4 = 14,
+	NL80211_KEY_RESERVED_DO_NOT_USE_5 = 15,
 
 	/* keep last */
 	__NL80211_KEY_AFTER_LAST,
@@ -5055,6 +5196,11 @@ enum nl80211_tx_rate_attributes {
 	NL80211_TXRATE_HE,
 	NL80211_TXRATE_HE_GI,
 	NL80211_TXRATE_HE_LTF,
+	NL80211_TXRATE_RESERVED_DO_NOT_USE_1 = 8,
+	NL80211_TXRATE_RESERVED_DO_NOT_USE_2 = 9,
+	NL80211_TXRATE_RESERVED_DO_NOT_USE_3 = 10,
+	NL80211_TXRATE_RESERVED_DO_NOT_USE_4 = 11,
+	NL80211_TXRATE_RESERVED_DO_NOT_USE_5 = 12,
 
 	/* keep last */
 	__NL80211_TXRATE_AFTER_LAST,
@@ -6239,6 +6385,16 @@ enum nl80211_ext_feature_index {
 	NL80211_EXT_FEATURE_BSS_COLOR,
 	NL80211_EXT_FEATURE_FILS_CRYPTO_OFFLOAD,
 	NL80211_EXT_FEATURE_RADAR_BACKGROUND,
+	NL80211_EXT_FEATURE_RESERVED_DO_NOT_USE_1 = 62,
+	NL80211_EXT_FEATURE_RESERVED_DO_NOT_USE_2 = 63,
+	NL80211_EXT_FEATURE_RESERVED_DO_NOT_USE_3 = 64,
+	NL80211_EXT_FEATURE_RESERVED_DO_NOT_USE_4 = 65,
+	NL80211_EXT_FEATURE_RESERVED_DO_NOT_USE_5 = 66,
+	NL80211_EXT_FEATURE_RESERVED_DO_NOT_USE_6 = 67,
+	NL80211_EXT_FEATURE_RESERVED_DO_NOT_USE_7 = 68,
+	NL80211_EXT_FEATURE_RESERVED_DO_NOT_USE_8 = 69,
+	NL80211_EXT_FEATURE_RESERVED_DO_NOT_USE_9 = 70,
+	NL80211_EXT_FEATURE_RESERVED_DO_NOT_USE_10 = 71,
 
 	/* add new features before the definition below */
 	NUM_NL80211_EXT_FEATURES,
@@ -6543,6 +6699,9 @@ enum nl80211_tdls_peer_capability {
 	NL80211_TDLS_PEER_VHT = 1<<1,
 	NL80211_TDLS_PEER_WMM = 1<<2,
 	NL80211_TDLS_PEER_HE = 1<<3,
+	NL80211_TDLS_PEER_RESERVED_DO_NOT_USE_1 = 1<<4,
+	NL80211_TDLS_PEER_RESERVED_DO_NOT_USE_2 = 1<<5,
+	NL80211_TDLS_PEER_RESERVED_DO_NOT_USE_3 = 1<<6,
 };
 
 /**

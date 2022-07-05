@@ -25,14 +25,6 @@
   cdev_device_add
   cdev_device_del
   cdev_init
-  __cfg80211_alloc_event_skb
-  __cfg80211_alloc_reply_skb
-  cfg80211_find_elem_match
-  cfg80211_find_vendor_elem
-  cfg80211_get_bss
-  cfg80211_put_bss
-  __cfg80211_send_event_skb
-  cfg80211_vendor_cmd_reply
   __cfi_slowpath_diag
   __check_object_size
   clk_bulk_disable
@@ -281,35 +273,6 @@
   idr_for_each
   idr_get_next
   idr_remove
-  ieee80211_alloc_hw_nm
-  ieee80211_beacon_get_template
-  ieee80211_beacon_loss
-  ieee80211_bss_get_elem
-  ieee80211_channel_to_freq_khz
-  ieee80211_connection_loss
-  ieee80211_csa_finish
-  ieee80211_find_sta
-  ieee80211_find_sta_by_ifaddr
-  ieee80211_free_hw
-  ieee80211_free_txskb
-  ieee80211_get_channel_khz
-  ieee80211_hdrlen
-  ieee80211_iterate_active_interfaces_atomic
-  ieee80211_iterate_stations_atomic
-  ieee80211_queue_delayed_work
-  ieee80211_queue_work
-  ieee80211_radar_detected
-  ieee80211_register_hw
-  ieee80211_remain_on_channel_expired
-  ieee80211_report_low_ack
-  ieee80211_restart_hw
-  ieee80211_rx_napi
-  ieee80211_scan_completed
-  ieee80211_stop_queues
-  ieee80211_tx_status
-  ieee80211_tx_status_irqsafe
-  ieee80211_unregister_hw
-  ieee80211_wake_queues
   iio_read_channel_processed
   init_dummy_netdev
   init_net
@@ -718,7 +681,6 @@
   wake_up_process
   __warn_printk
   watchdog_init_timeout
-  wiphy_to_ieee80211_hw
   xa_erase
   xa_find
   xa_find_after
@@ -751,49 +713,23 @@
   report_iommu_fault
 
 # required by ath.ko
-  freq_reg_info
-  reg_initiator_name
-  wiphy_apply_custom_regulatory
 
 # required by ath10k_core.ko
-  cfg80211_calculate_bitrate
   cpu_latency_qos_add_request
   cpu_latency_qos_remove_request
   crc32_le
   device_get_mac_address
   device_set_wakeup_enable
   guid_gen
-  ieee80211_beacon_cntdwn_is_complete
-  ieee80211_beacon_get_tim
-  ieee80211_beacon_update_cntdwn
-  ieee80211_iter_chan_contexts_atomic
-  ieee80211_manage_rx_ba_offl
-  ieee80211_next_txq
-  ieee80211_proberesp_get
-  ieee80211_ready_on_channel
-  ieee80211_return_txq
-  ieee80211_sta_register_airtime
-  ieee80211_stop_queue
-  ieee80211_tdls_oper_request
-  ieee80211_tx_dequeue
-  ieee80211_txq_get_depth
-  ieee80211_txq_may_transmit
-  ieee80211_txq_schedule_start
-  ieee80211_tx_rate_update
-  ieee80211_wake_queue
   init_uts_ns
   __kfifo_alloc
   __kfifo_free
   param_ops_ulong
-  regulatory_hint
-  rfc1042_header
   skb_copy
   skb_dequeue_tail
   skb_queue_head
   skb_realloc_headroom
   strlcat
-  wiphy_read_of_freq_limits
-  wiphy_rfkill_set_hw_state_reason
 
 # required by ath10k_pci.ko
   pci_disable_msi
@@ -811,12 +747,7 @@
   crypto_shash_final
   crypto_shash_setkey
   crypto_shash_update
-  ieee80211_freq_khz_to_channel
-  ieee80211_get_fils_discovery_tmpl
-  ieee80211_get_hdrlen_from_skb
-  ieee80211_get_unsol_bcast_probe_resp_tmpl
   memcpy_and_pad
-  regulatory_set_wiphy_regd_sync
   rtnl_lock
   rtnl_unlock
 

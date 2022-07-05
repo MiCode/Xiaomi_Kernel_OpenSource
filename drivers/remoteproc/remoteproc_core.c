@@ -463,6 +463,7 @@ static void rproc_rvdev_release(struct device *dev)
 	struct rproc_vdev *rvdev = container_of(dev, struct rproc_vdev, dev);
 
 	of_reserved_mem_device_release(dev);
+	dma_release_coherent_memory(dev);
 
 	kfree(rvdev);
 }
@@ -1007,6 +1008,26 @@ void rproc_add_carveout(struct rproc *rproc, struct rproc_mem_entry *mem)
 EXPORT_SYMBOL(rproc_add_carveout);
 
 /**
+ * rproc_del_carveout() - remove an allocated carveout region
+ * @rproc: rproc handle
+ * @mem: memory entry to register
+ *
+ * This function removes specified memory entry in @rproc carveouts list.
+ */
+void rproc_del_carveout(struct rproc *rproc, struct rproc_mem_entry *mem)
+{
+	struct rproc_mem_entry *entry, *tmp;
+
+	list_for_each_entry_safe(entry, tmp, &rproc->carveouts, node) {
+		if (entry == mem) {
+			list_del(&mem->node);
+			return;
+		}
+	}
+}
+EXPORT_SYMBOL(rproc_del_carveout);
+
+/**
  * rproc_mem_entry_init() - allocate and initialize rproc_mem_entry struct
  * @dev: pointer on device struct
  * @va: virtual address
@@ -1053,6 +1074,19 @@ rproc_mem_entry_init(struct device *dev,
 	return mem;
 }
 EXPORT_SYMBOL(rproc_mem_entry_init);
+
+/**
+ * rproc_mem_entry_free() - free a rproc_mem_entry struct
+ * @mem: rproc_mem_entry allocated by rproc_mem_entry_init()
+ *
+ * This function frees a rproc_mem_entry_struct that was allocated by
+ * rproc_mem_entry_init().
+ */
+void rproc_mem_entry_free(struct rproc_mem_entry *mem)
+{
+	kfree(mem);
+}
+EXPORT_SYMBOL(rproc_mem_entry_free);
 
 /**
  * rproc_of_resm_mem_entry_init() - allocate and initialize rproc_mem_entry struct

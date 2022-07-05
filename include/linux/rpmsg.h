@@ -62,6 +62,18 @@ struct rpmsg_device {
 	const struct rpmsg_device_ops *ops;
 };
 
+/**
+ * rpmsg rx callback return definitions
+ * @RPMSG_HANDLED: rpmsg user is done processing data, framework can free the
+ *                 resources related to the buffer
+ * @RPMSG_DEFER:   rpmsg user is not done processing data, framework will hold
+ *                 onto resources related to the buffer until rpmsg_rx_done is
+ *                 called. User should check their endpoint to see if rx_done
+ *                 is a supported operation.
+ */
+#define RPMSG_HANDLED	0
+#define RPMSG_DEFER	1
+
 typedef int (*rpmsg_rx_cb_t)(struct rpmsg_device *, void *, int, void *, u32);
 typedef int (*rpmsg_rx_sig_t)(struct rpmsg_device *, void *, u32, u32);
 
@@ -72,6 +84,7 @@ typedef int (*rpmsg_rx_sig_t)(struct rpmsg_device *, void *, u32, u32);
  * @cb: rx callback handler
  * @cb_lock: must be taken before accessing/changing @cb
  * @sig_cb: rx serial signal handler
+ * @rx_done: if set, rpmsg endpoint supports rpmsg_rx_done
  * @addr: local rpmsg address
  * @priv: private data for the driver's use
  *
@@ -95,6 +108,7 @@ struct rpmsg_endpoint {
 	rpmsg_rx_cb_t cb;
 	struct mutex cb_lock;
 	rpmsg_rx_sig_t sig_cb;
+	bool rx_done;
 	u32 addr;
 	void *priv;
 
@@ -195,6 +209,8 @@ __poll_t rpmsg_poll(struct rpmsg_endpoint *ept, struct file *filp,
 
 int rpmsg_get_signals(struct rpmsg_endpoint *ept);
 int rpmsg_set_signals(struct rpmsg_endpoint *ept, u32 set, u32 clear);
+
+int rpmsg_rx_done(struct rpmsg_endpoint *ept, void *data);
 
 #else
 
@@ -316,6 +332,14 @@ static inline int rpmsg_get_signals(struct rpmsg_endpoint *ept)
 
 static inline int rpmsg_set_signals(struct rpmsg_endpoint *ept,
 				    u32 set, u32 clear)
+{
+	/* This shouldn't be possible */
+	WARN_ON(1);
+
+	return -ENXIO;
+}
+
+static inline int rpmsg_rx_done(struct rpmsg_endpoint *ept, void *data)
 {
 	/* This shouldn't be possible */
 	WARN_ON(1);

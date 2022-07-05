@@ -231,9 +231,7 @@ enum ufs_hs_gear_tag {
 	UFS_HS_G2,		/* HS Gear 2 */
 	UFS_HS_G3,		/* HS Gear 3 */
 	UFS_HS_G4,		/* HS Gear 4 */
-#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
 	UFS_HS_G5,		/* HS Gear 5 */
-#endif
 };
 
 enum ufs_unipro_ver {

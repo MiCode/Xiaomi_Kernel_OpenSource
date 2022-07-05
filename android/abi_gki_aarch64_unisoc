@@ -167,6 +167,7 @@
   debugfs_create_x32
   debugfs_initialized
   debugfs_remove
+  debugfs_rename
   debugfs_create_symlink
   dec_zone_page_state
   default_llseek
@@ -174,6 +175,7 @@
   del_timer
   del_timer_sync
   destroy_workqueue
+  dev_close
   dev_driver_string
   _dev_err
   dev_err_probe
@@ -202,6 +204,7 @@
   device_unregister
   _dev_info
   _dev_printk
+  __dev_change_net_namespace
   __dev_kfree_skb_any
   devm_add_action
   devm_backlight_device_register
@@ -268,6 +271,7 @@
   dma_sync_single_for_device
   dma_unmap_sg_attrs
   double_rq_lock
+  do_trace_netlink_extack
   down
   dput
   driver_register
@@ -352,6 +356,7 @@
   fsync_bdev
   fwnode_property_present
   fwnode_property_read_string
+  gcd
   gen_pool_avail
   gen_pool_best_fit
   gen_pool_set_algo
@@ -362,6 +367,7 @@
   generic_mii_ioctl
   generic_read_dir
   generic_ro_fops
+  genlmsg_multicast_allns
   genl_register_family
   genl_unregister_family
   gen_pool_add_owner
@@ -372,6 +378,8 @@
   get_cpu_device
   __get_free_pages
   get_governor_parent_kobj
+  get_net_ns_by_fd
+  get_net_ns_by_pid
   get_pid_task
   get_random_bytes
   get_zeroed_page
@@ -413,14 +421,12 @@
   idr_find
   idr_for_each
   idr_remove
-  ieee80211_channel_to_freq_khz
-  ieee80211_freq_khz_to_channel
-  ieee80211_get_channel_khz
   iget_failed
   iget5_locked
   ignore_console_lock_warning
   igrab
   inet_proto_csum_replace4
+  inet_csk_get_port
   init_net
   __init_rwsem
   __init_swait_queue_head
@@ -509,6 +515,7 @@
   kern_mount
   kern_unmount
   kernel_kobj
+  key_create_or_update
   kasan_flag_enabled
   kasprintf
   kernel_neon_begin
@@ -518,6 +525,7 @@
   __kfifo_in
   __kfifo_out
   kfree
+  kfree_sensitive
   kfree_skb
   kill_anon_super
   kimage_vaddr
@@ -548,9 +556,11 @@
   kthread_should_stop
   kthread_stop
   ktime_get
+  ktime_get_coarse_with_offset
   ktime_get_mono_fast_ns
   ktime_get_real_seconds
   ktime_get_real_ts64
+  kvfree_call_rcu
   LZ4_decompress_safe_partial
   lzo1x_decompress_safe
   lzorle1x_1_compress
@@ -592,12 +602,20 @@
   __netdev_alloc_skb
   __netif_napi_del
   __num_online_cpus
+  netlink_broadcast
+  netlink_register_notifier
+  netlink_unregister_notifier
   netif_carrier_off
   netif_carrier_on
   netif_rx_ni
   netif_tx_wake_queue
+  net_ns_type_operations
+  nla_find
+  nla_reserve
+  __nla_validate
   nf_conntrack_destroy
   nf_conntrack_find_get
+  nf_ct_destroy
   nf_ct_get_tuplepr
   nf_ct_invert_tuple
   nf_ct_l4proto_find
@@ -638,6 +656,7 @@
   of_parse_phandle_with_fixed_args
   of_platform_depopulate
   of_platform_populate
+  of_prop_next_u32
   of_property_count_elems_of_size
   of_property_match_string
   of_property_read_string
@@ -675,6 +694,8 @@
   phy_print_status
   phy_start
   phy_stop
+  phy_pm_runtime_get_sync
+  phy_pm_runtime_put_sync
   pinctrl_lookup_state
   pinctrl_select_state
   pinctrl_pm_select_default_state
@@ -810,9 +831,12 @@
   reset_control_deassert
   return_address
   rfkill_alloc
+  rfkill_blocked
   rfkill_destroy
   rfkill_init_sw_state
   rfkill_register
+  rfkill_resume_polling
+  rfkill_set_hw_state_reason
   rfkill_unregister
   runqueues
   __SetPageMovable
@@ -858,6 +882,7 @@
   single_open
   single_release
   __skb_ext_put
+  skb_add_rx_frag
   skb_clone
   skb_copy
   skb_copy_expand
@@ -896,7 +921,9 @@
   snd_soc_register_component
   snd_soc_unregister_component
   snprintf
+  __sock_create
   __spi_alloc_controller
+  sock_release
   spi_setup
   sprintf
   sscanf
@@ -921,6 +948,8 @@
   strnlen
   strnstr
   strstr
+  __sw_hweight8
+  __sw_hweight16
   __sw_hweight32
   __sw_hweight64
   submit_bio
@@ -1009,6 +1038,7 @@
   unregister_pernet_subsys
   up
   update_rq_clock
+  usb_add_gadget
   usb_add_gadget_udc
   usb_alloc_coherent
   usb_alloc_urb
@@ -1016,6 +1046,7 @@
   usb_autopm_get_interface_no_resume
   usb_autopm_put_interface
   usb_control_msg
+  usb_del_gadget
   usb_del_gadget_udc
   usb_deregister
   usb_ep_alloc_request
@@ -1034,7 +1065,9 @@
   usb_gadget_udc_reset
   usb_get_dr_mode
   usb_get_intf
+  usb_get_maximum_ssp_rate
   usb_hcd_is_primary_hcd
+  usb_initialize_gadget
   usb_interface_id
   usb_kill_urb
   usb_phy_get_charger_current
@@ -1068,6 +1101,7 @@
   usbnet_write_cmd_async
   usbnet_write_cmd_nopm
   usleep_range_state
+  verify_pkcs7_signature
   vabits_actual
   vchan_dma_desc_free_list
   vchan_find_desc
@@ -1098,6 +1132,7 @@
   wakeup_source_register
   wakeup_source_remove
   wakeup_source_unregister
+  wireless_nlevent_flush
   xa_destroy
   xa_erase
   xa_find
@@ -1123,6 +1158,8 @@
   xt_unregister_target
   xt_unregister_targets
   __traceiter_android_rvh_account_irq
+  __traceiter_android_rvh_account_irq_end
+  __traceiter_android_rvh_account_irq_start
   __traceiter_android_rvh_after_dequeue_task
   __traceiter_android_rvh_after_enqueue_task
   __traceiter_android_rvh_build_perf_domains
@@ -1167,6 +1204,7 @@
   __traceiter_android_rvh_update_misfit_status
   __traceiter_android_rvh_wake_up_new_task
   __traceiter_android_vh_arch_set_freq_scale
+  __traceiter_android_vh_atomic_remove_fb
   __traceiter_android_vh_audio_usb_offload_connect
   __traceiter_android_vh_audio_usb_offload_ep_action
   __traceiter_android_vh_audio_usb_offload_synctype
@@ -1176,6 +1214,7 @@
   __traceiter_android_vh_cpufreq_resolve_freq
   __traceiter_android_vh_cpufreq_fast_switch
   __traceiter_android_vh_cpufreq_target
+  __traceiter_android_vh_drm_atomic_check_modeset
   __traceiter_android_vh_dump_throttled_rt_tasks
   __traceiter_android_vh_enable_thermal_power_throttle
   __traceiter_android_vh_get_thermal_zone_device
@@ -1196,6 +1235,8 @@
   __traceiter_pelt_se_tp
   __traceiter_sched_overutilized_tp
   __tracepoint_android_rvh_account_irq
+  __tracepoint_android_rvh_account_irq_end
+  __tracepoint_android_rvh_account_irq_start
   __tracepoint_android_rvh_after_dequeue_task
   __tracepoint_android_rvh_after_enqueue_task
   __tracepoint_android_rvh_build_perf_domains
@@ -1240,6 +1281,7 @@
   __tracepoint_android_rvh_update_misfit_status
   __tracepoint_android_rvh_wake_up_new_task
   __tracepoint_android_vh_arch_set_freq_scale
+  __tracepoint_android_vh_atomic_remove_fb
   __tracepoint_android_vh_audio_usb_offload_ep_action
   __tracepoint_android_vh_audio_usb_offload_synctype
   __tracepoint_android_vh_binder_restore_priority
@@ -1248,6 +1290,7 @@
   __tracepoint_android_vh_cpufreq_resolve_freq
   __tracepoint_android_vh_cpufreq_fast_switch
   __tracepoint_android_vh_cpufreq_target
+  __tracepoint_android_vh_drm_atomic_check_modeset
   __tracepoint_android_vh_dump_throttled_rt_tasks
   __tracepoint_android_vh_enable_thermal_power_throttle
   __tracepoint_android_vh_get_thermal_zone_device
@@ -1668,6 +1711,7 @@
   bpf_trace_run6
   bpf_trace_run7
   bpf_trace_run8
+  bpf_trace_run10
   cache_line_size
   devfreq_cooling_unregister
   devfreq_recommended_opp
@@ -2373,38 +2417,10 @@
 # required by sprdwl_ng.ko
   bcmp
   build_skb
-  __cfg80211_alloc_event_skb
-  __cfg80211_alloc_reply_skb
-  cfg80211_chandef_create
-  cfg80211_ch_switch_notify
-  cfg80211_connect_done
-  cfg80211_cqm_rssi_notify
-  cfg80211_del_sta_sinfo
-  cfg80211_disconnected
-  cfg80211_find_elem_match
-  cfg80211_get_bss
-  cfg80211_ibss_joined
-  cfg80211_inform_bss_data
-  cfg80211_mgmt_tx_status
-  cfg80211_michael_mic_failure
-  cfg80211_new_sta
-  cfg80211_put_bss
-  cfg80211_ready_on_channel
-  cfg80211_remain_on_channel_expired
-  cfg80211_roamed
-  cfg80211_rx_unprot_mlme_mgmt
-  cfg80211_scan_done
-  cfg80211_sched_scan_results
-  __cfg80211_send_event_skb
-  cfg80211_tdls_oper_request
-  cfg80211_unlink_bss
-  cfg80211_unregister_wdev
-  cfg80211_vendor_cmd_reply
   consume_skb
   _ctype
   dev_get_by_index
   down_timeout
-  freq_reg_info
   genlmsg_put
   jiffies_to_usecs
   kfree_skb_list
@@ -2420,7 +2436,6 @@
   register_inet6addr_notifier
   register_inetaddr_notifier
   register_netdevice
-  regulatory_hint
   rtnl_lock
   rtnl_unlock
   simple_open
@@ -2431,10 +2446,6 @@
   unregister_inetaddr_notifier
   unregister_netdevice_queue
   __warn_printk
-  wiphy_free
-  wiphy_new_nm
-  wiphy_register
-  wiphy_unregister
 
 # required by sunwave_fp.ko
   input_unregister_device
@@ -3004,3 +3015,7 @@
   usb_role_switch_get
   usb_role_switch_put
   usb_role_switch_set_role
+
+# required by unisoc_dump_io.ko
+  blk_stat_enable_accounting
+

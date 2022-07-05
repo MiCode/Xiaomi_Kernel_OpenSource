@@ -3819,7 +3819,7 @@ static bool ttwu_queue_wakelist(struct task_struct *p, int cpu, int wake_flags)
 {
 	bool cond = false;
 
-	trace_android_rvh_ttwu_cond(&cond);
+	trace_android_rvh_ttwu_cond(cpu, &cond);
 
 	if ((sched_feat(TTWU_QUEUE) && ttwu_queue_cond(cpu, wake_flags)) ||
 			cond) {
@@ -4738,13 +4738,23 @@ static void do_balance_callbacks(struct rq *rq, struct callback_head *head)
 
 static void balance_push(struct rq *rq);
 
+/*
+ * balance_push_callback is a right abuse of the callback interface and plays
+ * by significantly different rules.
+ *
+ * Where the normal balance_callback's purpose is to be ran in the same context
+ * that queued it (only later, when it's safe to drop rq->lock again),
+ * balance_push_callback is specifically targeted at __schedule().
+ *
+ * This abuse is tolerated because it places all the unlikely/odd cases behind
+ * a single test, namely: rq->balance_callback == NULL.
+ */
 struct callback_head balance_push_callback = {
 	.next = NULL,
 	.func = (void (*)(struct callback_head *))balance_push,
 };
 EXPORT_SYMBOL_GPL(balance_push_callback);
 
-#if IS_ENABLED(CONFIG_MTK_FIX_SCHED_COMMON)
 static inline struct callback_head *
 __splice_balance_callbacks(struct rq *rq, bool split)
 {
@@ -4779,26 +4789,6 @@ static void __balance_callbacks(struct rq *rq)
 {
 	do_balance_callbacks(rq, __splice_balance_callbacks(rq, false));
 }
-
-#else
-
-static inline struct callback_head *splice_balance_callbacks(struct rq *rq)
-{
-	struct callback_head *head = rq->balance_callback;
-
-	lockdep_assert_rq_held(rq);
-	if (head)
-		rq->balance_callback = NULL;
-
-	return head;
-}
-
-static void __balance_callbacks(struct rq *rq)
-{
-	do_balance_callbacks(rq, splice_balance_callbacks(rq));
-}
-
-#endif
 
 static inline void balance_callbacks(struct rq *rq, struct callback_head *head)
 {
@@ -5307,6 +5297,7 @@ unsigned long long task_sched_runtime(struct task_struct *p)
 
 	return ns;
 }
+EXPORT_SYMBOL_GPL(task_sched_runtime);
 
 #ifdef CONFIG_SCHED_DEBUG
 static u64 cpu_resched_latency(struct rq *rq)
