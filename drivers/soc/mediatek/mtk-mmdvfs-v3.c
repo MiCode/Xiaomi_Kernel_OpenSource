@@ -124,7 +124,7 @@ EXPORT_SYMBOL_GPL(mtk_mmdvfs_enable_ccu);
 
 static int mtk_mmdvfs_enable_vmm(int enable)
 {
-	int result = 0;
+	int result = 0, ret = 0;
 
 	if (!cam_larb_dev) {
 		MMDVFS_ERR("cam_larb_dev is null");
@@ -134,8 +134,11 @@ static int mtk_mmdvfs_enable_vmm(int enable)
 	mutex_lock(&mmdvfs_vmm_pwr_mutex);
 	if (enable) {
 		if (vmm_power == 0) {
-			mtk_smi_larb_get(cam_larb_dev);
-			MMDVFS_DBG("power on vmm successfully");
+			ret = mtk_smi_larb_get(cam_larb_dev);
+			if (ret)
+				MMDVFS_ERR("mtk_smi_larb_get failed:%d", ret);
+			else
+				MMDVFS_DBG("power on vmm successfully");
 		}
 		vmm_power++;
 	} else {
