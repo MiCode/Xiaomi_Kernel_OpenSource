@@ -15,6 +15,10 @@
 #define EREQ_DONE		3 /* already requested */
 #define EREQ_MASKED		4 /* req madk bit set */
 #define EDISABLED		5 /* req madk bit set */
+#define EID_WRONG		6 /* wrong id */
+#define EREF_NOT_ZERO		7 /* ref not zero */
+#define EREQ_TIMEOUT		8 /* req timeout */
+#define EREQ_WAIT_FAIL		9 /* req wait fail */
 
 /* call back return value */
 #define CB_DONE			0 /* no need to use*/
