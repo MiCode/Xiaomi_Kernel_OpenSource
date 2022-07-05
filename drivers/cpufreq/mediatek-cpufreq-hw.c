@@ -193,6 +193,8 @@ static int mtk_cpufreq_hw_cpu_init(struct cpufreq_policy *policy)
 		if (!(sig & CPUFREQ_HW_STATUS)) {
 			pr_info("cpufreq hardware of CPU%d is not enabled\n",
 				policy->cpu);
+			cpu_latency_qos_remove_request(qos_request);
+			kfree(qos_request);
 			return -ENODEV;
 		}
 
