@@ -79,6 +79,7 @@
 #define INT_SMI_LARB_OSTD_MON_PORT(p)	(0x500 + SMI_LARB_OSTD_MON_PORT(p))
 #define INT_SMI_LARB_OSTDL_PORTx(id)	(0x500 + SMI_LARB_OSTDL_PORT + ((id) << 2))
 #define SMI_LARB_STAT			(0x0)
+#define INT_SMI_LARB_STAT		(0x500)
 /* SMI COMMON */
 #define SMI_BUS_SEL			0x220
 #define SMI_BUS_LARB_SHIFT(larbid)	((larbid) << 1)
@@ -2456,7 +2457,8 @@ static int __maybe_unused mtk_smi_larb_suspend(struct device *dev)
 			larb->larbid, atomic_read(&larb->smi.ref_count));
 	}
 
-	if (readl_relaxed(larb->base + SMI_LARB_STAT)) {
+	if (readl_relaxed(larb->base + SMI_LARB_STAT) ||
+			readl_relaxed(larb->base + INT_SMI_LARB_STAT)) {
 		pr_notice("[SMI]larb:%d, suspend but busy\n", larb->larbid);
 		raw_notifier_call_chain(&smi_driver_notifier_list, larb->larbid, larb);
 	}
