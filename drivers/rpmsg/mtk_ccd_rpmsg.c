@@ -144,6 +144,9 @@ static void mtk_rpmsg_destroy_ept(struct rpmsg_endpoint *ept)
 				ept->priv, ept->addr);
 
 		mutex_unlock(&ept->cb_lock);
+
+		/* free ccd_param */
+		kfree(ccd_params);
 	}
 
 	/* make sure new inbound messages can't find this ept anymore */
