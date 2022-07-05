@@ -9393,7 +9393,7 @@
 			"MT_CG_VENC1";
 		operating-points-v2 = <&opp_table_venc>;
 		//dvfsrc-vcore-supply = <&dvfsrc_vcore>;
-		port_arg_num = <3>;
+		port-arg-num = <3>;
 
 		port-def = <0 M4U_PORT_L7_VENC_RCPU_DISP 0>,
 			<0 M4U_PORT_L7_VENC_REC_DISP 0>,
