@@ -1678,6 +1678,8 @@
 	};
 
 	ccu_rproc: ccu_rproc@1b080000 {
+		#address-cells = <2>;
+		#size-cells = <2>;
 		compatible = "mediatek,ccu_rproc";
 		reg = <0 0x1b080000 0 0x9000>;
 		interrupts = <GIC_SPI 516 IRQ_TYPE_LEVEL_HIGH 0>;
@@ -1750,6 +1752,8 @@
 	};
 
 	ccu_rproc1: ccu_rproc1 {
+		#address-cells = <2>;
+		#size-cells = <2>;
 		compatible = "mediatek,ccu_rproc1";
 		dma-ranges = <0x1 0x0 0x1 0x0 0x1 0x0>;
 		iommus = <&disp_iommu M4U_PORT_L19_CCUO2>,
