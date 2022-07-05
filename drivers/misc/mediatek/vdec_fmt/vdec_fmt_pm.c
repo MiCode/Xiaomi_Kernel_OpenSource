@@ -14,6 +14,7 @@
 #include <soc/mediatek/smi.h>
 #include "mtk-interconnect.h"
 #include <linux/timekeeping.h>
+#include <soc/mediatek/mmdvfs_v3.h>
 
 void fmt_get_module_clock_by_name(struct mtk_vdec_fmt *fmt,
 	const char *clkName, struct clk **clk_module)
@@ -146,7 +147,7 @@ void fmt_start_dvfs_emi_bw(struct mtk_vdec_fmt *fmt, struct fmt_pmqos pmqos_para
 			pmqos_param.wdma_datasize);
 
 	ktime_get_real_ts64(&curr_time);
-	fmt_debug(1, "curr time tv_sec %d tv_nsec %d", curr_time.tv_sec, curr_time.tv_nsec);
+	fmt_debug(1, "curr time tv_sec %ld tv_nsec %ld", curr_time.tv_sec, curr_time.tv_nsec);
 
 	FMT_TIMER_GET_DURATION_IN_MS(curr_time, pmqos_param, duration);
 	request_freq64 = (u64)pmqos_param.pixel_size * 1000 / duration;
@@ -173,7 +174,9 @@ void fmt_start_dvfs_emi_bw(struct mtk_vdec_fmt *fmt, struct fmt_pmqos pmqos_para
 			volt);
 	} else if (!IS_ERR_OR_NULL(fmt->dvfs_clk)) {
 		fmt_debug(1, "actual request freq %lu", request_freq);
+		mtk_mmdvfs_enable_vcp(true);
 		ret = clk_set_rate(fmt->dvfs_clk, request_freq);
+		mtk_mmdvfs_enable_vcp(false);
 		if (ret)
 			fmt_debug(0, "Failed to set mmdvfs rate %d\n", request_freq);
 	}
@@ -181,23 +184,26 @@ void fmt_start_dvfs_emi_bw(struct mtk_vdec_fmt *fmt, struct fmt_pmqos pmqos_para
 			pmqos_param.rdma_datasize,
 			pmqos_param.pixel_size,
 			request_freq);
-
-	FMT_BANDWIDTH(pmqos_param.rdma_datasize, pmqos_param.pixel_size, request_freq, bandwidth);
-	if (fmt->fmt_qos_req[id] != 0) {
-		mtk_icc_set_bw(fmt->fmt_qos_req[id],
+	if (id >= 0 && id < fmt->gce_th_num) {
+		FMT_BANDWIDTH(pmqos_param.rdma_datasize, pmqos_param.pixel_size,
+			request_freq, bandwidth);
+		if (fmt->fmt_qos_req[id] != 0) {
+			mtk_icc_set_bw(fmt->fmt_qos_req[id],
 			MBps_to_icc(bandwidth), 0);
-	}
-	fmt_debug(1, "rdma bandwidth %d", bandwidth);
-	fmt_debug(1, "wdma cal MMqos (%d, %d, %d)",
+		}
+		fmt_debug(1, "rdma bandwidth %d", bandwidth);
+		fmt_debug(1, "wdma cal MMqos (%d, %d, %d)",
 			pmqos_param.wdma_datasize,
 			pmqos_param.pixel_size,
 			request_freq);
-	FMT_BANDWIDTH(pmqos_param.wdma_datasize, pmqos_param.pixel_size, request_freq, bandwidth);
-	if (fmt->fmt_qos_req[id+2] != 0) {
-		mtk_icc_set_bw(fmt->fmt_qos_req[id+2],
+		FMT_BANDWIDTH(pmqos_param.wdma_datasize, pmqos_param.pixel_size,
+			request_freq, bandwidth);
+		if (fmt->fmt_qos_req[id+2] != 0) {
+			mtk_icc_set_bw(fmt->fmt_qos_req[id+2],
 			MBps_to_icc(bandwidth), 0);
+		}
+		fmt_debug(1, "wdma bandwidth %d", bandwidth);
 	}
-	fmt_debug(1, "wdma bandwidth %d", bandwidth);
 }
 
 void fmt_end_dvfs_emi_bw(struct mtk_vdec_fmt *fmt, int id)
@@ -207,7 +213,7 @@ void fmt_end_dvfs_emi_bw(struct mtk_vdec_fmt *fmt, int id)
 	int ret = 0;
 
 	if (!IS_ERR_OR_NULL(fmt->fmt_reg)) {
-		fmt_debug(1, "request freq %d", fmt->fmt_freqs[0]);
+		fmt_debug(1, "request freq %lu", fmt->fmt_freqs[0]);
 
 		opp = dev_pm_opp_find_freq_ceil(fmt->dev,
 					&fmt->fmt_freqs[0]);
@@ -221,18 +227,21 @@ void fmt_end_dvfs_emi_bw(struct mtk_vdec_fmt *fmt, int id)
 		}
 	} else if (!IS_ERR_OR_NULL(fmt->dvfs_clk)) {
 		fmt_debug(1, "request freq 0\n");
+		mtk_mmdvfs_enable_vcp(true);
 		ret = clk_set_rate(fmt->dvfs_clk, 0);
+		mtk_mmdvfs_enable_vcp(false);
 		if (ret)
 			fmt_debug(0, "Failed to set mmdvfs rate 0\n");
 	}
-
-	if (fmt->fmt_qos_req[id] != 0) {
-		mtk_icc_set_bw(fmt->fmt_qos_req[id],
-			MBps_to_icc(0), 0);
-	}
-	if (fmt->fmt_qos_req[id+2] != 0) {
-		mtk_icc_set_bw(fmt->fmt_qos_req[id+2],
-			MBps_to_icc(0), 0);
+	if (id >= 0 && id < fmt->gce_th_num) {
+		if (fmt->fmt_qos_req[id] != 0) {
+			mtk_icc_set_bw(fmt->fmt_qos_req[id],
+				MBps_to_icc(0), 0);
+		}
+		if (fmt->fmt_qos_req[id+2] != 0) {
+			mtk_icc_set_bw(fmt->fmt_qos_req[id+2],
+				MBps_to_icc(0), 0);
+		}
 	}
 }
 
