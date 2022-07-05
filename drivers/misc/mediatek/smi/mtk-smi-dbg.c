@@ -412,8 +412,9 @@ static void mtk_smi_dbg_print(struct mtk_smi_dbg *smi, const bool larb,
 	if (!skip_pm_runtime) {
 		if (!rsi) {
 			ret = pm_runtime_get_if_in_use(node.dev);
-			dev_info(node.dev, "===== %s%u rpm:%d =====\n"
-				, name, id, ret);
+			if (ret)
+				dev_info(node.dev, "===== %s%u rpm:%d =====\n"
+					, name, id, ret);
 		} else
 			dev_info(node.dev, "===== %s%u =====\n", name, id);
 		if (ret <= 0 || rsi) {
