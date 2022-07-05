@@ -497,6 +497,11 @@ int aov_core_notify(struct mtk_aov *aov_dev,
 
 	dev_info(aov_dev->dev, "%s+\n", __func__);
 
+	if (aov_dev->op_mode == 0) {
+		dev_info(aov_dev->dev, "%s: bypass notify operation", __func__);
+		return 0;
+	}
+
 	ret = copy_from_user((void *)&notify,
 		(void *)data, sizeof(struct sensor_notify));
 	if (ret) {
@@ -569,29 +574,30 @@ int aov_core_init(struct mtk_aov *aov_dev)
 	atomic_set(&(core_info->aov_session), 0);
 	atomic_set(&(core_info->aov_ready), 0);
 
-	if (curr_dev->op_mode) {
-		ret = mtk_ipi_register(&scp_ipidev, IPI_IN_SCP_AOV,
-			ipi_receive, NULL, &(core_info->packet));
-		if (ret < 0) {
-			dev_info(aov_dev->dev, "%s: failed to register ipi callback: %d\n",
-				__func__, ret);
-			return ret;
-		}
-
-		/* this call back can get scp power down status */
-		scp_A_register_notify(&scp_state_notifier);
-
-		core_info->buf_pa = scp_get_reserve_mem_phys(SCP_AOV_MEM_ID);
-		core_info->buf_va = (void *)scp_get_reserve_mem_virt(SCP_AOV_MEM_ID);
-		core_info->buf_size = scp_get_reserve_mem_size(SCP_AOV_MEM_ID);
-
-		dev_dbg(aov_dev->dev, "%s: scp buffer pa(0x%x), va(0x%08x), size(0x%x)\n", __func__,
-			core_info->buf_pa, core_info->buf_va, core_info->buf_size);
-
-		tlsf_init(&(core_info->alloc), core_info->buf_va, core_info->buf_size);
-	} else {
-		dev_info(aov_dev->dev, "%s: init aov core in bypass mode\n", __func__);
+	if (curr_dev->op_mode == 0) {
+		dev_info(aov_dev->dev, "%s: bypass init operation", __func__);
+		return 0;
 	}
+
+	ret = mtk_ipi_register(&scp_ipidev, IPI_IN_SCP_AOV,
+		ipi_receive, NULL, &(core_info->packet));
+	if (ret < 0) {
+		dev_info(aov_dev->dev, "%s: failed to register ipi callback: %d\n",
+			__func__, ret);
+		return ret;
+	}
+
+	/* this call back can get scp power down status */
+	scp_A_register_notify(&scp_state_notifier);
+
+	core_info->buf_pa = scp_get_reserve_mem_phys(SCP_AOV_MEM_ID);
+	core_info->buf_va = (void *)scp_get_reserve_mem_virt(SCP_AOV_MEM_ID);
+	core_info->buf_size = scp_get_reserve_mem_size(SCP_AOV_MEM_ID);
+
+	dev_dbg(aov_dev->dev, "%s: scp buffer pa(0x%x), va(0x%08x), size(0x%x)\n", __func__,
+		core_info->buf_pa, core_info->buf_va, core_info->buf_size);
+
+	tlsf_init(&(core_info->alloc), core_info->buf_va, core_info->buf_size);
 
 	spin_lock_init(&core_info->buf_lock);
 
@@ -656,6 +662,11 @@ int aov_core_copy(struct mtk_aov *aov_dev, struct aov_dqevent *dequeue)
 	int ret = 0;
 
 	dev_dbg(aov_dev->dev, "%s: copy aov event+\n", __func__);
+
+	if (aov_dev->op_mode == 0) {
+		dev_info(aov_dev->dev, "%s: bypass copy operation", __func__);
+		return 0;
+	}
 
 	if (atomic_read(&(core_info->aov_ready)) == 0) {
 		dev_info(aov_dev->dev, "%s: aov is not started\n", __func__);
@@ -944,6 +955,11 @@ int aov_core_poll(struct mtk_aov *aov_dev, struct file *file,
 
 	dev_dbg(aov_dev->dev, "%s: poll start+\n", __func__);
 
+	if (aov_dev->op_mode == 0) {
+		dev_info(aov_dev->dev, "%s: bypass poll operation", __func__);
+		return 0;
+	}
+
 	if (!queue_empty(&(core_info->queue))) {
 		dev_dbg(aov_dev->dev, "%s: poll start-: %d\n", __func__, POLLPRI);
 		return POLLPRI;
@@ -965,6 +981,11 @@ int aov_core_reset(struct mtk_aov *aov_dev)
 {
 	struct aov_core *core_info = &aov_dev->core_info;
 	int ret = 0;
+
+	if (aov_dev->op_mode == 0) {
+		dev_info(aov_dev->dev, "%s: bypass reset operation", __func__);
+		return 0;
+	}
 
 	if (atomic_read(&(core_info->aov_ready))) {
 #if AOV_SLB_ALLOC_FREE
@@ -1002,6 +1023,11 @@ int aov_core_uninit(struct mtk_aov *aov_dev)
 	struct aov_core *core_info = &aov_dev->core_info;
 
 	//devm_kfree(aov_dev->dev, core_info->event_data);
+
+	if (aov_dev->op_mode == 0) {
+		dev_info(aov_dev->dev, "%s: bypass uninit operation", __func__);
+		return 0;
+	}
 
 	if (core_info->dma_buf) {
 		if (core_info->event_data)
