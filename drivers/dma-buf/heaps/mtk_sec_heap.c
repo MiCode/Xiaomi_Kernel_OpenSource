@@ -1306,7 +1306,7 @@ int is_mtk_sec_heap_dmabuf(const struct dma_buf *dmabuf)
 EXPORT_SYMBOL_GPL(is_mtk_sec_heap_dmabuf);
 
 /* return 0 means error */
-u32 dmabuf_to_secure_handle(const struct dma_buf *dmabuf)
+u64 dmabuf_to_secure_handle(const struct dma_buf *dmabuf)
 {
 	int heap_base;
 	struct mtk_sec_heap_buffer *buffer;
