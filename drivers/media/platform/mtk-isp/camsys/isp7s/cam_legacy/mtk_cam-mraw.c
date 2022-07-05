@@ -206,6 +206,7 @@ static int mtk_mraw_sd_s_stream(struct v4l2_subdev *sd, int enable)
 				pm_runtime_put_sync(mraw->devs[i]);
 		pipe->enabled_mraw = 0;
 		pipe->enabled_dmas = 0;
+		pipe->req_pfmt_update = 0;
 	}
 
 	dev_dbg(mraw->cam_dev, "%s:mraw-%d: en %d, dev 0x%x dmas %llx\n",

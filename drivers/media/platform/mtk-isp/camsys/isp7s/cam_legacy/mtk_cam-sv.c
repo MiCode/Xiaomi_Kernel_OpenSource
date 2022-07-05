@@ -167,6 +167,9 @@ static int mtk_camsv_sd_s_stream(struct v4l2_subdev *sd, int enable)
 			ctx->sv_pipe[ctx->used_sv_num++] = pipe;
 		else
 			dev_dbg(sv->cam_dev, "un-expected used sv number:%d\n", ctx->used_sv_num);
+	} else {
+		pipe->req_pfmt_update = 0;
+		pipe->req_vfmt_update = 0;
 	}
 
 	dev_info(sv->cam_dev, "%s:camsv-%d: en %d\n",
