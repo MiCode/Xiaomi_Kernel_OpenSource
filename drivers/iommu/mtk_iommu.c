@@ -3317,7 +3317,7 @@ static const struct mtk_iommu_plat_data mt6886_data_disp = {
 	.m4u_plat	= M4U_MT6886,
 	.flags          = OUT_ORDER_WR_EN | GET_DOM_ID_LEGACY | SKIP_CFG_PORT |
 			  NOT_STD_AXI_MODE | TLB_SYNC_EN | IOMMU_SEC_EN |
-			  IOVA_34_EN | HAS_BCLK | HAS_SMI_SUB_COMM |
+			  IOVA_34_EN | HAS_BCLK | HAS_SMI_SUB_COMM | PGTABLE_PA_35_EN |
 			  IOMMU_MAU_EN,
 	.hw_list        = &mm_iommu_list,
 	.inv_sel_reg    = REG_MMU_INV_SEL_GEN2,
@@ -3333,7 +3333,7 @@ static const struct mtk_iommu_plat_data mt6886_data_disp = {
 static const struct mtk_iommu_plat_data mt6886_data_apu0 = {
 	.m4u_plat	= M4U_MT6886,
 	.flags          = TLB_SYNC_EN | GET_DOM_ID_LEGACY | IOMMU_SEC_EN |
-			  IOVA_34_EN | LINK_WITH_APU | IOMMU_MAU_EN |
+			  IOVA_34_EN | LINK_WITH_APU | IOMMU_MAU_EN | PGTABLE_PA_35_EN |
 			  PM_OPS_SKIP,
 	.hw_list        = &apu_iommu_list,
 	.inv_sel_reg    = REG_MMU_INV_SEL_GEN2,
@@ -3477,7 +3477,7 @@ static const struct mtk_iommu_plat_data mt6983_data_disp = {
 	.m4u_plat	= M4U_MT6983,
 	.flags          = HAS_SUB_COMM | OUT_ORDER_WR_EN | GET_DOM_ID_LEGACY |
 			  NOT_STD_AXI_MODE | TLB_SYNC_EN | IOMMU_SEC_EN |
-			  SKIP_CFG_PORT | IOVA_34_EN |
+			  SKIP_CFG_PORT | IOVA_34_EN | PGTABLE_PA_35_EN |
 			  HAS_BCLK | HAS_SMI_SUB_COMM | SAME_SUBSYS | IOMMU_MAU_EN,
 	.hw_list        = &mm_iommu_list,
 	.inv_sel_reg    = REG_MMU_INV_SEL_GEN2,
@@ -3495,7 +3495,7 @@ static const struct mtk_iommu_plat_data mt6983_data_mdp = {
 	.m4u_plat	= M4U_MT6983,
 	.flags          = HAS_SUB_COMM | OUT_ORDER_WR_EN | GET_DOM_ID_LEGACY |
 			  NOT_STD_AXI_MODE | TLB_SYNC_EN | IOMMU_SEC_EN |
-			  SKIP_CFG_PORT | IOVA_34_EN |
+			  SKIP_CFG_PORT | IOVA_34_EN | PGTABLE_PA_35_EN |
 			  HAS_BCLK | HAS_SMI_SUB_COMM | SAME_SUBSYS | IOMMU_MAU_EN,
 	.hw_list        = &mm_iommu_list,
 	.inv_sel_reg    = REG_MMU_INV_SEL_GEN2,
@@ -3513,7 +3513,7 @@ static const struct mtk_iommu_plat_data mt6983_data_apu0 = {
 	.m4u_plat	= M4U_MT6983,
 	.flags          = HAS_SUB_COMM | TLB_SYNC_EN | IOMMU_SEC_EN |
 			  GET_DOM_ID_LEGACY | IOVA_34_EN | LINK_WITH_APU | IOMMU_MAU_EN |
-			  PM_OPS_SKIP,
+			  PM_OPS_SKIP | PGTABLE_PA_35_EN,
 	.hw_list        = &apu_iommu_list,
 	.inv_sel_reg    = REG_MMU_INV_SEL_GEN2,
 	.iommu_id	= APU_IOMMU0,
@@ -3530,7 +3530,7 @@ static const struct mtk_iommu_plat_data mt6983_data_apu1 = {
 	.m4u_plat	= M4U_MT6983,
 	.flags          = HAS_SUB_COMM | TLB_SYNC_EN | IOMMU_SEC_EN |
 			  GET_DOM_ID_LEGACY | IOVA_34_EN | LINK_WITH_APU | IOMMU_MAU_EN |
-			  PM_OPS_SKIP,
+			  PM_OPS_SKIP | PGTABLE_PA_35_EN,
 	.hw_list        = &apu_iommu_list,
 	.inv_sel_reg    = REG_MMU_INV_SEL_GEN2,
 	.iommu_id	= APU_IOMMU1,
@@ -3547,7 +3547,7 @@ static const struct mtk_iommu_plat_data mt6985_data_disp = {
 	.m4u_plat	= M4U_MT6985,
 	.flags          = OUT_ORDER_WR_EN | GET_DOM_ID_LEGACY |
 			  NOT_STD_AXI_MODE | TLB_SYNC_EN | IOMMU_SEC_EN |
-			  SKIP_CFG_PORT | IOVA_34_EN |
+			  SKIP_CFG_PORT | IOVA_34_EN | PGTABLE_PA_35_EN |
 			  HAS_BCLK | HAS_SMI_SUB_COMM | SAME_SUBSYS | IOMMU_MAU_EN,
 	.hw_list        = &mm_iommu_list,
 	.inv_sel_reg    = REG_MMU_INV_SEL_GEN2,
@@ -3564,7 +3564,7 @@ static const struct mtk_iommu_plat_data mt6985_data_mdp = {
 	.m4u_plat	= M4U_MT6985,
 	.flags          = OUT_ORDER_WR_EN | GET_DOM_ID_LEGACY |
 			  NOT_STD_AXI_MODE | TLB_SYNC_EN | IOMMU_SEC_EN |
-			  SKIP_CFG_PORT | IOVA_34_EN |
+			  SKIP_CFG_PORT | IOVA_34_EN | PGTABLE_PA_35_EN |
 			  HAS_BCLK | HAS_SMI_SUB_COMM | SAME_SUBSYS | IOMMU_MAU_EN,
 	.hw_list        = &mm_iommu_list,
 	.inv_sel_reg    = REG_MMU_INV_SEL_GEN2,
@@ -3579,7 +3579,7 @@ static const struct mtk_iommu_plat_data mt6985_data_mdp = {
 
 static const struct mtk_iommu_plat_data mt6985_data_apu0 = {
 	.m4u_plat	= M4U_MT6985,
-	.flags          = TLB_SYNC_EN | IOMMU_SEC_EN |
+	.flags          = TLB_SYNC_EN | IOMMU_SEC_EN | PGTABLE_PA_35_EN |
 			  GET_DOM_ID_LEGACY | IOVA_34_EN | LINK_WITH_APU | IOMMU_MAU_EN |
 			  PM_OPS_SKIP,
 	.hw_list        = &apu_iommu_list,
@@ -3595,7 +3595,7 @@ static const struct mtk_iommu_plat_data mt6985_data_apu0 = {
 
 static const struct mtk_iommu_plat_data mt6985_data_apu1 = {
 	.m4u_plat	= M4U_MT6985,
-	.flags          = TLB_SYNC_EN | IOMMU_SEC_EN |
+	.flags          = TLB_SYNC_EN | IOMMU_SEC_EN | PGTABLE_PA_35_EN |
 			  GET_DOM_ID_LEGACY | IOVA_34_EN | LINK_WITH_APU | IOMMU_MAU_EN |
 			  PM_OPS_SKIP,
 	.hw_list        = &apu_iommu_list,
