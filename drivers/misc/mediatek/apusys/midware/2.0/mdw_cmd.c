@@ -612,6 +612,8 @@ static int mdw_cmd_run(struct mdw_fpriv *mpriv, struct mdw_cmd *c)
 			(uint64_t) c->mpriv, c->kid, ret);
 
 		dma_fence_set_error(&c->fence->base_fence, ret);
+		dma_fence_signal(&c->fence->base_fence);
+		dma_fence_put(&c->fence->base_fence);
 	} else {
 		mdw_flw_debug("s(0x%llx) cmd(0x%llx) run\n",
 			(uint64_t)c->mpriv, c->kid);
@@ -953,10 +955,8 @@ exec:
 	if (!sync_file) {
 		mdw_drv_err("create sync file fail\n");
 		ret = -ENOMEM;
-		goto put_file;
+		goto put_fd;
 	}
-	/* assign fd */
-	fd_install(fd, sync_file->file);
 
 	/* get cmd execution ref */
 	mdw_cmd_get(c);
@@ -977,6 +977,9 @@ exec:
 	if (ret)
 		goto put_file;
 
+	/* assign fd */
+	fd_install(fd, sync_file->file);
+
 	/* get ref for cmd exec */
 	atomic_inc(&mpriv->active_cmds);
 
@@ -987,6 +990,8 @@ exec:
 	goto out;
 
 put_file:
+	fput(sync_file->file);
+put_fd:
 	put_unused_fd(fd);
 delete_idr:
 	if (c != idr_remove(&mpriv->cmds, c->id))
