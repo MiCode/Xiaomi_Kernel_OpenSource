@@ -211,100 +211,6 @@ void init_ko_addr_list_late(void)
 }
 #endif
 
-#define MIN_MARGIN PAGE_OFFSET
-
-#ifdef __aarch64__
-static unsigned long virt_2_pfn(unsigned long addr)
-{
-	u64 mpt = (read_sysreg(ttbr1_el1) & ~(TTBR_ASID_MASK | TTBR_CNP_BIT)) +
-		kimage_voffset;
-	pgd_t *pgd = pgd_offset_pgd((pgd_t *)mpt, addr);
-	pgd_t _pgd_val = {0};
-	p4d_t *p4d, _p4d_val = {0};
-	pud_t *pud, _pud_val = {0};
-	pmd_t *pmd, _pmd_val = {0};
-	pte_t *ptep, _pte_val = {0};
-	unsigned long pfn = ~0UL;
-
-	if (get_kernel_nofault(_pgd_val, pgd) || pgd_none(_pgd_val))
-		goto OUT;
-	p4d = p4d_offset(pgd, addr);
-	if (get_kernel_nofault(_p4d_val, p4d) || p4d_none(_p4d_val))
-		goto OUT;
-	pud = pud_offset(p4d, addr);
-	if (get_kernel_nofault(_pud_val, pud) || pud_none(_pud_val))
-		goto OUT;
-	if (pud_sect(_pud_val)) {
-		pfn = pud_pfn(_pud_val) + ((addr&~PUD_MASK) >> PAGE_SHIFT);
-	} else if (pud_table(_pud_val)) {
-		pmd = pmd_offset(pud, addr);
-		if (get_kernel_nofault(_pmd_val, pmd) || pmd_none(_pmd_val))
-			goto OUT;
-		if (pmd_sect(_pmd_val)) {
-			pfn = pmd_pfn(_pmd_val) +
-				((addr&~PMD_MASK) >> PAGE_SHIFT);
-		} else if (pmd_table(_pmd_val)) {
-			ptep = pte_offset_map(pmd, addr);
-			if (get_kernel_nofault(_pte_val, ptep)
-				|| !pte_present(_pte_val)) {
-				pte_unmap(ptep);
-				goto OUT;
-			}
-			pfn = pte_pfn(_pte_val);
-			pte_unmap(ptep);
-		}
-	}
-OUT:
-	return pfn;
-
-}
-#else
-#ifndef pmd_sect
-#define pmd_sect(pmd)	(pmd & PMD_TYPE_SECT)
-#endif
-#ifndef pmd_table
-#define pmd_table(pmd)	(pmd & PMD_TYPE_TABLE)
-#endif
-#ifndef pmd_pfn
-#define pmd_pfn(pmd)	(((pmd_val(pmd) & PMD_MASK) & PHYS_MASK) >> PAGE_SHIFT)
-#endif
-static unsigned long virt_2_pfn(unsigned long addr)
-{
-	pgd_t *pgd = pgd_offset_k(addr), _pgd_val = {0};
-#ifdef CONFIG_ARM_LPAE
-	pud_t *pud, _pud_val = {0};
-#else
-	pud_t *pud, _pud_val = {{0} };
-#endif
-	pmd_t *pmd, _pmd_val = 0;
-	pte_t *ptep, _pte_val = 0;
-	unsigned long pfn = ~0UL;
-
-	if (get_kernel_nofault(_pgd_val, pgd) || pgd_none(_pgd_val))
-		goto OUT;
-	pud = pud_offset(pgd, addr);
-	if (get_kernel_nofault(_pud_val, pud) || pud_none(_pud_val))
-		goto OUT;
-	pmd = pmd_offset(pud, addr);
-	if (get_kernel_nofault(_pmd_val, pmd) || pmd_none(_pmd_val))
-		goto OUT;
-	if (pmd_sect(_pmd_val)) {
-		pfn = pmd_pfn(_pmd_val) + ((addr&~PMD_MASK) >> PAGE_SHIFT);
-	} else if (pmd_table(_pmd_val)) {
-		ptep = pte_offset_map(pmd, addr);
-		if (get_kernel_nofault(_pte_val, ptep)
-			|| !pte_present(_pte_val)) {
-			pte_unmap(ptep);
-			goto OUT;
-		}
-		pfn = pte_pfn(_pte_val);
-		pte_unmap(ptep);
-	}
-OUT:
-	return pfn;
-}
-#endif
-
 /* copy from fs/binfmt_elf.c */
 static void fill_elf_header(struct elfhdr *elf, int segs)
 {
@@ -415,8 +321,7 @@ void mrdump_mini_add_misc_pa(unsigned long va, unsigned long pa,
 		mrdump_mini_ehdr->misc[i].data.paddr = pa;
 		mrdump_mini_ehdr->misc[i].data.size = size;
 		mrdump_mini_ehdr->misc[i].data.start =
-		    mrdump_virt_addr_valid((void *)start) ?
-			__pa_nodebug(start) : 0;
+			start ? __pa_nodebug(start) : 0;
 		fill_note_L(note, name, NT_IPANIC_MISC,
 				sizeof(struct mrdump_mini_elf_misc));
 		break;
@@ -426,20 +331,7 @@ void mrdump_mini_add_misc_pa(unsigned long va, unsigned long pa,
 static void mrdump_mini_add_misc(unsigned long addr, unsigned long size,
 		unsigned long start, char *name)
 {
-	if (!mrdump_virt_addr_valid((void *)addr))
-		return;
 	mrdump_mini_add_misc_pa(addr, __pa_nodebug(addr), size, start, name);
-}
-
-int kernel_addr_valid(unsigned long addr)
-{
-#ifdef __aarch64__
-	addr = __tag_reset(addr);
-#endif
-	if (addr < MIN_MARGIN)
-		return 0;
-
-	return pfn_valid(virt_2_pfn(addr));
 }
 
 static void mrdump_mini_build_task_info(struct pt_regs *regs)
@@ -483,11 +375,6 @@ static void mrdump_mini_build_task_info(struct pt_regs *regs)
 		}
 		previous = tsk;
 		tsk = tsk->real_parent;
-		if (!mrdump_virt_addr_valid(tsk)) {
-			pr_notice("tsk(0x%lx) invalid (previous: [%s, %d])\n",
-					tsk, previous->comm, previous->pid);
-			break;
-		}
 	} while (tsk && (tsk->pid != 0) && (tsk->pid != 1));
 	if (!strncmp(cur_proc->process_path, symbol, sz)) {
 		pr_notice("same process path\n");
@@ -537,21 +424,14 @@ static void mrdump_mini_build_task_info(struct pt_regs *regs)
 		}
 	}
 #endif
-	if (mrdump_virt_addr_valid(cur_proc->ke_frame.pc))
-		snprintf(cur_proc->ke_frame.pc_symbol, AEE_SZ_SYMBOL_S,
-			"[<%px>] %pS",
-			(void *)(unsigned long)cur_proc->ke_frame.pc,
-			(void *)(unsigned long)cur_proc->ke_frame.pc);
-	else
-		pr_info("[<%llu>] invalid pc", cur_proc->ke_frame.pc);
-	if (mrdump_virt_addr_valid(cur_proc->ke_frame.lr))
-		snprintf(cur_proc->ke_frame.lr_symbol, AEE_SZ_SYMBOL_L,
-			"[<%px>] %pS",
-			(void *)(unsigned long)cur_proc->ke_frame.lr,
-			(void *)(unsigned long)cur_proc->ke_frame.lr);
-	else
-		pr_info("[<%llu>] invalid lr", cur_proc->ke_frame.lr);
-
+	snprintf(cur_proc->ke_frame.pc_symbol, AEE_SZ_SYMBOL_S,
+		"[<%px>] %pS",
+		(void *)(unsigned long)cur_proc->ke_frame.pc,
+		(void *)(unsigned long)cur_proc->ke_frame.pc);
+	snprintf(cur_proc->ke_frame.lr_symbol, AEE_SZ_SYMBOL_L,
+		"[<%px>] %pS",
+		(void *)(unsigned long)cur_proc->ke_frame.lr,
+		(void *)(unsigned long)cur_proc->ke_frame.lr);
 }
 
 /*
