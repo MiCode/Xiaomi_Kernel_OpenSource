@@ -2794,6 +2794,8 @@ static void _ovl_PQ_loop_set_size(struct mtk_ddp_comp *comp, struct cmdq_pkt *ha
 			} else if (comp->id == DDP_COMPONENT_OVL4_2L) {
 				dst = mtk_crtc_state->mml_dst_roi_dual[1].height << 16
 					| mtk_crtc_state->mml_dst_roi_dual[1].width;
+				src = mtk_crtc_state->mml_src_roi[1].height << 16 |
+					mtk_crtc_state->mml_src_roi[1].width;
 			}
 		}
 	}
