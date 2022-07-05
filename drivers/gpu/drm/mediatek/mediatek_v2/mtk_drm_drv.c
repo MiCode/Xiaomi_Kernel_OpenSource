@@ -6507,7 +6507,7 @@ SKIP_OVLSYS_CONFIG:
 	for (i = 0 ; i < MAX_CRTC ; ++i) {
 		unsigned int value;
 
-		ret = of_property_read_u32_index(dev->of_node, "pre_define_bw", i, &value);
+		ret = of_property_read_u32_index(dev->of_node, "pre-define-bw", i, &value);
 		if (ret < 0)
 			value = 0;
 
