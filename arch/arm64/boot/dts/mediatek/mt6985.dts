@@ -3307,6 +3307,15 @@
 			};
 		};
 
+		dfd_soc: dfd-soc {
+			compatible = "mediatek,dfd_soc";
+			enabled = <1>;
+			dfd-timeout = <0x1000>;
+			buf-length = <0x200000>;
+			buf-addr-align = <0x400000>;
+			buf-addr-max = <0xffffffff>;
+		};
+
 		cpu_pll: mcusys_pll1u_top@1000c000 {
 			reg = <0 0x0c030000 0 0x1000>; /* 4KB */
 		};
