@@ -125,10 +125,6 @@ static int dvfsrc_query_sw_req_vcore_opp(struct mtk_dvfsrc *dvfsrc, int vcore_op
 				      &scp_req);
 		sw_req_opp = (sw_req > scp_req) ? sw_req : scp_req;
 		sw_req_opp = dvfsrc->opp_desc->num_vcore_opp - (sw_req_opp + 1);
-		if (vcore_opp > sw_req_opp) {
-			pr_info("Error vcore request = %d %d %d\n", sw_req, vcore_opp,
-				dvfsrc->force_opp_idx);
-		}
 		return sw_req_opp;
 	}
 
