@@ -3559,9 +3559,9 @@
 
 	swpm: swpm {
 		compatible = "mediatek,mtk-swpm";
-		pmu_boundary_num = <0>;
-		pmu_dsu_support = <1>;
-		pmu_dsu_type = <11>;
+		pmu-boundary-num = <0>;
+		pmu-dsu-support = <1>;
+		pmu-dsu-type = <11>;
 	};
 
 	psci {
