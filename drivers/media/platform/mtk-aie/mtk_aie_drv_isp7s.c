@@ -3548,12 +3548,14 @@ static int aie_config_rs(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg)
 			aie_combine_u16(pym_out_w[i] - 1, pym_out_h[i] - 1);
 		rs_tbl[i][RS_IN_X_Y_SIZE2] =
 			aie_combine_u16(pym_out_w[i] - 1, pym_out_h[i] - 1);
+
+		round_w = round_up(pym_out_w[i], 8);
 		rs_tbl[i][RS_IN_STRIDE0] =
-			aie_combine_u16(rs_tbl[i][RS_IN_STRIDE0], pym_out_w[i]);
+			aie_combine_u16(rs_tbl[i][RS_IN_STRIDE0], round_w);
 		rs_tbl[i][RS_IN_STRIDE1] =
-			aie_combine_u16(rs_tbl[i][RS_IN_STRIDE1], pym_out_w[i]);
+			aie_combine_u16(rs_tbl[i][RS_IN_STRIDE1], round_w);
 		rs_tbl[i][RS_IN_STRIDE2] =
-			aie_combine_u16(rs_tbl[i][RS_IN_STRIDE2], pym_out_w[i]);
+			aie_combine_u16(rs_tbl[i][RS_IN_STRIDE2], round_w);
 		rs_tbl[i][RS_OUT_X_Y_SIZE0] = aie_combine_u16(
 			pym_out_w[i + 1] - 1, pym_out_h[i + 1] - 1);
 		rs_tbl[i][RS_OUT_X_Y_SIZE1] = aie_combine_u16(
@@ -3561,10 +3563,8 @@ static int aie_config_rs(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg)
 		rs_tbl[i][RS_OUT_X_Y_SIZE2] = aie_combine_u16(
 			pym_out_w[i + 1] - 1, pym_out_h[i + 1] - 1);
 
-		if (i == 0)
-			round_w = pym_out_w[i + 1];
-		else
-			round_w = round_up(pym_out_w[i + 1], 8);
+
+		round_w = round_up(pym_out_w[i + 1], 8);
 
 		rs_tbl[i][RS_OUT_STRIDE0] =
 			aie_combine_u16(rs_tbl[i][RS_OUT_STRIDE0], round_w);
@@ -4399,6 +4399,10 @@ int aie_prepare(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg)
 				fd->base_para->number_of_pyramid);
 			fd->base_para->pyramid_width =
 				aie_cfg->pyramid_base_width;
+
+			aie_init_table(fd, fd->base_para->pyramid_width,
+					fd->base_para->pyramid_height);
+			aie_arrange_fddma_buf(fd);
 			aie_update_table(
 				fd, fd->base_para->pyramid_width,
 				fd->base_para->pyramid_height);
