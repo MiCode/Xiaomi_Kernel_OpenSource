@@ -726,7 +726,7 @@
 		reg = <0 0x1000b000 0 0x1000>;
 		reg-name = "eint";
 		interrupts = <GIC_SPI 235 IRQ_TYPE_LEVEL_HIGH 0>;
-		mediatek,total-pin-number = <192>;
+		mediatek,total-pin-number = <224>;
 	};
 
 	apmixedsys: syscon@1000c000 {
