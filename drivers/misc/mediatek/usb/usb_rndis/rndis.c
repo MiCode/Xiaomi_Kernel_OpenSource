@@ -665,15 +665,19 @@ static int rndis_set_response(struct rndis_params *params,
 	struct rndis_set_cmplt_type *resp;
 	struct rndis_resp_t *r;
 
+	BufLength = le32_to_cpu(buf->InformationBufferLength);
+	BufOffset = le32_to_cpu(buf->InformationBufferOffset);
+	if ((BufLength > RNDIS_MAX_TOTAL_SIZE) ||
+		(BufOffset > RNDIS_MAX_TOTAL_SIZE) ||
+		(BufOffset + 8 >= RNDIS_MAX_TOTAL_SIZE))
+		return -EINVAL;
+
 	r = rndis_add_response(params, sizeof(struct rndis_set_cmplt_type));
 	if (!r) {
 		pr_info("rndis_add_response return NULL\n");
 		return -ENOMEM;
 	}
 	resp = (struct rndis_set_cmplt_type *)r->buf;
-
-	BufLength = le32_to_cpu(buf->InformationBufferLength);
-	BufOffset = le32_to_cpu(buf->InformationBufferOffset);
 
 #ifdef	VERBOSE_DEBUG
 	pr_debug("%s: Length: %d\n", __func__, BufLength);
