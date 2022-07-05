@@ -194,8 +194,12 @@ struct mtkcam_ipi_timeshared_msg {
 #define MTK_CAM_IPI_CONFIG_TYPE_SMVR_PREVIEW		0x0008
 
 /* TODO: update number */
-#define CAM_MAX_IMAGE_INPUT  (5)
-#define CAM_MAX_IMAGE_OUTPUT (15)
+#define CAM_MAX_INPUT_PAD           (3)
+#define CAM_MAX_W_PATH_INPUT_SIZE   (2)
+#define CAM_MAX_IMAGE_INPUT  (CAM_MAX_INPUT_PAD + CAM_MAX_W_PATH_INPUT_SIZE)
+#define CAM_MAX_OUTPUT_PAD          (15)
+#define CAM_MAX_W_PATH_OUT_SIZE     (1)
+#define CAM_MAX_IMAGE_OUTPUT (CAM_MAX_OUTPUT_PAD + CAM_MAX_W_PATH_OUT_SIZE)
 #define CAM_MAX_META_OUTPUT	 (4)
 #define CAM_MAX_PIPE_USED	 (4)
 #define MRAW_MAX_PIPE_USED   (4)
