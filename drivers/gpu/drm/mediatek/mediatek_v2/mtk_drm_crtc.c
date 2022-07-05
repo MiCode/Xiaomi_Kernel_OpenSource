@@ -4730,9 +4730,19 @@ static void mtk_drm_ovl_bw_monitor_ratio_get(struct drm_crtc *crtc,
 		 * ((BURST_ACC_WIN_MAX*16*2^24)/(src_w*win_h*bpp))/2^14
 		 * Attention: win_h = (reg_BURST_ACC_WIN_SIZE+1)*(fbdc_en?4:1)
 		 */
-		avg_inter_value = (16 * expand)/(src_w * src_h * bpp);
-		peak_inter_value = (16 * expand)/
-			(src_w * ovl_win_size * (is_compress?4:1) * bpp);
+		if (src_w * src_h * bpp)
+			avg_inter_value = (16 * expand)/(src_w * src_h * bpp);
+		else {
+			need_skip = 1;
+			DDPDBG("BWM: division by zero, need skip:%d\n", need_skip);
+		}
+		if (src_w * ovl_win_size * (is_compress?4:1) * bpp)
+			peak_inter_value = (16 * expand)/
+				(src_w * ovl_win_size * (is_compress?4:1) * bpp);
+		else {
+			need_skip = 1;
+			DDPDBG("BWM: division by zero, need skip:%d\n", need_skip);
+		}
 
 		DDPDBG("BWM: plane_index:%u fn:%u index:%d lye_id:%d ext_lye_id:%d\n",
 			plane_index, fn, index, lye_id, ext_lye_id);
