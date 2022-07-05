@@ -52,7 +52,7 @@ static struct hrtimer dump_hrtimer;
 #define SUPPORT_SSPM_DRIVER 1
 #define UARTHUB_ASSERT_BIT_DISABLE_MD_ADSP_FIFO 0
 #define UARTHUB_ERR_IRQ_DUMP_WORKER 1
-#define UARTHUB_DUMP_DEBUG_LOOP_MS 30
+#define UARTHUB_DUMP_DEBUG_LOOP_MS 1
 #define UARTHUB_DUMP_DEBUG_LOOP_ENABLE 0
 
 #if !(SUPPORT_SSPM_DRIVER)
@@ -866,7 +866,7 @@ int uarthub_core_dev0_is_txrx_idle(int rx)
 int uarthub_core_dev0_set_txrx_request(void)
 {
 	int retry = 0;
-	int val = 0;
+	int val1 = 0, val2 = 0;
 
 	if (g_uarthub_disable == 1)
 		return 0;
@@ -891,9 +891,15 @@ int uarthub_core_dev0_set_txrx_request(void)
 
 #if UARTHUB_DEBUG_LOG
 	if (g_uarthub_plat_ic_ops &&
-			g_uarthub_plat_ic_ops->uarthub_plat_get_hwccf_univpll_done_info) {
-		pr_info("[%s] hw_ccf_pll_done before set trx req, state=[%d]\n", __func__,
-			g_uarthub_plat_ic_ops->uarthub_plat_get_hwccf_univpll_done_info());
+			g_uarthub_plat_ic_ops->uarthub_plat_get_hwccf_univpll_vote_info) {
+		pr_info("[%s] hw_ccf_pll_vote_info done before set trx req, state=[%d]\n", __func__,
+			g_uarthub_plat_ic_ops->uarthub_plat_get_hwccf_univpll_vote_info());
+	}
+
+	if (g_uarthub_plat_ic_ops &&
+			g_uarthub_plat_ic_ops->uarthub_plat_get_hwccf_univpll_on_info) {
+		pr_info("[%s] hw_ccf_pll_on_info done before set trx req, state=[%d]\n", __func__,
+			g_uarthub_plat_ic_ops->uarthub_plat_get_hwccf_univpll_on_info());
 	}
 #endif
 
@@ -908,23 +914,33 @@ int uarthub_core_dev0_set_txrx_request(void)
 #endif
 
 	if (g_uarthub_plat_ic_ops &&
-			g_uarthub_plat_ic_ops->uarthub_plat_get_hwccf_univpll_done_info) {
+			g_uarthub_plat_ic_ops->uarthub_plat_get_hwccf_univpll_vote_info &&
+			g_uarthub_plat_ic_ops->uarthub_plat_get_hwccf_univpll_on_info) {
 		retry = 20;
 		while (retry-- > 0) {
-			val = g_uarthub_plat_ic_ops->uarthub_plat_get_hwccf_univpll_done_info();
-			if (val == 1) {
-				pr_info("[%s] hw_ccf_pll_done pass, retry=[%d]\n",
+			val1 = g_uarthub_plat_ic_ops->uarthub_plat_get_hwccf_univpll_vote_info();
+			val2 = g_uarthub_plat_ic_ops->uarthub_plat_get_hwccf_univpll_on_info();
+			if (val1 == 1 && val2 == 1) {
+				pr_info("[%s] hw_ccf_pll on pass, retry=[%d]\n",
 					__func__, retry);
 				break;
 			}
 			usleep_range(1000, 1100);
 		}
 
-		if (val == 0) {
-			pr_notice("[%s] hw_ccf_pll_done fail, retry=[%d]\n",
+		if (val1 == 0) {
+			pr_notice("[%s] hw_ccf_pll_vote_info fail, retry=[%d]\n",
 				__func__, retry);
-		} else if (val < 0) {
-			pr_notice("[%s] hw_ccf_pll_done info cannot be read, retry=[%d]\n",
+		} else if (val1 < 0) {
+			pr_notice("[%s] hw_ccf_pll_vote_info info cannot be read, retry=[%d]\n",
+				__func__, retry);
+		}
+
+		if (val2 == 0) {
+			pr_notice("[%s] hw_ccf_pll_on fail, retry=[%d]\n",
+				__func__, retry);
+		} else if (val2 < 0) {
+			pr_notice("[%s] hw_ccf_pll_on info cannot be read, retry=[%d]\n",
 				__func__, retry);
 		}
 	}
@@ -1773,8 +1789,17 @@ int uarthub_core_is_uarthub_clk_enable(void)
 	}
 
 	if (g_uarthub_plat_ic_ops &&
-			g_uarthub_plat_ic_ops->uarthub_plat_get_hwccf_univpll_done_info) {
-		state = g_uarthub_plat_ic_ops->uarthub_plat_get_hwccf_univpll_done_info();
+			g_uarthub_plat_ic_ops->uarthub_plat_get_hwccf_univpll_vote_info) {
+		state = g_uarthub_plat_ic_ops->uarthub_plat_get_hwccf_univpll_vote_info();
+		if (state != 1) {
+			pr_notice("[%s] UNIVPLL CLK NO VOTE INFO(0x%x)\n", __func__, state);
+			return 0;
+		}
+	}
+
+	if (g_uarthub_plat_ic_ops &&
+			g_uarthub_plat_ic_ops->uarthub_plat_get_hwccf_univpll_on_info) {
+		state = g_uarthub_plat_ic_ops->uarthub_plat_get_hwccf_univpll_on_info();
 		if (state != 1) {
 			pr_notice("[%s] UNIVPLL CLK is OFF(0x%x)\n", __func__, state);
 			return 0;
@@ -2104,6 +2129,7 @@ int uarthub_core_debug_uart_ip_info_loop(void)
 	struct uarthub_uart_ip_debug_info debug7 = {0};
 	struct uarthub_uart_ip_debug_info debug8 = {0};
 	struct uarthub_uart_ip_debug_info pkt_cnt = {0};
+	struct uarthub_uart_ip_debug_info dev_sta = {0};
 	unsigned char dmp_info_buf[DBG_LOG_LEN];
 	int len = 0;
 
@@ -2115,6 +2141,48 @@ int uarthub_core_debug_uart_ip_info_loop(void)
 
 	pr_info("[%s_%d] ++++++++++++++++++++++++++++++++++++++++\n",
 		def_tag, UARTHUB_DUMP_DEBUG_LOOP_MS);
+
+	if (uarthub_core_is_apb_bus_clk_enable() == 0) {
+		pr_notice("[%s_%d] uarthub_core_is_apb_bus_clk_enable=[0]\n",
+			def_tag, UARTHUB_DUMP_DEBUG_LOOP_MS);
+		pr_info("[%s_%d] ----------------------------------------\n",
+			def_tag, UARTHUB_DUMP_DEBUG_LOOP_MS);
+		return -3;
+	}
+
+	pkt_cnt.dev0 =
+		UARTHUB_REG_READ(UARTHUB_INTFHUB_DEV0_PKT_CNT(intfhub_base_remap_addr));
+	dev_sta.dev0 =
+		UARTHUB_REG_READ(UARTHUB_INTFHUB_DEV0_STA(intfhub_base_remap_addr));
+
+	if (g_max_dev >= 2) {
+		pkt_cnt.dev1 =
+			UARTHUB_REG_READ(UARTHUB_INTFHUB_DEV1_PKT_CNT(intfhub_base_remap_addr));
+		dev_sta.dev1 =
+			UARTHUB_REG_READ(UARTHUB_INTFHUB_DEV1_STA(intfhub_base_remap_addr));
+	}
+
+	if (g_max_dev >= 3) {
+		pkt_cnt.dev2 =
+			UARTHUB_REG_READ(UARTHUB_INTFHUB_DEV2_PKT_CNT(intfhub_base_remap_addr));
+		dev_sta.dev2 =
+			UARTHUB_REG_READ(UARTHUB_INTFHUB_DEV2_STA(intfhub_base_remap_addr));
+	}
+
+	len = 0;
+	len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
+		"[%s_%d] tx_pkt_cnt=[%d-%d-%d]___rx_pkt_cnt=[%d-%d-%d]",
+		def_tag, UARTHUB_DUMP_DEBUG_LOOP_MS,
+		((pkt_cnt.dev0 & 0xFF000000) >> 24), ((pkt_cnt.dev1 & 0xFF000000) >> 24),
+		((pkt_cnt.dev2 & 0xFF000000) >> 24), ((pkt_cnt.dev0 & 0xFF00) >> 8),
+		((pkt_cnt.dev1 & 0xFF00) >> 8), ((pkt_cnt.dev2 & 0xFF00) >> 8),
+		dev_sta.dev0, dev_sta.dev1, dev_sta.dev2);
+
+	len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
+		"___INTFHUB_DEVx_STA=[0x%x-0x%x-0x%x]",
+		dev_sta.dev0, dev_sta.dev1, dev_sta.dev2);
+
+	pr_info("%s\n", dmp_info_buf);
 
 	if (uarthub_core_is_uarthub_clk_enable() == 0) {
 		pr_notice("[%s_%d] uarthub_core_is_uarthub_clk_enable=[0]\n",
@@ -2132,8 +2200,6 @@ int uarthub_core_debug_uart_ip_info_loop(void)
 	debug6.dev0 = UARTHUB_REG_READ(UARTHUB_DEBUG_6(dev0_base_remap_addr));
 	debug7.dev0 = UARTHUB_REG_READ(UARTHUB_DEBUG_7(dev0_base_remap_addr));
 	debug8.dev0 = UARTHUB_REG_READ(UARTHUB_DEBUG_8(dev0_base_remap_addr));
-	pkt_cnt.dev0 =
-		UARTHUB_REG_READ(UARTHUB_INTFHUB_DEV0_PKT_CNT(intfhub_base_remap_addr));
 
 	if (g_max_dev >= 2) {
 		debug1.dev1 = UARTHUB_REG_READ(UARTHUB_DEBUG_1(dev1_base_remap_addr));
@@ -2144,8 +2210,6 @@ int uarthub_core_debug_uart_ip_info_loop(void)
 		debug6.dev1 = UARTHUB_REG_READ(UARTHUB_DEBUG_6(dev1_base_remap_addr));
 		debug7.dev1 = UARTHUB_REG_READ(UARTHUB_DEBUG_7(dev1_base_remap_addr));
 		debug8.dev1 = UARTHUB_REG_READ(UARTHUB_DEBUG_8(dev1_base_remap_addr));
-		pkt_cnt.dev1 =
-			UARTHUB_REG_READ(UARTHUB_INTFHUB_DEV1_PKT_CNT(intfhub_base_remap_addr));
 	}
 
 	if (g_max_dev >= 3) {
@@ -2157,8 +2221,6 @@ int uarthub_core_debug_uart_ip_info_loop(void)
 		debug6.dev2 = UARTHUB_REG_READ(UARTHUB_DEBUG_6(dev2_base_remap_addr));
 		debug7.dev2 = UARTHUB_REG_READ(UARTHUB_DEBUG_7(dev2_base_remap_addr));
 		debug8.dev2 = UARTHUB_REG_READ(UARTHUB_DEBUG_8(dev2_base_remap_addr));
-		pkt_cnt.dev2 =
-			UARTHUB_REG_READ(UARTHUB_INTFHUB_DEV2_PKT_CNT(intfhub_base_remap_addr));
 	}
 
 	debug1.cmm = UARTHUB_REG_READ(UARTHUB_DEBUG_1(cmm_base_remap_addr));
@@ -2219,12 +2281,6 @@ int uarthub_core_debug_uart_ip_info_loop(void)
 		((((debug1.cmm & 0xE0) >> 5) == 5) ? 1 : 0));
 
 	pr_info("%s\n", dmp_info_buf);
-
-	pr_info("[%s_%d] tx_pkt_cnt=[%d-%d-%d],rx_pkt_cnt=[%d-%d-%d]\n",
-		def_tag, UARTHUB_DUMP_DEBUG_LOOP_MS,
-		((pkt_cnt.dev0 & 0xFF000000) >> 24), ((pkt_cnt.dev1 & 0xFF000000) >> 24),
-		((pkt_cnt.dev2 & 0xFF000000) >> 24), ((pkt_cnt.dev0 & 0xFF00) >> 8),
-		((pkt_cnt.dev1 & 0xFF00) >> 8), ((pkt_cnt.dev2 & 0xFF00) >> 8));
 
 	pr_info("[%s_%d] ----------------------------------------\n",
 		def_tag, UARTHUB_DUMP_DEBUG_LOOP_MS);
@@ -2516,6 +2572,16 @@ int uarthub_core_debug_info_with_tag_no_spinlock(const char *tag)
 	}
 
 	if (g_uarthub_plat_ic_ops &&
+			g_uarthub_plat_ic_ops->uarthub_plat_get_peri_clk_info) {
+		val = g_uarthub_plat_ic_ops->uarthub_plat_get_peri_clk_info();
+		if (val >= 0) {
+			/* the expect value is 0x0 */
+			len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
+				"___PERI_CLK=[0x%x]", val);
+		}
+	}
+
+	if (g_uarthub_plat_ic_ops &&
 			g_uarthub_plat_ic_ops->uarthub_plat_get_spm_res_1_info) {
 		val = g_uarthub_plat_ic_ops->uarthub_plat_get_spm_res_1_info();
 		if (val >= 0) {
@@ -2536,12 +2602,22 @@ int uarthub_core_debug_info_with_tag_no_spinlock(const char *tag)
 	}
 
 	if (g_uarthub_plat_ic_ops &&
-			g_uarthub_plat_ic_ops->uarthub_plat_get_hwccf_univpll_done_info) {
-		val = g_uarthub_plat_ic_ops->uarthub_plat_get_hwccf_univpll_done_info();
+			g_uarthub_plat_ic_ops->uarthub_plat_get_hwccf_univpll_vote_info) {
+		val = g_uarthub_plat_ic_ops->uarthub_plat_get_hwccf_univpll_vote_info();
 		if (val >= 0) {
 			/* the expect value is 0x1 */
 			len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
-				"___UNIVPLL_CLK=[0x%x]", val);
+				"___UNIVPLL_VOTE=[0x%x]", val);
+		}
+	}
+
+	if (g_uarthub_plat_ic_ops &&
+			g_uarthub_plat_ic_ops->uarthub_plat_get_hwccf_univpll_on_info) {
+		val = g_uarthub_plat_ic_ops->uarthub_plat_get_hwccf_univpll_on_info();
+		if (val >= 0) {
+			/* the expect value is 0x1 */
+			len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
+				"___UNIVPLL_ON=[0x%x]", val);
 		}
 	}
 

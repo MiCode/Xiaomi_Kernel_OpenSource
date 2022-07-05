@@ -26,6 +26,7 @@ void __iomem *uarthub_base_remap_addr;
 void __iomem *uart3_base_remap_addr;
 void __iomem *ap_dma_uart_3_tx_int_remap_addr;
 void __iomem *spm_remap_addr;
+void __iomem *apmixedsys_remap_addr;
 
 static int uarthub_init_remap_reg_mt6985(void);
 static int uarthub_deinit_unmap_reg_mt6985(void);
@@ -35,7 +36,8 @@ static int uarthub_config_gpio_trx_mt6985(void);
 static int uarthub_get_gpio_trx_info_mt6985(struct uarthub_gpio_trx_info *info);
 static int uarthub_get_uarthub_clk_gating_info_mt6985(void);
 #if CHEKCING_UNIVPLL_CLK_DONE
-static int uarthub_get_hwccf_univpll_done_info_mt6985(void);
+static int uarthub_get_hwccf_univpll_vote_info_mt6985(void);
+static int uarthub_get_hwccf_univpll_on_info_mt6985(void);
 #endif
 static int uarthub_get_uart_mux_info_mt6985(void);
 static int uarthub_get_uarthub_addr_info_mt6985(struct uarthub_reg_base_addr *info);
@@ -43,6 +45,7 @@ static void __iomem *uarthub_get_ap_uart_base_addr_mt6985(void);
 static void __iomem *uarthub_get_ap_dma_tx_int_addr_mt6985(void);
 static int uarthub_get_spm_res_1_info_mt6985(void);
 static int uarthub_get_spm_res_2_info_mt6985(void);
+static int uarthub_get_peri_clk_info_mt6985(void);
 
 struct uarthub_ops_struct mt6985_plat_data = {
 	.uarthub_plat_init_remap_reg = uarthub_init_remap_reg_mt6985,
@@ -53,7 +56,8 @@ struct uarthub_ops_struct mt6985_plat_data = {
 	.uarthub_plat_get_gpio_trx_info = uarthub_get_gpio_trx_info_mt6985,
 	.uarthub_plat_get_uarthub_clk_gating_info = uarthub_get_uarthub_clk_gating_info_mt6985,
 #if CHEKCING_UNIVPLL_CLK_DONE
-	.uarthub_plat_get_hwccf_univpll_done_info = uarthub_get_hwccf_univpll_done_info_mt6985,
+	.uarthub_plat_get_hwccf_univpll_vote_info = uarthub_get_hwccf_univpll_vote_info_mt6985,
+	.uarthub_plat_get_hwccf_univpll_on_info = uarthub_get_hwccf_univpll_on_info_mt6985,
 #endif
 	.uarthub_plat_get_uart_mux_info = uarthub_get_uart_mux_info_mt6985,
 	.uarthub_plat_get_uarthub_addr_info = uarthub_get_uarthub_addr_info_mt6985,
@@ -61,6 +65,7 @@ struct uarthub_ops_struct mt6985_plat_data = {
 	.uarthub_plat_get_ap_dma_tx_int_addr = uarthub_get_ap_dma_tx_int_addr_mt6985,
 	.uarthub_plat_get_spm_res_1_info = uarthub_get_spm_res_1_info_mt6985,
 	.uarthub_plat_get_spm_res_2_info = uarthub_get_spm_res_2_info_mt6985,
+	.uarthub_plat_get_peri_clk_info = uarthub_get_peri_clk_info_mt6985,
 };
 
 int uarthub_init_remap_reg_mt6985(void)
@@ -73,6 +78,7 @@ int uarthub_init_remap_reg_mt6985(void)
 	uart3_base_remap_addr = ioremap(UART3_BASE_ADDR, 0x100);
 	ap_dma_uart_3_tx_int_remap_addr = ioremap(AP_DMA_UART_3_TX_INT_FLAG_ADDR, 0x100);
 	spm_remap_addr = ioremap(SPM_BASE_ADDR, 0x1000);
+	apmixedsys_remap_addr = ioremap(APMIXEDSYS_BASE_ADDR, 0x500);
 
 	return 0;
 }
@@ -102,6 +108,9 @@ int uarthub_deinit_unmap_reg_mt6985(void)
 
 	if (spm_remap_addr)
 		iounmap(spm_remap_addr);
+
+	if (apmixedsys_remap_addr)
+		iounmap(apmixedsys_remap_addr);
 
 	return 0;
 }
@@ -176,8 +185,19 @@ int uarthub_get_uarthub_clk_gating_info_mt6985(void)
 		PERICFG_AO_PERI_CG_1_MASK) >> PERICFG_AO_PERI_CG_1_SHIFT);
 }
 
+int uarthub_get_peri_clk_info_mt6985(void)
+{
+	if (!pericfg_ao_remap_addr) {
+		pr_notice("[%s] pericfg_ao_remap_addr is NULL\n", __func__);
+		return -1;
+	}
+
+	return UARTHUB_REG_READ_BIT(pericfg_ao_remap_addr + PERICFG_AO_PERI_CLOCK_CON,
+		PERICFG_AO_PERI_CLOCK_CON_MASK);
+}
+
 #if CHEKCING_UNIVPLL_CLK_DONE
-int uarthub_get_hwccf_univpll_done_info_mt6985(void)
+int uarthub_get_hwccf_univpll_vote_info_mt6985(void)
 {
 	if (!hw_ccf_base_remap_addr) {
 		pr_notice("[%s] hw_ccf_base_remap_addr is NULL\n", __func__);
@@ -186,6 +206,17 @@ int uarthub_get_hwccf_univpll_done_info_mt6985(void)
 
 	return (UARTHUB_REG_READ_BIT(hw_ccf_base_remap_addr + HW_CCF_PLL_DONE_OFFSET,
 		(0x1 << HW_CCF_PLL_DONE_SHIFT)) >> HW_CCF_PLL_DONE_SHIFT);
+}
+
+int uarthub_get_hwccf_univpll_on_info_mt6985(void)
+{
+	if (!apmixedsys_remap_addr) {
+		pr_notice("[%s] apmixedsys_remap_addr is NULL\n", __func__);
+		return -1;
+	}
+
+	return (UARTHUB_REG_READ_BIT(apmixedsys_remap_addr + APMIXEDSYS_UNIVPLL_CON0,
+		(0x1 << APMIXEDSYS_UNIVPLL_CON0_SHIFT)) >> APMIXEDSYS_UNIVPLL_CON0_SHIFT);
 }
 #endif
 
