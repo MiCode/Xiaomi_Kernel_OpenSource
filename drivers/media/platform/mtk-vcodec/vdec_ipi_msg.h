@@ -179,7 +179,7 @@ enum vdec_set_param_type {
 	SET_PARAM_TRICK_MODE,
 	SET_PARAM_NO_REORDER,
 	SET_PARAM_DECODE_ERROR_HANDLE_MODE,
-
+	SET_PARAM_MMDVFS,
 	SET_PARAM_MAX = 0xFFFFFFFF
 };
 
@@ -458,6 +458,13 @@ struct vdec_vsi {
 	__u8 hdr10_info_valid;
 	__u8 trick_mode;
 	__u8 flush_type;
+	/* mmdvfs param from up */
+	__u32 ctx_id;
+	__s32 op_rate;
+	__s32 priority;
+	__u32 codec_fmt;
+	__s32 target_freq;
+
 };
 
 #endif

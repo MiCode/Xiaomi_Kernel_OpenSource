@@ -73,6 +73,14 @@ enum mtk_instance_type {
 };
 
 /**
+ * enum mtk_mmdvfs_type - The type of an MTK Vcodec MMDVFS.
+ */
+enum mtk_mmdvfs_type {
+	MTK_INST_START                = 0,
+	MTK_INST_END                = 1,
+};
+
+/**
  * enum mtk_instance_state - The state of an MTK Vcodec instance.
  * @MTK_STATE_FREE - default state when instance is created
  * @MTK_STATE_INIT - vcodec instance is initialized

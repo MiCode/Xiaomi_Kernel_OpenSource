@@ -395,7 +395,7 @@ static int mtk_vcodec_enc_probe(struct platform_device *pdev)
 	if (ret)
 		goto err_res;
 
-	ret = of_property_read_u32(pdev->dev.of_node, "port_arg_num", &port_args_num);
+	ret = of_property_read_u32(pdev->dev.of_node, "port-arg-num", &port_args_num);
 	if (ret != 0)
 		dev_info(&pdev->dev, "Failed to get port_arg_num!");
 

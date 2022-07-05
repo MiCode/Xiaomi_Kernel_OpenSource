@@ -585,3 +585,12 @@ void mtk_vdec_pmqos_end_frame(struct mtk_vcodec_ctx *ctx)
 	}
 	dev->vdec_dvfs_params.frame_need_update = 0;
 }
+
+void mtk_vdec_prepare_vcp_dvfs_data(struct mtk_vcodec_ctx *ctx, unsigned long *in)
+{
+}
+
+void mtk_vdec_unprepare_vcp_dvfs_data(struct mtk_vcodec_ctx *ctx, unsigned long *in)
+{
+}
+

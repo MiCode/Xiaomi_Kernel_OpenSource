@@ -12,6 +12,7 @@
 #define DEFAULT_VENC_CONFIG -1000
 #define MAX_VCODEC_FREQ 9999
 #define MAX_OP_CNT 5
+#define WP_SCENARIO 6
 
 struct mtk_vcodec_dev;
 struct mtk_vcodec_ctx;

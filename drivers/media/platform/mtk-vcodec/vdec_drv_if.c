@@ -231,7 +231,8 @@ void vdec_decode_unprepare(void *ctx_unprepare,
 		return;
 
 	mutex_lock(&ctx->hw_status);
-	mtk_vdec_dvfs_end_frame(ctx, hw_id);
+	if (ctx->dev->vdec_reg) // per frame mmdvfs in AP
+		mtk_vdec_dvfs_end_frame(ctx, hw_id);
 	mtk_vdec_pmqos_end_frame(ctx);
 	if (ctx->dev->dec_sem[hw_id].count != 0) {
 		mtk_v4l2_debug(0, "HW not prepared, dec_sem[%d].count = %d",

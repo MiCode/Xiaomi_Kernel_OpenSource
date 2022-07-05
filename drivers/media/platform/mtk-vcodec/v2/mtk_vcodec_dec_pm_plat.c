@@ -20,6 +20,7 @@
 #include <linux/pm_opp.h>
 #include <linux/regulator/consumer.h>
 #include "vcodec_dvfs.h"
+#include "vdec_drv_if.h"
 #define STD_VDEC_FREQ 218000000
 #endif
 
@@ -295,11 +296,20 @@ void mtk_prepare_vdec_dvfs(struct mtk_vcodec_dev *dev)
 		return;
 	}
 
-	dev->vdec_reg = devm_regulator_get(&dev->plat_dev->dev,
-						"dvfsrc-vcore");
-	if (dev->vdec_reg == 0) {
+	dev->vdec_reg = devm_regulator_get_optional(&dev->plat_dev->dev,
+						"mmdvfs-dvfsrc-vcore");
+	if (IS_ERR_OR_NULL(dev->vdec_reg)) {
 		mtk_v4l2_debug(0, "[VDEC] Failed to get regulator");
-		return;
+		dev->vdec_reg = 0;
+		dev->vdec_mmdvfs_clk = devm_clk_get(&dev->plat_dev->dev, "mmdvfs_clk");
+		if (IS_ERR_OR_NULL(dev->vdec_mmdvfs_clk)) {
+			mtk_v4l2_debug(0, "[VDEC] Failed to get mmdvfs_clk");
+			dev->vdec_mmdvfs_clk = 0;
+			return;
+		}
+		mtk_v4l2_debug(0, "[VDEC] get vdec_mmdvfs_clk successfully");
+	} else {
+		mtk_v4l2_debug(0, "[VDEC] get regulator successfully");
 	}
 
 	dev->vdec_freq_cnt = dev_pm_opp_get_opp_count(&dev->plat_dev->dev);
@@ -373,16 +383,26 @@ void set_vdec_opp(struct mtk_vcodec_dev *dev, u32 freq)
 	int ret = 0;
 	unsigned long freq_64 = (unsigned long)freq;
 
-	if (dev->vdec_reg != 0) {
+	if (dev->vdec_reg || dev->vdec_mmdvfs_clk) {
 		opp = dev_pm_opp_find_freq_ceil(&dev->plat_dev->dev, &freq_64);
 		volt = dev_pm_opp_get_voltage(opp);
 		dev_pm_opp_put(opp);
 
-		mtk_v4l2_debug(8, "[VDEC] freq %u, voltage %d", freq, volt);
-
-		ret = regulator_set_voltage(dev->vdec_reg, volt, INT_MAX);
-		if (ret)
-			mtk_v4l2_debug(0, "[VDEC] Failed to set regulator voltage %d\n", volt);
+		if (dev->vdec_mmdvfs_clk) {
+			ret = clk_set_rate(dev->vdec_mmdvfs_clk, freq_64);
+			if (ret) {
+				mtk_v4l2_debug(0, "[VDEC] Failed to set mmdvfs rate %lu\n",
+						freq_64);
+			}
+			mtk_v4l2_debug(0, "[VDEC] freq %lu, find_freq %lu", freq, freq_64);
+		} else if (dev->vdec_reg) {
+			ret = regulator_set_voltage(dev->vdec_reg, volt, INT_MAX);
+			if (ret) {
+				mtk_v4l2_debug(0, "[VDEC] Failed to set regulator voltage %d\n",
+						volt);
+			}
+			mtk_v4l2_debug(0, "[VDEC] freq %lu, voltage %lu", freq, volt);
+		}
 	}
 }
 
@@ -413,11 +433,9 @@ void mtk_vdec_pmqos_begin_inst(struct mtk_vcodec_ctx *ctx)
 	int i;
 	struct mtk_vcodec_dev *dev = 0;
 	u64 target_bw = 0;
-
-	mtk_v4l2_debug(8, "[VDEC] ctx = %p",  ctx);
 	dev = ctx->dev;
-	if (dev->vdec_reg == 0)
-		return;
+
+	mtk_v4l2_debug(8, "[VDVFS][VDEC] ctx = %p",  ctx);
 
 	for (i = 0; i < dev->vdec_port_cnt; i++) {
 		target_bw = (u64)dev->vdec_port_bw[i].port_base_bw *
@@ -450,12 +468,9 @@ void mtk_vdec_pmqos_end_inst(struct mtk_vcodec_ctx *ctx)
 	int i;
 	struct mtk_vcodec_dev *dev = 0;
 	u64 target_bw = 0;
-
-	mtk_v4l2_debug(8, "[VDEC] ctx = %p",  ctx);
 	dev = ctx->dev;
 
-	if (dev->vdec_reg == 0)
-		return;
+	mtk_v4l2_debug(8, "[VDVFS][VDEC] ctx = %p",  ctx);
 
 	for (i = 0; i < dev->vdec_port_cnt; i++) {
 		target_bw = (u64)dev->vdec_port_bw[i].port_base_bw *
@@ -492,9 +507,9 @@ void mtk_vdec_dvfs_begin_frame(struct mtk_vcodec_ctx *ctx, int hw_id)
 {
 	struct mtk_vcodec_dev *dev = 0;
 	u8 orig = 0;
-
 	dev = ctx->dev;
-	if (dev->vdec_reg == 0)
+	/* Adjust freq in AP: need to define regulator or mmdvfs_clk in dts*/
+	if (dev->vdec_reg == 0 && dev->vdec_mmdvfs_clk == 0)
 		return;
 
 	orig = dev->vdec_dvfs_params.lock_cnt[0] | dev->vdec_dvfs_params.lock_cnt[1];
@@ -522,10 +537,11 @@ void mtk_vdec_dvfs_end_frame(struct mtk_vcodec_ctx *ctx, int hw_id)
 {
 	struct mtk_vcodec_dev *dev = 0;
 	u8 orig = 0;
-
 	dev = ctx->dev;
-	if (dev->vdec_reg == 0 || hw_id < 0)
+	/* Adjust freq in AP: need to define regulator or mmdvfs_clk in dts*/
+	if (dev->vdec_reg == 0 && dev->vdec_mmdvfs_clk == 0)
 		return;
+
 
 	orig = dev->vdec_dvfs_params.lock_cnt[0] | dev->vdec_dvfs_params.lock_cnt[1];
 
@@ -551,8 +567,6 @@ void mtk_vdec_pmqos_begin_frame(struct mtk_vcodec_ctx *ctx)
 	struct mtk_vcodec_dev *dev = 0;
 
 	dev = ctx->dev;
-	if (dev->vdec_reg == 0)
-		return;
 
 	if (dev->vdec_dvfs_params.frame_need_update &&
 		(dev->vdec_dvfs_params.target_freq != dev->vdec_dvfs_params.min_freq)) {
@@ -569,8 +583,6 @@ void mtk_vdec_pmqos_end_frame(struct mtk_vcodec_ctx *ctx)
 	u64 target_bw = 0;
 
 	dev = ctx->dev;
-	if (dev->vdec_reg == 0)
-		return;
 
 	if (!dev->vdec_dvfs_params.frame_need_update ||
 		(dev->vdec_dvfs_params.target_freq == dev->vdec_dvfs_params.min_freq))
@@ -593,4 +605,24 @@ void mtk_vdec_pmqos_end_frame(struct mtk_vcodec_ctx *ctx)
 		}
 	}
 	dev->vdec_dvfs_params.frame_need_update = 0;
+}
+
+
+/*prepare mmdvfs data to vcp to begin*/
+void mtk_vdec_prepare_vcp_dvfs_data(struct mtk_vcodec_ctx *ctx, unsigned long *in)
+{
+	struct vdec_inst *inst = (struct vdec_inst *) ctx->drv_handle;
+	struct vdec_vsi *vsi_data = inst->vsi;
+
+	in[0] = MTK_INST_START;
+	vsi_data->ctx_id = ctx->id;
+	vsi_data->op_rate = ctx->dec_params.operating_rate;
+	vsi_data->priority = ctx->dec_params.priority;
+	vsi_data->codec_fmt = ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc;
+}
+
+/*prepare inst ctx id to vcp to delete*/
+void mtk_vdec_unprepare_vcp_dvfs_data(struct mtk_vcodec_ctx *ctx, unsigned long *in)
+{
+	in[0] = MTK_INST_END;
 }

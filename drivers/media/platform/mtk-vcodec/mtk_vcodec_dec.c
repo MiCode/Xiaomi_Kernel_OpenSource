@@ -3551,6 +3551,7 @@ static int vb2ops_vdec_start_streaming(struct vb2_queue *q, unsigned int count)
 {
 	struct mtk_vcodec_ctx *ctx = vb2_get_drv_priv(q);
 	unsigned long total_frame_bufq_count;
+	unsigned long vcp_dvfs_data[1] = {0};
 
 	mtk_v4l2_debug(4, "[%d] (%d) state=(%x)", ctx->id, q->type, ctx->state);
 
@@ -3575,7 +3576,14 @@ static int vb2ops_vdec_start_streaming(struct vb2_queue *q, unsigned int count)
 		}
 
 		mutex_lock(&ctx->dev->dec_dvfs_mutex);
-		mtk_vdec_dvfs_begin_inst(ctx);
+		if (ctx->dev->vdec_reg == 0 && ctx->dev->vdec_mmdvfs_clk == 0) {
+			mtk_v4l2_debug(4, "[VDVFS][VDEC] start ctrl DVFS in UP\n");
+			mtk_vdec_prepare_vcp_dvfs_data(ctx, vcp_dvfs_data);
+			vdec_if_set_param(ctx, SET_PARAM_MMDVFS, vcp_dvfs_data);
+		} else {
+			mtk_v4l2_debug(4, "[VDVFS][VDEC] start ctrl DVFS in AP\n");
+			mtk_vdec_dvfs_begin_inst(ctx);
+		}
 		mtk_vdec_pmqos_begin_inst(ctx);
 		mutex_unlock(&ctx->dev->dec_dvfs_mutex);
 
@@ -3611,6 +3619,7 @@ static void vb2ops_vdec_stop_streaming(struct vb2_queue *q)
 	struct mtk_video_dec_buf *src_buf_info = NULL;
 	unsigned int i = 0;
 	struct mtk_video_dec_buf *dstbuf;
+	unsigned long vcp_dvfs_data[1] = {0};
 
 	mtk_v4l2_debug(4, "[%d] (%d) state=(%x) ctx->decoded_frame_cnt=%d",
 		ctx->id, q->type, ctx->state, ctx->decoded_frame_cnt);
@@ -3692,9 +3701,15 @@ static void vb2ops_vdec_stop_streaming(struct vb2_queue *q)
 			dstbuf->queued_in_v4l2, dstbuf->used);
 	}
 	mutex_unlock(&ctx->buf_lock);
-
 	mutex_lock(&ctx->dev->dec_dvfs_mutex);
-	mtk_vdec_dvfs_end_inst(ctx);
+	if (ctx->dev->vdec_reg == 0 && ctx->dev->vdec_mmdvfs_clk == 0) {
+		mtk_v4l2_debug(0, "[VDVFS][VDEC] stop ctrl DVFS in UP\n");
+		mtk_vdec_unprepare_vcp_dvfs_data(ctx, vcp_dvfs_data);
+		vdec_if_set_param(ctx, SET_PARAM_MMDVFS, vcp_dvfs_data);
+	} else {
+		mtk_v4l2_debug(0, "[VDVFS][VDEC] stop ctrl DVFS in AP\n");
+		mtk_vdec_dvfs_end_inst(ctx);
+	}
 	mtk_vdec_pmqos_end_inst(ctx);
 	mutex_unlock(&ctx->dev->dec_dvfs_mutex);
 
