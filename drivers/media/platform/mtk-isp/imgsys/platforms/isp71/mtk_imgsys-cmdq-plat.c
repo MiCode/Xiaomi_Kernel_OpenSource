@@ -710,7 +710,8 @@ void imgsys_cmdq_task_cb_plat71(struct cmdq_cb_data data)
 			user_cb_data.err = cb_param->err;
 			user_cb_data.data = (void *)cb_param->frm_info;
 			cb_param->user_cmdq_err_cb(
-				user_cb_data, real_frm_idx, isHWhang, event_sft);
+				user_cb_data, real_frm_idx, isHWhang,
+				event_sft + IMGSYS_CMDQ_SYNC_TOKEN_IMGSYS_POOL_START);
 		}
 	}
 
