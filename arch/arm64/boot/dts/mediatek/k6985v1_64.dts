@@ -258,8 +258,9 @@ mtk_printk_ctrl.disable_uart=0";
 
 /* PCIe pinmux start */
 &pcie0 {
-	pinctrl-names = "default";
+	pinctrl-names = "default", "sleep";
 	pinctrl-0 = <&pcie0_pins_default>;
+	pinctrl-1 = <&pcie0_pins_sleep>;
 	status = "okay";
 };
 
@@ -276,6 +277,16 @@ mtk_printk_ctrl.disable_uart=0";
 			pinmux = <PINMUX_GPIO230__FUNC_PCIE_PERSTN>,
 				 <PINMUX_GPIO232__FUNC_PCIE_CLKREQN>;
 			bias-pull-up;
+		};
+	};
+
+	pcie0_pins_sleep: pcie0-sleep {
+		pins_cmd_dat {
+			/* PINMUX_GPIO231__FUNC_GPIO231 for Falcon */
+			pinmux = <PINMUX_GPIO230__FUNC_GPIO230>,
+				 <PINMUX_GPIO232__FUNC_GPIO232>;
+			bias-pull-down;
+			input-enable;
 		};
 	};
 
