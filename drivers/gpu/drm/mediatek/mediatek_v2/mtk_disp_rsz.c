@@ -505,12 +505,47 @@ static void mtk_rsz_unprepare(struct mtk_ddp_comp *comp)
 	mtk_ddp_comp_clk_unprepare(comp);
 }
 
+static int mtk_rsz_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
+			  enum mtk_ddp_io_cmd io_cmd, void *params)
+{
+	int ret = 0;
+	struct mtk_disp_rsz *rsz = comp_to_rsz(comp);
+
+	switch (io_cmd) {
+	case RSZ_GET_TILE_LENGTH: {
+		unsigned int *val = (unsigned int *)params;
+
+		if (rsz && rsz->data) {
+			*val = rsz->data->tile_length;
+			DDPINFO("%s, tile_length[%u]\n", __func__, *val);
+		} else
+			ret = -1;
+		break;
+	}
+	case RSZ_GET_IN_MAX_HEIGHT: {
+		unsigned int *val = (unsigned int *)params;
+
+		if (rsz && rsz->data) {
+			*val = rsz->data->in_max_height;
+			DDPINFO("%s, in_max_height[%u]\n", __func__, *val);
+		} else
+			ret = -1;
+		break;
+	}
+	default:
+		break;
+	}
+
+	return ret;
+}
+
 static const struct mtk_ddp_comp_funcs mtk_disp_rsz_funcs = {
 	.start = mtk_rsz_start,
 	.stop = mtk_rsz_stop,
 	.addon_config = mtk_rsz_addon_config,
 	.prepare = mtk_rsz_prepare,
 	.unprepare = mtk_rsz_unprepare,
+	.io_cmd = mtk_rsz_io_cmd,
 };
 
 static int mtk_disp_rsz_bind(struct device *dev, struct device *master,

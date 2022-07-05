@@ -1985,10 +1985,15 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			       comp->regs_pa + DISP_REG_OVL_CON(lye_idx), con, mask);
 
-		if (ovl->data->support_pq_selfloop &&
-			(pending->mml_mode == MML_MODE_RACING) && comp->mtk_crtc->is_force_mml_scen)
-			offset =
-			    mtk_crtc_state->mml_dst_roi.y << 16 | mtk_crtc_state->mml_dst_roi.x;
+		if (ovl->data->support_pq_selfloop) {
+			if (state->comp_state.layer_caps & MTK_MML_DISP_DIRECT_DECOUPLE_LAYER) {
+				offset = mtk_crtc_state->mml_dst_roi.y << 16 |
+					 mtk_crtc_state->mml_dst_roi.x;
+			} else if (state->comp_state.layer_caps & MTK_DISP_RSZ_LAYER) {
+				offset = mtk_crtc_state->rsz_dst_roi.y << 16 |
+					 mtk_crtc_state->rsz_dst_roi.x;
+			}
+		}
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			       comp->regs_pa + DISP_REG_OVL_OFFSET(lye_idx), offset, ~0);
 
@@ -3420,6 +3425,16 @@ static int mtk_ovl_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		if (ovl && ovl->data) {
 			DDPINFO("%s, source_bpc[%d]\n", __func__, ovl->data->source_bpc);
 			return ovl->data->source_bpc;
+		}
+		break;
+	}
+	case OVL_GET_SELFLOOP_SUPPORT: {
+		struct mtk_disp_ovl *ovl = comp_to_ovl(comp);
+
+		if (ovl && ovl->data) {
+			DDPINFO("%s, support_pq_selfloop[%d]\n", __func__,
+				ovl->data->support_pq_selfloop);
+			return ovl->data->support_pq_selfloop;
 		}
 		break;
 	}

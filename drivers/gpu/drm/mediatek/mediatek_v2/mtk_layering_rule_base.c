@@ -56,10 +56,6 @@ static int g_emi_bound_table[HRT_LEVEL_NUM];
 int have_force_gpu_layer;
 int sum_overlap_w_of_bwm;
 
-#define RSZ_TILE_LENGTH 1440
-#define RSZ_IN_MAX_HEIGHT 4096
-#define DISP_RSZ_LAYER_NUM 2
-
 #define DISP_MML_LAYER_LIMIT 1
 #define DISP_MML_CAPS_MASK                                                                         \
 	(MTK_MML_DISP_DIRECT_LINK_LAYER | MTK_MML_DISP_DIRECT_DECOUPLE_LAYER |                     \
@@ -3426,7 +3422,7 @@ static int RPO_rule(struct drm_crtc *crtc,
 	}
 
 	for (i = 0; i < disp_info->layer_num[disp_idx] &&
-						i < DISP_RSZ_LAYER_NUM; i++) {
+						i < l_rule_info->rpo_scale_num; i++) {
 		c = &disp_info->input_config[disp_idx][i];
 
 		/*if (i == 0 && c->src_fmt == MTK_DRM_FORMAT_DIM)
@@ -3483,8 +3479,8 @@ static int RPO_rule(struct drm_crtc *crtc,
 						dst_roi.x, dst_roi.width, disp_w))
 			break;
 
-		if (src_roi.width > RSZ_TILE_LENGTH ||
-		    src_roi.height > RSZ_IN_MAX_HEIGHT)
+		if (src_roi.width > l_rule_info->rpo_tile_length ||
+		    src_roi.height > l_rule_info->rpo_in_max_height)
 			break;
 
 		c->layer_caps |= MTK_DISP_RSZ_LAYER;

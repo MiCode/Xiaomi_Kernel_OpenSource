@@ -2661,79 +2661,55 @@ _mtk_crtc_lye_addon_module_connect(
 		else
 			addon_module_dual = NULL;
 
-		if ((addon_module->type == ADDON_BETWEEN) &&
-			(addon_module->module == DISP_MML_SRAM_ONLY)) {
-			/* do nothing yet */
-		} else if (addon_module->module == DISP_MML_IR_PQ ||
-			   addon_module->module == DISP_MML_IR_PQ_v2) {
+		if (addon_module->module == DISP_MML_IR_PQ ||
+		    addon_module->module == DISP_MML_IR_PQ_v2) {
 			if (mtk_crtc->is_force_mml_scen && mtk_crtc->is_mml)
 				mml_addon_module_connect(crtc, ddp_mode, addon_module,
 							 addon_module_dual, &addon_config,
 							 cmdq_handle);
-		} else if (addon_module->type == ADDON_BETWEEN &&
-			   (addon_module->module == DISP_RSZ ||
-			    addon_module->module == DISP_RSZ_v2 ||
-			    addon_module->module == DISP_RSZ_v5)) {
-			struct mtk_crtc_state *state =
-				to_mtk_crtc_state(crtc->state);
-
-			addon_config.addon_rsz_config.rsz_src_roi =
-				state->rsz_src_roi;
-			addon_config.addon_rsz_config.rsz_dst_roi =
-				state->rsz_dst_roi;
-			addon_config.addon_rsz_config.lc_tgt_layer =
-				lye_state->lc_tgt_layer;
-
-			if (mtk_crtc->is_dual_pipe) {
-				if (state->rsz_param[0].in_len) {
-					memcpy(&(addon_config.addon_rsz_config.rsz_param),
-						&state->rsz_param[0], sizeof(struct mtk_rsz_param));
-
-					addon_config.addon_rsz_config.rsz_src_roi.width =
-						state->rsz_param[0].in_len;
-					addon_config.addon_rsz_config.rsz_dst_roi.width =
-						state->rsz_param[0].out_len;
-					addon_config.addon_rsz_config.rsz_dst_roi.x =
-						state->rsz_param[0].out_x;
-					mtk_addon_connect_between(crtc, ddp_mode, addon_module,
-							  &addon_config, cmdq_handle);
-				}
-
-				if (state->rsz_param[1].in_len) {
-					memcpy(&(addon_config.addon_rsz_config.rsz_param),
-						&state->rsz_param[1], sizeof(struct mtk_rsz_param));
-
-					addon_config.addon_rsz_config.rsz_src_roi.width =
-						state->rsz_param[1].in_len;
-					addon_config.addon_rsz_config.rsz_dst_roi.width =
-						state->rsz_param[1].out_len;
-					addon_config.addon_rsz_config.rsz_dst_roi.x =
-						state->rsz_param[1].out_x;
-					addon_module = &addon_data_dual->module_data[i];
-					addon_config.config_type.module = addon_module->module;
-					addon_config.config_type.type = addon_module->type;
-
-					mtk_addon_connect_between(crtc, ddp_mode, addon_module,
-							  &addon_config, cmdq_handle);
-				}
-			} else {
-				mtk_addon_connect_between(crtc, ddp_mode, addon_module,
-							  &addon_config, cmdq_handle);
-			}
-		} else if (addon_module->type == ADDON_EMBED &&
-			   (addon_module->module == OVL_RSZ ||
-			    addon_module->module == OVL_RSZ_1)) {
+		} else if (addon_module->module == DISP_RSZ ||
+			   addon_module->module == DISP_RSZ_v2 ||
+			   addon_module->module == DISP_RSZ_v5 ||
+			   addon_module->module == OVL_RSZ) {
+			int pipe;
 			struct mtk_crtc_state *state = to_mtk_crtc_state(crtc->state);
+			const struct mtk_addon_module_data *m[] = {addon_module, addon_module_dual};
 
 			addon_config.addon_rsz_config.rsz_src_roi = state->rsz_src_roi;
 			addon_config.addon_rsz_config.rsz_dst_roi = state->rsz_dst_roi;
 			addon_config.addon_rsz_config.lc_tgt_layer = lye_state->lc_tgt_layer;
 
 			if (mtk_crtc->is_dual_pipe) {
-				/* TBD */
+				for (pipe = 0; pipe <= mtk_crtc->is_dual_pipe; ++pipe) {
+					if (!state->rsz_param[pipe].in_len || !m[pipe])
+						continue;
+
+					memcpy(&(addon_config.addon_rsz_config.rsz_param),
+					  &state->rsz_param[pipe], sizeof(struct mtk_rsz_param));
+					addon_config.addon_rsz_config.rsz_src_roi.width =
+						state->rsz_param[pipe].in_len;
+					addon_config.addon_rsz_config.rsz_dst_roi.width =
+						state->rsz_param[pipe].out_len;
+					addon_config.addon_rsz_config.rsz_dst_roi.x =
+						state->rsz_param[pipe].out_x;
+
+					addon_config.config_type.module = m[pipe]->module;
+					addon_config.config_type.type = m[pipe]->type;
+
+					if (m[pipe]->type == ADDON_BETWEEN)
+						mtk_addon_connect_between(crtc, ddp_mode, m[pipe],
+									&addon_config, cmdq_handle);
+					else if (m[pipe]->type == ADDON_EMBED)
+						mtk_addon_connect_embed(crtc, ddp_mode, m[pipe],
+									&addon_config, cmdq_handle);
+				}
 			} else {
-				mtk_addon_connect_embed(crtc, ddp_mode, addon_module, &addon_config,
-							cmdq_handle);
+				if (addon_module->type == ADDON_BETWEEN)
+					mtk_addon_connect_between(crtc, ddp_mode, addon_module,
+								&addon_config, cmdq_handle);
+				else if (addon_module->type == ADDON_EMBED)
+					mtk_addon_connect_embed(crtc, ddp_mode, addon_module,
+								&addon_config, cmdq_handle);
 			}
 		} else
 			DDPPR_ERR("addon type:%d + module:%d not support\n",

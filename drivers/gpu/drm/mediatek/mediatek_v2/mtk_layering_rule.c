@@ -481,6 +481,43 @@ void mtk_layering_rule_init(struct drm_device *dev)
 	mtk_set_layering_opt(LYE_OPT_SPHRT,
 			     mtk_drm_helper_get_opt(private->helper_opt,
 						    MTK_DRM_OPT_SPHRT));
+
+	if (get_layering_opt(LYE_OPT_RPO)) {
+		const struct mtk_addon_scenario_data *addon_data;
+		const struct mtk_addon_module_data *module_data;
+		const struct mtk_addon_path_data *path_data;
+		struct mtk_ddp_comp *comp;
+		int i;
+
+		addon_data = mtk_addon_get_scenario_data(__func__, private->crtc[0], ONE_SCALING);
+		if (!addon_data || !addon_data->module_num)
+			return;
+
+		module_data = &addon_data->module_data[0];
+		path_data = mtk_addon_module_get_path(module_data->module);
+
+		comp = private->ddp_comp[module_data->attach_comp];
+		if (!comp) {
+			DDPPR_ERR("RPO attached comp is NULL %d\n", module_data->attach_comp);
+			return;
+		}
+		l_rule_info.rpo_scale_num =
+		    mtk_ddp_comp_io_cmd(comp, NULL, OVL_GET_SELFLOOP_SUPPORT, NULL) ? 1 : 2;
+
+		for (i = 0; i < path_data->path_len; i++) {
+			if (mtk_ddp_comp_get_type(path_data->path[i]) == MTK_DISP_RSZ) {
+				comp = private->ddp_comp[path_data->path[i]];
+				break;
+			}
+		}
+		if (!comp) {
+			DDPPR_ERR("RPO comp is NULL\n");
+			return;
+		}
+		mtk_ddp_comp_io_cmd(comp, NULL, RSZ_GET_TILE_LENGTH, &l_rule_info.rpo_tile_length);
+		mtk_ddp_comp_io_cmd(comp, NULL, RSZ_GET_IN_MAX_HEIGHT,
+				    &l_rule_info.rpo_in_max_height);
+	}
 }
 
 static bool _rollback_all_to_GPU_for_idle(struct drm_device *dev)

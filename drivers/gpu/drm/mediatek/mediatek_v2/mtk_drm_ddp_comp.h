@@ -556,6 +556,9 @@ enum mtk_ddp_io_cmd {
 	ODDMR_BL_CHG,
 	ODDMR_TIMING_CHG,
 	COMP_ADD_HRT,
+	OVL_GET_SELFLOOP_SUPPORT,
+	RSZ_GET_TILE_LENGTH,
+	RSZ_GET_IN_MAX_HEIGHT,
 };
 
 struct golden_setting_context {

@@ -132,6 +132,9 @@ struct layering_rule_info_t {
 	int hrt_sys_state;
 	int wrot_sram;
 	unsigned int hrt_idx;
+	unsigned int rpo_scale_num;
+	unsigned int rpo_tile_length;
+	unsigned int rpo_in_max_height;
 };
 
 enum SCN_FACTOR {
