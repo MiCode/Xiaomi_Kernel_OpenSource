@@ -538,6 +538,9 @@ static int ps5170_suspend_noirq(struct device *dev)
 	struct ps5170 *data = i2c_get_clientdata(i2c);
 
 	atomic_set(&data->in_sleep, 1);
+
+	/* pull low en pin to enter deep idle mode */
+	pinctrl_select_state(data->pinctrl, data->disable);
 	return 0;
 }
 
@@ -547,6 +550,9 @@ static int ps5170_resume_noirq(struct device *dev)
 	struct ps5170 *data = i2c_get_clientdata(i2c);
 
 	atomic_set(&data->in_sleep, 0);
+
+	/* pull high en pin to enter normal mode */
+	pinctrl_select_state(data->pinctrl, data->enable);
 	return 0;
 }
 
