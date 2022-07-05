@@ -47,3 +47,6 @@ TOUCH_LISTS := $(subst ",,$(CONFIG_TOUCHSCREEN_MTK_TOUCH))
 ifeq ($(findstring GT9895,$(TOUCH_LISTS)),GT9895)
 ccflags-y += -DTUI_SUPPORT_GT9895
 endif
+
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/trusted_mem
+ccflags-y += -I$(srctree)/drivers/dma-buf/heaps/

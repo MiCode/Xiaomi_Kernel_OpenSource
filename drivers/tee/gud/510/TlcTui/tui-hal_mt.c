@@ -16,20 +16,24 @@
 #include "tlcTui.h"
 #include "tui-hal.h"
 #include "tui-hal_mt.h"
+
+#include <mtk_heap.h>
+#include <public/trusted_mem_api.h>
+#include <linux/dma-heap.h>
+#include <uapi/linux/dma-heap.h>
+
 #include <memory_ssmr.h>
 
-#define TUI_MEMPOOL_SIZE 0
+static struct dma_buf *tui_dma_buf;
+#define TUI_BUF_SIZE 0x4000000
 
-/* Extrac memory size required for TUI driver */
-#define TUI_EXTRA_MEM_SIZE (0x200000)
+#define TUI_MEMPOOL_SIZE 0
 
 struct tui_mempool {
 	void *va;
 	unsigned long pa;
 	size_t size;
 };
-
-static int g_tbuff_alloc;
 
 static __always_unused struct tui_mempool g_tui_mem_pool;
 
@@ -205,8 +209,9 @@ uint32_t hal_tui_alloc(
 	size_t allocsize, uint32_t number)
 {
 	uint32_t ret = TUI_DCI_ERR_INTERNAL_ERROR;
-	phys_addr_t pa = 0;
-	unsigned long size = allocsize * number;
+	uint64_t pa = 0;
+	u32 sec_handle = 0;
+	struct dma_heap *dma_heap;
 
 	if (!allocbuffer) {
 		pr_notice("%s(%d): allocbuffer is null\n", __func__, __LINE__);
@@ -221,27 +226,50 @@ uint32_t hal_tui_alloc(
 		return TUI_DCI_OK;
 	}
 
-	ret = ssmr_offline(&pa, &size, true, SSMR_FEAT_TUI);
-
-	pr_debug("%s(%d): required size 0x%zx, acquired size=0x%lx\n",
-		 __func__, __LINE__, allocsize * number, size);
-
-	if (ret == 0) {
-		g_tbuff_alloc = 1;
-		allocbuffer[0].pa = (uint64_t) pa;
-		allocbuffer[1].pa = (uint64_t) (pa + allocsize);
-		allocbuffer[2].pa = (uint64_t) (pa + allocsize*2);
-		pr_debug("%s(%d): buf_1 0x%llx, buf_2 0x%llx, buf_3 0x%llx, extra=0x%x\n",
-			__func__, __LINE__, allocbuffer[0].pa,
-			allocbuffer[1].pa, allocbuffer[2].pa,
-			TUI_EXTRA_MEM_SIZE);
-	} else {
-		pr_notice("%s(%d): tui_region_offline failed!\n",
-			 __func__, __LINE__);
+	dma_heap = dma_heap_find("mtk_tui_region-aligned");
+	if (!dma_heap) {
+		pr_info("heap find failed!\n");
 		return TUI_DCI_ERR_INTERNAL_ERROR;
 	}
 
+	tui_dma_buf = dma_heap_buffer_alloc(dma_heap, TUI_BUF_SIZE,
+		DMA_HEAP_VALID_FD_FLAGS, DMA_HEAP_VALID_HEAP_FLAGS);
+	if (IS_ERR(tui_dma_buf)) {
+		pr_info("%s, alloc buffer fail, heap:%s", __func__, dma_heap_get_name(dma_heap));
+		return TUI_DCI_ERR_INTERNAL_ERROR;
+	}
+
+	sec_handle = dmabuf_to_secure_handle(tui_dma_buf);
+	if (!sec_handle) {
+		pr_info("%s, get tui frame buffer secure handle failed!\n", __func__);
+		ret = TUI_DCI_ERR_INTERNAL_ERROR;
+		goto error;
+	}
+
+	ret = trusted_mem_api_query_pa(0, 0, 0, 0, &sec_handle, 0, 0, 0, &pa);
+	if (ret == 0) {
+		pr_info("ret: %d, pa: 0x%llx\n", ret, pa);
+		allocbuffer[0].pa = (uint64_t) pa;
+		allocbuffer[1].pa = (uint64_t) (pa + allocsize);
+		allocbuffer[2].pa = (uint64_t) (pa + allocsize*2);
+
+		pr_info("%s(%d): buf_1 0x%llx, buf_2 0x%llx, buf_3 0x%llx\n",
+			__func__, __LINE__, allocbuffer[0].pa,
+			allocbuffer[1].pa, allocbuffer[2].pa);
+	} else {
+		pr_notice("%s(%d): tui_region_offline failed!\n",
+			 __func__, __LINE__);
+		ret = TUI_DCI_ERR_INTERNAL_ERROR;
+		goto error;
+	}
+
 	return TUI_DCI_OK;
+
+error:
+	if (!IS_ERR(tui_dma_buf))
+		dma_heap_buffer_free(tui_dma_buf);
+
+	return ret;
 }
 
 /**
@@ -254,10 +282,8 @@ uint32_t hal_tui_alloc(
 void hal_tui_free(void)
 {
 	pr_debug("[TUI-HAL] %s\n", __func__);
-	if (g_tbuff_alloc) {
-		ssmr_online(SSMR_FEAT_TUI);
-		g_tbuff_alloc = 0;
-	}
+	if (!IS_ERR(tui_dma_buf))
+		dma_heap_buffer_free(tui_dma_buf);
 }
 
 /**
