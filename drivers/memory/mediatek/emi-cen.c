@@ -1172,7 +1172,7 @@ static ssize_t emicen_addr2dram_store
 
 	global_emi_cen->a2d_addr = (unsigned long)addr;
 
-	return ret ? : count;
+	return count;
 }
 
 static DRIVER_ATTR_RW(emicen_addr2dram);
@@ -1189,13 +1189,16 @@ static int emicen_probe(struct platform_device *pdev)
 
 	dev_info(&pdev->dev, "driver probed\n");
 
+	dev_comp = (struct mtk_emi_compatible *)
+		of_device_get_match_data(&pdev->dev);
+	if (!dev_comp)
+		return -ENODEV;
+
 	cen = devm_kzalloc(&pdev->dev,
 		sizeof(struct emi_cen), GFP_KERNEL);
 	if (!cen)
 		return -ENOMEM;
 
-	dev_comp = (struct mtk_emi_compatible *)
-		of_device_get_match_data(&pdev->dev);
 	cen->ver = (unsigned int)dev_comp->ver;
 
 	ret = of_property_read_u32(emicen_node,
