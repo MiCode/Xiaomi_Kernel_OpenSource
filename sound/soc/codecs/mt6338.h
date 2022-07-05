@@ -22793,6 +22793,7 @@ struct mt6338_priv {
 	int reg_afe_vow_vad_cfg5;
 	int reg_afe_vow_periodic;
 	unsigned int vow_channel;
+	unsigned int vow_pbuf_active_bit;
 	struct mt6338_vow_periodic_on_off_data vow_periodic_param;
 	/* vow dmic low power mode, 1: enable, 0: disable */
 	int vow_dmic_lp;

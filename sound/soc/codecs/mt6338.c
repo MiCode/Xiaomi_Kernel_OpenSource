@@ -1238,20 +1238,10 @@ static int vow_pbuf_ch_get(struct snd_kcontrol *kcontrol,
 	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
 	struct mt6338_priv *priv = snd_soc_component_get_drvdata(cmpnt);
 	unsigned int value = 0;
-	unsigned int i = 0;
-	unsigned int vow_ch = priv->vow_channel;
-	unsigned int pbuf_ch = 0;
-	unsigned int pbuf_active = 0;
+	unsigned int pbuf_active = priv->vow_pbuf_active_bit;
 
 	regmap_read(priv->regmap, MT6338_AUDIO_VAD_PBUF_CON1, &value);
-	/* pbuf reg: [7:6]CH3_SEL,[5:4]CH2_SEL,[3:2]CH1_SEL,[1:0]CH0_SEL */
-	/* change into 4bits, pbuf_active = [3]CH3, [2]CH2, [1]CH1, [0]CH0 */
-	/* ex: pbuf reg = 0xE, means CH0_SEL=mic2, CH1_SEL=mic3 */
-	/*     => pbuf_active = 0xC, means CH2 & CH3 is active */
-	for (i = 0; i < vow_ch; i++) {
-		pbuf_ch = (value >> (2 * i)) & 0x3;
-		pbuf_active |= (0x01 << pbuf_ch);
-	}
+
 	dev_info(priv->dev, "%s(), VAD_PBUF_CON1=0x%x, pbuf_active 0x%x\n",
 		 __func__,
 		 value,
@@ -4249,8 +4239,24 @@ static int mt_vow_digital_cfg_event(struct snd_soc_dapm_widget *w,
 {
 	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
 	struct mt6338_priv *priv = snd_soc_component_get_drvdata(cmpnt);
+	unsigned int value = 0;
+	unsigned int i = 0;
+	unsigned int vow_ch = priv->vow_channel;
+	unsigned int pbuf_ch = 0;
+	unsigned int pbuf_active = 0;
 
 	dev_info(priv->dev, "%s(), event = 0x%x\n", __func__, event);
+
+	regmap_read(priv->regmap, MT6338_AUDIO_VAD_PBUF_CON1, &value);
+	/* pbuf reg: [7:6]CH3_SEL,[5:4]CH2_SEL,[3:2]CH1_SEL,[1:0]CH0_SEL */
+	/* change into 4bits, pbuf_active = [3]CH3, [2]CH2, [1]CH1, [0]CH0 */
+	/* ex: pbuf reg = 0xE, means CH0_SEL=mic2, CH1_SEL=mic3 */
+	/*     => pbuf_active = 0xC, means CH2 & CH3 is active */
+	for (i = 0; i < vow_ch; i++) {
+		pbuf_ch = (value >> (2 * i)) & 0x3;
+		pbuf_active |= (0x01 << pbuf_ch);
+	}
+	priv->vow_pbuf_active_bit = pbuf_active;
 
 	switch (event) {
 	case SND_SOC_DAPM_POST_PMU:
@@ -4298,39 +4304,43 @@ static int mt_vow_digital_cfg_event(struct snd_soc_dapm_widget *w,
 			VOW_INTR_SOURCE_SEL_CH4_MASK_SFT,
 			0x1 << VOW_INTR_SOURCE_SEL_CH4_SFT);
 
-		regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG1,
-			     priv->reg_afe_vow_vad_cfg0 & 0xff);
-		regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG0,
-			     priv->reg_afe_vow_vad_cfg0 >> 8);
+		//ch 1 hw vad setting
+		if (pbuf_active & 0x1) {
+			regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG1,
+				     priv->reg_afe_vow_vad_cfg0 & 0xff);
+			regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG0,
+				     priv->reg_afe_vow_vad_cfg0 >> 8);
 
-		regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG9,
-			     priv->reg_afe_vow_vad_cfg1 & 0xff);
-		regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG8,
-			     priv->reg_afe_vow_vad_cfg1 >> 8);
+			regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG9,
+				     priv->reg_afe_vow_vad_cfg1 & 0xff);
+			regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG8,
+				     priv->reg_afe_vow_vad_cfg1 >> 8);
 
-		regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG17,
-			     priv->reg_afe_vow_vad_cfg2 & 0xff);
-		regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG16,
-			     priv->reg_afe_vow_vad_cfg2 >> 8);
+			regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG17,
+				     priv->reg_afe_vow_vad_cfg2 & 0xff);
+			regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG16,
+				     priv->reg_afe_vow_vad_cfg2 >> 8);
 
-		regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG25,
-			     priv->reg_afe_vow_vad_cfg3 & 0xff);
-		regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG24,
-			     priv->reg_afe_vow_vad_cfg3 >> 8);
+			regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG25,
+				     priv->reg_afe_vow_vad_cfg3 & 0xff);
+			regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG24,
+				     priv->reg_afe_vow_vad_cfg3 >> 8);
 
-		regmap_update_bits(priv->regmap, MT6338_AFE_VOW_VAD_CFG48,
-				 K_GAMMA_CH1_MASK_SFT,
-				 priv->reg_afe_vow_vad_cfg4
-				 << K_GAMMA_CH1_SFT);
-		regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG33,
-			     priv->reg_afe_vow_vad_cfg5 & 0xff);
-		regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG32,
-			     priv->reg_afe_vow_vad_cfg5 >> 8);
-		regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG50, 0x7f);
-		regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG51, 0x00);
-		regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG52, 0x00);
-		regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG53, 0x00);
-		if (priv->vow_channel == 2) {
+			regmap_update_bits(priv->regmap, MT6338_AFE_VOW_VAD_CFG48,
+					   K_GAMMA_CH1_MASK_SFT,
+					   priv->reg_afe_vow_vad_cfg4
+					   << K_GAMMA_CH1_SFT);
+			regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG33,
+				     priv->reg_afe_vow_vad_cfg5 & 0xff);
+			regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG32,
+				     priv->reg_afe_vow_vad_cfg5 >> 8);
+			regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG50, 0x7f);
+			regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG51, 0x00);
+			regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG52, 0x00);
+			regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG53, 0x00);
+		}
+		//ch 2 hw vad setting
+		if (pbuf_active & 0x2) {
 			regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG3,
 				     priv->reg_afe_vow_vad_cfg0 & 0xff);
 			regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG2,
@@ -4364,6 +4374,78 @@ static int mt_vow_digital_cfg_event(struct snd_soc_dapm_widget *w,
 			regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG55, 0x00);
 			regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG56, 0x00);
 			regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG57, 0x00);
+		}
+		//ch 3 hw vad setting
+		if (pbuf_active & 0x4) {
+			regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG5,
+				     priv->reg_afe_vow_vad_cfg0 & 0xff);
+			regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG4,
+				     priv->reg_afe_vow_vad_cfg0 >> 8);
+
+			regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG13,
+				     priv->reg_afe_vow_vad_cfg1 & 0xff);
+			regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG12,
+				     priv->reg_afe_vow_vad_cfg1 >> 8);
+
+			regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG21,
+				     priv->reg_afe_vow_vad_cfg2 & 0xff);
+			regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG20,
+				     priv->reg_afe_vow_vad_cfg2 >> 8);
+
+			regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG29,
+				     priv->reg_afe_vow_vad_cfg3 & 0xff);
+			regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG28,
+				     priv->reg_afe_vow_vad_cfg3 >> 8);
+
+			regmap_update_bits(priv->regmap, MT6338_AFE_VOW_VAD_CFG49,
+					   K_GAMMA_CH3_MASK_SFT,
+					   priv->reg_afe_vow_vad_cfg4
+					   << K_GAMMA_CH3_SFT);
+
+			regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG37,
+				     priv->reg_afe_vow_vad_cfg5 & 0xff);
+			regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG36,
+				     priv->reg_afe_vow_vad_cfg5 >> 8);
+			regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG58, 0x7f);
+			regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG59, 0x00);
+			regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG60, 0x00);
+			regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG61, 0x00);
+		}
+		//ch 4 hw vad setting
+		if (pbuf_active & 0x8) {
+			regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG7,
+				     priv->reg_afe_vow_vad_cfg0 & 0xff);
+			regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG6,
+				     priv->reg_afe_vow_vad_cfg0 >> 8);
+
+			regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG15,
+				     priv->reg_afe_vow_vad_cfg1 & 0xff);
+			regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG14,
+				     priv->reg_afe_vow_vad_cfg1 >> 8);
+
+			regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG23,
+				     priv->reg_afe_vow_vad_cfg2 & 0xff);
+			regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG22,
+				     priv->reg_afe_vow_vad_cfg2 >> 8);
+
+			regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG31,
+				     priv->reg_afe_vow_vad_cfg3 & 0xff);
+			regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG30,
+				     priv->reg_afe_vow_vad_cfg3 >> 8);
+
+			regmap_update_bits(priv->regmap, MT6338_AFE_VOW_VAD_CFG49,
+					   K_GAMMA_CH4_MASK_SFT,
+					   priv->reg_afe_vow_vad_cfg4
+					   << K_GAMMA_CH4_SFT);
+
+			regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG39,
+				     priv->reg_afe_vow_vad_cfg5 & 0xff);
+			regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG38,
+				     priv->reg_afe_vow_vad_cfg5 >> 8);
+			regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG62, 0x7f);
+			regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG63, 0x00);
+			regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG64, 0x00);
+			regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG65, 0x00);
 		}
 		/* end of power up vow */
 		priv->vow_setup = 0;
