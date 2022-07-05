@@ -6644,6 +6644,8 @@
 			shared-emi-size = <0x180000>;
 			mnl-mpe-emi-size = <0x3ee000>;
 			scp-shm-size = <0xa2000>;
+			scp-remap-offset = <0x58EC00>;
+			scp-remap-size = <0x62A400>;
 			gps-emi-offset = <0x630000>;
 			gps-emi-size = <0x140000>;
 			emi-alignment = <0x100000>;
