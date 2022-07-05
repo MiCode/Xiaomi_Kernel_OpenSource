@@ -92,6 +92,27 @@
 #define MTK_LCM_MULTI_TE					2
 #define MTK_LCM_TRIGGER_LEVEL_TE  				4
 
+/* redefine enum SPR_COLOR_PARAMS_TYPE macro for dts settings*/
+#define MTK_LCM_SPR_WEIGHT_SET					0
+#define MTK_LCM_SPR_BORDER_SET					1
+#define MTK_LCM_SPR_SPE_SET					2
+
+/* redefine enum MTK_PANEL_SPR_OUTPUT_MODE macro for dts settings */
+#define MTK_LCM_SPR_OUTPUT_MODE_NOT_DEFINED			0
+#define MTK_LCM_PACKED_SPR_8_BITS				1
+#define MTK_LCM_lOOSELY_SPR_8_BITS				2
+#define MTK_LCM_lOOSELY_SPR_10_BITS				3
+#define MTK_LCM_PACKED_SPR_12_BITS				4
+
+/* redefine enum MTK_PANEL_SPR_MODE macro for dts settings */
+#define MTK_LCM_RGBG_BGRG_TYPE					0
+#define MTK_LCM_BGRG_RGBG_TYPE					1
+#define MTK_LCM_RGBRGB_BGRBGR_TYPE				2
+#define MTK_LCM_BGRBGR_RGBRGB_TYPE				3
+#define MTK_LCM_RGBRGB_BRGBRG_TYPE				4
+#define MTK_LCM_BRGBRG_RGBRGB_TYPE				5
+#define MTK_LCM_EXT_TYPE					6
+
 /* LCM_FUNC used for common operation */
 #define MTK_LCM_FUNC_DBI					0
 #define MTK_LCM_FUNC_DPI					1
