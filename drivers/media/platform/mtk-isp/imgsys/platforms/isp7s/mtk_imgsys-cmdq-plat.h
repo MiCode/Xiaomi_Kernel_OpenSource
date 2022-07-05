@@ -76,6 +76,11 @@
 #define IMGSYS_QOS_4K_60_BW_0	2244
 #define IMGSYS_QOS_4K_60_BW_1	2360
 
+#define IMGSYS_DVFS_MAX_VOLT	700000
+#define IMGSYS_DVFS_MHz			1000000
+#define IMGSYS_DVFS_RATIO_L		4
+#define IMGSYS_DVFS_RATIO_H		6
+
 enum mtk_imgsys_event {
 	/* HW event */
 	IMGSYS_CMDQ_EVENT_IMG_TRAW0_CQ_THR_DONE_TRAW0_0 = 0,
@@ -1017,6 +1022,7 @@ void mtk_imgsys_mmdvfs_uninit_plat7s(struct mtk_imgsys_dev *imgsys_dev);
 void mtk_imgsys_mmdvfs_set_plat7s(struct mtk_imgsys_dev *imgsys_dev,
 				struct swfrm_info_t *frm_info,
 				bool isSet);
+void mtk_imgsys_mmdvfs_reset_plat7s(struct mtk_imgsys_dev *imgsys_dev);
 void mtk_imgsys_mmqos_init_plat7s(struct mtk_imgsys_dev *imgsys_dev);
 void mtk_imgsys_mmqos_uninit_plat7s(struct mtk_imgsys_dev *imgsys_dev);
 void mtk_imgsys_mmqos_set_by_scen_plat7s(struct mtk_imgsys_dev *imgsys_dev,
@@ -1042,5 +1048,6 @@ bool imgsys_dvfs_dbg_enable_plat7s(void);
 bool imgsys_qos_dbg_enable_plat7s(void);
 bool imgsys_quick_onoff_enable_plat7s(void);
 bool imgsys_fence_dbg_enable_plat7s(void);
+bool imgsys_fine_grain_dvfs_enable_plat7s(void);
 #endif /* _MTK_IMGSYS_CMDQ_PLAT_7S_H_ */
 

@@ -231,9 +231,16 @@ struct mtk_imgsys_dvfs {
 	struct device *dev;
 	struct regulator *reg;
 	struct clk *mmdvfs_clk;
+	unsigned int opp_num;
+	unsigned int clklv_num_dts[MTK_IMGSYS_OPP_SET];
+	unsigned int clklv_dts[MTK_IMGSYS_OPP_SET][MTK_IMGSYS_CLK_LEVEL_CNT];
+	unsigned int voltlv_dts[MTK_IMGSYS_OPP_SET][MTK_IMGSYS_CLK_LEVEL_CNT];
+	unsigned int clklv_num_fg[MTK_IMGSYS_OPP_SET];
+	unsigned int clklv_fg[MTK_IMGSYS_OPP_SET][MTK_IMGSYS_CLK_LEVEL_CNT*2];
+	unsigned int voltlv_fg[MTK_IMGSYS_OPP_SET][MTK_IMGSYS_CLK_LEVEL_CNT*2];
 	unsigned int clklv_num[MTK_IMGSYS_OPP_SET];
-	unsigned int clklv[MTK_IMGSYS_OPP_SET][MTK_IMGSYS_CLK_LEVEL_CNT];
-	unsigned int voltlv[MTK_IMGSYS_OPP_SET][MTK_IMGSYS_CLK_LEVEL_CNT];
+	unsigned int clklv[MTK_IMGSYS_OPP_SET][MTK_IMGSYS_CLK_LEVEL_CNT*2];
+	unsigned int voltlv[MTK_IMGSYS_OPP_SET][MTK_IMGSYS_CLK_LEVEL_CNT*2];
 	unsigned int clklv_idx[MTK_IMGSYS_OPP_SET];
 	unsigned int clklv_target[MTK_IMGSYS_OPP_SET];
 	unsigned int cur_volt;

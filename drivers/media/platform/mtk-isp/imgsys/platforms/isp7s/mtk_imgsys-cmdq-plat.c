@@ -157,6 +157,7 @@ void imgsys_cmdq_streamon_plat7s(struct mtk_imgsys_dev *imgsys_dev)
 	memset((void *)event_hist, 0x0,
 		sizeof(struct imgsys_event_history)*IMGSYS_CMDQ_SYNC_POOL_NUM);
 #if DVFS_QOS_READY
+	mtk_imgsys_mmdvfs_reset_plat7s(imgsys_dev);
 	mtk_imgsys_mmqos_reset_plat7s(imgsys_dev);
 	mtk_imgsys_mmqos_monitor_plat7s(imgsys_dev, SMI_MONITOR_START_STATE);
 #endif
@@ -1797,14 +1798,27 @@ void mtk_imgsys_mmdvfs_init_plat7s(struct mtk_imgsys_dev *imgsys_dev)
 			child_np = of_get_next_available_child(np, child_np);
 			if (child_np) {
 				of_property_read_u64(child_np, "opp-hz", &freq);
-				dvfs_info->clklv[opp_idx][idx] = freq;
 				of_property_read_u32(child_np, "opp-microvolt", &volt);
-				dvfs_info->voltlv[opp_idx][idx] = volt;
+				if ((freq == 0) || (volt == 0)) {
+					dev_info(
+						dvfs_info->dev,
+						"%s: [ERROR] parsing zero freq/volt(%d/%d) at idx(%d)\n",
+						__func__, freq, volt, idx);
+					continue;
+				} else if (volt > IMGSYS_DVFS_MAX_VOLT) {
+					dev_info(
+						dvfs_info->dev,
+						"%s: [ERROR] volt(%d) is over maximum(%d) at idx(%d)\n",
+						__func__, volt, IMGSYS_DVFS_MAX_VOLT, idx);
+					break;
+				}
+				dvfs_info->clklv_dts[opp_idx][idx] = freq;
+				dvfs_info->voltlv_dts[opp_idx][idx] = volt;
 				idx++;
 			}
 		} while (child_np);
-		dvfs_info->clklv_num[opp_idx] = idx;
-		dvfs_info->clklv_target[opp_idx] = dvfs_info->clklv[opp_idx][0];
+		dvfs_info->clklv_num_dts[opp_idx] = idx;
+		dvfs_info->clklv_target[opp_idx] = dvfs_info->clklv_dts[opp_idx][0];
 		dvfs_info->clklv_idx[opp_idx] = 0;
 		idx = 0;
 		opp_idx++;
@@ -1813,16 +1827,55 @@ void mtk_imgsys_mmdvfs_init_plat7s(struct mtk_imgsys_dev *imgsys_dev)
 
 	opp_num = opp_idx;
 	for (opp_idx = 0; opp_idx < opp_num; opp_idx++) {
-		for (idx = 0; idx < dvfs_info->clklv_num[opp_idx]; idx++) {
-			dev_info(dvfs_info->dev, "[%s] opp=%d, idx=%d, clk=%d volt=%d\n",
-				__func__, opp_idx, idx, dvfs_info->clklv[opp_idx][idx],
-				dvfs_info->voltlv[opp_idx][idx]);
+		for (idx = 0; idx < dvfs_info->clklv_num_dts[opp_idx]; idx++) {
+			dev_info(dvfs_info->dev, "[%s] opp=%d, idx_dts=%d, clk_dts=%d volt_dts=%d\n",
+				__func__, opp_idx, idx, dvfs_info->clklv_dts[opp_idx][idx],
+				dvfs_info->voltlv_dts[opp_idx][idx]);
 		}
 	}
+
+	/* For fine grain dvfs */
+	for (opp_idx = 0; opp_idx < opp_num; opp_idx++) {
+		idx = 0;
+		dvfs_info->clklv_num_fg[opp_idx] =
+			dvfs_info->clklv_num_dts[opp_idx] * 2 - 1;
+		dvfs_info->clklv_fg[opp_idx][idx] = dvfs_info->clklv_dts[opp_idx][idx];
+		dvfs_info->voltlv_fg[opp_idx][idx] = dvfs_info->voltlv_dts[opp_idx][idx];
+		dev_info(dvfs_info->dev, "[%s] opp=%d, idx_fg=%d, clk_fg=%d volt_fg=%d\n",
+			__func__, opp_idx, idx,
+			dvfs_info->clklv_fg[opp_idx][idx],
+			dvfs_info->voltlv_fg[opp_idx][idx]);
+		for (idx = 1; idx < dvfs_info->clklv_num_dts[opp_idx]; idx++) {
+			dvfs_info->clklv_fg[opp_idx][idx*2-1] =
+				(((dvfs_info->clklv_dts[opp_idx][idx-1] / IMGSYS_DVFS_MHz) *
+				IMGSYS_DVFS_RATIO_L +
+				(dvfs_info->clklv_dts[opp_idx][idx] / IMGSYS_DVFS_MHz) *
+				IMGSYS_DVFS_RATIO_H) /
+				(IMGSYS_DVFS_RATIO_L + IMGSYS_DVFS_RATIO_H)) * IMGSYS_DVFS_MHz;
+			dvfs_info->voltlv_fg[opp_idx][idx*2-1] =
+				(dvfs_info->voltlv_dts[opp_idx][idx-1] * IMGSYS_DVFS_RATIO_L +
+				dvfs_info->voltlv_dts[opp_idx][idx] * IMGSYS_DVFS_RATIO_H) /
+				(IMGSYS_DVFS_RATIO_L + IMGSYS_DVFS_RATIO_H);
+			dvfs_info->clklv_fg[opp_idx][idx*2] =
+				dvfs_info->clklv_dts[opp_idx][idx];
+			dvfs_info->voltlv_fg[opp_idx][idx*2] =
+				dvfs_info->voltlv_dts[opp_idx][idx];
+			dev_info(dvfs_info->dev, "[%s] opp=%d, idx_fg=%d, clk_fg=%d volt_fg=%d\n",
+				__func__, opp_idx, idx*2-1,
+				dvfs_info->clklv_fg[opp_idx][idx*2-1],
+				dvfs_info->voltlv_fg[opp_idx][idx*2-1]);
+			dev_info(dvfs_info->dev, "[%s] opp=%d, idx_fg=%d, clk_fg=%d volt_fg=%d\n",
+				__func__, opp_idx, idx*2,
+				dvfs_info->clklv_fg[opp_idx][idx*2],
+				dvfs_info->voltlv_fg[opp_idx][idx*2]);
+		}
+	}
+
 	dvfs_info->cur_volt = 0;
 	dvfs_info->cur_freq = 0;
 	dvfs_info->vss_task_cnt = 0;
 	dvfs_info->smvr_task_cnt = 0;
+	dvfs_info->opp_num = opp_num;
 
 }
 
@@ -1889,6 +1942,44 @@ void mtk_imgsys_mmdvfs_set_plat7s(struct mtk_imgsys_dev *imgsys_dev,
 			dvfs_info->cur_freq = freq;
 		}
 	}
+}
+
+void mtk_imgsys_mmdvfs_reset_plat7s(struct mtk_imgsys_dev *imgsys_dev)
+{
+	struct mtk_imgsys_dvfs *dvfs_info = &imgsys_dev->dvfs_info;
+	unsigned int *clklv = NULL, *voltlv = NULL;
+	int idx = 0, opp_idx = 0;
+
+	for (opp_idx = 0; opp_idx < dvfs_info->opp_num; opp_idx++) {
+		if (imgsys_fine_grain_dvfs_enable_plat7s()) {
+			dvfs_info->clklv_num[opp_idx] = dvfs_info->clklv_num_fg[opp_idx];
+			clklv = &dvfs_info->clklv_fg[opp_idx][0];
+			voltlv = &dvfs_info->voltlv_fg[opp_idx][0];
+		} else {
+			dvfs_info->clklv_num[opp_idx] = dvfs_info->clklv_num_dts[opp_idx];
+			clklv = &dvfs_info->clklv_dts[opp_idx][0];
+			voltlv = &dvfs_info->voltlv_dts[opp_idx][0];
+		}
+		dev_info(dvfs_info->dev, "[%s] fine grain(%d), opp=%d, clk_num=%d\n",
+			__func__, imgsys_fine_grain_dvfs_enable_plat7s(),
+			opp_idx, dvfs_info->clklv_num[opp_idx]);
+		for (idx = 0; idx < dvfs_info->clklv_num[opp_idx]; idx++) {
+			dvfs_info->clklv[opp_idx][idx] = clklv[idx];
+			dvfs_info->voltlv[opp_idx][idx] = voltlv[idx];
+			dev_dbg(dvfs_info->dev, "[%s] opp=%d, idx=%d, clk=%d volt=%d\n",
+				__func__, opp_idx, idx,
+				dvfs_info->clklv[opp_idx][idx],
+				dvfs_info->voltlv[opp_idx][idx]);
+		}
+	}
+
+	for (idx = 0; idx < MTK_IMGSYS_DVFS_GROUP; idx++)
+		dvfs_info->pixel_size[idx] = 0;
+
+	dvfs_info->cur_volt = 0;
+	dvfs_info->cur_freq = 0;
+	dvfs_info->vss_task_cnt = 0;
+	dvfs_info->smvr_task_cnt = 0;
 }
 
 void mtk_imgsys_mmqos_init_plat7s(struct mtk_imgsys_dev *imgsys_dev)
@@ -2451,6 +2542,11 @@ bool imgsys_quick_onoff_enable_plat7s(void)
 bool imgsys_fence_dbg_enable_plat7s(void)
 {
 	return imgsys_fence_dbg_en;
+}
+
+bool imgsys_fine_grain_dvfs_enable_plat7s(void)
+{
+	return imgsys_fine_grain_dvfs_en;
 }
 
 struct imgsys_cmdq_cust_data imgsys_cmdq_data_7s = {
