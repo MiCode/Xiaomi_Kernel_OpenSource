@@ -663,7 +663,7 @@ static void mtk_vcodec_build_log_string(struct mtk_vcodec_dev *dev,
 	struct mutex *plist_mutex;
 	char *vdec_temp_str;
 	char *venc_temp_str;
-	int sl = 0;
+	int sl = 0, sl_temp = 0;
 
 	if (log_index == MTK_VCODEC_LOG_INDEX_LOG) {
 		plist = &dev->log_param_list;
@@ -688,11 +688,17 @@ static void mtk_vcodec_build_log_string(struct mtk_vcodec_dev *dev,
 		list_for_each_entry(pram, plist, list) {
 			mtk_v4l2_debug(8, "existed log param %s: %s\n",
 					pram->param_key, pram->param_val);
-			if (sl >= 0 && sl < LOG_PROPERTY_SIZE && LOG_PROPERTY_SIZE - sl > 0)
-				sl = snprintf(vdec_temp_str + sl, LOG_PROPERTY_SIZE - sl, "%s %s",
-						pram->param_key, pram->param_val);
+			if (sl >= 0 && sl < LOG_PROPERTY_SIZE && LOG_PROPERTY_SIZE - sl > 0) {
+				sl_temp = snprintf(vdec_temp_str + sl, LOG_PROPERTY_SIZE - sl,
+						"%s %s ", pram->param_key, pram->param_val);
+				if (sl_temp)
+					sl += sl_temp;
+				else
+					mtk_v4l2_err("venc_temp_str err usage:sl_temp: %d",
+							sl_temp);
+			}
 			else
-				mtk_v4l2_err("venc_temp_str err usage: %d", sl);
+				mtk_v4l2_err("venc_temp_str err usage:sl: %d", sl);
 		}
 		if (log_index == MTK_VCODEC_LOG_INDEX_LOG) {
 			mtk_vdec_vcp_log = vdec_temp_str;
@@ -707,9 +713,15 @@ static void mtk_vcodec_build_log_string(struct mtk_vcodec_dev *dev,
 		list_for_each_entry(pram, plist, list) {
 			mtk_v4l2_debug(8, "existed log param %s: %s\n",
 					pram->param_key, pram->param_val);
-			if (sl >= 0 && sl < LOG_PROPERTY_SIZE && LOG_PROPERTY_SIZE - sl > 0)
-				sl = snprintf(venc_temp_str + sl, LOG_PROPERTY_SIZE - sl, "%s %s",
-						pram->param_key, pram->param_val);
+			if (sl >= 0 && sl < LOG_PROPERTY_SIZE && LOG_PROPERTY_SIZE - sl > 0) {
+				sl_temp = snprintf(venc_temp_str + sl, LOG_PROPERTY_SIZE - sl,
+						"%s %s ", pram->param_key, pram->param_val);
+				if (sl_temp)
+					sl += sl_temp;
+				else
+					mtk_v4l2_err("venc_temp_str err usage:sl_temp: %d",
+							sl_temp);
+			}
 			else
 				mtk_v4l2_err("venc_temp_str err usage: %d", sl);
 		}
