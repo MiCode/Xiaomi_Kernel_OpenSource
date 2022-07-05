@@ -3323,6 +3323,13 @@ static const struct mtk_crtc_path_data mt6895_mtk_ext_path_data = {
 	.dual_path_len[0] = ARRAY_SIZE(mt6895_dual_data_ext),
 };
 
+static const struct mtk_crtc_path_data mt6886_mtk_ext_path_data = {
+	.is_fake_path = true,
+	.path[DDP_MAJOR][0] = mt6886_mtk_ddp_third,
+	.path_len[DDP_MAJOR][0] = ARRAY_SIZE(mt6886_mtk_ddp_third),
+	.addon_data = mt6886_addon_ext,
+};
+
 static const struct mtk_crtc_path_data mt6895_mtk_third_path_data = {
 	.path[DDP_MAJOR][0] = mt6895_mtk_ddp_third,
 	.path_len[DDP_MAJOR][0] = ARRAY_SIZE(mt6895_mtk_ddp_third),
@@ -3938,7 +3945,7 @@ static const struct mtk_mmsys_driver_data mt6886_mmsys_driver_data = {
 	 * mt6886 not support dp path will use third path as ext_path_data
 	 * to avoid crtc_id is 1 for third path
 	 */
-	.ext_path_data = &mt6886_mtk_third_path_data,
+	.ext_path_data = &mt6886_mtk_ext_path_data,
 	/* WFD path */
 	.third_path_data = &mt6886_mtk_third_path_data,
 	.fake_eng_data = &mt6895_fake_eng_data,

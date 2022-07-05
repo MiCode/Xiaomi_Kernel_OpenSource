@@ -11601,6 +11601,17 @@ int mtk_drm_crtc_create(struct drm_device *drm_dev,
 	if (ret < 0)
 		return ret;
 
+	/*
+	 * Workaround:
+	 * If is_fake_path=true, the path is not used and it only creat a crtc structure to
+	 * ensure next crtc can be created.
+	 */
+	if (path_data->is_fake_path) {
+		mtk_crtc->wb_connector.base.connector_type = DRM_MODE_CONNECTOR_DisplayPort;
+		DDPMSG("%s, set CRTC%d connector type is invalid(%d)\n",
+		       __func__, drm_crtc_index(&mtk_crtc->base),
+		       mtk_crtc->wb_connector.base.connector_type);
+	}
 	output_comp = mtk_ddp_comp_request_output(mtk_crtc);
 	if (output_comp)
 		mtk_ddp_comp_io_cmd(output_comp, NULL, REQ_PANEL_EXT,

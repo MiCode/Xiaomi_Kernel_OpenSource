@@ -523,6 +523,7 @@ enum PF_TS_TYPE {
 };
 
 struct mtk_crtc_path_data {
+	bool is_fake_path;
 	const enum mtk_ddp_comp_id *path[DDP_MODE_NR][DDP_PATH_NR];
 	unsigned int path_len[DDP_MODE_NR][DDP_PATH_NR];
 	bool path_req_hrt[DDP_MODE_NR][DDP_PATH_NR];
