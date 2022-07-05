@@ -41,7 +41,6 @@ int g_uarthub_disable;
 static struct notifier_block uarthub_fb_notifier;
 spinlock_t g_clear_trx_req_lock;
 struct workqueue_struct *uarthub_workqueue;
-static struct hrtimer dump_hrtimer;
 
 #define DBG_LOG_LEN 1024
 
@@ -52,8 +51,9 @@ static struct hrtimer dump_hrtimer;
 #define SUPPORT_SSPM_DRIVER 1
 #define UARTHUB_ASSERT_BIT_DISABLE_MD_ADSP_FIFO 0
 #define UARTHUB_ERR_IRQ_DUMP_WORKER 1
-#define UARTHUB_DUMP_DEBUG_LOOP_MS 1
+#define UARTHUB_DEFAULT_DUMP_DEBUG_LOOP_MS 10
 #define UARTHUB_DUMP_DEBUG_LOOP_ENABLE 0
+#define UARTHUB_SLEEP_WAKEUP_TEST 0
 
 #if !(SUPPORT_SSPM_DRIVER)
 #ifdef INIT_UARTHUB_DEFAULT
@@ -63,8 +63,14 @@ static struct hrtimer dump_hrtimer;
 #endif
 
 struct uarthub_reg_base_addr reg_base_addr;
-struct uarthub_gpio_trx_info gpio_base_addr;
 struct uarthub_ops_struct *g_uarthub_plat_ic_ops;
+static struct hrtimer dump_hrtimer;
+#if UARTHUB_SLEEP_WAKEUP_TEST
+static struct hrtimer sleep_wakeup_test_hrtimer;
+#endif
+
+int g_enable_dump_loop;
+int g_dump_loop_dur_ms = UARTHUB_DEFAULT_DUMP_DEBUG_LOOP_MS;
 
 void __iomem *cmm_base_remap_addr;
 void __iomem *dev0_base_remap_addr;
@@ -81,6 +87,9 @@ static void trigger_assert_worker_handler(struct work_struct *work);
 static void debug_info_worker_handler(struct work_struct *work);
 static int uarthub_fb_notifier_callback(struct notifier_block *nb, unsigned long value, void *v);
 static enum hrtimer_restart dump_hrtimer_handler_cb(struct hrtimer *hrt);
+#if UARTHUB_SLEEP_WAKEUP_TEST
+static enum hrtimer_restart sleep_wakeup_test_hrtimer_handler_cb(struct hrtimer *hrt);
+#endif
 
 #if IS_ENABLED(CONFIG_OF)
 struct uarthub_ops_struct __weak mt6886_plat_data = {};
@@ -252,8 +261,18 @@ static int uarthub_core_init(void)
 
 	spin_lock_init(&g_clear_trx_req_lock);
 
+#if UARTHUB_SLEEP_WAKEUP_TEST
+	hrtimer_init(&sleep_wakeup_test_hrtimer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+	sleep_wakeup_test_hrtimer.function = sleep_wakeup_test_hrtimer_handler_cb;
+	hrtimer_start(&sleep_wakeup_test_hrtimer, ms_to_ktime(1000 * 30), HRTIMER_MODE_REL);
+#endif
+
 	hrtimer_init(&dump_hrtimer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
 	dump_hrtimer.function = dump_hrtimer_handler_cb;
+#if UARTHUB_DUMP_DEBUG_LOOP_ENABLE
+	uarthub_core_dump_trx_info_loop_ctrl(1, UARTHUB_DEFAULT_DUMP_DEBUG_LOOP_MS);
+#endif
+	uarthub_core_dump_trx_info_loop_trigger();
 
 	return 0;
 
@@ -275,7 +294,7 @@ static enum hrtimer_restart dump_hrtimer_handler_cb(struct hrtimer *hrt)
 {
 	unsigned long flags;
 
-	hrtimer_forward_now(hrt, ms_to_ktime(UARTHUB_DUMP_DEBUG_LOOP_MS));
+	hrtimer_forward_now(hrt, ms_to_ktime(g_dump_loop_dur_ms));
 
 	spin_lock_irqsave(&g_clear_trx_req_lock, flags);
 	uarthub_core_debug_uart_ip_info_loop();
@@ -283,6 +302,221 @@ static enum hrtimer_restart dump_hrtimer_handler_cb(struct hrtimer *hrt)
 
 	return HRTIMER_RESTART;
 }
+
+#if UARTHUB_SLEEP_WAKEUP_TEST
+static enum hrtimer_restart sleep_wakeup_test_hrtimer_handler_cb(struct hrtimer *hrt)
+{
+	static int s_is_uarthub_wakeup;
+	static unsigned long long test_count = 1;
+	int APB_BUS_CLK = 0;
+	int CLK_GATING = 0;
+	int SPM_RES1 = 0;
+	int SPM_RES2 = 0;
+	int UNIVPLL_VOTE = 0;
+	int UNIVPLL_ON = 0;
+	int UART_MUX = 0;
+	unsigned char dmp_info_buf[DBG_LOG_LEN];
+	int len = 0;
+
+	hrtimer_forward_now(hrt, ms_to_ktime(1000 * 15));
+
+	pr_info("[dvt2_test]\n");
+
+	APB_BUS_CLK = 0;
+	CLK_GATING = 0;
+	SPM_RES1 = 0;
+	SPM_RES2 = 0;
+	UNIVPLL_VOTE = 0;
+	UNIVPLL_ON = 0;
+	UART_MUX = 0;
+	len = 0;
+	APB_BUS_CLK = uarthub_core_is_apb_bus_clk_enable();
+	len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len, "APB_BUS_CLK=[0x%x]", APB_BUS_CLK);
+
+	if (g_uarthub_plat_ic_ops &&
+			g_uarthub_plat_ic_ops->uarthub_plat_get_uarthub_clk_gating_info) {
+		CLK_GATING = g_uarthub_plat_ic_ops->uarthub_plat_get_uarthub_clk_gating_info();
+		if (CLK_GATING >= 0) {
+			/* the expect value is 0x0 */
+			len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
+				"___CLK_GATING=[0x%x]", CLK_GATING);
+		}
+	}
+
+	if (g_uarthub_plat_ic_ops &&
+			g_uarthub_plat_ic_ops->uarthub_plat_get_spm_res_1_info) {
+		SPM_RES1 = g_uarthub_plat_ic_ops->uarthub_plat_get_spm_res_1_info();
+		if (SPM_RES1 >= 0) {
+			/* the expect value is 0x1D */
+			len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
+				"___SPM_RES1=[0x%x]", SPM_RES1);
+		}
+	}
+
+	if (g_uarthub_plat_ic_ops &&
+			g_uarthub_plat_ic_ops->uarthub_plat_get_spm_res_2_info) {
+		SPM_RES2 = g_uarthub_plat_ic_ops->uarthub_plat_get_spm_res_2_info();
+		if (SPM_RES2 >= 0) {
+			/* the expect value is 0x17 */
+			len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
+				"___SPM_RES2=[0x%x]", SPM_RES2);
+		}
+	}
+
+	if (g_uarthub_plat_ic_ops &&
+			g_uarthub_plat_ic_ops->uarthub_plat_get_hwccf_univpll_vote_info) {
+		UNIVPLL_VOTE = g_uarthub_plat_ic_ops->uarthub_plat_get_hwccf_univpll_vote_info();
+		if (UNIVPLL_VOTE >= 0) {
+			/* the expect value is 0x1 */
+			len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
+				"___UNIVPLL_VOTE=[0x%x]", UNIVPLL_VOTE);
+		}
+	}
+
+	if (g_uarthub_plat_ic_ops &&
+			g_uarthub_plat_ic_ops->uarthub_plat_get_hwccf_univpll_on_info) {
+		UNIVPLL_ON = g_uarthub_plat_ic_ops->uarthub_plat_get_hwccf_univpll_on_info();
+		if (UNIVPLL_ON >= 0) {
+			/* the expect value is 0x1 */
+			len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
+				"___UNIVPLL_ON=[0x%x]", UNIVPLL_ON);
+		}
+	}
+
+	if (g_uarthub_plat_ic_ops && g_uarthub_plat_ic_ops->uarthub_plat_get_uart_mux_info) {
+		UART_MUX = g_uarthub_plat_ic_ops->uarthub_plat_get_uart_mux_info();
+		if (UART_MUX >= 0) {
+			/* the expect value is 0x2 */
+			len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
+				"___UART_MUX=[0x%x]", UART_MUX);
+		}
+	}
+
+	len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
+		"___INTFHUB_DEVx_STA=[0x%x-0x%x-0x%x]",
+		UARTHUB_REG_READ(UARTHUB_INTFHUB_DEV0_STA(intfhub_base_remap_addr)),
+		UARTHUB_REG_READ(UARTHUB_INTFHUB_DEV1_STA(intfhub_base_remap_addr)),
+		UARTHUB_REG_READ(UARTHUB_INTFHUB_DEV2_STA(intfhub_base_remap_addr)));
+
+	if (s_is_uarthub_wakeup == 0) {
+		pr_info("[dvt2_test_%d][before][%d][set] %s\n",
+			test_count, s_is_uarthub_wakeup, dmp_info_buf);
+		s_is_uarthub_wakeup = 1;
+		uarthub_core_dev0_set_txrx_request();
+	} else {
+		pr_info("[dvt2_test_%d][before][%d][clear] %s\n",
+			test_count, s_is_uarthub_wakeup, dmp_info_buf);
+		s_is_uarthub_wakeup = 0;
+		uarthub_core_dev0_clear_txrx_request();
+	}
+
+	mdelay(2000);
+
+	APB_BUS_CLK = 0;
+	CLK_GATING = 0;
+	SPM_RES1 = 0;
+	SPM_RES2 = 0;
+	UNIVPLL_VOTE = 0;
+	UART_MUX = 0;
+	len = 0;
+	APB_BUS_CLK = uarthub_core_is_apb_bus_clk_enable();
+	len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
+		"APB_BUS_CLK=[0x%x]", APB_BUS_CLK);
+
+	if (g_uarthub_plat_ic_ops &&
+			g_uarthub_plat_ic_ops->uarthub_plat_get_uarthub_clk_gating_info) {
+		CLK_GATING = g_uarthub_plat_ic_ops->uarthub_plat_get_uarthub_clk_gating_info();
+		if (CLK_GATING >= 0) {
+			/* the expect value is 0x0 */
+			len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
+				"___CLK_GATING=[0x%x]", CLK_GATING);
+		}
+	}
+
+	if (g_uarthub_plat_ic_ops &&
+			g_uarthub_plat_ic_ops->uarthub_plat_get_spm_res_1_info) {
+		SPM_RES1 = g_uarthub_plat_ic_ops->uarthub_plat_get_spm_res_1_info();
+		if (SPM_RES1 >= 0) {
+			/* the expect value is 0x1D */
+			len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
+				"___SPM_RES1=[0x%x]", SPM_RES1);
+		}
+	}
+
+	if (g_uarthub_plat_ic_ops &&
+			g_uarthub_plat_ic_ops->uarthub_plat_get_spm_res_2_info) {
+		SPM_RES2 = g_uarthub_plat_ic_ops->uarthub_plat_get_spm_res_2_info();
+		if (SPM_RES2 >= 0) {
+			/* the expect value is 0x17 */
+			len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
+				"___SPM_RES2=[0x%x]", SPM_RES2);
+		}
+	}
+
+	if (g_uarthub_plat_ic_ops &&
+			g_uarthub_plat_ic_ops->uarthub_plat_get_hwccf_univpll_vote_info) {
+		UNIVPLL_VOTE = g_uarthub_plat_ic_ops->uarthub_plat_get_hwccf_univpll_vote_info();
+		if (UNIVPLL_VOTE >= 0) {
+			/* the expect value is 0x1 */
+			len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
+				"___UNIVPLL_VOTE=[0x%x]", UNIVPLL_VOTE);
+		}
+	}
+
+	if (g_uarthub_plat_ic_ops &&
+			g_uarthub_plat_ic_ops->uarthub_plat_get_hwccf_univpll_on_info) {
+		UNIVPLL_ON = g_uarthub_plat_ic_ops->uarthub_plat_get_hwccf_univpll_on_info();
+		if (UNIVPLL_ON >= 0) {
+			/* the expect value is 0x1 */
+			len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
+				"___UNIVPLL_ON=[0x%x]", UNIVPLL_ON);
+		}
+	}
+
+	if (g_uarthub_plat_ic_ops && g_uarthub_plat_ic_ops->uarthub_plat_get_uart_mux_info) {
+		UART_MUX = g_uarthub_plat_ic_ops->uarthub_plat_get_uart_mux_info();
+		if (UART_MUX >= 0) {
+			/* the expect value is 0x2 */
+			len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
+				"___UART_MUX=[0x%x]", UART_MUX);
+		}
+	}
+
+	len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
+		"___INTFHUB_DEVx_STA=[0x%x-0x%x-0x%x]",
+		UARTHUB_REG_READ(UARTHUB_INTFHUB_DEV0_STA(intfhub_base_remap_addr)),
+		UARTHUB_REG_READ(UARTHUB_INTFHUB_DEV1_STA(intfhub_base_remap_addr)),
+		UARTHUB_REG_READ(UARTHUB_INTFHUB_DEV2_STA(intfhub_base_remap_addr)));
+
+	pr_info("[dvt2_test_%d][after][%d] %s\n", test_count, s_is_uarthub_wakeup, dmp_info_buf);
+	test_count++;
+
+	if (s_is_uarthub_wakeup == 1) {
+		if (APB_BUS_CLK != 1)
+			pr_info("[dvt2_test][after] APB_BUS_CLK=[0x%x]\n", APB_BUS_CLK);
+
+		if (CLK_GATING != 0)
+			pr_info("[dvt2_test][after] CLK_GATING=[0x%x]\n", CLK_GATING);
+
+		if (SPM_RES1 != 0x1d)
+			pr_info("[dvt2_test][after] SPM_RES1=[0x%x]\n", SPM_RES1);
+
+		if (SPM_RES2 != 0x17)
+			pr_info("[dvt2_test][after] SPM_RES2=[0x%x]\n", SPM_RES2);
+
+		if (UNIVPLL_VOTE != 1)
+			pr_info("[dvt2_test][after] UNIVPLL_VOTE=[0x%x]\n", UNIVPLL_VOTE);
+
+		if (UNIVPLL_ON != 1)
+			pr_info("[dvt2_test][after] UNIVPLL_ON=[0x%x]\n", UNIVPLL_ON);
+
+		if (UART_MUX != 2)
+			pr_info("[dvt2_test][after] UART_MUX=[0x%x]\n", UART_MUX);
+	}
+
+	return HRTIMER_RESTART;
+}
+#endif
 
 static int uarthub_fb_notifier_callback(struct notifier_block *nb, unsigned long value, void *v)
 {
@@ -301,8 +535,10 @@ static int uarthub_fb_notifier_callback(struct notifier_block *nb, unsigned long
 			pr_info("[%s] %s uarthub enter UNBLANK %s\n",
 				__func__, prefix, postfix);
 			uarthub_core_debug_info_with_tag_worker("UNBLANK_CB");
+			uarthub_core_dump_trx_info_loop_trigger();
 		} else if (data == MTK_DISP_BLANK_POWERDOWN) {
 			uarthub_core_debug_info_with_tag_worker("POWERDOWN_CB");
+			uarthub_core_dump_trx_info_loop_trigger();
 			pr_info("[%s] %s uarthub enter early POWERDOWN %s\n",
 				__func__, prefix, postfix);
 		} else {
@@ -945,10 +1181,6 @@ int uarthub_core_dev0_set_txrx_request(void)
 		}
 	}
 
-#if UARTHUB_DUMP_DEBUG_LOOP_ENABLE
-	hrtimer_start(&dump_hrtimer, 0, HRTIMER_MODE_REL);
-#endif
-
 	return 0;
 }
 
@@ -977,13 +1209,90 @@ int uarthub_core_dev0_clear_txrx_request(void)
 	pr_info("[%s] g_max_dev=[%d]\n", __func__, g_max_dev);
 #endif
 
-#if UARTHUB_DUMP_DEBUG_LOOP_ENABLE
-	hrtimer_cancel(&dump_hrtimer);
-#endif
-
 	spin_lock_irqsave(&g_clear_trx_req_lock, flags);
 	UARTHUB_REG_WRITE(UARTHUB_INTFHUB_DEV0_STA_CLR(intfhub_base_remap_addr), 0x7);
 	spin_unlock_irqrestore(&g_clear_trx_req_lock, flags);
+
+	return 0;
+}
+
+int uarthub_core_dump_trx_info_loop_trigger(void)
+{
+	int state = 0;
+
+	if (g_uarthub_disable == 1)
+		return 0;
+
+	if (g_max_dev <= 0)
+		return -1;
+
+	if (!intfhub_base_remap_addr) {
+		pr_notice("[%s] intfhub_base_remap_addr(0x%lx) is not been init\n",
+			__func__, UARTHUB_INTFHUB_BASE_ADDR(reg_base_addr.phy_addr));
+		return -1;
+	}
+
+	if (uarthub_core_is_apb_bus_clk_enable() == 0) {
+		pr_notice("[%s] apb bus clk disable\n", __func__);
+		return -4;
+	}
+
+	state = (UARTHUB_REG_READ_BIT(UARTHUB_INTFHUB_DBG(intfhub_base_remap_addr),
+		(0x1 << 1)) >> 1);
+
+#if UARTHUB_DEBUG_LOG
+	pr_info("[%s] state=[%d], g_enable_dump_loop=[%d]\n", __func__, state, g_enable_dump_loop);
+#endif
+
+	if (state == 0 && g_enable_dump_loop == 1) {
+		g_enable_dump_loop = 0;
+		hrtimer_cancel(&dump_hrtimer);
+	} else if (state == 1 && g_enable_dump_loop == 0) {
+		g_enable_dump_loop = 1;
+		hrtimer_start(&dump_hrtimer, 0, HRTIMER_MODE_REL);
+	}
+
+	return 0;
+}
+
+int uarthub_core_dump_trx_info_loop_ctrl(int enable, int loop_dur_ms)
+{
+	if (g_uarthub_disable == 1)
+		return 0;
+
+	if (g_max_dev <= 0)
+		return -1;
+
+	if (!intfhub_base_remap_addr) {
+		pr_notice("[%s] intfhub_base_remap_addr(0x%lx) is not been init\n",
+			__func__, UARTHUB_INTFHUB_BASE_ADDR(reg_base_addr.phy_addr));
+		return -1;
+	}
+
+	if (uarthub_core_is_apb_bus_clk_enable() == 0) {
+		pr_notice("[%s] apb bus clk disable\n", __func__);
+		return -4;
+	}
+
+	if (enable == 1) {
+		g_dump_loop_dur_ms = loop_dur_ms;
+		UARTHUB_SET_BIT(UARTHUB_INTFHUB_DBG(intfhub_base_remap_addr), (0x1 << 1));
+	} else {
+		g_dump_loop_dur_ms = UARTHUB_DEFAULT_DUMP_DEBUG_LOOP_MS;
+		UARTHUB_CLR_BIT(UARTHUB_INTFHUB_DBG(intfhub_base_remap_addr), (0x1 << 1));
+	}
+
+#if UARTHUB_DEBUG_LOG
+	pr_info("[%s] enable=[%d], loop_dur_ms=[%d]\n", __func__, enable, loop_dur_ms);
+#endif
+
+	if (enable == 0 && g_enable_dump_loop == 1) {
+		g_enable_dump_loop = 0;
+		hrtimer_cancel(&dump_hrtimer);
+	} else if (enable == 1 && g_enable_dump_loop == 0) {
+		g_enable_dump_loop = 1;
+		hrtimer_start(&dump_hrtimer, 0, HRTIMER_MODE_REL);
+	}
 
 	return 0;
 }
@@ -2140,13 +2449,13 @@ int uarthub_core_debug_uart_ip_info_loop(void)
 		return -1;
 
 	pr_info("[%s_%d] ++++++++++++++++++++++++++++++++++++++++\n",
-		def_tag, UARTHUB_DUMP_DEBUG_LOOP_MS);
+		def_tag, g_dump_loop_dur_ms);
 
 	if (uarthub_core_is_apb_bus_clk_enable() == 0) {
 		pr_notice("[%s_%d] uarthub_core_is_apb_bus_clk_enable=[0]\n",
-			def_tag, UARTHUB_DUMP_DEBUG_LOOP_MS);
+			def_tag, g_dump_loop_dur_ms);
 		pr_info("[%s_%d] ----------------------------------------\n",
-			def_tag, UARTHUB_DUMP_DEBUG_LOOP_MS);
+			def_tag, g_dump_loop_dur_ms);
 		return -3;
 	}
 
@@ -2172,7 +2481,7 @@ int uarthub_core_debug_uart_ip_info_loop(void)
 	len = 0;
 	len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
 		"[%s_%d] tx_pkt_cnt=[%d-%d-%d]___rx_pkt_cnt=[%d-%d-%d]",
-		def_tag, UARTHUB_DUMP_DEBUG_LOOP_MS,
+		def_tag, g_dump_loop_dur_ms,
 		((pkt_cnt.dev0 & 0xFF000000) >> 24), ((pkt_cnt.dev1 & 0xFF000000) >> 24),
 		((pkt_cnt.dev2 & 0xFF000000) >> 24), ((pkt_cnt.dev0 & 0xFF00) >> 8),
 		((pkt_cnt.dev1 & 0xFF00) >> 8), ((pkt_cnt.dev2 & 0xFF00) >> 8),
@@ -2186,9 +2495,9 @@ int uarthub_core_debug_uart_ip_info_loop(void)
 
 	if (uarthub_core_is_uarthub_clk_enable() == 0) {
 		pr_notice("[%s_%d] uarthub_core_is_uarthub_clk_enable=[0]\n",
-			def_tag, UARTHUB_DUMP_DEBUG_LOOP_MS);
+			def_tag, g_dump_loop_dur_ms);
 		pr_info("[%s_%d] ----------------------------------------\n",
-			def_tag, UARTHUB_DUMP_DEBUG_LOOP_MS);
+			def_tag, g_dump_loop_dur_ms);
 		return -2;
 	}
 
@@ -2235,7 +2544,7 @@ int uarthub_core_debug_uart_ip_info_loop(void)
 	len = 0;
 	len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
 		"[%s_%d] op_rx_req=[%d-%d-%d-%d],ip_tx_dma=[%d-%d-%d-%d]",
-		def_tag, UARTHUB_DUMP_DEBUG_LOOP_MS,
+		def_tag, g_dump_loop_dur_ms,
 		(((debug5.dev0 & 0xF0) >> 4) + ((debug6.dev0 & 0x3) << 4)),
 		(((debug5.dev1 & 0xF0) >> 4) + ((debug6.dev1 & 0x3) << 4)),
 		(((debug5.dev2 & 0xF0) >> 4) + ((debug6.dev2 & 0x3) << 4)),
@@ -2257,7 +2566,7 @@ int uarthub_core_debug_uart_ip_info_loop(void)
 	len = 0;
 	len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
 		"[%s_%d] wait_for_xoff=[%d-%d-%d-%d],send_xoff1=[%d-%d-%d-%d]",
-		def_tag, UARTHUB_DUMP_DEBUG_LOOP_MS,
+		def_tag, g_dump_loop_dur_ms,
 		((((debug1.dev0 & 0xE0) >> 5) == 1) ? 1 : 0),
 		((((debug1.dev1 & 0xE0) >> 5) == 1) ? 1 : 0),
 		((((debug1.dev2 & 0xE0) >> 5) == 1) ? 1 : 0),
@@ -2283,7 +2592,7 @@ int uarthub_core_debug_uart_ip_info_loop(void)
 	pr_info("%s\n", dmp_info_buf);
 
 	pr_info("[%s_%d] ----------------------------------------\n",
-		def_tag, UARTHUB_DUMP_DEBUG_LOOP_MS);
+		def_tag, g_dump_loop_dur_ms);
 
 	return 0;
 }
@@ -2535,6 +2844,7 @@ int uarthub_core_debug_info_with_tag_no_spinlock(const char *tag)
 {
 	int val = 0;
 	int apb_bus_clk_enable = 0;
+	struct uarthub_gpio_trx_info gpio_base_addr;
 	unsigned char dmp_info_buf[DBG_LOG_LEN];
 	int len = 0;
 	const char *def_tag = "UARTHUB_DBG";
@@ -2575,9 +2885,20 @@ int uarthub_core_debug_info_with_tag_no_spinlock(const char *tag)
 			g_uarthub_plat_ic_ops->uarthub_plat_get_peri_clk_info) {
 		val = g_uarthub_plat_ic_ops->uarthub_plat_get_peri_clk_info();
 		if (val >= 0) {
-			/* the expect value is 0x0 */
+			/* the expect value is 0x800 */
 			len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
 				"___PERI_CLK=[0x%x]", val);
+		}
+	}
+
+	if (g_uarthub_plat_ic_ops &&
+			g_uarthub_plat_ic_ops->uarthub_plat_get_peri_uart_pad_mode) {
+		val = g_uarthub_plat_ic_ops->uarthub_plat_get_peri_uart_pad_mode();
+		if (val >= 0) {
+			/* the expect value is 0x800 */
+			len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
+				"___UART_PAD_MODE=[0x%x(%s)]",
+				val, ((val == 0) ? "UARTHUB" : "UART_PAD"));
 		}
 	}
 
@@ -2637,15 +2958,57 @@ int uarthub_core_debug_info_with_tag_no_spinlock(const char *tag)
 		if (val == 0) {
 			len = 0;
 			len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
-				"[%s][%s] GPIO TX=[phy_addr:0x%lx, mask:0x%lx, exp_value:0x%lx, read_value:0x%lx]",
+				"[%s][%s] GPIO TX_MODE=[addr:0x%lx,mask:0x%lx,exp:0x%lx,read:0x%lx]",
 				def_tag, ((tag == NULL) ? "null" : tag),
-				gpio_base_addr.gpio_tx.addr, gpio_base_addr.gpio_tx.mask,
-				gpio_base_addr.gpio_tx.value, gpio_base_addr.gpio_tx.gpio_value);
+				gpio_base_addr.tx_mode.addr, gpio_base_addr.tx_mode.mask,
+				gpio_base_addr.tx_mode.value, gpio_base_addr.tx_mode.gpio_value);
 
 			len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
-				"___RX=[phy_addr:0x%lx, mask:0x%lx, exp_value:0x%lx, read_value:0x%lx]",
-				gpio_base_addr.gpio_rx.addr, gpio_base_addr.gpio_rx.mask,
-				gpio_base_addr.gpio_rx.value, gpio_base_addr.gpio_rx.gpio_value);
+				"___RX_MODE=[addr:0x%lx,mask:0x%lx,exp:0x%lx,read:0x%lx]",
+				gpio_base_addr.rx_mode.addr, gpio_base_addr.rx_mode.mask,
+				gpio_base_addr.rx_mode.value, gpio_base_addr.rx_mode.gpio_value);
+
+			len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
+				"___RX_PAD_INFO=[0x%lx]", gpio_base_addr.rx_din.gpio_value);
+
+			pr_info("%s\n", dmp_info_buf);
+
+			len = 0;
+			len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
+				"[%s][%s] GPIO DIR=[T:0x%lx,R:0x%lx]___DRV=[T:0x%lx,R:0x%lx]",
+				def_tag, ((tag == NULL) ? "null" : tag),
+				gpio_base_addr.tx_dir.gpio_value, gpio_base_addr.rx_dir.gpio_value,
+				gpio_base_addr.tx_drv.gpio_value, gpio_base_addr.rx_drv.gpio_value);
+
+			len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
+				"___PU=[T:0x%lx,R:0x%lx]___PD=[T:0x%lx,R:0x%lx]",
+				gpio_base_addr.tx_pu.gpio_value, gpio_base_addr.rx_pu.gpio_value,
+				gpio_base_addr.tx_pd.gpio_value, gpio_base_addr.rx_pd.gpio_value);
+
+			len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
+				"___IES=[T:0x%lx,R:0x%lx]",
+				gpio_base_addr.tx_ies.gpio_value,
+				gpio_base_addr.rx_ies.gpio_value);
+
+			len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
+				"___SMT=[T:0x%lx,R:0x%lx]",
+				gpio_base_addr.tx_smt.gpio_value,
+				gpio_base_addr.rx_smt.gpio_value);
+
+			len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
+				"___TDSEL=[T:0x%lx,R:0x%lx]",
+				gpio_base_addr.tx_tdsel.gpio_value,
+				gpio_base_addr.rx_tdsel.gpio_value);
+
+			len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
+				"___RDSEL=[T:0x%lx,R:0x%lx]",
+				gpio_base_addr.tx_rdsel.gpio_value,
+				gpio_base_addr.rx_rdsel.gpio_value);
+
+			len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
+				"___SEC_EN=[T:0x%lx,R:0x%lx]",
+				gpio_base_addr.tx_sec_en.gpio_value,
+				gpio_base_addr.rx_sec_en.gpio_value);
 
 			pr_info("%s\n", dmp_info_buf);
 		}
@@ -2659,8 +3022,7 @@ int uarthub_core_debug_info_with_tag_no_spinlock(const char *tag)
 
 	val = UARTHUB_REG_READ(UARTHUB_INTFHUB_DBG(intfhub_base_remap_addr));
 	len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
-		"___0xf4,INTFHUB_DBG=[0x%x],assert_bit[0]=[%d]",
-		def_tag, ((tag == NULL) ? "null" : tag), val, (val & 0x1));
+		"___0xf4,INTFHUB_DBG=[0x%x],assert_bit[0]=[%d]", val, (val & 0x1));
 
 	pr_info("%s\n", dmp_info_buf);
 

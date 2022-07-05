@@ -143,4 +143,10 @@ int UARTHUB_debug_bt_tx_timeout(const char *tag)
 }
 EXPORT_SYMBOL(UARTHUB_debug_bt_tx_timeout);
 
+int UARTHUB_dump_trx_info_loop_ctrl(int enable, int loop_dur_ms)
+{
+	return uarthub_core_dump_trx_info_loop_ctrl(enable, loop_dur_ms);
+}
+EXPORT_SYMBOL(UARTHUB_dump_trx_info_loop_ctrl);
+
 MODULE_LICENSE("GPL");

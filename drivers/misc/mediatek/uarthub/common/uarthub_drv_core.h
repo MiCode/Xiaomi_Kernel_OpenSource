@@ -34,8 +34,27 @@ struct uarthub_gpio_base_addr {
 };
 
 struct uarthub_gpio_trx_info {
-	struct uarthub_gpio_base_addr gpio_tx;
-	struct uarthub_gpio_base_addr gpio_rx;
+	struct uarthub_gpio_base_addr tx_mode;
+	struct uarthub_gpio_base_addr rx_mode;
+	struct uarthub_gpio_base_addr tx_dir;
+	struct uarthub_gpio_base_addr rx_dir;
+	struct uarthub_gpio_base_addr tx_ies;
+	struct uarthub_gpio_base_addr rx_ies;
+	struct uarthub_gpio_base_addr tx_pu;
+	struct uarthub_gpio_base_addr rx_pu;
+	struct uarthub_gpio_base_addr tx_pd;
+	struct uarthub_gpio_base_addr rx_pd;
+	struct uarthub_gpio_base_addr tx_drv;
+	struct uarthub_gpio_base_addr rx_drv;
+	struct uarthub_gpio_base_addr tx_smt;
+	struct uarthub_gpio_base_addr rx_smt;
+	struct uarthub_gpio_base_addr tx_tdsel;
+	struct uarthub_gpio_base_addr rx_tdsel;
+	struct uarthub_gpio_base_addr tx_rdsel;
+	struct uarthub_gpio_base_addr rx_rdsel;
+	struct uarthub_gpio_base_addr tx_sec_en;
+	struct uarthub_gpio_base_addr rx_sec_en;
+	struct uarthub_gpio_base_addr rx_din;
 };
 
 struct uarthub_uart_ip_debug_info {
@@ -64,6 +83,7 @@ typedef void __iomem *(*UARTHUB_PLAT_GET_AP_DMA_TX_INT_ADDR) (void);
 typedef int(*UARTHUB_PLAT_GET_SPM_RES_1_INFO) (void);
 typedef int(*UARTHUB_PLAT_GET_SPM_RES_2_INFO) (void);
 typedef int(*UARTHUB_PLAT_GET_PERI_CLK_INFO) (void);
+typedef int(*UARTHUB_PLAT_GET_PERI_UART_PAD_MODE) (void);
 
 struct uarthub_ops_struct {
 	/* load from dts */
@@ -83,6 +103,7 @@ struct uarthub_ops_struct {
 	UARTHUB_PLAT_GET_SPM_RES_1_INFO uarthub_plat_get_spm_res_1_info;
 	UARTHUB_PLAT_GET_SPM_RES_2_INFO uarthub_plat_get_spm_res_2_info;
 	UARTHUB_PLAT_GET_PERI_CLK_INFO uarthub_plat_get_peri_clk_info;
+	UARTHUB_PLAT_GET_PERI_UART_PAD_MODE uarthub_plat_get_peri_uart_pad_mode;
 };
 
 static char * const UARTHUB_irq_err_type_str[] = {
@@ -135,6 +156,7 @@ int uarthub_core_debug_uart_ip_info_loop(void);
 int uarthub_core_debug_apdma_uart_info_with_tag_ex(const char *tag, int boundary);
 int uarthub_core_debug_info_with_tag_no_spinlock(const char *tag);
 int uarthub_core_debug_info_with_tag_worker(const char *tag);
+int uarthub_core_dump_trx_info_loop_trigger(void);
 
 /*******************************************************************************
  *                              public function
@@ -160,5 +182,6 @@ int uarthub_core_loopback_test(int dev_index, int tx_to_rx, int enable);
 int uarthub_core_debug_info(void);
 int uarthub_core_debug_info_with_tag(const char *tag);
 int uarthub_core_debug_bt_tx_timeout(const char *tag);
+int uarthub_core_dump_trx_info_loop_ctrl(int enable, int loop_dur_ms);
 
 #endif /* UARTHUB_DRV_CORE_H */

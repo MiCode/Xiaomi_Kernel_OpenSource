@@ -27,6 +27,7 @@ void __iomem *uart3_base_remap_addr;
 void __iomem *ap_dma_uart_3_tx_int_remap_addr;
 void __iomem *spm_remap_addr;
 void __iomem *apmixedsys_remap_addr;
+void __iomem *iocfg_rm_remap_addr;
 
 static int uarthub_init_remap_reg_mt6985(void);
 static int uarthub_deinit_unmap_reg_mt6985(void);
@@ -46,6 +47,7 @@ static void __iomem *uarthub_get_ap_dma_tx_int_addr_mt6985(void);
 static int uarthub_get_spm_res_1_info_mt6985(void);
 static int uarthub_get_spm_res_2_info_mt6985(void);
 static int uarthub_get_peri_clk_info_mt6985(void);
+static int uarthub_get_peri_uart_pad_mode_mt6985(void);
 
 struct uarthub_ops_struct mt6985_plat_data = {
 	.uarthub_plat_init_remap_reg = uarthub_init_remap_reg_mt6985,
@@ -66,6 +68,7 @@ struct uarthub_ops_struct mt6985_plat_data = {
 	.uarthub_plat_get_spm_res_1_info = uarthub_get_spm_res_1_info_mt6985,
 	.uarthub_plat_get_spm_res_2_info = uarthub_get_spm_res_2_info_mt6985,
 	.uarthub_plat_get_peri_clk_info = uarthub_get_peri_clk_info_mt6985,
+	.uarthub_plat_get_peri_uart_pad_mode = uarthub_get_peri_uart_pad_mode_mt6985,
 };
 
 int uarthub_init_remap_reg_mt6985(void)
@@ -79,6 +82,7 @@ int uarthub_init_remap_reg_mt6985(void)
 	ap_dma_uart_3_tx_int_remap_addr = ioremap(AP_DMA_UART_3_TX_INT_FLAG_ADDR, 0x100);
 	spm_remap_addr = ioremap(SPM_BASE_ADDR, 0x1000);
 	apmixedsys_remap_addr = ioremap(APMIXEDSYS_BASE_ADDR, 0x500);
+	iocfg_rm_remap_addr = ioremap(IOCFG_RM_BASE_ADDR, 100);
 
 	return 0;
 }
@@ -111,6 +115,9 @@ int uarthub_deinit_unmap_reg_mt6985(void)
 
 	if (apmixedsys_remap_addr)
 		iounmap(apmixedsys_remap_addr);
+
+	if (iocfg_rm_remap_addr)
+		iounmap(iocfg_rm_remap_addr);
 
 	return 0;
 }
@@ -161,15 +168,131 @@ int uarthub_get_gpio_trx_info_mt6985(struct uarthub_gpio_trx_info *info)
 		return -1;
 	}
 
-	info->gpio_tx.addr = GPIO_BASE_ADDR + GPIO_HUB_MODE_TX_OFFSET;
-	info->gpio_tx.mask = GPIO_HUB_MODE_TX_MASK;
-	info->gpio_tx.value = GPIO_HUB_MODE_TX_VALUE;
-	info->gpio_tx.gpio_value = UARTHUB_REG_READ(gpio_base_remap_addr + GPIO_HUB_MODE_TX_OFFSET);
+	info->tx_mode.addr = GPIO_BASE_ADDR + GPIO_HUB_MODE_TX_OFFSET;
+	info->tx_mode.mask = GPIO_HUB_MODE_TX_MASK;
+	info->tx_mode.value = GPIO_HUB_MODE_TX_VALUE;
+	info->tx_mode.gpio_value = UARTHUB_REG_READ(
+		gpio_base_remap_addr + GPIO_HUB_MODE_TX_OFFSET);
 
-	info->gpio_rx.addr = GPIO_BASE_ADDR + GPIO_HUB_MODE_RX_OFFSET;
-	info->gpio_rx.mask = GPIO_HUB_MODE_RX_MASK;
-	info->gpio_rx.value = GPIO_HUB_MODE_RX_VALUE;
-	info->gpio_rx.gpio_value = UARTHUB_REG_READ(gpio_base_remap_addr + GPIO_HUB_MODE_RX_OFFSET);
+	info->rx_mode.addr = GPIO_BASE_ADDR + GPIO_HUB_MODE_RX_OFFSET;
+	info->rx_mode.mask = GPIO_HUB_MODE_RX_MASK;
+	info->rx_mode.value = GPIO_HUB_MODE_RX_VALUE;
+	info->rx_mode.gpio_value = UARTHUB_REG_READ(
+		gpio_base_remap_addr + GPIO_HUB_MODE_RX_OFFSET);
+
+	info->tx_dir.addr = GPIO_BASE_ADDR + GPIO_HUB_DIR_TX_OFFSET;
+	info->tx_dir.mask = GPIO_HUB_DIR_TX_MASK;
+	info->tx_dir.gpio_value = (UARTHUB_REG_READ_BIT(
+		gpio_base_remap_addr + GPIO_HUB_DIR_TX_OFFSET,
+		GPIO_HUB_DIR_TX_MASK) >> GPIO_HUB_DIR_TX_SHIFT);
+
+	info->rx_dir.addr = GPIO_BASE_ADDR + GPIO_HUB_DIR_RX_OFFSET;
+	info->rx_dir.mask = GPIO_HUB_DIR_RX_MASK;
+	info->rx_dir.gpio_value = (UARTHUB_REG_READ_BIT(
+		gpio_base_remap_addr + GPIO_HUB_DIR_RX_OFFSET,
+		GPIO_HUB_DIR_RX_MASK) >> GPIO_HUB_DIR_RX_SHIFT);
+
+	info->tx_ies.addr = IOCFG_RM_BASE_ADDR + GPIO_HUB_IES_TX_OFFSET;
+	info->tx_ies.mask = GPIO_HUB_IES_TX_MASK;
+	info->tx_ies.gpio_value = (UARTHUB_REG_READ_BIT(
+		iocfg_rm_remap_addr + GPIO_HUB_IES_TX_OFFSET,
+		GPIO_HUB_IES_TX_MASK) >> GPIO_HUB_IES_TX_SHIFT);
+
+	info->rx_ies.addr = IOCFG_RM_BASE_ADDR + GPIO_HUB_IES_RX_OFFSET;
+	info->rx_ies.mask = GPIO_HUB_IES_RX_MASK;
+	info->rx_ies.gpio_value = (UARTHUB_REG_READ_BIT(
+		iocfg_rm_remap_addr + GPIO_HUB_IES_RX_OFFSET,
+		GPIO_HUB_IES_RX_MASK) >> GPIO_HUB_IES_RX_SHIFT);
+
+	info->tx_pu.addr = IOCFG_RM_BASE_ADDR + GPIO_HUB_PU_TX_OFFSET;
+	info->tx_pu.mask = GPIO_HUB_PU_TX_MASK;
+	info->tx_pu.gpio_value = (UARTHUB_REG_READ_BIT(
+		iocfg_rm_remap_addr + GPIO_HUB_PU_TX_OFFSET,
+		GPIO_HUB_PU_TX_MASK) >> GPIO_HUB_PU_TX_SHIFT);
+
+	info->rx_pu.addr = IOCFG_RM_BASE_ADDR + GPIO_HUB_PU_RX_OFFSET;
+	info->rx_pu.mask = GPIO_HUB_PU_RX_MASK;
+	info->rx_pu.gpio_value = (UARTHUB_REG_READ_BIT(
+		iocfg_rm_remap_addr + GPIO_HUB_PU_RX_OFFSET,
+		GPIO_HUB_PU_RX_MASK) >> GPIO_HUB_PU_RX_SHIFT);
+
+	info->tx_pd.addr = IOCFG_RM_BASE_ADDR + GPIO_HUB_PD_TX_OFFSET;
+	info->tx_pd.mask = GPIO_HUB_PD_TX_MASK;
+	info->tx_pd.gpio_value = (UARTHUB_REG_READ_BIT(
+		iocfg_rm_remap_addr + GPIO_HUB_PD_TX_OFFSET,
+		GPIO_HUB_PD_TX_MASK) >> GPIO_HUB_PD_TX_SHIFT);
+
+	info->rx_pd.addr = IOCFG_RM_BASE_ADDR + GPIO_HUB_PD_RX_OFFSET;
+	info->rx_pd.mask = GPIO_HUB_PD_RX_MASK;
+	info->rx_pd.gpio_value = (UARTHUB_REG_READ_BIT(
+		iocfg_rm_remap_addr + GPIO_HUB_PD_RX_OFFSET,
+		GPIO_HUB_PD_RX_MASK) >> GPIO_HUB_PD_RX_SHIFT);
+
+	info->tx_drv.addr = IOCFG_RM_BASE_ADDR + GPIO_HUB_DRV_TX_OFFSET;
+	info->tx_drv.mask = GPIO_HUB_DRV_TX_MASK;
+	info->tx_drv.gpio_value = (UARTHUB_REG_READ_BIT(
+		iocfg_rm_remap_addr + GPIO_HUB_DRV_TX_OFFSET,
+		GPIO_HUB_DRV_TX_MASK) >> GPIO_HUB_DRV_TX_SHIFT);
+
+	info->rx_drv.addr = IOCFG_RM_BASE_ADDR + GPIO_HUB_DRV_RX_OFFSET;
+	info->rx_drv.mask = GPIO_HUB_DRV_RX_MASK;
+	info->rx_drv.gpio_value = (UARTHUB_REG_READ_BIT(
+		iocfg_rm_remap_addr + GPIO_HUB_DRV_RX_OFFSET,
+		GPIO_HUB_DRV_RX_MASK) >> GPIO_HUB_DRV_RX_SHIFT);
+
+	info->tx_smt.addr = IOCFG_RM_BASE_ADDR + GPIO_HUB_SMT_TX_OFFSET;
+	info->tx_smt.mask = GPIO_HUB_SMT_TX_MASK;
+	info->tx_smt.gpio_value = (UARTHUB_REG_READ_BIT(
+		iocfg_rm_remap_addr + GPIO_HUB_SMT_TX_OFFSET,
+		GPIO_HUB_SMT_TX_MASK) >> GPIO_HUB_SMT_TX_SHIFT);
+
+	info->rx_smt.addr = IOCFG_RM_BASE_ADDR + GPIO_HUB_SMT_RX_OFFSET;
+	info->rx_smt.mask = GPIO_HUB_SMT_RX_MASK;
+	info->rx_smt.gpio_value = (UARTHUB_REG_READ_BIT(
+		iocfg_rm_remap_addr + GPIO_HUB_SMT_RX_OFFSET,
+		GPIO_HUB_SMT_RX_MASK) >> GPIO_HUB_SMT_RX_SHIFT);
+
+	info->tx_tdsel.addr = IOCFG_RM_BASE_ADDR + GPIO_HUB_TDSEL_TX_OFFSET;
+	info->tx_tdsel.mask = GPIO_HUB_TDSEL_TX_MASK;
+	info->tx_tdsel.gpio_value = (UARTHUB_REG_READ_BIT(
+		iocfg_rm_remap_addr + GPIO_HUB_TDSEL_TX_OFFSET,
+		GPIO_HUB_TDSEL_TX_MASK) >> GPIO_HUB_TDSEL_TX_SHIFT);
+
+	info->rx_tdsel.addr = IOCFG_RM_BASE_ADDR + GPIO_HUB_TDSEL_RX_OFFSET;
+	info->rx_tdsel.mask = GPIO_HUB_TDSEL_RX_MASK;
+	info->rx_tdsel.gpio_value = (UARTHUB_REG_READ_BIT(
+		iocfg_rm_remap_addr + GPIO_HUB_TDSEL_RX_OFFSET,
+		GPIO_HUB_TDSEL_RX_MASK) >> GPIO_HUB_TDSEL_RX_SHIFT);
+
+	info->tx_rdsel.addr = IOCFG_RM_BASE_ADDR + GPIO_HUB_RDSEL_TX_OFFSET;
+	info->tx_rdsel.mask = GPIO_HUB_RDSEL_TX_MASK;
+	info->tx_rdsel.gpio_value = (UARTHUB_REG_READ_BIT(
+		iocfg_rm_remap_addr + GPIO_HUB_RDSEL_TX_OFFSET,
+		GPIO_HUB_RDSEL_TX_MASK) >> GPIO_HUB_RDSEL_TX_SHIFT);
+
+	info->rx_rdsel.addr = IOCFG_RM_BASE_ADDR + GPIO_HUB_RDSEL_RX_OFFSET;
+	info->rx_rdsel.mask = GPIO_HUB_RDSEL_RX_MASK;
+	info->rx_rdsel.gpio_value = (UARTHUB_REG_READ_BIT(
+		iocfg_rm_remap_addr + GPIO_HUB_RDSEL_RX_OFFSET,
+		GPIO_HUB_RDSEL_RX_MASK) >> GPIO_HUB_RDSEL_RX_SHIFT);
+
+	info->tx_sec_en.addr = IOCFG_RM_BASE_ADDR + GPIO_HUB_SEC_EN_TX_OFFSET;
+	info->tx_sec_en.mask = GPIO_HUB_SEC_EN_TX_MASK;
+	info->tx_sec_en.gpio_value = (UARTHUB_REG_READ_BIT(
+		iocfg_rm_remap_addr + GPIO_HUB_SEC_EN_TX_OFFSET,
+		GPIO_HUB_SEC_EN_TX_MASK) >> GPIO_HUB_SEC_EN_TX_SHIFT);
+
+	info->rx_sec_en.addr = IOCFG_RM_BASE_ADDR + GPIO_HUB_SEC_EN_RX_OFFSET;
+	info->rx_sec_en.mask = GPIO_HUB_SEC_EN_RX_MASK;
+	info->rx_sec_en.gpio_value = (UARTHUB_REG_READ_BIT(
+		iocfg_rm_remap_addr + GPIO_HUB_SEC_EN_RX_OFFSET,
+		GPIO_HUB_SEC_EN_RX_MASK) >> GPIO_HUB_SEC_EN_RX_SHIFT);
+
+	info->rx_din.addr = GPIO_BASE_ADDR + GPIO_HUB_DIN_RX_OFFSET;
+	info->rx_din.mask = GPIO_HUB_DIN_RX_MASK;
+	info->rx_din.gpio_value = (UARTHUB_REG_READ_BIT(
+		gpio_base_remap_addr + GPIO_HUB_DIN_RX_OFFSET,
+		GPIO_HUB_DIN_RX_MASK) >> GPIO_HUB_DIN_RX_SHIFT);
 
 	return 0;
 }
@@ -181,7 +304,7 @@ int uarthub_get_uarthub_clk_gating_info_mt6985(void)
 		return -1;
 	}
 
-	return (UARTHUB_REG_READ_BIT(pericfg_ao_remap_addr + PERICFG_AO_PERI_CG_1_OFFSET,
+	return (UARTHUB_REG_READ_BIT(pericfg_ao_remap_addr + PERICFG_AO_PERI_CG_1,
 		PERICFG_AO_PERI_CG_1_MASK) >> PERICFG_AO_PERI_CG_1_SHIFT);
 }
 
@@ -279,4 +402,17 @@ int uarthub_get_spm_res_2_info_mt6985(void)
 
 	return (UARTHUB_REG_READ_BIT(spm_remap_addr + SPM_MD32PCM_SCU_CTRL1,
 		SPM_MD32PCM_SCU_CTRL1_MASK) >> SPM_MD32PCM_SCU_CTRL1_SHIFT);
+}
+
+int uarthub_get_peri_uart_pad_mode_mt6985(void)
+{
+	if (!pericfg_ao_remap_addr) {
+		pr_notice("[%s] pericfg_ao_remap_addr is NULL\n", __func__);
+		return -1;
+	}
+
+	/* 1: UART_PAD mode */
+	/* 0: UARTHUB mode */
+	return (UARTHUB_REG_READ_BIT(pericfg_ao_remap_addr + PERICFG_AO_PERI_UART_WAKEUP,
+		PERICFG_AO_PERI_UART_WAKEUP_MASK) >> PERICFG_AO_PERI_UART_WAKEUP_SHIFT);
 }

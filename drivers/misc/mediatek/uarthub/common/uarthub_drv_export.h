@@ -65,6 +65,7 @@ typedef void (*UARTHUB_IRQ_CB) (unsigned int err_type);
 #define KERNEL_UARTHUB_dump_debug_info_with_tag   UARTHUB_dump_debug_info_with_tag
 #define KERNEL_UARTHUB_debug_bt_tx_timeout               UARTHUB_debug_bt_tx_timeout
 #define KERNEL_UARTHUB_loopback_test              UARTHUB_loopback_test
+#define KERNEL_UARTHUB_dump_trx_info_loop_ctrl    UARTHUB_dump_trx_info_loop_ctrl
 
 int UARTHUB_open(void);
 int UARTHUB_close(void);
@@ -87,5 +88,6 @@ int UARTHUB_dump_debug_info(void);
 int UARTHUB_dump_debug_info_with_tag(const char *tag);
 int UARTHUB_loopback_test(int dev_index, int tx_to_rx, int enable);
 int UARTHUB_debug_bt_tx_timeout(const char *tag);
+int UARTHUB_dump_trx_info_loop_ctrl(int enable, int loop_dur_ms);
 
 #endif /* UARTHUB_DRV_EXPORT_H */
