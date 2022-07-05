@@ -256,8 +256,6 @@ struct mtk_pin_soc {
 	unsigned int			ngrps;
 	const struct function_desc	*funcs;
 	unsigned int			nfuncs;
-	const struct mtk_eint_regs	*eint_regs;
-	const struct mtk_eint_hw	*eint_hw;
 
 	/* Specific parameters per SoC */
 	u8				gpio_m;
