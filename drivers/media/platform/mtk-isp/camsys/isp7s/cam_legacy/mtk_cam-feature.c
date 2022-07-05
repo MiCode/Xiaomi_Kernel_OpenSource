@@ -38,7 +38,7 @@ int mtk_cam_get_feature_switch(struct mtk_raw_pipeline *raw_pipe,
 						MSTREAM_EXPOSURE_CHANGE;
 	}
 
-	if ((mtk_cam_scen_is_stagger(cur) && mtk_cam_scen_is_stagger(prev)) ||
+	if ((mtk_cam_scen_is_sensor_stagger(cur) && mtk_cam_scen_is_sensor_stagger(prev)) ||
 	    (mtk_cam_scen_is_stagger_m2m(cur) && mtk_cam_scen_is_stagger_m2m(prev)) ||
 	    (mtk_cam_scen_is_stagger_pure_m2m(cur) && mtk_cam_scen_is_stagger_pure_m2m(prev))) {
 		if (exp_prev == 3) {

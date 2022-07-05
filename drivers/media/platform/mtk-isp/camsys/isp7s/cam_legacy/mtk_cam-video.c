@@ -102,8 +102,8 @@ static int mtk_cam_vb2_queue_setup(struct vb2_queue *vq,
 					for (i = 0; i < *num_planes; i++)
 						sizes[i] = size;
 				} else if (raw_pipeline &&
-					   raw_pipeline->user_res.raw_res.scen.id !=
-					   MTK_CAM_SCEN_NORMAL &&
+					   !mtk_cam_scen_is_sensor_normal(
+						   &raw_pipeline->user_res.raw_res.scen) &&
 					fmt->fmt.pix_mp.num_planes > 1) {
 					*num_planes = fmt->fmt.pix_mp.num_planes;
 
@@ -114,8 +114,8 @@ static int mtk_cam_vb2_queue_setup(struct vb2_queue *vq,
 					sizes[0] = size;
 				}
 			} else if (raw_pipeline &&
-				   raw_pipeline->user_res.raw_res.scen.id !=
-				   MTK_CAM_SCEN_NORMAL &&
+				   !mtk_cam_scen_is_sensor_normal(
+					   &raw_pipeline->user_res.raw_res.scen) &&
 				   fmt->fmt.pix_mp.num_planes > 1) {
 				*num_planes = fmt->fmt.pix_mp.num_planes;
 				for (i = 0; i < *num_planes; i++)

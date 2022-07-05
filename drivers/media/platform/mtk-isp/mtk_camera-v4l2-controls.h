@@ -302,28 +302,17 @@ struct mtk_cam_resource_sensor_v2 {
  *  enum mtk_cam_scen_id - camsys hardware scenario ids
  *
  * @MTK_CAM_SCEN_NORMAL: The default scenario
- * @MTK_CAM_SCEN_STAGGER: describes stagger scenario including
- *			  1 exp, 2 exp and 3 exp. To be noticed
- *			  the user should not use MTK_CAM_SCEN_NORMAL
- *			  to indicate stagger 1 exp frame, please
- *			  use MTK_CAM_SCEN_STAGGER with MTK_CAM_STAGGER_1_EXPOSURE
- *			  type to describe the scenario
  * MTK_CAM_SCEN_M2M_NORMAL: the m2m scenario
- * MTK_CAM_SCEN_M2M_STAGGER: the m2m stagger scenario
  */
 enum mtk_cam_scen_id {
 	MTK_CAM_SCEN_NORMAL,
-	MTK_CAM_SCEN_STAGGER, // to be merged with MTK_CAM_SCEN_NORMAL
 	MTK_CAM_SCEN_MSTREAM,
 	MTK_CAM_SCEN_SMVR,
 	MTK_CAM_SCEN_ODT_NORMAL,
-	MTK_CAM_SCEN_ODT_STAGGER, // to be merged with MTK_CAM_SCEN_ODT_NORMAL
 	MTK_CAM_SCEN_ODT_MSTREAM,
 	MTK_CAM_SCEN_M2M_NORMAL,
-	MTK_CAM_SCEN_M2M_STAGGER, // to be merged with MTK_CAM_SCEN_M2M_NORMAL
 	MTK_CAM_SCEN_TIMESHARE,
 	MTK_CAM_SCEN_CAMSV_RGBW, // for ISP7.1, output W chn via CAMSV
-	MTK_CAM_SCEN_STAGGER_RGBW, // to be removed
 	MTK_CAM_SCEN_EXT_ISP,
 };
 
@@ -357,29 +346,6 @@ struct mtk_cam_scen_normal {
 	__u8 w_chn_enabled:4;
 	__u8 frame_order:4;
 	__u8 mem_saving:4;
-};
-
-enum mtk_cam_stagger_type {
-	MTK_CAM_STAGGER_1_EXPOSURE		= 0,
-	MTK_CAM_STAGGER_2_EXPOSURE_LE_SE	= 1,
-	MTK_CAM_STAGGER_2_EXPOSURE_SE_LE	= 2,
-	MTK_CAM_STAGGER_3_EXPOSURE_LE_NE_SE	= 3,
-	MTK_CAM_STAGGER_3_EXPOSURE_SE_NE_LE	= 4,
-};
-
-/**
- * struct mtk_cam_scen_stagger - stagger scenario user hints
- *
- * @type: the hardware scenario of the frame, please check
- *	       mtk_cam_stagger_type for the allowed value
- * @max_exp_num: used when driver need to alloc rawi/camsv image
- *		 buffers internally
- * @mem_saving: 1 means enable mem_saving
- */
-struct mtk_cam_scen_stagger {
-	__u32	type;
-	__u8	max_exp_num;
-	__u8	mem_saving;
 };
 
 enum mtk_cam_mstream_type {
@@ -468,7 +434,6 @@ struct mtk_cam_scen {
 	enum mtk_cam_scen_id id;
 	union {
 		struct mtk_cam_scen_normal normal;
-		struct mtk_cam_scen_stagger	stagger; // to be removed
 		struct mtk_cam_scen_mstream	mstream;
 		struct mtk_cam_scen_smvr	smvr;
 		struct mtk_cam_scen_extisp	extisp;

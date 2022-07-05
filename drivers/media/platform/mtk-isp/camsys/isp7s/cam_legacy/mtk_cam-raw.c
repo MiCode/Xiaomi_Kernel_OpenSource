@@ -527,7 +527,7 @@ mtk_cam_raw_try_res_ctrl(struct mtk_raw_pipeline *pipeline,
 	// currently only support normal & stagger 2-exp
 	if (res_cfg->hw_mode != 0) {
 		if (!mtk_cam_scen_is_stagger_2_exp(&res_cfg->scen) &&
-			res_cfg->scen.id != MTK_CAM_SCEN_NORMAL) {
+			!mtk_cam_scen_is_sensor_normal(&res_cfg->scen)) {
 			dev_info(dev, "scen(%d) not support hw_mode(%d)",
 				 res_cfg->scen.id, res_cfg->hw_mode);
 			res_cfg->hw_mode = HW_MODE_DEFAULT;
@@ -551,21 +551,21 @@ mtk_cam_raw_try_res_ctrl(struct mtk_raw_pipeline *pipeline,
 					 res_user->sensor_res.interval.numerator,
 					 res_user->sensor_res.pixel_rate);
 	/*worst case throughput prepare for stagger dynamic switch exposure num*/
-	if (mtk_cam_scen_is_stagger(&res_cfg->scen)) {
+	if (mtk_cam_scen_is_sensor_stagger(&res_cfg->scen)) {
 		if (mtk_cam_scen_is_stagger_2_exp(&res_cfg->scen)) {
 			if (log)
 				dev_info(dev,
 					 "%s:%s:pipe(%d): worst case stagger 2exp prate (%d):%lld->%lld\n",
 					 __func__, dbg_str, pipeline->id,
-					 res_cfg->scen.scen.stagger.type,
-					 prate, prate * 3);
+					 res_cfg->scen.scen.normal.exp_num,
+					 prate, prate * 2);
 			prate = 2 * prate;
 		} else if (mtk_cam_scen_is_stagger_3_exp(&res_cfg->scen)) {
 			if (log)
 				dev_info(dev,
 					 "%s:%s:pipe(%d): worst case stagger 3exp prate (%d):%lld->%lld\n",
 					 __func__, dbg_str, pipeline->id,
-					 res_cfg->scen.scen.stagger.type,
+					 res_cfg->scen.scen.normal.exp_num,
 					 prate, prate * 3);
 			prate = 3 * prate;
 		}
@@ -2000,7 +2000,7 @@ void stream_on(struct mtk_raw_device *dev, int on)
 			fps_ratio = get_fps_ratio(dev);
 			dev_info(dev->dev, "VF on - REG_TG_TIME_STAMP_CNT val:%d fps(30x):%d\n",
 			val, fps_ratio);
-			if (mtk_cam_scen_is_stagger(scen_active))
+			if (mtk_cam_scen_is_sensor_stagger(scen_active))
 				writel_relaxed(SCQ_DEADLINE_MS * 3 * 1000 * SCQ_DEFAULT_CLK_RATE /
 				(val * 2) / fps_ratio, dev->base + REG_SCQ_START_PERIOD);
 			else
@@ -2490,7 +2490,7 @@ void raw_irq_handle_dma_err(struct mtk_raw_device *raw_dev, int dequeued_frame_s
 	mtk_cam_raw_dump_dma_err_st(raw_dev->dev, raw_dev->base);
 	mtk_cam_yuv_dump_dma_err_st(raw_dev->dev, raw_dev->yuv_base);
 
-	if (raw_dev->pipeline->scen_active.id != MTK_CAM_SCEN_NORMAL)
+	if (!mtk_cam_scen_is_sensor_normal(&raw_dev->pipeline->scen_active))
 		mtk_cam_dump_dma_debug(raw_dev->dev,
 				       raw_dev->base + CAMDMATOP_BASE,
 				       "RAWI_R2",
@@ -2901,7 +2901,7 @@ static int raw_stagger_select(struct mtk_cam_ctx *ctx,
 		ctx_chk = &cam->ctxs[i];
 		if (ctx_chk != ctx && ctx_chk->streaming &&
 			mtk_cam_ctx_has_raw(ctx_chk) &&
-			mtk_cam_scen_is_stagger(&ctx_chk->pipe->scen_active)) {
+			mtk_cam_scen_is_sensor_stagger(&ctx_chk->pipe->scen_active)) {
 			for (m = 0; m < STAGGER_MAX_STREAM_NUM; m++) {
 				mode = stagger_order.stagger_select[m].mode_decision;
 				dev_info(cam->dev, "[%s:stagger check] i:%d/m:%d; mode:%d\n",
@@ -3020,7 +3020,7 @@ int mtk_cam_s_data_raw_select(struct mtk_cam_request_stream_data *s_data,
 	else
 		raw_used = mtk_raw_available_resource(pipe->raw);
 
-	if (mtk_cam_scen_is_stagger(scen))
+	if (mtk_cam_scen_is_sensor_stagger(scen))
 		selected = mtk_cam_s_data_raw_stagger_select(s_data, raw_used);
 
 	mtk_raw_available_resource(pipe->raw);
@@ -3050,7 +3050,7 @@ int mtk_cam_raw_select(struct mtk_cam_ctx *ctx,
 		raw_status = ~(pipe->user_res.raw_res.raws);
 	}
 
-	if (mtk_cam_ctx_has_raw(ctx) && mtk_cam_scen_is_stagger(&ctx->pipe->scen_active)) {
+	if (mtk_cam_ctx_has_raw(ctx) && mtk_cam_scen_is_sensor_stagger(&ctx->pipe->scen_active)) {
 		selected = mtk_cam_raw_stagger_select(ctx, pipe, raw_status);
 	} else if (mtk_cam_scen_is_time_shared(&ctx->pipe->scen_active)) {
 		int ts_id, ts_id_chk;
