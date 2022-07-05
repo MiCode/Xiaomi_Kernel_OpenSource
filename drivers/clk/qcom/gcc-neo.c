@@ -2514,6 +2514,8 @@ static const struct qcom_reset_map gcc_neo_resets[] = {
 	[GCC_VIDEO_AXI0_CLK_ARES] = { 0x42018, 2 },
 	[GCC_VIDEO_AXI1_CLK_ARES] = { 0x42024, 2 },
 	[GCC_VIDEO_BCR] = { 0x42000 },
+	[GCC_IRIS_SS_HF_AXI_CLK_ARES] = { 0x42030, 2 },
+	[GCC_IRIS_SS_SPD_AXI_CLK_ARES] = { 0x70020, 2 },
 };
 
 
