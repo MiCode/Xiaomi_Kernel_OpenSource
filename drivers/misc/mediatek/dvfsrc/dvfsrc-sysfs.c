@@ -218,7 +218,7 @@ static ssize_t dvfsrc_ddr_opp_table_show(struct device *dev,
 		if (dvfsrc->opp_desc->opps[i].dram_opp == level) {
 			p += snprintf(p, buff_end - p,
 			"%lu ",
-			(unsigned long)(dvfsrc->opp_desc->opps[i].dram_kbps));
+			(unsigned long)(dvfsrc->opp_desc->opps[i].dram_kbps)*1000);
 			level = level + 1;
 		}
 	}
