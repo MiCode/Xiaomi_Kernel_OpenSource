@@ -18,6 +18,7 @@ static struct reviser_plat mt6893_drv = {
 	.vpu_max				= 3,
 	.edma_max				= 2,
 	.up_max					= 1,
+	.slb_wait_time				= 0,
 };
 
 static struct reviser_plat mt6885_drv = {
@@ -29,6 +30,7 @@ static struct reviser_plat mt6885_drv = {
 	.vpu_max				= 3,
 	.edma_max				= 2,
 	.up_max					= 1,
+	.slb_wait_time				= 0,
 };
 
 static struct reviser_plat mt6873_drv = {
@@ -40,6 +42,7 @@ static struct reviser_plat mt6873_drv = {
 	.vpu_max				= 2,
 	.edma_max				= 1,
 	.up_max					= 1,
+	.slb_wait_time				= 0,
 };
 
 static struct reviser_plat mt6853_drv = {
@@ -51,6 +54,19 @@ static struct reviser_plat mt6853_drv = {
 	.vpu_max				= 2,
 	.edma_max				= 0,
 	.up_max					= 1,
+	.slb_wait_time				= 0,
+};
+
+static struct reviser_plat mt6886_drv = {
+	.init					= reviser_vrv_init,
+	.uninit					= reviser_vrv_uninit,
+
+	.bank_size				= 0x20000,
+	.mdla_max				= 2,
+	.vpu_max				= 3,
+	.edma_max				= 2,
+	.up_max					= 1,
+	.slb_wait_time				= 85,
 };
 
 static struct reviser_plat rv_drv = {
@@ -62,15 +78,16 @@ static struct reviser_plat rv_drv = {
 	.vpu_max				= 3,
 	.edma_max				= 2,
 	.up_max					= 1,
+	.slb_wait_time				= 0,
 };
 
-
 static const struct of_device_id reviser_of_match[] = {
-	{ .compatible = "mediatek, mt6893-reviser", .data = &mt6893_drv},
-	{ .compatible = "mediatek, mt6885-reviser", .data = &mt6885_drv},
-	{ .compatible = "mediatek, mt6873-reviser", .data = &mt6873_drv},
-	{ .compatible = "mediatek, mt6853-reviser", .data = &mt6853_drv},
-	{ .compatible = "mediatek, rv-reviser", .data = &rv_drv},
+	{ .compatible = "mediatek, mt6893-reviser",    .data = &mt6893_drv},
+	{ .compatible = "mediatek, mt6885-reviser",    .data = &mt6885_drv},
+	{ .compatible = "mediatek, mt6873-reviser",    .data = &mt6873_drv},
+	{ .compatible = "mediatek, mt6853-reviser",    .data = &mt6853_drv},
+	{ .compatible = "mediatek, rv-reviser-mt6886", .data = &mt6886_drv},
+	{ .compatible = "mediatek, rv-reviser",        .data = &rv_drv},
 	{/* end of list */},
 };
 

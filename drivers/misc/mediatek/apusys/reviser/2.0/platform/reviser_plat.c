@@ -38,11 +38,12 @@ int reviser_plat_init(struct platform_device *pdev)
 	LOG_DBG_RVR_FLW("vpu_max: 0x%x\n", rplat->vpu_max);
 	LOG_DBG_RVR_FLW("edma_max: 0x%x\n", rplat->edma_max);
 	LOG_DBG_RVR_FLW("up_max: 0x%x\n", rplat->up_max);
-
+	LOG_DBG_RVR_FLW("slb_wait_time: %d\n", rplat->slb_wait_time);
 	LOG_DBG_RVR_FLW("=============================\n");
 
 
 	rdv->plat.bank_size = rplat->bank_size;
+	rdv->plat.slb_wait_time = rplat->slb_wait_time;
 
 	memset(rdv->plat.device, 0, sizeof(rdv->plat.device[REVISER_DEVICE_MAX]));
 	rdv->plat.device[REVISER_DEVICE_MDLA] = rplat->mdla_max;

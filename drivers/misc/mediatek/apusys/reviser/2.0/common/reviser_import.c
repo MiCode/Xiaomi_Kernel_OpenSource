@@ -10,7 +10,8 @@
 #include "reviser_import.h"
 #include "slbc_ops.h"
 
-int reviser_alloc_slb(uint32_t type, uint32_t size, uint64_t *ret_addr, uint64_t *ret_size)
+int reviser_alloc_slb(uint32_t type, uint32_t size, uint64_t *ret_addr,
+						uint64_t *ret_size, uint32_t slb_wait_time)
 {
 	int ret = 0;
 	struct slbc_data slb;
@@ -28,6 +29,7 @@ int reviser_alloc_slb(uint32_t type, uint32_t size, uint64_t *ret_addr, uint64_t
 		/* TODO, should allocate via reviser function */
 		slb.uid = UID_AINR;
 		slb.type = TP_BUFFER;
+		slb.timeout = slb_wait_time;
 		break;
 	default:
 		LOG_ERR("Invalid type %u\n", type);

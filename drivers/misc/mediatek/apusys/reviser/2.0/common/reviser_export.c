@@ -193,7 +193,8 @@ int reviser_alloc_mem(uint32_t type, uint32_t size, uint64_t *addr, uint32_t *si
 	switch (type) {
 	case REVISER_MEM_TYPE_EXT:
 	case REVISER_MEM_TYPE_RSV_S:
-		ret = reviser_alloc_slb(type, size, &input_addr, &input_size);
+		ret = reviser_alloc_slb(type, size, &input_addr, &input_size,
+								g_rdv->plat.slb_wait_time);
 		if (ret)
 			goto out;
 		break;

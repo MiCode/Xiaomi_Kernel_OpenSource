@@ -16,6 +16,7 @@ struct reviser_plat {
 	unsigned int vpu_max;
 	unsigned int edma_max;
 	unsigned int up_max;
+	unsigned int slb_wait_time;
 };
 
 int reviser_plat_init(struct platform_device *pdev);

@@ -10,6 +10,7 @@
 
 #include "reviser_mem_def.h"
 
-int reviser_alloc_slb(uint32_t type, uint32_t size, uint64_t *ret_addr, uint64_t *ret_size);
+int reviser_alloc_slb(uint32_t type, uint32_t size, uint64_t *ret_addr, uint64_t *ret_size,
+			 uint32_t slb_wait_time);
 int reviser_free_slb(uint32_t type, uint64_t addr);
 #endif
