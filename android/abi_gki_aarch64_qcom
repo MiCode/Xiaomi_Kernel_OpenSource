@@ -1261,6 +1261,7 @@
   of_translate_address
   oops_in_progress
   page_endio
+  page_is_ram
   page_mapping
   page_pool_alloc_pages
   page_pool_create
