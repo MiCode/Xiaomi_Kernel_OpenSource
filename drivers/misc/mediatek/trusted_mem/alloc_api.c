@@ -76,7 +76,10 @@ get_mem_type(enum TRUSTED_MEM_REQ_TYPE req_type)
 		return TRUSTED_MEM_AP_MD_SHM;
 	case TRUSTED_MEM_REQ_AP_SCP_SHM:
 		return TRUSTED_MEM_AP_SCP_SHM;
+	case TRUSTED_MEM_REQ_TUI_REGION:
+		return TRUSTED_MEM_TUI_REGION;
 	default:
+		pr_info("[TMEM] %s: req_type=%d not found\n", __func__, req_type);
 		return TRUSTED_MEM_SVP_REGION;
 	}
 }
