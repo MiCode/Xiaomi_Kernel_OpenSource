@@ -2271,7 +2271,7 @@ static const struct mtk_addon_module_data mt6983_addon_wdma2_data_v2[] = {
 static const struct mtk_addon_module_data mt6985_addon_wdma0_data[] = {
 	/* real case: need wait PQ */
 	/* {DISP_WDMA0_v3, ADDON_AFTER, DDP_COMPONENT_PQ0_OUT_CB0}, */
-	{DISP_WDMA0_v3, ADDON_AFTER, DDP_COMPONENT_PANEL0_COMP_OUT_CB1},
+	{DISP_WDMA0_v3, ADDON_AFTER, DDP_COMPONENT_PANEL0_COMP_OUT_CB0},
 };
 
 static const struct mtk_addon_module_data mt6985_addon_wdma1_data[] = {
