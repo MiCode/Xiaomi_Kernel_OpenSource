@@ -569,6 +569,9 @@ void set_multi_shutter_frame_length(struct subdrv_ctx *ctx,
 		write_frame_length(ctx, ctx->frame_length);
 	/* write shutter */
 	switch (exp_cnt) {
+	case 1:
+		rg_shutters[0] = shutters[0] / exp_cnt;
+		break;
 	case 2:
 		rg_shutters[0] = shutters[0] / exp_cnt;
 		rg_shutters[2] = shutters[1] / exp_cnt;

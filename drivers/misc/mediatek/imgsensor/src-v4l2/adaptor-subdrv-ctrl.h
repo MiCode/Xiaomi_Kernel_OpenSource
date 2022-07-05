@@ -5,7 +5,7 @@
 #define __ADAPTOR_SUBDRV_CTRL_H__
 
 #include "adaptor-subdrv.h"
-#define LOG_INF(format, args...) do { if (0) pr_debug("[%s] " format, __func__, ##args); } while (0)
+#define LOG_INF(format, args...) do { if (1) pr_debug("[%s] " format, __func__, ##args); } while (0)
 #define LOG_DBG(format, args...) pr_debug("[%s] " format, __func__, ##args)
 #define LOG_ERR(format, args...) pr_debug("[%s] error: " format, __func__, ##args)
 
