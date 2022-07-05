@@ -11,6 +11,14 @@ config COMMON_CLK_MEDIATEK
 	help
 	  MediaTek SoCs' clock support.
 
+config MTK_CLKMGR_DEBUG
+	bool "Clock Manager Debug Support for Mediatek SoCs"
+	help
+	  Choose this option if you have a Mediatek SoCs.
+	  This driver provides clock driver unit test nodes
+	  and clock driver debug feature. Trigger by clock
+	  debug cmd.
+
 config COMMON_CLK_MT2701
 	bool "Clock driver for MediaTek MT2701"
 	depends on ARM || COMPILE_TEST
