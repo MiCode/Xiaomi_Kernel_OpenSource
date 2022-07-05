@@ -34,6 +34,25 @@ static int pd_count;
 static int entry_count;
 static int busy_tick_boost_all;
 
+enum {
+	REG_FREQ_LUT_TABLE,
+	REG_FREQ_ENABLE,
+	REG_FREQ_PERF_STATE,
+	REG_FREQ_HW_STATE,
+	REG_EM_POWER_TBL,
+	REG_FREQ_LATENCY,
+
+	REG_ARRAY_SIZE,
+};
+
+struct cpufreq_mtk {
+	struct cpufreq_frequency_table *table;
+	void __iomem *reg_bases[REG_ARRAY_SIZE];
+	int nr_opp;
+	unsigned int last_index;
+	cpumask_t related_cpus;
+};
+
 void set_busy_tick_boost(struct task_struct *p, bool set)
 {
 	if (p)
@@ -108,7 +127,7 @@ unsigned long pd_get_util_freq(int cpu, unsigned long util)
 	pd_info = &pd_capacity_tbl[i];
 	idx = map_util_idx_by_tbl(pd_info, util);
 	idx = pd_info->util_opp_map[idx];
-	return pd_info->table[idx].freq;
+	return max(pd_info->table[idx].freq, pd_info->freq_min);
 }
 EXPORT_SYMBOL_GPL(pd_get_util_freq);
 
@@ -183,7 +202,7 @@ unsigned long pd_get_opp_freq(int cpu, int opp)
 	i = per_cpu(gear_id, cpu);
 	pd_info = &pd_capacity_tbl[i];
 	opp = clamp_val(opp, 0, pd_info->nr_caps - 1);
-	return pd_info->table[opp].freq;
+	return max(pd_info->table[opp].freq, pd_info->freq_min);
 }
 EXPORT_SYMBOL_GPL(pd_get_opp_freq);
 
@@ -572,7 +591,7 @@ static int pd_capacity_tbl_show(struct seq_file *m, void *v)
 			seq_printf(m, "%3d: %4lu, %7lu\n", j,
 				mtk_em_pd_ptr_public[i].table[j].capacity,
 				mtk_em_pd_ptr_public[i].table[j].freq);
-		if (!freq_scaling_disabled)
+		if (is_gearless_support())
 			seq_puts(m, "\n");
 #else
 		if (pd_info->nr_caps != pd->nr_perf_states) {
@@ -634,11 +653,34 @@ void clear_opp_cap_info(void)
 }
 
 #if IS_ENABLED(CONFIG_NONLINEAR_FREQ_CTL)
+static inline void mtk_arch_set_freq_scale_gearless(struct cpufreq_policy *policy,
+		unsigned int *target_freq, unsigned int old_target_freq)
+{
+	int index, i;
+	unsigned long cap, max_cap;
+	struct cpufreq_mtk *c = policy->driver_data;
+
+	if (policy->cached_target_freq == *target_freq)
+		index = policy->cached_resolved_idx;
+	else
+		index = pd_get_freq_opp_legacy(policy->cpu, *target_freq);
+
+	if (c->last_index == index) {
+		cap = pd_get_freq_util(policy->cpu, *target_freq);
+		max_cap = pd_get_freq_util(policy->cpu, policy->cpuinfo.max_freq);
+		for_each_cpu(i, policy->related_cpus)
+			per_cpu(arch_freq_scale, i) = SCHED_CAPACITY_SCALE * cap / max_cap;
+	}
+}
+
 void mtk_cpufreq_fast_switch(void *data, struct cpufreq_policy *policy,
 		unsigned int *target_freq, unsigned int old_target_freq)
 {
 	trace_sugov_ext_gear_state(per_cpu(gear_id, policy->cpu),
 		pd_get_freq_opp(policy->cpu, *target_freq));
+
+	if (is_gearless_support())
+		mtk_arch_set_freq_scale_gearless(policy, target_freq, old_target_freq);
 }
 
 void mtk_arch_set_freq_scale(void *data, const struct cpumask *cpus,

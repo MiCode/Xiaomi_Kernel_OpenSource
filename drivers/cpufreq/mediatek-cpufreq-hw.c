@@ -39,6 +39,7 @@ struct cpufreq_mtk {
 	struct cpufreq_frequency_table *table;
 	void __iomem *reg_bases[REG_ARRAY_SIZE];
 	int nr_opp;
+	unsigned int last_index;
 	cpumask_t related_cpus;
 };
 
@@ -129,9 +130,13 @@ static unsigned int mtk_cpufreq_hw_fast_switch(struct cpufreq_policy *policy,
 	else
 		index = cpufreq_table_find_index_dl(policy, target_freq);
 
-	if (!freq_scaling_disabled)
+	if (!freq_scaling_disabled) {
 		writel_relaxed(target_freq, c->reg_bases[REG_FREQ_PERF_STATE]);
-	else
+
+		if (c->last_index == index)
+			return 0;
+		c->last_index = index;
+	} else
 		writel_relaxed(index, c->reg_bases[REG_FREQ_PERF_STATE]);
 
 	return policy->freq_table[index].frequency;
