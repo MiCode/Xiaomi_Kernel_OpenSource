@@ -2091,6 +2091,15 @@ static int mtk_vdec_set_param(struct mtk_vcodec_ctx *ctx)
 		ctx->dec_param_change &= (~MTK_DEC_PARAM_WAIT_KEY_FRAME);
 	}
 
+	if (ctx->dec_param_change & MTK_DEC_PARAM_DECODE_ERROR_HANDLE_MODE) {
+		in[0] = (unsigned long)ctx->dec_params.decode_error_handle_mode;
+		if (vdec_if_set_param(ctx, SET_PARAM_DECODE_ERROR_HANDLE_MODE, in) != 0) {
+			mtk_v4l2_err("[%d] Error!! Cannot set param", ctx->id);
+			return -EINVAL;
+		}
+		ctx->dec_param_change &= (~MTK_DEC_PARAM_DECODE_ERROR_HANDLE_MODE);
+	}
+
 	if (ctx->dec_param_change & MTK_DEC_PARAM_NAL_SIZE_LENGTH) {
 		in[0] = (unsigned long)ctx->dec_params.wait_key_frame;
 		if (vdec_if_set_param(ctx, SET_PARAM_NAL_SIZE_LENGTH,
@@ -3912,6 +3921,10 @@ static int mtk_vdec_s_ctrl(struct v4l2_ctrl *ctrl)
 		ctx->dec_params.wait_key_frame = ctrl->val;
 		ctx->dec_param_change |= MTK_DEC_PARAM_WAIT_KEY_FRAME;
 		break;
+	case V4L2_CID_MPEG_MTK_SET_DECODE_ERROR_HANDLE_MODE:
+		ctx->dec_params.decode_error_handle_mode = ctrl->val;
+		ctx->dec_param_change |= MTK_DEC_PARAM_DECODE_ERROR_HANDLE_MODE;
+		break;
 	case V4L2_CID_MPEG_MTK_SET_NAL_SIZE_LENGTH:
 		ctx->dec_params.nal_size_length = ctrl->val;
 		ctx->dec_param_change |= MTK_DEC_PARAM_NAL_SIZE_LENGTH;
@@ -4185,6 +4198,18 @@ int mtk_vcodec_dec_ctrls_setup(struct mtk_vcodec_ctx *ctx)
 	cfg.type = V4L2_CTRL_TYPE_INTEGER;
 	cfg.flags = V4L2_CTRL_FLAG_WRITE_ONLY;
 	cfg.name = "Wait key frame";
+	cfg.min = 0;
+	cfg.max = 255;
+	cfg.step = 1;
+	cfg.def = 0;
+	cfg.ops = ops;
+	mtk_vcodec_dec_custom_ctrls_check(handler, &cfg, NULL);
+
+	memset(&cfg, 0, sizeof(cfg));
+	cfg.id = V4L2_CID_MPEG_MTK_SET_DECODE_ERROR_HANDLE_MODE;
+	cfg.type = V4L2_CTRL_TYPE_INTEGER;
+	cfg.flags = V4L2_CTRL_FLAG_WRITE_ONLY;
+	cfg.name = "Decode Error Handle Mode";
 	cfg.min = 0;
 	cfg.max = 255;
 	cfg.step = 1;

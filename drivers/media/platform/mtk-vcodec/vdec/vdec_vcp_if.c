@@ -1356,6 +1356,7 @@ static int vdec_vcp_set_param(unsigned long h_vdec,
 	case SET_PARAM_DECODE_MODE:
 	case SET_PARAM_NAL_SIZE_LENGTH:
 	case SET_PARAM_WAIT_KEY_FRAME:
+	case SET_PARAM_DECODE_ERROR_HANDLE_MODE:
 	case SET_PARAM_OPERATING_RATE:
 	case SET_PARAM_TOTAL_FRAME_BUFQ_COUNT:
 		msg.data[0] = (__u32)(*param_ptr);

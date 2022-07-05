@@ -251,7 +251,8 @@ enum mtk_dec_param {
 	MTK_DEC_PARAM_FIXED_MAX_OUTPUT_BUFFER = (1 << 7),
 	MTK_DEC_PARAM_SEC_DECODE = (1 << 8),
 	MTK_DEC_PARAM_OPERATING_RATE = (1 << 9),
-	MTK_DEC_PARAM_DV = (1 << 10)
+	MTK_DEC_PARAM_DV = (1 << 10),
+	MTK_DEC_PARAM_DECODE_ERROR_HANDLE_MODE = (1 << 11)
 };
 
 struct mtk_dec_params {
@@ -265,6 +266,7 @@ struct mtk_dec_params {
 	char            *golden_path;
 	unsigned int    fb_num_planes;
 	unsigned int	wait_key_frame;
+	unsigned int	decode_error_handle_mode;
 	unsigned int	nal_size_length;
 	unsigned int	svp_mode;
 	unsigned int	operating_rate;
