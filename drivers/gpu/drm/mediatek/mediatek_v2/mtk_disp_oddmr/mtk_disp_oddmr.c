@@ -1007,8 +1007,8 @@ static void mtk_oddmr_prepare(struct mtk_ddp_comp *comp)
 	unsigned long flag;
 
 	DDPMSG("%s+\n", __func__);
-	spin_lock_irqsave(&g_oddmr_clock_lock, flag);
 	mtk_ddp_comp_clk_prepare(comp);
+	spin_lock_irqsave(&g_oddmr_clock_lock, flag);
 	atomic_set(&oddmr_priv->oddmr_clock_ref, 1);
 	if (!comp->mtk_crtc || !comp->mtk_crtc->panel_ext) {
 		spin_unlock_irqrestore(&g_oddmr_clock_lock, flag);
