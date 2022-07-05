@@ -121,8 +121,8 @@
 #define IMX586_SENSOR_ID                        0x0586
 #define IMX766_SENSOR_ID                        0x0766
 #define IMX766DUAL_SENSOR_ID                    0x0767
-#define IMX766O_SENSOR_ID                       0x0766
-#define IMX766DUALO_SENSOR_ID                   0x0767
+#define IMX766O_SENSOR_ID                       0x0768
+#define IMX766DUALO_SENSOR_ID                   0x0769
 #define IMX709_SENSOR_ID                        0x0709
 #define IMX866_SENSOR_ID                        0x0866
 #define IMX709O_SENSOR_ID                       0x0709
