@@ -23,7 +23,7 @@ static struct drm_crtc *dev_crtc;
 static struct clk *mm_clk;
 static struct regulator *mm_freq_request;
 static unsigned long *g_freq_steps;
-static int g_freq_level[CRTC_NUM] = {-1};
+static int g_freq_level[CRTC_NUM] = {-1, -1, -1};
 static long g_freq;
 static int step_size = 1;
 
@@ -266,6 +266,7 @@ int mtk_disp_hrt_cond_init(struct drm_crtc *crtc)
 	}
 	atomic_set(&mtk_crtc->qos_ctx->last_hrt_idx, 0);
 	mtk_crtc->qos_ctx->last_hrt_req = 0;
+	mtk_crtc->qos_ctx->last_mmclk_req_idx = 0;
 
 	if (drm_crtc_index(crtc) == 0 && mtk_drm_helper_get_opt(priv->helper_opt,
 			MTK_DRM_OPT_MMQOS_SUPPORT))
@@ -353,7 +354,7 @@ void mtk_drm_set_mmclk(struct drm_crtc *crtc, int level,
 	else
 		freq = g_freq_steps[0];
 
-	DDPINFO("%s[%d] g_freq_level[idx=%d](freq=%d)\n",
+	DDPINFO("%s[%d] g_freq_level[idx=%d](freq=%d, %lu)\n",
 		__func__, __LINE__, idx, g_freq_level[idx], freq);
 
 	if (!IS_ERR_OR_NULL(mm_clk)) {

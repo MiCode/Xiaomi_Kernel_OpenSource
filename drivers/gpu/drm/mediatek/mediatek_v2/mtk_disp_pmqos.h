@@ -26,6 +26,7 @@ struct mtk_ddp_comp;
 
 struct mtk_drm_qos_ctx {
 	unsigned int last_hrt_req;
+	unsigned int last_mmclk_req_idx;
 	atomic_t last_hrt_idx;
 	atomic_t hrt_cond_sig;
 	wait_queue_head_t hrt_cond_wq;

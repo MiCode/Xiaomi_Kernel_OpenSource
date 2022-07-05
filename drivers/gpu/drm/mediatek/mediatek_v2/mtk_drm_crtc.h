@@ -894,6 +894,7 @@ struct mtk_cmdq_cb_data {
 	struct cmdq_pkt			*cmdq_handle;
 	struct drm_crtc			*crtc;
 	unsigned int misc;
+	unsigned int mmclk_req_idx;
 	unsigned int msync2_enable;
 	void __iomem *mutex_reg_va;
 	void __iomem *disp_reg_va;
@@ -1084,6 +1085,7 @@ void mtk_crtc_mml_racing_stop_sync(struct drm_crtc *crtc, struct cmdq_pkt *_cmdq
 void mtk_crtc_mml_force_stop(struct drm_crtc *crtc);
 
 bool mtk_crtc_alloc_sram(struct mtk_drm_crtc *mtk_crtc, unsigned int hrt_idx);
+int mtk_crtc_attach_ddp_comp(struct drm_crtc *crtc, int ddp_mode, bool is_attach);
 
 /* ********************* Legacy DISP API *************************** */
 unsigned int DISP_GetScreenWidth(void);
