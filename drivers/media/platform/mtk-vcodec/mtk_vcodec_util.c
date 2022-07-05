@@ -191,17 +191,21 @@ EXPORT_SYMBOL_GPL(mtk_vcodec_get_curr_ctx);
 
 void mtk_vcodec_add_ctx_list(struct mtk_vcodec_ctx *ctx)
 {
-	mutex_lock(&ctx->dev->ctx_mutex);
-	list_add(&ctx->list, &ctx->dev->ctx_list);
-	mutex_unlock(&ctx->dev->ctx_mutex);
+	if (ctx != NULL) {
+		mutex_lock(&ctx->dev->ctx_mutex);
+		list_add(&ctx->list, &ctx->dev->ctx_list);
+		mutex_unlock(&ctx->dev->ctx_mutex);
+	}
 }
 EXPORT_SYMBOL_GPL(mtk_vcodec_add_ctx_list);
 
 void mtk_vcodec_del_ctx_list(struct mtk_vcodec_ctx *ctx)
 {
-	mutex_lock(&ctx->dev->ctx_mutex);
-	list_del_init(&ctx->list);
-	mutex_unlock(&ctx->dev->ctx_mutex);
+	if (ctx != NULL) {
+		mutex_lock(&ctx->dev->ctx_mutex);
+		list_del_init(&ctx->list);
+		mutex_unlock(&ctx->dev->ctx_mutex);
+	}
 }
 EXPORT_SYMBOL_GPL(mtk_vcodec_del_ctx_list);
 
