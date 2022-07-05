@@ -4,8 +4,6 @@
  * Copyright (c) 2022 MediaTek Inc.
  */
 
-#include "../mtk_lcm_settings.h"
-
 &pio {
 	nt36672c_fhdp_shechao_round_corner_pattern: nt36672c_fhdp_shechao_round_corner_pattern {
 		compatible = "mediatek,nt36672c_fhdp_shechao_round_corner_pattern";
