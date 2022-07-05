@@ -2650,7 +2650,7 @@ static int _xgff_frame_end(
 
 	if (!iscancel) {
 
-		*area = fbt_xgff_get_loading_by_cluster(&(r->ploading), ts, 0);
+		*area = fbt_xgff_get_loading_by_cluster(&(r->ploading), ts, 0, 0, NULL);
 
 		// Sum up all PELT sched_runtime in deplist to reduce MIPS.
 		if (r->is_start_dep) {

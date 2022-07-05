@@ -185,7 +185,9 @@ void fbt_set_per_task_cap(int pid, unsigned int min_blc, unsigned int max_blc)
 		cur_max = uclamp_eff_value(p, UCLAMP_MAX);
 		if (cur_min != attr.sched_util_min || cur_max != attr.sched_util_max) {
 			attr.sched_policy = p->policy;
-			ret = sched_setattr_nocheck(p, &attr);
+		if (rt_policy(p->policy))
+			attr.sched_priority = p->rt_priority;
+		ret = sched_setattr_nocheck(p, &attr);
 		}
 		put_task_struct(p);
 	}

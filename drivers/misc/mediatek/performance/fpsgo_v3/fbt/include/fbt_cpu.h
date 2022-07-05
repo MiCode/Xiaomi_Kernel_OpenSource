@@ -7,10 +7,13 @@
 #define __FBT_CPU_H__
 
 #include "fpsgo_base.h"
+#include "fbt_cpu_ctrl.h"
 
 extern int fpsgo_fbt2xgf_get_dep_list_num(int pid, unsigned long long bufID);
 extern int fpsgo_fbt2xgf_get_dep_list(int pid, int count,
 		struct fpsgo_loading *arr, unsigned long long bufID);
+extern int fpsgo_fbt2cam_get_all_thread_num(void);
+extern int fpsgo_fbt2cam_get_all_thread(struct fpsgo_loading *dep_arr, int dep_valid_size);
 
 #if defined(CONFIG_MTK_FPSGO) || defined(CONFIG_MTK_FPSGO_V3)
 void fpsgo_ctrl2fbt_dfrc_fps(int fps_limit);
@@ -45,6 +48,23 @@ void __exit fbt_cpu_exit(void);
 
 int fpsgo_ctrl2fbt_switch_fbt(int enable);
 int fbt_switch_ceiling(int value);
+
+void fbt_set_limit(int cur_pid, unsigned int blc_wt,
+	int pid, unsigned long long buffer_id,
+	int dep_num, struct fpsgo_loading dep[],
+	struct render_info *thread_info, long long runtime);
+int fbt_get_max_cap(int floor, int bhr_opp_local,
+	int bhr_local, int pid, unsigned long long buffer_id);
+unsigned int fbt_get_new_base_blc(struct cpu_ctrl_data *pld,
+	int floor, int enhance, int eenhance_opp, int headroom);
+int fbt_limit_capacity(int blc_wt, int is_rescue);
+void fbt_set_ceiling(struct cpu_ctrl_data *pld,
+	int pid, unsigned long long buffer_id);
+struct fbt_thread_blc *fbt_xgff_list_blc_add(int pid,
+	unsigned long long buffer_id);
+void fbt_xgff_list_blc_del(struct fbt_thread_blc *p_blc);
+void fbt_xgff_blc_set(struct fbt_thread_blc *p_blc, int blc_wt,
+	int dep_num, int *dep_arr);
 
 #else
 static inline void fpsgo_ctrl2fbt_dfrc_fps(int fps_limit) { }

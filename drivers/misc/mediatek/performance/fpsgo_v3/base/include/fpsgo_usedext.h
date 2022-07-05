@@ -43,4 +43,12 @@ extern void (*xgff_frame_getdeplist_maxsize_fp)
 		(unsigned int *pdeplistsize);
 extern void (*xgff_frame_min_cap_fp)(unsigned int min_cap);
 
+extern int (*xgff_boost_startend_fp)(unsigned int startend,
+		int group_id,
+		int *dep_list,
+		int dep_list_num,
+		int prefer_cluster,
+		unsigned long long target_time,
+		int *param);
+
 #endif
