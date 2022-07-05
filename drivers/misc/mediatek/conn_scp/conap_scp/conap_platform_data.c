@@ -32,16 +32,16 @@ struct conap_scp_shm_config g_adp_shm_mt6895 = {
 #endif
 #if IS_ENABLED(CONFIG_MTK_COMBO_CHIP_CONSYS_6886)
 struct conap_scp_shm_config g_adp_shm_mt6886 = {
-	.conap_scp_shm_offset = 0x2100000,
-	.conap_scp_shm_size = 0x20000,
+	.conap_scp_shm_offset = 0,
+	.conap_scp_shm_size = 0,
 	.conap_scp_ipi_mbox_size = 64,
 };
 #endif
 
 #if IS_ENABLED(CONFIG_MTK_COMBO_CHIP_CONSYS_6985)
 struct conap_scp_shm_config g_adp_shm_mt6985 = {
-	.conap_scp_shm_offset = 0x58EC00,
-	.conap_scp_shm_size = 0x62A400,
+	.conap_scp_shm_offset = 0,
+	.conap_scp_shm_size = 0,
 	.conap_scp_ipi_mbox_size = 64,
 };
 
@@ -135,7 +135,6 @@ int connsys_scp_platform_data_init(unsigned int chip_info, phys_addr_t emi_phy_a
 		return 0;
 	}
 #endif
-
 
 	pr_info("[%s] chip=[%x] not support", __func__, chip_info);
 	return -1;
