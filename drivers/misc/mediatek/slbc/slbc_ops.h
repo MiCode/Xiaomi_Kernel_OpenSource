@@ -107,6 +107,7 @@ struct slbc_data {
 	unsigned int flag;
 	int ret;
 	unsigned int timeout;
+	void *user_cb_data;
 	/* below used by slbc driver */
 	void __iomem *paddr;
 	void __iomem *vaddr;
