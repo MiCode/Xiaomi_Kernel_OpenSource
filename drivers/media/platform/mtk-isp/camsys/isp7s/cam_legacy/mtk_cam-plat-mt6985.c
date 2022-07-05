@@ -288,8 +288,8 @@ static int get_mmqos_port(struct raw_mmqos **mmqos_port)
 
 static const struct plat_v4l2_data mt6985_v4l2_data = {
 	.raw_pipeline_num = 3,
-	.camsv_pipeline_num = 0,
-	.mraw_pipeline_num = 0,
+	.camsv_pipeline_num = 16,
+	.mraw_pipeline_num = 4,
 
 	.meta_major = MTK_CAM_META_VERSION_MAJOR,
 	.meta_minor = MTK_CAM_META_VERSION_MINOR,

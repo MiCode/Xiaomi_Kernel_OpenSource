@@ -12,7 +12,9 @@
 #include "mtk_cam-video.h"
 #include "mtk_cam-plat.h"
 
+/* The maximum mraw hw num in the same ISP generation */
 #define MRAW_PIPELINE_NUM 4
+
 #define MAX_MRAW_VIDEO_DEV_NUM 2
 #define USING_MRAW_SCQ 1
 

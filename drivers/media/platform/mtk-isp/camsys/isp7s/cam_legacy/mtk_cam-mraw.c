@@ -1786,7 +1786,7 @@ int mtk_mraw_register_entities(
 	unsigned int i;
 	int ret;
 
-	for (i = 0; i < MRAW_PIPELINE_NUM; i++) {
+	for (i = 0; i < GET_PLAT_V4L2(mraw_pipeline_num); i++) {
 		struct mtk_mraw_pipeline *pipe = mraw->pipelines + i;
 
 		pipe->mraw = mraw;
@@ -1804,7 +1804,7 @@ void mtk_mraw_unregister_entities(struct mtk_mraw *mraw)
 {
 	unsigned int i;
 
-	for (i = 0; i < MRAW_PIPELINE_NUM; i++)
+	for (i = 0; i < GET_PLAT_V4L2(mraw_pipeline_num); i++)
 		mtk_mraw_pipeline_unregister(mraw->pipelines + i);
 }
 void mtk_mraw_register_error_handle(struct mtk_mraw_device *mraw_dev)
