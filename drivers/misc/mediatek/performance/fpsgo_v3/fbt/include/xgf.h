@@ -282,6 +282,8 @@ int xgf_get_task_pid(struct task_struct *t);
 long xgf_get_task_state(struct task_struct *t);
 void notify_xgf_ko_ready(void);
 void xgf_get_runtime(pid_t tid, u64 *runtime);
+int xgf_get_logical_tid(int rpid, int tgid, int *l_tid,
+	unsigned long long prev_ts, unsigned long long last_ts);
 unsigned long long xgf_get_time(void);
 unsigned long long xgf_calculate_sqrt(unsigned long long x);
 int xgf_dep_frames_mod(struct xgf_render *render, int pos);

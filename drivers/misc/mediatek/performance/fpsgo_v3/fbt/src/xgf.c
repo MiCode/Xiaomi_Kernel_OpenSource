@@ -252,7 +252,8 @@ int xgf_check_main_sf_pid(int pid, int process_id)
 	int ret = 0;
 	int tmp_process_id;
 	char tmp_process_name[16];
-	struct task_struct *gtsk;
+	char tmp_thread_name[16];
+	struct task_struct *gtsk, *tsk;
 
 	tmp_process_id = xgf_get_process_id(pid);
 	if (tmp_process_id < 0)
@@ -272,6 +273,23 @@ int xgf_check_main_sf_pid(int pid, int process_id)
 	if ((tmp_process_id == process_id) ||
 		strstr(tmp_process_name, "surfaceflinger"))
 		ret = 1;
+
+	if (ret) {
+		rcu_read_lock();
+		tsk = find_task_by_vpid(pid);
+		if (tsk) {
+			get_task_struct(tsk);
+			strncpy(tmp_thread_name, tsk->comm, 16);
+			tmp_thread_name[15] = '\0';
+			put_task_struct(tsk);
+		} else
+			tmp_thread_name[0] = '\0';
+		rcu_read_unlock();
+
+		if (strstr(tmp_thread_name, "RTHeartBeat") ||
+			strstr(tmp_thread_name, "mali-"))
+			ret = 0;
+	}
 
 	return ret;
 }
@@ -1965,6 +1983,51 @@ void xgf_get_runtime(pid_t tid, u64 *runtime)
 	put_task_struct(p);
 }
 EXPORT_SYMBOL(xgf_get_runtime);
+
+int xgf_get_logical_tid(int rpid, int tgid, int *l_tid,
+	unsigned long long prev_ts, unsigned long long last_ts)
+{
+	int max_tid = -1;
+	unsigned long long tmp_runtime, max_runtime = 0;
+	struct task_struct *gtsk, *sib;
+
+	if (last_ts - prev_ts < NSEC_PER_SEC)
+		return 0;
+
+	rcu_read_lock();
+	gtsk = find_task_by_vpid(tgid);
+	if (gtsk) {
+		get_task_struct(gtsk);
+		list_for_each_entry(sib, &gtsk->thread_group, thread_group) {
+			tmp_runtime = 0;
+
+			get_task_struct(sib);
+
+			if (sib->pid == rpid) {
+				put_task_struct(sib);
+				continue;
+			}
+
+			tmp_runtime = (u64)fpsgo_task_sched_runtime(sib);
+			if (tmp_runtime > max_runtime) {
+				max_runtime = tmp_runtime;
+				max_tid = sib->pid;
+			}
+
+			put_task_struct(sib);
+		}
+		put_task_struct(gtsk);
+	}
+	rcu_read_unlock();
+
+	if (max_tid > 0 && max_runtime > 0)
+		*l_tid = max_tid;
+	else
+		*l_tid = -1;
+
+	return 1;
+}
+EXPORT_SYMBOL(xgf_get_logical_tid);
 
 static int xgf_get_spid(struct xgf_render *render)
 {

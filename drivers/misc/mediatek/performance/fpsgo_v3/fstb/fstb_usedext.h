@@ -27,6 +27,7 @@
 #define DEFAULT_JUMP_CHECK_Q_PCT 33
 #define JUMP_VOTE_MAX_I 60
 #define FSTB_IDLE_DBNC 10
+#define MAX_FSTB_POLICY_CMD_NUM 10
 
 extern int (*fbt_notifier_cpu_frame_time_fps_stabilizer)(
 	int pid,
@@ -98,6 +99,7 @@ struct FSTB_FRAME_INFO {
 	int hwui_flag;
 	int self_ctrl_fps_enable;
 	int tfb_enable;
+	int notify_target_fps;
 };
 
 struct FSTB_RENDER_TARGET_FPS {
@@ -128,6 +130,7 @@ struct FSTB_POLICY_CMD {
 	int tgid;
 	int self_ctrl_fps_enable;
 	int tfb_enable;
+	int notify_target_fps;
 	unsigned long long ts;
 };
 

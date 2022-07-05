@@ -90,6 +90,7 @@ static int tfps_to_powerhal_enable;
 static long long last_update_ts;
 static int fps_bypass_max = 150;
 static int fps_bypass_min = 50;
+static int total_fstb_policy_cmd_num;
 
 static void reset_fps_level(void);
 static int set_soft_fps_level(int nr_level,
@@ -424,6 +425,7 @@ static struct FSTB_FRAME_INFO *add_new_frame_info(int pid, unsigned long long bu
 	new_frame_info->sbe_state = 0;
 	new_frame_info->self_ctrl_fps_enable = 0;
 	new_frame_info->tfb_enable = 0;
+	new_frame_info->notify_target_fps = 0;
 
 	rcu_read_lock();
 	tsk = find_task_by_vpid(pid);
@@ -450,7 +452,58 @@ out:
 	return new_frame_info;
 }
 
-static struct FSTB_POLICY_CMD *fstb_get_policy_cmd(int tgid, int app_tfps_enable,
+static void fstb_update_policy_cmd(struct FSTB_FRAME_INFO *iter,
+	struct FSTB_POLICY_CMD *policy)
+{
+	if (policy) {
+		iter->self_ctrl_fps_enable = policy->self_ctrl_fps_enable;
+		iter->tfb_enable = policy->tfb_enable;
+		iter->notify_target_fps = policy->notify_target_fps;
+	} else {
+		iter->self_ctrl_fps_enable = 0;
+		iter->tfb_enable = 0;
+		iter->notify_target_fps = 0;
+	}
+}
+
+static void fstb_delete_policy_cmd(struct FSTB_POLICY_CMD *iter)
+{
+	unsigned long long min_ts = ULLONG_MAX;
+	struct FSTB_POLICY_CMD *tmp_iter, *min_iter;
+	struct rb_node *rbn;
+
+	if (iter) {
+		if (!iter->self_ctrl_fps_enable &&
+			!iter->tfb_enable && !iter->notify_target_fps) {
+			min_iter = iter;
+			goto delete;
+		} else
+			return;
+	}
+
+	if (RB_EMPTY_ROOT(&fstb_policy_cmd_tree))
+		return;
+
+	rbn = rb_first(&fstb_policy_cmd_tree);
+	while (rbn) {
+		tmp_iter = rb_entry(rbn, struct FSTB_POLICY_CMD, rb_node);
+		if (tmp_iter->ts < min_ts) {
+			min_ts = tmp_iter->ts;
+			min_iter = tmp_iter;
+		}
+		rbn = rb_next(rbn);
+	}
+
+	if (!min_iter)
+		return;
+
+delete:
+	rb_erase(&min_iter->rb_node, &fstb_policy_cmd_tree);
+	kfree(iter);
+	total_fstb_policy_cmd_num--;
+}
+
+static struct FSTB_POLICY_CMD *fstb_get_policy_cmd(int tgid,
 	unsigned long long ts, int force)
 {
 	struct rb_node **p = &fstb_policy_cmd_tree.rb_node;
@@ -472,16 +525,23 @@ static struct FSTB_POLICY_CMD *fstb_get_policy_cmd(int tgid, int app_tfps_enable
 	if (!force)
 		return NULL;
 
+	if (total_fstb_policy_cmd_num > MAX_FSTB_POLICY_CMD_NUM)
+		fstb_delete_policy_cmd(NULL);
+
 	iter = kzalloc(sizeof(*iter), GFP_KERNEL);
 	if (!iter)
 		return NULL;
 
 	iter->tgid = tgid;
-	iter->self_ctrl_fps_enable = app_tfps_enable;
+	iter->self_ctrl_fps_enable = 0;
+	iter->tfb_enable = 0;
+	iter->notify_target_fps = 0;
 	iter->ts = ts;
 
 	rb_link_node(&iter->rb_node, parent, p);
 	rb_insert_color(&iter->rb_node, &fstb_policy_cmd_tree);
+
+	total_fstb_policy_cmd_num++;
 
 	return iter;
 }
@@ -1140,8 +1200,15 @@ static void fstb_calculate_target_fps(int pid, unsigned long long bufID,
 	} else {
 		if (target_fps > dfps_ceiling)
 			target_fps = dfps_ceiling;
+
 		target_fps_old = iter->target_fps_v2;
-		target_fps_new = target_fps;
+		if (iter->notify_target_fps > 0) {
+			target_fps_new = iter->notify_target_fps <= dfps_ceiling ?
+							iter->notify_target_fps : dfps_ceiling;
+			margin = 0;
+		} else
+			target_fps_new = target_fps;
+
 		hlist_for_each_entry(rtfiter, &fstb_render_target_fps, hlist) {
 			if (!strncmp(iter->proc_name, rtfiter->process_name, 16) ||
 				rtfiter->pid == iter->pid) {
@@ -1160,14 +1227,15 @@ static void fstb_calculate_target_fps(int pid, unsigned long long bufID,
 					margin = 0;
 			}
 		}
+
 		if (target_fps_old != target_fps_new)
 			fstb_change_tfps(iter, target_fps_new, 1);
 	}
 	iter->target_fps_margin_v2 = margin;
 
-	fpsgo_main_trace("[fstb][%d][0x%llx] | target_fps:%d(%d)(%d)(%d)",
+	fpsgo_main_trace("[fstb][%d][0x%llx] | target_fps:%d(%d)(%d)(%d)(%d)",
 		iter->pid, iter->bufid, iter->target_fps_v2,
-		target_fps_old, target_fps_new, target_fps);
+		target_fps_old, target_fps_new, target_fps, iter->notify_target_fps);
 	fpsgo_main_trace("[fstb][%d][0x%llx] | dfrc:%d eara:%d margin:%d",
 		iter->pid, iter->bufid,
 		dfps_ceiling, eara_is_active, iter->target_fps_margin_v2);
@@ -1215,21 +1283,23 @@ void fpsgo_comp2fstb_prepare_calculate_target_fps(int pid, unsigned long long bu
 		goto out;
 
 	mutex_lock(&fstb_policy_cmd_lock);
-	policy = fstb_get_policy_cmd(iter->proc_id, iter->self_ctrl_fps_enable,
-		cur_queue_end_ts, 0);
-	if (fstb_self_ctrl_fps_enable)
-		iter->self_ctrl_fps_enable = 1;
-	else if (!policy) {
+	policy = fstb_get_policy_cmd(iter->proc_id, cur_queue_end_ts, 0);
+	if (!policy) {
 		mutex_unlock(&fstb_policy_cmd_lock);
-		iter->self_ctrl_fps_enable = 0;
-		iter->tfb_enable = 0;
+		fstb_update_policy_cmd(iter, NULL);
 		goto out;
 	} else {
-		policy->ts = cur_queue_end_ts;
-		iter->self_ctrl_fps_enable = policy->self_ctrl_fps_enable;
-		iter->tfb_enable = policy->tfb_enable;
+		fstb_update_policy_cmd(iter, policy);
+		if (policy->self_ctrl_fps_enable)
+			policy->ts = cur_queue_end_ts;
 	}
 	mutex_unlock(&fstb_policy_cmd_lock);
+
+	if (!iter->self_ctrl_fps_enable && fstb_self_ctrl_fps_enable)
+		iter->self_ctrl_fps_enable = 1;
+
+	if (!iter->self_ctrl_fps_enable)
+		goto out;
 
 	vpPush =
 		(struct FSTB_NOTIFIER_PUSH_TAG *)
@@ -1643,8 +1713,9 @@ static int calculate_fps_limit(struct FSTB_FRAME_INFO *iter, int target_fps)
 	int ret_fps = target_fps;
 	int asfc_turn = 0;
 	int i;
+	unsigned long long cur_ts;
 	struct FSTB_RENDER_TARGET_FPS *rtfiter = NULL;
-
+	struct FSTB_POLICY_CMD *policy = NULL;
 
 	hlist_for_each_entry(rtfiter, &fstb_render_target_fps, hlist) {
 		mtk_fstb_dprintk("%s %s %d %s %d\n",
@@ -1800,6 +1871,27 @@ static int calculate_fps_limit(struct FSTB_FRAME_INFO *iter, int target_fps)
 	}
 
 	iter->target_fps_margin2 = asfc_turn ? RESET_TOLERENCE : 0;
+
+	cur_ts = fpsgo_get_time();
+	mutex_lock(&fstb_policy_cmd_lock);
+	policy = fstb_get_policy_cmd(iter->proc_id, cur_ts, 0);
+	if (!policy) {
+		mutex_unlock(&fstb_policy_cmd_lock);
+		fstb_update_policy_cmd(iter, NULL);
+	} else {
+		fstb_update_policy_cmd(iter, policy);
+		if (policy->notify_target_fps)
+			policy->ts = cur_ts;
+	}
+	mutex_unlock(&fstb_policy_cmd_lock);
+
+	if (iter->notify_target_fps > 0) {
+		ret_fps = iter->notify_target_fps;
+		if (iter->target_fps_margin)
+			iter->target_fps_margin = 0;
+		if (iter->target_fps_margin_gpu)
+			iter->target_fps_margin_gpu = 0;
+	}
 
 	if (ret_fps >= max_fps_limit)
 		return max_fps_limit;
@@ -3074,7 +3166,7 @@ static ssize_t fpsgo_status_show(struct kobject *kobj,
 		if (iter) {
 			if (!iter->self_ctrl_fps_enable) {
 				length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
-						"%d\t0x%llx\t%s\t%d\t\t%d\t\t%d\t\t%d\t\t%d\t\t%d\t\t%d\t%lld\t\t(%d,%d)\n",
+						"%d\t0x%llx\t%s\t%d\t\t%d\t\t%d\t\t%d\t\t%d\t\t%d\t\t%d\t%lld\t\t(%d,%d,%d)\n",
 						iter->pid,
 						iter->bufid,
 						iter->proc_name,
@@ -3088,10 +3180,11 @@ static ssize_t fpsgo_status_show(struct kobject *kobj,
 						iter->hwui_flag,
 						iter->gpu_time,
 						iter->self_ctrl_fps_enable,
-						iter->tfb_enable);
+						iter->tfb_enable,
+						iter->notify_target_fps);
 			} else {
 				length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
-						"%d\t0x%llx\t%s\t%d\t\t%d\t\t%d\t\t-1\t\t%d\t\t%d\t\t%d\t%lld\t\t(%d,%d)\n",
+						"%d\t0x%llx\t%s\t%d\t\t%d\t\t%d\t\t-1\t\t%d\t\t%d\t\t%d\t%lld\t\t(%d,%d,%d)\n",
 						iter->pid,
 						iter->bufid,
 						iter->proc_name,
@@ -3104,7 +3197,8 @@ static ssize_t fpsgo_status_show(struct kobject *kobj,
 						iter->hwui_flag,
 						iter->gpu_time,
 						iter->self_ctrl_fps_enable,
-						iter->tfb_enable);
+						iter->tfb_enable,
+						iter->notify_target_fps);
 			}
 			pos += length;
 		}
@@ -3263,8 +3357,12 @@ static ssize_t fstb_policy_cmd_show(struct kobject *kobj,
 		iter = rb_entry(rbn, struct FSTB_POLICY_CMD, rb_node);
 		length = scnprintf(temp + pos,
 			FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
-			"tgid:%d\tfstb_self_ctrl_fps_enable:%d\ttfb_enable:%d\tts:%llu\n",
-			iter->tgid, iter->self_ctrl_fps_enable, iter->tfb_enable, iter->ts);
+			"tgid:%d\tfstb_self_ctrl_fps_enable:%d\ttfb_enable:%d\tnotify_target_fps:%d\tts:%llu\n",
+			iter->tgid,
+			iter->self_ctrl_fps_enable,
+			iter->tfb_enable,
+			iter->notify_target_fps,
+			iter->ts);
 		pos += length;
 	}
 
@@ -3296,13 +3394,15 @@ static ssize_t fstb_self_ctrl_fps_enable_by_pid_store(struct kobject *kobj,
 		if (scnprintf(acBuffer, FPSGO_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
 			if (sscanf(acBuffer, "%d %d", &tgid, &app_tfps_enable) == 2) {
 				mutex_lock(&fstb_policy_cmd_lock);
-				if (app_tfps_enable > 0)
-					iter = fstb_get_policy_cmd(tgid, !!app_tfps_enable, ts, 1);
-				else {
-					iter = fstb_get_policy_cmd(tgid, app_tfps_enable, ts, 0);
+				if (app_tfps_enable > 0) {
+					iter = fstb_get_policy_cmd(tgid, ts, 1);
+					if (iter)
+						iter->self_ctrl_fps_enable = 1;
+				} else {
+					iter = fstb_get_policy_cmd(tgid, ts, 0);
 					if (iter) {
-						rb_erase(&iter->rb_node, &fstb_policy_cmd_tree);
-						kfree(iter);
+						iter->self_ctrl_fps_enable = 0;
+						fstb_delete_policy_cmd(iter);
 					}
 				}
 				mutex_unlock(&fstb_policy_cmd_lock);
@@ -3314,6 +3414,48 @@ static ssize_t fstb_self_ctrl_fps_enable_by_pid_store(struct kobject *kobj,
 }
 
 static KOBJ_ATTR_RW(fstb_self_ctrl_fps_enable_by_pid);
+
+static ssize_t notify_fstb_target_fps_by_pid_show(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		char *buf)
+{
+	return 0;
+}
+
+static ssize_t notify_fstb_target_fps_by_pid_store(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		const char *buf, size_t count)
+{
+	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
+	int tgid;
+	int notify_target_fps;
+	unsigned long long ts = fpsgo_get_time();
+	struct FSTB_POLICY_CMD *iter;
+
+	if ((count > 0) && (count < FPSGO_SYSFS_MAX_BUFF_SIZE)) {
+		if (scnprintf(acBuffer, FPSGO_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
+			if (sscanf(acBuffer, "%d %d", &tgid, &notify_target_fps) == 2) {
+				mutex_lock(&fstb_policy_cmd_lock);
+				if (notify_target_fps > 0) {
+					iter = fstb_get_policy_cmd(tgid, ts, 1);
+					if (iter)
+						iter->notify_target_fps = notify_target_fps;
+				} else {
+					iter = fstb_get_policy_cmd(tgid, ts, 0);
+					if (iter) {
+						iter->notify_target_fps = 0;
+						fstb_delete_policy_cmd(iter);
+					}
+				}
+				mutex_unlock(&fstb_policy_cmd_lock);
+			}
+		}
+	}
+
+	return count;
+}
+
+static KOBJ_ATTR_RW(notify_fstb_target_fps_by_pid);
 
 int mtk_fstb_init(void)
 {
@@ -3377,6 +3519,8 @@ int mtk_fstb_init(void)
 				&kobj_attr_fstb_policy_cmd);
 		fpsgo_sysfs_create_file(fstb_kobj,
 				&kobj_attr_fstb_self_ctrl_fps_enable_by_pid);
+		fpsgo_sysfs_create_file(fstb_kobj,
+				&kobj_attr_notify_fstb_target_fps_by_pid);
 	}
 
 	reset_fps_level();
@@ -3458,6 +3602,8 @@ int __exit mtk_fstb_exit(void)
 			&kobj_attr_fstb_policy_cmd);
 	fpsgo_sysfs_remove_file(fstb_kobj,
 			&kobj_attr_fstb_self_ctrl_fps_enable_by_pid);
+	fpsgo_sysfs_remove_file(fstb_kobj,
+			&kobj_attr_notify_fstb_target_fps_by_pid);
 
 	fpsgo_sysfs_remove_dir(&fstb_kobj);
 
