@@ -398,39 +398,6 @@ int mtee_sdsp_enable(u32 on)
 			on, 0, 0);
 }
 
-int gz_get_cpuinfo_thread(void *data)
-{
-	if (platform_driver_register(&tz_system_driver))
-		KREE_ERR("%s driver register fail\n", __func__);
-
-	KREE_DEBUG("%s driver register done\n", __func__);
-
-	msleep(1000);
-
-	perf_boost_cnt = 0;
-	mutex_init(&perf_boost_lock);
-
-#if IS_ENABLED(CONFIG_PM_SLEEP)
-	/*kernel-4.14*/
-	//wakeup_source_init(&TeeServiceCall_wake_lock, "KREE_TeeServiceCall");
-
-	/*kernel-4.19*/
-	if (IS_ERR_OR_NULL(tz_system_dev))
-		return TZ_RESULT_ERROR_GENERIC;
-
-	TeeServiceCall_wake_lock =
-		wakeup_source_register(
-		tz_system_dev->dev.parent, "KREE_TeeServiceCall");
-	if (!TeeServiceCall_wake_lock) {
-		KREE_ERR("TeeServiceCall_wake_lock null\n");
-		return TZ_RESULT_ERROR_GENERIC;
-	}
-
-#endif
-
-	return 0;
-}
-
 static int gz_dev_open(struct inode *inode, struct file *filp)
 {
 	return _init_session_info(filp);
@@ -1134,17 +1101,14 @@ static int __init gz_init(void)
 	if (res) {
 		KREE_DEBUG("create sysfs failed: %d\n", res);
 	} else {
-		struct task_struct *gz_get_cpuinfo_task;
+		res = platform_driver_register(&tz_system_driver);
+		if (res) {
+			KREE_ERR("%s driver register fail\n", __func__);
+			return res;
+		}
 
-		gz_get_cpuinfo_task =
-		    kthread_create(gz_get_cpuinfo_thread, NULL,
-				"gz_get_cpuinfo_task");
-		if (IS_ERR(gz_get_cpuinfo_task)) {
-			KREE_ERR("Unable to start kernel thread %s\n",
-				__func__);
-			res = PTR_ERR(gz_get_cpuinfo_task);
-		} else
-			wake_up_process(gz_get_cpuinfo_task);
+		if (IS_ERR_OR_NULL(tz_system_dev))
+			return TZ_RESULT_ERROR_GENERIC;
 	}
 
 #if enable_code

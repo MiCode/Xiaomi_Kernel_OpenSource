@@ -49,14 +49,6 @@ struct gz_syscall_cmd_param {
 	(sizeof(struct gz_syscall_cmd_param) - GZ_MSG_DATA_MAX_LEN)
 
 extern struct platform_device *tz_system_dev;
-extern struct cpumask trusty_all_cmask;
-extern struct cpumask trusty_big_cmask;
-extern int perf_boost_cnt;
-extern struct mutex perf_boost_lock;
 extern struct platform_driver tz_system_driver;
-#if IS_ENABLED(CONFIG_PM_SLEEP)
-/*for kernel-4.19*/
-extern struct wakeup_source *TeeServiceCall_wake_lock;
-#endif
 
 #endif /* __TRUSTZONE_TA_SYSTEM__ */

@@ -90,10 +90,8 @@ DEFINE_MUTEX(session_mutex);
 DEFINE_MUTEX(servicecall_lock);
 
 int perf_boost_cnt;
-EXPORT_SYMBOL(perf_boost_cnt);
 
 struct mutex perf_boost_lock;
-EXPORT_SYMBOL(perf_boost_lock);
 
 struct platform_device *tz_system_dev;
 EXPORT_SYMBOL(tz_system_dev);
@@ -103,7 +101,6 @@ struct task_struct *ree_dummy_task;
 
 #if IS_ENABLED(CONFIG_PM_SLEEP)
 struct wakeup_source *TeeServiceCall_wake_lock; /*4.19*/
-EXPORT_SYMBOL(TeeServiceCall_wake_lock);
 #endif
 
  /* only need to open sys service once */
@@ -1293,6 +1290,22 @@ static int tz_system_probe(struct platform_device *pdev)
 	int ret = 0;
 
 	KREE_DEBUG("%s\n", __func__);
+
+	perf_boost_cnt = 0;
+	mutex_init(&perf_boost_lock);
+
+#if IS_ENABLED(CONFIG_PM_SLEEP)
+	/*kernel-4.14*/
+	//wakeup_source_init(&TeeServiceCall_wake_lock, "KREE_TeeServiceCall");
+
+	TeeServiceCall_wake_lock =
+		wakeup_source_register(
+		pdev->dev.parent, "KREE_TeeServiceCall");
+	if (!TeeServiceCall_wake_lock) {
+		KREE_ERR("TeeServiceCall_wake_lock null\n");
+		return TZ_RESULT_ERROR_GENERIC;
+	}
+#endif
 
 	init_completion(&ree_dummy_event);
 
