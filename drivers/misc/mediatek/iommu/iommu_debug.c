@@ -4473,8 +4473,8 @@ static void mtk_iommu_iova_map_dump(struct seq_file *s, u64 iova, u32 tab_id)
 
 	list_for_each_entry_safe(plist, n, &map_list.head[id], list_node)
 		if (plist->tab_id == tab_id &&
-		    iova <= (plist->iova + plist->size + SZ_4M) &&
-		    iova >= (plist->iova - SZ_4M))
+		    iova <= (plist->iova + plist->size) &&
+		    iova >= (plist->iova))
 			iommu_dump(s, "%-6u 0x%-12llx 0x%-8zx %u.%06u\n",
 				plist->tab_id, plist->iova,
 				plist->size,
