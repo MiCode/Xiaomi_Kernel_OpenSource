@@ -238,6 +238,11 @@ static int mmdvfs_vcp_ipi_send(const u8 func, const u8 idx, const u8 opp,
 	struct mmdvfs_ipi_data slot = {func, idx, opp, ack, 0U};
 	int retry = 0, ret;
 
+	if (!mmdvfs_init_done) {
+		MMDVFS_ERR("mmdvfs is not init done");
+		return -ETIMEDOUT;
+	}
+
 	if (!mmdvfs_vcp_is_ready()) {
 		MMDVFS_ERR("vcp is not ready");
 		return -ETIMEDOUT;
