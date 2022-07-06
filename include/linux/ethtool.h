@@ -16,6 +16,7 @@
 #include <linux/bitmap.h>
 #include <linux/compat.h>
 #include <linux/netlink.h>
+#include <linux/android_kabi.h>
 #include <uapi/linux/ethtool.h>
 
 struct compat_ethtool_rx_flow_spec {
@@ -705,6 +706,11 @@ struct ethtool_ops {
 	void	(*get_rmon_stats)(struct net_device *dev,
 				  struct ethtool_rmon_stats *rmon_stats,
 				  const struct ethtool_rmon_hist_range **ranges);
+
+	ANDROID_KABI_RESERVE(1);
+	ANDROID_KABI_RESERVE(2);
+	ANDROID_KABI_RESERVE(3);
+	ANDROID_KABI_RESERVE(4);
 };
 
 int ethtool_check_ops(const struct ethtool_ops *ops);

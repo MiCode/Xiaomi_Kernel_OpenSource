@@ -10,7 +10,8 @@
 
 #include <trace/hooks/vendor_hooks.h>
 
-struct generic_pm_domain;
+/* struct generic_pm_domain */
+#include <linux/pm_domain.h>
 DECLARE_HOOK(android_vh_allow_domain_state,
 	TP_PROTO(struct generic_pm_domain *genpd, uint32_t idx, bool *allow),
 	TP_ARGS(genpd, idx, allow))

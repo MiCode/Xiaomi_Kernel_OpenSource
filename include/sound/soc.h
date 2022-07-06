@@ -597,6 +597,7 @@ struct snd_soc_pcm_stream {
 	unsigned int channels_min;	/* min channels */
 	unsigned int channels_max;	/* max channels */
 	unsigned int sig_bits;		/* number of bits of content */
+	ANDROID_VENDOR_DATA(1);
 };
 
 /* SoC audio ops */
@@ -732,7 +733,7 @@ struct snd_soc_dai_link {
 #ifdef CONFIG_SND_SOC_TOPOLOGY
 	struct snd_soc_dobj dobj; /* For topology */
 #endif
-
+	ANDROID_VENDOR_DATA(1);
 	ANDROID_KABI_RESERVE(1);
 };
 

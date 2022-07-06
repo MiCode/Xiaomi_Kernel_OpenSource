@@ -9,7 +9,8 @@
 
 #include <trace/hooks/vendor_hooks.h>
 
-struct timekeeper;
+/* struct timekeeper */
+#include <linux/timekeeper_internal.h>
 DECLARE_RESTRICTED_HOOK(android_rvh_tk_based_time_sync,
 	TP_PROTO(struct timekeeper *tk),
 	TP_ARGS(tk), 1);

@@ -7,7 +7,8 @@
 #define _TRACE_HOOK_TRAPS_H
 #include <trace/hooks/vendor_hooks.h>
 
-struct pt_regs;
+/* struct pt_regs */
+#include <asm/ptrace.h>
 DECLARE_RESTRICTED_HOOK(android_rvh_do_undefinstr,
 	TP_PROTO(struct pt_regs *regs),
 	TP_ARGS(regs),

@@ -9,7 +9,8 @@
 
 #include <trace/hooks/vendor_hooks.h>
 
-struct task_struct;
+/* struct task_struct */
+#include <linux/sched.h>
 
 DECLARE_HOOK(android_vh_is_fpsimd_save,
 	TP_PROTO(struct task_struct *prev, struct task_struct *next),

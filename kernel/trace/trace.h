@@ -27,9 +27,6 @@
 #include <asm/syscall.h>	/* some archs define it here */
 #endif
 
-#define TRACE_MODE_WRITE	0640
-#define TRACE_MODE_READ		0440
-
 enum trace_type {
 	__TRACE_FIRST_TYPE = 0,
 

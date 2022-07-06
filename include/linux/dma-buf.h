@@ -23,6 +23,7 @@
 #include <linux/dma-fence.h>
 #include <linux/wait.h>
 #include <linux/android_kabi.h>
+#include <linux/workqueue.h>
 
 struct device;
 struct dma_buf;
@@ -517,7 +518,15 @@ struct dma_buf {
 	 * `DMA-BUF statistics`_ for the uapi this enables.
 	 */
 	struct dma_buf_sysfs_entry {
-		struct kobject kobj;
+		union {
+			struct kobject kobj;
+
+			/** @sysfs_add_work:
+			 *
+			 * For deferred sysfs kobject creation using a workqueue.
+			 */
+			struct work_struct sysfs_add_work;
+		};
 		struct dma_buf *dmabuf;
 	} *sysfs_entry;
 #endif
