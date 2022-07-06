@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/delay.h>
@@ -478,6 +479,20 @@ int gen7_hfi_process_queue(struct gen7_gmu_device *gmu,
 	return 0;
 }
 
+static int gen7_verify_fw_version(struct adreno_device *adreno_dev)
+{
+	struct gen7_gmu_device *gmu = to_gen7_gmu(adreno_dev);
+	const struct adreno_gen7_core *gen7_core = to_gen7_core(adreno_dev);
+
+	/* For now, warn once. Could return error later if needed */
+	if (gmu->ver.core < gen7_core->gmu_fw_version)
+		dev_err_once(&gmu->pdev->dev,
+			     "GMU FW version error: wanted minimum 0x%x, got 0x%x\n",
+			     gen7_core->gmu_fw_version, gmu->ver.core);
+
+	return 0;
+}
+
 int gen7_hfi_send_bcl_feature_ctrl(struct adreno_device *adreno_dev)
 {
 	int ret;
@@ -539,6 +554,10 @@ int gen7_hfi_start(struct adreno_device *adreno_dev)
 			hdr->read_index = hdr->write_index;
 		}
 	}
+
+	result = gen7_verify_fw_version(adreno_dev);
+	if (result)
+		goto err;
 
 	result = gen7_hfi_send_generic_req(adreno_dev, &gmu->hfi.dcvs_table);
 	if (result)

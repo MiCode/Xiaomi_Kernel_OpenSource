@@ -70,6 +70,8 @@ struct gen7_protected_regs {
 struct adreno_gen7_core {
 	/** @base: Container for the generic GPU definitions */
 	struct adreno_gpu_core base;
+	/** @gmu_fw_version: Minimum firmware version required to support this core */
+	u32 gmu_fw_version;
 	/** @sqefw_name: Name of the SQE microcode file */
 	const char *sqefw_name;
 	/** @gmufw_name: Name of the GMU firmware file */

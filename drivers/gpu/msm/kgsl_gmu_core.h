@@ -99,8 +99,8 @@ enum gmu_pwrctrl_mode {
 #define GMU_VER_MAJOR(ver) (((ver) >> 28) & 0xF)
 #define GMU_VER_MINOR(ver) (((ver) >> 16) & 0xFFF)
 #define GMU_VER_STEP(ver) ((ver) & 0xFFFF)
-#define GMU_VERSION(major, minor) \
-	((((major) & 0xF) << 28) | (((minor) & 0xFFF) << 16))
+#define GMU_VERSION(major, minor, step) \
+	((((major) & 0xF) << 28) | (((minor) & 0xFFF) << 16) | ((step) & 0xFFFF))
 
 #define GMU_INT_WDOG_BITE		BIT(0)
 #define GMU_INT_RSCC_COMP		BIT(1)
