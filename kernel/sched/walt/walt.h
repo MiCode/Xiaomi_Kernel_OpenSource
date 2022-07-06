@@ -349,6 +349,7 @@ struct sched_avg_stats {
 	int nr_misfit;
 	int nr_max;
 	int nr_scaled;
+	u32 avg_cap;
 };
 
 struct waltgov_callback {
@@ -790,6 +791,8 @@ static inline bool task_fits_max(struct task_struct *p, int cpu)
 
 extern struct sched_avg_stats *sched_get_nr_running_avg(void);
 extern unsigned int sched_get_cluster_util_pct(struct walt_sched_cluster *cluster);
+extern unsigned int sched_get_cpu_avg_cap(int cpu);
+extern unsigned int waltgov_get_avg_cap(unsigned int cpu);
 extern void sched_update_hyst_times(void);
 
 extern void walt_rt_init(void);
