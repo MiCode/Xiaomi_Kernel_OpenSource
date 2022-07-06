@@ -34,6 +34,7 @@ struct notif_timeout_data {
 
 struct qcom_sysmon {
 	struct rproc_subdev subdev;
+	struct rproc_subdev *ssr_subdev;
 	struct rproc *rproc;
 
 	int state;
@@ -597,9 +598,18 @@ static void sysmon_stop(struct rproc_subdev *subdev, bool crashed)
 {
 	unsigned long timeout;
 	struct qcom_sysmon *sysmon = container_of(subdev, struct qcom_sysmon, subdev);
+	struct qcom_rproc_ssr *ssr;
 
 	trace_rproc_qcom_event(dev_name(sysmon->rproc->dev.parent), SYSMON_SUBDEV_NAME,
 			       crashed ? "crash stop" : "stop");
+
+	if (sysmon->ssr_subdev) {
+		pr_err("%s : early notify\n", __func__);
+		ssr = container_of(sysmon->ssr_subdev, struct qcom_rproc_ssr, subdev);
+		if (!ssr->is_notified)
+			qcom_notify_early_ssr_clients(sysmon->ssr_subdev);
+		ssr->is_notified = false;
+	}
 
 	sysmon->shutdown_acked = false;
 
@@ -809,6 +819,12 @@ out:
 	return ret;
 }
 EXPORT_SYMBOL(qcom_sysmon_get_reason);
+
+void qcom_sysmon_register_ssr_subdev(struct qcom_sysmon *sysmon, struct rproc_subdev *ssr_subdev)
+{
+	sysmon->ssr_subdev = ssr_subdev;
+}
+EXPORT_SYMBOL(qcom_sysmon_register_ssr_subdev);
 
 /**
  * qcom_add_sysmon_subdev() - create a sysmon subdev for the given remoteproc
