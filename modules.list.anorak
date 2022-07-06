@@ -24,6 +24,8 @@ pinctrl-msm.ko
 secure_buffer.ko
 msm_geni_serial.ko
 msm-geni-se.ko
+qcom_llcc_pmu.ko
+qcom-pmu-lib.ko
 qcom_ipcc.ko
 gcc-anorak.ko
 zram.ko
