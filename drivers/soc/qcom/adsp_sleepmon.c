@@ -621,13 +621,12 @@ static int adspsleepmon_worker(void *data)
 				}
 			}
 
-			if (g_adspsleepmon.timer_event) {
-				memcpy(&g_adspsleepmon.backup_lpm_stats,
-				&curr_lpm_stats,
-				sizeof(struct sleep_stats));
+			memcpy(&g_adspsleepmon.backup_lpm_stats,
+			&curr_lpm_stats,
+			sizeof(struct sleep_stats));
 
-				g_adspsleepmon.backup_lpm_timestamp = __arch_counter_get_cntvct();
-			}
+			g_adspsleepmon.backup_lpm_timestamp = __arch_counter_get_cntvct();
+
 		} else if (g_adspsleepmon.audio_stats.num_sessions ==
 					g_adspsleepmon.audio_stats.num_lpi_sessions) {
 
@@ -706,13 +705,12 @@ static int adspsleepmon_worker(void *data)
 				}
 			}
 
-			if (g_adspsleepmon.timer_event) {
-				memcpy(&g_adspsleepmon.backup_lpi_stats,
-				&curr_lpi_stats,
-				sizeof(struct sleep_stats));
+			memcpy(&g_adspsleepmon.backup_lpi_stats,
+			&curr_lpi_stats,
+			sizeof(struct sleep_stats));
 
-				g_adspsleepmon.backup_lpi_timestamp = __arch_counter_get_cntvct();
-			}
+			g_adspsleepmon.backup_lpi_timestamp = __arch_counter_get_cntvct();
+
 		}
 
 		if (g_adspsleepmon.timer_event) {
