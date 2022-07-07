@@ -268,7 +268,6 @@ int brl_suspend(struct goodix_ts_core *cd)
 	if (cd->hw_ops->send_cmd(cd, &sleep_cmd))
 		ts_err("failed send sleep cmd");
 #else
-	disable_irq(cd->irq);
 	if (cd->hw_ops->power_on(cd, 0))
 		ts_err("failed power off");
 #endif
@@ -293,8 +292,6 @@ int brl_resume(struct goodix_ts_core *cd)
 		ts_err("failed reset tp");
 		return ret;
 	}
-
-	enable_irq(cd->irq);
 #endif
 
 	return ret;
