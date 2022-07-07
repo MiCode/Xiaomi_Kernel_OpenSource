@@ -22,7 +22,8 @@ struct bcl_device {
 	struct device				*dev;
 	struct notifier_block			psy_nb;
 	struct work_struct			soc_eval_work;
-	long					trip_temp;
+	int					trip_temp;
+	int					clear_temp;
 	int					trip_val;
 	struct mutex				state_trans_lock;
 	bool					irq_enabled;
@@ -34,13 +35,15 @@ static struct bcl_device *bcl_perph;
 
 static int bcl_set_soc(void *data, int low, int high)
 {
-	if (high == bcl_perph->trip_temp)
+	if (high == bcl_perph->trip_temp &&
+		low == bcl_perph->clear_temp)
 		return 0;
 
 	mutex_lock(&bcl_perph->state_trans_lock);
-	pr_debug("socd threshold:%d\n", high);
+	pr_debug("socd threshold high:%d low:%d\n", high, low);
 	bcl_perph->trip_temp = high;
-	if (high == INT_MAX) {
+	bcl_perph->clear_temp = low;
+	if (high == INT_MAX && low == -INT_MAX) {
 		bcl_perph->irq_enabled = false;
 		goto unlock_and_exit;
 	}
@@ -89,15 +92,15 @@ static void bcl_evaluate_soc(struct work_struct *work)
 	mutex_lock(&bcl_perph->state_trans_lock);
 	if (!bcl_perph->irq_enabled)
 		goto eval_exit;
-	if (battery_depletion < bcl_perph->trip_temp)
-		goto eval_exit;
+	if ((battery_depletion >= bcl_perph->trip_temp) ||
+		  (battery_depletion <= bcl_perph->clear_temp)) {
+		bcl_perph->trip_val = battery_depletion;
+		mutex_unlock(&bcl_perph->state_trans_lock);
+		thermal_zone_device_update(bcl_perph->tz_dev,
+					THERMAL_TRIP_VIOLATED);
+		return;
+	}
 
-	bcl_perph->trip_val = battery_depletion;
-	mutex_unlock(&bcl_perph->state_trans_lock);
-	thermal_zone_device_update(bcl_perph->tz_dev,
-				THERMAL_TRIP_VIOLATED);
-
-	return;
 eval_exit:
 	mutex_unlock(&bcl_perph->state_trans_lock);
 }
@@ -135,6 +138,8 @@ static int bcl_soc_probe(struct platform_device *pdev)
 
 	mutex_init(&bcl_perph->state_trans_lock);
 	bcl_perph->dev = &pdev->dev;
+	bcl_perph->trip_temp = INT_MAX;
+	bcl_perph->clear_temp = -INT_MAX;
 	bcl_perph->ops.get_temp = bcl_read_soc;
 	bcl_perph->ops.set_trips = bcl_set_soc;
 	INIT_WORK(&bcl_perph->soc_eval_work, bcl_evaluate_soc);
