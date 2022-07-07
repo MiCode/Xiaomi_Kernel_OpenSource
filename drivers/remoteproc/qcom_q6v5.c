@@ -279,6 +279,7 @@ int qcom_q6v5_init(struct qcom_q6v5 *q6v5, struct platform_device *pdev,
 		   void (*handover)(struct qcom_q6v5 *q6v5))
 {
 	int ret;
+	struct resource *res;
 
 	q6v5->rproc = rproc;
 	q6v5->dev = &pdev->dev;
@@ -288,6 +289,15 @@ int qcom_q6v5_init(struct qcom_q6v5 *q6v5, struct platform_device *pdev,
 
 	init_completion(&q6v5->start_done);
 	init_completion(&q6v5->stop_done);
+
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+	if (res) {
+		q6v5->rmb_base = devm_ioremap_resource(&pdev->dev, res);
+		if (IS_ERR(q6v5->rmb_base))
+			q6v5->rmb_base = NULL;
+	} else
+		q6v5->rmb_base = NULL;
+
 
 	q6v5->wdog_irq = platform_get_irq_byname(pdev, "wdog");
 	if (q6v5->wdog_irq < 0)
