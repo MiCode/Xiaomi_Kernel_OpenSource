@@ -153,6 +153,23 @@ static struct clk_alpha_pll gcc_gpll2 = {
 	},
 };
 
+static struct clk_alpha_pll_postdiv gcc_gpll2_out_even = {
+	.offset = 0x2000,
+	.post_div_shift = 10,
+	.post_div_table = post_div_table_gcc_gpll0_out_even,
+	.num_post_div = ARRAY_SIZE(post_div_table_gcc_gpll0_out_even),
+	.width = 4,
+	.regs = clk_alpha_pll_regs[CLK_ALPHA_PLL_TYPE_LUCID_EVO],
+	.clkr.hw.init = &(const struct clk_init_data){
+		.name = "gcc_gpll2_out_even",
+		.parent_hws = (const struct clk_hw*[]){
+			&gcc_gpll2.clkr.hw,
+		},
+		.num_parents = 1,
+		.ops = &clk_alpha_pll_postdiv_lucid_evo_ops,
+	},
+};
+
 static struct clk_alpha_pll gcc_gpll3 = {
 	.offset = 0x3000,
 	.regs = clk_alpha_pll_regs[CLK_ALPHA_PLL_TYPE_LUCID_EVO],
@@ -234,6 +251,23 @@ static struct clk_alpha_pll gcc_gpll5 = {
 				[VDD_NOMINAL] = 1800000000,
 				[VDD_HIGH] = 2000000000},
 		},
+	},
+};
+
+static struct clk_alpha_pll_postdiv gcc_gpll5_out_even = {
+	.offset = 0x5000,
+	.post_div_shift = 10,
+	.post_div_table = post_div_table_gcc_gpll0_out_even,
+	.num_post_div = ARRAY_SIZE(post_div_table_gcc_gpll0_out_even),
+	.width = 4,
+	.regs = clk_alpha_pll_regs[CLK_ALPHA_PLL_TYPE_LUCID_EVO],
+	.clkr.hw.init = &(const struct clk_init_data){
+		.name = "gcc_gpll5_out_even",
+		.parent_hws = (const struct clk_hw*[]){
+			&gcc_gpll5.clkr.hw,
+		},
+		.num_parents = 1,
+		.ops = &clk_alpha_pll_postdiv_lucid_evo_ops,
 	},
 };
 
@@ -1323,6 +1357,26 @@ static struct clk_branch gcc_aggre_noc_ecpri_dma_clk = {
 	},
 };
 
+static struct clk_branch gcc_aggre_noc_ecpri_gsi_clk = {
+	.halt_reg = 0x9201c,
+	.halt_check = BRANCH_HALT_VOTED,
+	.hwcg_reg = 0x9201c,
+	.hwcg_bit = 1,
+	.clkr = {
+		.enable_reg = 0x9201c,
+		.enable_mask = BIT(0),
+		.hw.init = &(const struct clk_init_data){
+			.name = "gcc_aggre_noc_ecpri_gsi_clk",
+			.parent_hws = (const struct clk_hw*[]){
+				&gcc_aggre_noc_ecpri_gsi_clk_src.clkr.hw,
+			},
+			.num_parents = 1,
+			.flags = CLK_SET_RATE_PARENT,
+			.ops = &clk_branch2_ops,
+		},
+	},
+};
+
 static struct clk_branch gcc_boot_rom_ahb_clk = {
 	.halt_reg = 0x48004,
 	.halt_check = BRANCH_HALT_VOTED,
@@ -1450,7 +1504,7 @@ static struct clk_branch gcc_ecpri_cc_gpll2_even_clk_src = {
 		.hw.init = &(const struct clk_init_data){
 			.name = "gcc_ecpri_cc_gpll2_even_clk_src",
 			.parent_hws = (const struct clk_hw*[]){
-				&gcc_gpll2.clkr.hw,
+				&gcc_gpll2_out_even.clkr.hw,
 			},
 			.num_parents = 1,
 			.flags = CLK_SET_RATE_PARENT,
@@ -1501,7 +1555,7 @@ static struct clk_branch gcc_ecpri_cc_gpll5_even_clk_src = {
 		.hw.init = &(const struct clk_init_data){
 			.name = "gcc_ecpri_cc_gpll5_even_clk_src",
 			.parent_hws = (const struct clk_hw*[]){
-				&gcc_gpll5.clkr.hw,
+				&gcc_gpll5_out_even.clkr.hw,
 			},
 			.num_parents = 1,
 			.flags = CLK_SET_RATE_PARENT,
@@ -1709,11 +1763,10 @@ static struct clk_branch gcc_pcie_0_cfg_ahb_clk = {
 
 static struct clk_branch gcc_pcie_0_clkref_en = {
 	.halt_reg = 0x9c004,
-	.halt_check = BRANCH_HALT,
+	.halt_check = BRANCH_HALT_INVERT,
 	.clkr = {
 		.enable_reg = 0x9c004,
 		.enable_mask = BIT(0),
-		.enable_is_inverted = true,
 		.hw.init = &(const struct clk_init_data){
 			.name = "gcc_pcie_0_clkref_en",
 			.ops = &clk_branch2_ops,
@@ -2536,11 +2589,10 @@ static struct clk_branch gcc_tsc_etu_clk = {
 
 static struct clk_branch gcc_usb2_clkref_en = {
 	.halt_reg = 0x9c008,
-	.halt_check = BRANCH_HALT,
+	.halt_check = BRANCH_HALT_INVERT,
 	.clkr = {
 		.enable_reg = 0x9c008,
 		.enable_mask = BIT(0),
-		.enable_is_inverted = true,
 		.hw.init = &(const struct clk_init_data){
 			.name = "gcc_usb2_clkref_en",
 			.ops = &clk_branch2_ops,
@@ -2681,9 +2733,11 @@ static struct clk_regmap *gcc_cinder_clocks[] = {
 	[GCC_GPLL0_OUT_EVEN] = &gcc_gpll0_out_even.clkr,
 	[GCC_GPLL1] = &gcc_gpll1.clkr,
 	[GCC_GPLL2] = &gcc_gpll2.clkr,
+	[GCC_GPLL2_OUT_EVEN] = &gcc_gpll2_out_even.clkr,
 	[GCC_GPLL3] = &gcc_gpll3.clkr,
 	[GCC_GPLL4] = &gcc_gpll4.clkr,
 	[GCC_GPLL5] = &gcc_gpll5.clkr,
+	[GCC_GPLL5_OUT_EVEN] = &gcc_gpll5_out_even.clkr,
 	[GCC_GPLL6] = &gcc_gpll6.clkr,
 	[GCC_GPLL7] = &gcc_gpll7.clkr,
 	[GCC_GPLL8] = &gcc_gpll8.clkr,
@@ -2780,6 +2834,9 @@ static struct clk_regmap *gcc_cinder_clocks[] = {
 	[GCC_ETH_100G_FH_HM_APB_1_CLK] = &gcc_eth_100g_fh_hm_apb_1_clk.clkr,
 	[GCC_ETH_100G_FH_HM_APB_2_CLK] = &gcc_eth_100g_fh_hm_apb_2_clk.clkr,
 	[GCC_ETH_DBG_C2C_HM_APB_CLK] = &gcc_eth_dbg_c2c_hm_apb_clk.clkr,
+	[GCC_AGGRE_NOC_ECPRI_GSI_CLK] = &gcc_aggre_noc_ecpri_gsi_clk.clkr,
+	[GCC_PCIE_0_PHY_AUX_CLK_SRC] = &gcc_pcie_0_phy_aux_clk_src.clkr,
+	[GCC_PCIE_0_PIPE_CLK_SRC] = &gcc_pcie_0_pipe_clk_src.clkr,
 };
 
 static const struct qcom_reset_map gcc_cinder_resets[] = {
