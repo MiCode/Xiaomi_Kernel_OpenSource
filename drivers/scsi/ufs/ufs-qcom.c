@@ -4462,7 +4462,7 @@ static int ufs_cpufreq_status(void)
 
 	policy = cpufreq_cpu_get(0);
 	if (!policy) {
-		ufs_qcom_msg(WARN, dev, "cpufreq not probed yet, defer once\n");
+		ufs_qcom_msg(WARN, NULL, "cpufreq not probed yet, defer once\n");
 		return -EPROBE_DEFER;
 	}
 
