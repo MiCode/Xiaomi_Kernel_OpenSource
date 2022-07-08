@@ -1855,6 +1855,7 @@ static void msm_geni_uart_gsi_cancel_rx(struct work_struct *work)
 	dmaengine_terminate_all(msm_port->gsi->rx_c);
 	complete(&msm_port->xfer);
 	msm_port->gsi_rx_done = false;
+	atomic_set(&msm_port->stop_rx_inprogress, 0);
 	UART_LOG_DBG(msm_port->ipc_log_misc, msm_port->uport.dev,
 		     "%s: End\n", __func__);
 }
@@ -2389,7 +2390,6 @@ static int stop_rx_sequencer(struct uart_port *uport)
 		}
 		UART_LOG_DBG(port->ipc_log_misc, uport->dev,
 			     "%s: Queue Rx Work\n", __func__);
-		atomic_set(&port->stop_rx_inprogress, 0);
 		reinit_completion(&port->xfer);
 		queue_work(port->rx_wq, &port->rx_cancel_work);
 		return 0;
