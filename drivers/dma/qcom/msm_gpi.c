@@ -1686,7 +1686,8 @@ static void gpi_process_xfer_compl_event(struct gpii_chan *gpii_chan,
 			return;
 		}
 	} else if (compl_event->code == MSM_GPI_TCE_EOB) {
-		if (!(gpii_chan->num_tre == 1 && gpii_chan->lock_tre_set))
+		if (!(gpii_chan->num_tre == 1 && gpii_chan->lock_tre_set)
+			&& (gpii->protocol != SE_PROTOCOL_UART))
 			goto gpi_free_desc;
 	}
 
