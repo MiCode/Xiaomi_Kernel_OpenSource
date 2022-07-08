@@ -687,6 +687,7 @@ static int qrtr_pad_word_pskb(struct sk_buff *skb)
 				kunmap_atomic(vaddr);
 				count += d_off + padding_len;
 				skb->len = padto;
+				skb->data_len += padding_len;
 				break;
 			}
 		} else {
@@ -710,6 +711,7 @@ static int qrtr_pad_word_pskb(struct sk_buff *skb)
 					count += p_len;
 					padding_len -= d_len;
 					skb->len += d_len;
+					skb->data_len += padding_len;
 					continue;
 				}
 
@@ -719,6 +721,7 @@ static int qrtr_pad_word_pskb(struct sk_buff *skb)
 				kunmap_atomic(vaddr);
 				count += d_off + padding_len;
 				skb->len += padding_len;
+				skb->data_len += padding_len;
 			}
 		}
 
