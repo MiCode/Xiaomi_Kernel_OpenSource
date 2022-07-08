@@ -42,6 +42,34 @@ enum qcedev_oper_enum {
 };
 
 /**
+ *qcedev_offload_oper_enum: Offload operation types (uses pipe keys)
+ * @QCEDEV_OFFLOAD_HLOS_HLOS:   Non-secure to non-secure (eg. audio dec).
+ * @QCEDEV_OFFLOAD_HLOS_CPB:    Non-secure to secure (eg. video dec).
+ * @QCEDEV_OFFLOAD_CPB_HLOS:    Secure to non-secure (eg. hdcp video enc).
+ */
+enum qcedev_offload_oper_enum {
+	QCEDEV_OFFLOAD_HLOS_HLOS = 1,
+	QCEDEV_OFFLOAD_HLOS_CPB = 2,
+	QCEDEV_OFFLOAD_CPB_HLOS = 3,
+	QCEDEV_OFFLOAD_OPER_LAST
+};
+
+/**
+ *qcedev_offload_err_enum: Offload error conditions
+ * @QCEDEV_OFFLOAD_NO_ERROR:        Successful crypto operation.
+ * @QCEDEV_OFFLOAD_GENERIC_ERROR:   Generic error in crypto status.
+ * @QCEDEV_OFFLOAD_TIMER_EXPIRED_ERROR:     Pipe key timer expired.
+ * @QCEDEV_OFFLOAD_KEY_PAUSE_ERROR:     Pipe key pause (means GPCE is paused).
+ */
+enum qcedev_offload_err_enum {
+	QCEDEV_OFFLOAD_NO_ERROR = 0,
+	QCEDEV_OFFLOAD_GENERIC_ERROR = 1,
+	QCEDEV_OFFLOAD_KEY_TIMER_EXPIRED_ERROR = 2,
+	QCEDEV_OFFLOAD_KEY_PAUSE_ERROR = 3
+
+};
+
+/**
  *qcedev_oper_enum: Cipher algorithm types
  * @QCEDEV_ALG_DES:		DES
  * @QCEDEV_ALG_3DES:		3DES
@@ -224,6 +252,72 @@ struct	qcedev_sha_op_req {
 };
 
 /**
+ * struct pattern_info - Holds pattern information for pattern-based
+ * decryption/encryption for AES ECB, counter, and CBC modes.
+ * @patt_sz (IN):       Total number of blocks.
+ * @proc_data_sz (IN):  Number of blocks to be processed.
+ * @patt_offset (IN):   Start of the segment.
+ */
+struct pattern_info {
+	__u8 patt_sz;
+	__u8 proc_data_sz;
+	__u8 patt_offset;
+};
+
+/**
+ * struct qcedev_offload_cipher_op_req - Holds the offload request information
+ * @vbuf (IN/OUT):      Stores Source and destination Buffer information.
+ *                      Refer to struct qcedev_vbuf_info.
+ * @entries (IN):       Number of entries to be processed as part of request.
+ * @data_len (IN):      Total Length of input/src and output/dst in bytes
+ * @in_place_op (IN):   Indicates whether the operation is inplace where
+ *                      source == destination.
+ * @encklen (IN):       Length of the encryption key(set to 128  bits/16
+ *                      bytes in the driver).
+ * @iv (IN/OUT):        Initialisation vector data
+ *                      This is updated by the driver, incremented by
+ *                      number of blocks encrypted/decrypted.
+ * @ivlen (IN):         Length of the IV.
+ * @iv_ctr_size (IN):   IV counter increment mask size.
+ *                      Driver sets the mask value based on this size.
+ * @byteoffset (IN):    Offset in the Cipher BLOCK (applicable and to be set
+ *                      for AES-128 CTR mode only).
+ * @block_offset (IN):  Offset in the block that needs a skip of encrypt/
+ *                      decrypt.
+ * @pattern_valid (IN): Indicates the request contains a valid pattern.
+ * @pattern_info (IN):  The pattern to be used for the offload request.
+ * @is_copy_op (IN):    Offload operations sometimes requires a copy between
+ *                      secure and non-secure buffers without any encrypt/
+ *                      decrypt operations.
+ * @alg (IN):           Type of ciphering algorithm: AES/DES/3DES.
+ * @mode (IN):          Mode use when using AES algorithm: ECB/CBC/CTR.
+ *                      Applicable when using AES algorithm only.
+ * @op (IN):            Type of operation.
+ *                      Refer to qcedev_offload_oper_enum.
+ * @err (OUT):          Error in crypto status.
+ *                      Refer to qcedev_offload_err_enum.
+ */
+struct qcedev_offload_cipher_op_req {
+	struct qcedev_vbuf_info vbuf;
+	__u32 entries;
+	__u32 data_len;
+	__u32 in_place_op;
+	__u32 encklen;
+	__u8 iv[QCEDEV_MAX_IV_SIZE];
+	__u32 ivlen;
+	__u32 iv_ctr_size;
+	__u32 byteoffset;
+	__u8 block_offset;
+	__u8 is_pattern_valid;
+	__u8 is_copy_op;
+	struct pattern_info pattern_info;
+	enum qcedev_cipher_alg_enum alg;
+	enum qcedev_cipher_mode_enum mode;
+	enum qcedev_offload_oper_enum op;
+	enum qcedev_offload_err_enum err;
+};
+
+/**
  * struct qfips_verify_t - Holds data for FIPS Integrity test
  * @kernel_size  (IN):		Size of kernel Image
  * @kernel       (IN):		pointer to buffer containing the kernel Image
@@ -286,4 +380,6 @@ struct file;
 	_IOWR(QCEDEV_IOC_MAGIC, 10, struct qcedev_map_buf_req)
 #define QCEDEV_IOCTL_UNMAP_BUF_REQ	\
 	_IOWR(QCEDEV_IOC_MAGIC, 11, struct qcedev_unmap_buf_req)
+#define QCEDEV_IOCTL_OFFLOAD_OP_REQ		\
+	_IOWR(QCEDEV_IOC_MAGIC, 12, struct qcedev_offload_cipher_op_req)
 #endif /* _QCEDEV__H */
