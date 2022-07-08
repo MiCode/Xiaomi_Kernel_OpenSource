@@ -33,4 +33,20 @@ config ARCH_MDM9615
 	bool "Enable support for MDM9615"
 	select CLKSRC_QCOM
 
+config ARCH_SDXBAAGHA
+	bool "Enable support for SDXBAAGHA"
+	select CPU_V7
+	select ARM_GIC
+	select HAVE_ARM_ARCH_TIMER
+	select HAVE_PCI
+	select MSM_CORTEX_A7
+	select PCI
+	select PINCTRL
+	select QCOM_SCM if SMP
+	select MSM_JTAG_MM if CORESIGHT_ETM
+	select PM_DEVFREQ
+	select COMMON_CLK
+	select COMMON_CLK_QCOM
+	select QCOM_GDSC
+
 endif
