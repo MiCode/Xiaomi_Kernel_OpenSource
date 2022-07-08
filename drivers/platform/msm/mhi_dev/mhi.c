@@ -71,6 +71,9 @@
 #define MHI_DEV_CH_CLOSE_TIMEOUT_MAX	5100
 #define MHI_DEV_CH_CLOSE_TIMEOUT_COUNT	200
 
+#define IGNORE_CH_SIZE 2
+int ignore_ch_channel[IGNORE_CH_SIZE] = {2, 3};
+
 uint32_t bhi_imgtxdb;
 enum mhi_msg_level mhi_msg_lvl = MHI_MSG_ERROR;
 enum mhi_msg_level mhi_ipc_msg_lvl = MHI_MSG_VERBOSE;
@@ -103,6 +106,18 @@ static DECLARE_COMPLETION(read_from_host);
 static DECLARE_COMPLETION(write_to_host);
 static DECLARE_COMPLETION(transfer_host_to_device);
 static DECLARE_COMPLETION(transfer_device_to_host);
+
+bool check_ignore_ch_list(int ch_id)
+{
+	int i = 0;
+
+	for ( ; i < IGNORE_CH_SIZE; i++) {
+		if (ch_id == ignore_ch_channel[i])
+			return true;
+	}
+
+	return false;
+}
 
 /*
  * mhi_dev_ring_cache_completion_cb () - Call back function called
@@ -2013,9 +2028,9 @@ static int mhi_dev_process_cmd_ring(struct mhi_dev *mhi,
 		 * RP may not have been updated. Check channel context to see
 		 * if channel is in disabled state and ignore it
 		 */
-		if (mhi->ch_ctx_cache[ch_id].ch_state == MHI_DEV_CH_STATE_DISABLED) {
+		if (mhi->is_flashless && check_ignore_ch_list(ch_id)) {
 			mhi_log(MHI_MSG_ERROR,
-				"Ignoring start cmd, ch:%d is disabled\n", ch_id);
+				"Ignoring start cmd, ch:%d is in ignore list\n", ch_id);
 			return 0;
 		}
 
@@ -2192,9 +2207,9 @@ send_undef_completion_event:
 			 * RP may not have been updated. Check channel context to see
 			 * if channel is in disabled state and ignore it
 			 */
-			if (mhi->ch_ctx_cache[ch_id].ch_state == MHI_DEV_CH_STATE_DISABLED) {
+			if (mhi->is_flashless && check_ignore_ch_list(ch_id)) {
 				mhi_log(MHI_MSG_ERROR,
-					"Ignoring reset cmd, ch:%d is disabled\n", ch_id);
+					"Ignoring reset cmd, ch:%d is in ignore list\n", ch_id);
 				return 0;
 			}
 
