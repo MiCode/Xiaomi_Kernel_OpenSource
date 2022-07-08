@@ -55,6 +55,7 @@
   dec_zone_page_state
   delayed_work_timer_fn
   del_gendisk
+  del_timer
   del_timer_sync
   device_add_disk
   disk_end_io_acct
@@ -70,6 +71,9 @@
   free_percpu
   fs_bio_set
   fsync_bdev
+  genlmsg_put
+  genl_register_family
+  genl_unregister_family
   __get_free_pages
   idr_alloc
   idr_destroy
@@ -77,18 +81,29 @@
   idr_for_each
   idr_remove
   inc_zone_page_state
+  __inet6_lookup_established
+  inet_csk_get_port
+  __inet_lookup_established
+  init_net
   init_pseudo
   __init_rwsem
   init_timer_key
   init_wait_entry
   __init_waitqueue_head
   io_schedule
+  ip6_local_out
+  ip6_route_me_harder
+  ip_local_out
+  ip_route_me_harder
   iput
+  ipv6_find_hdr
+  ipv6_skip_exthdr
   jiffies
   kasan_flag_enabled
   kern_mount
   kern_unmount
   kfree
+  kfree_skb
   kill_anon_super
   kmalloc_caches
   kmem_cache_alloc
@@ -105,6 +120,8 @@
   kthread_create_on_node
   kthread_should_stop
   kthread_stop
+  ktime_get_real_ts64
+  ktime_get_raw_ts64
   __list_add_valid
   __list_del_entry_valid
   __lock_page
@@ -122,6 +139,17 @@
   mutex_lock
   mutex_trylock
   mutex_unlock
+  nf_ct_attach
+  nf_ct_delete
+  nf_register_net_hooks
+  nf_unregister_net_hooks
+  nla_find
+  nla_memcpy
+  __nla_parse
+  nla_put
+  nla_put_64bit
+  nla_reserve
+  nla_reserve_64bit
   nr_cpu_ids
   __num_online_cpus
   page_endio
@@ -129,6 +157,10 @@
   page_mapping
   param_ops_uint
   __per_cpu_offset
+  platform_device_add
+  platform_device_alloc
+  platform_device_put
+  platform_driver_unregister
   preempt_schedule
   preempt_schedule_notrace
   prepare_to_wait
@@ -161,6 +193,8 @@
   __register_blkdev
   register_reboot_notifier
   register_shrinker
+  register_sysctl_table
+  register_tcf_proto_ops
   schedule
   schedule_timeout
   scnprintf
@@ -168,6 +202,8 @@
   set_capacity
   set_capacity_and_notify
   __SetPageMovable
+  __skb_checksum_complete
+  skb_dump
   snprintf
   sprintf
   __stack_chk_fail
@@ -175,6 +211,7 @@
   strcpy
   strlcpy
   strlen
+  strncmp
   strncpy
   submit_bio
   sysfs_create_files
@@ -183,11 +220,20 @@
   sysfs_streq
   system_freezable_wq
   system_wq
+  tcf_action_exec
+  tcf_exts_destroy
+  tcf_exts_dump
+  tcf_exts_dump_stats
+  tcf_exts_validate
+  tcf_queue_work
+  tcp_hashinfo
   __ubsan_handle_cfi_check_fail_abort
   unlock_page
   unregister_blkdev
   unregister_reboot_notifier
   unregister_shrinker
+  unregister_sysctl_table
+  unregister_tcf_proto_ops
   up_read
   up_write
   vfree
