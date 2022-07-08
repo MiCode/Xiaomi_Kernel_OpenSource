@@ -11,8 +11,9 @@ qcom_glink.ko
 qcom_wdt_core.ko
 qcom_soc_wdt.ko
 qcom_cpu_vendor_hooks.ko
+clk-smd-rpm.ko
 gcc-khaje.ko
-camcc-khaje.ko
+qcom-cpufreq-hw.ko
 qcom_ipcc.ko
 qcom_ipc_logging.ko
 qcom-pdc.ko
@@ -23,9 +24,6 @@ cmd-db.ko
 cqhci.ko
 dcc_v2.ko
 debug-regulator.ko
-dispcc-khaje.ko
-tcsrcc-khaje.ko
-videocc-khaje.ko
 gdsc-regulator.ko
 gh_arm_drv.ko
 gh_ctrl.ko
