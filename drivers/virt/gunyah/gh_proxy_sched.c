@@ -66,6 +66,7 @@ struct gh_proxy_vcpu {
 	gh_capid_t cap_id;
 	gh_label_t idx;
 	bool abort_sleep;
+	bool wdog_frozen;
 	struct task_struct *task;
 	int virq;
 	char irq_name[32];
@@ -81,6 +82,7 @@ struct gh_proxy_vm {
 	bool is_vcpu_info_populated;
 	bool is_active;
 
+	gh_capid_t wdog_cap_id;
 	gh_capid_t vpmg_cap_id;
 	int susp_res_irq;
 	bool is_vpm_group_info_populated;
@@ -178,6 +180,7 @@ static inline void gh_reset_vm(struct gh_proxy_vm *vm)
 		vm->vcpu[j].idx = U32_MAX;
 		vm->vcpu[j].vm = NULL;
 		vm->vcpu[j].abort_sleep = false;
+		vm->vcpu[j].wdog_frozen = false;
 		vm->vcpu[j].ws = NULL;
 		strscpy(vm->vcpu[vm->vcpu_count].irq_name, "",
 				sizeof(vm->vcpu[vm->vcpu_count].irq_name));
@@ -220,6 +223,38 @@ static inline void gh_get_vcpu_prop_name(int vmid, int vcpu_num, char *name)
 
 	scnprintf(extrastr, 12, "_%d_%d", vmid, vcpu_num);
 	strlcat(name, extrastr, 32);
+}
+
+static int gh_wdog_manage(gh_vmid_t vmid, gh_capid_t cap_id, bool populate)
+{
+	struct gh_proxy_vm *vm;
+	int ret = 0;
+
+	if (!init_done) {
+		pr_err("Driver probe failed\n");
+		return -ENXIO;
+	}
+
+	if (!is_vm_supports_proxy(vmid)) {
+		pr_info("Skip populating VCPU affinity info for VM=%d\n", vmid);
+		return -EINVAL;
+	}
+
+	mutex_lock(&gh_vm_mutex);
+	vm = gh_get_vm(vmid);
+	if (!vm) {
+		ret = -ENODEV;
+		goto unlock;
+	}
+
+	if (populate)
+		vm->wdog_cap_id = cap_id;
+	else
+		vm->wdog_cap_id = GH_CAPID_INVAL;
+
+unlock:
+	mutex_unlock(&gh_vm_mutex);
+	return ret;
 }
 
 /*
@@ -562,8 +597,21 @@ int gh_vcpu_run(gh_vmid_t vmid, unsigned int vcpu_id, uint64_t resume_data_0,
 
 		start_ts = ktime_get();
 		/* Call into Gunyah to run vcpu. */
+		preempt_disable();
+		if (vcpu->wdog_frozen) {
+			gh_hcall_wdog_manage(vm->wdog_cap_id, WATCHDOG_MANAGE_OP_UNFREEZE);
+			vcpu->wdog_frozen = false;
+		}
 		ret = gh_hcall_vcpu_run(vcpu->cap_id, resume_data_0,
 					resume_data_1, resume_data_2, resp);
+		if (ret == GH_ERROR_OK && resp->vcpu_state == GH_VCPU_STATE_READY) {
+			if (need_resched()) {
+				gh_hcall_wdog_manage(vm->wdog_cap_id,
+						WATCHDOG_MANAGE_OP_FREEZE);
+				vcpu->wdog_frozen = true;
+			}
+		}
+		preempt_enable();
 		yield_ts = ktime_get() - start_ts;
 		trace_gh_hcall_vcpu_run(ret, vcpu->vm->id, vcpu_id, yield_ts,
 					resp->vcpu_state, resp->vcpu_suspend_state);
@@ -601,6 +649,11 @@ int gh_vcpu_run(gh_vmid_t vmid, unsigned int vcpu_id, uint64_t resume_data_0,
 		}
 
 		if (signal_pending(current)) {
+			if (!vcpu->wdog_frozen) {
+				gh_hcall_wdog_manage(vm->wdog_cap_id,
+						WATCHDOG_MANAGE_OP_FREEZE);
+				vcpu->wdog_frozen = true;
+			}
 			ret = -ERESTARTSYS;
 			break;
 		}
@@ -615,6 +668,12 @@ int gh_vcpu_run(gh_vmid_t vmid, unsigned int vcpu_id, uint64_t resume_data_0,
 static int gh_proxy_sched_reg_rm_cbs(void)
 {
 	int ret = -EINVAL;
+
+	ret = gh_rm_set_wdog_manage_cb(&gh_wdog_manage);
+	if (ret) {
+		pr_err("fail to set the WDOG resource callback\n");
+		return ret;
+	}
 
 	ret = gh_rm_set_vcpu_affinity_cb(&gh_populate_vm_vcpu_info);
 	if (ret) {

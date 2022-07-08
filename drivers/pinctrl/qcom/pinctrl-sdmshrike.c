@@ -305,11 +305,11 @@ static const struct pinctrl_pin_desc sdmshrike_pins[] = {
 	PINCTRL_PIN(187, "GPIO_187"),
 	PINCTRL_PIN(188, "GPIO_188"),
 	PINCTRL_PIN(189, "GPIO_189"),
-	PINCTRL_PIN(190, "SDC2_CLK"),
-	PINCTRL_PIN(191, "SDC2_CMD"),
-	PINCTRL_PIN(192, "SDC2_DATA"),
-	PINCTRL_PIN(193, "UFS_RESET"),
-	PINCTRL_PIN(194, "UFS0_RESET"),
+	PINCTRL_PIN(190, "UFS_RESET"),
+	PINCTRL_PIN(191, "UFS0_RESET"),
+	PINCTRL_PIN(192, "SDC2_CLK"),
+	PINCTRL_PIN(193, "SDC2_CMD"),
+	PINCTRL_PIN(194, "SDC2_DATA"),
 };
 
 #define DECLARE_MSM_GPIO_PINS(pin) \
@@ -505,11 +505,11 @@ DECLARE_MSM_GPIO_PINS(187);
 DECLARE_MSM_GPIO_PINS(188);
 DECLARE_MSM_GPIO_PINS(189);
 
-static const unsigned int sdc2_clk_pins[] = { 190 };
-static const unsigned int sdc2_cmd_pins[] = { 191 };
-static const unsigned int sdc2_data_pins[] = { 192 };
-static const unsigned int ufs_reset_pins[] = { 193 };
-static const unsigned int ufs0_reset_pins[] = { 194 };
+static const unsigned int sdc2_clk_pins[] = { 192 };
+static const unsigned int sdc2_cmd_pins[] = { 193 };
+static const unsigned int sdc2_data_pins[] = { 194 };
+static const unsigned int ufs_reset_pins[] = { 190 };
+static const unsigned int ufs0_reset_pins[] = { 191 };
 
 enum sdmshrike_functions {
 	msm_mux_GRFC2,
@@ -2230,11 +2230,11 @@ static const struct msm_pingroup sdmshrike_groups[] = {
 	[187] = PINGROUP(187, SOUTH1, NA, NA, NA, NA, NA, NA, NA, NA, NA),
 	[188] = PINGROUP(188, SOUTH1, NA, NA, NA, NA, NA, NA, NA, NA, NA),
 	[189] = PINGROUP(189, SOUTH1, dp_hot, NA, NA, NA, NA, NA, NA, NA, NA),
-	[190] = SDC_QDSD_PINGROUP(sdc2_clk, 0x9b2000, 14, 6),
-	[191] = SDC_QDSD_PINGROUP(sdc2_cmd, 0x9b2000, 11, 3),
-	[192] = SDC_QDSD_PINGROUP(sdc2_data, 0x9b2000, 9, 0),
-	[193] = UFS_RESET(ufs_reset, 0xdb6004),
-	[194] = UFS_RESET(ufs0_reset, 0xdc7004),
+	[190] = UFS_RESET(ufs_reset, 0xdb6000),
+	[191] = UFS_RESET(ufs0_reset, 0xdc7000),
+	[192] = SDC_QDSD_PINGROUP(sdc2_clk, 0x9b2000, 14, 6),
+	[193] = SDC_QDSD_PINGROUP(sdc2_cmd, 0x9b2000, 11, 3),
+	[194] = SDC_QDSD_PINGROUP(sdc2_data, 0x9b2000, 9, 0),
 };
 
 static const struct msm_gpio_wakeirq_map sdmshrike_pdc_map[] = {
@@ -2263,7 +2263,7 @@ static struct msm_pinctrl_soc_data sdmshrike_pinctrl = {
 	.nfunctions = ARRAY_SIZE(sdmshrike_functions),
 	.groups = sdmshrike_groups,
 	.ngroups = ARRAY_SIZE(sdmshrike_groups),
-	.ngpios = 190,
+	.ngpios = 192,
 	.wakeirq_map = sdmshrike_pdc_map,
 	.nwakeirq_map = ARRAY_SIZE(sdmshrike_pdc_map),
 	.wakeirq_dual_edge_errata = true,

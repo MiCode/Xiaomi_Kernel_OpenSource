@@ -665,6 +665,11 @@ static void geni_i3c_handle_received_ibi(struct geni_i3c_dev *gi3c)
 
 	val = readl_relaxed(gi3c->ibi.ibi_base + IBI_RCVD_IBI_STATUS(0));
 
+	if (!dev || !dev->ibi) {
+		I3C_LOG_ERR(gi3c->ipcl, true, gi3c->se.dev, "Invalid IBI device\n");
+		goto no_free_slot;
+	}
+
 	data = i3c_dev_get_master_data(dev);
 	slot = i3c_generic_ibi_get_free_slot(data->ibi_pool);
 	if (!slot) {
@@ -1295,6 +1300,7 @@ static int geni_i3c_master_priv_xfers
 	struct i3c_master_controller *m = i3c_dev_get_master(dev);
 	struct geni_i3c_dev *gi3c = to_geni_i3c_master(m);
 	int i, ret;
+	u32 geni_ios;
 	bool use_7e = true;
 
 	if (nxfers <= 0)
@@ -1303,6 +1309,12 @@ static int geni_i3c_master_priv_xfers
 	ret = i3c_geni_runtime_get_mutex_lock(gi3c);
 	if (ret)
 		return ret;
+
+	geni_ios = geni_read_reg(gi3c->se.base, SE_GENI_IOS);
+	if ((geni_ios & 0x3) != 0x3) { //SCL:b'1, SDA:b'0
+		I3C_LOG_DBG(gi3c->ipcl, false, gi3c->se.dev,
+		"%s:IO lines:0x%x not in good state\n", __func__, geni_ios);
+	}
 
 	qcom_geni_i3c_conf(gi3c, PUSH_PULL_MODE);
 
@@ -1894,6 +1906,8 @@ static void qcom_geni_i3c_ibi_unconf(struct geni_i3c_dev *gi3c)
 			return;
 	}
 
+	geni_i3c_enable_ibi_ctrl(gi3c, false);
+	geni_i3c_enable_ibi_irq(gi3c, false);
 	gi3c->ibi.is_init = false;
 }
 
@@ -2194,7 +2208,7 @@ static int geni_i3c_probe(struct platform_device *pdev)
 	struct geni_i3c_dev *gi3c;
 	u32 proto, tx_depth;
 	int ret;
-	u32 se_mode;
+	u32 se_mode, geni_ios;
 
 	gi3c = devm_kzalloc(&pdev->dev, sizeof(*gi3c), GFP_KERNEL);
 	if (!gi3c)
@@ -2314,6 +2328,11 @@ static int geni_i3c_probe(struct platform_device *pdev)
 	pm_runtime_use_autosuspend(gi3c->se.dev);
 	pm_runtime_enable(gi3c->se.dev);
 
+	geni_ios = geni_read_reg(gi3c->se.base, SE_GENI_IOS);
+	if ((geni_ios & 0x3) != 0x3) { //SCL:b'1, SDA:b'0
+		I3C_LOG_ERR(gi3c->ipcl, false, gi3c->se.dev,
+		"%s: IO lines:0x%x, Ensure bus power up\n", __func__, geni_ios);
+	}
 
 	ret = i3c_master_register(&gi3c->ctrlr, &pdev->dev,
 		&geni_i3c_master_ops, false);
@@ -2374,10 +2393,6 @@ static int geni_i3c_remove(struct platform_device *pdev)
 
 	if (gi3c->ibi.is_init)
 		qcom_geni_i3c_ibi_unconf(gi3c);
-	geni_i3c_enable_ibi_ctrl(gi3c, false);
-
-	/* Potentially to be done before pinctrl change */
-	geni_i3c_enable_ibi_irq(gi3c, false);
 
 	/*force suspend to avoid the auto suspend caused by driver removal*/
 	pm_runtime_force_suspend(gi3c->se.dev);

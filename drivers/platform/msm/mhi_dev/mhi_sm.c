@@ -1264,8 +1264,9 @@ int mhi_dev_sm_set_ready(void)
 	mhi_dev_mmio_masked_read(mhi_sm_ctx->mhi_dev, MHISTATUS,
 		MHISTATUS_READY_MASK,
 		MHISTATUS_READY_SHIFT, &is_ready);
-
-	if (state != MHI_DEV_RESET_STATE || is_ready) {
+	if (state == MHI_DEV_M0_STATE && is_ready)
+		MHI_SM_DBG("Flashless scenario in READY state, MHI is already in M0");
+	else {
 		MHI_SM_ERR("Cannot switch to READY, MHI is not in RESET state");
 		MHI_SM_ERR("-MHISTATE: %s, READY bit: 0x%x\n",
 			mhi_sm_mstate_str(state), is_ready);

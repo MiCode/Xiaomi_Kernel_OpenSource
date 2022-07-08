@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/kernel.h>
@@ -42,7 +43,7 @@ int mem_buf_hyp_assign_table(struct sg_table *sgt, u32 *src_vmid, int source_nel
 	return ret;
 }
 
-int mem_buf_assign_mem(int op, struct sg_table *sgt,
+int mem_buf_assign_mem(u32 op, struct sg_table *sgt,
 		       struct mem_buf_lend_kernel_arg *arg)
 {
 	int src_vmid[] = {current_vmid};

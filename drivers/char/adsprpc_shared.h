@@ -1134,5 +1134,7 @@ int fastrpc_dspsignal_destroy(struct fastrpc_file *fl,
 int fastrpc_dspsignal_cancel_wait(struct fastrpc_file *fl,
 				  struct fastrpc_ioctl_dspsignal_cancel_wait *cancel);
 
+void fastrpc_rproc_trace_events(const char *name, const char *event,
+				const char *subevent);
 
 #endif

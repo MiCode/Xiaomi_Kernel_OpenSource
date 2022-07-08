@@ -7,6 +7,7 @@
 #include <linux/of.h>
 #include <linux/module.h>
 #include <trace/events/fastrpc.h>
+#include <trace/events/rproc_qcom.h>
 #include "adsprpc_shared.h"
 
 struct frpc_transport_session_control {
@@ -236,6 +237,12 @@ static struct rpmsg_driver fastrpc_rpmsg_client = {
 		.of_match_table = fastrpc_rpmsg_of_match,
 	},
 };
+
+void fastrpc_rproc_trace_events(const char *name, const char *event,
+				const char *subevent)
+{
+	trace_rproc_qcom_event(name, event, subevent);
+}
 
 inline void fastrpc_transport_session_init(int cid, char *subsys)
 {

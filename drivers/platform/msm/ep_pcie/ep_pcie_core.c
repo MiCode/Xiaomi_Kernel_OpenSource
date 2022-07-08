@@ -157,6 +157,39 @@ static int ep_pcie_find_capability(struct ep_pcie_dev_t *dev, u32 cap)
 	return 0;
 }
 
+static int ep_pcie_find_ext_capability(struct ep_pcie_dev_t *dev, int cap)
+{
+	u32 header;
+	int ttl;
+	int pos = PCI_CFG_SPACE_SIZE;
+
+	/* minimum 8 bytes per capability */
+	ttl = (PCI_CFG_SPACE_EXP_SIZE - PCI_CFG_SPACE_SIZE) / 8;
+
+	if (!(readl_relaxed(dev->dm_core + PCIE20_COMMAND_STATUS)
+		& PCIE20_CMD_STS_CAP_LIST))
+		return -EINVAL;
+
+	while (ttl-- > 0) {
+		header = readl_relaxed(dev->dm_core + pos);
+		/*
+		 * If we have no capabilities, this is indicated by cap ID,
+		 * cap version and next pointer all being 0.
+		 */
+		if (header == 0)
+			break;
+
+		if (PCI_EXT_CAP_ID(header) == cap)
+			return pos;
+
+		pos = PCI_EXT_CAP_NEXT(header);
+		if (pos < PCI_CFG_SPACE_SIZE)
+			break;
+	}
+
+	return 0;
+}
+
 static bool ep_pcie_confirm_linkup(struct ep_pcie_dev_t *dev,
 				bool check_sw_stts)
 {
@@ -839,11 +872,14 @@ static void ep_pcie_core_init(struct ep_pcie_dev_t *dev, bool configured)
 	ep_pcie_write_mask(dev->parf + PCIE20_PARF_CFG_BITS, 0, BIT(1));
 
 	EP_PCIE_DBG(dev,
-		"Initial: CLASS_CODE_REVISION_ID:0x%x; HDR_TYPE:0x%x\n",
+		"Initial: CLASS_CODE_REVISION_ID:0x%x; HDR_TYPE:0x%x; LINK_CAPABILITIES:0x%x\n",
 		readl_relaxed(dev->dm_core + PCIE20_CLASS_CODE_REVISION_ID),
-		readl_relaxed(dev->dm_core + PCIE20_BIST_HDR_TYPE));
+		readl_relaxed(dev->dm_core + PCIE20_BIST_HDR_TYPE),
+		readl_relaxed(dev->dm_core + PCIE20_LINK_CAPABILITIES));
 
 	if (!configured) {
+		int pos;
+
 		/* Enable CS for RO(CS) register writes */
 		ep_pcie_write_mask(dev->dm_core + PCIE20_MISC_CONTROL_1, 0,
 			BIT(0));
@@ -893,9 +929,15 @@ static void ep_pcie_core_init(struct ep_pcie_dev_t *dev, bool configured)
 		ep_pcie_write_reg_field(dev->dm_core, PCIE20_LINK_CAPABILITIES,
 			PCIE20_MASK_L0S_EXIT_LATENCY, 0x6);
 
-		/* L1ss is supported */
-		ep_pcie_write_mask(dev->dm_core + PCIE20_L1SUB_CAPABILITY, 0,
-			0x1f);
+		pos = ep_pcie_find_ext_capability(dev, PCI_EXT_CAP_ID_L1SS);
+		if (pos > 0) {
+			/* L1ss is supported */
+			ep_pcie_write_mask(dev->dm_core + pos + PCI_L1SS_CAP, 0,
+					   0x1f);
+			EP_PCIE_DBG(dev,
+			"After program: L1SUB_CAPABILITY:0x%x\n",
+			readl_relaxed(dev->dm_core + pos + PCI_L1SS_CAP));
+		}
 
 		/* Enable Clock Power Management */
 		ep_pcie_write_reg_field(dev->dm_core, PCIE20_LINK_CAPABILITIES,
@@ -916,11 +958,11 @@ static void ep_pcie_core_init(struct ep_pcie_dev_t *dev, bool configured)
 			PCIE20_MASK_ACK_N_FTS, 0x80);
 
 		EP_PCIE_DBG(dev,
-			"After program: CLASS_CODE_REVISION_ID:0x%x; HDR_TYPE:0x%x; L1SUB_CAPABILITY:0x%x; PARF_SYS_CTRL:0x%x\n",
+			"After program: CLASS_CODE_REVISION_ID:0x%x; HDR_TYPE:0x%x; LINK_CAPABILITIES:0x%x; PARF_SYS_CTRL:0x%x\n",
 			readl_relaxed(dev->dm_core +
 				PCIE20_CLASS_CODE_REVISION_ID),
 			readl_relaxed(dev->dm_core + PCIE20_BIST_HDR_TYPE),
-			readl_relaxed(dev->dm_core + PCIE20_L1SUB_CAPABILITY),
+			readl_relaxed(dev->dm_core + PCIE20_LINK_CAPABILITIES),
 			readl_relaxed(dev->parf + PCIE20_PARF_SYS_CTRL));
 
 		/* Configure BARs */
@@ -2051,7 +2093,7 @@ int ep_pcie_core_enable_endpoint(enum ep_pcie_options opt)
 
 checkbme:
 	/* Clear AOSS_CC_RESET_STATUS::PERST_RAW_RESET_STATUS when linking up */
-	if (dev->aoss_rst_clear)
+	if (dev->aoss_rst_clear && dev->aoss_rst_perst)
 		writel_relaxed(PERST_RAW_RESET_STATUS, dev->aoss_rst_perst);
 
 	/*

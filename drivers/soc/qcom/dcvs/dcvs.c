@@ -712,8 +712,6 @@ static int qcom_dcvs_hw_probe(struct platform_device *pdev)
 
 	hw->hw_max_freq = hw->freq_table[hw->table_len-1];
 	hw->hw_min_freq = hw->freq_table[0];
-	/* start with boost_freq = max_freq for better boot perf */
-	hw->boost_freq = hw->hw_max_freq;
 
 	ret = of_property_read_u32(dev->of_node, QCOM_DCVS_WIDTH_PROP,
 								&hw->width);
@@ -813,16 +811,16 @@ static int qcom_dcvs_path_probe(struct platform_device *pdev)
 	INIT_LIST_HEAD(&path->voter_list);
 	mutex_init(&path->voter_lock);
 
-	/* commit max_freq for boot perf */
-	new_freqs[hw->type].ib = hw->hw_max_freq;
-	new_freqs[hw->type].ab = 0;
-	new_freqs[hw->type].hw_type = hw->type;
-	if (path->type == DCVS_FAST_PATH)
-		ret = path->commit_dcvs_freqs(path, new_freqs, BIT(hw->type));
-	else
+	/* start slow paths with boost_freq = max_freq for better boot perf */
+	if (path->type == DCVS_SLOW_PATH) {
+		hw->boost_freq = hw->hw_max_freq;
+		new_freqs[hw->type].ib = hw->hw_max_freq;
+		new_freqs[hw->type].ab = 0;
+		new_freqs[hw->type].hw_type = hw->type;
 		ret = path->commit_dcvs_freqs(path, &new_freqs[hw->type], 1);
-	if (ret < 0)
-		dev_err(dev, "Error committing initial freq for path%d\n", ret);
+		if (ret < 0)
+			dev_err(dev, "Err committing freq for path=%d\n", ret);
+	}
 
 	hw->dcvs_paths[path_type] = path;
 	hw->num_inited_paths++;

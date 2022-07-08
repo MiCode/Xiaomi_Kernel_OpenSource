@@ -203,6 +203,15 @@ void walt_task_dump(struct task_struct *p)
 	SCHED_PRINT(wts->mark_start);
 	SCHED_PRINT(wts->demand);
 	SCHED_PRINT(wts->coloc_demand);
+	SCHED_PRINT(wts->enqueue_after_migration);
+	SCHED_PRINT(wts->last_sleep_ts);
+	SCHED_PRINT(wts->prev_cpu);
+	SCHED_PRINT(wts->new_cpu);
+	SCHED_PRINT(wts->misfit);
+	SCHED_PRINT(wts->prev_on_rq);
+	SCHED_PRINT(wts->prev_on_rq_cpu);
+	SCHED_PRINT(wts->mvp_prio);
+	SCHED_PRINT(wts->iowaited);
 	SCHED_PRINT(sched_ravg_window);
 	SCHED_PRINT(new_sched_ravg_window);
 
@@ -345,21 +354,6 @@ static void fixup_walt_sched_stats_common(struct rq *rq, struct task_struct *p,
 static void rollover_cpu_window(struct rq *rq, bool full_window);
 static void rollover_top_tasks(struct rq *rq, bool full_window);
 
-/*
- * if last window's average capacity is less than or
- * equal to the current capacity, return true.
- */
-static inline bool is_cpufreq_avg_or_higher(int cpu)
-{
-	unsigned int avg_cap = sched_get_cpu_avg_cap(cpu);
-	unsigned int cur_cap = capacity_curr_of(cpu);
-
-	if (cur_cap >= avg_cap && avg_cap != 0)
-		return true;
-
-	return false;
-}
-
 /* walt_find_cluster_packing_cpu - Return a packing_cpu choice common for this cluster.
  * @start_cpu:  The cpu from the cluster to choose from
  *
@@ -427,10 +421,6 @@ bool walt_choose_packing_cpu(int packing_cpu, struct task_struct *p)
 
 	/* don't pack big tasks */
 	if (task_util(p) >= sysctl_sched_idle_enough)
-		return false;
-
-	/* if cpufreq is lower than the previous window */
-	if (!is_cpufreq_avg_or_higher(packing_cpu))
 		return false;
 
 	/* the packing cpu can be used, so pack! */
@@ -1118,6 +1108,8 @@ static void migrate_busy_time_subtraction(struct task_struct *p, int new_cpu)
 		WALT_BUG(WALT_BUG_UPSTREAM, p, "on CPU %d task %s(%d) not on src_rq %d",
 				raw_smp_processor_id(), p->comm, p->pid, src_rq->cpu);
 
+	wts->new_cpu = new_cpu;
+
 	if (!same_freq_domain(task_cpu(p), new_cpu))
 		wts->enqueue_after_migration = 2; /* 2 is intercluster */
 	else
@@ -1245,7 +1237,7 @@ static void migrate_busy_time_addition(struct task_struct *p, int new_cpu, u64 w
 	if (is_ed_enabled() && is_ed_task(p, wallclock))
 		dest_wrq->ed_task = p;
 
-	wts->enqueue_after_migration = 0;
+	wts->new_cpu = -1;
 }
 
 #define INC_STEP 8
@@ -2423,6 +2415,7 @@ static void init_new_task_load(struct task_struct *p)
 	INIT_LIST_HEAD(&wts->grp_list);
 
 	wts->prev_cpu = raw_smp_processor_id();
+	wts->new_cpu = -1;
 	wts->enqueue_after_migration = 0;
 	wts->mark_start = 0;
 	wts->window_start = 0;
@@ -3412,6 +3405,12 @@ static void transfer_busy_time(struct rq *rq,
 
 	new_task = is_new_task(p);
 
+	if (wts->enqueue_after_migration != 0) {
+		wallclock = walt_sched_clock();
+		migrate_busy_time_addition(p, cpu_of(rq), wallclock);
+		wts->enqueue_after_migration = 0;
+	}
+
 	cpu_time = &wrq->grp_time;
 	if (event == ADD_TASK) {
 		migrate_type = RQ_TO_GROUP;
@@ -4239,6 +4238,7 @@ static void android_rvh_enqueue_task(void *unused, struct rq *rq, struct task_st
 	if (wts->enqueue_after_migration != 0) {
 		wallclock = walt_sched_clock();
 		migrate_busy_time_addition(p, cpu_of(rq), wallclock);
+		wts->enqueue_after_migration = 0;
 	}
 
 	wts->prev_on_rq = 1;

@@ -96,6 +96,7 @@ static void mhi_dev_cmd_event_msi_cb(void *req);
 static int mhi_dev_alloc_cmd_ack_buf_req(struct mhi_dev *mhi);
 
 static int mhi_dev_ring_init(struct mhi_dev *dev);
+static int mhi_dev_get_event_notify(enum mhi_dev_state state, enum mhi_dev_event *event);
 
 static struct mhi_dev_uevent_info channel_state_info[MHI_MAX_CHANNELS];
 static DECLARE_COMPLETION(read_from_host);
@@ -1506,6 +1507,9 @@ static void mhi_hwc_cb(void *priv, enum mhi_dma_event_type event,
 	unsigned long data)
 {
 	int rc = 0;
+	enum mhi_dev_state state;
+	enum mhi_dev_event mhi_event = 0;
+	u32 mhi_reset;
 
 	switch (event) {
 	case MHI_DMA_EVENT_READY:
@@ -1517,6 +1521,25 @@ static void mhi_hwc_cb(void *priv, enum mhi_dma_event_type event,
 			return;
 		}
 
+		mutex_lock(&mhi_ctx->mhi_lock);
+		rc = mhi_dev_mmio_get_mhi_state(mhi_ctx, &state, &mhi_reset);
+		if (rc) {
+			pr_err("%s: get mhi state failed\n", __func__);
+			mutex_unlock(&mhi_ctx->mhi_lock);
+			return;
+		}
+
+		if (state == MHI_DEV_M0_STATE && !mhi_reset) {
+			mhi_dev_get_event_notify(MHI_DEV_M0_STATE, &mhi_event);
+			mhi_dev_notify_sm_event(mhi_event);
+		}
+
+		if (mhi_ctx->config_iatu || mhi_ctx->mhi_int) {
+			mhi_ctx->mhi_int_en = true;
+			enable_irq(mhi_ctx->mhi_irq);
+		}
+
+		mutex_unlock(&mhi_ctx->mhi_lock);
 		rc = mhi_enable_int();
 		if (rc) {
 			pr_err("Error configuring interrupts, rc = %d\n", rc);
@@ -1995,6 +2018,18 @@ static int mhi_dev_process_cmd_ring(struct mhi_dev *mhi,
 		/* fetch the channel context from host */
 		mhi_dev_fetch_ch_ctx(mhi, ch_id);
 
+		/* In flashless  boot scenario, certain channels like sahara may be
+		 * started and reset during SBL state, and we may receive the
+		 * command processing as the reset may not have been handled or
+		 * RP may not have been updated. Check channel context to see
+		 * if channel is in disabled state and ignore it
+		 */
+		if (mhi->ch_ctx_cache[ch_id].ch_state == MHI_DEV_CH_STATE_DISABLED) {
+			mhi_log(MHI_MSG_ERROR,
+				"Ignoring start cmd, ch:%d is disabled\n", ch_id);
+			return 0;
+		}
+
 		/* Initialize and configure the corresponding channel ring */
 		rc = mhi_ring_start(&mhi->ring[mhi->ch_ring_start + ch_id],
 			(union mhi_dev_ring_ctx *)&mhi->ch_ctx_cache[ch_id],
@@ -2162,6 +2197,17 @@ send_undef_completion_event:
 			mhi_log(MHI_MSG_VERBOSE,
 					"received reset cmd for channel %d\n",
 					ch_id);
+			/* In flashless  boot scenario, certain channels like sahara may be
+			 * started and reset during SBL state, and we may receive the
+			 * command processing as the reset may not have been handled or
+			 * RP may not have been updated. Check channel context to see
+			 * if channel is in disabled state and ignore it
+			 */
+			if (mhi->ch_ctx_cache[ch_id].ch_state == MHI_DEV_CH_STATE_DISABLED) {
+				mhi_log(MHI_MSG_ERROR,
+					"Ignoring reset cmd, ch:%d is disabled\n", ch_id);
+				return 0;
+			}
 
 			ring = &mhi->ring[ch_id + mhi->ch_ring_start];
 			if (ring->state == RING_STATE_UINT) {
@@ -3879,10 +3925,13 @@ static void mhi_dev_enable(struct work_struct *work)
 		return;
 	}
 
-	if (mhi_ctx->config_iatu || mhi_ctx->mhi_int) {
-		mhi_ctx->mhi_int_en = true;
-		enable_irq(mhi_ctx->mhi_irq);
+	if (mhi_ctx->use_edma) {
+		if (mhi_ctx->config_iatu || mhi_ctx->mhi_int) {
+			mhi_ctx->mhi_int_en = true;
+			enable_irq(mhi_ctx->mhi_irq);
+		}
 	}
+
 
 	/*
 	 * ctrl_info might already be set to CONNECTED state in the
@@ -4094,6 +4143,9 @@ static int get_device_tree_data(struct platform_device *pdev)
 		}
 	}
 
+	mhi_ctx->is_flashless = of_property_read_bool((&pdev->dev)->of_node,
+				"qcom,mhi-is-flashless");
+
 	device_init_wakeup(mhi->dev, true);
 	/* MHI device will be woken up from PCIe event */
 	device_set_wakeup_capable(mhi->dev, false);
@@ -4120,12 +4172,10 @@ static int mhi_deinit(struct mhi_dev *mhi)
 
 	mhi_dev_sm_exit(mhi);
 
-	mhi->mmio_initialized = false;
-
 	return 0;
 }
 
-static int mhi_init(struct mhi_dev *mhi)
+static int mhi_init(struct mhi_dev *mhi, bool init_state)
 {
 	int rc = 0, i = 0;
 	struct platform_device *pdev = mhi->pdev;
@@ -4135,6 +4185,9 @@ static int mhi_init(struct mhi_dev *mhi)
 		pr_err("Failed to update the MMIO init\n");
 		return rc;
 	}
+
+	if (init_state == MHI_REINIT)
+		mhi_dev_mmio_reset(mhi);
 
 	/*
 	 * mhi_init is also called during device reset, in
@@ -4178,7 +4231,7 @@ static int mhi_dev_resume_mmio_mhi_reinit(struct mhi_dev *mhi_ctx)
 		return 0;
 	}
 
-	rc = mhi_init(mhi_ctx);
+	rc = mhi_init(mhi_ctx, MHI_REINIT);
 	if (rc) {
 		pr_err("Error initializing MHI MMIO with %d\n", rc);
 		goto fail;
@@ -4321,7 +4374,7 @@ static int mhi_dev_resume_mmio_mhi_init(struct mhi_dev *mhi_ctx)
 		return rc;
 	}
 
-	rc = mhi_init(mhi_ctx);
+	rc = mhi_init(mhi_ctx, MHI_INIT);
 	if (rc)
 		return rc;
 
@@ -4369,17 +4422,6 @@ static int mhi_dev_resume_mmio_mhi_init(struct mhi_dev *mhi_ctx)
 		return rc;
 	}
 
-	if (mhi_ctx->use_mhi_dma) {
-		rc =  mhi_dma_register_ready_cb(mhi_ring_init_cb, mhi_ctx);
-		if (rc < 0) {
-			if (rc == -EEXIST) {
-				mhi_ring_init_cb(mhi_ctx);
-			} else {
-				pr_err("Error calling MHI DMA cb with %d\n", rc);
-				return rc;
-			}
-		}
-	}
 
 	/* Invoke MHI SM when device is in RESET state */
 	rc = mhi_dev_sm_init(mhi_ctx);
@@ -4409,10 +4451,22 @@ static int mhi_dev_resume_mmio_mhi_init(struct mhi_dev *mhi_ctx)
 		disable_irq(mhi_ctx->mhi_irq);
 	}
 
+	mhi_ctx->init_done = true;
+
+	if (mhi_ctx->use_mhi_dma) {
+		rc =  mhi_dma_register_ready_cb(mhi_ring_init_cb, mhi_ctx);
+		if (rc < 0) {
+			if (rc == -EEXIST) {
+				mhi_ring_init_cb(mhi_ctx);
+			} else {
+				pr_err("Error calling MHI DMA cb with %d\n", rc);
+				return rc;
+			}
+		}
+	}
+
 	if (mhi_ctx->use_edma)
 		mhi_ring_init_cb(mhi_ctx);
-
-	mhi_ctx->init_done = true;
 
 	return 0;
 }
