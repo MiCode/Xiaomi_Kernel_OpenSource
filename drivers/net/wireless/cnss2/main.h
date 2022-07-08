@@ -540,6 +540,7 @@ struct cnss_plat_data {
 	u32 hang_data_addr_offset;
 	/* bitmap to detect FEM combination */
 	u8 hwid_bitmap;
+	enum cnss_driver_mode driver_mode;
 };
 
 #if IS_ENABLED(CONFIG_ARCH_QCOM)

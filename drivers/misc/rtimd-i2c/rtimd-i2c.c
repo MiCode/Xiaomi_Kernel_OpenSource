@@ -1,4 +1,3 @@
-
 /*
  * File name: rtimd-i2c.c
  *
@@ -17,10 +16,6 @@
  */
 
 #include "rtimd-i2c.h"
-
-#ifndef UPPERCASE
-#define UPPERCASE(c) (((c) >= 'a' && (c) <= 'z') ? ((c) - 0x20) : (c))
-#endif
 
 #define SYSFS_BURST_DATA_BUF_SIZE		1024
 
@@ -301,9 +296,6 @@ static int ioctl_single_read(unsigned long arg)
 			return ret;
 	}
 
-///
-//sr.rbuf_addr = (uintptr_t)compat_ptr(sr.rbuf_addr);
-
 	ret = i2c_single_read(rtimd_cb->adap, &sr, &sbuf);
 	if (ret > 0) {
 		if (put_user(sbuf, (u8 __user *)sr.rbuf_addr)) {
@@ -342,8 +334,6 @@ static long rtimd_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		break;
 	}
 
-//	RMDDBG("ret: %d\n", ret);
-
 	return ret;
 }
 
@@ -381,7 +371,6 @@ static int rtimd_release(struct inode *inode, struct file *file)
 	rtimd_cb->write_buf = NULL;
 
 	if (rtimd_cb->adap) {
-		//RMDDBG("bus_num(%d) adap(0x%p)\n", rtimd_cb->bus_num, rtimd_cb->adap);
 		rtimd_cb->bus_num = -1; /* Set default bus number as invalid */
 		i2c_put_adapter(rtimd_cb->adap);
 	}
@@ -470,20 +459,15 @@ static void hex_string_to_digit(uint8_t *out, const char *in, int len)
 	uint8_t hn, ln;
 	char msb_ch, lsb_ch;
 
-	//RMDDBG("in bytes(%d): [%s]\n", len, in);
-
 	for (t = 0, i = 0; i < len; i += 2, t++) {
-		msb_ch = UPPERCASE(in[i]);
-		lsb_ch = UPPERCASE(in[i + 1]);
+		msb_ch = toupper(in[i]);
+		lsb_ch = toupper(in[i + 1]);
 
 		hn = (msb_ch > '9') ? (msb_ch - 'A' + 10) : (msb_ch - '0');
 		ln = (lsb_ch > '9') ? (lsb_ch - 'A' + 10) : (lsb_ch - '0');
-		//RMDDBG("hn(%01X) ln(%01X)\n", hn, ln);
 
 		out[t] = ((hn&0xF) << 4) | ln;
 	}
-
-	//RMDDBG("out: %02X%02X%02X%02X%02X%02X\n", out[0], out[1], out[2], out[3], out[4], out[5]);
 }
 
 /**
@@ -503,8 +487,6 @@ static ssize_t rtimd_srd_param_store(struct device *dev,
 	int rc = 0;
 	unsigned int bus_num, slave_addr, reg_addr, reg_size;
 	struct RTIMD_SINGLE_READ_REG_T *param = &srd_param;
-
-	//RMDDBG("%s\n", buf);
 
 	rc = sscanf(buf, "%X %X %X %X", &bus_num, &slave_addr, &reg_addr, &reg_size);
 
@@ -530,9 +512,6 @@ static ssize_t rtimd_sreg_show(struct device *dev,
 	struct i2c_adapter *adap;
 	ssize_t count;
 	struct RTIMD_SINGLE_READ_REG_T *param = &srd_param;
-
-	//RMDDBG("Param: %hhu 0x%02X 0x%02X %hhu\n",
-	//	param->bus_num, param->slave_addr, param->reg_addr, param->reg_size);
 
 	adap = i2c_get_adapter(param->bus_num);
 	if (adap == NULL) {
@@ -569,8 +548,6 @@ static ssize_t rtimd_sreg_store(struct device *dev,
 	struct i2c_adapter *adap;
 	unsigned int bus_num, slave_addr, reg_addr, reg_size, data;
 	static struct RTIMD_SINGLE_WRITE_REG_T swr_param;
-
-	//RMDDBG("%s\n", buf);
 
 	rc = sscanf(buf, "%X %X %X %X %X", &bus_num, &slave_addr, &reg_addr, &reg_size, &data);
 
@@ -613,8 +590,6 @@ static ssize_t rtimd_brd_param_store(struct device *dev,
 	const char *buf_ptr = buf;
 	struct RTIMD_BURST_READ_REG_T *param = &brd_param;
 
-	//RMDDBG("%s\n", buf);
-
 	rc = sscanf(buf, "%X %X %X %X", &bus_num, &slave_addr, &wsize, &rsize);
 
 	buf_ptr += SYSFS_BRD_WDATA_OFFSET;
@@ -654,10 +629,6 @@ static ssize_t rtimd_breg_show(struct device *dev,
 	ssize_t count;
 	char nibble, hex_ch, *buf_ptr = buf;
 	struct RTIMD_BURST_READ_REG_T *param = &brd_param;
-
-	//RMDDBG("Param: %hhu 0x%02X 0x%04X 0x%04X\n",
-	//		param->bus_num, param->slave_addr,
-	//		param->wsize, param->rsize);
 
 	adap = i2c_get_adapter(param->bus_num);
 	if (adap == NULL) {
@@ -716,8 +687,6 @@ static ssize_t rtimd_breg_store(struct device *dev,
 	unsigned int slave_addr, wsize;
 	struct RTIMD_BURST_WRITE_REG_T bwr_param;
 
-	//RMDDBG("%s\n", buf);
-
 	rc = sscanf(buf, "%X %X %X", &bus_num, &slave_addr, &wsize);
 	bwr_param.bus_num = (uint8_t)bus_num;
 	bwr_param.slave_addr = (uint8_t)slave_addr;
@@ -751,9 +720,6 @@ static ssize_t rtimd_eye_show(struct kobject *kobj, struct kobj_attribute *attr,
 	uint8_t sbuf1, sbuf2; /* Single reade buffer */
 	ssize_t count;
 	struct RTIMD_SINGLE_READ_REG_T sw;
-
-	//RMDDBG("Param: %hhu 0x%02X 0x%02X %hhu\n",
-	//	param->bus_num, param->slave_addr, param->reg_addr, param->reg_size);
 
 	rtimd_cb->adap = i2c_get_adapter(0);
 	if (rtimd_cb->adap == NULL) {

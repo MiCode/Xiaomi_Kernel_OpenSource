@@ -44,6 +44,7 @@
 #include <linux/mutex.h>
 #include <linux/gpio.h>
 #include <linux/compat.h>
+#include <linux/ctype.h>
 
 #define RMDERR(fmt, args...) \
 	pr_err("RTI_MD: %s(): " fmt, __func__, ## args)

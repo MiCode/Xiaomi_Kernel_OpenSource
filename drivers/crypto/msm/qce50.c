@@ -36,7 +36,7 @@
 #define CRYPTO_SMMU_IOVA_START 0x10000000
 #define CRYPTO_SMMU_IOVA_SIZE 0x40000000
 
-#define CRYPTO_CONFIG_RESET 0xE001F
+#define CRYPTO_CONFIG_RESET 0xE01EF
 #define MAX_SPS_DESC_FIFO_SIZE 0xfff0
 #define QCE_MAX_NUM_DSCR    0x200
 #define QCE_SECTOR_SIZE	    0x200
@@ -1119,8 +1119,7 @@ static int _ce_setup_cipher(struct qce_device *pce_dev, struct qce_req *creq,
 	if (is_offload_op(creq->offload_op)) {
 		/* pattern info */
 		pce = cmdlistinfo->pattern_info;
-		if (creq->is_pattern_valid)
-			pce->data = creq->pattern_info;
+		pce->data = creq->pattern_info;
 
 		/* block offset */
 		pce = cmdlistinfo->block_offset;
@@ -1287,11 +1286,11 @@ static void _qce_dump_descr_fifos(struct qce_device *pce_dev, int req_info)
 
 	pce_sps_data = &pce_dev->ce_request_info[req_info].ce_sps;
 	iovec = pce_sps_data->in_transfer.iovec;
-	pr_err("==============================================\n");
-	pr_err("CONSUMER (TX/IN/DEST) PIPE DESCRIPTOR\n");
-	pr_err("==============================================\n");
+	pr_info("==============================================\n");
+	pr_info("CONSUMER (TX/IN/DEST) PIPE DESCRIPTOR\n");
+	pr_info("==============================================\n");
 	for (i = 0; i <  pce_sps_data->in_transfer.iovec_count; i++) {
-		pr_err(" [%d] addr=0x%x  size=0x%x  flags=0x%x\n", i,
+		pr_info(" [%d] addr=0x%x  size=0x%x  flags=0x%x\n", i,
 					iovec->addr, iovec->size, iovec->flags);
 		if (iovec->flags & cmd_flags) {
 			struct sps_command_element *pced;
@@ -1300,7 +1299,7 @@ static void _qce_dump_descr_fifos(struct qce_device *pce_dev, int req_info)
 					(GET_VIRT_ADDR(iovec->addr));
 			ents = iovec->size/(sizeof(struct sps_command_element));
 			for (j = 0; j < ents; j++) {
-				pr_err("      [%d] [0x%x] 0x%x\n", j,
+				pr_info("      [%d] [0x%x] 0x%x\n", j,
 					pced->addr, pced->data);
 				pced++;
 			}
@@ -1308,9 +1307,9 @@ static void _qce_dump_descr_fifos(struct qce_device *pce_dev, int req_info)
 		iovec++;
 	}
 
-	pr_err("==============================================\n");
-	pr_err("PRODUCER (RX/OUT/SRC) PIPE DESCRIPTOR\n");
-	pr_err("==============================================\n");
+	pr_info("==============================================\n");
+	pr_info("PRODUCER (RX/OUT/SRC) PIPE DESCRIPTOR\n");
+	pr_info("==============================================\n");
 	iovec =  pce_sps_data->out_transfer.iovec;
 	for (i = 0; i <   pce_sps_data->out_transfer.iovec_count; i++) {
 		pr_info(" [%d] addr=0x%x  size=0x%x  flags=0x%x\n", i,
@@ -2232,9 +2231,66 @@ static int _qce_unlock_other_pipes(struct qce_device *pce_dev, int req_info)
 static inline void qce_free_req_info(struct qce_device *pce_dev, int req_info,
 		bool is_complete);
 
+static int qce_sps_pipe_reset(struct qce_device *pce_dev, int op)
+{
+	int rc = -1;
+	struct sps_pipe *sps_pipe_info = NULL;
+	struct sps_connect *sps_connect_info = NULL;
+
+	/* Reset both the pipe sets in the pipe group */
+	sps_pipe_reset(pce_dev->ce_bam_info.bam_handle,
+			pce_dev->ce_bam_info.dest_pipe_index[op]);
+	sps_pipe_reset(pce_dev->ce_bam_info.bam_handle,
+			pce_dev->ce_bam_info.src_pipe_index[op]);
+
+	/* Reconnect to consumer pipe */
+	sps_pipe_info = pce_dev->ce_bam_info.consumer[op].pipe;
+	sps_connect_info = &pce_dev->ce_bam_info.consumer[op].connect;
+	rc = sps_disconnect(sps_pipe_info);
+	if (rc) {
+		pr_err("sps_disconnect() fail pipe=0x%lx, rc = %d\n",
+		(uintptr_t)sps_pipe_info, rc);
+		goto exit;
+	}
+	memset(sps_connect_info->desc.base, 0x00,
+				sps_connect_info->desc.size);
+	rc = sps_connect(sps_pipe_info, sps_connect_info);
+	if (rc) {
+		pr_err("sps_connect() fail pipe=0x%lx, rc = %d\n",
+		(uintptr_t)sps_pipe_info, rc);
+		goto exit;
+	}
+
+	/* Reconnect to producer pipe */
+	sps_pipe_info = pce_dev->ce_bam_info.producer[op].pipe;
+	sps_connect_info = &pce_dev->ce_bam_info.producer[op].connect;
+	rc = sps_disconnect(sps_pipe_info);
+	if (rc) {
+		pr_err("sps_connect() fail pipe=0x%lx, rc = %d\n",
+		(uintptr_t)sps_pipe_info, rc);
+		goto exit;
+	}
+	memset(sps_connect_info->desc.base, 0x00,
+				sps_connect_info->desc.size);
+	rc = sps_connect(sps_pipe_info, sps_connect_info);
+	if (rc) {
+		pr_err("sps_connect() fail pipe=0x%lx, rc = %d\n",
+		(uintptr_t)sps_pipe_info, rc);
+		goto exit;
+	}
+
+	/* Register producer callback */
+	rc = sps_register_event(sps_pipe_info,
+			&pce_dev->ce_bam_info.producer[op].event);
+	if (rc)
+		pr_err("Producer cb registration failed rc = %d\n",
+							rc);
+exit:
+	return rc;
+}
+
 int qce_manage_timeout(void *handle, int req_info)
 {
-	int rc = 0;
 	struct qce_device *pce_dev = (struct qce_device *) handle;
 	struct skcipher_request *areq;
 	struct ce_request_info *preq_info;
@@ -2246,17 +2302,16 @@ int qce_manage_timeout(void *handle, int req_info)
 	areq = (struct skcipher_request *) preq_info->areq;
 
 	pr_info("%s: req info = %d, offload op = %d\n", __func__, req_info,  op);
-	rc = _qce_unlock_other_pipes(pce_dev, req_info);
-	if (rc)
-		pr_err("%s: fail unlock other pipes, rc = %d\n", __func__, rc);
+
+	if (qce_sps_pipe_reset(pce_dev, op))
+		pr_err("%s: pipe reset failed\n", __func__);
+
+	if (_qce_unlock_other_pipes(pce_dev, req_info))
+		pr_err("%s: fail unlock other pipes\n", __func__);
+
 	qce_free_req_info(pce_dev, req_info, true);
 	qce_callback(areq, NULL, NULL, 0);
-	sps_pipe_reset(pce_dev->ce_bam_info.bam_handle,
-			pce_dev->ce_bam_info.dest_pipe_index[op]);
-	sps_pipe_reset(pce_dev->ce_bam_info.bam_handle,
-			pce_dev->ce_bam_info.src_pipe_index[op]);
-
-	return rc;
+	return 0;
 }
 EXPORT_SYMBOL(qce_manage_timeout);
 
@@ -5042,52 +5097,65 @@ static int _qce_aead_ccm_req(void *handle, struct qce_req *q_req)
 
 	_qce_sps_iovec_count_init(pce_dev, req_info);
 
-	if (pce_dev->support_cmd_dscr && cmdlistinfo)
-		_qce_sps_add_cmd(pce_dev, SPS_IOVEC_FLAG_LOCK, cmdlistinfo,
-					&pce_sps_data->in_transfer);
+	if (pce_dev->support_cmd_dscr && cmdlistinfo) {
+		rc = _qce_sps_add_cmd(pce_dev, SPS_IOVEC_FLAG_LOCK,
+				cmdlistinfo, &pce_sps_data->in_transfer);
+		if (rc)
+			goto bad;
+	}
 
 	if (pce_dev->ce_bam_info.minor_version == 0) {
 		goto bad;
 	} else {
-		if (q_req->assoclen && (_qce_sps_add_sg_data(
-			pce_dev, q_req->asg, q_req->assoclen,
-					 &pce_sps_data->in_transfer)))
-			goto bad;
-		if (_qce_sps_add_sg_data_off(pce_dev, areq->src, areq->cryptlen,
+		if (q_req->assoclen) {
+			rc = _qce_sps_add_sg_data(pce_dev, q_req->asg,
+				q_req->assoclen, &pce_sps_data->in_transfer);
+			if (rc)
+				goto bad;
+		}
+		rc = _qce_sps_add_sg_data_off(pce_dev, areq->src, areq->cryptlen,
 					areq->assoclen,
-					&pce_sps_data->in_transfer))
+					&pce_sps_data->in_transfer);
+		if (rc)
 			goto bad;
 		_qce_set_flag(&pce_sps_data->in_transfer,
 				SPS_IOVEC_FLAG_EOT|SPS_IOVEC_FLAG_NWD);
 
 		_qce_ccm_get_around_input(pce_dev, preq_info, q_req->dir);
 
-		if (pce_dev->no_get_around)
-			_qce_sps_add_cmd(pce_dev, SPS_IOVEC_FLAG_UNLOCK,
+		if (pce_dev->no_get_around) {
+			rc = _qce_sps_add_cmd(pce_dev, SPS_IOVEC_FLAG_UNLOCK,
 				&pce_sps_data->cmdlistptr.unlock_all_pipes,
 				&pce_sps_data->in_transfer);
+			if (rc)
+				goto bad;
+		}
 
 		/* Pass through to ignore associated  data*/
-		if (_qce_sps_add_data(
+		rc = _qce_sps_add_data(
 				GET_PHYS_ADDR(pce_sps_data->ignore_buffer),
 				q_req->assoclen,
-				&pce_sps_data->out_transfer))
+				&pce_sps_data->out_transfer);
+		if (rc)
 			goto bad;
-		if (_qce_sps_add_sg_data_off(pce_dev, areq->dst, out_len,
+		rc = _qce_sps_add_sg_data_off(pce_dev, areq->dst, out_len,
 					areq->assoclen,
-					&pce_sps_data->out_transfer))
+					&pce_sps_data->out_transfer);
+		if (rc)
 			goto bad;
 		/* Pass through to ignore hw_pad (padding of the MAC data) */
-		if (_qce_sps_add_data(
+		rc = _qce_sps_add_data(
 				GET_PHYS_ADDR(pce_sps_data->ignore_buffer),
-				hw_pad_out, &pce_sps_data->out_transfer))
+				hw_pad_out, &pce_sps_data->out_transfer);
+		if (rc)
 			goto bad;
 		if (pce_dev->no_get_around ||
 				totallen_in <= SPS_MAX_PKT_SIZE) {
-			if (_qce_sps_add_data(
+			rc = _qce_sps_add_data(
 				GET_PHYS_ADDR(pce_sps_data->result_dump),
 					CRYPTO_RESULT_DUMP_SIZE,
-					  &pce_sps_data->out_transfer))
+					  &pce_sps_data->out_transfer);
+			if (rc)
 				goto bad;
 			pce_sps_data->producer_state = QCE_PIPE_STATE_COMP;
 		} else {
@@ -5288,8 +5356,10 @@ int qce_aead_req(void *handle, struct qce_req *q_req)
 	_qce_sps_iovec_count_init(pce_dev, req_info);
 
 	if (pce_dev->support_cmd_dscr) {
-		_qce_sps_add_cmd(pce_dev, SPS_IOVEC_FLAG_LOCK, cmdlistinfo,
-					&pce_sps_data->in_transfer);
+		rc = _qce_sps_add_cmd(pce_dev, SPS_IOVEC_FLAG_LOCK,
+				cmdlistinfo, &pce_sps_data->in_transfer);
+		if (rc)
+			goto bad;
 	} else {
 		rc = _ce_setup_aead_direct(pce_dev, q_req, totallen,
 					areq->assoclen);
@@ -5300,25 +5370,28 @@ int qce_aead_req(void *handle, struct qce_req *q_req)
 	preq_info->mode = q_req->mode;
 
 	if (pce_dev->ce_bam_info.minor_version == 0) {
-		if (_qce_sps_add_sg_data(pce_dev, areq->src, totallen,
-					&pce_sps_data->in_transfer))
+		rc = _qce_sps_add_sg_data(pce_dev, areq->src, totallen,
+					&pce_sps_data->in_transfer);
+		if (rc)
 			goto bad;
 
 		_qce_set_flag(&pce_sps_data->in_transfer,
 				SPS_IOVEC_FLAG_EOT|SPS_IOVEC_FLAG_NWD);
 
-		if (_qce_sps_add_sg_data(pce_dev, areq->dst, totallen,
-				&pce_sps_data->out_transfer))
+		rc = _qce_sps_add_sg_data(pce_dev, areq->dst, totallen,
+				&pce_sps_data->out_transfer);
+		if (rc)
 			goto bad;
 		if (totallen > SPS_MAX_PKT_SIZE) {
 			_qce_set_flag(&pce_sps_data->out_transfer,
 							SPS_IOVEC_FLAG_INT);
 			pce_sps_data->producer_state = QCE_PIPE_STATE_IDLE;
 		} else {
-			if (_qce_sps_add_data(GET_PHYS_ADDR(
+			rc = _qce_sps_add_data(GET_PHYS_ADDR(
 					pce_sps_data->result_dump),
 					CRYPTO_RESULT_DUMP_SIZE,
-					&pce_sps_data->out_transfer))
+					&pce_sps_data->out_transfer);
+			if (rc)
 				goto bad;
 			_qce_set_flag(&pce_sps_data->out_transfer,
 							SPS_IOVEC_FLAG_INT);
@@ -5326,26 +5399,32 @@ int qce_aead_req(void *handle, struct qce_req *q_req)
 		}
 	rc = _qce_sps_transfer(pce_dev, req_info);
 	} else {
-		if (_qce_sps_add_sg_data(pce_dev, areq->src, totallen,
-					&pce_sps_data->in_transfer))
+		rc = _qce_sps_add_sg_data(pce_dev, areq->src, totallen,
+					&pce_sps_data->in_transfer);
+		if (rc)
 			goto bad;
 		_qce_set_flag(&pce_sps_data->in_transfer,
 				SPS_IOVEC_FLAG_EOT|SPS_IOVEC_FLAG_NWD);
 
-		if (pce_dev->no_get_around)
-			_qce_sps_add_cmd(pce_dev, SPS_IOVEC_FLAG_UNLOCK,
+		if (pce_dev->no_get_around) {
+			rc = _qce_sps_add_cmd(pce_dev, SPS_IOVEC_FLAG_UNLOCK,
 				&pce_sps_data->cmdlistptr.unlock_all_pipes,
 				&pce_sps_data->in_transfer);
+			if (rc)
+				goto bad;
+		}
 
-		if (_qce_sps_add_sg_data(pce_dev, areq->dst, totallen,
-					&pce_sps_data->out_transfer))
+		rc = _qce_sps_add_sg_data(pce_dev, areq->dst, totallen,
+					&pce_sps_data->out_transfer);
+		if (rc)
 			goto bad;
 
 		if (pce_dev->no_get_around || totallen <= SPS_MAX_PKT_SIZE) {
-			if (_qce_sps_add_data(
+			rc = _qce_sps_add_data(
 				GET_PHYS_ADDR(pce_sps_data->result_dump),
 					CRYPTO_RESULT_DUMP_SIZE,
-					  &pce_sps_data->out_transfer))
+					  &pce_sps_data->out_transfer);
+			if (rc)
 				goto bad;
 			pce_sps_data->producer_state = QCE_PIPE_STATE_COMP;
 		} else {
@@ -5451,31 +5530,41 @@ int qce_ablk_cipher_req(void *handle, struct qce_req *c_req)
 	preq_info->req_len = areq->cryptlen;
 
 	_qce_sps_iovec_count_init(pce_dev, req_info);
-	if (pce_dev->support_cmd_dscr && cmdlistinfo)
-		_qce_sps_add_cmd(pce_dev, SPS_IOVEC_FLAG_LOCK, cmdlistinfo,
+	if (pce_dev->support_cmd_dscr && cmdlistinfo) {
+		rc = _qce_sps_add_cmd(pce_dev, SPS_IOVEC_FLAG_LOCK,
+				cmdlistinfo, &pce_sps_data->in_transfer);
+		if (rc)
+			goto bad;
+	}
+	rc = _qce_sps_add_data(areq->src->dma_address, areq->cryptlen,
 					&pce_sps_data->in_transfer);
-	if (_qce_sps_add_data(areq->src->dma_address, areq->cryptlen,
-					&pce_sps_data->in_transfer))
+	if (rc)
 		goto bad;
 	_qce_set_flag(&pce_sps_data->in_transfer,
 				SPS_IOVEC_FLAG_EOT|SPS_IOVEC_FLAG_NWD);
 
-	if (pce_dev->no_get_around)
-		_qce_sps_add_cmd(pce_dev, SPS_IOVEC_FLAG_UNLOCK,
+	if (pce_dev->no_get_around) {
+		rc = _qce_sps_add_cmd(pce_dev, SPS_IOVEC_FLAG_UNLOCK,
 			&pce_sps_data->cmdlistptr.unlock_all_pipes,
 			&pce_sps_data->in_transfer);
+		if (rc)
+			goto bad;
+	}
 
-	if (_qce_sps_add_data(areq->dst->dma_address, areq->cryptlen,
-					&pce_sps_data->out_transfer))
+	rc = _qce_sps_add_data(areq->dst->dma_address, areq->cryptlen,
+					&pce_sps_data->out_transfer);
+	if (rc)
 		goto bad;
 	if (pce_dev->no_get_around || areq->cryptlen <= SPS_MAX_PKT_SIZE) {
 		pce_sps_data->producer_state = QCE_PIPE_STATE_COMP;
-		if (!is_offload_op(c_req->offload_op))
-			if (_qce_sps_add_data(
+		if (!is_offload_op(c_req->offload_op)) {
+			rc = _qce_sps_add_data(
 				GET_PHYS_ADDR(pce_sps_data->result_dump),
 				CRYPTO_RESULT_DUMP_SIZE,
-				&pce_sps_data->out_transfer))
+				&pce_sps_data->out_transfer);
+			if (rc)
 				goto bad;
+		}
 	} else {
 		pce_sps_data->producer_state = QCE_PIPE_STATE_IDLE;
 	}
@@ -5502,6 +5591,7 @@ bad:
 	}
 
 	qce_free_req_info(pce_dev, req_info, false);
+
 	return rc;
 }
 EXPORT_SYMBOL(qce_ablk_cipher_req);
@@ -5560,29 +5650,40 @@ int qce_process_sha_req(void *handle, struct qce_sha_req *sreq)
 
 	_qce_sps_iovec_count_init(pce_dev, req_info);
 
-	if (pce_dev->support_cmd_dscr && cmdlistinfo)
-		_qce_sps_add_cmd(pce_dev, SPS_IOVEC_FLAG_LOCK, cmdlistinfo,
-					&pce_sps_data->in_transfer);
-	if (_qce_sps_add_sg_data(pce_dev, areq->src, areq->nbytes,
-						 &pce_sps_data->in_transfer))
+	if (pce_dev->support_cmd_dscr && cmdlistinfo) {
+		rc = _qce_sps_add_cmd(pce_dev, SPS_IOVEC_FLAG_LOCK,
+				cmdlistinfo, &pce_sps_data->in_transfer);
+		if (rc)
+			goto bad;
+	}
+	rc = _qce_sps_add_sg_data(pce_dev, areq->src, areq->nbytes,
+						 &pce_sps_data->in_transfer);
+	if (rc)
 		goto bad;
 
 	/* always ensure there is input data. ZLT does not work for bam-ndp */
-	if (!areq->nbytes)
-		_qce_sps_add_data(
+	if (!areq->nbytes) {
+		rc = _qce_sps_add_data(
 			GET_PHYS_ADDR(pce_sps_data->ignore_buffer),
 			pce_dev->ce_bam_info.ce_burst_size,
 			&pce_sps_data->in_transfer);
+		if (rc)
+			goto bad;
+	}
 	_qce_set_flag(&pce_sps_data->in_transfer,
 					SPS_IOVEC_FLAG_EOT|SPS_IOVEC_FLAG_NWD);
-	if (pce_dev->no_get_around)
-		_qce_sps_add_cmd(pce_dev, SPS_IOVEC_FLAG_UNLOCK,
+	if (pce_dev->no_get_around) {
+		rc = _qce_sps_add_cmd(pce_dev, SPS_IOVEC_FLAG_UNLOCK,
 			&pce_sps_data->cmdlistptr.unlock_all_pipes,
 			&pce_sps_data->in_transfer);
+		if (rc)
+			goto bad;
+	}
 
-	if (_qce_sps_add_data(GET_PHYS_ADDR(pce_sps_data->result_dump),
+	rc = _qce_sps_add_data(GET_PHYS_ADDR(pce_sps_data->result_dump),
 					CRYPTO_RESULT_DUMP_SIZE,
-					  &pce_sps_data->out_transfer))
+					  &pce_sps_data->out_transfer);
+	if (rc)
 		goto bad;
 
 	if (is_dummy) {
@@ -5602,6 +5703,7 @@ bad:
 				preq_info->src_nents, DMA_TO_DEVICE);
 	}
 	qce_free_req_info(pce_dev, req_info, false);
+
 	return rc;
 }
 EXPORT_SYMBOL(qce_process_sha_req);
@@ -5685,26 +5787,37 @@ int qce_f8_req(void *handle, struct qce_f8_req *req,
 
 	_qce_sps_iovec_count_init(pce_dev, req_info);
 
-	if (pce_dev->support_cmd_dscr)
-		_qce_sps_add_cmd(pce_dev, SPS_IOVEC_FLAG_LOCK, cmdlistinfo,
-					&pce_sps_data->in_transfer);
+	if (pce_dev->support_cmd_dscr) {
+		rc = _qce_sps_add_cmd(pce_dev, SPS_IOVEC_FLAG_LOCK,
+				cmdlistinfo, &pce_sps_data->in_transfer);
+		if (rc)
+			goto bad;
+	}
 
-	_qce_sps_add_data((uint32_t)preq_info->phy_ota_src, req->data_len,
+	rc = _qce_sps_add_data((uint32_t)preq_info->phy_ota_src, req->data_len,
 					&pce_sps_data->in_transfer);
+	if (rc)
+		goto bad;
 
 	_qce_set_flag(&pce_sps_data->in_transfer,
 			SPS_IOVEC_FLAG_EOT|SPS_IOVEC_FLAG_NWD);
 
-	_qce_sps_add_cmd(pce_dev, SPS_IOVEC_FLAG_UNLOCK,
+	rc = _qce_sps_add_cmd(pce_dev, SPS_IOVEC_FLAG_UNLOCK,
 			&pce_sps_data->cmdlistptr.unlock_all_pipes,
 					&pce_sps_data->in_transfer);
+	if (rc)
+		goto bad;
 
-	_qce_sps_add_data((uint32_t)dst, req->data_len,
+	rc = _qce_sps_add_data((uint32_t)dst, req->data_len,
 					&pce_sps_data->out_transfer);
+	if (rc)
+		goto bad;
 
-	_qce_sps_add_data(GET_PHYS_ADDR(pce_sps_data->result_dump),
+	rc = _qce_sps_add_data(GET_PHYS_ADDR(pce_sps_data->result_dump),
 					CRYPTO_RESULT_DUMP_SIZE,
 					  &pce_sps_data->out_transfer);
+	if (rc)
+		goto bad;
 
 	select_mode(pce_dev, preq_info);
 	rc = _qce_sps_transfer(pce_dev, req_info);
@@ -5722,6 +5835,7 @@ bad:
 				(req->data_in == req->data_out) ?
 					DMA_BIDIRECTIONAL : DMA_TO_DEVICE);
 	qce_free_req_info(pce_dev, req_info, false);
+
 	return rc;
 }
 EXPORT_SYMBOL(qce_f8_req);
@@ -5802,25 +5916,35 @@ int qce_f8_multi_pkt_req(void *handle, struct qce_f8_multi_pkt_req *mreq,
 
 	_qce_sps_iovec_count_init(pce_dev, req_info);
 
-	if (pce_dev->support_cmd_dscr)
-		_qce_sps_add_cmd(pce_dev, SPS_IOVEC_FLAG_LOCK, cmdlistinfo,
-					&pce_sps_data->in_transfer);
+	if (pce_dev->support_cmd_dscr) {
+		rc = _qce_sps_add_cmd(pce_dev, SPS_IOVEC_FLAG_LOCK,
+				cmdlistinfo, &pce_sps_data->in_transfer);
+		goto bad;
+	}
 
-	_qce_sps_add_data((uint32_t)preq_info->phy_ota_src, total,
+	rc = _qce_sps_add_data((uint32_t)preq_info->phy_ota_src, total,
 					&pce_sps_data->in_transfer);
+	if (rc)
+		goto bad;
 	_qce_set_flag(&pce_sps_data->in_transfer,
 				SPS_IOVEC_FLAG_EOT|SPS_IOVEC_FLAG_NWD);
 
-	_qce_sps_add_cmd(pce_dev, SPS_IOVEC_FLAG_UNLOCK,
+	rc = _qce_sps_add_cmd(pce_dev, SPS_IOVEC_FLAG_UNLOCK,
 			&pce_sps_data->cmdlistptr.unlock_all_pipes,
 					&pce_sps_data->in_transfer);
+	if (rc)
+		goto bad;
 
-	_qce_sps_add_data((uint32_t)dst, total,
+	rc = _qce_sps_add_data((uint32_t)dst, total,
 					&pce_sps_data->out_transfer);
+	if (rc)
+		goto bad;
 
-	_qce_sps_add_data(GET_PHYS_ADDR(pce_sps_data->result_dump),
+	rc = _qce_sps_add_data(GET_PHYS_ADDR(pce_sps_data->result_dump),
 					CRYPTO_RESULT_DUMP_SIZE,
 					  &pce_sps_data->out_transfer);
+	if (rc)
+		goto bad;
 
 	select_mode(pce_dev, preq_info);
 	rc = _qce_sps_transfer(pce_dev, req_info);
@@ -5836,6 +5960,7 @@ bad:
 				(req->data_in == req->data_out) ?
 				DMA_BIDIRECTIONAL : DMA_TO_DEVICE);
 	qce_free_req_info(pce_dev, req_info, false);
+
 	return rc;
 }
 EXPORT_SYMBOL(qce_f8_multi_pkt_req);
@@ -5889,21 +6014,30 @@ int qce_f9_req(void *handle, struct qce_f9_req *req, void *cookie,
 	preq_info->req_len = req->msize;
 
 	_qce_sps_iovec_count_init(pce_dev, req_info);
-	if (pce_dev->support_cmd_dscr)
-		_qce_sps_add_cmd(pce_dev, SPS_IOVEC_FLAG_LOCK, cmdlistinfo,
+	if (pce_dev->support_cmd_dscr) {
+		rc = _qce_sps_add_cmd(pce_dev, SPS_IOVEC_FLAG_LOCK,
+				cmdlistinfo, &pce_sps_data->in_transfer);
+		if (rc)
+			goto bad;
+	}
+	rc = _qce_sps_add_data((uint32_t)preq_info->phy_ota_src, req->msize,
 					&pce_sps_data->in_transfer);
-	_qce_sps_add_data((uint32_t)preq_info->phy_ota_src, req->msize,
-					&pce_sps_data->in_transfer);
+	if (rc)
+		goto bad;
 	_qce_set_flag(&pce_sps_data->in_transfer,
 				SPS_IOVEC_FLAG_EOT|SPS_IOVEC_FLAG_NWD);
 
-	_qce_sps_add_cmd(pce_dev, SPS_IOVEC_FLAG_UNLOCK,
+	rc = _qce_sps_add_cmd(pce_dev, SPS_IOVEC_FLAG_UNLOCK,
 			&pce_sps_data->cmdlistptr.unlock_all_pipes,
 					&pce_sps_data->in_transfer);
+	if (rc)
+		goto bad;
 
-	_qce_sps_add_data(GET_PHYS_ADDR(pce_sps_data->result_dump),
+	rc = _qce_sps_add_data(GET_PHYS_ADDR(pce_sps_data->result_dump),
 					CRYPTO_RESULT_DUMP_SIZE,
 					  &pce_sps_data->out_transfer);
+	if (rc)
+		goto bad;
 
 	select_mode(pce_dev, preq_info);
 	rc = _qce_sps_transfer(pce_dev, req_info);
@@ -5915,6 +6049,7 @@ bad:
 	dma_unmap_single(pce_dev->pdev, preq_info->phy_ota_src,
 				req->msize, DMA_TO_DEVICE);
 	qce_free_req_info(pce_dev, req_info, false);
+
 	return rc;
 }
 EXPORT_SYMBOL(qce_f9_req);

@@ -3870,6 +3870,12 @@ static int fastrpc_init_attach_process(struct fastrpc_file *fl,
 	remote_arg_t ra[1];
 	struct fastrpc_ioctl_invoke_async ioctl;
 
+	if (fl->dev_minor == MINOR_NUM_DEV) {
+		err = -ECONNREFUSED;
+		ADSPRPC_ERR(
+			"untrusted app trying to attach to privileged DSP PD\n");
+		return err;
+	}
 	/*
 	 * Prepare remote arguments for creating thread group
 	 * in guestOS/staticPD on the remote subsystem.
@@ -4147,6 +4153,13 @@ static int fastrpc_init_create_static_process(struct fastrpc_file *fl,
 		unsigned int namelen;
 		unsigned int pageslen;
 	} inbuf;
+
+	if (fl->dev_minor == MINOR_NUM_DEV) {
+		err = -ECONNREFUSED;
+		ADSPRPC_ERR(
+			"untrusted app trying to attach to audio PD\n");
+		return err;
+	}
 
 	if (!init->filelen)
 		goto bail;

@@ -1532,7 +1532,8 @@ int cnss_wlfw_wlan_cfg_send_sync(struct cnss_plat_data *plat_priv,
 		req->svc_cfg[i].pipe_num = config->ce_svc_cfg[i].pipe_num;
 	}
 
-	if (plat_priv->device_id != KIWI_DEVICE_ID) {
+	if (plat_priv->device_id != KIWI_DEVICE_ID &&
+	    plat_priv->device_id != MANGO_DEVICE_ID) {
 		req->shadow_reg_v2_valid = 1;
 		if (config->num_shadow_reg_v2_cfg >
 		    QMI_WLFW_MAX_NUM_SHADOW_REG_V2_V01)

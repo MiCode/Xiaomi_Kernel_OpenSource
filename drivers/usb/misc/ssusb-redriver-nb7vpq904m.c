@@ -60,11 +60,6 @@
 #define CHNC_INDEX		2
 #define CHND_INDEX		3
 
-enum plug_orientation {
-	ORIENTATION_CC1,
-	ORIENTATION_CC2,
-};
-
 enum operation_mode {
 	OP_MODE_NONE,		/* 4 lanes disabled */
 	OP_MODE_USB,		/* 2 lanes for USB and 2 lanes disabled */
@@ -158,8 +153,7 @@ static int ssusb_redriver_gen_dev_set(struct ssusb_redriver *redriver)
 			/* Enable channel C and D */
 			val &= ~(CHNA_EN | CHNB_EN);
 			val |= (CHNC_EN | CHND_EN);
-		} else if (redriver->typec_orientation
-				== ORIENTATION_CC2) {
+		} else {
 			/* Enable channel A and B*/
 			val |= (CHNA_EN | CHNB_EN);
 			val &= ~(CHNC_EN | CHND_EN);
@@ -187,10 +181,7 @@ static int ssusb_redriver_gen_dev_set(struct ssusb_redriver *redriver)
 		if (redriver->typec_orientation
 				== ORIENTATION_CC1)
 			val |= (0x1 << OP_MODE_SHIFT);
-		else if (redriver->typec_orientation
-				== ORIENTATION_CC2)
-			val |= (0x0 << OP_MODE_SHIFT);
-
+		/* it is mode 0 when ORIENTATION_CC2 */
 		break;
 	default:
 		val &= ~CHIP_EN;
@@ -526,7 +517,7 @@ static int ssusb_redriver_ucsi_notifier(struct notifier_block *nb,
 	return NOTIFY_OK;
 }
 
-int redriver_notify_connect(struct device_node *node)
+int redriver_notify_connect(struct device_node *node, enum plug_orientation orientation)
 {
 	struct ssusb_redriver *redriver;
 
@@ -538,18 +529,22 @@ int redriver_notify_connect(struct device_node *node)
 	    (redriver->op_mode == OP_MODE_DP))
 		return 0;
 
-	/* if ucsi ppm can't return status with Connector Partner Changed
-	 * bit set, redriver will not process the notification,
-	 * but ucsi still start usb host/device mode,
-	 * then redriver stay in disabled state, super speed (plus)
-	 * will not work.
-	 * fix should come from ucsi ppm, it is a enhancement here.
-	 * TODO: redriver controlled by dwc3, remove ucsi notification
-	 */
-	if (redriver->op_mode == OP_MODE_NONE) {
-		redriver->op_mode = OP_MODE_USB;
+	dev_dbg(redriver->dev, "orientation %d\n", orientation);
+
+	if (orientation != ORIENTATION_UNKNOWN) {
+		if (redriver->lane_channel_swap) {
+			redriver->typec_orientation =
+				orientation == ORIENTATION_CC1 ? ORIENTATION_CC2 : ORIENTATION_CC1;
+		} else {
+			redriver->typec_orientation = orientation;
+		}
+	} else if (redriver->op_mode == OP_MODE_NONE) {
 		ssusb_redriver_read_orientation(redriver);
 	}
+
+	if (redriver->op_mode == OP_MODE_NONE)
+		redriver->op_mode = OP_MODE_USB;
+
 	dev_dbg(redriver->dev, "connect op mode %s\n",
 		OPMODESTR(redriver->op_mode));
 

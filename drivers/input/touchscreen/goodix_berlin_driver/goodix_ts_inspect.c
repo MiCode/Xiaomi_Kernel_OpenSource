@@ -581,6 +581,11 @@ static int goodix_init_testlimits(struct goodix_ts_test *ts_test)
 		ts_err("limits file [%s] not available", limit_file);
 		return -EINVAL;
 	}
+	if (!firmware) {
+		ts_err("request_firmware, firmware image not loaded");
+		ret = -EINVAL;
+		goto exit_free;
+	}
 	if (firmware->size <= 0) {
 		ts_err("request_firmware, limits param length error,len:%zu",
 			firmware->size);

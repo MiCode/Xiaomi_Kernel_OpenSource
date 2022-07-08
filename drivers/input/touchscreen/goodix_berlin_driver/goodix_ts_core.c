@@ -665,6 +665,9 @@ static ssize_t goodix_ts_irq_info_show(struct device *dev,
 		return -EINVAL;
 
 	desc = irq_to_desc(core_data->irq);
+	if (!desc)
+		return -EINVAL;
+
 	offset += r;
 	r = scnprintf(&buf[offset], PAGE_SIZE - offset, "disable-depth:%d\n", desc->depth);
 	if (r < 0)
@@ -2042,8 +2045,10 @@ int goodix_ts_stage2_init(struct goodix_ts_core *cd)
 	/* create procfs files */
 	goodix_ts_procfs_init(cd);
 
+#ifdef GOODIX_SUSPEND_GESTURE_ENABLE
 	/* gesture init */
 	gesture_module_init();
+#endif
 
 	/* inspect init */
 	inspect_module_init();

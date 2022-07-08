@@ -2988,6 +2988,10 @@ static int gcc_parrot_probe(struct platform_device *pdev)
 	regmap_update_bits(regmap, 0x42004, BIT(0), BIT(0));
 	regmap_update_bits(regmap, 0x42018, BIT(0), BIT(0));
 
+	regmap_update_bits(regmap, 0x36010, BIT(20), BIT(20));
+	regmap_update_bits(regmap, 0x36014, BIT(20), BIT(20));
+	regmap_update_bits(regmap, 0x4200c, BIT(20), BIT(20));
+
 	/* Ignore the PMU clock disable signal for gcc_video_axi0_clk. */
 	regmap_update_bits(regmap, gcc_video_axi0_clk.clkr.enable_reg, BIT(21), BIT(21));
 

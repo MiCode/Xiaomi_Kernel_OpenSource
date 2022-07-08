@@ -163,6 +163,8 @@ struct dcc_drvdata {
 	uint32_t		ram_cfg;
 	uint32_t		ram_start;
 	bool			*enable;
+	bool			*hw_trig;
+	bool			*sw_trig;
 	bool			*configured;
 	bool			interrupt_disable;
 	char			*sram_node;
@@ -281,8 +283,9 @@ static int dcc_sw_trigger(struct dcc_drvdata *drvdata)
 	mutex_lock(&drvdata->mutex);
 
 	for (curr_list = 0; curr_list < drvdata->nr_link_list; curr_list++) {
-		if (!drvdata->enable[curr_list])
+		if ((!drvdata->enable[curr_list]) || (!drvdata->sw_trig[curr_list]))
 			continue;
+		dev_info(drvdata->dev, "DCC SW trigger link list %d\n", curr_list);
 		ll_cfg = dcc_readl(drvdata, DCC_LL_CFG(curr_list));
 		if (drvdata->mem_map_ver == DCC_MEM_MAP_VER3)
 			tmp_ll_cfg = ll_cfg & ~BIT(8);
@@ -745,12 +748,21 @@ static int dcc_enable(struct dcc_drvdata *drvdata)
 					DCC_QAD_OUTPUT(list));
 			dcc_writel(drvdata, drvdata->cti_trig[list],
 					DCC_CTI_TRIG(list));
-			dcc_writel(drvdata, BIT(8) | ((drvdata->data_sink[list] << 4) |
-				   (drvdata->func_type[list])), DCC_LL_CFG(list));
+			if (drvdata->hw_trig[list])
+				dcc_writel(drvdata, BIT(8) | ((drvdata->data_sink[list] << 4) |
+					   (drvdata->func_type[list])), DCC_LL_CFG(list));
+			else
+				dcc_writel(drvdata, ~BIT(8) & ((drvdata->data_sink[list] << 4) |
+					   (drvdata->func_type[list])), DCC_LL_CFG(list));
 		} else {
-			dcc_writel(drvdata, BIT(9) | ((drvdata->cti_trig[list] << 8) |
-				   (drvdata->data_sink[list] << 4) |
-				   (drvdata->func_type[list])), DCC_LL_CFG(list));
+			if (drvdata->hw_trig[list])
+				dcc_writel(drvdata, BIT(9) | ((drvdata->cti_trig[list] << 8) |
+					   (drvdata->data_sink[list] << 4) |
+					   (drvdata->func_type[list])), DCC_LL_CFG(list));
+			else
+				dcc_writel(drvdata, ~BIT(9) & ((drvdata->cti_trig[list] << 8) |
+					   (drvdata->data_sink[list] << 4) |
+					   (drvdata->func_type[list])), DCC_LL_CFG(list));
 		}
 	}
 
@@ -1005,7 +1017,7 @@ static ssize_t enable_store(struct device *dev,
 	unsigned long val;
 	struct dcc_drvdata *drvdata = dev_get_drvdata(dev);
 
-	if (kstrtoul(buf, 16, &val))
+	if (kstrtoul(buf, 16, &val) || val > 1)
 		return -EINVAL;
 
 	if (val)
@@ -1047,7 +1059,7 @@ static ssize_t ap_ns_qad_override_en_store(struct device *dev,
 		return -EINVAL;
 	}
 
-	if (kstrtoul(buf, 16, &val))
+	if (kstrtoul(buf, 16, &val) || val > 1)
 		return -EINVAL;
 
 	mutex_lock(&drvdata->mutex);
@@ -1075,6 +1087,108 @@ out:
 
 }
 static DEVICE_ATTR_RW(ap_ns_qad_override_en);
+
+static ssize_t hw_trig_show(struct device *dev,
+			       struct device_attribute *attr, char *buf)
+{
+	struct dcc_drvdata *drvdata = dev_get_drvdata(dev);
+	int ret = 0;
+
+	if (drvdata->curr_list >= drvdata->nr_link_list) {
+		dev_err(dev, "Select link list to program using curr_list\n");
+		ret = -EINVAL;
+		goto err;
+	}
+
+	ret = scnprintf(buf, PAGE_SIZE, "%u\n",
+			(unsigned int)drvdata->hw_trig[drvdata->curr_list]);
+
+err:
+	return ret;
+}
+
+static ssize_t hw_trig_store(struct device *dev,
+				struct device_attribute *attr,
+				const char *buf, size_t size)
+{
+	int ret = 0;
+	unsigned long val;
+	struct dcc_drvdata *drvdata = dev_get_drvdata(dev);
+
+	if ((kstrtoul(buf, 16, &val)) || val > 1)
+		return -EINVAL;
+
+	mutex_lock(&drvdata->mutex);
+
+	if (drvdata->curr_list >= drvdata->nr_link_list) {
+		dev_err(dev, "Select link list to program using curr_list\n");
+		ret = -EINVAL;
+		goto err;
+	}
+
+	if (drvdata->enable[drvdata->curr_list]) {
+		ret = -EBUSY;
+		goto err;
+	}
+
+	if (val)
+		drvdata->hw_trig[drvdata->curr_list] = true;
+	else
+		drvdata->hw_trig[drvdata->curr_list] = false;
+
+	ret = size;
+err:
+	mutex_unlock(&drvdata->mutex);
+	return ret;
+}
+static DEVICE_ATTR_RW(hw_trig);
+
+static ssize_t sw_trig_show(struct device *dev,
+			       struct device_attribute *attr, char *buf)
+{
+	struct dcc_drvdata *drvdata = dev_get_drvdata(dev);
+	int ret = 0;
+
+	if (drvdata->curr_list >= drvdata->nr_link_list) {
+		dev_err(dev, "Select link list to program using curr_list\n");
+		ret = -EINVAL;
+		goto err;
+	}
+
+	ret = scnprintf(buf, PAGE_SIZE, "%u\n",
+			(unsigned int)drvdata->sw_trig[drvdata->curr_list]);
+
+err:
+	return ret;
+}
+
+static ssize_t sw_trig_store(struct device *dev,
+				struct device_attribute *attr,
+				const char *buf, size_t size)
+{
+	int ret = 0;
+	unsigned long val;
+	struct dcc_drvdata *drvdata = dev_get_drvdata(dev);
+
+	if ((kstrtoul(buf, 16, &val)) || val > 1)
+		return -EINVAL;
+
+	if (drvdata->curr_list >= drvdata->nr_link_list) {
+		dev_err(dev, "Select link list to program using curr_list\n");
+		ret = -EINVAL;
+		goto err;
+	}
+
+	if (val)
+		drvdata->sw_trig[drvdata->curr_list] = true;
+	else
+		drvdata->sw_trig[drvdata->curr_list] = false;
+
+	ret = size;
+err:
+	return ret;
+}
+static DEVICE_ATTR_RW(sw_trig);
 
 static ssize_t config_show(struct device *dev,
 			       struct device_attribute *attr, char *buf)
@@ -1241,16 +1355,16 @@ static ssize_t config_store(struct device *dev,
 	int nval;
 
 	nval = sscanf(buf, "%x %i %d", &base, &len, &apb_bus);
-	if (nval <= 0 || nval > 3)
+	if ((nval <= 0 || nval > 3) || (apb_bus < 0 || apb_bus > 1))
 		return -EINVAL;
 
 	if (nval == 1) {
 		len = 1;
 		apb_bus = 0;
-	} else if (nval == 2) {
-		apb_bus = 0;
-	} else {
+	} else if (nval == 3 && apb_bus == 1) {
 		apb_bus = 1;
+	} else {
+		apb_bus = 0;
 	}
 
 	ret = dcc_config_add(drvdata, base, len, apb_bus);
@@ -1290,7 +1404,7 @@ static ssize_t config_reset_store(struct device *dev,
 	unsigned long val;
 	struct dcc_drvdata *drvdata = dev_get_drvdata(dev);
 
-	if (kstrtoul(buf, 16, &val))
+	if (kstrtoul(buf, 16, &val) || val > 1)
 		return -EINVAL;
 
 	if (val)
@@ -1371,7 +1485,7 @@ static ssize_t interrupt_disable_store(struct device *dev,
 	unsigned long val;
 	struct dcc_drvdata *drvdata = dev_get_drvdata(dev);
 
-	if (kstrtoul(buf, 16, &val))
+	if (kstrtoul(buf, 16, &val) || val > 1)
 		return -EINVAL;
 
 	mutex_lock(&drvdata->mutex);
@@ -1527,7 +1641,7 @@ static ssize_t config_write_store(struct device *dev,
 
 	nval = sscanf(buf, "%x %x %d", &addr, &write_val, &apb_bus);
 
-	if (nval <= 1 || nval > 3) {
+	if ((nval <= 1 || nval > 3) || (apb_bus < 0 || apb_bus > 1)) {
 		ret = -EINVAL;
 		goto err;
 	}
@@ -1538,7 +1652,7 @@ static ssize_t config_write_store(struct device *dev,
 		goto err;
 	}
 
-	if (nval == 3 && apb_bus != 0)
+	if (nval == 3 && apb_bus == 1)
 		apb_bus = 1;
 
 	ret = dcc_add_write(drvdata, addr, write_val, apb_bus);
@@ -1569,7 +1683,7 @@ static ssize_t cti_trig_store(struct device *dev,
 	int ret = 0;
 	struct dcc_drvdata *drvdata = dev_get_drvdata(dev);
 
-	if (kstrtoul(buf, 16, &val))
+	if (kstrtoul(buf, 16, &val) || val > 1)
 		return -EINVAL;
 
 	mutex_lock(&drvdata->mutex);
@@ -1602,6 +1716,8 @@ static const struct device_attribute *dcc_attrs[] = {
 	&dev_attr_data_sink,
 	&dev_attr_trigger,
 	&dev_attr_enable,
+	&dev_attr_hw_trig,
+	&dev_attr_sw_trig,
 	&dev_attr_config,
 	&dev_attr_config_reset,
 	&dev_attr_ready,
@@ -1933,6 +2049,14 @@ static int dcc_probe(struct platform_device *pdev)
 			sizeof(bool), GFP_KERNEL);
 	if (!drvdata->enable)
 		return -ENOMEM;
+	drvdata->hw_trig = devm_kzalloc(dev, drvdata->nr_link_list *
+			sizeof(bool), GFP_KERNEL);
+	if (!drvdata->hw_trig)
+		return -ENOMEM;
+	drvdata->sw_trig = devm_kzalloc(dev, drvdata->nr_link_list *
+			sizeof(bool), GFP_KERNEL);
+	if (!drvdata->sw_trig)
+		return -ENOMEM;
 	drvdata->configured = devm_kzalloc(dev, drvdata->nr_link_list *
 			sizeof(bool), GFP_KERNEL);
 	if (!drvdata->configured)
@@ -1957,6 +2081,8 @@ static int dcc_probe(struct platform_device *pdev)
 	for (i = 0; i < drvdata->nr_link_list; i++) {
 		INIT_LIST_HEAD(&drvdata->cfg_head[i]);
 		drvdata->nr_config[i] = 0;
+		drvdata->hw_trig[i] = true;
+		drvdata->sw_trig[i] = false;
 	}
 
 	memset_io(drvdata->ram_base, 0, drvdata->ram_size);

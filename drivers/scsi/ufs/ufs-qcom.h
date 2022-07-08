@@ -413,6 +413,7 @@ struct ufs_qcom_host {
 	int limit_rate;
 	int limit_phy_submode;
 	int ufs_dev_types;
+	bool ufs_dev_revert;
 
 	bool disable_lpm;
 	struct qcom_bus_scale_data *qbsd;

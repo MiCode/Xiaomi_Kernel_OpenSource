@@ -80,3 +80,5 @@ proxy-consumer.ko
 clk-spmi-pmic-div.ko
 bq256xx_charger.ko
 minidump.ko
+bq27xxx_battery.ko
+bq27xxx_battery_i2c.ko

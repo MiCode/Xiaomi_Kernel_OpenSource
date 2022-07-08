@@ -269,6 +269,8 @@ static int qcedev_open(struct inode *inode, struct file *file)
 	handle->cntl = podev;
 	file->private_data = handle;
 
+	qcedev_ce_high_bw_req(podev, true);
+
 	mutex_init(&handle->registeredbufs.lock);
 	INIT_LIST_HEAD(&handle->registeredbufs.list);
 	return 0;
@@ -286,6 +288,7 @@ static int qcedev_release(struct inode *inode, struct file *file)
 					__func__, podev);
 	}
 
+	qcedev_ce_high_bw_req(podev, false);
 	if (qcedev_unmap_all_buffers(handle))
 		pr_err("%s: failed to unmap all ion buffers\n", __func__);
 
@@ -348,8 +351,12 @@ void qcedev_sha_req_cb(void *cookie, unsigned char *digest,
 	uint32_t *auth32 = (uint32_t *)authdata;
 
 	areq = (struct qcedev_sha_req *) cookie;
+	if (!areq || !areq->cookie)
+		return;
 	handle = (struct qcedev_handle *) areq->cookie;
 	pdev = handle->cntl;
+	if (!pdev)
+		return;
 
 	if (digest)
 		memcpy(&handle->sha_ctxt.digest[0], digest, 32);
@@ -372,8 +379,12 @@ void qcedev_cipher_req_cb(void *cookie, unsigned char *icv,
 	struct qcedev_async_req *qcedev_areq;
 
 	areq = (struct qcedev_cipher_req *) cookie;
+	if (!areq || !areq->cookie)
+		return;
 	handle = (struct qcedev_handle *) areq->cookie;
 	podev = handle->cntl;
+	if (!podev)
+		return;
 	qcedev_areq = podev->active_command;
 
 	if (iv)
@@ -494,8 +505,12 @@ void qcedev_offload_cipher_req_cb(void *cookie, unsigned char *icv,
 	struct qcedev_async_req *qcedev_areq;
 
 	areq = (struct qcedev_cipher_req *) cookie;
+	if (!areq || !areq->cookie)
+		return;
 	handle = (struct qcedev_handle *) areq->cookie;
 	podev = handle->cntl;
+	if (!podev)
+		return;
 	qcedev_areq = podev->active_command;
 
 	if (iv)
@@ -513,6 +528,7 @@ static int start_offload_cipher_req(struct qcedev_control *podev,
 	u8 patt_sz = 0, proc_data_sz = 0;
 	int ret = 0;
 
+	memset(&creq, 0, sizeof(creq));
 	/* Start the command on the podev->active_command */
 	qcedev_areq = podev->active_command;
 	qcedev_areq->cipher_req.cookie = qcedev_areq->handle;
@@ -712,7 +728,6 @@ static void qcedev_check_crypto_status(
 					QCEDEV_OFFLOAD_GENERIC_ERROR;
 		return;
 	}
-
 }
 
 static int submit_req(struct qcedev_async_req *qcedev_areq,
@@ -728,10 +743,6 @@ static int submit_req(struct qcedev_async_req *qcedev_areq,
 
 	qcedev_areq->err = 0;
 	podev = handle->cntl;
-
-	qcedev_check_crypto_status(qcedev_areq, podev->qce, print_sts);
-	if (qcedev_areq->offload_cipher_op_req.err != QCEDEV_OFFLOAD_NO_ERROR)
-		return 0;
 
 	spin_lock_irqsave(&podev->lock, flags);
 
@@ -775,10 +786,6 @@ static int submit_req(struct qcedev_async_req *qcedev_areq,
 
 	if (ret)
 		qcedev_areq->err = -EIO;
-
-	qcedev_check_crypto_status(qcedev_areq, podev->qce, print_sts);
-	if (qcedev_areq->offload_cipher_op_req.err != QCEDEV_OFFLOAD_NO_ERROR)
-		return 0;
 
 	pstat = &_qcedev_stat;
 	if (qcedev_areq->op_type == QCEDEV_CRYPTO_OPER_CIPHER) {
@@ -2102,10 +2109,6 @@ long qcedev_ioctl(struct file *file,
 	init_completion(&qcedev_areq->complete);
 	pstat = &_qcedev_stat;
 
-	if (cmd != QCEDEV_IOCTL_MAP_BUF_REQ &&
-		cmd != QCEDEV_IOCTL_UNMAP_BUF_REQ)
-		qcedev_ce_high_bw_req(podev, true);
-
 	switch (cmd) {
 	case QCEDEV_IOCTL_ENC_REQ:
 	case QCEDEV_IOCTL_DEC_REQ:
@@ -2141,7 +2144,6 @@ long qcedev_ioctl(struct file *file,
 			err = -EFAULT;
 			goto exit_free_qcedev_areq;
 		}
-
 		qcedev_areq->op_type = QCEDEV_CRYPTO_OPER_OFFLOAD_CIPHER;
 		if (qcedev_check_offload_cipher_params(
 				&qcedev_areq->offload_cipher_op_req, podev)) {
@@ -2421,9 +2423,6 @@ long qcedev_ioctl(struct file *file,
 	}
 
 exit_free_qcedev_areq:
-	if (cmd != QCEDEV_IOCTL_MAP_BUF_REQ &&
-		cmd != QCEDEV_IOCTL_UNMAP_BUF_REQ && podev != NULL)
-		qcedev_ce_high_bw_req(podev, false);
 	kfree(qcedev_areq);
 	return err;
 }
