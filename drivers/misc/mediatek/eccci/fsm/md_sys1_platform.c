@@ -218,7 +218,7 @@ static void md_cd_dump_debug_register(struct ccci_modem *md)
 	} else if (!((reg_value[0] == boot_status_val) || (reg_value[0] == 0) ||
 		(reg_value[0] >= 0x53310000 && reg_value[0] <= 0x533100FF))) {
 		CCCI_MEM_LOG_TAG(0, TAG,
-			"get 0x%X, expect 0x%X, no dump\n", reg_value[0], boot_status_val);
+			"get 0x%X, expect 0x%llX, no dump\n", reg_value[0], boot_status_val);
 		return;
 	}
 	if (unlikely(in_interrupt())) {

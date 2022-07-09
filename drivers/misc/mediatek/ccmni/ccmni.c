@@ -580,7 +580,7 @@ static netdev_tx_t ccmni_start_xmit(struct sk_buff *skb, struct net_device *dev)
 		ccmni->tx_met_bytes = dev->stats.tx_bytes;
 	} else if (time_after_eq(jiffies,
 		ccmni->tx_met_time + msecs_to_jiffies(MET_LOG_TIMER))) {
-		snprintf(tag_name, 32, "%s_tx_bytes", dev->name);
+		scnprintf(tag_name, 32, "%s_tx_bytes", dev->name);
 		tag_id = CCMNI_TX_MET_ID + ccmni->index;
 		met_tag_oneshot(tag_id, tag_name,
 		(dev->stats.tx_bytes - ccmni->tx_met_bytes));
@@ -1080,7 +1080,7 @@ static int ccmni_init(struct ccmni_ccci_ops *ccci_info)
 		 */
 		dev->type = ARPHRD_NONE;
 
-		sprintf(dev->name, "%s%d", ctlb->ccci_ops->name, i);
+		scnprintf(dev->name, sizeof(dev->name), "%s%d", ctlb->ccci_ops->name, i);
 
 		/* init private structure of netdev */
 		ccmni = netdev_priv(dev);
@@ -1100,7 +1100,7 @@ static int ccmni_init(struct ccmni_ccci_ops *ccci_info)
 		ctlb->ccci_ops->ccci_net_init(dev->name);
 	}
 
-	snprintf(ctlb->wakelock_name, sizeof(ctlb->wakelock_name),
+	scnprintf(ctlb->wakelock_name, sizeof(ctlb->wakelock_name),
 			"ccmni_md1");
 	ctlb->ccmni_wakelock = wakeup_source_register(NULL,
 		ctlb->wakelock_name);
@@ -1259,7 +1259,7 @@ static int ccmni_rx_callback(int ccmni_idx, struct sk_buff *skb,
 		ccmni->rx_met_bytes = dev->stats.rx_bytes;
 	} else if (time_after_eq(jiffies,
 		ccmni->rx_met_time + msecs_to_jiffies(MET_LOG_TIMER))) {
-		snprintf(tag_name, 32, "%s_rx_bytes", dev->name);
+		scnprintf(tag_name, 32, "%s_rx_bytes", dev->name);
 		tag_id = CCMNI_RX_MET_ID + ccmni_idx;
 		met_tag_oneshot(tag_id, tag_name,
 			(dev->stats.rx_bytes - ccmni->rx_met_bytes));
