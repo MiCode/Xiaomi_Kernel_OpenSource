@@ -2321,6 +2321,10 @@ static const struct mtk_addon_module_data mt6985_addon_mml_sram_only_data_1[] = 
 	{DISP_MML_SRAM_ONLY_1, ADDON_BETWEEN, DDP_COMPONENT_OVL4_2L},
 };
 
+static const struct mtk_addon_module_data mt6886_addon_mml_rsz_data[] = {
+	{DISP_MML_IR_PQ_v3, ADDON_BETWEEN, DDP_COMPONENT_OVL1_2L},
+};
+
 static const struct mtk_addon_module_data mt6983_addon_mml_rsz_data[] = {
 	{DISP_MML_IR_PQ, ADDON_BETWEEN, DDP_COMPONENT_OVL0_2L},
 };
@@ -2836,6 +2840,11 @@ static const struct mtk_addon_scenario_data mt6886_addon_main[ADDON_SCN_NR] = {
 		[MML_SRAM_ONLY] = {
 				.module_num = ARRAY_SIZE(mt6886_addon_mml_sram_only_data),
 				.module_data = mt6886_addon_mml_sram_only_data,
+				.hrt_type = HRT_TB_TYPE_RPO_L0,
+			},
+		[MML_RSZ] = {
+				.module_num = ARRAY_SIZE(mt6886_addon_mml_rsz_data),
+				.module_data = mt6886_addon_mml_rsz_data,
 				.hrt_type = HRT_TB_TYPE_RPO_L0,
 			},
 };
@@ -6239,6 +6248,8 @@ static const struct of_device_id mtk_ddp_comp_dt_ids[] = {
 	 .data = (void *)MTK_DISP_Y2R},
 	{.compatible = "mediatek,mt6985-disp-y2r",
 	 .data = (void *)MTK_DISP_Y2R},
+	{.compatible = "mediatek,mt6886-disp-y2r",
+	 .data = (void *)MTK_DISP_Y2R},
 	/* MML */
 	{.compatible = "mediatek,mt6983-mml_rsz",
 	 .data = (void *)MTK_MML_RSZ},
@@ -6250,21 +6261,41 @@ static const struct of_device_id mtk_ddp_comp_dt_ids[] = {
 	 .data = (void *)MTK_MML_TDSHP},
 	{.compatible = "mediatek,mt6983-mml_color",
 	 .data = (void *)MTK_MML_COLOR},
+	{.compatible = "mediatek,mt6886-mml_rsz",
+	 .data = (void *)MTK_MML_RSZ},
+	{.compatible = "mediatek,mt6886-mml_hdr",
+	 .data = (void *)MTK_MML_HDR},
+	{.compatible = "mediatek,mt6886-mml_aal",
+	 .data = (void *)MTK_MML_AAL},
+	{.compatible = "mediatek,mt6886-mml_tdshp",
+	 .data = (void *)MTK_MML_TDSHP},
+	{.compatible = "mediatek,mt6886-mml_color",
+	 .data = (void *)MTK_MML_COLOR},
 	{.compatible = "mediatek,mt6983-mml",
 	 .data = (void *)MTK_MML_MML},
 	{.compatible = "mediatek,mt6985-mml",
+	 .data = (void *)MTK_MML_MML},
+	{.compatible = "mediatek,mt6886-mml",
 	 .data = (void *)MTK_MML_MML},
 	{.compatible = "mediatek,mt6983-mml_mutex",
 	 .data = (void *)MTK_MML_MUTEX},
 	{.compatible = "mediatek,mt6985-mml_mutex",
 	 .data = (void *)MTK_MML_MUTEX},
+	{.compatible = "mediatek,mt6886-mml_mutex",
+	 .data = (void *)MTK_MML_MUTEX},
 	{.compatible = "mediatek,mt6983-mml_wrot",
 	 .data = (void *)MTK_MML_WROT},
+	{.compatible = "mediatek,mt6886-mml_wrot",
+	 .data = (void *)MTK_MML_WROT},
 	{.compatible = "mediatek,mt6983-disp-dlo-async3",
+	 .data = (void *)MTK_DISP_DLO_ASYNC},
+	{.compatible = "mediatek,mt6886-disp-dlo-async3",
 	 .data = (void *)MTK_DISP_DLO_ASYNC},
 	{.compatible = "mediatek,mt6985-disp-dlo-async",
 	 .data = (void *)MTK_DISP_DLO_ASYNC},
 	{.compatible = "mediatek,mt6983-disp-dli-async3",
+	 .data = (void *)MTK_DISP_DLI_ASYNC},
+	{.compatible = "mediatek,mt6886-disp-dli-async3",
 	 .data = (void *)MTK_DISP_DLI_ASYNC},
 	{.compatible = "mediatek,mt6985-disp-dli-async",
 	 .data = (void *)MTK_DISP_DLI_ASYNC},

@@ -172,6 +172,20 @@ static const int disp_mml_rsz_path_v2_1[] = {
 	DDP_COMPONENT_OVLSYS_Y2R2,
 };
 
+static const int disp_mml_rsz_path_v3[] = {
+	DDP_COMPONENT_OVL1_2L_VIRTUAL0,
+	DDP_COMPONENT_DLO_ASYNC3,
+	DDP_COMPONENT_MML_MML0, DDP_COMPONENT_MML_MUTEX0,
+	DDP_COMPONENT_MML_DLI0,
+	DDP_COMPONENT_MML_HDR0, DDP_COMPONENT_MML_AAL0, DDP_COMPONENT_MML_RSZ0,
+	DDP_COMPONENT_MML_TDSHP0, DDP_COMPONENT_MML_COLOR0,
+	DDP_COMPONENT_MML_DLO0,
+	DDP_COMPONENT_INLINE_ROTATE0,
+	DDP_COMPONENT_DLI_ASYNC3,
+	DDP_COMPONENT_Y2R0,
+	DDP_COMPONENT_Y2R0_VIRTUAL0,	/* to describe ufod in */
+};
+
 static const int disp_mml_dl_path[] = {
 	DDP_COMPONENT_OVLSYS_DLI_ASYNC0,
 	DDP_COMPONENT_OVLSYS_Y2R0,
@@ -297,6 +311,10 @@ static const struct mtk_addon_path_data addon_module_path[ADDON_MODULE_NUM] = {
 				.path = disp_mml_dl_path_1,
 				.path_len = ARRAY_SIZE(disp_mml_dl_path_1),
 			},
+		[DISP_MML_IR_PQ_v3] = {
+				.path = disp_mml_rsz_path_v3,
+				.path_len = ARRAY_SIZE(disp_mml_rsz_path_v3),
+			},
 };
 
 const struct mtk_addon_path_data *
@@ -389,7 +407,8 @@ static void mtk_addon_path_stop(struct drm_crtc *crtc,
 		if (addon_config &&
 			(addon_config->config_type.module == DISP_MML_IR_PQ ||
 			addon_config->config_type.module == DISP_MML_IR_PQ_1 ||
-			addon_config->config_type.module == DISP_MML_IR_PQ_v2) &&
+			addon_config->config_type.module == DISP_MML_IR_PQ_v2 ||
+			addon_config->config_type.module == DISP_MML_IR_PQ_v3) &&
 			addon_config->config_type.type == ADDON_DISCONNECT)
 			mtk_ddp_comp_addon_config(add_comp, -1, -1, addon_config, cmdq_handle);
 	}

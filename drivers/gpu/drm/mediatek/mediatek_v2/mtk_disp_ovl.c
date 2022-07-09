@@ -2915,7 +2915,8 @@ static void mtk_ovl_addon_config(struct mtk_ddp_comp *comp,
 	}
 
 	if ((addon_config->config_type.module == DISP_MML_IR_PQ ||
-		addon_config->config_type.module == DISP_MML_IR_PQ_1) &&
+		addon_config->config_type.module == DISP_MML_IR_PQ_1 ||
+		addon_config->config_type.module == DISP_MML_IR_PQ_v3) &&
 		(addon_config->config_type.type == ADDON_CONNECT ||
 		addon_config->config_type.type == ADDON_DISCONNECT)) {
 		struct mtk_addon_mml_config *config = &addon_config->addon_mml_config;

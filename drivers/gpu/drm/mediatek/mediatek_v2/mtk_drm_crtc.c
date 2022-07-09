@@ -2284,7 +2284,8 @@ static void _mtk_crtc_lye_addon_module_disconnect(
 		if (addon_module->type == ADDON_BETWEEN &&
 		    (addon_module->module == DISP_MML_SRAM_ONLY)) {
 		} else if (addon_module->module == DISP_MML_IR_PQ ||
-			   addon_module->module == DISP_MML_IR_PQ_v2) {
+			   addon_module->module == DISP_MML_IR_PQ_v2 ||
+			   addon_module->module == DISP_MML_IR_PQ_v3) {
 			if (mtk_crtc->is_dual_pipe)
 				addon_module_dual = &(addon_data_dual->module_data[i]);
 			else
@@ -2713,7 +2714,8 @@ _mtk_crtc_lye_addon_module_connect(
 			(addon_module->module == DISP_MML_SRAM_ONLY)) {
 			/* do nothing yet */
 		} else if (addon_module->module == DISP_MML_IR_PQ ||
-			   addon_module->module == DISP_MML_IR_PQ_v2) {
+			   addon_module->module == DISP_MML_IR_PQ_v2 ||
+			   addon_module->module == DISP_MML_IR_PQ_v3) {
 			if (mtk_crtc->is_force_mml_scen && mtk_crtc->is_mml)
 				mml_addon_module_connect(crtc, ddp_mode, addon_module,
 							 addon_module_dual, &addon_config,
@@ -2806,7 +2808,8 @@ _mtk_crtc_lye_addon_module_config(
 		    (addon_module->module == DISP_MML_IR_PQ ||
 		     addon_module->module == DISP_MML_IR_PQ_1 ||
 		     addon_module->module == DISP_MML_IR_PQ_v2 ||
-		     addon_module->module == DISP_MML_IR_PQ_v2_1)) {
+		     addon_module->module == DISP_MML_IR_PQ_v2_1 ||
+		     addon_module->module == DISP_MML_IR_PQ_v3)) {
 			mtk_addon_path_config(crtc, addon_module, &addon_config, cmdq_handle);
 		} else
 			DDPMSG("addon type:%d + module:%d not support\n", addon_module->type,

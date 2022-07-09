@@ -65,6 +65,7 @@ enum addon_module {
 	DISP_MML_IR_PQ_v2_1,
 	DISP_MML_SRAM_ONLY,
 	DISP_MML_SRAM_ONLY_1,
+	DISP_MML_IR_PQ_v3,
 	ADDON_MODULE_NUM,
 };
 
