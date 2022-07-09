@@ -126,16 +126,61 @@ static int set_hdr_exposure_tri(struct adaptor_ctx *ctx, struct mtk_hdr_exposure
 	return 0;
 }
 
+static void get_dispatch_gain(struct adaptor_ctx *ctx, u32 tgain, u32 *again, u32 *dgain)
+{
+	int i;
+	u32 ag = tgain;
+	u32 dg = 0;
+	u32 dig_gain_step = ctx->subctx.s_ctx.dig_gain_step;
+	u32 *ana_gain_table = ctx->subctx.s_ctx.ana_gain_table;
+	u32 ana_gain_table_size = ctx->subctx.s_ctx.ana_gain_table_size;
+
+	if (dig_gain_step && ana_gain_table && (tgain > ana_gain_table[0])) {
+		for (i = 1; i < ana_gain_table_size; i++) {
+			if (ana_gain_table[i] > tgain) {
+				ag = ana_gain_table[i - 1];
+				dg = (u32) ((u64)tgain * BASE_DGAIN / ag);
+				break;
+			}
+		}
+		if (i == ana_gain_table_size) {
+			ag = ana_gain_table[i - 1];
+			dg = (u32) ((u64)tgain * BASE_DGAIN / ag);
+		}
+	}
+
+	if (again)
+		*again = ag;
+	if (dgain)
+		*dgain = dg;
+
+	dev_info(ctx->dev, "gain(t/a/d) = %u / %u / %u\n", tgain, ag, dg);
+}
+
 static int set_hdr_gain_tri(struct adaptor_ctx *ctx, struct mtk_hdr_gain *info)
 {
 	union feature_para para;
 	u32 len = 0;
+	u32 again_exp[IMGSENSOR_STAGGER_EXPOSURE_CNT] = {0};
+	u32 dgain_exp[IMGSENSOR_STAGGER_EXPOSURE_CNT] = {0};
 
-	para.u64[0] = info->le_gain;
-	para.u64[1] = info->me_gain;
-	para.u64[2] = info->se_gain;
+	get_dispatch_gain(ctx, info->le_gain, again_exp, dgain_exp);
+	get_dispatch_gain(ctx, info->me_gain, again_exp + 1, dgain_exp + 1);
+	get_dispatch_gain(ctx, info->se_gain, again_exp + 2, dgain_exp + 2);
+
+	para.u64[0] = again_exp[0];
+	para.u64[1] = again_exp[1];
+	para.u64[2] = again_exp[2];
 	subdrv_call(ctx, feature_control,
 		SENSOR_FEATURE_SET_HDR_TRI_GAIN,
+		para.u8, &len);
+
+	// Set dig gain
+	para.u64[0] = (u64)dgain_exp;
+	para.u64[1] = 3;
+	para.u64[2] = 0;
+	subdrv_call(ctx, feature_control,
+		SENSOR_FEATURE_SET_MULTI_DIG_GAIN,
 		para.u8, &len);
 
 	return 0;
@@ -166,11 +211,25 @@ static int set_hdr_gain_dual(struct adaptor_ctx *ctx, struct mtk_hdr_gain *info)
 {
 	union feature_para para;
 	u32 len = 0;
+	u32 again_exp[IMGSENSOR_STAGGER_EXPOSURE_CNT] = {0};
+	u32 dgain_exp[IMGSENSOR_STAGGER_EXPOSURE_CNT] = {0};
 
-	para.u64[0] = info->le_gain;
-	para.u64[1] = info->me_gain; // temporailly workaround, 2 exp should be NE/SE
+	get_dispatch_gain(ctx, info->le_gain, again_exp, dgain_exp);
+	// temporailly workaround, 2 exp should be NE/SE
+	get_dispatch_gain(ctx, info->me_gain, again_exp + 1, dgain_exp + 1);
+
+	para.u64[0] = again_exp[0];
+	para.u64[1] = again_exp[1];
 	subdrv_call(ctx, feature_control,
 		SENSOR_FEATURE_SET_DUAL_GAIN,
+		para.u8, &len);
+
+	// Set dig gain
+	para.u64[0] = (u64)dgain_exp;
+	para.u64[1] = 2;
+	para.u64[2] = 0;
+	subdrv_call(ctx, feature_control,
+		SENSOR_FEATURE_SET_MULTI_DIG_GAIN,
 		para.u8, &len);
 
 	return 0;
@@ -218,6 +277,8 @@ static int do_set_ae_ctrl(struct adaptor_ctx *ctx,
 	{
 		u32 fsync_exp[1] = {0}; /* needed by fsync set_shutter */
 		int ret = 0;
+		u32 again_exp[IMGSENSOR_STAGGER_EXPOSURE_CNT] = {0};
+		u32 dgain_exp[IMGSENSOR_STAGGER_EXPOSURE_CNT] = {0};
 
 		/* notify subsample tags if set */
 		if (ae_ctrl->subsample_tags) {
@@ -238,7 +299,9 @@ static int do_set_ae_ctrl(struct adaptor_ctx *ctx,
 		notify_fsync_mgr_set_shutter(ctx, fsync_exp, 1, ret);
 		ADAPTOR_SYSTRACE_END();
 
-		para.u64[0] = ae_ctrl->gain.le_gain;
+		get_dispatch_gain(ctx, ae_ctrl->gain.le_gain, again_exp, dgain_exp);
+
+		para.u64[0] = again_exp[0];
 		para.u64[1] = 0;
 		para.u64[2] = 0;
 
@@ -246,6 +309,15 @@ static int do_set_ae_ctrl(struct adaptor_ctx *ctx,
 		subdrv_call(ctx, feature_control,
 					SENSOR_FEATURE_SET_GAIN,
 					para.u8, &len);
+
+		// Set dig gain
+		para.u64[0] = (u64)dgain_exp;
+		para.u64[1] = 1;
+		para.u64[2] = 0;
+		subdrv_call(ctx, feature_control,
+			SENSOR_FEATURE_SET_MULTI_DIG_GAIN,
+			para.u8, &len);
+
 		ADAPTOR_SYSTRACE_END();
 	}
 		break;
