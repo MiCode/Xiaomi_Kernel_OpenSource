@@ -56,6 +56,7 @@ struct workqueue_struct *uarthub_workqueue;
 #define UARTHUB_DUMP_DEBUG_LOOP_ENABLE 0
 #define UARTHUB_DUMP_DEBUG_LOOP_MODE 0
 #define UARTHUB_SLEEP_WAKEUP_TEST 0
+#define UARTHUB_ENABLE_UART_1_CHANNEL 0
 
 #if !(SUPPORT_SSPM_DRIVER)
 #ifdef INIT_UARTHUB_DEFAULT
@@ -1464,11 +1465,13 @@ int uarthub_core_md_adsp_fifo_ctrl(int enable)
 	if (enable == 1) {
 		uarthub_core_reset_to_ap_enable_only(1);
 	} else {
+#if UARTHUB_ENABLE_UART_1_CHANNEL
 		if (g_max_dev >= 2) {
 			UARTHUB_REG_WRITE(UARTHUB_IIR_FCR(dev1_base_remap_addr),
 				((UARTHUB_REG_READ(UARTHUB_FCR_RD(
 				dev1_base_remap_addr)) & (~(0x1))) | (0x1)));
 		}
+#endif
 
 		if (g_max_dev >= 3) {
 			UARTHUB_REG_WRITE(UARTHUB_IIR_FCR(dev2_base_remap_addr),
@@ -1905,11 +1908,13 @@ int uarthub_core_assert_state_ctrl(int assert_ctrl)
 		UARTHUB_SET_BIT(UARTHUB_INTFHUB_DBG(intfhub_base_remap_addr), (0x1 << 0));
 	} else {
 #if UARTHUB_ASSERT_BIT_DISABLE_MD_ADSP_FIFO
+#if UARTHUB_ENABLE_UART_1_CHANNEL
 		if (g_max_dev >= 2) {
 			UARTHUB_REG_WRITE(UARTHUB_IIR_FCR(dev1_base_remap_addr),
 				((UARTHUB_REG_READ(UARTHUB_FCR_RD(
 				dev1_base_remap_addr)) & (~(0x1))) | (0x1)));
 		}
+#endif
 
 		if (g_max_dev >= 3) {
 			UARTHUB_REG_WRITE(UARTHUB_IIR_FCR(dev2_base_remap_addr),
@@ -1986,10 +1991,12 @@ int uarthub_core_reset_to_ap_enable_only(int ap_only)
 	UARTHUB_REG_WRITE(UARTHUB_IIR_FCR(dev0_base_remap_addr),
 		(UARTHUB_REG_READ(UARTHUB_FCR_RD(dev0_base_remap_addr)) & (~(0x1))));
 
+#if UARTHUB_ENABLE_UART_1_CHANNEL
 	if (g_max_dev >= 2) {
 		UARTHUB_REG_WRITE(UARTHUB_IIR_FCR(dev1_base_remap_addr),
 			(UARTHUB_REG_READ(UARTHUB_FCR_RD(dev1_base_remap_addr)) & (~(0x1))));
 	}
+#endif
 
 	if (g_max_dev >= 3) {
 		UARTHUB_REG_WRITE(UARTHUB_IIR_FCR(dev2_base_remap_addr),
@@ -2011,11 +2018,13 @@ int uarthub_core_reset_to_ap_enable_only(int ap_only)
 		((UARTHUB_REG_READ(UARTHUB_FCR_RD(
 		dev0_base_remap_addr)) & (~(0x1))) | (0x1)));
 
+#if UARTHUB_ENABLE_UART_1_CHANNEL
 	if (g_max_dev >= 2 && dev1_fifoe == 1 && ap_only == 0) {
 		UARTHUB_REG_WRITE(UARTHUB_IIR_FCR(dev1_base_remap_addr),
 			((UARTHUB_REG_READ(UARTHUB_FCR_RD(
 			dev1_base_remap_addr)) & (~(0x1))) | (0x1)));
 	}
+#endif
 
 	if (g_max_dev >= 3 && dev2_fifoe == 1 && ap_only == 0) {
 		UARTHUB_REG_WRITE(UARTHUB_IIR_FCR(dev2_base_remap_addr),
