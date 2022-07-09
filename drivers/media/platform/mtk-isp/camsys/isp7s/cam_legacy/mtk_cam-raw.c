@@ -294,6 +294,24 @@ static int mtk_raw_pde_get_ctrl(struct v4l2_ctrl *ctrl)
 	return 0;
 }
 
+static int mtk_raw_apu_get_ctrl(struct v4l2_ctrl *ctrl)
+{
+	struct device *dev;
+	struct mtk_raw_pipeline *pipeline;
+	struct mtk_cam_apu_info *apu_info_pipe;
+	struct mtk_cam_apu_info *apu_info_user;
+
+	pipeline = mtk_cam_ctrl_handler_to_raw_pipeline(ctrl->handler);
+	dev = pipeline->raw->devs[pipeline->id];
+
+	apu_info_pipe = &pipeline->apu_info;
+	apu_info_user = (struct mtk_cam_apu_info *)ctrl->p_new.p;
+
+	memcpy(apu_info_user, apu_info_pipe, sizeof(pipeline->apu_info));
+
+	return 0;
+}
+
 static int mtk_raw_get_ctrl(struct v4l2_ctrl *ctrl)
 {
 	struct mtk_cam_resource_v2 *user_res;
@@ -316,6 +334,8 @@ static int mtk_raw_get_ctrl(struct v4l2_ctrl *ctrl)
 			 __func__, pipeline->id, pipeline->sensor_mode_update);
 	} else if (ctrl->id == V4L2_CID_MTK_CAM_FRAME_SYNC) {
 		ctrl->val = pipeline->fs_config;
+	} else if (ctrl->id == V4L2_CID_MTK_CAM_APU_INFO) {
+		mtk_raw_apu_get_ctrl(ctrl);
 	} else if (ctrl->id == V4L2_CID_MTK_CAM_SYNC_ID) {
 		mutex_lock(&pipeline->res_config.resource_lock);
 		*ctrl->p_new.p_s64 = pipeline->sync_id;
@@ -860,6 +880,25 @@ static int mtk_raw_pde_try_set_ctrl(struct v4l2_ctrl *ctrl,
 	return 0;
 }
 
+static int mtk_raw_apu_set_ctrl(struct v4l2_ctrl *ctrl)
+{
+	struct device *dev;
+	struct mtk_raw_pipeline *pipeline;
+	struct mtk_cam_apu_info *apu_info_pipe;
+	struct mtk_cam_apu_info *apu_info_user;
+
+	pipeline = mtk_cam_ctrl_handler_to_raw_pipeline(ctrl->handler);
+	dev = pipeline->raw->devs[pipeline->id];
+
+	apu_info_pipe = &pipeline->apu_info;
+	apu_info_user = (struct mtk_cam_apu_info *)ctrl->p_new.p;
+
+	memcpy(apu_info_pipe, apu_info_user, sizeof(pipeline->apu_info));
+	apu_info_pipe->is_update = 1;
+
+	return 0;
+}
+
 static int mtk_raw_try_ctrl(struct v4l2_ctrl *ctrl)
 {
 	struct device *dev;
@@ -912,6 +951,10 @@ static int mtk_raw_try_ctrl(struct v4l2_ctrl *ctrl)
 	case V4L2_CID_MTK_CAM_HSF_EN:
 	case V4L2_CID_MTK_CAM_FRAME_SYNC:
 	case V4L2_CID_MTK_CAM_CAMSYS_HDR_TIMESTAMP:
+		ret = 0;
+		break;
+	case V4L2_CID_MTK_CAM_APU_INFO:
+		/* neeed any try control? */
 		ret = 0;
 		break;
 	default:
@@ -986,6 +1029,8 @@ static int mtk_raw_set_ctrl(struct v4l2_ctrl *ctrl)
 		ret = 0;
 	case V4L2_CID_MTK_CAM_PDE_INFO:
 		ret = mtk_raw_pde_try_set_ctrl(ctrl, CAM_SET_CTRL);
+	case V4L2_CID_MTK_CAM_APU_INFO:
+		ret = mtk_raw_apu_set_ctrl(ctrl);
 		break;
 	default:
 		ret = mtk_raw_set_res_ctrl(pipeline->raw->devs[pipeline->id],
@@ -1245,6 +1290,19 @@ static struct v4l2_ctrl_config cfg_frame_sync = {
 	.max = 0x1,
 	.step = 1,
 	.def = 0,
+};
+
+static const struct v4l2_ctrl_config cfg_apu_info = {
+	.ops = &cam_ctrl_ops,
+	.id = V4L2_CID_MTK_CAM_APU_INFO,
+	.name = "apu information",
+	.type = V4L2_CTRL_TYPE_INTEGER,
+	.flags = V4L2_CTRL_FLAG_VOLATILE|V4L2_CTRL_FLAG_EXECUTE_ON_WRITE,
+	.min = 0,
+	.max = 0x1fffffff,
+	.step = 1,
+	.def = 0,
+	.dims = {sizeof_u32(struct mtk_cam_apu_info)},
 };
 
 void trigger_rawi(struct mtk_raw_device *dev, struct mtk_cam_ctx *ctx,
@@ -6193,6 +6251,8 @@ static void mtk_raw_pipeline_ctrl_setup(struct mtk_raw_pipeline *pipe)
 
 	/* Frame sync */
 	v4l2_ctrl_new_custom(ctrl_hdlr, &cfg_frame_sync, NULL);
+	/* APU */
+	ctrl = v4l2_ctrl_new_custom(ctrl_hdlr, &cfg_apu_info, NULL);
 
 	v4l2_ctrl_new_custom(ctrl_hdlr, &mstream_exposure, NULL);
 	pipe->res_config.hwn_limit_max = hwn_limit.def;
@@ -6206,6 +6266,7 @@ static void mtk_raw_pipeline_ctrl_setup(struct mtk_raw_pipeline *pipe)
 	pipe->hw_mode = mtk_camsys_hw_mode.def;
 	pipe->hw_mode_pending = mtk_camsys_hw_mode.def;
 	pipe->fs_config = cfg_frame_sync.def;
+	memset(&pipe->apu_info, cfg_apu_info.def, sizeof(pipe->apu_info));
 }
 
 static int mtk_raw_pipeline_register(unsigned int id, struct device *dev,

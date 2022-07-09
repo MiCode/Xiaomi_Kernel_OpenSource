@@ -306,6 +306,8 @@ struct mtk_raw_pipeline {
 	struct v4l2_subdev_format req_pad_fmt[MTK_RAW_PIPELINE_PADS_NUM];
 	struct v4l2_subdev_selection req_psel[MTK_RAW_PIPELINE_PADS_NUM];
 	struct mtk_cam_internal_mem pre_alloc_mem;
+	/* apu */
+	struct mtk_cam_apu_info apu_info;
 };
 
 struct mtk_raw_device {

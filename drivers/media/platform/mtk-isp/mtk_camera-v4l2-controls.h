@@ -81,7 +81,8 @@
 	(V4L2_CID_USER_MTK_CAM_BASE + 24)
 #define V4L2_CID_MTK_CAM_CAMSYS_HDR_TIMESTAMP \
 	(V4L2_CID_USER_MTK_CAM_BASE + 25)
-
+#define V4L2_CID_MTK_CAM_APU_INFO \
+	(V4L2_CID_USER_MTK_CAM_BASE + 26)
 
 /* used for v2 resoruce struct testing */
 #define V4L2_CID_MTK_CAM_RAW_RESOURCE_CALC_TEST \
@@ -490,6 +491,35 @@ struct mtk_cam_internal_buf {
 struct mtk_cam_internal_mem {
 	__u32 num;
 	struct mtk_cam_internal_buf bufs[MTK_CAM_INTERNAL_MEM_MAX];
+};
+
+/**
+ * struct mtk_cam_apu_info - apu related information
+ *  @is_update: kernel control only
+ *
+ */
+
+enum mtk_cam_apu_tap_point {
+	AFTER_SEP_R1,
+	AFTER_BPC,
+	AFTER_LTM,
+};
+
+enum mtk_cam_apu_path {
+	APU_FRAME_MODE,
+	APU_DC_RAW,
+	RAW_DC_APU,
+	RAW_DC_APU_DC_RAW,
+};
+
+struct mtk_cam_apu_info {
+	__u8 is_update;
+	__u8 apu_path;
+	__u8 vpu_i_point;
+	__u8 vpu_o_point;
+	__u8 sysram_en;
+	__u8 opp_index;
+	__u32 block_y_size;
 };
 
 /* I M G S Y S */

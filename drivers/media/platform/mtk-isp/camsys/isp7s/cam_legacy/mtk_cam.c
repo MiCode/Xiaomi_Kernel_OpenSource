@@ -3697,6 +3697,7 @@ static int mtk_cam_req_update(struct mtk_cam_device *cam,
 		/* update buffer format */
 		switch (node->desc.dma_port) {
 		case MTKCAM_IPI_RAW_RAWI_2:
+			/* get s_data->apu_info for config */
 			ret = mtk_cam_config_raw_img_in_rawi2(req_stream_data, buf);
 			if (ret)
 				return ret;
@@ -4018,6 +4019,8 @@ static void mtk_cam_req_s_data_init(struct mtk_cam_request *req,
 	req_stream_data->req_id = 0;
 	req_stream_data->feature.scen = NULL;
 	atomic_set(&req_stream_data->buf_state, -1);
+	memset(&req_stream_data->apu_info, 0,
+		sizeof(req_stream_data->apu_info));
 
 	/**
 	 * req_stream_data->flags is cleaned by
@@ -4264,6 +4267,14 @@ void mtk_cam_dev_req_try_queue(struct mtk_cam_device *cam)
 
 				/* Apply raw subdev's ctrl */
 				mtk_cam_req_update_ctrl(ctx->pipe, s_data);
+			}
+			if (is_raw_subdev(i) && ctx->pipe->apu_info.is_update) {
+				memcpy(&s_data->apu_info, &ctx->pipe->apu_info,
+					sizeof(s_data->apu_info));
+				ctx->pipe->apu_info.is_update = 0;
+				dev_dbg(cam->dev,
+					"%s:req(%s):pipe(%d) apu update\n",
+					__func__, req->req.debug_str, i);
 			}
 		}
 
@@ -7114,6 +7125,7 @@ int mtk_cam_dev_config(struct mtk_cam_ctx *ctx, bool streaming, bool config_pipe
 	cfg_in_param->in_crop.s.h = img_fmt->fmt.pix_mp.height;
 
 	if (mtk_cam_scen_is_pure_m2m(scen_active)) {
+		/* get ctx->pipe.apu_info for config */
 		mf = &pipe->cfg[MTK_RAW_RAWI_2_IN].mbus_fmt;
 		dev_dbg(dev, "[pure m2m] rawi2 pad code:0x%x, sink tg size:%d %d\n",
 			mf->code, cfg_in_param->in_crop.s.w, cfg_in_param->in_crop.s.h);

@@ -278,6 +278,8 @@ struct mtk_cam_request_stream_data {
 	struct mtk_cam_hdr_timestamp_info hdr_timestamp_cache;
 	atomic_t first_setting_check;
 	int req_id;
+	/* apu */
+	struct mtk_cam_apu_info apu_info;  /* check is_update */
 };
 
 struct mtk_cam_req_pipe {
