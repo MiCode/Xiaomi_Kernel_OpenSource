@@ -232,7 +232,7 @@ ssize_t vcp_A_log_read(char __user *data, size_t len)
 	unsigned int w_pos, r_pos, datalen;
 	char *buf;
 
-	if (!vcp_A_logger_inited)
+	if (!VCP_A_log_ctl->enable)
 		return 0;
 
 	datalen = 0;
@@ -306,7 +306,7 @@ error:
 
 unsigned int vcp_A_log_poll(void)
 {
-	if (!vcp_A_logger_inited)
+	if (!VCP_A_log_ctl->enable)
 		return 0;
 
 	if (VCP_A_buf_info->r_pos != VCP_A_buf_info->w_pos)
@@ -344,7 +344,7 @@ static unsigned int vcp_A_log_if_poll(struct file *file, poll_table *wait)
 	unsigned int ret = 0;
 
 	/* pr_debug("[VCP A] vcp_A_log_if_poll\n"); */
-	if (!vcp_A_logger_inited)
+	if (!VCP_A_log_ctl->enable)
 		return 0;
 
 	if (!(file->f_mode & FMODE_READ))
