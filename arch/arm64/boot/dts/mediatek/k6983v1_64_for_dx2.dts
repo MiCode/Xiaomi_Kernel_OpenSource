@@ -498,6 +498,8 @@
 	pinctrl-1 = <&conninfra_pins_tcxo_set>;
 	pinctrl-2 = <&conninfra_pins_tcxo_clr>;
 	status = "okay";
+	scp-remap-offset = <0x2100000>;
+	scp-remap-size = <0x20000>;
 };
 
 &pio {
