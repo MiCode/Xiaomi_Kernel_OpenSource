@@ -7800,6 +7800,7 @@
 
 		usb_offload: usb_offload {
 			compatible = "mediatek,usb-offload";
+			xhci_host = <&usb_host>;
 		};
 
 		ssusb: usb0@11201000 {
@@ -7845,6 +7846,7 @@
 				interrupts = <GIC_SPI 161 IRQ_TYPE_LEVEL_HIGH 0>;
 				clocks = <&clk26m>;
 				clock-names = "sys_ck";
+				mediatek,usb-offload = <&usb_offload>;
 				status = "okay";
 			};
 		};
