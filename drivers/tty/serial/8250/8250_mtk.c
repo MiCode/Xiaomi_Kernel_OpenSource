@@ -135,12 +135,37 @@ struct mtk8250_comp {
 	unsigned int support_hub;
 };
 
+struct mtk8250_reg_data {
+	unsigned int addr;
+	unsigned int mask;
+	unsigned int val;
+};
+
 /* flow control mode */
 enum {
 	MTK_UART_FC_NONE,
 	MTK_UART_FC_SW,
 	MTK_UART_FC_HW,
 };
+
+static struct mtk8250_reg_data peri_wakeup = {0};
+
+static void mtk8250_clear_wakeup(void)
+{
+	/*clear wakeup*/
+	void __iomem *peri_remap_wakeup = NULL;
+
+	peri_remap_wakeup = ioremap(peri_wakeup.addr, 0x10);
+
+	UART_REG_WRITE(peri_remap_wakeup,
+		((UART_REG_READ(peri_remap_wakeup)
+			& (~peri_wakeup.mask)) | peri_wakeup.val));
+	pr_info("%s 0x%x\n", __func__,
+		(UART_REG_READ(peri_remap_wakeup)));
+
+	if (peri_remap_wakeup)
+		iounmap(peri_remap_wakeup);
+}
 
 #if IS_ENABLED(CONFIG_MTK_UARTHUB)
 int mtk8250_uart_hub_dump_with_tag(const char *tag)
@@ -225,6 +250,9 @@ EXPORT_SYMBOL(mtk8250_uart_hub_set_request);
 
 int mtk8250_uart_hub_clear_request(void)
 {
+	/*clear ap uart*/
+	mtk8250_clear_wakeup();
+
 	#if defined(KERNEL_UARTHUB_dev0_clear_txrx_request)
 		return KERNEL_UARTHUB_dev0_clear_txrx_request();
 	#else
@@ -1009,8 +1037,6 @@ static int mtk8250_probe_of(struct platform_device *pdev, struct uart_port *p,
 			pr_notice("[%s] peri_remap_addr(%x) ioremap fail\n", __func__, peri_addr);
 			return -1;
 		}
-		dev_info(&pdev->dev, "PERSYS: 0x%x = 0x%x\n",
-			peri_addr, ((UART_REG_READ(peri_remap_addr) & (~peri_mask)) | peri_val));
 		UART_REG_WRITE(peri_remap_addr,
 			((UART_REG_READ(peri_remap_addr) & (~peri_mask)) | peri_val));
 		dev_info(&pdev->dev, "PERSYS set as 0x%x\n", (UART_REG_READ(peri_remap_addr)));
@@ -1020,6 +1046,28 @@ static int mtk8250_probe_of(struct platform_device *pdev, struct uart_port *p,
 					"hub-baud", 0, &data->hub_baud);
 		if (index) {
 			pr_notice("[%s] get hub-baud fail\n", __func__);
+			return -1;
+		}
+
+		/*parse wakeup*/
+		index = of_property_read_u32_index(pdev->dev.of_node,
+			"peri-wakeup", 0, &peri_wakeup.addr);
+		if (index) {
+			pr_notice("[%s] get peri-wakeup addr fail\n", __func__);
+			return -1;
+		}
+
+		index = of_property_read_u32_index(pdev->dev.of_node,
+			"peri-wakeup", 1, &peri_wakeup.mask);
+		if (index) {
+			pr_notice("[%s] get peri-wakeup_mask fail\n", __func__);
+			return -1;
+		}
+
+		index = of_property_read_u32_index(pdev->dev.of_node,
+			"peri-wakeup", 2, &peri_wakeup.val);
+		if (index) {
+			pr_notice("[%s] get peri-wakeup_value fail\n", __func__);
 			return -1;
 		}
 	}
