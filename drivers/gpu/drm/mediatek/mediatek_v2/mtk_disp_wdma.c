@@ -489,7 +489,7 @@ static void mtk_wdma_stop(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 	mtk_ddp_write(comp, 0x01, DISP_REG_WDMA_RST, handle);
 	mtk_ddp_write(comp, 0x00, DISP_REG_WDMA_RST, handle);
 
-	if (data->use_larb_control_sec && crtc_idx == 2) {
+	if (data && data->use_larb_control_sec && crtc_idx == 2) {
 		if (disp_sec_cb.cb != NULL)
 			disp_sec_cb.cb(DISP_SEC_STOP, NULL, 0, NULL);
 	}
