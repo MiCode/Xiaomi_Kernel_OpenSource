@@ -1787,8 +1787,7 @@ static int mtkdip_ioc_add_fence(struct v4l2_subdev *subdev, void *arg)
 		return -EINVAL;
 	}
 
-	ret = mtk_hcp_set_KernelFence(pipe->imgsys_dev->dev,
-				HCP_IMGSYS_FENCE_FDS_ADD_ID, kfd, fd_tbl->fd_num, get);
+	ret = mtk_hcp_set_KernelFence(kfd, fd_tbl->fd_num, get);
 
 	if (ret < 0)
 		return ret;
@@ -1838,8 +1837,7 @@ static int mtkdip_ioc_del_fence(struct v4l2_subdev *subdev, void *arg)
 	for (i = 0; i < fd_tbl->fd_num; i++)
 		pr_info("del imgsys_kernel kernel_fence(%d)\n", kfd[i]);
 
-	ret = mtk_hcp_set_KernelFence(pipe->imgsys_dev->dev,
-				HCP_IMGSYS_FENCE_FDS_DEL_ID, kfd, fd_tbl->fd_num, release);
+	ret = mtk_hcp_set_KernelFence(kfd, fd_tbl->fd_num, release);
 	if (ret < 0)
 		return ret;
 

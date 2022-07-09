@@ -13,27 +13,18 @@
 #include "mtk-hcp.h"
 
 struct fence_info {
-	struct dma_fence *kFence;
-	unsigned int use_flag;
+	struct list_head fence_entry;
+	struct dma_fence kFence;
+	unsigned int use_fence;
+	unsigned int release_fence;
+	unsigned int fd;
+	spinlock_t lock;
 };
-/**
- * mtk_hcp_set_KernelFence - send data from camera kernel driver to HCP without
- *      waiting demand receives the command.
- *
- * @pdev:   HCP platform device
- * @id:     HCP ID
- * @buf:    the data buffer
- * @len:    the data buffer length
- * @get:    get fence or release fence (1:get | 0:release)
- *
- * This function is thread-safe. When this function returns,
- * HCP has received the data and save the data in the workqueue.
- * After that it will schedule work to dequeue to send data to CM4 or
- * RED for programming register.
- * Return: Return 0 if sending data successfully, otherwise it is failed.
- **/
-int mtk_hcp_set_KernelFence(struct device *dev,
-		 enum hcp_id id, unsigned int *fds, uint8_t fd_num, int get);
+
+struct fence_list {
+	struct list_head list;
+	struct mutex fence_lock;
+};
 
 /**
  * mtk_hcp_set_KernelFence - send data from camera kernel driver to HCP without
@@ -51,17 +42,17 @@ int mtk_hcp_set_KernelFence(struct device *dev,
  * RED for programming register.
  * Return: Return 0 if sending data successfully, otherwise it is failed.
  **/
-int mtk_hcp_uninit_KernelFence(struct device *dev);
+int mtk_hcp_set_KernelFence(unsigned int *fds, uint8_t fd_num, int get);
 
-int mtk_hcp_init_KernelFence(struct device *dev);
 /**
- * mtk_hcp_get_KernelFence - send data from camera kernel driver to HCP without
+ * mtk_hcp_set_KernelFence - send data from camera kernel driver to HCP without
  *      waiting demand receives the command.
  *
  * @pdev:   HCP platform device
  * @id:     HCP ID
  * @buf:    the data buffer
  * @len:    the data buffer length
+ * @get:    get fence or release fence (1:get | 0:release)
  *
  * This function is thread-safe. When this function returns,
  * HCP has received the data and save the data in the workqueue.
@@ -69,24 +60,8 @@ int mtk_hcp_init_KernelFence(struct device *dev);
  * RED for programming register.
  * Return: Return 0 if sending data successfully, otherwise it is failed.
  **/
-//static int mtk_hcp_get_KernelFence(struct platform_device *pdev,
-//		 enum hcp_id id, unsigned int *fds);
+int mtk_hcp_uninit_KernelFence(void);
 
-/**
- * mtk_hcp_release_KernelFence - send data from camera kernel driver to HCP without
- *      waiting demand receives the command.
- *
- * @pdev:   HCP platform device
- * @id:     HCP ID
- * @buf:    the data buffer
- * @len:    the data buffer length
- *
- * This function is thread-safe. When this function returns,
- * HCP has received the data and save the data in the workqueue.
- * After that it will schedule work to dequeue to send data to CM4 or
- * RED for programming register.
- * Return: Return 0 if sending data successfully, otherwise it is failed.
- **/
-//static int mtk_hcp_release_KernelFence(struct platform_device *pdev,
-//		 enum hcp_id id, unsigned int *fds);
+int mtk_hcp_init_KernelFence(void);
+
 #endif /* _MTK_HCP_KERNELFENCE_H */
