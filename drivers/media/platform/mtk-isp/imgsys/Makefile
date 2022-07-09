@@ -25,6 +25,8 @@ $(info "imgsys, subdir-ccflags-y = $(subdir-ccflags-y)")
 ifneq ($(wildcard $(srctree)/include/dt-bindings/memory/mt6985-larb-port.h),)
   subdir-ccflags-y += -DWPE_TF_DUMP_7S_1
   subdir-ccflags-y += -DPQDIP_7S_1
+else ifneq ($(wildcard $(srctree)/include/dt-bindings/memory/mt6886-larb-port.h),)
+  subdir-ccflags-y += -DWPE_TF_DUMP_7S_2
 endif
 $(info "imgsys, subdir-ccflags-y = $(subdir-ccflags-y)")
 
