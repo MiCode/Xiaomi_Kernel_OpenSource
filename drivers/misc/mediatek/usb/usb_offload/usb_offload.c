@@ -49,19 +49,25 @@
 #include "audio_controller_msg_id.h"
 #endif
 #include "usb_offload.h"
+#include "audio_task_usb_msg_id.h"
 
 static unsigned int usb_offload_log;
 module_param(usb_offload_log, uint, 0644);
 MODULE_PARM_DESC(usb_offload_log, "Enable/Disable USB Offload log");
 
+#define USB_OFFLOAD_MEM_DBG(fmt, args...) do { \
+	if (usb_offload_log > 2) \
+		pr_info("UD, %s(%d) " fmt, __func__, __LINE__, ## args); \
+	} while (0)
+
 #define USB_OFFLOAD_INFO(fmt, args...) do { \
 	if (usb_offload_log > 1) \
-		pr_info("USB_OFFLOAD, %s, " fmt, __func__, ## args); \
+		pr_info("UO, %s(%d) " fmt, __func__, __LINE__, ## args); \
 	} while (0)
 
 #define USB_OFFLOAD_ERR(fmt, args...) do { \
 	if (usb_offload_log) \
-		pr_info("USB_OFFLOAD, %s, " fmt, __func__, ## args); \
+		pr_info("UD, %s(%d) " fmt, __func__, __LINE__, ## args); \
 	} while (0)
 
 
@@ -131,7 +137,7 @@ static void dump_uainfo(struct usb_audio_stream_info *uainfo)
 						"uainfo->stop_thld: %d\n"
 						"uainfo->pcm_size: %d\n"
 						"uainfo->service_interval: %d\n"
-						"uainfo->service_interval_valid\n",
+						"uainfo->service_interval_valid: %d\n",
 						uainfo->enable,
 						uainfo->bit_rate,
 						uainfo->number_of_ch,
@@ -535,6 +541,7 @@ int send_init_ipi_msg_to_adsp(struct mpu_info_xhci *mpu_info)
 {
 	int send_result = 0;
 	struct ipi_msg_t ipi_msg;
+	uint8_t scene = 0;
 
 	USB_OFFLOAD_INFO("xhci_rsv_addr: 0x%x, xhci_rsv_size: %d, size: %d\n",
 			mpu_info->xhci_data_addr,
@@ -542,17 +549,22 @@ int send_init_ipi_msg_to_adsp(struct mpu_info_xhci *mpu_info)
 			sizeof(*mpu_info));
 
 	// Send struct usb_audio_stream_info Address to Hifi3 Via IPI
-	adsp_register_feature(OFFLOAD_FEATURE_ID);
-	send_result = audio_send_ipi_msg(
-					 &ipi_msg, TASK_SCENE_AUDIO_CONTROLLER_HIFI3_A,
-					 AUDIO_IPI_LAYER_TO_DSP,
-					 AUDIO_IPI_PAYLOAD,
-					 AUDIO_IPI_MSG_NEED_ACK,
-					 AUD_CTL_MSG_A2D_IPI_TEST,
-					 sizeof(struct mpu_info_xhci),
-					 0,
-					 (char *)mpu_info);
-	adsp_deregister_feature(OFFLOAD_FEATURE_ID);
+	for (scene = TASK_SCENE_USB_DL; scene <= TASK_SCENE_USB_UL; scene++) {
+		send_result = audio_send_ipi_msg(
+						 &ipi_msg, scene,
+						 AUDIO_IPI_LAYER_TO_DSP,
+						 AUDIO_IPI_PAYLOAD,
+						 AUDIO_IPI_MSG_NEED_ACK,
+						 AUD_USB_MSG_A2D_INIT_ADSP,
+						 sizeof(struct mpu_info_xhci),
+						 0,
+						 mpu_info);
+		if (send_result == 0) {
+			send_result = ipi_msg.param2;
+			if (send_result)
+				break;
+		}
+	}
 
 	if (send_result != 0)
 		USB_OFFLOAD_ERR("USB Offload init IPI msg send fail\n");
@@ -566,22 +578,28 @@ int send_uas_ipi_msg_to_adsp(struct usb_audio_stream_msg *uas_msg)
 {
 	int send_result = 0;
 	struct ipi_msg_t ipi_msg;
+	uint8_t task_scene = 0;
 
 	USB_OFFLOAD_INFO("msg: %p, size: %d\n",
 			uas_msg, sizeof(*uas_msg));
 
+	if (uas_msg->uainfo.direction == 0)
+		task_scene = TASK_SCENE_USB_DL;
+	else
+		task_scene = TASK_SCENE_USB_UL;
+
 	// Send struct usb_audio_stream_info Address to Hifi3 Via IPI
-	adsp_register_feature(OFFLOAD_FEATURE_ID);
 	send_result = audio_send_ipi_msg(
-					 &ipi_msg, TASK_SCENE_AUDIO_CONTROLLER_HIFI3_A,
+					 &ipi_msg, task_scene,
 					 AUDIO_IPI_LAYER_TO_DSP,
-					 AUDIO_IPI_PAYLOAD,
+					 AUDIO_IPI_DMA,
 					 AUDIO_IPI_MSG_NEED_ACK,
-					 AUD_CTL_MSG_A2D_IPI_TEST,
+					 AUD_USB_MSG_A2D_ENABLE_STREAM,
 					 sizeof(struct usb_audio_stream_msg),
 					 0,
-					 (char *)uas_msg);
-	adsp_deregister_feature(OFFLOAD_FEATURE_ID);
+					 uas_msg);
+	if (send_result == 0)
+		send_result = ipi_msg.param2;
 
 	if (send_result != 0)
 		USB_OFFLOAD_ERR("USB Offload uas IPI msg send fail\n");
@@ -678,6 +696,7 @@ static int usb_offload_enable_stream(struct usb_audio_stream_info *uainfo)
 
 	uadev[pcm_card_num].ctrl_intf = chip->ctrl_intf;
 
+	USB_OFFLOAD_INFO("uainfo->enable:%d\n", uainfo->enable);
 	if (!uainfo->enable) {
 		info = &uadev[pcm_card_num].info[info_idx];
 		if (info->data_ep_pipe) {
@@ -711,6 +730,7 @@ static int usb_offload_enable_stream(struct usb_audio_stream_info *uainfo)
 		mutex_unlock(&chip->dev_lock);
 		goto done;
 	}
+	USB_OFFLOAD_INFO("uainfo->enable:%d\n", uainfo->enable);
 	if (uainfo->enable) {
 		ret = usb_offload_prepare_msg(subs, uainfo, &msg, info_idx);
 		USB_OFFLOAD_INFO("prepare msg, ret: %d\n", ret);
@@ -724,6 +744,8 @@ static int usb_offload_enable_stream(struct usb_audio_stream_info *uainfo)
 
 		msg.uainfo.direction = uainfo->direction;
 	}
+	mutex_unlock(&chip->dev_lock);
+
 	msg.status = uainfo->enable ?
 		USB_AUDIO_STREAM_REQ_START : USB_AUDIO_STREAM_REQ_STOP;
 
@@ -769,11 +791,10 @@ static int dump_mtk_usb_offload_gen_pool(void)
 
 struct gen_pool *mtk_get_usb_offload_dram_gen_pool(int id)
 {
-	if (id >= USB_OFFLOAD_SHARE_MEM_NUM) {
-		USB_OFFLOAD_INFO("id: %d\n", id);
-		return NULL;
-	}
-	return usb_offload_dram_pool[id];
+	if (id < USB_OFFLOAD_SHARE_MEM_NUM)
+		return usb_offload_dram_pool[id];
+	USB_OFFLOAD_ERR("Invalid id: %d\n", id);
+	return NULL;
 }
 EXPORT_SYMBOL_GPL(mtk_get_usb_offload_dram_gen_pool);
 
@@ -809,7 +830,7 @@ static int mtk_usb_offload_gen_pool_create(int min_alloc_order, int nid)
 	if (min_alloc_order <= 0)
 		return -1;
 
-	USB_OFFLOAD_INFO("%d\n", __LINE__);
+	USB_OFFLOAD_MEM_DBG("%d\n", __LINE__);
 
 	for (i = 0; i < USB_OFFLOAD_SHARE_MEM_NUM; i++) {
 		usb_offload_dram_pool[i] = gen_pool_create(min_alloc_order, -1);
@@ -828,7 +849,7 @@ static int mtk_usb_offload_gen_pool_create(int min_alloc_order, int nid)
 					va_start, va_chunk);
 		}
 
-		USB_OFFLOAD_INFO("success, va_start: 0x%lx, va_chunk: %zu, dram_pool[%d]: %p\n",
+		USB_OFFLOAD_MEM_DBG("success, va_start: 0x%lx, va_chunk: %zu, dram_pool[%d]: %p\n",
 					va_start, va_chunk, i, usb_offload_dram_pool[i]);
 	}
 	dump_mtk_usb_offload_gen_pool();
@@ -856,7 +877,7 @@ static int mtk_usb_offload_genpool_allocate_memory(unsigned char **vaddr,
 		*paddr = gen_pool_virt_to_phys(gen_pool_usb_offload,
 					(unsigned long)*vaddr);
 	}
-	USB_OFFLOAD_INFO("size: %u, id: %d, vaddr: %p, DMA paddr: 0x%llx\n",
+	USB_OFFLOAD_MEM_DBG("size: %u, id: %d, vaddr: %p, DMA paddr: 0x%llx\n",
 			size, id, vaddr, (unsigned long long)*paddr);
 
 	return 0;
@@ -898,6 +919,9 @@ int mtk_usb_offload_allocate_mem(struct usb_offload_buffer *buf,
 					&buf->dma_area,
 					&buf->dma_bytes,
 					USB_OFFLOAD_SHARE_MEM_ID);
+
+		if (ret)
+			USB_OFFLOAD_ERR("Fail to free memoroy\n");
 	}
 	ret =  mtk_usb_offload_genpool_allocate_memory
 				(&buf->dma_area,
@@ -943,7 +967,7 @@ static bool xhci_mtk_is_usb_offload_enabled(struct xhci_hcd *xhci,
 static struct xhci_device_context_array *xhci_mtk_alloc_dcbaa(struct xhci_hcd *xhci,
 						 gfp_t flags)
 {
-	struct xhci_device_context_array *xhci_ctx = xhci->dcbaa;
+	struct xhci_device_context_array *xhci_ctx;
 
 	buf_dcbaa = kzalloc(sizeof(struct usb_offload_buffer), GFP_KERNEL);
 	if (mtk_usb_offload_allocate_mem(buf_dcbaa, sizeof(*xhci_ctx), 64)) {
@@ -951,10 +975,10 @@ static struct xhci_device_context_array *xhci_mtk_alloc_dcbaa(struct xhci_hcd *x
 		return NULL;
 	}
 
-	USB_OFFLOAD_INFO("size of dcbaa: %d\n", sizeof(*xhci_ctx));
+	USB_OFFLOAD_MEM_DBG("size of dcbaa: %d\n", sizeof(*xhci_ctx));
 	xhci_ctx = (struct xhci_device_context_array *) buf_dcbaa->dma_area;
 	xhci_ctx->dma = buf_dcbaa->dma_addr;
-	USB_OFFLOAD_INFO("xhci_ctx.dev_context_ptrs:%p xhci_ctx.dma:%llx\n",
+	USB_OFFLOAD_MEM_DBG("xhci_ctx.dev_context_ptrs:%p xhci_ctx.dma:%llx\n",
 			xhci_ctx->dev_context_ptrs, xhci_ctx->dma);
 
 	buf_ctx = kzalloc(sizeof(struct usb_offload_buffer) * BUF_CTX_SIZE, GFP_KERNEL);
@@ -972,7 +996,7 @@ static void xhci_mtk_free_dcbaa(struct xhci_hcd *xhci)
 	if (mtk_usb_offload_free_mem(buf_dcbaa))
 		USB_OFFLOAD_ERR("FAIL to free mem for USB Offload DCBAA\n");
 	else
-		USB_OFFLOAD_INFO("Free mem DCBAA DONE\n");
+		USB_OFFLOAD_MEM_DBG("Free mem DCBAA DONE\n");
 }
 
 static int get_first_avail_buf_ctx_idx(struct xhci_hcd *xhci)
@@ -980,7 +1004,7 @@ static int get_first_avail_buf_ctx_idx(struct xhci_hcd *xhci)
 	unsigned int idx;
 
 	for (idx = 0; idx <= BUF_CTX_SIZE; idx++) {
-		USB_OFFLOAD_INFO("idx: %d, alloc: %d, DMA area: %p, addr: %llx, bytes: %d\n",
+		USB_OFFLOAD_MEM_DBG("idx: %d, alloc: %d, DMA area: %p, addr: %llx, bytes: %d\n",
 					idx,
 					buf_ctx[idx].allocated,
 					buf_ctx[idx].dma_area,
@@ -1005,11 +1029,11 @@ static void xhci_mtk_alloc_container_ctx(struct xhci_hcd *xhci, struct xhci_cont
 				buf_ctx_slot, ctx->size);
 		return;
 	}
-	USB_OFFLOAD_INFO("Success allocated mem for USB Offload Context %d\n", buf_ctx_slot);
+	USB_OFFLOAD_MEM_DBG("Success allocated mem for USB Offload Context %d\n", buf_ctx_slot);
 
 	ctx->bytes = buf_ctx[buf_ctx_slot].dma_area;
 	ctx->dma = buf_ctx[buf_ctx_slot].dma_addr;
-	USB_OFFLOAD_INFO("ctx.bytes: %p, ctx.dma: %llx, ctx.size: %d\n",
+	USB_OFFLOAD_MEM_DBG("ctx.bytes: %p, ctx.dma: %llx, ctx.size: %d\n",
 			ctx->bytes, ctx->dma, ctx->size);
 }
 
@@ -1018,7 +1042,7 @@ static void xhci_mtk_free_container_ctx(struct xhci_hcd *xhci, struct xhci_conta
 	unsigned int idx;
 
 	for (idx = 0; idx < BUF_CTX_SIZE; idx++) {
-		USB_OFFLOAD_INFO("ctx[%d], alloc: %d, dma_addr: %llx, dma: %llx\n",
+		USB_OFFLOAD_MEM_DBG("ctx[%d], alloc: %d, dma_addr: %llx, dma: %llx\n",
 				idx,
 				buf_ctx[idx].allocated,
 				buf_ctx[idx].dma_addr,
@@ -1028,11 +1052,11 @@ static void xhci_mtk_free_container_ctx(struct xhci_hcd *xhci, struct xhci_conta
 			if (mtk_usb_offload_free_mem(&buf_ctx[idx]))
 				USB_OFFLOAD_ERR("FAIL: free mem ctx: %d\n", idx);
 			else
-				USB_OFFLOAD_INFO("Free mem ctx: %d DONE\n", idx);
+				USB_OFFLOAD_MEM_DBG("Free mem ctx: %d DONE\n", idx);
 			return;
 		}
 	}
-	USB_OFFLOAD_INFO("NO Context MATCH to be freed. ctx.bytes:%p ctx.dma:%llx ctx.size: %d\n",
+	USB_OFFLOAD_MEM_DBG("NO Context MATCH to be freed. ctx.bytes:%p ctx.dma:%llx ctx.size:%d\n",
 			ctx->bytes,
 			ctx->dma,
 			ctx->size);
@@ -1043,7 +1067,7 @@ static int get_first_avail_buf_seg_idx(struct xhci_hcd *xhci)
 	unsigned int idx;
 
 	for (idx = 0; idx < BUF_SEG_SIZE; idx++) {
-		USB_OFFLOAD_INFO("seg[%d], alloc: %d, DMA area: %p, addr: %llx, bytes: %d\n",
+		USB_OFFLOAD_MEM_DBG("seg[%d], alloc: %d, DMA area: %p, addr: %llx, bytes: %d\n",
 				idx,
 				buf_seg[idx].allocated,
 				buf_seg[idx].dma_area,
@@ -1063,7 +1087,7 @@ static void xhci_mtk_usb_offload_segment_free(struct xhci_hcd *xhci, struct xhci
 
 	if (seg->trbs) {
 		for (idx = 0; idx < BUF_SEG_SIZE; idx++) {
-			USB_OFFLOAD_INFO("seg[%d], alloc: %d, dma_addr: %llx, dma: %llx\n",
+			USB_OFFLOAD_MEM_DBG("seg[%d], alloc: %d, dma_addr: %llx, dma: %llx\n",
 					idx,
 					buf_seg[idx].allocated,
 					buf_seg[idx].dma_addr,
@@ -1073,11 +1097,11 @@ static void xhci_mtk_usb_offload_segment_free(struct xhci_hcd *xhci, struct xhci
 				if (mtk_usb_offload_free_mem(&buf_seg[idx]))
 					USB_OFFLOAD_ERR("FAIL: free mem seg: %d\n", idx);
 				else
-					USB_OFFLOAD_INFO("Free mem seg: %d DONE\n", idx);
+					USB_OFFLOAD_MEM_DBG("Free mem seg: %d DONE\n", idx);
 				return;
 			}
 		}
-		USB_OFFLOAD_INFO("NO Segment MATCH to be freed. seg->trbs: %p, seg->dma: %llx\n",
+		USB_OFFLOAD_MEM_DBG("NO Segment MATCH to be freed. seg->trbs: %p, seg->dma: %llx\n",
 				seg->trbs, seg->dma);
 		seg->trbs = NULL;
 	}
@@ -1125,13 +1149,14 @@ static struct xhci_segment *xhci_mtk_usb_offload_segment_alloc(struct xhci_hcd *
 		USB_OFFLOAD_TRB_SEGMENT_SIZE, USB_OFFLOAD_TRB_SEGMENT_SIZE)) {
 		USB_OFFLOAD_ERR("FAIL to allocate mem for USB Offload Segment %d, size: %d\n",
 				buf_seg_slot, USB_OFFLOAD_TRB_SEGMENT_SIZE);
+		kfree(seg);
 		return NULL;
 	}
-	USB_OFFLOAD_INFO("Success allocated mem for USB Offload Segment %d\n", buf_seg_slot);
+	USB_OFFLOAD_MEM_DBG("Success allocated mem for USB Offload Segment %d\n", buf_seg_slot);
 
 	seg->trbs = (void *) buf_seg[buf_seg_slot].dma_area;
 	dma = buf_seg[buf_seg_slot].dma_addr;
-	USB_OFFLOAD_INFO("seg->trbs: %p, dma: %llx, size: %d\n",
+	USB_OFFLOAD_MEM_DBG("seg->trbs: %p, dma: %llx, size: %d\n",
 			seg->trbs,
 			dma,
 			sizeof(buf_seg[buf_seg_slot]));
@@ -1171,9 +1196,9 @@ static int xhci_mtk_usb_offload_alloc_segments_for_ring(struct xhci_hcd *xhci,
 	struct xhci_segment *prev;
 	bool chain_links;
 
-	USB_OFFLOAD_INFO("ring->first_seg: %p, ring->last_seg: %p\n",
+	USB_OFFLOAD_MEM_DBG("ring->first_seg: %p, ring->last_seg: %p\n",
 			first, last);
-	USB_OFFLOAD_INFO("num_segs: %d, cycle_state: %d, ring_type: %d, max_packet: %d\n",
+	USB_OFFLOAD_MEM_DBG("num_segs: %d, cycle_state: %d, ring_type: %d, max_packet: %d\n",
 			num_segs, cycle_state, type, max_packet);
 
 	/* Set chain bit for 0.95 hosts, and for isoc rings on AMD 0.96 host */
@@ -1275,11 +1300,9 @@ static int usb_offload_open(struct inode *ip, struct file *fp)
 	struct xhci_hcd *xhci;
 	struct usb_device *udev;
 	int err = 0;
-	int i;
-	int desc_class = -1;
+	int i, desc_class;
 
-	USB_OFFLOAD_INFO("%d\n", __LINE__);
-
+	USB_OFFLOAD_INFO("++\n");
 	node_xhci_host = of_parse_phandle(uodev->dev->of_node, "xhci_host", 0);
 	if (node_xhci_host) {
 		pdev_xhci_host = of_find_device_by_node(node_xhci_host);
@@ -1342,8 +1365,6 @@ static long usb_offload_ioctl(struct file *fp,
 	struct usb_audio_stream_info uainfo;
 	struct mpu_info_xhci *xhci_rsv_mem;
 
-	USB_OFFLOAD_INFO("cmd: %d\n", cmd);
-
 	switch (cmd) {
 	case USB_OFFLOAD_INIT_ADSP:
 		USB_OFFLOAD_INFO("USB_OFFLOAD_INIT_ADSP: %ld\n", value);
@@ -1358,8 +1379,6 @@ static long usb_offload_ioctl(struct file *fp,
 			xhci_rsv_mem->xhci_data_size = 0;
 		}
 		ret = send_init_ipi_msg_to_adsp(xhci_rsv_mem);
-		if (ret)
-			ret = -1;
 		break;
 	case USB_OFFLOAD_ENABLE_STREAM:
 	case USB_OFFLOAD_DISABLE_STREAM:
@@ -1371,8 +1390,6 @@ static long usb_offload_ioctl(struct file *fp,
 		dump_uainfo(&uainfo);
 
 		ret = usb_offload_enable_stream(&uainfo);
-		if (ret)
-			ret = -1;
 		break;
 	}
 fail:

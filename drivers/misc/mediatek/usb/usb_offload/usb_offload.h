@@ -67,9 +67,9 @@ enum {
 /* Enable/Disable USB Offload */
 #define USB_OFFLOAD_INIT_ADSP		_IOW(USB_OFFLOAD_IOC_MAGIC, 0, int)
 /* Enable USB Stream */
-#define USB_OFFLOAD_ENABLE_STREAM	_IOW(USB_OFFLOAD_IOC_MAGIC, 1, struct usb_audio_stream_info)
+#define USB_OFFLOAD_ENABLE_STREAM	_IOW(USB_OFFLOAD_IOC_MAGIC, 1, unsigned int)
 /* Disable USB Stream */
-#define USB_OFFLOAD_DISABLE_STREAM	_IOW(USB_OFFLOAD_IOC_MAGIC, 2, struct usb_audio_stream_info)
+#define USB_OFFLOAD_DISABLE_STREAM	_IOW(USB_OFFLOAD_IOC_MAGIC, 2, unsigned int)
 
 #define BUS_INTERVAL_FULL_SPEED 1000 /* in us */
 #define BUS_INTERVAL_HIGHSPEED_AND_ABOVE 125 /* in us */
