@@ -2334,6 +2334,7 @@ static int ext_layer_grouping(struct drm_device *dev,
 			      struct drm_mtk_layering_info *disp_info)
 {
 	int cont_ext_layer_cnt = 0, ext_idx = 0;
+	int max_ext_layer_cnt = 0, total_ext_layer_cnt = 0;
 	int is_ext_layer, disp_idx, i;
 	struct drm_mtk_layer_config *src_info, *dst_info;
 	int available_layers = 0, phy_layer_cnt = 0;
@@ -2380,6 +2381,12 @@ static int ext_layer_grouping(struct drm_device *dev,
 		 *	continue;
 		 */
 
+		/* Workaround for OVL cnt > 2, it will make layer check KE
+		 * when layer > 12
+		 * Now when layer > 12, limit ext layer cnt
+		 */
+		max_ext_layer_cnt = PRIMARY_OVL_LAYER_NUM - phy_layer_cnt;
+
 		for (i = 1; i < disp_info->layer_num[disp_idx]; i++) {
 			dst_info = &disp_info->input_config[disp_idx][i];
 			src_info = &disp_info->input_config[disp_idx][i - 1];
@@ -2400,6 +2407,14 @@ static int ext_layer_grouping(struct drm_device *dev,
 			is_ext_layer = !is_continuous_ext_layer_overlap(crtc,
 				disp_info->input_config[disp_idx], i);
 
+			if (disp_info->layer_num[disp_idx] > PRIMARY_OVL_LAYER_NUM) {
+				if (total_ext_layer_cnt >= max_ext_layer_cnt) {
+					DDPINFO("total_ext_layer_cnt %d, max_ext_layer_cnt %d\n",
+						total_ext_layer_cnt, max_ext_layer_cnt);
+					is_ext_layer = false;
+				}
+			}
+
 			/*
 			 * The yuv layer is not supported as extended layer
 			 * as the HWC has a special for yuv content.
@@ -2410,6 +2425,7 @@ static int ext_layer_grouping(struct drm_device *dev,
 			if (is_ext_layer && cont_ext_layer_cnt < 3) {
 				++cont_ext_layer_cnt;
 				dst_info->ext_sel_layer = ext_idx;
+				++total_ext_layer_cnt;
 			} else {
 				cont_ext_layer_cnt = 0;
 				ext_idx = i;
