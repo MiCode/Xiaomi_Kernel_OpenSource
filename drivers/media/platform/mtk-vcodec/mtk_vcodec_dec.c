@@ -826,12 +826,21 @@ static dma_addr_t create_meta_buffer_info(struct mtk_vcodec_ctx *ctx, int fd)
 	dma_addr_t dma_meta_addr = 0;
 
 	dmabuf = dma_buf_get(fd);
-	mtk_v4l2_debug(5, "%s, dmabuf:%p", __func__, dmabuf);
+	mtk_v4l2_debug(8, "dmabuf:%p", dmabuf);
 
 	buf_att = dma_buf_attach(
 		dmabuf,
 		ctx->m2m_ctx->out_q_ctx.q.dev);
+	if (IS_ERR_OR_NULL(buf_att)) {
+		mtk_v4l2_err("attach fail ret %d", PTR_ERR(buf_att));
+		return 0;
+	}
 	sgt = dma_buf_map_attachment(buf_att, DMA_TO_DEVICE);
+	if (IS_ERR_OR_NULL(sgt)) {
+		mtk_v4l2_err("map attachment fail ret %d", PTR_ERR(sgt));
+		dma_buf_detach(dmabuf, buf_att);
+		return 0;
+	}
 	dma_meta_addr  = sg_dma_address(sgt->sgl);
 
 	mtk_v4l2_debug(4, "map new, dmabuf:%p, dma_addr:%p",
@@ -863,7 +872,7 @@ static dma_addr_t get_meta_buffer_dma_addr(struct mtk_vcodec_ctx *ctx, int fd)
 	struct dma_buf *dmabuf = NULL;
 
 	dmabuf = dma_buf_get(fd);
-	mtk_v4l2_debug(5, "%s, dmabuf:%p", __func__, dmabuf);
+	mtk_v4l2_debug(8, "%s, dmabuf:%p", __func__, dmabuf);
 
 	if (dmabuf) {
 		for (i = 0; i < MAX_META_BUF_CNT; ++i) {
@@ -903,7 +912,7 @@ static void *create_general_buffer_info(struct mtk_vcodec_ctx *ctx, int fd)
 	int ret;
 
 	dmabuf = dma_buf_get(fd);
-	mtk_v4l2_debug(5, "%s, dmabuf:%p", __func__, dmabuf);
+	mtk_v4l2_debug(8, "%s, dmabuf:%p", __func__, dmabuf);
 
 	dma_buf_begin_cpu_access(dmabuf, DMA_TO_DEVICE);
 	ret = dma_buf_vmap(dmabuf, &map);
@@ -912,7 +921,16 @@ static void *create_general_buffer_info(struct mtk_vcodec_ctx *ctx, int fd)
 	buf_att = dma_buf_attach(
 		dmabuf,
 		ctx->m2m_ctx->out_q_ctx.q.dev);
+	if (IS_ERR_OR_NULL(buf_att)) {
+		mtk_v4l2_err("attach fail ret %d", PTR_ERR(buf_att));
+		return NULL;
+	}
 	sgt = dma_buf_map_attachment(buf_att, DMA_TO_DEVICE);
+	if (IS_ERR_OR_NULL(sgt)) {
+		mtk_v4l2_err("map attachment fail ret %d", PTR_ERR(sgt));
+		dma_buf_detach(dmabuf, buf_att);
+		return NULL;
+	}
 	dma_general_addr  = sg_dma_address(sgt->sgl);
 
 	mtk_v4l2_debug(4, "map new va %p, dmabuf:%p, dma_addr:%p",
@@ -945,7 +963,7 @@ static void *get_general_buffer_va(struct mtk_vcodec_ctx *ctx, int fd)
 	struct dma_buf *dmabuf = NULL;
 
 	dmabuf = dma_buf_get(fd);
-	mtk_v4l2_debug(5, "%s, dmabuf:%p", __func__, dmabuf);
+	mtk_v4l2_debug(8, "%s, dmabuf:%p", __func__, dmabuf);
 
 	if (dmabuf) {
 		for (i = 0; i < MAX_GEN_BUF_CNT; ++i) {
@@ -973,7 +991,7 @@ static dma_addr_t get_general_buffer_dma_addr(struct mtk_vcodec_ctx *ctx, int fd
 	struct dma_buf *dmabuf = NULL;
 
 	dmabuf = dma_buf_get(fd);
-	mtk_v4l2_debug(5, "%s, dmabuf:%p", __func__, dmabuf);
+	mtk_v4l2_debug(8, "%s, dmabuf:%p", __func__, dmabuf);
 
 	if (dmabuf) {
 		for (i = 0; i < MAX_GEN_BUF_CNT; ++i) {
