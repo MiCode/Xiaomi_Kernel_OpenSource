@@ -3,6 +3,7 @@
  * Copyright (c) 2021 MediaTek Inc.
  */
 
+#include <linux/arm-smccc.h>
 #include <linux/device.h>
 #include <linux/interrupt.h>
 #include <linux/io.h>
@@ -14,6 +15,7 @@
 #include <linux/platform_device.h>
 #include <linux/printk.h>
 #include <linux/slab.h>
+#include <linux/soc/mediatek/mtk_sip_svc.h>
 #include <mt-plat/aee.h>
 #include <soc/mediatek/emi.h>
 
@@ -25,7 +27,6 @@ struct emi_slb {
 	struct reg_info_t *clear_reg;
 
 	unsigned int emi_slb_cnt;
-	void __iomem **emi_mpu_base;
 	void __iomem **emi_slb_base;
 
 	/* interrupt id */
@@ -39,21 +40,18 @@ struct emi_slb {
 
 /* global pointer for exported functions */
 static struct emi_slb *global_emi_slb;
+unsigned int mpu_base_clear;
 
 static void set_regs(
 	struct reg_info_t *reg_list, unsigned int reg_cnt,
-	void __iomem *emi_mpu_base)
+	void __iomem *base)
 {
-	unsigned int i, j, temp_rd;
+	unsigned int i, j;
 
 	for (i = 0; i < reg_cnt; i++)
-		for (j = 0; j < reg_list[i].leng; j++) {
-			/* Need to keep SLB_MPU_CTRL setting*/
-			temp_rd = readl(emi_mpu_base + reg_list[i].offset + 4 * j);
-			temp_rd |= reg_list[i].value;
-			writel(temp_rd, emi_mpu_base +
+		for (j = 0; j < reg_list[i].leng; j++)
+			writel(reg_list[i].value, base +
 				reg_list[i].offset + 4 * j);
-		}
 
 	/*
 	 * Use the memory barrier to make sure the interrupt signal is
@@ -66,12 +64,21 @@ static void set_regs(
 static void clear_violation(
 	struct emi_slb *slb, unsigned int emi_id)
 {
-	void __iomem *emi_mpu_base;
+	void __iomem *emi_slb_base;
+	struct arm_smccc_res smc_res;
 
-	emi_mpu_base = slb->emi_mpu_base[emi_id];
-
-	set_regs(slb->clear_reg,
-		slb->clear_reg_cnt, emi_mpu_base);
+	emi_slb_base = slb->emi_slb_base[emi_id];
+	if (mpu_base_clear) {
+		arm_smccc_smc(MTK_SIP_EMIMPU_CONTROL, MTK_SLBMPU_CLEAR,
+				emi_id, 0, 0, 0, 0, 0, &smc_res);
+		if (smc_res.a0) {
+			pr_info("%s:%d failed to clear slb violation, ret=0x%lx\n",
+				__func__, __LINE__, smc_res.a0);
+		}
+	} else {
+		set_regs(slb->clear_reg,
+			slb->clear_reg_cnt, emi_slb_base);
+	}
 }
 
 static void emislb_vio_dump(struct work_struct *work)
@@ -116,14 +123,16 @@ static irqreturn_t emislb_violation_irq(int irq, void *dev_id)
 			continue;
 
 		nr_vio++;
+		if (msg_len < MTK_EMI_MAX_CMD_LEN)
+			msg_len += scnprintf(slb->vio_msg + msg_len,
+					MTK_EMI_MAX_CMD_LEN - msg_len,
+					"\n[SLBMPU]\n");
 		for (i = 0; i < slb->dump_cnt; i++)
 			if (msg_len < MTK_EMI_MAX_CMD_LEN) {
 				n = snprintf(slb->vio_msg + msg_len,
 					MTK_EMI_MAX_CMD_LEN - msg_len,
-					"%s(%d),%s(%x),%s(%x);\n",
-					"emi", emi_id,
-					"off", dump_reg[i].offset,
-					"val", dump_reg[i].value);
+					"id%d,%x,%x;\n", emi_id,
+					dump_reg[i].offset, dump_reg[i].value);
 				msg_len += (n < 0) ? 0 : (ssize_t)n;
 			}
 
@@ -148,19 +157,12 @@ MODULE_DEVICE_TABLE(of, emislb_of_ids);
 static int emislb_probe(struct platform_device *pdev)
 {
 	struct device_node *emislb_node = pdev->dev.of_node;
-	struct device_node *emimpu_node =
-		of_parse_phandle(emislb_node, "mediatek,emimpu-reg", 0);
 	struct emi_slb *slb;
 	struct resource *res;
 	int ret, size, i;
 	unsigned int *dump_list;
 
 	dev_info(&pdev->dev, "driver probed\n");
-
-	if (!emimpu_node) {
-		dev_err(&pdev->dev, "No emi-reg\n");
-		return -ENXIO;
-	}
 
 	slb = devm_kzalloc(&pdev->dev,
 		sizeof(struct emi_slb), GFP_KERNEL);
@@ -180,18 +182,7 @@ static int emislb_probe(struct platform_device *pdev)
 	if (!slb->emi_slb_base)
 		return -ENOMEM;
 
-	slb->emi_mpu_base = devm_kmalloc_array(&pdev->dev,
-		slb->emi_slb_cnt, sizeof(phys_addr_t), GFP_KERNEL);
-	if (!(slb->emi_mpu_base))
-		return -ENOMEM;
-
 	for (i = 0; i < slb->emi_slb_cnt; i++) {
-		slb->emi_mpu_base[i] = of_iomap(emimpu_node, i);
-		if (IS_ERR(slb->emi_mpu_base[i])) {
-			dev_err(&pdev->dev, "Failed to map EMI%d CEN base\n",
-				i);
-			return -EIO;
-		}
 		res = platform_get_resource(pdev, IORESOURCE_MEM, i);
 		slb->emi_slb_base[i] =
 			devm_ioremap_resource(&pdev->dev, res);
@@ -201,6 +192,13 @@ static int emislb_probe(struct platform_device *pdev)
 			return -EIO;
 		}
 	}
+
+	mpu_base_clear = 0;
+	ret = of_property_read_u32(emislb_node,
+		"mpu_base_clear", &mpu_base_clear);
+	if (!ret)
+		dev_info(&pdev->dev, "Use smc to clear vio\n");
+
 //dump
 	size = of_property_count_elems_of_size(emislb_node,
 		"dump", sizeof(char));
@@ -208,6 +206,7 @@ static int emislb_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "No dump\n");
 		return -ENXIO;
 	}
+
 	dump_list = devm_kmalloc(&pdev->dev, size, GFP_KERNEL);
 	if (!dump_list)
 		return -ENOMEM;
