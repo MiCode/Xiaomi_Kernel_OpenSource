@@ -45,6 +45,7 @@
  *  enable :           show feature status
  */
 struct SSMR_Feature {
+	bool is_reserved_mem;
 	bool is_dma_alloc;
 	bool is_page_based;
 	bool is_unmapping;
@@ -149,7 +150,8 @@ static struct SSMR_Feature _ssmr_feats[__MAX_NR_SSMR_FEATURES] = {
 		.scheme_flag = SVP_FLAGS,
 		.req_size = 0,
 		.is_page_based = false,
-		.is_dma_alloc = false
+		.is_dma_alloc = false,
+		.is_reserved_mem = false
 	},
 	[SSMR_FEAT_PROT_REGION] = {
 		.dt_prop_name = "prot-region-based-size",
@@ -165,7 +167,8 @@ static struct SSMR_Feature _ssmr_feats[__MAX_NR_SSMR_FEATURES] = {
 				FACE_UNLOCK_FLAGS | SVP_FLAGS,
 		.req_size = 0,
 		.is_page_based = false,
-		.is_dma_alloc = false
+		.is_dma_alloc = false,
+		.is_reserved_mem = false
 	},
 	[SSMR_FEAT_WFD_REGION] = {
 		.dt_prop_name = "wfd-region-based-size",
@@ -181,7 +184,8 @@ static struct SSMR_Feature _ssmr_feats[__MAX_NR_SSMR_FEATURES] = {
 #endif
 		.scheme_flag = SVP_FLAGS,
 		.is_page_based = false,
-		.is_dma_alloc = false
+		.is_dma_alloc = false,
+		.is_reserved_mem = false
 	},
 	[SSMR_FEAT_TA_ELF] = {
 		.dt_prop_name = "ta-elf-size",
@@ -197,7 +201,8 @@ static struct SSMR_Feature _ssmr_feats[__MAX_NR_SSMR_FEATURES] = {
 				FACE_UNLOCK_FLAGS,
 		.req_size = 0,
 		.is_page_based = false,
-		.is_dma_alloc = false
+		.is_dma_alloc = false,
+		.is_reserved_mem = false
 	},
 	[SSMR_FEAT_TA_STACK_HEAP] = {
 		.dt_prop_name = "ta-stack-heap-size",
@@ -212,7 +217,8 @@ static struct SSMR_Feature _ssmr_feats[__MAX_NR_SSMR_FEATURES] = {
 		.scheme_flag = FACE_REGISTRATION_FLAGS | FACE_PAYMENT_FLAGS |
 				FACE_UNLOCK_FLAGS,
 		.is_page_based = false,
-		.is_dma_alloc = false
+		.is_dma_alloc = false,
+		.is_reserved_mem = false
 	},
 	[SSMR_FEAT_SDSP_TEE_SHAREDMEM] = {
 		.dt_prop_name = "sdsp-tee-sharedmem-size",
@@ -228,7 +234,8 @@ static struct SSMR_Feature _ssmr_feats[__MAX_NR_SSMR_FEATURES] = {
 				FACE_UNLOCK_FLAGS,
 		.req_size = 0,
 		.is_page_based = false,
-		.is_dma_alloc = false
+		.is_dma_alloc = false,
+		.is_reserved_mem = false
 	},
 	[SSMR_FEAT_SDSP_FIRMWARE] = {
 		.dt_prop_name = "sdsp-firmware-size",
@@ -243,7 +250,8 @@ static struct SSMR_Feature _ssmr_feats[__MAX_NR_SSMR_FEATURES] = {
 		.scheme_flag = FACE_UNLOCK_FLAGS,
 		.req_size = 0,
 		.is_page_based = false,
-		.is_dma_alloc = false
+		.is_dma_alloc = false,
+		.is_reserved_mem = false
 	},
 	[SSMR_FEAT_2D_FR] = {
 		.dt_prop_name = "2d_fr-size",
@@ -255,7 +263,8 @@ static struct SSMR_Feature _ssmr_feats[__MAX_NR_SSMR_FEATURES] = {
 				FACE_UNLOCK_FLAGS,
 		.req_size = 0,
 		.is_page_based = false,
-		.is_dma_alloc = false
+		.is_dma_alloc = false,
+		.is_reserved_mem = false
 	},
 	[SSMR_FEAT_TUI] = {
 		.dt_prop_name = "tui-size",
@@ -271,7 +280,8 @@ static struct SSMR_Feature _ssmr_feats[__MAX_NR_SSMR_FEATURES] = {
 		.scheme_flag = TUI_FLAGS,
 		.req_size = 0,
 		.is_page_based = false,
-		.is_dma_alloc = true
+		.is_dma_alloc = true,
+		.is_reserved_mem = false
 	},
 	[SSMR_FEAT_SVP_PAGE] = {
 		.dt_prop_name = "svp-page-based-size",
@@ -288,7 +298,8 @@ static struct SSMR_Feature _ssmr_feats[__MAX_NR_SSMR_FEATURES] = {
 		.scheme_flag = SVP_FLAGS,
 		.req_size = 0,
 		.is_page_based = true,
-		.is_dma_alloc = false
+		.is_dma_alloc = false,
+		.is_reserved_mem = false
 	},
 	[SSMR_FEAT_PROT_PAGE] = {
 		.dt_prop_name = "prot-page-based-size",
@@ -304,7 +315,8 @@ static struct SSMR_Feature _ssmr_feats[__MAX_NR_SSMR_FEATURES] = {
 				FACE_UNLOCK_FLAGS | SVP_FLAGS,
 		.req_size = 0,
 		.is_page_based = true,
-		.is_dma_alloc = false
+		.is_dma_alloc = false,
+		.is_reserved_mem = false
 	},
 	[SSMR_FEAT_WFD_PAGE] = {
 		.dt_prop_name = "wfd-page-based-size",
@@ -321,7 +333,8 @@ static struct SSMR_Feature _ssmr_feats[__MAX_NR_SSMR_FEATURES] = {
 		.scheme_flag = SVP_FLAGS,
 		.req_size = 0,
 		.is_page_based = true,
-		.is_dma_alloc = false
+		.is_dma_alloc = false,
+		.is_reserved_mem = false
 	},
 	[SSMR_FEAT_SAPU_DATA_SHM] = {
 		.dt_prop_name = "sapu-data-shm-size",
@@ -333,7 +346,8 @@ static struct SSMR_Feature _ssmr_feats[__MAX_NR_SSMR_FEATURES] = {
 				FACE_UNLOCK_FLAGS,
 		.req_size = 0,
 		.is_page_based = false,
-		.is_dma_alloc = true
+		.is_dma_alloc = true,
+		.is_reserved_mem = false
 	},
 	[SSMR_FEAT_SAPU_ENGINE_SHM] = {
 		.dt_prop_name = "sapu-engine-shm-size",
@@ -345,7 +359,8 @@ static struct SSMR_Feature _ssmr_feats[__MAX_NR_SSMR_FEATURES] = {
 				FACE_UNLOCK_FLAGS,
 		.req_size = 0,
 		.is_page_based = false,
-		.is_dma_alloc = true
+		.is_dma_alloc = true,
+		.is_reserved_mem = false
 	},
 	[SSMR_FEAT_AP_MD_SHM] = {
 		.dt_prop_name = "ap-md-shm-size",
@@ -356,7 +371,8 @@ static struct SSMR_Feature _ssmr_feats[__MAX_NR_SSMR_FEATURES] = {
 		.scheme_flag = FACE_APMD_SHM_FLAGS,
 		.req_size = 0,
 		.is_page_based = false,
-		.is_dma_alloc = false
+		.is_dma_alloc = false,
+		.is_reserved_mem = false
 	},
 	[SSMR_FEAT_AP_SCP_SHM] = {
 		.dt_prop_name = "ap-scp-shm-size",
@@ -367,7 +383,8 @@ static struct SSMR_Feature _ssmr_feats[__MAX_NR_SSMR_FEATURES] = {
 		.scheme_flag = FACE_APSCP_SHM_FLAGS,
 		.req_size = 0,
 		.is_page_based = false,
-		.is_dma_alloc = false
+		.is_dma_alloc = false,
+		.is_reserved_mem = true
 	},
 };
 /* clang-format on */

@@ -205,7 +205,7 @@ static void show_scheme_status(u64 size)
 	}
 }
 
-static int get_reserved_cma_memory(struct device *dev)
+static int get_reserved_secure_memory(struct device *dev)
 {
 	struct device_node *np;
 	struct reserved_mem *rmem;
@@ -225,12 +225,25 @@ static int get_reserved_cma_memory(struct device *dev)
 		return -EINVAL;
 	}
 
-	pr_info("cma base=%pa, size=%pa\n", &rmem->base, &rmem->size);
+	pr_info("rmem base=%pa, size=%pa\n", &rmem->base, &rmem->size);
 
 	/*
 	 * setup init device with rmem
 	 */
 	of_reserved_mem_device_init_by_idx(dev, dev->of_node, 0);
+
+	return 0;
+}
+
+static int ssmr_reserved_mem_alloc(struct SSMR_Feature *feature, phys_addr_t *pa,
+						unsigned long *size, u64 upper_limit,
+						struct device *ssmr_dev)
+{
+	*pa = feature->phy_addr;
+	*size = feature->req_size;
+
+	pr_info("%s, %s reserved pa base=0x%lx, size=0x%lx\n", __func__,
+			feature->feat_name, *pa, *size);
 
 	return 0;
 }
@@ -406,10 +419,14 @@ static int memory_region_offline(struct SSMR_Feature *feature, phys_addr_t *pa,
 		return -EINVAL;
 	}
 
-	if (feature->is_dma_alloc)
-		ret = ssmr_dma_alloc(feature, pa, size, upper_limit, ssmr_dev);
-	else
-		ret = ssmr_cma_alloc(feature, pa, size, upper_limit, ssmr_dev);
+	if (feature->is_reserved_mem) {
+		ret = ssmr_reserved_mem_alloc(feature, pa, size, upper_limit, ssmr_dev);
+	}	else {
+		if (feature->is_dma_alloc)
+			ret = ssmr_dma_alloc(feature, pa, size, upper_limit, ssmr_dev);
+		else
+			ret = ssmr_cma_alloc(feature, pa, size, upper_limit, ssmr_dev);
+	}
 
 	return ret;
 }
@@ -493,7 +510,7 @@ static int memory_region_online(struct SSMR_Feature *feature)
 
 	alloc_size = feature->alloc_size;
 
-	if (feature->phy_addr) {
+	if (feature->phy_addr && !feature->is_reserved_mem) {
 		if (feature->is_dma_alloc)
 			dma_free_attrs(ssmr_dev, alloc_size, feature->virt_addr,
 				       feature->phy_addr, DMA_ATTR_NO_KERNEL_MAPPING);
@@ -504,6 +521,7 @@ static int memory_region_online(struct SSMR_Feature *feature)
 		feature->alloc_size = 0;
 		feature->phy_addr = 0;
 	}
+
 	return 0;
 }
 
@@ -613,7 +631,7 @@ int sec_ssmr_init(struct platform_device *pdev)
 			&_ssmr_feats[i], _ssmr_feats[i].proc_entry_fops);
 	}
 
-	get_reserved_cma_memory(&pdev->dev);
+	get_reserved_secure_memory(&pdev->dev);
 
 	pr_info("sec_ssmr init done\n");
 
@@ -630,7 +648,7 @@ int apmd_ssmr_init(struct platform_device *pdev)
 						&_ssmr_feats[SSMR_FEAT_AP_MD_SHM],
 						_ssmr_feats[SSMR_FEAT_AP_MD_SHM].proc_entry_fops);
 
-	get_reserved_cma_memory(&pdev->dev);
+	get_reserved_secure_memory(&pdev->dev);
 
 	pr_info("apmd_ssmr init done\n");
 
@@ -639,6 +657,9 @@ int apmd_ssmr_init(struct platform_device *pdev)
 
 int apscp_ssmr_init(struct platform_device *pdev)
 {
+	struct device_node *np;
+	struct reserved_mem *rmem;
+
 	apscp_ssmr_dev = &pdev->dev;
 	pdev->dev.coherent_dma_mask = DMA_BIT_MASK(64);
 
@@ -647,7 +668,20 @@ int apscp_ssmr_init(struct platform_device *pdev)
 						&_ssmr_feats[SSMR_FEAT_AP_SCP_SHM],
 						_ssmr_feats[SSMR_FEAT_AP_SCP_SHM].proc_entry_fops);
 
-	get_reserved_cma_memory(&pdev->dev);
+	np = of_parse_phandle(apscp_ssmr_dev->of_node, "memory-region", 0);
+	if (!np) {
+		pr_info("%s, no ssmr region\n", __func__);
+		return -EINVAL;
+	}
+	rmem = of_reserved_mem_lookup(np);
+	if (!rmem) {
+		pr_info("%s, no ssmr device info\n", __func__);
+		return -EINVAL;
+	}
+	_ssmr_feats[SSMR_FEAT_AP_SCP_SHM].phy_addr = rmem->base;
+	_ssmr_feats[SSMR_FEAT_AP_SCP_SHM].req_size = rmem->size;
+
+	get_reserved_secure_memory(&pdev->dev);
 
 	pr_info("apscp_ssmr init done\n");
 
