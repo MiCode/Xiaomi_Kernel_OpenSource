@@ -147,6 +147,32 @@ mtk_printk_ctrl.disable_uart=0";
 	status = "okay";
 };
 
+&dsi1 {
+//	status = "okay";
+	#address-cells = <1>;
+	#size-cells = <0>;
+	panel21@0 {
+		compatible = "jdi,nt36672e,vdo,60hz";
+		reg = <0>;
+		pm-enable-gpios = <&pio 68 0>;
+		reset-gpios = <&pio 75 0>;
+		gate-ic = <4831>;
+		pinctrl-names = "default";
+		port {
+			panel21_in: endpoint {
+				remote-endpoint = <&dsi1_out>;
+			};
+		};
+	};
+	ports {
+		port {
+			dsi1_out: endpoint {
+				remote-endpoint = <&panel21_in>;
+			};
+		};
+	};
+};
+
 &dsi0 {
 	status = "okay";
 	#address-cells = <1>;
