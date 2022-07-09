@@ -1609,8 +1609,6 @@ static void fbt_set_min_cap_locked(struct render_info *thr, int min_cap,
 	cam_dep_arr_size = fpsgo_fbt2cam_get_all_thread_num();
 	cam_dep_arr_size = clamp(cam_dep_arr_size, 1, MAX_DEP_NUM);
 	ret = fpsgo_fbt2cam_get_all_thread(cam_dep_arr, cam_dep_arr_size);
-	if (ret == 0 || ret != cam_dep_arr_size)
-		return;
 
 	if (thr->pid == max_blc_pid && thr->buffer_id == max_blc_buffer_id) {
 		dep_a_except_b(
