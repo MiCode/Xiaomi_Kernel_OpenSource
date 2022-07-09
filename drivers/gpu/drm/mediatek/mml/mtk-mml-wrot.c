@@ -572,6 +572,9 @@ static s32 wrot_buf_prepare(struct mml_comp *comp, struct mml_task *task,
 		if (!wrot->sram_cnt)
 			wrot->sram_pa = (u64)mml_sram_get(task->config->mml);
 		wrot->sram_cnt++;
+		/* store it for mml record */
+		task->buf.dest[wrot_frm->out_idx].dma[0].iova = wrot->sram_pa;
+		task->buf.dest[wrot_frm->out_idx].size[0] = wrot->sram_size;
 		mutex_unlock(&wrot->sram_mutex);
 		wrot_frm->iova[0] = wrot->sram_pa;
 		mml_mmp(buf_map, MMPROFILE_FLAG_END,
