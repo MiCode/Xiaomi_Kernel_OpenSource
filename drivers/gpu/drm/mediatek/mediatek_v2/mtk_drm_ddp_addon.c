@@ -1048,6 +1048,7 @@ void mtk_addon_disconnect_embed(struct drm_crtc *crtc, unsigned int ddp_mode,
 				const struct mtk_addon_module_data *module_data,
 				union mtk_addon_config *addon_config, struct cmdq_pkt *cmdq_handle)
 {
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_drm_private *priv = crtc->dev->dev_private;
 	struct mtk_ddp_comp *comp = NULL;
 	enum mtk_ddp_comp_id attach_comp_id, prev_comp_id, next_comp_id;
@@ -1071,10 +1072,17 @@ void mtk_addon_disconnect_embed(struct drm_crtc *crtc, unsigned int ddp_mode,
 	/* 1. stop addon module*/
 	mtk_addon_path_stop(crtc, path_data, addon_config, cmdq_handle);
 
-	/* 2. disconnect subpath and remove mutex */
+	/* 2. remove subpath from main path */
+	mtk_ddp_remove_comp_from_path_with_cmdq(
+		mtk_crtc, attach_comp_id, path_data->path[0], cmdq_handle);
+	mtk_ddp_remove_comp_from_path_with_cmdq(
+		mtk_crtc, path_data->path[path_data->path_len - 1],
+		attach_comp_id, cmdq_handle);
+
+	/* 3. disconnect subpath and remove mutex */
 	mtk_addon_path_disconnect_and_remove_mutex(crtc, ddp_mode, module_data, cmdq_handle);
 
-	/* 5. config module*/
+	/* 4. config module*/
 	comp = priv->ddp_comp[attach_comp_id];
 	prev_comp_id = mtk_crtc_find_prev_comp(crtc, ddp_mode, attach_comp_id);
 	next_comp_id = mtk_crtc_find_next_comp(crtc, ddp_mode, attach_comp_id);
