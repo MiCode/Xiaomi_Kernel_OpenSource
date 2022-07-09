@@ -1087,7 +1087,17 @@ static int __init cpufreq_mtk_init(void)
 	int ret = 0;
 	struct proc_dir_entry *dir;
 
-	mtk_static_power_init();
+	ret = mtk_static_power_init();
+	if (ret) {
+#if IS_ENABLED(CONFIG_MTK_GEARLESS_SUPPORT)
+		pr_info("%s: failed to init MTK EM, ret: %d, %p, %p\n",
+			__func__, ret, mtk_em_pd_ptr_private, mtk_em_pd_ptr_public);
+#else
+		pr_info("%s: failed to init MTK EM, ret: %d\n",
+			__func__, ret);
+#endif
+		return ret;
+	}
 
 	dir = proc_mkdir("mtk_scheduler", NULL);
 	if (!dir)

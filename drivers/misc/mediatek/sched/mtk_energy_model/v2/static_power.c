@@ -480,6 +480,8 @@ static int mtk_static_power_probe(struct platform_device *pdev)
 	struct cpumask *cpumask;
 	struct mtk_em_perf_domain *pd_public, *pd_private;
 
+	pr_info("[Static Power v2.1.1] Start to parse DTS\n");
+
 	dvfs_node = of_find_node_by_name(NULL, "cpuhvfs");
 	if (dvfs_node == NULL) {
 		pr_info("failed to find node @ %s\n", __func__);
@@ -516,13 +518,14 @@ static int mtk_static_power_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
-	pr_info("[Static Power v2.1.1]\n");
+	pr_info("[Static Power v2.1.1] MTK EM start\n");
 
 	cpumask = topology_core_cpumask(0);
 	ret = init_public_table();
 	if (ret < 0) {
 		pr_info("%s: initialize public table failed, ret: %d\n",
 				__func__, ret);
+		return ret;
 	}
 
 	mtk_em_pd_ptr_private = kcalloc(MAX_PD_COUNT, sizeof(struct mtk_em_perf_domain),
@@ -567,14 +570,16 @@ static int mtk_static_power_probe(struct platform_device *pdev)
 			cpu_mapping[cpu] = cluster;
 			cluster++;
 		}
-		pr_info("MTK_EM: created perf domain\n");
+		pr_info("%s: MTK_EM: CPU %d: created perf domain\n", __func__, cpu);
 	}
 
 	total_cluster = cluster;
 	total_cpu = cpu + 1;
 
+	pr_info("%s: [cpu_mapping]: ", __func__);
 	for (cpu = 0; cpu < 8; cpu++)
-		pr_debug("%s: [cpu_mapping] %d, %d\n", __func__, cpu, cpu_mapping[cpu]);
+		pr_info("cpu: %d, cluster: %d, ", cpu, cpu_mapping[cpu]);
+	pr_info("\n");
 
 	/* Create debug fs */
 	info.base = devm_platform_ioremap_resource(pdev, 0);
@@ -593,6 +598,9 @@ static int mtk_static_power_probe(struct platform_device *pdev)
 #endif
 
 	info.init = 0x5A5A;
+
+	pr_info("[Static Power v2.1.1] MTK EM done\n");
+
 	return ret;
 
 nomem:

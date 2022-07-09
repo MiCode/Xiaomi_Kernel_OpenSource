@@ -511,6 +511,12 @@ static int alloc_capacity_table(void)
 	if (readl_relaxed(sram_base_addr_freq_scaling))
 		freq_scaling_disabled = false;
 
+	if (mtk_em_pd_ptr_private == NULL || mtk_em_pd_ptr_public == NULL) {
+		pr_info("%s: NULL mtk_em_pd_ptr, private: %p, public: %p\n",
+			__func__, mtk_em_pd_ptr_private, mtk_em_pd_ptr_public);
+		return -EFAULT;
+	}
+
 	if (is_gearless_support())
 		mtk_em_pd_ptr = mtk_em_pd_ptr_private;
 	else
