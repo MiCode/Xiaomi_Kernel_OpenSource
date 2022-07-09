@@ -116,7 +116,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_vid[] = {
 		},
 	},
 };
-static struct mtk_mbus_frame_desc_entry frame_desc_hs[] = {
+static struct mtk_mbus_frame_desc_entry frame_desc_hs_vid[] = {
 	{
 		.bus.csi2 = {
 			.channel = 0,
@@ -136,7 +136,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_hs[] = {
 		},
 	},
 };
-static struct mtk_mbus_frame_desc_entry frame_desc_slim[] = {
+static struct mtk_mbus_frame_desc_entry frame_desc_slim_vid[] = {
 	{
 		.bus.csi2 = {
 			.channel = 0,
@@ -653,8 +653,8 @@ static struct subdrv_mode_struct mode_struct[] = {
 		},
 	},
 	{
-		.frame_desc = frame_desc_hs,
-		.num_entries = ARRAY_SIZE(frame_desc_hs),
+		.frame_desc = frame_desc_hs_vid,
+		.num_entries = ARRAY_SIZE(frame_desc_hs_vid),
 		.mode_setting_table = imx766dual_hs_video_setting,
 		.mode_setting_len = ARRAY_SIZE(imx766dual_hs_video_setting),
 		.seamless_switch_group = PARAM_UNDEFINED,
@@ -699,8 +699,8 @@ static struct subdrv_mode_struct mode_struct[] = {
 		},
 	},
 	{
-		.frame_desc = frame_desc_slim,
-		.num_entries = ARRAY_SIZE(frame_desc_slim),
+		.frame_desc = frame_desc_slim_vid,
+		.num_entries = ARRAY_SIZE(frame_desc_slim_vid),
 		.mode_setting_table = imx766dual_slim_video_setting,
 		.mode_setting_len = ARRAY_SIZE(imx766dual_slim_video_setting),
 		.seamless_switch_group = PARAM_UNDEFINED,
