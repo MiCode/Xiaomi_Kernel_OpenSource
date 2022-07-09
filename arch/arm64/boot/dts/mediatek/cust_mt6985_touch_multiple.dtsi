@@ -59,16 +59,28 @@
 	#size-cells = <0>;
 	pinctrl-names = "default", "gt9896s_int_active",
 		"gt9896s_reset_active", "gt9896s_int_suspend",
-		"gt9896s_reset_suspend", "gt9896s_spi_mode";
+		"gt9896s_reset_suspend", "gt9896s_spi_mode",
+		"pmx_ts_int_active", "pmx_ts_rst_active",
+		"pmx_ts_int_suspend", "pmx_ts_rst_suspend",
+		"pmx_ts_release", "ft3518u_spi_mode";
 	pinctrl-0 = <&ctp_gt9896s_pins_default>;
 	pinctrl-1 = <&ctp_gt9896s_int_active>;
 	pinctrl-2 = <&ctp_gt9896s_reset_active>;
 	pinctrl-3 = <&ctp_gt9896s_int_suspend>;
 	pinctrl-4 = <&ctp_gt9896s_reset_suspend>;
 	pinctrl-5 = <&ctp_gt9896s_spi_mode>;
+	pinctrl-6 = <&ts_int_active>;
+	pinctrl-7 = <&ts_reset_active>;
+	pinctrl-8 = <&ts_int_suspend>;
+	pinctrl-9 = <&ts_reset_suspend>;
+	pinctrl-10 = <&ts_release>;
+	pinctrl-11 = <&ts_spi_mode>;
 
 	goodix@0 {
-		compatible = "novatek,NVT-ts-spi", "goodix,gt9896s", "goodix,nottingham";
+		compatible = "novatek,NVT-ts-spi",
+			"goodix,gt9896s",
+			"goodix,nottingham",
+			"focaltech,fts";
 		reg = <0>; //Same as CS ID
 		spi-max-frequency = <1000000>;
 
@@ -111,6 +123,11 @@
 		tpd-filter-pixel-density = <161>;
 		tpd-filter-custom-prameters = <0 0 0 0 0 0 0 0 0 0 0 0>;
 		tpd-filter-custom-speed = <0 0 0>;
+
+		focaltech,reset-gpio = <&pio 3 0x0>;
+		focaltech,irq-gpio = <&pio 8 0x0>;
+		focaltech,max-touch-number = <10>;
+		focaltech,display-coords = <0 0 1080 2400>;
 	};
 
 };
@@ -175,6 +192,41 @@
 		};
 	};
 	ctp_gt9896s_spi_mode: spimode-default {
+		pins-cmd-dat {
+			pinmux = <PINMUX_GPIO164__FUNC_SPI6_B_MI>,
+				<PINMUX_GPIO165__FUNC_SPI6_B_CSB>,
+				<PINMUX_GPIO166__FUNC_SPI6_B_MO>,
+				<PINMUX_GPIO167__FUNC_SPI6_B_CLK>;
+			drive-strength = <2>;
+		};
+	};
+	ts_int_active: ts-int-active {
+		pins-cmd-dat {
+			pinmux = <PINMUX_GPIO8__FUNC_GPIO8>;
+			input-enable;
+		};
+	};
+	ts_reset_active: ts-reset-active {
+		pins-cmd-dat {
+			pinmux = <PINMUX_GPIO3__FUNC_GPIO3>;
+			output-high;
+		};
+	};
+	ts_int_suspend: ts-int-suspend {
+		pins-cmd-dat {
+			pinmux = <PINMUX_GPIO8__FUNC_GPIO8>;
+			output-low;
+		};
+	};
+	ts_reset_suspend: ts-reset-suspend {
+		pins-cmd-dat {
+			pinmux = <PINMUX_GPIO3__FUNC_GPIO3>;
+			output-low;
+		};
+	};
+	ts_release: ts-release {
+	};
+	ts_spi_mode: spimode-ftdefault {
 		pins-cmd-dat {
 			pinmux = <PINMUX_GPIO164__FUNC_SPI6_B_MI>,
 				<PINMUX_GPIO165__FUNC_SPI6_B_CSB>,
