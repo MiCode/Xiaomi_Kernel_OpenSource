@@ -5473,7 +5473,10 @@ static void mtk_crtc_ddp_config(struct drm_crtc *crtc)
 	 * working registers in atomic_commit and let the hardware command
 	 * queue update module registers on vblank.
 	 */
-
+	if (!comp) {
+		DDPINFO("comp is NULL in ddp config\n");
+		return;
+	}
 	ovl_is_busy = readl(comp->regs) & 0x1UL;
 	if (ovl_is_busy == 0x1UL)
 		return;
