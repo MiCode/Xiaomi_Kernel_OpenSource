@@ -9299,12 +9299,13 @@ void mtk_drm_crtc_plane_disable(struct drm_crtc *crtc, struct drm_plane *plane,
 	if (plane_state->pending.enable) {
 		if (mtk_crtc->is_dual_pipe) {
 			comp = mtk_crtc_get_plane_comp(crtc, plane_state);
-			mtk_crtc_dual_layer_config(mtk_crtc, comp, plane_index,
+			if (comp)
+				mtk_crtc_dual_layer_config(mtk_crtc, comp, plane_index,
 					plane_state, cmdq_handle);
 		} else {
 			comp = mtk_crtc_get_plane_comp(crtc, plane_state);
-
-			mtk_ddp_comp_layer_config(comp, plane_index, plane_state,
+			if (comp)
+				mtk_ddp_comp_layer_config(comp, plane_index, plane_state,
 						  cmdq_handle);
 		}
 #ifndef DRM_CMDQ_DISABLE
