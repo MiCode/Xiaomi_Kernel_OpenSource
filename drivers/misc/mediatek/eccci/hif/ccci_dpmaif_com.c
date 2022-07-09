@@ -2743,24 +2743,20 @@ static void dpmaif_traffic_monitor_func(struct timer_list *t)
 			(dpmaif_ctl->txq[3].started << 3);
 
 		CCCI_NORMAL_LOG(0, TAG,
-			"dpmaif-txq: 0-3(status=0x%x)[%d]: %d-%d-%d(0x%08x), %d-%d-%d(0x%08x), %d-%d-%d(0x%08x), %d-%d-%d(0x%08x)\n",
+			"dpmaif-txq: 0-3(status=0x%x)[%d]: %d-%d-%d, %d-%d-%d, %d-%d-%d, %d-%d-%d\n",
 			q_state, dpmaif_ctl->txq[0].drb_cnt,
 			atomic_read(&dpmaif_ctl->txq[0].txq_budget),
 			dpmaif_ctl->tx_pre_tfc_pkgs[0],
 			dpmaif_ctl->tx_tfc_pkgs[0],
-			ops.drv_ul_get_rwidx(0),
 			atomic_read(&dpmaif_ctl->txq[1].txq_budget),
 			dpmaif_ctl->tx_pre_tfc_pkgs[1],
 			dpmaif_ctl->tx_tfc_pkgs[1],
-			ops.drv_ul_get_rwidx(1),
 			atomic_read(&dpmaif_ctl->txq[2].txq_budget),
 			dpmaif_ctl->tx_pre_tfc_pkgs[2],
 			dpmaif_ctl->tx_tfc_pkgs[2],
-			ops.drv_ul_get_rwidx(2),
 			atomic_read(&dpmaif_ctl->txq[3].txq_budget),
 			dpmaif_ctl->tx_pre_tfc_pkgs[3],
-			dpmaif_ctl->tx_tfc_pkgs[3],
-			ops.drv_ul_get_rwidx(3));
+			dpmaif_ctl->tx_tfc_pkgs[3]);
 
 		CCCI_NORMAL_LOG(0, TAG,
 			"dpmaif-txq pos: w/r/rel=(%d,%d,%d)(%d,%d,%d)(%d,%d,%d)(%d,%d,%d), tx_busy=%d,%d,%d,%d, last_isr=%lx,%lx,%lx,%lx\n",
