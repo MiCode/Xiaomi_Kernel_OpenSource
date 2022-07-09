@@ -1552,11 +1552,6 @@ static struct subdrv_static_ctx static_ctx = {
 			{0x313C, 0x313D},
 			{0x0216, 0x0217},
 	},
-	.reg_addr_dig_gain = {
-			{0x020E, 0x020F},
-			{0x313E, 0x313F},
-			{0x0218, 0x0219},
-	},
 	.reg_addr_frame_length = {0x0340, 0x0341},
 	.reg_addr_temp_en = 0x0138,
 	.reg_addr_temp_read = 0x013A,

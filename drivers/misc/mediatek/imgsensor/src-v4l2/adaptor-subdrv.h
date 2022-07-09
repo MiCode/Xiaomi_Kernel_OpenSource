@@ -218,7 +218,6 @@ struct subdrv_static_ctx {
 	u16 long_exposure_support;
 	u16 reg_addr_exposure_lshift;
 	struct reg_ reg_addr_ana_gain[IMGSENSOR_STAGGER_EXPOSURE_CNT];
-	struct reg_ reg_addr_dig_gain[IMGSENSOR_STAGGER_EXPOSURE_CNT];
 	struct reg_ reg_addr_frame_length;
 	u16 reg_addr_temp_en;
 	u16 reg_addr_temp_read;
@@ -283,9 +282,8 @@ struct subdrv_ctx {
 
 	u8 mirror; /* mirrorflip information */
 	u8 sensor_mode; /* record IMGSENSOR_MODE enum value */
-	u32 exposure[IMGSENSOR_STAGGER_EXPOSURE_CNT]; /* current exposure */
-	u32 ana_gain[IMGSENSOR_STAGGER_EXPOSURE_CNT]; /* current ana_gain */
-	u32 dig_gain[IMGSENSOR_STAGGER_EXPOSURE_CNT]; /* current dig_gain */
+	u32 exposure[5]; /* current exposure */
+	u32 ana_gain[5]; /* current ana_gain */
 	u32 shutter; /* current shutter */
 	u32 gain; /* current gain */
 	u32 pclk; /* current pclk */

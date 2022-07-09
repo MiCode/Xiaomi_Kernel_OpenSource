@@ -722,87 +722,6 @@ void set_multi_gain(struct subdrv_ctx *ctx, u32 *gains, u16 exp_cnt)
 	/* group hold end */
 }
 
-static u16 dgain2reg(struct subdrv_ctx *ctx, u32 dgain)
-{
-	u32 step = max((ctx->s_ctx.dig_gain_step), (u32)1);
-	u8 integ = (u8) (dgain / BASE_DGAIN); // integer parts
-	u8 dec = (u8) ((dgain % BASE_DGAIN) / step); // decimal parts
-	u16 ret = ((u16)integ << 8) | dec;
-
-	DRV_LOG(ctx, "dgain reg = 0x%x\n", ret);
-
-	return ret;
-}
-
-void set_multi_dig_gain(struct subdrv_ctx *ctx, u32 *gains, u16 exp_cnt)
-{
-	int i = 0;
-	u16 rg_gains[IMGSENSOR_STAGGER_EXPOSURE_CNT] = {0};
-	bool gph = !ctx->is_seamless && (ctx->s_ctx.s_gph != NULL);
-
-	if (exp_cnt > ARRAY_SIZE(ctx->dig_gain)) {
-		DRV_LOGE(ctx, "invalid exp_cnt:%u>%u\n", exp_cnt, ARRAY_SIZE(ctx->dig_gain));
-		exp_cnt = ARRAY_SIZE(ctx->dig_gain);
-	}
-	for (i = 0; i < exp_cnt; i++) {
-		/* check boundary of gain */
-		gains[i] = max(gains[i], ctx->s_ctx.dig_gain_min);
-		gains[i] = min(gains[i], ctx->s_ctx.dig_gain_max);
-		gains[i] = dgain2reg(ctx, gains[i]);
-	}
-
-	/* restore gain */
-	memset(ctx->dig_gain, 0, sizeof(ctx->dig_gain));
-	for (i = 0; i < exp_cnt; i++)
-		ctx->dig_gain[i] = gains[i];
-
-	/* group hold start */
-	if (gph && !ctx->ae_ctrl_gph_en)
-		ctx->s_ctx.s_gph((void *)ctx, 1);
-
-	/* write gain */
-	switch (exp_cnt) {
-	case 1:
-		rg_gains[0] = gains[0];
-	case 2:
-		rg_gains[0] = gains[0];
-		rg_gains[2] = gains[1];
-		break;
-	case 3:
-		rg_gains[0] = gains[0];
-		rg_gains[1] = gains[1];
-		rg_gains[2] = gains[2];
-		break;
-	default:
-		break;
-	}
-	for (i = 0; i < exp_cnt && i < ARRAY_SIZE(rg_gains); i++) {
-		if (!rg_gains[i])
-			continue; // skip zero gain setting
-
-		if (ctx->s_ctx.reg_addr_dig_gain[i].addr[0]) {
-			set_i2c_buffer(ctx,
-				ctx->s_ctx.reg_addr_dig_gain[i].addr[0],
-				(rg_gains[i] >> 8) & 0x0F);
-		}
-		if (ctx->s_ctx.reg_addr_dig_gain[i].addr[1]) {
-			set_i2c_buffer(ctx,
-				ctx->s_ctx.reg_addr_dig_gain[i].addr[1],
-				rg_gains[i] & 0xFF);
-		}
-	}
-
-	if (gph)
-		ctx->s_ctx.s_gph((void *)ctx, 0);
-
-	commit_i2c_buffer(ctx);
-	/* group hold end */
-
-	DRV_LOG(ctx, "dgain reg[lg/mg/sg]: 0x%x 0x%x 0x%x\n",
-		rg_gains[0], rg_gains[1], rg_gains[2]);
-}
-
-
 void get_lens_driver_id(struct subdrv_ctx *ctx, u32 *lens_id)
 {
 	*lens_id = LENS_DRIVER_ID_DO_NOT_CARE;
@@ -1816,10 +1735,6 @@ int common_feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 		break;
 	case SENSOR_FEATURE_SET_HDR_TRI_GAIN:
 		set_hdr_tri_gain(ctx, feature_data, 3);
-		break;
-	case SENSOR_FEATURE_SET_MULTI_DIG_GAIN:
-		set_multi_dig_gain(ctx, (u32 *)(*feature_data),
-					(u16) (*(feature_data + 1)));
 		break;
 	case SENSOR_FEATURE_GET_TEMPERATURE_VALUE:
 		get_temperature_value(ctx, feature_data_32);
