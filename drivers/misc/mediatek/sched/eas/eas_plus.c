@@ -853,9 +853,10 @@ void mtk_find_lowest_rq(void *data, struct task_struct *p, struct cpumask *lowes
 {
 	struct root_domain *rd = cpu_rq(smp_processor_id())->rd;
 	struct perf_domain *pd;
-	int cpu = -1, best_cpu;
+	int cpu = -1;
 	int this_cpu = smp_processor_id();
 	cpumask_t avail_lowest_mask;
+	int lowest_prio_cpu = -1, lowest_prio = 0;
 
 	if (!ret)
 		return; /* No targets found */
@@ -891,9 +892,6 @@ void mtk_find_lowest_rq(void *data, struct task_struct *p, struct cpumask *lowes
 
 	/* Find best_cpu on same cluster with task_cpu(p) */
 	for (; pd; pd = pd->next) {
-		if (!cpumask_test_cpu(cpu, perf_domain_span(pd)))
-			continue;
-
 		/*
 		 * "this_cpu" is cheaper to preempt than a
 		 * remote processor.
@@ -904,13 +902,27 @@ void mtk_find_lowest_rq(void *data, struct task_struct *p, struct cpumask *lowes
 			return;
 		}
 
-		best_cpu = cpumask_any_and_distribute(&avail_lowest_mask,
-						perf_domain_span(pd));
-		if (best_cpu < nr_cpu_ids) {
-			rcu_read_unlock();
-			*lowest_cpu = best_cpu;
-			return;
+		for_each_cpu_and(cpu, &avail_lowest_mask, perf_domain_span(pd)) {
+			struct task_struct *curr;
+
+			if (idle_cpu(cpu)) {
+				rcu_read_unlock();
+				*lowest_cpu = cpu;
+				return;
+			}
+			curr = cpu_curr(cpu);
+			/* &fair_sched_class undefined in scheduler.ko */
+			if (fair_policy(curr->policy) && (curr->prio > lowest_prio)) {
+				lowest_prio = curr->prio;
+				lowest_prio_cpu = cpu;
+			}
 		}
+	}
+
+	if (lowest_prio_cpu != -1) {
+		rcu_read_unlock();
+		*lowest_cpu = lowest_prio_cpu;
+		return;
 	}
 
 unlock:
