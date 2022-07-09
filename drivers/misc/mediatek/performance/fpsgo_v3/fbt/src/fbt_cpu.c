@@ -972,8 +972,7 @@ static void fbt_set_task_policy(struct fpsgo_loading *fl,
 		return;
 
 	/* policy changes, reset */
-	if (fl->policy != policy && fl->prefer_type != FPSGO_PREFER_NONE)
-		fbt_set_task_policy(fl, fl->policy, FPSGO_PREFER_NONE, 0);
+	fbt_set_affinity(fl->pid, FPSGO_PREFER_NONE);
 
 	if (set_nice) {
 		ori_nice = fbt_set_priority(fl->pid, cur_nice);
