@@ -1022,7 +1022,7 @@ static int mtk_pcie_probe(struct platform_device *pdev)
 
 	err = mtk_pcie_setup(port);
 	if (err)
-		return err;
+		goto err_probe;
 
 	host->ops = &mtk_pcie_ops;
 	host->sysdata = port;
@@ -1031,10 +1031,15 @@ static int mtk_pcie_probe(struct platform_device *pdev)
 	if (err) {
 		mtk_pcie_irq_teardown(port);
 		mtk_pcie_power_down(port);
-		return err;
+		goto err_probe;
 	}
 
 	return 0;
+
+err_probe:
+	pinctrl_pm_select_sleep_state(&pdev->dev);
+
+	return err;
 }
 
 static int mtk_pcie_remove(struct platform_device *pdev)
