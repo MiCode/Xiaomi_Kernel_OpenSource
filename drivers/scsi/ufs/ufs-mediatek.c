@@ -46,6 +46,7 @@
 static int ufs_abort_aee_count;
 #endif
 
+extern void mt_irq_dump_status(unsigned int irq);
 static void ufs_mtk_auto_hibern8_disable(struct ufs_hba *hba);
 
 #define CREATE_TRACE_POINTS
@@ -2290,6 +2291,9 @@ fail:
 
 static void ufs_mtk_dbg_register_dump(struct ufs_hba *hba)
 {
+
+	mt_irq_dump_status(hba->irq);
+
 	ufshcd_dump_regs(hba, REG_UFS_REFCLK_CTRL, 0x4, "Ref-Clk Ctrl ");
 
 	ufshcd_dump_regs(hba, REG_UFS_EXTREG, 0x4, "Ext Reg ");
