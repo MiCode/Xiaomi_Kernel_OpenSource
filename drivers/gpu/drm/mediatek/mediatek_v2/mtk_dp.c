@@ -1904,11 +1904,6 @@ bool mdrv_DPTx_CheckSinkCap(struct mtk_dp *mtk_dp)
 		mdrv_DPTx_DSC_Support(mtk_dp);
 	}
 
-	if (!mtk_dp->has_dsc || !mtk_dp->has_fec)
-		mtk_dp_enable_4k60(false);
-	else
-		mtk_dp_enable_4k60(true);
-
 #if !ENABLE_DPTX_FIX_LRLC
 	mtk_dp->training_info.ubLinkRate =
 		(bTempBuffer[0x1] >= mtk_dp->training_info.ubSysMaxLinkRate) ?
@@ -2863,7 +2858,6 @@ void mtk_dp_video_config(struct mtk_dp *mtk_dp)
 		break;
 	case SINK_3840_2160:
 		DPTX_TBL->FrameRate = 60;
-		mtk_dp->dsc_enable = true;
 		DPTX_TBL->Htt = 4400; DPTX_TBL->Hbp = 296; DPTX_TBL->Hsw = 88;
 		DPTX_TBL->bHsp = 0; DPTX_TBL->Hfp = 176; DPTX_TBL->Hde = 3840;
 		DPTX_TBL->Vtt = 2250; DPTX_TBL->Vbp = 72; DPTX_TBL->Vsw = 10;
@@ -2903,6 +2897,13 @@ void mtk_dp_video_config(struct mtk_dp *mtk_dp)
 		DPTX_TBL->bHsp = 0; DPTX_TBL->Hfp = 48; DPTX_TBL->Hde = 1920;
 		DPTX_TBL->Vtt = 1235; DPTX_TBL->Vbp = 26; DPTX_TBL->Vsw = 6;
 		DPTX_TBL->bVsp = 0; DPTX_TBL->Vfp = 3; DPTX_TBL->Vde = 1200;
+		break;
+	case SINK_1920_1080_120:
+		DPTX_TBL->FrameRate = 120;
+		DPTX_TBL->Htt = 2200; DPTX_TBL->Hbp = 148; DPTX_TBL->Hsw = 44;
+		DPTX_TBL->bHsp = 0; DPTX_TBL->Hfp = 88; DPTX_TBL->Hde = 1920;
+		DPTX_TBL->Vtt = 1125; DPTX_TBL->Vbp = 36; DPTX_TBL->Vsw = 5;
+		DPTX_TBL->bVsp = 0; DPTX_TBL->Vfp = 4; DPTX_TBL->Vde = 1080;
 		break;
 	case SINK_1920_1080:
 		DPTX_TBL->FrameRate = 60;
@@ -3547,6 +3548,7 @@ static struct drm_display_limit_mode dp_plat_limit[] = {
 	{2560, 1440, 60, 241500, 1},
 	{1080, 2460, 60, 174110, 1},
 	{1920, 1200, 60, 152128, 1},
+	{1920, 1080, 120, 297000, 1},
 	{1920, 1080, 60, 148500, 1},
 	{1280, 720,  60,  74250, 1},
 	{ 640,  480, 60,  25200, 1},
@@ -3597,10 +3599,13 @@ static enum drm_mode_status mtk_dp_conn_mode_valid(struct drm_connector *conn,
 	unsigned int bandwidth = mtk_dp->training_info.ubLinkLaneCount *
 		mtk_dp->training_info.ubLinkRate * 27000 * 8 / 24;
 
+#if DPTX_SUPPORT_DSC
+	// TODO : add DSC rules here
 	if (mode->hdisplay == 3840 && mode->vdisplay == 2160 &&
 		drm_mode_vrefresh(mode) == 60 && mtk_dp->has_dsc &&
 		mtk_dp->training_info.ubLinkLaneCount <= DP_LANECOUNT_2)
 		bandwidth = bandwidth * 594 * 10 / 2025;
+#endif
 
 	if (fakecablein == true)
 		bandwidth = dp_plat_limit[0].clock;

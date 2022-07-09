@@ -42,7 +42,7 @@
 #define ENABLE_DPTX_FIX_TPS2		0
 #define AUX_WRITE_READ_WAIT_TIME        20 //us
 #define AUX_NO_REPLY_WAIT_TIME          3200
-#define DPTX_SUPPORT_DSC                0
+#define DPTX_SUPPORT_DSC                0 // confirm DSC scenario before open this.
 #define DPTX_PHY_LEVEL_COUNT            10
 #define DPTX_PHY_REG_COUNT              6
 

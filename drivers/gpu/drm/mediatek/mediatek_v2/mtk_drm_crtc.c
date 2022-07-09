@@ -1394,6 +1394,8 @@ bool mtk_crtc_get_vblank_timestamp(struct drm_crtc *crtc,
 	return true;
 }
 
+#define MTK_PCLK_2K60 241500
+
 /*dp 4k resolution 3840*2160*/
 bool mtk_crtc_is_dual_pipe(struct drm_crtc *crtc)
 {
@@ -1407,11 +1409,13 @@ bool mtk_crtc_is_dual_pipe(struct drm_crtc *crtc)
 		return true;
 	}
 
-	if ((drm_crtc_index(crtc) == 1) &&
-			(crtc->state->adjusted_mode.hdisplay == 1920*2)) {
-
-		DDPFUNC();
-		return true;
+	if (drm_crtc_index(crtc) == 1) {
+		if ((crtc->state->adjusted_mode.hdisplay == 1920*2) ||
+			(drm_mode_vrefresh(&crtc->state->adjusted_mode) == 120) ||
+			(crtc->state->adjusted_mode.clock >= MTK_PCLK_2K60)) {
+			DDPFUNC();
+			return true;
+		}
 	}
 
 	if ((drm_crtc_index(crtc) == 0) &&
@@ -3447,6 +3451,11 @@ __get_golden_setting_context(struct mtk_drm_crtc *mtk_crtc)
 		gs_ctx[idx].is_vdo_mode = 1;
 		gs_ctx[idx].dst_width = crtc->state->adjusted_mode.hdisplay;
 		gs_ctx[idx].dst_height = crtc->state->adjusted_mode.vdisplay;
+		gs_ctx[idx].vrefresh = (crtc->state->adjusted_mode.clock * 1000) /
+			(crtc->state->adjusted_mode.htotal * crtc->state->adjusted_mode.vtotal);
+		DDPMSG("%s: crtc[%d], htt: %d, vtt: %d, clk :%d, fps: %d\n", __func__, idx,
+			crtc->state->adjusted_mode.htotal, crtc->state->adjusted_mode.vtotal,
+			crtc->state->adjusted_mode.clock, gs_ctx[idx].vrefresh);
 		break;
 	case 2:
 		/* TO DO: need more smart judge */

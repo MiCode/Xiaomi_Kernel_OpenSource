@@ -212,6 +212,10 @@ static const struct mtk_dp_intf_resolution_cfg mt6983_resolution_cfg[SINK_MAX] =
 					.clksrc = TVDPLL_D16,
 					.con1 = 0x8216D89D
 				},
+	[SINK_1920_1080_120] = {
+					.clksrc = TVDPLL_D8,
+					.con1 = 0x8216D89D
+				},
 	[SINK_1080_2460] = {
 					.clksrc = TVDPLL_D16,
 					.con1 = 0x821AC941
@@ -271,6 +275,10 @@ static const struct mtk_dp_intf_resolution_cfg mt6985_resolution_cfg[SINK_MAX] =
 					.clksrc = TVDPLL_D16,
 					.con1 = 0x8216D89D
 				},
+	[SINK_1920_1080_120] = {
+					.clksrc = TVDPLL_D8,
+					.con1 = 0x8216D89D
+				},
 	[SINK_1080_2460] = {
 					.clksrc = TVDPLL_D16,
 					.con1 = 0x821AC941
@@ -297,7 +305,7 @@ static const struct mtk_dp_intf_resolution_cfg mt6985_resolution_cfg[SINK_MAX] =
 				},
 	[SINK_3840_2160] = {
 					.clksrc = TVDPLL_D4,
-					.con1 = 0x830F93B1
+					.con1 = 0x8216D89D
 				}, //htotal = 1500  //con1 = 0x83109D89; //htotal = 1600
 	[SINK_7680_4320] = {
 					.clksrc = 0,
@@ -634,6 +642,15 @@ static void mtk_dp_intf_config(struct mtk_ddp_comp *comp,
 		vpw = 5;
 		vfp = 4;
 		vbp = 36;
+	} else if ((cfg->w == 1920) && (cfg->h == 1080)
+		   && (cfg->vrefresh == 120)) {
+		dp_intf->res = SINK_1920_1080_120;
+		hpw = 11;
+		hfp = 22;
+		hbp = 37;
+		vpw = 5;
+		vfp = 4;
+		vbp = 36;
 	} else if ((cfg->w == 1080) && (cfg->h == 2460)
 			  && (cfg->vrefresh == 60)) {
 		dp_intf->res = SINK_1080_2460;
@@ -682,16 +699,12 @@ static void mtk_dp_intf_config(struct mtk_ddp_comp *comp,
 	} else if ((cfg->w == 3840) && (cfg->h == 2160)
 		   && (cfg->vrefresh == 60)) {
 		dp_intf->res = SINK_3840_2160;
-		hpw = 10; //22;
-		hfp = 25; //134;
-		hbp = 20; //74;
+		hpw = 22;
+		hfp = 44;
+		hbp = 74;
 		vpw = 10;
 		vfp = 8;
 		vbp = 72;
-		hsize /= 3;/* with dsc on*/
-		mtk_ddp_write_mask(comp, RB_SWAP,
-			DP_OUTPUT_SETTING, RB_SWAP, handle);
-
 	} else
 		DDPPR_ERR("%s error, w %d, h, %d, fps %d!\n",
 			__func__, cfg->w, cfg->h, cfg->vrefresh);

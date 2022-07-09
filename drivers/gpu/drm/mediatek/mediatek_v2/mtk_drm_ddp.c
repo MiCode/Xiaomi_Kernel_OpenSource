@@ -14498,7 +14498,7 @@ void mtk_ddp_connect_dual_pipe_path(struct mtk_drm_crtc *mtk_crtc,
 {
 	if (drm_crtc_index(&mtk_crtc->base) == 1) {
 		//to do: dp in 6983 4k60 can use merge, only 8k30 must use dsc
-		if (drm_mode_vrefresh(&(&mtk_crtc->base)->state->adjusted_mode) == 60)
+		if (0) //(drm_mode_vrefresh(&(&mtk_crtc->base)->state->adjusted_mode) == 60)
 			mtk_ddp_ext_dual_pipe_dsc(mtk_crtc, mutex);
 		else
 			mtk_ddp_ext_insert_dual_pipe(mtk_crtc, mutex);
@@ -14534,7 +14534,7 @@ void mtk_ddp_disconnect_dual_pipe_path(struct mtk_drm_crtc *mtk_crtc,
 {
 	if (drm_crtc_index(&mtk_crtc->base) == 1) {
 		//to do: dp in 6983 4k60 can use merge, only 8k30 must use dsc
-		if (drm_mode_vrefresh(&(&mtk_crtc->base)->state->adjusted_mode) == 60)
+		if (0)//(drm_mode_vrefresh(&(&mtk_crtc->base)->state->adjusted_mode) == 60)
 			mtk_ddp_ext_remove_dual_pipe_dsc(mtk_crtc, mutex);
 		else
 			mtk_ddp_ext_remove_dual_pipe(mtk_crtc, mutex);

@@ -2102,8 +2102,8 @@ static const enum mtk_ddp_comp_id mt6983_dual_data_ext[] = {
 	DDP_COMPONENT_OVL0_2L_NWCG_VIRTUAL0, DDP_COMPONENT_RDMA1,
 	DDP_COMPONENT_TV0_VIRTUAL,
 	DDP_COMPONENT_DLO_ASYNC2, DDP_COMPONENT_DLI_ASYNC6,
-	/*DDP_COMPONENT_MERGE1,*/
-	DDP_COMPONENT_DSC1,
+	DDP_COMPONENT_MERGE1,
+	/*DDP_COMPONENT_DSC1,*/
 };
 
 static const enum mtk_ddp_comp_id mt6983_mtk_ddp_third[] = {
