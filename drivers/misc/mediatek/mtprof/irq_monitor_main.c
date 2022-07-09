@@ -169,22 +169,23 @@ static struct irq_mon_tracer hrtimer_expire_tracer __read_mostly = {
 static unsigned int check_threshold(unsigned long long duration,
 				    struct irq_mon_tracer *tracer)
 {
-	unsigned int out = 0;
+	unsigned int ret = 0;
+	u64 duration_ms;
 
 	if (!tracer->tracing)
 		return 0;
 
-	if (tracer->th1_ms &&
-	    duration >= (unsigned long long)tracer->th1_ms * 1000000ULL)
-		out |= TO_FTRACE;
-	if (tracer->th2_ms &&
-	    duration >= (unsigned long long)tracer->th2_ms * 1000000ULL)
-		out |= TO_KERNEL_LOG;
-	if (tracer->th3_ms &&
-	    duration >= (unsigned long long)tracer->th3_ms * 1000000ULL)
-		out |= TO_AEE;
+	duration_ms = msec_high(duration);
+	if (tracer->th1_ms && duration_ms >= tracer->th1_ms)
+		ret |= TO_FTRACE;
+	if (tracer->th2_ms && duration_ms >= tracer->th2_ms)
+		ret |= TO_KERNEL_LOG;
+	if (tracer->th3_ms && duration_ms >= tracer->th3_ms)
+		ret |= TO_AEE;
 
-	return out;
+	WARN_ON(!duration_ms && ret);
+
+	return ret;
 }
 /* structues of probe funcitons */
 
