@@ -12,6 +12,8 @@
 
 #include "mtk-pd-chk.h"
 #include "clkchk-mt6985.h"
+#include "clk-fmeter.h"
+#include "clk-mt6985-fmeter.h"
 
 #define TAG				"[pdchk] "
 #define BUG_ON_CHK_ENABLE		0
@@ -696,6 +698,7 @@ static enum chk_sys_id debug_dump_id[] = {
 
 static void debug_dump(unsigned int id, unsigned int pwr_sta)
 {
+	const struct fmeter_clk *fclk;
 	int i, parent_id = PD_NULL;
 
 	if (id >= MT6985_CHK_PD_NUM)
@@ -720,6 +723,9 @@ static void debug_dump(unsigned int id, unsigned int pwr_sta)
 		if (mtk_subsys_check[i].pd_id == parent_id)
 			print_subsys_reg_mt6985(mtk_subsys_check[i].chk_id);
 	}
+
+	fclk = mt_get_fmeter_clks();
+	mt_get_fmeter_freq(fclk->id, fclk->type);
 
 	BUG_ON(1);
 }
