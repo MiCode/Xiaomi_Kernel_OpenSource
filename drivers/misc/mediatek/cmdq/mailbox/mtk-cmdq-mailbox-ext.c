@@ -2463,7 +2463,8 @@ void cmdq_mbox_enable(void *chan)
 		// core
 		spin_lock_irqsave(&cmdq->lock, flags);
 		if (gce_mminfra)
-			writel(CMDQ_ULTRA_EN, cmdq->base + GCE_BUS_GCTL);
+			writel(readl(cmdq->base + GCE_BUS_GCTL) | CMDQ_ULTRA_EN,
+				cmdq->base + GCE_BUS_GCTL);
 		if (cmdq->sw_ddr_en) {
 			writel((0x7 << 16) + 0x7, cmdq->base + GCE_GCTL_VALUE);
 			writel(0, cmdq->base + GCE_DEBUG_START_ADDR);
