@@ -2661,8 +2661,11 @@ _mtk_crtc_lye_addon_module_connect(
 		else
 			addon_module_dual = NULL;
 
-		if (addon_module->module == DISP_MML_IR_PQ ||
-		    addon_module->module == DISP_MML_IR_PQ_v2) {
+		if ((addon_module->type == ADDON_BETWEEN) &&
+			(addon_module->module == DISP_MML_SRAM_ONLY)) {
+			/* do nothing yet */
+		} else if (addon_module->module == DISP_MML_IR_PQ ||
+			   addon_module->module == DISP_MML_IR_PQ_v2) {
 			if (mtk_crtc->is_force_mml_scen && mtk_crtc->is_mml)
 				mml_addon_module_connect(crtc, ddp_mode, addon_module,
 							 addon_module_dual, &addon_config,
@@ -11471,6 +11474,7 @@ int mtk_drm_crtc_create(struct drm_device *drm_dev,
 	mtk_crtc->is_dual_pipe = false;
 	mtk_crtc->is_force_mml_scen = mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_MML_PQ);
 	mtk_crtc->mml_ir_enable = mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_MML_IR);
+	mtk_crtc->slbc_state = SLBC_UNREGISTER;
 
 	if (priv->data->mmsys_id == MMSYS_MT6985) {
 		mtk_crtc->ovlsys0_regs = priv->ovlsys0_regs;

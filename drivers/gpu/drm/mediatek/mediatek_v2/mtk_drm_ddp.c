@@ -5648,7 +5648,7 @@ static char *ddp_signal_1_mt6895(int bit)
 			"DISP_DLO_RELAY2__TO__DISP_DLO_ASYNC2";
 	case 1:
 		return
-			"DISP_DLO_RELAY1__TO__DISP_DLO_ASYNC3";
+			"DISP_DLO_RELAY3__TO__DISP_DLO_ASYNC3";
 	case 2:
 		return
 			"DISP_DP_INTF0_SEL__TO__DISP_SUB0_TX_SOUT";

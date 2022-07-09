@@ -3531,6 +3531,58 @@ static unsigned int resizing_rule(struct drm_device *dev,
 	return scale_num;
 }
 
+int mtk_disp_deactivate(struct slbc_data *d)
+{
+	bool ret = true;
+	struct mtk_drm_crtc *mtk_crtc = NULL;
+	struct drm_crtc *crtc = NULL;
+	struct drm_device *dev = NULL;
+
+	mtk_crtc = d->user_cb_data;
+	if (!mtk_crtc) {
+		ret = false;
+		DDPPR_ERR("%s mtk_crtc is NULL\n", __func__);
+		goto fail;
+	}
+	crtc = &mtk_crtc->base;
+	dev = crtc->dev;
+	if (!dev) {
+		ret = false;
+		DDPPR_ERR("%s dev is NULL\n", __func__);
+		goto fail;
+	}
+
+	DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
+	if (mtk_crtc->is_mml) {
+		mtk_crtc->slbc_state = SLBC_NEED_FREE;
+		drm_trigger_repaint(DRM_REPAINT_FOR_SWITCH_DECOUPLE, dev);
+		ret = false;
+	}
+	DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+	DDPINFO("%s slbc ret:%d\n", __func__, ret);
+fail:
+	return ret;
+}
+
+
+static void register_slbc_cb(struct drm_device *dev, struct mtk_drm_crtc *mtk_crtc)
+{
+	struct slbc_data d;
+	struct slbc_ops ops;
+	struct mtk_drm_private *private = dev->dev_private;
+
+	/* mt6886 share sram with other modules, need register cb for this*/
+	if (private->data->mmsys_id == MMSYS_MT6886) {
+		DDPMSG("%s ddd dev:0x%x\n", __func__, dev);
+		d.uid = UID_DISP;
+		d.type = TP_BUFFER;
+		d.user_cb_data = mtk_crtc;
+		ops.data = &d;
+		ops.deactivate = &mtk_disp_deactivate;
+		slbc_register_activate_ops(&ops);
+	}
+}
+
 static enum MTK_LAYERING_CAPS query_MML(struct drm_device *dev, struct drm_crtc *crtc,
 					struct mml_frame_info *mml_info)
 {
@@ -3596,6 +3648,17 @@ static enum MTK_LAYERING_CAPS query_MML(struct drm_device *dev, struct drm_crtc 
 		     !mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_MML_SUPPORT_CMD_MODE) &&
 		     !mtk_crtc->mml_cmd_ir))
 			mode = MML_MODE_MML_DECOUPLE;
+
+		DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
+		if (mtk_crtc->slbc_state == SLBC_UNREGISTER) {
+			register_slbc_cb(dev, mtk_crtc);
+			mtk_crtc->slbc_state = SLBC_CAN_ALLOC;
+		}
+		if (mode == MML_MODE_RACING && mtk_crtc->slbc_state == SLBC_NEED_FREE)
+			mode = MML_MODE_MML_DECOUPLE;
+		else if (mode != MML_MODE_RACING && mtk_crtc->slbc_state == SLBC_NEED_FREE)
+			mtk_crtc->slbc_state = SLBC_CAN_ALLOC;
+		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 	}
 
 	switch (mode) {

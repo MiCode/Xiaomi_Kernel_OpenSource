@@ -522,6 +522,12 @@ enum PF_TS_TYPE {
 	NOT_SPECIFIED,
 };
 
+enum SLBC_STATE {
+	SLBC_UNREGISTER,
+	SLBC_NEED_FREE,
+	SLBC_CAN_ALLOC,
+};
+
 struct mtk_crtc_path_data {
 	bool is_fake_path;
 	const enum mtk_ddp_comp_id *path[DDP_MODE_NR][DDP_PATH_NR];
@@ -859,6 +865,7 @@ struct mtk_drm_crtc {
 	bool mml_cmd_ir;
 	bool mml_ir_enable;
 	enum MML_IR_STATE mml_ir_state;
+	enum SLBC_STATE slbc_state;
 
 	atomic_t signal_irq_for_pre_fence;
 	wait_queue_head_t signal_irq_for_pre_fence_wq;
