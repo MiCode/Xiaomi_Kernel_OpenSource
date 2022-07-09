@@ -416,13 +416,13 @@ struct cpumask *get_system_cpumask(void)
 }
 EXPORT_SYMBOL_GPL(get_system_cpumask);
 
-int mtk_find_idle_cpu(struct task_struct *p, bool latency_sensitive)
+int mtk_find_energy_efficient_cpu_in_interrupt(struct task_struct *p, bool latency_sensitive)
 {
-	int target_cpu = -1, cpu, opp;
+	int target_cpu = -1, cpu;
 	unsigned long task_util = uclamp_task_util(p);
 	unsigned long pwr = ULONG_MAX, best_pwr = ULONG_MAX;
 	unsigned long cpu_cap = 0, max_sparse_cap = 0;
-	unsigned int fit_idle_cpus = 0;
+	unsigned int fit_cpus = 0;
 	long sys_max_spare_cap = LONG_MIN, spare_cap;
 	int sys_max_spare_cap_cpu = -1;
 	unsigned long util;
@@ -447,11 +447,11 @@ int mtk_find_idle_cpu(struct task_struct *p, bool latency_sensitive)
 		if (latency_sensitive && !cpumask_test_cpu(cpu, &system_cpumask))
 			continue;
 
-		if (idle_cpu(cpu) && fits_capacity(task_util, cpu_cap)) {
-			fit_idle_cpus = (fit_idle_cpus | (1 << cpu));
-			opp = pd_get_util_opp(cpu, map_util_perf(task_util));
-			pwr = pd_get_opp_pwr_eff(cpu, opp) * task_util
-					+ mtk_get_leakage(cpu, opp, get_cpu_temp(cpu)/1000);
+		if (!(latency_sensitive && !idle_cpu(cpu))
+				&& fits_capacity(task_util, cpu_cap)) {
+			fit_cpus = (fit_cpus | (1 << cpu));
+			pwr = calc_pwr(cpu, task_util);
+
 			/* if cpu power is better, select it as candidate */
 			if (best_pwr > pwr) {
 				best_pwr = pwr;
@@ -466,8 +466,8 @@ int mtk_find_idle_cpu(struct task_struct *p, bool latency_sensitive)
 		}
 	}
 
-	trace_sched_find_idle_cpu(p, task_util, target_cpu, best_pwr,
-					max_sparse_cap, fit_idle_cpus);
+	trace_sched_find_cpu_in_irq(p, task_util, target_cpu, best_pwr,
+					max_sparse_cap, fit_cpus);
 
 	if (target_cpu == -1)
 		return sys_max_spare_cap_cpu;
@@ -520,7 +520,7 @@ void mtk_find_energy_efficient_cpu(void *data, struct task_struct *p, int prev_c
 	}
 
 	if (in_interrupt()) {
-		*new_cpu = mtk_find_idle_cpu(p, latency_sensitive);
+		*new_cpu = mtk_find_energy_efficient_cpu_in_interrupt(p, latency_sensitive);
 		rcu_read_unlock();
 		select_reason = LB_IN_INTERRUPT;
 		goto done;

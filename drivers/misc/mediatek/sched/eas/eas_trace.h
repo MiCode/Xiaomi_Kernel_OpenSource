@@ -48,9 +48,9 @@ TRACE_EVENT(sched_big_task_rotation,
 TRACE_EVENT(sched_leakage,
 
 	TP_PROTO(int cpu, int opp, unsigned int temp,
-		unsigned long cpu_static_pwr, unsigned long static_pwr),
+		unsigned long cpu_static_pwr, unsigned long static_pwr, unsigned long sum_cap),
 
-	TP_ARGS(cpu, opp, temp, cpu_static_pwr, static_pwr),
+	TP_ARGS(cpu, opp, temp, cpu_static_pwr, static_pwr, sum_cap),
 
 	TP_STRUCT__entry(
 		__field(int, cpu)
@@ -58,6 +58,7 @@ TRACE_EVENT(sched_leakage,
 		__field(unsigned int, temp)
 		__field(unsigned long, cpu_static_pwr)
 		__field(unsigned long, static_pwr)
+		__field(unsigned long, sum_cap)
 		),
 
 	TP_fast_assign(
@@ -66,27 +67,27 @@ TRACE_EVENT(sched_leakage,
 		__entry->temp       = temp;
 		__entry->cpu_static_pwr = cpu_static_pwr;
 		__entry->static_pwr = static_pwr;
+		__entry->sum_cap = sum_cap;
 		),
 
-	TP_printk("cpu=%d opp=%d temp=%lu lkg=%lu sum_lkg=%lu",
+	TP_printk("cpu=%d opp=%d temp=%lu lkg=%lu sum_lkg=%lu, sum_cap=%lu",
 		__entry->cpu,
 		__entry->opp,
 		__entry->temp,
 		__entry->cpu_static_pwr,
-		__entry->static_pwr)
+		__entry->static_pwr,
+		__entry->sum_cap)
 );
 
 TRACE_EVENT(sched_em_cpu_energy,
 
-	TP_PROTO(int opp,
-		unsigned long freq, unsigned long cost, unsigned long scale_cpu,
+	TP_PROTO(int idx, unsigned long cost, unsigned long scale_cpu,
 		unsigned long dyn_pwr, unsigned long static_pwr),
 
-	TP_ARGS(opp, freq, cost, scale_cpu, dyn_pwr, static_pwr),
+	TP_ARGS(idx, cost, scale_cpu, dyn_pwr, static_pwr),
 
 	TP_STRUCT__entry(
-		__field(int, opp)
-		__field(unsigned long, freq)
+		__field(int, idx)
 		__field(unsigned long, cost)
 		__field(unsigned long, scale_cpu)
 		__field(unsigned long, dyn_pwr)
@@ -94,30 +95,64 @@ TRACE_EVENT(sched_em_cpu_energy,
 		),
 
 	TP_fast_assign(
-		__entry->opp        = opp;
-		__entry->freq       = freq;
+		__entry->idx        = idx;
 		__entry->cost       = cost;
 		__entry->scale_cpu  = scale_cpu;
 		__entry->dyn_pwr    = dyn_pwr;
 		__entry->static_pwr = static_pwr;
 		),
 #if IS_ENABLED(CONFIG_MTK_OPP_CAP_INFO)
-	TP_printk("opp=%d freq=%lu pwr_eff=%lu scale_cpu=%lu dyn_pwr=%lu static_pwr=%lu",
-		__entry->opp,
-		__entry->freq,
+	TP_printk("idx=%d pwr_eff=%lu scale_cpu=%lu dyn_pwr=%lu static_pwr=%lu",
+		__entry->idx,
 		__entry->cost,
 		__entry->scale_cpu,
 		__entry->dyn_pwr,
 		__entry->static_pwr)
 #else
-	TP_printk("opp=%d freq=%lu ps->cost=%lu scale_cpu=%lu dyn_pwr=%lu static_pwr=%lu",
-		__entry->opp,
-		__entry->freq,
+	TP_printk("idx=%d ps->cost=%lu scale_cpu=%lu dyn_pwr=%lu static_pwr=%lu",
+		__entry->idx,
 		__entry->cost,
 		__entry->scale_cpu,
 		__entry->dyn_pwr,
 		__entry->static_pwr)
 #endif
+);
+
+TRACE_EVENT(sched_calc_pwr_eff,
+
+	TP_PROTO(int cpu, unsigned long cpu_util, int opp, unsigned long cap,
+		unsigned long dyn_pwr_eff, unsigned long static_pwr_eff, unsigned long pwr_eff),
+
+	TP_ARGS(cpu, cpu_util, opp, cap, dyn_pwr_eff, static_pwr_eff, pwr_eff),
+
+	TP_STRUCT__entry(
+		__field(int, cpu)
+		__field(unsigned long, cpu_util)
+		__field(int, opp)
+		__field(unsigned long, cap)
+		__field(unsigned long, dyn_pwr_eff)
+		__field(unsigned long, static_pwr_eff)
+		__field(unsigned long, pwr_eff)
+		),
+
+	TP_fast_assign(
+		__entry->cpu            = cpu;
+		__entry->cpu_util       = cpu_util;
+		__entry->opp            = opp;
+		__entry->cap            = cap;
+		__entry->dyn_pwr_eff    = dyn_pwr_eff;
+		__entry->static_pwr_eff = static_pwr_eff;
+		__entry->pwr_eff        = pwr_eff;
+		),
+
+	TP_printk("cpu=%d cpu_util=%lu opp=%d cap=%lu dyn_pwr_eff=%lu static_pwr_eff=%lu pwr_eff=%u",
+		__entry->cpu,
+		__entry->cpu_util,
+		__entry->opp,
+		__entry->cap,
+		__entry->dyn_pwr_eff,
+		__entry->static_pwr_eff,
+		__entry->pwr_eff)
 );
 
 TRACE_EVENT(sched_find_busiest_group,
@@ -384,25 +419,25 @@ TRACE_EVENT(sched_select_task_rq_rt,
 );
 
 TRACE_EVENT(sched_aware_energy_rt,
-	TP_PROTO(int target_cpu, unsigned long this_pwr, unsigned long pwr,
+	TP_PROTO(int target_cpu, unsigned long this_pwr_eff, unsigned long pwr_eff,
 			unsigned int task_util),
-	TP_ARGS(target_cpu, this_pwr, pwr, task_util),
+	TP_ARGS(target_cpu, this_pwr_eff, pwr_eff, task_util),
 	TP_STRUCT__entry(
 		__field(int, target_cpu)
-		__field(unsigned long, this_pwr)
-		__field(unsigned long, pwr)
+		__field(unsigned long, this_pwr_eff)
+		__field(unsigned long, pwr_eff)
 		__field(unsigned int, task_util)
 	),
 	TP_fast_assign(
 		__entry->target_cpu	= target_cpu;
-		__entry->this_pwr	= this_pwr;
-		__entry->pwr		= pwr;
-		__entry->task_util		= task_util;
+		__entry->this_pwr_eff	= this_pwr_eff;
+		__entry->pwr_eff	= pwr_eff;
+		__entry->task_util	= task_util;
 	),
-	TP_printk("target=%d this_pwr=%lu pwr=%lu util=%u ",
+	TP_printk("target=%d this_pwr_eff=%lu pwr_eff=%lu util=%u",
 		__entry->target_cpu,
-		__entry->this_pwr,
-		__entry->pwr,
+		__entry->this_pwr_eff,
+		__entry->pwr_eff,
 		__entry->task_util)
 );
 

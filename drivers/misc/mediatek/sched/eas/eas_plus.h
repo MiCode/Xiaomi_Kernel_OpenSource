@@ -69,6 +69,8 @@ extern void init_system_cpumask(void);
 extern void mtk_sched_newidle_balance(void *data, struct rq *this_rq,
 		struct rq_flags *rf, int *pulled_task, int *done);
 #endif
+
+extern unsigned long calc_pwr(int cpu, unsigned long task_util);
 #endif
 
 extern int migrate_running_task(int this_cpu, struct task_struct *p, struct rq *target,

@@ -35,13 +35,13 @@ out:
 }
 #endif
 
-TRACE_EVENT(sched_find_idle_cpu,
+TRACE_EVENT(sched_find_cpu_in_irq,
 
 	TP_PROTO(struct task_struct *tsk,
 		unsigned long task_util, int target_cpu, unsigned long pwr,
-		unsigned int cap, unsigned int fit_idle_cpus),
+		unsigned int cap, unsigned int fit_cpus),
 
-	TP_ARGS(tsk, task_util, target_cpu, pwr, cap, fit_idle_cpus),
+	TP_ARGS(tsk, task_util, target_cpu, pwr, cap, fit_cpus),
 
 	TP_STRUCT__entry(
 		__field(pid_t,         pid)
@@ -49,7 +49,7 @@ TRACE_EVENT(sched_find_idle_cpu,
 		__field(int,           target_cpu)
 		__field(unsigned long, pwr)
 		__field(unsigned int,  cap)
-		__field(unsigned int,  fit_idle_cpus)
+		__field(unsigned int,  fit_cpus)
 		),
 
 	TP_fast_assign(
@@ -58,16 +58,16 @@ TRACE_EVENT(sched_find_idle_cpu,
 		__entry->target_cpu    = target_cpu;
 		__entry->pwr           = pwr;
 		__entry->cap           = cap;
-		__entry->fit_idle_cpus = fit_idle_cpus;
+		__entry->fit_cpus = fit_cpus;
 		),
 
-	TP_printk("pid=%4d util=%lu target_cpu=%d pwr=%lu cap=%u fit_idle_cpus=0x%x",
+	TP_printk("pid=%4d util=%lu target_cpu=%d pwr=%lu cap=%u fit_cpus=0x%x",
 		__entry->pid,
 		__entry->task_util,
 		__entry->target_cpu,
 		__entry->pwr,
 		__entry->cap,
-		__entry->fit_idle_cpus)
+		__entry->fit_cpus)
 );
 
 extern struct cpumask system_cpumask;
