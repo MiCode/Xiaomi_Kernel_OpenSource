@@ -49,6 +49,7 @@ struct ps5170 {
 	u32 vsv_mask;
 	u32 vsv_vers;
 
+	uint8_t pin_assign;
 };
 
 #define ps5170_ORIENTATION_NONE                 0x80
@@ -196,6 +197,8 @@ static int ps5170_set_conf(struct ps5170 *ps, u8 new_conf, u8 polarity)
 	ps5170_init(ps);
 	mdelay(20);
 
+	ps->pin_assign = new_conf;
+
 	switch (new_conf) {
 	case 2:
 		/* DP Only mode 4-lane set orientation*/
@@ -255,6 +258,8 @@ static void ps5170_switch_set_work(struct work_struct *data)
 			pinctrl_select_state(ps->pinctrl, ps->disable);
 		/* vote vs to disable  */
 		ps5170_vsvoter_clr(ps);
+		/* clr pin-assign  */
+		ps->pin_assign = 0;
 		break;
 	case TYPEC_ORIENTATION_NORMAL:
 		/* vote vs to enable */
@@ -448,6 +453,7 @@ static int ps5170_probe(struct i2c_client *client)
 	ps->dev = dev;
 
 	atomic_set(&ps->in_sleep, 0);
+	ps->pin_assign = 0;
 
 	ret = ps5170_vsvoter_of_property_parse(ps, node);
 	if (ret)
@@ -551,8 +557,12 @@ static int ps5170_resume_noirq(struct device *dev)
 
 	atomic_set(&data->in_sleep, 0);
 
-	/* pull high en pin to enter normal mode */
-	pinctrl_select_state(data->pinctrl, data->enable);
+	if (data->pin_assign)
+		schedule_work(&data->set_dp_work);
+	else
+		/* pull high en pin to enter normal mode */
+		pinctrl_select_state(data->pinctrl, data->enable);
+
 	return 0;
 }
 
