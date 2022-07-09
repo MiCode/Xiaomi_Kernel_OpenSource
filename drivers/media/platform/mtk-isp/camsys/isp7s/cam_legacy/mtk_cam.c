@@ -8043,7 +8043,7 @@ void mtk_cam_stop_ctx(struct mtk_cam_ctx *ctx, struct media_entity *entity)
 	dev_info(cam->dev, "%s: ctx-%d:  composer_cnt:%d\n",
 		__func__, ctx->stream_id, cam->composer_cnt);
 
-	slb.uid = UID_AOV_DC;
+	slb.uid = UID_SH_P1;
 	slb.type = TP_BUFFER;
 	ret = slbc_release(&slb);
 	if (ret < 0)

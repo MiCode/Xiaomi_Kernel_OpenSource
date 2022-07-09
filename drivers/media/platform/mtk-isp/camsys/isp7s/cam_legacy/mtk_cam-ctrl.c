@@ -3777,9 +3777,11 @@ static void mtk_camsys_raw_m2m_trigger(struct mtk_raw_device *raw_dev,
 					    scen->scen.normal.exp_num != 1) {
 						trigger_rawi(raw_dev, ctx,
 							MTKCAM_IPI_HW_PATH_OFFLINE_STAGGER);
-					} else if (apu_info->apu_path == APU_DC_RAW) {
+					} else if (apu_info->is_update &&
+						   apu_info->apu_path == APU_DC_RAW) {
 						trigger_apu_start(raw_dev, ctx);
-					} else if (apu_info->apu_path == APU_FRAME_MODE) {
+					} else if (apu_info->is_update &&
+						   apu_info->apu_path == APU_FRAME_MODE) {
 						trigger_vpui(raw_dev, ctx);
 					} else {
 						trigger_rawi(raw_dev, ctx,
