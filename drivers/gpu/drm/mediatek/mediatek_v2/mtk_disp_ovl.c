@@ -1042,7 +1042,7 @@ static void _get_bg_roi(struct mtk_ddp_comp *comp, int *h, int *w)
 }
 
 static void _ovl_PQ_loop_set_size(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
-				  const u32 layer, const u32 src);
+				  const u32 layer, const u32 src, const u32 clip_w);
 
 static int mtk_ovl_golden_setting(struct mtk_ddp_comp *comp,
 				  struct mtk_ddp_config *cfg,
@@ -1808,11 +1808,11 @@ static void _ovl_common_config(struct mtk_ddp_comp *comp, unsigned int idx,
 
 		if (ovl->data->support_pq_selfloop) {
 			if (state->comp_state.layer_caps & MTK_DISP_RSZ_LAYER)
-				_ovl_PQ_loop_set_size(comp, handle, lye_idx, src_size);
+				_ovl_PQ_loop_set_size(comp, handle, lye_idx, src_size, 0);
 			else if ((state->comp_state.layer_caps &
 				  MTK_MML_DISP_DIRECT_DECOUPLE_LAYER) &&
 				 comp->mtk_crtc->is_force_mml_scen)
-				_ovl_PQ_loop_set_size(comp, handle, lye_idx, 0);
+				_ovl_PQ_loop_set_size(comp, handle, lye_idx, 0, dst_w);
 			else
 				cmdq_pkt_write(handle, comp->cmdq_base,
 					       comp->regs_pa + DISP_REG_OVL_SRC_SIZE(lye_idx),
@@ -2695,7 +2695,7 @@ static bool compr_l_config_AFBC_V1_2(struct mtk_ddp_comp *comp,
 
 		if (ovl->data->support_pq_selfloop &&
 		    state->comp_state.layer_caps & MTK_DISP_RSZ_LAYER)
-			_ovl_PQ_loop_set_size(comp, handle, lye_idx, lx_src_size);
+			_ovl_PQ_loop_set_size(comp, handle, lye_idx, lx_src_size, 0);
 		else
 			cmdq_pkt_write(handle, comp->cmdq_base,
 				       comp->regs_pa + DISP_REG_OVL_SRC_SIZE(lye_idx), lx_src_size,
@@ -2773,7 +2773,7 @@ static void _ovl_PQ_in(struct mtk_ddp_comp *comp, const bool connect, struct cmd
 }
 
 static void _ovl_PQ_loop_set_size(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
-				  const u32 layer, const u32 _src)
+				  const u32 layer, const u32 _src, const u32 clip_w)
 {
 	struct mtk_crtc_state *mtk_crtc_state = to_mtk_crtc_state(comp->mtk_crtc->base.state);
 	u32 src, dst;
@@ -2782,8 +2782,11 @@ static void _ovl_PQ_loop_set_size(struct mtk_ddp_comp *comp, struct cmdq_pkt *ha
 		src = _src;
 		dst = mtk_crtc_state->rsz_dst_roi.height << 16 | mtk_crtc_state->rsz_dst_roi.width;
 	} else {
-		src = mtk_crtc_state->mml_src_roi[0].height << 16 |
-		      mtk_crtc_state->mml_src_roi[0].width;
+		if (clip_w)
+			src = mtk_crtc_state->mml_src_roi[0].height << 16 | clip_w;
+		else
+			src = mtk_crtc_state->mml_src_roi[0].height << 16 |
+			      mtk_crtc_state->mml_src_roi[0].width;
 		dst = mtk_crtc_state->mml_dst_roi.height << 16
 			| mtk_crtc_state->mml_dst_roi.width;
 
@@ -2794,8 +2797,12 @@ static void _ovl_PQ_loop_set_size(struct mtk_ddp_comp *comp, struct cmdq_pkt *ha
 			} else if (comp->id == DDP_COMPONENT_OVL4_2L) {
 				dst = mtk_crtc_state->mml_dst_roi_dual[1].height << 16
 					| mtk_crtc_state->mml_dst_roi_dual[1].width;
-				src = mtk_crtc_state->mml_src_roi[1].height << 16 |
-					mtk_crtc_state->mml_src_roi[1].width;
+				if (clip_w)
+					src = mtk_crtc_state->mml_src_roi[1].height << 16 |
+						clip_w;
+				else
+					src = mtk_crtc_state->mml_src_roi[1].height << 16 |
+						mtk_crtc_state->mml_src_roi[1].width;
 			}
 		}
 	}
