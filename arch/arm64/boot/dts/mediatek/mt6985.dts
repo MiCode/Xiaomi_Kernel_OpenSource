@@ -13420,7 +13420,10 @@
 		reg-names = "base";
 		mediatek,ccd = <&remoteproc_ccd>;
 		power-domains = <&scpsys MT6985_POWER_DOMAIN_CAM_MAIN>;
+		interrupts = <GIC_SPI 510 IRQ_TYPE_LEVEL_HIGH 0>,
+			<GIC_SPI 511 IRQ_TYPE_LEVEL_HIGH 0>;
 		operating-points-v2 = <&opp_table_cam>;
+		mboxes = <&gce_m 21 0 CMDQ_THR_PRIO_1>;
 		clocks = <&mmdvfs_clk CLK_MMDVFS_CAM>;
 		clock-names = "mmdvfs_clk";
 	};
@@ -13437,6 +13440,8 @@
 		power-domains = <&scpsys MT6985_POWER_DOMAIN_CAM_MAIN>;
 		clocks = <&camsys_main_clk CLK_CAM_MAIN_CAM_CON_0>,
 			<&camsys_main_clk CLK_CAM_MAIN_CAMTG_CON_0>,
+			<&camsys_main_clk CLK_CAM_MAIN_ADLRD_CON_0>,
+			<&camsys_main_clk CLK_CAM_MAIN_ADLWR_CON_0>,
 			<&camsys_rawa_clk CLK_CAM_RA_LARBX>,
 			<&camsys_rawa_clk CLK_CAM_RA_CAM>,
 			<&camsys_rawa_clk CLK_CAM_RA_CAMTG>,
@@ -13563,6 +13568,8 @@
 		power-domains = <&scpsys MT6985_POWER_DOMAIN_CAM_MAIN>;
 		clocks = <&camsys_main_clk CLK_CAM_MAIN_CAM_CON_0>,
 			<&camsys_main_clk CLK_CAM_MAIN_CAMTG_CON_0>,
+			<&camsys_main_clk CLK_CAM_MAIN_ADLRD_CON_0>,
+			<&camsys_main_clk CLK_CAM_MAIN_ADLWR_CON_0>,
 			<&camsys_rawb_clk CLK_CAM_RB_LARBX>,
 			<&camsys_rawb_clk CLK_CAM_RB_CAM>,
 			<&camsys_rawb_clk CLK_CAM_RB_CAMTG>,
@@ -13689,6 +13696,8 @@
 		power-domains = <&scpsys MT6985_POWER_DOMAIN_CAM_MAIN>;
 		clocks = <&camsys_main_clk CLK_CAM_MAIN_CAM_CON_0>,
 			<&camsys_main_clk CLK_CAM_MAIN_CAMTG_CON_0>,
+			<&camsys_main_clk CLK_CAM_MAIN_ADLRD_CON_0>,
+			<&camsys_main_clk CLK_CAM_MAIN_ADLWR_CON_0>,
 			<&camsys_rawc_clk CLK_CAM_RC_LARBX>,
 			<&camsys_rawc_clk CLK_CAM_RC_CAM>,
 			<&camsys_rawc_clk CLK_CAM_RC_CAMTG>,
