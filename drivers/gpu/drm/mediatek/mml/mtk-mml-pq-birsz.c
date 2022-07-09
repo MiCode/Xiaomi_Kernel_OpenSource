@@ -30,15 +30,15 @@
 #define BIRSZ_RESET		0x02c
 #define BIRSZ_INTEN		0x030
 #define BIRSZ_INTSTA		0x034
-#define BIRSZ_STATUS		0x040
-#define BIRSZ_INPUT_COUNT	0x044
-#define BIRSZ_OUTPUT_COUNT	0x048
-#define BIRSZ_CHKSUM		0x04c
-#define BIRSZ_DUMMY_REG		0x050
-#define BIRSZ_ATPG		0x054
-#define BIRSZ_SHADOW_CTRL	0x058
-#define BIRSZ_DGB_SEL		0x05c
-#define BIRSZ_DBG_RDATA		0x060
+#define BIRSZ_STATUS		0x038
+#define BIRSZ_INPUT_COUNT	0x03c
+#define BIRSZ_OUTPUT_COUNT	0x040
+#define BIRSZ_CHKSUM		0x044
+#define BIRSZ_DUMMY_REG		0x048
+#define BIRSZ_ATPG		0x04c
+#define BIRSZ_SHADOW_CTRL	0x050
+#define BIRSZ_DGB_SEL		0x054
+#define BIRSZ_DBG_RDATA		0x058
 
 #define TILE_SCALER_SUBPIXEL_SHIFT	20
 
@@ -302,6 +302,7 @@ static s32 birsz_prepare(struct mml_comp *comp, struct mml_task *task,
 static void birsz_init(struct cmdq_pkt *pkt, const phys_addr_t base_pa)
 {
 	cmdq_pkt_write(pkt, NULL, base_pa + BIRSZ_EN, 0x1, U32_MAX);
+	cmdq_pkt_write(pkt, NULL, base_pa + BIRSZ_CFG, 0x2, U32_MAX);
 	/* Enable shadow */
 	cmdq_pkt_write(pkt, NULL, base_pa + BIRSZ_SHADOW_CTRL, 0x2, U32_MAX);
 }

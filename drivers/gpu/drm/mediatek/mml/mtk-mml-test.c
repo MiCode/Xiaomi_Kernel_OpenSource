@@ -798,7 +798,9 @@ static void setup_2in_2out(struct mml_submit *task, struct mml_ut *cur)
 	/* config dest[1] info data and buf */
 	task->info.dest_cnt = 2;
 	task->buffer.dest_cnt = 2;
+	task->info.dest[0].pq_config.en = true;
 	task->info.dest[0].pq_config.en_region_pq = true;
+	task->info.dest[0].pq_config.en_sharp = true;
 	fillin_info_data(the_case.cfg_dest1_format,
 		the_case.cfg_dest1_w, the_case.cfg_dest1_h,
 		&task->info.dest[1].data);
@@ -1462,6 +1464,9 @@ static ssize_t test_read(struct file *filep, char __user *buf, size_t size,
 	user_case.cfg_src_format = the_case.cfg_src_format;
 	user_case.cfg_src_w = the_case.cfg_src_w;
 	user_case.cfg_src_h = the_case.cfg_src_h;
+	user_case.cfg_src1_format = the_case.cfg_src1_format;
+	user_case.cfg_src1_w = the_case.cfg_src1_w;
+	user_case.cfg_src1_h = the_case.cfg_src1_h;
 	user_case.cfg_dest_format = the_case.cfg_dest_format;
 	user_case.cfg_dest_w = the_case.cfg_dest_w;
 	user_case.cfg_dest_h = the_case.cfg_dest_h;
@@ -1508,6 +1513,9 @@ static ssize_t test_write(struct file *filp, const char *buf, size_t count,
 	cur.cfg_src_format = user_case.cfg_src_format;
 	cur.cfg_src_w = user_case.cfg_src_w;
 	cur.cfg_src_h = user_case.cfg_src_h;
+	cur.cfg_src1_format = user_case.cfg_src1_format;
+	cur.cfg_src1_w = user_case.cfg_src1_w;
+	cur.cfg_src1_h = user_case.cfg_src1_h;
 	cur.cfg_dest_format = user_case.cfg_dest_format;
 	cur.cfg_dest_w = user_case.cfg_dest_w;
 	cur.cfg_dest_h = user_case.cfg_dest_h;
@@ -1516,6 +1524,8 @@ static ssize_t test_write(struct file *filp, const char *buf, size_t count,
 	cur.cfg_dest1_h = user_case.cfg_dest1_h;
 	cur.fd_in = user_case.fd_in;
 	cur.size_in = user_case.size_in;
+	cur.fd_in1 = user_case.fd_in1;
+	cur.size_in1 = user_case.size_in1;
 	cur.fd_out = user_case.fd_out;
 	cur.size_out = user_case.size_out;
 	cur.fd_out1 = user_case.fd_out1;
