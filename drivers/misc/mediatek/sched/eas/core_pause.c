@@ -63,58 +63,6 @@ void attach_tasks_clone(struct list_head *tasks, struct rq *rq)
 	}
 }
 
-static void do_balance_callbacks(struct rq *rq, struct callback_head *head)
-{
-	void (*func)(struct rq *rq);
-	struct callback_head *next;
-
-	lockdep_assert_rq_held(rq);
-
-	while (head) {
-		func = (void (*)(struct rq *))head->func;
-		next = head->next;
-		head->next = NULL;
-		head = next;
-
-		func(rq);
-	}
-}
-
-static inline struct callback_head *
-__splice_balance_callbacks(struct rq *rq, bool split)
-{
-	struct callback_head *head = rq->balance_callback;
-
-	if (likely(!head))
-		return NULL;
-
-	lockdep_assert_rq_held(rq);
-	/*
-	 * Must not take balance_push_callback off the list when
-	 * splice_balance_callbacks() and balance_callbacks() are not
-	 * in the same rq->lock section.
-	 *
-	 * In that case it would be possible for __schedule() to interleave
-	 * and observe the list empty.
-	 */
-	if (split && head == &balance_push_callback)
-		head = NULL;
-	else
-		rq->balance_callback = NULL;
-
-	return head;
-}
-
-static inline struct callback_head *splice_balance_callbacks(struct rq *rq)
-{
-	return __splice_balance_callbacks(rq, true);
-}
-
-static void __balance_callbacks(struct rq *rq)
-{
-	do_balance_callbacks(rq, __splice_balance_callbacks(rq, false));
-}
-
 static void migrate_tasks(struct rq *dead_rq, struct rq_flags *rf)
 {
 	struct rq *rq = dead_rq;
@@ -156,7 +104,9 @@ static void migrate_tasks(struct rq *dead_rq, struct rq_flags *rf)
 			break;
 
 		next = pick_migrate_task(rq);
-		__balance_callbacks(rq); /* release rq->balance_callback */
+		/* prevent warn on rq_pin_lock() */
+		if (rq->balance_callback && rq->balance_callback != &balance_push_callback)
+			rq->balance_callback = NULL;
 
 		/*
 		 * Argh ... no iterator for tasks, we need to remove the
