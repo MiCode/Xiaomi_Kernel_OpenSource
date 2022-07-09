@@ -171,12 +171,35 @@ void mtk_cam_dvfs_update_clk(struct mtk_cam_device *cam)
 {
 	struct mtk_camsys_dvfs *dvfs = &cam->camsys_ctrl.dvfs_info;
 
-	if (dvfs->mmdvfs_clk && dvfs->clklv_num) {
+	if (dvfs->mmdvfs_clk && dvfs->clklv_num &&
+		(atomic_read(&dvfs->fixed_clklv) == 0)) {
 		mtk_cam_dvfs_enumget_clktarget(cam);
 		mtk_cam_dvfs_get_clkidx(cam);
 		clk_set_rate(dvfs->mmdvfs_clk, dvfs->clklv_target);
 		dev_info(cam->dev, "[%s] update idx:%d clk:%d volt:%d", __func__,
 			dvfs->clklv_idx, dvfs->clklv_target, dvfs->voltlv[dvfs->clklv_idx]);
+	}
+}
+
+/* for DC mode seamless switch to force clk level */
+void mtk_cam_dvfs_force_clk(struct mtk_cam_device *cam, bool enable)
+{
+#define FORCE_CLK_LEVEL 4
+
+	struct mtk_camsys_dvfs *dvfs = &cam->camsys_ctrl.dvfs_info;
+	unsigned int clklv = dvfs->clklv[FORCE_CLK_LEVEL];
+
+	if (dvfs->mmdvfs_clk && dvfs->clklv_num) {
+		if (enable) {
+			atomic_set(&dvfs->fixed_clklv, clklv);
+			clk_set_rate(dvfs->mmdvfs_clk, clklv);
+			dev_info(cam->dev, "[%s] force clk:%d volt:%d", __func__,
+				clklv, dvfs->voltlv[FORCE_CLK_LEVEL]);
+		} else {
+			if (atomic_cmpxchg(&dvfs->fixed_clklv, clklv, 0)) {
+				mtk_cam_dvfs_update_clk(cam);
+			}
+		}
 	}
 }
 
@@ -219,6 +242,7 @@ void mtk_cam_dvfs_init(struct mtk_cam_device *cam)
 	dvfs_info->clklv_num = clk_num;
 	dvfs_info->clklv_target = dvfs_info->clklv[0];
 	dvfs_info->clklv_idx = 0;
+	atomic_set(&dvfs_info->fixed_clklv, 0);
 	for (i = 0; i < dvfs_info->clklv_num; i++) {
 		dev_info(cam->dev, "[%s] idx=%d, clk=%d volt=%d\n",
 			 __func__, i, dvfs_info->clklv[i], dvfs_info->voltlv[i]);

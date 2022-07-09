@@ -872,7 +872,6 @@ int mtk_cam_dequeue_req_frame(struct mtk_cam_ctx *ctx,
 	struct mtk_cam_request *req, *req_prev, *req_next;
 	struct mtk_cam_request_stream_data *s_data, *s_data_pipe, *s_data_mstream, *s_data_next;
 	struct mtk_cam_request_stream_data *deq_s_data[18];
-	struct mtk_raw_pipeline *pipe = ctx->pipe;
 	/* consider running_job_list depth and mstream(2 s_data): 3*3*2 */
 	struct mtk_camsys_sensor_ctrl *sensor_ctrl = &ctx->sensor_ctrl;
 	int buf_state;
@@ -959,7 +958,8 @@ STOP_SCAN:
 				dequeued_frame_seq_no, s_data->frame_seq_no, req->done_status,
 				req->pipe_used, ctx->streaming_pipe, ctx->cam->streaming_pipe,
 				del_job, vaddr,
-				pipe->res_config.sink_fmt.width, pipe->res_config.sink_fmt.height,
+				req->raw_pipe_data[pipe_id].res.sensor_res.width,
+				req->raw_pipe_data[pipe_id].res.sensor_res.height,
 				ae_data.OBC_R1_Sum[0], ae_data.OBC_R1_Sum[1],
 				ae_data.OBC_R1_Sum[2], ae_data.OBC_R1_Sum[3],
 				ae_data.OBC_R2_Sum[0], ae_data.OBC_R2_Sum[1],

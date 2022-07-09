@@ -28,6 +28,7 @@ struct mtk_camsys_dvfs {
 	unsigned int voltlv[ISP_CLK_LEVEL_CNT];
 	unsigned int clklv_idx;
 	unsigned int clklv_target;
+	atomic_t fixed_clklv;
 	struct clk *mmdvfs_clk;
 	unsigned long updated_raw_dmas[RAW_NUM];
 	struct icc_path *qos_req[MTK_CAM_RAW_PORT_NUM];
@@ -44,6 +45,7 @@ struct mtk_camsys_dvfs {
 void mtk_cam_dvfs_init(struct mtk_cam_device *cam);
 void mtk_cam_dvfs_uninit(struct mtk_cam_device *cam);
 void mtk_cam_dvfs_update_clk(struct mtk_cam_device *cam);
+void mtk_cam_dvfs_force_clk(struct mtk_cam_device *cam, bool enable);
 
 void mtk_cam_qos_init(struct mtk_cam_device *cam);
 void mtk_cam_qos_bw_reset(struct mtk_cam_ctx *ctx);

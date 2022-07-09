@@ -53,7 +53,7 @@ static inline void mtk_cam_scen_update_dbg_str(struct mtk_cam_scen *scen)
 	case MTK_CAM_SCEN_ODT_NORMAL:
 	case MTK_CAM_SCEN_M2M_NORMAL:
 		snprintf(scen->dbg_str, 15, "%d:%d:%d:%d",
-			 scen->scen.normal.max_exp_num, scen->scen.normal.exp_order,
+			 scen->scen.normal.max_exp_num, scen->scen.normal.exp_num,
 			 scen->scen.normal.w_chn_supported, scen->scen.normal.frame_order);
 		break;
 	case MTK_CAM_SCEN_TIMESHARE:

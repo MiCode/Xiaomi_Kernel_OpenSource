@@ -3351,7 +3351,6 @@ static void mtk_cam_seamless_switch_work(struct work_struct *work)
 			__func__, req_work, s_data);
 		return;
 	}
-
 	req = mtk_cam_s_data_get_req(s_data);
 	if (!req) {
 		pr_info("%s s_data(%p), req(%p), dropped\n",
@@ -3377,6 +3376,7 @@ static void mtk_cam_seamless_switch_work(struct work_struct *work)
 		fmt.pad, s_data->seninf_fmt.format.width,
 		s_data->seninf_fmt.format.height,
 		s_data->seninf_fmt.format.code);
+
 
 	if (mtk_cam_req_frame_sync_start(req))
 		dev_dbg(cam->dev, "%s:%s:ctx(%d): sensor ctrl with frame sync - start\n",
@@ -3436,16 +3436,20 @@ static void mtk_cam_seamless_switch_work(struct work_struct *work)
 	state_transition(&s_data->state, E_STATE_CAMMUX_OUTER_CFG_DELAY, E_STATE_INNER);
 }
 
-static void mtk_cam_handle_seamless_switch(struct mtk_cam_request_stream_data *s_data)
+static bool mtk_cam_handle_seamless_switch(struct mtk_cam_request_stream_data *s_data)
 {
 	struct mtk_cam_ctx *ctx = mtk_cam_s_data_get_ctx(s_data);
 	struct mtk_cam_device *cam = ctx->cam;
+	bool ret = false;
 
 	if (s_data->flags & MTK_CAM_REQ_S_DATA_FLAG_SENSOR_MODE_UPDATE_T1) {
+		ret = mtk_cam_hw_mode_is_dc(ctx->pipe->hw_mode) ? true : false;
 		state_transition(&s_data->state, E_STATE_OUTER, E_STATE_CAMMUX_OUTER_CFG);
 		INIT_WORK(&s_data->seninf_s_fmt_work.work, mtk_cam_seamless_switch_work);
 		queue_work(cam->link_change_wq, &s_data->seninf_s_fmt_work.work);
 	}
+
+	return ret;
 }
 
 static void mtk_cam_link_change_worker(struct work_struct *work)
@@ -3568,6 +3572,7 @@ static void mtk_camsys_raw_cq_done(struct mtk_raw_device *raw_dev,
 	struct mtk_cam_request *req;
 	struct mtk_cam_request_stream_data *req_stream_data;
 	struct mtk_cam_scen *scen;
+	bool fixed_clklv = false;
 	int toggle_db_check = false;
 	int type;
 
@@ -3676,7 +3681,7 @@ static void mtk_camsys_raw_cq_done(struct mtk_raw_device *raw_dev,
 				dev_dbg(raw_dev->dev,
 					"[CQD] req:%d, CQ->OUTER state:%d\n",
 					req_stream_data->frame_seq_no, state_entry->estate);
-				mtk_cam_handle_seamless_switch(req_stream_data);
+				fixed_clklv = mtk_cam_handle_seamless_switch(req_stream_data);
 				scen = req_stream_data->feature.scen;
 				if (mtk_cam_scen_is_mstream(scen)) {
 					atomic_set(&sensor_ctrl->isp_enq_seq_no,
@@ -3691,6 +3696,10 @@ static void mtk_camsys_raw_cq_done(struct mtk_raw_device *raw_dev,
 		}
 	}
 	spin_unlock(&sensor_ctrl->camsys_state_lock);
+
+	/* force clk level for DC mode */
+	if (fixed_clklv)
+		mtk_cam_dvfs_force_clk(ctx->cam, true);
 
 	/* initial CQ done */
 	if (raw_dev->sof_count == 0) {
@@ -4364,6 +4373,12 @@ void mtk_camsys_frame_done(struct mtk_cam_ctx *ctx,
 	req_stream_data = mtk_cam_get_req_s_data(ctx, pipe_id, frame_seq_no);
 	if (req_stream_data) {
 		req = mtk_cam_s_data_get_req(req_stream_data);
+
+		/* cancel force clk level for DC mode */
+		if (req_stream_data->flags & MTK_CAM_REQ_S_DATA_FLAG_SENSOR_MODE_UPDATE_T1)
+			if (mtk_cam_hw_mode_is_dc(ctx->pipe->hw_mode))
+				mtk_cam_dvfs_force_clk(ctx->cam, false);
+
 	} else {
 		dev_info(ctx->cam->dev, "%s:ctx-%d:pipe-%d:req(%d) not found!\n",
 			 __func__, ctx->stream_id, pipe_id, frame_seq_no);
