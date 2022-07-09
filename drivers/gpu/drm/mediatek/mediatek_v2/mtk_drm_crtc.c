@@ -4649,7 +4649,7 @@ static void mtk_drm_ovl_bw_monitor_ratio_prework(struct drm_crtc *crtc,
 					display_compress_ratio_table[index].active = 1;
 			}
 		} else if ((plane_index < MAX_LAYER_RATIO_NUMBER) &&
-				(plane_state->pending.enable) && (need_skip != 1)) {
+				(plane_state->pending.enable) && (need_skip != 1) && (index >= 0)) {
 			display_compress_ratio_table[index].frame_idx = frame_idx;
 			display_compress_ratio_table[index].key_value = frame_idx +
 				plane_state->prop_val[PLANE_PROP_BUFFER_ALLOC_ID];
