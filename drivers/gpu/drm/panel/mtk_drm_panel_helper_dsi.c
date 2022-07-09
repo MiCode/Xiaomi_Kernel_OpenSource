@@ -797,6 +797,20 @@ static void parse_lcm_dsi_fps_ext_param(struct device_node *np,
 					0, MIPITX_PHY_LANE_NUM);
 		}
 	}
+
+	mtk_lcm_dts_read_u32(np,
+			"lcm-params-dsi-lcm_is_support_od", &ret);
+	if (ret == 0)
+		ext_param->is_support_od = false;
+	else
+		ext_param->is_support_od = true;
+
+	mtk_lcm_dts_read_u32(np,
+			"lcm-params-dsi-lcm_is_support_dmr", &ret);
+	if (ret == 0)
+		ext_param->is_support_dmr = false;
+	else
+		ext_param->is_support_dmr = true;
 }
 
 static void parse_lcm_dsi_fpga_settings(struct device_node *np,
@@ -1416,6 +1430,30 @@ int parse_lcm_ops_dsi(struct device_node *np,
 		return ret;
 	}
 
+	ret = parse_lcm_ops_func(np,
+				&ops->set_elvss_cmdq,
+				"set_elvss_cmdq_table",
+				ops->flag_len,
+				MTK_LCM_FUNC_DSI,  cust,
+				MTK_LCM_PHASE_KERNEL);
+	if (ret < 0) {
+		DDPMSG("%s, %d failed to parsing set_elvss_cmdq_table, ret:%d\n",
+			__func__, __LINE__, ret);
+		return ret;
+	}
+
+	ret = parse_lcm_ops_func(np,
+				&ops->set_backlight_elvss_cmdq,
+				"set_backlight_elvss_cmdq_table",
+				ops->flag_len,
+				MTK_LCM_FUNC_DSI,  cust,
+				MTK_LCM_PHASE_KERNEL);
+	if (ret < 0) {
+		DDPMSG("%s, %d failed to parsing set_backlight_elvss_cmdq_table, ret:%d\n",
+			__func__, __LINE__, ret);
+		return ret;
+	}
+
 	LCM_KZALLOC(ops->ata_id_value_data,
 			MTK_PANEL_ATA_ID_LENGTH, GFP_KERNEL);
 	if (IS_ERR_OR_NULL(ops->ata_id_value_data)) {
@@ -1564,6 +1602,19 @@ int parse_lcm_ops_dsi(struct device_node *np,
 				MTK_LCM_PHASE_KERNEL);
 	if (ret < 0) {
 		DDPMSG("%s, %d failed to parsing msync_default_mte, ret:%d\n",
+			__func__, __LINE__, ret);
+		return ret;
+	}
+
+	mtk_lcm_dts_read_u32(np, "read_panelid_len",
+				&ops->read_panelid_len);
+	ret = parse_lcm_ops_func(np,
+				&ops->read_panelid, "read_panelid_table",
+				ops->flag_len,
+				MTK_LCM_FUNC_DSI, cust,
+				MTK_LCM_PHASE_KERNEL);
+	if (ret < 0) {
+		DDPMSG("%s, %d failed to parsing read_panelid, ret:%d\n",
 			__func__, __LINE__, ret);
 		return ret;
 	}
@@ -1965,6 +2016,10 @@ static void dump_lcm_dsi_fps_ext_param(struct mtk_panel_params *ext_param, unsig
 				ext_param->lane_swap[i][MIPITX_PHY_LANE_RX]);
 		}
 	}
+
+	DDPDUMP("od:%d, de-mura:%d\n",
+		ext_param->is_support_od,
+		ext_param->is_support_dmr);
 }
 
 /* dump dsi fps settings*/
@@ -2064,6 +2119,10 @@ void dump_lcm_ops_dsi(struct mtk_lcm_ops_dsi *ops,
 	dump_lcm_ops_table(&ops->disable, cust, "disable");
 	dump_lcm_ops_table(&ops->set_backlight_cmdq,
 		cust, "set_backlight_cmdq");
+	dump_lcm_ops_table(&ops->set_elvss_cmdq,
+		cust, "set_elvss_cmdq");
+	dump_lcm_ops_table(&ops->set_backlight_elvss_cmdq,
+		cust, "set_backlight_elvss_cmdq");
 
 	DDPDUMP("ata_id_value_length=%u\n",
 		ops->ata_id_value_length);
@@ -2103,6 +2162,9 @@ void dump_lcm_ops_dsi(struct mtk_lcm_ops_dsi *ops,
 	dump_lcm_ops_table(&ops->msync_set_min_fps, cust, "msync_set_min_fps");
 	dump_lcm_ops_table(&ops->msync_close_mte, cust, "msync_close_mte");
 	dump_lcm_ops_table(&ops->msync_default_mte, cust, "msync_default_mte");
+
+	DDPDUMP("read_panelid_len: %u\n", ops->read_panelid_len);
+	dump_lcm_ops_table(&ops->read_panelid, cust, "read_panelid");
 
 	if (params != NULL && params->mode_count > 0) {
 		list_for_each_entry(mode_node, &params->mode_list, list) {
@@ -2262,6 +2324,8 @@ void free_lcm_ops_dsi(struct mtk_lcm_ops_dsi *ops,
 #endif
 
 	free_lcm_ops_table(&ops->set_backlight_cmdq, cust);
+	free_lcm_ops_table(&ops->set_elvss_cmdq, cust);
+	free_lcm_ops_table(&ops->set_backlight_elvss_cmdq, cust);
 	if (ops->ata_id_value_length > 0 &&
 	    ops->ata_id_value_data != NULL) {
 		LCM_KFREE(ops->ata_id_value_data,
@@ -2279,6 +2343,7 @@ void free_lcm_ops_dsi(struct mtk_lcm_ops_dsi *ops,
 	free_lcm_ops_table(&ops->msync_set_min_fps, cust);
 	free_lcm_ops_table(&ops->msync_close_mte, cust);
 	free_lcm_ops_table(&ops->msync_default_mte, cust);
+	free_lcm_ops_table(&ops->read_panelid, cust);
 
 	LCM_KFREE(ops, sizeof(struct mtk_lcm_ops_dsi));
 }

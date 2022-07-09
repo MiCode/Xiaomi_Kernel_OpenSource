@@ -2401,6 +2401,31 @@ static void process_dbg_opt(const char *opt)
 		}
 
 		__mtkfb_set_backlight_level(level, 0, 0x1<<SET_BACKLIGHT_LEVEL, false);
+	} else if (strncmp(opt, "backlight_elvss:", 16) == 0) {
+		unsigned int level;
+		int ret;
+
+		ret = sscanf(opt, "backlight_elvss:%u\n", &level);
+		if (ret != 1) {
+			DDPPR_ERR("%d error to parse cmd %s\n",
+				__LINE__, opt);
+			return;
+		}
+
+		__mtkfb_set_backlight_level(level, 0,
+				(0x1 << SET_BACKLIGHT_LEVEL) | (0x1 << SET_ELVSS_PN), false);
+	} else if (strncmp(opt, "elvss:", 6) == 0) {
+		unsigned int level;
+		int ret;
+
+		ret = sscanf(opt, "elvss:%u\n", &level);
+		if (ret != 1) {
+			DDPPR_ERR("%d error to parse cmd %s\n",
+				__LINE__, opt);
+			return;
+		}
+
+		__mtkfb_set_backlight_level(level, 0, (0x1 << SET_ELVSS_PN), false);
 	} else if (strncmp(opt, "backlight_grp:", 14) == 0) {
 		unsigned int level;
 		int ret;

@@ -732,6 +732,49 @@ fail:
 	return ret;
 }
 
+static int panel_init_backlight_input_data(unsigned int level, unsigned int mode,
+	struct mtk_lcm_ops_input *input)
+{
+	u8 *data = NULL;
+	unsigned int count = 0;
+	int ret = 0;
+
+	if (mode <= 0xff) {
+		count = 1;
+		if (mtk_lcm_create_input(input, count,
+				MTK_LCM_INPUT_TYPE_CURRENT_BACKLIGHT) < 0) {
+			DDPPR_ERR("%s, %d failed to alloc data\n", __func__, __LINE__);
+			ret = -ENOMEM;
+			goto end;
+		}
+		data = (u8 *)input->data;
+		*data = level;
+	} else if (mode <= 0xffff) {
+		count = 2;
+		level = level * 4095 / 255;
+		if (mtk_lcm_create_input(input, count,
+				MTK_LCM_INPUT_TYPE_CURRENT_BACKLIGHT) < 0) {
+			DDPPR_ERR("%s, %d ended to alloc data\n", __func__, __LINE__);
+			ret = -ENOMEM;
+			goto end;
+		}
+		data = (u8 *)input->data;
+		data[0] = ((level >> 8) & 0xf);
+		data[1] = (level & 0xff);
+	} else {
+		DDPPR_ERR("%s, %d, invalid backlight mode:0x%x\n",
+			__func__, __LINE__, mode);
+		ret = -EINVAL;
+		goto end;
+	}
+
+	DDPINFO("%s, %d, mode:0x%x, level:0x%x, count:%u, data:0x%x, 0x%x\n",
+		__func__, __LINE__, mode, level, count,
+		data[0], count > 1 ? data[1] : 0);
+end:
+	return ret;
+}
+
 static int panel_set_backlight(void *dsi, dcs_write_gce cb,
 	void *handle, unsigned int level, struct mtk_lcm_ops_table *table,
 	unsigned int mode)
@@ -741,8 +784,6 @@ static int panel_set_backlight(void *dsi, dcs_write_gce cb,
 	unsigned int prop = MTK_LCM_DSI_CMD_PROP_CMDQ |
 				MTK_LCM_DSI_CMD_PROP_CMDQ_FORCE |
 				MTK_LCM_DSI_CMD_PROP_PACK;
-	unsigned int count = 0;
-	u8 *data = NULL;
 	int ret = 0;
 
 	if (IS_ERR_OR_NULL(table) || table->size == 0)
@@ -754,38 +795,8 @@ static int panel_set_backlight(void *dsi, dcs_write_gce cb,
 	if (mtk_lcm_create_input_packet(&input, 1, 0) < 0)
 		return -ENOMEM;
 
-	if (mode <= 0xff) {
-		count = 1;
-		if (mtk_lcm_create_input(input.data, count,
-				MTK_LCM_INPUT_TYPE_CURRENT_BACKLIGHT) < 0) {
-			DDPPR_ERR("%s, %d failed to alloc data\n", __func__, __LINE__);
-			ret = -ENOMEM;
-			goto fail;
-		}
-		data = (u8 *)input.data->data;
-		*data = level;
-	} else if (mode <= 0xffff) {
-		count = 2;
-		level = level * 4095 / 255;
-		if (mtk_lcm_create_input(input.data, count,
-				MTK_LCM_INPUT_TYPE_CURRENT_BACKLIGHT) < 0) {
-			DDPPR_ERR("%s, %d failed to alloc data\n", __func__, __LINE__);
-			ret = -ENOMEM;
-			goto fail;
-		}
-		data = (u8 *)input.data->data;
-		data[0] = ((level >> 8) & 0xf);
-		data[1] = (level & 0xff);
-	} else {
-		DDPPR_ERR("%s, %d, invalid backlight mode:0x%x\n",
-			__func__, __LINE__, mode);
-		ret = -EINVAL;
+	if (panel_init_backlight_input_data(level, mode, input.data) < 0)
 		goto fail;
-	}
-
-	DDPMSG("%s, %d, mode:0x%x, level:0x%x, count:%u, data:0x%x, 0x%x\n",
-		__func__, __LINE__, mode, level, count,
-		data[0], count > 1 ? data[1] : 0);
 
 	if (mtk_lcm_support_cb == 0)
 		ret = mtk_panel_execute_operation(dsi_dev, table,
@@ -1847,6 +1858,256 @@ static int mtk_panel_cust_funcs(struct drm_panel *panel, int cmd, void *params,
 	return -EINVAL;
 }
 
+static int mtk_panel_read_panelid(struct drm_panel *panel, struct mtk_oddmr_panelid *panelid)
+{
+	struct mtk_panel_context *ctx_dsi = panel_to_lcm(panel);
+	struct mtk_lcm_ops_dsi *ops = NULL;
+	struct mipi_dsi_device *dsi_dev = NULL;
+	struct mtk_lcm_ops_input_packet input;
+	unsigned int prop = MTK_LCM_DSI_CMD_PROP_CMDQ |
+				MTK_LCM_DSI_CMD_PROP_CMDQ_FORCE |
+				MTK_LCM_DSI_CMD_PROP_PACK;
+	u8 *data = NULL;
+	const struct mtk_panel_cust *cust = NULL;
+#ifdef LCM_DEBUG_PANLEID
+	unsigned int i = 0;
+#endif
+	unsigned int len = 0;
+	int ret = 0;
+
+	if (IS_ERR_OR_NULL(panelid)) {
+		DDPMSG("%s, invalid output buffer\n", __func__);
+		return -EINVAL;
+	}
+
+	DDPMSG("%s+\n", __func__);
+	if (IS_ERR_OR_NULL(ctx_dsi) ||
+		IS_ERR_OR_NULL(ctx_dsi->panel_resource)) {
+		DDPMSG("%s, invalid ctx or panel resource\n", __func__);
+		return -EINVAL;
+	}
+
+	cust = ctx_dsi->panel_resource->cust;
+	if (cust != NULL &&
+		cust->ext_funcs.read_panelid != NULL)
+		return cust->ext_funcs.read_panelid(panel, panelid);
+
+	ops = ctx_dsi->panel_resource->ops.dsi_ops;
+	dsi_dev = to_mipi_dsi_device(ctx_dsi->dev);
+	len = ops->read_panelid_len;
+	if (IS_ERR_OR_NULL(ops) || len == 0) {
+		DDPPR_ERR("%s, invalid ops, len:%u\n", __func__, len);
+		return -EFAULT;
+	}
+
+	if (mtk_lcm_create_input_packet(&input, 1, 0) < 0) {
+		DDPPR_ERR("%s, failed to create input packet\n", __func__);
+		return -ENOMEM;
+	}
+
+	if (mtk_lcm_create_input(input.data, len,
+			MTK_LCM_INPUT_TYPE_READBACK) < 0) {
+		DDPPR_ERR("%s, failed to create read buffer\n", __func__);
+		goto fail;
+	}
+
+	ret = mtk_panel_execute_operation(dsi_dev,
+			&ops->read_panelid, ctx_dsi->panel_resource,
+			&input, NULL, NULL, prop, "read_panelid");
+	if (ret < 0) {
+		DDPPR_ERR("%s,%d: failed to read_panelid, %d\n",
+			__func__, __LINE__, ret);
+		goto end;
+	}
+
+	data = (u8 *)input.data->data;
+	memcpy(panelid->data, data, len);
+	panelid->len = len;
+	ret = len;
+
+#ifdef LCM_DEBUG_PANLEID
+	for (i = 0; i < len; i++) {
+		DDPMSG("%s, panelid[%u]= 0x%x 0x%x\n", __func__, i,
+			(unsigned int)data[i], (unsigned int)panelid->data[i]);
+	}
+#endif
+
+end:
+	mtk_lcm_destroy_input(input.data);
+fail:
+	mtk_lcm_destroy_input_packet(&input);
+
+	DDPMSG("%s-, len:%u\n", __func__, panelid->len);
+	return ret;
+}
+
+static int mtk_panel_set_bl_elvss_cmdq(void *dsi, dcs_grp_write_gce cb,
+				 void *handle, struct mtk_bl_ext_config *bl_ext_config)
+{
+	struct mtk_lcm_ops_dsi *ops = NULL;
+	struct mtk_lcm_ops_table *table = NULL;
+	struct mipi_dsi_device *dsi_dev = NULL;
+	struct mtk_lcm_ops_input_packet input;
+	unsigned int prop = MTK_LCM_DSI_CMD_PROP_CMDQ |
+				MTK_LCM_DSI_CMD_PROP_CMDQ_FORCE |
+				MTK_LCM_DSI_CMD_PROP_PACK;
+	const struct mtk_panel_cust *cust = NULL;
+	u8 *data = NULL;
+	int pulses = 0, ret = 0;
+	char owner[128] = { 0 };
+	bool update_bl = false;
+
+	if (cb == NULL || bl_ext_config == NULL) {
+		DDPPR_ERR("%s, %d, invalid param\n", __func__, __LINE__);
+		return -EINVAL;
+	}
+
+	if (IS_ERR_OR_NULL(ctx_dsi) ||
+		IS_ERR_OR_NULL(ctx_dsi->panel_resource)) {
+		DDPMSG("%s, invalid ctx or panel resource\n", __func__);
+		return -EINVAL;
+	}
+
+	cust = ctx_dsi->panel_resource->cust;
+	if (cust != NULL &&
+		cust->ext_funcs.set_bl_elvss_cmdq != NULL)
+		return cust->ext_funcs.set_bl_elvss_cmdq(dsi,
+				cb, handle, bl_ext_config);
+
+	ops = ctx_dsi->panel_resource->ops.dsi_ops;
+	dsi_dev = to_mipi_dsi_device(ctx_dsi->dev);
+	if (IS_ERR_OR_NULL(ops)) {
+		DDPPR_ERR("%s, invalid ops\n", __func__);
+		return -EFAULT;
+	}
+
+
+	if (bl_ext_config->elvss_pn < 1)
+		pulses = 1;
+	else if (bl_ext_config->elvss_pn > 41)
+		pulses = 41;
+	else
+		pulses = bl_ext_config->elvss_pn;
+
+	if ((bl_ext_config->cfg_flag & (0x1<<SET_BACKLIGHT_LEVEL)) &&
+			(bl_ext_config->cfg_flag & (0x1<<SET_ELVSS_PN))) {
+		table = &ops->set_backlight_elvss_cmdq;
+		if (table == NULL) {
+			DDPPR_ERR("%s, invalid bl_elvss table\n", __func__);
+			return -EFAULT;
+		}
+
+		ret = snprintf(owner, sizeof(owner), "set_backlight_elvss");
+		if (ret < 0) {
+			DDPMSG("%s, %d, failed to set owner:bl_elvss, ret:%d\n",
+				__func__, __LINE__, ret);
+			ret = 0;
+		}
+
+		if (mtk_lcm_create_input_packet(&input, 2, 0) < 0) {
+			DDPPR_ERR("%s, failed to create input packet\n", __func__);
+			return -ENOMEM;
+		}
+
+		/*init backlight input data*/
+		ret = panel_init_backlight_input_data(bl_ext_config->backlight_level,
+					ops->set_backlight_mask, &input.data[0]);
+		if (ret < 0)
+			goto fail;
+		update_bl = true;
+
+		/*init elvss input data*/
+		ret = mtk_lcm_create_input(&input.data[1], 1,
+				MTK_LCM_INPUT_TYPE_MISC);
+		if (ret < 0) {
+			DDPPR_ERR("%s, %d failed to alloc elvss data\n", __func__, __LINE__);
+			goto end;
+		}
+		data = (u8 *)input.data[1].data;
+		*data = (u8)((1<<7)|pulses);
+	} else if ((bl_ext_config->cfg_flag & (0x1<<SET_BACKLIGHT_LEVEL))) {
+		table = &ops->set_backlight_cmdq;
+		if (table == NULL) {
+			DDPPR_ERR("%s, invalid bl table\n", __func__);
+			return -EFAULT;
+		}
+
+		ret = snprintf(owner, sizeof(owner), "set_backlight");
+		if (ret < 0) {
+			DDPMSG("%s, %d, failed to set owner:bl, ret:%d\n",
+				__func__, __LINE__, ret);
+			ret = 0;
+		}
+
+		if (mtk_lcm_create_input_packet(&input, 1, 0) < 0) {
+			DDPPR_ERR("%s, failed to create input packet\n", __func__);
+			return -ENOMEM;
+		}
+
+		/*init backlight input data*/
+		ret = panel_init_backlight_input_data(bl_ext_config->backlight_level,
+					ops->set_backlight_mask, input.data);
+		if (ret < 0)
+			goto fail;
+		update_bl = true;
+	} else if ((bl_ext_config->cfg_flag & (0x1<<SET_ELVSS_PN))) {
+		table = &ops->set_elvss_cmdq;
+		if (table == NULL) {
+			DDPPR_ERR("%s, invalid elvss table\n", __func__);
+			return -EFAULT;
+		}
+
+		ret = snprintf(owner, sizeof(owner), "set_elvss");
+		if (ret < 0) {
+			DDPMSG("%s, %d, failed to set owner:elvss, ret:%d\n",
+				__func__, __LINE__, ret);
+			ret = 0;
+		}
+
+		if (mtk_lcm_create_input_packet(&input, 1, 0) < 0) {
+			DDPPR_ERR("%s, failed to create input packet\n", __func__);
+			return -ENOMEM;
+		}
+
+		/*init elvss input data*/
+		ret = mtk_lcm_create_input(input.data, 1,
+				MTK_LCM_INPUT_TYPE_MISC);
+		if (ret < 0) {
+			DDPPR_ERR("%s, %d failed to alloc elvss data\n", __func__, __LINE__);
+			goto fail;
+		}
+		data = (u8 *)input.data->data;
+		*data = (u8)((1<<7)|pulses);
+	}
+
+	DDPINFO("%s: %s,flag:0x%x,bl=%d,pulses:%d,mode:0x%x,update_bl:%d\n",
+		__func__, owner, bl_ext_config->cfg_flag,
+		bl_ext_config->backlight_level, pulses,
+		ops->set_backlight_mask, update_bl);
+
+	if (mtk_lcm_support_cb == 0)
+		ret = mtk_panel_execute_operation(dsi_dev, table,
+				ctx_dsi->panel_resource, &input, handle, NULL,
+				prop, owner);
+	else
+		ret = mtk_panel_execute_callback_group(dsi, cb, handle,
+				table, &input, owner);
+	if (ret < 0) {
+		DDPPR_ERR("%s, %d failed to %s, %d\n", __func__, __LINE__, owner, ret);
+		goto end;
+	}
+
+	if (update_bl == true)
+		atomic_set(&ctx_dsi->current_backlight, bl_ext_config->backlight_level);
+
+end:
+	mtk_lcm_destroy_input(input.data);
+fail:
+	mtk_lcm_destroy_input_packet(&input);
+
+	return ret;
+}
+
 static struct mtk_panel_funcs mtk_drm_panel_ext_funcs = {
 	.set_backlight_cmdq = mtk_panel_set_backlight_cmdq,
 	.set_aod_light_mode = mtk_panel_set_aod_light_mode,
@@ -1875,6 +2136,8 @@ static struct mtk_panel_funcs mtk_drm_panel_ext_funcs = {
 	.get_lcm_version = mtk_panel_get_lcm_version,
 	.ddic_ops = mtk_panel_ddic_ops,
 	.cust_funcs = mtk_panel_cust_funcs,
+	.read_panelid = mtk_panel_read_panelid,
+	.set_bl_elvss_cmdq = mtk_panel_set_bl_elvss_cmdq,
 };
 
 static void mtk_drm_update_disp_mode_params(struct drm_display_mode *mode)

@@ -5731,14 +5731,13 @@ done:
 }
 
 int mtk_dsi_ddic_handler_read_by_gce(struct mtk_dsi *dsi,
-			struct cmdq_pkt *handle,
 			struct mipi_dsi_msg *msg,
 			int dsi_mode)
 {
 	unsigned int i = 0;
 	struct mtk_ddp_comp *comp = &dsi->ddp_comp;
 	struct mtk_drm_crtc *mtk_crtc = comp->mtk_crtc;
-	struct cmdq_pkt *handle2;
+	struct cmdq_pkt *handle, *handle2;
 	struct DSI_RX_DATA_REG read_data0 = {0, 0, 0, 0};
 	struct DSI_RX_DATA_REG read_data1 = {0, 0, 0, 0};
 	struct DSI_RX_DATA_REG read_data2 = {0, 0, 0, 0};
@@ -5767,6 +5766,9 @@ int mtk_dsi_ddic_handler_read_by_gce(struct mtk_dsi *dsi,
 		return -EINVAL;
 	}
 
+	mtk_crtc_pkt_create(&handle, &mtk_crtc->base,
+				mtk_crtc->gce_obj.client[CLIENT_CFG]);
+
 	/* Reset DISP_SLOT_READ_DDIC_BASE to 0xff00ff00 */
 	for (i = 0; i < READ_DDIC_SLOT_NUM; i++) {
 		cmdq_pkt_write(handle,
@@ -5778,13 +5780,20 @@ int mtk_dsi_ddic_handler_read_by_gce(struct mtk_dsi *dsi,
 
 	/* Todo: Support read multiple registers */
 	if (dsi_mode == 0) { /* CMD mode LP */
-		cmdq_pkt_clear_event(handle,
-				mtk_crtc->gce_obj.event[EVENT_ESD_EOF]);
+		cmdq_pkt_wait_no_clear(handle,
+				mtk_crtc->gce_obj.event[EVENT_STREAM_EOF]);
+
+		cmdq_pkt_wfe(handle,
+				mtk_crtc->gce_obj.event[EVENT_CABC_EOF]);
 
 		_mtk_mipi_dsi_read_gce(dsi, handle, msg);
+
 		cmdq_pkt_set_event(handle,
-				mtk_crtc->gce_obj.event[EVENT_ESD_EOF]);
+				mtk_crtc->gce_obj.event[EVENT_CABC_EOF]);
 	} else { /* VDO to CMD mode LP */
+		cmdq_pkt_wfe(handle,
+				mtk_crtc->gce_obj.event[EVENT_CMD_EOF]);
+
 		mtk_dsi_stop_vdo_mode(dsi, handle);
 
 		_mtk_mipi_dsi_read_gce(dsi, handle, msg);
@@ -5796,6 +5805,7 @@ int mtk_dsi_ddic_handler_read_by_gce(struct mtk_dsi *dsi,
 
 	read_ddic_chk_sta = 0;
 	cmdq_pkt_flush(handle);
+	cmdq_pkt_destroy(handle);
 
 	mtk_dsi_clear_rxrd_irq(dsi);
 
@@ -5805,10 +5815,10 @@ int mtk_dsi_ddic_handler_read_by_gce(struct mtk_dsi *dsi,
 		if (dsi_mode == 0) {
 			/* TODO: set ESD_EOF event through CPU is better */
 			mtk_crtc_pkt_create(&handle2, &mtk_crtc->base,
-				mtk_crtc->gce_obj.client[CLIENT_DSI_CFG]);
+				mtk_crtc->gce_obj.client[CLIENT_CFG]);
 
 			cmdq_pkt_set_event(handle2,
-				mtk_crtc->gce_obj.event[EVENT_ESD_EOF]);
+				mtk_crtc->gce_obj.event[EVENT_CABC_EOF]);
 			cmdq_pkt_flush(handle2);
 			cmdq_pkt_destroy(handle2);
 		}
@@ -6175,15 +6185,17 @@ static int mtk_dsi_ddic_handler_by_gce(struct mtk_dsi *dsi,
 
 	DDPINFO("%s+ prop:0x%x, channel:%u\n", __func__, prop, channel);
 	if (IS_ERR_OR_NULL(handle) &&
+	    (prop & MTK_LCM_DSI_CMD_PROP_READ) == 0 &&
 		(prop & MTK_LCM_DSI_CMD_PROP_CMDQ_FORCE) != 0) {
 		handle = cmdq_pkt_create(mtk_crtc->gce_obj.client[CLIENT_DSI_CFG]);
 		free_handle = true;
+
+		if (IS_ERR_OR_NULL(handle))
+			return -EINVAL;
 	}
 
-	if (IS_ERR_OR_NULL(handle))
-		return -EINVAL;
-
-	if ((prop & MTK_LCM_DSI_CMD_PROP_ALIGN_FRAME) != 0) {
+	if ((prop & MTK_LCM_DSI_CMD_PROP_ALIGN_FRAME) != 0 &&
+		(prop & MTK_LCM_DSI_CMD_PROP_READ) == 0) {
 		mtk_crtc_wait_frame_done(mtk_crtc, handle,
 			DDP_FIRST_PATH, 0);
 		if (dsi_mode == 0) {
@@ -6204,7 +6216,7 @@ static int mtk_dsi_ddic_handler_by_gce(struct mtk_dsi *dsi,
 			cmd->msg.channel = channel;
 			if (MTK_DSI_HOST_IS_READ(cmd->msg.type))
 				ret = mtk_dsi_ddic_handler_read_by_gce(dsi,
-							handle, &cmd->msg, dsi_mode);
+							&cmd->msg, dsi_mode);
 			else
 				ret = mtk_dsi_ddic_handler_write_by_gce(dsi,
 							handle, &cmd->msg, dsi_mode);
@@ -6221,7 +6233,8 @@ static int mtk_dsi_ddic_handler_by_gce(struct mtk_dsi *dsi,
 						handle, packet, dsi_mode, channel);
 	}
 
-	if ((prop & MTK_LCM_DSI_CMD_PROP_ALIGN_FRAME) != 0) {
+	if ((prop & MTK_LCM_DSI_CMD_PROP_ALIGN_FRAME) != 0 &&
+	    (prop & MTK_LCM_DSI_CMD_PROP_READ) == 0) {
 		if (dsi_mode == 0) {
 			cmdq_pkt_set_event(handle,
 				mtk_crtc->gce_obj.event[EVENT_STREAM_DIRTY]);
@@ -6230,37 +6243,35 @@ static int mtk_dsi_ddic_handler_by_gce(struct mtk_dsi *dsi,
 			cmdq_pkt_set_event(handle,
 				mtk_crtc->gce_obj.event[EVENT_STREAM_BLOCK]);
 		}
-		DDPMSG("%s, %d\n", __func__, __LINE__);
 	}
 
-	if ((prop & MTK_LCM_DSI_CMD_PROP_ASYNC) == 0) {
-		cmdq_pkt_flush(handle);
-		if (free_handle == true)
+	if (free_handle == true) {
+		if ((prop & MTK_LCM_DSI_CMD_PROP_ASYNC) == 0) {
+			cmdq_pkt_flush(handle);
 			cmdq_pkt_destroy(handle);
-	} else {
-		DDPMSG("%s %d, send ddic async\n", __func__, __LINE__);
-		cb_data = kmalloc(sizeof(*cb_data), GFP_KERNEL);
-		if (!cb_data) {
-			DDPPR_ERR("%s:cb data creation failed\n", __func__);
-			if (free_handle == true)
+		} else {
+			cb_data = kmalloc(sizeof(*cb_data), GFP_KERNEL);
+			if (!cb_data) {
+				DDPPR_ERR("%s:cb data creation failed\n", __func__);
 				cmdq_pkt_destroy(handle);
-			return -EINVAL;
-		}
+				return -EINVAL;
+			}
 
-		handle->err_cb.cb = mtk_dsi_ddic_handler_timeout_cb;
-		cb_data->cmdq_handle = handle;
-		cb_data->crtc = crtc;
-		cb_data->ddic_packet = packet;
-		cb_data->misc = free_handle;
-		if (IS_ERR_OR_NULL(handler_cb))
-			handler_cb =  mtk_dsi_ddic_handler_default_cb;
-		cmdq_pkt_flush_threaded(handle, handler_cb, cb_data);
-		CRTC_MMP_MARK(index, ddic_send_cmd,
-				(unsigned long)cb_data->cmdq_handle,
-				(unsigned long)cb_data->ddic_packet);
+			handle->err_cb.cb = mtk_dsi_ddic_handler_timeout_cb;
+			cb_data->cmdq_handle = handle;
+			cb_data->crtc = crtc;
+			cb_data->ddic_packet = packet;
+			cb_data->misc = free_handle;
+			if (IS_ERR_OR_NULL(handler_cb))
+				handler_cb =  mtk_dsi_ddic_handler_default_cb;
+			cmdq_pkt_flush_threaded(handle, handler_cb, cb_data);
+			CRTC_MMP_MARK(index, ddic_send_cmd,
+					(unsigned long)cb_data->cmdq_handle,
+					(unsigned long)cb_data->ddic_packet);
+		}
 	}
 
-	DDPINFO("%s- ret:%d\n", __func__, ret);
+	DDPINFO("%s- ret:%d, flushed:%d\n", __func__, ret, free_handle);
 	return 0;
 }
 
@@ -6300,18 +6311,6 @@ int mtk_lcm_dsi_ddic_handler(struct mipi_dsi_device *dsi_dev, struct cmdq_pkt *h
 		DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
 	}
 
-	if (!mtk_crtc->enabled) {
-		DDPPR_ERR("crtc%d disable skip %s\n",
-			drm_crtc_index(&mtk_crtc->base), __func__);
-		ret = -EFAULT;
-		goto done;
-	} else if (mtk_crtc->ddp_mode == DDP_NO_USE) {
-		DDPPR_ERR("skip %s, ddp_mode: NO_USE\n",
-			__func__);
-		ret = -EINVAL;
-		goto done;
-	}
-
 	/* Kick idle */
 	mtk_drm_idlemgr_kick(__func__, crtc, 0);
 
@@ -6327,7 +6326,6 @@ int mtk_lcm_dsi_ddic_handler(struct mipi_dsi_device *dsi_dev, struct cmdq_pkt *h
 		ret = mtk_dsi_ddic_handler_by_gce(dsi, handle, handler_cb, packet);
 	}
 
-done:
 	if ((prop & MTK_LCM_DSI_CMD_PROP_LOCK) != 0) {
 		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 		mutex_unlock(&priv->commit.lock);

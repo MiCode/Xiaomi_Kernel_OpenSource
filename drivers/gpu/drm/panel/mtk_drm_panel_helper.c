@@ -1773,6 +1773,7 @@ static int mtk_lcm_init_ddic_packet(struct mtk_lcm_dsi_cmd_packet *packet,
 					op->param.cmd_data.flag, packet->channel);
 
 			packet->prop &= ~MTK_LCM_DSI_CMD_PROP_PACK;
+			packet->prop |= MTK_LCM_DSI_CMD_PROP_READ;
 			break;
 		}
 		case MTK_LCM_CMD_TYPE_READ_CMD:
@@ -1828,6 +1829,7 @@ static int mtk_lcm_init_ddic_packet(struct mtk_lcm_dsi_cmd_packet *packet,
 			ret = mtk_lcm_init_ddic_msg(&cmd->msg, op->type,
 					op->param.cmd_data.flag, packet->channel);
 			packet->prop &= ~MTK_LCM_DSI_CMD_PROP_PACK;
+			packet->prop |= MTK_LCM_DSI_CMD_PROP_READ;
 			break;
 		}
 		case MTK_LCM_CMD_TYPE_WRITE_BUFFER:
@@ -1933,9 +1935,11 @@ static int mtk_lcm_init_ddic_packet(struct mtk_lcm_dsi_cmd_packet *packet,
 		if ((cmd->msg.tx_len == 0 &&
 		    cmd->msg.rx_len == 0) || ret < 0 ||
 		    cmdq_size_cur > (128 - cmdq_size)) {
-			DDPINFO("%s, %d, stop packet tx:%u,rx:%u,ret:%d,sz:%u,cmdqsz:%u\n",
+#if MTK_LCM_DEBUG_DUMP
+			DDPMSG("%s, %d, stop packet tx:%u,rx:%u,ret:%d,sz:%u,cmdqsz:%u\n",
 				__func__, __LINE__, cmd->msg.tx_len,
 				cmd->msg.rx_len, ret, cmd_size, cmdq_size);
+#endif
 			LCM_KFREE(cmd, sizeof(struct mtk_lcm_dsi_cmd));
 			cmd = NULL;
 			break;
@@ -2417,17 +2421,23 @@ int mtk_panel_execute_operation(struct mipi_dsi_device *dev,
 			ret = mtk_execute_func_ddic_package(dev, handle, table,
 					input, handler_cb, prop, &op, &op_end);
 			if (ret >= 0 && op_end != NULL) {
-				DDPINFO("%s, %d, finished %s-op[%d:0x%lx-%d:0x%lx] end:0x%x\n",
+#if MTK_LCM_DEBUG_DUMP
+				DDPMSG("%s, %d, finished %s-op[%d:0x%lx-%d:0x%lx] end:0x%x\n",
 					__func__, __LINE__, owner, i,
 					(unsigned long)op, i + ret - 1,
 					(unsigned long)op_end, op_end->type);
+#endif
 				i = i + ret - 1;
 				ret = 0;
 				op = op_end;
 			} else if (op_end == NULL) {
-				DDPPR_ERR("%s, %d, failed to execute %s-op[%d] cmd:%s-0x%x\n",
-				__func__, __LINE__, owner, i, type_name, op->type);
+				DDPPR_ERR("%s, %d, not support %s-op[%d] cmd:%s-0x%x\n",
+					__func__, __LINE__, owner, i, type_name, op->type);
 				ret = -EFAULT;
+			} else if (ret < 0) {
+				DDPPR_ERR(
+					"%s, %d, failed to execute %s-op[%d] cmd:%s-0x%x, ret:%d\n",
+					__func__, __LINE__, owner, i, type_name, op->type, ret);
 			}
 #endif
 		}

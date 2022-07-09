@@ -112,6 +112,8 @@ struct mtk_ddic_dsi_cmd {
 #define MTK_LCM_DSI_CMD_PROP_LOCK        BIT(5)
 //send ddic cmd with when frame done
 #define MTK_LCM_DSI_CMD_PROP_ALIGN_FRAME BIT(6)
+//send ddic read cmd
+#define MTK_LCM_DSI_CMD_PROP_READ        BIT(7)
 
 struct mtk_lcm_dsi_cmd {
 	struct mipi_dsi_msg msg; //ddic cmd detail information

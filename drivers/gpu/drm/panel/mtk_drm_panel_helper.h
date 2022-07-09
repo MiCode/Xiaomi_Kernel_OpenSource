@@ -229,6 +229,8 @@ struct mtk_lcm_ops_dsi {
 	/* panel backlight update*/
 	unsigned int set_backlight_mask;
 	struct mtk_lcm_ops_table set_backlight_cmdq;
+	struct mtk_lcm_ops_table set_elvss_cmdq;
+	struct mtk_lcm_ops_table set_backlight_elvss_cmdq;
 
 	unsigned int set_aod_light_mask;
 	struct mtk_lcm_ops_table set_aod_light;
@@ -261,6 +263,9 @@ struct mtk_lcm_ops_dsi {
 	struct mtk_lcm_ops_table msync_set_min_fps;
 	struct mtk_lcm_ops_table msync_default_mte;
 	struct mtk_lcm_ops_table msync_close_mte;
+
+	unsigned int read_panelid_len;
+	struct mtk_lcm_ops_table read_panelid;
 
 #if MTK_LCM_DEBUG_DUMP
 	struct mtk_lcm_ops_table gpio_test;
