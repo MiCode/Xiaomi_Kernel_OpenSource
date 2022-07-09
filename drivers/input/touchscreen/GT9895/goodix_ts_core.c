@@ -745,8 +745,8 @@ static ssize_t goodix_ts_irq_info_store(struct device *dev,
 		hw_ops->irq_enable(core_data, false);
 		gt9895_polling_flag = 1;
 		ts_info("disable irq, polling mode, flag = %d", gt9895_polling_flag);
+		mutex_lock(&irq_info_mutex);
 		if (gt9895_polling_thread == NULL) {
-			mutex_lock(&irq_info_mutex);
 			gt9895_polling_thread =
 				kthread_run(gt9895_ts_event_polling,
 				0, GOODIX_CORE_DRIVER_NAME);
@@ -757,8 +757,8 @@ static ssize_t goodix_ts_irq_info_store(struct device *dev,
 				ts_err(" failed to create kernel thread: %d\n",
 					ret);
 			}
-			mutex_unlock(&irq_info_mutex);
 		}
+		mutex_unlock(&irq_info_mutex);
 		break;
 	/* change to touch irq mode */
 	case '1':
@@ -2433,7 +2433,7 @@ static int goodix_ts_probe(struct platform_device *pdev)
 
 	/* Try start a thread to get config-bin info */
 	goodix_start_later_init(core_data);
-
+	mutex_init(&irq_info_mutex);
 	ts_info("goodix_ts_core probe success");
 	return 0;
 
