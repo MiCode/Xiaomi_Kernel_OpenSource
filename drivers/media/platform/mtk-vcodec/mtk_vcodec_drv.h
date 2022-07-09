@@ -772,7 +772,8 @@ struct mtk_vcodec_dev {
 	struct regulator *vdec_reg;
 	struct regulator *venc_reg;
 	struct venc_larb_port venc_ports[MTK_VENC_HW_NUM];
-	struct tasklet_struct vdec_buf_tasklet;
+	struct workqueue_struct *vdec_buf_wq;
+	struct work_struct vdec_buf_work;
 
 	int vdec_op_rate_cnt;
 	//int venc_op_rate_cnt;

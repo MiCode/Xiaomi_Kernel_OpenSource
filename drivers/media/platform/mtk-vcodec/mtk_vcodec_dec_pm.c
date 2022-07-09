@@ -11,7 +11,7 @@
 #include <linux/pm_runtime.h>
 #include <soc/mediatek/smi.h>
 #include <linux/slab.h>
-#include <linux/interrupt.h>
+#include <linux/workqueue.h>
 //#include "smi_public.h"
 #include "mtk_vcodec_dec_pm.h"
 #include "mtk_vcodec_dec_pm_plat.h"
@@ -762,12 +762,14 @@ static void mtk_vdec_dump_addr_reg(
 	spin_unlock_irqrestore(&dev->dec_power_lock[hw_id], flags);
 }
 
-void mtk_vdec_uP_TF_dump_handler(unsigned long arg)
+void mtk_vdec_uP_TF_dump_handler(struct work_struct *ws)
 {
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
-	struct mtk_vcodec_dev *dev = (struct mtk_vcodec_dev *)arg;
+	struct mtk_vcodec_dev *dev;
 	struct mtk_vcodec_ctx *ctx;
 	struct list_head *list_ptr, *tmp;
+
+	dev = container_of(ws, struct mtk_vcodec_dev, vdec_buf_work);
 
 	mtk_v4l2_err("dec working buffer:");
 	mutex_lock(&dev->ctx_mutex);
@@ -915,7 +917,7 @@ static int mtk_vdec_uP_translation_fault_callback(
 		dec_fourcc[MTK_VDEC_CORE], vdec_hw_ipm);
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
 	/* trigger all ctx working buffer info dump (need mutex lock so can't dump at isr) */
-	tasklet_schedule(&dev->vdec_buf_tasklet);
+	queue_work(dev->vdec_buf_wq, &dev->vdec_buf_work);
 #endif
 
 	return 0;
