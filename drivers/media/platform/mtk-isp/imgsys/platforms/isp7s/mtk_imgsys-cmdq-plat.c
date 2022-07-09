@@ -1322,9 +1322,9 @@ int imgsys_cmdq_sendtask_plat7s(struct mtk_imgsys_dev *imgsys_dev,
 			memset((char *)logBuf_temp, 0x0, MTK_IMGSYS_LOG_LENGTH);
 			logBuf_temp[strlen(logBuf_temp)] = '\0';
 			ret_sn = snprintf(logBuf_temp, MTK_IMGSYS_LOG_LENGTH,
-				"Imgsys MWFrame:#%d MWReq:#%d ReqFd:%d Own:%llx gid(%d) fps(%d) dvfs_v/f(%d/%ld) freq(%ld/%ld/%ld/%ld)",
+				"Imgsys MWFrame:#%d MWReq:#%d ReqFd:%d Own:%s gid(%d) fps(%d) dvfs_v/f(%d/%ld) freq(%ld/%ld/%ld/%ld)",
 				frm_info->frame_no, frm_info->request_no,
-				frm_info->request_fd, frm_info->frm_owner,
+				frm_info->request_fd, (char *)(&(frm_info->frm_owner)),
 				frm_info->group_id, frm_info->fps,
 				dvfs_info->cur_volt, dvfs_info->cur_freq,
 				dvfs_info->freq, dvfs_info->pixel_size[0],
