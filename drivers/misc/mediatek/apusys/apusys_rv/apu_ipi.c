@@ -11,6 +11,7 @@
 #include <linux/time64.h>
 #include <linux/kernel.h>
 #include <linux/ratelimit.h>
+#include <linux/pm_runtime.h>
 
 #if IS_ENABLED(CONFIG_DEBUG_FS)
 #include <linux/debugfs.h>
@@ -128,6 +129,12 @@ int apu_ipi_send(struct mtk_apu *apu, u32 id, void *data, u32 len,
 	struct apu_mbox_hdr hdr;
 	unsigned long timeout;
 	int ret = 0;
+
+	if (!pm_runtime_enabled(apu->dev)) {
+		dev_info(dev, "%s(ipi %d): pm_runtime_enabled return false, return -EBUSY for retry\n",
+			__func__, id);
+		return -EBUSY;
+	}
 
 	ktime_get_ts64(&ts);
 
