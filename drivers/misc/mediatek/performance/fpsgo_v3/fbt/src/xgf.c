@@ -3072,11 +3072,17 @@ static void xgf_irq_handler_exit_tracer(void *ignore,
 static inline long xgf_trace_sched_switch_state(bool preempt,
 				struct task_struct *p)
 {
-	long state = xgf_get_task_state(p);
+	long state = 0;
+
+	if (!p)
+		goto out;
+
+	state = xgf_get_task_state(p);
 
 	if (preempt)
 		state = TASK_RUNNING | TASK_STATE_MAX;
 
+out:
 	return state;
 }
 
@@ -3090,9 +3096,14 @@ static void xgf_sched_switch_tracer(void *ignore,
 	int skip = 0;
 	unsigned long long ts = xgf_get_time();
 	int c_wake_cpu = xgf_get_task_wake_cpu(current);
-	int prev_pid = xgf_get_task_pid(prev);
-	int next_pid = xgf_get_task_pid(next);
+	int prev_pid;
+	int next_pid;
 
+	if (!prev || !next)
+		return;
+
+	prev_pid = xgf_get_task_pid(prev);
+	next_pid = xgf_get_task_pid(next);
 	prev_state = xgf_trace_sched_switch_state(preempt, prev);
 	temp_state = prev_state & (TASK_STATE_MAX-1);
 
@@ -3112,7 +3123,12 @@ static void xgf_sched_waking_tracer(void *ignore, struct task_struct *p)
 	unsigned long long ts = xgf_get_time();
 	int c_wake_cpu = xgf_get_task_wake_cpu(current);
 	int c_pid = xgf_get_task_pid(current);
-	int p_pid = xgf_get_task_pid(p);
+	int p_pid;
+
+	if (!p)
+		return;
+
+	p_pid = xgf_get_task_pid(p);
 
 	xgf_buffer_record_irq_waking_switch(c_wake_cpu, SCHED_WAKING,
 		p_pid, c_pid, 512, ts);
