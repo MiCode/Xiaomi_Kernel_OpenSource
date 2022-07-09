@@ -239,14 +239,6 @@ static void handle_venc_mem_alloc(struct venc_vcu_ipi_mem_op *msg)
 			msg->mem.va, msg->mem.pa, msg->mem.iova, msg->mem.len, msg->mem.type);
 	}
 
-	/* check memory bound */
-	if (msg->mem.type == MEM_TYPE_FOR_SW || msg->mem.type == MEM_TYPE_FOR_SEC_SW) {
-		if ((msg->mem.iova >> 28) != ((msg->mem.iova + msg->mem.len) >> 28)) {
-			mtk_vcodec_free_mem(&msg->mem, dev, attach, sgt);
-			msg->status = -ENOMEM;
-		}
-	}
-
 	if (msg->status) {
 		mtk_vcodec_err(vcu, "fail %d, va 0x%llx pa 0x%llx iova 0x%llx len %d type %d",
 			msg->status, msg->mem.va, msg->mem.pa,
