@@ -114,19 +114,23 @@ struct mtk_battery *get_mtk_battery(void)
 {
 	struct mtk_gauge *gauge;
 	struct power_supply *psy;
+	static struct mtk_battery *gm;
 
-	psy = power_supply_get_by_name("mtk-gauge");
-	if (psy == NULL) {
-		bm_err("[%s]psy is not rdy\n", __func__);
-		return NULL;
-	}
+	if (gm == NULL) {
+		psy = power_supply_get_by_name("mtk-gauge");
+		if (psy == NULL) {
+			bm_err("[%s]psy is not rdy\n", __func__);
+			return NULL;
+		}
 
-	gauge = (struct mtk_gauge *)power_supply_get_drvdata(psy);
-	if (gauge == NULL) {
-		bm_err("[%s]mtk_gauge is not rdy\n", __func__);
-		return NULL;
+		gauge = (struct mtk_gauge *)power_supply_get_drvdata(psy);
+		if (gauge == NULL) {
+			bm_err("[%s]mtk_gauge is not rdy\n", __func__);
+			return NULL;
+		}
+		gm = gauge->gm;
 	}
-	return gauge->gm;
+	return gm;
 }
 
 int bat_get_debug_level(void)
