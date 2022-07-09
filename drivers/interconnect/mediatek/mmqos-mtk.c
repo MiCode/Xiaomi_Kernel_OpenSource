@@ -63,7 +63,7 @@ struct mtk_mmqos {
 	struct list_head comm_list;
 	//struct workqueue_struct *wq;
 	u32 max_ratio;
-	u8 dual_pipe_enable;
+	bool dual_pipe_enable;
 	bool qos_bound; /* Todo: Set qos_bound to true if necessary */
 };
 
@@ -163,6 +163,12 @@ static int update_mm_clk(struct notifier_block *nb,
 	return 0;
 }
 
+void mtk_mmqos_is_dualpipe_enable(bool is_enable)
+{
+	gmmqos->dual_pipe_enable = is_enable;
+	pr_notice("%s: %d\n", __func__, gmmqos->dual_pipe_enable);
+}
+EXPORT_SYMBOL_GPL(mtk_mmqos_is_dualpipe_enable);
 
 s32 mtk_mmqos_system_qos_update(unsigned short qos_status)
 {
@@ -422,13 +428,7 @@ static int mtk_mmqos_set(struct icc_node *src, struct icc_node *dst)
 			mtk_smi_larb_bw_set(
 				larb_node->larb_dev,
 				MTK_M4U_TO_PORT(src->id), value);
-		if (larb_node->dual_pipe_id) {
-			if (dst->avg_bw || dst->peak_bw)
-				gmmqos->dual_pipe_enable |= (0x1 << larb_node->dual_pipe_id);
-			else
-				gmmqos->dual_pipe_enable &= ~(0x1 << larb_node->dual_pipe_id);
 
-		}
 		if (log_level & 1 << log_bw)
 			dev_notice(larb_node->larb_dev,
 				"larb=%d port=%d avg_bw:%d peak_bw:%d ostd=%#x\n",
@@ -707,11 +707,9 @@ int mtk_mmqos_probe(struct platform_device *pdev)
 
 			larb_node->channel = node_desc->channel;
 			larb_node->is_write = node_desc->is_write;
-			/* get dual pipe larb id */
-			for (j = 0; j < MMQOS_MAX_DUAL_PIPE_LARB_NUM; j++) {
-				if (node->id == mmqos_desc->dual_pipe_larbs[j])
-					larb_node->dual_pipe_id = (j + 1);
-			}
+			/* init disable dualpipe */
+			gmmqos->dual_pipe_enable = false;
+
 			for (j = 0; j < MMQOS_MAX_P2_LARB_NUM; j++) {
 				if (node->id == mmqos_desc->p2_larbs[j])
 					larb_node->is_p2_larb = true;
