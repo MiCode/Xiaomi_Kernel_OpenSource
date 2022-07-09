@@ -8100,14 +8100,21 @@ void mtk_crtc_disable_secure_state(struct drm_crtc *crtc)
 void mml_cmdq_pkt_init(struct drm_crtc *crtc, struct cmdq_pkt *cmdq_handle)
 {
 	u8 i = 0;
-	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
-	struct mml_drm_ctx *mml_ctx = mtk_drm_get_mml_drm_ctx(crtc->dev, crtc);
-	struct mtk_drm_private *priv = crtc->dev->dev_private;
+	struct mtk_drm_crtc *mtk_crtc = NULL;
+	struct mml_drm_ctx *mml_ctx = NULL;
+	struct mtk_drm_private *priv = NULL;
 	struct mtk_ddp_comp *comp = NULL;
 	const enum mtk_ddp_comp_id id[] = {DDP_COMPONENT_INLINE_ROTATE0,
 					   DDP_COMPONENT_INLINE_ROTATE1};
 
-	if (!crtc || !cmdq_handle || !mtk_crtc)
+	if (!crtc || !cmdq_handle)
+		return;
+
+	mtk_crtc = to_mtk_crtc(crtc);
+	mml_ctx = mtk_drm_get_mml_drm_ctx(crtc->dev, crtc);
+	priv = crtc->dev->dev_private;
+
+	if (!mtk_crtc)
 		return;
 
 	switch (mtk_crtc->mml_ir_state) {
