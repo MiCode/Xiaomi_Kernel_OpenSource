@@ -356,9 +356,18 @@ static int mtk_mmqos_set(struct icc_node *src, struct icc_node *dst)
 					chn_hrt_r_bw[comm_id][chnn_id] += src->peak_bw;
 					larb_node->old_peak_bw = src->peak_bw;
 				}
+
 				chn_srt_r_bw[comm_id][chnn_id] -= larb_node->old_avg_bw;
 				chn_srt_r_bw[comm_id][chnn_id] += src->avg_bw;
 				larb_node->old_avg_bw = src->avg_bw;
+
+				if (log_level & 1 << log_bw)
+					pr_notice("comm=%d chnn=%d larb=%d avg_bw:%d peak_bw:%d s_r:%d h_r:%d\n",
+						comm_id, chnn_id, LARB_ID(src->id),
+						icc_to_MBps(src->avg_bw),
+						icc_to_MBps(src->peak_bw),
+						chn_srt_r_bw[comm_id][chnn_id],
+						chn_hrt_r_bw[comm_id][chnn_id]);
 			}
 		}
 		mutex_lock(&comm_port_node->bw_lock);
