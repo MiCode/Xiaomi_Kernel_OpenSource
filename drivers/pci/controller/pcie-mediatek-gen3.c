@@ -1285,6 +1285,10 @@ static int __maybe_unused mtk_pcie_suspend_noirq(struct device *dev)
 		val = readl_relaxed(port->base + PCIE_ISTATUS_PM);
 		dev_info(port->dev, "pcie L1SS_pm=%#x\n", val);
 
+		val = readl_relaxed(port->base + PCIE_MISC_CTRL_REG);
+		val &= ~PCIE_MAC_SLP_DIS;
+		writel_relaxed(val, port->base + PCIE_MISC_CTRL_REG);
+
 		if (port->port_num == 0) {
 			val = readl_relaxed(port->pextpcfg + PEXTP_PWRCTL_0);
 			val |= PCIE_HW_MTCMOS_EN_P0;
@@ -1332,6 +1336,11 @@ static int __maybe_unused mtk_pcie_resume_noirq(struct device *dev)
 			val &= ~PCIE_HW_MTCMOS_EN_P1;
 			writel_relaxed(val, port->pextpcfg + PEXTP_PWRCTL_1);
 		}
+
+		val = readl_relaxed(port->base + PCIE_MISC_CTRL_REG);
+		val |= PCIE_MAC_SLP_DIS;
+		writel_relaxed(val, port->base + PCIE_MISC_CTRL_REG);
+
 	} else {
 		err = mtk_pcie_power_up(port);
 		if (err)
