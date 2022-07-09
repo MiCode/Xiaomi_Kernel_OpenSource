@@ -58,8 +58,10 @@ void set_i2c_buffer(struct subdrv_ctx *ctx, u16 reg, u16 val)
 		DRV_LOGE(ctx, "i2c buffer is full and forced to commit\n");
 		commit_i2c_buffer(ctx);
 	}
-	ctx->_i2c_data[ctx->_size_to_write++] = reg;
-	ctx->_i2c_data[ctx->_size_to_write++] = val;
+	if (!ctx->fast_mode_on) {
+		ctx->_i2c_data[ctx->_size_to_write++] = reg;
+		ctx->_i2c_data[ctx->_size_to_write++] = val;
+	}
 }
 
 u16 i2c_read_eeprom(struct subdrv_ctx *ctx, u16 addr)
