@@ -997,6 +997,13 @@ static void xhci_mtk_free_dcbaa(struct xhci_hcd *xhci)
 		USB_OFFLOAD_ERR("FAIL to free mem for USB Offload DCBAA\n");
 	else
 		USB_OFFLOAD_MEM_DBG("Free mem DCBAA DONE\n");
+
+	kfree(buf_seg);
+	kfree(buf_ctx);
+	kfree(buf_dcbaa);
+	buf_seg = NULL;
+	buf_ctx = NULL;
+	buf_dcbaa = NULL;
 }
 
 static int get_first_avail_buf_ctx_idx(struct xhci_hcd *xhci)
@@ -1303,6 +1310,11 @@ static int usb_offload_open(struct inode *ip, struct file *fp)
 	int i, desc_class;
 
 	USB_OFFLOAD_INFO("++\n");
+	if (!buf_dcbaa || !buf_ctx || !buf_seg) {
+		USB_OFFLOAD_ERR("USB_OFFLOAD_NOT_READY yet!!!\n");
+		return -1;
+	}
+
 	node_xhci_host = of_parse_phandle(uodev->dev->of_node, "xhci_host", 0);
 	if (node_xhci_host) {
 		pdev_xhci_host = of_find_device_by_node(node_xhci_host);
