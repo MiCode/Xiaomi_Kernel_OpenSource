@@ -3517,6 +3517,18 @@ mtk_cam_config_raw_img_in_rawi2(struct mtk_cam_request_stream_data *s_data,
 			MTKCAM_IPI_HW_PATH_OFFLINE;
 	}
 
+	if (s_data->apu_info.is_update) {
+		// TODO: dc mode, change buffer
+		frame_param->adl_param.vpu_i_point =
+			s_data->apu_info.vpu_i_point;
+		frame_param->adl_param.vpu_o_point =
+			s_data->apu_info.vpu_o_point;
+		frame_param->adl_param.sysram_en =
+			s_data->apu_info.sysram_en;
+		frame_param->adl_param.block_y_size =
+			s_data->apu_info.block_y_size;
+	}
+
 	in_fmt->uid.pipe_id = node->uid.pipe_id;
 	in_fmt->uid.id = node->desc.dma_port;
 	ret = config_img_in_fmt(cam, node, cfg_fmt, in_fmt);
@@ -3698,6 +3710,7 @@ static int mtk_cam_req_update(struct mtk_cam_device *cam,
 		switch (node->desc.dma_port) {
 		case MTKCAM_IPI_RAW_RAWI_2:
 			/* get s_data->apu_info for config */
+			/* is the rawi always enqued? */
 			ret = mtk_cam_config_raw_img_in_rawi2(req_stream_data, buf);
 			if (ret)
 				return ret;
@@ -4267,6 +4280,7 @@ void mtk_cam_dev_req_try_queue(struct mtk_cam_device *cam)
 
 				/* Apply raw subdev's ctrl */
 				mtk_cam_req_update_ctrl(ctx->pipe, s_data);
+				/* req->apu_info will be updated after here */
 			}
 			if (is_raw_subdev(i) && ctx->pipe->apu_info.is_update) {
 				memcpy(&s_data->apu_info, &ctx->pipe->apu_info,
@@ -5148,6 +5162,7 @@ static int isp_composer_handle_ack(struct mtk_cam_device *cam,
 	if (mtk_cam_ctx_has_raw(ctx) &&
 	    mtk_cam_scen_is_m2m(&ctx->pipe->scen_active)) {
 		if (ipi_msg->cookie.frame_no > 1) {
+			/* do nothing */
 			dev_dbg(dev, "[M2M] wait_for_completion +\n");
 			wait_for_completion(&ctx->m2m_complete);
 			dev_dbg(dev, "[M2M] wait_for_completion -\n");
@@ -5313,6 +5328,7 @@ static int isp_composer_handle_ack(struct mtk_cam_device *cam,
 		ipi_msg->ack_data.frame_result.camsv[0].size;
 
 	if (mtk_cam_scen_is_m2m(&scen)) {
+		/* here do nothing */
 		spin_lock(&ctx->composed_buffer_list.lock);
 		dev_dbg(dev, "%s ctx->composed_buffer_list.cnt %d\n", __func__,
 			ctx->composed_buffer_list.cnt);
@@ -5340,6 +5356,7 @@ static int isp_composer_handle_ack(struct mtk_cam_device *cam,
 			ctx->pipe->scen_active.id = MTK_CAM_SCEN_NORMAL;
 		}
 	}
+	/* initial frame */
 	if ((ctx->composed_frame_seq_no == 1 &&
 		!mtk_cam_scen_is_time_shared(&scen)) ||
 	    is_m2m_apply_cq || is_mux_change_with_apply_cq) {
@@ -5781,6 +5798,9 @@ static void isp_tx_frame_worker(struct work_struct *work)
 	/* Prepare MTKCAM_IPI_RAW_META_STATS_1 params */
 	meta1_buf = mtk_cam_s_data_get_vbuf(req_stream_data, MTK_RAW_META_OUT_1);
 
+	/* or prepare apu info for backedn here */
+
+	/* mraw todo: move to req update? */
 	for (i = 0; i < ctx->used_mraw_num; i++) {
 		req->p_data[ctx->mraw_pipe[i]->id].s_data_num =
 			req->p_data[ctx->stream_id].s_data_num;
@@ -6365,6 +6385,7 @@ void mtk_cam_dev_req_enqueue(struct mtk_cam_device *cam,
 						&frame_work->work);
 				}
 			} else {
+				/* go on here */
 				mtk_cam_req_dump_work_init(req_stream_data);
 				if (is_raw_subdev(stream_id))
 					INIT_WORK(&frame_work->work, isp_tx_frame_worker);
@@ -7126,6 +7147,7 @@ int mtk_cam_dev_config(struct mtk_cam_ctx *ctx, bool streaming, bool config_pipe
 
 	if (mtk_cam_scen_is_pure_m2m(scen_active)) {
 		/* get ctx->pipe.apu_info for config */
+		/* init config, need to do something? */
 		mf = &pipe->cfg[MTK_RAW_RAWI_2_IN].mbus_fmt;
 		dev_dbg(dev, "[pure m2m] rawi2 pad code:0x%x, sink tg size:%d %d\n",
 			mf->code, cfg_in_param->in_crop.s.w, cfg_in_param->in_crop.s.h);
@@ -8144,6 +8166,8 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 			}
 		}
 	}
+
+	/* go on m2m flow */
 
 	if (!mtk_cam_scen_is_m2m(scen_active)) {
 		if (ctx->used_raw_num == 0)

@@ -2585,6 +2585,7 @@ static void mtk_cam_handle_m2m_frame_done(struct mtk_cam_ctx *ctx,
 					dequeued_frame_seq_no, ctx->stream_id);
 		}
 	} else {
+		/* here */
 		dequeue_cnt = mtk_cam_dequeue_req_frame(ctx,
 				dequeued_frame_seq_no, ctx->stream_id);
 	}
@@ -3773,6 +3774,8 @@ static void mtk_camsys_raw_m2m_trigger(struct mtk_raw_device *raw_dev,
 					    req_stream_data->feature.scen->scen.normal.exp_num != 1)
 						trigger_rawi(raw_dev, ctx,
 							MTKCAM_IPI_HW_PATH_OFFLINE_STAGGER);
+					else if (req_stream_data->apu_info.is_update)
+						trigger_vpui(raw_dev, ctx);
 					else
 						trigger_rawi(raw_dev, ctx,
 							MTKCAM_IPI_HW_PATH_OFFLINE);
@@ -4241,6 +4244,7 @@ void mtk_cam_frame_done_work(struct work_struct *work)
 
 	if (mtk_cam_ctx_has_raw(ctx) &&
 	    mtk_cam_scen_is_m2m(s_data_ctx->feature.scen))
+		/* here */
 		mtk_cam_handle_m2m_frame_done(ctx,
 				  req_stream_data->frame_seq_no,
 				  req_stream_data->pipe_id);
@@ -4686,6 +4690,7 @@ static int mtk_camsys_event_handle_raw(struct mtk_cam_device *cam,
 	if (irq_info->irq_type & (1 << CAMSYS_IRQ_SETTING_DONE)) {
 
 		if (mtk_cam_scen_is_m2m(&raw_dev->pipeline->scen_active)) {
+			/* here */
 			mtk_camsys_raw_m2m_cq_done(raw_dev, ctx, irq_info->frame_idx);
 			mtk_camsys_raw_m2m_trigger(raw_dev, ctx, irq_info->frame_idx);
 		} else {
@@ -4707,6 +4712,7 @@ static int mtk_camsys_event_handle_raw(struct mtk_cam_device *cam,
 
 		if (mtk_cam_ctx_has_raw(ctx) &&
 		    mtk_cam_scen_is_m2m(&ctx->pipe->scen_active)) {
+			/* here */
 			mtk_camsys_m2m_frame_done(ctx, irq_info->frame_idx_inner,
 						  ctx->stream_id);
 		} else if (mtk_cam_ctx_has_raw(ctx) &&

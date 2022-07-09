@@ -162,6 +162,7 @@ static inline bool mtk_cam_scen_is_odt(struct mtk_cam_scen *scen)
 }
 
 /* is pure offline nad offline */
+/* use MTK_CAM_SCEN_M2M_NORMAL or create new one */
 static inline bool mtk_cam_scen_is_m2m(struct mtk_cam_scen *scen)
 {
 	if (!scen)

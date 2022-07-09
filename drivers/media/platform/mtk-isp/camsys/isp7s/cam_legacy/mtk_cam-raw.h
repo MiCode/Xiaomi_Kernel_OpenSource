@@ -449,6 +449,7 @@ void apply_cq(struct mtk_raw_device *dev,
 
 void trigger_rawi(struct mtk_raw_device *dev, struct mtk_cam_ctx *ctx,
 		signed int hw_scene);
+void trigger_vpui(struct mtk_raw_device *dev, struct mtk_cam_ctx *ctx);
 
 void reset(struct mtk_raw_device *dev);
 

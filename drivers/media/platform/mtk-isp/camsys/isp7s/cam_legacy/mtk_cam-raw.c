@@ -1324,6 +1324,19 @@ void trigger_rawi(struct mtk_raw_device *dev, struct mtk_cam_ctx *ctx,
 	wmb(); /* TBC */
 }
 
+void trigger_vpui(struct mtk_raw_device *dev, struct mtk_cam_ctx *ctx)
+{
+	u32 cmd = 0;
+
+	// cmd = vpu addr
+
+	dev_dbg(dev->dev, "m2m %s, cmd:%d\n", __func__, cmd);
+
+	// vpu addr???
+	writel_relaxed(cmd, dev->base + REG_CTL_RAWI_TRIG);
+	wmb(); /* TBC */
+}
+
 /*stagger case seamless switch case*/
 void dbload_force(struct mtk_raw_device *dev)
 {
