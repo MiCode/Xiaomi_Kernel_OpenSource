@@ -884,6 +884,29 @@ int fbt_limit_capacity(int blc_wt, int is_rescue)
 	return MIN(blc_wt, max_cap);
 }
 
+static int fbt_get_limit_capacity(int is_rescue)
+{
+	int max_cap = 100, max_isolation_cap = 100;
+
+	if (limit_policy != FPSGO_LIMIT_NONE) {
+		max_cap = (is_rescue) ? limit_rcap : limit_cap;
+		if (max_cap <= 0)
+			max_cap = 100;
+	}
+
+	if (isolation_limit_cap && fbt_is_cl_isolated(max_cap_cluster)) {
+		max_isolation_cap =
+			cpu_dvfs[sec_cap_cluster].capacity_ratio[0];
+		if (max_isolation_cap <= 0)
+			max_isolation_cap = 100;
+
+		max_cap = max_isolation_cap < max_cap ?
+					max_isolation_cap : max_cap;
+	}
+
+	return max_cap;
+}
+
 static void fbt_filter_ppm_log_locked(int filter)
 {
 }
@@ -1485,8 +1508,115 @@ static void fbt_check_cm_limit(struct render_info *thread_info)
 		fbt_notify_CM_limit(0);
 }
 
+static void fbt_cal_min_max_cap(int min_cap, int min_cap_b,
+	int min_cap_m, int jerk, int pid, unsigned long long buffer_id,
+	int *final_min_cap, int *final_min_cap_b, int *final_min_cap_m,
+	int *final_max_cap, int *final_max_cap_b, int *final_max_cap_m)
+{
+	int bhr_opp_local;
+	int bhr_local;
+	int raw_min_cap_b = 0, raw_min_cap_m = 0;
+	int max_cap = 100, max_cap_b = 100, max_cap_m = 100;
+
+	// Calculate bhr/bhr_opp
+	if (jerk == FPSGO_JERK_INACTIVE) {
+		bhr_opp_local = bhr_opp;
+		bhr_local = bhr;
+	} else {
+		if (jerk == FPSGO_JERK_SECOND)
+			bhr_opp_local = rescue_second_copp;
+		else
+			bhr_opp_local = rescue_opp_c;
+		bhr_local = 0;
+	}
+
+	// Get max_cap
+	max_cap = fbt_get_max_cap(min_cap, bhr_opp_local,
+				bhr_local, pid, buffer_id);
+
+	// separate_pct_b, separate_pct_m
+	if (separate_aa && boost_affinity && (separate_pct_b || separate_pct_m)
+					&& jerk != FPSGO_JERK_SECOND) {
+		raw_min_cap_b = min_cap_b;
+		raw_min_cap_m = min_cap_m;
+		min_cap_b = separate_pct_b ? (min_cap_b * separate_pct_b / 100) : min_cap_b;
+		min_cap_m = separate_pct_m ? (min_cap_m * separate_pct_m / 100) : min_cap_m;
+		min_cap_b = clamp(min_cap_b, 1, 100);
+		min_cap_m = clamp(min_cap_m, 1, 100);
+	}
+
+	// Get max_cap_b, max_cap_m
+	if (separate_aa) {
+		max_cap_b = fbt_get_max_cap(min_cap_b, bhr_opp_local,
+						bhr_local, pid, buffer_id);
+		max_cap_m = fbt_get_max_cap(min_cap_m, bhr_opp_local,
+						bhr_local, pid, buffer_id);
+	}
+
+	// limit_uclamp
+	if ((limit_uclamp || limit_uclamp_m || limit_ruclamp || limit_ruclamp_m)
+						&& jerk != FPSGO_JERK_SECOND) {
+		if (separate_aa && boost_affinity) {
+			if (jerk == FPSGO_JERK_INACTIVE) {
+				max_cap = limit_uclamp ?
+					MIN(max_cap, limit_uclamp) : max_cap;
+				max_cap_b = limit_uclamp ?
+					MIN(max_cap_b, limit_uclamp) : max_cap_b;
+				max_cap_m = limit_uclamp_m ?
+					MIN(max_cap_m, limit_uclamp_m) : max_cap_m;
+			} else {
+				max_cap = limit_ruclamp ?
+					MIN(max_cap, limit_ruclamp) : max_cap;
+				max_cap_b = limit_ruclamp ?
+					MIN(max_cap_b, limit_ruclamp) : max_cap_b;
+				max_cap_m = limit_ruclamp_m ?
+					MIN(max_cap_m, limit_ruclamp_m) : max_cap_m;
+			}
+			min_cap = (min_cap > max_cap) ? max_cap : min_cap;
+			min_cap_b = (min_cap_b > max_cap_b) ? max_cap_b : min_cap_b;
+			min_cap_m = (min_cap_m > max_cap_m) ? max_cap_m : min_cap_m;
+		} else if (!separate_aa) {
+			if (jerk == FPSGO_JERK_INACTIVE) {
+				max_cap = limit_uclamp ?
+					MIN(max_cap, limit_uclamp) : max_cap;
+			} else {
+				max_cap = limit_ruclamp ?
+					MIN(max_cap, limit_ruclamp) : max_cap;
+			}
+			min_cap = (min_cap > max_cap) ? max_cap : min_cap;
+		}
+	}
+
+	if (separate_aa) {
+		fpsgo_systrace_c_fbt(pid, buffer_id,
+		min_cap_b,	"perf_idx_big_core");
+		fpsgo_systrace_c_fbt(pid, buffer_id,
+		min_cap_m,	"perf_idx_middle_core");
+		fpsgo_systrace_c_fbt_debug(pid, buffer_id,
+		max_cap_b,	"perf_idx_max_big_core");
+		fpsgo_systrace_c_fbt_debug(pid, buffer_id,
+		max_cap_m,	"perf_idx_max_middle_core");
+		if (separate_pct_b) {
+			fpsgo_systrace_c_fbt_debug(pid, buffer_id,
+			raw_min_cap_b,	"perf_idx_b_before_pct");
+		}
+		if (separate_pct_m) {
+			fpsgo_systrace_c_fbt_debug(pid, buffer_id,
+			raw_min_cap_m,	"perf_idx_m_before_pct");
+		}
+	}
+
+	*final_min_cap = min_cap;
+	*final_min_cap_b = min_cap_b;
+	*final_min_cap_m = min_cap_m;
+	*final_max_cap = max_cap;
+	*final_max_cap_b = max_cap_b;
+	*final_max_cap_m = max_cap_m;
+}
+
 static void fbt_set_min_cap_locked(struct render_info *thr, int min_cap,
-			int min_cap_b, int min_cap_m, int jerk)
+			int min_cap_b, int min_cap_m, int max_cap, int max_cap_b,
+			int max_cap_m, int jerk)
 {
 /*
  * boost_ta should be checked during the flow, not here.
@@ -1495,13 +1625,9 @@ static void fbt_set_min_cap_locked(struct render_info *thr, int min_cap,
 	char *dep_str = NULL;
 	int ret;
 	int heavy_pid = 0;
-	int bhr_opp_local;
-	int bhr_local;
-	int max_cap = 100, max_cap_b = 100, max_cap_m = 100;
 	struct fpsgo_loading *dep_need_set;
 	int temp_size_need_set = 0;
 	char temp[MAX_PID_DIGIT] = {"\0"};
-	int raw_min_cap_b = 0, raw_min_cap_m = 0;
 	int loading_th_tmp = loading_th; // add for FPSGO_MW
 	int light_thread = 0;
 	int loading_policy_tmp = loading_policy;
@@ -1535,14 +1661,6 @@ static void fbt_set_min_cap_locked(struct render_info *thr, int min_cap,
 				0, "fail dep-list");
 			return;
 		}
-		bhr_opp_local = bhr_opp;
-		bhr_local = bhr;
-	} else {
-		if (jerk == FPSGO_JERK_SECOND)
-			bhr_opp_local = rescue_second_copp;
-		else
-			bhr_opp_local = rescue_opp_c;
-		bhr_local = 0;
 	}
 
 	size = thr->dep_valid_size;
@@ -1556,28 +1674,6 @@ static void fbt_set_min_cap_locked(struct render_info *thr, int min_cap,
 		goto EXIT;
 	}
 
-	if (separate_aa && boost_affinity && (separate_pct_b || separate_pct_m)
-					&& jerk != FPSGO_JERK_SECOND) {
-		raw_min_cap_b = min_cap_b;
-		raw_min_cap_m = min_cap_m;
-		min_cap_b = separate_pct_b ? (min_cap_b * separate_pct_b / 100) : min_cap_b;
-		min_cap_m = separate_pct_m ? (min_cap_m * separate_pct_m / 100) : min_cap_m;
-		min_cap_b = clamp(min_cap_b, 1, 100);
-		min_cap_m = clamp(min_cap_m, 1, 100);
-	}
-
-	max_cap = fbt_get_max_cap(min_cap, bhr_opp_local,
-					bhr_local, thr->pid, thr->buffer_id);
-	if (max_cap < 0)
-		goto EXIT;
-	if (separate_aa) {
-		max_cap_b = fbt_get_max_cap(min_cap_b, bhr_opp_local,
-						bhr_local, thr->pid, thr->buffer_id);
-		max_cap_m = fbt_get_max_cap(min_cap_m, bhr_opp_local,
-						bhr_local, thr->pid, thr->buffer_id);
-		if (max_cap_b < 0 || max_cap_m < 0)
-			goto EXIT;
-	}
 #if FPSGO_MW
 	if (thr->loading_th_by_pid)
 		loading_th_tmp = thr->loading_th_by_pid;
@@ -1645,39 +1741,6 @@ static void fbt_set_min_cap_locked(struct render_info *thr, int min_cap,
 			thr->pid, thr->buffer_id,
 			&dep_final_need_set[0], final_size_need_set);
 		size_final = final_size_need_set;
-	}
-
-	if ((limit_uclamp || limit_uclamp_m || limit_ruclamp || limit_ruclamp_m)
-						&& jerk != FPSGO_JERK_SECOND) {
-		if (separate_aa && boost_affinity) {
-			if (jerk == FPSGO_JERK_INACTIVE) {
-				max_cap = limit_uclamp ?
-					MIN(max_cap, limit_uclamp) : max_cap;
-				max_cap_b = limit_uclamp ?
-					MIN(max_cap_b, limit_uclamp) : max_cap_b;
-				max_cap_m = limit_uclamp_m ?
-					MIN(max_cap_m, limit_uclamp_m) : max_cap_m;
-			} else {
-				max_cap = limit_ruclamp ?
-					MIN(max_cap, limit_ruclamp) : max_cap;
-				max_cap_b = limit_ruclamp ?
-					MIN(max_cap_b, limit_ruclamp) : max_cap_b;
-				max_cap_m = limit_ruclamp_m ?
-					MIN(max_cap_m, limit_ruclamp_m) : max_cap_m;
-			}
-			min_cap = (min_cap > max_cap) ? max_cap : min_cap;
-			min_cap_b = (min_cap_b > max_cap_b) ? max_cap_b : min_cap_b;
-			min_cap_m = (min_cap_m > max_cap_m) ? max_cap_m : min_cap_m;
-		} else if (!separate_aa) {
-			if (jerk == FPSGO_JERK_INACTIVE) {
-				max_cap = limit_uclamp ?
-					MIN(max_cap, limit_uclamp) : max_cap;
-			} else {
-				max_cap = limit_ruclamp ?
-					MIN(max_cap, limit_ruclamp) : max_cap;
-			}
-			min_cap = (min_cap > max_cap) ? max_cap : min_cap;
-		}
 	}
 
 	if (jerk == FPSGO_JERK_INACTIVE)
@@ -1776,24 +1839,6 @@ static void fbt_set_min_cap_locked(struct render_info *thr, int min_cap,
 		min_cap,	"perf idx");
 	fpsgo_systrace_c_fbt(thr->pid, thr->buffer_id,
 		max_cap,	"perf_idx_max");
-	if (separate_aa) {
-		fpsgo_systrace_c_fbt(thr->pid, thr->buffer_id,
-		min_cap_b,	"perf_idx_big_core");
-		fpsgo_systrace_c_fbt(thr->pid, thr->buffer_id,
-		min_cap_m,	"perf_idx_middle_core");
-		fpsgo_systrace_c_fbt_debug(thr->pid, thr->buffer_id,
-		max_cap_b,	"perf_idx_max_big_core");
-		fpsgo_systrace_c_fbt_debug(thr->pid, thr->buffer_id,
-		max_cap_m,	"perf_idx_max_middle_core");
-		if (separate_pct_b) {
-			fpsgo_systrace_c_fbt_debug(thr->pid, thr->buffer_id,
-			raw_min_cap_b,	"perf_idx_b_before_pct");
-		}
-		if (separate_pct_m) {
-			fpsgo_systrace_c_fbt_debug(thr->pid, thr->buffer_id,
-			raw_min_cap_m,	"perf_idx_m_before_pct");
-		}
-	}
 
 EXIT:
 	kfree(dep_final_need_set);
@@ -2174,13 +2219,18 @@ static int fbt_check_to_jerk(
 static void fbt_do_jerk_boost(struct render_info *thr, int blc_wt, int blc_wt_b,
 			int blc_wt_m, int boost_group, int jerk)
 {
+	int max_cap = 100, max_cap_b = 100, max_cap_m = 100;
 	if (boost_ta || boost_group) {
 		fbt_set_boost_value(blc_wt);
 		fpsgo_systrace_c_fbt(thr->pid, thr->buffer_id, blc_wt, "perf idx");
 		max_blc_cur = blc_wt;
 		boosted_group = 1;
-	} else
-		fbt_set_min_cap_locked(thr, blc_wt, blc_wt_b, blc_wt_m, jerk);
+	} else {
+		fbt_cal_min_max_cap(blc_wt, blc_wt_b, blc_wt_m, jerk, thr->pid, thr->buffer_id,
+			&blc_wt, &blc_wt_b, &blc_wt_m, &max_cap, &max_cap_b, &max_cap_m);
+		fbt_set_min_cap_locked(thr, blc_wt, blc_wt_b, blc_wt_m, max_cap,
+			max_cap_b, max_cap_m, jerk);
+	}
 
 	if (ultra_rescue)
 		fbt_boost_dram(1);
@@ -3609,12 +3659,13 @@ static int fbt_boost_policy(
 	u64 t2wnt = 0ULL;
 	int active_jerk_id = 0;
 	long long rescue_target_t, qr_quota_adj;
-	int isolation_cap = 100;
+	int isolation_cap = 100, limit_max_cap = 100;
 	int filter_ret = 0;
 	long aa_n, aa_b, aa_m;
 	int is_filter_frame_active = filter_frame_enable;
 	int ff_window_Size = filter_frame_window_size;
 	int ff_kmin = filter_frame_kmin;
+	int max_cap = 100, max_cap_b = 100, max_cap_m = 100;
 
 	if (!thread_info) {
 		FPSGO_LOGE("ERROR %d\n", __LINE__);
@@ -3757,6 +3808,8 @@ static int fbt_boost_policy(
 		fpsgo_systrace_c_fbt(pid, buffer_id, boost_info->quota_mod, "quota_mod");
 	}
 
+	limit_max_cap = fbt_get_limit_capacity(0);
+
 	if (gcc_enable && (!gcc_hwui_hint ||
 			thread_info->hwui != RENDER_INFO_HWUI_TYPE)) {
 		unsigned int gpu_loading;
@@ -3767,7 +3820,7 @@ static int fbt_boost_policy(
 				boost_info,
 				target_fps, fps_margin, thread_info->Q2Q_time,
 				gpu_loading, blc_wt, t_cpu_cur,
-				target_fpks, isolation_cap, cooler_on, pid);
+				target_fpks, limit_max_cap, cooler_on, pid);
 		fpsgo_systrace_c_fbt(pid, buffer_id, boost_info->gcc_count, "gcc_count");
 		fpsgo_systrace_c_fbt(pid, buffer_id, gcc_boost, "gcc_boost");
 		fpsgo_systrace_c_fbt(pid, buffer_id, boost_info->correction, "correction");
@@ -3796,13 +3849,16 @@ static int fbt_boost_policy(
 		blc_wt_m = fbt_limit_capacity_isolation(blc_wt_m, &isolation_cap);
 	}
 
+	fbt_cal_min_max_cap(blc_wt, blc_wt_b, blc_wt_m, 0, pid, buffer_id,
+		&blc_wt, &blc_wt_b, &blc_wt_m, &max_cap, &max_cap_b, &max_cap_m);
+
 	if (boost_info->sbe_rescue == 0) {
 		fbt_set_limit(pid, blc_wt, pid, buffer_id,
 			thread_info->dep_valid_size, thread_info->dep_arr, thread_info, t_cpu_cur);
 
 		if (!boost_ta) {
-			fbt_set_min_cap_locked(thread_info, blc_wt,
-				blc_wt_b, blc_wt_m, FPSGO_JERK_INACTIVE);
+			fbt_set_min_cap_locked(thread_info, blc_wt, blc_wt_b, blc_wt_m,
+				max_cap, max_cap_b, max_cap_m, FPSGO_JERK_INACTIVE);
 		}
 	}
 
@@ -4489,7 +4545,7 @@ static void fbt_reset_boost(struct render_info *thr)
 
 	mutex_lock(&fbt_mlock);
 	if (!boost_ta)
-		fbt_set_min_cap_locked(thr, 0, 0, 0, FPSGO_JERK_INACTIVE);
+		fbt_set_min_cap_locked(thr, 0, 0, 0, 100, 100, 100, FPSGO_JERK_INACTIVE);
 	fbt_check_max_blc_locked(cur_pid);
 	mutex_unlock(&fbt_mlock);
 
@@ -4785,7 +4841,7 @@ void fpsgo_base2fbt_item_del(struct fbt_thread_blc *pblc,
 skip_del_pblc:
 	mutex_lock(&fbt_mlock);
 	if (!boost_ta)
-		fbt_set_min_cap_locked(thr, 0, 0, 0, FPSGO_JERK_INACTIVE);
+		fbt_set_min_cap_locked(thr, 0, 0, 0, 100, 100, 100, FPSGO_JERK_INACTIVE);
 	if (thr) {
 		thr->boost_info.last_blc = 0;
 		thr->boost_info.last_blc_b = 0;
@@ -4870,8 +4926,14 @@ void fpsgo_base2fbt_no_one_render(void)
 void fpsgo_base2fbt_set_min_cap(struct render_info *thr, int min_cap,
 					int min_cap_b, int min_cap_m)
 {
+	int max_cap = 100, max_cap_b = 100, max_cap_m = 100;
+
 	mutex_lock(&fbt_mlock);
-	fbt_set_min_cap_locked(thr, min_cap, min_cap_b, min_cap_m, FPSGO_JERK_INACTIVE);
+	fbt_cal_min_max_cap(min_cap, min_cap_b, min_cap_m, FPSGO_JERK_INACTIVE,
+		thr->pid, thr->buffer_id, &min_cap, &min_cap_b, &min_cap_m,
+		&max_cap, &max_cap_b, &max_cap_m);
+	fbt_set_min_cap_locked(thr, min_cap, min_cap_b, min_cap_m, max_cap,
+		max_cap_b, max_cap_m, FPSGO_JERK_INACTIVE);
 	if (thr) {
 		thr->boost_info.last_blc = min_cap;
 		thr->boost_info.last_blc_b = min_cap_b;
@@ -4917,6 +4979,7 @@ void fpsgo_sbe2fbt_rescue(struct render_info *thr, int start, int enhance,
 		unsigned long long frame_id)
 {
 	int floor, blc_wt = 0, blc_wt_b = 0, blc_wt_m = 0;
+	int max_cap = 100, max_cap_b = 100, max_cap_m = 100;
 	struct cpu_ctrl_data *pld;
 	int headroom;
 	int new_enhance;
@@ -4982,8 +5045,13 @@ void fpsgo_sbe2fbt_rescue(struct render_info *thr, int start, int enhance,
 		if (boost_ta) {
 			fbt_set_boost_value(blc_wt);
 			max_blc_cur = blc_wt;
-		} else
-			fbt_set_min_cap_locked(thr, blc_wt, blc_wt_b, blc_wt_m, 1);
+		} else {
+			fbt_cal_min_max_cap(blc_wt, blc_wt_b, blc_wt_m, FPSGO_JERK_FIRST,
+				thr->pid, thr->buffer_id, &blc_wt, &blc_wt_b, &blc_wt_m,
+				&max_cap, &max_cap_b, &max_cap_m);
+			fbt_set_min_cap_locked(thr, blc_wt, blc_wt_b, blc_wt_m, max_cap,
+				max_cap_b, max_cap_m, FPSGO_JERK_FIRST);
+		}
 
 		thr->boost_info.last_blc = blc_wt;
 
@@ -5025,8 +5093,13 @@ void fpsgo_sbe2fbt_rescue(struct render_info *thr, int start, int enhance,
 		if (boost_ta) {
 			fbt_set_boost_value(blc_wt);
 			max_blc_cur = blc_wt;
-		} else
-			fbt_set_min_cap_locked(thr, blc_wt, blc_wt_b, blc_wt_m, 1);
+		} else {
+			fbt_cal_min_max_cap(blc_wt, blc_wt_b, blc_wt_m, FPSGO_JERK_FIRST,
+				thr->pid, thr->buffer_id, &blc_wt, &blc_wt_b, &blc_wt_m,
+				&max_cap, &max_cap_b, &max_cap_m);
+			fbt_set_min_cap_locked(thr, blc_wt, blc_wt_b, blc_wt_m, max_cap,
+				max_cap_b, max_cap_m, FPSGO_JERK_FIRST);
+		}
 		fpsgo_systrace_c_fbt(thr->pid, thr->buffer_id, 0, "sbe rescue");
 	}
 	fpsgo_systrace_c_fbt(thr->pid, thr->buffer_id, blc_wt, "perf idx");
