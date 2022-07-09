@@ -666,15 +666,14 @@
 				<&dvfsrc_freq_opp3>,
 				<&dvfsrc_freq_opp4>,
 				<&dvfsrc_freq_opp5>,
-				<&dvfsrc_freq_opp6>,
 				<&dvfsrc_freq_opp7>,
 				<&dvfsrc_freq_opp8>;
-		cm-mgr,cp-down  = <100 100 100 100 100 100 100 100>;
-		cm-mgr,cp-up = <100 100 100 100 100 100 100 100>;
-		cm-mgr,dt-down = <0 0 0 0 0 0 0 0>;
-		cm-mgr,dt-up = <0 0 0 0 0 0 0 0>;
-		cm-mgr,vp-down = <100 100 100 100 100 100 100 100>;
-		cm-mgr,vp-up = <100 100 100 100 100 100 100 100>;
+		cm-mgr,cp-down  = <100 100 100 100 100 100 100>;
+		cm-mgr,cp-up = <100 100 100 100 100 100 100>;
+		cm-mgr,dt-down = <0 0 0 0 0 0 0>;
+		cm-mgr,dt-up = <0 0 0 0 0 0 0>;
+		cm-mgr,vp-down = <100 100 100 100 100 100 100>;
+		cm-mgr,vp-up = <100 100 100 100 100 100 100>;
 
 		use-cpu-to-dram-map = "enable";
 		cm-mgr-cpu-opp-to-dram = <1 1 8 8 8 8 8 8
