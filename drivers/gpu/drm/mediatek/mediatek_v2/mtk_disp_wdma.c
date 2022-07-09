@@ -157,6 +157,9 @@
 #define MT6895_WDMA0_AID_SEL	(0xB1CUL)
 #define MT6895_WDMA1_AID_SEL	(0xB20UL)
 
+#define MT6886_WDMA0_AID_SEL	(0xB1CUL)
+#define MT6886_WDMA1_AID_SEL	(0xB20UL)
+
 #define MT6879_WDMA0_AID_SEL	(0xB1CUL)
 #define MT6879_WDMA1_AID_SEL	(0xB20UL)
 
@@ -376,6 +379,16 @@ unsigned int mtk_wdma_aid_sel_MT6895(struct mtk_ddp_comp *comp)
 	}
 }
 
+unsigned int mtk_wdma_aid_sel_MT6886(struct mtk_ddp_comp *comp)
+{
+	switch (comp->id) {
+	case DDP_COMPONENT_WDMA1:
+		return MT6886_WDMA1_AID_SEL;
+	default:
+		return 0;
+	}
+}
+
 unsigned int mtk_wdma_aid_sel_MT6879(struct mtk_ddp_comp *comp)
 {
 	switch (comp->id) {
@@ -429,7 +442,6 @@ static void mtk_wdma_start(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 	if (data->use_larb_control_sec && crtc_idx == 2) {
 		if (disp_sec_cb.cb != NULL) {
 			void __iomem *ovl0_2l_reg_addr;
-
 			switch (priv->data->mmsys_id) {
 			case MMSYS_MT6985:
 				ovl0_2l_reg_addr =
@@ -1866,7 +1878,7 @@ static const struct mtk_disp_wdma_data mt6886_wdma_driver_data = {
 	.fifo_size_uv_3plane = 148,
 	/* sodi is same as mt6895 */
 	.sodi_config = mt6895_mtk_sodi_config,
-	//.aid_sel = &mtk_wdma_aid_sel_MT6886, TBD
+	.aid_sel = &mtk_wdma_aid_sel_MT6886,
 	.support_shadow = false,
 	.need_bypass_shadow = true,
 	.is_support_34bits = true,

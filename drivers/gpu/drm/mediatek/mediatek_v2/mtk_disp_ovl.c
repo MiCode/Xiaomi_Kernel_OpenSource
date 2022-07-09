@@ -376,11 +376,11 @@ int mtk_dprec_mmp_dump_ovl_layer(struct mtk_plane_state *plane_state);
 #define MT6879_OVL0_2L_AID_SEL	(0xB04UL)
 #define MT6879_OVL0_2L_NWCG_AID_SEL (0xB0CUL)
 
-#define MT6886_OVL0_AID_SEL		(0xB00UL)
-#define MT6886_OVL0_2L_AID_SEL		(0xB04UL)
-#define MT6886_OVL1_2L_AID_SEL		(0xB08UL)
-#define MT6886_OVL0_2L_NWCG_AID_SEL	(0xB0CUL)
-#define MT6886_OVL1_2L_NWCG_AID_SEL	(0xB10UL)
+#define MT6886_OVL0_AID_SEL		(0xC00UL)
+#define MT6886_OVL0_2L_AID_SEL		(0xC1CUL)
+#define MT6886_OVL1_2L_AID_SEL		(0xC30UL)
+#define MT6886_OVL0_2L_NWCG_AID_SEL		(0xB0CUL)
+#define MT6886_OVL1_2L_NWCG_AID_SEL		(0xB10UL)
 
 #define SMI_LARB_NON_SEC_CON        0x380
 
@@ -4445,7 +4445,7 @@ static const struct mtk_disp_ovl_data mt6886_ovl_driver_data = {
 	.greq_num_dl = 0xbbbb,
 	.is_support_34bits = true,
 	.aid_sel_mapping = &mtk_ovl_aid_sel_MT6886,
-	.aid_per_layer_setting = false,
+	.aid_per_layer_setting = true,
 	.mmsys_mapping = &mtk_ovl_mmsys_mapping_MT6886,
 	.source_bpc = 10,
 };
