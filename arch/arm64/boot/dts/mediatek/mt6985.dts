@@ -15315,45 +15315,34 @@ l3_hit,l3_mis,pmu_cyc_cnt";
 		/* BT_UTXD, GPIO224*/
 		pins_cmd1_dat {
 			pinmux = <PINMUX_GPIO224__FUNC_GPIO224>;
-			slew-rate = <0>;
+			input-enable;
 			bias-pull-down;
-			drive-strength = <0>;
 		};
 		/* BT_URXD, GPIO225*/
 		pins_cmd2_dat {
 			pinmux = <PINMUX_GPIO225__FUNC_GPIO225>;
-			slew-rate = <0>;
+			input-enable;
 			bias-pull-down;
-			drive-strength = <0>;
-		};
-		/* BT_RST, GPIO240*/
-		pins_cmd7_dat {
-			pinmux = <PINMUX_GPIO240__FUNC_GPIO240>;
-			slew-rate = <0>;
-			bias-pull-down;
-			drive-strength = <0>;
 		};
 	};
 	bt_combo_gpio_pre_on: bt_combo_gpio_pre_on {
 		pins_cmd1_dat {
 			pinmux = <PINMUX_GPIO224__FUNC_GPIO224>;
+			input-enable;
 			bias-pull-up;
 		};
 		pins_cmd2_dat {
 			pinmux = <PINMUX_GPIO225__FUNC_GPIO225>;
+			input-enable;
 			bias-pull-up;
 		};
 	};
 	bt_combo_gpio_on: bt_combo_gpio_on {
 		pins_cmd1_dat {
 			pinmux = <PINMUX_GPIO224__FUNC_UARTHUB_UART_TX>;
-			bias-pull-up;
-			output-high;
 		};
 		pins_cmd2_dat {
 			pinmux = <PINMUX_GPIO225__FUNC_UARTHUB_UART_RX>;
-			bias-pull-up;
-			input-enable;
 		};
 	};
 	bt_rst_on: bt_rst_on {
