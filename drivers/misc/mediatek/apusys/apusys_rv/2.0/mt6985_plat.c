@@ -40,7 +40,7 @@ static struct delayed_work timeout_work;
  * if power on and not power off
  * without ipi send
  */
-#define APU_PWROFF_TIMEOUT_MS (300 * 1000)
+#define APU_PWROFF_TIMEOUT_MS (60 * 1000)
 
 /*
  * WARM BOOT power off timeout
@@ -48,7 +48,7 @@ static struct delayed_work timeout_work;
  * excpetion will trigger
  * if power off not done after ipi send
  */
-#define IPI_PWROFF_TIMEOUT_MS (60 * 1000)
+#define IPI_PWROFF_TIMEOUT_MS (15 * 1000)
 
 static void apu_timeout_work(struct work_struct *work)
 {
@@ -599,6 +599,8 @@ iommu_put_error:
 		goto error_get_power_dev;
 	}
 
+	/* clear status & cancel timeout worker */
+	apu->bypass_pwr_off_chk = false;
 	cancel_delayed_work_sync(&timeout_work);
 
 	return 0;
@@ -618,11 +620,11 @@ static int mt6985_ipi_send_post(struct mtk_apu *apu)
 {
 	cancel_delayed_work_sync(&timeout_work);
 
-	/* bypass SAPU & SCP case */
-	if (apu->ipi_id != APU_IPI_SAPU_LOCK &&
-		apu->ipi_id != APU_IPI_TIMESYNC &&
-		apu->ipi_id != APU_IPI_SCP_MIDDLEWARE &&
-		apu->ipi_id != APU_IPI_SCP_NP_RECOVER)
+	/* bypass SAPU case */
+	if (apu->ipi_id == APU_IPI_SAPU_LOCK)
+		apu->bypass_pwr_off_chk = true;
+
+	if (!apu->bypass_pwr_off_chk)
 		queue_delayed_work(apu_workq,
 			&timeout_work,
 			msecs_to_jiffies(IPI_PWROFF_TIMEOUT_MS));
