@@ -34,7 +34,7 @@
 	} while (0)
 
 
-#define SWPM_EXT_DBG (1)
+#define SWPM_EXT_DBG (0)
 
 static ssize_t enable_read(char *ToUser, size_t sz, void *priv)
 {
