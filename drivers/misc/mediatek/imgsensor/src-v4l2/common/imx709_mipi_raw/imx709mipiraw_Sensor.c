@@ -256,6 +256,9 @@ static struct imgsensor_info_struct imgsensor_info = {
 	.custom1_delay_frame = 3,
 	.custom2_delay_frame = 3,
 	.custom3_delay_frame = 3,
+	.custom1_ae_ctrl_support = 0,	/* 1:support; 0:not support */
+	.custom2_ae_ctrl_support = 0,	/* 1:support; 0:not support */
+	.custom3_ae_ctrl_support = 0,	/* 1:support; 0:not support */
 #endif
 	.custom4_delay_frame = 2,
 	.isp_driving_current = ISP_DRIVING_6MA,
@@ -2151,10 +2154,16 @@ static int get_info(struct subdrv_ctx *ctx,
 #ifdef AOV_MODE_SENSING
 	sensor_info->DelayFrame[SENSOR_SCENARIO_ID_CUSTOM1] =
 		imgsensor_info.custom1_delay_frame;
+	sensor_info->Mode_AE_Ctrl_Support[SENSOR_SCENARIO_ID_CUSTOM1] =
+		imgsensor_info.custom1_ae_ctrl_support;
 	sensor_info->DelayFrame[SENSOR_SCENARIO_ID_CUSTOM2] =
 		imgsensor_info.custom2_delay_frame;
+	sensor_info->Mode_AE_Ctrl_Support[SENSOR_SCENARIO_ID_CUSTOM2] =
+		imgsensor_info.custom2_ae_ctrl_support;
 	sensor_info->DelayFrame[SENSOR_SCENARIO_ID_CUSTOM3] =
 		imgsensor_info.custom3_delay_frame;
+	sensor_info->Mode_AE_Ctrl_Support[SENSOR_SCENARIO_ID_CUSTOM3] =
+		imgsensor_info.custom3_ae_ctrl_support;
 #endif
 	sensor_info->DelayFrame[SENSOR_SCENARIO_ID_CUSTOM4] =
 		imgsensor_info.custom4_delay_frame;
@@ -3502,29 +3511,34 @@ static int get_csi_param(struct subdrv_ctx *ctx,
 	enum SENSOR_SCENARIO_ID_ENUM scenario_id,
 	struct mtk_csi_param *csi_param)
 {
-	csi_param->legacy_phy = 0;
-	csi_param->not_fixed_trail_settle = 1;
-
 	switch (scenario_id) {
 	case SENSOR_SCENARIO_ID_CUSTOM1:
+		csi_param->legacy_phy = 0;
+		csi_param->not_fixed_trail_settle = 1;
 		csi_param->dphy_data_settle = 0x15;
 		csi_param->dphy_clk_settle = 0x15;
 		csi_param->dphy_trail = 0x30;	//0x83? FIX ME
 		csi_param->dphy_csi2_resync_dmy_cycle = 0x2C;
 		break;
 	case SENSOR_SCENARIO_ID_CUSTOM2:
+		csi_param->legacy_phy = 0;
+		csi_param->not_fixed_trail_settle = 1;
 		csi_param->dphy_data_settle = 0x10;
 		csi_param->dphy_clk_settle = 0x10;
 		csi_param->dphy_trail = 0x2F;	//0x6A? FIX ME
 		csi_param->dphy_csi2_resync_dmy_cycle = 0x24;
 		break;
 	case SENSOR_SCENARIO_ID_CUSTOM3:
+		csi_param->legacy_phy = 0;
+		csi_param->not_fixed_trail_settle = 1;
 		csi_param->dphy_data_settle = 0x15;
 		csi_param->dphy_clk_settle = 0x15;
 		csi_param->dphy_trail = 0x30;	//0x85? FIX ME
 		csi_param->dphy_csi2_resync_dmy_cycle = 0x2D;
 		break;
 	default:
+		csi_param->legacy_phy = 0;
+		csi_param->not_fixed_trail_settle = 0;
 		break;
 	}
 	return 0;

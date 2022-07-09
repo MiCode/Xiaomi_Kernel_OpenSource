@@ -157,6 +157,18 @@ struct imgsensor_info_struct {
 
 	struct v4l2_subdev *sd;
 	struct adaptor_ctx *adaptor_ctx_;
+
+	kal_uint8 custom1_ae_ctrl_support;	/* enter custom1 ae ctrl support */
+	kal_uint8 custom2_ae_ctrl_support;	/* enter custom2 ae ctrl support */
+	kal_uint8 custom3_ae_ctrl_support;	/* enter custom3 ae ctrl support */
+	kal_uint8 custom4_ae_ctrl_support;	/* enter custom4 ae ctrl support */
+	kal_uint8 custom5_ae_ctrl_support;	/* enter custom5 ae ctrl support */
+	kal_uint8 custom6_ae_ctrl_support;	/* enter custom6 ae ctrl support */
+	kal_uint8 custom7_ae_ctrl_support;	/* enter custom7 ae ctrl support */
+	kal_uint8 custom8_ae_ctrl_support;	/* enter custom8 ae ctrl support */
+	kal_uint8 custom9_ae_ctrl_support;	/* enter custom9 ae ctrl support */
+	kal_uint8 custom10_ae_ctrl_support;	/* enter custom10 ae ctrl support */
+	kal_uint8 custom11_ae_ctrl_support;	/* enter custom11 ae ctrl support */
 };
 
 /* SENSOR READ/WRITE ID */

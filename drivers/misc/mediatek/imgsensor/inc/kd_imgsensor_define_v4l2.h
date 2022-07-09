@@ -558,6 +558,10 @@ struct ACDK_SENSOR_INFO_STRUCT {
 	MUINT32 SensorModuleID;
 	MUINT32 OB_pedestal;
 	MUINT8 RGBW_Support;
+	/* Sensing_mode: ae support
+	 * 0: not support; 1: support
+	 */
+	MUINT8 Mode_AE_Ctrl_Support[SENSOR_SCENARIO_ID_MAX];
 };
 
 #define ACDK_SENSOR_INFO2_STRUCT struct ACDK_SENSOR_INFO_STRUCT
