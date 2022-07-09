@@ -7883,7 +7883,7 @@
 			mediatek,force-vbus;
 			mediatek,clk-mgr;
 			mediatek,noise-still-tr;
-			/* mediatek,hwrscs-vers = <1>; */
+			mediatek,hwrscs-vers = <1>;
 			mediatek,vs-voter = <&pmic 0x149a 0x1 1>;
 			usb-role-switch;
 			port {
@@ -7939,7 +7939,7 @@
 
 		u3phy1: usb-phy1@11e30000 {
 			compatible = "mediatek,xsphy";
-			reg = <0 0x11e30000 0 0x200>;
+			reg = <0 0x11e33000 0 0x200>;
 			#address-cells = <2>;
 			#size-cells = <2>;
 			ranges;
