@@ -662,7 +662,7 @@ static int usb_offload_enable_stream(struct usb_audio_stream_info *uainfo)
 	info_idx = info_idx_from_ifnum(pcm_card_num, interface,
 		uainfo->enable);
 	if (atomic_read(&chip->shutdown) || !subs->stream || !subs->stream->pcm
-			|| !subs->stream->chip || !subs->pcm_substream) {
+			|| !subs->stream->chip || !subs->pcm_substream || info_idx < 0) {
 		ret = -ENODEV;
 		mutex_unlock(&chip->dev_lock);
 		goto done;
