@@ -217,12 +217,13 @@ static void vow_ipi_rx_handle_data_msg(void *msg_data)
 						vow_dump_info[DUMP_INPUT].scp_dump_offset[1] =
 							ipi_ptr->mic_offset_R;
 					} else {
+						vow_dump_info[DUMP_INPUT].scp_dump_size[1] = 0;
 						VOWDRV_DEBUG("%s mic_offset_R = %x\n",
 							     __func__, ipi_ptr->mic_offset_R);
-						return;
 					}
 				}
 			} else {
+				vow_dump_info[DUMP_INPUT].scp_dump_size[0] = 0;
 				VOWDRV_DEBUG("%s BARGEIN_DUMP_BYTE_CNT_MIC=%x, mic_offset=%x\n",
 					__func__,
 					(unsigned int)BARGEIN_DUMP_BYTE_CNT_MIC,
@@ -231,13 +232,12 @@ static void vow_ipi_rx_handle_data_msg(void *msg_data)
 					__func__,
 					(unsigned int)(BARGEIN_DUMP_BYTE_CNT_MIC >> 1),
 					ipi_ptr->mic_dump_size);
-				return;
 			}
 		}
 		/* IPIMSG_VOW_BARGEIN_PCMDUMP_OK */
 		if ((ipi_ptr->ipi_type_flag & BARGEIN_DUMP_IDX_MASK)) {
-			if ((vowserv.vow_mic_number == 2) &&
-			    (ipi_ptr->echo_offset > BARGEIN_DUMP_TOTAL_BYTE_CNT)) {
+			if (ipi_ptr->echo_offset > BARGEIN_DUMP_TOTAL_BYTE_CNT) {
+				vow_dump_info[DUMP_BARGEIN].scp_dump_size[0] = 0;
 				VOWDRV_DEBUG("%s BARGEIN_DUMP_TOTAL_BYTE_CNT = %x\n",
 						__func__,
 						(unsigned int)BARGEIN_DUMP_TOTAL_BYTE_CNT);
@@ -245,17 +245,12 @@ static void vow_ipi_rx_handle_data_msg(void *msg_data)
 						__func__,
 						(unsigned int)VOW_MAX_MIC_NUM,
 						ipi_ptr->echo_offset);
-				return;
-			} else if ((vowserv.vow_mic_number == 1) &&
-				(ipi_ptr->echo_offset > BARGEIN_DUMP_BYTE_CNT_ECHO)) {
-				VOWDRV_DEBUG("%s BARGEIN_DUMP_BYTE_CNT_ECHO=%x, echo_offset=%x\n",
-					__func__,
-					(unsigned int)BARGEIN_DUMP_BYTE_CNT_ECHO,
-					ipi_ptr->echo_offset);
-				return;
+			} else {
+				vow_dump_info[DUMP_BARGEIN].scp_dump_size[0] =
+					ipi_ptr->echo_dump_size;
+				vow_dump_info[DUMP_BARGEIN].scp_dump_offset[0] =
+					ipi_ptr->echo_offset;
 			}
-			vow_dump_info[DUMP_BARGEIN].scp_dump_size[0] = ipi_ptr->echo_dump_size;
-			vow_dump_info[DUMP_BARGEIN].scp_dump_offset[0] = ipi_ptr->echo_offset;
 		}
 		if ((ipi_ptr->ipi_type_flag & AECOUT_DUMP_IDX_MASK)) {
 			if ((ipi_ptr->aecout_dump_offset < AECOUT_DUMP_BYTE_CNT) &&
@@ -272,16 +267,17 @@ static void vow_ipi_rx_handle_data_msg(void *msg_data)
 						vow_dump_info[DUMP_AECOUT].scp_dump_offset[1] =
 							ipi_ptr->aecout_dump_offset_R;
 					} else {
+						vow_dump_info[DUMP_AECOUT].scp_dump_size[1] = 0;
 						VOWDRV_DEBUG("%s AECOUT_DUMP_BYTE_CNT = %x\n",
 							     __func__,
 							     (unsigned int)AECOUT_DUMP_BYTE_CNT);
 						VOWDRV_DEBUG("%s aecout_dump_offset_R = %x\n",
 							     __func__,
 							     ipi_ptr->aecout_dump_offset_R);
-						return;
 					}
 				}
 			} else {
+				vow_dump_info[DUMP_AECOUT].scp_dump_size[0] = 0;
 				VOWDRV_DEBUG("%s AECOUT_DUMP_BYTE_CNT=%x, aecout_dump_offset=%x",
 					     __func__,
 					     (unsigned int)AECOUT_DUMP_BYTE_CNT,
@@ -290,7 +286,6 @@ static void vow_ipi_rx_handle_data_msg(void *msg_data)
 					     __func__,
 					     (unsigned int)(AECOUT_DUMP_BYTE_CNT >> 1),
 					     ipi_ptr->aecout_dump_size);
-				return;
 			}
 		}
 		if ((ipi_ptr->ipi_type_flag & VFFPOUT_DUMP_IDX_MASK)) {
@@ -307,6 +302,8 @@ static void vow_ipi_rx_handle_data_msg(void *msg_data)
 				vow_dump_info[DUMP_VFFPOUT].scp_dump_offset[1] =
 					ipi_ptr->vffpout_dump_offset_2nd_ch;
 			} else {
+				vow_dump_info[DUMP_VFFPOUT].scp_dump_size[0] = 0;
+				vow_dump_info[DUMP_VFFPOUT].scp_dump_size[1] = 0;
 				VOWDRV_DEBUG("%s VFFPOUT_DUMP_BYTE=%x, vffpout_offset=%x\n",
 					     __func__,
 					     (unsigned int)VFFPOUT_DUMP_BYTE_CNT,
@@ -317,7 +314,6 @@ static void vow_ipi_rx_handle_data_msg(void *msg_data)
 					     __func__,
 					     (unsigned int)(VFFPOUT_DUMP_BYTE_CNT >> 1),
 					     ipi_ptr->vffpout_dump_size);
-				return;
 			}
 		}
 		if ((ipi_ptr->ipi_type_flag & VFFPIN_DUMP_IDX_MASK)) {
@@ -335,16 +331,17 @@ static void vow_ipi_rx_handle_data_msg(void *msg_data)
 						vow_dump_info[DUMP_VFFPIN].scp_dump_offset[1] =
 							ipi_ptr->vffpin_dump_offset_R;
 					} else {
+						vow_dump_info[DUMP_VFFPIN].scp_dump_size[1] = 0;
 						VOWDRV_DEBUG("%s VFFPIN_DUMP_BYTE_CNT = %x\n",
 							     __func__,
 							     (unsigned int)VFFPIN_DUMP_BYTE_CNT);
 						VOWDRV_DEBUG("%s vffpin_dump_offset_R = %x\n",
 							     __func__,
 							     ipi_ptr->vffpin_dump_offset_R);
-						return;
 					}
 				}
 			} else {
+				vow_dump_info[DUMP_VFFPIN].scp_dump_size[0] = 0;
 				VOWDRV_DEBUG("%s VFFPIN_DUMP_BYTE_CNT=%x, vffpin_dump_offset=%x\n",
 					     __func__,
 					     (unsigned int)VFFPIN_DUMP_BYTE_CNT,
@@ -355,7 +352,6 @@ static void vow_ipi_rx_handle_data_msg(void *msg_data)
 					     __func__,
 					     (unsigned int)(VFFPIN_DUMP_BYTE_CNT >> 1),
 					     ipi_ptr->vffpin_dump_size);
-				return;
 			}
 		}
 		spin_unlock_irqrestore(&vowdrv_dump_lock, flags);
@@ -1764,8 +1760,6 @@ static int vow_pcm_dump_notify(bool enable)
 	/* dump flag */
 	vow_ipi_buf[0] = vowserv.dump_pcm_flag;
 
-	VOWDRV_DEBUG("%s(), dump on\n", __func__);
-
 	/* if scp reset happened, need re-send PCM dump IPI to SCP again */
 	if (enable == true) {
 		ret = vow_ipi_send(IPIMSG_VOW_PCM_DUMP_ON,
@@ -1783,7 +1777,6 @@ static int vow_pcm_dump_notify(bool enable)
 		if (ret == 0)
 			VOWDRV_DEBUG("PCM_DUMP_OFF ipi send error\n");
 	}
-	VOWDRV_DEBUG("%s(), end\n\r", __func__);
 #else
 	VOWDRV_DEBUG("%s(), vow: SCP no support\n\r", __func__);
 #endif  /* #if IS_ENABLED(CONFIG_MTK_TINYSYS_SCP_SUPPORT) */
