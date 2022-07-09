@@ -4893,7 +4893,8 @@ static int mtk_cam_link_notify(struct media_link *link, u32 flags,
 	cam = container_of(subdev->v4l2_dev->mdev, struct mtk_cam_device, media_dev);
 	ctx = mtk_cam_find_ctx(cam, sink);
 	if (!ctx || !ctx->streaming || !(flags & MEDIA_LNK_FL_ENABLED)) {
-		pr_info("call v4l2_pipeline_link_notify\n");
+		pr_info("%s: call v4l2_pipeline_link_notify for subdev:%s\n",
+			__func__, subdev->name);
 		return v4l2_pipeline_link_notify(link, flags, notification);
 	}
 
@@ -4901,6 +4902,12 @@ static int mtk_cam_link_notify(struct media_link *link, u32 flags,
 	if (!pipe) {
 		dev_info(cam->dev, "%s: can't find the raw pipe(%d)\n",
 			 __func__, ctx->stream_id);
+		return v4l2_pipeline_link_notify(link, flags, notification);
+	}
+
+	if (&pipe->subdev != subdev) {
+		dev_info(cam->dev, "%s: skip mtk_cam_collect_link_change for subdev:%s\n",
+			 __func__, subdev->name);
 		return v4l2_pipeline_link_notify(link, flags, notification);
 	}
 
