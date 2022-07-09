@@ -152,6 +152,10 @@ static int lpm_get_wakeup_status(void)
 	/* get ISR status */
 	help->wakesrc->isr = plat_mmio_read(SPM_IRQ_STA);
 
+	/* get debug spare 5 && 6 */
+	help->wakesrc->debug_spare5 = plat_mmio_read(PCM_WDT_LATCH_SPARE_5);
+	help->wakesrc->debug_spare6 = plat_mmio_read(PCM_WDT_LATCH_SPARE_6);
+
 	/* get SW flag status */
 	help->wakesrc->sw_flag0 = plat_mmio_read(SPM_SW_FLAG_0);
 	help->wakesrc->sw_flag1 = plat_mmio_read(SPM_SW_FLAG_1);
