@@ -9015,8 +9015,8 @@ rb_simple_write(struct file *filp, const char __user *ubuf,
 #endif
 	if (buffer) {
 #ifdef CONFIG_MTK_FTRACER
-		if (ring_buffer_record_is_on(buffer) ^ val)
-			pr_debug("[ftrace]tracing_on is toggled to %lu\n", val);
+	//	if (ring_buffer_record_is_on(buffer) ^ val)
+	//		pr_debug("[ftrace]tracing_on is toggled to %lu\n", val);
 #endif
 		mutex_lock(&trace_types_lock);
 		if (!!val == tracer_tracing_is_on(tr)) {
