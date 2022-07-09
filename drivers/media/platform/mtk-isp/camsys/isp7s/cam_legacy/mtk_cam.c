@@ -7733,6 +7733,8 @@ struct mtk_cam_ctx *mtk_cam_start_ctx(struct mtk_cam_device *cam,
 		ctx->slb_size = slb.size;
 	}
 
+	cmdq_mbox_enable(cam->cmdq_clt->chan);
+
 	ret = mtk_cam_working_buf_pool_alloc(ctx);
 	if (ret) {
 		dev_info(cam->dev, "failed to reserve DMA memory:%d\n", ret);
@@ -8048,6 +8050,9 @@ void mtk_cam_stop_ctx(struct mtk_cam_ctx *ctx, struct media_entity *entity)
 	ret = slbc_release(&slb);
 	if (ret < 0)
 		dev_info(cam->dev, "failed to release slb buffer");
+
+	if (cam->cmdq_clt)
+		cmdq_mbox_disable(cam->cmdq_clt->chan);
 
 	mtk_cam_working_buf_pool_release(ctx);
 
@@ -9720,15 +9725,15 @@ static int mtk_cam_probe(struct platform_device *pdev)
 	cam_dev->max_stream_num = MTKCAM_SUBDEV_MAX;
 	cam_dev->ctxs = devm_kcalloc(dev, cam_dev->max_stream_num,
 				     sizeof(*cam_dev->ctxs), GFP_KERNEL);
-	cam_dev->cmdq_clt = cmdq_mbox_create(dev, 0);
-	cmdq_mbox_enable(cam_dev->cmdq_clt->chan);
 
-	cam_dev->adl_base = ioremap(0x1a0f0000, 0x1900);
+	cam_dev->cmdq_clt = cmdq_mbox_create(dev, 0);
 
 	if (!cam_dev->cmdq_clt)
 		pr_info("probe cmdq_mbox_create fail\n");
 	else
 		pr_info("probe cmdq_mbox_create: client: %d\n", cam_dev->cmdq_clt);
+
+	cam_dev->adl_base = ioremap(0x1a0f0000, 0x1900);
 
 	if (!cam_dev->ctxs)
 		return -ENOMEM;
@@ -9794,10 +9799,9 @@ static int mtk_cam_remove(struct platform_device *pdev)
 	component_master_del(dev, &mtk_cam_master_ops);
 	mtk_cam_match_remove(dev);
 
-	if (cam_dev->cmdq_clt) {
+	if (cam_dev->cmdq_clt)
 		cmdq_mbox_destroy(cam_dev->cmdq_clt);
-		cmdq_mbox_disable(cam_dev->cmdq_clt->chan);
-	}
+
 	mutex_destroy(&cam_dev->queue_lock);
 	mtk_cam_debug_fs_deinit(cam_dev);
 
