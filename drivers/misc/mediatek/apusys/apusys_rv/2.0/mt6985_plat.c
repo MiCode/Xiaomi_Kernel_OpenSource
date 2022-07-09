@@ -40,7 +40,7 @@ static struct delayed_work timeout_work;
  * if power on and not power off
  * without ipi send
  */
-#define APU_PWROFF_TIMEOUT_MS (60 * 1000)
+#define APU_PWROFF_TIMEOUT_MS (90 * 1000)
 
 /*
  * WARM BOOT power off timeout
@@ -48,7 +48,7 @@ static struct delayed_work timeout_work;
  * excpetion will trigger
  * if power off not done after ipi send
  */
-#define IPI_PWROFF_TIMEOUT_MS (15 * 1000)
+#define IPI_PWROFF_TIMEOUT_MS (60 * 1000)
 
 static void apu_timeout_work(struct work_struct *work)
 {
