@@ -4764,7 +4764,10 @@ static void mtk_drm_ovl_bw_monitor_ratio_get(struct drm_crtc *crtc,
 			ovl_win_size, is_compress, bpp, src_w, src_h);
 		DDPDBG("BWM: avg_inter_value:%u peak_inter_value:%u\n",
 			avg_inter_value, peak_inter_value);
-
+		if (!comp) {
+			DDPINFO("comp is NULL");
+			return;
+		}
 		if ((ext_lye_id) &&
 			(plane_state->pending.enable) && (need_skip != 1)) {
 			cmdq_pkt_read(state->cmdq_handle, NULL,
