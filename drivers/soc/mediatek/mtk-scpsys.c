@@ -130,12 +130,19 @@ int unregister_scpsys_notifier(struct notifier_block *nb)
 EXPORT_SYMBOL_GPL(unregister_scpsys_notifier);
 
 static struct apu_callbacks *g_apucb;
+static struct ipi_callbacks *g_pwr_cb;
 
 void register_apu_callback(struct apu_callbacks *apucb)
 {
 	g_apucb = apucb;
 }
 EXPORT_SYMBOL_GPL(register_apu_callback);
+
+void register_ipi_mtcmos_callback(struct ipi_callbacks *pwr_cb)
+{
+	g_pwr_cb = pwr_cb;
+}
+EXPORT_SYMBOL_GPL(register_ipi_mtcmos_callback);
 
 static int __scpsys_domain_is_on(void __iomem *addr, u32 sta_mask)
 {
@@ -1119,6 +1126,51 @@ err_lp_clk:
 	return ret;
 }
 
+static int scpsys_ipi_power_on(struct generic_pm_domain *genpd)
+{
+	struct scp_domain *scpd = container_of(genpd, struct scp_domain, genpd);
+	struct scp *scp = scpd->scp;
+	int ret = 0;
+
+	if (g_pwr_cb && g_pwr_cb->power_on) {
+		ret = g_pwr_cb->power_on(scpd->data->ipi_shift);
+		if (ret) {
+			dev_err(scp->dev, "Failed to send on ipi to VCP %s(%d)\n",
+					genpd->name, ret);
+			goto err;
+		}
+	}
+
+	ret = scpsys_hwv_power_on(genpd);
+err:
+	return ret;
+}
+
+static int scpsys_ipi_power_off(struct generic_pm_domain *genpd)
+{
+	struct scp_domain *scpd = container_of(genpd, struct scp_domain, genpd);
+	struct scp *scp = scpd->scp;
+	int ret = 0;
+
+	ret = scpsys_hwv_power_off(genpd);
+	if (ret)
+		goto err;
+
+	if (g_pwr_cb && g_pwr_cb->power_off) {
+		ret = g_pwr_cb->power_off(scpd->data->ipi_shift);
+		if (ret) {
+			dev_err(scp->dev, "Failed to send off ipi to VCP %s(%d)\n",
+					genpd->name, ret);
+			goto err;
+		}
+
+	}
+
+	return 0;
+err:
+	return ret;
+}
+
 static int init_subsys_clks(struct platform_device *pdev,
 		const char *prefix, struct clk **clk)
 {
@@ -1386,6 +1438,9 @@ struct scp *init_scp(struct platform_device *pdev,
 		} else if (MTK_SCPD_CAPS(scpd, MTK_SCPD_HWV_OPS)) {
 			genpd->power_on = scpsys_hwv_power_on;
 			genpd->power_off = scpsys_hwv_power_off;
+		} else if (MTK_SCPD_CAPS(scpd, MTK_SCPD_IPI_OPS)) {
+			genpd->power_on = scpsys_ipi_power_on;
+			genpd->power_off = scpsys_ipi_power_off;
 		} else {
 			genpd->power_off = scpsys_power_off;
 			genpd->power_on = scpsys_power_on;

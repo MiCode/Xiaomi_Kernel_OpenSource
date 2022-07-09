@@ -26,6 +26,7 @@
 #define MTK_SCPD_HWV_OPS		BIT(11)
 #define MTK_SCPD_NON_CPU_RTFF		BIT(12)
 #define MTK_SCPD_PEXTP_PHY_RTFF		BIT(13)
+#define MTK_SCPD_IPI_OPS		BIT(14)
 
 #define MAX_CLKS	3
 #define MAX_SUBSYS_CLKS 10
@@ -77,6 +78,7 @@ struct scp_domain_data {
 	u32 hwv_set_sta_ofs;
 	u32 hwv_clr_sta_ofs;
 	u8 hwv_shift;
+	u8 ipi_shift;
 	u32 sram_pdn_bits;
 	u32 sram_pdn_ack_bits;
 	u32 sram_slp_bits;
@@ -150,8 +152,14 @@ struct apu_callbacks {
 	int (*apu_power_off)(void);
 };
 
+struct ipi_callbacks {
+	int (*power_on)(const u8 mtcmos_idx);
+	int (*power_off)(const u8 mtcmos_idx);
+};
+
 /* register new apu_callbacks and return previous apu_callbacks. */
 extern void register_apu_callback(struct apu_callbacks *apucb);
+extern void register_ipi_mtcmos_callback(struct ipi_callbacks *pwr_cb);
 
 int register_scpsys_notifier(struct notifier_block *nb);
 int unregister_scpsys_notifier(struct notifier_block *nb);
