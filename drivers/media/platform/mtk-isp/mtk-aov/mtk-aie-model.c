@@ -6,45 +6,61 @@
 #include <linux/list.h>
 #include <linux/delay.h>
 #include <linux/jiffies.h>
+#define REDUCE_MEM_NETWORK 0
 
+#if REDUCE_MEM_NETWORK
+#include <aie_mp_fw_reduce/kernel/dma_def.h>
+#include <aie_mp_fw_reduce/all_header.h>
+#include "./aie_aov_config_reduce/dma_def.h"
+#include "./aie_aov_config_reduce/aov_fd_confi_frame01.h"
+#include "./aie_aov_config_reduce/aov_rs_confi_frame01.h"
+#include "./aie_aov_config_reduce/aov_yuv2rgb_confi_frame01.h"
+#else
 #include <aie_mp_fw/kernel/dma_def.h>
 #include <aie_mp_fw/all_header.h>
 #include "./aie_aov_config/dma_def.h"
 #include "./aie_aov_config/aov_fd_confi_frame01.h"
 #include "./aie_aov_config/aov_rs_confi_frame01.h"
 #include "./aie_aov_config/aov_yuv2rgb_confi_frame01.h"
+#endif
 
 #define AOV_GOLDEN 0
 #define AOV_RESEULT 0
-#if (AOV_GOLDEN ||  AOV_GOLDEN)
+
+#if (AOV_GOLDEN || AOV_RESEULT)
+#if REDUCE_MEM_NETWORK
+#include <aie_golden_reduce/fmap/dma_def.h>
+#include <aie_golden_reduce/yuv2rgb/dma_def.h>
+#include <aie_golden_reduce/rs/dma_def.h>
+#include <aie_golden_reduce/all_header.h>
+#else
 #include <aie_golden/fmap/dma_def.h>
 #include <aie_golden/yuv2rgb/dma_def.h>
 #include <aie_golden/rs/dma_def.h>
 #include <aie_golden/all_header.h>
 #endif
+#endif
 
-#define fd_loop_num 87
+#define fd_loop_num 29
 #define kernel_RDMA_RA_num 2
 
+#if REDUCE_MEM_NETWORK
+static const unsigned int fd_ker_rdma_size[fd_loop_num][kernel_RDMA_RA_num] = {
+	{240, 240},   {1168, 1168}, {1168, 1168}, {272, 272},   {1168, 1168},
+	{784, 784}, {272, 272}, {1168, 1168}, {784, 784}, {2320, 2320},
+	{1168, 1168}, {1040, 1040}, {272, 272}, {1168, 1168}, {1168, 1168},
+	{400, 400}, {1168, 1168}, {1168, 1168}, {2080, 2080}, {1040, 1040},
+	{1040, 1040}, {528, 528},   {4160, 4160}, {4160, 4160}, {2080, 2080},
+	{2080, 2080}, {2080, 2080}, {1040, 1040}, {0, 0}};
+#else
 static const unsigned int fd_ker_rdma_size[fd_loop_num][kernel_RDMA_RA_num] = {
 	{240, 240},   {1168, 1168}, {1168, 1168}, {272, 272},   {2320, 2320},
 	{2080, 2080}, {1040, 1040}, {4624, 4624}, {3104, 3104}, {9232, 9232},
 	{4624, 4624}, {4128, 4128}, {1040, 1040}, {4624, 4624}, {4624, 4624},
 	{1552, 1552}, {4624, 4624}, {4624, 4624}, {4128, 4128}, {1040, 1040},
 	{1040, 1040}, {528, 528},   {4160, 4160}, {4160, 4160}, {2080, 2080},
-	{2080, 2080}, {2080, 2080}, {1040, 1040}, {0, 0},       {240, 240},
-	{1168, 1168}, {1168, 1168}, {272, 272},   {2320, 2320}, {2080, 2080},
-	{1040, 1040}, {4624, 4624}, {3104, 3104}, {9232, 9232}, {4624, 4624},
-	{4128, 4128}, {1040, 1040}, {4624, 4624}, {4624, 4624}, {1552, 1552},
-	{4624, 4624}, {4624, 4624}, {4128, 4128}, {1040, 1040}, {1040, 1040},
-	{528, 528},   {4160, 4160}, {4160, 4160}, {2080, 2080}, {2080, 2080},
-	{2080, 2080}, {1040, 1040}, {0, 0},       {240, 240},   {1168, 1168},
-	{1168, 1168}, {272, 272},   {2320, 2320}, {2080, 2080}, {1040, 1040},
-	{4624, 4624}, {3104, 3104}, {9232, 9232}, {4624, 4624}, {4128, 4128},
-	{1040, 1040}, {4624, 4624}, {4624, 4624}, {1552, 1552}, {4624, 4624},
-	{4624, 4624}, {4128, 4128}, {1040, 1040}, {1040, 1040}, {528, 528},
-	{4160, 4160}, {4160, 4160}, {2080, 2080}, {2080, 2080}, {2080, 2080},
-	{1040, 1040}, {0, 0} };
+	{2080, 2080}, {2080, 2080}, {1040, 1040}, {0, 0}};
+#endif
 
 void mtk_aie_aov_memcpy(char *buffer)
 {
@@ -218,12 +234,16 @@ void mtk_aie_aov_memcpy(char *buffer)
 	tmp += fdvt_fd_out_loop03_0_size;
 	memcpy(tmp, &fdvt_fd_out_loop04_0[0], fdvt_fd_out_loop04_0_size);
 	tmp += fdvt_fd_out_loop04_0_size;
+#if (!REDUCE_MEM_NETWORK)
 	memcpy(tmp, &fdvt_fd_out_loop04_1[0], fdvt_fd_out_loop04_1_size);
 	tmp += fdvt_fd_out_loop04_1_size;
+#endif
 	memcpy(tmp, &fdvt_fd_out_loop04_2[0], fdvt_fd_out_loop04_2_size);
 	tmp += fdvt_fd_out_loop04_2_size;
+#if (!REDUCE_MEM_NETWORK)
 	memcpy(tmp, &fdvt_fd_out_loop04_3[0], fdvt_fd_out_loop04_3_size);
 	tmp += fdvt_fd_out_loop04_3_size;
+#endif
 	memcpy(tmp, &fdvt_fd_out_loop05_0[0], fdvt_fd_out_loop05_0_size);
 	tmp += fdvt_fd_out_loop05_0_size;
 	memcpy(tmp, &fdvt_fd_out_loop05_1[0], fdvt_fd_out_loop05_1_size);
