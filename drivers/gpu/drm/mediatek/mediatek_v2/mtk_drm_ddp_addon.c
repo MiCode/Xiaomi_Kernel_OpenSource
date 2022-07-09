@@ -388,7 +388,8 @@ static void mtk_addon_path_stop(struct drm_crtc *crtc,
 
 		if (addon_config &&
 			(addon_config->config_type.module == DISP_MML_IR_PQ ||
-			addon_config->config_type.module == DISP_MML_IR_PQ_1) &&
+			addon_config->config_type.module == DISP_MML_IR_PQ_1 ||
+			addon_config->config_type.module == DISP_MML_IR_PQ_v2) &&
 			addon_config->config_type.type == ADDON_DISCONNECT)
 			mtk_ddp_comp_addon_config(add_comp, -1, -1, addon_config, cmdq_handle);
 	}
