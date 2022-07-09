@@ -20,7 +20,7 @@ static struct tiny_dvfs_opp_tbl opp_tbl2;
 
 static struct apu_pwr_curr_info curr_info;
 static const char * const pll_name[] = {
-				"PLL_CONN", "PLL_RV33", "PLL_MVPU", "PLL_MDLA", "PLL_NVE"};
+				"PLL_CONN", "PLL_RV33", "PLL_MVPU", "PLL_MDLA", "PLL_MDLA_APS"};
 static const char * const buck_name[] = {
 				"BUCK_VAPU", "BUCK_VSRAM", "BUCK_VCORE"};
 static const char * const cluster_name[] = {
