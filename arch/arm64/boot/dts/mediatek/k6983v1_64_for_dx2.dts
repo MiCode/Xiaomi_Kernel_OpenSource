@@ -520,6 +520,10 @@
 	pd_vbus_upper_bound = <12000000>;
 };
 
+&scp {
+	scp-dram-region = "enable";   /* enable scp dram region manage */
+};
+
 
 #include <k6983v1_64_for_dx2/cust.dtsi>
 #include "mediatek/cust_mt6983_touch_1080x2400.dtsi"

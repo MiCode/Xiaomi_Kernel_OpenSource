@@ -8797,6 +8797,7 @@
 				  <12 100 1>,	/* vow dual mic barge in */
 				  <13 200 0>;	/* ultrasound */
 
+		scp-dram-region = "enable";   /* enable scp dram region manage */
 		scp-protect = "enable";   /* enable scp protections */
 		secure_dump = "enable";   /* enable dump via secure world*/
 		secure_dump_size = <0x480000>;
