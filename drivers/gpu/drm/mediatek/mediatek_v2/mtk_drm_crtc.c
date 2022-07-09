@@ -277,19 +277,21 @@ void mtk_drm_crtc_dump(struct drm_crtc *crtc)
 	struct mtk_panel_params *panel_ext = mtk_drm_get_lcm_ext_params(crtc);
 	enum addon_scenario scn;
 
-	if (disp_helper_get_stage() == DISP_HELPER_STAGE_NORMAL) {
-		if (!priv->power_state) {
-			DDPDUMP("DRM dev is not in power on state, skip %s\n",
-				__func__);
-			return;
-		}
-	}
-
 	if (crtc_id < 0) {
 		DDPPR_ERR("%s: Invalid crtc_id:%d\n", __func__, crtc_id);
 		return;
 	}
-	DDPINFO("%s\n", __func__);
+
+	if (priv->mmsys_dev && pm_runtime_get_if_in_use(priv->mmsys_dev) <= 0)
+		goto done_mmsys;
+	if (priv->side_mmsys_dev && pm_runtime_get_if_in_use(priv->side_mmsys_dev) <= 0)
+		goto done_side_mmsys;
+	if (priv->ovlsys_dev && pm_runtime_get_if_in_use(priv->ovlsys_dev) <= 0)
+		goto done_ovlsys;
+	if (priv->side_ovlsys_dev && pm_runtime_get_if_in_use(priv->side_ovlsys_dev) <= 0)
+		goto done_side_ovlsys;
+
+	DDPFUNC("crtc%d\n", crtc_id);
 
 	switch (priv->data->mmsys_id) {
 	case MMSYS_MT2701:
@@ -420,6 +422,19 @@ void mtk_drm_crtc_dump(struct drm_crtc *crtc)
 		comp = priv->ddp_comp[DDP_COMPONENT_DSC0];
 		mtk_dump_reg(comp);
 	}
+
+done_side_ovlsys:
+	if (priv->side_ovlsys_dev)
+		pm_runtime_put(priv->side_ovlsys_dev);
+done_ovlsys:
+	if (priv->ovlsys_dev)
+		pm_runtime_put(priv->ovlsys_dev);
+done_side_mmsys:
+	if (priv->side_mmsys_dev)
+		pm_runtime_put(priv->side_mmsys_dev);
+done_mmsys:
+	if (priv->mmsys_dev)
+		pm_runtime_put(priv->mmsys_dev);
 }
 
 static void mtk_drm_crtc_addon_analysis(struct drm_crtc *crtc,
@@ -459,13 +474,19 @@ void mtk_drm_crtc_analysis(struct drm_crtc *crtc)
 	int crtc_id = drm_crtc_index(crtc);
 	enum addon_scenario scn;
 
-	if (disp_helper_get_stage() == DISP_HELPER_STAGE_NORMAL) {
-		if (!priv->power_state) {
-			DDPDUMP("DRM dev is not in power on state, skip %s\n",
-				__func__);
-			return;
-		}
+	if (crtc_id < 0) {
+		DDPPR_ERR("%s: Invalid crtc_id:%d\n", __func__, crtc_id);
+		return;
 	}
+
+	if (priv->mmsys_dev && pm_runtime_get_if_in_use(priv->mmsys_dev) <= 0)
+		goto done_mmsys;
+	if (priv->side_mmsys_dev && pm_runtime_get_if_in_use(priv->side_mmsys_dev) <= 0)
+		goto done_side_mmsys;
+	if (priv->ovlsys_dev && pm_runtime_get_if_in_use(priv->ovlsys_dev) <= 0)
+		goto done_ovlsys;
+	if (priv->side_ovlsys_dev && pm_runtime_get_if_in_use(priv->side_ovlsys_dev) <= 0)
+		goto done_side_ovlsys;
 
 	DDPFUNC("crtc%d\n", crtc_id);
 
@@ -626,6 +647,19 @@ void mtk_drm_crtc_analysis(struct drm_crtc *crtc)
 					state->lye_state.scn[crtc_id]);
 		mtk_drm_crtc_addon_analysis(crtc, addon_data);
 	}
+
+done_side_ovlsys:
+	if (priv->side_ovlsys_dev)
+		pm_runtime_put(priv->side_ovlsys_dev);
+done_ovlsys:
+	if (priv->ovlsys_dev)
+		pm_runtime_put(priv->ovlsys_dev);
+done_side_mmsys:
+	if (priv->side_mmsys_dev)
+		pm_runtime_put(priv->side_mmsys_dev);
+done_mmsys:
+	if (priv->mmsys_dev)
+		pm_runtime_put(priv->mmsys_dev);
 }
 
 struct mtk_ddp_comp *mtk_ddp_comp_request_output(struct mtk_drm_crtc *mtk_crtc)
