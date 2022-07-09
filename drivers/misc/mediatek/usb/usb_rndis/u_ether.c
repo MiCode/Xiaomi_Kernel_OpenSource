@@ -809,7 +809,7 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 
 	if (skb && !in) {
 		dev_kfree_skb_any(skb);
-		U_ETHER_DBG("%s - wrong direction!\n", __func__);
+		INFO(dev, "%s - wrong direction!\n", __func__);
 		return NETDEV_TX_OK;
 	}
 
@@ -829,7 +829,7 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 				type = USB_CDC_PACKET_TYPE_ALL_MULTICAST;
 			if (!(cdc_filter & type)) {
 				dev_kfree_skb_any(skb);
-				U_ETHER_DBG("%s - filter/type no match\n", __func__);
+				INFO(dev, "%s - filter/type no match\n", __func__);
 				return NETDEV_TX_OK;
 			}
 		}
@@ -840,7 +840,7 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 		if (!dev->port_usb->supports_multi_frame)
 			dev->net->stats.tx_dropped++;
 		/* no error code for dropped packets */
-		U_ETHER_DBG("%s - skb dropped\n", __func__);
+		INFO(dev, "%s - skb dropped\n", __func__);
 		return NETDEV_TX_OK;
 	}
 
@@ -851,7 +851,7 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 		retval = alloc_tx_buffer(dev);
 		if (retval < 0) {
 			spin_unlock_irqrestore(&dev->req_lock, flags);
-			U_ETHER_DBG("%s - alloc_tx_buffer failed - NOMEM\n", __func__);
+			INFO(dev, "%s - alloc_tx_buffer failed - NOMEM\n", __func__);
 			return -ENOMEM;
 		}
 	}
@@ -883,7 +883,7 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 					okCnt, busyCnt);
 		spin_unlock_irqrestore(&dev->req_lock, flags);
 		rndis_test_tx_busy++;
-		U_ETHER_DBG("%s - TXBUSY\n", __func__);
+		INFO(dev, "%s - TXBUSY\n", __func__);
 		return NETDEV_TX_BUSY;
 	}
 	okCnt++;
@@ -900,7 +900,7 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 
 	if (dev->port_usb == NULL) {
 		dev_kfree_skb_any(skb);
-		U_ETHER_DBG("port_usb NULL\n");
+		INFO(dev, "port_usb NULL\n");
 		return NETDEV_TX_OK;
 	}
 
@@ -918,7 +918,7 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 		if (!dev->port_usb->supports_multi_frame)
 			dev->net->stats.tx_dropped++;
 		/* no error code for dropped packets */
-		U_ETHER_DBG("%s - skb dropped\n", __func__);
+		INFO(dev, "%s - skb dropped\n", __func__);
 		return NETDEV_TX_OK;
 	}
 
@@ -927,6 +927,12 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 				" skb->len:%d skb->data_len:%d\n",
 				req->length, dev->header_len,
 				skb->len, skb->data_len);
+
+		if ((req->length + dev->header_len + skb->len) > dev->tx_req_bufsize) {
+			dev_kfree_skb_any(skb);
+			INFO(dev, "%s - tx dropped\n", __func__);
+			return NET_XMIT_DROP;
+		}
 		/* Add RNDIS Header */
 		memcpy(req->buf + req->length, dev->port_usb->header,
 						dev->header_len);
@@ -952,6 +958,11 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 				frag_data_len = skb_frag_size(frag);
 				frag_data_addr = skb_frag_address(frag);
 
+				if ((req->length + frag_data_len) > dev->tx_req_bufsize) {
+					dev_kfree_skb_any(skb);
+					INFO(dev, "%s - tx dropped\n", __func__);
+					return NET_XMIT_DROP;
+				}
 				memcpy(req->buf + req->length, frag_data_addr, frag_data_len);
 				frag_total_len += frag_data_len;
 				frag_data_addr += frag_data_len;
