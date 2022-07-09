@@ -1966,6 +1966,7 @@ void mml_update_array(struct mml_task_reuse *reuse,
 	*va = (*va & GENMASK(63, 32)) | value;
 }
 
+#if IS_ENABLED(CONFIG_MTK_MML_DEBUG)
 noinline int tracing_mark_write(char *fmt, ...)
 {
 #ifdef CONFIG_TRACING
@@ -1986,3 +1987,4 @@ noinline int tracing_mark_write(char *fmt, ...)
 #endif
 	return 0;
 }
+#endif

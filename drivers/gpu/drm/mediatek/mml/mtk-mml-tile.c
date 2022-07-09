@@ -18,6 +18,18 @@ int dump_tile;
 module_param(dump_tile, int, 0644);
 
 static DEFINE_MUTEX(tile_dump_mutex);
+
+enum tile_mmp_mark {
+	mmp_tile_convert_func,
+	mmp_tile_init_config,
+	mmp_tile_frame_mode_init,
+	mmp_tile_proc_main_single,
+	mmp_tile_frame_mode_close,
+	mmp_calc_frame_mode,
+	mmp_calc_tile_loop,
+	mmp_tile_mode_close,
+	mmp_destroy_tile_working,
+};
 #endif
 
 static const struct mml_topology_path *get_topology_path(
@@ -152,6 +164,9 @@ static s32 prepare_tile(struct mml_task *task,
 				func->func_num, comp->id, i);
 			return -EINVAL;
 		}
+
+		mml_mmp(tile_prepare_tile, MMPROFILE_FLAG_PULSE, comp->id, 0);
+
 		ret = call_tile_op(comp, prepare, task,
 				   &cache->cfg[path->tile_engines[i]],
 				   func, &tile_datas[i]);
@@ -237,6 +252,8 @@ struct tile_ctx {
 
 static void destroy_tile_working(struct tile_ctx *ctx)
 {
+	mml_mmp(tile_calc_frame, MMPROFILE_FLAG_PULSE, 0, mmp_destroy_tile_working);
+
 	/* free working but keep output */
 	kfree(ctx->tile_datas);
 	kfree(ctx->tile_reg_map);
@@ -350,6 +367,7 @@ static s32 calc_frame(struct mml_task *task, u32 pipe,
 	s32 ret;
 
 	/* frame calculate */
+	mml_mmp(tile_calc_frame, MMPROFILE_FLAG_PULSE, pipe, mmp_tile_convert_func);
 	result = tile_convert_func(tile_reg_map, tile_func, path);
 	if (result != ISP_MESSAGE_TILE_OK)
 		goto err_tile;
@@ -359,18 +377,22 @@ static s32 calc_frame(struct mml_task *task, u32 pipe,
 	if (ret)
 		goto err_exit;
 
+	mml_mmp(tile_calc_frame, MMPROFILE_FLAG_PULSE, pipe, mmp_tile_init_config);
 	result = tile_init_config(tile_reg_map, tile_func);
 	if (result != ISP_MESSAGE_TILE_OK)
 		goto err_tile;
 
+	mml_mmp(tile_calc_frame, MMPROFILE_FLAG_PULSE, pipe, mmp_tile_frame_mode_init);
 	result = tile_frame_mode_init(tile_reg_map, tile_func);
 	if (result != ISP_MESSAGE_TILE_OK)
 		goto err_tile;
 
+	mml_mmp(tile_calc_frame, MMPROFILE_FLAG_PULSE, pipe, mmp_tile_proc_main_single);
 	result = tile_proc_main_single(tile_reg_map, tile_func, 0, &stop);
 	if (result != ISP_MESSAGE_TILE_OK)
 		goto err_tile;
 
+	mml_mmp(tile_calc_frame, MMPROFILE_FLAG_PULSE, pipe, mmp_tile_frame_mode_close);
 	result = tile_frame_mode_close(tile_reg_map, tile_func);
 	if (result != ISP_MESSAGE_TILE_OK)
 		goto err_tile;
@@ -397,6 +419,8 @@ static s32 calc_tile_loop(struct mml_task *task,
 	bool stop;
 	s32 ret;
 
+	mml_mmp(tile_calc_frame, MMPROFILE_FLAG_PULSE, pipe, mmp_calc_tile_loop);
+
 	/* tile calculate */
 	result = tile_mode_init(tile_reg_map, tile_func);
 	if (result != ISP_MESSAGE_TILE_OK)
@@ -418,6 +442,7 @@ static s32 calc_tile_loop(struct mml_task *task,
 		tile_cnt++;
 	}
 
+	mml_mmp(tile_calc_frame, MMPROFILE_FLAG_PULSE, pipe, mmp_tile_mode_close);
 	result = tile_mode_close(tile_reg_map, tile_func);
 	if (result != ISP_MESSAGE_TILE_OK)
 		goto err_tile;
@@ -441,6 +466,8 @@ static s32 calc_frame_mode(struct mml_task *task,
 	struct mml_tile_output *output = ctx->output;
 	struct mml_tile_config *tiles = output->tiles;
 	struct tile_func_block *func = ctx->tile_func->func_list[0];
+
+	mml_mmp(tile_calc_frame, MMPROFILE_FLAG_PULSE, pipe, mmp_calc_frame_mode);
 
 	/* tile result from param once */
 	set_tile_config(task, pipe, path, &tiles[0], 0, ctx->tile_func);
@@ -486,7 +513,7 @@ s32 calc_tile(struct mml_task *task, u32 pipe, struct mml_tile_cache *tile_cache
 		goto free_output;
 	}
 
-	mml_mmp(tile_calc, MMPROFILE_FLAG_START, pipe, 0);
+	mml_mmp(tile_calc, MMPROFILE_FLAG_PULSE, pipe, 0);
 	ret = calc_frame(task, pipe, path, &ctx);
 	if (ret)
 		goto err_tile;
@@ -521,7 +548,7 @@ free_output:
 	destroy_tile_output(ctx.output);
 free_working:
 	destroy_tile_working(&ctx);
-	mml_mmp(tile_calc, MMPROFILE_FLAG_END, pipe, 0);
+	mml_mmp(tile_calc, MMPROFILE_FLAG_PULSE, pipe, 1);
 	return ret;
 }
 

@@ -33,6 +33,8 @@ void mml_mmp_init(void)
 	mml_mmp_events.comp_prepare = mmprofile_register_event(mml, "comp_prepare");
 	mml_mmp_events.tile_alloc = mmprofile_register_event(mml, "tile_alloc");
 	mml_mmp_events.tile_calc = mmprofile_register_event(mml, "tile_calc");
+	mml_mmp_events.tile_calc_frame = mmprofile_register_event(mml, "tile_calc_frame");
+	mml_mmp_events.tile_prepare_tile = mmprofile_register_event(mml, "tile_prepare_tile");
 	mml_mmp_events.command = mmprofile_register_event(mml, "command");
 	mml_mmp_events.fence = mmprofile_register_event(mml, "fence");
 	mml_mmp_events.fence_timeout = mmprofile_register_event(mml, "fence_timeout");

@@ -6,9 +6,11 @@
 #ifndef __MTK_MML_MMP_H__
 #define __MTK_MML_MMP_H__
 
+#if IS_ENABLED(CONFIG_MTK_MML_DEBUG)
 #ifndef MML_FPGA
 #if IS_ENABLED(CONFIG_MMPROFILE)
 #define MML_MMP_SUPPORT
+#endif
 #endif
 #endif
 
@@ -33,6 +35,8 @@ struct mml_mmp_events_t {
 	mmp_event comp_prepare;
 	mmp_event tile_alloc;
 	mmp_event tile_calc;
+	mmp_event tile_calc_frame;
+	mmp_event tile_prepare_tile;
 	mmp_event command;
 	mmp_event fence;
 	mmp_event fence_timeout;
