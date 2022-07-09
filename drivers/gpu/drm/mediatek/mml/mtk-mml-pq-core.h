@@ -22,9 +22,14 @@
 #define AAL_CURVE_NUM (544)
 #define AAL_HIST_NUM (768)
 #define AAL_DUAL_INFO_NUM (16)
+#define AAL_CLARITY_STATUS_NUM (7)
+
 #define CMDQ_GPR_UPDATE	(2)
 
 #define HDR_HIST_NUM (58)
+
+#define TDSHP_CONTOUR_HIST_NUM (17)
+#define TDSHP_CLARITY_STATUS_NUM (12)
 
 #define MML_PQ_RB_ENGINE (2)
 #define MAX_ENG_RB_BUF (8)
@@ -130,6 +135,12 @@ enum mml_pq_readback_engine {
 	MML_PQ_DC,
 };
 
+enum mml_pq_clarity_hist_start {
+	AAL_CLARITY_HIST_START = 0,
+	TDSHP_CLARITY_HIST_START = AAL_CLARITY_STATUS_NUM,
+};
+
+
 struct mml_pq_readback_buffer {
 	dma_addr_t pa;
 	u32 *va;
@@ -171,12 +182,15 @@ struct mml_pq_task {
 	struct mutex buffer_mutex;
 	struct mml_pq_readback_buffer *aal_hist[MML_PIPE_CNT];
 	struct mml_pq_readback_buffer *hdr_hist[MML_PIPE_CNT];
+	struct mml_pq_readback_buffer *tdshp_hist[MML_PIPE_CNT];
 	struct kref ref;
 	struct mml_pq_sub_task tile_init;
 	struct mml_pq_sub_task comp_config;
 	struct mml_pq_sub_task aal_readback;
 	struct mml_pq_sub_task hdr_readback;
 	struct mml_pq_sub_task rsz_callback;
+	struct mml_pq_sub_task clarity_readback;
+	struct mml_pq_sub_task dc_readback;
 };
 
 /*
@@ -343,4 +357,31 @@ int mml_pq_hdr_readback(struct mml_task *task, u8 pipe, u32 *phist);
  */
 
 int mml_pq_rsz_callback(struct mml_task *task);
+
+/*
+ * mml_pq_dc_readback - noify from MML core through MML PQ driver
+ *   to update histogram
+ *
+ * @task:	task data, include pq parameters and frame info
+ * @pipe:   pipe id
+ * @phist:  Histogram result
+ *
+ * Return:	if value < 0, means PQ update failed should debug
+ */
+int mml_pq_dc_readback(struct mml_task *task, u8 pipe, u32 *phist);
+
+/*
+ * mml_pq_clarity_readback - noify from MML core through MML PQ driver
+ *   to update histogram
+ *
+ * @task:	 task data, include pq parameters and frame info
+ * @pipe:    pipe id
+ * @phist:   Histogram result
+ * @arr_idx: Start idx of a histogram array for storing Histogram result
+ * @size:    Number of Histogram result
+ *
+ * Return:	if value < 0, means PQ update failed should debug
+ */
+int mml_pq_clarity_readback(struct mml_task *task, u8 pipe, u32 *phist, u32 arr_idx, u32 size);
+
 #endif	/* __MTK_MML_PQ_CORE_H__ */

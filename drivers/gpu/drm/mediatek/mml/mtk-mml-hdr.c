@@ -937,10 +937,10 @@ static void hdr_histogram_check(struct mml_comp *comp, struct mml_task *task, u3
 		expect_value_crop =	crop_height * crop_width * 8;
 	}
 
-	mml_pq_log("%s sum[%u] expect_value[%u %u %u] job_id[%d] pipe[%d]",
+	mml_pq_rb_msg("%s sum[%u] expect_value[%u %u %u] job_id[%d] pipe[%d]",
 		__func__, sum, expect_value_letter, expect_value_crop, expect_value_hist,
 		task->job.jobid, pipe);
-	mml_pq_log("%s job_id[%d] pipe[%d] letter_height[%d] down[%d] up[%d]",
+	mml_pq_rb_msg("%s job_id[%d] pipe[%d] letter_height[%d] down[%d] up[%d]",
 		__func__, task->job.jobid, pipe, letter_height, letter_down,
 		letter_up);
 

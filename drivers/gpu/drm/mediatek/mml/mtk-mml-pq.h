@@ -70,6 +70,8 @@ struct mml_pq_comp_config_result {
 	struct mml_pq_reg *aal_regs;
 	u32 *aal_curve;
 	bool is_aal_need_readback;
+	bool is_clarity_need_readback;
+	bool is_dc_need_readback;
 	u32 ds_reg_cnt;
 	struct mml_pq_reg *ds_regs;
 	u32 color_reg_cnt;
@@ -137,6 +139,44 @@ struct mml_pq_rsz_callback_job {
 	struct mml_pq_param param[MML_MAX_OUTPUTS];
 };
 
+struct mml_pq_clarity_readback_result {
+	u8 param_cnt;
+	u32 *clarity_pipe0_hist;
+	u32 *clarity_pipe1_hist;
+	u32 cut_pos_x;
+	bool is_dual;
+};
+
+struct mml_pq_clarity_readback_job {
+	/* input from user-space */
+	u32 result_job_id;
+
+	/* output to user-space */
+	struct mml_pq_clarity_readback_result *result;
+	u32 new_job_id;
+	struct mml_frame_info info;
+	struct mml_pq_param param[MML_MAX_OUTPUTS];
+};
+
+struct mml_pq_dc_readback_result {
+	u8 param_cnt;
+	u32 *dc_pipe0_hist;
+	u32 *dc_pipe1_hist;
+	u32 cut_pos_x;
+	bool is_dual;
+};
+
+struct mml_pq_dc_readback_job {
+	/* input from user-space */
+	u32 result_job_id;
+
+	/* output to user-space */
+	struct mml_pq_dc_readback_result *result;
+	u32 new_job_id;
+	struct mml_frame_info info;
+	struct mml_pq_param param[MML_MAX_OUTPUTS];
+};
+
 #define MML_PQ_IOC_MAGIC 'W'
 #define MML_PQ_IOC_TILE_INIT _IOWR(MML_PQ_IOC_MAGIC, 0,\
 		struct mml_pq_tile_init_job)
@@ -148,4 +188,8 @@ struct mml_pq_rsz_callback_job {
 		struct mml_pq_hdr_readback_job)
 #define MML_PQ_IOC_RSZ_CALLBACK _IOWR(MML_PQ_IOC_MAGIC, 4,\
 		struct mml_pq_rsz_callback_job)
+#define MML_PQ_IOC_CLARITY_READBACK _IOWR(MML_PQ_IOC_MAGIC, 5,\
+		struct mml_pq_clarity_readback_job)
+#define MML_PQ_IOC_DC_READBACK _IOWR(MML_PQ_IOC_MAGIC, 6,\
+		struct mml_pq_dc_readback_job)
 #endif	/* __MTK_MML_PQ_H__ */

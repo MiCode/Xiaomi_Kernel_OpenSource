@@ -31,6 +31,7 @@
 
 #define AAL_SRAM_STATUS_BIT	BIT(17)
 #define AAL_HIST_MAX_SUM (300)
+#define REG_NOT_SUPPORT 0xfff
 
 /* min of label count for aal curve
  *	(AAL_CURVE_NUM * 7 / CMDQ_NUM_CMD(CMDQ_CMD_BUFFER_SIZE) + 1)
@@ -79,6 +80,8 @@ enum mml_aal_reg_index {
 	AAL_DUAL_PIPE_13,
 	AAL_DUAL_PIPE_14,
 	AAL_DUAL_PIPE_15,
+	AAL_BILATERAL_STATUS_00,
+	AAL_BILATERAL_STATUS_CTRL,
 	AAL_REG_MAX_COUNT
 };
 
@@ -123,7 +126,55 @@ static const u16 aal_reg_table_mt6983[AAL_REG_MAX_COUNT] = {
 	[AAL_DUAL_PIPE_12] = 0x554,
 	[AAL_DUAL_PIPE_13] = 0x558,
 	[AAL_DUAL_PIPE_14] = 0x55c,
-	[AAL_DUAL_PIPE_15] = 0x560
+	[AAL_DUAL_PIPE_15] = 0x560,
+	[AAL_BILATERAL_STATUS_00] = REG_NOT_SUPPORT,
+	[AAL_BILATERAL_STATUS_CTRL] = REG_NOT_SUPPORT
+};
+
+static const u16 aal_reg_table_mt6985[AAL_REG_MAX_COUNT] = {
+	[AAL_EN] = 0x000,
+	[AAL_INTSTA] = 0x00c,
+	[AAL_STATUS] = 0x010,
+	[AAL_CFG] = 0x020,
+	[AAL_INPUT_COUNT] = 0x024,
+	[AAL_OUTPUT_COUNT] = 0x028,
+	[AAL_SIZE] = 0x030,
+	[AAL_OUTPUT_SIZE] = 0x034,
+	[AAL_OUTPUT_OFFSET] = 0x038,
+	[AAL_SRAM_STATUS] = 0x0c8,
+	[AAL_SRAM_RW_IF_0] = 0x0cc,
+	[AAL_SRAM_RW_IF_1] = 0x0d0,
+	[AAL_SRAM_RW_IF_2] = 0x0d4,
+	[AAL_SRAM_RW_IF_3] = 0x0d8,
+	[AAL_SHADOW_CTRL] = 0x0f0,
+	[AAL_TILE_02] = 0x0f4,
+	[AAL_DRE_BLOCK_INFO_07] = 0x0f8,
+	[AAL_CFG_MAIN] = 0x200,
+	[AAL_WIN_X_MAIN] = 0x460,
+	[AAL_WIN_Y_MAIN] = 0x464,
+	[AAL_DRE_BLOCK_INFO_00] = 0x468,
+	[AAL_TILE_00] = 0x4ec,
+	[AAL_TILE_01] = 0x4f0,
+	[AAL_DUAL_PIPE_00] = 0x500,
+	[AAL_DUAL_PIPE_01] = 0x504,
+	[AAL_DUAL_PIPE_02] = 0x508,
+	[AAL_DUAL_PIPE_03] = 0x50c,
+	[AAL_DUAL_PIPE_04] = 0x510,
+	[AAL_DUAL_PIPE_05] = 0x514,
+	[AAL_DUAL_PIPE_06] = 0x518,
+	[AAL_DUAL_PIPE_07] = 0x51c,
+	[AAL_DRE_ROI_00] = 0x520,
+	[AAL_DRE_ROI_01] = 0x524,
+	[AAL_DUAL_PIPE_08] = 0x544,
+	[AAL_DUAL_PIPE_09] = 0x548,
+	[AAL_DUAL_PIPE_10] = 0x54c,
+	[AAL_DUAL_PIPE_11] = 0x550,
+	[AAL_DUAL_PIPE_12] = 0x554,
+	[AAL_DUAL_PIPE_13] = 0x558,
+	[AAL_DUAL_PIPE_14] = 0x55c,
+	[AAL_DUAL_PIPE_15] = 0x560,
+	[AAL_BILATERAL_STATUS_00] = 0x588,
+	[AAL_BILATERAL_STATUS_CTRL] = 0x5b8
 };
 
 struct aal_data {
@@ -199,7 +250,7 @@ static const struct aal_data mt6985_aal_data = {
 	.vcp_readback = false,
 	.gpr = {CMDQ_GPR_R08, CMDQ_GPR_R10},
 	.cpr = {CMDQ_CPR_MML_PQ0_ADDR, CMDQ_CPR_MML_PQ1_ADDR},
-	.reg_table = aal_reg_table_mt6983,
+	.reg_table = aal_reg_table_mt6985,
 	.crop = false,
 };
 
@@ -244,6 +295,7 @@ struct aal_frame_data {
 	struct mml_reuse_array reuse_curve;
 	struct mml_reuse_offset offs_curve[AAL_LABEL_CNT];
 	bool is_aal_need_readback;
+	bool is_clarity_need_readback;
 	bool config_success;
 };
 
@@ -481,6 +533,7 @@ static s32 aal_config_frame(struct mml_comp *comp, struct mml_task *task,
 		aal_frm->reuse_curve.idx);
 
 	aal_frm->is_aal_need_readback = result->is_aal_need_readback;
+	aal_frm->is_clarity_need_readback = result->is_clarity_need_readback;
 	aal_frm->config_success = true;
 
 	tile_config_param = &(result->aal_param[ccfg->node->out_idx]);
@@ -536,6 +589,7 @@ static s32 aal_config_tile(struct mml_comp *comp, struct mml_task *task,
 	u32 last_tile_x_flag = 0, last_tile_y_flag = 0;
 	u32 save_first_blk_col_flag = 0;
 	u32 save_last_blk_col_flag = 0;
+	u32 hist_first_tile = 0, hist_last_tile = 0;
 	s32 ret = 0;
 
 	mml_pq_trace_ex_begin("%s", __func__);
@@ -625,6 +679,8 @@ static s32 aal_config_tile(struct mml_comp *comp, struct mml_task *task,
 			aal_frm->out_hist_xs = tile->in.xs + act_win_x_end + 1;
 		else
 			aal_frm->out_hist_xs = tile->out.xe + 1;
+		hist_first_tile = 1;
+		hist_last_tile = (tile_cnt == 1) ? 1 : 0;
 		save_first_blk_col_flag = (ccfg->pipe) ? 1 : 0;
 		if (idx + 1 >= tile_cnt)
 			save_last_blk_col_flag = (ccfg->pipe) ? 0 : 1;
@@ -634,6 +690,8 @@ static s32 aal_config_tile(struct mml_comp *comp, struct mml_task *task,
 		aal_frm->out_hist_xs = 0;
 		save_first_blk_col_flag = 0;
 		save_last_blk_col_flag = (ccfg->pipe) ? 0 : 1;
+		hist_first_tile = 0;
+		hist_last_tile = 1;
 	} else {
 		if (task->config->dual && ccfg->pipe)
 			aal_frm->out_hist_xs = tile->in.xs + act_win_x_end + 1;
@@ -641,6 +699,8 @@ static s32 aal_config_tile(struct mml_comp *comp, struct mml_task *task,
 			aal_frm->out_hist_xs = tile->out.xe + 1;
 		save_first_blk_col_flag = 0;
 		save_last_blk_col_flag = 0;
+		hist_first_tile = 0;
+		hist_last_tile = 0;
 	}
 
 	win_x_start = 0;
@@ -700,6 +760,9 @@ static s32 aal_config_tile(struct mml_comp *comp, struct mml_task *task,
 
 	cmdq_pkt_write(pkt, NULL, base_pa + aal->data->reg_table[AAL_WIN_Y_MAIN],
 		(win_y_end << 16) | win_y_start, U32_MAX);
+
+	cmdq_pkt_write(pkt, NULL, base_pa + aal->data->reg_table[AAL_BILATERAL_STATUS_CTRL],
+		(hist_last_tile << 2) | (hist_first_tile << 1) | 1, U32_MAX);
 
 exit:
 	mml_pq_trace_ex_end();
@@ -817,6 +880,19 @@ static void aal_readback_cmdq(struct mml_comp *comp, struct mml_task *task,
 
 	for (i = 0; i < 8; i++) {
 		cmdq_pkt_read_addr(pkt, base_pa + aal->data->reg_table[AAL_DUAL_PIPE_08] + i * 4,
+			idx_val);
+		cmdq_pkt_write_reg_indriect(pkt, idx_out64, idx_val, U32_MAX);
+
+		lop.reg = true;
+		lop.idx = idx_out;
+		rop.reg = false;
+		rop.value = 4;
+		cmdq_pkt_logic_command(pkt, CMDQ_LOGIC_ADD, idx_out, &lop, &rop);
+	}
+
+	for (i = 0; i < AAL_CLARITY_STATUS_NUM; i++) {
+		cmdq_pkt_read_addr(pkt,
+			base_pa + aal->data->reg_table[AAL_BILATERAL_STATUS_00] + i * 4,
 			idx_val);
 		cmdq_pkt_write_reg_indriect(pkt, idx_out64, idx_val, U32_MAX);
 
@@ -949,9 +1025,11 @@ static s32 aal_reconfig_frame(struct mml_comp *comp, struct mml_task *task,
 		for (j = 0; j < aal_frm->reuse_curve.offs[i].cnt; j++, idx++)
 			mml_update_array(reuse, &aal_frm->reuse_curve, i, j, curve[idx]);
 
-	mml_pq_msg("%s is_aal_need_readback[%d]",
-		__func__, result->is_aal_need_readback);
+	mml_pq_msg("%s is_aal_need_readback[%d] is_clarity_need_readback[%d]",
+		__func__, result->is_aal_need_readback,
+		result->is_clarity_need_readback);
 	aal_frm->is_aal_need_readback = result->is_aal_need_readback;
+	aal_frm->is_clarity_need_readback = result->is_clarity_need_readback;
 
 exit:
 	mml_pq_trace_ex_end();
@@ -1216,7 +1294,7 @@ static void aal_task_done_readback(struct mml_comp *comp, struct mml_task *task,
 	if (!dest->pq_config.en_dre || !task->pq_task->aal_hist[pipe])
 		goto exit;
 
-	offset = vcp ? task->pq_task->aal_hist[pipe]->va_offset : 0;
+	offset = vcp ? task->pq_task->aal_hist[pipe]->va_offset/4 : 0;
 
 	mml_pq_rb_msg("%s job_id[%d] id[%d] pipe[%d] en_dre[%d] va[%p] pa[%llx] offset[%d]",
 		__func__, task->job.jobid, comp->id, ccfg->pipe,
@@ -1228,35 +1306,35 @@ static void aal_task_done_readback(struct mml_comp *comp, struct mml_task *task,
 	if (!pipe) {
 		mml_pq_rb_msg("%s job_id[%d] hist[0~4]={%08x, %08x, %08x, %08x, %08x}",
 			__func__, task->job.jobid,
-			task->pq_task->aal_hist[pipe]->va[offset/4+0],
-			task->pq_task->aal_hist[pipe]->va[offset/4+1],
-			task->pq_task->aal_hist[pipe]->va[offset/4+2],
-			task->pq_task->aal_hist[pipe]->va[offset/4+3],
-			task->pq_task->aal_hist[pipe]->va[offset/4+4]);
+			task->pq_task->aal_hist[pipe]->va[offset+0],
+			task->pq_task->aal_hist[pipe]->va[offset+1],
+			task->pq_task->aal_hist[pipe]->va[offset+2],
+			task->pq_task->aal_hist[pipe]->va[offset+3],
+			task->pq_task->aal_hist[pipe]->va[offset+4]);
 
-		mml_pq_rb_msg("%s job_id[%d] hist[10~14]={%08x, %08x, %08x, %08x, %08}",
+		mml_pq_rb_msg("%s job_id[%d] hist[10~14]={%08x, %08x, %08x, %08x, %08x}",
 			__func__, task->job.jobid,
-			task->pq_task->aal_hist[pipe]->va[offset/4+10],
-			task->pq_task->aal_hist[pipe]->va[offset/4+11],
-			task->pq_task->aal_hist[pipe]->va[offset/4+12],
-			task->pq_task->aal_hist[pipe]->va[offset/4+13],
-			task->pq_task->aal_hist[pipe]->va[offset/4+14]);
+			task->pq_task->aal_hist[pipe]->va[offset+10],
+			task->pq_task->aal_hist[pipe]->va[offset+11],
+			task->pq_task->aal_hist[pipe]->va[offset+12],
+			task->pq_task->aal_hist[pipe]->va[offset+13],
+			task->pq_task->aal_hist[pipe]->va[offset+14]);
 	} else {
 		mml_pq_rb_msg("%s job_id[%d] hist[600~604]={%08x, %08x, %08x, %08x, %08x",
 			 __func__, task->job.jobid,
-			task->pq_task->aal_hist[pipe]->va[offset/4+600],
-			task->pq_task->aal_hist[pipe]->va[offset/4+601],
-			task->pq_task->aal_hist[pipe]->va[offset/4+602],
-			task->pq_task->aal_hist[pipe]->va[offset/4+603],
-			task->pq_task->aal_hist[pipe]->va[offset/4+604]);
+			task->pq_task->aal_hist[pipe]->va[offset+600],
+			task->pq_task->aal_hist[pipe]->va[offset+601],
+			task->pq_task->aal_hist[pipe]->va[offset+602],
+			task->pq_task->aal_hist[pipe]->va[offset+603],
+			task->pq_task->aal_hist[pipe]->va[offset+604]);
 
 		mml_pq_rb_msg("%s job_id[%d] hist[610~614]={%08x, %08x, %08x, %08x, %08x",
 			__func__, task->job.jobid,
-			task->pq_task->aal_hist[pipe]->va[offset/4+610],
-			task->pq_task->aal_hist[pipe]->va[offset/4+611],
-			task->pq_task->aal_hist[pipe]->va[offset/4+612],
-			task->pq_task->aal_hist[pipe]->va[offset/4+613],
-			task->pq_task->aal_hist[pipe]->va[offset/4+614]);
+			task->pq_task->aal_hist[pipe]->va[offset+610],
+			task->pq_task->aal_hist[pipe]->va[offset+611],
+			task->pq_task->aal_hist[pipe]->va[offset+612],
+			task->pq_task->aal_hist[pipe]->va[offset+613],
+			task->pq_task->aal_hist[pipe]->va[offset+614]);
 	}
 
 
@@ -1326,20 +1404,36 @@ static void aal_task_done_readback(struct mml_comp *comp, struct mml_task *task,
 		mml_pq_aal_readback(task, ccfg->pipe, phist);
 	}
 
-
 	if (aal_frm->is_aal_need_readback) {
 		mml_pq_aal_readback(task, ccfg->pipe,
-			&(task->pq_task->aal_hist[pipe]->va[offset/4]));
+			&(task->pq_task->aal_hist[pipe]->va[offset]));
 
 		if (mml_pq_debug_mode & MML_PQ_HIST_CHECK) {
 			if (!aal_hist_check(comp, task, ccfg,
-				&(task->pq_task->aal_hist[pipe]->va[offset / 4]))) {
+				&(task->pq_task->aal_hist[pipe]->va[offset]))) {
 				mml_pq_err("%s hist error", __func__);
 				mml_pq_util_aee("MML_PQ_AAL_Histogram Error",
 					"AAL Histogram error need to check jobid:%d",
 					task->job.jobid);
 			}
 		}
+	}
+
+	if (aal_frm->is_clarity_need_readback) {
+
+		mml_pq_rb_msg("%s job_id[%d] calrity_hist[0~4]={%08x, %08x, %08x, %08x, %08x",
+			__func__, task->job.jobid,
+			task->pq_task->aal_hist[pipe]->va[offset+AAL_HIST_NUM+AAL_DUAL_INFO_NUM+0],
+			task->pq_task->aal_hist[pipe]->va[offset+AAL_HIST_NUM+AAL_DUAL_INFO_NUM+1],
+			task->pq_task->aal_hist[pipe]->va[offset+AAL_HIST_NUM+AAL_DUAL_INFO_NUM+2],
+			task->pq_task->aal_hist[pipe]->va[offset+AAL_HIST_NUM+AAL_DUAL_INFO_NUM+3],
+			task->pq_task->aal_hist[pipe]->va[offset+AAL_HIST_NUM+AAL_DUAL_INFO_NUM+4]);
+
+
+		mml_pq_clarity_readback(task, ccfg->pipe,
+			&(task->pq_task->aal_hist[pipe]->va[
+			offset+AAL_HIST_NUM+AAL_DUAL_INFO_NUM]),
+			AAL_CLARITY_HIST_START, AAL_CLARITY_STATUS_NUM);
 	}
 
 	if (vcp) {

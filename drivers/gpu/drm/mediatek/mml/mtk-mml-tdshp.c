@@ -26,6 +26,8 @@
 #define TDSHP_WAIT_TIMEOUT_MS (50)
 #define DS_REG_NUM (36)
 #define REG_NOT_SUPPORT 0xfff
+#define DS_CLARITY_REG_NUM (42)
+#define VALID_CONTOUR_HIST_VALUE (0x07FFFFFF)
 
 enum mml_tdshp_reg_index {
 	TDSHP_00,
@@ -45,6 +47,8 @@ enum mml_tdshp_reg_index {
 	/* REGION_PQ_SIZE_PARAMETER_MODE_SEGMENTATION_LENGTH */
 	TDSHP_REGION_PQ_PARAM,
 	TDSHP_SHADOW_CTRL,
+	CONTOUR_HIST_00,
+	TDSHP_STATUS_00,
 	TDSHP_REG_MAX_COUNT
 };
 
@@ -64,7 +68,9 @@ static const u16 tdshp_reg_table_mt6983[TDSHP_REG_MAX_COUNT] = {
 	[TDSHP_OUTPUT_SIZE] = 0x128,
 	[TDSHP_BLANK_WIDTH] = 0x12c,
 	[TDSHP_REGION_PQ_PARAM] = REG_NOT_SUPPORT,
-	[TDSHP_SHADOW_CTRL] = 0x67c
+	[TDSHP_SHADOW_CTRL] = 0x67c,
+	[CONTOUR_HIST_00] = 0x3dc,
+	[TDSHP_STATUS_00] = REG_NOT_SUPPORT
 };
 
 static const u16 tdshp_reg_table_mt6985[TDSHP_REG_MAX_COUNT] = {
@@ -83,37 +89,51 @@ static const u16 tdshp_reg_table_mt6985[TDSHP_REG_MAX_COUNT] = {
 	[TDSHP_OUTPUT_SIZE] = 0x128,
 	[TDSHP_BLANK_WIDTH] = 0x12c,
 	[TDSHP_REGION_PQ_PARAM] = 0x680,
-	[TDSHP_SHADOW_CTRL] = 0x724
+	[TDSHP_SHADOW_CTRL] = 0x724,
+	[CONTOUR_HIST_00] = 0x3dc,
+	[TDSHP_STATUS_00] = 0x644
 };
 
 struct tdshp_data {
 	u32 tile_width;
 	/* u32 min_hfg_width; 9: HFG min + TDSHP crop */
+	u16 gpr[MML_PIPE_CNT];
+	u16 cpr[MML_PIPE_CNT];
 	const u16 *reg_table;
 };
 
 static const struct tdshp_data mt6893_tdshp_data = {
 	.tile_width = 528,
+	.gpr = {CMDQ_GPR_R08, CMDQ_GPR_R10},
+	.cpr = {CMDQ_CPR_MML_PQ0_ADDR, CMDQ_CPR_MML_PQ1_ADDR},
 	.reg_table = tdshp_reg_table_mt6983,
 };
 
 static const struct tdshp_data mt6983_tdshp_data = {
 	.tile_width = 1628,
+	.gpr = {CMDQ_GPR_R08, CMDQ_GPR_R10},
+	.cpr = {CMDQ_CPR_MML_PQ0_ADDR, CMDQ_CPR_MML_PQ1_ADDR},
 	.reg_table = tdshp_reg_table_mt6983,
 };
 
 static const struct tdshp_data mt6879_tdshp_data = {
 	.tile_width = 1344,
+	.gpr = {CMDQ_GPR_R08, CMDQ_GPR_R10},
+	.cpr = {CMDQ_CPR_MML_PQ0_ADDR, CMDQ_CPR_MML_PQ1_ADDR},
 	.reg_table = tdshp_reg_table_mt6983,
 };
 
 static const struct tdshp_data mt6895_tdshp_data = {
 	.tile_width = 1926,
+	.gpr = {CMDQ_GPR_R08, CMDQ_GPR_R10},
+	.cpr = {CMDQ_CPR_MML_PQ0_ADDR, CMDQ_CPR_MML_PQ1_ADDR},
 	.reg_table = tdshp_reg_table_mt6983,
 };
 
 static const struct tdshp_data mt6985_tdshp_data = {
 	.tile_width = 1666,
+	.gpr = {CMDQ_GPR_R08, CMDQ_GPR_R10},
+	.cpr = {CMDQ_CPR_MML_PQ0_ADDR, CMDQ_CPR_MML_PQ1_ADDR},
 	.reg_table = tdshp_reg_table_mt6985,
 };
 
@@ -129,9 +149,21 @@ struct mml_comp_tdshp {
 	bool ddp_bound;
 };
 
+enum tdshp_label_index {
+	TDSHP_REUSE_LABEL = 0,
+	TDSHP_POLLGPR_0 = DS_REG_NUM+DS_CLARITY_REG_NUM,
+	TDSHP_POLLGPR_1,
+	TDSHP_LABEL_TOTAL
+};
+
 /* meta data for each different frame config */
 struct tdshp_frame_data {
-	u16 labels[DS_REG_NUM];
+	u32 out_hist_xs;
+	u32 out_hist_ys;
+	u32 cut_pos_x;
+	u16 labels[TDSHP_LABEL_TOTAL];
+	bool is_clarity_need_readback;
+	bool is_dc_need_readback;
 	bool config_success;
 };
 
@@ -218,10 +250,10 @@ static u32 tdshp_get_label_count(struct mml_comp *comp, struct mml_task *task,
 	mml_pq_msg("%s pipe_id[%d] engine_id[%d] en_sharp[%d]", __func__,
 		ccfg->pipe, comp->id, dest->pq_config.en_sharp);
 
-	if (!dest->pq_config.en_sharp)
+	if (!dest->pq_config.en_sharp && !dest->pq_config.en_dc)
 		return 0;
 
-	return DS_REG_NUM;
+	return TDSHP_LABEL_TOTAL;
 }
 
 static void tdshp_init(struct mml_comp *comp, struct cmdq_pkt *pkt, const phys_addr_t base_pa)
@@ -313,6 +345,7 @@ static s32 tdshp_config_frame(struct mml_comp *comp, struct mml_task *task,
 		}
 		return 0;
 	}
+
 	tdshp_relay(comp, pkt, base_pa, 0x0);
 
 	do {
@@ -352,7 +385,8 @@ static s32 tdshp_config_frame(struct mml_comp *comp, struct mml_task *task,
 		mml_pq_msg("[ds][config][%x] = %#x mask(%#x)",
 			regs[i].offset, regs[i].value, regs[i].mask);
 	}
-
+	tdshp_frm->is_clarity_need_readback = result->is_clarity_need_readback;
+	tdshp_frm->is_dc_need_readback = result->is_dc_need_readback;
 exit:
 	return ret;
 }
@@ -363,19 +397,22 @@ static s32 tdshp_config_tile(struct mml_comp *comp, struct mml_task *task,
 	struct mml_frame_config *cfg = task->config;
 	struct cmdq_pkt *pkt = task->pkts[ccfg->pipe];
 	const phys_addr_t base_pa = comp->base_pa;
-
+	struct tdshp_frame_data *tdshp_frm = tdshp_frm_data(ccfg);
 	struct mml_tile_engine *tile = config_get_tile(cfg, ccfg, idx);
-
 	struct mml_comp_tdshp *tdshp = comp_to_tdshp(comp);
+	u16 tile_cnt = cfg->tile_output[ccfg->pipe]->tile_cnt;
+	struct mml_frame_dest *dest = &cfg->info.dest[ccfg->node->out_idx];
 
-	u32 tdshp_input_w;
-	u32 tdshp_input_h;
-	u32 tdshp_output_w;
-	u32 tdshp_output_h;
-	u32 tdshp_crop_x_offset;
-	u32 tdshp_crop_y_offset;
-	u32 tdshp_hist_left;
-	u32 tdshp_hist_top;
+	u32 tdshp_input_w = 0;
+	u32 tdshp_input_h = 0;
+	u32 tdshp_output_w = 0;
+	u32 tdshp_output_h = 0;
+	u32 tdshp_crop_x_offset = 0;
+	u32 tdshp_crop_y_offset = 0;
+	u32 tdshp_hist_left_start = 0, tdshp_hist_top_start = 0;
+	u32 hist_win_x_start = 0, hist_win_x_end = 0;
+	u32 hist_win_y_start = 0, hist_win_y_end = 0;
+	u32 hist_first_tile = 0, hist_last_tile = 0;
 
 	mml_pq_msg("%s idx[%d] engine_id[%d]", __func__, idx, comp->id);
 
@@ -385,9 +422,52 @@ static s32 tdshp_config_tile(struct mml_comp *comp, struct mml_task *task,
 	tdshp_output_h = tile->out.ye - tile->out.ys + 1;
 	tdshp_crop_x_offset = tile->out.xs - tile->in.xs;
 	tdshp_crop_y_offset = tile->out.ys - tile->in.ys;
-	/* TODO: need official implementation */
-	tdshp_hist_left = 0xffff;
-	tdshp_hist_top = 0xffff;
+
+	if (!idx) {
+		if (task->config->dual)
+			tdshp_frm->cut_pos_x = dest->crop.r.width / 2;
+		else
+			tdshp_frm->cut_pos_x = dest->crop.r.width;
+		if (ccfg->pipe)
+			tdshp_frm->out_hist_xs = tdshp_frm->cut_pos_x;
+	}
+
+	tdshp_frm->out_hist_ys = idx ? (tile->out.ye + 1) : 0;
+
+	tdshp_hist_left_start =
+		(tile->out.xs > tdshp_frm->out_hist_xs) ? tile->out.xs : tdshp_frm->out_hist_xs;
+	tdshp_hist_top_start =
+		(tile->out.ys > tdshp_frm->out_hist_ys) ? tile->out.ys  : tdshp_frm->out_hist_ys;
+
+	hist_win_x_start = tdshp_hist_left_start - tile->in.xs;
+	if (task->config->dual && !ccfg->pipe && (idx + 1 >= tile_cnt))
+		hist_win_x_end = tdshp_frm->cut_pos_x - tile->in.xs - 1;
+	else
+		hist_win_x_end = tile->out.xe - tile->in.xs;
+
+	hist_win_y_start = tdshp_hist_top_start - tile->in.ys;
+	hist_win_y_end = tile->out.xe - tile->in.xs;
+
+
+	if (!idx) {
+		if (task->config->dual && ccfg->pipe)
+			tdshp_frm->out_hist_xs = tile->in.xs + hist_win_x_end + 1;
+		else
+			tdshp_frm->out_hist_xs = tile->out.xe + 1;
+		hist_first_tile = 1;
+		hist_last_tile = (tile_cnt == 1) ? 1 : 0;
+	} else if (idx + 1 >= tile_cnt) {
+		tdshp_frm->out_hist_xs = 0;
+		hist_first_tile = 0;
+		hist_last_tile = 1;
+	} else {
+		if (task->config->dual && ccfg->pipe)
+			tdshp_frm->out_hist_xs = tile->in.xs + hist_win_x_end + 1;
+		else
+			tdshp_frm->out_hist_xs = tile->out.xe + 1;
+		hist_first_tile = 0;
+		hist_last_tile = 0;
+	}
 
 	cmdq_pkt_write(pkt, NULL, base_pa + tdshp->data->reg_table[TDSHP_INPUT_SIZE],
 		(tdshp_input_w << 16) + tdshp_input_h, U32_MAX);
@@ -397,22 +477,96 @@ static s32 tdshp_config_tile(struct mml_comp *comp, struct mml_task *task,
 		(tdshp_output_w << 16) + tdshp_output_h, U32_MAX);
 
 	cmdq_pkt_write(pkt, NULL, base_pa + tdshp->data->reg_table[HIST_CFG_00],
-		((tile->out.xe - tile->in.xs) << 16) +
-		(tdshp_hist_left - tile->in.xs), U32_MAX);
+		(hist_win_x_end << 16) | (hist_win_x_start << 0), U32_MAX);
 	cmdq_pkt_write(pkt, NULL, base_pa + tdshp->data->reg_table[HIST_CFG_01],
-		((tile->out.ye - tile->in.ys) << 16) +
-		(tdshp_hist_top - tile->in.ys), U32_MAX);
+		(hist_win_y_end << 16) | (hist_win_y_start << 0), U32_MAX);
+
+	cmdq_pkt_write(pkt, NULL, base_pa + tdshp->data->reg_table[TDSHP_CFG],
+		(hist_last_tile << 14) | (hist_first_tile << 15), (1 << 14) | (1 << 15));
 
 	return 0;
 }
+
+static void tdshp_readback_cmdq(struct mml_comp *comp, struct mml_task *task,
+			      struct mml_comp_config *ccfg)
+{
+	struct mml_comp_tdshp *tdshp = comp_to_tdshp(comp);
+	struct tdshp_frame_data *tdshp_frm = tdshp_frm_data(ccfg);
+	const phys_addr_t base_pa = comp->base_pa;
+	struct cmdq_pkt *pkt = task->pkts[ccfg->pipe];
+	struct mml_frame_config *cfg = task->config;
+	struct mml_task_reuse *reuse = &task->reuse[ccfg->pipe];
+	struct mml_pipe_cache *cache = &cfg->cache[ccfg->pipe];
+
+	u8 pipe = ccfg->pipe;
+	dma_addr_t pa = 0;
+	struct cmdq_operand lop, rop;
+	u32 i = 0;
+
+	const u16 idx_val = CMDQ_THR_SPR_IDX2;
+	const u16 idx_out = tdshp->data->cpr[ccfg->pipe];
+	const u16 idx_out64 = CMDQ_CPR_TO_CPR64(idx_out);
+
+	mml_pq_get_readback_buffer(task, pipe, &(task->pq_task->tdshp_hist[pipe]));
+
+	if (unlikely(!task->pq_task->tdshp_hist[pipe])) {
+		mml_pq_err("%s job_id[%d] engine_id[%d] tdshp_hist is null",
+			__func__, task->job.jobid, comp->id);
+		return;
+	}
+
+	pa = task->pq_task->tdshp_hist[pipe]->pa;
+
+	/* readback to this pa */
+	mml_assign(pkt, idx_out, (u32)pa,
+		reuse, cache, &tdshp_frm->labels[TDSHP_POLLGPR_0]);
+	mml_assign(pkt, idx_out + 1, (u32)(pa >> 32),
+		reuse, cache, &tdshp_frm->labels[TDSHP_POLLGPR_1]);
+
+	/* read contour histogram status */
+	for (i = 0; i < TDSHP_CONTOUR_HIST_NUM; i++) {
+		cmdq_pkt_read_addr(pkt, base_pa +
+			tdshp->data->reg_table[CONTOUR_HIST_00] + i * 4, idx_val);
+		cmdq_pkt_write_reg_indriect(pkt, idx_out64, idx_val, U32_MAX);
+
+		lop.reg = true;
+		lop.idx = idx_out;
+		rop.reg = false;
+		rop.value = 4;
+		cmdq_pkt_logic_command(pkt, CMDQ_LOGIC_ADD, idx_out, &lop, &rop);
+	}
+
+	/* read tdshp clarity status */
+	for (i = 0; i < TDSHP_CLARITY_STATUS_NUM; i++) {
+		cmdq_pkt_read_addr(pkt, base_pa +
+			tdshp->data->reg_table[TDSHP_STATUS_00] + i * 4, idx_val);
+		cmdq_pkt_write_reg_indriect(pkt, idx_out64, idx_val, U32_MAX);
+
+		lop.reg = true;
+		lop.idx = idx_out;
+		rop.reg = false;
+		rop.value = 4;
+		cmdq_pkt_logic_command(pkt, CMDQ_LOGIC_ADD, idx_out, &lop, &rop);
+	}
+
+
+	mml_pq_rb_msg("%s end job_id[%d] engine_id[%d] va[%p] pa[%08x] pkt[%p]",
+		__func__, task->job.jobid, comp->id, task->pq_task->tdshp_hist[pipe]->va,
+		task->pq_task->tdshp_hist[pipe]->pa, pkt);
+}
+
 
 static s32 tdshp_config_post(struct mml_comp *comp, struct mml_task *task,
 			     struct mml_comp_config *ccfg)
 {
 	struct mml_frame_dest *dest = &task->config->info.dest[ccfg->node->out_idx];
 
-	if (dest->pq_config.en_sharp || dest->pq_config.en_dc)
+	if ((dest->pq_config.en_sharp && dest->pq_config.en_dre) ||
+		dest->pq_config.en_dc) {
+		tdshp_readback_cmdq(comp, task, ccfg);
 		mml_pq_put_comp_config_result(task);
+	}
+
 	return 0;
 }
 
@@ -460,11 +614,41 @@ static s32 tdshp_reconfig_frame(struct mml_comp *comp, struct mml_task *task,
 		mml_pq_msg("[ds][config][%x] = %#x mask(%#x)",
 			regs[i].offset, regs[i].value, regs[i].mask);
 	}
-
+	tdshp_frm->is_clarity_need_readback = result->is_clarity_need_readback;
+	tdshp_frm->is_dc_need_readback = result->is_dc_need_readback;
 exit:
 	return ret;
 }
 
+static s32 tdshp_config_repost(struct mml_comp *comp, struct mml_task *task,
+			       struct mml_comp_config *ccfg)
+{
+	struct mml_frame_dest *dest = &task->config->info.dest[ccfg->node->out_idx];
+	struct tdshp_frame_data *tdshp_frm = tdshp_frm_data(ccfg);
+	struct mml_task_reuse *reuse = &task->reuse[ccfg->pipe];
+	u8 pipe = ccfg->pipe;
+
+	if ((dest->pq_config.en_sharp && dest->pq_config.en_dre) ||
+		dest->pq_config.en_dc) {
+
+		mml_pq_get_readback_buffer(task, pipe, &(task->pq_task->tdshp_hist[pipe]));
+
+		if (unlikely(!task->pq_task->tdshp_hist[pipe])) {
+			mml_pq_err("%s job_id[%d] tdshp_hist is null", __func__,
+				task->job.jobid);
+			goto comp_config_put;
+		}
+
+		mml_update(reuse, tdshp_frm->labels[TDSHP_POLLGPR_0],
+			(u32)task->pq_task->tdshp_hist[pipe]->pa);
+		mml_update(reuse, tdshp_frm->labels[TDSHP_POLLGPR_1],
+			(u32)(task->pq_task->tdshp_hist[pipe]->pa >> 32));
+
+comp_config_put:
+		mml_pq_put_comp_config_result(task);
+	}
+	return 0;
+}
 
 static const struct mml_comp_config_ops tdshp_cfg_ops = {
 	.prepare = tdshp_prepare,
@@ -475,7 +659,117 @@ static const struct mml_comp_config_ops tdshp_cfg_ops = {
 	.tile = tdshp_config_tile,
 	.post = tdshp_config_post,
 	.reframe = tdshp_reconfig_frame,
-	.repost = tdshp_config_post,
+	.repost = tdshp_config_repost,
+};
+
+static void tdshp_task_done_readback(struct mml_comp *comp, struct mml_task *task,
+					 struct mml_comp_config *ccfg)
+{
+	struct mml_frame_config *cfg = task->config;
+	struct tdshp_frame_data *tdshp_frm = tdshp_frm_data(ccfg);
+	struct mml_frame_dest *dest = &cfg->info.dest[ccfg->node->out_idx];
+	struct mml_comp_tdshp *tdshp = comp_to_tdshp(comp);
+	u8 pipe = ccfg->pipe;
+	u32 offset = 0, i = 0;
+
+	mml_pq_trace_ex_begin("%s comp[%d]", __func__, comp->id);
+	mml_pq_msg("%s clarity_readback[%d] id[%d] en_sharp[%d] tdshp_hist[%x]", __func__,
+			tdshp_frm->is_clarity_need_readback, comp->id,
+			dest->pq_config.en_sharp, &(task->pq_task->tdshp_hist[pipe]));
+
+	if (((!dest->pq_config.en_sharp || !dest->pq_config.en_dre) &&
+		!dest->pq_config.en_dc) || !task->pq_task->tdshp_hist[pipe])
+		goto exit;
+
+	mml_pq_rb_msg("%s job_id[%d] id[%d] pipe[%d] en_dc[%d] va[%p] pa[%llx] offset[%d]",
+		__func__, task->job.jobid, comp->id, ccfg->pipe,
+		dest->pq_config.en_dc, task->pq_task->tdshp_hist[pipe]->va,
+		task->pq_task->tdshp_hist[pipe]->pa,
+		task->pq_task->tdshp_hist[pipe]->va_offset);
+
+
+	mml_pq_rb_msg("%s job_id[%d] hist[0~4]={%08x, %08x, %08x, %08x, %08x}",
+		__func__, task->job.jobid,
+		task->pq_task->tdshp_hist[pipe]->va[offset/4+0],
+		task->pq_task->tdshp_hist[pipe]->va[offset/4+1],
+		task->pq_task->tdshp_hist[pipe]->va[offset/4+2],
+		task->pq_task->tdshp_hist[pipe]->va[offset/4+3],
+		task->pq_task->tdshp_hist[pipe]->va[offset/4+4]);
+
+	mml_pq_rb_msg("%s job_id[%d] hist[10~14]={%08x, %08x, %08x, %08x, %08x}",
+		__func__, task->job.jobid,
+		task->pq_task->tdshp_hist[pipe]->va[offset/4+10],
+		task->pq_task->tdshp_hist[pipe]->va[offset/4+11],
+		task->pq_task->tdshp_hist[pipe]->va[offset/4+12],
+		task->pq_task->tdshp_hist[pipe]->va[offset/4+13],
+		task->pq_task->tdshp_hist[pipe]->va[offset/4+14]);
+
+	mml_pq_rb_msg("%s job_id[%d]",
+		__func__, task->job.jobid);
+
+	/*remain code for ping-pong in the feature*/
+	if (((!dest->pq_config.en_sharp || !dest->pq_config.en_dre) &&
+		!dest->pq_config.en_dc)) {
+		void __iomem *base = comp->base;
+		s32 i;
+		u32 *phist = kmalloc((TDSHP_CONTOUR_HIST_NUM+
+			TDSHP_CLARITY_STATUS_NUM)*sizeof(u32), GFP_KERNEL);
+
+		for (i = 0; i < TDSHP_CONTOUR_HIST_NUM; i++)
+			phist[i] = readl(base + tdshp->data->reg_table[CONTOUR_HIST_00]);
+
+		for (i = 0; i < TDSHP_CLARITY_STATUS_NUM; i++)
+			phist[i] = readl(base + tdshp->data->reg_table[CONTOUR_HIST_00]);
+
+		if (tdshp_frm->is_dc_need_readback)
+			mml_pq_dc_readback(task, ccfg->pipe, &phist[0]);
+		if (tdshp_frm->is_clarity_need_readback)
+			mml_pq_clarity_readback(task, ccfg->pipe,
+				&phist[TDSHP_CONTOUR_HIST_NUM],
+				TDSHP_CLARITY_HIST_START,
+				TDSHP_CLARITY_STATUS_NUM);
+
+	}
+
+	if (tdshp_frm->is_dc_need_readback) {
+		if (mml_pq_debug_mode & MML_PQ_HIST_CHECK) {
+			for (i = 0; i < TDSHP_CONTOUR_HIST_NUM; i++)
+				if (task->pq_task->tdshp_hist[pipe]->va[offset/4+i] >
+					VALID_CONTOUR_HIST_VALUE)
+					mml_pq_util_aee("MML_PQ_TDSHP Histogram Error",
+						"CONTOUR Histogram error need to check jobid:%d",
+						task->job.jobid);
+		}
+		mml_pq_dc_readback(task, ccfg->pipe,
+			&(task->pq_task->tdshp_hist[pipe]->va[offset/4+0]));
+	}
+
+	if (tdshp_frm->is_clarity_need_readback) {
+
+		mml_pq_rb_msg("%s job_id[%d] clarity_hist[0~4]={%08x, %08x, %08x, %08x, %08x}",
+			__func__, task->job.jobid,
+			task->pq_task->tdshp_hist[pipe]->va[offset/4+TDSHP_CONTOUR_HIST_NUM+0],
+			task->pq_task->tdshp_hist[pipe]->va[offset/4+TDSHP_CONTOUR_HIST_NUM+1],
+			task->pq_task->tdshp_hist[pipe]->va[offset/4+TDSHP_CONTOUR_HIST_NUM+2],
+			task->pq_task->tdshp_hist[pipe]->va[offset/4+TDSHP_CONTOUR_HIST_NUM+3],
+			task->pq_task->tdshp_hist[pipe]->va[offset/4+TDSHP_CONTOUR_HIST_NUM+4]);
+
+		mml_pq_clarity_readback(task, ccfg->pipe,
+			&(task->pq_task->tdshp_hist[pipe]->va[
+			offset/4+TDSHP_CONTOUR_HIST_NUM]),
+			TDSHP_CLARITY_HIST_START, TDSHP_CLARITY_STATUS_NUM);
+	}
+
+	mml_pq_put_readback_buffer(task, pipe, task->pq_task->tdshp_hist[pipe]);
+exit:
+	mml_pq_trace_ex_end();
+}
+
+
+static const struct mml_comp_hw_ops tdshp_hw_ops = {
+	.clk_enable = &mml_comp_clk_enable,
+	.clk_disable = &mml_comp_clk_disable,
+	.task_done = tdshp_task_done_readback,
 };
 
 static void tdshp_debug_dump(struct mml_comp *comp)
@@ -585,6 +879,7 @@ static int probe(struct platform_device *pdev)
 	/* assign ops */
 	priv->comp.tile_ops = &tdshp_tile_ops;
 	priv->comp.config_ops = &tdshp_cfg_ops;
+	priv->comp.hw_ops = &tdshp_hw_ops;
 	priv->comp.debug_ops = &tdshp_debug_ops;
 
 	ret = mml_ddp_comp_init(dev, &priv->ddp_comp, &priv->comp,

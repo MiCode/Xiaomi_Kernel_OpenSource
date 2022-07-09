@@ -315,18 +315,23 @@ static void case_general_submit(struct mml_test *test,
 	task.buffer.dest[1].invalid = true;
 	task.buffer.dest[1].fence = -1;
 
-	if (mml_test_pq == 1) {
+	if (mml_test_pq) {
 		pq_param.enable = 1;
 		pq_param.scenario = MML_PQ_MEDIA_VIDEO;
-		pq_param.src_hdr_video_mode = MML_PQ_HDR10;
+		pq_param.src_hdr_video_mode = MML_PQ_NORMAL;
 		pq_param.video_param.video_id = 0x546;
 		task.pq_param[0] = &pq_param;
 		task.info.dest[0].pq_config.en = 1;
-		task.info.dest[0].pq_config.en_dre = 1;
-		task.info.dest[0].pq_config.en_hdr = 1;
-		task.info.dest[0].pq_config.en_color = 1;
-		task.info.dest[0].pq_config.en_sharp = 1;
-		mml_log("[test]%s open PQ", __func__);
+		task.info.dest[0].pq_config.en_dre = (mml_test_pq & MML_PQ_DRE_EN) ? 1 : 0;
+		task.info.dest[0].pq_config.en_hdr = (mml_test_pq & MML_PQ_VIDEO_HDR_EN) ? 1 : 0;
+		task.info.dest[0].pq_config.en_color = (mml_test_pq & MML_PQ_COLOR_EN) ? 1 : 0;
+		task.info.dest[0].pq_config.en_sharp = (mml_test_pq & MML_PQ_SHP_EN) ? 1 : 0;
+		task.info.dest[0].pq_config.en_dc = (mml_test_pq & MML_PQ_DYN_CONTRAST_EN) ? 1 : 0;
+		task.info.dest[0].pq_config.en_region_pq =
+			(mml_test_pq & MML_PQ_AI_SCENE_PQ_EN) ? 1 : 0;
+		if (task.info.dest[0].pq_config.en_hdr)
+			pq_param.src_hdr_video_mode = MML_PQ_HDR10;
+		mml_log("[test] %s open PQ", __func__);
 	}
 
 	if (setup)
