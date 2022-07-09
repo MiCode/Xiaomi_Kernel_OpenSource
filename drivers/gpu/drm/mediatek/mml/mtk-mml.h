@@ -85,6 +85,7 @@ enum mml_pq_enable_flag {
 	MML_PQ_AI_SCENE_PQ_EN = 1 << 7,
 	MML_PQ_AI_SDR_TO_HDR_EN = 1 << 8,
 	MML_PQ_VIDEO_HDR_EN = 1 << 9,
+	MML_PQ_AI_REGION_EN = 1 << 10,
 };
 
 enum mml_gamut {
@@ -109,6 +110,7 @@ enum mml_pq_video_mode {
 	MML_PQ_HDRVIVID,
 	MML_PQ_AISPQ,
 	MML_PQ_AISDR2HDR,
+	MML_PQ_AIREGION,
 };
 
 struct mml_pq_param {
