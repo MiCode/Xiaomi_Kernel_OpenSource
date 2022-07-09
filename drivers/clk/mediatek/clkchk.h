@@ -89,6 +89,8 @@ struct clkchk_ops {
 	void (*dump_bus_reg)(struct regmap *regmap, u32 ofs);
 	void (*dump_hwv_pll_reg)(struct regmap *regmap, u32 shift);
 	bool (*is_cg_chk_pwr_on)(void);
+	void (*trace_clk_event)(const char *name, unsigned int clk_sta);
+	void (*trigger_trace_dump)(unsigned int enable);
 };
 
 int pwr_hw_is_on(enum PWR_STA_TYPE type, s32 val);
@@ -101,4 +103,5 @@ int set_clkchk_notify(void);
 void set_clkchk_ops(const struct clkchk_ops *ops);
 
 extern bool pdchk_get_bug_on_stat(void);
+extern void pdchk_dump_trace_evt(void);
 extern const struct dev_pm_ops clk_chk_dev_pm_ops;

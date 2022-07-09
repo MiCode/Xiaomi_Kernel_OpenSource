@@ -625,6 +625,22 @@ static void clkchk_cg_chk(const char *name)
 		pr_notice("clk %s access without power on\n", name);
 }
 
+static void clkchk_trace_clk_event(const char *name, unsigned int clk_sta)
+{
+	if (clkchk_ops == NULL || clkchk_ops->trace_clk_event == NULL)
+		return;
+
+	clkchk_ops->trace_clk_event(name, clk_sta);
+}
+
+static void clkchk_trigger_trace_dump(unsigned int enable)
+{
+	if (clkchk_ops == NULL || clkchk_ops->trigger_trace_dump == NULL)
+		return;
+
+	clkchk_ops->trigger_trace_dump(enable);
+}
+
 static int clkchk_evt_handling(struct notifier_block *nb,
 			unsigned long flags, void *data)
 {
@@ -644,6 +660,12 @@ static int clkchk_evt_handling(struct notifier_block *nb,
 		break;
 	case CLK_EVT_HWV_PLL_TIMEOUT:
 		clkchk_dump_hwv_pll_reg(clkd->hwv_regmap, clkd->shift);
+		break;
+	case CLK_EVT_CLK_TRACE:
+		clkchk_trace_clk_event(clkd->name, clkd->id);
+		break;
+	case CLK_EVT_TRIGGER_TRACE_DUMP:
+		clkchk_trigger_trace_dump(clkd->id);
 		break;
 	default:
 		pr_notice("cannot get flags identify\n");

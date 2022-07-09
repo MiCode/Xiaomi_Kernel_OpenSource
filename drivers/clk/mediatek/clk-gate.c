@@ -84,12 +84,16 @@ static int mtk_cg_enable(struct clk_hw *hw)
 {
 	mtk_cg_clr_bit(hw);
 
+	mtk_clk_notify(NULL, NULL, clk_hw_get_name(hw), 0, 1, 0, CLK_EVT_CLK_TRACE);
+
 	return 0;
 }
 
 static void mtk_cg_disable(struct clk_hw *hw)
 {
 	mtk_cg_set_bit(hw);
+
+	mtk_clk_notify(NULL, NULL, clk_hw_get_name(hw), 0, 0, 0, CLK_EVT_CLK_TRACE);
 }
 
 static void mtk_cg_disable_unused(struct clk_hw *hw)
@@ -104,12 +108,16 @@ static int mtk_cg_enable_inv(struct clk_hw *hw)
 {
 	mtk_cg_set_bit(hw);
 
+	mtk_clk_notify(NULL, NULL, clk_hw_get_name(hw), 0, 1, 0, CLK_EVT_CLK_TRACE);
+
 	return 0;
 }
 
 static void mtk_cg_disable_inv(struct clk_hw *hw)
 {
 	mtk_cg_clr_bit(hw);
+
+	mtk_clk_notify(NULL, NULL, clk_hw_get_name(hw), 0, 0, 0, CLK_EVT_CLK_TRACE);
 }
 
 static void mtk_cg_disable_unused_inv(struct clk_hw *hw)
@@ -229,11 +237,15 @@ hwv_prepare_fail:
 
 static int mtk_cg_enable_hwv(struct clk_hw *hw)
 {
+	mtk_clk_notify(NULL, NULL, clk_hw_get_name(hw), 0, 1, 0, CLK_EVT_CLK_TRACE);
+
 	return __cg_enable_hwv(hw, false);
 }
 
 static int mtk_cg_enable_hwv_inv(struct clk_hw *hw)
 {
+	mtk_clk_notify(NULL, NULL, clk_hw_get_name(hw), 0, 1, 0, CLK_EVT_CLK_TRACE);
+
 	return __cg_enable_hwv(hw, true);
 }
 
@@ -269,6 +281,8 @@ static void mtk_cg_disable_hwv(struct clk_hw *hw)
 	mtk_clk_notify(cg->regmap, cg->hwv_regmap, clk_hw_get_name(hw),
 			cg->sta_ofs, (cg->hwv_set_ofs / MTK_HWV_ID_OFS),
 			cg->bit, CLK_EVT_HWV_CG_CHK_PWR);
+
+	mtk_clk_notify(NULL, NULL, clk_hw_get_name(hw), 0, 0, 0, CLK_EVT_CLK_TRACE);
 
 	return;
 

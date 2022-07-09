@@ -209,6 +209,15 @@ bool pdchk_get_bug_on_stat(void)
 }
 EXPORT_SYMBOL(pdchk_get_bug_on_stat);
 
+void pdchk_dump_trace_evt(void)
+{
+	if (pdchk_ops == NULL || pdchk_ops->dump_power_event == NULL)
+		return;
+
+	pdchk_ops->dump_power_event();
+}
+EXPORT_SYMBOL(pdchk_dump_trace_evt);
+
 static int pdchk_dev_pm_suspend(struct device *dev)
 {
 	atomic_inc(&check_enabled);
@@ -294,6 +303,14 @@ static void mtk_check_subsys_swcg(unsigned int id)
 }
 #endif
 
+static void pdchk_trace_power_event(unsigned int id, unsigned int pwr_sta)
+{
+	if (pdchk_ops == NULL || pdchk_ops->trace_power_event == NULL)
+		return;
+
+	pdchk_ops->trace_power_event(id, pwr_sta);
+}
+
 /*
  * pm_domain event receive
  */
@@ -330,6 +347,8 @@ static int mtk_pd_dbg_dump(struct notifier_block *nb,
 		if (pd_evt[nb->priority] == POWER_ON_STA)
 			pd_log_dump(nb->priority, PD_PWR_ON);
 
+		pdchk_trace_power_event(nb->priority, POWER_ON_STA);
+
 		break;
 	case GENPD_NOTIFY_OFF:
 		if (pd_evt[nb->priority] == POWER_ON_STA) {
@@ -339,6 +358,8 @@ static int mtk_pd_dbg_dump(struct notifier_block *nb,
 		}
 		if (pd_evt[nb->priority] == POWER_OFF_STA)
 			pd_log_dump(nb->priority, PD_PWR_OFF);
+
+		pdchk_trace_power_event(nb->priority, POWER_OFF_STA);
 
 		break;
 	default:

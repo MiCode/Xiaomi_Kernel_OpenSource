@@ -10,6 +10,7 @@
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/seq_file.h>
+#include <linux/spinlock.h>
 
 #include <dt-bindings/power/mt6985-power.h>
 
@@ -48,6 +49,92 @@
 #define HWV_PLL_DONE			(0x140C)
 #define HWV_PLL_SET_STA			(0x1464)
 #define HWV_PLL_CLR_STA			(0x1468)
+
+#define EVT_LEN				40
+#define CLK_ID_SHIFT			0
+#define CLK_STA_SHIFT			8
+
+static DEFINE_SPINLOCK(trace_lock);
+static unsigned int clk_event[EVT_LEN];
+static unsigned int evt_cnt;
+static bool trace_dump_flag;
+
+/* imgsys */
+enum {
+	IMG_TRAW0_CG = 0,
+	IMG_DIP0_CG = 1,
+	IMG_WPE1_CG = 2,
+	IMG_WPE2_CG = 3,
+	WPE2_DIP1_LARB11_CG = 4,
+	WPE2_DIP1_WPE_CG = 5,
+	WPE3_DIP1_LARB11_CG = 6,
+	WPE3_DIP1_WPE_CG = 7,
+	TRACE_CLK_NUM = 8,
+};
+
+const char *imgsys_main_cgs[] = {
+	[IMG_TRAW0_CG] = "img_traw0",
+	[IMG_DIP0_CG] = "img_dip0",
+	[IMG_WPE1_CG] = "img_wpe1",
+	[IMG_WPE2_CG] = "img_wpe2",
+	[WPE2_DIP1_LARB11_CG] = "wpe2_dip1_larb11",
+	[WPE2_DIP1_WPE_CG] = "wpe2_dip1_wpe",
+	[WPE3_DIP1_LARB11_CG] = "wpe3_dip1_larb11",
+	[WPE3_DIP1_WPE_CG] = "wpe3_dip1_wpe",
+	[TRACE_CLK_NUM] = NULL,
+};
+
+static void trace_clk_event(const char *name, unsigned int clk_sta)
+{
+	unsigned long flags = 0;
+	int i;
+
+	spin_lock_irqsave(&trace_lock, flags);
+
+	for (i = 0; i < TRACE_CLK_NUM; i++) {
+		if (!strcmp(imgsys_main_cgs[i], name))
+			break;
+	}
+
+	if (i == TRACE_CLK_NUM)
+		goto OUT;
+
+	clk_event[evt_cnt] = (i << CLK_ID_SHIFT) | (clk_sta << CLK_STA_SHIFT);
+	evt_cnt++;
+	if (evt_cnt >= EVT_LEN)
+		evt_cnt = 0;
+
+OUT:
+	spin_unlock_irqrestore(&trace_lock, flags);
+}
+
+static void dump_clk_event(void)
+{
+	unsigned long flags = 0;
+	int i;
+
+	spin_lock_irqsave(&trace_lock, flags);
+
+	pr_notice("first idx: %d\n", evt_cnt);
+	for (i = 0; i < EVT_LEN; i += 5)
+		pr_notice("clk_evt[%d] = 0x%x, 0x%x, 0x%x, 0x%x, 0x%x\n",
+				i,
+				clk_event[i],
+				clk_event[i + 1],
+				clk_event[i + 2],
+				clk_event[i + 3],
+				clk_event[i + 4]);
+
+	spin_unlock_irqrestore(&trace_lock, flags);
+}
+
+static void trigger_trace_dump(unsigned int enable)
+{
+	if (enable)
+		trace_dump_flag = true;
+	else
+		trace_dump_flag = false;
+}
 
 /*
  * clkchk dump_regs
@@ -928,11 +1015,31 @@ static void devapc_dump(void)
 	release_hwv_secure();
 	set_subsys_reg_dump_mt6985(devapc_dump_id);
 	get_subsys_reg_dump_mt6985();
+
+	dump_clk_event();
+	pdchk_dump_trace_evt();
+}
+
+static void serror_dump(void)
+{
+	if (trace_dump_flag) {
+		release_hwv_secure();
+		set_subsys_reg_dump_mt6985(devapc_dump_id);
+		get_subsys_reg_dump_mt6985();
+
+		dump_clk_event();
+		pdchk_dump_trace_evt();
+	}
 }
 
 static struct devapc_vio_callbacks devapc_vio_handle = {
 	.id = DEVAPC_SUBSYS_CLKMGR,
 	.debug_dump = devapc_dump,
+};
+
+static struct devapc_vio_callbacks serror_handle = {
+	.id = DEVAPC_SUBSYS_CLKM,
+	.debug_dump = serror_dump,
 };
 
 #endif
@@ -1084,6 +1191,8 @@ static struct clkchk_ops clkchk_mt6985_ops = {
 	.get_bus_reg = get_bus_reg,
 	.dump_bus_reg = dump_bus_reg,
 	.dump_hwv_pll_reg = dump_hwv_pll_reg,
+	.trace_clk_event = trace_clk_event,
+	.trigger_trace_dump = trigger_trace_dump,
 };
 
 static int clk_chk_mt6985_probe(struct platform_device *pdev)
@@ -1096,6 +1205,7 @@ static int clk_chk_mt6985_probe(struct platform_device *pdev)
 
 #if IS_ENABLED(CONFIG_MTK_DEVAPC)
 	register_devapc_vio_callback(&devapc_vio_handle);
+	register_devapc_vio_callback(&serror_handle);
 #endif
 
 #if CHECK_VCORE_FREQ

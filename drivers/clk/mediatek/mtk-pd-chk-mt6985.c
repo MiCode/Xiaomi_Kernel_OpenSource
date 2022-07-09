@@ -7,6 +7,7 @@
 #include <linux/io.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
+#include <linux/spinlock.h>
 
 #include <dt-bindings/power/mt6985-power.h>
 
@@ -17,6 +18,13 @@
 
 #define TAG				"[pdchk] "
 #define BUG_ON_CHK_ENABLE		0
+#define EVT_LEN				40
+#define PWR_ID_SHIFT			0
+#define PWR_STA_SHIFT			8
+
+static DEFINE_SPINLOCK(trace_lock);
+static unsigned int pwr_event[EVT_LEN];
+static unsigned int evt_cnt;
 
 /*
  * The clk names in Mediatek CCF.
@@ -919,6 +927,43 @@ static int *get_suspend_allow_id(void)
 	return suspend_allow_id;
 }
 
+static void trace_power_event(unsigned int id, unsigned int pwr_sta)
+{
+	unsigned long flags = 0;
+
+	if (id >= MT6985_CHK_PD_NUM)
+		return;
+
+	spin_lock_irqsave(&trace_lock, flags);
+
+	pwr_event[evt_cnt] = (id << PWR_ID_SHIFT) | (pwr_sta << PWR_STA_SHIFT);
+	evt_cnt++;
+	if (evt_cnt >= EVT_LEN)
+		evt_cnt = 0;
+
+	spin_unlock_irqrestore(&trace_lock, flags);
+}
+
+static void dump_power_event(void)
+{
+	unsigned long flags = 0;
+	int i;
+
+	spin_lock_irqsave(&trace_lock, flags);
+
+	pr_notice("first idx: %d\n", evt_cnt);
+	for (i = 0; i < EVT_LEN; i += 5)
+		pr_notice("pwr_evt[%d] = 0x%x, 0x%x, 0x%x, 0x%x, 0x%x\n",
+				i,
+				pwr_event[i],
+				pwr_event[i + 1],
+				pwr_event[i + 2],
+				pwr_event[i + 3],
+				pwr_event[i + 4]);
+
+	spin_unlock_irqrestore(&trace_lock, flags);
+}
+
 /*
  * init functions
  */
@@ -934,6 +979,8 @@ static struct pdchk_ops pdchk_mt6985_ops = {
 	.get_notice_mtcmos_id = get_notice_mtcmos_id,
 	.is_mtcmos_chk_bug_on = is_mtcmos_chk_bug_on,
 	.get_suspend_allow_id = get_suspend_allow_id,
+	.trace_power_event = trace_power_event,
+	.dump_power_event = dump_power_event,
 };
 
 static int pd_chk_mt6985_probe(struct platform_device *pdev)
