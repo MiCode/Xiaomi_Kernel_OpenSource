@@ -2897,57 +2897,49 @@ static int check_layering_result(struct drm_mtk_layering_info *info)
 
 static int check_disp_info(struct drm_mtk_layering_info *disp_info)
 {
-	int disp_idx, ghead, gtail;
-	int i;
+	int disp_idx;
 
 	if (disp_info == NULL) {
 		DDPPR_ERR("[HRT]disp_info is empty\n");
 		return -1;
 	}
 
-	for (i = 0; i < HRT_DISP_TYPE_NUM; i++) {
-		int mode = disp_info->disp_mode[i];
-		int layer_num = disp_info->layer_num[i];
+	for (disp_idx = 0; disp_idx < HRT_DISP_TYPE_NUM; disp_idx++) {
+		int mode = disp_info->disp_mode[disp_idx];
+		int ghead = disp_info->gles_head[disp_idx];
+		int gtail = disp_info->gles_tail[disp_idx];
+		int layer_num = disp_info->layer_num[disp_idx];
 
 		if (mode < 0 || mode >= MTK_DRM_SESSION_NUM) {
-			DDPPR_ERR("[HRT] i %d, invalid mode %d\n", i, mode);
+			DDPPR_ERR("[HRT] disp_idx %d, invalid mode %d\n", disp_idx, mode);
 			return -1;
 		}
 
 		if (layer_num < 0) {
-			DDPPR_ERR("[HRT] i %d, invalid layer num %d\n",
-				  i, layer_num);
+			DDPPR_ERR("[HRT] disp_idx %d, invalid layer num %d\n", disp_idx, layer_num);
+			return -1;
+		}
+
+		if (layer_num > 0 && disp_info->input_config[disp_idx] == NULL) {
+			DDPPR_ERR("[HRT] input config is empty, disp:%d, l_num:%d\n", disp_idx,
+				  layer_num);
+			return -1;
+		}
+
+		if ((ghead < 0 && gtail >= 0) || (gtail < 0 && ghead >= 0) || (gtail < ghead) ||
+		    (gtail >= layer_num)) {
+			dump_disp_info(disp_info, DISP_DEBUG_LEVEL_ERR);
+			DDPPR_ERR("[HRT] gles invalid, disp:%d, head:%d, tail:%d\n", disp_idx,
+				  disp_info->gles_head[disp_idx], disp_info->gles_tail[disp_idx]);
 			return -1;
 		}
 	}
 
 	/* these are set by kernel, should be 0 */
 	if (disp_info->res_idx || disp_info->hrt_weight || disp_info->hrt_idx) {
-		DDPPR_ERR("[HRT] fail, res_idx %d, hrt_weight %u, hrt_idx %u\n",
-			  disp_info->res_idx,
-			  disp_info->hrt_weight,
-			  disp_info->hrt_idx);
+		DDPPR_ERR("[HRT] fail, res_idx %d, hrt_weight %u, hrt_idx %u\n", disp_info->res_idx,
+			  disp_info->hrt_weight, disp_info->hrt_idx);
 		return -1;
-	}
-
-	for (disp_idx = 0; disp_idx < HRT_DISP_TYPE_NUM; disp_idx++) {
-		if (disp_info->layer_num[disp_idx] > 0 &&
-		    disp_info->input_config[disp_idx] == NULL) {
-			DDPPR_ERR(
-				"[HRT]input config is empty,disp:%d,l_num:%d\n",
-				disp_idx, disp_info->layer_num[disp_idx]);
-			return -1;
-		}
-
-		ghead = disp_info->gles_head[disp_idx];
-		gtail = disp_info->gles_tail[disp_idx];
-		if ((ghead < 0 && gtail >= 0) || (gtail < 0 && ghead >= 0)) {
-			dump_disp_info(disp_info, DISP_DEBUG_LEVEL_ERR);
-			DDPPR_ERR("[HRT]gles invalid,disp:%d,head:%d,tail:%d\n",
-				  disp_idx, disp_info->gles_head[disp_idx],
-				  disp_info->gles_tail[disp_idx]);
-			return -1;
-		}
 	}
 
 	return 0;
