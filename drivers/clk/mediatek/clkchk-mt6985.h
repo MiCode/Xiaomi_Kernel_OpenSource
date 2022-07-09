@@ -77,7 +77,8 @@ enum chk_sys_id {
 	semi = 66,
 	hwv_wrt = 67,
 	hwv = 68,
-	chk_sys_num = 69,
+	hwv_ext = 69,
+	chk_sys_num = 70,
 };
 
 enum chk_pd_id {

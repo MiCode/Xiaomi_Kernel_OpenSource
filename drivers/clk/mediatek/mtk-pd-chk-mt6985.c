@@ -693,6 +693,8 @@ static enum chk_sys_id debug_dump_id[] = {
 	cpu_bl,
 	cpu_b,
 	ptp,
+	hwv,
+	hwv_ext,
 	chk_sys_num,
 };
 
