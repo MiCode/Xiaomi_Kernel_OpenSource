@@ -1620,7 +1620,7 @@ static s32 rdma_config_tile(struct mml_comp *comp, struct mml_task *task,
 		src_offset_0 = (in_xs *
 			       (rdma_frm->vdo_blk_height << rdma_frm->field) *
 			       rdma_frm->bits_per_pixel_y >> 3) +
-			       (out_ys >> rdma_frm->vdo_blk_shift_h) *
+			       (in_ys >> rdma_frm->vdo_blk_shift_h) *
 			       src->y_stride;
 
 		/* Set 10bit UFO mode */
@@ -1632,7 +1632,7 @@ static s32 rdma_config_tile(struct mml_comp *comp, struct mml_task *task,
 			       ((rdma_frm->vdo_blk_height >>
 			       rdma_frm->ver_shift_uv) << rdma_frm->field) *
 			       rdma_frm->bits_per_pixel_uv >> 3) +
-			       (out_ys >> rdma_frm->vdo_blk_shift_h) *
+			       (in_ys >> rdma_frm->vdo_blk_shift_h) *
 			       src->uv_stride;
 
 		/* Set V pixel offset */
@@ -1640,7 +1640,7 @@ static s32 rdma_config_tile(struct mml_comp *comp, struct mml_task *task,
 			       ((rdma_frm->vdo_blk_height >>
 			       rdma_frm->ver_shift_uv) << rdma_frm->field) *
 			       rdma_frm->bits_per_pixel_uv >> 3) +
-			       (out_ys >> rdma_frm->vdo_blk_shift_h) *
+			       (in_ys >> rdma_frm->vdo_blk_shift_h) *
 			       src->uv_stride;
 
 		/* Set source size */
