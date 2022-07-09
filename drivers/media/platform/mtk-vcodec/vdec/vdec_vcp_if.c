@@ -788,6 +788,9 @@ static int vdec_vcp_backup(struct vdec_inst *inst)
 	struct vdec_ap_ipi_cmd msg;
 	int err = 0;
 
+	if (!inst)
+		return -EINVAL;
+
 	mtk_vcodec_debug_enter(inst);
 
 	memset(&msg, 0, sizeof(msg));
@@ -862,8 +865,8 @@ static int vcp_vdec_notify_callback(struct notifier_block *this,
 		// send backup ipi to vcp by one of any instances
 		list_for_each_safe(p, q, &dev->ctx_list) {
 			ctx = list_entry(p, struct mtk_vcodec_ctx, list);
-			if (ctx != NULL && ctx->state < MTK_STATE_ABORT
-					&& ctx->state > MTK_STATE_FREE) {
+			if (ctx != NULL && ctx->drv_handle != 0 &&
+			    ctx->state < MTK_STATE_ABORT && ctx->state > MTK_STATE_FREE) {
 				mutex_unlock(&dev->ctx_mutex);
 				backup = true;
 				vdec_vcp_backup((struct vdec_inst *)ctx->drv_handle);
