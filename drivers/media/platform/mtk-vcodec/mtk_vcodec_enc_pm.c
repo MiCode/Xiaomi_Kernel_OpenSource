@@ -36,8 +36,7 @@ void mtk_venc_init_ctx_pm(struct mtk_vcodec_ctx *ctx)
 	ctx->sram_data.type = TP_BUFFER;
 	ctx->sram_data.size = 0;
 	ctx->sram_data.flag = FG_POWER;
-//disable slbc temporarily
-/*
+
 	if (slbc_request(&ctx->sram_data) >= 0) {
 		ctx->use_slbc = 1;
 		ctx->slbc_addr = (unsigned int)(unsigned long)ctx->sram_data.paddr;
@@ -52,7 +51,6 @@ void mtk_venc_init_ctx_pm(struct mtk_vcodec_ctx *ctx)
 
 	pr_info("slbc_request %d, 0x%x, 0x%llx\n",
 	ctx->use_slbc, ctx->slbc_addr, ctx->sram_data.paddr);
-*/
 }
 
 int mtk_vcodec_init_enc_pm(struct mtk_vcodec_dev *mtkdev)
@@ -200,9 +198,12 @@ void mtk_vcodec_enc_clock_on(struct mtk_vcodec_ctx *ctx, int core_id)
 	if (core_id == MTK_VENC_CORE_0) {
 		larb_port_num = dev->venc_ports[0].total_port_num;
 		larb_id = 7;
-	} else {
+	} else if (core_id == MTK_VENC_CORE_1) {
 		larb_port_num = dev->venc_ports[1].total_port_num;
 		larb_id = 8;
+	} else {
+		larb_port_num = dev->venc_ports[2].total_port_num;
+		larb_id = 37;
 	}
 
 	//enable slbc port configs
