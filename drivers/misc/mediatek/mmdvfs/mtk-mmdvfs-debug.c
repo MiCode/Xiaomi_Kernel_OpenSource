@@ -218,11 +218,11 @@ static int mmdvfs_v3_debug_thread(void *data)
 	int ret = 0, retry = 0;
 
 	while (!mtk_is_mmdvfs_init_done()) {
-		if (++retry > 50) {
-			MMDVFS_DBG("mmdvfs not ready");
+		if (++retry > 100) {
+			MMDVFS_DBG("mmdvfs_v3 init not ready");
 			goto err;
 		}
-		msleep(2000);
+		ssleep(2);
 	}
 
 	if (g_mmdvfs->use_v3_pwr & (1 << PWR_MMDVFS_VCORE))
@@ -306,14 +306,6 @@ static int mmdvfs_v3_dbg_ftrace_thread(void *data)
 	int ret = 0, retry = 0;
 	s32 i, j;
 
-	while (!mtk_is_mmdvfs_init_done() && !kthread_should_stop()) {
-		if (++retry > 50) {
-			MMDVFS_DBG("mmdvfs not ready");
-			goto err;
-		}
-		msleep(2000);
-	}
-
 	if (!g_mmdvfs->base) {
 		g_mmdvfs->base = mtk_mmdvfs_vcp_get_base(&pa);
 		if (!g_mmdvfs->base) {
@@ -321,6 +313,15 @@ static int mmdvfs_v3_dbg_ftrace_thread(void *data)
 			MMDVFS_DBG("kthread mmdvfs-dbg-ftrace-v3 end");
 			return 0;
 		}
+	}
+
+	while (!mtk_is_mmdvfs_init_done()) {
+		if (++retry > 100) {
+			ftrace_v3_ena = false;
+			MMDVFS_DBG("mmdvfs_v3 init not ready");
+			return 0;
+		}
+		ssleep(2);
 	}
 
 	while (!kthread_should_stop()) {
@@ -352,8 +353,6 @@ static int mmdvfs_v3_dbg_ftrace_thread(void *data)
 		msleep(20);
 	}
 
-err:
-	mtk_mmdvfs_enable_vcp(false);
 	ftrace_v3_ena = false;
 	MMDVFS_DBG("kthread mmdvfs-dbg-ftrace-v3 end");
 	return ret;

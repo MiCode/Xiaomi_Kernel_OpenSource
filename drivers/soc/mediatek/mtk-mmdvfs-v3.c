@@ -20,6 +20,7 @@
 #include "clk-mtk.h"
 //#include "clk-mux.h"
 #include "mtk-mmdvfs-v3.h"
+#include "mtk-scpsys.h"
 
 #include "vcp.h"
 #include "vcp_reg.h"
@@ -55,6 +56,7 @@ static struct platform_device *ccu_pdev;
 static struct rproc *ccu_rproc;
 static DEFINE_MUTEX(mmdvfs_ccu_pwr_mutex);
 static int ccu_power;
+struct ipi_callbacks pwr_cb;
 
 static int last_ccu_freq = -1;
 
@@ -62,6 +64,7 @@ enum mmdvfs_log_level {
 	log_ipi,
 	log_ccf_cb,
 	log_vcp,
+	log_mtcmos,
 };
 
 static inline struct mtk_mmdvfs_clk *to_mtk_mmdvfs_clk(struct clk_hw *hw)
@@ -75,13 +78,13 @@ int mtk_mmdvfs_enable_ccu(bool enable)
 	int ret = 0;
 
 	if (!mmdvfs_free_run) {
-		MMDVFS_DBG("mmdvfs_v3 not supported!");
+		MMDVFS_DBG("mmdvfs_v3 not supported");
 		return 0;
 	}
 
 	if (!ccu_rproc) {
 		MMDVFS_ERR("there is no ccu_rproc");
-		return -1;
+		return -EINVAL;
 	}
 
 	mutex_lock(&mmdvfs_ccu_pwr_mutex);
@@ -103,7 +106,7 @@ int mtk_mmdvfs_enable_ccu(bool enable)
 		if (ccu_power == 0) {
 			MMDVFS_ERR("disable vcp when vcp_power==0");
 			mutex_unlock(&mmdvfs_ccu_pwr_mutex);
-			return -1;
+			return -EINVAL;
 		}
 		if (ccu_power == 1) {
 #if IS_ENABLED(CONFIG_MTK_CCU_DEBUG)
@@ -180,29 +183,28 @@ static struct kernel_param_ops enable_vmm_ops = {
 module_param_cb(enable_vmm, &enable_vmm_ops, NULL, 0644);
 MODULE_PARM_DESC(enable_vmm, "enable vmm");
 
-static int mmdvfs_vcp_is_ready(void)
+bool mtk_is_mmdvfs_init_done(void)
 {
-	int retry = 0;
-
-	while (!is_vcp_ready_ex(VCP_A_ID)) {
-		if (++retry > 100) {
-			MMDVFS_DBG("VCP_A_ID:%d not ready", VCP_A_ID);
-			return 0;
-		}
-		msleep(100);
+	if (!mmdvfs_free_run) {
+		MMDVFS_DBG("mmdvfs_v3 not supported");
+		return false;
 	}
 
-	return 1;
+	return mmdvfs_init_done;
 }
+EXPORT_SYMBOL_GPL(mtk_is_mmdvfs_init_done);
 
 int mtk_mmdvfs_enable_vcp(bool enable)
 {
 	int ret;
 
 	if (!mmdvfs_free_run) {
-		MMDVFS_DBG("mmdvfs_v3 not supported!");
+		MMDVFS_DBG("mmdvfs_v3 not supported");
 		return 0;
 	}
+
+	if (is_vcp_suspending_ex())
+		return -EBUSY;
 
 	mutex_lock(&mmdvfs_vcp_pwr_mutex);
 	if (enable) {
@@ -219,7 +221,7 @@ int mtk_mmdvfs_enable_vcp(bool enable)
 		if (vcp_power == 0) {
 			MMDVFS_ERR("disable vcp when vcp_power==0");
 			mutex_unlock(&mmdvfs_vcp_pwr_mutex);
-			return -1;
+			return -EINVAL;
 		}
 		if (vcp_power == 1) {
 			ret = vcp_deregister_feature_ex(MMDVFS_FEATURE_ID);
@@ -238,7 +240,7 @@ int mtk_mmdvfs_enable_vcp(bool enable)
 
 	return 0;
 }
-EXPORT_SYMBOL(mtk_mmdvfs_enable_vcp);
+EXPORT_SYMBOL_GPL(mtk_mmdvfs_enable_vcp);
 
 static int mmdvfs_vcp_ipi_send(const u8 func, const u8 idx, const u8 opp,
 	const u8 ack) // ap > vcp
@@ -246,14 +248,20 @@ static int mmdvfs_vcp_ipi_send(const u8 func, const u8 idx, const u8 opp,
 	struct mmdvfs_ipi_data slot = {func, idx, opp, ack, 0U};
 	int retry = 0, ret;
 
-	if (!mmdvfs_init_done) {
-		MMDVFS_ERR("mmdvfs is not init done");
-		return -ETIMEDOUT;
+	if (!mtk_is_mmdvfs_init_done()) {
+		MMDVFS_DBG("mmdvfs_v3 init not ready");
+		return -ENODEV;
 	}
 
-	if (!mmdvfs_vcp_is_ready()) {
-		MMDVFS_ERR("vcp is not ready");
-		return -ETIMEDOUT;
+	if (is_vcp_suspending_ex())
+		return -EBUSY;
+
+	while (!is_vcp_ready_ex(VCP_A_ID)) {
+		if (++retry > 100) {
+			MMDVFS_ERR("VCP_A_ID:%d not ready", VCP_A_ID);
+			return -ETIMEDOUT;
+		}
+		usleep_range(1000, 2000);
 	}
 
 	if (!mmdvfs_vcp_base)
@@ -277,14 +285,16 @@ static int mmdvfs_vcp_ipi_send(const u8 func, const u8 idx, const u8 opp,
 		return ret;
 	}
 
+	retry = 0;
 	while ((mmdvfs_vcp_ipi_data & 0xff) == func) {
 		if (++retry > 100) {
 			ret = IPI_COMPL_TIMEOUT;
 			MMDVFS_ERR("ipi ack timeout:%d slot:%#llx data:%#llx",
 				ret, *(u64 *)(unsigned long *)&slot, mmdvfs_vcp_ipi_data);
+			WARN_ON(1);
 			break;
 		}
-		udelay(100);
+		mdelay(1);
 	}
 
 	mutex_unlock(&mmdvfs_vcp_ipi_mutex);
@@ -421,7 +431,7 @@ void *mtk_mmdvfs_vcp_get_base(phys_addr_t *pa)
 	struct iommu_domain *domain;
 
 	if (!mmdvfs_free_run || !va) {
-		MMDVFS_DBG("mmdvfs_v3 not supported!");
+		MMDVFS_DBG("mmdvfs_v3 not supported");
 		return NULL;
 	}
 
@@ -450,8 +460,8 @@ int mtk_mmdvfs_camera_notify_from_mmqos(const bool enable)
 	struct mmdvfs_ipi_data slot;
 	int ret;
 
-	if (!mmdvfs_free_run) {
-		MMDVFS_DBG("mmdvfs_v3 not supported!");
+	if (!mtk_is_mmdvfs_init_done()) {
+		MMDVFS_DBG("mmdvfs_v3 init not ready");
 		return 0;
 	}
 
@@ -466,23 +476,13 @@ int mtk_mmdvfs_camera_notify_from_mmqos(const bool enable)
 }
 EXPORT_SYMBOL_GPL(mtk_mmdvfs_camera_notify_from_mmqos);
 
-bool mtk_is_mmdvfs_init_done(void)
-{
-	if (!mmdvfs_free_run) {
-		MMDVFS_DBG("mmdvfs_v3 not supported!");
-		return true;
-	}
-	return mmdvfs_init_done;
-}
-EXPORT_SYMBOL_GPL(mtk_is_mmdvfs_init_done);
-
 int mtk_mmdvfs_v3_set_force_step(u16 pwr_idx, s16 opp)
 {
 	struct mmdvfs_ipi_data slot;
 	int ret;
 
-	if (!mmdvfs_free_run) {
-		MMDVFS_DBG("mmdvfs_v3 not supported!");
+	if (!mtk_is_mmdvfs_init_done()) {
+		MMDVFS_DBG("mmdvfs_v3 init not ready");
 		return 0;
 	}
 
@@ -553,8 +553,8 @@ int mtk_mmdvfs_v3_set_vote_step(u16 pwr_idx, s16 opp)
 	u32 freq = 0;
 	int ret = 0, i;
 
-	if (!mmdvfs_free_run) {
-		MMDVFS_DBG("mmdvfs_v3 not supported!");
+	if (!mtk_is_mmdvfs_init_done()) {
+		MMDVFS_DBG("mmdvfs_v3 init not ready");
 		return 0;
 	}
 
@@ -721,8 +721,8 @@ int mmdvfs_dump_setting(char *buf, const struct kernel_param *kp)
 	struct mmdvfs_ipi_data slot;
 	int i, len = 0, ret;
 
-	if (!mmdvfs_free_run) {
-		MMDVFS_DBG("mmdvfs_v3 not supported!");
+	if (!mtk_is_mmdvfs_init_done()) {
+		MMDVFS_DBG("mmdvfs_v3 init not ready");
 		return 0;
 	}
 
@@ -775,8 +775,8 @@ int mmdvfs_set_vcp_stress(const char *val, const struct kernel_param *kp)
 	u16 ena = 0;
 	int ret;
 
-	if (!mmdvfs_free_run) {
-		MMDVFS_DBG("mmdvfs_v3 not supported!");
+	if (!mtk_is_mmdvfs_init_done()) {
+		MMDVFS_DBG("mmdvfs_v3 init not ready");
 		return 0;
 	}
 
@@ -804,13 +804,61 @@ static struct kernel_param_ops mmdvfs_vcp_stress_ops = {
 module_param_cb(vcp_stress, &mmdvfs_vcp_stress_ops, NULL, 0644);
 MODULE_PARM_DESC(vcp_stress, "trigger mmdvfs vcp stress");
 
+static int mtk_mmdvfs_mtcmos_ctrl(const u8 mtcmos_idx, const bool enable)
+{
+	int ret = 0;
+
+	if (!mmdvfs_free_run) {
+		MMDVFS_DBG("mmdvfs_v3 not supported");
+		return 0;
+	}
+
+	if (!mtk_is_mmdvfs_init_done()) {
+		if (log_level & (1 << log_mtcmos))
+			MMDVFS_DBG("mmdvfs_v3 init not ready idx:%hhu ena:%d",
+				mtcmos_idx, enable);
+		return ret;
+	}
+
+	ret = mtk_mmdvfs_enable_vcp(true);
+	if (ret) {
+		if (log_level & (1 << log_mtcmos))
+			MMDVFS_DBG("enable_vcp failed:%d idx:%hhu ena:%d",
+				ret, mtcmos_idx, enable);
+		return 0;
+	}
+
+	ret = mmdvfs_vcp_ipi_send(FUNC_SET_MTCMOS, mtcmos_idx, enable, MAX_OPP);
+	mtk_mmdvfs_enable_vcp(false);
+
+	if (log_level & (1 << log_mtcmos)) {
+		struct mmdvfs_ipi_data slot =
+			*(struct mmdvfs_ipi_data *)(u32 *)&mmdvfs_vcp_ipi_data;
+
+		MMDVFS_DBG("ipi:%#x slot:%#x idx:%hhu ena:%hhu",
+			ret, slot, slot.idx, slot.opp);
+	}
+
+	return ret;
+}
+
+static int mtk_mmdvfs_mtcmos_on(const u8 mtcmos_idx)
+{
+	return mtk_mmdvfs_mtcmos_ctrl(mtcmos_idx, true);
+}
+
+static int mtk_mmdvfs_mtcmos_off(const u8 mtcmos_idx)
+{
+	return mtk_mmdvfs_mtcmos_ctrl(mtcmos_idx, false);
+}
+
 int mmdvfs_get_vcp_log(char *buf, const struct kernel_param *kp)
 {
 	struct mmdvfs_ipi_data slot;
 	int len = 0, ret;
 
-	if (!mmdvfs_free_run) {
-		MMDVFS_DBG("mmdvfs_v3 not supported!");
+	if (!mtk_is_mmdvfs_init_done()) {
+		MMDVFS_DBG("mmdvfs_v3 init not ready");
 		return 0;
 	}
 
@@ -831,8 +879,8 @@ int mmdvfs_set_vcp_log(const char *val, const struct kernel_param *kp)
 	u16 log = 0;
 	int ret;
 
-	if (!mmdvfs_free_run) {
-		MMDVFS_DBG("mmdvfs_v3 not supported!");
+	if (!mtk_is_mmdvfs_init_done()) {
+		MMDVFS_DBG("mmdvfs_v3 init not ready");
 		return 0;
 	}
 
@@ -878,16 +926,15 @@ static int mmdvfs_vcp_init_thread(void *data)
 			MMDVFS_ERR("vcp is not powered on yet");
 			return -ETIMEDOUT;
 		}
-		msleep(1000);
+		ssleep(1);
 	}
 
-	retry = 0;
-	while (!mmdvfs_vcp_is_ready()) {
+	while (!is_vcp_ready_ex(VCP_A_ID)) {
 		if (++retry > 100) {
-			MMDVFS_ERR("vcp is not ready yet");
+			MMDVFS_ERR("VCP_A_ID:%d not ready", VCP_A_ID);
 			return -ETIMEDOUT;
 		}
-		msleep(1000);
+		usleep_range(1000, 2000);
 	}
 
 	retry = 0;
@@ -896,6 +943,7 @@ static int mmdvfs_vcp_init_thread(void *data)
 			MMDVFS_ERR("cannot get vcp ipidev");
 			return -ETIMEDOUT;
 		}
+		ssleep(1);
 	}
 
 	ret = mtk_ipi_register(vcp_ipi_dev, IPI_IN_MMDVFS,
@@ -906,6 +954,7 @@ static int mmdvfs_vcp_init_thread(void *data)
 	}
 
 	mmdvfs_init_done = true;
+	MMDVFS_DBG("mmdvfs_init_done:%d", mmdvfs_init_done);
 	return ret;
 }
 
@@ -932,13 +981,11 @@ static int mmdvfs_ccu_init_thread(void *data)
 		}
 
 		while (!(ccu_rproc = rproc_get_by_phandle(handle))) {
-			msleep(1000);
-			retry++;
-			if (retry == 100) {
+			if (++retry > 100) {
 				MMDVFS_ERR("rproc_get_by_phandle fail");
-				ret = -EINVAL;
-				goto error_handle;
+				return -ETIMEDOUT;
 			}
+			ssleep(1);
 		}
 
 		of_node_put(rproc_np);
@@ -1073,11 +1120,15 @@ static int mmdvfs_v3_probe(struct platform_device *pdev)
 		of_node_put(larbnode);
 	}
 
-	kthr_vcp = kthread_run(mmdvfs_vcp_init_thread, NULL, "mmdvfs-vcp");
-	kthr_ccu = kthread_run(mmdvfs_ccu_init_thread, node, "mmdvfs-ccu");
+	pwr_cb.power_on = mtk_mmdvfs_mtcmos_on;
+	pwr_cb.power_off = mtk_mmdvfs_mtcmos_off;
+	register_ipi_mtcmos_callback(&pwr_cb);
 
 	if (of_property_read_bool(node, "mmdvfs-free-run"))
 		mmdvfs_free_run = true;
+
+	kthr_vcp = kthread_run(mmdvfs_vcp_init_thread, NULL, "mmdvfs-vcp");
+	kthr_ccu = kthread_run(mmdvfs_ccu_init_thread, node, "mmdvfs-ccu");
 
 	return ret;
 }
