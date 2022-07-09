@@ -521,34 +521,6 @@ static int etdm_out_tinyconn_event(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
-static int mtk_apll_event(struct snd_soc_dapm_widget *w,
-			  struct snd_kcontrol *kcontrol,
-			  int event)
-{
-	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
-	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
-
-	dev_info(cmpnt->dev, "%s(), name %s, event 0x%x\n",
-		 __func__, w->name, event);
-	switch (event) {
-	case SND_SOC_DAPM_PRE_PMU:
-		if (strcmp(w->name, APLL1_W_NAME) == 0)
-			mt6983_apll1_enable(afe);
-		else
-			mt6983_apll2_enable(afe);
-		break;
-	case SND_SOC_DAPM_POST_PMD:
-		if (strcmp(w->name, APLL1_W_NAME) == 0)
-			mt6983_apll1_disable(afe);
-		else
-			mt6983_apll2_disable(afe);
-		break;
-	default:
-		break;
-	}
-	return 0;
-}
-
 static int mtk_afe_etdm_apll_connect(struct snd_soc_dapm_widget *source,
 				     struct snd_soc_dapm_widget *sink)
 {
@@ -643,17 +615,6 @@ static const struct snd_soc_dapm_widget mtk_dai_etdm_widgets[] = {
 			   &etdm_out_ch8_tinyconn_mux_control,
 			   etdm_out_tinyconn_event,
 			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_PRE_PMD),
-
-	/* apll */
-	SND_SOC_DAPM_SUPPLY_S(APLL1_W_NAME, SUPPLY_SEQ_APLL,
-			      SND_SOC_NOPM, 0, 0,
-			      mtk_apll_event,
-			      SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
-	SND_SOC_DAPM_SUPPLY_S(APLL2_W_NAME, SUPPLY_SEQ_APLL,
-			      SND_SOC_NOPM, 0, 0,
-			      mtk_apll_event,
-			      SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
-	SND_SOC_DAPM_CLOCK_SUPPLY("aud_tdm_clk"),
 
 	/* endpoint */
 	SND_SOC_DAPM_INPUT("ETDM_INPUT"),
