@@ -355,10 +355,17 @@ void mtu3_ep_stall_set(struct mtu3_ep *mep, bool set)
 
 void mtu3_dev_on_off(struct mtu3 *mtu, int is_on)
 {
-	if (mtu->is_u3_ip && mtu->speed >= USB_SPEED_SUPER)
-		mtu3_ss_func_set(mtu, is_on);
-	else
-		mtu3_hs_softconn_set(mtu, is_on);
+	if (is_on) {
+		if (mtu->is_u3_ip && mtu->speed >= USB_SPEED_SUPER)
+			mtu3_ss_func_set(mtu, true);
+		else {
+			mtu3_ss_func_set(mtu, false);
+			mtu3_hs_softconn_set(mtu, true);
+		}
+	} else {
+		mtu3_ss_func_set(mtu, false);
+		mtu3_hs_softconn_set(mtu, false);
+	}
 
 	dev_info(mtu->dev, "gadget (%s) pullup D%s\n",
 		usb_speed_string(mtu->speed), is_on ? "+" : "-");
