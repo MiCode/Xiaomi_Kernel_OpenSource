@@ -21,8 +21,8 @@
 #include <soc/mediatek/emi.h>
 #include <linux/ratelimit.h>
 
-static const unsigned int bypass_register[] = {0x1d8, 0x3d8, 0x1d0, 0x3d0, 0x1e4, 0x3e4, 0x1e8,
-						0x3e8};
+static const unsigned int bypass_register[] = {0x1d8, 0x3d8, 0x1e4, 0x3e4, 0x1e8, 0x3e8};
+static const unsigned int bypass_axi_info[] = {0x6, 0x7f80, 0x2000, 0x7, 0xff01, 0x4001};
 
 static void set_regs(
 	struct reg_info_t *reg_list, unsigned int reg_cnt,
@@ -101,11 +101,10 @@ static void clear_violation(
 	struct emi_mpu *mpu, unsigned int emi_id)
 {
 	void __iomem *emi_cen_base;
-	void __iomem *miu_kp_base;
+	struct arm_smccc_res smc_res;
 	void __iomem *miu_mpu_base;
 
 	emi_cen_base = mpu->emi_cen_base[emi_id];
-	miu_kp_base = mpu->miu_kp_base[emi_id];
 	miu_mpu_base = mpu->miu_mpu_base[emi_id];
 
 	set_regs(mpu->clear_reg,
@@ -114,8 +113,8 @@ static void clear_violation(
 	set_regs(mpu->clear_hp_reg,
 		mpu->clear_hp_reg_cnt, emi_cen_base);
 
-	set_regs(mpu->clear_miukp_reg,
-		mpu->clear_miukp_reg_cnt, miu_kp_base);
+	arm_smccc_smc(MTK_SIP_EMIMPU_CONTROL, MTK_EMIMPU_CLEAR_KP,
+		0, 0, 0, 0, 0, 0, &smc_res);
 
 	set_regs(mpu->clear_miumpu_reg,
 		mpu->clear_miumpu_reg_cnt, miu_mpu_base);
@@ -142,12 +141,14 @@ static irqreturn_t emimpu_violation_irq(int irq, void *dev_id)
 	struct emi_mpu *mpu = (struct emi_mpu *)dev_id;
 	struct reg_info_t *dump_reg = mpu->dump_reg;
 	struct reg_info_t *miumpu_dump_reg = mpu->miumpu_dump_reg;
+	struct reg_info_t *miukp_dump_reg = mpu->miukp_dump_reg;
 	void __iomem *emi_cen_base;
 	void __iomem *miu_mpu_base;
+	void __iomem *miu_kp_base;
 	unsigned int emi_id, i;
 	ssize_t msg_len;
 	int nr_vio, prefetch;
-	bool violation, miu_violation;
+	bool violation, miu_violation, miu_kp_violation;
 	irqreturn_t irqret;
 	const unsigned int hp_mask = 0x600000;
 	char md_str[MTK_EMI_MAX_CMD_LEN + 13] = {'\0'};
@@ -160,6 +161,7 @@ static irqreturn_t emimpu_violation_irq(int irq, void *dev_id)
 	for (emi_id = 0; emi_id < mpu->emi_cen_cnt; emi_id++) {
 		violation = false;
 		miu_violation = false;
+		miu_kp_violation = false;
 		emi_cen_base = mpu->emi_cen_base[emi_id];
 		for (i = 0; i < mpu->dump_cnt; i++) {
 			dump_reg[i].value = readl(
@@ -192,9 +194,22 @@ static irqreturn_t emimpu_violation_irq(int irq, void *dev_id)
 					violation = true;
 			}
 
+			miu_kp_violation = false;
+			miu_kp_base = mpu->miu_kp_base[emi_id];
+			for (i = 0; i < mpu->miukp_dump_cnt; i++) {
+				miukp_dump_reg[i].value = readl(
+				miu_kp_base + miukp_dump_reg[i].offset);
+
+				if (miukp_dump_reg[i].value) {
+					violation = true;
+					miu_kp_violation = true;
+				}
+			}
+
 			if (!violation) {
 				if (__ratelimit(&ratelimit))
-					pr_info("%s: emi:%d smpu = 0", __func__, emi_id);
+					pr_info("%s: emi:%d miu_mpu = 0, miu_kp = 0"
+					, __func__, emi_id);
 				goto clear_violation;
 			}
 		}
@@ -219,24 +234,40 @@ static irqreturn_t emimpu_violation_irq(int irq, void *dev_id)
 		nr_vio++;
 
 		if (miu_violation) {
-			/* MPUT_2ND[28] = CPU-preftech flag*/
-			prefetch = (dump_reg[2].value >> 28) & 0x1;
-			if (msg_len < MTK_EMI_MAX_CMD_LEN)
-				msg_len += scnprintf(mpu->vio_msg + msg_len,
-						MTK_EMI_MAX_CMD_LEN - msg_len,
-						"\n[MIUMPU]cpu-prefetch:%d\n", prefetch);
-			/* Dump MIUMPU violation info */
-			if (msg_len < MTK_EMI_MAX_CMD_LEN)
-				msg_len += scnprintf(mpu->vio_msg + msg_len,
-					MTK_EMI_MAX_CMD_LEN - msg_len,
-					"\n[MIUMPU]emiid%d\n", emi_id);
-			for (i = 0; i < mpu->miumpu_dump_cnt; i++)
+
+			if (miu_kp_violation) {
+				/* Dump MIUKP violation info */
 				if (msg_len < MTK_EMI_MAX_CMD_LEN)
 					msg_len += scnprintf(mpu->vio_msg + msg_len,
 						MTK_EMI_MAX_CMD_LEN - msg_len,
-						"[%x]%x;",
-						miumpu_dump_reg[i].offset,
-						miumpu_dump_reg[i].value);
+						"\n[MIUKP]emiid%d\n", emi_id);
+				for (i = 0; i < mpu->miukp_dump_cnt; i++)
+					if (msg_len < MTK_EMI_MAX_CMD_LEN)
+						msg_len += scnprintf(mpu->vio_msg + msg_len,
+							MTK_EMI_MAX_CMD_LEN - msg_len,
+							"[%x]%x;",
+							miukp_dump_reg[i].offset,
+							miukp_dump_reg[i].value);
+			} else {
+				/* MPUT_2ND[28] = CPU-preftech flag*/
+				prefetch = (dump_reg[2].value >> 28) & 0x1;
+				if (msg_len < MTK_EMI_MAX_CMD_LEN)
+					msg_len += scnprintf(mpu->vio_msg + msg_len,
+						MTK_EMI_MAX_CMD_LEN - msg_len,
+						"\n[MIUMPU]cpu-prefetch:%d\n", prefetch);
+				/* Dump MIUMPU violation info */
+				if (msg_len < MTK_EMI_MAX_CMD_LEN)
+					msg_len += scnprintf(mpu->vio_msg + msg_len,
+						MTK_EMI_MAX_CMD_LEN - msg_len,
+						"\n[MIUMPU]emiid%d\n", emi_id);
+				for (i = 0; i < mpu->miumpu_dump_cnt; i++)
+					if (msg_len < MTK_EMI_MAX_CMD_LEN)
+						msg_len += scnprintf(mpu->vio_msg + msg_len,
+							MTK_EMI_MAX_CMD_LEN - msg_len,
+							"[%x]%x;",
+							miumpu_dump_reg[i].offset,
+							miumpu_dump_reg[i].value);
+			}
 		} else {
 			/* Dump EMIMPU violation info */
 			if (msg_len < MTK_EMI_MAX_CMD_LEN)
@@ -312,7 +343,7 @@ static int emimpu_probe(struct platform_device *pdev)
 	struct device_node *miumpu_node =
 		of_parse_phandle(emimpu_node, "mediatek,miumpu-reg", 0);
 	struct emi_mpu *mpu;
-	int ret, size, i;
+	int ret, size, i, axi_set_num;
 	struct resource *res;
 	unsigned int *dump_list, *miukp_dump_list, *miumpu_dump_list, *miumpu_bypass_list;
 
@@ -536,38 +567,82 @@ static int emimpu_probe(struct platform_device *pdev)
 	size = of_property_count_elems_of_size(miumpu_node,
 		"bypass", sizeof(char));
 	if (size <= 0) {
-		/* for previous platform*/
+		/* for previous platform */
 		size = sizeof(bypass_register) / sizeof(unsigned int);
-		mpu->bypass_num = size;
-		mpu->bypass = devm_kmalloc(&pdev->dev,
-			size *sizeof(unsigned int), GFP_KERNEL);
-		if (!(mpu->bypass))
+		mpu->bypass_miu_reg_num = size;
+		mpu->bypass_miu_reg = devm_kmalloc(&pdev->dev,
+			size * sizeof(unsigned int), GFP_KERNEL);
+		if (!(mpu->bypass_miu_reg))
 			return -ENOMEM;
 
-		for (i = 0; i < mpu->bypass_num; i++)
-			mpu->bypass[i].offset = bypass_register[i];
+		for (i = 0; i < mpu->bypass_miu_reg_num; i++)
+			mpu->bypass_miu_reg[i] = bypass_register[i];
 	} else {
 		miumpu_bypass_list = devm_kmalloc(&pdev->dev, size, GFP_KERNEL);
 		if (!miumpu_bypass_list)
 			return -ENOMEM;
 
-		size >>= 2;
-		mpu->bypass_num = size;
+		size /= sizeof(unsigned int);
+		mpu->bypass_miu_reg_num = size;
 		ret = of_property_read_u32_array(miumpu_node, "bypass",
 			miumpu_bypass_list, size);
 		if (ret) {
 			pr_info("No bypass miu mpu\n");
 			return -ENXIO;
 		}
-		mpu->bypass = devm_kmalloc(&pdev->dev,
-			size *sizeof(unsigned int), GFP_KERNEL);
-		if (!(mpu->bypass))
+		mpu->bypass_miu_reg = devm_kmalloc(&pdev->dev,
+			size * sizeof(unsigned int), GFP_KERNEL);
+		if (!(mpu->bypass_miu_reg))
 			return -ENOMEM;
 
-		for (i = 0; i < size; i++)
-			mpu->bypass[i].offset = miumpu_bypass_list[i];
+		for (i = 0; i < mpu->bypass_miu_reg_num; i++)
+			mpu->bypass_miu_reg[i] = miumpu_bypass_list[i];
 	}
 //bypass miumpu end
+//bypass_axi miumpu start
+	size = of_property_count_elems_of_size(miumpu_node,
+		"bypass-axi", sizeof(char));
+	if (size <= 0) {
+		/* for previous platform */
+		size = sizeof(bypass_axi_info) / sizeof(unsigned int);
+		axi_set_num = AXI_SET_NUM(size);
+		mpu->bypass_axi_num = axi_set_num;
+		mpu->bypass_axi = devm_kmalloc(&pdev->dev,
+			axi_set_num * sizeof(struct bypass_aix_info_t), GFP_KERNEL);
+		if (!(mpu->bypass_axi))
+			return -ENOMEM;
+
+		for (i = 0; i < mpu->bypass_axi_num; i++) {
+			mpu->bypass_axi[i].port = bypass_axi_info[(i*3)+0];
+			mpu->bypass_axi[i].axi_mask = bypass_axi_info[(i*3)+1];
+			mpu->bypass_axi[i].axi_value = bypass_axi_info[(i*3)+2];
+		}
+	} else {
+		miumpu_bypass_list = devm_kmalloc(&pdev->dev, size, GFP_KERNEL);
+		if (!miumpu_bypass_list)
+			return -ENOMEM;
+
+		size /= sizeof(unsigned int);
+		axi_set_num = AXI_SET_NUM(size);
+		mpu->bypass_axi_num = axi_set_num;
+		ret = of_property_read_u32_array(miumpu_node, "bypass-axi",
+			miumpu_bypass_list, size);
+		if (ret) {
+			pr_info("No bypass miu mpu\n");
+			return -ENXIO;
+		}
+		mpu->bypass_axi = devm_kmalloc(&pdev->dev,
+			axi_set_num * sizeof(struct bypass_aix_info_t), GFP_KERNEL);
+		if (!(mpu->bypass_axi))
+			return -ENOMEM;
+
+		for (i = 0; i < mpu->bypass_axi_num; i++) {
+			mpu->bypass_axi[i].port = miumpu_bypass_list[(i*3)+0];
+			mpu->bypass_axi[i].axi_mask = miumpu_bypass_list[(i*3)+1];
+			mpu->bypass_axi[i].axi_value = miumpu_bypass_list[(i*3)+2];
+		}
+	}
+//bypass_axi miumpu end
 //reg base start
 	mpu->emi_cen_cnt = of_property_count_elems_of_size(
 			emicen_node, "reg", sizeof(unsigned int) * 4);

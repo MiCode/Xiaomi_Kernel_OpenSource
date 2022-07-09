@@ -13,23 +13,27 @@ static bool axi_id_is_gpu(unsigned int axi_id)
 {
 	unsigned int port;
 	unsigned int id;
+	unsigned int i;
 
 	port = axi_id & (BIT_MASK(3) - 1);
 	id = axi_id >> 3;
 
-	if (port == 6 && ((id & 0x7F80) == 0x2000))
-		return true;
-	else if (port == 7 && ((id & 0xFF81) == 0x2001))
-		return true;
-	else
-		return false;
+	for (i = 0; i < global_emi_mpu->bypass_axi_num; i++) {
+		/* master is MFG_MPU(GPU MPU) */
+		if (port == global_emi_mpu->bypass_axi[i].port
+		&& ((id & global_emi_mpu->bypass_axi[i].axi_mask)
+		== global_emi_mpu->bypass_axi[i].axi_value))
+			return true;
+	}
+
+	return false;
 }
 int bypass_info(unsigned int offset)
 {
 	unsigned int i;
 
-	for (i = 0; i < global_emi_mpu->bypass_num; i++) {
-		if (offset == global_emi_mpu->bypass[i].offset)
+	for (i = 0; i < global_emi_mpu->bypass_miu_reg_num; i++) {
+		if (offset == global_emi_mpu->bypass_miu_reg[i])
 			return i;
 	}
 	return -1;
@@ -40,8 +44,8 @@ static irqreturn_t emi_mpu_isr_hook(unsigned int emi_id,
 					unsigned int leng)
 {
 	int i;
-	unsigned int srinfo_r = 0, axi_id_r = 0, err_case_r = 0;
-	unsigned int srinfo_w = 0, axi_id_w = 0, err_case_w = 0;
+	unsigned int srinfo_r = 0, axi_id_r = 0;
+	unsigned int srinfo_w = 0, axi_id_w = 0;
 	bool bypass;
 	static DEFINE_RATELIMIT_STATE(ratelimit, 1 * HZ, 3);
 
@@ -53,32 +57,26 @@ static irqreturn_t emi_mpu_isr_hook(unsigned int emi_id,
 		case READ_SRINFO:
 			srinfo_r = dump[i].value;
 			break;
-		case WRITE_VIO:
-			err_case_w = dump[i].value;
-			break;
-		case READ_VIO:
-			err_case_r = dump[i].value;
-			break;
 		case WRITE_AXI:
 			if (srinfo_w == 3)
-				axi_id_w |= dump[i].value & (BIT_MASK(20) - 1);
+				axi_id_w |= (dump[i].value & (BIT_MASK(20) - 1));
 			break;
 		case READ_AXI:
 			if (srinfo_r == 3)
-				axi_id_r |= dump[i].value & (BIT_MASK(20) - 1);
+				axi_id_r |= (dump[i].value & (BIT_MASK(20) - 1));
 			break;
 		case WRITE_AXI_MSB:
 			if (srinfo_w == 3) {
 				axi_id_w &= (BIT_MASK(16) - 1);
 				axi_id_w |=
-					(dump[i].value & (BIT_MASK(4) - 1)) << 16;
+					((dump[i].value & (BIT_MASK(4) - 1)) << 16);
 			}
 			break;
 		case READ_AXI_MSB:
 			if (srinfo_r == 3) {
 				axi_id_r &= (BIT_MASK(16) - 1);
 				axi_id_r |=
-					(dump[i].value & (BIT_MASK(4) - 1)) << 16;
+					((dump[i].value & (BIT_MASK(4) - 1)) << 16);
 			}
 			break;
 		default:
@@ -90,18 +88,15 @@ static irqreturn_t emi_mpu_isr_hook(unsigned int emi_id,
 		bypass = true;
 	else if (srinfo_w == 3 && !axi_id_is_gpu(axi_id_w))
 		bypass = true;
-	else if (err_case_w == 0 && err_case_r == 0)
-		bypass = true;
 	else
 		bypass = false;
 
 	if (bypass == true) {
 		if (__ratelimit(&ratelimit)) {
-			pr_info("[MIUMPU]srinfo_r %d, axi_id_r %d\n",
+			pr_info("srinfo_r %d, axi_id_r 0x%x\n",
 				srinfo_r, axi_id_r);
-			pr_info("[MIUMPU]srinfo_w %d, axi_id_w %d\n",
+			pr_info("srinfo_w %d, axi_id_w 0x%x\n",
 				srinfo_w, axi_id_w);
-			pr_info("To bypass this violation\n");
 		}
 	}
 

@@ -27,6 +27,7 @@
 #define MTK_EMIDBG_MSG			5
 #define MTK_EMIMPU_CLEAR_MD             7
 #define MTK_SLBMPU_CLEAR                8
+#define MTK_EMIMPU_CLEAR_KP		9
 
 #define MTK_EMIMPU_READ_SA		0
 #define MTK_EMIMPU_READ_EA		1
@@ -53,6 +54,12 @@ struct reg_info_t {
 	unsigned int offset;
 	unsigned int value;
 	unsigned int leng;
+};
+
+struct bypass_aix_info_t {
+	unsigned int port;
+	unsigned int axi_mask;
+	unsigned int axi_value;
 };
 
 struct emimpu_region_t {
