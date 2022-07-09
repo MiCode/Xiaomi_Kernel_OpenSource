@@ -29,7 +29,130 @@
 #include "../mediatek/mediatek_v2/mtk_drm_graphics_base.h"
 #endif
 
+#include "../../../misc/mediatek/gate_ic/gate_i2c.h"
+
+/* enable this to check panel self -bist pattern */
+/* #define PANEL_BIST_PATTERN */
+/****************TPS65132***********/
+#include <linux/i2c-dev.h>
+#include <linux/i2c.h>
+//#include "lcm_i2c.h"
+
 static char bl_tb0[] = { 0x51, 0xff };
+
+//TO DO: You have to do that remove macro BYPASSI2C and solve build error
+//otherwise voltage will be unstable
+#define BYPASSI2C
+
+#ifndef BYPASSI2C
+/* i2c control start */
+#define LCM_I2C_ID_NAME "I2C_LCD_BIAS"
+static struct i2c_client *_lcm_i2c_client;
+
+/*****************************************************************************
+ * Function Prototype
+ *****************************************************************************/
+static int _lcm_i2c_probe(struct i2c_client *client,
+		const struct i2c_device_id *id);
+static int _lcm_i2c_remove(struct i2c_client *client);
+
+/*****************************************************************************
+ * Data Structure
+ *****************************************************************************/
+struct _lcm_i2c_dev {
+	struct i2c_client *client;
+};
+
+static const struct of_device_id _lcm_i2c_of_match[] = {
+	{
+		.compatible = "mediatek,I2C_LCD_BIAS",
+	},
+	{},
+};
+
+static const struct i2c_device_id _lcm_i2c_id[] = { { LCM_I2C_ID_NAME, 0 },
+						    {} };
+
+static struct i2c_driver _lcm_i2c_driver = {
+	.id_table = _lcm_i2c_id,
+	.probe = _lcm_i2c_probe,
+	.remove = _lcm_i2c_remove,
+	/* .detect		   = _lcm_i2c_detect, */
+	.driver = {
+		.owner = THIS_MODULE,
+		.name = LCM_I2C_ID_NAME,
+		.of_match_table = _lcm_i2c_of_match,
+	},
+};
+
+/*****************************************************************************
+ * Function
+ *****************************************************************************/
+
+#ifdef VENDOR_EDIT
+// shifan@bsp.tp 20191226 add for loading tp fw when screen lighting on
+extern void lcd_queue_load_tp_fw(void);
+#endif /*VENDOR_EDIT*/
+
+static int _lcm_i2c_probe(struct i2c_client *client,
+			  const struct i2c_device_id *id)
+{
+	pr_debug("[LCM][I2C] %s\n", __func__);
+	pr_debug("[LCM][I2C] NT: info==>name=%s addr=0x%x\n", client->name,
+		client->addr);
+	_lcm_i2c_client = client;
+	return 0;
+}
+
+static int _lcm_i2c_remove(struct i2c_client *client)
+{
+	pr_debug("[LCM][I2C] %s\n", __func__);
+	_lcm_i2c_client = NULL;
+	i2c_unregister_device(client);
+	return 0;
+}
+
+static int _lcm_i2c_write_bytes(unsigned char addr, unsigned char value)
+{
+	int ret = 0;
+	struct i2c_client *client = _lcm_i2c_client;
+	char write_data[2] = { 0 };
+
+	if (client == NULL) {
+		pr_debug("ERROR!! _lcm_i2c_client is null\n");
+		return 0;
+	}
+
+	write_data[0] = addr;
+	write_data[1] = value;
+	ret = i2c_master_send(client, write_data, 2);
+	if (ret < 0)
+		pr_info("[LCM][ERROR] _lcm_i2c write data fail !!\n");
+
+	return ret;
+}
+
+/*
+ * module load/unload record keeping
+ */
+static int __init _lcm_i2c_init(void)
+{
+	pr_debug("[LCM][I2C] %s\n", __func__);
+	i2c_add_driver(&_lcm_i2c_driver);
+	pr_debug("[LCM][I2C] %s success\n", __func__);
+	return 0;
+}
+
+static void __exit _lcm_i2c_exit(void)
+{
+	pr_debug("[LCM][I2C] %s\n", __func__);
+	i2c_del_driver(&_lcm_i2c_driver);
+}
+
+module_init(_lcm_i2c_init);
+module_exit(_lcm_i2c_exit);
+/***********************************/
+#endif
 
 struct jdi {
 	struct device *dev;
@@ -40,6 +163,8 @@ struct jdi {
 	struct gpio_desc *bias_neg;
 	bool prepared;
 	bool enabled;
+
+	unsigned int gate_ic;
 
 	int error;
 };
@@ -631,20 +756,22 @@ static int jdi_unprepare(struct drm_panel *panel)
 	gpiod_set_value(ctx->reset_gpio, 0);
 	devm_gpiod_put(ctx->dev, ctx->reset_gpio);
 
-#ifdef IF_ZERO
-	ctx->bias_neg =
-		devm_gpiod_get_index(ctx->dev, "bias", 1, GPIOD_OUT_HIGH);
-	gpiod_set_value(ctx->bias_neg, 0);
-	devm_gpiod_put(ctx->dev, ctx->bias_neg);
+	if (ctx->gate_ic == 0) {
+		ctx->bias_neg =
+			devm_gpiod_get_index(ctx->dev, "bias", 1, GPIOD_OUT_HIGH);
+		gpiod_set_value(ctx->bias_neg, 0);
+		devm_gpiod_put(ctx->dev, ctx->bias_neg);
 
-	usleep_range(2000, 2001);
+		usleep_range(2000, 2001);
 
-	ctx->bias_pos =
-		devm_gpiod_get_index(ctx->dev, "bias", 0, GPIOD_OUT_HIGH);
-	gpiod_set_value(ctx->bias_pos, 0);
-	devm_gpiod_put(ctx->dev, ctx->bias_pos);
-
-#endif
+		ctx->bias_pos =
+			devm_gpiod_get_index(ctx->dev, "bias", 0, GPIOD_OUT_HIGH);
+		gpiod_set_value(ctx->bias_pos, 0);
+		devm_gpiod_put(ctx->dev, ctx->bias_pos);
+	} else if (ctx->gate_ic == 4831) {
+		_gate_ic_i2c_panel_bias_enable(0);
+		_gate_ic_Power_off();
+	}
 	ctx->error = 0;
 	ctx->prepared = false;
 
@@ -669,18 +796,24 @@ static int jdi_prepare(struct drm_panel *panel)
 	gpiod_set_value(ctx->reset_gpio, 1);
 	devm_gpiod_put(ctx->dev, ctx->reset_gpio);
 	// end
-#ifdef IF_ZERO
-	ctx->bias_pos =
-		devm_gpiod_get_index(ctx->dev, "bias", 0, GPIOD_OUT_HIGH);
-	gpiod_set_value(ctx->bias_pos, 1);
-	devm_gpiod_put(ctx->dev, ctx->bias_pos);
+	if (ctx->gate_ic == 0) {
+		ctx->bias_pos =
+			devm_gpiod_get_index(ctx->dev, "bias", 0, GPIOD_OUT_HIGH);
+		gpiod_set_value(ctx->bias_pos, 1);
+		devm_gpiod_put(ctx->dev, ctx->bias_pos);
 
-	usleep_range(2000, 2001);
-	ctx->bias_neg =
-		devm_gpiod_get_index(ctx->dev, "bias", 1, GPIOD_OUT_HIGH);
-	gpiod_set_value(ctx->bias_neg, 1);
-	devm_gpiod_put(ctx->dev, ctx->bias_neg);
-
+		usleep_range(2000, 2001);
+		ctx->bias_neg =
+			devm_gpiod_get_index(ctx->dev, "bias", 1, GPIOD_OUT_HIGH);
+		gpiod_set_value(ctx->bias_neg, 1);
+		devm_gpiod_put(ctx->dev, ctx->bias_neg);
+	} else if (ctx->gate_ic == 4831) {
+		_gate_ic_Power_on();
+		_gate_ic_i2c_panel_bias_enable(1);
+	}
+#ifndef BYPASSI2C
+	_lcm_i2c_write_bytes(0x0, 0xf);
+	_lcm_i2c_write_bytes(0x1, 0xf);
 #endif
 	jdi_panel_init(ctx);
 
@@ -691,6 +824,11 @@ static int jdi_prepare(struct drm_panel *panel)
 	ctx->prepared = true;
 #ifdef PANEL_SUPPORT_READBACK
 	jdi_panel_get_data(ctx);
+#endif
+
+#ifdef VENDOR_EDIT
+	// shifan@bsp.tp 20191226 add for loading tp fw when screen lighting on
+	lcd_queue_load_tp_fw();
 #endif
 
 	pr_info("%s-\n", __func__);
@@ -829,6 +967,7 @@ static int jdi_probe(struct mipi_dsi_device *dsi)
 	struct device_node *dsi_node, *remote_node = NULL, *endpoint = NULL;
 	struct jdi *ctx;
 	struct device_node *backlight;
+	unsigned int value;
 	int ret;
 
 	pr_info("%s+\n", __func__);
@@ -863,6 +1002,12 @@ static int jdi_probe(struct mipi_dsi_device *dsi)
 			MIPI_DSI_MODE_LPM | MIPI_DSI_MODE_NO_EOT_PACKET |
 			MIPI_DSI_CLOCK_NON_CONTINUOUS;
 
+	ret = of_property_read_u32(dev->of_node, "gate-ic", &value);
+	if (ret < 0)
+		value = 0;
+	else
+		ctx->gate_ic = value;
+
 	backlight = of_parse_phandle(dev->of_node, "backlight", 0);
 	if (backlight) {
 		ctx->backlight = of_find_backlight_by_node(backlight);
@@ -879,23 +1024,23 @@ static int jdi_probe(struct mipi_dsi_device *dsi)
 		return PTR_ERR(ctx->reset_gpio);
 	}
 	devm_gpiod_put(dev, ctx->reset_gpio);
-#ifdef IF_ZERO
-	ctx->bias_pos = devm_gpiod_get_index(dev, "bias", 0, GPIOD_OUT_HIGH);
-	if (IS_ERR(ctx->bias_pos)) {
-		dev_info(dev, "cannot get bias-gpios 0 %ld\n",
-			 PTR_ERR(ctx->bias_pos));
-		return PTR_ERR(ctx->bias_pos);
-	}
-	devm_gpiod_put(dev, ctx->bias_pos);
+	if (ctx->gate_ic == 0) {
+		ctx->bias_pos = devm_gpiod_get_index(dev, "bias", 0, GPIOD_OUT_HIGH);
+		if (IS_ERR(ctx->bias_pos)) {
+			dev_info(dev, "cannot get bias-gpios 0 %ld\n",
+				 PTR_ERR(ctx->bias_pos));
+			return PTR_ERR(ctx->bias_pos);
+		}
+		devm_gpiod_put(dev, ctx->bias_pos);
 
-	ctx->bias_neg = devm_gpiod_get_index(dev, "bias", 1, GPIOD_OUT_HIGH);
-	if (IS_ERR(ctx->bias_neg)) {
-		dev_info(dev, "cannot get bias-gpios 1 %ld\n",
-			 PTR_ERR(ctx->bias_neg));
-		return PTR_ERR(ctx->bias_neg);
+		ctx->bias_neg = devm_gpiod_get_index(dev, "bias", 1, GPIOD_OUT_HIGH);
+		if (IS_ERR(ctx->bias_neg)) {
+			dev_info(dev, "cannot get bias-gpios 1 %ld\n",
+				 PTR_ERR(ctx->bias_neg));
+			return PTR_ERR(ctx->bias_neg);
+		}
+		devm_gpiod_put(dev, ctx->bias_neg);
 	}
-	devm_gpiod_put(dev, ctx->bias_neg);
-#endif
 	ctx->prepared = true;
 	ctx->enabled = true;
 	drm_panel_init(&ctx->panel, dev, &jdi_drm_funcs, DRM_MODE_CONNECTOR_DSI);
