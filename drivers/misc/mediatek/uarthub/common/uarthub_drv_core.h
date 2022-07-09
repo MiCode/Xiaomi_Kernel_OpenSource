@@ -121,7 +121,7 @@ static char * const UARTHUB_irq_err_type_str[] = {
 	"dev2_rx_timeout_err",
 	"rx_pkt_type_err",
 	"intfhub_restore_err",
-	"intfhub_dev_rx_err"
+	"intfhub_dev_rx_err",
 	"intfhub_dev0_tx_err",
 	"intfhub_dev1_tx_err",
 	"intfhub_dev2_tx_err"
