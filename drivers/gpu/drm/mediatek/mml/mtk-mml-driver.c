@@ -80,6 +80,7 @@ struct mml_dev {
 	struct mml_topology_cache *topology;
 	struct mutex ctx_mutex;
 	struct mutex clock_mutex;
+	u32 current_volt;
 
 	/* sram operation */
 	bool racing_en;
@@ -213,6 +214,12 @@ u32 mml_qos_update_tput(struct mml_dev *mml)
 	}
 	i = min(i, tp->opp_cnt - 1);
 	volt = tp->opp_volts[i];
+	if (mml->current_volt == volt)	/* skip for better performance */
+		goto done;
+
+	mml_msg_qos("%s dvfs update %s to %u(%u)",
+		__func__, mml->current_volt, volt, tp->opp_speeds[i]);
+	mml->current_volt = volt;
 	if (tp->reg) {
 		ret = regulator_set_voltage(tp->reg, volt, INT_MAX);
 		if (ret)
@@ -230,6 +237,7 @@ u32 mml_qos_update_tput(struct mml_dev *mml)
 				__func__, tp->opp_speeds[i], i, tput);
 	}
 
+done:
 	return tp->opp_speeds[i];
 }
 
