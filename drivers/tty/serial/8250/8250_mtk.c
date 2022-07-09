@@ -319,6 +319,11 @@ int mtk8250_uart_dump(struct tty_struct *tty)
 		pr_info("[%s] para error. data is NULL\n", __func__);
 		return -EINVAL;
 	}
+	if (data->clk_count == 0) {
+		pr_info("%s: clk_count = %d, clk close, please open ttys[%d]\n", __func__,
+		data->clk_count, data->line);
+		return -EINVAL;
+	}
 	mtk_save_uart_reg(up, uart_reg_buf);
 
 #ifdef CONFIG_SERIAL_8250_DMA
