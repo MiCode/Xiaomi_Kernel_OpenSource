@@ -8132,26 +8132,34 @@
 #endif
 
 			clocks =
+				<&topckgen_clk CLK_TOP_U_SEL>,
+				<&topckgen_clk CLK_TOP_MAINPLL_D4_D2>,
+				<&topckgen_clk CLK_TOP_MMPLL_D6>,
+				<&topckgen_clk CLK_TOP_AES_UFSFDE_SEL>,
+				<&topckgen_clk CLK_TOP_U_MBIST_SEL>,
 				<&ufscfg_ao_clk CLK_UFSAO_UNIPRO_TX_SYM>,
 				<&ufscfg_ao_clk CLK_UFSAO_UNIPRO_RX_SYM0>,
 				<&ufscfg_ao_clk CLK_UFSAO_UNIPRO_RX_SYM1>,
 				<&ufscfg_ao_clk CLK_UFSAO_UNIPRO_SYS>,
 				<&ufscfg_pdn_clk CLK_UFSPDN_UFSHCI_UFS>,
-				<&ufscfg_pdn_clk CLK_UFSPDN_UFSHCI_AES>,
-				<&topckgen_clk CLK_TOP_AES_UFSFDE_SEL>,
-				<&topckgen_clk CLK_TOP_U_SEL>,
-				<&topckgen_clk CLK_TOP_U_MBIST_SEL>;
+				<&ufscfg_pdn_clk CLK_UFSPDN_UFSHCI_AES>;
+
 			clock-names =
+				"ufs_sel",
+				"ufs_sel_min_src",
+				"ufs_sel_max_src",
+				"ufs_fde",
+				"ufs_mbist",
 				"unipro_tx_sym",
 				"unipro_rx_sym0",
 				"unipro_rx_sym1",
 				"unipro_sys",
 				"ufshci_ufs",
-				"ufshci_aes",
-				"ufs_fde",
-				"ufs",
-				"ufs_mbist";
+				"ufshci_aes";
+
 			freq-table-hz =
+				<273000000 458333313>,
+				<0 0>,
 				<0 0>,
 				<0 0>,
 				<0 0>,
