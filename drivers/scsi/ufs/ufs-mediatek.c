@@ -2426,6 +2426,10 @@ static void ufs_mtk_config_scaling_param(struct ufs_hba *hba,
 {
 	/* customize min gear in clk scaling */
 	hba->clk_scaling.min_gear = UFS_HS_G4;
+
+	hba->vps->devfreq_profile.polling_ms = 200;
+	hba->vps->ondemand_data.upthreshold = 50;
+	hba->vps->ondemand_data.downdifferential = 20;
 }
 
 /**
