@@ -205,7 +205,7 @@ static void show_scheme_status(u64 size)
 	}
 }
 
-static int get_reserved_secure_memory(struct device *dev)
+static int get_reserved_memory(struct device *dev)
 {
 	struct device_node *np;
 	struct reserved_mem *rmem;
@@ -631,7 +631,7 @@ int sec_ssmr_init(struct platform_device *pdev)
 			&_ssmr_feats[i], _ssmr_feats[i].proc_entry_fops);
 	}
 
-	get_reserved_secure_memory(&pdev->dev);
+	get_reserved_memory(&pdev->dev);
 
 	pr_info("sec_ssmr init done\n");
 
@@ -648,7 +648,7 @@ int apmd_ssmr_init(struct platform_device *pdev)
 						&_ssmr_feats[SSMR_FEAT_AP_MD_SHM],
 						_ssmr_feats[SSMR_FEAT_AP_MD_SHM].proc_entry_fops);
 
-	get_reserved_secure_memory(&pdev->dev);
+	get_reserved_memory(&pdev->dev);
 
 	pr_info("apmd_ssmr init done\n");
 
@@ -681,7 +681,7 @@ int apscp_ssmr_init(struct platform_device *pdev)
 	_ssmr_feats[SSMR_FEAT_AP_SCP_SHM].phy_addr = rmem->base;
 	_ssmr_feats[SSMR_FEAT_AP_SCP_SHM].req_size = rmem->size;
 
-	get_reserved_secure_memory(&pdev->dev);
+	get_reserved_memory(&pdev->dev);
 
 	pr_info("apscp_ssmr init done\n");
 
