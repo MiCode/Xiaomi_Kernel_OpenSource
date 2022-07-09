@@ -590,7 +590,7 @@ void apply_mraw_cq(struct mtk_mraw_device *dev,
 	u32 cq_addr_lsb = (cq_addr + cq_offset) & CQ_VADDR_MASK;
 	u32 cq_addr_msb = ((cq_addr + cq_offset) >> 32);
 
-	dev_info(dev->dev,
+	dev_dbg(dev->dev,
 		"apply mraw%d cq - addr:0x%llx ,size:%d,offset:%d, REG_MRAW_CQ_SUB_THR0_CTL:0x%8x\n",
 		dev->id, cq_addr, cq_size, cq_offset,
 		readl_relaxed(dev->base + REG_MRAW_CQ_SUB_THR0_CTL));

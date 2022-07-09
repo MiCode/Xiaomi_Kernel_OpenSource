@@ -273,14 +273,14 @@ static int mtk_camsv_call_set_fmt(struct v4l2_subdev *sd,
 	if (!mtk_camsv_try_fmt(sd, fmt)) {
 		mf = get_sv_fmt(pipe, state, fmt->pad, fmt->which);
 		fmt->format = *mf;
-		/* camsv todo: log level */
+
 		dev_info(sv->cam_dev,
 			"sd:%s pad:%d set format w/h/code %d/%d/0x%x\n",
 			sd->name, fmt->pad, mf->width, mf->height, mf->code);
 	} else {
 		mf = get_sv_fmt(pipe, state, fmt->pad, fmt->which);
 		*mf = fmt->format;
-		/* camsv todo: log level */
+
 		dev_info(sv->cam_dev,
 			"sd:%s pad:%d try format w/h/code %d/%d/0x%x\n",
 			sd->name, fmt->pad, mf->width, mf->height, mf->code);
@@ -1378,7 +1378,6 @@ int mtk_cam_sv_enquehwbuf(
 		CAMSVCENTRAL_FBC0_TAG_SHIFT * tag_idx,
 		CAMSVCENTRAL_FBC0_TAG1, RCNT_INC_TAG1, 1);
 
-	/* camsv todo: log level */
 	dev_info(dev->dev, "[%s] iova:0x%x, seq:%d\n", __func__, ba, seq_no);
 
 	return ret;
@@ -1500,7 +1499,7 @@ void apply_camsv_cq(struct mtk_camsv_device *dev,
 	CAMSV_WRITE_BITS(dev->base_scq + REG_CAMSVCQTOP_THR_START,
 		CAMSVCQTOP_THR_START, CAMSVCQTOP_CSR_CQ_THR0_START, 1);
 
-	dev_info(dev->dev, "apply camsv scq: addr_msb:0x%x addr_lsb:0x%x size:%d",
+	dev_dbg(dev->dev, "apply camsv scq: addr_msb:0x%x addr_lsb:0x%x size:%d",
 		cq_addr_msb, cq_addr_lsb, cq_size);
 }
 
@@ -2412,8 +2411,7 @@ static int mtk_camsv_of_probe(struct platform_device *pdev,
 		dev_dbg(dev, "failed to map register base\n");
 		return PTR_ERR(sv->base);
 	}
-	// camsv todo: change to dbg
-	dev_info(dev, "camsv, map_addr=0x%pK\n", sv->base);
+	dev_dbg(dev, "camsv, map_addr=0x%pK\n", sv->base);
 
 	/* base dma outer register */
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "base_DMA");
@@ -2455,8 +2453,8 @@ static int mtk_camsv_of_probe(struct platform_device *pdev,
 		dev_dbg(dev, "failed to map register inner base\n");
 		return PTR_ERR(sv->base_inner);
 	}
-	/* camsv todo: log level */
-	dev_info(dev, "camsv, map_addr=0x%pK\n", sv->base_inner);
+
+	dev_dbg(dev, "camsv, map_addr=0x%pK\n", sv->base_inner);
 
 	/* base inner dma register */
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "inner_base_DMA");
@@ -2527,11 +2525,11 @@ static int mtk_camsv_of_probe(struct platform_device *pdev,
 			dev_dbg(dev, "failed to request irq=%d\n", sv->irq[i]);
 			return ret;
 		}
-		/* camsv todo: log level */
+
 		dev_info(dev, "registered irq=%d\n", sv->irq[i]);
 
 		disable_irq(sv->irq[i]);
-		/* camsv todo: log level */
+
 		dev_info(dev, "%s:disable irq %d\n", __func__, sv->irq[i]);
 	}
 
@@ -2697,7 +2695,6 @@ static int mtk_camsv_runtime_resume(struct device *dev)
 
 	for (i = 0; i < CAMSV_IRQ_NUM; i++) {
 		enable_irq(camsv_dev->irq[i]);
-		/* camsv todo: log level */
 		dev_info(dev, "%s:enable irq %d\n", __func__, camsv_dev->irq[i]);
 	}
 
