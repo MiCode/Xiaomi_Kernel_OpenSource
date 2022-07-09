@@ -553,6 +553,126 @@ static const struct mtk_lp_sysfs_op spm_res_rq_fops = {
 	.fs_write = spm_res_rq_write,
 };
 
+static ssize_t vcore_lp_enable_read(char *ToUserBuf, size_t sz, void *priv)
+{
+	char *p = ToUserBuf;
+	bool lp_en;
+
+	lp_en = lpm_smc_spm_dbg(MT_SPM_DBG_SMC_VCORE_LP_ENABLE,
+				MT_LPM_SMC_ACT_GET, 0, 0);
+	mtk_dbg_spm_log("%s\n", lp_en ? "true" : "false");
+
+	return p - ToUserBuf;
+}
+
+static ssize_t vcore_lp_enable_write(char *FromUserBuf, size_t sz, void *priv)
+{
+	unsigned int lp_en;
+
+	if (!kstrtouint(FromUserBuf, 10, &lp_en)) {
+		lpm_smc_spm_dbg(MT_SPM_DBG_SMC_VCORE_LP_ENABLE,
+				MT_LPM_SMC_ACT_SET,
+				!!lp_en, 0);
+	}
+
+	return sz;
+}
+
+static const struct mtk_lp_sysfs_op vcore_lp_enable_fops = {
+	.fs_read = vcore_lp_enable_read,
+	.fs_write = vcore_lp_enable_write,
+};
+
+static ssize_t vcore_lp_volt_read(char *ToUserBuf, size_t sz, void *priv)
+{
+	char *p = ToUserBuf;
+	unsigned int volt;
+
+	volt = lpm_smc_spm_dbg(MT_SPM_DBG_SMC_VCORE_LP_VOLT,
+				MT_LPM_SMC_ACT_GET, 0, 0);
+	mtk_dbg_spm_log("%u\n", volt);
+
+	return p - ToUserBuf;
+}
+
+static ssize_t vcore_lp_volt_write(char *FromUserBuf, size_t sz, void *priv)
+{
+	unsigned int volt;
+
+	if (!kstrtouint(FromUserBuf, 10, &volt)) {
+		lpm_smc_spm_dbg(MT_SPM_DBG_SMC_VCORE_LP_VOLT,
+				MT_LPM_SMC_ACT_SET,
+				volt, 0);
+	}
+
+	return sz;
+}
+
+static const struct mtk_lp_sysfs_op vcore_lp_volt_fops = {
+	.fs_read = vcore_lp_volt_read,
+	.fs_write = vcore_lp_volt_write,
+};
+
+static ssize_t vsram_lp_enable_read(char *ToUserBuf, size_t sz, void *priv)
+{
+	char *p = ToUserBuf;
+	bool lp_en;
+
+	lp_en = lpm_smc_spm_dbg(MT_SPM_DBG_SMC_VSRAM_LP_ENABLE,
+				MT_LPM_SMC_ACT_GET, 0, 0);
+	mtk_dbg_spm_log("%s\n", lp_en ? "true" : "false");
+
+	return p - ToUserBuf;
+}
+
+static ssize_t vsram_lp_enable_write(char *FromUserBuf, size_t sz, void *priv)
+{
+	unsigned int lp_en;
+
+	if (!kstrtouint(FromUserBuf, 10, &lp_en)) {
+		lpm_smc_spm_dbg(MT_SPM_DBG_SMC_VSRAM_LP_ENABLE,
+				MT_LPM_SMC_ACT_SET,
+				!!lp_en, 0);
+	}
+
+	return sz;
+}
+
+static const struct mtk_lp_sysfs_op vsram_lp_enable_fops = {
+	.fs_read = vsram_lp_enable_read,
+	.fs_write = vsram_lp_enable_write,
+};
+
+static ssize_t vsram_lp_volt_read(char *ToUserBuf, size_t sz, void *priv)
+{
+	char *p = ToUserBuf;
+	unsigned int volt;
+
+	volt = lpm_smc_spm_dbg(MT_SPM_DBG_SMC_VSRAM_LP_VOLT,
+				MT_LPM_SMC_ACT_GET, 0, 0);
+	mtk_dbg_spm_log("%u\n", volt);
+
+	return p - ToUserBuf;
+}
+
+static ssize_t vsram_lp_volt_write(char *FromUserBuf, size_t sz, void *priv)
+{
+	unsigned int volt;
+
+	if (!kstrtouint(FromUserBuf, 10, &volt)) {
+		lpm_smc_spm_dbg(MT_SPM_DBG_SMC_VSRAM_LP_VOLT,
+				MT_LPM_SMC_ACT_SET,
+				volt, 0);
+	}
+
+	return sz;
+}
+
+static const struct mtk_lp_sysfs_op vsram_lp_volt_fops = {
+	.fs_read = vsram_lp_volt_read,
+	.fs_write = vsram_lp_volt_write,
+};
+
 int lpm_spm_fs_init(void)
 {
 	int r;
@@ -560,6 +680,14 @@ int lpm_spm_fs_init(void)
 	mtk_spm_sysfs_root_entry_create();
 	mtk_spm_sysfs_entry_node_add("spm_resource_req", 0444
 			, &spm_res_rq_fops, NULL);
+	mtk_spm_sysfs_entry_node_add("vcore_lp_enable", 0444
+			, &vcore_lp_enable_fops, NULL);
+	mtk_spm_sysfs_entry_node_add("vcore_lp_volt", 0444
+			, &vcore_lp_volt_fops, NULL);
+	mtk_spm_sysfs_entry_node_add("vsram_lp_enable", 0444
+			, &vsram_lp_enable_fops, NULL);
+	mtk_spm_sysfs_entry_node_add("vsram_lp_volt", 0444
+			, &vsram_lp_volt_fops, NULL);
 
 	r = mtk_lp_sysfs_entry_func_create(spm_root.name,
 					   spm_root.mode, NULL,
