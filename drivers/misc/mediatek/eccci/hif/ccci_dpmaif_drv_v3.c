@@ -619,7 +619,7 @@ static irqreturn_t drv3_isr0(int irq, void *data)
 
 	/* RX interrupt */
 	if (L2RISAR0) {
-		L2RISAR0 &= ~(L2RIMR0|DPMAIF_DL_INT_LRO1_QDONE_MSK);
+		L2RISAR0 &= ~(L2RIMR0|DP_DL_INT_LRO1_QDONE_SET);
 		if (L2RISAR0 & AP_DL_L2INTR_ERR_En_Msk)
 			drv3_irq_rx_lro_lenerr_handler(L2RISAR0 & AP_DL_L2INTR_ERR_En_Msk);
 
