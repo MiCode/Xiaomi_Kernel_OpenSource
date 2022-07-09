@@ -709,7 +709,7 @@ struct mtk_drm_sram_list {
 };
 
 struct mtk_drm_sram {
-	struct slbc_data *data;
+	struct slbc_data data;
 	struct mutex lock;
 	struct kref ref;
 	struct mtk_drm_sram_list list;

@@ -2843,27 +2843,23 @@ bool mtk_crtc_alloc_sram(struct mtk_drm_crtc *mtk_crtc, unsigned int hrt_idx)
 	mutex_lock(&mtk_crtc->mml_ir_sram.lock);
 
 	if (kref_read(&mtk_crtc->mml_ir_sram.ref) < 1) {
-
-		sram = kzalloc(sizeof(struct slbc_data), GFP_KERNEL);
-		sram->type = TP_BUFFER;
-		sram->uid = UID_DISP;
+		sram = &mtk_crtc->mml_ir_sram.data;
 
 		ret = slbc_request(sram);
 		if (ret < 0) {
 			DDPMSG("%s slbc_request fail %d", __func__, ret);
-			goto fail;
+			goto done;
 		}
 		ret = slbc_power_on(sram);
 		if (ret < 0) {
 			DDPMSG("%s slbc_power_on fail %d", __func__, ret);
-			goto fail;
+			goto done;
 		}
 
 		DRM_MMP_MARK(sram_alloc, (unsigned long)sram->paddr, sram->size);
 		DDPMSG("%s success - ret:%d address:0x%lx size:0x%lx\n", __func__, ret,
 		       (unsigned long)sram->paddr, sram->size);
 
-		mtk_crtc->mml_ir_sram.data = sram;
 		kref_init(&mtk_crtc->mml_ir_sram.ref);
 	} else {
 		kref_get(&mtk_crtc->mml_ir_sram.ref);
@@ -2873,11 +2869,6 @@ bool mtk_crtc_alloc_sram(struct mtk_drm_crtc *mtk_crtc, unsigned int hrt_idx)
 	sram_acquired->hrt_idx = hrt_idx;
 	list_add_tail(&sram_acquired->head, &mtk_crtc->mml_ir_sram.list.head);
 
-	goto done;
-
-fail:
-	kfree(sram);
-
 done:
 	mutex_unlock(&mtk_crtc->mml_ir_sram.lock);
 	return (ret == 0 ? true : false);
@@ -2886,21 +2877,15 @@ done:
 #ifndef DRM_CMDQ_DISABLE
 static void mtk_crtc_free_sram(struct mtk_drm_crtc *mtk_crtc)
 {
-	struct slbc_data *sram = NULL;
-
 	if (!mtk_crtc)
 		return;
 
-	sram = mtk_crtc->mml_ir_sram.data;
-
-	if (!sram)
-		return;
-
-	DDPMSG("%s address:0x%lx size:0x%lx\n", __func__, sram->paddr, sram->size);
-	slbc_power_off(sram);
-	slbc_release(sram);
-	mtk_crtc->mml_ir_sram.data = NULL;
-	DRM_MMP_MARK(sram_free, (unsigned long)sram->paddr, sram->size);
+	DDPMSG("%s address:0x%lx size:0x%lx\n", __func__,
+	       (unsigned long)mtk_crtc->mml_ir_sram.data.paddr, mtk_crtc->mml_ir_sram.data.size);
+	slbc_power_off(&mtk_crtc->mml_ir_sram.data);
+	slbc_release(&mtk_crtc->mml_ir_sram.data);
+	DRM_MMP_MARK(sram_free, (unsigned long)mtk_crtc->mml_ir_sram.data.paddr,
+		     mtk_crtc->mml_ir_sram.data.size);
 }
 
 static void mtk_crtc_mml_clean(struct kref *kref)
@@ -11498,6 +11483,8 @@ int mtk_drm_crtc_create(struct drm_device *drm_dev,
 	mtk_crtc->is_force_mml_scen = mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_MML_PQ);
 	mtk_crtc->mml_ir_enable = mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_MML_IR);
 	mtk_crtc->slbc_state = SLBC_UNREGISTER;
+	mtk_crtc->mml_ir_sram.data.type = TP_BUFFER;
+	mtk_crtc->mml_ir_sram.data.uid = UID_DISP;
 
 	if (priv->data->mmsys_id == MMSYS_MT6985) {
 		mtk_crtc->ovlsys0_regs = priv->ovlsys0_regs;
