@@ -219,6 +219,11 @@ int ipi_comm_async(struct ipi_message *m)
 	return ipi_async(m);
 }
 
+unsigned int ipi_comm_size(unsigned int size)
+{
+	return roundup(size, MBOX_SLOT_SIZE);
+}
+
 int ipi_comm_noack(int id, unsigned char *tx, unsigned int n_tx)
 {
 	return ipi_retry_transfer(id, tx, n_tx);
