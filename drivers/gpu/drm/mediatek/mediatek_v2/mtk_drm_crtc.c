@@ -1931,7 +1931,10 @@ static void mml_addon_module_connect(struct drm_crtc *crtc, unsigned int ddp_mod
 		DDPMSG("%s:%d we do submit mml, but layering rule happened\n", __func__, __LINE__);
 		return;
 	}
-
+	if (!output_comp) {
+		DDPMSG("%s:%d output_comp is NULL\n", __func__, __LINE__);
+		return;
+	}
 	c->config_type.type = ADDON_CONNECT;
 	c->dual = mtk_crtc->is_dual_pipe;
 	c->mutex.sof_src = (int)output_comp->id;
