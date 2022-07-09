@@ -10,7 +10,6 @@
 #include <linux/suspend.h>
 #include <linux/of_address.h>
 #include <linux/of_device.h>
-#include <linux/namei.h>
 #include "vdec_fmt_driver.h"
 #include "vdec_fmt_dmabuf.h"
 #include "vdec_fmt_pm.h"
@@ -1269,8 +1268,6 @@ static struct platform_driver vdec_fmt_driver = {
 static int __init fmt_init(void)
 {
 	int ret;
-	struct path path;
-	char *pathname = "/dev/fmt_sync";
 
 	fmt_debug(0, "+ fmt init +");
 	ret = platform_driver_register(&vdec_fmt_driver);
@@ -1282,13 +1279,7 @@ static int __init fmt_init(void)
 	ret = fmt_sync_device_init();
 	if (ret != 0)
 		fmt_debug(0, "fmt_sync init failed");
-	while (kern_path(pathname, LOOKUP_FOLLOW, &path))
-		NULL;
 
-	fmt_debug(0, "get path success name:%s inode:%lu",
-		path.dentry->d_name.name,
-		path.dentry->d_inode);
-	path_put(&path);
 	fmt_debug(0, "- fmt init -");
 
 	return 0;
@@ -1303,4 +1294,3 @@ module_exit(fmt_exit);
 
 
 MODULE_LICENSE("GPL");
-MODULE_IMPORT_NS(VFS_internal_I_am_really_a_filesystem_and_am_NOT_a_driver);
