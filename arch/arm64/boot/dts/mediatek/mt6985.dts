@@ -7684,6 +7684,8 @@
 			#size-cells = <2>;
 			dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
 			iommus = <&mdp_iommu M4U_PORT_L3_MDP_RDMA2>;
+			event-frame-done = /bits/ 16
+				<CMDQ_EVENT_MMLSYS1_MDP_RDMA2_FRAME_DONE>;
 			interconnects =
 				<&mmqos MASTER_LARB_PORT(M4U_PORT_L3_MDP_RDMA2)
 					&mmqos SLAVE_COMMON(1)>;
@@ -7701,6 +7703,8 @@
 			#size-cells = <2>;
 			dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
 			iommus = <&mdp_iommu M4U_PORT_L3_MDP_RDMA3>;
+			event-frame-done = /bits/ 16
+				<CMDQ_EVENT_MMLSYS1_MDP_RDMA3_FRAME_DONE>;
 			interconnects =
 				<&mmqos MASTER_LARB_PORT(M4U_PORT_L3_MDP_RDMA3)
 					&mmqos SLAVE_COMMON(1)>;
