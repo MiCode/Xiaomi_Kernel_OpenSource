@@ -1356,7 +1356,20 @@ static void cmdq_worker(struct work_struct *work)
 	cmdq_pkt_wfe(pkt, APU_SW_EVENT);
 
 	cmdq_pkt_write(pkt, NULL, 0x1a003380, 0xf0000, 0xffffffff);
-	cmdq_pkt_write(pkt, NULL, 0x1a0300c0, 0x1000, 0xffffffff);
+
+	if (ctx->pipe->enabled_raw & 0x1) {
+		cmdq_pkt_write(pkt, NULL, 0x1a00032c, 0x1, 0xffffffff);
+		cmdq_pkt_write(pkt, NULL, 0x1a0300c0, 0x1000, 0xffffffff);
+	} else if (ctx->pipe->enabled_raw & 0x2) {
+		cmdq_pkt_write(pkt, NULL, 0x1a00032c, 0x1 << 1 | 0x1,
+			       0xffffffff);
+		cmdq_pkt_write(pkt, NULL, 0x1a0700c0, 0x1000, 0xffffffff);
+	} else if (ctx->pipe->enabled_raw & 0x4) {
+		cmdq_pkt_write(pkt, NULL, 0x1a00032c, 0x2 << 1 | 0x1,
+			       0xffffffff);
+		cmdq_pkt_write(pkt, NULL, 0x1a0b00c0, 0x1000, 0xffffffff);
+	}
+
 	/* trigger APU */
 	cmdq_pkt_write(pkt, NULL, 0x190E1600, 0x1, 0xffffffff);
 	dev_info(ctx->cam->dev, "cmdq_pkt_flush\n");
