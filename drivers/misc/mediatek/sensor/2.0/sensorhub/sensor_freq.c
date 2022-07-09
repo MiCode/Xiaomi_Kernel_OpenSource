@@ -26,7 +26,7 @@ static struct sensor_freq_tb sensor_freq_table[] = {
 	},
 	{
 		.sensor_type = SENSOR_TYPE_ACCELEROMETER,
-		.freq_level = MEDIUM,
+		.freq_level = LOW,
 		.core_id = 0,
 	},
 	{

@@ -1571,10 +1571,6 @@ EXPORT_SYMBOL_GPL(scp_deregister_feature);
 /*scp sensor type register*/
 int sensor_control_scp(enum feature_id id, int freq)
 {
-	/* prevent from access when scp is down */
-	if (!scp_ready[SCP_A_ID])
-		return -EINVAL;
-
 	if (id != SENS_FEATURE_ID) {
 		pr_debug("[SCP]register sensor id err");
 		return -EINVAL;
