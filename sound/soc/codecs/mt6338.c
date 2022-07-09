@@ -2983,6 +2983,9 @@ static int mtk_hp_impedance_disable(struct mt6338_priv *priv)
 	regmap_write(priv->regmap, MT6338_AUDDEC_PMU_CON2, 0x0);
 	/* Disable Audio L channel DAC */
 	regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON0,
+		RG_AUDDACL_PWRUP_VAUDP18_MASK_SFT,
+		0x0 << RG_AUDDACL_PWRUP_VAUDP18_SFT);
+	regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON0,
 		RG_AUDDACL_BIAS_PWRUP_VA32_MASK_SFT,
 		0x0 << RG_AUDDACL_BIAS_PWRUP_VA32_SFT);
 	/* Disable NCP */
