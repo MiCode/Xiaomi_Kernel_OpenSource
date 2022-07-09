@@ -239,7 +239,7 @@ static inline void nq_update_time(void)
 #if KERNEL_VERSION(5, 10, 0) <= LINUX_VERSION_CODE
 	struct timespec64 tm1, tm2;
 
-	ktime_get_ts64(&tm1);
+	ktime_get_real_ts64(&tm1);
 	ktime_get_raw_ts64(&tm2);
 #else
 	struct timespec tm1, tm2;
