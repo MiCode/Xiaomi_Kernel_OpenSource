@@ -13456,7 +13456,7 @@
 		interrupts = <GIC_SPI 510 IRQ_TYPE_LEVEL_HIGH 0>,
 			<GIC_SPI 511 IRQ_TYPE_LEVEL_HIGH 0>;
 		operating-points-v2 = <&opp_table_cam>;
-		mboxes = <&gce_m 21 0 CMDQ_THR_PRIO_1>;
+		mboxes = <&gce_m 24 0 CMDQ_THR_PRIO_1>;
 		clocks = <&mmdvfs_clk CLK_MMDVFS_CAM>;
 		clock-names = "mmdvfs_clk";
 	};
