@@ -14,7 +14,6 @@
 #include <soc/mediatek/smi.h>
 #include "mtk-interconnect.h"
 #include <linux/timekeeping.h>
-#include <soc/mediatek/mmdvfs_v3.h>
 
 void fmt_get_module_clock_by_name(struct mtk_vdec_fmt *fmt,
 	const char *clkName, struct clk **clk_module)
@@ -42,6 +41,7 @@ int32_t fmt_clock_on(struct mtk_vdec_fmt *fmt)
 {
 	int ret = 0;
 
+	mtk_mmdvfs_enable_vcp(true);
 	cmdq_mbox_enable(fmt->clt_fmt[0]->chan);
 	if (fmt->fmtLarb) {
 		ret = mtk_smi_larb_get(fmt->fmtLarb);
@@ -75,6 +75,7 @@ int32_t fmt_clock_off(struct mtk_vdec_fmt *fmt)
 		mtk_smi_larb_put(fmt->fmtLarb);
 	cmdq_mbox_disable(fmt->clt_fmt[0]->chan);
 	atomic_set(&fmt->fmt_error, 0);
+	mtk_mmdvfs_enable_vcp(false);
 	return 0;
 }
 
@@ -174,9 +175,7 @@ void fmt_start_dvfs_emi_bw(struct mtk_vdec_fmt *fmt, struct fmt_pmqos pmqos_para
 			volt);
 	} else if (!IS_ERR_OR_NULL(fmt->dvfs_clk)) {
 		fmt_debug(1, "actual request freq %lu", request_freq);
-		mtk_mmdvfs_enable_vcp(true);
 		ret = clk_set_rate(fmt->dvfs_clk, request_freq);
-		mtk_mmdvfs_enable_vcp(false);
 		if (ret)
 			fmt_debug(0, "Failed to set mmdvfs rate %d\n", request_freq);
 	}
@@ -227,9 +226,7 @@ void fmt_end_dvfs_emi_bw(struct mtk_vdec_fmt *fmt, int id)
 		}
 	} else if (!IS_ERR_OR_NULL(fmt->dvfs_clk)) {
 		fmt_debug(1, "request freq 0\n");
-		mtk_mmdvfs_enable_vcp(true);
 		ret = clk_set_rate(fmt->dvfs_clk, 0);
-		mtk_mmdvfs_enable_vcp(false);
 		if (ret)
 			fmt_debug(0, "Failed to set mmdvfs rate 0\n");
 	}

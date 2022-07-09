@@ -11,6 +11,7 @@
 #include <linux/soc/mediatek/mtk-cmdq-ext.h>
 #include <soc/mediatek/smi.h>
 #include <cmdq-util.h>
+#include <soc/mediatek/mmdvfs_v3.h>
 
 #if IS_ENABLED(CONFIG_COMPAT)
 #include <linux/compat.h>
