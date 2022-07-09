@@ -3649,9 +3649,15 @@ static void mtk_camsys_raw_cq_done(struct mtk_raw_device *raw_dev,
 
 		sensor_ctrl->initial_cq_done = 1;
 		req_stream_data = mtk_cam_get_req_s_data(ctx, ctx->stream_id, 1);
-		type = req_stream_data->feature.switch_feature_type;
+		if (!req_stream_data) {
+			dev_info(raw_dev->dev, "%s: req_stream_data of seq 1 not found\n",
+				 __func__);
+			return;
+		}
 
-		if (mtk_cam_hw_is_dc(ctx) && !req->ctx_link_update) {
+		req = mtk_cam_s_data_get_req(req_stream_data);
+		type = req_stream_data->feature.switch_feature_type;
+		if (mtk_cam_hw_is_dc(ctx) && req && !req->ctx_link_update) {
 			int ctx_exp_num =
 				mtk_cam_scen_get_max_exp_num(req_stream_data->feature.scen);
 			int req_exp_num =
@@ -3680,7 +3686,7 @@ static void mtk_camsys_raw_cq_done(struct mtk_raw_device *raw_dev,
 			}
 		}
 
-		if (req->ctx_link_update & (1 << ctx->stream_id)) {
+		if (req && req->ctx_link_update & (1 << ctx->stream_id)) {
 			dev_info(raw_dev->dev, "%s: Skip frist CQ done's mtk_cam_stream_on\n",
 				 __func__);
 			return;
