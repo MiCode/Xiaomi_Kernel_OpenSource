@@ -265,43 +265,45 @@ struct mtk_drm_gem_obj *mtk_drm_gem_create_from_heap(struct drm_device *dev,
 
 	dma_heap = dma_heap_find(heap);
 	if (!dma_heap) {
-		DDPINFO("heap find fail\n");
+		DDPPR_ERR("heap find fail\n");
 		goto err_gem_free;
 	}
 	dma_buf = dma_heap_buffer_alloc(dma_heap, size,
 			O_RDWR | O_CLOEXEC, DMA_HEAP_VALID_HEAP_FLAGS);
 	if (IS_ERR(dma_buf)) {
-		DDPINFO("buffer alloc fail\n");
+		DDPPR_ERR("buffer alloc fail\n");
+		dma_heap_put(dma_heap);
 		goto err_gem_free;
 	}
 	dma_heap_put(dma_heap);
 
 	attach = dma_buf_attach(dma_buf, priv->dma_dev);
 	if (IS_ERR(attach)) {
-		DDPINFO("attach fail, return\n");
+		DDPPR_ERR("attach fail, return\n");
 		dma_heap_buffer_free(dma_buf);
 		goto err_gem_free;
 	}
 	sgt = dma_buf_map_attachment(attach, DMA_BIDIRECTIONAL);
 	if (IS_ERR(sgt)) {
-		DDPINFO("map failed, detach and return\n");
+		DDPPR_ERR("map failed, detach and return\n");
 		dma_buf_detach(dma_buf, attach);
 		dma_heap_buffer_free(dma_buf);
 		goto err_gem_free;
 	}
 	mtk_gem->dma_addr = sg_dma_address(sgt->sgl);
-	ret = dma_buf_vmap(dma_buf, &map);
-	if (ret) {
-		DDPINFO("map failed\n");
-		dma_buf_unmap_attachment(attach, sgt, DMA_BIDIRECTIONAL);
-		dma_buf_detach(dma_buf, attach);
-		dma_heap_buffer_free(dma_buf);
-		goto err_gem_free;
-	}
-
-	mtk_gem->kvaddr = map.vaddr;
 	mtk_gem->sg = sgt;
 	mtk_gem->size = dma_buf->size;
+	ret = dma_buf_vmap(dma_buf, &map);
+	if (ret) {
+		DDPPR_ERR("map failed\n");
+		/* svp buff can not be mapped */
+		//dma_buf_unmap_attachment(attach, sgt, DMA_BIDIRECTIONAL);
+		//dma_buf_detach(dma_buf, attach);
+		//dma_heap_buffer_free(dma_buf);
+		mtk_gem->kvaddr = NULL;
+	} else
+		mtk_gem->kvaddr = map.vaddr;
+
 	return mtk_gem;
 
 err_gem_free:

@@ -1515,8 +1515,8 @@ static void mtk_oddmr_od_alloc_dram_dual(void)
 		tile_overhead = g_oddmr_priv->data->tile_overhead;
 	}
 	secu = mtk_oddmr_is_svp_on_mtee();
+	//od do not support secu for short of secu mem
 	secu = false;
-	//TODO add secu buffer function
 	//TODO check size, should not be too big
 	if (default_comp->mtk_crtc->is_dual_pipe) {
 		size_b = mtk_oddmr_od_get_dram_size((width/2 + tile_overhead),
@@ -2412,15 +2412,8 @@ int mtk_oddmr_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 static void mtk_oddmr_set_od_enable(struct mtk_ddp_comp *comp, uint32_t enable,
 		struct cmdq_pkt *handle)
 {
-	u16 hdisplay, vdisplay;
-	uint32_t overhead;
-	struct mtk_disp_oddmr *oddmr_priv = comp_to_oddmr(comp);
-
 	ODDMRAPI_LOG("+\n");
 	if (enable) {
-		hdisplay = g_oddmr_current_timing.hdisplay;
-		vdisplay = g_oddmr_current_timing.vdisplay;
-		overhead = oddmr_priv->data->tile_overhead;
 		mtk_oddmr_write_mask(comp, 1, DISP_ODDMR_OD_CTRL_EN, 0x01, handle);
 	} else {
 		mtk_oddmr_write_mask(comp, 0, DISP_ODDMR_OD_CTRL_EN, 0x01, handle);
@@ -2661,10 +2654,21 @@ static int mtk_oddmr_od_init(void)
 		else
 			client = mtk_crtc->gce_obj.client[CLIENT_CFG];
 		cmdq_mbox_enable(client->chan);
-		mtk_oddmr_create_gce_pkt(&mtk_crtc->base, &g_oddmr_priv->od_data.od_sram_pkgs[0]);
-		mtk_oddmr_od_init_sram(default_comp, g_oddmr_priv->od_data.od_sram_pkgs[0], 0, 0);
-		g_oddmr_priv->od_data.od_sram_table_idx[0] = 0;
-		cmdq_pkt_flush(g_oddmr_priv->od_data.od_sram_pkgs[0]);
+
+		if (IS_TABLE_VALID(0, g_od_param.valid_table)) {
+			mtk_oddmr_create_gce_pkt(&mtk_crtc->base,
+				&g_oddmr_priv->od_data.od_sram_pkgs[0]);
+			mtk_oddmr_od_init_sram(default_comp,
+				g_oddmr_priv->od_data.od_sram_pkgs[0], 0, 0);
+			g_oddmr_priv->od_data.od_sram_table_idx[0] = 0;
+			cmdq_pkt_flush(g_oddmr_priv->od_data.od_sram_pkgs[0]);
+		} else {
+			ODDMRFLOW_LOG("table0 must be valid\n");
+			g_oddmr_priv->od_state = ODDMR_LOAD_PARTS;
+			mtk_oddmr_release_clock();
+			mtk_drm_set_idlemgr(&mtk_crtc->base, 1, 1);
+			return -1;
+		}
 		if (IS_TABLE_VALID(1, g_od_param.valid_table)) {
 			mtk_oddmr_create_gce_pkt(&mtk_crtc->base,
 				&g_oddmr_priv->od_data.od_sram_pkgs[1]);
