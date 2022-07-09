@@ -54,7 +54,8 @@ static struct i2c_client *_lcm_i2c_client;
 /*****************************************************************************
  * Function Prototype
  *****************************************************************************/
-static int _lcm_i2c_probe(struct i2c_client *client, const struct i2c_device_id *id);
+static int _lcm_i2c_probe(struct i2c_client *client,
+			  const struct i2c_device_id *id);
 static int _lcm_i2c_remove(struct i2c_client *client);
 
 /*****************************************************************************
@@ -66,25 +67,24 @@ struct _lcm_i2c_dev {
 
 static const struct of_device_id _lcm_i2c_of_match[] = {
 	{
-	 .compatible = "mediatek,I2C_LCD_BIAS",
-	 },
+	    .compatible = "mediatek,I2C_LCD_BIAS",
+	},
 	{},
 };
 
-static const struct i2c_device_id _lcm_i2c_id[] = { {LCM_I2C_ID_NAME, 0},
-{}
-};
+static const struct i2c_device_id _lcm_i2c_id[] = { { LCM_I2C_ID_NAME, 0 },
+						    {} };
 
 static struct i2c_driver _lcm_i2c_driver = {
 	.id_table = _lcm_i2c_id,
 	.probe = _lcm_i2c_probe,
 	.remove = _lcm_i2c_remove,
-	/* .detect                 = _lcm_i2c_detect, */
+	/* .detect		   = _lcm_i2c_detect, */
 	.driver = {
-		   .owner = THIS_MODULE,
-		   .name = LCM_I2C_ID_NAME,
-		   .of_match_table = _lcm_i2c_of_match,
-		   },
+		.owner = THIS_MODULE,
+		.name = LCM_I2C_ID_NAME,
+		.of_match_table = _lcm_i2c_of_match,
+	},
 };
 
 /*****************************************************************************
@@ -94,12 +94,14 @@ static struct i2c_driver _lcm_i2c_driver = {
 #ifdef VENDOR_EDIT
 // shifan@bsp.tp 20191226 add for loading tp fw when screen lighting on
 extern void lcd_queue_load_tp_fw(void);
-#endif				/*VENDOR_EDIT */
+#endif /*VENDOR_EDIT*/
 
-static int _lcm_i2c_probe(struct i2c_client *client, const struct i2c_device_id *id)
+static int _lcm_i2c_probe(struct i2c_client *client,
+			  const struct i2c_device_id *id)
 {
 	pr_debug("[LCM][I2C] %s\n", __func__);
-	pr_debug("[LCM][I2C] NT: info==>name=%s addr=0x%x\n", client->name, client->addr);
+	pr_debug("[LCM][I2C] NT: info==>name=%s addr=0x%x\n", client->name,
+		 client->addr);
 	_lcm_i2c_client = client;
 	return 0;
 }
@@ -199,7 +201,8 @@ static int jdi_dcs_read(struct jdi *ctx, u8 cmd, void *data, size_t len)
 
 	ret = mipi_dsi_dcs_read(dsi, cmd, data, len);
 	if (ret < 0) {
-		dev_info(ctx->dev, "error %d reading dcs seq:(%#x)\n", ret, cmd);
+		dev_info(ctx->dev, "error %d reading dcs seq:(%#x)\n", ret,
+			 cmd);
 		ctx->error = ret;
 	}
 
@@ -256,21 +259,20 @@ static void jdi_panel_init(struct jdi *ctx)
 	//REGR 0XFE,0X10
 	jdi_dcs_write_seq_static(ctx, 0XFB, 0X01);
 	jdi_dcs_write_seq_static(ctx, 0XB0, 0X00);
-	jdi_dcs_write_seq_static(ctx, 0XC0, 0X03);	//JDI VESA
+	jdi_dcs_write_seq_static(ctx, 0XC0, 0X03);//JDI VESA
 	jdi_dcs_write_seq_static(ctx, 0XC1, 0X89, 0X28, 0X00, 0X08, 0X00, 0XAA, 0X02,
-		0X0E, 0X00, 0X2B, 0X00, 0X07, 0X0D, 0XB7, 0X0C, 0XB7);	//JDI VESA
+		0X0E, 0X00, 0X2B, 0X00, 0X07, 0X0D, 0XB7, 0X0C, 0XB7);//JDI VESA
 	//DSC ON && set PPS
-#if 1
 	jdi_dcs_write_seq_static(ctx, 0xC0, 0x03);
 	jdi_dcs_write_seq_static(ctx, 0xC1, 0x89, 0x28, 0x00, 0x14, 0x00, 0xAA,
-				 0x02, 0x0E, 0x00, 0x71, 0x00, 0x07, 0x05, 0x0E, 0x05, 0x16);
+				0x02, 0x0E, 0x00, 0x71, 0x00, 0x07, 0x05, 0x0E,
+				0x05, 0x16);
 	jdi_dcs_write_seq_static(ctx, 0xC2, 0x1B, 0XA0);
-#else
-	jdi_dcs_write_seq_static(ctx, 0XC0, 0X03);	//JDI VESA
-	jdi_dcs_write_seq_static(ctx, 0XC1, 0X89, 0X28, 0X00, 0X08, 0X00, 0XAA, 0X02,
-		0X0E, 0X00, 0X2B, 0X00, 0X07, 0X0D, 0XB7, 0X0C, 0XB7);	//JDI VESA
-	jdi_dcs_write_seq_static(ctx, 0XC2, 0X1B, 0XA0);
-#endif
+	//jdi_dcs_write_seq_static(ctx, 0XC0, 0X03);//JDI VESA
+	//jdi_dcs_write_seq_static(ctx, 0XC1, 0X89, 0X28, 0X00, 0X08, 0X00, 0XAA,
+				//0X02, 0X0E, 0X00, 0X2B, 0X00, 0X07, 0X0D, 0XB7,
+				//0X0C, 0XB7);//JDI VESA
+	//jdi_dcs_write_seq_static(ctx, 0XC2, 0X1B, 0XA0);
 	jdi_dcs_write_seq_static(ctx, 0XE9, 0X01);
 
 	jdi_dcs_write_seq_static(ctx, 0XFF, 0X20);
@@ -292,12 +294,12 @@ static void jdi_panel_init(struct jdi *ctx)
 	jdi_dcs_write_seq_static(ctx, 0XF8, 0X65);
 	jdi_dcs_write_seq_static(ctx, 0XF9, 0X74);
 
-	jdi_dcs_write_seq_static(ctx, 0x89, 0x15);	//VCOM
-	jdi_dcs_write_seq_static(ctx, 0x8A, 0x15);	//VCOM
-	jdi_dcs_write_seq_static(ctx, 0x8D, 0x15);	//VCOM
-	jdi_dcs_write_seq_static(ctx, 0x8E, 0x15);	//VCOM
-	jdi_dcs_write_seq_static(ctx, 0x8F, 0x15);	//VCOM
-	jdi_dcs_write_seq_static(ctx, 0x91, 0x15);	//VCOM
+	jdi_dcs_write_seq_static(ctx, 0x89, 0x15);//VCOM
+	jdi_dcs_write_seq_static(ctx, 0x8A, 0x15);//VCOM
+	jdi_dcs_write_seq_static(ctx, 0x8D, 0x15);//VCOM
+	jdi_dcs_write_seq_static(ctx, 0x8E, 0x15);//VCOM
+	jdi_dcs_write_seq_static(ctx, 0x8F, 0x15);//VCOM
+	jdi_dcs_write_seq_static(ctx, 0x91, 0x15);//VCOM
 
 	jdi_dcs_write_seq_static(ctx, 0XFF, 0X24);
 	//REGR 0XFE,0X24
@@ -586,56 +588,56 @@ static void jdi_panel_init(struct jdi *ctx)
 	jdi_dcs_write_seq_static(ctx, 0XFF, 0X20);
 	jdi_dcs_write_seq_static(ctx, 0XFB, 0X01);
 	jdi_dcs_write_seq_static(ctx, 0XB0, 0x00, 0x00, 0x00, 0x1F, 0x00, 0x49, 0x00, 0x6B, 0x00,
-				 0x85, 0x00, 0x9C, 0x00, 0xB1, 0x00, 0xC4);
+		0x85, 0x00, 0x9C, 0x00, 0xB1, 0x00, 0xC4);
 	jdi_dcs_write_seq_static(ctx, 0XB1, 0x00, 0xD1, 0x01, 0x07, 0x01, 0x30, 0x01, 0x6E, 0x01,
-				 0x9E, 0x01, 0xE5, 0x02, 0x1E, 0x02, 0x1F);
+		0x9E, 0x01, 0xE5, 0x02, 0x1E, 0x02, 0x1F);
 	jdi_dcs_write_seq_static(ctx, 0XB2, 0x02, 0x56, 0x02, 0x96, 0x02, 0xBF, 0x02, 0xF4, 0x03,
-				 0x16, 0x03, 0x41, 0x03, 0x51, 0x03, 0x5F);
+		0x16, 0x03, 0x41, 0x03, 0x51, 0x03, 0x5F);
 	jdi_dcs_write_seq_static(ctx, 0XB3, 0x03, 0x6E, 0x03, 0x82, 0x03, 0x98, 0x03, 0xAC, 0x03,
-				 0xCC, 0x03, 0xD8, 0x00, 0x00);
+		0xCC, 0x03, 0xD8, 0x00, 0x00);
 	jdi_dcs_write_seq_static(ctx, 0XB4, 0x00, 0x00, 0x00, 0x1E, 0x00, 0x49, 0x00, 0x69, 0x00,
-				 0x84, 0x00, 0x9B, 0x00, 0xAF, 0x00, 0xC1);
+		0x84, 0x00, 0x9B, 0x00, 0xAF, 0x00, 0xC1);
 	jdi_dcs_write_seq_static(ctx, 0XB5, 0x00, 0xD2, 0x01, 0x07, 0x01, 0x30, 0x01, 0x6E, 0x01,
-				 0x9D, 0x01, 0xE5, 0x02, 0x1F, 0x02, 0x20);
+		0x9D, 0x01, 0xE5, 0x02, 0x1F, 0x02, 0x20);
 	jdi_dcs_write_seq_static(ctx, 0XB6, 0x02, 0x57, 0x02, 0x96, 0x02, 0xBF, 0x02, 0xF3, 0x03,
-				 0x16, 0x03, 0x3F, 0x03, 0x4F, 0x03, 0x5D);
+		0x16, 0x03, 0x3F, 0x03, 0x4F, 0x03, 0x5D);
 	jdi_dcs_write_seq_static(ctx, 0XB7, 0x03, 0x6D, 0x03, 0x81, 0x03, 0x98, 0x03, 0xAC, 0x03,
-				 0xCC, 0x03, 0xD8, 0x00, 0x00);
+		0xCC, 0x03, 0xD8, 0x00, 0x00);
 	jdi_dcs_write_seq_static(ctx, 0XB8, 0x00, 0x00, 0x00, 0x20, 0x00, 0x48, 0x00, 0x6A, 0x00,
-				 0x86, 0x00, 0x9F, 0x00, 0xB5, 0x00, 0xC6);
+		0x86, 0x00, 0x9F, 0x00, 0xB5, 0x00, 0xC6);
 	jdi_dcs_write_seq_static(ctx, 0XB9, 0x00, 0xD8, 0x01, 0x0D, 0x01, 0x36, 0x01, 0x73, 0x01,
-				 0xA1, 0x01, 0xE8, 0x02, 0x21, 0x02, 0x22);
+		0xA1, 0x01, 0xE8, 0x02, 0x21, 0x02, 0x22);
 	jdi_dcs_write_seq_static(ctx, 0XBA, 0x02, 0x58, 0x02, 0x98, 0x02, 0xC1, 0x02, 0xF7, 0x03,
-				 0x1B, 0x03, 0x41, 0x03, 0x54, 0x03, 0x66);
+		0x1B, 0x03, 0x41, 0x03, 0x54, 0x03, 0x66);
 	jdi_dcs_write_seq_static(ctx, 0XBB, 0x03, 0x6E, 0x03, 0x82, 0x03, 0x98, 0x03, 0xAC, 0x03,
-				 0xD0, 0x03, 0xD8, 0x00, 0x00);
+		0xD0, 0x03, 0xD8, 0x00, 0x00);
 
 	jdi_dcs_write_seq_static(ctx, 0XFF, 0X21);
 	jdi_dcs_write_seq_static(ctx, 0XFB, 0X01);
 	jdi_dcs_write_seq_static(ctx, 0XB0, 0x00, 0x00, 0x00, 0x1F, 0x00, 0x49, 0x00, 0x6B, 0x00,
-				 0x85, 0x00, 0x9C, 0x00, 0xB1, 0x00, 0xC4);
+		0x85, 0x00, 0x9C, 0x00, 0xB1, 0x00, 0xC4);
 	jdi_dcs_write_seq_static(ctx, 0XB1, 0x00, 0xD1, 0x01, 0x07, 0x01, 0x30, 0x01, 0x6E, 0x01,
-				 0x9E, 0x01, 0xE5, 0x02, 0x1E, 0x02, 0x1F);
+		0x9E, 0x01, 0xE5, 0x02, 0x1E, 0x02, 0x1F);
 	jdi_dcs_write_seq_static(ctx, 0XB2, 0x02, 0x56, 0x02, 0x96, 0x02, 0xBF, 0x02, 0xF4, 0x03,
-				 0x16, 0x03, 0x41, 0x03, 0x51, 0x03, 0x5F);
+		0x16, 0x03, 0x41, 0x03, 0x51, 0x03, 0x5F);
 	jdi_dcs_write_seq_static(ctx, 0XB3, 0x03, 0x6E, 0x03, 0x82, 0x03, 0x98, 0x03, 0xAC, 0x03,
-				 0xCC, 0x03, 0xD8, 0x00, 0x00);
+		0xCC, 0x03, 0xD8, 0x00, 0x00);
 	jdi_dcs_write_seq_static(ctx, 0XB4, 0x00, 0x00, 0x00, 0x1E, 0x00, 0x49, 0x00, 0x69, 0x00,
-				 0x84, 0x00, 0x9B, 0x00, 0xAF, 0x00, 0xC1);
+		0x84, 0x00, 0x9B, 0x00, 0xAF, 0x00, 0xC1);
 	jdi_dcs_write_seq_static(ctx, 0XB5, 0x00, 0xD2, 0x01, 0x07, 0x01, 0x30, 0x01, 0x6E, 0x01,
-				 0x9D, 0x01, 0xE5, 0x02, 0x1F, 0x02, 0x20);
+		0x9D, 0x01, 0xE5, 0x02, 0x1F, 0x02, 0x20);
 	jdi_dcs_write_seq_static(ctx, 0XB6, 0x02, 0x57, 0x02, 0x96, 0x02, 0xBF, 0x02, 0xF3, 0x03,
-				 0x16, 0x03, 0x3F, 0x03, 0x4F, 0x03, 0x5D);
+		0x16, 0x03, 0x3F, 0x03, 0x4F, 0x03, 0x5D);
 	jdi_dcs_write_seq_static(ctx, 0XB7, 0x03, 0x6D, 0x03, 0x81, 0x03, 0x98, 0x03, 0xAC, 0x03,
-				 0xCC, 0x03, 0xD8, 0x00, 0x00);
+		0xCC, 0x03, 0xD8, 0x00, 0x00);
 	jdi_dcs_write_seq_static(ctx, 0XB8, 0x00, 0x00, 0x00, 0x20, 0x00, 0x48, 0x00, 0x6A, 0x00,
-				 0x86, 0x00, 0x9F, 0x00, 0xB5, 0x00, 0xC6);
+		0x86, 0x00, 0x9F, 0x00, 0xB5, 0x00, 0xC6);
 	jdi_dcs_write_seq_static(ctx, 0XB9, 0x00, 0xD8, 0x01, 0x0D, 0x01, 0x36, 0x01, 0x73, 0x01,
-				 0xA1, 0x01, 0xE8, 0x02, 0x21, 0x02, 0x22);
+		0xA1, 0x01, 0xE8, 0x02, 0x21, 0x02, 0x22);
 	jdi_dcs_write_seq_static(ctx, 0XBA, 0x02, 0x58, 0x02, 0x98, 0x02, 0xC1, 0x02, 0xF7, 0x03,
-				 0x1B, 0x03, 0x41, 0x03, 0x54, 0x03, 0x66);
+		0x1B, 0x03, 0x41, 0x03, 0x54, 0x03, 0x66);
 	jdi_dcs_write_seq_static(ctx, 0XBB, 0x03, 0x6E, 0x03, 0x82, 0x03, 0x98, 0x03, 0xAC, 0x03,
-				 0xD0, 0x03, 0xD8, 0x00, 0x00);
+		0xD0, 0x03, 0xD8, 0x00, 0x00);
 
 	jdi_dcs_write_seq_static(ctx, 0XFF, 0XE0);
 	//REGR 0XFE,0XE0
@@ -664,10 +666,10 @@ static void jdi_panel_init(struct jdi *ctx)
 	//CCMRUN
 	jdi_dcs_write_seq_static(ctx, 0XFF, 0X10);
 	jdi_dcs_write_seq_static(ctx, 0XFB, 0X01);
-	jdi_dcs_write_seq_static(ctx, 0X35, 0X01);	//TE Enable
-	jdi_dcs_write_seq_static(ctx, 0X51, 0XFF);	//Write_Display_Brightness
-	jdi_dcs_write_seq_static(ctx, 0X53, 0X0C);	//Write_CTRL_Display
-	jdi_dcs_write_seq_static(ctx, 0X55, 0X00);	//Write CABC
+	jdi_dcs_write_seq_static(ctx, 0X35, 0X01);//TE Enable
+	jdi_dcs_write_seq_static(ctx, 0X51, 0XFF);//Write_Display_Brightness
+	jdi_dcs_write_seq_static(ctx, 0X53, 0X0C);//Write_CTRL_Display
+	jdi_dcs_write_seq_static(ctx, 0X55, 0X00);//Write CABC
 
 	jdi_dcs_write_seq_static(ctx, 0x11);
 	jdi_dcs_write_seq_static(ctx, 0x29);
@@ -699,7 +701,7 @@ static int jdi_unprepare(struct drm_panel *panel)
 
 	struct jdi *ctx = panel_to_jdi(panel);
 
-	pr_info("%s\n", __func__);
+	pr_info("%s+\n", __func__);
 
 	if (!ctx->prepared)
 		return 0;
@@ -713,13 +715,15 @@ static int jdi_unprepare(struct drm_panel *panel)
 	 * devm_gpiod_put(ctx->dev, ctx->reset_gpio);
 	 */
 	if (ctx->gate_ic == 0) {
-		ctx->bias_neg = devm_gpiod_get_index(ctx->dev, "bias", 1, GPIOD_OUT_HIGH);
+		ctx->bias_neg =
+			devm_gpiod_get_index(ctx->dev, "bias", 1, GPIOD_OUT_HIGH);
 		gpiod_set_value(ctx->bias_neg, 0);
 		devm_gpiod_put(ctx->dev, ctx->bias_neg);
 
 		usleep_range(2000, 2001);
 
-		ctx->bias_pos = devm_gpiod_get_index(ctx->dev, "bias", 0, GPIOD_OUT_HIGH);
+		ctx->bias_pos =
+			devm_gpiod_get_index(ctx->dev, "bias", 0, GPIOD_OUT_HIGH);
 		gpiod_set_value(ctx->bias_pos, 0);
 		devm_gpiod_put(ctx->dev, ctx->bias_pos);
 	}
@@ -748,12 +752,14 @@ static int jdi_prepare(struct drm_panel *panel)
 	devm_gpiod_put(ctx->dev, ctx->reset_gpio);
 	// end
 	if (ctx->gate_ic == 0) {
-		ctx->bias_pos = devm_gpiod_get_index(ctx->dev, "bias", 0, GPIOD_OUT_HIGH);
+		ctx->bias_pos =
+			devm_gpiod_get_index(ctx->dev, "bias", 0, GPIOD_OUT_HIGH);
 		gpiod_set_value(ctx->bias_pos, 1);
 		devm_gpiod_put(ctx->dev, ctx->bias_pos);
 
 		usleep_range(2000, 2001);
-		ctx->bias_neg = devm_gpiod_get_index(ctx->dev, "bias", 1, GPIOD_OUT_HIGH);
+		ctx->bias_neg =
+			devm_gpiod_get_index(ctx->dev, "bias", 1, GPIOD_OUT_HIGH);
 		gpiod_set_value(ctx->bias_neg, 1);
 		devm_gpiod_put(ctx->dev, ctx->bias_neg);
 	}
@@ -797,277 +803,280 @@ static int jdi_enable(struct drm_panel *panel)
 
 	return 0;
 }
-
 #if HFP_SUPPORT
 static const struct drm_display_mode default_mode = {
 	.clock = 443290,
 	.hdisplay = 1080,
-	.hsync_start = 1080 + 76,	//HFP
-	.hsync_end = 1080 + 76 + 12,	//HSA
-	.htotal = 1080 + 76 + 12 + 80,	//HBP
+	.hsync_start = 1080 + 76,//HFP
+	.hsync_end = 1080 + 76 + 12,//HSA
+	.htotal = 1080 + 76 + 12 + 80,//HBP
 	.vdisplay = 2400,
-	.vsync_start = 2400 + 540,	//VFP
-	.vsync_end = 2400 + 540 + 10,	//VSA
-	.vtotal = 2400 + 540 + 10 + 10,	//VBP
+	.vsync_start = 2400 + 540,//VFP
+	.vsync_end = 2400 + 540 + 10,//VSA
+	.vtotal = 2400 + 540 + 10 + 10,//VBP
 };
 
 static const struct drm_display_mode performance_mode = {
 	.clock = 443290,
 	.hdisplay = 1080,
-	.hsync_start = 1080 + 76,	//HFP
-	.hsync_end = 1080 + 76 + 12,	//HSA
-	.htotal = 1080 + 76 + 12 + 80,	//HBP
+	.hsync_start = 1080 + 76,//HFP
+	.hsync_end = 1080 + 76 + 12,//HSA
+	.htotal = 1080 + 76 + 12 + 80,//HBP
 	.vdisplay = 2400,
-	.vsync_start = 2400 + 540,	//VFP
-	.vsync_end = 2400 + 540 + 10,	//VSA
-	.vtotal = 2400 + 540 + 10 + 10,	//VBP
+	.vsync_start = 2400 + 540,//VFP
+	.vsync_end = 2400 + 540 + 10,//VSA
+	.vtotal = 2400 + 540 + 10 + 10,//VBP
 };
 #else
 static const struct drm_display_mode default_mode = {
 	.clock = 443290,
 	.hdisplay = 1080,
-	.hsync_start = 1080 + 76,	//HFP
-	.hsync_end = 1080 + 76 + 12,	//HSA
-	.htotal = 1080 + 76 + 12 + 80,	//HBP
+	.hsync_start = 1080 + 76,//HFP
+	.hsync_end = 1080 + 76 + 12,//HSA
+	.htotal = 1080 + 76 + 12 + 80,//HBP
 	.vdisplay = 2400,
-	.vsync_start = 2400 + 540,	//VFP
-	.vsync_end = 2400 + 540 + 10,	//VSA
-	.vtotal = 2400 + 540 + 10 + 10,	//VBP 4948
+	.vsync_start = 2400 + 3524,//VFP
+	.vsync_end = 2400 + 3524 + 10,//VSA
+	.vtotal = 2400 + 3524 + 10 + 10,//VBP 4948
 };
 
 static const struct drm_display_mode performance_mode = {
 	.clock = 443290,
 	.hdisplay = 1080,
-	.hsync_start = 1080 + 76,	//HFP
-	.hsync_end = 1080 + 76 + 12,	//HSA
-	.htotal = 1080 + 76 + 12 + 80,	//HBP
+	.hsync_start = 1080 + 76,//HFP
+	.hsync_end = 1080 + 76 + 12,//HSA
+	.htotal = 1080 + 76 + 12 + 80,//HBP
 	.vdisplay = 2400,
-	.vsync_start = 2400 + 540,	//VFP
-	.vsync_end = 2400 + 540 + 10,	//VSA
-	.vtotal = 2400 + 540 + 10 + 10,	//VBP
+	.vsync_start = 2400 + 1542,//VFP
+	.vsync_end = 2400 + 1542 + 10,//VSA
+	.vtotal = 2400 + 1542 + 10 + 10,//VBP
 };
 #endif
 static const struct drm_display_mode performance_mode1 = {
-	.clock = 443290,
+	.clock = 437299,
 	.hdisplay = 1080,
-	.hsync_start = 1080 + 76,	//HFP
-	.hsync_end = 1080 + 76 + 12,	//HSA
-	.htotal = 1080 + 76 + 12 + 80,	//HBP
+	.hsync_start = 1080 + 76,//HFP
+	.hsync_end = 1080 + 76 + 12,//HSA
+	.htotal = 1080 + 76 + 12 + 80,//HBP 1248
 	.vdisplay = 2400,
-	.vsync_start = 2400 + 540,	//VFP
-	.vsync_end = 2400 + 540 + 10,	//VSA
-	.vtotal = 2400 + 540 + 10 + 10,	//VBP 2474
+	.vsync_start = 2400 + 500,//VFP
+	.vsync_end = 2400 + 500 + 10,//VSA
+	.vtotal = 2400 + 500 + 10 + 10,//VBP 2920
 };
 
 
 #if defined(CONFIG_MTK_PANEL_EXT)
 static struct mtk_panel_params ext_params = {
 	.pll_clk = 422,
-//      .vfp_low_power = 879,//45hz
+	.vfp_low_power = 5500,//45hz
 	.cust_esd_check = 0,
 	.esd_check_enable = 1,
 	.lcm_esd_check_table[0] = {
-						.cmd = 0x0A,
-						.count = 1,
-						.para_list[0] = 0x9C,
-						},
+		.cmd = 0x0A, .count = 1, .para_list[0] = 0x9C,
+	},
 	.is_cphy = 1,
 	.output_mode = MTK_PANEL_DSC_SINGLE_PORT,
 	.dsc_params = {
-		       .enable = 1,
-		       .ver = 17,
-		       .slice_mode = 1,
-		       .rgb_swap = 0,
-		       .dsc_cfg = 34,
-		       .rct_on = 1,
-		       .bit_per_channel = 8,
-		       .dsc_line_buf_depth = 11,
-		       .bp_enable = 1,
-		       .bit_per_pixel = 128,
-		       .pic_height = 2400,
-		       .pic_width = 1080,
-		       .slice_height = 20,
-		       .slice_width = 540,
-		       .chunk_size = 540,
-		       .xmit_delay = 170,
-		       .dec_delay = 526,
-		       .scale_value = 32,
-		       .increment_interval = 113,
-		       .decrement_interval = 7,
-		       .line_bpg_offset = 12,
-		       .nfl_bpg_offset = 1294,
-		       .slice_bpg_offset = 1302,
-		       .initial_offset = 6144,
-		       .final_offset = 7072,
-		       .flatness_minqp = 3,
-		       .flatness_maxqp = 12,
-		       .rc_model_size = 8192,
-		       .rc_edge_factor = 6,
-		       .rc_quant_incr_limit0 = 11,
-		       .rc_quant_incr_limit1 = 11,
-		       .rc_tgt_offset_hi = 3,
-		       .rc_tgt_offset_lo = 3,
-		       },
+		.enable = 1,
+		.ver = 17,
+		.slice_mode = 1,
+		.rgb_swap = 0,
+		.dsc_cfg = 34,
+		.rct_on = 1,
+		.bit_per_channel = 8,
+		.dsc_line_buf_depth = 11,
+		.bp_enable = 1,
+		.bit_per_pixel = 128,
+		.pic_height = 2400,
+		.pic_width = 1080,
+		.slice_height = 20,
+		.slice_width = 540,
+		.chunk_size = 540,
+		.xmit_delay = 170,
+		.dec_delay = 526,
+		.scale_value = 32,
+		.increment_interval = 113,
+		.decrement_interval = 7,
+		.line_bpg_offset = 12,
+		.nfl_bpg_offset = 1294,
+		.slice_bpg_offset = 1302,
+		.initial_offset = 6144,
+		.final_offset = 7072,
+		.flatness_minqp = 3,
+		.flatness_maxqp = 12,
+		.rc_model_size = 8192,
+		.rc_edge_factor = 6,
+		.rc_quant_incr_limit0 = 11,
+		.rc_quant_incr_limit1 = 11,
+		.rc_tgt_offset_hi = 3,
+		.rc_tgt_offset_lo = 3,
+		},
 	.data_rate = 844,
 	//.lfr_enable = 1,
 	//.lfr_minimum_fps = 60,
 	.dyn_fps = {
-		    .switch_en = 0,
+		.switch_en = 0,
 #if HFP_SUPPORT
-		    .vact_timing_fps = 60,
+		.vact_timing_fps = 60,
 #else
-		    .vact_timing_fps = 120,
+		.vact_timing_fps = 120,
 #endif
-		    .dfps_cmd_table[0] = {0, 2, {0xFF, 0x25}},
-		    .dfps_cmd_table[1] = {0, 2, {0xFB, 0x01}},
-		    .dfps_cmd_table[2] = {0, 2, {0x18, 0x21}},
-		    /*switch page for esd check */
-		    .dfps_cmd_table[3] = {0, 2, {0xFF, 0x10}},
-		    .dfps_cmd_table[4] = {0, 2, {0xFB, 0x01}},
-		    },
+		.dfps_cmd_table[0] = {0, 2, {0xFF, 0x25} },
+		.dfps_cmd_table[1] = {0, 2, {0xFB, 0x01} },
+		.dfps_cmd_table[2] = {0, 2, {0x18, 0x21} },
+		/*switch page for esd check*/
+		.dfps_cmd_table[3] = {0, 2, {0xFF, 0x10} },
+		.dfps_cmd_table[4] = {0, 2, {0xFB, 0x01} },
+	},
 	/* following MIPI hopping parameter might cause screen mess */
 	.dyn = {
-		.switch_en = 1,
-		.pll_clk = 423,
-		},
+		.switch_en = 0,
+		.pll_clk = 428,
+		.vfp_lp_dyn = 4178,
+		.hfp = 396,
+		.vfp = 2528,
+	},
 };
 
 static struct mtk_panel_params ext_params_90hz = {
 	.pll_clk = 422,
-	.vfp_low_power = 1294,	//60hz
+	.vfp_low_power = 3524,//60hz
 	.cust_esd_check = 0,
 	.esd_check_enable = 1,
 	.lcm_esd_check_table[0] = {
-					.cmd = 0x0A,
-					.count = 1,
-					.para_list[0] = 0x9C,
-					},
+
+		.cmd = 0x0A, .count = 1, .para_list[0] = 0x9C,
+	},
 	.is_cphy = 1,
 	.output_mode = MTK_PANEL_DSC_SINGLE_PORT,
 	.dsc_params = {
-		       .enable = 1,
-		       .ver = 17,
-		       .slice_mode = 1,
-		       .rgb_swap = 0,
-		       .dsc_cfg = 34,
-		       .rct_on = 1,
-		       .bit_per_channel = 8,
-		       .dsc_line_buf_depth = 11,
-		       .bp_enable = 1,
-		       .bit_per_pixel = 128,
-		       .pic_height = 2400,
-		       .pic_width = 1080,
-		       .slice_height = 20,
-		       .slice_width = 540,
-		       .chunk_size = 540,
-		       .xmit_delay = 170,
-		       .dec_delay = 526,
-		       .scale_value = 32,
-		       .increment_interval = 113,
-		       .decrement_interval = 7,
-		       .line_bpg_offset = 12,
-		       .nfl_bpg_offset = 1294,
-		       .slice_bpg_offset = 1302,
-		       .initial_offset = 6144,
-		       .final_offset = 7072,
-		       .flatness_minqp = 3,
-		       .flatness_maxqp = 12,
-		       .rc_model_size = 8192,
-		       .rc_edge_factor = 6,
-		       .rc_quant_incr_limit0 = 11,
-		       .rc_quant_incr_limit1 = 11,
-		       .rc_tgt_offset_hi = 3,
-		       .rc_tgt_offset_lo = 3,
-		       },
+		.enable = 1,
+		.ver = 17,
+		.slice_mode = 1,
+		.rgb_swap = 0,
+		.dsc_cfg = 34,
+		.rct_on = 1,
+		.bit_per_channel = 8,
+		.dsc_line_buf_depth = 11,
+		.bp_enable = 1,
+		.bit_per_pixel = 128,
+		.pic_height = 2400,
+		.pic_width = 1080,
+		.slice_height = 20,
+		.slice_width = 540,
+		.chunk_size = 540,
+		.xmit_delay = 170,
+		.dec_delay = 526,
+		.scale_value = 32,
+		.increment_interval = 113,
+		.decrement_interval = 7,
+		.line_bpg_offset = 12,
+		.nfl_bpg_offset = 1294,
+		.slice_bpg_offset = 1302,
+		.initial_offset = 6144,
+		.final_offset = 7072,
+		.flatness_minqp = 3,
+		.flatness_maxqp = 12,
+		.rc_model_size = 8192,
+		.rc_edge_factor = 6,
+		.rc_quant_incr_limit0 = 11,
+		.rc_quant_incr_limit1 = 11,
+		.rc_tgt_offset_hi = 3,
+		.rc_tgt_offset_lo = 3,
+		},
 	.data_rate = 844,
 	.lfr_enable = 1,
 	.lfr_minimum_fps = 60,
 	.dyn_fps = {
-		    .switch_en = 0,
+		.switch_en = 0,
 #if HFP_SUPPORT
-		    .vact_timing_fps = 90,
+		.vact_timing_fps = 90,
 #else
-		    .vact_timing_fps = 120,
+		.vact_timing_fps = 120,
 #endif
-		    .dfps_cmd_table[0] = {0, 2, {0xFF, 0x25}},
-		    .dfps_cmd_table[1] = {0, 2, {0xFB, 0x01}},
-		    .dfps_cmd_table[2] = {0, 2, {0x18, 0x20}},
-		    /*switch page for esd check */
-		    .dfps_cmd_table[3] = {0, 2, {0xFF, 0x10}},
-		    .dfps_cmd_table[4] = {0, 2, {0xFB, 0x01}},
-		    },
+		.dfps_cmd_table[0] = {0, 2, {0xFF, 0x25} },
+		.dfps_cmd_table[1] = {0, 2, {0xFB, 0x01} },
+		.dfps_cmd_table[2] = {0, 2, {0x18, 0x20} },
+		/*switch page for esd check*/
+		.dfps_cmd_table[3] = {0, 2, {0xFF, 0x10} },
+		.dfps_cmd_table[4] = {0, 2, {0xFB, 0x01} },
+	},
 	/* following MIPI hopping parameter might cause screen mess */
 	.dyn = {
-		.switch_en = 1,
-		.pll_clk = 423,
-		},
+		.switch_en = 0,
+		.pll_clk = 428,
+		.vfp_lp_dyn = 2528,
+		.hfp = 396,
+		.vfp = 879,
+	},
 };
 
 static struct mtk_panel_params ext_params_120hz = {
 	.pll_clk = 422,
-	.vfp_low_power = 2528,	//idle 60hz
+	.vfp_low_power = 3524,//idle 60hz
 	.cust_esd_check = 0,
 	.esd_check_enable = 1,
 	.lcm_esd_check_table[0] = {
-						.cmd = 0x0A,
-						.count = 1,
-						.para_list[0] = 0x9C,
-						},
+		.cmd = 0x0A, .count = 1, .para_list[0] = 0x9C,
+	},
 	.is_cphy = 1,
 	.output_mode = MTK_PANEL_DSC_SINGLE_PORT,
 	.dsc_params = {
-		       .enable = 1,
-		       .ver = 17,
-		       .slice_mode = 1,
-		       .rgb_swap = 0,
-		       .dsc_cfg = 34,
-		       .rct_on = 1,
-		       .bit_per_channel = 8,
-		       .dsc_line_buf_depth = 11,
-		       .bp_enable = 1,
-		       .bit_per_pixel = 128,
-		       .pic_height = 2400,
-		       .pic_width = 1080,
-		       .slice_height = 20,
-		       .slice_width = 540,
-		       .chunk_size = 540,
-		       .xmit_delay = 170,
-		       .dec_delay = 526,
-		       .scale_value = 32,
-		       .increment_interval = 113,
-		       .decrement_interval = 7,
-		       .line_bpg_offset = 12,
-		       .nfl_bpg_offset = 1294,
-		       .slice_bpg_offset = 1302,
-		       .initial_offset = 6144,
-		       .final_offset = 7072,
-		       .flatness_minqp = 3,
-		       .flatness_maxqp = 12,
-		       .rc_model_size = 8192,
-		       .rc_edge_factor = 6,
-		       .rc_quant_incr_limit0 = 11,
-		       .rc_quant_incr_limit1 = 11,
-		       .rc_tgt_offset_hi = 3,
-		       .rc_tgt_offset_lo = 3,
-		       },
+		.enable = 1,
+		.ver = 17,
+		.slice_mode = 1,
+		.rgb_swap = 0,
+		.dsc_cfg = 34,
+		.rct_on = 1,
+		.bit_per_channel = 8,
+		.dsc_line_buf_depth = 11,
+		.bp_enable = 1,
+		.bit_per_pixel = 128,
+		.pic_height = 2400,
+		.pic_width = 1080,
+		.slice_height = 20,
+		.slice_width = 540,
+		.chunk_size = 540,
+		.xmit_delay = 170,
+		.dec_delay = 526,
+		.scale_value = 32,
+		.increment_interval = 113,
+		.decrement_interval = 7,
+		.line_bpg_offset = 12,
+		.nfl_bpg_offset = 1294,
+		.slice_bpg_offset = 1302,
+		.initial_offset = 6144,
+		.final_offset = 7072,
+		.flatness_minqp = 3,
+		.flatness_maxqp = 12,
+		.rc_model_size = 8192,
+		.rc_edge_factor = 6,
+		.rc_quant_incr_limit0 = 11,
+		.rc_quant_incr_limit1 = 11,
+		.rc_tgt_offset_hi = 3,
+		.rc_tgt_offset_lo = 3,
+		},
 	.data_rate = 844,
 	.lfr_enable = 1,
 	.lfr_minimum_fps = 60,
 	.dyn_fps = {
-		    .switch_en = 0,
-		    .vact_timing_fps = 120,
-		    .dfps_cmd_table[0] = {0, 2, {0xFF, 0x25}},
-		    .dfps_cmd_table[1] = {0, 2, {0xFB, 0x01}},
-		    .dfps_cmd_table[2] = {0, 2, {0x18, 0x22}},
-		    /*switch page for esd check */
-		    .dfps_cmd_table[3] = {0, 2, {0xFF, 0x10}},
-		    .dfps_cmd_table[4] = {0, 2, {0xFB, 0x01}},
-		    },
+		.switch_en = 0,
+		.vact_timing_fps = 120,
+		.dfps_cmd_table[0] = {0, 2, {0xFF, 0x25} },
+		.dfps_cmd_table[1] = {0, 2, {0xFB, 0x01} },
+		.dfps_cmd_table[2] = {0, 2, {0x18, 0x22} },
+		/*switch page for esd check*/
+		.dfps_cmd_table[3] = {0, 2, {0xFF, 0x10} },
+		.dfps_cmd_table[4] = {0, 2, {0xFB, 0x01} },
+	},
 	/* following MIPI hopping parameter might cause screen mess */
 	.dyn = {
-		.switch_en = 1,
-		.pll_clk = 423,
-		},
+		.switch_en = 0,
+		.pll_clk = 428,
+		.vfp_lp_dyn = 2528,
+		.hfp = 396,
+		.vfp = 54,
+	},
 };
 
 static int panel_ata_check(struct drm_panel *panel)
@@ -1076,23 +1085,24 @@ static int panel_ata_check(struct drm_panel *panel)
 	return 1;
 }
 
-static int jdi_setbacklight_cmdq(void *dsi, dcs_write_gce cb, void *handle, unsigned int level)
+static int jdi_setbacklight_cmdq(void *dsi, dcs_write_gce cb, void *handle,
+				 unsigned int level)
 {
 
 	if (level > 255)
 		level = 255;
 	pr_info("%s backlight = -%d\n", __func__, level);
-	bl_tb0[1] = (u8) level;
-/*
- *	char bl_tb0[] = { 0x51, 0xf, 0xff };
- *
- *	if (level > 255)
- *		level = 255;
- *
- *	level = level * 4095 / 255;
- *	bl_tb0[1] = ((level >> 8) & 0xf);
- *	bl_tb0[2] = (level & 0xff);
- */
+	bl_tb0[1] = (u8)level;
+#ifdef IF_ZERO
+	char bl_tb0[] = {0x51, 0xf, 0xff};
+
+	if (level > 255)
+		level = 255;
+
+	level = level * 4095 / 255;
+	bl_tb0[1] = ((level >> 8) & 0xf);
+	bl_tb0[2] = (level & 0xff);
+#endif
 	if (!cb)
 		return -1;
 
@@ -1100,7 +1110,8 @@ static int jdi_setbacklight_cmdq(void *dsi, dcs_write_gce cb, void *handle, unsi
 	return 0;
 }
 
-struct drm_display_mode *get_mode_by_id_hfp(struct drm_connector *connector, unsigned int mode)
+struct drm_display_mode *get_mode_by_id_hfp(struct drm_connector *connector,
+	unsigned int mode)
 {
 	struct drm_display_mode *m;
 	unsigned int i = 0;
@@ -1112,18 +1123,18 @@ struct drm_display_mode *get_mode_by_id_hfp(struct drm_connector *connector, uns
 	}
 	return NULL;
 }
-
 static int mtk_panel_ext_param_set(struct drm_panel *panel,
-				   struct drm_connector *connector, unsigned int mode)
+			struct drm_connector *connector, unsigned int mode)
 {
 	struct mtk_panel_ext *ext = find_panel_ext(panel);
 	int ret = 0;
 	struct drm_display_mode *m = get_mode_by_id_hfp(connector, mode);
 
-	if (!m) {
-		pr_err("%s:%d invalid display mode\n", __func__, __LINE__);
+	if (!m)  {
+		pr_err("%s:%d invalid display_mode\n", __func__, __LINE__);
 		return ret;
 	}
+
 	if (drm_mode_vrefresh(m) == 60) {
 		ext->params = &ext_params;
 #if HFP_SUPPORT
@@ -1149,11 +1160,11 @@ static void mode_switch_to_120(struct drm_panel *panel)
 {
 	struct jdi *ctx = panel_to_jdi(panel);
 
-	pr_info("%s\n", __func__);
+	pr_info("%s+\n", __func__);
 
 	jdi_dcs_write_seq_static(ctx, 0xFF, 0x25);
 	jdi_dcs_write_seq_static(ctx, 0xFB, 0x01);
-	jdi_dcs_write_seq_static(ctx, 0x18, 0x22);	//120hz
+	jdi_dcs_write_seq_static(ctx, 0x18, 0x22);//120hz
 	jdi_dcs_write_seq_static(ctx, 0xFF, 0x10);
 	jdi_dcs_write_seq_static(ctx, 0xFB, 0x01);
 	//cb(dsi, handle, bl_tb0, ARRAY_SIZE(bl_tb0));
@@ -1164,11 +1175,11 @@ static void mode_switch_to_90(struct drm_panel *panel)
 {
 	struct jdi *ctx = panel_to_jdi(panel);
 
-	pr_info("%s\n", __func__);
+	pr_info("%s+\n", __func__);
 
 	jdi_dcs_write_seq_static(ctx, 0xFF, 0x25);
 	jdi_dcs_write_seq_static(ctx, 0xFB, 0x01);
-	jdi_dcs_write_seq_static(ctx, 0x18, 0x20);	//90hz
+	jdi_dcs_write_seq_static(ctx, 0x18, 0x20);//90hz
 	jdi_dcs_write_seq_static(ctx, 0xFF, 0x10);
 	jdi_dcs_write_seq_static(ctx, 0xFB, 0x01);
 
@@ -1186,24 +1197,24 @@ static void mode_switch_to_60(struct drm_panel *panel)
 }
 
 static int mode_switch(struct drm_panel *panel,
-		       struct drm_connector *connector, unsigned int cur_mode,
-		       unsigned int dst_mode, enum MTK_PANEL_MODE_SWITCH_STAGE stage)
+		struct drm_connector *connector, unsigned int cur_mode,
+		unsigned int dst_mode, enum MTK_PANEL_MODE_SWITCH_STAGE stage)
 {
 	int ret = 0;
 	struct drm_display_mode *m = get_mode_by_id_hfp(connector, dst_mode);
 
 	if (!m) {
-		pr_err("%s:%d invalid display mode\n", __func__, __LINE__);
+		pr_err("%s:%d invalid display_mode\n", __func__, __LINE__);
 		return ret;
 	}
 
 	pr_info("%s cur_mode = %d dst_mode %d\n", __func__, cur_mode, dst_mode);
 
-	if (drm_mode_vrefresh(m) == 60) {	/* 60 switch to 120 */
+	if (drm_mode_vrefresh(m) == 60) { /* 60 switch to 120 */
 		mode_switch_to_60(panel);
-	} else if (drm_mode_vrefresh(m) == 90) {	/* 1200 switch to 60 */
+	} else if (drm_mode_vrefresh(m) == 90) { /* 1200 switch to 60 */
 		mode_switch_to_90(panel);
-	} else if (drm_mode_vrefresh(m) == 120) {	/* 1200 switch to 60 */
+	} else if (drm_mode_vrefresh(m) == 120) { /* 1200 switch to 60 */
 		mode_switch_to_120(panel);
 	} else
 		ret = 1;
@@ -1215,7 +1226,8 @@ static int panel_ext_reset(struct drm_panel *panel, int on)
 {
 	struct jdi *ctx = panel_to_jdi(panel);
 
-	ctx->reset_gpio = devm_gpiod_get(ctx->dev, "reset", GPIOD_OUT_HIGH);
+	ctx->reset_gpio =
+		devm_gpiod_get(ctx->dev, "reset", GPIOD_OUT_HIGH);
 	gpiod_set_value(ctx->reset_gpio, on);
 	devm_gpiod_put(ctx->dev, ctx->reset_gpio);
 
@@ -1261,7 +1273,8 @@ struct panel_desc {
 	} delay;
 };
 
-static int jdi_get_modes(struct drm_panel *panel, struct drm_connector *connector)
+static int jdi_get_modes(struct drm_panel *panel,
+					struct drm_connector *connector)
 {
 	struct drm_display_mode *mode;
 	struct drm_display_mode *mode2;
@@ -1336,7 +1349,8 @@ static int jdi_probe(struct mipi_dsi_device *dsi)
 	dsi->lanes = 3;
 	dsi->format = MIPI_DSI_FMT_RGB888;
 	dsi->mode_flags = MIPI_DSI_MODE_VIDEO | MIPI_DSI_MODE_VIDEO_SYNC_PULSE |
-	    MIPI_DSI_MODE_LPM | MIPI_DSI_MODE_NO_EOT_PACKET | MIPI_DSI_CLOCK_NON_CONTINUOUS;
+			  MIPI_DSI_MODE_LPM | MIPI_DSI_MODE_NO_EOT_PACKET |
+			  MIPI_DSI_CLOCK_NON_CONTINUOUS;
 
 	ret = of_property_read_u32(dev->of_node, "gate-ic", &value);
 	if (ret < 0)
@@ -1355,21 +1369,24 @@ static int jdi_probe(struct mipi_dsi_device *dsi)
 
 	ctx->reset_gpio = devm_gpiod_get(dev, "reset", GPIOD_OUT_HIGH);
 	if (IS_ERR(ctx->reset_gpio)) {
-		dev_info(dev, "cannot get reset-gpios %ld\n", PTR_ERR(ctx->reset_gpio));
+		dev_info(dev, "cannot get reset-gpios %ld\n",
+			 PTR_ERR(ctx->reset_gpio));
 		return PTR_ERR(ctx->reset_gpio);
 	}
 	devm_gpiod_put(dev, ctx->reset_gpio);
 	if (ctx->gate_ic == 0) {
 		ctx->bias_pos = devm_gpiod_get_index(dev, "bias", 0, GPIOD_OUT_HIGH);
 		if (IS_ERR(ctx->bias_pos)) {
-			dev_info(dev, "cannot get bias-gpios 0 %ld\n", PTR_ERR(ctx->bias_pos));
+			dev_info(dev, "cannot get bias-gpios 0 %ld\n",
+				 PTR_ERR(ctx->bias_pos));
 			return PTR_ERR(ctx->bias_pos);
 		}
 		devm_gpiod_put(dev, ctx->bias_pos);
 
 		ctx->bias_neg = devm_gpiod_get_index(dev, "bias", 1, GPIOD_OUT_HIGH);
 		if (IS_ERR(ctx->bias_neg)) {
-			dev_info(dev, "cannot get bias-gpios 1 %ld\n", PTR_ERR(ctx->bias_neg));
+			dev_info(dev, "cannot get bias-gpios 1 %ld\n",
+				 PTR_ERR(ctx->bias_neg));
 			return PTR_ERR(ctx->bias_neg);
 		}
 		devm_gpiod_put(dev, ctx->bias_neg);
@@ -1416,8 +1433,8 @@ static int jdi_remove(struct mipi_dsi_device *dsi)
 
 static const struct of_device_id jdi_of_match[] = {
 	{
-	 .compatible = "jdi,nt36672e,cphy,vdo",
-	 },
+	    .compatible = "jdi,nt36672e,cphy,vdo",
+	},
 	{}
 };
 
@@ -1427,10 +1444,10 @@ static struct mipi_dsi_driver jdi_driver = {
 	.probe = jdi_probe,
 	.remove = jdi_remove,
 	.driver = {
-		   .name = "panel-jdi-nt36672e-cphy-vdo",
-		   .owner = THIS_MODULE,
-		   .of_match_table = jdi_of_match,
-		   },
+		.name = "panel-jdi-nt36672e-cphy-vdo",
+		.owner = THIS_MODULE,
+		.of_match_table = jdi_of_match,
+	},
 };
 
 module_mipi_dsi_driver(jdi_driver);
