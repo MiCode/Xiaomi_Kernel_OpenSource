@@ -30,8 +30,8 @@ static struct cpumask perf_cpus, normal_cpus;
 
 /* for power off timeout detection */
 static struct mtk_apu *g_apu;
-struct workqueue_struct *apu_workq;
-struct delayed_work timeout_work;
+static struct workqueue_struct *apu_workq;
+static struct delayed_work timeout_work;
 
 /*
  * COLD BOOT power off timeout
