@@ -35,5 +35,5 @@ int mrdump_ka_init(void *vaddr);
 extern void mrdump_mini_add_klog(void);
 extern void mrdump_mini_add_kallsyms(void);
 #endif
-extern void sysrq_sched_debug_show_at_AEE(void);
+
 #endif

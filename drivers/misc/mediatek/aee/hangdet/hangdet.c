@@ -36,6 +36,8 @@
 #include "mrdump_helper.h"
 #include "mrdump_private.h"
 
+void sysrq_sched_debug_show_at_AEE(void);
+
 #if IS_ENABLED(CONFIG_MTK_TICK_BROADCAST_DEBUG)
 extern void mt_irq_dump_status(unsigned int irq);
 #endif

@@ -20,3 +20,6 @@ endif
 
 obj-$(CONFIG_MTK_AEE_HANGDET)	+= aee_hangdet.o
 
+aee_hangdet-y := \
+	hangdet.o \
+	sched_debug.o
