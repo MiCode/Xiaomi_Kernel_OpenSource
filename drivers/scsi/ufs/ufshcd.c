@@ -6327,32 +6327,9 @@ static irqreturn_t ufshcd_update_uic_error(struct ufs_hba *hba)
 {
 	u32 reg;
 	irqreturn_t retval = IRQ_NONE;
-#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
-	unsigned long reg_ul;
-#endif
 
 	/* PHY layer error */
 	reg = ufshcd_readl(hba, REG_UIC_ERROR_CODE_PHY_ADAPTER_LAYER);
-
-#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
-	if (reg) {
-		dev_err(hba->dev,
-			"Host UIC Error Code PHY Adapter Layer: %08x\n", reg);
-		reg_ul = reg;
-		if (test_bit(0, &reg_ul))
-			dev_err(hba->dev, "PHY error on Lane 0\n");
-		if (test_bit(1, &reg_ul))
-			dev_err(hba->dev, "PHY error on Lane 1\n");
-		if (test_bit(2, &reg_ul))
-			dev_err(hba->dev, "PHY error on Lane 2\n");
-		if (test_bit(3, &reg_ul))
-			dev_err(hba->dev, "PHY error on Lane 3\n");
-		if (test_bit(4, &reg_ul)) {
-			dev_err(hba->dev, "Generic PHY Adapter Error.\n");
-			dev_err(hba->dev, "This should be the LINERESET indication\n");
-		}
-	}
-#endif
 
 	if ((reg & UIC_PHY_ADAPTER_LAYER_ERROR) &&
 	    (reg & UIC_PHY_ADAPTER_LAYER_ERROR_CODE_MASK)) {
@@ -6401,46 +6378,6 @@ static irqreturn_t ufshcd_update_uic_error(struct ufs_hba *hba)
 		retval |= IRQ_HANDLED;
 	}
 
-#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
-	if (reg) {
-		dev_err(hba->dev,
-			"Host UIC Error Code Data Link Layer: %08x\n", reg);
-		reg_ul = reg;
-		if (test_bit(0, &reg_ul))
-			dev_err(hba->dev, "NAC_RECEIVED\n");
-		if (test_bit(1, &reg_ul))
-			dev_err(hba->dev, "TCx_REPLAY_TIMER_EXPIRED\n");
-		if (test_bit(2, &reg_ul))
-			dev_err(hba->dev, "AFCx_REQUEST_TIMER_EXPIRED\n");
-		if (test_bit(3, &reg_ul))
-			dev_err(hba->dev, "FCx_PROTECTION_TIMER_EXPIRED\n");
-		if (test_bit(4, &reg_ul))
-			dev_err(hba->dev, "CRC_ERROR\n");
-		if (test_bit(5, &reg_ul))
-			dev_err(hba->dev, "RX_BUFFER_OVERFLOW\n");
-		if (test_bit(6, &reg_ul))
-			dev_err(hba->dev, "MAX_FRAME_LENGTH_EXCEEDEDn");
-		if (test_bit(7, &reg_ul))
-			dev_err(hba->dev, "WRONG_SEQUENCE_NUMBER\n");
-		if (test_bit(8, &reg_ul))
-			dev_err(hba->dev, "AFC_FRAME_SYNTAX_ERROR\n");
-		if (test_bit(9, &reg_ul))
-			dev_err(hba->dev, "NAC_FRAME_SYNTAX_ERROR\n");
-		if (test_bit(10, &reg_ul))
-			dev_err(hba->dev, "EOF_SYNTAX_ERROR\n");
-		if (test_bit(11, &reg_ul))
-			dev_err(hba->dev, "FRAME_SYNTAX_ERROR\n");
-		if (test_bit(12, &reg_ul))
-			dev_err(hba->dev, "BAD_CTRL_SYMBOL_TYPE\n");
-		if (test_bit(13, &reg_ul))
-			dev_err(hba->dev, "PA_INIT_ERROR (FATAL ERROR)\n");
-		if (test_bit(14, &reg_ul))
-			dev_err(hba->dev, "PA_ERROR_IND_RECEIVED\n");
-		if (test_bit(15, &reg_ul))
-			dev_err(hba->dev, "PA_INIT (3.0 FATAL ERROR)\n");
-	}
-#endif
-
 	/* UIC NL/TL/DME errors needs software retry */
 	reg = ufshcd_readl(hba, REG_UIC_ERROR_CODE_NETWORK_LAYER);
 	if ((reg & UIC_NETWORK_LAYER_ERROR) &&
@@ -6448,10 +6385,6 @@ static irqreturn_t ufshcd_update_uic_error(struct ufs_hba *hba)
 		ufshcd_update_evt_hist(hba, UFS_EVT_NL_ERR, reg);
 		hba->uic_error |= UFSHCD_UIC_NL_ERROR;
 		retval |= IRQ_HANDLED;
-#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
-		dev_err(hba->dev,
-			"Host UIC Error Code Network Layer: %08x\n", reg);
-#endif
 	}
 
 	reg = ufshcd_readl(hba, REG_UIC_ERROR_CODE_TRANSPORT_LAYER);
@@ -6460,10 +6393,6 @@ static irqreturn_t ufshcd_update_uic_error(struct ufs_hba *hba)
 		ufshcd_update_evt_hist(hba, UFS_EVT_TL_ERR, reg);
 		hba->uic_error |= UFSHCD_UIC_TL_ERROR;
 		retval |= IRQ_HANDLED;
-#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
-		dev_err(hba->dev,
-			"Host UIC Error Code Transport Layer: %08x\n", reg);
-#endif
 	}
 
 	reg = ufshcd_readl(hba, REG_UIC_ERROR_CODE_DME);
@@ -6472,10 +6401,6 @@ static irqreturn_t ufshcd_update_uic_error(struct ufs_hba *hba)
 		ufshcd_update_evt_hist(hba, UFS_EVT_DME_ERR, reg);
 		hba->uic_error |= UFSHCD_UIC_DME_ERROR;
 		retval |= IRQ_HANDLED;
-#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
-		dev_err(hba->dev,
-			"Host UIC Error Code: %08x\n", reg);
-#endif
 	}
 
 	dev_dbg(hba->dev, "%s: UIC error flags = 0x%08x\n",
