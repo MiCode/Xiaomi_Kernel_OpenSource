@@ -475,7 +475,7 @@ static void mtk_dsc_config(struct mtk_ddp_comp *comp,
 			(((dsc_params->ver & 0xf) == 2) ? 0x40 : 0x20),
 			DISP_REG_DSC_SHADOW, 0x60, handle);
 
-		reg_val = dsc_params->dsc_line_buf_depth;
+		reg_val = dsc_params->dsc_line_buf_depth & 0xF;
 		if (dsc_params->bit_per_channel == 0)
 			reg_val |= (0x8 << 4);
 		else
@@ -577,7 +577,7 @@ static void mtk_dsc_config(struct mtk_ddp_comp *comp,
 
 		if (spr_params->enable && spr_params->relay == 0
 					&& disp_spr_bypass == 0) {
-			mtk_ddp_write(comp, 0x0001d822, DISP_REG_DSC_CFG, handle);//VESA1.2 needed
+			//mtk_ddp_write(comp, 0x0001d822, DISP_REG_DSC_CFG, handle);//VESA1.2 needed
 			//mtk_ddp_write(comp, 0x00014001, DISP_REG_DSC_CON, handle);
 			mtk_ddp_write(comp, 0x800840, DISP_REG_DSC_PPS12, handle);
 			mtk_ddp_write(comp, 0xd923e103,	DISP_REG_DSC_PPS16, handle);

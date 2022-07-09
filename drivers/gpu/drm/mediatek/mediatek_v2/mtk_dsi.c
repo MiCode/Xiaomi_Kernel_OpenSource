@@ -947,7 +947,7 @@ static unsigned int mtk_dsi_default_rate(struct mtk_dsi *dsi)
 				bit_per_pixel = 24;
 				break;
 			case MTK_PANEL_PACKED_SPR_12_BITS:
-				bit_per_pixel = 16;
+				bit_per_pixel = 24;
 				break;
 			default:
 				break;
@@ -1332,7 +1332,7 @@ static unsigned int mtk_get_dsi_buf_bpp(struct mtk_dsi *dsi)
 				dsi_buf_bpp = 3;
 				break;
 			case MTK_PANEL_PACKED_SPR_12_BITS:
-				dsi_buf_bpp = 2;
+				dsi_buf_bpp = 3;
 				break;
 			default:
 				break;
@@ -1637,7 +1637,7 @@ static void mtk_dsi_calc_vdo_timing(struct mtk_dsi *dsi)
 			dsi_tmp_buf_bpp = 3;
 			break;
 		case MTK_PANEL_PACKED_SPR_12_BITS:
-			dsi_tmp_buf_bpp = 2;
+			dsi_tmp_buf_bpp = 3;
 			break;
 		default:
 			break;
@@ -6397,12 +6397,19 @@ unsigned int mtk_dsi_get_dsc_compress_rate(struct mtk_dsi *dsi)
 	} else {
 		compress_rate = 100;
 	}
-	if (spr_params->enable && spr_params->relay == 0
-		&& disp_spr_bypass == 0 && spr_params->spr_format_type < MTK_PANEL_EXT_TYPE
-		&& (ext->params->spr_output_mode == MTK_PANEL_PACKED_SPR_8_BITS
-		|| ext->params->spr_output_mode == MTK_PANEL_PACKED_SPR_12_BITS))
-		compress_rate = compress_rate * 3 / 2;
-
+	/* spr compress rate */
+	if (spr_params->enable && spr_params->relay == 0 && disp_spr_bypass == 0
+		&& spr_params->spr_format_type < MTK_PANEL_EXT_TYPE) {
+		if (ext->params->dsc_params.enable)
+			compress_rate = compress_rate * 3 / 2;
+		else if (ext->params->spr_output_mode == MTK_PANEL_PACKED_SPR_8_BITS
+			|| ext->params->spr_output_mode == MTK_PANEL_PACKED_SPR_12_BITS)
+			compress_rate = compress_rate * 3 / 2;
+		else if (ext->params->spr_output_mode == MTK_PANEL_lOOSELY_SPR_8_BITS)
+			compress_rate = compress_rate * 1;
+		else if (ext->params->spr_output_mode == MTK_PANEL_lOOSELY_SPR_10_BITS)
+			compress_rate = compress_rate * 30 / 24;
+	}
 	return compress_rate;
 }
 
@@ -8716,7 +8723,7 @@ u32 PanelMaster_get_dsi_timing(struct mtk_dsi *dsi, enum MIPI_SETTING_TYPE type)
 			fbconfig_dsiTmpBufBpp = 3;
 			break;
 		case MTK_PANEL_PACKED_SPR_12_BITS:
-			fbconfig_dsiTmpBufBpp = 2;
+			fbconfig_dsiTmpBufBpp = 3;
 			break;
 		default:
 			break;
@@ -8925,7 +8932,7 @@ int PanelMaster_DSI_set_timing(struct mtk_dsi *dsi, struct MIPI_TIMING timing)
 			fbconfig_dsiTmpBufBpp = 3;
 			break;
 		case MTK_PANEL_PACKED_SPR_12_BITS:
-			fbconfig_dsiTmpBufBpp = 2;
+			fbconfig_dsiTmpBufBpp = 3;
 			break;
 		default:
 			break;
