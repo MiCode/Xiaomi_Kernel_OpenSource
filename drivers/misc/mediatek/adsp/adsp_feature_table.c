@@ -27,6 +27,8 @@ static struct adsp_feature_tb feature_table[ADSP_NUM_FEATURE_ID] = {
 	[OFFLOAD_FEATURE_ID]          = {.name = "offload"},
 	[AUDIO_PLAYBACK_FEATURE_ID]   = {.name = "audplayback"},
 	[AUDIO_MUSIC_FEATURE_ID]      = {.name = "music"},
+	[USB_DL_FEATURE_ID]           = {.name = "usbdl"},
+	[USB_UL_FEATURE_ID]           = {.name = "usbul"},
 	[A2DP_PLAYBACK_FEATURE_ID]    = {.name = "a2dp_playback"},
 	[BLEDL_FEATURE_ID]            = {.name = "bledl"},
 	[BLEUL_FEATURE_ID]            = {.name = "bleul"},

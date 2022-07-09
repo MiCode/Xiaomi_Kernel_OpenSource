@@ -41,6 +41,10 @@ enum {
 	TASK_SCENE_UL_PROCESS           = 28,
 	TASK_SCENE_ECHO_REF_UL          = 29,
 	TASK_SCENE_ECHO_REF_DL          = 30,
+	TASK_SCENE_USB_DL               = 31,
+	TASK_SCENE_USB_UL               = 32,
+	TASK_SCENE_MD_DL                = 33,
+	TASK_SCENE_MD_UL                = 34,
 
 	/* control for driver */
 	TASK_SCENE_AUDIO_CONTROLLER_HIFI3_A,
