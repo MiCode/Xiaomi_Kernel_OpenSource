@@ -9274,7 +9274,7 @@
 		mmdvfs-dvfsrc-vcore-supply = <&dvfsrc_vcore>;
 		interconnects = <&mmqos SLAVE_LARB(38) &mmqos SLAVE_COMMON(0)>;
 		interconnect-names = "disp_hrt_qos";
-		pre-define-bw = <0xffffffff>, <2500>, <0>;
+		pre-define-bw = <0xffffffff>, <4200>, <0>;
 
 		/* define threads, see mt6873-gce.h */
 		mediatek,mailbox-gce = <&gce>;
