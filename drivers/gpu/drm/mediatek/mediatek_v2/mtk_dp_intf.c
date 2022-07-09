@@ -27,70 +27,70 @@
 #include "mtk_drm_fb.h"
 #include "mtk_dp.h"
 
-#define DP_EN                             0x0000
-	#define DP_CONTROLLER_EN BIT(0)
-	#define CON_FLD_DP_EN		REG_FLD_MSB_LSB(0, 0)
-#define DP_RST                            0x0004
-	#define CON_FLD_DP_RST			REG_FLD_MSB_LSB(0, 0)
-	#define CON_FLD_DP_RST_SEL		REG_FLD_MSB_LSB(16, 16)
-#define DP_INTEN                          0x0008
-	#define INT_TARGET_LINE_EN BIT(3)
-	#define INT_UNDERFLOW_EN BIT(2)
-	#define INT_VDE_EN BIT(1)
-	#define INT_VSYNC_EN BIT(0)
-#define DP_INTSTA                         0x000C
-	#define INTSTA_TARGET_LINE BIT(3)
-	#define INTSTA_UNDERFLOW BIT(2)
-	#define INTSTA_VDE BIT(1)
-	#define INTSTA_VSYNC BIT(0)
-#define DP_CON                            0x0010
-	#define CON_FLD_DP_BG_EN		REG_FLD_MSB_LSB(0, 0)
-	#define CON_FLD_DP_INTL_EN		REG_FLD_MSB_LSB(2, 2)
-#define DP_OUTPUT_SETTING                 0x0014
-	#define RB_SWAP BIT(0)
-#define DP_SIZE                           0x0018
-#define DP_TGEN_HWIDTH                    0x0020
-#define DP_TGEN_HPORCH                    0x0024
-#define DP_TGEN_VWIDTH                    0x0028
-#define DP_TGEN_VPORCH                    0x002C
-#define DP_BG_HCNTL                       0x0030
-#define DP_BG_VCNTL                       0x0034
-#define DP_BG_COLOR                       0x0038
-#define DP_FIFO_CTL                       0x003C
-#define DP_STATUS                         0x0040
-	#define DP_BUSY BIT(24)
-#define DP_DCM                            0x004C
-#define DP_DUMMY                          0x0050
-#define DP_YUV                            0x0054
-	#define YUV_EN BIT(0)
-	#define YUV422_EN BIT(2)
-#define DP_TGEN_VWIDTH_LEVEN              0x0068
-#define DP_TGEN_VPORCH_LEVEN              0x006C
-#define DP_TGEN_VWIDTH_RODD               0x0070
-#define DP_TGEN_VPORCH_RODD               0x0074
-#define DP_TGEN_VWIDTH_REVEN              0x0078
-#define DP_TGEN_VPORCH_REVEN              0x007C
-#define DP_MUTEX_VSYNC_SETTING            0x00E0
-#define DP_SHEUDO_REG_UPDATE              0x00E4
-#define DP_INTERNAL_DCM_DIS               0x00E8
-#define DP_TARGET_LINE                    0x00F0
-#define DP_CHKSUM_EN                      0x0100
-#define DP_CHKSUM0                        0x0104
-#define DP_CHKSUM1                        0x0108
-#define DP_CHKSUM2                        0x010C
-#define DP_CHKSUM3                        0x0110
-#define DP_CHKSUM4                        0x0114
-#define DP_CHKSUM5                        0x0118
-#define DP_CHKSUM6                        0x011C
-#define DP_CHKSUM7                        0x0120
-#define DP_BUF_CON0                       0x0210
-    #define BUF_BUF_EN                    BIT(0)
-#define DP_BUF_CON1                       0x0214
-#define DP_BUF_RW_TIMES                   0x0220
-#define DP_PATTERN_CTRL0                  0x0F00
-    #define DP_PATTERN_EN                 BIT(0)
-    #define DP_PATTERN_COLOR_BAR          BIT(6)
-#define DP_PATTERN_CTRL1                  0x0F04
+#define DP_EN							0x0000
+	#define DP_CONTROLLER_EN				BIT(0)
+	#define CON_FLD_DP_EN					BIT(0)
+#define DP_RST							0x0004
+	#define CON_FLD_DP_RST_SEL				BIT(16)
+	#define CON_FLD_DP_RST					BIT(0)
+#define DP_INTEN						0x0008
+	#define INT_TARGET_LINE_EN				BIT(3)
+	#define INT_UNDERFLOW_EN				BIT(2)
+	#define INT_VDE_EN						BIT(1)
+	#define INT_VSYNC_EN					BIT(0)
+#define DP_INTSTA						0x000C
+	#define INTSTA_TARGET_LINE				BIT(3)
+	#define INTSTA_UNDERFLOW				BIT(2)
+	#define INTSTA_VDE						BIT(1)
+	#define INTSTA_VSYNC					BIT(0)
+#define DP_CON							0x0010
+	#define CON_FLD_DP_INTL_EN				BIT(2)
+	#define CON_FLD_DP_BG_EN				BIT(0)
+#define DP_OUTPUT_SETTING				0x0014
+	#define RB_SWAP							BIT(0)
+#define DP_SIZE							0x0018
+#define DP_TGEN_HWIDTH					0x0020
+#define DP_TGEN_HPORCH					0x0024
+#define DP_TGEN_VWIDTH					0x0028
+#define DP_TGEN_VPORCH					0x002C
+#define DP_BG_HCNTL						0x0030
+#define DP_BG_VCNTL						0x0034
+#define DP_BG_COLOR						0x0038
+#define DP_FIFO_CTL						0x003C
+#define DP_STATUS						0x0040
+	#define DP_BUSY							BIT(24)
+#define DP_DCM							0x004C
+#define DP_DUMMY						0x0050
+#define DP_YUV							0x0054
+	#define YUV422_EN						BIT(2)
+	#define YUV_EN							BIT(0)
+#define DP_TGEN_VWIDTH_LEVEN			0x0068
+#define DP_TGEN_VPORCH_LEVEN			0x006C
+#define DP_TGEN_VWIDTH_RODD				0x0070
+#define DP_TGEN_VPORCH_RODD				0x0074
+#define DP_TGEN_VWIDTH_REVEN			0x0078
+#define DP_TGEN_VPORCH_REVEN			0x007C
+#define DP_MUTEX_VSYNC_SETTING			0x00E0
+#define DP_SHEUDO_REG_UPDATE			0x00E4
+#define DP_INTERNAL_DCM_DIS				0x00E8
+#define DP_TARGET_LINE					0x00F0
+#define DP_CHKSUM_EN					0x0100
+#define DP_CHKSUM0						0x0104
+#define DP_CHKSUM1						0x0108
+#define DP_CHKSUM2						0x010C
+#define DP_CHKSUM3						0x0110
+#define DP_CHKSUM4						0x0114
+#define DP_CHKSUM5						0x0118
+#define DP_CHKSUM6						0x011C
+#define DP_CHKSUM7						0x0120
+#define DP_BUF_CON0						0x0210
+    #define BUF_BUF_EN						BIT(0)
+#define DP_BUF_CON1						0x0214
+#define DP_BUF_RW_TIMES					0x0220
+#define DP_PATTERN_CTRL0				0x0F00
+	#define DP_PATTERN_COLOR_BAR			BIT(6)
+    #define DP_PATTERN_EN					BIT(0)
+#define DP_PATTERN_CTRL1				0x0F04
 
 static const struct of_device_id mtk_dp_intf_driver_dt_match[];
 /**
