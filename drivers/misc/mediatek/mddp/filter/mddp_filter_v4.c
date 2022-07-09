@@ -566,7 +566,7 @@ static void mddp_f_out_nf_ipv4(struct sk_buff *skb, struct mddp_f_cb *cb)
 	if (check_conntrack(skb, nat_ip_conntrack))
 		goto out;
 	if (ip->ip_p == IPPROTO_TCP) {
-		if (!check_tcp_state(skb, nat_ip_conntrack))
+		if (check_tcp_state(skb, nat_ip_conntrack))
 			goto out;
 	}
 	fill_cb_info(nat_ip_conntrack, ip, cb, &t, tcp, udp);
