@@ -89,6 +89,14 @@ unsigned int is_vcp_ready_ex(enum vcp_core_id id)
 }
 EXPORT_SYMBOL_GPL(is_vcp_ready_ex);
 
+unsigned int is_vcp_suspending_ex(void)
+{
+	if (!vcp_fp || !vcp_fp->is_vcp_suspending)
+		return 0;
+	return vcp_fp->is_vcp_suspending();
+}
+EXPORT_SYMBOL_GPL(is_vcp_suspending_ex);
+
 void vcp_A_register_notify_ex(struct notifier_block *nb)
 {
 	if (!vcp_fp || !vcp_fp->vcp_A_register_notify)

@@ -206,6 +206,7 @@ struct vcp_status_fp vcp_helper_fp = {
 	.vcp_A_register_notify		= vcp_A_register_notify,
 	.vcp_A_unregister_notify	= vcp_A_unregister_notify,
 	.vcp_cmd					= vcp_cmd,
+	.is_vcp_suspending			= is_vcp_suspending,
 };
 
 #undef pr_debug
@@ -697,6 +698,12 @@ unsigned int is_vcp_ready(enum vcp_core_id id)
 		return 0;
 }
 EXPORT_SYMBOL_GPL(is_vcp_ready);
+
+unsigned int is_vcp_suspending(void)
+{
+	return is_suspending;
+}
+EXPORT_SYMBOL_GPL(is_vcp_suspending);
 
 /*
  * @return: generaltion count of vcp (reset count)

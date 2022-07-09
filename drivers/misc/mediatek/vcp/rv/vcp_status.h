@@ -16,6 +16,7 @@ typedef unsigned int (*is_vcp_ready_fp)(enum vcp_core_id id);
 typedef void (*vcp_A_register_notify_fp)(struct notifier_block *nb);
 typedef void (*vcp_A_unregister_notify_fp)(struct notifier_block *nb);
 typedef unsigned int (*vcp_cmd_fp)(enum vcp_cmd_id id);
+typedef unsigned int (*is_vcp_suspending_fp)(void);
 
 struct vcp_status_fp {
 	vcp_get_reserve_mem_phys_fp	vcp_get_reserve_mem_phys;
@@ -26,6 +27,7 @@ struct vcp_status_fp {
 	vcp_A_register_notify_fp	vcp_A_register_notify;
 	vcp_A_unregister_notify_fp	vcp_A_unregister_notify;
 	vcp_cmd_fp				vcp_cmd;
+	is_vcp_suspending_fp		is_vcp_suspending;
 };
 
 extern int pwclkcnt;
@@ -42,5 +44,6 @@ unsigned int is_vcp_ready_ex(enum vcp_core_id id);
 void vcp_A_register_notify_ex(struct notifier_block *nb);
 void vcp_A_unregister_notify_ex(struct notifier_block *nb);
 unsigned int vcp_cmd_ex(enum vcp_cmd_id id);
+unsigned int is_vcp_suspending_ex(void);
 
 #endif

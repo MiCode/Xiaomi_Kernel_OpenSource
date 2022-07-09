@@ -226,5 +226,7 @@ extern int vcp_deregister_feature(enum feature_id id);
 extern void vcp_wdt_reset(int cpu_id);
 extern unsigned int vcp_cmd(enum vcp_cmd_id id);
 
+extern unsigned int is_vcp_suspending(void);
+
 #endif
 
