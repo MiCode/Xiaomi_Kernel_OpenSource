@@ -37,6 +37,7 @@
 #include <uapi/linux/sched/types.h>
 #include <linux/highmem.h>
 #include <asm/cacheflush.h>
+#include <linux/android_debug_symbols.h>
 
 #include <mt-plat/aee.h>
 #if IS_ENABLED(CONFIG_MTK_AEE_IPANIC)
@@ -1580,6 +1581,19 @@ static void show_task_backtrace(void)
 	}
 }
 
+#if IS_ENABLED(CONFIG_ANDROID_DEBUG_SYMBOLS)
+static void show_mem_by_ads(unsigned int filter, nodemask_t *nodemask)
+{
+	void (*show_mem_in_hang)(unsigned int flt, nodemask_t *nodmsk);
+
+	show_mem_in_hang = android_debug_symbol(ADS_SHOW_MEM);
+	if (IS_ERR(show_mem_in_hang))
+		pr_info("%s: failed to get show_mem\n", __func__);
+	else
+		show_mem_in_hang(filter, nodemask);
+}
+#endif
+
 static void show_status(int flag)
 {
 
@@ -1590,6 +1604,10 @@ static void show_status(int flag)
 		dump_msdc_hang_info();
 	}
 #endif
+#endif
+
+#if IS_ENABLED(CONFIG_ANDROID_DEBUG_SYMBOLS)
+	show_mem_by_ads(0, NULL);
 #endif
 
 	show_task_backtrace();
@@ -1856,3 +1874,4 @@ module_exit(monitor_hang_exit);
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("MediaTek MonitorHang Driver");
 MODULE_AUTHOR("MediaTek Inc.");
+MODULE_IMPORT_NS(MINIDUMP);
