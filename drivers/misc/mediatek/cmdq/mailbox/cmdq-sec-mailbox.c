@@ -1751,6 +1751,21 @@ static void cmdq_sec_reserved_mem_lookup(struct cmdq_sec_shared_mem *shared_mem)
 		buf, pa, shared_mem->size, shared_mem->va, &shared_mem->pa);
 }
 
+static void cmdq_sec_config_dma_mask(struct device *dev)
+{
+	u32 dma_mask_bit = 0;
+	s32 ret;
+
+	ret = of_property_read_u32(dev->of_node, "dma-mask-bit",
+		&dma_mask_bit);
+	/* if not assign from dts, give default 32bit for legacy chip */
+	if (ret != 0 || !dma_mask_bit)
+		dma_mask_bit = 32;
+	ret = dma_set_coherent_mask(dev, DMA_BIT_MASK(dma_mask_bit));
+	cmdq_msg("mbox set dma mask bit:%u result:%d\n",
+		dma_mask_bit, ret);
+}
+
 static int cmdq_sec_probe(struct platform_device *pdev)
 {
 	struct cmdq_sec *cmdq;
@@ -1771,6 +1786,8 @@ static int cmdq_sec_probe(struct platform_device *pdev)
 		cmdq_err("base devm_ioremap failed:%ld", PTR_ERR(cmdq->base));
 		return PTR_ERR(cmdq->base);
 	}
+
+	cmdq_sec_config_dma_mask(dev);
 
 	cmdq->clock = devm_clk_get(&pdev->dev, "gce");
 	if (IS_ERR(cmdq->clock)) {
