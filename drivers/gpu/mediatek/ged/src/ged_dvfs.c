@@ -323,6 +323,8 @@ bool ged_dvfs_cal_gpu_utilization_ex(unsigned int *pui32Loading,
 				(long long)Util_Ex->util_3d, 5566, 0, 0);
 			ged_log_perf_trace_counter("gpu_compute_loading",
 				(long long)Util_Ex->util_compute, 5566, 0, 0);
+			ged_log_perf_trace_counter("gpu_iter_loading",
+				(long long)Util_Ex->util_iter, 5566, 0, 0);
 
 			gpu_av_loading = *pui32Loading;
 
