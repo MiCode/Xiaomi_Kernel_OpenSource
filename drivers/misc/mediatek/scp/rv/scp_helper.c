@@ -1951,7 +1951,7 @@ void scp_recovery_init(void)
 		scp_region_info_copy.ap_dram_start,
 		ROUNDUP(scp_region_info_copy.ap_dram_size, 1024)*4);
 
-	pr_debug("[SCP] scp_ap_dram_virt map: 0x%x + 0x%x\n",
+	pr_notice("[SCP] scp_ap_dram_virt map: 0x%x + 0x%x\n",
 		scp_region_info_copy.ap_dram_start,
 		scp_region_info_copy.ap_dram_size);
 	}

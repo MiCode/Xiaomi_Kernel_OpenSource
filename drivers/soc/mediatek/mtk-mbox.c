@@ -518,8 +518,10 @@ static irqreturn_t mtk_mbox_isr(int irq, void *dev_id)
 	irq_temp = 0;
 	spin_unlock_irqrestore(&minfo->mbox_lock, flags);
 
-	if (mbdev->pre_cb)
-		mbdev->pre_cb(mbdev->prdata);
+	if (mbdev->pre_cb && mbdev->pre_cb(mbdev->prdata)) {
+		ret = MBOX_PRE_CB_ERR;
+		goto skip;
+	}
 
 	/*execute all receive pin handler*/
 	for (i = 0; i < mbdev->recv_count; i++) {
@@ -590,8 +592,15 @@ static irqreturn_t mtk_mbox_isr(int irq, void *dev_id)
 		}
 	}
 
-	if (mbdev->post_cb)
-		mbdev->post_cb(mbdev->prdata);
+	if (mbdev->post_cb && mbdev->post_cb(mbdev->prdata))
+		ret = MBOX_POST_CB_ERR;
+skip:
+	if (ret == MBOX_PRE_CB_ERR)
+		pr_notice("[MBOX ISR] pre_cb error, skip cb handle, dev=%s ret=%d",
+			mbdev->name, ret);
+	if (ret == MBOX_POST_CB_ERR)
+		pr_notice("[MBOX ISR] post_cb error, dev=%s ret=%d",
+			mbdev->name, ret);
 
 	/*clear irq status*/
 	spin_lock_irqsave(&minfo->mbox_lock, flags);

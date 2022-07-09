@@ -232,6 +232,8 @@ struct mtk_mbox_info {
  * mbox return value definition
  */
 enum MBOX_RETURN {
+	MBOX_POST_CB_ERR  = -8,
+	MBOX_PRE_CB_ERR   = -7,
 	MBOX_READ_SZ_ERR  = -6,
 	MBOX_WRITE_SZ_ERR = -5,
 	MBOX_PARA_ERR     = -4,

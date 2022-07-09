@@ -321,8 +321,10 @@ int mtk_ipi_send(struct mtk_ipi_device *ipidev, int ipi_id,
 
 	wait_us = MS_TO_US(retry_timeout);
 
-	if (ipidev->pre_cb)
-		ipidev->pre_cb(ipidev->prdata);
+	if (ipidev->pre_cb && ipidev->pre_cb(ipidev->prdata)) {
+		pr_notice("Error: IPI [%s] pre_cb fail\n", ipidev->table[ipi_id].rpchan->info.name);
+		return IPI_PRE_CB_FAIL;
+	}
 
 
 	if (opt == IPI_SEND_POLLING) {
@@ -363,8 +365,11 @@ int mtk_ipi_send(struct mtk_ipi_device *ipidev, int ipi_id,
 	else
 		mutex_unlock(&pin->mutex_send);
 
-	if (ipidev->post_cb)
-		ipidev->post_cb(ipidev->prdata);
+	if (ipidev->post_cb && ipidev->post_cb(ipidev->prdata)) {
+		pr_notice("Error: IPI [%s] post_cb fail\n",
+			ipidev->table[ipi_id].rpchan->info.name);
+		return IPI_POST_CB_FAIL;
+	}
 
 	if (ret == MBOX_PIN_BUSY) {
 		ipi_timeout_dump(ipidev, ipi_id);
@@ -427,8 +432,10 @@ int mtk_ipi_send_compl(struct mtk_ipi_device *ipidev, int ipi_id,
 
 	wait = MS_TO_US(timeout);
 
-	if (ipidev->pre_cb)
-		ipidev->pre_cb(ipidev->prdata);
+	if (ipidev->pre_cb && ipidev->pre_cb(ipidev->prdata)) {
+		pr_notice("Error: IPI [%s] pre_cb fail\n", ipidev->table[ipi_id].rpchan->info.name);
+		return IPI_PRE_CB_FAIL;
+	}
 
 	if (opt == IPI_SEND_POLLING) {
 		if (mutex_is_locked(&pin_s->mutex_send)) {
@@ -469,8 +476,11 @@ int mtk_ipi_send_compl(struct mtk_ipi_device *ipidev, int ipi_id,
 
 		atomic_set(&ipidev->table[ipi_id].holder, 0);
 
-		if (ipidev->post_cb)
-			ipidev->post_cb(ipidev->prdata);
+		if (ipidev->post_cb && ipidev->post_cb(ipidev->prdata)) {
+			pr_notice("Error: IPI [%s] post_cb fail\n",
+				ipidev->table[ipi_id].rpchan->info.name);
+			return IPI_POST_CB_FAIL;
+		}
 
 		pr_warn("%s IPI %d send fail (%d)\n",
 			ipidev->name, ipi_id, ret);
@@ -521,8 +531,11 @@ int mtk_ipi_send_compl(struct mtk_ipi_device *ipidev, int ipi_id,
 	else
 		mutex_unlock(&pin_s->mutex_send);
 
-	if (ipidev->post_cb)
-		ipidev->post_cb(ipidev->prdata);
+	if (ipidev->post_cb && ipidev->post_cb(ipidev->prdata)) {
+		pr_notice("Error: IPI [%s] post_cb fail\n",
+			ipidev->table[ipi_id].rpchan->info.name);
+		return IPI_POST_CB_FAIL;
+	}
 
 	return ret;
 }
@@ -559,8 +572,10 @@ int mtk_ipi_recv_reply(struct mtk_ipi_device *ipidev, int ipi_id,
 			pin_r->msg_size);
 
 	/* send the response*/
-	if (ipidev->pre_cb)
-		ipidev->pre_cb(ipidev->prdata);
+	if (ipidev->pre_cb && ipidev->pre_cb(ipidev->prdata)) {
+		pr_notice("Error: IPI [%s] pre_cb fail\n", ipidev->table[ipi_id].rpchan->info.name);
+		return IPI_PRE_CB_FAIL;
+	}
 
 	/* lock this pin until send ack*/
 	spin_lock_irqsave(&pin_s->pin_lock, flags);
@@ -574,8 +589,11 @@ int mtk_ipi_recv_reply(struct mtk_ipi_device *ipidev, int ipi_id,
 
 	spin_unlock_irqrestore(&pin_s->pin_lock, flags);
 
-	if (ipidev->post_cb)
-		ipidev->post_cb(ipidev->prdata);
+	if (ipidev->post_cb && ipidev->post_cb(ipidev->prdata)) {
+		pr_notice("Error: IPI [%s] post_cb fail\n",
+			ipidev->table[ipi_id].rpchan->info.name);
+		return IPI_POST_CB_FAIL;
+	}
 
 	if (ret == MBOX_PIN_BUSY)
 		return IPI_PIN_BUSY;
