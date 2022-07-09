@@ -54,6 +54,8 @@ void mtk_cam_seninf_alloc_cammux_by_type(struct seninf_ctx *ctx,
 	struct seninf_vc *vc;
 	struct seninf_cam_mux *ent;
 
+	pr_info("[%s]+\n", __func__);
+
 	mutex_lock(&core->mutex);
 
 	/* allocate cam muxs */
@@ -73,6 +75,8 @@ void mtk_cam_seninf_alloc_cammux_by_type(struct seninf_ctx *ctx,
 	}
 
 	mutex_unlock(&core->mutex);
+
+	pr_info("[%s]-\n", __func__);
 }
 
 struct seninf_mux *mtk_cam_seninf_mux_get_by_type(struct seninf_ctx *ctx,
@@ -548,7 +552,9 @@ int mtk_cam_seninf_get_csi_param(struct seninf_ctx *ctx)
 		csi_param->dphy_csi2_resync_dmy_cycle);
 
 #if AOV_GET_PARAM
-	if (core->current_sensor_id == core->aov_sensor_id) {
+	if (!(core->aov_sensor_id < 0) &&
+		!(core->current_sensor_id < 0) &&
+		(core->current_sensor_id == core->aov_sensor_id)) {
 		g_aov_param.cphy_settle = csi_param->cphy_settle;
 		g_aov_param.dphy_clk_settle = csi_param->dphy_clk_settle;
 		g_aov_param.dphy_data_settle = csi_param->dphy_data_settle;
@@ -895,9 +901,7 @@ void mtk_cam_seninf_release_cam_mux(struct seninf_ctx *ctx)
 	struct seninf_core *core = ctx->core;
 	struct seninf_cam_mux *ent, *tmp;
 
-#if AOV_GET_PARAM
 	pr_info("[%s]+\n", __func__);
-#endif
 
 	mutex_lock(&core->mutex);
 
@@ -907,9 +911,8 @@ void mtk_cam_seninf_release_cam_mux(struct seninf_ctx *ctx)
 	}
 
 	mutex_unlock(&core->mutex);
-#if AOV_GET_PARAM
+
 	pr_info("[%s]-\n", __func__);
-#endif
 }
 #endif
 
@@ -1090,12 +1093,10 @@ int mtk_cam_seninf_s_stream_mux(struct seninf_ctx *ctx)
 	struct seninf_vc *vc;
 	int hsPol, vsPol, vc_sel, dt_sel, dt_en;
 	int intf = ctx->seninfIdx;
-#if AOV_GET_PARAM
-	struct seninf_core *core = ctx->core;
-#endif
 	struct seninf_mux *mux, *mux_by_camtype[TYPE_MAX_NUM] = {0};
 	int en_tag = 0;
 	int group_src = MIPI_SENSOR;
+	struct seninf_core *core = ctx->core;
 
 	// TODO
 	hsPol = 0;
@@ -1112,7 +1113,9 @@ int mtk_cam_seninf_s_stream_mux(struct seninf_ctx *ctx)
 		}
 
 		if (ctx->is_aov_real_sensor) {
-			if (core->current_sensor_id == core->aov_sensor_id) {
+			if (!(core->aov_sensor_id < 0) &&
+				!(core->current_sensor_id < 0) &&
+				(core->current_sensor_id == core->aov_sensor_id)) {
 				dev_info(ctx->dev,
 					"[%s] aov streaming mux & cammux workaround on scp\n",
 					__func__);
@@ -1537,34 +1540,32 @@ int aov_switch_i2c_bus_sda_aux(struct seninf_ctx *ctx,
 int mtk_cam_seninf_s_aov_param(unsigned int sensor_id,
 				struct mtk_seninf_aov_param *aov_seninf_param)
 {
-	int real_sensor_id = 0;
+	unsigned int real_sensor_id = 0;
 	struct seninf_ctx *ctx = NULL;
 	struct seninf_vc *vc;
 
-	pr_info("[%s] start input sensor_id:%d\n", __func__, sensor_id);
+	pr_info("[%s] sensor_id[%d]\n", __func__, sensor_id);
 
 	if (g_aov_param.is_test_model) {
 		real_sensor_id = 5;
 	} else {
 		if (sensor_id == g_aov_param.sensor_idx) {
 			real_sensor_id = g_aov_param.sensor_idx;
-			pr_info("input sensor id:%d success\n", real_sensor_id);
+			pr_info("[%s] input sensor id[%u] success\n",
+				__func__, real_sensor_id);
 		} else {
 			real_sensor_id = sensor_id;
-			seninf_aee_print("[AEE] [%s] input sensor id:%d fail",
+			pr_info("input sensor id[%u] fail\n", real_sensor_id);
+			seninf_aee_print(
+				"[AEE] [%s] input sensor id[%u] fail",
 				__func__, real_sensor_id);
 			return -ENODEV;
 		}
 	}
 
-	/* debug use
-	 * if (g_aov_param.sensor_idx)
-	 *	pr_info("g_aov_param.sensor_idx %d\n", g_aov_param.sensor_idx);
-	 */
-
-	if (aov_ctx[(unsigned int)real_sensor_id] != NULL) {
-		pr_info("sensor idx %d\n", real_sensor_id);
-		ctx = aov_ctx[(unsigned int)real_sensor_id];
+	if (aov_ctx[real_sensor_id] != NULL) {
+		pr_info("[%s] sensor idx[%u]\n", __func__, real_sensor_id);
+		ctx = aov_ctx[real_sensor_id];
 #ifdef SENSING_MODE_READY
 		if (!g_aov_param.is_test_model) {
 			/* switch i2c bus scl from apmcu to scp */
@@ -1575,12 +1576,11 @@ int mtk_cam_seninf_s_aov_param(unsigned int sensor_id,
 #endif
 		vc = mtk_cam_seninf_get_vc_by_pad(ctx, PAD_SRC_RAW0);
 	} else {
-		pr_info("Can't find ctx from input sensor_id:%d!\n",
-			real_sensor_id);
+		pr_info("[%s] Can't find ctx from input sensor_id!\n", __func__);
 		return -ENODEV;
 	}
 	if (!vc) {
-		pr_info("vc should not be NULL!\n");
+		pr_info("[%s] vc should not be NULL!\n", __func__);
 		return -ENODEV;
 	}
 
@@ -1593,18 +1593,123 @@ int mtk_cam_seninf_s_aov_param(unsigned int sensor_id,
 		g_aov_param.vc.pixel_mode = 0;
 		g_aov_param.camtg = 33;
 	}
-	/* debug use
-	 * pr_info("out_pad %d\n", g_aov_param.vc.out_pad);
-	 */
+
 	if (aov_seninf_param != NULL) {
+		pr_info("[%s] memcpy aov_seninf_param\n", __func__);
 		memcpy((void *)aov_seninf_param, (void *)&g_aov_param,
 			sizeof(struct mtk_seninf_aov_param));
 		/* debug use
-		 * pr_info("port %d\n", aov_seninf_param->port);
-		 * pr_info("out_pad %d\n", aov_seninf_param->vc.out_pad);
+		 * pr_info(
+		 *	"[%s] port[%d]\n", __func__, aov_seninf_param->port);
+		 * pr_info(
+		 *	"[%s] portA[%d]\n", __func__, aov_seninf_param->portA);
+		 * pr_info(
+		 *	"[%s] portB[%d]\n", __func__, aov_seninf_param->portB);
+		 * pr_info(
+		 *	"[%s] is_4d1c[%u]\n", __func__, aov_seninf_param->is_4d1c);
+		 * pr_info(
+		 *	"[%s] seninfIdx[%d]\n", __func__, aov_seninf_param->seninfIdx);
+		 * pr_info(
+		 *	"[%s] vcinfo_cnt[%d]\n", __func__, aov_seninf_param->cnt);
+		 * pr_info(
+		 *	"[%s] seninf_dphy_settle_delay_dt[%d]\n",
+		 *	__func__, aov_seninf_param->seninf_dphy_settle_delay_dt);
+		 * pr_info(
+		 *	"[%s] cphy_settle_delay_dt[%d]\n",
+		 *	__func__, aov_seninf_param->cphy_settle_delay_dt);
+		 * pr_info(
+		 *	"[%s] dphy_settle_delay_dt[%d]\n",
+		 *	__func__, aov_seninf_param->dphy_settle_delay_dt);
+		 * pr_info(
+		 *	"[%s] settle_delay_ck[%d]\n",
+		 *	__func__, aov_seninf_param->settle_delay_ck);
+		 * pr_info(
+		 *	"[%s] hs_trail_parameter[%d]\n",
+		 *	__func__, aov_seninf_param->hs_trail_parameter);
+		 * pr_info(
+		 *	"[%s] width[%lld]\n", __func__, aov_seninf_param->width);
+		 * pr_info(
+		 *	"[%s] height[%lld]\n", __func__, aov_seninf_param->height);
+		 * pr_info(
+		 *	"[%s] hblank[%lld]\n", __func__, aov_seninf_param->hblank);
+		 * pr_info(
+		 *	"[%s] vblank[%lld]\n", __func__, aov_seninf_param->vblank);
+		 * pr_info(
+		 *	"[%s] fps_n[%d]\n", __func__, aov_seninf_param->fps_n);
+		 * pr_info(
+		 *	"[%s] fps_d[%d]\n", __func__, aov_seninf_param->fps_d);
+		 * pr_info(
+		 *	"[%s] customized_pixel_rate[%lld]\n",
+		 *	__func__, aov_seninf_param->customized_pixel_rate);
+		 * pr_info(
+		 *	"[%s] mipi_pixel_rate[%lld]\n",
+		 *	__func__, aov_seninf_param->mipi_pixel_rate);
+		 * pr_info(
+		 *	"[%s] is_cphy[%u]\n",
+		 *	__func__, aov_seninf_param->is_cphy);
+		 * pr_info(
+		 *	"[%s] num_data_lanes[%d]\n",
+		 *	__func__, aov_seninf_param->num_data_lanes);
+		 * pr_info(
+		 *	"[%s] isp_freq[%d]\n",
+		 *	__func__, aov_seninf_param->isp_freq);
+		 * pr_info(
+		 *	"[%s] cphy_settle[%u]\n",
+		 *	__func__, aov_seninf_param->cphy_settle);
+		 * pr_info(
+		 *	"[%s] dphy_clk_settle[%u]\n",
+		 *	__func__, aov_seninf_param->dphy_clk_settle);
+		 * pr_info(
+		 *	"[%s] dphy_data_settle[%u]\n",
+		 *	__func__, aov_seninf_param->dphy_data_settle);
+		 * pr_info(
+		 *	"[%s] dphy_trail[%d]\n",
+		 *	__func__, aov_seninf_param->dphy_trail);
+		 * pr_info(
+		 *	"[%s] legacy_phy[%d]\n",
+		 *	__func__, aov_seninf_param->legacy_phy);
+		 * pr_info(
+		 *	"[%s] not_fixed_trail_settle[%d]\n",
+		 *	__func__, aov_seninf_param->not_fixed_trail_settle);
+		 * pr_info(
+		 *	"[%s] dphy_csi2_resync_dmy_cycle[%u]\n",
+		 *	__func__, aov_seninf_param->dphy_csi2_resync_dmy_cycle);
+		 * pr_info(
+		 *	"[%s] vc[%d]\n", __func__, aov_seninf_param->vc.vc);
+		 * pr_info(
+		 *	"[%s] dt[%d]\n", __func__, aov_seninf_param->vc.dt);
+		 * pr_info(
+		 *	"[%s] feature[%d]\n", __func__, aov_seninf_param->vc.feature);
+		 * pr_info(
+		 *	"[%s] out_pad[%d]\n", __func__, aov_seninf_param->vc.out_pad);
+		 * pr_info(
+		 *	"[%s] pixel_mode[%d]\n", __func__, aov_seninf_param->vc.pixel_mode);
+		 * pr_info(
+		 *	"[%s] group[%d]\n", __func__, aov_seninf_param->vc.group);
+		 * pr_info(
+		 *	"[%s] mux[%d]\n", __func__, aov_seninf_param->vc.mux);
+		 * pr_info(
+		 *	"[%s] mux_vr[%d]\n", __func__, aov_seninf_param->vc.mux_vr);
+		 * pr_info(
+		 *	"[%s] cam[%d]\n", __func__, aov_seninf_param->vc.cam);
+		 * pr_info(
+		 *	"[%s] tag[%d]\n", __func__, aov_seninf_param->vc.tag);
+		 * pr_info(
+		 *	"[%s] cam_type[%d]\n", __func__, aov_seninf_param->vc.cam_type);
+		 * pr_info(
+		 *	"[%s] enable[%d]\n", __func__, aov_seninf_param->vc.enable);
+		 * pr_info(
+		 *	"[%s] exp_hsize[%d]\n", __func__, aov_seninf_param->vc.exp_hsize);
+		 * pr_info(
+		 *	"[%s] exp_vsize[%d]\n", __func__, aov_seninf_param->vc.exp_vsize);
+		 * pr_info(
+		 *	"[%s] bit_depth[%d]\n", __func__, aov_seninf_param->vc.bit_depth);
+		 * pr_info(
+		 *	"[%s] dt_remap_to_type[%d]\n",
+		 *	__func__, aov_seninf_param->vc.dt_remap_to_type);
 		 */
 	} else {
-		pr_info("Must allocate buffer first!\n");
+		pr_info("[%s] Must allocate buffer first!\n", __func__);
 		return -ENOMEM;
 	}
 

@@ -111,8 +111,8 @@ struct seninf_core {
 
 	/* aov sensor use */
 	int pwr_refcnt_for_aov;
-	unsigned int aov_sensor_id;
-	unsigned int current_sensor_id;
+	int aov_sensor_id;
+	int current_sensor_id;
 };
 
 struct seninf_ctx {

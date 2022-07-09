@@ -104,10 +104,6 @@
 #define AOV_GET_PARAM 1
 //	FIX ME: #define it to switch i2c bus aux function on/off when gpio pin ready
 #define SENSING_MODE_READY
-//	FIX ME: #define it to enable/disable all clk when run test model
-#define AOV_TEST_MODEL_PM_CLK_ALL_USE_ON_APMCU
-//	FIX ME: #define it to enable/disable all clk when run real sensor
-#define AOV_REAL_SENSOR_PM_CLK_ALL_USE_ON_APMCU
 
 /* FIX ME: #define it to enable pm/clk use on aov suspend/resume
  * #undef it to all on clk
