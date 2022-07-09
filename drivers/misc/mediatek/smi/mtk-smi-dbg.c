@@ -1066,6 +1066,7 @@ static int __init mtk_smi_dbg_init(void)
 		return -ENOMEM;
 	gsmi = smi;
 
+	spin_lock_init(&smi->lock);
 	smi->fs = debugfs_create_file(
 		DRV_NAME, 0444, NULL, smi, &mtk_smi_dbg_fops);
 	if (IS_ERR(smi->fs))
