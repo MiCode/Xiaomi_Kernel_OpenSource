@@ -19,6 +19,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/tty.h>
 #include <linux/tty_flip.h>
+#include <linux/sched/clock.h>
 
 #include "8250.h"
 #if IS_ENABLED(CONFIG_MTK_UARTHUB)
@@ -83,6 +84,9 @@
 #endif
 
 #define MTK_UART_HUB_BAUD 12000000
+#define UART_DUMP_RECORE_NUM 10
+#define UART_DUMP_BUF_LEN PAGE_SIZE
+#define CONFIG_UART_DATA_RECORD
 
 #define UART_REG_READ(addr) \
 	(*((unsigned int *)(addr)))
@@ -100,6 +104,17 @@ enum dma_rx_status {
 };
 #endif
 
+struct mtk8250_dump {
+	unsigned long long trans_time;
+	unsigned int trans_len;
+	unsigned char rec_buf[UART_DUMP_BUF_LEN];
+};
+
+struct mtk8250_data_dump {
+	unsigned long long rec_total;
+	struct mtk8250_dump rec[UART_DUMP_RECORE_NUM];
+};
+
 struct mtk8250_data {
 	int			line;
 	unsigned int		rx_pos;
@@ -113,6 +128,7 @@ struct mtk8250_data {
 	int			rx_wakeup_irq;
 	unsigned int   support_hub;
 	unsigned int   hub_baud;
+	struct mtk8250_data_dump rx_record;
 };
 
 struct mtk8250_comp {
@@ -281,6 +297,44 @@ static void mtk_save_uart_reg(struct uart_8250_port *up, unsigned int *reg_buf)
 	reg_buf[19] = serial_in(up, MTK_UART_DEBUG8);
 }
 
+void mtk8250_data_dump(struct mtk8250_data *data)
+{
+#ifdef CONFIG_UART_DATA_RECORD
+	int idx = 0;
+
+	for (idx = 0; idx < UART_DUMP_RECORE_NUM; idx++) {
+		unsigned int cnt_ = 0;
+		unsigned int cyc_ = 0;
+		unsigned int len_ = data->rx_record.rec[idx].trans_len;
+		unsigned char raw_buf[256 * 3 + 4];
+		const unsigned char *ptr = data->rx_record.rec[idx].rec_buf;
+		unsigned long long endtime = data->rx_record.rec[idx].trans_time;
+		unsigned long ns = do_div(endtime, 1000000000);
+
+		pr_info("[%s] [%5lu.%06lu] total=%llu,idx=%d,len=%d\n",
+			__func__, (unsigned long)endtime, ns / 1000,
+			data->rx_record.rec_total, idx, len_);
+
+		if (len_ > UART_DUMP_BUF_LEN) {
+			pr_info("[%s] msg len is exceed buf size:%d\n",
+				__func__, UART_DUMP_BUF_LEN);
+			continue;
+		}
+		for (cyc_ = 0; cyc_ < len_;) {
+			unsigned int cnt_min = (((len_ - cyc_) < 256) ? (len_ - cyc_) : 256);
+
+			for (cnt_ = 0; cnt_ < cnt_min; cnt_++)
+				(void)snprintf(raw_buf + 3 * cnt_, 4, "%02X ", ptr[cnt_ + cyc_]);
+			raw_buf[3 * cnt_] = '\0';
+			pr_info("[%d] data=%s\n", cyc_, raw_buf);
+			cyc_ += 256;
+		}
+	}
+#else
+	pr_info("[%s] UART_DATA_RECORD is not config\n", __func__);
+#endif
+}
+
 int mtk8250_uart_dump(struct tty_struct *tty)
 {
 	struct uart_state *state = NULL;
@@ -370,6 +424,7 @@ int mtk8250_uart_dump(struct tty_struct *tty)
 		apdma_tx_reg_buf[12]);
 	mtk8250_uart_apdma_data_dump(up->dma->rxchan);
 	mtk8250_uart_apdma_data_dump(up->dma->txchan);
+	mtk8250_data_dump(data);
 #endif
 	return 0;
 }
@@ -388,6 +443,7 @@ static void mtk8250_dma_rx_complete(void *param)
 	int copied, total, cnt;
 	unsigned char *ptr;
 	unsigned long flags;
+	unsigned int idx = 0;
 
 	if (data->rx_status == DMA_RX_SHUTDOWN)
 		return;
@@ -398,6 +454,11 @@ static void mtk8250_dma_rx_complete(void *param)
 	total = dma->rx_size - state.residue;
 	cnt = total;
 
+	idx = (unsigned int)(data->rx_record.rec_total % UART_DUMP_RECORE_NUM);
+	data->rx_record.rec_total++;
+	data->rx_record.rec[idx].trans_len = total;
+	data->rx_record.rec[idx].trans_time = sched_clock();
+
 	if ((data->rx_pos + cnt) > dma->rx_size)
 		cnt = dma->rx_size - data->rx_pos;
 
@@ -405,8 +466,23 @@ static void mtk8250_dma_rx_complete(void *param)
 	copied = tty_insert_flip_string(tty_port, ptr, cnt);
 	data->rx_pos += cnt;
 
+#ifdef CONFIG_UART_DATA_RECORD
+	if (total <= UART_DUMP_BUF_LEN)
+		memcpy(data->rx_record.rec[idx].rec_buf, ptr, cnt);
+	else
+		pr_info("[%s] total=%d, exceeds buf size:%d\n",
+			__func__, total, UART_DUMP_BUF_LEN);
+#endif
+
 	if (total > cnt) {
 		ptr = (unsigned char *)(dma->rx_buf);
+#ifdef CONFIG_UART_DATA_RECORD
+		if (total <= UART_DUMP_BUF_LEN)
+			memcpy(data->rx_record.rec[idx].rec_buf + cnt, ptr, total - cnt);
+		else
+			pr_info("[%s] total=%d, cnt=%d, exceeds buf size:%d\n",
+				__func__, total, cnt, UART_DUMP_BUF_LEN);
+#endif
 		cnt = total - cnt;
 		copied += tty_insert_flip_string(tty_port, ptr, cnt);
 		data->rx_pos = cnt;
