@@ -1883,8 +1883,8 @@ static const struct mtk_disp_wdma_data mt6886_wdma_driver_data = {
 	.fifo_size_uv_1plane = 29,
 	.fifo_size_2plane = 599,
 	.fifo_size_uv_2plane = 299,
-	.fifo_size_3plane = 596,
-	.fifo_size_uv_3plane = 148,
+	.fifo_size_3plane = 304,
+	.fifo_size_uv_3plane = 74,
 	/* sodi is same as mt6895 */
 	.sodi_config = mt6895_mtk_sodi_config,
 	.check_wdma_sec_reg = &mtk_wdma_check_sec_reg_MT6886,
