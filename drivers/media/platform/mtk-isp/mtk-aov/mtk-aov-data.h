@@ -172,6 +172,7 @@ struct aov_user {
 	uint32_t sensor_face;
 	uint32_t sensor_type;
 	uint32_t sensor_bit;
+	uint32_t sensor_ae;
 	uint32_t format_order;
 	uint32_t frame_format;
 	uint32_t frame_width;
@@ -214,6 +215,7 @@ struct aov_init {
 	uint32_t sensor_face;
 	uint32_t sensor_type;
 	uint32_t sensor_bit;
+	uint32_t sensor_ae;
 	uint32_t format_order;
 	uint32_t frame_format;
 	uint32_t frame_width;
