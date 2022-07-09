@@ -68,6 +68,8 @@
 #include "../mml/mtk-mml-driver.h"
 #include "../mml/mtk-mml-color.h"
 
+#include <soc/mediatek/mmqos.h>
+
 static struct mtk_drm_property mtk_crtc_property[CRTC_PROP_MAX] = {
 	{DRM_MODE_PROP_ATOMIC, "OVERLAP_LAYER_NUM", 0, UINT_MAX, 0},
 	{DRM_MODE_PROP_ATOMIC, "LAYERING_IDX", 0, UINT_MAX, 0},
@@ -1470,6 +1472,9 @@ void mtk_crtc_prepare_dual_pipe(struct mtk_drm_crtc *mtk_crtc)
 	comp = mtk_ddp_comp_request_output(mtk_crtc);
 	if (comp)
 		mtk_ddp_comp_io_cmd(comp, NULL, SET_MMCLK_BY_DATARATE, &en);
+
+	if (drm_crtc_index(&mtk_crtc->base) == 0)
+		mtk_mmqos_is_dualpipe_enable(mtk_crtc->is_dual_pipe);
 }
 
 static void user_cmd_cmdq_cb(struct cmdq_cb_data data)
