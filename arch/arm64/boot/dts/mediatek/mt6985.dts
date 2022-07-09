@@ -9087,6 +9087,7 @@
 					"system_pll", "system_bus";
 
 		irq-remain =	<&edge_keypad>,
+				<&level_apdma>,
 				<&level_usb_host>,
 				<&level_apusys_rv>;
 		resource-ctrl = <&bus26m &infra &syspll>,
@@ -9121,6 +9122,10 @@
 			edge_keypad: edge_keypad {
 				target = <&keypad>;
 				value = <1 0 0 0x04>;
+			};
+			level_apdma: level_apdma {
+				target = <&apdma>;
+				value = <0 0 0 0>;
 			};
 			level_usb_host: level_usb_host {
 				target = <&usb_host>;
