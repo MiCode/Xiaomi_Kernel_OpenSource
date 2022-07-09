@@ -628,6 +628,36 @@ static struct kernel_param_ops mmdvfs_vote_step_ops = {
 module_param_cb(vote_step, &mmdvfs_vote_step_ops, NULL, 0644);
 MODULE_PARM_DESC(vote_step, "vote mmdvfs to specified step");
 
+static int mmdvfs_set_vmm_init(const char *val, const struct kernel_param *kp)
+{
+	struct mmdvfs_ipi_data slot;
+	int ret;
+	unsigned int bin, aging;
+
+	ret = sscanf(val, "%u %u", &bin, &aging);
+	if (ret != 2) {
+		MMDVFS_ERR("input failed:%d val:%s", ret, val);
+		return -EINVAL;
+	}
+
+	mtk_mmdvfs_enable_vcp(true);
+	ret = mmdvfs_vcp_ipi_send(FUNT_VMRC_SET_VMM_INIT, bin, aging, MAX_OPP);
+	mtk_mmdvfs_v3_set_vote_step(PWR_MMDVFS_VMM, 0);
+	mtk_mmdvfs_v3_set_vote_step(PWR_MMDVFS_VMM, -1);
+	mtk_mmdvfs_enable_vcp(false);
+
+	slot = *(struct mmdvfs_ipi_data *)(u32 *)&mmdvfs_vcp_ipi_data;
+	MMDVFS_DBG("ret:%d slot:%#x ack:%hhu", ret, slot, slot.ack);
+
+	return ret;
+}
+
+static struct kernel_param_ops mmdvfs_vmm_init_ops = {
+	.set = mmdvfs_set_vmm_init,
+};
+module_param_cb(vmm_init, &mmdvfs_vmm_init_ops, NULL, 0644);
+MODULE_PARM_DESC(vmm_init, "set vmm initialization");
+
 static int lpm_spm_suspend_pm_event(struct notifier_block *notifier,
 			unsigned long pm_event, void *unused)
 {
