@@ -49,6 +49,7 @@ struct mtk_base_dsp_mem {
 	unsigned int dsp_feature_counter;
 	int underflowed;
 	spinlock_t ringbuf_lock;
+	void *dsp_copy_buf;
 };
 
 struct audio_core_flag {
