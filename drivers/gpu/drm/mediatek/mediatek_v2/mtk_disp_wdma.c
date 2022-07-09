@@ -157,6 +157,7 @@
 #define MT6895_WDMA0_AID_SEL	(0xB1CUL)
 #define MT6895_WDMA1_AID_SEL	(0xB20UL)
 
+#define MT6886_OVL_DUMMY_REG	(0x200UL)
 #define MT6886_WDMA0_AID_SEL	(0xB1CUL)
 #define MT6886_WDMA1_AID_SEL	(0xB20UL)
 
@@ -379,11 +380,19 @@ unsigned int mtk_wdma_aid_sel_MT6895(struct mtk_ddp_comp *comp)
 	}
 }
 
-unsigned int mtk_wdma_aid_sel_MT6886(struct mtk_ddp_comp *comp)
+
+resource_size_t mtk_wdma_check_sec_reg_MT6886(struct mtk_ddp_comp *comp)
 {
+	struct mtk_ddp_comp *comp_sec;
+	resource_size_t base;
+	struct mtk_drm_private *priv = comp->mtk_crtc->base.dev->dev_private;
 	switch (comp->id) {
+	case DDP_COMPONENT_WDMA0:
+		return 0;
 	case DDP_COMPONENT_WDMA1:
-		return MT6886_WDMA1_AID_SEL;
+		comp_sec = priv->ddp_comp[DDP_COMPONENT_OVL0_2L];
+		base = comp_sec->regs_pa;
+		return base + MT6886_OVL_DUMMY_REG;
 	default:
 		return 0;
 	}
@@ -1878,11 +1887,11 @@ static const struct mtk_disp_wdma_data mt6886_wdma_driver_data = {
 	.fifo_size_uv_3plane = 148,
 	/* sodi is same as mt6895 */
 	.sodi_config = mt6895_mtk_sodi_config,
-	.aid_sel = &mtk_wdma_aid_sel_MT6886,
+	.check_wdma_sec_reg = &mtk_wdma_check_sec_reg_MT6886,
 	.support_shadow = false,
 	.need_bypass_shadow = true,
 	.is_support_34bits = true,
-	.use_larb_control_sec = false,
+	.use_larb_control_sec = true,
 };
 
 static const struct mtk_disp_wdma_data mt6985_wdma_driver_data = {
