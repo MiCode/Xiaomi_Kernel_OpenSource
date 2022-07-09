@@ -2562,6 +2562,7 @@ static const struct of_device_id scpsys_of_ids[] = {
 };
 
 static struct platform_driver mtk_scpsys_device = {
+	.probe = scpsys_device_probe,
 	.driver = {
 		.name = "scpsys",
 		.owner = THIS_MODULE,
@@ -2623,13 +2624,15 @@ static int __init scp_init(void)
 		scp_resource_req(SCP_REQ_26M);
 	}
 
-	if (platform_driver_register(&mtk_scp_device)) {
-		pr_notice("[SCP] scp probe fail\n");
+	ret = platform_driver_register(&mtk_scp_device);
+	if (ret) {
+		pr_notice("[SCP] scp probe fail %d\n", ret);
 		goto err_without_unregister;
 	}
 
-	if (platform_driver_probe(&mtk_scpsys_device, scpsys_device_probe)) {
-		pr_notice("[SCP] scpsys probe fail\n");
+	ret = platform_driver_register(&mtk_scpsys_device);
+	if (ret) {
+		pr_notice("[SCP] scpsys probe fail %d\n", ret);
 		goto err;
 	}
 
