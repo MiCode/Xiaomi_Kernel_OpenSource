@@ -6628,9 +6628,16 @@
 			emi-size = <0x3000000>;
 			emi-alignment = <0x1000000>;
 			emi-max-addr = <0xC0000000>;
-			pinctrl-names = "wf_rst_off", "wf_rst_on";
+			pinctrl-names = "wf_rst_off",
+					"wf_rst_on",
+					"wf_rst_pta_uart_init",
+					"wf_rst_pta_uart_on",
+					"wf_rst_pta_uart_off";
 			pinctrl-0 = <&wf_rst_off>;
 			pinctrl-1 = <&wf_rst_on>;
+			pinctrl-2 = <&wf_rst_pta_uart_init>;
+			pinctrl-3 = <&wf_rst_pta_uart_on>;
+			pinctrl-4 = <&wf_rst_pta_uart_off>;
 			conninfra-emi-addr = <0>;
 			conninfra-emi-size = <0xc00000>;
 			#thermal-sensor-cells = <1>;
@@ -15402,6 +15409,41 @@ l3_hit,l3_mis,pmu_cyc_cnt";
 		pins_cmd1_dat {
 			pinmux = <PINMUX_GPIO239__FUNC_GPIO239>;
 			output-high;
+		};
+	};
+	wf_rst_pta_uart_init: wf_rst_pta_uart_init {
+		pins_cmd1_dat {
+			pinmux = <PINMUX_GPIO226__FUNC_GPIO226>;
+			input-enable;
+			bias-pull-down;
+		};
+		pins_cmd2_dat {
+			pinmux = <PINMUX_GPIO227__FUNC_GPIO227>;
+			input-enable;
+			bias-pull-down;
+		};
+	};
+	wf_rst_pta_uart_on: wf_rst_pta_uart_on {
+		pins_cmd1_dat {
+			pinmux = <PINMUX_GPIO226__FUNC_PTA_TXD0>;
+			output-low;
+		};
+		pins_cmd2_dat {
+			pinmux = <PINMUX_GPIO227__FUNC_PTA_RXD0>;
+			input-enable;
+			bias-pull-down;
+		};
+	};
+	wf_rst_pta_uart_off: wf_rst_pta_uart_off {
+		pins_cmd1_dat {
+			pinmux = <PINMUX_GPIO226__FUNC_GPIO226>;
+			input-enable;
+			bias-pull-down;
+		};
+		pins_cmd2_dat {
+			pinmux = <PINMUX_GPIO227__FUNC_GPIO227>;
+			input-enable;
+			bias-pull-down;
 		};
 	};
 };
