@@ -23,6 +23,7 @@
 #include <soc/mediatek/emi.h>
 #endif
 #include "mtk_iommu.h"
+#include "clk-mtk.h"
 //#include <dt-bindings/memory/mtk-smi-larb-port.h>
 
 #define DRV_NAME	"mtk-smi-dbg"
@@ -1295,6 +1296,9 @@ s32 mtk_smi_dbg_hang_detect(char *user)
 	mtk_emidbg_dump();
 #endif
 
+	/* notify to CCF to enable trace dump */
+	mtk_clk_notify(NULL, NULL, NULL, 0, 1, 0, CLK_EVT_TRIGGER_TRACE_DUMP);
+
 	raw_notifier_call_chain(&smi_notifier_list, 0, user);
 
 	/*start to monitor bw and check ostd*/
@@ -1327,6 +1331,9 @@ s32 mtk_smi_dbg_hang_detect(char *user)
 	}
 
 	mtk_smi_dump_last_pd(user);
+
+	/* notify to CCF to disable trace dump */
+	mtk_clk_notify(NULL, NULL, NULL, 0, 0, 0, CLK_EVT_TRIGGER_TRACE_DUMP);
 
 	if (is_hang) {
 		pr_notice("[smi] smi may hang\n");
