@@ -1596,6 +1596,15 @@ int sensor_control_scp(enum feature_id id, int freq)
 }
 EXPORT_SYMBOL_GPL(sensor_control_scp);
 
+/* scp dram region manage
+ * 0: not probed, -1: disable, 1: enable
+ */
+int get_scp_dram_region_manage(void)
+{
+	return scpreg.scp_dram_region;
+}
+EXPORT_SYMBOL_GPL(get_scp_dram_region_manage);
+
 /*
  * apps notification
  */
@@ -2256,6 +2265,7 @@ static int scp_device_probe(struct platform_device *pdev)
 	const char *core_status = NULL;
 	const char *scp_hwvoter = NULL;
 	const char *secure_dump = NULL;
+	const char *scp_dram_region = NULL;
 	struct device *dev = &pdev->dev;
 	struct device_node *node;
 	const char *scp_pm_notify = NULL;
@@ -2328,6 +2338,14 @@ static int scp_device_probe(struct platform_device *pdev)
 	}
 	pr_debug("[SCP] cfg_sec base = 0x%px\n", scpreg.cfg_sec);
 
+	/* scp-dram-region */
+	scpreg.scp_dram_region = -1;
+	if (!of_property_read_string(pdev->dev.of_node, "scp-dram-region", &scp_dram_region)) {
+		if (!strncmp(scp_dram_region, "enable", strlen("enable"))) {
+			pr_notice("[SCP] dram region enabled\n");
+			scpreg.scp_dram_region = 1;
+		}
+	}
 
 	of_property_read_u32(pdev->dev.of_node, "scp_sramSize"
 						, &scpreg.scp_tcmsize);

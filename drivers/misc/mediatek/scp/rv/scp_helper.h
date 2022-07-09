@@ -131,6 +131,7 @@ struct scp_regs {
 	unsigned int core_nums;
 	unsigned int twohart;
 	unsigned int secure_dump;
+	int scp_dram_region;
 	struct scp_bus_tracker_status tracker_status;
 };
 
