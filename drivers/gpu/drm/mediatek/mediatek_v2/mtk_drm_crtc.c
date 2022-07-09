@@ -9282,8 +9282,9 @@ void mtk_drm_crtc_plane_disable(struct drm_crtc *crtc, struct drm_plane *plane,
 #endif
 	struct cmdq_pkt *cmdq_handle = state->cmdq_handle;
 
-	DDPINFO("%s+ plane_id:%d, comp_id:%d, comp_id:%d\n", __func__,
-		plane->index, comp->id, plane_state->comp_state.comp_id);
+	if (comp)
+		DDPINFO("%s+ plane_id:%d, comp_id:%d, comp_id:%d\n", __func__,
+			plane->index, comp->id, plane_state->comp_state.comp_id);
 
 	if (plane_state->pending.enable) {
 		if (mtk_crtc->is_dual_pipe) {
