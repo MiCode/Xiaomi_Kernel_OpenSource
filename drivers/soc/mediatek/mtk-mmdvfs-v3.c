@@ -49,8 +49,8 @@ static bool mmdvfs_free_run;
 static struct device *cam_larb_dev;
 static DEFINE_MUTEX(mmdvfs_vmm_pwr_mutex);
 static int vmm_power;
-static int last_vmm_vote_step = -1;
-static int last_vmm_force_step = MAX_OPP;
+static int last_vote_step[PWR_MMDVFS_NUM];
+static int last_force_step[PWR_MMDVFS_NUM];
 
 static struct platform_device *ccu_pdev;
 static struct rproc *ccu_rproc;
@@ -479,7 +479,7 @@ EXPORT_SYMBOL_GPL(mtk_mmdvfs_camera_notify_from_mmqos);
 int mtk_mmdvfs_v3_set_force_step(u16 pwr_idx, s16 opp)
 {
 	struct mmdvfs_ipi_data slot;
-	int ret;
+	int *last, ret;
 
 	if (!mtk_is_mmdvfs_init_done()) {
 		MMDVFS_DBG("mmdvfs_v3 init not ready");
@@ -491,32 +491,28 @@ int mtk_mmdvfs_v3_set_force_step(u16 pwr_idx, s16 opp)
 		return -EINVAL;
 	}
 
-	if (opp < 0)
-		opp = MAX_OPP;
+	last = &last_force_step[pwr_idx];
+	if (*last == opp)
+		return 0;
 
-	if (pwr_idx == PWR_MMDVFS_VMM) {
-		if (opp == last_vmm_force_step)
-			return 0;
-		if (last_vmm_force_step == MAX_OPP) {
-			mtk_mmdvfs_enable_vcp(true);
-			if (cam_larb_dev)
-				mtk_mmdvfs_enable_vmm(true);
-		}
+	if (*last == -1) {
+		mtk_mmdvfs_enable_vcp(true);
+
+		if (pwr_idx == PWR_MMDVFS_VMM)
+			mtk_mmdvfs_enable_vmm(true);
 	}
 
-	ret = mmdvfs_vcp_ipi_send(FUNC_FORCE_OPP, pwr_idx, opp, MAX_OPP);
-
+	ret = mmdvfs_vcp_ipi_send(FUNC_FORCE_OPP, pwr_idx, opp == -1 ? MAX_OPP : opp, MAX_OPP);
 	slot = *(struct mmdvfs_ipi_data *)(u32 *)&mmdvfs_vcp_ipi_data;
 	MMDVFS_DBG("ret:%d slot:%#x idx:%hhu opp:%hhu", ret, slot, slot.idx, slot.ack);
 
-	if (pwr_idx == PWR_MMDVFS_VMM) {
-		if (opp == MAX_OPP) {
-			if (cam_larb_dev)
-				mtk_mmdvfs_enable_vmm(false);
-			mtk_mmdvfs_enable_vcp(false);
-		}
-		last_vmm_force_step = opp;
+	if (opp == -1) {
+		if (pwr_idx == PWR_MMDVFS_VMM)
+			mtk_mmdvfs_enable_vmm(false);
+
+		mtk_mmdvfs_enable_vcp(false);
 	}
+	*last = opp;
 
 	return ret;
 }
@@ -551,7 +547,7 @@ MODULE_PARM_DESC(force_step, "force mmdvfs to specified step");
 int mtk_mmdvfs_v3_set_vote_step(u16 pwr_idx, s16 opp)
 {
 	u32 freq = 0;
-	int ret = 0, i;
+	int i, *last, ret = 0;
 
 	if (!mtk_is_mmdvfs_init_done()) {
 		MMDVFS_DBG("mmdvfs_v3 init not ready");
@@ -563,15 +559,15 @@ int mtk_mmdvfs_v3_set_vote_step(u16 pwr_idx, s16 opp)
 		return -EINVAL;
 	}
 
-	if (pwr_idx == PWR_MMDVFS_VMM) {
-		if (opp == last_vmm_vote_step)
-			return 0;
+	last = &last_force_step[pwr_idx];
+	if (*last == opp)
+		return 0;
 
-		if (last_vmm_vote_step == -1) {
-			mtk_mmdvfs_enable_vcp(true);
-			if (cam_larb_dev)
-				mtk_mmdvfs_enable_vmm(true);
-		}
+	if (*last == -1) {
+		mtk_mmdvfs_enable_vcp(true);
+
+		if (pwr_idx == PWR_MMDVFS_VMM)
+			mtk_mmdvfs_enable_vmm(true);
 	}
 
 	for (i = mmdvfs_clk_num - 1; i >= 0; i--)
@@ -582,27 +578,25 @@ int mtk_mmdvfs_v3_set_vote_step(u16 pwr_idx, s16 opp)
 				break;
 			}
 
-			freq = (opp < 0) ? 0 : mtk_mmdvfs_clks[i].freqs[
+			freq = (opp == -1) ? 0 : mtk_mmdvfs_clks[i].freqs[
 				mtk_mmdvfs_clks[i].freq_num - 1 - opp];
 			ret = clk_set_rate(mmdvfs_pwr_clk[pwr_idx], freq);
 			if (ret)
 				MMDVFS_ERR("clk_set_rate failed:%d pwr_idx:%hu freq:%hu",
 					ret, pwr_idx, freq);
-
 			break;
 		}
 
 	MMDVFS_DBG("pwr_idx:%hu clk:%p opp:%hd i:%d freq_num:%hhu freq:%u", pwr_idx,
 		mmdvfs_pwr_clk[pwr_idx], opp, i, mtk_mmdvfs_clks[i].freq_num, freq);
 
-	if (pwr_idx == PWR_MMDVFS_VMM) {
-		if (opp == -1) {
-			if (cam_larb_dev)
-				mtk_mmdvfs_enable_vmm(false);
-			mtk_mmdvfs_enable_vcp(false);
-		}
-		last_vmm_vote_step = opp;
+	if (opp == -1) {
+		if (pwr_idx == PWR_MMDVFS_VMM)
+			mtk_mmdvfs_enable_vmm(false);
+
+		mtk_mmdvfs_enable_vcp(false);
 	}
+	*last = opp;
 
 	return ret;
 }
@@ -637,6 +631,8 @@ MODULE_PARM_DESC(vote_step, "vote mmdvfs to specified step");
 static int lpm_spm_suspend_pm_event(struct notifier_block *notifier,
 			unsigned long pm_event, void *unused)
 {
+	int i;
+
 	switch (pm_event) {
 	case PM_HIBERNATION_PREPARE:
 		return NOTIFY_DONE;
@@ -646,10 +642,12 @@ static int lpm_spm_suspend_pm_event(struct notifier_block *notifier,
 		return NOTIFY_DONE;
 	case PM_SUSPEND_PREPARE:
 		MMDVFS_DBG("start suspend");
-		if (last_vmm_vote_step != -1 && cam_larb_dev)
-			mtk_mmdvfs_v3_set_vote_step(PWR_MMDVFS_VMM, -1);
-		if (last_vmm_force_step != MAX_OPP && cam_larb_dev)
-			mtk_mmdvfs_v3_set_force_step(PWR_MMDVFS_VMM, -1);
+		for (i = 0; i < PWR_MMDVFS_NUM; i++) {
+			if (last_vote_step[i] != -1)
+				mtk_mmdvfs_v3_set_vote_step(i, -1);
+			if (last_force_step[i] != -1)
+				mtk_mmdvfs_v3_set_force_step(i, -1);
+		}
 		//enable_aoc_iso(true);
 		return NOTIFY_DONE;
 	case PM_POST_SUSPEND:
@@ -1126,6 +1124,11 @@ static int mmdvfs_v3_probe(struct platform_device *pdev)
 
 	if (of_property_read_bool(node, "mmdvfs-free-run"))
 		mmdvfs_free_run = true;
+
+	for (i = 0; i < PWR_MMDVFS_NUM; i++) {
+		last_vote_step[i] = -1;
+		last_force_step[i] = -1;
+	}
 
 	kthr_vcp = kthread_run(mmdvfs_vcp_init_thread, NULL, "mmdvfs-vcp");
 	kthr_ccu = kthread_run(mmdvfs_ccu_init_thread, node, "mmdvfs-ccu");
