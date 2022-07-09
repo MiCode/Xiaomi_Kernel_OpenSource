@@ -1544,9 +1544,15 @@ static DRIVER_ATTR_RW(set_swp_addr);
 static void devapc_arm64_serror_panic_hook(void *data,
 		struct pt_regs *regs, unsigned int esr)
 {
+	struct devapc_vio_callbacks *viocb;
+
 	mtk_devapc_ctx->serror = true;
 	mtk_devapc_ctx->soc->dbg_stat->enable_KE = false;
 	devapc_dump_info(false);
+	list_for_each_entry(viocb, &viocb_list, list) {
+		if (viocb->id == DEVAPC_SUBSYS_CLKM && viocb->debug_dump)
+			viocb->debug_dump();
+	}
 }
 #endif
 
