@@ -542,6 +542,8 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus16[] = {
 
 static struct subdrv_mode_struct mode_struct[] = {
 	{
+		.frame_desc = frame_desc_prev,
+		.num_entries = ARRAY_SIZE(frame_desc_prev),
 		.mode_setting_table = imx766_preview_setting,
 		.mode_setting_len = ARRAY_SIZE(imx766_preview_setting),
 		.seamless_switch_group = PARAM_UNDEFINED,
@@ -584,10 +586,10 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.csi_param = {
 			.cphy_settle = 73,
 		},
-		.frame_desc = frame_desc_prev,
-		.num_entries = ARRAY_SIZE(frame_desc_prev),
 	},
 	{
+		.frame_desc = frame_desc_cap,
+		.num_entries = ARRAY_SIZE(frame_desc_cap),
 		.mode_setting_table = imx766_capture_setting,
 		.mode_setting_len = ARRAY_SIZE(imx766_capture_setting),
 		.seamless_switch_group = PARAM_UNDEFINED,
@@ -630,10 +632,10 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.csi_param = {
 			.cphy_settle = 73,
 		},
-		.frame_desc = frame_desc_cap,
-		.num_entries = ARRAY_SIZE(frame_desc_cap),
 	},
 	{
+		.frame_desc = frame_desc_vid,
+		.num_entries = ARRAY_SIZE(frame_desc_vid),
 		.mode_setting_table = imx766_normal_video_setting,
 		.mode_setting_len = ARRAY_SIZE(imx766_normal_video_setting),
 		.seamless_switch_group = 1,
@@ -676,10 +678,10 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.csi_param = {
 			.cphy_settle = 73,
 		},
-		.frame_desc = frame_desc_vid,
-		.num_entries = ARRAY_SIZE(frame_desc_vid),
 	},
 	{
+		.frame_desc = frame_desc_hs,
+		.num_entries = ARRAY_SIZE(frame_desc_hs),
 		.mode_setting_table = imx766_hs_video_setting,
 		.mode_setting_len = ARRAY_SIZE(imx766_hs_video_setting),
 		.seamless_switch_group = PARAM_UNDEFINED,
@@ -722,10 +724,10 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.csi_param = {
 			.cphy_settle = 76,
 		},
-		.frame_desc = frame_desc_hs,
-		.num_entries = ARRAY_SIZE(frame_desc_hs),
 	},
 	{
+		.frame_desc = frame_desc_slim,
+		.num_entries = ARRAY_SIZE(frame_desc_slim),
 		.mode_setting_table = imx766_slim_video_setting,
 		.mode_setting_len = ARRAY_SIZE(imx766_slim_video_setting),
 		.seamless_switch_group = PARAM_UNDEFINED,
@@ -768,10 +770,10 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.csi_param = {
 			.cphy_settle = 73,
 		},
-		.frame_desc = frame_desc_slim,
-		.num_entries = ARRAY_SIZE(frame_desc_slim),
 	},
 	{
+		.frame_desc = frame_desc_cus1,
+		.num_entries = ARRAY_SIZE(frame_desc_cus1),
 		.mode_setting_table = imx766_custom1_setting,
 		.mode_setting_len = ARRAY_SIZE(imx766_custom1_setting),
 		.seamless_switch_group = PARAM_UNDEFINED,
@@ -814,10 +816,10 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.csi_param = {
 			.cphy_settle = 84,
 		},
-		.frame_desc = frame_desc_cus1,
-		.num_entries = ARRAY_SIZE(frame_desc_cus1),
 	},
 	{
+		.frame_desc = frame_desc_cus2,
+		.num_entries = ARRAY_SIZE(frame_desc_cus2),
 		.mode_setting_table = imx766_custom2_setting,
 		.mode_setting_len = ARRAY_SIZE(imx766_custom2_setting),
 		.seamless_switch_group = PARAM_UNDEFINED,
@@ -860,10 +862,10 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.csi_param = {
 			.cphy_settle = 65,
 		},
-		.frame_desc = frame_desc_cus2,
-		.num_entries = ARRAY_SIZE(frame_desc_cus2),
 	},
 	{
+		.frame_desc = frame_desc_cus3,
+		.num_entries = ARRAY_SIZE(frame_desc_cus3),
 		.mode_setting_table = imx766_custom3_setting,
 		.mode_setting_len = ARRAY_SIZE(imx766_custom3_setting),
 		.seamless_switch_group = PARAM_UNDEFINED,
@@ -906,11 +908,11 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.csi_param = {
 			.cphy_settle = 69,
 		},
-		.frame_desc = frame_desc_cus3,
-		.num_entries = ARRAY_SIZE(frame_desc_cus3),
 		.ana_gain_max = BASEGAIN * 16,
 	},
 	{
+		.frame_desc = frame_desc_cus4,
+		.num_entries = ARRAY_SIZE(frame_desc_cus4),
 		.mode_setting_table = imx766_custom4_setting,
 		.mode_setting_len = ARRAY_SIZE(imx766_custom4_setting),
 		.seamless_switch_group = 1,
@@ -953,10 +955,10 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.csi_param = {
 			.cphy_settle = 73,
 		},
-		.frame_desc = frame_desc_cus4,
-		.num_entries = ARRAY_SIZE(frame_desc_cus4),
 	},
 	{
+		.frame_desc = frame_desc_cus5,
+		.num_entries = ARRAY_SIZE(frame_desc_cus5),
 		.mode_setting_table = imx766_custom5_setting,
 		.mode_setting_len = ARRAY_SIZE(imx766_custom5_setting),
 		.seamless_switch_group = PARAM_UNDEFINED,
@@ -999,10 +1001,10 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.csi_param = {
 			.cphy_settle = 69,
 		},
-		.frame_desc = frame_desc_cus5,
-		.num_entries = ARRAY_SIZE(frame_desc_cus5),
 	},
 	{
+		.frame_desc = frame_desc_cus6,
+		.num_entries = ARRAY_SIZE(frame_desc_cus6),
 		.mode_setting_table = imx766_custom6_setting,
 		.mode_setting_len = ARRAY_SIZE(imx766_custom6_setting),
 		.seamless_switch_group = PARAM_UNDEFINED,
@@ -1045,10 +1047,10 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.csi_param = {
 			.cphy_settle = 69,
 		},
-		.frame_desc = frame_desc_cus6,
-		.num_entries = ARRAY_SIZE(frame_desc_cus6),
 	},
 	{
+		.frame_desc = frame_desc_cus7,
+		.num_entries = ARRAY_SIZE(frame_desc_cus7),
 		.mode_setting_table = imx766_custom7_setting,
 		.mode_setting_len = ARRAY_SIZE(imx766_custom7_setting),
 		.seamless_switch_group = PARAM_UNDEFINED,
@@ -1091,10 +1093,10 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.csi_param = {
 			.cphy_settle = 73,
 		},
-		.frame_desc = frame_desc_cus7,
-		.num_entries = ARRAY_SIZE(frame_desc_cus7),
 	},
 	{
+		.frame_desc = frame_desc_cus8,
+		.num_entries = ARRAY_SIZE(frame_desc_cus8),
 		.mode_setting_table = imx766_custom8_setting,
 		.mode_setting_len = ARRAY_SIZE(imx766_custom8_setting),
 		.seamless_switch_group = PARAM_UNDEFINED,
@@ -1137,10 +1139,10 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.csi_param = {
 			.cphy_settle = 65,
 		},
-		.frame_desc = frame_desc_cus8,
-		.num_entries = ARRAY_SIZE(frame_desc_cus8),
 	},
 	{
+		.frame_desc = frame_desc_cus9,
+		.num_entries = ARRAY_SIZE(frame_desc_cus9),
 		.mode_setting_table = imx766_custom9_setting,
 		.mode_setting_len = ARRAY_SIZE(imx766_custom9_setting),
 		.seamless_switch_group = 2,
@@ -1183,10 +1185,10 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.csi_param = {
 			.cphy_settle = 65,
 		},
-		.frame_desc = frame_desc_cus9,
-		.num_entries = ARRAY_SIZE(frame_desc_cus9),
 	},
 	{
+		.frame_desc = frame_desc_cus10,
+		.num_entries = ARRAY_SIZE(frame_desc_cus10),
 		.mode_setting_table = imx766_custom10_setting,
 		.mode_setting_len = ARRAY_SIZE(imx766_custom10_setting),
 		.seamless_switch_group = 2,
@@ -1229,11 +1231,11 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.csi_param = {
 			.cphy_settle = 65,
 		},
-		.frame_desc = frame_desc_cus10,
-		.num_entries = ARRAY_SIZE(frame_desc_cus10),
 		.ana_gain_max = BASEGAIN * 16,
 	},
 	{
+		.frame_desc = frame_desc_cus11,
+		.num_entries = ARRAY_SIZE(frame_desc_cus11),
 		.mode_setting_table = imx766_custom11_setting,
 		.mode_setting_len = ARRAY_SIZE(imx766_custom11_setting),
 		.seamless_switch_group = 2,
@@ -1276,11 +1278,11 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.csi_param = {
 			.cphy_settle = 65,
 		},
-		.frame_desc = frame_desc_cus11,
-		.num_entries = ARRAY_SIZE(frame_desc_cus11),
 		.ana_gain_max = BASEGAIN * 16,
 	},
 	{
+		.frame_desc = frame_desc_cus12,
+		.num_entries = ARRAY_SIZE(frame_desc_cus12),
 		.mode_setting_table = imx766_custom12_setting,
 		.mode_setting_len = ARRAY_SIZE(imx766_custom12_setting),
 		.seamless_switch_group = 2,
@@ -1323,10 +1325,10 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.csi_param = {
 			.cphy_settle = 65,
 		},
-		.frame_desc = frame_desc_cus12,
-		.num_entries = ARRAY_SIZE(frame_desc_cus12),
 	},
 	{
+		.frame_desc = frame_desc_cus13,
+		.num_entries = ARRAY_SIZE(frame_desc_cus13),
 		.mode_setting_table = imx766_custom13_setting,
 		.mode_setting_len = ARRAY_SIZE(imx766_custom13_setting),
 		.seamless_switch_group = 3,
@@ -1369,10 +1371,10 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.csi_param = {
 			.cphy_settle = 65,
 		},
-		.frame_desc = frame_desc_cus13,
-		.num_entries = ARRAY_SIZE(frame_desc_cus13),
 	},
 	{
+		.frame_desc = frame_desc_cus14,
+		.num_entries = ARRAY_SIZE(frame_desc_cus14),
 		.mode_setting_table = imx766_custom14_setting,
 		.mode_setting_len = ARRAY_SIZE(imx766_custom14_setting),
 		.seamless_switch_group = 3,
@@ -1415,12 +1417,12 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.csi_param = {
 			.cphy_settle = 65,
 		},
-		.frame_desc = frame_desc_cus14,
-		.num_entries = ARRAY_SIZE(frame_desc_cus14),
 		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_Gb,
 		.ana_gain_max = BASEGAIN * 16,
 	},
 	{
+		.frame_desc = frame_desc_cus15,
+		.num_entries = ARRAY_SIZE(frame_desc_cus15),
 		.mode_setting_table = imx766_custom15_setting,
 		.mode_setting_len = ARRAY_SIZE(imx766_custom15_setting),
 		.seamless_switch_group = 4,
@@ -1463,10 +1465,10 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.csi_param = {
 			.cphy_settle = 65,
 		},
-		.frame_desc = frame_desc_cus15,
-		.num_entries = ARRAY_SIZE(frame_desc_cus15),
 	},
 	{
+		.frame_desc = frame_desc_cus16,
+		.num_entries = ARRAY_SIZE(frame_desc_cus16),
 		.mode_setting_table = imx766_custom16_setting,
 		.mode_setting_len = ARRAY_SIZE(imx766_custom16_setting),
 		.seamless_switch_group = 4,
@@ -1509,8 +1511,6 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.csi_param = {
 			.cphy_settle = 65,
 		},
-		.frame_desc = frame_desc_cus16,
-		.num_entries = ARRAY_SIZE(frame_desc_cus16),
 	},
 };
 

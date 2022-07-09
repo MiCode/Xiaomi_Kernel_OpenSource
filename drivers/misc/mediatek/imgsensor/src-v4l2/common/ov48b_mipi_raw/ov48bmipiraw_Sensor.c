@@ -332,6 +332,8 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus13[] = {
 
 static struct subdrv_mode_struct mode_struct[] = {
 	{
+		.frame_desc = frame_desc_prev,
+		.num_entries = ARRAY_SIZE(frame_desc_prev),
 		.mode_setting_table = addr_data_pair_preview_ov48b2q,
 		.mode_setting_len = ARRAY_SIZE(addr_data_pair_preview_ov48b2q),
 		.seamless_switch_group = PARAM_UNDEFINED,
@@ -372,10 +374,10 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.csi_param = {
 			.cphy_settle = 98,
 		},
-		.frame_desc = frame_desc_prev,
-		.num_entries = ARRAY_SIZE(frame_desc_prev),
 	},
 	{
+		.frame_desc = frame_desc_cap,
+		.num_entries = ARRAY_SIZE(frame_desc_cap),
 		.mode_setting_table = addr_data_pair_capture_ov48b2q,
 		.mode_setting_len = ARRAY_SIZE(addr_data_pair_capture_ov48b2q),
 		.seamless_switch_group = 1,
@@ -416,10 +418,10 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.csi_param = {
 			.cphy_settle = 98,
 		},
-		.frame_desc = frame_desc_cap,
-		.num_entries = ARRAY_SIZE(frame_desc_cap),
 	},
 	{
+		.frame_desc = frame_desc_vid,
+		.num_entries = ARRAY_SIZE(frame_desc_vid),
 		.mode_setting_table = addr_data_pair_video_ov48b2q,
 		.mode_setting_len = ARRAY_SIZE(addr_data_pair_video_ov48b2q),
 		.seamless_switch_group = PARAM_UNDEFINED,
@@ -460,10 +462,10 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.csi_param = {
 			.cphy_settle = 98,
 		},
-		.frame_desc = frame_desc_vid,
-		.num_entries = ARRAY_SIZE(frame_desc_vid),
 	},
 	{
+		.frame_desc = frame_desc_hs_vid,
+		.num_entries = ARRAY_SIZE(frame_desc_hs_vid),
 		.mode_setting_table = addr_data_pair_hs_video_ov48b2q,
 		.mode_setting_len = ARRAY_SIZE(addr_data_pair_hs_video_ov48b2q),
 		.seamless_switch_group = PARAM_UNDEFINED,
@@ -504,10 +506,10 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.csi_param = {
 			.cphy_settle = 98,
 		},
-		.frame_desc = frame_desc_hs_vid,
-		.num_entries = ARRAY_SIZE(frame_desc_hs_vid),
 	},
 	{
+		.frame_desc = frame_desc_slim_vid,
+		.num_entries = ARRAY_SIZE(frame_desc_slim_vid),
 		.mode_setting_table = addr_data_pair_slim_video_ov48b2q,
 		.mode_setting_len = ARRAY_SIZE(addr_data_pair_slim_video_ov48b2q),
 		.seamless_switch_group = PARAM_UNDEFINED,
@@ -548,10 +550,10 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.csi_param = {
 			.cphy_settle = 98,
 		},
-		.frame_desc = frame_desc_slim_vid,
-		.num_entries = ARRAY_SIZE(frame_desc_slim_vid),
 	},
 	{
+		.frame_desc = frame_desc_cus1,
+		.num_entries = ARRAY_SIZE(frame_desc_cus1),
 		.mode_setting_table = addr_data_pair_custom1,
 		.mode_setting_len = ARRAY_SIZE(addr_data_pair_custom1),
 		.seamless_switch_group = PARAM_UNDEFINED,
@@ -592,10 +594,10 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.csi_param = {
 			.cphy_settle = 98,
 		},
-		.frame_desc = frame_desc_cus1,
-		.num_entries = ARRAY_SIZE(frame_desc_cus1),
 	},
 	{
+		.frame_desc = frame_desc_cus2,
+		.num_entries = ARRAY_SIZE(frame_desc_cus2),
 		.mode_setting_table = addr_data_pair_custom2,
 		.mode_setting_len = ARRAY_SIZE(addr_data_pair_custom2),
 		.seamless_switch_group = PARAM_UNDEFINED,
@@ -636,10 +638,10 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.csi_param = {
 			.cphy_settle = 98,
 		},
-		.frame_desc = frame_desc_cus2,
-		.num_entries = ARRAY_SIZE(frame_desc_cus2),
 	},
 	{
+		.frame_desc = frame_desc_cus3,
+		.num_entries = ARRAY_SIZE(frame_desc_cus3),
 		.mode_setting_table = addr_data_pair_custom3,
 		.mode_setting_len = ARRAY_SIZE(addr_data_pair_custom3),
 		.seamless_switch_group = PARAM_UNDEFINED,
@@ -680,10 +682,10 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.csi_param = {
 			.cphy_settle = 98,
 		},
-		.frame_desc = frame_desc_cus3,
-		.num_entries = ARRAY_SIZE(frame_desc_cus3),
 	},
 	{
+		.frame_desc = frame_desc_cus4,
+		.num_entries = ARRAY_SIZE(frame_desc_cus4),
 		.mode_setting_table = addr_data_pair_custom4,
 		.mode_setting_len = ARRAY_SIZE(addr_data_pair_custom4),
 		.seamless_switch_group = PARAM_UNDEFINED,
@@ -724,10 +726,10 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.csi_param = {
 			.cphy_settle = 98,
 		},
-		.frame_desc = frame_desc_cus4,
-		.num_entries = ARRAY_SIZE(frame_desc_cus4),
 	},
 	{
+		.frame_desc = frame_desc_cus5,
+		.num_entries = ARRAY_SIZE(frame_desc_cus5),
 		.mode_setting_table = addr_data_pair_custom5,
 		.mode_setting_len = ARRAY_SIZE(addr_data_pair_custom5),
 		.seamless_switch_group = PARAM_UNDEFINED,
@@ -768,10 +770,10 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.csi_param = {
 			.cphy_settle = 98,
 		},
-		.frame_desc = frame_desc_cus5,
-		.num_entries = ARRAY_SIZE(frame_desc_cus5),
 	},
 	{
+		.frame_desc = frame_desc_cus6,
+		.num_entries = ARRAY_SIZE(frame_desc_cus6),
 		.mode_setting_table = addr_data_pair_custom6,
 		.mode_setting_len = ARRAY_SIZE(addr_data_pair_custom6),
 		.seamless_switch_group = PARAM_UNDEFINED,
@@ -812,10 +814,10 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.csi_param = {
 			.cphy_settle = 98,
 		},
-		.frame_desc = frame_desc_cus6,
-		.num_entries = ARRAY_SIZE(frame_desc_cus6),
 	},
 	{
+		.frame_desc = frame_desc_cus7,
+		.num_entries = ARRAY_SIZE(frame_desc_cus7),
 		.mode_setting_table = addr_data_pair_custom7,
 		.mode_setting_len = ARRAY_SIZE(addr_data_pair_custom7),
 		.seamless_switch_group = PARAM_UNDEFINED,
@@ -856,10 +858,10 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.csi_param = {
 			.cphy_settle = 98,
 		},
-		.frame_desc = frame_desc_cus7,
-		.num_entries = ARRAY_SIZE(frame_desc_cus7),
 	},
 	{
+		.frame_desc = frame_desc_cus8,
+		.num_entries = ARRAY_SIZE(frame_desc_cus8),
 		.mode_setting_table = addr_data_pair_custom8,
 		.mode_setting_len = ARRAY_SIZE(addr_data_pair_custom8),
 		.seamless_switch_group = PARAM_UNDEFINED,
@@ -900,10 +902,10 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.csi_param = {
 			.cphy_settle = 98,
 		},
-		.frame_desc = frame_desc_cus8,
-		.num_entries = ARRAY_SIZE(frame_desc_cus8),
 	},
 	{
+		.frame_desc = frame_desc_cus9,
+		.num_entries = ARRAY_SIZE(frame_desc_cus9),
 		.mode_setting_table = addr_data_pair_custom9,
 		.mode_setting_len = ARRAY_SIZE(addr_data_pair_custom9),
 		.seamless_switch_group = PARAM_UNDEFINED,
@@ -944,10 +946,10 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.csi_param = {
 			.cphy_settle = 98,
 		},
-		.frame_desc = frame_desc_cus9,
-		.num_entries = ARRAY_SIZE(frame_desc_cus9),
 	},
 	{
+		.frame_desc = frame_desc_cus10,
+		.num_entries = ARRAY_SIZE(frame_desc_cus10),
 		.mode_setting_table = addr_data_pair_custom10,
 		.mode_setting_len = ARRAY_SIZE(addr_data_pair_custom10),
 		.seamless_switch_group = 1,
@@ -988,11 +990,11 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.csi_param = {
 			.cphy_settle = 98,
 		},
-		.frame_desc = frame_desc_cus10,
-		.num_entries = ARRAY_SIZE(frame_desc_cus10),
 		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_B,
 	},
 	{
+		.frame_desc = frame_desc_cus11,
+		.num_entries = ARRAY_SIZE(frame_desc_cus11),
 		.mode_setting_table = addr_data_pair_custom11,
 		.mode_setting_len = ARRAY_SIZE(addr_data_pair_custom11),
 		.seamless_switch_group = 1,
@@ -1033,11 +1035,11 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.csi_param = {
 			.cphy_settle = 98,
 		},
-		.frame_desc = frame_desc_cus11,
-		.num_entries = ARRAY_SIZE(frame_desc_cus11),
 		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_B,
 	},
 	{
+		.frame_desc = frame_desc_cus12,
+		.num_entries = ARRAY_SIZE(frame_desc_cus12),
 		.mode_setting_table = addr_data_pair_custom12,
 		.mode_setting_len = ARRAY_SIZE(addr_data_pair_custom12),
 		.seamless_switch_group = PARAM_UNDEFINED,
@@ -1078,10 +1080,10 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.csi_param = {
 			.cphy_settle = 98,
 		},
-		.frame_desc = frame_desc_cus12,
-		.num_entries = ARRAY_SIZE(frame_desc_cus12),
 	},
 	{
+		.frame_desc = frame_desc_cus13,
+		.num_entries = ARRAY_SIZE(frame_desc_cus13),
 		.mode_setting_table = addr_data_pair_custom13,
 		.mode_setting_len = ARRAY_SIZE(addr_data_pair_custom13),
 		.seamless_switch_group = PARAM_UNDEFINED,
@@ -1123,8 +1125,6 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.csi_param = {
 			.cphy_settle = 98,
 		},
-		.frame_desc = frame_desc_cus13,
-		.num_entries = ARRAY_SIZE(frame_desc_cus13),
 	},
 };
 

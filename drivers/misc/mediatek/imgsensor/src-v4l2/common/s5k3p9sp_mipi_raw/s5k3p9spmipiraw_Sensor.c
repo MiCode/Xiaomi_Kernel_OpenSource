@@ -94,6 +94,8 @@ static struct mtk_mbus_frame_desc_entry frame_desc_slim_vid[] = {
 
 static struct subdrv_mode_struct mode_struct[] = {
 	{
+		.frame_desc = frame_desc_prev,
+		.num_entries = ARRAY_SIZE(frame_desc_prev),
 		.mode_setting_table = addr_data_pair_preview,
 		.mode_setting_len = ARRAY_SIZE(addr_data_pair_preview),
 		.seamless_switch_group = PARAM_UNDEFINED,
@@ -132,10 +134,10 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.fine_integ_line = 0,
 		.delay_frame = 2,
 		.csi_param = {0},
-		.frame_desc = frame_desc_prev,
-		.num_entries = ARRAY_SIZE(frame_desc_prev),
 	},
 	{
+		.frame_desc = frame_desc_cap,
+		.num_entries = ARRAY_SIZE(frame_desc_cap),
 		.mode_setting_table = addr_data_pair_capture,
 		.mode_setting_len = ARRAY_SIZE(addr_data_pair_capture),
 		.seamless_switch_group = PARAM_UNDEFINED,
@@ -174,10 +176,10 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.fine_integ_line = 0,
 		.delay_frame = 2,
 		.csi_param = {0},
-		.frame_desc = frame_desc_cap,
-		.num_entries = ARRAY_SIZE(frame_desc_cap),
 	},
 	{
+		.frame_desc = frame_desc_vid,
+		.num_entries = ARRAY_SIZE(frame_desc_vid),
 		.mode_setting_table = addr_data_pair_normal_video,
 		.mode_setting_len = ARRAY_SIZE(addr_data_pair_normal_video),
 		.seamless_switch_group = PARAM_UNDEFINED,
@@ -216,10 +218,10 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.fine_integ_line = 0,
 		.delay_frame = 2,
 		.csi_param = {0},
-		.frame_desc = frame_desc_vid,
-		.num_entries = ARRAY_SIZE(frame_desc_vid),
 	},
 	{
+		.frame_desc = frame_desc_vid,
+		.num_entries = ARRAY_SIZE(frame_desc_vid),
 		.mode_setting_table = addr_data_pair_hs_video,
 		.mode_setting_len = ARRAY_SIZE(addr_data_pair_hs_video),
 		.seamless_switch_group = PARAM_UNDEFINED,
@@ -258,10 +260,10 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.fine_integ_line = 0,
 		.delay_frame = 2,
 		.csi_param = {0},
-		.frame_desc = frame_desc_vid,
-		.num_entries = ARRAY_SIZE(frame_desc_vid),
 	},
 	{
+		.frame_desc = frame_desc_slim_vid,
+		.num_entries = ARRAY_SIZE(frame_desc_slim_vid),
 		.mode_setting_table = addr_data_pair_slim_video,
 		.mode_setting_len = ARRAY_SIZE(addr_data_pair_slim_video),
 		.seamless_switch_group = PARAM_UNDEFINED,
@@ -300,8 +302,6 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.fine_integ_line = 0,
 		.delay_frame = 2,
 		.csi_param = {0},
-		.frame_desc = frame_desc_slim_vid,
-		.num_entries = ARRAY_SIZE(frame_desc_slim_vid),
 	},
 };
 
