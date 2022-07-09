@@ -1469,12 +1469,6 @@ static void mtk_cam_try_set_sensor(struct mtk_cam_ctx *ctx)
 			    req_stream_data->frame_seq_no > INITIAL_DROP_FRAME_CNT &&
 			    !(mtk_cam_ctx_has_raw(ctx) &&
 			    mtk_cam_scen_is_sensor_stagger(&ctx->pipe->scen_active))) {
-				/**
-				 * FIXME: sw scq delay judgement, may need hw signal to confirm.
-				 * because CQ_MAIN_TRIG_DLY_ST is coming
-				 * in the next sof, a bit too late, can't depend on it.
-				 */
-				state_entry->estate = E_STATE_CQ_SCQ_DELAY;
 				spin_unlock(&sensor_ctrl->camsys_state_lock);
 				dev_dbg(ctx->cam->dev,
 					 "[%s] SCQ DELAY STATE at SOF+%dms\n", __func__,
@@ -2067,6 +2061,8 @@ static int mtk_camsys_raw_state_handle(struct mtk_raw_device *raw_dev,
 				state_transition(state_outer,
 						 E_STATE_OUTER_HW_DELAY,
 						 E_STATE_INNER_HW_DELAY);
+				state_transition(state_outer, E_STATE_CQ,
+						 E_STATE_INNER);
 				state_transition(state_outer, E_STATE_OUTER,
 						 E_STATE_INNER);
 				state_transition(state_outer, E_STATE_CAMMUX_OUTER,
@@ -2147,9 +2143,7 @@ static int mtk_camsys_raw_state_handle(struct mtk_raw_device *raw_dev,
 			if (state_rec[0]->estate == E_STATE_SENSOR) {
 				*current_state = state_rec[0];
 				if (prev_stream_data) {
-					if (prev_stream_data->state.estate < E_STATE_INNER ||
-							prev_stream_data->state.estate ==
-							E_STATE_CQ_SCQ_DELAY) {
+					if (prev_stream_data->state.estate < E_STATE_INNER) {
 						dev_info(raw_dev->dev,
 							"[SOF] previous req (state:%d) doesn't DB load\n",
 							prev_stream_data->state.estate);
@@ -2160,14 +2154,6 @@ static int mtk_camsys_raw_state_handle(struct mtk_raw_device *raw_dev,
 							prev_stream_data->state.estate);
 				}
 				return STATE_RESULT_TRIGGER_CQ;
-			}
-			/* last SCQ triggering delay judgment*/
-			if (state_rec[0]->estate == E_STATE_CQ_SCQ_DELAY) {
-				state_transition(state_rec[0], E_STATE_CQ_SCQ_DELAY,
-						E_STATE_OUTER);
-				dev_info(raw_dev->dev, "[SOF] SCQ_DELAY state:%d ts:%lu\n",
-					state_rec[0]->estate, irq_info->ts_ns / 1000);
-				return STATE_RESULT_PASS_CQ_SCQ_DELAY;
 			}
 		} else {
 			dev_dbg(raw_dev->dev, "[SOF] working request not found\n");
@@ -3645,8 +3631,6 @@ static void mtk_camsys_raw_cq_done(struct mtk_raw_device *raw_dev,
 				if (frame_seq_no_outer == 1)
 					state_entry->estate = E_STATE_OUTER;
 				state_transition(state_entry, E_STATE_CQ,
-						 E_STATE_OUTER);
-				state_transition(state_entry, E_STATE_CQ_SCQ_DELAY,
 						 E_STATE_OUTER);
 				state_transition(state_entry, E_STATE_SENINF,
 						 E_STATE_OUTER);
