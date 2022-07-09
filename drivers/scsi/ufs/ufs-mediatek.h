@@ -160,6 +160,8 @@ struct ufs_mtk_host {
 	bool qos_enabled;
 	bool boot_device;
 
+	struct completion luns_added;
+
 	struct semaphore rpmb_sem;
 #if defined(CONFIG_UFSFEATURE)
 	struct ufsf_feature ufsf;

@@ -923,7 +923,18 @@ static void ufs_mtk_trace_vh_compl_command(void *data, struct ufs_hba *hba, stru
 
 static void ufs_mtk_trace_vh_update_sdev(void *data, struct scsi_device *sdev)
 {
+	struct ufs_hba *hba = shost_priv(sdev->host);
+	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
+
 	sdev->broken_fua = 1;
+
+	dev_dbg(hba->dev, "lu %d slave configured", sdev->lun);
+
+	if (hba->luns_avail == 1) {
+		/* The last LUs */
+		dev_info(hba->dev, "%s: LUNs ready");
+		complete(&host->luns_added);
+	}
 }
 
 void ufs_mtk_trace_vh_ufs_prepare_command(void *data, struct ufs_hba *hba, struct request *rq,
@@ -950,7 +961,7 @@ static struct tracepoints_table interests[] = {
 	},
 	{
 		.name = "android_vh_ufs_update_sdev",
-		.func = ufs_mtk_trace_vh_update_sdev,
+		.func = ufs_mtk_trace_vh_update_sdev
 	},
 #if defined(CONFIG_UFSFEATURE)
 	{
@@ -1233,22 +1244,15 @@ static void ufs_mtk_rpmb_add(void *data, async_cookie_t cookie)
 	u8 *desc_buf;
 	struct rpmb_dev *rdev;
 	u8 rw_size;
-	int retry = 10;
 	struct ufs_mtk_host *host;
 	struct ufs_hba *hba = (struct ufs_hba *)data;
 
 	host = ufshcd_get_variant(hba);
 
-	/* wait ufshcd_scsi_add_wlus add sdev_rpmb  */
-	while (hba->sdev_rpmb == NULL) {
-		if (retry) {
-			retry--;
-			msleep(1000);
-		} else {
-			dev_err(hba->dev,
-				"scsi rpmb device cannot found\n");
-			goto out;
-		}
+	err = wait_for_completion_timeout(&host->luns_added, 10 * HZ);
+	if (err == 0) {
+		dev_warn(hba->dev, "%s: LUNs not ready before timeout. RPMB init failed");
+		goto out;
 	}
 
 	desc_buf = kmalloc(QUERY_DESC_MAX_SIZE, GFP_KERNEL);
@@ -1829,6 +1833,8 @@ static int ufs_mtk_init(struct ufs_hba *hba)
 	cpu_latency_qos_add_request(&host->pm_qos_req,
 	     	   PM_QOS_DEFAULT_VALUE);
 	host->pm_qos_init = true;
+
+	init_completion(&host->luns_added);
 
 #if IS_ENABLED(CONFIG_MTK_BLOCK_IO_TRACER)
 	ufs_mtk_biolog_init(host->qos_allowed, host->boot_device);
