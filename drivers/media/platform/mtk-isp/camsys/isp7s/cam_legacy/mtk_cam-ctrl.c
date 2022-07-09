@@ -365,7 +365,7 @@ static void mtk_cam_stream_on(struct mtk_raw_device *raw_dev,
 	if (ctx->streaming) {
 		mtk_cam_sv_dev_stream_on(ctx, 1);
 		for (i = 0; i < ctx->used_mraw_num; i++)
-			mtk_cam_mraw_dev_stream_on(
+			mtk_cam_mraw_dev_stream_on(ctx,
 				get_mraw_dev(ctx->cam, ctx->mraw_pipe[i]), 1);
 		stream_on(raw_dev, 1);
 	}
@@ -615,7 +615,7 @@ void mtk_cam_req_seninf_change(struct mtk_cam_request *req)
 			writel(val | TG_SEN_MODE_CMOS_EN, raw_dev->base + REG_TG_SEN_MODE);
 
 			mtk_cam_stream_on(raw_dev, ctx);
-			mtk_ctx_watchdog_start(ctx, 4);
+			mtk_ctx_watchdog_start(ctx, 4, raw_dev->id + MTKCAM_SUBDEV_RAW_START);
 			dev_info(raw_dev->dev, "%s: stream off seninf:%s\n",
 				 __func__, req_stream_data->seninf_old->name);
 			v4l2_subdev_call(req_stream_data->seninf_old, video, s_stream, 0);
@@ -2697,7 +2697,7 @@ static void mtk_camsys_raw_frame_start(struct mtk_raw_device *raw_dev,
 
 	/*touch watchdog*/
 	if (watchdog_scenario(ctx))
-		mtk_ctx_watchdog_kick(ctx);
+		mtk_ctx_watchdog_kick(ctx, raw_dev->id + MTKCAM_SUBDEV_RAW_START);
 	/* inner register dequeue number */
 	if (!(mtk_cam_ctx_has_raw(ctx) && mtk_cam_scen_is_sensor_stagger(&ctx->pipe->scen_active)))
 		ctx->dequeued_frame_seq_no = dequeued_frame_seq_no;
@@ -4546,6 +4546,11 @@ static void mtk_camsys_camsv_frame_start(struct mtk_camsv_device *camsv_dev,
 	struct mtk_camsys_sensor_ctrl *sensor_ctrl = &ctx->sensor_ctrl;
 	struct mtk_camsys_ctrl_state *current_state;
 	enum MTK_CAMSYS_STATE_RESULT state_handle_ret;
+	struct mtk_camsv_pipeline *sv_pipe = camsv_dev->tag_info[tag_idx].sv_pipe;
+
+	/* touch watchdog */
+	if (watchdog_scenario(ctx) && sv_pipe != NULL)
+		mtk_ctx_watchdog_kick(ctx, sv_pipe->id);
 
 	ctx->sv_dequeued_frame_seq_no[tag_idx] = dequeued_frame_seq_no;
 
@@ -4587,6 +4592,10 @@ static void mtk_camsys_mraw_frame_start(struct mtk_mraw_device *mraw_dev,
 	struct mtk_cam_ctx *ctx, unsigned int dequeued_frame_seq_no, u64 ts_ns)
 {
 	int mraw_dev_index;
+
+	/* touch watchdog */
+	if (watchdog_scenario(ctx))
+		mtk_ctx_watchdog_kick(ctx, mraw_dev->id + MTKCAM_SUBDEV_MRAW_START);
 
 	/* inner register dequeue number */
 	mraw_dev_index = mtk_cam_find_mraw_dev_index(ctx, mraw_dev->id);
@@ -4827,15 +4836,17 @@ static int mtk_camsys_event_handle_mraw(struct mtk_cam_device *cam,
 					if (ctx->sv_dev && ctx->sv_dev->used_tag_cnt)
 						mtk_cam_sv_dev_stream_on(ctx, 1);
 					for (i = 0; i < ctx->used_mraw_num; i++)
-						mtk_cam_mraw_dev_stream_on(
+						mtk_cam_mraw_dev_stream_on(ctx,
 							get_mraw_dev(ctx->cam,
 								ctx->mraw_pipe[i]), 1);
 				} else {
 					raw_dev = get_master_raw_dev(ctx->cam, ctx->pipe);
 					mtk_camsys_raw_cq_done(raw_dev, ctx, irq_info->frame_idx);
 				}
-			} else
+			} else {
 				mtk_cam_mraw_vf_on(mraw_dev, 1);
+				mtk_ctx_watchdog_start(ctx, 4, stream_id);
+			}
 		}
 	}
 
@@ -4910,7 +4921,7 @@ static int mtk_camsys_event_handle_camsv(struct mtk_cam_device *cam,
 					if (ctx->sv_dev && ctx->sv_dev->used_tag_cnt)
 						mtk_cam_sv_dev_stream_on(ctx, 1);
 					for (i = 0; i < ctx->used_mraw_num; i++)
-						mtk_cam_mraw_dev_stream_on(
+						mtk_cam_mraw_dev_stream_on(ctx,
 							get_mraw_dev(ctx->cam,
 								ctx->mraw_pipe[i]), 1);
 				} else {
@@ -5585,18 +5596,21 @@ void mtk_cam_extisp_sv_frame_start(struct mtk_cam_ctx *ctx,
 	struct mtk_cam_request_stream_data *stream_data;
 	struct mtk_camsys_ctrl_state *state_temp, *state_sensor = NULL, *state_out = NULL;
 	struct mtk_cam_request *req;
+	struct mtk_raw_device *raw_dev;
 	unsigned long flags;
 	int stateidx;
 	unsigned int dequeued_frame_seq_no = irq_info->frame_idx_inner;
 	u64 time_boot = irq_info->ts_ns;
 	u64 time_mono = ktime_get_ns();
 
+	raw_dev = get_master_raw_dev(ctx->cam, ctx->pipe);
+
 	/* update sv/mraw's ts */
 	if (0/*mtk_cam_sv_update_all_buffer_ts(ctx, irq_info->ts_ns) == 0*/)
 		dev_dbg(ctx->cam->dev, "sv update all buffer ts failed");
 	mtk_cam_event_frame_sync(ctx->pipe, dequeued_frame_seq_no);
 	/* touch watchdog */
-	mtk_ctx_watchdog_kick(ctx);
+	mtk_ctx_watchdog_kick(ctx, raw_dev->id + MTKCAM_SUBDEV_RAW_START);
 	/*update sof time for sensor*/
 	sensor_ctrl->sof_time = irq_info->ts_ns / 1000000;
 	/* Trigger high resolution timer to try sensor setting */
@@ -5764,11 +5778,13 @@ void mtk_camsys_extisp_yuv_frame_start(struct mtk_camsv_device *camsv,
 	struct mtk_raw_device *raw_dev = NULL;
 	unsigned int dequeued_frame_seq_no = irq_info->frame_idx_inner;
 
+	raw_dev = get_master_raw_dev(ctx->cam, ctx->pipe);
+
 	if (ctx->ext_isp_meta_off && ctx->ext_isp_pureraw_off) {
 		mtk_cam_event_frame_sync(ctx->pipe, dequeued_frame_seq_no);
 		/* touch watchdog */
 		if (watchdog_scenario(ctx))
-			mtk_ctx_watchdog_kick(ctx);
+			mtk_ctx_watchdog_kick(ctx, raw_dev->id + MTKCAM_SUBDEV_RAW_START);
 		/* Trigger high resolution timer to try sensor setting */
 		if (ctx->sensor)
 			mtk_cam_sof_timer_setup(ctx);
@@ -5837,7 +5853,7 @@ void mtk_camsys_extisp_raw_frame_start(struct mtk_raw_device *raw_dev,
 	int dequeued_frame_seq_no = irq_info->frame_idx_inner;
 
 	/*touch watchdog*/
-	mtk_ctx_watchdog_kick(ctx);
+	mtk_ctx_watchdog_kick(ctx, raw_dev->id + MTKCAM_SUBDEV_RAW_START);
 	/* inner register dequeue number */
 	if (!(mtk_cam_ctx_has_raw(ctx) && mtk_cam_scen_is_sensor_stagger(&ctx->pipe->scen_active)))
 		ctx->dequeued_frame_seq_no = dequeued_frame_seq_no;

@@ -207,6 +207,7 @@ struct mtk_mraw_device {
 	atomic_t is_fifo_overflow;
 
 	unsigned int sof_count;
+	u64 last_sof_time_ns;
 	unsigned int frame_wait_to_process;
 	struct notifier_block notifier_blk;
 
@@ -234,7 +235,7 @@ struct device *mtk_cam_find_mraw_dev(
 int mtk_cam_mraw_apply_all_buffers(struct mtk_cam_ctx *ctx);
 int mtk_cam_mraw_dev_config(
 	struct mtk_cam_ctx *ctx, unsigned int idx);
-int mtk_cam_mraw_dev_stream_on(
+int mtk_cam_mraw_dev_stream_on(struct mtk_cam_ctx *ctx,
 	struct mtk_mraw_device *mraw_dev, unsigned int streaming);
 int mtk_cam_mraw_tg_config(struct mtk_mraw_device *dev, unsigned int pixel_mode);
 int mtk_cam_mraw_top_config(struct mtk_mraw_device *dev);

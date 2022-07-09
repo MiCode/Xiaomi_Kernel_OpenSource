@@ -1437,6 +1437,7 @@ int mtk_cam_sv_frame_no_inner(struct mtk_camsv_device *dev)
 int mtk_cam_sv_apply_all_buffers(struct mtk_cam_ctx *ctx)
 {
 	struct mtk_camsv_working_buf_entry *buf_entry;
+	int i;
 
 	if (ctx->sv_dev) {
 		spin_lock(&ctx->sv_composed_buffer_list.lock);
@@ -1463,6 +1464,17 @@ int mtk_cam_sv_apply_all_buffers(struct mtk_cam_ctx *ctx)
 				buf_entry->sv_cq_desc_size,
 				buf_entry->sv_cq_desc_offset,
 				0);
+		if (watchdog_scenario(ctx)) {
+			for (i = 0; i < ctx->used_sv_num; i++) {
+				if (buf_entry->s_data->req->pipe_used &
+					(1 << ctx->sv_pipe[i]->id))
+					mtk_ctx_watchdog_start(ctx, 4, ctx->sv_pipe[i]->id);
+				else
+					if (buf_entry->s_data->pad_fmt_update &
+						(1 << MTK_CAMSV_SINK))
+						mtk_ctx_watchdog_stop(ctx, ctx->sv_pipe[i]->id);
+			}
+		}
 	}
 
 	return 1;
@@ -1714,6 +1726,7 @@ int mtk_cam_sv_dev_pertag_stream_on(
 	unsigned int streaming)
 {
 	struct mtk_camsv_device *camsv_dev = ctx->sv_dev;
+	struct mtk_camsv_pipeline *sv_pipe;
 	int ret = 0;
 
 	if (streaming) {
@@ -1727,6 +1740,14 @@ int mtk_cam_sv_dev_pertag_stream_on(
 			ret |= mtk_cam_sv_cq_disable(camsv_dev);
 			ret |= mtk_cam_sv_central_common_disable(camsv_dev);
 		}
+		if (watchdog_scenario(ctx) &&
+			(tag_idx >= SVTAG_META_START &&
+			tag_idx < SVTAG_META_END)) {
+			sv_pipe = camsv_dev->tag_info[tag_idx].sv_pipe;
+			if (!sv_pipe)
+				mtk_ctx_watchdog_stop(ctx, sv_pipe->id);
+		}
+
 		ret |= mtk_cam_sv_fbc_disable(camsv_dev, tag_idx);
 		camsv_dev->streaming_cnt--;
 	}
@@ -2131,6 +2152,7 @@ static irqreturn_t mtk_irq_camsv_sof(int irq, void *data)
 		irq_info.sof_tags |= (1 << 7);
 	irq_info.irq_type |= (1 << CAMSYS_IRQ_FRAME_START);
 	camsv_dev->sof_count++;
+	camsv_dev->last_sof_time_ns = irq_info.ts_ns;
 	camsv_dev->sof_timestamp = ktime_get_boottime_ns();
 	irq_flag = irq_info.irq_type;
 	if (irq_flag && push_msgfifo(camsv_dev, &irq_info) == 0)
