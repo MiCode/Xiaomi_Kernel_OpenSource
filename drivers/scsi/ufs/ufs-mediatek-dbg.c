@@ -6,6 +6,7 @@
  */
 #include <linux/atomic.h>
 #include <linux/device.h>
+#include <linux/platform_device.h>
 #include <linux/module.h>
 #include <linux/proc_fs.h>
 #include <linux/sched/clock.h>
@@ -74,6 +75,8 @@ void ufs_mtk_dbg_print_info(char **buff, unsigned long *size,
 {
 	struct ufs_mtk_host *host;
 	struct ufs_hba *hba = ufshba;
+	struct ufs_hba_private *hba_priv = (struct ufs_hba_private *)hba->android_vendor_data1;
+	int i;
 
 	if (!hba)
 		return;
@@ -146,6 +149,32 @@ void ufs_mtk_dbg_print_info(char **buff, unsigned long *size,
 		      "Device vendor=0x%X, model=%s\n",
 		      hba->dev_info.wmanufacturerid,
 		      hba->dev_info.model);
+
+	if (hba_priv->is_mcq_enabled) {
+		SPREAD_PRINTF(buff, size, m,
+				  "MCQ priority enable: yes\n");
+
+		for (i = 0; i < hba_priv->mcq_q_cfg.sq_nr; i++)
+			SPREAD_PRINTF(buff, size, m,
+					  "MCQ sent packet, q_index=%d, count=%i\n",
+					  i, hba_priv->mcq_q_cfg.sent_cmd_count[i]);
+	} else {
+		SPREAD_PRINTF(buff, size, m,
+				  "MCQ priority enable: no\n");
+	}
+
+#ifdef MCQ_PRIORITY
+	if (hba_priv->is_mcq_enabled) {
+		SPREAD_PRINTF(buff, size, m,
+				  "MCQ priority called %d times\n",
+				  hba_priv->mcq_q_cfg.sq_sw_run_times);
+
+		for (i = 0; i < 20; i++)
+			SPREAD_PRINTF(buff, size, m,
+				      "MCQ statistics, sw_cmd=%d, count=%d\n",
+				      i, hba_priv->mcq_q_cfg.sq_sw_cmd_saved[i]);
+	}
+#endif
 
 	/* Error history */
 	ufs_mtk_dbg_print_err_hist(buff, size, m,

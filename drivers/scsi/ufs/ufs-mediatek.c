@@ -926,7 +926,20 @@ static void ufs_mtk_trace_vh_update_sdev(void *data, struct scsi_device *sdev)
 	sdev->broken_fua = 1;
 }
 
+void ufs_mtk_trace_vh_ufs_prepare_command(void *data, struct ufs_hba *hba, struct request *rq,
+		 struct ufshcd_lrb *lrbp, int *err)
+{
+	struct scsi_cmnd *cmd = lrbp->cmd;
+	char *cmnd = cmd->cmnd;
+	if (cmnd[0] == WRITE_10 | cmnd[0] == WRITE_16)
+		cmnd[1] &= ~0x08;
+}
+
 static struct tracepoints_table interests[] = {
+	{
+		.name = "android_vh_ufs_prepare_command",
+		.func = ufs_mtk_trace_vh_ufs_prepare_command
+	},
 	{
 		.name = "android_vh_ufs_send_command",
 		.func = ufs_mtk_trace_vh_send_command
@@ -1757,6 +1770,19 @@ static int ufs_mtk_init(struct ufs_hba *hba)
 	/* Initialize host capability */
 	ufs_mtk_init_host_caps(hba);
 
+	/* MCQ init */
+	err = ufs_mtk_mcq_alloc_priv(hba);
+	if (err)
+		goto out;
+
+	ufs_mtk_mcq_host_dts(hba);
+	ufs_mtk_mcq_request_irq(hba);
+	err = ufs_mtk_mcq_memory_alloc(hba);
+	if (err)
+		goto out;
+
+	ufs_mtk_mcq_create_swqueue_thread(hba);
+
 	err = ufs_mtk_bind_mphy(hba);
 	if (err)
 		goto out_variant_clear;
@@ -2399,7 +2425,7 @@ static void ufs_mtk_config_scaling_param(struct ufs_hba *hba,
 					void *data)
 {
 	/* customize min gear in clk scaling */
-	hba->clk_scaling.min_gear = 1;
+	hba->clk_scaling.min_gear = UFS_HS_G4;
 }
 
 /**
@@ -2531,9 +2557,12 @@ skip_reset:
 	}
 
 skip_phy:
+	/* Get IRQ */
+	ufs_mtk_mcq_get_irq(pdev);
+	ufs_mtk_mcq_install_tracepoints();
+
 	/* perform generic probe */
 	err = ufshcd_pltfrm_init(pdev, &ufs_hba_mtk_vops);
-
 	if (err) {
 		dev_info(dev, "probe failed %d\n", err);
 		goto out;
@@ -2543,6 +2572,8 @@ skip_phy:
 	hba = platform_get_drvdata(pdev);
 	if (hba && hba->irq)
 		irq_set_affinity_hint(hba->irq, get_cpu_mask(3));
+
+	ufs_mtk_mcq_set_irq_affinity(hba);
 
 	/*
 	 * Because the default power setting of VSx (the upper layer of

@@ -41,6 +41,7 @@
 #include <linux/netlink.h>
 
 #if IS_ENABLED(CONFIG_SCSI_UFS_MEDIATEK)
+#include <linux/platform_device.h>
 #include "ufs-mediatek.h"
 #endif
 

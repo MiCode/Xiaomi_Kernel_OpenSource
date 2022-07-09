@@ -9,10 +9,15 @@
 #include <linux/bitops.h>
 #include <linux/pm_qos.h>
 
-#ifdef CONFIG_UFSFEATURE
+#include "ufs.h"
+#include "ufshci.h"
 #include "ufshcd.h"
+
+#ifdef CONFIG_UFSFEATURE
 #include "ufsfeature.h"
 #endif
+
+//#define MCQ_PRIORITY
 
 /*
  * Vendor specific UFSHCI Registers
@@ -160,6 +165,180 @@ struct ufs_mtk_host {
 	struct ufsf_feature ufsf;
 #endif
 };
+
+#define UFSHCD_MAX_TAG	256
+
+enum {
+	REG_UFS_MCQCAP			= 0x0c,
+	REG_UFS_MCQCFG			= 0x28,
+
+	REG_UFS_MMIO_OPT_CTRL_0 = 0x160,
+	REG_UFS_MMIO_SQ_IS		= 0x190,
+	REG_UFS_MMIO_SQ_IE		= 0x194,
+	REG_UFS_MMIO_CQ_IS		= 0x1A0,
+	REG_UFS_MMIO_CQ_IE		= 0x1A4,
+	REG_UFS_MMIO_VER_ID 	= 0x1B0,
+	REG_UFS_MCQ_BASE		= 0x320,
+	REG_UFS_SQ_ATTR 		= (REG_UFS_MCQ_BASE + 0x0),
+	REG_UFS_SQ_LBA			= (REG_UFS_MCQ_BASE + 0x4),
+	REG_UFS_SQ_UBA			= (REG_UFS_MCQ_BASE + 0x8),
+	REG_UFS_SQ_HEAD 		= (REG_UFS_MCQ_BASE + 0xc),
+	REG_UFS_SQ_TAIL 		= (REG_UFS_MCQ_BASE + 0x10),
+	REG_UFS_CQ_ATTR 		= (REG_UFS_MCQ_BASE + 0x18),
+	REG_UFS_CQ_LBA			= (REG_UFS_MCQ_BASE + 0x1c),
+	REG_UFS_CQ_UBA			= (REG_UFS_MCQ_BASE + 0x20),
+	REG_UFS_CQ_HEAD 		= (REG_UFS_MCQ_BASE + 0x24),
+	REG_UFS_CQ_TAIL 		= (REG_UFS_MCQ_BASE + 0x28),
+};
+
+/* MCQCAP 08h */
+#define MAX_Q	GENMASK(4, 0)
+
+/* REG_UFS_MMIO_OPT_CTRL_0 160h */
+#define EHS_EN				0x1
+#define PFM_IMPV			0x2
+#define MCQ_MULTI_INTR_EN	0x4
+#define MCQ_CMB_INTR_EN		0x8
+#define MCQ_AH8				0x10
+
+#define SQ_INT 						0x80000
+#define CQ_INT 						0x100000
+#define UFSHCD_ENABLE_INTRS_MCQ	(SQ_INT |\
+					 CQ_INT |\
+					 UTP_TASK_REQ_COMPL |\
+					 UFSHCD_ERROR_MASK)
+
+#define UFSHCD_ENABLE_INTRS_MCQ_SEPARATE \
+					 (UTP_TASK_REQ_COMPL | UFSHCD_ERROR_MASK)
+
+#define MCQ_INTR_EN_MSK		(MCQ_MULTI_INTR_EN | MCQ_CMB_INTR_EN)
+
+struct utp_cq_entry {
+	__le64 UCD_base;
+	__le32 dword_2;
+	__le32 dword_3;
+	__le32 dword_4;
+	__le32 dword_5; //reserved
+	__le32 dword_6; //reserved
+	__le32 dword_7; //reserved
+};
+
+#define UCD_BASE_ADD_MASK	UFS_MASK(0x1ffffffffffffff,7)	//bit7~63
+#define UCD_BASE_SQID_MASK	UFS_MASK(0x1f, 0)	//[4:0]
+#define UTRD_OCS_MASK		UFS_MASK(0xff, 0)
+
+union utp_q_entry {
+	struct utp_transfer_req_desc	sq;
+	struct utp_cq_entry	cq;
+};
+
+#define SQE_SIZE sizeof(struct utp_transfer_req_desc)
+#define CQE_SIZE sizeof(struct utp_cq_entry)
+#define SQE_NUM_1K (1024 / SQE_SIZE)
+#define CQE_NUM_1K (1024 / CQE_SIZE)
+
+/* MCQCFG */
+#define MCQCFG_ARB_SCHEME	(0x3<<1)
+	#define MCQCFG_ARB_SP	(0x0<<1)
+	#define MCQCFG_ARB_RRP	(0x1<<1)
+#define MCQCFG_TYPE			(0x1<<0)
+
+#define Q_SPACING	(0x30)
+#define MCQ_ADDR(base, index)	((base) + (Q_SPACING * (index)))
+#define Q_ENABLE	(0x1<<31)
+
+#define UFSHCD_MAX_Q_NR	8
+#define UFSHCD_MCQ_PRI_THRESHOD	5
+
+enum {
+	MCQ_Q_TYPE_SQ	= 0,
+	MCQ_Q_TYPE_CQ	= 1,
+};
+
+struct ufs_queue {
+	u8 q_enable;   //0: disable, 1: enable
+	u8 qid;			//0... N-1
+	u8 q_type;		//SQ/CQ
+	u16 q_depth;
+	u8 priority;
+
+	union utp_q_entry *q_base_addr;	//content list
+	union utp_q_entry *head;	//u16 head;
+	union utp_q_entry *tail;	//u16 tail;			//SW
+	union utp_q_entry *tail_written;	//u16 tail_written;	//SW
+
+	spinlock_t q_lock;
+
+	dma_addr_t q_dma_addr;
+};
+
+struct ufs_sw_queue {
+	u16 depth;
+	u16 head;
+	u16 tail;
+	int tag_data[UFSHCD_MAX_TAG];
+};
+struct ufs_queue_config {
+	struct ufs_queue *sq;
+	struct ufs_queue *cq;
+	u8 sq_nr;
+	u8 cq_nr;
+	u8 sq_cq_map[UFSHCD_MAX_Q_NR];          //sq to cq mapping, ex. sq_cq_mapping[3] = 2 means sq[3] mapping to cq[2]
+	u32 sent_cmd_count[UFSHCD_MAX_Q_NR];
+	u32 processing_cmd_count;
+
+#ifdef MCQ_PRIORITY
+	struct ufs_sw_queue *swq;
+	u8 sq_cur_idx;
+	u16 sq_sw_cmd_count;
+	u8 sq_hw_cmd_count;
+
+	spinlock_t swq_lock;
+
+	u32 sq_sw_run_times;
+	u32 sq_sw_cmd_saved[50];
+#endif
+};
+
+struct ufs_mcq_intr_info {
+	struct ufs_hba *hba;
+	u32 intr;
+	u8 qid;
+};
+
+#define BITMAP_TAGS_LEN BITS_TO_LONGS(UFSHCD_MAX_TAG)
+
+struct ufs_hba_private {
+	//struct ufs_hba *hba;
+	u32 max_q;
+	u32 mcq_cap;
+	u32 mcq_nr_hw_queue;
+	u32 mcq_nr_q_depth;
+	u32 mcq_nr_intr;
+	struct ufs_mcq_intr_info mcq_intr_info[UFSHCD_MAX_Q_NR];
+
+	struct utp_transfer_req_desc *usel_base_addr;
+	struct utp_cq_entry *ucel_base_addr;
+	dma_addr_t usel_dma_addr;
+	dma_addr_t ucel_dma_addr;
+	dma_addr_t sq_dma_addr;
+	dma_addr_t cq_dma_addr;
+
+	struct ufs_queue_config mcq_q_cfg;
+
+	unsigned long outstanding_mcq_reqs[BITMAP_TAGS_LEN];
+
+	bool is_mcq_enabled;
+};
+
+int ufs_mtk_mcq_alloc_priv(struct ufs_hba *hba);
+void ufs_mtk_mcq_host_dts(struct ufs_hba *hba);
+void ufs_mtk_mcq_get_irq(struct platform_device *pdev);
+void ufs_mtk_mcq_request_irq(struct ufs_hba *hba);
+void ufs_mtk_mcq_set_irq_affinity(struct ufs_hba *hba);
+int ufs_mtk_mcq_memory_alloc(struct ufs_hba *hba);
+int ufs_mtk_mcq_install_tracepoints(void);
+void ufs_mtk_mcq_create_swqueue_thread(struct ufs_hba *hba);
 
 /*
  *  IOCTL opcode for ufs queries has the following opcode after
