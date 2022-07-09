@@ -693,12 +693,12 @@ static struct notifier_block lpm_spm_suspend_pm_notifier_func = {
 
 int mmdvfs_set_ccu_ipi(const char *val, const struct kernel_param *kp)
 {
-	unsigned int freq = 0;
+	int freq = 0;
 	int ret, retry = 0;
 
 	ret = kstrtou32(val, 0, &freq);
 	if (ret) {
-		MMDVFS_ERR("failed:%d freq:%hu", ret, freq);
+		MMDVFS_ERR("failed:%d freq:%d", ret, freq);
 		return ret;
 	}
 
