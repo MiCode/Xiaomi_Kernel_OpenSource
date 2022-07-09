@@ -7978,14 +7978,27 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 		buf_size = ctx->pipe->vdev_nodes
 			[MTK_RAW_MAIN_STREAM_OUT - MTK_RAW_SINK_NUM].
 			active_fmt.fmt.pix_mp.plane_fmt[0].sizeimage;
-		if (mtk_cam_hw_is_dc(ctx)) {
+		if (mtk_cam_hw_is_dc(ctx) &&
+		    ctx->pipe->img_fmt_sink_pad.fmt.pix_mp.plane_fmt[0].sizeimage > buf_size)
 			buf_size = ctx->pipe->img_fmt_sink_pad.fmt.pix_mp.plane_fmt[0].sizeimage;
-			/**
-			 * FIXME
-			 * use max buf_size for all sensors
-			 */
-			buf_size *= 2;
+
+#ifdef MTK_CAM_USER_WBUF_TEST
+		if (ctx->pipe &&
+		    ctx->pipe->pre_alloc_mem.num > 0 &&
+		    ctx->pipe->pre_alloc_mem.bufs[0].fd >= 0) {
+			int num = 4;
+			int buf_sz = ctx->pipe->pre_alloc_mem.bufs[0].length;
+
+			mtk_cam_user_img_working_buf_pool_init(ctx, num, buf_sz);
+			mtk_cam_user_img_working_buf_pool_release(ctx);
+		} else {
+			dev_info(cam->dev,
+				 "pre-alloc mem test failed(%d, %d, %d)\n",
+				 ctx->pipe->pre_alloc_mem.num,
+				 ctx->pipe->pre_alloc_mem.bufs[0].fd,
+				 ctx->pipe->pre_alloc_mem.bufs[0].length);
 		}
+#endif
 		/**
 		 * TODO: validate pad's setting of each pipes
 		 * return -EPIPE if failed

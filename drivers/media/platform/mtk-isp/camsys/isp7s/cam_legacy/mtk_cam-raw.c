@@ -627,7 +627,7 @@ mtk_cam_raw_try_res_ctrl(struct mtk_raw_pipeline *pipeline,
 			 res_user->raw_res.img_wbuf_size);
 	else
 		dev_dbg(dev,
-			"%s:%s:pipe(%d): res calc result: bin(%d)//hw_mode(%d)/buf_num(%d)/dc mode rawi fmt:(%d,%d,%d)\n",
+			"%s:%s:pipe(%d): res calc result: bin(%d)/hw_mode(%d)/buf_num(%d)/dc mode rawi fmt:(%d,%d,%d)\n",
 			__func__, dbg_str, pipeline->id,
 			res_user->raw_res.bin, res_user->raw_res.hw_mode,
 			res_user->raw_res.img_wbuf_num,
@@ -948,6 +948,7 @@ static int mtk_raw_set_ctrl(struct v4l2_ctrl *ctrl)
 				 __func__, pipeline->id, pipeline->pre_alloc_mem.num,
 				 pipeline->pre_alloc_mem.bufs[0].fd,
 				 pipeline->pre_alloc_mem.bufs[0].length);
+			/* test of the allocation */
 			ret = 0;
 			}
 		break;
@@ -1162,7 +1163,7 @@ static struct v4l2_ctrl_config cfg_pre_alloc_mem_ctrl = {
 	.flags = V4L2_CTRL_FLAG_EXECUTE_ON_WRITE,
 	.max = 0xffffffff,
 	.step = 1,
-	.dims = {sizeof(struct mtk_cam_internal_buf)},
+	.dims = {sizeof(struct mtk_cam_internal_mem)},
 };
 
 static struct v4l2_ctrl_config cfg_res_update = {
@@ -6218,7 +6219,7 @@ static int mtk_raw_pipeline_register(unsigned int id, struct device *dev,
 	int ret;
 
 	pipe->id = id;
-	pipe->dynamic_exposure_num_max = 3;
+	pipe->dynamic_exposure_num_max = 1;
 
 	/* Initialize subdev */
 	v4l2_subdev_init(sd, &mtk_raw_subdev_ops);

@@ -221,8 +221,8 @@ mtk_cam_img_working_buf_pool_init(struct mtk_cam_ctx *ctx, int buf_num,
 		buf->img_buffer.va = ctx->img_buf_pool.working_img_buf_va + offset;
 		buf->img_buffer.iova = ctx->img_buf_pool.working_img_buf_iova + offset;
 		buf->img_buffer.size = working_buf_size;
-		dev_info(ctx->cam->dev, "%s:ctx(%d):buf(%d), iova(0x%x)\n",
-			__func__, ctx->stream_id, i, buf->img_buffer.iova);
+		dev_info(ctx->cam->dev, "%s:ctx(%d):buf(%d), iova(%pad)\n",
+			 __func__, ctx->stream_id, i, &buf->img_buffer.iova);
 
 		list_add_tail(&buf->list_entry, &ctx->img_buf_pool.cam_freeimglist.list);
 		ctx->img_buf_pool.cam_freeimglist.cnt++;
@@ -303,12 +303,13 @@ static void mtk_cam_device_buf_uninit(struct mtk_cam_device_buf *buf)
 	struct dma_buf_map map = DMA_BUF_MAP_INIT_VADDR(buf->vaddr);
 
 	WARN_ON(!buf->dbuf || !buf->size);
-
 	if (buf->dma_sgt) {
 		dma_buf_unmap_attachment(buf->db_attach, buf->dma_sgt,
 					 DMA_BIDIRECTIONAL);
 		buf->dma_sgt = NULL;
 		buf->daddr = 0;
+	} else {
+		pr_info("%s: failed, buf->dma_sgt is null\n", __func__);
 	}
 
 	if (buf->vaddr) {
@@ -319,6 +320,8 @@ static void mtk_cam_device_buf_uninit(struct mtk_cam_device_buf *buf)
 	if (buf->db_attach) {
 		dma_buf_detach(buf->dbuf, buf->db_attach);
 		buf->db_attach = NULL;
+	} else {
+		pr_info("%s: failed, buf->db_attach is null\n", __func__);
 	}
 }
 
@@ -362,20 +365,29 @@ int mtk_cam_user_img_working_buf_pool_init(struct mtk_cam_ctx *ctx,
 	int ret = -EINVAL;
 
 	ccd = (struct mtk_ccd *)ctx->cam->rproc_handle->priv;
-	if (mtk_cam_user_buf_attach_map(ccd->dev,
-					&ctx->pipe->pre_alloc_mem.bufs[0],
-					&ctx->img_buf_pool.pre_alloc_img_buf))
+	if (!mtk_cam_user_buf_attach_map(ccd->dev,
+					 &ctx->pipe->pre_alloc_mem.bufs[0],
+					 &ctx->img_buf_pool.pre_alloc_img_buf)) {
+		dev_info(ctx->cam->dev,
+			 "%s:ctx(%d): attached/mapped user memory(%d,%d), sz(%zu), daddr(%pad)\n",
+			 __func__, ctx->stream_id,
+			 ctx->pipe->pre_alloc_mem.bufs[0].fd,
+			 ctx->pipe->pre_alloc_mem.bufs[0].length,
+			 ctx->img_buf_pool.pre_alloc_img_buf.size,
+			 &ctx->img_buf_pool.pre_alloc_img_buf.daddr);
+
 		ret = mtk_cam_img_working_buf_pool_init(ctx, buf_num,
 							working_buf_size,
 							ctx->img_buf_pool.pre_alloc_img_buf.daddr,
 							ctx->img_buf_pool.pre_alloc_img_buf.size,
 							ctx->img_buf_pool.pre_alloc_img_buf.vaddr);
-	else
+	} else {
 		dev_info(ctx->cam->dev,
 			 "%s:ctx(%d): failed to attach/map user memory(%d,%d)\n",
 			 __func__, ctx->stream_id,
 			 ctx->pipe->pre_alloc_mem.bufs[0].fd,
 			 ctx->pipe->pre_alloc_mem.bufs[0].length);
+	}
 
 	return ret;
 }
@@ -413,6 +425,13 @@ void mtk_cam_img_working_buf_pool_release(struct mtk_cam_ctx *ctx)
 
 void mtk_cam_user_img_working_buf_pool_release(struct mtk_cam_ctx *ctx)
 {
+	dev_info(ctx->cam->dev,
+		 "%s:ctx(%d): deattach/unmap user memory(%d,%d), sz(%zu), daddr(%pad)\n",
+		 __func__, ctx->stream_id,
+		 ctx->pipe->pre_alloc_mem.bufs[0].fd,
+		 ctx->pipe->pre_alloc_mem.bufs[0].length,
+		 ctx->img_buf_pool.pre_alloc_img_buf.size,
+		 &ctx->img_buf_pool.pre_alloc_img_buf.daddr);
 	mtk_cam_user_buf_deattach_unmap(&ctx->img_buf_pool.pre_alloc_img_buf);
 	ctx->img_buf_pool.pre_alloc_img_buf.daddr = 0;
 	ctx->img_buf_pool.pre_alloc_img_buf.size = 0;
