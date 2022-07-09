@@ -37,6 +37,10 @@ typedef int (*set_pad_selection_func_t)(struct v4l2_subdev *sd,
 					  struct mtk_cam_resource_v2 *res,
 					  int pad, int which);
 
+/* Flags used in struct mtk_cam_buffer */
+#define FLAG_NO_CACHE_INVALIDATE		0x00000001
+#define FLAG_NO_CACHE_CLEAN			0x00000002
+
 /*
  * struct mtk_cam_buffer - MTK camera device buffer.
  *
@@ -50,6 +54,7 @@ typedef int (*set_pad_selection_func_t)(struct v4l2_subdev *sd,
 struct mtk_cam_buffer {
 	struct vb2_v4l2_buffer vbb;
 	int final_state;
+	unsigned int flags;
 
 	dma_addr_t daddr;
 	dma_addr_t scp_addr;
@@ -75,8 +80,6 @@ struct mtk_cam_pad_ops {
  * @dma_port: the dma ports associated to the node
  * @link_flags: default media link flags
  * @smem_alloc: using the smem_dev as alloc device or not
- * @need_cache_sync_on_prepare: do cache sync at buf_prepare
- * @need_cache_sync_on_finish: do cache sync at buf_finish
  * @image: true for image node, false for meta node
  * @num_fmts: the number of supported node formats
  * @default_fmt_idx: default format of this node
@@ -94,8 +97,6 @@ struct mtk_cam_dev_node_desc {
 	u32 dma_port;
 	u32 link_flags;
 	u8 smem_alloc:1;
-	u8 need_cache_sync_on_prepare:1;
-	u8 need_cache_sync_on_finish:1;
 	u8 image:1;
 	u8 num_fmts;
 	u8 default_fmt_idx;
@@ -207,6 +208,9 @@ int mtk_cam_vidioc_s_selection(struct file *file, void *fh,
 
 int mtk_cam_vidioc_g_meta_fmt(struct file *file, void *fh,
 			      struct v4l2_format *f);
+
+int mtk_cam_vidioc_qbuf(struct file *file, void *priv,
+			struct v4l2_buffer *buf);
 
 /* Utility functions to convert format enum */
 unsigned int mtk_cam_get_sensor_pixel_id(unsigned int fmt);

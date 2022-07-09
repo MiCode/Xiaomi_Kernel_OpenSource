@@ -151,6 +151,9 @@ static int mtk_cam_vb2_buf_init(struct vb2_buffer *vb)
 	unsigned int dma_port;
 
 	buf = mtk_cam_vb2_buf_to_dev_buf(vb);
+
+	/* note: flags should be reset here */
+	/* buf->flags = 0; */
 	buf->daddr = vb2_dma_contig_plane_dma_addr(vb, 0);
 	buf->scp_addr = 0;
 
@@ -186,11 +189,13 @@ static int mtk_cam_vb2_buf_prepare(struct vb2_buffer *vb)
 {
 	struct mtk_cam_video_device *node = mtk_cam_vbq_to_vdev(vb->vb2_queue);
 	struct vb2_v4l2_buffer *v4l2_buf = to_vb2_v4l2_buffer(vb);
+	struct mtk_cam_buffer *mtk_buf = mtk_cam_vb2_buf_to_dev_buf(vb);
 	const struct v4l2_format *fmt = &node->active_fmt;
 	unsigned int size;
 	unsigned int plane;
 
-	if (node->desc.need_cache_sync_on_prepare) {
+	if (V4L2_TYPE_IS_OUTPUT(vb->type) &&
+	    !(mtk_buf->flags & FLAG_NO_CACHE_CLEAN)) {
 		dev_dbg(vb->vb2_queue->dev, "%s: %s\n",
 			__func__, node->desc.name);
 		for (plane = 0; plane < vb->num_planes; ++plane)
@@ -228,9 +233,11 @@ static int mtk_cam_vb2_buf_prepare(struct vb2_buffer *vb)
 static void mtk_cam_vb2_buf_finish(struct vb2_buffer *vb)
 {
 	struct mtk_cam_video_device *node = mtk_cam_vbq_to_vdev(vb->vb2_queue);
+	struct mtk_cam_buffer *mtk_buf = mtk_cam_vb2_buf_to_dev_buf(vb);
 	unsigned int plane;
 
-	if (node->desc.need_cache_sync_on_finish) {
+	if (V4L2_TYPE_IS_CAPTURE(vb->type) &&
+	    !(mtk_buf->flags & FLAG_NO_CACHE_INVALIDATE)) {
 		dev_dbg(vb->vb2_queue->dev, "%s: %s\n",
 			__func__, node->desc.name);
 		for (plane = 0; plane < vb->num_planes; ++plane)
@@ -2577,4 +2584,45 @@ void mtk_cam_fmt_set_request(struct v4l2_pix_format_mplane *fmt_mp, int request_
 	reserved[1] = (request_fd & 0x0000FF00) >> 8;
 	reserved[2] = (request_fd & 0x00FF0000) >> 16;
 	reserved[3] = (request_fd & 0xFF000000) >> 24;
+}
+
+static struct mtk_cam_buffer *
+mtk_cam_vb2_queue_get_mtkbuf(struct vb2_queue *q, struct v4l2_buffer *b)
+{
+	struct vb2_buffer *vb;
+
+	if (b->index >= q->num_buffers) {
+		dev_info(q->dev, "%s: buffer index out of range (idx/num: %d/%d)\n",
+			 __func__, b->index, q->num_buffers);
+		return NULL;
+	}
+
+	vb = q->bufs[b->index];
+	if (vb == NULL) {
+		/* Should never happen */
+		dev_info(q->dev, "%s: buffer is NULL\n", __func__);
+		return NULL;
+	}
+
+	return mtk_cam_vb2_buf_to_dev_buf(vb);
+}
+
+int mtk_cam_vidioc_qbuf(struct file *file, void *priv,
+			struct v4l2_buffer *buf)
+{
+	struct video_device *vdev = video_devdata(file);
+	struct mtk_cam_buffer *cam_buf;
+
+	cam_buf = mtk_cam_vb2_queue_get_mtkbuf(vdev->queue, buf);
+	if (cam_buf == NULL)
+		return -EINVAL;
+
+	cam_buf->flags = 0;
+	if (buf->flags & V4L2_BUF_FLAG_NO_CACHE_CLEAN)
+		cam_buf->flags |= FLAG_NO_CACHE_CLEAN;
+
+	if (buf->flags & V4L2_BUF_FLAG_NO_CACHE_INVALIDATE)
+		cam_buf->flags |= FLAG_NO_CACHE_INVALIDATE;
+
+	return vb2_qbuf(vdev->queue, vdev->v4l2_dev->mdev, buf);
 }
