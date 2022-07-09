@@ -323,6 +323,8 @@ static void mtk_save_uart_reg(struct uart_8250_port *up, unsigned int *reg_buf)
 	reg_buf[17] = serial_in(up, MTK_UART_DEBUG6);
 	reg_buf[18] = serial_in(up, MTK_UART_DEBUG7);
 	reg_buf[19] = serial_in(up, MTK_UART_DEBUG8);
+	reg_buf[20] = serial_in(up, UART_IER);
+	reg_buf[21] = serial_in(up, UART_IIR);
 }
 
 void mtk8250_data_dump(struct mtk8250_data *data)
@@ -429,10 +431,12 @@ int mtk8250_uart_dump(struct tty_struct *tty)
 		uart_reg_buf[4], uart_reg_buf[5], uart_reg_buf[6], uart_reg_buf[7],
 		uart_reg_buf[8], uart_reg_buf[9], uart_reg_buf[10]);
 	pr_info("[%s] 0x60=0x%x,0x64=0x%x,0x68=0x%x,0x6c=0x%x,\n"
-		"0x70=0x%x,0x74=0x%x,0x78=0x%x,0x7c=0x%x,0x80=0x%x\n",
+		"0x70=0x%x,0x74=0x%x,0x78=0x%x,0x7c=0x%x,0x80=0x%x,\n"
+		"ier=0x%x,iir=0x%x\n",
 		__func__, uart_reg_buf[11], uart_reg_buf[12], uart_reg_buf[13],
 		uart_reg_buf[14], uart_reg_buf[15], uart_reg_buf[16],
-		uart_reg_buf[17], uart_reg_buf[18], uart_reg_buf[19]);
+		uart_reg_buf[17], uart_reg_buf[18], uart_reg_buf[19],
+		uart_reg_buf[20], uart_reg_buf[21]);
 #ifdef CONFIG_SERIAL_8250_DMA
 	pr_info("[apdma_rx] int_flag=0x%x,int_en=0x%x,en=0x%x,flush=0x%x,addr=0x%x,\n"
 		"len=0x%x,thre=0x%x,wpt=0x%x,rpt=0x%x,int_buf_size=0x%x\n"
@@ -569,6 +573,7 @@ static void mtk8250_dma_enable(struct uart_8250_port *up)
 	serial_out(up, UART_LCR, UART_LCR_CONF_MODE_B);
 	serial_out(up, MTK_UART_EFR, UART_EFR_ECB);
 	serial_out(up, UART_LCR, lcr);
+	serial_out(up, UART_IER, 0);
 
 	if (dmaengine_slave_config(dma->rxchan, &dma->rxconf) != 0)
 		pr_err("failed to configure rx dma channel\n");
@@ -861,6 +866,7 @@ mtk8250_set_termios(struct uart_port *port, struct ktermios *termios,
 		mode = MTK_UART_FC_NONE;
 
 	mtk8250_set_flow_ctrl(up, mode);
+	serial_out(up, UART_IER, 0);
 
 	if (uart_console(port))
 		up->port.cons->cflag = termios->c_cflag;

@@ -51,7 +51,7 @@
  */
 #define VFF_TX_THRE(n)		(n)
 /* interrupt trigger level for rx */
-#define VFF_RX_THRE(n)		((n) * 3 / 4)
+#define VFF_RX_THRE(n)		((n) / 16)
 
 #define VFF_RING_SIZE	0xffff
 /* invert this bit when wrap ring head again */
