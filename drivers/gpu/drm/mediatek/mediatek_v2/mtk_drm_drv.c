@@ -5702,6 +5702,8 @@ static const struct drm_ioctl_desc mtk_ioctls[] = {
 			  DRM_UNLOCKED),
 	DRM_IOCTL_DEF_DRV(MTK_ODDMR_CTL, mtk_drm_ioctl_oddmr_ctl,
 				  DRM_UNLOCKED),
+	DRM_IOCTL_DEF_DRV(MTK_SET_GAMMA_MUL_DISABLE, mtk_drm_ioctl_gamma_mul_disable,
+				  DRM_UNLOCKED),
 };
 
 static const struct file_operations mtk_drm_fops = {
