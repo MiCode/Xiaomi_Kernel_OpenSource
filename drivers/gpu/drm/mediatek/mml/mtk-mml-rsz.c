@@ -190,10 +190,10 @@ static s32 rsz_prepare(struct mml_comp *comp, struct mml_task *task,
 
 	rsz_frm = kzalloc(sizeof(*rsz_frm), GFP_KERNEL);
 	ccfg->data = rsz_frm;
-	if (rsz->data->aal_crop)
-		rsz_frm->relay_mode = rsz_can_relay(cfg, src, dest);
-	else
+	if (!rsz->data->aal_crop && dest->pq_config.en_dre)
 		rsz_frm->relay_mode = false;
+	else
+		rsz_frm->relay_mode = rsz_can_relay(cfg, src, dest);
 	/* C42 conversion: drop if source is YUV422 or YUV420 */
 	rsz_frm->use121filter = !MML_FMT_H_SUBSAMPLE(src->format);
 
