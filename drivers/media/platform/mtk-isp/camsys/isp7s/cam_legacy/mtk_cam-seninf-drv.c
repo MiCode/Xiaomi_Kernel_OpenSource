@@ -874,7 +874,7 @@ static int set_aov_test_model_param(struct seninf_ctx *ctx,
 	pr_info("[%s]+\n", __func__);
 
 	if (enable) {
-		g_aov_param.sensor_idx = 5; // 5 -> test model
+		g_aov_param.sensor_idx = 5; // 5: test model
 		aov_ctx[g_aov_param.sensor_idx] = ctx;
 		g_aov_param.port = ctx->port;
 		g_aov_param.portA = ctx->portA;
@@ -917,8 +917,9 @@ static int set_aov_test_model_param(struct seninf_ctx *ctx,
 		}
 	} else {
 		pm_runtime_put_sync(ctx->dev);
-
-		/* because array size of aov_ctx[] is 6 */
+		/* array size of aov_ctx[] is
+		 * 6: most number of sensors support
+		 */
 		if (g_aov_param.sensor_idx < 6) {
 			aov_ctx[g_aov_param.sensor_idx] = NULL;
 			memset(&g_aov_param, 0, sizeof(struct mtk_seninf_aov_param));
@@ -1642,7 +1643,7 @@ static const struct v4l2_async_notifier_operations seninf_async_ops = {
 
 static int seninf_real_sensor_for_aov_param(struct seninf_ctx *ctx, u32 enable)
 {
-	unsigned int idx = 0;
+#ifndef SENSING_MODE_READY
 	struct seninf_core *core = ctx->core;
 
 	switch (enable) {
@@ -1652,7 +1653,9 @@ static int seninf_real_sensor_for_aov_param(struct seninf_ctx *ctx, u32 enable)
 		ctx->is_aov_real_sensor = 0;
 		if (!core->pwr_refcnt_for_aov) {
 			dev_info(ctx->dev, "[%s] set aov real sensor off\n", __func__);
-			/* because array size of aov_ctx[] is 6 */
+			/* because array size of aov_ctx[] is
+			 * 6: most number of sensors support
+			 */
 			if (g_aov_param.sensor_idx < 6) {
 				aov_ctx[g_aov_param.sensor_idx] = NULL;
 				memset(&g_aov_param, 0, sizeof(struct mtk_seninf_aov_param));
@@ -1665,32 +1668,35 @@ static int seninf_real_sensor_for_aov_param(struct seninf_ctx *ctx, u32 enable)
 		ctx->is_aov_real_sensor = enable;
 		if (!core->pwr_refcnt_for_aov) {
 			dev_info(ctx->dev, "[%s] set aov real sensor on\n", __func__);
-			/* get sensor idx by get_sensor_idx */
+			/* get aov sensor idx by get_sensor_idx */
 			core->aov_sensor_id = get_sensor_idx(ctx);
-			if (core->aov_sensor_id < 0) {
+			/* array size of aov_ctx[] is
+			 * 6: most number of sensors support
+			 */
+			if (core->aov_sensor_id >= 0 &&
+				core->aov_sensor_id < 6) {
+				g_aov_param.sensor_idx = core->aov_sensor_id;
+				aov_ctx[g_aov_param.sensor_idx] = ctx;
+				g_aov_param.is_test_model = 0;
+			} else {
 				dev_info(ctx->dev,
 					"[%s] get_sensor_idx[%d] fail\n",
 					__func__, core->aov_sensor_id);
 				return core->aov_sensor_id;
-			}
-			/* because array size of aov_ctx[] is 6 */
-			if (idx < 6) {
-				g_aov_param.sensor_idx = core->aov_sensor_id;
-				aov_ctx[g_aov_param.sensor_idx] = ctx;
-				g_aov_param.is_test_model = 0;
 			}
 		}
 		break;
 	default:
 		break;
 	}
-
+#endif
 	return 0;
 }
 
 /* NOTE: update vcinfo once test_model switches */
 static int seninf_test_pattern_for_aov_param(struct seninf_ctx *ctx, u32 pattern)
 {
+#ifndef SENSING_MODE_READY
 	switch (pattern) {
 	case 0:
 		if (ctx->streaming)
@@ -1707,7 +1713,7 @@ static int seninf_test_pattern_for_aov_param(struct seninf_ctx *ctx, u32 pattern
 	default:
 		break;
 	}
-
+#endif
 	return 0;
 }
 
@@ -1763,7 +1769,8 @@ static int seninf_test_streamon(struct seninf_ctx *ctx, u32 en)
 static int mtk_cam_seninf_set_ctrl(struct v4l2_ctrl *ctrl)
 {
 	struct seninf_ctx *ctx = ctrl_hdl_to_ctx(ctrl->handler);
-	int ret;
+	struct mtk_seninf_s_stream *s_stream_ctrl = ctrl->p_new.p;
+	int ret = 0;
 	struct seninf_core *core = ctx->core;
 
 	switch (ctrl->id) {
@@ -1771,6 +1778,7 @@ static int mtk_cam_seninf_set_ctrl(struct v4l2_ctrl *ctrl)
 		ret = seninf_test_pattern(ctx, ctrl->val);
 		break;
 	case V4L2_CID_MTK_SENINF_S_STREAM:
+		/* get current sensor idx by get_sensor_idx */
 		core->current_sensor_id = get_sensor_idx(ctx);
 		if (core->current_sensor_id < 0) {
 			dev_info(ctx->dev,
@@ -1778,12 +1786,92 @@ static int mtk_cam_seninf_set_ctrl(struct v4l2_ctrl *ctrl)
 				__func__, core->current_sensor_id);
 			return core->current_sensor_id;
 		}
-		if ((ctx->is_aov_test_model) ||
-			((ctx->is_aov_real_sensor) &&
-			(core->current_sensor_id == core->aov_sensor_id)))
-			ret = seninf_s_stream(&ctx->subdev, ctrl->val);
-		else
-			ret = seninf_csi_s_stream(&ctx->subdev, ctrl->val);
+		switch (s_stream_ctrl->stream_mode) {
+		case AOV_TEST_MODEL:
+			if (s_stream_ctrl->enable) {
+				if (ctx->streaming) {
+					dev_info(ctx->dev,
+						"[%s] sensor still streaming on!\n", __func__);
+					return -EBUSY;
+				}
+				ctx->is_test_model = 1;
+				dev_info(ctx->dev, "set aov test pattern on\n");
+				ret = seninf_s_stream(&ctx->subdev, s_stream_ctrl->enable);
+			} else {
+				ret = seninf_s_stream(&ctx->subdev, s_stream_ctrl->enable);
+				if (ctx->streaming) {
+					dev_info(ctx->dev,
+						"[%s] sensor still streaming on!\n", __func__);
+					return -EBUSY;
+				}
+				ctx->is_test_model = 0;
+				dev_info(ctx->dev, "set aov test pattern off\n");
+			}
+			break;
+		case AOV_REAL_SENSOR:
+			if (s_stream_ctrl->enable) {
+				if (ctx->streaming) {
+					dev_info(ctx->dev,
+						"[%s] sensor still streaming on!\n", __func__);
+					return -EBUSY;
+				}
+				ctx->is_aov_real_sensor = 1;
+				if (!core->pwr_refcnt_for_aov) {
+					dev_info(ctx->dev,
+						"[%s] set aov real sensor on\n", __func__);
+					/* get aov sensor idx by get_sensor_idx */
+					core->aov_sensor_id = get_sensor_idx(ctx);
+					/* array size of aov_ctx[] is
+					 * 6: most number of sensors support
+					 */
+					if (core->aov_sensor_id >= 0 &&
+						core->aov_sensor_id < 6) {
+						g_aov_param.sensor_idx = core->aov_sensor_id;
+						aov_ctx[g_aov_param.sensor_idx] = ctx;
+						g_aov_param.is_test_model = 0;
+					} else {
+						dev_info(ctx->dev,
+							"[%s] get_sensor_idx[%d] fail\n",
+							__func__, core->aov_sensor_id);
+						return core->aov_sensor_id;
+					}
+				}
+				if (core->current_sensor_id == core->aov_sensor_id)
+					ret = seninf_s_stream(&ctx->subdev, s_stream_ctrl->enable);
+				else
+					dev_info(ctx->dev,
+						"[%s] aov user input wrong sensor id!\n", __func__);
+			} else {
+				if (core->current_sensor_id == core->aov_sensor_id)
+					ret = seninf_s_stream(&ctx->subdev, s_stream_ctrl->enable);
+				else
+					dev_info(ctx->dev,
+						"[%s] aov user input wrong sensor id!\n", __func__);
+				if (ctx->streaming) {
+					dev_info(ctx->dev,
+						"[%s] sensor still streaming on!\n", __func__);
+					return -EBUSY;
+				}
+				ctx->is_aov_real_sensor = 0;
+				if (!core->pwr_refcnt_for_aov) {
+					dev_info(ctx->dev,
+						"[%s] set aov real sensor off\n", __func__);
+					/* array size of aov_ctx[] is
+					 * 6: most number of sensors support
+					 */
+					if (g_aov_param.sensor_idx < 6) {
+						aov_ctx[g_aov_param.sensor_idx] = NULL;
+						memset(&g_aov_param, 0,
+							sizeof(struct mtk_seninf_aov_param));
+					}
+				}
+			}
+			break;
+		case NORMAL_CAMERA:
+		default:
+			ret = seninf_csi_s_stream(&ctx->subdev, s_stream_ctrl->enable);
+			break;
+		}
 		break;
 #ifdef SENINF_DEBUG
 	case V4L2_CID_MTK_TEST_STREAMON:
@@ -1885,10 +1973,11 @@ static const struct v4l2_ctrl_config cfg_s_stream = {
 	.ops = &seninf_ctrl_ops,
 	.id = V4L2_CID_MTK_SENINF_S_STREAM,
 	.name = "set_stream",
-	.type = V4L2_CTRL_TYPE_BOOLEAN,
+	.type = V4L2_CTRL_TYPE_U32,
 	.flags = V4L2_CTRL_FLAG_EXECUTE_ON_WRITE,
-	.max = 1,
+	.max = 0xffffffff,
 	.step = 1,
+	.dims = {sizeof_u32(struct mtk_seninf_s_stream)},
 };
 
 static const struct v4l2_ctrl_config cfg_s_test_model_for_aov_param = {
@@ -2153,7 +2242,9 @@ static int seninf_probe(struct platform_device *pdev)
 	pm_runtime_enable(dev);
 
 	memset(&g_aov_param, 0, sizeof(struct mtk_seninf_aov_param));
-	//TO-DO: enum, not hardcode
+	/* array size of aov_ctx[] is
+	 * 6: most number of sensors support
+	 */
 	for (i = 0; i < 6; i++)
 		aov_ctx[i] = NULL;
 
@@ -2679,13 +2770,11 @@ int mtk_cam_seninf_aov_runtime_suspend(unsigned int sensor_id)
 			return -ENODEV;
 		}
 	}
-
 	/* debug use
 	 * if (g_aov_param.sensor_idx)
 	 *	pr_info("g_aov_param.sensor_idx %d\n",
 	 *		g_aov_param.sensor_idx);
 	 */
-
 	if (aov_ctx[real_sensor_id] != NULL) {
 		pr_info("[%s] sensor idx[%u]\n", __func__, real_sensor_id);
 		ctx = aov_ctx[real_sensor_id];
@@ -2846,13 +2935,11 @@ int mtk_cam_seninf_aov_runtime_resume(unsigned int sensor_id)
 			return -ENODEV;
 		}
 	}
-
 	/* debug use
 	 * if (g_aov_param.sensor_idx)
 	 *	pr_info("g_aov_param.sensor_idx %d\n",
 	 *		g_aov_param.sensor_idx);
 	 */
-
 	if (aov_ctx[real_sensor_id] != NULL) {
 		pr_info("[%s] sensor idx[%u]\n", __func__, real_sensor_id);
 		ctx = aov_ctx[real_sensor_id];

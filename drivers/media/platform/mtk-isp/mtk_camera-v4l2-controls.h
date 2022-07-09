@@ -681,6 +681,17 @@ enum mtk_cam_sensor_i2c_bus_sda {
 	SDA_ERR = 0xffff,
 };
 
+enum stream_mode {
+	NORMAL_CAMERA = 0,
+	AOV_REAL_SENSOR,
+	AOV_TEST_MODEL,
+};
+
+struct mtk_seninf_s_stream {
+	enum stream_mode stream_mode;
+	int enable;
+};
+
 /* S E N I N F */
 #define V4L2_CID_MTK_SENINF_S_STREAM \
 		(V4L2_CID_USER_MTK_SENINF_BASE + 1)
