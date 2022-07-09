@@ -3371,6 +3371,7 @@ static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 	unsigned long debug_ft = FT_30_FPS * SCAN_TIME;	// FIXME
 	unsigned long debug_vb = 3 * SCAN_TIME;	// FIXME
 	enum CSI_PORT csi_port = CSI_PORT_0;
+	unsigned int tag_03_vc, tag_03_dt, tag_47_vc, tag_47_dt;
 
 	if (ctx->dbg_timeout != 0)
 		debug_ft = ctx->dbg_timeout / 1000;
@@ -3590,8 +3591,24 @@ static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 				unsigned int used_cammux = ctx->vcinfo.vc[j].cam;
 
 				if ((used_cammux == i) && ((enabled >> i) & 1)) {
+
+					SENINF_BITS(ctx->reg_if_cam_mux_pcsr[i],
+						    SENINF_CAM_MUX_PCSR_OPT,
+						    RG_SENINF_CAM_MUX_PCSR_TAG_VC_DT_PAGE_SEL, 0);
+					tag_03_vc = SENINF_READ_REG(ctx->reg_if_cam_mux_pcsr[i],
+								SENINF_CAM_MUX_PCSR_TAG_VC_SEL);
+					tag_03_dt = SENINF_READ_REG(ctx->reg_if_cam_mux_pcsr[i],
+								SENINF_CAM_MUX_PCSR_TAG_DT_SEL);
+					SENINF_BITS(ctx->reg_if_cam_mux_pcsr[i],
+						    SENINF_CAM_MUX_PCSR_OPT,
+						    RG_SENINF_CAM_MUX_PCSR_TAG_VC_DT_PAGE_SEL, 1);
+					tag_47_vc = SENINF_READ_REG(ctx->reg_if_cam_mux_pcsr[i],
+								SENINF_CAM_MUX_PCSR_TAG_VC_SEL);
+					tag_47_dt = SENINF_READ_REG(ctx->reg_if_cam_mux_pcsr[i],
+								SENINF_CAM_MUX_PCSR_TAG_DT_SEL);
+
 					dev_info(ctx->dev,
-					"cam_mux_%d CTRL(0x%x) RES(0x%x) EXP(0x%x) ERR(0x%x) OPT(0x%x) IRQ(0x%x)\n",
+					"cam_mux_%d CTRL(0x%x) RES(0x%x) EXP(0x%x) ERR(0x%x) OPT(0x%x) IRQ(0x%x) tag03(0x%x/0x%x), tag47(0x%x/0x%x)\n",
 					i,
 					SENINF_READ_REG(ctx->reg_if_cam_mux_pcsr[i],
 								SENINF_CAM_MUX_PCSR_CTRL),
@@ -3604,7 +3621,8 @@ static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 					SENINF_READ_REG(ctx->reg_if_cam_mux_pcsr[i],
 								SENINF_CAM_MUX_PCSR_OPT),
 					SENINF_READ_REG(ctx->reg_if_cam_mux_pcsr[i],
-								SENINF_CAM_MUX_PCSR_IRQ_STATUS));
+								SENINF_CAM_MUX_PCSR_IRQ_STATUS),
+					tag_03_vc, tag_03_dt, tag_47_vc, tag_47_dt);
 				}
 			}
 		}
