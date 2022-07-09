@@ -124,6 +124,10 @@ static void layering_rule_scenario_decision(struct drm_device *dev,
 		l_rule_info.addon_scn[HRT_THIRD] = NONE;
 		l_rule_info.addon_scn[HRT_FOURTH] = NONE;
 	}
+
+	if ((scn_decision_flag & SCN_IDLE) && !(scn_decision_flag & SCN_CLEAR))
+		l_rule_info.addon_scn[HRT_PRIMARY] = NONE;
+
 /*TODO: need MMP support*/
 #ifdef IF_ZERO
 	mmprofile_log_ex(ddp_mmp_get_events()->hrt, MMPROFILE_FLAG_END,

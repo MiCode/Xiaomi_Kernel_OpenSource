@@ -297,6 +297,9 @@ static bool mtk_planes_is_yuv_fmt(struct drm_crtc *crtc)
 
 		if (pending->enable && is_yuv(fmt))
 			return true;
+
+		if (plane_state->comp_state.layer_caps & MTK_DISP_SRC_YUV_LAYER)
+			return true;
 	}
 
 	return false;

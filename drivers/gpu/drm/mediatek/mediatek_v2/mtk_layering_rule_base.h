@@ -48,6 +48,10 @@
 
 #define HRT_GET_FIRST_SET_BIT(n) (((n) - ((n) & ((n) - 1))))
 
+#define DISP_MML_CAPS_MASK                                                                         \
+	(MTK_MML_DISP_DIRECT_LINK_LAYER | MTK_MML_DISP_DIRECT_DECOUPLE_LAYER |                     \
+	 MTK_MML_DISP_DECOUPLE_LAYER | MTK_MML_DISP_MDP_LAYER)
+
 enum HRT_DISP_TYPE {
 	HRT_PRIMARY = 0,
 	HRT_SECONDARY,
@@ -144,6 +148,8 @@ enum SCN_FACTOR {
 	SCN_TRIPLE_DISP =  0x00000004,
 	SCN_MML = 0x00000008,
 	SCN_MML_SRAM_ONLY = 0x00000010,
+	SCN_IDLE = 0x00000020,
+	SCN_CLEAR = 0x00000040,
 };
 
 struct layering_rule_ops {

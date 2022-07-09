@@ -36,6 +36,7 @@
 #include "mtk_drm_gem.h"
 
 #include "../mml/mtk-mml.h"
+#include "../mml/mtk-mml-color.h"
 #include "../mml/mtk-mml-drm-adaptor.h"
 #include "mtk_disp_oddmr/mtk_disp_oddmr.h"
 
@@ -57,9 +58,6 @@ int have_force_gpu_layer;
 int sum_overlap_w_of_bwm;
 
 #define DISP_MML_LAYER_LIMIT 1
-#define DISP_MML_CAPS_MASK                                                                         \
-	(MTK_MML_DISP_DIRECT_LINK_LAYER | MTK_MML_DISP_DIRECT_DECOUPLE_LAYER |                     \
-	 MTK_MML_DISP_DECOUPLE_LAYER | MTK_MML_DISP_MDP_LAYER)
 
 static struct {
 	enum LYE_HELPER_OPT opt;
@@ -2556,13 +2554,24 @@ static int mtk_lye_get_lye_id(int disp_idx, struct drm_device *drm_dev,
 	return get_phy_ovl_index(drm_dev, disp_idx, layer_map_idx);
 }
 
-static void clear_layer(struct drm_mtk_layering_info *disp_info)
+static void clear_layer(struct drm_mtk_layering_info *disp_info,
+			enum SCN_FACTOR *scn_decision_flag, struct drm_device *drm_dev)
 {
 	int di = 0;
 	int i = 0;
 	struct drm_mtk_layer_config *c;
+	struct drm_crtc *crtc;
+	struct mtk_drm_crtc *mtk_crtc;
 
 	if (!get_layering_opt(LYE_OPT_CLEAR_LAYER))
+		return;
+
+	drm_for_each_crtc(crtc, drm_dev) {
+		if (drm_crtc_index(crtc) == 0)
+			break;
+	}
+	mtk_crtc = to_mtk_crtc(crtc);
+	if (mtk_crtc->mml_debug & DISP_MML_IR_CLEAR)
 		return;
 
 	for (di = 0; di < HRT_DISP_TYPE_NUM; di++) {
@@ -2613,7 +2622,6 @@ static void clear_layer(struct drm_mtk_layering_info *disp_info)
 #endif
 		{
 			c->layer_caps &= ~MTK_DISP_RSZ_LAYER;
-			l_rule_info->addon_scn[di] = NONE;
 
 			if ((c->src_width != c->dst_width ||
 			     c->src_height != c->dst_height) &&
@@ -2623,6 +2631,12 @@ static void clear_layer(struct drm_mtk_layering_info *disp_info)
 				DDPMSG("%s:remove clear(rsz), caps:0x%08x\n",
 				       __func__, c->layer_caps);
 			}
+		}
+
+		if (mtk_has_layer_cap(c, MTK_DISP_CLIENT_CLEAR_LAYER)) {
+			*scn_decision_flag |= SCN_CLEAR;
+			if ((*scn_decision_flag & SCN_IDLE))
+				disp_info->hrt_weight += 400;
 		}
 
 		for (i = 0; i < disp_info->layer_num[di]; i++) {
@@ -2802,13 +2816,11 @@ static int dispatch_gles_range(struct drm_mtk_layering_info *disp_info,
 			hrt_disp_num--;
 		}
 
-		/* ajust hrt_num */
+		/* adjust hrt_num */
 		disp_info->hrt_num =
 			get_hrt_level(max_ovl_cnt * HRT_UINT_BOUND_BPP, 0);
 		disp_info->hrt_weight = max_ovl_cnt * 4;
 	}
-
-	clear_layer(disp_info);
 
 	return 0;
 }
@@ -2878,7 +2890,8 @@ static int dispatch_ovl_id(struct drm_mtk_layering_info *disp_info,
 	return 0;
 }
 
-static int check_layering_result(struct drm_mtk_layering_info *info)
+static int check_layering_result(struct drm_mtk_layering_info *info,
+				 const enum SCN_FACTOR scn_decision_flag)
 {
 	int disp_idx;
 	bool no_disp = true;
@@ -2910,6 +2923,20 @@ static int check_layering_result(struct drm_mtk_layering_info *info)
 		if (max_ovl_id >= ovl_layer_num)
 			DDPAEE("Inv ovl:%d,disp:%d\n", max_ovl_id, disp_idx);
 	}
+
+	if (l_rule_info->addon_scn[HRT_PRIMARY] == NONE) {
+		int i;
+
+		for (i = 0; i < info->layer_num[HRT_PRIMARY]; i++) {
+			struct drm_mtk_layer_config *c = &info->input_config[HRT_PRIMARY][i];
+
+			if (mtk_has_layer_cap(c, MTK_MML_DISP_DIRECT_DECOUPLE_LAYER)) {
+				c->layer_caps &= ~MTK_MML_DISP_DIRECT_DECOUPLE_LAYER;
+				c->layer_caps |= MTK_MML_DISP_NOT_SUPPORT;
+			}
+		}
+	}
+
 	return 0;
 }
 
@@ -3731,12 +3758,14 @@ static void check_is_mml_layer(const int disp_idx,
 
 		c->layer_caps |= query_MML(dev, crtc, &(disp_info->mml_cfg[disp_idx][i]));
 
+		if (MML_FMT_IS_YUV(disp_info->mml_cfg[disp_idx][i].src.format))
+			c->layer_caps |= MTK_DISP_SRC_YUV_LAYER;
+
 		/* IR support only for layer 0 */
 		if (MTK_MML_DISP_DIRECT_DECOUPLE_LAYER & c->layer_caps) {
 			if (i >= DISP_MML_LAYER_LIMIT) {
-				if ((mtk_crtc->mml_debug & DISP_MML_IR_CLEAR) &&
-				    mtk_has_layer_cap(c, MTK_CLIENT_CLEAR_LAYER) &&
-				    mtk_has_layer_cap(c, MTK_LAYERING_OVL_ONLY)) {
+				if (mtk_crtc->mml_debug & DISP_MML_IR_CLEAR) {
+					c->layer_caps |= MTK_DISP_CLIENT_CLEAR_LAYER;
 					disp_info->gles_head[disp_idx] = 0;
 					disp_info->gles_tail[disp_idx] =
 					    disp_info->layer_num[disp_idx] - 1;
@@ -4107,13 +4136,8 @@ static int layering_rule_start(struct drm_mtk_layering_info *disp_info_user,
 		for (i = 0 ; i < layering_info.layer_num[HRT_PRIMARY] ; i++) {
 			c = &layering_info.input_config[HRT_PRIMARY][i];
 			c->layer_caps &= ~MTK_DISP_RSZ_LAYER;
-
-			if (mtk_has_layer_cap(c, DISP_MML_CAPS_MASK)) {
-				c->layer_caps &= ~DISP_MML_CAPS_MASK;
-				c->layer_caps |= MTK_MML_DISP_NOT_SUPPORT;
-			}
 		}
-		scn_decision_flag = SCN_NO_FACTOR;
+		scn_decision_flag |= SCN_IDLE;
 		layering_info.hrt_num = HRT_LEVEL_LEVEL0;
 		layering_info.hrt_weight = 400;
 		if (get_layering_opt(LYE_OPT_OVL_BW_MONITOR))
@@ -4124,6 +4148,9 @@ static int layering_rule_start(struct drm_mtk_layering_info *disp_info_user,
 	lyeblob_ids = kzalloc(sizeof(struct mtk_drm_lyeblob_ids), GFP_KERNEL);
 
 	dispatch_gles_range(&layering_info, dev);
+	check_gles_change(&dbg_gles, __LINE__, false);
+
+	clear_layer(&layering_info, &scn_decision_flag, dev);
 	check_gles_change(&dbg_gles, __LINE__, true);
 
 	/* adjust scenario after dispatch gles range */
@@ -4131,7 +4158,7 @@ static int layering_rule_start(struct drm_mtk_layering_info *disp_info_user,
 	l_rule_ops->scenario_decision(dev, scn_decision_flag, scale_num);
 	ret = dispatch_ovl_id(&layering_info, lyeblob_ids, dev);
 
-	check_layering_result(&layering_info);
+	check_layering_result(&layering_info, scn_decision_flag);
 
 	layering_info.hrt_idx = _layering_rule_get_hrt_idx(disp_idx);
 	HRT_SET_AEE_FLAG(layering_info.hrt_num, l_rule_info->dal_enable);
