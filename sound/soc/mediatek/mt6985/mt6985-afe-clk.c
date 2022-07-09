@@ -31,7 +31,7 @@ int mt6985_get_apll_rate(struct mtk_base_afe *afe, int apll) { return 0; }
 int mt6985_get_apll_by_rate(struct mtk_base_afe *afe, int rate) { return 0; }
 int mt6985_get_apll_by_name(struct mtk_base_afe *afe, const char *name) { return 0; }
 int mt6985_mck_enable(struct mtk_base_afe *afe, int mck_id, int rate) { return 0; }
-void mt6985_mck_disable(struct mtk_base_afe *afe, int mck_id) {}
+int mt6985_mck_disable(struct mtk_base_afe *afe, int mck_id) { return 0; }
 int mt6985_set_audio_int_bus_parent(struct mtk_base_afe *afe, int clk_id) { return 0; }
 #else
 static DEFINE_MUTEX(mutex_request_dram);
@@ -824,11 +824,18 @@ int mt6985_mck_enable(struct mtk_base_afe *afe, int mck_id, int rate)
 	return 0;
 }
 
-void mt6985_mck_disable(struct mtk_base_afe *afe, int mck_id)
+int mt6985_mck_disable(struct mtk_base_afe *afe, int mck_id)
 {
 	struct mt6985_afe_private *afe_priv = afe->platform_priv;
-	int m_sel_id = mck_div[mck_id].m_sel_id;
-	int div_clk_id = mck_div[mck_id].div_clk_id;
+	int m_sel_id;
+	int div_clk_id;
+
+	if (mck_id < 0) {
+		dev_err(afe->dev, "%s(), invalid mck_id %d\n", __func__, mck_id);
+		return -EINVAL;
+	}
+	m_sel_id = mck_div[mck_id].m_sel_id;
+	div_clk_id = mck_div[mck_id].div_clk_id;
 
 	clk_disable_unprepare(afe_priv->clk[div_clk_id]);
 	/* i2s5 */
@@ -839,6 +846,8 @@ void mt6985_mck_disable(struct mtk_base_afe *afe, int mck_id)
 
 	if (m_sel_id >= 0)
 		clk_disable_unprepare(afe_priv->clk[m_sel_id]);
+
+	return 0;
 }
 
 int mt6985_init_clock(struct mtk_base_afe *afe)

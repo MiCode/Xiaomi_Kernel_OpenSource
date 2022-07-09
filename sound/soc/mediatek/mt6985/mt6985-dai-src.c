@@ -370,7 +370,7 @@ static int mtk_set_src_3_param(struct mtk_base_afe *afe, int id)
 	unsigned int out_freq_mode;
 	unsigned int in_freq_mode;
 
-	if (id < 0 || id > MT6985_DAI_NUM) {
+	if (id < 0 || id >= MT6985_DAI_NUM) {
 		dev_err(afe->dev, "%s(), invalid DAI id %d\n", __func__, id);
 		return -EINVAL;
 	}

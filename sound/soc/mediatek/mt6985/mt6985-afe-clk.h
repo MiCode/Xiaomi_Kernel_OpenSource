@@ -304,7 +304,7 @@ extern void aud_intbus_mux_sel(unsigned int aud_idx);
 
 /* these will be replaced by using CCF */
 int mt6985_mck_enable(struct mtk_base_afe *afe, int mck_id, int rate);
-void mt6985_mck_disable(struct mtk_base_afe *afe, int mck_id);
+int mt6985_mck_disable(struct mtk_base_afe *afe, int mck_id);
 
 int mt6985_set_audio_int_bus_parent(struct mtk_base_afe *afe,
 				    int clk_id);
