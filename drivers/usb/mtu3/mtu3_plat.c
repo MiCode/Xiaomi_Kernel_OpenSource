@@ -743,6 +743,17 @@ static int mtu3_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static void mtu3_shutdown(struct platform_device *pdev)
+{
+	struct ssusb_mtk *ssusb = platform_get_drvdata(pdev);
+	struct otg_switch_mtk *otg_sx = &ssusb->otg_switch;
+
+	dev_info(ssusb->dev, "%s role %d\n", __func__, otg_sx->current_role);
+
+	if (ssusb->clk_mgr && otg_sx->current_role == USB_ROLE_DEVICE)
+		mtu3_stop(ssusb->u3d);
+}
+
 static int resume_ip_and_ports(struct ssusb_mtk *ssusb, pm_message_t msg)
 {
 	switch (ssusb->dr_mode) {
@@ -890,6 +901,7 @@ MODULE_DEVICE_TABLE(of, mtu3_of_match);
 static struct platform_driver mtu3_driver = {
 	.probe = mtu3_probe,
 	.remove = mtu3_remove,
+	.shutdown = mtu3_shutdown,
 	.driver = {
 		.name = MTU3_DRIVER_NAME,
 		.pm = DEV_PM_OPS,
