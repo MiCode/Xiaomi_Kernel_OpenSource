@@ -57,9 +57,9 @@ static struct ddr_ip_bc_stats ddr_ip_stats[NR_DDR_BC_IP];
 struct suspend_time suspend_time;
 static uint64_t total_suspend_us;
 
-/* core ip (mmsys, venc, vdec, scp */
+/* core ip (mmsys(disp+mdp), venc, vdec, scp */
 static char core_ip_str[NR_CORE_IP][MAX_IP_NAME_LENGTH] = {
-	"MMSYS", "VENC", "VDEC", "SCP",
+	"DISP", "MDP", "VENC", "VDEC", "SCP",
 };
 /* ddr bw ip (total r/total w/cpu/gpu/mm/md) */
 static char ddr_bc_ip_str[NR_DDR_BC_IP][MAX_IP_NAME_LENGTH] = {

@@ -21,7 +21,8 @@ enum pmsr_power_state {
 
 /* core ip (mmsys, venc, vdec, scp */
 enum core_ip_state {
-	CORE_IP_MMSYS,
+	CORE_IP_DISP,
+	CORE_IP_MDP,
 	CORE_IP_VENC,
 	CORE_IP_VDEC,
 	CORE_IP_SCP,
