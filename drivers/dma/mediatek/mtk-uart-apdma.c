@@ -20,11 +20,13 @@
 #include <linux/of_dma.h>
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
+#include <linux/serial_8250.h>
 #include <linux/slab.h>
 #include <linux/spinlock.h>
 #include <linux/sched/clock.h>
 
 #include "../virt-dma.h"
+#include "../../tty/serial/8250/8250.h"
 
 /* The default number of virtual channel */
 #define MTK_UART_APDMA_NR_VCHANS	8
@@ -298,9 +300,14 @@ static void mtk_uart_apdma_tx_handler(struct mtk_chan *c)
 static void mtk_uart_apdma_rx_handler(struct mtk_chan *c)
 {
 	struct mtk_uart_apdma_desc *d = c->desc;
+	struct uart_8250_port *p = (struct uart_8250_port *)d->vd.tx.callback_param;
 	unsigned int len, wg, rg;
 	int cnt;
 	unsigned int idx = 0;
+
+	//temp patch
+	if (d->vd.tx.callback_param != NULL)
+		serial_in(p, 0x13);
 
 	mtk_uart_apdma_write(c, VFF_INT_FLAG, VFF_RX_INT_CLR_B);
 

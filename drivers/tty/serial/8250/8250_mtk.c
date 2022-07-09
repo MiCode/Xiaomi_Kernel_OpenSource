@@ -71,7 +71,7 @@
 #define MTK_UART_EFR_SW_FC_MASK	0xf	/* Enable CTS Modem status interrupt */
 #define MTK_UART_EFR_HW_FC	(MTK_UART_EFR_RTS | MTK_UART_EFR_CTS)
 #define MTK_UART_DMA_EN_TX	0x2
-#define MTK_UART_DMA_EN_RX	0x5
+#define MTK_UART_DMA_EN_RX	0x1
 
 #define MTK_UART_ESCAPE_CHAR	0xdb	/* Escape char added under sw fc */
 #define MTK_UART_RX_SIZE	0x8000
