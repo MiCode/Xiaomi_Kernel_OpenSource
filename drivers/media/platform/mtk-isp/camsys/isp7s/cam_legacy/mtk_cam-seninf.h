@@ -113,6 +113,9 @@ struct seninf_core {
 	int pwr_refcnt_for_aov;
 	int aov_sensor_id;
 	int current_sensor_id;
+
+	/* debug flag for vsync */
+	u32 *seninf_vsync_debug_flag;
 };
 
 struct seninf_ctx {

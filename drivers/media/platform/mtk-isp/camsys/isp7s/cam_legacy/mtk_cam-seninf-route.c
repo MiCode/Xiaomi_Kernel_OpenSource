@@ -1312,7 +1312,7 @@ mtk_cam_seninf_streaming_mux_change(struct mtk_cam_seninf_mux_param *param)
 
 		//mtk_cam_seninf_set_sw_cfg_busy(ctx, false, index);
 		//mtk_cam_seninf_enable_global_drop_irq(ctx, false, 0);
-		//g_seninf_ops->_disable_all_cam_mux_vsync_irq(ctx);
+		//g_seninf_ops->_set_all_cam_mux_vsync_irq(ctx, 0);
 
 	}
 	return true;

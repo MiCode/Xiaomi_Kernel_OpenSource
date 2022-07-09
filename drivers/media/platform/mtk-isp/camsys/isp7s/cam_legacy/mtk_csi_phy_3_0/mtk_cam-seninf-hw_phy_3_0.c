@@ -3674,7 +3674,6 @@ static int mtk_cam_seninf_irq_handler(int irq, void *data)
 {
 	struct seninf_core *core = (struct seninf_core *)data;
 	struct seninf_ctx *ctx;
-	unsigned int cam_vsyc_irq_tmp;
 	void *pcammux_gcsr;
 	unsigned long flags;
 	/* for mipi err detection */
@@ -3691,6 +3690,8 @@ static int mtk_cam_seninf_irq_handler(int irq, void *data)
 	int cnt_tmp = 0;
 	u64 time_boot = ktime_get_boottime_ns();
 	u64 time_mono = ktime_get_ns();
+	u32 gcsr_vsync_st_h = 0;
+	u32 gcsr_vsync_st = 0;
 
 
 	spin_lock_irqsave(&core->spinlock_irq, flags);
@@ -3701,20 +3702,28 @@ static int mtk_cam_seninf_irq_handler(int irq, void *data)
 
 		if (ctx != NULL) {
 			pcammux_gcsr = ctx->reg_if_cam_mux_gcsr;
-			cam_vsyc_irq_tmp =
+
+			gcsr_vsync_st =
 				SENINF_READ_REG(pcammux_gcsr, SENINF_CAM_MUX_GCSR_VSYNC_IRQ_STS);
-			if (cam_vsyc_irq_tmp) {
+			gcsr_vsync_st_h =
+				SENINF_READ_REG(pcammux_gcsr, SENINF_CAM_MUX_GCSR_VSYNC_IRQ_STS_H);
+			if (gcsr_vsync_st) {
 				SENINF_WRITE_REG(
 					pcammux_gcsr,
 					SENINF_CAM_MUX_GCSR_VSYNC_IRQ_STS,
 					0xffffffff);
-				dev_info(ctx->dev, "%s SENINF_CAM_MUX_GCSR_VSYNC_IRQ_STS 0x%x cleared  0x%x tBoot %llu tMono %llu\n",
-					__func__,
-					cam_vsyc_irq_tmp,
-					SENINF_READ_REG(
-						pcammux_gcsr,
-						SENINF_CAM_MUX_GCSR_VSYNC_IRQ_STS),
-					time_boot/1000000, time_mono/1000000);
+			}
+			if (gcsr_vsync_st_h) {
+				SENINF_WRITE_REG(
+					pcammux_gcsr,
+					SENINF_CAM_MUX_GCSR_VSYNC_IRQ_STS_H,
+					0xffffffff);
+			}
+			if (gcsr_vsync_st || gcsr_vsync_st_h) {
+				dev_info(ctx->dev,
+					"%s SENINF_CAM_MUX_GCSR_VSYNC_STS/H 0x%x/0x%x tBoot %llu tMono %llu\n",
+					__func__, gcsr_vsync_st, gcsr_vsync_st_h,
+					time_boot / 1000000, time_mono / 1000000);
 			}
 
 		} else
@@ -3999,12 +4008,15 @@ static int mtk_cam_seninf_enable_cam_mux_vsync_irq(struct seninf_ctx *ctx, bool 
 }
 
 
-static int mtk_cam_seninf_disable_all_cam_mux_vsync_irq(struct seninf_ctx *ctx)
+static int mtk_cam_seninf_set_all_cam_mux_vsync_irq(struct seninf_ctx *ctx, bool enable)
 {
 	void *pSeninf_cam_mux_gcsr = ctx->reg_if_cam_mux_gcsr;
+	u32 val = enable ? 0xFFFFFFFF : 0;
 
 	SENINF_BITS(pSeninf_cam_mux_gcsr,
-		SENINF_CAM_MUX_GCSR_VSYNC_IRQ_EN, RG_SENINF_CAM_MUX_GCSR_VSYNC_IRQ_EN, 0);
+		SENINF_CAM_MUX_GCSR_VSYNC_IRQ_EN, RG_SENINF_CAM_MUX_GCSR_VSYNC_IRQ_EN, val);
+	SENINF_BITS(pSeninf_cam_mux_gcsr,
+		SENINF_CAM_MUX_GCSR_VSYNC_IRQ_EN_H, RG_SENINF_CAM_MUX_GCSR_VSYNC_IRQ_EN, val);
 	return 0;
 
 }
@@ -4071,6 +4083,18 @@ static int mtk_cam_scan_settle(struct seninf_ctx *ctx)
 	return 0;
 }
 #endif
+
+static void update_vsync_irq_en_flag(struct seninf_ctx *ctx)
+{
+	void *p_gcammux = ctx->reg_if_cam_mux_gcsr;
+	struct seninf_core *core = ctx->core;
+
+	core->vsync_irq_en_flag =
+		SENINF_READ_REG(p_gcammux, SENINF_CAM_MUX_GCSR_VSYNC_IRQ_EN) ||
+		SENINF_READ_REG(p_gcammux, SENINF_CAM_MUX_GCSR_VSYNC_IRQ_EN_H);
+
+	dev_info(ctx->dev, "vsync enable = %u\n", core->vsync_irq_en_flag);
+}
 
 static int mtk_cam_seninf_set_reg(struct seninf_ctx *ctx, u32 key, u32 val)
 {
@@ -4160,11 +4184,20 @@ static int mtk_cam_seninf_set_reg(struct seninf_ctx *ctx, u32 key, u32 val)
 		}
 		break;
 	case REG_KEY_CAMMUX_VSYNC_IRQ_EN:
-			p_gcammux = ctx->reg_if_cam_mux_gcsr;
-			core->vsync_irq_en_flag = 1;
-			SENINF_WRITE_REG(p_gcammux,
-					SENINF_CAM_MUX_GCSR_VSYNC_IRQ_EN,
-					val & 0xFFFFFFFF);
+		p_gcammux = ctx->reg_if_cam_mux_gcsr;
+		SENINF_WRITE_REG(p_gcammux,
+				SENINF_CAM_MUX_GCSR_VSYNC_IRQ_EN,
+				val & 0xFFFFFFFF);
+
+		update_vsync_irq_en_flag(ctx);
+		break;
+	case REG_KEY_CAMMUX_VSYNC_IRQ_EN_H:
+		p_gcammux = ctx->reg_if_cam_mux_gcsr;
+		SENINF_WRITE_REG(p_gcammux,
+				SENINF_CAM_MUX_GCSR_VSYNC_IRQ_EN_H,
+				val & 0xFFFFFFFF);
+
+		update_vsync_irq_en_flag(ctx);
 		break;
 	case REG_KEY_CSI_IRQ_EN:
 		{
@@ -4223,7 +4256,7 @@ struct mtk_cam_seninf_ops mtk_csi_phy_3_0 = {
 	._reset_cam_mux_dyn_en = mtk_cam_seninf_reset_cam_mux_dyn_en,
 	._enable_global_drop_irq = mtk_cam_seninf_enable_global_drop_irq,
 	._enable_cam_mux_vsync_irq = mtk_cam_seninf_enable_cam_mux_vsync_irq,
-	._disable_all_cam_mux_vsync_irq = mtk_cam_seninf_disable_all_cam_mux_vsync_irq,
+	._set_all_cam_mux_vsync_irq = mtk_cam_seninf_set_all_cam_mux_vsync_irq,
 #ifdef SCAN_SETTLE
 	._debug = mtk_cam_scan_settle,
 

@@ -36,6 +36,7 @@ enum SET_REG_KEYS {
 	REG_KEY_MUX_IRQ_STAT,
 	REG_KEY_CAMMUX_IRQ_STAT,
 	REG_KEY_CAMMUX_VSYNC_IRQ_EN,
+	REG_KEY_CAMMUX_VSYNC_IRQ_EN_H,
 	REG_KEY_CSI_IRQ_EN,
 	REG_KEY_MAX_NUM
 };
@@ -49,7 +50,8 @@ enum SET_REG_KEYS {
 	"RG_CSI_RESYNC_CYCLE", \
 	"RG_MUX_IRQ_STAT", \
 	"RG_CAMMUX_IRQ_STAT", \
-	"REG_VSYNC_IRQ_EN", \
+	"RG_VSYNC_IRQ_EN", \
+	"RG_VSYNC_IRQ_EN_H", \
 	"RG_CSI_IRQ_EN", \
 
 struct mtk_cam_seninf_mux_meter {
@@ -119,7 +121,7 @@ struct mtk_cam_seninf_ops {
 	int (*_reset_cam_mux_dyn_en)(struct seninf_ctx *ctx, int index);
 	int (*_enable_global_drop_irq)(struct seninf_ctx *ctx, bool enable, int index);
 	int (*_enable_cam_mux_vsync_irq)(struct seninf_ctx *ctx, bool enable, int cam_mux);
-	int (*_disable_all_cam_mux_vsync_irq)(struct seninf_ctx *ctx);
+	int (*_set_all_cam_mux_vsync_irq)(struct seninf_ctx *ctx, bool enable);
 	int (*_debug)(struct seninf_ctx *ctx);
 	int (*_set_reg)(struct seninf_ctx *ctx, u32 key, u32 val);
 	ssize_t (*_show_err_status)(struct device *dev, struct device_attribute *attr, char *buf);

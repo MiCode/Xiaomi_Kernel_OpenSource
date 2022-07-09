@@ -196,6 +196,10 @@ ERR_DEBUG_OPS_STORE:
 
 static DEVICE_ATTR_RW(debug_ops);
 
+static u32 seninf_vsync_debug;
+module_param(seninf_vsync_debug, uint, 0644);
+MODULE_PARM_DESC(seninf_vsync_debug, "seninf_vsync_debug");
+
 #define SENINF_DVFS_READY
 #ifdef SENINF_DVFS_READY
 static int seninf_dfs_init(struct seninf_dfs *dfs, struct device *dev)
@@ -591,6 +595,8 @@ static int seninf_core_probe(struct platform_device *pdev)
 		&core->settle_delay_ck);
 	of_property_read_u32(dev->of_node, "hs_trail_parameter",
 		&core->hs_trail_parameter);
+
+	core->seninf_vsync_debug_flag = &seninf_vsync_debug;
 
 	for (i = 0; i < CLK_MAXCNT; i++) {
 		core->clk[i] = devm_clk_get(dev, clk_names[i]);
@@ -1513,6 +1519,11 @@ static int seninf_s_stream(struct v4l2_subdev *sd, int enable)
 	}
 
 	if (enable && !ctx->streaming) {
+		if (unlikely(*(ctx->core->seninf_vsync_debug_flag))) {
+			ctx->core->vsync_irq_en_flag = 1;
+			g_seninf_ops->_set_all_cam_mux_vsync_irq(ctx, 1);
+			dev_info(ctx->dev, "vsync irq enabled\n");
+		}
 		mtk_cam_seninf_s_stream_mux(ctx);
 		notify_fsync_listen_target(ctx);
 	}

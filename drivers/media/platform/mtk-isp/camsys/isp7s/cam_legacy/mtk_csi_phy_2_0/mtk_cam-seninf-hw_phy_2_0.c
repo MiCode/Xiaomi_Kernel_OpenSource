@@ -3118,12 +3118,13 @@ static int mtk_cam_seninf_enable_cam_mux_vsync_irq(struct seninf_ctx *ctx, bool 
 }
 
 
-static int mtk_cam_seninf_disable_all_cam_mux_vsync_irq(struct seninf_ctx *ctx)
+static int mtk_cam_seninf_set_all_cam_mux_vsync_irq(struct seninf_ctx *ctx, bool enable)
 {
 	void *pSeninf_cam_mux = ctx->reg_if_cam_mux;
+	u32 val = enable ? 0xFFFFFFFF : 0;
 
 	SENINF_BITS(pSeninf_cam_mux,
-		SENINF_CAM_MUX_VSYNC_IRQ_EN, RG_SENINF_CAM_MUX_VSYNC_IRQ_EN, 0);
+		SENINF_CAM_MUX_VSYNC_IRQ_EN, RG_SENINF_CAM_MUX_VSYNC_IRQ_EN, val);
 	return 0;
 
 }
@@ -3270,7 +3271,7 @@ struct mtk_cam_seninf_ops mtk_csi_phy_2_0 = {
 	._reset_cam_mux_dyn_en = mtk_cam_seninf_reset_cam_mux_dyn_en,
 	._enable_global_drop_irq = mtk_cam_seninf_enable_global_drop_irq,
 	._enable_cam_mux_vsync_irq = mtk_cam_seninf_enable_cam_mux_vsync_irq,
-	._disable_all_cam_mux_vsync_irq = mtk_cam_seninf_disable_all_cam_mux_vsync_irq,
+	._set_all_cam_mux_vsync_irq = mtk_cam_seninf_set_all_cam_mux_vsync_irq,
 	._debug = mtk_cam_seninf_debug,
 	._set_reg = mtk_cam_seninf_set_reg,
 	.seninf_num = 8,
