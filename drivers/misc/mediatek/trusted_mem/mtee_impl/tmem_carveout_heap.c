@@ -262,13 +262,16 @@ int tmem_carveout_heap_alloc(enum MTEE_MCHUNKS_ID mchunk_id,
 
 	paddr = gen_pool_alloc(tmem_carveout_heap[pool_idx]->pool, size);
 	if (!paddr)
-		goto out2;
+		goto out4;
 
 	/* set sg_table */
 	tmem_sgtbl = kmalloc(sizeof(*tmem_sgtbl), GFP_KERNEL);
+	if (tmem_sgtbl == NULL)
+		goto out3;
+
 	ret = sg_alloc_table(tmem_sgtbl, 1, GFP_KERNEL);
 	if (ret)
-		goto out1;
+		goto out2;
 
 	/* set scatterlist */
 	tmem_sgl = tmem_sgtbl->sgl;
@@ -287,7 +290,7 @@ int tmem_carveout_heap_alloc(enum MTEE_MCHUNKS_ID mchunk_id,
 	ret = ffa_ops->memory_lend(sp_partition_dev, &ffa_args);
 	if (ret) {
 		pr_info("Failed to FF-A send the memory, ret=%d\n", ret);
-		goto out2;
+		goto out1;
 	}
 
 	entry = kmalloc(sizeof(*entry), GFP_ATOMIC);
@@ -308,8 +311,12 @@ int tmem_carveout_heap_alloc(enum MTEE_MCHUNKS_ID mchunk_id,
 	return TMEM_OK;
 
 out1:
-	gen_pool_free(tmem_carveout_heap[pool_idx]->pool, paddr, size);
+	sg_free_table(tmem_sgtbl);
 out2:
+	kfree(tmem_sgtbl);
+out3:
+	gen_pool_free(tmem_carveout_heap[pool_idx]->pool, paddr, size);
+out4:
 	pr_info("%s fail: size=0x%lx, gen_pool_avail=0x%lx, pool_idx=%d\n",
 			__func__, size,
 			gen_pool_avail(tmem_carveout_heap[pool_idx]->pool), pool_idx);
@@ -342,6 +349,7 @@ int tmem_carveout_heap_free(enum MTEE_MCHUNKS_ID mchunk_id, u64 handle)
 		if (tmp->handle == handle) {
 			gen_pool_free(tmem_carveout_heap[pool_idx]->pool, tmp->start, tmp->size);
 			list_del(&tmp->head);
+			sg_free_table(tmp->sgtbl);
 			mutex_unlock(&tmem_block_mutex);
 
 			kfree(tmp->sgtbl);
