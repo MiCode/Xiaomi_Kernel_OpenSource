@@ -957,6 +957,7 @@ static int mmdvfs_vcp_init_thread(void *data)
 		ssleep(1);
 	}
 
+	retry = 0;
 	while (!is_vcp_ready_ex(VCP_A_ID)) {
 		if (++retry > 100) {
 			MMDVFS_ERR("VCP_A_ID:%d not ready", VCP_A_ID);

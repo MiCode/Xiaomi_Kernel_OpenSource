@@ -62,8 +62,7 @@ static bool ftrace_v1_ena, ftrace_v3_ena;
 
 void mtk_mmdvfs_debug_release_step0(void)
 {
-	if (!g_mmdvfs || (g_mmdvfs->use_v3_pwr & (1 << PWR_MMDVFS_VCORE))
-		|| !g_mmdvfs->release_step0)
+	if (!g_mmdvfs || !g_mmdvfs->release_step0)
 		return;
 
 	if (!IS_ERR_OR_NULL(g_mmdvfs->reg))
@@ -233,9 +232,6 @@ static int mmdvfs_v3_debug_thread(void *data)
 
 	if (!g_mmdvfs->release_step0)
 		goto err;
-
-	if (!IS_ERR_OR_NULL(g_mmdvfs->reg))
-		regulator_set_voltage(g_mmdvfs->reg, 0, INT_MAX);
 
 	if (g_mmdvfs->use_v3_pwr & (1 << PWR_MMDVFS_VCORE))
 		mtk_mmdvfs_v3_set_vote_step(PWR_MMDVFS_VCORE, -1);
