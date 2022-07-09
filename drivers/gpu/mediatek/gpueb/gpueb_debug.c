@@ -98,6 +98,8 @@ void gpueb_dump_status(void)
 			readl(g_gpueb_gpr_base + 0x14));
 		gpueb_pr_info("@%s: GPUFREQ_FOOTPRINT_GPR: 0x%08x\n", __func__,
 			readl(g_gpueb_gpr_base + 0x44));
+		gpueb_pr_info("@%s: GPUEB_DRAM_RES_STA_GPR: 0x%08x\n", __func__,
+			readl(g_gpueb_gpr_base + 0x40));
 	} else
 		gpueb_pr_info("@%s: skip null g_gpueb_gpr_base\n", __func__);
 
@@ -213,6 +215,26 @@ static int gpueb_status_proc_show(struct seq_file *m, void *v)
 	return 0;
 }
 
+/* PROCFS: show current gpueb dram user status */
+static int gpueb_dram_user_status_proc_show(struct seq_file *m, void *v)
+{
+	unsigned int dram_res = 0;
+	int user_id = 0;
+
+	if (g_gpueb_gpr_base) {
+		dram_res = readl(g_gpueb_gpr_base + 0x40);
+		seq_printf(m, "@%s: GPUEB_DRAM_RES_STA_GPR: 0x%08x\n",
+			__func__, dram_res);
+
+		for (user_id = 0; user_id < ARRAY_SIZE(gpueb_dram_user_name); user_id++) {
+			seq_printf(m, "%s:%d ", gpueb_dram_user_name[user_id],
+				(dram_res & (0x1 << user_id)) ? 1 : 0);
+		}
+		seq_puts(m, "\n");
+	}
+	return 0;
+}
+
 /* PROCFS: trigger GPUEB WDT */
 static int force_trigger_wdt_proc_show(struct seq_file *m, void *v)
 {
@@ -291,6 +313,7 @@ done:
 
 /* PROCFS : initialization */
 PROC_FOPS_RO(gpueb_status);
+PROC_FOPS_RO(gpueb_dram_user_status);
 PROC_FOPS_RW(force_trigger_wdt);
 #if IPI_TEST
 PROC_FOPS_RW(gpueb_ipi_test);
@@ -308,6 +331,7 @@ static int gpueb_create_procfs(void)
 
 	const struct pentry default_entries[] = {
 		PROC_ENTRY(gpueb_status),
+		PROC_ENTRY(gpueb_dram_user_status),
 		PROC_ENTRY(force_trigger_wdt),
 #if IPI_TEST
 		PROC_ENTRY(gpueb_ipi_test)

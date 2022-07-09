@@ -59,7 +59,15 @@
 /**************************************************
  * Enumeration and Structure
  **************************************************/
-
+static char *gpueb_dram_user_name[] = {
+	"GPU_PWR_ON",          //0
+	"GPUFREQ",             //1
+	"GPUMPU",              //2
+	"GPUEB_MET",           //3
+	"LOGGER",              //4
+	"PLATSERV",            //5
+	"REMAP_TEST",          //6
+};
 
 /**************************************************
  * Function
