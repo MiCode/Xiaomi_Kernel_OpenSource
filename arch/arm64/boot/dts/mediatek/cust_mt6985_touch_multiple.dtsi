@@ -76,6 +76,9 @@
 		vtouch-supply = <&mt6373_vtp>;
 		goodix,reset-gpio = <&pio 3 0x0>;
 		goodix,irq-gpio = <&pio 8 0x0>;
+
+		novatek,reset-gpio = <&pio 3 0x00>;
+		novatek,irq-gpio = <&pio 8 0x00>;
 		// 525
 		//novatek,swrst-n8-addr = <0x01f01a>;
 		// 672a, 525b, 675, 526
