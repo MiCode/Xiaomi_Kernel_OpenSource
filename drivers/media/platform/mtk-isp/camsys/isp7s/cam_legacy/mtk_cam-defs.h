@@ -202,6 +202,12 @@ enum mtkcam_ipi_raw_path_control {
 	MTKCAM_IPI_IMGO_FULLY_PROCESSED = MTKCAM_IPI_IMGO_AFTER_LTM,
 };
 
+enum mtkcam_ipi_ADL_path_control {
+	MTKCAM_IPI_ADL_AFTER_SEP_R1,
+	MTKCAM_IPI_ADL_AFTER_BPC,
+	MTKCAM_IPI_ADL_AFTER_LTM,
+};
+
 enum mtkcam_ipi_sw_feature_control {
 	MTKCAM_IPI_SW_FEATURE_NORMAL				= 0,
 	MTKCAM_IPI_SW_FEATURE_VHDR				= 1,
@@ -230,6 +236,7 @@ enum mtkcam_ipi_flow_variant {
 	MTKCAM_IPI_FLOW_OTF,		/* 1. all direct-link. 2. DCIF + 1-exp direct-link */
 	MTKCAM_IPI_FLOW_DC,			/* w.o. direct-link, DCIF */
 	MTKCAM_IPI_FLOW_OFFLINE,	/* aka, m2m */
+	MTKCAM_IPI_FLOW_ADLDC,		/* APU direct-couple */
 };
 
 enum mtkcam_ipi_tag_order {
@@ -262,7 +269,7 @@ enum mtkcam_ipi_tag_order {
 #define MTKCAM_IPI_HW_PATH_DC_RGBW		_HWPATH(9, RGBW, DC)
 #define MTKCAM_IPI_HW_PATH_OFFLINE_RGBW		_HWPATH(10, RGBW, OFFLINE)
 #define MTKCAM_IPI_HW_PATH_OFFLINE_ADL		_HWPATH(11, ADL, OFFLINE)
-#define MTKCAM_IPI_HW_PATH_DC_ADL		_HWPATH(12, ADL, DC)
+#define MTKCAM_IPI_HW_PATH_DC_ADL		_HWPATH(12, ADL, ADLDC)
 #define MTKCAM_IPI_HW_PATH_OTF_RGBW_DOL		_HWPATH(13, RGBW, OTF)
 
 enum {

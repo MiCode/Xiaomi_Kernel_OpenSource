@@ -3764,6 +3764,9 @@ static void mtk_camsys_raw_m2m_trigger(struct mtk_raw_device *raw_dev,
 						MTKCAM_IPI_HW_PATH_OFFLINE);
 					}
 				} else {
+					struct mtk_cam_apu_info *apu_info;
+
+					apu_info = &req_stream_data->apu_info;
 					if (mtk_cam_scen_get_exp_num(scen) !=
 					    mtk_cam_scen_get_exp_num(scen_prev)) {
 						dev_dbg(raw_dev->dev, "toggle_db, frame_seq_no %d",
@@ -3771,14 +3774,17 @@ static void mtk_camsys_raw_m2m_trigger(struct mtk_raw_device *raw_dev,
 						toggle_db(raw_dev);
 					}
 					if (mtk_cam_scen_is_stagger_m2m(scen) &&
-					    req_stream_data->feature.scen->scen.normal.exp_num != 1)
+					    scen->scen.normal.exp_num != 1) {
 						trigger_rawi(raw_dev, ctx,
 							MTKCAM_IPI_HW_PATH_OFFLINE_STAGGER);
-					else if (req_stream_data->apu_info.is_update)
+					} else if (apu_info->apu_path == APU_DC_RAW) {
+						trigger_apu_start(raw_dev, ctx);
+					} else if (apu_info->apu_path == APU_FRAME_MODE) {
 						trigger_vpui(raw_dev, ctx);
-					else
+					} else {
 						trigger_rawi(raw_dev, ctx,
 							MTKCAM_IPI_HW_PATH_OFFLINE);
+					}
 				}
 				/**
 				 * outer number is 1 more from last SOF's

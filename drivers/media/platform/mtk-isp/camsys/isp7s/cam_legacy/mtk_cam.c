@@ -46,6 +46,9 @@
 #include "mtk_cam-hsf.h"
 #include "mtk_cam-trace.h"
 #include "mtk_cam-ufbc-def.h"
+#include <linux/soc/mediatek/mtk-cmdq-ext.h>
+#include <slbc/slbc_ops.h>
+
 
 #ifdef CAMSYS_TF_DUMP_7S
 #include <dt-bindings/memory/mt6985-larb-port.h>
@@ -3517,18 +3520,6 @@ mtk_cam_config_raw_img_in_rawi2(struct mtk_cam_request_stream_data *s_data,
 			MTKCAM_IPI_HW_PATH_OFFLINE;
 	}
 
-	if (s_data->apu_info.is_update) {
-		// TODO: dc mode, change buffer
-		frame_param->adl_param.vpu_i_point =
-			s_data->apu_info.vpu_i_point;
-		frame_param->adl_param.vpu_o_point =
-			s_data->apu_info.vpu_o_point;
-		frame_param->adl_param.sysram_en =
-			s_data->apu_info.sysram_en;
-		frame_param->adl_param.block_y_size =
-			s_data->apu_info.block_y_size;
-	}
-
 	in_fmt->uid.pipe_id = node->uid.pipe_id;
 	in_fmt->uid.id = node->desc.dma_port;
 	ret = config_img_in_fmt(cam, node, cfg_fmt, in_fmt);
@@ -3543,6 +3534,96 @@ mtk_cam_config_raw_img_in_rawi2(struct mtk_cam_request_stream_data *s_data,
 	if (mtk_cam_scen_is_mstream_m2m(scen) &&
 	    scen->scen.mstream.type != MTK_CAM_MSTREAM_1_EXPOSURE)
 		config_img_in_fmt_mstream(cam, s_data, node, cfg_fmt, scen);
+
+	return 0;
+}
+
+static int
+mtk_cam_config_raw_img_in_ipui(struct mtk_cam_request_stream_data *s_data,
+			  struct mtk_cam_buffer *buf)
+{
+	struct mtk_cam_ctx *ctx;
+	struct mtk_cam_device *cam;
+	struct mtk_cam_request *req;
+	struct mtk_cam_video_device *node;
+	struct mtkcam_ipi_frame_param *frame_param;
+	struct mtkcam_ipi_img_input *in_fmt;
+	struct vb2_buffer *vb;
+	const struct v4l2_format *cfg_fmt;
+	struct mtk_cam_scen *scen;
+	int ret;
+
+	ctx = mtk_cam_s_data_get_ctx(s_data);
+	cam = ctx->cam;
+	scen = s_data->feature.scen;
+	req = mtk_cam_s_data_get_req(s_data);
+	frame_param = &s_data->frame_params;
+	vb = &buf->vbb.vb2_buf;
+	node = mtk_cam_vbq_to_vdev(buf->vbb.vb2_buf.vb2_queue);
+	in_fmt = &frame_param->img_ins[MTKCAM_IPI_RAW_IPUI - MTK_RAW_RAWI_2_IN];
+
+	cfg_fmt = mtk_cam_s_data_get_vfmt(s_data, node->desc.id);
+	if (!cfg_fmt) {
+		dev_info(cam->dev,
+			 "%s:%s:pipe(%d):%s: can't find the vfmt field to save\n",
+			 __func__, req->req.debug_str, node->uid.pipe_id, node->desc.name);
+		return -EINVAL;
+	}
+
+	in_fmt->buf[0].iova = buf->daddr;
+	frame_param->raw_param.hardware_scenario =
+		MTKCAM_IPI_HW_PATH_OFFLINE_ADL;
+
+	if (s_data->apu_info.apu_path == APU_DC_RAW ||
+	    s_data->apu_info.apu_path == APU_FRAME_MODE) {
+		// TODO: dc mode, change buffer
+		if (s_data->apu_info.vpu_i_point == AFTER_SEP_R1) {
+			frame_param->adl_param.vpu_i_point =
+				MTKCAM_IPI_ADL_AFTER_SEP_R1;
+		} else if (s_data->apu_info.vpu_i_point == AFTER_BPC) {
+			frame_param->adl_param.vpu_i_point =
+				MTKCAM_IPI_ADL_AFTER_BPC;
+		} else if (s_data->apu_info.vpu_i_point == AFTER_LTM) {
+			frame_param->adl_param.vpu_i_point =
+				MTKCAM_IPI_ADL_AFTER_LTM;
+		} else {
+			return -EINVAL;
+		}
+
+		if (s_data->apu_info.vpu_o_point == AFTER_SEP_R1) {
+			frame_param->adl_param.vpu_o_point =
+				MTKCAM_IPI_ADL_AFTER_SEP_R1;
+		} else if (s_data->apu_info.vpu_o_point == AFTER_BPC) {
+			frame_param->adl_param.vpu_o_point =
+				MTKCAM_IPI_ADL_AFTER_BPC;
+		} else if (s_data->apu_info.vpu_o_point == AFTER_LTM) {
+			frame_param->adl_param.vpu_o_point =
+				MTKCAM_IPI_ADL_AFTER_LTM;
+		} else {
+			return -EINVAL;
+		}
+
+		frame_param->adl_param.sysram_en =
+			s_data->apu_info.sysram_en;
+		frame_param->adl_param.block_y_size =
+			s_data->apu_info.block_y_size;
+	}
+
+	if (s_data->apu_info.apu_path == APU_DC_RAW) {
+		frame_param->raw_param.hardware_scenario =
+			MTKCAM_IPI_HW_PATH_DC_ADL;
+	} else if (s_data->apu_info.apu_path == APU_FRAME_MODE) {
+		frame_param->raw_param.hardware_scenario =
+			MTKCAM_IPI_HW_PATH_OFFLINE_ADL;
+	} else {
+		return -EINVAL;
+	}
+
+	in_fmt->uid.pipe_id = node->uid.pipe_id;
+	in_fmt->uid.id = MTKCAM_IPI_RAW_IPUI;//node->desc.dma_port;
+	ret = config_img_in_fmt(cam, node, cfg_fmt, in_fmt);
+	if (ret)
+		return ret;
 
 	return 0;
 }
@@ -3711,7 +3792,11 @@ static int mtk_cam_req_update(struct mtk_cam_device *cam,
 		case MTKCAM_IPI_RAW_RAWI_2:
 			/* get s_data->apu_info for config */
 			/* is the rawi always enqued? */
-			ret = mtk_cam_config_raw_img_in_rawi2(req_stream_data, buf);
+			if (req_stream_data->apu_info.apu_path == APU_FRAME_MODE ||
+			    req_stream_data->apu_info.apu_path == APU_DC_RAW)
+				ret = mtk_cam_config_raw_img_in_ipui(req_stream_data, buf);
+			else
+				ret = mtk_cam_config_raw_img_in_rawi2(req_stream_data, buf);
 			if (ret)
 				return ret;
 			break;
@@ -5798,8 +5883,6 @@ static void isp_tx_frame_worker(struct work_struct *work)
 	/* Prepare MTKCAM_IPI_RAW_META_STATS_1 params */
 	meta1_buf = mtk_cam_s_data_get_vbuf(req_stream_data, MTK_RAW_META_OUT_1);
 
-	/* or prepare apu info for backedn here */
-
 	/* mraw todo: move to req update? */
 	for (i = 0; i < ctx->used_mraw_num; i++) {
 		req->p_data[ctx->mraw_pipe[i]->id].s_data_num =
@@ -5893,6 +5976,12 @@ static void isp_tx_frame_worker(struct work_struct *work)
 				(1ULL << frame_param->meta_outputs[i].uid.id);
 	}
 	req_stream_data->raw_dmas |= (1ULL << MTKCAM_IPI_RAW_META_STATS_CFG);
+
+	if (req_stream_data->apu_info.apu_path == APU_FRAME_MODE ||
+	    req_stream_data->apu_info.apu_path == APU_DC_RAW) {
+		frame_param->adl_param.slb_addr = (__u64)ctx->slb_addr;
+		frame_param->adl_param.slb_size = ctx->slb_size;
+	}
 
 	memcpy(frame_data, &req_stream_data->frame_params,
 	       sizeof(req_stream_data->frame_params));
@@ -7561,6 +7650,7 @@ struct mtk_cam_ctx *mtk_cam_start_ctx(struct mtk_cam_device *cam,
 	struct v4l2_subdev **target_sd;
 	int ret, i, is_first_ctx;
 	struct media_entity *entity = &node->vdev.entity;
+	struct slbc_data slb;
 
 	dev_info(cam->dev, "%s:ctx(%d): triggered by %s\n",
 		 __func__, ctx->stream_id, entity->name);
@@ -7629,6 +7719,20 @@ struct mtk_cam_ctx *mtk_cam_start_ctx(struct mtk_cam_device *cam,
 #endif
 	cam->composer_cnt++;
 
+	slb.uid = UID_SH_P1;
+	slb.type = TP_BUFFER;
+
+	ret = slbc_request(&slb);
+
+	if (ret < 0) {
+		dev_info(cam->dev, "%s: allocate slb fail\n", __func__);
+	} else {
+		dev_info(cam->dev, "%s: slb buffer base(0x%x), size(%ld): %x",
+			__func__, (uintptr_t)slb.paddr, slb.size);
+		ctx->slb_addr = slb.paddr;
+		ctx->slb_size = slb.size;
+	}
+
 	ret = mtk_cam_working_buf_pool_alloc(ctx);
 	if (ret) {
 		dev_info(cam->dev, "failed to reserve DMA memory:%d\n", ret);
@@ -7672,6 +7776,14 @@ struct mtk_cam_ctx *mtk_cam_start_ctx(struct mtk_cam_device *cam,
 	if (!ctx->composer_wq) {
 		dev_info(cam->dev, "failed to alloc composer workqueue\n");
 		goto fail_uninit_sensor_worker_task;
+	}
+
+	ctx->cmdq_wq =
+			alloc_ordered_workqueue(dev_name(cam->dev),
+						WQ_HIGHPRI | WQ_FREEZABLE);
+	if (!ctx->cmdq_wq) {
+		dev_info(cam->dev, "failed to alloc cmdq workqueue\n");
+		goto fail_uninit_cmdq_worker_task;
 	}
 
 	ctx->frame_done_wq =
@@ -7745,6 +7857,8 @@ fail_uninit_frame_done_wq:
 	destroy_workqueue(ctx->frame_done_wq);
 fail_uninit_composer_wq:
 	destroy_workqueue(ctx->composer_wq);
+fail_uninit_cmdq_worker_task:
+	destroy_workqueue(ctx->cmdq_wq);
 fail_uninit_sensor_worker_task:
 	kthread_stop(ctx->sensor_worker_task);
 	ctx->sensor_worker_task = NULL;
@@ -7775,6 +7889,8 @@ void mtk_cam_stop_ctx(struct mtk_cam_ctx *ctx, struct media_entity *entity)
 	struct mtk_cam_device *cam = ctx->cam;
 	struct mtk_raw_device *raw_dev;
 	unsigned int i, j;
+	struct slbc_data slb;
+	int ret = 0;
 
 	dev_info(cam->dev, "%s:ctx(%d): triggered by %s\n",
 		 __func__, ctx->stream_id, entity->name);
@@ -7831,6 +7947,9 @@ void mtk_cam_stop_ctx(struct mtk_cam_ctx *ctx, struct media_entity *entity)
 	drain_workqueue(ctx->composer_wq);
 	destroy_workqueue(ctx->composer_wq);
 	ctx->composer_wq = NULL;
+	drain_workqueue(ctx->cmdq_wq);
+	destroy_workqueue(ctx->cmdq_wq);
+	ctx->cmdq_wq = NULL;
 	drain_workqueue(ctx->frame_done_wq);
 	destroy_workqueue(ctx->frame_done_wq);
 	ctx->frame_done_wq = NULL;
@@ -7923,6 +8042,12 @@ void mtk_cam_stop_ctx(struct mtk_cam_ctx *ctx, struct media_entity *entity)
 
 	dev_info(cam->dev, "%s: ctx-%d:  composer_cnt:%d\n",
 		__func__, ctx->stream_id, cam->composer_cnt);
+
+	slb.uid = UID_AOV_DC;
+	slb.type = TP_BUFFER;
+	ret = slbc_release(&slb);
+	if (ret < 0)
+		dev_info(cam->dev, "failed to release slb buffer");
 
 	mtk_cam_working_buf_pool_release(ctx);
 
@@ -9505,6 +9630,22 @@ REGISTER_SENINF_FAIL:
 	return ret;
 }
 
+static irqreturn_t mtk_irq_adl(int irq, void *data)
+{
+	struct mtk_cam_device *drvdata = (struct mtk_cam_device *)data;
+	struct device *dev = drvdata->dev;
+
+	unsigned int irq_status;
+
+	irq_status =
+		readl_relaxed(drvdata->adl_base + 0x18a0);
+
+	dev_dbg(dev, "ADL-INT: INT 0x%x\n", irq_status);
+
+	return IRQ_HANDLED;
+}
+
+
 static int mtk_cam_probe(struct platform_device *pdev)
 {
 	struct mtk_cam_device *cam_dev;
@@ -9513,6 +9654,7 @@ static int mtk_cam_probe(struct platform_device *pdev)
 	int ret;
 	unsigned int i;
 	const struct camsys_platform_data *platform_data;
+	int irq;
 
 	platform_data = of_device_get_match_data(dev);
 	if (!platform_data) {
@@ -9554,6 +9696,20 @@ static int mtk_cam_probe(struct platform_device *pdev)
 		return PTR_ERR(cam_dev->base);
 	}
 
+	irq = platform_get_irq(pdev, 0);
+	if (irq < 0) {
+		dev_info(dev, "failed to get irq\n");
+		return -ENODEV;
+	}
+
+	ret = devm_request_irq(dev, irq, mtk_irq_adl, 0,
+			       dev_name(dev), cam_dev);
+	if (ret) {
+		dev_info(dev, "failed to request irq=%d\n", irq);
+		return ret;
+	}
+	dev_dbg(dev, "registered adl irq=%d\n", irq);
+
 	cam_dev->dev = dev;
 	dev_set_drvdata(dev, cam_dev);
 
@@ -9564,6 +9720,16 @@ static int mtk_cam_probe(struct platform_device *pdev)
 	cam_dev->max_stream_num = MTKCAM_SUBDEV_MAX;
 	cam_dev->ctxs = devm_kcalloc(dev, cam_dev->max_stream_num,
 				     sizeof(*cam_dev->ctxs), GFP_KERNEL);
+	cam_dev->cmdq_clt = cmdq_mbox_create(dev, 0);
+	cmdq_mbox_enable(cam_dev->cmdq_clt->chan);
+
+	cam_dev->adl_base = ioremap(0x1a0f0000, 0x1900);
+
+	if (!cam_dev->cmdq_clt)
+		pr_info("probe cmdq_mbox_create fail\n");
+	else
+		pr_info("probe cmdq_mbox_create: client: %d\n", cam_dev->cmdq_clt);
+
 	if (!cam_dev->ctxs)
 		return -ENOMEM;
 
@@ -9628,6 +9794,10 @@ static int mtk_cam_remove(struct platform_device *pdev)
 	component_master_del(dev, &mtk_cam_master_ops);
 	mtk_cam_match_remove(dev);
 
+	if (cam_dev->cmdq_clt) {
+		cmdq_mbox_destroy(cam_dev->cmdq_clt);
+		cmdq_mbox_disable(cam_dev->cmdq_clt->chan);
+	}
 	mutex_destroy(&cam_dev->queue_lock);
 	mtk_cam_debug_fs_deinit(cam_dev);
 

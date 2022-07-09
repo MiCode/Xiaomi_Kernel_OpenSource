@@ -265,6 +265,7 @@ struct mtk_cam_request_stream_data {
 #if PURE_RAW_WITH_SV
 	struct mtk_cam_req_work pure_raw_done_work;
 #endif
+	struct mtk_cam_req_work cmdq_work;
 	struct mtk_camsys_ctrl_state state;
 	struct mtk_cam_working_buf_entry *working_buf;
 	struct mtk_camsv_working_buf_entry *sv_working_buf;
@@ -452,11 +453,13 @@ struct mtk_cam_ctx {
 	struct kthread_worker sensor_worker;
 	struct workqueue_struct *composer_wq;
 	struct workqueue_struct *frame_done_wq;
+	struct workqueue_struct *cmdq_wq;
 
 	struct completion session_complete;
 	struct completion m2m_complete;
 	int session_created;
 	struct work_struct session_work;
+	struct work_struct cmdq_work;
 
 	struct rpmsg_channel_info rpmsg_channel;
 	struct mtk_rpmsg_device *rpmsg_dev;
@@ -478,6 +481,9 @@ struct mtk_cam_ctx {
 	/* sensor image buffer pool handling from kernel */
 	struct mtk_cam_img_working_buf_pool img_buf_pool;
 	struct mtk_cam_working_buf_list processing_img_buffer_list;
+
+	void __iomem *slb_addr;
+	unsigned int slb_size;
 
 	atomic_t enqueued_frame_seq_no;
 	atomic_t composed_delay_seq_no;
@@ -530,6 +536,7 @@ struct mtk_cam_device {
 	struct v4l2_async_notifier notifier;
 	struct media_device media_dev;
 	void __iomem *base;
+	void __iomem *adl_base;
 	//TODO: for real SCP
 	//struct device *smem_dev;
 	//struct platform_device *scp_pdev; /* only for scp case? */
@@ -571,6 +578,7 @@ struct mtk_cam_device {
 	struct workqueue_struct *debug_wq;
 	struct workqueue_struct *debug_exception_wq;
 	wait_queue_head_t debug_exception_waitq;
+	struct cmdq_client *cmdq_clt;
 
 };
 

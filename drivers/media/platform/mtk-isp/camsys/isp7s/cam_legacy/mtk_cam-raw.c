@@ -44,6 +44,7 @@
 #ifdef CAMSYS_TF_DUMP_7S
 #include <dt-bindings/memory/mt6985-larb-port.h>
 #endif
+#include <linux/soc/mediatek/mtk-cmdq-ext.h>
 
 #if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 #include <aee.h>
@@ -896,6 +897,14 @@ static int mtk_raw_apu_set_ctrl(struct v4l2_ctrl *ctrl)
 	memcpy(apu_info_pipe, apu_info_user, sizeof(pipeline->apu_info));
 	apu_info_pipe->is_update = 1;
 
+	pr_info("mtk-cam: apu_path: %d, vpu_i_point: %d, vpu_o_point: %d, sysram_en: %d, opp_index: %d, block_y_size: %d\n",
+	apu_info_pipe->apu_path,
+	apu_info_pipe->vpu_i_point,
+	apu_info_pipe->vpu_o_point,
+	apu_info_pipe->sysram_en,
+	apu_info_pipe->opp_index,
+	apu_info_pipe->block_y_size);
+
 	return 0;
 }
 
@@ -1324,18 +1333,60 @@ void trigger_rawi(struct mtk_raw_device *dev, struct mtk_cam_ctx *ctx,
 	wmb(); /* TBC */
 }
 
+static void cmdq_worker(struct work_struct *work)
+{
+	struct mtk_cam_ctx *ctx;
+	struct cmdq_client *client = NULL;
+	struct cmdq_pkt *pkt = NULL;
+
+	ctx = container_of(work, struct mtk_cam_ctx, cmdq_work);
+
+	dev_info(ctx->cam->dev, "%s, pipe.id: %d, enabled_raw: %d\n",
+				__func__, ctx->pipe->id,
+				ctx->pipe->enabled_raw);
+
+	client = ctx->cam->cmdq_clt;
+	pkt = cmdq_pkt_create(client);
+
+	if (!pkt)
+		return;
+
+#define APU_SW_EVENT (675)
+	/* wait APU ready */
+	cmdq_pkt_wfe(pkt, APU_SW_EVENT);
+
+	cmdq_pkt_write(pkt, NULL, 0x1a003380, 0xf0000, 0xffffffff);
+	cmdq_pkt_write(pkt, NULL, 0x1a0300c0, 0x1000, 0xffffffff);
+	/* trigger APU */
+	cmdq_pkt_write(pkt, NULL, 0x190E1600, 0x1, 0xffffffff);
+	dev_info(ctx->cam->dev, "cmdq_pkt_flush\n");
+
+	cmdq_pkt_flush(pkt);
+	cmdq_pkt_destroy(pkt);
+}
+
 void trigger_vpui(struct mtk_raw_device *dev, struct mtk_cam_ctx *ctx)
 {
+#define TRIGGER_ADL 0x1100
 	u32 cmd = 0;
 
-	// cmd = vpu addr
-
-	dev_dbg(dev->dev, "m2m %s, cmd:%d\n", __func__, cmd);
+	cmd = TRIGGER_ADL;
+	dev_info(dev->dev, "apu frame mode %s, cmd:%d\n", __func__, cmd);
 
 	// vpu addr???
 	writel_relaxed(cmd, dev->base + REG_CTL_RAWI_TRIG);
 	wmb(); /* TBC */
 }
+
+void trigger_apu_start(struct mtk_raw_device *dev, struct mtk_cam_ctx *ctx)
+{
+	u32 cmd = 0;
+
+	dev_info(dev->dev, "APU %s, cmd:%d\n", __func__, cmd);
+	INIT_WORK(&ctx->cmdq_work, cmdq_worker);
+	queue_work(ctx->cmdq_wq, &ctx->cmdq_work);
+}
+
 
 /*stagger case seamless switch case*/
 void dbload_force(struct mtk_raw_device *dev)

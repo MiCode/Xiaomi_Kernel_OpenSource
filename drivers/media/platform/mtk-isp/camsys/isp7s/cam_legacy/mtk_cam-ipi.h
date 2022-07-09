@@ -134,6 +134,8 @@ struct mtkcam_ipi_adl_frame_param {
 	__u8 vpu_o_point;
 	__u8 sysram_en;
 	__u32 block_y_size;
+	__u64 slb_addr;
+	__u32 slb_size;
 } __packed;
 
 /* TODO: support CAMSV */
