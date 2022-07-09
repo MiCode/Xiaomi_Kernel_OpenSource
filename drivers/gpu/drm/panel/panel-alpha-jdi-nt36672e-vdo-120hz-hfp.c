@@ -965,7 +965,7 @@ static struct mtk_panel_params ext_params = {
 		.rc_tgt_offset_lo = 3,
 		},
 	.data_rate = 1054,
-	.lfr_enable = 0,
+	.lfr_enable = 1,
 	.lfr_minimum_fps = 60,
 	.dyn_fps = {
 		.switch_en = 1,
@@ -979,7 +979,7 @@ static struct mtk_panel_params ext_params = {
 	},
 	/* following MIPI hopping parameter might cause screen mess */
 	.dyn = {
-		.switch_en = 0,
+		.switch_en = 1,
 		.pll_clk = 428,
 		.vfp_lp_dyn = 4178,
 		.hfp = 396,
@@ -1045,7 +1045,7 @@ static struct mtk_panel_params ext_params_90hz = {
 		.rc_tgt_offset_lo = 3,
 		},
 	.data_rate = 1054,
-	.lfr_enable = 0,
+	.lfr_enable = 1,
 	.lfr_minimum_fps = 60,
 	.dyn_fps = {
 		.switch_en = 1,
@@ -1059,7 +1059,7 @@ static struct mtk_panel_params ext_params_90hz = {
 	},
 	/* following MIPI hopping parameter might cause screen mess */
 	.dyn = {
-		.switch_en = 0,
+		.switch_en = 1,
 		.pll_clk = 428,
 		.vfp_lp_dyn = 2528,
 		.hfp = 396,
@@ -1125,7 +1125,7 @@ static struct mtk_panel_params ext_params_120hz = {
 		.rc_tgt_offset_lo = 3,
 		},
 	.data_rate = 1054,
-	.lfr_enable = 0,
+	.lfr_enable = 1,
 	.lfr_minimum_fps = 60,
 	.dyn_fps = {
 		.switch_en = 1,
@@ -1139,7 +1139,7 @@ static struct mtk_panel_params ext_params_120hz = {
 	},
 	/* following MIPI hopping parameter might cause screen mess */
 	.dyn = {
-		.switch_en = 0,
+		.switch_en = 1,
 		.pll_clk = 428,
 		.vfp_lp_dyn = 2528,
 		.hfp = 396,
