@@ -5800,6 +5800,7 @@ static void isp_tx_frame_worker(struct work_struct *work)
 	struct mtkcam_ipi_frame_param *frame_data, *frame_param;
 	struct mtk_cam_request *req;
 	struct mtk_cam_request_stream_data *req_stream_data;
+	struct mtk_cam_request_stream_data *req_stream_data_sv;
 	struct mtk_cam_request_stream_data *req_stream_data_mraw;
 	struct mtk_cam_ctx *ctx;
 	struct mtk_cam_device *cam;
@@ -5923,6 +5924,20 @@ static void isp_tx_frame_worker(struct work_struct *work)
 	}
 
 	/* prepare sv working buffer */
+	for (i = 0; i < ctx->used_sv_num; i++) {
+		req->p_data[ctx->sv_pipe[i]->id].s_data_num =
+			req->p_data[ctx->stream_id].s_data_num;
+		req_stream_data_sv =
+			mtk_cam_req_get_s_data(req, ctx->sv_pipe[i]->id,
+			req_stream_data->index);
+
+		/* align master pipe's sequence number */
+		req_stream_data_sv->frame_seq_no = req_stream_data->frame_seq_no;
+		req_stream_data_sv->req = req_stream_data->req;
+		req_stream_data_sv->pipe_id = ctx->sv_pipe[i]->id;
+		req_stream_data_sv->ctx = ctx;
+		mtk_cam_req_dump_work_init(req_stream_data_sv);
+	}
 	sv_buf_entry = mtk_cam_sv_working_buf_get(ctx);
 	if (!sv_buf_entry) {
 		dev_info(cam->dev, "%s: No CQ buf availablle: req:%d(%s)\n",

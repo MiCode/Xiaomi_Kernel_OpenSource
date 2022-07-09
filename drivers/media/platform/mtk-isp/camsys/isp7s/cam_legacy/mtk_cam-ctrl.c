@@ -399,6 +399,8 @@ int mtk_cam_sensor_switch_start_hw(struct mtk_cam_ctx *ctx,
 	struct mtk_cam_scen scen_first_req;
 	int exp_no = 1;
 	struct mtk_cam_request *req = mtk_cam_s_data_get_req(s_data);
+	int first_tag_idx, second_tag_idx, last_tag_idx;
+	unsigned int sv_cammux_id;
 
 	s_raw_pipe_data = mtk_cam_s_data_get_raw_pipe_data(s_data);
 	if (!s_raw_pipe_data) {
@@ -495,12 +497,74 @@ int mtk_cam_sensor_switch_start_hw(struct mtk_cam_ctx *ctx,
 		}
 	}
 
+	if (mtk_cam_ctx_has_raw(ctx) && mtk_cam_scen_is_sensor_stagger(&ctx->pipe->scen_active)) {
+		if (ctx->sv_dev) {
+			if (exp_no == 2) {
+				first_tag_idx = get_first_sv_tag_idx(ctx, exp_no);
+				last_tag_idx = get_last_sv_tag_idx(ctx, exp_no);
+
+				sv_cammux_id =
+					mtk_cam_get_sv_cammux_id(ctx->sv_dev, first_tag_idx);
+				mtk_cam_seninf_set_camtg_camsv(s_data->seninf_new,
+					PAD_SRC_RAW0, sv_cammux_id, first_tag_idx);
+
+				if (mtk_cam_hw_is_dc(ctx)) {
+					sv_cammux_id =
+						mtk_cam_get_sv_cammux_id(ctx->sv_dev, last_tag_idx);
+					mtk_cam_seninf_set_camtg_camsv(s_data->seninf_new,
+						PAD_SRC_RAW1, sv_cammux_id, last_tag_idx);
+				}
+			} else if (exp_no == 3) {
+				first_tag_idx = get_first_sv_tag_idx(ctx, exp_no);
+				second_tag_idx = get_second_sv_tag_idx(ctx, exp_no);
+				last_tag_idx = get_last_sv_tag_idx(ctx, exp_no);
+
+				sv_cammux_id =
+					mtk_cam_get_sv_cammux_id(ctx->sv_dev, first_tag_idx);
+				mtk_cam_seninf_set_camtg_camsv(s_data->seninf_new,
+					PAD_SRC_RAW0, sv_cammux_id, first_tag_idx);
+
+				sv_cammux_id =
+					mtk_cam_get_sv_cammux_id(ctx->sv_dev, second_tag_idx);
+				mtk_cam_seninf_set_camtg_camsv(s_data->seninf_new,
+					PAD_SRC_RAW1, sv_cammux_id, second_tag_idx);
+
+				sv_cammux_id =
+					mtk_cam_get_sv_cammux_id(ctx->sv_dev, last_tag_idx);
+				mtk_cam_seninf_set_camtg_camsv(s_data->seninf_new,
+					PAD_SRC_RAW2, sv_cammux_id, last_tag_idx);
+			} else {
+				first_tag_idx = get_first_sv_tag_idx(ctx, exp_no);
+
+				if (mtk_cam_hw_is_dc(ctx)) {
+					sv_cammux_id =
+						mtk_cam_get_sv_cammux_id(
+							ctx->sv_dev, first_tag_idx);
+					mtk_cam_seninf_set_camtg_camsv(s_data->seninf_new,
+						PAD_SRC_RAW0, sv_cammux_id, first_tag_idx);
+				}
+			}
+		}
+	} else {
+		if (ctx->sv_dev) {
+			for (i = SVTAG_IMG_START; i < SVTAG_IMG_END; i++) {
+				if (ctx->sv_dev->enabled_tags & (1 << i)) {
+					sv_cammux_id =
+						mtk_cam_get_sv_cammux_id(ctx->sv_dev, i);
+					mtk_cam_seninf_set_camtg_camsv(s_data->seninf_new,
+						ctx->sv_dev->tag_info[i].seninf_padidx,
+						sv_cammux_id, i);
+				}
+			}
+		}
+	}
+
 	if (!(mtk_cam_ctx_has_raw(ctx) &&
 	      mtk_cam_scen_is_m2m(&scen_first_req))) {
 		if (ctx->sv_dev) {
-			for (i = SVTAG_START; i < SVTAG_END; i++) {
+			for (i = SVTAG_META_START; i < SVTAG_META_END; i++) {
 				if (ctx->sv_dev->enabled_tags & (1 << i)) {
-					unsigned int sv_cammux_id =
+					sv_cammux_id =
 						mtk_cam_get_sv_cammux_id(ctx->sv_dev, i);
 					mtk_cam_seninf_set_camtg_camsv(s_data->seninf_new,
 						ctx->sv_dev->tag_info[i].seninf_padidx,
