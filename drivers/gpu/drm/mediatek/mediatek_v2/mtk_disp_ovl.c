@@ -1987,8 +1987,15 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 
 		if (ovl->data->support_pq_selfloop) {
 			if (state->comp_state.layer_caps & MTK_MML_DISP_DIRECT_DECOUPLE_LAYER) {
-				offset = mtk_crtc_state->mml_dst_roi.y << 16 |
-					 mtk_crtc_state->mml_dst_roi.x;
+				if (comp->id == DDP_COMPONENT_OVL0_2L)
+					offset = mtk_crtc_state->mml_dst_roi_dual[0].y << 16 |
+						 mtk_crtc_state->mml_dst_roi_dual[0].x;
+				else if (comp->id == DDP_COMPONENT_OVL4_2L)
+					offset = mtk_crtc_state->mml_dst_roi_dual[1].y << 16 |
+						 mtk_crtc_state->mml_dst_roi_dual[1].x;
+				else
+					offset = mtk_crtc_state->mml_dst_roi.y << 16 |
+						 mtk_crtc_state->mml_dst_roi.x;
 			} else if (state->comp_state.layer_caps & MTK_DISP_RSZ_LAYER) {
 				offset = mtk_crtc_state->rsz_dst_roi.y << 16 |
 					 mtk_crtc_state->rsz_dst_roi.x;
