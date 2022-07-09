@@ -55,6 +55,8 @@ static struct DIPDmaDebugInfo g_DMANrDbgIfo[] = {
 	{"VIPI", DIP_ULC_RDMA_DEBUG, 0},
 	{"VIPBI", DIP_ULC_RDMA_DEBUG, 1},
 	{"VIPCI", DIP_ULC_RDMA_DEBUG, 2},
+	{"SMTI_D5", DIP_ULC_RDMA_DEBUG, 4},
+	{"SMTCI_D5", DIP_ULC_RDMA_DEBUG, 8},
 	{"EECSI", DIP_ULC_RDMA_DEBUG, 11},
 	{"SNRCSI", DIP_ULC_RDMA_DEBUG, 12},
 	{"SNRAIMI", DIP_ULC_RDMA_DEBUG, 13},
@@ -68,6 +70,8 @@ static struct DIPDmaDebugInfo g_DMANrDbgIfo[] = {
 	{"FEO", DIP_ULC_WDMA_DEBUG, 21},
 	{"IMG2O", DIP_ULC_WDMA_DEBUG, 22},
 	{"IMG2BO", DIP_ULC_WDMA_DEBUG, 23},
+	{"SMTO_D5", DIP_ULC_WDMA_DEBUG, 25},
+	{"SMTCO_D5", DIP_ULC_WDMA_DEBUG, 29},
 	{"CSMCSO", DIP_ULC_WDMA_DEBUG, 37},
 };
 
@@ -415,6 +419,48 @@ static void imgsys_dip_dump_smtd8(struct mtk_imgsys_dev *a_pDev,
 
 }
 
+static void imgsys_dip_dump_smtd5(struct mtk_imgsys_dev *a_pDev,
+				void __iomem *a_pRegBA,
+				unsigned int a_DdbSel,
+				unsigned int a_DbgOut)
+{
+	unsigned int DbgCmd = 0;
+	unsigned int DbgData = 0;
+	unsigned int Idx = 0;
+	unsigned int CmdOft = 0x20000;
+
+	pr_info("dump smt_d5 debug\n");
+
+	/* smt_d5 debug */
+	DbgCmd = 0x1C101;
+	for (Idx = 0; Idx < 0x3; Idx++) {
+		DbgData = ExeDbgCmd(a_pDev, a_pRegBA, a_DdbSel, a_DbgOut, DbgCmd);
+		DbgCmd += CmdOft;
+	}
+
+}
+
+static void imgsys_dip_dump_ee(struct mtk_imgsys_dev *a_pDev,
+				void __iomem *a_pRegBA,
+				unsigned int a_DdbSel,
+				unsigned int a_DbgOut)
+{
+	unsigned int DbgCmd = 0;
+	unsigned int DbgData = 0;
+	unsigned int Idx = 0;
+	unsigned int CmdOft = 0x10000;
+
+	pr_info("dump ee debug\n");
+
+	/* ee debug */
+	DbgCmd = 0x18A01;
+	for (Idx = 0; Idx < 0xB; Idx++) {
+		DbgData = ExeDbgCmd(a_pDev, a_pRegBA, a_DdbSel, a_DbgOut, DbgCmd);
+		DbgCmd += CmdOft;
+	}
+
+}
+
 void imgsys_dip_debug_dump(struct mtk_imgsys_dev *imgsys_dev,
 							unsigned int engine)
 {
@@ -605,6 +651,10 @@ void imgsys_dip_debug_dump(struct mtk_imgsys_dev *imgsys_dev,
 	imgsys_dip_dump_snr(imgsys_dev, dipRegBA, CtlDdbSel, CtlDbgOut);
 	/* SMT_D8 debug data */
 	imgsys_dip_dump_smtd8(imgsys_dev, dipRegBA, CtlDdbSel, CtlDbgOut);
+	/* SMT_D5 debug data */
+	imgsys_dip_dump_smtd5(imgsys_dev, dipRegBA, CtlDdbSel, CtlDbgOut);
+	/* EE debug data */
+	imgsys_dip_dump_ee(imgsys_dev, dipRegBA, CtlDdbSel, CtlDbgOut);
 
 	pr_info("%s: -\n", __func__);
 
