@@ -153,6 +153,7 @@ int uarthub_core_is_apb_bus_clk_enable(void);
 int uarthub_core_is_uarthub_clk_enable(void);
 int uarthub_core_debug_uart_ip_info_with_tag_ex(const char *tag, int boundary);
 int uarthub_core_debug_uart_ip_info_loop(void);
+int uarthub_core_debug_uart_ip_info_loop_compare_diff(void);
 int uarthub_core_debug_apdma_uart_info_with_tag_ex(const char *tag, int boundary);
 int uarthub_core_debug_info_with_tag_no_spinlock(const char *tag);
 int uarthub_core_debug_info_with_tag_worker(const char *tag);

@@ -168,6 +168,11 @@ int uarthub_get_gpio_trx_info_mt6985(struct uarthub_gpio_trx_info *info)
 		return -1;
 	}
 
+	if (!iocfg_rm_remap_addr) {
+		pr_notice("[%s] iocfg_rm_remap_addr is NULL\n", __func__);
+		return -1;
+	}
+
 	info->tx_mode.addr = GPIO_BASE_ADDR + GPIO_HUB_MODE_TX_OFFSET;
 	info->tx_mode.mask = GPIO_HUB_MODE_TX_MASK;
 	info->tx_mode.value = GPIO_HUB_MODE_TX_VALUE;

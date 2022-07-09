@@ -30,6 +30,7 @@
 
 #include <linux/interrupt.h>
 #include <linux/ratelimit.h>
+#include <linux/sched/clock.h>
 
 static atomic_t g_uarthub_probe_called = ATOMIC_INIT(0);
 struct platform_device *g_uarthub_pdev;
@@ -53,6 +54,7 @@ struct workqueue_struct *uarthub_workqueue;
 #define UARTHUB_ERR_IRQ_DUMP_WORKER 1
 #define UARTHUB_DEFAULT_DUMP_DEBUG_LOOP_MS 10
 #define UARTHUB_DUMP_DEBUG_LOOP_ENABLE 0
+#define UARTHUB_DUMP_DEBUG_LOOP_MODE 0
 #define UARTHUB_SLEEP_WAKEUP_TEST 0
 
 #if !(SUPPORT_SSPM_DRIVER)
@@ -294,10 +296,18 @@ static enum hrtimer_restart dump_hrtimer_handler_cb(struct hrtimer *hrt)
 {
 	unsigned long flags;
 
+#if UARTHUB_DUMP_DEBUG_LOOP_MODE
+	hrtimer_forward_now(hrt, ns_to_ktime(1000 * 10));
+#else
 	hrtimer_forward_now(hrt, ms_to_ktime(g_dump_loop_dur_ms));
+#endif
 
 	spin_lock_irqsave(&g_clear_trx_req_lock, flags);
+#if UARTHUB_DUMP_DEBUG_LOOP_MODE
+	uarthub_core_debug_uart_ip_info_loop_compare_diff();
+#else
 	uarthub_core_debug_uart_ip_info_loop();
+#endif
 	spin_unlock_irqrestore(&g_clear_trx_req_lock, flags);
 
 	return HRTIMER_RESTART;
@@ -2422,6 +2432,237 @@ int uarthub_core_debug_apdma_uart_info_with_tag_ex(const char *tag, int boundary
 		pr_info("[%s][%s] ----------------------------------------\n",
 			def_tag, ((tag == NULL) ? "null" : tag));
 	}
+
+	return 0;
+}
+
+static int g_bk_crc;
+static int g_bk_bypass;
+static int g_bk_uart_pad_mode;
+static int g_bk_gpio_tx_mode;
+static int g_bk_gpio_rx_mode;
+static int g_bk_gpio_tx_dir;
+static int g_bk_gpio_rx_dir;
+static int g_bk_gpio_tx_ies;
+static int g_bk_gpio_rx_ies;
+static int g_bk_gpio_tx_pu;
+static int g_bk_gpio_rx_pu;
+static int g_bk_gpio_tx_pd;
+static int g_bk_gpio_rx_pd;
+static int g_bk_gpio_tx_drv;
+static int g_bk_gpio_rx_drv;
+static int g_bk_gpio_tx_smt;
+static int g_bk_gpio_rx_smt;
+static int g_bk_gpio_tx_tdsel;
+static int g_bk_gpio_rx_tdsel;
+static int g_bk_gpio_tx_rdsel;
+static int g_bk_gpio_rx_rdsel;
+static int g_bk_gpio_tx_sec_en;
+static int g_bk_gpio_rx_sec_en;
+static int g_bk_gpio_rx_din;
+
+int uarthub_core_debug_uart_ip_info_loop_compare_diff(void)
+{
+	const char *def_tag = "UARTHUB_DBG_LOOP";
+	struct uarthub_uart_ip_debug_info crc_bypass = {0};
+	unsigned char dmp_info_buf[DBG_LOG_LEN];
+	struct uarthub_gpio_trx_info gpio_base_addr;
+	int len = 0;
+	int val = 0;
+	int cur_crc = 0;
+	int cur_bypass = 0;
+	int cur_uart_pad_mode = 0;
+	int cur_gpio_tx_mode = 0;
+	int cur_gpio_rx_mode = 0;
+	int cur_gpio_tx_dir = 0;
+	int cur_gpio_rx_dir = 0;
+	int cur_gpio_tx_ies = 0;
+	int cur_gpio_rx_ies = 0;
+	int cur_gpio_tx_pu = 0;
+	int cur_gpio_rx_pu = 0;
+	int cur_gpio_tx_pd = 0;
+	int cur_gpio_rx_pd = 0;
+	int cur_gpio_tx_drv = 0;
+	int cur_gpio_rx_drv = 0;
+	int cur_gpio_tx_smt = 0;
+	int cur_gpio_rx_smt = 0;
+	int cur_gpio_tx_tdsel = 0;
+	int cur_gpio_rx_tdsel = 0;
+	int cur_gpio_tx_rdsel = 0;
+	int cur_gpio_rx_rdsel = 0;
+	int cur_gpio_tx_sec_en = 0;
+	int cur_gpio_rx_sec_en = 0;
+	int cur_gpio_rx_din = 0;
+	unsigned long long kt_sec;
+	unsigned long kt_nsec;
+	struct timespec64 now;
+
+	if (g_uarthub_disable == 1)
+		return 0;
+
+	if (g_max_dev <= 0)
+		return -1;
+
+	kt_sec = local_clock();
+	kt_nsec = do_div(kt_sec, 1000000000)/1000;
+
+	ktime_get_real_ts64(&now);
+
+	if (uarthub_core_is_apb_bus_clk_enable() == 0) {
+		pr_info("[%s] ++++++++++++++++++++++++++++++++++++++++ [%llu.%06lu][%d.%ds]\n",
+			def_tag, kt_sec, kt_nsec, now.tv_sec, (now.tv_nsec / NSEC_PER_USEC));
+		pr_notice("[%s] uarthub_core_is_apb_bus_clk_enable=[0]\n", def_tag);
+		pr_info("[%s] ----------------------------------------\n", def_tag);
+		return -1;
+	}
+
+	crc_bypass.dev0 =
+		UARTHUB_REG_READ(UARTHUB_INTFHUB_CON2(intfhub_base_remap_addr));
+
+	cur_crc = ((crc_bypass.dev0 & 0x2) >> 1);
+	cur_bypass = ((crc_bypass.dev0 & 0x4) >> 2);
+
+	if (g_uarthub_plat_ic_ops && g_uarthub_plat_ic_ops->uarthub_plat_get_gpio_trx_info) {
+		val = g_uarthub_plat_ic_ops->uarthub_plat_get_gpio_trx_info(&gpio_base_addr);
+		if (val == 0) {
+			cur_gpio_tx_mode = gpio_base_addr.tx_mode.gpio_value;
+			cur_gpio_rx_mode = gpio_base_addr.rx_mode.gpio_value;
+			cur_gpio_tx_dir = gpio_base_addr.tx_dir.gpio_value;
+			cur_gpio_rx_dir = gpio_base_addr.rx_dir.gpio_value;
+			cur_gpio_tx_ies = gpio_base_addr.tx_ies.gpio_value;
+			cur_gpio_rx_ies = gpio_base_addr.rx_ies.gpio_value;
+			cur_gpio_tx_pu = gpio_base_addr.tx_pu.gpio_value;
+			cur_gpio_rx_pu = gpio_base_addr.rx_pu.gpio_value;
+			cur_gpio_tx_pd = gpio_base_addr.tx_pd.gpio_value;
+			cur_gpio_rx_pd = gpio_base_addr.rx_pd.gpio_value;
+			cur_gpio_tx_drv = gpio_base_addr.tx_drv.gpio_value;
+			cur_gpio_rx_drv = gpio_base_addr.rx_drv.gpio_value;
+			cur_gpio_tx_smt = gpio_base_addr.tx_smt.gpio_value;
+			cur_gpio_rx_smt = gpio_base_addr.rx_smt.gpio_value;
+			cur_gpio_tx_tdsel = gpio_base_addr.tx_tdsel.gpio_value;
+			cur_gpio_rx_tdsel = gpio_base_addr.rx_tdsel.gpio_value;
+			cur_gpio_tx_rdsel = gpio_base_addr.tx_rdsel.gpio_value;
+			cur_gpio_rx_rdsel = gpio_base_addr.rx_rdsel.gpio_value;
+			cur_gpio_tx_sec_en = gpio_base_addr.tx_sec_en.gpio_value;
+			cur_gpio_rx_sec_en = gpio_base_addr.rx_sec_en.gpio_value;
+			cur_gpio_rx_din = gpio_base_addr.rx_din.gpio_value;
+		}
+	}
+
+	if (g_uarthub_plat_ic_ops &&
+			g_uarthub_plat_ic_ops->uarthub_plat_get_peri_uart_pad_mode) {
+		val = g_uarthub_plat_ic_ops->uarthub_plat_get_peri_uart_pad_mode();
+		if (val >= 0)
+			cur_uart_pad_mode = val;
+	}
+
+	if (cur_crc == g_bk_crc &&
+			cur_bypass == g_bk_bypass &&
+			cur_uart_pad_mode == g_bk_uart_pad_mode &&
+			cur_gpio_tx_mode == g_bk_gpio_tx_mode &&
+			cur_gpio_rx_mode == g_bk_gpio_rx_mode &&
+			cur_gpio_tx_dir == g_bk_gpio_tx_dir &&
+			cur_gpio_rx_dir == g_bk_gpio_rx_dir &&
+			cur_gpio_tx_ies == g_bk_gpio_tx_ies &&
+			cur_gpio_rx_ies == g_bk_gpio_rx_ies &&
+			cur_gpio_tx_pu == g_bk_gpio_tx_pu &&
+			cur_gpio_rx_pu == g_bk_gpio_rx_pu &&
+			cur_gpio_tx_pd == g_bk_gpio_tx_pd &&
+			cur_gpio_rx_pd == g_bk_gpio_rx_pd &&
+			cur_gpio_tx_drv == g_bk_gpio_tx_drv &&
+			cur_gpio_rx_drv == g_bk_gpio_rx_drv &&
+			cur_gpio_tx_smt == g_bk_gpio_tx_smt &&
+			cur_gpio_rx_smt == g_bk_gpio_rx_smt &&
+			cur_gpio_tx_tdsel == g_bk_gpio_tx_tdsel &&
+			cur_gpio_rx_tdsel == g_bk_gpio_rx_tdsel &&
+			cur_gpio_tx_rdsel == g_bk_gpio_tx_rdsel &&
+			cur_gpio_rx_rdsel == g_bk_gpio_rx_rdsel &&
+			cur_gpio_tx_sec_en == g_bk_gpio_tx_sec_en &&
+			cur_gpio_rx_sec_en == g_bk_gpio_rx_sec_en &&
+			cur_gpio_rx_din == g_bk_gpio_rx_din) {
+		return 0;
+	}
+
+	g_bk_crc = cur_crc;
+	g_bk_bypass = cur_bypass;
+	g_bk_uart_pad_mode = cur_uart_pad_mode;
+	g_bk_gpio_tx_mode = cur_gpio_tx_mode;
+	g_bk_gpio_rx_mode = cur_gpio_rx_mode;
+	g_bk_gpio_tx_dir = cur_gpio_tx_dir;
+	g_bk_gpio_rx_dir = cur_gpio_rx_dir;
+	g_bk_gpio_tx_ies = cur_gpio_tx_ies;
+	g_bk_gpio_rx_ies = cur_gpio_rx_ies;
+	g_bk_gpio_tx_pu = cur_gpio_tx_pu;
+	g_bk_gpio_rx_pu = cur_gpio_rx_pu;
+	g_bk_gpio_tx_pd = cur_gpio_tx_pd;
+	g_bk_gpio_rx_pd = cur_gpio_rx_pd;
+	g_bk_gpio_tx_drv = cur_gpio_tx_drv;
+	g_bk_gpio_rx_drv = cur_gpio_rx_drv;
+	g_bk_gpio_tx_smt = cur_gpio_tx_smt;
+	g_bk_gpio_rx_smt = cur_gpio_rx_smt;
+	g_bk_gpio_tx_tdsel = cur_gpio_tx_tdsel;
+	g_bk_gpio_rx_tdsel = cur_gpio_rx_tdsel;
+	g_bk_gpio_tx_rdsel = cur_gpio_tx_rdsel;
+	g_bk_gpio_rx_rdsel = cur_gpio_rx_rdsel;
+	g_bk_gpio_tx_sec_en = cur_gpio_tx_sec_en;
+	g_bk_gpio_rx_sec_en = cur_gpio_rx_sec_en;
+	g_bk_gpio_rx_din = cur_gpio_rx_din;
+
+	pr_info("[%s] ++++++++++++++++++++++++++++++++++++++++ [%llu.%06lu][%d.%ds]\n",
+		def_tag, kt_sec, kt_nsec, now.tv_sec, (now.tv_nsec / NSEC_PER_USEC));
+
+	len = 0;
+	len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
+		"[%s] crc_bypass=[%d-%d]",
+		def_tag, cur_crc, cur_bypass);
+
+	len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
+		"___UART_PAD_MODE=[0x%x(%s)]",
+		cur_uart_pad_mode, ((cur_uart_pad_mode == 0) ? "UARTHUB" : "UART_PAD"));
+
+	pr_info("%s\n", dmp_info_buf);
+
+	len = 0;
+	len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
+		"[%s] GPIO TX_MODE=[addr:0x%lx,mask:0x%lx,exp:0x%lx,read:0x%lx]",
+		def_tag,
+		gpio_base_addr.tx_mode.addr, gpio_base_addr.tx_mode.mask,
+		gpio_base_addr.tx_mode.value, cur_gpio_tx_mode);
+
+	len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
+		"___RX_MODE=[addr:0x%lx,mask:0x%lx,exp:0x%lx,read:0x%lx]",
+		gpio_base_addr.rx_mode.addr, gpio_base_addr.rx_mode.mask,
+		gpio_base_addr.rx_mode.value, cur_gpio_rx_mode);
+
+	len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
+		"___RX_PAD_INFO=[0x%lx]", cur_gpio_rx_din);
+
+	pr_info("%s\n", dmp_info_buf);
+
+	len = 0;
+	len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
+		"[%s] GPIO DIR=[T:0x%lx,R:0x%lx]___DRV=[T:0x%lx,R:0x%lx]",
+		def_tag,
+		cur_gpio_tx_dir, cur_gpio_rx_dir, cur_gpio_tx_drv, cur_gpio_rx_drv);
+
+	len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
+		"___PU=[T:0x%lx,R:0x%lx]___PD=[T:0x%lx,R:0x%lx]",
+		cur_gpio_tx_pu, cur_gpio_rx_pu, cur_gpio_tx_pd, cur_gpio_rx_pd);
+
+	len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
+		"___IES=[T:0x%lx,R:0x%lx]___SMT=[T:0x%lx,R:0x%lx]",
+		cur_gpio_tx_ies, cur_gpio_rx_ies, cur_gpio_tx_smt, cur_gpio_rx_smt);
+
+	len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
+		"___TDSEL=[T:0x%lx,R:0x%lx]___RDSEL=[T:0x%lx,R:0x%lx]",
+		cur_gpio_tx_tdsel, cur_gpio_rx_tdsel, cur_gpio_tx_rdsel, cur_gpio_rx_rdsel);
+
+	len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
+		"___SEC_EN=[T:0x%lx,R:0x%lx]", cur_gpio_tx_sec_en, cur_gpio_rx_sec_en);
+
+	pr_info("%s\n", dmp_info_buf);
+
+	pr_info("[%s] ----------------------------------------\n", def_tag);
 
 	return 0;
 }
