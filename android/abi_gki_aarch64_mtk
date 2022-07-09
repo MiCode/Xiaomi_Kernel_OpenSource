@@ -579,6 +579,7 @@
   downgrade_write
   down_interruptible
   down_read
+  down_read_killable
   down_read_trylock
   down_timeout
   down_trylock
@@ -740,6 +741,7 @@
   extcon_get_edev_by_phandle
   extcon_get_state
   extcon_set_state_sync
+  __fdget
   fd_install
   fget
   file_path
@@ -1047,6 +1049,7 @@
   kernfs_path_from_node
   kernfs_put
   kern_mount
+  kern_path
   kern_unmount
   key_create_or_update
   key_put
@@ -1443,6 +1446,7 @@
   param_set_charp
   param_set_uint
   param_set_ulong
+  path_put
   pci_alloc_irq_vectors_affinity
   pci_choose_state
   pci_free_irq_vectors
@@ -1801,8 +1805,10 @@
   scsi_device_get
   scsi_device_put
   scsi_device_quiesce
+  scsi_dma_unmap
   __scsi_execute
   __scsi_iterate_devices
+  scsi_print_command
   scsi_print_sense_hdr
   sdio_claim_host
   sdio_claim_irq
@@ -2166,6 +2172,8 @@
   __traceiter_android_vh_show_resume_epoch_val
   __traceiter_android_vh_show_suspend_epoch_val
   __traceiter_android_vh_syscall_prctl_finished
+  __traceiter_android_vh_ufs_compl_command
+  __traceiter_android_vh_ufs_send_command
   __traceiter_cpu_frequency
   __traceiter_gpu_mem_total
   __traceiter_mmap_lock_acquire_returned
@@ -2239,6 +2247,8 @@
   __tracepoint_android_vh_show_resume_epoch_val
   __tracepoint_android_vh_show_suspend_epoch_val
   __tracepoint_android_vh_syscall_prctl_finished
+  __tracepoint_android_vh_ufs_compl_command
+  __tracepoint_android_vh_ufs_send_command
   __tracepoint_cpu_frequency
   __tracepoint_gpu_mem_total
   __tracepoint_mmap_lock_acquire_returned
@@ -2290,6 +2300,9 @@
   __ubsan_handle_cfi_check_fail_abort
   uclamp_eff_value
   __udelay
+  ufshcd_add_command_trace
+  ufshcd_clk_scaling_start_busy
+  ufshcd_clk_scaling_update_busy
   ufshcd_delay_us
   ufshcd_dme_configure_adapt
   ufshcd_dme_get_attr
@@ -2299,6 +2312,7 @@
   ufshcd_get_pwr_dev_param
   ufshcd_hba_enable
   ufshcd_hba_stop
+  ufshcd_hold
   ufshcd_init_pwr_dev_param
   ufshcd_link_recovery
   ufshcd_make_hba_operational
@@ -2308,6 +2322,7 @@
   ufshcd_query_descriptor_retry
   ufshcd_query_flag
   ufshcd_read_desc_param
+  ufshcd_release
   ufshcd_remove
   ufshcd_resume_complete
   ufshcd_runtime_resume
@@ -2315,6 +2330,7 @@
   ufshcd_suspend_prepare
   ufshcd_system_resume
   ufshcd_system_suspend
+  ufshcd_transfer_rsp_status
   ufshcd_uic_change_pwr_mode
   ufshcd_uic_hibern8_exit
   ufshcd_update_evt_hist
@@ -2545,6 +2561,7 @@
   vchan_tx_submit
   verify_pkcs7_signature
   vfree
+  vfs_llseek
   video_devdata
   video_device_alloc
   video_device_release
