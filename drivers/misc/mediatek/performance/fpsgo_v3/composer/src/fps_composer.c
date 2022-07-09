@@ -133,8 +133,12 @@ int fpsgo_com_check_frame_type(int pid, int queue_SF, int api,
 	if ((control_api_mask & (1 << api)) == 0)
 		return BY_PASS_TYPE;
 
-	if (hwui == RENDER_INFO_HWUI_TYPE && (control_hwui || sbe_ctrl))
-		return NON_VSYNC_ALIGNED_TYPE;
+	if (hwui == RENDER_INFO_HWUI_TYPE) {
+		if (control_hwui || sbe_ctrl)
+			return NON_VSYNC_ALIGNED_TYPE;
+		else
+			return BY_PASS_TYPE;
+	}
 
 	if (!fpsgo_control && !fpsgo_control_pid)
 		return BY_PASS_TYPE;
