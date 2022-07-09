@@ -111,6 +111,7 @@
 #define OSTDL_EN			14
 #define WR_LIMIT_LSB			24
 #define RD_LIMIT_LSB			16
+#define MASK_7				(0x7f)
 
 struct mtk_smi_reg_pair {
 	u16	offset;
@@ -269,7 +270,7 @@ bool is_other_ostd_existed(const u32 value, bool is_write)
 {
 	bool existed;
 
-	existed = (value >> (is_write ? WR_LIMIT_LSB : RD_LIMIT_LSB)) & 0x1f;
+	existed = (value >> (is_write ? WR_LIMIT_LSB : RD_LIMIT_LSB)) & MASK_7;
 	if (log_level & 1 << log_config_bit)
 		pr_info("%s value: %#x is_write: %d exited: %d\n", __func__,
 				value, is_write, existed);
@@ -296,10 +297,10 @@ void mtk_smi_common_ostdl_set(struct device *dev, const u32 port, bool is_write,
 	if (val) {
 		if (is_other_ostd_existed(orig_val, !is_write))
 			write_val |= BIT(OSTDL_EN);
-		write_val |= (val & 0x1f) << (is_write ? WR_LIMIT_LSB : RD_LIMIT_LSB);
+		write_val |= (val & MASK_7) << (is_write ? WR_LIMIT_LSB : RD_LIMIT_LSB);
 	} else {
 		write_val &= ~BIT(OSTDL_EN);
-		write_val &= ~((0x1f) << (is_write ? WR_LIMIT_LSB : RD_LIMIT_LSB));
+		write_val &= ~((MASK_7) << (is_write ? WR_LIMIT_LSB : RD_LIMIT_LSB));
 	}
 
 	common->plat->bwl[common->commid * SMI_COMMON_LARB_NR_MAX + port] = write_val;
