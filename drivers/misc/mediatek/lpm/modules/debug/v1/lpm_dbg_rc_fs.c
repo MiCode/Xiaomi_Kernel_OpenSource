@@ -54,6 +54,7 @@ enum LPM_RC_NODE_TYPE {
 	LPM_RC_NODE_RC_ENABLE,
 	LPM_RC_NODE_RC_STATE_SIMPLE,
 	LPM_RC_NODE_RC_STATE,
+	LPM_RC_NODE_RC_NOTIFY_ENABLE,
 	LPM_RC_NODE_COND_ENABLE,
 	LPM_RC_NODE_COND_STATE,
 	LPM_RC_NODE_COND_SET,
@@ -102,6 +103,7 @@ struct LPM_RC_HANDLE_BASIC {
 	struct LPM_RC_ENTERY root;
 	struct LPM_RC_NODE hEnable;
 	struct LPM_RC_NODE hState;
+	struct LPM_RC_NODE hNotifyEnable;
 };
 
 struct LPM_RC_HANDLE {
@@ -282,6 +284,11 @@ static ssize_t lpm_generic_rc_read(char *ToUserBuf,
 			LPM_DBG_SMC(MT_SPM_DBG_SMC_UID_RC_SWITCH,
 				    MT_LPM_SMC_ACT_GET, node->rc_id, 0));
 		break;
+	case LPM_RC_NODE_RC_NOTIFY_ENABLE:
+		lpm_rc_log(ToUserBuf, sz, len, "%lu\n",
+			LPM_DBG_SMC(MT_SPM_DBG_SMC_UID_RC_NOTIFY_CTRL,
+				    MT_LPM_SMC_ACT_GET, node->rc_id, 0));
+		break;
 	case LPM_RC_NODE_COND_ENABLE:
 		lpm_rc_log(ToUserBuf, sz, len, "%lu\n",
 			LPM_DBG_SMC(MT_SPM_DBG_SMC_UID_COND_CHECK,
@@ -324,6 +331,7 @@ static ssize_t lpm_generic_rc_write(char *FromUserBuf,
 		return -EINVAL;
 
 	if ((node->type == LPM_RC_NODE_RC_ENABLE) ||
+		(node->type == LPM_RC_NODE_RC_NOTIFY_ENABLE) ||
 		(node->type == LPM_RC_NODE_COND_ENABLE) ||
 		(node->type == LPM_RC_NODE_VALID_BBLPM) ||
 		(node->type == LPM_RC_NODE_VALID_TRACE)) {
@@ -333,6 +341,8 @@ static ssize_t lpm_generic_rc_write(char *FromUserBuf,
 		if ((!kstrtoint(FromUserBuf, 10, &parm)) == 1) {
 			cmd = (node->type == LPM_RC_NODE_RC_ENABLE) ?
 				MT_SPM_DBG_SMC_UID_RC_SWITCH :
+				(node->type == LPM_RC_NODE_RC_NOTIFY_ENABLE) ?
+				MT_SPM_DBG_SMC_UID_RC_NOTIFY_CTRL :
 				(node->type == LPM_RC_NODE_COND_ENABLE) ?
 				MT_SPM_DBG_SMC_UID_COND_CHECK :
 				(node->type == LPM_RC_NODE_VALID_BBLPM) ?
@@ -506,6 +516,10 @@ static int lpm_rc_entry_nodes_basic(int IsSimple,
 	LPM_GENERIC_RC_NODE_INIT(rc->hEnable, "enable", rc_id,
 				    LPM_RC_NODE_RC_ENABLE);
 	lpm_rc_node_add(&rc->hEnable, 0644, &rc->root);
+
+	LPM_GENERIC_RC_NODE_INIT(rc->hNotifyEnable, "notify_en", rc_id,
+					LPM_RC_NODE_RC_NOTIFY_ENABLE);
+	lpm_rc_node_add(&rc->hNotifyEnable, 0644, &rc->root);
 
 	return bRet;
 }

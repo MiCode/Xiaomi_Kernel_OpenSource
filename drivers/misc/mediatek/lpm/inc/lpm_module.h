@@ -146,6 +146,7 @@ enum MT_SPM_DBG_SMC_UID {
 	MT_SPM_DBG_SMC_HWCG_SETTING,
 	MT_SPM_DBG_SMC_HWCG_DEF_SETTING,
 	MT_SPM_DBG_SMC_HWCG_RES_NAME,
+	MT_SPM_DBG_SMC_UID_RC_NOTIFY_CTRL,
 };
 
 #define lpm_smc_spm_dbg(_lp_id, _act, _val1, _val2) ({\
