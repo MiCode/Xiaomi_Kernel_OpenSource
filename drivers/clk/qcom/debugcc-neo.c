@@ -57,6 +57,7 @@ static struct clk_debug_mux apss_cc_debug_mux = {
 	.post_div_shift = 11,
 	.post_div_val = 1,
 	.mux_sels = apss_cc_debug_mux_sels,
+	.num_mux_sels = ARRAY_SIZE(apss_cc_debug_mux_sels),
 	.pre_div_vals = apss_cc_debug_mux_pre_divs,
 	.hw.init = &(struct clk_init_data){
 		.name = "apss_cc_debug_mux",
@@ -209,6 +210,7 @@ static struct clk_debug_mux cam_cc_debug_mux = {
 	.post_div_shift = 0,
 	.post_div_val = 4,
 	.mux_sels = cam_cc_debug_mux_sels,
+	.num_mux_sels = ARRAY_SIZE(cam_cc_debug_mux_sels),
 	.hw.init = &(struct clk_init_data){
 		.name = "cam_cc_debug_mux",
 		.ops = &clk_debug_mux_ops,
@@ -328,6 +330,7 @@ static struct clk_debug_mux disp_cc_debug_mux = {
 	.post_div_shift = 0,
 	.post_div_val = 4,
 	.mux_sels = disp_cc_debug_mux_sels,
+	.num_mux_sels = ARRAY_SIZE(disp_cc_debug_mux_sels),
 	.hw.init = &(struct clk_init_data){
 		.name = "disp_cc_debug_mux",
 		.ops = &clk_debug_mux_ops,
@@ -625,6 +628,7 @@ static struct clk_debug_mux gcc_debug_mux = {
 	.post_div_shift = 0,
 	.post_div_val = 2,
 	.mux_sels = gcc_debug_mux_sels,
+	.num_mux_sels = ARRAY_SIZE(gcc_debug_mux_sels),
 	.hw.init = &(struct clk_init_data){
 		.name = "gcc_debug_mux",
 		.ops = &clk_debug_mux_ops,
@@ -692,6 +696,7 @@ static struct clk_debug_mux gpu_cc_debug_mux = {
 	.post_div_shift = 0,
 	.post_div_val = 2,
 	.mux_sels = gpu_cc_debug_mux_sels,
+	.num_mux_sels = ARRAY_SIZE(gpu_cc_debug_mux_sels),
 	.hw.init = &(struct clk_init_data){
 		.name = "gpu_cc_debug_mux",
 		.ops = &clk_debug_mux_ops,
@@ -731,6 +736,7 @@ static struct clk_debug_mux video_cc_debug_mux = {
 	.post_div_shift = 0,
 	.post_div_val = 3,
 	.mux_sels = video_cc_debug_mux_sels,
+	.num_mux_sels = ARRAY_SIZE(video_cc_debug_mux_sels),
 	.hw.init = &(struct clk_init_data){
 		.name = "video_cc_debug_mux",
 		.ops = &clk_debug_mux_ops,
@@ -757,10 +763,10 @@ static struct mux_regmap_names mux_list[] = {
 	{ .mux = &apss_cc_debug_mux, .regmap_name = "qcom,apsscc" },
 	{ .mux = &cam_cc_debug_mux, .regmap_name = "qcom,camcc" },
 	{ .mux = &disp_cc_debug_mux, .regmap_name = "qcom,dispcc" },
-	{ .mux = &gcc_debug_mux, .regmap_name = "qcom,gcc" },
 	{ .mux = &gpu_cc_debug_mux, .regmap_name = "qcom,gpucc" },
 	{ .mux = &mc_cc_debug_mux, .regmap_name = "qcom,mccc" },
 	{ .mux = &video_cc_debug_mux, .regmap_name = "qcom,videocc" },
+	{ .mux = &gcc_debug_mux, .regmap_name = "qcom,gcc" },
 };
 
 static struct clk_dummy measure_only_apcs_l3_post_acd_clk = {
@@ -1393,6 +1399,16 @@ static int clk_debug_neo_probe(struct platform_device *pdev)
 		}
 	}
 
+	for (i = 0; i < ARRAY_SIZE(debugcc_neo_hws); i++) {
+		clk = devm_clk_register(&pdev->dev, debugcc_neo_hws[i]);
+		if (IS_ERR(clk)) {
+			dev_err(&pdev->dev, "Unable to register %s, err:(%d)\n",
+				clk_hw_get_name(debugcc_neo_hws[i]),
+				PTR_ERR(clk));
+			return PTR_ERR(clk);
+		}
+	}
+
 	for (i = 0; i < ARRAY_SIZE(mux_list); i++) {
 		if (!mux_list[i].mux->regmap)
 			continue;
@@ -1403,16 +1419,6 @@ static int clk_debug_neo_probe(struct platform_device *pdev)
 				clk_hw_get_name(&mux_list[i].mux->hw),
 				ret);
 			return ret;
-		}
-	}
-
-	for (i = 0; i < ARRAY_SIZE(debugcc_neo_hws); i++) {
-		clk = devm_clk_register(&pdev->dev, debugcc_neo_hws[i]);
-		if (IS_ERR(clk)) {
-			dev_err(&pdev->dev, "Unable to register %s, err:(%d)\n",
-				clk_hw_get_name(debugcc_neo_hws[i]),
-				PTR_ERR(clk));
-			return PTR_ERR(clk);
 		}
 	}
 
