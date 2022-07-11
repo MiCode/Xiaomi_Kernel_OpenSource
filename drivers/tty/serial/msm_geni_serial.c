@@ -631,6 +631,11 @@ static void msm_geni_serial_enable_interrupts(struct uart_port *uport)
 	geni_m_irq_en |= M_IRQ_BITS;
 	geni_s_irq_en |= S_IRQ_BITS;
 
+	if (port->gsi_mode) {
+		geni_m_irq_en &= ~M_RX_FIFO_WATERMARK_EN;
+		geni_s_irq_en &= ~S_RX_FIFO_WATERMARK_EN;
+	}
+
 	geni_write_reg(geni_m_irq_en, uport->membase, SE_GENI_M_IRQ_EN);
 	geni_write_reg(geni_s_irq_en, uport->membase, SE_GENI_S_IRQ_EN);
 	if (port->xfer_mode == GENI_SE_DMA) {
