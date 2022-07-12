@@ -63,6 +63,11 @@ struct vfastrpc_file {
 	struct vfastrpc_apps *apps;
 	int domain;
 	int procattrs;
+	/*
+	 * List to store virtio fastrpc cmds interrupted by signal while waiting
+	 * for completion.
+	 */
+	struct hlist_head interrupted_cmds;
 };
 
 struct vfastrpc_invoke_ctx {
