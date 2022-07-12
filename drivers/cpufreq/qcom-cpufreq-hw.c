@@ -72,6 +72,7 @@ struct qcom_cpufreq_data {
 	bool cancel_throttle;
 	struct delayed_work throttle_work;
 	struct cpufreq_policy *policy;
+	unsigned long last_non_boost_freq;
 };
 
 static unsigned long cpu_hw_rate, xo_rate;
@@ -304,6 +305,14 @@ static int qcom_cpufreq_hw_read_lut(struct device *cpu_dev,
 
 	table[i].frequency = CPUFREQ_TABLE_END;
 	policy->freq_table = table;
+
+	for (i = 0; i < LUT_MAX_ENTRIES && table[i].frequency != CPUFREQ_TABLE_END; i++) {
+		if (table[i].flags == CPUFREQ_BOOST_FREQ)
+			break;
+
+		drv_data->last_non_boost_freq = table[i].frequency;
+	}
+
 	dev_pm_opp_set_sharing_cpus(cpu_dev, policy->cpus);
 
 	return 0;
@@ -382,14 +391,13 @@ static void qcom_lmh_dcvs_notify(struct qcom_cpufreq_data *data)
 		goto out;
 
 	max_capacity = arch_scale_cpu_capacity(cpu);
+	capacity = max_capacity;
 
 	/*
 	 * If h/w throttled frequency is higher than what cpufreq has requested
 	 * for, then stop polling and switch back to interrupt mechanism.
 	 */
 	if (throttled_freq >= qcom_cpufreq_hw_get(cpu)) {
-		capacity = max_capacity;
-
 		val = readl_relaxed(data->base + soc_data->reg_intr_clear);
 		val |= BIT(soc_data->throttle_irq_bit);
 		writel_relaxed(val, data->base + soc_data->reg_intr_clear);
@@ -397,11 +405,17 @@ static void qcom_lmh_dcvs_notify(struct qcom_cpufreq_data *data)
 		enable_irq(data->throttle_irq);
 		trace_dcvsh_throttle(cpu, 0);
 	} else {
-		capacity = mult_frac(max_capacity, throttled_freq, policy->cpuinfo.max_freq);
+		/* only apply thermal pressure if throttled_freq is less than
+		 * boost or last_non_boost_freq
+		 */
+		if (throttled_freq < data->last_non_boost_freq) {
+			capacity = mult_frac(max_capacity, throttled_freq,
+					     policy->cpuinfo.max_freq);
 
-		/* Don't pass boost capacity to scheduler */
-		if (capacity > max_capacity)
-			capacity = max_capacity;
+			/* Don't pass boost capacity to scheduler */
+			if (capacity > max_capacity)
+				capacity = max_capacity;
+		}
 
 		mod_delayed_work(system_highpri_wq, &data->throttle_work,
 				 msecs_to_jiffies(10));
