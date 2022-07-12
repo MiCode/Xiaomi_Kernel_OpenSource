@@ -373,18 +373,6 @@ static void qcom_lmh_dcvs_notify(struct qcom_cpufreq_data *data)
 	throttled_freq = freq_hz / HZ_PER_KHZ;
 	trace_dcvsh_freq(cpu, qcom_cpufreq_hw_get(cpu), throttled_freq);
 
-	/* Update thermal pressure */
-
-	max_capacity = arch_scale_cpu_capacity(cpu);
-	capacity = mult_frac(max_capacity, throttled_freq, policy->cpuinfo.max_freq);
-
-	/* Don't pass boost capacity to scheduler */
-	if (capacity > max_capacity)
-		capacity = max_capacity;
-
-	arch_set_thermal_pressure(policy->related_cpus,
-				  max_capacity - capacity);
-
 	/*
 	 * In the unlikely case policy is unregistered do not enable
 	 * polling or h/w interrupt
@@ -393,11 +381,15 @@ static void qcom_lmh_dcvs_notify(struct qcom_cpufreq_data *data)
 	if (data->cancel_throttle)
 		goto out;
 
+	max_capacity = arch_scale_cpu_capacity(cpu);
+
 	/*
 	 * If h/w throttled frequency is higher than what cpufreq has requested
 	 * for, then stop polling and switch back to interrupt mechanism.
 	 */
 	if (throttled_freq >= qcom_cpufreq_hw_get(cpu)) {
+		capacity = max_capacity;
+
 		val = readl_relaxed(data->base + soc_data->reg_intr_clear);
 		val |= BIT(soc_data->throttle_irq_bit);
 		writel_relaxed(val, data->base + soc_data->reg_intr_clear);
@@ -405,9 +397,17 @@ static void qcom_lmh_dcvs_notify(struct qcom_cpufreq_data *data)
 		enable_irq(data->throttle_irq);
 		trace_dcvsh_throttle(cpu, 0);
 	} else {
+		capacity = mult_frac(max_capacity, throttled_freq, policy->cpuinfo.max_freq);
+
+		/* Don't pass boost capacity to scheduler */
+		if (capacity > max_capacity)
+			capacity = max_capacity;
+
 		mod_delayed_work(system_highpri_wq, &data->throttle_work,
 				 msecs_to_jiffies(10));
 	}
+
+	arch_set_thermal_pressure(policy->related_cpus, max_capacity - capacity);
 
 out:
 	mutex_unlock(&data->throttle_lock);
