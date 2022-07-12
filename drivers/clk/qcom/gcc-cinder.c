@@ -125,6 +125,23 @@ static struct clk_alpha_pll gcc_gpll1 = {
 	},
 };
 
+static struct clk_alpha_pll_postdiv gcc_gpll1_out_even = {
+	.offset = 0x1000,
+	.post_div_shift = 10,
+	.post_div_table = post_div_table_gcc_gpll0_out_even,
+	.num_post_div = ARRAY_SIZE(post_div_table_gcc_gpll0_out_even),
+	.width = 4,
+	.regs = clk_alpha_pll_regs[CLK_ALPHA_PLL_TYPE_LUCID_EVO],
+	.clkr.hw.init = &(const struct clk_init_data){
+		.name = "gcc_gpll1_out_even",
+		.parent_hws = (const struct clk_hw*[]){
+			&gcc_gpll1.clkr.hw,
+		},
+		.num_parents = 1,
+		.ops = &clk_alpha_pll_postdiv_lucid_evo_ops,
+	},
+};
+
 static struct clk_alpha_pll gcc_gpll2 = {
 	.offset = 0x2000,
 	.regs = clk_alpha_pll_regs[CLK_ALPHA_PLL_TYPE_LUCID_EVO],
@@ -1487,7 +1504,7 @@ static struct clk_branch gcc_ecpri_cc_gpll1_even_clk_src = {
 		.hw.init = &(const struct clk_init_data){
 			.name = "gcc_ecpri_cc_gpll1_even_clk_src",
 			.parent_hws = (const struct clk_hw*[]){
-				&gcc_gpll1.clkr.hw,
+				&gcc_gpll1_out_even.clkr.hw,
 			},
 			.num_parents = 1,
 			.flags = CLK_SET_RATE_PARENT,
