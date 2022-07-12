@@ -877,6 +877,7 @@
   iommu_device_sysfs_add
   iommu_device_sysfs_remove
   iommu_device_unregister
+  iommu_dma_enable_best_fit_algo
   iommu_dma_get_resv_regions
   iommu_domain_alloc
   iommu_domain_free
