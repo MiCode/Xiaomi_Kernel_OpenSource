@@ -1559,12 +1559,19 @@ static struct clk_rcg2 ecpri_cc_ecpri_oran_clk_src = {
 	},
 };
 
+static const struct freq_tbl ftbl_ecpri_cc_eth_100g_c2c0_hm_ff_clk_src[] = {
+	F(201500000, P_ECPRI_CC_PLL1_OUT_MAIN, 4, 0, 0),
+	F(403000000, P_ECPRI_CC_PLL1_OUT_MAIN, 2, 0, 0),
+	F(466500000, P_GCC_ECPRI_CC_GPLL5_OUT_EVEN, 1, 0, 0),
+	{ }
+};
+
 static struct clk_rcg2 ecpri_cc_eth_100g_c2c0_hm_ff_clk_src = {
 	.cmd_rcgr = 0x81b0,
 	.mnd_width = 0,
 	.hid_width = 5,
 	.parent_map = ecpri_cc_parent_map_0,
-	.freq_tbl = ftbl_ecpri_cc_ecpri_clk_src,
+	.freq_tbl = ftbl_ecpri_cc_eth_100g_c2c0_hm_ff_clk_src,
 	.enable_safe_config = true,
 	.clkr.hw.init = &(const struct clk_init_data){
 		.name = "ecpri_cc_eth_100g_c2c0_hm_ff_clk_src",
@@ -1582,6 +1589,7 @@ static struct clk_rcg2 ecpri_cc_eth_100g_c2c0_hm_ff_clk_src = {
 
 static const struct freq_tbl ftbl_ecpri_cc_eth_100g_c2c_hm_macsec_clk_src[] = {
 	F(19200000, P_BI_TCXO, 1, 0, 0),
+	F(100000000, P_GCC_ECPRI_CC_GPLL0_OUT_MAIN, 6, 0, 0),
 	F(200000000, P_GCC_ECPRI_CC_GPLL0_OUT_MAIN, 3, 0, 0),
 	{ }
 };
@@ -1612,7 +1620,7 @@ static struct clk_rcg2 ecpri_cc_eth_100g_dbg_c2c_hm_ff_clk_src = {
 	.mnd_width = 0,
 	.hid_width = 5,
 	.parent_map = ecpri_cc_parent_map_0,
-	.freq_tbl = ftbl_ecpri_cc_ecpri_clk_src,
+	.freq_tbl = ftbl_ecpri_cc_eth_100g_c2c0_hm_ff_clk_src,
 	.enable_safe_config = true,
 	.clkr.hw.init = &(const struct clk_init_data){
 		.name = "ecpri_cc_eth_100g_dbg_c2c_hm_ff_clk_src",
@@ -1633,7 +1641,7 @@ static struct clk_rcg2 ecpri_cc_eth_100g_fh0_hm_ff_clk_src = {
 	.mnd_width = 0,
 	.hid_width = 5,
 	.parent_map = ecpri_cc_parent_map_0,
-	.freq_tbl = ftbl_ecpri_cc_ecpri_clk_src,
+	.freq_tbl = ftbl_ecpri_cc_eth_100g_c2c0_hm_ff_clk_src,
 	.enable_safe_config = true,
 	.clkr.hw.init = &(const struct clk_init_data){
 		.name = "ecpri_cc_eth_100g_fh0_hm_ff_clk_src",
@@ -1649,12 +1657,18 @@ static struct clk_rcg2 ecpri_cc_eth_100g_fh0_hm_ff_clk_src = {
 	},
 };
 
+static const struct freq_tbl ftbl_ecpri_cc_eth_100g_fh0_macsec_clk_src[] = {
+	F(100000000, P_GCC_ECPRI_CC_GPLL0_OUT_MAIN, 6, 0, 0),
+	F(200000000, P_GCC_ECPRI_CC_GPLL0_OUT_MAIN, 3, 0, 0),
+	{ }
+};
+
 static struct clk_rcg2 ecpri_cc_eth_100g_fh0_macsec_clk_src = {
 	.cmd_rcgr = 0x8108,
 	.mnd_width = 0,
 	.hid_width = 5,
 	.parent_map = ecpri_cc_parent_map_0,
-	.freq_tbl = ftbl_ecpri_cc_eth_100g_c2c_hm_macsec_clk_src,
+	.freq_tbl = ftbl_ecpri_cc_eth_100g_fh0_macsec_clk_src,
 	.enable_safe_config = true,
 	.clkr.hw.init = &(const struct clk_init_data){
 		.name = "ecpri_cc_eth_100g_fh0_macsec_clk_src",
@@ -1717,7 +1731,7 @@ static struct clk_rcg2 ecpri_cc_eth_100g_fh2_hm_ff_clk_src = {
 	.mnd_width = 0,
 	.hid_width = 5,
 	.parent_map = ecpri_cc_parent_map_0,
-	.freq_tbl = ftbl_ecpri_cc_ecpri_clk_src,
+	.freq_tbl = ftbl_ecpri_cc_eth_100g_c2c0_hm_ff_clk_src,
 	.enable_safe_config = true,
 	.clkr.hw.init = &(const struct clk_init_data){
 		.name = "ecpri_cc_eth_100g_fh2_hm_ff_clk_src",
@@ -1755,6 +1769,8 @@ static struct clk_rcg2 ecpri_cc_eth_100g_fh2_macsec_clk_src = {
 };
 
 static const struct freq_tbl ftbl_ecpri_cc_eth_100g_mac_c2c_hm_ref_clk_src[] = {
+	F(533000000, P_GCC_ECPRI_CC_GPLL1_OUT_EVEN, 1, 0, 0),
+	F(700000000, P_GCC_ECPRI_CC_GPLL3_OUT_MAIN, 1, 0, 0),
 	F(806000000, P_GCC_ECPRI_CC_GPLL4_OUT_MAIN, 1, 0, 0),
 	{ }
 };
