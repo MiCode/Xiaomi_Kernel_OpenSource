@@ -82,7 +82,6 @@ struct bridge_list_entry {
 	struct list_head list;
 	phys_addr_t paddr;
 	uint64_t handle;
-	int32_t ref_count;
 };
 
 struct cma_heap_bridge_info {
@@ -144,7 +143,6 @@ static int32_t qtee_shmbridge_list_add_nolock(phys_addr_t paddr,
 		return -ENOMEM;
 	entry->handle = handle;
 	entry->paddr = paddr;
-	entry->ref_count = 0;
 	list_add_tail(&entry->list, &bridge_list_head.head);
 	return 0;
 }
@@ -160,47 +158,6 @@ static void qtee_shmbridge_list_del_nolock(uint64_t handle)
 			break;
 		}
 	}
-}
-
-static int32_t qtee_shmbridge_list_dec_refcount_nolock(uint64_t handle, phys_addr_t *paddr)
-{
-	struct bridge_list_entry *entry;
-
-	list_for_each_entry(entry, &bridge_list_head.head, list)
-		if (entry->handle == handle) {
-			//update paddr incase to increase refcount if register fail
-			*paddr =  entry->paddr;
-
-			if (entry->ref_count) {
-				entry->ref_count--;
-				pr_debug("%s: bridge on %lld exists decrease refcount :%d\n",
-					__func__, handle, entry->ref_count);
-			}
-			return entry->ref_count;
-		}
-
-	pr_err("Not able to find bridge handle %lld in map\n", handle);
-	return -EINVAL;
-}
-
-static int32_t qtee_shmbridge_list_inc_refcount_nolock(phys_addr_t paddr, uint64_t *handle)
-{
-	struct bridge_list_entry *entry;
-
-	list_for_each_entry(entry, &bridge_list_head.head, list)
-		if (entry->paddr == paddr) {
-
-			entry->ref_count++;
-			pr_debug("%s: bridge on %llx exists increase refcount :%d\n",
-				__func__, (uint64_t)paddr, entry->ref_count);
-
-			//update handle in case we found paddr already exist
-			*handle = entry->handle;
-			return 0;
-		}
-
-	pr_err("%s: Not able to find bridge paddr %llx in map\n", __func__, (uint64_t)paddr);
-	return -EINVAL;
 }
 
 static int32_t qtee_shmbridge_query_nolock(phys_addr_t paddr)
@@ -257,11 +214,8 @@ int32_t qtee_shmbridge_register(
 
 	mutex_lock(&bridge_list_head.lock);
 	ret = qtee_shmbridge_query_nolock(paddr);
-	if (ret) {
-		pr_debug("%s: found 0%x already exist with shmbridge\n",
-			__func__, paddr);
-		goto bridge_exist;
-	}
+	if (ret)
+		goto exit;
 
 	for (i = 0; i < ns_vmid_num; i++) {
 		ns_perms = UPDATE_NS_PERMS(ns_perms, ns_vm_perm_list[i]);
@@ -286,25 +240,15 @@ int32_t qtee_shmbridge_register(
 			handle);
 
 	if (ret) {
-		pr_err("%s: create shmbridge failed, ret = %d\n", __func__, ret);
-
-		/* if bridge is already existing and we are not real owner also paddr not
-		 * exist in our map we will add an entry in our map and go for deregister
-		 * for this since QTEE also maintain ref_count. So for this we should
-		 * deregister to decrease ref_count in QTEE.
-		 */
+		pr_err("create shmbridge failed, ret = %d\n", ret);
 		if (ret == AC_ERR_SHARED_MEMORY_SINGLE_SOURCE)
-			pr_err("%s: bridge %llx exist but not registered in our map\n",
-				__func__, (uint64_t)paddr);
-		else {
+			ret = -EEXIST;
+		else
 			ret = -EINVAL;
-			goto exit;
-		}
+		goto exit;
 	}
 
 	ret = qtee_shmbridge_list_add_nolock(paddr, *handle);
-bridge_exist:
-	ret = qtee_shmbridge_list_inc_refcount_nolock(paddr, handle);
 exit:
 	mutex_unlock(&bridge_list_head.lock);
 	return ret;
@@ -315,37 +259,19 @@ EXPORT_SYMBOL(qtee_shmbridge_register);
 int32_t qtee_shmbridge_deregister(uint64_t handle)
 {
 	int32_t ret = 0;
-	phys_addr_t paddr;
 
 	if (!qtee_shmbridge_enabled)
 		return 0;
 
 	mutex_lock(&bridge_list_head.lock);
 
-	ret = qtee_shmbridge_list_dec_refcount_nolock(handle, &paddr);
+	ret = qcom_scm_delete_shm_bridge(handle);
 
-	/* if ref_count reaches to zero then
-	 *only delete handle from the map
-	 */
-
-	if (ret == 0) {
-		ret = qcom_scm_delete_shm_bridge(handle);
-
-		if (ret) {
-			pr_err("%s: Failed to del bridge %lld, ret = %d\n", __func__,
-				 handle, ret);
-			/* In case of failure increase ref_count again
-			 * there will be for sure leakage if client is not handling failure.
-			 */
-			if (qtee_shmbridge_list_inc_refcount_nolock(paddr, &handle))
-				pr_err("%s: weird situation it should not land over here\n",
-				__func__);
-
-			goto exit;
-		}
-
-		qtee_shmbridge_list_del_nolock(handle);
+	if (ret) {
+		pr_err("Failed to del bridge %lld, ret = %d\n", handle, ret);
+		goto exit;
 	}
+	qtee_shmbridge_list_del_nolock(handle);
 
 exit:
 	mutex_unlock(&bridge_list_head.lock);
