@@ -14,7 +14,7 @@
 #include <linux/irqdomain.h>
 #include <linux/irqchip/arm-gic-v3.h>
 #include <trace/hooks/cpuidle_psci.h>
-#include <trace/hooks/gic.h>
+#include <trace/hooks/gic_v3.h>
 
 int msm_show_resume_irq_mask;
 module_param_named(debug_mask, msm_show_resume_irq_mask, int, 0664);
