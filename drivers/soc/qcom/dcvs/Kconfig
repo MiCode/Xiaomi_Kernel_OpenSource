@@ -88,3 +88,15 @@ config QTI_C1DCVS_SCMI_CLIENT
 	  This driver delivers the cpudcvs protocol handle to interface
 	  driver, and interface driver will use this handle to communicate with
 	  cpucp.
+
+config QTI_CPUFREQ_STATS_SCMI_CLIENT
+	tristate "Qualcomm Technologies Inc. SCMI client driver for cpufreq stats"
+	depends on QTI_SCMI_CPUFREQ_STATS_PROTOCOL
+	default n
+	help
+	  SCMI client driver registers itself with SCMI framework for cpufreq stats
+	  vendor protocol.
+
+	  This driver delivers the cpufreq stats protocol handle to interface
+	  driver, and interface driver will use this handle to communicate with
+	  cpucp.
