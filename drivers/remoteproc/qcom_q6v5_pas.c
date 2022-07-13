@@ -9,6 +9,7 @@
  */
 
 #include <linux/clk.h>
+#include <linux/delay.h>
 #include <linux/firmware.h>
 #include <linux/interrupt.h>
 #include <linux/kernel.h>
@@ -382,7 +383,7 @@ static int do_bus_scaling(struct qcom_adsp *adsp, bool enable)
 static int adsp_start(struct rproc *rproc)
 {
 	struct qcom_adsp *adsp = (struct qcom_adsp *)rproc->priv;
-	int ret;
+	int i, ret;
 	const struct firmware *fw = NULL;
 
 	trace_rproc_qcom_event(dev_name(adsp->dev), "adsp_start", "enter");
@@ -450,8 +451,20 @@ static int adsp_start(struct rproc *rproc)
 	trace_rproc_qcom_event(dev_name(adsp->dev), "Q6_auth_reset", "exit");
 
 	/* if needed, signal Q6 to continute booting */
-	if (adsp->q6v5.rmb_base)
-		writel_relaxed(1, adsp->q6v5.rmb_base + RMB_BOOT_CONT_REG);
+	if (adsp->q6v5.rmb_base) {
+		for (i = 0; i < RMB_POLL_MAX_TIMES; i++) {
+			if (readl_relaxed(adsp->q6v5.rmb_base + RMB_BOOT_WAIT_REG)) {
+				writel_relaxed(1, adsp->q6v5.rmb_base + RMB_BOOT_CONT_REG);
+				break;
+			}
+			msleep(20);
+		}
+
+		if (!readl_relaxed(adsp->q6v5.rmb_base + RMB_BOOT_WAIT_REG)) {
+			dev_err(adsp->dev, "Didn't get rmb signal from  %s\n", rproc->name);
+			goto free_metadata;
+		}
+	}
 
 	if (!timeout_disabled) {
 		ret = qcom_q6v5_wait_for_start(&adsp->q6v5, msecs_to_jiffies(5000));
@@ -461,6 +474,7 @@ static int adsp_start(struct rproc *rproc)
 			dev_err(adsp->dev, "start timed out\n");
 	}
 
+free_metadata:
 	qcom_mdt_free_metadata(adsp->dev, adsp->pas_id, adsp->mdata,
 					adsp->dma_phys_below_32b, ret);
 free_firmware:
@@ -554,6 +568,7 @@ static int adsp_attach(struct rproc *rproc)
 	struct qcom_adsp *adsp = (struct qcom_adsp *)rproc->priv;
 	const struct firmware *fw;
 	int ret = 0;
+	int i;
 
 	/* try to register fw for dumps; continue if we fail */
 	ret = request_firmware(&fw, rproc->firmware, &rproc->dev);
@@ -610,7 +625,18 @@ begin_attach:
 		goto disable_aggre2_clk;
 
 	/* Signal the Q6 to continue booting */
-	writel_relaxed(1, adsp->q6v5.rmb_base + RMB_BOOT_CONT_REG);
+	for (i = 0; i < RMB_POLL_MAX_TIMES; i++) {
+		if (readl_relaxed(adsp->q6v5.rmb_base + RMB_BOOT_WAIT_REG)) {
+			writel_relaxed(1, adsp->q6v5.rmb_base + RMB_BOOT_CONT_REG);
+			break;
+		}
+		msleep(20);
+	}
+
+	if (!readl_relaxed(adsp->q6v5.rmb_base + RMB_BOOT_WAIT_REG)) {
+		dev_err(adsp->dev, "Didn't get rmb signal from %s\n", rproc->name);
+		goto disable_regs;
+	}
 
 	if (!timeout_disabled) {
 		ret = qcom_q6v5_wait_for_start(&adsp->q6v5, msecs_to_jiffies(5000));

@@ -13,6 +13,8 @@
 #define RMB_BOOT_CONT_REG 0xC
 #define RMB_Q6_BOOT_STATUS_REG 0x10
 
+#define RMB_POLL_MAX_TIMES 250
+
 struct rproc;
 struct qcom_smem_state;
 struct qcom_sysmon;
