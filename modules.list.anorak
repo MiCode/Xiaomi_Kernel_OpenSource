@@ -69,3 +69,7 @@ clk-rpmh.ko
 qcom-cpufreq-hw.ko
 dispcc0-anorak.ko
 dispcc1-anorak.ko
+cmd-db.ko
+rpmhpd.ko
+qcom-pdc.ko
+qcom_rpmh.ko
