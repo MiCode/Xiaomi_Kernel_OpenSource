@@ -122,6 +122,9 @@
   cpu_hotplug_disable
   cpu_hwcap_keys
   cpu_hwcaps
+  cpu_latency_qos_add_request
+  cpu_latency_qos_remove_request
+  cpu_latency_qos_update_request
   cpumask_next
   cpumask_next_and
   cpufreq_add_update_util_hook
@@ -539,6 +542,10 @@
   kmem_cache_destroy
   kmem_cache_free
   kmemdup
+  kmsg_dump_get_buffer
+  kmsg_dump_register
+  kmsg_dump_rewind
+  kmsg_dump_unregister
   kobject_create_and_add
   kobject_uevent_env
   ksoftirqd
@@ -621,6 +628,7 @@
   nf_ct_l4proto_find
   nf_register_net_hooks
   nf_unregister_net_hooks
+  nla_strscpy
   node_states
   noop_llseek
   nr_cpu_ids
