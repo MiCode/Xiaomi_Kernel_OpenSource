@@ -972,4 +972,13 @@ config SM_GCC_RAVELIN
 	  Say Y if you want to use peripheral devices such as UART, SPI, I2C,
 	  USB, UFS, SD/eMMC, PCIe, Video, etc.
 
+config SM_CAMCC_RAVELIN
+	tristate "RAVELIN Camera Clock Controller"
+	select SM_GCC_RAVELIN
+	help
+	  Support for the camera clock controller on Qualcomm Technologies, Inc.
+	  RAVELIN devices.
+	  Say Y if you want to support camera devices and functionality such as
+	  capturing photos.
+
 endif
