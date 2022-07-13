@@ -49,5 +49,6 @@
 #define GPUCC_GPU_CC_GMU_BCR					5
 #define GPUCC_GPU_CC_GX_BCR					6
 #define GPUCC_GPU_CC_XO_BCR					7
+#define GPUCC_GPU_CC_FREQUENCY_LIMITER_IRQ_CLEAR		8
 
 #endif
