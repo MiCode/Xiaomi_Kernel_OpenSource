@@ -692,20 +692,13 @@ int synx_global_recover(enum synx_core_id core_id)
 				size, idx + 1);
 	}
 
-	rc = synx_gmem_lock(SYNX_HWSPIN_BITMAP, &flags);
-	if (rc)
-		return rc;
-	idx = find_next_bit((unsigned long *)synx_gmem.bitmap,
-			SYNX_GLOBAL_MAX_OBJS, 1);
-	while (idx < size) {
+	for (idx = 1; idx < size; idx++) {
 		if (clear_idx[idx]) {
-			clear_bit(idx, (unsigned long *)synx_gmem.bitmap);
+			ipclite_global_test_and_clear_bit(idx % 32,
+				(ipclite_atomic_uint32_t *)(synx_gmem.bitmap + idx/32));
 			dprintk(SYNX_MEM, "released global idx %u\n", idx);
 		}
-		idx = find_next_bit((unsigned long *)synx_gmem.bitmap,
-			SYNX_GLOBAL_MAX_OBJS, idx + 1);
 	}
-	synx_gmem_unlock(SYNX_HWSPIN_BITMAP, &flags);
 
 	return SYNX_SUCCESS;
 }
