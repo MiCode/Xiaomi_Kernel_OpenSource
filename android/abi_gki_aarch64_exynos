@@ -1749,6 +1749,7 @@
   srcu_notifier_chain_unregister
   sscanf
   __stack_chk_fail
+  stack_trace_save_tsk
   start_backtrace
   static_key_disable
   static_key_slow_dec
