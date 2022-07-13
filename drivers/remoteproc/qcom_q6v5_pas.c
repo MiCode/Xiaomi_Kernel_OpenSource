@@ -391,10 +391,12 @@ static int adsp_start(struct rproc *rproc)
 		goto disable_aggre2_clk;
 
 	scm_pas_enable_bw();
+	trace_rproc_qcom_event(dev_name(adsp->dev), "Q6_auth_reset", "enter");
 	ret = qcom_scm_pas_auth_and_reset(adsp->pas_id);
 	if (ret)
 		panic("Panicking, auth and reset failed for remoteproc %s\n", rproc->name);
 	scm_pas_disable_bw();
+	trace_rproc_qcom_event(dev_name(adsp->dev), "Q6_auth_reset", "exit");
 
 	if (!timeout_disabled) {
 		ret = qcom_q6v5_wait_for_start(&adsp->q6v5, msecs_to_jiffies(5000));

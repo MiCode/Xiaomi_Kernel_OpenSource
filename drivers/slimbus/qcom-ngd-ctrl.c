@@ -23,6 +23,7 @@
 #include <linux/soc/qcom/pdr.h>
 #include <net/sock.h>
 #include "slimbus.h"
+#include <trace/events/rproc_qcom.h>
 
 /* NGD (Non-ported Generic Device) registers */
 #define	NGD_CFG			0x0
@@ -1762,6 +1763,8 @@ static int qcom_slim_ngd_ssr_pdr_notify(struct qcom_slim_ngd_ctrl *ctrl,
 	switch (action) {
 	case QCOM_SSR_BEFORE_SHUTDOWN:
 	case SERVREG_SERVICE_STATE_DOWN:
+		trace_rproc_qcom_event(dev_name(ctrl->dev),
+			"QCOM_SSR_BEFORE_SHUTDOWN", "slim_ngd_ssr_pdr-enter");
 		/* Make sure the last dma xfer is finished */
 		mutex_lock(&ctrl->suspend_resume_lock);
 		mutex_lock(&ctrl->tx_lock);
@@ -1779,6 +1782,8 @@ static int qcom_slim_ngd_ssr_pdr_notify(struct qcom_slim_ngd_ctrl *ctrl,
 		break;
 	case QCOM_SSR_AFTER_POWERUP:
 	case SERVREG_SERVICE_STATE_UP:
+		trace_rproc_qcom_event(dev_name(ctrl->dev),
+			"QCOM_SSR_AFTER_POWERUP", "slim_ngd_ssr_pdr-enter");
 		if (ctrl->r_mem.is_r_mem) {
 			ctrl->r_mem.r_vbase = ctrl->r_mem.r_vsbase;
 			ctrl->r_mem.r_res->start = ctrl->r_mem.r_pbase;
@@ -1791,6 +1796,7 @@ static int qcom_slim_ngd_ssr_pdr_notify(struct qcom_slim_ngd_ctrl *ctrl,
 		break;
 	}
 
+	trace_rproc_qcom_event(dev_name(ctrl->dev), "slim_ngd_ssr_pdr", "exit");
 	return NOTIFY_OK;
 }
 
