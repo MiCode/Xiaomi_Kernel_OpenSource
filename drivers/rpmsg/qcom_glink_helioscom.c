@@ -31,6 +31,7 @@
 #include <linux/component.h>
 #include <linux/ipc_logging.h>
 #include <linux/termios.h>
+#include <linux/pm_wakeup.h>
 #include <linux/unistd.h>
 #include "../soc/qcom/helioscom.h"
 
@@ -189,6 +190,7 @@ struct glink_helioscom {
 	atomic_t activity_cnt;
 	atomic_t in_reset;
 
+	struct wakeup_source *ws;
 	void *ilc;
 	bool sent_read_notify;
 
@@ -272,6 +274,8 @@ struct rx_pkt {
 			struct glink_helioscom_channel, ept)
 
 static const struct rpmsg_endpoint_ops glink_endpoint_ops;
+static unsigned int glink_helioscom_wakeup_ms =
+			CONFIG_RPMSG_GLINK_HELIOSCOM_WAKEUP_MS;
 
 #define HELIOSCOM_CMD_VERSION			0
 #define HELIOSCOM_CMD_VERSION_ACK			1
@@ -2163,6 +2167,7 @@ static void glink_helioscom_event_handler(void *handle,
 		rx_pkt_info->rx_len = data->fifo_data.to_master_fifo_used;
 		rx_pkt_info->glink = glink;
 		kthread_init_work(&rx_pkt_info->kwork, rx_worker);
+		pm_wakeup_ws_event(glink->ws, glink_helioscom_wakeup_ms, true);
 		kthread_queue_work(&glink->kworker, &rx_pkt_info->kwork);
 		break;
 	case HELIOSCOM_EVENT_TO_SLAVE_FIFO_FREE:
@@ -2290,6 +2295,7 @@ int glink_helioscom_probe(struct platform_device *pdev)
 		goto err_put_dev;
 	}
 
+	glink->ws = wakeup_source_register(NULL, "glink_helioscom_ws");
 	glink->ilc = ipc_log_context_create(GLINK_LOG_PAGE_CNT, glink->name, 0);
 
 	glink->helioscom_config.priv = (void *)glink;
