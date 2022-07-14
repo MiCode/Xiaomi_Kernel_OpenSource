@@ -10477,6 +10477,48 @@ static int mtk_drm_sf_pf_release_thread(void *data)
 	return 0;
 }
 
+static int disp_mutex_dispatch(struct mtk_drm_private *priv, struct mtk_drm_crtc *mtk_crtc,
+			const struct mtk_crtc_path_data *path_data)
+{
+	int i, j;
+	unsigned int max_path = 0, cur = 0;
+
+	if (unlikely(!priv || !mtk_crtc || !path_data)) {
+		DDPPR_ERR("%s invalid parameter\n", __func__);
+		return -EINVAL;
+	}
+
+	for (i = 0 ; i < DDP_MODE_NR ; i++) {
+		for (j = cur; j < DDP_PATH_NR ; j++) {
+			if (path_data->path_len[i][j] == 0)
+				continue;
+			++cur;
+		}
+		if (max_path < cur)
+			max_path = cur;
+	}
+
+	for (i = 0, cur = 0 ; i < 10 ; ++i) {
+		struct mtk_disp_mutex *mutex;
+
+		mutex = mtk_disp_mutex_get(priv->mutex_dev, i);
+		if (IS_ERR(mutex))
+			continue;
+		mtk_crtc->mutex[cur] = mutex;
+		DDPDBG("%s assign mutex %d need %u mutex\n", __func__, i, max_path);
+		++cur;
+		if (cur >= max_path)
+			break;
+	}
+
+	if (unlikely(i >= 10)) {
+		DDPPR_ERR("%s can't allocate proper disp_mutex\n");
+		return -ENOSPC;
+	}
+
+	return 0;
+}
+
 int mtk_drm_crtc_create(struct drm_device *drm_dev,
 			const struct mtk_crtc_path_data *path_data)
 {
@@ -10566,15 +10608,9 @@ int mtk_drm_crtc_create(struct drm_device *drm_dev,
 			sizeof(struct mtk_ddp_comp *), GFP_KERNEL);
 	}
 
-	for (i = 0; i < DDP_PATH_NR; i++) {
-		mtk_crtc->mutex[i] = mtk_disp_mutex_get(priv->mutex_dev,
-							pipe * DDP_PATH_NR + i);
-		if (IS_ERR(mtk_crtc->mutex[i])) {
-			ret = PTR_ERR(mtk_crtc->mutex[i]);
-			dev_err(dev, "Failed to get mutex: %d\n", ret);
-			return ret;
-		}
-	}
+	ret = disp_mutex_dispatch(priv, mtk_crtc, path_data);
+	if (ret)
+		DDPPR_ERR("mutex_dispatch fail %d\n", ret);
 
 	for_each_comp_id_in_path_data(comp_id, path_data, i, j, p_mode) {
 		struct mtk_ddp_comp *comp;
