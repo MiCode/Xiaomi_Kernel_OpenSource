@@ -4251,6 +4251,7 @@
 				      < 2 0x100000 0x0>, /* sensor main*/
 				      < 3 0x180000 0x0>, /* logger */
 				      < 4 0x19000  0x0>, /* audio */
+				      < 5 0xA000   0x0>, /* vow bargein */
 				      < 7 0x19000  0x0>, /* ultrasound*/
 				      < 8 0x10000  0x0>, /* sensor supper*/
 				      < 9 0x1000   0x0>, /* sensor list */
