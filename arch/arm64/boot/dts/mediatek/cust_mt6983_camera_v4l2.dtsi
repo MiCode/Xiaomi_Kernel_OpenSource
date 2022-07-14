@@ -496,6 +496,7 @@
 		reg = <0x10>;
 
 		#thermal-sensor-cells = <0>;
+		forbid-index = <2>;
 		pinctrl-names = "mclk_off",
 				"mclk_2mA",
 				"mclk_4mA",
@@ -552,6 +553,7 @@
 		reg = <0x1a>;
 
 		#thermal-sensor-cells = <0>;
+		forbid-index = <1>;
 		pinctrl-names = "mclk_off",
 				"mclk_2mA",
 				"mclk_4mA",
