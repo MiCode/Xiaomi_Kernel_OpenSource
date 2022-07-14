@@ -2047,6 +2047,7 @@ static int mtk_camsys_raw_state_handle(struct mtk_raw_device *raw_dev,
 	unsigned int sensor_request_seq_no = atomic_read(&sensor_ctrl->sensor_request_seq_no);
 
 	/* List state-queue status*/
+	mutex_lock(&ctx->cleanup_lock);
 	spin_lock(&sensor_ctrl->camsys_state_lock);
 	list_for_each_entry(state_temp, &sensor_ctrl->camsys_state_list,
 			    state_element) {
@@ -2145,6 +2146,7 @@ static int mtk_camsys_raw_state_handle(struct mtk_raw_device *raw_dev,
 				"[SOF] HW_IMCOMPLETE state cnt(%d,%d),req(%d),ts(%lu)\n",
 				write_cnt, irq_info->write_cnt, req_stream_data->frame_seq_no,
 				irq_info->ts_ns / 1000);
+			mutex_unlock(&ctx->cleanup_lock);
 			return STATE_RESULT_PASS_CQ_HW_DELAY;
 		}
 	}
@@ -2158,6 +2160,7 @@ static int mtk_camsys_raw_state_handle(struct mtk_raw_device *raw_dev,
 				req_stream_data->frame_seq_no, frame_idx_inner,
 				atomic_read(&sensor_ctrl->isp_request_seq_no),
 				irq_info->ts_ns / 1000);
+			mutex_unlock(&ctx->cleanup_lock);
 			return STATE_RESULT_PASS_CQ_HW_DELAY;
 		}
 
@@ -2196,6 +2199,7 @@ static int mtk_camsys_raw_state_handle(struct mtk_raw_device *raw_dev,
 					state_transition(state_temp, E_STATE_SENSOR,
 						 E_STATE_OUTER);
 			}
+			mutex_unlock(&ctx->cleanup_lock);
 			return STATE_RESULT_PASS_CQ_INIT;
 		}
 	} else {
@@ -2219,6 +2223,7 @@ static int mtk_camsys_raw_state_handle(struct mtk_raw_device *raw_dev,
 					state_transition(state_rec[0], E_STATE_READY,
 							E_STATE_SENSOR);
 				*current_state = state_rec[0];
+				mutex_unlock(&ctx->cleanup_lock);
 				return STATE_RESULT_TRIGGER_CQ;
 			}
 		}
@@ -2244,12 +2249,14 @@ static int mtk_camsys_raw_state_handle(struct mtk_raw_device *raw_dev,
 						dev_info(raw_dev->dev,
 							"[SOF] previous req (state:%d) doesn't DB load\n",
 							prev_stream_data->state.estate);
+						mutex_unlock(&ctx->cleanup_lock);
 						return STATE_RESULT_PASS_CQ_SW_DELAY;
 					} else if (prev_stream_data->state.estate != E_STATE_INNER)
 						dev_info(raw_dev->dev, "[SOF] previous req frame no %d (state:%d)\n",
 							prev_stream_data->frame_seq_no,
 							prev_stream_data->state.estate);
 				}
+				mutex_unlock(&ctx->cleanup_lock);
 				return STATE_RESULT_TRIGGER_CQ;
 			}
 			/* last SCQ triggering delay judgment*/
@@ -2258,12 +2265,14 @@ static int mtk_camsys_raw_state_handle(struct mtk_raw_device *raw_dev,
 						E_STATE_OUTER);
 				dev_info(raw_dev->dev, "[SOF] SCQ_DELAY state:%d ts:%lu\n",
 					state_rec[0]->estate, irq_info->ts_ns / 1000);
+				mutex_unlock(&ctx->cleanup_lock);
 				return STATE_RESULT_PASS_CQ_SCQ_DELAY;
 			}
 		} else {
 			dev_dbg(raw_dev->dev, "[SOF] working request not found\n");
 		}
 	}
+	mutex_unlock(&ctx->cleanup_lock);
 	return STATE_RESULT_PASS_CQ_SW_DELAY;
 }
 
