@@ -49,6 +49,7 @@
 #define MT6375_REG_PHYCTRL3	(0x82)
 #define MT6375_REG_PHYCTRL7	(0x86)
 #define MT6375_REG_PHYCTRL8	(0x89)
+#define MT6375_REG_VCONCTRL1	(0x8A)
 #define MT6375_REG_VCONCTRL2	(0x8B)
 #define MT6375_REG_VCONCTRL3	(0x8C)
 #define MT6375_REG_SYSCTRL1	(0x8F)
@@ -82,6 +83,7 @@
 #define MT6375_REG_LPWRCTRL3	(0xBB)
 #define MT6375_REG_WATCHDOGCTRL	(0xBE)
 #define MT6375_REG_I2CTORSTCTRL	(0xBF)
+#define MT6375_REG_VCONN_LATCH	(0xC0)
 #define MT6375_REG_HILOCTRL9	(0xC8)
 #define MT6375_REG_HILOCTRL10	(0xC9)
 #define MT6375_REG_SHIELDCTRL1	(0xCA)
@@ -115,11 +117,22 @@
 /* Mask & Shift */
 /* MT6375_REG_PHYCTRL8: 0x89 */
 #define MT6375_MSK_PRLRSTB	BIT(1)
+/* MT6375_REG_VCONCTRL1: 0x8A*/
+#define MT6375_MSK_VCON_RCPCPEN	BIT(0)
+#define MT6375_MSK_VCON_RCP_EN	BIT(1)
+#define MT6375_MSK_VCON_DET_EN	BIT(7)
+#define MT6375_MSK_VCON_CTRL1_PROT	\
+	(MT6375_MSK_VCON_DET_EN | MT6375_MSK_VCON_RCP_EN |	\
+	 MT6375_MSK_VCON_RCPCPEN)
 /* MT6375_REG_VCONCTRL2: 0x8B */
+#define MT6375_MSK_VCON_RVPCPEN	BIT(1)
 #define MT6375_MSK_VCON_RVPEN	BIT(3)
 #define MT6375_MSK_VCON_OVCCEN	BIT(7)
 #define MT6375_MSK_VCON_PROTEN	\
-	(MT6375_MSK_VCON_RVPEN | MT6375_MSK_VCON_OVCCEN)
+	(MT6375_MSK_VCON_RVPEN | MT6375_MSK_VCON_OVCCEN | \
+	 MT6375_MSK_VCON_RVPCPEN)
+/* MT6375_REG_VCONCTRL2: 0x8C */
+#define MT6375_MSK_VCON_OVPEN	BIT(4)
 /* MT6375_REG_SYSCTRL1: 0x8F */
 #define MT6375_MSK_AUTOIDLE_EN	BIT(3)
 #define MT6375_MSK_SHIPPING_OFF	BIT(5)
@@ -164,6 +177,19 @@
 /* MT6375_REG_MTST3: 0xA1 */
 #define MT6375_MSK_CABLE_TYPEC	BIT(4)
 #define MT6375_MSK_CABLE_TYPEA	BIT(5)
+/* MT6375_REG_I2CTORSTCTRL: 0xBF */
+#define MT6375_MSK_VCONN_UVP_CPEN	BIT(5)
+#define MT6375_MSK_VCONN_OCP_CPEN	BIT(4)
+#define MT6375_MSK_VCONN_UVP_OCP_CPEN \
+	(MT6375_MSK_VCONN_UVP_CPEN | MT6375_MSK_VCONN_OCP_CPEN)
+/* MT6375_REG_VCONN_LATCH: 0xC0 */
+#define MT6375_MSK_RCP_LATCH_EN BIT(3)
+#define MT6375_MSK_OVP_LATCH_EN BIT(2)
+#define MT6375_MSK_RVP_LATCH_EN BIT(1)
+#define MT6375_MSK_UVP_LATCH_EN BIT(0)
+#define MT6375_MSK_VCONN_LATCH_EN \
+	(MT6375_MSK_RCP_LATCH_EN | MT6375_MSK_OVP_LATCH_EN | \
+	 MT6375_MSK_RVP_LATCH_EN | MT6375_MSK_UVP_LATCH_EN)
 /* MT6375_REG_HILOCTRL10: 0xC9 */
 #define MT6375_MSK_HIDET_CC1_CMPEN	BIT(1)
 #define MT6375_MSK_HIDET_CC2_CMPEN	BIT(4)
@@ -1477,8 +1503,8 @@ static int mt6375_tcpc_init(struct tcpc_device *tcpc, bool sw_reset)
 	/* Retry period = 26.208us */
 	mt6375_write8(ddata, MT6375_REG_PHYCTRL9, 0x3C);
 
-	/* Enable PD Vconn current limit mode */
-	mt6375_write8(ddata, MT6375_REG_VCONCTRL3, 0x41);
+	/* Enable PD Vconn current limit mode, ocp sel 100mA, and analog OVP */
+	mt6375_write8(ddata, MT6375_REG_VCONCTRL3, 0x11);
 
 	/* Set HILOCCFILTER 250us */
 	mt6375_write8(ddata, MT6375_REG_HILOCTRL9, 0x0A);
@@ -1747,6 +1773,8 @@ static int mt6375_set_vconn(struct tcpc_device *tcpc, int en)
 	 * Otherwise vconn present fail will be triggered
 	 */
 	if (en) {
+		mt6375_set_bits(ddata, MT6375_REG_VCONCTRL3,
+				MT6375_MSK_VCON_OVPEN);
 		mt6375_set_bits(ddata, MT6375_REG_VCONCTRL2,
 				MT6375_MSK_VCON_PROTEN);
 		usleep_range(20, 50);
@@ -1756,9 +1784,17 @@ static int mt6375_set_vconn(struct tcpc_device *tcpc, int en)
 	}
 	ret = (en ? mt6375_set_bits : mt6375_clr_bits)
 		(ddata, TCPC_V10_REG_POWER_CTRL, TCPC_V10_REG_POWER_CTRL_VCONN);
-	if (!en)
+	if (!en) {
 		mt6375_clr_bits(ddata, MT6375_REG_VCONCTRL2,
 				MT6375_MSK_VCON_PROTEN);
+
+		mt6375_clr_bits(ddata, MT6375_REG_VCONCTRL3,
+				MT6375_MSK_VCON_OVPEN);
+	}
+	mdelay(1);
+	ret = (en ? mt6375_set_bits : mt6375_clr_bits)
+		(ddata, MT6375_REG_I2CTORSTCTRL, MT6375_MSK_VCONN_UVP_OCP_CPEN);
+
 	return ret;
 }
 
