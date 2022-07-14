@@ -826,6 +826,7 @@ struct ccci_fsm_ctl *fsm_get_entity_by_md_id(int md_id)
 	}
 	return NULL;
 }
+EXPORT_SYMBOL(fsm_get_entity_by_md_id);
 
 int ccci_fsm_init(int md_id)
 {

@@ -163,18 +163,22 @@ static void ccci_notify_atf_set_scpmem(void)
 	CCCI_NORMAL_LOG(MD_SYS1, FSM, "%s [done]\n", __func__);
 }
 
-
 static void ccci_scp_md_state_sync_work(struct work_struct *work)
 {
 	struct ccci_fsm_scp *scp_ctl = container_of(work,
 		struct ccci_fsm_scp, scp_md_state_sync_work);
-	int ret;
-	enum MD_STATE_FOR_USER state =
-		ccci_fsm_get_md_state_for_user(scp_ctl->md_id);
+	struct ccci_fsm_ctl *ctl = fsm_get_entity_by_md_id(scp_ctl->md_id);
+	enum MD_STATE_FOR_USER state;
+	int ret = 0;
 	int count = 0;
 
-	switch (state) {
-	case MD_STATE_READY:
+	if (!ctl) {
+		CCCI_ERROR_LOG(ctl->md_id, FSM, "%s ctl is NULL !\n", __func__);
+		return;
+	}
+
+	switch (ctl->md_state) {
+	case READY:
 		if (scp_ctl->md_id == MD_SYS1) {
 			while (count < SCP_BOOT_TIMEOUT/EVENT_POLL_INTEVAL) {
 				if (atomic_read(&scp_state) ==
@@ -208,8 +212,14 @@ static void ccci_scp_md_state_sync_work(struct work_struct *work)
 		} else
 			break;
 		break;
-	case MD_STATE_EXCEPTION:
-	case MD_STATE_INVALID:
+	case INVALID:
+	case GATED:
+		state = MD_STATE_INVALID;
+		ccci_scp_ipi_send(scp_ctl->md_id,
+			CCCI_OP_MD_STATE, &state);
+		break;
+	case EXCEPTION:
+		state = MD_STATE_EXCEPTION;
 		ccci_scp_ipi_send(scp_ctl->md_id,
 			CCCI_OP_MD_STATE, &state);
 		break;
