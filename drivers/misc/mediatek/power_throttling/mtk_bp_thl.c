@@ -144,7 +144,7 @@ static ssize_t bp_thl_ut_store(
 		const char *buf, size_t size)
 {
 	unsigned int val = 0;
-	char cmd[20];
+	char cmd[21];
 
 	pr_info("[%s]\n", __func__);
 
@@ -182,7 +182,7 @@ static ssize_t bp_thl_stop_store(
 		const char *buf, size_t size)
 {
 	unsigned int val = 0;
-	char cmd[20];
+	char cmd[21];
 
 	pr_info("[%s]\n", __func__);
 
