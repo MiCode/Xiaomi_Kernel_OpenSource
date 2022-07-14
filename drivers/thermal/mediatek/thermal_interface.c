@@ -651,7 +651,7 @@ static ssize_t target_tpcb_store(struct kobject *kobj,
 static ssize_t md_sensor_info_store(struct kobject *kobj,
 	struct kobj_attribute *attr, const char *buf, size_t count)
 {
-	char info_type_s[MAX_MD_NAME_LENGTH];
+	char info_type_s[MAX_MD_NAME_LENGTH + 1];
 	int len = 0, num = 0, val = 0, i = 0;
 	struct md_thermal_sensor_t *ts_info;
 
@@ -721,7 +721,7 @@ static ssize_t md_sensor_info_show(struct kobject *kobj, struct kobj_attribute *
 static ssize_t md_actuator_info_store(struct kobject *kobj,
 	struct kobj_attribute *attr, const char *buf, size_t count)
 {
-	char info_type_s[MAX_MD_NAME_LENGTH];
+	char info_type_s[MAX_MD_NAME_LENGTH + 1];
 	int len = 0, num = 0, val = 0, i = 0;
 	struct md_thermal_actuator_t *ta_info;
 
@@ -924,7 +924,7 @@ static ssize_t emul_temp_write(struct file *flip,
 {
 	int ret, temp;
 	char *buf;
-	char target[10];
+	char target[11];
 
 	buf = kzalloc(cnt + 1, GFP_KERNEL);
 	if (buf == NULL)
