@@ -1908,6 +1908,13 @@ static void check_mstream_buffer(struct mtk_cam_device *cam,
 		/* workaround for raw switch */
 		if (cfg_fmt && !cfg_fmt->fmt.pix_mp.pixelformat)
 			cfg_fmt = &vdev->active_fmt;
+
+		if (!cfg_fmt) {
+			dev_info(cam->dev, "%s: cfg_fmt is NULL: req:%d\n",
+				__func__, req_stream_data->frame_seq_no);
+			return;
+		}
+
 		config_img_fmt_mstream(ctx, req, cfg_fmt, vdev,
 				       cfg_fmt->fmt.pix_mp.width,
 				       cfg_fmt->fmt.pix_mp.height, feature);
@@ -2873,6 +2880,7 @@ static void mtk_cam_config_raw_path(struct mtk_cam_request_stream_data *s_data,
 	if (!raw_pipline) {
 		/* un-processed raw frame */
 		frame_param->raw_param.imgo_path_sel = MTKCAM_IPI_IMGO_UNPROCESSED;
+		return;
 	} else if (raw_pipline->res_config.raw_path == V4L2_MTK_CAM_RAW_PATH_SELECT_BPC)
 		frame_param->raw_param.imgo_path_sel = MTKCAM_IPI_IMGO_AFTER_BPC;
 	else if (raw_pipline->res_config.raw_path == V4L2_MTK_CAM_RAW_PATH_SELECT_FUS)
@@ -5376,10 +5384,22 @@ void mtk_cam_sensor_switch_stop_reinit_hw(struct mtk_cam_ctx *ctx,
 		if (ctx->pipe->res_config.raw_num_used != 1) {
 			struct mtk_raw_device *raw_dev_slave =
 						get_slave_raw_dev(cam, ctx->pipe);
+			if (!raw_dev_slave) {
+				dev_info(cam->dev, "%s: raw_dev_slave is NULL (pipe:%d, seq:%d)\n",
+					 __func__, s_data->pipe_id, s_data->frame_seq_no);
+				return;
+			}
 			stream_on(raw_dev_slave, 0);
 			if (ctx->pipe->res_config.raw_num_used == 3) {
 				struct mtk_raw_device *raw_dev_slave2 =
 					get_slave2_raw_dev(cam, ctx->pipe);
+				if (!raw_dev_slave2) {
+					dev_info(cam->dev,
+						"%s: raw_dev_slave2 is NULL (pipe:%d, seq:%d)\n",
+						 __func__, s_data->pipe_id, s_data->frame_seq_no);
+					return;
+				}
+
 				stream_on(raw_dev_slave2, 0);
 			}
 		}
@@ -5462,11 +5482,19 @@ void mtk_cam_sensor_switch_stop_reinit_hw(struct mtk_cam_ctx *ctx,
 			/* Twin */
 			if (ctx->pipe->res_config.raw_num_used != 1) {
 				struct mtk_raw_device *raw_dev_slave =
-				get_slave_raw_dev(cam, ctx->pipe);
+					get_slave_raw_dev(cam, ctx->pipe);
+				if (!raw_dev_slave) {
+					dev_info(cam->dev, "raw_dev_slave is NULL\n");
+					return;
+				}
 				initialize(raw_dev_slave, 1);
 				if (ctx->pipe->res_config.raw_num_used == 3) {
 					struct mtk_raw_device *raw_dev_slave2 =
 						get_slave2_raw_dev(cam, ctx->pipe);
+					if (!raw_dev_slave2) {
+						dev_info(cam->dev, "raw_dev_slave2 is NULL\n");
+						return;
+					}
 					initialize(raw_dev_slave2, 1);
 				}
 			}
@@ -6054,12 +6082,20 @@ int mtk_cam_s_data_dev_config(struct mtk_cam_request_stream_data *s_data,
 			if (raw->pipelines[i].res_config.raw_num_used != 1) {
 				struct mtk_raw_device *raw_dev_slave =
 						get_slave_raw_dev(cam, ctx->pipe);
+				if (!raw_dev_slave) {
+					dev_info(dev, "raw_dev_slave is NULL\n");
+					return -EINVAL;
+				}
 				raw_dev_slave->pipeline = &raw->pipelines[i];
 				dev_dbg(dev, "twin master/slave raw_id:%d/%d\n",
 					raw_dev->id, raw_dev_slave->id);
 				if (raw->pipelines[i].res_config.raw_num_used == 3) {
 					struct mtk_raw_device *raw_dev_slave2 =
 						get_slave2_raw_dev(cam, ctx->pipe);
+					if (!raw_dev_slave2) {
+						dev_info(dev, "raw_dev_slave2 is NULL\n");
+						return -EINVAL;
+					}
 					raw_dev_slave2->pipeline = &raw->pipelines[i];
 					dev_dbg(dev, "triplet m/s/s2 raw_id:%d/%d/%d\n",
 						raw_dev->id, raw_dev_slave->id, raw_dev_slave2->id);
@@ -6399,12 +6435,20 @@ int mtk_cam_dev_config(struct mtk_cam_ctx *ctx, bool streaming, bool config_pipe
 			if (raw->pipelines[i].res_config.raw_num_used != 1) {
 				struct mtk_raw_device *raw_dev_slave =
 						get_slave_raw_dev(cam, ctx->pipe);
+				if (!raw_dev_slave) {
+					dev_info(dev, "raw_dev_slave is NULL\n");
+					return -EINVAL;
+				}
 				raw_dev_slave->pipeline = &raw->pipelines[i];
 				dev_dbg(dev, "twin master/slave raw_id:%d/%d\n",
 					raw_dev->id, raw_dev_slave->id);
 				if (raw->pipelines[i].res_config.raw_num_used == 3) {
 					struct mtk_raw_device *raw_dev_slave2 =
 						get_slave2_raw_dev(cam, ctx->pipe);
+					if (!raw_dev_slave2) {
+						dev_info(dev, "raw_dev_slave2 is NULL\n");
+						return -EINVAL;
+					}
 					raw_dev_slave2->pipeline = &raw->pipelines[i];
 					dev_dbg(dev, "triplet m/s/s2 raw_id:%d/%d/%d\n",
 						raw_dev->id, raw_dev_slave->id, raw_dev_slave2->id);
@@ -6937,7 +6981,7 @@ int mtk_cam_call_seninf_set_pixelmode(struct mtk_cam_ctx *ctx,
 
 int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 {
-	struct mtk_cam_device *cam = ctx->cam;
+	struct mtk_cam_device *cam;
 	struct device *dev;
 	struct mtk_raw_device *raw_dev;
 	struct mtk_camsv_device *camsv_dev;
@@ -6949,6 +6993,12 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 	int exp_no = 1;
 	int buf_require = 0;
 	int buf_size = 0;
+
+	if (!ctx) {
+		pr_info("ctx is NULL!\n");
+		return -EINVAL;
+	}
+	cam = ctx->cam;
 
 	dev_info(cam->dev, "ctx %d stream on, streaming_pipe:0x%x\n",
 		 ctx->stream_id, ctx->streaming_pipe);
@@ -7063,10 +7113,18 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 			if (ctx->pipe->res_config.raw_num_used != 1) {
 				struct mtk_raw_device *raw_dev_slave =
 							get_slave_raw_dev(cam, ctx->pipe);
+				if (!raw_dev_slave) {
+					dev_info(cam->dev, "raw_dev_slave is NULL\n");
+					return -EINVAL;
+				}
 				initialize(raw_dev_slave, 1);
 				if (ctx->pipe->res_config.raw_num_used == 3) {
 					struct mtk_raw_device *raw_dev_slave2 =
 						get_slave2_raw_dev(cam, ctx->pipe);
+					if (!raw_dev_slave2) {
+						dev_info(cam->dev, "raw_dev_slave2 is NULL\n");
+						return -EINVAL;
+					}
 					initialize(raw_dev_slave2, 1);
 				}
 			}
@@ -7371,11 +7429,19 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 			/* Twin */
 			if (ctx->pipe->res_config.raw_num_used != 1) {
 				struct mtk_raw_device *raw_dev_slave =
-				get_slave_raw_dev(cam, ctx->pipe);
+					get_slave_raw_dev(cam, ctx->pipe);
+				if (!raw_dev_slave) {
+					dev_info(cam->dev, "raw_dev_slave is NULL\n");
+					return -EINVAL;
+				}
 				initialize(raw_dev_slave, 1);
 				if (ctx->pipe->res_config.raw_num_used == 3) {
 					struct mtk_raw_device *raw_dev_slave2 =
 						get_slave2_raw_dev(cam, ctx->pipe);
+					if (!raw_dev_slave2) {
+						dev_info(cam->dev, "raw_dev_slave2 is NULL\n");
+						return -EINVAL;
+					}
 					initialize(raw_dev_slave2, 1);
 				}
 			}
@@ -7612,10 +7678,18 @@ int mtk_cam_ctx_stream_off(struct mtk_cam_ctx *ctx)
 		if (ctx->pipe && ctx->pipe->res_config.raw_num_used != 1) {
 			struct mtk_raw_device *raw_dev_slave =
 						get_slave_raw_dev(cam, ctx->pipe);
+			if (!raw_dev_slave) {
+				dev_info(dev, "raw_dev_slave is NULL\n");
+				return -EINVAL;
+			}
 			stream_on(raw_dev_slave, 0);
 			if (ctx->pipe->res_config.raw_num_used == 3) {
 				struct mtk_raw_device *raw_dev_slave2 =
 					get_slave2_raw_dev(cam, ctx->pipe);
+				if (!raw_dev_slave2) {
+					dev_info(dev, "raw_dev_slave2 is NULL\n");
+					return -EINVAL;
+				}
 				stream_on(raw_dev_slave2, 0);
 			}
 		}
