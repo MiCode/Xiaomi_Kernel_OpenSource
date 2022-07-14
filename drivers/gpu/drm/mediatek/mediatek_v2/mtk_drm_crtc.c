@@ -10934,26 +10934,26 @@ int check_msync_config_info(struct msync_parameter_table *config)
 		return -EFAULT;
 	}
 
-	if (level_tb != NULL) {
-		if (copy_from_user(check_level_tb,
-					level_tb,
-					sizeof(struct msync_level_table) *
-					config->msync_level_num)) {
-			DDPPR_ERR("%s:%d copy failed:(0x%p,0x%p), size:%ld\n",
-					__func__, __LINE__,
-					config->level_tb,
-					level_tb,
-					sizeof(struct msync_level_table) *
-					config->msync_level_num);
-			return -EFAULT;
-		}
-	}
-
 	if ((msync_level_num <= 0) ||
 			(msync_level_num > MSYNC_MAX_LEVEL)) {
 		DDPPR_ERR("%s:%d The level num is error!!!\n",
 			__func__, __LINE__);
 		return -EFAULT;
+	}
+
+	if (level_tb != NULL) {
+		if (copy_from_user(check_level_tb,
+					level_tb,
+					sizeof(struct msync_level_table) *
+					msync_level_num)) {
+			DDPPR_ERR("%s:%d copy failed:(0x%p,0x%p), size:%ld\n",
+					__func__, __LINE__,
+					config->level_tb,
+					level_tb,
+					sizeof(struct msync_level_table) *
+					msync_level_num);
+			return -EFAULT;
+		}
 	}
 
 	if (check_level_tb[0].level_id != 1) {
