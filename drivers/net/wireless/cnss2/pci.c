@@ -1875,8 +1875,16 @@ static int cnss_pci_get_device_timestamp(struct cnss_pci_data *pci_priv,
 		return -EINVAL;
 	}
 
-	cnss_pci_reg_read(pci_priv, WLAON_GLOBAL_COUNTER_CTRL3, &low);
-	cnss_pci_reg_read(pci_priv, WLAON_GLOBAL_COUNTER_CTRL4, &high);
+	switch (pci_priv->device_id) {
+	case KIWI_DEVICE_ID:
+		cnss_pci_reg_read(pci_priv, PCIE_MHI_TIME_LOW, &low);
+		cnss_pci_reg_read(pci_priv, PCIE_MHI_TIME_HIGH, &high);
+		break;
+	default:
+		cnss_pci_reg_read(pci_priv, WLAON_GLOBAL_COUNTER_CTRL3, &low);
+		cnss_pci_reg_read(pci_priv, WLAON_GLOBAL_COUNTER_CTRL4, &high);
+		break;
+	}
 
 	device_ticks = (u64)high << 32 | low;
 	do_div(device_ticks, plat_priv->device_freq_hz / 100000);
@@ -1887,14 +1895,58 @@ static int cnss_pci_get_device_timestamp(struct cnss_pci_data *pci_priv,
 
 static void cnss_pci_enable_time_sync_counter(struct cnss_pci_data *pci_priv)
 {
+	switch (pci_priv->device_id) {
+	case KIWI_DEVICE_ID:
+		return;
+	default:
+		break;
+	}
+
 	cnss_pci_reg_write(pci_priv, WLAON_GLOBAL_COUNTER_CTRL5,
 			   TIME_SYNC_ENABLE);
 }
 
 static void cnss_pci_clear_time_sync_counter(struct cnss_pci_data *pci_priv)
 {
+	switch (pci_priv->device_id) {
+	case KIWI_DEVICE_ID:
+		return;
+	default:
+		break;
+	}
+
 	cnss_pci_reg_write(pci_priv, WLAON_GLOBAL_COUNTER_CTRL5,
 			   TIME_SYNC_CLEAR);
+}
+
+static void cnss_pci_time_sync_reg_update(struct cnss_pci_data *pci_priv,
+					  u32 low, u32 high)
+{
+	u32 time_reg_low;
+	u32 time_reg_high;
+
+	switch (pci_priv->device_id) {
+	case KIWI_DEVICE_ID:
+		/* Use the next two shadow registers after host's usage */
+		time_reg_low = PCIE_SHADOW_REG_VALUE_0 +
+				(pci_priv->plat_priv->num_shadow_regs_v3 *
+				 SHADOW_REG_LEN_BYTES);
+		time_reg_high = time_reg_low + SHADOW_REG_LEN_BYTES;
+		break;
+	default:
+		time_reg_low = PCIE_SHADOW_REG_VALUE_34;
+		time_reg_high = PCIE_SHADOW_REG_VALUE_35;
+		break;
+	}
+
+	cnss_pci_reg_write(pci_priv, time_reg_low, low);
+	cnss_pci_reg_write(pci_priv, time_reg_high, high);
+
+	cnss_pci_reg_read(pci_priv, time_reg_low, &low);
+	cnss_pci_reg_read(pci_priv, time_reg_high, &high);
+
+	cnss_pr_dbg("Updated time sync regs [0x%x] = 0x%x, [0x%x] = 0x%x\n",
+		    time_reg_low, low, time_reg_high, high);
 }
 
 static int cnss_pci_update_timestamp(struct cnss_pci_data *pci_priv)
@@ -1938,15 +1990,7 @@ static int cnss_pci_update_timestamp(struct cnss_pci_data *pci_priv)
 	low = offset & 0xFFFFFFFF;
 	high = offset >> 32;
 
-	cnss_pci_reg_write(pci_priv, PCIE_SHADOW_REG_VALUE_34, low);
-	cnss_pci_reg_write(pci_priv, PCIE_SHADOW_REG_VALUE_35, high);
-
-	cnss_pci_reg_read(pci_priv, PCIE_SHADOW_REG_VALUE_34, &low);
-	cnss_pci_reg_read(pci_priv, PCIE_SHADOW_REG_VALUE_35, &high);
-
-	cnss_pr_dbg("Updated time sync regs [0x%x] = 0x%x, [0x%x] = 0x%x\n",
-		    PCIE_SHADOW_REG_VALUE_34, low,
-		    PCIE_SHADOW_REG_VALUE_35, high);
+	cnss_pci_time_sync_reg_update(pci_priv, low, high);
 
 force_wake_put:
 	cnss_pci_force_wake_put(pci_priv);
@@ -1998,6 +2042,7 @@ static int cnss_pci_start_time_sync_update(struct cnss_pci_data *pci_priv)
 	switch (pci_priv->device_id) {
 	case QCA6390_DEVICE_ID:
 	case QCA6490_DEVICE_ID:
+	case KIWI_DEVICE_ID:
 		break;
 	default:
 		return -EOPNOTSUPP;
@@ -2018,6 +2063,7 @@ static void cnss_pci_stop_time_sync_update(struct cnss_pci_data *pci_priv)
 	switch (pci_priv->device_id) {
 	case QCA6390_DEVICE_ID:
 	case QCA6490_DEVICE_ID:
+	case KIWI_DEVICE_ID:
 		break;
 	default:
 		return;
