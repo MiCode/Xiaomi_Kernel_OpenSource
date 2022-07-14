@@ -59,6 +59,11 @@ struct dma_buf *jpg_dmabuf_get(int fd)
 	return dbuf;
 }
 
+void jpg_get_dmabuf(struct dma_buf *dbuf)
+{
+	get_dma_buf(dbuf);
+}
+
 void jpg_dmabuf_put(struct dma_buf *dbuf)
 {
 	if (!dbuf) {

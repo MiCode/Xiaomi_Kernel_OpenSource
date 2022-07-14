@@ -18,6 +18,7 @@ void jpg_dmabuf_free_iova(struct dma_buf *dbuf,
 	struct dma_buf_attachment *attach, struct sg_table *sgt);
 int jpg_dmabuf_fd(struct dma_buf *dbuf);
 struct dma_buf *jpg_dmabuf_get(int fd);
+void jpg_get_dmabuf(struct dma_buf *dbuf);
 void jpg_dmabuf_put(struct dma_buf *dbuf);
 void* jpg_dmabuf_vmap(struct dma_buf *dbuf);
 void jpg_dmabuf_vunmap(struct dma_buf *dbuf, void* buf_ptr);
