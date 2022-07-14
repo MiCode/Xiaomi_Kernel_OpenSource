@@ -1012,6 +1012,7 @@ void mtk_cam_dev_req_clean_pending(struct mtk_cam_device *cam, int pipe_id,
 	spin_lock(&cam->pending_job_lock);
 	list_for_each_entry_safe(req, req_prev, pending, list) {
 		/* update pipe_used */
+		media_request_get(&req->req);
 		req->pipe_used &= ~(1 << pipe_id);
 		list_add_tail(&req->cleanup_list, &req_clean_list);
 		if (!(req->pipe_used & cam->streaming_pipe)) {
@@ -1032,6 +1033,7 @@ void mtk_cam_dev_req_clean_pending(struct mtk_cam_device *cam, int pipe_id,
 				"%s:%s:pipe_used(0x%x):pipe(%d) s_data_pipe not found\n",
 				__func__, req->req.debug_str, req->pipe_used,
 				pipe_id);
+			media_request_put(&req->req);
 			continue;
 		}
 		if (mtk_cam_s_data_set_buf_state(s_data_pipe, buf_state)) {
@@ -1043,6 +1045,7 @@ void mtk_cam_dev_req_clean_pending(struct mtk_cam_device *cam, int pipe_id,
 					req->pipe_used, pipe_id);
 			/* DO NOT touch req after here */
 		}
+		media_request_put(&req->req);
 	}
 }
 
