@@ -2291,6 +2291,7 @@ static int gt9896s_ts_probe(struct platform_device *pdev)
 		ts_info("Failed start cfg_bin_proc");
 		goto err;
 	}
+	mutex_init(&irq_info_mutex);
 	ts_info("core probe OUT");
 	/* wakeup ext module register work */
 	complete_all(&gt9896s_modules.core_comp);
