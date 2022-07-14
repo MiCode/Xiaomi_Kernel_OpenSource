@@ -3773,6 +3773,8 @@ static void mtk_dsi_enter_idle(struct mtk_dsi *dsi)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(dsi->encoder.crtc);
 
+	mtk_dsi_poll_for_idle(dsi, NULL);
+
 	mtk_dsi_mask(dsi, DSI_INTEN, ~0, 0);
 	if (dsi->ddp_comp.id == DDP_COMPONENT_DSI0 && mtk_crtc)
 		atomic_set(&mtk_crtc->flush_count, 0);
