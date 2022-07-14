@@ -1,7 +1,13 @@
 qcom_cpu_vendor_hooks.ko
+qcom-pdc.ko
 arm_smmu.ko
 clk-dummy.ko
 clk-qcom.ko
+cmd-db.ko
+icc-rpmh.ko
+icc-bcm-voter.ko
+icc-debug.ko
+qcom_rpmh.ko
 deferred-free-helper.ko
 iommu-logger.ko
 debug-regulator.ko
@@ -21,6 +27,8 @@ mem-hooks.ko
 gdsc-regulator.ko
 pinctrl-anorak.ko
 pinctrl-msm.ko
+qnoc-anorak.ko
+qnoc-qos.ko
 secure_buffer.ko
 msm_geni_serial.ko
 msm-geni-se.ko
