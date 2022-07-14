@@ -452,7 +452,7 @@ static int adsp_start(struct rproc *rproc)
 
 	/* if needed, signal Q6 to continute booting */
 	if (adsp->q6v5.rmb_base) {
-		for (i = 0; i < RMB_POLL_MAX_TIMES; i++) {
+		for (i = 0; i < RMB_POLL_MAX_TIMES || timeout_disabled; i++) {
 			if (readl_relaxed(adsp->q6v5.rmb_base + RMB_BOOT_WAIT_REG)) {
 				writel_relaxed(1, adsp->q6v5.rmb_base + RMB_BOOT_CONT_REG);
 				break;
@@ -625,7 +625,7 @@ begin_attach:
 		goto disable_aggre2_clk;
 
 	/* Signal the Q6 to continue booting */
-	for (i = 0; i < RMB_POLL_MAX_TIMES; i++) {
+	for (i = 0; i < RMB_POLL_MAX_TIMES || timeout_disabled; i++) {
 		if (readl_relaxed(adsp->q6v5.rmb_base + RMB_BOOT_WAIT_REG)) {
 			writel_relaxed(1, adsp->q6v5.rmb_base + RMB_BOOT_CONT_REG);
 			break;
