@@ -51,7 +51,6 @@
 	vmmc-supply = <&mt6358_vmch_eint_high>;
 	vqmmc-supply = <&mt6358_vmc_reg>;
 	no-mmc;
-	no-sdio;
 	dvfsrc-vcore-supply = <&dvfsrc_vcore>;
 	req-vcore = <650000>;
 };
