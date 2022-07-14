@@ -186,6 +186,8 @@ struct qrtr_node {
 
 	struct wakeup_source *ws;
 	void *ilc;
+
+	struct xarray no_wake_svc; /* services that will not wake up APPS */
 };
 
 struct qrtr_tx_flow_waiter {
@@ -866,6 +868,7 @@ int qrtr_endpoint_post(struct qrtr_endpoint *ep, const void *data, size_t len)
 	unsigned int ver;
 	size_t hdrlen;
 	int errcode;
+	int svc_id;
 
 	if (len == 0 || len & 3)
 		return -EINVAL;
@@ -953,6 +956,7 @@ int qrtr_endpoint_post(struct qrtr_endpoint *ep, const void *data, size_t len)
 	/* All control packets and non-local destined data packets should be
 	 * queued to the worker for forwarding handling.
 	 */
+	svc_id = qrtr_get_service_id(cb->src_node, cb->src_port);
 	if (cb->type != QRTR_TYPE_DATA || cb->dst_node != qrtr_local_nid) {
 		skb_queue_tail(&node->rx_queue, skb);
 		kthread_queue_work(&node->kworker, &node->read_data);
@@ -969,8 +973,8 @@ int qrtr_endpoint_post(struct qrtr_endpoint *ep, const void *data, size_t len)
 			goto err;
 		}
 
-		/* Force wakeup for all packets except for sensors */
-		if (node->nid != 9)
+		/* Force wakeup based on services */
+		if (!xa_load(&node->no_wake_svc, svc_id))
 			pm_wakeup_ws_event(node->ws, qrtr_wakeup_ms, true);
 
 		qrtr_port_put(ipc);
@@ -1176,13 +1180,16 @@ static void qrtr_hello_work(struct kthread_work *work)
  * @ep: endpoint to register
  * @nid: desired node id; may be QRTR_EP_NID_AUTO for auto-assignment
  * @rt: flag to notify real time low latency endpoint
+ * @no_wake: array of services to not wake up
  * Return: 0 on success; negative error code on failure
  *
  * The specified endpoint must have the xmit function pointer set on call.
  */
 int qrtr_endpoint_register(struct qrtr_endpoint *ep, unsigned int net_id,
-			   bool rt)
+			   bool rt, struct qrtr_array *no_wake)
 {
+	int rc, i;
+	size_t size;
 	struct qrtr_node *node;
 	struct sched_param param = {.sched_priority = 1};
 
@@ -1211,6 +1218,17 @@ int qrtr_endpoint_register(struct qrtr_endpoint *ep, unsigned int net_id,
 	}
 	if (rt)
 		sched_setscheduler(node->task, SCHED_FIFO, &param);
+
+	xa_init(&node->no_wake_svc);
+	size = no_wake ? no_wake->size : 0;
+	for (i = 0; i < size; i++) {
+		rc = xa_insert(&node->no_wake_svc, no_wake->arr[i], node,
+			       GFP_KERNEL);
+		if (rc) {
+			kfree(node);
+			return rc;
+		}
+	}
 
 	mutex_init(&node->qrtr_tx_lock);
 	INIT_RADIX_TREE(&node->qrtr_tx_flow, GFP_KERNEL);
