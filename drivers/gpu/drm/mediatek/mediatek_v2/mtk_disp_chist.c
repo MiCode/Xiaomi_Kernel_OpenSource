@@ -253,6 +253,12 @@ static int disp_chist_copy_hist_to_user(struct drm_device *dev,
 		comp = private->ddp_comp[DDP_COMPONENT_CHIST1];
 
 	index = index_of_chist(comp->id);
+	if (present_fence[index] == 0) {
+		hist->present_fence = 0;
+		DDPPR_ERR("%s, invalid present_fence:%d\n", __func__,
+				present_fence[index]);
+		return ret;
+	}
 	/* We assume only one thread will call this function */
 	spin_lock_irqsave(&g_chist_global_lock, flags);
 
@@ -906,6 +912,7 @@ static void mtk_get_chist(struct mtk_ddp_comp *comp)
 	unsigned long flags;
 	int max_bins = 0;
 	unsigned int i = 0, index = 0;
+	unsigned int cur_present_fence;
 
 	if (mtk_crtc == NULL)
 		return;
@@ -941,8 +948,14 @@ static void mtk_get_chist(struct mtk_ddp_comp *comp)
 		}
 	}
 	spin_unlock_irqrestore(&g_chist_global_lock, flags);
-	present_fence[index] = *(unsigned int *)(mtk_get_gce_backup_slot_va(mtk_crtc,
-				DISP_SLOT_PRESENT_FENCE(0))) - 1;
+	cur_present_fence = *(unsigned int *)(mtk_get_gce_backup_slot_va(mtk_crtc,
+				DISP_SLOT_PRESENT_FENCE(0)));
+	if (cur_present_fence != 0) {
+		if (present_fence[index] == cur_present_fence - 1)
+			present_fence[index] = cur_present_fence;
+		else
+			present_fence[index] = cur_present_fence - 1;
+	}
 }
 
 static int mtk_chist_read_kthread(void *data)
