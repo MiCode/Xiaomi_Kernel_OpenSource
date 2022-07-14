@@ -1418,7 +1418,7 @@ static int mt6338_put_volsw(struct snd_kcontrol *kcontrol,
 		break;
 	}
 
-	dev_info(priv->dev, "%s(), name %s, reg(0x%x) = 0x%x, set index = %x\n",
+	dev_dbg(priv->dev, "%s(), name %s, reg(0x%x) = 0x%x, set index = %x\n",
 		 __func__, kcontrol->id.name, mc->reg, reg, index);
 
 	return ret;
@@ -4819,11 +4819,10 @@ static int mt_adc_l_event(struct snd_soc_dapm_widget *w,
 	unsigned int rc_tune = 0;
 	unsigned int value = 0;
 
-	dev_info(priv->dev, "%s(), event = 0x%x, vow_enable %d\n",
-		 __func__, event, priv->vow_enable);
-
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
+		dev_dbg(priv->dev, "%s(), event = 0x%x, vow_enable %d\n",
+			__func__, event, priv->vow_enable);
 		if (priv->vow_enable) {
 			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON14,
 				RG_AUDADCLMODE_MASK_SFT,
@@ -5077,11 +5076,11 @@ static int mt_adc_r_event(struct snd_soc_dapm_widget *w,
 	unsigned int rc_tune = 0;
 	unsigned int value = 0;
 
-	dev_info(priv->dev, "%s(), event = 0x%x, vow_enable %d\n",
-		 __func__, event, priv->vow_enable);
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
+		dev_dbg(priv->dev, "%s(), event = 0x%x, vow_enable %d\n",
+			__func__, event, priv->vow_enable);
 		if (priv->vow_enable) {
 			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON14,
 				RG_AUDADCRMODE_MASK_SFT,
@@ -5334,11 +5333,10 @@ static int mt_adc_3_event(struct snd_soc_dapm_widget *w,
 	unsigned int rc_tune = 0;
 	unsigned int value = 0;
 
-	dev_info(priv->dev, "%s(), event = 0x%x, vow_enable %d\n",
-		 __func__, event, priv->vow_enable);
-
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
+		dev_dbg(priv->dev, "%s(), event = 0x%x, vow_enable %d\n",
+			__func__, event, priv->vow_enable);
 		if (priv->vow_enable) {
 			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON15,
 				RG_AUDADC3MODE_MASK_SFT,
@@ -5578,11 +5576,10 @@ static int mt_adc_4_event(struct snd_soc_dapm_widget *w,
 	unsigned int rc_tune = 0;
 	unsigned int value = 0;
 
-	dev_info(priv->dev, "%s(), event = 0x%x, vow_enable %d\n",
-		 __func__, event, priv->vow_enable);
-
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
+		dev_dbg(priv->dev, "%s(), event = 0x%x, vow_enable %d\n",
+			__func__, event, priv->vow_enable);
 		if (priv->vow_enable) {
 			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON15,
 				RG_AUDADC4MODE_MASK_SFT,
@@ -5893,11 +5890,10 @@ static int mt_pga_l_event(struct snd_soc_dapm_widget *w,
 	/* if vow is enabled, always set volume as 6 (18dB) */
 	mic_gain_l = priv->vow_enable ? 6 :
 		     priv->ana_gain[AUDIO_ANALOG_VOLUME_MICAMP1];
-	dev_info(priv->dev, "%s(), event = 0x%x, mic_type %d, mic_gain_l %d, mux_pga %d, vow_enable %d\n",
-		__func__, event, mic_type, mic_gain_l, mux_pga, priv->vow_enable);
-
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
+		dev_info(priv->dev, "%s(), event = 0x%x, mic_type %d, mic_gain_l %d, mux_pga %d, vow_enable %d\n",
+			__func__, event, mic_type, mic_gain_l, mux_pga, priv->vow_enable);
 		if (IS_DCC_BASE(mic_type)) {
 			/* Audio L preamplifier DCC precharge */
 			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON0,
@@ -5972,11 +5968,11 @@ static int mt_pga_r_event(struct snd_soc_dapm_widget *w,
 	/* if vow is enabled, always set volume as 6 (18dB) */
 	mic_gain_r = priv->vow_enable ? 6 :
 		     priv->ana_gain[AUDIO_ANALOG_VOLUME_MICAMP2];
-	dev_info(priv->dev, "%s(), event = 0x%x, mic_type %d, mic_gain_r %d, mux_pga %d, vow_enable %d\n",
-		__func__, event, mic_type, mic_gain_r, mux_pga, priv->vow_enable);
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
+		dev_info(priv->dev, "%s(), event = 0x%x, mic_type %d, mic_gain_r %d, mux_pga %d, vow_enable %d\n",
+			__func__, event, mic_type, mic_gain_r, mux_pga, priv->vow_enable);
 		if (IS_DCC_BASE(mic_type)) {
 			/* Audio R preamplifier DCC precharge */
 			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON2,
@@ -6052,11 +6048,11 @@ static int mt_pga_3_event(struct snd_soc_dapm_widget *w,
 	/* if vow is enabled, always set volume as 10 (24dB) */
 	mic_gain_3 = priv->vow_enable ? 10 :
 		     priv->ana_gain[AUDIO_ANALOG_VOLUME_MICAMP3];
-	dev_info(priv->dev, "%s(), event = 0x%x, mic_type %d, mic_gain_3 %d, mux_pga %d, vow_enable %d\n",
-		__func__, event, mic_type, mic_gain_3, mux_pga, priv->vow_enable);
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
+		dev_info(priv->dev, "%s(), event = 0x%x, mic_type %d, mic_gain_3 %d, mux_pga %d, vow_enable %d\n",
+			__func__, event, mic_type, mic_gain_3, mux_pga, priv->vow_enable);
 		if (IS_DCC_BASE(mic_type)) {
 			/* Audio 3 preamplifier DCC precharge */
 			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON4,
@@ -6130,11 +6126,11 @@ static int mt_pga_4_event(struct snd_soc_dapm_widget *w,
 	/* if vow is enabled, always set volume as 10 (24dB) */
 	mic_gain_4 = priv->vow_enable ? 10 :
 		     priv->ana_gain[AUDIO_ANALOG_VOLUME_MICAMP4];
-	dev_info(priv->dev, "%s(), event = 0x%x, mic_type %d, mic_gain_4 %d, mux_pga %d, vow_enable %d\n",
-		__func__, event, mic_type, mic_gain_4, mux_pga, priv->vow_enable);
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
+		dev_info(priv->dev, "%s(), event = 0x%x, mic_type %d, mic_gain_4 %d, mux_pga %d, vow_enable %d\n",
+			__func__, event, mic_type, mic_gain_4, mux_pga, priv->vow_enable);
 		if (IS_DCC_BASE(mic_type)) {
 			/* Audio 4 preamplifier DCC precharge */
 			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON6,
