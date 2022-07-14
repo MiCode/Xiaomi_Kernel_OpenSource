@@ -23,6 +23,7 @@ struct gen7_snapshot_block_list;
 extern const struct adreno_power_ops gen7_gmu_power_ops;
 extern const struct adreno_power_ops gen7_hwsched_power_ops;
 extern const struct adreno_perfcounters adreno_gen7_perfcounters;
+extern const struct adreno_perfcounters adreno_gen7_6_0_perfcounters;
 
 struct gen7_gpudev {
 	struct adreno_gpudev base;
