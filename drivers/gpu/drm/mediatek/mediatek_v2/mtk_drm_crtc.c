@@ -11035,7 +11035,10 @@ int mtk_drm_get_msync_params_ioctl(struct drm_device *dev, void *data,
 		config_dst->level_tb = msync_level_tb;
 		config->msync_max_fps = config_dst->msync_max_fps;
 		config->msync_min_fps = config_dst->msync_min_fps;
-		config->msync_level_num = MSYNC_MAX_LEVEL;
+		if (config_dst->msync_level_num > MSYNC_MAX_LEVEL)
+			config->msync_level_num = MSYNC_MAX_LEVEL;
+		else
+			config->msync_level_num = config_dst->msync_level_num;
 
 		if (config_dst->level_tb != NULL) {
 			if (copy_to_user(config->level_tb,
