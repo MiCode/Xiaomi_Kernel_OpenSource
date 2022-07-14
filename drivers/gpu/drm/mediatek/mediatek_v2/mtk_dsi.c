@@ -2018,8 +2018,10 @@ irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 				mtk_crtc->pf_time = ktime_get();
 				atomic_set(&mtk_crtc->signal_irq_for_pre_fence, 1);
 				wake_up_interruptible(&(mtk_crtc->signal_irq_for_pre_fence_wq));
-				atomic_set(&mtk_crtc->esd_ctx->int_te_event, 1);
-				wake_up_interruptible(&mtk_crtc->esd_ctx->int_te_wq);
+				if (mtk_crtc->esd_ctx) {
+					atomic_set(&mtk_crtc->esd_ctx->int_te_event, 1);
+					wake_up_interruptible(&mtk_crtc->esd_ctx->int_te_wq);
+				}
 			}
 
 			if (mtk_crtc && mtk_crtc->base.dev)
