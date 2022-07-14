@@ -641,11 +641,11 @@ static int mtk_panel_ext_param_set(struct drm_panel *panel,
 	struct drm_display_mode *m = get_mode_by_id_hfp(connector, mode);
 
 	pr_info("drm_mode_vrefresh(m) =%d", drm_mode_vrefresh(m));
-	if (drm_mode_vrefresh(m) == 120)
+	if (ext && m && drm_mode_vrefresh(m) == 120)
 		ext->params = &ext_params;
-	else if (drm_mode_vrefresh(m) == 30)
+	else if (ext && m && drm_mode_vrefresh(m) == 30)
 		ext->params = &ext_params_30hz;
-	else if (drm_mode_vrefresh(m) == 60)
+	else if (ext && m && drm_mode_vrefresh(m) == 60)
 		ext->params = &ext_params_60hz;
 	else
 		ret = 1;
