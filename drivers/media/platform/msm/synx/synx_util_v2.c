@@ -1162,9 +1162,9 @@ void synx_util_cb_dispatch(struct work_struct *cb_dispatch)
 				client->id);
 	}
 
-	dprintk(SYNX_DBG,
-		"[sess :%llu] kernel cb dispatch for handle %d\n",
-		client->id, payload.h_synx);
+	dprintk(SYNX_INFO,
+		"callback dispatched for handle %u, status %u, data %pK\n",
+		payload.h_synx, payload.status, payload.data);
 
 	/* dispatch kernel callback */
 	payload.cb_func(payload.h_synx,
