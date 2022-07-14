@@ -938,6 +938,7 @@
 #define CMDQ_SYNC_TOKEN_MML_PIPE0			636
 #define CMDQ_SYNC_TOKEN_MML_PIPE1			637
 #define CMDQ_SYNC_TOKEN_MML_PIPE1_NEXT			638
+#define CMDQ_SYNC_TOKEN_MML_VCP_READBACK		712
 
 /* Config thread notify trigger thread */
 #define CMDQ_SYNC_TOKEN_CONFIG_DIRTY			640
