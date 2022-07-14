@@ -75,7 +75,9 @@
 #define JPEG_ENC_Q_TBL_ADDR_EXT         0x58C
 #define JPEG_ENC_DEST_ADDR0_EXT         0x590
 #define JPEG_ENC_STALL_ADDR0_EXT        0x594
-
+#define JPEG_ENC_CTRL_RDMA_PADDING_EN           (1 << 20)
+#define JPEG_ENC_CTRL_RDMA_RIGHT_PADDING_EN     (1 << 29)
+#define JPEG_ENC_CTRL_RDMA_PADDING_0_EN         (1 << 30)
 
 
 /**
