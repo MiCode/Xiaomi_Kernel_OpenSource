@@ -2029,12 +2029,13 @@ event_post:
 	}
 
 	clear_bit(ICNSS_HOST_TRIGGERED_PDR, &priv->state);
-	icnss_driver_event_post(priv, ICNSS_DRIVER_EVENT_PD_SERVICE_DOWN,
-				ICNSS_EVENT_SYNC, event_data);
 
 	if (event_data->crashed)
 		mod_timer(&priv->recovery_timer,
 			  jiffies + msecs_to_jiffies(ICNSS_RECOVERY_TIMEOUT));
+
+	icnss_driver_event_post(priv, ICNSS_DRIVER_EVENT_PD_SERVICE_DOWN,
+				ICNSS_EVENT_SYNC, event_data);
 done:
 	if (notification == SERVREG_NOTIF_SERVICE_STATE_UP_V01)
 		clear_bit(ICNSS_FW_DOWN, &priv->state);
