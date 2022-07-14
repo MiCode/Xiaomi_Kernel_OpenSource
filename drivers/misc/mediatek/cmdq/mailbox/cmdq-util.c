@@ -79,8 +79,6 @@ struct cmdq_record {
 	u64 irq;	/* epoch time of IRQ event */
 	u64 done;	/* epoch time of sw leaving wait and task finish */
 
-	unsigned long start;	/* buffer start address */
-	unsigned long end;	/* command end address */
 	u64 last_inst;	/* last instruction, jump addr */
 
 	u32 exec_begin;	/* task execute time in hardware thread */
@@ -309,7 +307,7 @@ static int cmdq_util_record_print(struct seq_file *seq, void *data)
 
 	seq_puts(seq, "index,pkt,task priority,sec,size,gce,thread,");
 	seq_puts(seq,
-		"submit,acq_time(us),irq_time(us),begin_wait(us),exec_time(us),total_time(us),start,end,jump,");
+		"submit,acq_time(us),irq_time(us),begin_wait(us),exec_time(us),total_time(us),jump,");
 	seq_puts(seq, "exec begin,exec end,hw_time(us),\n");
 
 	idx = util.record_idx;
@@ -335,10 +333,9 @@ static int cmdq_util_record_print(struct seq_file *seq, void *data)
 		util_time_to_us(rec->trigger, rec->done, exec_time);
 		util_time_to_us(rec->submit, rec->done, total_time);
 		seq_printf(seq,
-			"%llu.%06lu,%u,%u,%u,%u,%u,%#lx,%#lx,%#llx,",
+			"%llu.%06lu,%u,%u,%u,%u,%u,%#llx,",
 			submit_sec, submit_rem / 1000, acq_time, irq_time,
-			begin_wait, exec_time, total_time,
-			rec->start, rec->end, rec->last_inst);
+			begin_wait, exec_time, total_time, rec->last_inst);
 
 		hw_time = rec->exec_end > rec->exec_begin ?
 			rec->exec_end - rec->exec_begin :
@@ -550,12 +547,10 @@ void cmdq_util_track(struct cmdq_pkt *pkt)
 
 	if (!list_empty(&pkt->buf)) {
 		buf = list_first_entry(&pkt->buf, typeof(*buf), list_entry);
-		record->start = CMDQ_BUF_ADDR(buf);
 
 		buf = list_last_entry(&pkt->buf, typeof(*buf), list_entry);
 		offset = CMDQ_CMD_BUFFER_SIZE - (pkt->buf_size -
 			pkt->cmd_buf_size);
-		record->end = CMDQ_BUF_ADDR(buf) + offset;
 		record->last_inst = *(u64 *)(buf->va_base + offset -
 			CMDQ_INST_SIZE);
 
