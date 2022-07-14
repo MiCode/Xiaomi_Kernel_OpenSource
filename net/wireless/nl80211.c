@@ -792,13 +792,16 @@ static const struct nla_policy nl80211_policy[NUM_NL80211_ATTR] = {
 				 NL80211_EHT_MIN_CAPABILITY_LEN,
 				 NL80211_EHT_MAX_CAPABILITY_LEN),
 	[NL80211_ATTR_DISABLE_EHT] = { .type = NLA_FLAG },
+	[NL80211_ATTR_MAX_NUM_AKM_SUITES] =
+		NLA_POLICY_RANGE(NLA_U16,
+				 NL80211_MAX_NR_AKM_SUITES,
+				 CFG80211_MAX_NUM_AKM_SUITES),
 	[NL80211_ATTR_MLO_LINKS] =
 		NLA_POLICY_NESTED_ARRAY(nl80211_policy),
 	[NL80211_ATTR_MLO_LINK_ID] =
 		NLA_POLICY_RANGE(NLA_U8, 0, IEEE80211_MLD_MAX_NUM_LINKS),
 	[NL80211_ATTR_MLD_ADDR] = NLA_POLICY_EXACT_LEN(ETH_ALEN),
 	[NL80211_ATTR_MLO_SUPPORT] = { .type = NLA_FLAG },
-	[NL80211_ATTR_MAX_NUM_AKM_SUITES] = { .type = NLA_REJECT },
 };
 
 /* policy for the key attributes */
@@ -15624,7 +15627,6 @@ static int nl80211_add_link(struct sk_buff *skb, struct genl_info *info)
 	    !is_valid_ether_addr(nla_data(info->attrs[NL80211_ATTR_MAC])))
 		return -EINVAL;
 
-	wdev_lock(wdev);
 	wdev->valid_links |= BIT(link_id);
 	ether_addr_copy(wdev->links[link_id].addr,
 			nla_data(info->attrs[NL80211_ATTR_MAC]));
@@ -15634,7 +15636,6 @@ static int nl80211_add_link(struct sk_buff *skb, struct genl_info *info)
 		wdev->valid_links &= ~BIT(link_id);
 		eth_zero_addr(wdev->links[link_id].addr);
 	}
-	wdev_unlock(wdev);
 
 	return ret;
 }
@@ -15659,13 +15660,11 @@ static int nl80211_remove_link(struct sk_buff *skb, struct genl_info *info)
 
 	/* FIXME: stop the link operations first */
 
-	wdev_lock(wdev);
 	wdev->valid_links &= ~BIT(link_id);
 
 	rdev_del_intf_link(rdev, wdev, link_id);
 
 	eth_zero_addr(wdev->links[link_id].addr);
-	wdev_unlock(wdev);
 
 	return 0;
 }
@@ -15837,11 +15836,11 @@ static int nl80211_pre_doit(const struct genl_ops *ops, struct sk_buff *skb,
 	}
 
 	if (internal_flags & NL80211_FLAG_MLO_UNSUPPORTED) {
-		if (info->attrs[NL80211_ATTR_MLO_LINK_ID] ||
-		    (wdev && wdev->valid_links)) {
-			err = -EINVAL;
-			goto out_unlock;
-		}
+		if (info->attrs[NL80211_ATTR_MLO_LINK_ID])
+			return -EINVAL;
+
+		if (wdev->valid_links)
+			return -EINVAL;
 	}
 
 	if (rdev && !(internal_flags & NL80211_FLAG_NO_WIPHY_MTX)) {
@@ -16828,7 +16827,7 @@ static struct genl_family nl80211_fam __ro_after_init = {
 	.name = NL80211_GENL_NAME,	/* have users key off the name instead */
 	.hdrsize = 0,			/* no private header */
 	.version = 1,			/* no particular meaning now */
-	.maxattr = NL80211_ATTR_MAX_NUM_AKM_SUITES,
+	.maxattr = NL80211_ATTR_MLO_SUPPORT,
 	.policy = nl80211_policy,
 	.netnsok = true,
 	.pre_doit = nl80211_pre_doit,
