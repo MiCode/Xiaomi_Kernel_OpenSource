@@ -1204,6 +1204,7 @@ static int imgsensor_probe(struct i2c_client *client)
 	struct device_node *endpoint;
 	struct adaptor_ctx *ctx;
 	int ret;
+	int forbid_index;
 
 	ctx = devm_kzalloc(dev, sizeof(*ctx), GFP_KERNEL);
 	if (!ctx)
@@ -1259,7 +1260,11 @@ static int imgsensor_probe(struct i2c_client *client)
 	ctx->pad.flags = MEDIA_PAD_FL_SOURCE;
 	ctx->sd.dev = &client->dev;
 	ctx->sd.entity.function = MEDIA_ENT_F_CAM_SENSOR;
-
+	ctx->forbid_idx = -1;
+	if (!of_property_read_u32(dev->of_node, "forbid-index", &forbid_index)) {
+		ctx->forbid_idx = forbid_index;
+		dev_info(dev, "not support to power on with sensor%d\n", ctx->forbid_idx);
+	}
 
 	/* init subdev name */
 	snprintf(ctx->sd.name, V4L2_SUBDEV_NAME_SIZE, "%s",

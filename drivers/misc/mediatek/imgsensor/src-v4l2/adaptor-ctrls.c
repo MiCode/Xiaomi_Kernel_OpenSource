@@ -748,6 +748,9 @@ static int ext_ctrl(struct adaptor_ctx *ctx, struct v4l2_ctrl *ctrl, struct sens
 	case V4L2_CID_MTK_SENSOR_RESET_BY_USER:
 		ctrl->val = mode->esd_reset_by_user;
 		break;
+	case V4L2_CID_MTK_DO_NOT_POWER_ON:
+		ctrl->val = ctx->forbid_idx;
+		break;
 	default:
 		break;
 	}
@@ -1733,6 +1736,16 @@ static const struct v4l2_ctrl_config cfg_sensor_reset_by_user = {
 	.step = 1,
 };
 
+static const struct v4l2_ctrl_config cfg_mtkcam_do_not_power_on = {
+	.ops = &ctrl_ops,
+	.id = V4L2_CID_MTK_DO_NOT_POWER_ON,
+	.name = "do_not_power_on",
+	.type = V4L2_CTRL_TYPE_INTEGER,
+	.flags = V4L2_CTRL_FLAG_VOLATILE,
+	.max = 0x7fffffff,
+	.step = 1,
+};
+
 void adaptor_sensor_init(struct adaptor_ctx *ctx)
 {
 	if (ctx && !ctx->is_sensor_inited) {
@@ -1970,6 +1983,7 @@ int adaptor_init_ctrls(struct adaptor_ctx *ctx)
 	v4l2_ctrl_new_custom(&ctx->ctrls, &cfg_fd_ctrl, NULL);
 	v4l2_ctrl_new_custom(&ctx->ctrls, &cfg_csi_param_ctrl, NULL);
 	v4l2_ctrl_new_custom(&ctx->ctrls, &cfg_test_pattern_data, NULL);
+	v4l2_ctrl_new_custom(&ctx->ctrls, &cfg_mtkcam_do_not_power_on, NULL);
 
 #ifdef IMGSENSOR_DEBUG
 	v4l2_ctrl_new_custom(&ctx->ctrls, &cfg_debug_cmd, NULL);
