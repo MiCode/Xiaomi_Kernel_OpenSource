@@ -35,6 +35,8 @@
 #include <asm/stacktrace.h>
 #include <asm/traps.h>
 #include <uapi/linux/sched/types.h>
+#include <linux/highmem.h>
+#include <asm/cacheflush.h>
 
 #include <mt-plat/aee.h>
 #if IS_ENABLED(CONFIG_MTK_AEE_IPANIC)
@@ -51,10 +53,6 @@
 #include "mrdump/mrdump_private.h"
 #include "mrdump/mrdump_mini.h"
 
-#ifndef TASK_STATE_TO_CHAR_STR
-#define TASK_STATE_TO_CHAR_STR "RSDTtZXxKWPNn"
-#endif
-
 #ifdef CONFIG_MTK_HANG_DETECT_DB
 #define MAX_HANG_INFO_SIZE (2*1024*1024) /* 2M info */
 #define MAX_STRING_SIZE 256
@@ -67,6 +65,7 @@ static bool watchdog_thread_exist;
 static bool system_server_exist;
 #endif
 
+#define MAX_PROCTITLE_AUDIT_LEN 128
 #define MAX_NR_SPECIAL_PROCESS 20
 #define MAX_NR_THREAD 8192
 static struct task_struct **thread_array;
@@ -87,8 +86,9 @@ static struct proc_dir_entry *pe;
 
 DECLARE_WAIT_QUEUE_HEAD(dump_bt_start_wait);
 DECLARE_WAIT_QUEUE_HEAD(dump_bt_done_wait);
-DEFINE_MUTEX(white_list_lock);
+DEFINE_RAW_SPINLOCK(white_list_lock);
 DEFINE_RAW_SPINLOCK(callback_list_lock);
+DEFINE_MUTEX(thread_array_lock);
 
 static void show_status(int flag);
 static void monitor_hang_kick(int lParam);
@@ -99,6 +99,19 @@ static int find_task_by_name(char *name);
 static int run_callback(void);
 
 static void (*p_ldt_disable_aee)(void);
+static const char *const special_process[] = {
+	"init", /* Index must be the first */
+	"main",
+	"system_server",
+	"vold",
+	"vdc"
+};
+
+struct task_info {
+	struct task_struct *task;
+	int idx;
+};
+
 void monitor_hang_regist_ldt(void (*fn)(void))
 {
 	p_ldt_disable_aee = fn;
@@ -115,18 +128,17 @@ int add_white_list(char *name)
 	struct name_list *new_thread;
 	struct name_list *pList;
 
-	mutex_lock(&white_list_lock);
+	new_thread = kmalloc(sizeof(struct name_list), GFP_KERNEL);
+	if (!new_thread)
+		return -1;
+	raw_spin_lock(&white_list_lock);
 	if (!white_list) {
-		new_thread = kmalloc(sizeof(struct name_list), GFP_KERNEL);
-		if (!new_thread) {
-			mutex_unlock(&white_list_lock);
-			return -1;
-		}
+
 		strncpy(new_thread->name, name, TASK_COMM_LEN);
 		new_thread->name[TASK_COMM_LEN - 1] = 0;
 		new_thread->next = NULL;
 		white_list = new_thread;
-		mutex_unlock(&white_list_lock);
+		raw_spin_unlock(&white_list_lock);
 		return 0;
 	}
 
@@ -134,23 +146,93 @@ int add_white_list(char *name)
 	while (pList) {
 		/*find same thread name*/
 		if (strncmp(pList->name, name, TASK_COMM_LEN) == 0) {
-			mutex_unlock(&white_list_lock);
+			raw_spin_unlock(&white_list_lock);
+			kfree(new_thread);
 			return 0;
 		}
 		pList = pList->next;
 	}
 
 	/*add new thread name*/
-	new_thread = kmalloc(sizeof(struct name_list), GFP_KERNEL);
-	if (!new_thread) {
-		mutex_unlock(&white_list_lock);
-		return -1;
-	}
-
 	strncpy(new_thread->name, name, TASK_COMM_LEN);
 	new_thread->next = white_list;
 	white_list = new_thread;
-	mutex_unlock(&white_list_lock);
+	raw_spin_unlock(&white_list_lock);
+	return 0;
+}
+
+/******************************************************************************
+ * aee_get_cmdline is a copy of get_cmdline in mm/util.c, please pay attension to
+ *whether this function has changed when the kernel version is upgraded.
+ *****************************************************************************/
+static int aee_get_cmdline(struct task_struct *task, char *buffer, int buflen)
+{
+	int res = 0;
+	unsigned int len;
+	struct mm_struct *mm = get_task_mm(task);
+	unsigned long arg_start, arg_end, env_start, env_end;
+
+	if (!mm)
+		goto out;
+	if (!mm->arg_end)
+		goto out_mm;	/* Shh! No looking before we're done */
+
+	spin_lock(&mm->arg_lock);
+	arg_start = mm->arg_start;
+	arg_end = mm->arg_end;
+	env_start = mm->env_start;
+	env_end = mm->env_end;
+	spin_unlock(&mm->arg_lock);
+
+	len = arg_end - arg_start;
+
+	if (len > buflen)
+		len = buflen;
+
+	res = access_process_vm(task, arg_start, buffer, len, FOLL_FORCE);
+
+	/*
+	 * If the nul at the end of args has been overwritten, then
+	 * assume application is using setproctitle(3).
+	 */
+	if (res > 0 && buffer[res-1] != '\0' && len < buflen) {
+		len = strnlen(buffer, res);
+		if (len < res) {
+			res = len;
+		} else {
+			len = env_end - env_start;
+			if (len > buflen - res)
+				len = buflen - res;
+			res += access_process_vm(task, env_start,
+						 buffer+res, len,
+						 FOLL_FORCE);
+			res = strnlen(buffer, res);
+		}
+	}
+out_mm:
+	mmput(mm);
+out:
+	return res;
+}
+
+static int compare_cmdline(void)
+{
+	int len = 0;
+	char buf[MAX_PROCTITLE_AUDIT_LEN] = {0};
+
+	len = aee_get_cmdline(current, buf, MAX_PROCTITLE_AUDIT_LEN);
+	if (len == 0)
+		return -1;
+
+	if (strncmp(buf, "system_server", strlen("system_server")) &&
+		strncmp(buf, "/system_ext", strlen("/system_ext")) &&
+		strncmp(buf,  "/vendor", strlen("/vendor")) &&
+		strncmp(buf, "/system", strlen("/system")) &&
+		strncmp(buf, "/apex", strlen("/apex"))) {
+		pr_info("%s:open failed!\n", __func__);
+		return -1;
+	}
+
 	return 0;
 }
 
@@ -162,7 +244,7 @@ int del_white_list(char *name)
 	if (!white_list)
 		return 0;
 
-	mutex_lock(&white_list_lock);
+	raw_spin_lock(&white_list_lock);
 	pList = pList_old = white_list;
 	while (pList) {
 		/*find same thread name*/
@@ -170,19 +252,19 @@ int del_white_list(char *name)
 			if (pList == white_list) {
 				white_list = pList->next;
 				kfree(pList);
-				mutex_unlock(&white_list_lock);
+				raw_spin_unlock(&white_list_lock);
 				return 0;
 			}
 
 			pList_old->next = pList->next;
 			kfree(pList);
-			mutex_unlock(&white_list_lock);
+			raw_spin_unlock(&white_list_lock);
 			return 0;
 		}
 		pList_old = pList;
 		pList = pList->next;
 	}
-	mutex_unlock(&white_list_lock);
+	raw_spin_unlock(&white_list_lock);
 	return 0;
 }
 
@@ -240,6 +322,113 @@ static void monitor_hang_callback_dummy2(void)
 	log_hang_info("callback 2 ok\n");
 }
 
+#if IS_ENABLED(CONFIG_MMU)
+static int __access_remote_vm_for_hang(struct task_struct *tsk, struct mm_struct *mm,
+		unsigned long addr, void *buf, int len, unsigned int gup_flags)
+{
+	struct vm_area_struct *vma;
+	void *old_buf = buf;
+
+	/* ignore errors, just check how much was successfully transferred */
+	while (len) {
+		int bytes, ret, offset;
+		void *maddr;
+		struct page *page = NULL;
+
+		ret = get_user_pages_remote(mm, addr, 1,
+			gup_flags, &page, &vma, NULL);
+		if (ret <= 0) {
+#ifndef CONFIG_HAVE_IOREMAP_PROT
+			break;
+#else
+			vma = find_vma(mm, addr);
+			if (!vma || vma->vm_start > addr)
+				break;
+			if (vma->vm_ops && vma->vm_ops->access)
+				ret = vma->vm_ops->access(vma, addr, buf, len, 0/* write */);
+			if (ret <= 0)
+				break;
+			bytes = ret;
+#endif
+		} else {
+			bytes = len;
+			offset = addr & (PAGE_SIZE-1);
+			if (bytes > PAGE_SIZE-offset)
+				bytes = PAGE_SIZE-offset;
+
+			maddr = kmap(page);
+
+			copy_from_user_page(vma, page, addr,
+				buf, maddr + offset, bytes);
+			kunmap(page);
+			put_user_page(page);
+		}
+		len -= bytes;
+		buf += bytes;
+		addr += bytes;
+	}
+	return buf - old_buf;
+}
+
+static int access_process_vm_for_hang(struct task_struct *tsk, unsigned long addr,
+	void *buf, int len, unsigned int gup_flags)
+{
+	struct mm_struct *mm;
+	int ret;
+
+	mm = get_task_mm(tsk);
+	if (!mm)
+		return 0;
+
+	ret = __access_remote_vm_for_hang(tsk, mm, addr, buf, len, gup_flags);
+	mmput(mm);
+	return ret;
+}
+#else /* CONFIG_MMU */
+static int __access_remote_vm_for_hang(struct task_struct *tsk, struct mm_struct *mm,
+		unsigned long addr, void *buf, int len, unsigned int gup_flags)
+{
+	struct vm_area_struct *vma;
+	int write = gup_flags & FOLL_WRITE;
+
+	/* the access must start within one of the target process's mappings */
+	vma = find_vma(mm, addr);
+	if (vma) {
+		/* don't overrun this mapping */
+		if (addr + len >= vma->vm_end)
+			len = vma->vm_end - addr;
+
+		/* only read or write mappings where it is permitted */
+		if (!write && vma->vm_flags & VM_MAYREAD)
+			copy_from_user_page(vma, NULL, addr,
+					    buf, (void *) addr, len);
+		else
+			len = 0;
+	} else {
+		len = 0;
+	}
+
+	return len;
+}
+
+static int access_remote_vm_for_hang(struct mm_struct *mm, unsigned long addr,
+		void *buf, int len, unsigned int gup_flags)
+{
+	struct mm_struct *mm;
+
+	if (addr + len < addr)
+		return 0;
+
+	mm = get_task_mm(tsk);
+	if (!mm)
+		return 0;
+
+	len = __access_remote_vm_for_hang(tsk, mm, addr, buf, len, gup_flags);
+	mmput(mm);
+	return len;
+}
+#endif /* CONFIG_MMU */
+
 static int show_white_list_bt(struct task_struct *p)
 {
 	struct name_list *pList = NULL;
@@ -247,17 +436,17 @@ static int show_white_list_bt(struct task_struct *p)
 	if (!white_list)
 		return -1;
 
-	mutex_lock(&white_list_lock);
+	raw_spin_lock(&white_list_lock);
 	pList = white_list;
 	while (pList) {
 		if (!strcmp(p->comm, pList->name)) {
-			mutex_unlock(&white_list_lock);
+			raw_spin_unlock(&white_list_lock);
 			show_bt_by_pid(p->pid);
 			return 0;
 		}
 		pList = pList->next;
 	}
-	mutex_unlock(&white_list_lock);
+	raw_spin_unlock(&white_list_lock);
 	return -1;
 }
 
@@ -272,7 +461,6 @@ static int monitor_hang_proc_open(struct inode *inode, struct file *file)
 {
 	return single_open(file, monitor_hang_show, inode->i_private);
 }
-
 
 static ssize_t monitor_hang_proc_write(struct file *filp, const char *ubuf,
 		size_t cnt, loff_t *data)
@@ -335,7 +523,7 @@ static const struct proc_ops monitor_hang_fops = {
 	.proc_lseek = seq_lseek,
 	.proc_release = single_release,
 };
-#endif
+#endif /* CONFIG_MTK_HANG_PROC */
 
 /******************************************************************************
  * hang detect File operations
@@ -413,6 +601,11 @@ static long monitor_hang_ioctl(struct file *file, unsigned int cmd,
 	char name[TASK_COMM_LEN] = {0};
 
 	if (cmd == HANG_KICK) {
+		ret = compare_cmdline();
+		if (ret) {
+			pr_info(" invalid process kick RT_Monitor!");
+			return -EFAULT;
+		}
 		pr_info("hang_detect HANG_KICK ( %d)\n", (int)arg);
 		monitor_hang_kick((int)arg);
 		return ret;
@@ -593,9 +786,7 @@ void trigger_hang_db(void)
 }
 #endif
 
-
 #ifdef CONFIG_STACKTRACE
-
 static void get_kernel_bt(struct task_struct *tsk)
 {
 	unsigned long stacks[32];
@@ -614,7 +805,6 @@ static void get_kernel_bt(struct task_struct *tsk)
 				(void *)stacks[i]);
 	}
 }
-
 #endif
 
 static long long nsec_high(unsigned long long nsec)
@@ -639,13 +829,7 @@ static unsigned long nsec_low(unsigned long long nsec)
 
 void store_task_info(struct task_struct *p)
 {
-	unsigned int state;
-	char stat_nam[] = TASK_STATE_TO_CHAR_STR;
-
-	state = p->state ? __ffs(p->state) + 1 : 0;
-
-	log_hang_info("%-15.15s %c ", p->comm,
-		state < sizeof(stat_nam) - 1 ? stat_nam[state] : '?');
+	log_hang_info("%-15.15s %c ", p->comm, task_state_to_char(p));
 	log_hang_info("%lld.%06ld %d %lu %lu 0x%x 0x%lx %d %d %d ",
 		nsec_high(p->se.sum_exec_runtime),
 		nsec_low(p->se.sum_exec_runtime),
@@ -661,15 +845,8 @@ void store_task_info(struct task_struct *p)
 
 void show_thread_info(struct task_struct *p, bool dump_bt)
 {
-	unsigned int state;
-	char stat_nam[] = TASK_STATE_TO_CHAR_STR;
-
-	state = p->state ? __ffs(p->state) + 1 : 0;
-
-	log_hang_info("%-15.15s %c ", p->comm,
-		state < sizeof(stat_nam) - 1 ? stat_nam[state] : '?');
-	hang_log("%-15.15s %c ", p->comm,
-		state < sizeof(stat_nam) - 1 ? stat_nam[state] : '?');
+	log_hang_info("%-15.15s %c ", p->comm, task_state_to_char(p));
+	hang_log("%-15.15s %c ", p->comm, task_state_to_char(p));
 	log_hang_info("%lld.%06ld %d %lu %lu 0x%x 0x%lx %d ",
 		nsec_high(p->se.sum_exec_runtime),
 		nsec_low(p->se.sum_exec_runtime),
@@ -713,6 +890,22 @@ void show_thread_info(struct task_struct *p, bool dump_bt)
 	/* Catch kernel-space backtrace */
 		get_kernel_bt(p);
 #endif
+}
+
+static void show_all_thread_info_in_process(struct task_struct *p)
+{
+	struct task_struct *t = NULL;
+
+	for_each_thread(p, t) {
+		if (t) {
+			get_task_struct(t);
+			if (try_get_task_stack(t)) {
+				show_thread_info(t, false);
+				put_task_stack(t);
+			}
+			put_task_struct(t);
+		}
+	}
 }
 
 static int dump_native_maps(pid_t pid, struct task_struct *current_task)
@@ -814,11 +1007,8 @@ static int dump_native_maps(pid_t pid, struct task_struct *current_task)
 	}
 	mmap_read_unlock(current_task->mm);
 	mmput(current_task->mm);
-
 	return 0;
 }
-
-
 
 static int dump_native_info_by_tid(pid_t tid,
 	struct task_struct *current_task)
@@ -839,11 +1029,13 @@ static int dump_native_info_by_tid(pid_t tid,
 		return ret;
 	}
 
-	if (!current_task->mm) {
+	if (!get_task_mm(current_task)) {
 		pr_info(" %s,%d:%s, current_task->mm == NULL", __func__, tid,
 				current_task->comm);
 		return ret;
 	}
+
+	mmap_read_lock(current_task->mm);
 #ifndef __aarch64__		/* 32bit */
 	log_hang_info(" pc/lr/sp 0x%08x/0x%08x/0x%08x\n", user_ret->ARM_pc,
 			user_ret->ARM_lr, user_ret->ARM_sp);
@@ -871,8 +1063,6 @@ static int dump_native_info_by_tid(pid_t tid,
 		(long)(user_ret->ARM_r1), (long)(user_ret->ARM_r0));
 
 	userstack_start = (unsigned long)user_ret->ARM_sp;
-
-	mmap_read_lock(current_task->mm);
 	vma = current_task->mm->mmap;
 	while (vma) {
 		if (vma->vm_start <= userstack_start &&
@@ -885,14 +1075,16 @@ static int dump_native_info_by_tid(pid_t tid,
 			break;
 	}
 
+#if !IS_ENABLED(CONFIG_MTK_HANG_PROC)
+	mmap_read_unlock(current_task->mm);
+#endif
+
 	if (!userstack_end) {
 		pr_info(" %s,%d:%s,userstack_end == 0", __func__,
 				tid, current_task->comm);
-		return ret;
+		goto err;
 	}
 	length = userstack_end - userstack_start;
-	mmap_read_unlock(current_task->mm);
-
 	/* dump native stack to buffer */
 	{
 		unsigned long SPStart = 0, SPEnd = 0;
@@ -905,10 +1097,17 @@ static int dump_native_info_by_tid(pid_t tid,
 		hang_log("UserSP_start:%08x,Length:%08x,End:%08x\n",
 				SPStart, length, SPEnd);
 		while (SPStart < SPEnd) {
+#if IS_ENABLED(CONFIG_MTK_HANG_PROC)
+			copied =
+			    access_process_vm_for_hang(current_task, SPStart,
+					&tempSpContent, sizeof(tempSpContent),
+					0);
+#else
 			copied =
 			    access_process_vm(current_task, SPStart,
 					&tempSpContent, sizeof(tempSpContent),
 					0);
+#endif
 			if (copied != sizeof(tempSpContent)) {
 				pr_info("access_process_vm  SPStart error,sizeof(tempSpContent)=%x\n",
 				  (unsigned int)sizeof(tempSpContent));
@@ -976,7 +1175,6 @@ static int dump_native_info_by_tid(pid_t tid,
 			(long)(user_ret->user_regs.regs[1]),
 			(long)(user_ret->user_regs.regs[0]));
 		userstack_start = (unsigned long)user_ret->user_regs.regs[13];
-		mmap_read_lock(current_task->mm);
 		vma = current_task->mm->mmap;
 		while (vma) {
 			if (vma->vm_start <= userstack_start &&
@@ -989,18 +1187,20 @@ static int dump_native_info_by_tid(pid_t tid,
 				break;
 		}
 
+#if !IS_ENABLED(CONFIG_MTK_HANG_PROC)
+		mmap_read_unlock(current_task->mm);
+#endif
+
 		if (!userstack_end) {
 			pr_info("Dump native stack failed:\n");
-			return ret;
+			goto err;
 		}
 
 		length = userstack_end - userstack_start;
-		mmap_read_unlock(current_task->mm);
-
 		/*  dump native stack to buffer */
 		{
 			unsigned long SPStart = 0, SPEnd = 0;
-			int tempSpContent[4], copied;
+			int tempSpContent[4] = {0}, copied;
 
 			SPStart = userstack_start;
 			SPEnd = SPStart + length;
@@ -1009,9 +1209,15 @@ static int dump_native_info_by_tid(pid_t tid,
 			hang_log("UserSP_start:%lx,Length:%lx,End:%lx\n",
 				SPStart, length, SPEnd);
 			while (SPStart < SPEnd) {
+#if IS_ENABLED(CONFIG_MTK_HANG_PROC)
+				copied = access_process_vm_for_hang(current_task,
+						SPStart, &tempSpContent,
+						sizeof(tempSpContent), 0);
+#else
 				copied = access_process_vm(current_task,
 						SPStart, &tempSpContent,
 						sizeof(tempSpContent), 0);
+#endif
 				if (copied != sizeof(tempSpContent)) {
 					pr_info(
 					  "access_process_vm  SPStart error,sizeof(tempSpContent)=%x\n",
@@ -1040,7 +1246,6 @@ static int dump_native_info_by_tid(pid_t tid,
 		}
 	} else {		/*K64+U64 */
 		userstack_start = (unsigned long)user_ret->user_regs.sp;
-		mmap_read_lock(current_task->mm);
 		vma = current_task->mm->mmap;
 		while (vma) {
 			if (vma->vm_start <= userstack_start &&
@@ -1052,10 +1257,14 @@ static int dump_native_info_by_tid(pid_t tid,
 			if (vma == current_task->mm->mmap)
 				break;
 		}
+
+#if !IS_ENABLED(CONFIG_MTK_HANG_PROC)
 		mmap_read_unlock(current_task->mm);
+#endif
+
 		if (!userstack_end) {
 			pr_info("Dump native stack failed:\n");
-			return ret;
+			goto err;
 		}
 
 		{
@@ -1069,21 +1278,37 @@ static int dump_native_info_by_tid(pid_t tid,
 			frames = 2;
 			while (tmpfp < userstack_end &&
 					tmpfp > userstack_start) {
+#if IS_ENABLED(CONFIG_MTK_HANG_PROC)
+				copied =
+				    access_process_vm_for_hang(current_task,
+						    (unsigned long)tmpfp, &tmp,
+						      sizeof(tmp), 0);
+#else
 				copied =
 				    access_process_vm(current_task,
 						    (unsigned long)tmpfp, &tmp,
 						      sizeof(tmp), 0);
+#endif
 				if (copied != sizeof(tmp)) {
 					pr_info("access_process_vm  fp error\n");
-					return -EIO;
+					ret = -EIO;
+					goto err;
 				}
+#if IS_ENABLED(CONFIG_MTK_HANG_PROC)
+				copied =
+				    access_process_vm_for_hang(current_task,
+						    (unsigned long)tmpfp + 0x08,
+						      &tmpLR, sizeof(tmpLR), 0);
+#else
 				copied =
 				    access_process_vm(current_task,
 						    (unsigned long)tmpfp + 0x08,
 						      &tmpLR, sizeof(tmpLR), 0);
+#endif
 				if (copied != sizeof(tmpLR)) {
 					pr_info("access_process_vm  pc error\n");
-					return -EIO;
+					ret = -EIO;
+					goto err;
 				}
 				tmpfp = tmp;
 				native_bt[frames] = tmpLR;
@@ -1103,8 +1328,14 @@ static int dump_native_info_by_tid(pid_t tid,
 		}
 	}
 #endif
+	ret = 0;
+err:
+#if IS_ENABLED(CONFIG_MTK_HANG_PROC)
+	mmap_read_unlock(current_task->mm);
+#endif
+	mmput(current_task->mm);
+	return ret;
 
-	return 0;
 }
 
 static void show_bt_by_pid(int task_pid)
@@ -1115,8 +1346,6 @@ static void show_bt_by_pid(int task_pid)
 	struct pt_regs *user_ret;
 #endif
 	int dump_native = 0;
-	unsigned int state = 0;
-	char stat_nam[] = TASK_STATE_TO_CHAR_STR;
 
 	pid = find_get_pid(task_pid);
 	t = p = get_pid_task(pid, PIDTYPE_PID);
@@ -1155,18 +1384,16 @@ static void show_bt_by_pid(int task_pid)
 				dump_native_maps(task_pid, p);
 			put_task_stack(p);
 		} else {
-			state = p->state ? __ffs(p->state) + 1 : 0;
 			log_hang_info("%s pid %d state %c, flags %d. stack is null.\n",
-				t->comm, task_pid, state < sizeof(stat_nam) - 1 ?
-				stat_nam[state] : '?', t->flags);
+				t->comm, task_pid, task_state_to_char(p), t->flags);
 			hang_log("%s pid %d state %c, flags %d. stack is null.\n",
-				t->comm, task_pid, state < sizeof(stat_nam) - 1 ?
-				stat_nam[state] : '?', t->flags);
+				t->comm, task_pid, task_state_to_char(p), t->flags);
 		}
 		if (unlikely(dump_native == 1)) {
 			int thread_array_index = 0;
 			int i = 0;
 
+			mutex_lock(&thread_array_lock);
 			rcu_read_lock();
 			do {
 				if (!t)
@@ -1176,7 +1403,7 @@ static void show_bt_by_pid(int task_pid)
 				thread_array[thread_array_index] = t;
 				thread_array_index++;
 				if (thread_array_index >= MAX_NR_THREAD) {
-					pr_info("Number of threads exceeding %d\n", MAX_NR_THREAD);
+					pr_info("Number of threads exceeding %d", MAX_NR_THREAD);
 					break;
 				}
 			} while_each_thread(p, t);
@@ -1200,6 +1427,7 @@ static void show_bt_by_pid(int task_pid)
 				}
 				put_task_struct(t);
 			}
+			mutex_unlock(&thread_array_lock);
 		} else {
 			rcu_read_lock();
 			do {
@@ -1238,16 +1466,16 @@ static int is_in_white_list(struct task_struct *p)
 	if (!white_list)
 		return -1;
 
-	mutex_lock(&white_list_lock);
+	raw_spin_lock(&white_list_lock);
 	pList = white_list;
 	while (pList) {
 		if (!strcmp(p->comm, pList->name)) {
-			mutex_unlock(&white_list_lock);
+			raw_spin_unlock(&white_list_lock);
 			return 0;
 		}
 		pList = pList->next;
 	}
-	mutex_unlock(&white_list_lock);
+	raw_spin_unlock(&white_list_lock);
 	return -1;
 }
 
@@ -1280,13 +1508,16 @@ static void show_task_info(void)
 
 static void show_task_backtrace(void)
 {
-	struct task_struct *p, *t, *system_server_task = NULL;
+	struct task_struct *p, *system_server_task = NULL;
 	struct task_struct *monkey_task = NULL;
 	struct task_struct *aee_aed_task = NULL;
+	struct task_info task_info_arr[MAX_NR_SPECIAL_PROCESS];
+	int i = 0;
+	unsigned int task_array_idx = 0;
+	int size_special_process = ARRAY_SIZE(special_process);
 	bool first_dump_blocked = false;
-	struct task_struct *task_array[MAX_NR_SPECIAL_PROCESS] = {0};
-	int i = 0, task_array_index = 0;
 
+	memset(&task_info_arr, 0, sizeof(task_info_arr));
 #ifdef CONFIG_MTK_HANG_DETECT_DB
 	watchdog_thread_exist = false;
 	system_server_exist = false;
@@ -1316,42 +1547,47 @@ static void show_task_backtrace(void)
 				aee_aed_task = p;
 		}
 		/* specify process, need dump maps file and native backtrace */
-		if (!first_dump_blocked &&
-			(task_array_index < MAX_NR_SPECIAL_PROCESS) &&
-			(!strcmp(p->comm, "init") ||
-			!strcmp(p->comm, "system_server") ||
-			!strcmp(p->comm, "vold") ||
-			!strcmp(p->comm, "vdc"))) {
-			task_array[task_array_index] = p;
-			task_array_index++;
-			if (task_array_index == MAX_NR_SPECIAL_PROCESS)
-				pr_info("Number of Specify processes is exceeded!\n");
-			continue;
-		}
-		if (!is_in_white_list(p) && (task_array_index < MAX_NR_SPECIAL_PROCESS)) {
-			task_array[task_array_index] = p;
-			task_array_index++;
-			if (task_array_index == MAX_NR_SPECIAL_PROCESS)
-				pr_info("Number of Specify processes is exceeded!\n");
-			continue;
-		}
-		for_each_thread(p, t) {
-			if (t) {
-				get_task_struct(t);
-				if (try_get_task_stack(t)) {
-					show_thread_info(t, false);
-					put_task_stack(t);
+		if (!first_dump_blocked && (task_array_idx < MAX_NR_SPECIAL_PROCESS)) {
+			for (i = 0; i < size_special_process; i++) {
+				if (!strcmp(p->comm, special_process[i])) {
+					task_info_arr[task_array_idx].task = p;
+					task_info_arr[task_array_idx].idx = i;
+					task_array_idx++;
+					if (task_array_idx == MAX_NR_SPECIAL_PROCESS)
+						pr_info("Number of Specify processes is fulfilled");
+					break;
 				}
-				put_task_struct(t);
 			}
+			if (i < size_special_process)
+				continue;
 		}
+		if (!is_in_white_list(p) && (task_array_idx < MAX_NR_SPECIAL_PROCESS)) {
+			task_info_arr[task_array_idx].task = p;
+			task_info_arr[task_array_idx].idx = -99; /* process is from white list */
+			task_array_idx++;
+			if (task_array_idx == MAX_NR_SPECIAL_PROCESS)
+				pr_info("Number of Specify processes is fulfilled");
+			continue;
+		}
+		show_all_thread_info_in_process(p);
 		put_task_struct(p);
 	}
 	rcu_read_unlock();
-	if (task_array_index > 0) {
-		for (i = 0; i < task_array_index; i++) {
-			show_bt_by_pid(task_array[i]->pid);
-			put_task_struct(task_array[i]);
+	if (task_array_idx > 0) {
+		for (i = 0; i < task_array_idx; i++) {
+			p = task_info_arr[i].task;
+			if (task_info_arr[i].idx == -99) { /* white list process */
+				show_bt_by_pid(p->pid);
+			} else if ((task_info_arr[i].idx == 0) &&
+				(p->pid == 1)) { /* init process */
+				show_bt_by_pid(p->pid);
+			} else if ((task_info_arr[i].idx > 0) &&
+				(!strcmp(p->comm, special_process[task_info_arr[i].idx]))) {
+				show_bt_by_pid(p->pid);
+			} else {
+				show_all_thread_info_in_process(p);
+			}
+			put_task_struct(p);
 		}
 	}
 	log_hang_info("dump backtrace end: %llu\n", local_clock());
@@ -1444,17 +1680,17 @@ static bool check_white_list(void)
 
 	if (!white_list)
 		return true;
-	mutex_lock(&white_list_lock);
+	raw_spin_lock(&white_list_lock);
 	pList = white_list;
 	while (pList) {
 		if (find_task_by_name(pList->name) < 0) {
 			/* not fond the Task */
-			mutex_unlock(&white_list_lock);
+			raw_spin_unlock(&white_list_lock);
 			return false;
 		}
 		pList = pList->next;
 	}
-	mutex_unlock(&white_list_lock);
+	raw_spin_unlock(&white_list_lock);
 	return true;
 }
 
