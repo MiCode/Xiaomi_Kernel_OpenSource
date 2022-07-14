@@ -4399,7 +4399,7 @@ static signed int FDVT_probe(struct platform_device *pDev)
 
 #endif
 	/* Only register char driver in the 1st time */
-	if (nr_fdvt_devs == 2) {
+	if (nr_fdvt_devs == 1) {
 		fdvt_clt = cmdq_mbox_create(FDVT_dev->dev, 0);
 		if (!fdvt_clt)
 			log_err("cmdq mbox create fail\n");
