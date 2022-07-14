@@ -1426,7 +1426,8 @@ static int musb_gadget_enable
 	/* workaround for f_fs use after free issue */
 	if (!musb_ffs_state_valid(musb_ep)) {
 		DBG(0, "f_fs is invalid, do not enable ep!\n");
-		return -EINVAL;
+		status = -EINVAL;
+		goto fail;
 	}
 
 	musb_ep_select(mbase, epnum);
