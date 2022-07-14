@@ -19,6 +19,8 @@
 #include <linux/delay.h>
 #include <linux/backlight.h>
 
+#include "ktz8866.h"
+
 #define BL_I2C_ADDRESS			  0x11
 
 #define LCD_BL_I2C_ID_NAME "lcd_bl"
