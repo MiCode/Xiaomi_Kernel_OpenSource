@@ -63,6 +63,31 @@ const struct gen7_snapshot_block_list gen7_3_0_snapshot_block_list = {
 	.post_crashdumper_regs = gen7_0_0_post_crashdumper_registers,
 };
 
+const struct gen7_snapshot_block_list gen7_6_0_snapshot_block_list = {
+	.pre_crashdumper_regs = gen7_0_0_pre_crashdumper_registers,
+	.cp_indexed_reg_list = gen7_6_0_cp_indexed_reg_list,
+	.cp_indexed_reg_list_len = ARRAY_SIZE(gen7_6_0_cp_indexed_reg_list),
+	.debugbus_blocks = gen7_6_0_debugbus_blocks,
+	.debugbus_blocks_len = ARRAY_SIZE(gen7_6_0_debugbus_blocks),
+	.gbif_debugbus_blocks = gen7_gbif_debugbus_blocks,
+	.gbif_debugbus_blocks_len = ARRAY_SIZE(gen7_gbif_debugbus_blocks),
+	.cx_debugbus_blocks = gen7_cx_dbgc_debugbus_blocks,
+	.cx_debugbus_blocks_len = ARRAY_SIZE(gen7_cx_dbgc_debugbus_blocks),
+	.external_core_regs = gen7_6_0_external_core_regs,
+	.num_external_core_regs = ARRAY_SIZE(gen7_6_0_external_core_regs),
+	.gmu_regs = gen7_6_0_gmu_registers,
+	.gmu_gx_regs = gen7_6_0_gmu_gx_registers,
+	.rscc_regs = gen7_6_0_rscc_registers,
+	.reg_list = gen7_6_0_reg_list,
+	.shader_blocks = gen7_6_0_shader_blocks,
+	.num_shader_blocks = ARRAY_SIZE(gen7_6_0_shader_blocks),
+	.clusters = gen7_6_0_clusters,
+	.num_clusters = ARRAY_SIZE(gen7_6_0_clusters),
+	.sptp_clusters = gen7_6_0_sptp_clusters,
+	.num_sptp_clusters = ARRAY_SIZE(gen7_6_0_sptp_clusters),
+	.post_crashdumper_regs = gen7_0_0_post_crashdumper_registers,
+};
+
 #define GEN7_DEBUGBUS_BLOCK_SIZE 0x100
 
 #define GEN7_SP_READ_SEL_VAL(_location, _pipe, _statetype, _usptp, _sptp) \
@@ -1307,7 +1332,7 @@ void gen7_crashdump_init(struct adreno_device *adreno_dev)
 
 	if (IS_ERR_OR_NULL(gen7_capturescript))
 		gen7_capturescript = kgsl_allocate_global(device,
-			4 * PAGE_SIZE, 0, KGSL_MEMFLAGS_GPUREADONLY,
+			6 * PAGE_SIZE, 0, KGSL_MEMFLAGS_GPUREADONLY,
 			KGSL_MEMDESC_PRIVILEGED, "capturescript");
 
 	if (IS_ERR(gen7_capturescript))

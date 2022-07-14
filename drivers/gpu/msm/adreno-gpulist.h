@@ -1906,6 +1906,8 @@ static const struct kgsl_regmap_list gen7_3_0_hwcg_regs[] = {
 	{ GEN7_RBBM_CLOCK_HYST_GMU_GX, 0x00000555 },
 };
 
+extern const struct gen7_snapshot_block_list gen7_6_0_snapshot_block_list;
+
 static const struct kgsl_regmap_list gen7_6_0_hwcg_regs[] = {
 	{ GEN7_RBBM_CLOCK_CNTL_SP0, 0x02222222 },
 	{ GEN7_RBBM_CLOCK_CNTL2_SP0, 0x22022222 },
@@ -2165,6 +2167,7 @@ static const struct adreno_gen7_core adreno_gpu_core_gen7_6_0 = {
 	.highest_bank_bit = 16,
 	.gmu_hub_clk_freq = 200000000,
 	.bcl_data = 1,
+	.gen7_snapshot_block_list = &gen7_6_0_snapshot_block_list,
 };
 
 static const struct adreno_gpu_core *adreno_gpulist[] = {
