@@ -4328,7 +4328,7 @@ static signed int FDVT_probe(struct platform_device *pDev)
 	}
 
 	of_node_put(node);
-	fdvt_devs->larb = &pdev->dev;
+	FDVT_dev->larb = &pdev->dev;
 
 #if IS_ENABLED(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
 	(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
