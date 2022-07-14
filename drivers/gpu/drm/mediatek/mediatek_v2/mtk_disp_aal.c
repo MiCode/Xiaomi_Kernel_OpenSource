@@ -1644,14 +1644,6 @@ static bool disp_aal_read_dre3(struct mtk_ddp_comp *comp,
 	if (disp_aal_read_single_hist(comp) != true)
 		return false;
 
-	writel(aal_data->data->aal_dre_hist_start,
-		dre3_va + DISP_AAL_SRAM_RW_IF_2);
-	if (disp_aal_reg_poll(comp, DISP_AAL_SRAM_STATUS,
-		(0x1 << 17), (0x1 << 17)) != true) {
-		AALERR("DISP_AAL_SRAM_STATUS ERROR\n");
-		return false;
-	}
-
 	AALIRQ_LOG("start\n");
 	if (dump_blk_x >= 0 && dump_blk_x < 16
 		&& dump_blk_y >= 0 && dump_blk_y < 8)
@@ -1662,6 +1654,7 @@ static bool disp_aal_read_dre3(struct mtk_ddp_comp *comp,
 		hist_offset <= aal_data->data->aal_dre_hist_end;
 			hist_offset += 4) {
 
+		writel(hist_offset, dre3_va + DISP_AAL_SRAM_RW_IF_2);
 		read_value = readl(dre3_va + DISP_AAL_SRAM_RW_IF_3);
 
 		if (arry_offset >= AAL_DRE30_HIST_REGISTER_NUM)
