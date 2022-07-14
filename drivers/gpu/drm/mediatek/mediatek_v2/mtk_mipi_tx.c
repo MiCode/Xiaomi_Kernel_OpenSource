@@ -128,7 +128,6 @@
 #define MIPITX_LANE_CON_MT6983 (0x0004UL)
 #define MIPITX_VOLTAGE_SEL_MT6983 (0x0008UL)
 #define FLD_RG_DSI_PRD_REF_SEL (0x3f << 0)
-#define FLD_RG_DSI_V2I_REF_SEL (0xf << 10)
 #define MIPITX_PRESERVED_MT6983 (0x000CUL)
 
 #define RG_DSI_PLL_SDM_PCW_CHG_MT6983 BIT(2)
@@ -1367,16 +1366,6 @@ static int mtk_mipi_tx_pll_prepare_mt6983(struct clk_hw *hw)
 	else
 		mtk_mipi_tx_update_bits(mipi_tx, MIPITX_VOLTAGE_SEL_MT6983,
 			FLD_RG_DSI_PRD_REF_SEL, 0x4);
-
-	if (rate > 2000)
-		mtk_mipi_tx_update_bits(mipi_tx, MIPITX_VOLTAGE_SEL_MT6983,
-			FLD_RG_DSI_V2I_REF_SEL, 0x4);
-	else if (rate > 1200)
-		mtk_mipi_tx_update_bits(mipi_tx, MIPITX_VOLTAGE_SEL_MT6983,
-			FLD_RG_DSI_V2I_REF_SEL, 0x2);
-	else
-		mtk_mipi_tx_update_bits(mipi_tx, MIPITX_VOLTAGE_SEL_MT6983,
-			FLD_RG_DSI_V2I_REF_SEL, 0x0);
 
 	writel(0x0, mipi_tx->regs + MIPITX_PRESERVED_MT6983);
 	writel(0x00FF12E0, mipi_tx->regs + MIPITX_PLL_CON4);
