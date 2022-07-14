@@ -232,6 +232,7 @@ static size_t gen7_snapshot_registers(struct kgsl_device *device, u8 *buf,
 static size_t gen7_legacy_snapshot_shader(struct kgsl_device *device,
 				u8 *buf, size_t remain, void *priv)
 {
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct kgsl_snapshot_shader_v2 *header =
 		(struct kgsl_snapshot_shader_v2 *) buf;
 	struct gen7_shader_block_info *info = (struct gen7_shader_block_info *) priv;
@@ -243,6 +244,20 @@ static size_t gen7_legacy_snapshot_shader(struct kgsl_device *device,
 	if (remain < (sizeof(*header) + (block->size << 2))) {
 		SNAPSHOT_ERR_NOMEM(device, "SHADER MEMORY");
 		return 0;
+	}
+
+	/*
+	 * If crashdumper times out, accessing some readback states from
+	 * AHB path might fail. Hence, skip SP_INST_TAG and SP_INST_DATA*
+	 * state types during snapshot dump in legacy flow.
+	 */
+	if (adreno_is_gen7_0_0(adreno_dev) || adreno_is_gen7_0_1(adreno_dev) ||
+		adreno_is_gen7_4_0(adreno_dev) || adreno_is_gen7_3_0(adreno_dev)) {
+		if (block->statetype == SP_INST_TAG ||
+			block->statetype == SP_INST_DATA ||
+			block->statetype == SP_INST_DATA_1 ||
+			block->statetype == SP_INST_DATA_2)
+			return 0;
 	}
 
 	header->type = block->statetype;
