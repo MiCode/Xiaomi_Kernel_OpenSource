@@ -1586,9 +1586,6 @@ static const struct msm_pingroup sdxbaagha_groups[] = {
 	[107] = PINGROUP(107, sdc43, NA, NA, NA, NA, NA, NA, NA, NA, 0x6E008, 20),
 	[108] = PINGROUP(108, NA, NA, NA, NA, NA, NA, NA, NA, NA, 0, -1),
 	[109] = PINGROUP(109, NA, NA, NA, NA, NA, NA, NA, NA, NA, 0x6E008, 21),
-	[110] = SDC_QDSD_PINGROUP(sdc2_clk, 0x-1, 14, 6),
-	[111] = SDC_QDSD_PINGROUP(sdc2_cmd, 0x-1, 11, 3),
-	[112] = SDC_QDSD_PINGROUP(sdc2_data, 0x-1, 9, 0),
 };
 static struct pinctrl_qup sdxbaagha_qup_regs[] = {
 };
