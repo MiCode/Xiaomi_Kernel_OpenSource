@@ -105,7 +105,7 @@ static int qcedev_control_clocks(struct qcedev_control *podev, bool enable)
 			return ret;
 		}
 		ret = icc_set_bw(podev->icc_path,
-				CRYPTO_AVG_BW, CRYPTO_PEAK_BW);
+				podev->icc_avg_bw, podev->icc_peak_bw);
 		if (ret) {
 			pr_err("%s Unable to set high bw\n", __func__);
 			ret = qce_disable_clk(podev->qce);
@@ -116,7 +116,7 @@ static int qcedev_control_clocks(struct qcedev_control *podev, bool enable)
 		break;
 	case QCE_BW_REQUEST_FIRST:
 		ret = icc_set_bw(podev->icc_path,
-				CRYPTO_AVG_BW, CRYPTO_PEAK_BW);
+				podev->icc_avg_bw, podev->icc_peak_bw);
 		if (ret) {
 			pr_err("%s Unable to set high bw\n", __func__);
 			return ret;
@@ -155,7 +155,7 @@ static int qcedev_control_clocks(struct qcedev_control *podev, bool enable)
 		if (ret) {
 			pr_err("%s Unable to disable clk\n", __func__);
 			ret = icc_set_bw(podev->icc_path,
-					CRYPTO_AVG_BW, CRYPTO_PEAK_BW);
+					podev->icc_avg_bw, podev->icc_peak_bw);
 			if (ret)
 				pr_err("%s Unable to set high bw\n", __func__);
 			return ret;
@@ -2485,7 +2485,26 @@ static int qcedev_probe_device(struct platform_device *pdev)
 		goto exit_del_cdev;
 	}
 
-	rc = icc_set_bw(podev->icc_path, CRYPTO_AVG_BW, CRYPTO_PEAK_BW);
+	/*
+	 * HLOS crypto vote values from DTSI. If no values specified, use
+	 * nominal values.
+	 */
+	if (of_property_read_u32((&pdev->dev)->of_node,
+				"qcom,icc_avg_bw",
+				&podev->icc_avg_bw)) {
+		pr_warn("%s: No icc avg BW set, using default\n", __func__);
+		podev->icc_avg_bw = CRYPTO_AVG_BW;
+	}
+
+	if (of_property_read_u32((&pdev->dev)->of_node,
+				"qcom,icc_peak_bw",
+				&podev->icc_peak_bw)) {
+		pr_warn("%s: No icc peak BW set, using default\n", __func__);
+		podev->icc_peak_bw = CRYPTO_PEAK_BW;
+	}
+
+	rc = icc_set_bw(podev->icc_path, podev->icc_avg_bw,
+				podev->icc_peak_bw);
 	if (rc) {
 		pr_err("%s Unable to set high bandwidth\n", __func__);
 		goto exit_unregister_bus_scale;
