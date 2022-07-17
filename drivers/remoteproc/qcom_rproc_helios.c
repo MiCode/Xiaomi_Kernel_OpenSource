@@ -142,6 +142,9 @@ static void helios_crash_handler(void *handle, void *priv)
 {
 	struct rproc *helios_rproc = (struct rproc *)priv;
 
+	/* If recovery is disabled, then cause kernel panic on Helios crash. */
+	BUG_ON(helios_rproc->recovery_disabled);
+
 	pr_debug("Helios is crashed! Starting recovery...\n");
 	rproc_report_crash(helios_rproc, RPROC_FATAL_ERROR);
 }
@@ -692,7 +695,7 @@ static int rproc_helios_driver_probe(struct platform_device *pdev)
 	helios->firmware_name = fw_name;
 	helios->dev = &pdev->dev;
 	rproc->dump_conf = RPROC_COREDUMP_ENABLED;
-	rproc->recovery_disabled = false;
+	rproc->recovery_disabled = true;
 	rproc->auto_boot = false;
 	helios->rproc = rproc;
 	helios->sysmon_name = "helios";
