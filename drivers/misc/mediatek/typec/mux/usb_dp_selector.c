@@ -132,6 +132,8 @@ static int usb_dp_selector_mux_set(struct typec_mux *mux,
 	 */
 
 	if (state->mode == TCP_NOTIFY_AMA_DP_STATE) {
+		uds->is_dp = true;
+
 		switch (data->ama_dp_state.pin_assignment) {
 		/* 4-lanes */
 		case 4:
@@ -178,7 +180,6 @@ static int usb_dp_selector_mux_set(struct typec_mux *mux,
 		/* Call DP API */
 		dev_info(uds->dev, "[%s][%d]\n", __func__, __LINE__);
 #if IS_ENABLED(CONFIG_DRM_MEDIATEK)
-		uds->is_dp = true;
 		if (state) {
 			if (irq)
 				mtk_dp_SWInterruptSet(0x8);
@@ -195,6 +196,8 @@ static int usb_dp_selector_mux_set(struct typec_mux *mux,
 			uds->is_dp == true) {
 			/* Call DP Event API Ready */
 			dev_info(uds->dev, "Plug Out, Disconnect HPD\n");
+			/* We should clr this bit, since dp-4lane can not work with U3  */
+			uds_clrbits(uds->selector_reg_address, (1 << 19));
 #if IS_ENABLED(CONFIG_DRM_MEDIATEK)
 			mtk_dp_SWInterruptSet(0x2);
 			uds->is_dp = false;
