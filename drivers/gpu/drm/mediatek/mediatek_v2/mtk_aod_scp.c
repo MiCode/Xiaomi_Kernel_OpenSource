@@ -6,6 +6,7 @@
 #include <linux/of_address.h>
 #include <linux/of_platform.h>
 #include <linux/module.h>
+#include "slbc_ops.h"
 #include "mtk_drm_drv.h"
 #include "scp.h"
 #include "mtk_log.h"
@@ -14,15 +15,42 @@ struct aod_scp_ipi_receive_info {
 	unsigned int aod_id;
 };
 
+unsigned int aod_scp_send_data;
 static struct aod_scp_ipi_receive_info aod_scp_msg;
+
+void mtk_request_slb_buffer(void)
+{
+	struct slbc_data *slb_buffer = NULL;
+	int ret;
+
+	slb_buffer = kzalloc(sizeof(struct slbc_data), GFP_KERNEL);
+	slb_buffer->type = TP_BUFFER;
+	slb_buffer->uid = UID_AOD;
+	ret = slbc_request(slb_buffer);
+
+	if (ret < 0) {
+		aod_scp_send_data = 0;
+		DDPMSG("%s slbc_request fail %d", __func__, ret);
+	} else {
+		aod_scp_send_data = 1;
+		DDPMSG("%s success - ret:%d address:0x%lx size:0x%lx\n", __func__, ret,
+			(unsigned long)slb_buffer->paddr, slb_buffer->size);
+
+		ret = slbc_power_on(slb_buffer);
+		if (ret < 0)
+			DDPMSG("%s slbc_power_on fail %d", __func__, ret);
+	}
+}
 
 int mtk_aod_scp_ipi_send(int value)
 {
 	unsigned int retry_cnt = 0;
-	unsigned int aod_scp_send_data = 1;
 	int ret;
 
 	DDPMSG("%s+\n", __func__);
+
+	aod_scp_send_data = 0;
+	mtk_request_slb_buffer();
 
 	for (retry_cnt = 0; retry_cnt <= 10; retry_cnt++) {
 		ret = mtk_ipi_send(&scp_ipidev, IPI_OUT_SCP_AOD,
