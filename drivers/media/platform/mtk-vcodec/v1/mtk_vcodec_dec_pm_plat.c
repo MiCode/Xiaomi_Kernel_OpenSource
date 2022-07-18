@@ -386,14 +386,14 @@ void set_vdec_opp(struct mtk_vcodec_dev *dev, u32 freq)
 		if (dev->vdec_mmdvfs_clk) {
 			ret = clk_set_rate(dev->vdec_mmdvfs_clk, freq_64);
 			if (ret) {
-				mtk_v4l2_debug(0, "[VDEC] Failed to set mmdvfs rate %lu\n",
+				mtk_v4l2_err("[VDEC] Failed to set mmdvfs rate %lu\n",
 						freq_64);
 			}
 			mtk_v4l2_debug(0, "[VDEC] freq %lu, find_freq %lu", freq, freq_64);
 		} else if (dev->vdec_reg) {
 			ret = regulator_set_voltage(dev->vdec_reg, volt, INT_MAX);
 			if (ret) {
-				mtk_v4l2_debug(0, "[VDEC] Failed to set regulator voltage %d\n",
+				mtk_v4l2_err("[VDEC] Failed to set regulator voltage %d\n",
 						volt);
 			}
 			mtk_v4l2_debug(0, "[VDEC] freq %lu, voltage %lu", freq, volt);
@@ -588,9 +588,18 @@ void mtk_vdec_pmqos_end_frame(struct mtk_vcodec_ctx *ctx)
 
 void mtk_vdec_prepare_vcp_dvfs_data(struct mtk_vcodec_ctx *ctx, unsigned long *in)
 {
+	struct vdec_inst *inst = (struct vdec_inst *) ctx->drv_handle;
+	struct vdec_vsi *vsi_data = inst->vsi;
+
+	in[0] = MTK_INST_START;
+	vsi_data->ctx_id = ctx->id;
+	vsi_data->op_rate = ctx->dec_params.operating_rate;
+	vsi_data->priority = ctx->dec_params.priority;
+	vsi_data->codec_fmt = ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc;
 }
 
 void mtk_vdec_unprepare_vcp_dvfs_data(struct mtk_vcodec_ctx *ctx, unsigned long *in)
 {
+	in[0] = MTK_INST_END;
 }
 
