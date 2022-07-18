@@ -87,10 +87,13 @@ static int sapu_lock_ipi_send(uint32_t lock, struct kref *ref_cnt)
 							&data, sizeof(data));
 
 			/* send busy, retry */
-			if (ret == -EBUSY) {
+			if (ret == -EBUSY || ret == -EAGAIN) {
 				pr_info("%s: re-send ipi(retry_cnt = %d)\n",
 							__func__, retry_cnt);
-				mdelay(10);
+				if (ret == -EBUSY)
+					usleep_range(10000, 11000);
+				else if (ret == -EAGAIN)
+					usleep_range(200, 500);
 				continue;
 			}
 			break;

@@ -78,13 +78,15 @@ static int mdw_rv_dev_send_msg(struct mdw_rv_dev *mrdev, struct mdw_ipi_msg_sync
 		mdw_trace_end();
 
 		/* send busy, retry */
-		if (ret == -EBUSY) {
+		if (ret == -EBUSY || ret == -EAGAIN) {
 			if (!(i % 5))
 				mdw_drv_info("re-send ipi(%u/%u)\n", i, cnt);
-			msleep(20);
+			if (ret == -EBUSY)
+				msleep(20);
+			else if (ret == -EAGAIN)
+				usleep_range(200, 500);
 			continue;
 		}
-
 		break;
 	}
 

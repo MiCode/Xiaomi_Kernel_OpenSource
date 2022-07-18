@@ -106,10 +106,13 @@ int reviser_remote_send_cmd_sync(void *drvinfo, void *request, void *reply, uint
 	for (i = 0; i < cnt; i++) {
 		ret = rpmsg_send(rdv->rpdev->ept, request, sizeof(struct reviser_msg));
 		/* send busy, retry */
-		if (ret == -EBUSY) {
+		if (ret == -EBUSY || ret == -EAGAIN) {
 			if (!(i % 5))
 				LOG_INFO("re-send ipi(%u/%u)\n", i, cnt);
-			msleep(20);
+			if (ret == -EBUSY)
+				msleep(20);
+			else if (ret == -EAGAIN)
+				usleep_range(200, 500);
 			continue;
 		}
 		break;

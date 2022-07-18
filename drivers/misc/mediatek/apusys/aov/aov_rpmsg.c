@@ -119,11 +119,14 @@ static int apu_tx_thread(void *data)
 			ret = rpmsg_send(ctx->ept, &param, sizeof(param));
 			pr_info("%s rpmsg_send %d ret %d\n", __func__, param, ret);
 			/* send busy, retry */
-			if (ret == -EBUSY) {
+			if (ret == -EBUSY || ret == -EAGAIN) {
 				pr_info("%s: re-send ipi(retry_cnt = %d)\n", __func__, retry_cnt);
-				mdelay(10);
+				if (ret == -EBUSY)
+					usleep_range(10000, 11000);
+				else if (ret == -EAGAIN)
+					usleep_range(200, 500);
 			}
-		} while (ret == -EBUSY && retry_cnt-- > 0);
+		} while ((ret == -EBUSY || ret == -EAGAIN) && retry_cnt-- > 0);
 
 		if (ret)
 			pr_info("%s Failed to send ipi to apu, ret %d\n", __func__, ret);
