@@ -36,6 +36,18 @@
 #define PEXTP_PWRCTL_1                 0x44
 #define PCIE_HW_MTCMOS_EN_P1           BIT(0)
 
+#define PEXTP_SW_RST			0x4
+#define PEXTP_SW_RST_SET_OFFSET		0x8
+#define PEXTP_SW_RST_CLR_OFFSET		0xc
+#define PEXTP_SW_RST_MAC0_BIT		BIT(0)
+#define PEXTP_SW_RST_PHY0_BIT		BIT(1)
+#define PEXTP_SW_MAC0_PHY0_BIT \
+	(PEXTP_SW_RST_MAC0_BIT | PEXTP_SW_RST_PHY0_BIT)
+#define PEXTP_SW_RST_MAC1_BIT		BIT(8)
+#define PEXTP_SW_RST_PHY1_BIT		BIT(9)
+#define PEXTP_SW_MAC1_PHY1_BIT \
+	(PEXTP_SW_RST_MAC1_BIT | PEXTP_SW_RST_PHY1_BIT)
+
 #define PCIE_SETTING_REG		0x80
 #define PCIE_PCI_IDS_1			0x9c
 #define PCI_CLASS(class)		(class << 8)
@@ -893,6 +905,14 @@ static int mtk_pcie_power_up(struct mtk_pcie_port *port)
 	struct device *dev = port->dev;
 	int err;
 
+	/* Clear PCIe pextp sw reset bit */
+	if (port->pextpcfg) {
+		writel_relaxed(PEXTP_SW_MAC0_PHY0_BIT,
+			       port->pextpcfg + PEXTP_SW_RST_CLR_OFFSET);
+		writel_relaxed(PEXTP_SW_MAC1_PHY1_BIT,
+			       port->pextpcfg + PEXTP_SW_RST_CLR_OFFSET);
+	}
+
 	/* Clear PCIe sw reset bit */
 	if (port->peri_reset_en) {
 		err = mtk_pcie_peri_reset(port, false);
@@ -972,6 +992,14 @@ static void mtk_pcie_power_down(struct mtk_pcie_port *port)
 	/* Set PCIe sw reset bit */
 	if (port->peri_reset_en)
 		mtk_pcie_peri_reset(port, true);
+
+	/* Set PCIe pextp sw reset bit */
+	if (port->pextpcfg) {
+		writel_relaxed(PEXTP_SW_MAC0_PHY0_BIT,
+			       port->pextpcfg + PEXTP_SW_RST_SET_OFFSET);
+		writel_relaxed(PEXTP_SW_MAC1_PHY1_BIT,
+			       port->pextpcfg + PEXTP_SW_RST_SET_OFFSET);
+	}
 }
 
 static int mtk_pcie_setup(struct mtk_pcie_port *port)
