@@ -366,10 +366,15 @@ int mtk_mminfra_dbg_hang_detect(const char *user)
 			memset(buf, '\0', sizeof(char) * ARRAY_SIZE(buf));
 			ret = snprintf(buf + len, LINK_MAX - len, " %#x=%#x,",
 				offset, val);
+			if (ret < 0 || ret >= LINK_MAX - len)
+				pr_notice("%s: ret:%d buf size:%d\n",
+					__func__, ret, LINK_MAX - len);
 		}
 		len += ret;
 	}
-	snprintf(buf + len, LINK_MAX - len, "%c", '\0');
+	ret = snprintf(buf + len, LINK_MAX - len, "%c", '\0');
+	if (ret < 0 || ret >= LINK_MAX - len)
+		pr_notice("%s: ret:%d buf size:%d\n", __func__, ret, LINK_MAX - len);
 	dev_info(dev, "%s\n", buf);
 
 	pm_runtime_put(dbg->comm_dev);
