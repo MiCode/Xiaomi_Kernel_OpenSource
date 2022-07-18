@@ -490,7 +490,7 @@ void update_freq(struct mtk_vcodec_dev *dev, int codec_type)
 		mtk_v4l2_debug(6, "[VDVFS] VDEC freq = %u", dev->vdec_dvfs_params.target_freq);
 	} else if (codec_type == MTK_INST_ENCODER) {
 
-		if (dev->vdec_reg == 0 && dev->vdec_mmdvfs_clk == 0)
+		if (dev->venc_reg == 0 && dev->venc_mmdvfs_clk == 0)
 			return;
 
 		dev->venc_dvfs_params.allow_oc = 0;

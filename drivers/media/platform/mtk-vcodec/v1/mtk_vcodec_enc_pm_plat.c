@@ -290,7 +290,6 @@ void mtk_prepare_venc_dvfs(struct mtk_vcodec_dev *dev)
 		if (!dev->venc_mmdvfs_clk) {
 			mtk_v4l2_debug(0, "[VENC] Failed to mmdvfs_clk");
 			dev->venc_mmdvfs_clk = 0;
-			return;
 		}
 		mtk_v4l2_debug(0, "[VENC] get venc_mmdvfs_clk successfully");
 	} else {
