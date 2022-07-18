@@ -181,7 +181,7 @@ static void tx_force_md_assert(char buf[])
 	}
 }
 
-static inline int my_skb_gro_receive(struct sk_buff *p, struct sk_buff *skb)
+static inline int dpmaif_skb_gro_receive(struct sk_buff *p, struct sk_buff *skb)
 {
 	struct skb_shared_info *pinfo, *skbinfo = skb_shinfo(skb);
 	unsigned int offset = skb_gro_offset(skb);
@@ -333,6 +333,27 @@ static inline void dpmaif_rxq_push_all_skb(struct dpmaif_rx_queue *rxq)
 	dpmaif_rxq_lro_handle_bid(rxq, 0);
 }
 
+static void dpmaif_calc_ip_len_and_check(struct sk_buff *skb)
+{
+	struct iphdr *iph = NULL;
+	struct ipv6hdr *ip6h = NULL;
+
+	if (skb && skb->data) {
+		iph = (struct iphdr *)skb->data;
+
+		if (iph->version == 4) {
+			iph->tot_len = htons(skb->len);
+			iph->check = 0;
+			iph->check = ip_fast_csum((const void *)iph, iph->ihl);
+
+		} else if (iph->version == 6) {
+			ip6h = (struct ipv6hdr *)iph;
+			ip6h->payload_len = htons(skb->len - 40);
+
+		}
+	}
+}
+
 static inline void dpmaif_rxq_lro_join_skb(
 		struct dpmaif_rx_queue *rxq,
 		struct sk_buff *skb,
@@ -359,7 +380,8 @@ static inline void dpmaif_rxq_lro_join_skb(
 static inline void dpmaif_lro_update_gro_info(
 		struct sk_buff *skb,
 		unsigned int total_len,
-		int gro_skb_num)
+		int gro_skb_num,
+		unsigned int mss)
 {
 	struct iphdr *iph = (struct iphdr *)skb->data;
 	struct ipv6hdr *ip6h = (struct ipv6hdr *)skb->data;
@@ -367,13 +389,18 @@ static inline void dpmaif_lro_update_gro_info(
 
 	if (iph->version == 4) {
 		gso_type = SKB_GSO_TCPV4;
-		iph->tot_len = htons(total_len);
-		iph->check = 0;
-		iph->check = ip_fast_csum((const void *)iph, iph->ihl);
+
+		if (unlikely(total_len)) {
+			iph->tot_len = htons(total_len);
+			iph->check = 0;
+			iph->check = ip_fast_csum((const void *)iph, iph->ihl);
+		}
 
 	} else if (iph->version == 6) {
 		gso_type = SKB_GSO_TCPV6;
-		ip6h->payload_len = htons(total_len - 40);
+
+		if (unlikely(total_len))
+			ip6h->payload_len = htons(total_len - 40);
 
 	} else
 		return;
@@ -381,7 +408,7 @@ static inline void dpmaif_lro_update_gro_info(
 	skb->ip_summed = CHECKSUM_UNNECESSARY;
 
 	skb_shinfo(skb)->gso_type |= gso_type;
-	skb_shinfo(skb)->gso_size = 0;
+	skb_shinfo(skb)->gso_size = mss;
 	skb_shinfo(skb)->gso_segs = gro_skb_num;
 }
 
@@ -389,8 +416,9 @@ static inline void dpmaif_rxq_lro_end(struct dpmaif_rx_queue *rxq)
 {
 	struct lhif_header *lhif_h = NULL;
 	struct sk_buff *skb0 = NULL, *skb1 = NULL;
-	int i, ret = 0, start_idx = 0, data_len = 0;
+	int i, start_idx = 0, data_len = 0;
 	unsigned int total_len = 0, lro_num = 0;
+	unsigned int hof, max_mss = 0, first_skb_len = 0, no_need_gro = 0;
 	struct dpmaif_rx_lro_info *lro_info = &rxq->lro_info;
 
 	if (rxq->pit_dp) {
@@ -398,57 +426,76 @@ static inline void dpmaif_rxq_lro_end(struct dpmaif_rx_queue *rxq)
 		return;
 	}
 
-	if (lro_info->count == 1) {
-		start_idx = 1;
-		skb0 = lro_info->data[0].skb;
-		goto lro_end;
-	} else
-		start_idx = 0;
+	if (lro_info->count == 0) {
+		CCCI_ERROR_LOG(0, TAG,
+			"[%s] error: pit data abnormal; lro count is 0\n", __func__);
+		return;
+	}
 
 lro_continue:
-	lro_num = 0;
-	total_len = 0;
-
 	for (i = start_idx; i < lro_info->count; i++) {
 		if (i == start_idx) {
+			/* this is the first skb */
 			skb0 = lro_info->data[i].skb;
+			lro_num = 1;
+
+			if ((lro_info->count - i) == 1)
+				break;
+
 			total_len = skb0->len;
-			lro_num++;
-
-			if ((lro_info->count - i) == 1) {
-				start_idx = lro_info->count;
-				goto lro_end;
-			}
-
-			NAPI_GRO_CB(skb0)->data_offset = lro_info->data[i].hof;
+			NAPI_GRO_CB(skb0)->data_offset = 0;
 			NAPI_GRO_CB(skb0)->last = skb0;
+
+			max_mss = 0;
+			no_need_gro = 0;
+			first_skb_len = skb0->len;
 
 			continue;
 		}
 
 		skb1 = lro_info->data[i].skb;
-		data_len = skb1->len - lro_info->data[i].hof;
+		if (unlikely(skb1->len > first_skb_len)) {
+			/* this is a wrong lro skb, push the previous lro skb */
+			start_idx = i;
+			if (lro_num == 1) {
+				dpmaif_calc_ip_len_and_check(skb0);
+				NAPI_GRO_CB(skb0)->last = NULL;
+			}
 
-		NAPI_GRO_CB(skb1)->data_offset = lro_info->data[i].hof;
+			goto gro_too_much_skb;
+		}
+		if (unlikely(skb1->len < first_skb_len))
+			no_need_gro = 1;
 
-		ret = my_skb_gro_receive(skb0, skb1);
-		if (ret) {
-			NAPI_GRO_CB(skb1)->data_offset = 0;
+		hof = lro_info->data[i].hof;
+		data_len = skb1->len - hof;
+		max_mss = first_skb_len - hof;
+
+		NAPI_GRO_CB(skb1)->data_offset = hof;
+
+		if (unlikely(dpmaif_skb_gro_receive(skb0, skb1))) {
 			start_idx = i;
 			goto gro_too_much_skb;
 		}
 
 		total_len += data_len;
-
 		lro_num++;
+
+		if (unlikely(no_need_gro)) {
+			start_idx = i + 1;
+			goto gro_too_much_skb;
+		}
 	}
 	start_idx = lro_info->count;
 
 gro_too_much_skb:
-	if (lro_num > 1)
-		dpmaif_lro_update_gro_info(skb0, total_len, lro_num);
+	if (lro_num > 1) {
+		if (likely(lro_num == lro_info->count))
+			total_len = 0;
 
-lro_end:
+		dpmaif_lro_update_gro_info(skb0, total_len, lro_num, max_mss);
+	}
+
 	if (atomic_cmpxchg(&dpmaif_ctl->wakeup_src, 1, 0) == 1) {
 		CCCI_NOTICE_LOG(0, TAG,
 			"DPMA_MD wakeup source:(%d/%d)\n",
@@ -3038,5 +3085,4 @@ module_exit(ccci_dpmaif_exit);
 MODULE_AUTHOR("ccci");
 MODULE_DESCRIPTION("ccci dpmaif driver");
 MODULE_LICENSE("GPL");
-
 
