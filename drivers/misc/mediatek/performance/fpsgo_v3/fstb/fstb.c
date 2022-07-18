@@ -984,7 +984,6 @@ int fpsgo_fbt2fstb_update_cpu_frame_info(
 		long long Runnging_time,
 		unsigned int Curr_cap,
 		unsigned int Max_cap,
-		unsigned long long mid,
 		unsigned long long enqueue_length,
 		unsigned long long dequeue_length)
 {
@@ -1936,7 +1935,7 @@ static int cal_target_fps(struct FSTB_FRAME_INFO *iter)
 #define FSTB_MSEC_DIVIDER 1000000000000ULL
 void fpsgo_fbt2fstb_query_fps(int pid, unsigned long long bufID,
 		int *target_fps, int *target_cpu_time, int *fps_margin,
-		int tgid, unsigned long long mid, int *quantile_cpu_time,
+		int tgid, int *quantile_cpu_time,
 		int *quantile_gpu_time, int *target_fpks, int *cooler_on)
 {
 	struct FSTB_FRAME_INFO *iter = NULL;

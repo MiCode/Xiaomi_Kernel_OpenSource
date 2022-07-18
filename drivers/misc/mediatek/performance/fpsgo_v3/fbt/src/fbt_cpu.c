@@ -4608,7 +4608,7 @@ static void fbt_frame_start(struct render_info *thr, unsigned long long ts)
 	boost->frame_info[boost->f_iter].running_time = runtime;
 
 	fpsgo_fbt2fstb_query_fps(thr->pid, thr->buffer_id,
-			&targetfps, &targettime, &fps_margin, thr->tgid, thr->mid,
+			&targetfps, &targettime, &fps_margin, thr->tgid,
 			&q_c_time, &q_g_time, &targetfpks, &cooler_on);
 	boost->quantile_cpu_time = q_c_time;
 	boost->quantile_gpu_time = q_g_time;
@@ -4649,7 +4649,7 @@ EXIT:
 	fpsgo_fbt2fstb_update_cpu_frame_info(thr->pid, thr->buffer_id,
 		thr->tgid, thr->frame_type,
 		thr->Q2Q_time, runtime,
-		blc_wt, limited_cap, thr->mid, thr->enqueue_length, thr->dequeue_length);
+		blc_wt, limited_cap, thr->enqueue_length, thr->dequeue_length);
 }
 
 static void fbt_setting_reset(int reset_idleprefer)

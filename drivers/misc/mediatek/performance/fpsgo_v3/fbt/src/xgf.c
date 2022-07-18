@@ -2121,8 +2121,7 @@ out:
 }
 
 int fpsgo_comp2xgf_qudeq_notify(int rpid, unsigned long long bufID, int cmd,
-	unsigned long long *run_time, unsigned long long *mid,
-	unsigned long long ts)
+	unsigned long long *run_time, unsigned long long ts)
 {
 	int ret = XGF_NOTIFY_OK;
 	struct xgf_render *r, **rrender;

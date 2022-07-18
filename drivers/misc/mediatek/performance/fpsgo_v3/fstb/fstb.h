@@ -41,12 +41,11 @@ int fpsgo_fbt2fstb_update_cpu_frame_info(
 	long long Runnging_time,
 	unsigned int Curr_cap,
 	unsigned int Max_cap,
-	unsigned long long mid,
 	unsigned long long enqueue_length,
 	unsigned long long dequeue_length);
 void fpsgo_fbt2fstb_query_fps(int pid, unsigned long long bufID,
 		int *target_fps, int *target_cpu_time, int *fps_margin,
-		int tgid, unsigned long long mid, int *quantile_cpu_time,
+		int tgid, int *quantile_cpu_time,
 		int *quantile_gpu_time, int *target_fpks, int *cooler_on);
 void fpsgo_ctrl2fstb_dfrc_fps(int dfrc_fps);
 int fpsgo_fbt2fstb_get_cam_active(void);
@@ -84,11 +83,10 @@ static inline int fpsgo_fbt2fstb_update_cpu_frame_info(
 	unsigned long long Q2Q_time,
 	long long Runnging_time,
 	unsigned int Curr_cap,
-	unsigned int Max_cap,
-	unsigned long long mid) { return 0; }
+	unsigned int Max_cap) { return 0; }
 static inline void fpsgo_fbt2fstb_query_fps(int pid,
 		int *target_fps, int *target_cpu_time, int *fps_margin,
-		int tgid, unsigned long long mid, int *quantile_cpu_time,
+		int tgid, int *quantile_cpu_time,
 		int *quantile_gpu_time, int *target_fpks, int *cooler_on) { }
 static void fpsgo_ctrl2fstb_dfrc_fps(int dfrc_fps) { }
 static int fpsgo_fbt2fstb_get_cam_active(void) { }

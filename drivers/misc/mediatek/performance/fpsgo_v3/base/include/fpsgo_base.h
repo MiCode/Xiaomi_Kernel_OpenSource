@@ -32,13 +32,6 @@ enum {
 	FPSGO_SET_ISOLATION = 4,
 };
 
-/* EARA job type */
-enum HW_EVENT4RENDER {
-	PER_FRAME = 0,
-	CRO_FRAME = 10,
-	BACKGROUND = 20
-};
-
 /* composite key for render_info rbtree */
 struct fbt_render_key {
 	int key1;
@@ -206,9 +199,6 @@ struct render_info {
 	unsigned long long linger_ts;
 	long long last_sched_runtime;
 	int avg_freq;
-
-	/*TODO: EARA mid list*/
-	unsigned long long mid;
 
 	struct mutex thr_mlock;
 	#if FPSGO_MW
