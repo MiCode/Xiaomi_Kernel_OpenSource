@@ -58,6 +58,11 @@ int aov_recovery_handler(struct npu_scp_ipi_param *recv_msg)
 	if (!recv_msg)
 		return -EINVAL;
 
+	if (!recovery_ctx) {
+		pr_info("%s aov-recovery ctx is not available\n", __func__);
+		return -ENODEV;
+	}
+
 	switch (recv_msg->act) {
 	case NPU_SCP_RECOVERY_ACK:
 		pr_info("%s Get NPU_SCP_RECOVERY_ACK\n", __func__); //debug

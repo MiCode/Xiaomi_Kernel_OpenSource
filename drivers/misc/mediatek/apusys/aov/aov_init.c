@@ -22,7 +22,7 @@
 
 #define MAX_DEBUG_CMD_SIZE (1024)
 
-#define APUSYS_AOV_KVERSION "v1.1.0.0-ko"
+#define APUSYS_AOV_KVERSION "v1.1.0.1-ko"
 
 #define STATE_TIMEOUT_MS (20)
 
@@ -31,6 +31,7 @@ struct apusys_aov_ctx {
 	struct device *dev;
 	struct completion comp;
 	struct npu_scp_ipi_param npu_scp_msg;
+	struct mutex scp_ipi_lock;
 	atomic_t response_arrived;
 	struct dentry *dbg_dir;
 	struct dentry *dbg_node;
@@ -311,6 +312,8 @@ int npu_scp_ipi_send(struct npu_scp_ipi_param *send_msg, struct npu_scp_ipi_para
 		return -ENODEV;
 	}
 
+	mutex_lock(&ctx->scp_ipi_lock);
+
 	atomic_set(&ctx->response_arrived, 0);
 
 	do {
@@ -324,29 +327,36 @@ int npu_scp_ipi_send(struct npu_scp_ipi_param *send_msg, struct npu_scp_ipi_para
 
 	if (ret != IPI_ACTION_DONE) {
 		dev_info(ctx->dev, "%s failed to send scp ipi, ret %d\n", __func__, ret);
-		return ret;
-	}
-
-	// wait npu_scp_ipi_callback
-	ret = wait_for_completion_timeout(&ctx->comp, msecs_to_jiffies(timeout_ms));
-	if (!ret) {
-		dev_info(ctx->dev, "%s wait for scp ipi timeout\n", __func__);
-		return -EFAULT;
-	}
-
-	if (!atomic_read(&ctx->response_arrived)) {
-		dev_info(ctx->dev, "%s No response\n", __func__);
-		return -ENODATA;
+		goto out;
 	}
 
 	if (ret_msg) {
+		// wait npu_scp_ipi_callback
+		ret = wait_for_completion_timeout(&ctx->comp, msecs_to_jiffies(timeout_ms));
+		if (!ret) {
+			dev_info(ctx->dev, "%s wait for scp ipi timeout\n", __func__);
+			ret = -EFAULT;
+			goto out;
+		}
+
+		if (!atomic_read(&ctx->response_arrived)) {
+			dev_info(ctx->dev, "%s No response\n", __func__);
+			ret = -ENODATA;
+			goto out;
+		}
+
 		ret_msg->cmd = ctx->npu_scp_msg.cmd;
 		ret_msg->act = ctx->npu_scp_msg.act;
 		ret_msg->arg = ctx->npu_scp_msg.arg;
 		ret_msg->ret = ctx->npu_scp_msg.ret;
 	}
 
-	return 0;
+	ret = 0;
+
+out:
+	mutex_unlock(&ctx->scp_ipi_lock);
+
+	return ret;
 }
 
 static int npu_scp_ipi_callback(unsigned int id, void *prdata, void *data, unsigned int len)
@@ -405,6 +415,7 @@ static int apusys_aov_probe(struct platform_device *pdev)
 
 	atomic_set(&ctx->aov_enabled, 0);
 	atomic_set(&ctx->response_arrived, 0);
+	mutex_init(&ctx->scp_ipi_lock);
 
 	init_completion(&ctx->comp);
 	ret = mtk_ipi_register(&scp_ipidev, IPI_IN_SCP_NPU, npu_scp_ipi_callback, ctx,

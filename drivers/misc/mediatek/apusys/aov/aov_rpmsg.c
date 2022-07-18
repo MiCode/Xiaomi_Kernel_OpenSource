@@ -97,8 +97,6 @@ static int apu_tx_thread(void *data)
 
 		/* If apu is recovering, skip sending to apu */
 		if (get_aov_recovery_state() == AOV_APU_RECOVERING) {
-			retry_cnt = 10;
-
 			do {
 				send_msg.cmd = NPU_SCP_NP_MDW;
 				send_msg.act = NPU_SCP_NP_MDW_ACK;
@@ -117,7 +115,7 @@ static int apu_tx_thread(void *data)
 
 		do {
 			ret = rpmsg_send(ctx->ept, &param, sizeof(param));
-			pr_info("%s rpmsg_send %d ret %d\n", __func__, param, ret);
+			pr_debug("%s rpmsg_send %d ret %d\n", __func__, param, ret);
 			/* send busy, retry */
 			if (ret == -EBUSY || ret == -EAGAIN) {
 				pr_info("%s: re-send ipi(retry_cnt = %d)\n", __func__, retry_cnt);
@@ -128,21 +126,21 @@ static int apu_tx_thread(void *data)
 			}
 		} while ((ret == -EBUSY || ret == -EAGAIN) && retry_cnt-- > 0);
 
-		if (ret)
+		if (ret) {
 			pr_info("%s Failed to send ipi to apu, ret %d\n", __func__, ret);
 
-		retry_cnt = 10;
+			retry_cnt = 10;
+			do {
+				send_msg.cmd = NPU_SCP_NP_MDW;
+				send_msg.act = NPU_SCP_NP_MDW_ACK;
+				send_msg.arg = MDW_SCP_IPI_BUSY;
 
-		do {
-			send_msg.cmd = NPU_SCP_NP_MDW;
-			send_msg.act = NPU_SCP_NP_MDW_ACK;
-			send_msg.arg = 0;
-
-			ret = npu_scp_ipi_send(&send_msg, NULL, MDW_TIMEOUT_MS);
-			if (ret)
-				pr_info("%s Failed to send ack to scp, ret %d, retry_cnt %d\n",
-					__func__, ret, retry_cnt);
-		} while (ret != 0 && retry_cnt-- > 0);
+				ret = npu_scp_ipi_send(&send_msg, NULL, MDW_TIMEOUT_MS);
+				if (ret)
+					pr_info("%s Failed to notify scp, ret %d, retry_cnt %d\n",
+						__func__, ret, retry_cnt);
+			} while (ret != 0 && retry_cnt-- > 0);
+		}
 	}
 
 	pr_info("%s end ---\n", __func__);
