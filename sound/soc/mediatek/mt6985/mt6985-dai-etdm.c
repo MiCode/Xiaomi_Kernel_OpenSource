@@ -348,6 +348,9 @@ static int etdm_lpbk_put(struct snd_kcontrol *kcontrol,
 	unsigned int val = 0;
 	unsigned int mask = 0;
 
+	if (value >= ARRAY_SIZE(etdm_lpbk_idx))
+		return -EINVAL;
+
 	if (!strcmp(kcontrol->id.name, "ETDM_LPBK_0")) {
 		reg = ETDM_0_3_COWORK_CON1;
 		mask = ETDM_IN1_SDATA0_SEL_MASK_SFT;
