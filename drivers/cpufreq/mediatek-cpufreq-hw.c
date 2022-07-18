@@ -158,12 +158,14 @@ static int mtk_cpufreq_hw_cpu_init(struct cpufreq_policy *policy)
 	cpu_dev = get_cpu_device(policy->cpu);
 	if (!cpu_dev) {
 		pr_info("failed to get cpu%d device\n", policy->cpu);
+		kfree(qos_request);
 		return -ENODEV;
 	}
 
 	c = mtk_freq_domain_map[policy->cpu];
 	if (!c) {
 		pr_info("No scaling support for CPU%d\n", policy->cpu);
+		kfree(qos_request);
 		return -ENODEV;
 	}
 
