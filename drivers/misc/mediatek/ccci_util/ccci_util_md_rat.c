@@ -397,7 +397,8 @@ int set_soc_md_rt_rat_str(char str[])
 	id = get_rat_id_by_bitmap(cap);
 
 	if (id == 0) {
-		pr_info("CCCI: %s: should not run to here. MD cap not in support list!\n");
+		pr_info("CCCI: %s: should not run to here. MD cap not in support list!\n",
+			__func__);
 		return -1;
 	}
 
