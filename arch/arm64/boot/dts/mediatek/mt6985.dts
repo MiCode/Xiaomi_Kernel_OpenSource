@@ -941,6 +941,11 @@
 			mcu-types = <0 0 0 0 0 1>;
 			infra-types = <2 2 2 2 1 0>;
 
+			/* offset of MST_XXX_LOG_RD0/SLV_XXX_LOG_WD0 for mcu bpm */
+			mcu-rd0wd0-offset = <0x0c 0x0c 0x0c 0x0c 0x0c 0x24>;
+
+			/* shift of parity fail bit in BUS_PARITY_FAIL for mcu bpm */
+			mcu-fail-bit-shift = <0 1 2 3 4 5>;
 			mcu-data-len = <4 4 4 4 4 2>;
 		};
 
