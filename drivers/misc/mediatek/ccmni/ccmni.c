@@ -1234,12 +1234,10 @@ static int ccmni_rx_callback(int ccmni_idx, struct sk_buff *skb,
 	} else {
 #ifdef ENABLE_WQ_GRO
 		if (is_skb_gro(skb)) {
-			preempt_disable();
 			spin_lock_bh(ccmni->spinlock);
 			napi_gro_receive(ccmni->napi, skb);
 			ccmni_gro_flush(ccmni);
 			spin_unlock_bh(ccmni->spinlock);
-			preempt_enable();
 		} else {
 			netif_rx_ni(skb);
 		}
@@ -1301,12 +1299,10 @@ static void ccmni_queue_state_callback(int ccmni_idx,
 	switch (state) {
 #ifdef ENABLE_WQ_GRO
 	case RX_FLUSH:
-		preempt_disable();
 		spin_lock_bh(ccmni->spinlock);
 		ccmni->rx_gro_cnt++;
 		napi_gro_list_flush(ccmni);
 		spin_unlock_bh(ccmni->spinlock);
-		preempt_enable();
 		break;
 #else
 	case RX_IRQ:
@@ -1393,6 +1389,7 @@ static void ccmni_md_state_callback(int ccmni_idx, enum MD_STATE state)
 	struct ccmni_instance *ccmni_tmp = NULL;
 	struct net_device *dev = NULL;
 	int i = 0;
+	unsigned long flags;
 
 	if (ccmni_idx < 0) {
 		pr_err("%s : invalid ccmni index = %d\n",
@@ -1421,9 +1418,9 @@ static void ccmni_md_state_callback(int ccmni_idx, enum MD_STATE state)
 			ccmni->flags[i] &= ~CCMNI_TX_PRINT_F;
 		}
 		ccmni->rx_seq_num = 0;
-		spin_lock_bh(ccmni->spinlock);
+		spin_lock_irqsave(ccmni->spinlock, flags);
 		ccmni->rx_gro_cnt = 0;
-		spin_unlock_bh(ccmni->spinlock);
+		spin_unlock_irqrestore(ccmni->spinlock, flags);
 		break;
 
 	case EXCEPTION:
