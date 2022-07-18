@@ -130,12 +130,6 @@ int apu_ipi_send(struct mtk_apu *apu, u32 id, void *data, u32 len,
 	unsigned long timeout;
 	int ret = 0;
 
-	if (!pm_runtime_enabled(apu->dev)) {
-		dev_info(dev, "%s(ipi %d): pm_runtime_enabled return false, return -EBUSY for retry\n",
-			__func__, id);
-		return -EBUSY;
-	}
-
 	ktime_get_ts64(&ts);
 
 	if ((!apu) || (id <= APU_IPI_INIT) ||
@@ -146,6 +140,11 @@ int apu_ipi_send(struct mtk_apu *apu, u32 id, void *data, u32 len,
 	dev = apu->dev;
 	ipi = &apu->ipi_desc[id];
 	hw_ops = &apu->platdata->ops;
+
+	if (!pm_runtime_enabled(dev)) {
+		dev_info(dev, "%s: rpm disabled, ipi=%d\n", __func__, id);
+		return -EBUSY;
+	}
 
 	mutex_lock(&apu->send_lock);
 
