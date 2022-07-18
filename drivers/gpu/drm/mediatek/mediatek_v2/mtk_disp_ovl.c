@@ -2006,8 +2006,17 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 					offset = mtk_crtc_state->mml_dst_roi.y << 16 |
 						 mtk_crtc_state->mml_dst_roi.x;
 			} else if (state->comp_state.layer_caps & MTK_DISP_RSZ_LAYER) {
-				offset = mtk_crtc_state->rsz_dst_roi.y << 16 |
-					 mtk_crtc_state->rsz_dst_roi.x;
+				if (comp->id == DDP_COMPONENT_OVL0_2L &&
+					comp->mtk_crtc->is_dual_pipe)
+					offset = mtk_crtc_state->rsz_dst_roi.y << 16 |
+						 mtk_crtc_state->rsz_param[0].out_x;
+				else if (comp->id == DDP_COMPONENT_OVL4_2L &&
+					comp->mtk_crtc->is_dual_pipe)
+					offset = mtk_crtc_state->rsz_dst_roi.y << 16 |
+						 mtk_crtc_state->rsz_param[1].out_x;
+				else
+					offset = mtk_crtc_state->rsz_dst_roi.y << 16 |
+						 mtk_crtc_state->rsz_dst_roi.x;
 			}
 		}
 		cmdq_pkt_write(handle, comp->cmdq_base,
@@ -2771,7 +2780,8 @@ static int _ovl_UFOd_in(struct mtk_ddp_comp *comp, int connect,
 	return 0;
 }
 
-static void _ovl_PQ_out(struct mtk_ddp_comp *comp, const bool connect, struct cmdq_pkt *handle)
+static void _ovl_PQ_out(struct mtk_ddp_comp *comp, const bool connect, struct cmdq_pkt *handle,
+				bool y2r)
 {
 	u32 value = 0, mask = 0;
 
@@ -2779,11 +2789,13 @@ static void _ovl_PQ_out(struct mtk_ddp_comp *comp, const bool connect, struct cm
 	if (connect) {
 		SET_VAL_MASK(value, mask, 0, DATAPATH_PQ_OUT_SEL); /* from RDMA0 */
 		SET_VAL_MASK(value, mask, 1, DISP_OVL_PQ_OUT_EN);
-		// SET_VAL_MASK(value, mask, 1, DISP_OVL_PQ_OUT_OPT);
+		if (y2r)
+			SET_VAL_MASK(value, mask, 1, DISP_OVL_PQ_OUT_OPT);
 		cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DISP_REG_OVL_DATAPATH_CON,
 			       value, mask);
 	} else {
 		SET_VAL_MASK(value, mask, 0, DISP_OVL_PQ_OUT_EN);
+		SET_VAL_MASK(value, mask, 0, DISP_OVL_PQ_OUT_OPT);
 		cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DISP_REG_OVL_DATAPATH_CON,
 			       value, mask);
 	}
@@ -2812,8 +2824,19 @@ static void _ovl_PQ_loop_set_size(struct mtk_ddp_comp *comp, struct cmdq_pkt *ha
 	u32 src, dst;
 
 	if (_src > 0) {
-		src = _src;
-		dst = mtk_crtc_state->rsz_dst_roi.height << 16 | mtk_crtc_state->rsz_dst_roi.width;
+		if (comp->id == DDP_COMPONENT_OVL0_2L && comp->mtk_crtc->is_dual_pipe) {
+			src = _src;
+			dst = mtk_crtc_state->rsz_dst_roi.height << 16 |
+				  mtk_crtc_state->rsz_param[0].out_len;
+		} else if (comp->id == DDP_COMPONENT_OVL4_2L && comp->mtk_crtc->is_dual_pipe) {
+			src = _src;
+			dst = mtk_crtc_state->rsz_dst_roi.height << 16 |
+				  mtk_crtc_state->rsz_param[1].out_len;
+		} else {
+			src = _src;
+			dst = mtk_crtc_state->rsz_dst_roi.height << 16 |
+				  mtk_crtc_state->rsz_dst_roi.width;
+		}
 	} else {
 		if (clip_w)
 			src = mtk_crtc_state->mml_src_roi[0].height << 16 | clip_w;
@@ -2903,18 +2926,25 @@ static void _mtk_ovl_embed_config(struct mtk_ddp_comp *comp, enum mtk_ddp_comp_i
 				  struct mtk_rect dst, struct cmdq_pkt *handle)
 {
 	if ((prev == DDP_COMPONENT_OVLSYS_RSZ1 && next == DDP_COMPONENT_OVLSYS_RSZ1) ||
-	    (prev == DDP_COMPONENT_OVLSYS_RSZ2 && next == DDP_COMPONENT_OVLSYS_RSZ2) ||
-	    (prev == DDP_COMPONENT_OVLSYS_Y2R0 && next == DDP_COMPONENT_OVLSYS_DLO_ASYNC0) ||
-	    (prev == DDP_COMPONENT_OVLSYS_Y2R2 && next == DDP_COMPONENT_OVLSYS_DLO_ASYNC7)) {
-		_ovl_PQ_out(comp, 1, handle);
+	    (prev == DDP_COMPONENT_OVLSYS_RSZ2 && next == DDP_COMPONENT_OVLSYS_RSZ2)) {
+		_ovl_PQ_out(comp, 1, handle, true);
+		_ovl_PQ_in(comp, 1, handle);
+
+		/* Need to check pq out size */
+		cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DISP_REG_OVL_PQ_LOOP_CON, 1,
+			       DISP_OVL_PQ_OUT_SIZE_SEL);
+	} else if ((prev == DDP_COMPONENT_OVLSYS_Y2R0 && next == DDP_COMPONENT_OVLSYS_DLO_ASYNC0) ||
+		  (prev == DDP_COMPONENT_OVLSYS_Y2R2 && next == DDP_COMPONENT_OVLSYS_DLO_ASYNC7)) {
+		_ovl_PQ_out(comp, 1, handle, false);
 		_ovl_PQ_in(comp, 1, handle);
 
 		/* Need to check pq out size */
 		cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DISP_REG_OVL_PQ_LOOP_CON, 1,
 			       DISP_OVL_PQ_OUT_SIZE_SEL);
 	} else {
-		_ovl_PQ_out(comp, 0, handle);
+		_ovl_PQ_out(comp, 0, handle, false);
 		_ovl_PQ_in(comp, 0, handle);
+
 		cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DISP_REG_OVL_PQ_LOOP_CON, 0,
 			       DISP_OVL_PQ_OUT_SIZE_SEL);
 	}
