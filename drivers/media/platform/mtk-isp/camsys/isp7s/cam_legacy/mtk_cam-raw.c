@@ -1386,7 +1386,13 @@ void trigger_vpui(struct mtk_raw_device *dev, struct mtk_cam_ctx *ctx)
 	cmd = TRIGGER_ADL;
 	dev_info(dev->dev, "apu frame mode %s, cmd:%d\n", __func__, cmd);
 
-	// vpu addr???
+	if (ctx->pipe->enabled_raw & 0x1)
+		writel_relaxed(0x1, dev->cam->base + 0x32c);
+	else if (ctx->pipe->enabled_raw & 0x2)
+		writel_relaxed(0x1 << 1 | 0x1, dev->cam->base + 0x32c);
+	else if (ctx->pipe->enabled_raw & 0x4)
+		writel_relaxed(0x2 << 1 | 0x1, dev->cam->base + 0x32c);
+
 	writel_relaxed(cmd, dev->base + REG_CTL_RAWI_TRIG);
 	wmb(); /* TBC */
 }
