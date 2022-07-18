@@ -534,8 +534,10 @@ void mtk_dp_inf_video_clock(struct mtk_dp_intf *dp_intf)
 	int ret = 0;
 	struct device_node *node;
 
-	if (dp_intf == NULL)
+	if (dp_intf == NULL) {
 		DDPPR_ERR("%s:input error\n", __func__);
+		return;
+	}
 
 	if (dp_intf->res >= SINK_MAX || dp_intf->res < 0) {
 		DDPPR_ERR("%s:input res error: %d\n", __func__, dp_intf->res);

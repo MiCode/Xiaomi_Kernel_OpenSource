@@ -177,7 +177,7 @@ static struct drm_plane_state *
 mtk_plane_duplicate_state(struct drm_plane *plane)
 {
 	struct mtk_plane_state *old_state = to_mtk_plane_state(plane->state);
-	struct mtk_plane_state *state;
+	struct mtk_plane_state *state = NULL;
 
 	state = kzalloc(sizeof(*state), GFP_KERNEL);
 	if (!state)
@@ -199,8 +199,10 @@ mtk_plane_duplicate_state(struct drm_plane *plane)
 				mtk_plane->plane_property[i]->base.id);
 		}
 
-		if (!state->base.plane)
+		if (!state->base.plane) {
+			kfree(state);
 			return NULL;
+		}
 	}
 
 	state->prop_val[PLANE_PROP_ALPHA_CON] =
