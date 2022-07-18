@@ -471,10 +471,10 @@ iommu_get_error:
 	}
 
 	/* polling IOMMU rpm state till active */
-	timeout = 5000;
+	timeout = 50000;
 	while ((!pm_runtime_active(apu->apu_iommu0) ||
 	       !pm_runtime_active(apu->apu_iommu1)) && timeout-- > 0)
-		msleep(20);
+		usleep_range(100, 200);
 	if (timeout <= 0) {
 		dev_info(apu->dev, "%s: polling iommu on timeout!!\n",
 			 __func__);
@@ -569,10 +569,10 @@ iommu_put_error:
 	}
 
 	/* polling IOMMU rpm state till suspended */
-	timeout = 5000;
+	timeout = 50000;
 	while ((!pm_runtime_suspended(apu->apu_iommu0) ||
 	       !pm_runtime_suspended(apu->apu_iommu1)) && timeout-- > 0)
-		msleep(20);
+		usleep_range(100, 200);
 	if (timeout <= 0) {
 		dev_info(apu->dev, "%s: polling iommu off timeout!!\n",
 			 __func__);
@@ -593,9 +593,9 @@ iommu_put_error:
 	}
 
 	/* polling APU TOP rpm state till suspended */
-	timeout = 500;
+	timeout = 50000;
 	while (!pm_runtime_suspended(apu->power_dev) && timeout-- > 0)
-		msleep(20);
+		usleep_range(100, 200);
 	if (timeout <= 0) {
 		dev_info(apu->dev, "%s: polling power off timeout!!\n",
 			 __func__);

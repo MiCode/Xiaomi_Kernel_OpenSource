@@ -40,7 +40,6 @@ enum {
 };
 
 struct apu_run {
-	//u32 signaled;
 	s8 fw_ver[APU_FW_VER_LEN];
 	u32 signaled;
 	wait_queue_head_t wq;
@@ -48,6 +47,7 @@ struct apu_run {
 
 struct apu_ipi_desc {
 	struct mutex lock;
+	ipi_top_handler_t top_handler;
 	ipi_handler_t handler;
 	void *priv;
 
@@ -67,7 +67,7 @@ struct mtk_share_obj {
 void apu_ipi_remove(struct mtk_apu *apu);
 int apu_ipi_init(struct platform_device *pdev, struct mtk_apu *apu);
 int apu_ipi_register(struct mtk_apu *apu, u32 id,
-		ipi_handler_t handler, void *priv);
+		ipi_top_handler_t top_handler, ipi_handler_t handler, void *priv);
 void apu_ipi_unregister(struct mtk_apu *apu, u32 id);
 int apu_ipi_send(struct mtk_apu *apu, u32 id, void *data, u32 len,
 		 u32 wait_ms);

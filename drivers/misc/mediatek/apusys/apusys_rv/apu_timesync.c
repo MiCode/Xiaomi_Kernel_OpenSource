@@ -47,7 +47,7 @@ int apu_timesync_init(struct mtk_apu *apu)
 
 	INIT_WORK(&apu->timesync_work, apu_timesync_work_func);
 
-	ret = apu_ipi_register(apu, APU_IPI_TIMESYNC, apu_timesync_handler,
+	ret = apu_ipi_register(apu, APU_IPI_TIMESYNC, NULL, apu_timesync_handler,
 			       apu);
 	if (ret) {
 		dev_info(apu->dev, "%s: failed to register IPI\n", __func__);

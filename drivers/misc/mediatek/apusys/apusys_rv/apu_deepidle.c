@@ -291,7 +291,7 @@ int apu_deepidle_init(struct mtk_apu *apu)
 	INIT_WORK(&apu->deepidle_work, apu_deepidle_work_func);
 #endif
 
-	ret = apu_ipi_register(apu, APU_IPI_DEEP_IDLE,
+	ret = apu_ipi_register(apu, APU_IPI_DEEP_IDLE, NULL,
 			       apu_deepidle_ipi_handler, apu);
 	if (ret) {
 		dev_info(dev,

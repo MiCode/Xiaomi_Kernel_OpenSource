@@ -385,7 +385,7 @@ int hw_logger_ipi_init(struct mtk_apu *apu)
 
 	g_apu = apu;
 
-	ret = apu_ipi_register(g_apu, APU_IPI_LOG_LEVEL,
+	ret = apu_ipi_register(g_apu, APU_IPI_LOG_LEVEL, NULL,
 			apu_hw_log_level_ipi_handler, NULL);
 	if (ret)
 		HWLOGR_ERR("Fail in hw_log_level_ipi_init\n");

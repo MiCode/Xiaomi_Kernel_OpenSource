@@ -282,10 +282,11 @@ void apu_ipi_unlock(struct mtk_apu *apu)
 }
 
 int apu_ipi_register(struct mtk_apu *apu, u32 id,
-		     ipi_handler_t handler, void *priv)
+		     ipi_top_handler_t top_handler, ipi_handler_t handler, void *priv)
 {
-	if (!apu || id >= APU_IPI_MAX || WARN_ON(handler == NULL)) {
-		if (apu != NULL)
+	if (!apu || id >= APU_IPI_MAX ||
+		WARN_ON(!top_handler && !handler)) {
+		if (apu)
 			dev_info(apu->dev,
 				"%s failed. apu=%p, id=%d, handler=%p, priv=%p\n",
 				__func__, apu, id, handler, priv);
@@ -296,6 +297,7 @@ int apu_ipi_register(struct mtk_apu *apu, u32 id,
 		 __func__, apu, id, handler, priv);
 
 	mutex_lock(&apu->ipi_desc[id].lock);
+	apu->ipi_desc[id].top_handler = top_handler;
 	apu->ipi_desc[id].handler = handler;
 	apu->ipi_desc[id].priv = priv;
 	mutex_unlock(&apu->ipi_desc[id].lock);
@@ -312,20 +314,22 @@ void apu_ipi_unregister(struct mtk_apu *apu, u32 id)
 	}
 
 	mutex_lock(&apu->ipi_desc[id].lock);
+	apu->ipi_desc[id].top_handler = NULL;
 	apu->ipi_desc[id].handler = NULL;
 	apu->ipi_desc[id].priv = NULL;
 	mutex_unlock(&apu->ipi_desc[id].lock);
 }
 
-static void apu_init_ipi_handler(void *data, unsigned int len, void *priv)
+static int apu_init_ipi_top_handler(void *data, unsigned int len, void *priv)
 {
 	struct mtk_apu *apu = priv;
 
 	strscpy(apu->run.fw_ver, data, APU_FW_VER_LEN);
 
 	apu->run.signaled = 1;
-	//apu->run.signaled = run->signaled; // signaled com from remote proc
 	wake_up_interruptible(&apu->run.wq);
+
+	return IRQ_HANDLED;
 }
 
 static irqreturn_t apu_ipi_handler(int irq, void *priv)
@@ -382,6 +386,8 @@ irqreturn_t apu_ipi_int_handler(int irq, void *priv)
 	u32 id, len, calc_csum;
 	bool finish = false;
 	uint32_t status;
+	ipi_top_handler_t top_handler;
+	int ret;
 
 	status = ioread32(apu->apu_mbox + 0xc4);
 	if (status != ((1 << APU_MBOX_HDR_SLOTS) - 1)) {
@@ -429,6 +435,14 @@ irqreturn_t apu_ipi_int_handler(int irq, void *priv)
 		apusys_rv_aee_warn("APUSYS_RV", "IPI rx csum error");
 	}
 
+	/* excute top handler if exist */
+	top_handler = apu->ipi_desc[id].top_handler;
+	if (top_handler) {
+		ret = top_handler(temp_buf, len, apu->ipi_desc[id].priv);
+		if (ret == IRQ_HANDLED)
+			return IRQ_HANDLED;
+	}
+
 	ktime_get_ts64(&apu->intr_ts);
 
 	return IRQ_WAKE_THREAD;
@@ -452,7 +466,7 @@ static int apu_register_ipi(struct platform_device *pdev, u32 id,
 {
 	struct mtk_apu *apu = platform_get_drvdata(pdev);
 
-	return apu_ipi_register(apu, id, handler, priv);
+	return apu_ipi_register(apu, id, NULL, handler, priv);
 }
 
 static void apu_unregister_ipi(struct platform_device *pdev, u32 id)
@@ -725,7 +739,7 @@ int apu_ipi_init(struct platform_device *pdev, struct mtk_apu *apu)
 	init_waitqueue_head(&apu->ack_wq);
 
 	/* APU initialization IPI register */
-	ret = apu_ipi_register(apu, APU_IPI_INIT, apu_init_ipi_handler, apu);
+	ret = apu_ipi_register(apu, APU_IPI_INIT, apu_init_ipi_top_handler, NULL, apu);
 	if (ret) {
 		dev_info(dev, "failed to register ipi for init, ret=%d\n",
 			ret);

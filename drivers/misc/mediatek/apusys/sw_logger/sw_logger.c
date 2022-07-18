@@ -243,7 +243,7 @@ int sw_logger_ipi_init(struct mtk_apu *apu)
 
 	g_apu = apu;
 
-	ret = apu_ipi_register(g_apu, APU_IPI_LOG_LEVEL,
+	ret = apu_ipi_register(g_apu, APU_IPI_LOG_LEVEL, NULL,
 			apu_sw_log_level_ipi_handler, NULL);
 	if (ret)
 		LOGGER_ERR("Fail in apu_sw_log_level_ipi_init\n");
