@@ -1463,20 +1463,24 @@ static int mtk_mipi_tx_pll_prepare_mt6886(struct clk_hw *hw)
 		DDPPR_ERR("data rate is too low\n");
 		return -EINVAL;
 	}
-	if (rate < 2500) {
+	if (rate < 2500)
 		mtk_mipi_tx_update_bits(mipi_tx, MIPITX_VOLTAGE_SEL_MT6983,
 			FLD_RG_DSI_PRD_REF_SEL, 0x0);
-		mtk_mipi_tx_update_bits(mipi_tx, MIPITX_PRESERVED_MT6983,
-			FLD_RD_DSI_PRESERVED0_BIT6, 0x1 << 6);
-	} else {
+	else
 		mtk_mipi_tx_update_bits(mipi_tx, MIPITX_VOLTAGE_SEL_MT6983,
 			FLD_RG_DSI_PRD_REF_SEL, 0x4);
-		mtk_mipi_tx_update_bits(mipi_tx, MIPITX_PRESERVED_MT6983,
-			FLD_RD_DSI_PRESERVED0_BIT6, 0x0);
-	}
 
-	mtk_mipi_tx_update_bits(mipi_tx, MIPITX_PRESERVED_MT6983,
-			FLD_RD_DSI_PRESERVED0_BIT5_4, 0x3 << 4);
+	if (rate > 2000)
+		mtk_mipi_tx_update_bits(mipi_tx, MIPITX_VOLTAGE_SEL_MT6983,
+			FLD_RG_DSI_V2I_REF_SEL, 0x4);
+	else if (rate > 1200)
+		mtk_mipi_tx_update_bits(mipi_tx, MIPITX_VOLTAGE_SEL_MT6983,
+			FLD_RG_DSI_V2I_REF_SEL, 0x2);
+	else
+		mtk_mipi_tx_update_bits(mipi_tx, MIPITX_VOLTAGE_SEL_MT6983,
+			FLD_RG_DSI_V2I_REF_SEL, 0x0);
+
+	writel(0x0, mipi_tx->regs + MIPITX_PRESERVED_MT6983);
 	writel(0x00FF12E0, mipi_tx->regs + MIPITX_PLL_CON4);
 	/* BG_LPF_EN / BG_CORE_EN */
 	writel(0x3FFF0180, mipi_tx->regs + MIPITX_LANE_CON_MT6983);
