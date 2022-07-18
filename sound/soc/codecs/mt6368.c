@@ -2617,7 +2617,7 @@ static int mt_adc_l_event(struct snd_soc_dapm_widget *w,
 		/* adc reset mechanism */
 		regmap_read(priv->regmap, MT6368_AUDENC_ANA_CON21, &rc_l);
 		dev_dbg(priv->dev, "%s(), rc_l = 0x%x\n", __func__, rc_l);
-		if (rc_l == 0x00 || rc_l == 0x1f) {
+		if (rc_l == 0x0 || rc_l == 0x1f) {
 			dev_info(priv->dev, "%s(), adc_l calibration fail, resetting...\n",
 				 __func__);
 			/* Disable audio L ADC */
@@ -2665,7 +2665,7 @@ static int mt_adc_r_event(struct snd_soc_dapm_widget *w,
 		/* adc reset mechanism */
 		regmap_read(priv->regmap, MT6368_AUDENC_ANA_CON22, &rc_r);
 		dev_dbg(priv->dev, "%s(), rc_r = 0x%x\n", __func__, rc_r);
-		if (rc_r == 0x00 || rc_r == 0x1f) {
+		if (rc_r == 0x0 || rc_r == 0x1f) {
 			dev_info(priv->dev, "%s(), adc_r calibration fail, resetting...\n",
 				 __func__);
 			/* Disable audio R ADC */
@@ -2702,11 +2702,35 @@ static int mt_adc_3_event(struct snd_soc_dapm_widget *w,
 {
 	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
 	struct mt6368_priv *priv = snd_soc_component_get_drvdata(cmpnt);
+	unsigned int rc_3 = 0;
 
 	dev_info(priv->dev, "%s(), event = 0x%x\n", __func__, event);
 
 	switch (event) {
 	case SND_SOC_DAPM_POST_PMU:
+		usleep_range(500, 520);
+
+		/* adc reset mechanism */
+		regmap_read(priv->regmap, MT6368_AUDENC_ANA_CON19, &rc_3);
+		dev_dbg(priv->dev, "%s(), rc_3 = 0x%x\n", __func__, rc_3);
+		if (rc_3 == 0x0 || rc_3 == 0x1f) {
+			dev_info(priv->dev, "%s(), adc_3 calibration fail, resetting...\n",
+				 __func__);
+			/* Disable audio 3 ADC */
+			regmap_update_bits(priv->regmap, MT6368_AUDENC_ANA_CON5,
+					   RG_AUDADC3PWRUP_MASK_SFT,
+					   0x0 << RG_AUDADC3PWRUP_SFT);
+			/* Enable audio 3 ADC */
+			regmap_update_bits(priv->regmap, MT6368_AUDENC_ANA_CON5,
+					   RG_AUDADC3PWRUP_MASK_SFT,
+					   0x1 << RG_AUDADC3PWRUP_SFT);
+		}
+
+		usleep_range(500, 520);
+		regmap_read(priv->regmap, MT6368_AUDENC_ANA_CON19, &rc_3);
+		dev_dbg(priv->dev, "%s(), after reset: rc_3 = 0x%x\n",
+			__func__, rc_3);
+
 		usleep_range(100, 120);
 		/* Audio the 3rd preamplifier DCC precharge off */
 		regmap_update_bits(priv->regmap, MT6368_AUDENC_ANA_CON4,
