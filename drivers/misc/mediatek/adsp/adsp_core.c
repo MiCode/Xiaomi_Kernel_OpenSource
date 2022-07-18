@@ -470,8 +470,8 @@ int adsp_reset(void)
 	unsigned int cid = 0;
 	struct adsp_priv *pdata;
 
-	if (!is_adsp_axibus_idle()) {
-		pr_info("%s, adsp_axibus busy try again", __func__);
+	if (!is_adsp_axibus_idle(&ret)) {
+		pr_info("%s, adsp_axibus busy:0x%x, try again", __func__, ret);
 		return -EAGAIN;
 	}
 

@@ -36,7 +36,7 @@ void adsp_mt_disable_wdt(u32 cid);
 void adsp_mt_toggle_semaphore(u32 bit);
 u32 adsp_mt_get_semaphore(u32 bit);
 bool check_hifi_status(u32 mask);
-bool is_adsp_axibus_idle(void);
+bool is_adsp_axibus_idle(u32 *backup);
 bool is_infrabus_timeout(void);
 
 void adsp_hardware_init(struct adspsys_priv *adspsys);

@@ -97,9 +97,14 @@ bool check_hifi_status(u32 mask)
 	return !!(readl(ADSP_SLEEP_STATUS_REG) & mask);
 }
 
-bool is_adsp_axibus_idle(void)
+bool is_adsp_axibus_idle(u32 *backup)
 {
-	return (readl(ADSP_DBG_PEND_CNT) == axibus_idle_val);
+	u32 value = readl(ADSP_DBG_PEND_CNT);
+
+	if (backup)
+		*backup = value;
+
+	return (value == axibus_idle_val);
 }
 
 bool is_infrabus_timeout(void)

@@ -25,6 +25,7 @@ const struct attribute_group *adsp_core_attr_groups[] = {
 };
 
 static int slb_memory_control(bool en);
+static u32 adsp_pending_cnt;
 
 int adsp_after_bootup(struct adsp_priv *pdata)
 {
@@ -43,6 +44,7 @@ EXPORT_SYMBOL(adsp_after_bootup);
 static bool is_adsp_core_suspend(struct adsp_priv *pdata)
 {
 	u32 status = 0;
+	u32 is_bus_idle = 0;
 
 	if (unlikely(!pdata))
 		return false;
@@ -52,8 +54,9 @@ static bool is_adsp_core_suspend(struct adsp_priv *pdata)
 				 &status, sizeof(status));
 
 	if (pdata->id == ADSP_A_ID) {
+		is_bus_idle = is_adsp_axibus_idle(&adsp_pending_cnt);
 		return check_hifi_status(ADSP_A_IS_WFI) &&
-		       (check_hifi_status(ADSP_AXI_BUS_IS_IDLE) || is_adsp_axibus_idle()) &&
+		       (check_hifi_status(ADSP_AXI_BUS_IS_IDLE) || is_bus_idle) &&
 		       (status == ADSP_SUSPEND);
 	} else { /* ADSP_B_ID */
 		return check_hifi_status(ADSP_B_IS_WFI) &&
@@ -73,9 +76,10 @@ static void show_adsp_core_suspend(struct adsp_priv *pdata)
 				 &status, sizeof(status));
 
 	if (pdata->id == ADSP_A_ID)
-		pr_info("%s(), IS_WFI(%d), IS_BUS_IDLE(%d), STATUS(%d)", __func__,
+		pr_info("%s(), IS_WFI(%d), IS_BUS_IDLE(%d), PENDING(0x%x), STATUS(%d)", __func__,
 			check_hifi_status(ADSP_A_IS_WFI),
 			check_hifi_status(ADSP_AXI_BUS_IS_IDLE),
+			adsp_pending_cnt,
 			status);
 	else /* ADSP_B_ID */
 		pr_info("%s(), IS_WFI(%d), STATUS(%d)", __func__,
@@ -118,7 +122,7 @@ int adsp_core0_suspend(void)
 			goto ERROR;
 		}
 
-		while (--retry && !is_adsp_core_suspend(pdata))
+		while (!is_adsp_core_suspend(pdata) && --retry)
 			usleep_range(100, 200);
 
 		if (retry == 0 || get_adsp_state(pdata) == ADSP_RESET) {
@@ -204,7 +208,7 @@ int adsp_core1_suspend(void)
 			goto ERROR;
 		}
 
-		while (--retry && !is_adsp_core_suspend(pdata))
+		while (!is_adsp_core_suspend(pdata) && --retry)
 			usleep_range(100, 200);
 
 		if (retry == 0 || get_adsp_state(pdata) == ADSP_RESET) {
