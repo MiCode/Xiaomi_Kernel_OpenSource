@@ -149,6 +149,11 @@ wait_for_warm_boot:
 					__func__, retry, (wait_ms/1000));
 				dev_info(dev, "APU warm boot timeout!!\n");
 				apu_regdump();
+				/*
+				 * since exception is triggered
+				 * so bypass power off timeout check
+				 */
+				apu->bypass_pwr_off_chk = true;
 				apusys_rv_aee_warn("APUSYS_RV",
 					"APUSYS_RV_TIMEOUT");
 				return -1;
@@ -165,6 +170,7 @@ wait_for_warm_boot:
 		if (ret == 0) {
 			dev_info(dev, "APU warm boot timeout!!\n");
 			apu_regdump();
+			apu->bypass_pwr_off_chk = true;
 			apusys_rv_aee_warn("APUSYS_RV",
 				"APUSYS_RV_TIMEOUT");
 			return -1;

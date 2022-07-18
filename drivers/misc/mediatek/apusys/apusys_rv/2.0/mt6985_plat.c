@@ -55,6 +55,11 @@ static void apu_timeout_work(struct work_struct *work)
 	struct mtk_apu *apu = g_apu;
 	struct device *dev = apu->dev;
 
+	if (apu->bypass_pwr_off_chk) {
+		dev_info(dev, "%s: skip aee\n", __func__);
+		return;
+	}
+
 	apu->bypass_pwr_off_chk = true;
 	apusys_rv_aee_warn("APUSYS_RV", "APUSYS_RV_POWER_OFF_TIMEOUT");
 }

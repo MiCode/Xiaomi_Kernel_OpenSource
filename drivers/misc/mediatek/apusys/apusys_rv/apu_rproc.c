@@ -86,6 +86,7 @@ static int __apu_run(struct rproc *rproc)
 		 * APUSYS_RV_BOOT_TIMEOUT to dump more info *
 		 */
 		apu_regdump();
+		apu->bypass_pwr_off_chk = true;
 		apusys_rv_aee_warn("APUSYS_RV", "APUSYS_RV_TIMEOUT");
 		goto stop;
 	}
