@@ -139,6 +139,8 @@ static const struct tdshp_data mt6985_tdshp_data = {
 
 static const struct tdshp_data mt6886_tdshp_data = {
 	.tile_width = 1300,
+	.gpr = {CMDQ_GPR_R08, CMDQ_GPR_R10},
+	.cpr = {CMDQ_CPR_MML_PQ0_ADDR, CMDQ_CPR_MML_PQ1_ADDR},
 	.reg_table = tdshp_reg_table_mt6983,
 };
 
