@@ -12,5 +12,5 @@
 #
 
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/
-obj-$(CONFIG_MTK_MMDVFS) += mtk-mmdvfs-debug.o
+obj-$(CONFIG_MTK_MMDVFS) += mtk-mmdvfs-ftrace.o mtk-mmdvfs-debug.o
 

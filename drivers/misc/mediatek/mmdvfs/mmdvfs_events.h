@@ -27,23 +27,39 @@ TRACE_EVENT(mmdvfs__record_opp_v1,
 		(unsigned long)__entry->opp)
 );
 
-TRACE_EVENT(mmdvfs__record_opp_v3,
-	TP_PROTO(unsigned long rec, unsigned long opp),
-	TP_ARGS(rec, opp),
+TRACE_EVENT(mmdvfs__pwr_opp_v3,
+	TP_PROTO(unsigned long pwr, unsigned long opp),
+	TP_ARGS(pwr, opp),
 	TP_STRUCT__entry(
-		__field(unsigned long, rec)
+		__field(unsigned long, pwr)
 		__field(unsigned long, opp)
 	),
 	TP_fast_assign(
-		__entry->rec = rec;
+		__entry->pwr = pwr;
 		__entry->opp = opp;
 	),
-	TP_printk("rec_%lu=%lu",
-		(unsigned long)__entry->rec,
+	TP_printk("pwr_%lu=%lu",
+		(unsigned long)__entry->pwr,
 		(unsigned long)__entry->opp)
 );
 
-TRACE_EVENT(mmdvfs__request_opp_v3,
+TRACE_EVENT(mmdvfs__user_opp_v3_vcore,
+	TP_PROTO(unsigned long user, unsigned long opp),
+	TP_ARGS(user, opp),
+	TP_STRUCT__entry(
+		__field(unsigned long, user)
+		__field(unsigned long, opp)
+	),
+	TP_fast_assign(
+		__entry->user = user;
+		__entry->opp = opp;
+	),
+	TP_printk("user_%lu=%lu",
+		(unsigned long)__entry->user,
+		(unsigned long)__entry->opp)
+);
+
+TRACE_EVENT(mmdvfs__user_opp_v3_vmm,
 	TP_PROTO(unsigned long user, unsigned long opp),
 	TP_ARGS(user, opp),
 	TP_STRUCT__entry(
