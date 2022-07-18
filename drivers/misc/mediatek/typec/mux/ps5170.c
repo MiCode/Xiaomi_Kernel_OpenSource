@@ -40,6 +40,7 @@ struct ps5170 {
 	struct work_struct set_dp_work;
 
 	enum typec_orientation orientation;
+	struct work_struct reconfig_dp_work;
 
 	atomic_t in_sleep;
 
@@ -50,6 +51,7 @@ struct ps5170 {
 	u32 vsv_vers;
 
 	uint8_t pin_assign;
+	u8 polarity;
 };
 
 #define ps5170_ORIENTATION_NONE                 0x80
@@ -82,7 +84,7 @@ void ps5170_vsvoter_set(struct ps5170 *ps)
 	val = ps->vsv_mask;
 
 	regmap_update_bits(ps->vsv, reg, msk, val);
-	dev_info(ps->dev, "%s set voter for vs %d\n", __func__);
+	dev_info(ps->dev, "%s set voter for vs\n", __func__);
 
 }
 
@@ -99,7 +101,7 @@ void ps5170_vsvoter_clr(struct ps5170 *ps)
 	val = ps->vsv_mask;
 
 	regmap_update_bits(ps->vsv, reg, msk, val);
-	dev_info(ps->dev, "%s clr voter for vs %d\n", __func__);
+	dev_info(ps->dev, "%s clr voter for vs\n", __func__);
 
 }
 
@@ -198,6 +200,7 @@ static int ps5170_set_conf(struct ps5170 *ps, u8 new_conf, u8 polarity)
 	mdelay(20);
 
 	ps->pin_assign = new_conf;
+	ps->polarity = polarity;
 
 	switch (new_conf) {
 	case 2:
@@ -312,6 +315,17 @@ static int ps5170_switch_set(struct typec_switch *sw,
  *  8 Pin Assignment D 2-lans
  * 32 Pin Assignment F 2-lans
  */
+
+static void ps5170_reconfig_dp_work(struct work_struct *data)
+{
+	struct ps5170 *ps = container_of(data, struct ps5170, reconfig_dp_work);
+
+	dev_info(ps->dev, "Reconfig DP channel, pin_assign = %d, polarity = %d.\n"
+				, ps->pin_assign, ps->polarity);
+
+	ps5170_set_conf(ps, ps->pin_assign, ps->polarity);
+
+}
 
 static void ps5170_mux_set_work(struct work_struct *data)
 {
@@ -503,6 +517,7 @@ static int ps5170_probe(struct i2c_client *client)
 
 	INIT_WORK(&ps->set_usb_work, ps5170_switch_set_work);
 	INIT_WORK(&ps->set_dp_work, ps5170_mux_set_work);
+	INIT_WORK(&ps->reconfig_dp_work, ps5170_reconfig_dp_work);
 
 	/* switch off after init done */
 	ps5170_switch_set(ps->sw, TYPEC_ORIENTATION_NONE);
@@ -557,12 +572,12 @@ static int ps5170_resume_noirq(struct device *dev)
 
 	atomic_set(&data->in_sleep, 0);
 
-	if (data->pin_assign)
-		schedule_work(&data->set_dp_work);
-	else
+	if (data->pin_assign) {
+		schedule_work(&data->reconfig_dp_work);
+	} else {
 		/* pull high en pin to enter normal mode */
 		pinctrl_select_state(data->pinctrl, data->enable);
-
+	}
 	return 0;
 }
 
