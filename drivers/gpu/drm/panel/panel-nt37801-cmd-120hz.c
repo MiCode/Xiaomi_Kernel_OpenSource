@@ -23,6 +23,8 @@
 #include <linux/of_graph.h>
 #include <linux/platform_device.h>
 
+#include "../../../misc/mediatek/gate_ic/gate_i2c.h"
+
 #define CONFIG_MTK_PANEL_EXT
 #if defined(CONFIG_MTK_PANEL_EXT)
 #include "../mediatek/mediatek_v2/mtk_panel_ext.h"
@@ -246,7 +248,7 @@ static void lcm_panel_init(struct lcm *ctx)
 	lcm_dcs_write_seq_static(ctx, 0x26, 0x00);
 
 	lcm_dcs_write_seq_static(ctx, 0x11);
-	msleep(120);
+	msleep(140);
 	lcm_dcs_write_seq_static(ctx, 0x29);
 }
 
@@ -319,6 +321,7 @@ static int lcm_unprepare(struct drm_panel *panel)
 		devm_gpiod_put(ctx->dev, ctx->bias_pos);
 	}
 #endif
+	_gate_ic_Power_off();
 
 	return 0;
 }
@@ -330,6 +333,8 @@ static int lcm_prepare(struct drm_panel *panel)
 
 	if (ctx->prepared)
 		return 0;
+
+	_gate_ic_Power_on();
 
 #if defined(CONFIG_RT5081_PMU_DSV) || defined(CONFIG_MT6370_PMU_DSV)
 	lcm_panel_bias_enable();
@@ -468,7 +473,7 @@ static int lcm_setbacklight_cmdq(void *dsi, dcs_write_gce cb,
 }
 
 static struct mtk_panel_params ext_params = {
-	.pll_clk = 625,
+	.pll_clk = 600,
 	.vfp_low_power = 16,
 	.cust_esd_check = 0,
 	.esd_check_enable = 0,
@@ -513,7 +518,7 @@ static struct mtk_panel_params ext_params = {
 		.rc_tgt_offset_hi = 3,
 		.rc_tgt_offset_lo = 3,
 		},
-	.data_rate = 1250,
+	.data_rate = 1200,
 };
 
 static struct mtk_panel_funcs ext_funcs = {
