@@ -52,8 +52,7 @@ static int mt_irq_dump_status_buf(unsigned int irq, char *buf)
 		goto OUT;
 
 	arm_smccc_smc(MTK_SIP_KERNEL_GIC_DUMP,
-			hwirq, 0, 0, 0, 0, 0, 0, &res);
-
+			0, hwirq, 0, 0, 0, 0, 0, &res);
 	if (res.a0 == 0) {
 		num += snprintf(ptr + num, PAGE_SIZE - num,
 				"[mt gic dump] not allowed to dump!\n");
