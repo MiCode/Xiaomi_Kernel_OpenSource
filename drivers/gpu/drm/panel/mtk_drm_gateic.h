@@ -24,13 +24,17 @@
 #define DO_LCM_KZALLOC(buf, size, flag, debug) \
 do { \
 	buf = kzalloc(roundup(size, 4), flag); \
-	if (buf != NULL) \
+	if (buf != NULL && IS_ERR_VALUE((unsigned long)buf)) {\
+		kfree(buf); \
+		buf = NULL; \
+	} else if (buf != NULL) { \
 		mtk_lcm_total_size += roundup(size, 4); \
-	if (debug == 1 && buf != NULL) \
-		pr_notice("%s, %d, buf:0x%lx, size:%u, align:%u, flag:0x%x\n", \
-			__func__, __LINE__, (unsigned long)buf, \
-			(unsigned int)size, (unsigned int)roundup(size, 4), \
-			(unsigned int)flag); \
+		if (debug == 1) \
+			pr_notice("%s, %d, buf:0x%lx, size:%u, align:%u, flag:0x%x\n", \
+				__func__, __LINE__, (unsigned long)buf, \
+				(unsigned int)size, (unsigned int)roundup(size, 4), \
+				(unsigned int)flag); \
+	} \
 } while (0)
 
 #define LCM_KZALLOC(buf, size, flag) DO_LCM_KZALLOC(buf, size, flag, 0)

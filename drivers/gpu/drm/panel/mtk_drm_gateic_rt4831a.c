@@ -65,7 +65,7 @@ static int rt4831a_push_i2c_data(unsigned char *table, unsigned int size,
 					*(table + i * 2 + 1));
 
 		if (ret < 0) {
-			DDPPR_ERR("%s, failed of i2c write, i:%u addr:0x%x, unit:0x%x\n",
+			DDPDBG("%s, failed of i2c write, i:%u addr:0x%x, unit:0x%x\n",
 				__func__, i, *(table + i * unit), unit);
 			break;
 		}
@@ -122,7 +122,7 @@ static int rt4831a_set_backlight(unsigned int level)
 	rt4831a_update_backlight_table(level, &table[0][0], size, unit);
 	ret = rt4831a_push_i2c_data(&table[0][0], size, unit);
 	if (ret < 0)
-		DDPMSG("%s: ERROR %d!! i2c write data fail 0x%0x, 0x%0x !!\n",
+		DDPDBG("%s: ERROR %d!! i2c write data fail 0x%0x, 0x%0x !!\n",
 				__func__, ret, table[0][1], table[1][1]);
 
 	ctx_rt4831a.backlight_level = level;
@@ -165,7 +165,7 @@ static int rt4831a_enable_backlight(void)
 
 	ret = rt4831a_push_i2c_data(&table[0][0], size, unit);
 	if (ret < 0)
-		DDPPR_ERR("%s, failed to push backlight table, mode:%u, ret:%d\n",
+		DDPDBG("%s, failed to push backlight table, mode:%u, ret:%d\n",
 			__func__, ctx_rt4831a.backlight_mode, ret);
 
 	//DDPMSG("%s--, %d\n", __func__, ret);

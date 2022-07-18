@@ -135,7 +135,7 @@ static void parse_lcm_dsi_spr_params(struct device_node *np,
 		pp = of_find_property(spr_np, "spr_ip_cfg", &len);
 		if (pp != NULL && len > 0) {
 			LCM_KZALLOC(spr_params->spr_ip_params, len, GFP_KERNEL);
-			if (IS_ERR_OR_NULL(spr_params->spr_ip_params)) {
+			if (spr_params->spr_ip_params == NULL) {
 				DDPPR_ERR("%s, %d, failed to allocate spr_ip_params, %d\n",
 					__func__, __LINE__, len);
 				return;
@@ -523,7 +523,7 @@ static void parse_lcm_dsi_round_corner_dtsi(
 	pp = of_find_property(rc_np, "left_top", &rc_len);
 	if (pp != NULL && rc_len > 0) {
 		LCM_KZALLOC(ext_param->corner_pattern_lt_addr, rc_len, GFP_KERNEL);
-		if (IS_ERR_OR_NULL(ext_param->corner_pattern_lt_addr)) {
+		if (ext_param->corner_pattern_lt_addr == NULL) {
 			DDPPR_ERR("%s, %d, failed to allocate rc_lt, %d\n",
 				__func__, __LINE__, rc_len);
 			return;
@@ -565,7 +565,7 @@ static void parse_lcm_dsi_round_corner_dtsi(
 	if (pp != NULL && rc_len > 0) {
 		LCM_KZALLOC(ext_param->corner_pattern_lt_addr_l,
 				rc_len, GFP_KERNEL);
-		if (IS_ERR_OR_NULL(ext_param->corner_pattern_lt_addr_l)) {
+		if (ext_param->corner_pattern_lt_addr_l == NULL) {
 			DDPPR_ERR("%s, %d, failed to allocate rc_lt_l, %d\n",
 				__func__, __LINE__, rc_len);
 			return;
@@ -584,7 +584,7 @@ static void parse_lcm_dsi_round_corner_dtsi(
 	if (pp != NULL && rc_len > 0) {
 		LCM_KZALLOC(ext_param->corner_pattern_lt_addr_r,
 				rc_len, GFP_KERNEL);
-		if (IS_ERR_OR_NULL(ext_param->corner_pattern_lt_addr_r)) {
+		if (ext_param->corner_pattern_lt_addr_r == NULL) {
 			DDPPR_ERR("%s, %d, failed to allocate rc_lt_r, %d\n",
 				__func__, __LINE__, rc_len);
 			return;
@@ -837,7 +837,7 @@ static int parse_lcm_dsi_msync_min_fps_list(struct device_node *np,
 	mode_node->msync_min_fps_count = 0;
 
 	LCM_KZALLOC(table_dts_buf, table_dts_size, GFP_KERNEL);
-	if (IS_ERR_OR_NULL(table_dts_buf)) {
+	if (table_dts_buf == NULL)  {
 		DDPPR_ERR("%s, %d, failed to allocate dts buffer\n", __func__, __LINE__);
 		return -ENOMEM;
 	}
@@ -868,7 +868,7 @@ static int parse_lcm_dsi_msync_min_fps_list(struct device_node *np,
 		LCM_KZALLOC(node,
 			sizeof(struct mtk_lcm_msync_min_fps_switch),
 			GFP_KERNEL);
-		if (IS_ERR_OR_NULL(node)) {
+		if (node == NULL) {
 			DDPPR_ERR("%s, %d, failed to allocate msync min fps node\n",
 				__func__, __LINE__);
 			ret = -ENOMEM;
@@ -887,7 +887,7 @@ static int parse_lcm_dsi_msync_min_fps_list(struct device_node *np,
 		}
 
 		LCM_KZALLOC(node->data, node->count, GFP_KERNEL);
-		if (IS_ERR_OR_NULL(node->data)) {
+		if (node->data == NULL) {
 			DDPPR_ERR("%s, %d, failed to allocate msync min fps data\n",
 				__func__, __LINE__);
 			LCM_KFREE(node, sizeof(struct mtk_lcm_msync_min_fps_switch));
@@ -965,7 +965,7 @@ static void parse_lcm_dsi_msync_cmd_table(struct device_node *np,
 		/* read level_id */
 		LCM_KZALLOC(level_id, multi_te_tb_count * sizeof(unsigned int),
 				GFP_KERNEL);
-		if (IS_ERR_OR_NULL(level_id)) {
+		if (level_id == NULL) {
 			DDPPR_ERR("%s, %d, failed to allocate level_id\n",
 				__func__, __LINE__);
 			goto end;
@@ -980,7 +980,7 @@ static void parse_lcm_dsi_msync_cmd_table(struct device_node *np,
 		/* read level_fps */
 		LCM_KZALLOC(level_fps, multi_te_tb_count * sizeof(unsigned int),
 				GFP_KERNEL);
-		if (IS_ERR_OR_NULL(level_fps)) {
+		if (level_fps == NULL) {
 			DDPPR_ERR("%s, %d, failed to allocate level_fps\n",
 				__func__, __LINE__);
 			goto end;
@@ -995,7 +995,7 @@ static void parse_lcm_dsi_msync_cmd_table(struct device_node *np,
 		/* read max_fps */
 		LCM_KZALLOC(max_fps, multi_te_tb_count * sizeof(unsigned int),
 				GFP_KERNEL);
-		if (IS_ERR_OR_NULL(max_fps)) {
+		if (max_fps == NULL) {
 			DDPPR_ERR("%s, %d, failed to allocate max_fps\n",
 				__func__, __LINE__);
 			goto end;
@@ -1010,7 +1010,7 @@ static void parse_lcm_dsi_msync_cmd_table(struct device_node *np,
 		/* read min_fps */
 		LCM_KZALLOC(min_fps, multi_te_tb_count * sizeof(unsigned int),
 				GFP_KERNEL);
-		if (IS_ERR_OR_NULL(min_fps)) {
+		if (min_fps == NULL) {
 			DDPPR_ERR("%s, %d, failed to allocate min_fps\n",
 				__func__, __LINE__);
 			goto end;
@@ -1260,7 +1260,7 @@ int parse_lcm_params_dsi(struct device_node *np,
 	if (len > 0) {
 		LCM_KZALLOC(params->lcm_pinctrl_name, len *
 				MTK_LCM_NAME_LENGTH, GFP_KERNEL);
-		if (IS_ERR_OR_NULL(params->lcm_pinctrl_name)) {
+		if (params->lcm_pinctrl_name == NULL) {
 			DDPPR_ERR("%s, %d, failed to allocate lcm_pinctrl_names\n",
 				__func__, __LINE__);
 			return -ENOMEM;
@@ -1293,7 +1293,7 @@ int parse_lcm_params_dsi(struct device_node *np,
 	}
 	LCM_KZALLOC(mode, params->mode_count *
 		MTK_LCM_MODE_UNIT * sizeof(u32), GFP_KERNEL);
-	if (IS_ERR_OR_NULL(mode)) {
+	if (mode == NULL) {
 		DDPMSG("%s, failed to allocate mode buffer\n", __func__);
 		return -ENOMEM;
 	}
@@ -1324,6 +1324,11 @@ int parse_lcm_params_dsi(struct device_node *np,
 				LCM_KZALLOC(mode_node,
 					sizeof(struct mtk_lcm_mode_dsi),
 					GFP_KERNEL);
+				if (mode_node == NULL) {
+					DDPMSG("%s, failed to allocate mode buffer\n", __func__);
+					return -ENOMEM;
+				}
+
 				mode_node->id = id;
 				mode_node->width = width;
 				mode_node->height = height;
@@ -1386,7 +1391,7 @@ int parse_lcm_ops_dsi(struct device_node *np,
 #ifdef MTK_PANEL_SUPPORT_COMPARE_ID
 	LCM_KZALLOC(ops->compare_id_value_data,
 		MTK_PANEL_COMPARE_ID_LENGTH, GFP_KERNEL);
-	if (IS_ERR_OR_NULL(ops->compare_id_value_data)) {
+	if (ops->compare_id_value_data == NULL) {
 		DDPPR_ERR("%s,%d: failed to allocate compare id data\n",
 			__func__, __LINE__);
 		return -ENOMEM;
@@ -1456,7 +1461,7 @@ int parse_lcm_ops_dsi(struct device_node *np,
 
 	LCM_KZALLOC(ops->ata_id_value_data,
 			MTK_PANEL_ATA_ID_LENGTH, GFP_KERNEL);
-	if (IS_ERR_OR_NULL(ops->ata_id_value_data)) {
+	if (ops->ata_id_value_data == NULL) {
 		DDPPR_ERR("%s,%d: failed to allocate ata id data\n",
 			__func__, __LINE__);
 		return -ENOMEM;

@@ -73,7 +73,7 @@ int mtk_lcm_dts_read_u8_array_from_u32(struct device_node *np, char *prop,
 		return 0;
 
 	LCM_KZALLOC(data, sizeof(u32) * max_len, GFP_KERNEL);
-	if (IS_ERR_OR_NULL(data)) {
+	if (data == NULL) {
 		DDPMSG("%s, failed to allocate buffer\n", __func__);
 		return -ENOMEM;
 	}
@@ -266,7 +266,7 @@ static int parse_lcm_ops_func_cmd(struct mtk_lcm_ops_data *lcm_op, u8 *dts,
 				flag_len;
 		LCM_KZALLOC(lcm_op->param.buf_data.data,
 				lcm_op->param.buf_data.data_len + 1, GFP_KERNEL);
-		if (IS_ERR_OR_NULL(lcm_op->param.buf_data.data)) {
+		if (lcm_op->param.buf_data.data == NULL) {
 			DDPPR_ERR("%s,%d: failed to allocate data\n",
 				__func__, __LINE__);
 			return -ENOMEM;
@@ -287,7 +287,7 @@ static int parse_lcm_ops_func_cmd(struct mtk_lcm_ops_data *lcm_op, u8 *dts,
 				flag_len - 2;
 		LCM_KZALLOC(lcm_op->param.buf_con_data.data,
 				lcm_op->param.buf_con_data.data_len + 1, GFP_KERNEL);
-		if (IS_ERR_OR_NULL(lcm_op->param.buf_con_data.data)) {
+		if (lcm_op->param.buf_con_data.data == NULL) {
 			DDPPR_ERR("%s,%d: failed to allocate data\n",
 				__func__, __LINE__);
 			return -ENOMEM;
@@ -317,7 +317,7 @@ static int parse_lcm_ops_func_cmd(struct mtk_lcm_ops_data *lcm_op, u8 *dts,
 		lcm_op->param.buf_runtime_data.id_len = dts[flag_off + 1];
 		LCM_KZALLOC(lcm_op->param.buf_runtime_data.id,
 			lcm_op->param.buf_runtime_data.id_len + 1, GFP_KERNEL);
-		if (IS_ERR_OR_NULL(lcm_op->param.buf_runtime_data.id)) {
+		if (lcm_op->param.buf_runtime_data.id == NULL) {
 			DDPPR_ERR("%s,%d: failed to allocate id, %u\n",
 				__func__, __LINE__, lcm_op->param.buf_runtime_data.id_len);
 			return -ENOMEM;
@@ -333,7 +333,7 @@ static int parse_lcm_ops_func_cmd(struct mtk_lcm_ops_data *lcm_op, u8 *dts,
 			lcm_op->param.buf_runtime_data.id_len + 2];
 		LCM_KZALLOC(lcm_op->param.buf_runtime_data.data,
 			lcm_op->param.buf_runtime_data.data_len + 1, GFP_KERNEL);
-		if (IS_ERR_OR_NULL(lcm_op->param.buf_runtime_data.data)) {
+		if (lcm_op->param.buf_runtime_data.data == NULL) {
 			DDPPR_ERR("%s,%d: failed to allocate data, %u\n",
 				__func__, __LINE__, lcm_op->param.buf_runtime_data.data_len);
 			return -ENOMEM;
@@ -355,7 +355,7 @@ static int parse_lcm_ops_func_cmd(struct mtk_lcm_ops_data *lcm_op, u8 *dts,
 		lcm_op->param.cmd_data.tx_len = lcm_op->size - flag_len - 1;
 		LCM_KZALLOC(lcm_op->param.cmd_data.tx_data,
 				lcm_op->param.cmd_data.tx_len + 1, GFP_KERNEL);
-		if (IS_ERR_OR_NULL(lcm_op->param.cmd_data.tx_data)) {
+		if (lcm_op->param.cmd_data.tx_data == NULL) {
 			DDPPR_ERR("%s,%d: failed to allocate data\n",
 				__func__, __LINE__);
 			return -ENOMEM;
@@ -378,7 +378,7 @@ static int parse_lcm_ops_func_cmd(struct mtk_lcm_ops_data *lcm_op, u8 *dts,
 				lcm_op->size - flag_len - 2;
 		LCM_KZALLOC(lcm_op->param.cmd_data.tx_data,
 				lcm_op->param.cmd_data.tx_len + 1, GFP_KERNEL);
-		if (IS_ERR_OR_NULL(lcm_op->param.cmd_data.tx_data)) {
+		if (lcm_op->param.cmd_data.tx_data == NULL) {
 			DDPPR_ERR("%s,%d: failed to allocate data\n",
 				__func__, __LINE__);
 			return -ENOMEM;
@@ -676,7 +676,7 @@ static int parse_lcm_ops_dt_node(struct device_node *np,
 					"mediatek,lcm-ops-dbi")) {
 				LCM_KZALLOC(ops->dbi_ops,
 					sizeof(struct mtk_lcm_ops_dbi), GFP_KERNEL);
-				if (IS_ERR_OR_NULL(ops->dbi_ops)) {
+				if (ops->dbi_ops == NULL) {
 					DDPMSG("%s, %d, failed\n", __func__, __LINE__);
 					return -ENOMEM;
 				}
@@ -695,7 +695,7 @@ static int parse_lcm_ops_dt_node(struct device_node *np,
 					"mediatek,lcm-ops-dpi")) {
 				LCM_KZALLOC(ops->dpi_ops,
 					sizeof(struct mtk_lcm_ops_dpi), GFP_KERNEL);
-				if (IS_ERR_OR_NULL(ops->dpi_ops)) {
+				if (ops->dpi_ops == NULL) {
 					DDPMSG("%s, %d, failed\n", __func__, __LINE__);
 					return -ENOMEM;
 				}
@@ -713,7 +713,7 @@ static int parse_lcm_ops_dt_node(struct device_node *np,
 					"mediatek,lcm-ops-dsi")) {
 				LCM_KZALLOC(ops->dsi_ops,
 					sizeof(struct mtk_lcm_ops_dsi), GFP_KERNEL);
-				if (IS_ERR_OR_NULL(ops->dsi_ops)) {
+				if (ops->dsi_ops == NULL) {
 					DDPMSG("%s, %d, failed\n", __func__, __LINE__);
 					return -ENOMEM;
 				}
@@ -950,7 +950,8 @@ static void mtk_get_type_name(unsigned int type, char *out)
 		    type < MTK_LCM_CUST_TYPE_END)
 			ret = snprintf(name, MTK_LCM_NAME_LENGTH - 1,
 				"CUST-%d", type);
-		ret = snprintf(name, MTK_LCM_NAME_LENGTH - 1,
+		else
+			ret = snprintf(name, MTK_LCM_NAME_LENGTH - 1,
 				"unknown");
 		break;
 	}
@@ -1202,7 +1203,7 @@ int mtk_lcm_create_input_packet(struct mtk_lcm_ops_input_packet *input,
 		LCM_KZALLOC(input->condition,
 			sizeof(struct mtk_lcm_ops_input) *
 			condition_count, GFP_KERNEL);
-		if (IS_ERR_OR_NULL(input->condition)) {
+		if (input->condition == NULL) {
 			DDPMSG("%s, %d, failed to allocate condition\n",
 				__func__, __LINE__);
 			return -ENOMEM;
@@ -1216,7 +1217,7 @@ int mtk_lcm_create_input_packet(struct mtk_lcm_ops_input_packet *input,
 		LCM_KZALLOC(input->data,
 			sizeof(struct mtk_lcm_ops_input) *
 			data_count, GFP_KERNEL);
-		if (IS_ERR_OR_NULL(input->data)) {
+		if (input->data == NULL) {
 			DDPMSG("%s, %d, failed to allocate data\n",
 				__func__, __LINE__);
 			if (condition_count > 0) {
@@ -1238,7 +1239,7 @@ EXPORT_SYMBOL(mtk_lcm_create_input_packet);
 
 void mtk_lcm_destroy_input_packet(struct mtk_lcm_ops_input_packet *input)
 {
-	if (IS_ERR_OR_NULL(input))
+	if (input == NULL)
 		return;
 
 	if (input->data_count > 0) {
@@ -1268,7 +1269,7 @@ int mtk_lcm_create_input(struct mtk_lcm_ops_input *input,
 		return -EINVAL;
 
 	LCM_KZALLOC(input->data, data_len, GFP_KERNEL);
-	if (IS_ERR_OR_NULL(input->data)) {
+	if (input->data == NULL) {
 		DDPMSG("%s, %d, failed to allocate input data\n",
 			__func__, __LINE__);
 		return -ENOMEM;
@@ -1282,7 +1283,7 @@ EXPORT_SYMBOL(mtk_lcm_create_input);
 
 void mtk_lcm_destroy_input(struct mtk_lcm_ops_input *input)
 {
-	if (IS_ERR_OR_NULL(input) || input->length == 0)
+	if (input == NULL || input->length == 0)
 		return;
 
 	LCM_KFREE(input->data, input->length);
@@ -1381,7 +1382,8 @@ static int mtk_lcm_create_operation_group(struct mtk_panel_para_table *group,
 {
 	struct mtk_lcm_ops_data *op = NULL;
 	size_t size = 0;
-	unsigned int id = 0, index = 0;
+	unsigned int id = 0;
+	int index = 0;
 
 	if (IS_ERR_OR_NULL(group)) {
 		DDPMSG("%s, %d, invalid group\n",
@@ -1532,7 +1534,7 @@ int mtk_panel_execute_callback(void *dsi, dcs_write_gce cb,
 		case MTK_LCM_CMD_TYPE_WRITE_BUFFER_RUNTIME_INPUT:
 			size = op->param.buf_runtime_data.data_len;
 			LCM_KZALLOC(buf, size, GFP_KERNEL);
-			if (IS_ERR_OR_NULL(buf)) {
+			if (buf == NULL) {
 				DDPPR_ERR("%s,%d: owner:%s failed to allocate buf\n",
 					__func__, __LINE__, owner);
 				ret = -ENOMEM;
@@ -1596,7 +1598,7 @@ int mtk_panel_execute_callback_group(void *dsi, dcs_grp_write_gce cb,
 
 	LCM_KZALLOC(group, sizeof(struct mtk_panel_para_table) *
 		table->size, GFP_KERNEL);
-	if (IS_ERR_OR_NULL(group)) {
+	if (group == NULL) {
 		DDPPR_ERR("%s:owner:%s failed to allocate group, count:%u\n",
 			__func__, owner, table->size);
 		return -ENOMEM;
@@ -1700,9 +1702,9 @@ static int mtk_lcm_init_ddic_packet(struct mtk_lcm_dsi_cmd_packet *packet,
 	struct mtk_lcm_ops_data **op_end)
 {
 	struct mtk_lcm_ops_data *op = NULL;
-	unsigned int prop = 0, len = 0, index = 0;
+	unsigned int prop = 0, len = 0;
 	unsigned int cmd_size = 0, cmdq_size = 0, cmdq_size_cur = 0;
-	int ret = 0;
+	int ret = 0, index = 0;
 
 	if (IS_ERR_OR_NULL(packet)) {
 		DDPMSG("%s, %d, invalid packet\n",
@@ -1722,11 +1724,14 @@ static int mtk_lcm_init_ddic_packet(struct mtk_lcm_dsi_cmd_packet *packet,
 		unsigned char *buf = NULL;
 
 		LCM_KZALLOC(cmd, sizeof(struct mtk_lcm_dsi_cmd), GFP_KERNEL);
-		if (IS_ERR_OR_NULL(cmd)) {
+		if (cmd == NULL) {
 			DDPMSG("%s,%d: failed to allocate cmd\n",
 				__func__, __LINE__);
 			return -ENOMEM;
 		}
+		cmd->msg.rx_len = 0;
+		cmd->msg.tx_len = 0;
+		cmd->tx_free = false;
 
 		switch (op->type) {
 		case MTK_LCM_CMD_TYPE_READ_BUFFER:
@@ -1813,7 +1818,7 @@ static int mtk_lcm_init_ddic_packet(struct mtk_lcm_dsi_cmd_packet *packet,
 			}
 
 			LCM_KZALLOC(buf, 1, GFP_KERNEL);
-			if (IS_ERR_OR_NULL(buf)) {
+			if (buf == NULL) {
 				DDPPR_ERR("%s,%d: failed to allocate buf\n",
 					__func__, __LINE__);
 				ret = -ENOMEM;
@@ -1842,7 +1847,7 @@ static int mtk_lcm_init_ddic_packet(struct mtk_lcm_dsi_cmd_packet *packet,
 		{
 			cmd->msg.tx_len = op->param.cmd_data.tx_len + 1;
 			LCM_KZALLOC(buf, cmd->msg.tx_len, GFP_KERNEL);
-			if (IS_ERR_OR_NULL(buf)) {
+			if (buf == NULL) {
 				DDPPR_ERR("%s,%d: failed to allocate buf\n",
 					__func__, __LINE__);
 				ret = -ENOMEM;
@@ -1895,7 +1900,7 @@ static int mtk_lcm_init_ddic_packet(struct mtk_lcm_dsi_cmd_packet *packet,
 		{
 			len = op->param.buf_runtime_data.data_len;
 			LCM_KZALLOC(buf, len, GFP_KERNEL);
-			if (IS_ERR_OR_NULL(buf)) {
+			if (buf == NULL) {
 				DDPPR_ERR("%s,%d: failed to allocate buf\n",
 					__func__, __LINE__);
 				ret = -ENOMEM;
@@ -1936,10 +1941,14 @@ static int mtk_lcm_init_ddic_packet(struct mtk_lcm_dsi_cmd_packet *packet,
 		    cmd->msg.rx_len == 0) || ret < 0 ||
 		    cmdq_size_cur > (128 - cmdq_size)) {
 #if MTK_LCM_DEBUG_DUMP
-			DDPMSG("%s, %d, stop packet tx:%u,rx:%u,ret:%d,sz:%u,cmdqsz:%u\n",
-				__func__, __LINE__, cmd->msg.tx_len,
-				cmd->msg.rx_len, ret, cmd_size, cmdq_size);
+			DDPMSG(
+				"%s/%d: stop packet tx:%u,rx:%u,ret:%d,sz:%u,cmdqsz:%u,tx_free:%d\n",
+				__func__, __LINE__, cmd->msg.tx_len, cmd->msg.rx_len,
+				ret, cmd_size, cmdq_size, cmd->msg.tx_free);
 #endif
+			if (cmd->tx_free == true &&
+				cmd->msg.tx_buf != NULL)
+				LCM_KFREE(cmd->msg.tx_buf, cmd->msg.tx_len);
 			LCM_KFREE(cmd, sizeof(struct mtk_lcm_dsi_cmd));
 			cmd = NULL;
 			break;
@@ -2007,7 +2016,7 @@ int mtk_execute_func_ddic_package(struct mipi_dsi_device *dsi,
 
 	LCM_KZALLOC(packet, sizeof(struct mtk_lcm_dsi_cmd_packet),
 			GFP_KERNEL);
-	if (IS_ERR_OR_NULL(packet)) {
+	if (packet == NULL) {
 		DDPPR_ERR("%s,%d: failed to allocate buf\n",
 			__func__, __LINE__);
 		return -ENOMEM;
@@ -2101,7 +2110,7 @@ int mtk_execute_func_ddic_cmd(void *dev,
 	case MTK_LCM_CMD_TYPE_WRITE_BUFFER_RUNTIME_INPUT:
 		size = lcm_op->param.buf_runtime_data.data_len;
 		LCM_KZALLOC(buf, size, GFP_KERNEL);
-		if (IS_ERR_OR_NULL(buf)) {
+		if (buf == NULL) {
 			DDPPR_ERR("%s,%d: failed to allocate buf\n",
 				__func__, __LINE__);
 			return -ENOMEM;

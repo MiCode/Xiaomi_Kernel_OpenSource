@@ -28,7 +28,7 @@ static int mtk_drm_lcm_dsi_init_ctx(void)
 	if (IS_ERR_OR_NULL(ctx_dsi)) {
 		LCM_KZALLOC(ctx_dsi,
 			sizeof(struct mtk_panel_context), GFP_KERNEL);
-		if (IS_ERR_OR_NULL(ctx_dsi)) {
+		if (ctx_dsi == NULL) {
 			DDPPR_ERR("%s, %d, failed to allocate ctx\n", __func__, __LINE__);
 			return -ENOMEM;
 		}
@@ -37,7 +37,7 @@ static int mtk_drm_lcm_dsi_init_ctx(void)
 	if (IS_ERR_OR_NULL(ctx_dsi->panel_resource)) {
 		LCM_KZALLOC(ctx_dsi->panel_resource,
 			sizeof(struct mtk_panel_resource), GFP_KERNEL);
-		if (IS_ERR_OR_NULL(ctx_dsi->panel_resource)) {
+		if (ctx_dsi->panel_resource == NULL) {
 			DDPPR_ERR("%s: failed to allocate panel resource\n", __func__);
 			return -ENOMEM;
 		}

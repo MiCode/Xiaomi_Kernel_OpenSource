@@ -346,6 +346,8 @@ static int simple_cust_funcs(struct drm_panel *panel,
 			return -EINVAL;
 		ret = snprintf(data->name, MTK_LCM_NAME_LENGTH - 1,
 			"%s", cust_params.name);
+		if (ret < 0 || ret >= MTK_LCM_NAME_LENGTH)
+			DDPMSG("%s, %d, snprintf failed\n", __func__, __LINE__);
 		break;
 	case LCM_CUST_CMD_GET_TYPE:
 		data->type = cust_params.type;

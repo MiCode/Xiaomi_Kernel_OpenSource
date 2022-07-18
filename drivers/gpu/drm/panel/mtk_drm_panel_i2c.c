@@ -3,6 +3,7 @@
  * Copyright (c) 2021 MediaTek Inc.
  */
 
+#include <linux/ratelimit.h>
 #include "mtk_drm_gateic.h"
 
 /* i2c control start */
@@ -15,9 +16,10 @@ struct mtk_panel_i2c_dev {
 
 int mtk_panel_i2c_write_bytes(unsigned char addr, unsigned char value)
 {
-	int ret = 0;
+	static DEFINE_RATELIMIT_STATE(write_ratelimit, 1 * HZ, 1);
 	struct i2c_client *client = mtk_panel_i2c_client;
 	char write_data[2] = { 0 };
+	int ret = 0;
 
 	if (client == NULL) {
 		DDPPR_ERR("%s: ERROR!! client is null\n", __func__);
@@ -30,9 +32,11 @@ int mtk_panel_i2c_write_bytes(unsigned char addr, unsigned char value)
 	write_data[0] = addr;
 	write_data[1] = value;
 	ret = i2c_master_send(client, write_data, 2);
-	if (ret < 0)
-		DDPPR_ERR("%s: ERROR write 0x%x with 0x%x fail %d\n",
+	if (ret < 0) {
+		if (__ratelimit(&write_ratelimit))
+			DDPPR_ERR("%s: ERROR write 0x%x with 0x%x fail %d\n",
 			__func__, addr, value, ret);
+	}
 
 	return ret;
 }
@@ -41,8 +45,9 @@ EXPORT_SYMBOL(mtk_panel_i2c_write_bytes);
 int mtk_panel_i2c_read_bytes(unsigned char addr, unsigned char *returnData)
 {
 	char cmd_buf[2] = { 0x00, 0x00 };
-	int ret = 0;
+	static DEFINE_RATELIMIT_STATE(read_ratelimit, 1 * HZ, 1);
 	struct i2c_client *client = mtk_panel_i2c_client;
+	int ret = 0;
 
 	if (client == NULL) {
 		DDPPR_ERR("%s: ERROR!! mtk_panel_i2c_client is null\n", __func__);
@@ -52,9 +57,11 @@ int mtk_panel_i2c_read_bytes(unsigned char addr, unsigned char *returnData)
 	cmd_buf[0] = addr;
 	ret = i2c_master_send(client, &cmd_buf[0], 1);
 	ret = i2c_master_recv(client, &cmd_buf[1], 1);
-	if (ret < 0)
-		DDPPR_ERR("%s: ERROR read 0x%x fail %d\n",
-			__func__, addr, ret);
+	if (ret < 0) {
+		if (__ratelimit(&read_ratelimit))
+			DDPPR_ERR("%s: ERROR read 0x%x fail %d\n",
+				__func__, addr, ret);
+	}
 
 	*returnData = cmd_buf[1];
 
@@ -65,9 +72,10 @@ EXPORT_SYMBOL(mtk_panel_i2c_read_bytes);
 int mtk_panel_i2c_write_multiple_bytes(unsigned char addr, unsigned char *value,
 		unsigned int size)
 {
-	int ret = 0, i = 0;
 	struct i2c_client *client = mtk_panel_i2c_client;
+	static DEFINE_RATELIMIT_STATE(writes_ratelimit, 1 * HZ, 1);
 	char *write_data = NULL;
+	int ret = 0, i = 0;
 
 	if (client == NULL) {
 		DDPPR_ERR("%s: ERROR!! mtk_panel_i2c_client is null\n", __func__);
@@ -89,8 +97,11 @@ int mtk_panel_i2c_write_multiple_bytes(unsigned char addr, unsigned char *value,
 		write_data[i + 1] = value[i];
 
 	ret = i2c_master_send(client, write_data, size + 1);
-	if (ret < 0)
-		DDPPR_ERR("%s: ERROR i2c write 0x%x fail %d\n", __func__, ret, addr);
+	if (ret < 0) {
+		if (__ratelimit(&writes_ratelimit))
+			DDPPR_ERR("%s: ERROR i2c write 0x%x fail %d\n",
+				__func__, ret, addr);
+	}
 
 	kfree(write_data);
 	write_data = NULL;
