@@ -603,13 +603,6 @@ static void sysmon_stop(struct rproc_subdev *subdev, bool crashed)
 	trace_rproc_qcom_event(dev_name(sysmon->rproc->dev.parent), SYSMON_SUBDEV_NAME,
 			       crashed ? "crash stop" : "stop");
 
-	if (sysmon->ssr_subdev) {
-		ssr = container_of(sysmon->ssr_subdev, struct qcom_rproc_ssr, subdev);
-		if (!ssr->is_notified)
-			qcom_notify_early_ssr_clients(sysmon->ssr_subdev);
-		ssr->is_notified = false;
-	}
-
 	sysmon->shutdown_acked = false;
 
 	mutex_lock(&sysmon->state_lock);
@@ -636,6 +629,12 @@ static void sysmon_stop(struct rproc_subdev *subdev, bool crashed)
 		sysmon->shutdown_acked = sysmon_request_shutdown(sysmon);
 
 	del_timer_sync(&sysmon->timeout_data.timer);
+	if (sysmon->ssr_subdev && sysmon->shutdown_acked) {
+		ssr = container_of(sysmon->ssr_subdev, struct qcom_rproc_ssr, subdev);
+		if (!ssr->is_notified)
+			qcom_notify_early_ssr_clients(sysmon->ssr_subdev);
+		ssr->is_notified = false;
+	}
 }
 
 static void sysmon_unprepare(struct rproc_subdev *subdev)
