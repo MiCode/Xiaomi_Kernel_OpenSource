@@ -772,14 +772,14 @@ static void s5k3m5sx_set_test_pattern_data(struct subdrv_ctx *ctx, u8 *para, u32
 {
 	struct mtk_test_pattern_data *data = (struct mtk_test_pattern_data *)para;
 	u16 R = (data->Channel_R >> 22) & 0x3ff;
-	u16 Gr = (data->Channel_R >> 22) & 0x3ff;
-	u16 Gb = (data->Channel_R >> 22) & 0x3ff;
-	u16 B = (data->Channel_R >> 22) & 0x3ff;
+	u16 Gr = (data->Channel_Gr >> 22) & 0x3ff;
+	u16 Gb = (data->Channel_Gb >> 22) & 0x3ff;
+	u16 B = (data->Channel_B >> 22) & 0x3ff;
 
 	subdrv_i2c_wr_u16(ctx, 0x0602, R);
 	subdrv_i2c_wr_u16(ctx, 0x0604, Gr);
-	subdrv_i2c_wr_u16(ctx, 0x0606, Gb);
-	subdrv_i2c_wr_u16(ctx, 0x0608, B);
+	subdrv_i2c_wr_u16(ctx, 0x0606, B);
+	subdrv_i2c_wr_u16(ctx, 0x0608, Gb);
 
 	DRV_LOG(ctx, "mode(%u) R/Gr/Gb/B = 0x%04x/0x%04x/0x%04x/0x%04x\n",
 		ctx->test_pattern, R, Gr, Gb, B);
