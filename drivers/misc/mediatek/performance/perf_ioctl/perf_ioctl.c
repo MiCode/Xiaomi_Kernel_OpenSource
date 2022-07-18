@@ -7,8 +7,6 @@
 
 #define TAG "PERF_IOCTL"
 
-#define MAX_STEP 10
-
 void (*fpsgo_notify_qudeq_fp)(int qudeq,
 		unsigned int startend,
 		int pid, unsigned long long identifier);
