@@ -235,6 +235,60 @@ hwv_prepare_fail:
 	return;
 }
 
+static int mtk_clk_ipi_mux_enable(struct clk_hw *hw)
+{
+	struct mtk_clk_mux *mux = to_mtk_clk_mux(hw);
+	struct ipi_callbacks *cb;
+	u32 val;
+	int ret = 0;
+
+	cb = mtk_clk_get_ipi_cb();
+
+	if (cb && cb->clk_enable) {
+		ret = cb->clk_enable(mux->data->ipi_shift);
+		if (ret) {
+			regmap_read(mux->regmap, mux->data->mux_ofs, &val);
+			pr_err("Failed to send enable ipi to VCP %s: 0x%x(%d)\n",
+					clk_hw_get_name(hw), val, ret);
+			goto err;
+		}
+	}
+
+	return 0;
+err:
+	mtk_clk_notify(mux->regmap, mux->hwv_regmap, clk_hw_get_name(hw),
+			mux->data->mux_ofs, (mux->data->hwv_set_ofs / MTK_HWV_ID_OFS),
+			mux->data->gate_shift, CLK_EVT_IPI_CG_TIMEOUT);
+	return ret;
+}
+
+static void mtk_clk_ipi_mux_disable(struct clk_hw *hw)
+{
+	struct mtk_clk_mux *mux = to_mtk_clk_mux(hw);
+	struct ipi_callbacks *cb;
+	u32 val;
+	int ret = 0;
+
+	cb = mtk_clk_get_ipi_cb();
+
+	if (cb && cb->clk_disable) {
+		ret = cb->clk_disable(mux->data->ipi_shift);
+		if (ret) {
+			regmap_read(mux->regmap, mux->data->mux_ofs, &val);
+			pr_err("Failed to send disable ipi to VCP %s: 0x%x(%d)\n",
+					clk_hw_get_name(hw), val, ret);
+			goto err;
+		}
+	}
+
+	return;
+
+err:
+	mtk_clk_notify(mux->regmap, mux->hwv_regmap, clk_hw_get_name(hw),
+			mux->data->mux_ofs, (mux->data->hwv_set_ofs / MTK_HWV_ID_OFS),
+			mux->data->gate_shift, CLK_EVT_IPI_CG_TIMEOUT);
+}
+
 static u8 mtk_clk_mux_get_parent(struct clk_hw *hw)
 {
 	struct mtk_clk_mux *mux = to_mtk_clk_mux(hw);
@@ -346,6 +400,17 @@ const struct clk_ops mtk_hwv_mux_ops = {
 	.set_parent = mtk_clk_mux_set_parent_setclr_upd_lock,
 };
 EXPORT_SYMBOL_GPL(mtk_hwv_mux_ops);
+
+const struct clk_ops mtk_ipi_mux_ops = {
+	.prepare = mtk_clk_ipi_mux_enable,
+	.unprepare = mtk_clk_ipi_mux_disable,
+	.enable = mtk_clk_hwv_mux_enable,
+	.disable = mtk_clk_hwv_mux_disable,
+	.is_enabled = mtk_clk_mux_is_enabled,
+	.get_parent = mtk_clk_mux_get_parent,
+	.set_parent = mtk_clk_mux_set_parent_setclr_upd_lock,
+};
+EXPORT_SYMBOL_GPL(mtk_ipi_mux_ops);
 
 static struct clk *mtk_clk_register_mux(const struct mtk_mux *mux,
 				 struct regmap *regmap,

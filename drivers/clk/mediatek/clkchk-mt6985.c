@@ -29,13 +29,9 @@
 #define CHECK_VCORE_FREQ		1
 #define CG_CHK_PWRON_ENABLE		0
 
-#define HWV_ADDR_HISTORY_0_2		0x1F04
-#define HWV_DATA_HISTORY_0_2		0x1F44
-#define HWV_IDX_POINTER_2		0x1F84
-#define HWV_DOMAIN_KEY_2		0x155C
 #define HWV_DOMAIN_KEY			0x055C
 #define HWV_SECURE_KEY			0x10907
-#define HWV_CG_SET(id)			(0x0 + (id * 0x8))
+#define HWV_CG_SET(xpu, id)		((0x200 * (xpu)) + (id * 0x8))
 #define HWV_CG_STA(id)			(0x1800 + (id * 0x4))
 #define HWV_CG_EN(id)			(0x1900 + (id * 0x4))
 #define HWV_CG_SET_STA(id)		(0x1A00 + (id * 0x4))
@@ -58,6 +54,24 @@ static DEFINE_SPINLOCK(trace_lock);
 static unsigned int clk_event[EVT_LEN];
 static unsigned int evt_cnt;
 static bool trace_dump_flag;
+
+/* xpu*/
+enum {
+	APMCU = 0,
+	MD,
+	SSPM,
+	MMUP,
+	SCP,
+	XPU_NUM,
+};
+
+static u32 xpu_id[XPU_NUM] = {
+	[APMCU] = 0,
+	[MD] = 2,
+	[SSPM] = 4,
+	[MMUP] = 7,
+	[SCP] = 9,
+};
 
 /* imgsys */
 enum {
@@ -595,6 +609,12 @@ static struct regname rn[] = {
 	REGNAME(semi, 0x8c, EMI_RDY1),
 	/* HWV register */
 	REGNAME(hwv_wrt, 0x055C, HWV_DOMAIN_KEY),
+	REGNAME(hwv, 0x0194, HW_CCF_AP_PLL_SET),
+	REGNAME(hwv, 0x0994, HW_CCF_SSPM_PLL_SET),
+	REGNAME(hwv, 0x0F94, HW_CCF_MMUP_PLL_SET),
+	REGNAME(hwv_ext, 0x0394, HW_CCF_SCP_PLL_SET),
+	REGNAME(hwv_ext, 0x0400, HW_CCF_PLL_ENABLE),
+	REGNAME(hwv_ext, 0x040C, HW_CCF_PLL_DONE),
 	REGNAME(hwv, 0x0198, HW_CCF_AP_MTCMOS_SET),
 	REGNAME(hwv, 0x0998, HW_CCF_SSPM_MTCMOS_SET),
 	REGNAME(hwv, 0x0F98, HW_CCF_MMUP_MTCMOS_SET),
@@ -1083,33 +1103,41 @@ static bool is_pll_chk_bug_on(void)
 	return false;
 }
 
+static enum chk_sys_id history_dump_id[] = {
+	top,
+	apmixed,
+	hwv,
+	hwv_ext,
+	chk_sys_num,
+};
+
 static void dump_hwv_history(struct regmap *regmap, u32 id)
 {
-	u32 addr[16] = {0}, val[16] = {0};
-	u32 idx = 0, set = 0, sta = 0, set_sta = 0, clr_sta = 0, en = 0, done = 0;
+	u32 set[XPU_NUM] = {0}, sta = 0, set_sta = 0, clr_sta = 0, en = 0, done = 0;
 	int i;
 
-	regmap_write(regmap, HWV_DOMAIN_KEY_2, HWV_SECURE_KEY);
-	regmap_read(regmap, HWV_CG_SET(id), &set);
+	set_subsys_reg_dump_mt6985(history_dump_id);
+	for (i = 0; i < XPU_NUM; i++)
+		regmap_read(regmap, HWV_CG_SET(xpu_id[i], id), &set[i]);
+
+	release_hwv_secure();
 	regmap_read(regmap, HWV_CG_STA(id), &sta);
 	regmap_read(regmap, HWV_CG_SET_STA(id), &set_sta);
 	regmap_read(regmap, HWV_CG_CLR_STA(id), &clr_sta);
 	regmap_read(regmap, HWV_CG_EN(id), &en);
 	regmap_read(regmap, HWV_CG_DONE(id), &done);
 
-	for (i = 0; i < 16; i++) {
-		regmap_read(regmap, HWV_ADDR_HISTORY_0_2 + (0x4 * i), addr + i);
-		regmap_read(regmap, HWV_DATA_HISTORY_0_2 + (0x4 * i), val + i);
-	}
-	regmap_read(regmap, HWV_IDX_POINTER_2, &idx);
-	pr_notice("idx: 0x%x\n", idx);
-	pr_notice("[%d](%x)%x, (%x)%x, (%x)%x, (%x)%x, (%x)%x, (%x)%x\n",
-			id, HWV_CG_SET(id), set, HWV_CG_STA(id), sta,
-			HWV_CG_SET_STA(id), set_sta, HWV_CG_CLR_STA(id), clr_sta,
-			HWV_CG_EN(id), en, HWV_CG_DONE(id), done);
+	for (i = 0; i < XPU_NUM; i++)
+		pr_notice("set: (%x)%x", HWV_CG_SET(xpu_id[i], id), set[i]);
+	pr_notice("[%d] (%x)%x, (%x)%x, (%x)%x, (%x)%x, (%x)%x\n",
+			id,
+			HWV_CG_STA(id), sta,
+			HWV_CG_SET_STA(id), set_sta,
+			HWV_CG_CLR_STA(id), clr_sta,
+			HWV_CG_EN(id), en,
+			HWV_CG_DONE(id), done);
 
-	for (i = 0; i < 16; i++)
-		pr_notice("[%d]addr: 0x%x, data: 0x%x\n", i, addr[i], val[i]);
+	get_subsys_reg_dump_mt6985();
 }
 
 static enum chk_sys_id bus_dump_id[] = {
@@ -1123,7 +1151,6 @@ static void get_bus_reg(void)
 
 static void dump_bus_reg(struct regmap *regmap, u32 ofs)
 {
-	get_subsys_reg_dump_mt6985();
 	set_subsys_reg_dump_mt6985(bus_dump_id);
 	get_subsys_reg_dump_mt6985();
 	/* sspm need some time to run isr */

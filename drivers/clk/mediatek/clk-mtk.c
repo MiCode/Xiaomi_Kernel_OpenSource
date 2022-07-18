@@ -22,6 +22,7 @@
 #include "clk-gate.h"
 
 static ATOMIC_NOTIFIER_HEAD(mtk_clk_notifier_list);
+static struct ipi_callbacks *g_clk_cb;
 
 int register_mtk_clk_notifier(struct notifier_block *nb)
 {
@@ -53,6 +54,18 @@ int mtk_clk_notify(struct regmap *regmap, struct regmap *hwv_regmap,
 	return 0;
 }
 EXPORT_SYMBOL_GPL(mtk_clk_notify);
+
+void mtk_clk_register_ipi_callback(struct ipi_callbacks *clk_cb)
+{
+	g_clk_cb = clk_cb;
+}
+EXPORT_SYMBOL_GPL(mtk_clk_register_ipi_callback);
+
+struct ipi_callbacks *mtk_clk_get_ipi_cb(void)
+{
+	return g_clk_cb;
+}
+EXPORT_SYMBOL_GPL(mtk_clk_get_ipi_cb);
 
 struct clk_onecell_data *mtk_alloc_clk_data(unsigned int clk_num)
 {

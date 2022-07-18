@@ -648,6 +648,7 @@ static int clkchk_evt_handling(struct notifier_block *nb,
 
 	switch (clkd->event_type) {
 	case CLK_EVT_HWV_CG_TIMEOUT:
+	case CLK_EVT_IPI_CG_TIMEOUT:
 		clkchk_dump_hwv_history(clkd->hwv_regmap, clkd->id);
 		clkchk_dump_bus_reg(clkd->regmap, clkd->ofs);
 		break;

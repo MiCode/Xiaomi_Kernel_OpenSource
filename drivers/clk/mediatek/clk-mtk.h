@@ -38,6 +38,7 @@ enum clk_evt_type {
 	CLK_EVT_HWV_PLL_TIMEOUT = 3,
 	CLK_EVT_CLK_TRACE = 4,
 	CLK_EVT_TRIGGER_TRACE_DUMP = 5,
+	CLK_EVT_IPI_CG_TIMEOUT = 6,
 	CLK_EVT_NUM,
 };
 
@@ -280,6 +281,11 @@ struct mtk_pll_data {
 	uint8_t pll_en_bit;
 };
 
+struct ipi_callbacks {
+	int (*clk_enable)(const u8 clk_idx);
+	int (*clk_disable)(const u8 clk_idx);
+};
+
 void mtk_clk_register_plls(struct device_node *node,
 		const struct mtk_pll_data *plls, int num_plls,
 		struct clk_onecell_data *clk_data);
@@ -305,5 +311,7 @@ extern int register_mtk_clk_notifier(struct notifier_block *nb);
 extern int unregister_mtk_clk_notifier(struct notifier_block *nb);
 extern int mtk_clk_notify(struct regmap *regmap, struct regmap *hwv_regmap,
 		const char *name, u32 ofs, u32 id, u32 shift, int event_type);
+extern void mtk_clk_register_ipi_callback(struct ipi_callbacks *clk_cb);
+extern struct ipi_callbacks *mtk_clk_get_ipi_cb(void);
 
 #endif /* __DRV_CLK_MTK_H */
