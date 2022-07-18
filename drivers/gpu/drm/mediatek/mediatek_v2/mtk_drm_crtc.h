@@ -378,6 +378,7 @@ enum MTK_CRTC_PROP {
 	CRTC_PROP_MSYNC2_0_ENABLE,
 	CRTC_PROP_OVL_DSI_SEQ,
 	CRTC_PROP_OUTPUT_SCENARIO,
+	CRTC_PROP_CAPS_BLOB_ID,
 	CRTC_PROP_MAX,
 };
 
@@ -767,6 +768,7 @@ struct mtk_drm_crtc {
 	bool wb_enable;
 	bool wb_hw_enable;
 
+	struct mtk_drm_crtc_caps crtc_caps;
 	const struct mtk_crtc_path_data *path_data;
 	struct mtk_crtc_ddp_ctx dual_pipe_ddp_ctx;
 	bool is_dual_pipe;
@@ -1077,7 +1079,7 @@ int mtk_drm_crtc_set_panel_hbm(struct drm_crtc *crtc, bool en);
 int mtk_drm_crtc_hbm_wait(struct drm_crtc *crtc, bool en);
 
 unsigned int mtk_get_mmsys_id(struct drm_crtc *crtc);
-
+int mtk_crtc_ability_chk(struct mtk_drm_crtc *mtk_crtc, enum MTK_CRTC_ABILITY ability);
 unsigned int *mtk_get_gce_backup_slot_va(struct mtk_drm_crtc *mtk_crtc,
 			unsigned int slot_index);
 

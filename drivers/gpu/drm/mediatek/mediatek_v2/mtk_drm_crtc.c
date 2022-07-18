@@ -92,6 +92,8 @@ static struct mtk_drm_property mtk_crtc_property[CRTC_PROP_MAX] = {
 	{DRM_MODE_PROP_ATOMIC, "MSYNC2_0_ENABLE", 0, UINT_MAX, 0},
 	{DRM_MODE_PROP_ATOMIC, "OVL_DSI_SEQ", 0, UINT_MAX, 0},
 	{DRM_MODE_PROP_ATOMIC, "OUTPUT_SCENARIO", 0, UINT_MAX, 0},
+	{DRM_MODE_PROP_ATOMIC | DRM_MODE_PROP_IMMUTABLE,
+						"CAPS_BLOB_ID", 0, UINT_MAX, 0},
 };
 
 static struct cmdq_pkt *sb_cmdq_handle;
@@ -10608,6 +10610,30 @@ static const struct drm_crtc_helper_funcs mtk_crtc_helper_funcs = {
 	.atomic_flush = mtk_drm_crtc_atomic_flush,
 };
 
+static void mtk_drm_set_crtc_caps(struct drm_crtc *crtc)
+{
+	struct drm_device *dev = crtc->dev;
+	struct mtk_drm_crtc_caps crtc_caps;
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct drm_property_blob *blob;
+	uint32_t blob_id = 0;
+
+	memset(&crtc_caps, 0, sizeof(crtc_caps));
+
+	blob = drm_property_create_blob(dev, sizeof(crtc_caps), &mtk_crtc->crtc_caps);
+	if (!IS_ERR_OR_NULL(blob))
+		blob_id = blob->base.id;
+	else
+		DDPPR_ERR("create_blob error\n");
+
+	mtk_crtc_property[CRTC_PROP_CAPS_BLOB_ID].val = blob_id;
+}
+
+int mtk_crtc_ability_chk(struct mtk_drm_crtc *mtk_crtc, enum MTK_CRTC_ABILITY ability)
+{
+	return !!(mtk_crtc->crtc_caps.crtc_ability & ability);
+}
+
 static void mtk_drm_crtc_attach_property(struct drm_crtc *crtc)
 {
 	struct drm_device *dev = crtc->dev;
@@ -10637,6 +10663,8 @@ static void mtk_drm_crtc_attach_property(struct drm_crtc *crtc)
 		}
 		num++;
 	}
+
+	mtk_drm_set_crtc_caps(crtc);
 
 	for (i = 0; i < CRTC_PROP_MAX; i++) {
 		prop = private->crtc_property[index][i];
@@ -11483,6 +11511,10 @@ int mtk_drm_crtc_create(struct drm_device *drm_dev,
 	int i, j, p_mode;
 	enum mtk_ddp_comp_id comp_id;
 	static cpumask_t cpumask;
+	u32 caps_value = 0;
+#define CAPS_CHAR_SIZE 25
+	char crtc_caps[CAPS_CHAR_SIZE];
+	int caps_len, of_red;
 
 	DDPMSG("%s+\n", __func__);
 
@@ -11652,6 +11684,34 @@ int mtk_drm_crtc_create(struct drm_device *drm_dev,
 		}
 		mtk_crtc->ddp_ctx[p_mode].wb_comp[i] = comp;
 	}
+
+	caps_len = snprintf(crtc_caps, CAPS_CHAR_SIZE, "crtc_ability_%u", pipe);
+	if (caps_len < 0)
+		DDPPR_ERR("%s %d snprintf fail\n", __func__, __LINE__);
+
+	of_red = of_property_read_u32(dev->of_node, crtc_caps, &caps_value);
+	if (of_red == 0) {
+		mtk_crtc->crtc_caps.crtc_ability = caps_value;
+	} else {
+		DDPINFO("%s pipe %d of_property_read_u32 not found : %d\n",
+			__func__, __LINE__, pipe, of_red);
+		/* define each pipe's CRTC ability's default value */
+		/* use it when CRTC not define ability in DTS */
+		if (pipe == 0) {
+			mtk_crtc->crtc_caps.wb_caps[0].support = 1;
+			mtk_crtc->crtc_caps.crtc_ability |= ABILITY_IDLEMGR;
+			mtk_crtc->crtc_caps.crtc_ability |= ABILITY_ESD_CHECK;
+			mtk_crtc->crtc_caps.crtc_ability |= ABILITY_PQ;
+			mtk_crtc->crtc_caps.crtc_ability |= ABILITY_RSZ;
+			mtk_crtc->crtc_caps.crtc_ability |= ABILITY_MML;
+			mtk_crtc->crtc_caps.crtc_ability |= ABILITY_WCG;
+			mtk_crtc->crtc_caps.crtc_ability |= ABILITY_FBDC;
+			mtk_crtc->crtc_caps.crtc_ability |= ABILITY_EXT_LAYER;
+			mtk_crtc->crtc_caps.crtc_ability |= ABILITY_CWB;
+			mtk_crtc->crtc_caps.crtc_ability |= ABILITY_MSYNC20;
+		}
+	}
+	DDPINFO("%s %x %s\n", crtc_caps, caps_value);
 
 	mtk_crtc->planes = devm_kzalloc(dev,
 			mtk_crtc->layer_nr * sizeof(struct mtk_drm_plane),
