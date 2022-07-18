@@ -35,6 +35,8 @@ static struct mtk_mmdvfs_clk *mtk_mmdvfs_clks;
 static u8 mmdvfs_pwr_opp[PWR_MMDVFS_NUM];
 static struct clk *mmdvfs_pwr_clk[PWR_MMDVFS_NUM];
 
+#define MMDVFS_VCP_IPI_DATA_OFFSET 0xffc
+static void *mmdvfs_vcp_ipi_data_base;
 static u64 mmdvfs_vcp_ipi_data;
 static DEFINE_MUTEX(mmdvfs_vcp_ipi_mutex);
 
@@ -242,10 +244,78 @@ int mtk_mmdvfs_enable_vcp(bool enable)
 }
 EXPORT_SYMBOL_GPL(mtk_mmdvfs_enable_vcp);
 
+void *mtk_mmdvfs_vcp_get_base(phys_addr_t *pa)
+{
+	struct mtk_ipi_device *vcp_ipi_dev = vcp_get_ipidev();
+	phys_addr_t va = vcp_get_reserve_mem_virt_ex(MMDVFS_MEM_ID);
+	struct iommu_domain *domain;
+
+	if (!mmdvfs_free_run || !va) {
+		MMDVFS_DBG("mmdvfs_v3 not supported");
+		return NULL;
+	}
+
+	domain = iommu_get_domain_for_dev(&vcp_ipi_dev->mrpdev->pdev->dev);
+	if (domain) {
+		*pa = iommu_iova_to_phys(
+			domain, vcp_get_reserve_mem_phys_ex(MMDVFS_MEM_ID));
+	} else {
+		MMDVFS_ERR("domain is null");
+		return NULL;
+	}
+
+	return (void *)va;
+}
+EXPORT_SYMBOL_GPL(mtk_mmdvfs_vcp_get_base);
+
+static inline bool mmdvfs_vcp_ipi_base_get(void)
+{
+	phys_addr_t pa = 0ULL;
+	static bool flags;
+
+	if (flags)
+		return mmdvfs_vcp_ipi_data_base ? true : false;
+
+	if (!mmdvfs_vcp_base) // iova
+		mmdvfs_vcp_base = vcp_get_reserve_mem_phys_ex(MMDVFS_MEM_ID);
+
+	if (!mmdvfs_vcp_ipi_data_base) // va
+		mmdvfs_vcp_ipi_data_base = mtk_mmdvfs_vcp_get_base(&pa);
+
+	if (!flags || !mmdvfs_vcp_ipi_data_base)
+		MMDVFS_DBG("pa:%pa iova:%pa va:%#llx offset:%#x",
+			&pa, &mmdvfs_vcp_base, mmdvfs_vcp_ipi_data_base,
+			MMDVFS_VCP_IPI_DATA_OFFSET);
+
+	if (mmdvfs_vcp_ipi_data_base)
+		mmdvfs_vcp_ipi_data_base += MMDVFS_VCP_IPI_DATA_OFFSET;
+
+	flags = true;
+	return mmdvfs_vcp_ipi_data_base ? true : false;
+}
+
+static inline u64 mmdvfs_update_vcp_ipi_data(const u64 slot)
+{
+	u32 val;
+
+	if (!mmdvfs_vcp_ipi_base_get())
+		return slot;
+
+	val = readl(mmdvfs_vcp_ipi_data_base);
+	mmdvfs_vcp_ipi_data = (mmdvfs_vcp_ipi_data & GENMASK(63, 32)) | (u32)val;
+
+	if (log_level & (1 << log_ipi))
+		MMDVFS_DBG("base:%#llx val:%#x data:%#llx",
+			mmdvfs_vcp_ipi_data_base, val, mmdvfs_vcp_ipi_data);
+
+	return mmdvfs_vcp_ipi_data;
+}
+
 static int mmdvfs_vcp_ipi_send(const u8 func, const u8 idx, const u8 opp,
 	const u8 ack) // ap > vcp
 {
 	struct mmdvfs_ipi_data slot = {func, idx, opp, ack, 0U};
+	const u64 data = *(u64 *)(unsigned long *)&slot;
 	int retry = 0, ret;
 
 	if (!mtk_is_mmdvfs_init_done()) {
@@ -264,8 +334,10 @@ static int mmdvfs_vcp_ipi_send(const u8 func, const u8 idx, const u8 opp,
 		usleep_range(1000, 2000);
 	}
 
-	if (!mmdvfs_vcp_base)
-		mmdvfs_vcp_base = vcp_get_reserve_mem_phys_ex(MMDVFS_MEM_ID);
+	if (!mmdvfs_vcp_ipi_base_get()) {
+		MMDVFS_DBG("get failed va:%#llx", mmdvfs_vcp_ipi_data_base);
+		return -ENOMEM;
+	}
 
 	if (mmdvfs_vcp_base && ack == MAX_OPP) {
 		slot.ack = mmdvfs_vcp_base >> 32;
@@ -274,6 +346,7 @@ static int mmdvfs_vcp_ipi_send(const u8 func, const u8 idx, const u8 opp,
 
 	mutex_lock(&mmdvfs_vcp_ipi_mutex);
 	mmdvfs_vcp_ipi_data = *(u64 *)(unsigned long *)&slot;
+	writel(data, mmdvfs_vcp_ipi_data_base);
 
 	ret = mtk_ipi_send(vcp_get_ipidev(), IPI_OUT_MMDVFS, IPI_SEND_WAIT,
 		&slot, PIN_OUT_SIZE_MMDVFS, IPI_TIMEOUT_MS);
@@ -286,7 +359,7 @@ static int mmdvfs_vcp_ipi_send(const u8 func, const u8 idx, const u8 opp,
 	}
 
 	retry = 0;
-	while ((mmdvfs_vcp_ipi_data & 0xff) == func) {
+	while ((mmdvfs_update_vcp_ipi_data(data) & 0xff) == func) {
 		if (++retry > 100) {
 			ret = IPI_COMPL_TIMEOUT;
 			MMDVFS_ERR("ipi ack timeout:%d slot:%#llx data:%#llx",
@@ -299,23 +372,6 @@ static int mmdvfs_vcp_ipi_send(const u8 func, const u8 idx, const u8 opp,
 
 	mutex_unlock(&mmdvfs_vcp_ipi_mutex);
 	return ret;
-}
-
-static int mmdvfs_vcp_ipi_cb(unsigned int ipi_id, void *prdata, void *data,
-	unsigned int len) // vcp > ap
-{
-	struct mmdvfs_ipi_data slot;
-
-	if (ipi_id != IPI_IN_MMDVFS || !data)
-		return 0;
-
-	slot = *(struct mmdvfs_ipi_data *)data;
-
-	if (log_level & 1 << log_ipi)
-		MMDVFS_DBG("ipi_id:%u slot:%#x func:%hhu idx:%hhu opp:%hhu ack:%hhu",
-			ipi_id, slot, slot.func, slot.idx, slot.opp, slot.ack);
-
-	return 0;
 }
 
 static int mtk_mmdvfs_set_rate(struct clk_hw *hw, unsigned long rate,
@@ -423,30 +479,6 @@ static const struct clk_ops mtk_mmdvfs_req_ops = {
 	.round_rate	= mtk_mmdvfs_round_rate,
 	.recalc_rate	= mtk_mmdvfs_recalc_rate,
 };
-
-void *mtk_mmdvfs_vcp_get_base(phys_addr_t *pa)
-{
-	struct mtk_ipi_device *vcp_ipi_dev = vcp_get_ipidev();
-	phys_addr_t va = vcp_get_reserve_mem_virt_ex(MMDVFS_MEM_ID);
-	struct iommu_domain *domain;
-
-	if (!mmdvfs_free_run || !va) {
-		MMDVFS_DBG("mmdvfs_v3 not supported");
-		return NULL;
-	}
-
-	domain = iommu_get_domain_for_dev(&vcp_ipi_dev->mrpdev->pdev->dev);
-	if (domain) {
-		*pa = iommu_iova_to_phys(
-			domain, vcp_get_reserve_mem_phys_ex(MMDVFS_MEM_ID));
-	} else {
-		MMDVFS_ERR("domain is null");
-		return NULL;
-	}
-
-	return (void *)va;
-}
-EXPORT_SYMBOL_GPL(mtk_mmdvfs_vcp_get_base);
 
 int mtk_mmdvfs_camera_notify(const bool enable)
 {
@@ -973,13 +1005,6 @@ static int mmdvfs_vcp_init_thread(void *data)
 			return -ETIMEDOUT;
 		}
 		ssleep(1);
-	}
-
-	ret = mtk_ipi_register(vcp_ipi_dev, IPI_IN_MMDVFS,
-		mmdvfs_vcp_ipi_cb, NULL, &mmdvfs_vcp_ipi_data);
-	if (ret) {
-		MMDVFS_ERR("mtk_ipi_register failed:%d ipi_id:%d", ret, IPI_IN_MMDVFS);
-		return ret;
 	}
 
 	mmdvfs_init_done = true;
