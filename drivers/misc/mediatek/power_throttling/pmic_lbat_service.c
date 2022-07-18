@@ -42,6 +42,7 @@
 #define LBAT_SERVICE_DBG	0
 
 struct lbat_thd_t {
+	bool is_dirty;
 	unsigned int thd_volt;
 	struct lbat_user *user;
 	struct list_head list;
@@ -261,6 +262,9 @@ static void lbat_list_add(struct lbat_thd_t *thd, struct list_head *lbat_list)
 			cur_hv_ptr = thd;
 			__regmap_update_bits(regmap, &lbat_regs->volt_max,
 					     VOLT_TO_RAW(cur_hv_ptr->thd_volt));
+		} else if (cur_hv_ptr->is_dirty) {
+			__regmap_update_bits(regmap, &lbat_regs->volt_max,
+					     VOLT_TO_RAW(cur_hv_ptr->thd_volt));
 		}
 	} else if (lbat_list == &lbat_lv_list) {
 		list_sort(NULL, &lbat_lv_list, lv_list_cmp);
@@ -269,8 +273,12 @@ static void lbat_list_add(struct lbat_thd_t *thd, struct list_head *lbat_list)
 			cur_lv_ptr = thd;
 			__regmap_update_bits(regmap, &lbat_regs->volt_min,
 					     VOLT_TO_RAW(cur_lv_ptr->thd_volt));
+		} else if (cur_lv_ptr->is_dirty) {
+			__regmap_update_bits(regmap, &lbat_regs->volt_min,
+					     VOLT_TO_RAW(cur_lv_ptr->thd_volt));
 		}
 	}
+	thd->is_dirty = false;
 #if LBAT_SERVICE_DBG
 	dump_lbat_list();
 #endif
@@ -549,10 +557,12 @@ int lbat_user_modify_thd(struct lbat_user *user, unsigned int hv_thd_volt,
 	pr_info("[%s] name=%s, hv=%d, lv1=%d, lv2=%d\n",
 		__func__, user->name, hv_thd_volt, lv1_thd_volt, lv2_thd_volt);
 	if (hv_thd_volt != user->hv_thd->thd_volt) {
+		user->hv_thd->is_dirty = true;
 		user->hv_thd->thd_volt = hv_thd_volt;
 		lbat_list_add(user->hv_thd, &lbat_hv_list);
 	}
 	if (lv1_thd_volt != user->lv1_thd->thd_volt) {
+		user->lv1_thd->is_dirty = true;
 		user->lv1_thd->thd_volt = lv1_thd_volt;
 		lbat_list_add(user->lv1_thd, &lbat_lv_list);
 	}
