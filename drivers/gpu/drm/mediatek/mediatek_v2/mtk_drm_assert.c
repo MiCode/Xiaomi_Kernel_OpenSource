@@ -320,6 +320,7 @@ int drm_show_dal(struct drm_crtc *crtc, bool enable)
 	struct mtk_ddp_comp *ovl_comp = _handle_phy_top_plane(mtk_crtc);
 	struct cmdq_pkt *cmdq_handle;
 	int layer_id;
+	int ret = 0;
 
 	if (ovl_comp == NULL) {
 		DDPPR_ERR("%s: can't find ovl comp\n", __func__);
@@ -359,8 +360,11 @@ int drm_show_dal(struct drm_crtc *crtc, bool enable)
 	plane_state->base.crtc = NULL;
 
 #ifdef MTK_DRM_ASYNC_HANDLE
-	mtk_crtc_gce_flush(crtc, NULL, cmdq_handle, cmdq_handle);
-	cmdq_pkt_wait_complete(cmdq_handle);
+	ret = mtk_crtc_gce_flush(crtc, NULL, cmdq_handle, cmdq_handle);
+	if (!ret)
+		cmdq_pkt_wait_complete(cmdq_handle);
+	else
+		DDPPR_ERR("%s mtk_crtc_gce_flush failed %d\n", __func__, __LINE__);
 	cmdq_pkt_destroy(cmdq_handle);
 #else
 	mtk_crtc_gce_flush(crtc, mtk_drm_cmdq_done, cmdq_handle, cmdq_handle);

@@ -75,7 +75,8 @@ static struct sg_table *mtk_gem_vmap_pa(struct mtk_drm_gem_obj *mtk_gem,
 	struct page **pages;
 	pgprot_t pgprot;
 	void *va_align;
-	struct sg_table *sgt;
+	struct sg_table *sgt = NULL;
+	int ret = 0;
 	unsigned long attrs;
 
 	size = mtk_gem->size;
@@ -84,8 +85,10 @@ static struct sg_table *mtk_gem_vmap_pa(struct mtk_drm_gem_obj *mtk_gem,
 	npages = sz_align / PAGE_SIZE;
 
 	pages = kmalloc_array(npages, sizeof(struct page *), GFP_KERNEL);
-	if (!pages)
+	if (!pages) {
+		DDPPR_ERR("pages creation failed\n");
 		return NULL;
+	}
 
 	pgprot = cached ? PAGE_KERNEL : pgprot_writecombine(PAGE_KERNEL);
 	for (i = 0; i < npages; i++)
@@ -99,7 +102,14 @@ static struct sg_table *mtk_gem_vmap_pa(struct mtk_drm_gem_obj *mtk_gem,
 		return NULL;
 	}
 
-	sg_alloc_table_from_pages(sgt, pages, npages, 0, size, GFP_KERNEL);
+	ret = sg_alloc_table_from_pages(sgt, pages, npages, 0, size, GFP_KERNEL);
+
+	if (ret < 0) {
+		DDPPR_ERR("sg_alloc_table_from_pages failed with ret %d\n", ret);
+		kfree(sgt);
+		vunmap(va_align);
+		return NULL;
+	}
 	attrs = DMA_ATTR_SKIP_CPU_SYNC;
 	dma_map_sg_attrs(dev, sgt->sgl, sgt->nents, 0, attrs);
 	*fb_pa = sg_dma_address(sgt->sgl);

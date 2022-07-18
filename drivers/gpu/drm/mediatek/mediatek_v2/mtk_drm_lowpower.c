@@ -402,21 +402,17 @@ int mtk_drm_idlemgr_init(struct drm_crtc *crtc, int index)
 {
 #define LEN 50
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
-	struct mtk_drm_idlemgr *idlemgr =
-		kzalloc(sizeof(struct mtk_drm_idlemgr), GFP_KERNEL);
-	struct mtk_drm_idlemgr_context *idlemgr_ctx =
-		kzalloc(sizeof(struct mtk_drm_idlemgr_context), GFP_KERNEL);
-	char name[LEN];
+	struct mtk_drm_idlemgr *idlemgr = NULL;
+	struct mtk_drm_idlemgr_context *idlemgr_ctx = NULL;
+	char name[LEN] = {0};
 
-	if (!idlemgr) {
-		DDPPR_ERR("struct mtk_drm_idlemgr allocate fail\n");
-		return -ENOMEM;
-		;
-	}
+	idlemgr = kzalloc(sizeof(*idlemgr), GFP_KERNEL);
+	idlemgr_ctx = kzalloc(sizeof(*idlemgr_ctx), GFP_KERNEL);
 
-	if (!idlemgr_ctx) {
-
-		DDPPR_ERR("struct mtk_drm_idlemgr_context allocate fail\n");
+	if (!idlemgr || !idlemgr_ctx) {
+		DDPPR_ERR("idlemgr or idlemgr_ctx allocate fail\n");
+		kfree(idlemgr);
+		kfree(idlemgr_ctx);
 		return -ENOMEM;
 	}
 

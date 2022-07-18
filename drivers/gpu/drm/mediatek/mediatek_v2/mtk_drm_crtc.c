@@ -4766,6 +4766,11 @@ static void mtk_drm_ovl_bw_monitor_ratio_get(struct drm_crtc *crtc,
 			need_skip = 1;
 		DDPDBG("BWM: need skip:%d\n", need_skip);
 
+		if (!comp) {
+			DDPPR_ERR("%s run next plane with NULL comp\n", __func__);
+			break;
+		}
+
 		if (mtk_drm_helper_get_opt(priv->helper_opt,
 			    MTK_DRM_OPT_PRIM_DUAL_PIPE))
 			src_w = src_w/2;
