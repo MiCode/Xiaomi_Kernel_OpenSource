@@ -71,6 +71,7 @@
 #define DEFAULT_QR_T2WNT_Y_P 100
 #define DEFAULT_QR_T2WNT_Y_N 0
 #define DEFAULT_QR_HWUI_HINT 1
+#define DEFAULT_ST2WNT_ADJ 0
 #define DEFAULT_GCC_HWUI_HINT 1
 #define DEFAULT_GCC_RESERVED_UP_QUOTA_PCT 100
 #define DEFAULT_GCC_RESERVED_DOWN_QUOTA_PCT 5
@@ -2138,6 +2139,22 @@ EXIT:
 	return hit;
 }
 
+void eara2fbt_set_2nd_t2wnt(int pid, unsigned long long buffer_id,
+				unsigned long long t_duration)
+{
+	struct render_info *thr = NULL;
+
+	fpsgo_render_tree_lock(__func__);
+	thr = eara2fpsgo_search_render_info(pid, buffer_id);
+	if (!thr) {
+		fpsgo_render_tree_unlock(__func__);
+		return;
+	}
+	thr->boost_info.t_duration = t_duration;
+	fpsgo_render_tree_unlock(__func__);
+}
+EXPORT_SYMBOL(eara2fbt_set_2nd_t2wnt);
+
 static int fbt_print_rescue_info(int pid, int buffer_id,
 	unsigned long long q_end_ts,
 	int quota, int scn, int num, int policy, int blc_wt, int last_blw)
@@ -2247,8 +2264,8 @@ static void fbt_cancel_sjerk(void)
 	sjerk.active_id = -1;
 }
 
-static void fbt_set_sjerk(int pid, unsigned long long identifier,
-		int active_id, int scn)
+static void fbt_set_sjerk(int pid, unsigned long long buffer_id,
+		unsigned long long identifier, int active_id, unsigned long long st2wnt)
 {
 	unsigned long long t2wnt;
 	int rescue_second_time_tmp = rescue_second_time;
@@ -2266,9 +2283,10 @@ static void fbt_set_sjerk(int pid, unsigned long long identifier,
 
 	fbt_cancel_sjerk();
 
-	t2wnt = vsync_period;
+	t2wnt = st2wnt;
 	t2wnt *= rescue_second_time_tmp;
 	t2wnt = clamp(t2wnt, 1ULL, (unsigned long long)FBTCPU_SEC_DIVIDER);
+	fpsgo_systrace_c_fbt_debug(pid, buffer_id, t2wnt, "st2wnt");
 
 	sjerk.pid = pid;
 	sjerk.identifier = identifier;
@@ -2287,7 +2305,6 @@ static void fbt_do_sjerk(struct work_struct *work)
 	unsigned int blc_wt = 0U, blc_wt_b = 0U, blc_wt_m = 0U;
 	struct cpu_ctrl_data *pld;
 	int do_jerk = FPSGO_JERK_DISAPPEAR;
-	int scn;
 	int rescue_second_enable_tmp = rescue_second_enable;
 	int rescue_second_group_tmp = rescue_second_group;
 
@@ -2320,8 +2337,6 @@ static void fbt_do_sjerk(struct work_struct *work)
 	if (thr->pid != max_blc_pid || thr->buffer_id != max_blc_buffer_id)
 		goto EXIT;
 
-	scn = fbt_check_scn(thr);
-
 	if (!rescue_second_enable_tmp)
 		goto EXIT;
 
@@ -2351,9 +2366,6 @@ static void fbt_do_sjerk(struct work_struct *work)
 		blc_wt_m = fbt_get_new_base_blc(pld, thr->boost_info.last_blc_m,
 			rescue_second_enhance_f, rescue_opp_f, rescue_second_copp);
 	}
-
-	if (scn == FPSGO_SCN_GAME)
-		thrm_aware_switch();
 
 	fbt_set_hard_limit_locked(FPSGO_HARD_NONE, pld);
 
@@ -2422,6 +2434,31 @@ static void fbt_do_jerk_locked(struct render_info *thr, struct fbt_jerk *jerk, i
 
 	mutex_lock(&fbt_mlock);
 
+	if (rescue_second_enable_tmp && thr->pid == max_blc_pid
+				&& thr->buffer_id == max_blc_buffer_id) {
+
+		if (thr->boost_info.t_duration && thr->boost_info.t_duration
+				 <= thr->boost_info.t2wnt) {
+			fbt_cancel_sjerk();
+			sjerk.pid = thr->pid;
+			sjerk.identifier = thr->identifier;
+			sjerk.active_id = jerk_id;
+			sjerk.jerking = 1;
+			if (wq_jerk)
+				queue_work(wq_jerk, &sjerk.work);
+			else
+				schedule_work(&sjerk.work);
+			goto EXIT;
+		} else {
+			unsigned long long st2wnt;
+
+			st2wnt = (thr->boost_info.t_duration) ? thr->boost_info.t_duration
+				- thr->boost_info.t2wnt : thr->boost_info.target_time;
+			fbt_set_sjerk(thr->pid, thr->buffer_id, thr->identifier,
+				jerk_id, st2wnt);
+		}
+	}
+
 	blc_wt = fbt_get_new_base_blc(pld, blc_wt, rescue_enhance_f, rescue_opp_f, rescue_opp_c);
 	if (separate_aa) {
 		blc_wt_b = fbt_get_new_base_blc(pld, blc_wt_b,
@@ -2437,13 +2474,6 @@ static void fbt_do_jerk_locked(struct render_info *thr, struct fbt_jerk *jerk, i
 	if (separate_aa) {
 		blc_wt_b = fbt_limit_capacity(blc_wt_b, 1);
 		blc_wt_m = fbt_limit_capacity(blc_wt_m, 1);
-	}
-
-	if (thr->pid == max_blc_pid && thr->buffer_id == max_blc_buffer_id) {
-		int scn = fbt_check_scn(thr);
-
-		if (rescue_second_enable_tmp)
-			fbt_set_sjerk(thr->pid, thr->identifier, jerk_id, scn);
 	}
 
 	do_jerk = fbt_check_to_jerk(thr->t_enqueue_start, thr->t_enqueue_end,
@@ -3945,6 +3975,8 @@ static int fbt_boost_policy(
 			fpsgo_systrace_c_fbt(pid, buffer_id, t2wnt, "t2wnt");
 		}
 
+		boost_info->t2wnt = t2wnt;
+
 		if (t2wnt) {
 			if (t2wnt == 1ULL) {
 				active_jerk_id = fbt_get_next_jerk(
@@ -3958,6 +3990,7 @@ static int fbt_boost_policy(
 				fpsgo_main_trace("%s t2wnt:%lld > FBTCPU_SEC_DIVIDER",
 					__func__, t2wnt);
 				t2wnt = FBTCPU_SEC_DIVIDER;
+				boost_info->t2wnt = t2wnt;
 				fpsgo_systrace_c_fbt_debug(pid, buffer_id, t2wnt,
 					"t2wnt");
 			}
@@ -4825,6 +4858,7 @@ void fpsgo_base2fbt_node_init(struct render_info *obj)
 		fbt_init_jerk(&(boost->proc.jerks[i]), i);
 
 	boost->loading_weight = LOADING_WEIGHT;
+	boost->t_duration = DEFAULT_ST2WNT_ADJ;
 	boost->cl_loading = cl_loading;
 
 	blc_link = fbt_list_blc_add(obj->pid, obj->buffer_id);

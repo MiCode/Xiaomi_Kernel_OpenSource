@@ -196,6 +196,7 @@ static int fpsgo_com_refetch_buffer(struct render_info *f_render, int pid,
 
 	f_render->buffer_id = buffer_id;
 	f_render->queue_SF = queue_SF;
+
 	if (!f_render->p_blc)
 		fpsgo_base2fbt_node_init(f_render);
 

@@ -39,6 +39,12 @@ enum HW_EVENT4RENDER {
 	BACKGROUND = 20
 };
 
+/* composite key for render_info rbtree */
+struct fbt_render_key {
+	int key1;
+	unsigned long long key2;
+};
+
 struct fbt_jerk {
 	int id;
 	int jerking;
@@ -46,6 +52,7 @@ struct fbt_jerk {
 	struct hrtimer timer;
 	struct work_struct work;
 };
+
 struct fbt_proc {
 	int active_jerk_id;
 	struct fbt_jerk jerks[RESCUE_TIMER_NUM];
@@ -89,6 +96,7 @@ struct fbt_thread_blc {
 struct fbt_boost_info {
 	int target_fps;
 	unsigned long long target_time;
+	unsigned long long t2wnt;
 	unsigned int last_blc;
 	unsigned int last_blc_b;
 	unsigned int last_blc_m;
@@ -154,6 +162,8 @@ struct fbt_boost_info {
 	int quantile_cpu_time;
 	int quantile_gpu_time;
 
+	/* FRS */
+	unsigned long long t_duration;
 };
 
 struct render_info {
@@ -163,7 +173,7 @@ struct render_info {
 
 	/*render basic info pid bufferId..etc*/
 	int pid;
-	unsigned long long render_key; /*pid,identifier*/
+	struct fbt_render_key render_key; /*pid,identifier*/
 	unsigned long long identifier;
 	unsigned long long buffer_id;
 	int queue_SF;
@@ -241,7 +251,7 @@ struct fpsgo_attr_by_pid {
 #endif
 
 struct BQ_id {
-	unsigned long long key;
+	struct fbt_render_key key;
 	unsigned long long identifier;
 	unsigned long long buffer_id;
 	int queue_SF;
@@ -298,7 +308,6 @@ int fpsgo_arch_nr_max_opp_cpu(void);
 int fpsgo_arch_nr_freq_cpu(void);
 unsigned int fpsgo_cpufreq_get_freq_by_idx(
 	int cpu, unsigned int opp);
-bool fpsgo_sentuevent(const char *src);
 
 int fpsgo_get_tgid(int pid);
 void fpsgo_render_tree_lock(const char *tag);
@@ -314,6 +323,8 @@ int update_attr_to_render_info(struct render_info *f_render,
 	struct fpsgo_attr_by_pid *attr_render, int pid);
 void delete_attr_by_pid(int tgid);
 #endif
+struct render_info *eara2fpsgo_search_render_info(int pid,
+		unsigned long long buffer_id);
 void fpsgo_delete_render_info(int pid,
 	unsigned long long buffer_id, unsigned long long identifier);
 struct render_info *fpsgo_search_and_add_render_info(int pid,
@@ -367,7 +378,6 @@ enum FPSGO_BQID_ACT {
 	ACTION_FIND = 0,
 	ACTION_FIND_ADD,
 	ACTION_FIND_DEL,
-	ACTION_DEL_PID
 };
 
 enum FPSGO_RENDER_INFO_HWUI {

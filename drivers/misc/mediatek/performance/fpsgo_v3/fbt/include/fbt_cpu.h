@@ -42,6 +42,9 @@ int fpsgo_base2fbt_is_finished(struct render_info *thr);
 void fpsgo_base2fbt_stop_boost(struct render_info *thr);
 void fpsgo_sbe2fbt_rescue(struct render_info *thr, int start, int enhance,
 		unsigned long long frame_id);
+void eara2fbt_set_2nd_t2wnt(int pid, unsigned long long buffer_id,
+		unsigned long long t_duration);
+
 
 int __init fbt_cpu_init(void);
 void __exit fbt_cpu_exit(void);
@@ -100,7 +103,8 @@ static inline int fpsgo_base2fbt_is_finished(struct render_info *thr) { return 0
 static inline void fpsgo_base2fbt_stop_boost(struct render_info *thr) { }
 static inline void fpsgo_sbe2fbt_rescue(struct render_info *thr, int start, int enhance,
 			unsigned long long frame_id) { }
-
+static inline void eara2fbt_set_2nd_t2wnt(int pid, unsigned long long buffer_id,
+			unsigned long long t_duration) { }
 #endif
 
 #endif

@@ -545,6 +545,39 @@ int fpsgo_base_is_finished(struct render_info *thr)
 	return 1;
 }
 
+static int render_key_compare(struct fbt_render_key target,
+		struct fbt_render_key node_key)
+{
+	if (target.key1 > node_key.key1)
+		return 1;
+	else if (target.key1 < node_key.key1)
+		return -1;
+
+	/* key 1 is equal, compare key 2 */
+	if (target.key2 > node_key.key2)
+		return 1;
+	else if (target.key2 < node_key.key2)
+		return -1;
+	else
+		return 0;
+}
+
+struct render_info *eara2fpsgo_search_render_info(int pid,
+		unsigned long long buffer_id)
+{
+	struct render_info *iter = NULL;
+	struct rb_node *n;
+
+	fpsgo_lockprove(__func__);
+
+	for (n = rb_first(&render_pid_tree); n != NULL; n = rb_next(n)) {
+		iter = rb_entry(n, struct render_info, render_key_node);
+		if (iter->pid == pid && iter->buffer_id == buffer_id)
+			return iter;
+	}
+	return NULL;
+}
+
 
 struct render_info *fpsgo_search_and_add_render_info(int pid,
 	unsigned long long identifier, int force)
@@ -553,15 +586,14 @@ struct render_info *fpsgo_search_and_add_render_info(int pid,
 	struct rb_node *parent = NULL;
 	struct render_info *tmp = NULL;
 	int tgid;
-	unsigned long long render_key = 0;
+	struct fbt_render_key render_key;
 	#if FPSGO_MW
 	struct fpsgo_attr_by_pid *attr_render = NULL;
 	int ret;
 	#endif
 
-	render_key =
-		((identifier & 0xFFFFFFFFFFFF) |
-		((unsigned long long)pid << 48));
+	render_key.key1 = pid;
+	render_key.key2 = identifier;
 
 	fpsgo_lockprove(__func__);
 
@@ -571,9 +603,9 @@ struct render_info *fpsgo_search_and_add_render_info(int pid,
 		parent = *p;
 		tmp = rb_entry(parent, struct render_info, render_key_node);
 
-		if (render_key < tmp->render_key)
+		if (render_key_compare(render_key, tmp->render_key) < 0)
 			p = &(*p)->rb_left;
-		else if (render_key > tmp->render_key)
+		else if (render_key_compare(render_key, tmp->render_key) > 0)
 			p = &(*p)->rb_right;
 		else
 			return tmp;
@@ -589,7 +621,8 @@ struct render_info *fpsgo_search_and_add_render_info(int pid,
 	mutex_init(&tmp->thr_mlock);
 	INIT_LIST_HEAD(&(tmp->bufferid_list));
 	tmp->pid = pid;
-	tmp->render_key = render_key;
+	tmp->render_key.key1 = pid;
+	tmp->render_key.key2 = identifier;
 	tmp->identifier = identifier;
 	tmp->tgid = tgid;
 	tmp->frame_type = BY_PASS_TYPE;
@@ -615,7 +648,6 @@ struct render_info *fpsgo_search_and_add_render_info(int pid,
 	#endif
 	rb_link_node(&tmp->render_key_node, parent, p);
 	rb_insert_color(&tmp->render_key_node, &render_pid_tree);
-
 	return tmp;
 }
 
@@ -635,7 +667,6 @@ void fpsgo_delete_render_info(int pid,
 
 	if (!data)
 		return;
-
 	fpsgo_thread_lock(&data->thr_mlock);
 	max_ret = fpsgo_base2fbt_get_max_blc_pid(&max_pid, &max_buffer_id);
 	if (max_ret && pid == max_pid && buffer_id == max_buffer_id)
@@ -1112,7 +1143,6 @@ void fpsgo_clear(void)
 	n = rb_first(&render_pid_tree);
 	while (n) {
 		iter = rb_entry(n, struct render_info, render_key_node);
-
 		fpsgo_thread_lock(&iter->thr_mlock);
 
 		rb_erase(&iter->render_key_node, &render_pid_tree);
@@ -1192,7 +1222,7 @@ void fpsgo_stop_boost_by_pid(int pid)
 	}
 }
 
-static struct BQ_id *fpsgo_get_BQid_by_key(unsigned long long key,
+static struct BQ_id *fpsgo_get_BQid_by_key(struct fbt_render_key key,
 		int add, int pid, long long identifier)
 {
 	struct rb_node **p = &BQ_id_list.rb_node;
@@ -1205,9 +1235,9 @@ static struct BQ_id *fpsgo_get_BQid_by_key(unsigned long long key,
 		parent = *p;
 		pos = rb_entry(parent, struct BQ_id, entry);
 
-		if (key < pos->key)
+		if (render_key_compare(key, pos->key) < 0)
 			p = &(*p)->rb_left;
-		else if (key > pos->key)
+		else if (render_key_compare(key, pos->key) > 0)
 			p = &(*p)->rb_right;
 		else
 			return pos;
@@ -1220,35 +1250,16 @@ static struct BQ_id *fpsgo_get_BQid_by_key(unsigned long long key,
 	if (!pos)
 		return NULL;
 
-	pos->key = key;
+	pos->key.key1 = key.key1;
+	pos->key.key2 = key.key2;
 	pos->pid = pid;
 	pos->identifier = identifier;
 	rb_link_node(&pos->entry, parent, p);
 	rb_insert_color(&pos->entry, &BQ_id_list);
 
-	FPSGO_LOGI("add BQid key 0x%llx, pid %d, id 0x%llx\n",
-		   key, pid, identifier);
+	FPSGO_LOGI("add BQid key1 %d, key2 %llu, pid %d, id 0x%llx\n",
+		   key.key1, key.key2, pid, identifier);
 	return pos;
-}
-
-static inline void fpsgo_del_BQid_by_pid(int pid)
-{
-	FPSGO_LOGI("%s should not be used, deleting pid %d\n", __func__, pid);
-}
-
-static unsigned long long fpsgo_gen_unique_key(int pid,
-		int tgid, long long identifier)
-{
-	unsigned long long key;
-
-	if (!tgid) {
-		tgid = fpsgo_get_tgid(pid);
-		if (!tgid)
-			return 0ULL;
-	}
-	key = ((identifier & 0xFFFFFFFFFFFF)
-		| ((unsigned long long)tgid << 48));
-	return key;
 }
 
 struct BQ_id *fpsgo_find_BQ_id(int pid, int tgid,
@@ -1257,37 +1268,41 @@ struct BQ_id *fpsgo_find_BQ_id(int pid, int tgid,
 	struct rb_node *n;
 	struct rb_node *next;
 	struct BQ_id *pos;
-	unsigned long long key;
+	struct fbt_render_key key;
+	int tgid_key = tgid;
+	unsigned long long identifier_key = identifier;
 	int done = 0;
+
+	if (!tgid_key) {
+		tgid_key = fpsgo_get_tgid(pid);
+		if (!tgid_key)
+			return NULL;
+	}
+
+	key.key1 = tgid_key;
+	key.key2 = identifier_key;
 
 	fpsgo_lockprove(__func__);
 
 	switch (action) {
 	case ACTION_FIND:
 	case ACTION_FIND_ADD:
-		key = fpsgo_gen_unique_key(pid, tgid, identifier);
-		if (key == 0ULL)
-			return NULL;
-		FPSGO_LOGI("find %s pid %d, id %llu, key %llu\n",
+		FPSGO_LOGI("find %s pid %d, id %llu, key1 %d, key2 %llu\n",
 			(action == ACTION_FIND_ADD)?"add":"",
-			pid, identifier, key);
+			pid, identifier, key.key1, key.key2);
 
 		return fpsgo_get_BQid_by_key(key, action == ACTION_FIND_ADD,
 					     pid, identifier);
 
 	case ACTION_FIND_DEL:
-		key = fpsgo_gen_unique_key(pid, tgid, identifier);
-		if (key == 0ULL)
-			return NULL;
-
 		for (n = rb_first(&BQ_id_list); n; n = next) {
 			next = rb_next(n);
 
 			pos = rb_entry(n, struct BQ_id, entry);
-			if (pos->key == key) {
+			if (render_key_compare(pos->key, key) == 0) {
 				FPSGO_LOGI(
-					"find del pid %d, id %llu, key %llu\n",
-					pid, identifier, key);
+					"find del pid %d, id %llu, key1 %d, key2 %llu\n",
+					pid, identifier, key.key1, key.key2);
 				rb_erase(n, &BQ_id_list);
 				kfree(pos);
 				done = 1;
@@ -1295,11 +1310,7 @@ struct BQ_id *fpsgo_find_BQ_id(int pid, int tgid,
 			}
 		}
 		if (!done)
-			FPSGO_LOGE("del fail key %llu\n", key);
-		return NULL;
-	case ACTION_DEL_PID:
-		FPSGO_LOGI("del BQid pid %d\n", pid);
-		fpsgo_del_BQid_by_pid(pid);
+			FPSGO_LOGE("del fail key1 %d, key2 %llu\n", key.key1, key.key2);
 		return NULL;
 	default:
 		FPSGO_LOGE("[ERROR] unknown action %d\n", action);
@@ -1654,9 +1665,9 @@ static ssize_t BQid_show(struct kobject *kobj,
 		pos = rb_entry(n, struct BQ_id, entry);
 		length = scnprintf(temp + posi,
 				FPSGO_SYSFS_MAX_BUFF_SIZE - posi,
-				"pid %d, tgid %d, key %llu, buffer_id %llu, queue_SF %d\n",
+				"pid %d, tgid %d, key1 %d, key2 %llu, buffer_id %llu, queue_SF %d\n",
 				pos->pid, fpsgo_get_tgid(pos->pid),
-				pos->key, pos->buffer_id, pos->queue_SF);
+				pos->key.key1, pos->key.key2, pos->buffer_id, pos->queue_SF);
 		posi += length;
 
 	}
