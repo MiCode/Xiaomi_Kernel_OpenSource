@@ -62,112 +62,6 @@ static unsigned long perfctl_copy_to_user(void __user *pvTo,
 }
 
 /*--------------------SYNC------------------------*/
-static int eas_show(struct seq_file *m, void *v)
-{
-	return 0;
-}
-
-static int eas_open(struct inode *inode, struct file *file)
-{
-	return single_open(file, eas_show, inode->i_private);
-}
-
-static long eas_ioctl_impl(struct file *filp,
-		unsigned int cmd, unsigned long arg, void *pKM)
-{
-	ssize_t ret = 0;
-	void __user *ubuf = (struct _CORE_CTL_PACKAGE *)arg;
-	struct _CORE_CTL_PACKAGE msgKM = {0};
-	bool bval;
-
-
-	switch (cmd) {
-	case CORE_CTL_FORCE_PAUSE_CPU:
-		if (perfctl_copy_from_user(&msgKM, ubuf, sizeof(struct _CORE_CTL_PACKAGE)))
-			return -1;
-
-		bval = !!msgKM.is_pause;
-#if IS_ENABLED(CONFIG_MTK_CORE_CTL)
-		ret = core_ctl_force_pause_cpu(msgKM.cpu, bval);
-#elif IS_ENABLED(CONFIG_MTK_CORE_PAUSE)
-		if (bval)
-			ret = sched_pause_cpu(msgKM.cpu);
-		else
-			ret = sched_resume_cpu(msgKM.cpu);
-#else
-		return -1;
-#endif
-		break;
-#if IS_ENABLED(CONFIG_MTK_CORE_CTL)
-	case CORE_CTL_SET_OFFLINE_THROTTLE_MS:
-		if (perfctl_copy_from_user(&msgKM, ubuf, sizeof(struct _CORE_CTL_PACKAGE)))
-			return -1;
-		ret = core_ctl_set_offline_throttle_ms(msgKM.cid, msgKM.throttle_ms);
-		break;
-	case CORE_CTL_SET_LIMIT_CPUS:
-		if (perfctl_copy_from_user(&msgKM, ubuf, sizeof(struct _CORE_CTL_PACKAGE)))
-			return -1;
-		ret = core_ctl_set_limit_cpus(msgKM.cid, msgKM.min, msgKM.max);
-		break;
-	case CORE_CTL_SET_NOT_PREFERRED:
-		if (perfctl_copy_from_user(&msgKM, ubuf, sizeof(struct _CORE_CTL_PACKAGE)))
-			return -1;
-
-		ret = core_ctl_set_not_preferred(msgKM.not_preferred_cpus);
-		break;
-	case CORE_CTL_SET_BOOST:
-		if (perfctl_copy_from_user(&msgKM, ubuf, sizeof(struct _CORE_CTL_PACKAGE)))
-			return -1;
-
-		bval = !!msgKM.boost;
-		ret = core_ctl_set_boost(bval);
-		break;
-	case CORE_CTL_SET_UP_THRES:
-		if (perfctl_copy_from_user(&msgKM, ubuf, sizeof(struct _CORE_CTL_PACKAGE)))
-			return -1;
-		ret = core_ctl_set_up_thres(msgKM.cid, msgKM.thres);
-		break;
-	case CORE_CTL_ENABLE_POLICY:
-		if (perfctl_copy_from_user(&msgKM, ubuf, sizeof(struct _CORE_CTL_PACKAGE)))
-			return -1;
-
-		bval = msgKM.enable_policy;
-		ret = core_ctl_enable_policy(bval);
-		break;
-#else
-	case CORE_CTL_SET_OFFLINE_THROTTLE_MS:
-	case CORE_CTL_SET_LIMIT_CPUS:
-	case CORE_CTL_SET_NOT_PREFERRED:
-	case CORE_CTL_SET_BOOST:
-	case CORE_CTL_SET_UP_THRES:
-	case CORE_CTL_ENABLE_POLICY:
-		break;
-#endif
-	default:
-		pr_debug(TAG "%s %d: unknown cmd %x\n",
-			__FILE__, __LINE__, cmd);
-		ret = -1;
-		goto ret_ioctl;
-	}
-
-ret_ioctl:
-	return ret;
-}
-
-static long eas_ioctl(struct file *filp,
-		unsigned int cmd, unsigned long arg)
-{
-	return eas_ioctl_impl(filp, cmd, arg, NULL);
-}
-
-static const struct proc_ops eas_Fops = {
-	.proc_ioctl = eas_ioctl,
-	.proc_compat_ioctl = eas_ioctl,
-	.proc_open = eas_open,
-	.proc_read = seq_read,
-	.proc_lseek = seq_lseek,
-	.proc_release = single_release,
-};
 /* XGFF BOOST*/
 int (*xgff_boost_startend_fp)(unsigned int startend,
 		int group_id,
@@ -664,15 +558,6 @@ static int __init init_perfctl(void)
 	perfmgr_root = parent;
 
 	pe = proc_create("perf_ioctl", 0664, parent, &Fops);
-	if (!pe) {
-		pr_debug(TAG"%s failed with %d\n",
-				"Creating file node ",
-				ret_val);
-		ret_val = -ENOMEM;
-		goto out_wq;
-	}
-
-	pe = proc_create("eas_ioctl", 0664, parent, &eas_Fops);
 	if (!pe) {
 		pr_debug(TAG"%s failed with %d\n",
 				"Creating file node ",
