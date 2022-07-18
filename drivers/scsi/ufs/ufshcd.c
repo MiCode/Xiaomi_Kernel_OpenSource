@@ -7193,7 +7193,11 @@ static int ufshcd_host_reset_and_restore(struct ufs_hba *hba)
 	hba->silence_err_logs = false;
 
 	/* scale up clocks to max frequency before full reinitialization */
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
+	ufshcd_scale_clks(hba, true);
+#else
 	ufshcd_set_clk_freq(hba, true);
+#endif
 
 	err = ufshcd_hba_enable(hba);
 
