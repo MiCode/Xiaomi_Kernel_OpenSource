@@ -1688,7 +1688,7 @@ static int ufs_mtk_vreg_fix_vcc(struct ufs_hba *hba)
 	if (of_property_read_bool(np, "mediatek,ufs-vcc-by-num")) {
 		ufs_mtk_get_vcc_num(res);
 		if (res.a1 > UFS_VCC_NONE && res.a1 < UFS_VCC_MAX)
-			snprintf(vcc_name, MAX_VCC_NAME, "vcc-opt%u", res.a1);
+			snprintf(vcc_name, MAX_VCC_NAME, "vcc-opt%u", (unsigned int) res.a1);
 		else
 			return -ENODEV;
 	} else if (of_property_read_bool(np, "mediatek,ufs-vcc-by-ver")) {
