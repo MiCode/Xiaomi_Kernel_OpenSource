@@ -183,6 +183,7 @@ struct seninf_ctx {
 	/* resources */
 	struct list_head list_mux;
 	struct list_head list_cam_mux;
+	struct seninf_mux *mux_by[VC_CH_GROUP_MAX_NUM][TYPE_MAX_NUM];
 
 	/* flags */
 	unsigned int csi_streaming:1;

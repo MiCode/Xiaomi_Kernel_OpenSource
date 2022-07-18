@@ -109,6 +109,9 @@ enum REG_OPS_CMD {
 	REG_OPS_CMD_CSI,
 	REG_OPS_CMD_RG,
 	REG_OPS_CMD_VAL,
+	REG_OPS_CMD_PAD = REG_OPS_CMD_RG,
+	REG_OPS_CMD_CAMTG = REG_OPS_CMD_VAL,
+	REG_OPS_CMD_TAG,
 	REG_OPS_CMD_MAX_NUM,
 };
 
@@ -125,10 +128,10 @@ static ssize_t debug_ops_store(struct device *dev,
 	unsigned int num_para = 0;
 	char *arg[REG_OPS_CMD_MAX_NUM];
 	struct seninf_core *core = dev_get_drvdata(dev);
-	struct seninf_ctx *ctx;
+	struct seninf_ctx *ctx, *seninf_ctx = NULL;
 	int csi_port = -1;
 	int rg_idx = -1;
-	u32 val;
+	u32 val, pad_id, camtg, tag_id;
 
 	if (!sbuf)
 		goto ERR_DEBUG_OPS_STORE;
@@ -185,6 +188,47 @@ static ssize_t debug_ops_store(struct device *dev,
 		}
 
 		mutex_unlock(&core->mutex);
+	} else if (strncmp("SET_CAMTG", arg[REG_OPS_CMD_ID], sizeof("SET_CAMTG")) == 0) {
+		for (i = 0; i < CSI_PORT_MAX_NUM; i++) {
+			memset(csi_names, 0, ARRAY_SIZE(csi_names));
+			ret = snprintf(csi_names, 10, "csi-%s", csi_port_names[i]);
+			if (ret < 0) {
+				dev_info(dev, "fail to snprintf\n");
+				goto ERR_DEBUG_OPS_STORE;
+			}
+			if (!strcasecmp(arg[REG_OPS_CMD_CSI], csi_names))
+				csi_port = i;
+		}
+
+		if (csi_port < 0)
+			goto ERR_DEBUG_OPS_STORE;
+
+		ret = kstrtouint(arg[REG_OPS_CMD_PAD], 0, &pad_id);
+		if (ret)
+			goto ERR_DEBUG_OPS_STORE;
+
+		ret = kstrtouint(arg[REG_OPS_CMD_CAMTG], 0, &camtg);
+		if (ret)
+			goto ERR_DEBUG_OPS_STORE;
+
+		ret = kstrtouint(arg[REG_OPS_CMD_TAG], 0, &tag_id);
+		if (ret)
+			goto ERR_DEBUG_OPS_STORE;
+
+		// reg call
+		mutex_lock(&core->mutex);
+		list_for_each_entry(ctx, &core->list, list) {
+			if (csi_port == ctx->port) {
+				seninf_ctx = ctx;
+				break;
+			}
+		}
+		mutex_unlock(&core->mutex);
+
+		if (seninf_ctx) {
+			mtk_cam_seninf_set_camtg_camsv(&seninf_ctx->subdev,
+						pad_id, camtg, tag_id);
+		}
 	}
 
 ERR_DEBUG_OPS_STORE:
@@ -1754,7 +1798,7 @@ static int seninf_test_streamon(struct seninf_ctx *ctx, u32 en)
 #endif
 	if (en) {
 		ctx->is_test_streamon = 1;
-		mtk_cam_seninf_alloc_cammux_by_type(ctx, TYPE_RAW);
+		mtk_cam_seninf_alloc_cammux(ctx);
 		seninf_s_stream(&ctx->subdev, 1);
 	} else {
 		seninf_s_stream(&ctx->subdev, 0);
@@ -2172,6 +2216,7 @@ static int seninf_probe(struct platform_device *pdev)
 	list_add(&ctx->list, &core->list);
 	INIT_LIST_HEAD(&ctx->list_mux);
 	INIT_LIST_HEAD(&ctx->list_cam_mux);
+	memset(ctx->mux_by, 0, sizeof(ctx->mux_by));
 
 	ctx->open_refcnt = 0;
 	mutex_init(&ctx->mutex);
