@@ -772,6 +772,21 @@ struct mtk_drm_disp_caps_info {
 	unsigned int msync_level_num;
 };
 
+enum MTK_CRTC_ABILITY {
+	ABILITY_FBDC = BIT(0),
+	ABILITY_EXT_LAYER = BIT(1),
+	ABILITY_IDLEMGR = BIT(2),
+	ABILITY_ESD_CHECK = BIT(3),
+	ABILITY_PQ = BIT(4),
+	ABILITY_RSZ = BIT(5),
+	ABILITY_MML = BIT(6),
+	ABILITY_WCG = BIT(7),
+	ABILITY_PRE_TE = BIT(8),
+	ABILITY_BW_MONITOR = BIT(9),
+	ABILITY_CWB = BIT(10),
+	ABILITY_MSYNC20 = BIT(11),
+};
+
 struct mtk_drm_wb_caps {
 	bool support;
 	bool rsz;
@@ -784,6 +799,7 @@ struct mtk_drm_wb_caps {
 
 struct mtk_drm_crtc_caps {
 	struct mtk_drm_wb_caps wb_caps[MTK_DRM_DUMP_POINT_NUM];
+	unsigned int crtc_ability;
 };
 
 struct drm_mtk_session_info {
