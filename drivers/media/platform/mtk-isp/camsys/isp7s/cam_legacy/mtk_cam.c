@@ -3860,8 +3860,28 @@ mtk_cam_config_raw_img_in_ipui(struct mtk_cam_request_stream_data *s_data,
 	}
 
 	if (s_data->apu_info.apu_path == APU_DC_RAW) {
+		struct slbc_data slb;
+
 		frame_param->raw_param.hardware_scenario =
 			MTKCAM_IPI_HW_PATH_DC_ADL;
+
+		if (!ctx->slb_addr) {
+			slb.uid = UID_SH_P1;
+			slb.type = TP_BUFFER;
+			ret = slbc_request(&slb);
+
+			if (ret < 0) {
+				dev_info(cam->dev,
+					"%s: allocate slb fail\n", __func__);
+			} else {
+				dev_info(cam->dev,
+					"%s: slb buffer base(0x%x), size(%ld): %x",
+					__func__, (uintptr_t)slb.paddr, slb.size);
+				ctx->slb_addr = slb.paddr;
+				ctx->slb_size = slb.size;
+			}
+		}
+
 	} else if (s_data->apu_info.apu_path == APU_FRAME_MODE) {
 		frame_param->raw_param.hardware_scenario =
 			MTKCAM_IPI_HW_PATH_OFFLINE_ADL;
@@ -8020,7 +8040,6 @@ struct mtk_cam_ctx *mtk_cam_start_ctx(struct mtk_cam_device *cam,
 	struct v4l2_subdev **target_sd;
 	int ret, i, is_first_ctx;
 	struct media_entity *entity = &node->vdev.entity;
-	struct slbc_data slb;
 
 	dev_info(cam->dev, "%s:ctx(%d): triggered by %s\n",
 		 __func__, ctx->stream_id, entity->name);
@@ -8088,20 +8107,6 @@ struct mtk_cam_ctx *mtk_cam_start_ctx(struct mtk_cam_device *cam,
 		goto fail_shutdown;
 #endif
 	cam->composer_cnt++;
-
-	slb.uid = UID_SH_P1;
-	slb.type = TP_BUFFER;
-
-	ret = slbc_request(&slb);
-
-	if (ret < 0) {
-		dev_info(cam->dev, "%s: allocate slb fail\n", __func__);
-	} else {
-		dev_info(cam->dev, "%s: slb buffer base(0x%x), size(%ld): %x",
-			__func__, (uintptr_t)slb.paddr, slb.size);
-		ctx->slb_addr = slb.paddr;
-		ctx->slb_size = slb.size;
-	}
 
 	cmdq_mbox_enable(cam->cmdq_clt->chan);
 
@@ -8415,11 +8420,14 @@ void mtk_cam_stop_ctx(struct mtk_cam_ctx *ctx, struct media_entity *entity)
 	dev_info(cam->dev, "%s: ctx-%d:  composer_cnt:%d\n",
 		__func__, ctx->stream_id, cam->composer_cnt);
 
-	slb.uid = UID_SH_P1;
-	slb.type = TP_BUFFER;
-	ret = slbc_release(&slb);
-	if (ret < 0)
-		dev_info(cam->dev, "failed to release slb buffer");
+	if (ctx->slb_addr) {
+		slb.uid = UID_SH_P1;
+		slb.type = TP_BUFFER;
+		ret = slbc_release(&slb);
+		if (ret < 0)
+			dev_info(cam->dev, "failed to release slb buffer");
+	}
+	ctx->slb_addr = NULL;
 
 	if (cam->cmdq_clt)
 		cmdq_mbox_disable(cam->cmdq_clt->chan);
