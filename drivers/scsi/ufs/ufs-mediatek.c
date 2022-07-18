@@ -1996,6 +1996,11 @@ static int ufs_mtk_unipro_set_lpm(struct ufs_hba *hba, bool lpm)
 			dev_info(hba->dev, "%s: read 0xD0A8 val=%d\n",
 				__func__, val);
 		}
+
+		aee_kernel_warning_api(__FILE__,
+			__LINE__, DB_OPT_FS_IO_LOG | DB_OPT_FTRACE,
+			"ufs", "set 0xd0a8 fail, ret=%d, ret2=%d, 0xd0a8=%d",
+			ret, ret2, val);
 	}
 #endif
 
@@ -2325,6 +2330,12 @@ static void ufs_mtk_dbg_register_dump(struct ufs_hba *hba)
 	ufshcd_dump_regs(hba, REG_UFS_PROBE, 0x4, "Debug Probe ");
 #if IS_ENABLED(CONFIG_SCSI_UFS_MEDIATEK_DBG)
 	ufs_mtk_dbg_dump(100);
+#endif
+
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
+	aee_kernel_warning_api(__FILE__,
+		__LINE__, DB_OPT_FS_IO_LOG | DB_OPT_FTRACE,
+		"ufs", "timeout dump");
 #endif
 }
 
