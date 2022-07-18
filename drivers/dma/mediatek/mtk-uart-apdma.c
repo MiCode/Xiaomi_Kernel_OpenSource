@@ -141,6 +141,8 @@ static void mtk_uart_apdma_write(struct mtk_chan *c,
 			       unsigned int reg, unsigned int val)
 {
 	writel(val, c->base + reg);
+	/* Flush register write */
+	mb();
 }
 
 static unsigned int mtk_uart_apdma_read(struct mtk_chan *c, unsigned int reg)
@@ -344,6 +346,8 @@ static void mtk_uart_apdma_rx_handler(struct mtk_chan *c)
 	if (d->vd.tx.callback_param != NULL)
 		serial_in(p, 0x13);
 
+	/* Flush register read */
+	mb();
 	mtk_uart_apdma_write(c, VFF_INT_FLAG, VFF_RX_INT_CLR_B);
 
 	if (!mtk_uart_apdma_read(c, VFF_VALID_SIZE))

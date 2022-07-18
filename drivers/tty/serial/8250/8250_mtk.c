@@ -83,6 +83,8 @@
 #define MTK_UART_FPGA_BAUD 921600
 #endif
 
+#define MAX_POLLING_CNT 8
+
 #define MTK_UART_HUB_BAUD 12000000
 #define UART_DUMP_RECORE_NUM 10
 #define UART_DUMP_BUF_LEN PAGE_SIZE
@@ -305,6 +307,20 @@ static void mtk8250_uart_rx_setting(struct dma_chan *chan)
 	#if defined(KERNEL_mtk_uart_rx_setting)
 		KERNEL_mtk_uart_rx_setting(chan);
 	#endif
+}
+
+static int mtk8250_uart_rx_dma(struct uart_8250_port *up)
+{
+	unsigned int iir = 0;
+	unsigned int tmo = MAX_POLLING_CNT;
+
+	while (tmo--) {
+		iir = serial_in(up, UART_IIR);
+		if (iir & UART_IIR_NO_INT)
+			break;
+	}
+	serial_out(up, UART_IER, 0);
+	return 0;
 }
 #endif
 
@@ -572,6 +588,7 @@ static void mtk8250_dma_enable(struct uart_8250_port *up)
 	if (data->rx_status != DMA_RX_START)
 		return;
 
+	dma->rx_dma = mtk8250_uart_rx_dma;
 	dma->rxconf.src_port_window_size	= dma->rx_size;
 	dma->rxconf.src_addr				= dma->rx_addr;
 
@@ -705,7 +722,6 @@ static void mtk8250_set_flow_ctrl(struct uart_8250_port *up, int mode)
 		serial_out(up, MTK_UART_XOFF2, STOP_CHAR(port->state->port.tty));
 		serial_out(up, MTK_UART_FEATURE_SEL, 0);
 		mtk8250_disable_intrs(up, MTK_UART_IER_CTSI|MTK_UART_IER_RTSI);
-		mtk8250_enable_intrs(up, MTK_UART_IER_XOFFI);
 		break;
 	default:
 		break;
@@ -779,6 +795,22 @@ mtk8250_set_termios(struct uart_port *port, struct ktermios *termios,
 	}
 
 	serial8250_do_set_termios(port, termios, NULL);
+#ifdef CONFIG_SERIAL_8250_DMA
+	if (up->dma) {
+		if (!uart_console(port)) {
+			unsigned int tmo = MAX_POLLING_CNT;
+			unsigned int iir = 0;
+
+			while (tmo--) {
+				iir = serial_port_in(port, UART_IIR);
+				if (iir & UART_IIR_NO_INT)
+					break;
+			}
+			up->ier = 0;
+			serial_port_out(port, UART_IER, 0x0);
+		}
+	}
+#endif
 
 	tty_termios_encode_baud_rate(termios, baud, baud);
 
@@ -879,7 +911,10 @@ mtk8250_set_termios(struct uart_port *port, struct ktermios *termios,
 		mode = MTK_UART_FC_NONE;
 
 	mtk8250_set_flow_ctrl(up, mode);
-	serial_out(up, UART_IER, 0);
+#ifdef CONFIG_SERIAL_8250_DMA
+	if (up->dma && (!uart_console(port)))
+		serial_port_out(port, UART_IER, 0x0);
+#endif
 
 	if (uart_console(port))
 		up->port.cons->cflag = termios->c_cflag;
@@ -1162,8 +1197,10 @@ static int mtk8250_probe(struct platform_device *pdev)
 	uart.port.uartclk = MTK_UART_FPGA_CLK;
 #endif
 #ifdef CONFIG_SERIAL_8250_DMA
-	if (data->dma)
+	if (data->dma) {
 		uart.dma = data->dma;
+		uart.dma->rx_dma = mtk8250_uart_rx_dma;
+	}
 #endif
 
 	platform_set_drvdata(pdev, data);
