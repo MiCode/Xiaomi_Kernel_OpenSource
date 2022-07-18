@@ -13,8 +13,6 @@
 #include <ged_eb.h>
 #include <mt-plat/mtk_gpu_utility.h>
 
-static int g_min_count;
-
 static int g_max_core_num;             /* core_num */
 static int g_avail_mask_num;           /* mask_num */
 
@@ -377,21 +375,6 @@ int ged_gpufreq_commit(int oppidx, int commit_type, int *bCommited)
 
 	/* DCS policy enabled */
 	if (is_dcs_enable()) {
-
-		/* check constraint for lowest virtual opp */
-		if (oppidx == g_min_virtual_oppidx)
-			g_min_count = (g_min_count < DCS_MIN_OPP_CNT) ?
-				g_min_count + 1 : DCS_MIN_OPP_CNT;
-		else
-			g_min_count = 0;
-
-		if (g_min_count > 0 && g_min_count < DCS_MIN_OPP_CNT)
-			oppidx -= 1;
-
-		/* check FB fallback timer commit */
-		if (commit_type == GED_DVFS_FB_FALLBACK_COMMIT)
-			if (oppidx > g_min_working_oppidx)
-				oppidx = g_min_working_oppidx;
 
 		/* convert virtual opp to working opp with corresponding core mask */
 		if (oppidx > g_min_working_oppidx) {
