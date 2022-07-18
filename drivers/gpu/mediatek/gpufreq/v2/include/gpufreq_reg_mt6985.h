@@ -191,10 +191,12 @@ static inline u32 readl_mfg(const void __iomem *addr)
 #define STH_MFG_EMI0_GALS_SLV_DBG       (STH_EMICFG_BASE + 0x830)             /* 0x1021E830 */
 
 #define NTH_EMICFG_AO_MEM_BASE          (g_nth_emicfg_ao_mem_base)            /* 0x10270000 */
+#define NTH_SLEEP_PROT_START            (NTH_EMICFG_AO_MEM_BASE + 0x000)      /* 0x10270000 */
 #define NTH_M6M7_IDLE_BIT_EN_1          (NTH_EMICFG_AO_MEM_BASE + 0x228)      /* 0x10270228 */
 #define NTH_M6M7_IDLE_BIT_EN_0          (NTH_EMICFG_AO_MEM_BASE + 0x22C)      /* 0x1027022C */
 
 #define STH_EMICFG_AO_MEM_BASE          (g_sth_emicfg_ao_mem_base)            /* 0x1030E000 */
+#define STH_SLEEP_PROT_START            (STH_EMICFG_AO_MEM_BASE + 0x000)      /* 0x1030E000 */
 #define STH_M6M7_IDLE_BIT_EN_1          (STH_EMICFG_AO_MEM_BASE + 0x228)      /* 0x1030E228 */
 #define STH_M6M7_IDLE_BIT_EN_0          (STH_EMICFG_AO_MEM_BASE + 0x22C)      /* 0x1030E22C */
 

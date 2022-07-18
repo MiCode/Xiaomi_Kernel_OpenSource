@@ -1149,6 +1149,13 @@ void __gpufreq_dump_infra_status(void)
 		0x1030E228, readl(STH_M6M7_IDLE_BIT_EN_1),
 		0x1030E22C, readl(STH_M6M7_IDLE_BIT_EN_0));
 
+	/* NTH_SLEEP_PROT_START */
+	/* STH_SLEEP_PROT_START */
+	GPUFREQ_LOGI("%-11s (0x%x): 0x%08x, (0x%x): 0x%08x",
+		"[EMI]",
+		0x10270000, readl(NTH_SLEEP_PROT_START),
+		0x1030E000, readl(STH_SLEEP_PROT_START));
+
 	/* IFR_MFGSYS_PROT_EN_STA_0 */
 	/* IFR_MFGSYS_PROT_RDY_STA_0 */
 	/* IFR_EMISYS_PROTECT_EN_STA_0 */
