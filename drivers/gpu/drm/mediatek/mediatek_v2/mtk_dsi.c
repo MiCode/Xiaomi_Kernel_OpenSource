@@ -877,7 +877,7 @@ static void mtk_dsi_clear_rxrd_irq(struct mtk_dsi *dsi)
 }
 static unsigned int mtk_dsi_default_rate(struct mtk_dsi *dsi)
 {
-	u32 data_rate;
+	u32 data_rate = 0;
 	struct mtk_drm_crtc *mtk_crtc = dsi->ddp_comp.mtk_crtc;
 	struct mtk_drm_private *priv = NULL;
 
@@ -892,7 +892,8 @@ static unsigned int mtk_dsi_default_rate(struct mtk_dsi *dsi)
 	if (mtk_crtc && mtk_crtc->base.dev)
 		priv = mtk_crtc->base.dev->dev_private;
 
-	if ((priv->data->mmsys_id == MMSYS_MT6983 ||
+	if (priv && priv->data &&
+		(priv->data->mmsys_id == MMSYS_MT6983 ||
 		priv->data->mmsys_id == MMSYS_MT6985 ||
 		priv->data->mmsys_id == MMSYS_MT6895 ||
 		priv->data->mmsys_id == MMSYS_MT6886 ||
@@ -3440,6 +3441,11 @@ unsigned int mtk_dsi_mode_change_index(struct mtk_dsi *dsi,
 	if (adjust_mode == NULL) {
 		DDPINFO("%s %d adjust mode is NULL\n", __func__, __LINE__);
 		mtk_crtc->mode_change_index = mode_chg_index;
+		return -EINVAL;
+	}
+
+	if (panel_ext == NULL) {
+		DDPINFO("%s %d panel_ext is NULL\n", __func__, __LINE__);
 		return -EINVAL;
 	}
 
@@ -6131,11 +6137,18 @@ static const struct mipi_dsi_host_ops mtk_dsi_ops = {
 static void mtk_dsi_ddic_handler_default_cb(struct cmdq_cb_data data)
 {
 	struct mtk_cmdq_cb_data *cb_data = data.data;
-	unsigned int free_handle = cb_data->misc;
-	int index = drm_crtc_index(cb_data->crtc);
+	unsigned int free_handle = 0;
+	int index = 0;
 	struct mtk_dsi *dsi = NULL;
 	struct mtk_panel_ext *panel_ext = NULL;
 	int ret = 0;
+
+	if (!cb_data || !cb_data->crtc) {
+		DDPPR_ERR("%s failed with NULL cb_data or crtc", __func__);
+		return;
+	}
+	free_handle = cb_data->misc;
+	index = drm_crtc_index(cb_data->crtc);
 
 	if (cb_data->crtc != NULL)
 		dsi = pm_get_mtk_dsi(cb_data->crtc);

@@ -8651,7 +8651,7 @@ static void mtk_crtc_msync2_send_cmds_bef_cfg(struct drm_crtc *crtc, unsigned in
 {
 	struct mtk_crtc_state *state = to_mtk_crtc_state(crtc->state);
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
-	struct mtk_ddp_comp *comp = mtk_ddp_comp_request_output(mtk_crtc);
+	struct mtk_ddp_comp *comp = mtk_crtc ? mtk_ddp_comp_request_output(mtk_crtc) : NULL;
 	struct mtk_panel_params *params = mtk_drm_get_lcm_ext_params(crtc);
 	unsigned int fps_level = 0;
 	unsigned int min_fps = 0;
@@ -8665,7 +8665,7 @@ static void mtk_crtc_msync2_send_cmds_bef_cfg(struct drm_crtc *crtc, unsigned in
 	static unsigned int count;
 	static unsigned int count1;
 	static unsigned int msync_is_close;
-	dma_addr_t addr;
+	dma_addr_t addr = 0;
 
 
 	DDPMSG("[Msync2.0] Cmd mode send cmds before config\n");
@@ -11490,11 +11490,6 @@ int mtk_drm_crtc_create(struct drm_device *drm_dev,
 		if (mtk_ddp_comp_get_type(comp_id) == MTK_DISP_VIRTUAL)
 			continue;
 
-		if (comp_id < 0) {
-			DDPPR_ERR("%s: Invalid comp_id:%d\n", __func__, comp_id);
-			return 0;
-		}
-
 		node = priv->comp_node[comp_id];
 		if (!node) {
 			dev_info(
@@ -11574,11 +11569,6 @@ int mtk_drm_crtc_create(struct drm_device *drm_dev,
 		struct mtk_ddp_comp *comp;
 		struct device_node *node;
 		bool *rdma_memory_mode;
-
-		if (comp_id < 0) {
-			DDPPR_ERR("%s: Invalid comp_id:%d\n", __func__, comp_id);
-			return 0;
-		}
 
 		if (mtk_ddp_comp_get_type(comp_id) == MTK_DISP_VIRTUAL) {
 			struct mtk_ddp_comp *comp;

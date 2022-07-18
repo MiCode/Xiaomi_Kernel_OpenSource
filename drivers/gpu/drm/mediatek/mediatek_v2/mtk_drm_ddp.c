@@ -11727,10 +11727,6 @@ static int mtk_ddp_mout_en_MT6879(const struct mtk_mmsys_reg_data *data,
 		next == DDP_COMPONENT_RSZ0) {
 		*addr = MT6879_DISP_OVL0_2L_BLEND_MOUT_EN;
 		value = MT6879_DISP_OVL0_2L_MOUT_TO_DISP_RSZ0_SEL;
-	} else if (cur == DDP_COMPONENT_RSZ0 &&
-		next == DDP_COMPONENT_OVL0) {
-		*addr = MT6879_DISP_RSZ0_MOUT_EN;
-		value = MT6879_DISP_RSZ0_MOUT_TO_DISP_OVL_SOUT;
 	} else if (cur == DDP_COMPONENT_PQ0_RDMA0_POS_VIRTUAL &&
 		next == DDP_COMPONENT_RDMA0) {
 		*addr = MT6879_DISP_RDMA0_POS_MOUT_EN;
@@ -12843,9 +12839,17 @@ void mtk_ddp_remove_comp_from_path(struct mtk_drm_crtc *mtk_crtc,
 {
 	unsigned int addr, reg;
 	int value;
-	void __iomem *config_regs = mtk_crtc->config_regs;
-	const struct mtk_mmsys_reg_data *reg_data  = mtk_crtc->mmsys_reg_data;
-	struct mtk_drm_private *priv = mtk_crtc->base.dev->dev_private;
+	void __iomem *config_regs = NULL;
+	const struct mtk_mmsys_reg_data *reg_data  = NULL;
+	struct mtk_drm_private *priv = NULL;
+
+	if (!mtk_crtc) {
+		DDPPR_ERR("%s failed with NULL mtk_crtc\n", __func__);
+		return;
+	}
+	config_regs = mtk_crtc->config_regs;
+	reg_data  = mtk_crtc->mmsys_reg_data;
+	priv = mtk_crtc->base.dev->dev_private;
 
 	switch (priv->data->mmsys_id) {
 	case MMSYS_MT6885:
@@ -12862,8 +12866,12 @@ void mtk_ddp_remove_comp_from_path(struct mtk_drm_crtc *mtk_crtc,
 		}
 		break;
 	case MMSYS_MT6983:
+		if (!reg_data || !reg_data->dispsys_map) {
+			DDPPR_ERR("%s failed with NULL reg_data or dispsys_map\n", __func__);
+			break;
+		}
 		/* decide which dispsys need to config */
-		if (mtk_crtc->dispsys_num > 1 && reg_data->dispsys_map &&
+		if (mtk_crtc->dispsys_num > 1 &&
 				reg_data->dispsys_map[cur] == 1)
 			config_regs = mtk_crtc->side_config_regs;
 
@@ -12874,15 +12882,19 @@ void mtk_ddp_remove_comp_from_path(struct mtk_drm_crtc *mtk_crtc,
 		}
 		break;
 	case MMSYS_MT6985:
+		if (!reg_data || !reg_data->dispsys_map) {
+			DDPPR_ERR("%s failed with NULL reg_data or dispsys_map\n", __func__);
+			break;
+		}
 		/* decide which dispsys need to config */
-		if (mtk_crtc->dispsys_num > 1 && reg_data->dispsys_map &&
+		if (mtk_crtc->dispsys_num > 1 &&
 				reg_data->dispsys_map[cur] == 1)
 			config_regs = mtk_crtc->side_config_regs;
 
 		if (reg_data->dispsys_map[cur] == OVLSYS0 ||
 			reg_data->dispsys_map[next] == OVLSYS0) {
 			config_regs = mtk_crtc->ovlsys0_regs;
-		} else if (mtk_crtc->ovlsys_num > 1 && reg_data->dispsys_map &&
+		} else if (mtk_crtc->ovlsys_num > 1 &&
 				(reg_data->dispsys_map[cur] == OVLSYS1 ||
 			reg_data->dispsys_map[next] == OVLSYS1)) {
 			config_regs = mtk_crtc->ovlsys1_regs;
@@ -12901,6 +12913,10 @@ void mtk_ddp_remove_comp_from_path(struct mtk_drm_crtc *mtk_crtc,
 		break;
 	case MMSYS_MT6895:
 	case MMSYS_MT6886:
+		if (!reg_data || !reg_data->dispsys_map) {
+			DDPPR_ERR("%s failed with NULL reg_data or dispsys_map\n", __func__);
+			break;
+		}
 		/* decide which dispsys need to config */
 		if (mtk_crtc->dispsys_num > 1 && reg_data->dispsys_map &&
 				reg_data->dispsys_map[cur] == 1)
