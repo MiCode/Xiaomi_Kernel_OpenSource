@@ -337,7 +337,6 @@ static int glink_early_ssr_notifier_event(struct notifier_block *this,
 {
 	struct qcom_rproc_glink *glink = container_of(this, struct qcom_rproc_glink, nb);
 
-	pr_err("early notify: %s\n", __func__);
 	qcom_glink_early_ssr_notify(glink->edge);
 	return NOTIFY_DONE;
 }

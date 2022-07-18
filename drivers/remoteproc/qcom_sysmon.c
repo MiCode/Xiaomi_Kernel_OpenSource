@@ -604,7 +604,6 @@ static void sysmon_stop(struct rproc_subdev *subdev, bool crashed)
 			       crashed ? "crash stop" : "stop");
 
 	if (sysmon->ssr_subdev) {
-		pr_err("%s : early notify\n", __func__);
 		ssr = container_of(sysmon->ssr_subdev, struct qcom_rproc_ssr, subdev);
 		if (!ssr->is_notified)
 			qcom_notify_early_ssr_clients(sysmon->ssr_subdev);
