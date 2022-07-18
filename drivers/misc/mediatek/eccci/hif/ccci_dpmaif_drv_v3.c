@@ -535,24 +535,6 @@ static inline unsigned int drv3_get_dl_interrupt_mask(void)
 	return DPMA_READ_AO_UL(NRL2_DPMAIF_AO_UL_APDL_L2TIMR0);
 }
 
-static void drv3_irq_rx_lro_lenerr_handler(unsigned int rx_int_isr)
-{
-	/*SKB buffer size error*/
-	if ((rx_int_isr & DP_DL_INT_LRO0_PITCNT_LEN_ERR) ||
-		(rx_int_isr & DP_DL_INT_LRO1_PITCNT_LEN_ERR)) {
-		CCCI_NOTICE_LOG(0, TAG,
-			"[%s] dpmaif: dl skb error L2: %X\n",
-			__func__, rx_int_isr);
-	}
-
-	/*Rx data length more than error*/
-	if (rx_int_isr & DPMAIF_DL_INT_MTU_ERR_MSK) {
-		CCCI_NOTICE_LOG(0, TAG,
-			"[%s] dpmaif: dl mtu error L2: %X\n",
-			__func__, rx_int_isr);
-	}
-}
-
 static void drv3_mask_dl_lro0_interrupt(void)
 {
 	int count = 0;
@@ -621,7 +603,7 @@ static irqreturn_t drv3_isr0(int irq, void *data)
 	if (L2RISAR0) {
 		L2RISAR0 &= ~(L2RIMR0|DP_DL_INT_LRO1_QDONE_SET);
 		if (L2RISAR0 & AP_DL_L2INTR_ERR_En_Msk)
-			drv3_irq_rx_lro_lenerr_handler(L2RISAR0 & AP_DL_L2INTR_ERR_En_Msk);
+			ccci_irq_rx_lenerr_handler(L2RISAR0);
 
 		/* ACK interrupt after lenerr_handler*/
 		/* ACK RX interrupt */
@@ -665,17 +647,11 @@ static irqreturn_t drv3_isr1(int irq, void *data)
 		CCCI_NOTICE_LOG(0, TAG, "[%s] wake up by MD0 HIF L2(%x/%x)!\n",
 			__func__, L2RISAR0, L2RIMR0);
 
-
 	/* RX interrupt */
 	if (L2RISAR0) {
-		//if (L2RISAR0 & DP_DL_INT_LRO1_QDONE_SET)
-		//	ccci_irq_rx_lenerr_handler(L2RISAR0 & AP_DL_L2INTR_ERR_En_Msk);
-
-		/* ACK interrupt after lenerr_handler*/
-		/* ACK RX interrupt */
-		//DPMA_WRITE_PD_MISC(DPMAIF_PD_AP_DL_L2TISAR0, L2RISAR0);
-
 		if (L2RISAR0 & DP_DL_INT_LRO1_QDONE_SET) {
+			/* ACK RX interrupt */
+			DPMA_WRITE_PD_MISC(DPMAIF_PD_AP_DL_L2TISAR0, DP_DL_INT_LRO1_QDONE_SET);
 			/* disable RX_DONE  interrupt */
 			drv3_mask_dl_lro1_interrupt();
 			/*always start work due to no napi*/
