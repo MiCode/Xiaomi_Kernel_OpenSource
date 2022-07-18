@@ -1581,6 +1581,8 @@
 	};
 
 	pda: pda@1a180000 {
+		#address-cells = <2>;
+		#size-cells = <2>;
 		compatible = "mediatek,camera-pda";
 		reg = <0 0x1a180000 0 0x1000>;
 		dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
@@ -1646,6 +1648,8 @@
 	};
 
 	pda2: pda2@1a181000 {
+		#address-cells = <2>;
+		#size-cells = <2>;
 		compatible = "mediatek,camera-pda2";
 		reg = <0 0x1a181000 0 0x1000>;
 		dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
@@ -13252,7 +13256,7 @@
 		compatible = "mediatek,mtk_composite_v4l2_1";
 	};
 
-	mtk_composite_v4l2_2: mtk_composite_v4l2_2 {
+	mtk_composite_v4l2_2: mtk-composite-v4l2-2 {
 		compatible = "mediatek,mtk_composite_v4l2_2";
 	};
 

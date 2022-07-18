@@ -429,44 +429,53 @@
 };
 /* CAMERA GPIO end */
 
-
 &mtk_composite_v4l2_2 {
+	#address-cells = <1>;
+	#size-cells = <0>;
 	port@0 {
+		reg = <0>;
 		main_af_endpoint: endpoint {
 			remote-endpoint = <&main_af>;
 		};
 	};
 	port@1 {
+		reg = <1>;
 		main_af_cam1_endpoint: endpoint {
 			remote-endpoint = <&main_af_cam1>;
 		};
 	};
 	port@2 {
+		reg = <2>;
 		main_af_cam2_endpoint: endpoint {
 			remote-endpoint = <&main_af_cam2>;
 		};
 	};
 	port@3 {
+		reg = <3>;
 		main_af_cam3_endpoint: endpoint {
 			remote-endpoint = <&main_af_cam3>;
 		};
 	};
 	port@4 {
+		reg = <4>;
 		main_af_cam4_endpoint: endpoint {
 			remote-endpoint = <&main_af_cam4>;
 		};
 	};
 	port@5 {
+		reg = <5>;
 		main_af_cam5_endpoint: endpoint {
 			remote-endpoint = <&main_af_cam5>;
 		};
 	};
 	port@6 {
+		reg = <6>;
 		main_af_cam6_endpoint: endpoint {
 			remote-endpoint = <&main_af_cam6>;
 		};
 	};
 	port@7 {
+		reg = <7>;
 		main_af_cam7_endpoint: endpoint {
 			remote-endpoint = <&main_af_cam7>;
 		};
@@ -537,7 +546,7 @@
 	#address-cells = <1>;
 	#size-cells = <0>;
 
-	camera_af_main_three@0e {
+	camera-af-main-three@e {
 		compatible = "mediatek,gt9772b";
 		reg = <0x0e>;
 		vin-supply = <&rt5133_gpio1>;
@@ -548,7 +557,7 @@
 		};
 	};
 
-	camera_af_main_three@2b {
+	camera-af-main-three@2b {
 		compatible = "mediatek,ak7377a";
 		reg = <0x2b>;
 		vin-supply = <&rt5133_gpio1>;
@@ -666,7 +675,7 @@
 	#address-cells = <1>;
 	#size-cells = <0>;
 
-	camera_af_main@72 {
+	camera-af-main@72 {
 		compatible = "mediatek,lc898229";
 		reg = <0x72>;
 		vin-supply = <&rt5133_ldo3>;
@@ -677,7 +686,7 @@
 		};
 	};
 
-	camera_af_main@0c {
+	camera-af-main@c {
 		compatible = "mediatek,gt9764";
 		reg = <0x0c>;
 		vin-supply = <&rt5133_ldo3>;
@@ -688,7 +697,7 @@
 		};
 	};
 
-	camera_af_main@0f {
+	camera-af-main@f {
 		compatible = "mediatek,dw9800w";
 		reg = <0x0f>;
 		vin-supply = <&rt5133_ldo3>;
@@ -699,7 +708,7 @@
 		};
 	};
 
-	camera_af_main@0a {
+	camera-af-main@a {
 		compatible = "mediatek,ak7375c";
 		reg = <0x0a>;
 		vin-supply = <&rt5133_ldo3>;
@@ -779,7 +788,7 @@
 	#address-cells = <1>;
 	#size-cells = <0>;
 
-	camera_af_main_two@0d {
+	camera-af-main-two@d {
 		compatible = "mediatek,gt9772a";
 		reg = <0x0d>;
 		vin-supply = <&rt5133_ldo2>;
@@ -790,7 +799,7 @@
 		};
 	};
 
-	camera_af_main_two@2a {
+	camera-af-main-two@2a {
 		compatible = "mediatek,bu64253gwz";
 		reg = <0x2a>;
 		vin-supply = <&rt5133_ldo2>;
