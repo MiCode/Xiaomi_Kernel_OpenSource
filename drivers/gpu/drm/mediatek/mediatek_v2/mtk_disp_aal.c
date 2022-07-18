@@ -818,10 +818,6 @@ static void mtk_aal_config(struct mtk_ddp_comp *comp,
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			dre3_pa + MDP_AAL_DRE_BILATERAL_STATUS_CTRL,
 			0x3 << 1, 0x3 << 1);
-		// MDP_AAL_DRE_BILATEAL set to default value
-		cmdq_pkt_write(handle, comp->cmdq_base,
-			dre3_pa + MDP_AAL_DRE_BILATEAL,
-			0x00000373, ~0);
 	}
 
 	mtk_aal_init(comp, cfg, handle);
@@ -2703,7 +2699,11 @@ static int mtk_disp_clarity_set_reg(struct mtk_ddp_comp *comp,
 	CRTC_MMP_MARK(0, clarity_set_regs, comp->id, 1);
 
 	cmdq_pkt_write(handle, comp->cmdq_base, dre3_pa + MDP_AAL_DRE_BILATEAL,
-		clarity_regs->mdp_aal_clarity_regs.bilateral_range_flt_slope << 4, 0xF << 4);
+		(clarity_regs->mdp_aal_clarity_regs.bilateral_impulse_noise_en << 9 |
+		clarity_regs->mdp_aal_clarity_regs.dre_bilateral_detect_en << 8 |
+		clarity_regs->mdp_aal_clarity_regs.bilateral_range_flt_slope << 4 |
+		clarity_regs->mdp_aal_clarity_regs.bilateral_flt_en << 1 |
+		clarity_regs->mdp_aal_clarity_regs.have_bilateral_filter << 0), ~0);
 
 	cmdq_pkt_write(handle, comp->cmdq_base, dre3_pa + MDP_AAL_DRE_BILATERAL_Blending_00,
 		(clarity_regs->mdp_aal_clarity_regs.dre_bilateral_activate_blending_D << 27 |
