@@ -3562,21 +3562,19 @@ static unsigned int resizing_rule(struct drm_device *dev,
 
 int mtk_disp_deactivate(struct slbc_data *d)
 {
-	bool ret = true;
+	bool ret = false;
 	struct mtk_drm_crtc *mtk_crtc = NULL;
 	struct drm_crtc *crtc = NULL;
 	struct drm_device *dev = NULL;
 
 	mtk_crtc = d->user_cb_data;
 	if (!mtk_crtc) {
-		ret = false;
 		DDPPR_ERR("%s mtk_crtc is NULL\n", __func__);
 		goto fail;
 	}
 	crtc = &mtk_crtc->base;
 	dev = crtc->dev;
 	if (!dev) {
-		ret = false;
 		DDPPR_ERR("%s dev is NULL\n", __func__);
 		goto fail;
 	}
@@ -3585,7 +3583,7 @@ int mtk_disp_deactivate(struct slbc_data *d)
 	if (mtk_crtc->is_mml) {
 		mtk_crtc->slbc_state = SLBC_NEED_FREE;
 		drm_trigger_repaint(DRM_REPAINT_FOR_SWITCH_DECOUPLE, dev);
-		ret = false;
+		ret = true;
 	}
 	DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 	DDPINFO("%s slbc ret:%d\n", __func__, ret);
