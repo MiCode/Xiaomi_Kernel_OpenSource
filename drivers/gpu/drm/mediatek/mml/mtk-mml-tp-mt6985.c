@@ -203,14 +203,16 @@ static const struct path_node path_map[PATH_MML_MAX][MML_MAX_PATH_NODES] = {
 	[PATH_MML_PQ_P2] = {
 		{MML_MMLSYS,},
 		{MML_MUTEX,},
-		{MML_RDMA0, MML_RSZ2,},
+		{MML_RDMA0, MML_DLI0_SEL,},
+		{MML_DLI0_SEL, MML_RSZ2,},
 		{MML_RSZ2, MML_WROT2,},
 		{MML_WROT2,},
 	},
 	[PATH_MML_PQ_P3] = {
 		{MML_MMLSYS,},
 		{MML_MUTEX,},
-		{MML_RDMA1, MML_RSZ3,},
+		{MML_RDMA1, MML_DLI1_SEL,},
+		{MML_DLI1_SEL, MML_RSZ3,},
 		{MML_RSZ3, MML_WROT3,},
 		{MML_WROT3,},
 	},

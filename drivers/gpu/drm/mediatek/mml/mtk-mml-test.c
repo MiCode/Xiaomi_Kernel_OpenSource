@@ -831,15 +831,15 @@ static void case_run_2in_2out(struct mml_test *test, struct mml_ut *cur)
  */
 static void case_config_2out_crop(void)
 {
-	the_case.cfg_src_format = MML_FMT_RGB888;
+	the_case.cfg_src_format = mml_test_in_fmt;
 	the_case.cfg_src_w = mml_test_w;
 	the_case.cfg_src_h = mml_test_h;
-	the_case.cfg_dest_format = MML_FMT_NV12;
+	the_case.cfg_dest_format = mml_test_out_fmt;
 	the_case.cfg_dest_w = mml_test_w;
 	the_case.cfg_dest_h = mml_test_h;
 	the_case.cfg_dest1_format = MML_FMT_RGB888;
-	the_case.cfg_dest1_w = mml_test_w / 2;
-	the_case.cfg_dest1_h = mml_test_h / 2;
+	the_case.cfg_dest1_w = mml_test_out_w;
+	the_case.cfg_dest1_h = mml_test_out_h;
 }
 
 static void setup_2out_crop(struct mml_submit *task, struct mml_ut *cur)
@@ -847,10 +847,10 @@ static void setup_2out_crop(struct mml_submit *task, struct mml_ut *cur)
 	setup_2out(task, cur);
 
 	/* config dest[1] crop */
-	task->info.dest[1].crop.r.left = mml_test_w / 4;
-	task->info.dest[1].crop.r.top = mml_test_w / 4;
-	task->info.dest[1].crop.r.width = task->info.dest[1].data.width;
-	task->info.dest[1].crop.r.height = task->info.dest[1].data.height;
+	task->info.dest[1].crop.r.left = (mml_test_w - mml_test_out_w) / 2;
+	task->info.dest[1].crop.r.top = (mml_test_h - mml_test_out_h) / 2;
+	task->info.dest[1].crop.r.width = mml_test_out_w;
+	task->info.dest[1].crop.r.height = mml_test_out_h;
 }
 
 static void case_run_2out_crop(struct mml_test *test, struct mml_ut *cur)
@@ -889,15 +889,18 @@ static void setup_2out_crop_compose(struct mml_submit *task,
 {
 	setup_2out(task, cur);
 
+	task->info.dest[1].data.width = CASE_CROP_W;
+	task->info.dest[1].data.height = CASE_CROP_H;
+
 	/* config dest[1] crop */
-	task->info.dest[1].crop.r.left = central(mml_test_w, CASE_CROP_W);
-	task->info.dest[1].crop.r.top = central(mml_test_h, CASE_CROP_H);
-	task->info.dest[1].crop.r.width = task->info.dest[1].data.width;
-	task->info.dest[1].crop.r.height = task->info.dest[1].data.height;
-	task->info.dest[1].compose.left = central(mml_test_w, CASE_CROP_W);
-	task->info.dest[1].compose.top = central(mml_test_h, CASE_CROP_H);
-	task->info.dest[1].compose.width = mml_test_w;
-	task->info.dest[1].compose.height = mml_test_h;
+	task->info.dest[1].crop.r.left = central(cur->cfg_dest_w, CASE_CROP_W);
+	task->info.dest[1].crop.r.top = central(cur->cfg_dest_h, CASE_CROP_H);
+	task->info.dest[1].crop.r.width = CASE_CROP_W;
+	task->info.dest[1].crop.r.height = CASE_CROP_H;
+	task->info.dest[1].compose.left = central(cur->cfg_dest1_w, CASE_CROP_W);
+	task->info.dest[1].compose.top = central(cur->cfg_dest1_h, CASE_CROP_H);
+	task->info.dest[1].compose.width = CASE_CROP_W;
+	task->info.dest[1].compose.height = CASE_CROP_H;
 }
 
 static void case_run_2out_crop_compose(struct mml_test *test,

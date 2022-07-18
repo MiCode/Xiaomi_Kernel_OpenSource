@@ -265,9 +265,9 @@ static s32 hdr_tile_prepare(struct mml_comp *comp, struct mml_task *task,
 	func->in_tile_height  = 65535;
 	func->out_tile_height = 65535;
 
-	if (!relay_mode) {
+	if (!relay_mode || cfg->info.dest_cnt > 1) {
+		func->type |= TILE_TYPE_CROP_EN;
 		if (hdr->data->tile_loss) {
-			func->type |= TILE_TYPE_CROP_EN;
 			func->l_tile_loss = hdr->data->tile_loss;
 			func->r_tile_loss = hdr->data->tile_loss;
 		}
