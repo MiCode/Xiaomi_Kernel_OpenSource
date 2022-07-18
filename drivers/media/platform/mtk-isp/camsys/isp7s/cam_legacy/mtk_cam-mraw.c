@@ -336,6 +336,7 @@ static int mtk_mraw_call_set_fmt(struct v4l2_subdev *sd,
 			pipe->res_config.tg_crop.s.h = mf->height;
 			pipe->res_config.tg_fmt = ipi_fmt;
 			pipe->res_config.pixel_mode = 3;
+			atomic_set(&pipe->res_config.is_fmt_change, 1);
 		}
 	}
 
@@ -781,6 +782,14 @@ static void mtk_cam_mraw_copy_user_input_param(
 	CALL_PLAT_V4L2(
 		get_mraw_stats_cfg_param, vaddr, param);
 
+	if (atomic_read(&mraw_pipeline->res_config.is_fmt_change) == 1) {
+		mraw_pipeline->res_config.crop_width = param->crop_width;
+		mraw_pipeline->res_config.crop_height = param->crop_height;
+		atomic_set(&mraw_pipeline->res_config.is_fmt_change, 0);
+	}
+	if (mraw_pipeline->res_config.tg_crop.s.w < param->crop_width ||
+		mraw_pipeline->res_config.tg_crop.s.h < param->crop_height)
+		dev_info(dev, "%s tg size smaller than crop size", __func__);
 	dev_dbg(dev, "%s:enable:(%d,%d,%d) crop:(%d,%d) mqe:%d mbn:0x%x_%x_%x_%x_%x_%x_%x_%x cpi:0x%x_%x_%x_%x_%x_%x_%x_%x\n",
 		__func__,
 		param->mqe_en,
@@ -969,8 +978,8 @@ void mtk_cam_mraw_get_mqe_size(struct mtk_cam_device *cam, unsigned int pipe_id,
 		&cam->mraw.pipelines[pipe_id - MTKCAM_SUBDEV_MRAW_START];
 	struct mraw_stats_cfg_param *param = &pipe->res_config.stats_cfg_param;
 
-	*width = param->crop_width;
-	*height = param->crop_height;
+	*width = pipe->res_config.crop_width;
+	*height = pipe->res_config.crop_height;
 
 	if (param->mqe_en) {
 		switch (param->mqe_mode) {
@@ -1644,6 +1653,8 @@ int mtk_cam_mraw_dev_stream_on(
 	else {
 		/* reset enqueued status */
 		atomic_set(&mraw_dev->is_enqueued, 0);
+		/* reset format status */
+		atomic_set(&mraw_dev->pipeline->res_config.is_fmt_change, 0);
 		mtk_ctx_watchdog_stop(ctx, mraw_dev->pipeline->id);
 
 		ret = mtk_cam_mraw_top_disable(mraw_dev) ||

@@ -164,7 +164,9 @@ struct mtk_cam_mraw_resource_config {
 	struct mtkcam_ipi_crop tg_crop;
 	__u32 tg_fmt;
 	__u32 pixel_mode;
-
+	__u32 crop_width;
+	__u32 crop_height;
+	atomic_t is_fmt_change;
 	struct mraw_stats_cfg_param stats_cfg_param;
 };
 
