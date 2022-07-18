@@ -1021,7 +1021,8 @@ int _mtk_cam_seninf_set_camtg(struct v4l2_subdev *sd, int pad_id,
 				/* enable new */
 				vc->cam = camtg;
 				vc->tag = tag_id;
-				//vc->mux_vr = mux2mux_vr(ctx, vc->mux, vc->cam);
+				if (vc->mux_vr == 0xFF)
+					vc->mux_vr = mux2mux_vr(ctx, vc->mux, vc->cam);
 				g_seninf_ops->_switch_to_cammux_inner_page(ctx, true);
 				g_seninf_ops->_set_cammux_next_ctrl(ctx, 0x3f, vc->cam);
 
@@ -1229,9 +1230,11 @@ int mtk_cam_seninf_s_stream_mux(struct seninf_ctx *ctx)
 				seninf_ca_checkpipe(ctx->SecInfo_addr);
 			}
 #endif
-		} else
+		} else {
+			vc->mux_vr = 0xFF;
 			dev_info(ctx->dev, "not set camtg yet, vc[%d] pad %d intf %d cam %d tag %d\n",
 					 i, vc->out_pad, intf, vc->cam, vc->tag);
+		}
 	}
 
 	return 0;
