@@ -18,7 +18,6 @@
 #include <sched/sched.h>
 #include <linux/sched/clock.h>
 
-
 #ifndef __CHECKER__
 #define CREATE_TRACE_POINTS
 #include "core_ctl_trace.h"
@@ -28,41 +27,9 @@
 #include <sched_sys_common.h>
 #include <thermal_interface.h>
 #include <eas/eas_plus.h>
+#include "core_ctl.h"
 
 #define TAG "core_ctl"
-
-#include <linux/trace_events.h>
-static noinline void tracing_mark_write(char *fmt, ...)
-{
-	struct va_format vaf;
-	va_list va;
-
-	va_start(va, fmt);
-	vaf.fmt = fmt;
-	vaf.va = &va;
-	trace_printk("%pV", &vaf);
-	va_end(va);
-}
-
-#define CORE_CTL_TRACE_BEGIN(fmt, args...) do { \
-	preempt_disable(); \
-	tracing_mark_write( \
-		"B|%d|"fmt"\n", 7788, ##args); \
-	preempt_enable();\
-} while (0)
-
-#define CORE_CTL_TRACE_END() do { \
-	preempt_disable(); \
-	tracing_mark_write("E|7788\n"); \
-	preempt_enable(); \
-} while (0)
-
-#define CORE_CTL_TRACE_CNT(cnt, fmt, args...) do { \
-	preempt_disable(); \
-	tracing_mark_write( \
-		"C|%d|"fmt"|%d\n", 7788, ##args, cnt); \
-	preempt_enable();\
-} while (0)
 
 struct ppm_table {
 	/* normal: cpu power data */
@@ -1908,10 +1875,108 @@ static int ppm_data_init(struct cluster_data *cluster)
 	return 0;
 }
 
+static unsigned long core_ctl_copy_from_user(void *pvTo,
+		const void __user *pvFrom, unsigned long ulBytes)
+{
+	if (access_ok(pvFrom, ulBytes))
+		return __copy_from_user(pvTo, pvFrom, ulBytes);
+
+	return ulBytes;
+}
+
+static int core_ctl_show(struct seq_file *m, void *v)
+{
+	return 0;
+}
+
+static int core_ctl_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, core_ctl_show, inode->i_private);
+}
+
+static long core_ioctl_impl(struct file *filp,
+		unsigned int cmd, unsigned long arg, void *pKM)
+{
+	ssize_t ret = 0;
+	void __user *ubuf = (struct _CORE_CTL_PACKAGE *)arg;
+	struct _CORE_CTL_PACKAGE msgKM = {0};
+	bool bval;
+	unsigned int val;
+
+	switch (cmd) {
+	case CORE_CTL_FORCE_PAUSE_CPU:
+		if (core_ctl_copy_from_user(&msgKM, ubuf, sizeof(struct _CORE_CTL_PACKAGE)))
+			return -1;
+
+		bval = !!msgKM.is_pause;
+		ret = core_ctl_force_pause_cpu(msgKM.cpu, bval);
+		break;
+	case CORE_CTL_SET_OFFLINE_THROTTLE_MS:
+		if (core_ctl_copy_from_user(&msgKM, ubuf, sizeof(struct _CORE_CTL_PACKAGE)))
+			return -1;
+		ret = core_ctl_set_offline_throttle_ms(msgKM.cid, msgKM.throttle_ms);
+		break;
+	case CORE_CTL_SET_LIMIT_CPUS:
+		if (core_ctl_copy_from_user(&msgKM, ubuf, sizeof(struct _CORE_CTL_PACKAGE)))
+			return -1;
+		ret = core_ctl_set_limit_cpus(msgKM.cid, msgKM.min, msgKM.max);
+		break;
+	case CORE_CTL_SET_NOT_PREFERRED:
+		if (core_ctl_copy_from_user(&msgKM, ubuf, sizeof(struct _CORE_CTL_PACKAGE)))
+			return -1;
+
+		ret = core_ctl_set_not_preferred(msgKM.not_preferred_cpus);
+		break;
+	case CORE_CTL_SET_BOOST:
+		if (core_ctl_copy_from_user(&msgKM, ubuf, sizeof(struct _CORE_CTL_PACKAGE)))
+			return -1;
+
+		bval = !!msgKM.boost;
+		ret = core_ctl_set_boost(bval);
+		break;
+	case CORE_CTL_SET_UP_THRES:
+		if (core_ctl_copy_from_user(&msgKM, ubuf, sizeof(struct _CORE_CTL_PACKAGE)))
+			return -1;
+		ret = core_ctl_set_up_thres(msgKM.cid, msgKM.thres);
+		break;
+	case CORE_CTL_ENABLE_POLICY:
+		if (core_ctl_copy_from_user(&msgKM, ubuf, sizeof(struct _CORE_CTL_PACKAGE)))
+			return -1;
+
+		val = msgKM.enable_policy;
+		ret = core_ctl_enable_policy(val);
+		break;
+	default:
+		pr_info("%s: %s %d: unknown cmd %x\n",
+			TAG, __FILE__, __LINE__, cmd);
+		ret = -1;
+		goto ret_ioctl;
+	}
+
+ret_ioctl:
+	return ret;
+}
+
+static long core_ioctl(struct file *filp,
+		unsigned int cmd, unsigned long arg)
+{
+	return core_ioctl_impl(filp, cmd, arg, NULL);
+}
+
+static const struct proc_ops core_ctl_Fops = {
+	.proc_ioctl = core_ioctl,
+	.proc_compat_ioctl = core_ioctl,
+	.proc_open = core_ctl_open,
+	.proc_read = seq_read,
+	.proc_lseek = seq_lseek,
+	.proc_release = single_release,
+};
+
 static int __init core_ctl_init(void)
 {
 	int ret, cluster_nr, i, ret_error_line;
 	struct cpumask cluster_cpus;
+	struct proc_dir_entry *pe, *parent;
 
 	cpuhp_setup_state(CPUHP_AP_ONLINE_DYN,
 			"core_ctl/cpu_pause:dead",
@@ -1942,6 +2007,17 @@ static int __init core_ctl_init(void)
 			pr_info("%s: unable to create core ctl group: %d\n", TAG, ret);
 			goto failed_deprob;
 		}
+	}
+
+	/* init core_ctl ioctl */
+
+	pr_info("%s: start to init core_ioctl driver\n", TAG);
+	parent = proc_mkdir("cpumgr", NULL);
+	pe = proc_create("core_ioctl", 0664, parent, &core_ctl_Fops);
+	if (!pe) {
+		pr_info("%s: Could not create /proc/cpumgr/core_ioctl.\n", TAG);
+		ret = -ENOMEM;
+		goto failed_deprob;
 	}
 
 	initialized = true;
