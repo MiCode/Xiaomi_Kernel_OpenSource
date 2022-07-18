@@ -2156,8 +2156,6 @@ int uarthub_core_is_uarthub_clk_enable(void)
 		(0x3 << 8)) >> 8);
 
 	if (state != 0x3) {
-		pr_notice("[%s] UARTHUB is not ready, cannot read UART_IP CR\n", __func__);
-
 		if (g_uarthub_plat_ic_ops &&
 			g_uarthub_plat_ic_ops->uarthub_plat_get_uart_mux_info) {
 			state = g_uarthub_plat_ic_ops->uarthub_plat_get_uart_mux_info();
@@ -2169,11 +2167,17 @@ int uarthub_core_is_uarthub_clk_enable(void)
 				pr_notice("[%s] UART_MUX is not 104m(0x%x) or intfhub is not ready(0x%x)\n",
 					__func__, state, state2);
 				return 0;
-			} else
-				return 1;
+			}
+		} else
+			return 0;
+	} else {
+		state = UARTHUB_REG_READ_BIT(
+			UARTHUB_INTFHUB_DEV0_STA(intfhub_base_remap_addr), 0x3);
+		if (state != 0x3) {
+			pr_notice("[%s] all host clear the trx req & with without any rx event\n",
+				__func__);
+			return 0;
 		}
-
-		return 0;
 	}
 
 	return 1;
