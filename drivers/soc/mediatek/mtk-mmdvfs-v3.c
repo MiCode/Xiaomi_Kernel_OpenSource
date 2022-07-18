@@ -18,9 +18,7 @@
 #include <linux/iommu.h>
 
 #include "clk-mtk.h"
-//#include "clk-mux.h"
 #include "mtk-mmdvfs-v3.h"
-#include "mtk-scpsys.h"
 
 #include "vcp.h"
 #include "vcp_reg.h"
@@ -58,7 +56,8 @@ static struct platform_device *ccu_pdev;
 static struct rproc *ccu_rproc;
 static DEFINE_MUTEX(mmdvfs_ccu_pwr_mutex);
 static int ccu_power;
-struct ipi_callbacks pwr_cb;
+struct ipi_callbacks clk_cb;
+static unsigned int clk_en_cnt;
 
 static int last_ccu_freq = -1;
 
@@ -66,7 +65,7 @@ enum mmdvfs_log_level {
 	log_ipi,
 	log_ccf_cb,
 	log_vcp,
-	log_mtcmos,
+	log_clk,
 };
 
 static inline struct mtk_mmdvfs_clk *to_mtk_mmdvfs_clk(struct clk_hw *hw)
@@ -864,7 +863,7 @@ static struct kernel_param_ops mmdvfs_vcp_stress_ops = {
 module_param_cb(vcp_stress, &mmdvfs_vcp_stress_ops, NULL, 0644);
 MODULE_PARM_DESC(vcp_stress, "trigger mmdvfs vcp stress");
 
-static int mtk_mmdvfs_mtcmos_ctrl(const u8 mtcmos_idx, const bool enable)
+static int mtk_mmdvfs_clk_ctrl(const u8 clk_idx, const bool enable)
 {
 	int ret = 0;
 
@@ -874,42 +873,53 @@ static int mtk_mmdvfs_mtcmos_ctrl(const u8 mtcmos_idx, const bool enable)
 	}
 
 	if (!mtk_is_mmdvfs_init_done()) {
-		if (log_level & (1 << log_mtcmos))
+		if (log_level & (1 << log_clk))
 			MMDVFS_DBG("mmdvfs_v3 init not ready idx:%hhu ena:%d",
-				mtcmos_idx, enable);
+				clk_idx, enable);
 		return ret;
 	}
 
+	/* do not send IPI if clk never enable before */
+	if (!enable && (clk_en_cnt & (1 << clk_idx)) != (1 << clk_idx))
+		return 0;
+
 	ret = mtk_mmdvfs_enable_vcp(true);
 	if (ret) {
-		if (log_level & (1 << log_mtcmos))
+		if (log_level & (1 << log_clk))
 			MMDVFS_DBG("enable_vcp failed:%d idx:%hhu ena:%d",
-				ret, mtcmos_idx, enable);
+				ret, clk_idx, enable);
 		return 0;
 	}
 
-	ret = mmdvfs_vcp_ipi_send(FUNC_SET_MTCMOS, mtcmos_idx, enable, MAX_OPP);
+	ret = mmdvfs_vcp_ipi_send(FUNC_SET_CLK, clk_idx, enable, MAX_OPP);
 	mtk_mmdvfs_enable_vcp(false);
 
-	if (log_level & (1 << log_mtcmos)) {
+	if (!ret) {
+		if (enable)
+			clk_en_cnt |= 1 << clk_idx;
+		else
+			clk_en_cnt &= ~(1 << clk_idx);
+	}
+
+	if (log_level & (1 << log_clk)) {
 		struct mmdvfs_ipi_data slot =
 			*(struct mmdvfs_ipi_data *)(u32 *)&mmdvfs_vcp_ipi_data;
 
-		MMDVFS_DBG("ipi:%#x slot:%#x idx:%hhu ena:%hhu",
-			ret, slot, slot.idx, slot.opp);
+		MMDVFS_DBG("ipi:%#x slot:%#x idx:%hhu ena:%hhu en_cnt: 0x%x",
+			ret, slot, slot.idx, slot.opp, clk_en_cnt);
 	}
 
 	return ret;
 }
 
-static int mtk_mmdvfs_mtcmos_on(const u8 mtcmos_idx)
+static int mtk_mmdvfs_clk_enable(const u8 clk_idx)
 {
-	return mtk_mmdvfs_mtcmos_ctrl(mtcmos_idx, true);
+	return mtk_mmdvfs_clk_ctrl(clk_idx, true);
 }
 
-static int mtk_mmdvfs_mtcmos_off(const u8 mtcmos_idx)
+static int mtk_mmdvfs_clk_disable(const u8 clk_idx)
 {
-	return mtk_mmdvfs_mtcmos_ctrl(mtcmos_idx, false);
+	return mtk_mmdvfs_clk_ctrl(clk_idx, false);
 }
 
 int mmdvfs_get_vcp_log(char *buf, const struct kernel_param *kp)
@@ -1174,9 +1184,9 @@ static int mmdvfs_v3_probe(struct platform_device *pdev)
 		of_node_put(larbnode);
 	}
 
-	pwr_cb.power_on = mtk_mmdvfs_mtcmos_on;
-	pwr_cb.power_off = mtk_mmdvfs_mtcmos_off;
-	register_ipi_mtcmos_callback(&pwr_cb);
+	clk_cb.clk_enable = mtk_mmdvfs_clk_enable;
+	clk_cb.clk_disable = mtk_mmdvfs_clk_disable;
+	mtk_clk_register_ipi_callback(&clk_cb);
 
 	if (of_property_read_bool(node, "mmdvfs-free-run"))
 		mmdvfs_free_run = true;
