@@ -542,6 +542,7 @@ static void mtk_wdma_calc_golden_setting(struct golden_setting_context *gsc,
 					 unsigned int *gs)
 {
 	struct mtk_disp_wdma *wdma = comp_to_wdma(comp);
+	struct mtk_drm_private *priv = comp->mtk_crtc->base.dev->dev_private;
 	unsigned int format = comp->fb->format->format;
 	unsigned int preultra_low_us = 7, preultra_high_us = 6;
 	unsigned int ultra_low_us = 6, ultra_high_us = 4;
@@ -558,7 +559,7 @@ static void mtk_wdma_calc_golden_setting(struct golden_setting_context *gsc,
 	unsigned int factor1 = 4;
 	unsigned int factor2 = 4;
 	unsigned int tmp;
-	if (gsc->vrefresh == 0)
+	if (gsc->vrefresh == 0 || priv->data->mmsys_id == MMSYS_MT6886)
 		frame_rate = 60;
 	else
 		frame_rate = gsc->vrefresh;
