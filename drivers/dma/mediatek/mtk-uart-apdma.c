@@ -79,6 +79,7 @@
 #define VFF_4G_SUPPORT		0x54
 
 #define UART_RECORD_COUNT	5
+#define MAX_POLLING_CNT		5000
 
 struct uart_info {
 	unsigned int wpt_reg;
@@ -208,10 +209,20 @@ static void mtk_uart_apdma_start_tx(struct mtk_chan *c)
 	struct mtk_uart_apdmadev *mtkd =
 				to_mtk_uart_apdma_dev(c->vc.chan.device);
 	struct mtk_uart_apdma_desc *d = c->desc;
-	unsigned int wpt, vff_sz;
+	unsigned int wpt, vff_sz, left_data, rst_status;
 	unsigned int idx = 0;
+	int poll_cnt = MAX_POLLING_CNT;
 
 	vff_sz = c->cfg.dst_port_window_size;
+
+	left_data = mtk_uart_apdma_read(c, VFF_INT_BUF_SIZE);
+	while ((left_data != 0) && (poll_cnt > 0)) {
+		udelay(2);
+		left_data = mtk_uart_apdma_read(c, VFF_INT_BUF_SIZE);
+		poll_cnt--;
+	}
+	if (poll_cnt != MAX_POLLING_CNT)
+		pr_info("%s: poll_cnt[%d] is not MAX_POLLING_CNT!\n", __func__, poll_cnt);
 
 	wpt = mtk_uart_apdma_read(c, VFF_ADDR);
 	if (wpt == ((unsigned int)d->addr)) {
@@ -219,6 +230,15 @@ static void mtk_uart_apdma_start_tx(struct mtk_chan *c)
 		mtk_uart_apdma_write(c, VFF_THRE, 0);
 		mtk_uart_apdma_write(c, VFF_LEN, 0);
 		mtk_uart_apdma_write(c, VFF_RST, VFF_WARM_RST_B);
+		/* Make sure cmd sequence */
+		mb();
+		udelay(1);
+		rst_status = mtk_uart_apdma_read(c, VFF_RST);
+		if (rst_status != 0) {
+			udelay(5);
+			pr_info("%s: apdma: rst_status: 0x%x, new rst_status: 0x%x!\n",
+				__func__, rst_status, mtk_uart_apdma_read(c, VFF_RST));
+		}
 	}
 
 	if (!mtk_uart_apdma_read(c, VFF_LEN)) {
