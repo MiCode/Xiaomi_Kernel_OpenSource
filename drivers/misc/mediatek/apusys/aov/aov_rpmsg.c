@@ -119,10 +119,7 @@ static int apu_tx_thread(void *data)
 			/* send busy, retry */
 			if (ret == -EBUSY || ret == -EAGAIN) {
 				pr_info("%s: re-send ipi(retry_cnt = %d)\n", __func__, retry_cnt);
-				if (ret == -EBUSY)
-					usleep_range(10000, 11000);
-				else if (ret == -EAGAIN)
-					usleep_range(200, 500);
+				usleep_range(10000, 11000);
 			}
 		} while ((ret == -EBUSY || ret == -EAGAIN) && retry_cnt-- > 0);
 

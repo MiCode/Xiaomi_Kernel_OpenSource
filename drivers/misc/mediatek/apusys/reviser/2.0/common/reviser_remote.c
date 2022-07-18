@@ -80,7 +80,7 @@ int reviser_remote_send_cmd_sync(void *drvinfo, void *request, void *reply, uint
 	int retry = 0;
 	bool find = false;
 	uint32_t *ptr;
-	uint32_t cnt = 50, i = 0;
+	uint32_t cnt = 100, i = 0;
 
 	if (drvinfo == NULL) {
 		LOG_ERR("invalid argument\n");
@@ -107,12 +107,14 @@ int reviser_remote_send_cmd_sync(void *drvinfo, void *request, void *reply, uint
 		ret = rpmsg_send(rdv->rpdev->ept, request, sizeof(struct reviser_msg));
 		/* send busy, retry */
 		if (ret == -EBUSY || ret == -EAGAIN) {
-			if (!(i % 5))
+			if (!(i % 10))
 				LOG_INFO("re-send ipi(%u/%u)\n", i, cnt);
-			if (ret == -EBUSY)
-				msleep(20);
-			else if (ret == -EAGAIN)
+			if (ret == -EAGAIN && i < 10)
 				usleep_range(200, 500);
+			else if (ret == -EAGAIN && i < 50)
+				usleep_range(1000, 2000);
+			else
+				usleep_range(10000, 11000);
 			continue;
 		}
 		break;

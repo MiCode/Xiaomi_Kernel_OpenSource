@@ -92,8 +92,12 @@ static int sapu_lock_ipi_send(uint32_t lock, struct kref *ref_cnt)
 							__func__, retry_cnt);
 				if (ret == -EBUSY)
 					usleep_range(10000, 11000);
-				else if (ret == -EAGAIN)
+				else if (ret == -EAGAIN && i < 10)
 					usleep_range(200, 500);
+				else if (ret == -EAGAIN && i < 25)
+					usleep_range(1000, 2000);
+				else if (ret == -EAGAIN)
+					usleep_range(10000, 11000);
 				continue;
 			}
 			break;

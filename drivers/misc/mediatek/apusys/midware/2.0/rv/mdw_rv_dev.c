@@ -60,7 +60,7 @@ static struct mdw_ipi_msg_sync *mdw_rv_dev_msg_find(struct mdw_rv_dev *mrdev,
 static int mdw_rv_dev_send_msg(struct mdw_rv_dev *mrdev, struct mdw_ipi_msg_sync *s_msg)
 {
 	int ret = 0;
-	uint32_t cnt = 50, i = 0;
+	uint32_t cnt = 100, i = 0;
 
 	s_msg->msg.sync_id = (uint64_t)s_msg;
 	mdw_drv_debug("sync id(0x%llx) (0x%llx/%u)\n",
@@ -79,12 +79,14 @@ static int mdw_rv_dev_send_msg(struct mdw_rv_dev *mrdev, struct mdw_ipi_msg_sync
 
 		/* send busy, retry */
 		if (ret == -EBUSY || ret == -EAGAIN) {
-			if (!(i % 5))
+			if (!(i % 10))
 				mdw_drv_info("re-send ipi(%u/%u)\n", i, cnt);
-			if (ret == -EBUSY)
-				msleep(20);
-			else if (ret == -EAGAIN)
+			if (ret == -EAGAIN && i < 10)
 				usleep_range(200, 500);
+			else if (ret == -EAGAIN && i < 50)
+				usleep_range(1000, 2000);
+			else
+				usleep_range(10000, 11000);
 			continue;
 		}
 		break;
