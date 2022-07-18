@@ -399,11 +399,11 @@ void hook_rvh_is_cpus_allowed(void *unused, struct task_struct *p, int cpu, bool
 	}
 }
 
-void hook_rvh_set_cpus_allowed_ptr_locked(void __always_unused *data,
+void hook_rvh_set_cpus_allowed_by_task(void __always_unused *data,
 			const struct cpumask *cpu_valid_mask, const struct cpumask *new_mask,
-			unsigned int *dest_cpu)
+			struct task_struct *p, unsigned int *dest_cpu)
 {
-	cpumask_t avail_cpus;
+	cpumask_t avail_cpus, valid_mask, new;
 	int best_cpu;
 
 	if (cpu_paused(*dest_cpu)) {
@@ -412,8 +412,21 @@ void hook_rvh_set_cpus_allowed_ptr_locked(void __always_unused *data,
 		best_cpu = cpumask_any_and_distribute(&avail_cpus, new_mask);
 
 		if (best_cpu >= nr_cpu_ids) {
-			/* If task only affinity at pause_cpu, ignore pause mask. */
-			*dest_cpu = cpumask_any_and_distribute(cpu_valid_mask, new_mask);
+			/* If p is a kthread, ignore pause mask. */
+			if (p->flags & PF_KTHREAD)
+				cpumask_and(&avail_cpus, cpu_valid_mask, new_mask);
+			else
+				cpumask_andnot(&avail_cpus, cpu_valid_mask, cpu_pause_mask);
+
+
+			*dest_cpu = cpumask_any_and_distribute(&avail_cpus, cpu_valid_mask);
+
+
+			cpumask_copy(&valid_mask, cpu_valid_mask);
+			cpumask_copy(&new, new_mask);
+
+			trace_sched_set_cpus_allowed(p, dest_cpu, &new, &valid_mask,
+							cpu_pause_mask);
 		} else
 			*dest_cpu = best_cpu;
 
@@ -564,8 +577,8 @@ void sched_pause_init(void)
 	sched_setscheduler_nocheck(pause_drain_thread, SCHED_FIFO, &param);
 
 	register_trace_android_rvh_is_cpu_allowed(hook_rvh_is_cpus_allowed, NULL);
-	register_trace_android_rvh_set_cpus_allowed_ptr_locked(
-				hook_rvh_set_cpus_allowed_ptr_locked, NULL);
+	register_trace_android_rvh_set_cpus_allowed_by_task(
+				hook_rvh_set_cpus_allowed_by_task, NULL);
 	register_trace_android_rvh_rto_next_cpu(
 				hook_rvh_rto_next_cpu, NULL);
 	register_trace_android_rvh_get_nohz_timer_target(

@@ -520,6 +520,37 @@ TRACE_EVENT(sched_pause_cpus,
 		  __entry->req_cpus, __entry->last_cpus, __entry->time, __entry->pause,
 		  __entry->err, __entry->pause_cpus, __entry->online_cpus, __entry->active_cpus)
 );
+
+TRACE_EVENT(sched_set_cpus_allowed,
+	TP_PROTO(struct task_struct *p, unsigned int *dest_cpu,
+		struct cpumask *new_mask, struct cpumask *valid_mask,
+		struct cpumask *pause_cpus),
+
+	TP_ARGS(p, dest_cpu, new_mask, valid_mask, pause_cpus),
+
+	TP_STRUCT__entry(
+		__field(pid_t, pid)
+		__field(unsigned int, dest_cpu)
+		__field(bool, kthread)
+		__field(unsigned int, new_mask)
+		__field(unsigned int, valid_mask)
+		__field(unsigned int, pause_cpus)
+	),
+
+	TP_fast_assign(
+		__entry->pid = p->pid;
+		__entry->dest_cpu = *dest_cpu;
+		__entry->kthread = p->flags & PF_KTHREAD;
+		__entry->new_mask = cpumask_bits(new_mask)[0];
+		__entry->valid_mask = cpumask_bits(valid_mask)[0];
+		__entry->pause_cpus = cpumask_bits(pause_cpus)[0];
+	),
+
+	TP_printk("p=%d, dest_cpu=%d, k=%d, new_mask=0x%lx, valid=0x%lx, pause=0x%lx",
+		  __entry->pid, __entry->dest_cpu, __entry->kthread,
+		  __entry->new_mask, __entry->valid_mask,
+		  __entry->pause_cpus)
+);
 #endif
 
 #endif /* _TRACE_SCHEDULER_H */
