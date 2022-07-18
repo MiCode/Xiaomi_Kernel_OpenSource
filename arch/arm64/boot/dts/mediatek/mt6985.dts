@@ -9346,7 +9346,7 @@
 			};
 			dram_s1: dram_s1 {
 				id = <0x00000004>;
-				value = <0>;
+				value = <1>;
 			};
 			spm_vcore: spm_vcore {
 				id = <0x00000005>;
