@@ -2307,10 +2307,22 @@ bool mtk_raw_resource_calc(struct mtk_cam_device *cam,
 	struct mtk_cam_res_calc calc;
 	struct raw_resource_stepper stepper;
 	int ret;
+	int hwn_limit_min, hwn_limit_max;
+	int rgb_2raw = 0, h_ratio = 1;
+
+	if (mtk_cam_scen_is_rgbw_enabled(&res->scen)) {
+		hwn_limit_min = 1;
+		hwn_limit_max = 1;
+		rgb_2raw = 2;
+		h_ratio = 2;
+	} else {
+		hwn_limit_min = res->hwn_limit_min;
+		hwn_limit_max = res->hwn_limit_max;
+	}
 
 	calc.line_time = 1000000000L
 		* res->interval.numerator / res->interval.denominator
-		/ (in_h + res->vblank);
+		/ (in_h * h_ratio + res->vblank);
 	calc.width = in_w;
 	calc.height = in_h;
 	calc.bin_en = (res->bin_limit >= 1) ? 1:0;
@@ -2321,8 +2333,8 @@ bool mtk_raw_resource_calc(struct mtk_cam_device *cam,
 	/* constraints */
 	stepper.pixel_mode_min = 1;
 	stepper.pixel_mode_max = 2;
-	stepper.num_raw_min = res->hwn_limit_min;
-	stepper.num_raw_max = res->hwn_limit_max;
+	stepper.num_raw_min = hwn_limit_min;
+	stepper.num_raw_max = hwn_limit_max;
 	stepper.voltlv = cam_dvfs->voltlv;
 	stepper.clklv = cam_dvfs->clklv;
 	stepper.opp_num = cam_dvfs->clklv_num;
@@ -2337,6 +2349,7 @@ bool mtk_raw_resource_calc(struct mtk_cam_device *cam,
 		dev_info(cam->dev, "failed to find valid resource\n");
 
 	/* return raw pixel mode in 7s*/
+	calc.raw_num = (rgb_2raw > 0) ? rgb_2raw:calc.raw_num;
 	res->frz_enable = 0;
 	res->frz_ratio = 100;
 	res->res_plan = res_plan;
