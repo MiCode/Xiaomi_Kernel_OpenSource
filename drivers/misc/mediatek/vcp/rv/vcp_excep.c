@@ -555,8 +555,10 @@ core1:
 		"hart1 pc=0x%08x, lr=0x%08x, sp=0x%08x\n",
 		c1_t1_m->pc, c1_t1_m->lr, c1_t1_m->sp), offset);
 end:
-		offset += VCP_CHECK_AED_STR_LEN(snprintf(vcp_dump.detail_buff + offset,
-		VCP_AED_STR_LEN - offset, "last log:\n%s", vcp_A_log), offset);
+		if (vcp_A_log) {
+			offset += VCP_CHECK_AED_STR_LEN(snprintf(vcp_dump.detail_buff + offset,
+			VCP_AED_STR_LEN - offset, "last log:\n%s", vcp_A_log), offset);
+		}
 
 		vcp_dump.detail_buff[VCP_AED_STR_LEN - 1] = '\0';
 	}

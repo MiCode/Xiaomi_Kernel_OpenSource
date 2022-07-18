@@ -314,6 +314,21 @@ static int vcp_ipi_dbg_resume_noirq(struct device *dev)
 	return 0;
 }
 
+static void vcp_wait_awake_count(void)
+{
+	int i = 0;
+
+	while (vcp_awake_counts[VCP_A_ID] != 0) {
+		i += 1;
+		mdelay(1);
+		if (i > 200) {
+			pr_info("wait vcp_awake_counts timeout %d\n", vcp_awake_counts[VCP_A_ID]);
+			break;
+		}
+	}
+	pr_info("[VCP] %s wait count: %d\n", __func__, i);
+}
+
 /*
  * memory copy to vcp sram
  * @param trg: trg address
@@ -868,6 +883,8 @@ int vcp_disable_pm_clk(enum feature_id id)
 		vcp_extern_notify(VCP_EVENT_STOP);
 		mutex_unlock(&vcp_A_notify_mutex);
 
+		vcp_wait_awake_count();
+
 		ret = pm_runtime_put_sync(vcp_io_devs[VCP_IOMMU_256MB1]);
 		if (ret)
 			pr_debug("[VCP] %s: pm_runtime_put_sync\n", __func__);
@@ -925,6 +942,9 @@ static int vcp_pm_event(struct notifier_block *notifier
 #endif
 			vcp_wait_core_stop_timeout(1);
 			vcp_disable_dapc();
+
+			vcp_wait_awake_count();
+
 			retval = pm_runtime_put_sync(vcp_io_devs[VCP_IOMMU_256MB1]);
 			if (retval)
 				pr_debug("[VCP] %s: pm_runtime_put_sync\n", __func__);
