@@ -13,6 +13,7 @@
 #include "frs.h"
 #include "fpsgo_common.h"
 #include "fstb.h"
+#include "fbt_cpu.h"
 
 #define EARA_MAX_COUNT 10
 #define EARA_PROC_NAME_LEN 16
@@ -47,6 +48,7 @@ static int eara_pid = -1;
 static void set_tfps_diff(int max_cnt, int *pid, unsigned long long *buf_id, int *tfps, int *diff)
 {
 	int i;
+	unsigned long long t2wnt;
 
 	mutex_lock(&pre_lock);
 
@@ -61,6 +63,11 @@ static void set_tfps_diff(int max_cnt, int *pid, unsigned long long *buf_id, int
 			break;
 		pr_debug(TAG "Set %d %llu: %d\n", pid[i], buf_id[i], diff[i]);
 		eara2fstb_tfps_mdiff(pid[i], buf_id[i], diff[i], tfps[i]);
+		if (diff[i] == 0)
+			t2wnt = 0;
+		else
+			t2wnt = (1000000000 / tfps[i]) * 2;
+		eara2fbt_set_2nd_t2wnt(pid[i], buf_id[i], t2wnt);
 	}
 }
 
