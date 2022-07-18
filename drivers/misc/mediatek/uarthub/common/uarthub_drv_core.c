@@ -2090,7 +2090,7 @@ int uarthub_core_is_apb_bus_clk_enable(void)
 
 int uarthub_core_is_uarthub_clk_enable(void)
 {
-	int state = 0;
+	int state = 0, state2 = 0;
 
 	if (g_uarthub_disable == 1)
 		return 0;
@@ -2157,6 +2157,22 @@ int uarthub_core_is_uarthub_clk_enable(void)
 
 	if (state != 0x3) {
 		pr_notice("[%s] UARTHUB is not ready, cannot read UART_IP CR\n", __func__);
+
+		if (g_uarthub_plat_ic_ops &&
+			g_uarthub_plat_ic_ops->uarthub_plat_get_uart_mux_info) {
+			state = g_uarthub_plat_ic_ops->uarthub_plat_get_uart_mux_info();
+			state2 = (UARTHUB_REG_READ_BIT(UARTHUB_INTFHUB_DEV0_STA(
+				intfhub_base_remap_addr),
+				(0x1 << 9)) >> 9);
+			if (state != 0x2 || state2 != 1) {
+				/* the expect value is 0x2 */
+				pr_notice("[%s] UART_MUX is not 104m(0x%x) or intfhub is not ready(0x%x)\n",
+					__func__, state, state2);
+				return 0;
+			} else
+				return 1;
+		}
+
 		return 0;
 	}
 
@@ -3542,6 +3558,102 @@ int uarthub_core_debug_info_with_tag_no_spinlock(const char *tag)
 
 	return 0;
 }
+
+int uarthub_core_debug_dump_tx_rx_count(const char *tag, int trigger_point)
+{
+	static int cur_tx_pkt_cnt_d0;
+	static int cur_tx_pkt_cnt_d1;
+	static int cur_tx_pkt_cnt_d2;
+	static int cur_rx_pkt_cnt_d0;
+	static int cur_rx_pkt_cnt_d1;
+	static int cur_rx_pkt_cnt_d2;
+	static int d0_wait_for_send_xoff;
+	static int d1_wait_for_send_xoff;
+	static int d2_wait_for_send_xoff;
+	static int cmm_wait_for_send_xoff;
+	static int pre_trigger_point = -1;
+	struct uarthub_uart_ip_debug_info pkt_cnt = {0};
+	struct uarthub_uart_ip_debug_info debug1 = {0};
+	unsigned long flags;
+	int pkt_cnt_readable = 1, debug1_readable = 1;
+	const char *def_tag = "UARTHUB_DBG";
+
+	if (trigger_point != DUMP0 && trigger_point != DUMP1) {
+		pr_notice("[%s] trigger_point = %d is invalid\n", __func__, trigger_point);
+		return -1;
+	}
+
+	if (trigger_point == DUMP1 && pre_trigger_point == 0) {
+		pr_info("[%s][%s], dump0, [rx cnt, tx cnt]=[%d, %d][%d, %d][%d, %d], wait_for_send_xoff=[%d, %d, %d, %d]\n",
+			def_tag, ((tag == NULL) ? "null" : tag),
+			cur_rx_pkt_cnt_d0, cur_tx_pkt_cnt_d0,
+			cur_rx_pkt_cnt_d1, cur_tx_pkt_cnt_d1,
+			cur_rx_pkt_cnt_d2, cur_tx_pkt_cnt_d2,
+			d0_wait_for_send_xoff, d1_wait_for_send_xoff,
+			d2_wait_for_send_xoff, cmm_wait_for_send_xoff);
+	}
+
+	spin_lock_irqsave(&g_clear_trx_req_lock, flags);
+	if (uarthub_core_is_apb_bus_clk_enable() == 0) {
+		pr_notice("[%s] apb bus clk disable\n", __func__);
+		pkt_cnt_readable = 0;
+	}
+	if (uarthub_core_is_uarthub_clk_enable() == 0) {
+		pr_notice("[%s] uarthub_core_is_uarthub_clk_enable=[0]\n", __func__);
+		debug1_readable = 0;
+	}
+	if (pkt_cnt_readable == 0 && debug1_readable == 0) {
+		pre_trigger_point = trigger_point;
+		spin_unlock_irqrestore(&g_clear_trx_req_lock, flags);
+		return -1;
+	}
+
+	if (pkt_cnt_readable) {
+		pkt_cnt.dev0 = UARTHUB_REG_READ(UARTHUB_INTFHUB_DEV0_PKT_CNT(
+			intfhub_base_remap_addr));
+		if (g_max_dev >= 2)
+			pkt_cnt.dev1 = UARTHUB_REG_READ(UARTHUB_INTFHUB_DEV1_PKT_CNT(
+				intfhub_base_remap_addr));
+		if (g_max_dev >= 3)
+			pkt_cnt.dev2 = UARTHUB_REG_READ(UARTHUB_INTFHUB_DEV2_PKT_CNT(
+				intfhub_base_remap_addr));
+
+		cur_tx_pkt_cnt_d0 = ((pkt_cnt.dev0 & 0xFF000000) >> 24);
+		cur_tx_pkt_cnt_d1 = ((pkt_cnt.dev1 & 0xFF000000) >> 24);
+		cur_tx_pkt_cnt_d2 = ((pkt_cnt.dev2 & 0xFF000000) >> 24);
+		cur_rx_pkt_cnt_d0 = ((pkt_cnt.dev0 & 0xFF00) >> 8);
+		cur_rx_pkt_cnt_d1 = ((pkt_cnt.dev1 & 0xFF00) >> 8);
+		cur_rx_pkt_cnt_d2 = ((pkt_cnt.dev2 & 0xFF00) >> 8);
+	}
+	if (debug1_readable) {
+		debug1.dev0 = UARTHUB_REG_READ(UARTHUB_DEBUG_1(dev0_base_remap_addr));
+		if (g_max_dev >= 2)
+			debug1.dev1 = UARTHUB_REG_READ(UARTHUB_DEBUG_1(dev1_base_remap_addr));
+		if (g_max_dev >= 3)
+			debug1.dev2 = UARTHUB_REG_READ(UARTHUB_DEBUG_1(dev2_base_remap_addr));
+		debug1.cmm = UARTHUB_REG_READ(UARTHUB_DEBUG_1(cmm_base_remap_addr));
+
+		d0_wait_for_send_xoff = ((((debug1.dev0 & 0xE0) >> 5) == 1) ? 1 : 0);
+		d1_wait_for_send_xoff = ((((debug1.dev1 & 0xE0) >> 5) == 1) ? 1 : 0);
+		d2_wait_for_send_xoff = ((((debug1.dev2 & 0xE0) >> 5) == 1) ? 1 : 0);
+		cmm_wait_for_send_xoff = ((((debug1.cmm & 0xE0) >> 5) == 1) ? 1 : 0);
+	}
+	spin_unlock_irqrestore(&g_clear_trx_req_lock, flags);
+
+	if (trigger_point != DUMP0) {
+		pr_info("[%s][%s], dump1, [rx cnt, tx cnt]=[%d, %d][%d, %d][%d, %d], wait_for_send_xoff=[%d, %d, %d, %d]\n",
+			def_tag, ((tag == NULL) ? "null" : tag),
+			cur_rx_pkt_cnt_d0, cur_tx_pkt_cnt_d0,
+			cur_rx_pkt_cnt_d1, cur_tx_pkt_cnt_d1,
+			cur_rx_pkt_cnt_d2, cur_tx_pkt_cnt_d2,
+			d0_wait_for_send_xoff, d1_wait_for_send_xoff,
+			d2_wait_for_send_xoff, cmm_wait_for_send_xoff);
+	}
+
+	pre_trigger_point = trigger_point;
+	return 0;
+}
+
 
 /*---------------------------------------------------------------------------*/
 

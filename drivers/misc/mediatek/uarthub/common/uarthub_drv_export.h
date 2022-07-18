@@ -42,6 +42,11 @@ enum UARTHUB_irq_err_type {
 	irq_err_type_max,
 };
 
+enum debug_dump_tx_rx_index {
+	DUMP0 = 0,
+	DUMP1,
+};
+
 typedef void (*UARTHUB_IRQ_CB) (unsigned int err_type);
 
 #define KERNEL_UARTHUB_open                       UARTHUB_open
@@ -66,6 +71,7 @@ typedef void (*UARTHUB_IRQ_CB) (unsigned int err_type);
 #define KERNEL_UARTHUB_debug_bt_tx_timeout               UARTHUB_debug_bt_tx_timeout
 #define KERNEL_UARTHUB_loopback_test              UARTHUB_loopback_test
 #define KERNEL_UARTHUB_dump_trx_info_loop_ctrl    UARTHUB_dump_trx_info_loop_ctrl
+#define KERNEL_UARTHUB_debug_dump_tx_rx_count    UARTHUB_debug_dump_tx_rx_count
 
 int UARTHUB_open(void);
 int UARTHUB_close(void);
@@ -89,5 +95,6 @@ int UARTHUB_dump_debug_info_with_tag(const char *tag);
 int UARTHUB_loopback_test(int dev_index, int tx_to_rx, int enable);
 int UARTHUB_debug_bt_tx_timeout(const char *tag);
 int UARTHUB_dump_trx_info_loop_ctrl(int enable, int loop_dur_ms);
+int UARTHUB_debug_dump_tx_rx_count(const char *tag, enum debug_dump_tx_rx_index trigger_point);
 
 #endif /* UARTHUB_DRV_EXPORT_H */

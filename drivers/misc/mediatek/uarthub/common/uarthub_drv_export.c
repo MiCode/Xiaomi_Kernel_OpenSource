@@ -149,4 +149,10 @@ int UARTHUB_dump_trx_info_loop_ctrl(int enable, int loop_dur_ms)
 }
 EXPORT_SYMBOL(UARTHUB_dump_trx_info_loop_ctrl);
 
+int UARTHUB_debug_dump_tx_rx_count(const char *tag, enum debug_dump_tx_rx_index trigger_point)
+{
+	return uarthub_core_debug_dump_tx_rx_count(tag, (int)trigger_point);
+}
+EXPORT_SYMBOL(UARTHUB_debug_dump_tx_rx_count);
+
 MODULE_LICENSE("GPL");

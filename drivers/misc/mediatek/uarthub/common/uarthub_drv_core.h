@@ -184,5 +184,6 @@ int uarthub_core_debug_info(void);
 int uarthub_core_debug_info_with_tag(const char *tag);
 int uarthub_core_debug_bt_tx_timeout(const char *tag);
 int uarthub_core_dump_trx_info_loop_ctrl(int enable, int loop_dur_ms);
+int uarthub_core_debug_dump_tx_rx_count(const char *tag, int trigger_point);
 
 #endif /* UARTHUB_DRV_CORE_H */
