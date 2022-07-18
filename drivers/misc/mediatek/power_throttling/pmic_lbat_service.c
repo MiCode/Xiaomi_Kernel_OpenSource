@@ -642,6 +642,9 @@ static irqreturn_t bat_h_int_handler(int irq, void *data)
 	user = cur_hv_ptr->user;
 	list_del_init(&cur_hv_ptr->list);
 	if (user->hv_deb_times) {
+		/* ignore debouncing LV event */
+		if (user->deb_thd_ptr && user->deb_thd_ptr != cur_hv_ptr)
+			lbat_list_add(user->deb_thd_ptr, &lbat_lv_list);
 		user->deb_cnt = 0;
 		user->deb_thd_ptr = cur_hv_ptr;
 		queue_delayed_work(lbat_wq, &user->deb_work, msecs_to_jiffies(user->hv_deb_prd));
@@ -683,6 +686,9 @@ static irqreturn_t bat_l_int_handler(int irq, void *data)
 	user = cur_lv_ptr->user;
 	list_del_init(&cur_lv_ptr->list);
 	if (user->lv_deb_times) {
+		/* ignore debouncing HV event */
+		if (user->deb_thd_ptr && user->deb_thd_ptr != cur_lv_ptr)
+			lbat_list_add(user->deb_thd_ptr, &lbat_hv_list);
 		user->deb_cnt = 0;
 		user->deb_thd_ptr = cur_lv_ptr;
 		queue_delayed_work(lbat_wq, &user->deb_work, msecs_to_jiffies(user->lv_deb_prd));
