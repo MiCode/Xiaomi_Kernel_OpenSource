@@ -885,6 +885,13 @@ void mtk_cam_qos_sv_bw_calc(struct mtk_cam_ctx *ctx, bool force)
 	unsigned long vblank, fps, height, PBW_MB_s, ABW_MB_s;
 	struct mtkcam_ipi_input_param *cfg_in_param;
 
+	/* Reset all dvfs_info bw */
+	for (i = 0; i < sv_qos_port_num; i++) {
+		qos_port_id = (ctx->sv_dev->id * sv_qos_port_num) + i;
+		dvfs_info->sv_qos_bw_peak[qos_port_id] = 0;
+		dvfs_info->sv_qos_bw_avg[qos_port_id] = 0;
+	}
+
 	for (i = SVTAG_START; i < SVTAG_END; i++) {
 		if (!(ctx->sv_dev->enabled_tags & (1 << i)))
 			continue;
@@ -919,8 +926,8 @@ void mtk_cam_qos_sv_bw_calc(struct mtk_cam_ctx *ctx, bool force)
 		ABW_MB_s = cfg_in_param->in_crop.s.w * fps *
 					cfg_in_param->in_crop.s.h * pixel_bits *
 					plane_factor / 8 / 100;
-		dvfs_info->sv_qos_bw_peak[qos_port_id] = PBW_MB_s;
-		dvfs_info->sv_qos_bw_avg[qos_port_id] = ABW_MB_s;
+		dvfs_info->sv_qos_bw_peak[qos_port_id] += PBW_MB_s;
+		dvfs_info->sv_qos_bw_avg[qos_port_id] += ABW_MB_s;
 		if (unlikely(debug_mmqos))
 			dev_info(cam->dev, "[%16s] qos_idx:%2d ipifmt/bits/plane/w/h : %2d/%2d/%d/%5d/%5d BW(B/s)(avg:%lu,peak:%lu)\n",
 			  sv_mmqos->port[qos_port_id % sv_qos_port_num], qos_port_id, ipi_fmt,
@@ -928,7 +935,9 @@ void mtk_cam_qos_sv_bw_calc(struct mtk_cam_ctx *ctx, bool force)
 			  cfg_in_param->in_crop.s.w,
 			  cfg_in_param->in_crop.s.h,
 			  ABW_MB_s, PBW_MB_s);
-		/* scq */
+	}
+	/* scq */
+	if (ctx->sv_dev->enabled_tags) {
 		qos_port_id = (ctx->sv_dev->id * sv_qos_port_num) + sv_cqi;
 		sv_mmqos = &sv_qos[ctx->sv_dev->id];
 		PBW_MB_s = ABW_MB_s = CQ_BUF_SIZE * fps / 10;
