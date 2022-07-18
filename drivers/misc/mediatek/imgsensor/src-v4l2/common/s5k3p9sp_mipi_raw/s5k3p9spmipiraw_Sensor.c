@@ -383,7 +383,6 @@ static struct subdrv_ops ops = {
 	.feature_control = common_feature_control,
 	.close = common_close,
 	.get_frame_desc = common_get_frame_desc,
-	.get_temp = common_get_temp,
 	.get_csi_param = common_get_csi_param,
 	.update_sof_cnt = common_update_sof_cnt,
 };
