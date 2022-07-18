@@ -113,6 +113,7 @@ struct mtk_chan {
 	void __iomem *base;
 	unsigned int irq;
 
+	unsigned int irq_wg;
 	unsigned int rx_status;
 	unsigned long long rec_idx;
 	struct uart_info rec_info[UART_RECORD_COUNT];
@@ -190,6 +191,18 @@ void mtk_uart_apdma_data_dump(struct dma_chan *chan)
 }
 EXPORT_SYMBOL(mtk_uart_apdma_data_dump);
 
+void mtk_uart_rx_setting(struct dma_chan *chan)
+{
+	struct mtk_chan *c = to_mtk_uart_apdma_chan(chan);
+
+	/* Flush before update vff_rpt */
+	mb();
+	/* Let DMA start moving data */
+	mtk_uart_apdma_write(c, VFF_RPT, c->irq_wg);
+
+}
+EXPORT_SYMBOL(mtk_uart_rx_setting);
+
 static void mtk_uart_apdma_start_tx(struct mtk_chan *c)
 {
 	struct mtk_uart_apdmadev *mtkd =
@@ -242,6 +255,8 @@ static void mtk_uart_apdma_start_tx(struct mtk_chan *c)
 	if ((wpt & VFF_RING_SIZE) == vff_sz)
 		wpt = (wpt & VFF_RING_WRAP) ^ VFF_RING_WRAP;
 
+	/* Flush before update vff_wpt */
+	mb();
 	/* Let DMA start moving data */
 	mtk_uart_apdma_write(c, VFF_WPT, wpt);
 
@@ -330,7 +345,7 @@ static void mtk_uart_apdma_rx_handler(struct mtk_chan *c)
 		cnt += len;
 
 	c->rx_status = d->avail_len - cnt;
-	mtk_uart_apdma_write(c, VFF_RPT, wg);
+	c->irq_wg = wg;
 
 	idx = (unsigned int)(c->rec_idx % UART_RECORD_COUNT);
 	c->rec_idx++;
