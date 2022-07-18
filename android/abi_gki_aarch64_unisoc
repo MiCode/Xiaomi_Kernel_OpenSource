@@ -59,6 +59,7 @@
   blk_mq_requeue_request
   blk_mq_run_hw_queues
   blk_update_request
+  blockdev_superblock
   blocking_notifier_chain_register
   blocking_notifier_chain_unregister
   bpf_trace_run1
@@ -156,6 +157,7 @@
   crypto_unregister_shash
   crypto_unregister_shashes
   __crypto_xor
+  css_next_child
   csum_ipv6_magic
   csum_partial
   __dynamic_netdev_dbg
@@ -688,6 +690,7 @@
   __pci_register_driver
   pci_set_master
   pci_unregister_driver
+  pcpu_nr_pages
   PDE_DATA
   __per_cpu_offset
   perf_trace_buf_alloc
@@ -846,6 +849,7 @@
   rfkill_resume_polling
   rfkill_set_hw_state_reason
   rfkill_unregister
+  root_task_group
   runqueues
   __SetPageMovable
   sched_clock
@@ -879,6 +883,8 @@
   sg_nents
   sg_next
   shmem_read_mapping_page_gfp
+  si_mem_available
+  si_swapinfo
   simple_attr_open
   simple_attr_read
   simple_attr_release
@@ -1118,11 +1124,15 @@
   vchan_tx_submit
   vfree
   vmalloc
+  vmalloc_nr_pages
   vmalloc_to_page
   vm_map_ram
+  vm_memory_committed
+  vm_node_stat
   vm_unmap_aliases
   vm_unmap_ram
   vm_iomap_memory
+  vm_zone_stat
   vsnprintf
   vscnprintf
   vunmap
@@ -1165,6 +1175,7 @@
   xt_unregister_matches
   xt_unregister_target
   xt_unregister_targets
+  __trace_bprintk
   __traceiter_android_rvh_account_irq
   __traceiter_android_rvh_account_irq_end
   __traceiter_android_rvh_account_irq_start
@@ -1596,6 +1607,7 @@
   __traceiter_android_vh_printk_caller_id
   __traceiter_android_vh_printk_ext_header
   __traceiter_android_rvh_report_bug
+  __traceiter_clock_set_rate
   __tracepoint_android_vh_dma_buf_release
   __tracepoint_android_rvh_psci_tos_resident_on
   __tracepoint_android_rvh_psci_cpu_suspend
