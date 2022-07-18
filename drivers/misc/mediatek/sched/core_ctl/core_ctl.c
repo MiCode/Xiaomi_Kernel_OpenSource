@@ -675,6 +675,30 @@ unlock:
 }
 EXPORT_SYMBOL(core_ctl_force_pause_cpu);
 
+/*
+ *  core_ctl_set_cpu_busy_thres - set threshold of cpu busy state
+ *  @cid: cluster id
+ *  @pct: percentage of cpu loading(0-100).
+ *
+ *  return 0 if success, else return errno
+ */
+int core_ctl_set_cpu_busy_thres(unsigned int cid, unsigned int pct)
+{
+	unsigned long flags;
+	struct cluster_data *cluster;
+
+	if (pct > 100 || cid > 3)
+		return -EINVAL;
+
+	spin_lock_irqsave(&state_lock, flags);
+	cluster = &cluster_state[cid];
+	cluster->cpu_busy_up_thres = pct;
+	cluster->cpu_busy_down_thres = pct > 20 ? pct - 20 : 0;
+	spin_unlock_irqrestore(&state_lock, flags);
+	return 0;
+}
+EXPORT_SYMBOL(core_ctl_set_cpu_busy_thres);
+
 /* ==================== sysctl node ======================== */
 
 static ssize_t store_min_cpus(struct cluster_data *state,
@@ -874,6 +898,11 @@ static ssize_t show_thermal_up_thres(const struct cluster_data *state, char *buf
 	return scnprintf(buf, PAGE_SIZE, "%u\n", state->thermal_up_thres);
 }
 
+static ssize_t show_cpu_busy_up_thres(const struct cluster_data *state, char *buf)
+{
+	return scnprintf(buf, PAGE_SIZE, "%u\n", state->cpu_busy_up_thres);
+}
+
 static ssize_t show_global_state(const struct cluster_data *state, char *buf)
 {
 	struct cpu_data *c;
@@ -951,6 +980,7 @@ core_ctl_attr_rw(enable);
 core_ctl_attr_ro(global_state);
 core_ctl_attr_ro(ppm_state);
 core_ctl_attr_ro(thermal_up_thres);
+core_ctl_attr_ro(cpu_busy_up_thres);
 
 static struct attribute *default_attrs[] = {
 	&min_cpus.attr,
@@ -963,6 +993,7 @@ static struct attribute *default_attrs[] = {
 	&global_state.attr,
 	&ppm_state.attr,
 	&thermal_up_thres.attr,
+	&cpu_busy_up_thres.attr,
 	NULL
 };
 
@@ -1009,11 +1040,32 @@ static unsigned int big_cpu_ts;
 
 /* ==================== algorithm of core control ======================== */
 
+#define MAX_NR_RUNNING_THRESHOLD   4
+/*
+ * Get number of the busy CPU cores, protected by state_lock.
+ */
+static void get_busy_cpus(void)
+{
+	struct cluster_data *cluster;
+	struct cpu_data *c;
+	int cpus = 0, cid = 0, i = 0;
+
+	for (cid = 0; cid < num_clusters; cid++) {
+		cluster = &cluster_state[cid];
+		for_each_cpu(i, &cluster->cpu_mask) {
+			c = &per_cpu(cpu_state, i);
+			if (c->is_busy && get_max_nr_running(i) > MAX_NR_RUNNING_THRESHOLD)
+				cpus++;
+		}
+		cluster->need_spread_cpus = cpus;
+	}
+}
+
 #define BIG_TASK_AVG_THRESHOLD 25
 /*
- * Rewrite from sched_big_task_nr()
+ * Get number of big tasks, protected by state_lock.
  */
-void get_nr_running_big_task(struct cluster_data *cluster)
+static void get_nr_running_big_task(void)
 {
 	int avg_down[MAX_CLUSTERS] = {0};
 	int avg_up[MAX_CLUSTERS] = {0};
@@ -1027,22 +1079,19 @@ void get_nr_running_big_task(struct cluster_data *cluster)
 					  &avg_down[i],
 					  &avg_up[i],
 					  &nr_down[i],
-					  &nr_up[i],
-					  &need_spread_cpus[i],
-					  enable_policy);
-		cluster[i].need_spread_cpus = need_spread_cpus[i];
+					  &nr_up[i]);
 	}
 
 	for (i = 0; i < num_clusters; i++) {
 		/* reset nr_up and nr_down */
-		cluster[i].nr_up = 0;
-		cluster[i].nr_down = 0;
+		cluster_state[i].nr_up = 0;
+		cluster_state[i].nr_down = 0;
 
 		if (nr_up[i]) {
 			if (avg_up[i]/nr_up[i] > BIG_TASK_AVG_THRESHOLD)
-				cluster[i].nr_up = nr_up[i];
+				cluster_state[i].nr_up = nr_up[i];
 			else /* min(avg_up[i]/BIG_TASK_AVG_THRESHOLD,nr_up[i]) */
-				cluster[i].nr_up =
+				cluster_state[i].nr_up =
 					avg_up[i]/BIG_TASK_AVG_THRESHOLD > nr_up[i] ?
 					nr_up[i] : avg_up[i]/BIG_TASK_AVG_THRESHOLD;
 		}
@@ -1054,23 +1103,25 @@ void get_nr_running_big_task(struct cluster_data *cluster)
 		if (nr_down[i] && delta > 0) {
 			if (((avg_down[i]-avg_up[i]) / delta)
 					> BIG_TASK_AVG_THRESHOLD)
-				cluster[i].nr_down = delta;
+				cluster_state[i].nr_down = delta;
 			else
-				cluster[i].nr_down =
+				cluster_state[i].nr_down =
 					(avg_down[i]-avg_up[i])/
 					delta < BIG_TASK_AVG_THRESHOLD ?
 					delta : (avg_down[i]-avg_up[i])/
 					BIG_TASK_AVG_THRESHOLD;
 		}
 		/* nr can't be negative */
-		cluster[i].nr_up = cluster[i].nr_up < 0 ? 0 : cluster[i].nr_up;
-		cluster[i].nr_down = cluster[i].nr_down < 0 ? 0 : cluster[i].nr_down;
+		cluster_state[i].nr_up =
+			cluster_state[i].nr_up < 0 ? 0 : cluster_state[i].nr_up;
+		cluster_state[i].nr_down =
+			cluster_state[i].nr_down < 0 ? 0 : cluster_state[i].nr_down;
 	}
 
 	for (i = 0; i < num_clusters; i++) {
-		nr_up[i] = cluster[i].nr_up;
-		nr_down[i] = cluster[i].nr_down;
-		need_spread_cpus[i] = cluster[i].need_spread_cpus;
+		nr_up[i] = cluster_state[i].nr_up;
+		nr_down[i] = cluster_state[i].nr_down;
+		need_spread_cpus[i] = cluster_state[i].need_spread_cpus;
 	}
 	trace_core_ctl_update_nr_over_thres(nr_up, nr_down, need_spread_cpus);
 }
@@ -1169,8 +1220,10 @@ static inline void core_ctl_main_algo(void)
 	unsigned int orig_need_cpu[MAX_CLUSTERS] = {0};
 	struct cpumask active_cpus;
 
+	/* get needed spread cpus */
+	get_busy_cpus();
 	/* get TLP of over threshold tasks */
-	get_nr_running_big_task(cluster_state);
+	get_nr_running_big_task();
 
 	/* Apply TLP of tasks */
 	for_each_cluster(cluster, index) {
@@ -1237,7 +1290,7 @@ void core_ctl_tick(void *data, struct rq *rq)
 		if (!cluster || !cluster->inited)
 			continue;
 
-		c->cpu_util_pct = get_cpu_util_pct(cpu, true);
+		c->cpu_util_pct = get_cpu_util_pct(cpu, false);
 		if (c->cpu_util_pct >= cluster->cpu_busy_up_thres)
 			c->is_busy = true;
 		else if (c->cpu_util_pct < cluster->cpu_busy_down_thres)
@@ -1683,15 +1736,15 @@ static int cluster_init(const struct cpumask *mask)
 		state->cpu = cpu;
 	}
 
-	cluster->cpu_busy_up_thres = 60;
-	cluster->cpu_busy_down_thres = 30;
+	cluster->cpu_busy_up_thres = 80;
+	cluster->cpu_busy_down_thres = 60;
 
 	cluster->next_offline_time =
 		ktime_to_ms(ktime_get()) + cluster->offline_throttle_ms;
 	cluster->active_cpus = get_active_cpu_count(cluster);
 
 	cluster->core_ctl_thread = kthread_run(try_core_ctl, (void *) cluster,
-			"core_ctl_v2.3/%d", first_cpu);
+			"core_ctl_v3/%d", first_cpu);
 	if (IS_ERR(cluster->core_ctl_thread))
 		return PTR_ERR(cluster->core_ctl_thread);
 
@@ -1946,6 +1999,11 @@ static long core_ioctl_impl(struct file *filp,
 		val = msgKM.enable_policy;
 		ret = core_ctl_enable_policy(val);
 		break;
+	case CORE_CTL_SET_CPU_BUSY_THRES:
+		if (core_ctl_copy_from_user(&msgKM, ubuf, sizeof(struct _CORE_CTL_PACKAGE)))
+			return -1;
+		core_ctl_set_cpu_busy_thres(msgKM.cid, msgKM.thres);
+	break;
 	default:
 		pr_info("%s: %s %d: unknown cmd %x\n",
 			TAG, __FILE__, __LINE__, cmd);

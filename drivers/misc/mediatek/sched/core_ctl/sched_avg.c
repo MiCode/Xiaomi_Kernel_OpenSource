@@ -307,15 +307,24 @@ static void reset_over_thre_deferred(u64 curr_time)
 	schedule_work(&sched_avg_deferred_work);
 }
 
-#define MAX_NR_DOWN_THRESHOLD	4
-#define NEED_SPREAD_THRE_PCT	90
+int get_max_nr_running(int cpu)
+{
+	int max_nr = 0;
+
+	spin_lock(&per_cpu(nr_lock, cpu));
+	max_nr = per_cpu(nr_max, cpu);
+	/* reset max_nr value */
+	per_cpu(nr_max, cpu) = per_cpu(nr, cpu);
+	spin_unlock(&per_cpu(nr_lock, cpu));
+	return max_nr;
+}
+EXPORT_SYMBOL(get_max_nr_running);
+
 int sched_get_nr_over_thres_avg(int cluster_id,
 				int *dn_avg,
 				int *up_avg,
 				int *sum_nr_over_dn_thres,
-				int *sum_nr_over_up_thres,
-				int *need_spread_cpus,
-				int policy)
+				int *sum_nr_over_up_thres)
 {
 	u64 curr_time = sched_clock();
 	s64 diff;
@@ -326,12 +335,11 @@ int sched_get_nr_over_thres_avg(int cluster_id,
 	int cpu = 0;
 	int cluster_nr;
 	struct cpumask cls_cpus;
-	u64 tmp_need_spread_cpus = 0;
 	bool reset = false;
 
 	/* Need to make sure initialization done. */
 	if (!init_thres) {
-		*dn_avg = *up_avg = *need_spread_cpus = 0;
+		*dn_avg = *up_avg = 0;
 		*sum_nr_over_dn_thres = *sum_nr_over_up_thres = 0;
 		return -EPROTO;
 	}
@@ -347,7 +355,7 @@ int sched_get_nr_over_thres_avg(int cluster_id,
 	diff = (s64)(curr_time -
 			cluster_over_thres_table[cluster_id].last_get_over_thres_time);
 	if (diff <= 0) {
-		*dn_avg = *up_avg = *need_spread_cpus = 0;
+		*dn_avg = *up_avg = 0;
 		*sum_nr_over_dn_thres = *sum_nr_over_up_thres = 0;
 		return -EPROTO;
 	}
@@ -369,17 +377,6 @@ int sched_get_nr_over_thres_avg(int cluster_id,
 			spin_unlock_irqrestore(&per_cpu(nr_over_thres_lock, cpu), flags);
 			break;
 		}
-
-		/* get need spread cpus */
-		spin_lock(&per_cpu(nr_lock, cpu));
-		tmp_need_spread_cpus = per_cpu(nr_max, cpu);
-		if (tmp_need_spread_cpus > MAX_NR_DOWN_THRESHOLD &&
-			get_cpu_util_pct(cpu, false) > NEED_SPREAD_THRE_PCT)
-			*need_spread_cpus += 1;
-
-		/* reset max_nr value */
-		per_cpu(nr_max, cpu) = per_cpu(nr, cpu);
-		spin_unlock(&per_cpu(nr_lock, cpu));
 
 		if (cpu_over_thres->nr_over_dn_thres < 0 ||
 		    cpu_over_thres->nr_over_up_thres < 0 ||
@@ -421,7 +418,7 @@ int sched_get_nr_over_thres_avg(int cluster_id,
 		reset_over_thre_deferred(curr_time);
 
 	if (clk_faulty) {
-		*dn_avg = *up_avg = *need_spread_cpus = 0;
+		*dn_avg = *up_avg = 0;
 		*sum_nr_over_dn_thres = *sum_nr_over_up_thres = 0;
 		return -EPROTO;
 	}

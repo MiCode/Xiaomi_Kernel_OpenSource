@@ -62,5 +62,6 @@ struct _CORE_CTL_PACKAGE {
 #define CORE_CTL_SET_BOOST                      _IOW('g', 6, struct _CORE_CTL_PACKAGE)
 #define CORE_CTL_SET_UP_THRES                   _IOW('g', 7, struct _CORE_CTL_PACKAGE)
 #define CORE_CTL_ENABLE_POLICY                  _IOW('g', 8, struct _CORE_CTL_PACKAGE)
+#define CORE_CTL_SET_CPU_BUSY_THRES             _IOW('g', 9, struct _CORE_CTL_PACKAGE)
 
 #endif /* _CORE_CTL_H */
