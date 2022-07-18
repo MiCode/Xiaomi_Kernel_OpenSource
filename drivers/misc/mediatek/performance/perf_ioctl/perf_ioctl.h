@@ -26,19 +26,6 @@
 
 #include <linux/ioctl.h>
 
-#if IS_ENABLED(CONFIG_MTK_SCHEDULER)
-extern void set_wake_sync(unsigned int sync);
-extern unsigned int get_wake_sync(void);
-extern void set_uclamp_min_ls(unsigned int val);
-extern unsigned int get_uclamp_min_ls(void);
-extern unsigned int set_newly_idle_balance_interval_us(unsigned int interval_us);
-extern unsigned int get_newly_idle_balance_interval_us(void);
-extern void set_get_thermal_headroom_interval_tick(unsigned int tick);
-extern unsigned int get_thermal_headroom_interval_tick(void);
-extern void set_system_cpumask_int(unsigned int val);
-extern struct cpumask *get_system_cpumask(void);
-#endif
-
 #if IS_ENABLED(CONFIG_MTK_CORE_CTL)
 extern int core_ctl_set_offline_throttle_ms(unsigned int cid,
 								unsigned int throttle_ms);
@@ -212,11 +199,6 @@ struct _CPUQOS_V3_PACKAGE {
 #define EARA_GETUSAGE               _IOW('g', 3, struct _EARA_NN_PACKAGE)
 #define EARA_GETSTATE               _IOW('g', 4, struct _EARA_NN_PACKAGE)
 
-#define EAS_SYNC_SET                            _IOW('g', 1,  unsigned int)
-#define EAS_SYNC_GET                            _IOW('g', 2,  unsigned int)
-#define EAS_PERTASK_LS_SET                      _IOW('g', 3,  unsigned int)
-#define EAS_PERTASK_LS_GET                      _IOR('g', 4,  unsigned int)
-#define EAS_ACTIVE_MASK_GET                     _IOR('g', 5,  unsigned int)
 #define CORE_CTL_FORCE_RESUME_CPU               _IOW('g', 6,  struct _CORE_CTL_PACKAGE)
 #define CORE_CTL_FORCE_PAUSE_CPU                _IOW('g', 7,  struct _CORE_CTL_PACKAGE)
 #define CORE_CTL_SET_OFFLINE_THROTTLE_MS        _IOW('g', 8,  struct _CORE_CTL_PACKAGE)
@@ -228,12 +210,6 @@ struct _CPUQOS_V3_PACKAGE {
 #define CPUQOS_V3_SET_CPUQOS_MODE		_IOW('g', 14, struct _CPUQOS_V3_PACKAGE)
 #define CPUQOS_V3_SET_CT_TASK			_IOW('g', 15, struct _CPUQOS_V3_PACKAGE)
 #define CPUQOS_V3_SET_CT_GROUP			_IOW('g', 16, struct _CPUQOS_V3_PACKAGE)
-#define EAS_NEWLY_IDLE_BALANCE_INTERVAL_SET	_IOW('g', 17,  unsigned int)
-#define EAS_NEWLY_IDLE_BALANCE_INTERVAL_GET	_IOR('g', 18,  unsigned int)
-#define EAS_GET_THERMAL_HEADROOM_INTERVAL_SET	_IOW('g', 19,  unsigned int)
-#define EAS_GET_THERMAL_HEADROOM_INTERVAL_GET	_IOR('g', 20,  unsigned int)
-#define EAS_SET_SYSTEM_MASK			_IOW('g', 21,  unsigned int)
-#define EAS_GET_SYSTEM_MASK			_IOW('g', 22,  unsigned int)
 
 
 #define XGFFRAME_START              _IOW('g', 1, struct _XGFFRAME_PACKAGE)

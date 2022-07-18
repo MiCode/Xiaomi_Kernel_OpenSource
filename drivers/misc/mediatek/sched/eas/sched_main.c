@@ -25,6 +25,8 @@
 #define CREATE_TRACE_POINTS
 #include "eas_trace.h"
 
+#define TAG "EAS_IOCTL"
+
 int mtk_sched_asym_cpucapacity  =  1;
 
 static inline void sched_asym_cpucapacity_init(void)
@@ -185,8 +187,130 @@ static void mtk_sched_trace_exit(void)
 	unregister_trace_pelt_se_tp(sched_task_uclamp_hook, NULL);
 }
 
+static unsigned long easctl_copy_from_user(void *pvTo,
+		const void __user *pvFrom, unsigned long ulBytes)
+{
+	if (access_ok(pvFrom, ulBytes))
+		return __copy_from_user(pvTo, pvFrom, ulBytes);
+
+	return ulBytes;
+}
+
+static unsigned long easctl_copy_to_user(void __user *pvTo,
+		const void *pvFrom, unsigned long ulBytes)
+{
+	if (access_ok(pvTo, ulBytes))
+		return __copy_to_user(pvTo, pvFrom, ulBytes);
+
+	return ulBytes;
+}
+
+/*--------------------SYNC------------------------*/
+static int eas_show(struct seq_file *m, void *v)
+{
+	return 0;
+}
+
+static int eas_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, eas_show, inode->i_private);
+}
+
+static long eas_ioctl_impl(struct file *filp,
+		unsigned int cmd, unsigned long arg, void *pKM)
+{
+	ssize_t ret = 0;
+
+	unsigned int sync;
+	unsigned int val;
+	struct cpumask *cpumask_ptr;
+
+	switch (cmd) {
+	case EAS_SYNC_SET:
+		if (easctl_copy_from_user(&sync, (void *)arg, sizeof(unsigned int)))
+			return -1;
+		set_wake_sync(sync);
+		break;
+	case EAS_SYNC_GET:
+		sync = get_wake_sync();
+		if (easctl_copy_to_user((void *)arg, &sync, sizeof(unsigned int)))
+			return -1;
+		break;
+	case EAS_PERTASK_LS_SET:
+		if (easctl_copy_from_user(&val, (void *)arg, sizeof(unsigned int)))
+			return -1;
+		set_uclamp_min_ls(val);
+		break;
+	case EAS_PERTASK_LS_GET:
+		val = get_uclamp_min_ls();
+		if (easctl_copy_to_user((void *)arg, &val, sizeof(unsigned int)))
+			return -1;
+		break;
+	case EAS_ACTIVE_MASK_GET:
+		val = __cpu_active_mask.bits[0];
+		if (easctl_copy_to_user((void *)arg, &val, sizeof(unsigned int)))
+			return -1;
+		break;
+	case EAS_NEWLY_IDLE_BALANCE_INTERVAL_SET:
+		if (easctl_copy_from_user(&val, (void *)arg, sizeof(unsigned int)))
+			return -1;
+		set_newly_idle_balance_interval_us(val);
+		break;
+	case EAS_NEWLY_IDLE_BALANCE_INTERVAL_GET:
+		val = get_newly_idle_balance_interval_us();
+		if (easctl_copy_to_user((void *)arg, &val, sizeof(unsigned int)))
+			return -1;
+		break;
+	case EAS_GET_THERMAL_HEADROOM_INTERVAL_SET:
+		if (easctl_copy_from_user(&val, (void *)arg, sizeof(unsigned int)))
+			return -1;
+		set_get_thermal_headroom_interval_tick(val);
+		break;
+	case EAS_GET_THERMAL_HEADROOM_INTERVAL_GET:
+		val = get_thermal_headroom_interval_tick();
+		if (easctl_copy_to_user((void *)arg, &val, sizeof(unsigned int)))
+			return -1;
+		break;
+	case EAS_SET_SYSTEM_MASK:
+		if (easctl_copy_from_user(&val, (void *)arg, sizeof(unsigned int)))
+			return -1;
+		set_system_cpumask_int(val);
+		break;
+	case EAS_GET_SYSTEM_MASK:
+		cpumask_ptr = get_system_cpumask();
+		val = cpumask_ptr->bits[0];
+		if (easctl_copy_to_user((void *)arg, &val, sizeof(unsigned int)))
+			return -1;
+		break;
+	default:
+		pr_debug(TAG "%s %d: unknown cmd %x\n",
+			__FILE__, __LINE__, cmd);
+		ret = -1;
+		goto ret_ioctl;
+	}
+
+ret_ioctl:
+	return ret;
+}
+
+static long eas_ioctl(struct file *filp,
+		unsigned int cmd, unsigned long arg)
+{
+	return eas_ioctl_impl(filp, cmd, arg, NULL);
+}
+
+static const struct proc_ops eas_Fops = {
+	.proc_ioctl = eas_ioctl,
+	.proc_compat_ioctl = eas_ioctl,
+	.proc_open = eas_open,
+	.proc_read = seq_read,
+	.proc_lseek = seq_lseek,
+	.proc_release = single_release,
+};
+
 static int __init mtk_scheduler_init(void)
 {
+	struct proc_dir_entry *pe, *parent;
 	int ret = 0;
 
 	ret = init_sched_common_sysfs();
@@ -246,6 +370,18 @@ static int __init mtk_scheduler_init(void)
 #endif
 
 	init_system_cpumask();
+
+	pr_debug(TAG"Start to init eas_ioctl driver\n");
+	parent = proc_mkdir("easmgr", NULL);
+	pe = proc_create("eas_ioctl", 0664, parent, &eas_Fops);
+	if (!pe) {
+		pr_debug(TAG"%s failed with %d\n",
+				"Creating file node ",
+				ret);
+		ret = -ENOMEM;
+		goto out_wq;
+	}
+
 #endif
 
 	ret = register_trace_android_vh_scheduler_tick(hook_scheduler_tick, NULL);
@@ -289,6 +425,7 @@ static int __init mtk_scheduler_init(void)
 	sched_pause_init();
 #endif
 
+out_wq:
 	return ret;
 
 }

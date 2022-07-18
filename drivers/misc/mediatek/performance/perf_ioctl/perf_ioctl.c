@@ -79,88 +79,12 @@ static long eas_ioctl_impl(struct file *filp,
 	void __user *ubuf = (struct _CORE_CTL_PACKAGE *)arg;
 	struct _CORE_CTL_PACKAGE msgKM = {0};
 	bool bval;
-#if IS_ENABLED(CONFIG_MTK_SCHEDULER)
-	unsigned int sync;
-	unsigned int val;
-	struct cpumask *cpumask_ptr;
-#endif
 #if IS_ENABLED(CONFIG_MTK_CPUQOS_V3)
 	void __user *ubuf_cpuqos = (struct _CPUQOS_V3_PACKAGE *)arg;
 	struct _CPUQOS_V3_PACKAGE msgKM_cpuqos = {0};
 #endif
 
 	switch (cmd) {
-#if IS_ENABLED(CONFIG_MTK_SCHEDULER)
-	case EAS_SYNC_SET:
-		if (perfctl_copy_from_user(&sync, (void *)arg, sizeof(unsigned int)))
-			return -1;
-		set_wake_sync(sync);
-		break;
-	case EAS_SYNC_GET:
-		sync = get_wake_sync();
-		if (perfctl_copy_to_user((void *)arg, &sync, sizeof(unsigned int)))
-			return -1;
-		break;
-	case EAS_PERTASK_LS_SET:
-		if (perfctl_copy_from_user(&val, (void *)arg, sizeof(unsigned int)))
-			return -1;
-		set_uclamp_min_ls(val);
-		break;
-	case EAS_PERTASK_LS_GET:
-		val = get_uclamp_min_ls();
-		if (perfctl_copy_to_user((void *)arg, &val, sizeof(unsigned int)))
-			return -1;
-		break;
-	case EAS_ACTIVE_MASK_GET:
-		val = __cpu_active_mask.bits[0];
-		if (perfctl_copy_to_user((void *)arg, &val, sizeof(unsigned int)))
-			return -1;
-		break;
-	case EAS_NEWLY_IDLE_BALANCE_INTERVAL_SET:
-		if (perfctl_copy_from_user(&val, (void *)arg, sizeof(unsigned int)))
-			return -1;
-		set_newly_idle_balance_interval_us(val);
-		break;
-	case EAS_NEWLY_IDLE_BALANCE_INTERVAL_GET:
-		val = get_newly_idle_balance_interval_us();
-		if (perfctl_copy_to_user((void *)arg, &val, sizeof(unsigned int)))
-			return -1;
-		break;
-	case EAS_GET_THERMAL_HEADROOM_INTERVAL_SET:
-		if (perfctl_copy_from_user(&val, (void *)arg, sizeof(unsigned int)))
-			return -1;
-		set_get_thermal_headroom_interval_tick(val);
-		break;
-	case EAS_GET_THERMAL_HEADROOM_INTERVAL_GET:
-		val = get_thermal_headroom_interval_tick();
-		if (perfctl_copy_to_user((void *)arg, &val, sizeof(unsigned int)))
-			return -1;
-		break;
-	case EAS_SET_SYSTEM_MASK:
-		if (perfctl_copy_from_user(&val, (void *)arg, sizeof(unsigned int)))
-			return -1;
-		set_system_cpumask_int(val);
-		break;
-	case EAS_GET_SYSTEM_MASK:
-		cpumask_ptr = get_system_cpumask();
-		val = cpumask_ptr->bits[0];
-		if (perfctl_copy_to_user((void *)arg, &val, sizeof(unsigned int)))
-			return -1;
-		break;
-#else
-	case EAS_SYNC_SET:
-	case EAS_SYNC_GET:
-	case EAS_PERTASK_LS_SET:
-	case EAS_PERTASK_LS_GET:
-	case EAS_ACTIVE_MASK_GET:
-	case EAS_NEWLY_IDLE_BALANCE_INTERVAL_SET:
-	case EAS_NEWLY_IDLE_BALANCE_INTERVAL_GET:
-	case EAS_GET_THERMAL_HEADROOM_INTERVAL_SET:
-	case EAS_GET_THERMAL_HEADROOM_INTERVAL_GET:
-	case EAS_SET_SYSTEM_MASK:
-	case EAS_GET_SYSTEM_MASK:
-		break;
-#endif
 	case CORE_CTL_FORCE_PAUSE_CPU:
 		if (perfctl_copy_from_user(&msgKM, ubuf, sizeof(struct _CORE_CTL_PACKAGE)))
 			return -1;
@@ -210,8 +134,8 @@ static long eas_ioctl_impl(struct file *filp,
 		if (perfctl_copy_from_user(&msgKM, ubuf, sizeof(struct _CORE_CTL_PACKAGE)))
 			return -1;
 
-		val = msgKM.enable_policy;
-		ret = core_ctl_enable_policy(val);
+		bval = msgKM.enable_policy;
+		ret = core_ctl_enable_policy(bval);
 		break;
 #else
 	case CORE_CTL_SET_OFFLINE_THROTTLE_MS:

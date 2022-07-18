@@ -5,6 +5,7 @@
 
 #ifndef _EAS_PLUS_H
 #define _EAS_PLUS_H
+#include <linux/ioctl.h>
 
 #define MIGR_IDLE_BALANCE               1
 #define MIGR_IDLE_PULL_MISFIT_RUNNING   2
@@ -63,7 +64,31 @@ extern void mtk_set_wake_flags(void *data, int *wake_flags, unsigned int *mode);
 extern void mtk_update_cpu_capacity(void *data, int cpu, unsigned long *capacity);
 extern void mtk_pelt_rt_tp(void *data, struct rq *rq);
 
+extern void set_wake_sync(unsigned int sync);
+extern unsigned int get_wake_sync(void);
+extern void set_uclamp_min_ls(unsigned int val);
+extern unsigned int get_uclamp_min_ls(void);
+extern void set_newly_idle_balance_interval_us(unsigned int interval_us);
+extern unsigned int get_newly_idle_balance_interval_us(void);
+extern void set_get_thermal_headroom_interval_tick(unsigned int tick);
+extern unsigned int get_thermal_headroom_interval_tick(void);
+
 extern void init_system_cpumask(void);
+extern void set_system_cpumask_int(unsigned int val);
+extern struct cpumask *get_system_cpumask(void);
+
+#define EAS_SYNC_SET                            _IOW('g', 1,  unsigned int)
+#define EAS_SYNC_GET                            _IOW('g', 2,  unsigned int)
+#define EAS_PERTASK_LS_SET                      _IOW('g', 3,  unsigned int)
+#define EAS_PERTASK_LS_GET                      _IOR('g', 4,  unsigned int)
+#define EAS_ACTIVE_MASK_GET                     _IOR('g', 5,  unsigned int)
+#define EAS_NEWLY_IDLE_BALANCE_INTERVAL_SET	_IOW('g', 6,  unsigned int)
+#define EAS_NEWLY_IDLE_BALANCE_INTERVAL_GET	_IOR('g', 7,  unsigned int)
+#define EAS_GET_THERMAL_HEADROOM_INTERVAL_SET	_IOW('g', 8,  unsigned int)
+#define EAS_GET_THERMAL_HEADROOM_INTERVAL_GET	_IOR('g', 9,  unsigned int)
+#define EAS_SET_SYSTEM_MASK			_IOW('g', 10,  unsigned int)
+#define EAS_GET_SYSTEM_MASK			_IOW('g', 11,  unsigned int)
+
 
 #if IS_ENABLED(CONFIG_MTK_NEWIDLE_BALANCE)
 extern void mtk_sched_newidle_balance(void *data, struct rq *this_rq,
