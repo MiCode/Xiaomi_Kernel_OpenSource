@@ -15061,8 +15061,8 @@ void mtk_disp_mutex_remove_comp_with_cmdq(struct mtk_drm_crtc *mtk_crtc,
 {
 	struct mtk_disp_mutex *mutex = NULL;
 	struct mtk_ddp *ddp = NULL;
-	resource_size_t regs_pa;
-	resource_size_t ovlsys_regs_pa;
+	resource_size_t regs_pa = {0};
+	resource_size_t ovlsys_regs_pa = {0};
 
 	if (mutex_id >= DDP_PATH_NR) {
 		DDPPR_ERR("mutex id is out of bound:%d\n", mutex_id);

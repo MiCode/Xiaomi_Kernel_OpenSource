@@ -6584,12 +6584,19 @@ void mtk_crtc_dual_layer_config(struct mtk_drm_crtc *mtk_crtc,
 		struct mtk_ddp_comp *comp, unsigned int idx,
 		struct mtk_plane_state *plane_state, struct cmdq_pkt *cmdq_handle)
 {
-	struct drm_crtc *crtc = &mtk_crtc->base;
-	struct mtk_drm_private *priv = mtk_crtc->base.dev->dev_private;
-	struct mtk_plane_state plane_state_l;
-	struct mtk_plane_state plane_state_r;
-	struct mtk_ddp_comp *p_comp;
+	struct drm_crtc *crtc = NULL;
+	struct mtk_drm_private *priv = NULL;
+	struct mtk_plane_state plane_state_l = {0};
+	struct mtk_plane_state plane_state_r = {0};
+	struct mtk_ddp_comp *p_comp = NULL;
 
+	if (!mtk_crtc || !comp) {
+		DDPINFO("%s failed with NULL argument mtk_crtc or comp\n", __func__);
+		return;
+	}
+
+	crtc = &mtk_crtc->base;
+	priv = mtk_crtc->base.dev->dev_private;
 	mtk_drm_layer_dispatch_to_dual_pipe(priv->data->mmsys_id, plane_state,
 		&plane_state_l, &plane_state_r,
 		crtc->state->adjusted_mode.hdisplay);
