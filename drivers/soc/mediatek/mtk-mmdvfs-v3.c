@@ -837,7 +837,7 @@ static int mtk_mmdvfs_mtcmos_ctrl(const u8 mtcmos_idx, const bool enable)
 	int ret = 0;
 
 	if (!mmdvfs_free_run) {
-		MMDVFS_DBG("mmdvfs_v3 not supported");
+		//MMDVFS_DBG("mmdvfs_v3 not supported");
 		return 0;
 	}
 
