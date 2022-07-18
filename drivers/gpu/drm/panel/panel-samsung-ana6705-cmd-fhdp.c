@@ -1085,7 +1085,10 @@ static int lcm_enable(struct drm_panel *panel)
 
 #define HACT_FHD (1080)
 #define VACT_FHD (2412)
-#define PLL_CLOCK_FHD (488)
+#define PLL_CLOCK_FHD_120 (488)
+#define PLL_CLOCK_FHD_90 (380)
+#define PLL_CLOCK_FHD_72 (310)
+#define PLL_CLOCK_FHD_60 (260)
 
 static struct drm_display_mode fhd_120_mode = {
 	.clock		= 336168, //120Hz
@@ -1199,7 +1202,7 @@ static int lcm_setbacklight_cmdq(void *dsi, dcs_write_gce cb,
 }
 
 static struct mtk_panel_params ext_params_fhd_120 = {
-	.data_rate = PLL_CLOCK_FHD * 2,
+	.data_rate = PLL_CLOCK_FHD_120 * 2,
 	.cust_esd_check = 0,
 	.esd_check_enable = 1,
 	.lcm_esd_check_table[0] = {
@@ -1211,6 +1214,11 @@ static struct mtk_panel_params ext_params_fhd_120 = {
 	.dyn_fps = {
 		.switch_en = 1,
 		.vact_timing_fps = 120,
+		.data_rate = PLL_CLOCK_FHD_120 * 2,
+	},
+	.dyn = {
+		.switch_en = 1,
+		.data_rate = (PLL_CLOCK_FHD_120 + 1) * 2,
 	},
 	.output_mode = MTK_PANEL_DSC_SINGLE_PORT,
 	.dsc_params = {
@@ -1289,7 +1297,7 @@ static struct mtk_panel_params ext_params_fhd_120 = {
 };
 
 static struct mtk_panel_params ext_params_fhd_90 = {
-	.data_rate = PLL_CLOCK_FHD * 2,
+	.data_rate = PLL_CLOCK_FHD_120 * 2,
 	.cust_esd_check = 0,
 	.esd_check_enable = 1,
 	.lcm_esd_check_table[0] = {
@@ -1301,6 +1309,11 @@ static struct mtk_panel_params ext_params_fhd_90 = {
 	.dyn_fps = {
 		.switch_en = 1,
 		.vact_timing_fps = 90,
+		.data_rate = PLL_CLOCK_FHD_90 * 2,
+	},
+	.dyn = {
+		.switch_en = 1,
+		.data_rate = (PLL_CLOCK_FHD_90 + 1) * 2,
 	},
 	.output_mode = MTK_PANEL_DSC_SINGLE_PORT,
 	.dsc_params = {
@@ -1378,7 +1391,7 @@ static struct mtk_panel_params ext_params_fhd_90 = {
 };
 
 static struct mtk_panel_params ext_params_fhd_72 = {
-	.data_rate = PLL_CLOCK_FHD * 2,
+	.data_rate = PLL_CLOCK_FHD_120 * 2,
 	.cust_esd_check = 0,
 	.esd_check_enable = 1,
 	.lcm_esd_check_table[0] = {
@@ -1390,6 +1403,11 @@ static struct mtk_panel_params ext_params_fhd_72 = {
 	.dyn_fps = {
 		.switch_en = 1,
 		.vact_timing_fps = 72,
+		.data_rate = PLL_CLOCK_FHD_72 * 2,
+	},
+	.dyn = {
+		.switch_en = 1,
+		.data_rate = (PLL_CLOCK_FHD_72 + 1) * 2,
 	},
 	.output_mode = MTK_PANEL_DSC_SINGLE_PORT,
 	.dsc_params = {
@@ -1468,7 +1486,7 @@ static struct mtk_panel_params ext_params_fhd_72 = {
 
 
 static struct mtk_panel_params ext_params_fhd_60 = {
-	.data_rate = PLL_CLOCK_FHD * 2,
+	.data_rate = PLL_CLOCK_FHD_120 * 2,
 	.cust_esd_check = 0,
 	.esd_check_enable = 1,
 	.lcm_esd_check_table[0] = {
@@ -1480,6 +1498,11 @@ static struct mtk_panel_params ext_params_fhd_60 = {
 	.dyn_fps = {
 		.switch_en = 1,
 		.vact_timing_fps = 60,
+		.data_rate = PLL_CLOCK_FHD_60 * 2,
+	},
+	.dyn = {
+		.switch_en = 1,
+		.data_rate = (PLL_CLOCK_FHD_60 + 1) * 2,
 	},
 	.output_mode = MTK_PANEL_DSC_SINGLE_PORT,
 	.dsc_params = {
