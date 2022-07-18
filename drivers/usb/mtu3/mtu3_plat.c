@@ -49,13 +49,15 @@ static void ssusb_hwrscs_req(struct ssusb_mtk *ssusb,
 	enum mtu3_power_state state)
 {
 	struct arm_smccc_res res;
-	u32 spm_ctrl;
+	void __iomem *ibase = ssusb->ippc_base;
+	u32 spm_ctrl, value;
 	u32 smc_req = -1;
+	int ret;
 
 
 	dev_info(ssusb->dev, "%s state = %d\n", __func__, state);
 
-	spm_ctrl = mtu3_readl(ssusb->ippc_base, U3D_SSUSB_SPM_CTRL);
+	spm_ctrl = mtu3_readl(ibase, U3D_SSUSB_SPM_CTRL);
 
 	switch (state) {
 	case MTU3_STATE_POWER_OFF:
@@ -77,9 +79,16 @@ static void ssusb_hwrscs_req(struct ssusb_mtk *ssusb,
 	}
 
 	/* write spm_ctrl */
-	mtu3_writel(ssusb->ippc_base, U3D_SSUSB_SPM_CTRL, spm_ctrl);
+	mtu3_writel(ibase, U3D_SSUSB_SPM_CTRL, spm_ctrl);
+
+	ret = readl_poll_timeout_atomic(ibase + U3D_SSUSB_SPM_CTRL_ACK,
+		value, (spm_ctrl == (value & SSUSB_SPM_REQ_MSK)), 100, 20000);
+	if (ret)
+		dev_info(ssusb->dev, "%s spm ctrl timeout\n", __func__);
+
 	/* wait 2ms */
 	mdelay(2);
+
 	/* send smc request */
 	if (smc_req != -1)
 		arm_smccc_smc(MTK_SIP_KERNEL_USB_CONTROL,
