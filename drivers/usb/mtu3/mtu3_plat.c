@@ -651,6 +651,8 @@ static int mtu3_probe(struct platform_device *pdev)
 
 	ssusb_ip_sw_reset(ssusb);
 
+	ssusb_set_power_state(ssusb, MTU3_STATE_POWER_ON);
+
 	/* default as host */
 	ssusb->is_host = !(ssusb->dr_mode == USB_DR_MODE_PERIPHERAL);
 
@@ -696,8 +698,6 @@ static int mtu3_probe(struct platform_device *pdev)
 
 	INIT_WORK(&ssusb->dp_work, ssusb_dp_pullup_work);
 
-	ssusb_set_power_state(ssusb, MTU3_STATE_POWER_ON);
-
 	device_enable_async_suspend(dev);
 	pm_runtime_mark_last_busy(dev);
 	pm_runtime_put_autosuspend(dev);
@@ -710,6 +710,7 @@ host_exit:
 gadget_exit:
 	ssusb_gadget_exit(ssusb);
 comm_exit:
+	ssusb_set_power_state(ssusb, MTU3_STATE_POWER_OFF);
 	ssusb_rscs_exit(ssusb);
 comm_init_err:
 	pm_runtime_put_noidle(dev);
