@@ -399,12 +399,22 @@ static int set_bus_protection(struct regmap *map, struct bus_prot *bp)
 	u32 sta_ofs = bp->sta_ofs;
 	u32 mask = bp->mask;
 	u32 ack_mask = bp->ack_mask;
+	int retry = 0;
 	int ret = 0;
 
-	if (set_ofs)
-		regmap_write(map, set_ofs, mask);
-	else
-		regmap_update_bits(map, en_ofs, mask, mask);
+	while (retry <= 10) {
+		if (set_ofs)
+			regmap_write(map, set_ofs, mask);
+		else
+			regmap_update_bits(map, en_ofs, mask, mask);
+
+		/* check bus protect enable setting */
+		regmap_read(map, en_ofs, &val);
+		if ((val & mask) == mask)
+			break;
+
+		retry++;
+	}
 
 	ret = regmap_read_poll_timeout_atomic(map, sta_ofs,
 			val, (val & ack_mask) == ack_mask,
