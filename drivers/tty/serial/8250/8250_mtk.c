@@ -508,7 +508,7 @@ static void mtk8250_dma_rx_complete(void *param)
 
 #ifdef CONFIG_UART_DATA_RECORD
 	memcpy(data->rx_record.rec[idx].rec_buf, ptr,
-		((total < UART_DUMP_BUF_LEN) ? cnt : UART_DUMP_BUF_LEN));
+		((cnt < UART_DUMP_BUF_LEN) ? cnt : UART_DUMP_BUF_LEN));
 #endif
 
 	if (total > cnt) {
