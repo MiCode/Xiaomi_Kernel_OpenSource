@@ -134,7 +134,6 @@ static int fix_force_step(const char *val, const struct kernel_param *kp)
 		goto Unlock_Mutex;
 	}
 	current_info->voltage_target = opp_table->voltage[new_force_step];
-	trace_vmm__update_voltage(current_info->voltage_target);
 
 Unlock_Mutex:
 	mutex_unlock(&current_info->voltage_mutex);
@@ -256,7 +255,7 @@ static int force_voltage(void *data, u64 val)
 {
 	struct ispdvfs_dbg_data *dbg_data = (struct ispdvfs_dbg_data *)data;
 	int voltage = (int)val;
-	int ret;
+	int ret = 0;
 
 	ISP_LOGI("Force votage(%d)", voltage);
 
@@ -430,7 +429,6 @@ static int disable_all_muxes(struct dvfs_driver_data *drv_data)
 static void ccu_ipc_update_dvfs(uint32_t data, uint32_t len, void *priv)
 {
 	ISP_LOGD("Current VMM voltage(%d)", data);
-	trace_vmm__update_voltage(data);
 }
 
 static int vmm_init_dvfs(struct ccu_handle_info *ccu_handle)
@@ -579,9 +577,6 @@ static int ccu_set_voltage(struct regulator_dev *rdev,
 	ISP_LOGD("CCU VMM set voltage (%d) max level(%d)",
 			min_uV, dvfs_ipi.maxOppIdx);
 
-	if (dvfs_ipi.maxOppIdx == dvfs_ipi.minOppIdx)
-		trace_vmm__update_voltage(min_uV);
-
 Unlock_Mutex:
 	mutex_unlock(&current_info->voltage_mutex);
 
@@ -599,8 +594,6 @@ static int apmcu_set_voltage(struct regulator_dev *rdev,
 	int target_voltage = min_uV;
 	u32 cur_opp_idx = 0, prev_opp_idx = 0;
 	u32 i;
-
-	trace_vmm__update_voltage(min_uV);
 
 	regulator = rdev_get_drvdata(rdev);
 	if (!regulator) {
@@ -827,8 +820,10 @@ error_handle:
 static int vmm_is_enabled(struct regulator_dev *rdev)
 {
 	struct vmm_regulator *regulator = rdev_get_drvdata(rdev);
+	if (regulator)
+		return regulator->is_enable;
 
-	return regulator->is_enable;
+	return 0;
 }
 
 static const struct regulator_ops vmm_apmcu_ops = {
