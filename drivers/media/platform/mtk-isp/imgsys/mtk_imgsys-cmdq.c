@@ -152,7 +152,7 @@ static void module_uninit(struct kref *kref)
 			"%s: [ERROR] mmdvfs_clk is null\n", __func__);
 	else {
 		mtk_mmdvfs_enable_vcp(false);
-		mtk_mmdvfs_enable_ccu(false);
+		mtk_mmdvfs_enable_ccu(false, CCU_PWR_USR_IMG);
 	}
 }
 
