@@ -881,6 +881,7 @@ static u32 smi_bus_ostd_check(struct mtk_smi_dbg_node node[])
 	struct mtk_smi_dbg_init_setting	*dbg_setting;
 	u8 i, j, id, type, r_busy_cnt, w_busy_cnt, is_busy = 0;
 	u32 prev_ostd_r, prev_ostd_w, ostd_r, ostd_w;
+	char *name, *cmd_type;
 
 	read_smi_ostd_status(node);
 
@@ -916,9 +917,11 @@ static u32 smi_bus_ostd_check(struct mtk_smi_dbg_node node[])
 			node[id].port_stat[j] |= ((w_busy_cnt == (BUS_BUSY_TIME - 1)) << WRITE_BIT);
 
 			if (node[id].port_stat[j]) {
-				pr_notice("[smi]smi busy (type,id,r/w)=(%d,%d,%d), %#x = %#x\n",
-					type, id, node[id].port_stat[j],
-					dbg_setting->ostd_cnt_offset + (j << 2),
+				name = type ? "COMM" : "LARB";
+				cmd_type = (type == SMI_LARB) ? "" :
+					((node[id].port_stat[j] >> WRITE_BIT) ? "write" : "read");
+				pr_notice("[smi] %s%d %s busy, %#x = %#x\n",
+					name, id, cmd_type, dbg_setting->ostd_cnt_offset + (j << 2),
 					node[id].bus_ostd_val[0][j]);
 				is_busy = 1;
 			}
@@ -1307,11 +1310,7 @@ s32 mtk_smi_dbg_hang_detect(char *user)
 	smi_hang_detect_bw_monitor(true);
 	is_busy |= smi_bus_ostd_check(smi->comm);
 	is_busy |= smi_bus_ostd_check(smi->larb);
-	smi_hang_detect_bw_monitor(false);
 
-	is_hang = smi_bus_hang_check(smi->comm);
-
-	spin_unlock_irqrestore(&smi->lock, flags);
 
 	if (is_busy) {
 		pr_info("%s: ===== SMI MM bus busy =====:%s\n", __func__, user);
@@ -1331,6 +1330,11 @@ s32 mtk_smi_dbg_hang_detect(char *user)
 	}
 
 	mtk_smi_dump_last_pd(user);
+
+	smi_hang_detect_bw_monitor(false);
+	is_hang = smi_bus_hang_check(smi->comm);
+
+	spin_unlock_irqrestore(&smi->lock, flags);
 
 	/* notify to CCF to disable trace dump */
 	mtk_clk_notify(NULL, NULL, NULL, 0, 0, 0, CLK_EVT_TRIGGER_TRACE_DUMP);
