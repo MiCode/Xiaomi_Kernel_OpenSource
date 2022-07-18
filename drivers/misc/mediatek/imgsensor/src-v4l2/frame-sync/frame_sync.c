@@ -2005,6 +2005,18 @@ static inline void fs_sa_setup_perframe_cfg_info(const unsigned int idx,
 	p_sa_cfg->valid_sync_bits = FS_READ_BITS(&fs_mgr.validSync_bits);
 	p_sa_cfg->async_m_idx = fs_get_valid_async_master_instance_idx(idx);
 	p_sa_cfg->async_s_bits = FS_READ_BITS(&fs_mgr.async_mode_bits);
+
+#if !defined(REDUCE_FS_DRV_LOG)
+	LOG_MUST(
+		"[%u] idx:%u, sa_mthod:%u, m_idx:%d, valid_sync_bits:%#x, async_m_idx:%d, async_s_bits:%#x\n",
+		idx,
+		p_sa_cfg->idx,
+		p_sa_cfg->sa_method,
+		p_sa_cfg->m_idx,
+		p_sa_cfg->valid_sync_bits,
+		p_sa_cfg->async_m_idx,
+		p_sa_cfg->async_s_bits);
+#endif
 }
 
 

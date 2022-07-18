@@ -95,6 +95,9 @@ struct FrameSyncDynamicPara {
 	unsigned int cur_tick;          // current tick at querying data
 	unsigned int last_ts;           // last timestamp at querying data
 	unsigned int vsyncs;            // passed vsync counts
+
+	/* fs SA mode cfg */
+	struct fs_sa_cfg sa_cfg;
 };
 
 
@@ -1049,7 +1052,7 @@ static inline void fs_alg_sa_dump_dynamic_para(unsigned int idx)
 
 
 	LOG_MUST(
-		"[%u] ID:%#x(sidx:%u), #%u, (%d/%u), out_fl:%u(%u), (%u/%u/%u/%u(%u/%u), %u, %u(%u)), pr_fl(c:%u(%u)/n:%u(%u)), ts_bias(exp:%u/tag:%u(%u/%u)), delta:%u(fdelay:%u), m_idx:%u(ref:%d)/chg:%u(%u), adj_diff(s:%lld(%u)/m:%lld), flk_en:%u, tg:%u, ts(%u/+%u(%u)/%u), [frec(0:%u/%u)(fl_lc/shut_lc), fmeas:%u(pr:%u(%u)/act:%u), fmeas_ts(%u/%u/%u/%u), fs_inst_ts(%u/%u/%u/%u, %u/+%u(%u)/%u)]\n",
+		"[%u] ID:%#x(sidx:%u), #%u, (%d/%u), out_fl:%u(%u), (%u/%u/%u/%u(%u/%u), %u, %u(%u)), pr_fl(c:%u(%u)/n:%u(%u)), ts_bias(exp:%u/tag:%u(%u/%u)), delta:%u(fdelay:%u), m_idx:%u(ref:%d)/chg:%u(%u), adj_diff(s:%lld(%u)/m:%lld), flk_en:%u, sa_cfg(idx:%u/m_idx:%d/async_m_idx:%d/async_s:%#x/valid_sync:%#x/method:%u), tg:%u, ts(%u/+%u(%u)/%u), [frec(0:%u/%u)(fl_lc/shut_lc), fmeas:%u(pr:%u(%u)/act:%u), fmeas_ts(%u/%u/%u/%u), fs_inst_ts(%u/%u/%u/%u, %u/+%u(%u)/%u)]\n",
 		idx,
 		fs_inst[idx].sensor_id,
 		fs_inst[idx].sensor_idx,
@@ -1093,6 +1096,12 @@ static inline void fs_alg_sa_dump_dynamic_para(unsigned int idx)
 		fs_sa_inst.dynamic_paras[idx].adj_or_not,
 		fs_sa_inst.dynamic_paras[idx].adj_diff_m,
 		fs_inst[idx].flicker_en,
+		fs_sa_inst.dynamic_paras[idx].sa_cfg.idx,
+		fs_sa_inst.dynamic_paras[idx].sa_cfg.m_idx,
+		fs_sa_inst.dynamic_paras[idx].sa_cfg.async_m_idx,
+		fs_sa_inst.dynamic_paras[idx].sa_cfg.async_s_bits,
+		fs_sa_inst.dynamic_paras[idx].sa_cfg.valid_sync_bits,
+		fs_sa_inst.dynamic_paras[idx].sa_cfg.sa_method,
 		fs_inst[idx].tg,
 		fs_sa_inst.dynamic_paras[idx].last_ts,
 		time_after_sof,
@@ -1136,12 +1145,16 @@ static inline void fs_alg_sa_sync_settings_for_dynamic_paras(
 
 
 static inline void fs_alg_sa_init_new_ctrl(
-	const unsigned int idx, const int m_idx,
+	const struct fs_sa_cfg *p_sa_cfg,
 	struct FrameSyncDynamicPara *p_para)
 {
+	const unsigned int idx = p_sa_cfg->idx;
+	const int m_idx = p_sa_cfg->m_idx;
+
+	p_para->sa_cfg = *p_sa_cfg;
+
 	/* generate new ctrl serial number */
 	p_para->magic_num = ++fs_sa_inst.magic_num[idx];
-
 	p_para->master_idx = m_idx;
 
 	/* sync current settings */
@@ -3581,7 +3594,7 @@ static void adjust_async_vsync_diff_sa(
 	p_para->target_min_fl_us = (fl_us * f_cell);
 	out_fl_us = p_para->min_fl_us;
 
-	fs_alg_sa_update_fl_us(idx, out_fl_us, p_para);
+	fs_alg_sa_update_fl_us(idx, (out_fl_us/f_cell), p_para);
 
 
 	if (idx == m_idx)
@@ -3711,7 +3724,7 @@ unsigned int fs_alg_solve_frame_length_sa(
 	FS_ATOMIC_SET(p_sa_cfg->m_idx, &fs_sa_inst.master_idx);
 
 	/* prepare new dynamic para */
-	fs_alg_sa_init_new_ctrl(p_sa_cfg->idx, p_sa_cfg->m_idx, &para);
+	fs_alg_sa_init_new_ctrl(p_sa_cfg, &para);
 
 
 	/* 0. get Vsync data by Frame Monitor */
