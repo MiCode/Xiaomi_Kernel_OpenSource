@@ -1161,20 +1161,23 @@ EXPORT_SYMBOL(mtk_pcie_remove_port);
  */
 int mtk_msi_unmask_to_other_mcu(struct irq_data *data, u32 group)
 {
+	struct irq_data *parent_data = data->parent_data;
 	struct mtk_msi_set *msi_set;
 	struct mtk_pcie_port *port;
 	void __iomem *dest_addr;
 	unsigned long hwirq;
 	u32 val, set_num;
 
-	if (!data)
+	if (!parent_data)
 		return -EINVAL;
 
-	msi_set = irq_data_get_irq_chip_data(data);
-	port = data->domain->host_data;
+	msi_set = irq_data_get_irq_chip_data(parent_data);
+	if (!msi_set)
+		return -ENODEV;
 
-	hwirq = data->hwirq % PCIE_MSI_IRQS_PER_SET;
-	set_num = data->hwirq / PCIE_MSI_IRQS_PER_SET;
+	port = parent_data->domain->host_data;
+	hwirq = parent_data->hwirq % PCIE_MSI_IRQS_PER_SET;
+	set_num = parent_data->hwirq / PCIE_MSI_IRQS_PER_SET;
 
 	switch (group) {
 	case 1:
