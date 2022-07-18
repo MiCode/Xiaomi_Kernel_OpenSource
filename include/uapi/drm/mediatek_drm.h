@@ -1006,7 +1006,11 @@ struct DISP_TDSHP_DISPLAY_SIZE {
 
 struct DISP_MDP_AAL_CLARITY_REG {
 	// Bilateral
+	uint32_t bilateral_impulse_noise_en;
+	uint32_t dre_bilateral_detect_en;
 	uint32_t bilateral_range_flt_slope;
+	uint32_t bilateral_flt_en;
+	uint32_t have_bilateral_filter;
 
 	// Bilateral Blending
 	uint32_t dre_bilateral_activate_blending_A;
