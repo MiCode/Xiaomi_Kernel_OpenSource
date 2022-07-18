@@ -328,7 +328,7 @@ enum mtk_cam_frame_order {
 };
 
 /**
- * struct mtk_cam_scen_prop - common properties
+ * struct mtk_cam_scen_normal - common properties
  *         in different scenario
  * @max_exp_num: max number of exposure
  * @exp_num: current number of exposure

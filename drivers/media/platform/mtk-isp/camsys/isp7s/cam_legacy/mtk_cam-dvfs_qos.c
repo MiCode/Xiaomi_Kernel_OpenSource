@@ -709,7 +709,7 @@ void mtk_cam_qos_bw_calc(struct mtk_cam_ctx *ctx, unsigned long raw_dmas, bool f
 				  vdev->active_fmt.fmt.pix_mp.height,
 				  ABW_MB_s, PBW_MB_s);
 			break;
-		/* todo : rgwbi */
+		/* todo : rawi_w,  imgo_w */
 		case MTKCAM_IPI_RAW_META_STATS_0:
 			break;
 		case MTKCAM_IPI_RAW_META_STATS_1:

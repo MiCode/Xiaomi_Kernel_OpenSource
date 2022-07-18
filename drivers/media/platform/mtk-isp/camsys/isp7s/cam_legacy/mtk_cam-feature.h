@@ -317,11 +317,37 @@ static inline int mtk_cam_scen_is_hdr_save_mem(struct mtk_cam_scen *scen)
 	return false;
 }
 
-static inline bool mtk_cam_scen_is_with_w_channel(struct mtk_cam_scen *scen)
+static inline bool mtk_cam_scen_is_rgbw_using_camsv(struct mtk_cam_scen *scen)
 {
 	if (!scen)
 		return false;
 	return scen->id == MTK_CAM_SCEN_CAMSV_RGBW;
+}
+
+static inline bool mtk_cam_scen_is_rgbw_supported(struct mtk_cam_scen *scen)
+{
+	if (!scen)
+		return false;
+
+	if (scen->id == MTK_CAM_SCEN_NORMAL ||
+		scen->id == MTK_CAM_SCEN_ODT_NORMAL ||
+		scen->id == MTK_CAM_SCEN_M2M_NORMAL)
+		return !!(scen->scen.normal.w_chn_supported);
+
+	return false;
+}
+
+static inline bool mtk_cam_scen_is_rgbw_enabled(struct mtk_cam_scen *scen)
+{
+	if (!scen)
+		return false;
+
+	if (scen->id == MTK_CAM_SCEN_NORMAL ||
+		scen->id == MTK_CAM_SCEN_ODT_NORMAL ||
+		scen->id == MTK_CAM_SCEN_M2M_NORMAL)
+		return !!(scen->scen.normal.w_chn_enabled);
+
+	return false;
 }
 
 bool mtk_cam_is_hsf(struct mtk_cam_ctx *ctx);

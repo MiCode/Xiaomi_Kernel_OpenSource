@@ -528,6 +528,15 @@ mtk_cam_raw_try_res_ctrl(struct mtk_raw_pipeline *pipeline,
 	if (res_user->raw_res.raws) {
 		res_cfg->hwn_limit_max = mtk_cam_res_get_raw_num(res_user->raw_res.raws);
 		res_cfg->hwn_limit_min = res_cfg->hwn_limit_max;
+	} else if (mtk_cam_scen_is_rgbw_enabled(&res_user->raw_res.scen)) {
+		if (res_user->raw_res.raws_max_num != 2) {
+			dev_info(dev, "rgbw only support 2 raw flow (%d given)",
+					 res_user->raw_res.raws_max_num);
+			return -EINVAL;
+		}
+
+		res_cfg->hwn_limit_max = res_user->raw_res.raws_max_num;
+		res_cfg->hwn_limit_min = res_user->raw_res.raws_max_num;
 	} else {
 		res_cfg->hwn_limit_max = res_user->raw_res.raws_max_num;
 		res_cfg->hwn_limit_min = 1;
@@ -805,6 +814,73 @@ static int mtk_raw_set_res_ctrl(struct device *dev, struct v4l2_ctrl *ctrl,
 	return ret;
 }
 
+static int set_pd_info(struct mtk_raw_pipeline *pipeline,
+					   enum mtk_cam_ctrl_type ctrl_type,
+					   int node_id, int pd_sz,
+					   int *pd_info_meta_sz, int *pd_table_offset)
+{
+	int ret = 0;
+	struct device *dev;
+	struct mtk_cam_video_device *node;
+	struct mtk_cam_pde_info *pde_info_pipe;
+	const struct v4l2_format *fmt;
+	int fmt_sz, active_sz;
+
+	dev = pipeline->raw->devs[pipeline->id];
+	node = &pipeline->vdev_nodes[node_id - MTK_RAW_SINK_NUM];
+	fmt = mtk_cam_dev_find_fmt(&node->desc,
+					node->active_fmt.fmt.meta.dataformat);
+
+	pde_info_pipe = &pipeline->pde_config.pde_info[ctrl_type];
+
+	fmt_sz = fmt->fmt.meta.buffersize;
+	active_sz = node->active_fmt.fmt.meta.buffersize;
+
+	if (pd_table_offset)
+		*pd_table_offset = fmt_sz;
+
+	*pd_info_meta_sz = active_sz;
+
+	if (!ret && active_sz < fmt_sz + pd_sz)
+		ret = -EINVAL;
+
+	dev_dbg(dev, "%s: meta (node %d): fmt size %d, pdi size %d; active size %d",
+			__func__, node, fmt_sz, pd_sz, active_sz);
+
+	return ret;
+}
+
+int mtk_cam_update_pd_meta_cfg_info(struct mtk_raw_pipeline *pipeline,
+							enum mtk_cam_ctrl_type ctrl_type)
+{
+	struct mtk_cam_pde_info *pde_info_pipe;
+
+	pde_info_pipe = &pipeline->pde_config.pde_info[ctrl_type];
+
+	if (!pde_info_pipe->pd_table_offset)
+		return 0;
+
+	return set_pd_info(pipeline, ctrl_type, MTK_RAW_META_IN,
+				pde_info_pipe->pdi_max_size,
+				&(pde_info_pipe->meta_cfg_size),
+				&(pde_info_pipe->pd_table_offset));
+}
+
+int mtk_cam_update_pd_meta_out_info(struct mtk_raw_pipeline *pipeline,
+							enum mtk_cam_ctrl_type ctrl_type)
+{
+	struct mtk_cam_pde_info *pde_info_pipe;
+
+	pde_info_pipe = &pipeline->pde_config.pde_info[ctrl_type];
+
+	if (!pde_info_pipe->pd_table_offset)
+		return 0;
+
+	return set_pd_info(pipeline, ctrl_type, MTK_RAW_META_OUT_0,
+				pde_info_pipe->pdo_max_size,
+				&(pde_info_pipe->meta_0_size), NULL);
+}
+
 static int mtk_raw_pde_try_set_ctrl(struct v4l2_ctrl *ctrl,
 				    enum mtk_cam_ctrl_type ctrl_type)
 {
@@ -812,9 +888,6 @@ static int mtk_raw_pde_try_set_ctrl(struct v4l2_ctrl *ctrl,
 	struct mtk_cam_pde_info *pde_info_pipe;
 	struct mtk_cam_pde_info *pde_info_user;
 	struct device *dev;
-	struct mtk_cam_video_device *node;
-	struct mtk_cam_dev_node_desc *desc;
-	const struct v4l2_format *default_fmt;
 	bool is_reset;
 
 	pipeline = mtk_cam_ctrl_handler_to_raw_pipeline(ctrl->handler);
@@ -824,48 +897,18 @@ static int mtk_raw_pde_try_set_ctrl(struct v4l2_ctrl *ctrl,
 	pde_info_user =
 		(struct mtk_cam_pde_info *)ctrl->p_new.p + ctrl_type;
 
-	if (!pde_info_user->pdo_max_size || !pde_info_user->pdi_max_size)
-		is_reset = true;
-	else
-		is_reset = false;
-
 	pde_info_pipe->pdo_max_size = pde_info_user->pdo_max_size;
 	pde_info_pipe->pdi_max_size = pde_info_user->pdi_max_size;
 
-	/* meta config */
-	node = &pipeline->vdev_nodes[MTK_RAW_META_IN - MTK_RAW_SINK_NUM];
-	desc = &node->desc;
-	default_fmt = &desc->fmts[desc->default_fmt_idx].vfmt;
-	if (!is_reset) {
-		pde_info_pipe->pd_table_offset = default_fmt->fmt.meta.buffersize;
-		pde_info_pipe->meta_cfg_size = default_fmt->fmt.meta.buffersize +
-						pde_info_pipe->pdi_max_size;
-		if (ctrl_type == CAM_SET_CTRL)
-			node->active_fmt.fmt.meta.buffersize =
-				pde_info_pipe->meta_cfg_size;
-	} else {
-		if (ctrl_type == CAM_SET_CTRL)
-			node->active_fmt.fmt.meta.buffersize =
-				default_fmt->fmt.meta.buffersize;
-	}
-
-	/* meta 0 */
-	node = &pipeline->vdev_nodes[MTK_RAW_META_OUT_0 - MTK_RAW_SINK_NUM];
-	desc = &node->desc;
-	default_fmt = &desc->fmts[desc->default_fmt_idx].vfmt;
-	if (!is_reset) {
-		pde_info_pipe->meta_0_size = default_fmt->fmt.meta.buffersize +
-						pde_info_pipe->pdo_max_size;
-		if (ctrl_type == CAM_SET_CTRL)
-			node->active_fmt.fmt.meta.buffersize =
-				pde_info_pipe->meta_0_size;
-	} else {
-		if (ctrl_type == CAM_SET_CTRL)
-			node->active_fmt.fmt.meta.buffersize =
-				default_fmt->fmt.meta.buffersize;
-	}
+	is_reset = (!pde_info_user->pdo_max_size || !pde_info_user->pdi_max_size);
 
 	if (!is_reset) {
+		// pde info may be set before set format
+		// active format buf size may be insufficient
+		// ignore return val
+		mtk_cam_update_pd_meta_cfg_info(pipeline, ctrl_type);
+		mtk_cam_update_pd_meta_out_info(pipeline, ctrl_type);
+
 		dev_dbg(dev,
 			"%s:type[%s] pdo/pdi/offset/cfg_sz/0_sz:%d/%d/%d/%d/%d\n",
 			__func__, ctrl_type == CAM_SET_CTRL ? "SET" : "TRY",
@@ -2586,23 +2629,25 @@ void raw_irq_handle_tg_grab_err(struct mtk_raw_device *raw_dev,
 	wmb(); /* TBC */
 
 	dev_info_ratelimited(raw_dev->dev,
-		"%d Grab_Err [Outter] TG PATHCFG/SENMODE FRMSIZE/R GRABPXL/LIN:%x/%x %x/%x %x/%x\n",
+		"%d Grab_Err [Outter] TG PATHCFG/SENMODE FRMSIZE/R GRABPXL/LIN VSEOL_SUB:%x/%x %x/%x %x/%x %x\n",
 		dequeued_frame_seq_no,
 		readl_relaxed(raw_dev->base + REG_TG_PATH_CFG),
 		readl_relaxed(raw_dev->base + REG_TG_SEN_MODE),
 		readl_relaxed(raw_dev->base + REG_TG_FRMSIZE_ST),
 		readl_relaxed(raw_dev->base + REG_TG_FRMSIZE_ST_R),
 		readl_relaxed(raw_dev->base + REG_TG_SEN_GRAB_PXL),
-		readl_relaxed(raw_dev->base + REG_TG_SEN_GRAB_LIN));
+		readl_relaxed(raw_dev->base + REG_TG_SEN_GRAB_LIN),
+		readl_relaxed(raw_dev->base + REG_TG_VSEOL_SUB_CTL));
 	dev_info_ratelimited(raw_dev->dev,
-		"%d Grab_Err [Inner] TG PATHCFG/SENMODE FRMSIZE/R GRABPXL/LIN:%x/%x %x/%x %x/%x\n",
+		"%d Grab_Err [Inner] TG PATHCFG/SENMODE FRMSIZE/R GRABPXL/LIN VSEOL_SUB:%x/%x %x/%x %x/%x %x\n",
 		dequeued_frame_seq_no,
 		readl_relaxed(raw_dev->base_inner + REG_TG_PATH_CFG),
 		readl_relaxed(raw_dev->base_inner + REG_TG_SEN_MODE),
 		readl_relaxed(raw_dev->base_inner + REG_TG_FRMSIZE_ST),
 		readl_relaxed(raw_dev->base_inner + REG_TG_FRMSIZE_ST_R),
 		readl_relaxed(raw_dev->base_inner + REG_TG_SEN_GRAB_PXL),
-		readl_relaxed(raw_dev->base_inner + REG_TG_SEN_GRAB_LIN));
+		readl_relaxed(raw_dev->base_inner + REG_TG_SEN_GRAB_LIN),
+		readl_relaxed(raw_dev->base_inner + REG_TG_VSEOL_SUB_CTL));
 
 	ctx = mtk_cam_find_ctx(raw_dev->cam, &raw_dev->pipeline->subdev.entity);
 	if (!ctx) {
@@ -3240,7 +3285,10 @@ int mtk_cam_raw_select(struct mtk_cam_ctx *ctx,
 			selected = true;
 		}
 	} else if (pipe->res_config.raw_num_used == 2) {
-		for (m = MTKCAM_SUBDEV_RAW_0; m >= MTKCAM_SUBDEV_RAW_0; m--) {
+		bool is_suport_bc = mtk_cam_scen_is_rgbw_enabled(&ctx->pipe->scen_active);
+		int raw_last_try = (is_suport_bc) ? MTKCAM_SUBDEV_RAW_1 : MTKCAM_SUBDEV_RAW_0;
+
+		for (m = MTKCAM_SUBDEV_RAW_0; m <= raw_last_try; m++) {
 			mask = (1 << m) | (1 << (m + 1));
 			if (!(raw_status & mask)) {
 				pipe->enabled_raw |= mask;
@@ -4233,8 +4281,8 @@ static const struct v4l2_ioctl_ops mtk_cam_v4l2_meta_cap_ioctl_ops = {
 	.vidioc_querycap = mtk_cam_vidioc_querycap,
 	.vidioc_enum_fmt_meta_cap = mtk_cam_vidioc_meta_enum_fmt,
 	.vidioc_g_fmt_meta_cap = mtk_cam_vidioc_g_meta_fmt,
-	.vidioc_s_fmt_meta_cap = mtk_cam_vidioc_g_meta_fmt,
-	.vidioc_try_fmt_meta_cap = mtk_cam_vidioc_g_meta_fmt,
+	.vidioc_s_fmt_meta_cap = mtk_cam_vidioc_s_meta_fmt,
+	.vidioc_try_fmt_meta_cap = mtk_cam_vidioc_try_meta_fmt,
 	.vidioc_reqbufs = vb2_ioctl_reqbufs,
 	.vidioc_create_bufs = vb2_ioctl_create_bufs,
 	.vidioc_prepare_buf = vb2_ioctl_prepare_buf,
@@ -4250,8 +4298,8 @@ static const struct v4l2_ioctl_ops mtk_cam_v4l2_meta_out_ioctl_ops = {
 	.vidioc_querycap = mtk_cam_vidioc_querycap,
 	.vidioc_enum_fmt_meta_out = mtk_cam_vidioc_meta_enum_fmt,
 	.vidioc_g_fmt_meta_out = mtk_cam_vidioc_g_meta_fmt,
-	.vidioc_s_fmt_meta_out = mtk_cam_vidioc_g_meta_fmt,
-	.vidioc_try_fmt_meta_out = mtk_cam_vidioc_g_meta_fmt,
+	.vidioc_s_fmt_meta_out = mtk_cam_vidioc_s_meta_fmt,
+	.vidioc_try_fmt_meta_out = mtk_cam_vidioc_try_meta_fmt,
 	.vidioc_reqbufs = vb2_ioctl_reqbufs,
 	.vidioc_create_bufs = vb2_ioctl_create_bufs,
 	.vidioc_prepare_buf = vb2_ioctl_prepare_buf,
@@ -4270,6 +4318,12 @@ static struct mtk_cam_format_desc meta_cfg_fmts[] = {
 			.buffersize = 0,
 		},
 	},
+	{
+		.vfmt.fmt.meta = {
+			.dataformat = V4L2_META_FMT_MTISP_PARAMS_RGBW,
+			.buffersize = 0,
+		},
+	},
 };
 
 static struct mtk_cam_format_desc meta_stats0_fmts[] = {
@@ -4279,12 +4333,24 @@ static struct mtk_cam_format_desc meta_stats0_fmts[] = {
 			.buffersize = 0,
 		},
 	},
+	{
+		.vfmt.fmt.meta = {
+			.dataformat = V4L2_META_FMT_MTISP_3A_RGBW,
+			.buffersize = 0,
+		},
+	},
 };
 
 static struct mtk_cam_format_desc meta_stats1_fmts[] = {
 	{
 		.vfmt.fmt.meta = {
 			.dataformat = V4L2_META_FMT_MTISP_AF,
+			.buffersize = 0,
+		},
+	},
+	{
+		.vfmt.fmt.meta = {
+			.dataformat = V4L2_META_FMT_MTISP_AF_RGBW,
 			.buffersize = 0,
 		},
 	},
@@ -6185,13 +6251,24 @@ static void update_platform_meta_size(struct mtk_cam_format_desc *fmts,
 		case  V4L2_META_FMT_MTISP_PARAMS:
 			size = GET_PLAT_V4L2(meta_cfg_size);
 			break;
+		case  V4L2_META_FMT_MTISP_PARAMS_RGBW:
+			size = GET_PLAT_V4L2(meta_cfg_size_rgbw);
+			break;
 		case  V4L2_META_FMT_MTISP_3A:
 			/* workaround */
 			size = !sv ? GET_PLAT_V4L2(meta_stats0_size) :
 				GET_PLAT_V4L2(meta_sv_ext_size);
 			break;
+		case  V4L2_META_FMT_MTISP_3A_RGBW:
+			/* workaround */
+			size = !sv ? GET_PLAT_V4L2(meta_stats0_size_rgbw) :
+				GET_PLAT_V4L2(meta_sv_ext_size);
+			break;
 		case  V4L2_META_FMT_MTISP_AF:
 			size = GET_PLAT_V4L2(meta_stats1_size);
+			break;
+		case  V4L2_META_FMT_MTISP_AF_RGBW:
+			size = GET_PLAT_V4L2(meta_stats1_size_rgbw);
 			break;
 		default:
 			size = 0;

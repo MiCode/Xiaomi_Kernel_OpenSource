@@ -206,11 +206,16 @@ int mtk_cam_vidioc_meta_enum_fmt(struct file *file, void *fh,
 int mtk_cam_vidioc_s_selection(struct file *file, void *fh,
 				struct v4l2_selection *s);
 
+int mtk_cam_vidioc_try_meta_fmt(struct file *file, void *fh,
+			      struct v4l2_format *f);
+
 int mtk_cam_vidioc_g_meta_fmt(struct file *file, void *fh,
 			      struct v4l2_format *f);
 
 int mtk_cam_vidioc_qbuf(struct file *file, void *priv,
 			struct v4l2_buffer *buf);
+int mtk_cam_vidioc_s_meta_fmt(struct file *file, void *fh,
+			      struct v4l2_format *f);
 
 /* Utility functions to convert format enum */
 unsigned int mtk_cam_get_sensor_pixel_id(unsigned int fmt);

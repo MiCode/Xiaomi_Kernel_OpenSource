@@ -97,8 +97,11 @@ struct plat_v4l2_data {
 	unsigned int meta_minor;
 
 	int meta_cfg_size;
+	int meta_cfg_size_rgbw;
 	int meta_stats0_size;
+	int meta_stats0_size_rgbw;
 	int meta_stats1_size;
+	int meta_stats1_size_rgbw;
 	int meta_sv_ext_size;
 	int meta_mraw_ext_size;
 

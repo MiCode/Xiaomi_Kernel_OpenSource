@@ -485,6 +485,9 @@ struct mtk_cam_ctx {
 	void __iomem *slb_addr;
 	unsigned int slb_size;
 
+	/* buffer for backend usage */
+	struct mtk_cam_working_buf generic_buf;
+
 	atomic_t enqueued_frame_seq_no;
 	atomic_t composed_delay_seq_no;
 	u64 composed_delay_sof_tsns;

@@ -280,6 +280,8 @@
 #define REG_TG_IR_FLASH_HIGH_WIDTH			0x07A0
 #define REG_TG_IR_FLASH_LOW_WIDTH			0x07A4
 
+#define REG_TG_VSEOL_SUB_CTL				0x0760
+
 /* for raw & yuv's dma top base */
 #define CAMDMATOP_BASE						0x4000
 

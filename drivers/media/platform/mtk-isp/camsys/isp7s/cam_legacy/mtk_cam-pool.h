@@ -15,6 +15,7 @@ void
 mtk_cam_working_buf_put(struct mtk_cam_working_buf_entry *buf_entry);
 struct mtk_cam_working_buf_entry*
 mtk_cam_working_buf_get(struct mtk_cam_ctx *ctx);
+
 int mtk_cam_user_img_working_buf_pool_init(struct mtk_cam_ctx *ctx,
 					   int buf_num,
 					   int working_buf_size);
@@ -27,6 +28,9 @@ void
 mtk_cam_img_working_buf_put(struct mtk_cam_img_working_buf_entry *buf_entry);
 struct mtk_cam_img_working_buf_entry*
 mtk_cam_img_working_buf_get(struct mtk_cam_ctx *ctx);
+
+long mtk_cam_generic_buf_alloc(struct mtk_cam_ctx *ctx, u32 size);
+void mtk_cam_generic_buf_release(struct mtk_cam_ctx *ctx);
 
 int mtk_cam_sv_working_buf_pool_init(struct mtk_cam_ctx *ctx);
 void

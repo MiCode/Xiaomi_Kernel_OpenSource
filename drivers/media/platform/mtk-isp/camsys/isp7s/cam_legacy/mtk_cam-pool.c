@@ -113,7 +113,6 @@ int mtk_cam_working_buf_pool_init(struct mtk_cam_ctx *ctx)
 
 void mtk_cam_working_buf_pool_release(struct mtk_cam_ctx *ctx)
 {
-
 	struct mtk_ccd *ccd = ctx->cam->rproc_handle->priv;
 	struct mem_obj smem;
 
@@ -136,7 +135,6 @@ void mtk_cam_working_buf_pool_release(struct mtk_cam_ctx *ctx)
 	dev_dbg(ctx->cam->dev,
 		"%s:ctx(%d):msg buffers release, mem(%p), sz(%d)\n",
 		__func__, ctx->stream_id, smem.va, smem.len);
-
 }
 
 void
@@ -447,6 +445,7 @@ void mtk_cam_internal_img_working_buf_pool_release(struct mtk_cam_ctx *ctx)
 	smem.iova = ctx->img_buf_pool.working_img_buf_iova;
 	smem.len = ctx->img_buf_pool.working_img_buf_size;
 	mtk_ccd_put_buffer(ccd, &smem);
+
 	dev_info(ctx->cam->dev,
 		"%s:ctx(%d):img buffers release, mem iova(0x%x), sz(%d)\n",
 		__func__, ctx->stream_id, smem.iova, smem.len);
@@ -499,6 +498,61 @@ mtk_cam_img_working_buf_get(struct mtk_cam_ctx *ctx)
 		__func__, ctx->stream_id, buf_entry->img_buffer.iova, cnt);
 
 	return buf_entry;
+}
+
+long mtk_cam_generic_buf_alloc(struct mtk_cam_ctx *ctx, u32 size)
+{
+	struct mem_obj smem;
+	struct mtk_ccd *ccd;
+	void *mem_priv;
+	struct dma_buf *dbuf;
+
+	if (ctx->generic_buf.size) {
+		dev_info(ctx->cam->dev, "%s: buf already existed(size %d)\n",
+		 __func__, ctx->generic_buf.size);
+		mtk_cam_generic_buf_release(ctx);
+	}
+
+	smem.len = size;
+	dev_info(ctx->cam->dev, "%s: ctx(%d) smem.len(%d)\n",
+		 __func__, ctx->stream_id, smem.len);
+	ccd = (struct mtk_ccd *)ctx->cam->rproc_handle->priv;
+	mem_priv = mtk_ccd_get_buffer(ccd, &smem);
+	if (IS_ERR(mem_priv))
+		return PTR_ERR(mem_priv);
+
+	dbuf = mtk_ccd_get_buffer_dmabuf(ccd, mem_priv);
+	if (dbuf)
+		mtk_dma_buf_set_name(dbuf, "CAM_MEM_GEN_ID");
+
+	ctx->generic_buf.size = smem.len;
+	ctx->generic_buf.va = smem.va;
+	ctx->generic_buf.iova = smem.iova;
+
+	return 0;
+}
+
+void mtk_cam_generic_buf_release(struct mtk_cam_ctx *ctx)
+{
+	struct mtk_ccd *ccd = ctx->cam->rproc_handle->priv;
+	struct mem_obj smem;
+
+	if (!ctx->generic_buf.size)
+		return;
+
+	/* msg buffer */
+	smem.va = ctx->generic_buf.va;
+	smem.iova = ctx->generic_buf.iova;
+	smem.len = ctx->generic_buf.size;
+	mtk_ccd_put_buffer(ccd, &smem);
+
+	ctx->generic_buf.va = 0;
+	ctx->generic_buf.iova = 0;
+	ctx->generic_buf.size = 0;
+
+	dev_dbg(ctx->cam->dev,
+		"%s: ctx(%d):cq buffers release, mem iova(%pad), sz(%d)\n",
+		__func__, ctx->stream_id, &smem.iova, smem.len);
 }
 
 int mtk_cam_sv_working_buf_pool_init(struct mtk_cam_ctx *ctx)

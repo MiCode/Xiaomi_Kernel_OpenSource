@@ -71,6 +71,8 @@ MODULE_PARM_DESC(debug_ae, "activates debug ae info");
 #define MTK_CAM_CIO_PAD_SRC		PAD_SRC_RAW0
 #define MTK_CAM_CIO_PAD_SINK		MTK_RAW_SINK
 
+#define MTK_CAM_CACI_TABLE_SIZE (50000)
+
 /* Zero out the end of the struct pointed to by p.  Everything after, but
  * not including, the specified field is cleared.
  */
@@ -97,6 +99,10 @@ enum {
 	DEBUG_PREISP_OFF_PROCRAW,
 };
 
+#define MTK_CAM_IMGO_W_IMG_OUT_IDX			CAM_MAX_OUTPUT_PAD
+
+#define MTK_CAM_IMGO_W_IMG_IN_R2_IDX	CAM_MAX_INPUT_PAD
+#define MTK_CAM_IMGO_W_IMG_IN_R5_IDX	(CAM_MAX_INPUT_PAD + 1)
 
 MODULE_DEVICE_TABLE(of, mtk_cam_of_ids);
 
@@ -1491,15 +1497,17 @@ static void config_img_in_fmt_stagger(struct mtk_cam_device *cam,
 				struct mtk_cam_scen *scen, s64 hw_mode)
 {
 	struct mtk_cam_ctx *ctx = s_data->ctx;
-	struct mtkcam_ipi_img_input *in_fmt;
+	struct mtkcam_ipi_img_input *in_fmt, *in_fmt_w;
 	int input_node;
 	int rawi_port_num = 0;
 	int rawi_idx = 0;
 	const int *ptr_rawi = NULL;
 	int (*func_ptr_arr[3])(struct mtk_cam_ctx *, unsigned int);
 	unsigned int tag_idx = 0, exp_no = 0;
+	unsigned int uid_w = MTKCAM_IPI_RAW_ID_UNKNOWN, img_in_idx_w;
 	bool is_otf = mtk_cam_hw_mode_is_otf(hw_mode);
 	bool is_dc = mtk_cam_hw_mode_is_dc(hw_mode);
+	bool is_rgbw = mtk_cam_scen_is_rgbw_enabled(scen);
 
 	static const int stagger_onthefly_2exp_rawi[1] = {
 					MTKCAM_IPI_RAW_RAWI_2};
@@ -1583,6 +1591,31 @@ static void config_img_in_fmt_stagger(struct mtk_cam_device *cam,
 		in_fmt->fmt.s.h = cfg_fmt->fmt.pix_mp.height;
 		in_fmt->fmt.stride[0] = cfg_fmt->fmt.pix_mp.plane_fmt[0].bytesperline;
 
+		uid_w = MTKCAM_IPI_RAW_ID_UNKNOWN;
+		if (is_rgbw) {
+			switch (in_fmt->uid.id) {
+			case MTKCAM_IPI_RAW_RAWI_2:
+				uid_w = MTKCAM_IPI_RAW_RAWI_2_W;
+				img_in_idx_w = MTK_CAM_IMGO_W_IMG_IN_R2_IDX;
+				break;
+			case MTKCAM_IPI_RAW_RAWI_5:
+				uid_w = MTKCAM_IPI_RAW_RAWI_5_W;
+				img_in_idx_w = MTK_CAM_IMGO_W_IMG_IN_R5_IDX;
+				break;
+			default:
+				break;
+			}
+
+			if (uid_w != MTKCAM_IPI_RAW_ID_UNKNOWN) {
+				in_fmt_w = &s_data->frame_params.img_ins[img_in_idx_w];
+
+				in_fmt_w->uid.id = uid_w;
+				in_fmt_w->uid.pipe_id = in_fmt->uid.pipe_id;
+
+				in_fmt_w->fmt = in_fmt->fmt;
+			}
+		}
+
 		if (is_otf || is_dc) {
 			mtk_cam_fill_sv_frame_param(ctx, &s_data->frame_params,
 				tag_idx, in_fmt->fmt, in_fmt->buf[0].iova);
@@ -1644,26 +1677,29 @@ config_img_in_fmt_time_shared(struct mtk_cam_device *cam,
 
 }
 static void check_buffer_mem_saving(
-		struct mtk_cam_request_stream_data *req,
+		struct mtk_cam_request_stream_data *s_data,
 		struct mtkcam_ipi_img_input *in_fmt,
+		const struct v4l2_format *vfmt,
 		int rawi_port_num)
 {
-	if (req->feature.scen && mtk_cam_scen_is_hdr_save_mem(req->feature.scen)) {
-		if (rawi_port_num == 2) {
+	if (s_data->feature.scen && mtk_cam_scen_is_hdr_save_mem(s_data->feature.scen)) {
+		if (rawi_port_num == 2 || rawi_port_num == 1) {
+			__u64 rawi_r2_iova = s_data->frame_params.img_ins[0].buf[0].iova;
 			/*raw's imgo using buf from user*/
-			req->frame_params.img_outs[0].buf[0][0].iova =
-			req->frame_params.img_ins[0].buf[0].iova;
-			/*sv's imgo using img pool buf*/
-			in_fmt->buf[0].iova = 0x0;
-		} else if (rawi_port_num == 1) {
-			/*raw's imgo using buf from user*/
-			req->frame_params.img_outs[0].buf[0][0].iova =
-			req->frame_params.img_ins[0].buf[0].iova;
+			s_data->frame_params.img_outs[0].buf[0][0].iova =
+				rawi_r2_iova;
+
+			if (mtk_cam_scen_is_rgbw_enabled(s_data->feature.scen)) {
+				s_data->frame_params.img_outs[
+					MTK_CAM_IMGO_W_IMG_OUT_IDX].buf[0][0].iova = rawi_r2_iova +
+						vfmt->fmt.pix_mp.plane_fmt[0].sizeimage;
+			}
+
 			/*sv's imgo using img pool buf*/
 			in_fmt->buf[0].iova = 0x0;
 		}
-		dev_dbg(req->ctx->cam->dev, "%s: req:%d, rawi_num:%d\n",
-			__func__, req->frame_seq_no, rawi_port_num);
+		dev_dbg(s_data->ctx->cam->dev, "%s: req:%d, rawi_num:%d\n",
+			__func__, s_data->frame_seq_no, rawi_port_num);
 	}
 }
 
@@ -1724,23 +1760,86 @@ unsigned int mtk_cam_get_sv_idle_tags(
 	return used_tags;
 }
 
+static inline const struct v4l2_format *get_fmt_for_rawi(struct mtk_cam_ctx *ctx,
+	struct mtk_cam_request_stream_data *s_data)
+{
+	const struct v4l2_format *fmt;
+	struct mtk_cam_video_device *node;
+	const struct v4l2_format *cfg_fmt;
+	bool is_dc = mtk_cam_hw_mode_is_dc(ctx->pipe->hw_mode_pending);
+
+	node = &ctx->pipe->vdev_nodes[
+		MTK_RAW_MAIN_STREAM_OUT - MTK_RAW_SINK_NUM];
+
+	if (is_dc)
+		fmt = &ctx->pipe->img_fmt_sink_pad;
+	else {
+		cfg_fmt = mtk_cam_s_data_get_vfmt(s_data, node->desc.id);
+		/* workaround for raw switch */
+		if (!cfg_fmt->fmt.pix_mp.pixelformat)
+			cfg_fmt = &node->active_fmt;
+
+		fmt = cfg_fmt;
+	}
+
+	return fmt;
+}
+
+static int set_img_in_format(struct mtk_cam_device *cam,
+	struct mtk_cam_ctx *ctx,
+	struct mtkcam_ipi_img_input *in_fmt,
+	struct mtk_cam_request_stream_data *s_data,
+	int uid, int pipe_id, const struct v4l2_format *fmt_for_rawi)
+{
+	struct mtk_cam_img_working_buf_entry *buf_entry;
+
+	in_fmt->uid.id = uid;
+	in_fmt->uid.pipe_id = pipe_id;
+	in_fmt->fmt.format = mtk_cam_get_img_fmt(
+			fmt_for_rawi->fmt.pix_mp.pixelformat);
+	in_fmt->fmt.s.w = fmt_for_rawi->fmt.pix_mp.width;
+	in_fmt->fmt.s.h = fmt_for_rawi->fmt.pix_mp.height;
+	in_fmt->fmt.stride[0] =
+		fmt_for_rawi->fmt.pix_mp.plane_fmt[0].bytesperline;
+	/* prepare working buffer */
+	buf_entry = mtk_cam_img_working_buf_get(ctx);
+	if (!buf_entry) {
+		dev_info(cam->dev,
+			 "%s: No img buf availablle: req:%d\n",
+			 __func__, s_data->frame_seq_no);
+		WARN_ON(1);
+		return -EINVAL;
+	}
+	mtk_cam_img_wbuf_set_s_data(buf_entry, s_data);
+	/* put to processing list */
+	spin_lock(&ctx->processing_img_buffer_list.lock);
+	list_add_tail(&buf_entry->list_entry,
+			  &ctx->processing_img_buffer_list.list);
+	ctx->processing_img_buffer_list.cnt++;
+	spin_unlock(&ctx->processing_img_buffer_list.lock);
+	in_fmt->buf[0].iova = buf_entry->img_buffer.iova;
+	finish_img_buf(s_data);
+
+	return 0;
+}
+
 static void check_stagger_buffer(struct mtk_cam_device *cam,
 				 struct mtk_cam_ctx *ctx,
 				 struct mtk_cam_request *cam_req)
 {
-	struct mtkcam_ipi_img_input *in_fmt;
-	struct mtk_cam_img_working_buf_entry *buf_entry;
+	struct mtkcam_ipi_img_input *in_fmt, *in_fmt_w;
 	struct mtk_cam_video_device *node;
 	struct mtk_cam_request_stream_data *s_data;
 	struct mtk_cam_req_raw_pipe_data *s_raw_pipe_data;
-	const struct v4l2_format *cfg_fmt;
 	const struct v4l2_format *fmt_for_rawi;
 	int input_node, rawi_port_num = 0, rawi_idx = 0;
 	const int *ptr_rawi = NULL;
 	struct mtk_cam_scen *scen;
 	bool is_dc = mtk_cam_hw_mode_is_dc(ctx->pipe->hw_mode_pending);
+	bool is_rgbw = false;
 	int (*func_ptr_arr[3])(struct mtk_cam_ctx *, unsigned int);
 	unsigned int tag_idx, enabled_sv_tags = 0;
+	int uid_w, img_in_idx_w;
 
 	static const int stagger_onthefly_2exp_rawi[1] = {
 					MTKCAM_IPI_RAW_RAWI_2};
@@ -1762,6 +1861,9 @@ static void check_stagger_buffer(struct mtk_cam_device *cam,
 	s_data = mtk_cam_req_get_s_data(cam_req, ctx->stream_id, 0);
 	s_raw_pipe_data = mtk_cam_s_data_get_raw_pipe_data(s_data);
 	scen = s_data->feature.scen;
+
+	is_rgbw = mtk_cam_scen_is_rgbw_enabled(scen);
+
 	if (mtk_cam_hw_is_otf(ctx)) {
 		s_data->frame_params.raw_param.hardware_scenario =
 			MTKCAM_IPI_HW_PATH_STAGGER;
@@ -1786,8 +1888,8 @@ static void check_stagger_buffer(struct mtk_cam_device *cam,
 			s_data->frame_params.raw_param.exposure_num,
 			rawi_port_num, false);
 	} else if (is_dc) {
-		s_data->frame_params.raw_param.hardware_scenario =
-			MTKCAM_IPI_HW_PATH_DC_STAGGER;
+		s_data->frame_params.raw_param.hardware_scenario = (is_rgbw) ?
+			MTKCAM_IPI_HW_PATH_DC_RGBW : MTKCAM_IPI_HW_PATH_DC_STAGGER;
 		if (mtk_cam_scen_is_2_exp(scen)) {
 			s_data->frame_params.raw_param.exposure_num = 2;
 			rawi_port_num = 2;
@@ -1803,7 +1905,8 @@ static void check_stagger_buffer(struct mtk_cam_device *cam,
 		}
 		enabled_sv_tags = mtk_cam_get_sv_idle_tags(ctx,
 			ctx->sv_dev->enabled_tags,
-			1 << HWPATH_ID(MTKCAM_IPI_HW_PATH_DC_STAGGER),
+			1 << HWPATH_ID(
+				s_data->frame_params.raw_param.hardware_scenario),
 			s_data->frame_params.raw_param.exposure_num,
 			rawi_port_num, false);
 	}
@@ -1822,49 +1925,38 @@ static void check_stagger_buffer(struct mtk_cam_device *cam,
 		input_node = ptr_rawi[rawi_idx];
 		in_fmt = &s_data->frame_params.img_ins[
 					input_node - MTKCAM_IPI_RAW_RAWI_2];
-		check_buffer_mem_saving(s_data, in_fmt, rawi_port_num);
+		fmt_for_rawi = get_fmt_for_rawi(ctx, s_data);
+		check_buffer_mem_saving(s_data, in_fmt, fmt_for_rawi, rawi_port_num);
 		if (in_fmt->buf[0].iova == 0x0) {
 			node = &ctx->pipe->vdev_nodes[
 				MTK_RAW_MAIN_STREAM_OUT - MTK_RAW_SINK_NUM];
-
-			cfg_fmt = mtk_cam_s_data_get_vfmt(s_data, node->desc.id);
-
-			/* workaround for raw switch */
-			if (!cfg_fmt->fmt.pix_mp.pixelformat)
-				cfg_fmt = &node->active_fmt;
-
-			if (is_dc) {
-				fmt_for_rawi = &ctx->pipe->img_fmt_sink_pad;
-			} else {
-				fmt_for_rawi = cfg_fmt;
-			}
-
-			in_fmt->uid.id = input_node;
-			in_fmt->uid.pipe_id = node->uid.pipe_id;
-			in_fmt->fmt.format = mtk_cam_get_img_fmt(
-					fmt_for_rawi->fmt.pix_mp.pixelformat);
-			in_fmt->fmt.s.w = fmt_for_rawi->fmt.pix_mp.width;
-			in_fmt->fmt.s.h = fmt_for_rawi->fmt.pix_mp.height;
-			in_fmt->fmt.stride[0] =
-				fmt_for_rawi->fmt.pix_mp.plane_fmt[0].bytesperline;
-			/* prepare working buffer */
-			buf_entry = mtk_cam_img_working_buf_get(ctx);
-			if (!buf_entry) {
-				dev_info(cam->dev,
-					 "%s: No img buf availablle: req:%d\n",
-					 __func__, s_data->frame_seq_no);
-				WARN_ON(1);
+			if (set_img_in_format(cam, ctx, in_fmt, s_data, input_node,
+								  node->uid.pipe_id, fmt_for_rawi))
 				return;
+
+			if (is_rgbw) {
+				switch (input_node) {
+				case MTKCAM_IPI_RAW_RAWI_2:
+					uid_w = MTKCAM_IPI_RAW_RAWI_2_W;
+					img_in_idx_w = MTK_CAM_IMGO_W_IMG_IN_R2_IDX;
+					break;
+				case MTKCAM_IPI_RAW_RAWI_5:
+					uid_w = MTKCAM_IPI_RAW_RAWI_5_W;
+					img_in_idx_w = MTK_CAM_IMGO_W_IMG_IN_R5_IDX;
+					break;
+				default:
+					img_in_idx_w = -1;
+					break;
+				}
+
+				if (img_in_idx_w != -1) {
+					in_fmt_w = &s_data->frame_params.img_ins[img_in_idx_w];
+
+					if (set_img_in_format(cam, ctx, in_fmt_w, s_data, uid_w,
+						node->uid.pipe_id, fmt_for_rawi))
+						return;
+				}
 			}
-			mtk_cam_img_wbuf_set_s_data(buf_entry, s_data);
-			/* put to processing list */
-			spin_lock(&ctx->processing_img_buffer_list.lock);
-			list_add_tail(&buf_entry->list_entry,
-				      &ctx->processing_img_buffer_list.list);
-			ctx->processing_img_buffer_list.cnt++;
-			spin_unlock(&ctx->processing_img_buffer_list.lock);
-			in_fmt->buf[0].iova = buf_entry->img_buffer.iova;
-			finish_img_buf(s_data);
 
 			/* update camsv's frame parameter */
 			mtk_cam_fill_sv_frame_param(ctx, &s_data->frame_params,
@@ -3077,6 +3169,8 @@ int mtk_cam_hdr_buf_update(struct vb2_buffer *vb,
 	int exp_num = mtk_cam_scen_get_exp_num(scen);
 	int sizeimage = f->fmt.pix_mp.plane_fmt[0].sizeimage;
 	int data_offset;
+	bool is_rgbw = mtk_cam_scen_is_rgbw_enabled(scen);
+	int num_of_plane = is_rgbw ? 2 : 1;
 
 	if (scenario != STAGGER_M2M)
 		desc_id = node->desc.id - MTK_RAW_SOURCE_BEGIN;
@@ -3084,16 +3178,17 @@ int mtk_cam_hdr_buf_update(struct vb2_buffer *vb,
 		desc_id = node->desc.id - MTK_RAW_RAWI_2_IN;
 
 	for (i = 0 ; i < exp_num; i++) {
-		data_offset = i * sizeimage;
+		data_offset = i * sizeimage * num_of_plane;
 		if (mtk_cam_scen_is_mstream_2exp_types(scen)) {
 			mtk_cam_mstream_buf_update(req, pipe_id, scen,
 						desc_id, i, vb, f);
 		} else if (exp_num == 3) {
+			// TODO: RGBW 3 DOL
 			if (i == 0) { /* camsv1*/
 				int in_node = MTKCAM_IPI_RAW_RAWI_2;
 
 				frame_param->img_ins[in_node - MTKCAM_IPI_RAW_RAWI_2].buf[0]
-				.iova = buf->daddr + data_offset;
+					.iova = buf->daddr + data_offset;
 				frame_param->img_ins[in_node - MTKCAM_IPI_RAW_RAWI_2].buf[0]
 					.size = sizeimage;
 			} else if (i == 1) { /*camsv2*/
@@ -3124,6 +3219,13 @@ int mtk_cam_hdr_buf_update(struct vb2_buffer *vb,
 				.iova = buf->daddr + data_offset;
 				frame_param->img_ins[in_node - MTKCAM_IPI_RAW_RAWI_2].buf[0]
 					.size = sizeimage;
+
+				if (is_rgbw) {
+					frame_param->img_ins[MTK_CAM_IMGO_W_IMG_IN_R2_IDX].buf[0]
+					.iova = buf->daddr + data_offset + sizeimage;
+					frame_param->img_ins[MTK_CAM_IMGO_W_IMG_IN_R2_IDX].buf[0]
+					.size = sizeimage;
+				}
 			} else if (i == 1) { /*raw*/
 				if (scenario == STAGGER_M2M) {
 					int in_node = MTKCAM_IPI_RAW_RAWI_5;
@@ -3132,9 +3234,22 @@ int mtk_cam_hdr_buf_update(struct vb2_buffer *vb,
 						.iova = buf->daddr + data_offset;
 					frame_param->img_ins[in_node - MTKCAM_IPI_RAW_RAWI_2].buf[0]
 						.size = sizeimage;
+					if (is_rgbw) {
+						frame_param->img_ins[
+							MTK_CAM_IMGO_W_IMG_IN_R5_IDX].buf[0].iova =
+							buf->daddr + data_offset + sizeimage;
+						frame_param->img_ins[
+							MTK_CAM_IMGO_W_IMG_IN_R5_IDX].buf[0].size =
+							sizeimage;
+					}
 				} else {
 					frame_param->img_outs[desc_id].buf[0][0].iova =
 						buf->daddr + data_offset;
+
+					if (is_rgbw)
+						frame_param->img_outs[
+							MTK_CAM_IMGO_W_IMG_OUT_IDX].buf[0][0].iova =
+							buf->daddr + data_offset + sizeimage;
 				}
 			}
 		}
@@ -3235,6 +3350,7 @@ static int mtk_cam_config_raw_img_out_imgo(struct mtk_cam_request_stream_data *s
 	pixelformat = cfg_fmt->fmt.pix_mp.pixelformat;
 	img_out->buf[0][0].iova = buf->daddr;
 	img_out->buf[0][0].ccd_fd = vb->planes[0].m.fd;
+
 	if (is_raw_ufo(pixelformat))
 		mtk_cam_fill_img_buf(img_out, cfg_fmt, buf->daddr);
 
@@ -3275,6 +3391,24 @@ static int mtk_cam_config_raw_img_out_imgo(struct mtk_cam_request_stream_data *s
 			for (i = MAX_SUBSAMPLE_PLANE_NUM; i < 32; i++)
 				img_out->buf[i][0].iova =
 				buf->daddr + i * cfg_fmt->fmt.pix_mp.plane_fmt[0].sizeimage;
+	}
+
+	if (mtk_cam_scen_is_rgbw_enabled(scen)) {
+		struct mtkcam_ipi_img_output *img_out_w =
+			&frame_param->img_outs[MTK_CAM_IMGO_W_IMG_OUT_IDX];
+
+		img_out_w->buf[0][0].iova =
+				buf->daddr + cfg_fmt->fmt.pix_mp.plane_fmt[0].sizeimage;
+		img_out_w->buf[0][0].ccd_fd = vb->planes[0].m.fd;
+
+		if (is_raw_ufo(pixelformat))
+			mtk_cam_fill_img_buf(img_out_w, cfg_fmt,
+				img_out_w->buf[0][0].iova);
+
+		dev_info(cam->dev,
+			 "%s:imgo iova 0x%x imgo_w iova 0x%x size %d\n",
+			 __func__, img_out->buf[0][0].iova, img_out_w->buf[0][0].iova,
+			 cfg_fmt->fmt.pix_mp.plane_fmt[0].sizeimage);
 	}
 
 	return 0;
@@ -3439,8 +3573,23 @@ mtk_cam_config_raw_img_fmt(struct mtk_cam_request_stream_data *s_data,
 	if (ret)
 		return ret;
 
-	if ((mtk_cam_scen_is_sensor_stagger(scen) &&
-		 scen->scen.normal.exp_num != 1) ||
+	if ((node->desc.dma_port == MTKCAM_IPI_RAW_IMGO) &&
+		(mtk_cam_scen_is_rgbw_enabled(scen))) {
+		struct mtkcam_ipi_img_output *img_out_w =
+			&frame_param->img_outs[MTK_CAM_IMGO_W_IMG_OUT_IDX];
+
+		img_out_w->uid.pipe_id = node->uid.pipe_id;
+		img_out_w->uid.id = MTKCAM_IPI_RAW_IMGO_W;
+
+		img_out_w->crop.p.x = cfg_selection->r.left;
+		img_out_w->crop.p.y = cfg_selection->r.top;
+		img_out_w->crop.s.w = cfg_selection->r.width;
+		img_out_w->crop.s.h = cfg_selection->r.height;
+
+		config_img_fmt(cam, node, cfg_fmt, img_out_w, sd_width, sd_height);
+	}
+
+	if (mtk_cam_scen_is_sensor_stagger(scen) ||
 		mtk_cam_hw_mode_is_dc(ctx->pipe->hw_mode_pending))
 		config_img_in_fmt_stagger(cam, s_data, node,
 				cfg_fmt, scen, ctx->pipe->hw_mode_pending);
@@ -3513,11 +3662,15 @@ mtk_cam_config_raw_img_in_rawi2(struct mtk_cam_request_stream_data *s_data,
 			in_fmt->buf[0].iova = buf->daddr;
 			frame_param->raw_param.hardware_scenario =
 				MTKCAM_IPI_HW_PATH_OFFLINE;
+
+			// TODO: RGBW ODT
 		}
 	} else {
 		in_fmt->buf[0].iova = buf->daddr;
 		frame_param->raw_param.hardware_scenario =
 			MTKCAM_IPI_HW_PATH_OFFLINE;
+
+		// TODO: RGBW ODT
 	}
 
 	in_fmt->uid.pipe_id = node->uid.pipe_id;
@@ -3526,8 +3679,7 @@ mtk_cam_config_raw_img_in_rawi2(struct mtk_cam_request_stream_data *s_data,
 	if (ret)
 		return ret;
 
-	if (mtk_cam_scen_is_stagger_m2m(scen) &&
-	    scen->scen.normal.exp_num != 1)
+	if (mtk_cam_scen_is_stagger_m2m(scen))
 		config_img_in_fmt_stagger(cam, s_data, node, cfg_fmt, scen,
 					  HW_MODE_M2M);
 
@@ -3649,7 +3801,7 @@ static int mtk_cam_config_sv_img_out_imgo(struct mtk_cam_request_stream_data *s_
 	frame_param = &ctx_stream_data->frame_params;
 	node = mtk_cam_vbq_to_vdev(buf->vbb.vb2_buf.vb2_queue);
 
-	if (mtk_cam_scen_is_with_w_channel(ctx_stream_data->feature.scen) &&
+	if (mtk_cam_scen_is_rgbw_using_camsv(ctx_stream_data->feature.scen) &&
 		node->desc.id == MTK_RAW_MAIN_STREAM_SV_1_OUT) {
 		/* camsv todo: rgbw */
 		tag_idx = SVTAG_2;
@@ -3907,6 +4059,15 @@ static int mtk_cam_req_update(struct mtk_cam_device *cam,
 
 		if (mtk_cam_scen_is_mstream_2exp_types(&scen))
 			check_mstream_buffer(cam, ctx, req);
+
+		if (mtk_cam_scen_is_rgbw_enabled(&scen)) {
+			if (mtk_cam_hw_mode_is_dc(ctx->pipe->hw_mode_pending))
+				req_stream_data->frame_params.raw_param.hardware_scenario =
+					MTKCAM_IPI_HW_PATH_DC_RGBW;
+			else
+				req_stream_data->frame_params.raw_param.hardware_scenario =
+					MTKCAM_IPI_HW_PATH_OTF_RGBW;
+		}
 
 	}
 
@@ -5979,12 +6140,14 @@ static void isp_tx_frame_worker(struct work_struct *work)
 	/* record mmqos */
 	frame_param = &req_stream_data->frame_params;
 	req_stream_data->raw_dmas = 0;
+
 	for (i = 0; i < CAM_MAX_IMAGE_INPUT; i++) {
 		if (frame_param->img_ins[i].buf[0].iova != 0 &&
 			frame_param->img_ins[i].uid.id != 0)
 			req_stream_data->raw_dmas |=
 				(1ULL << frame_param->img_ins[i].uid.id);
 	}
+
 	for (i = 0; i < CAM_MAX_IMAGE_OUTPUT; i++) {
 		if (frame_param->img_outs[i].buf[0][0].iova != 0 &&
 			frame_param->img_outs[i].uid.id != 0)
@@ -7374,7 +7537,7 @@ int mtk_cam_dev_config(struct mtk_cam_ctx *ctx, bool streaming, bool config_pipe
 				ctx->sv_dev->used_tag_cnt++;
 			}
 		}
-	} else if (config_pipe && mtk_cam_scen_is_with_w_channel(scen_active)) {
+	} else if (config_pipe && mtk_cam_scen_is_rgbw_using_camsv(scen_active)) {
 		unsigned int hw_scen, exp_no, req_amount;
 		unsigned int idle_tags, seninf_padidx, tag_order;
 
@@ -7529,7 +7692,34 @@ int mtk_cam_dev_config(struct mtk_cam_ctx *ctx, bool streaming, bool config_pipe
 	dev_dbg(dev, "%s sw_feature:%d exp_order %d", __func__,
 			config_param.sw_feature, config_param.exp_order);
 
+	if (mtk_cam_scen_is_rgbw_enabled(scen_active)) {
+		if ((ctx->generic_buf.size < MTK_CAM_CACI_TABLE_SIZE) &&
+			 mtk_cam_generic_buf_alloc(ctx, MTK_CAM_CACI_TABLE_SIZE)) {
+			dev_info(dev, "generic buf alloc failed\n");
+			return -EINVAL;
+		}
 
+		// for w path CAC table, must be 0 filled
+		memset(ctx->generic_buf.va, 0, ctx->generic_buf.size);
+
+		config_param.w_cac_table.iova = ctx->generic_buf.iova;
+		config_param.w_cac_table.size = ctx->generic_buf.size;
+
+		dev_dbg(dev, "generic buf: iova(0x%8x) size(%d)\n",
+				  config_param.w_cac_table.iova,
+				  config_param.w_cac_table.size);
+
+		// frame order
+		switch (scen_active->scen.normal.frame_order) {
+		case MTK_CAM_FRAME_BAYER_W:
+			config_param.frame_order = MTKCAM_IPI_ORDER_BAYER_FIRST;
+			break;
+		case MTK_CAM_FRAME_W_BAYER:
+		default:
+			config_param.frame_order = MTKCAM_IPI_ORDER_W_FIRST;
+			break;
+		}
+	}
 
 	dev_raw = mtk_cam_find_raw_dev(cam, ctx->used_raw_dev);
 	if (!dev_raw) {
@@ -8214,6 +8404,7 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 			dev_info(cam->dev, "failed to reserve DMA memory:%d\n", ret);
 			goto fail_img_buf_release;
 		}
+
 		if (mtk_cam_scen_is_ext_isp(scen_active)) {
 			ctx->ext_isp_meta_off = debug_preisp_off_data &
 					(1 << DEBUG_PREISP_OFF_META);
@@ -8236,6 +8427,7 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 					ctx->ext_isp_pureraw_off,
 					ctx->ext_isp_procraw_off);
 		}
+
 		ret = mtk_cam_dev_config(ctx, false, true);
 		if (ret)
 			goto fail_img_buf_release;
@@ -8591,6 +8783,7 @@ int mtk_cam_ctx_stream_off(struct mtk_cam_ctx *ctx)
 		pm_runtime_put_sync(ctx->sv_dev->dev);
 
 	mtk_cam_ctx_img_working_buf_pool_release(ctx);
+	mtk_cam_generic_buf_release(ctx);
 	mtk_camsys_ctrl_stop(ctx);
 
 fail_stream_off:
@@ -9542,7 +9735,7 @@ static int mtk_cam_debug_fs_init(struct mtk_cam_device *cam)
 	 */
 	int dump_mem_size = MTK_CAM_DEBUG_DUMP_HEADER_MAX_SIZE +
 			    CQ_BUF_SIZE +
-			    GET_PLAT_V4L2(meta_cfg_size) +
+			    GET_PLAT_V4L2(meta_cfg_size_rgbw) +
 			    RAW_STATS_CFG_VARIOUS_SIZE +
 			    sizeof(struct mtkcam_ipi_frame_param) +
 			    sizeof(struct mtkcam_ipi_config_param) *

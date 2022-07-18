@@ -1809,7 +1809,11 @@ mtk_cam_dev_find_fmt(struct mtk_cam_dev_node_desc *desc, u32 format)
 
 	for (i = 0; i < desc->num_fmts; i++) {
 		fmt = &desc->fmts[i].vfmt;
-		if (fmt->fmt.pix_mp.pixelformat == format)
+		if (desc->buf_type == V4L2_BUF_TYPE_META_OUTPUT ||
+			desc->buf_type == V4L2_BUF_TYPE_META_CAPTURE) {
+			if (fmt->fmt.meta.dataformat == format)
+				return fmt;
+		} else if (fmt->fmt.pix_mp.pixelformat == format)
 			return fmt;
 	}
 
@@ -2174,6 +2178,10 @@ int mtk_cam_video_s_fmt_chk_feature(struct mtk_cam_video_device *node,
 	if ((node->desc.id == MTK_RAW_MAIN_STREAM_OUT && is_hdr) ||
 	    (node->desc.id == MTK_RAW_RAWI_2_IN && is_hdr_m2m)) {
 		num_planes = mtk_cam_scen_get_max_exp_num(scen);
+
+		if (mtk_cam_scen_is_rgbw_enabled(scen))
+			num_planes *= 2;
+
 		/**
 		 * TODO: remove the workaorund, we can only use fmt[0] in single
 		 * fd case
@@ -2257,6 +2265,33 @@ int mtk_cam_video_s_fmt_chk_feature(struct mtk_cam_video_device *node,
 		}
 	}
 
+	/**
+	 * check rgbw
+	 */
+	if (node->desc.id == MTK_RAW_MAIN_STREAM_OUT &&
+	    mtk_cam_scen_is_rgbw_enabled(scen)) {
+		num_planes = scen->scen.normal.exp_num * 2; // bayer + w
+
+		if (try_fmt.fmt.pix_mp.num_planes < num_planes) {
+			dev_info(cam->dev,
+				 "%s:%s:pipe(%d):%s:scen(%s):invalid num_planes(%d), should be %d\n",
+				 __func__, "rgbw", node->uid.pipe_id,
+				 node->desc.name, scen->dbg_str,
+				 try_fmt.fmt.pix_mp.num_planes, num_planes);
+
+			try_fmt.fmt.pix_mp.num_planes = num_planes;
+			bytesperline = try_fmt.fmt.pix_mp.plane_fmt[0].bytesperline;
+			sizeimage = try_fmt.fmt.pix_mp.plane_fmt[0].sizeimage;
+
+			for (i = 0 ; i < try_fmt.fmt.pix_mp.num_planes ; i++) {
+				try_fmt.fmt.pix_mp.plane_fmt[i].bytesperline =
+					bytesperline;
+				try_fmt.fmt.pix_mp.plane_fmt[i].sizeimage =
+					sizeimage;
+			}
+		}
+	}
+
 	*f = try_fmt;
 
 	return 0;
@@ -2318,7 +2353,6 @@ int mtk_cam_video_s_fmt_common(struct mtk_cam_video_device *node,
 	if (node->desc.dma_port == MTKCAM_IPI_CAMSV_MAIN_OUT ||
 	    node->desc.dma_port == MTKCAM_IPI_RAW_IMGO ||
 	    node->desc.dma_port == MTKCAM_IPI_RAW_RAWI_2)
-
 		cal_image_pix_mp(node->desc.id, &try_fmt.fmt.pix_mp, 3);
 	else
 		cal_image_pix_mp(node->desc.id, &try_fmt.fmt.pix_mp, 0);
@@ -2458,9 +2492,6 @@ int mtk_cam_vidioc_g_meta_fmt(struct file *file, void *fh,
 	u32 extmeta_size = 0;
 
 	switch (node->desc.id) {
-	case MTK_RAW_MAIN_STREAM_SV_1_OUT:
-	case MTK_RAW_MAIN_STREAM_SV_2_OUT:
-		break;
 	case MTK_RAW_META_SV_OUT_0:
 	case MTK_RAW_META_SV_OUT_1:
 	case MTK_RAW_META_SV_OUT_2:
@@ -2505,6 +2536,94 @@ int mtk_cam_vidioc_g_meta_fmt(struct file *file, void *fh,
 		__func__, node->desc.id, f->fmt.meta.dataformat, f->fmt.meta.buffersize);
 
 	return 0;
+}
+
+int mtk_cam_vidioc_try_meta_fmt(struct file *file, void *fh,
+			      struct v4l2_format *f)
+{
+	struct mtk_cam_device *cam = video_drvdata(file);
+	struct mtk_cam_video_device *node = file_to_mtk_cam_node(file);
+	const struct v4l2_format *fmt;
+
+	switch (node->desc.dma_port) {
+	case MTKCAM_IPI_RAW_META_STATS_CFG:
+	case MTKCAM_IPI_RAW_META_STATS_0:
+	case MTKCAM_IPI_RAW_META_STATS_1:
+		fmt = mtk_cam_dev_find_fmt(&node->desc, f->fmt.meta.dataformat);
+		if (fmt) {
+			f->fmt.meta.dataformat = fmt->fmt.meta.dataformat;
+			f->fmt.meta.buffersize = fmt->fmt.meta.buffersize;
+			dev_dbg(cam->dev,
+				"%s: node:%d port:%d dataformat:%c%c%c%c buffersize:%d\n",
+					__func__, node->desc.id, node->desc.dma_port,
+					((char *)&f->fmt.meta.dataformat)[0],
+					((char *)&f->fmt.meta.dataformat)[1],
+					((char *)&f->fmt.meta.dataformat)[2],
+					((char *)&f->fmt.meta.dataformat)[3],
+					f->fmt.meta.buffersize);
+		} else
+			dev_info(cam->dev, "%s: unknown meta format(%c%c%c%c, size %d) for port(%d)",
+					__func__,
+					((char *)&f->fmt.meta.dataformat)[0],
+					((char *)&f->fmt.meta.dataformat)[1],
+					((char *)&f->fmt.meta.dataformat)[2],
+					((char *)&f->fmt.meta.dataformat)[3],
+					f->fmt.meta.buffersize,
+					node->desc.dma_port);
+		return (fmt) ? 0 : -EINVAL;
+	default:
+		break;
+	}
+
+	return mtk_cam_vidioc_g_meta_fmt(file, fh, f);
+}
+
+int mtk_cam_vidioc_s_meta_fmt(struct file *file, void *fh,
+			      struct v4l2_format *f)
+{
+	int ret = 0;
+	struct mtk_cam_device *cam = video_drvdata(file);
+	struct mtk_cam_video_device *node = file_to_mtk_cam_node(file);
+	struct mtk_raw_pipeline *raw_pipeline;
+	const struct v4l2_format *fmt;
+
+	switch (node->desc.dma_port) {
+	case MTKCAM_IPI_RAW_META_STATS_CFG:
+	case MTKCAM_IPI_RAW_META_STATS_0:
+	case MTKCAM_IPI_RAW_META_STATS_1:
+		fmt = mtk_cam_dev_find_fmt(&node->desc, f->fmt.meta.dataformat);
+
+		if (fmt) {
+			raw_pipeline =
+				mtk_cam_dev_get_raw_pipeline(cam, node->uid.pipe_id);
+			node->active_fmt.fmt.meta.dataformat = fmt->fmt.meta.dataformat;
+			node->active_fmt.fmt.meta.buffersize = f->fmt.meta.buffersize;
+		} else {
+			dev_info(cam->dev, "%s: unknown meta format(%d, size %d) for port(%d)",
+					__func__,
+					f->fmt.meta.dataformat,
+					f->fmt.meta.buffersize,
+					node->desc.dma_port);
+			ret = -EINVAL;
+		}
+		break;
+	default:
+		break;
+	}
+
+	if (!ret && node->desc.dma_port == MTKCAM_IPI_RAW_META_STATS_CFG) {
+		ret = mtk_cam_update_pd_meta_cfg_info(raw_pipeline, CAM_SET_CTRL);
+		if (ret)
+			dev_info(cam->dev, "%s: mtk_cam_update_pd_info fail %d",
+				__func__, ret);
+	} else if (!ret && node->desc.dma_port == MTKCAM_IPI_RAW_META_STATS_0) {
+		ret = mtk_cam_update_pd_meta_out_info(raw_pipeline, CAM_SET_CTRL);
+		if (ret)
+			dev_info(cam->dev, "%s: mtk_cam_update_pd_info fail %d",
+				__func__, ret);
+	}
+
+	return ((ret) ? ret : mtk_cam_vidioc_g_meta_fmt(file, fh, f));
 }
 
 int mtk_cam_collect_vsel(struct mtk_raw_pipeline *pipe,
