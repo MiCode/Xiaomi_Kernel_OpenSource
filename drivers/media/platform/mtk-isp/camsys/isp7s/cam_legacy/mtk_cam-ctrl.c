@@ -1983,6 +1983,8 @@ static int mtk_camsys_raw_state_handle(struct mtk_raw_device *raw_dev,
 	int switch_type, i;
 	unsigned int sensor_request_seq_no = atomic_read(&sensor_ctrl->sensor_request_seq_no);
 	struct mtk_cam_scen scen, scen_prev;
+	int skip_cq_state =
+		(mtk_cam_scen_get_stagger_exp_num(&ctx->pipe->scen_active) > 1) ? true:false;
 
 	/* List state-queue status*/
 	spin_lock(&sensor_ctrl->camsys_state_lock);
@@ -1999,7 +2001,7 @@ static int mtk_camsys_raw_state_handle(struct mtk_raw_device *raw_dev,
 			if (stateidx == 0)
 				working_req_found = 1;
 			/* Find outer state element */
-			if (state_temp->estate == E_STATE_CQ ||
+			if ((!skip_cq_state && state_temp->estate == E_STATE_CQ) ||
 			    state_temp->estate == E_STATE_OUTER ||
 			    state_temp->estate == E_STATE_CAMMUX_OUTER ||
 			    state_temp->estate == E_STATE_OUTER_HW_DELAY) {
@@ -3301,9 +3303,11 @@ int mtk_cam_hdr_last_frame_start(struct mtk_raw_device *raw_dev,
 				state_temp->estate == E_STATE_INNER_HW_DELAY) {
 				mtk_cam_set_timestamp(req_stream_data,
 						      time_boot, time_mono);
-				if (mtk_cam_scen_is_sensor_stagger(&ctx->pipe->scen_active))
+				if (mtk_cam_scen_is_sensor_stagger(&ctx->pipe->scen_active)) {
 					mtk_cam_set_hdr_timestamp_last(req_stream_data,
 						time_boot, time_mono);
+					mtk_cam_read_hdr_timestamp(ctx, req_stream_data);
+				}
 			}
 			/*Find CQ element for DCIF stagger*/
 			if (state_temp->estate == E_STATE_CQ)
@@ -4308,7 +4312,6 @@ static void mtk_cam_meta1_done(struct mtk_cam_ctx *ctx,
 	}
 
 	meta1_done_work = &req_stream_data->meta1_done_work;
-	mtk_cam_read_hdr_timestamp(ctx, req_stream_data);
 	atomic_set(&meta1_done_work->is_queued, 1);
 	queue_work(ctx->frame_done_wq, &meta1_done_work->work);
 }
