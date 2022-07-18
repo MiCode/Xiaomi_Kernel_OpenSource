@@ -1983,6 +1983,22 @@ static int ufs_mtk_unipro_set_lpm(struct ufs_hba *hba, bool lpm)
 		host->unipro_lpm = lpm;
 	}
 
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
+	if (ret) {
+		int ret2, val = 0;
+
+		/* maybe irq pending */
+		mt_irq_dump_status(hba->irq);
+
+		ret2 = ufshcd_dme_get(hba,
+			UIC_ARG_MIB(VS_UNIPROPOWERDOWNCONTROL), &val);
+		if (!ret2) {
+			dev_info(hba->dev, "%s: read 0xD0A8 val=%d\n",
+				__func__, val);
+		}
+	}
+#endif
+
 	return ret;
 }
 
