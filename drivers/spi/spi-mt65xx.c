@@ -75,6 +75,7 @@
 #define SPI_CMD_TX_ENDIAN            BIT(15)
 #define SPI_CMD_FINISH_IE            BIT(16)
 #define SPI_CMD_PAUSE_IE             BIT(17)
+#define SPI_CMD_CS_PIN_SEL           BIT(18)
 #define SPI_CMD_NONIDLE_MODE	     BIT(19)
 #define SPI_CMD_SPIM_LOOP	     BIT(21)
 #define SPI_CMD_GET_TICKDLY_OFFSET    22
@@ -126,6 +127,8 @@ struct mtk_spi_compatible {
 	bool support_quad;
 	/* some IC no need unprepare SPI clk */
 	bool no_need_unprepare;
+	/* some IC need change cs by SW */
+	bool sw_cs;
 };
 
 struct mtk_spi {
@@ -154,6 +157,18 @@ static const struct mtk_spi_compatible mtk_common_compat;
 static const struct mtk_spi_compatible mt2712_compat = {
 	.must_rx = true,
 	.must_tx = true,
+};
+
+static const struct mtk_spi_compatible mt6985_compat = {
+	.need_pad_sel = true,
+	.must_rx = false,
+	.must_tx = false,
+	.enhance_timing = true,
+	.dma_ext = true,
+	.ipm_design = true,
+	.support_quad = true,
+	.no_need_unprepare = false,
+	.sw_cs = true,
 };
 
 static const struct mtk_spi_compatible mt6983_compat = {
@@ -226,6 +241,9 @@ static const struct of_device_id mtk_spi_of_match[] = {
 	},
 	{ .compatible = "mediatek,mt6983-spi",
 		.data = (void *)&mt6983_compat,
+	},
+	{ .compatible = "mediatek,mt6985-spi",
+		.data = (void *)&mt6985_compat,
 	},
 	{ .compatible = "mediatek,mt7622-spi",
 		.data = (void *)&mt7622_compat,
@@ -455,6 +473,9 @@ static int mtk_spi_prepare_message(struct spi_master *master,
 	if (mdata->dev_comp->ipm_design) {
 		/* SPI transfer without idle time until packet length done */
 		reg_val |= SPI_CMD_NONIDLE_MODE;
+		/* SW CS need setting CS_PIN_SEL bit */
+		if (mdata->dev_comp->sw_cs)
+			reg_val |= SPI_CMD_CS_PIN_SEL;
 		if (spi->mode & SPI_LOOP)
 			reg_val |= SPI_CMD_SPIM_LOOP;
 		else
@@ -501,8 +522,12 @@ static int mtk_spi_prepare_message(struct spi_master *master,
 			reg_val &= ~SPI_CMD_SAMPLE_SEL;
 	}
 
-	/* set finish and pause interrupt always enable */
-	reg_val |= SPI_CMD_FINISH_IE | SPI_CMD_PAUSE_IE;
+	if (mdata->dev_comp->sw_cs)
+		/* set finish interrupt enable */
+		reg_val |= SPI_CMD_FINISH_IE;
+	else
+		/* set finish and pause interrupt always enable */
+		reg_val |= SPI_CMD_FINISH_IE | SPI_CMD_PAUSE_IE;
 
 	/* disable dma mode */
 	reg_val &= ~(SPI_CMD_TX_DMA | SPI_CMD_RX_DMA);
@@ -553,17 +578,49 @@ static void mtk_spi_set_cs(struct spi_device *spi, bool enable)
 		enable = !enable;
 
 	reg_val = readl(mdata->base + SPI_CMD_REG);
-	if (!enable) {
-		reg_val |= SPI_CMD_PAUSE_EN;
-		writel(reg_val, mdata->base + SPI_CMD_REG);
+	if (mdata->dev_comp->sw_cs) {
+		if (!enable) {
+			reg_val |= SPI_CMD_CS_POL;
+			writel(reg_val, mdata->base + SPI_CMD_REG);
+		} else {
+			reg_val &= ~SPI_CMD_CS_POL;
+			writel(reg_val, mdata->base + SPI_CMD_REG);
+			mdata->state = MTK_SPI_IDLE;
+			mtk_spi_reset(mdata);
+		}
 	} else {
-		reg_val &= ~SPI_CMD_PAUSE_EN;
-		writel(reg_val, mdata->base + SPI_CMD_REG);
-		mdata->state = MTK_SPI_IDLE;
-		mtk_spi_reset(mdata);
+		if (!enable) {
+			reg_val |= SPI_CMD_PAUSE_EN;
+			writel(reg_val, mdata->base + SPI_CMD_REG);
+		} else {
+			reg_val &= ~SPI_CMD_PAUSE_EN;
+			writel(reg_val, mdata->base + SPI_CMD_REG);
+			mdata->state = MTK_SPI_IDLE;
+			mtk_spi_reset(mdata);
+		}
 	}
 }
 
+inline u32 spi_set_nbit(u32 nbit)
+{
+	u32 ret = 0;
+
+	switch (nbit) {
+	case SPI_NBITS_SINGLE:
+		ret = 0x0;
+		break;
+	case SPI_NBITS_DUAL:
+		ret = 0x1;
+		break;
+	case SPI_NBITS_QUAD:
+		ret = 0x2;
+		break;
+	default:
+		pr_info("unknown spi nbit mode, use single mode!");
+		break;
+	}
+	return ret;
+}
 static void mtk_spi_prepare_transfer(struct spi_master *master,
 				     struct spi_transfer *xfer)
 {
@@ -602,9 +659,11 @@ static void mtk_spi_prepare_transfer(struct spi_master *master,
 		else if (xfer->tx_buf) {
 			reg_val |= SPI_CFG3_HALF_DUPLEX_EN;
 			reg_val &= ~SPI_CFG3_HALF_DUPLEX_DIR;
+			reg_val |= spi_set_nbit(xfer->tx_nbits);
 		} else {
 			reg_val |= SPI_CFG3_HALF_DUPLEX_EN;
 			reg_val |= SPI_CFG3_HALF_DUPLEX_DIR;
+			reg_val |= spi_set_nbit(xfer->rx_nbits);
 		}
 		writel(reg_val, mdata->base + SPI_CFG3_REG);
 	}
@@ -1033,6 +1092,11 @@ static int mtk_spi_probe(struct platform_device *pdev)
 
 	if (!pdev->dev.dma_mask)
 		pdev->dev.dma_mask = &pdev->dev.coherent_dma_mask;
+
+	if (mdata->dev_comp->ipm_design)
+		dma_set_max_seg_size(&pdev->dev, SZ_16M);
+	else
+		dma_set_max_seg_size(&pdev->dev, SZ_256K);
 
 	ret = devm_request_irq(&pdev->dev, irq, mtk_spi_interrupt,
 			       IRQF_TRIGGER_NONE | IRQF_NO_SUSPEND,
