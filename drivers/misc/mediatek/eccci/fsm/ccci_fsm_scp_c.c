@@ -170,12 +170,18 @@ static int scp_set_clk_cg(unsigned int on)
 
 static void ccci_scp_md_state_sync_work(struct work_struct *work)
 {
-	int ret;
-	enum MD_STATE_FOR_USER state = ccci_fsm_get_md_state_for_user();
+	int ret = 0;
 	int count = 0;
+	enum MD_STATE_FOR_USER state;
+	struct ccci_fsm_ctl *ctl = fsm_get_entity();
 
-	switch (state) {
-	case MD_STATE_READY:
+	if (!ctl) {
+		CCCI_ERROR_LOG(0, FSM, "%s: ccci_fsm_entries is NULL !\n", __func__);
+		return;
+	}
+
+	switch (ctl->md_state) {
+	case READY:
 		while (count < SCP_BOOT_TIMEOUT/EVENT_POLL_INTEVAL) {
 			if (atomic_read(&scp_state) ==
 				SCP_CCCI_STATE_BOOTING
@@ -206,8 +212,13 @@ static void ccci_scp_md_state_sync_work(struct work_struct *work)
 					ret);
 		}
 		break;
-	case MD_STATE_EXCEPTION:
-	case MD_STATE_INVALID:
+	case INVALID:
+	case GATED:
+		state = MD_STATE_INVALID;
+		ccci_scp_ipi_send(CCCI_OP_MD_STATE, &state);
+		break;
+	case EXCEPTION:
+		state = MD_STATE_EXCEPTION;
 		ccci_scp_ipi_send(CCCI_OP_MD_STATE, &state);
 		break;
 	default:

@@ -1608,6 +1608,12 @@ struct ccci_fsm_ctl *fsm_get_entity_by_device_number(dev_t dev_n)
 	return NULL;
 }
 
+struct ccci_fsm_ctl *fsm_get_entity(void)
+{
+	return ccci_fsm_entries;
+}
+EXPORT_SYMBOL(fsm_get_entity);
+
 int ccci_fsm_init(void)
 {
 	struct ccci_fsm_ctl *ctl = NULL;
