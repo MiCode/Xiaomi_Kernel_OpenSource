@@ -304,7 +304,9 @@ static int trusted_mem_init(struct platform_device *pdev)
 	mtee_mchunks_init();
 #endif
 
+#if IS_ENABLED(CONFIG_TEST_MTK_TRUSTED_MEMORY)
 	trusted_mem_create_proc_entry();
+#endif
 
 	if (is_ffa_enabled()) {
 		ret = tmem_register_ffa_module();
