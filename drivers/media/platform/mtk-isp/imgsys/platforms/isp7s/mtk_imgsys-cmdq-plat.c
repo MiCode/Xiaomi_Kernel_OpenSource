@@ -1923,15 +1923,25 @@ void mtk_imgsys_mmdvfs_init_plat7s(struct mtk_imgsys_dev *imgsys_dev)
 void mtk_imgsys_mmdvfs_uninit_plat7s(struct mtk_imgsys_dev *imgsys_dev)
 {
 	struct mtk_imgsys_dvfs *dvfs_info = &imgsys_dev->dvfs_info;
-	int volt = 0, freq = 0, ret = 0;
+	int volt = 0, ret = 0;
+	unsigned long freq = 0;
 
 	dvfs_info->cur_volt = volt;
+	dvfs_info->cur_freq = freq;
 
-	if (dvfs_info->reg)
+	if (dvfs_info->reg) {
 		ret = regulator_set_voltage(dvfs_info->reg, volt, INT_MAX);
-	else if (dvfs_info->mmdvfs_clk)
-		clk_set_rate(dvfs_info->mmdvfs_clk, freq);
-	else
+		if (ret)
+			dev_info(dvfs_info->dev,
+				"[%s] Failed to set regulator voltage(%d) with ret(%d)\n",
+				__func__, volt, ret);
+	} else if (dvfs_info->mmdvfs_clk) {
+		ret = clk_set_rate(dvfs_info->mmdvfs_clk, freq);
+		if (ret)
+			dev_info(dvfs_info->dev,
+				"[%s] Failed to set mmdvfs rate(%ld) with ret(%d)\n",
+				__func__, freq, ret);
+	} else
 		dev_info(dvfs_info->dev,
 			"%s: [ERROR] reg and clk is err or null\n", __func__);
 
@@ -1975,10 +1985,19 @@ void mtk_imgsys_mmdvfs_set_plat7s(struct mtk_imgsys_dev *imgsys_dev,
 				dev_info(dvfs_info->dev, "[%s] volt change opp=%d, idx=%d, clk=%d volt=%d\n",
 					__func__, opp_idx, idx, dvfs_info->clklv[opp_idx][idx],
 					dvfs_info->voltlv[opp_idx][idx]);
-			if (dvfs_info->reg)
+			if (dvfs_info->reg) {
 				ret = regulator_set_voltage(dvfs_info->reg, volt, INT_MAX);
-			else if (dvfs_info->mmdvfs_clk)
-				clk_set_rate(dvfs_info->mmdvfs_clk, freq);
+				if (ret)
+					dev_info(dvfs_info->dev,
+						"[%s] Failed to set regulator voltage(%d) with ret(%d)\n",
+						__func__, volt, ret);
+			} else if (dvfs_info->mmdvfs_clk) {
+				ret = clk_set_rate(dvfs_info->mmdvfs_clk, freq);
+				if (ret)
+					dev_info(dvfs_info->dev,
+						"[%s] Failed to set mmdvfs rate(%ld) with ret(%d)\n",
+						__func__, freq, ret);
+			}
 			dvfs_info->cur_volt = volt;
 			dvfs_info->cur_freq = freq;
 		}
