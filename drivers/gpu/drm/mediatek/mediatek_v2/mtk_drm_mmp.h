@@ -135,6 +135,8 @@ struct CRTC_MMP_Events {
 	mmp_event aal_ess20_elvss;
 	mmp_event aal_ess20_gamma;
 	mmp_event aal_ess20_curve;
+	/*Clarity mmp mark*/
+	mmp_event clarity_set_regs;
 };
 
 struct DRM_MMP_Events *get_drm_mmp_events(void);

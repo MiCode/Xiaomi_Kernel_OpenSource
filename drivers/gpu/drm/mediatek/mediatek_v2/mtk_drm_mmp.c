@@ -311,6 +311,9 @@ void init_crtc_mmp_event(void)
 			crtc_mmp_root, "aal_ess20_gamma");
 		g_CRTC_MMP_Events[i].aal_ess20_curve = mmprofile_register_event(
 			crtc_mmp_root, "aal_ess20_curve");
+		/*Clarity MMP MARK*/
+		g_CRTC_MMP_Events[i].clarity_set_regs = mmprofile_register_event(
+			crtc_mmp_root, "clarity_set_regs");
 	}
 }
 void drm_mmp_init(void)

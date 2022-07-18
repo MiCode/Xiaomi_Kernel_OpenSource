@@ -144,7 +144,8 @@ enum AAL_IOCTL_CMD {
 	INIT_REG = 0,
 	SET_PARAM,
 	FLIP_SRAM,
-	BYPASS_AAL
+	BYPASS_AAL,
+	SET_CLARITY_REG
 };
 
 struct dre3_node {
@@ -176,6 +177,13 @@ static struct mtk_aal_feature_option *g_aal_fo;
 static DEFINE_MUTEX(g_aal_sram_lock);
 static bool gDre30Enabled;
 static unsigned int g_aal_dre30_en;
+
+// for Display Clarity
+static int g_aal_clarity_support;
+static int g_tdshp_clarity_support;
+int g_disp_clarity_support;
+static struct DISP_CLARITY_REG *g_disp_clarity_regs;
+static DEFINE_MUTEX(g_clarity_lock);
 
 static inline struct mtk_disp_aal *comp_to_aal(struct mtk_ddp_comp *comp)
 {
@@ -233,6 +241,12 @@ static bool debug_irq_log;
 #define AALIRQ_LOG(fmt, arg...) do { \
 	if (debug_irq_log) \
 		pr_notice("[IRQ]%s:" fmt, __func__, ##arg); \
+	} while (0)
+
+static bool debug_dump_clarity_regs;
+#define AALCRT_LOG(fmt, arg...) do { \
+	if (debug_dump_clarity_regs) \
+		pr_notice("[Clarity Debug]%s:" fmt, __func__, ##arg); \
 	} while (0)
 
 /* config register which might have extra DRE3 aal hw */
@@ -797,6 +811,19 @@ static void mtk_aal_config(struct mtk_ddp_comp *comp,
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + DISP_AAL_CFG, 0, 1);
 	}
+
+	if (g_aal_fo->mtk_dre30_support && g_disp_clarity_support) {
+		phys_addr_t dre3_pa = mtk_aal_dre3_pa(comp);
+
+		cmdq_pkt_write(handle, comp->cmdq_base,
+			dre3_pa + MDP_AAL_DRE_BILATERAL_STATUS_CTRL,
+			0x3 << 1, 0x3 << 1);
+		// MDP_AAL_DRE_BILATEAL set to default value
+		cmdq_pkt_write(handle, comp->cmdq_base,
+			dre3_pa + MDP_AAL_DRE_BILATEAL,
+			0x00000373, ~0);
+	}
+
 	mtk_aal_init(comp, cfg, handle);
 	//disp_aal_flip_sram(comp, handle, __func__);
 
@@ -824,10 +851,53 @@ static void disp_aal_wait_hist(void)
 		AALFLOW_LOG("hist_available = 0");
 }
 
+static void disp_aal_dump_clarity_regs(uint32_t pipe)
+{
+	if (debug_dump_clarity_regs && (pipe == 0)) {
+		DDPMSG("%s(aal0): clarity readback: [%d, %d, %d, %d, %d, %d, %d]\n",
+			__func__,
+			g_aal_hist.aal0_clarity[0], g_aal_hist.aal0_clarity[1],
+			g_aal_hist.aal0_clarity[2], g_aal_hist.aal0_clarity[3],
+			g_aal_hist.aal0_clarity[4], g_aal_hist.aal0_clarity[5],
+			g_aal_hist.aal0_clarity[6]);
+		DDPMSG("%s(tdshp0): clarity readback: [%d, %d, %d, %d, %d, %d, %d]\n",
+			__func__,
+			g_aal_hist.tdshp0_clarity[0], g_aal_hist.tdshp0_clarity[2],
+			g_aal_hist.tdshp0_clarity[4], g_aal_hist.tdshp0_clarity[6],
+			g_aal_hist.tdshp0_clarity[8], g_aal_hist.tdshp0_clarity[10],
+			g_aal_hist.tdshp0_clarity[11]);
+	} else if (debug_dump_clarity_regs && (pipe == 1)) {
+		DDPMSG("%s(aal1): clarity readback: [%d, %d, %d, %d, %d, %d, %d]\n",
+			__func__,
+			g_aal_hist.aal1_clarity[0], g_aal_hist.aal1_clarity[1],
+			g_aal_hist.aal1_clarity[2], g_aal_hist.aal1_clarity[3],
+			g_aal_hist.aal1_clarity[4], g_aal_hist.aal1_clarity[5],
+			g_aal_hist.aal1_clarity[6]);
+		DDPMSG("%s(tdshp2): clarity readback: [%d, %d, %d, %d, %d, %d, %d]\n",
+			__func__,
+			g_aal_hist.tdshp1_clarity[0], g_aal_hist.tdshp1_clarity[2],
+			g_aal_hist.tdshp1_clarity[4], g_aal_hist.tdshp1_clarity[6],
+			g_aal_hist.tdshp1_clarity[8], g_aal_hist.tdshp1_clarity[10],
+			g_aal_hist.tdshp1_clarity[11]);
+	}
+}
+
 static bool disp_aal_read_single_hist(struct mtk_ddp_comp *comp)
 {
 	bool read_success = true;
 	int i;
+	struct mtk_ddp_comp *disp_tdshp;
+
+	void __iomem *dre3_va = mtk_aal_dre3_va(comp);
+	// get disp_tdshp component
+	struct mtk_drm_crtc *mtk_crtc = comp->mtk_crtc;
+	struct drm_crtc *crtc = &mtk_crtc->base;
+	struct mtk_drm_private *priv = crtc->dev->dev_private;
+
+	if (comp->id == DDP_COMPONENT_AAL0)
+		disp_tdshp = priv->ddp_comp[DDP_COMPONENT_TDSHP0];
+	else
+		disp_tdshp = priv->ddp_comp[DDP_COMPONENT_TDSHP2];
 
 	if (((comp->id == DDP_COMPONENT_AAL0) && (atomic_read(&g_aal_eof_irq) == 0)) ||
 		((comp->id == DDP_COMPONENT_AAL1) && (atomic_read(&g_aal1_eof_irq) == 0)))
@@ -845,6 +915,21 @@ static bool disp_aal_read_single_hist(struct mtk_ddp_comp *comp)
 			}
 			read_success = disp_color_reg_get(comp, DISP_COLOR_TWO_D_W1_RESULT,
 					&g_aal_hist.aal0_colorHist);
+
+			// for Display Clarity
+			if (g_disp_clarity_support) {
+				for (i = 0; i < MDP_AAL_CLARITY_READBACK_NUM; i++) {
+					g_aal_hist.aal0_clarity[i] = readl(dre3_va +
+						MDP_AAL_DRE_BILATERAL_STATUS_00 + (i << 2));
+				}
+
+				for (i = 0; i < DISP_TDSHP_CLARITY_READBACK_NUM; i++) {
+					g_aal_hist.tdshp0_clarity[i] = readl(disp_tdshp->regs +
+						MDP_TDSHP_STATUS_00 + (i << 2));
+				}
+
+				disp_aal_dump_clarity_regs(0);
+			}
 		} else if (comp->id == DDP_COMPONENT_AAL1) {
 			for (i = 0; i < AAL_HIST_BIN; i++) {
 				g_aal_hist.aal1_maxHist[i] = readl(comp->regs +
@@ -856,6 +941,21 @@ static bool disp_aal_read_single_hist(struct mtk_ddp_comp *comp)
 			}
 			read_success = disp_color_reg_get(comp, DISP_COLOR_TWO_D_W1_RESULT,
 					&g_aal_hist.aal1_colorHist);
+
+			// for Display Clarity
+			if (g_disp_clarity_support) {
+				for (i = 0; i < MDP_AAL_CLARITY_READBACK_NUM; i++) {
+					g_aal_hist.aal1_clarity[i] = readl(dre3_va +
+						MDP_AAL_DRE_BILATERAL_STATUS_00 + (i << 2));
+				}
+
+				for (i = 0; i < DISP_TDSHP_CLARITY_READBACK_NUM; i++) {
+					g_aal_hist.tdshp1_clarity[i] = readl(disp_tdshp->regs +
+						MDP_TDSHP_STATUS_00 + (i << 2));
+				}
+
+				disp_aal_dump_clarity_regs(1);
+			}
 		}
 	} else {
 		for (i = 0; i < AAL_HIST_BIN; i++) {
@@ -868,6 +968,21 @@ static bool disp_aal_read_single_hist(struct mtk_ddp_comp *comp)
 		}
 		read_success = disp_color_reg_get(comp, DISP_COLOR_TWO_D_W1_RESULT,
 				&g_aal_hist.aal0_colorHist);
+
+		// for Display Clarity
+		if (g_disp_clarity_support) {
+			for (i = 0; i < MDP_AAL_CLARITY_READBACK_NUM; i++) {
+				g_aal_hist.aal0_clarity[i] = readl(dre3_va +
+					MDP_AAL_DRE_BILATERAL_STATUS_00 + (i << 2));
+			}
+
+			for (i = 0; i < DISP_TDSHP_CLARITY_READBACK_NUM; i++) {
+				g_aal_hist.tdshp0_clarity[i] = readl(disp_tdshp->regs +
+					MDP_TDSHP_STATUS_00 + (i << 2));
+			}
+
+			disp_aal_dump_clarity_regs(0);
+		}
 	}
 
 	if (comp->id == DDP_COMPONENT_AAL0)
@@ -901,11 +1016,9 @@ static int disp_aal_copy_hist_to_user(struct DISP_AAL_HIST *hist)
 	g_aal_hist.dre_enable = g_aal_dre_en;
 
 	if (isDualPQ) {
-		g_aal_hist.pipeLineNum = 2;
 		g_aal_hist.srcWidth = g_dual_aal_size.width;
 		g_aal_hist.srcHeight = g_dual_aal_size.height;
 	} else {
-		g_aal_hist.pipeLineNum = 1;
 		g_aal_hist.srcWidth = g_aal_size.width;
 		g_aal_hist.srcHeight = g_aal_size.height;
 	}
@@ -1238,6 +1351,7 @@ int mtk_drm_ioctl_aal_init_reg(struct drm_device *dev, void *data,
 	struct mtk_drm_private *private = dev->dev_private;
 	struct mtk_ddp_comp *comp = private->ddp_comp[DDP_COMPONENT_AAL0];
 	struct drm_crtc *crtc = private->crtc[0];
+
 	g_aal_data->crtc = crtc;
 
 	return mtk_crtc_user_cmd(crtc, comp, INIT_REG, data);
@@ -1279,9 +1393,8 @@ static int disp_aal_write_dre_to_reg(struct mtk_ddp_comp *comp,
 	const int *gain;
 
 	gain = param->DREGainFltStatus;
-	if (g_aal_ess20_spect_param.flag&0x3) {
+	if (g_aal_ess20_spect_param.flag & 0x3)
 		CRTC_MMP_MARK(0, aal_ess20_curve, comp->id, 0);
-	}
 
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		comp->regs_pa + DISP_AAL_DRE_FLT_FORCE(0),
@@ -1488,6 +1601,7 @@ bool dump_reg(struct mtk_ddp_comp *comp, bool locked)
 			PRINT_AAL_REG(0x4DC, 0x500, 0x224, 0x504);
 			if (g_aal_fo->mtk_dre30_support) {
 				void __iomem *dre3_va = mtk_aal_dre3_va(comp);
+
 				PRINT_AAL3_REG(0x0, 0x8, 0x10, 0x20);
 				PRINT_AAL3_REG(0x30, 0x34, 0x38, 0xC4);
 				PRINT_AAL3_REG(0xC8, 0xF4, 0xF8, 0x200);
@@ -1720,7 +1834,6 @@ static bool disp_aal_read_dre3(struct mtk_ddp_comp *comp,
 				g_aal_hist.MaxHis_denominator_pipe0[j+i] = readl(dre3_va +
 					MDP_AAL_DUAL_PIPE08 + (j << 2));
 			}
-
 		} else if (comp->id == DDP_COMPONENT_AAL1) {
 			for (i = 0; i < 8; i++) {
 				g_aal_hist.MaxHis_denominator_pipe1[i] = readl(dre3_va +
@@ -1732,6 +1845,7 @@ static bool disp_aal_read_dre3(struct mtk_ddp_comp *comp,
 			}
 		}
 	}
+
 	if (dump_start >= 0)
 		pr_notice("[DRE3][HIST][%d-%d] %08x %08x %08x %08x %08x %08x\n",
 			dump_blk_x, dump_blk_y,
@@ -2208,6 +2322,719 @@ int mtk_drm_ioctl_aal_get_size(struct drm_device *dev, void *data,
 	return 0;
 }
 
+int mtk_drm_ioctl_clarity_set_reg(struct drm_device *dev, void *data,
+		struct drm_file *file_priv)
+{
+	struct mtk_drm_private *private = dev->dev_private;
+	struct mtk_ddp_comp *comp = private->ddp_comp[DDP_COMPONENT_AAL0];
+	struct drm_crtc *crtc = private->crtc[0];
+
+	AALCRT_LOG(": enter set clarity regs\n");
+
+	return mtk_crtc_user_cmd(crtc, comp, SET_CLARITY_REG, data);
+}
+
+static void dumpAlgAALClarityRegOutput(struct DISP_CLARITY_REG clarityHWReg)
+{
+	AALCRT_LOG("bilateral_range_flt_slope[%d] dre_bilateral_activate_blending_A[%d]\n",
+		clarityHWReg.mdp_aal_clarity_regs.bilateral_range_flt_slope,
+		clarityHWReg.mdp_aal_clarity_regs.dre_bilateral_activate_blending_A);
+
+	AALCRT_LOG("dre_bilateral_activate_blending_B[%d] dre_bilateral_activate_blending_C[%d]\n",
+		clarityHWReg.mdp_aal_clarity_regs.dre_bilateral_activate_blending_B,
+		clarityHWReg.mdp_aal_clarity_regs.dre_bilateral_activate_blending_C);
+
+	AALCRT_LOG("dre_bilateral_activate_blending_D[%d]\n",
+		clarityHWReg.mdp_aal_clarity_regs.dre_bilateral_activate_blending_D);
+	AALCRT_LOG("dre_bilateral_activate_blending_wgt_gain[%d]\n",
+		clarityHWReg.mdp_aal_clarity_regs.dre_bilateral_activate_blending_wgt_gain);
+
+	AALCRT_LOG("dre_bilateral_blending_en[%d] dre_bilateral_blending_wgt[%d]\n",
+		clarityHWReg.mdp_aal_clarity_regs.dre_bilateral_blending_en,
+		clarityHWReg.mdp_aal_clarity_regs.dre_bilateral_blending_wgt);
+
+	AALCRT_LOG("dre_bilateral_blending_wgt_mode[%d] dre_bilateral_size_blending_wgt[%d]\n",
+		clarityHWReg.mdp_aal_clarity_regs.dre_bilateral_blending_wgt_mode,
+		clarityHWReg.mdp_aal_clarity_regs.dre_bilateral_size_blending_wgt);
+
+	AALCRT_LOG("bilateral_custom_range_flt1 [0_0 ~ 0_4] = [%d, %d, %d, %d, %d]\n",
+		clarityHWReg.mdp_aal_clarity_regs.bilateral_custom_range_flt1_0_0,
+		clarityHWReg.mdp_aal_clarity_regs.bilateral_custom_range_flt1_0_1,
+		clarityHWReg.mdp_aal_clarity_regs.bilateral_custom_range_flt1_0_2,
+		clarityHWReg.mdp_aal_clarity_regs.bilateral_custom_range_flt1_0_3,
+		clarityHWReg.mdp_aal_clarity_regs.bilateral_custom_range_flt1_0_4);
+
+	AALCRT_LOG("bilateral_custom_range_flt1 [1_0 ~ 1_4] = [%d, %d, %d, %d, %d]\n",
+		clarityHWReg.mdp_aal_clarity_regs.bilateral_custom_range_flt1_1_0,
+		clarityHWReg.mdp_aal_clarity_regs.bilateral_custom_range_flt1_1_1,
+		clarityHWReg.mdp_aal_clarity_regs.bilateral_custom_range_flt1_1_2,
+		clarityHWReg.mdp_aal_clarity_regs.bilateral_custom_range_flt1_1_3,
+		clarityHWReg.mdp_aal_clarity_regs.bilateral_custom_range_flt1_1_4);
+
+	AALCRT_LOG("bilateral_custom_range_flt1 [2_0 ~ 2_4] = [%d, %d, %d, %d, %d]\n",
+		clarityHWReg.mdp_aal_clarity_regs.bilateral_custom_range_flt1_2_0,
+		clarityHWReg.mdp_aal_clarity_regs.bilateral_custom_range_flt1_2_1,
+		clarityHWReg.mdp_aal_clarity_regs.bilateral_custom_range_flt1_2_2,
+		clarityHWReg.mdp_aal_clarity_regs.bilateral_custom_range_flt1_2_3,
+		clarityHWReg.mdp_aal_clarity_regs.bilateral_custom_range_flt1_2_4);
+
+	AALCRT_LOG("bilateral_custom_range_flt2 [0_0 ~ 0_4] = [%d, %d, %d, %d, %d]\n",
+		clarityHWReg.mdp_aal_clarity_regs.bilateral_custom_range_flt2_0_0,
+		clarityHWReg.mdp_aal_clarity_regs.bilateral_custom_range_flt2_0_1,
+		clarityHWReg.mdp_aal_clarity_regs.bilateral_custom_range_flt2_0_2,
+		clarityHWReg.mdp_aal_clarity_regs.bilateral_custom_range_flt2_0_3,
+		clarityHWReg.mdp_aal_clarity_regs.bilateral_custom_range_flt2_0_4);
+
+	AALCRT_LOG("bilateral_custom_range_flt2 [1_0 ~ 1_4] = [%d, %d, %d, %d, %d]\n",
+		clarityHWReg.mdp_aal_clarity_regs.bilateral_custom_range_flt2_1_0,
+		clarityHWReg.mdp_aal_clarity_regs.bilateral_custom_range_flt2_1_1,
+		clarityHWReg.mdp_aal_clarity_regs.bilateral_custom_range_flt2_1_2,
+		clarityHWReg.mdp_aal_clarity_regs.bilateral_custom_range_flt2_1_3,
+		clarityHWReg.mdp_aal_clarity_regs.bilateral_custom_range_flt2_1_4);
+
+	AALCRT_LOG("bilateral_custom_range_flt2 [2_0 ~ 2_4] = [%d, %d, %d, %d, %d]\n",
+		clarityHWReg.mdp_aal_clarity_regs.bilateral_custom_range_flt2_2_0,
+		clarityHWReg.mdp_aal_clarity_regs.bilateral_custom_range_flt2_2_1,
+		clarityHWReg.mdp_aal_clarity_regs.bilateral_custom_range_flt2_2_2,
+		clarityHWReg.mdp_aal_clarity_regs.bilateral_custom_range_flt2_2_3,
+		clarityHWReg.mdp_aal_clarity_regs.bilateral_custom_range_flt2_2_4);
+
+	AALCRT_LOG("bilateral_contrary_blending_wgt[%d] bilateral_custom_range_flt_gain[%d]\n",
+		clarityHWReg.mdp_aal_clarity_regs.bilateral_contrary_blending_wgt,
+		clarityHWReg.mdp_aal_clarity_regs.bilateral_custom_range_flt_gain);
+
+	AALCRT_LOG("bilateral_custom_range_flt_slope[%d] bilateral_range_flt_gain[%d]\n",
+		clarityHWReg.mdp_aal_clarity_regs.bilateral_custom_range_flt_slope,
+		clarityHWReg.mdp_aal_clarity_regs.bilateral_range_flt_gain);
+
+	AALCRT_LOG("bilateral_size_blending_wgt[%d] bilateral_contrary_blending_out_wgt[%d]\n",
+		clarityHWReg.mdp_aal_clarity_regs.bilateral_size_blending_wgt,
+		clarityHWReg.mdp_aal_clarity_regs.bilateral_contrary_blending_out_wgt);
+
+	AALCRT_LOG("bilateral_custom_range_flt1_out_wgt[%d]\n",
+		clarityHWReg.mdp_aal_clarity_regs.bilateral_custom_range_flt1_out_wgt);
+	AALCRT_LOG("bilateral_custom_range_flt2_out_wgt[%d]\n",
+		clarityHWReg.mdp_aal_clarity_regs.bilateral_custom_range_flt2_out_wgt);
+
+	AALCRT_LOG("bilateral_range_flt_out_wgt[%d] bilateral_size_blending_out_wgt[%d]\n",
+		clarityHWReg.mdp_aal_clarity_regs.bilateral_range_flt_out_wgt,
+		clarityHWReg.mdp_aal_clarity_regs.bilateral_size_blending_out_wgt);
+
+	AALCRT_LOG("dre_bilateral_blending_region_protection_en[%d]\n",
+		clarityHWReg.mdp_aal_clarity_regs.dre_bilateral_blending_region_protection_en);
+	AALCRT_LOG("dre_bilateral_region_protection_activate_A[%d]\n",
+		clarityHWReg.mdp_aal_clarity_regs.dre_bilateral_region_protection_activate_A);
+
+	AALCRT_LOG("dre_bilateral_region_protection_activate_B[%d]\n",
+		clarityHWReg.mdp_aal_clarity_regs.dre_bilateral_region_protection_activate_B);
+	AALCRT_LOG("dre_bilateral_region_protection_activate_C[%d]\n",
+		clarityHWReg.mdp_aal_clarity_regs.dre_bilateral_region_protection_activate_C);
+
+	AALCRT_LOG("dre_bilateral_region_protection_activate_D[%d]\n",
+		clarityHWReg.mdp_aal_clarity_regs.dre_bilateral_region_protection_activate_D);
+	AALCRT_LOG("dre_bilateral_region_protection_input_shift_bit[%d]\n",
+		clarityHWReg.mdp_aal_clarity_regs.dre_bilateral_region_protection_input_shift_bit);
+}
+
+static void dumpAlgTDSHPRegOutput(struct DISP_CLARITY_REG clarityHWReg)
+{
+	AALCRT_LOG("tdshp_gain_high[%d] tdshp_gain_mid[%d]",
+		clarityHWReg.disp_tdshp_clarity_regs.tdshp_gain_high,
+		clarityHWReg.disp_tdshp_clarity_regs.tdshp_gain_mid);
+
+	AALCRT_LOG("mid_coef_v_custom_range_flt [0_0 ~ 0_4] = [%d, %d, %d, %d, %d]",
+		clarityHWReg.disp_tdshp_clarity_regs.mid_coef_v_custom_range_flt_0_0,
+		clarityHWReg.disp_tdshp_clarity_regs.mid_coef_v_custom_range_flt_0_1,
+		clarityHWReg.disp_tdshp_clarity_regs.mid_coef_v_custom_range_flt_0_2,
+		clarityHWReg.disp_tdshp_clarity_regs.mid_coef_v_custom_range_flt_0_3,
+		clarityHWReg.disp_tdshp_clarity_regs.mid_coef_v_custom_range_flt_0_4);
+
+	AALCRT_LOG("mid_coef_v_custom_range_flt [1_0 ~ 1_4] = [%d, %d, %d, %d, %d]",
+		clarityHWReg.disp_tdshp_clarity_regs.mid_coef_v_custom_range_flt_1_0,
+		clarityHWReg.disp_tdshp_clarity_regs.mid_coef_v_custom_range_flt_1_1,
+		clarityHWReg.disp_tdshp_clarity_regs.mid_coef_v_custom_range_flt_1_2,
+		clarityHWReg.disp_tdshp_clarity_regs.mid_coef_v_custom_range_flt_1_3,
+		clarityHWReg.disp_tdshp_clarity_regs.mid_coef_v_custom_range_flt_1_4);
+
+	AALCRT_LOG("mid_coef_v_custom_range_flt [2_0 ~ 2_4] = [%d, %d, %d, %d, %d]",
+		clarityHWReg.disp_tdshp_clarity_regs.mid_coef_v_custom_range_flt_2_0,
+		clarityHWReg.disp_tdshp_clarity_regs.mid_coef_v_custom_range_flt_2_1,
+		clarityHWReg.disp_tdshp_clarity_regs.mid_coef_v_custom_range_flt_2_2,
+		clarityHWReg.disp_tdshp_clarity_regs.mid_coef_v_custom_range_flt_2_3,
+		clarityHWReg.disp_tdshp_clarity_regs.mid_coef_v_custom_range_flt_2_4);
+
+	AALCRT_LOG("mid_coef_h_custom_range_flt [0_0 ~ 0_4] = [%d, %d, %d, %d, %d]",
+		clarityHWReg.disp_tdshp_clarity_regs.mid_coef_h_custom_range_flt_0_0,
+		clarityHWReg.disp_tdshp_clarity_regs.mid_coef_h_custom_range_flt_0_1,
+		clarityHWReg.disp_tdshp_clarity_regs.mid_coef_h_custom_range_flt_0_2,
+		clarityHWReg.disp_tdshp_clarity_regs.mid_coef_h_custom_range_flt_0_3,
+		clarityHWReg.disp_tdshp_clarity_regs.mid_coef_h_custom_range_flt_0_4);
+
+	AALCRT_LOG("mid_coef_h_custom_range_flt [1_0 ~ 1_4] = [%d, %d, %d, %d, %d]",
+		clarityHWReg.disp_tdshp_clarity_regs.mid_coef_h_custom_range_flt_1_0,
+		clarityHWReg.disp_tdshp_clarity_regs.mid_coef_h_custom_range_flt_1_1,
+		clarityHWReg.disp_tdshp_clarity_regs.mid_coef_h_custom_range_flt_1_2,
+		clarityHWReg.disp_tdshp_clarity_regs.mid_coef_h_custom_range_flt_1_3,
+		clarityHWReg.disp_tdshp_clarity_regs.mid_coef_h_custom_range_flt_1_4);
+
+	AALCRT_LOG("mid_coef_h_custom_range_flt [2_0 ~ 2_4] = [%d, %d, %d, %d, %d]",
+		clarityHWReg.disp_tdshp_clarity_regs.mid_coef_h_custom_range_flt_2_0,
+		clarityHWReg.disp_tdshp_clarity_regs.mid_coef_h_custom_range_flt_2_1,
+		clarityHWReg.disp_tdshp_clarity_regs.mid_coef_h_custom_range_flt_2_2,
+		clarityHWReg.disp_tdshp_clarity_regs.mid_coef_h_custom_range_flt_2_3,
+		clarityHWReg.disp_tdshp_clarity_regs.mid_coef_h_custom_range_flt_2_4);
+
+	AALCRT_LOG("high_coef_v_custom_range_flt [0_0 ~ 0_4] = [%d, %d, %d, %d, %d]",
+		clarityHWReg.disp_tdshp_clarity_regs.high_coef_v_custom_range_flt_0_0,
+		clarityHWReg.disp_tdshp_clarity_regs.high_coef_v_custom_range_flt_0_1,
+		clarityHWReg.disp_tdshp_clarity_regs.high_coef_v_custom_range_flt_0_2,
+		clarityHWReg.disp_tdshp_clarity_regs.high_coef_v_custom_range_flt_0_3,
+		clarityHWReg.disp_tdshp_clarity_regs.high_coef_v_custom_range_flt_0_4);
+
+	AALCRT_LOG("high_coef_v_custom_range_flt [1_0 ~ 1_4] = [%d, %d, %d, %d, %d]",
+		clarityHWReg.disp_tdshp_clarity_regs.high_coef_v_custom_range_flt_1_0,
+		clarityHWReg.disp_tdshp_clarity_regs.high_coef_v_custom_range_flt_1_1,
+		clarityHWReg.disp_tdshp_clarity_regs.high_coef_v_custom_range_flt_1_2,
+		clarityHWReg.disp_tdshp_clarity_regs.high_coef_v_custom_range_flt_1_3,
+		clarityHWReg.disp_tdshp_clarity_regs.high_coef_v_custom_range_flt_1_4);
+
+	AALCRT_LOG("high_coef_v_custom_range_flt [2_0 ~ 2_4] = [%d, %d, %d, %d, %d]",
+		clarityHWReg.disp_tdshp_clarity_regs.high_coef_v_custom_range_flt_2_0,
+		clarityHWReg.disp_tdshp_clarity_regs.high_coef_v_custom_range_flt_2_1,
+		clarityHWReg.disp_tdshp_clarity_regs.high_coef_v_custom_range_flt_2_2,
+		clarityHWReg.disp_tdshp_clarity_regs.high_coef_v_custom_range_flt_2_3,
+		clarityHWReg.disp_tdshp_clarity_regs.high_coef_v_custom_range_flt_2_4);
+
+	AALCRT_LOG("high_coef_h_custom_range_flt [0_0 ~ 0_4] = [%d, %d, %d, %d, %d]",
+		clarityHWReg.disp_tdshp_clarity_regs.high_coef_h_custom_range_flt_0_0,
+		clarityHWReg.disp_tdshp_clarity_regs.high_coef_h_custom_range_flt_0_1,
+		clarityHWReg.disp_tdshp_clarity_regs.high_coef_h_custom_range_flt_0_2,
+		clarityHWReg.disp_tdshp_clarity_regs.high_coef_h_custom_range_flt_0_3,
+		clarityHWReg.disp_tdshp_clarity_regs.high_coef_h_custom_range_flt_0_4);
+
+	AALCRT_LOG("high_coef_h_custom_range_flt [1_0 ~ 1_4] = [%d, %d, %d, %d, %d]",
+		clarityHWReg.disp_tdshp_clarity_regs.high_coef_h_custom_range_flt_1_0,
+		clarityHWReg.disp_tdshp_clarity_regs.high_coef_h_custom_range_flt_1_1,
+		clarityHWReg.disp_tdshp_clarity_regs.high_coef_h_custom_range_flt_1_2,
+		clarityHWReg.disp_tdshp_clarity_regs.high_coef_h_custom_range_flt_1_3,
+		clarityHWReg.disp_tdshp_clarity_regs.high_coef_h_custom_range_flt_1_4);
+
+	AALCRT_LOG("high_coef_h_custom_range_flt [2_0 ~ 2_4] = [%d, %d, %d, %d, %d]",
+		clarityHWReg.disp_tdshp_clarity_regs.high_coef_h_custom_range_flt_2_0,
+		clarityHWReg.disp_tdshp_clarity_regs.high_coef_h_custom_range_flt_2_1,
+		clarityHWReg.disp_tdshp_clarity_regs.high_coef_h_custom_range_flt_2_2,
+		clarityHWReg.disp_tdshp_clarity_regs.high_coef_h_custom_range_flt_2_3,
+		clarityHWReg.disp_tdshp_clarity_regs.high_coef_h_custom_range_flt_2_4);
+
+	AALCRT_LOG("high_coef_rd_custom_range_flt [0_0 ~ 0_4] = [%d, %d, %d, %d, %d]",
+		clarityHWReg.disp_tdshp_clarity_regs.high_coef_rd_custom_range_flt_0_0,
+		clarityHWReg.disp_tdshp_clarity_regs.high_coef_rd_custom_range_flt_0_1,
+		clarityHWReg.disp_tdshp_clarity_regs.high_coef_rd_custom_range_flt_0_2,
+		clarityHWReg.disp_tdshp_clarity_regs.high_coef_rd_custom_range_flt_0_3,
+		clarityHWReg.disp_tdshp_clarity_regs.high_coef_rd_custom_range_flt_0_4);
+
+	AALCRT_LOG("high_coef_rd_custom_range_flt [1_0 ~ 1_4] = [%d, %d, %d, %d, %d]",
+		clarityHWReg.disp_tdshp_clarity_regs.high_coef_rd_custom_range_flt_1_0,
+		clarityHWReg.disp_tdshp_clarity_regs.high_coef_rd_custom_range_flt_1_1,
+		clarityHWReg.disp_tdshp_clarity_regs.high_coef_rd_custom_range_flt_1_2,
+		clarityHWReg.disp_tdshp_clarity_regs.high_coef_rd_custom_range_flt_1_3,
+		clarityHWReg.disp_tdshp_clarity_regs.high_coef_rd_custom_range_flt_1_4);
+
+	AALCRT_LOG("high_coef_rd_custom_range_flt [2_0 ~ 2_4] = [%d, %d, %d, %d, %d]",
+		clarityHWReg.disp_tdshp_clarity_regs.high_coef_rd_custom_range_flt_2_0,
+		clarityHWReg.disp_tdshp_clarity_regs.high_coef_rd_custom_range_flt_2_1,
+		clarityHWReg.disp_tdshp_clarity_regs.high_coef_rd_custom_range_flt_2_2,
+		clarityHWReg.disp_tdshp_clarity_regs.high_coef_rd_custom_range_flt_2_3,
+		clarityHWReg.disp_tdshp_clarity_regs.high_coef_rd_custom_range_flt_2_4);
+
+	AALCRT_LOG("high_coef_ld_custom_range_flt [0_0 ~ 0_4] = [%d, %d, %d, %d, %d]",
+		clarityHWReg.disp_tdshp_clarity_regs.high_coef_ld_custom_range_flt_0_0,
+		clarityHWReg.disp_tdshp_clarity_regs.high_coef_ld_custom_range_flt_0_1,
+		clarityHWReg.disp_tdshp_clarity_regs.high_coef_ld_custom_range_flt_0_2,
+		clarityHWReg.disp_tdshp_clarity_regs.high_coef_ld_custom_range_flt_0_3,
+		clarityHWReg.disp_tdshp_clarity_regs.high_coef_ld_custom_range_flt_0_4);
+
+	AALCRT_LOG("high_coef_ld_custom_range_flt [1_0 ~ 1_4] = [%d, %d, %d, %d, %d]",
+		clarityHWReg.disp_tdshp_clarity_regs.high_coef_ld_custom_range_flt_1_0,
+		clarityHWReg.disp_tdshp_clarity_regs.high_coef_ld_custom_range_flt_1_1,
+		clarityHWReg.disp_tdshp_clarity_regs.high_coef_ld_custom_range_flt_1_2,
+		clarityHWReg.disp_tdshp_clarity_regs.high_coef_ld_custom_range_flt_1_3,
+		clarityHWReg.disp_tdshp_clarity_regs.high_coef_ld_custom_range_flt_1_4);
+
+	AALCRT_LOG("high_coef_ld_custom_range_flt [2_0 ~ 2_4] = [%d, %d, %d, %d, %d]",
+		clarityHWReg.disp_tdshp_clarity_regs.high_coef_ld_custom_range_flt_2_0,
+		clarityHWReg.disp_tdshp_clarity_regs.high_coef_ld_custom_range_flt_2_1,
+		clarityHWReg.disp_tdshp_clarity_regs.high_coef_ld_custom_range_flt_2_2,
+		clarityHWReg.disp_tdshp_clarity_regs.high_coef_ld_custom_range_flt_2_3,
+		clarityHWReg.disp_tdshp_clarity_regs.high_coef_ld_custom_range_flt_2_4);
+
+	AALCRT_LOG("mid_negative_offset[%d] mid_positive_offset[%d]",
+		clarityHWReg.disp_tdshp_clarity_regs.mid_negative_offset,
+		clarityHWReg.disp_tdshp_clarity_regs.mid_positive_offset);
+	AALCRT_LOG("high_negative_offset[%d] high_positive_offset[%d]",
+		clarityHWReg.disp_tdshp_clarity_regs.high_negative_offset,
+		clarityHWReg.disp_tdshp_clarity_regs.high_positive_offset);
+
+	AALCRT_LOG("D_active_parameter_N_gain[%d] D_active_parameter_N_offset[%d]",
+		clarityHWReg.disp_tdshp_clarity_regs.D_active_parameter_N_gain,
+		clarityHWReg.disp_tdshp_clarity_regs.D_active_parameter_N_offset);
+	AALCRT_LOG("D_active_parameter_P_gain[%d] D_active_parameter_P_offset[%d]",
+		clarityHWReg.disp_tdshp_clarity_regs.D_active_parameter_P_gain,
+		clarityHWReg.disp_tdshp_clarity_regs.D_active_parameter_P_offset);
+
+	AALCRT_LOG("High_active_parameter_N_gain[%d] High_active_parameter_N_offset[%d]",
+		clarityHWReg.disp_tdshp_clarity_regs.High_active_parameter_N_gain,
+		clarityHWReg.disp_tdshp_clarity_regs.High_active_parameter_N_offset);
+	AALCRT_LOG("High_active_parameter_P_gain[%d] High_active_parameter_P_offset[%d]",
+		clarityHWReg.disp_tdshp_clarity_regs.High_active_parameter_P_gain,
+		clarityHWReg.disp_tdshp_clarity_regs.High_active_parameter_P_offset);
+
+	AALCRT_LOG("L_active_parameter_N_gain[%d] L_active_parameter_N_offset[%d]",
+		clarityHWReg.disp_tdshp_clarity_regs.L_active_parameter_N_gain,
+		clarityHWReg.disp_tdshp_clarity_regs.L_active_parameter_N_offset);
+	AALCRT_LOG("L_active_parameter_P_gain[%d] L_active_parameter_P_offset[%d]",
+		clarityHWReg.disp_tdshp_clarity_regs.L_active_parameter_P_gain,
+		clarityHWReg.disp_tdshp_clarity_regs.L_active_parameter_P_offset);
+
+	AALCRT_LOG("Mid_active_parameter_N_gain[%d] Mid_active_parameter_N_offset[%d]",
+		clarityHWReg.disp_tdshp_clarity_regs.Mid_active_parameter_N_gain,
+		clarityHWReg.disp_tdshp_clarity_regs.Mid_active_parameter_N_offset);
+	AALCRT_LOG("Mid_active_parameter_P_gain[%d] Mid_active_parameter_P_offset[%d]",
+		clarityHWReg.disp_tdshp_clarity_regs.Mid_active_parameter_P_gain,
+		clarityHWReg.disp_tdshp_clarity_regs.Mid_active_parameter_P_offset);
+
+	AALCRT_LOG("SIZE_PARA_BIG_HUGE[%d] SIZE_PARA_MEDIUM_BIG[%d] SIZE_PARA_SMALL_MEDIUM[%d]",
+		clarityHWReg.disp_tdshp_clarity_regs.SIZE_PARA_BIG_HUGE,
+		clarityHWReg.disp_tdshp_clarity_regs.SIZE_PARA_MEDIUM_BIG,
+		clarityHWReg.disp_tdshp_clarity_regs.SIZE_PARA_SMALL_MEDIUM);
+
+	AALCRT_LOG("high_auto_adaptive_weight_HUGE[%d] high_size_adaptive_weight_HUGE[%d]",
+		clarityHWReg.disp_tdshp_clarity_regs.high_auto_adaptive_weight_HUGE,
+		clarityHWReg.disp_tdshp_clarity_regs.high_size_adaptive_weight_HUGE);
+	AALCRT_LOG("Mid_auto_adaptive_weight_HUGE[%d] Mid_size_adaptive_weight_HUGE[%d]",
+		clarityHWReg.disp_tdshp_clarity_regs.Mid_auto_adaptive_weight_HUGE,
+		clarityHWReg.disp_tdshp_clarity_regs.Mid_size_adaptive_weight_HUGE);
+
+	AALCRT_LOG("high_auto_adaptive_weight_BIG[%d] high_size_adaptive_weight_BIG[%d]",
+		clarityHWReg.disp_tdshp_clarity_regs.high_auto_adaptive_weight_BIG,
+		clarityHWReg.disp_tdshp_clarity_regs.high_size_adaptive_weight_BIG);
+	AALCRT_LOG("Mid_auto_adaptive_weight_BIG[%d] Mid_size_adaptive_weight_BIG[%d]",
+		clarityHWReg.disp_tdshp_clarity_regs.Mid_auto_adaptive_weight_BIG,
+		clarityHWReg.disp_tdshp_clarity_regs.Mid_size_adaptive_weight_BIG);
+
+	AALCRT_LOG("high_auto_adaptive_weight_MEDIUM[%d]high_size_adaptive_weight_MEDIUM[%d]",
+		clarityHWReg.disp_tdshp_clarity_regs.high_auto_adaptive_weight_MEDIUM,
+		clarityHWReg.disp_tdshp_clarity_regs.high_size_adaptive_weight_MEDIUM);
+	AALCRT_LOG("Mid_auto_adaptive_weight_MEDIUM[%d] Mid_size_adaptive_weight_MEDIUM[%d]",
+		clarityHWReg.disp_tdshp_clarity_regs.Mid_auto_adaptive_weight_MEDIUM,
+		clarityHWReg.disp_tdshp_clarity_regs.Mid_size_adaptive_weight_MEDIUM);
+
+	AALCRT_LOG("high_auto_adaptive_weight_SMALL[%d] high_size_adaptive_weight_SMALL[%d]",
+		clarityHWReg.disp_tdshp_clarity_regs.high_auto_adaptive_weight_SMALL,
+		clarityHWReg.disp_tdshp_clarity_regs.high_size_adaptive_weight_SMALL);
+	AALCRT_LOG("Mid_auto_adaptive_weight_SMALL[%d] Mid_size_adaptive_weight_SMALL[%d]",
+		clarityHWReg.disp_tdshp_clarity_regs.Mid_auto_adaptive_weight_SMALL,
+		clarityHWReg.disp_tdshp_clarity_regs.Mid_size_adaptive_weight_SMALL);
+
+	AALCRT_LOG("FILTER_HIST_EN[%d] FREQ_EXTRACT_ENHANCE[%d]",
+		clarityHWReg.disp_tdshp_clarity_regs.FILTER_HIST_EN,
+		clarityHWReg.disp_tdshp_clarity_regs.FREQ_EXTRACT_ENHANCE);
+	AALCRT_LOG("freq_D_weighting[%d] freq_H_weighting[%d]",
+		clarityHWReg.disp_tdshp_clarity_regs.freq_D_weighting,
+		clarityHWReg.disp_tdshp_clarity_regs.freq_H_weighting);
+
+	AALCRT_LOG("freq_L_weighting[%d] freq_M_weighting[%d]",
+		clarityHWReg.disp_tdshp_clarity_regs.freq_L_weighting,
+		clarityHWReg.disp_tdshp_clarity_regs.freq_M_weighting);
+	AALCRT_LOG("freq_D_final_weighting[%d] freq_L_final_weighting[%d]",
+		clarityHWReg.disp_tdshp_clarity_regs.freq_D_final_weighting,
+		clarityHWReg.disp_tdshp_clarity_regs.freq_L_final_weighting);
+
+	AALCRT_LOG("freq_M_final_weighting[%d] freq_WH_final_weighting[%d]",
+		clarityHWReg.disp_tdshp_clarity_regs.freq_M_final_weighting,
+		clarityHWReg.disp_tdshp_clarity_regs.freq_WH_final_weighting);
+	AALCRT_LOG("SIZE_PARAMETER[%d] chroma_high_gain[%d]",
+		clarityHWReg.disp_tdshp_clarity_regs.SIZE_PARAMETER,
+		clarityHWReg.disp_tdshp_clarity_regs.chroma_high_gain);
+
+	AALCRT_LOG("chroma_high_index[%d] chroma_low_gain[%d]",
+		clarityHWReg.disp_tdshp_clarity_regs.chroma_high_index,
+		clarityHWReg.disp_tdshp_clarity_regs.chroma_low_gain);
+	AALCRT_LOG("chroma_low_index[%d] luma_high_gain[%d]",
+		clarityHWReg.disp_tdshp_clarity_regs.chroma_low_index,
+		clarityHWReg.disp_tdshp_clarity_regs.luma_high_gain);
+
+	AALCRT_LOG("luma_high_index[%d] luma_low_gain[%d]",
+		clarityHWReg.disp_tdshp_clarity_regs.luma_high_index,
+		clarityHWReg.disp_tdshp_clarity_regs.luma_low_gain);
+	AALCRT_LOG("luma_low_index[%d] Chroma_adaptive_mode[%d]",
+		clarityHWReg.disp_tdshp_clarity_regs.luma_low_index,
+		clarityHWReg.disp_tdshp_clarity_regs.Chroma_adaptive_mode);
+
+	AALCRT_LOG("Chroma_shift[%d] Luma_adaptive_mode[%d]",
+		clarityHWReg.disp_tdshp_clarity_regs.Chroma_shift,
+		clarityHWReg.disp_tdshp_clarity_regs.Luma_adaptive_mode);
+	AALCRT_LOG("Luma_shift[%d] class_0_positive_gain[%d] class_0_negative_gain[%d]",
+		clarityHWReg.disp_tdshp_clarity_regs.Luma_shift,
+		clarityHWReg.disp_tdshp_clarity_regs.class_0_positive_gain,
+		clarityHWReg.disp_tdshp_clarity_regs.class_0_negative_gain);
+}
+
+static int mtk_disp_clarity_set_reg(struct mtk_ddp_comp *comp,
+	struct cmdq_pkt *handle, struct DISP_CLARITY_REG *clarity_regs)
+{
+	int ret = 0;
+	struct mtk_ddp_comp *comp_tdshp;
+
+	struct mtk_drm_crtc *mtk_crtc = comp->mtk_crtc;
+	struct drm_crtc *crtc = &mtk_crtc->base;
+	struct mtk_drm_private *priv = crtc->dev->dev_private;
+	phys_addr_t dre3_pa = mtk_aal_dre3_pa(comp);
+
+	if (comp->id == DDP_COMPONENT_AAL0)
+		comp_tdshp = priv->ddp_comp[DDP_COMPONENT_TDSHP0];
+	else
+		comp_tdshp = priv->ddp_comp[DDP_COMPONENT_TDSHP2];
+
+	if (clarity_regs == NULL)
+		return -1;
+
+	// aal clarity set registers
+	CRTC_MMP_MARK(0, clarity_set_regs, comp->id, 1);
+
+	cmdq_pkt_write(handle, comp->cmdq_base, dre3_pa + MDP_AAL_DRE_BILATEAL,
+		clarity_regs->mdp_aal_clarity_regs.bilateral_range_flt_slope << 4, 0xF << 4);
+
+	cmdq_pkt_write(handle, comp->cmdq_base, dre3_pa + MDP_AAL_DRE_BILATERAL_Blending_00,
+		(clarity_regs->mdp_aal_clarity_regs.dre_bilateral_activate_blending_D << 27 |
+		clarity_regs->mdp_aal_clarity_regs.dre_bilateral_activate_blending_C << 23 |
+		clarity_regs->mdp_aal_clarity_regs.dre_bilateral_activate_blending_B << 19 |
+		clarity_regs->mdp_aal_clarity_regs.dre_bilateral_activate_blending_A << 15 |
+		clarity_regs->mdp_aal_clarity_regs.dre_bilateral_activate_blending_wgt_gain << 11 |
+		clarity_regs->mdp_aal_clarity_regs.dre_bilateral_blending_wgt_mode << 9 |
+		clarity_regs->mdp_aal_clarity_regs.dre_bilateral_blending_wgt << 4 |
+		clarity_regs->mdp_aal_clarity_regs.dre_bilateral_blending_en << 0), ~0);
+
+	cmdq_pkt_write(handle, comp->cmdq_base, dre3_pa + MDP_AAL_DRE_BILATERAL_Blending_01,
+		clarity_regs->mdp_aal_clarity_regs.dre_bilateral_size_blending_wgt << 0, ~0);
+
+	cmdq_pkt_write(handle, comp->cmdq_base, dre3_pa + MDP_AAL_DRE_BILATERAL_CUST_FLT1_00,
+		(clarity_regs->mdp_aal_clarity_regs.bilateral_custom_range_flt1_0_4 << 24 |
+		clarity_regs->mdp_aal_clarity_regs.bilateral_custom_range_flt1_0_3 << 18 |
+		clarity_regs->mdp_aal_clarity_regs.bilateral_custom_range_flt1_0_2 << 12 |
+		clarity_regs->mdp_aal_clarity_regs.bilateral_custom_range_flt1_0_1 << 6 |
+		clarity_regs->mdp_aal_clarity_regs.bilateral_custom_range_flt1_0_0 << 0), ~0);
+
+	cmdq_pkt_write(handle, comp->cmdq_base, dre3_pa + MDP_AAL_DRE_BILATERAL_CUST_FLT1_01,
+		(clarity_regs->mdp_aal_clarity_regs.bilateral_custom_range_flt1_1_4 << 24 |
+		clarity_regs->mdp_aal_clarity_regs.bilateral_custom_range_flt1_1_3 << 18 |
+		clarity_regs->mdp_aal_clarity_regs.bilateral_custom_range_flt1_1_2 << 12 |
+		clarity_regs->mdp_aal_clarity_regs.bilateral_custom_range_flt1_1_1 << 6 |
+		clarity_regs->mdp_aal_clarity_regs.bilateral_custom_range_flt1_1_0 << 0), ~0);
+
+	cmdq_pkt_write(handle, comp->cmdq_base, dre3_pa + MDP_AAL_DRE_BILATERAL_CUST_FLT1_02,
+		(clarity_regs->mdp_aal_clarity_regs.bilateral_custom_range_flt1_2_4 << 24 |
+		clarity_regs->mdp_aal_clarity_regs.bilateral_custom_range_flt1_2_3 << 18 |
+		clarity_regs->mdp_aal_clarity_regs.bilateral_custom_range_flt1_2_2 << 12 |
+		clarity_regs->mdp_aal_clarity_regs.bilateral_custom_range_flt1_2_1 << 6 |
+		clarity_regs->mdp_aal_clarity_regs.bilateral_custom_range_flt1_2_0 << 0), ~0);
+
+	cmdq_pkt_write(handle, comp->cmdq_base, dre3_pa + MDP_AAL_DRE_BILATERAL_CUST_FLT2_00,
+		(clarity_regs->mdp_aal_clarity_regs.bilateral_custom_range_flt2_0_4 << 24 |
+		clarity_regs->mdp_aal_clarity_regs.bilateral_custom_range_flt2_0_3 << 18 |
+		clarity_regs->mdp_aal_clarity_regs.bilateral_custom_range_flt2_0_2 << 12 |
+		clarity_regs->mdp_aal_clarity_regs.bilateral_custom_range_flt2_0_1 << 6 |
+		clarity_regs->mdp_aal_clarity_regs.bilateral_custom_range_flt2_0_0 << 0), ~0);
+
+	cmdq_pkt_write(handle, comp->cmdq_base, dre3_pa + MDP_AAL_DRE_BILATERAL_CUST_FLT2_01,
+		(clarity_regs->mdp_aal_clarity_regs.bilateral_custom_range_flt2_1_4 << 24 |
+		clarity_regs->mdp_aal_clarity_regs.bilateral_custom_range_flt2_1_3 << 18 |
+		clarity_regs->mdp_aal_clarity_regs.bilateral_custom_range_flt2_1_2 << 12 |
+		clarity_regs->mdp_aal_clarity_regs.bilateral_custom_range_flt2_1_1 << 6 |
+		clarity_regs->mdp_aal_clarity_regs.bilateral_custom_range_flt2_1_0 << 0), ~0);
+
+	cmdq_pkt_write(handle, comp->cmdq_base, dre3_pa + MDP_AAL_DRE_BILATERAL_CUST_FLT2_02,
+		(clarity_regs->mdp_aal_clarity_regs.bilateral_custom_range_flt2_2_4 << 24 |
+		clarity_regs->mdp_aal_clarity_regs.bilateral_custom_range_flt2_2_3 << 18 |
+		clarity_regs->mdp_aal_clarity_regs.bilateral_custom_range_flt2_2_2 << 12 |
+		clarity_regs->mdp_aal_clarity_regs.bilateral_custom_range_flt2_2_1 << 6 |
+		clarity_regs->mdp_aal_clarity_regs.bilateral_custom_range_flt2_2_0 << 0), ~0);
+
+	cmdq_pkt_write(handle, comp->cmdq_base, dre3_pa + MDP_AAL_DRE_BILATERAL_FLT_CONFIG,
+		(clarity_regs->mdp_aal_clarity_regs.bilateral_size_blending_wgt << 12 |
+		clarity_regs->mdp_aal_clarity_regs.bilateral_contrary_blending_wgt << 10 |
+		clarity_regs->mdp_aal_clarity_regs.bilateral_custom_range_flt_slope << 6 |
+		clarity_regs->mdp_aal_clarity_regs.bilateral_custom_range_flt_gain << 3 |
+		clarity_regs->mdp_aal_clarity_regs.bilateral_range_flt_gain << 0), ~0);
+
+	cmdq_pkt_write(handle, comp->cmdq_base, dre3_pa + MDP_AAL_DRE_BILATERAL_FREQ_BLENDING,
+		(clarity_regs->mdp_aal_clarity_regs.bilateral_custom_range_flt2_out_wgt << 20 |
+		clarity_regs->mdp_aal_clarity_regs.bilateral_custom_range_flt1_out_wgt << 15 |
+		clarity_regs->mdp_aal_clarity_regs.bilateral_range_flt_out_wgt << 10 |
+		clarity_regs->mdp_aal_clarity_regs.bilateral_size_blending_out_wgt << 5 |
+		clarity_regs->mdp_aal_clarity_regs.bilateral_contrary_blending_out_wgt << 0), ~0);
+
+	cmdq_pkt_write(handle, comp->cmdq_base, dre3_pa + MDP_AAL_DRE_BILATERAL_REGION_PROTECTION,
+	(clarity_regs->mdp_aal_clarity_regs.dre_bilateral_region_protection_input_shift_bit << 25 |
+	clarity_regs->mdp_aal_clarity_regs.dre_bilateral_region_protection_activate_D << 21 |
+	clarity_regs->mdp_aal_clarity_regs.dre_bilateral_region_protection_activate_C << 13 |
+	clarity_regs->mdp_aal_clarity_regs.dre_bilateral_region_protection_activate_B << 5 |
+	clarity_regs->mdp_aal_clarity_regs.dre_bilateral_region_protection_activate_A << 1 |
+	clarity_regs->mdp_aal_clarity_regs.dre_bilateral_blending_region_protection_en << 0), ~0);
+
+	// tdshp clarity set registers
+	cmdq_pkt_write(handle, comp->cmdq_base, comp_tdshp->regs_pa + MDP_TDSHP_00,
+		(clarity_regs->disp_tdshp_clarity_regs.tdshp_gain_high << 8 |
+		clarity_regs->disp_tdshp_clarity_regs.tdshp_gain_mid << 16), 0xFFFF << 8);
+
+	cmdq_pkt_write(handle, comp->cmdq_base, comp_tdshp->regs_pa + MIDBAND_COEF_V_CUST_FLT1_00,
+		(clarity_regs->disp_tdshp_clarity_regs.mid_coef_v_custom_range_flt_0_0 << 0 |
+		clarity_regs->disp_tdshp_clarity_regs.mid_coef_v_custom_range_flt_0_1 << 8 |
+		clarity_regs->disp_tdshp_clarity_regs.mid_coef_v_custom_range_flt_0_2 << 16 |
+		clarity_regs->disp_tdshp_clarity_regs.mid_coef_v_custom_range_flt_0_3 << 24), ~0);
+
+	cmdq_pkt_write(handle, comp->cmdq_base, comp_tdshp->regs_pa + MIDBAND_COEF_V_CUST_FLT1_01,
+		(clarity_regs->disp_tdshp_clarity_regs.mid_coef_v_custom_range_flt_0_4 << 0 |
+		clarity_regs->disp_tdshp_clarity_regs.mid_coef_v_custom_range_flt_1_0 << 8 |
+		clarity_regs->disp_tdshp_clarity_regs.mid_coef_v_custom_range_flt_1_1 << 16 |
+		clarity_regs->disp_tdshp_clarity_regs.mid_coef_v_custom_range_flt_1_2 << 24), ~0);
+
+	cmdq_pkt_write(handle, comp->cmdq_base, comp_tdshp->regs_pa + MIDBAND_COEF_V_CUST_FLT1_02,
+		(clarity_regs->disp_tdshp_clarity_regs.mid_coef_v_custom_range_flt_1_3 << 0 |
+		clarity_regs->disp_tdshp_clarity_regs.mid_coef_v_custom_range_flt_1_4 << 8 |
+		clarity_regs->disp_tdshp_clarity_regs.mid_coef_v_custom_range_flt_2_0 << 16 |
+		clarity_regs->disp_tdshp_clarity_regs.mid_coef_v_custom_range_flt_2_1 << 24), ~0);
+
+	cmdq_pkt_write(handle, comp->cmdq_base, comp_tdshp->regs_pa + MIDBAND_COEF_V_CUST_FLT1_03,
+		(clarity_regs->disp_tdshp_clarity_regs.mid_coef_v_custom_range_flt_2_2 << 0 |
+		clarity_regs->disp_tdshp_clarity_regs.mid_coef_v_custom_range_flt_2_3 << 8 |
+		clarity_regs->disp_tdshp_clarity_regs.mid_coef_v_custom_range_flt_2_4 << 16), ~0);
+
+	cmdq_pkt_write(handle, comp->cmdq_base, comp_tdshp->regs_pa + MIDBAND_COEF_H_CUST_FLT1_00,
+		(clarity_regs->disp_tdshp_clarity_regs.mid_coef_h_custom_range_flt_0_0 << 0 |
+		clarity_regs->disp_tdshp_clarity_regs.mid_coef_h_custom_range_flt_0_1 << 8 |
+		clarity_regs->disp_tdshp_clarity_regs.mid_coef_h_custom_range_flt_0_2 << 16 |
+		clarity_regs->disp_tdshp_clarity_regs.mid_coef_h_custom_range_flt_0_3 << 24), ~0);
+
+	cmdq_pkt_write(handle, comp->cmdq_base, comp_tdshp->regs_pa + MIDBAND_COEF_H_CUST_FLT1_01,
+		(clarity_regs->disp_tdshp_clarity_regs.mid_coef_h_custom_range_flt_0_4 << 0 |
+		clarity_regs->disp_tdshp_clarity_regs.mid_coef_h_custom_range_flt_1_0 << 8 |
+		clarity_regs->disp_tdshp_clarity_regs.mid_coef_h_custom_range_flt_1_1 << 16 |
+		clarity_regs->disp_tdshp_clarity_regs.mid_coef_h_custom_range_flt_1_2 << 24), ~0);
+
+	cmdq_pkt_write(handle, comp->cmdq_base, comp_tdshp->regs_pa + MIDBAND_COEF_H_CUST_FLT1_02,
+		(clarity_regs->disp_tdshp_clarity_regs.mid_coef_h_custom_range_flt_1_3 << 0 |
+		clarity_regs->disp_tdshp_clarity_regs.mid_coef_h_custom_range_flt_1_4 << 8 |
+		clarity_regs->disp_tdshp_clarity_regs.mid_coef_h_custom_range_flt_2_0 << 16 |
+		clarity_regs->disp_tdshp_clarity_regs.mid_coef_h_custom_range_flt_2_1 << 24), ~0);
+
+	cmdq_pkt_write(handle, comp->cmdq_base, comp_tdshp->regs_pa + MIDBAND_COEF_H_CUST_FLT1_03,
+		(clarity_regs->disp_tdshp_clarity_regs.mid_coef_h_custom_range_flt_2_2 << 0 |
+		clarity_regs->disp_tdshp_clarity_regs.mid_coef_h_custom_range_flt_2_3 << 8 |
+		clarity_regs->disp_tdshp_clarity_regs.mid_coef_h_custom_range_flt_2_4 << 16), ~0);
+
+	cmdq_pkt_write(handle, comp->cmdq_base, comp_tdshp->regs_pa + HIGHBAND_COEF_V_CUST_FLT1_00,
+		(clarity_regs->disp_tdshp_clarity_regs.high_coef_v_custom_range_flt_0_0 << 0 |
+		clarity_regs->disp_tdshp_clarity_regs.high_coef_v_custom_range_flt_0_1 << 8 |
+		clarity_regs->disp_tdshp_clarity_regs.high_coef_v_custom_range_flt_0_2 << 16 |
+		clarity_regs->disp_tdshp_clarity_regs.high_coef_v_custom_range_flt_0_3 << 24), ~0);
+
+	cmdq_pkt_write(handle, comp->cmdq_base, comp_tdshp->regs_pa + HIGHBAND_COEF_V_CUST_FLT1_01,
+		(clarity_regs->disp_tdshp_clarity_regs.high_coef_v_custom_range_flt_0_4 << 0 |
+		clarity_regs->disp_tdshp_clarity_regs.high_coef_v_custom_range_flt_1_0 << 8 |
+		clarity_regs->disp_tdshp_clarity_regs.high_coef_v_custom_range_flt_1_1 << 16 |
+		clarity_regs->disp_tdshp_clarity_regs.high_coef_v_custom_range_flt_1_2 << 24), ~0);
+
+	cmdq_pkt_write(handle, comp->cmdq_base, comp_tdshp->regs_pa + HIGHBAND_COEF_V_CUST_FLT1_02,
+		(clarity_regs->disp_tdshp_clarity_regs.high_coef_v_custom_range_flt_1_3 << 0 |
+		clarity_regs->disp_tdshp_clarity_regs.high_coef_v_custom_range_flt_1_4 << 8 |
+		clarity_regs->disp_tdshp_clarity_regs.high_coef_v_custom_range_flt_2_0 << 16 |
+		clarity_regs->disp_tdshp_clarity_regs.high_coef_v_custom_range_flt_2_1 << 24), ~0);
+
+	cmdq_pkt_write(handle, comp->cmdq_base, comp_tdshp->regs_pa + HIGHBAND_COEF_V_CUST_FLT1_03,
+		(clarity_regs->disp_tdshp_clarity_regs.high_coef_v_custom_range_flt_2_2 << 0 |
+		clarity_regs->disp_tdshp_clarity_regs.high_coef_v_custom_range_flt_2_3 << 8 |
+		clarity_regs->disp_tdshp_clarity_regs.high_coef_v_custom_range_flt_2_4 << 16), ~0);
+
+	cmdq_pkt_write(handle, comp->cmdq_base, comp_tdshp->regs_pa + HIGHBAND_COEF_H_CUST_FLT1_00,
+		(clarity_regs->disp_tdshp_clarity_regs.high_coef_h_custom_range_flt_0_0 << 0 |
+		clarity_regs->disp_tdshp_clarity_regs.high_coef_h_custom_range_flt_0_1 << 8 |
+		clarity_regs->disp_tdshp_clarity_regs.high_coef_h_custom_range_flt_0_2 << 16 |
+		clarity_regs->disp_tdshp_clarity_regs.high_coef_h_custom_range_flt_0_3 << 24), ~0);
+
+	cmdq_pkt_write(handle, comp->cmdq_base, comp_tdshp->regs_pa + HIGHBAND_COEF_H_CUST_FLT1_01,
+		(clarity_regs->disp_tdshp_clarity_regs.high_coef_h_custom_range_flt_0_4 << 0 |
+		clarity_regs->disp_tdshp_clarity_regs.high_coef_h_custom_range_flt_1_0 << 8 |
+		clarity_regs->disp_tdshp_clarity_regs.high_coef_h_custom_range_flt_1_1 << 16 |
+		clarity_regs->disp_tdshp_clarity_regs.high_coef_h_custom_range_flt_1_2 << 24), ~0);
+
+	cmdq_pkt_write(handle, comp->cmdq_base, comp_tdshp->regs_pa + HIGHBAND_COEF_H_CUST_FLT1_02,
+		(clarity_regs->disp_tdshp_clarity_regs.high_coef_h_custom_range_flt_1_3 << 0 |
+		clarity_regs->disp_tdshp_clarity_regs.high_coef_h_custom_range_flt_1_4 << 8 |
+		clarity_regs->disp_tdshp_clarity_regs.high_coef_h_custom_range_flt_2_0 << 16 |
+		clarity_regs->disp_tdshp_clarity_regs.high_coef_h_custom_range_flt_2_1 << 24), ~0);
+
+	cmdq_pkt_write(handle, comp->cmdq_base, comp_tdshp->regs_pa + HIGHBAND_COEF_H_CUST_FLT1_03,
+		(clarity_regs->disp_tdshp_clarity_regs.high_coef_h_custom_range_flt_2_2 << 0 |
+		clarity_regs->disp_tdshp_clarity_regs.high_coef_h_custom_range_flt_2_3 << 8 |
+		clarity_regs->disp_tdshp_clarity_regs.high_coef_h_custom_range_flt_2_4 << 16), ~0);
+
+	cmdq_pkt_write(handle, comp->cmdq_base, comp_tdshp->regs_pa + HIGHBAND_COEF_RD_CUST_FLT1_00,
+		(clarity_regs->disp_tdshp_clarity_regs.high_coef_rd_custom_range_flt_0_0 << 0 |
+		clarity_regs->disp_tdshp_clarity_regs.high_coef_rd_custom_range_flt_0_1 << 8 |
+		clarity_regs->disp_tdshp_clarity_regs.high_coef_rd_custom_range_flt_0_2 << 16 |
+		clarity_regs->disp_tdshp_clarity_regs.high_coef_rd_custom_range_flt_0_3 << 24), ~0);
+
+	cmdq_pkt_write(handle, comp->cmdq_base, comp_tdshp->regs_pa + HIGHBAND_COEF_RD_CUST_FLT1_01,
+		(clarity_regs->disp_tdshp_clarity_regs.high_coef_rd_custom_range_flt_0_4 << 0 |
+		clarity_regs->disp_tdshp_clarity_regs.high_coef_rd_custom_range_flt_1_0 << 8 |
+		clarity_regs->disp_tdshp_clarity_regs.high_coef_rd_custom_range_flt_1_1 << 16 |
+		clarity_regs->disp_tdshp_clarity_regs.high_coef_rd_custom_range_flt_1_2 << 24), ~0);
+
+	cmdq_pkt_write(handle, comp->cmdq_base, comp_tdshp->regs_pa + HIGHBAND_COEF_RD_CUST_FLT1_02,
+		(clarity_regs->disp_tdshp_clarity_regs.high_coef_rd_custom_range_flt_1_3 << 0 |
+		clarity_regs->disp_tdshp_clarity_regs.high_coef_rd_custom_range_flt_1_4 << 8 |
+		clarity_regs->disp_tdshp_clarity_regs.high_coef_rd_custom_range_flt_2_0 << 16 |
+		clarity_regs->disp_tdshp_clarity_regs.high_coef_rd_custom_range_flt_2_1 << 24), ~0);
+
+	cmdq_pkt_write(handle, comp->cmdq_base, comp_tdshp->regs_pa + HIGHBAND_COEF_RD_CUST_FLT1_03,
+		(clarity_regs->disp_tdshp_clarity_regs.high_coef_rd_custom_range_flt_2_2 << 0 |
+		clarity_regs->disp_tdshp_clarity_regs.high_coef_rd_custom_range_flt_2_3 << 8 |
+		clarity_regs->disp_tdshp_clarity_regs.high_coef_rd_custom_range_flt_2_4 << 16), ~0);
+
+	cmdq_pkt_write(handle, comp->cmdq_base, comp_tdshp->regs_pa + HIGHBAND_COEF_LD_CUST_FLT1_00,
+		(clarity_regs->disp_tdshp_clarity_regs.high_coef_ld_custom_range_flt_0_0 << 0 |
+		clarity_regs->disp_tdshp_clarity_regs.high_coef_ld_custom_range_flt_0_1 << 8 |
+		clarity_regs->disp_tdshp_clarity_regs.high_coef_ld_custom_range_flt_0_2 << 16 |
+		clarity_regs->disp_tdshp_clarity_regs.high_coef_ld_custom_range_flt_0_3 << 24), ~0);
+
+	cmdq_pkt_write(handle, comp->cmdq_base, comp_tdshp->regs_pa + HIGHBAND_COEF_LD_CUST_FLT1_01,
+		(clarity_regs->disp_tdshp_clarity_regs.high_coef_ld_custom_range_flt_0_4 << 0 |
+		clarity_regs->disp_tdshp_clarity_regs.high_coef_ld_custom_range_flt_1_0 << 8 |
+		clarity_regs->disp_tdshp_clarity_regs.high_coef_ld_custom_range_flt_1_1 << 16 |
+		clarity_regs->disp_tdshp_clarity_regs.high_coef_ld_custom_range_flt_1_2 << 24), ~0);
+
+	cmdq_pkt_write(handle, comp->cmdq_base, comp_tdshp->regs_pa + HIGHBAND_COEF_LD_CUST_FLT1_02,
+		(clarity_regs->disp_tdshp_clarity_regs.high_coef_ld_custom_range_flt_1_3 << 0 |
+		clarity_regs->disp_tdshp_clarity_regs.high_coef_ld_custom_range_flt_1_4 << 8 |
+		clarity_regs->disp_tdshp_clarity_regs.high_coef_ld_custom_range_flt_2_0 << 16 |
+		clarity_regs->disp_tdshp_clarity_regs.high_coef_ld_custom_range_flt_2_1 << 24), ~0);
+
+	cmdq_pkt_write(handle, comp->cmdq_base, comp_tdshp->regs_pa + HIGHBAND_COEF_LD_CUST_FLT1_03,
+		(clarity_regs->disp_tdshp_clarity_regs.high_coef_ld_custom_range_flt_2_2 << 0 |
+		clarity_regs->disp_tdshp_clarity_regs.high_coef_ld_custom_range_flt_2_3 << 8 |
+		clarity_regs->disp_tdshp_clarity_regs.high_coef_ld_custom_range_flt_2_4 << 16), ~0);
+
+	cmdq_pkt_write(handle, comp->cmdq_base, comp_tdshp->regs_pa + ACTIVE_PARA,
+		(clarity_regs->disp_tdshp_clarity_regs.mid_negative_offset << 0 |
+		clarity_regs->disp_tdshp_clarity_regs.mid_positive_offset << 8 |
+		clarity_regs->disp_tdshp_clarity_regs.high_negative_offset << 16 |
+		clarity_regs->disp_tdshp_clarity_regs.high_positive_offset << 24), ~0);
+
+	cmdq_pkt_write(handle, comp->cmdq_base, comp_tdshp->regs_pa + ACTIVE_PARA_FREQ_D,
+		(clarity_regs->disp_tdshp_clarity_regs.D_active_parameter_N_gain << 0 |
+		clarity_regs->disp_tdshp_clarity_regs.D_active_parameter_N_offset << 8 |
+		clarity_regs->disp_tdshp_clarity_regs.D_active_parameter_P_offset << 16 |
+		clarity_regs->disp_tdshp_clarity_regs.D_active_parameter_P_gain << 24), ~0);
+
+	cmdq_pkt_write(handle, comp->cmdq_base, comp_tdshp->regs_pa + ACTIVE_PARA_FREQ_H,
+		(clarity_regs->disp_tdshp_clarity_regs.High_active_parameter_N_gain << 0 |
+		clarity_regs->disp_tdshp_clarity_regs.High_active_parameter_N_offset << 8 |
+		clarity_regs->disp_tdshp_clarity_regs.High_active_parameter_P_offset << 16 |
+		clarity_regs->disp_tdshp_clarity_regs.High_active_parameter_P_gain << 24), ~0);
+
+	cmdq_pkt_write(handle, comp->cmdq_base, comp_tdshp->regs_pa + ACTIVE_PARA_FREQ_L,
+		(clarity_regs->disp_tdshp_clarity_regs.L_active_parameter_N_gain << 0 |
+		clarity_regs->disp_tdshp_clarity_regs.L_active_parameter_N_offset << 8 |
+		clarity_regs->disp_tdshp_clarity_regs.L_active_parameter_P_offset << 16 |
+		clarity_regs->disp_tdshp_clarity_regs.L_active_parameter_P_gain << 24), ~0);
+
+	cmdq_pkt_write(handle, comp->cmdq_base, comp_tdshp->regs_pa + ACTIVE_PARA_FREQ_M,
+		(clarity_regs->disp_tdshp_clarity_regs.Mid_active_parameter_N_gain << 0 |
+		clarity_regs->disp_tdshp_clarity_regs.Mid_active_parameter_N_offset << 8 |
+		clarity_regs->disp_tdshp_clarity_regs.Mid_active_parameter_P_offset << 16 |
+		clarity_regs->disp_tdshp_clarity_regs.Mid_active_parameter_P_gain << 24), ~0);
+
+	cmdq_pkt_write(handle, comp->cmdq_base, comp_tdshp->regs_pa + MDP_TDSHP_SIZE_PARA,
+		(clarity_regs->disp_tdshp_clarity_regs.SIZE_PARA_SMALL_MEDIUM << 0 |
+		clarity_regs->disp_tdshp_clarity_regs.SIZE_PARA_MEDIUM_BIG << 6 |
+		clarity_regs->disp_tdshp_clarity_regs.SIZE_PARA_BIG_HUGE << 12), 0x3FFFF);
+
+	cmdq_pkt_write(handle, comp->cmdq_base,
+		comp_tdshp->regs_pa + FINAL_SIZE_ADAPTIVE_WEIGHT_HUGE,
+		(clarity_regs->disp_tdshp_clarity_regs.Mid_size_adaptive_weight_HUGE << 0 |
+		clarity_regs->disp_tdshp_clarity_regs.Mid_auto_adaptive_weight_HUGE << 5 |
+		clarity_regs->disp_tdshp_clarity_regs.high_size_adaptive_weight_HUGE << 10 |
+		clarity_regs->disp_tdshp_clarity_regs.high_auto_adaptive_weight_HUGE << 15), ~0);
+
+	cmdq_pkt_write(handle, comp->cmdq_base,
+		comp_tdshp->regs_pa + FINAL_SIZE_ADAPTIVE_WEIGHT_BIG,
+		(clarity_regs->disp_tdshp_clarity_regs.Mid_size_adaptive_weight_BIG << 0 |
+		clarity_regs->disp_tdshp_clarity_regs.Mid_auto_adaptive_weight_BIG << 5 |
+		clarity_regs->disp_tdshp_clarity_regs.high_size_adaptive_weight_BIG << 10 |
+		clarity_regs->disp_tdshp_clarity_regs.high_auto_adaptive_weight_BIG << 15), ~0);
+
+	cmdq_pkt_write(handle, comp->cmdq_base,
+		comp_tdshp->regs_pa + FINAL_SIZE_ADAPTIVE_WEIGHT_MEDIUM,
+		(clarity_regs->disp_tdshp_clarity_regs.Mid_size_adaptive_weight_MEDIUM << 0 |
+		clarity_regs->disp_tdshp_clarity_regs.Mid_auto_adaptive_weight_MEDIUM << 5 |
+		clarity_regs->disp_tdshp_clarity_regs.high_size_adaptive_weight_MEDIUM << 10 |
+		clarity_regs->disp_tdshp_clarity_regs.high_auto_adaptive_weight_MEDIUM << 15), ~0);
+
+	cmdq_pkt_write(handle, comp->cmdq_base,
+		comp_tdshp->regs_pa + FINAL_SIZE_ADAPTIVE_WEIGHT_SMALL,
+		(clarity_regs->disp_tdshp_clarity_regs.Mid_size_adaptive_weight_SMALL << 0 |
+		clarity_regs->disp_tdshp_clarity_regs.Mid_auto_adaptive_weight_SMALL << 5 |
+		clarity_regs->disp_tdshp_clarity_regs.high_size_adaptive_weight_SMALL << 10 |
+		clarity_regs->disp_tdshp_clarity_regs.high_auto_adaptive_weight_SMALL << 15), ~0);
+
+	cmdq_pkt_write(handle, comp->cmdq_base, comp_tdshp->regs_pa + MDP_TDSHP_CFG,
+		(clarity_regs->disp_tdshp_clarity_regs.FREQ_EXTRACT_ENHANCE << 12 |
+		clarity_regs->disp_tdshp_clarity_regs.FILTER_HIST_EN << 16),
+		((0x1 << 16) | (0x1 << 12)));
+
+	cmdq_pkt_write(handle, comp->cmdq_base, comp_tdshp->regs_pa + MDP_TDSHP_FREQUENCY_WEIGHTING,
+		(clarity_regs->disp_tdshp_clarity_regs.freq_M_weighting << 0 |
+		clarity_regs->disp_tdshp_clarity_regs.freq_H_weighting << 4 |
+		clarity_regs->disp_tdshp_clarity_regs.freq_D_weighting << 8 |
+		clarity_regs->disp_tdshp_clarity_regs.freq_L_weighting << 12), ~0);
+
+	cmdq_pkt_write(handle, comp->cmdq_base,
+		comp_tdshp->regs_pa + MDP_TDSHP_FREQUENCY_WEIGHTING_FINAL,
+		(clarity_regs->disp_tdshp_clarity_regs.freq_M_final_weighting << 0 |
+		clarity_regs->disp_tdshp_clarity_regs.freq_D_final_weighting << 5 |
+		clarity_regs->disp_tdshp_clarity_regs.freq_L_final_weighting << 10 |
+		clarity_regs->disp_tdshp_clarity_regs.freq_WH_final_weighting << 15), ~0);
+
+	cmdq_pkt_write(handle, comp->cmdq_base, comp_tdshp->regs_pa + LUMA_CHROMA_PARAMETER,
+		(clarity_regs->disp_tdshp_clarity_regs.luma_low_gain << 0 |
+		clarity_regs->disp_tdshp_clarity_regs.luma_low_index << 3 |
+		clarity_regs->disp_tdshp_clarity_regs.luma_high_index << 8 |
+		clarity_regs->disp_tdshp_clarity_regs.luma_high_gain << 13 |
+		clarity_regs->disp_tdshp_clarity_regs.chroma_low_gain << 16 |
+		clarity_regs->disp_tdshp_clarity_regs.chroma_low_index << 19 |
+		clarity_regs->disp_tdshp_clarity_regs.chroma_high_index << 24 |
+		clarity_regs->disp_tdshp_clarity_regs.chroma_high_gain << 29), ~0);
+
+	cmdq_pkt_write(handle, comp->cmdq_base,
+		comp_tdshp->regs_pa + SIZE_PARAMETER_MODE_SEGMENTATION_LENGTH,
+		(clarity_regs->disp_tdshp_clarity_regs.Luma_adaptive_mode << 0 |
+		clarity_regs->disp_tdshp_clarity_regs.Chroma_adaptive_mode << 1 |
+		clarity_regs->disp_tdshp_clarity_regs.SIZE_PARAMETER << 2 |
+		clarity_regs->disp_tdshp_clarity_regs.Luma_shift << 12 |
+		clarity_regs->disp_tdshp_clarity_regs.Chroma_shift << 15),
+		(1 << 15) | (1 << 12) | (1 << 2) | (1 << 1) | (1 << 0));
+
+	cmdq_pkt_write(handle, comp->cmdq_base, comp_tdshp->regs_pa + CLASS_0_2_GAIN,
+		(clarity_regs->disp_tdshp_clarity_regs.class_0_positive_gain << 0 |
+		clarity_regs->disp_tdshp_clarity_regs.class_0_negative_gain << 5),
+		(1 << 5) | (1 << 0));
+
+	CRTC_MMP_MARK(0, clarity_set_regs, comp->id, 2);
+
+	return ret;
+}
+
 static void mtk_aal_start(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 {
 	if (g_aal_fo->mtk_dre30_support) {
@@ -2224,6 +3051,13 @@ static void mtk_aal_start(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 	}
 	AALFLOW_LOG("\n");
 	basic_cmdq_write(handle, comp, DISP_AAL_EN, 0x1, ~0);
+
+	// for Display Clarity
+	if (g_disp_clarity_regs != NULL) {
+		mutex_lock(&g_clarity_lock);
+		mtk_disp_clarity_set_reg(comp, handle, g_disp_clarity_regs);
+		mutex_unlock(&g_clarity_lock);
+	}
 }
 
 static void mtk_aal_stop(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
@@ -2289,6 +3123,53 @@ static int mtk_aal_user_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 			mtk_aal_bypass(comp_aal1, *value, handle);
 		}
 
+	}
+		break;
+	case SET_CLARITY_REG:
+	{
+		if (!g_disp_clarity_regs) {
+			g_disp_clarity_regs = kmalloc(sizeof(struct DISP_CLARITY_REG), GFP_KERNEL);
+			if (g_disp_clarity_regs == NULL) {
+				DDPMSG("%s: no memory\n", __func__);
+				return -EFAULT;
+			}
+		}
+
+		if (data == NULL)
+			return -EFAULT;
+
+		mutex_lock(&g_clarity_lock);
+		memcpy(g_disp_clarity_regs, (struct DISP_CLARITY_REG *)data,
+			sizeof(struct DISP_CLARITY_REG));
+
+		dumpAlgAALClarityRegOutput(*g_disp_clarity_regs);
+		dumpAlgTDSHPRegOutput(*g_disp_clarity_regs);
+
+		CRTC_MMP_EVENT_START(0, clarity_set_regs, 0, 0);
+		if (mtk_disp_clarity_set_reg(comp, handle, g_disp_clarity_regs) < 0) {
+			DDPMSG("[Pipe0] %s: clarity_set_reg failed\n", __func__);
+			mutex_unlock(&g_clarity_lock);
+
+			return -EFAULT;
+		}
+		if (comp->mtk_crtc->is_dual_pipe) {
+			struct mtk_drm_crtc *mtk_crtc = comp->mtk_crtc;
+			struct drm_crtc *crtc = &mtk_crtc->base;
+			struct mtk_drm_private *priv = crtc->dev->dev_private;
+			struct mtk_ddp_comp *comp_aal1 = priv->ddp_comp[DDP_COMPONENT_AAL1];
+
+			if (mtk_disp_clarity_set_reg(comp_aal1, handle,
+					g_disp_clarity_regs) < 0) {
+				DDPMSG("[Pipe1] %s: clarity_set_reg failed\n", __func__);
+				mutex_unlock(&g_clarity_lock);
+
+				return -EFAULT;
+			}
+		}
+		CRTC_MMP_EVENT_END(0, clarity_set_regs, 0, 3);
+		mutex_unlock(&g_clarity_lock);
+
+		mtk_crtc_check_trigger(comp->mtk_crtc, false, false);
 	}
 		break;
 	default:
@@ -2436,6 +3317,7 @@ static void ddp_aal_dre3_restore(struct mtk_ddp_comp *comp)
 
 	if (g_aal_fo->mtk_dre30_support) {
 		unsigned long flags;
+
 		spin_lock_irqsave(&g_aal_dre3_gain_lock, flags);
 		ddp_aal_dre3_write_curve_full(comp);
 		spin_unlock_irqrestore(&g_aal_dre3_gain_lock, flags);
@@ -2848,6 +3730,7 @@ static int mtk_disp_aal_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct mtk_disp_aal *priv;
 	enum mtk_ddp_comp_id comp_id;
+	struct device_node *tdshp_node;
 	int ret, irq;
 	struct device_node *dre3_dev_node;
 	struct platform_device *dre3_pdev;
@@ -2882,6 +3765,14 @@ static int mtk_disp_aal_probe(struct platform_device *pdev)
 		if (g_aal_fo == NULL)
 			return -ENOMEM;
 
+		// for Display Clarity
+		tdshp_node = of_find_compatible_node(NULL, NULL, "mediatek,disp_tdshp0");
+		if (!of_property_read_u32(tdshp_node, "mtk-tdshp-clarity-support",
+			&g_tdshp_clarity_support)) {
+			DDPMSG("disp_tdshp: mtk_tdshp_clarity_support = %d\n",
+				g_tdshp_clarity_support);
+		}
+
 		if (of_property_read_u32(dev->of_node, "mtk_aal_support",
 			&g_aal_fo->mtk_aal_support)) {
 			AALERR("comp_id: %d, mtk_aal_support = %d\n",
@@ -2901,6 +3792,19 @@ static int mtk_disp_aal_probe(struct platform_device *pdev)
 					gDre30Enabled = true;
 				} else
 					gDre30Enabled = (g_aal_dre30_en == 1) ? true : false;
+
+				// for Display Clarity
+				if (!of_property_read_u32(dev->of_node, "mtk-aal-clarity-support",
+					&g_aal_clarity_support))
+					DDPMSG("mtk_aal_clarity_support = %d\n",
+						g_aal_clarity_support);
+
+				if ((g_aal_clarity_support == 1)
+						&& (g_tdshp_clarity_support == 1)) {
+					g_disp_clarity_support = 1;
+					DDPMSG("%s: display clarity support = %d\n",
+						__func__, g_disp_clarity_support);
+				}
 			}
 		}
 	}
@@ -3123,7 +4027,6 @@ static const struct mtk_disp_aal_data mt6886_aal_driver_data = {
 	.bitShift = 16,
 };
 
-
 static const struct of_device_id mtk_disp_aal_driver_dt_match[] = {
 	{ .compatible = "mediatek,mt6885-disp-aal",
 	  .data = &mt6885_aal_driver_data},
@@ -3316,6 +4219,10 @@ void disp_aal_debug(const char *opt)
 		} else {
 			pr_notice("[debug] dre30 is not support\n");
 		}
+	} else if (strncmp(opt, "dump_clarity_regs:", 18) == 0) {
+		debug_dump_clarity_regs = strncmp(opt + 18, "1", 1) == 0;
+		pr_notice("[debug] debug_dump_clarity_regs=%d\n",
+			debug_dump_clarity_regs);
 	} else if (strncmp(opt, "debugdump:", 10) == 0) {
 		pr_notice("[debug] skip_set_param=%d\n",
 			debug_skip_set_param);
@@ -3344,6 +4251,7 @@ void disp_aal_debug(const char *opt)
 		pr_notice("[debug] debug_ess_level=%d\n", g_aal_ess_level);
 		pr_notice("[debug] debug_ess_en=%d\n", g_aal_ess_en);
 		pr_notice("[debug] debug_dre_en=%d\n", g_aal_dre_en);
+		pr_notice("[debug] debug_dump_clarity_regs=%d\n", debug_dump_clarity_regs);
 	}
 }
 

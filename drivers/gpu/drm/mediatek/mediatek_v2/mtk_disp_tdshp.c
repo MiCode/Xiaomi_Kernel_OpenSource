@@ -74,14 +74,22 @@ static int mtk_disp_tdshp_write_reg(struct mtk_ddp_comp *comp,
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		comp->regs_pa + DISP_TDSHP_CFG, 0x2 | g_tdshp_relay_value[id], 0x11);
 
-	cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DISP_TDSHP_00,
-		(disp_tdshp_regs->tdshp_softcoring_gain << 0 |
-				disp_tdshp_regs->tdshp_gain_high << 8 |
-				disp_tdshp_regs->tdshp_gain_mid << 16 |
-				disp_tdshp_regs->tdshp_ink_sel << 24 |
-				disp_tdshp_regs->tdshp_bypass_high << 29 |
-				disp_tdshp_regs->tdshp_bypass_mid << 30 |
-				disp_tdshp_regs->tdshp_en << 31), ~0);
+	if (g_disp_clarity_support)
+		cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DISP_TDSHP_00,
+			(disp_tdshp_regs->tdshp_softcoring_gain << 0 |
+					disp_tdshp_regs->tdshp_ink_sel << 24 |
+					disp_tdshp_regs->tdshp_bypass_high << 29 |
+					disp_tdshp_regs->tdshp_bypass_mid << 30 |
+					disp_tdshp_regs->tdshp_en << 31), ~0);
+	else
+		cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DISP_TDSHP_00,
+			(disp_tdshp_regs->tdshp_softcoring_gain << 0 |
+					disp_tdshp_regs->tdshp_gain_high << 8 |
+					disp_tdshp_regs->tdshp_gain_mid << 16 |
+					disp_tdshp_regs->tdshp_ink_sel << 24 |
+					disp_tdshp_regs->tdshp_bypass_high << 29 |
+					disp_tdshp_regs->tdshp_bypass_mid << 30 |
+					disp_tdshp_regs->tdshp_en << 31), ~0);
 
 	cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DISP_TDSHP_01,
 		(disp_tdshp_regs->tdshp_limit_ratio << 0 |
@@ -437,6 +445,17 @@ static void mtk_disp_tdshp_config(struct mtk_ddp_comp *comp,
 	// DISP_TDSHP_OUTPUT_OFFSET
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		comp->regs_pa + DISP_TDSHP_OUTPUT_OFFSET, 0x0, ~0);
+	// DISP_TDSHP_SWITCH
+	cmdq_pkt_write(handle, comp->cmdq_base,
+		comp->regs_pa + DISP_TDSHP_CFG, 0x1 << 13, 0x1 << 13);
+
+	// for Display Clarity
+	if (g_disp_clarity_support) {
+		cmdq_pkt_write(handle, comp->cmdq_base,
+			comp->regs_pa + DISP_TDSHP_00, (0x1 << 31), (0x1 << 31));
+		cmdq_pkt_write(handle, comp->cmdq_base,
+			comp->regs_pa + DISP_TDSHP_CFG, (0x1F << 12), (0x1F << 12));
+	}
 
 	g_tdshp_size.height = cfg->h;
 	g_tdshp_size.width = cfg->w;
@@ -646,6 +665,9 @@ void mtk_disp_tdshp_dump(struct mtk_ddp_comp *comp)
 	mtk_cust_dump_reg(baddr, 0x37C, 0x384, 0x388, 0x480);
 	mtk_cust_dump_reg(baddr, 0x484, 0x488, 0x48C, 0x490);
 	mtk_cust_dump_reg(baddr, 0x67C, -1, -1, -1);
+	mtk_cust_dump_reg(baddr, 0x644, 0x648, 0x64C, 0x650);
+	mtk_cust_dump_reg(baddr, 0x654, 0x658, 0x65C, 0x660);
+	mtk_cust_dump_reg(baddr, 0x664, 0x668, 0x66C, 0x670);
 }
 
 static int mtk_disp_tdshp_probe(struct platform_device *pdev)

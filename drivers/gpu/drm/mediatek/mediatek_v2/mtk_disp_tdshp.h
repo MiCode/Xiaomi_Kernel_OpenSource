@@ -29,6 +29,9 @@
 #define DISP_TDSHP_EN BIT(0)
 #define TDSHP_BYPASS_SHADOW BIT(0)
 
+// for Display Clarity
+extern int g_disp_clarity_support;
+
  /*******************************/
  /* field definition */
  /* ------------------------------------------------------------- */

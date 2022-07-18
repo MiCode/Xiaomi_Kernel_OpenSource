@@ -80,6 +80,8 @@ int mtk_dump_reg(struct mtk_ddp_comp *comp)
 
 	case DDP_COMPONENT_TDSHP0:
 	case DDP_COMPONENT_TDSHP1:
+	case DDP_COMPONENT_TDSHP2:
+	case DDP_COMPONENT_TDSHP3:
 		mtk_disp_tdshp_dump(comp);
 		break;
 

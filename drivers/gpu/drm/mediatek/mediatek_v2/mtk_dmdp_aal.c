@@ -92,10 +92,10 @@ static void mtk_dmdp_aal_bypass(struct mtk_ddp_comp *comp, int bypass,
 		       AAL_EN, ~0);
 	cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DMDP_AAL_CFG,
 		       0x400003, ~0);
-	cmdq_pkt_write(handle, comp->cmdq_base,
-			comp->regs_pa + DMDP_AAL_CFG_MAIN, 0, ~0);
-	cmdq_pkt_write(handle, comp->cmdq_base,
-			comp->regs_pa + DMDP_AAL_DRE_BILATERAL, 0, ~0);
+	//cmdq_pkt_write(handle, comp->cmdq_base,
+	//		comp->regs_pa + DMDP_AAL_CFG_MAIN, 0, ~0);
+	//cmdq_pkt_write(handle, comp->cmdq_base,
+	//		comp->regs_pa + DMDP_AAL_DRE_BILATERAL, 0, ~0);
 }
 
 static void mtk_dmdp_aal_config(struct mtk_ddp_comp *comp,
@@ -124,8 +124,8 @@ static void mtk_dmdp_aal_config(struct mtk_ddp_comp *comp,
 			val, ~0);
 	cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + DMDP_AAL_OUTPUT_SIZE, val, ~0);
-	cmdq_pkt_write(handle, comp->cmdq_base,
-			comp->regs_pa + DMDP_AAL_DRE_BILATERAL, 0, ~0);
+	//cmdq_pkt_write(handle, comp->cmdq_base,
+	//		comp->regs_pa + DMDP_AAL_DRE_BILATERAL, 0, ~0);
 	cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + DMDP_AAL_DRE_BITPLUS_00, 0, ~0);
 	cmdq_pkt_write(handle, comp->cmdq_base,
@@ -328,7 +328,7 @@ static void mtk_dmdp_aal_prepare(struct mtk_ddp_comp *comp)
 		mtk_aal_write_mask(comp->regs + DMDP_AAL_EN, AAL_EN, ~0);
 		mtk_aal_write_mask(comp->regs + DMDP_AAL_CFG, 0x400003, ~0);
 		mtk_aal_write_mask(comp->regs + DMDP_AAL_CFG_MAIN, 0, ~0);
-		mtk_aal_write_mask(comp->regs + DMDP_AAL_DRE_BILATERAL, 0, ~0);
+		//mtk_aal_write_mask(comp->regs + DMDP_AAL_DRE_BILATERAL, 0, ~0);
 	}
 }
 

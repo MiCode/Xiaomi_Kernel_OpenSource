@@ -5701,6 +5701,8 @@ static const struct drm_ioctl_desc mtk_ioctls[] = {
 			  DRM_UNLOCKED),
 	DRM_IOCTL_DEF_DRV(MTK_SET_PQ_CAPS, mtk_drm_ioctl_set_pq_caps,
 			  DRM_UNLOCKED),
+	DRM_IOCTL_DEF_DRV(MTK_DISP_CLARITY_SET_REG, mtk_drm_ioctl_clarity_set_reg,
+				  DRM_UNLOCKED),
 	DRM_IOCTL_DEF_DRV(MTK_AAL_SET_TRIGGER_STATE, mtk_drm_ioctl_aal_set_trigger_state,
 			  DRM_UNLOCKED),
 	DRM_IOCTL_DEF_DRV(MTK_DRM_SET_LEASE_INFO, mtk_drm_set_lease_info_ioctl,

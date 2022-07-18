@@ -46,6 +46,11 @@
 	(0x410 + (idx) * 4)
 
 #define DISP_AAL_DBG_CFG_MAIN                   (0x45c)
+#define DISP_AAL_DUAL_PIPE_INFO_00              (0x4d0)
+#define DISP_AAL_DUAL_PIPE_INFO_01              (0x4d4)
+#define DISP_AAL_OUTPUT_SIZE                    (0x4d8)
+#define DISP_AAL_OUTPUT_OFFSET                  (0x4dc)
+#define DISP_Y_HISTOGRAM_00                     (0x504)
 
 /* DRE 3.0 */
 #define DISP_AAL_CFG_MAIN                       (0x200)
@@ -72,12 +77,6 @@
 #define DISP_AAL_DRE_BITPLUS_04                 (0x49c)
 #define DISP_AAL_DRE_BLOCK_INFO_05              (0x4b4)
 #define DISP_AAL_DRE_BLOCK_INFO_06              (0x4b8)
-#define DISP_AAL_DUAL_PIPE_INFO_00              (0x4d0)
-#define DISP_AAL_DUAL_PIPE_INFO_01              (0x4d4)
-#define DISP_AAL_OUTPUT_SIZE                    (0x4d8)
-#define DISP_AAL_OUTPUT_OFFSET                  (0x4dc)
-
-#define DISP_Y_HISTOGRAM_00                     (0x504)
 
 #define DISP_AAL_DRE_BLOCK_INFO_07              (0x0f8)
 #define MDP_AAL_TILE_00				(0x4EC)
@@ -86,6 +85,82 @@
 
 #define MDP_AAL_DUAL_PIPE00				(0x500)
 #define MDP_AAL_DUAL_PIPE08				(0x544)
+
+/* AAL Calarty */
+#define MDP_AAL_DRE_BILATEAL                    (0x53C)
+#define MDP_AAL_DRE_BILATERAL_Blending_00       (0x564)
+#define MDP_AAL_DRE_BILATERAL_CUST_FLT1_00      (0x568)
+#define MDP_AAL_DRE_BILATERAL_CUST_FLT1_01      (0x56C)
+#define MDP_AAL_DRE_BILATERAL_CUST_FLT1_02      (0x570)
+#define MDP_AAL_DRE_BILATERAL_CUST_FLT2_00      (0x574)
+#define MDP_AAL_DRE_BILATERAL_CUST_FLT2_01      (0x578)
+#define MDP_AAL_DRE_BILATERAL_CUST_FLT2_02      (0x57C)
+#define MDP_AAL_DRE_BILATERAL_FLT_CONFIG        (0x580)
+#define MDP_AAL_DRE_BILATERAL_FREQ_BLENDING     (0x584)
+#define MDP_AAL_DRE_BILATERAL_STATUS_00         (0x588)
+#define MDP_AAL_DRE_BILATERAL_REGION_PROTECTION (0x5A8)
+#define MDP_AAL_DRE_BILATERAL_STATUS_ROI_X      (0x5AC)
+#define MDP_AAL_DRE_BILATERAL_STATUS_ROI_Y      (0x5B0)
+#define MDP_AAL_DRE_BILATERAL_Blending_01       (0x5B4)
+#define MDP_AAL_DRE_BILATERAL_STATUS_CTRL       (0x5B8)
+
+/* TDSHP Clarity */
+#define MDP_TDSHP_00                            (0x000)
+#define MDP_TDSHP_CFG                           (0x110)
+#define MDP_HIST_CFG_00                         (0x064)
+#define MDP_HIST_CFG_01                         (0x068)
+#define MDP_LUMA_HIST_00                        (0x06C)
+#define MDP_LUMA_SUM                            (0x0B4)
+#define MDP_TDSHP_SRAM_1XN_OUTPUT_CNT           (0x0B8)
+#define MDP_Y_FTN_1_0_MAIN                      (0x0BC)
+#define MDP_TDSHP_STATUS_00                     (0x644)
+#define MIDBAND_COEF_V_CUST_FLT1_00             (0x584)
+#define MIDBAND_COEF_V_CUST_FLT1_01             (0x588)
+#define MIDBAND_COEF_V_CUST_FLT1_02             (0x58C)
+#define MIDBAND_COEF_V_CUST_FLT1_03             (0x590)
+#define MIDBAND_COEF_H_CUST_FLT1_00             (0x594)
+#define MIDBAND_COEF_H_CUST_FLT1_01             (0x598)
+#define MIDBAND_COEF_H_CUST_FLT1_02             (0x5C9)
+#define MIDBAND_COEF_H_CUST_FLT1_03             (0x600)
+
+#define HIGHBAND_COEF_V_CUST_FLT1_00            (0x604)
+#define HIGHBAND_COEF_V_CUST_FLT1_01            (0x608)
+#define HIGHBAND_COEF_V_CUST_FLT1_02            (0x60C)
+#define HIGHBAND_COEF_V_CUST_FLT1_03            (0x610)
+#define HIGHBAND_COEF_H_CUST_FLT1_00            (0x614)
+#define HIGHBAND_COEF_H_CUST_FLT1_01            (0x618)
+#define HIGHBAND_COEF_H_CUST_FLT1_02            (0x61C)
+#define HIGHBAND_COEF_H_CUST_FLT1_03            (0x620)
+#define HIGHBAND_COEF_RD_CUST_FLT1_00           (0x624)
+#define HIGHBAND_COEF_RD_CUST_FLT1_01           (0x628)
+#define HIGHBAND_COEF_RD_CUST_FLT1_02           (0x62C)
+#define HIGHBAND_COEF_RD_CUST_FLT1_03           (0x630)
+#define HIGHBAND_COEF_LD_CUST_FLT1_00           (0x634)
+#define HIGHBAND_COEF_LD_CUST_FLT1_01           (0x638)
+#define HIGHBAND_COEF_LD_CUST_FLT1_02           (0x63C)
+#define HIGHBAND_COEF_LD_CUST_FLT1_03           (0x640)
+#define MDP_TDSHP_SIZE_PARA                     (0x674)
+#define MDP_TDSHP_FREQUENCY_WEIGHTING	        (0x678)
+#define MDP_TDSHP_FREQUENCY_WEIGHTING_FINAL	(0x67C)
+#define SIZE_PARAMETER_MODE_SEGMENTATION_LENGTH	(0x680)
+#define FINAL_SIZE_ADAPTIVE_WEIGHT_HUGE	        (0x684)
+#define FINAL_SIZE_ADAPTIVE_WEIGHT_BIG	        (0x688)
+#define FINAL_SIZE_ADAPTIVE_WEIGHT_MEDIUM	(0x68C)
+#define FINAL_SIZE_ADAPTIVE_WEIGHT_SMALL	(0x690)
+#define ACTIVE_PARA_FREQ_M	                (0x694)
+#define ACTIVE_PARA_FREQ_H	                (0x698)
+#define ACTIVE_PARA_FREQ_D	                (0x69C)
+#define ACTIVE_PARA_FREQ_L	                (0x700)
+#define ACTIVE_PARA	                        (0x704)
+#define CLASS_0_2_GAIN	                        (0x708)
+#define CLASS_3_5_GAIN	                        (0x70C)
+#define CLASS_6_8_GAIN	                        (0x710)
+#define LUMA_CHROMA_PARAMETER	                (0x714)
+#define MDP_TDSHP_STATUS_ROI_X	                (0x718)
+#define MDP_TDSHP_STATUS_ROI_Y	                (0x71C)
+#define FRAME_WIDTH_HIGHT	                (0x720)
+#define MDP_TDSHP_SHADOW_CTRL	                (0x724)
+
 #define AAL_DRE30_GAIN_REGISTER_NUM		(544)
 #define AAL_DRE30_HIST_REGISTER_NUM		(768)
 
@@ -170,6 +245,8 @@ int mtk_drm_ioctl_aal_set_trigger_state(struct drm_device *dev, void *data,
 	struct drm_file *file_priv);
 int mtk_drm_ioctl_aal_set_ess20_spect_param(struct drm_device *dev, void *data,
 	struct drm_file *file_priv);
+int mtk_drm_ioctl_clarity_set_reg(struct drm_device *dev, void *data,
+		struct drm_file *file_priv);
 
 #endif
 
