@@ -2670,6 +2670,28 @@ static int mtk_cam_req_set_fmt(struct mtk_cam_device *cam,
 	return 0;
 }
 
+int mtk_cam_ctx_img_working_buf_pool_init(struct mtk_cam_ctx *ctx, int buf_require,
+					  int buf_size)
+{
+	bool img_mem_pool_created = false;
+	int ret = 0;
+
+	/* User may pre-alloccate the mem for the pool */
+	if (ctx->pipe &&
+	    ctx->pipe->pre_alloc_mem.num > 0 &&
+	    ctx->pipe->pre_alloc_mem.bufs[0].fd >= 0) {
+		if (mtk_cam_user_img_working_buf_pool_init(ctx, buf_require, buf_size) == 0)
+			img_mem_pool_created = true;
+	}
+
+	if (!img_mem_pool_created)
+		ret = mtk_cam_internal_img_working_buf_pool_init(ctx,
+								 buf_require,
+								 buf_size);
+
+	return ret;
+}
+
 static int mtk_cam_req_update_ctrl(struct mtk_raw_pipeline *raw_pipe,
 				   struct mtk_cam_request_stream_data *s_data)
 {
@@ -2677,6 +2699,12 @@ static int mtk_cam_req_update_ctrl(struct mtk_raw_pipeline *raw_pipe,
 	char *debug_str = mtk_cam_s_data_get_dbg_str(s_data);
 	struct mtk_cam_request *req;
 	struct mtk_cam_req_raw_pipe_data *raw_pipe_data;
+	struct mtk_cam_device *cam;
+	struct mtk_cam_ctx *ctx;
+	int exp_no;
+	int buf_size;
+	int buf_require;
+	int ret = 0;
 
 	raw_pipe_data = mtk_cam_s_data_get_raw_pipe_data(s_data);
 	req = mtk_cam_s_data_get_req(s_data);
@@ -2689,12 +2717,40 @@ static int mtk_cam_req_update_ctrl(struct mtk_raw_pipeline *raw_pipe,
 	/* use raw_res.feature as raw_fut_pre (feature setup before re-streamon)*/
 	if (req->ctx_link_update & (1 << raw_pipe->id)) {
 		scen_pre = raw_pipe->user_res.raw_res.scen;
+
+		/* create the vhdr internal buf pool if needed */
+		exp_no = mtk_cam_scen_get_max_exp_num(&raw_pipe->user_res.raw_res.scen);
+		cam = dev_get_drvdata(raw_pipe->raw->cam_dev);
+		ctx = &cam->ctxs[raw_pipe->id];
+
 		dev_info(raw_pipe->subdev.v4l2_dev->dev,
-			"%s:%s:%s:linkupdate: prev_scen(%d), res scen(%d)\n",
-			__func__, raw_pipe->subdev.name, debug_str,
-			scen_pre.id,
-			raw_pipe->user_res.raw_res.scen.id);
+			 "%s:%s:%s:ctx(%d)linkupdate: prev_scen(%s), res scen(%s), wimg_buf_size(%d)\n",
+			 __func__, raw_pipe->subdev.name, debug_str, ctx->stream_id,
+			 scen_pre.dbg_str,
+			 raw_pipe->user_res.raw_res.scen.dbg_str,
+			 ctx->img_buf_pool.working_img_buf_size);
+
+		if (exp_no > 1 &&
+		    ctx->img_buf_pool.working_img_buf_size <= 0) {
+			buf_size = ctx->pipe->vdev_nodes
+				[MTK_RAW_MAIN_STREAM_OUT - MTK_RAW_SINK_NUM].
+				active_fmt.fmt.pix_mp.plane_fmt[0].sizeimage;
+
+			buf_require =
+				mtk_cam_get_internl_buf_num(ctx->pipe->dynamic_exposure_num_max,
+							    &raw_pipe->user_res.raw_res.scen,
+							    ctx->pipe->hw_mode_pending);
+
+			if (buf_require)
+				ret = mtk_cam_ctx_img_working_buf_pool_init(ctx, buf_require,
+									    buf_size);
+
+			if (ret)
+				dev_info(cam->dev, "%s: ctx(%d)failed to reserve DMA memory:%d\n",
+					 __func__, ctx->stream_id, ret);
+		}
 	}
+
 	raw_pipe_data->res = raw_pipe->user_res;
 	s_data->feature.switch_feature_type =
 		mtk_cam_get_feature_switch(raw_pipe, &scen_pre);
@@ -4477,8 +4533,9 @@ void mtk_cam_dev_req_try_queue(struct mtk_cam_device *cam)
 				s_data_flags = s_data->flags;
 
 				/* mstream: re-init the s_data */
-				if (mtk_cam_feature_change_is_mstream(feature_change) ||
-						(req->ctx_link_update & (1 << ctx->pipe->id)))
+				if (mtk_cam_scen_is_mstream_types(s_data->feature.scen) &&
+				    (mtk_cam_feature_change_is_mstream(feature_change) ||
+				     (req->ctx_link_update & (1 << ctx->pipe->id))))
 					mstream_seamless_buf_update(ctx, req, i,
 								    s_data->feature.scen,
 								    &s_data->feature.prev_scen);
@@ -8424,7 +8481,6 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 	int exp_no = 1;
 	int buf_require = 0;
 	int buf_size = 0;
-	bool img_mem_pool_created = false;
 
 	dev_info(cam->dev, "%s: ctx %d stream on, streaming_pipe:0x%x\n",
 		 __func__, ctx->stream_id, ctx->streaming_pipe);
@@ -8484,22 +8540,8 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 			mtk_cam_get_internl_buf_num(ctx->pipe->dynamic_exposure_num_max,
 						    scen_active,
 						    ctx->pipe->hw_mode_pending);
-		if (buf_require) {
-			/* User may pre-alloccate the mem for the pool */
-			if (ctx->pipe &&
-			    ctx->pipe->pre_alloc_mem.num > 0 &&
-			    ctx->pipe->pre_alloc_mem.bufs[0].fd >= 0) {
-				if (0 ==
-				    mtk_cam_user_img_working_buf_pool_init(ctx, buf_require,
-									   buf_size))
-					img_mem_pool_created = true;
-			}
-
-			if (!img_mem_pool_created)
-				ret = mtk_cam_internal_img_working_buf_pool_init(ctx,
-										 buf_require,
-										 buf_size);
-		}
+		if (buf_require)
+			ret = mtk_cam_ctx_img_working_buf_pool_init(ctx, buf_require, buf_size);
 
 		if (ret) {
 			dev_info(cam->dev, "failed to reserve DMA memory:%d\n", ret);
