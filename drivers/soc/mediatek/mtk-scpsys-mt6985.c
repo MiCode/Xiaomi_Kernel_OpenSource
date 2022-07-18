@@ -509,8 +509,7 @@ static const struct scp_domain_data scp_domain_mt6985_spm_data[] = {
 		.hwv_clr_sta_ofs = 0x1470,
 		.hwv_shift = 11,
 		.basic_clk_name = {"isp"},
-		.ipi_shift = 1,
-		.caps = MTK_SCPD_IPI_OPS,
+		.caps = MTK_SCPD_HWV_OPS,
 	},
 	[MT6985_POWER_DOMAIN_ISP_DIP1] = {
 		.name = "isp_dip1",
@@ -543,9 +542,8 @@ static const struct scp_domain_data scp_domain_mt6985_spm_data[] = {
 		.hwv_set_sta_ofs = 0x146C,
 		.hwv_clr_sta_ofs = 0x1470,
 		.hwv_shift = 10,
-		.ipi_shift = 2,
 		.basic_clk_name = {"vde"},
-		.caps = MTK_SCPD_IPI_OPS,
+		.caps = MTK_SCPD_HWV_OPS,
 	},
 	[MT6985_POWER_DOMAIN_VDE1] = {
 		.name = "vde1",
@@ -690,8 +688,7 @@ static const struct scp_domain_data scp_domain_mt6985_spm_data[] = {
 		.hwv_clr_sta_ofs = 0x1470,
 		.hwv_shift = 7,
 		.basic_clk_name = {"cam", "ccu", "ccu_ahb"},
-		.ipi_shift = 0,
-		.caps = MTK_SCPD_IPI_OPS,
+		.caps = MTK_SCPD_HWV_OPS,
 	},
 	[MT6985_POWER_DOMAIN_MDP0_SHUTDOWN] = {
 		.name = "mdp0_shutdown",

@@ -152,14 +152,8 @@ struct apu_callbacks {
 	int (*apu_power_off)(void);
 };
 
-struct ipi_callbacks {
-	int (*power_on)(const u8 mtcmos_idx);
-	int (*power_off)(const u8 mtcmos_idx);
-};
-
 /* register new apu_callbacks and return previous apu_callbacks. */
 extern void register_apu_callback(struct apu_callbacks *apucb);
-extern void register_ipi_mtcmos_callback(struct ipi_callbacks *pwr_cb);
 
 int register_scpsys_notifier(struct notifier_block *nb);
 int unregister_scpsys_notifier(struct notifier_block *nb);
