@@ -2715,7 +2715,9 @@ static int mtk_cam_req_update_ctrl(struct mtk_raw_pipeline *raw_pipe,
 		s_data->feature.switch_feature_type,
 		raw_pipe->sensor_mode_update);
 
-	if (raw_pipe->sensor_mode_update)
+	/* change sensor mode for non-stagger seamless switch scenarios */
+	if (raw_pipe->sensor_mode_update &&
+	    s_data->feature.switch_feature_type == EXPOSURE_CHANGE_NONE)
 		s_data->flags |= MTK_CAM_REQ_S_DATA_FLAG_SENSOR_MODE_UPDATE_T1;
 
 	mtk_cam_tg_flash_req_update(raw_pipe, s_data);
