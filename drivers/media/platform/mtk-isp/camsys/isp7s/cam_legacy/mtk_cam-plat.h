@@ -108,7 +108,8 @@ struct plat_v4l2_data {
 	int timestamp_buffer_ofst;
 	bool support_afo_independent;
 
-	int (*set_meta_stats_info)(int ipi_id, void *addr, unsigned int pdo_max_size);
+	int (*set_meta_stats_info)(int ipi_id, void *addr, unsigned int pdo_max_size,
+							   bool is_rgbw);
 
 	int (*set_sv_meta_stats_info)(int ipi_id, void *addr, struct dma_info *info);
 

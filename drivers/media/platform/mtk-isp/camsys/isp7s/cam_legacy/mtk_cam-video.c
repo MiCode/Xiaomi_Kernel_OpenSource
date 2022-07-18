@@ -806,7 +806,8 @@ static void mtk_cam_vb2_buf_queue(struct vb2_buffer *vb)
 			if (pde_cfg->pde_info[CAM_SET_CTRL].pd_table_offset)
 				pdo_max_sz = pde_cfg->pde_info[CAM_SET_CTRL].pdo_max_size;
 		}
-		CALL_PLAT_V4L2(set_meta_stats_info, dma_port, vaddr, pdo_max_sz);
+		CALL_PLAT_V4L2(set_meta_stats_info, dma_port, vaddr, pdo_max_sz,
+			mtk_cam_scen_is_rgbw_enabled(req_stream_data->feature.scen));
 		break;
 	default:
 		dev_dbg(dev, "%s:pipe(%d):buffer with invalid port(%d)\n",

@@ -38,8 +38,9 @@
 
 #define RAW_STATS_0_SIZE \
 	ALIGN(RAW_STAT_0_STRUCT_SIZE + \
-	      RAW_STAT_0_BUF_SIZE_RGBW_W \
-	      , (4 * SZ_1K))
+			RAW_STAT_0_BUF_SIZE_RGBW_BAYER + \
+			MTK_CAM_UAPI_FLK_MAX_BUF_SIZE \
+			, (4 * SZ_1K))
 
 #define RAW_STATS_0_SIZE_RGBW \
 	ALIGN(RAW_STAT_0_STRUCT_SIZE + \
@@ -72,52 +73,62 @@ static void set_payload(struct mtk_cam_uapi_meta_hw_buf *buf,
 }
 
 static int set_meta_stat0_info(struct mtk_cam_uapi_meta_raw_stats_0 *stats,
-	unsigned int pdo_max_size)
+	unsigned int pdo_max_size, bool is_rgbw)
 {
 	size_t offset = sizeof(*stats);
 
 	set_payload(&stats->ae_awb_stats.aao_buf,
 		    MTK_CAM_UAPI_AAO_MAX_BUF_SIZE, &offset);
 	set_payload(&stats->ae_awb_stats.aaho_buf,
-		    MTK_CAM_UAPI_AAHO_MAX_BUF_SIZE, &offset);
+			(is_rgbw) ? MTK_CAM_UAPI_AAHO_HIST_SIZE :
+				MTK_CAM_UAPI_AAHO_MAX_BUF_SIZE,
+			&offset);
 	set_payload(&stats->ltm_stats.ltmso_buf,
 		    MTK_CAM_UAPI_LTMSO_SIZE, &offset);
 	set_payload(&stats->ltm_stats.ltmsho_buf,
 		    MTK_CAM_UAPI_LTMSHO_SIZE, &offset);
 	set_payload(&stats->flk_stats.flko_buf,
-		    MTK_CAM_UAPI_FLK_MAX_BUF_SIZE, &offset);
+			(is_rgbw) ? 0 : MTK_CAM_UAPI_FLK_MAX_BUF_SIZE,
+			&offset);
 	set_payload(&stats->tsf_stats.tsfo_r1_buf,
 		    MTK_CAM_UAPI_TSFSO_SIZE, &offset);
 	set_payload(&stats->tsf_stats.tsfo_r2_buf,
 		    MTK_CAM_UAPI_TSFSO_SIZE, &offset);
 	set_payload(&stats->tcys_stats.tcyso_buf,
 		    MTK_CAM_UAPI_TCYSO_SIZE, &offset);
-	if (pdo_max_size > 0)
-		set_payload(&stats->pde_stats.pdo_buf, pdo_max_size, &offset);
+	set_payload(&stats->pde_stats.pdo_buf, pdo_max_size, &offset);
 
 	/* w part */
 	set_payload(&stats->ae_awb_stats_w.aao_buf,
-				MTK_CAM_UAPI_AAO_MAX_BUF_SIZE, &offset);
+				(is_rgbw) ? MTK_CAM_UAPI_AAO_MAX_BUF_SIZE : 0,
+				&offset);
 	set_payload(&stats->ae_awb_stats_w.aaho_buf,
-				MTK_CAM_UAPI_AAHO_MAX_BUF_SIZE, &offset);
+				(is_rgbw) ? MTK_CAM_UAPI_AAHO_HIST_SIZE : 0,
+				&offset);
 	set_payload(&stats->ltm_stats_w.ltmso_buf,
-				MTK_CAM_UAPI_LTMSO_SIZE, &offset);
+				(is_rgbw) ? MTK_CAM_UAPI_LTMSO_SIZE : 0,
+				&offset);
 	set_payload(&stats->ltm_stats_w.ltmsho_buf,
-				MTK_CAM_UAPI_LTMSHO_SIZE, &offset);
-	set_payload(&stats->flk_stats_w.flko_buf, 0, &offset);
+				(is_rgbw) ? MTK_CAM_UAPI_LTMSHO_SIZE : 0,
+				&offset);
+	set_payload(&stats->flk_stats_w.flko_buf,
+				(is_rgbw) ? MTK_CAM_UAPI_FLK_MAX_BUF_SIZE : 0,
+				&offset);
 	set_payload(&stats->tsf_stats_w.tsfo_r1_buf,
-				MTK_CAM_UAPI_TSFSO_SIZE, &offset);
+				(is_rgbw) ? MTK_CAM_UAPI_TSFSO_SIZE : 0,
+				&offset);
 	set_payload(&stats->tsf_stats_w.tsfo_r2_buf,
-				MTK_CAM_UAPI_TSFSO_SIZE, &offset);
+				(is_rgbw) ? MTK_CAM_UAPI_TSFSO_SIZE : 0,
+				&offset);
 	set_payload(&stats->tcys_stats_w.tcyso_buf,
-				MTK_CAM_UAPI_TCYSO_SIZE, &offset);
-	if (pdo_max_size > 0)
-		set_payload(&stats->pde_stats_w.pdo_buf, pdo_max_size, &offset);
+				(is_rgbw) ? MTK_CAM_UAPI_TCYSO_SIZE : 0,
+				&offset);
+	set_payload(&stats->pde_stats_w.pdo_buf, 0, &offset);
 
 	return 0;
 }
 
-static int set_meta_stat1_info(struct mtk_cam_uapi_meta_raw_stats_1 *stats)
+static int set_meta_stat1_info(struct mtk_cam_uapi_meta_raw_stats_1 *stats, bool is_rgbw)
 {
 	size_t offset = sizeof(*stats);
 
@@ -125,19 +136,22 @@ static int set_meta_stat1_info(struct mtk_cam_uapi_meta_raw_stats_1 *stats)
 		    MTK_CAM_UAPI_AFO_MAX_BUF_SIZE, &offset);
 
 	/* w part */
-	set_payload(&stats->af_stats_w.afo_buf, 0, &offset);
+	set_payload(&stats->af_stats_w.afo_buf,
+			(is_rgbw) ? MTK_CAM_UAPI_AFO_MAX_BUF_SIZE : 0,
+			&offset);
 
 	return 0;
 }
 
-static int set_meta_stats_info(int ipi_id, void *addr, unsigned int pdo_max_size)
+static int set_meta_stats_info(int ipi_id, void *addr, unsigned int pdo_max_size,
+				bool is_rgbw)
 {
 	if (WARN_ON(!addr))
 		return -1;
 
 	switch (ipi_id) {
-	case MTKCAM_IPI_RAW_META_STATS_0: return set_meta_stat0_info(addr, pdo_max_size);
-	case MTKCAM_IPI_RAW_META_STATS_1: return set_meta_stat1_info(addr);
+	case MTKCAM_IPI_RAW_META_STATS_0: return set_meta_stat0_info(addr, pdo_max_size, is_rgbw);
+	case MTKCAM_IPI_RAW_META_STATS_1: return set_meta_stat1_info(addr, is_rgbw);
 	default:
 		pr_info("%s: %s: not supported: %d\n",
 			__FILE__, __func__, ipi_id);
