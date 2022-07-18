@@ -1469,9 +1469,7 @@ int mtk_cam_sv_apply_all_buffers(struct mtk_cam_ctx *ctx)
 					(1 << ctx->sv_pipe[i]->id))
 					mtk_ctx_watchdog_start(ctx, 4, ctx->sv_pipe[i]->id);
 				else
-					if (buf_entry->s_data->pad_fmt_update &
-						(1 << MTK_CAMSV_SINK))
-						mtk_ctx_watchdog_stop(ctx, ctx->sv_pipe[i]->id);
+					mtk_ctx_watchdog_stop(ctx, ctx->sv_pipe[i]->id);
 			}
 		}
 	}

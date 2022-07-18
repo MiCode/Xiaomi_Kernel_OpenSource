@@ -9694,6 +9694,7 @@ static void mtk_cam_ctx_init(struct mtk_cam_ctx *ctx,
 	spin_lock_init(&ctx->streaming_lock);
 	spin_lock_init(&ctx->first_cq_lock);
 	spin_lock_init(&ctx->processing_img_buffer_list.lock);
+	spin_lock_init(&ctx->watchdog_pipe_lock);
 	mutex_init(&ctx->cleanup_lock);
 	mtk_ctx_watchdog_init(ctx);
 }

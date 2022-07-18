@@ -1096,10 +1096,9 @@ int mtk_cam_mraw_apply_all_buffers(struct mtk_cam_ctx *ctx)
 				buf_entry->mraw_cq_desc_size,
 				buf_entry->mraw_cq_desc_offset, 0);
 		} else {
-			if (buf_entry->s_data->pad_fmt_update & (1 << MTK_MRAW_SINK)) {
-				mtk_ctx_watchdog_stop(ctx, ctx->mraw_pipe[i]->id);
+			mtk_ctx_watchdog_stop(ctx, ctx->mraw_pipe[i]->id);
+			if (buf_entry->s_data->pad_fmt_update & (1 << MTK_MRAW_SINK))
 				mtk_cam_mraw_vf_on(mraw_dev, 0);
-			}
 		}
 	}
 
