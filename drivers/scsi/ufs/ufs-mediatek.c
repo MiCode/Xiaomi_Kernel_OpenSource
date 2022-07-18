@@ -2498,15 +2498,25 @@ static void ufs_mtk_clk_scale(struct ufs_hba *hba, bool scale_up)
 	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
 	struct ufs_mtk_clk *mclk = &host->mclk;
 	struct ufs_clk_info *clki = mclk->ufs_sel_clki;
+	int ret = 0;
 
-	clk_prepare_enable(clki->clk);
+	ret = clk_prepare_enable(clki->clk);
+	if (ret) {
+		dev_info(hba->dev, "clk_prepare_enable() fail, ret = %d\n", ret);
+		return;
+	}
+
 	if (scale_up) {
-		clk_set_parent(clki->clk, mclk->ufs_sel_max_clki->clk);
+		ret = clk_set_parent(clki->clk, mclk->ufs_sel_max_clki->clk);
 		clki->curr_freq = clki->max_freq;
 	} else {
-		clk_set_parent(clki->clk, mclk->ufs_sel_min_clki->clk);
+		ret = clk_set_parent(clki->clk, mclk->ufs_sel_min_clki->clk);
 		clki->curr_freq = clki->min_freq;
 	}
+
+	if (ret)
+		dev_info(hba->dev, "Failed to set ufs_sel_clki, ret = %d\n", ret);
+
 	clk_disable_unprepare(clki->clk);
 
 	trace_ufs_mtk_clk_scale(clki->name, scale_up, clk_get_rate(clki->clk));
