@@ -11100,6 +11100,11 @@
 		reg = <0 0x14408000 0 0x1000>;
 		interrupts = <GIC_SPI 393 IRQ_TYPE_LEVEL_HIGH 0>;
 		clocks = <&ovlsys_config_clk CLK_OVL_DISP_WDMA0>;
+		fifo-size-1plane = <679>;
+		fifo-size-2plane = <448>;
+		fifo-size-uv-2plane = <224>;
+		fifo-size-3plane = <445>;
+		fifo-size-uv-3plane = <110>;
 		mediatek,larb = <&smi_larb0>;
 		mediatek,smi-id = <0>;
 		iommus = <&disp_iommu M4U_PORT_L0_DISP_WDMA0>;
@@ -11111,6 +11116,11 @@
 		reg = <0 0x1401c000 0 0x1000>;
 		interrupts = <GIC_SPI 382 IRQ_TYPE_LEVEL_HIGH 0>;
 		clocks = <&dispsys_config_clk CLK_MM_DISP_WDMA1>;
+		fifo-size-1plane = <906>;
+		fifo-size-2plane = <599>;
+		fifo-size-uv-2plane = <229>;
+		fifo-size-3plane = <596>;
+		fifo-size-uv-3plane = <148>;
 		mediatek,larb = <&smi_larb32>;
 		mediatek,smi-id = <32>;
 		iommus = <&disp_iommu M4U_PORT_L32_DISP_WDMA1>;
@@ -11122,6 +11132,11 @@
 		reg = <0 0x1440a000 0 0x1000>;
 		interrupts = <GIC_SPI 395 IRQ_TYPE_LEVEL_HIGH 0>;
 		clocks = <&ovlsys_config_clk CLK_OVL_DISP_WDMA2>;
+		fifo-size-1plane = <109>;
+		fifo-size-2plane = <0>;
+		fifo-size-uv-2plane = <0>;
+		fifo-size-3plane = <0>;
+		fifo-size-uv-3plane = <0>;
 		mediatek,larb = <&smi_larb1>;
 		mediatek,smi-id = <1>;
 		iommus = <&disp_iommu M4U_PORT_L1_DISP_WDMA2>;
@@ -11133,6 +11148,11 @@
 		reg = <0 0x14608000 0 0x1000>;
 		interrupts = <GIC_SPI 437 IRQ_TYPE_LEVEL_HIGH 0>;
 		clocks = <&ovlsys1_config_clk CLK_OVL1_DISP_WDMA0>;
+		fifo-size-1plane = <679>;
+		fifo-size-2plane = <448>;
+		fifo-size-uv-2plane = <224>;
+		fifo-size-3plane = <445>;
+		fifo-size-uv-3plane = <110>;
 		mediatek,larb = <&smi_larb20>;
 		mediatek,smi-id = <20>;
 		iommus = <&disp_iommu M4U_PORT_L20_DISP_WDMA0>;
@@ -11144,6 +11164,11 @@
 		reg = <0 0x1421c000 0 0x1000>;
 		interrupts = <GIC_SPI 426 IRQ_TYPE_LEVEL_HIGH 0>;
 		clocks = <&dispsys1_config_clk CLK_MM1_DISP_WDMA1>;
+		fifo-size-1plane = <906>;
+		fifo-size-2plane = <599>;
+		fifo-size-uv-2plane = <229>;
+		fifo-size-3plane = <596>;
+		fifo-size-uv-3plane = <148>;
 		mediatek,larb = <&smi_larb33>;
 		mediatek,smi-id = <33>;
 		iommus = <&disp_iommu M4U_PORT_L33_DISP_WDMA1>;
@@ -11155,12 +11180,18 @@
 		reg = <0 0x1460a000 0 0x1000>;
 		interrupts = <GIC_SPI 439 IRQ_TYPE_LEVEL_HIGH 0>;
 		clocks = <&ovlsys1_config_clk CLK_OVL1_DISP_WDMA2>;
+		fifo-size-1plane = <109>;
+		fifo-size-2plane = <0>;
+		fifo-size-uv-2plane = <0>;
+		fifo-size-3plane = <0>;
+		fifo-size-uv-3plane = <0>;
 		mediatek,larb = <&smi_larb21>;
 		mediatek,smi-id = <21>;
 		iommus = <&disp_iommu M4U_PORT_L21_DISP_WDMA2>;
 	};
 
 	disp_ufbc_wdma0: disp-ufbc-wdma0@1401a000 {
+		status = "disabled";
 		compatible = "mediatek,disp_ufbc_wdma0",
 					"mediatek,mt6985-disp-wdma";
 		reg = <0 0x1401a000 0 0x1000>;
@@ -11172,6 +11203,7 @@
 	};
 
 	disp_ufbc_wdma1: disp-ufbc-wdma1@14409000 {
+		status = "disabled";
 		compatible = "mediatek,disp_ufbc_wdma1",
 					"mediatek,mt6985-disp-wdma";
 		reg = <0 0x14409000 0 0x1000>;
@@ -11183,6 +11215,7 @@
 	};
 
 	disp1_ufbc_wdma0: disp1-ufbc-wdma0@1421a000 {
+		status = "disabled";
 		compatible = "mediatek,disp1_ufbc_wdma0",
 					"mediatek,mt6985-disp-wdma";
 		reg = <0 0x1421a000 0 0x1000>;
@@ -11194,6 +11227,7 @@
 	};
 
 	disp1_ufbc_wdma1: disp1-ufbc-wdma1@14609000 {
+		status = "disabled";
 		compatible = "mediatek,disp1_ufbc_wdma1",
 					"mediatek,mt6985-disp-wdma";
 		reg = <0 0x14609000 0 0x1000>;
