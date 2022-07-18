@@ -669,11 +669,15 @@ struct mtk_ddp_comp {
 	u8 cmdq_subsys;
 #endif
 	struct icc_path *qos_req;
+	struct icc_path *qos_req_other;
 	struct icc_path *fbdc_qos_req;
 	struct icc_path *hrt_qos_req;
+	struct icc_path *hrt_qos_req_other;
 	bool blank_mode;
 	u32 qos_bw;
+	u32 qos_bw_other;
 	u32 last_qos_bw;
+	u32 last_qos_bw_other;
 	u32 fbdc_bw;
 	u32 hrt_bw;
 };

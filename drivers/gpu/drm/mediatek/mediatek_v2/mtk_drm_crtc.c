@@ -9170,6 +9170,7 @@ static void mtk_drm_crtc_atomic_begin(struct drm_crtc *crtc,
 	/* reset BW */
 	for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j) {
 		comp->qos_bw = 0;
+		comp->qos_bw_other = 0;
 		comp->fbdc_bw = 0;
 		comp->hrt_bw = 0;
 	}
@@ -9178,6 +9179,7 @@ static void mtk_drm_crtc_atomic_begin(struct drm_crtc *crtc,
 
 	for_each_comp_in_dual_pipe(comp, mtk_crtc, i, j) {
 		comp->qos_bw = 0;
+		comp->qos_bw_other = 0;
 		comp->fbdc_bw = 0;
 		comp->hrt_bw = 0;
 	}

@@ -383,6 +383,7 @@ int mtk_dprec_mmp_dump_ovl_layer(struct mtk_plane_state *plane_state);
 #define MT6886_OVL1_2L_NWCG_AID_SEL		(0xB10UL)
 
 #define SMI_LARB_NON_SEC_CON        0x380
+#define DISP_REG_OVL_SMI_2ND_CFG	(0x8F0)
 
 #define MML_SRAM_SHIFT (512*1024)
 
@@ -1021,6 +1022,7 @@ static void mtk_ovl_stop(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 			comp->regs_pa + DISP_REG_OVL_RST, 0, ~0);
 
 	comp->qos_bw = 0;
+	comp->qos_bw_other = 0;
 	comp->fbdc_bw = 0;
 	DDPDBG("%s-\n", __func__);
 }
@@ -1109,7 +1111,6 @@ static void mtk_ovl_config(struct mtk_ddp_comp *comp,
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + DISP_REG_OVL_BURST_MON_CFG, bw_monitor_config, ~0);
 	}
-
 	mtk_ovl_golden_setting(comp, cfg, handle);
 }
 
@@ -1968,6 +1969,14 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			       comp->regs_pa + DISP_REG_OVL_EL0_CLR(id),
 			       dim_color, ~0);
+		/* ext layer is the same as attached phy layer */
+		if (!IS_ERR(comp->qos_req_other)) {
+			int val = (lye_idx % 2);
+
+			cmdq_pkt_write(handle, comp->cmdq_base,
+			       comp->regs_pa + DISP_REG_OVL_SMI_2ND_CFG,
+			       (val << (id + 4)), (1 << (id + 4)));
+		}
 	} else {
 		SET_VAL_MASK(value, mask, fmt_ex, FLD_Ln_CLRFMT_NB(lye_idx));
 		cmdq_pkt_write(handle, comp->cmdq_base,
@@ -2007,6 +2016,17 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			       comp->regs_pa + DISP_REG_OVL_L0_CLR(lye_idx),
 			       dim_color, ~0);
+		/*
+		 * layer0 --> larb0, layer1 --> larb1
+		 * layer2 --> larb0, layer3 --> larb1
+		 */
+		if (!IS_ERR(comp->qos_req_other)) {
+			int val = (lye_idx % 2);
+
+			cmdq_pkt_write(handle, comp->cmdq_base,
+			       comp->regs_pa + DISP_REG_OVL_SMI_2ND_CFG,
+			       (val << lye_idx), (1 << lye_idx));
+		}
 	}
 
 	if (pending->enable) {
@@ -2143,7 +2163,13 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 				comp->qos_bw += temp_bw;
 #else
 			/* so far only report one qos BW, no need to separate FBDC or normal BW */
-			comp->qos_bw += temp_bw;
+			if (!IS_ERR(comp->qos_req_other)) {
+				if (lye_idx % 2)
+					comp->qos_bw_other += temp_bw;
+				else
+					comp->qos_bw += temp_bw;
+			} else
+				comp->qos_bw += temp_bw;
 #endif
 		}
 	}
@@ -3385,6 +3411,8 @@ static int mtk_ovl_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 			break;
 
 		__mtk_disp_set_module_hrt(comp->hrt_qos_req, bw_val);
+		if (!IS_ERR(comp->hrt_qos_req_other))
+			__mtk_disp_set_module_hrt(comp->hrt_qos_req_other, bw_val);
 
 		ret = OVL_REQ_HRT;
 		break;
@@ -3406,14 +3434,23 @@ static int mtk_ovl_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		//			    DISP_BW_FBDC_MODE);
 
 		/* process normal */
-		if (comp->last_qos_bw == comp->qos_bw)
-			break;
+		if (comp->last_qos_bw == comp->qos_bw) {
+			if (IS_ERR(comp->qos_req_other) ||
+			    (comp->last_qos_bw_other == comp->qos_bw_other))
+				break;
+			goto other;
+		}
 		__mtk_disp_set_module_bw(comp->qos_req, comp->id, comp->qos_bw,
 					    DISP_BW_NORMAL_MODE);
 		comp->last_qos_bw = comp->qos_bw;
-
-		DDPDBG("update ovl fbdc_bw to %u, qos bw to %u\n",
-			comp->fbdc_bw, comp->qos_bw);
+other:
+		if (!IS_ERR(comp->qos_req_other)) {
+			__mtk_disp_set_module_bw(comp->qos_req_other, comp->id, comp->qos_bw_other,
+					    DISP_BW_NORMAL_MODE);
+			comp->last_qos_bw_other = comp->qos_bw_other;
+		}
+		DDPDBG("update ovl fbdc_bw to %u, qos bw to %u, %u\n",
+			comp->fbdc_bw, comp->qos_bw, comp->qos_bw_other);
 		break;
 	}
 	case OVL_REPLACE_BOOTUP_MVA: {
@@ -3648,6 +3685,7 @@ int mtk_ovl_dump(struct mtk_ddp_comp *comp)
 			mtk_cust_dump_reg(baddr, 0xFBC, 0xFCC, 0xFDC, -1);
 		}
 	} else {
+		DDPDUMP("0x8f0:0x%x\n", readl(DISP_REG_OVL_SMI_2ND_CFG + baddr));
 		/* STA, INTEN, INTSTA, EN*/
 		mtk_serial_dump_reg(baddr, 0x0, 4);
 
@@ -4175,12 +4213,24 @@ static int mtk_disp_ovl_bind(struct device *dev, struct device *master,
 		priv->ddp_comp.qos_req = of_mtk_icc_get(dev, buf);
 
 		mtk_disp_pmqos_get_icc_path_name(buf, sizeof(buf),
+						&priv->ddp_comp, "qos_other");
+		priv->ddp_comp.qos_req_other = of_mtk_icc_get(dev, buf);
+		if (!IS_ERR(priv->ddp_comp.qos_req_other))
+			DDPMSG("%s, %s create success, dev:%s\n", __func__, buf, dev_name(dev));
+
+		mtk_disp_pmqos_get_icc_path_name(buf, sizeof(buf),
 						&priv->ddp_comp, "fbdc_qos");
 		priv->ddp_comp.fbdc_qos_req = of_mtk_icc_get(dev, buf);
 
 		mtk_disp_pmqos_get_icc_path_name(buf, sizeof(buf),
 						&priv->ddp_comp, "hrt_qos");
 		priv->ddp_comp.hrt_qos_req = of_mtk_icc_get(dev, buf);
+
+		mtk_disp_pmqos_get_icc_path_name(buf, sizeof(buf),
+						&priv->ddp_comp, "hrt_qos_other");
+		priv->ddp_comp.hrt_qos_req_other = of_mtk_icc_get(dev, buf);
+		if (!IS_ERR(priv->ddp_comp.hrt_qos_req_other))
+			DDPMSG("%s, %s create success, dev:%s\n", __func__, buf, dev_name(dev));
 	}
 
 	baddr = priv->ddp_comp.regs;
