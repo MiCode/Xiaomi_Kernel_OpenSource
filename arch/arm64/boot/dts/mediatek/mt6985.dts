@@ -11280,6 +11280,7 @@
 		reg = <0 0x14018000 0 0x1000>;
 		interrupts = <GIC_SPI 378 IRQ_TYPE_LEVEL_HIGH 0>;
 		clocks = <&dispsys_config_clk CLK_MM_DISP_TDSHP0>;
+		mtk-tdshp-clarity-support = <1>;
 	};
 
 	disp_tdshp0_1: disp_tdshp@14019000 {
@@ -11400,6 +11401,7 @@
 		aal_dre3 = <&disp_mdp_aal0>;
 		mtk_aal_support = <1>;
 		mtk_dre30_support = <1>;
+		mtk-aal-clarity-support = <1>;
 	};
 
 	disp_aal1: disp_aal@14202000 {
