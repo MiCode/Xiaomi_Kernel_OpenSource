@@ -7,8 +7,12 @@
 #define _TRACE_HOOK_CGROUP_H
 #include <trace/hooks/vendor_hooks.h>
 
+#ifndef __GENKSYMS__
+struct cgroup_taskset;
+#else
 /* struct cgroup_taskset */
 #include <../kernel/cgroup/cgroup-internal.h>
+#endif
 /* struct cgroup_subsys */
 #include <linux/cgroup-defs.h>
 /* struct task_struct */
@@ -31,6 +35,9 @@ DECLARE_HOOK(android_rvh_memcgv2_init,
 DECLARE_HOOK(android_rvh_memcgv2_calc_decayed_watermark,
 	TP_PROTO(struct mem_cgroup *memcg),
 	TP_ARGS(memcg));
+DECLARE_RESTRICTED_HOOK(android_rvh_cpuset_fork,
+	TP_PROTO(struct task_struct *p, int *inherit_cpus),
+	TP_ARGS(p, inherit_cpus), 1);
 
 struct page_counter;
 DECLARE_HOOK(android_rvh_update_watermark,
