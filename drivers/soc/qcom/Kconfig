@@ -180,8 +180,14 @@ config QCOM_LLCC_PERFMON
 	  performance events.
 
 config QCOM_MDT_LOADER
-	tristate
+	tristate "Qualcomm Technologies, Inc. MDT Loader driver"
 	select QCOM_SCM
+	help
+	  This option is used to enable mdt_loader driver which can be used
+	  to load image files of certain subsystems into memory, authenticate
+	  and bring it out of reset.
+
+	  Say yes to support this driver.
 
 config QCOM_OCMEM
 	tristate "Qualcomm On Chip Memory (OCMEM) driver"
