@@ -53,6 +53,8 @@ struct bus_parity_elem {
 	void __iomem *base;
 	unsigned int type;
 	unsigned int data_len;
+	unsigned int rd0_wd0_offset;
+	unsigned int fail_bit_shift;
 	union bus_parity_err bpr;
 };
 
@@ -303,7 +305,7 @@ static irqreturn_t mcu_bp_isr(int irq, void *dev_id)
 
 	status = readl(mcu_bp.parity_sta);
 	for (i = 0; i < mcu_bp.nr_bpm; i++) {
-		if (status & (0x1<<i)) {
+		if (status & (0x1<<mcu_bp.bpm[i].fail_bit_shift)) {
 			bpm = &mcu_bp.bpm[i];
 			bpr = &mcu_bp.bpm[i].bpr;
 
@@ -313,7 +315,7 @@ static irqreturn_t mcu_bp_isr(int irq, void *dev_id)
 				bpr->mst.rid = readl(bpm->base+0x8);
 				for (j = 0; j < bpm->data_len; j++)
 					bpr->mst.rdata[j] =
-						readl(bpm->base+0x10+(j<<2));
+						readl(bpm->base+bpm->rd0_wd0_offset+(j<<2));
 			} else {
 				bpr->slv.is_err = true;
 				bpr->slv.parity_data = readl(bpm->base+0x4);
@@ -324,21 +326,9 @@ static irqreturn_t mcu_bp_isr(int irq, void *dev_id)
 				bpr->slv.araddr[0] = readl(bpm->base+0x18);
 				bpr->slv.araddr[1] = readl(bpm->base+0x1C);
 				bpr->slv.wid = readl(bpm->base+0x20);
-				if (bpm->data_len == 2) {
-					bpr->slv.wdata[0] =
-						readl(bpm->base+0x28);
-					bpr->slv.wdata[1] =
-						readl(bpm->base+0x2C);
-				} else {
-					bpr->slv.wdata[0] =
-						readl(bpm->base+0x30);
-					bpr->slv.wdata[1] =
-						readl(bpm->base+0x34);
-					bpr->slv.wdata[2] =
-						readl(bpm->base+0x38);
-					bpr->slv.wdata[3] =
-						readl(bpm->base+0x3C);
-				}
+				for (j = 0; j < bpm->data_len; j++)
+					bpr->slv.wdata[j] =
+						readl(bpm->base+bpm->rd0_wd0_offset+(j<<2));
 			}
 		} else
 			continue;
@@ -383,11 +373,11 @@ static irqreturn_t infra_bp_isr(int irq, void *dev_id)
 			bpm = &infra_bp.bpm[i];
 			bpr = &infra_bp.bpm[i].bpr;
 
-			if (!bpm->type) {
+			if (!bpm->type) { /* infra master */
 				bpr->mst.is_err = true;
 				bpr->mst.parity_data = (status << 1) >> 16;
 				bpr->mst.rid = readl(bpm->base+0x4);
-			} else {
+			} else if (bpm->type == 1) { /* infra slave */
 				bpr->slv.is_err = true;
 				bpr->slv.parity_data = (status << 1) >> 10;
 				bpr->slv.awaddr[0] = readl(bpm->base+0x4);
@@ -399,6 +389,16 @@ static irqreturn_t infra_bp_isr(int irq, void *dev_id)
 				status = readl(bpm->base+0x10);
 				bpr->slv.araddr[1] = (status << 27) >> 27;
 				bpr->slv.arid = (status << 14) >> 19;
+			} else if (bpm->type == 2) { /* emi slave */
+				bpr->slv.is_err = true;
+				bpr->slv.parity_data = (status << 1) >> 4;
+				bpr->slv.araddr[0] = readl(bpm->base+0x4);
+				bpr->slv.arid = readl(bpm->base+0x8);
+				bpr->slv.araddr[1] = readl(bpm->base+0xC);
+				bpr->slv.wid = readl(bpm->base+0x10);
+				bpr->slv.awaddr[0] = readl(bpm->base+0x14);
+				bpr->slv.awid = readl(bpm->base+0x18);
+				bpr->slv.awaddr[1] = readl(bpm->base+0x1C);
 			}
 		} else {
 			check_count++;
@@ -546,10 +546,28 @@ static int bus_parity_probe(struct platform_device *pdev)
 	}
 
 	for (i = 0; i < mcu_bp.nr_bpm; i++) {
+		ret = of_property_read_u32_index(np, "mcu-rd0wd0-offset", i,
+				&mcu_bp.bpm[i].rd0_wd0_offset);
+		if (ret) {
+			dev_notice(dev, "can't read mcu-rd0-offset(%d)\n", ret);
+			mcu_bp.bpm[i].rd0_wd0_offset = 0x10;
+		}
+	}
+
+	for (i = 0; i < mcu_bp.nr_bpm; i++) {
+		ret = of_property_read_u32_index(np, "mcu-fail-bit-shift", i,
+		&mcu_bp.bpm[i].fail_bit_shift);
+		if (ret) {
+			dev_notice(dev, "can't read mcu-fail-bit-shift(%d)\n", ret);
+			mcu_bp.bpm[i].fail_bit_shift = i;
+		}
+	}
+
+	for (i = 0; i < mcu_bp.nr_bpm; i++) {
 		ret = of_property_read_u32_index(np, "mcu-data-len", i,
 				&mcu_bp.bpm[i].data_len);
 		if (ret) {
-			dev_err(dev, "can't read mcu-data-len(%d)\n", ret);
+			dev_notice(dev, "can't read mcu-data-len(%d)\n", ret);
 			return ret;
 		}
 	}
