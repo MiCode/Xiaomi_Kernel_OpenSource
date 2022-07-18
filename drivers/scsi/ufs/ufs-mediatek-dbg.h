@@ -94,6 +94,15 @@ struct utp_cmd_struct {
 	u64 lba;
 };
 
+struct dev_cmd_struct {
+	u8 type;
+	u8 opcode;
+	u8 idn;
+	u8 index;
+	u8 selector;
+	u16 tag;
+};
+
 struct uic_cmd_struct {
 	u8 cmd;
 	u32 arg1;
@@ -121,6 +130,7 @@ struct cmd_hist_struct {
 	u64 duration;
 	union {
 		struct tm_cmd_struct tm;
+		struct dev_cmd_struct dev;
 		struct utp_cmd_struct utp;
 		struct uic_cmd_struct uic;
 		struct clk_gating_event_struct clk_gating;
@@ -132,7 +142,6 @@ struct ufs_mtk_clk_scaling_attr {
 	struct device_attribute downdifferential;
 	struct device_attribute upthreshold;
 };
-
 
 int ufs_mtk_dbg_register(struct ufs_hba *hba);
 void ufs_mtk_dbg_dump(u32 latest_cnt);

@@ -70,7 +70,7 @@ static void ufs_mtk_dbg_print_err_hist(char **buff, unsigned long *size,
 		SPREAD_PRINTF(buff, size, m, "No record of %s\n", err_name);
 }
 
-void ufs_mtk_dbg_print_info(char **buff, unsigned long *size,
+static void ufs_mtk_dbg_print_info(char **buff, unsigned long *size,
 			    struct seq_file *m)
 {
 	struct ufs_mtk_host *host;
@@ -211,13 +211,27 @@ void ufs_mtk_dbg_print_info(char **buff, unsigned long *size,
 			      UFS_EVT_ABORT, "task_abort");
 }
 
-static int cmd_hist_advance_ptr(void)
+static int cmd_hist_get_entry(void)
 {
+	unsigned long flags;
+	unsigned int ptr;
+
+	spin_lock_irqsave(&cmd_hist_lock, flags);
 	cmd_hist_ptr++;
 	if (cmd_hist_ptr >= MAX_CMD_HIST_ENTRY_CNT)
 		cmd_hist_ptr = 0;
+	ptr = cmd_hist_ptr;
+	spin_unlock_irqrestore(&cmd_hist_lock, flags);
 
-	return cmd_hist_ptr;
+	cmd_hist_cnt++;
+
+	/* Initialize common fields */
+	cmd_hist[ptr].cpu = smp_processor_id();
+	cmd_hist[ptr].duration = 0;
+	cmd_hist[ptr].pid = current->pid;
+	cmd_hist[ptr].time = sched_clock();
+
+	return ptr;
 }
 
 static int cmd_hist_get_prev_ptr(int ptr)
@@ -228,36 +242,17 @@ static int cmd_hist_get_prev_ptr(int ptr)
 		return (ptr - 1);
 }
 
-static bool cmd_hist_ptr_is_wraparound(int ptr)
-{
-	if (cmd_hist_ptr == 0) {
-		if (ptr == (MAX_CMD_HIST_ENTRY_CNT - 1))
-			return true;
-	} else {
-		if (ptr == (cmd_hist_ptr - 1))
-			return true;
-	}
-	return false;
-}
-
-
-static void cmd_hist_init_common_info(int ptr)
-{
-	cmd_hist[ptr].cpu = smp_processor_id();
-	cmd_hist[ptr].duration = 0;
-	cmd_hist[ptr].pid = current->pid;
-	cmd_hist[ptr].time = sched_clock();
-}
-
 static void probe_android_vh_ufs_send_tm_command(void *data, struct ufs_hba *hba,
 						 int tag, int str_t)
 {
 	u8 tm_func;
 	int ptr, lun, task_tag;
-	unsigned long flags;
 	enum cmd_hist_event event = CMD_UNKNOWN;
 	enum ufs_trace_str_t _str_t = str_t;
 	struct utp_task_req_desc *d = &hba->utmrdl_base_addr[tag];
+
+	if (!cmd_hist_enabled)
+		return;
 
 	lun = (be32_to_cpu(d->header.dword_0) >> 8) & 0xFF;
 	task_tag = be32_to_cpu(d->header.dword_0) & 0xFF;
@@ -278,60 +273,84 @@ static void probe_android_vh_ufs_send_tm_command(void *data, struct ufs_hba *hba
 		break;
 	}
 
-	spin_lock_irqsave(&cmd_hist_lock, flags);
+	ptr = cmd_hist_get_entry();
 
-	if (!cmd_hist_enabled)
-		goto out_unlock;
-
-	ptr = cmd_hist_advance_ptr();
-
-	cmd_hist_init_common_info(ptr);
 	cmd_hist[ptr].event = event;
 	cmd_hist[ptr].cmd.tm.lun = lun;
 	cmd_hist[ptr].cmd.tm.tag = tag;
 	cmd_hist[ptr].cmd.tm.task_tag = task_tag;
 	cmd_hist[ptr].cmd.tm.tm_func = tm_func;
-
-	if (cmd_hist_cnt <= MAX_CMD_HIST_ENTRY_CNT)
-		cmd_hist_cnt++;
-
-out_unlock:
-	spin_unlock_irqrestore(&cmd_hist_lock, flags);
 }
 
+static void cmd_hist_add_dev_cmd(struct ufs_hba *hba,
+				 struct ufshcd_lrb *lrbp,
+				 enum cmd_hist_event event)
+{
+	int ptr;
+
+	ptr = cmd_hist_get_entry();
+
+	cmd_hist[ptr].event = event;
+	cmd_hist[ptr].cmd.dev.type = hba->dev_cmd.type;
+
+	if (hba->dev_cmd.type == DEV_CMD_TYPE_NOP)
+		return;
+
+	cmd_hist[ptr].cmd.dev.tag = lrbp->task_tag;
+	cmd_hist[ptr].cmd.dev.opcode =
+		hba->dev_cmd.query.request.upiu_req.opcode;
+	cmd_hist[ptr].cmd.dev.idn =
+		hba->dev_cmd.query.request.upiu_req.idn;
+	cmd_hist[ptr].cmd.dev.index =
+		hba->dev_cmd.query.request.upiu_req.index;
+	cmd_hist[ptr].cmd.dev.selector =
+		hba->dev_cmd.query.request.upiu_req.selector;
+}
+
+static void probe_android_vh_ufs_send_command(void *data, struct ufs_hba *hba,
+					      struct ufshcd_lrb *lrbp)
+{
+	if (!cmd_hist_enabled)
+		return;
+
+	if (lrbp->cmd)
+		return;
+
+	cmd_hist_add_dev_cmd(hba, lrbp, CMD_DEV_SEND);
+}
+
+static void probe_android_vh_ufs_compl_command(void *data, struct ufs_hba *hba,
+					      struct ufshcd_lrb *lrbp)
+{
+	if (!cmd_hist_enabled)
+		return;
+
+	if (lrbp->cmd)
+		return;
+
+	cmd_hist_add_dev_cmd(hba, lrbp, CMD_DEV_COMPLETED);
+}
 
 static void probe_ufshcd_command(void *data, const char *dev_name,
 				 enum ufs_trace_str_t str_t, unsigned int tag,
 				 u32 doorbell, int transfer_len,
 				 u32 intr, u64 lba, u8 opcode, u8 group_id)
 {
-	int ptr;
-	unsigned long flags;
+	int ptr, ptr_cur;
 	enum cmd_hist_event event;
 
-	spin_lock_irqsave(&cmd_hist_lock, flags);
-
 	if (!cmd_hist_enabled)
-		goto out_unlock;
+		return;
 
-	ptr = cmd_hist_advance_ptr();
-
-	switch (str_t){
-	case UFS_CMD_SEND:
+	if (str_t == UFS_CMD_SEND)
 		event = CMD_SEND;
-		break;
-	case UFS_CMD_COMP:
+	else if (str_t == UFS_CMD_COMP)
 		event = CMD_COMPLETED;
-		break;
-	case UFS_DEV_COMP:
-		event = CMD_DEV_COMPLETED;
-		break;
-	default:
-		event = CMD_GENERIC;
-		break;
-	}
+	else
+		return;
 
-	cmd_hist_init_common_info(ptr);
+	ptr = cmd_hist_get_entry();
+
 	cmd_hist[ptr].event = event;
 	cmd_hist[ptr].cmd.utp.tag = tag;
 	cmd_hist[ptr].cmd.utp.transfer_len = transfer_len;
@@ -344,8 +363,9 @@ static void probe_ufshcd_command(void *data, const char *dev_name,
 	cmd_hist[ptr].cmd.utp.crypt_en = 0;
 	cmd_hist[ptr].cmd.utp.crypt_keyslot = 0;
 
-	if (event == CMD_COMPLETED || event == CMD_DEV_COMPLETED) {
-		ptr = cmd_hist_get_prev_ptr(cmd_hist_ptr);
+	if (event == CMD_COMPLETED) {
+		ptr_cur = ptr;
+		ptr = cmd_hist_get_prev_ptr(ptr);
 		while (1) {
 			if (cmd_hist[ptr].cmd.utp.tag == tag) {
 				cmd_hist[cmd_hist_ptr].duration =
@@ -354,39 +374,29 @@ static void probe_ufshcd_command(void *data, const char *dev_name,
 				break;
 			}
 			ptr = cmd_hist_get_prev_ptr(ptr);
-			if (cmd_hist_ptr_is_wraparound(ptr))
+			if (ptr == ptr_cur)
 				break;
 		}
 	}
-
-	if (cmd_hist_cnt <= MAX_CMD_HIST_ENTRY_CNT)
-		cmd_hist_cnt++;
-
-out_unlock:
-	spin_unlock_irqrestore(&cmd_hist_lock, flags);
 }
 
 static void probe_ufshcd_uic_command(void *data, const char *dev_name,
 				     enum ufs_trace_str_t str_t, u32 cmd,
 				     u32 arg1, u32 arg2, u32 arg3)
 {
-	int ptr;
-	unsigned long flags;
+	int ptr, ptr_cur;
 	enum cmd_hist_event event;
 
-	spin_lock_irqsave(&cmd_hist_lock, flags);
-
 	if (!cmd_hist_enabled)
-		goto out_unlock;
+		return;
 
-	ptr = cmd_hist_advance_ptr();
+	ptr = cmd_hist_get_entry();
 
 	if (str_t == UFS_CMD_SEND)
 		event = CMD_UIC_SEND;
 	else
 		event = CMD_UIC_CMPL_GENERAL;
 
-	cmd_hist_init_common_info(ptr);
 	cmd_hist[ptr].event = event;
 	cmd_hist[ptr].cmd.uic.cmd = cmd;
 	cmd_hist[ptr].cmd.uic.arg1 = arg1;
@@ -394,7 +404,8 @@ static void probe_ufshcd_uic_command(void *data, const char *dev_name,
 	cmd_hist[ptr].cmd.uic.arg3 = arg3;
 
 	if (event == CMD_UIC_CMPL_GENERAL) {
-		ptr = cmd_hist_get_prev_ptr(cmd_hist_ptr);
+		ptr_cur = ptr;
+		ptr = cmd_hist_get_prev_ptr(ptr);
 		while (1) {
 			if (cmd_hist[ptr].cmd.uic.cmd == cmd) {
 				cmd_hist[cmd_hist_ptr].duration =
@@ -403,39 +414,24 @@ static void probe_ufshcd_uic_command(void *data, const char *dev_name,
 				break;
 			}
 			ptr = cmd_hist_get_prev_ptr(ptr);
-			if (cmd_hist_ptr_is_wraparound(ptr))
+			if (ptr == ptr_cur)
 				break;
 		}
 	}
-	if (cmd_hist_cnt <= MAX_CMD_HIST_ENTRY_CNT)
-		cmd_hist_cnt++;
-
-out_unlock:
-	spin_unlock_irqrestore(&cmd_hist_lock, flags);
 }
 
 static void probe_ufshcd_clk_gating(void *data, const char *dev_name,
 				    int state)
 {
 	int ptr;
-	unsigned long flags;
-
-	spin_lock_irqsave(&cmd_hist_lock, flags);
 
 	if (!cmd_hist_enabled)
-		goto out_unlock;
+		return;
 
-	ptr = cmd_hist_advance_ptr();
+	ptr = cmd_hist_get_entry();
 
-	cmd_hist_init_common_info(ptr);
 	cmd_hist[ptr].event = CMD_CLK_GATING;
 	cmd_hist[ptr].cmd.clk_gating.state = state;
-
-	if (cmd_hist_cnt <= MAX_CMD_HIST_ENTRY_CNT)
-		cmd_hist_cnt++;
-
-out_unlock:
-	spin_unlock_irqrestore(&cmd_hist_lock, flags);
 }
 
 static void probe_ufshcd_pm(void *data, const char *dev_name,
@@ -444,28 +440,18 @@ static void probe_ufshcd_pm(void *data, const char *dev_name,
 			    enum ufsdbg_pm_state state)
 {
 	int ptr;
-	unsigned long flags;
-
-	spin_lock_irqsave(&cmd_hist_lock, flags);
 
 	if (!cmd_hist_enabled)
-		goto out_unlock;
+		return;
 
-	ptr = cmd_hist_advance_ptr();
+	ptr = cmd_hist_get_entry();
 
-	cmd_hist_init_common_info(ptr);
 	cmd_hist[ptr].event = CMD_PM;
 	cmd_hist[ptr].cmd.pm.state = state;
 	cmd_hist[ptr].cmd.pm.err = err;
 	cmd_hist[ptr].cmd.pm.time_us = time_us;
 	cmd_hist[ptr].cmd.pm.pwr_mode = pwr_mode;
 	cmd_hist[ptr].cmd.pm.link_state = link_state;
-
-	if (cmd_hist_cnt <= MAX_CMD_HIST_ENTRY_CNT)
-		cmd_hist_cnt++;
-
-out_unlock:
-	spin_unlock_irqrestore(&cmd_hist_lock, flags);
 }
 
 static void probe_ufshcd_runtime_suspend(void *data, const char *dev_name,
@@ -500,7 +486,7 @@ static void probe_ufshcd_system_resume(void *data, const char *dev_name,
 			UFSDBG_SYSTEM_RESUME);
 }
 
-/**
+/*
  * Data structures to store tracepoints information
  */
 struct tracepoints_table {
@@ -514,6 +500,14 @@ static struct tracepoints_table interests[] = {
 	{.name = "ufshcd_command", .func = probe_ufshcd_command},
 	{.name = "ufshcd_uic_command", .func = probe_ufshcd_uic_command},
 	{.name = "ufshcd_clk_gating", .func = probe_ufshcd_clk_gating},
+	{
+		.name = "android_vh_ufs_send_command",
+		.func = probe_android_vh_ufs_send_command
+	},
+	{
+		.name = "android_vh_ufs_compl_command",
+		.func = probe_android_vh_ufs_compl_command
+	},
 	{.name = "android_vh_ufs_send_tm_command", .func = probe_android_vh_ufs_send_tm_command},
 	{.name = "ufshcd_wl_runtime_suspend", .func = probe_ufshcd_runtime_suspend},
 	{.name = "ufshcd_wl_runtime_resume", .func = probe_ufshcd_runtime_resume},
@@ -525,7 +519,7 @@ static struct tracepoints_table interests[] = {
 	for (i = 0; i < sizeof(interests) / sizeof(struct tracepoints_table); \
 	i++)
 
-/**
+/*
  * Find the struct tracepoint* associated with a given tracepoint
  * name.
  */
@@ -632,7 +626,7 @@ static void ufs_mtk_dbg_print_pm_event(char **buff,
 
 	dur = ns_to_timespec64(cmd_hist[ptr].time);
 	SPREAD_PRINTF(buff, size, m,
-		"%3d-c(%d),%6llu.%lu,%5d,%2d,%3s, ret=%d, time_us=%8lld, pwr_mode=%d, link_status=%d\n",
+		"%3d-c(%d),%6llu.%lu,%5d,%2d,%3s, ret=%d, time_us=%8lu, pwr_mode=%d, link_status=%d\n",
 		ptr,
 		cmd_hist[ptr].cpu,
 		dur.tv_sec, dur.tv_nsec,
@@ -716,6 +710,29 @@ static void ufs_mtk_dbg_print_utp_event(char **buff, unsigned long *size,
 		);
 }
 
+static void ufs_mtk_dbg_print_dev_event(char **buff, unsigned long *size,
+				      struct seq_file *m, int ptr)
+{
+	struct timespec64 dur;
+
+	dur = ns_to_timespec64(cmd_hist[ptr].time);
+
+	SPREAD_PRINTF(buff, size, m,
+		"%3d-r(%d),%6llu.%lu,%5d,%2d,%4u,t=%2d,op:%u,idn:%u,idx:%u,sel:%u\n",
+		ptr,
+		cmd_hist[ptr].cpu,
+		dur.tv_sec, dur.tv_nsec,
+		cmd_hist[ptr].pid,
+		cmd_hist[ptr].event,
+		cmd_hist[ptr].cmd.dev.type,
+		cmd_hist[ptr].cmd.dev.tag,
+		cmd_hist[ptr].cmd.dev.opcode,
+		cmd_hist[ptr].cmd.dev.idn,
+		cmd_hist[ptr].cmd.dev.index,
+		cmd_hist[ptr].cmd.dev.selector
+		);
+}
+
 static void ufs_mtk_dbg_print_tm_event(char **buff, unsigned long *size,
 				   struct seq_file *m, int ptr)
 {
@@ -766,8 +783,10 @@ static void ufs_mtk_dbg_print_cmd_hist(char **buff, unsigned long *size,
 		      latest_cnt, cnt, ptr);
 
 	while (cnt) {
-		if (cmd_hist[ptr].event < CMD_TM_SEND)
+		if (cmd_hist[ptr].event < CMD_DEV_SEND)
 			ufs_mtk_dbg_print_utp_event(buff, size, m, ptr);
+		else if (cmd_hist[ptr].event < CMD_TM_SEND)
+			ufs_mtk_dbg_print_dev_event(buff, size, m, ptr);
 		else if (cmd_hist[ptr].event < CMD_UIC_SEND)
 			ufs_mtk_dbg_print_tm_event(buff, size, m, ptr);
 		else if (cmd_hist[ptr].event < CMD_REG_TOGGLE)
@@ -896,7 +915,7 @@ static const struct proc_ops ufs_debug_proc_fops = {
 	.proc_release = single_release,
 };
 
-int ufs_mtk_dbg_init_procfs(void)
+static int ufs_mtk_dbg_init_procfs(void)
 {
 	struct proc_dir_entry *prEntry;
 	kuid_t uid;
