@@ -236,10 +236,12 @@ static const struct proc_ops tmem_fops = {
 	.proc_write = tmem_write,
 };
 
+#if IS_ENABLED(CONFIG_TEST_MTK_TRUSTED_MEMORY)
 static void trusted_mem_create_proc_entry(void)
 {
 	proc_create("tmem0", 0664, NULL, &tmem_fops);
 }
+#endif
 
 #if IS_ENABLED(CONFIG_TEST_MTK_TRUSTED_MEMORY)
 #define UT_MULTITHREAD_TEST_DEFAULT_WAIT_COMPLETION_TIMEOUT_MS (900000)
