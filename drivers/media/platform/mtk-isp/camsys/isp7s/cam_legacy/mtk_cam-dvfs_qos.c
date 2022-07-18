@@ -271,13 +271,13 @@ opp_default_table:
 #define BW_B2KB_WITH_RATIO(value) ((value) * 4 / 3 / 1024)
 
 /* Watch out there is a mutex lock lying in sensor g_frame_interval */
-void mtk_cam_qos_bw_calc(struct mtk_cam_ctx *ctx, unsigned long raw_dmas, bool force)
+static void __mtk_cam_qos_bw_calc(struct mtk_cam_ctx *ctx, struct mtk_raw_device *raw_dev,
+						 unsigned long raw_dmas, bool force)
 {
 	struct mtk_cam_device *cam = ctx->cam;
 	struct mtk_camsys_dvfs *dvfs_info = &cam->camsys_ctrl.dvfs_info;
 	struct mtk_cam_video_device *vdev;
 	struct mtk_raw_pipeline *pipe = ctx->pipe;
-	struct mtk_raw_device *raw_dev = get_master_raw_dev(cam, pipe);
 	struct v4l2_subdev_frame_interval fi;
 	struct v4l2_subdev_format sd_fmt;
 	struct v4l2_ctrl *ctrl;
@@ -830,6 +830,45 @@ void mtk_cam_qos_bw_calc(struct mtk_cam_ctx *ctx, unsigned long raw_dmas, bool f
 #ifdef DVFS_QOS_READY
 	mtk_mmqos_wait_throttle_done();
 #endif
+}
+
+void mtk_cam_qos_bw_calc(struct mtk_cam_ctx *ctx, unsigned long raw_dmas, bool force)
+{
+	struct mtk_cam_device *cam = ctx->cam;
+	struct mtk_raw_pipeline *pipe = ctx->pipe;
+	struct mtk_raw_device *master_raw = get_master_raw_dev(cam, pipe);
+	struct mtk_raw_device *slave_raw = get_slave_raw_dev(cam, pipe);
+	unsigned long slave_raw_dmas = 0;
+	unsigned int i = 0;
+
+	__mtk_cam_qos_bw_calc(ctx, master_raw, raw_dmas, force);
+
+	if (slave_raw) {
+		for (i = 0; i < MTKCAM_IPI_RAW_ID_MAX; i++) {
+			if (!(raw_dmas & 1ULL<<i))
+				continue;
+
+			switch (i) {
+			case MTKCAM_IPI_RAW_IMGO_W:
+				slave_raw_dmas |= 1ULL << MTKCAM_IPI_RAW_IMGO;
+				break;
+			case MTKCAM_IPI_RAW_RAWI_2_W:
+				slave_raw_dmas |= 1ULL << MTKCAM_IPI_RAW_RAWI_2;
+				break;
+			case MTKCAM_IPI_RAW_RAWI_3_W:
+				slave_raw_dmas |= 1ULL << MTKCAM_IPI_RAW_RAWI_3;
+				break;
+			case MTKCAM_IPI_RAW_RAWI_5_W:
+				slave_raw_dmas |= 1ULL << MTKCAM_IPI_RAW_RAWI_5;
+				break;
+			default:
+				break;
+			}
+		}
+
+		if (slave_raw_dmas)
+			__mtk_cam_qos_bw_calc(ctx, slave_raw, slave_raw_dmas, force);
+	}
 }
 
 void mtk_cam_qos_sv_bw_calc(struct mtk_cam_ctx *ctx, bool force)

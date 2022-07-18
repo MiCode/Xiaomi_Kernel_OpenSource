@@ -3251,7 +3251,9 @@ int mtk_cam_raw_select(struct mtk_cam_ctx *ctx,
 		raw_status = ~(pipe->user_res.raw_res.raws);
 	}
 
-	if (mtk_cam_ctx_has_raw(ctx) && mtk_cam_scen_is_sensor_stagger(&ctx->pipe->scen_active)) {
+	if (mtk_cam_ctx_has_raw(ctx) &&
+		mtk_cam_scen_is_sensor_stagger(&ctx->pipe->scen_active) &&
+		!mtk_cam_scen_is_rgbw_enabled(&ctx->pipe->scen_active)) {
 		selected = mtk_cam_raw_stagger_select(ctx, pipe, raw_status);
 	} else if (mtk_cam_scen_is_time_shared(&ctx->pipe->scen_active)) {
 		int ts_id, ts_id_chk;

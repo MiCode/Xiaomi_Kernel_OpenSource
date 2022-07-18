@@ -3466,6 +3466,23 @@ static int mtk_cam_config_raw_img_out_imgo(struct mtk_cam_request_stream_data *s
 		mtk_cam_hdr_buf_update(vb, MSTREAM_M2M, req,
 				       node->uid.pipe_id,
 				       scen, cfg_fmt);
+	} else if (mtk_cam_scen_is_rgbw_enabled(scen)) {
+		// RGBW 1 exp
+		struct mtkcam_ipi_img_output *img_out_w =
+			&frame_param->img_outs[MTK_CAM_IMGO_W_IMG_OUT_IDX];
+
+		img_out_w->buf[0][0].iova =
+				buf->daddr + cfg_fmt->fmt.pix_mp.plane_fmt[0].sizeimage;
+		img_out_w->buf[0][0].ccd_fd = vb->planes[0].m.fd;
+
+		if (is_raw_ufo(pixelformat))
+			mtk_cam_fill_img_buf(img_out_w, cfg_fmt,
+				img_out_w->buf[0][0].iova);
+
+		dev_dbg(cam->dev,
+			 "%s:imgo iova 0x%x imgo_w iova 0x%x size %d\n",
+			 __func__, img_out->buf[0][0].iova, img_out_w->buf[0][0].iova,
+			 cfg_fmt->fmt.pix_mp.plane_fmt[0].sizeimage);
 	}
 
 	if (mtk_cam_scen_is_subsample(scen)) {
@@ -3489,24 +3506,6 @@ static int mtk_cam_config_raw_img_out_imgo(struct mtk_cam_request_stream_data *s
 			for (i = MAX_SUBSAMPLE_PLANE_NUM; i < 32; i++)
 				img_out->buf[i][0].iova =
 				buf->daddr + i * cfg_fmt->fmt.pix_mp.plane_fmt[0].sizeimage;
-	}
-
-	if (mtk_cam_scen_is_rgbw_enabled(scen)) {
-		struct mtkcam_ipi_img_output *img_out_w =
-			&frame_param->img_outs[MTK_CAM_IMGO_W_IMG_OUT_IDX];
-
-		img_out_w->buf[0][0].iova =
-				buf->daddr + cfg_fmt->fmt.pix_mp.plane_fmt[0].sizeimage;
-		img_out_w->buf[0][0].ccd_fd = vb->planes[0].m.fd;
-
-		if (is_raw_ufo(pixelformat))
-			mtk_cam_fill_img_buf(img_out_w, cfg_fmt,
-				img_out_w->buf[0][0].iova);
-
-		dev_info(cam->dev,
-			 "%s:imgo iova 0x%x imgo_w iova 0x%x size %d\n",
-			 __func__, img_out->buf[0][0].iova, img_out_w->buf[0][0].iova,
-			 cfg_fmt->fmt.pix_mp.plane_fmt[0].sizeimage);
 	}
 
 	return 0;
@@ -5444,7 +5443,7 @@ struct mtk_raw_device *get_master_raw_dev(struct mtk_cam_device *cam,
 struct mtk_raw_device *get_slave_raw_dev(struct mtk_cam_device *cam,
 					 struct mtk_raw_pipeline *pipe)
 {
-	struct device *dev_slave;
+	struct device *dev_slave = NULL;
 	unsigned int i;
 
 	for (i = 0; i < cam->num_raw_drivers - 1; i++) {
@@ -5454,13 +5453,13 @@ struct mtk_raw_device *get_slave_raw_dev(struct mtk_cam_device *cam,
 		}
 	}
 
-	return dev_get_drvdata(dev_slave);
+	return (dev_slave) ? dev_get_drvdata(dev_slave) : NULL;
 }
 
 struct mtk_raw_device *get_slave2_raw_dev(struct mtk_cam_device *cam,
 					  struct mtk_raw_pipeline *pipe)
 {
-	struct device *dev_slave;
+	struct device *dev_slave = NULL;
 	unsigned int i;
 
 	for (i = 0; i < cam->num_raw_drivers; i++) {
@@ -5470,7 +5469,7 @@ struct mtk_raw_device *get_slave2_raw_dev(struct mtk_cam_device *cam,
 		}
 	}
 
-	return dev_get_drvdata(dev_slave);
+	return (dev_slave) ? dev_get_drvdata(dev_slave) : NULL;
 }
 
 struct mtk_yuv_device *get_yuv_dev(struct mtk_raw_device *raw_dev)
