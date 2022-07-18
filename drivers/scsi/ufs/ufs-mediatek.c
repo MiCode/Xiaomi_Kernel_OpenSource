@@ -2040,10 +2040,10 @@ static int ufs_mtk_post_link(struct ufs_hba *hba)
 	/* enable unipro clock gating feature */
 	ufs_mtk_cfg_unipro_cg(hba, true);
 
-	/* configure auto-hibern8 timer to 2ms */
+	/* configure auto-hibern8 timer to 500 us */
 	if (ufshcd_is_auto_hibern8_supported(hba)) {
-		hba->ahit = FIELD_PREP(UFSHCI_AHIBERN8_TIMER_MASK, 2) |
-			    FIELD_PREP(UFSHCI_AHIBERN8_SCALE_MASK, 3);
+		hba->ahit = FIELD_PREP(UFSHCI_AHIBERN8_TIMER_MASK, 5) |
+			    FIELD_PREP(UFSHCI_AHIBERN8_SCALE_MASK, 2);
 	}
 
 	ufs_mtk_setup_clk_gating(hba);
