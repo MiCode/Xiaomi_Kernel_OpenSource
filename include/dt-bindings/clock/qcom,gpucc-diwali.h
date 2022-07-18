@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _DT_BINDINGS_CLK_QCOM_GPU_CC_DIWALI_H
@@ -54,5 +55,6 @@
 #define GPUCC_GPU_CC_GX_BCR				7
 #define GPUCC_GPU_CC_RBCPR_BCR				8
 #define GPUCC_GPU_CC_XO_BCR				9
+#define GPUCC_GPU_CC_FREQUENCY_LIMITER_IRQ_CLEAR	10
 
 #endif

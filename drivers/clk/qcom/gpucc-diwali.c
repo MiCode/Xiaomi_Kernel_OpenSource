@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/clk-provider.h>
@@ -642,6 +643,7 @@ static const struct qcom_reset_map gpu_cc_diwali_resets[] = {
 	[GPUCC_GPU_CC_GMU_BCR] = { 0x9314 },
 	[GPUCC_GPU_CC_GX_BCR] = { 0x9058 },
 	[GPUCC_GPU_CC_XO_BCR] = { 0x9000 },
+	[GPUCC_GPU_CC_FREQUENCY_LIMITER_IRQ_CLEAR] = { 0x9538, 0 },
 };
 
 static const struct regmap_config gpu_cc_diwali_regmap_config = {
@@ -679,6 +681,8 @@ static int gpu_cc_diwali_probe(struct platform_device *pdev)
 
 	clk_lucid_evo_pll_configure(&gpu_cc_pll0, regmap, &gpu_cc_pll0_config);
 	clk_lucid_evo_pll_configure(&gpu_cc_pll1, regmap, &gpu_cc_pll1_config);
+
+	regmap_write(regmap, 0x9534, 0x0);
 
 	ret = qcom_cc_really_probe(pdev, &gpu_cc_diwali_desc, regmap);
 	if (ret) {
