@@ -215,7 +215,7 @@ int apu_procfs_init(struct platform_device *pdev)
 		goto out;
 	}
 
-	coredump_seqlog = proc_create("apusys_rv_coredump", 0444,
+	coredump_seqlog = proc_create("apusys_rv_coredump", 0440,
 		procfs_root, &coredump_file_ops);
 	ret = IS_ERR_OR_NULL(coredump_seqlog);
 	if (ret) {
@@ -224,7 +224,7 @@ int apu_procfs_init(struct platform_device *pdev)
 		goto out;
 	}
 
-	xfile_seqlog = proc_create("apusys_rv_xfile", 0444,
+	xfile_seqlog = proc_create("apusys_rv_xfile", 0440,
 		procfs_root, &xfile_file_ops);
 	ret = IS_ERR_OR_NULL(xfile_seqlog);
 	if (ret) {
@@ -233,7 +233,7 @@ int apu_procfs_init(struct platform_device *pdev)
 		goto out;
 	}
 
-	regdump_seqlog = proc_create("apusys_regdump", 0444,
+	regdump_seqlog = proc_create("apusys_regdump", 0440,
 		procfs_root, &regdump_file_ops);
 	ret = IS_ERR_OR_NULL(regdump_seqlog);
 	if (ret) {
