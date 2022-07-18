@@ -134,6 +134,22 @@ int mtk_mmdvfs_enable_ccu(bool enable, unsigned int usr_id)
 }
 EXPORT_SYMBOL_GPL(mtk_mmdvfs_enable_ccu);
 
+static void reset_ccu_power(void)
+{
+	mutex_lock(&mmdvfs_ccu_pwr_mutex);
+	if (ccu_power > 0) {
+#if IS_ENABLED(CONFIG_MTK_CCU_DEBUG)
+		rproc_shutdownx(ccu_rproc, RPROC_UID_MMDVFS);
+#else
+		rproc_shutdown(ccu_rproc);
+#endif
+		ccu_power = 0;
+		MMDVFS_DBG("check ccu_power > 0 and shutdown ccu");
+	}
+
+	mutex_unlock(&mmdvfs_ccu_pwr_mutex);
+}
+
 static void check_ccu_pwr(void)
 {
 	int i;
@@ -217,6 +233,26 @@ bool mtk_is_mmdvfs_init_done(void)
 	return mmdvfs_init_done;
 }
 EXPORT_SYMBOL_GPL(mtk_is_mmdvfs_init_done);
+
+static int reset_vcp_power(void)
+{
+	int ret = 0;
+
+	mutex_lock(&mmdvfs_vcp_pwr_mutex);
+	if (vcp_power > 0) {
+		ret = vcp_deregister_feature_ex(MMDVFS_FEATURE_ID);
+		if (ret) {
+			MMDVFS_ERR("vcp_deregister_feature failed:%d", ret);
+			mutex_unlock(&mmdvfs_vcp_pwr_mutex);
+			return ret;
+		}
+		vcp_power = 0;
+		MMDVFS_DBG("check vcp_power > 0 and power off vcp");
+	}
+	mutex_unlock(&mmdvfs_vcp_pwr_mutex);
+
+	return ret;
+}
 
 int mtk_mmdvfs_enable_vcp(bool enable)
 {
@@ -734,6 +770,8 @@ static int lpm_spm_suspend_pm_event(struct notifier_block *notifier,
 		}
 		check_ccu_pwr();
 		//enable_aoc_iso(true);
+		reset_ccu_power();
+		reset_vcp_power();
 		return NOTIFY_DONE;
 	case PM_POST_SUSPEND:
 		return NOTIFY_DONE;
