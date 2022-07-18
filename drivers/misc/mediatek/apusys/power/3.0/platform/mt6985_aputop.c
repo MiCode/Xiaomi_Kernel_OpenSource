@@ -146,10 +146,11 @@ static int apu_hw_sema_ctl(struct device *dev, uint32_t sema_offset,
 		return -1;
 	}
 
-	pr_info("%s ++ usr_bit:%d ctl:%d (0x%08x = 0x%08x)\n",
-			__func__, usr_bit, ctl,
-			apupw.regs[apu_pcu] + sema_offset,
-			apu_readl(apupw.regs[apu_pcu] + sema_offset));
+	if (log_lvl)
+		pr_info("%s ++ usr_bit:%d ctl:%d (0x%08x = 0x%08x)\n",
+				__func__, usr_bit, ctl,
+				apupw.regs[apu_pcu] + sema_offset,
+				apu_readl(apupw.regs[apu_pcu] + sema_offset));
 
 	apusys_pwr_smc_call(dev,
 			MTK_APUSYS_KERNEL_OP_APUSYS_PWR_RCX,
@@ -181,11 +182,12 @@ static int apu_hw_sema_ctl(struct device *dev, uint32_t sema_offset,
 	if (timeout_cnt > timeout_cnt_max)
 		timeout_cnt_max = timeout_cnt;
 
-	pr_info("%s -- usr_bit:%d ctl:%d (0x%08x = 0x%08x) mx:%d\n",
-			__func__, usr_bit, ctl,
-			apupw.regs[apu_pcu] + sema_offset,
-			apu_readl(apupw.regs[apu_pcu] + sema_offset),
-			timeout_cnt_max);
+	if (log_lvl)
+		pr_info("%s -- usr_bit:%d ctl:%d (0x%08x = 0x%08x) mx:%d\n",
+				__func__, usr_bit, ctl,
+				apupw.regs[apu_pcu] + sema_offset,
+				apu_readl(apupw.regs[apu_pcu] + sema_offset),
+				timeout_cnt_max);
 	return 0;
 }
 
@@ -343,7 +345,8 @@ static int mt6985_apu_top_on(struct device *dev)
 	if (apupw.env < MP)
 		return 0;
 
-	pr_info("%s +\n", __func__);
+	if (log_lvl)
+		pr_info("%s +\n", __func__);
 
 	// acquire hw sema
 	apu_hw_sema_ctl(dev, APU_HW_SEMA_PWR_CTL, SYS_APMCU, 1, -1);
@@ -364,7 +367,8 @@ static int mt6985_apu_top_on(struct device *dev)
 		return -1;
 	}
 
-	pr_info("%s -\n", __func__);
+	if (log_lvl)
+		pr_info("%s -\n", __func__);
 	return 0;
 }
 
@@ -403,7 +407,8 @@ static int mt6985_apu_top_off(struct device *dev)
 	if (apupw.env < MP)
 		return 0;
 
-	pr_info("%s +\n", __func__);
+	if (log_lvl)
+		pr_info("%s +\n", __func__);
 
 #if APMCU_REQ_RPC_SLEEP
 	__apu_sleep_rpc_rcx(dev);
@@ -438,7 +443,8 @@ static int mt6985_apu_top_off(struct device *dev)
 	// release hw sema
 	apu_hw_sema_ctl(dev, APU_HW_SEMA_PWR_CTL, SYS_APMCU, 0, -1);
 
-	pr_info("%s -\n", __func__);
+	if (log_lvl)
+		pr_info("%s -\n", __func__);
 	return 0;
 }
 

@@ -34,6 +34,7 @@ static struct cluster_dev_opp_info opp_limit_tbl[CLUSTER_NUM] = {
 	_OPP_LMT_TBL(ACX1_LIMIT_OPP_REG),
 };
 
+uint32_t log_lvl = APUSYS_PWR_LOG_OFF;
 static inline int over_range_check(int opp)
 {
 	// we treat opp -1 as a special hint regard to unlimit opp !
@@ -495,6 +496,7 @@ int mt6985_drv_cfg_remote_sync(struct aputop_func_param *aputop)
 	cfg.dvfs_debounce = aputop->param2 & 0xf;
 	cfg.disable_hw_meter = aputop->param3 & 0xf;
 
+	log_lvl = cfg.log_level;
 	reg_data = cfg.log_level |
 		(cfg.dvfs_debounce << 8) |
 		(cfg.disable_hw_meter << 16);
