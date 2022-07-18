@@ -506,6 +506,7 @@ enum mtk_cam_apu_tap_point {
 };
 
 enum mtk_cam_apu_path {
+	APU_NONE,
 	APU_FRAME_MODE,
 	APU_DC_RAW,
 	RAW_DC_APU,
