@@ -150,6 +150,7 @@ void mml_pq_comp_config_clear(struct mml_task *task)
 			if (sub_task->job_id == job_id) {
 				list_del(&sub_task->mbox_list);
 				atomic_dec_if_positive(&chan->msg_cnt);
+				atomic_dec_if_positive(&sub_task->queued);
 			}
 		}
 		mutex_unlock(&chan->msg_lock);
@@ -623,6 +624,12 @@ static int set_sub_task(struct mml_task *task,
 
 	if (!atomic_fetch_add_unless(&sub_task->queued, 1, 1)) {
 		//WARN_ON(atomic_read(&sub_task->result_ref));
+		if (atomic_read(&sub_task->result_ref))
+			mml_pq_log("%s ref[%d] job_id[%d, %d] mode[%d] dual[%d]",
+				__func__, atomic_read(&sub_task->result_ref),
+				sub_task->job_id, task->job.jobid,
+				task->config->info.mode,
+				task->config->dual);
 		atomic_set(&sub_task->result_ref, 0);
 		kref_get(&pq_task->ref);
 		memcpy(&sub_task->frame_data.pq_param, task->pq_param,
