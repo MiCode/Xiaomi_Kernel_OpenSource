@@ -143,6 +143,8 @@ struct mtk8250_reg_data {
 	unsigned int addr;
 	unsigned int mask;
 	unsigned int val;
+	unsigned int toggle;
+	unsigned int addr_sta;
 };
 
 /* flow control mode */
@@ -158,17 +160,26 @@ static void mtk8250_clear_wakeup(void)
 {
 	/*clear wakeup*/
 	void __iomem *peri_remap_wakeup = NULL;
+	void __iomem *peri_remap_wakeup_sta = NULL;
 
 	peri_remap_wakeup = ioremap(peri_wakeup.addr, 0x10);
+	peri_remap_wakeup_sta = ioremap(peri_wakeup.addr_sta, 0x10);
 
 	UART_REG_WRITE(peri_remap_wakeup,
 		((UART_REG_READ(peri_remap_wakeup)
 			& (~peri_wakeup.mask)) | peri_wakeup.val));
-	pr_info("%s 0x%x\n", __func__,
-		(UART_REG_READ(peri_remap_wakeup)));
+	UART_REG_WRITE(peri_remap_wakeup,
+		((UART_REG_READ(peri_remap_wakeup)
+			& (~peri_wakeup.mask)) | peri_wakeup.toggle));
+	pr_info("%s wakeup:0x%x sta:0x%x\n", __func__,
+		(UART_REG_READ(peri_remap_wakeup)),
+		(UART_REG_READ(peri_remap_wakeup_sta)));
 
 	if (peri_remap_wakeup)
 		iounmap(peri_remap_wakeup);
+
+	if (peri_remap_wakeup_sta)
+		iounmap(peri_remap_wakeup_sta);
 }
 
 #if IS_ENABLED(CONFIG_MTK_UARTHUB)
@@ -1122,6 +1133,20 @@ static int mtk8250_probe_of(struct platform_device *pdev, struct uart_port *p,
 			"peri-wakeup", 2, &peri_wakeup.val);
 		if (index) {
 			pr_notice("[%s] get peri-wakeup_value fail\n", __func__);
+			return -1;
+		}
+
+		index = of_property_read_u32_index(pdev->dev.of_node,
+			"peri-wakeup", 3, &peri_wakeup.toggle);
+		if (index) {
+			pr_notice("[%s] get peri-wakeup.toggle fail\n", __func__);
+			return -1;
+		}
+
+		index = of_property_read_u32_index(pdev->dev.of_node,
+			"peri-wakeup-sta", 0, &peri_wakeup.addr_sta);
+		if (index) {
+			pr_notice("[%s] get peri-wakeup-sta.addr-sta fail\n", __func__);
 			return -1;
 		}
 	}
