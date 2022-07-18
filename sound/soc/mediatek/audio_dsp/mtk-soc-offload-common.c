@@ -105,6 +105,11 @@ static void offloadservice_setwriteblocked(bool flag)
 
 static void offloadservice_releasewriteblocked(void)
 {
+	if (offload_stream == NULL) {
+		pr_info("%s offload_stream == NULL\n", __func__);
+		return;
+	}
+
 	offload_stream->runtime->state = SNDRV_PCM_STATE_RUNNING;
 	wake_up(&offload_stream->runtime->sleep);
 }
