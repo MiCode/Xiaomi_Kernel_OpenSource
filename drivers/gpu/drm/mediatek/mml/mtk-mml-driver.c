@@ -754,9 +754,13 @@ void mml_comp_qos_set(struct mml_comp *comp, struct mml_task *task,
 	/* store for debug log */
 	task->pipe[ccfg->pipe].bandwidth = max(bandwidth,
 		task->pipe[ccfg->pipe].bandwidth);
+	if (comp->cur_bw != bandwidth || comp->cur_peak != hrt_bw) {
 #ifndef MML_FPGA
-	mtk_icc_set_bw(comp->icc_path, MBps_to_icc(bandwidth), hrt_bw);
+		mtk_icc_set_bw(comp->icc_path, MBps_to_icc(bandwidth), hrt_bw);
 #endif
+		comp->cur_bw = bandwidth;
+		comp->cur_peak = hrt_bw;
+	}
 
 	mml_msg_qos("%s comp %u %s qos bw %u(%u) by throughput %u pixel %u size %u%s",
 		__func__, comp->id, comp->name, bandwidth, hrt_bw / 1000,
@@ -769,6 +773,9 @@ void mml_comp_qos_clear(struct mml_comp *comp)
 #ifndef MML_FPGA
 	mtk_icc_set_bw(comp->icc_path, 0, 0);
 #endif
+	comp->cur_bw = 0;
+	comp->cur_peak = 0;
+
 	mml_msg_qos("%s comp %u %s qos bw clear", __func__, comp->id, comp->name);
 }
 

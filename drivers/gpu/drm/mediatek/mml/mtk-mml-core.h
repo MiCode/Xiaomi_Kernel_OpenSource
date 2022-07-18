@@ -601,6 +601,8 @@ struct mml_comp {
 	u32 larb_port;
 	s32 pw_cnt;
 	s32 clk_cnt;
+	u32 cur_bw;
+	u32 cur_peak;
 	struct icc_path *icc_path;
 	const struct mml_comp_tile_ops *tile_ops;
 	const struct mml_comp_config_ops *config_ops;
