@@ -3769,31 +3769,31 @@ static int fbt_boost_policy(
 	#endif
 
 	if (is_filter_frame_active) {
-		fpsgo_systrace_c_fbt(pid, buffer_id, blc_wt, "before filter");
+		fpsgo_systrace_c_fbt(pid, buffer_id, blc_wt, "before_filter");
 		filter_ret = fbt_filter_frame(aa_n, target_fps, blc_wt,
 			&(boost_info->filter_frames_count), &(boost_info->filter_index),
 			(boost_info->filter_loading), &(boost_info->filter_blc), pid, buffer_id,
 			ff_window_Size, ff_kmin);
-		fpsgo_main_trace("[FILTER] ret=%d, blc_wt=%d", filter_ret, boost_info->filter_blc);
+		xgf_trace("[FILTER] ret=%d, blc_wt=%d", filter_ret, boost_info->filter_blc);
 
 		blc_wt = boost_info->filter_blc;
-		fpsgo_systrace_c_fbt(pid, buffer_id, blc_wt, "after filter");
+		fpsgo_systrace_c_fbt(pid, buffer_id, blc_wt, "after_filter");
 		if (separate_aa) {
-			fpsgo_systrace_c_fbt_debug(pid, buffer_id, blc_wt_b, "before_filter_b");
+			fpsgo_systrace_c_fbt(pid, buffer_id, blc_wt_b, "before_filter_b");
 			filter_ret = fbt_filter_frame(aa_b, target_fps, blc_wt_b,
 			&(boost_info->filter_frames_count_b), &(boost_info->filter_index_b),
 			(boost_info->filter_loading_b), &(boost_info->filter_blc), pid, buffer_id,
 			ff_window_Size, ff_kmin);
 			blc_wt_b = boost_info->filter_blc;
-			fpsgo_systrace_c_fbt_debug(pid, buffer_id, blc_wt_b, "after_filter_b");
+			fpsgo_systrace_c_fbt(pid, buffer_id, blc_wt_b, "after_filter_b");
 
-			fpsgo_systrace_c_fbt_debug(pid, buffer_id, blc_wt_m, "before_filter_m");
+			fpsgo_systrace_c_fbt(pid, buffer_id, blc_wt_m, "before_filter_m");
 			filter_ret = fbt_filter_frame(aa_m, target_fps, blc_wt_m,
 			&(boost_info->filter_frames_count_m), &(boost_info->filter_index_m),
 			(boost_info->filter_loading_m), &(boost_info->filter_blc), pid, buffer_id,
 			ff_window_Size, ff_kmin);
 			blc_wt_m = boost_info->filter_blc;
-			fpsgo_systrace_c_fbt_debug(pid, buffer_id, blc_wt_m, "after_filter_m");
+			fpsgo_systrace_c_fbt(pid, buffer_id, blc_wt_m, "after_filter_m");
 		}
 	}
 
