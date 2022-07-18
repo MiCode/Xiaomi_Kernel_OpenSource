@@ -3756,21 +3756,26 @@ static int aie_config_y2r(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg,
 	else
 		srcbuf_UV = 0;
 
-	if (mode == 0) {
+	if (mode == FDMODE) {
 		src_crop_w = fd->base_para->crop_width;
 		src_crop_h = fd->base_para->crop_height;
 		yuv2rgb_cfg = (u32 *)fd->base_para->fd_yuv2rgb_cfg_va;
 		pym0_out_w = fd->base_para->pyramid_width;
-	} else if (mode == 1) {
+	} else if (mode == ATTRIBUTEMODE) {
 		src_crop_w = fd->attr_para->crop_width[fd->attr_para->w_idx];
 		src_crop_h = fd->attr_para->crop_height[fd->attr_para->w_idx];
 		yuv2rgb_cfg =
 			(u32 *)fd->base_para
 				->attr_yuv2rgb_cfg_va[fd->attr_para->w_idx];
 		pym0_out_w = ATTR_MODE_PYRAMID_WIDTH;
+	} else {
+		dev_info(fd->dev,
+				"YUV2RGB not support %d", mode);
+		return -EINVAL;
 	}
 
-	pym0_out_h = pym0_out_w * src_crop_h / src_crop_w;
+	if (src_crop_w)
+		pym0_out_h = pym0_out_w * src_crop_h / src_crop_w;
 
 	if (pym0_out_w != 0) {
 		xmag_0 = 512 * src_crop_w / pym0_out_w;
@@ -4024,7 +4029,8 @@ static int aie_config_rs(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg)
 	pym_out_w[1] = pym_out_w[0] >> 1;
 	pym_out_w[2] = pym_out_w[1] >> 1;
 
-	pym_out_h[0] = pym_out_w[0] * src_crop_h / src_crop_w;
+	if (src_crop_w)
+		pym_out_h[0] = pym_out_w[0] * src_crop_h / src_crop_w;
 	pym_out_h[1] = pym_out_h[0] >> 1;
 	pym_out_h[2] = pym_out_h[1] >> 1;
 
@@ -4148,7 +4154,8 @@ static int aie_config_network(struct mtk_aie_dev *fd,
 	}
 
 	pyramid0_out_w = fd->base_para->pyramid_width;
-	pyramid0_out_h = pyramid0_out_w * src_crop_h / src_crop_w;
+	if (src_crop_w)
+		pyramid0_out_h = pyramid0_out_w * src_crop_h / src_crop_w;
 
 	pyramid1_out_h = pyramid0_out_h / 2;
 	pyramid2_out_h = pyramid1_out_h / 2;
@@ -4697,7 +4704,7 @@ static void aie_reset(struct mtk_aie_dev *fd)
 
 static int aie_alloc_aie_buf(struct mtk_aie_dev *fd)
 {
-	int ret = -ENOMEM;
+	int ret;
 	int err_tag = 0;
 
 	memset(&fd->st_info, 0, sizeof(fd->st_info));
