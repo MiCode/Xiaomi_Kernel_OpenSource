@@ -388,8 +388,12 @@ static ssize_t mtk_hcp_proc_read(struct file *file, char __user *buf,
 
 	maxbytes = info->count - *ppos;
 	bytes_to_do = (maxbytes > lbuf) ? lbuf : maxbytes;
-	if (bytes_to_do == 0)
+	if (bytes_to_do == 0) {
+		if (b_is_need_to_lock)
+			mutex_unlock(&hcp_dev->aee_kernel_db_lock);
 		dev_dbg(hcp_dev->dev, "Reached end of the device on a read");
+		return 0;
+	}
 
 	nbytes = bytes_to_do - copy_to_user(buf, info->buffer + *ppos, bytes_to_do);
 	*ppos += nbytes;
@@ -456,20 +460,24 @@ static ssize_t mtk_hcp_proc_write(struct file *file, const char __user *buf,
 
 	if (ret == -EINTR) {
 		pr_info("mtx lock failed due to process being killed");
-		return nbytes;
+		return 0;
 	}
 
-	maxbytes = info->size - *ppos;
+	maxbytes = info->size - info->count;
 	bytes_to_do = (maxbytes > lbuf) ? lbuf : maxbytes;
-	if (bytes_to_do == 0)
-		dev_dbg(hcp_dev->dev, "Reached end of the device on a write");
+	if (bytes_to_do == 0) {
+		if (b_is_need_to_lock)
+			mutex_unlock(&hcp_dev->aee_kernel_db_lock);
 
-	bytes_remain = copy_from_user(info->buffer + *ppos, buf, bytes_to_do);
+		dev_dbg(hcp_dev->dev, "Reached end of the device on a write");
+		return 0;
+	}
+
+	bytes_remain = copy_from_user(info->buffer + info->count, buf, bytes_to_do);
 	nbytes = bytes_to_do - bytes_remain;
 
-	*ppos += nbytes;
-	if (*ppos > info->count)
-		info->count = *ppos;
+	info->count += nbytes;
+	*ppos = info->count;
 
 	if (b_is_need_to_lock)
 		mutex_unlock(&hcp_dev->aee_kernel_db_lock);
