@@ -1516,10 +1516,13 @@ static void mtk_oddmr_od_alloc_dram_dual(void)
 	height = g_od_param.od_basic_info.basic_param.panel_height;
 	scaling_mode = g_od_param.od_basic_info.basic_param.scaling_mode;
 	od_mode = g_od_param.od_basic_info.basic_param.od_mode;
-	if ((g_oddmr_priv != NULL) &&
-			(g_oddmr_priv->data != NULL)) {
-		tile_overhead = g_oddmr_priv->data->tile_overhead;
+	if (g_oddmr_priv == NULL) {
+		DDPPR_ERR("%s comp is invalid\n", __func__);
+		return;
 	}
+	if (g_oddmr_priv->data != NULL)
+		tile_overhead = g_oddmr_priv->data->tile_overhead;
+
 	secu = mtk_oddmr_is_svp_on_mtee();
 	//od do not support secu for short of secu mem
 	secu = false;
@@ -1996,10 +1999,13 @@ static int mtk_oddmr_dmr_set_table_dual(struct cmdq_pkt *pkg, int table_idx)
 	dma_addr_t addr = 0;
 
 	ODDMRAPI_LOG("+\n");
-	if ((g_oddmr_priv != NULL) &&
-			(g_oddmr_priv->data != NULL)) {
-		tile_overhead = g_oddmr_priv->data->tile_overhead;
+	if (g_oddmr_priv == NULL) {
+		DDPPR_ERR("%s comp is invalid\n", __func__);
+		return -EFAULT;
 	}
+	if (g_oddmr_priv->data != NULL)
+		tile_overhead = g_oddmr_priv->data->tile_overhead;
+
 	if (!IS_TABLE_VALID(table_idx, g_dmr_param.valid_table)) {
 		DDPPR_ERR("%s dmr table%d is invalid\n", __func__, table_idx);
 		return -EFAULT;
@@ -2549,6 +2555,8 @@ static void disp_oddmr_wait_sof_irq(void)
 		ret = wait_event_interruptible(g_oddmr_sof_irq_wq,
 				atomic_read(&g_oddmr_sof_irq_available) == 1);
 		ODDMRLOW_LOG("sof_irq_available = 1, waken up, ret = %d\n", ret);
+		if (ret < 0)
+			return;
 	} else {
 		ODDMRFLOW_LOG("sof_irq_available = 0\n");
 		return;
@@ -2580,7 +2588,12 @@ static int mtk_oddmr_sof_irq_trigger(void *data)
 	while (1) {
 		disp_oddmr_wait_sof_irq();
 		atomic_set(&g_oddmr_sof_irq_available, 0);
+		if (kthread_should_stop()) {
+			DDPPR_ERR("%s stopped\n", __func__);
+			break;
+		}
 	}
+	return 0;
 }
 
 /* top,dither,common pq, udma */
@@ -2764,9 +2777,12 @@ static int mtk_oddmr_od_enable(struct drm_device *dev, int en)
 		mtk_crtc_check_trigger(default_comp->mtk_crtc, false, true);
 		ret = wait_event_interruptible_timeout(g_oddmr_hrt_wq,
 				atomic_read(&g_oddmr_od_hrt_done) == 1, msecs_to_jiffies(200));
-		ODDMRFLOW_LOG("waken up, ret = %d\n", ret);
 		if (ret <= 0) {
 			atomic_set(&g_oddmr_od_hrt_done, 0);
+			ODDMRFLOW_LOG("enable %d repaint timeout %d\n", enable, ret);
+			g_oddmr_priv->od_enable = tmp;
+			if (default_comp->mtk_crtc->is_dual_pipe)
+				g_oddmr1_priv->od_enable = tmp;
 			return -EAGAIN;
 		}
 		ret = mtk_crtc_user_cmd(&default_comp->mtk_crtc->base,
@@ -2793,7 +2809,8 @@ static int mtk_oddmr_od_enable(struct drm_device *dev, int en)
 		mtk_crtc_check_trigger(default_comp->mtk_crtc, false, true);
 		ret = wait_event_interruptible_timeout(g_oddmr_hrt_wq,
 				atomic_read(&g_oddmr_od_hrt_done) == 1, msecs_to_jiffies(200));
-		ODDMRFLOW_LOG("waken up, ret = %d\n", ret);
+		if (ret <= 0)
+			ODDMRFLOW_LOG("enable %d repaint timeout %d\n", enable, ret);
 	}
 	return ret;
 }
@@ -3001,9 +3018,12 @@ static int mtk_oddmr_dmr_enable(struct drm_device *dev, bool en)
 		drm_trigger_repaint(DRM_REPAINT_FOR_IDLE, dev);
 		ret = wait_event_interruptible_timeout(g_oddmr_hrt_wq,
 				atomic_read(&g_oddmr_dmr_hrt_done) == 1, msecs_to_jiffies(200));
-		ODDMRFLOW_LOG("waken up, ret = %d\n", ret);
 		if (ret <= 0) {
 			atomic_set(&g_oddmr_dmr_hrt_done, 0);
+			ODDMRFLOW_LOG("enable %d repaint timeout %d\n", enable, ret);
+			g_oddmr_priv->dmr_enable = tmp;
+			if (default_comp->mtk_crtc->is_dual_pipe)
+				g_oddmr1_priv->dmr_enable = tmp;
 			return -EAGAIN;
 		}
 		ret = mtk_crtc_user_cmd(&default_comp->mtk_crtc->base,
@@ -3029,7 +3049,9 @@ static int mtk_oddmr_dmr_enable(struct drm_device *dev, bool en)
 		drm_trigger_repaint(DRM_REPAINT_FOR_IDLE, dev);
 		ret = wait_event_interruptible_timeout(g_oddmr_hrt_wq,
 				atomic_read(&g_oddmr_dmr_hrt_done) == 1, msecs_to_jiffies(200));
-		ODDMRFLOW_LOG("waken up, ret = %d\n", ret);
+		if (ret <= 0)
+			ODDMRFLOW_LOG("enable %d repaint timeout %d\n", enable, ret);
+
 	}
 	return ret;
 }
