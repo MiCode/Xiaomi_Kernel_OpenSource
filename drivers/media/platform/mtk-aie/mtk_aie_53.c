@@ -51,6 +51,7 @@
 
 struct mtk_aie_user_para g_user_param;
 static struct device *aie_pm_dev;
+static struct platform_device *gaov_dev;
 static const struct v4l2_pix_format_mplane mtk_aie_img_fmts[] = {
 	{
 		.pixelformat = V4L2_PIX_FMT_NV16M, .num_planes = 2,
@@ -162,6 +163,7 @@ static int mtk_aie_resume(struct device *dev)
 		return 0;
 	}
 
+	mtk_aov_notify(gaov_dev, AOV_NOTIFY_AIE_AVAIL, 0); //unavailable: 0 available: 1
 	ret = pm_runtime_get_sync(dev);
 	if (ret) {
 		dev_info(dev, "%s: pm_runtime_get_sync failed:(%d)\n",
@@ -505,7 +507,7 @@ static int mtk_aie_hw_connect(struct mtk_aie_dev *fd)
 {
 	int ret = 0;
 
-	mtk_aov_notify(fd->aov_pdev, AOV_NOTIFY_AIE_AVAIL, 0); //unavailable: 0 available: 1
+	mtk_aov_notify(gaov_dev, AOV_NOTIFY_AIE_AVAIL, 0); //unavailable: 0 available: 1
 	pm_runtime_get_sync((fd->dev));
 
 	fd->fd_stream_count++;
@@ -531,7 +533,6 @@ static void mtk_aie_hw_disconnect(struct mtk_aie_dev *fd)
 	}
 
 	pm_runtime_put_sync(fd->dev);
-	mtk_aov_notify(fd->aov_pdev, AOV_NOTIFY_AIE_AVAIL, 1); //unavailable: 0 available: 1
 	dev_info(fd->dev, "[%s] stream_count:%d map_count%d\n", __func__,
 			fd->fd_stream_count, fd->map_count);
 	fd->fd_stream_count--;
@@ -1486,6 +1487,8 @@ static int mtk_aie_probe(struct platform_device *pdev)
 
 	//mtk_aie_mmdvfs_init(fd);
 	//mtk_aie_mmqos_init(fd);
+	fd->aov_pdev = pdev;
+	gaov_dev = pdev;
 	pm_runtime_enable(dev);
 
 	ret = mtk_aie_dev_v4l2_init(fd);
@@ -1518,7 +1521,7 @@ static int mtk_aie_probe(struct platform_device *pdev)
 	}
 	of_node_put(img_node);
 	fd->img_pdev = img_pdev;
-	fd->aov_pdev = pdev;
+
 	dev_info(dev, "AIE : Success to %s\n", __func__);
 
 	return 0;
@@ -1555,6 +1558,7 @@ static int mtk_aie_runtime_suspend(struct device *dev)
 
 	dev_info(dev, "%s: runtime suspend aie job)\n", __func__);
 	mtk_aie_ccf_disable(dev);
+	mtk_aov_notify(gaov_dev, AOV_NOTIFY_AIE_AVAIL, 1); //unavailable: 0 available: 1
 	return 0;
 }
 
