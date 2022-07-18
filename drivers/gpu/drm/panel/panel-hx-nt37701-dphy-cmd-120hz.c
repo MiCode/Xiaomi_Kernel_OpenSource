@@ -462,6 +462,7 @@ static struct mtk_panel_params ext_params_60hz = {
 		.count = 1,
 		.para_list[0] = 0x9c,
 	},
+	.lp_perline_en = 1,
 	.cm_params = {
 		.enable = 1,
 		.relay = 1,

@@ -1500,8 +1500,7 @@ static void mtk_dsi_tx_buf_rw(struct mtk_dsi *dsi)
 	}
 	buffer_unit = dsi->driver_data->buffer_unit;
 	sram_unit = dsi->driver_data->sram_unit;
-	if (!ext->params->lp_perline_en &&
-		mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base)) {
+	if (mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base)) {
 		if ((width * dsi_buf_bpp % 9) == 0)
 			rw_times = (width * dsi_buf_bpp / 9) * height;
 		else

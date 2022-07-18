@@ -382,6 +382,7 @@ static struct mtk_panel_params ext_params = {
 	},
 	.is_support_od = true,
 	.is_support_dmr = true,
+	.lp_perline_en = 1,
 #if ENABLE_DSC
 	.output_mode = MTK_PANEL_DSC_SINGLE_PORT,
 	.dsc_params = {
