@@ -29,26 +29,25 @@ TRACE_EVENT(ufs_mtk_event,
 );
 
 TRACE_EVENT(ufs_mtk_clk_scale,
-	TP_PROTO(struct ufs_clk_info *sel_clki, bool scale_up),
-	TP_ARGS(sel_clki, scale_up),
+	TP_PROTO(const char *name, bool scale_up, uint64_t clk_rate),
+	TP_ARGS(name, scale_up, clk_rate),
 
 	TP_STRUCT__entry(
-		__field(struct ufs_clk_info *, sel_clki)
-		__field(struct clk *, parent_clk)
+		__field(const char*, name)
 		__field(bool, scale_up)
+		__field(uint64_t, clk_rate)
 	),
 
 	TP_fast_assign(
-		__entry->sel_clki = sel_clki;
-		__entry->parent_clk = clk_get_parent(sel_clki->clk);
+		__entry->name = name;
 		__entry->scale_up = scale_up;
+		__entry->clk_rate = clk_rate;
 	),
 
-	TP_printk("ufs: clk (%s) scaled %s @%d, parent rate=%d",
-		  __entry->sel_clki->name,
+	TP_printk("ufs: clk (%s) scaled %s @%d",
+		  __entry->name,
 		  __entry->scale_up ? "up" : "down",
-		  clk_get_rate(__entry->sel_clki->clk),
-		  clk_get_rate(__entry->parent_clk))
+		  __entry->clk_rate)
 );
 
 #endif

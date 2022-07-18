@@ -2479,18 +2479,19 @@ static void ufs_mtk_clk_scale(struct ufs_hba *hba, bool scale_up)
 {
 	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
 	struct ufs_mtk_clk *mclk = &host->mclk;
+	struct ufs_clk_info *clki = mclk->ufs_sel_clki;
 
-	clk_prepare_enable(mclk->ufs_sel_clki->clk);
+	clk_prepare_enable(clki->clk);
 	if (scale_up) {
-		clk_set_parent(mclk->ufs_sel_clki->clk, mclk->ufs_sel_max_clki->clk);
-		mclk->ufs_sel_clki->curr_freq = mclk->ufs_sel_clki->max_freq;
+		clk_set_parent(clki->clk, mclk->ufs_sel_max_clki->clk);
+		clki->curr_freq = clki->max_freq;
 	} else {
-		clk_set_parent(mclk->ufs_sel_clki->clk, mclk->ufs_sel_min_clki->clk);
-		mclk->ufs_sel_clki->curr_freq = mclk->ufs_sel_clki->min_freq;
+		clk_set_parent(clki->clk, mclk->ufs_sel_min_clki->clk);
+		clki->curr_freq = clki->min_freq;
 	}
-	clk_disable_unprepare(mclk->ufs_sel_clki->clk);
+	clk_disable_unprepare(clki->clk);
 
-	trace_ufs_mtk_clk_scale(mclk->ufs_sel_clki, scale_up);
+	trace_ufs_mtk_clk_scale(clki->name, scale_up, clk_get_rate(clki->clk));
 }
 
 static int ufs_mtk_clk_scale_notify(struct ufs_hba *hba, bool scale_up,
