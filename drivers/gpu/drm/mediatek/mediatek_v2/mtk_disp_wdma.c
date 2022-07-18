@@ -1765,6 +1765,14 @@ static int mtk_disp_wdma_probe(struct platform_device *pdev)
 			return -1;
 		}
 	}
+	if (priv->data->fifo_size_uv_1plane == PARSE_FROM_DTS) {
+		ret = of_property_read_u32(dev->of_node,
+				"fifo-size-uv-1plane", &(priv->info_data->fifo_size_uv_1plane));
+		if (ret) {
+			DDPPR_ERR("Failed to parse fifo-size-uv-1plane from dts\n");
+			return -1;
+		}
+	}
 	if (priv->data->fifo_size_2plane == PARSE_FROM_DTS) {
 		ret = of_property_read_u32(dev->of_node,
 				"fifo-size-2plane", &(priv->info_data->fifo_size_2plane));
@@ -1806,7 +1814,7 @@ static int mtk_disp_wdma_probe(struct platform_device *pdev)
 		mtk_ddp_comp_pm_disable(&priv->ddp_comp);
 	}
 
-	DDPMSG("%s-\n", __func__);
+	DDPMSG("%s-id:%d\n", __func__, priv->ddp_comp.id);
 
 	return ret;
 }
@@ -1939,12 +1947,12 @@ static const struct mtk_disp_wdma_data mt6895_wdma_driver_data = {
 };
 
 static const struct mtk_disp_wdma_data mt6886_wdma_driver_data = {
-	.fifo_size_1plane = 905,
-	.fifo_size_uv_1plane = 29,
-	.fifo_size_2plane = 599,
-	.fifo_size_uv_2plane = 299,
-	.fifo_size_3plane = 304,
-	.fifo_size_uv_3plane = 74,
+	.fifo_size_1plane = PARSE_FROM_DTS,
+	.fifo_size_uv_1plane = PARSE_FROM_DTS,
+	.fifo_size_2plane = PARSE_FROM_DTS,
+	.fifo_size_uv_2plane = PARSE_FROM_DTS,
+	.fifo_size_3plane = PARSE_FROM_DTS,
+	.fifo_size_uv_3plane = PARSE_FROM_DTS,
 	/* sodi is same as mt6895 */
 	.sodi_config = mt6895_mtk_sodi_config,
 	.check_wdma_sec_reg = &mtk_wdma_check_sec_reg_MT6886,
