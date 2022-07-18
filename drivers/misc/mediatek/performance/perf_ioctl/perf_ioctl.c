@@ -79,10 +79,7 @@ static long eas_ioctl_impl(struct file *filp,
 	void __user *ubuf = (struct _CORE_CTL_PACKAGE *)arg;
 	struct _CORE_CTL_PACKAGE msgKM = {0};
 	bool bval;
-#if IS_ENABLED(CONFIG_MTK_CPUQOS_V3)
-	void __user *ubuf_cpuqos = (struct _CPUQOS_V3_PACKAGE *)arg;
-	struct _CPUQOS_V3_PACKAGE msgKM_cpuqos = {0};
-#endif
+
 
 	switch (cmd) {
 	case CORE_CTL_FORCE_PAUSE_CPU:
@@ -144,34 +141,6 @@ static long eas_ioctl_impl(struct file *filp,
 	case CORE_CTL_SET_BOOST:
 	case CORE_CTL_SET_UP_THRES:
 	case CORE_CTL_ENABLE_POLICY:
-		break;
-#endif
-#if IS_ENABLED(CONFIG_MTK_CPUQOS_V3)
-	case CPUQOS_V3_SET_CPUQOS_MODE:
-		if (perfctl_copy_from_user(&msgKM_cpuqos, ubuf_cpuqos,
-				sizeof(struct _CPUQOS_V3_PACKAGE)))
-			return -1;
-
-		set_cpuqos_mode(msgKM_cpuqos.mode);
-		break;
-	case CPUQOS_V3_SET_CT_TASK:
-		if (perfctl_copy_from_user(&msgKM_cpuqos, ubuf_cpuqos,
-				sizeof(struct _CPUQOS_V3_PACKAGE)))
-			return -1;
-
-		ret = set_ct_task(msgKM_cpuqos.pid, msgKM_cpuqos.set_task);
-		break;
-	case CPUQOS_V3_SET_CT_GROUP:
-		if (perfctl_copy_from_user(&msgKM_cpuqos, ubuf_cpuqos,
-				sizeof(struct _CPUQOS_V3_PACKAGE)))
-			return -1;
-
-		ret = set_ct_group(msgKM_cpuqos.group_id, msgKM_cpuqos.set_group);
-		break;
-#else
-	case CPUQOS_V3_SET_CPUQOS_MODE:
-	case CPUQOS_V3_SET_CT_TASK:
-	case CPUQOS_V3_SET_CT_GROUP:
 		break;
 #endif
 	default:

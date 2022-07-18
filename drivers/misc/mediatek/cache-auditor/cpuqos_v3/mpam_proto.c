@@ -41,6 +41,8 @@ static void __iomem *sram_base_addr;
 #define SLC_CPU_DEBUG1_R_OFS    0x8C
 #define SLC_SRAM_SIZE           0x100
 
+#define TAG "cpuqos"
+
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Jing-Ting Wu");
 
@@ -913,9 +915,84 @@ void exit_cpuqos_v3_platform(void)
 	platform_driver_unregister(&mtk_platform_cpuqos_v3_driver);
 }
 
+static unsigned long cpuqos_ctl_copy_from_user(void *pvTo,
+		const void __user *pvFrom, unsigned long ulBytes)
+{
+	if (access_ok(pvFrom, ulBytes))
+		return __copy_from_user(pvTo, pvFrom, ulBytes);
+
+	return ulBytes;
+}
+
+static int cpuqos_ctl_show(struct seq_file *m, void *v)
+{
+	return 0;
+}
+
+static int cpuqos_ctl_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, cpuqos_ctl_show, inode->i_private);
+}
+
+static long cpuqos_ctl_ioctl_impl(struct file *filp,
+		unsigned int cmd, unsigned long arg, void *pKM)
+{
+	int ret = 0;
+	void __user *ubuf_cpuqos = (struct _CPUQOS_V3_PACKAGE *)arg;
+	struct _CPUQOS_V3_PACKAGE msgKM_cpuqos = {0};
+
+	switch (cmd) {
+	case CPUQOS_V3_SET_CPUQOS_MODE:
+		if (cpuqos_ctl_copy_from_user(&msgKM_cpuqos, ubuf_cpuqos,
+				sizeof(struct _CPUQOS_V3_PACKAGE)))
+			return -1;
+
+		ret = set_cpuqos_mode(msgKM_cpuqos.mode);
+		break;
+	case CPUQOS_V3_SET_CT_TASK:
+		if (cpuqos_ctl_copy_from_user(&msgKM_cpuqos, ubuf_cpuqos,
+				sizeof(struct _CPUQOS_V3_PACKAGE)))
+			return -1;
+
+		ret = set_ct_task(msgKM_cpuqos.pid, msgKM_cpuqos.set_task);
+		break;
+	case CPUQOS_V3_SET_CT_GROUP:
+		if (cpuqos_ctl_copy_from_user(&msgKM_cpuqos, ubuf_cpuqos,
+				sizeof(struct _CPUQOS_V3_PACKAGE)))
+			return -1;
+
+		ret = set_ct_group(msgKM_cpuqos.group_id, msgKM_cpuqos.set_group);
+		break;
+	default:
+		pr_info("%s: %s %d: unknown cmd %x\n",
+			TAG, __FILE__, __LINE__, cmd);
+		ret = -1;
+		goto ret_ioctl;
+	}
+
+ret_ioctl:
+	return ret;
+}
+
+static long cpuqos_ctl_ioctl(struct file *filp,
+		unsigned int cmd, unsigned long arg)
+{
+	return cpuqos_ctl_ioctl_impl(filp, cmd, arg, NULL);
+}
+
+static const struct proc_ops cpuqos_ctl_Fops = {
+	.proc_ioctl = cpuqos_ctl_ioctl,
+	.proc_compat_ioctl = cpuqos_ctl_ioctl,
+	.proc_open = cpuqos_ctl_open,
+	.proc_read = seq_read,
+	.proc_lseek = seq_lseek,
+	.proc_release = single_release,
+};
+
 static int __init mpam_proto_init(void)
 {
 	int ret = 0;
+	struct proc_dir_entry *pe, *parent;
 
 	/* boot configuration */
 	boot_complete = cpu_qos_track_enable = 0;
@@ -973,6 +1050,17 @@ static int __init mpam_proto_init(void)
 	}
 	cpuqos_tracer();
 	cpuqos_workq = create_workqueue("cpuqos_wq");
+
+	/* init cpuqos ioctl */
+	pr_info("%s: start to init cpuqos_ioctl driver\n", TAG);
+	parent = proc_mkdir("cpuqosmgr", NULL);
+	pe = proc_create("cpuqos_ioctl", 0664, parent, &cpuqos_ctl_Fops);
+	if (!pe) {
+		pr_info("%s: %s failed with %d\n", TAG,
+				"Creating file node ", ret);
+		ret = -ENOMEM;
+		goto out;
+	}
 
 	return 0;
 
