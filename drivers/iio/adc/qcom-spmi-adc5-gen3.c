@@ -260,11 +260,16 @@ static const struct vadc_prescale_ratio adc5_prescale_ratios[] = {
 	{.num =  1, .den =  3},
 	{.num =  1, .den =  6},
 	{.num =  1, .den = 16},
+	{.num = 40, .den = 41},		/* PM7_SMB_TEMP */
 	/* Prescale ratios for current channels below */
-	{.num = 32, .den = 100},	/* IIN_FB */
-	{.num = 14, .den = 100},	/* ICHG_SMB */
-	{.num = 28, .den = 100},	/* IIN_SMB */
+	{.num = 32, .den = 100},	/* IIN_FB, IIN_SMB */
+	{.num = 16, .den = 100},	/* ICHG_SMB */
+	{.num = 1280, .den = 4100},	/* IIN_SMB_new */
+	{.num = 640, .den = 4100},	/* ICHG_SMB_new */
 	{.num = 1000, .den = 305185},	/* ICHG_FB */
+	{.num = 1000, .den = 610370},	/* ICHG_FB_2X */
+	{.num = 1000, .den = 366220},	/* ICHG_FB ADC5_GEN3 */
+	{.num = 1000, .den = 732440}	/* ICHG_FB_2X ADC5_GEN3 */
 };
 
 static int adc5_read(struct adc5_chip *adc, unsigned int sdam_index, u16 offset, u8 *data, int len)
@@ -1379,7 +1384,7 @@ static const struct adc5_channels adc5_chans_pmic[ADC5_MAX_CHANNEL] = {
 						SCALE_HW_CALIB_DEFAULT)
 	[ADC5_GEN3_VBAT_SNS_QBG]	= ADC5_CHAN_VOLT("vbat_sns", 1,
 						SCALE_HW_CALIB_DEFAULT)
-	[ADC5_GEN3_AMUX3_THM]		= ADC5_CHAN_TEMP("smb_temp", 0,
+	[ADC5_GEN3_AMUX3_THM]		= ADC5_CHAN_TEMP("smb_temp", 4,
 						SCALE_HW_CALIB_PM7_SMB_TEMP)
 	[ADC5_GEN3_CHG_TEMP]		= ADC5_CHAN_TEMP("chg_temp", 0,
 						SCALE_HW_CALIB_PM7_CHG_TEMP)
@@ -1387,13 +1392,13 @@ static const struct adc5_channels adc5_chans_pmic[ADC5_MAX_CHANNEL] = {
 						SCALE_HW_CALIB_DEFAULT)
 	[ADC5_GEN3_VIN_DIV16_MUX]	= ADC5_CHAN_TEMP("vin_div_16", 3,
 						SCALE_HW_CALIB_DEFAULT)
-	[ADC5_GEN3_IIN_FB]		= ADC5_CHAN_CUR("iin_fb", 4,
+	[ADC5_GEN3_IIN_FB]		= ADC5_CHAN_CUR("iin_fb", 5,
 						SCALE_HW_CALIB_CUR)
-	[ADC5_GEN3_ICHG_SMB]		= ADC5_CHAN_CUR("ichg_smb", 5,
+	[ADC5_GEN3_ICHG_SMB]		= ADC5_CHAN_CUR("ichg_smb", 8,
 						SCALE_HW_CALIB_CUR)
-	[ADC5_GEN3_IIN_SMB]		= ADC5_CHAN_CUR("iin_smb", 6,
+	[ADC5_GEN3_IIN_SMB]		= ADC5_CHAN_CUR("iin_smb", 7,
 						SCALE_HW_CALIB_CUR)
-	[ADC5_GEN3_ICHG_FB]		= ADC5_CHAN_CUR("ichg_fb", 7,
+	[ADC5_GEN3_ICHG_FB]		= ADC5_CHAN_CUR("ichg_fb", 11,
 						SCALE_HW_CALIB_CUR_RAW)
 	[ADC5_GEN3_DIE_TEMP]		= ADC5_CHAN_TEMP("die_temp", 0,
 						SCALE_HW_CALIB_PMIC_THERM_PM7)
