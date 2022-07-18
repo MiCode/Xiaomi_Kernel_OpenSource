@@ -771,7 +771,7 @@ static const struct proc_ops apusys_debug_fops = {
 	.proc_read = show_debuglv,
 	.proc_write = set_debuglv,
 	.proc_lseek = seq_lseek,
-	.proc_release = seq_release,
+	.proc_release = single_release,
 };
 
 static ssize_t show_debugAttr(struct file *filp, char __user *buffer,
@@ -893,7 +893,7 @@ static const struct proc_ops hw_logger_attr_fops = {
 	.proc_read = show_debugAttr,
 	.proc_write = set_debugAttr,
 	.proc_lseek = seq_lseek,
-	.proc_release = seq_release,
+	.proc_release = single_release,
 };
 
 /**
@@ -1400,7 +1400,7 @@ static int hw_logger_create_procfs(struct device *dev)
 	}
 
 	/* create device table info */
-	log_devinfo = proc_create("log", 0444,
+	log_devinfo = proc_create("log", 0440,
 		log_root, &apusys_debug_fops);
 	ret = IS_ERR_OR_NULL(log_devinfo);
 	if (ret) {
@@ -1408,7 +1408,7 @@ static int hw_logger_create_procfs(struct device *dev)
 		goto out;
 	}
 
-	log_seqlog = proc_create("seq_log", 0444,
+	log_seqlog = proc_create("seq_log", 0440,
 		log_root, &hw_loggerSeqLog_ops);
 	ret = IS_ERR_OR_NULL(log_seqlog);
 	if (ret) {
@@ -1416,7 +1416,7 @@ static int hw_logger_create_procfs(struct device *dev)
 		goto out;
 	}
 
-	log_seqlogL = proc_create("seq_logl", 0444,
+	log_seqlogL = proc_create("seq_logl", 0440,
 		log_root, &hw_loggerSeqLogL_ops);
 	ret = IS_ERR_OR_NULL(log_seqlogL);
 	if (ret) {
@@ -1424,7 +1424,7 @@ static int hw_logger_create_procfs(struct device *dev)
 		goto out;
 	}
 
-	log_aov_log = proc_create("aov_log", 0444,
+	log_aov_log = proc_create("aov_log", 0440,
 		log_root, &aov_log_ops);
 	ret = IS_ERR_OR_NULL(log_aov_log);
 	if (ret) {
@@ -1432,7 +1432,7 @@ static int hw_logger_create_procfs(struct device *dev)
 		goto out;
 	}
 
-	log_devattr = proc_create("attr", 0444,
+	log_devattr = proc_create("attr", 0440,
 		log_root, &hw_logger_attr_fops);
 
 	ret = IS_ERR_OR_NULL(log_devattr);
