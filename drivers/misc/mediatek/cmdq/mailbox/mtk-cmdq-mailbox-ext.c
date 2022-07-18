@@ -706,6 +706,7 @@ static void cmdq_task_exec(struct cmdq_pkt *pkt, struct cmdq_thread *thread)
 	struct cmdq_pkt_buffer *buf;
 	size_t offset = 0;
 	bool thrd_suspend = false;
+	unsigned long flags;
 
 	cmdq = dev_get_drvdata(thread->chan->mbox->dev);
 
@@ -761,7 +762,6 @@ static void cmdq_task_exec(struct cmdq_pkt *pkt, struct cmdq_thread *thread)
 #if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
 		if (cmdq->sw_ddr_en &&
 			cmdq_util_controller->thread_ddr_module(thread->idx)) {
-			unsigned long flags;
 
 			spin_lock_irqsave(&cmdq->lock, flags);
 			writel(readl(cmdq->base + GCE_GCTL_VALUE) | (1 << 16),
@@ -780,8 +780,18 @@ static void cmdq_task_exec(struct cmdq_pkt *pkt, struct cmdq_thread *thread)
 			- (pkt->loop ? 0 : CMDQ_INST_SIZE));
 		cmdq_thread_set_pc(thread, task->pa_base);
 
-		if (append_by_event)
+		if (append_by_event) {
+			u32 event_val = 0;
+
+			spin_lock_irqsave(&cmdq->lock, flags);
 			cmdq_set_event(thread->chan, CMDQ_TOKEN_PAUSE_TASK_0 + thread->idx);
+			event_val = cmdq_get_event(thread->chan,
+				CMDQ_TOKEN_PAUSE_TASK_0 + thread->idx);
+			spin_unlock_irqrestore(&cmdq->lock, flags);
+			if (event_val == 0)
+				cmdq_err("set event fail, event[%u] = %u",
+					(CMDQ_TOKEN_PAUSE_TASK_0 + thread->idx), event_val);
+		}
 
 		writel(CMDQ_THR_IRQ_EN, thread->base + CMDQ_THR_IRQ_ENABLE);
 		writel(CMDQ_THR_ENABLED, thread->base + CMDQ_THR_ENABLE_TASK);
@@ -807,8 +817,18 @@ static void cmdq_task_exec(struct cmdq_pkt *pkt, struct cmdq_thread *thread)
 		/* no warn on here to prevent slow down cpu */
 
 		if (append_by_event) {
+			u32 event_val = 0;
+
 			/* replace suspend thrd */
+			spin_lock_irqsave(&cmdq->lock, flags);
 			cmdq_clear_event(thread->chan, CMDQ_TOKEN_PAUSE_TASK_0 + thread->idx);
+			event_val = cmdq_get_event(thread->chan,
+				CMDQ_TOKEN_PAUSE_TASK_0 + thread->idx);
+			spin_unlock_irqrestore(&cmdq->lock, flags);
+			if (event_val != 0)
+				cmdq_err("clear event fail, event[%u] = %u",
+					(CMDQ_TOKEN_PAUSE_TASK_0 + thread->idx), event_val);
+
 			/* reorder case */
 			last_task = list_last_entry(&thread->task_busy_list,
 				typeof(*task), list_entry);
@@ -871,8 +891,18 @@ static void cmdq_task_exec(struct cmdq_pkt *pkt, struct cmdq_thread *thread)
 		curr_pa = cmdq_thread_get_pc(thread);
 		task->pkt->append.pc[1] = curr_pa;
 
-		if (append_by_event)
+		if (append_by_event) {
+			u32 event_val = 0;
+
+			spin_lock_irqsave(&cmdq->lock, flags);
 			cmdq_set_event(thread->chan, CMDQ_TOKEN_PAUSE_TASK_0 + thread->idx);
+			event_val = cmdq_get_event(thread->chan,
+				CMDQ_TOKEN_PAUSE_TASK_0 + thread->idx);
+			spin_unlock_irqrestore(&cmdq->lock, flags);
+			if (event_val == 0)
+				cmdq_err("set event fail, event[%u] = %u",
+					(CMDQ_TOKEN_PAUSE_TASK_0 + thread->idx), event_val);
+		}
 
 		if (thread->dirty) {
 			cmdq_err("new task during error on thread:%u",
