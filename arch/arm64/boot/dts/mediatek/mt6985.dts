@@ -14898,7 +14898,8 @@ l3_hit,l3_mis,pmu_cyc_cnt";
 			node-64 = "SSPM_SLBC_PMU",
 				"hit,miss,apu_r,apu_w,mm_r,mm_w";
 			node-65 = "SSPM_SLBC_WAY",
-				"venc,hifi3,sh_p2,sh_apu,mml,ainr,disp,slb,cpu,gpu,slc,left";
+				"venc,sh_p2,sh_apu,mml,ainr,disp,aov_dc,aov_apu,aisr_apu,",
+				"aisr_mml,sh_p1,smt,apu,aod,bif,slb,cpu,gpu,slc,left";
 			node-66 = "SSPM_SWPM_CPU__DSU_PMU",
 				"dsu_cycles";
 			node-67 = "SSPM_SWPM_CPU__CORE_TEMP",
