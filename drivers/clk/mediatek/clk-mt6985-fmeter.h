@@ -300,14 +300,12 @@ enum fm_sys_id {
 	FM_TOPCKGEN = 0,
 	FM_APMIXED = 1,
 	FM_VLP_CKSYS = 2,
-	FM_MFGPLL = 3,
-	FM_MFGSCPLL = 4,
-	FM_CCIPLL = 5,
-	FM_ARMPLL_LL = 6,
-	FM_ARMPLL_BL = 7,
-	FM_ARMPLL_B = 8,
-	FM_PTPPLL = 9,
-	FM_SYS_NUM = 10,
+	FM_CCIPLL = 3,
+	FM_ARMPLL_LL = 4,
+	FM_ARMPLL_BL = 5,
+	FM_ARMPLL_B = 6,
+	FM_PTPPLL = 7,
+	FM_SYS_NUM = 8,
 };
 
 #endif /* _CLK_MT6985_FMETER_H */

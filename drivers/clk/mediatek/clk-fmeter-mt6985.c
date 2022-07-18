@@ -46,17 +46,6 @@ static DEFINE_SPINLOCK(subsys_meter_lock);
 #define CKSYS2_CLK_DBG_CFG				(0xA8C)
 #define VLP_FQMTR_CON0					(0x230)
 #define VLP_FQMTR_CON1					(0x234)
-/* MFGPLL_PLL_CTRL Register */
-#define MFGPLL_CON0					(0x0008)
-#define MFGPLL_CON1					(0x000C)
-#define MFGPLL_FQMTR_CON0				(0x0040)
-#define MFGPLL_FQMTR_CON1				(0x0044)
-
-/* MFGSCPLL_PLL_CTRL Register */
-#define MFGSCPLL_CON0					(0x0008)
-#define MFGSCPLL_CON1					(0x000C)
-#define MFGSCPLL_FQMTR_CON0				(0x0040)
-#define MFGSCPLL_FQMTR_CON1				(0x0044)
 
 /* CCIPLL_PLL_CTRL Register */
 #define CCIPLL_CON0					(0x0008)
@@ -102,10 +91,6 @@ struct fmeter_data {
 static struct fmeter_data subsys_fm[] = {
 	[FM_VLP_CKSYS] = {FM_VLP_CKSYS, "fm_vlp_cksys",
 		0, 0, VLP_FQMTR_CON0, VLP_FQMTR_CON1},
-	[FM_MFGPLL] = {FM_MFGPLL, "fm_mfgpll",
-		MFGPLL_CON0, MFGPLL_CON1, MFGPLL_FQMTR_CON0, MFGPLL_FQMTR_CON1},
-	[FM_MFGSCPLL] = {FM_MFGSCPLL, "fm_mfgscpll",
-		MFGSCPLL_CON0, MFGSCPLL_CON1, MFGSCPLL_FQMTR_CON0, MFGSCPLL_FQMTR_CON1},
 	[FM_CCIPLL] = {FM_CCIPLL, "fm_ccipll",
 		CCIPLL_CON0, CCIPLL_CON1, CCIPLL_FQMTR_CON0, CCIPLL_FQMTR_CON1},
 	[FM_ARMPLL_LL] = {FM_ARMPLL_LL, "fm_armpll_ll",
@@ -122,8 +107,6 @@ const char *comp_list[] = {
 	[FM_TOPCKGEN] = "mediatek,mt6985-topckgen",
 	[FM_APMIXED] = "mediatek,mt6985-apmixedsys",
 	[FM_VLP_CKSYS] = "mediatek,mt6985-vlp_cksys",
-	[FM_MFGPLL] = "mediatek,mt6985-mfgpll_pll_ctrl",
-	[FM_MFGSCPLL] = "mediatek,mt6985-mfgscpll_pll_ctrl",
 	[FM_CCIPLL] = "mediatek,mt6985-ccipll_pll_ctrl",
 	[FM_ARMPLL_LL] = "mediatek,mt6985-armpll_ll_pll_ctrl",
 	[FM_ARMPLL_BL] = "mediatek,mt6985-armpll_bl_pll_ctrl",
@@ -424,8 +407,6 @@ static const struct fmeter_clk fclks[] = {
 	FMCLK(VLPCK, FM_OSC_CK, "fm_osc_ck", 1),
 	FMCLK(VLPCK, FM_OSC_2, "fm_osc_2", 1),
 	/* SUBSYS Part */
-	FMCLK(SUBSYS, FM_MFGPLL, "fm_mfgpll", 1),
-	FMCLK(SUBSYS, FM_MFGSCPLL, "fm_mfgscpll", 1),
 	FMCLK(SUBSYS, FM_CCIPLL, "fm_ccipll", 1),
 	FMCLK(SUBSYS, FM_ARMPLL_LL, "fm_armpll_ll", 1),
 	FMCLK(SUBSYS, FM_ARMPLL_BL, "fm_armpll_bl", 1),
