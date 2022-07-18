@@ -113,6 +113,8 @@ struct adreno_gen7_core {
 	 * BIT[15:21] - Throttle level 3 (optional)
 	 */
 	u32 bcl_data;
+	/** @fast_bus_hint: Whether or not to increase IB vote on high ddr stall */
+	bool fast_bus_hint;
 };
 
 /**

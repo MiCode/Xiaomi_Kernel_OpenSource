@@ -16,6 +16,7 @@
 #include "adreno_gen7_hwsched.h"
 #include "adreno_pm4types.h"
 #include "adreno_trace.h"
+#include "kgsl_pwrscale.h"
 #include "kgsl_trace.h"
 #include "kgsl_util.h"
 
@@ -1167,7 +1168,8 @@ int gen7_probe_common(struct platform_device *pdev,
 	const struct adreno_gpu_core *gpucore)
 {
 	const struct adreno_gpudev *gpudev = gpucore->gpudev;
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	const struct adreno_gen7_core *gen7_core = container_of(gpucore,
+			struct adreno_gen7_core, base);
 
 	adreno_dev->gpucore = gpucore;
 	adreno_dev->chipid = chipid;
@@ -1181,7 +1183,7 @@ int gen7_probe_common(struct platform_device *pdev,
 	adreno_dev->preempt.skipsaverestore = true;
 	adreno_dev->preempt.usesgmem = true;
 
-	device->pwrscale.avoid_ddr_stall = true;
+	kgsl_pwrscale_fast_bus_hint(gen7_core->fast_bus_hint);
 
 	return adreno_device_probe(pdev, adreno_dev);
 }

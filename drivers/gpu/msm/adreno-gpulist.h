@@ -2045,6 +2045,7 @@ static const struct adreno_gen7_core adreno_gpu_core_gen7_0_0 = {
 	.protected_regs = gen7_0_0_protected_regs,
 	.highest_bank_bit = 16,
 	.gen7_snapshot_block_list = &gen7_0_0_snapshot_block_list,
+	.fast_bus_hint = true,
 };
 
 static const struct adreno_gen7_core adreno_gpu_core_gen7_0_1 = {
@@ -2077,6 +2078,7 @@ static const struct adreno_gen7_core adreno_gpu_core_gen7_0_1 = {
 	.protected_regs = gen7_0_0_protected_regs,
 	.highest_bank_bit = 16,
 	.gen7_snapshot_block_list = &gen7_0_0_snapshot_block_list,
+	.fast_bus_hint = true,
 };
 
 static const struct adreno_gen7_core adreno_gpu_core_gen7_4_0 = {
@@ -2108,6 +2110,7 @@ static const struct adreno_gen7_core adreno_gpu_core_gen7_4_0 = {
 	.protected_regs = gen7_0_0_protected_regs,
 	.highest_bank_bit = 16,
 	.gen7_snapshot_block_list = &gen7_0_0_snapshot_block_list,
+	.fast_bus_hint = true,
 };
 
 static const struct adreno_gen7_core adreno_gpu_core_gen7_3_0 = {
