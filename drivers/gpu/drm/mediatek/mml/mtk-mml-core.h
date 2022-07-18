@@ -370,6 +370,7 @@ struct mml_frame_config {
 	bool shadow:1;
 	bool framemode:1;
 	bool nocmd:1;
+	bool err:1;
 
 	/* tile */
 	struct mml_tile_output *tile_output[MML_PIPE_CNT];

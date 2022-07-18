@@ -75,11 +75,9 @@ static struct mml_frame_config *frame_config_find_reuse(
 	mml_trace_ex_begin("%s", __func__);
 
 	list_for_each_entry(cfg, &ctx->configs, entry) {
-		if (submit->update && cfg->last_jobid == submit->job->jobid)
-			goto done;
-
 		if (check_frame_change(&submit->info, cfg) &&
-		    check_dle_frame_change(dle_info, cfg))
+		    check_dle_frame_change(dle_info, cfg) &&
+		    !cfg->err)
 			goto done;
 
 		idx++;
@@ -259,6 +257,17 @@ static void task_move_to_running(struct mml_task *task)
 		task->config->done_task_cnt);
 }
 
+static void task_move_to_destroy(struct kref *kref)
+{
+	struct mml_task *task = container_of(kref,
+		struct mml_task, ref);
+
+	if (task->config)
+		kref_put(&task->config->ref, frame_config_queue_destroy);
+
+	mml_core_destroy_task(task);
+}
+
 static void task_move_to_idle(struct mml_task *task)
 {
 	/* Must lock ctx->config_mutex before call */
@@ -277,25 +286,26 @@ static void task_move_to_idle(struct mml_task *task)
 
 	list_del_init(&task->entry);
 	task->state = MML_TASK_IDLE;
-	list_add_tail(&task->entry, &task->config->done_tasks);
-	task->config->done_task_cnt++;
 
-	mml_msg("[dle]%s task cnt (%u %u %hhu)",
-		__func__,
-		task->config->await_task_cnt,
-		task->config->run_task_cnt,
-		task->config->done_task_cnt);
-}
+	if (unlikely(task->err)) {
+		mml_err("[dle]%s task cnt (%u %u %u) before error put",
+			__func__,
+			task->config->await_task_cnt,
+			task->config->run_task_cnt,
+			task->config->done_task_cnt);
 
-static void task_move_to_destroy(struct kref *kref)
-{
-	struct mml_task *task = container_of(kref,
-		struct mml_task, ref);
+		/* do not reuse this one, it error before */
+		kref_put(&task->ref, task_move_to_destroy);
+	} else {
+		list_add_tail(&task->entry, &task->config->done_tasks);
+		task->config->done_task_cnt++;
 
-	if (task->config)
-		kref_put(&task->config->ref, frame_config_queue_destroy);
-
-	mml_core_destroy_task(task);
+		mml_msg("[dle]%s task cnt (%u %u %hhu)",
+			__func__,
+			task->config->await_task_cnt,
+			task->config->run_task_cnt,
+			task->config->done_task_cnt);
+	}
 }
 
 static void task_config_done(struct mml_task *task)
@@ -394,8 +404,8 @@ static void task_frame_err(struct mml_task *task)
 
 	mml_trace_ex_begin("%s", __func__);
 
-	mml_msg("[dle]config err task %p state %u job %u",
-		task, task->state, task->job.jobid);
+	mml_err("[dle]config %p err task %p state %u job %u",
+		cfg, task, task->state, task->job.jobid);
 
 	/* clean up */
 	task_buf_put(task);
@@ -409,7 +419,9 @@ static void task_frame_err(struct mml_task *task)
 		cfg->run_task_cnt,
 		cfg->done_task_cnt,
 		task->state);
-	kref_put(&task->ref, task_move_to_destroy);
+
+	task->err = true;
+	cfg->err = true;
 
 	mutex_unlock(&ctx->config_mutex);
 

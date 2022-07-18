@@ -883,7 +883,10 @@ static void sys_ddp_disable(struct mml_sys *sys, struct mml_task *task, u32 pipe
 		mml_log("[warn]%s task path found %p was not path connected %p",
 			__func__, path, sys->ddp_path[pipe]);
 
-	sys_ddp_disable_locked(sys, pipe);
+	if (task->pipe[pipe].en.clk) {
+		sys_ddp_disable_locked(sys, pipe);
+		task->pipe[pipe].en.clk = false;
+	}
 	sys->ddp_path[pipe] = NULL;
 
 disabled:
@@ -937,6 +940,7 @@ static void sys_ddp_enable(struct mml_sys *sys, struct mml_task *task, u32 pipe)
 #endif
 
 enabled:
+	task->pipe[pipe].en.clk = true;
 	mml_clock_unlock(task->config->mml);
 }
 
@@ -1050,6 +1054,12 @@ static void sys_addon_connect(struct mml_sys *sys,
 	if (!cfg->task || !cfg->task->config->tile_output[cfg->pipe]) {
 		mml_err("%s no tile for task %p pipe %u", __func__,
 			cfg->task, cfg->pipe);
+		return;
+	}
+
+	if (cfg->task->err) {
+		mml_err("%s tile error stop make command task %p pipe %u",
+			__func__, cfg->task, cfg->pipe);
 		return;
 	}
 

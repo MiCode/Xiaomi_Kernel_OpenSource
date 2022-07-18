@@ -2035,6 +2035,10 @@ static ssize_t dumpsrv_write(struct file *filp, const char __user *buf, size_t l
 	struct mml_dump_context *dctx = (struct mml_dump_context *)filp->private_data;
 	u64 stamp;
 
+	/* for safe */
+	if (len != sizeof(struct mml_dump_job))
+		return 0;
+
 	mutex_lock(&dctx->job_mutex);
 
 	if (dctx->async)
@@ -2166,6 +2170,7 @@ static int probe(struct platform_device *pdev)
 	for (i = 0; i < ARRAY_SIZE(dump_ctx); i++) {
 		mutex_init(&dump_ctx[i].job_mutex);
 		init_waitqueue_head(&dump_ctx[i].dump_queue);
+		init_completion(&dump_ctx[i].write_done);
 	}
 
 	return 0;
