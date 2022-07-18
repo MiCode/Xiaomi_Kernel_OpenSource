@@ -1913,13 +1913,24 @@ static int wait_dsi_wq(struct t_condition_wq *wq, int timeout)
 	return ret;
 }
 
+static unsigned int dsi_underrun_trigger = 1;
+unsigned int check_dsi_underrun_event(void)
+{
+	return !dsi_underrun_trigger;
+}
+
+void clear_dsi_underrun_event(void)
+{
+	DDPMSG("%s, do clear underrun event\n", __func__);
+	dsi_underrun_trigger = 1;
+}
+
 static irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 {
 	struct mtk_dsi *dsi = dev_id;
 	struct mtk_drm_crtc *mtk_crtc = NULL;
 	struct mtk_panel_ext *panel_ext = NULL;
 	u32 status;
-	static unsigned int dsi_underrun_trigger = 1;
 	unsigned int ret = 0;
 	static DEFINE_RATELIMIT_STATE(ioctl_ratelimit, 1 * HZ, 5);
 	bool doze_enabled = 0;

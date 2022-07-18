@@ -1116,6 +1116,8 @@ int mtk_drm_ioctl_get_pq_caps(struct drm_device *dev, void *data,
 int mtk_drm_ioctl_set_pq_caps(struct drm_device *dev, void *data,
 	struct drm_file *file_priv);
 void mtk_crtc_prepare_instr(struct drm_crtc *crtc);
+unsigned int check_dsi_underrun_event(void);
+void clear_dsi_underrun_event(void);
 
 int mtk_drm_setbacklight(struct drm_crtc *crtc, unsigned int level,
 			unsigned int panel_ext_param, unsigned int cfg_flag);

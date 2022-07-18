@@ -84,6 +84,7 @@ bool g_irq_log;
 bool g_trace_log;
 unsigned int mipi_volt;
 unsigned int disp_met_en;
+unsigned int disp_met_condition;
 unsigned int lfr_dbg;
 unsigned int lfr_params;
 unsigned int disp_spr_bypass;
@@ -3638,6 +3639,51 @@ static int disp_met_get(void *data, u64 *val)
 
 DEFINE_SIMPLE_ATTRIBUTE(disp_met_fops, disp_met_get, disp_met_set, "%llu\n");
 
+int disp_met_stop_set(void *data, u64 val)
+{
+	/*1 enable  ; 0 disable*/
+	DDPMSG("MET Stop Condition list:\n");
+	DDPMSG("    1: underrun\n");
+	DDPMSG("    2: others\n");
+	DDPMSG("%s: update met stop condition from:%u to %lu\n",
+		__func__, disp_met_condition, val);
+
+	disp_met_condition = val;
+
+	switch (disp_met_condition) {
+	case 1: //underrun
+		clear_dsi_underrun_event();
+		break;
+	case 2: //others
+		break;
+	default:
+		break;
+	}
+
+	return 0;
+}
+
+static int disp_met_stop_get(void *data, u64 *val)
+{
+	switch (disp_met_condition) {
+	case 1: //underrun
+		*val = check_dsi_underrun_event();
+		break;
+	case 2: //others
+		*val = 0;
+		break;
+	default:
+		*val = 0;
+		break;
+	}
+
+	DDPMSG("%s: met stop at condition:%u:%lu\n",
+		__func__, disp_met_condition, *val);
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(disp_met_stop_fops, disp_met_stop_get, disp_met_stop_set, "%llu\n");
+
 static int disp_met_proc_open(struct inode *inode, struct file *file)
 {
 	file->private_data = inode->i_private;
@@ -3981,6 +4027,8 @@ void disp_dbg_probe(void)
 	if (d_folder) {
 		d_file = debugfs_create_file("disp_met", S_IFREG | 0644,
 					     d_folder, NULL, &disp_met_fops);
+		d_file = debugfs_create_file("disp_met_stop", S_IFREG | 0644,
+					     d_folder, NULL, &disp_met_stop_fops);
 	}
 	if (d_folder) {
 		d_file = debugfs_create_file("disp_lfr_dbg",
