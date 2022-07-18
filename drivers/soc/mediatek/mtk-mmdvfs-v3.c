@@ -12,6 +12,7 @@
 #include <linux/sched/clock.h>
 #include <linux/slab.h>
 #include <linux/suspend.h>
+#include <soc/mediatek/mmdvfs_v3.h>
 #include <soc/mediatek/smi.h>
 #include <linux/rpmsg.h>
 #include <linux/rpmsg/mtk_rpmsg.h>
@@ -60,6 +61,7 @@ struct ipi_callbacks clk_cb;
 static unsigned int clk_en_cnt;
 
 static int last_ccu_freq = -1;
+static unsigned int ccu_pwr_usage[CCU_PWR_USR_NUM];
 
 enum mmdvfs_log_level {
 	log_ipi,
@@ -73,7 +75,7 @@ static inline struct mtk_mmdvfs_clk *to_mtk_mmdvfs_clk(struct clk_hw *hw)
 	return container_of(hw, struct mtk_mmdvfs_clk, clk_hw);
 }
 
-int mtk_mmdvfs_enable_ccu(bool enable)
+int mtk_mmdvfs_enable_ccu(bool enable, unsigned int usr_id)
 {
 
 	int ret = 0;
@@ -85,6 +87,11 @@ int mtk_mmdvfs_enable_ccu(bool enable)
 
 	if (!ccu_rproc) {
 		MMDVFS_ERR("there is no ccu_rproc");
+		return -EINVAL;
+	}
+
+	if (usr_id >= CCU_PWR_USR_NUM) {
+		MMDVFS_ERR("usr_id:%u >= usr_num:%u", usr_id, CCU_PWR_USR_NUM);
 		return -EINVAL;
 	}
 
@@ -103,6 +110,7 @@ int mtk_mmdvfs_enable_ccu(bool enable)
 			}
 		}
 		ccu_power++;
+		ccu_pwr_usage[usr_id]++;
 	} else {
 		if (ccu_power == 0) {
 			MMDVFS_ERR("disable vcp when vcp_power==0");
@@ -117,6 +125,7 @@ int mtk_mmdvfs_enable_ccu(bool enable)
 #endif
 		}
 		ccu_power--;
+		ccu_pwr_usage[usr_id]--;
 	}
 
 	mutex_unlock(&mmdvfs_ccu_pwr_mutex);
@@ -124,6 +133,20 @@ int mtk_mmdvfs_enable_ccu(bool enable)
 	return ret;
 }
 EXPORT_SYMBOL_GPL(mtk_mmdvfs_enable_ccu);
+
+static void check_ccu_pwr(void)
+{
+	int i;
+	bool has_error = false;
+
+	for (i = 0; i < CCU_PWR_USR_NUM; i++) {
+		if (ccu_pwr_usage[i] > 0) {
+			MMDVFS_ERR("usr:%u is not disabled usage:%u", i, ccu_pwr_usage[i]);
+			has_error = true;
+		}
+	}
+	WARN_ON(has_error);
+}
 
 
 static int mtk_mmdvfs_enable_vmm(int enable)
@@ -418,7 +441,7 @@ static int mtk_mmdvfs_set_rate(struct clk_hw *hw, unsigned long rate,
 		if (mmdvfs_free_run) {
 			if (mmdvfs_clk->ipi_type == IPI_MMDVFS_CCU) {
 				if (ccu_pdev) {
-					mtk_mmdvfs_enable_ccu(true);
+					mtk_mmdvfs_enable_ccu(true, CCU_PWR_USR_MMDVFS_SET_RATE);
 					ret = mtk_ccu_rproc_ipc_send(
 						ccu_pdev,
 						MTK_CCU_FEATURE_ISPDVFS,
@@ -426,7 +449,7 @@ static int mtk_mmdvfs_set_rate(struct clk_hw *hw, unsigned long rate,
 						(void *)&img_clk, sizeof(unsigned int));
 					if (ret)
 						MMDVFS_ERR("mtk_ccu_rproc_ipc_send fail(%d)", ret);
-					mtk_mmdvfs_enable_ccu(false);
+					mtk_mmdvfs_enable_ccu(false, CCU_PWR_USR_MMDVFS_SET_RATE);
 				}
 			} else {
 				ret = mmdvfs_vcp_ipi_send(FUNC_SET_OPP,
@@ -709,6 +732,7 @@ static int lpm_spm_suspend_pm_event(struct notifier_block *notifier,
 			if (last_force_step[i] != -1)
 				mtk_mmdvfs_v3_set_force_step(i, -1);
 		}
+		check_ccu_pwr();
 		//enable_aoc_iso(true);
 		return NOTIFY_DONE;
 	case PM_POST_SUSPEND:
@@ -736,7 +760,7 @@ int mmdvfs_set_ccu_ipi(const char *val, const struct kernel_param *kp)
 	if (ccu_pdev) {
 		if (last_ccu_freq < 0 && freq >= 0) {
 			mtk_mmdvfs_enable_vcp(true);
-			mtk_mmdvfs_enable_ccu(true);
+			mtk_mmdvfs_enable_ccu(true, CCU_PWR_USR_MMDVFS_CCU_TEST);
 			while (!is_vcp_ready_ex(VCP_A_ID)) {
 				if (++retry > 100) {
 					MMDVFS_ERR("VCP_A_ID:%d not ready", VCP_A_ID);
@@ -749,7 +773,7 @@ int mmdvfs_set_ccu_ipi(const char *val, const struct kernel_param *kp)
 		last_ccu_freq = freq;
 
 		if (freq < 0) {
-			mtk_mmdvfs_enable_ccu(false);
+			mtk_mmdvfs_enable_ccu(false, CCU_PWR_USR_MMDVFS_CCU_TEST);
 			mtk_mmdvfs_enable_vcp(false);
 			return 0;
 		}

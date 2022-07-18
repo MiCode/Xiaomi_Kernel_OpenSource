@@ -6,13 +6,21 @@
 #ifndef MTK_MMDVFS_V3_H
 #define MTK_MMDVFS_V3_H
 
+
+enum ccu_pwr_usr {
+	CCU_PWR_USR_MMDVFS_SET_RATE,
+	CCU_PWR_USR_MMDVFS_CCU_TEST,
+	CCU_PWR_USR_IMG,
+	CCU_PWR_USR_NUM
+};
+
 #if IS_ENABLED(CONFIG_MTK_MMDVFS)
 void *mtk_mmdvfs_vcp_get_base(phys_addr_t *pa);
 int mtk_mmdvfs_camera_notify(bool enable);
 int mtk_mmdvfs_camera_notify_from_mmqos(bool enable);
 bool mtk_is_mmdvfs_init_done(void);
 int mtk_mmdvfs_enable_vcp(bool enable);
-int mtk_mmdvfs_enable_ccu(bool enable);
+int mtk_mmdvfs_enable_ccu(bool enable, unsigned int usr_id);
 int mtk_mmdvfs_v3_set_force_step(u16 pwr_idx, s16 opp);
 int mtk_mmdvfs_v3_set_vote_step(u16 pwr_idx, s16 opp);
 #else
