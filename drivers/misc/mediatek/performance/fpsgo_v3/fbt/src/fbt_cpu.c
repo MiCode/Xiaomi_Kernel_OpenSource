@@ -265,6 +265,7 @@ static int loading_enable;
 static int filter_frame_enable;
 static int filter_frame_window_size;
 static int filter_frame_kmin;
+static int variance_control_enable;
 
 module_param(bhr, int, 0644);
 module_param(bhr_opp, int, 0644);
@@ -333,6 +334,7 @@ module_param(boost_LR, int, 0644);
 module_param(aa_retarget, int, 0644);
 module_param(loading_ignore_enable, int, 0644);
 module_param(loading_enable, int, 0644);
+module_param(variance_control_enable, int, 0644);
 
 static DEFINE_SPINLOCK(freq_slock);
 static DEFINE_MUTEX(fbt_mlock);
@@ -3731,13 +3733,15 @@ static int fbt_boost_policy(
 		fpsgo_systrace_c_fbt_debug(pid, buffer_id, aa_m, "aa_m");
 	}
 
-	fbt_check_var(aa, target_fps, nsec_to_usec(target_time),
-		&(boost_info->f_iter),
-		&(boost_info->frame_info[0]),
-		&(boost_info->floor),
-		&(boost_info->floor_count),
-		&(boost_info->reset_floor_bound));
-	fpsgo_systrace_c_fbt(pid, buffer_id, boost_info->floor, "variance");
+	if (variance_control_enable) {
+		fbt_check_var(aa, target_fps, nsec_to_usec(target_time),
+			&(boost_info->f_iter),
+			&(boost_info->frame_info[0]),
+			&(boost_info->floor),
+			&(boost_info->floor_count),
+			&(boost_info->reset_floor_bound));
+		fpsgo_systrace_c_fbt(pid, buffer_id, boost_info->floor, "variance");
+	}
 
 	blc_wt = clamp(blc_wt, 1U, 100U);
 	if (separate_aa) {
@@ -3745,12 +3749,14 @@ static int fbt_boost_policy(
 		blc_wt_m = clamp(blc_wt_m, 1U, 100U);
 	}
 
-	if (boost_info->floor > 1) {
-		int orig_blc = blc_wt;
+	if (variance_control_enable) {
+		if (boost_info->floor > 1) {
+			int orig_blc = blc_wt;
 
-		blc_wt = (blc_wt * (boost_info->floor + 100)) / 100U;
-		blc_wt = clamp(blc_wt, 1U, 100U);
-		blc_wt = fbt_must_enhance_floor(blc_wt, orig_blc, floor_opp);
+			blc_wt = (blc_wt * (boost_info->floor + 100)) / 100U;
+			blc_wt = clamp(blc_wt, 1U, 100U);
+			blc_wt = fbt_must_enhance_floor(blc_wt, orig_blc, floor_opp);
+		}
 	}
 
 	#if FPSGO_MW
@@ -7272,6 +7278,7 @@ int __init fbt_cpu_init(void)
 	short_min_rescue_p = 0;
 	run_time_percent = 50;
 	deqtime_bound = TIME_3MS;
+	variance_control_enable = 0;
 	variance = 40;
 	floor_bound = 3;
 	kmin = 10;
