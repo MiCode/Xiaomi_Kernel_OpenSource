@@ -203,6 +203,8 @@ struct cmdq_thread {
 	u64			lock_time;
 	u64			irq_time;
 	u32			irq_task;
+	u64			mbox_en;
+	u64			mbox_dis;
 };
 
 extern int mtk_cmdq_log;

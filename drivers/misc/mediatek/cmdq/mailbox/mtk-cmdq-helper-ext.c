@@ -3311,6 +3311,7 @@ EXPORT_SYMBOL(cmdq_pkt_dump_buf);
 int cmdq_dump_pkt(struct cmdq_pkt *pkt, dma_addr_t pc, bool dump_ist)
 {
 	struct cmdq_client *client;
+	struct cmdq_thread *thread;
 
 	if (!pkt) {
 		cmdq_err("pkt is empty");
@@ -3322,6 +3323,7 @@ int cmdq_dump_pkt(struct cmdq_pkt *pkt, dma_addr_t pc, bool dump_ist)
 	}
 
 	client = (struct cmdq_client *)pkt->cl;
+	thread = (struct cmdq_thread *)client->chan->con_priv;
 	if (client) {
 		cmdq_util_user_msg(client->chan,
 			"pkt:0x%p(%#x) size:%zu/%zu avail size:%zu priority:%u%s",
@@ -3330,8 +3332,8 @@ int cmdq_dump_pkt(struct cmdq_pkt *pkt, dma_addr_t pc, bool dump_ist)
 			pkt->priority, pkt->loop ? " loop" : "");
 #if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
 		cmdq_util_user_msg(client->chan,
-			"submit:%llu trigger:%llu wait:%llu irq:%llu",
-			pkt->rec_submit, pkt->rec_trigger,
+			"mbox_enable:%llu mbox_disable:%llu submit:%llu trigger:%llu wait:%llu irq:%llu",
+			thread->mbox_en, thread->mbox_dis, pkt->rec_submit, pkt->rec_trigger,
 			pkt->rec_wait, pkt->rec_irq);
 #endif
 		cmdq_util_user_msg(client->chan,

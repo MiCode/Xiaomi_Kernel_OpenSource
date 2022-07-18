@@ -740,6 +740,12 @@ static void cmdq_task_exec(struct cmdq_pkt *pkt, struct cmdq_thread *thread)
 	task->pkt = pkt;
 	task->exec_time = sched_clock();
 
+	if (atomic_read(&cmdq->usage) <= 0)
+		cmdq_err("hwid:%hu usage:%d idx:%u usage:%d gce off",
+			cmdq->hwid, atomic_read(&cmdq->usage),
+			thread->idx, atomic_read(&thread->usage));
+
+
 	if (list_empty(&thread->task_busy_list)) {
 		// power
 		if (mminfra_power_cb && !mminfra_power_cb())
@@ -2436,7 +2442,8 @@ void cmdq_mbox_enable(void *chan)
 {
 	struct cmdq *cmdq = container_of(((struct mbox_chan *)chan)->mbox,
 		typeof(*cmdq), mbox);
-	s32 usage, i, ret;
+	struct cmdq_thread *thread;
+	s32 usage, i, ret, thd_usage;
 
 	usage = atomic_read(&cmdq->usage);
 	if (cmdq->suspended) {
@@ -2459,8 +2466,13 @@ void cmdq_mbox_enable(void *chan)
 	cmdq_log("%s: hwid:%hu usage:%d idx:%d usage:%d", __func__,
 		cmdq->hwid, usage, i, atomic_read(&cmdq->thread[i].usage));
 
+	thd_usage = atomic_inc_return(&cmdq->thread[i].usage);
+	if (thd_usage == 1) {
+		thread = &cmdq->thread[i];
+		thread->mbox_en = sched_clock();
+	}
+
 	usage = atomic_inc_return(&cmdq->usage);
-	atomic_inc(&cmdq->thread[i].usage);
 	if (usage == 1) {
 		unsigned long flags;
 
@@ -2526,6 +2538,7 @@ void cmdq_mbox_disable(void *chan)
 {
 	struct cmdq *cmdq = container_of(((struct mbox_chan *)chan)->mbox,
 		typeof(*cmdq), mbox);
+	struct cmdq_thread *thread;
 	s32 usage, i;
 
 	usage = atomic_read(&cmdq->usage);
@@ -2550,7 +2563,10 @@ void cmdq_mbox_disable(void *chan)
 		cmdq->hwid, usage, i, atomic_read(&cmdq->thread[i].usage));
 
 	usage = atomic_dec_return(&cmdq->thread[i].usage);
-	if (usage < 0) {
+	if (usage == 0) {
+		thread = &cmdq->thread[i];
+		thread->mbox_dis = sched_clock();
+	} else if (usage < 0) {
 		cmdq_err("hwid:%u idx:%d usage:%d cannot below zero",
 			cmdq->hwid, i, usage);
 		WARN_ON(1);
