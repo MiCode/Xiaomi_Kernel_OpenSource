@@ -3014,6 +3014,13 @@ static int __maybe_unused mtk_iommu_runtime_resume(struct device *dev)
 	}
 #endif
 
+	/*
+	 * Users may allocate dma buffer when HW is runtime suspended,
+	 * in which case it will lack the necessary tlb flush.
+	 * Thus, make sure to update the tlb after each PM resume.
+	 */
+	mtk_iommu_tlb_flush_all(data);
+
 #if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_DBG)
 	mtk_iommu_pm_trace(dev, true);
 #endif
