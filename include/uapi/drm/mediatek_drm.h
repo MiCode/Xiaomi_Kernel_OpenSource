@@ -496,6 +496,9 @@ struct DISP_AAL_TRIG_STATE {
 #define DRM_MTK_SET_DISP_TDSHP_REG 0x50
 #define DRM_MTK_DISP_TDSHP_GET_SIZE 0x51
 
+/* DISP_CLARITY */
+#define DRM_MTK_DISP_CLARITY_SET_REG 0x5E
+
 #define DRM_MTK_GET_PQ_CAPS 0x54
 #define DRM_MTK_SET_PQ_CAPS 0x55
 
@@ -985,6 +988,301 @@ struct DISP_TDSHP_DISPLAY_SIZE {
 	int lcm_height;
 };
 
+struct DISP_MDP_AAL_CLARITY_REG {
+	// Bilateral
+	uint32_t bilateral_range_flt_slope;
+
+	// Bilateral Blending
+	uint32_t dre_bilateral_activate_blending_A;
+	uint32_t dre_bilateral_activate_blending_B;
+	uint32_t dre_bilateral_activate_blending_C;
+	uint32_t dre_bilateral_activate_blending_D;
+	uint32_t dre_bilateral_activate_blending_wgt_gain;
+	uint32_t dre_bilateral_blending_en;
+	uint32_t dre_bilateral_blending_wgt;
+	uint32_t dre_bilateral_blending_wgt_mode;
+	uint32_t dre_bilateral_size_blending_wgt;
+
+	// Filter 1
+	uint32_t bilateral_custom_range_flt1_0_0;
+	uint32_t bilateral_custom_range_flt1_0_1;
+	uint32_t bilateral_custom_range_flt1_0_2;
+	uint32_t bilateral_custom_range_flt1_0_3;
+	uint32_t bilateral_custom_range_flt1_0_4;
+
+	uint32_t bilateral_custom_range_flt1_1_0;
+	uint32_t bilateral_custom_range_flt1_1_1;
+	uint32_t bilateral_custom_range_flt1_1_2;
+	uint32_t bilateral_custom_range_flt1_1_3;
+	uint32_t bilateral_custom_range_flt1_1_4;
+
+	uint32_t bilateral_custom_range_flt1_2_0;
+	uint32_t bilateral_custom_range_flt1_2_1;
+	uint32_t bilateral_custom_range_flt1_2_2;
+	uint32_t bilateral_custom_range_flt1_2_3;
+	uint32_t bilateral_custom_range_flt1_2_4;
+
+	// Filter 2
+	uint32_t bilateral_custom_range_flt2_0_0;
+	uint32_t bilateral_custom_range_flt2_0_1;
+	uint32_t bilateral_custom_range_flt2_0_2;
+	uint32_t bilateral_custom_range_flt2_0_3;
+	uint32_t bilateral_custom_range_flt2_0_4;
+
+	uint32_t bilateral_custom_range_flt2_1_0;
+	uint32_t bilateral_custom_range_flt2_1_1;
+	uint32_t bilateral_custom_range_flt2_1_2;
+	uint32_t bilateral_custom_range_flt2_1_3;
+	uint32_t bilateral_custom_range_flt2_1_4;
+
+	uint32_t bilateral_custom_range_flt2_2_0;
+	uint32_t bilateral_custom_range_flt2_2_1;
+	uint32_t bilateral_custom_range_flt2_2_2;
+	uint32_t bilateral_custom_range_flt2_2_3;
+	uint32_t bilateral_custom_range_flt2_2_4;
+
+	// Bilateral Flt Config
+	uint32_t bilateral_contrary_blending_wgt;
+	uint32_t bilateral_custom_range_flt_gain;
+	uint32_t bilateral_custom_range_flt_slope;
+	uint32_t bilateral_range_flt_gain;
+	uint32_t bilateral_size_blending_wgt;
+
+	// Bilateral Frequency Blending
+	uint32_t bilateral_contrary_blending_out_wgt;
+	uint32_t bilateral_custom_range_flt1_out_wgt;
+	uint32_t bilateral_custom_range_flt2_out_wgt;
+	uint32_t bilateral_range_flt_out_wgt;
+	uint32_t bilateral_size_blending_out_wgt;
+
+	// Bilateral Region Protection
+	uint32_t dre_bilateral_blending_region_protection_en;
+	uint32_t dre_bilateral_region_protection_activate_A;
+	uint32_t dre_bilateral_region_protection_activate_B;
+	uint32_t dre_bilateral_region_protection_activate_C;
+	uint32_t dre_bilateral_region_protection_activate_D;
+	uint32_t dre_bilateral_region_protection_input_shift_bit;
+};
+
+struct DISP_TDSHP_CLARITY_REG {
+	// High & Mid Gain
+	uint32_t tdshp_gain_high;
+	uint32_t tdshp_gain_mid;
+
+	// Mid-Band Vertical Filter
+	uint32_t mid_coef_v_custom_range_flt_0_0;
+	uint32_t mid_coef_v_custom_range_flt_0_1;
+	uint32_t mid_coef_v_custom_range_flt_0_2;
+	uint32_t mid_coef_v_custom_range_flt_0_3;
+	uint32_t mid_coef_v_custom_range_flt_0_4;
+
+	uint32_t mid_coef_v_custom_range_flt_1_0;
+	uint32_t mid_coef_v_custom_range_flt_1_1;
+	uint32_t mid_coef_v_custom_range_flt_1_2;
+	uint32_t mid_coef_v_custom_range_flt_1_3;
+	uint32_t mid_coef_v_custom_range_flt_1_4;
+
+	uint32_t mid_coef_v_custom_range_flt_2_0;
+	uint32_t mid_coef_v_custom_range_flt_2_1;
+	uint32_t mid_coef_v_custom_range_flt_2_2;
+	uint32_t mid_coef_v_custom_range_flt_2_3;
+	uint32_t mid_coef_v_custom_range_flt_2_4;
+
+	// Mid-Band Horizontal Filter
+	uint32_t mid_coef_h_custom_range_flt_0_0;
+	uint32_t mid_coef_h_custom_range_flt_0_1;
+	uint32_t mid_coef_h_custom_range_flt_0_2;
+	uint32_t mid_coef_h_custom_range_flt_0_3;
+	uint32_t mid_coef_h_custom_range_flt_0_4;
+
+	uint32_t mid_coef_h_custom_range_flt_1_0;
+	uint32_t mid_coef_h_custom_range_flt_1_1;
+	uint32_t mid_coef_h_custom_range_flt_1_2;
+	uint32_t mid_coef_h_custom_range_flt_1_3;
+	uint32_t mid_coef_h_custom_range_flt_1_4;
+
+	uint32_t mid_coef_h_custom_range_flt_2_0;
+	uint32_t mid_coef_h_custom_range_flt_2_1;
+	uint32_t mid_coef_h_custom_range_flt_2_2;
+	uint32_t mid_coef_h_custom_range_flt_2_3;
+	uint32_t mid_coef_h_custom_range_flt_2_4;
+
+	// High-Band Vertical Filter
+	uint32_t high_coef_v_custom_range_flt_0_0;
+	uint32_t high_coef_v_custom_range_flt_0_1;
+	uint32_t high_coef_v_custom_range_flt_0_2;
+	uint32_t high_coef_v_custom_range_flt_0_3;
+	uint32_t high_coef_v_custom_range_flt_0_4;
+
+	uint32_t high_coef_v_custom_range_flt_1_0;
+	uint32_t high_coef_v_custom_range_flt_1_1;
+	uint32_t high_coef_v_custom_range_flt_1_2;
+	uint32_t high_coef_v_custom_range_flt_1_3;
+	uint32_t high_coef_v_custom_range_flt_1_4;
+
+	uint32_t high_coef_v_custom_range_flt_2_0;
+	uint32_t high_coef_v_custom_range_flt_2_1;
+	uint32_t high_coef_v_custom_range_flt_2_2;
+	uint32_t high_coef_v_custom_range_flt_2_3;
+	uint32_t high_coef_v_custom_range_flt_2_4;
+
+	// High-Band Horizontal Filter
+	uint32_t high_coef_h_custom_range_flt_0_0;
+	uint32_t high_coef_h_custom_range_flt_0_1;
+	uint32_t high_coef_h_custom_range_flt_0_2;
+	uint32_t high_coef_h_custom_range_flt_0_3;
+	uint32_t high_coef_h_custom_range_flt_0_4;
+
+	uint32_t high_coef_h_custom_range_flt_1_0;
+	uint32_t high_coef_h_custom_range_flt_1_1;
+	uint32_t high_coef_h_custom_range_flt_1_2;
+	uint32_t high_coef_h_custom_range_flt_1_3;
+	uint32_t high_coef_h_custom_range_flt_1_4;
+
+	uint32_t high_coef_h_custom_range_flt_2_0;
+	uint32_t high_coef_h_custom_range_flt_2_1;
+	uint32_t high_coef_h_custom_range_flt_2_2;
+	uint32_t high_coef_h_custom_range_flt_2_3;
+	uint32_t high_coef_h_custom_range_flt_2_4;
+
+	// High-Band Right-Diagonal Filter
+	uint32_t high_coef_rd_custom_range_flt_0_0;
+	uint32_t high_coef_rd_custom_range_flt_0_1;
+	uint32_t high_coef_rd_custom_range_flt_0_2;
+	uint32_t high_coef_rd_custom_range_flt_0_3;
+	uint32_t high_coef_rd_custom_range_flt_0_4;
+
+	uint32_t high_coef_rd_custom_range_flt_1_0;
+	uint32_t high_coef_rd_custom_range_flt_1_1;
+	uint32_t high_coef_rd_custom_range_flt_1_2;
+	uint32_t high_coef_rd_custom_range_flt_1_3;
+	uint32_t high_coef_rd_custom_range_flt_1_4;
+
+	uint32_t high_coef_rd_custom_range_flt_2_0;
+	uint32_t high_coef_rd_custom_range_flt_2_1;
+	uint32_t high_coef_rd_custom_range_flt_2_2;
+	uint32_t high_coef_rd_custom_range_flt_2_3;
+	uint32_t high_coef_rd_custom_range_flt_2_4;
+
+	// High-Band Left-Diagonal Filter
+	uint32_t high_coef_ld_custom_range_flt_0_0;
+	uint32_t high_coef_ld_custom_range_flt_0_1;
+	uint32_t high_coef_ld_custom_range_flt_0_2;
+	uint32_t high_coef_ld_custom_range_flt_0_3;
+	uint32_t high_coef_ld_custom_range_flt_0_4;
+
+	uint32_t high_coef_ld_custom_range_flt_1_0;
+	uint32_t high_coef_ld_custom_range_flt_1_1;
+	uint32_t high_coef_ld_custom_range_flt_1_2;
+	uint32_t high_coef_ld_custom_range_flt_1_3;
+	uint32_t high_coef_ld_custom_range_flt_1_4;
+
+	uint32_t high_coef_ld_custom_range_flt_2_0;
+	uint32_t high_coef_ld_custom_range_flt_2_1;
+	uint32_t high_coef_ld_custom_range_flt_2_2;
+	uint32_t high_coef_ld_custom_range_flt_2_3;
+	uint32_t high_coef_ld_custom_range_flt_2_4;
+
+	// Active Parameters
+	uint32_t mid_negative_offset;
+	uint32_t mid_positive_offset;
+	uint32_t high_negative_offset;
+	uint32_t high_positive_offset;
+
+	// Active Parameters Frequency D
+	uint32_t D_active_parameter_N_gain;
+	uint32_t D_active_parameter_N_offset;
+	uint32_t D_active_parameter_P_gain;
+	uint32_t D_active_parameter_P_offset;
+
+	// Active Parameters Frequency H
+	uint32_t High_active_parameter_N_gain;
+	uint32_t High_active_parameter_N_offset;
+	uint32_t High_active_parameter_P_gain;
+	uint32_t High_active_parameter_P_offset;
+
+	// Active Parameters Frequency L
+	uint32_t L_active_parameter_N_gain;
+	uint32_t L_active_parameter_N_offset;
+	uint32_t L_active_parameter_P_gain;
+	uint32_t L_active_parameter_P_offset;
+
+	// Active Parameters Frequency M
+	uint32_t Mid_active_parameter_N_gain;
+	uint32_t Mid_active_parameter_N_offset;
+	uint32_t Mid_active_parameter_P_gain;
+	uint32_t Mid_active_parameter_P_offset;
+
+	// Size Parameters
+	uint32_t SIZE_PARA_BIG_HUGE;
+	uint32_t SIZE_PARA_MEDIUM_BIG;
+	uint32_t SIZE_PARA_SMALL_MEDIUM;
+
+	// Final Size Adaptive Weight Huge
+	uint32_t high_auto_adaptive_weight_HUGE;
+	uint32_t high_size_adaptive_weight_HUGE;
+	uint32_t Mid_auto_adaptive_weight_HUGE;
+	uint32_t Mid_size_adaptive_weight_HUGE;
+
+	// Final Size Adaptive Weight Big
+	uint32_t high_auto_adaptive_weight_BIG;
+	uint32_t high_size_adaptive_weight_BIG;
+	uint32_t Mid_auto_adaptive_weight_BIG;
+	uint32_t Mid_size_adaptive_weight_BIG;
+
+	// Final Size Adaptive Weight Medium
+	uint32_t high_auto_adaptive_weight_MEDIUM;
+	uint32_t high_size_adaptive_weight_MEDIUM;
+	uint32_t Mid_auto_adaptive_weight_MEDIUM;
+	uint32_t Mid_size_adaptive_weight_MEDIUM;
+
+	// Final Size Adaptive Weight Small
+	uint32_t high_auto_adaptive_weight_SMALL;
+	uint32_t high_size_adaptive_weight_SMALL;
+	uint32_t Mid_auto_adaptive_weight_SMALL;
+	uint32_t Mid_size_adaptive_weight_SMALL;
+
+	// Config
+	uint32_t FILTER_HIST_EN;
+	uint32_t FREQ_EXTRACT_ENHANCE;
+
+	// Frequency Weighting
+	uint32_t freq_D_weighting;
+	uint32_t freq_H_weighting;
+	uint32_t freq_L_weighting;
+	uint32_t freq_M_weighting;
+
+	// Frequency Weighting Final
+	uint32_t freq_D_final_weighting;
+	uint32_t freq_L_final_weighting;
+	uint32_t freq_M_final_weighting;
+	uint32_t freq_WH_final_weighting;
+	uint32_t SIZE_PARAMETER;
+
+	// Luma Chroma Parameters
+	uint32_t chroma_high_gain;
+	uint32_t chroma_high_index;
+	uint32_t chroma_low_gain;
+	uint32_t chroma_low_index;
+	uint32_t luma_high_gain;
+	uint32_t luma_high_index;
+	uint32_t luma_low_gain;
+	uint32_t luma_low_index;
+	uint32_t Chroma_adaptive_mode;
+	uint32_t Chroma_shift;
+	uint32_t Luma_adaptive_mode;
+	uint32_t Luma_shift;
+
+	// Base Black & White edges
+	uint32_t class_0_positive_gain;
+	uint32_t class_0_negative_gain;
+};
+
+struct DISP_CLARITY_REG {
+	struct DISP_MDP_AAL_CLARITY_REG mdp_aal_clarity_regs;
+	struct DISP_TDSHP_CLARITY_REG disp_tdshp_clarity_regs;
+};
+
 struct drm_mtk_channel_hist {
 	unsigned int channel_id;
 	enum MTK_DRM_CHIST_COLOR_FORMT color_format;
@@ -1195,6 +1493,10 @@ struct mtk_drm_oddmr_param {
 #define DRM_IOCTL_MTK_DISP_TDSHP_GET_SIZE      DRM_IOWR(DRM_COMMAND_BASE + \
 			DRM_MTK_DISP_TDSHP_GET_SIZE, struct DISP_TDSHP_DISPLAY_SIZE)
 
+// for Display Clarity
+#define DRM_IOCTL_MTK_DISP_CLARITY_SET_REG      DRM_IOWR(DRM_COMMAND_BASE + \
+			DRM_MTK_DISP_CLARITY_SET_REG, struct DISP_CLARITY_REG)
+
 #define DRM_IOCTL_MTK_C3D_GET_BIN_NUM       DRM_IOWR(DRM_COMMAND_BASE + \
 			DRM_MTK_C3D_GET_BIN_NUM, unsigned int)
 
@@ -1239,6 +1541,10 @@ struct mtk_drm_oddmr_param {
 #define AAL_HIST_BIN            33	/* [0..32] */
 #define AAL_DRE_POINT_NUM       29
 #define AAL_DRE_BLK_NUM			(16)
+
+/* Display Clarity */
+#define MDP_AAL_CLARITY_READBACK_NUM (7)
+#define DISP_TDSHP_CLARITY_READBACK_NUM (12)
 
 struct DISP_AAL_INITREG {
 	/* DRE */
@@ -1335,7 +1641,10 @@ struct DISP_AAL_HIST {
 	unsigned int MaxHis_denominator_pipe1[AAL_DRE_BLK_NUM];
 	int srcWidth;
 	int srcHeight;
-	int pipeLineNum;
+	unsigned int aal0_clarity[MDP_AAL_CLARITY_READBACK_NUM];
+	unsigned int aal1_clarity[MDP_AAL_CLARITY_READBACK_NUM];
+	unsigned int tdshp0_clarity[DISP_TDSHP_CLARITY_READBACK_NUM];
+	unsigned int tdshp1_clarity[DISP_TDSHP_CLARITY_READBACK_NUM];
 };
 
 struct DISP_AAL_ESS20_SPECT_PARAM {
