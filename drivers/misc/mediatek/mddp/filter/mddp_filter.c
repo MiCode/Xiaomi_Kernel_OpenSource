@@ -473,12 +473,19 @@ static u16 mddp_netops_select_queue(struct net_device *dev, struct sk_buff *skb,
 	return mddp_wan_netdev_ops_save->ndo_select_queue(dev, skb, sb_dev);
 }
 
+static int mddp_netops_private_ioctl(struct net_device *dev, struct ifreq *ifr,
+					void __user *data, int cmd)
+{
+	return mddp_wan_netdev_ops_save->ndo_siocdevprivate(dev, ifr, data, cmd);
+}
+
 static const struct net_device_ops mddp_wan_netdev_ops = {
 	.ndo_open	= mddp_netops_open,
 	.ndo_stop	= mddp_netops_stop,
 	.ndo_start_xmit	= mddp_netops_start_xmit,
 	.ndo_tx_timeout	= mddp_netops_tx_timeout,
 	.ndo_do_ioctl	= mddp_netops_do_ioctl,
+	.ndo_siocdevprivate = mddp_netops_private_ioctl,
 	.ndo_change_mtu	= mddp_netops_change_mtu,
 	.ndo_select_queue = mddp_netops_select_queue,
 };
