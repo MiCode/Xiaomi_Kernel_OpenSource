@@ -155,6 +155,7 @@ struct cmdq_pkt {
 	size_t			avail_buf_size; /* available buf size */
 	size_t			cmd_buf_size; /* command occupied size */
 	size_t			buf_size; /* real buffer size */
+	u32			buf_cnt;
 	u32			priority;
 	struct cmdq_task_cb	cb;
 	struct cmdq_task_cb	err_cb;

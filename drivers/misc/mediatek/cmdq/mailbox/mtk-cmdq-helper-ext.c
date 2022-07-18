@@ -783,6 +783,7 @@ struct cmdq_pkt_buffer *cmdq_pkt_alloc_buf(struct cmdq_pkt *pkt)
 	*((u64 *)buf->va_base + 1) = CMDQ_BUF_INIT_VAL;
 	buf->alloc_time = sched_clock();
 	list_add_tail(&buf->list_entry, &pkt->buf);
+	pkt->buf_cnt += 1;
 	pkt->avail_buf_size += CMDQ_CMD_BUFFER_SIZE;
 	pkt->buf_size += CMDQ_CMD_BUFFER_SIZE;
 
@@ -800,6 +801,7 @@ void cmdq_pkt_free_buf(struct cmdq_pkt *pkt)
 
 	list_for_each_entry_safe(buf, tmp, &pkt->buf, list_entry) {
 		list_del(&buf->list_entry);
+		pkt->buf_cnt -= 1;
 		if (!pkt->dev || !buf->va_base || !CMDQ_BUF_ADDR(buf))
 			cmdq_err("pkt:0x%p pa:%pa iova:%pa",
 			pkt, &buf->pa_base, &buf->iova_base);
@@ -2641,14 +2643,18 @@ s32 cmdq_pkt_flush_async(struct cmdq_pkt *pkt,
 		struct cmdq_instruction *cmdq_inst, inst;
 		cmdq_inst = (void *)cmdq_pkt_get_va_by_offset(pkt,
 			pkt->pause_offset - CMDQ_INST_SIZE);
-		inst = *cmdq_inst;
-		cmdq_inst->arg_a = CMDQ_TOKEN_PAUSE_TASK_0
-			+ cmdq_mbox_chan_id(client->chan);
-		if (cmdq_inst->op != CMDQ_CODE_WFE) {
-			cmdq_err("wrong pause inst:%#018llx -> %#018llx",
-				inst, *((u64 *)cmdq_inst));
-			BUG_ON(1);
-		}
+		if (cmdq_inst) {
+			inst = *cmdq_inst;
+			cmdq_inst->arg_a = CMDQ_TOKEN_PAUSE_TASK_0
+				+ cmdq_mbox_chan_id(client->chan);
+			if (cmdq_inst->op != CMDQ_CODE_WFE) {
+				cmdq_err("wrong pause inst:%#018llx -> %#018llx",
+					inst, *((u64 *)cmdq_inst));
+				BUG_ON(1);
+			}
+		} else
+			cmdq_err("inst is NULL,offset:%zu cmd_size:%zu buf_size:%zu buf_cnt:%u",
+				pkt->pause_offset, pkt->cmd_buf_size, pkt->buf_size, pkt->buf_cnt);
 	}
 
 #if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
