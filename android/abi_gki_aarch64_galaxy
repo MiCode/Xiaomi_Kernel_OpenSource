@@ -1,14 +1,40 @@
 [abi_symbol_list]
+  __alloc_percpu_gfp
   bdevname
+  blkcg_activate_policy
+  blkcg_deactivate_policy
+  blkcg_policy_register
+  blkcg_policy_unregister
+  blkcg_root
   blkdev_get_by_dev
   blkdev_get_by_path
   blkdev_issue_flush
+  blkg_lookup_slowpath
+  blk_mq_free_request
+  blk_mq_sched_try_insert_merge
+  blk_mq_sched_try_merge
+  blk_queue_rq_timeout
   class_create_file_ns
   class_remove_file_ns
+  cleancache_register_ops
+  copy_page
   crc16
   create_function_device
+  css_next_descendant_pre
   _dev_alert
   drm_edid_get_monitor_name
+  drm_edid_is_valid
+  elevator_alloc
+  elv_bio_merge_ok
+  elv_rb_add
+  elv_rb_del
+  elv_rb_find
+  elv_rb_former_request
+  elv_rb_latter_request
+  elv_register
+  elv_rqhash_add
+  elv_rqhash_del
+  elv_unregister
   file_ra_state_init
   file_write_and_wait_range
   generic_perform_write
@@ -22,8 +48,10 @@
   gs_free_req
   __kfifo_out_peek
   kmsg_dump_get_line
+  kthread_blkcg
   name_to_dev_t
   netlink_ack
+  of_css
   phy_connect_direct
   phy_find_first
   phy_get_pause
@@ -32,16 +60,22 @@
   proc_set_size
   pstore_register
   pstore_unregister
+  sbitmap_queue_min_shallow_depth
+  smpboot_unregister_percpu_thread
   __traceiter_android_rvh_die_kernel_fault
   __traceiter_android_rvh_do_mem_abort
   __traceiter_android_rvh_do_sp_pc_abort
+  __traceiter_android_rvh_do_undefinstr
   __traceiter_android_vh_meminfo_proc_show
   __traceiter_android_vh_show_mem
+  __traceiter_block_rq_insert
   __tracepoint_android_rvh_die_kernel_fault
   __tracepoint_android_rvh_do_mem_abort
   __tracepoint_android_rvh_do_sp_pc_abort
+  __tracepoint_android_rvh_do_undefinstr
   __tracepoint_android_vh_meminfo_proc_show
   __tracepoint_android_vh_show_mem
+  __tracepoint_block_rq_insert
   __tracepoint_hrtimer_expire_entry
   __tracepoint_hrtimer_expire_exit
   __tracepoint_irq_handler_entry
