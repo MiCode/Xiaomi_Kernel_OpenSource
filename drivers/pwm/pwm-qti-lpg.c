@@ -1875,7 +1875,7 @@ static int qpnp_lpg_parse_dt(struct qpnp_lpg_chip *chip)
 		}
 
 		chip->lut->ramp_step_tick_us = DEFAULT_TICK_DURATION_US;
-		of_property_read_u32(chip->dev->of_node, "qcom,tick-period-us",
+		of_property_read_u32(chip->dev->of_node, "qcom,tick-duration-us",
 				&chip->lut->ramp_step_tick_us);
 
 		rc = qpnp_lpg_parse_pattern_dt(chip, SDAM_LUT_COUNT_MAX);
