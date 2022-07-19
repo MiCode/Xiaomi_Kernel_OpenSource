@@ -519,6 +519,7 @@ void synx_signal_handler(struct work_struct *cb_dispatch)
 			dprintk(SYNX_ERR,
 				"global status update of %u failed=%d\n",
 				h_synx, rc);
+		synx_global_put_ref(idx);
 	}
 
 	/*
