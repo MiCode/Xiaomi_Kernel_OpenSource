@@ -1422,7 +1422,9 @@ static const struct adsp_data kalama_mpss_resource = {
 static const struct adsp_data cinder_mpss_resource = {
 	.crash_reason_smem = 421,
 	.firmware_name = "modem.mdt",
+	.dtb_firmware_name = "modem_dtb.mdt",
 	.pas_id = 4,
+	.dtb_pas_id = 0x26,
 	.free_after_auth_reset = true,
 	.minidump_id = 3,
 	.uses_elf64 = true,
@@ -1432,6 +1434,7 @@ static const struct adsp_data cinder_mpss_resource = {
 	.sysmon_name = "modem",
 	.qmp_name = "modem",
 	.ssctl_id = 0x12,
+	.dma_phys_below_32b = true,
 };
 
 static const struct adsp_data khaje_mpss_resource = {
