@@ -749,6 +749,49 @@ config MSM_SLATECOM_INTERFACE
 		from hardware. Hardware will provide access to read
 		registers and read/write AHB memory in the device.
 
+config MSM_SLATERSB
+        tristate "Provide support for rsb events on Slate"
+        help
+          SLATERSB communicates to SLATE over rpmsg driver for RSB configuration
+          and enable/disable on device power state change.Add slate rsb driver
+          which is use to configure rsb on slate.Slate rsb driver uses glink
+          to communicate with slate
+
+config MSM_SLATERSB_RPMSG
+        tristate "Provide support for slate events to RSB"
+        depends on MSM_SLATERSB
+        help
+          SLATERSB-RPMSG informs SLATERSB driver if GLINK channel has been
+          opened by remote processor. It doesn't maintain state machine
+          and is probed when SLATE opens channel and removed when the
+          channel is closed by remote processor.
+
+config MSM_SEB
+        tristate "Provide APIs to send and receive events from Slate chipset"
+        help
+          SEB(Slate event bridge) communicates to Slate over rpmsg driver to
+          send or receive events from Slate. The button events received from
+          Slate are send to input framework. The driver provides functionality
+          for a client to register a callback to receive events from a group.
+
+config MSM_SEB_RPMSG
+        tristate "Provide support for slate event GLINK channel"
+        depends on MSM_SEB
+        help
+          SEB_RPMSG informs SEB driver if GLINK channel has been
+          opened by remote processor. It doesn't maintain state machine
+          and is probed when Slate opens channel and removed when the
+          channel is closed by remote processor.
+
+config MSM_SLATECOM_EVENT
+        tristate "provide support for slate sensor event Communication"
+        depends on MSM_SEB
+        help
+         Create a slate_com_event device node for user space communication.
+         This event driver register for AON event bridge to receive sensor
+         up and down and notifies upper layer HAL about sensor stataus
+         through uevent via netlink socket.
+
 config QCOM_APR
 	tristate "Qualcomm APR Bus (Asynchronous Packet Router)"
 	depends on ARCH_QCOM || COMPILE_TEST
