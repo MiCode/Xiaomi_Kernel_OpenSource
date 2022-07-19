@@ -40,6 +40,7 @@
  * @payload: Combined payload of all the fragments without any RPC headers
  * @size: Size of the payload.
  * @msg_id: Message ID from the header.
+ * @ret: Linux return code, set in case there was an error processing the connection.
  * @type: GH_RM_RPC_TYPE_RPLY or GH_RM_RPC_TYPE_NOTIF.
  * @num_fragments: total number of fragments expected to be received for this connection.
  * @fragments_recieved: fragments received so far.
@@ -50,6 +51,7 @@ struct gh_rm_connection {
 	void *payload;
 	size_t size;
 	u32 msg_id;
+	int ret;
 	u8 type;
 
 	u8 num_fragments;
@@ -394,11 +396,6 @@ struct gh_rm_connection *gh_rm_process_rply(void *recv_buff, size_t recv_buff_si
 
 	connection->rm_error = reply_hdr->err_code;
 
-	/* All the processing functions would have trimmed-off the header
-	 * and copied the data to connection->recv_buff. Hence, it's okay
-	 * to release the original packet that arrived.
-	 */
-	kfree(recv_buff);
 	return connection;
 }
 
@@ -474,6 +471,21 @@ static bool gh_rm_complete_connection(struct gh_rm_connection *connection)
 	return true;
 }
 
+static void gh_rm_abort_connection(struct gh_rm_connection *connection)
+{
+	switch (connection->type) {
+	case GH_RM_RPC_TYPE_RPLY:
+		connection->ret = -EIO;
+		complete(&connection->seq_done);
+		break;
+	case GH_RM_RPC_TYPE_NOTIF:
+		fallthrough;
+	default:
+		kfree(connection->payload);
+		kfree(connection);
+	}
+}
+
 static int gh_rm_recv_task_fn(void *data)
 {
 	struct gh_rm_connection *connection = NULL;
@@ -482,39 +494,48 @@ static int gh_rm_recv_task_fn(void *data)
 	void *recv_buff;
 	int ret;
 
-	while (!kthread_should_stop()) {
-		recv_buff = kzalloc(GH_MSGQ_MAX_MSG_SIZE_BYTES, GFP_KERNEL);
-		if (!recv_buff)
-			continue;
+	recv_buff = kzalloc(GH_MSGQ_MAX_MSG_SIZE_BYTES, GFP_KERNEL);
+	if (!recv_buff)
+		return -ENOMEM;
 
+	while (!kthread_should_stop()) {
 		/* Block until a new message is received */
 		ret = gh_msgq_recv(gh_rm_msgq_desc, recv_buff,
 					GH_MSGQ_MAX_MSG_SIZE_BYTES,
 					&recv_buff_size, 0);
 		if (ret < 0) {
-			pr_err("%s: Failed to receive the message: %d\n",
-				__func__, ret);
-			kfree(recv_buff);
+			pr_err("%s: Failed to receive the message: %d\n", __func__, ret);
 			continue;
 		} else if (recv_buff_size <= sizeof(struct gh_rm_rpc_hdr)) {
 			pr_err("%s: Invalid message size received\n", __func__);
-			kfree(recv_buff);
 			continue;
 		}
 
 		hdr = recv_buff;
 		switch (hdr->type) {
 		case GH_RM_RPC_TYPE_NOTIF:
-			connection = gh_rm_process_notif(recv_buff,
-							recv_buff_size);
+			if (connection) {
+				/* Not possible per protocol. Do something better than BUG_ON */
+				pr_warn("Received start of new notification without finishing existing message series.\n");
+				gh_rm_abort_connection(connection);
+			}
+			connection = gh_rm_process_notif(recv_buff, recv_buff_size);
 			break;
 		case GH_RM_RPC_TYPE_RPLY:
-			connection = gh_rm_process_rply(recv_buff,
-							recv_buff_size);
+			if (connection) {
+				/* Not possible per protocol. Do something better than BUG_ON */
+				pr_warn("Received start of new reply without finishing existing message series.\n");
+				gh_rm_abort_connection(connection);
+			}
+			connection = gh_rm_process_rply(recv_buff, recv_buff_size);
 			break;
 		case GH_RM_RPC_TYPE_CONT:
-			gh_rm_process_cont(connection, recv_buff,
-							recv_buff_size);
+			if (!connection) {
+				/* Not possible per protocol. Do something better than BUG_ON */
+				pr_warn("Received a continuation message without receiving initial message\n");
+				break;
+			}
+			gh_rm_process_cont(connection, recv_buff, recv_buff_size);
 			break;
 		default:
 			pr_err("%s: Invalid message type (%d) received\n",
@@ -527,6 +548,7 @@ static int gh_rm_recv_task_fn(void *data)
 			connection = NULL;
 	}
 
+	kfree(recv_buff);
 	return 0;
 }
 
@@ -540,8 +562,8 @@ static int gh_rm_send_request(u32 message_id,
 	unsigned long tx_flags;
 	u32 num_fragments = 0;
 	size_t payload_size;
-	void *send_buff;
-	int i, ret;
+	void *msg;
+	int i, ret = 0;
 
 	/* Drivers need probe defer
 	 * when do RM call before RM driver initialized
@@ -564,10 +586,15 @@ static int gh_rm_send_request(u32 message_id,
 		return -E2BIG;
 	}
 
-	if (mutex_lock_interruptible(&gh_rm_send_lock))
-		return -ERESTARTSYS;
+	msg = kzalloc(GH_RM_MAX_MSG_SIZE_BYTES, GFP_KERNEL);
+	if (!msg)
+		return -ENOMEM;
 
-	/* Consider also the 'request' packet for the loop count */
+	if (mutex_lock_interruptible(&gh_rm_send_lock)) {
+		ret = -ERESTARTSYS;
+		goto free_msg;
+	}
+
 	for (i = 0; i <= num_fragments; i++) {
 		if (buff_size_remaining > GH_RM_MAX_MSG_SIZE_BYTES) {
 			payload_size = GH_RM_MAX_MSG_SIZE_BYTES;
@@ -576,13 +603,10 @@ static int gh_rm_send_request(u32 message_id,
 			payload_size = buff_size_remaining;
 		}
 
-		send_buff = kzalloc(sizeof(*hdr) + payload_size, GFP_KERNEL);
-		if (!send_buff) {
-			mutex_unlock(&gh_rm_send_lock);
-			return -ENOMEM;
-		}
+		memset(msg, 0, GH_RM_MAX_MSG_SIZE_BYTES);
 
-		hdr = send_buff;
+		/* Fill header */
+		hdr = msg;
 		hdr->version = GH_RM_RPC_HDR_VERSION_ONE;
 		hdr->hdr_words = GH_RM_RPC_HDR_WORDS;
 		hdr->type = i == 0 ? GH_RM_RPC_TYPE_REQ : GH_RM_RPC_TYPE_CONT;
@@ -590,12 +614,11 @@ static int gh_rm_send_request(u32 message_id,
 		hdr->seq = connection->seq;
 		hdr->msg_id = message_id;
 
-		memcpy(send_buff + sizeof(*hdr), req_buff_curr, payload_size);
+		/* Copy payload */
+		memcpy(msg + sizeof(*hdr), req_buff_curr, payload_size);
 		req_buff_curr += payload_size;
 
-		/* Force the last fragment (or the request type)
-		 * to be sent immediately to the receiver
-		 */
+		/* Force the last fragment to be sent immediately to the receiver */
 		tx_flags = (i == num_fragments) ? GH_MSGQ_TX_PUSH : 0;
 
 		/* delay sending console characters to RM */
@@ -603,25 +626,16 @@ static int gh_rm_send_request(u32 message_id,
 		    message_id == GH_RM_RPC_MSG_ID_CALL_VM_CONSOLE_FLUSH)
 			udelay(800);
 
-		ret = gh_msgq_send(gh_rm_msgq_desc, send_buff,
-					sizeof(*hdr) + payload_size, tx_flags);
+		ret = gh_msgq_send(gh_rm_msgq_desc, msg, sizeof(*hdr) + payload_size, tx_flags);
 
-		/*
-		 * In the case of a success, the hypervisor would have consumed
-		 * the buffer. While in the case of a failure, we are going to
-		 * quit anyways. Hence, free the buffer regardless of the
-		 * return value.
-		 */
-		kfree(send_buff);
-
-		if (ret) {
-			mutex_unlock(&gh_rm_send_lock);
-			return ret;
-		}
+		if (ret)
+			break;
 	}
 
 	mutex_unlock(&gh_rm_send_lock);
-	return 0;
+free_msg:
+	kfree(msg);
+	return ret;
 }
 
 /**
@@ -681,6 +695,10 @@ void *gh_rm_call(gh_rm_msgid_t message_id,
 	/* Wait for response */
 	wait_for_completion(&connection->seq_done);
 
+	mutex_lock(&gh_rm_call_idr_lock);
+	idr_remove(&gh_rm_call_idr, connection->seq);
+	mutex_unlock(&gh_rm_call_idr_lock);
+
 	*rm_error = connection->rm_error;
 	if (connection->rm_error) {
 		pr_err("%s: Reply for seq:%d failed with RM err: %d\n",
@@ -690,13 +708,15 @@ void *gh_rm_call(gh_rm_msgid_t message_id,
 		goto out;
 	}
 
+	if (connection->ret) {
+		ret = ERR_PTR(connection->ret);
+		kfree(connection->payload);
+		goto out;
+	}
+
 	print_hex_dump_debug("gh_rm_call RX: ", DUMP_PREFIX_OFFSET, 4, 1,
 			     connection->payload, connection->size,
 			     false);
-
-	mutex_lock(&gh_rm_call_idr_lock);
-	idr_remove(&gh_rm_call_idr, connection->seq);
-	mutex_unlock(&gh_rm_call_idr_lock);
 
 	ret = connection->payload;
 	*resp_buff_size = connection->size;
