@@ -35,28 +35,37 @@
 #define GH_RM_MAX_MSG_SIZE_BYTES \
 	(GH_MSGQ_MAX_MSG_SIZE_BYTES - sizeof(struct gh_rm_rpc_hdr))
 
+/**
+ * struct gh_rm_connection - Represents a complete message from resource manager
+ * @payload: Combined payload of all the fragments without any RPC headers
+ * @size: Size of the payload.
+ * @msg_id: Message ID from the header.
+ * @type: GH_RM_RPC_TYPE_RPLY or GH_RM_RPC_TYPE_NOTIF.
+ * @num_fragments: total number of fragments expected to be received for this connection.
+ * @fragments_recieved: fragments received so far.
+ * @rm_error: For request/reply sequences with standard replies.
+ * @seq: Sequence ID for the main message.
+ */
 struct gh_rm_connection {
+	void *payload;
+	size_t size;
 	u32 msg_id;
-	u16 seq;
 	u8 type;
-	void *recv_buff;
-	u32 reply_err_code;
-	size_t recv_buff_size;
-
-	struct completion seq_done;
 
 	u8 num_fragments;
 	u8 fragments_received;
-	void *current_recv_buff;
+
+	/* only for req/reply sequence */
+	u32 rm_error;
+	u16 seq;
+	struct completion seq_done;
 };
 
 struct gh_rm_notif_validate {
-	void *recv_buff;
-	void *payload;
-	size_t recv_buff_size;
 	struct gh_rm_connection *conn;
-	struct work_struct validate_work;
+	struct work_struct work;
 };
+
 const static struct {
 	enum gh_vm_names val;
 	const char *image_name;
@@ -146,6 +155,10 @@ gh_rm_init_connection_buff(struct gh_rm_connection *connection,
 	struct gh_rm_rpc_hdr *hdr = recv_buff;
 	size_t max_buf_size;
 
+	connection->num_fragments = hdr->fragments;
+	connection->fragments_received = 0;
+	connection->type = hdr->type;
+
 	/* Some of the 'reply' types doesn't contain any payload */
 	if (!payload_size)
 		return 0;
@@ -161,16 +174,12 @@ gh_rm_init_connection_buff(struct gh_rm_connection *connection,
 	/* If the data is split into multiple fragments, allocate a large
 	 * enough buffer to hold the payloads for all the fragments.
 	 */
-	connection->recv_buff = connection->current_recv_buff =
-				kzalloc(max_buf_size, GFP_KERNEL);
-	if (!connection->recv_buff)
+	connection->payload = kzalloc(max_buf_size, GFP_KERNEL);
+	if (!connection->payload)
 		return -ENOMEM;
 
-	memcpy(connection->recv_buff, recv_buff + hdr_size, payload_size);
-	connection->current_recv_buff += payload_size;
-	connection->recv_buff_size = payload_size;
-	connection->num_fragments = hdr->fragments;
-	connection->type = hdr->type;
+	memcpy(connection->payload, recv_buff + hdr_size, payload_size);
+	connection->size = payload_size;
 
 	return 0;
 }
@@ -188,25 +197,21 @@ int gh_rm_unregister_notifier(struct notifier_block *nb)
 EXPORT_SYMBOL(gh_rm_unregister_notifier);
 
 static int
-gh_rm_validate_vm_exited_notif(struct gh_rm_rpc_hdr *hdr,
-				void *payload, size_t recv_buff_size)
+gh_rm_validate_vm_exited_notif(void *payload, size_t payload_size)
 {
 	struct gh_rm_notif_vm_exited_payload *vm_exited_payload;
-	size_t min_buff_sz = sizeof(*hdr) + sizeof(*vm_exited_payload);
 
-	if (recv_buff_size < min_buff_sz)
+	if (payload_size < sizeof(*vm_exited_payload))
 		return -EINVAL;
 
 	vm_exited_payload = payload;
 
 	switch (vm_exited_payload->exit_type) {
 	case GH_RM_VM_EXIT_TYPE_VM_EXIT:
-		if ((vm_exited_payload->exit_reason_size !=
-					MAX_EXIT_REASON_SIZE) ||
-					(recv_buff_size != min_buff_sz +
-			sizeof(struct gh_vm_exit_reason_vm_exit))) {
+		if (payload_size !=
+		    sizeof(*vm_exited_payload) + sizeof(struct gh_vm_exit_reason_vm_exit)) {
 			pr_err("%s: Invalid size for type VM_EXIT: %u\n",
-				__func__, recv_buff_size - sizeof(*hdr));
+				__func__, payload_size);
 			return -EINVAL;
 		}
 		break;
@@ -219,8 +224,7 @@ gh_rm_validate_vm_exited_notif(struct gh_rm_rpc_hdr *hdr,
 	case GH_RM_VM_EXIT_TYPE_VM_STOP_FORCED:
 		break;
 	default:
-		if (gh_arch_validate_vm_exited_notif(recv_buff_size,
-			sizeof(*hdr), vm_exited_payload)) {
+		if (gh_arch_validate_vm_exited_notif(payload_size, vm_exited_payload)) {
 			pr_err("%s: Unknown exit type: %u\n", __func__,
 				vm_exited_payload->exit_type);
 			return -EINVAL;
@@ -230,137 +234,99 @@ gh_rm_validate_vm_exited_notif(struct gh_rm_rpc_hdr *hdr,
 	return 0;
 }
 
-static struct gh_rm_connection *
-gh_rm_wait_for_notif_fragments(void *recv_buff, size_t recv_buff_size)
-{
-	struct gh_rm_rpc_hdr *hdr = recv_buff;
-	struct gh_rm_connection *connection;
-	bool seq_done_needed = false;
-	size_t payload_size;
-	int ret = 0;
-
-	connection = gh_rm_alloc_connection(hdr->msg_id, seq_done_needed);
-	if (IS_ERR_OR_NULL(connection))
-		return connection;
-
-	payload_size = recv_buff_size - sizeof(*hdr);
-
-	ret = gh_rm_init_connection_buff(connection, recv_buff,
-					sizeof(*hdr), payload_size);
-	if (ret < 0)
-		goto out;
-	return connection;
-
-out:
-	kfree(connection);
-	return ERR_PTR(ret);
-}
-
 static void gh_rm_validate_notif(struct work_struct *work)
 {
 	struct gh_rm_connection *connection = NULL;
 	struct gh_rm_notif_validate *validate_work;
-	void *recv_buff;
-	size_t recv_buff_size;
+	size_t payload_size;
 	void *payload;
-	struct gh_rm_rpc_hdr *hdr;
 	u32 notification;
 
-	validate_work = container_of(work, struct gh_rm_notif_validate,
-							validate_work);
-	recv_buff = validate_work->recv_buff;
-	recv_buff_size = validate_work->recv_buff_size;
-	payload = validate_work->payload;
+	validate_work = container_of(work, struct gh_rm_notif_validate, work);
 	connection = validate_work->conn;
-	hdr = recv_buff;
-	notification = hdr->msg_id;
+	payload = connection->payload;
+	payload_size = connection->size;
+	notification = connection->msg_id;
 	pr_debug("Notification received from RM-VM: %x\n", notification);
 
 	switch (notification) {
 	case GH_RM_NOTIF_VM_STATUS:
-		if (recv_buff_size != sizeof(*hdr) +
-			sizeof(struct gh_rm_notif_vm_status_payload)) {
+		if (payload_size != sizeof(struct gh_rm_notif_vm_status_payload)) {
 			pr_err("%s: Invalid size for VM_STATUS notif: %u\n",
-				__func__, recv_buff_size - sizeof(*hdr));
+				__func__, payload_size);
 			goto err;
 		}
 		break;
 	case GH_RM_NOTIF_VM_EXITED:
-		if (gh_rm_validate_vm_exited_notif(hdr,
-						payload, recv_buff_size))
+		if (gh_rm_validate_vm_exited_notif(payload, payload_size))
 			goto err;
 		break;
 	case GH_RM_NOTIF_VM_SHUTDOWN:
-		if (recv_buff_size != sizeof(*hdr) +
-			sizeof(struct gh_rm_notif_vm_shutdown_payload)) {
+		if (payload_size != sizeof(struct gh_rm_notif_vm_shutdown_payload)) {
 			pr_err("%s: Invalid size for VM_SHUTDOWN notif: %u\n",
-				__func__, recv_buff_size - sizeof(*hdr));
+				__func__, payload_size);
 			goto err;
 		}
 		break;
 	case GH_RM_NOTIF_VM_IRQ_LENT:
-		if (recv_buff_size != sizeof(*hdr) +
-			sizeof(struct gh_rm_notif_vm_irq_lent_payload)) {
+		if (payload_size != sizeof(struct gh_rm_notif_vm_irq_lent_payload)) {
 			pr_err("%s: Invalid size for VM_IRQ_LENT notif: %u\n",
-				__func__, recv_buff_size - sizeof(*hdr));
+				__func__, payload_size);
 			goto err;
 		}
 		break;
 	case GH_RM_NOTIF_VM_IRQ_RELEASED:
-		if (recv_buff_size != sizeof(*hdr) +
-			sizeof(struct gh_rm_notif_vm_irq_released_payload)) {
+		if (payload_size != sizeof(struct gh_rm_notif_vm_irq_released_payload)) {
 			pr_err("%s: Invalid size for VM_IRQ_REL notif: %u\n",
-				__func__, recv_buff_size - sizeof(*hdr));
+				__func__, payload_size);
 			goto err;
 		}
 		break;
 	case GH_RM_NOTIF_VM_IRQ_ACCEPTED:
-		if (recv_buff_size != sizeof(*hdr) +
-			sizeof(struct gh_rm_notif_vm_irq_accepted_payload)) {
+		if (payload_size != sizeof(struct gh_rm_notif_vm_irq_accepted_payload)) {
 			pr_err("%s: Invalid size for VM_IRQ_ACCEPTED notif: %u\n",
-				__func__, recv_buff_size - sizeof(*hdr));
+				__func__, payload_size);
 			goto err;
 		}
 		break;
 	case GH_RM_NOTIF_MEM_SHARED:
-		if (recv_buff_size < sizeof(*hdr) +
-			sizeof(struct gh_rm_notif_mem_shared_payload)) {
+		if (payload_size < sizeof(struct gh_rm_notif_mem_shared_payload)) {
 			pr_err("%s: Invalid size for MEM_SHARED notif: %u\n",
-				__func__, recv_buff_size - sizeof(*hdr));
+				__func__, payload_size);
 			goto err;
 		}
 		break;
 	case GH_RM_NOTIF_MEM_RELEASED:
-		if (recv_buff_size != sizeof(*hdr) +
-			sizeof(struct gh_rm_notif_mem_released_payload)) {
+		if (payload_size != sizeof(struct gh_rm_notif_mem_released_payload)) {
 			pr_err("%s: Invalid size for MEM_RELEASED notif: %u\n",
-				__func__, recv_buff_size - sizeof(*hdr));
+				__func__, payload_size);
 			goto err;
 		}
 		break;
 	case GH_RM_NOTIF_MEM_ACCEPTED:
-		if (recv_buff_size != sizeof(*hdr) +
-			sizeof(struct gh_rm_notif_mem_accepted_payload)) {
+		if (payload_size != sizeof(struct gh_rm_notif_mem_accepted_payload)) {
 			pr_err("%s: Invalid size for MEM_ACCEPTED notif: %u\n",
-				__func__, recv_buff_size - sizeof(*hdr));
+				__func__, payload_size);
 			goto err;
 		}
 		break;
 	case GH_RM_NOTIF_VM_CONSOLE_CHARS:
-		if (recv_buff_size < sizeof(*hdr) +
-			sizeof(struct gh_rm_notif_vm_console_chars)) {
+		if (payload_size >= sizeof(struct gh_rm_notif_vm_console_chars)) {
 			struct gh_rm_notif_vm_console_chars *console_chars;
 			u16 num_bytes;
 
-			console_chars = recv_buff + sizeof(*hdr);
+			console_chars = payload;
 			num_bytes = console_chars->num_bytes;
 
-			if (sizeof(*hdr) + sizeof(*console_chars) + num_bytes !=
-				recv_buff_size) {
+			if (sizeof(*console_chars) + num_bytes != payload_size) {
 				pr_err("%s: Invalid size for VM_CONSOLE_CHARS notify %u\n",
-				       __func__, recv_buff_size - sizeof(*hdr));
+				       __func__, payload_size);
 				goto err;
 			}
+		} else {
+			pr_err("%s: Invalid size for VM_CONSOLE_CHARS notify %u\n",
+				__func__, payload_size);
+			goto err;
 		}
 		break;
 	default:
@@ -371,44 +337,26 @@ static void gh_rm_validate_notif(struct work_struct *work)
 
 	srcu_notifier_call_chain(&gh_rm_notifier, notification, payload);
 err:
-	kfree(recv_buff);
+	kfree(payload);
 	kfree(connection);
 	kfree(validate_work);
 }
 
 static
-struct gh_rm_connection *gh_rm_process_notif(void *recv_buff, size_t recv_buff_size)
+struct gh_rm_connection *gh_rm_process_notif(void *msg, size_t msg_size)
 {
-	struct gh_rm_connection *connection = NULL;
-	struct gh_rm_notif_validate *validate_work;
-	struct gh_rm_rpc_hdr *hdr = recv_buff;
-	void *payload = NULL;
+	struct gh_rm_rpc_hdr *hdr = msg;
+	struct gh_rm_connection *connection;
 
-	if (recv_buff_size > sizeof(*hdr))
-		payload = recv_buff + sizeof(*hdr);
+	connection = gh_rm_alloc_connection(hdr->msg_id, false);
+	if (!connection)
+		return NULL;
 
-	/* If the notification payload is split-up into
-	 * fragments, wait until all them arrive.
-	 */
-	if (hdr->fragments) {
-		connection = gh_rm_wait_for_notif_fragments(recv_buff,
-							recv_buff_size);
-		return connection;
+	if (gh_rm_init_connection_buff(connection, msg, sizeof(*hdr), msg_size - sizeof(*hdr))) {
+		kfree(connection);
+		return NULL;
 	}
 
-	/* Validate the notification received if there are no more
-	 * fragments to follow.
-	 */
-	validate_work = kzalloc(sizeof(*validate_work), GFP_KERNEL);
-	if (validate_work == NULL)
-		return ERR_PTR(-ENOMEM);
-	validate_work->recv_buff = recv_buff;
-	validate_work->recv_buff_size = recv_buff_size;
-	validate_work->payload = payload;
-	validate_work->conn = connection;
-	INIT_WORK(&validate_work->validate_work, gh_rm_validate_notif);
-
-	schedule_work(&validate_work->validate_work);
 	return connection;
 }
 
@@ -444,18 +392,7 @@ struct gh_rm_connection *gh_rm_process_rply(void *recv_buff, size_t recv_buff_si
 	if (ret < 0)
 		return ERR_PTR(ret);
 
-	connection->reply_err_code = reply_hdr->err_code;
-
-	/*
-	 * If the data is composed of a single message, wakeup the
-	 * receiver immediately.
-	 *
-	 * Else, if the data is split into multiple fragments, fill
-	 * this buffer as and when the fragments arrive, and finally
-	 * wakeup the receiver upon reception of the last fragment.
-	 */
-	if (!hdr->fragments)
-		complete(&connection->seq_done);
+	connection->rm_error = reply_hdr->err_code;
 
 	/* All the processing functions would have trimmed-off the header
 	 * and copied the data to connection->recv_buff. Hence, it's okay
@@ -468,7 +405,6 @@ struct gh_rm_connection *gh_rm_process_rply(void *recv_buff, size_t recv_buff_si
 static int gh_rm_process_cont(struct gh_rm_connection *connection,
 			void *recv_buff, size_t recv_buff_size)
 {
-	struct gh_rm_notif_validate *validate_work;
 	struct gh_rm_rpc_hdr *hdr = recv_buff;
 	size_t payload_size;
 
@@ -496,44 +432,46 @@ static int gh_rm_process_cont(struct gh_rm_connection *connection,
 	payload_size = recv_buff_size - sizeof(*hdr);
 
 	/* Keep appending the data to the previous fragment's end */
-	memcpy(connection->current_recv_buff,
-		recv_buff + sizeof(*hdr), payload_size);
-	connection->current_recv_buff += payload_size;
-	connection->recv_buff_size += payload_size;
-
-	if (++connection->fragments_received ==
-					connection->num_fragments) {
-		switch (connection->type) {
-		case GH_RM_RPC_TYPE_RPLY:
-			complete(&connection->seq_done);
-			/* All the processing functions would have trimmed-off the header
-			 * and copied the data to connection->recv_buff. Hence, it's okay
-			 * to release the original packet that arrived.
-			 */
-			kfree(recv_buff);
-			break;
-		case GH_RM_RPC_TYPE_NOTIF:
-			validate_work = kzalloc(sizeof(*validate_work),
-						GFP_KERNEL);
-			if (validate_work == NULL)
-				return -ENOMEM;
-			validate_work->recv_buff = recv_buff;
-			validate_work->recv_buff_size =
-					connection->recv_buff_size;
-			validate_work->payload = connection->recv_buff;
-			validate_work->conn = connection;
-			INIT_WORK(&validate_work->validate_work,
-					gh_rm_validate_notif);
-
-			schedule_work(&validate_work->validate_work);
-			break;
-		default:
-			pr_err("%s: Invalid message type (%d) received\n",
-				__func__, hdr->type);
-		}
-	}
+	memcpy(connection->payload + connection->size, recv_buff + sizeof(*hdr), payload_size);
+	connection->size += payload_size;
+	connection->fragments_received++;
 
 	return 0;
+}
+
+static bool gh_rm_complete_connection(struct gh_rm_connection *connection)
+{
+	struct gh_rm_notif_validate *validate_work;
+
+	if (!connection)
+		return false;
+
+	if (connection->fragments_received != connection->num_fragments)
+		return false;
+
+	switch (connection->type) {
+	case GH_RM_RPC_TYPE_RPLY:
+		complete(&connection->seq_done);
+		break;
+	case GH_RM_RPC_TYPE_NOTIF:
+		validate_work = kzalloc(sizeof(*validate_work), GFP_KERNEL);
+		if (validate_work == NULL) {
+			kfree(connection->payload);
+			kfree(connection);
+			break;
+		}
+
+		validate_work->conn = connection;
+		INIT_WORK(&validate_work->work, gh_rm_validate_notif);
+
+		schedule_work(&validate_work->work);
+		break;
+	default:
+		pr_err("Invalid message type (%d) received\n", connection->type);
+		break;
+	}
+
+	return true;
 }
 
 static int gh_rm_recv_task_fn(void *data)
@@ -584,6 +522,9 @@ static int gh_rm_recv_task_fn(void *data)
 		}
 		print_hex_dump_debug("gh_rm_recv: ", DUMP_PREFIX_OFFSET,
 				     4, 1, recv_buff, recv_buff_size, false);
+
+		if (gh_rm_complete_connection(connection))
+			connection = NULL;
 	}
 
 	return 0;
@@ -689,7 +630,7 @@ static int gh_rm_send_request(u32 message_id,
  * @req_buff: Request buffer that contains the payload
  * @req_buff_size: Total size of the payload
  * @resp_buff_size: Size of the response buffer
- * @reply_err_code: Returns Gunyah standard error code for the response
+ * @rm_error: Returns Gunyah standard error code for the response
  *
  * Make a request to the RM-VM and expect a reply back. For a successful
  * response, the function returns the payload and its size for the response.
@@ -701,14 +642,14 @@ static int gh_rm_send_request(u32 message_id,
  */
 void *gh_rm_call(gh_rm_msgid_t message_id,
 			void *req_buff, size_t req_buff_size,
-			size_t *resp_buff_size, int *reply_err_code)
+			size_t *resp_buff_size, int *rm_error)
 {
 	struct gh_rm_connection *connection;
 	bool seq_done_needed = true;
 	int req_ret;
 	void *ret;
 
-	if (!message_id || !req_buff || !resp_buff_size || !reply_err_code)
+	if (!message_id || !req_buff || !resp_buff_size || !rm_error)
 		return ERR_PTR(-EINVAL);
 
 	connection = gh_rm_alloc_connection(message_id, seq_done_needed);
@@ -740,25 +681,25 @@ void *gh_rm_call(gh_rm_msgid_t message_id,
 	/* Wait for response */
 	wait_for_completion(&connection->seq_done);
 
-	*reply_err_code = connection->reply_err_code;
-	if (connection->reply_err_code) {
+	*rm_error = connection->rm_error;
+	if (connection->rm_error) {
 		pr_err("%s: Reply for seq:%d failed with RM err: %d\n",
-			__func__, connection->seq, connection->reply_err_code);
-		ret = ERR_PTR(gh_remap_error(connection->reply_err_code));
-		kfree(connection->recv_buff);
+			__func__, connection->seq, connection->rm_error);
+		ret = ERR_PTR(gh_remap_error(connection->rm_error));
+		kfree(connection->payload);
 		goto out;
 	}
 
 	print_hex_dump_debug("gh_rm_call RX: ", DUMP_PREFIX_OFFSET, 4, 1,
-			     connection->recv_buff, connection->recv_buff_size,
+			     connection->payload, connection->size,
 			     false);
 
 	mutex_lock(&gh_rm_call_idr_lock);
 	idr_remove(&gh_rm_call_idr, connection->seq);
 	mutex_unlock(&gh_rm_call_idr_lock);
 
-	ret = connection->recv_buff;
-	*resp_buff_size = connection->recv_buff_size;
+	ret = connection->payload;
+	*resp_buff_size = connection->size;
 
 out:
 	kfree(connection);
