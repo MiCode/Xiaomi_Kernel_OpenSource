@@ -1159,11 +1159,20 @@ config QCOM_VM_DMESG_DUMPER
 config QCOM_VM_ALIVE_LOG_DUMPER
 	bool "Dump a VM's alive kmsg to a shared reserved memory Support"
 	depends on QCOM_VM_DMESG_DUMPER
-	default n
+	default y
 	help
 	  This enables to dump a VM's alive kmsg log buffer to the reserved
 	  memory section, triggered by Primary VM. This needs to be enabled on
 	  both Primary VM and the other VM whose kmsg is desired.
+
+config QCOM_VM_ALIVE_LOG_ENCRYPT
+	bool "Encrypt alive log Support"
+	depends on ARCH_QTI_VM && QCOM_VM_ALIVE_LOG_DUMPER && CRYPTO_GCM
+	default y
+	help
+	  This enables to encrypt alive log and use AES GCM mode for symmetric key
+	  wrapping. This needs to be enabled on both Primary VM and the other VM
+	  whose kmsg is desired.
 
 source "drivers/soc/qcom/mem_buf/Kconfig"
 source "drivers/soc/qcom/tmecom/Kconfig"
