@@ -176,6 +176,8 @@ struct flash_switch_data {
  * @trigger_lmh:		Flag to enable lmh mitigation
  * @non_all_mask_switch_present: Used in handling symmetry for all_mask switch
  * @debug_board_present:	Flag to indicate debug board present
+ * @secure_vm:			Flag indicating whether flash LED is used by
+ *				secure VM
  */
 struct qti_flash_led {
 	struct platform_device		*pdev;
@@ -201,6 +203,7 @@ struct qti_flash_led {
 	bool				trigger_lmh;
 	bool				non_all_mask_switch_present;
 	bool				debug_board_present;
+	bool				secure_vm;
 };
 
 struct flash_current_headroom {
@@ -1057,6 +1060,11 @@ static int qti_flash_led_get_max_avail_current(
 {
 	int thermal_current_limit = 0, rc;
 
+	if (led->secure_vm) {
+		led->max_current = MAX_FLASH_CURRENT_MA;
+		return 0;
+	}
+
 	rc = qti_flash_led_calc_max_avail_current(led, max_current_ma);
 	if (rc < 0) {
 		pr_err("Failed to calculate max avail current, rc=%d\n", rc);
@@ -1411,32 +1419,38 @@ static int qti_flash_led_register_interrupts(struct qti_flash_led *led)
 {
 	int rc;
 
-	rc = devm_request_threaded_irq(&led->pdev->dev,
-		led->all_ramp_up_done_irq, NULL, qti_flash_led_irq_handler,
-		IRQF_ONESHOT, "flash_all_ramp_up", led);
-	if (rc < 0) {
-		pr_err("Failed to request all_ramp_up_done(%d) IRQ(err:%d)\n",
-			led->all_ramp_up_done_irq, rc);
-		return rc;
+	if (led->all_ramp_up_done_irq >= 0) {
+		rc = devm_request_threaded_irq(&led->pdev->dev,
+			led->all_ramp_up_done_irq, NULL, qti_flash_led_irq_handler,
+			IRQF_ONESHOT, "flash_all_ramp_up", led);
+		if (rc < 0) {
+			pr_err("Failed to request all_ramp_up_done(%d) IRQ(err:%d)\n",
+				led->all_ramp_up_done_irq, rc);
+			return rc;
+		}
 	}
 
-	rc = devm_request_threaded_irq(&led->pdev->dev,
-		led->all_ramp_down_done_irq, NULL, qti_flash_led_irq_handler,
-		IRQF_ONESHOT, "flash_all_ramp_down", led);
-	if (rc < 0) {
-		pr_err("Failed to request all_ramp_down_done(%d) IRQ(err:%d)\n",
-			led->all_ramp_down_done_irq,
-			rc);
-		return rc;
+	if (led->all_ramp_down_done_irq >= 0) {
+		rc = devm_request_threaded_irq(&led->pdev->dev,
+			led->all_ramp_down_done_irq, NULL, qti_flash_led_irq_handler,
+			IRQF_ONESHOT, "flash_all_ramp_down", led);
+		if (rc < 0) {
+			pr_err("Failed to request all_ramp_down_done(%d) IRQ(err:%d)\n",
+				led->all_ramp_down_done_irq,
+				rc);
+			return rc;
+		}
 	}
 
-	rc = devm_request_threaded_irq(&led->pdev->dev,
-		led->led_fault_irq, NULL, qti_flash_led_irq_handler,
-		IRQF_ONESHOT, "flash_fault", led);
-	if (rc < 0) {
-		pr_err("Failed to request led_fault(%d) IRQ(err:%d)\n",
-			led->led_fault_irq, rc);
-		return rc;
+	if (led->led_fault_irq >= 0) {
+		rc = devm_request_threaded_irq(&led->pdev->dev,
+			led->led_fault_irq, NULL, qti_flash_led_irq_handler,
+			IRQF_ONESHOT, "flash_fault", led);
+		if (rc < 0) {
+			pr_err("Failed to request led_fault(%d) IRQ(err:%d)\n",
+				led->led_fault_irq, rc);
+			return rc;
+		}
 	}
 
 	return 0;
@@ -1708,6 +1722,8 @@ static int qti_flash_led_register_device(struct qti_flash_led *led,
 		gpio_direction_output(led->hw_strobe_gpio[i], 0);
 
 	}
+
+	led->secure_vm = of_property_read_bool(node, "qcom,secure-vm");
 
 	led->all_ramp_up_done_irq = of_irq_get_byname(node,
 			"all-ramp-up-done-irq");
