@@ -13,8 +13,10 @@ iommu-logger.ko
 debug-regulator.ko
 stub-regulator.ko
 msm_geni_serial.ko
+msm_rtb.ko
 qcom_iommu_debug.ko
 qcom_iommu_util.ko
+qcom-dload-mode.ko
 gh_msgq.ko
 gh_rm_drv.ko
 qcom_dma_heaps.ko
