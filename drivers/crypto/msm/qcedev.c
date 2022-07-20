@@ -37,8 +37,12 @@
 #define CACHE_LINE_SIZE 64
 #define CE_SHA_BLOCK_SIZE SHA256_BLOCK_SIZE
 #define MAX_CEHW_REQ_TRANSFER_SIZE (128*32*1024)
-/* Max wait time once a crypt o request is done */
-#define MAX_CRYPTO_WAIT_TIME 1500
+/*
+ * Max wait time once a crypto request is done.
+ * Assuming 5ms per crypto operation, this is calculated for
+ * the scenario of having 3 offload reqs + 1 tz req + buffer.
+ */
+#define MAX_CRYPTO_WAIT_TIME 25
 
 static uint8_t  _std_init_vector_sha1_uint8[] =   {
 	0x67, 0x45, 0x23, 0x01, 0xEF, 0xCD, 0xAB, 0x89,
@@ -2150,7 +2154,7 @@ long qcedev_ioctl(struct file *file,
 			err = -EINVAL;
 			goto exit_free_qcedev_areq;
 		}
-
+		qcedev_areq->offload_cipher_op_req.err = QCEDEV_OFFLOAD_NO_ERROR;
 		err = qcedev_smmu_ablk_offload_cipher(qcedev_areq, handle);
 		if (err)
 			goto exit_free_qcedev_areq;
