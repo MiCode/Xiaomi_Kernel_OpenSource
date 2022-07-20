@@ -48,3 +48,7 @@ qcom_logbuf_vh.ko
 qcom-pmu-lib.ko
 pmu_vendor.ko
 pmu_scmi.ko
+rpm-smd.ko
+rpm-smd-regulator.ko
+proxy-consumer.ko
+qti-fixed-regulator.ko
