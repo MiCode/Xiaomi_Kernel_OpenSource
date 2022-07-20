@@ -89,6 +89,10 @@ struct qcedev_control {
 	/* replaced msm_bus with interconnect path */
 	struct icc_path *icc_path;
 
+	/* average and peak bw values for interconnect */
+	uint32_t icc_avg_bw;
+	uint32_t icc_peak_bw;
+
 	/* char device */
 	struct cdev cdev;
 
