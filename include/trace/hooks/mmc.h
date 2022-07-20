@@ -53,6 +53,10 @@ DECLARE_RESTRICTED_HOOK(android_rvh_partial_init,
 	TP_PROTO(struct mmc_host *host, bool *partial_init),
 	TP_ARGS(host, partial_init), 1);
 
+DECLARE_HOOK(android_vh_mmc_update_partition_status,
+	TP_PROTO(struct mmc_card *card),
+	TP_ARGS(card));
+
 #endif /* _TRACE_HOOK_MMC_H */
 /* This part must be outside protection */
 #include <trace/define_trace.h>
