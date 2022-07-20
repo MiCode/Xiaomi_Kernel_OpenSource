@@ -383,8 +383,7 @@ static void kryo_check_l3_scu_error(struct edac_device_ctl_info *edev_ctl)
 	errxstatus = read_errxstatus_el1();
 	errxmisc = read_errxmisc_el1();
 
-	if (KRYO_ERRXSTATUS_VALID(errxstatus) &&
-		KRYO_ERRXMISC_LVL(errxmisc) == L3_BIT) {
+	if (KRYO_ERRXSTATUS_VALID(errxstatus)) {
 		if (l3_is_bus_error(errxstatus)) {
 			if (edev_ctl->panic_on_ue) {
 				spin_unlock_irqrestore(&local_handler_lock, flags);
