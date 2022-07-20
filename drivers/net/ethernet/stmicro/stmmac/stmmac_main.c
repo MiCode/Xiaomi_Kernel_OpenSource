@@ -6701,8 +6701,10 @@ void stmmac_xdp_release(struct net_device *dev)
 	/* Disable NAPI process */
 	stmmac_disable_all_queues(priv);
 
-	for (chan = 0; chan < priv->plat->tx_queues_to_use; chan++)
-		hrtimer_cancel(&priv->tx_queue[chan].txtimer);
+	if (!priv->tx_coal_timer_disable) {
+		for (chan = 0; chan < priv->plat->tx_queues_to_use; chan++)
+			hrtimer_cancel(&priv->tx_queue[chan].txtimer);
+	}
 
 	/* Free the IRQ lines */
 	stmmac_free_irq(dev, REQ_IRQ_ERR_ALL, 0);
@@ -6797,8 +6799,10 @@ int stmmac_xdp_open(struct net_device *dev)
 		stmmac_set_tx_tail_ptr(priv, priv->ioaddr,
 				       tx_q->tx_tail_addr, chan);
 
-		hrtimer_init(&tx_q->txtimer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
-		tx_q->txtimer.function = stmmac_tx_timer;
+		if (!priv->tx_coal_timer_disable) {
+			hrtimer_init(&tx_q->txtimer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+			tx_q->txtimer.function = stmmac_tx_timer;
+		}
 	}
 
 	/* Enable the MAC Rx/Tx */
@@ -6820,8 +6824,10 @@ int stmmac_xdp_open(struct net_device *dev)
 	return 0;
 
 irq_error:
-	for (chan = 0; chan < priv->plat->tx_queues_to_use; chan++)
-		hrtimer_cancel(&priv->tx_queue[chan].txtimer);
+	if (!priv->tx_coal_timer_disable) {
+		for (chan = 0; chan < priv->plat->tx_queues_to_use; chan++)
+			hrtimer_cancel(&priv->tx_queue[chan].txtimer);
+	}
 
 	stmmac_hw_teardown(dev);
 init_error:
@@ -7560,8 +7566,10 @@ int stmmac_suspend(struct device *dev)
 
 	stmmac_disable_all_queues(priv);
 
-	for (chan = 0; chan < priv->plat->tx_queues_to_use; chan++)
-		hrtimer_cancel(&priv->tx_queue[chan].txtimer);
+	if (!priv->tx_coal_timer_disable) {
+		for (chan = 0; chan < priv->plat->tx_queues_to_use; chan++)
+			hrtimer_cancel(&priv->tx_queue[chan].txtimer);
+	}
 
 	if (priv->eee_enabled) {
 		priv->tx_path_in_lpi_mode = false;
