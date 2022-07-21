@@ -33,6 +33,7 @@
 #define MHI_DMA_DISABLE_DELAY_MS	10
 #define MHI_DMA_DISABLE_COUNTER		20
 
+static struct mhi_dma_ops *mhi_dma_fun_ops;
 
 static inline const char *mhi_sm_dev_event_str(enum mhi_dev_event state)
 {
@@ -476,6 +477,7 @@ static int mhi_sm_prepare_resume(struct mhi_sm_dev *mhi_sm_ctx)
 	struct ep_pcie_msi_config cfg;
 	struct ep_pcie_inactivity inact_param;
 	int res = -EINVAL;
+	struct mhi_dma_function_params mhi_dma_fun_params = mhi_sm_ctx->mhi_dev->mhi_dma_fun_params;
 
 	MHI_SM_FUNC_ENTRY();
 
@@ -526,24 +528,29 @@ static int mhi_sm_prepare_resume(struct mhi_sm_dev *mhi_sm_ctx)
 	if ((old_state == MHI_DEV_M3_STATE) ||
 		(old_state == MHI_DEV_M2_STATE)) {
 		if (mhi_sm_ctx->mhi_dev->use_mhi_dma) {
-			res = mhi_dma_memcpy_enable(mhi_sm_ctx->mhi_dev->mhi_dma_fun_params);
+			res = mhi_dma_fun_ops->mhi_dma_memcpy_enable(mhi_dma_fun_params);
 			if (res) {
 				MHI_SM_ERR("MHI DMA enable failed:%d\n", res);
 				goto exit;
 			}
-			res = mhi_dma_resume(mhi_sm_ctx->mhi_dev->mhi_dma_fun_params);
-			if (res) {
-				MHI_SM_ERR("Failed resuming mhi_dma:%d", res);
-				goto exit;
+
+			if (mhi_dma_fun_ops->mhi_dma_resume) {
+				res = mhi_dma_fun_ops->mhi_dma_resume(mhi_dma_fun_params);
+				if (res) {
+					MHI_SM_ERR("Failed resuming mhi_dma:%d", res);
+					goto exit;
+				}
 			}
 		}
 	}
 
-	res = mhi_dma_update_mstate(mhi_sm_ctx->mhi_dev->mhi_dma_fun_params,
-								MHI_DMA_STATE_M0);
-	if (res) {
-		MHI_SM_ERR("Failed updating MHI state to M0, %d", res);
-		goto exit;
+	if (mhi_dma_fun_ops->mhi_dma_update_mstate) {
+		res = mhi_dma_fun_ops->mhi_dma_update_mstate(mhi_dma_fun_params,
+									MHI_DMA_STATE_M0);
+		if (res) {
+			MHI_SM_ERR("Failed updating MHI state to M0, %d", res);
+			goto exit;
+		}
 	}
 
 	if ((old_state == MHI_DEV_M3_STATE) ||
@@ -618,6 +625,7 @@ static int mhi_sm_prepare_suspend(struct mhi_sm_dev *mhi_sm_ctx, enum mhi_dev_st
 	enum mhi_dev_state old_state;
 	struct ep_pcie_inactivity inact_param;
 	int res = 0, rc, wait_timeout = 0;
+	struct mhi_dma_function_params mhi_dma_fun_params = mhi_sm_ctx->mhi_dev->mhi_dma_fun_params;
 
 	MHI_SM_DBG("Switching event:%d\n", new_state);
 
@@ -661,19 +669,23 @@ static int mhi_sm_prepare_suspend(struct mhi_sm_dev *mhi_sm_ctx, enum mhi_dev_st
 		}
 
 		/* Notify MHI DMA of state change */
-		if (new_state == MHI_DEV_M2_STATE)
-			res = mhi_dma_update_mstate(mhi_sm_ctx->mhi_dev->mhi_dma_fun_params,
-					MHI_DMA_STATE_M2);
-		else
-			res = mhi_dma_update_mstate(mhi_sm_ctx->mhi_dev->mhi_dma_fun_params,
-					MHI_DMA_STATE_M3);
+		if (mhi_dma_fun_ops->mhi_dma_update_mstate) {
+			if (new_state == MHI_DEV_M2_STATE)
+				res = mhi_dma_fun_ops->mhi_dma_update_mstate(mhi_dma_fun_params,
+						MHI_DMA_STATE_M2);
+			else
+				res = mhi_dma_fun_ops->mhi_dma_update_mstate(mhi_dma_fun_params,
+						MHI_DMA_STATE_M3);
+		}
 
 		/* Suspend MHI DMA either in M2 or M3 state */
-		res = mhi_dma_suspend(mhi_sm_ctx->mhi_dev->mhi_dma_fun_params,
-				true);
-		if (res) {
-			MHI_SM_ERR("Failed to suspend mhi_dma:%d\n", res);
-			goto exit;
+		if (mhi_dma_fun_ops->mhi_dma_suspend) {
+			res = mhi_dma_fun_ops->mhi_dma_suspend(mhi_dma_fun_params,
+					true);
+			if (res) {
+				MHI_SM_ERR("Failed to suspend mhi_dma:%d\n", res);
+				goto exit;
+			}
 		}
 
 		if (new_state == MHI_DEV_M2_STATE)
@@ -699,8 +711,7 @@ static int mhi_sm_prepare_suspend(struct mhi_sm_dev *mhi_sm_ctx, enum mhi_dev_st
 			MHI_SM_DBG("Disable MHI DMA with mhi_dma_disable()\n");
 			while (wait_timeout < MHI_DMA_DISABLE_COUNTER) {
 				/* wait for the disable to finish */
-				res = mhi_dma_memcpy_disable(
-					mhi_sm_ctx->mhi_dev->mhi_dma_fun_params);
+				res = mhi_dma_fun_ops->mhi_dma_memcpy_disable(mhi_dma_fun_params);
 				if (!res)
 					break;
 				MHI_SM_ERR
@@ -1139,6 +1150,7 @@ int mhi_dev_sm_init(struct mhi_dev *mhi_dev)
 		return -ENOMEM;
 
 	mhi_sm_ctx = mhi_dev_sm_ctx[vf_id];
+	mhi_dma_fun_ops = &mhi_dev->mhi_hw_ctx->mhi_dma_fun_ops;
 	/*init debugfs*/
 	mhi_sm_debugfs_init();
 	mhi_sm_ctx->mhi_sm_wq = alloc_workqueue(
@@ -1177,6 +1189,7 @@ int mhi_dev_sm_exit(struct mhi_dev *mhi_dev)
 {
 	struct mhi_sm_dev *mhi_sm_ctx = mhi_dev->mhi_sm_ctx;
 	int vf_id = 0;
+	struct mhi_dma_function_params mhi_dma_fun_params = mhi_sm_ctx->mhi_dev->mhi_dma_fun_params;
 	MHI_SM_FUNC_ENTRY();
 
 	atomic_set(&mhi_sm_ctx->pending_device_events, 0);
@@ -1185,9 +1198,9 @@ int mhi_dev_sm_exit(struct mhi_dev *mhi_dev)
 	flush_workqueue(mhi_sm_ctx->mhi_sm_wq);
 	destroy_workqueue(mhi_sm_ctx->mhi_sm_wq);
 	/* Initiate MHI DMA reset */
-	mhi_dma_memcpy_disable(mhi_sm_ctx->mhi_dev->mhi_dma_fun_params);
-	mhi_dma_destroy(mhi_sm_ctx->mhi_dev->mhi_dma_fun_params);
-	mhi_dma_memcpy_destroy(mhi_sm_ctx->mhi_dev->mhi_dma_fun_params);
+	mhi_dma_fun_ops->mhi_dma_memcpy_disable(mhi_dma_fun_params);
+	mhi_dma_fun_ops->mhi_dma_destroy(mhi_dma_fun_params);
+	mhi_dma_fun_ops->mhi_dma_memcpy_destroy(mhi_dma_fun_params);
 	mutex_destroy(&mhi_sm_ctx->mhi_state_lock);
 	mhi_dev_sm_ctx[vf_id] = NULL;
 

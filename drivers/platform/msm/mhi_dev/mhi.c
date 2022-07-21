@@ -82,6 +82,7 @@ enum mhi_msg_level mhi_ipc_msg_lvl = MHI_MSG_VERBOSE;
 void *mhi_ipc_log;
 
 static struct mhi_dev_ctx *mhi_hw_ctx;
+static struct mhi_dma_ops *mhi_dma_fun_ops;
 static void mhi_hwc_cb(void *priv, enum mhi_dma_event_type event,
 	unsigned long data);
 static void mhi_ring_init_cb(void *user_data);
@@ -103,6 +104,7 @@ static int mhi_dev_ring_init(struct mhi_dev *dev);
 static int mhi_dev_get_event_notify(enum mhi_dev_state state, enum mhi_dev_event *event);
 static void mhi_dev_pcie_handle_event(struct work_struct *work);
 static void mhi_dev_setup_virt_device(struct mhi_dev_ctx *mhictx);
+static inline struct mhi_dev *mhi_get_dev_ctx(struct mhi_dev_ctx *mhi_hw_ctx, enum mhi_id id);
 
 static struct mhi_dev_uevent_info channel_state_info[MHI_MAX_CHANNELS];
 static DECLARE_COMPLETION(read_from_host);
@@ -121,6 +123,41 @@ bool check_ignore_ch_list(int ch_id)
 
 	return false;
 }
+
+int mhi_dma_provide_ops(const struct mhi_dma_ops *ops)
+{
+	int rc;
+	struct mhi_dev *mhi = mhi_get_dev_ctx(mhi_hw_ctx, MHI_DEV_PHY_FUN);
+
+	if (!mhi) {
+		pr_err("MHI is NULL, defering\n");
+		return -EINVAL;
+	}
+
+	memcpy(&mhi_hw_ctx->mhi_dma_fun_ops, ops, sizeof(struct mhi_dma_ops));
+	mhi_dma_fun_ops = &mhi_hw_ctx->mhi_dma_fun_ops;
+
+	mutex_lock(&mhi->mhi_lock);
+	if (mhi->use_mhi_dma) {
+		rc =  mhi_dma_fun_ops->mhi_dma_register_ready_cb(mhi_ring_init_cb, mhi);
+		if (rc != -EEXIST && rc != 0) {
+			pr_err("Error while registering with MHI DMA, unexpected\n");
+			WARN_ON(1);
+		} else if (rc == -EEXIST) {
+			mhi->mhi_dma_ready = true;
+		}
+	}
+	mhi->mhi_hw_ctx->phandle = ep_pcie_get_phandle(mhi->mhi_hw_ctx->ifc_id);
+	if (mhi->mhi_hw_ctx->phandle) {
+		/* PCIe link is already up */
+		mhi_dev_pcie_notify_event = MHI_INIT;
+		mhi_dev_setup_virt_device(mhi->mhi_hw_ctx);
+		queue_work(mhi->pcie_event_wq, &mhi->pcie_event);
+	}
+	mutex_unlock(&mhi->mhi_lock);
+	return 0;
+}
+EXPORT_SYMBOL(mhi_dma_provide_ops);
 
 static inline struct mhi_dev *mhi_get_dev_ctx(struct mhi_dev_ctx *mhi_hw_ctx, enum mhi_id id)
 {
@@ -180,7 +217,7 @@ void mhi_dev_read_from_host_mhi_dma(struct mhi_dev *mhi, struct mhi_addr *transf
 		transfer->phy_addr, host_addr_pa,
 		(int) transfer->size);
 
-	rc = mhi_dma_async_memcpy((u64)transfer->phy_addr,
+	rc = mhi_dma_fun_ops->mhi_dma_async_memcpy((u64)transfer->phy_addr,
 			host_addr_pa,
 			(int) transfer->size,
 			mhi->mhi_dma_fun_params,
@@ -253,7 +290,8 @@ void mhi_dev_write_to_host_mhi_dma(struct mhi_dev *mhi, struct mhi_addr *transfe
 				"Async: device 0x%llx --> host 0x%llx, size %d\n",
 				(uint64_t) dma, host_addr_pa,
 				(int) transfer->size);
-		rc = mhi_dma_async_memcpy(host_addr_pa,
+
+		rc = mhi_dma_fun_ops->mhi_dma_async_memcpy(host_addr_pa,
 				(uint64_t)dma,
 				(int) transfer->size,
 				mhi->mhi_dma_fun_params,
@@ -272,7 +310,7 @@ void mhi_dev_write_to_host_mhi_dma(struct mhi_dev *mhi, struct mhi_addr *transfe
 				"Sync: device 0x%llx --> host 0x%llx, size %d\n",
 				(uint64_t) mhi->cache_dma_handle, host_addr_pa,
 				(int) transfer->size);
-		rc = mhi_dma_sync_memcpy(host_addr_pa,
+		rc = mhi_dma_fun_ops->mhi_dma_sync_memcpy(host_addr_pa,
 				(u64) mhi->cache_dma_handle,
 				(int) transfer->size,
 				mhi->mhi_dma_fun_params);
@@ -882,8 +920,7 @@ int mhi_transfer_host_to_device_mhi_dma(void *dev, uint64_t host_pa, uint32_t le
 	if (mreq->mode == DMA_SYNC) {
 		mhi_log(MHI_MSG_VERBOSE, "Sync: device 0x%llx <-- host 0x%llx, size %d\n",
 			(uint64_t) mhi->mhi_hw_ctx->read_dma_handle, host_addr_pa, (int) len);
-
-		rc = mhi_dma_sync_memcpy((u64) mhi->mhi_hw_ctx->read_dma_handle,
+		rc = mhi_dma_fun_ops->mhi_dma_sync_memcpy((u64) mhi->mhi_hw_ctx->read_dma_handle,
 				host_addr_pa,
 				len,
 				mhi->mhi_dma_fun_params);
@@ -915,7 +952,7 @@ int mhi_transfer_host_to_device_mhi_dma(void *dev, uint64_t host_pa, uint32_t le
 		}
 		mhi_log(MHI_MSG_VERBOSE, "Async: device 0x%llx <-- host 0x%llx, size %d\n",
 				mreq->dma, host_addr_pa, (int) len);
-		rc = mhi_dma_async_memcpy(mreq->dma, host_addr_pa,
+		rc = mhi_dma_fun_ops->mhi_dma_async_memcpy(mreq->dma, host_addr_pa,
 				(int) len,
 				mhi->mhi_dma_fun_params,
 				mhi_dev_transfer_completion_cb,
@@ -970,7 +1007,7 @@ int mhi_transfer_device_to_host_mhi_dma(uint64_t host_addr, void *dev, uint32_t 
 				"Sync: device 0x%llx ---> host 0x%llx, size %d\n",
 				(uint64_t) mhi->mhi_hw_ctx->write_dma_handle,
 				host_addr_pa, (int) len);
-		return mhi_dma_sync_memcpy(host_addr_pa,
+		return mhi_dma_fun_ops->mhi_dma_sync_memcpy(host_addr_pa,
 				(u64) mhi->mhi_hw_ctx->write_dma_handle,
 				(int) len,
 				mhi->mhi_dma_fun_params);
@@ -996,7 +1033,8 @@ int mhi_transfer_device_to_host_mhi_dma(uint64_t host_addr, void *dev, uint32_t 
 				"Async: device 0x%llx ---> host 0x%llx, size %d\n",
 				(uint64_t) req->dma,
 				host_addr_pa, (int) len);
-		rc = mhi_dma_async_memcpy(host_addr_pa,
+
+		rc = mhi_dma_fun_ops->mhi_dma_async_memcpy(host_addr_pa,
 				(uint64_t) req->dma,
 				(int) len,
 				mhi->mhi_dma_fun_params,
@@ -1502,7 +1540,8 @@ static int mhi_hwc_init(struct mhi_dev *mhi_ctx)
 	mhi_init_dma_params.priv = mhi_ctx;
 	mhi_dma_fun_params.vf_id = mhi_ctx->vf_id - 1;
 
-	rc = mhi_dma_init(mhi_ctx->mhi_dma_fun_params, &mhi_init_dma_params, &mhi_init_dma_out);
+	rc = mhi_dma_fun_ops->mhi_dma_init(mhi_ctx->mhi_dma_fun_params,
+			&mhi_init_dma_params, &mhi_init_dma_out);
 	if (rc) {
 		mhi_log(MHI_MSG_ERROR, "mhi_dma_init fail:%d", rc);
 		return rc;
@@ -1541,7 +1580,7 @@ static int mhi_hwc_start(struct mhi_dev *mhi)
 				mhi->ev_ctx_shadow.host_pa;
 	}
 
-	return mhi_dma_start(mhi->mhi_dma_fun_params, &mhi_dma_start_param);
+	return mhi_dma_fun_ops->mhi_dma_start(mhi->mhi_dma_fun_params, &mhi_dma_start_param);
 }
 
 static void mhi_hwc_cb(void *priv, enum mhi_dma_event_type event,
@@ -1623,7 +1662,7 @@ static int mhi_hwc_chcmd(struct mhi_dev *mhi, uint chid,
 
 		disconnect_params.clnt_hdl = mhi->dma_clnt_hndl[chid-(mhi->mhi_chan_hw_base)];
 
-		rc = mhi_dma_disconnect_endp(mhi->mhi_dma_fun_params,
+		rc = mhi_dma_fun_ops->mhi_dma_disconnect_endp(mhi->mhi_dma_fun_params,
 				&disconnect_params);
 		if (rc)
 			pr_err("Stopping HW Channel%d failed 0x%X\n",
@@ -1643,7 +1682,7 @@ static int mhi_hwc_chcmd(struct mhi_dev *mhi, uint chid,
 
 		connect_params.channel_id = chid;
 
-		rc = mhi_dma_connect_endp(mhi->mhi_dma_fun_params,
+		rc = mhi_dma_fun_ops->mhi_dma_connect_endp(mhi->mhi_dma_fun_params,
 				&connect_params,
 				&mhi->dma_clnt_hndl[chid-(mhi->mhi_chan_hw_base)]);
 		if (rc)
@@ -3905,13 +3944,13 @@ static void mhi_dev_enable(struct work_struct *work)
 	uint32_t max_cnt = 0;
 
 	if (mhi->use_mhi_dma) {
-		rc = mhi_dma_memcpy_init(mhi->mhi_dma_fun_params);
+		rc = mhi_dma_fun_ops->mhi_dma_memcpy_init(mhi->mhi_dma_fun_params);
 		if (rc) {
 			pr_err("mhi dma init failed\n");
 			return;
 		}
 
-		rc = mhi_dma_memcpy_enable(mhi->mhi_dma_fun_params);
+		rc = mhi_dma_fun_ops->mhi_dma_memcpy_enable(mhi->mhi_dma_fun_params);
 		if (rc) {
 			pr_err("mhi enable failed\n");
 			return;
@@ -4644,6 +4683,10 @@ static void mhi_dev_pcie_handle_event(struct work_struct *work)
 	int rc = 0;
 	struct mhi_dev *mhi = container_of(work, struct mhi_dev, pcie_event);
 
+	if (!mhi_dma_fun_ops && !mhi->use_edma) {
+		pr_err("MHI DMA fun ops missing, defering\n");
+		return;
+	}
 
 	/*
 	 * Setup all virtual device prior to PF Mission mode
@@ -4741,16 +4784,8 @@ static int mhi_dev_probe(struct platform_device *pdev)
 			dev_err(&pdev->dev,
 				"Failed to create IPC logging context\n");
 		}
-		mhi_pf = mhi_get_dev_ctx(mhi_hw_ctx, MHI_DEV_PHY_FUN);
 
-		if (mhi_pf->use_mhi_dma) {
-			rc =  mhi_dma_register_ready_cb(mhi_ring_init_cb, mhi_pf);
-			if (rc != -EEXIST && rc != 0) {
-				mhi_log(MHI_MSG_ERROR,
-					"Error while registering with MHI DMA, defering\n");
-				return -EPROBE_DEFER;
-			}
-		}
+		mhi_pf = mhi_get_dev_ctx(mhi_hw_ctx, MHI_DEV_PHY_FUN);
 		/*
 		 * The below list and mutex should be initialized
 		 * before calling mhi_uci_init to avoid crash in
