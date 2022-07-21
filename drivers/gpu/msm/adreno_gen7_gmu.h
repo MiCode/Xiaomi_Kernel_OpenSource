@@ -121,6 +121,7 @@ struct adreno_device *gen7_gmu_to_adreno(struct gen7_gmu_device *gmu);
  * @addr: Desired gmu virtual address
  * @size: Size of the buffer in bytes
  * @vma_id: Target gmu vma where this buffer should be mapped
+ * @va_align: Alignment as a power of two(2^n) bytes for the GMU VA
  *
  * This function allocates a global gmu buffer and maps it in
  * the desired gmu vma
@@ -128,7 +129,7 @@ struct adreno_device *gen7_gmu_to_adreno(struct gen7_gmu_device *gmu);
  * Return: Pointer to the memory descriptor or error pointer on failure
  */
 struct kgsl_memdesc *gen7_reserve_gmu_kernel_block(struct gen7_gmu_device *gmu,
-		u32 addr, u32 size, u32 vma_id);
+		u32 addr, u32 size, u32 vma_id, u32 va_align);
 
 /**
  * gen7_reserve_gmu_kernel_block_fixed() - Maps phyical resource address to gmu
@@ -138,13 +139,14 @@ struct kgsl_memdesc *gen7_reserve_gmu_kernel_block(struct gen7_gmu_device *gmu,
  * @vma_id: Target gmu vma where this buffer should be mapped
  * @resource: Name of the resource to get the size and address to allocate
  * @attrs: Attributes for the mapping
+ * @va_align: Alignment as a power of two(2^n) bytes for the GMU VA
  *
  * This function maps the physcial resource address to desired gmu vma
  *
  * Return: Pointer to the memory descriptor or error pointer on failure
  */
 struct kgsl_memdesc *gen7_reserve_gmu_kernel_block_fixed(struct gen7_gmu_device *gmu,
-	u32 addr, u32 size, u32 vma_id, const char *resource, int attrs);
+	u32 addr, u32 size, u32 vma_id, const char *resource, int attrs, u32 va_align);
 
 /**
  * gen7_alloc_gmu_kernel_block() - Allocate a gmu buffer
