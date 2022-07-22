@@ -4329,7 +4329,7 @@ static int dwc3_msm_vbus_notifier(struct notifier_block *nb,
 		 * HS path.  Only listen for if there are spoof
 		 * connect/disconnect commands.
 		 */
-		if (dwc && dwc->gadget->speed >= USB_SPEED_SUPER && !spoof)
+		if (dwc && dwc->gadget && dwc->gadget->speed >= USB_SPEED_SUPER && !spoof)
 			return NOTIFY_DONE;
 
 		mdwc->check_eud_state = true;
